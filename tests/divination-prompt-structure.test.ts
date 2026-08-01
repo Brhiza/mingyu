@@ -11,6 +11,7 @@ import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { resolveSignByNumber } from 'mingyu-core/divination/ssgw';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { buildTaskText } from '@core/divination/engine/method-text';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import {
@@ -1199,7 +1200,7 @@ test('塔罗与雷诺曼提示词应由原始牌号重建，不吸收派生字�
   );
 });
 
-test('星盘提示词应直接给出太阳月亮上升和主要相位资料', () => {
+test('星盘及六爻梅花提示词应穷举事实并关闭现实解释旁路', () => {
   const data = createAstrolabeData();
   const prompt = buildDivinationPrompt('astrolabe', '这件事接下来该怎么推进？', data);
   const sun = data.planets.find((item) => item.name === 'Sun')!;
@@ -1217,13 +1218,31 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位资料', ()
   assert.match(prompt, /关键提示：逆行星体/);
   assert.match(prompt, /本命相位穷举：选定点位.+共核验276组无序点对，完整保留\d+组命中项/);
   assert.match(prompt, /相位明细：.+实际夹角.+精确角.+偏差.+采用容许度/);
+  assert.match(prompt, /【任务】\n核对【占卜信息】中的出生资料、天体位置、宫位、宫头、相位及所选作用域的计算事实/);
+  assert.match(prompt, /未同时明确具体解释体系与版本来源、完整解释规则、判断对象与范围、出生资料来源与精度时，不生成性格、事件、吉凶、应期、概率或行动建议/);
   assert.doesNotMatch(prompt, /强度\d+%/);
   assert.doesNotMatch(prompt, /紧密等级|中等等级|宽松等级|归一化容许度/);
   assert.doesNotMatch(
     prompt,
     /星盘要点|只使用上方|本次按本命盘|星盘回答只按|结构化证据|证据汇总|解释边界/,
   );
+  assert.doesNotMatch(prompt, /判断，直接回答问题|给出现实建议|结合占卜信息直接回答问题/);
   assert.doesNotMatch(prompt, /卦象|课传|盘局|牌阵|签诗|牌位/);
+
+  const coreAstrolabeTask = buildTaskText('astrolabe');
+  assert.match(coreAstrolabeTask, /请只核对已列的出生资料、天体与角点位置/);
+  assert.match(coreAstrolabeTask, /不得生成性格、健康、财富、关系、吉凶、现实事件、概率、应期或行动建议/);
+  assert.doesNotMatch(coreAstrolabeTask, /直接回答问题|给出现实建议/);
+
+  for (const method of ['liuyao', 'meihua'] as const) {
+    const methodPrompt = buildDivinationPrompt(
+      method,
+      '这件事接下来该怎么推进？',
+      createData(method),
+    );
+    assert.match(methodPrompt, /不得把候选、支持、反证或数量直接改写为现实吉凶、事件、概率、唯一应期或行动建议/);
+    assert.doesNotMatch(methodPrompt, /先回答【问题】.*时机条件和行动建议/);
+  }
 });
 
 test('星盘提示词写入年限选择后应包含分析对象与行运边界', () => {

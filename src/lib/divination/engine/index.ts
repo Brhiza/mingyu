@@ -191,7 +191,7 @@ export function buildDivinationPrompt(
                     ? '按可用候选、条件候选和慎用候选分组说明；同组按日期先后，不生成首选、备选或唯一最佳结论；说明取舍依据与执行建议。'
                     : isAstrolabe
                       ? '按“出生与计算口径、天体与宫位、相位几何事实、时间技术计算事实、解释资料缺口”的顺序核对；未同时明确具体解释体系与版本来源、完整解释规则、判断对象与范围、出生资料来源与精度时，不生成性格、事件、吉凶、应期、概率或行动建议。'
-                      : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
+                      : '使用简体中文，按“原始输入、可复算事实、支持与反证、资料缺口、条件性后续推算”的顺序回答；不得把候选、支持、反证或数量直接改写为现实吉凶、事件、概率、唯一应期或行动建议。';
   const liurenTemplateSection =
     method === 'liuren'
       ? buildSection('【问题范围】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
