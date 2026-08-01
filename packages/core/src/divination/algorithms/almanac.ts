@@ -18,7 +18,9 @@ import type {
   AlmanacData,
   AlmanacDayCandidate,
   AlmanacGodFact,
+  AlmanacGenerationSource,
   AlmanacHourCandidate,
+  AlmanacDataView,
   AlmanacParticipantInput,
   AlmanacParticipantRelationFact,
   AlmanacParticipantProfile,
@@ -44,7 +46,7 @@ interface AlmanacGodSource {
   getLuck(): { getName(): string };
 }
 import {
-  analyzeAlmanacEvidence,
+  analyzeAlmanacEvidence as buildAlmanacEvidence,
   classifyAlmanacCandidate,
   classifyAlmanacHourCandidate,
 } from '../almanac-evidence';
@@ -120,6 +122,9 @@ const ANNUAL_DIRECTION_GOD_SEQUENCE: Array<
 ];
 
 function parseDateText(value: string, fieldName: string) {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName}需要使用 YYYY-MM-DD 格式`);
+  }
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) {
     throw new Error(`${fieldName}需要使用 YYYY-MM-DD 格式`);
@@ -266,9 +271,9 @@ function readParticipantText(value: unknown, label: string, fallback: string) {
   return value.trim() || fallback;
 }
 
-function createParticipantProfiles(
+function normalizeParticipantInputs(
   participants: AlmanacParticipantInput[],
-): AlmanacParticipantProfile[] {
+): AlmanacParticipantInput[] {
   if (!Array.isArray(participants)) {
     throw new Error('参与人信息必须是数组。');
   }
@@ -276,7 +281,7 @@ function createParticipantProfiles(
     throw new Error(`黄历择日一次最多分析 ${MAX_ALMANAC_PARTICIPANTS} 位参与人，请拆分请求。`);
   }
 
-  return participants
+  const normalized = participants
     .filter((item, index) => {
       if (!item || typeof item !== 'object') {
         throw new Error(`参与人${index + 1}信息必须是对象。`);
@@ -287,37 +292,66 @@ function createParticipantProfiles(
       const birthInput = readParticipantBirthInput(item);
       const id = readParticipantText(item.id, 'id', `participant-${index + 1}`);
       const name = readParticipantText(item.name, '姓名', '未命名参与人');
-      const chart = baziCalculator.calculateBazi({
-        year: birthInput.year,
-        month: birthInput.month,
-        day: birthInput.day,
-        timeIndex: birthInput.timeIndex,
-        gender: item.gender === '男' ? 'male' : item.gender === '女' ? 'female' : '',
-        isLunar: item.dateType === 'lunar',
-        isLeapMonth: Boolean(item.isLeapMonth),
-        useTrueSolarTime: false,
-      });
 
       return {
         id,
         name,
         gender: item.gender,
-        solarDate: `${chart.solarDate.year}-${String(chart.solarDate.month).padStart(2, '0')}-${String(chart.solarDate.day).padStart(2, '0')}`,
-        lunarDate: `${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
-        zodiac: chart.zodiac,
-        constellation: chart.constellation,
-        dayMaster: chart.dayMaster.gan,
-        dayMasterElement: chart.dayMaster.element,
-        pillars: {
-          year: chart.pillars.year.ganZhi,
-          month: chart.pillars.month.ganZhi,
-          day: chart.pillars.day.ganZhi,
-          hour: chart.pillars.hour.ganZhi,
-        },
-        usefulGods: [],
-        avoidGods: [],
+        year: String(birthInput.year),
+        month: String(birthInput.month),
+        day: String(birthInput.day),
+        timeIndex: String(birthInput.timeIndex),
+        dateType: item.dateType,
+        isLeapMonth: Boolean(item.isLeapMonth),
       };
     });
+
+  const participantIds = new Set<string>();
+  normalized.forEach((item) => {
+    if (participantIds.has(item.id)) {
+      throw new Error(`黄历参与人 id 不得重复：${item.id}`);
+    }
+    participantIds.add(item.id);
+  });
+  return normalized;
+}
+
+function createParticipantProfiles(
+  participants: AlmanacParticipantInput[],
+): AlmanacParticipantProfile[] {
+  return participants.map((item) => {
+    const birthInput = readParticipantBirthInput(item);
+    const chart = baziCalculator.calculateBazi({
+      year: birthInput.year,
+      month: birthInput.month,
+      day: birthInput.day,
+      timeIndex: birthInput.timeIndex,
+      gender: item.gender === '男' ? 'male' : item.gender === '女' ? 'female' : '',
+      isLunar: item.dateType === 'lunar',
+      isLeapMonth: Boolean(item.isLeapMonth),
+      useTrueSolarTime: false,
+    });
+
+    return {
+      id: item.id,
+      name: item.name,
+      gender: item.gender,
+      solarDate: `${chart.solarDate.year}-${String(chart.solarDate.month).padStart(2, '0')}-${String(chart.solarDate.day).padStart(2, '0')}`,
+      lunarDate: `${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
+      zodiac: chart.zodiac,
+      constellation: chart.constellation,
+      dayMaster: chart.dayMaster.gan,
+      dayMasterElement: chart.dayMaster.element,
+      pillars: {
+        year: chart.pillars.year.ganZhi,
+        month: chart.pillars.month.ganZhi,
+        day: chart.pillars.day.ganZhi,
+        hour: chart.pillars.hour.ganZhi,
+      },
+      usefulGods: [],
+      avoidGods: [],
+    };
+  });
 }
 
 function requireReferenceValue<T>(record: Record<string, T>, key: string, label: string): T {
@@ -910,15 +944,40 @@ function buildDayCandidate(
  * // result 包含按透明候选分组排列的逐日资料与证据链
  * ```
  */
-export function generateAlmanacSelection(params: {
+export interface AlmanacSelectionParams {
   topic: AlmanacTopic;
   startDate: string;
   endDate: string;
   participants?: AlmanacParticipantInput[];
-}): AlmanacData {
-  assertAlmanacTopic(params.topic);
-  const start = parseDateText(params.startDate, '开始日期');
-  const end = parseDateText(params.endDate, '结束日期');
+}
+
+function normalizeAlmanacView(
+  view: AlmanacDataView | undefined,
+  totalDays: number,
+): AlmanacDataView | undefined {
+  if (view === undefined) return undefined;
+  if (!view || typeof view !== 'object' || Array.isArray(view)) {
+    throw new Error('黄历分页视图必须是对象。');
+  }
+  if (!Number.isSafeInteger(view.offset) || view.offset < 0 || view.offset >= totalDays) {
+    throw new Error(`黄历分页起始位置必须是 0-${totalDays - 1} 之间的整数。`);
+  }
+  if (!Number.isSafeInteger(view.limit) || view.limit < 1 || view.limit > 31) {
+    throw new Error('黄历分页数量必须是 1-31 之间的整数。');
+  }
+  return { offset: view.offset, limit: view.limit };
+}
+
+function buildAlmanacSelection(
+  source: AlmanacGenerationSource,
+  requestedView?: AlmanacDataView,
+): AlmanacData {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    throw new Error('黄历审核重建必须提供原始择日输入。');
+  }
+  assertAlmanacTopic(source.topic);
+  const start = parseDateText(source.startDate, '开始日期');
+  const end = parseDateText(source.endDate, '结束日期');
   const diffDays = Math.round((end.date.getTime() - start.date.getTime()) / 86400000);
 
   if (diffDays < 0) {
@@ -928,12 +987,22 @@ export function generateAlmanacSelection(params: {
     throw new Error('黄历择日一次最多比较 31 天，请缩小日期范围');
   }
 
-  const participants = createParticipantProfiles(params.participants ?? []);
+  if (
+    typeof source.timestamp !== 'number' ||
+    !Number.isSafeInteger(source.timestamp) ||
+    source.timestamp < 0 ||
+    Number.isNaN(new Date(source.timestamp).getTime())
+  ) {
+    throw new Error('黄历原始生成时间必须是有效的非负毫秒时间戳。');
+  }
+
+  const participantInputs = normalizeParticipantInputs(source.participants);
+  const participants = createParticipantProfiles(participantInputs);
   const statusPriority = { 可用候选: 0, 条件候选: 1, 慎用候选: 2 } as const;
-  const days = Array.from({ length: diffDays + 1 }, (_, index) => {
+  const allDays = Array.from({ length: diffDays + 1 }, (_, index) => {
     const current = new Date(start.date);
     current.setDate(start.date.getDate() + index);
-    return buildDayCandidate(current, params.topic, participants);
+    return buildDayCandidate(current, source.topic, participants);
   }).sort((a, b) => {
     const statusDifference =
       statusPriority[classifyAlmanacCandidate(a).status] -
@@ -942,21 +1011,67 @@ export function generateAlmanacSelection(params: {
     return statusDifference || a.date.localeCompare(b.date);
   });
 
+  const view = normalizeAlmanacView(requestedView, allDays.length);
+  const days = view ? allDays.slice(view.offset, view.offset + view.limit) : allDays;
+  const generation: AlmanacGenerationSource = {
+    topic: source.topic,
+    startDate: formatDate(start.date),
+    endDate: formatDate(end.date),
+    participants: participantInputs.map((item) => ({ ...item })),
+    timestamp: source.timestamp,
+  };
+
   const result: AlmanacData = {
-    topic: params.topic,
-    topicLabel: ALMANAC_TOPIC_LABELS[params.topic],
-    startDate: params.startDate,
-    endDate: params.endDate,
+    generation,
+    ...(view ? { view } : {}),
+    topic: generation.topic,
+    topicLabel: ALMANAC_TOPIC_LABELS[generation.topic],
+    startDate: generation.startDate,
+    endDate: generation.endDate,
     days,
     participants,
-    timestamp: Date.now(),
+    timestamp: generation.timestamp,
   };
-  const evidenceAnalysis = analyzeAlmanacEvidence(result);
+  const evidenceAnalysis = buildAlmanacEvidence(result);
   return { ...result, evidenceAnalysis };
 }
 
+export function generateAlmanacSelection(params: AlmanacSelectionParams): AlmanacData {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
+    throw new Error('黄历择日参数必须是对象。');
+  }
+  return buildAlmanacSelection({
+    topic: params.topic,
+    startDate: params.startDate,
+    endDate: params.endDate,
+    participants: params.participants ?? [],
+    timestamp: Date.now(),
+  });
+}
+
+/** 只凭保存的原始事项、日期范围、参与人出生资料和分页参数重建黄历择日结果。 */
+export function rebuildAuditedAlmanacData(input: AlmanacData): AlmanacData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('黄历审核重建必须提供结果对象。');
+  }
+  if (!input.generation) {
+    throw new Error('黄历旧结果缺少可信原始择日输入，无法审核重建。');
+  }
+  return buildAlmanacSelection(input.generation, input.view);
+}
+
+/** 从可信原始输入重建后，生成只包含指定排序区间的可复算分页视图。 */
+export function selectAuditedAlmanacData(input: AlmanacData, view: AlmanacDataView): AlmanacData {
+  const audited = rebuildAuditedAlmanacData(input);
+  return buildAlmanacSelection(audited.generation, view);
+}
+
+/** 先审核重建当前完整或分页黄历结果，再返回结构化证据。 */
+export function analyzeAlmanacEvidence(input: AlmanacData) {
+  return rebuildAuditedAlmanacData(input).evidenceAnalysis!;
+}
+
 export {
-  analyzeAlmanacEvidence,
   conditionAlmanacTraditionalText,
   isDeprecatedAlmanacTopicRuleText,
 } from '../almanac-evidence';

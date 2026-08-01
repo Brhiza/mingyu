@@ -18,7 +18,7 @@ import type {
   XiaoliurenData,
   JinkoujueData,
 } from '../../types/divination';
-import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
+import { rebuildAuditedAlmanacData } from 'mingyu-core/divination/almanac';
 import {
   conditionLenormandTraditionalText,
   rebuildAuditedLenormandData,
@@ -490,8 +490,8 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'almanac': {
-      const almanac = data as AlmanacData;
-      const evidence = almanac.evidenceAnalysis ?? analyzeAlmanacEvidence(almanac);
+      const almanac = rebuildAuditedAlmanacData(data as AlmanacData);
+      const evidence = almanac.evidenceAnalysis!;
       const candidateByDate = new Map(evidence.candidates.map((item) => [item.date, item]));
       const primaryDate =
         evidence.preferredDates[0] ??

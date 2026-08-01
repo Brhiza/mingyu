@@ -1038,6 +1038,21 @@ export interface AlmanacParticipantProfile {
   avoidGods: string[];
 }
 
+export interface AlmanacGenerationSource {
+  topic: AlmanacTopic;
+  startDate: string;
+  endDate: string;
+  participants: AlmanacParticipantInput[];
+  timestamp: number;
+}
+
+export interface AlmanacDataView {
+  /** 在完整、已重新计算并完成候选分组排序的日期列表中的起始位置。 */
+  offset: number;
+  /** 当前视图最多保留的日期数量，用于公开 API 的可复算分页。 */
+  limit: number;
+}
+
 export interface AlmanacAnnualDirectionGod {
   branch: string;
   direction: string;
@@ -1161,6 +1176,10 @@ export interface AlmanacHourCandidate {
 }
 
 export interface AlmanacData {
+  /** 审核重建只信任这里保存的原始择日输入与生成时间。 */
+  generation: AlmanacGenerationSource;
+  /** 可选的可复算分页视图；日期内容仍从 generation 全量重建后截取。 */
+  view?: AlmanacDataView;
   /** 日期约束、传统宜忌、参与人关系参考、时辰条件与现实限制。 */
   evidenceAnalysis?: import('../divination/almanac-evidence').AlmanacEvidenceAnalysis;
   topic: AlmanacTopic;

@@ -4079,6 +4079,10 @@ test('公开 API 黄历择日支持分页和轻量模式', async () => {
   assert.equal(body.data.pagination.page, 2);
   assert.equal(body.data.pagination.pageSize, 5);
   assert.equal(body.data.pagination.total, 30);
+  assert.deepEqual(body.data.view, { offset: 5, limit: 5 });
+  assert.equal(body.data.generation.topic, 'contract');
+  assert.equal(body.data.generation.startDate, '2026-06-01');
+  assert.equal(body.data.generation.endDate, '2026-06-30');
   assert.equal(body.data.days[0].twentyEightStarDetail, undefined);
   assert.ok(body.data.days[0].date);
   for (const day of body.data.days) {
@@ -4107,6 +4111,8 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   assert.equal(body.ok, true);
   assert.equal(body.data.result.days.length, 5);
   assert.equal(body.data.result.pagination.page, 2);
+  assert.deepEqual(body.data.result.view, { offset: 5, limit: 5 });
+  assert.equal(body.data.result.generation.topic, 'contract');
   assert.equal(body.data.result.evidenceAnalysis.key, 'almanac:evidence');
   assert.equal(body.data.result.evidenceAnalysis.status, '已计算');
   assert.equal(body.data.result.evidenceAnalysis.calculationSteps.length, 7);

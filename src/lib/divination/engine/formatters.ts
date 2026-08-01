@@ -21,6 +21,7 @@ import { analyzeQimenEvidence, rebuildAuditedQimenData } from '@core/divination/
 import {
   analyzeAlmanacEvidence,
   isDeprecatedAlmanacTopicRuleText,
+  rebuildAuditedAlmanacData,
 } from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -46,6 +47,24 @@ import { rebuildAuditedLenormandData } from '@core/divination/algorithms/lenorma
 import { rebuildAuditedTaiyiData } from 'mingyu-core/taiyi';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
+  if (data && 'generation' in data && data.generation && typeof data.generation === 'object') {
+    const generation = data.generation as Partial<AlmanacData['generation']>;
+    const isAlmanacGeneration =
+      'topic' in generation &&
+      'startDate' in generation &&
+      'endDate' in generation &&
+      'participants' in generation;
+
+    if (isAlmanacGeneration) {
+      return typeof generation.timestamp === 'number' &&
+        Number.isSafeInteger(generation.timestamp) &&
+        generation.timestamp >= 0 &&
+        !Number.isNaN(new Date(generation.timestamp).getTime())
+        ? generation.timestamp
+        : null;
+    }
+  }
+
   if (
     !data ||
     !('timestamp' in data) ||
@@ -803,7 +822,8 @@ function formatAlmanacGodFacts(
   return parts.length ? `值日神煞：${parts.join('；')}` : '';
 }
 
-function formatAlmanacInfo(data: AlmanacData) {
+function formatAlmanacInfo(input: AlmanacData) {
+  const data = rebuildAuditedAlmanacData(input);
   const evidenceAnalysis = analyzeAlmanacEvidence(data);
   const candidateDays = data.days;
   const preferred = evidenceAnalysis.preferredDates || [];

@@ -300,101 +300,24 @@ function createLenormandData(): DivinationData {
 }
 
 function createAlmanacData(): DivinationData {
-  return {
+  return generateAlmanacSelection({
     topic: 'move',
-    topicLabel: '搬家入宅',
     startDate: '2026-06-01',
     endDate: '2026-06-03',
-    timestamp: Date.now(),
     participants: [
       {
         id: 'self',
         name: '本人',
         gender: '男',
-        solarDate: '1990-01-01',
-        lunarDate: '腊月初五',
-        zodiac: '蛇',
-        constellation: '摩羯座',
-        dayMaster: '丙',
-        dayMasterElement: '火',
-        pillars: { year: '己巳', month: '丙子', day: '丙寅', hour: '甲午' },
-        usefulGods: ['木', '火'],
-        avoidGods: ['水'],
+        year: '1990',
+        month: '1',
+        day: '1',
+        timeIndex: '6',
+        dateType: 'solar',
+        isLeapMonth: false,
       },
     ],
-    days: [
-      {
-        date: '2026-06-01',
-        weekday: '星期一',
-        lunarDate: '四月十六',
-        ganzhi: { year: '丙午', month: '癸巳', day: '丙午' },
-        zodiac: '马',
-        dayOfficer: '除',
-        twelveStar: '建',
-        twentyEightStar: '张',
-        nineStar: '一白',
-        gods: ['天德', '月德'],
-        recommends: ['入宅', '移徙', '安床'],
-        avoids: ['开市'],
-        pengZu: '丙不修灶',
-        clash: '冲鼠，煞北',
-        annualDirectionGods: [
-          {
-            god: '太岁',
-            branch: '午',
-            direction: '正南',
-            fortune: '凶',
-            meaning: '犯太岁防宅长大凶',
-          },
-          {
-            god: '太阳',
-            branch: '未',
-            direction: '西南偏南',
-            fortune: '吉',
-            meaning: '修太阳能制诸煞',
-          },
-          {
-            god: '岁破',
-            branch: '子',
-            direction: '正北',
-            fortune: '凶',
-            meaning: '犯岁破忧宅母',
-          },
-          {
-            god: '福德',
-            branch: '卯',
-            direction: '正东',
-            fortune: '吉',
-            meaning: '修福德主添丁生子',
-          },
-        ],
-        score: 86,
-        highlights: ['黄历宜项命中搬家入宅'],
-        cautions: [],
-        participantNotes: ['本人：未见直接刑冲破害提醒'],
-      },
-      {
-        date: '2026-06-02',
-        weekday: '星期二',
-        lunarDate: '四月十七',
-        ganzhi: { year: '丙午', month: '癸巳', day: '丁未' },
-        zodiac: '羊',
-        dayOfficer: '满',
-        twelveStar: '除',
-        twentyEightStar: '翼',
-        nineStar: '二黑',
-        gods: ['天恩'],
-        recommends: ['祭祀'],
-        avoids: ['入宅', '移徙'],
-        pengZu: '丁不剃头',
-        clash: '冲牛，煞西',
-        score: 42,
-        highlights: [],
-        cautions: ['黄历忌项触及搬家入宅'],
-        participantNotes: ['本人：未见直接刑冲破害提醒'],
-      },
-    ],
-  };
+  });
 }
 
 test('各类占卜提示词都使用统一的角色加信息加问题结构', async () => {
@@ -591,10 +514,10 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.match(prompt, /候选日期：2026-06-01 至 2026-06-03/);
   assert.match(prompt, /事项范围：搬家入宅/);
   assert.doesNotMatch(prompt, /事项未限定|按通用.*口径|当前首列候选/);
-  assert.match(
-    prompt,
-    /岁支十二神方位太岁午正南、太阳未西南偏南、岁破子正北、福德卯正东（只列方位，不据此判吉凶）/,
-  );
+  assert.match(prompt, /岁支十二神方位太岁午正南、太阳未西南偏南/);
+  assert.match(prompt, /岁破子正北/);
+  assert.match(prompt, /福德卯正东/);
+  assert.match(prompt, /病符巳东南偏南（只列方位，不据此判吉凶）/);
   assert.doesNotMatch(prompt, /岁支方位避|可参考太阳|可参考福德/);
   assert.match(prompt, /候选日期：2026-06-01/);
   assert.match(prompt, /候选日期：2026-06-02/);
@@ -631,21 +554,46 @@ test('择日提示词按原生分类列值日神煞且不要求无依据名次',
   assert.match(prompt, /不生成首选、备选或唯一最佳结论/);
 });
 
-test('旧择日结果未保存神煞原生分类时不得依据旧事项规则反推吉凶', () => {
+test('择日提示词从原始输入重建神煞分类，不吸收旧事项规则污染', () => {
   const data = generateAlmanacSelection({
     topic: 'custom',
     startDate: '2026-01-01',
     endDate: '2026-01-01',
   });
-  const day = data.days[0];
-  day.godFacts = undefined;
-  day.highlights = ['事项规则命中喜神四相'];
-  day.cautions = ['事项规则触及忌神游祸'];
+  const clean = buildDivinationPrompt('almanac', '', data);
+  const polluted = structuredClone(data);
+  polluted.days[0].godFacts = undefined;
+  polluted.days[0].highlights = ['事项规则命中喜神四相'];
+  polluted.days[0].cautions = ['事项规则触及忌神游祸'];
 
-  const prompt = buildDivinationPrompt('almanac', '', data);
+  const prompt = buildDivinationPrompt('almanac', '', polluted);
 
-  assert.match(prompt, new RegExp(`值日神煞：${day.gods.join('、')}（旧结果未保存原生吉凶分类）`));
-  assert.doesNotMatch(prompt, /吉神四相|凶神游祸|事项规则命中喜神|事项规则触及忌神/);
+  assert.equal(prompt, clean);
+  assert.doesNotMatch(prompt, /事项规则命中喜神|事项规则触及忌神/);
+});
+
+test('择日提示词只凭原始事项、日期与参与人资料重建，不吸收完整旧结果污染', () => {
+  const data = createAlmanacData();
+  const clean = buildDivinationPrompt('almanac', '', data, createSupplementaryInfo());
+  const polluted = structuredClone(data);
+  polluted.topic = 'custom';
+  polluted.topicLabel = '伪造事项';
+  polluted.startDate = '2000-01-01';
+  polluted.endDate = '2000-01-01';
+  polluted.timestamp = 0;
+  polluted.participants[0].name = '伪造参与人';
+  polluted.participants[0].pillars.day = '伪造日柱';
+  polluted.days[0].date = '2000-01-01';
+  polluted.days[0].ganzhi.day = '伪造干支';
+  polluted.days[0].recommends = ['伪造宜项'];
+  polluted.days[0].avoids = ['伪造忌项'];
+  polluted.days[0].highlights = ['伪造支持结论'];
+  polluted.days[0].cautions = ['伪造风险结论'];
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+
+  const rebuilt = buildDivinationPrompt('almanac', '', polluted, createSupplementaryInfo());
+  assert.equal(rebuilt, clean);
+  assert.doesNotMatch(rebuilt, /伪造|2000-01-01/);
 });
 
 test('择日提示词应保留用户补充诉求但不强制输出问题 section', () => {

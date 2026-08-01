@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  analyzeAlmanacEvidence,
+  analyzeAlmanacEvidence as analyzeAuditedAlmanacEvidence,
   conditionAlmanacTraditionalText,
   generateAlmanacSelection,
+  rebuildAuditedAlmanacData,
+  selectAuditedAlmanacData,
 } from 'mingyu-core/divination/almanac';
-import { classifyAlmanacHourCandidate } from '../packages/core/src/divination/almanac-evidence.ts';
+import {
+  analyzeAlmanacEvidence,
+  classifyAlmanacHourCandidate,
+} from '../packages/core/src/divination/almanac-evidence.ts';
 
 test('黄历择日应内置透明约束与候选证据', () => {
   const data = generateAlmanacSelection({
@@ -126,6 +131,100 @@ test('黄历择日应内置透明约束与候选证据', () => {
   );
   assert.match(evidence.promptText, /计算链：[\s\S]*反证汇总：[\s\S]*证据汇总：[\s\S]*解释限制：/);
   assert.doesNotMatch(evidence.promptText, /评分[：=]?\d|\d+分|成功率[：=]?\d|匹配率[：=]?\d/);
+});
+
+test('黄历公开重建只信任原始择日输入并支持可复算分页', () => {
+  const expected = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-01',
+    endDate: '2026-06-05',
+    participants: [
+      {
+        id: 'self',
+        name: '本人',
+        gender: '男',
+        year: '1990',
+        month: '1',
+        day: '1',
+        timeIndex: '6',
+        dateType: 'solar',
+      },
+    ],
+  });
+
+  assert.deepEqual(expected.generation.participants, [
+    {
+      id: 'self',
+      name: '本人',
+      gender: '男',
+      year: '1990',
+      month: '1',
+      day: '1',
+      timeIndex: '6',
+      dateType: 'solar',
+      isLeapMonth: false,
+    },
+  ]);
+  assert.deepEqual(rebuildAuditedAlmanacData(expected), expected);
+
+  const polluted = structuredClone(expected);
+  polluted.topic = 'custom';
+  polluted.topicLabel = '伪造事项';
+  polluted.startDate = '2000-01-01';
+  polluted.endDate = '2000-01-01';
+  polluted.timestamp = 0;
+  polluted.participants[0].name = '伪造参与人';
+  polluted.days = [];
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+
+  assert.deepEqual(rebuildAuditedAlmanacData(polluted), expected);
+  assert.deepEqual(analyzeAuditedAlmanacEvidence(polluted), expected.evidenceAnalysis);
+
+  const page = selectAuditedAlmanacData(polluted, { offset: 1, limit: 2 });
+  assert.deepEqual(page.view, { offset: 1, limit: 2 });
+  assert.deepEqual(page.days, expected.days.slice(1, 3));
+  assert.deepEqual(rebuildAuditedAlmanacData(page), page);
+  assert.deepEqual(
+    page.evidenceAnalysis?.candidates.map((item) => item.date),
+    page.days.map((item) => item.date),
+  );
+
+  assert.throws(
+    () => rebuildAuditedAlmanacData({ ...expected, generation: undefined } as never),
+    /缺少可信原始择日输入/,
+  );
+  assert.throws(() => selectAuditedAlmanacData(expected, { offset: 5, limit: 1 }), /分页起始位置/);
+  assert.throws(
+    () =>
+      generateAlmanacSelection({
+        topic: 'move',
+        startDate: '2026-06-01',
+        endDate: '2026-06-01',
+        participants: [
+          {
+            id: 'same',
+            name: '甲',
+            gender: '男',
+            year: '1990',
+            month: '1',
+            day: '1',
+            timeIndex: '1',
+            dateType: 'solar',
+          },
+          {
+            id: 'same',
+            name: '乙',
+            gender: '女',
+            year: '1991',
+            month: '2',
+            day: '2',
+            timeIndex: '2',
+            dateType: 'solar',
+          },
+        ],
+      }),
+    /参与人 id 不得重复/,
+  );
 });
 
 test('黄历择日候选资料为空时应明确标记缺失，不生成伪最佳日期', () => {

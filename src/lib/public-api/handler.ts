@@ -32,7 +32,11 @@ import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
+import {
+  generateAlmanacSelection,
+  rebuildAuditedAlmanacData,
+  selectAuditedAlmanacData,
+} from 'mingyu-core/divination/almanac';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
@@ -3266,13 +3270,10 @@ function readAlmanacPageSelection(result: AlmanacData, input: JsonRecord) {
     throw new ApiError(400, 'BAD_REQUEST', `page 不能超过总页数 ${totalPages}。`);
   }
   const pageStart = (page - 1) * pageSize;
-  const selectedDays = shouldPaginate
-    ? result.days.slice(pageStart, pageStart + pageSize)
-    : result.days;
 
   return {
     shouldPaginate,
-    selectedDays,
+    pageStart,
     pagination: {
       page,
       pageSize,
@@ -3285,22 +3286,25 @@ function readAlmanacPageSelection(result: AlmanacData, input: JsonRecord) {
 }
 
 function shapeAlmanacPromptData(result: AlmanacData, input: JsonRecord): AlmanacData {
-  const { shouldPaginate, selectedDays } = readAlmanacPageSelection(result, input);
-  if (!shouldPaginate) return result;
-  const shaped = { ...result, days: selectedDays };
-  shaped.evidenceAnalysis = analyzeAlmanacEvidence(shaped);
-  return shaped;
+  const { shouldPaginate, pageStart, pagination } = readAlmanacPageSelection(result, input);
+  if (!shouldPaginate) return rebuildAuditedAlmanacData(result);
+  return selectAuditedAlmanacData(result, {
+    offset: pageStart,
+    limit: pagination.pageSize,
+  });
 }
 
 function shapeAlmanacResult(result: AlmanacData, input: JsonRecord): AlmanacApiResult {
   const detailMode = readDetailMode(input);
-  const { shouldPaginate, selectedDays, pagination } = readAlmanacPageSelection(result, input);
-  const days = detailMode === 'compact' ? selectedDays.map(compactAlmanacDay) : selectedDays;
+  const { shouldPaginate, pageStart, pagination } = readAlmanacPageSelection(result, input);
+  const audited = shouldPaginate
+    ? selectAuditedAlmanacData(result, { offset: pageStart, limit: pagination.pageSize })
+    : rebuildAuditedAlmanacData(result);
+  const days = detailMode === 'compact' ? audited.days.map(compactAlmanacDay) : audited.days;
 
   return {
-    ...result,
+    ...audited,
     days,
-    evidenceAnalysis: analyzeAlmanacEvidence({ ...result, days: selectedDays }),
     ...(shouldPaginate ? { pagination } : {}),
   };
 }

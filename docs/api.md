@@ -399,8 +399,8 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 奇门排盘结果的 `evidenceAnalysis` 返回值符、值使、日干、时干对应的用神宫候选，以及逐宫门、星、神、天地盘干、空亡、马星、格局、宫间生克、反证、方位条件和时间触发条件。候选不等于已经按具体问题选定用神；核心结果、公开 API、MCP 与提示词均不返回内部宫位、格局或方位排序分数，也不机械换算绝对日期。
 - 奇门遁甲 `qimenMethod` 支持 `zhuanpan`（转盘法，默认）、`feipan`（飞盘法）；公开 API 当前只开放时家奇门，`qimenJuMethod` 支持 `chaibu`（拆补法，默认）、`zhirun`（置闰法）。核心包另保留已校勘的月家、年家入口；日家因古法版本冲突且旧实现曾错误复用时家算法，当前失败关闭。排盘结果包含 `seasonality`（节令背景）和 `patternCombos`（已校勘组合规则）。
 - 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。日期范围一次最多 31 天，`participants` 一次最多 30 位；更大范围或更多参与人请拆成多次请求。
-- 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时保持旧行为返回全部日期；传分页后只返回当前页日期，并带 `pagination`。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
-- 黄历择日结果的 `evidenceAnalysis` 会把当前返回范围内的日期分成可用、条件和慎用候选，逐日列出事项宜忌、建除神煞、参与人刑冲破害、方向限制、可用时辰与现实约束。分页时证据会按当前页重新计算；核心结果、公开 API、MCP 与提示词均不返回内部日期或时辰排序分数，也不把排序解释成成功率。
+- 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时返回全部日期；传分页后会先从原始事项、日期范围与参与人出生输入完整重算并完成候选分组排序，再截取当前页，返回 `generation`、`view` 与 `pagination`，因此分页结果仍可独立复算。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
+- 黄历择日结果的 `evidenceAnalysis` 会把当前返回范围内的日期分成可用、条件和慎用候选，逐日列出事项宜忌、建除神煞、参与人刑冲破害、方向限制、可用时辰与现实约束。公开证据、提示词和摘要只信任 `generation` 保存的原始事项、日期范围、参与人出生资料及生成时间；顶层事项、日期、候选日、参与人派生八字、旧证据与旧时间戳全部忽略。旧结果缺少原始生成资料、参与人编号重复、输入矛盾或分页范围非法时明确拒绝。核心结果、公开 API、MCP 与提示词均不返回内部日期或时辰排序分数，也不把排序解释成成功率。
 - 雷诺曼 `spreadType` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`，不传时使用 `single`。
 - 星盘需要 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。历史日期及实行夏令时的地区推荐使用 IANA 时区；秋季回拨的一时两刻会保留候选和警告，春季跳时中不存在的当地时刻会被拒绝。可传 `useTrueSolarTime` 附带真太阳时参考证据，但现代星历始终采用民用出生时间对应的真实 UTC 瞬间。
 - 星盘本命对 24 个点位的 276 组无序点对逐一核验 10 种相位；行运对 10 个行运星体与全部 24 个本命点逐一核验五种主要相位。次限、太阳弧和太阳返照也完整保留当前定义与容许度内的全部命中项。各层只输出实际夹角、精确角、偏差和采用容许度，不使用派生强度门槛，不分级、不按偏差排序、不截断。行运取样按目标地点在目标日期的 IANA 历史时区或调用方明确提供的固定偏移计算，不再固定使用北京时间。

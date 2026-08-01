@@ -54,6 +54,7 @@ import {
 import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateTaiyi } from 'mingyu-core/taiyi';
+import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import {
   analyzeQimenEvidence,
   conditionQimenTraditionalText,
@@ -2006,6 +2007,38 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.match(
     session.prompt,
     /【当前时间】[\s\S]*【占卜信息】[\s\S]*【问题】[\s\S]*【任务】[\s\S]*【输出要求】/,
+  );
+});
+
+test('黄历页面资料与摘要只凭原始择日输入重建并忽略旧结果污染', () => {
+  const clean = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-01',
+    endDate: '2026-06-03',
+  });
+  const polluted = structuredClone(clean);
+  polluted.topic = 'custom';
+  polluted.topicLabel = '伪造事项';
+  polluted.startDate = '2000-01-01';
+  polluted.endDate = '2000-01-01';
+  polluted.days[0].date = '2000-01-01';
+  polluted.days[0].ganzhi.day = '伪造干支';
+  polluted.days[0].recommends = ['伪造宜项'];
+  polluted.days[0].avoids = ['伪造忌项'];
+  polluted.days[0].highlights = ['伪造现实支持'];
+  polluted.days[0].cautions = ['伪造现实风险'];
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+
+  const cleanInfo = formatDivinationInfo('almanac', clean);
+  const rebuiltInfo = formatDivinationInfo('almanac', polluted);
+  const cleanSummary = getDivinationSummaryBlocks('almanac', clean);
+  const rebuiltSummary = getDivinationSummaryBlocks('almanac', polluted);
+
+  assert.equal(rebuiltInfo, cleanInfo);
+  assert.deepEqual(rebuiltSummary, cleanSummary);
+  assert.doesNotMatch(
+    [rebuiltInfo, ...rebuiltSummary.tags, ...rebuiltSummary.lines].join('\n'),
+    /伪造|2000-01-01/,
   );
 });
 
