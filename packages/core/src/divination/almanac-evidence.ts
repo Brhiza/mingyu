@@ -73,6 +73,7 @@ export interface AlmanacHourEvidence {
   ganzhi: string;
   branch: string;
   twelveStar: string;
+  /** @deprecated 仅供读取旧证据；当前不输出未闭合底本的黄黑道分类。 */
   ecliptic?: '黄道' | '黑道';
   /** @deprecated 仅供读取旧证据；当前不输出依赖库吉凶标签。 */
   eclipticLuck?: '吉' | '凶';
@@ -87,7 +88,7 @@ export interface AlmanacHourEvidence {
   participantRelationFacts: AlmanacParticipantRelationFact[];
   promptText: string;
   sources: string[];
-  limitation: '逐时时课只用于当前候选日内比较事项宜忌；十二神原生黄黑道分类只登记、不参与候选分组，参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人';
+  limitation: '逐时时课只用于当前候选日内比较事项宜忌；十二神只登记名称，不附未闭合底本的黄黑道分类；参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人';
 }
 
 export interface AlmanacCalendarFact {
@@ -251,7 +252,7 @@ const TRADITIONAL_FACT_LIMITATION =
 const CALENDAR_FACT_LIMITATION =
   '公历、农历、干支、建除、十二神与日支相冲是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果' as const;
 const HOUR_FACT_LIMITATION =
-  '逐时时课只用于当前候选日内比较事项宜忌；十二神原生黄黑道分类只登记、不参与候选分组，参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人' as const;
+  '逐时时课只用于当前候选日内比较事项宜忌；十二神只登记名称，不附未闭合底本的黄黑道分类；参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人' as const;
 const RAW_TABOO_FACT_LIMITATION =
   '原始宜忌只保留历书列项及其是否命中当前事项；未列不等于适宜，列出也不等于现实事项必然成功或失败' as const;
 const DECISION_FACT_LIMITATION =
@@ -600,8 +601,7 @@ function buildHourEvidence(
   ]);
   const support = unique([...hour.highlights, ...participantSupport]);
   const status = classification.status;
-  const eclipticText = hour.ecliptic ? `、${hour.ecliptic}` : '';
-  const promptText = `${hour.name}${hour.range}，${hour.ganzhi}（${hour.branch}支）、${hour.twelveStar}${eclipticText}；${status}；宜${recommends.join('、') || '未列'}；忌${avoids.join('、') || '未列'}；支持${support.join('、') || '未见额外支持'}；限制${constraints.join('、') || '未见明确冲突'}`;
+  const promptText = `${hour.name}${hour.range}，${hour.ganzhi}（${hour.branch}支）、十二神${hour.twelveStar}；${status}；宜${recommends.join('、') || '未列'}；忌${avoids.join('、') || '未列'}；支持${support.join('、') || '未见额外支持'}；限制${constraints.join('、') || '未见明确冲突'}`;
   return {
     key: keyPrefix,
     name: hour.name,
@@ -609,7 +609,6 @@ function buildHourEvidence(
     ganzhi: hour.ganzhi,
     branch: hour.branch,
     twelveStar: hour.twelveStar,
-    ecliptic: hour.ecliptic,
     status,
     recommends,
     avoids,
@@ -620,7 +619,7 @@ function buildHourEvidence(
     topicMatchFacts,
     participantRelationFacts,
     promptText,
-    sources: ['逐时时柱与十二神计算', '当前事项时辰宜忌与黄黑道分类登记'],
+    sources: ['逐时时柱与十二神名称计算', '当前事项时辰宜忌登记'],
     limitation: HOUR_FACT_LIMITATION,
   };
 }
@@ -736,7 +735,7 @@ function buildCandidateDecisionFact(params: {
       promptText: params.usableHours.length
         ? `可用时辰：${params.usableHours.map((item) => `${item.name}${item.range}`).join('、')}`
         : '未筛出无明显冲突的时辰，不硬指定吉时',
-      sources: ['逐时时柱、十二神原生黄黑道属性与事项宜忌核验'],
+      sources: ['逐时时柱、十二神名称与事项宜忌核验'],
     },
     {
       key: `${params.date}:decision:status`,
@@ -1163,9 +1162,9 @@ function buildCalculationSteps(params: {
       inputs: { candidateCount },
       result: { usableHourFactCount },
       dependsOnStepKeys: ['almanac:calculation:participants-reality'],
-      promptText: `逐日比较时柱、十二神原生黄黑道属性与事项宜忌，保留${usableHourFactCount}个无强冲突时辰；未筛出时不硬指定吉时`,
+      promptText: `逐日比较时柱、十二神名称与事项宜忌，保留${usableHourFactCount}个无强冲突时辰；未筛出时不硬指定吉时`,
       sources: unique([
-        '逐时时柱、十二神原生黄黑道属性与事项宜忌完整性检查',
+        '逐时时柱、十二神名称与事项宜忌完整性检查',
         ...params.candidates.flatMap((item) => item.usableHours.flatMap((hour) => hour.sources)),
       ]),
       limitation: CALCULATION_STEP_LIMITATION,

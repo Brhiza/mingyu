@@ -1,7 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SolarDay } from 'tyme4ts';
-
 import {
   generateAlmanacSelection,
   getAlmanacAnnualDirectionGods,
@@ -428,23 +426,21 @@ test('黄历择日：每个候选日应完整保留逐时时辰与全部无强�
   }
 });
 
-test('黄历择日：逐时十二神应采用 tyme4ts 原生黄黑道及吉凶属性', () => {
+test('黄历择日：逐时十二神只保留名称，不输出未闭合的黄黑道分类', () => {
   const day = generateAlmanacSelection({
     topic: 'contract',
     startDate: '2026-06-01',
     endDate: '2026-06-01',
   }).days[0];
-  const sourceHours = SolarDay.fromYmd(2026, 6, 1).getLunarDay().getHours();
-
-  assert.equal(day.hours?.length, sourceHours.length);
-  for (const [index, hour] of (day.hours ?? []).entries()) {
-    const sourceEcliptic = sourceHours[index].getTwelveStar().getEcliptic();
-    assert.equal(hour.ecliptic, sourceEcliptic.getName());
+  assert.equal(day.hours?.length, 13);
+  for (const hour of day.hours ?? []) {
+    assert.ok(hour.twelveStar);
+    assert.equal('ecliptic' in hour, false);
     assert.equal('eclipticLuck' in hour, false);
-    const twelveStarFact = hour.topicMatchFacts?.find((fact) => fact.sourceType === '十二神');
-    assert.deepEqual(twelveStarFact?.sources, ['tyme4ts TwelveStar.getEcliptic()']);
-    assert.equal(twelveStarFact?.status, '中性');
-    assert.match(twelveStarFact?.promptText ?? '', /只登记分类，不作为事项支持或限制/);
+    assert.equal(
+      hour.topicMatchFacts?.some((fact) => fact.sourceType === '十二神'),
+      false,
+    );
   }
 });
 

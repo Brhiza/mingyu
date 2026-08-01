@@ -272,13 +272,12 @@ test('择日证据应保留日课、宿曜、九星名称、方位神与逐时�
         item.ganzhi &&
         item.branch &&
         item.twelveStar &&
-        item.ecliptic &&
+        !('ecliptic' in item) &&
         !('eclipticLuck' in item) &&
-        item.promptText.includes(item.ecliptic) &&
         item.promptText.includes(item.ganzhi) &&
         item.sources.length >= 2 &&
         item.rawTabooFact.key.startsWith(item.key) &&
-        item.topicMatchFacts.length === 3 &&
+        item.topicMatchFacts.length === 2 &&
         item.topicMatchFacts.every((fact) => fact.scope === '时辰') &&
         item.limitation.includes('不证明该时辰必然成功'),
     ),
@@ -328,7 +327,7 @@ test('逐时时课应忽略旧结果中的参与人时支冲突', () => {
   assert.deepEqual(evidenceHour.participantRelationFacts, []);
   assert.deepEqual(evidenceHour.participantSupport, []);
   assert.doesNotMatch(evidenceHour.constraints.join('；'), /旧结果中的时支冲突/);
-  assert.ok(evidenceHour.sources.some((source) => source.includes('原生黄黑道属性')));
+  assert.ok(evidenceHour.sources.some((source) => source.includes('十二神名称')));
   assert.match(evidenceHour.limitation, /仅在候选日层记录参考/);
   const hourDecisionStep = evidence.candidates[0].decisionFact.steps.find(
     (item) => item.stage === '可用时辰',
@@ -343,7 +342,7 @@ test('逐时时课应忽略旧结果中的参与人时支冲突', () => {
     [hourCalculationStep.promptText, ...hourCalculationStep.sources].join('；'),
     /参与人/,
   );
-  assert.match(hourCalculationStep.promptText, /十二神原生黄黑道属性/);
+  assert.match(hourCalculationStep.promptText, /十二神名称与事项宜忌/);
 });
 
 test('择日证据应让明确事项忌项决定慎用分组', () => {

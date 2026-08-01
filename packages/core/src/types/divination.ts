@@ -1094,9 +1094,9 @@ export interface AlmanacHourCandidate {
   ganzhi: string;
   branch: string;
   twelveStar: string;
-  /** tyme4ts TwelveStar.getEcliptic() 原生黄黑道属性。 */
+  /** @deprecated 仅供读取旧结果；当前不输出未闭合底本的黄黑道分类。 */
   ecliptic?: '黄道' | '黑道';
-  /** @deprecated 仅供读取旧结果；当前只登记 ecliptic，不输出依赖库吉凶标签。 */
+  /** @deprecated 仅供读取旧结果；当前不输出依赖库吉凶标签。 */
   eclipticLuck?: '吉' | '凶';
   recommends: string[];
   avoids: string[];

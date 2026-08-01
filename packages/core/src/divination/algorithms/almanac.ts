@@ -32,7 +32,6 @@ interface AlmanacLunarHourSource {
   getSixtyCycle(): { getName(): string };
   getTwelveStar(): {
     getName(): string;
-    getEcliptic(): { getName(): string };
   };
   getRecommends(): Array<{ getName(): string }>;
   getAvoids(): Array<{ getName(): string }>;
@@ -156,7 +155,7 @@ function findKeywordMatches(values: string[], keywords: string[]) {
 }
 
 const TOPIC_MATCH_LIMITATION =
-  '事项命中事实只核对当前产品事项与历书同名或直接对应词，不扩展相关但不同事项；逐时十二神的原生黄黑道分类只作资料登记，不作为事项支持或限制，也不得替代现实条件核验';
+  '事项命中事实只核对当前产品事项与历书同名或直接对应词，不扩展相关但不同事项；逐时十二神只登记名称，不附未闭合底本的黄黑道分类，也不得替代现实条件核验';
 const GOD_FACT_LIMITATION =
   '值日神煞只登记依赖库返回的当日名称；依赖库吉凶标签未保存采用底本、原文和版本，当前不分类，也不证明现实吉凶、成功率或具体事件结果';
 const PARTICIPANT_FACT_LIMITATION =
@@ -673,13 +672,7 @@ function buildHourCandidates(
       throw new Error(`黄历第${index + 1}个时辰地支与时段不一致：${ganzhi}对应${period.name}`);
     }
     const hourName = period.name;
-    const twelveStarSource = hour.getTwelveStar();
-    const twelveStar = twelveStarSource.getName();
-    const eclipticSource = twelveStarSource.getEcliptic();
-    const ecliptic = eclipticSource.getName();
-    if (ecliptic !== '黄道' && ecliptic !== '黑道') {
-      throw new Error(`黄历${hourName}十二神黄黑道属性异常：${ecliptic}`);
-    }
+    const twelveStar = hour.getTwelveStar().getName();
     const recommends = normalizeTaboos(hour.getRecommends());
     const avoids = normalizeTaboos(hour.getAvoids());
     const highlights: string[] = [];
@@ -717,18 +710,6 @@ function buildHourCandidates(
           : `时辰忌项未触及${ALMANAC_TOPIC_LABELS[topic]}关键词`,
         sources: ['tyme4ts 时辰忌项', '当前产品事项直接对应词表'],
       }),
-      buildTopicMatchFact({
-        key: `${hourKey}:topic:twelve-star`,
-        scope: '时辰',
-        topic,
-        sourceType: '十二神',
-        status: '中性',
-        inputItems: [twelveStar, ecliptic],
-        keywords: ['黄道', '黑道'],
-        matchedItems: [ecliptic],
-        promptText: `${twelveStar}的依赖库黄黑道分类为${ecliptic}；只登记分类，不作为事项支持或限制`,
-        sources: ['tyme4ts TwelveStar.getEcliptic()'],
-      }),
     );
     if (recommendMatches.length) {
       highlights.push(`时辰宜项命中${ALMANAC_TOPIC_LABELS[topic]}`);
@@ -744,7 +725,6 @@ function buildHourCandidates(
       ganzhi,
       branch,
       twelveStar,
-      ecliptic,
       recommends,
       avoids,
       highlights,
