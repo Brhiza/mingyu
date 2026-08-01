@@ -635,6 +635,9 @@ test('六爻提示词会保留世应、动变、空亡、伏神和月日资料',
     /应期资料：动爻作用：第1爻妻财丁巳发动化子孙戊寅，用神爻位尚未闭合，仅作变化点/,
   );
   assert.match(prompt, /当前问题关系不足，尚未确定用神六亲/);
+  assert.match(prompt, /当前主题和问题文字不能代替具体底本版本、问题角色与取用条件/);
+  assert.match(prompt, /否则保持用神待定，只提供可复算盘面事实/);
+  assert.doesNotMatch(prompt, /先依问题与求测关系确定用神|世爻代表求测者|应爻代表对方/);
   assert.doesNotMatch(prompt, /逢出空、冲实或用神透出时才可作为应期/);
   assert.match(prompt, /用神主线：/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|只使用上方/);
