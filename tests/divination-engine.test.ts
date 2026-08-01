@@ -957,25 +957,31 @@ test('奇门证据与最终提示资料应重算派生字段并拒绝旧缓存�
   ].forEach((marker) => assert.doesNotMatch(serialized, new RegExp(marker)));
 });
 
-test('奇门传统格局应保留原文并为提示词生成条件化副本', () => {
+test('奇门传统格局应保留原文并对高风险解释失败关闭', () => {
   const original = '乙加地盘癸为日入天网，主官事破财，万事破伤；凶期百日而后或有舒情。';
   const conditioned = conditionQimenTraditionalText(original);
 
   assert.match(original, /主官事破财|万事破伤|凶期百日/);
-  assert.match(conditioned, /传统象意提示官事破财/);
-  assert.match(conditioned, /传统象意提示多重阻碍/);
-  assert.match(conditioned, /不得据此输出固定日期/);
-  assert.doesNotMatch(conditioned, /万事破伤|凶期百日|本项目|当前项目|工程|算法结果/);
+  assert.equal(conditioned, '未采用传统解释；当前只保留可复算盘面事实');
+
+  const safeFact = '天盘乙加地盘癸于坎一宫；这里只记录天地盘干命中条件。';
+  assert.equal(conditionQimenTraditionalText(safeFact), safeFact);
 
   for (const heavenStem of '甲乙丙丁戊己庚辛壬癸') {
     for (const earthStem of '甲乙丙丁戊己庚辛壬癸') {
       const pattern = getStemPairPattern(heavenStem, earthStem);
       if (!pattern) continue;
       const promptText = conditionQimenTraditionalText(pattern.summary);
-      assert.doesNotMatch(
+      const containsHighRiskInterpretation =
+        /凶期百日|百事(?:吉昌|称心|顺遂|可为|凶)|凡百遂心|万事(?:破伤|皆屯)|谋为成功|事成|必然|必定|大吉|大凶|(^|[，；。])主(?!(?:动|客|轴|证|判|要))|古法主(?!(?:动|客))/.test(
+          pattern.summary,
+        );
+      assert.equal(
         promptText,
-        /百事(?:吉昌|称心|顺遂|可为)|万事(?:破伤|皆屯)|凶期百日|(^|[，；。])主(?!(?:动|客|轴|证|判|要))|大吉|大凶/,
-        `${heavenStem}加${earthStem}的条件化文本仍含绝对传统断语`,
+        containsHighRiskInterpretation
+          ? '未采用传统解释；当前只保留可复算盘面事实'
+          : pattern.summary,
+        `${heavenStem}加${earthStem}不得通过改写继续输出高风险解释`,
       );
     }
   }
