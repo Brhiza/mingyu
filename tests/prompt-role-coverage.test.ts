@@ -139,6 +139,23 @@ test('八宅、住宅风水、生肖、太乙与玄空提示词使用各自角�
   });
 });
 
+test('八宅、玄空与住宅风水提示词不得由问题文字恢复现实结论', () => {
+  for (const method of ['bazhai', 'xuankong', 'residential'] as const) {
+    const prompt = buildMetaphysicsPrompt('【排盘信息】\n测试盘面', '请告诉我怎么布置。', {
+      method,
+      currentTime: new Date('2026-07-16T12:00:00+08:00'),
+    });
+
+    assert.match(prompt, /问题文字不能选择重点宫位/);
+    assert.match(
+      prompt,
+      /具体解释底本和版本、完整解释规则、现场形峦与用途及空间条件、已指定判断对象/,
+    );
+    assert.match(prompt, /不生成吉方、凶方、宜避方向、住宅现实效果、优先级/);
+    assert.doesNotMatch(prompt, /再继续推算|总体判断.*重点宫位.*现实建议|给出可执行建议/);
+  }
+});
+
 test('生肖未提供问题时仍只要求基于固定关系继续推算', () => {
   const prompt = buildMetaphysicsPrompt('【生肖与流年关系简析】\n测试资料', undefined, {
     method: 'zodiac',

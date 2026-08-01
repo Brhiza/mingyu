@@ -49,7 +49,10 @@ export function buildMetaphysicsPrompt(
   question: string | undefined,
   options: MetaphysicsPromptOptions,
 ): string {
-  const keepsResidentialFacts = options.method === 'bazhai' || options.method === 'residential';
+  const keepsResidentialFacts =
+    options.method === 'bazhai' ||
+    options.method === 'xuankong' ||
+    options.method === 'residential';
   const keepsZodiacFacts = options.method === 'zodiac';
   const keepsTaiyiFacts = options.method === 'taiyi';
   const normalizedQuestion =
@@ -79,7 +82,7 @@ export function buildMetaphysicsPrompt(
       '',
       '【任务】',
       keepsResidentialFacts
-        ? '请直接回答【问题】，先说明采用的传统对象与关键盘面依据，再继续推算；资料不闭合时保留待定，不得把单一八宫标签、命宅分组或玄空星盘直接改写成方向宜避、住宅现实效果或保证有效的布置结论。'
+        ? '只核对输入与测量口径、命卦宅卦、八宫传统标签、三元九运、山向、运山向三盘、候选山向、边界状态及两体系分层事实。问题文字不能选择重点宫位，也不能把标签、分组或星位改写成现实吉凶。只有调用方同时明确具体解释底本和版本、完整解释规则、现场形峦与用途及空间条件、已指定判断对象时，才可按所给资料继续现实推算；缺少任一项时保持事实层。'
         : keepsZodiacFacts
           ? '请直接回答【问题】，先区分生肖年支、流年干支、固定地支关系与五行生克方向，再结合问题继续推算；不得把三合六合直接改写成现实贵人，不得把五行方向直接改写成利弊，也不得生成现实吉凶保证、固定应期或化解保证。'
           : keepsTaiyiFacts
@@ -88,7 +91,7 @@ export function buildMetaphysicsPrompt(
       '',
       '【输出要求】',
       keepsResidentialFacts
-        ? '使用简体中文，区分盘面事实、后续推算、资料缺口与现实限制；不得补造未提供的山向、年份、流派或现场条件。'
+        ? '使用简体中文，按“可复算盘面事实、边界状态、继续推算所需资料”的顺序回答；不得补造未提供的山向、年份、流派或现场条件，不生成吉方、凶方、宜避方向、住宅现实效果、优先级、布置装修或行动建议、综合总分与效果保证。'
         : keepsZodiacFacts
           ? '使用简体中文，区分固定关系事实、后续推算、资料缺口与现实条件；不补造出生月、日、时或未提供的现实信息。'
           : keepsTaiyiFacts
