@@ -1,6 +1,6 @@
 /**
  * @file 经典外格结构候选
- * @description 区分《子平真诠》“论杂格”认可的候选与其他古籍名目参考，只识别可复算结构。
+ * @description 区分《子平真诠》“论杂格”认可的候选与其他古籍名目参考，只识别可复算结构；化气格因合化条件无法由固定字表唯一闭合而失败关闭。
  */
 
 import type { BaziChartResult, Wuxing } from '../baziTypes';
@@ -36,7 +36,6 @@ export interface ClassicPattern {
 interface ClassicPatternDefinition extends ClassicPattern {
   eligibility: 'zhen-quan-misc' | 'strict-external';
   allowedFormationWuxing?: Wuxing[];
-  requiredPatternStems?: string[];
   allowedExposedMonthStems?: string[];
 }
 
@@ -153,120 +152,6 @@ const CLASSIC_PATTERNS: ClassicPatternDefinition[] = [
       url: ZHEN_QUAN_URL,
     },
     eligibility: 'zhen-quan-misc',
-  },
-  {
-    id: 'hua-qi-tu',
-    name: '甲己化土格',
-    description:
-      '日干参与甲己五合，生于辰戌丑未土月，四支又见辰戌丑未全，且未见甲己争合，才列化土结构候选；五合与四库齐全仍不自动等于已经合化。',
-    conditions: {
-      dayStems: ['甲', '己'],
-      monthBranch: ['辰', '戌', '丑', '未'],
-      otherConditions: ['甲己同透', '无甲己争合', '辰戌丑未全'],
-    },
-    favorableWuxing: [],
-    unfavorableWuxing: [],
-    sourceRole: '《子平真诠》杂格候选',
-    source: {
-      title: '《子平真诠评注·论杂格》',
-      quote: '要化出之物，得时乘令，四支局全。',
-      url: ZHEN_QUAN_URL,
-    },
-    eligibility: 'zhen-quan-misc',
-    allowedFormationWuxing: ['土'],
-    requiredPatternStems: ['甲', '己'],
-  },
-  {
-    id: 'hua-qi-jin',
-    name: '乙庚化金格',
-    description:
-      '日干参与乙庚五合，生于申酉戌秋月，四支完整见巳酉丑或申酉戌金局，且未见乙庚争合，才列化金结构候选；不代判真正成化。',
-    conditions: {
-      dayStems: ['乙', '庚'],
-      monthBranch: ['申', '酉', '戌'],
-      otherConditions: ['乙庚同透', '无乙庚争合'],
-      anyConditions: ['三合金局', '三会金局'],
-    },
-    favorableWuxing: [],
-    unfavorableWuxing: [],
-    sourceRole: '《子平真诠》杂格候选',
-    source: {
-      title: '《子平真诠评注·论杂格》',
-      quote: '要化出之物，得时乘令，四支局全。',
-      url: ZHEN_QUAN_URL,
-    },
-    eligibility: 'zhen-quan-misc',
-    allowedFormationWuxing: ['金'],
-    requiredPatternStems: ['乙', '庚'],
-  },
-  {
-    id: 'hua-qi-shui',
-    name: '丙辛化水格',
-    description:
-      '日干参与丙辛五合，生于亥子丑冬月，四支完整见申子辰或亥子丑水局，且未见丙辛争合，才列化水结构候选；不把相合冒充成化。',
-    conditions: {
-      dayStems: ['丙', '辛'],
-      monthBranch: ['亥', '子', '丑'],
-      otherConditions: ['丙辛同透', '无丙辛争合'],
-      anyConditions: ['三合水局', '三会水局'],
-    },
-    favorableWuxing: [],
-    unfavorableWuxing: [],
-    sourceRole: '《子平真诠》杂格候选',
-    source: {
-      title: '《子平真诠评注·论杂格》',
-      quote: '要化出之物，得时乘令，四支局全。',
-      url: ZHEN_QUAN_URL,
-    },
-    eligibility: 'zhen-quan-misc',
-    allowedFormationWuxing: ['水'],
-    requiredPatternStems: ['丙', '辛'],
-  },
-  {
-    id: 'hua-qi-mu',
-    name: '丁壬化木格',
-    description:
-      '日干参与丁壬五合，生于寅卯辰春月，四支完整见亥卯未或寅卯辰木局，且未见丁壬争合，才列化木结构候选；是否真正合化与最终层次仍须另审。',
-    conditions: {
-      dayStems: ['丁', '壬'],
-      monthBranch: ['寅', '卯', '辰'],
-      otherConditions: ['丁壬同透', '无丁壬争合'],
-      anyConditions: ['三合木局', '三会木局'],
-    },
-    favorableWuxing: [],
-    unfavorableWuxing: [],
-    sourceRole: '《子平真诠》杂格候选',
-    source: {
-      title: '《子平真诠评注·论杂格》',
-      quote: '如丁壬化木，地支全亥卯未、寅卯辰，而又生于春月。',
-      url: ZHEN_QUAN_URL,
-    },
-    eligibility: 'zhen-quan-misc',
-    allowedFormationWuxing: ['木'],
-    requiredPatternStems: ['丁', '壬'],
-  },
-  {
-    id: 'hua-qi-huo',
-    name: '戊癸化火格',
-    description:
-      '日干参与戊癸五合，生于巳午未夏月，四支完整见寅午戌或巳午未火局，且未见戊癸争合，才列化火结构候选；不据五合与会局名称直接断成化。',
-    conditions: {
-      dayStems: ['戊', '癸'],
-      monthBranch: ['巳', '午', '未'],
-      otherConditions: ['戊癸同透', '无戊癸争合'],
-      anyConditions: ['三合火局', '三会火局'],
-    },
-    favorableWuxing: [],
-    unfavorableWuxing: [],
-    sourceRole: '《子平真诠》杂格候选',
-    source: {
-      title: '《子平真诠评注·论杂格》',
-      quote: '要化出之物，得时乘令，四支局全。',
-      url: ZHEN_QUAN_URL,
-    },
-    eligibility: 'zhen-quan-misc',
-    allowedFormationWuxing: ['火'],
-    requiredPatternStems: ['戊', '癸'],
   },
   {
     id: 'dao-chong-wu',
@@ -685,7 +570,6 @@ function isEligible(
     allowNonPeerMonthPrincipal: true,
     allowSingleUnrootedWealth: true,
     allowedFormationWuxing: pattern.allowedFormationWuxing,
-    requiredPatternStems: pattern.requiredPatternStems,
     allowedExposedMonthStems: pattern.allowedExposedMonthStems,
   });
 }

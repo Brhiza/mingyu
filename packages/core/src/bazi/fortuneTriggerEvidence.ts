@@ -335,7 +335,6 @@ export interface FortuneLuPatternRuleFact {
 
 export type FortuneMiscPatternRuleType =
   | '五行一方秀气取运候选'
-  | '化气取运候选'
   | '戊日倒冲徐注改释取运候选'
   | '丙日倒冲徐注改释取运候选'
   | '六阴朝阳徐注改释取运候选'
@@ -3951,47 +3950,6 @@ function buildMiscPatternRuleAnalysis(params: {
         natalStructure,
         [WUXING_CONTROLS[dominant]],
         '对应徐注“财运亦不宜”的方向',
-      );
-      return;
-    }
-
-    if (classicPattern && patternId.startsWith('hua-qi-')) {
-      const transformedWuxing: Record<string, string> = {
-        'hua-qi-tu': '土',
-        'hua-qi-jin': '金',
-        'hua-qi-shui': '水',
-        'hua-qi-mu': '木',
-        'hua-qi-huo': '火',
-      };
-      const transformed = transformedWuxing[patternId];
-      const natalStructure = `${patternName}只按得令、完整会局且无争合列为化气候选；真正成化及不同化气差异仍须全局复核`;
-      addElementFact(
-        layer,
-        'transformed-or-resource',
-        '化气取运候选',
-        '支持候选',
-        natalStructure,
-        [transformed, WUXING_RESOURCE[transformed]],
-        '对应“化神旺地及化神印绶”的局部方向',
-      );
-      addElementFact(
-        layer,
-        'controller',
-        '化气取运候选',
-        '带忌候选',
-        natalStructure,
-        [WUXING_CONTROLLER[transformed]],
-        '对应克制化神的官杀方向',
-      );
-      const dayMasterWuxing = STEM_WUXING[params.result.pillars.day.gan];
-      addElementFact(
-        layer,
-        'day-master-restoration',
-        '化气取运候选',
-        '条件待复核',
-        natalStructure,
-        dayMasterWuxing ? [dayMasterWuxing] : [],
-        '同时触及日主本五行，只登记“日主还原之地亦忌”的复核条件；若又属于化神印绶方向，两项候选并存，不机械取舍',
       );
       return;
     }

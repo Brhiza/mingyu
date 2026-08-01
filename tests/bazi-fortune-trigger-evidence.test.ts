@@ -1561,7 +1561,7 @@ test('月劫用财带伤食应让财食轻重相反方向并存，并保留官�
 
 test('禄劫用杀食制应让食重杀轻与食轻杀重方向并存', () => {
   const natal = createLuResult({
-    year: { gan: '丁', zhi: '巳', ganZhi: '丁巳' },
+    year: { gan: '丁', zhi: '亥', ganZhi: '丁亥' },
     month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
     day: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
     hour: { gan: '己', zhi: '未', ganZhi: '己未' },
@@ -1590,7 +1590,7 @@ test('禄劫用杀带财应区分合杀存财与合财存杀，不提前认定�
     hour: { gan: '丙', zhi: '午', ganZhi: '丙午' },
   });
   const preservedKillerNatal = createLuResult({
-    year: { gan: '丁', zhi: '巳', ganZhi: '丁巳' },
+    year: { gan: '丁', zhi: '亥', ganZhi: '丁亥' },
     month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
     day: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
     hour: { gan: '己', zhi: '未', ganZhi: '己未' },
@@ -1760,7 +1760,7 @@ test('五行一方秀气只对《子平真诠》候选输出顺势逐字事实�
   assert.ok(!externalResult.calculationSteps.some((item) => item.stage === '杂格取运核验'));
 });
 
-test('化气取运应并存化神印绶、官杀与日主还原复核，不把同元素冲突提前取舍', () => {
+test('化气格自动命名关闭后不再派生化气取运候选', () => {
   const natal = createMiscResult({
     year: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
     month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
@@ -1771,29 +1771,14 @@ test('化气取运应并存化神印绶、官杀与日主还原复核，不把�
     { id: 'water', type: 'dayun', label: '壬子大运', ganZhi: '壬子' },
     { id: 'metal', type: 'year', label: '庚申流年', ganZhi: '庚申' },
   ]);
-  const facts = result.miscPatternRuleFacts.filter((item) => item.patternId === 'hua-qi-mu');
 
-  assert.ok(
-    facts.some(
-      (item) =>
-        item.ganZhi === '壬子' &&
-        item.status === '支持候选' &&
-        item.trigger.includes('化神旺地及化神印绶'),
-    ),
+  assert.deepEqual(
+    result.miscPatternRuleFacts.filter((item) => item.patternId.startsWith('hua-qi-')),
+    [],
   );
   assert.ok(
-    facts.some(
-      (item) =>
-        item.ganZhi === '壬子' &&
-        item.status === '条件待复核' &&
-        item.trigger.includes('日主还原') &&
-        item.trigger.includes('两项候选并存'),
-    ),
-  );
-  assert.ok(
-    facts.some(
-      (item) =>
-        item.ganZhi === '庚申' && item.status === '带忌候选' && item.trigger.includes('克制化神'),
+    !result.calculationSteps.some(
+      (item) => item.stage === '杂格取运核验' && item.description.includes('化气'),
     ),
   );
 });

@@ -21,8 +21,6 @@ export interface ExternalPatternEligibilityOptions {
   allowedFormationWuxing?: Wuxing[];
   /** 单一且无根的财星明透，可按“论杂格”原文继续列候选。 */
   allowSingleUnrootedWealth?: boolean;
-  /** 化气等逐格结构本身必需的透干，不重复当作普通财官透干阻断。 */
-  requiredPatternStems?: string[];
   /** 原文逐格例型明确允许的月令藏干透出，不重复当作另取月令用神阻断。 */
   allowedExposedMonthStems?: string[];
 }
@@ -52,9 +50,7 @@ export function canUseExternalPattern(
   }
 
   const exposedStems = [pillars.year.gan, pillars.month.gan, pillars.hour.gan];
-  const requiredPatternStems = new Set(options.requiredPatternStems ?? []);
-  const ordinaryExposedStems = exposedStems.filter((stem) => !requiredPatternStems.has(stem));
-  const exposedGods = ordinaryExposedStems.map((stem) => getTenGod(stem, dayMaster));
+  const exposedGods = exposedStems.map((stem) => getTenGod(stem, dayMaster));
   if (exposedGods.some((tenGod) => OFFICER_TEN_GODS.has(tenGod))) {
     return false;
   }
@@ -73,7 +69,7 @@ export function canUseExternalPattern(
 
   const hasExposedMonthUse = monthHiddenStems.some((stem) => {
     if (options.allowedExposedMonthStems?.includes(stem)) return false;
-    if (!ordinaryExposedStems.includes(stem)) return false;
+    if (!exposedStems.includes(stem)) return false;
     const tenGod = getTenGod(stem, dayMaster);
     if (PEER_TEN_GODS.has(tenGod)) return false;
     return !(

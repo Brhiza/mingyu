@@ -311,32 +311,64 @@ test('五行一方秀气须同时满足完整三合或三会与对应季节', ()
   assert.notEqual(identify(outOfSeason)?.name, '曲直格');
 });
 
-test('化气候选须日干参与五合、得令、完整会局且没有争合', () => {
+test('化气格自动命名失败关闭，固定五合与完整支局仍留给上层复核', () => {
   const exactExample: Pillars = {
     year: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
     month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
     day: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
     hour: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
   };
-  const pattern = identify(exactExample);
-  assert.equal(pattern?.name, '丁壬化木格');
-  assert.equal(pattern?.sourceRole, '《子平真诠》杂格候选');
-  assert.match(pattern?.description ?? '', /不.*真正合化|是否真正合化/);
+  assert.notEqual(identify(exactExample)?.name, '丁壬化木格');
 
-  assert.notEqual(
-    identify({
-      ...exactExample,
-      hour: { gan: '甲', zhi: '午', ganZhi: '甲午' },
-    })?.name,
+  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+  const completeFormationBranches = [
+    ['辰', '戌', '丑', '未'],
+    ['亥', '卯', '未', '寅'],
+    ['寅', '卯', '辰', '亥'],
+    ['寅', '午', '戌', '巳'],
+    ['巳', '午', '未', '寅'],
+    ['巳', '酉', '丑', '申'],
+    ['申', '酉', '戌', '巳'],
+    ['申', '子', '辰', '亥'],
+    ['亥', '子', '丑', '申'],
+  ] as const;
+  const disabledNames = new Set([
+    '甲己化土格',
+    '乙庚化金格',
+    '丙辛化水格',
     '丁壬化木格',
-  );
-  assert.notEqual(
-    identify({
-      ...exactExample,
-      year: { gan: '丁', zhi: '亥', ganZhi: '丁亥' },
-    })?.name,
-    '丁壬化木格',
-  );
+    '戊癸化火格',
+  ]);
+  let checked = 0;
+
+  for (const branches of completeFormationBranches) {
+    const validStemsByBranch = branches.map((branch) =>
+      stems.filter(
+        (stem) =>
+          stems.indexOf(stem) % 2 ===
+          ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'].indexOf(branch) %
+            2,
+      ),
+    );
+    for (const yearStem of validStemsByBranch[0]) {
+      for (const monthStem of validStemsByBranch[1]) {
+        for (const dayStem of validStemsByBranch[2]) {
+          for (const hourStem of validStemsByBranch[3]) {
+            checked += 1;
+            const pattern = identify({
+              year: { gan: yearStem, zhi: branches[0], ganZhi: `${yearStem}${branches[0]}` },
+              month: { gan: monthStem, zhi: branches[1], ganZhi: `${monthStem}${branches[1]}` },
+              day: { gan: dayStem, zhi: branches[2], ganZhi: `${dayStem}${branches[2]}` },
+              hour: { gan: hourStem, zhi: branches[3], ganZhi: `${hourStem}${branches[3]}` },
+            });
+            assert.equal(disabledNames.has(pattern?.name ?? ''), false);
+          }
+        }
+      }
+    }
+  }
+
+  assert.equal(checked, 5_625);
 });
 
 test('倒冲须按戊日四午或丙日三午例型，不再以两支或丁巳泛报', () => {
