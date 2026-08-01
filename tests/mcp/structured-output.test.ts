@@ -2315,9 +2315,9 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     assert.equal(ziweiFrameworkResult.isError, undefined, 'ziwei_prompt framework 不应返回错误');
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
-    assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
-    assert.match(ziweiFrameworkPrompt, /基础十二宫、星曜、四化与运限由 iztro 排盘资料提供/);
-    assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请结合宫位、星曜、四化和三方四正/);
+    assert.match(ziweiFrameworkPrompt, /【十二宫事实】/);
+    assert.match(ziweiFrameworkPrompt, /iztro 仅提供十二宫、星曜、四化与运限的排盘计算资料/);
+    assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请核对十二宫、星曜、四化、三方四正/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /四化、格局和三方四正/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
     assertPromptIsPortableTaskText(ziweiFrameworkPrompt);
@@ -2460,7 +2460,10 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.match(tarotPrompt, /核心结构：牌阵[\s\S]*牌位明细：/);
     assert.match(tarotPrompt, /牌义状态：.*尚未完成校勘/);
     assert.doesNotMatch(tarotPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
-    assert.doesNotMatch(tarotPrompt, /关键词：|牌义：|元素主题：|牌阶主题：|表示这些能量正在直接发挥作用|信息被隐藏/);
+    assert.doesNotMatch(
+      tarotPrompt,
+      /关键词：|牌义：|元素主题：|牌阶主题：|表示这些能量正在直接发挥作用|信息被隐藏/,
+    );
     assertPromptIsPortableTaskText(tarotPrompt);
 
     const lenormand = await client.callTool({
@@ -2591,7 +2594,10 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     const lenormandPrompt = String(lenormandPromptResult.structuredContent?.prompt);
     assert.match(lenormandPrompt, /占法：雷诺曼/);
     assert.match(lenormandPrompt, /牌位顺序：[\s\S]*牌位明细：/);
-    assert.match(lenormandPrompt, /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/);
+    assert.match(
+      lenormandPrompt,
+      /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/,
+    );
     assert.doesNotMatch(lenormandPrompt, /关键词：|牌义：|组合明细：/);
     assert.doesNotMatch(lenormandPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(
@@ -2645,8 +2651,14 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       confirmed.structuredContent?.result.evidenceAnalysis.coverageFact.key,
       'ssgw:interpretation-coverage',
     );
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.length, 0);
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.coverageFact.status, '存在缺口');
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.length,
+      0,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.coverageFact.status,
+      '存在缺口',
+    );
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.ritualFact.status, '已确认');
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].key,

@@ -73,14 +73,11 @@ test('紫微合盘主题只作为关系范围，不再注入固定问题与任�
     topic: 'career-wealth',
     question: '',
   });
-  assert.match(cooperationPrompt, /【问题】\n请先做整体合盘解读。/);
+  assert.match(cooperationPrompt, /【问题】\n请核对双方十二宫同支映射与跨盘四化定位事实。/);
+  assert.match(cooperationPrompt, /【任务】\n请核对双方十二宫同支映射与跨盘四化定位等已列事实/);
   assert.match(
     cooperationPrompt,
-    /【任务】\n请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。/,
-  );
-  assert.match(
-    cooperationPrompt,
-    /【输出要求】\n先直接回答【问题】，再说明互动主轴、互补点、冲突点、触发机制和现实建议。/,
+    /【输出要求】\n按“依据状态、双方十二宫事实、双向同支映射、跨盘四化定位、资料缺口、条件性后续推算”的顺序回答。/,
   );
   assert.match(cooperationPrompt, /分析主题：事业财运/);
   assert.doesNotMatch(
@@ -95,11 +92,8 @@ test('紫微合盘主题只作为关系范围，不再注入固定问题与任�
     topic: 'chat',
     question: '',
   });
-  assert.match(interactionPrompt, /【问题】\n请先做整体合盘解读。/);
-  assert.match(
-    interactionPrompt,
-    /【任务】\n请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。/,
-  );
+  assert.match(interactionPrompt, /【问题】\n请核对双方十二宫同支映射与跨盘四化定位事实。/);
+  assert.match(interactionPrompt, /【任务】\n请核对双方十二宫同支映射与跨盘四化定位等已列事实/);
   assert.doesNotMatch(interactionPrompt, /沟通盲点|整体关系匹配度/);
 });
 

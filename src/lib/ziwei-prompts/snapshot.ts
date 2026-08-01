@@ -196,10 +196,8 @@ export function buildZiweiTaskBookSnapshot(params: {
   reportContext: PromptContext;
 }) {
   const { payload, reportContext } = params;
-  const focusTaskBundle = buildFocusTaskBundle(payload, reportContext);
-  const focusPalaces = focusTaskBundle.focusPalaces;
   const isOrigin = params.payload.active_scope.scope === 'origin';
-  const evidenceSummary = buildEvidenceSummary(payload, focusPalaces, reportContext);
+  const evidenceSummary = buildEvidenceSummary(payload, payload.palaces, reportContext);
   const patternSummary = buildPatternSummary(payload);
 
   const sections = [
@@ -207,7 +205,9 @@ export function buildZiweiTaskBookSnapshot(params: {
     formatKeyValueBlock({
       分析主题: mapTopicLabel(reportContext.selected_topic),
       分析范围: reportContext.scope_label,
-      重点宫位: reportContext.palace_name ? formatPalaceName(reportContext.palace_name) : undefined,
+      问题关联宫位: reportContext.palace_name
+        ? formatPalaceName(reportContext.palace_name)
+        : undefined,
     }),
     '',
     '【本命资料】',
@@ -220,8 +220,8 @@ export function buildZiweiTaskBookSnapshot(params: {
     formatKeyValueBlock(buildTaskBookAnalysisObject(payload)),
     ...(patternSummary.length ? ['', '【命盘格局】', formatObjectList(patternSummary)] : []),
     '',
-    '【重点宫位资料】',
-    formatObjectList(focusPalaces.map((item) => buildPalaceSummary(payload, item))),
+    '【十二宫事实】',
+    formatObjectList(payload.palaces.map((item) => buildPalaceSummary(payload, item))),
     '',
     '【关键判断线索】',
     formatObjectList(evidenceSummary),

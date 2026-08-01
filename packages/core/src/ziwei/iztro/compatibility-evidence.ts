@@ -3,7 +3,34 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../../prompt-evid
 import type { AnalysisPayloadV1, MutagenName, PalaceFact, StarFact } from '../../types/analysis';
 import type { IztroAstrolabe, IztroPalace, IztroStar } from '../../types/iztro';
 
-const KEY_PALACES = new Set(['命宫', '身宫', '夫妻', '官禄', '财帛', '福德', '迁移']);
+const STANDARD_PALACES = new Set([
+  '命宫',
+  '兄弟',
+  '夫妻',
+  '子女',
+  '财帛',
+  '疾厄',
+  '迁移',
+  '交友',
+  '官禄',
+  '田宅',
+  '福德',
+  '父母',
+]);
+const EARTHLY_BRANCHES = new Set([
+  '子',
+  '丑',
+  '寅',
+  '卯',
+  '辰',
+  '巳',
+  '午',
+  '未',
+  '申',
+  '酉',
+  '戌',
+  '亥',
+]);
 
 export interface ZiweiCompatibilityOptions {
   person1Name?: string;
@@ -55,7 +82,7 @@ export interface ZiweiCompatibilityCalculationStep {
   stage:
     | '双盘输入校验'
     | '十二宫地支索引'
-    | '关键宫位叠盘'
+    | '十二宫双向叠盘'
     | '同名星曜索引'
     | '跨盘生年四化'
     | '证据汇总';
@@ -70,13 +97,13 @@ export interface ZiweiCompatibilityCalculationStep {
 
 export interface ZiweiCompatibilityCounterEvidenceFact {
   key: string;
-  type: '关键宫位叠盘覆盖' | '跨盘四化覆盖' | '静态应期边界';
+  type: '十二宫叠盘覆盖' | '跨盘四化覆盖' | '静态应期边界';
   status: '有可用证据' | '未命中' | '固有限制';
   direction?: 'person1-to-person2' | 'person2-to-person1';
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录关键宫位叠盘、跨盘四化是否形成以及静态本命双盘的应期限制；未命中不等于关系有利或不利，命中也不证明现实结果';
+  limitation: '反证事实只记录十二宫双向叠盘、跨盘四化是否形成以及静态本命双盘的应期限制；未命中不等于关系有利或不利，命中也不证明现实结果';
 }
 
 export interface ZiweiCompatibilitySummaryFact {
@@ -130,7 +157,7 @@ const CROSS_MUTAGEN_LIMITATION =
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明双方本命十二宫、地支轴位与生年四化星曜经过固定定位规则形成当前交叉事实，不证明现实关系、匹配程度、事件结果、发生概率或固定应期' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只记录关键宫位叠盘、跨盘四化是否形成以及静态本命双盘的应期限制；未命中不等于关系有利或不利，命中也不证明现实结果' as const;
+  '反证事实只记录十二宫双向叠盘、跨盘四化是否形成以及静态本命双盘的应期限制；未命中不等于关系有利或不利，命中也不证明现实结果' as const;
 const SUMMARY_LIMITATION =
   '双盘证据汇总只统计宫位叠盘与跨盘生年四化定位事实，不得按数量生成匹配分、关系概率、事件概率、吉凶结论或唯一应期' as const;
 const LIMITATION_FACT_LIMITATION =
@@ -155,12 +182,20 @@ function assertPayload(payload: AnalysisPayloadV1, label: string) {
   for (const palace of payload.palaces) {
     if (!palace.name || !palace.earthly_branch) throw new Error(`${label}宫位名称或地支缺失。`);
   }
-}
-
-function keyPalaces(payload: AnalysisPayloadV1) {
-  return payload.palaces.filter(
-    (palace) => KEY_PALACES.has(palace.name) || palace.name === '命宫' || palace.is_body_palace,
-  );
+  if (new Set(payload.palaces.map((palace) => palace.index)).size !== 12) {
+    throw new Error(`${label}必须包含十二个唯一宫位序号。`);
+  }
+  const palaceNames = new Set(payload.palaces.map((palace) => palace.name));
+  if (palaceNames.size !== 12 || [...palaceNames].some((name) => !STANDARD_PALACES.has(name))) {
+    throw new Error(`${label}必须包含十二个唯一标准宫名。`);
+  }
+  const earthlyBranches = new Set(payload.palaces.map((palace) => palace.earthly_branch));
+  if (
+    earthlyBranches.size !== 12 ||
+    [...earthlyBranches].some((branch) => !EARTHLY_BRANCHES.has(branch))
+  ) {
+    throw new Error(`${label}必须包含十二个唯一标准地支。`);
+  }
 }
 
 function palaceDisplayName(palace: PalaceFact) {
@@ -177,7 +212,7 @@ function calculateOverlays(
   people: ZiweiCompatibilityEvidenceResult['people'],
 ) {
   const targetByBranch = new Map(target.palaces.map((palace) => [palace.earthly_branch, palace]));
-  return keyPalaces(source).flatMap((sourcePalace): ZiweiPalaceOverlay[] => {
+  return source.palaces.flatMap((sourcePalace): ZiweiPalaceOverlay[] => {
     const targetPalace = targetByBranch.get(sourcePalace.earthly_branch);
     if (!targetPalace) return [];
     const sourcePalaceName = palaceDisplayName(sourcePalace);
@@ -386,19 +421,19 @@ function buildBaseCalculationSteps(params: {
     },
     {
       key: 'ziwei:compatibility:calculation:palace-overlays',
-      stage: '关键宫位叠盘',
+      stage: '十二宫双向叠盘',
       status: '已计算',
       inputs: {
-        person1KeyPalaceCount: keyPalaces(params.payload1).length,
-        person2KeyPalaceCount: keyPalaces(params.payload2).length,
+        person1PalaceCount: params.payload1.palaces.length,
+        person2PalaceCount: params.payload2.palaces.length,
       },
       result: {
         overlayCount: params.overlays.length,
         importantOverlayCount: params.overlays.filter(isImportantOverlay).length,
       },
       dependsOnStepKeys: ['ziwei:compatibility:calculation:palace-index'],
-      promptText: `双方命宫、身宫、夫妻、官禄、财帛、福德与迁移等关键宫位按同支轴位完成双向叠盘，记录${params.overlays.length}项定位事实`,
-      sources: ['紫微双盘同支宫位映射规则', '双方本命关键宫位地支资料'],
+      promptText: `双方完整十二宫按同支轴位完成双向叠盘，记录${params.overlays.length}项定位事实`,
+      sources: ['紫微双盘同支宫位映射规则', '双方本命十二宫地支资料'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -463,7 +498,7 @@ function buildCounterEvidenceFacts(params: {
     return [
       {
         key: `ziwei:compatibility:counter:palace-overlays:${direction.key}`,
-        type: '关键宫位叠盘覆盖',
+        type: '十二宫叠盘覆盖',
         status: overlays.length ? '有可用证据' : '未命中',
         direction: direction.key,
         ownerFactKeys: [
@@ -471,9 +506,9 @@ function buildCounterEvidenceFacts(params: {
           ...overlays.map((item) => item.key),
         ],
         promptText: overlays.length
-          ? `${direction.label}记录${overlays.length}项关键宫位同支叠盘事实`
-          : `${direction.label}未生成关键宫位同支叠盘事实；未命中不代表现实关系有利或不利`,
-        sources: ['双方关键宫位地支双向定位结果'],
+          ? `${direction.label}记录${overlays.length}项十二宫同支叠盘事实`
+          : `${direction.label}未生成十二宫同支叠盘事实；未命中不代表现实关系有利或不利`,
+        sources: ['双方十二宫地支双向定位结果'],
         limitation: COUNTER_FACT_LIMITATION,
       },
       {

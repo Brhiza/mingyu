@@ -124,7 +124,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeZiweiCompatib
   );
 }
 
-test('紫微双盘应按地支映射双方关键宫位', () => {
+test('紫微双盘应按地支穷举双方十二宫', () => {
   const result = analyzeZiweiCompatibility(createPayload(0, '禄'), createPayload(2, '忌'));
   const overlay = result.palaceOverlays.find(
     (item) => item.sourcePerson === 'person1' && item.sourcePalace === '命宫',
@@ -133,6 +133,7 @@ test('紫微双盘应按地支映射双方关键宫位', () => {
   assert.ok(overlay);
   assert.equal(result.key, 'ziwei:compatibility:evidence');
   assert.equal(result.status, '已计算');
+  assert.equal(result.palaceOverlays.length, 24);
   assert.equal(result.calculationSteps.length, 6);
   assert.ok(
     result.calculationSteps.every((step) =>

@@ -38,13 +38,14 @@ function assertNoEngineeringPromptText(prompt: string) {
 }
 
 function createPalace(index: number, name: string, stars: string[] = []): PalaceFact {
+  const earthlyBranches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
   return {
     index,
     name,
     is_body_palace: name === '身宫',
     is_original_palace: false,
     heavenly_stem: '甲',
-    earthly_branch: '子',
+    earthly_branch: earthlyBranches[index],
     major_stars: stars.map((star) => ({ name: star, kind: 'major' })),
     minor_stars: [],
     other_stars: [],
@@ -452,13 +453,10 @@ test('紫微运限提示词应保留分析对象和简短任务', () => {
   assert.doesNotMatch(prompt, /【分析对象优先级】/);
   assert.doesNotMatch(prompt, /【运限解读规则】/);
   assert.doesNotMatch(prompt, /【分析框架】/);
+  assert.match(prompt, /【任务】\n请核对十二宫、星曜、四化、三方四正、已校验格局与运限等已列事实/);
   assert.match(
     prompt,
-    /【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】，并给出现实建议。/,
-  );
-  assert.match(
-    prompt,
-    /【输出要求】\n使用简体中文，先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。/,
+    /【输出要求】\n使用简体中文，按“依据状态、十二宫可复算事实、已校验格局与运限事实、资料缺口、条件性后续推算”的顺序回答。/,
   );
   assert.doesNotMatch(
     prompt,
@@ -490,7 +488,7 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
 
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT['ziwei-compatibility']);
   assert.match(prompt, /【双盘关系资料】/);
-  assert.match(prompt, /宫位对应：/);
+  assert.match(prompt, /十二宫同支映射：/);
   assert.doesNotMatch(
     prompt,
     /紫微双盘结构化证据|【限制】|证据汇总|计算链概览|解释限制|反证与应期边界/,
@@ -502,10 +500,10 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
   assert.doesNotMatch(prompt, /^【解读目标】$/m);
   assert.doesNotMatch(prompt, /^【重点宫位资料】$/m);
   assert.match(prompt, /分析背景：\n/);
-  assert.match(prompt, /重点宫位资料：\n/);
+  assert.match(prompt, /十二宫事实：\n/);
 });
 
-test('紫微合盘提示词应保留超过旧上限的全部关键宫位叠盘', () => {
+test('紫微合盘提示词应穷举十二宫双向叠盘', () => {
   const primaryPayload = createPayload();
   const partnerPayload = createPayload();
   primaryPayload.palaces[1].is_body_palace = true;
@@ -519,9 +517,54 @@ test('紫微合盘提示词应保留超过旧上限的全部关键宫位叠盘',
   });
   const overlayLines = prompt.match(/^- .*同在.+轴.*$/gm) ?? [];
 
-  assert.equal(overlayLines.length, 14);
-  assert.match(prompt, /第二人官禄与第一人父母同在子轴/);
-  assert.match(prompt, /第二人福德与第一人父母同在子轴/);
+  assert.equal(overlayLines.length, 24);
+  assert.match(prompt, /第二人官禄与第一人官禄同在申轴/);
+  assert.match(prompt, /第二人福德与第一人福德同在戌轴/);
+});
+
+test('紫微本命与双盘提示词应穷举十二宫事实并关闭现实解释旁路', () => {
+  const payload = createPayload();
+  const frameworkPrompt = buildCombinedZiweiPrompt(payload, 'destiny', '', {
+    isCustomQuestion: false,
+  });
+  const customPrompt = buildCombinedZiweiPrompt(payload, 'destiny', '核对盘面事实。', {
+    isCustomQuestion: true,
+  });
+  const compatibilityFrameworkPrompt = buildCombinedZiweiCompatibilityPrompt({
+    primaryPayload: createPayload(),
+    partnerPayload: createPayload(),
+    topic: 'chat',
+    question: '',
+    isCustomQuestion: false,
+  });
+  const compatibilityCustomPrompt = buildCombinedZiweiCompatibilityPrompt({
+    primaryPayload: createPayload(),
+    partnerPayload: createPayload(),
+    topic: 'chat',
+    question: '核对双盘位置事实。',
+    isCustomQuestion: true,
+  });
+
+  assert.equal((frameworkPrompt.match(/^- 宫位：/gm) ?? []).length, 12);
+  assert.equal((customPrompt.match(/^- 宫位：/gm) ?? []).length, 12);
+  assert.equal((compatibilityFrameworkPrompt.match(/^- .*同在.+轴.*$/gm) ?? []).length, 24);
+  assert.equal((compatibilityCustomPrompt.match(/^- .*同在.+轴.*$/gm) ?? []).length, 24);
+
+  for (const prompt of [
+    frameworkPrompt,
+    customPrompt,
+    compatibilityFrameworkPrompt,
+    compatibilityCustomPrompt,
+  ]) {
+    assert.match(prompt, /具体解释体系、版本和可定位来源/);
+    assert.match(prompt, /完整星曜、宫位、庙旺、四化、三方四正、格局及运限解释规则/);
+    assert.match(prompt, /精确出生时间、地点、时区来源和资料精度/);
+    assert.match(prompt, /缺少任一项时保持事实层/);
+    assert.doesNotMatch(
+      prompt,
+      /请结合宫位、星曜、四化和三方四正直接回答|互动主轴|互补点|冲突点|现实建议|相处建议/,
+    );
+  }
 });
 
 test('紫微证据池只应输出所选流年层级的落宫与运限四化飞入证据', () => {

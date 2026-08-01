@@ -1779,7 +1779,7 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.equal(prompted.body.data.resultSummary.summaryFact.palaceOverlayCount > 0, true);
   assert.match(prompted.body.data.prompt, /【甲方盘面】/);
   assert.match(prompted.body.data.prompt, /【双盘关系资料】/);
-  assert.match(prompted.body.data.prompt, /宫位对应：/);
+  assert.match(prompted.body.data.prompt, /十二宫同支映射：/);
   assert.match(prompted.body.data.prompt, /双方长期合作关系应注意什么/);
   assert.doesNotMatch(
     prompted.body.data.prompt,
@@ -1938,7 +1938,7 @@ test('紫微公开 API prompt builder 空问题走通用问题，主题只作为
   });
 
   assert.match(prompt, /分析主题：事业财运/);
-  assert.match(prompt, /【问题】\n请先做整体解读。/);
+  assert.match(prompt, /【问题】\n请核对十二宫、星曜、四化、运限与已校验格局等已计算事实。/);
   assert.match(prompt, /【任务】/);
   assert.doesNotMatch(prompt, /主题只作为|不额外套用|解读方法|推断顺序/);
 });
@@ -1966,7 +1966,7 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
   });
 
   assert.match(prompt, /分析主题：工作变动/);
-  assert.match(prompt, /【问题】\n请先做整体解读。/);
+  assert.match(prompt, /【问题】\n请核对十二宫、星曜、四化、运限与已校验格局等已计算事实。/);
   assert.match(prompt, /【任务】/);
   assert.doesNotMatch(prompt, /主题只作为|不额外套用|解读方法|推断顺序/);
   assert.doesNotMatch(prompt, /重点参考宫位：官禄宫、迁移宫、财帛宫、命宫/);
@@ -2539,7 +2539,10 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.match(tarotPromptResponse.body.data.prompt, /核心结构：牌阵/);
   assert.match(tarotPromptResponse.body.data.prompt, /正位|逆位/);
   assert.match(tarotPromptResponse.body.data.prompt, /牌义状态：.*尚未完成校勘/);
-  assert.doesNotMatch(tarotPromptResponse.body.data.prompt, /关键词：|牌义：|元素主题：|牌阶主题：/);
+  assert.doesNotMatch(
+    tarotPromptResponse.body.data.prompt,
+    /关键词：|牌义：|元素主题：|牌阶主题：/,
+  );
   assert.doesNotMatch(
     tarotPromptResponse.body.data.prompt,
     /结构化证据|计算链|证据汇总|解释限制|解释边界/,
@@ -3457,7 +3460,10 @@ test('公开 API 奇门不生成自动应期且小六壬只保留原始时间事
   assert.equal(xiaoliuren.body.data.timingEvidence, undefined);
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.key, 'xiaoliuren:evidence');
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.status, '资料不足');
-  assert.equal(xiaoliuren.body.data.evidenceAnalysis.evidence.title, '小六壬原始时间事实与待校边界');
+  assert.equal(
+    xiaoliuren.body.data.evidenceAnalysis.evidence.title,
+    '小六壬原始时间事实与待校边界',
+  );
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationSteps.length, 0);
   const xiaoliurenCalculationStepKeys = new Set(
     xiaoliuren.body.data.evidenceAnalysis.calculationSteps.map((item: { key: string }) => item.key),
@@ -3515,7 +3521,10 @@ test('公开 API 奇门不生成自动应期且小六壬只保留原始时间事
   assert.match(xiaoliurenPrompt.body.data.prompt, /时辰序号：5（子1至亥12）/);
   assert.match(xiaoliurenPrompt.body.data.prompt, /证据链有缺口/);
   assert.match(xiaoliurenPrompt.body.data.prompt, /必须先说明采用的具体底本、版本与完整起数规则/);
-  assert.doesNotMatch(xiaoliurenPrompt.body.data.prompt, /顺数轨迹：|占得宫：|歌诀原文：|留连事难成/);
+  assert.doesNotMatch(
+    xiaoliurenPrompt.body.data.prompt,
+    /顺数轨迹：|占得宫：|歌诀原文：|留连事难成/,
+  );
   assert.doesNotMatch(xiaoliurenPrompt.body.data.prompt, /核心结构：起因|五行推进：|月令旺衰：/);
 });
 
@@ -4009,10 +4018,7 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
     crossAspectSection,
     /紧密等级|中等等级|宽松等级|和谐相位|紧张相位|最近相位|最强相位|截断/,
   );
-  assert.match(
-    body.data.prompt,
-    /核对双方本命盘、跨盘相位、跨盘落宫与【问题】涉及的计算事实/,
-  );
+  assert.match(body.data.prompt, /核对双方本命盘、跨盘相位、跨盘落宫与【问题】涉及的计算事实/);
   assert.doesNotMatch(body.data.prompt, /不得输出|不得编造|只依据/);
   assert.doesNotMatch(body.data.prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
   assert.doesNotMatch(body.data.prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);

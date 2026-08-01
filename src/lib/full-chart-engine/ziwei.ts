@@ -443,36 +443,30 @@ function buildZiweiScopePriorityText(payload: AnalysisPayloadV1) {
 }
 
 function buildZiweiOutputRequirementText() {
-  return '使用简体中文，先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。';
+  return '使用简体中文，按“依据状态、十二宫可复算事实、已校验格局与运限事实、资料缺口、条件性后续推算”的顺序回答。';
 }
 
 function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompatibility>) {
-  const overlayLines = result.palaceOverlays
-    .filter((item) =>
-      ['命宫', '身宫', '夫妻', '官禄', '财帛', '福德', '迁移'].some(
-        (name) => item.sourcePalace.includes(name) || item.targetPalace.includes(name),
-      ),
-    )
-    .map((item) => {
-      const sourceStars = item.sourceMajorStars.length
-        ? `，主星${item.sourceMajorStars.join('、')}`
-        : '';
-      const targetStars = item.targetMajorStars.length
-        ? `；对方该宫主星${item.targetMajorStars.join('、')}`
-        : '';
-      return `- ${result.people[item.sourcePerson]}${item.sourcePalace}与${result.people[item.targetPerson]}${item.targetPalace}同在${item.earthlyBranch}轴${sourceStars}${targetStars}`;
-    });
+  const overlayLines = result.palaceOverlays.map((item) => {
+    const sourceStars = item.sourceMajorStars.length
+      ? `，主星${item.sourceMajorStars.join('、')}`
+      : '';
+    const targetStars = item.targetMajorStars.length
+      ? `；对方该宫主星${item.targetMajorStars.join('、')}`
+      : '';
+    return `- ${result.people[item.sourcePerson]}${item.sourcePalace}与${result.people[item.targetPerson]}${item.targetPalace}同在${item.earthlyBranch}轴${sourceStars}${targetStars}`;
+  });
   const mutagenLines = result.crossMutagenPlacements.map(
     (item) =>
       `- ${result.people[item.sourcePerson]}${item.sourcePalace}的${item.star}生年化${item.mutagen}，对应${result.people[item.targetPerson]}${item.targetPalace}`,
   );
 
   return [
-    overlayLines.length ? '宫位对应：' : '',
+    overlayLines.length ? '十二宫同支映射：' : '',
     ...overlayLines,
     mutagenLines.length ? '跨盘四化：' : '',
     ...mutagenLines,
-    !overlayLines.length && !mutagenLines.length ? '未见可列出的宫位对应或跨盘四化。' : '',
+    !overlayLines.length && !mutagenLines.length ? '未见可列出的十二宫同支映射或跨盘四化。' : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -526,7 +520,7 @@ export function buildCombinedZiweiPrompt(
       ? []
       : [
           '',
-          '【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】，并给出现实建议。',
+          '【任务】\n请核对十二宫、星曜、四化、三方四正、已校验格局与运限等已列事实，并标明资料缺口；解释前提不完整时停在事实层。',
           '',
           `【输出要求】\n${buildZiweiOutputRequirementText()}`,
         ]),
@@ -583,7 +577,7 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   const partnerName = params.partnerName?.trim() || '第二人';
   const compatibilityTopic = params.topic || 'chat';
   const compatibilityTask =
-    '请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。';
+    '请核对双方十二宫同支映射与跨盘四化定位等已列事实，并标明资料缺口；解释前提不完整时停在事实层。';
   const compatibilityQuestion = getZiweiCompatibilityDefaultQuestion(compatibilityTopic);
 
   return [
@@ -608,7 +602,7 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
       ? []
       : [
           `【任务】\n${compatibilityTask}`,
-          '【输出要求】\n先直接回答【问题】，再说明互动主轴、互补点、冲突点、触发机制和现实建议。',
+          '【输出要求】\n按“依据状态、双方十二宫事实、双向同支映射、跨盘四化定位、资料缺口、条件性后续推算”的顺序回答。',
         ]),
   ].join('\n');
 }
