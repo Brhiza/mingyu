@@ -28,7 +28,8 @@ export const ASTROLABE_PROMPT_TOPICS = [
 
 export type AstrolabePromptTopic = (typeof ASTROLABE_PROMPT_TOPICS)[number];
 
-const ASTROLABE_GENERAL_DEFAULT_QUESTION = '请先根据这张星盘回答当前最值得关注的重点。';
+const ASTROLABE_GENERAL_DEFAULT_QUESTION =
+  '请核对这张星盘已经计算的出生资料、天体位置、宫位、相位与时间资料。';
 
 export const ASTROLABE_SHORTCUT_ACTIONS = [
   { label: '综合', topic: 'life' },
@@ -65,5 +66,5 @@ export function getAstrolabeDefaultQuestion(
 }
 
 export function buildAstrolabeTopicTask(_topic?: string) {
-  return '请结合星体、宫位和相位直接回答【问题】，并给出现实建议。';
+  return '核对【占卜信息】中的出生资料、天体位置、宫位、宫头、相位及所选作用域的计算事实；【问题】和主题入口只限定核对范围。';
 }

@@ -13,6 +13,7 @@ import type {
   AstrolabeSynastryData,
 } from 'mingyu-core/types';
 import { buildAstrolabeSynastryPrompt } from '../src/lib/astrolabe-synastry-prompt';
+import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const FIRST_INPUT: AstrolabeBirthInput = {
@@ -223,6 +224,40 @@ test('西占双盘无命中和关闭落宫时应如实记录反证', () => {
     '已关闭',
   );
   assert.match(noFacts.promptText, /明确关闭跨盘落宫计算/);
+});
+
+test('西占本命与双盘提示词在解释依据不全时应停留事实层', () => {
+  const { first, second } = buildCharts();
+  const synastry = analyzeAstrolabeSynastry(first, second);
+  const prompts = [
+    buildDivinationPrompt('astrolabe', '我们的关系会怎样？', first),
+    buildDivinationPrompt('astrolabe', '我们的关系会怎样？', first, undefined, {
+      isCustomQuestion: true,
+    }),
+    buildAstrolabeSynastryPrompt({ chart1: first, chart2: second, synastry }),
+    buildAstrolabeSynastryPrompt({
+      chart1: first,
+      chart2: second,
+      synastry,
+      question: '我们的关系会怎样？',
+      promptMode: 'custom',
+    }),
+  ];
+
+  prompts.forEach((prompt) => {
+    assert.match(prompt, /具体占星解释体系、版本和可定位来源/);
+    assert.match(prompt, /完整的行星、星座、宫位、相位及容许度解释规则/);
+    assert.match(prompt, /缺少任一项时保持事实层/);
+  });
+  prompts.slice(2).forEach(assertPromptIsPortableTaskText);
+  assert.match(prompts[0], /问题文字或主题入口不能选择所谓核心星体或重点宫位/);
+  assert.match(prompts[2], /双盘证据只证明几何关系与落宫位置/);
+  prompts.forEach((prompt) => {
+    assert.doesNotMatch(
+      prompt,
+      /本命倾向和阶段触发|分析互动主轴、互补点、张力点|关系主轴、情感与沟通模式|先直接回答【问题】/,
+    );
+  });
 });
 
 test('双盘重建与提示词应忽略双方本命盘和跨盘派生结果污染', () => {

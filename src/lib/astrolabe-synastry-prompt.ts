@@ -37,7 +37,8 @@ export function buildAstrolabeSynastryPrompt(params: {
   const synastry = rebuildAuditedAstrolabeSynastryData(params.synastry);
   const chart1 = rebuildAuditedAstrolabeData({ generation: synastry.generation.chart1 });
   const chart2 = rebuildAuditedAstrolabeData({ generation: synastry.generation.chart2 });
-  const question = params.question?.trim() || '请先整体判断双方关系中的互动主轴。';
+  const question =
+    params.question?.trim() || '请核对双方本命盘、跨盘相位和跨盘落宫中的已计算事实。';
   const baseSections = [
     buildPromptGuidanceSections('astrolabe-synastry'),
     '',
@@ -64,9 +65,9 @@ export function buildAstrolabeSynastryPrompt(params: {
     ...baseSections,
     '',
     '【任务】',
-    '结合双方本命盘、跨盘相位、跨盘落宫和【问题】，分析互动主轴、互补点、张力点与现实触发条件。',
+    '核对双方本命盘、跨盘相位、跨盘落宫与【问题】涉及的计算事实；问题文字只限定核对范围。',
     '',
     '【输出要求】',
-    '先直接回答【问题】，再说明互动主轴、互补点、张力点和现实建议，并结合相关星体、宫位、相位或落宫资料说明。',
+    '按“双方出生与计算口径、各自天体与宫位、跨盘相位几何事实、跨盘落宫事实、解释资料缺口”的顺序核对；资料不足时不生成关系主轴、互补或张力结论、现实结果、概率、应期或相处建议。',
   ].join('\n');
 }

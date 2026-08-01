@@ -2256,7 +2256,7 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
       crossAspectSection,
       /紧密等级|中等等级|宽松等级|和谐相位|紧张相位|最近相位|最强相位|截断/,
     );
-    assert.match(prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
+    assert.match(prompt, /核对双方本命盘、跨盘相位、跨盘落宫与【问题】涉及的计算事实/);
     assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
     assert.doesNotMatch(prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
     assert.doesNotMatch(prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);

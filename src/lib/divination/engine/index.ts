@@ -170,6 +170,7 @@ export function buildDivinationPrompt(
   const isJinkoujue = method === 'jinkoujue';
   const isQimen = method === 'qimen';
   const isLiuren = method === 'liuren';
+  const isAstrolabe = method === 'astrolabe';
   const outputRequirementText = isTarot
     ? '只说明可核验的项目内部牌号、牌名、牌位、正逆位、抽取顺序与随机轨迹，以及牌义版本待校边界；不得补造牌义或给出趋势与行动结论。'
     : isLenormand
@@ -188,7 +189,9 @@ export function buildDivinationPrompt(
                   ? '先核对具体底本版本、事项角色、完整取用规则和已指定用神对象是否同时齐全；缺少任一项时，只说明可复算盘面事实与资料缺口，不生成方位、应期、现实结果或行动建议。'
                   : isAlmanac
                     ? '按可用候选、条件候选和慎用候选分组说明；同组按日期先后，不生成首选、备选或唯一最佳结论；说明取舍依据与执行建议。'
-                    : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
+                    : isAstrolabe
+                      ? '按“出生与计算口径、天体与宫位、相位几何事实、时间技术计算事实、解释资料缺口”的顺序核对；未同时明确具体解释体系与版本来源、完整解释规则、判断对象与范围、出生资料来源与精度时，不生成性格、事件、吉凶、应期、概率或行动建议。'
+                      : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
   const liurenTemplateSection =
     method === 'liuren'
       ? buildSection('【问题范围】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
