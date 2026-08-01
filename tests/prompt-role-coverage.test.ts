@@ -188,6 +188,20 @@ test('生肖与太乙共享提示词应只输出可复算事实并关闭现实�
   }
 });
 
+test('梅花与小六壬指导层不得恢复现实建议旁路', () => {
+  const meihua = PROMPT_GUIDANCE_TEXT.meihua.output;
+  const xiaoliuren = PROMPT_GUIDANCE_TEXT.xiaoliuren.output;
+
+  assert.match(meihua, /主互变卦与体用可复算事实/);
+  assert.match(meihua, /不生成现实事件结论或行动建议/);
+  assert.match(xiaoliuren, /版本与规则缺口.*失败关闭边界/);
+  assert.match(xiaoliuren, /版本未闭合时停止推算/);
+
+  for (const output of [meihua, xiaoliuren]) {
+    assert.doesNotMatch(output, /问题回应|应对建议|现实建议/);
+  }
+});
+
 test('太乙未提供问题时只核对已校勘年计事实', () => {
   const prompt = buildMetaphysicsPrompt('【太乙年计】\n测试资料', undefined, {
     method: 'taiyi',
