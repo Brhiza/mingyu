@@ -5436,7 +5436,7 @@ test('MCP 生肖工具返回三会固定关系且不生成贵人、利弊或行�
     });
     assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
     const chart = (result.structuredContent as { result: Record<string, any> }).result;
-    assert.equal(chart.meeting, '三会关系（东方木）');
+    assert.equal(chart.meeting, '三会组成员关系（东方木）');
     assert.equal(chart.harmony, null);
     for (const removedField of ['noble', 'favorableRelations', 'riskRelations', 'actionSignals']) {
       assert.equal(removedField in chart, false);
@@ -5444,10 +5444,10 @@ test('MCP 生肖工具返回三会固定关系且不生成贵人、利弊或行�
     assert.ok(
       chart.evidenceAnalysis.relations.some(
         (item: { category: string; relation: string }) =>
-          item.category === '地支会合' && item.relation === '三会关系（东方木）',
+          item.category === '地支组成员' && item.relation === '三会组成员关系（东方木）',
       ),
     );
-    assert.match(chart.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
+    assert.match(chart.evidenceAnalysis.promptText, /十二地支三会组成员表/);
     assert.doesNotMatch(JSON.stringify(chart), AUTOMATIC_ZODIAC_CONCLUSION);
   });
 });

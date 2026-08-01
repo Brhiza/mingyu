@@ -5735,7 +5735,7 @@ test('公开 API 生肖流年应返回三会关系且不生成贵人、利弊或
     body: JSON.stringify({ zodiac: '虎', yearGanZhi: '丁卯' }),
   });
   assert.equal(calculate.response.status, 200);
-  assert.equal(calculate.body.data.meeting, '三会关系（东方木）');
+  assert.equal(calculate.body.data.meeting, '三会组成员关系（东方木）');
   assert.equal(calculate.body.data.harmony, null);
   for (const removedField of ['noble', 'favorableRelations', 'riskRelations', 'actionSignals']) {
     assert.equal(removedField in calculate.body.data, false);
@@ -5743,10 +5743,10 @@ test('公开 API 生肖流年应返回三会关系且不生成贵人、利弊或
   assert.ok(
     calculate.body.data.evidenceAnalysis.relations.some(
       (item: { category: string; relation: string }) =>
-        item.category === '地支会合' && item.relation === '三会关系（东方木）',
+        item.category === '地支组成员' && item.relation === '三会组成员关系（东方木）',
     ),
   );
-  assert.match(calculate.body.data.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
+  assert.match(calculate.body.data.evidenceAnalysis.promptText, /十二地支三会组成员表/);
   assert.doesNotMatch(JSON.stringify(calculate.body.data), AUTOMATIC_ZODIAC_CONCLUSION);
 });
 

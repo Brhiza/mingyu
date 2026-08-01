@@ -527,8 +527,6 @@ test('zodiac: 12个生肖年支与60个流年干支的720种组合应逐项符�
     { name: '北方水', members: ['亥', '子', '丑'] },
   ];
   const isExpectedSanxing = (a: string, b: string) =>
-    (a !== b && ['寅', '巳', '申'].includes(a) && ['寅', '巳', '申'].includes(b)) ||
-    (a !== b && ['丑', '戌', '未'].includes(a) && ['丑', '戌', '未'].includes(b)) ||
     (a === '子' && b === '卯') ||
     (a === '卯' && b === '子') ||
     (a === b && ['辰', '午', '酉', '亥'].includes(a));
@@ -579,7 +577,7 @@ test('zodiac: 12个生肖年支与60个流年干支的720种组合应逐项符�
       assert.equal(result.harmony, expectedHarmony, `${zodiacBranch}/${yearGanZhi}六合三合`);
       assert.equal(
         result.meeting,
-        sanhui ? `三会关系（${sanhui.name}）` : null,
+        sanhui ? `三会组成员关系（${sanhui.name}）` : null,
         `${zodiacBranch}/${yearGanZhi}三会`,
       );
       assert.equal(result.elementRelation.label, result.relation);
@@ -597,6 +595,21 @@ test('zodiac: 12个生肖年支与60个流年干支的720种组合应逐项符�
     }
   }
   assert.equal(caseCount, 720);
+  assert.equal(
+    core.zodiac.getZodiacYearFortune('寅', '庚申').conflicts.some((item) => item.type === '刑太岁'),
+    false,
+  );
+  assert.equal(
+    core.zodiac.getZodiacYearFortune('子', '丁卯').conflicts.some((item) => item.type === '刑太岁'),
+    true,
+  );
+  assert.deepEqual(
+    core.zodiac
+      .getZodiacYearFortune('辰', '甲辰')
+      .conflicts.filter((item) => item.type === '值太岁' || item.type === '刑太岁')
+      .map((item) => item.type),
+    ['值太岁', '刑太岁'],
+  );
 });
 
 test('zodiac: 五行生克只保留结构方向，不生成利弊分类', () => {
@@ -655,13 +668,13 @@ test('zodiac: 冲太岁只作固定关系事实，不生成综合吉凶等级', 
   assert.doesNotMatch(JSON.stringify(result), AUTOMATIC_ZODIAC_CONCLUSION);
 });
 
-test('zodiac: 三会只记录固定同组关系，不冒充贵人或吉凶结论', () => {
+test('zodiac: 三会只记录固定组成员事实，不冒充完整关系、贵人或吉凶结论', () => {
   const eastWood = core.zodiac.getZodiacYearFortune('寅', '丁卯');
-  assert.equal(eastWood.meeting, '三会关系（东方木）');
+  assert.equal(eastWood.meeting, '三会组成员关系（东方木）');
   assert.equal(eastWood.harmony, null);
   assert.ok(
     eastWood.evidenceAnalysis.supportingEvidence.some(
-      (item) => item.category === '地支会合' && item.relation === eastWood.meeting,
+      (item) => item.category === '地支组成员' && item.relation === eastWood.meeting,
     ),
   );
   assert.equal(
@@ -669,12 +682,12 @@ test('zodiac: 三会只记录固定同组关系，不冒充贵人或吉凶结论
       ?.status,
     '有可用证据',
   );
-  assert.match(eastWood.prompt, /三会：三会关系（东方木）/);
-  assert.match(eastWood.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
+  assert.match(eastWood.prompt, /三会成员：三会组成员关系（东方木）/);
+  assert.match(eastWood.evidenceAnalysis.promptText, /十二地支三会组成员表/);
   assert.doesNotMatch(eastWood.prompt, /三会贵人|构成完整三会成局|形成完整三会成局/);
 
   const southFire = core.zodiac.getZodiacYearFortune('午', '辛未');
-  assert.equal(southFire.meeting, '三会关系（南方火）');
+  assert.equal(southFire.meeting, '三会组成员关系（南方火）');
   assert.equal(southFire.harmony, '六合关系');
   assert.doesNotMatch(JSON.stringify(southFire), AUTOMATIC_ZODIAC_CONCLUSION);
 });

@@ -1,6 +1,6 @@
 /**
  * @file 生肖与流年固定关系
- * @description 由年支逐项核验值/冲/刑/害/破、流年干支五行、三合六合与三会关系及解释边界。
+ * @description 由年支逐项核验值/冲/固定刑/害/破、流年干支五行、六合固定支对与三合三会成员及解释边界。
  * 复用 ganzhi 的干支关系函数。生肖按立春为年界（调用方传入立春校正后的年柱）。
  */
 import {
@@ -11,7 +11,6 @@ import {
   isLiuchong,
   isLiuhai,
   isLiupo,
-  isSanxing,
   isLiuhe,
   isValidGanZhi,
   getBranchIndex,
@@ -21,6 +20,7 @@ import {
   EARTHLY_BRANCHES,
   SIXTY_CYCLE,
 } from '../ganzhi';
+import { isAuditedSanxingPair } from '../ganzhi/relations';
 import { analyzeZodiacEvidence as buildZodiacEvidence } from './evidence';
 export type {
   ZodiacCalculationStep,
@@ -146,11 +146,11 @@ export function getTaiSuiConflicts(zodiacBranch: string, yearBranch: string): Ta
       desc: '生肖年支与流年年支命中十二地支六冲表。',
     });
   }
-  if (isSanxing(zodiacBranch, yearBranch)) {
+  if (isAuditedSanxingPair(zodiacBranch, yearBranch)) {
     out.push({
       type: '刑太岁',
       with: yearBranch,
-      desc: '生肖年支与流年年支命中十二地支相刑表。',
+      desc: '生肖年支与流年年支命中子卯相刑固定支对或辰午酉亥自刑重复支。',
     });
   }
   if (isLiuhai(zodiacBranch, yearBranch)) {
@@ -192,7 +192,7 @@ export interface ZodiacYearFortune {
   elementRelation: ZodiacElementRelation;
   /** 两支命中的六合或三合组成员关系；不改写为现实“贵人”。 */
   harmony: string | null;
-  /** 两支同属固定三会组；只记录关系，不表示完整三会成局 */
+  /** 两支同属固定三会组；只记录成员事实，不命名为完整三会关系 */
   meeting: string | null;
   conflicts: TaiSuiConflict[];
   evidenceGrade: '轻量';
@@ -259,7 +259,7 @@ function getSanhuiRelation(zodiacBranch: string, yearBranch: string): string | n
   const group = Object.entries(SANHUI_GROUPS).find(
     ([, members]) => members.includes(zodiacBranch) && members.includes(yearBranch),
   );
-  return group ? `三会关系（${group[0]}）` : null;
+  return group ? `三会组成员关系（${group[0]}）` : null;
 }
 
 const ZODIAC_GENERATION_KEYS = new Set(['zodiacBranch', 'yearGanZhi']);
@@ -337,14 +337,14 @@ function buildZodiacYearFortune(source: ZodiacGenerationSource): ZodiacYearFortu
   const prompt = [
     `【生肖与流年关系简析】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${taiSui.star}太岁）。`,
-    `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破、三合、六合及三会判断。`,
+    `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、固定刑、害、破、六合及三合三会成员核验。`,
     `干支关系：${relation}。`,
-    harmony ? `六合或三合资料：${harmony}；只表示两支命中固定关系表。` : '',
-    meeting ? `三会：${meeting}；仅表示两支同属三会组，不表示完整三会成局。` : '',
+    harmony ? `六合或三合资料：${harmony}；六合表示固定支对，三合只表示两支同属固定组。` : '',
+    meeting ? `三会成员：${meeting}；仅表示两支同属固定组，不命名为完整三会关系或成局。` : '',
     conflicts.length
       ? `犯太岁明细：${conflicts.map((conflict) => `${conflict.type}（${conflict.desc}）`).join('；')}`
       : '',
-    `资料边界：以上只保留生肖年支、流年干支、固定地支关系与五行生克方向，不生成现实吉凶、贵人判断、行动建议或化解结论。`,
+    `资料边界：以上只保留生肖年支、流年干支、条件闭合的固定支对、三支组成员事实与五行生克方向；寅巳申、丑戌未任意二支不命名刑太岁，三合三会两支同组不等于完整关系或成局，也不生成现实吉凶、贵人判断、行动建议或化解结论。`,
   ]
     .filter(Boolean)
     .join('\n');

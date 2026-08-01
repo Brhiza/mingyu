@@ -690,8 +690,8 @@ const systems: SystemCapability[] = [
       { id: 'yearGanZhi', label: '流年干支', type: 'text', required: false },
     ],
     outputs: [
-      '值冲刑害破关系',
-      '三合六合三会关系',
+      '值冲固定刑害破关系',
+      '六合固定支对与三合三会成员事实',
       '年干五行辅助关系',
       '计算链',
       '主证辅证反证',
@@ -705,7 +705,9 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: ['生肖流年是只使用出生年支的轻量关系模型，不替代完整八字或现实资料。'],
+    notes: [
+      '生肖流年是只使用出生年支的轻量关系模型，不替代完整八字或现实资料；寅巳申、丑戌未任意二支不命名刑太岁，三合三会两支同组只记录成员事实。',
+    ],
   },
   {
     id: 'taiyi',

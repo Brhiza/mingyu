@@ -6,7 +6,7 @@ import { getBranchWuxing, getStemWuxing } from '../ganzhi';
 export interface ZodiacRelationEvidence {
   key: string;
   status: '已命中';
-  category: '流年同支' | '地支冲突' | '地支会合' | '年干五行';
+  category: '流年同支' | '地支冲突' | '地支会合' | '地支组成员' | '年干五行';
   relation: string;
   source: string;
   sources: string[];
@@ -117,8 +117,8 @@ function conflictEvidence(conflict: TaiSuiConflict, zodiacBranch: string): Zodia
     status: '已命中',
     category: conflict.type === '值太岁' ? '流年同支' : '地支冲突',
     relation: conflict.type,
-    source: '生肖年支与流年年支的同支、六冲、相刑、六害、六破关系',
-    sources: ['十二地支同支、六冲、相刑、六害与六破固定关系表', '干支关系公共规则'],
+    source: '生肖年支与流年年支的同支、六冲、固定相刑、六害、六破关系',
+    sources: ['十二地支同支、六冲、固定相刑、六害与六破固定关系表', '干支关系公共规则'],
     role: '主证',
     detail: conflict.desc,
     operands: [
@@ -137,7 +137,9 @@ function buildCounterEvidenceFacts(
   const conflictRelations = relations.filter(
     (relation) => relation.category === '流年同支' || relation.category === '地支冲突',
   );
-  const harmonyRelations = relations.filter((relation) => relation.category === '地支会合');
+  const harmonyRelations = relations.filter(
+    (relation) => relation.category === '地支会合' || relation.category === '地支组成员',
+  );
   return [
     {
       key: 'zodiac:counter:tai-sui-relations',
@@ -150,7 +152,7 @@ function buildCounterEvidenceFacts(
       promptText: conflictRelations.length
         ? `命中${conflictRelations.length}项值、冲、刑、害或破关系，并保留逐项关系事实`
         : '本年未命中值、冲、刑、害、破关系，不应为了形成结论而补造“犯太岁”',
-      sources: ['生肖年支与流年年支的同支、六冲、相刑、六害和六破逐项核验'],
+      sources: ['生肖年支与流年年支的同支、六冲、固定相刑、六害和六破逐项核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
     {
@@ -162,9 +164,9 @@ function buildCounterEvidenceFacts(
         ? harmonyRelations.map((relation) => relation.key)
         : ['zodiac:calculation:branch-relations'],
       promptText: harmonyRelations.length
-        ? `命中${harmonyRelations.length}项六合、三合或三会关系，并保留逐项关系事实`
-        : '本年未命中六合、三合或三会关系，不补造生肖贵人或会合关系',
-      sources: ['生肖年支与流年年支的六合、三合、三会逐项核验'],
+        ? `命中${harmonyRelations.length}项六合固定支对或三合、三会组成员资料，并保留逐项关系事实`
+        : '本年未命中六合固定支对或三合、三会组成员资料，不补造生肖贵人或会合关系',
+      sources: ['生肖年支与流年年支的六合固定支对、三合三会组成员逐项核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
     {
@@ -190,7 +192,7 @@ function buildCounterSummaryFact(
     factKeys: unmatched.map((fact) => fact.key),
     promptText: unmatched.length
       ? `未命中${unmatched.map((fact) => fact.type).join('、')}；未命中不代表现实有利或不利，只按已有关系事实解释`
-      : '值冲刑害破与三合六合三会均有可列关系；不得据命中数量生成吉凶或概率结论',
+      : '值冲固定刑害破、六合固定支对与三合三会组成员均有可列资料；不得据命中数量生成吉凶或概率结论',
     sources: ['太岁关系覆盖与三合六合三会覆盖逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
@@ -214,7 +216,7 @@ function buildLimitationFacts(
       key: 'zodiac:limitation:relation-tables',
       type: '关系表边界',
       promptText:
-        '值、冲、刑、害、破、三合、六合和三会是传统关系分类，不是现代统计概率或事件因果证明',
+        '值、冲、固定刑、害、破与六合固定支对是传统关系分类；寅巳申、丑戌未任意二支不命名相刑，两支同属三合或三会组只记录成员事实，不等于完整关系或成局，也都不是现代统计概率或事件因果证明',
       ownerFactKeys: [
         'zodiac:calculation:branch-relations',
         ...relations
@@ -310,10 +312,17 @@ export function analyzeZodiacEvidence(
           {
             key: `关系:${data.harmony}:${data.zodiacBranch}:${data.yearBranch}`,
             status: '已命中' as const,
-            category: '地支会合' as const,
+            category: data.harmony.startsWith('六合')
+              ? ('地支会合' as const)
+              : ('地支组成员' as const),
             relation: data.harmony,
-            source: '生肖年支与流年年支的六合或三合关系',
-            sources: ['十二地支六合与三合固定关系表', '干支关系公共规则'],
+            source: data.harmony.startsWith('六合')
+              ? '生肖年支与流年年支命中六合固定支对'
+              : '生肖年支与流年年支同属固定三合组',
+            sources: [
+              data.harmony.startsWith('六合') ? '十二地支六合固定支对表' : '十二地支三合组成员表',
+              '干支关系公共规则',
+            ],
             role: '辅证' as const,
             detail: '只表示两支命中六合或同属三合组，不证明完整成局、现实助力或人物出现。',
             operands: [
@@ -341,10 +350,10 @@ export function analyzeZodiacEvidence(
           {
             key: `关系:${data.meeting}:${data.zodiacBranch}:${data.yearBranch}`,
             status: '已命中' as const,
-            category: '地支会合' as const,
+            category: '地支组成员' as const,
             relation: data.meeting,
             source: '生肖年支与流年年支同属固定三会组',
-            sources: ['十二地支三会固定关系表', '干支关系公共规则'],
+            sources: ['十二地支三会组成员表', '干支关系公共规则'],
             role: '辅证' as const,
             detail: '只表示两支同属三会组，不表示三支齐全、成局或成化。',
             operands: [
@@ -360,7 +369,7 @@ export function analyzeZodiacEvidence(
               },
             ],
             rule: '十二地支三会组成员关系命中；两支不等同完整三会成局',
-            promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验，同属${data.meeting.replace(/^三会关系（|）$/g, '')}三会组，记录为${data.meeting}；两支不等同完整三会成局`,
+            promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验，同属${data.meeting.replace(/^三会组成员关系（|）$/g, '')}三会组，记录为${data.meeting}；两支不等同完整三会关系或成局`,
             limitation: RELATION_FACT_LIMITATION,
           },
         ]
@@ -423,7 +432,7 @@ export function analyzeZodiacEvidence(
         meetingRelation: data.meeting ?? '未命中',
       },
       dependsOnStepKeys: ['zodiac:calculation:branch', 'zodiac:calculation:year'],
-      promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验同支、六冲、相刑、六害、六破、六合、三合与三会`,
+      promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验同支、六冲、固定相刑、六害、六破、六合固定支对与三合三会组成员`,
       sources: ['十二地支固定关系表', '干支关系公共规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -466,7 +475,7 @@ export function analyzeZodiacEvidence(
   const sources: ZodiacEvidenceAnalysis['sources'] = [
     {
       title: '十二地支关系表',
-      evidence: '同支、六冲、相刑、六害、六破、六合、三合与三会的固定关系',
+      evidence: '同支、六冲、固定相刑、六害、六破、六合固定支对与三合三会组成员表',
       role: '传统关系表',
     },
     {
@@ -559,7 +568,7 @@ export function analyzeZodiacEvidence(
     promptText,
     methodology: [
       '先只计算生肖年支与流年年支的固定关系，不混入完整八字结论。',
-      '冲突关系作为主证，三合、六合、三会与年干五行作为辅证，未命中关系保留反证。',
+      '冲突关系作为主证，六合固定支对、三合三会组成员与年干五行作为辅证，未命中关系保留反证。',
       '所有传统关系只保留可复算的命中事实，不转换为利弊分类、现实人物、行动建议、分数、概率或必然事件。',
     ],
   };
