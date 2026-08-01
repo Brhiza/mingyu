@@ -341,16 +341,16 @@ export function getDivinationSummaryBlocks(
       const xiaoliuren = rebuildAuditedXiaoliurenData(data as XiaoliurenData);
       const evidence = xiaoliuren.evidenceAnalysis!;
       return {
-        title: '小六壬起课结果',
+        title: '小六壬原始时间事实',
         tags: [
           `起课方式：${xiaoliuren.methodLabel}`,
-          `占得宫：${xiaoliuren.primary.name}`,
           `时辰：${xiaoliuren.hourLabel}`,
+          `来源状态：${evidence.summaryFact.status}`,
         ],
         lines: [
-          wrapMainEvidence(evidence.primaryFact.promptText),
-          `顺数轨迹：月宫${xiaoliuren.sequence.month.name}；日宫${xiaoliuren.sequence.day.name}；时宫${xiaoliuren.sequence.hour.name}`,
+          `农历事实：${xiaoliuren.isLeapMonth ? '闰' : ''}${xiaoliuren.lunarMonth}月${xiaoliuren.lunarDay}日；${xiaoliuren.hourLabel}；时辰序号${xiaoliuren.calculation.hourNumber}`,
           `历法口径：${xiaoliuren.calculation.dayBoundary}；${xiaoliuren.calculation.leapMonthRule}`,
+          evidence.calculationFact.limitation,
         ].filter(Boolean),
       };
     }

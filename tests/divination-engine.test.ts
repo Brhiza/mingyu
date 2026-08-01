@@ -2746,7 +2746,7 @@ test('占卜引擎梅花数字起卦只接受十进制正整数文本', async ()
   );
 });
 
-test('小六壬只按时间起课，并生成可复核顺数与时宫提示词', async () => {
+test('小六壬只按时间起课，并只向提示词提供原始时间事实', async () => {
   const timeSession = await generateDivinationSession(
     buildDraft({
       method: 'xiaoliuren',
@@ -2758,17 +2758,16 @@ test('小六壬只按时间起课，并生成可复核顺数与时宫提示词',
 
   assert.equal(timeSession.method, 'xiaoliuren');
   assert.match(timeSession.prompt, /占法：小六壬/);
-  assert.match(timeSession.prompt, /顺数轨迹：月宫.*；日宫.*；时宫/);
-  assert.match(timeSession.prompt, /占得宫：/);
-  assert.match(timeSession.prompt, /歌诀原文：/);
-  assert.match(timeSession.prompt, /计算链：/);
-  assert.match(timeSession.prompt, /解释限制：/);
+  assert.match(timeSession.prompt, /时辰序号：\d+（子1至亥12）/);
+  assert.match(timeSession.prompt, /证据链有缺口/);
+  assert.match(timeSession.prompt, /本次不自动顺数、不提供落宫结论或六宫歌诀/);
+  assert.doesNotMatch(timeSession.prompt, /顺数轨迹：|占得宫：|歌诀原文：/);
   assert.doesNotMatch(timeSession.prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
 });
 
 test('小六壬底层算法应拒绝已移除的数字起课', () => {
   assert.throws(
     () => generateXiaoliuren({ method: 'number' as never }),
-    /当前仅保留有明确顺数规则的时间起课/,
+    /只保留时间原始事实，不支持其他起课方式/,
   );
 });

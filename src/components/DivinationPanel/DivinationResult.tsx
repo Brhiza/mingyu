@@ -9,7 +9,6 @@ import type {
   LiurenPlateItem,
   LiurenTransmission,
   XiaoliurenData,
-  XiaoliurenPalaceDetail,
 } from '@/types/divination';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import { AiChatPanel } from '@/components/AiChatPanel';
@@ -52,24 +51,6 @@ function findLiurenTransmissionStage(
   return transmissions.find((item) => item.branch === branch)?.stage || null;
 }
 
-function XiaoliurenPalaceCard(props: {
-  label: string;
-  detail: XiaoliurenPalaceDetail;
-  primary?: boolean;
-}) {
-  const { label, detail, primary = false } = props;
-
-  return (
-    <article className="xiaoliuren-stage-card">
-      <div className="xiaoliuren-stage-head">
-        <span>{label}</span>
-        <strong>{detail.name}</strong>
-      </div>
-      {primary ? <p>{detail.verse}</p> : <small>顺数中间位置</small>}
-    </article>
-  );
-}
-
 function XiaoliurenBoard({ data }: { data: XiaoliurenData }) {
   return (
     <div className="divination-extra-panel xiaoliuren-board">
@@ -81,21 +62,21 @@ function XiaoliurenBoard({ data }: { data: XiaoliurenData }) {
         </span>
       </div>
 
-      <div className="xiaoliuren-card-grid">
-        <XiaoliurenPalaceCard label="月宫" detail={data.sequence.month} />
-        <XiaoliurenPalaceCard label="日宫" detail={data.sequence.day} />
-        <XiaoliurenPalaceCard label="时宫" detail={data.sequence.hour} primary />
-      </div>
-
       <div className="xiaoliuren-overview-grid">
         <div className="xiaoliuren-overview-item">
-          <span>占得宫</span>
-          <strong>{data.primary.name}</strong>
+          <span>原始时辰事实</span>
+          <strong>{data.hourLabel}</strong>
+          <p>时辰序号 {data.calculation.hourNumber}（子1至亥12）</p>
         </div>
         <div className="xiaoliuren-overview-item">
           <span>历法口径</span>
           <strong>{data.calculation.dayBoundary}</strong>
           <p>{data.calculation.leapMonthRule}</p>
+        </div>
+        <div className="xiaoliuren-overview-item">
+          <span>推算状态</span>
+          <strong>规则待校</strong>
+          <p>固定底本未校定，未自动落宫或提供歌诀</p>
         </div>
       </div>
     </div>

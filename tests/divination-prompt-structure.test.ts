@@ -906,7 +906,7 @@ test('梅花提示词只使用原始起卦资料重建，不吸收完整旧盘�
   );
 });
 
-test('小六壬提示词只保留时宫主证、顺数计算和规则边界', () => {
+test('小六壬提示词只保留原始时间事实和待校边界', () => {
   const prompt = buildDivinationPrompt(
     'xiaoliuren',
     '这件事接下来该怎么推进？',
@@ -915,16 +915,13 @@ test('小六壬提示词只保留时宫主证、顺数计算和规则边界', ()
   );
 
   assert.match(prompt, /占法：小六壬/);
-  assert.match(prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
-  assert.match(prompt, /占得宫：留连/);
-  assert.match(prompt, /歌诀原文：留连事难成/);
-  assert.match(prompt, /计算链：正月从大安起/);
+  assert.match(prompt, /时辰序号：5（子1至亥12）/);
   assert.match(prompt, /历法口径：东八区民用日零点换日；闰月沿用同名月序/);
-  assert.match(prompt, /署名不作为已证实的古籍归属/);
-  assert.match(prompt, /月宫和日宫只是顺数中间位置/);
+  assert.match(prompt, /固定底本、具体版本和页码/);
+  assert.match(prompt, /必须先说明采用的具体底本、版本与完整起数规则/);
   assert.doesNotMatch(
     prompt,
-    /核心结构：起因|五行推进：|月令旺衰：|日干六亲：|课盘神煞：|应期参考：/,
+    /顺数轨迹：|占得宫：|歌诀原文：|留连事难成|核心结构：起因|五行推进：|月令旺衰：|日干六亲：|课盘神煞：|应期参考：/,
   );
 });
 
@@ -935,11 +932,10 @@ test('小六壬提示词从时间戳重建，不吸收旧三宫、歌诀与证�
   const polluted = structuredClone(clean);
   polluted.methodLabel = '伪造起课法';
   polluted.ganzhi.day = '甲子';
-  polluted.sequence.month = polluted.palaceOrder[0]!;
-  polluted.sequence.day = polluted.palaceOrder[0]!;
-  polluted.sequence.hour = { ...polluted.palaceOrder[0]!, verse: '伪造时宫歌诀' };
-  polluted.primary = { ...polluted.palaceOrder[0]!, verse: '伪造主证歌诀' };
-  polluted.evidenceAnalysis!.primaryFact.promptText = '伪造旧主证';
+  Object.assign(polluted, {
+    sequence: { month: '伪造月宫', day: '伪造日宫', hour: '伪造时宫' },
+    primary: { name: '伪造占得宫', verse: '伪造主证歌诀' },
+  });
   polluted.evidenceAnalysis!.promptText = '伪造旧证据';
 
   const cleanPrompt = buildDivinationPrompt(

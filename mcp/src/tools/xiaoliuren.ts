@@ -38,7 +38,7 @@ export function registerXiaoliurenTool(server: McpServer) {
     'divine_xiaoliuren',
     {
       description:
-        '小六壬通行时间课：按农历月、日、时辰逐步顺数，返回时宫歌诀与来源、历法和解释限制',
+        '小六壬原始时间事实：返回时间、干支、农历月日、时辰序号及版本边界，不自动落宫或提供歌诀',
       inputSchema: xiaoliurenSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -56,7 +56,7 @@ export function registerXiaoliurenTool(server: McpServer) {
     'xiaoliuren_prompt',
     {
       description:
-        '小六壬起课并生成结构化 AI 解读提示词：一次调用返回课盘结果和可直接复制给 AI 的提示词',
+        '生成小六壬原始时间事实与待校边界提示词；AI 须先明确具体版本和规则才能继续推算',
       inputSchema: xiaoliurenPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('小六壬课盘数据'),

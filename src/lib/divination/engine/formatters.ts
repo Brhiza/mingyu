@@ -470,13 +470,10 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
   return [
     '占法：小六壬',
     `时间干支：${audited.ganzhi.year}年 ${audited.ganzhi.month}月 ${audited.ganzhi.day}日 ${audited.ganzhi.hour}时；农历${audited.isLeapMonth ? '闰' : ''}${audited.lunarMonth}月${audited.lunarDay}日，${audited.hourLabel}`,
-    `顺数轨迹：月宫${audited.sequence.month.name}；日宫${audited.sequence.day.name}；时宫${audited.sequence.hour.name}`,
-    `占得宫：${audited.primary.name}`,
-    `歌诀原文：${audited.primary.verse}`,
-    `计算链：${evidenceAnalysis.calculationFact.promptText}`,
+    `时辰序号：${audited.calculation.hourNumber}（子1至亥12）`,
     `历法口径：${audited.calculation.dayBoundary}；${audited.calculation.leapMonthRule}`,
-    `来源状态：${evidenceAnalysis.sources.map((item) => `${item.title}：${item.evidence}`).join('；')}`,
-    `解释限制：${evidenceAnalysis.limitations.join('；')}`,
+    `来源状态：${evidenceAnalysis.summaryFact.status}；${evidenceAnalysis.sources.find((item) => item.role === '来源限制')?.evidence ?? ''}`,
+    `推算边界：${evidenceAnalysis.calculationFact.limitation}`,
   ]
     .filter(Boolean)
     .join('\n');

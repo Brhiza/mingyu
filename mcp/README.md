@@ -181,9 +181,9 @@ npm run mcp
 
 `customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_xiaoliuren`、`xiaoliuren_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`。
 
-### 小六壬数字起课参数
+### 小六壬时间输入
 
-小六壬工具当前只支持通行时间课；不传 `xiaoliurenMethod` 时默认按当前时间起课，也可用 `customDate` 指定时间。结果返回月、日、时顺数轨迹，以时宫为占得宫，并附歌诀和规则边界。
+小六壬工具当前只接受时间输入；不传 `xiaoliurenMethod` 时使用当前时间，也可用 `customDate` 指定时间。结果只返回时间、干支、农历月日、时辰序号和版本边界；固定底本、具体版本及页码校定前，不自动顺数、落宫或提供六宫歌诀。
 
 ### 黄历择日参数
 

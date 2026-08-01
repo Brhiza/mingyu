@@ -962,10 +962,12 @@ test('公开 API 小六壬只接受时间起课并拒绝已移除参数', async 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(body.data.method, 'time');
-  assert.equal(body.data.sequence.month.name, '空亡');
-  assert.equal(body.data.sequence.day.name, '赤口');
-  assert.equal(body.data.sequence.hour.name, '留连');
-  assert.equal(body.data.primary.name, '留连');
+  assert.equal(body.data.lunarMonth, 6);
+  assert.equal(body.data.lunarDay, 5);
+  assert.equal(body.data.hourLabel, '辰时');
+  assert.equal(body.data.calculation.hourNumber, 5);
+  assert.equal(body.data.sequence, undefined);
+  assert.equal(body.data.primary, undefined);
 });
 
 test('公开 API 应支持八字排盘', async () => {
@@ -3438,7 +3440,7 @@ test('公开 API customDate 不应接受非 ISO 或会被 JS 自动进位的无�
   }
 });
 
-test('公开 API 奇门不生成自动应期且小六壬保留顺数证据', async () => {
+test('公开 API 奇门不生成自动应期且小六壬只保留原始时间事实', async () => {
   const qimen = await callApi('divination/qimen', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -3458,12 +3460,13 @@ test('公开 API 奇门不生成自动应期且小六壬保留顺数证据', asy
     body: JSON.stringify({ customDate: '2025-01-01T08:00:00+08:00' }),
   });
   assert.equal(xiaoliuren.response.status, 200);
-  assert.equal(xiaoliuren.body.data.primary.name, xiaoliuren.body.data.sequence.hour.name);
+  assert.equal(xiaoliuren.body.data.primary, undefined);
+  assert.equal(xiaoliuren.body.data.sequence, undefined);
   assert.equal(xiaoliuren.body.data.timingEvidence, undefined);
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.key, 'xiaoliuren:evidence');
-  assert.equal(xiaoliuren.body.data.evidenceAnalysis.status, '已计算');
-  assert.equal(xiaoliuren.body.data.evidenceAnalysis.evidence.title, '小六壬通行时间课结构化证据');
-  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationSteps.length, 3);
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.status, '资料不足');
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.evidence.title, '小六壬原始时间事实与待校边界');
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationSteps.length, 0);
   const xiaoliurenCalculationStepKeys = new Set(
     xiaoliuren.body.data.evidenceAnalysis.calculationSteps.map((item: { key: string }) => item.key),
   );
@@ -3473,32 +3476,12 @@ test('公开 API 奇门不生成自动应期且小六壬保留顺数证据', asy
         item.dependsOnStepKeys.every((key) => xiaoliurenCalculationStepKeys.has(key)),
     ),
   );
-  assert.deepEqual(
-    xiaoliuren.body.data.evidenceAnalysis.palaceFacts.map(
-      (item: { role: string; level: string }) => [item.role, item.level],
-    ),
-    [
-      ['月宫', '计算轨迹'],
-      ['日宫', '计算轨迹'],
-      ['时宫', '主证'],
-    ],
-  );
+  assert.deepEqual(xiaoliuren.body.data.evidenceAnalysis.palaceFacts, []);
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.primaryFact, null);
   assertPromptIsPortableTaskText(xiaoliuren.body.data.evidenceAnalysis.promptText);
-  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationFact.status, '完整');
-  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationFact.steps.length, 3);
-  assert.ok(
-    xiaoliuren.body.data.evidenceAnalysis.calculationFact.steps.every(
-      (item: Record<string, unknown>) =>
-        item.key &&
-        item.stage &&
-        item.formula &&
-        item.status === '已计算' &&
-        item.palace &&
-        item.source &&
-        item.limitation,
-    ),
-  );
-  assert.equal(xiaoliuren.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationFact.status, '规则待校');
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationFact.steps.length, 0);
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
   assert.equal(
     xiaoliuren.body.data.evidenceAnalysis.summaryFact.calculationStepCount,
     xiaoliuren.body.data.evidenceAnalysis.calculationSteps.length,
@@ -3507,7 +3490,7 @@ test('公开 API 奇门不生成自动应期且小六壬保留顺数证据', asy
     xiaoliuren.body.data.evidenceAnalysis.summaryFact.palaceFactCount,
     xiaoliuren.body.data.evidenceAnalysis.palaceFacts.length,
   );
-  assert.equal(xiaoliuren.body.data.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.limitationFacts.length, 4);
   assert.equal(
     xiaoliuren.body.data.evidenceAnalysis.limitations.length,
     xiaoliuren.body.data.evidenceAnalysis.limitationFacts.length,
@@ -3537,11 +3520,10 @@ test('公开 API 奇门不生成自动应期且小六壬保留顺数证据', asy
   });
   assert.equal(xiaoliurenPrompt.response.status, 200);
   assert.match(xiaoliurenPrompt.body.data.prompt, /占法：小六壬/);
-  assert.match(xiaoliurenPrompt.body.data.prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
-  assert.match(xiaoliurenPrompt.body.data.prompt, /占得宫：留连/);
-  assert.match(xiaoliurenPrompt.body.data.prompt, /歌诀原文：留连事难成/);
-  assert.match(xiaoliurenPrompt.body.data.prompt, /计算链：/);
-  assert.match(xiaoliurenPrompt.body.data.prompt, /解释限制：/);
+  assert.match(xiaoliurenPrompt.body.data.prompt, /时辰序号：5（子1至亥12）/);
+  assert.match(xiaoliurenPrompt.body.data.prompt, /证据链有缺口/);
+  assert.match(xiaoliurenPrompt.body.data.prompt, /必须先说明采用的具体底本、版本与完整起数规则/);
+  assert.doesNotMatch(xiaoliurenPrompt.body.data.prompt, /顺数轨迹：|占得宫：|歌诀原文：|留连事难成/);
   assert.doesNotMatch(xiaoliurenPrompt.body.data.prompt, /核心结构：起因|五行推进：|月令旺衰：/);
 });
 

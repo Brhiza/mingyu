@@ -409,7 +409,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用时请显式设置正常 `User-Agent`，例如 `curl/8.0.0` 或业务自己的客户端名称。
 - 梅花易数 `method` 支持 `time`、`number`、`random`、`timeTrigram`。数字起卦使用 `number`；`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。公开证据、提示词、摘要和辅助分析只保留时间、方法、用户数字或可重放随机轨迹作为原始输入，主互变、动爻、体用、旺衰与旧证据全部重新计算；随机轨迹缺失、矛盾、样本数不符或种子无法复算时明确拒绝。
 - 梅花排盘结果的 `evidenceAnalysis` 返回主卦起因、互卦过程、变卦结果三阶段体用关系、月建旺衰、推进变化、支持项、限制项和触发条件。动爻与卦数只保留为层位和取数旁证，不机械换算绝对日期，也不输出吉凶总分或成功率；公开 `analyzeMeihuaEvidence` 同样先执行审核重建，不采信调用方附带的派生盘面。
-- 小六壬 `xiaoliurenMethod` 当前仅支持 `time`（默认）；可用 `customDate` 指定起课时间。数字、随机、流派参数已移除，因为未取得足以支持这些扩展的可靠出处。证据与提示词只保留时间起课标识和时间戳作为原始输入，农历、时辰、月日时三宫、歌诀与证据均重新计算，不信任旧缓存派生字段。
+- 小六壬 `xiaoliurenMethod` 当前仅支持 `time`（默认）；可用 `customDate` 指定起课时间。公开结果只提供重新换算的时间、干支、农历月日、时辰序号和历法口径。俗传顺数、落宫、六宫歌诀以及数字、随机和流派扩展因固定底本、具体版本与页码未闭合而失败关闭；提示词要求先明确采用的版本和完整规则后再继续推算。
 - 金口诀 `jinkoujueMethod` 支持 `time`、`number`、`random`，数字起课时使用 `jinkoujueNumber`；排盘结果含地分、将神、贵神、人元四位、取用主线与结构化证据。证据与提示词会从起课时间、用户数字或可重放随机轨迹重新计算，不信任旧缓存中的四位、动爻和派生证据；随机轨迹缺失或互相矛盾时明确拒绝。
 - 塔罗 `spreadType` 支持 `single`、`three`、`love`、`career`、`decision`、`celtic`、`chakra`、`year`、`mindBodySpirit`、`horseshoe`。
 - 六爻 `liuyaoTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`、`guaishen`。

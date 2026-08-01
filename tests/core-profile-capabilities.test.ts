@@ -268,7 +268,7 @@ test('能力清单可序列化且返回副本', () => {
   assert.equal(first.version, packageJson.version, '能力清单版本必须与核心包版本一致');
 });
 
-test('小六壬能力清单只公开可核验的时间起课', () => {
+test('小六壬能力清单只公开可核验的原始时间事实', () => {
   const date = new Date('2026-07-11T08:00:00+08:00');
   const result = generateXiaoliuren({ method: 'time', customDate: date });
   const capability = getSystemCapability('xiaoliuren');
@@ -280,6 +280,8 @@ test('小六壬能力清单只公开可核验的时间起课', () => {
   assert.equal(capability?.supports.seed, false);
   assert.equal(capability?.supports.replay, false);
   assert.equal(capability?.supports.customRandomSource, false);
-  assert.ok(capability?.outputs.includes('时宫主证'));
-  assert.equal(result.primary.name, result.sequence.hour.name);
+  assert.ok(capability?.outputs.includes('时辰及序号'));
+  assert.ok(capability?.outputs.includes('版本待校说明'));
+  assert.equal('primary' in result, false);
+  assert.equal('sequence' in result, false);
 });

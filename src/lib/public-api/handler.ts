@@ -278,7 +278,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
   number: { type: 'integer', minimum: 1 },
   xiaoliurenMethod: {
     enum: ['time'],
-    description: '小六壬当前仅保留可核验的通行时间起课。',
+    description: '小六壬当前只提供可核验的原始时间事实，不自动落宫或提供歌诀。',
   },
   jinkoujueMethod: { enum: ['time', 'number', 'random'] },
   jinkoujueNumber: { type: 'integer', minimum: 1 },

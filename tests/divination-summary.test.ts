@@ -70,7 +70,7 @@ test('奇门摘要应统一重建派生资料，不复活旧缓存污染', () =>
   );
 });
 
-test('小六壬摘要应展示时宫主证和顺数轨迹', () => {
+test('小六壬摘要只展示原始时间事实和待校状态', () => {
   const data = generateXiaoliuren({
     method: 'time',
     customDate: new Date('2025-06-29T08:00:00+08:00'),
@@ -78,18 +78,17 @@ test('小六壬摘要应展示时宫主证和顺数轨迹', () => {
   const summary = getDivinationSummaryBlocks('xiaoliuren', data);
   const text = [...summary.tags, ...summary.lines].join('\n');
 
-  assert.match(text, /时宫留连|占得宫：留连/);
-  assert.match(text, /月宫空亡.*日宫赤口.*时宫留连/);
+  assert.match(text, /时辰：辰时|时辰序号5/);
+  assert.match(text, /来源状态：证据链有缺口/);
   assert.match(text, /零点换日|闰月沿用同名月序/);
-  assert.doesNotMatch(text, /起因|过程|五行推进|月令旺衰|六亲|旬空|驿马|桃花/);
+  assert.doesNotMatch(text, /占得宫|顺数轨迹|留连事难成|五行推进|月令旺衰|六亲|旬空|驿马|桃花/);
 
   const polluted = structuredClone(data);
   polluted.methodLabel = '伪造起课法';
-  polluted.sequence.month = polluted.palaceOrder[0]!;
-  polluted.sequence.day = polluted.palaceOrder[0]!;
-  polluted.sequence.hour = { ...polluted.palaceOrder[0]!, verse: '伪造时宫歌诀' };
-  polluted.primary = { ...polluted.palaceOrder[0]!, verse: '伪造主证歌诀' };
-  polluted.evidenceAnalysis!.primaryFact.promptText = '伪造旧主证';
+  Object.assign(polluted, {
+    sequence: { month: '伪造月宫', day: '伪造日宫', hour: '伪造时宫' },
+    primary: { name: '伪造占得宫', verse: '伪造主证歌诀' },
+  });
 
   const rebuilt = getDivinationSummaryBlocks('xiaoliuren', polluted);
   assert.deepEqual(rebuilt, summary);

@@ -35,12 +35,6 @@ export interface MeihuaSettings extends RandomOptions {
   number?: number;
 }
 
-export interface XiaoliurenPalaceDetail {
-  name: '大安' | '留连' | '速喜' | '赤口' | '小吉' | '空亡';
-  index: number;
-  verse: string;
-}
-
 export interface XiaoliurenData {
   meta?: CoreResultMeta;
   method: XiaoliurenDivinationMethod;
@@ -52,27 +46,14 @@ export interface XiaoliurenData {
   hourIndex: number;
   hourLabel: string;
   ganzhi: { year: string; month: string; day: string; hour: string };
-  /** 起课输入、逐宫顺数与六宫归一的可复核计算过程。 */
+  /** 可复核的历法输入；落宫规则在固定底本校定前不自动计算。 */
   calculation: {
     lunarMonth: number;
     lunarDay: number;
     hourNumber: number;
-    monthSeed: number;
-    daySeed: number;
-    hourSeed: number;
-    monthPalaceIndex: number;
-    dayPalaceIndex: number;
-    hourPalaceIndex: number;
     dayBoundary: '东八区民用日零点换日';
     leapMonthRule: '闰月沿用同名月序';
   };
-  sequence: {
-    month: XiaoliurenPalaceDetail;
-    day: XiaoliurenPalaceDetail;
-    hour: XiaoliurenPalaceDetail;
-  };
-  palaceOrder: XiaoliurenPalaceDetail[];
-  primary: XiaoliurenPalaceDetail;
   evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
 }
 

@@ -4417,7 +4417,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
   });
 });
 
-test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', async () => {
+test('MCP 小六壬排盘与提示词只返回原始时间事实和待校边界', async () => {
   await withMcpClient(async (client) => {
     const chart = await client.callTool({
       name: 'divine_xiaoliuren',
@@ -4427,13 +4427,15 @@ test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', asyn
       },
     });
     const result = (chart.structuredContent as { result: any }).result;
-    assert.equal(result.sequence.month.name, '空亡');
-    assert.equal(result.sequence.day.name, '赤口');
-    assert.equal(result.sequence.hour.name, '留连');
-    assert.equal(result.primary.name, '留连');
+    assert.equal(result.lunarMonth, 6);
+    assert.equal(result.lunarDay, 5);
+    assert.equal(result.hourLabel, '辰时');
+    assert.equal(result.calculation.hourNumber, 5);
+    assert.equal(result.sequence, undefined);
+    assert.equal(result.primary, undefined);
     assert.equal(result.evidenceAnalysis.key, 'xiaoliuren:evidence');
-    assert.equal(result.evidenceAnalysis.status, '已计算');
-    assert.equal(result.evidenceAnalysis.calculationSteps.length, 3);
+    assert.equal(result.evidenceAnalysis.status, '资料不足');
+    assert.equal(result.evidenceAnalysis.calculationSteps.length, 0);
     const calculationStepKeys = new Set(
       result.evidenceAnalysis.calculationSteps.map((item) => item.key),
     );
@@ -4442,29 +4444,11 @@ test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', asyn
         item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)),
       ),
     );
-    assert.deepEqual(
-      result.evidenceAnalysis.palaceFacts.map((item) => [item.role, item.level]),
-      [
-        ['月宫', '计算轨迹'],
-        ['日宫', '计算轨迹'],
-        ['时宫', '主证'],
-      ],
-    );
-    assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
-    assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
-    assert.ok(
-      result.evidenceAnalysis.calculationFact.steps.every(
-        (item) =>
-          item.key &&
-          item.stage &&
-          item.formula &&
-          item.status === '已计算' &&
-          item.palace &&
-          item.source &&
-          item.limitation,
-      ),
-    );
-    assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.deepEqual(result.evidenceAnalysis.palaceFacts, []);
+    assert.equal(result.evidenceAnalysis.primaryFact, null);
+    assert.equal(result.evidenceAnalysis.calculationFact.status, '规则待校');
+    assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 0);
+    assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链有缺口');
     assert.equal(
       result.evidenceAnalysis.summaryFact.calculationStepCount,
       result.evidenceAnalysis.calculationSteps.length,
@@ -4473,7 +4457,7 @@ test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', asyn
       result.evidenceAnalysis.summaryFact.palaceFactCount,
       result.evidenceAnalysis.palaceFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 5);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 4);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,
@@ -4489,7 +4473,7 @@ test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', asyn
           item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
       ),
     );
-    assert.match(result.evidenceAnalysis.promptText, /署名不作为已证实的古籍归属/);
+    assert.match(result.evidenceAnalysis.promptText, /固定底本、具体版本和页码/);
 
     const promptResult = await client.callTool({
       name: 'xiaoliuren_prompt',
@@ -4501,11 +4485,10 @@ test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', asyn
     });
     const prompt = String(promptResult.structuredContent?.prompt);
     assert.match(prompt, /占法：小六壬/);
-    assert.match(prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
-    assert.match(prompt, /占得宫：留连/);
-    assert.match(prompt, /歌诀原文：留连事难成/);
-    assert.match(prompt, /计算链：/);
-    assert.match(prompt, /解释限制：/);
+    assert.match(prompt, /时辰序号：5（子1至亥12）/);
+    assert.match(prompt, /证据链有缺口/);
+    assert.match(prompt, /必须先说明采用的具体底本、版本与完整起数规则/);
+    assert.doesNotMatch(prompt, /顺数轨迹：|占得宫：|歌诀原文：|留连事难成/);
     assert.doesNotMatch(prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);
     assertPromptIsPortableTaskText(prompt);
