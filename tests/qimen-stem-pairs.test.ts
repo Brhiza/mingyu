@@ -59,6 +59,27 @@ function buildPalace(heavenStem: string, earthStem: string): QimenJiuGongGe {
   };
 }
 
+const PALACE_NAMES = [
+  '',
+  '坎一宫',
+  '坤二宫',
+  '震三宫',
+  '巽四宫',
+  '中五宫',
+  '乾六宫',
+  '兑七宫',
+  '艮八宫',
+  '离九宫',
+] as const;
+
+function buildPalaceAt(gong: number, heavenStem: string, earthStem = '戊'): QimenJiuGongGe {
+  return {
+    ...buildPalace(heavenStem, earthStem),
+    gong,
+    name: PALACE_NAMES[gong] ?? `${gong}宫`,
+  };
+}
+
 test('奇门天地盘十干完整保留81种组合且仅11项作为已校勘固定格', () => {
   const patterns = listAllStemPairs();
   const audited = patterns.filter((pattern) => pattern.auditStatus === '已校勘');
@@ -173,6 +194,80 @@ test('奇门只有11项已校勘天地盘固定格进入经典格局与命名关
     assert.equal(classicPatterns.length, auditedKeys.has(key) ? 1 : 0, key);
     assert.equal(namedRelations.length, auditedKeys.has(key) ? 1 : 0, key);
   });
+});
+
+test('奇门三奇升殿按9种天盘奇仪乘9宫共81组独立穷举且仅命中三项共同条件', () => {
+  const tianPanStems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  const expectedByPosition = new Map([
+    ['乙:3', '乙奇升殿'],
+    ['丙:9', '丙奇升殿'],
+    ['丁:7', '丁奇升殿'],
+  ]);
+  let checked = 0;
+
+  for (const heavenStem of tianPanStems) {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      const patterns = getClassicPatterns({
+        jiuGongGe: [buildPalaceAt(gong, heavenStem)],
+        zhiFu: '',
+        zhiShi: '',
+        scope: 'hour',
+      }).filter((pattern) => /奇升殿$/.test(pattern.name));
+      const expectedName = expectedByPosition.get(`${heavenStem}:${gong}`);
+
+      assert.deepEqual(
+        patterns.map((pattern) => pattern.name),
+        expectedName ? [expectedName] : [],
+        `天盘${heavenStem}落${gong}宫`,
+      );
+      patterns.forEach((pattern) => {
+        assert.equal(pattern.tone, 'neutral');
+        assert.deepEqual(pattern.tokens, [heavenStem]);
+        assert.match(pattern.summary, /三奇与宫位的可复算结构/);
+        assert.match(pattern.summary, /吉门、门迫与入墓/);
+        assert.match(pattern.summary, /不得仅据升殿名称生成吉凶、方位、行动或现实结果/);
+        assert.doesNotMatch(pattern.summary, /百事皆吉|百事吉昌|必成|必胜|协商顺利|作品被认可/);
+      });
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 81);
+});
+
+test('奇门三奇升殿缺少时家级别、误用地盘或采用旧乙到巽四条件时失败关闭', () => {
+  const getShengDian = (context: Parameters<typeof getClassicPatterns>[0]) =>
+    getClassicPatterns(context).filter((pattern) => /奇升殿$/.test(pattern.name));
+  const yiAtZhen = buildPalaceAt(3, '乙');
+
+  assert.deepEqual(getShengDian({ jiuGongGe: [yiAtZhen], zhiFu: '', zhiShi: '' }), []);
+  for (const scope of ['day', 'month', 'year'] as const) {
+    assert.deepEqual(
+      getShengDian({ jiuGongGe: [yiAtZhen], zhiFu: '', zhiShi: '', scope }),
+      [],
+      `${scope}级别不得外推三奇升殿`,
+    );
+  }
+  assert.deepEqual(
+    getShengDian({
+      jiuGongGe: [buildPalaceAt(3, '戊', '乙')],
+      zhiFu: '',
+      zhiShi: '',
+      scope: 'hour',
+    }),
+    [],
+    '地盘乙在震三而天盘不是乙不得命中',
+  );
+  assert.deepEqual(
+    getShengDian({
+      jiuGongGe: [buildPalaceAt(4, '乙')],
+      zhiFu: '',
+      zhiShi: '',
+      scope: 'hour',
+    }),
+    [],
+    '旧实现误收的乙奇到巽四必须关闭',
+  );
 });
 
 test('奇门伏干飞干按60日柱乘81种天地盘组合独立穷举且甲日使用六甲遁干', () => {
@@ -596,6 +691,76 @@ test('奇门岁格与六庚值符格勃在真实转盘飞盘中均与独立复�
   assert.match(geBoRule.promptText, /不得把普通庚加丙、普通丙加庚/);
 });
 
+test('奇门三奇升殿在真实转盘飞盘中与天盘落宫独立复算一致且三项均可达', () => {
+  const start = new Date('2024-01-01T00:00:00+08:00');
+  const targetByPalace = new Map([
+    [3, { stem: '乙', name: '乙奇升殿' }],
+    [9, { stem: '丙', name: '丙奇升殿' }],
+    [7, { stem: '丁', name: '丁奇升殿' }],
+  ]);
+  const reached = new Set<string>();
+  const evidenceSamples = new Map<string, ReturnType<typeof generateQimen>>();
+
+  for (const method of ['zhuanpan', 'feipan'] as const) {
+    for (let hourOffset = 0; hourOffset < 60; hourOffset += 1) {
+      const date = new Date(start);
+      date.setHours(date.getHours() + hourOffset * 2);
+      const chart = generateQimen(date, method);
+      const expected = [...targetByPalace.entries()]
+        .filter(([gong, config]) => {
+          const palace = chart.jiuGongGe.find((item) => item.gong === gong);
+          return palace ? getTianPanStems(palace).includes(config.stem) : false;
+        })
+        .map(([gong, config]) => `${config.name}:${gong}`)
+        .sort();
+      const actual = (chart.classicPatterns ?? [])
+        .filter((pattern) => /奇升殿$/.test(pattern.name))
+        .flatMap((pattern) => pattern.palaces.map((gong) => `${pattern.name}:${gong}`))
+        .sort();
+
+      assert.deepEqual(actual, expected, `${method} ${date.toISOString()}`);
+      for (const value of actual) {
+        const name = value.split(':')[0];
+        reached.add(`${method}:${name}`);
+        evidenceSamples.set(name, chart);
+      }
+    }
+  }
+
+  assert.deepEqual([...reached].sort(), [
+    'feipan:丁奇升殿',
+    'feipan:丙奇升殿',
+    'feipan:乙奇升殿',
+    'zhuanpan:丁奇升殿',
+    'zhuanpan:丙奇升殿',
+    'zhuanpan:乙奇升殿',
+  ]);
+  for (const name of ['乙奇升殿', '丙奇升殿', '丁奇升殿']) {
+    const sample = evidenceSamples.get(name);
+    assert.ok(sample, `${name}应有真实生成盘样本`);
+    const analysis = analyzeQimenEvidence(sample);
+    const fact = analysis.patternFacts.find((item) => item.name === name);
+    const rule = analysis.ruleSourceFacts.find(
+      (item) => item.key === 'rule:qimen:san-qi-sheng-dian-position',
+    );
+
+    assert.ok(fact);
+    assert.equal(fact.traditionalTone, '中性');
+    assert.ok(fact.sources.some((source) => source.includes('《奇门法窍》')));
+    assert.ok(fact.sources.some((source) => source.includes('《奇门旨归》')));
+    assert.ok(fact.sources.some((source) => source.includes('《奇门遁甲秘笈大全》')));
+    assert.match(fact.promptText, /只供 AI 结合完整盘面继续核验/);
+    assert.match(fact.promptText, /吉门、门迫与入墓/);
+    assert.doesNotMatch(fact.promptText, /百事皆吉|百事吉昌|必成|必胜/);
+    assert.ok(rule);
+    assert.equal(rule.category, '三奇升殿位置规则');
+    assert.match(rule.promptText, /乙奇升殿、丙奇升殿或丁奇升殿/);
+    assert.match(rule.promptText, /乙到巽四等相邻或异说位置混入/);
+    assert.match(rule.promptText, /吉门、门迫与入墓/);
+    assert.match(rule.promptText, /月家、年家不得套用/);
+  }
+});
+
 test('奇门60日柱乘12时辰的位置索引均按六甲遁干定位日干与时干', () => {
   const start = new Date('2024-01-01T00:00:00+08:00');
   const checkedDayPillars = new Set<string>();
@@ -649,7 +814,7 @@ test('奇门提示词证据声明11项固定格与其余70项结构事实边界'
   assert.match(relationRule.promptText, /其余七十项不得单凭二元组合补造传统名称/);
   assert.match(
     relationRule.promptText,
-    /时家另按独立上下文规则核验伏干格、飞干格、岁格与六庚值符临丙格勃/,
+    /时家另按独立上下文规则核验伏干格、飞干格、岁格、六庚值符临丙格勃与三奇升殿位置结构/,
   );
   assert.ok(relationRule.sources.some((source) => source.includes('《遁甲演义》卷一')));
   assert.ok(relationRule.sources.some((source) => source.includes('《遁甲演义》卷二')));

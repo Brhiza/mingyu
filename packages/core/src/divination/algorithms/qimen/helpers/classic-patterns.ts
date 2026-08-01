@@ -1,8 +1,8 @@
 /**
  * @file 奇门已校勘经典格局与天地盘干结构事实
  * @description 正式入口输出已经逐条闭环的十一项天地盘固定格，以及只在
- * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃四项中性结构事实。
- * 九遁、三奇、三诈五假、值符值使、月日时格、普通勃格、门迫、击刑、入墓等旧规则
+ * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃与三奇升殿中性结构事实。
+ * 九遁、其余三奇、三诈五假、值符值使、月日时格、普通勃格、门迫、击刑、入墓等旧规则
  * 在版本、条件或适用情境完成校勘前失败关闭；可复算的落宫与五行事实仍由九宫、
  * 基础标签、组合事实和天地盘干关系提供，供后续 AI 结合具体问题继续推算。
  */
@@ -18,8 +18,16 @@ import {
   hasTianPanStar,
 } from './palace-utils';
 
-/** 已校勘、但不能退化为固定天地盘干二元映射的日干上下文格。 */
-export const AUDITED_QIMEN_CONTEXT_PATTERN_NAMES = ['伏干格', '飞干格', '岁格', '格勃'] as const;
+/** 已校勘、但不能退化为固定天地盘干二元映射的时家上下文格。 */
+export const AUDITED_QIMEN_CONTEXT_PATTERN_NAMES = [
+  '伏干格',
+  '飞干格',
+  '岁格',
+  '格勃',
+  '乙奇升殿',
+  '丙奇升殿',
+  '丁奇升殿',
+] as const;
 
 export function isAuditedQimenContextPatternName(
   name: string,
@@ -355,12 +363,42 @@ function getGengValueSymbolPattern({
   ];
 }
 
+const SAN_QI_SHENG_DIAN_BY_PALACE: Readonly<
+  Record<number, { stem: '乙' | '丙' | '丁'; name: '乙奇升殿' | '丙奇升殿' | '丁奇升殿' }>
+> = {
+  3: { stem: '乙', name: '乙奇升殿' },
+  9: { stem: '丙', name: '丙奇升殿' },
+  7: { stem: '丁', name: '丁奇升殿' },
+};
+
+function getSanQiShengDianPatterns({ jiuGongGe, scope }: PatternContext): ClassicPattern[] {
+  // 三书条文及《奇门法窍》时格例均以天盘三奇逐时到宫为条件；年月家不外推。
+  if (scope !== 'hour') return [];
+
+  const patterns: ClassicPattern[] = [];
+  for (const palace of jiuGongGe) {
+    const config = SAN_QI_SHENG_DIAN_BY_PALACE[palace.gong];
+    if (!config || !new Set(getTianPanStems(palace)).has(config.stem)) continue;
+
+    patterns.push({
+      key: `pattern:sanQiShengDian:${config.stem}:${palace.gong}`,
+      name: config.name,
+      tone: 'neutral',
+      summary: `天盘${config.stem}奇落${palace.name}，命中《奇门法窍》《奇门旨归》《奇门遁甲秘笈大全》共同记载的“三奇升殿”位置条件。这里只登记三奇与宫位的可复算结构；《奇门法窍》另要求实际取用时核对吉门、门迫与入墓，故不得仅据升殿名称生成吉凶、方位、行动或现实结果`,
+      palace: palace.gong,
+      tokens: [config.stem],
+    });
+  }
+
+  return patterns;
+}
+
 /**
  * 返回正式允许输出的经典格局。
  *
  * 当前白名单包括十一项天地盘固定格，以及独立校勘的伏干格、飞干格、岁格、
- * 格勃四项时家上下文结构。四项均只在完整干支、六甲遁干和值符身份可复算时登记
- * 中性结构，不继承互有差异的现实断语。月格因“月干/月朔干”不一，时格因
+ * 格勃与三奇升殿时家上下文结构。它们只在所需干支、值符身份或天盘落宫可复算时
+ * 登记中性结构，不继承互有差异的现实断语。月格因“月干/月朔干”不一，时格因
  * “本时干/仅三奇/庚值符管十时”不一，普通勃格因“丙临年月日时干/丙加值符庚”
  * 不一而继续关闭；AI 如需采用，应从原始九宫事实和明示版本继续推算。
  */
@@ -370,5 +408,6 @@ export function getClassicPatterns(context: PatternContext): ClassicPattern[] {
     ...getDayStemContextPatterns(context),
     ...getYearStemContextPatterns(context),
     ...getGengValueSymbolPattern(context),
+    ...getSanQiShengDianPatterns(context),
   ];
 }

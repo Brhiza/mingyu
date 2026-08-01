@@ -3077,6 +3077,7 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
       'rule:qimen:day-stem-context-patterns',
       'rule:qimen:year-stem-context-patterns',
       'rule:qimen:geng-value-symbol-pattern',
+      'rule:qimen:san-qi-sheng-dian-position',
       'rule:qimen:classic-pattern-audit-boundary',
       'rule:qimen:retained-combo-versions',
       'rule:qimen:special-context-boundary',
