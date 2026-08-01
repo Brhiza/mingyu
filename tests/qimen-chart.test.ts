@@ -293,16 +293,11 @@ test('奇门18局六十时辰转盘与飞盘结构应始终完整且值符值使
   }
 });
 
-test('奇门四级别应穷尽主动六十甲子并在两种排盘法中保持统一审计结果', () => {
+test('奇门三个已开放级别应穷尽主动六十甲子并在两种排盘法中保持统一审计结果', () => {
   const datesByScope = {
     hour: Array.from({ length: 60 }, (_, index) => {
       const date = new Date(2024, 0, 1, 0, 30);
       date.setHours(date.getHours() + index * 2);
-      return date;
-    }),
-    day: Array.from({ length: 60 }, (_, index) => {
-      const date = new Date(2024, 0, 1, 12, 30);
-      date.setDate(date.getDate() + index);
       return date;
     }),
     month: Array.from({ length: 60 }, (_, index) => {
@@ -313,10 +308,9 @@ test('奇门四级别应穷尽主动六十甲子并在两种排盘法中保持�
     year: Array.from({ length: 180 }, (_, index) => new Date(1920 + index, 6, 1, 12, 30)),
   } as const;
 
-  for (const scope of ['hour', 'day', 'month', 'year'] as const) {
+  for (const scope of ['hour', 'month', 'year'] as const) {
     const activeGanZhi = new Set<string>();
-    const juMethods =
-      scope === 'hour' || scope === 'day' ? (['chaibu', 'zhirun'] as const) : (['chaibu'] as const);
+    const juMethods = scope === 'hour' ? (['chaibu', 'zhirun'] as const) : (['chaibu'] as const);
 
     for (const date of datesByScope[scope]) {
       for (const method of ['zhuanpan', 'feipan'] as const) {

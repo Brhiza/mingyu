@@ -196,6 +196,58 @@ test('奇门审核重建应拒绝非法四柱、范围、排盘法与局数', ()
   assert.throws(() => rebuildAuditedQimenData({ ...clean, timestamp: Number.NaN }), /时间戳无效/);
 });
 
+test('日家旧盘不得通过审核重建或提示词证据入口恢复', () => {
+  const legacyDay = {
+    ...generateQimen(fixedDate),
+    scope: 'day' as const,
+  };
+
+  assert.throws(
+    () => rebuildAuditedQimenData(legacyDay),
+    /日家奇门存在多套互相冲突的古法.*旧数据不得.*不开放/,
+  );
+  assert.throws(
+    () => analyzeQimenEvidence(legacyDay),
+    /日家奇门存在多套互相冲突的古法.*旧数据不得.*不开放/,
+  );
+});
+
+test('年月家旧定局不得绕过审核重建进入提示词', () => {
+  const month = generateQimen(new Date('2025-06-18T10:30:00+08:00'), 'zhuanpan', 'month');
+  const legacyMonth = {
+    ...month,
+    isYangDun: true,
+    juShu: 1,
+    juMethod: 'chaibu' as const,
+    timeInfo: { ...month.timeInfo, epoch: '月局' },
+  };
+  assert.throws(() => rebuildAuditedQimenData(legacyMonth), /月家奇门旧定局与已校勘规则不一致/);
+  assert.throws(() => analyzeQimenEvidence(legacyMonth), /月家奇门旧定局与已校勘规则不一致/);
+
+  const year = generateQimen(new Date('1984-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+  const legacyYear = {
+    ...year,
+    isYangDun: true,
+    juShu: 1,
+    juMethod: 'chaibu' as const,
+  };
+  assert.throws(() => rebuildAuditedQimenData(legacyYear), /年家奇门旧定局与已校勘规则不一致/);
+  assert.throws(() => analyzeQimenEvidence(legacyYear), /年家奇门旧定局与已校勘规则不一致/);
+});
+
+test('年月家提示词应写明各自三元定局法而不冒充时家拆补或置闰', () => {
+  const month = generateQimen(new Date('2025-06-18T10:30:00+08:00'), 'zhuanpan', 'month');
+  const year = generateQimen(new Date('1984-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+
+  assert.match(month.evidenceAnalysis?.promptText ?? '', /月家五年段三元法/);
+  assert.match(month.evidenceAnalysis?.promptText ?? '', /定局结果：行年.*属.*元，阴遁[147]局/);
+  assert.match(year.evidenceAnalysis?.promptText ?? '', /年家一百八十年三元法/);
+  assert.match(year.evidenceAnalysis?.promptText ?? '', /定局结果：下元，阴遁7局/);
+  for (const data of [month, year]) {
+    assert.doesNotMatch(data.evidenceAnalysis?.promptText ?? '', /采用(?:拆补法|置闰法)/);
+  }
+});
+
 test('奇门审核重建应拒绝值符值使落点缺失与原始盘污染', () => {
   const clean = generateQimen(fixedDate);
 

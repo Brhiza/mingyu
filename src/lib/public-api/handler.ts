@@ -271,7 +271,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   qimenJuMethod: {
     enum: ['chaibu', 'zhirun'],
-    description: '奇门定局方法：chaibu 为拆补法（默认），zhirun 为置闰法；仅时家/日家生效。',
+    description: '时家奇门定局方法：chaibu 为拆补法（默认），zhirun 为置闰法。',
   },
   method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
   number: { type: 'integer', minimum: 1 },

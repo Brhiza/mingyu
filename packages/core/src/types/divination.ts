@@ -681,7 +681,7 @@ export interface QimenSpecialConditions {
 export interface QimenTimeInfo {
   /** 排盘时刻实际所处的天文节气。 */
   solarTerm: string;
-  /** 拆补/置闰法实际采用的定局节气；置闰法下可能与 solarTerm 不同。 */
+  /** 时家定局采用的节气；置闰法下可能与 solarTerm 不同。年月家仅保留历法背景。 */
   juTerm: string;
   epoch: string;
   [key: string]: string;
@@ -735,7 +735,7 @@ export interface QimenPatternCombo {
 /**
  * 奇门遁甲排盘级别
  * - hour: 时家奇门（精确到时辰，默认）
- * - day:  日家奇门（一日大势）
+ * - day:  日家奇门兼容标识；因古法版本冲突，当前运行时失败关闭
  * - month: 月家奇门（一月运势）
  * - year:  年家奇门（一年大势）
  */
@@ -746,10 +746,10 @@ export interface QimenData {
   evidenceAnalysis?: import('../divination/qimen-evidence').QimenEvidenceAnalysis;
   /** 九宫排布方法：zhuanpan=转盘法，feipan=飞盘法。旧结果未记录时按转盘法兼容。 */
   method?: 'zhuanpan' | 'feipan';
-  /** 排盘级别：hour=时家, day=日家, month=月家, year=年家 */
+  /** 排盘级别：hour=时家, month=月家, year=年家；day 仅供旧数据类型兼容，运行时拒绝。 */
   scope?: QimenScope;
-  /** 定局方法：chaibu=拆补法（默认），zhirun=置闰法。仅时家/日家生效。 */
-  juMethod?: 'chaibu' | 'zhirun';
+  /** 定局方法：时家为 chaibu/zhirun，月家为 yuejia，年家为 nianjia。 */
+  juMethod?: 'chaibu' | 'zhirun' | 'yuejia' | 'nianjia';
   /** 九宫格完整数据（1-9宫） */
   jiuGongGe: QimenJiuGongGe[];
   /** 四柱干支（年/月/日/时） */

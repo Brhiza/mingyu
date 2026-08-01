@@ -303,7 +303,6 @@ const systems: SystemCapability[] = [
         required: false,
         options: options([
           { value: 'hour', label: '时家' },
-          { value: 'day', label: '日家' },
           { value: 'month', label: '月家' },
           { value: 'year', label: '年家' },
         ]),
@@ -317,7 +316,7 @@ const systems: SystemCapability[] = [
           { value: 'chaibu', label: '拆补法' },
           { value: 'zhirun', label: '置闰法' },
         ]),
-        description: '默认拆补法；置闰法仅对时家与日家生效。',
+        description: '拆补法与置闰法仅对时家生效；月家、年家自动使用各自三元定局法。',
       },
       { id: 'date', label: '起局时间', type: 'datetime', required: false },
       questionInput,

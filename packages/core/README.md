@@ -259,11 +259,13 @@ const meihua = generateMeihua(undefined, { method: 'number', number: 123 });
 import { generateQimen } from 'mingyu-core/divination/qimen';
 const qimen = generateQimen(); // 当前时间，默认转盘法
 const qimenFeipan = generateQimen(undefined, 'feipan'); // 可选飞盘法
+const qimenMonth = generateQimen(new Date('2026-07-02T08:00:00+08:00'), 'zhuanpan', 'month'); // 月家按行年五年段三元定局
 const qimenYear = generateQimen(new Date('2026-07-02T08:00:00+08:00'), 'zhuanpan', 'year'); // 年家奇门
 console.log(qimen.seasonality); // 节令背景、月相、建除、四柱互动
 console.log(qimen.patternCombos); // 固定文献条件已闭合的组合规则
 console.log(qimen.evidenceAnalysis?.positionIndexes); // 值符、值使、日干、时干及已校勘格局的位置索引
 console.log(qimen.evidenceAnalysis?.palaceRelations); // 九宫全部 36 组无序宫对五行关系
+// 日家古法存在多套冲突版本，旧实现曾误用时家算法，当前明确拒绝生成。
 
 // 大六壬
 import { generateLiuren } from 'mingyu-core/divination/liuren';

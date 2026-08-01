@@ -1,6 +1,6 @@
 /**
  * @file 奇门遁甲定局数、值符值使、特殊时辰和遁干
- * @description 基于拆补法或置闰法实现时家/日家奇门的定局数、值符值使、特殊时辰检查和遁干。
+ * @description 基于拆补法或置闰法实现时家奇门定局，并提供各级别共用的旬首、值符值使与遁干基础计算。
  *
  * 拆补法以节气为界，不置闰，是当代主流排盘软件（元亨利贞、各在线排盘）普遍采用的定局法。
  *
@@ -68,6 +68,7 @@ const hourRuMuByGanZhi: Record<
 };
 
 export type QimenJuMethod = 'chaibu' | 'zhirun';
+export type QimenResolvedJuMethod = QimenJuMethod | 'yuejia' | 'nianjia';
 
 export type QimenChaoShenState = '正授' | '超神' | '接气';
 
@@ -77,7 +78,7 @@ export interface QimenJuShuResult {
   yuan: string;
   jieQi: string;
   actualJieQi?: string;
-  juMethod: QimenJuMethod;
+  juMethod: QimenResolvedJuMethod;
   fuTou?: string;
   fuTouDate?: string;
   chaoShenOrJieQi?: QimenChaoShenState;

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SolarDay, SolarTerm } from 'tyme4ts';
+import { jiazi } from '../packages/core/src/divination/divination-data.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
 import { getDunJiaStem } from '../packages/core/src/divination/algorithms/qimen/helpers/palace-utils.ts';
 import {
@@ -97,13 +98,62 @@ test('奇门遁干：非法干支应明确报错，不应把未知六甲默认�
 
 test('月家与年家奇门应校验完整干支，不应只读取单个天干或地支', () => {
   assert.deepEqual(getMonthQimenJuShu('丙寅', '甲辰'), {
-    isYangDun: true,
-    juShu: 1,
-    yuan: '月局',
+    isYangDun: false,
+    juShu: 7,
+    yuan: '下元',
   });
   assert.throws(() => getMonthQimenJuShu('甲丑', '甲辰'), /月干支不是有效六十甲子/);
   assert.throws(() => getMonthQimenJuShu('丙寅', '甲丑'), /年干支不是有效六十甲子/);
-  assert.throws(() => getYearQimenJuShu('甲丑'), /年干支不是有效六十甲子/);
+  assert.throws(() => getYearQimenJuShu('甲丑', 1864), /年干支不是有效六十甲子/);
+  assert.throws(() => getYearQimenJuShu('甲子', Number.NaN), /无法识别公历年份/);
+  assert.throws(() => getYearQimenJuShu('甲子', 1863), /公历年.*与年干支.*不匹配/);
+  assert.throws(() => getYearQimenJuShu('甲子', 1866), /公历年.*与年干支.*不匹配/);
+});
+
+test('月家奇门应穷举六十行年与六十月干支并固定采用五年段阴遁一四七局', () => {
+  for (let yearIndex = 0; yearIndex < jiazi.length; yearIndex += 1) {
+    const segment = Math.floor(yearIndex / 5) % 3;
+    const expected = {
+      isYangDun: false,
+      juShu: [1, 4, 7][segment],
+      yuan: ['上元', '中元', '下元'][segment],
+    };
+    for (const monthGanZhi of jiazi) {
+      assert.deepEqual(
+        getMonthQimenJuShu(monthGanZhi, jiazi[yearIndex]),
+        expected,
+        `${jiazi[yearIndex]}年${monthGanZhi}月定局错误`,
+      );
+    }
+  }
+});
+
+test('年家奇门应穷举完整一百八十年三元周期并固定采用阴遁一四七局', () => {
+  for (let offset = 0; offset < 180; offset += 1) {
+    const solarYear = 1864 + offset;
+    const segment = Math.floor(offset / 60);
+    assert.deepEqual(getYearQimenJuShu(jiazi[offset % 60], solarYear), {
+      isYangDun: false,
+      juShu: [1, 4, 7][segment],
+      yuan: ['上元', '中元', '下元'][segment],
+    });
+  }
+});
+
+test('日家奇门在版本与完整布局未校勘前应失败关闭', () => {
+  assert.throws(
+    () => generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'day'),
+    /日家奇门存在多套互相冲突的古法.*不开放/,
+  );
+});
+
+test('年月家奇门不应静默接受时家置闰法', () => {
+  for (const scope of ['month', 'year'] as const) {
+    assert.throws(
+      () => generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', scope, 'zhirun'),
+      /[月年]家奇门不接受时家置闰法.*三元定局法/,
+    );
+  }
 });
 
 test('奇门格局应拒绝未知值符和值使，不应按零宫位继续判断', () => {

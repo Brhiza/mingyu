@@ -22,7 +22,7 @@ const qimenSchema = z.object({
   qimenJuMethod: z
     .enum(['chaibu', 'zhirun'])
     .optional()
-    .describe('定局方法：chaibu 为拆补法（默认），zhirun 为置闰法；仅时家/日家生效'),
+    .describe('时家定局方法：chaibu 为拆补法（默认），zhirun 为置闰法'),
 });
 
 const qimenPromptSchema = extendPromptSchema(qimenSchema, '用户希望围绕奇门盘解读的问题');

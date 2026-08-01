@@ -1350,10 +1350,13 @@ test('年家奇门应按实际年份区分同一甲子的三元周期', () => {
 
   assert.equal(year1924.timeInfo.epoch, '中元');
   assert.equal(year1924.isYangDun, false);
+  assert.equal(year1924.juShu, 4);
   assert.equal(year1984.timeInfo.epoch, '下元');
-  assert.equal(year1984.isYangDun, true);
+  assert.equal(year1984.isYangDun, false);
+  assert.equal(year1984.juShu, 7);
   assert.equal(year2044.timeInfo.epoch, '上元');
-  assert.equal(year2044.isYangDun, true);
+  assert.equal(year2044.isYangDun, false);
+  assert.equal(year2044.juShu, 1);
 });
 
 test('年家奇门在年初干支未切换时应沿用匹配干支的三元周期年', () => {
@@ -1364,6 +1367,7 @@ test('年家奇门在年初干支未切换时应沿用匹配干支的三元周�
   assert.equal(sameGanzhiYear.ganzhi.year, '甲辰');
   assert.equal(beforeYearChange.timeInfo.epoch, sameGanzhiYear.timeInfo.epoch);
   assert.equal(beforeYearChange.isYangDun, sameGanzhiYear.isYangDun);
+  assert.equal(beforeYearChange.juShu, sameGanzhiYear.juShu);
 });
 
 test('奇门天地盘干入墓关系与统一天干入墓表一致', () => {

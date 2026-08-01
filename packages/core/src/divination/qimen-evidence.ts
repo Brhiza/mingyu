@@ -16,8 +16,9 @@ import {
   getDunJiaStem,
   getZhiFuZhiShiByGanZhi,
 } from './algorithms/qimen/helpers/jushu';
+import { getMonthQimenJuShu, getYearQimenJuShu } from './algorithms/qimen/helpers/jushu-extended';
 import { arrangeJiuGongGe } from './algorithms/qimen/helpers/layout';
-import { diPanPalaces, STEM_TOMB_MAP } from './algorithms/qimen/helpers/_constants';
+import { diPanPalaces } from './algorithms/qimen/helpers/_constants';
 import { buildSeasonality } from './algorithms/qimen/helpers/seasonality';
 import { getVoidBranches } from '../calendar/lunar';
 import { TimeManager } from '../calendar/timeManager';
@@ -554,6 +555,11 @@ function assertAuditableQimenInput(input: QimenData): void {
   if (!['hour', 'day', 'month', 'year'].includes(scope)) {
     throw new Error(`奇门审核重建无法识别排盘级别“${String(input.scope)}”。`);
   }
+  if (scope === 'day') {
+    throw new Error(
+      '日家奇门存在多套互相冲突的古法，旧数据不得通过审核重建或提示词入口恢复；完成单一版本校勘前不开放。',
+    );
+  }
   const method = input.method ?? 'zhuanpan';
   if (!['zhuanpan', 'feipan'].includes(method)) {
     throw new Error(`奇门审核重建无法识别排盘法“${String(input.method)}”。`);
@@ -575,6 +581,27 @@ function assertAuditableQimenInput(input: QimenData): void {
     if (!isValidGanZhi(ganZhi)) {
       throw new Error(
         `奇门审核重建的${QIMEN_SCOPE_LABELS[key]}必须是有效六十甲子，当前为“${String(ganZhi)}”。`,
+      );
+    }
+  }
+
+  if (scope === 'month' || scope === 'year') {
+    const expected =
+      scope === 'month'
+        ? getMonthQimenJuShu(input.ganzhi.month, input.ganzhi.year)
+        : getYearQimenJuShu(
+            input.ganzhi.year,
+            TimeManager.getWallClockParts(new Date(input.timestamp)).year,
+          );
+    const expectedMethod = scope === 'month' ? 'yuejia' : 'nianjia';
+    if (
+      input.isYangDun !== expected.isYangDun ||
+      input.juShu !== expected.juShu ||
+      input.timeInfo?.epoch !== expected.yuan ||
+      input.juMethod !== expectedMethod
+    ) {
+      throw new Error(
+        `${scope === 'month' ? '月家' : '年家'}奇门旧定局与已校勘规则不一致，已禁止审核重建或生成提示词。`,
       );
     }
   }
@@ -643,15 +670,6 @@ function rebuildSpecialConditions(
     isWuBuYuShi: false,
     description: '',
   };
-  if (data.scope === 'day') {
-    const dayStem = data.ganzhi.day.charAt(0);
-    const dayBranch = data.ganzhi.day.charAt(1);
-    const tomb = STEM_TOMB_MAP[dayStem];
-    if (tomb?.branch === dayBranch) {
-      conditions.isShiGanRuMu = true;
-      conditions.description = `日干${dayStem}入墓（${dayStem}入${tomb.palace}宫/${tomb.branch}支）；`;
-    }
-  }
   return conditions;
 }
 
@@ -1145,10 +1163,31 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
   const layoutMethod = data.method ?? 'zhuanpan';
   const layoutMethodLabel = layoutMethod === 'feipan' ? '飞盘法' : '转盘法';
   const juMethod =
-    data.juMethod ?? (data.timeInfo?.juMethod as 'chaibu' | 'zhirun' | undefined) ?? 'chaibu';
-  const juMethodLabel = juMethod === 'zhirun' ? '置闰法' : '拆补法';
+    data.juMethod ?? (data.timeInfo?.juMethod as QimenData['juMethod'] | undefined) ?? 'chaibu';
+  const juMethodLabel = {
+    chaibu: '拆补法',
+    zhirun: '置闰法',
+    yuejia: '月家五年段三元法',
+    nianjia: '年家一百八十年三元法',
+  }[juMethod];
   const juTerm = data.timeInfo.juTerm || data.timeInfo.solarTerm;
   const activeGanZhi = getActiveGanZhi(data);
+  const setupRule =
+    scope === 'month'
+      ? '行年干支所属五年段确定上、中、下元，三元均按阴遁一、四、七局排布'
+      : scope === 'year'
+        ? '以1864甲子为上元起点，按一百八十年三元周期确定阴遁一、四、七局'
+        : '按当前节气、符头与五日一元确定阴阳遁和局数';
+  const setupSources =
+    scope === 'month'
+      ? ['《遁甲演义》月家奇门条', '《奇门遁甲统宗》月奇条', '《奇门法窍》月奇条']
+      : scope === 'year'
+        ? [
+            '《遁甲演义》年家奇门条',
+            '《奇门遁甲统宗》年奇条',
+            '《奇门法窍》年奇及同治三年甲子交上元条',
+          ]
+        : ['《烟波钓叟歌》阴阳二遁与一气三元口径', '时家拆补与置闰定局计算入口'];
   const zhiFuPalace = data.jiuGongGe.find((item) => hasTianPanStar(item, data.zhiFu));
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
   const ruleSourceFacts: QimenRuleSourceFact[] = [
@@ -1156,10 +1195,10 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       key: 'rule:qimen:setup',
       status: '已声明',
       category: '定局规则',
-      rule: '节气、三元与主动干支共同确定阴阳遁和局数',
+      rule: setupRule,
       appliesTo: ['排盘范围', '定局'],
-      sources: ['《烟波钓叟歌》阴阳二遁与一气三元口径', '时家、日家、月家与年家分层定局计算入口'],
-      promptText: `${scopeLabel}定局规则：采用${juMethodLabel}，节气、三元与主动干支共同确定阴阳遁和局数${data.timeInfo?.juMethodNote ? `；${data.timeInfo.juMethodNote}` : ''}`,
+      sources: setupSources,
+      promptText: `${scopeLabel}定局规则：采用${juMethodLabel}，${setupRule}${data.timeInfo?.juMethodNote ? `；${data.timeInfo.juMethodNote}` : ''}`,
       limitation: RULE_SOURCE_LIMITATION,
     },
     {
@@ -1261,6 +1300,12 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       limitation: RULE_SOURCE_LIMITATION,
     },
   ];
+  const setupResultText =
+    scope === 'month'
+      ? `定局结果：行年${data.ganzhi.year}属${data.timeInfo.epoch}，阴遁${data.juShu}局`
+      : scope === 'year'
+        ? `定局结果：${data.timeInfo.epoch}，阴遁${data.juShu}局`
+        : `定局结果：${juTerm}${data.timeInfo.epoch}，${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局${juTerm !== data.timeInfo.solarTerm ? `；排盘时实际节气为${data.timeInfo.solarTerm}` : ''}`;
   const calculationEvidenceFacts: QimenCalculationEvidenceFact[] = [
     {
       key: 'qimen:calculation:scope',
@@ -1283,7 +1328,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
         activeGanZhi,
       },
       result: { isYangDun: data.isYangDun, juShu: data.juShu },
-      promptText: `定局结果：${juTerm}${data.timeInfo.epoch}，${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局${juTerm !== data.timeInfo.solarTerm ? `；排盘时实际节气为${data.timeInfo.solarTerm}` : ''}`,
+      promptText: setupResultText,
       sourceKeys: ['rule:qimen:setup'],
       limitation: CALCULATION_FACT_LIMITATION,
     },

@@ -397,7 +397,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 大六壬 `liurenTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`。
 - 大六壬排盘结果的 `evidenceAnalysis` 返回四课上下关系、九宗门取传规则、初传来源、初中末三传推进、天将、月令旺衰、旬空、日支关系、反证与触发条件。未按问题选择类神时会明确保留限制，不把日支或神煞固定当作用神，也不输出数字权重、吉凶总分或成功率。
 - 奇门排盘结果的 `evidenceAnalysis` 返回值符、值使、日干、时干对应的用神宫候选，以及逐宫门、星、神、天地盘干、空亡、马星、格局、宫间生克、反证、方位条件和时间触发条件。候选不等于已经按具体问题选定用神；核心结果、公开 API、MCP 与提示词均不返回内部宫位、格局或方位排序分数，也不机械换算绝对日期。
-- 奇门遁甲 `qimenMethod` 支持 `zhuanpan`（转盘法，默认）、`feipan`（飞盘法）；`qimenJuMethod` 支持 `chaibu`（拆补法，默认）、`zhirun`（置闰法，仅时家/日家）。排盘结果包含 `seasonality`（节令背景）和 `patternCombos`（已校勘组合规则）。
+- 奇门遁甲 `qimenMethod` 支持 `zhuanpan`（转盘法，默认）、`feipan`（飞盘法）；公开 API 当前只开放时家奇门，`qimenJuMethod` 支持 `chaibu`（拆补法，默认）、`zhirun`（置闰法）。核心包另保留已校勘的月家、年家入口；日家因古法版本冲突且旧实现曾错误复用时家算法，当前失败关闭。排盘结果包含 `seasonality`（节令背景）和 `patternCombos`（已校勘组合规则）。
 - 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。日期范围一次最多 31 天，`participants` 一次最多 30 位；更大范围或更多参与人请拆成多次请求。
 - 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时保持旧行为返回全部日期；传分页后只返回当前页日期，并带 `pagination`。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
 - 黄历择日结果的 `evidenceAnalysis` 会把当前返回范围内的日期分成可用、条件和慎用候选，逐日列出事项宜忌、建除神煞、参与人刑冲破害、方向限制、可用时辰与现实约束。分页时证据会按当前页重新计算；核心结果、公开 API、MCP 与提示词均不返回内部日期或时辰排序分数，也不把排序解释成成功率。

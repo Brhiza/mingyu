@@ -1,12 +1,12 @@
 /**
  * @file 奇门遁甲排盘算法（主入口）
- * @description 基于转盘法或飞盘法，实现时家/日家/月家/年家奇门完整排盘，
+ * @description 基于转盘法或飞盘法，实现时家、月家、年家奇门完整排盘，
  * 含定局、布盘与已校勘格局事实。
- * @流派 转盘奇门为默认口径，飞盘奇门为可选口径（拆补法定局）
+ * @流派 转盘奇门为默认口径，飞盘奇门为可选布局；时家另选拆补或置闰定局
  * @古籍依据 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》
  *
  * @核心流程
- * 1. 定局数（拆补法/月家法/年家法）：根据 scope 选择不同定局方式
+ * 1. 定局数（时家拆补或置闰/月家五年段三元/年家一百八十年三元）
  * 2. 寻值符值使：由对应级别的干支旬首定位值符星和值使门
  * 3. 排九宫格：布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
  * 4. 识别可复算位置标签与已校勘十一项天地盘固定格
@@ -19,7 +19,7 @@
  *   "星反吟兮门反吟，门迫宫兮事难行"        —— 位置与五行关系来源
  *   《遁甲演义》卷一、卷二                     —— 十一项天地盘固定格来源
  *
- * 九遁、三奇、三诈五假、符使、岁月日时格等旧规则尚未完成统一版本、
+ * 日家奇门以及九遁、三奇、三诈五假、符使、岁月日时格等旧规则尚未完成统一版本、
  * 完整条件与适用边界审核，正式入口失败关闭，不据原始盘面自动补算。
  */
 
@@ -28,7 +28,7 @@ import type { ClassicPattern, PatternContext, StemRelation } from './helpers/cla
 import type { QimenMethod } from './helpers/layout';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getVoidBranches } from '../../../calendar/lunar';
-import { diPanPalaces, STEM_TOMB_MAP } from './helpers/_constants';
+import { diPanPalaces } from './helpers/_constants';
 import {
   getQimenJuShu,
   getZhiFuZhiShi,
@@ -124,6 +124,11 @@ function assertQimenScope(scope: QimenScope): void {
   if (!['hour', 'day', 'month', 'year'].includes(scope)) {
     throw new Error(`未知的奇门排盘级别: ${String(scope)}`);
   }
+  if (scope === 'day') {
+    throw new Error(
+      '日家奇门存在多套互相冲突的古法，当前旧实现曾错误复用时家定局与布局；在选定并完整校勘单一版本前不开放。',
+    );
+  }
 }
 
 /**
@@ -175,7 +180,8 @@ function mapStemRelations(
 /**
  * 生成奇门遁甲完整排盘
  *
- * 支持时家（hour）、日家（day）、月家（month）、年家（year）四种级别。
+ * 支持时家（hour）、月家（month）、年家（year）三个已校勘级别。
+ * `day` 仅保留类型兼容，运行时明确拒绝，不再复用时家算法。
  * 默认时家奇门（精确到时辰），使用拆补法定局。
  *
  * 遵循拆补法定局，并按所选转盘法或飞盘法完整输出九宫四盘（天地人神）、
@@ -187,9 +193,9 @@ function mapStemRelations(
  *    - 获取公历、农历、节气、干支等完整时间数据
  *
  * 2. **定局数**：《歌》"阴阳二遁分顺逆，一气三元人莫测"
- *    - 时家/日家：拆补法（以节气为界）
- *    - 月家：月支循环定局
- *    - 年家：年干分组 + 三元甲子周期
+ *    - 时家：拆补法或置闰法（以节气为界）
+ *    - 月家：按行年干支所属五年段定上、中、下元，均用阴遁一、四、七局
+ *    - 年家：按一百八十年三元甲子周期，均用阴遁一、四、七局
  *
  * 3. **寻值符值使（旬首法）**：《歌》"直符直使各有时，时干直符时支使"
  *    - 由对应级别干支的旬首定位值符星和值使门
@@ -222,9 +228,6 @@ function mapStemRelations(
  * // 时家奇门（默认）
  * const result = generateQimen();
  *
- * // 日家奇门
- * const result = generateQimen(undefined, 'zhuanpan', 'day');
- *
  * // 年家奇门
  * const result = generateQimen(new Date('2025-01-01'), 'zhuanpan', 'year');
  * ```
@@ -236,6 +239,11 @@ export function generateQimen(
   juMethod: QimenJuMethod = 'chaibu',
 ): QimenData {
   assertQimenScope(scope);
+  if (scope !== 'hour' && juMethod !== 'chaibu') {
+    throw new Error(
+      `${scope === 'month' ? '月家' : '年家'}奇门不接受时家${juMethod === 'zhirun' ? '置闰法' : `定局方法“${String(juMethod)}”`}；请使用该级别已校勘的三元定局法。`,
+    );
+  }
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 1：获取统一占卜时间信息
   // ──────────────────────────────────────────────────────────────────────────
@@ -440,9 +448,9 @@ function getJushuForScope(
       return {
         ...r,
         jieQi: timeInfo.jieQi,
-        juMethod,
+        juMethod: 'nianjia',
         isZhiRun: false,
-        juMethodNote: '年家奇门使用年干与三元甲子定局，拆补/置闰仅适用于时家与日家',
+        juMethodNote: '年家奇门按一百八十年三元甲子定局：上元阴遁一局、中元阴遁四局、下元阴遁七局',
       };
     }
     case 'month': {
@@ -450,12 +458,13 @@ function getJushuForScope(
       return {
         ...r,
         jieQi: timeInfo.jieQi,
-        juMethod,
+        juMethod: 'yuejia',
         isZhiRun: false,
-        juMethodNote: '月家奇门使用月家定局法，拆补/置闰仅适用于时家与日家',
+        juMethodNote: '月家奇门按行年干支所属五年段定局：上元阴遁一局、中元阴遁四局、下元阴遁七局',
       };
     }
     case 'day':
+      throw new Error('日家奇门尚未完成单一版本的定局与布局校勘，当前不开放。');
     case 'hour':
     default: {
       return getQimenJuShu(
@@ -507,18 +516,8 @@ function getZhiFuShiForScope(
         specialConditions: result.specialConditions,
       };
     }
-    case 'day': {
-      // 日家奇门：使用通用旬首法，补充日干入墓检查
-      const result = getZhiFuZhiShiByGanZhi(activeGanZhi, jushuResult);
-      const conditions = { ...defaultSpecialConditions };
-      checkDayRuMu(ganzhi.day, conditions);
-      return {
-        zhiFu: result.zhiFu,
-        zhiShi: result.zhiShi,
-        zhiFuPalace: result.xunShouPalace,
-        specialConditions: conditions,
-      };
-    }
+    case 'day':
+      throw new Error('日家奇门尚未完成单一版本的值符值使与布局校勘，当前不开放。');
     case 'month':
     case 'year':
     default: {
@@ -531,26 +530,6 @@ function getZhiFuShiForScope(
         specialConditions: defaultSpecialConditions,
       };
     }
-  }
-}
-
-/**
- * 检查日干入墓
- *
- * 日干五行入墓支：木墓在未、火墓在戌、金墓在丑、水土墓在辰
- * 与《烟波钓叟歌》"时干入墓凶无疑"同一套规则，但应用于日干级别。
- */
-function checkDayRuMu(
-  dayGanZhi: string,
-  conditions: Exclude<QimenData['specialConditions'], undefined>,
-): void {
-  const dayGan = dayGanZhi.charAt(0);
-  const dayZhi = dayGanZhi.charAt(1);
-  const ruMuMap = STEM_TOMB_MAP;
-  const ruMuInfo = ruMuMap[dayGan];
-  if (ruMuInfo && dayZhi === ruMuInfo.branch) {
-    conditions.isShiGanRuMu = true;
-    conditions.description += `日干${dayGan}入墓（${dayGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支）；`;
   }
 }
 

@@ -196,6 +196,15 @@ test('能力清单可序列化且返回副本', () => {
   assert.deepEqual(getSystemCapability('astrolabe')?.supports.birthTimeModes, [
     'precise-clock-time',
   ]);
+  const qimen = getSystemCapability('qimen');
+  assert.deepEqual(
+    qimen?.inputs.find((input) => input.id === 'scope')?.options?.map((option) => option.value),
+    ['hour', 'month', 'year'],
+  );
+  assert.match(
+    qimen?.inputs.find((input) => input.id === 'juMethod')?.description ?? '',
+    /仅对时家生效.*月家、年家.*三元定局法/,
+  );
   const qizheng = getSystemCapability('qizheng');
   assert.equal(qizheng?.available, true);
   assert.equal(qizheng?.supports.trueSolarTime, true);
