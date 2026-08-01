@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -30,8 +34,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter mingyu-core build
-      - run: npx tsc --noEmit
-      - run: npx tsc --project mcp/tsconfig.json --noEmit
+      - run: pnpm type-check
 
   test:
     runs-on: ubuntu-latest
@@ -43,7 +46,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter mingyu-core build
       - run: pnpm test
       - run: pnpm run test:e2e
       - run: pnpm run prompt:audit
@@ -58,5 +60,4 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter mingyu-core build
       - run: pnpm run build

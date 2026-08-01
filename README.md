@@ -327,6 +327,22 @@ pnpm build
 pnpm test
 ```
 
+开发过程中只校验本次相关测试与改动文件：
+
+```bash
+pnpm verify:quick -- tests/相关测试文件.test.ts
+```
+
+需要精准复测单个测试时，可增加 `--name-pattern "测试名称"`；核心包刚构建过时可增加 `--skip-build`。快速校验必须明确指定相关测试文件，避免把未覆盖的改动误判为已验证。
+
+一批改动结束后运行一次完整门禁：
+
+```bash
+pnpm verify:full
+```
+
+完整门禁会运行主测试、类型检查、MCP 测试、提示词审查、生产构建、代码与格式检查，不会重复执行主测试已经覆盖的提示词测试。`pnpm prompt:check` 仅在专门修改提示词时单独使用。
+
 单独构建 `mingyu-core` 算法包：
 
 ```bash
@@ -336,7 +352,7 @@ pnpm --filter mingyu-core build
 类型检查 MCP 与共享源码：
 
 ```bash
-npx tsc --project mcp/tsconfig.json --noEmit
+pnpm type-check
 ```
 
 </details>
