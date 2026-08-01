@@ -531,7 +531,6 @@ function buildAstrolabe(input: AstrolabeBirthInput, timestamp: number): Astrolab
         变动: chart.summary.modalities.mutable.map((item) => PLANET_LABELS[item] ?? item),
       },
       retrograde: chart.summary.retrograde.map((item) => PLANET_LABELS[item] ?? item),
-      patterns: chart.summary.patterns,
     },
     timestamp,
   };

@@ -1263,7 +1263,8 @@ export interface AstrolabeData {
     elements: Record<string, string[]>;
     modalities: Record<string, string[]>;
     retrograde: string[];
-    patterns: string[];
+    /** @deprecated 仅供读取旧结果；依赖库格局未保存完整几何条件，当前生成结果不再输出。 */
+    patterns?: string[];
   };
   timestamp: number;
 }

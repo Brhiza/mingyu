@@ -2718,6 +2718,8 @@ test('星盘提示词、页面资料与摘要只凭原始出生来源重建', ()
   assert.equal(buildDivinationPrompt('astrolabe', '请分析整体星盘。', polluted), cleanPrompt);
   assert.match(cleanPrompt, /【当前时间】\n公历：2025年1月1日 8时30分/);
   assert.doesNotMatch(cleanPrompt, /2099|伪造/);
+  assert.doesNotMatch(cleanInfo, /格局/);
+  assert.doesNotMatch(cleanPrompt, /依赖库盘面格局/);
   assert.match(buildTimeInfoText(polluted), /公历：2025年1月1日 8时30分/);
 });
 

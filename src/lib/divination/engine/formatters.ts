@@ -905,7 +905,7 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
       ? `出生时间参考：民用时间${data.birth.standardDateTime || data.birth.dateTime}进入现代星历计算；真太阳时${data.birth.trueSolarDateTime || '未记录'}仅作传统时间参考。`
       : '',
     `核心结构：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}；共${data.planets.length}颗星体、${data.houses.length}个宫位、${data.aspects.length}组主要相位`,
-    `关键提示：逆行星体${data.summary.retrograde.join('、') || '无'}；格局${data.summary.patterns.join('、') || '未见明显格局'}`,
+    `逆行星体：${data.summary.retrograde.join('、') || '无'}`,
     `核心位置：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}`,
     `星体位置：${data.planets.map((item) => `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`).join('；')}`,
     `宫头位置：${data.houses.map((item) => `${item.label}${item.formatted}`).join('；')}`,

@@ -107,7 +107,7 @@ export interface AstrolabeCalculationFact {
 
 export interface AstrolabeDistributionFact {
   key: string;
-  kind: '元素' | '模式' | '逆行' | '盘面格局';
+  kind: '元素' | '模式' | '逆行';
   label: string;
   members: string[];
   memberPositionFactKeys: string[];
@@ -115,7 +115,7 @@ export interface AstrolabeDistributionFact {
   status: '有成员' | '无成员';
   promptText: string;
   sources: string[];
-  limitation: '分布字段只统计当前盘面的元素、模式、逆行与依赖库格局成员，不代表能量分数、人格强度、事件概率、吉凶等级或现实结果';
+  limitation: '分布字段只统计当前盘面的元素、模式与逆行成员，不代表能量分数、人格强度、事件概率、吉凶等级或现实结果';
 }
 
 export interface AstrolabeIlluminationFact {
@@ -141,12 +141,12 @@ export interface AstrolabeIlluminationFact {
 
 export interface AstrolabeCounterEvidenceFact {
   key: string;
-  type: '主要相位' | '逆行' | '盘面格局';
+  type: '主要相位' | '逆行';
   status: '有可用证据' | '未见';
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录筛选范围内是否有主要相位、逆行点或依赖库盘面格局；未见不代表不存在其他角度关系或现实不利，有记录也不证明事件结果';
+  limitation: '反证事实只记录筛选范围内是否有主要相位或逆行点；未见不代表不存在其他角度关系或现实不利，有记录也不证明事件结果';
 }
 
 export interface AstrolabeCounterSummaryFact {
@@ -155,7 +155,7 @@ export interface AstrolabeCounterSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证汇总只说明当前筛选范围和依赖库输出的资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分';
+  limitation: '反证汇总只说明当前相位筛选与逆行资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分';
 }
 
 export interface AstrolabeLimitationFact {
@@ -223,7 +223,7 @@ const ASPECT_FACT_LIMITATION =
 const CALCULATION_FACT_LIMITATION =
   '计算链只证明出生输入、时间处理、天文位置、宫位与相位筛选如何形成当前盘面，不证明占星解释有效性、人格诊断、现实事件或命运结果' as const;
 const DISTRIBUTION_FACT_LIMITATION =
-  '分布字段只统计当前盘面的元素、模式、逆行与依赖库格局成员，不代表能量分数、人格强度、事件概率、吉凶等级或现实结果' as const;
+  '分布字段只统计当前盘面的元素、模式与逆行成员，不代表能量分数、人格强度、事件概率、吉凶等级或现实结果' as const;
 const STEP_FACT_LIMITATION =
   '单个计算步骤只记录该阶段已知输入、输出和依赖关系；步骤完整不证明底层天文模型无误，也不证明占星解释、人格诊断或现实结果' as const;
 const PRIMARY_FACT_LIMITATION =
@@ -233,9 +233,9 @@ const PRIMARY_COVERAGE_LIMITATION =
 const ILLUMINATION_FACT_LIMITATION =
   '太阳高度、方位、赤纬、均时差与曙暮光只作为出生地点和时刻的天文背景；不直接证明人格、心理状态、现实事件、健康或吉凶结果' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只记录筛选范围内是否有主要相位、逆行点或依赖库盘面格局；未见不代表不存在其他角度关系或现实不利，有记录也不证明事件结果' as const;
+  '反证事实只记录筛选范围内是否有主要相位或逆行点；未见不代表不存在其他角度关系或现实不利，有记录也不证明事件结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
-  '反证汇总只说明当前筛选范围和依赖库输出的资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分' as const;
+  '反证汇总只说明当前相位筛选与逆行资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束星盘位置、相位、分布、输入和光照资料可以支持的解释范围，不得被反向当作人格、事件或命运证据' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -449,11 +449,10 @@ function buildCalculationFact(
         elementCategoryCount: Object.keys(data.summary.elements).length,
         modalityCategoryCount: Object.keys(data.summary.modalities).length,
         retrogradeCount: data.summary.retrograde.length,
-        patternCount: data.summary.patterns.length,
       },
       dependsOnStepKeys: ['astrolabe:calculation:chart'],
-      promptText: '汇总元素、模式、逆行与依赖库盘面格局，作为盘面构成辅证',
-      sources: ['celestine 盘面元素、模式、逆行与格局汇总'],
+      promptText: '汇总元素、模式与逆行成员，作为盘面构成辅证',
+      sources: ['celestine 盘面元素、模式与逆行汇总'],
       limitation: STEP_FACT_LIMITATION,
     },
   ];
@@ -539,13 +538,6 @@ function buildDistributionFacts(
       '逆行点',
       data.summary.retrograde,
       'celestine 星体视运动状态汇总',
-    ),
-    build(
-      'distribution:patterns',
-      '盘面格局',
-      '依赖库盘面格局',
-      data.summary.patterns,
-      'celestine 盘面格局汇总',
     ),
   ];
 }
@@ -652,7 +644,6 @@ function buildCounterEvidenceFacts(
   distributionFacts: AstrolabeDistributionFact[],
 ): AstrolabeCounterEvidenceFact[] {
   const retrogradeFact = distributionFacts.find((fact) => fact.key === 'distribution:retrograde');
-  const patternFact = distributionFacts.find((fact) => fact.key === 'distribution:patterns');
   return [
     {
       key: 'astrolabe:counter:aspects',
@@ -680,17 +671,6 @@ function buildCounterEvidenceFacts(
       sources: ['盘面逆行状态汇总', '逐项位置事实'],
       limitation: COUNTER_FACT_LIMITATION,
     },
-    {
-      key: 'astrolabe:counter:patterns',
-      type: '盘面格局',
-      status: patternFact?.count ? '有可用证据' : '未见',
-      ownerFactKeys: patternFact ? [patternFact.key] : ['distribution:patterns'],
-      promptText: patternFact?.count
-        ? `依赖库列出${patternFact.count}项盘面格局`
-        : '未见依赖库标记的主要盘面格局',
-      sources: ['依赖库盘面格局汇总'],
-      limitation: COUNTER_FACT_LIMITATION,
-    },
   ];
 }
 
@@ -704,8 +684,8 @@ function buildCounterSummaryFact(
     factKeys: missing.map((fact) => fact.key),
     promptText: missing.length
       ? `当前筛选范围内未见${missing.map((fact) => fact.type).join('、')}；未见不等于不存在其他关系，也不直接代表现实不利`
-      : '主要相位、逆行或盘面格局均有可列资料；不得据数量直接定性',
-    sources: ['主要相位、逆行与盘面格局逐项汇总'],
+      : '主要相位与逆行均有可列资料；不得据数量直接定性',
+    sources: ['主要相位与逆行逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
 }
@@ -771,7 +751,7 @@ function buildLimitationFacts(
     '分布边界',
     '元素、模式、逆行数量只描述盘面构成，不生成能量分数或综合吉凶等级',
     distributionFacts.map((fact) => fact.key),
-    ['元素、模式、逆行与盘面格局汇总'],
+    ['元素、模式与逆行汇总'],
   );
   push(
     'astrolabe:limitation:houses',
@@ -1021,7 +1001,7 @@ export function analyzeRebuiltAstrolabeEvidence(
       source: Array.from(new Set(distributionEvidenceFacts.flatMap((item) => item.sources))).join(
         '、',
       ),
-      tags: ['元素', '模式', '逆行', '盘面格局'],
+      tags: ['元素', '模式', '逆行'],
     },
     {
       level: illuminationFact.status === '可用' ? '辅证' : '反证',

@@ -235,7 +235,7 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.equal(evidence.houseFacts.length, 12);
   assert.equal(
     evidence.distributionEvidenceFacts.length,
-    Object.keys(result.summary.elements).length + Object.keys(result.summary.modalities).length + 2,
+    Object.keys(result.summary.elements).length + Object.keys(result.summary.modalities).length + 1,
   );
   assert.ok(
     evidence.distributionEvidenceFacts.every(
@@ -254,7 +254,14 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.ok(evidence.illuminationFacts.some((item) => item.includes('太阳高度')));
   assert.equal(evidence.illuminationFact.status, '可用');
   assert.equal(evidence.illuminationFact.crossingFactKeys.length, 4);
-  assert.equal(evidence.counterEvidenceFacts.length, 3);
+  assert.equal(evidence.counterEvidenceFacts.length, 2);
+  assert.equal('patterns' in result.summary, false);
+  assert.ok(
+    evidence.distributionEvidenceFacts.every((item) => item.key !== 'distribution:patterns'),
+  );
+  assert.ok(
+    evidence.counterEvidenceFacts.every((item) => item.key !== 'astrolabe:counter:patterns'),
+  );
   assert.ok(['有未见项', '全部有可列资料'].includes(evidence.counterSummaryFact.status));
   assert.ok(evidence.supportingFacts.length > 0);
   assert.ok(evidence.limitations.some((item) => item.includes('不代表事件概率')));
@@ -318,11 +325,13 @@ test('星盘公开证据与重建应忽略全部派生盘面污染', () => {
   polluted.aspects = [];
   polluted.aspectCalculation = undefined;
   polluted.solarIllumination = undefined;
-  polluted.summary = { elements: {}, modalities: {}, retrograde: [], patterns: [] };
+  polluted.summary = { elements: {}, modalities: {}, retrograde: [], patterns: ['伪造格局'] };
   polluted.timestamp = 0;
   polluted.evidenceAnalysis = undefined;
 
-  assert.deepEqual(rebuildAuditedAstrolabeData(polluted), result);
+  const rebuilt = rebuildAuditedAstrolabeData(polluted);
+  assert.deepEqual(rebuilt, result);
+  assert.equal('patterns' in rebuilt.summary, false);
   assert.deepEqual(analyzeAstrolabeEvidence(polluted), result.evidenceAnalysis);
 });
 
