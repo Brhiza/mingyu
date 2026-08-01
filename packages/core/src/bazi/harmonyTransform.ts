@@ -1,12 +1,8 @@
 /**
- * @file 干支相合与天干成化条件
- * @description 依据《三命通会》可复核条件区分成化、合而不化、争合与破合，不使用百分制权重。
+ * @file 干支固定相合与合化原始条件
+ * @description 只登记天干五合、地支六合及可复核的月令、透根、冲合并见和争合候选事实；不自动裁定合化、合绊、破合或实际作用。
  */
-import type {
-  HarmonyTransformDirection,
-  HarmonyTransformLevel,
-  HarmonyTransformProfile,
-} from '../types/analysis';
+import type { HarmonyTransformProfile } from '../types/analysis';
 import { WUXING, type Wuxing } from './baziTypes';
 import { SEASON_STATUS } from './baziElementData';
 import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziMappingsData';
@@ -60,14 +56,6 @@ const ELEMENT_STEMS: Record<Wuxing, string[]> = {
   水: ['壬', '癸'],
 };
 
-const TRANSFORM_MONTHS: Record<Wuxing, { principal: string[]; secondary: string[] }> = {
-  木: { principal: ['亥', '卯', '未'], secondary: ['寅'] },
-  火: { principal: ['寅', '午', '戌'], secondary: ['巳'] },
-  土: { principal: ['辰', '戌', '丑', '未'], secondary: ['午'] },
-  金: { principal: ['巳', '酉', '丑'], secondary: ['申'] },
-  水: { principal: ['申', '子', '辰'], secondary: ['亥'] },
-};
-
 function assertWuxing(value: string, label: string): asserts value is Wuxing {
   if (!(WUXING as readonly string[]).includes(value)) {
     throw new Error(`${label}五行无效：${value}`);
@@ -105,7 +93,7 @@ function getMonthCondition(
   monthBranch: string,
   element: Wuxing,
 ): {
-  supported: boolean;
+  status: string;
   evidence: string;
 } {
   assertEarthlyBranch(monthBranch, '月支');
@@ -114,15 +102,9 @@ function getMonthCondition(
   if (!status) {
     throw new Error(`月令旺衰数据缺失：${monthBranch}/${element}`);
   }
-  const months = TRANSFORM_MONTHS[element];
-  const isPrincipal = months.principal.includes(monthBranch);
-  const isSecondary = months.secondary.includes(monthBranch);
-  const supported = isPrincipal || isSecondary;
-  const sourceCondition = isPrincipal ? '正令' : isSecondary ? '次令' : '不在规定月令';
-
   return {
-    supported,
-    evidence: `月令${monthBranch}对化神${element}为${status}，${sourceCondition}`,
+    status,
+    evidence: `月令${monthBranch}对传统化气五行${element}为${status}；这里只记录五行月令状态，不采用来源与版本未闭合的固定月份表裁定合化`,
   };
 }
 
@@ -157,58 +139,8 @@ function findParticipantIndex(
   return index;
 }
 
-function resolveStemLevel(conditions: {
-  isDayStemPair: boolean;
-  isAdjacent: boolean;
-  monthSupported: boolean;
-  hasClashBreak: boolean;
-  hasControllingElement: boolean;
-  hasCompetition: boolean;
-}): HarmonyTransformLevel {
-  if (conditions.hasClashBreak) return '逢冲破合';
-  if (conditions.hasCompetition) return '争合不专';
-  if (
-    conditions.isDayStemPair &&
-    conditions.isAdjacent &&
-    conditions.monthSupported &&
-    !conditions.hasControllingElement
-  ) {
-    return '成化';
-  }
-  return '合而不化';
-}
-
-function resolveDirection(level: HarmonyTransformLevel): HarmonyTransformDirection {
-  if (level === '成化') return '向化';
-  if (level === '逢冲破合') return '破合';
-  if (level === '隔位不合') return '不合';
-  return '合绊';
-}
-
-function buildConsequences(
-  typeLabel: string,
-  participant1: string,
-  participant2: string,
-  transformElement: Wuxing,
-  level: HarmonyTransformLevel,
-): string[] {
-  if (level === '成化') {
-    return [
-      `${participant1}与${participant2}${typeLabel}成化${transformElement}`,
-      `原组合可按化神${transformElement}参与后续结构判断`,
-    ];
-  }
-  if (level === '争合不专') {
-    return [
-      `${participant1}与${participant2}${typeLabel}见争合，合意不专`,
-      '不按成化处理，仍须保留各干原有属性',
-    ];
-  }
-  if (level === '逢冲破合') {
-    return [`${participant1}与${participant2}${typeLabel}受冲破`, '不按成化处理'];
-  }
-  return [`${participant1}与${participant2}${typeLabel}合而不化`, '保留原有属性，只论相合牵制'];
-}
+const HARMONY_INTERPRETATION_LIMIT =
+  '这里只确认固定相合与原始条件事实；合化、合绊、破合、争合是否成立及其实际作用，须由上层在明确流派版本、全局旺衰、透根、位置、冲克与制化后继续推算，不得由单项或条件数量自动裁定';
 
 export function assessStemHarmonyTransform(
   stem1: string,
@@ -231,15 +163,17 @@ export function assessStemHarmonyTransform(
   const participantIndex1 = findParticipantIndex(pillars, pillar1, stem1, 'gan');
   const participantIndex2 = findParticipantIndex(pillars, pillar2, stem2, 'gan');
   const participantIndexes = [participantIndex1, participantIndex2];
-  const evidence: string[] = [`${stem1}${stem2}合化${rule.element}，化神为${rule.stem}`];
+  const evidence: string[] = [
+    `${stem1}${stem2}为天干五合固定配对；传统化气五行记${rule.element}，对应化气天干资料为${rule.stem}`,
+  ];
   const monthCondition = getMonthCondition(monthBranch, rule.element);
   evidence.push(monthCondition.evidence);
 
   const isDayStemPair = participantIndexes.includes(2);
   const isAdjacent = Math.abs(participantIndex1 - participantIndex2) === 1;
   evidence.push(
-    isDayStemPair ? '日干参与五合' : '非日干配合，只记相合，不作化气',
-    isAdjacent ? '两干紧贴' : '两干隔位，不作成化',
+    isDayStemPair ? '日干参与五合' : '日干未参与该五合',
+    isAdjacent ? '两干柱位紧贴' : '两干柱位隔位',
   );
 
   const transformStemPillar = pillars.find(
@@ -261,13 +195,13 @@ export function assessStemHarmonyTransform(
     clash1 &&
     pillars.some((pillar, index) => pillar.gan === clash1 && !participantIndexes.includes(index))
   ) {
-    clashEvidence.push(`${stem1}被${clash1}相冲，构成冲破条件`);
+    clashEvidence.push(`${stem1}另见固定相冲对象${clash1}`);
   }
   if (
     clash2 &&
     pillars.some((pillar, index) => pillar.gan === clash2 && !participantIndexes.includes(index))
   ) {
-    clashEvidence.push(`${stem2}被${clash2}相冲，构成冲破条件`);
+    clashEvidence.push(`${stem2}另见固定相冲对象${clash2}`);
   }
   evidence.push(...clashEvidence);
 
@@ -280,8 +214,8 @@ export function assessStemHarmonyTransform(
   );
   evidence.push(
     hasControl
-      ? `有${controllingElement}克制化神${rule.element}`
-      : `无明显五行克制化神${rule.element}`,
+      ? `盘面另见可克传统化气五行${rule.element}的${controllingElement}五行`
+      : `盘面未见可克传统化气五行${rule.element}的${controllingElement}五行`,
   );
 
   const hasCompetitionWithStem1 = pillars.some(
@@ -296,44 +230,30 @@ export function assessStemHarmonyTransform(
       Math.abs(index - participantIndex2) === 1 &&
       STEM_TRANSFORM_RULES[pillar.gan]?.partner === stem2,
   );
-  if (hasCompetitionWithStem1) {
-    evidence.push(`有其他天干争合${stem1}`);
-  }
-  if (hasCompetitionWithStem2) {
-    evidence.push(`有其他天干争合${stem2}`);
-  }
-
-  const hasClashBreak = clashEvidence.length > 0;
-  const hasCompetition = hasCompetitionWithStem1 || hasCompetitionWithStem2;
-  const level = resolveStemLevel({
-    isDayStemPair,
-    isAdjacent,
-    monthSupported: monthCondition.supported,
-    hasClashBreak,
-    hasControllingElement: hasControl,
-    hasCompetition,
-  });
-  const direction = resolveDirection(level);
+  const competitionCandidates = [
+    ...(hasCompetitionWithStem1 ? [`另一天干也与${stem1}构成固定五合配对`] : []),
+    ...(hasCompetitionWithStem2 ? [`另一天干也与${stem2}构成固定五合配对`] : []),
+  ];
+  evidence.push(...competitionCandidates);
   const participants = [`${pillar1}${stem1}`, `${pillar2}${stem2}`];
 
   return {
     type: '天干五合',
     participants,
-    transformElement: rule.element,
-    transformStem: rule.stem,
-    level,
-    direction,
+    traditionalTransformElement: rule.element,
+    traditionalTransformStem: rule.stem,
     dayStemInvolved: isDayStemPair,
     participantsAdjacent: isAdjacent,
-    monthSupported: monthCondition.supported,
+    monthSeasonStatus: monthCondition.status,
     transformStemVisible: Boolean(transformStemPillar),
     transformRooted: rootCount > 0,
-    hasClashBreak,
-    hasControllingElement: hasControl,
-    hasCompetition,
+    clashCandidates: clashEvidence,
+    controllingElementPresent: hasControl,
+    competitionCandidates,
     evidence,
-    isTransformed: level === '成化',
-    consequences: buildConsequences('合', participants[0], participants[1], rule.element, level),
+    sources: ['天干五合固定配对与传统化气五行表', '四柱位置、月令五行状态、透干藏干与固定天干冲表'],
+    interpretationStatus: '固定相合事实，合化作用待复核',
+    interpretationLimit: HARMONY_INTERPRETATION_LIMIT,
   };
 }
 
@@ -360,10 +280,9 @@ export function assessBranchHarmonyTransform(
   const participantIndexes = [participantIndex1, participantIndex2];
   const isAdjacent = Math.abs(participantIndex1 - participantIndex2) === 1;
   const evidence: string[] = [
-    isAdjacent
-      ? `${branch1}${branch2}紧贴，构成地支六合`
-      : `${branch1}${branch2}隔位，只记六合对应关系，不作有效相合`,
-    `地支藏干复杂，只论相合，不直接作化${rule.element}论`,
+    `${branch1}${branch2}为地支六合固定配对`,
+    isAdjacent ? '两支柱位紧贴' : '两支柱位隔位',
+    `传统六合化气五行资料记${rule.element}；这里只保留版本化原始资料，不据此裁定实际合化`,
   ];
 
   const clashEvidence: string[] = [];
@@ -373,61 +292,43 @@ export function assessBranchHarmonyTransform(
     clash1 &&
     pillars.some((pillar, index) => pillar.zhi === clash1 && !participantIndexes.includes(index))
   ) {
-    clashEvidence.push(`${branch1}被${clash1}相冲，构成冲破条件`);
+    clashEvidence.push(`${branch1}另见固定相冲对象${clash1}`);
   }
   if (
     clash2 &&
     pillars.some((pillar, index) => pillar.zhi === clash2 && !participantIndexes.includes(index))
   ) {
-    clashEvidence.push(`${branch2}被${clash2}相冲，构成冲破条件`);
+    clashEvidence.push(`${branch2}另见固定相冲对象${clash2}`);
   }
   evidence.push(...clashEvidence);
 
-  const hasCompetition = pillars.some(
-    (pillar, index) =>
-      !participantIndexes.includes(index) &&
-      ((pillar.zhi === branch1 && Math.abs(index - participantIndex2) === 1) ||
-        (pillar.zhi === branch2 && Math.abs(index - participantIndex1) === 1)),
-  );
-  if (hasCompetition) evidence.push('六合另见相同地支争合，合意不专');
-
-  const hasClashBreak = clashEvidence.length > 0;
-  const level: HarmonyTransformLevel = !isAdjacent
-    ? '隔位不合'
-    : hasClashBreak
-      ? '逢冲破合'
-      : hasCompetition
-        ? '争合不专'
-        : '合而不化';
-  const direction = resolveDirection(level);
+  const competitionCandidates = pillars.flatMap((pillar, index) => {
+    if (participantIndexes.includes(index)) return [];
+    if (pillar.zhi === branch1 && Math.abs(index - participantIndex2) === 1) {
+      return [`另见${pillar.label}${branch1}与${pillar2}${branch2}构成固定六合配对`];
+    }
+    if (pillar.zhi === branch2 && Math.abs(index - participantIndex1) === 1) {
+      return [`另见${pillar.label}${branch2}与${pillar1}${branch1}构成固定六合配对`];
+    }
+    return [];
+  });
+  evidence.push(...competitionCandidates);
   const participants = [`${pillar1}${branch1}`, `${pillar2}${branch2}`];
 
   return {
     type: '地支六合',
     participants,
-    transformElement: rule.element,
-    level,
-    direction,
+    traditionalTransformElement: rule.element,
     participantsAdjacent: isAdjacent,
-    monthSupported: false,
     transformStemVisible: false,
     transformRooted: false,
-    hasClashBreak,
-    hasControllingElement: false,
-    hasCompetition,
+    clashCandidates: clashEvidence,
+    controllingElementPresent: false,
+    competitionCandidates,
     evidence,
-    isTransformed: false,
-    consequences:
-      level === '逢冲破合'
-        ? [`${participants[0]}与${participants[1]}六合受冲破`, '只记录冲合并见，不作成化处理']
-        : level === '隔位不合'
-          ? [`${participants[0]}与${participants[1]}隔位`, '只记六合对应关系，不作有效相合']
-          : level === '争合不专'
-            ? [`${participants[0]}与${participants[1]}六合见争合`, '只记录合意不专，不作成化处理']
-            : [
-                `${participants[0]}与${participants[1]}构成六合`,
-                '地支只论相合，不直接改按化神五行',
-              ],
+    sources: ['地支六合固定配对与传统化气五行表', '四柱位置与固定地支冲表'],
+    interpretationStatus: '固定相合事实，合化作用待复核',
+    interpretationLimit: HARMONY_INTERPRETATION_LIMIT,
   };
 }
 
@@ -479,34 +380,26 @@ export function assessAllHarmonyTransforms(
 
 export function formatHarmonyTransformProfile(profile: HarmonyTransformProfile): string[] {
   const conditions = [
-    `月令条件：${
-      profile.type === '天干五合'
-        ? (profile.evidence.find((item) => item.startsWith('月令')) ?? '未记录')
-        : '地支六合不以化气月令裁定'
-    }`,
-    `规定月令：${
-      profile.type === '天干五合' ? (profile.monthSupported ? '符合' : '不符合') : '不适用'
-    }`,
+    `月令状态：${profile.type === '天干五合' ? (profile.monthSeasonStatus ?? '未记录') : '不适用'}`,
     ...(profile.type === '天干五合'
       ? [
           `化神透干：${profile.transformStemVisible ? '有' : '无'}`,
           `化神根气：${profile.transformRooted ? '有' : '无'}`,
         ]
       : []),
-    `冲破：${profile.hasClashBreak ? '有' : '无'}`,
-    `争合：${profile.hasCompetition ? '有' : '无'}`,
+    `固定相冲同见：${profile.clashCandidates.length ? profile.clashCandidates.join('、') : '未见'}`,
+    `相同配对候选：${profile.competitionCandidates.length ? profile.competitionCandidates.join('、') : '未见'}`,
     `位置：${profile.participantsAdjacent ? '紧贴' : '隔位'}`,
   ];
   return [
     profile.type === '天干五合'
-      ? `【${profile.type}】${profile.participants.join('与')}化${profile.transformElement}${
-          profile.transformStem ? `（化神${profile.transformStem}）` : ''
+      ? `【${profile.type}】${profile.participants.join('与')}；传统化气五行资料${profile.traditionalTransformElement}${
+          profile.traditionalTransformStem ? `（对应天干${profile.traditionalTransformStem}）` : ''
         }`
-      : `【${profile.type}】${profile.participants.join('与')}（不直接作化${profile.transformElement}论）`,
-    `条件判定：${profile.level}`,
-    `相合作用：${profile.direction}`,
+      : `【${profile.type}】${profile.participants.join('与')}；传统化气五行资料${profile.traditionalTransformElement}`,
+    `解释状态：${profile.interpretationStatus}`,
     `条件明细：${conditions.join('；')}`,
-    `评估依据：${profile.evidence.join('；')}`,
-    `后续影响：${profile.consequences.join('；')}`,
+    `原始依据：${profile.evidence.join('；')}`,
+    `解释边界：${profile.interpretationLimit}`,
   ];
 }

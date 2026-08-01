@@ -415,27 +415,24 @@ export interface RelationStructureProfile {
   items: RelationStructureItem[];
   summary: string;
 }
-export type HarmonyTransformLevel = '成化' | '合而不化' | '争合不专' | '逢冲破合' | '隔位不合';
 export type HarmonyTransformType = '天干五合' | '地支六合';
-export type HarmonyTransformDirection = '向化' | '合绊' | '破合' | '不合';
 export interface HarmonyTransformProfile {
   type: HarmonyTransformType;
   participants: string[];
-  transformElement: string;
-  transformStem?: string;
-  level: HarmonyTransformLevel;
-  direction: HarmonyTransformDirection;
+  traditionalTransformElement: string;
+  traditionalTransformStem?: string;
   dayStemInvolved?: boolean;
   participantsAdjacent: boolean;
-  monthSupported: boolean;
+  monthSeasonStatus?: string;
   transformStemVisible: boolean;
   transformRooted: boolean;
-  hasClashBreak: boolean;
-  hasControllingElement: boolean;
-  hasCompetition: boolean;
+  clashCandidates: string[];
+  controllingElementPresent: boolean;
+  competitionCandidates: string[];
   evidence: string[];
-  isTransformed: boolean;
-  consequences: string[];
+  sources: string[];
+  interpretationStatus: '固定相合事实，合化作用待复核';
+  interpretationLimit: string;
 }
 export interface UsefulGodPlacementItem {
   pillar: string;

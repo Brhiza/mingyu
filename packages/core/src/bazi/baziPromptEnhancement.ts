@@ -7,7 +7,7 @@ import type { BaziChartResult } from './baziTypes';
 import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
 import { findCompleteSanxingGroups } from '../ganzhi/relations';
 import { identifyClassicPattern } from './baziEnhancement/classicPatterns';
-import { assessAllHarmonyTransforms } from './harmonyTransform';
+import { assessAllHarmonyTransforms, formatHarmonyTransformProfile } from './harmonyTransform';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -258,15 +258,7 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
 
   if (!profiles.length) return '';
 
-  const evidence = profiles
-    .map((profile) => {
-      const relation =
-        profile.type === '天干五合'
-          ? `${profile.participants.join('与')}化${profile.transformElement}`
-          : `${profile.participants.join('与')}（地支只论相合）`;
-      return `${profile.type}${relation}：${profile.level}，作用${profile.direction}（${profile.evidence.join('、')}）`;
-    })
-    .join('；');
+  const evidence = profiles.flatMap(formatHarmonyTransformProfile).join('；');
 
   return buildEvidenceDrivenHintSection('干支相合条件', `命盘见相合结构：${evidence}`);
 }

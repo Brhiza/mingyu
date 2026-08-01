@@ -9,21 +9,48 @@ import {
   type HarmonyPillarInput,
 } from '../packages/core/src/bazi';
 
+const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
+const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
+const FORBIDDEN_VERDICT_KEYS = [
+  'level',
+  'direction',
+  'transformElement',
+  'transformStem',
+  'monthSupported',
+  'hasClashBreak',
+  'hasControllingElement',
+  'hasCompetition',
+  'isTransformed',
+  'consequences',
+] as const;
+
 function createPillar(
   label: string,
   gan: string,
   zhi: string,
-  hiddenStems: string[],
+  hiddenStems?: string[],
 ): HarmonyPillarInput {
   return {
     label,
     gan,
     zhi,
-    hiddenStems,
+    ...(hiddenStems ? { hiddenStems } : {}),
   };
 }
 
-test('天干五合须日干紧贴、得规定月令且无克破争合才作成化', () => {
+function assertNoAutomaticVerdict(profile: ReturnType<typeof assessStemHarmonyTransform>): void {
+  for (const key of FORBIDDEN_VERDICT_KEYS) {
+    assert.equal(key in profile, false, `不应保留旧裁决字段 ${key}`);
+  }
+  assert.equal(profile.interpretationStatus, '固定相合事实，合化作用待复核');
+  assert.match(profile.interpretationLimit, /不得由单项或条件数量自动裁定/);
+}
+
+function hasAutomaticVerdict(profile: ReturnType<typeof assessStemHarmonyTransform>): boolean {
+  return FORBIDDEN_VERDICT_KEYS.some((key) => key in profile);
+}
+
+test('天干五合只返回固定配对、传统化气资料与原始条件', () => {
   const pillars = [
     createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
     createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
@@ -34,280 +61,194 @@ test('天干五合须日干紧贴、得规定月令且无克破争合才作成�
   const profile = assessStemHarmonyTransform('己', '月柱', '甲', '日柱', '戌', pillars);
 
   assert.equal(profile.type, '天干五合');
-  assert.equal(profile.transformElement, '土');
-  assert.equal(profile.transformStem, '戊');
-  assert.equal(profile.monthSupported, true);
+  assert.equal(profile.traditionalTransformElement, '土');
+  assert.equal(profile.traditionalTransformStem, '戊');
+  assert.equal(profile.monthSeasonStatus, '旺');
   assert.equal(profile.transformStemVisible, true);
   assert.equal(profile.transformRooted, true);
-  assert.equal(profile.hasControllingElement, false);
-  assert.ok(!('score' in profile));
-  assert.equal(profile.level, '成化');
-  assert.equal(profile.direction, '向化');
   assert.equal(profile.dayStemInvolved, true);
   assert.equal(profile.participantsAdjacent, true);
-  assert.equal(profile.isTransformed, true);
-  assert.ok(profile.evidence.some((item) => item.includes('月令戌对化神土为旺')));
+  assert.ok(profile.evidence.some((item) => item.includes('这里只记录五行月令状态')));
   assert.ok(profile.evidence.includes('日干参与五合'));
-  assert.ok(profile.evidence.includes('两干紧贴'));
+  assert.ok(profile.evidence.includes('两干柱位紧贴'));
+  assertNoAutomaticVerdict(profile);
 });
 
-test('休囚月令不再被误标为支持成化', () => {
-  const pillars = [
-    createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
-    createPillar('月柱', '己', '子', ['癸']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
-  ];
+test('五种天干五合与六种地支六合只登记固定传统资料', () => {
+  const stemCases = [
+    ['甲', '己', '土', '戊'],
+    ['乙', '庚', '金', '庚'],
+    ['丙', '辛', '水', '壬'],
+    ['丁', '壬', '木', '甲'],
+    ['戊', '癸', '火', '丙'],
+  ] as const;
+  const branchCases = [
+    ['子', '丑', '土'],
+    ['寅', '亥', '木'],
+    ['卯', '戌', '火'],
+    ['辰', '酉', '金'],
+    ['巳', '申', '水'],
+    ['午', '未', '土'],
+  ] as const;
 
-  const profile = assessStemHarmonyTransform('己', '月柱', '甲', '日柱', '子', pillars);
+  for (const [left, right, element, transformStem] of stemCases) {
+    const pillars = [
+      createPillar('年柱', left, '辰'),
+      createPillar('月柱', right, '午'),
+      createPillar('日柱', '甲', '戌'),
+      createPillar('时柱', '乙', '申'),
+    ];
+    const profile = assessStemHarmonyTransform(left, '年柱', right, '月柱', '午', pillars);
+    assert.equal(profile.traditionalTransformElement, element);
+    assert.equal(profile.traditionalTransformStem, transformStem);
+    assertNoAutomaticVerdict(profile);
+  }
 
-  assert.equal(profile.monthSupported, false);
-  assert.equal(profile.level, '合而不化');
-  assert.equal(profile.isTransformed, false);
-  assert.match(profile.consequences.join('；'), /合而不化/);
-});
-
-test('五种天干化气的规定月令应逐项核验，不由旺相休囚分值代替', () => {
-  const cases = [
-    {
-      label: '甲己化土',
-      stem1: '己',
-      stem2: '甲',
-      monthBranch: '戌',
-      pillars: [
-        createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
-        createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-        createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
-        createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
-      ],
-    },
-    {
-      label: '乙庚化金',
-      stem1: '乙',
-      stem2: '庚',
-      monthBranch: '酉',
-      pillars: [
-        createPillar('年柱', '癸', '申', ['庚', '壬', '戊']),
-        createPillar('月柱', '乙', '酉', ['辛']),
-        createPillar('日柱', '庚', '丑', ['己', '癸', '辛']),
-        createPillar('时柱', '壬', '子', ['癸']),
-      ],
-    },
-    {
-      label: '丙辛化水',
-      stem1: '丙',
-      stem2: '辛',
-      monthBranch: '子',
-      pillars: [
-        createPillar('年柱', '庚', '申', ['庚', '壬', '戊']),
-        createPillar('月柱', '丙', '子', ['癸']),
-        createPillar('日柱', '辛', '亥', ['壬', '甲']),
-        createPillar('时柱', '癸', '酉', ['辛']),
-      ],
-    },
-    {
-      label: '丁壬化木',
-      stem1: '丁',
-      stem2: '壬',
-      monthBranch: '卯',
-      pillars: [
-        createPillar('年柱', '戊', '亥', ['壬', '甲']),
-        createPillar('月柱', '丁', '卯', ['乙']),
-        createPillar('日柱', '壬', '未', ['己', '丁', '乙']),
-        createPillar('时柱', '甲', '子', ['癸']),
-      ],
-    },
-    {
-      label: '戊癸化火',
-      stem1: '戊',
-      stem2: '癸',
-      monthBranch: '午',
-      pillars: [
-        createPillar('年柱', '甲', '寅', ['甲', '丙', '戊']),
-        createPillar('月柱', '戊', '午', ['丁', '己']),
-        createPillar('日柱', '癸', '戌', ['戊', '辛', '丁']),
-        createPillar('时柱', '丙', '巳', ['丙', '戊', '庚']),
-      ],
-    },
-  ];
-
-  for (const item of cases) {
-    const profile = assessStemHarmonyTransform(
-      item.stem1,
-      '月柱',
-      item.stem2,
-      '日柱',
-      item.monthBranch,
-      item.pillars,
-    );
-    assert.equal(profile.monthSupported, true, item.label);
-    assert.equal(profile.level, '成化', item.label);
-    assert.equal(profile.isTransformed, true, item.label);
+  for (const [left, right, element] of branchCases) {
+    const pillars = [
+      createPillar('年柱', '甲', left),
+      createPillar('月柱', '丙', right),
+      createPillar('日柱', '戊', '辰'),
+      createPillar('时柱', '庚', '午'),
+    ];
+    const profile = assessBranchHarmonyTransform(left, '年柱', right, '月柱', right, pillars);
+    assert.equal(profile.traditionalTransformElement, element);
+    assertNoAutomaticVerdict(profile);
   }
 });
 
-test('化神受克或另干争合时不得以其他条件抵消', () => {
-  const controlledPillars = [
-    createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
-    createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '乙', '巳', ['丙', '戊', '庚']),
-  ];
-  const competingPillars = [
-    createPillar('年柱', '甲', '戌', ['戊', '辛', '丁']),
-    createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
-  ];
+test('冲克、隔位与相同配对只作为候选事实，不生成结论', () => {
+  const controlled = assessStemHarmonyTransform('己', '月柱', '甲', '日柱', '戌', [
+    createPillar('年柱', '甲', '戌'),
+    createPillar('月柱', '己', '戌'),
+    createPillar('日柱', '甲', '丑'),
+    createPillar('时柱', '乙', '巳'),
+  ]);
+  const clashed = assessBranchHarmonyTransform('子', '年柱', '丑', '月柱', '丑', [
+    createPillar('年柱', '甲', '子'),
+    createPillar('月柱', '丙', '丑'),
+    createPillar('日柱', '戊', '午'),
+    createPillar('时柱', '庚', '申'),
+  ]);
+  const separated = assessBranchHarmonyTransform('子', '年柱', '丑', '日柱', '辰', [
+    createPillar('年柱', '甲', '子'),
+    createPillar('月柱', '丙', '辰'),
+    createPillar('日柱', '戊', '丑'),
+    createPillar('时柱', '庚', '申'),
+  ]);
 
-  const controlled = assessStemHarmonyTransform(
-    '己',
-    '月柱',
-    '甲',
-    '日柱',
-    '戌',
-    controlledPillars,
+  assert.equal(controlled.controllingElementPresent, true);
+  assert.ok(controlled.competitionCandidates.length > 0);
+  assert.ok(clashed.clashCandidates.some((item) => item.includes('子另见固定相冲对象午')));
+  assert.equal(separated.participantsAdjacent, false);
+  assertNoAutomaticVerdict(controlled);
+  assertNoAutomaticVerdict(clashed);
+  assertNoAutomaticVerdict(separated);
+});
+
+test('格式化输出明确合化待复核且不出现自动裁决', () => {
+  const pillars = [
+    createPillar('年柱', '戊', '戌'),
+    createPillar('月柱', '己', '戌'),
+    createPillar('日柱', '甲', '丑'),
+    createPillar('时柱', '丁', '巳'),
+  ];
+  const formatted = formatHarmonyTransformProfile(
+    assessStemHarmonyTransform('己', '月柱', '甲', '日柱', '戌', pillars),
+  ).join('\n');
+
+  assert.match(formatted, /固定相合事实，合化作用待复核/);
+  assert.match(formatted, /这里只确认固定相合与原始条件事实/);
+  assert.doesNotMatch(
+    formatted,
+    /条件判定：成化|作用向化|作用破合|合而不化|争合不专|隔位不合|原组合可按化神参与/,
   );
-  const competing = assessStemHarmonyTransform('己', '月柱', '甲', '日柱', '戌', competingPillars);
-
-  assert.equal(controlled.hasControllingElement, true);
-  assert.equal(controlled.level, '合而不化');
-  assert.equal(controlled.isTransformed, false);
-  assert.equal(competing.hasCompetition, true);
-  assert.equal(competing.level, '争合不专');
-  assert.equal(competing.isTransformed, false);
-});
-
-test('日干与隔位天干相合也不得作成化', () => {
-  const pillars = [
-    createPillar('年柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('月柱', '戊', '午', ['丁', '己']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
-  ];
-
-  const profile = assessStemHarmonyTransform('己', '年柱', '甲', '日柱', '午', pillars);
-
-  assert.equal(profile.monthSupported, true);
-  assert.equal(profile.level, '合而不化');
-  assert.equal(profile.isTransformed, false);
-  assert.ok(profile.evidence.includes('两干隔位，不作成化'));
-});
-
-test('地支六合只论相合，冲合并见时标记破合而不裁成化', () => {
-  const cleanPillars = [
-    createPillar('年柱', '甲', '子', ['癸']),
-    createPillar('月柱', '己', '丑', ['己', '癸', '辛']),
-    createPillar('日柱', '戊', '辰', ['戊', '乙', '癸']),
-    createPillar('时柱', '庚', '申', ['庚', '壬', '戊']),
-  ];
-  const clashedPillars = [
-    createPillar('年柱', '甲', '子', ['癸']),
-    createPillar('月柱', '己', '丑', ['己', '癸', '辛']),
-    createPillar('日柱', '戊', '午', ['丁', '己']),
-    createPillar('时柱', '庚', '申', ['庚', '壬', '戊']),
-  ];
-
-  const clean = assessBranchHarmonyTransform('子', '年柱', '丑', '月柱', '丑', cleanPillars);
-  const clashed = assessBranchHarmonyTransform('子', '年柱', '丑', '月柱', '丑', clashedPillars);
-
-  assert.equal(clean.type, '地支六合');
-  assert.equal(clean.transformElement, '土');
-  assert.equal(clean.transformStemVisible, false);
-  assert.equal(clean.transformRooted, false);
-  assert.equal(clean.monthSupported, false);
-  assert.equal(clean.level, '合而不化');
-  assert.equal(clean.isTransformed, false);
-  assert.equal(clashed.hasClashBreak, true);
-  assert.equal(clean.hasClashBreak, false);
-  assert.equal(clashed.level, '逢冲破合');
-  assert.equal(clashed.direction, '破合');
-  assert.equal(clashed.isTransformed, false);
-  assert.match(clean.evidence.join('；'), /只论相合，不直接作化土论/);
-});
-
-test('两个地支隔位时只记六合对应关系，不作有效相合', () => {
-  const pillars = [
-    createPillar('年柱', '甲', '子', ['癸']),
-    createPillar('月柱', '丙', '辰', ['戊', '乙', '癸']),
-    createPillar('日柱', '戊', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '庚', '申', ['庚', '壬', '戊']),
-  ];
-
-  const profile = assessBranchHarmonyTransform('子', '年柱', '丑', '日柱', '辰', pillars);
-
-  assert.equal(profile.participantsAdjacent, false);
-  assert.equal(profile.level, '隔位不合');
-  assert.equal(profile.direction, '不合');
-  assert.equal(profile.isTransformed, false);
-  assert.match(profile.evidence.join('；'), /隔位.*不作有效相合/);
-});
-
-test('透干和根气多少只作旁证，不再累计成任意分数', () => {
-  const lessEvidence = [
-    createPillar('年柱', '壬', '酉', ['辛']),
-    createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '丁', '子', ['癸']),
-  ];
-  const moreEvidence = [
-    createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
-    createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
-  ];
-
-  const less = assessStemHarmonyTransform('己', '月柱', '甲', '日柱', '戌', lessEvidence);
-  const more = assessStemHarmonyTransform('己', '月柱', '甲', '日柱', '戌', moreEvidence);
-
-  assert.equal(less.transformStemVisible, false);
-  assert.equal(more.transformStemVisible, true);
-  assert.equal(less.level, '成化');
-  assert.equal(more.level, '成化');
-  assert.equal(less.isTransformed, more.isTransformed);
-  assert.doesNotMatch([...less.evidence, ...more.evidence].join('；'), /\d+分/);
-});
-
-test('自动扫描应只返回原局存在的天干五合和地支六合', () => {
-  const pillars = [
-    createPillar('年柱', '甲', '子', ['癸']),
-    createPillar('月柱', '己', '丑', ['己', '癸', '辛']),
-    createPillar('日柱', '戊', '辰', ['戊', '乙', '癸']),
-    createPillar('时柱', '庚', '申', ['庚', '壬', '戊']),
-  ];
-
-  const profiles = assessAllHarmonyTransforms(pillars);
-
-  assert.equal(profiles.length, 2);
-  assert.ok(profiles.some((profile) => profile.type === '天干五合'));
-  assert.ok(profiles.some((profile) => profile.type === '地支六合'));
-});
-
-test('格式化输出应保留逐项条件且不外显内部分数，非法组合应抛出错误', () => {
-  const pillars = [
-    createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
-    createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
-  ];
-
-  const profile = assessStemHarmonyTransform('己', '月柱', '甲', '日柱', '戌', pillars);
-  const formatted = formatHarmonyTransformProfile(profile);
-
-  assert.ok(formatted.some((line) => line.includes('条件明细')));
-  assert.ok(formatted.some((line) => line.includes('月令条件')));
-  assert.ok(formatted.some((line) => line.includes('条件判定：成化')));
-  assert.doesNotMatch(formatted.join('\n'), /评分明细|\d+分/);
   assert.throws(() => assessStemHarmonyTransform('甲', '日柱', '乙', '时柱', '戌', pillars));
   assert.throws(() => assessBranchHarmonyTransform('子', '年柱', '寅', '日柱', '戌', pillars));
 });
 
-test('合化评分应拒绝非法干支和藏干，不应生成未知月令证据', () => {
+test('自动扫描只返回四柱实际存在的固定五合与六合', () => {
+  const profiles = assessAllHarmonyTransforms([
+    createPillar('年柱', '甲', '子'),
+    createPillar('月柱', '己', '丑'),
+    createPillar('日柱', '戊', '辰'),
+    createPillar('时柱', '庚', '申'),
+  ]);
+
+  assert.equal(profiles.length, 2);
+  assert.ok(profiles.some((profile) => profile.type === '天干五合'));
+  assert.ok(profiles.some((profile) => profile.type === '地支六合'));
+  profiles.forEach(assertNoAutomaticVerdict);
+});
+
+test('四干一万种组合穷举均无旧合化裁决旁路', () => {
+  let combinationCount = 0;
+  let profileCount = 0;
+
+  for (const yearStem of STEMS) {
+    for (const monthStem of STEMS) {
+      for (const dayStem of STEMS) {
+        for (const hourStem of STEMS) {
+          combinationCount += 1;
+          const profiles = assessAllHarmonyTransforms([
+            createPillar('年柱', yearStem, '辰'),
+            createPillar('月柱', monthStem, '午'),
+            createPillar('日柱', dayStem, '戌'),
+            createPillar('时柱', hourStem, '申'),
+          ]).filter((profile) => profile.type === '天干五合');
+          profileCount += profiles.length;
+          for (const profile of profiles) {
+            if (hasAutomaticVerdict(profile)) {
+              assert.fail(`四干组合出现旧裁决字段：${JSON.stringify(profile)}`);
+            }
+            assert.equal(profile.interpretationStatus, '固定相合事实，合化作用待复核');
+          }
+        }
+      }
+    }
+  }
+
+  assert.equal(combinationCount, 10_000);
+  assert.ok(profileCount > 0);
+});
+
+test('四支二万零七百三十六种组合穷举均无旧合化裁决旁路', () => {
+  let combinationCount = 0;
+  let profileCount = 0;
+
+  for (const yearBranch of BRANCHES) {
+    for (const monthBranch of BRANCHES) {
+      for (const dayBranch of BRANCHES) {
+        for (const hourBranch of BRANCHES) {
+          combinationCount += 1;
+          const profiles = assessAllHarmonyTransforms([
+            createPillar('年柱', '甲', yearBranch),
+            createPillar('月柱', '丙', monthBranch),
+            createPillar('日柱', '戊', dayBranch),
+            createPillar('时柱', '庚', hourBranch),
+          ]).filter((profile) => profile.type === '地支六合');
+          profileCount += profiles.length;
+          for (const profile of profiles) {
+            if (hasAutomaticVerdict(profile)) {
+              assert.fail(`四支组合出现旧裁决字段：${JSON.stringify(profile)}`);
+            }
+            assert.equal(profile.interpretationStatus, '固定相合事实，合化作用待复核');
+          }
+        }
+      }
+    }
+  }
+
+  assert.equal(combinationCount, 20_736);
+  assert.ok(profileCount > 0);
+});
+
+test('非法干支、藏干与四柱数量继续失败关闭', () => {
   const pillars = [
-    createPillar('年柱', '甲', '辰', ['戊', '乙', '癸']),
-    createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '乙', '丑', ['己', '癸', '辛']),
-    createPillar('时柱', '戊', '午', ['丁', '己']),
+    createPillar('年柱', '甲', '辰'),
+    createPillar('月柱', '己', '戌'),
+    createPillar('日柱', '乙', '丑'),
+    createPillar('时柱', '戊', '午'),
   ];
 
   assert.throws(
@@ -321,11 +262,12 @@ test('合化评分应拒绝非法干支和藏干，不应生成未知月令证�
   assert.throws(
     () =>
       assessAllHarmonyTransforms([
-        createPillar('年柱', '甲', '辰', ['戊', '乙', '癸']),
+        createPillar('年柱', '甲', '辰'),
         createPillar('月柱', '己', '戌', ['风']),
-        createPillar('日柱', '乙', '丑', ['己', '癸', '辛']),
-        createPillar('时柱', '戊', '午', ['丁', '己']),
+        createPillar('日柱', '乙', '丑'),
+        createPillar('时柱', '戊', '午'),
       ]),
     /月柱藏干无效/,
   );
+  assert.throws(() => assessAllHarmonyTransforms(pillars.slice(0, 3)), /四柱数量无效/);
 });

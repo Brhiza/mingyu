@@ -907,11 +907,15 @@ test('八字提示词输出全部相合条件，避免把相合结构直接当�
   );
 
   assert.match(prompt.user, /【干支相合条件】命盘见相合结构：/);
-  assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：逢冲破合，作用破合/);
-  assert.match(prompt.user, /非日干配合，只记相合，不作化气/);
+  assert.match(prompt.user, /【天干五合】年柱丁与月柱壬；传统化气五行资料木/);
+  assert.match(prompt.user, /解释状态：固定相合事实，合化作用待复核/);
+  assert.match(prompt.user, /解释边界：这里只确认固定相合与原始条件事实/);
   assert.doesNotMatch(prompt.user, /相合结构：[^\n]*\d+分|合化评分|80分以下/);
   assert.doesNotMatch(prompt.user, /概率或吉凶分/);
-  assert.doesNotMatch(prompt.user, /原组合可按化神木参与后续结构判断/);
+  assert.doesNotMatch(
+    prompt.user,
+    /条件判定：成化|作用向化|作用破合|合而不化|争合不专|隔位不合|原组合可按化神木参与后续结构判断/,
+  );
 });
 
 test('八字增强资料包不再按用户分类切换本地模板', () => {
