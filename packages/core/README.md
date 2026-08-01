@@ -125,6 +125,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                                                                              |
 | **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、24 点相位完整穷举、实际角距与采用容许度、完整行运与高级时限、太阳返照求根证据                                                     |
 | **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 穷举双方所选点对，完整返回主要跨盘相位的实际夹角、精确角、偏差、可配置容许度、全部双向跨盘落宫与结构化证据                                               |
+| **太乙神数 Taiyi**     | `mingyu-core/taiyi`                                                                                                                           | 已校勘年计七十二局；公开证据从原始公历年份统一审核重建，月、日、时计失败关闭                                                                             |
 | **历法 Calendar**      | `mingyu-core/calendar`                                                                                                                        | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据                                                                |
 | **出生档案 Profile**   | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，并提供既有算法适配器                                                                                         |
 | **能力发现**           | `mingyu-core/capabilities`                                                                                                                    | 查询算法输入、输出、起法、依赖、随机复现和出生时间要求                                                                                                   |
@@ -357,6 +358,7 @@ const zodiacYear = zodiac.getZodiacYearFortune('午', '甲辰');
 console.log(zodiacYear.conflicts, zodiacYear.harmony, zodiacYear.meeting);
 // 只返回生肖年支与流年干支命中的固定关系及五行生克方向；不生成利弊、现实贵人或行动建议
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
+const auditedTaiyiChart = taiyi.rebuildAuditedTaiyiData(taiyiChart);
 const qizhengChart = qizheng.generateQizheng({
   year: 2024,
   month: 6,
@@ -485,6 +487,9 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宫传统标签与候选坐向 |
 | `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)` | 将入户实测度数换算成传统坐山、朝向与二十四山                         |
 | `resolveZiweiTrueSolarBirth(input)`               | 紫微出生资料真太阳时日期与时辰索引适配                               |
+| `taiyi.generateTaiyi({ year, scope: 'year' })`    | 生成已校勘的太乙年计七十二局                                         |
+| `taiyi.rebuildAuditedTaiyiData(data)`             | 只凭原始公历年份重建太乙年计，忽略全部旧派生盘面与旧证据             |
+| `taiyi.analyzeTaiyiEvidence(data)`                | 先审核重建太乙年计，再返回结构化证据                                 |
 
 ### 类型（`mingyu-core/types`）
 

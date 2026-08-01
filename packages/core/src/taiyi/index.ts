@@ -549,6 +549,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
 
   return {
     scope,
+    year,
     ganZhi,
     dateTime,
     accumulatedValue,
@@ -586,10 +587,37 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   };
 }
 
+/**
+ * 只凭生成时保存的原始公历年份重建已审核太乙年计。
+ *
+ * 旧缓存中的日期文本、干支、局数、宫位、定算、判断和证据都属于派生结果，
+ * 不得用来反推或替代缺失的原始年份。
+ */
+export function rebuildAuditedTaiyiData(input: TaiyiResult): TaiyiResult {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('太乙审核重建必须提供包含原始年份的结果对象。');
+  }
+  if (
+    typeof input.year !== 'number' ||
+    !Number.isSafeInteger(input.year) ||
+    input.year < 1 ||
+    input.year > 9999
+  ) {
+    throw new Error('太乙审核重建缺少可信原始年份，年份必须是 1-9999 之间的整数。');
+  }
+  return generateTaiyi({ scope: 'year', year: input.year });
+}
+
+/** 先从原始年份重建完整年计，再返回经审核的结构化证据。 */
+export function analyzeTaiyiEvidence(input: TaiyiResult): TaiyiResult['evidenceAnalysis'] {
+  return rebuildAuditedTaiyiData(input).evidenceAnalysis;
+}
+
 export const taiyi = {
   generateTaiyi,
+  rebuildAuditedTaiyiData,
+  analyzeTaiyiEvidence,
   TAIYI_16_GODS,
   TAIYI_BASE_YEARS,
   TAIYI_MODEL_INFO,
-  buildTaiyiEvidence,
 };

@@ -509,6 +509,33 @@ test('占卜输出提示词应是可复制给在线 AI 的独立任务书，不�
   });
 });
 
+test('太乙提示词只凭原始年份重建，不吸收旧盘与旧证据污染', () => {
+  const data = taiyi.generateTaiyi({ scope: 'year', year: 2004 });
+  const supplementary = createSupplementaryInfo();
+  const clean = buildDivinationPrompt('taiyi', '请分析本年局势。', data, supplementary);
+  const polluted = structuredClone(data);
+  polluted.scope = 'month';
+  polluted.ganZhi = '伪造干支';
+  polluted.dateTime = '伪造时间';
+  polluted.bureau = 72;
+  polluted.yinYang = '阴遁';
+  polluted.taiyiPosition = '伪造太乙位';
+  polluted.wenChangPosition = '伪造文昌位';
+  polluted.shiJiPosition = '伪造始击位';
+  polluted.jiShenPosition = '伪造计神位';
+  polluted.lordCount = -1;
+  polluted.guestCount = -1;
+  polluted.setCount = -1;
+  polluted.judgments = ['伪造现实断语'];
+  polluted.model.name = '伪造模型';
+  polluted.evidenceAnalysis.promptText = '伪造旧证据';
+  polluted.prompt = '伪造旧提示词';
+
+  const rebuilt = buildDivinationPrompt('taiyi', '请分析本年局势。', polluted, supplementary);
+  assert.equal(rebuilt, clean);
+  assert.doesNotMatch(rebuilt, /伪造|现实断语/);
+});
+
 test('非命盘占法不再附加独立的方法论与应期控制段落', () => {
   const cases: Array<{
     method: Exclude<DivinationType, 'tarot_single' | 'astrolabe'>;

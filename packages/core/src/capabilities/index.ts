@@ -717,7 +717,10 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: ['当前只开放完成积年与七十二局立成校勘的年计；月、日、时计等待完整古籍历法链校勘。'],
+    notes: [
+      '当前只开放完成积年与七十二局立成校勘的年计；月、日、时计等待完整古籍历法链校勘。',
+      '公开证据、提示词和摘要只凭原始公历年份审核重建；旧派生盘面不可信，缺少合法年份时失败关闭。',
+    ],
   },
   {
     id: 'qizheng',

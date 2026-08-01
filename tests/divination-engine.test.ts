@@ -53,6 +53,7 @@ import {
 } from 'mingyu-core/divination/ssgw';
 import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { generateTaiyi } from 'mingyu-core/taiyi';
 import {
   analyzeQimenEvidence,
   conditionQimenTraditionalText,
@@ -2005,6 +2006,38 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.match(
     session.prompt,
     /【当前时间】[\s\S]*【占卜信息】[\s\S]*【问题】[\s\S]*【任务】[\s\S]*【输出要求】/,
+  );
+});
+
+test('太乙页面资料与摘要只凭原始年份重建并忽略旧盘污染', () => {
+  const clean = generateTaiyi({ year: 2004 });
+  const polluted = structuredClone(clean);
+  polluted.scope = 'month';
+  polluted.ganZhi = '伪造干支';
+  polluted.dateTime = '伪造时间';
+  polluted.bureau = 72;
+  polluted.yinYang = '阴遁';
+  polluted.taiyiPosition = '伪造太乙位';
+  polluted.wenChangPosition = '伪造文昌位';
+  polluted.shiJiPosition = '伪造始击位';
+  polluted.jiShenPosition = '伪造计神位';
+  polluted.lordCount = -1;
+  polluted.guestCount = -1;
+  polluted.setCount = -1;
+  polluted.judgments = ['伪造现实断语'];
+  polluted.model.name = '伪造模型';
+  polluted.evidenceAnalysis.promptText = '伪造旧证据';
+
+  const cleanInfo = formatDivinationInfo('taiyi', clean);
+  const rebuiltInfo = formatDivinationInfo('taiyi', polluted);
+  const cleanSummary = getDivinationSummaryBlocks('taiyi', clean);
+  const rebuiltSummary = getDivinationSummaryBlocks('taiyi', polluted);
+
+  assert.equal(rebuiltInfo, cleanInfo);
+  assert.deepEqual(rebuiltSummary, cleanSummary);
+  assert.doesNotMatch(
+    [rebuiltInfo, ...rebuiltSummary.tags, ...rebuiltSummary.lines].join('\n'),
+    /伪造|现实断语/,
   );
 });
 

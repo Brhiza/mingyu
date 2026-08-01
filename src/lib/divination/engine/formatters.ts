@@ -43,6 +43,7 @@ import { rebuildAuditedXiaoliurenData } from '@core/divination/algorithms/xiaoli
 import { rebuildAuditedJinkoujueData } from '@core/divination/algorithms/jinkoujue';
 import { rebuildAuditedTarotData } from '@core/divination/tarot';
 import { rebuildAuditedLenormandData } from '@core/divination/algorithms/lenormand';
+import { rebuildAuditedTaiyiData } from 'mingyu-core/taiyi';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (
@@ -954,18 +955,19 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
 }
 
 export function formatTaiyiInfo(data: TaiyiResult) {
-  const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
+  const audited = rebuildAuditedTaiyiData(data);
+  const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[audited.scope];
   return [
     `占法：太乙神数（${scopeLabel}）`,
-    `起局时间：${data.dateTime}；本计干支：${data.ganZhi}；${data.accumulatedLabel}：${data.accumulatedValue}`,
-    `第${data.yuan}个72数段、第${data.ji}个60数段；${data.yinYang}第${data.bureau}局`,
-    `太乙：${data.taiyiPosition}（第${data.taiyiPalace}宫，${data.taiyiGua}卦，${data.taiyiDir}）`,
-    `文昌（主目）：${data.wenChangPosition}；始击（客目）：${data.shiJiPosition}；计神：${data.jiShenPosition}`,
-    `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
-    `将参：主大${data.lordGeneral}、主参${data.lordAssistant}；客大${data.guestGeneral}、客参${data.guestAssistant}；定大${data.setGeneral}、定参${data.setAssistant}`,
-    `判断：${data.judgments.join('；')}`,
-    `模型：${data.model.name}；${data.model.precision}`,
-    `十六神：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`,
+    `起局时间：${audited.dateTime}；本计干支：${audited.ganZhi}；${audited.accumulatedLabel}：${audited.accumulatedValue}`,
+    `第${audited.yuan}个72数段、第${audited.ji}个60数段；${audited.yinYang}第${audited.bureau}局`,
+    `太乙：${audited.taiyiPosition}（第${audited.taiyiPalace}宫，${audited.taiyiGua}卦，${audited.taiyiDir}）`,
+    `文昌（主目）：${audited.wenChangPosition}；始击（客目）：${audited.shiJiPosition}；计神：${audited.jiShenPosition}`,
+    `主客定算：主算${audited.lordCount}；客算${audited.guestCount}；定算${audited.setCount}`,
+    `将参：主大${audited.lordGeneral}、主参${audited.lordAssistant}；客大${audited.guestGeneral}、客参${audited.guestAssistant}；定大${audited.setGeneral}、定参${audited.setAssistant}`,
+    `判断：${audited.judgments.join('；')}`,
+    `模型：${audited.model.name}；${audited.model.precision}`,
+    `十六神：${audited.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`,
   ].join('\n');
 }
 

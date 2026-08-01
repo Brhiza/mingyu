@@ -1455,6 +1455,8 @@ export interface TaiyiModelInfo {
 
 export interface TaiyiResult {
   scope: TaiyiScope;
+  /** 可信重建所需的原始公历年份；其余盘面字段不得用于反推年份。 */
+  year: number;
   ganZhi: string;
   dateTime: string;
   accumulatedValue: number;

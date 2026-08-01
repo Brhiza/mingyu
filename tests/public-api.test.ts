@@ -5807,6 +5807,7 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assert.equal(body.data.year, 2004);
   assert.equal(body.data.ganZhi, '甲申');
   assert.equal(body.data.bureau, 33);
   assert.equal(body.data.taiyiPosition, '艮');

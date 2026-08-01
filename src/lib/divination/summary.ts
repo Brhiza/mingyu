@@ -36,6 +36,7 @@ import {
 import { rebuildAuditedMeihuaData } from 'mingyu-core/divination/meihua';
 import { rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
 import { rebuildAuditedJinkoujueData } from 'mingyu-core/divination/jinkoujue';
+import { rebuildAuditedTaiyiData } from 'mingyu-core/taiyi';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -574,7 +575,7 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'taiyi': {
-      const taiyi = data as TaiyiResult;
+      const taiyi = rebuildAuditedTaiyiData(data as TaiyiResult);
       const scopeLabel = {
         year: '年计',
         month: '月计',

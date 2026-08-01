@@ -744,6 +744,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   // 公元2004（甲申）：积年 10153917+2004=10155921，入纪元 321，局33 阳遁
   // 第33局：太乙艮、文昌午、始击艮；主算24、客算3。
   const r = core.taiyi.generateTaiyi({ year: 2004, scope: 'year' });
+  assert.equal(r.year, 2004);
   assert.equal(r.ganZhi, '甲申');
   assert.equal(r.accumulatedYears, 10155921);
   assert.equal(r.entryYears, 321);
@@ -956,6 +957,8 @@ test('taiyi: 年家 72 局应完整覆盖且宫卦名不与字位混用', () => 
 
   for (let year = 1950; year < 2022; year += 1) {
     const result = core.taiyi.generateTaiyi({ year });
+    assert.deepEqual(core.taiyi.rebuildAuditedTaiyiData(result), result);
+    assert.deepEqual(core.taiyi.analyzeTaiyiEvidence(result), result.evidenceAnalysis);
     bureaus.add(result.bureau);
     palaces.set(result.taiyiPalace, result.taiyiGua);
   }
@@ -971,6 +974,44 @@ test('taiyi: 年家 72 局应完整覆盖且宫卦名不与字位混用', () => 
     8: '坎',
     9: '巽',
   });
+});
+
+test('taiyi: 审核重建只信任原始年份并隔离全部旧盘污染', () => {
+  const expected = core.taiyi.generateTaiyi({ year: 2004 });
+  const polluted = structuredClone(expected);
+  polluted.scope = 'month';
+  polluted.ganZhi = '伪造干支';
+  polluted.dateTime = '伪造时间';
+  polluted.accumulatedValue = -1;
+  polluted.bureau = 72;
+  polluted.yinYang = '阴遁';
+  polluted.taiyiPosition = '伪造太乙位';
+  polluted.wenChangPosition = '伪造文昌位';
+  polluted.shiJiPosition = '伪造始击位';
+  polluted.jiShenPosition = '伪造计神位';
+  polluted.lordCount = -1;
+  polluted.guestCount = -1;
+  polluted.setCount = -1;
+  polluted.judgments = ['伪造现实断语'];
+  polluted.model.name = '伪造模型';
+  polluted.evidenceAnalysis.promptText = '伪造旧证据';
+  polluted.prompt = '伪造旧提示词';
+
+  assert.deepEqual(core.taiyi.rebuildAuditedTaiyiData(polluted), expected);
+  assert.deepEqual(core.taiyi.analyzeTaiyiEvidence(polluted), expected.evidenceAnalysis);
+  assert.equal('buildTaiyiEvidence' in core.taiyi.taiyi, false);
+  assert.equal('rebuildAuditedTaiyiData' in core.taiyi.taiyi, true);
+
+  for (const year of [undefined, Number.NaN, 0, 10000, 2004.5]) {
+    assert.throws(
+      () =>
+        core.taiyi.rebuildAuditedTaiyiData({
+          ...expected,
+          year,
+        } as unknown as typeof expected),
+      /缺少可信原始年份/,
+    );
+  }
 });
 
 test('taiyi: 核心年份边界不应把公元 1-99 年当成 1901-1999 年', () => {

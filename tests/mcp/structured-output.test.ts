@@ -5269,6 +5269,7 @@ test('MCP 太乙工具返回年计七十二局结构化证据', async () => {
     const chart = (
       result.structuredContent as {
         result: {
+          year: number;
           evidenceAnalysis: {
             key: string;
             status: string;
@@ -5323,6 +5324,7 @@ test('MCP 太乙工具返回年计七十二局结构化证据', async () => {
         };
       }
     ).result;
+    assert.equal(chart.year, 2004);
     assert.equal(chart.evidenceAnalysis.key, 'taiyi:evidence');
     assert.equal(chart.evidenceAnalysis.status, '已计算');
     assert.ok(chart.evidenceAnalysis.calculationChain.length >= 5);
