@@ -30,7 +30,7 @@ export type {
 
 /**
  * @file 灵签抽签算法（神算鬼谋）
- * @description 从签文中随机抽取一条作为占卜结果，配合签诗、典故进行解读。
+ * @description 从1至92连续签号池中随机抽取编号，并保留抽取与掷筊轨迹。
  * @注意 此文件实现的是**随机抽签求签**功能，并非大六壬「金口诀」算法。
  *        金口诀（大六壬金口诀）的完整排盘与断课由其他模块实现。
  *        本文件名沿用历史命名，功能定位为灵签/神签抽签系统。
@@ -47,12 +47,12 @@ const ssgwSigns: Omit<SsgwData, 'ganzhi' | 'timestamp'>[] = SSGW_SIGNS.map((sign
 /**
  * 随机求签 - 模拟真实的求签过程
  *
- * 从三山国王 92 支签文中随机抽取一条作为占卜结果，
+ * 从三山国王 92 个连续签号中随机抽取一个编号，
  * 自动附带求签时间的干支和 Unix 时间戳。
  *
  * @param customDate 自定义求签时间（可选），不传则使用当前时间。
  *   传入后签文结果的 `ganzhi` 和 `timestamp` 会基于该时间生成。
- * @returns 完整的签文结果 SsgwData，包含签号、标题、签诗、典故、详解和求签时间干支。
+ * @returns 求签结果 SsgwData，包含签号、待校状态、抽取与掷筊记录及求签时间干支。
  *
  * @example
  * ```ts
@@ -126,7 +126,7 @@ export function drawRandomSign(
   return { ...base, evidenceAnalysis: analyzeSsgwEvidence(base) };
 }
 
-/** 按用户已取得的签号查出签文，不模拟抽签或掷筊。 */
+/** 核对用户已取得的签号，不模拟抽签或掷筊。 */
 export function resolveSignByNumber(number: number, customDate?: Date): SsgwData {
   if (!Number.isInteger(number) || number < 1 || number > ssgwSigns.length) {
     throw new Error(`签号需为1至${ssgwSigns.length}的整数`);

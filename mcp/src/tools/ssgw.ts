@@ -29,7 +29,7 @@ export function registerSsgwTool(server: McpServer) {
     'divine_ssgw',
     {
       description:
-        '三山国王灵签求签：模拟传统摇签、掷筊流程。随机取签后掷筊确认（一阴一阳为圣杯，两平为笑杯，两凸为阴杯），圣杯确认后方为有效签文；三连阴杯则神明未应、拒绝起卦。返回签题、签诗、典故故事、解签详情及完整掷筊记录（ritual）',
+        '三山国王灵签求签流程：从1至92签号池随机抽取编号，再以掷筊流程记录确认状态。返回签号、抽取轨迹、完整掷筊记录（ritual）和签谱待校状态；来源校勘完成前不返回签题、签诗、典故、吉凶或解签结论',
       inputSchema: ssgwSchema.shape,
       outputSchema: resultOutputSchema,
     },

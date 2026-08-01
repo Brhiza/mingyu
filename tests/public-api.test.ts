@@ -2746,16 +2746,13 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
     confirmed.body.data.evidenceAnalysis.calculationSteps.length,
   );
   assert.equal(confirmed.body.data.evidenceAnalysis.drawFact.status, '可核验');
-  assert.equal(confirmed.body.data.evidenceAnalysis.signFact.status, '完整');
+  assert.equal(confirmed.body.data.evidenceAnalysis.signFact.status, '签诗为空');
   assert.equal(
     confirmed.body.data.evidenceAnalysis.coverageFact.key,
     'ssgw:interpretation-coverage',
   );
-  assert.ok(
-    confirmed.body.data.evidenceAnalysis.interpretationFacts.every(
-      (item: Record<string, unknown>) => item.key && item.status === '已收录' && item.promptText,
-    ),
-  );
+  assert.equal(confirmed.body.data.evidenceAnalysis.interpretationFacts.length, 0);
+  assert.equal(confirmed.body.data.evidenceAnalysis.coverageFact.status, '存在缺口');
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.status, '已确认');
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.throws.length, 1);
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualThrowFacts[0].key, 'ssgw:ritual-throw:1');
@@ -2768,14 +2765,14 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.sampleCount, 3);
   assert.ok(confirmed.body.data.evidenceAnalysis.randomFact.sources.length >= 2);
   assert.match(confirmed.body.data.evidenceAnalysis.randomFact.limitation, /不表示可信度/);
-  assert.match(confirmed.body.data.evidenceAnalysis.promptText, /签诗原文/);
+  assert.match(confirmed.body.data.evidenceAnalysis.promptText, /签谱状态：来源尚未闭合/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /不证明预测有效性/);
   assert.equal(confirmed.body.data.evidenceAnalysis.counterEvidenceFacts.length, 6);
   assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.status, '未见额外反证');
   assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 0);
   assert.equal(confirmed.body.data.evidenceAnalysis.limitationFacts.length, 6);
   assert.equal(confirmed.body.data.evidenceAnalysis.summaryFact.key, 'ssgw:evidence-summary');
-  assert.equal(confirmed.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(confirmed.body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
   assert.equal(
     confirmed.body.data.evidenceAnalysis.summaryFact.interpretationFactCount,
     confirmed.body.data.evidenceAnalysis.interpretationFacts.length,
@@ -2827,8 +2824,10 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   });
   assert.equal(prompt.response.status, 200);
   assert.match(prompt.body.data.prompt, /占法：三山国王灵签/);
-  assert.match(prompt.body.data.prompt, /签号：|签题：/);
-  assert.match(prompt.body.data.prompt, /签诗：/);
+  assert.match(prompt.body.data.prompt, /签号：/);
+  assert.match(prompt.body.data.prompt, /签谱状态：来源尚未完成校勘/);
+  assert.doesNotMatch(prompt.body.data.prompt, /签题：|签诗：|典故：|签意：/);
+  assert.doesNotMatch(prompt.body.data.prompt, /签诗主旨|典故启示|签意结论|宜进还是宜守/);
   assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
   assert.doesNotMatch(
     prompt.body.data.prompt,

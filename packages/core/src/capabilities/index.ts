@@ -603,11 +603,11 @@ const systems: SystemCapability[] = [
     name: '三山国王灵签',
     category: 'divination',
     inputs: [questionInput],
-    outputs: ['签号', '签诗原文', '典故辅证', '分类解读', '掷筊记录', '随机轨迹', '结构化证据'],
+    outputs: ['签号', '签谱待校状态', '掷筊记录', '随机轨迹', '结构化证据'],
     supports: randomSupports,
     notes: [
-      '签文数据治理独立于通用接口，本能力清单不改变权威签文内容。',
-      '签诗为文本主证，典故为辅证；seed或replay只证明过程可重放，不证明预测有效性。',
+      '当前只保留1至92的连续签号池；旧签谱没有可定位来源，完成逐签校勘前失败关闭。',
+      '签号不能反推签题、签诗、典故、吉凶或行动结论；seed或replay只证明过程可重放，不证明预测有效性。',
     ],
   },
   {

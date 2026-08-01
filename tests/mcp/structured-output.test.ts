@@ -2642,16 +2642,13 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.length,
     );
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.drawFact.status, '可核验');
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.signFact.status, '完整');
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.signFact.status, '签诗为空');
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.coverageFact.key,
       'ssgw:interpretation-coverage',
     );
-    assert.ok(
-      confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.every(
-        (item: Record<string, unknown>) => item.key && item.status === '已收录' && item.promptText,
-      ),
-    );
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.length, 0);
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.coverageFact.status, '存在缺口');
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.ritualFact.status, '已确认');
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].key,
@@ -2672,7 +2669,9 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     );
     const confirmedPrompt = String(confirmed.structuredContent?.prompt);
     assert.match(confirmedPrompt, /占法：三山国王灵签/);
-    assert.match(confirmedPrompt, /掷筊记录：[\s\S]*签诗：[\s\S]*签意：/);
+    assert.match(confirmedPrompt, /掷筊记录：/);
+    assert.match(confirmedPrompt, /签谱状态：来源尚未完成校勘/);
+    assert.doesNotMatch(confirmedPrompt, /签题：|签诗：|典故：|签意：/);
     assert.doesNotMatch(confirmedPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
@@ -2693,7 +2692,7 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     );
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.status,
-      '证据链完整',
+      '证据链有缺口',
     );
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.interpretationFactCount,
