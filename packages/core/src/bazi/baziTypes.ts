@@ -38,6 +38,13 @@ export interface Person {
   applyChinaDst?: boolean;
 }
 
+export interface BaziGenerationSource {
+  /** 经过类型、范围、默认值和空白规范化的出生输入；全部公开派生资料必须由此重算。 */
+  input: Person;
+  /** 生成结果时记录的非负毫秒时间戳。 */
+  timestamp: number;
+}
+
 export interface TimeInfo {
   index: number;
   name: string;
@@ -302,12 +309,14 @@ interface InternalEightChar {
 }
 
 // 内部计算使用的类型，包含了临时数据
-export interface InternalBaziChartResult extends BaziChartResult {
+export interface InternalBaziChartResult extends Omit<BaziChartResult, 'generation'> {
   solarTime?: SolarTimeInstance;
   eightChar?: InternalEightChar;
 }
 
 export interface BaziChartResult {
+  /** 八字可信来源；公开提示词、证据、合盘与岁运辅助入口只允许从这里重建。 */
+  generation: BaziGenerationSource;
   /** 性别：male / female */
   gender: string;
   /** 公历出生日期 */

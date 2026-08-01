@@ -986,6 +986,22 @@ test('公开 API 应支持八字排盘', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assert.deepEqual(body.data.generation.input, {
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    applyChinaDst: true,
+    shenShaVariants: {
+      kongWangBasis: 'day',
+      yangRenMode: 'yang-stems-only',
+    },
+  });
+  assert.ok(Number.isSafeInteger(body.data.generation.timestamp));
   assert.equal(body.data.pillars.day.ganZhi.length, 2);
   assert.equal(body.data.gender, 'male');
   assert.equal(body.data.warningFacts.length, body.data.warnings.length);
@@ -1512,7 +1528,7 @@ test('八字公开 API 提示词支持完整输出版命限范围', () => {
     result,
     question: '整体事业阶段怎么判断？',
     topic: 'career',
-    fortuneScope: 'full',
+    fortuneSelection: { scope: 'full' },
   });
 
   assert.match(prompt, /【分析对象】\n分析对象：本命盘与完整大运流年/);

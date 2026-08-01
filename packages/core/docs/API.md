@@ -65,6 +65,7 @@
 
 | 字段                 | 类型                                       | 说明                                                                                       |
 | -------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `generation`         | `BaziGenerationSource`                     | 规范化出生输入、完整神煞口径、夏令时开关与生成时间；公开审核重建的唯一可信来源             |
 | `pillars`            | `Pillars`                                  | 四柱（year/month/day/hour，每柱含 gan/zhi/ganZhi）                                         |
 | `dayMaster`          | `{ gan, element, yinYang }`                | 日主（天干/五行/阴阳）                                                                     |
 | `tenGods`            | `Record<string,string>`                    | 各柱天干十神                                                                               |
@@ -91,6 +92,8 @@
 | `lunarDate`          | `{ year, month, day, monthName, dayName }` | 农历日期                                                                                   |
 | `timing`             | `TimingInfo?`                              | 真太阳时校正明细（启用时）                                                                 |
 | `warnings`           | `string[]`                                 | 排盘预警；出生时刻贴近节气交接、时辰边界、23:00 换日线或落于中国夏令时期间等可能翻柱时输出 |
+
+`rebuildAuditedBaziData(result)` 会忽略结果中的全部派生命盘字段，只凭 `generation` 重算完整结果。`formatBaziForPrompt`、`analyzeBaziNatalEvidence`、`analyzeBaziCompatibility`、`analyzeFortuneTriggers`、`normalizeFortuneSelection` 与 `buildFortuneSelectionContext` 均为审核入口；来源缺失、夹带未知字段、时间戳非法、神煞口径不完整或真太阳时时辰矛盾时失败关闭。岁运选择只允许 `scope`、`cycleIndex`、`year`、`month`、`day`，不接受调用方预先生成的干支、十神、日期范围或提示词证据。
 
 **`analysis`（`BaziAnalysisResult`）：**
 

@@ -1,10 +1,17 @@
 /**
  * @file Bazi algorithms barrel
  */
-export { baziCalculator, BaziCalculator } from './baziCalculator';
-export { formatBaziForPrompt } from './baziAnalysisFormatter';
-export { generateEnhancedAnalysisSection } from './baziPromptEnhancement';
-export { buildFortuneSelectionContext, normalizeFortuneSelection } from './fortuneSelection/index';
+export { baziCalculator, BaziCalculator, rebuildAuditedBaziData } from './baziCalculator';
+export {
+  analyzeBaziCompatibility,
+  analyzeBaziNatalEvidence,
+  analyzeFortuneTriggers,
+  buildFortuneSelectionContext,
+  formatBaziForPrompt,
+  generateEnhancedAnalysisSection,
+  normalizeBaziFortuneSelectionInput,
+  normalizeFortuneSelection,
+} from './audited';
 export type { BaziFortuneSelectionValue, FortuneSelectionContext } from './fortuneSelection/index';
 export {
   isFortuneModalDetailOptionActive,
@@ -17,6 +24,7 @@ export type {
 } from './fortuneModalSelection';
 export type {
   Person,
+  BaziGenerationSource,
   Pillar,
   Pillars,
   BaziChartResult,
@@ -117,9 +125,6 @@ export {
 } from './harmonyTransform';
 export type { HarmonyPillarInput } from './harmonyTransform';
 export { getLifeStage } from './baziValues';
-export { analyzeBaziCompatibility } from './compatibilityEvidence';
-export { analyzeFortuneTriggers } from './fortuneTriggerEvidence';
-export { analyzeBaziNatalEvidence } from './natalEvidence';
 export type {
   BaziNatalAnalysisFact,
   BaziNatalCalculationStep,

@@ -3,7 +3,11 @@ import { TIME_MAP } from './baziDefinitions';
 import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
 import { isDateInChinaDstRange } from '../calendar/china-dst';
 import { buildBaziWarningEvidence, collectBoundaryWarnings } from './paipanWarnings';
-import { ShenShaCalculator } from './baziShenSha';
+import {
+  DEFAULT_SHENSHA_VARIANT_CONFIG,
+  ShenShaCalculator,
+  resolveShenShaVariantConfig,
+} from './baziShenSha';
 import { BaziAnalyzer } from './baziAnalysis';
 import { LuckCalculator } from './LuckCalculator';
 import { WuxingCalculator } from './WuxingCalculator';
@@ -54,6 +58,181 @@ import { analyzeBaziNatalEvidence } from './natalEvidence';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
+
+const BAZI_GENERATION_SOURCE_KEYS = new Set(['input', 'timestamp']);
+const BAZI_GENERATION_INPUT_KEYS = new Set([
+  'year',
+  'month',
+  'day',
+  'timeIndex',
+  'gender',
+  'isLunar',
+  'isLeapMonth',
+  'useTrueSolarTime',
+  'birthHour',
+  'birthMinute',
+  'birthPlace',
+  'birthLongitude',
+  'age',
+  'shenShaVariants',
+  'applyChinaDst',
+]);
+const BAZI_SHENSHA_VARIANT_KEYS = new Set(['kongWangBasis', 'yangRenMode']);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function assertOnlyKeys(
+  value: Record<string, unknown>,
+  allowedKeys: ReadonlySet<string>,
+  label: string,
+): void {
+  const unknownKeys = Object.keys(value).filter((key) => !allowedKeys.has(key));
+  if (unknownKeys.length > 0) {
+    throw new Error(`${label}包含不受支持的字段：${unknownKeys.join('、')}。`);
+  }
+}
+
+function assertBaziGenerationTimestamp(timestamp: unknown): asserts timestamp is number {
+  if (
+    typeof timestamp !== 'number' ||
+    !Number.isSafeInteger(timestamp) ||
+    timestamp < 0 ||
+    Number.isNaN(new Date(timestamp).getTime())
+  ) {
+    throw new Error('八字原始生成时间必须是有效的非负毫秒时间戳。');
+  }
+}
+
+function normalizeShenShaVariants(
+  value: unknown,
+  requireCanonicalSource: boolean,
+): Person['shenShaVariants'] {
+  if (value === undefined) {
+    if (requireCanonicalSource) {
+      throw new Error('八字可信来源缺少完整神煞口径。');
+    }
+    return { ...DEFAULT_SHENSHA_VARIANT_CONFIG };
+  }
+  if (!isRecord(value)) {
+    throw new Error('shenShaVariants 必须是对象。');
+  }
+  assertOnlyKeys(value, BAZI_SHENSHA_VARIANT_KEYS, 'shenShaVariants');
+  if (requireCanonicalSource && !('kongWangBasis' in value && 'yangRenMode' in value)) {
+    throw new Error('八字可信来源缺少完整神煞口径。');
+  }
+  if (
+    value.kongWangBasis !== undefined &&
+    value.kongWangBasis !== 'day' &&
+    value.kongWangBasis !== 'day-and-year'
+  ) {
+    throw new Error('kongWangBasis 必须是 day 或 day-and-year。');
+  }
+  if (
+    value.yangRenMode !== undefined &&
+    value.yangRenMode !== 'yang-stems-only' &&
+    value.yangRenMode !== 'include-yin-ren'
+  ) {
+    throw new Error('yangRenMode 必须是 yang-stems-only 或 include-yin-ren。');
+  }
+  return resolveShenShaVariantConfig(value);
+}
+
+function normalizeBaziGenerationInput(value: unknown, requireCanonicalSource: boolean): Person {
+  if (!isRecord(value)) {
+    throw new Error('八字出生输入必须是对象。');
+  }
+  assertOnlyKeys(value, BAZI_GENERATION_INPUT_KEYS, '八字出生输入');
+
+  for (const key of ['isLunar', 'isLeapMonth', 'useTrueSolarTime', 'applyChinaDst'] as const) {
+    if (value[key] !== undefined && typeof value[key] !== 'boolean') {
+      throw new Error(`${key} 必须是布尔值。`);
+    }
+    if (requireCanonicalSource && value[key] === undefined) {
+      throw new Error(`八字可信来源缺少 ${key}。`);
+    }
+  }
+
+  const isLunar = value.isLunar === true;
+  const isLeapMonth = value.isLeapMonth === true;
+  const useTrueSolarTime = value.useTrueSolarTime === true;
+  const applyChinaDst = value.applyChinaDst !== false;
+  if (!isLunar && isLeapMonth) {
+    throw new Error('公历出生输入不能标记为闰月。');
+  }
+
+  if (value.age !== undefined && (!Number.isSafeInteger(value.age) || Number(value.age) < 0)) {
+    throw new Error('age 必须是非负整数。');
+  }
+
+  const normalized: Person = {
+    year: value.year as number,
+    month: value.month as number,
+    day: value.day as number,
+    timeIndex: value.timeIndex as number,
+    gender: value.gender as Person['gender'],
+    isLunar,
+    isLeapMonth,
+    useTrueSolarTime,
+    applyChinaDst,
+    shenShaVariants: normalizeShenShaVariants(value.shenShaVariants, requireCanonicalSource),
+    ...(value.age === undefined ? {} : { age: value.age as number }),
+  };
+
+  if (useTrueSolarTime) {
+    if (
+      typeof value.birthHour !== 'number' ||
+      !Number.isInteger(value.birthHour) ||
+      value.birthHour < 0 ||
+      value.birthHour > 23
+    ) {
+      throw new Error('出生小时需在 0-23 之间。');
+    }
+    if (
+      typeof value.birthMinute !== 'number' ||
+      !Number.isInteger(value.birthMinute) ||
+      value.birthMinute < 0 ||
+      value.birthMinute > 59
+    ) {
+      throw new Error('出生分钟需在 0-59 之间。');
+    }
+    if (
+      typeof value.birthLongitude !== 'number' ||
+      !Number.isFinite(value.birthLongitude) ||
+      value.birthLongitude < -180 ||
+      value.birthLongitude > 180
+    ) {
+      throw new Error('出生经度需在 -180 到 180 之间。');
+    }
+    if (value.birthPlace !== undefined && typeof value.birthPlace !== 'string') {
+      throw new Error('birthPlace 必须是字符串。');
+    }
+    const derivedTimeIndex = getTimeIndexFromClock(value.birthHour, value.birthMinute);
+    if (derivedTimeIndex < 0) {
+      throw new Error('birthHour 和 birthMinute 无法换算为有效时辰。');
+    }
+    if (requireCanonicalSource && value.timeIndex !== derivedTimeIndex) {
+      throw new Error('八字可信来源中的时辰索引与精准出生时间不一致。');
+    }
+    const birthPlace = typeof value.birthPlace === 'string' ? value.birthPlace.trim() : '';
+    if (requireCanonicalSource && value.birthPlace !== birthPlace) {
+      throw new Error('八字可信来源中的出生地名称必须已去除首尾空白。');
+    }
+    normalized.timeIndex = derivedTimeIndex;
+    normalized.birthHour = value.birthHour;
+    normalized.birthMinute = value.birthMinute;
+    normalized.birthLongitude = value.birthLongitude;
+    normalized.birthPlace = birthPlace;
+  } else if (
+    requireCanonicalSource &&
+    ['birthHour', 'birthMinute', 'birthLongitude', 'birthPlace'].some((key) => key in value)
+  ) {
+    throw new Error('未启用真太阳时的八字可信来源不能夹带精准时间或地点字段。');
+  }
+
+  return normalized;
+}
 
 function getMidYearPillarName(year: number): string {
   return SolarTime.fromYmdHms(year, 6, 1, 12, 0, 0)
@@ -459,14 +638,48 @@ export class BaziCalculator {
    * 统一计算八字所有数据
    */
   public calculateBazi(person: Person): BaziChartResult {
-    const coreResult = this.calculateCoreBazi(person);
-    const extendedResult = this.calculateExtendedBazi(person, coreResult);
+    return this.buildBazi(person, Date.now(), false);
+  }
 
-    const finalResult: InternalBaziChartResult = {
-      ...coreResult,
-      ...extendedResult,
-      pillarRelations: analyzePillarRelations(coreResult),
-    };
+  /** 只凭结果中保存的规范化出生输入和原生成时间重建完整八字盘。 */
+  public rebuildAuditedBaziData(input: Pick<BaziChartResult, 'generation'>): BaziChartResult {
+    if (!isRecord(input)) {
+      throw new Error('八字审核重建必须提供结果对象。');
+    }
+    if (!input.generation) {
+      throw new Error('八字旧结果缺少可信原始出生输入，无法审核重建。');
+    }
+    if (!isRecord(input.generation)) {
+      throw new Error('八字审核重建必须提供可信生成来源。');
+    }
+    assertOnlyKeys(input.generation, BAZI_GENERATION_SOURCE_KEYS, '八字可信生成来源');
+    if (!('input' in input.generation)) {
+      throw new Error('八字旧结果缺少可信原始出生输入，无法审核重建。');
+    }
+    assertBaziGenerationTimestamp(input.generation.timestamp);
+    return this.buildBazi(input.generation.input, input.generation.timestamp, true);
+  }
+
+  private buildBazi(
+    person: Person,
+    timestamp: number,
+    requireCanonicalSource: boolean,
+  ): BaziChartResult {
+    assertBaziGenerationTimestamp(timestamp);
+    const normalizedPerson = normalizeBaziGenerationInput(person, requireCanonicalSource);
+    const coreResult = this.calculateCoreBazi(normalizedPerson);
+    const extendedResult = this.calculateExtendedBazi(normalizedPerson, coreResult);
+
+    const finalResult: BaziChartResult & Pick<InternalBaziChartResult, 'solarTime' | 'eightChar'> =
+      {
+        generation: {
+          input: normalizedPerson,
+          timestamp,
+        },
+        ...coreResult,
+        ...extendedResult,
+        pillarRelations: analyzePillarRelations(coreResult),
+      };
     finalResult.evidenceAnalysis = analyzeBaziNatalEvidence(finalResult);
 
     delete finalResult.solarTime;
@@ -636,4 +849,12 @@ export class BaziCalculator {
 }
 
 export const baziCalculator = new BaziCalculator();
+
+/** 只凭保存的可信出生来源重建八字盘，忽略调用方传入的全部派生字段。 */
+export function rebuildAuditedBaziData(
+  input: Pick<BaziChartResult, 'generation'>,
+): BaziChartResult {
+  return baziCalculator.rebuildAuditedBaziData(input);
+}
+
 export default baziCalculator;

@@ -1,12 +1,9 @@
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
+import { analyzeBaziCompatibility, buildFortuneSelectionContext } from '@core/bazi/audited';
 import { analyzeZiweiCompatibility } from '@core/ziwei/iztro';
 import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
 import type { BaziChartResult, Person } from '@core/bazi/baziTypes';
-import {
-  buildFortuneSelectionContext,
-  type BaziFortuneSelectionValue,
-} from '@core/bazi/fortuneSelection';
+import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
 import {
   buildAstronomicalTimeEvidence,
   calculateMoonPhaseEvidence,
@@ -558,14 +555,14 @@ export function getPublicApiOpenApiDocument(
       },
       '/bazi/calculate': {
         post: {
-          summary: '八字排盘',
+          summary: '八字排盘并保存可审核重建的规范化出生来源',
           requestBody: openApiJsonRequestBody('#/components/schemas/BaziRequest'),
           responses: { '200': { description: '八字命盘数据' } },
         },
       },
       '/bazi/prompt': {
         post: {
-          summary: '八字排盘并生成 AI 解读提示词',
+          summary: '从可信出生来源和原始命限选择重建八字 AI 解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/BaziPromptRequest'),
           responses: { '200': { description: '八字命盘数据和结构化提示词' } },
         },
@@ -2249,11 +2246,11 @@ function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> |
   return variants;
 }
 
-function buildBaziFortuneContextFromInput(result: BaziChartResult, input: JsonRecord) {
+function buildBaziFortuneSelectionFromInput(input: JsonRecord): BaziFortuneSelectionValue {
   const scope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
   const readOptionalInteger = (key: string, min: number, max: number) =>
     input[key] === undefined ? undefined : readInteger(input, key, min, max);
-  const selection: BaziFortuneSelectionValue = {
+  return {
     scope,
     cycleIndex:
       scope === 'natal' || scope === 'full'
@@ -2269,14 +2266,12 @@ function buildBaziFortuneContextFromInput(result: BaziChartResult, input: JsonRe
         : undefined,
     day: scope === 'day' ? readOptionalInteger('baziFortuneDay', 1, 31) : undefined,
   };
-
-  return buildFortuneSelectionContext(result, selection);
 }
 
 function buildBaziPrompt(input: JsonRecord) {
   const result = calculateBazi(input);
-  const fortuneScope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
-  const fortuneSelectionContext = buildBaziFortuneContextFromInput(result, input);
+  const fortuneSelection = buildBaziFortuneSelectionFromInput(input);
+  const fortuneSelectionContext = buildFortuneSelectionContext(result, fortuneSelection);
   const schoolValue = input.school;
   const school =
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
@@ -2287,8 +2282,7 @@ function buildBaziPrompt(input: JsonRecord) {
     question: readRequiredString(input, 'question'),
     topic: readEnum(input, 'promptTopic', BAZI_PROMPT_TOPICS, 'general') as BaziPromptTopic,
     mode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode,
-    fortuneSelectionContext,
-    fortuneScope,
+    fortuneSelection,
     school,
   });
   const prompt = basePrompt;
@@ -3051,6 +3045,7 @@ function buildCompactBaziResult(result: BaziChartResult) {
   const currentLiunian = result.liunian?.find((item) => item.year === currentYear);
 
   return {
+    generation: result.generation,
     gender: result.gender,
     solarDate: result.solarDate,
     lunarDate: result.lunarDate,

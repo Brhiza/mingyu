@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { buildPromptFromConfig, getCompatibilityPrompt } from '../src/utils/ai/aiPrompts';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt as formatBaziForPromptLocal } from '@core/bazi/baziAnalysisFormatter';
-import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { formatBaziForPrompt as formatBaziForPromptCore } from '../packages/core/src/bazi/baziAnalysisFormatter';
 import { identifyClassicPattern as identifyClassicPatternCore } from '../packages/core/src/bazi/baziEnhancement/classicPatterns';
 import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/bazi/baziEnhancement/classicPatterns';
@@ -117,12 +116,10 @@ test('八字单盘空问题补通用问题，分类不再塞本地固定问题',
 
 test('八字提示词写入年限选择后应保留岁运资料并省略控制话术', () => {
   const result = createBaziResult();
-  const fortuneContext = buildFortuneSelectionContext(result, {
+  const fortuneSelection = {
     scope: 'year',
     cycleIndex: 0,
-  });
-
-  assert.ok(fortuneContext);
+  } as const;
 
   const prompt = buildPromptFromConfig(
     '今年适合换工作吗？',
@@ -133,7 +130,7 @@ test('八字提示词写入年限选择后应保留岁运资料并省略控制�
       scopeLabel: '换工作',
     },
     result,
-    fortuneContext,
+    fortuneSelection,
     '换工作',
     { isCustomQuestion: false },
   );
@@ -153,6 +150,27 @@ test('八字提示词写入年限选择后应保留岁运资料并省略控制�
   assert.ok(prompt.user.indexOf('【岁运重点】') < prompt.user.indexOf('【问题】'));
 });
 
+test('八字提示词拒绝调用方传入派生岁运上下文', () => {
+  const result = createBaziResult();
+  const pollutedSelection = {
+    scope: 'year',
+    cycleIndex: 0,
+    cycleLabel: '旧缓存伪造大运',
+    promptPayload: { summaryLines: ['旧缓存伪造岁运证据'] },
+  } as unknown as Parameters<typeof buildPromptFromConfig>[3];
+
+  assert.throws(
+    () =>
+      buildPromptFromConfig(
+        '请分析这一年。',
+        { id: 'ai-career', prompt: '测试', scopeLabel: '事业' },
+        result,
+        pollutedSelection,
+      ),
+    /八字岁运选择包含不受支持的字段/,
+  );
+});
+
 test('八字完整输出版会附加完整大运流年资料', () => {
   const result = createBaziResult();
 
@@ -160,9 +178,9 @@ test('八字完整输出版会附加完整大运流年资料', () => {
     '整体事业阶段怎么判断？',
     { id: 'ai-job-change', prompt: '测试', scopeLabel: '换工作' },
     result,
-    null,
+    { scope: 'full' },
     '换工作',
-    { isCustomQuestion: false, fortuneScope: 'full' },
+    { isCustomQuestion: false },
   );
 
   assert.match(prompt.user, /【分析对象】\n分析对象：本命盘与完整大运流年/);
@@ -175,14 +193,12 @@ test('八字完整输出版会附加完整大运流年资料', () => {
 
 test('八字流月提示词应突出所选日期范围并保留必要触发资料', () => {
   const result = createBaziResult();
-  const fortuneContext = buildFortuneSelectionContext(result, {
+  const fortuneSelection = {
     scope: 'month',
     cycleIndex: 0,
     year: 1990,
     month: 1,
-  });
-
-  assert.ok(fortuneContext);
+  } as const;
 
   const prompt = buildPromptFromConfig(
     '这个月适合推进工作变化吗？',
@@ -192,7 +208,7 @@ test('八字流月提示词应突出所选日期范围并保留必要触发资�
       scopeLabel: '换工作',
     },
     result,
-    fortuneContext,
+    fortuneSelection,
     '换工作',
     { isCustomQuestion: false },
   );

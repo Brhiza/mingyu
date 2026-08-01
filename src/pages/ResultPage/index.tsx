@@ -22,7 +22,7 @@ import { QuestionInspirationModal } from '@/components/QuestionInspirationModal'
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
-import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import { formatBaziForPrompt } from '@core/bazi/audited';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng, type QizhengResult } from '@core/qi_zheng';
@@ -458,7 +458,7 @@ export function ResultPage() {
 
       if ((shouldLoadBaziPromptModules || isBaziFortuneModalOpen) && !baziFortuneSelectionModule) {
         loaders.push(
-          import('@core/bazi/fortuneSelection').then((module) => {
+          import('@core/bazi/audited').then((module) => {
             if (!cancelled) {
               setBaziFortuneSelectionModule(module);
             }
@@ -733,12 +733,9 @@ export function ResultPage() {
       finalQuestion,
       selectedBaziPreset,
       baziResult,
-      baziFortuneContext,
+      normalizedBaziFortuneSelection,
       activeBaziQuestionScopeLabel,
-      {
-        isCustomQuestion: activeBaziShortcutMode === '自定义',
-        fortuneScope: promptState.baziFortuneScope,
-      },
+      { isCustomQuestion: activeBaziShortcutMode === '自定义' },
     );
     return buildCombinedPromptText(system, user);
   }

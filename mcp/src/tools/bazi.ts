@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
+import { analyzeBaziCompatibility, buildFortuneSelectionContext } from '@core/bazi/audited';
 import type { Person } from '@core/bazi/baziTypes';
-import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
+import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
@@ -175,7 +175,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_calculate',
     {
       description:
-        '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据；启用真太阳时时同时返回统一计算链、校正事实、证据汇总和限制，关闭时仍可直接按明确时辰排盘',
+        '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据，并保存可审核重建的规范化出生来源；启用真太阳时时同时返回统一计算链、校正事实、证据汇总和限制',
       inputSchema: baziSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -194,7 +194,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_prompt',
     {
       description:
-        '八字排盘并生成结构化 AI 解读提示词：返回命盘、结构化证据和可直接复制给 AI 的提示词；真太阳时校正证据会随排盘资料写入提示词',
+        '八字排盘并生成结构化 AI 解读提示词：命盘、岁运资料和提示词只凭规范化出生来源及原始命限选择重建，不采信旧派生上下文；返回可直接复制给 AI 的完整任务书',
       inputSchema: baziPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -202,7 +202,7 @@ export function registerBaziTool(server: McpServer) {
       try {
         const person = buildBaziPerson(args);
         const result = baziCalculator.calculateBazi(person);
-        const fortuneSelectionContext = buildFortuneSelectionContext(result, {
+        const fortuneSelection: BaziFortuneSelectionValue = {
           scope: args.baziFortuneScope ?? 'natal',
           cycleIndex:
             args.baziFortuneScope &&
@@ -227,14 +227,14 @@ export function registerBaziTool(server: McpServer) {
             args.baziFortuneDay === undefined
               ? undefined
               : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 31),
-        });
+        };
+        const fortuneSelectionContext = buildFortuneSelectionContext(result, fortuneSelection);
         const basePrompt = buildBaziPromptForResult({
           result,
           question: args.question,
           topic: (args.promptTopic ?? 'general') as BaziPromptTopic,
           mode: (args.promptMode ?? 'framework') as PromptMode,
-          fortuneSelectionContext,
-          fortuneScope: args.baziFortuneScope ?? 'natal',
+          fortuneSelection,
           school: args.school as BaziSchool | undefined,
         });
         return createStructuredToolResult({

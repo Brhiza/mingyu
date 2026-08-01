@@ -1,12 +1,11 @@
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../../types/analysis';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
-import type { FortuneSelectionContext } from '@core/bazi/fortuneSelection';
-import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
+import { formatBaziForPrompt } from '@core/bazi/audited';
 import {
   BAZI_AI_PROMPTS,
   buildPromptFromConfig,
   type AIPromptOption,
-  type BaziFortunePromptScope,
 } from '../../utils/ai/aiPrompts';
 import {
   buildCombinedZiweiPrompt,
@@ -203,8 +202,7 @@ export function buildBaziPromptForResult(params: {
   topic?: BaziPromptTopic;
   mode?: PromptMode;
   school?: BaziSchool;
-  fortuneSelectionContext?: FortuneSelectionContext | null;
-  fortuneScope?: PublicBaziFortuneScope;
+  fortuneSelection?: BaziFortuneSelectionValue | null;
 }) {
   const topic = params.topic ?? 'general';
   const option = resolveBaziPromptOption(topic);
@@ -212,12 +210,9 @@ export function buildBaziPromptForResult(params: {
     params.question ?? '',
     option,
     params.result,
-    params.fortuneSelectionContext ?? null,
+    params.fortuneSelection ?? null,
     BAZI_TOPIC_LABELS[topic],
-    {
-      isCustomQuestion: params.mode === 'custom',
-      fortuneScope: params.fortuneScope as BaziFortunePromptScope | undefined,
-    },
+    { isCustomQuestion: params.mode === 'custom' },
   );
 
   const baseText = buildCombinedPromptText(prompt.system, prompt.user);

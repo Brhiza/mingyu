@@ -1,13 +1,23 @@
-import { formatBaziForPrompt, type PromptChartScene } from '@core/bazi/baziAnalysisFormatter';
+import {
+  analyzeBaziCompatibility,
+  formatBaziForPrompt,
+  generateEnhancedAnalysisSection,
+  normalizeBaziFortuneSelectionInput,
+  type PromptChartScene,
+} from '@core/bazi/audited';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
-import type { FortuneSelectionContext } from '@core/bazi/fortuneSelection';
+import { rebuildAuditedBaziData } from '@core/bazi/baziCalculator';
+import {
+  buildFortuneSelectionContext,
+  normalizeFortuneSelection,
+  type BaziFortuneSelectionValue,
+  type FortuneSelectionContext,
+} from '@core/bazi/fortuneSelection';
 import {
   getBaziCompatibilityDefaultQuestion,
   getBaziDefaultQuestion,
 } from '../../lib/prompt-default-questions';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
-import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
-import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import { buildPromptGuidanceSections } from '../../lib/prompt-guidance';
 import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 
@@ -16,8 +26,6 @@ export interface AIPromptOption {
   prompt: string;
   scopeLabel?: string;
 }
-
-export type BaziFortunePromptScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 
 const SYSTEM_PROMPT = '';
 const COMPATIBILITY_SYSTEM_PROMPT = '';
@@ -273,12 +281,22 @@ export function buildPromptFromConfig(
   questionText: string,
   selectedOption: AIPromptOption,
   chartResult: BaziChartResult | null,
-  fortuneSelectionContext: FortuneSelectionContext | null = null,
+  fortuneSelection: BaziFortuneSelectionValue | null = null,
   questionScopeLabel?: string,
-  options: { isCustomQuestion?: boolean; fortuneScope?: BaziFortunePromptScope } = {},
+  options: { isCustomQuestion?: boolean } = {},
 ): { system: string; user: string } {
+  chartResult = chartResult ? rebuildAuditedBaziData(chartResult) : null;
+  const normalizedFortuneSelection = chartResult
+    ? normalizeFortuneSelection(
+        chartResult,
+        normalizeBaziFortuneSelectionInput(fortuneSelection ?? { scope: 'natal' }),
+      )
+    : ({ scope: 'natal' } as const);
+  const fortuneSelectionContext = chartResult
+    ? buildFortuneSelectionContext(chartResult, normalizedFortuneSelection)
+    : null;
   const isCustomQuestion = Boolean(options.isCustomQuestion);
-  const fortuneScope = options.fortuneScope ?? fortuneSelectionContext?.scope ?? 'natal';
+  const fortuneScope = normalizedFortuneSelection.scope;
   const hasFullFortuneOutput = fortuneScope === 'full';
   const promptConfig: SinglePromptConfig | null = chartResult?.pillars
     ? (BAZI_AI_PROMPTS.single.find((c) => c.id === selectedOption.id) ?? null)

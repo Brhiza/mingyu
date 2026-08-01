@@ -154,6 +154,10 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 
 八字排盘只接受满足精度要求的出生时间。真太阳时、历史夏令时和节气边界校正属于确定性计算链；输入不满足要求时应在进入排盘前拒绝，不基于模糊范围继续计算。
 
+每份结果的 `generation` 保存规范化公农历出生输入、精确时分与地点资料（如启用）、完整神煞口径、中国夏令时开关和生成时间。`rebuildAuditedBaziData` 只凭该来源完整重算；公开格式化、本命证据、合盘、岁运触发与岁运上下文均先审核重建，不采信调用方传入的四柱、日主、格局、神煞、大运、旧证据或合盘结果。可信来源缺失、夹带未知字段、时间戳非法、口径不完整或真太阳时时辰矛盾时明确拒绝。
+
+岁运公开入口只接受 `scope`、`cycleIndex`、`year`、`month`、`day` 组成的原始选择，派生的干支、十神、日期范围、触发关系和提示词内容全部重新计算；把旧 `FortuneSelectionContext` 当作选择传入会失败关闭。
+
 ```typescript
 import { baziCalculator } from 'mingyu-core/bazi';
 import type { BaziChartResult } from 'mingyu-core/types';
@@ -179,6 +183,7 @@ console.log(result.analysis); // 旺衰条件、格局及待复核的取用结�
 console.log(result.luckInfo); // 大运
 console.log(result.mingGua); // 命卦（八宅，按立春年界计算）
 console.log(result.warnings); // 排盘预警；无预警时为空数组
+console.log(result.generation); // 可供审核重建的规范化出生来源与生成时间
 ```
 
 神煞争议口径默认采用主流算法：空亡按日柱旬空、羊刃只取阳干帝旺。需要兼容其他系统时，可显式传入 `shenShaVariants`：
@@ -438,6 +443,13 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | ------------------------------- | ---- | -------------------------------------- |
 | `baziCalculator`                | 实例 | 调用 `calculateBazi(person)`           |
 | `BaziCalculator`                | 类   | 同上的类形式                           |
+| `rebuildAuditedBaziData`        | 函数 | 只凭可信出生来源重建完整命盘           |
+| `formatBaziForPrompt`           | 函数 | 审核重建后格式化可交给 AI 的盘面资料   |
+| `analyzeBaziNatalEvidence`      | 函数 | 审核重建后返回本命证据                 |
+| `analyzeBaziCompatibility`      | 函数 | 双方均审核重建后计算合盘证据           |
+| `analyzeFortuneTriggers`        | 函数 | 审核原局后核验明确岁运层级             |
+| `normalizeFortuneSelection`     | 函数 | 审核原局并规范化原始岁运选择           |
+| `buildFortuneSelectionContext`  | 函数 | 从审核原局和原始选择重建岁运上下文     |
 | `analyzeTenGodStructure`        | 函数 | 十神分布与家族聚合                     |
 | `analyzeTenGodFlow`             | 函数 | 十神家族固定生克事实                   |
 | `analyzeStemRootProfile`        | 函数 | 透干通根分析                           |

@@ -733,6 +733,17 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
       if (name === 'bazi_calculate') {
         const chart = result.structuredContent as {
           result?: {
+            generation?: {
+              input: {
+                year: number;
+                month: number;
+                day: number;
+                timeIndex: number;
+                gender: string;
+                shenShaVariants: { kongWangBasis: string; yangRenMode: string };
+              };
+              timestamp: number;
+            };
             seasonInfo?: {
               previousTermEvidence?: {
                 calculationSteps: unknown[];
@@ -766,6 +777,10 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         const analysis = chart.result?.evidenceAnalysis;
         const previousTermEvidence = chart.result?.seasonInfo?.previousTermEvidence;
         const stepKeys = new Set(analysis?.calculationSteps?.map((item) => item.key));
+        assert.equal(chart.result?.generation?.input.year, 1990);
+        assert.equal(chart.result?.generation?.input.gender, 'male');
+        assert.equal(chart.result?.generation?.input.shenShaVariants.kongWangBasis, 'day');
+        assert.ok(Number.isSafeInteger(chart.result?.generation?.timestamp));
         assert.equal(
           previousTermEvidence?.calculationChain.length,
           previousTermEvidence?.calculationSteps.length,

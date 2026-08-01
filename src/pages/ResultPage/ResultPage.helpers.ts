@@ -4,7 +4,8 @@ import type { AstrolabeScopeMode, QueryPromptState, ZiweiScopeMode } from '@/lib
 import type { AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
 import { buildPortablePromptPack, type PromptContext } from '@/lib/ziwei-prompts';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
-import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import { formatBaziForPrompt } from '@core/bazi/audited';
+import { rebuildAuditedBaziData } from '@core/bazi/baziCalculator';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { AstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import type { PalaceFact } from '@/types/analysis';
@@ -234,13 +235,14 @@ export function buildBaziZiweiEnhancedPrompt(params: {
 }
 
 export function formatBaziFullFortuneText(result: BaziChartResult) {
-  if (!result.luckInfo?.cycles?.length) {
+  const auditedResult = rebuildAuditedBaziData(result);
+  if (!auditedResult.luckInfo?.cycles?.length) {
     return '';
   }
 
   return [
     '完整大运流年：',
-    ...result.luckInfo.cycles.flatMap((cycle, cycleIndex) => {
+    ...auditedResult.luckInfo.cycles.flatMap((cycle, cycleIndex) => {
       const cycleType = cycle.isXiaoyun ? '童运' : cycle.type;
       return [
         `${cycleIndex + 1}. ${cycle.ganZhi}${cycleType}：${cycle.year}年起，约${cycle.age}岁交运`,

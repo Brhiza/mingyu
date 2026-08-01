@@ -6,7 +6,7 @@ import {
   buildFortuneSelectionContext,
   normalizeFortuneSelection,
   type BaziFortuneSelectionValue,
-} from '@core/bazi/fortuneSelection';
+} from '@core/bazi/audited';
 import {
   isFortuneModalDetailOptionActive,
   isFortuneModalParentOptionActive,

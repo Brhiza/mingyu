@@ -24,7 +24,6 @@ import { generateResidentialFengshui } from '@core/residential_fengshui';
 import { generateXuanKong } from '@core/xuan_kong';
 import { getZodiacYearFortune } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
-import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 
 type PromptSample = {
@@ -404,20 +403,11 @@ async function buildSamples(): Promise<PromptSample[]> {
       useTrueSolarTime: false,
       birthPlace: '广东（原题未给具体城市）',
     });
-    const baziFortuneContext =
-      buildFortuneSelectionContext(baziResult, {
-        scope: 'year',
-        year: 1993,
-      }) ??
-      buildFortuneSelectionContext(baziResult, {
-        scope: 'year',
-        year: 1980,
-      });
     const baziPrompt = buildBaziPromptForResult({
       result: baziResult,
       topic: 'general',
       mode: 'framework',
-      fortuneSelectionContext: baziFortuneContext,
+      fortuneSelection: { scope: 'year', year: 1993 },
       question:
         '请根据命例一作答：Q1 出生家境如何？Q2 婚姻如何？Q3 年轻时何种工作？Q4 1980年发生何事？Q5 1993年发生何事？每题从 A/B/C/D 中给出最可能选项，并说明依据。',
     });
@@ -613,13 +603,12 @@ async function buildSamples(): Promise<PromptSample[]> {
       {
         name: '八字排盘',
         source: CONTEST_SOURCE,
-        inputSummary: `命例一：坤造，广东出生，西历 1951年11月14日巳时；问题为 Q1-Q5 多项选择；已选择 ${baziFortuneContext?.displayText ?? '本命范围'}。`,
+        inputSummary:
+          '命例一：坤造，广东出生，西历 1951年11月14日巳时；问题为 Q1-Q5 多项选择；已选择 1993 年流年。',
         prompt: baziPrompt,
         notes: [
           '原题未给广东具体城市，因此本次八字样本未启用真太阳时。',
-          baziFortuneContext
-            ? '八字样本通过项目年限选择逻辑写入流年分析对象，用于展示岁运解读方法。'
-            : '未能找到对应流年上下文时退回本命范围。',
+          '八字样本只传入 1993 年这一原始选择，由项目年限逻辑重建流年分析对象和岁运证据。',
         ],
       },
       {
