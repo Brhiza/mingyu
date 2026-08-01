@@ -738,7 +738,7 @@ test('择日传统资料应保留原文并为提示词生成条件化事实', ()
   );
 });
 
-test('九星、全年方位神与彭祖百忌不得直接证明灾病、官非、财损或生育结果', () => {
+test('九星、全年方位神与彭祖百忌高风险解释不得软化后继续输出', () => {
   const traditionalTexts = [
     '二黑巨门星，主疾病、破财、是非',
     '五黄廉贞星，大凶，主凶灾、病患',
@@ -748,16 +748,18 @@ test('九星、全年方位神与彭祖百忌不得直接证明灾病、官非�
     '丙不修灶必见灾殃',
     '未不服药毒气入肠',
   ];
-  const promptText = traditionalTexts.map(conditionAlmanacTraditionalText).join('；');
+  traditionalTexts.map(conditionAlmanacTraditionalText).forEach((promptText) => {
+    assert.equal(
+      promptText,
+      '未采用传统解释；当前只保留可复算历法与位置事实，待明确底本、版本和适用条件后继续核验',
+    );
+  });
 
-  assert.match(promptText, /传统类象涉及健康、财物与争议议题/);
-  assert.match(promptText, /传统方位规则将死符方列为涉及健康与安全类象的回避条件/);
-  assert.match(promptText, /不据此判断生育结果/);
-  assert.match(promptText, /后半句属于传统警语，不作为现实后果保证/);
-  assert.doesNotMatch(promptText, /主疾病|主灾病死亡|主哭泣死亡|主添丁生子|必见灾殃|毒气入肠|大凶/);
+  const safeFact = '二黑巨门星位于西南方；当前只记录名称与位置。';
+  assert.equal(conditionAlmanacTraditionalText(safeFact), safeFact);
 });
 
-test('旧黄历只有合并彭祖百忌时也应拆分并去除后果保证', () => {
+test('旧黄历只有合并彭祖百忌时也应拆分并失败关闭未校解释', () => {
   const data = generateAlmanacSelection({
     topic: 'renovation',
     startDate: '2026-04-28',
@@ -775,8 +777,8 @@ test('旧黄历只有合并彭祖百忌时也应拆分并去除后果保证', ()
   assert.deepEqual(
     pengZuFacts.map((item) => item.promptText),
     [
-      '壬日传统上避汲水；后半句属于传统警语，不作为现实后果保证',
-      '申日传统上避安床；后半句属于传统警语，不作为现实后果保证',
+      '未采用传统解释；当前只保留可复算历法与位置事实，待明确底本、版本和适用条件后继续核验',
+      '未采用传统解释；当前只保留可复算历法与位置事实，待明确底本、版本和适用条件后继续核验',
     ],
   );
   assert.doesNotMatch(evidence.promptText, /鬼祟入房|更难提防/);
