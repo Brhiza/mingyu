@@ -1,4 +1,6 @@
 import type { AstrolabeData, AstrolabeSynastryData } from 'mingyu-core/types';
+import { rebuildAuditedAstrolabeData } from 'mingyu-core/divination/astrolabe';
+import { rebuildAuditedAstrolabeSynastryData } from 'mingyu-core/divination/astrolabe-synastry';
 import { formatAstrolabeInfo } from './divination/engine/formatters';
 import { formatPromptCurrentTime } from './prompt-time';
 import { buildPromptGuidanceSections } from './prompt-guidance';
@@ -32,20 +34,23 @@ export function buildAstrolabeSynastryPrompt(params: {
   promptMode?: AstrolabeSynastryPromptMode;
   currentTime?: Date;
 }) {
+  const synastry = rebuildAuditedAstrolabeSynastryData(params.synastry);
+  const chart1 = rebuildAuditedAstrolabeData({ generation: synastry.generation.chart1 });
+  const chart2 = rebuildAuditedAstrolabeData({ generation: synastry.generation.chart2 });
   const question = params.question?.trim() || '请先整体判断双方关系中的互动主轴。';
   const baseSections = [
     buildPromptGuidanceSections('astrolabe-synastry'),
     '',
     '【当前时间】',
-    formatPromptCurrentTime(params.currentTime),
+    formatPromptCurrentTime(new Date(synastry.generation.timestamp)),
     '',
     '【第一人本命盘】',
-    formatAstrolabeInfo(params.chart1),
+    formatAstrolabeInfo(chart1),
     '',
     '【第二人本命盘】',
-    formatAstrolabeInfo(params.chart2),
+    formatAstrolabeInfo(chart2),
     '',
-    formatSynastryFacts(params.synastry),
+    formatSynastryFacts(synastry),
     '',
     '【问题】',
     question,

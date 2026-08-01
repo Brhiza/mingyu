@@ -37,6 +37,7 @@ import { rebuildAuditedMeihuaData } from 'mingyu-core/divination/meihua';
 import { rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
 import { rebuildAuditedJinkoujueData } from 'mingyu-core/divination/jinkoujue';
 import { rebuildAuditedTaiyiData } from 'mingyu-core/taiyi';
+import { rebuildAuditedAstrolabeData } from 'mingyu-core/divination/astrolabe';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -549,7 +550,7 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'astrolabe': {
-      const astrolabe = data as AstrolabeData;
+      const astrolabe = rebuildAuditedAstrolabeData(data as AstrolabeData);
       const sun = astrolabe.planets.find((item) => item.name === 'Sun');
       const moon = astrolabe.planets.find((item) => item.name === 'Moon');
       const ascendant = astrolabe.angles.find((item) => item.name === 'Ascendant');

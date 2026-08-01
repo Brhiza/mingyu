@@ -193,7 +193,7 @@ test('太阳光照证据应复用IANA历史时区并拒绝非法坐标', () => {
 test('西占应附带地点相关光照证据而不生成吉凶结论', () => {
   const astrolabe = generateAstrolabe({
     name: '测试',
-    gender: 'unspecified',
+    gender: '',
     year: '2024',
     month: '6',
     day: '21',

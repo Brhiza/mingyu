@@ -213,21 +213,25 @@ test('次限与太阳弧应返回稳定键、计算链、相位事实和限制�
   );
 });
 
-test('高级时限不可用与出生前目标年应返回可追溯的缺口或不适用证据', () => {
-  const incomplete = structuredClone(astrolabeData) as AstrolabeData;
-  incomplete.birth.standardDateTime = '';
-  incomplete.birth.dateTime = '';
-
-  const unavailableEvidence = [
-    calculateSolarReturnEvidence(incomplete, 2028),
-    calculateSecondaryProgressionEvidence(incomplete, 2028),
-    calculateSolarArcEvidence(incomplete, 2028),
-  ];
-  unavailableEvidence.forEach((evidence) => {
-    assert.equal(evidence.status, 'unavailable');
-    assert.equal(evidence.summaryFact.status, '证据链有缺口');
-    assertAdvancedEvidenceReferences(evidence);
-  });
+test('高级时限应忽略派生出生时间污染，并对出生前目标年返回不适用证据', () => {
+  const polluted = structuredClone(astrolabeData) as AstrolabeData;
+  polluted.birth.standardDateTime = '';
+  polluted.birth.dateTime = '';
+  polluted.planets = [];
+  polluted.angles = [];
+  polluted.houses = [];
+  assert.deepEqual(
+    calculateSolarReturnEvidence(polluted, 2028),
+    calculateSolarReturnEvidence(astrolabeData, 2028),
+  );
+  assert.deepEqual(
+    calculateSecondaryProgressionEvidence(polluted, 2028),
+    calculateSecondaryProgressionEvidence(astrolabeData, 2028),
+  );
+  assert.deepEqual(
+    calculateSolarArcEvidence(polluted, 2028),
+    calculateSolarArcEvidence(astrolabeData, 2028),
+  );
 
   const beforeBirthEvidence = [
     calculateSolarReturnEvidence(astrolabeData, 1990),
@@ -295,37 +299,22 @@ test('星盘行运取样应使用出生地点在目标日期的历史时区', ()
   assert.doesNotMatch(context.promptText, /北京时间|UTC\+8/);
 });
 
-test('星盘资料缺少经度时应退回保守提示而不是报错', () => {
-  const incompleteData = {
-    ...astrolabeData,
-    planets: astrolabeData.planets.map((item) => ({
-      ...item,
-      longitude: Number.NaN,
-    })),
-    angles: astrolabeData.angles.map((item) => ({
-      ...item,
-      longitude: Number.NaN,
-    })),
-  } satisfies AstrolabeData;
-  const context = buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12');
+test('星盘范围入口应忽略本命点和宫头污染，缺少可信来源时失败关闭', () => {
+  const polluted = structuredClone(astrolabeData) as AstrolabeData;
+  polluted.planets = polluted.planets.map((item) => ({ ...item, longitude: Number.NaN }));
+  polluted.angles = polluted.angles.map((item) => ({ ...item, longitude: Number.NaN }));
+  polluted.houses = polluted.houses.map((item) => ({ ...item, longitude: Number.NaN }));
+  polluted.birth.timezone = -12;
 
-  assert.equal(context.displayText, '流日 · 2028-06-12');
-  assert.match(context.promptText, /本命点经度资料不足/);
-  assert.match(context.promptText, /行运落宫：/);
-  assert.match(context.promptText, /落本命第\d+宫/);
-  assert.doesNotThrow(() => buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12'));
-});
+  assert.deepEqual(
+    buildAstrolabeScopeContext(polluted, 'daily', '2028-06-12'),
+    buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-06-12'),
+  );
 
-test('星盘资料缺少宫头经度时应禁止行运落宫证据', () => {
-  const incompleteData = {
-    ...astrolabeData,
-    houses: astrolabeData.houses.map((item) => ({
-      ...item,
-      longitude: Number.NaN,
-    })),
-  } satisfies AstrolabeData;
-  const context = buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12');
-
-  assert.match(context.promptText, /行运落宫：本命宫头资料不足/);
-  assert.doesNotThrow(() => buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12'));
+  const legacy = structuredClone(astrolabeData) as Partial<AstrolabeData>;
+  delete legacy.generation;
+  assert.throws(
+    () => buildAstrolabeScopeContext(legacy as AstrolabeData, 'daily', '2028-06-12'),
+    /缺少可信原始出生输入/,
+  );
 });

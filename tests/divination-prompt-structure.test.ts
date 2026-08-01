@@ -10,6 +10,7 @@ import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { conditionSsgwInterpretation, resolveSignByNumber } from 'mingyu-core/divination/ssgw';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import {
@@ -135,123 +136,19 @@ function createAstrolabeData(
     summary?: Partial<AstrolabeData['summary']>;
   } = {},
 ): AstrolabeData {
-  const base: AstrolabeData = {
-    birth: {
-      name: '本人',
-      gender: '女',
-      dateTime: '1995-05-20 12:30',
-      location: '北京',
-      timezone: 8,
-    },
-    planets: [
-      {
-        name: 'Sun',
-        label: '太阳',
-        longitude: 59,
-        sign: '金牛座',
-        degree: 29,
-        minute: 0,
-        formatted: '金牛座 29°',
-        house: 10,
-        retrograde: false,
-      },
-      {
-        name: 'Moon',
-        label: '月亮',
-        longitude: 158,
-        sign: '处女座',
-        degree: 8,
-        minute: 0,
-        formatted: '处女座 08°',
-        house: 2,
-        retrograde: false,
-      },
-      {
-        name: 'Mercury',
-        label: '水星',
-        longitude: 70,
-        sign: '双子座',
-        degree: 10,
-        minute: 0,
-        formatted: '双子座 10°',
-        house: 11,
-        retrograde: false,
-      },
-    ],
-    houses: Array.from({ length: 12 }, (_, index) => ({
-      name: `House ${index + 1}`,
-      label: `第${index + 1}宫`,
-      longitude: index * 30,
-      sign: '白羊座',
-      degree: 0,
-      minute: 0,
-      house: index + 1,
-      formatted: '白羊座 0°',
-    })),
-    angles: [
-      {
-        name: 'Ascendant',
-        label: '上升',
-        longitude: 132,
-        sign: '狮子座',
-        degree: 12,
-        minute: 0,
-        formatted: '狮子座 12°',
-        house: 0,
-      },
-      {
-        name: 'Midheaven',
-        label: '天顶',
-        longitude: 35,
-        sign: '金牛座',
-        degree: 5,
-        minute: 0,
-        formatted: '金牛座 05°',
-        house: 0,
-      },
-    ],
-    aspects: [
-      {
-        body1: '太阳',
-        symbol: '△',
-        body2: '月亮',
-        type: '三分',
-        actualAngle: 123.2,
-        exactAngle: 120,
-        orb: 3.2,
-        allowedOrb: 8,
-        applying: true,
-      },
-      {
-        body1: '太阳',
-        symbol: '合',
-        body2: '水星',
-        type: '合相',
-        actualAngle: 4.1,
-        exactAngle: 0,
-        orb: 4.1,
-        allowedOrb: 8,
-        applying: false,
-      },
-    ],
-    aspectCalculation: {
-      selectedPointNames: ['太阳', '月亮', '水星', '上升', '天顶'],
-      aspectDefinitions: [
-        { type: '合相', symbol: '合', exactAngle: 0, allowedOrb: 8 },
-        { type: '三分', symbol: '△', exactAngle: 120, allowedOrb: 8 },
-      ],
-      evaluatedPairCount: 10,
-      matchedAspectCount: 2,
-      enumeration: '完整穷举',
-    },
-    summary: {
-      retrograde: [],
-      patterns: ['土象偏强'],
-      elements: { 火: ['上升'], 土: ['太阳', '月亮'], 风: ['水星'], 水: [] },
-      modalities: { 开创: ['上升'], 固定: ['太阳'], 变动: ['月亮', '水星'] },
-    },
-    timestamp: Date.now(),
-  };
+  const base = generateAstrolabe({
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '30',
+    latitude: '39.9042',
+    longitude: '116.4074',
+    timezone: '8',
+    locationName: '北京',
+  });
 
   return {
     ...base,
@@ -1288,27 +1185,23 @@ test('塔罗与雷诺曼提示词应由原始牌号重建，不吸收派生字�
 });
 
 test('星盘提示词应直接给出太阳月亮上升和主要相位资料', () => {
-  const prompt = buildDivinationPrompt(
-    'astrolabe',
-    '这件事接下来该怎么推进？',
-    createAstrolabeData(),
-  );
+  const data = createAstrolabeData();
+  const prompt = buildDivinationPrompt('astrolabe', '这件事接下来该怎么推进？', data);
+  const sun = data.planets.find((item) => item.name === 'Sun')!;
+  const moon = data.planets.find((item) => item.name === 'Moon')!;
+  const ascendant = data.angles.find((item) => item.name === 'Ascendant')!;
 
-  assert.match(prompt, /核心结构：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
-  assert.match(prompt, /核心位置：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
-  assert.match(prompt, /关键提示：逆行星体无；格局土象偏强/);
   assert.match(
     prompt,
-    /本命相位穷举：选定点位太阳、月亮、水星、上升、天顶；共核验10组无序点对，完整保留2组命中项/,
+    new RegExp(`核心结构：太阳${sun.formatted}；月亮${moon.formatted}；上升${ascendant.formatted}`),
   );
   assert.match(
     prompt,
-    /相位明细：太阳△月亮（三分，实际夹角123\.20°，精确角120\.00°，偏差3\.20°，采用容许度8\.00°，入相）/,
+    new RegExp(`核心位置：太阳${sun.formatted}；月亮${moon.formatted}；上升${ascendant.formatted}`),
   );
-  assert.match(
-    prompt,
-    /太阳合水星（合相，实际夹角4\.10°，精确角0\.00°，偏差4\.10°，采用容许度8\.00°，出相）/,
-  );
+  assert.match(prompt, /关键提示：逆行星体/);
+  assert.match(prompt, /本命相位穷举：选定点位.+共核验276组无序点对，完整保留\d+组命中项/);
+  assert.match(prompt, /相位明细：.+实际夹角.+精确角.+偏差.+采用容许度/);
   assert.doesNotMatch(prompt, /强度\d+%/);
   assert.doesNotMatch(prompt, /紧密等级|中等等级|宽松等级|归一化容许度/);
   assert.doesNotMatch(

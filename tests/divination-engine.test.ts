@@ -10,6 +10,7 @@ import {
 } from '../src/lib/divination/inspiration';
 import type {
   LenormandData,
+  AstrolabeData,
   QimenData,
   QimenJiuGongGe,
   SsgwData,
@@ -54,6 +55,7 @@ import {
 import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateTaiyi } from 'mingyu-core/taiyi';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import {
   analyzeQimenEvidence,
@@ -2492,6 +2494,44 @@ test('占卜引擎星盘应在本地拒绝无效出生时间和经纬度', async
       messagePattern,
     );
   }
+});
+
+test('星盘提示词、页面资料与摘要只凭原始出生来源重建', () => {
+  const data = generateAstrolabe({
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '30',
+    latitude: '39.9042',
+    longitude: '116.4074',
+    timezone: '8',
+    locationName: '北京',
+  });
+  data.generation.timestamp = Date.parse('2025-01-01T08:30:00+08:00');
+  const cleanInfo = formatDivinationInfo('astrolabe', data, '');
+  const cleanSummary = getDivinationSummaryBlocks('astrolabe', data);
+  const cleanPrompt = buildDivinationPrompt('astrolabe', '请分析整体星盘。', data);
+  const polluted = structuredClone(data) as AstrolabeData;
+  polluted.birth.name = '伪造姓名';
+  polluted.birth.dateTime = '2099-12-31 23:59';
+  polluted.planets = [];
+  polluted.angles = [];
+  polluted.houses = [];
+  polluted.aspects = [];
+  polluted.summary.retrograde = ['伪造逆行'];
+  polluted.summary.patterns = ['伪造格局'];
+  polluted.timestamp = Date.parse('2099-12-31T00:00:00+08:00');
+  polluted.evidenceAnalysis!.promptText = '伪造旧星盘证据';
+
+  assert.equal(formatDivinationInfo('astrolabe', polluted, ''), cleanInfo);
+  assert.deepEqual(getDivinationSummaryBlocks('astrolabe', polluted), cleanSummary);
+  assert.equal(buildDivinationPrompt('astrolabe', '请分析整体星盘。', polluted), cleanPrompt);
+  assert.match(cleanPrompt, /【当前时间】\n公历：2025年1月1日 8时30分/);
+  assert.doesNotMatch(cleanPrompt, /2099|伪造/);
+  assert.match(buildTimeInfoText(polluted), /公历：2025年1月1日 8时30分/);
 });
 
 test('占卜引擎梅花数字起卦只接受十进制正整数文本', async () => {

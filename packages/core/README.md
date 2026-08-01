@@ -123,8 +123,8 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、二十八宿与彭祖百忌；公开结果只凭原始事项、日期和出生输入审核重建                                                         |
 | **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签、掷筊确认、随机重放与文本证据分层                                                                                                         |
 | **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                                                                              |
-| **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、24 点相位完整穷举、实际角距与采用容许度、完整行运与高级时限、太阳返照求根证据                                                     |
-| **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 穷举双方所选点对，完整返回主要跨盘相位的实际夹角、精确角、偏差、可配置容许度、全部双向跨盘落宫与结构化证据                                               |
+| **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、24 点相位完整穷举、实际角距与采用容许度、完整行运与高级时限、太阳返照求根证据；公开入口从原始出生来源审核重建                     |
+| **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 穷举双方所选点对，完整返回主要跨盘相位的实际夹角、精确角、偏差、可配置容许度、全部双向跨盘落宫与结构化证据；公开入口从双方出生来源和完整参数审核重建     |
 | **太乙神数 Taiyi**     | `mingyu-core/taiyi`                                                                                                                           | 已校勘年计七十二局；公开证据从原始公历年份统一审核重建，月、日、时计失败关闭                                                                             |
 | **历法 Calendar**      | `mingyu-core/calendar`                                                                                                                        | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据                                                                |
 | **出生档案 Profile**   | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，并提供既有算法适配器                                                                                         |
@@ -390,6 +390,8 @@ console.log(qizhengChart.positionSources); // 现代天文与传统均速来源�
 console.log(qizhengChart.shenshaFacts); // 8 项生年干/年支起例目标支；不是盘面命中或吉凶
 ```
 
+星盘结果的 `generation` 保存规范化出生输入与生成时间。证据、摘要、行运、次限、太阳弧和太阳返照会先从该来源重建完整本命盘，不采信调用方传入的星体、宫位、相位、光照、摘要、时区诊断或顶层时间；缺少合法 `generation` 的旧结果会明确拒绝。西占双盘另保存双方本命 `generation`、完整点位选择、五种相位容许度、落宫开关和生成时间，双盘重建不会沿用旧跨盘相位或落宫结果。
+
 七政四余的天乙昼贵与玉堂夜贵分开按生年干起例，驿马、华盖、劫煞、咸池、孤辰、寡宿按生年支起例。农历年干支与立春年柱不一致时，`shenshaFacts` 为空并保留完整规则目录与分歧证据。启用真太阳时时，固定 `timezone` 被视为已确认的标准时偏移；若使用 IANA 历史时区，必须另给 `standardMeridian`，系统不会把法定钟表偏移猜成标准经线。
 
 ### 八字事实分析
@@ -479,7 +481,11 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `drawRandomSign(date?, options?)`                                    | 三山国王灵签；抽签后模拟掷筊确认，支持 `seed`、`replay` 和结构化证据完整复现 |
 | `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；支持 `seed` 和 `replay` 完整复现                                 |
 | `generateAstrolabe(input)`                                           | 西洋星盘                                                                     |
+| `rebuildAuditedAstrolabeData(data)`                                  | 只凭规范化出生输入和生成时间重建完整本命盘                                   |
+| `analyzeAstrolabeEvidence(data)`                                     | 先审核重建，再返回星体、宫位、相位、光照与限制证据                           |
 | `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运与证据资料                                     |
+| `analyzeAstrolabeSynastry(chart1, chart2, options?)`                 | 从双方可信本命来源计算完整双盘几何事实                                       |
+| `rebuildAuditedAstrolabeSynastryData(data)`                          | 只凭双方出生来源、完整双盘参数和生成时间重建双盘                             |
 
 ### 历法与术数便捷入口
 

@@ -870,7 +870,8 @@ function buildSummaryFact(args: {
   };
 }
 
-export function analyzeAstrolabeEvidence(
+/** 仅供已由原始出生资料重建的本命盘生成证据；公开入口位于算法模块。 */
+export function analyzeRebuiltAstrolabeEvidence(
   data: Omit<AstrolabeData, 'evidenceAnalysis'>,
 ): AstrolabeEvidenceAnalysis {
   const positionFacts = [

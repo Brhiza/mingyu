@@ -3615,6 +3615,22 @@ test('公开 API 星盘应附带真太阳时参考且不改写现代星历时刻
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assert.deepEqual(body.data.generation.input, {
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '1',
+    minute: '20',
+    latitude: '39.9042',
+    longitude: '73.5',
+    timezone: '8',
+    timeZoneId: 'Asia/Shanghai',
+    locationName: '喀什',
+    useTrueSolarTime: true,
+  });
+  assert.equal(body.data.generation.timestamp, body.data.timestamp);
   assert.equal(body.data.birth.isTrueSolarTime, true);
   assert.equal(body.data.birth.dateTime, '1995-05-20 01:20');
   assert.equal(body.data.birth.trueSolarEvidence.status, '已计算');
@@ -3930,6 +3946,20 @@ test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   const synastry = body.data.synastry;
+  assert.equal(body.data.charts.person1.generation.input.name, '甲');
+  assert.equal(body.data.charts.person2.generation.input.name, '乙');
+  assert.equal(synastry.generation.chart1.input.name, '甲');
+  assert.equal(synastry.generation.chart2.input.name, '乙');
+  assert.equal(synastry.generation.options.pointNames.length, 18);
+  assert.deepEqual(Object.keys(synastry.generation.options.aspectOrbs), [
+    '合相',
+    '六合',
+    '刑相',
+    '拱相',
+    '冲相',
+  ]);
+  assert.equal(synastry.generation.options.includeHouseOverlays, true);
+  assert.equal(synastry.generation.timestamp, synastry.timestamp);
   assert.equal(synastry.key, 'astrolabe:synastry:evidence');
   assert.equal(synastry.status, '已计算');
   assert.deepEqual(synastry.people, ['甲', '乙']);

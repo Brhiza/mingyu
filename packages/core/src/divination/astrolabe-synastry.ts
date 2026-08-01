@@ -2,6 +2,7 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type {
   AstrolabeData,
+  AstrolabeGenerationSource,
   AstrolabeHouseOverlay,
   AstrolabePoint,
   AstrolabeSynastryCalculationStep,
@@ -10,8 +11,10 @@ import type {
   AstrolabeSynastryCounterEvidenceFact,
   AstrolabeSynastryData,
   AstrolabeSynastryLimitationFact,
+  AstrolabeSynastryResolvedOptions,
   AstrolabeSynastrySummaryFact,
 } from '../types/divination';
+import { rebuildAuditedAstrolabeData } from './algorithms/astrolabe';
 const ASPECT_DEFINITIONS: Array<{
   type: AstrolabeSynastryAspectType;
   symbol: string;
@@ -63,6 +66,90 @@ export interface AstrolabeSynastryOptions {
   pointNames?: string[];
   aspectOrbs?: Partial<Record<AstrolabeSynastryAspectType, number>>;
   includeHouseOverlays?: boolean;
+}
+
+function assertSynastryTimestamp(timestamp: unknown): asserts timestamp is number {
+  if (
+    typeof timestamp !== 'number' ||
+    !Number.isSafeInteger(timestamp) ||
+    timestamp < 0 ||
+    Number.isNaN(new Date(timestamp).getTime())
+  ) {
+    throw new Error('西占双盘原始生成时间必须是有效的非负毫秒时间戳。');
+  }
+}
+
+function copyGenerationSource(source: AstrolabeGenerationSource): AstrolabeGenerationSource {
+  return { input: { ...source.input }, timestamp: source.timestamp };
+}
+
+function normalizeSynastryOptions(
+  options: AstrolabeSynastryOptions,
+  chart1: AstrolabeData,
+  chart2: AstrolabeData,
+): AstrolabeSynastryResolvedOptions {
+  if (!options || typeof options !== 'object' || Array.isArray(options)) {
+    throw new Error('西占双盘参数必须是对象。');
+  }
+  if (
+    options.includeHouseOverlays !== undefined &&
+    typeof options.includeHouseOverlays !== 'boolean'
+  ) {
+    throw new Error('西占双盘落宫开关必须是布尔值。');
+  }
+
+  const available1 = new Set([...chart1.planets, ...chart1.angles].map((item) => item.name));
+  const available2 = new Set([...chart2.planets, ...chart2.angles].map((item) => item.name));
+  const requestedPointNames = options.pointNames ?? Array.from(DEFAULT_POINT_NAMES);
+  if (!Array.isArray(requestedPointNames) || requestedPointNames.length === 0) {
+    throw new Error('西占双盘至少需要选择一个计算点。');
+  }
+  const pointNames = requestedPointNames.map((value) => {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new Error('西占双盘计算点名称必须是非空字符串。');
+    }
+    return value.trim();
+  });
+  if (new Set(pointNames).size !== pointNames.length) {
+    throw new Error('西占双盘计算点名称不得重复。');
+  }
+  const unavailablePoint = pointNames.find(
+    (pointName) => !available1.has(pointName) || !available2.has(pointName),
+  );
+  if (unavailablePoint) {
+    throw new Error(`西占双盘计算点 ${unavailablePoint} 未同时存在于双方可信本命盘。`);
+  }
+
+  if (
+    options.aspectOrbs !== undefined &&
+    (!options.aspectOrbs ||
+      typeof options.aspectOrbs !== 'object' ||
+      Array.isArray(options.aspectOrbs))
+  ) {
+    throw new Error('西占双盘容许度配置必须是对象。');
+  }
+  const allowedTypes = new Set(ASPECT_DEFINITIONS.map((item) => item.type));
+  const unknownType = Object.keys(options.aspectOrbs ?? {}).find(
+    (type) => !allowedTypes.has(type as AstrolabeSynastryAspectType),
+  );
+  if (unknownType) {
+    throw new Error(`西占双盘不支持相位类型 ${unknownType}。`);
+  }
+  const aspectOrbs = Object.fromEntries(
+    ASPECT_DEFINITIONS.map((definition) => {
+      const value = options.aspectOrbs?.[definition.type] ?? definition.defaultOrb;
+      if (!Number.isFinite(value) || value < 0 || value > 15) {
+        throw new Error(`${definition.type}容许度需在 0 到 15 度之间。`);
+      }
+      return [definition.type, value];
+    }),
+  ) as Record<AstrolabeSynastryAspectType, number>;
+
+  return {
+    pointNames,
+    aspectOrbs,
+    includeHouseOverlays: options.includeHouseOverlays ?? true,
+  };
 }
 
 function normalizeLongitude(longitude: number) {
@@ -566,13 +653,14 @@ function createEvidence(
   };
 }
 
-export function analyzeAstrolabeSynastry(
+function buildAstrolabeSynastry(
   chart1: AstrolabeData,
   chart2: AstrolabeData,
-  options: AstrolabeSynastryOptions = {},
+  options: AstrolabeSynastryResolvedOptions,
+  timestamp: number,
 ): AstrolabeSynastryData {
-  if (!chart1?.birth || !chart2?.birth) throw new Error('西占合盘需要两份完整本命盘。');
-  const selectedNames = new Set(options.pointNames ?? DEFAULT_POINT_NAMES);
+  assertSynastryTimestamp(timestamp);
+  const selectedNames = new Set(options.pointNames);
   const aspectCalculation = calculateAspects(chart1, chart2, options);
   const aspects = aspectCalculation.aspects;
   const houseOverlays =
@@ -649,6 +737,16 @@ export function analyzeAstrolabeSynastry(
   const evidenceLines = formatPromptEvidenceBundle(evidence);
 
   return {
+    generation: {
+      chart1: copyGenerationSource(chart1.generation),
+      chart2: copyGenerationSource(chart2.generation),
+      options: {
+        pointNames: [...options.pointNames],
+        aspectOrbs: { ...options.aspectOrbs },
+        includeHouseOverlays: options.includeHouseOverlays,
+      },
+      timestamp,
+    },
     key: 'astrolabe:synastry:evidence',
     status: '已计算',
     people: [chart1.birth.name, chart2.birth.name],
@@ -689,6 +787,38 @@ export function analyzeAstrolabeSynastry(
         '跨盘落宫按宫头黄经区间计算，宫制沿用输入本命盘。',
       ],
     },
-    timestamp: Date.now(),
+    timestamp,
   };
+}
+
+export function analyzeAstrolabeSynastry(
+  chart1: AstrolabeData,
+  chart2: AstrolabeData,
+  options: AstrolabeSynastryOptions = {},
+): AstrolabeSynastryData {
+  const auditedChart1 = rebuildAuditedAstrolabeData(chart1);
+  const auditedChart2 = rebuildAuditedAstrolabeData(chart2);
+  const auditedOptions = normalizeSynastryOptions(options, auditedChart1, auditedChart2);
+  return buildAstrolabeSynastry(auditedChart1, auditedChart2, auditedOptions, Date.now());
+}
+
+/** 只凭双方原始出生来源、完整双盘参数和生成时间重建跨盘证据。 */
+export function rebuildAuditedAstrolabeSynastryData(
+  input: Pick<AstrolabeSynastryData, 'generation'>,
+): AstrolabeSynastryData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('西占双盘审核重建必须提供结果对象。');
+  }
+  if (!input.generation) {
+    throw new Error('西占双盘旧结果缺少可信原始生成来源，无法审核重建。');
+  }
+  const generation = input.generation;
+  if (!generation || typeof generation !== 'object' || Array.isArray(generation)) {
+    throw new Error('西占双盘审核重建必须提供原始生成来源。');
+  }
+  assertSynastryTimestamp(generation.timestamp);
+  const chart1 = rebuildAuditedAstrolabeData({ generation: generation.chart1 });
+  const chart2 = rebuildAuditedAstrolabeData({ generation: generation.chart2 });
+  const options = normalizeSynastryOptions(generation.options, chart1, chart2);
+  return buildAstrolabeSynastry(chart1, chart2, options, generation.timestamp);
 }

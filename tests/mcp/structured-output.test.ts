@@ -1721,6 +1721,16 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     const chart = (
       result.structuredContent as {
         result?: {
+          generation?: {
+            input: {
+              name: string;
+              timezone?: string;
+              timeZoneId?: string;
+              useTrueSolarTime?: boolean;
+            };
+            timestamp: number;
+          };
+          timestamp?: number;
           birth?: {
             timezoneEvidence?: {
               key: string;
@@ -1827,6 +1837,11 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
         };
       }
     ).result;
+    assert.equal(chart?.generation?.input.name, '本人');
+    assert.equal(chart?.generation?.input.timezone, '8');
+    assert.equal(chart?.generation?.input.timeZoneId, 'Asia/Shanghai');
+    assert.equal(chart?.generation?.input.useTrueSolarTime, false);
+    assert.equal(chart?.generation?.timestamp, chart?.timestamp);
     for (const aspect of chart?.aspects ?? []) {
       assert.equal(aspect.strength, undefined);
       assert.equal(aspect.closeness, undefined);
@@ -2122,6 +2137,17 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
       result.structuredContent as {
         result?: {
           synastry?: {
+            generation?: {
+              chart1: { input: { name: string } };
+              chart2: { input: { name: string } };
+              options: {
+                pointNames: string[];
+                aspectOrbs: Record<string, number>;
+                includeHouseOverlays: boolean;
+              };
+              timestamp: number;
+            };
+            timestamp?: number;
             key?: string;
             status?: string;
             calculationSteps?: Array<{ key: string }>;
@@ -2144,6 +2170,12 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
         };
       }
     ).result;
+    assert.equal(chart?.synastry?.generation?.chart1.input.name, '甲');
+    assert.equal(chart?.synastry?.generation?.chart2.input.name, '乙');
+    assert.equal(chart?.synastry?.generation?.options.pointNames.length, 18);
+    assert.equal(Object.keys(chart?.synastry?.generation?.options.aspectOrbs ?? {}).length, 5);
+    assert.equal(chart?.synastry?.generation?.options.includeHouseOverlays, true);
+    assert.equal(chart?.synastry?.generation?.timestamp, chart?.synastry?.timestamp);
     assert.equal(chart?.synastry?.key, 'astrolabe:synastry:evidence');
     assert.equal(chart?.synastry?.status, '已计算');
     assert.equal(chart?.synastry?.calculationSteps?.length, 7);

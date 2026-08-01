@@ -15,6 +15,7 @@ import {
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
 import { resolveHistoricalTimezone } from '../calendar/historical-timezone';
+import { rebuildAuditedAstrolabeData } from './algorithms/astrolabe';
 
 export type AstrolabeScopeContext = {
   scope: AstrolabeScopeMode;
@@ -647,7 +648,7 @@ function assertAdvancedTargetYear(targetYear: number) {
   }
 }
 
-export function calculateSecondaryProgressionEvidence(
+function calculateSecondaryProgressionEvidenceFromAuditedData(
   data: AstrolabeData,
   targetYear: number,
 ): SecondaryProgressionEvidence {
@@ -915,7 +916,7 @@ export function calculateSecondaryProgressionEvidence(
   }
 }
 
-export function calculateSolarArcEvidence(
+function calculateSolarArcEvidenceFromAuditedData(
   data: AstrolabeData,
   targetYear: number,
 ): SolarArcEvidence {
@@ -1222,7 +1223,7 @@ function formatWallClockDateTime(timestamp: number) {
   return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} ${String(date.hour).padStart(2, '0')}:${String(date.minute).padStart(2, '0')}`;
 }
 
-export function calculateSolarReturnEvidence(
+function calculateSolarReturnEvidenceFromAuditedData(
   data: AstrolabeData,
   targetYear: number,
 ): SolarReturnEvidence {
@@ -1737,7 +1738,8 @@ export function buildAstrolabeScopeContext(
     };
   }
 
-  const houseRulerChain = buildHouseRulerChainEvidence(data);
+  const auditedData = rebuildAuditedAstrolabeData(data);
+  const houseRulerChain = buildHouseRulerChainEvidence(auditedData);
   if (scope === 'natal' || scope === 'full') {
     return {
       scope,
@@ -1756,16 +1758,22 @@ export function buildAstrolabeScopeContext(
   const scopeLabel = SCOPE_LABEL_MAP[scope];
   const displayText = `${scopeLabel} · ${normalizedDateStr}`;
   const anchorDate = formatAnchorDate(target);
-  const targetTimezone = resolveScopeTimezone(data, { ...target, hour: 12, minute: 0 });
+  const targetTimezone = resolveScopeTimezone(auditedData, { ...target, hour: 12, minute: 0 });
   const timezoneLabel = `UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}`;
-  const transitEvidence = buildTransitEvidence(data, target);
-  const transitHouseEvidence = buildTransitHouseEvidence(data, scope, target);
+  const transitEvidence = buildTransitEvidence(auditedData, target);
+  const transitHouseEvidence = buildTransitHouseEvidence(auditedData, scope, target);
   const solarReturnEvidence =
-    scope === 'yearly' ? calculateSolarReturnEvidence(data, target.year) : undefined;
+    scope === 'yearly'
+      ? calculateSolarReturnEvidenceFromAuditedData(auditedData, target.year)
+      : undefined;
   const secondaryProgressionEvidence =
-    scope === 'yearly' ? calculateSecondaryProgressionEvidence(data, target.year) : undefined;
+    scope === 'yearly'
+      ? calculateSecondaryProgressionEvidenceFromAuditedData(auditedData, target.year)
+      : undefined;
   const solarArcEvidence =
-    scope === 'yearly' ? calculateSolarArcEvidence(data, target.year) : undefined;
+    scope === 'yearly'
+      ? calculateSolarArcEvidenceFromAuditedData(auditedData, target.year)
+      : undefined;
   const advancedYearlyFacts = formatAdvancedScopeFacts({
     solarReturnEvidence,
     secondaryProgressionEvidence,
@@ -1789,6 +1797,30 @@ export function buildAstrolabeScopeContext(
     secondaryProgressionEvidence,
     solarArcEvidence,
   };
+}
+
+export function calculateSecondaryProgressionEvidence(
+  data: AstrolabeData,
+  targetYear: number,
+): SecondaryProgressionEvidence {
+  return calculateSecondaryProgressionEvidenceFromAuditedData(
+    rebuildAuditedAstrolabeData(data),
+    targetYear,
+  );
+}
+
+export function calculateSolarArcEvidence(
+  data: AstrolabeData,
+  targetYear: number,
+): SolarArcEvidence {
+  return calculateSolarArcEvidenceFromAuditedData(rebuildAuditedAstrolabeData(data), targetYear);
+}
+
+export function calculateSolarReturnEvidence(
+  data: AstrolabeData,
+  targetYear: number,
+): SolarReturnEvidence {
+  return calculateSolarReturnEvidenceFromAuditedData(rebuildAuditedAstrolabeData(data), targetYear);
 }
 
 export function getAstrolabeScopeLabel(scope: AstrolabeScopeMode) {

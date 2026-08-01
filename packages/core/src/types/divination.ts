@@ -1256,6 +1256,13 @@ export interface AstrolabeBirthInput {
   useTrueSolarTime?: boolean;
 }
 
+export interface AstrolabeGenerationSource {
+  /** 经过类型、范围与空白规范化的原始出生输入；全部派生盘面必须由此重算。 */
+  input: AstrolabeBirthInput;
+  /** 生成结果的非负毫秒时间戳。 */
+  timestamp: number;
+}
+
 export interface AstrolabePoint {
   name: string;
   label: string;
@@ -1300,6 +1307,8 @@ export interface AstrolabeAspectCalculation {
 }
 
 export interface AstrolabeData {
+  /** 星盘可信来源；公开分析、提示词和辅助入口只允许从这里重建。 */
+  generation: AstrolabeGenerationSource;
   /** 星体、四轴、相位、反证、计算链与解释限制。 */
   evidenceAnalysis?: import('../divination/astrolabe-evidence').AstrolabeEvidenceAnalysis;
   birth: {
@@ -1334,6 +1343,21 @@ export interface AstrolabeData {
 }
 
 export type AstrolabeSynastryAspectType = '合相' | '六合' | '刑相' | '拱相' | '冲相';
+
+export interface AstrolabeSynastryResolvedOptions {
+  /** 实际参与双盘穷举的内部点位名，顺序固定并随来源保存。 */
+  pointNames: string[];
+  /** 五种主要相位实际采用的完整容许度。 */
+  aspectOrbs: Record<AstrolabeSynastryAspectType, number>;
+  includeHouseOverlays: boolean;
+}
+
+export interface AstrolabeSynastryGenerationSource {
+  chart1: AstrolabeGenerationSource;
+  chart2: AstrolabeGenerationSource;
+  options: AstrolabeSynastryResolvedOptions;
+  timestamp: number;
+}
 
 export interface AstrolabeSynastryAspect {
   key: string;
@@ -1436,6 +1460,8 @@ export interface AstrolabeSynastryLimitationFact {
 }
 
 export interface AstrolabeSynastryData {
+  /** 双方原始出生来源、完整计算参数与生成时间；全部跨盘事实必须由此重算。 */
+  generation: AstrolabeSynastryGenerationSource;
   key: 'astrolabe:synastry:evidence';
   status: '已计算';
   people: [string, string];

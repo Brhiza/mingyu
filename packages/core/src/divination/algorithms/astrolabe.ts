@@ -3,15 +3,14 @@ import type {
   AstrolabeAspect,
   AstrolabeBirthInput,
   AstrolabeData,
+  AstrolabeGenerationSource,
   AstrolabePoint,
 } from '../../types/divination';
 import { daysInSolarMonth } from '../../calendar/date-validation';
 import { resolveHistoricalTimezone } from '../../calendar/historical-timezone';
 import { calculateSolarIlluminationEvidence } from '../../calendar/solar-illumination-evidence';
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
-import { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
-
-export { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
+import { analyzeRebuiltAstrolabeEvidence } from '../astrolabe-evidence';
 export type {
   AstrolabeAspectFact,
   AstrolabeCalculationFact,
@@ -258,6 +257,59 @@ function readOptionalText(value: unknown, fallback: string) {
   return value.trim() || fallback;
 }
 
+function normalizeAstrolabeBirthInput(input: AstrolabeBirthInput): AstrolabeBirthInput {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('星盘生成参数必须是对象。');
+  }
+  if (typeof input.name !== 'string') {
+    throw new Error('星盘文本字段必须是字符串。');
+  }
+  if (input.gender !== '' && input.gender !== '男' && input.gender !== '女') {
+    throw new Error('星盘性别只能是男、女或空字符串。');
+  }
+  if (input.useTrueSolarTime !== undefined && typeof input.useTrueSolarTime !== 'boolean') {
+    throw new Error('星盘真太阳时开关必须是布尔值。');
+  }
+  if (input.locationName !== undefined && typeof input.locationName !== 'string') {
+    throw new Error('星盘文本字段必须是字符串。');
+  }
+  if (input.timeZoneId !== undefined && typeof input.timeZoneId !== 'string') {
+    throw new Error('星盘文本字段必须是字符串。');
+  }
+
+  const normalizedTimeZoneId = input.timeZoneId?.trim();
+  return {
+    name: input.name.trim(),
+    gender: input.gender,
+    year: typeof input.year === 'string' ? input.year.trim() : input.year,
+    month: typeof input.month === 'string' ? input.month.trim() : input.month,
+    day: typeof input.day === 'string' ? input.day.trim() : input.day,
+    hour: typeof input.hour === 'string' ? input.hour.trim() : input.hour,
+    minute: typeof input.minute === 'string' ? input.minute.trim() : input.minute,
+    latitude: typeof input.latitude === 'string' ? input.latitude.trim() : input.latitude,
+    longitude: typeof input.longitude === 'string' ? input.longitude.trim() : input.longitude,
+    ...(input.timezone !== undefined
+      ? {
+          timezone: typeof input.timezone === 'string' ? input.timezone.trim() : input.timezone,
+        }
+      : {}),
+    ...(normalizedTimeZoneId ? { timeZoneId: normalizedTimeZoneId } : {}),
+    locationName: input.locationName?.trim() ?? '',
+    useTrueSolarTime: input.useTrueSolarTime ?? false,
+  } as AstrolabeBirthInput;
+}
+
+function assertAstrolabeGenerationTimestamp(timestamp: unknown): asserts timestamp is number {
+  if (
+    typeof timestamp !== 'number' ||
+    !Number.isSafeInteger(timestamp) ||
+    timestamp < 0 ||
+    Number.isNaN(new Date(timestamp).getTime())
+  ) {
+    throw new Error('星盘原始生成时间必须是有效的非负毫秒时间戳。');
+  }
+}
+
 /**
  * 生成西洋占星星盘
  *
@@ -285,7 +337,9 @@ function readOptionalText(value: unknown, fallback: string) {
  * });
  * ```
  */
-export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
+function buildAstrolabe(input: AstrolabeBirthInput, timestamp: number): AstrolabeData {
+  input = normalizeAstrolabeBirthInput(input);
+  assertAstrolabeGenerationTimestamp(timestamp);
   const standardBirth = localTimestamp(input);
   const latitude = requireNumber(input.latitude, '出生地纬度');
   const longitude = requireNumber(input.longitude, '出生地经度');
@@ -399,6 +453,10 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     .map(mapAspect);
 
   const result: AstrolabeData = {
+    generation: {
+      input: { ...input },
+      timestamp,
+    },
     birth: {
       name: readOptionalText(input.name, '未命名'),
       gender: input.gender,
@@ -475,8 +533,34 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       retrograde: chart.summary.retrograde.map((item) => PLANET_LABELS[item] ?? item),
       patterns: chart.summary.patterns,
     },
-    timestamp: Date.now(),
+    timestamp,
   };
-  result.evidenceAnalysis = analyzeAstrolabeEvidence(result);
+  result.evidenceAnalysis = analyzeRebuiltAstrolabeEvidence(result);
   return result;
+}
+
+export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
+  return buildAstrolabe(input, Date.now());
+}
+
+/** 只凭保存的原始出生输入和生成时间重建完整本命盘。 */
+export function rebuildAuditedAstrolabeData(
+  input: Pick<AstrolabeData, 'generation'>,
+): AstrolabeData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('星盘审核重建必须提供结果对象。');
+  }
+  if (!input.generation) {
+    throw new Error('星盘旧结果缺少可信原始出生输入，无法审核重建。');
+  }
+  const generation = input.generation as AstrolabeGenerationSource;
+  if (!generation || typeof generation !== 'object' || Array.isArray(generation)) {
+    throw new Error('星盘审核重建必须提供原始出生输入。');
+  }
+  return buildAstrolabe(generation.input, generation.timestamp);
+}
+
+/** 先从可信原始输入重建本命盘，再返回结构化证据。 */
+export function analyzeAstrolabeEvidence(input: Pick<AstrolabeData, 'generation'>) {
+  return rebuildAuditedAstrolabeData(input).evidenceAnalysis!;
 }

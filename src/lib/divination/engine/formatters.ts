@@ -45,17 +45,12 @@ import { rebuildAuditedJinkoujueData } from '@core/divination/algorithms/jinkouj
 import { rebuildAuditedTarotData } from '@core/divination/tarot';
 import { rebuildAuditedLenormandData } from '@core/divination/algorithms/lenormand';
 import { rebuildAuditedTaiyiData } from 'mingyu-core/taiyi';
+import { rebuildAuditedAstrolabeData } from 'mingyu-core/divination/astrolabe';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (data && 'generation' in data && data.generation && typeof data.generation === 'object') {
-    const generation = data.generation as Partial<AlmanacData['generation']>;
-    const isAlmanacGeneration =
-      'topic' in generation &&
-      'startDate' in generation &&
-      'endDate' in generation &&
-      'participants' in generation;
-
-    if (isAlmanacGeneration) {
+    const generation = data.generation as { timestamp?: unknown };
+    if ('timestamp' in generation) {
       return typeof generation.timestamp === 'number' &&
         Number.isSafeInteger(generation.timestamp) &&
         generation.timestamp >= 0 &&
@@ -939,6 +934,7 @@ function formatLenormandInfo(data: LenormandData) {
 }
 
 export function formatAstrolabeInfo(data: AstrolabeData) {
+  data = rebuildAuditedAstrolabeData(data);
   const sun = data.planets.find((item) => item.name === 'Sun');
   const moon = data.planets.find((item) => item.name === 'Moon');
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
