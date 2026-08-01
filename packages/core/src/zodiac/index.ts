@@ -21,9 +21,7 @@ import {
   EARTHLY_BRANCHES,
   SIXTY_CYCLE,
 } from '../ganzhi';
-import { analyzeZodiacEvidence } from './evidence';
-
-export { analyzeZodiacEvidence } from './evidence';
+import { analyzeZodiacEvidence as buildZodiacEvidence } from './evidence';
 export type {
   ZodiacCalculationStep,
   ZodiacCounterEvidenceFact,
@@ -183,6 +181,8 @@ export function getYearTaiSui(yearGanZhi: string): { yearBranch: string; star: s
 }
 
 export interface ZodiacYearFortune {
+  /** 审核重建所需的唯一可信来源；其余字段均为派生结果。 */
+  generation: ZodiacGenerationSource;
   zodiacBranch: string;
   zodiac: string;
   yearGanZhi: string;
@@ -199,6 +199,11 @@ export interface ZodiacYearFortune {
   interpretationBoundary: '仅限生肖与流年关系';
   evidenceAnalysis: import('./evidence').ZodiacEvidenceAnalysis;
   prompt: string;
+}
+
+export interface ZodiacGenerationSource {
+  zodiacBranch: string;
+  yearGanZhi: string;
 }
 
 export interface ZodiacElementRelation {
@@ -257,12 +262,49 @@ function getSanhuiRelation(zodiacBranch: string, yearBranch: string): string | n
   return group ? `三会关系（${group[0]}）` : null;
 }
 
-/** 生肖与流年固定关系。函数名为兼容既有调用保留，不生成运程结论。 */
-export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): ZodiacYearFortune {
+const ZODIAC_GENERATION_KEYS = new Set(['zodiacBranch', 'yearGanZhi']);
+
+function normalizeZodiacGenerationSource(source: unknown): ZodiacGenerationSource {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    throw new Error('生肖流年审核重建必须提供可信生成来源。');
+  }
+  const sourceRecord = source as Record<string, unknown>;
+  const unexpectedKeys = Object.keys(sourceRecord).filter(
+    (key) => !ZODIAC_GENERATION_KEYS.has(key),
+  );
+  if (unexpectedKeys.length) {
+    throw new Error(`生肖流年可信生成来源包含不受支持的字段：${unexpectedKeys.join('、')}`);
+  }
+  if (!Object.prototype.hasOwnProperty.call(sourceRecord, 'zodiacBranch')) {
+    throw new Error('生肖流年可信生成来源缺少生肖年支。');
+  }
+  if (!Object.prototype.hasOwnProperty.call(sourceRecord, 'yearGanZhi')) {
+    throw new Error('生肖流年可信生成来源缺少流年干支。');
+  }
+  if (typeof sourceRecord.zodiacBranch !== 'string') {
+    throw new Error('生肖流年可信生成来源的生肖年支必须是字符串。');
+  }
+  if (!(EARTHLY_BRANCHES as readonly string[]).includes(sourceRecord.zodiacBranch)) {
+    throw new Error(`生肖地支无效：${sourceRecord.zodiacBranch}`);
+  }
+  if (typeof sourceRecord.yearGanZhi !== 'string') {
+    throw new Error('生肖流年可信生成来源的流年干支必须是字符串。');
+  }
+  if (!isValidGanZhi(sourceRecord.yearGanZhi)) {
+    throw new Error(`流年干支无效：${sourceRecord.yearGanZhi}`);
+  }
+  return {
+    zodiacBranch: sourceRecord.zodiacBranch,
+    yearGanZhi: sourceRecord.yearGanZhi,
+  };
+}
+
+function buildZodiacYearFortune(source: ZodiacGenerationSource): ZodiacYearFortune {
+  const { zodiacBranch, yearGanZhi } = source;
+  const generation = normalizeZodiacGenerationSource(source);
   const taiSui = getYearTaiSui(yearGanZhi);
   const yearBranch = taiSui.yearBranch;
   const zodiacIdx = EARTHLY_BRANCHES.indexOf(zodiacBranch as (typeof EARTHLY_BRANCHES)[number]);
-  if (zodiacIdx < 0) throw new Error(`生肖地支无效：${zodiacBranch}`);
   const zodiac = ZODIACS[zodiacIdx];
   const conflicts = getTaiSuiConflicts(zodiacBranch, yearBranch);
   const yearStemWuxing = getStemWuxing(yearGanZhi[0]);
@@ -277,7 +319,8 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     if (sanhe?.partners.includes(yearBranch)) harmony = `三合组成员关系（${sanhe.group}）`;
   }
   const meeting = getSanhuiRelation(zodiacBranch, yearBranch);
-  const resultBase = {
+  const resultBase: Omit<ZodiacYearFortune, 'evidenceAnalysis' | 'prompt'> = {
+    generation,
     zodiacBranch,
     zodiac,
     yearGanZhi,
@@ -287,10 +330,10 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     harmony,
     meeting,
     conflicts,
-    evidenceGrade: '轻量' as const,
-    interpretationBoundary: '仅限生肖与流年关系' as const,
+    evidenceGrade: '轻量',
+    interpretationBoundary: '仅限生肖与流年关系',
   };
-  const evidenceAnalysis = analyzeZodiacEvidence(resultBase);
+  const evidenceAnalysis = buildZodiacEvidence(resultBase);
   const prompt = [
     `【生肖与流年关系简析】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${taiSui.star}太岁）。`,
@@ -313,9 +356,36 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   };
 }
 
+/** 生肖与流年固定关系。函数名为兼容既有调用保留，不生成运程结论。 */
+export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): ZodiacYearFortune {
+  return buildZodiacYearFortune({ zodiacBranch, yearGanZhi });
+}
+
+/** 只凭生肖年支与合法六十甲子重建全部关系、证据和提示词。 */
+export function rebuildAuditedZodiacData(
+  input: Pick<ZodiacYearFortune, 'generation'>,
+): ZodiacYearFortune {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('生肖流年审核重建必须提供结果对象。');
+  }
+  if (!Object.prototype.hasOwnProperty.call(input, 'generation')) {
+    throw new Error('生肖流年旧结果缺少可信原始输入，无法审核重建。');
+  }
+  return buildZodiacYearFortune(normalizeZodiacGenerationSource(input.generation));
+}
+
+/** 先审核重建生肖流年结果，再返回结构化证据。 */
+export function analyzeZodiacEvidence(
+  input: Pick<ZodiacYearFortune, 'generation'>,
+): ZodiacYearFortune['evidenceAnalysis'] {
+  return rebuildAuditedZodiacData(input).evidenceAnalysis;
+}
+
 export const zodiac = {
   TAI_SUI_STARS,
   getTaiSuiConflicts,
   getYearTaiSui,
   getZodiacYearFortune,
+  rebuildAuditedZodiacData,
+  analyzeZodiacEvidence,
 };

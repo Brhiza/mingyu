@@ -1942,7 +1942,7 @@ function calculateZodiacApi(input: JsonRecord) {
   const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
   // 以"立春"为年界：取 2 月 10 日（必在立春之后）推算流年干支，避免 2/4 凌晨尚属上一干支年的误差
   const gz = yearGanZhi || getGanZhiFromDate(new Date(year, 1, 10)).year;
-  return zodiac.getZodiacYearFortune(zodiacBranch, gz);
+  return zodiac.rebuildAuditedZodiacData(zodiac.getZodiacYearFortune(zodiacBranch, gz));
 }
 
 function buildZodiacPrompt(input: JsonRecord) {

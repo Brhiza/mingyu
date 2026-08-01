@@ -539,6 +539,11 @@ test('zodiac: 12个生肖年支与60个流年干支的720种组合应逐项符�
       caseCount += 1;
       const yearBranch = yearGanZhi[1];
       const result = core.zodiac.getZodiacYearFortune(zodiacBranch, yearGanZhi);
+      assert.deepEqual(
+        core.zodiac.rebuildAuditedZodiacData(result),
+        result,
+        `${zodiacBranch}/${yearGanZhi}可信来源重建等价`,
+      );
       const expectedConflictTypes: string[] = [];
       if (zodiacBranch === yearBranch) expectedConflictTypes.push('值太岁');
       if (liuchong[zodiacBranch] === yearBranch) expectedConflictTypes.push('冲太岁');

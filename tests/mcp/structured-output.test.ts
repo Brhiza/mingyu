@@ -5202,6 +5202,10 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
         };
       }
     ).result;
+    assert.deepEqual(chart.generation, {
+      zodiacBranch: '午',
+      yearGanZhi: '庚子',
+    });
     assert.equal(chart.interpretationBoundary, '仅限生肖与流年关系');
     assert.equal(chart.evidenceAnalysis.key, 'zodiac:evidence');
     assert.equal(chart.evidenceAnalysis.status, '已计算');

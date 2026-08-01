@@ -360,7 +360,8 @@ const natalAstrolabe = generateAstrolabe({
 const yearlyAstrolabe = buildAstrolabeScopeContext(natalAstrolabe, 'yearly', '2028');
 console.log(yearlyAstrolabe.displayText, yearlyAstrolabe.promptText);
 const zodiacYear = zodiac.getZodiacYearFortune('午', '甲辰');
-console.log(zodiacYear.conflicts, zodiacYear.harmony, zodiacYear.meeting);
+const auditedZodiacYear = zodiac.rebuildAuditedZodiacData(zodiacYear);
+console.log(auditedZodiacYear.generation, auditedZodiacYear.conflicts, auditedZodiacYear.harmony);
 // 只返回生肖年支与流年干支命中的固定关系及五行生克方向；不生成利弊、现实贵人或行动建议
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
 const auditedTaiyiChart = taiyi.rebuildAuditedTaiyiData(taiyiChart);
@@ -507,6 +508,9 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宫传统标签与候选坐向 |
 | `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)` | 将入户实测度数换算成传统坐山、朝向与二十四山                         |
 | `resolveZiweiTrueSolarBirth(input)`               | 紫微出生资料真太阳时日期与时辰索引适配                               |
+| `zodiac.getZodiacYearFortune(branch, ganZhi)`     | 从生肖年支与合法六十甲子生成固定关系资料                             |
+| `zodiac.rebuildAuditedZodiacData(data)`           | 只凭可信来源重建全部生肖流年关系、证据和提示词                       |
+| `zodiac.analyzeZodiacEvidence(data)`              | 先审核重建生肖流年结果，再返回结构化证据                             |
 | `taiyi.generateTaiyi({ year, scope: 'year' })`    | 生成已校勘的太乙年计七十二局                                         |
 | `taiyi.rebuildAuditedTaiyiData(data)`             | 只凭原始公历年份重建太乙年计，忽略全部旧派生盘面与旧证据             |
 | `taiyi.analyzeTaiyiEvidence(data)`                | 先审核重建太乙年计，再返回结构化证据                                 |

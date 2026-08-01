@@ -84,8 +84,8 @@
 | `POST /metaphysics/bazhai/prompt`            | 八宅排盘并生成含测量和现实边界的 AI 解读提示词                                 |
 | `POST /metaphysics/residential/calculate`    | 住宅风水：八宅与玄空飞星分层合参结果                                           |
 | `POST /metaphysics/residential/prompt`       | 住宅风水合参并生成 AI 解读提示词                                               |
-| `POST /metaphysics/zodiac/calculate`         | 生肖与流年值冲刑害破、三合六合及结构化关系证据                                 |
-| `POST /metaphysics/zodiac/prompt`            | 生肖流年关系排盘并生成含信息量限制的 AI 解读提示词                             |
+| `POST /metaphysics/zodiac/calculate`         | 从可信生肖年支和六十甲子重建值冲刑害破、三合六合及结构化关系证据               |
+| `POST /metaphysics/zodiac/prompt`            | 从可信来源重建生肖流年关系并生成含信息量限制的 AI 解读提示词                   |
 | `POST /metaphysics/taiyi/calculate`          | 太乙神数排盘                                                                   |
 | `POST /metaphysics/taiyi/prompt`             | 太乙神数排盘并生成 AI 解读提示词                                               |
 | `POST /metaphysics/qizheng/calculate`        | 七政四余盘、可信生成来源与结构化证据                                           |

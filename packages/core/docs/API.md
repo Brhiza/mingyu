@@ -395,8 +395,11 @@
 
 `zodiac.getZodiacYearFortune(zodiacBranch, yearGanZhi)` 保留既有函数名以兼容调用，实际返回的是生肖年支与流年干支的固定关系事实，不是运程等级。`yearGanZhi` 必须是有效六十甲子；调用方负责按适用年界传入流年年柱。
 
+结果的 `generation` 只保存生肖年支与合法六十甲子。`zodiac.rebuildAuditedZodiacData(result)` 与 `zodiac.analyzeZodiacEvidence(result)` 只凭该来源重建全部固定关系、证据和提示词；旧结果中的生肖名称、流年年支、值冲刑害破、三合六合三会、五行关系、证据及提示词均不采信。来源缺失、夹带未知字段、伪枚举对象或非法干支时失败关闭。
+
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
+| `generation` | `ZodiacGenerationSource` | 唯一可信来源，只含 `zodiacBranch` 与 `yearGanZhi` |
 | `zodiacBranch` / `zodiac` | `string` | 生肖年支及对应生肖 |
 | `yearGanZhi` / `yearBranch` | `string` | 流年干支及年支 |
 | `conflicts` | `TaiSuiConflict[]` | 值、冲、刑、害、破固定关系的逐项命中事实 |

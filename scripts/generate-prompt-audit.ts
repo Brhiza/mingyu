@@ -22,7 +22,7 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaZhai } from '@core/ba_zhai';
 import { generateResidentialFengshui } from '@core/residential_fengshui';
 import { generateXuanKong } from '@core/xuan_kong';
-import { getZodiacYearFortune } from '@core/zodiac';
+import { getZodiacYearFortune, rebuildAuditedZodiacData } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 
@@ -561,7 +561,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       { method: 'bazhai', currentTime: fixedNow },
     );
 
-    const zodiacData = getZodiacYearFortune('午', '甲辰');
+    const zodiacData = rebuildAuditedZodiacData(getZodiacYearFortune('午', '甲辰'));
     const zodiacPrompt = buildMetaphysicsPrompt(
       zodiacData.prompt,
       '属马的人在甲辰年应该重点留意哪些方面？',

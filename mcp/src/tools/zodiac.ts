@@ -43,7 +43,9 @@ export function registerZodiacTool(server: McpServer) {
         const yearGanZhi =
           args.yearGanZhi ||
           getGanZhiFromDate(new Date(args.year ?? new Date().getFullYear(), 1, 10)).year;
-        const result = zodiac.getZodiacYearFortune(branch, yearGanZhi);
+        const result = zodiac.rebuildAuditedZodiacData(
+          zodiac.getZodiacYearFortune(branch, yearGanZhi),
+        );
         return createStructuredToolResult({ result });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生肖与流年关系计算失败'));
@@ -65,7 +67,9 @@ export function registerZodiacTool(server: McpServer) {
         const yearGanZhi =
           args.yearGanZhi ||
           getGanZhiFromDate(new Date(args.year ?? new Date().getFullYear(), 1, 10)).year;
-        const result = zodiac.getZodiacYearFortune(branch, yearGanZhi);
+        const result = zodiac.rebuildAuditedZodiacData(
+          zodiac.getZodiacYearFortune(branch, yearGanZhi),
+        );
         return createStructuredToolResult({
           result,
           prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'zodiac' }),

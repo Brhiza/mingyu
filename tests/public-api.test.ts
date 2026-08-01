@@ -5621,6 +5621,10 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
     body: JSON.stringify({ zodiac: '马', yearGanZhi: '庚子' }),
   });
   assert.equal(calculate.response.status, 200);
+  assert.deepEqual(calculate.body.data.generation, {
+    zodiacBranch: '午',
+    yearGanZhi: '庚子',
+  });
   assert.equal(calculate.body.data.interpretationBoundary, '仅限生肖与流年关系');
   assert.ok(!('confidence' in calculate.body.data));
   assert.ok(!('level' in calculate.body.data));
