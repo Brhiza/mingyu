@@ -32,7 +32,7 @@ interface AlmanacLunarHourSource {
   getSixtyCycle(): { getName(): string };
   getTwelveStar(): {
     getName(): string;
-    getEcliptic(): { getName(): string; getLuck(): { getName(): string } };
+    getEcliptic(): { getName(): string };
   };
   getRecommends(): Array<{ getName(): string }>;
   getAvoids(): Array<{ getName(): string }>;
@@ -43,7 +43,6 @@ interface AlmanacLunarDaySource {
 }
 interface AlmanacGodSource {
   getName(): string;
-  getLuck(): { getName(): string };
 }
 import {
   analyzeAlmanacEvidence as buildAlmanacEvidence,
@@ -157,9 +156,9 @@ function findKeywordMatches(values: string[], keywords: string[]) {
 }
 
 const TOPIC_MATCH_LIMITATION =
-  '事项命中事实只核对当前产品事项与历书同名或直接对应词，不扩展相关但不同事项；逐时十二神只读取原生黄黑道属性，不证明事项必然成功，也不得替代现实条件核验';
+  '事项命中事实只核对当前产品事项与历书同名或直接对应词，不扩展相关但不同事项；逐时十二神的原生黄黑道分类只作资料登记，不作为事项支持或限制，也不得替代现实条件核验';
 const GOD_FACT_LIMITATION =
-  '值日神煞分类只作为传统择日辅助证据，不单独证明现实吉凶、成功率或具体事件结果';
+  '值日神煞只登记依赖库返回的当日名称；依赖库吉凶标签未保存采用底本、原文和版本，当前不分类，也不证明现实吉凶、成功率或具体事件结果';
 const PARTICIPANT_FACT_LIMITATION =
   '参与人关系只记录候选日支与参与人年支、日支的冲、固定刑、害、破；寅巳申、丑戌未任意二支不命名相刑。现有来源不足以把这些双支关系作为普通黄历的无条件强限制，因此不自动改变候选分组，也不证明个人结果或替代完整命盘研判';
 
@@ -185,15 +184,13 @@ function buildTopicMatchFact(params: {
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
   return gods.map((god) => {
     const name = god.getName();
-    const luck = god.getLuck().getName();
-    const classification = luck === '吉' ? '吉神' : luck === '凶' ? '凶神' : '未分级';
     return {
       key: `${dateKey}:god:${name}`,
       name,
-      classification,
+      classification: '未分级',
       status: '已读取',
-      promptText: `${name}列为${classification}`,
-      sources: ['tyme4ts 值日神煞', 'tyme4ts God.getLuck() 原生吉凶属性'],
+      promptText: `${name}为当日值日神煞；未采用缺少底本版本的依赖库吉凶分类`,
+      sources: ['tyme4ts 值日神煞名称'],
       limitation: GOD_FACT_LIMITATION,
     };
   });
@@ -371,7 +368,6 @@ export function getAlmanacTwentyEightStarDetail(name: string) {
       sevenStar,
       animal,
       zone: star.getZone().getName(),
-      fortune: star.getLuck().getName(),
       source: 'tyme4ts TwentyEightStar 原生属性',
     };
   } catch {
@@ -738,12 +734,8 @@ function buildHourCandidates(
     const twelveStar = twelveStarSource.getName();
     const eclipticSource = twelveStarSource.getEcliptic();
     const ecliptic = eclipticSource.getName();
-    const eclipticLuck = eclipticSource.getLuck().getName();
     if (ecliptic !== '黄道' && ecliptic !== '黑道') {
       throw new Error(`黄历${hourName}十二神黄黑道属性异常：${ecliptic}`);
-    }
-    if (eclipticLuck !== '吉' && eclipticLuck !== '凶') {
-      throw new Error(`黄历${hourName}十二神吉凶属性异常：${eclipticLuck}`);
     }
     const recommends = normalizeTaboos(hour.getRecommends());
     const avoids = normalizeTaboos(hour.getAvoids());
@@ -753,11 +745,6 @@ function buildHourCandidates(
     const hourKey = `${dateKey}:hour:${ganzhi}:${hourName}`;
     const recommendMatches = findKeywordMatches(recommends, activityKeywords);
     const avoidMatches = findKeywordMatches(avoids, [...activityKeywords, '诸事不宜']);
-    if (eclipticLuck === '吉') {
-      highlights.push(`${twelveStar}${ecliptic}时`);
-    } else {
-      cautions.push(`${twelveStar}${ecliptic}时须结合时辰宜忌慎用`);
-    }
     topicMatchFacts.push(
       buildTopicMatchFact({
         key: `${hourKey}:topic:recommends`,
@@ -792,15 +779,12 @@ function buildHourCandidates(
         scope: '时辰',
         topic,
         sourceType: '十二神',
-        status: eclipticLuck === '吉' ? '支持' : '限制',
-        inputItems: [twelveStar, ecliptic, eclipticLuck],
+        status: '中性',
+        inputItems: [twelveStar, ecliptic],
         keywords: ['黄道', '黑道'],
         matchedItems: [ecliptic],
-        promptText:
-          eclipticLuck === '吉'
-            ? `${twelveStar}原生属性为${ecliptic}${eclipticLuck}，作为时辰辅助支持`
-            : `${twelveStar}原生属性为${ecliptic}${eclipticLuck}，须结合具体宜忌`,
-        sources: ['tyme4ts TwelveStar.getEcliptic()', 'tyme4ts Ecliptic.getLuck()'],
+        promptText: `${twelveStar}的依赖库黄黑道分类为${ecliptic}；只登记分类，不作为事项支持或限制`,
+        sources: ['tyme4ts TwelveStar.getEcliptic()'],
       }),
     );
     if (recommendMatches.length) {
@@ -818,7 +802,6 @@ function buildHourCandidates(
       branch,
       twelveStar,
       ecliptic,
-      eclipticLuck,
       recommends,
       avoids,
       highlights,

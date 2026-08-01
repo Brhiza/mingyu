@@ -75,7 +75,7 @@ test('黄历择日：祭祀祈福不得跨事项作为考试学习支持', () =>
   assert.doesNotMatch(day.highlights.join('；'), /黄历宜项命中考试学习/);
 });
 
-test('黄历择日：神煞吉凶直接采用 tyme4ts 原生属性并分别保留', () => {
+test('黄历择日：值日神煞只登记名称并关闭未注明底本的吉凶分类', () => {
   const result = generateAlmanacSelection({
     topic: 'marriage',
     startDate: '2025-01-21',
@@ -83,10 +83,12 @@ test('黄历择日：神煞吉凶直接采用 tyme4ts 原生属性并分别保�
   });
   const facts = result.days[0].godFacts ?? [];
 
-  assert.equal(facts.find((fact) => fact.name === '天德')?.classification, '吉神');
-  assert.equal(facts.find((fact) => fact.name === '月德')?.classification, '吉神');
-  assert.equal(facts.find((fact) => fact.name === '劫煞')?.classification, '凶神');
-  assert.ok(facts.every((fact) => fact.sources.includes('tyme4ts God.getLuck() 原生吉凶属性')));
+  assert.ok(facts.some((fact) => fact.name === '天德'));
+  assert.ok(facts.some((fact) => fact.name === '月德'));
+  assert.ok(facts.some((fact) => fact.name === '劫煞'));
+  assert.ok(facts.every((fact) => fact.classification === '未分级'));
+  assert.ok(facts.every((fact) => fact.sources.includes('tyme4ts 值日神煞名称')));
+  assert.doesNotMatch(facts.map((fact) => fact.promptText).join('；'), /列为吉神|列为凶神/);
 });
 
 test('黄历择日：候选只按状态分组，同组保持日期先后而不按宜项数量排名', () => {

@@ -1048,7 +1048,8 @@ export interface AlmanacDayCandidate {
     sevenStar: string;
     animal: string;
     zone: string;
-    fortune: string;
+    /** @deprecated 仅供读取旧结果；当前不采信依赖库未注明底本版本的吉凶分类。 */
+    fortune?: string;
     source: string;
   } | null;
   nineStar: string;
@@ -1090,7 +1091,7 @@ export interface AlmanacHourCandidate {
   twelveStar: string;
   /** tyme4ts TwelveStar.getEcliptic() 原生黄黑道属性。 */
   ecliptic?: '黄道' | '黑道';
-  /** tyme4ts Ecliptic.getLuck() 原生吉凶属性。 */
+  /** @deprecated 仅供读取旧结果；当前只登记 ecliptic，不输出依赖库吉凶标签。 */
   eclipticLuck?: '吉' | '凶';
   recommends: string[];
   avoids: string[];

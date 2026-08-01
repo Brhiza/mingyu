@@ -1180,7 +1180,10 @@ test('shensha: 黄历神煞层（委托 tyme4ts 151 神煞）', () => {
   assert.ok(names.length >= 100, `黄历神煞应≥100，实为 ${names.length}`);
   const info = core.shensha.getHuangliShensha(2026, 7, 10);
   assert.ok(info.shensha.length > 0, '应命中若干黄历神煞');
-  assert.ok(['吉', '凶', '平'].includes(info.shensha[0].luck), '神煞应带吉凶分类');
+  assert.ok(
+    info.shensha.every((item) => item.name && !('luck' in item)),
+    '神煞只应登记名称',
+  );
   assert.ok(info.duty.length > 0, '应有十二建除');
   assert.ok(info.nineStar.length > 0, '应有九星');
   // 命理注册表仍可用（空亡/驿马/桃花）

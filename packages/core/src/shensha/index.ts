@@ -10,10 +10,10 @@
  *     - 新术数系统（太乙、七政四余、八宅等）可自由注册自己的神煞，地基可持续拓展。
  *
  *  2) 黄历/择日神煞层（委托 tyme4ts）：
- *     - tyme4ts 内建 151 个黄历神煞（God），每个带吉凶，并由 `SixtyCycleDay`
+ *     - tyme4ts 内建 151 个黄历神煞（God），由 `SixtyCycleDay`
  *       提供当日值神(十二建除)、九星、宜忌等。此为"通用黄历"语义，与命理神煞
  *       分属不同层面，故独立暴露，不并入命理注册表，以免与八字/六壬/奇门各自的
- *       神煞体系混淆。
+ *       神煞体系混淆；依赖库未注明底本版本的吉凶标签不主动输出。
  */
 import { SolarDay, SixtyCycle, SixtyCycleDay, God } from 'tyme4ts';
 import { EARTHLY_BRANCHES, getYiMa, getTaoHua, isValidGanZhi } from '../ganzhi';
@@ -602,8 +602,8 @@ export function analyzeShenshaEvidence(
 export interface HuangliShensha {
   /** 神煞名 */
   name: string;
-  /** 吉凶：吉 / 凶 / 平 */
-  luck: string;
+  /** @deprecated 仅供读取旧结果；当前不采信依赖库未注明底本版本的吉凶分类。 */
+  luck?: string;
 }
 
 export interface HuangliInfo {
@@ -623,17 +623,14 @@ export function listHuangliShenshaNames(): string[] {
 }
 
 /**
- * 查询指定公历日期的黄历神煞（委托 tyme4ts，权威黄历体系）。
- * 返回的 shensha 含吉凶分类，duty 为十二建除，nineStar 为九星。
+ * 查询指定公历日期的黄历神煞（委托 tyme4ts）。
+ * 返回当日神煞名称、十二建除与九星；不输出未注明底本版本的依赖库吉凶分类。
  */
 export function getHuangliShensha(year: number, month: number, day: number): HuangliInfo {
   const solarDay = SolarDay.fromYmd(year, month, day);
   const scDay = SixtyCycleDay.fromSolarDay(solarDay);
   const gods = scDay.getGods();
-  const shensha: HuangliShensha[] = gods.map((g) => ({
-    name: g.getName(),
-    luck: g.getLuck().getName(),
-  }));
+  const shensha: HuangliShensha[] = gods.map((g) => ({ name: g.getName() }));
   const duty = scDay.getDuty().getName();
   const nineStar = scDay.getNineStar();
   return {

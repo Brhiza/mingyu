@@ -59,6 +59,7 @@ export interface AlmanacTraditionalFact {
   originalText: string;
   promptText: string;
   sources: string[];
+  /** @deprecated 仅供读取旧证据；当前不采信依赖库未注明底本版本的吉凶分类。 */
   fortune?: string;
   branch?: string;
   direction?: string;
@@ -73,6 +74,7 @@ export interface AlmanacHourEvidence {
   branch: string;
   twelveStar: string;
   ecliptic?: '黄道' | '黑道';
+  /** @deprecated 仅供读取旧证据；当前不输出依赖库吉凶标签。 */
   eclipticLuck?: '吉' | '凶';
   status: AlmanacCandidateStatus;
   recommends: string[];
@@ -85,7 +87,7 @@ export interface AlmanacHourEvidence {
   participantRelationFacts: AlmanacParticipantRelationFact[];
   promptText: string;
   sources: string[];
-  limitation: '逐时时课只用于当前候选日内比较事项宜忌与十二神原生黄黑道属性；参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人';
+  limitation: '逐时时课只用于当前候选日内比较事项宜忌；十二神原生黄黑道分类只登记、不参与候选分组，参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人';
 }
 
 export interface AlmanacCalendarFact {
@@ -249,7 +251,7 @@ const TRADITIONAL_FACT_LIMITATION =
 const CALENDAR_FACT_LIMITATION =
   '公历、农历、干支、建除、十二神与冲煞是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果' as const;
 const HOUR_FACT_LIMITATION =
-  '逐时时课只用于当前候选日内比较事项宜忌与十二神原生黄黑道属性；参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人' as const;
+  '逐时时课只用于当前候选日内比较事项宜忌；十二神原生黄黑道分类只登记、不参与候选分组，参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人' as const;
 const RAW_TABOO_FACT_LIMITATION =
   '原始宜忌只保留历书列项及其是否命中当前事项；未列不等于适宜，列出也不等于现实事项必然成功或失败' as const;
 const DECISION_FACT_LIMITATION =
@@ -280,7 +282,7 @@ function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact
   const facts: AlmanacTraditionalFact[] = [];
   if (day.twentyEightStarDetail) {
     const detail = day.twentyEightStarDetail;
-    const originalText = `${detail.fullName}，${detail.zone}方七宿，tyme4ts 原生吉凶属性${detail.fortune}`;
+    const originalText = `${detail.fullName}，${detail.zone}方七宿`;
     facts.push({
       key: `${day.date}:twenty-eight-star:${day.twentyEightStar}`,
       date: day.date,
@@ -289,7 +291,6 @@ function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact
       originalText,
       promptText: originalText,
       sources: [detail.source],
-      fortune: detail.fortune,
       limitation: TRADITIONAL_FACT_LIMITATION,
     });
   }
@@ -634,8 +635,7 @@ function buildHourEvidence(
   ]);
   const support = unique([...hour.highlights, ...participantSupport]);
   const status = classification.status;
-  const eclipticText =
-    hour.ecliptic && hour.eclipticLuck ? `、${hour.ecliptic}${hour.eclipticLuck}` : '';
+  const eclipticText = hour.ecliptic ? `、${hour.ecliptic}` : '';
   const promptText = `${hour.name}${hour.range}，${hour.ganzhi}（${hour.branch}支）、${hour.twelveStar}${eclipticText}；${status}；宜${recommends.join('、') || '未列'}；忌${avoids.join('、') || '未列'}；支持${support.join('、') || '未见额外支持'}；限制${constraints.join('、') || '未见明确冲突'}`;
   return {
     key: keyPrefix,
@@ -645,7 +645,6 @@ function buildHourEvidence(
     branch: hour.branch,
     twelveStar: hour.twelveStar,
     ecliptic: hour.ecliptic,
-    eclipticLuck: hour.eclipticLuck,
     status,
     recommends,
     avoids,
@@ -656,7 +655,7 @@ function buildHourEvidence(
     topicMatchFacts,
     participantRelationFacts,
     promptText,
-    sources: ['逐时时柱与十二神计算', '当前事项时辰宜忌与原生黄黑道属性'],
+    sources: ['逐时时柱与十二神计算', '当前事项时辰宜忌与黄黑道分类登记'],
     limitation: HOUR_FACT_LIMITATION,
   };
 }
@@ -1295,7 +1294,7 @@ function buildLimitationFacts(params: {
         ]),
       ]),
       promptText:
-        '原始宜忌只保留历书列项，事项命中只用于当前事项比较；值日神煞原生分类仅作辅助事实，不进入候选支持、限制或反证；未列不等于适宜，命中也不等于现实必然成功或失败',
+        '原始宜忌只保留历书列项，事项命中只用于当前事项比较；值日神煞只登记名称，缺少底本版本的依赖库吉凶分类不采用，也不进入候选支持、限制或反证；未列不等于适宜，命中也不等于现实必然成功或失败',
       sources: ['原始宜忌、事项关键词命中与值日神煞事实'],
     },
     {

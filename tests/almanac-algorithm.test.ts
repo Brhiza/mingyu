@@ -51,7 +51,7 @@ test('黄历基础资料缺失或输入非法时应明确报错', () => {
   assert.throws(() => getAlmanacAnnualDirectionGods('无'), /年支无效/);
 });
 
-test('黄历择日：二十八宿与九星详情应直接来自 tyme4ts 原生属性', () => {
+test('黄历择日：二十八宿与九星只保留可复算原生位置属性', () => {
   const result = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
@@ -70,6 +70,7 @@ test('黄历择日：二十八宿与九星详情应直接来自 tyme4ts 原生�
     assert.ok(day.twentyEightStarDetail);
     assert.match(day.twentyEightStarDetail.fullName, new RegExp(`^${day.twentyEightStar}`));
     assert.equal(day.twentyEightStarDetail.source, 'tyme4ts TwentyEightStar 原生属性');
+    assert.equal('fortune' in day.twentyEightStarDetail, false);
   }
 });
 
@@ -442,12 +443,11 @@ test('黄历择日：逐时十二神应采用 tyme4ts 原生黄黑道及吉凶�
   for (const [index, hour] of (day.hours ?? []).entries()) {
     const sourceEcliptic = sourceHours[index].getTwelveStar().getEcliptic();
     assert.equal(hour.ecliptic, sourceEcliptic.getName());
-    assert.equal(hour.eclipticLuck, sourceEcliptic.getLuck().getName());
+    assert.equal('eclipticLuck' in hour, false);
     const twelveStarFact = hour.topicMatchFacts?.find((fact) => fact.sourceType === '十二神');
-    assert.deepEqual(twelveStarFact?.sources, [
-      'tyme4ts TwelveStar.getEcliptic()',
-      'tyme4ts Ecliptic.getLuck()',
-    ]);
+    assert.deepEqual(twelveStarFact?.sources, ['tyme4ts TwelveStar.getEcliptic()']);
+    assert.equal(twelveStarFact?.status, '中性');
+    assert.match(twelveStarFact?.promptText ?? '', /只登记分类，不作为事项支持或限制/);
   }
 });
 

@@ -273,8 +273,8 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
         item.branch &&
         item.twelveStar &&
         item.ecliptic &&
-        item.eclipticLuck &&
-        item.promptText.includes(`${item.ecliptic}${item.eclipticLuck}`) &&
+        !('eclipticLuck' in item) &&
+        item.promptText.includes(item.ecliptic) &&
         item.promptText.includes(item.ganzhi) &&
         item.sources.length >= 2 &&
         item.rawTabooFact.key.startsWith(item.key) &&
@@ -365,7 +365,7 @@ test('择日证据应让明确事项忌项决定慎用分组', () => {
   assert.match(evidence.promptText, new RegExp(`${target.date}慎用候选`));
 });
 
-test('值日神煞吉凶只作辅助事实，不冒充候选分组的支持或限制', () => {
+test('值日神煞只登记名称，不冒充候选分组的支持或限制', () => {
   const evidence = analyzeAlmanacEvidence(
     generateAlmanacSelection({
       topic: 'custom',
@@ -378,10 +378,10 @@ test('值日神煞吉凶只作辅助事实，不冒充候选分组的支持或�
   const finalStep = candidate.decisionFact.steps.find((item) => item.stage === '候选分组');
 
   assert.equal(candidate.status, '可用候选');
-  assert.ok(candidate.godFacts.some((item) => item.classification === '吉神'));
-  assert.ok(candidate.godFacts.some((item) => item.classification === '凶神'));
+  assert.ok(candidate.godFacts.length > 0);
+  assert.ok(candidate.godFacts.every((item) => item.classification === '未分级'));
   assert.equal(godStep?.status, '通过');
-  assert.match(godStep?.result ?? '', /吉神\d+项，凶神\d+项/);
+  assert.match(godStep?.result ?? '', /吉神0项，凶神0项，未分级\d+项/);
   assert.ok(candidate.decisionFact.supportingFactKeys.every((key) => !key.includes(':god:')));
   assert.ok(candidate.decisionFact.limitingFactKeys.every((key) => !key.includes(':god:')));
   assert.equal(finalStep?.promptText, '未见明确限制，归入可用候选');
@@ -722,7 +722,12 @@ test('择日传统资料应保留原文并为提示词生成条件化事实', ()
     ),
   );
   const candidateTraditionalFacts = evidence.candidates.flatMap((item) => item.traditionalFacts);
-  assert.ok(candidateTraditionalFacts.some((item) => /原生吉凶属性/.test(item.originalText)));
+  assert.ok(candidateTraditionalFacts.some((item) => item.kind === '二十八宿'));
+  assert.ok(
+    candidateTraditionalFacts
+      .filter((item) => item.kind === '二十八宿')
+      .every((item) => !('fortune' in item) && !/吉凶属性/.test(item.originalText)),
+  );
   assert.doesNotMatch(
     candidateTraditionalFacts
       .filter(

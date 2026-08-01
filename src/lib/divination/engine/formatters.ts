@@ -788,7 +788,7 @@ function formatAlmanacInfo(input: AlmanacData) {
     const starDetail = starFact
       ? `（${starFact.promptText}）`
       : item.twentyEightStarDetail
-        ? `（${item.twentyEightStarDetail.fullName}，${item.twentyEightStarDetail.zone}方七宿，原生属性${item.twentyEightStarDetail.fortune}）`
+        ? `（${item.twentyEightStarDetail.fullName}，${item.twentyEightStarDetail.zone}方七宿）`
         : '';
     const nineStarDetail = nineStarFact
       ? `（${nineStarFact.promptText}）`
