@@ -268,17 +268,6 @@ const SUMMARY_FACT_LIMITATION =
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束候选范围、历法、事项宜忌、神煞、参与人、逐时时课、月相与传统资料能够支持的解释范围，不得被反向当作现实吉凶、成功率、个人结果或必然适宜的证据' as const;
 
-export function conditionAlmanacTraditionalText(text: string): string {
-  if (
-    /^[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]不|犯(?:太岁|丧门|官符|死符|岁破|白虎|吊客|病符)|修(?:太阳|太阴|龙德|福德)|百事(?:不宜|吉)|诸事(?:不吉|吉|可为)|大凶|主(?!(?:题|轴|证|判|要|动|客|体|传|将|数|名|用|标签|版本))|必然|必定/.test(
-      text,
-    )
-  ) {
-    return '未采用传统解释；当前只保留可复算历法与位置事实，待明确底本、版本和适用条件后继续核验';
-  }
-  return text;
-}
-
 function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact[] {
   const facts: AlmanacTraditionalFact[] = [];
   if (day.twentyEightStarDetail) {

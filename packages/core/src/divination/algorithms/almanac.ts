@@ -968,10 +968,7 @@ export function analyzeAlmanacEvidence(input: AlmanacData) {
   return rebuildAuditedAlmanacData(input).evidenceAnalysis!;
 }
 
-export {
-  conditionAlmanacTraditionalText,
-  isDeprecatedAlmanacTopicRuleText,
-} from '../almanac-evidence';
+export { isDeprecatedAlmanacTopicRuleText } from '../almanac-evidence';
 export type {
   AlmanacCandidateEvidence,
   AlmanacCandidateDecisionFact,

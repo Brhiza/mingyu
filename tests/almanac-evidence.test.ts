@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   analyzeAlmanacEvidence as analyzeAuditedAlmanacEvidence,
-  conditionAlmanacTraditionalText,
   generateAlmanacSelection,
   rebuildAuditedAlmanacData,
   selectAuditedAlmanacData,
@@ -740,27 +739,6 @@ test('择日传统资料应保留原文并为提示词生成条件化事实', ()
     evidence.promptText,
     /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|头必生疮|毒气入肠|鬼祟入房|大凶/,
   );
-});
-
-test('遗留传统高风险解释文本不得软化后继续输出', () => {
-  const traditionalTexts = [
-    '二黑巨门星，主疾病、破财、是非',
-    '五黄廉贞星，大凶，主凶灾、病患',
-    '犯死符主灾病死亡',
-    '犯白虎主哭泣死亡及小儿凶',
-    '修福德主添丁生子',
-    '丙不修灶必见灾殃',
-    '未不服药毒气入肠',
-  ];
-  traditionalTexts.map(conditionAlmanacTraditionalText).forEach((promptText) => {
-    assert.equal(
-      promptText,
-      '未采用传统解释；当前只保留可复算历法与位置事实，待明确底本、版本和适用条件后继续核验',
-    );
-  });
-
-  const safeFact = '二黑巨门星位于西南方；当前只记录名称与位置。';
-  assert.equal(conditionAlmanacTraditionalText(safeFact), safeFact);
 });
 
 test('择日公开证据不得暴露内部加分措辞', () => {
