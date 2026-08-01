@@ -175,7 +175,7 @@ test('黄历择日：交节当天年柱月柱按正午精确干支历显示', ()
   assert.equal(jingzhe.ganzhi.month, '庚寅');
 });
 
-test('黄历择日：参与人刑冲破害应保留关系事实但不自动改变候选分组', () => {
+test('黄历择日：参与人冲、固定刑、害、破应保留关系事实但不自动改变候选分组', () => {
   const withoutParticipant = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-10',
@@ -225,6 +225,39 @@ test('黄历择日：参与人刑冲破害应保留关系事实但不自动改�
   );
   assert.match(participantText, /仅作关系参考/);
   assert.doesNotMatch(participantText, /未见直接/);
+});
+
+test('黄历择日：12乘12参与人年支关系只登记条件闭合的固定相刑', () => {
+  const result = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-01-01',
+    endDate: '2026-01-31',
+    participants: Array.from({ length: 12 }, (_, index) => ({
+      id: `year-branch-${index}`,
+      name: `参与人${index + 1}`,
+      gender: '男',
+      year: String(1984 + index),
+      month: '7',
+      day: '1',
+      timeIndex: '6',
+      dateType: 'solar' as const,
+    })),
+  });
+  assert.deepEqual(
+    Array.from(new Set(result.participants.map((item) => item.pillars.year.slice(-1)))),
+    ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+  );
+  assert.equal(new Set(result.days.map((item) => item.ganzhi.day.slice(-1))).size, 12);
+
+  const actualPairs = Array.from(
+    new Set(
+      result.days
+        .flatMap((day) => day.participantRelationFacts ?? [])
+        .filter((fact) => fact.basis === '年支' && fact.relation === '刑')
+        .map((fact) => `${fact.candidateValue}${fact.participantValues[0]}`),
+    ),
+  ).sort();
+  assert.deepEqual(actualPairs, ['亥亥', '午午', '卯子', '子卯', '辰辰', '酉酉'].sort());
 });
 
 test('黄历择日：空白参与人行可忽略，但半填资料必须报错', () => {
@@ -418,7 +451,7 @@ test('黄历择日：逐时十二神应采用 tyme4ts 原生黄黑道及吉凶�
   }
 });
 
-test('黄历择日：参与人刑冲破害只在候选日层记录参考，不类推到候选时支', () => {
+test('黄历择日：参与人冲、固定刑、害、破只在候选日层记录参考，不类推到候选时支', () => {
   const day = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-10',

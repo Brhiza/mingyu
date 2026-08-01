@@ -299,6 +299,7 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
     liuqin: string;
     isVoid: boolean;
   } | null;
+  /** 仅表示本爻与月建或日辰命中子卯固定支对或辰午酉亥重复自刑。 */
   isSanxing?: boolean;
   sanxingType?: string;
   isLiuhe?: boolean;

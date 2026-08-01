@@ -357,6 +357,29 @@ test('六爻：重复自刑须同支两爻且至少一爻发动', () => {
   assert.deepEqual(formation?.activePositions, [3]);
 });
 
+test('六爻：爻支与单个月日支不得把任意二支三刑冒充固定相刑', () => {
+  const fixedPair = generateSampleLiuyao();
+  const maoLine = fixedPair.yaosDetail.find((item) => item.najiaDizhi === '卯');
+  assert.equal(fixedPair.ganzhi.month.endsWith('子'), true);
+  assert.equal(maoLine?.isSanxing, true);
+  assert.equal(maoLine?.sanxingType, '无礼之刑');
+
+  let groupOnlyPair: ReturnType<typeof generateSampleLiuyao> | undefined;
+  for (let offset = 0; offset < 60; offset += 1) {
+    const current = generateLiuyao(new Date(SAMPLE_DATE.getTime() + offset * 86_400_000), {
+      yaos: SHAN_HUO_BI_YAOS,
+    });
+    if (current.ganzhi.day.endsWith('申')) {
+      groupOnlyPair = current;
+      break;
+    }
+  }
+  assert.ok(groupOnlyPair, '连续60日内应能找到申日');
+  const yinLine = groupOnlyPair.yaosDetail.find((item) => item.najiaDizhi === '寅');
+  assert.equal(yinLine?.isSanxing, false);
+  assert.equal(yinLine?.sanxingType, undefined);
+});
+
 test('六爻：日冲原始事实应与暗动、日破互斥分类', () => {
   const strongStatic = generateSampleLiuyao(KAN_WEI_SHUI_YAOS).yaosDetail[5];
   const weakStatic = generateLiuyao(new Date('2025-05-01T08:00:00+08:00'), {

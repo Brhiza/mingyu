@@ -29,6 +29,7 @@ import {
   getSeasonState,
   isHalfSanhe,
   isSanheArch,
+  findCompleteSanxingGroups,
   isLiupo,
   isSanxing,
   getWuxingChangSheng,
@@ -754,15 +755,38 @@ test('奇门干支互动在相邻冲破透干条件不足时应关闭半合与�
   assert.ok(half.every((item) => !['半合', '拱局'].includes(item.type)));
 });
 
-test('占法共享三刑关系应按同组三刑互见判断，不因传入顺序漏判', () => {
-  assert.equal(isSanxing('寅', '申'), true);
-  assert.equal(isSanxing('申', '寅'), true);
-  assert.equal(isSanxing('未', '戌'), true);
-  assert.equal(isSanxing('戌', '未'), true);
-  assert.equal(isSanxing('子', '卯'), true);
-  assert.equal(isSanxing('辰', '辰'), true);
-  assert.equal(isSanxing('寅', '寅'), false);
-  assert.equal(isSanxing('子', '午'), false);
+test('占法共享三刑应穷举144组双支固定关系与1728组三支完整成员', () => {
+  let pairCount = 0;
+  for (const left of EARTHLY_BRANCHES) {
+    for (const right of EARTHLY_BRANCHES) {
+      pairCount += 1;
+      const expected =
+        (left === '子' && right === '卯') ||
+        (left === '卯' && right === '子') ||
+        (left === right && ['辰', '午', '酉', '亥'].includes(left));
+      assert.equal(isSanxing(left, right), expected, `${left}/${right}双支固定相刑`);
+    }
+  }
+  assert.equal(pairCount, 144);
+
+  let tripleCount = 0;
+  for (const first of EARTHLY_BRANCHES) {
+    for (const second of EARTHLY_BRANCHES) {
+      for (const third of EARTHLY_BRANCHES) {
+        tripleCount += 1;
+        const branches = [first, second, third];
+        const expected = Object.entries(COMPLETE_SANXING_GROUPS)
+          .filter(([, members]) => members.every((branch) => branches.includes(branch)))
+          .map(([name]) => name);
+        assert.deepEqual(
+          findCompleteSanxingGroups(branches).map((item) => item.name),
+          expected,
+          `${branches.join('/')}三支完整成员`,
+        );
+      }
+    }
+  }
+  assert.equal(tripleCount, 1728);
 });
 
 test('占法共享相破关系应覆盖六破定例', () => {

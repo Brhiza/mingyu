@@ -9,9 +9,9 @@ import {
   getOppositeBranch,
   getSanxingType,
   getStemWuxing,
+  isAuditedSanxingPair,
   isLiuhai,
   isLiupo,
-  isSanxing,
 } from '../../ganzhi';
 import type {
   AlmanacAnnualDirectionGod,
@@ -161,7 +161,7 @@ const TOPIC_MATCH_LIMITATION =
 const GOD_FACT_LIMITATION =
   '值日神煞分类只作为传统择日辅助证据，不单独证明现实吉凶、成功率或具体事件结果';
 const PARTICIPANT_FACT_LIMITATION =
-  '参与人关系只记录候选日支与参与人年支、日支的刑冲破害；现有来源不足以把这些双支关系作为普通黄历的无条件强限制，因此不自动改变候选分组，也不证明个人结果或替代完整命盘研判';
+  '参与人关系只记录候选日支与参与人年支、日支的冲、固定刑、害、破；寅巳申、丑戌未任意二支不命名相刑。现有来源不足以把这些双支关系作为普通黄历的无条件强限制，因此不自动改变候选分组，也不证明个人结果或替代完整命盘研判';
 
 function buildTopicMatchFact(params: {
   key: string;
@@ -496,7 +496,7 @@ function getParticipantBranchConflict(
     return { type: '冲' };
   }
 
-  if (isSanxing(candidateBranch, targetBranch)) {
+  if (isAuditedSanxingPair(candidateBranch, targetBranch)) {
     const sanxingType = getSanxingType(candidateBranch) || getSanxingType(targetBranch);
     return { type: '刑', detail: sanxingType || undefined };
   }
@@ -574,8 +574,8 @@ function buildParticipantConflictFacts(params: {
         ],
         relation: '未见直接冲突',
         status: '中性',
-        promptText: `${params.participant.name}：${params.scope === '候选日' ? '日支' : '时支'}${params.candidateBranch}与其年支、日支未见直接刑冲破害`,
-        sources: ['地支六冲、三刑、六害、六破公共规则', '参与人年支与日支'],
+        promptText: `${params.participant.name}：${params.scope === '候选日' ? '日支' : '时支'}${params.candidateBranch}与其年支、日支未见直接冲、固定刑、害、破`,
+        sources: ['地支六冲、固定相刑、六害、六破公共规则', '参与人年支与日支'],
         limitation: PARTICIPANT_FACT_LIMITATION,
       },
     ];
@@ -594,7 +594,7 @@ function buildParticipantConflictFacts(params: {
     detail: relation.detail,
     promptText: `${params.participant.name}：${params.scope === '候选日' ? '日支' : '时支'}${params.candidateBranch}与其${relation.scope === 'year' ? '年支' : '日支'}${relation.targetBranch}${relation.type}${relation.detail ? `（${relation.detail}）` : ''}，仅作关系参考，不自动改变候选分组`,
     sources: [
-      '地支六冲、三刑、六害、六破公共关系规则',
+      '地支六冲、固定相刑、六害、六破公共关系规则',
       '参与人年支或日支',
       '关系识别不等于普通黄历强限制',
     ],
@@ -696,7 +696,7 @@ function buildDayFacts(params: {
 
     if (!branchConflict.text) {
       participantNotes.push(
-        `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，生肖${participant.zodiac}，未见候选日与年支、日支直接刑冲破害`,
+        `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，生肖${participant.zodiac}，未见候选日与年支、日支直接冲、固定刑、害、破`,
       );
     }
   });
@@ -830,7 +830,7 @@ function buildHourCandidates(
   });
 }
 
-// 地支刑冲破害判断已委托公共干支模块。
+// 地支冲、固定刑、害、破判断已委托公共干支模块。
 
 function buildDayCandidate(
   date: Date,
@@ -925,13 +925,13 @@ function buildDayCandidate(
  * 生成黄历择日结果
  *
  * 对指定日期范围内逐日分析宜忌、神煞、冲煞、建除十二值、
- * 二十八宿、彭祖百忌等，并记录参与人年支、日支与候选日支的刑冲破害关系供参考。
+ * 二十八宿、彭祖百忌等，并记录参与人年支、日支与候选日支的冲、固定刑、害、破关系供参考。
  *
  * @param params 择日参数：
  *   - topic: 事项类型（marriage/move/opening/…）
  *   - startDate: 开始日期 (YYYY-MM-DD)
  *   - endDate: 结束日期 (YYYY-MM-DD)，最多比较 31 天
- *   - participants: 参与人信息（可选），含八字用于记录候选日刑冲破害关系
+ *   - participants: 参与人信息（可选），含八字用于记录候选日冲、固定刑、害、破关系
  * @returns 黄历择日数据对象 AlmanacData。
  *
  * @example

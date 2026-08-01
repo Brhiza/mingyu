@@ -27,6 +27,7 @@ import {
   SANHUI_GROUPS,
   BRANCH_SANHE,
   BRANCH_SANXING,
+  COMPLETE_SANXING_GROUPS,
   ANHE_MAP,
   BRANCH_HIDDEN_STEMS,
   getHiddenMainStem,
@@ -37,6 +38,8 @@ import {
   isKe,
   isLiupo,
   isSanxing,
+  isAuditedSanxingPair,
+  findCompleteSanxingGroups,
   getSanxingType,
   isCompleteSanhe,
   isCompleteSanhui,
@@ -83,6 +86,7 @@ export {
   SANHUI_GROUPS,
   BRANCH_SANHE,
   BRANCH_SANXING,
+  COMPLETE_SANXING_GROUPS,
   ANHE_MAP,
   SANXING_MAP,
   BRANCH_HIDDEN_STEMS,
@@ -94,6 +98,8 @@ export {
   isKe,
   isLiupo,
   isSanxing,
+  isAuditedSanxingPair,
+  findCompleteSanxingGroups,
   getSanxingType,
   isCompleteSanhe,
   isCompleteSanhui,
@@ -129,7 +135,9 @@ export interface BranchRelationProfile {
   harm: string;
   break: string;
   hiddenCombine?: string;
+  /** 体系专用的传统定向刑序原始下一支；不等于通用双支相刑已经成立。 */
   punishment: string;
+  /** 所属三刑组的其他成员；寅巳申、丑戌未须三支齐见后再登记完整结构。 */
   punishments: string[];
   punishmentType?: string;
   sanhe: { group: string; partners: string[] };
@@ -394,7 +402,7 @@ export function getStemRelations(stem: string): StemRelationProfile {
   };
 }
 
-/** 地支基础属性、藏干与合冲刑害破关系。 */
+/** 地支基础属性、藏干、固定支对与三刑组原始成员资料。 */
 export function getBranchRelations(branch: string): BranchRelationProfile {
   const index = getBranchIndex(branch);
   const sanhe = BRANCH_SANHE[branch];

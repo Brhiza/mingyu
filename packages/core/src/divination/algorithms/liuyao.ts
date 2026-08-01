@@ -52,7 +52,7 @@ import {
   isKe,
   isLiuhe,
   isLiuhai,
-  isSanxing,
+  isAuditedSanxingPair,
   getSanxingType,
   getSeasonState,
   isLiuchong,
@@ -712,6 +712,8 @@ function buildLiuyaoData(customDate?: Date, options?: LiuyaoGenerationOptions): 
           voids.includes(changedInfo.dizhi),
         )
       : [];
+    const hasFixedSanxing =
+      isAuditedSanxingPair(info.dizhi, dayBranch) || isAuditedSanxingPair(info.dizhi, monthBranch);
 
     return {
       position: index + 1,
@@ -736,8 +738,8 @@ function buildLiuyaoData(customDate?: Date, options?: LiuyaoGenerationOptions): 
       changeRelation: changeRelation,
       changeRelations,
       // 新增长支关系检测
-      isSanxing: isSanxing(info.dizhi, dayBranch) || isSanxing(info.dizhi, monthBranch),
-      sanxingType: getSanxingType(info.dizhi) || undefined,
+      isSanxing: hasFixedSanxing,
+      sanxingType: hasFixedSanxing ? getSanxingType(info.dizhi) || undefined : undefined,
       isLiuhe: isLiuhe(info.dizhi, dayBranch) || isLiuhe(info.dizhi, monthBranch),
       liuhePartner: isLiuhe(info.dizhi, dayBranch)
         ? dayBranch

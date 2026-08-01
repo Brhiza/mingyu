@@ -85,7 +85,7 @@ export interface AlmanacHourEvidence {
   participantRelationFacts: AlmanacParticipantRelationFact[];
   promptText: string;
   sources: string[];
-  limitation: '逐时时课只用于当前候选日内比较事项宜忌与十二神原生黄黑道属性；参与人刑冲破害关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人';
+  limitation: '逐时时课只用于当前候选日内比较事项宜忌与十二神原生黄黑道属性；参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人';
 }
 
 export interface AlmanacCalendarFact {
@@ -249,7 +249,7 @@ const TRADITIONAL_FACT_LIMITATION =
 const CALENDAR_FACT_LIMITATION =
   '公历、农历、干支、建除、十二神与冲煞是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果' as const;
 const HOUR_FACT_LIMITATION =
-  '逐时时课只用于当前候选日内比较事项宜忌与十二神原生黄黑道属性；参与人刑冲破害关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人' as const;
+  '逐时时课只用于当前候选日内比较事项宜忌与十二神原生黄黑道属性；参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人' as const;
 const RAW_TABOO_FACT_LIMITATION =
   '原始宜忌只保留历书列项及其是否命中当前事项；未列不等于适宜，列出也不等于现实事项必然成功或失败' as const;
 const DECISION_FACT_LIMITATION =
@@ -616,11 +616,13 @@ function buildCompatibleParticipantFacts(params: {
     const isBranchRelation = isDirectConflictNote(note);
     const isLimit = isBranchRelation || /触及忌神|要求喜用.*未命中/.test(note);
     const isSupport = /辅助支持|命中喜用|支持/.test(note) && !isDirectConflictNote(note);
+    const isNoDirectConflict = /未见.*(?:刑冲破害|冲.*固定刑.*害.*破)/.test(note);
     const relationMatch = note.match(/[冲刑害破]/)?.[0] as '冲' | '刑' | '害' | '破' | undefined;
     const relation = isUnused
       ? '未采用'
-      : (relationMatch ??
-        (isLimit ? '命中' : /未见.*刑冲破害/.test(note) ? '未见直接冲突' : '命中'));
+      : isNoDirectConflict
+        ? '未见直接冲突'
+        : (relationMatch ?? '命中');
     return {
       key: `${params.keyPrefix}:legacy-participant:${index}`,
       participantId: `legacy:${participantName}`,
@@ -1357,7 +1359,7 @@ function buildLimitationFacts(params: {
         ),
       ]),
       promptText:
-        '参与人关系只记录已提供资料中的年支、日支与候选日支刑冲破害，供用户核对；现有来源不足以把双支关系作为普通黄历的无条件强限制，因此不自动改变候选分组；也不采用喜用五行简单命中、不类推候选时支，没有参与人资料时不得编造个人适配结论',
+        '参与人关系只记录已提供资料中的年支、日支与候选日支的冲、固定刑、害、破，供用户核对；寅巳申、丑戌未任意二支不命名相刑。现有来源不足以把双支关系作为普通黄历的无条件强限制，因此不自动改变候选分组；也不采用喜用五行简单命中、不类推候选时支，没有参与人资料时不得编造个人适配结论',
       sources: ['参与人出生资料与候选日关系事实'],
     },
     {
@@ -1493,7 +1495,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
       level: item.status === '慎用候选' ? '反证' : item.status === '可用候选' ? '主证' : '辅证',
       title: `${item.date}${item.status}`,
       detail: formatCandidate(item),
-      source: `${item.calendarFact.sources.join('、')}；二十八宿、九星、彭祖百忌、全年方位神、事项宜忌、参与人刑冲破害；${item.usableHours[0]?.sources.join('、') ?? '逐时时课'}；月相取中国标准时间正午的celestine日月黄经`,
+      source: `${item.calendarFact.sources.join('、')}；二十八宿、九星、彭祖百忌、全年方位神、事项宜忌、参与人冲、固定刑、害、破；${item.usableHours[0]?.sources.join('、') ?? '逐时时课'}；月相取中国标准时间正午的celestine日月黄经`,
       tags: [item.status, data.topicLabel],
     })),
     {
@@ -1550,7 +1552,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     promptText,
     methodology: [
       '先按日期范围和事项限定建立候选集。',
-      '再逐日核验事项宜忌、建除神煞、参与人刑冲破害参考关系和可用时辰。',
+      '再逐日核验事项宜忌、建除神煞、参与人冲、固定刑、害、破参考关系和可用时辰。',
       '同时附加中国标准时间正午的日月黄经月相事实，但不据此自动增减传统候选等级。',
       '明确事项忌项进入慎用组，参与人双支关系只作参考、不自动改变分组，其他限制进入条件组，不以总分覆盖反证。',
       '最后叠加现实刚性约束；不输出吉凶总分、成功率或必然结论。',

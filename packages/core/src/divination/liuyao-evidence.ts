@@ -13,11 +13,11 @@ import type {
 import {
   getBranchWuxing,
   getSanxingType,
+  isAuditedSanxingPair,
   isKe,
   isLiuchong,
   isLiuhai,
   isLiuhe,
-  isSanxing,
   isSheng,
 } from '../ganzhi';
 import { liuqinRelations } from './divination-data';
@@ -1657,7 +1657,7 @@ function buildLineFacts(
       isLiuchong(yao.najiaDizhi, monthBranch) ? '月破' : '',
       strengthAnalysis.monthStage === '墓' ? '入月墓' : '',
       isLiuhai(yao.najiaDizhi, monthBranch) ? '与月建相害' : '',
-      isSanxing(yao.najiaDizhi, monthBranch) ? '与月建有三刑支关系' : '',
+      isAuditedSanxingPair(yao.najiaDizhi, monthBranch) ? '与月建有固定相刑支关系' : '',
     ].filter(Boolean);
     const dayRelations = [
       yao.najiaDizhi === dayBranch ? '值日辰' : '',
@@ -1675,7 +1675,7 @@ function buildLineFacts(
             : '',
       strengthAnalysis.dayStage === '墓' ? '入日墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
-      isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰有三刑支关系' : '',
+      isAuditedSanxingPair(yao.najiaDizhi, dayBranch) ? '与日辰有固定相刑支关系' : '',
     ].filter(Boolean);
     const changeRelations = getChangeRelations(yao);
     const changedYao = yao.changedYao
@@ -1728,7 +1728,8 @@ function buildLineFacts(
       dayState: { branch: dayBranch, relations: dayRelations },
       traditionalRelations: {
         sanxingType:
-          isSanxing(yao.najiaDizhi, monthBranch) || isSanxing(yao.najiaDizhi, dayBranch)
+          isAuditedSanxingPair(yao.najiaDizhi, monthBranch) ||
+          isAuditedSanxingPair(yao.najiaDizhi, dayBranch)
             ? (getSanxingType(yao.najiaDizhi) ?? undefined)
             : undefined,
         liuhePartner: isLiuhe(yao.najiaDizhi, dayBranch)
@@ -3229,7 +3230,7 @@ export function analyzeRebuiltLiuyaoEvidence(
     methodology: [
       '先按具体问题与求测关系确定六亲用神；通用或关系语义不足时保留待定，世应与动爻只作辅助观察。',
       '用神六亲明确后依次核验本卦明现、变爻显出、月日入用与伏神检索，不跨层混取；同层多现未能闭合时不按数组顺序强选。',
-      '逐爻保留世应、发动、暗动、月令、月日同支合冲刑害、空破墓、回头生克和进退神证据；卦内三刑须按完整支组与发动条件另行成立。',
+      '逐爻保留世应、发动、暗动、月令、月日同支、六合、六冲、固定相刑与相害、空破墓、回头生克和进退神证据；寅巳申、丑戌未不得由爻支与单个月日支命名相刑，卦内三刑须按完整支组与发动条件另行成立。',
       '原神取生用神者，忌神取克用神者，仇神取生忌神并克原神者。',
       '按月日、真实明暗动、符合条件的旺相静爻、本位动变与飞伏生克重算直接及接续路径；路径允许并见，不按条数裁定最终强弱或吉凶。',
       '全局作用态只按生扶侧、克制侧与制化侧归组，并结合用神有气无根条件明确返回待综合判断或资料不足，不用多数票冒充最终可用性。',

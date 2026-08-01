@@ -824,7 +824,7 @@ function formatAlmanacInfo(input: AlmanacData) {
   const preferred = evidenceAnalysis.preferredDates || [];
   const conditional = evidenceAnalysis.conditionalDates || [];
   const caution = evidenceAnalysis.cautionDates || [];
-  const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌，再并列查看建除、神煞、冲煞与参与人年支、日支刑冲破害参考关系；参与人双支关系不自动改变分组；可用候选${preferred.join('、') || '暂无'}，条件候选${conditional.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}；同组按日期先后列出，不按证据数量生成名次`;
+  const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌，再并列查看建除、神煞、冲煞与参与人年支、日支的冲、固定刑、害、破参考关系；寅巳申、丑戌未任意二支不命名相刑，参与人双支关系不自动改变分组；可用候选${preferred.join('、') || '暂无'}，条件候选${conditional.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}；同组按日期先后列出，不按证据数量生成名次`;
   const participantLines = data.participants.map((item) => {
     const useful = '自动喜忌规则保持关闭，本次不读取喜忌五行';
     return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，农历${item.lunarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year}年 ${item.pillars.month}月 ${item.pillars.day}日 ${item.pillars.hour}时，${useful}`;
@@ -879,7 +879,7 @@ function formatAlmanacInfo(input: AlmanacData) {
               .map((note) => `${day.date}${note}`),
           );
           const usefulText = '自动喜忌规则保持关闭，本次不读取喜忌五行';
-          return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，${usefulText}；${relatedNotes.join('；') || '候选日期未见参与人刑冲破害参考关系'}`;
+          return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，${usefulText}；${relatedNotes.join('；') || '候选日期未见参与人冲、固定刑、害、破参考关系'}`;
         })
         .join('；')
     : '';

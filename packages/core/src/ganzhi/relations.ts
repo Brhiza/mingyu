@@ -234,7 +234,10 @@ export const SANXING_MAP: Record<string, string> = {
   亥: '亥',
 };
 
-/** 每个地支对应的完整相刑成员。 */
+/**
+ * 每个地支所属三刑组的其他成员原始表。
+ * 寅巳申、丑戌未的任意二支只表示同组，不等于通用场景下已经成立相刑。
+ */
 export const BRANCH_SANXING: Record<string, string[]> = {
   子: ['卯'],
   卯: ['子'],
@@ -463,14 +466,13 @@ export function isLiuhai(a: string, b: string): boolean {
   return LIUHAI_MAP[a] === b;
 }
 
-/** 检查两个地支是否为三刑关系 */
+/**
+ * @deprecated 通用双支入口只保留条件闭合的子卯固定支对与重复自刑。
+ * 寅巳申、丑戌未须改用 findCompleteSanxingGroups 核验三支完整齐见；
+ * 大六壬等采用定向刑序的体系应直接使用其专用规则，不得调用本函数代替。
+ */
 export function isSanxing(a: string, b: string): boolean {
-  if (!a || !b) return false;
-  if ((a === '子' && b === '卯') || (a === '卯' && b === '子')) return true;
-  if (['寅', '巳', '申'].includes(a) && ['寅', '巳', '申'].includes(b) && a !== b) return true;
-  if (['丑', '戌', '未'].includes(a) && ['丑', '戌', '未'].includes(b) && a !== b) return true;
-  if (['辰', '午', '酉', '亥'].includes(a) && a === b) return true;
-  return false;
+  return isAuditedSanxingPair(a, b);
 }
 
 /** 检查数组中是否构成完整的三合局 */

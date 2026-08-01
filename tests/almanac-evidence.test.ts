@@ -402,7 +402,7 @@ test('择日证据在缺少参与人时不得编造个人适配', () => {
   assert.match(evidence.promptText, /不合成为成功率或吉凶总分/);
 });
 
-test('择日参与人刑冲破害应保留逐项结构化依据但不作为候选限制', () => {
+test('择日参与人冲、固定刑、害、破应保留逐项结构化依据但不作为候选限制', () => {
   const baseline = generateAlmanacSelection({
     topic: 'marriage',
     startDate: '2026-06-01',
@@ -478,7 +478,7 @@ test('择日参与人刑冲破害应保留逐项结构化依据但不作为候�
   assert.doesNotMatch(JSON.stringify(facts), /"score"\s*:/);
 });
 
-test('旧结果中的参与人刑冲破害不得继续把候选降为慎用', () => {
+test('旧结果中的参与人冲、固定刑、害、破不得继续把候选降为慎用', () => {
   const createLegacyData = () =>
     generateAlmanacSelection({
       topic: 'custom',
