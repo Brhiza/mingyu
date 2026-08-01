@@ -3080,6 +3080,8 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
       'rule:qimen:san-qi-sheng-dian-position',
       'rule:qimen:san-zha-position',
       'rule:qimen:audited-wu-jia-position',
+      'rule:qimen:nine-escapes-version-boundary',
+      'rule:qimen:san-qi-de-shi-version-boundary',
       'rule:qimen:classic-pattern-audit-boundary',
       'rule:qimen:retained-combo-versions',
       'rule:qimen:special-context-boundary',

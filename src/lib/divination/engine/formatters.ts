@@ -517,7 +517,7 @@ function formatQimenInfo(input: QimenData) {
   const patternSummary = basicPatternFacts
     .map((item) => `${item.name}：${item.promptText}`)
     .join('；');
-  // 已逐条校勘的十一项天地盘固定格，以及时家上下文、三奇升殿、三诈和三项条件一致五假位置结构。
+  // 已逐条校勘的十一项天地盘固定格，以及时家上下文、三奇升殿、三诈和三项条件一致五假位置结构；九遁与三奇得使只进入冲突边界证据。
   const classicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '经典格局',
   );

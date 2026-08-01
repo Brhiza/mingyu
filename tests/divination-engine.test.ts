@@ -672,7 +672,7 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.limitation.includes('不证明现实吉凶'),
     ),
   );
-  assert.equal(analysis.ruleSourceFacts.length, 14);
+  assert.equal(analysis.ruleSourceFacts.length, 16);
   assert.ok(
     analysis.ruleSourceFacts.some(
       (item) =>
@@ -695,6 +695,26 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.promptText.includes('地假只采用天盘丁己癸任一、杜门与九地同宫的严格条件') &&
         item.promptText.includes('鬼假要求天盘丁己癸任一、死门与九地同宫') &&
         item.promptText.includes('人假、物假、神假及地假太阴/六合扩展存在版本冲突'),
+    ),
+  );
+  assert.ok(
+    analysis.ruleSourceFacts.some(
+      (item) =>
+        item.key === 'rule:qimen:nine-escapes-version-boundary' &&
+        item.category === '九遁版本冲突边界' &&
+        item.promptText.includes('天遁至少存在地盘丁与地盘戊两本') &&
+        item.promptText.includes('只能引用当前宫天盘干、地盘干、门、神和宫位事实'),
+    ),
+  );
+  assert.ok(
+    analysis.ruleSourceFacts.some(
+      (item) =>
+        item.key === 'rule:qimen:san-qi-de-shi-version-boundary' &&
+        item.category === '三奇得使版本冲突边界' &&
+        item.rule.includes('三奇游六仪') &&
+        item.promptText.includes('乙配甲戌/甲午') &&
+        item.promptText.includes('开休生之值使门') &&
+        item.promptText.includes('不得继承“百事吉”等断语'),
     ),
   );
   assert.ok(

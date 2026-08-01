@@ -541,6 +541,125 @@ test('奇门三项条件一致五假缺时家级别、缺任一同宫层、只�
   }
 });
 
+test('奇门九遁按奇仪门神与宫位四万六千六百五十六种组合穷举失败关闭', () => {
+  const stems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  const doors = ['休门', '死门', '伤门', '杜门', '开门', '惊门', '生门', '景门'] as const;
+  const gods = ['值符', '九天', '九地', '玄武', '白虎', '六合', '太阴', '螣蛇'] as const;
+  const forbidden = new Set([
+    '天遁',
+    '地遁',
+    '人遁',
+    '神遁',
+    '鬼遁',
+    '龙遁',
+    '虎遁',
+    '风遁',
+    '云遁',
+  ]);
+  const palaces: QimenJiuGongGe[] = [];
+
+  for (const heavenStem of stems) {
+    for (const earthStem of stems) {
+      for (const door of doors) {
+        for (const god of gods) {
+          for (let gong = 1; gong <= 9; gong += 1) {
+            palaces.push({
+              ...buildPalaceAt(gong, heavenStem, earthStem),
+              renPan: { door },
+              shenPan: { god },
+            });
+          }
+        }
+      }
+    }
+  }
+
+  const leaked = getClassicPatterns({
+    jiuGongGe: palaces,
+    zhiFu: '',
+    zhiShi: '开门',
+    scope: 'hour',
+  }).filter((pattern) => forbidden.has(pattern.name));
+
+  assert.equal(palaces.length, 46_656);
+  assert.deepEqual(leaked, []);
+});
+
+test('奇门三奇得使按三奇六仪门神宫位和值使八万二千九百四十四种组合穷举失败关闭', () => {
+  const sanQi = ['乙', '丙', '丁'] as const;
+  const liuYi = ['戊', '己', '庚', '辛', '壬', '癸'] as const;
+  const doors = ['休门', '死门', '伤门', '杜门', '开门', '惊门', '生门', '景门'] as const;
+  const gods = ['值符', '九天', '九地', '玄武', '白虎', '六合', '太阴', '螣蛇'] as const;
+  const forbidden = new Set(['三奇得使', '三奇游六仪']);
+  const palaces: QimenJiuGongGe[] = [];
+
+  for (const heavenStem of sanQi) {
+    for (const earthStem of liuYi) {
+      for (const door of doors) {
+        for (const god of gods) {
+          for (let gong = 1; gong <= 9; gong += 1) {
+            palaces.push({
+              ...buildPalaceAt(gong, heavenStem, earthStem),
+              renPan: { door },
+              shenPan: { god },
+            });
+          }
+        }
+      }
+    }
+  }
+
+  for (const zhiShi of doors) {
+    const leaked = getClassicPatterns({
+      jiuGongGe: palaces,
+      zhiFu: '',
+      zhiShi,
+      scope: 'hour',
+    }).filter((pattern) => forbidden.has(pattern.name));
+
+    assert.deepEqual(leaked, [], `值使${zhiShi}`);
+  }
+
+  assert.equal(palaces.length * doors.length, 82_944);
+});
+
+test('奇门九遁与三奇得使冲突样例只保留原始盘面事实', () => {
+  const samples = [
+    ['天遁六丁本', '丙', '丁', '生门', '九天', '生门'],
+    ['天遁六戊本', '丙', '戊', '生门', '九天', '生门'],
+    ['天遁开门扩展', '丙', '丁', '开门', '九天', '开门'],
+    ['地遁九地扩展', '乙', '己', '开门', '九地', '开门'],
+    ['地遁太阴扩展', '乙', '己', '开门', '太阴', '开门'],
+    ['人遁地乙休门本', '丁', '乙', '休门', '太阴', '休门'],
+    ['人遁地乙生门扩展', '丁', '乙', '生门', '太阴', '生门'],
+    ['三奇得使固定六甲表', '乙', '己', '伤门', '值符', '伤门'],
+    ['三奇得使值使门本', '乙', '戊', '开门', '六合', '开门'],
+    ['三奇得使并合本', '乙', '己', '开门', '值符', '开门'],
+  ] as const;
+  const forbidden = /天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得使|三奇游六仪/;
+
+  for (const [label, heavenStem, earthStem, door, god, zhiShi] of samples) {
+    const palace = {
+      ...buildPalaceAt(1, heavenStem, earthStem),
+      renPan: { door },
+      shenPan: { god },
+    };
+    const patterns = getClassicPatterns({
+      jiuGongGe: [palace],
+      zhiFu: '',
+      zhiShi,
+      scope: 'hour',
+    });
+
+    assert.doesNotMatch(patterns.map((pattern) => pattern.name).join('、'), forbidden, label);
+    assert.equal(palace.tianPan.stem, heavenStem, `${label}应保留天盘干`);
+    assert.equal(palace.diPan.stem, earthStem, `${label}应保留地盘干`);
+    assert.equal(palace.renPan.door, door, `${label}应保留门`);
+    assert.equal(palace.shenPan.god, god, `${label}应保留神`);
+    assert.equal(palace.gong, 1, `${label}应保留宫位`);
+  }
+});
+
 test('奇门伏干飞干按60日柱乘81种天地盘组合独立穷举且甲日使用六甲遁干', () => {
   const stemPairs = listAllStemPairs();
   let checked = 0;
@@ -1242,4 +1361,31 @@ test('奇门提示词证据声明11项固定格与其余70项结构事实边界'
   assert.ok(relationRule.sources.some((source) => source.includes('《遁甲演义》卷一')));
   assert.ok(relationRule.sources.some((source) => source.includes('《遁甲演义》卷二')));
   assert.match(relationRule.limitation, /不等于现代实证验证/);
+});
+
+test('奇门证据应公开九遁与三奇得使的具体版本冲突及失败关闭边界', () => {
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const nineEscapes = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:nine-escapes-version-boundary',
+  );
+  const sanQiDeShi = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:san-qi-de-shi-version-boundary',
+  );
+
+  assert.ok(nineEscapes);
+  assert.equal(nineEscapes.category, '九遁版本冲突边界');
+  assert.deepEqual(nineEscapes.appliesTo.slice(0, 3), ['天遁', '地遁', '人遁']);
+  assert.ok(nineEscapes.sources.some((source) => source.includes('地盘丁')));
+  assert.ok(nineEscapes.sources.some((source) => source.includes('六戊')));
+  assert.match(nineEscapes.promptText, /不得从盘面自动补成天遁、地遁、人遁/);
+  assert.match(nineEscapes.promptText, /只能引用当前宫天盘干、地盘干、门、神和宫位事实/);
+  assert.doesNotMatch(nineEscapes.promptText, /百事皆吉|万事皆吉|必成|必胜/);
+
+  assert.ok(sanQiDeShi);
+  assert.equal(sanQiDeShi.category, '三奇得使版本冲突边界');
+  assert.ok(sanQiDeShi.sources.some((source) => source.includes('三奇游六仪')));
+  assert.ok(sanQiDeShi.sources.some((source) => source.includes('值使')));
+  assert.match(sanQiDeShi.promptText, /不得从天盘三奇加地盘六仪/);
+  assert.match(sanQiDeShi.promptText, /提示词只引用天盘三奇、地盘六仪、当前门、值使和值符/);
+  assert.match(sanQiDeShi.promptText, /不得继承“百事吉”等断语/);
 });
