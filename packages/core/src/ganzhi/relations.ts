@@ -1,6 +1,6 @@
 /**
  * @file 干支与五行关系公共库
- * @description 提供五行生克、地支六合/三合/半合/拱局/六冲/六害/六破/三刑/三会/藏干等完整关系。
+ * @description 提供五行生克、地支六合/三合组成员/六冲/六害/六破/三刑/三会组成员/藏干等公共资料。
  * 本文件属于公共地基层，八字、六爻、奇门、六壬等统一复用。
  * @古籍依据 《渊海子平》《三命通会》《协纪辨方书》《蠡海集》
  */
@@ -102,34 +102,18 @@ export const BRANCH_SANHE: Record<string, { group: string; partners: string[] }>
 };
 
 /**
- * 地支半合 — 三合局两支同见，且包含帝旺支。
- * 如申子、子辰为水局半合；申辰缺少帝旺支子，只能另记为拱局。
+ * @deprecated 半合还依赖柱位相邻、冲破、透干与具体体系版本，公共层无法仅凭两支闭合条件。
+ * 保留函数签名用于兼容旧调用，但统一失败关闭；调用方可读取 SANHE_GROUPS 原始成员后按已声明口径自行推算。
  */
-export function isHalfSanhe(branches: string[]): string | null {
-  const uniqueBranches = Array.from(new Set(branches));
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
-    const present = uniqueBranches.filter((b) => members.includes(b));
-    const prosperityBranch = members[1];
-    if (present.length === 2 && present.includes(prosperityBranch)) {
-      return group;
-    }
-  }
+export function isHalfSanhe(_branches: string[]): string | null {
   return null;
 }
 
 /**
- * 地支拱局 — 三合局的生地与墓库同见，但缺少居中的帝旺支。
- * 如申辰拱水、亥未拱木、寅戌拱火、巳丑拱金；不得与带帝旺支的半合等同。
+ * @deprecated 拱局还依赖柱位相邻、冲破、透干与具体体系版本，公共层无法仅凭两支闭合条件。
+ * 保留函数签名用于兼容旧调用，但统一失败关闭；调用方可读取 SANHE_GROUPS 原始成员后按已声明口径自行推算。
  */
-export function isSanheArch(branches: string[]): string | null {
-  const uniqueBranches = Array.from(new Set(branches));
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
-    const present = uniqueBranches.filter((b) => members.includes(b));
-    const prosperityBranch = members[1];
-    if (present.length === 2 && !present.includes(prosperityBranch)) {
-      return group;
-    }
-  }
+export function isSanheArch(_branches: string[]): string | null {
   return null;
 }
 
@@ -475,7 +459,7 @@ export function isSanxing(a: string, b: string): boolean {
   return isAuditedSanxingPair(a, b);
 }
 
-/** 检查数组中是否构成完整的三合局 */
+/** 检查数组中是否齐见三合组的三个成员；只返回成员结构，不表示已经成局、合化或产生吉凶。 */
 export function isCompleteSanhe(branches: string[]): string | null {
   for (const [group, members] of Object.entries(SANHE_GROUPS)) {
     if (members.every((m) => branches.includes(m))) {
@@ -485,7 +469,7 @@ export function isCompleteSanhe(branches: string[]): string | null {
   return null;
 }
 
-/** 检查数组中是否构成三会局 */
+/** 检查数组中是否齐见三会组的三个成员；只返回成员结构，不表示已经成局、会化或产生吉凶。 */
 export function isCompleteSanhui(branches: string[]): string | null {
   for (const [group, members] of Object.entries(SANHUI_GROUPS)) {
     if (members.every((m) => branches.includes(m))) {

@@ -135,12 +135,17 @@ export interface BranchRelationProfile {
   harm: string;
   break: string;
   hiddenCombine?: string;
+  /** 本对象只描述单支固定资料及其所属组，不表示任何双支或三支关系已经在具体盘面成立。 */
+  relationScope: '单支固定资料与组成员原始表';
   /** 体系专用的传统定向刑序原始下一支；不等于通用双支相刑已经成立。 */
   punishment: string;
   /** 所属三刑组的其他成员；寅巳申、丑戌未须三支齐见后再登记完整结构。 */
   punishments: string[];
+  /** 当前支所属的传统三刑类型名称，仅作分组资料。 */
   punishmentType?: string;
+  /** 当前支所属三合组及其余成员；不表示半合、拱局、成局或合化。 */
   sanhe: { group: string; partners: string[] };
+  /** 当前支所属三会组及完整成员；不表示三会已经成立或会化。 */
   sanhui?: { group: string; members: string[] };
 }
 
@@ -260,8 +265,12 @@ function buildGanZhiEvidence(profile: GanZhiBaseProfile): GanZhiEvidenceFields {
       stage: '地支资料整理',
       status: '已整理',
       dependsOnStepKeys: [cycleStepKey],
-      promptText: `${profile.branch.name}为${profile.branch.yinYang}${profile.branch.wuxing}、生肖${profile.branch.zodiac}，藏干${profile.branch.hiddenStems.join('、') || '无'}；六合对象${profile.branch.combine}、相冲对象${profile.branch.clash}、相害对象${profile.branch.harm}、相破对象${profile.branch.break}、相刑候选${profile.branch.punishments.join('、') || '无'}`,
-      sources: ['tyme4ts 地支五行', '公共藏干、六合、六冲、六害、六破与三刑表'],
+      promptText: `${profile.branch.name}为${profile.branch.yinYang}${profile.branch.wuxing}、生肖${profile.branch.zodiac}，藏干${profile.branch.hiddenStems.join('、') || '无'}；六合对象${profile.branch.combine}、相冲对象${profile.branch.clash}、相害对象${profile.branch.harm}、相破对象${profile.branch.break}；大六壬专用定向刑序下一支${profile.branch.punishment}，三刑组其他成员${profile.branch.punishments.join('、') || '无'}；属于三合${profile.branch.sanhe.group}成员组${[profile.branch.name, ...profile.branch.sanhe.partners].join('、')}${profile.branch.sanhui ? `，属于三会${profile.branch.sanhui.group}成员组${profile.branch.sanhui.members.join('、')}` : ''}。组成员资料不表示半合、拱局、相刑、成局或合化已经成立`,
+      sources: [
+        'tyme4ts 地支五行',
+        '公共藏干、六合、六冲、六害、六破、三合与三会成员表',
+        '大六壬传统定向刑序原始表',
+      ],
       limitation: GANZHI_STEP_LIMITATION,
     },
     {
@@ -421,6 +430,7 @@ export function getBranchRelations(branch: string): BranchRelationProfile {
     harm: LIUHAI_MAP[branch],
     break: LIUPO_MAP[branch],
     hiddenCombine: ANHE_MAP[branch],
+    relationScope: '单支固定资料与组成员原始表',
     punishment: SANXING_MAP[branch],
     punishments: [...(BRANCH_SANXING[branch] ?? [])],
     punishmentType: getSanxingType(branch) ?? undefined,

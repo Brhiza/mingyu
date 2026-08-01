@@ -27,6 +27,8 @@ import {
   getBranchWuxing,
   getHiddenMainStem,
   getSeasonState,
+  isCompleteSanhe,
+  isCompleteSanhui,
   isHalfSanhe,
   isSanheArch,
   findCompleteSanxingGroups,
@@ -728,13 +730,39 @@ test('八字透干事实应穷举十干与十二月支的120种月令组合', ()
   assert.deepEqual(rootStatuses, new Set(['有本根', '有同气根', '未见同气根']));
 });
 
-test('占法共享半合判断不应把重复地支当作两个成员', () => {
-  assert.equal(isHalfSanhe(['申', '子']), '水局');
-  assert.equal(isHalfSanhe(['申', '辰']), null);
-  assert.equal(isHalfSanhe(['申', '申']), null);
-  assert.equal(isHalfSanhe(['寅', '寅', '午']), '火局');
-  assert.equal(isSanheArch(['申', '辰']), '水局');
-  assert.equal(isSanheArch(['申', '子']), null);
+test('占法共享半合与拱局入口应对全部144组双支失败关闭', () => {
+  let pairCount = 0;
+  for (const left of EARTHLY_BRANCHES) {
+    for (const right of EARTHLY_BRANCHES) {
+      pairCount += 1;
+      assert.equal(isHalfSanhe([left, right]), null, `${left}/${right}半合`);
+      assert.equal(isSanheArch([left, right]), null, `${left}/${right}拱局`);
+    }
+  }
+  assert.equal(pairCount, 144);
+});
+
+test('占法共享三合三会入口应穷举1728组三支且只返回完整成员结构', () => {
+  let tripleCount = 0;
+  for (const first of EARTHLY_BRANCHES) {
+    for (const second of EARTHLY_BRANCHES) {
+      for (const third of EARTHLY_BRANCHES) {
+        tripleCount += 1;
+        const branches = [first, second, third];
+        const expectedSanhe =
+          Object.entries(SANHE_GROUPS).find(([, members]) =>
+            members.every((branch) => branches.includes(branch)),
+          )?.[0] ?? null;
+        const expectedSanhui =
+          Object.entries(SANHUI_GROUPS).find(([, members]) =>
+            members.every((branch) => branches.includes(branch)),
+          )?.[0] ?? null;
+        assert.equal(isCompleteSanhe(branches), expectedSanhe, `${branches.join('/')}三合成员`);
+        assert.equal(isCompleteSanhui(branches), expectedSanhui, `${branches.join('/')}三会成员`);
+      }
+    }
+  }
+  assert.equal(tripleCount, 1728);
 });
 
 test('奇门干支互动在相邻冲破透干条件不足时应关闭半合与拱局命名', () => {

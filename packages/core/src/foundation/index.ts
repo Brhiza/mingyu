@@ -175,7 +175,8 @@ function buildCapabilityFacts(): FoundationCapabilityFact[] {
       provides: ['天干地支', '六十甲子', '六旬旬首', '纳音', '藏干', '合冲刑害破'],
       evidenceOutputs: [...FOUNDATION_EVIDENCE_OUTPUTS.ganzhi],
       sources: ['六十甲子与纳音固定表', '天干地支属性和关系固定表'],
-      promptText: '干支资料可提供六十甲子序号、旬首、纳音、藏干及天干地支合冲刑害破的逐项来源事实',
+      promptText:
+        '干支资料可提供六十甲子序号、旬首、纳音、藏干、固定关系对象及三合三会三刑组成员原始事实；组成员不表示具体盘面关系已经成立',
       limitation: CAPABILITY_FACT_LIMITATION,
     },
     {

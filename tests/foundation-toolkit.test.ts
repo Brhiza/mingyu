@@ -57,6 +57,7 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.equal(profile.branch.harm, '未');
   assert.equal(profile.branch.break, '酉');
   assert.equal(profile.branch.sanhe.group, '水局');
+  assert.equal(profile.branch.relationScope, '单支固定资料与组成员原始表');
   assert.equal(profile.key, 'foundation:ganzhi:甲子');
   assert.equal(profile.status, '已查询');
   assert.equal(profile.calculationSteps.length, 5);
@@ -72,6 +73,9 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.match(profile.promptText, /六十甲子中的零基序号为0/);
   assert.doesNotMatch(profile.promptText, /吉凶评分|成功率[：=]?\d|事件概率[：=]?\d/);
   assert.doesNotMatch(profile.promptText, /mingyu-core|命语|本项目|工程|接口|API|MCP/);
+  assert.match(profile.promptText, /大六壬专用定向刑序下一支卯/);
+  assert.match(profile.promptText, /组成员资料不表示半合、拱局、相刑、成局或合化已经成立/);
+  assert.doesNotMatch(profile.promptText, /相刑候选/);
   assert.deepEqual(core.foundation.getBranchRelations('寅').punishments, ['巳', '申']);
   assert.equal(core.foundation.getBranchRelations('寅').hiddenCombine, '丑');
   assert.equal(core.foundation.getFoundationCapabilities().constants.changshengOrder.length, 12);

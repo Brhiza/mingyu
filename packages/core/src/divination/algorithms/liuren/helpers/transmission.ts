@@ -7,11 +7,11 @@ import type {
   LiurenTransmission,
 } from '../../../../types/divination';
 import {
-  BRANCH_SANXING,
   LIUCHONG_MAP,
   LIUHAI_MAP,
   LIUHE_MAP,
   LIUPO_MAP,
+  SANXING_MAP,
   isKe,
   isSheng,
 } from '../../../../ganzhi';
@@ -72,7 +72,10 @@ export function describeTransmissionTransition(
   return describeDirectedElementRelation(previousStage, previousBranch, stage, branch);
 }
 
-/** 只登记两支可复算的固定关系，不把关系名称直接换算成吉凶。 */
+/**
+ * 只登记两支可复算的固定关系，不把关系名称直接换算成吉凶。
+ * 相刑按大六壬传统定向刑序 source → target 判断，不反向扩展为三刑组任意二支。
+ */
 export function getLiurenBranchPairRelations(sourceBranch: string, targetBranch: string) {
   const relations: string[] = [];
   if (sourceBranch === targetBranch) relations.push('同支');
@@ -80,12 +83,7 @@ export function getLiurenBranchPairRelations(sourceBranch: string, targetBranch:
   if (LIUCHONG_MAP[sourceBranch] === targetBranch) relations.push('六冲');
   if (LIUHAI_MAP[sourceBranch] === targetBranch) relations.push('六害');
   if (LIUPO_MAP[sourceBranch] === targetBranch) relations.push('六破');
-  if (
-    BRANCH_SANXING[sourceBranch]?.includes(targetBranch) ||
-    BRANCH_SANXING[targetBranch]?.includes(sourceBranch)
-  ) {
-    relations.push('相刑');
-  }
+  if (SANXING_MAP[sourceBranch] === targetBranch) relations.push('相刑');
   return relations;
 }
 

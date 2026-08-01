@@ -51,6 +51,7 @@ export const BASIC_MAPPINGS: {
   DI_ZHI_CHONG: RelationMap;
   DI_ZHI_SAN_HUI: MultiRelationMap;
   DI_ZHI_AN_HE: RelationMap;
+  /** @deprecated 仅为三刑组成员原始表，不表示任意二支相刑成立。 */
   DI_ZHI_XING: MultiRelationMap;
   DI_ZHI_HAI: RelationMap;
   DI_ZHI_PO: RelationMap;
@@ -76,6 +77,7 @@ export const BASIC_MAPPINGS: {
     Object.values(SANHUI_GROUPS).map((members) => [members.join(''), members]),
   ),
   DI_ZHI_AN_HE: ANHE_MAP,
+  // 兼容旧公开字段；业务判断必须使用固定双支或完整三支审核入口。
   DI_ZHI_XING: BRANCH_SANXING,
   DI_ZHI_HAI: LIUHAI_MAP,
   DI_ZHI_PO: LIUPO_MAP,

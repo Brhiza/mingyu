@@ -8,6 +8,8 @@ import {
   rebuildAuditedLiurenData,
 } from 'mingyu-core/divination/liuren';
 import { getVoidBranches } from '../packages/core/src/calendar/lunar.ts';
+import { EARTHLY_BRANCHES } from '../packages/core/src/ganzhi/data.ts';
+import { SANXING_MAP } from '../packages/core/src/ganzhi/relations.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
   getLiurenGuaTiFacts,
@@ -352,6 +354,21 @@ test('大六壬固定地支关系应分列同支、合冲害破刑，不与五�
   assert.deepEqual(getLiurenBranchPairRelations('子', '酉'), ['六破']);
   assert.deepEqual(getLiurenBranchPairRelations('子', '卯'), ['相刑']);
   assert.deepEqual(getLiurenBranchPairRelations('辰', '辰'), ['同支', '相刑']);
+  assert.ok(getLiurenBranchPairRelations('寅', '巳').includes('相刑'));
+  assert.ok(!getLiurenBranchPairRelations('巳', '寅').includes('相刑'));
+
+  let pairCount = 0;
+  for (const source of EARTHLY_BRANCHES) {
+    for (const target of EARTHLY_BRANCHES) {
+      pairCount += 1;
+      assert.equal(
+        getLiurenBranchPairRelations(source, target).includes('相刑'),
+        SANXING_MAP[source] === target,
+        `${source}→${target}定向刑序`,
+      );
+    }
+  }
+  assert.equal(pairCount, 144);
 });
 
 test('大六壬三传成局应按六壬指南输出课体标签', () => {
