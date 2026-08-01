@@ -260,12 +260,10 @@ test('六爻页面资料与摘要应显示飞伏关系并兼容旧结果', () =>
   assert.ok(legacySummary.lines.every((line) => !line.includes('undefined')));
 });
 
-test('六爻证据应把六亲类象与现实结论分离', () => {
+test('六爻证据不得把未校六亲类象软化后继续输出', () => {
   const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'));
   const analysis = analyzeLiuyaoEvidence(data);
-  const symbolItem = analysis.evidence.items.find(
-    (item) => item.title === '六亲传统类象映射（非事实结论）',
-  );
+  const symbolItem = analysis.evidence.items.find((item) => item.title === '六亲计算标签与爻位');
 
   assert.ok(analysis.traditionalSymbols.length > 0);
   assert.equal(analysis.lineFacts.length, 6);
@@ -280,16 +278,22 @@ test('六爻证据应把六亲类象与现实结论分离', () => {
       (item) =>
         item.originalText &&
         item.promptText &&
-        item.source === '传统六亲类象表与当前六亲排布' &&
+        item.source === '当前本卦与伏神六亲排布' &&
         item.limitation.includes('不证明现实身份'),
     ),
   );
   assert.equal(symbolItem?.level, '辅证');
-  assert.match(symbolItem?.detail || '', /须先结合问题主题/);
+  assert.match(symbolItem?.detail || '', /未提供来源闭合的事项类象解释/);
   assert.match(symbolItem?.detail || '', /不证明现实身份、疾病、官非、财运或关系结果/);
   assert.equal(
     conditionLiuyaoTraditionalText('官鬼持世，主压力、疾病与官非，事体不虚'),
-    '官鬼持世，传统类象提示压力、疾病与官非，传统上可作为事项线索',
+    '未采用传统解释；当前只保留可复算盘面事实',
+  );
+  assert.doesNotMatch(
+    analysis.traditionalSymbols
+      .map((item) => `${item.originalText}；${item.promptText}`)
+      .join('；'),
+    /文书|消息|房屋|长辈|竞争|朋友|疾病|官非|财物|伴侣|子女|医药|财源|传统常取/,
   );
 });
 

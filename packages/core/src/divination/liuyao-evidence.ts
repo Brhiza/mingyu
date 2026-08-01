@@ -188,9 +188,9 @@ export interface LiuyaoTraditionalSymbolFact {
   positions: number[];
   originalText: string;
   promptText: string;
-  source: '传统六亲类象表与当前六亲排布';
+  source: '当前本卦与伏神六亲排布';
   sources: string[];
-  limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果';
+  limitation: '六亲事实只记录计算标签与所在爻位；具体事项类象须在明确底本、版本、适用条件和问题角色后另行推算，不证明现实身份、疾病、官非、财运或关系结果';
 }
 
 export interface LiuyaoLineFact {
@@ -444,14 +444,14 @@ export interface LiuyaoLimitationFact {
     | '起卦与随机来源边界'
     | '逐爻与伏神资料边界'
     | '用神候选与五行链边界'
-    | '卦内结构与传统类象边界'
+    | '卦内结构与六亲标签边界'
     | '反证与应期边界'
     | '高风险输出边界';
   status: '适用';
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '限制事实用于约束六爻起卦、逐爻、伏神、用神、传统类象与应期资料能够支持的解释范围，不得被反向当作现实吉凶、疾病灾祸、超自然原因、事件概率或固定应期的证据';
+  limitation: '限制事实用于约束六爻起卦、逐爻、伏神、用神、六亲标签与应期资料能够支持的解释范围，不得被反向当作现实吉凶、疾病灾祸、超自然原因、事件概率或固定应期的证据';
 }
 
 export interface LiuyaoEvidenceAnalysis {
@@ -530,24 +530,19 @@ const CALCULATION_STEP_LIMITATION =
 const SUMMARY_FACT_LIMITATION =
   '六爻证据汇总只统计起卦、逐爻、伏神、候选、五行作用链、卦内结构、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、超自然判断或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
-  '限制事实用于约束六爻起卦、逐爻、伏神、用神、传统类象与应期资料能够支持的解释范围，不得被反向当作现实吉凶、疾病灾祸、超自然原因、事件概率或固定应期的证据' as const;
+  '限制事实用于约束六爻起卦、逐爻、伏神、用神、六亲标签与应期资料能够支持的解释范围，不得被反向当作现实吉凶、疾病灾祸、超自然原因、事件概率或固定应期的证据' as const;
 
-const TRADITIONAL_RELATIVE_IMAGES: Record<string, string> = {
-  父母: '传统常取文书、消息、单位、房屋、长辈、辛劳等类象',
-  兄弟: '传统常取同辈、竞争、合作分配、朋友、资源消耗等类象',
-  官鬼: '传统常取职责、职位、压力、忧虑、疾病、官非等类象',
-  妻财: '传统常取财物、交易、资源、伴侣或关系对象等类象',
-  子孙: '传统常取产出、子女、放松、解忧、医药、财源等类象',
-};
-const LIUYAO_RELATIVES = new Set(Object.keys(TRADITIONAL_RELATIVE_IMAGES));
+const LIUYAO_RELATIVES = new Set(['父母', '兄弟', '官鬼', '妻财', '子孙']);
 
 export function conditionLiuyaoTraditionalText(text: string): string {
-  return text
-    .replace(/事势增强/g, '传统上视为合局条件较集中')
-    .replace(/事体不虚/g, '传统上可作为事项线索')
-    .replace(/主(?!(?:卦|轴|证|判|要|动|客))/g, '传统类象提示')
-    .replace(/必然/g, '可能')
-    .replace(/必定/g, '较可能');
+  if (
+    /事势增强|事体不虚|必然|必定|主(?!(?:卦|轴|证|判|要|动|客|线|体|传|将|数|名|用|标签|版本))/.test(
+      text,
+    )
+  ) {
+    return '未采用传统解释；当前只保留可复算盘面事实';
+  }
+  return text;
 }
 
 function branchOf(ganzhi: string) {
@@ -2537,14 +2532,14 @@ function buildLimitationFacts(params: {
     },
     {
       key: 'liuyao:limitation:structure-tradition',
-      type: '卦内结构与传统类象边界',
+      type: '卦内结构与六亲标签边界',
       ownerFactKeys: [
         ...params.structureFacts.map((item) => item.key),
         ...params.traditionalSymbols.map((item) => item.key),
       ],
       promptText:
-        '整卦六合六冲、反吟伏吟、三合、动静结构与六亲类象只提供盘内结构和传统事项候选；不得直接写成现实和合冲散、疾病官非、财运关系或固定应期',
-      sources: ['卦内结构事实与传统六亲类象条件化映射'],
+        '整卦六合六冲、反吟伏吟、三合与动静结构只提供盘内结构；六亲只保留计算标签和所在爻位，具体事项类象须在明确底本、版本、适用条件和问题角色后另行推算，不得直接写成现实和合冲散、疾病官非、财运关系或固定应期',
+      sources: ['卦内结构事实与当前本卦、伏神六亲排布'],
     },
     {
       key: 'liuyao:limitation:counter-timing',
@@ -2783,7 +2778,7 @@ export function analyzeRebuiltLiuyaoEvidence(
   const traditionalSymbols = Array.from(
     new Set(symbolReferences.map((item) => item.sixRelative)),
   ).map((relative): LiuyaoTraditionalSymbolFact => {
-    const originalText = TRADITIONAL_RELATIVE_IMAGES[relative] ?? '传统类象未单列';
+    const originalText = `${relative}为当前六亲计算标签`;
     return {
       key: `liuyao:traditional-symbol:${relative}`,
       status: '已映射',
@@ -2792,10 +2787,14 @@ export function analyzeRebuiltLiuyaoEvidence(
         .filter((item) => item.sixRelative === relative)
         .flatMap((item) => (item.position ? [item.position] : [])),
       originalText,
-      promptText: `${originalText}；须先结合问题主题、求测者身份、世应、动变、月日旺衰与空破墓判断`,
-      source: '传统六亲类象表与当前六亲排布',
-      sources: ['传统六亲类象表', '当前本卦与伏神六亲排布'],
-      limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果',
+      promptText: `${originalText}，见于第${symbolReferences
+        .filter((item) => item.sixRelative === relative)
+        .flatMap((item) => (item.position ? [item.position] : []))
+        .join('、')}爻；未提供来源闭合的事项类象解释`,
+      source: '当前本卦与伏神六亲排布',
+      sources: ['当前本卦与伏神六亲排布'],
+      limitation:
+        '六亲事实只记录计算标签与所在爻位；具体事项类象须在明确底本、版本、适用条件和问题角色后另行推算，不证明现实身份、疾病、官非、财运或关系结果',
     };
   });
   const structureFacts = buildHexagramStructureFacts(
@@ -3074,15 +3073,15 @@ export function analyzeRebuiltLiuyaoEvidence(
       : []),
     {
       level: '辅证',
-      title: '六亲传统类象映射（非事实结论）',
+      title: '六亲计算标签与爻位',
       detail: traditionalSymbols
         .map(
           (item) =>
             `${item.relative}见于第${item.positions.join('、')}爻：${item.promptText}；边界：${item.limitation}`,
         )
         .join('；'),
-      source: '传统六亲类象表与当前六亲排布逐项映射',
-      tags: ['六亲类象', '条件化表达', '非事实结论'],
+      source: '当前本卦与伏神六亲排布逐项核验',
+      tags: ['六亲标签', '爻位事实', '类象未采用'],
     },
     ...structureFacts.map((fact): PromptEvidenceItem => ({
       level: ['卦内三合', '日辰三合', '月建三合', '虚一待用'].includes(fact.kind) ? '辅证' : '限制',
@@ -3234,7 +3233,7 @@ export function analyzeRebuiltLiuyaoEvidence(
       '原神取生用神者，忌神取克用神者，仇神取生忌神并克原神者。',
       '按月日、真实明暗动、符合条件的旺相静爻、本位动变与飞伏生克重算直接及接续路径；路径允许并见，不按条数裁定最终强弱或吉凶。',
       '全局作用态只按生扶侧、克制侧与制化侧归组，并结合用神有气无根条件明确返回待综合判断或资料不足，不用多数票冒充最终可用性。',
-      '六亲类象保留传统原始范围，提示词只把它作为随问题变化的候选，不把单一持世六亲写成现实事件。',
+      '六亲只保留当前计算标签和所在爻位；具体事项类象须在明确底本、版本、适用条件和问题角色后由 AI 继续推算。',
       '只输出支持、反证、限制和触发条件，不生成吉凶总分或成功率。',
     ],
   };
