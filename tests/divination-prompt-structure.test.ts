@@ -455,6 +455,8 @@ test('择日提示词按原生分类列值日神煞且不要求无依据名次',
   assert.doesNotMatch(prompt, /建除神煞硬规则|给出首选日期|先给优先日/);
   assert.match(prompt, /按可用候选、条件候选和慎用候选分组/);
   assert.match(prompt, /不生成首选、备选或唯一最佳结论/);
+  assert.match(prompt, /现实刚性条件与资料限制/);
+  assert.match(prompt, /不扩写.*执行建议/);
 });
 
 test('择日提示词从原始输入重建神煞分类，不吸收旧事项规则污染', () => {
