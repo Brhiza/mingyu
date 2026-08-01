@@ -3136,6 +3136,10 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     const chart = (
       chartResponse.structuredContent as {
         result: {
+          generation: {
+            input: Record<string, unknown>;
+            timestamp: number;
+          };
           stars: Array<{
             precisionClass: string;
             tropicalZodiac: string;
@@ -3170,6 +3174,8 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
         };
       }
     ).result;
+    assert.deepEqual(chart.generation.input, arguments_);
+    assert.ok(Number.isSafeInteger(chart.generation.timestamp));
     assert.equal(chart.stars.length, 11);
     assert.equal(chart.mansionBoundaries.length, 28);
     assert.equal(chart.pairwiseAngles.length, 55);

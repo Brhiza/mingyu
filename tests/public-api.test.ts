@@ -5754,6 +5754,8 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
     body: JSON.stringify(input),
   });
   assert.equal(calculate.response.status, 200);
+  assert.deepEqual(calculate.body.data.generation.input, input);
+  assert.ok(Number.isSafeInteger(calculate.body.data.generation.timestamp));
   assert.equal(calculate.body.data.stars.length, 11);
   assert.equal(calculate.body.data.mansionBoundaries.length, 28);
   assert.equal(

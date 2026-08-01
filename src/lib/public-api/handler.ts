@@ -2156,7 +2156,7 @@ function buildXuanKongPrompt(input: JsonRecord) {
 }
 
 function buildQizhengPrompt(input: JsonRecord) {
-  const result = calculateQizhengApi(input);
+  const result = qizheng.rebuildAuditedQizhengData(calculateQizhengApi(input));
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildMetaphysicsPrompt(result.prompt, input, 'qizheng'),

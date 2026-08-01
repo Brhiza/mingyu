@@ -140,7 +140,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                                                                     |
 | **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                                                                   |
 | **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；评估 55 条可复算格局并登记 32 项原典边界                                                                   |
-| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、55组星对实际夹角、8项已校勘生年神煞起例、传统规则审计边界与分层精度证据                                          |
+| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、55组星对实际夹角、8项已校勘生年神煞起例、可信来源重建、传统规则审计边界与分层精度证据                            |
 
 ---
 
@@ -392,7 +392,7 @@ console.log(qizhengChart.shenshaFacts); // 8 项生年干/年支起例目标支�
 
 星盘结果的 `generation` 保存规范化出生输入与生成时间。证据、摘要、行运、次限、太阳弧和太阳返照会先从该来源重建完整本命盘，不采信调用方传入的星体、宫位、相位、光照、摘要、时区诊断或顶层时间；缺少合法 `generation` 的旧结果会明确拒绝。西占双盘另保存双方本命 `generation`、完整点位选择、五种相位容许度、落宫开关和生成时间，双盘重建不会沿用旧跨盘相位或落宫结果。
 
-七政四余的天乙昼贵与玉堂夜贵分开按生年干起例，驿马、华盖、劫煞、咸池、孤辰、寡宿按生年支起例。农历年干支与立春年柱不一致时，`shenshaFacts` 为空并保留完整规则目录与分歧证据。启用真太阳时时，固定 `timezone` 被视为已确认的标准时偏移；若使用 IANA 历史时区，必须另给 `standardMeridian`，系统不会把法定钟表偏移猜成标准经线。
+七政四余的天乙昼贵与玉堂夜贵分开按生年干起例，驿马、华盖、劫煞、咸池、孤辰、寡宿按生年支起例。农历年干支与立春年柱不一致时，`shenshaFacts` 为空并保留完整规则目录与分歧证据。启用真太阳时时，固定 `timezone` 被视为已确认的标准时偏移；若使用 IANA 历史时区，必须另给 `standardMeridian`，系统不会把法定钟表偏移猜成标准经线。结果中的 `generation` 保存规范化出生输入与生成时间；`rebuildAuditedQizhengData` 和 `analyzeQizhengEvidence` 只凭该来源完整重算，旧盘派生字段不会进入公开证据或提示词，来源缺失或非法时直接拒绝。
 
 ### 八字事实分析
 

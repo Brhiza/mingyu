@@ -79,7 +79,7 @@ export function registerQizhengTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = qizheng.generateQizheng({
+        const generated = qizheng.generateQizheng({
           year: args.year,
           month: args.month,
           day: args.day,
@@ -96,6 +96,7 @@ export function registerQizhengTool(server: McpServer) {
             ? { useTrueSolarTime: args.useTrueSolarTime }
             : {}),
         });
+        const result = qizheng.rebuildAuditedQizhengData(generated);
         return createStructuredToolResult({
           result,
           prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'qizheng' }),

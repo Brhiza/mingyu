@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  analyzeQizhengEvidence,
   buildQizhengTwelvePalaces,
   calculateQizhengMingGong,
   calculateQizhengMansionBoundaries,
@@ -10,12 +11,14 @@ import {
   getQizhengMingZhu,
   longitudeToQizhengBranch,
   longitudeToQizhengMansion,
+  rebuildAuditedQizhengData,
   QIZHENG_EARTHLY_BRANCHES,
   QIZHENG_MING_ZHU_BY_BRANCH,
   QIZHENG_SHENSHA_RULE_CATALOG,
   QIZHENG_TRADITIONAL_CHART_RULE_CATALOG,
   QIZHENG_TROPICAL_ZODIAC_BRANCHES,
   QIZHENG_TROPICAL_ZODIAC_SIGNS,
+  type QizhengResult,
 } from '@core/qi_zheng';
 
 test('七政四余五项传统盘规则均有固定旧籍原文、入口与解释边界', () => {
@@ -286,6 +289,99 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
   assert.doesNotMatch(result.prompt, /黄道第\s*\d+宫|生时加太阴|逆数见酉/);
   assert.doesNotMatch(result.prompt, /天乙贵人.*日干|神煞定位/);
   assert.doesNotMatch(result.prompt, /紧密等级|中等等级|宽松等级|归一化容许度位置/);
+});
+
+test('七政四余应保存规范化出生输入和生成时间', () => {
+  const input = {
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+    timeZoneId: '  Asia/Shanghai  ',
+    standardMeridian: 120,
+    useTrueSolarTime: false,
+  };
+  const result = generateQizheng(input);
+
+  assert.notEqual(result.generation.input, input);
+  assert.deepEqual(result.generation.input, {
+    ...input,
+    timeZoneId: 'Asia/Shanghai',
+  });
+  assert.ok(Number.isSafeInteger(result.generation.timestamp));
+  assert.ok(result.generation.timestamp >= 0);
+
+  input.year = 2000;
+  assert.equal(result.generation.input.year, 1990);
+});
+
+test('七政四余审核重建应忽略全部派生盘面污染', () => {
+  const result = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+  const polluted = structuredClone(result) as QizhengResult;
+  polluted.stars = [];
+  polluted.pairwiseAngles = [];
+  polluted.geometryCalculation.actualPairCount = 0;
+  polluted.geometryCalculation.complete = false;
+  polluted.mansionBoundaries = [];
+  polluted.traditionalChartFacts = [];
+  polluted.traditionalYearBasis.adoptedYearGanZhi = '甲子';
+  polluted.shenshaFacts = [];
+  polluted.shensha = [];
+  polluted.mingGong = 0;
+  polluted.mingGongBranch = '子';
+  polluted.shenGong = 0;
+  polluted.shenGongBranch = '子';
+  polluted.mingZhu = '污染命主';
+  polluted.twelvePalaces = [];
+  polluted.calculationContext.moonPhase.phaseAngleDegrees = 0;
+  polluted.calculationContext.solarIllumination.solarAltitudeDegrees = 90;
+  polluted.evidenceAnalysis = undefined as never;
+  polluted.prompt = '污染提示词';
+
+  assert.deepEqual(rebuildAuditedQizhengData(polluted), result);
+  assert.deepEqual(analyzeQizhengEvidence(polluted), result.evidenceAnalysis);
+});
+
+test('七政四余旧结果缺少可信来源或来源非法时应失败关闭', () => {
+  const result = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+  const legacy = structuredClone(result) as Partial<QizhengResult>;
+  delete legacy.generation;
+  assert.throws(() => rebuildAuditedQizhengData(legacy as QizhengResult), /缺少可信原始出生输入/);
+  assert.throws(() => analyzeQizhengEvidence(legacy as QizhengResult), /缺少可信原始出生输入/);
+
+  const invalidTimestamp = structuredClone(result);
+  invalidTimestamp.generation.timestamp = -1;
+  assert.throws(() => rebuildAuditedQizhengData(invalidTimestamp), /有效的非负毫秒时间戳/);
+
+  const invalidBoolean = structuredClone(result);
+  invalidBoolean.generation.input.useTrueSolarTime = 'false' as never;
+  assert.throws(() => rebuildAuditedQizhengData(invalidBoolean), /必须是布尔值/);
+
+  const invalidTimezone = structuredClone(result);
+  invalidTimezone.generation.input.timeZoneId = '   ';
+  assert.throws(() => rebuildAuditedQizhengData(invalidTimezone), /IANA 时区名不能为空/);
 });
 
 test('七政四余传统神煞在春节与立春年界分歧时不自动选边', () => {

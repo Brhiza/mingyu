@@ -539,10 +539,19 @@ export interface QizhengInput {
   useTrueSolarTime?: boolean;
 }
 
+export interface QizhengGenerationSource {
+  /** 经过类型、范围与空白规范化的原始出生输入；全部派生盘面必须由此重算。 */
+  input: QizhengInput;
+  /** 生成结果的非负毫秒时间戳。 */
+  timestamp: number;
+}
+
 export const QIZHENG_TRADITIONAL_CHART_DISABLED_MESSAGE =
   '七政四余传统盘已恢复；此常量仅为旧调用方兼容保留。';
 
 export interface QizhengResult {
+  /** 七政四余可信来源；公开证据、提示词和辅助入口只允许从这里重建。 */
+  generation: QizhengGenerationSource;
   stars: QizhengStar[];
   pairwiseAngles: QizhengPairGeometry[];
   geometryCalculation: QizhengGeometryCalculation;
@@ -1305,6 +1314,61 @@ function validateQizhengInput(input: QizhengInput, includeLocation: boolean): vo
   if (includeLocation) {
     assertNumberRange(input.latitude ?? 39.9, '纬度', -90, 90);
     assertNumberRange(input.longitude ?? 116.4, '经度', -180, 180);
+  }
+}
+
+function normalizeQizhengInput(input: QizhengInput): QizhengInput {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('七政四余参数必须是对象。');
+  }
+  if (input.minute !== undefined && typeof input.minute !== 'number') {
+    throw new Error('分钟需在 0-59 之间。');
+  }
+  if (input.latitude !== undefined && typeof input.latitude !== 'number') {
+    throw new Error('纬度需在 -90 到 90 之间。');
+  }
+  if (input.longitude !== undefined && typeof input.longitude !== 'number') {
+    throw new Error('经度需在 -180 到 180 之间。');
+  }
+  if (input.timezone !== undefined && typeof input.timezone !== 'number') {
+    throw new Error('时区需在 -12 到 14 之间。');
+  }
+  if (input.standardMeridian !== undefined && typeof input.standardMeridian !== 'number') {
+    throw new Error('标准经线需在 -180 到 180 之间。');
+  }
+  if (input.timeZoneId !== undefined && typeof input.timeZoneId !== 'string') {
+    throw new Error('IANA 时区名必须是字符串。');
+  }
+  if (input.useTrueSolarTime !== undefined && typeof input.useTrueSolarTime !== 'boolean') {
+    throw new Error('useTrueSolarTime 必须是布尔值。');
+  }
+
+  const normalizedTimeZoneId = input.timeZoneId?.trim();
+  const normalized: QizhengInput = {
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    hour: input.hour,
+    ...(input.minute !== undefined ? { minute: input.minute } : {}),
+    ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
+    ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
+    ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
+    ...(normalizedTimeZoneId !== undefined ? { timeZoneId: normalizedTimeZoneId } : {}),
+    ...(input.standardMeridian !== undefined ? { standardMeridian: input.standardMeridian } : {}),
+    ...(input.useTrueSolarTime !== undefined ? { useTrueSolarTime: input.useTrueSolarTime } : {}),
+  };
+  validateQizhengInput(normalized, true);
+  return normalized;
+}
+
+function assertQizhengGenerationTimestamp(timestamp: unknown): asserts timestamp is number {
+  if (
+    typeof timestamp !== 'number' ||
+    !Number.isSafeInteger(timestamp) ||
+    timestamp < 0 ||
+    Number.isNaN(new Date(timestamp).getTime())
+  ) {
+    throw new Error('七政四余原始生成时间必须是有效的非负毫秒时间戳。');
   }
 }
 
@@ -2260,12 +2324,9 @@ function buildQizhengEvidence(
   };
 }
 
-/** 生成七政四余盘 */
-export function generateQizheng(input: QizhengInput): QizhengResult {
-  validateQizhengInput(input, true);
-  if (input.useTrueSolarTime !== undefined && typeof input.useTrueSolarTime !== 'boolean') {
-    throw new Error('useTrueSolarTime 必须是布尔值。');
-  }
+function buildQizheng(input: QizhengInput, timestamp: number): QizhengResult {
+  input = normalizeQizhengInput(input);
+  assertQizhengGenerationTimestamp(timestamp);
   const lat = input.latitude ?? 39.9;
   const lon = input.longitude ?? 116.4;
   const astronomicalTime = buildQizhengAstronomicalTime(input);
@@ -2505,6 +2566,10 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   ].join('\n');
 
   return {
+    generation: {
+      input: { ...input },
+      timestamp,
+    },
     stars,
     pairwiseAngles,
     geometryCalculation,
@@ -2533,8 +2598,43 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   };
 }
 
+/** 生成七政四余盘。 */
+export function generateQizheng(input: QizhengInput): QizhengResult {
+  return buildQizheng(input, Date.now());
+}
+
+/** 只凭保存的原始出生输入和生成时间重建完整七政四余盘。 */
+export function rebuildAuditedQizhengData(input: Pick<QizhengResult, 'generation'>): QizhengResult {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('七政四余审核重建必须提供结果对象。');
+  }
+  if (!input.generation) {
+    throw new Error('七政四余旧结果缺少可信原始出生输入，无法审核重建。');
+  }
+  const generation = input.generation as QizhengGenerationSource;
+  if (!generation || typeof generation !== 'object' || Array.isArray(generation)) {
+    throw new Error('七政四余审核重建必须提供原始出生输入。');
+  }
+  if (
+    !generation.input ||
+    typeof generation.input !== 'object' ||
+    Array.isArray(generation.input)
+  ) {
+    throw new Error('七政四余审核重建必须提供原始出生输入。');
+  }
+  assertQizhengGenerationTimestamp(generation.timestamp);
+  return buildQizheng(generation.input, generation.timestamp);
+}
+
+/** 先从可信原始输入重建七政四余盘，再返回结构化证据。 */
+export function analyzeQizhengEvidence(input: Pick<QizhengResult, 'generation'>) {
+  return rebuildAuditedQizhengData(input).evidenceAnalysis;
+}
+
 export const qizheng = {
   generateQizheng,
+  rebuildAuditedQizhengData,
+  analyzeQizhengEvidence,
   getPrecessionOffset,
   calculateZiqiTropicalLongitude,
   calculateZiqiPosition,
