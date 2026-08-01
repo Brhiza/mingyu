@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { checkCondition } from '../packages/core/src/bazi/baziConditionMatchers';
 import { identifyClassicPattern } from '../packages/core/src/bazi/baziEnhancement/classicPatterns';
 
 type Pillars = Parameters<typeof identifyClassicPattern>[2];
@@ -21,6 +22,23 @@ function identify(pillars: Pillars) {
     '正印格',
   );
 }
+
+test('经典外格模糊强弱词不得在缺少实际强弱证据时自动通过', () => {
+  const pillars: Pillars = {
+    year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    month: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
+  };
+
+  for (const condition of ['当令', '旺盛', '势旺', '日干与月支同气', '月令司权', '羊刃']) {
+    assert.equal(
+      checkCondition(condition, pillars.day.gan, pillars, EMPTY_HIDDEN_STEMS),
+      false,
+      condition,
+    );
+  }
+});
 
 test('金神只保留其他古籍结构来源，不固化甲己日喜忌五行', () => {
   const jiaPattern = identify({
