@@ -335,7 +335,9 @@ test('太乙提示词只凭原始年份重建，不吸收旧盘与旧证据污�
   const clean = buildDivinationPrompt('taiyi', '请分析本年局势。', data, supplementary);
   assert.match(clean, /纯阴、纯阳、上和、下和等算数属性尚未闭合具体底本版本/);
   assert.match(clean, /不得生成总体态势、胜负、时机或行动建议/);
+  assert.match(clean, /不得推导年度气运、动静、攻守、胜负、时宜或行动建议/);
   assert.doesNotMatch(clean, /分析总体态势与主客关系|主客与定算主线优先|条件变化、行动建议/);
+  assert.doesNotMatch(clean, /围绕年家局数.*判断年度气运/);
   const polluted = structuredClone(data);
   polluted.scope = 'month';
   polluted.ganZhi = '伪造干支';
@@ -925,6 +927,8 @@ test('小六壬提示词只保留原始时间事实和待校边界', () => {
   assert.match(prompt, /历法口径：东八区民用日零点换日；闰月沿用同名月序/);
   assert.match(prompt, /固定底本、具体版本和页码/);
   assert.match(prompt, /必须先说明采用的具体底本、版本与完整起数规则/);
+  assert.match(prompt, /不得生成月宫、日宫、时宫、占得宫、六宫歌诀、吉凶、方位、应期或行动建议/);
+  assert.doesNotMatch(prompt, /再说明主要依据、时机条件和行动建议/);
   assert.doesNotMatch(
     prompt,
     /顺数轨迹：|占得宫：|歌诀原文：|留连事难成|核心结构：起因|五行推进：|月令旺衰：|日干六亲：|课盘神煞：|应期参考：/,
@@ -1274,6 +1278,15 @@ test('金口诀提示词在具体版本闭合前只保留原始起课记录', as
   assert.match(prompt, /具体底本、版本/);
   assert.doesNotMatch(prompt, /阴阳发用：|发用位|四位关系：|动爻：|月将贵人：/);
   assertPromptIsPortableTaskText(prompt);
+
+  const standardPrompt = buildDivinationPrompt(
+    'jinkoujue',
+    PROJECT_DECISION_QUESTION,
+    data,
+    createProjectSupplementaryInfo(),
+  );
+  assert.match(standardPrompt, /不得生成地分、四位、发用、五动三动、吉凶、时机或行动建议/);
+  assert.doesNotMatch(standardPrompt, /再说明主要依据、时机条件和行动建议/);
 });
 
 test('金口诀提示词只使用原始起课输入重建，不吸收旧课盘与证据污染', async () => {
