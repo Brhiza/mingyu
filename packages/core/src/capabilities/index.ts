@@ -535,6 +535,7 @@ const systems: SystemCapability[] = [
       '神煞',
       '四课取传依据与初传发用',
       '逐传日干六亲、有方向生克、相邻关系、旺衰与条件化旬空',
+      '盘面位置焦点（不等于按问题选定类神）',
     ],
     supports: {
       seed: false,

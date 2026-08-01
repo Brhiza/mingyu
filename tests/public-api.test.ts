@@ -5002,7 +5002,7 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
         String(item.limitation).includes('不得判断确定快慢'),
     ),
   );
-  assert.equal(liurenChart.body.data.evidenceAnalysis.focusSummaryFact.status, '已提供焦点');
+  assert.equal(liurenChart.body.data.evidenceAnalysis.focusSummaryFact.status, '已提供位置焦点');
   assert.equal(
     liurenChart.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length,
     liurenChart.body.data.evidenceAnalysis.counterEvidenceFacts.length,

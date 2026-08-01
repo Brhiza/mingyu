@@ -4804,7 +4804,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
           item.limitation.includes('不得判断确定快慢'),
       ),
     );
-    assert.equal(liurenData.evidenceAnalysis.focusSummaryFact.status, '已提供焦点');
+    assert.equal(liurenData.evidenceAnalysis.focusSummaryFact.status, '已提供位置焦点');
     assert.ok(liurenData.evidenceAnalysis.calculationFact.monthLeader);
     assert.ok(liurenData.evidenceAnalysis.calculationFact.sources.length >= 3);
     assert.match(liurenData.evidenceAnalysis.calculationFact.limitation, /不单独证明现实事件/);

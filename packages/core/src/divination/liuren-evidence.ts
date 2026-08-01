@@ -144,7 +144,7 @@ export interface LiurenTimingFact {
   rawText?: string;
   promptText: string;
   sources: string[];
-  limitation: '应期事实只登记三传阶段、旺衰及出空、填实、冲实、冲合等候选触发；未选类神和期限时不得判断确定快慢或换算唯一日期，也不证明事件必然发生';
+  limitation: '应期事实只登记三传阶段、旺衰及出空、填实、冲实、冲合等候选触发；未同时明确具体类神底本版本、事项类别与参与者角色、完整类神取用规则、已指定类神对象和目标期限时，不得判断确定快慢或换算唯一日期，也不证明事件必然发生';
 }
 
 export interface LiurenFocusFact {
@@ -157,16 +157,16 @@ export interface LiurenFocusFact {
   sourceStatus: '原结果提供';
   promptText: string;
   sources: string[];
-  limitation: '类神焦点事实只记录当前结果已选出的关注对象、角色、依据与限制；未选定具体问题类神时不得把日支、天将或神煞固定当作用神';
+  limitation: '焦点事实只记录初传、日干和日支等盘面位置索引、依据与限制，不等于已按具体事项选定类神；不得把问题文字、范围标签、日干、日支、初传、天将或神煞固定当作类神';
 }
 
 export interface LiurenFocusSummaryFact {
   key: 'liuren:focus-summary';
-  status: '已提供焦点' | '缺少焦点';
+  status: '已提供位置焦点' | '缺少位置焦点';
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '焦点覆盖状态只说明当前结果是否保存关注对象；缺少焦点时不得自行把日支、天将或神煞固定当作用神，仍须按具体问题选择类神';
+  limitation: '焦点覆盖状态只说明当前结果是否保存盘面位置索引，不表示已经选定类神；只有具体类神底本版本、事项类别与参与者角色、完整类神取用规则和已指定类神对象同时明确后，才可继续类神推算';
 }
 
 export interface LiurenTraditionalFact {
@@ -384,11 +384,11 @@ const COUNTER_FACT_LIMITATION =
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明当前结构化核验是否发现盘内限制，不代表现实风险为零，也不表示证据数量可换算为吉凶总分' as const;
 const TIMING_FACT_LIMITATION =
-  '应期事实只登记三传阶段、旺衰及出空、填实、冲实、冲合等候选触发；未选类神和期限时不得判断确定快慢或换算唯一日期，也不证明事件必然发生' as const;
+  '应期事实只登记三传阶段、旺衰及出空、填实、冲实、冲合等候选触发；未同时明确具体类神底本版本、事项类别与参与者角色、完整类神取用规则、已指定类神对象和目标期限时，不得判断确定快慢或换算唯一日期，也不证明事件必然发生' as const;
 const FOCUS_FACT_LIMITATION =
-  '类神焦点事实只记录当前结果已选出的关注对象、角色、依据与限制；未选定具体问题类神时不得把日支、天将或神煞固定当作用神' as const;
+  '焦点事实只记录初传、日干和日支等盘面位置索引、依据与限制，不等于已按具体事项选定类神；不得把问题文字、范围标签、日干、日支、初传、天将或神煞固定当作类神' as const;
 const FOCUS_SUMMARY_LIMITATION =
-  '焦点覆盖状态只说明当前结果是否保存关注对象；缺少焦点时不得自行把日支、天将或神煞固定当作用神，仍须按具体问题选择类神' as const;
+  '焦点覆盖状态只说明当前结果是否保存盘面位置索引，不表示已经选定类神；只有具体类神底本版本、事项类别与参与者角色、完整类神取用规则和已指定类神对象同时明确后，才可继续类神推算' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明占时参数、天地盘、四课、取传、三传、反证、类神与应期条件如何形成当前证据；不证明现实吉凶、事件概率、人物身份或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -773,14 +773,14 @@ function buildTimingFacts(
     {
       type: '月日触发',
       matcher: (text) => text.startsWith('三级日月：'),
-      computed: `三级日月：以日支${data.ganzhi.day.slice(-1)}、月支${data.ganzhi.month.slice(-1)}对初传和类神的同支、冲合与旺衰作为触发条件`,
-      sources: ['月支、日支与初传及类神的同支冲合旺衰核验'],
+      computed: `三级日月：只登记日支${data.ganzhi.day.slice(-1)}、月支${data.ganzhi.month.slice(-1)}与初传的同支、冲合及旺衰事实；类神未由通用盘选定`,
+      sources: ['月支、日支与初传的同支冲合旺衰核验', '类神取用资料缺失边界'],
     },
     {
       type: '期限边界',
-      matcher: (text) => /未给.*期限|未选定类神|不硬换成唯一日期/.test(text),
+      matcher: (text) => /未给.*期限|未选定类神|类神底本版本|不硬换成唯一日期/.test(text),
       computed:
-        '未选定类神和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',
+        '未同时明确具体类神底本版本、事项类别与参与者角色、完整类神取用规则、已指定类神对象和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',
       sources: ['应期解释边界'],
     },
   ];
@@ -843,8 +843,8 @@ function buildFocusFacts(
     const limitations = isInitialFocus
       ? [
           initial.isVoid
-            ? '初传落旬空；空亡有宜有忌，须结合所问事项、类神及出空、填实、冲实等候选条件辨用'
-            : '初传不空不等于现实事件已经发动，仍须结合类神与事项核验',
+            ? '初传落旬空；这里只记录位置条件，不等于已选类神，也不生成现实吉凶或应期'
+            : '初传不空只表示位置事实，不等于已选类神或现实事件已经发动',
         ]
       : [...item.limitations];
     return {
@@ -855,8 +855,8 @@ function buildFocusFacts(
       evidence,
       limitations,
       sourceStatus: '原结果提供',
-      promptText: `${item.target}${item.role}：依据${evidence.join('、') || '未列独立证据'}；限制${limitations.join('、') || '仍须结合实际问题选择类神'}`,
-      sources: ['当前结果已保存的盘面焦点对象、类神角色与课传依据'],
+      promptText: `${item.target}${item.role}：依据${evidence.join('、') || '未列独立证据'}；限制${limitations.join('、') || '只作盘面位置索引，不等于已按具体事项选定类神'}`,
+      sources: ['当前结果已保存的初传、日干与日支盘面位置索引及课传依据'],
       limitation: FOCUS_FACT_LIMITATION,
     };
   });
@@ -1116,9 +1116,9 @@ function buildSummaryFact(params: {
     traditionalFactCount: params.traditionalFacts.length,
     foundationConventionFactCount: 1,
     transmissionConventionFactCount: 1,
-    promptText: `证据链状态：${status}；起盘口径与版本边界1项、四课取传口径与版本边界1项、天地盘${params.platePositionFacts.length}/12位、四课${params.lessons.length}项、三传${params.transmissions.length}项、推进${params.transitionFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项、类神焦点${params.focusFacts.length}项、传统资料${params.traditionalFacts.length}项`,
+    promptText: `证据链状态：${status}；起盘口径与版本边界1项、四课取传口径与版本边界1项、天地盘${params.platePositionFacts.length}/12位、四课${params.lessons.length}项、三传${params.transmissions.length}项、推进${params.transitionFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项、盘面位置焦点${params.focusFacts.length}项、传统资料${params.traditionalFacts.length}项`,
     sources: [
-      '全部起盘口径与版本、四课取传口径与版本、天地盘、四课取传、三传、反证、类神、应期与传统事实逐项汇总',
+      '全部起盘口径与版本、四课取传口径与版本、天地盘、四课取传、三传、反证、盘面位置焦点、应期与传统事实逐项汇总',
     ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -1383,8 +1383,8 @@ function buildLimitationFacts(params: {
         ...params.timingFacts.map((item) => item.key),
       ],
       promptText:
-        '月令休囚死等已确认限制须与主证并列；空亡有宜有忌，生克、冲合刑害破也须结合类神、事项与作用方向，不得自动列为支持或反证。未按具体问题选定类神时，应期只登记阶段、旺衰及出空、填实、冲实等候选触发，不判断确定快慢、唯一日期或事件概率',
-      sources: ['课传反证、类神焦点覆盖与应期触发事实'],
+        '月令休囚死、空亡、生克、冲合刑害破只保留可复算位置与作用方向，不得脱离已指定类神自动列为现实支持或反证。未同时明确具体类神底本版本、事项类别与参与者角色、完整类神取用规则、已指定类神对象和目标期限时，应期只登记阶段、旺衰及出空、填实、冲实等候选触发，不判断确定快慢、唯一日期、事件概率、现实结果或行动建议',
+      sources: ['课传反证、盘面位置焦点覆盖、类神资料缺口与应期触发事实'],
     },
     {
       key: 'liuren:limitation:tradition',
@@ -1603,29 +1603,29 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
         firstTransmission.dayRelation!,
       ],
       limitations: firstTransmission.isVoid
-        ? ['初传落旬空；空亡有宜有忌，须结合所问事项、类神及出空、填实、冲实等候选条件辨用']
-        : ['初传不空不等于现实事件已经发动，仍须结合类神与事项核验'],
+        ? ['初传落旬空；这里只记录位置条件，不等于已选类神，也不生成现实吉凶或应期']
+        : ['初传不空只表示位置事实，不等于已选类神或现实事件已经发动'],
     },
     {
       target: `日干${dayStem}寄${dayStemResidence}`,
-      role: '我方与求测者',
+      role: '日干寄宫位置索引',
       level: '辅证',
-      evidence: ['日干寄宫为我方定位', `一课${fourLessons[0].upper}临${fourLessons[0].lower}`],
-      limitations: [],
+      evidence: ['日干寄宫位置', `一课${fourLessons[0].upper}临${fourLessons[0].lower}`],
+      limitations: ['不自动解释为我方、求测者或具体事项类神'],
     },
     {
       target: `日支${dayBranch}`,
-      role: '所占之事与对方环境',
+      role: '日支位置索引',
       level: '辅证',
       evidence: [`三课${fourLessons[2].upper}临${fourLessons[2].lower}`, '需与发用和三传同看'],
-      limitations: ['具体类神仍须按问题主题从明列盘面中选取'],
+      limitations: ['不自动解释为所占之事、对方、环境或具体事项类神'],
     },
   ];
   const timingEvidence = [
     `一级发用：初传${firstTransmission.branch}${firstTransmission.isVoid ? '落旬空' : '不空'}；空亡有宜有忌，须结合类神与事项判断，出空、填实、冲实仅作候选触发`,
     `二级三传：${threeTransmissions.map((item) => `${item.stage}${item.branch}（月令${item.seasonState}${item.isVoid ? '、空' : ''}）`).join('→')}`,
     `三级日月：以日支${dayBranch}、月支${ganzhi.month.charAt(1)}对初传和类神的同支、冲合与旺衰作为触发条件`,
-    '未选定类神和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',
+    '未同时明确具体类神底本版本、事项类别与参与者角色、完整类神取用规则、已指定类神对象和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',
   ];
 
   return {
@@ -1764,12 +1764,12 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
   const focusFacts = buildFocusFacts(data, transmissions);
   const focusSummaryFact: LiurenFocusSummaryFact = {
     key: 'liuren:focus-summary',
-    status: focusFacts.length ? '已提供焦点' : '缺少焦点',
+    status: focusFacts.length ? '已提供位置焦点' : '缺少位置焦点',
     factKeys: focusFacts.map((item) => item.key),
     promptText: focusFacts.length
-      ? `当前结果保存${focusFacts.length}个盘面焦点对象，须按主证、辅证和各自限制使用`
-      : '当前结果未保存盘面焦点对象，不得自行把日支、天将或神煞固定当作用神',
-    sources: ['当前大六壬结果的焦点对象完整性检查'],
+      ? `当前结果保存${focusFacts.length}个盘面位置焦点，只作初传、日干和日支等结构索引，不等于已按具体事项选定类神`
+      : '当前结果未保存盘面位置焦点，也不得自行把问题文字、日支、天将或神煞固定当作类神',
+    sources: ['当前大六壬结果的盘面位置焦点完整性检查'],
     limitation: FOCUS_SUMMARY_LIMITATION,
   };
   const { timingFacts, normalizedInput: timingEvidence } = buildTimingFacts(data, transmissions);
@@ -1777,7 +1777,7 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
     `初传${initial.branch}${transmissions[0].isVoid ? '落旬空' : '不空'}；空亡有宜有忌，须结合类神与事项判断，出空、填实、冲实只作候选触发`,
     `三传顺序${transmissions.map((item) => `${item.stage}${item.branch}`).join(' → ')}只表示阶段推进`,
     `月支${data.ganzhi.month.slice(-1)}与日支${data.ganzhi.day.slice(-1)}用于核验旺衰、同支、冲合及空亡触发`,
-    '未选定类神和期限时不判断确定快慢、不换算唯一日期，也不以神煞或课体单项指定应期',
+    '四项类神资料和期限未全部明确时不判断确定快慢、不换算唯一日期，也不以问题文字、神煞或课体单项指定应期',
     ...timingEvidence,
   ];
   const classicalRuleKeys = traditionalFacts
@@ -2001,17 +2001,17 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
       title: `${item.target}${item.role}`,
       detail: `${item.promptText}；边界：${item.limitation}`,
       source: item.sources.join('、'),
-      tags: ['类神焦点', item.target, item.role],
+      tags: ['盘面位置焦点', item.target, item.role],
     })),
     ...(focusFacts.length
       ? []
       : [
           {
             level: '限制' as const,
-            title: '类神焦点资料缺失',
+            title: '盘面位置焦点资料缺失',
             detail: `${focusSummaryFact.promptText}；边界：${focusSummaryFact.limitation}`,
             source: focusSummaryFact.sources.join('、'),
-            tags: ['类神焦点', '缺少焦点'],
+            tags: ['盘面位置焦点', '缺少位置焦点'],
           },
         ]),
     ...(timingFacts.length
@@ -2058,8 +2058,8 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；')}`,
     `反证限制：${counterSummaryFact.promptText}${counterEvidenceFacts.length ? `；明细${counterEvidenceFacts.map((item) => item.promptText).join('；')}` : ''}；边界：${counterSummaryFact.limitation}`,
     `触发条件：${timingFacts.map((item) => `${item.promptText}（${item.sourceStatus}）`).join('；')}`,
-    `类神焦点状态：${focusSummaryFact.promptText}；边界：${focusSummaryFact.limitation}`,
-    '应期边界：未给期限时不换算唯一日期，不以神煞、课体或单项关系指定应期。',
+    `盘面位置焦点状态：${focusSummaryFact.promptText}；边界：${focusSummaryFact.limitation}`,
+    '应期边界：四项类神资料与目标期限未全部明确时不换算唯一日期，不以问题文字、神煞、课体或单项关系指定应期。',
     `计算链：${calculationChain.join(' → ')}`,
     `证据汇总：${summaryFact.promptText}。`,
     `解释限制：${limitations.join('；')}。`,
@@ -2105,10 +2105,10 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
       '先确认当前课盘采用十二中气实际交节换将、固定地支分昼夜、通行贵人表和贵人临地顺逆布将的主版本；《六壬寻源》先后天贵人等异说只登记边界，不与当前课盘混用，换版本须整盘重排。',
       '再按日干寄宫与日支递取四课，依贼克、比用、涉害古法及九宗门特殊取法确认初传；直接取孟仲、择比等异说不得拼接，换版本须从初传到中末传整体重排。',
       '初传、中传、末传分别作为起点、过程、落点，六亲均以日干为中心逐传计算；日干、日支和相邻传的五行关系保留作用方向，固定地支关系另列。',
-      '旬空只登记是否命中，空亡有宜有忌；出空、填实、冲实仅作候选触发，未选定类神和期限时不判断确定快慢或唯一日期。',
+      '旬空只登记是否命中；出空、填实、冲实仅作候选触发，四项类神资料和期限未全部明确时不判断确定快慢或唯一日期。',
       '月将加时、昼夜贵人、天地盘、日干寄宫、课体、神煞与天将属性均保留为结构化辅证。',
       '课体与神煞只作辅助标签，不覆盖发用和三传主线。',
-      '未按问题选择类神时保留限制，不生成吉凶总分、成功率或绝对日期。',
+      '具体类神底本版本、事项类别与参与者角色、完整类神取用规则和已指定类神对象缺少任一项时，不生成现实演变、吉凶总分、成功率、时机、行动建议或绝对日期。',
     ],
   };
 }

@@ -106,7 +106,7 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
     ),
   );
   assert.equal(evidence.focusFacts.length, data.focusEvidence?.length);
-  assert.equal(evidence.focusSummaryFact.status, '已提供焦点');
+  assert.equal(evidence.focusSummaryFact.status, '已提供位置焦点');
   assert.ok(
     evidence.focusFacts.every(
       (item) =>
@@ -114,12 +114,12 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
         item.sourceStatus === '原结果提供' &&
         item.promptText &&
         item.sources.length > 0 &&
-        item.limitation.includes('不得把日支、天将或神煞固定当作用神'),
+        item.limitation.includes('不等于已按具体事项选定类神'),
     ),
   );
   assert.match(evidence.promptText, /【大六壬四课取传与三传推进结构化证据】/);
   assert.match(evidence.promptText, /取传规则事实：/);
-  assert.match(evidence.promptText, /类神焦点状态：/);
+  assert.match(evidence.promptText, /盘面位置焦点状态：/);
   assert.match(evidence.promptText, /四课取传与初传发用/);
   assert.deepEqual(evidence.focusEvidence, data.focusEvidence);
   assert.deepEqual(evidence.timingEvidence, data.timingEvidence);
@@ -386,15 +386,22 @@ test('大六壬旧结果缺少取传名、应期与焦点时应从时间戳统�
   assert.deepEqual(evidence.timingFacts, expected.timingFacts);
   assert.deepEqual(evidence.focusFacts, expected.focusFacts);
   assert.equal(evidence.summaryFact.status, '证据链完整');
-  assert.equal(evidence.focusSummaryFact.status, '已提供焦点');
+  assert.equal(evidence.focusSummaryFact.status, '已提供位置焦点');
 });
 
-test('大六壬证据应保留类神未选定限制，不把日支或神煞固定当作用神', () => {
+test('大六壬证据应在四项类神资料不全时失败关闭', () => {
   const evidence = analyzeLiurenEvidence(generateLiuren(fixedDate));
 
-  assert.match(evidence.promptText, /未按具体问题选定类神/);
-  assert.match(evidence.promptText, /不得把日支、天将或神煞固定当作用神/);
-  assert.match(evidence.promptText, /未给期限时不换算唯一日期/);
+  assert.match(
+    evidence.promptText,
+    /具体类神底本版本、事项类别与参与者角色、完整类神取用规则、已指定类神对象/,
+  );
+  assert.match(
+    evidence.promptText,
+    /不得把问题文字、范围标签、日干、日支、初传、天将或神煞固定当作类神/,
+  );
+  assert.match(evidence.promptText, /不生成现实演变、吉凶总分、成功率、时机、行动建议或绝对日期/);
+  assert.match(evidence.promptText, /四项类神资料与目标期限未全部明确时不换算唯一日期/);
 });
 
 test('大六壬起盘链、天地盘、课体神煞与天将属性应进入统一证据条目', () => {

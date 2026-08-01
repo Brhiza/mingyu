@@ -197,29 +197,29 @@ export function generateLiuren(customDate?: Date): LiurenData {
         firstTransmission.dayRelation!,
       ],
       limitations: firstTransmission.isVoid
-        ? ['初传落旬空；空亡有宜有忌，须结合所问事项、类神及出空、填实、冲实等候选条件辨用']
-        : ['初传不空不等于现实事件已经发动，仍须结合类神与事项核验'],
+        ? ['初传落旬空；这里只记录位置条件，不等于已选类神，也不生成现实吉凶或应期']
+        : ['初传不空只表示位置事实，不等于已选类神或现实事件已经发动'],
     },
     {
       target: `日干${dayStem}寄${dayStemResidence}`,
-      role: '我方与求测者',
+      role: '日干寄宫位置索引',
       level: '辅证',
-      evidence: ['日干寄宫为我方定位', `一课${fourLessons[0].upper}临${fourLessons[0].lower}`],
-      limitations: [],
+      evidence: ['日干寄宫位置', `一课${fourLessons[0].upper}临${fourLessons[0].lower}`],
+      limitations: ['不自动解释为我方、求测者或具体事项类神'],
     },
     {
       target: `日支${dayBranch}`,
-      role: '所占之事与对方环境',
+      role: '日支位置索引',
       level: '辅证',
       evidence: [`三课${fourLessons[2].upper}临${fourLessons[2].lower}`, '需与发用和三传同看'],
-      limitations: ['具体类神仍须按问题主题从明列盘面中选取'],
+      limitations: ['不自动解释为所占之事、对方、环境或具体事项类神'],
     },
   ];
   const timingEvidence = [
-    `一级发用：初传${firstTransmission.branch}${firstTransmission.isVoid ? '落旬空' : '不空'}；空亡有宜有忌，须结合类神与事项判断，出空、填实、冲实仅作候选触发`,
+    `一级发用：初传${firstTransmission.branch}${firstTransmission.isVoid ? '落旬空' : '不空'}；这里只记录位置状态，出空、填实、冲实仅作候选触发，不等于已选类神或现实事件发动`,
     `二级三传：${threeTransmissions.map((item) => `${item.stage}${item.branch}（月令${item.seasonState}${item.isVoid ? '、空' : ''}）`).join('→')}`,
-    `三级日月：以日支${dayBranch}、月支${ganzhi.month.charAt(1)}对初传和类神的同支、冲合与旺衰作为触发条件`,
-    '未选定类神和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',
+    `三级日月：只登记日支${dayBranch}、月支${ganzhi.month.charAt(1)}与初传的同支、冲合及旺衰事实；类神未由通用盘选定`,
+    '未同时明确具体类神底本版本、事项类别与参与者角色、完整类神取用规则、已指定类神对象和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',
   ];
 
   // 为入传天将附加可核验的基础属性。
