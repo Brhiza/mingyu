@@ -35,17 +35,19 @@ const xuanKongSchema = z.object({
 });
 
 function calculateXuanKong(args: z.infer<typeof xuanKongSchema>) {
-  return xuankong.generateXuanKong({
-    year: args.year,
-    ...(args.sitMountain ? { sitMountain: args.sitMountain } : {}),
-    ...(args.facingMountain ? { facingMountain: args.facingMountain } : {}),
-    ...(args.facingDegree !== undefined ? { facingDegree: args.facingDegree } : {}),
-    ...(args.sitDegree !== undefined ? { sitDegree: args.sitDegree } : {}),
-    ...(args.measurementUncertaintyDegrees !== undefined
-      ? { measurementUncertaintyDegrees: args.measurementUncertaintyDegrees }
-      : {}),
-    ...(args.guaType ? { guaType: args.guaType } : {}),
-  });
+  return xuankong.rebuildAuditedXuanKongData(
+    xuankong.generateXuanKong({
+      year: args.year,
+      ...(args.sitMountain ? { sitMountain: args.sitMountain } : {}),
+      ...(args.facingMountain ? { facingMountain: args.facingMountain } : {}),
+      ...(args.facingDegree !== undefined ? { facingDegree: args.facingDegree } : {}),
+      ...(args.sitDegree !== undefined ? { sitDegree: args.sitDegree } : {}),
+      ...(args.measurementUncertaintyDegrees !== undefined
+        ? { measurementUncertaintyDegrees: args.measurementUncertaintyDegrees }
+        : {}),
+      ...(args.guaType ? { guaType: args.guaType } : {}),
+    }),
+  );
 }
 
 export function registerXuanKongTool(server: McpServer) {

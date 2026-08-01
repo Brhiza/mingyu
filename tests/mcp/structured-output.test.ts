@@ -3358,6 +3358,15 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
             verificationSourceUrl: string;
           };
           engine: { name: string; version: string; mode: string };
+          generation: {
+            year: number;
+            orientation: {
+              source: string;
+              sitMountain: string | null;
+              facingMountain: string | null;
+            };
+            guaType: string | null;
+          };
           evidenceAnalysis: { promptText: string };
         };
       }
@@ -3384,6 +3393,15 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
     assert.equal(chart.engine.name, 'mingyu-core');
     assert.equal(chart.engine.version, '玄空三盘规则-v2');
     assert.equal(chart.engine.mode, '替卦');
+    assert.deepEqual(chart.generation, {
+      year: 2008,
+      orientation: {
+        source: 'mountain',
+        sitMountain: '子',
+        facingMountain: null,
+      },
+      guaType: '替卦',
+    });
     assert.match(chart.evidenceAnalysis.promptText, /替星|巽山替为6顺飞|卯山替为2逆飞/);
 
     const ambiguous = await client.callTool({
@@ -3393,6 +3411,14 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
     assert.equal(ambiguous.isError, true);
     const errorText = ambiguous.content[0]?.type === 'text' ? ambiguous.content[0].text : '';
     assert.match(errorText, /3° 至 4\.5°.*异说区间.*guaType/);
+
+    const mixed = await client.callTool({
+      name: 'metaphysics_xuankong',
+      arguments: { year: 2024, sitMountain: '子', sitDegree: 0 },
+    });
+    assert.equal(mixed.isError, true);
+    const mixedText = mixed.content[0]?.type === 'text' ? mixed.content[0].text : '';
+    assert.match(mixedText, /山名与度数测量.*不能混用/);
   });
 });
 

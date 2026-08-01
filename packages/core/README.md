@@ -517,6 +517,9 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `taiyi.generateTaiyi({ year, scope: 'year' })`    | 生成已校勘的太乙年计七十二局                                         |
 | `taiyi.rebuildAuditedTaiyiData(data)`             | 只凭原始公历年份重建太乙年计，忽略全部旧派生盘面与旧证据             |
 | `taiyi.analyzeTaiyiEvidence(data)`                | 先审核重建太乙年计，再返回结构化证据                                 |
+| `xuankong.generateXuanKong(input)`                | 从建造/起运年与单一山向来源生成玄空三盘和边界资料                    |
+| `xuankong.rebuildAuditedXuanKongData(data)`       | 只凭可信年份、山向与卦型口径重建全部玄空派生盘面                     |
+| `xuankong.analyzeXuanKongEvidence(data)`          | 先审核重建玄空结果，再返回三盘、替星、局型与限制证据                 |
 
 ### 类型（`mingyu-core/types`）
 

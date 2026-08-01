@@ -13,7 +13,12 @@ import {
   type BaZhaiInput,
   type BaZhaiResult,
 } from '../ba_zhai';
-import { generateXuanKong, type XuanKongInput, type XuanKongResult } from '../xuan_kong';
+import {
+  generateXuanKong,
+  rebuildAuditedXuanKongData,
+  type XuanKongInput,
+  type XuanKongResult,
+} from '../xuan_kong';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
@@ -160,24 +165,33 @@ function buildXuanKong(
   const xuanInput: XuanKongInput = {
     year: input.year,
     ...(input.guaType ? { guaType: input.guaType } : {}),
-    ...(input.measurementUncertaintyDegrees != null
-      ? { measurementUncertaintyDegrees: input.measurementUncertaintyDegrees }
-      : {}),
   };
 
   if (input.sitDegree != null || input.facingDegree != null) {
     if (input.sitDegree != null) xuanInput.sitDegree = input.sitDegree;
     if (input.facingDegree != null) xuanInput.facingDegree = input.facingDegree;
+    if (input.measurementUncertaintyDegrees != null) {
+      xuanInput.measurementUncertaintyDegrees = input.measurementUncertaintyDegrees;
+    }
   } else if (input.doorToInteriorDegree != null && measurement) {
-    // 八宅门向量测：measuredDegree 是入户方向；玄空优先用其换算出的坐向。
-    if (measurement.sitMountain) xuanInput.sitMountain = measurement.sitMountain;
-    if (measurement.facingMountain) xuanInput.facingMountain = measurement.facingMountain;
+    // 八宅门向量测先完成北向校正，再把原始坐向度数交给玄空重建。
+    if (measurement.sitDegree != null) xuanInput.sitDegree = measurement.sitDegree;
+    if (measurement.facingDegree != null) xuanInput.facingDegree = measurement.facingDegree;
+    if (input.measurementUncertaintyDegrees != null) {
+      xuanInput.measurementUncertaintyDegrees = input.measurementUncertaintyDegrees;
+    }
   } else if (input.doorToInteriorDegree != null) {
     // 无居住人时仍可用门向起玄空宅运盘。
     const position = getBaZhaiSitFacingFromDoorDegree(input.doorToInteriorDegree);
-    xuanInput.sitMountain = position.sit.mountain;
-    xuanInput.facingMountain = position.facing.mountain;
+    xuanInput.sitDegree = position.sit.degree;
+    xuanInput.facingDegree = position.facing.degree;
+    if (input.measurementUncertaintyDegrees != null) {
+      xuanInput.measurementUncertaintyDegrees = input.measurementUncertaintyDegrees;
+    }
   } else if (input.sitMountain || input.facingMountain) {
+    if (input.measurementUncertaintyDegrees != null) {
+      throw new Error('山名来源不能夹带 measurementUncertaintyDegrees；请提供实际度数测量。');
+    }
     if (input.sitMountain) xuanInput.sitMountain = input.sitMountain;
     if (input.facingMountain) xuanInput.facingMountain = input.facingMountain;
   } else if (measurement?.sitMountain) {
@@ -187,7 +201,7 @@ function buildXuanKong(
     return null;
   }
 
-  return generateXuanKong(xuanInput);
+  return rebuildAuditedXuanKongData(generateXuanKong(xuanInput));
 }
 
 function buildReviewNotes(

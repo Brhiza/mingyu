@@ -2052,15 +2052,17 @@ function calculateXuanKongApi(input: JsonRecord) {
       ? undefined
       : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
   try {
-    return xuankong.generateXuanKong({
-      year,
-      ...(sitMountain ? { sitMountain } : {}),
-      ...(facingMountain ? { facingMountain } : {}),
-      ...(facingDegree !== undefined ? { facingDegree } : {}),
-      ...(sitDegree !== undefined ? { sitDegree } : {}),
-      ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
-      ...(guaType ? { guaType } : {}),
-    });
+    return xuankong.rebuildAuditedXuanKongData(
+      xuankong.generateXuanKong({
+        year,
+        ...(sitMountain ? { sitMountain } : {}),
+        ...(facingMountain ? { facingMountain } : {}),
+        ...(facingDegree !== undefined ? { facingDegree } : {}),
+        ...(sitDegree !== undefined ? { sitDegree } : {}),
+        ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
+        ...(guaType ? { guaType } : {}),
+      }),
+    );
   } catch (error) {
     throw new ApiError(
       400,

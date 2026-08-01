@@ -21,7 +21,7 @@ import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaZhai, rebuildAuditedBaZhaiData } from '@core/ba_zhai';
 import { generateResidentialFengshui } from '@core/residential_fengshui';
-import { generateXuanKong } from '@core/xuan_kong';
+import { generateXuanKong, rebuildAuditedXuanKongData } from '@core/xuan_kong';
 import { getZodiacYearFortune, rebuildAuditedZodiacData } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
@@ -591,10 +591,12 @@ async function buildSamples(): Promise<PromptSample[]> {
       { method: 'residential', currentTime: fixedNow },
     );
 
-    const xuankongData = generateXuanKong({
-      year: 2024,
-      facingDegree: 0,
-    });
+    const xuankongData = rebuildAuditedXuanKongData(
+      generateXuanKong({
+        year: 2024,
+        facingDegree: 0,
+      }),
+    );
     const xuankongPrompt = buildMetaphysicsPrompt(
       xuankongData.prompt,
       '这套宅的飞星结构与重点宫位怎么看？',

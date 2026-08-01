@@ -6040,6 +6040,15 @@ test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', asy
   assert.equal('combinations' in valid.body.data, false);
   assert.equal(valid.body.data.engine.name, 'mingyu-core');
   assert.equal(valid.body.data.engine.version, '玄空三盘规则-v2');
+  assert.deepEqual(valid.body.data.generation, {
+    year: 2008,
+    orientation: {
+      source: 'mountain',
+      sitMountain: '子',
+      facingMountain: null,
+    },
+    guaType: null,
+  });
 
   const replacement = await callApi('metaphysics/xuankong/calculate', {
     method: 'POST',
@@ -6058,6 +6067,7 @@ test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', asy
     /324623c5460b035d537a8ff2da6b6567f9b85e9e/,
   );
   assert.equal(replacement.body.data.engine.mode, '替卦');
+  assert.equal(replacement.body.data.generation.guaType, '替卦');
   assert.match(replacement.body.data.evidenceAnalysis.promptText, /巽山替为6顺飞|卯山替为2逆飞/);
 
   const ambiguous = await callApi('metaphysics/xuankong/calculate', {
@@ -6067,6 +6077,22 @@ test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', asy
   });
   assert.equal(ambiguous.response.status, 400);
   assert.match(ambiguous.body.error.message, /3° 至 4\.5°.*异说区间.*guaType/);
+
+  const mixed = await callApi('metaphysics/xuankong/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2024, sitMountain: '子', sitDegree: 0 }),
+  });
+  assert.equal(mixed.response.status, 400);
+  assert.match(mixed.body.error.message, /山名与度数测量.*不能混用/);
+
+  const mismatchedDegrees = await callApi('metaphysics/xuankong/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2024, sitDegree: 0, facingDegree: 181 }),
+  });
+  assert.equal(mismatchedDegrees.response.status, 400);
+  assert.match(mismatchedDegrees.body.error.message, /严格相差 180°/);
 });
 
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {

@@ -381,13 +381,17 @@
 
 ---
 
-## 八宅与住宅风水资料边界
+## 八宅、玄空与住宅风水资料边界
 
 `bazhai.analyzeBaZhai(input)` 与 `bazhai.analyzeBaZhaiByDoorDegree(input)` 返回命卦、宅卦、东四西四分组、命卦和宅卦各自的八宫传统标签，以及可复算的坐向测量证据。`groupRelation` 只取 `同组`、`异组` 或 `未比较`，表示两份分组资料是否相同；它不代表住宅效果。
 
 结果的 `generation` 只保存出生资料或直接命卦，以及固定坐山或完整门向测量来源。`bazhai.rebuildAuditedBaZhaiData(result)` 与 `bazhai.analyzeBaZhaiEvidence(result)` 只凭该来源重建命卦、宅卦、八宫、分组、测量候选、证据和提示词；调用方附带的旧派生字段均不采信。出生资料与直接命卦、固定坐山与门向测量不能混用；来源缺失、夹带未知字段、伪枚举对象、非有限数字或不完整时失败关闭。
 
 八宫项只含 `gua`、`direction`、`degree` 与 `label`。旧的 `luck`、`luckyDirections`、`unluckyDirections`、`match` 和 `matchAdvice` 已删除，避免底层把传统名称自动转换成方向宜避或布置建议。测量误差跨越二十四山或宅卦边界时，`candidateDirections` 完整保留全部候选盘。
+
+玄空结果的 `generation` 只保存建造或起运年、山名或度数测量之一的山向来源，以及显式卦型口径。`xuankong.rebuildAuditedXuanKongData(result)` 与 `xuankong.analyzeXuanKongEvidence(result)` 会重建三元九运、山向、三盘、九宫、替星过程、局型、测量候选、证据和提示词；旧派生字段均不采信。山名与度数来源不能混用，双度数必须严格相差 180°，测量误差只能附属于度数来源；来源缺失、夹带未知字段、伪枚举、显式 `null` 或非有限数字时失败关闭。
+
+九运乘二十四山的默认下卦、显式下卦和替卦共 648 盘，以及 0 至 360 度坐山来源，均逐项验证审核重建等价。3° 至 4.5° 的下卦、替卦异说区间继续要求调用方明确 `guaType`，不把任一公开实现静默当成唯一流派真值。
 
 `residentialFengshui.generateResidentialFengshui(input)` 通过 `reviewNotes` 记录资料完整度、分层关系和边界缺口；八宅与玄空结果分开保存，不自动合成布局建议、现实结果或综合总分。
 

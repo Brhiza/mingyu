@@ -82,8 +82,8 @@
 | `POST /divination/astrolabe/synastry/prompt` | 西占双盘计算并生成证据提示词                                                   |
 | `POST /metaphysics/bazhai/calculate`         | 从可信出生/命卦与坐山/门向来源重建八宅命卦、宅卦、测量候选及逐方证据            |
 | `POST /metaphysics/bazhai/prompt`            | 从可信来源重建八宅排盘并生成含测量和现实边界的 AI 解读提示词                    |
-| `POST /metaphysics/residential/calculate`    | 住宅风水：八宅与玄空飞星分层合参结果                                           |
-| `POST /metaphysics/residential/prompt`       | 住宅风水合参并生成 AI 解读提示词                                               |
+| `POST /metaphysics/residential/calculate`    | 住宅风水：从各层可信来源重建八宅与玄空飞星分层结果                             |
+| `POST /metaphysics/residential/prompt`       | 从审核重建的八宅、玄空资料生成住宅风水合参提示词                               |
 | `POST /metaphysics/zodiac/calculate`         | 从可信生肖年支和六十甲子重建值冲刑害破、三合六合及结构化关系证据               |
 | `POST /metaphysics/zodiac/prompt`            | 从可信来源重建生肖流年关系并生成含信息量限制的 AI 解读提示词                   |
 | `POST /metaphysics/taiyi/calculate`          | 太乙神数排盘                                                                   |
@@ -136,9 +136,11 @@
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                                                                 |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | 当前只接受 `scope: "year"` 与 `year`                                                                                                                        | 年计按积年与阳遁七十二局立成；结果保存原始 `year` 并含结构化证据，提示词只凭该年份重建全部派生盘面 |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`，使用 IANA 时区时还需 `standardMeridian`                               | 返回可信生成来源、十一星、真实距星宿界、5项已校勘命身十二职宫规则、8项生年起例和分层天文证据       |
-| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选 `guaType`（下卦或替卦）、测量误差；3° 至 4.5° 异说区间或误差跨阈值时须明确 `guaType`                    | 返回可复算的三元九运、三盘飞星、替星过程、当运星位置比较、到山到向与结构化证据                     |
+| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；两类来源不能混用，双度数须严格相差 180°；可选 `guaType`、测量误差，3° 至 4.5° 异说区间或误差跨阈值时须明确 `guaType` | 从可信来源重建三元九运、三盘飞星、替星过程、当运星位置比较、到山到向与结构化证据                   |
 
 七政四余排盘结果的 `generation` 保存规范化出生输入和生成时间。公开证据与提示词只凭该来源完整重算；旧结果中的星体、55组星对、宿界、命身十二宫、神煞、月相、光照、证据和提示词均不会作为可信输入，来源缺失或非法时直接返回参数错误。
+
+玄空排盘结果的 `generation` 只保存建造或起运年、山名或度数测量之一的山向来源与显式卦型口径。公开证据、提示词、API、MCP 和住宅风水组合入口会据此重建全部三盘、九宫、替星、局型与测量候选；旧派生字段不进入下一步计算。来源夹带、混用、不完整、伪枚举、非有限数字或双度数不严格相差 180° 时直接拒绝。九运乘二十四山的三种输入口径共 648 盘及 0 至 360 度坐山来源已逐项验证重建等价。
 
 参数选择建议：
 

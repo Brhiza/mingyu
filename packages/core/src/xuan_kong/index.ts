@@ -9,7 +9,10 @@ import {
   TWENTY_FOUR_MOUNTAINS,
   type CompassMountainPosition,
 } from '../direction';
-import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './evidence';
+import {
+  analyzeXuanKongEvidence as analyzeRebuiltXuanKongEvidence,
+  type XuanKongEvidenceAnalysis,
+} from './evidence';
 
 export type XuanKongGuaType = '下卦' | '替卦';
 export type XuanKongFormation =
@@ -47,6 +50,26 @@ export interface XuanKongInput {
   guaType?: XuanKongGuaType;
 }
 
+export type XuanKongOrientationGenerationSource =
+  | {
+      source: 'mountain';
+      sitMountain: string | null;
+      facingMountain: string | null;
+    }
+  | {
+      source: 'degree';
+      sitDegree: number | null;
+      facingDegree: number | null;
+      measurementUncertaintyDegrees: number;
+    };
+
+/** 玄空审核重建的唯一可信来源；山名与度数测量不可混用。 */
+export interface XuanKongGenerationSource {
+  year: number;
+  orientation: XuanKongOrientationGenerationSource;
+  guaType: XuanKongGuaType | null;
+}
+
 export interface XuanKongPalace {
   gong: number;
   name: string;
@@ -64,6 +87,8 @@ export interface XuanKongReplacementLeg {
 }
 
 export interface XuanKongResult {
+  /** 审核重建所需的唯一可信来源；其余字段均为派生结果。 */
+  generation: XuanKongGenerationSource;
   period: XuanKongPeriod;
   sitMountain: string;
   facingMountain: string;
@@ -218,6 +243,221 @@ function assertMountain(value: string, label: string) {
   if (!TWENTY_FOUR_MOUNTAINS.includes(value)) {
     throw new Error(`${label}必须是有效二十四山，当前为 ${value}。`);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function assertExactKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  label: string,
+): void {
+  const allowed = new Set(allowedKeys);
+  const unexpected = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unexpected.length) {
+    throw new Error(`${label}包含不受支持的字段：${unexpected.join('、')}`);
+  }
+}
+
+function normalizeCompassInputDegree(value: unknown, label: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 360) {
+    throw new Error(`${label} 必须是 0-360 之间的有限数字。`);
+  }
+  return value === 360 ? 0 : value;
+}
+
+function assertOppositeDegrees(sitDegree: number, facingDegree: number): void {
+  const expectedFacing = (sitDegree + 180) % 360;
+  const difference = Math.abs(expectedFacing - facingDegree);
+  const circularDifference = Math.min(difference, 360 - difference);
+  if (circularDifference > Number.EPSILON * 360 * 32) {
+    throw new Error(
+      `坐向度数必须严格相差 180°；当前坐山 ${sitDegree}° 应朝向 ${expectedFacing}°，不能朝向 ${facingDegree}°。`,
+    );
+  }
+}
+
+function normalizeGuaType(value: unknown): XuanKongGuaType | null {
+  if (value === null) return null;
+  if (value !== '下卦' && value !== '替卦') {
+    throw new Error(`guaType 必须是下卦、替卦或 null，当前为 ${String(value)}。`);
+  }
+  return value;
+}
+
+function normalizeXuanKongGenerationSource(input: unknown): XuanKongGenerationSource {
+  if (!isRecord(input)) throw new Error('玄空可信来源必须是对象。');
+  assertExactKeys(input, ['year', 'orientation', 'guaType'], '玄空可信来源');
+  if (!Object.prototype.hasOwnProperty.call(input, 'year')) {
+    throw new Error('玄空可信来源缺少 year。');
+  }
+  if (!Object.prototype.hasOwnProperty.call(input, 'orientation')) {
+    throw new Error('玄空可信来源缺少 orientation。');
+  }
+  if (!Object.prototype.hasOwnProperty.call(input, 'guaType')) {
+    throw new Error('玄空可信来源缺少 guaType。');
+  }
+
+  const year = normalizeYear(input.year as number);
+  const guaType = normalizeGuaType(input.guaType);
+  if (!isRecord(input.orientation)) throw new Error('玄空可信山向来源必须是对象。');
+  const orientation = input.orientation;
+  if (orientation.source === 'mountain') {
+    assertExactKeys(orientation, ['source', 'sitMountain', 'facingMountain'], '玄空山名来源');
+    if (!Object.prototype.hasOwnProperty.call(orientation, 'sitMountain')) {
+      throw new Error('玄空山名来源缺少 sitMountain。');
+    }
+    if (!Object.prototype.hasOwnProperty.call(orientation, 'facingMountain')) {
+      throw new Error('玄空山名来源缺少 facingMountain。');
+    }
+    const sitMountain = orientation.sitMountain;
+    const facingMountain = orientation.facingMountain;
+    if (sitMountain !== null && typeof sitMountain !== 'string') {
+      throw new Error('sitMountain 必须是二十四山字符串或 null。');
+    }
+    if (facingMountain !== null && typeof facingMountain !== 'string') {
+      throw new Error('facingMountain 必须是二十四山字符串或 null。');
+    }
+    if (sitMountain === null && facingMountain === null) {
+      throw new Error('玄空山名来源至少需要 sitMountain 或 facingMountain。');
+    }
+    if (sitMountain !== null) assertMountain(sitMountain, 'sitMountain');
+    if (facingMountain !== null) assertMountain(facingMountain, 'facingMountain');
+    if (
+      sitMountain !== null &&
+      facingMountain !== null &&
+      oppositeMountain(sitMountain) !== facingMountain
+    ) {
+      throw new Error(
+        `坐向必须严格相对；当前坐${sitMountain}应向${oppositeMountain(sitMountain)}，不能向${facingMountain}。`,
+      );
+    }
+    return {
+      year,
+      orientation: { source: 'mountain', sitMountain, facingMountain },
+      guaType,
+    };
+  }
+
+  if (orientation.source === 'degree') {
+    assertExactKeys(
+      orientation,
+      ['source', 'sitDegree', 'facingDegree', 'measurementUncertaintyDegrees'],
+      '玄空度数来源',
+    );
+    for (const key of ['sitDegree', 'facingDegree', 'measurementUncertaintyDegrees'] as const) {
+      if (!Object.prototype.hasOwnProperty.call(orientation, key)) {
+        throw new Error(`玄空度数来源缺少 ${key}。`);
+      }
+    }
+    const sitDegree =
+      orientation.sitDegree === null
+        ? null
+        : normalizeCompassInputDegree(orientation.sitDegree, 'sitDegree');
+    const facingDegree =
+      orientation.facingDegree === null
+        ? null
+        : normalizeCompassInputDegree(orientation.facingDegree, 'facingDegree');
+    if (sitDegree === null && facingDegree === null) {
+      throw new Error('玄空度数来源至少需要 sitDegree 或 facingDegree。');
+    }
+    const uncertainty = orientation.measurementUncertaintyDegrees;
+    if (typeof uncertainty !== 'number' || !Number.isFinite(uncertainty)) {
+      throw new Error('measurementUncertaintyDegrees 必须是 0-45 之间的有限数字。');
+    }
+    if (uncertainty < 0 || uncertainty > 45) {
+      throw new Error('measurementUncertaintyDegrees 必须在 0-45 之间。');
+    }
+    if (sitDegree !== null && facingDegree !== null) {
+      assertOppositeDegrees(sitDegree, facingDegree);
+    }
+    return {
+      year,
+      orientation: {
+        source: 'degree',
+        sitDegree,
+        facingDegree,
+        measurementUncertaintyDegrees: uncertainty,
+      },
+      guaType,
+    };
+  }
+
+  throw new Error(
+    `玄空山向来源 source 必须是 mountain 或 degree，当前为 ${String(orientation.source)}。`,
+  );
+}
+
+function normalizeXuanKongInput(input: unknown): XuanKongGenerationSource {
+  if (!isRecord(input)) throw new Error('玄空飞星参数必须是对象。');
+  const allowedKeys = [
+    'year',
+    'sitMountain',
+    'facingMountain',
+    'facingDegree',
+    'sitDegree',
+    'measurementUncertaintyDegrees',
+    'guaType',
+  ] as const;
+  assertExactKeys(input, allowedKeys, '玄空飞星参数');
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(input, key) && input[key] === null) {
+      throw new Error(`玄空飞星参数 ${key} 不接受显式 null。`);
+    }
+  }
+
+  const hasMountain = input.sitMountain !== undefined || input.facingMountain !== undefined;
+  const hasDegree = input.sitDegree !== undefined || input.facingDegree !== undefined;
+  if (hasMountain && hasDegree) {
+    throw new Error('玄空山名与度数测量属于两种可信来源，不能混用。');
+  }
+  if (!hasMountain && !hasDegree) {
+    throw new Error('需提供 sitMountain/facingMountain，或 sitDegree/facingDegree。');
+  }
+  if (!hasDegree && input.measurementUncertaintyDegrees !== undefined) {
+    throw new Error('measurementUncertaintyDegrees 只能与度数测量来源一起提供。');
+  }
+
+  return normalizeXuanKongGenerationSource({
+    year: input.year,
+    orientation: hasDegree
+      ? {
+          source: 'degree',
+          sitDegree: input.sitDegree ?? null,
+          facingDegree: input.facingDegree ?? null,
+          measurementUncertaintyDegrees: input.measurementUncertaintyDegrees ?? 0,
+        }
+      : {
+          source: 'mountain',
+          sitMountain: input.sitMountain ?? null,
+          facingMountain: input.facingMountain ?? null,
+        },
+    guaType: input.guaType ?? null,
+  });
+}
+
+function generationSourceToInput(generation: XuanKongGenerationSource): XuanKongInput {
+  const orientation = generation.orientation;
+  return {
+    year: generation.year,
+    ...(orientation.source === 'mountain'
+      ? {
+          ...(orientation.sitMountain !== null ? { sitMountain: orientation.sitMountain } : {}),
+          ...(orientation.facingMountain !== null
+            ? { facingMountain: orientation.facingMountain }
+            : {}),
+        }
+      : {
+          ...(orientation.sitDegree !== null ? { sitDegree: orientation.sitDegree } : {}),
+          ...(orientation.facingDegree !== null ? { facingDegree: orientation.facingDegree } : {}),
+          measurementUncertaintyDegrees: orientation.measurementUncertaintyDegrees,
+        }),
+    ...(generation.guaType !== null ? { guaType: generation.guaType } : {}),
+  };
 }
 
 function normalizeYear(year: number): number {
@@ -531,10 +771,8 @@ function buildPrompt(
     .join('\n');
 }
 
-export function generateXuanKong(input: XuanKongInput): XuanKongResult {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('玄空飞星参数必须是对象。');
-  }
+function generateXuanKongFromGeneration(generation: XuanKongGenerationSource): XuanKongResult {
+  const input = generationSourceToInput(generation);
   const period = resolveXuanKongPeriod(input.year);
   const { sitMountain, facingMountain, measurement } = resolveMountains(input);
   const gua = resolveGuaType(input, measurement);
@@ -594,6 +832,7 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
   const palaces = buildPalaces(yunPlate, shanPlate, xiangPlate);
   const formation = classifyPlates(period.yun, sitGong, facingGong, shanPlate, xiangPlate);
   const partial = {
+    generation,
     period,
     sitMountain,
     facingMountain,
@@ -613,13 +852,35 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
     ...(measurement ? { measurement } : {}),
   };
 
-  const evidenceAnalysis = analyzeXuanKongEvidence(partial);
+  const evidenceAnalysis = analyzeRebuiltXuanKongEvidence(partial);
   const prompt = buildPrompt(partial, evidenceAnalysis.promptText);
   return {
     ...partial,
     evidenceAnalysis,
     prompt,
   };
+}
+
+export function generateXuanKong(input: XuanKongInput): XuanKongResult {
+  return generateXuanKongFromGeneration(normalizeXuanKongInput(input));
+}
+
+/** 只凭建造/起运年、山向来源与显式卦型口径重建完整玄空结果。 */
+export function rebuildAuditedXuanKongData(
+  input: Pick<XuanKongResult, 'generation'>,
+): XuanKongResult {
+  if (!isRecord(input)) throw new Error('玄空审核重建必须提供结果对象。');
+  if (!Object.prototype.hasOwnProperty.call(input, 'generation')) {
+    throw new Error('玄空旧结果缺少可信原始输入，无法审核重建。');
+  }
+  return generateXuanKongFromGeneration(normalizeXuanKongGenerationSource(input.generation));
+}
+
+/** 先从可信来源审核重建完整盘面，再返回结构化证据。 */
+export function analyzeXuanKongEvidence(
+  input: Pick<XuanKongResult, 'generation'>,
+): XuanKongEvidenceAnalysis {
+  return rebuildAuditedXuanKongData(input).evidenceAnalysis;
 }
 
 export type { XuanKongEvidenceAnalysis };
