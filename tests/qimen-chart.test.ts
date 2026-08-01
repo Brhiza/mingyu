@@ -5,7 +5,11 @@ import {
   generateQimen,
   rebuildAuditedQimenData,
 } from '../packages/core/src/divination/algorithms/qimen';
-import { getZhiFuZhiShiByGanZhi } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
+import {
+  checkSpecialHourConditions,
+  getZhiFuZhiShi,
+  getZhiFuZhiShiByGanZhi,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
 import {
   arrangeJiuGongGe,
   resolveZhiShiLandingPalace,
@@ -36,6 +40,27 @@ const auditedClassicPatternNames = new Set([
   '刑格',
   '小格',
 ]);
+
+test('奇门值符值使公开入口应拒绝非法干支、缺局数与坏局数', () => {
+  const layout = { isYangDun: true, juShu: 1 };
+  for (const invalid of ['甲丑', '乙子', '甲', '甲子额外', '', 'A子']) {
+    assert.throws(() => getZhiFuZhiShiByGanZhi(invalid, layout), /完整且合法的六十甲子/);
+    assert.throws(() => checkSpecialHourConditions(invalid), /完整且合法的六十甲子/);
+  }
+  assert.throws(() => getZhiFuZhiShi('甲子', '甲丑', layout), /日干支必须是完整且合法的六十甲子/);
+  assert.throws(() => getZhiFuZhiShiByGanZhi('甲子', undefined as never), /必须提供当前奇门局信息/);
+  assert.throws(() => getZhiFuZhiShi('甲子', '甲子', undefined as never), /必须提供当前奇门局信息/);
+  assert.throws(
+    () => getZhiFuZhiShiByGanZhi('甲子', { isYangDun: '是' as never, juShu: 1 }),
+    /阴阳遁标记必须是布尔值/,
+  );
+  for (const juShu of [0, 10, 1.5, Number.NaN]) {
+    assert.throws(
+      () => getZhiFuZhiShiByGanZhi('甲子', { isYangDun: true, juShu }),
+      /局数必须是1至9的整数/,
+    );
+  }
+});
 
 function byGong<T extends { gong: number }>(items: T[]): Record<number, T> {
   return Object.fromEntries(items.map((item) => [item.gong, item]));

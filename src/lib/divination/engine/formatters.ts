@@ -16,7 +16,7 @@ import type {
 } from '../../../types/divination';
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
-import { analyzeSsgwEvidence, conditionSsgwInterpretation } from 'mingyu-core/divination/ssgw';
+import { conditionSsgwInterpretation, rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
 import { analyzeQimenEvidence, rebuildAuditedQimenData } from '@core/divination/algorithms/qimen';
 import {
   analyzeAlmanacEvidence,
@@ -753,24 +753,25 @@ function formatTarotInfo(data: TarotData) {
 }
 
 function formatSsgwInfo(data: SsgwData) {
-  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeSsgwEvidence(data);
-  if (data.ritual?.rejected) {
-    const throwLog = data.ritual.throws.map((t) => t.result).join(' → ');
+  const audited = rebuildAuditedSsgwData(data);
+  const evidenceAnalysis = audited.evidenceAnalysis!;
+  if (audited.ritual?.rejected) {
+    const throwLog = audited.ritual.throws.map((t) => t.result).join(' → ');
     return [
       '占法：三山国王灵签',
-      `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
+      `时间干支：${formatGanzhi(audited.ganzhi).replace('干支：', '')}`,
       `掷筊记录：${throwLog}`,
-      `结果：${data.ritual.reason}`,
+      `结果：${audited.ritual.reason}`,
     ].join('\n');
   }
 
-  const { canonicalStory, extraStory } = resolveSsgwStoryContent(data);
+  const { canonicalStory, extraStory } = resolveSsgwStoryContent(audited);
   const promptCanonicalStory = canonicalStory
     ? conditionSsgwInterpretation(canonicalStory)
     : evidenceAnalysis.promptStory;
   const promptExtraStory = extraStory ? conditionSsgwInterpretation(extraStory) : '';
-  const ritualLog = data.ritual?.throws?.length
-    ? `掷筊记录：${data.ritual.throws.map((t) => t.result).join(' → ')}${data.ritual.reason ? `（${data.ritual.reason}）` : ''}`
+  const ritualLog = audited.ritual?.throws?.length
+    ? `掷筊记录：${audited.ritual.throws.map((t) => t.result).join(' → ')}${audited.ritual.reason ? `（${audited.ritual.reason}）` : ''}`
     : '';
   const interpretationFields = [
     '核心寓意',
@@ -798,11 +799,11 @@ function formatSsgwInfo(data: SsgwData) {
 
   return [
     '占法：三山国王灵签',
-    `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
-    `签号：第${data.number}签`,
-    `签题：《${data.title}》`,
+    `时间干支：${formatGanzhi(audited.ganzhi).replace('干支：', '')}`,
+    `签号：第${audited.number}签`,
+    `签题：《${audited.title}》`,
     ritualLog,
-    `签诗：${data.poem}`,
+    `签诗：${audited.poem}`,
     promptCanonicalStory ? `典故：${promptCanonicalStory}` : '',
     promptExtraStory ? `补充签意：${promptExtraStory}` : '',
     detailLines.length ? '签意：' : '',

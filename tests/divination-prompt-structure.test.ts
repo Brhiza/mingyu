@@ -8,6 +8,7 @@ import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
+import { conditionSsgwInterpretation, resolveSignByNumber } from 'mingyu-core/divination/ssgw';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import {
@@ -487,17 +488,7 @@ function createData(method: FixtureMethod): DivinationData {
         ],
       });
     case 'ssgw':
-      return {
-        number: 18,
-        title: '刘备借荆州',
-        poem: '前路迢迢莫强求，且看云开月自明。',
-        details: {
-          典故: '刘备借荆州后多方周旋，需审时度势。',
-          解签: '宜守正待时，不可躁进。',
-        },
-        timestamp: Date.now(),
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-      };
+      return resolveSignByNumber(18, new Date('2025-06-29T08:00:00+08:00'));
   }
 }
 
@@ -1314,27 +1305,29 @@ test('塔罗提示词保留牌阵、牌位、关键词与牌义', () => {
 });
 
 test('灵签提示词保留签诗、典故和现有签文条目', () => {
+  const sign = resolveSignByNumber(18, new Date('2025-06-29T08:00:00+08:00'));
   const prompt = buildDivinationPrompt(
     'ssgw',
     '这件事接下来该怎么推进？',
-    createData('ssgw'),
+    sign,
     createSupplementaryInfo(),
   );
 
   assert.match(prompt, /签号：第18签/);
-  assert.match(prompt, /签诗：前路迢迢莫强求，且看云开月自明。/);
-  assert.match(prompt, /典故：刘备借荆州后多方周旋，需审时度势。/);
+  assert.ok(prompt.includes(`签诗：${sign.poem}`));
+  assert.ok(prompt.includes(`典故：${conditionSsgwInterpretation(sign.story || '')}`));
   assert.match(prompt, /签意：/);
-  assert.match(prompt, /- 解签：宜守正待时，不可躁进。/);
+  assert.ok(prompt.includes(`- 核心寓意：${sign.details?.核心寓意}`));
   assert.doesNotMatch(prompt, /吉凶层级|宜忌条件|事项映射|现实映射|典故映射|证据汇总|非事实结论/);
 });
 
-test('灵签提示词会去重重复典故，避免 story 与 details.典故 双写', () => {
+test('灵签提示词应忽略外部签文与典故注入并使用标准签本', () => {
+  const canonical = resolveSignByNumber(9, new Date('2025-06-29T08:00:00+08:00'));
   const prompt = buildDivinationPrompt(
     'ssgw',
     '这件事接下来该怎么推进？',
     {
-      number: 9,
+      ...canonical,
       title: '典故去重测试',
       poem: '静待云开见月明，不妨暂且敛锋芒。',
       story: '韩信受胯下之辱，先忍后成大业。',
@@ -1342,15 +1335,14 @@ test('灵签提示词会去重重复典故，避免 story 与 details.典故 双
         典故: '韩信受胯下之辱，先忍后成大业。',
         解签: '宜暂避锋芒，等待时机。',
       },
-      timestamp: Date.now(),
-      ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
+      evidenceAnalysis: undefined,
     },
     createSupplementaryInfo(),
   );
 
-  assert.equal((prompt.match(/韩信受胯下之辱，先忍后成大业。/g) ?? []).length, 1);
-  assert.match(prompt, /典故：韩信受胯下之辱，先忍后成大业。/);
-  assert.doesNotMatch(prompt, /辅助证据|^- 典故：/m);
+  assert.ok(prompt.includes(canonical.title));
+  assert.ok(prompt.includes(canonical.poem));
+  assert.doesNotMatch(prompt, /典故去重测试|静待云开见月明|韩信受胯下之辱|宜暂避锋芒/);
 });
 
 test('雷诺曼提示词保留牌序、关键词、牌义与组合资料', () => {

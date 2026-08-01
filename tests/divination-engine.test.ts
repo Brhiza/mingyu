@@ -44,7 +44,13 @@ import {
 } from 'mingyu-core/divination/liuyao';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
-import { analyzeSsgwEvidence, drawRandomSign } from 'mingyu-core/divination/ssgw';
+import {
+  analyzeSsgwEvidence,
+  conditionSsgwInterpretation,
+  drawRandomSign,
+  rebuildAuditedSsgwData,
+  resolveSignByNumber,
+} from 'mingyu-core/divination/ssgw';
 import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import {
@@ -80,15 +86,10 @@ test('三山国王九十二签进入证据提示词时不应保留绝对结果�
   const forbidden = /必然(?:会|是|失败|走向|两败俱伤)|必定成功|必能|必败|必然后悔/;
 
   SSGW_SIGNS.forEach((sign) => {
-    const analysis = analyzeSsgwEvidence({
-      number: sign.id,
-      title: sign.title,
-      poem: sign.qianwen,
-      story: sign.story,
-      details: sign.details,
-      timestamp: Date.now(),
-      ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-    });
+    const analysis = resolveSignByNumber(
+      sign.id,
+      new Date('2025-01-01T00:00:00+08:00'),
+    ).evidenceAnalysis!;
     assert.doesNotMatch(analysis.promptText, forbidden, `第${sign.id}签提示词仍含绝对结果保证`);
     assert.ok(analysis.interpretations.every((item) => !forbidden.test(item.promptText)));
   });
@@ -1767,64 +1768,190 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.match(rejectedRitual?.detail || '', /未获圣杯/);
 });
 
-test('三山国王灵签分类释义应保留原文并对提示词绝对断语作条件化处理', () => {
-  const analysis = analyzeSsgwEvidence({
-    number: 1,
-    title: '条件化测试',
-    poem: '测试签诗原文',
-    details: {
-      核心寓意: '所求之事必定成功，无需多虑。',
-      事业: '明知风险仍投入，结果必然失败。',
-      感情: '互不相让必然两败俱伤。',
+test('三山国王九十二签应逐签从标准资料重建并忽略旧文本与干支污染', () => {
+  const date = new Date('2025-01-01T00:00:00+08:00');
+  SSGW_SIGNS.forEach((reference) => {
+    const manual = resolveSignByNumber(reference.id, date);
+    const rebuilt = rebuildAuditedSsgwData({
+      ...manual,
+      title: `污染签题${reference.id}`,
+      poem: `污染签诗${reference.id}`,
+      story: `污染典故${reference.id}`,
+      details: { 污染字段: `污染释义${reference.id}` },
+      ganzhi: { year: '甲子', month: '甲子', day: '甲子', hour: '甲子' },
+      evidenceAnalysis: undefined,
+    });
+    assert.equal(rebuilt.title, reference.title);
+    assert.equal(rebuilt.poem, reference.qianwen);
+    assert.equal(rebuilt.story, reference.story);
+    assert.deepEqual(rebuilt.details, reference.details);
+    assert.notEqual(rebuilt.details, reference.details);
+    assert.deepEqual(rebuilt.ganzhi, manual.ganzhi);
+    assert.deepEqual(rebuilt.draw, {
+      method: 'manual',
+      poolSize: 92,
+      selectedIndex: null,
+      selectedNumber: reference.id,
+    });
+    assert.equal(rebuilt.ritual, undefined);
+    assert.equal(rebuilt.meta?.random, undefined);
+    assert.equal(rebuilt.evidenceAnalysis?.signFact.number, reference.id);
+  });
+});
+
+test('三山国王灵签随机来源应严格重放签号、掷筊终止状态与完整样本', () => {
+  const date = new Date('2025-01-01T00:00:00+08:00');
+  const confirmed = drawRandomSign(date, { replay: [0.1, 0.1, 0.9] });
+  const reference = SSGW_SIGNS[confirmed.number - 1];
+  const polluted = {
+    ...confirmed,
+    title: '污染签题',
+    poem: '污染签诗',
+    story: '污染典故',
+    details: Object.fromEntries(SSGW_INTERPRETATION_FIELDS.map((field) => [field, `污染${field}`])),
+    ganzhi: { year: '甲子', month: '甲子', day: '甲子', hour: '甲子' },
+    draw: { method: 'random' as const, poolSize: 1, selectedIndex: 91, selectedNumber: 92 },
+    ritual: {
+      throws: [
+        { result: '笑杯' as const, firstFace: '阳面' as const, secondFace: '阳面' as const },
+      ],
+      confirmed: false,
+      rejected: true,
+      reason: '污染仪式结论',
     },
-    timestamp: Date.now(),
-    ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
+    evidenceAnalysis: undefined,
+  } satisfies SsgwData;
+  const rebuilt = rebuildAuditedSsgwData(polluted);
+  assert.equal(rebuilt.title, reference.title);
+  assert.equal(rebuilt.poem, reference.qianwen);
+  assert.equal(rebuilt.story, reference.story);
+  assert.deepEqual(rebuilt.details, reference.details);
+  assert.deepEqual(rebuilt.draw, confirmed.draw);
+  assert.deepEqual(rebuilt.ritual, confirmed.ritual);
+
+  const info = formatDivinationInfo('ssgw', polluted, '测试问题');
+  const summary = getDivinationSummaryBlocks('ssgw', polluted);
+  assert.ok(info.includes(reference.title));
+  assert.ok(info.includes(reference.qianwen));
+  assert.doesNotMatch(info, /污染签题|污染签诗|污染典故|污染核心寓意|污染仪式结论/);
+  assert.ok(summary.tags.join('；').includes(reference.title));
+  assert.ok(summary.lines.join('\n').includes(reference.qianwen));
+  assert.doesNotMatch(summary.lines.join('\n'), /污染签题|污染签诗|污染典故|污染核心寓意/);
+
+  const twelveSmiles = drawRandomSign(date, {
+    replay: [0.1, ...Array.from({ length: 24 }, () => 0.1)],
   });
+  assert.equal(twelveSmiles.ritual?.throws.length, 12);
+  assert.equal(twelveSmiles.ritual?.rejected, true);
+  assert.match(twelveSmiles.ritual?.reason || '', /连续十二次/);
 
-  assert.match(analysis.interpretations[0].originalText, /必定成功/);
-  assert.equal(analysis.interpretations[0].text, analysis.interpretations[0].originalText);
-  assert.match(analysis.interpretations[0].promptText, /较有机会成功/);
-  assert.match(analysis.interpretations[1].promptText, /失败风险很高/);
-  assert.match(analysis.interpretations[2].promptText, /容易两败俱伤/);
-  assert.doesNotMatch(analysis.promptText, /必定成功|必然失败|必然两败俱伤/);
-  assert.match(analysis.promptText, /非事实结论/);
-  assert.equal(analysis.coverageFact.status, '存在缺口');
-  assert.deepEqual(
-    analysis.missingFieldFacts.map((item) => item.field),
-    ['财运', '学业', '健康', '行动建议', '风险提醒'],
+  assert.throws(
+    () => rebuildAuditedSsgwData({ ...confirmed, number: confirmed.number + 1 }),
+    /与随机轨迹重放得到的第\d+签不一致/,
   );
-  assert.ok(
-    analysis.missingFieldFacts.every(
-      (item) => item.key && item.status === '缺失' && item.sources.length > 0,
-    ),
+  assert.throws(
+    () =>
+      rebuildAuditedSsgwData({
+        ...confirmed,
+        meta: {
+          ...confirmed.meta!,
+          random: { mode: 'replay', samples: [0.1, 0.1, 0.1] },
+        },
+      }),
+    /合法终止状态前已用尽/,
   );
-  assert.equal(analysis.counterEvidenceFacts.length, 6);
-  assert.equal(analysis.counterSummaryFact.status, '存在需保留反证');
-  assert.equal(analysis.counterSummaryFact.factKeys.length, 5);
-  assert.equal(analysis.summaryFact.status, '证据链有缺口');
-  assert.equal(analysis.calculationSteps[1]?.status, '资料不足');
-  assert.equal(analysis.calculationSteps[3]?.status, '资料不足');
-  assert.equal(analysis.calculationSteps[4]?.status, '资料不足');
-  assert.equal(analysis.calculationSteps[5]?.status, '资料不足');
-  assert.equal(analysis.calculationSteps[7]?.status, '资料不足');
-  assert.equal(analysis.limitationFacts.length, 6);
-  assert.equal(analysis.limitations.length, analysis.limitationFacts.length);
+  assert.throws(
+    () =>
+      rebuildAuditedSsgwData({
+        ...confirmed,
+        meta: {
+          ...confirmed.meta!,
+          random: { mode: 'replay', samples: [0.1, 0.1, 0.9, 0.2, 0.8] },
+        },
+      }),
+    /仪式结束后仍有多余样本/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedSsgwData({
+        ...confirmed,
+        meta: {
+          ...confirmed.meta!,
+          random: { mode: 'replay', samples: [0.1, 0.1] },
+        },
+      }),
+    /至少需要|必须按每次2个样本/,
+  );
 
-  const emptyPoemAnalysis = analyzeSsgwEvidence({
-    number: 1,
-    title: '缺失签诗测试',
+  const seeded = drawRandomSign(date, { seed: '灵签轨迹核验' });
+  assert.throws(
+    () =>
+      rebuildAuditedSsgwData({
+        ...seeded,
+        meta: {
+          ...seeded.meta!,
+          random: {
+            ...seeded.meta!.random!,
+            samples: seeded.meta!.random!.samples.map((sample, index) =>
+              index === 0 ? (sample + 0.5) % 1 : sample,
+            ),
+          },
+        },
+      }),
+    /样本与种子不一致/,
+  );
+});
+
+test('三山国王灵签应拒绝来源矛盾、缺失轨迹与无效时间', () => {
+  const date = new Date('2025-01-01T00:00:00+08:00');
+  const manual = resolveSignByNumber(1, date);
+  const random = drawRandomSign(date, { replay: [0.1, 0.1, 0.9] });
+  assert.throws(
+    () =>
+      rebuildAuditedSsgwData({
+        ...manual,
+        meta: random.meta,
+      }),
+    /手工录入不能同时携带随机轨迹/,
+  );
+  assert.throws(
+    () => rebuildAuditedSsgwData({ ...manual, ritual: random.ritual }),
+    /手工录入不应携带模拟掷筊记录/,
+  );
+  assert.throws(() => rebuildAuditedSsgwData({ ...random, meta: undefined }), /缺少完整随机轨迹/);
+  assert.throws(
+    () => rebuildAuditedSsgwData({ ...manual, timestamp: Number.MAX_SAFE_INTEGER }),
+    /时间戳无效/,
+  );
+  assert.throws(() => rebuildAuditedSsgwData({ ...manual, number: 0 }), /签号需为1至92/);
+});
+
+test('三山国王灵签条件化工具只处理文本，公开证据入口应覆盖旧派生字段污染', () => {
+  assert.match(conditionSsgwInterpretation('所求之事必定成功，无需多虑。'), /较有机会成功/);
+  assert.match(conditionSsgwInterpretation('明知风险仍投入，结果必然失败。'), /失败风险很高/);
+  assert.match(conditionSsgwInterpretation('互不相让必然两败俱伤。'), /容易两败俱伤/);
+
+  const canonical = resolveSignByNumber(1, new Date('2025-01-01T00:00:00+08:00'));
+  const analysis = analyzeSsgwEvidence({
+    ...canonical,
+    title: '污染签题',
     poem: '',
-    story: '测试典故',
-    details: Object.fromEntries(SSGW_INTERPRETATION_FIELDS.map((field) => [field, '测试释义'])),
-    timestamp: Date.now(),
-    ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
+    story: '污染典故',
+    details: Object.fromEntries(SSGW_INTERPRETATION_FIELDS.map((field) => [field, `污染${field}`])),
+    ganzhi: { year: '甲子', month: '甲子', day: '甲子', hour: '甲子' },
+    evidenceAnalysis: undefined,
   });
-  assert.equal(emptyPoemAnalysis.signFact.status, '签诗为空');
-  assert.equal(emptyPoemAnalysis.coverageFact.status, '存在缺口');
-  assert.equal(emptyPoemAnalysis.summaryFact.status, '证据链有缺口');
-  assert.equal(emptyPoemAnalysis.calculationSteps[2]?.status, '资料不足');
-  assert.equal(emptyPoemAnalysis.calculationSteps[7]?.status, '资料不足');
-  assert.ok(emptyPoemAnalysis.counterEvidence.some((item) => item.includes('不得补造签诗')));
+  const reference = SSGW_SIGNS[0];
+  assert.deepEqual(analysis.signText, {
+    number: reference.id,
+    title: reference.title,
+    poem: reference.qianwen,
+  });
+  assert.equal(analysis.story, reference.story);
+  assert.equal(analysis.signFact.status, '完整');
+  assert.equal(analysis.coverageFact.status, '完整');
+  assert.equal(analysis.missingFields.length, 0);
+  assert.doesNotMatch(analysis.promptText, /污染签题|污染典故|污染核心寓意/);
 });
 
 test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {

@@ -20,7 +20,7 @@
  *   ……（二十四节气各有所属）
  *
  * 旬首法源出《秘籍大全》卷四"年家奇门定局"篇：
- *   由干支求旬首地支，旬首地支对应地盘宫位，
+ *   由干支求旬首，再按当前阴阳遁与局数定位旬首所遁六仪的地盘宫位，
  *   该宫之星为值符，该宫之门为值使。
  */
 
@@ -29,7 +29,7 @@ import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
 import { SIX_XUN_HEADS } from '../../../../ganzhi/data';
 import { sanQiLiuYi } from './_constants';
 
-const { dizhi, diPanPalaces, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
+const { dizhi, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
 type TymeSolarDay = ReturnType<typeof SolarDay.fromYmd>;
 type TymeSolarTerm = ReturnType<typeof SolarTerm.fromIndex>;
 const tenStems = tiangan;
@@ -88,6 +88,24 @@ export interface QimenJuShuResult {
 export interface QimenLayoutContext {
   isYangDun: boolean;
   juShu: number;
+}
+
+function assertValidJiazi(value: string, label: string): void {
+  if (typeof value !== 'string' || !(jiazi as readonly string[]).includes(value)) {
+    throw new Error(`${label}必须是完整且合法的六十甲子。`);
+  }
+}
+
+function assertQimenLayoutContext(layout: QimenLayoutContext): void {
+  if (!layout || typeof layout !== 'object' || Array.isArray(layout)) {
+    throw new Error('值符值使计算必须提供当前奇门局信息。');
+  }
+  if (typeof layout.isYangDun !== 'boolean') {
+    throw new Error('奇门局的阴阳遁标记必须是布尔值。');
+  }
+  if (!Number.isInteger(layout.juShu) || layout.juShu < 1 || layout.juShu > 9) {
+    throw new Error('奇门局数必须是1至9的整数。');
+  }
 }
 
 // ============================================================================
@@ -206,6 +224,7 @@ function resolveZhirunSegment(today: TymeSolarDay, currentTerm: TymeSolarTerm): 
 }
 
 function getXunShouBranch(ganZhi: string): string {
+  assertValidJiazi(ganZhi, '干支');
   const gan = ganZhi.charAt(0);
   const zhi = ganZhi.charAt(1);
 
@@ -220,30 +239,25 @@ function getXunShouBranch(ganZhi: string): string {
   return dizhi[xunShouZhiIndex];
 }
 
-function getXunShouPalace(ganZhi: string, layout?: QimenLayoutContext): number {
+function getXunShouPalace(ganZhi: string, layout: QimenLayoutContext): number {
   const xunShouZhi = getXunShouBranch(ganZhi);
   const xunShou = `甲${xunShouZhi}`;
-
-  if (layout) {
-    const dunStem = dunJiaStemByXun[xunShou];
-    if (!dunStem) {
-      throw new Error(`无法识别旬首 "${xunShou}" 的遁干。`);
-    }
-
-    for (let i = 0; i < sanQiLiuYi.length; i++) {
-      const palace = layout.isYangDun
-        ? ((layout.juShu + i - 1 + 9) % 9) + 1
-        : ((layout.juShu - i - 1 + 9) % 9) + 1;
-      if (sanQiLiuYi[i] === dunStem) return palace;
-    }
-
-    throw new Error(
-      `无法在${layout.isYangDun ? '阳' : '阴'}遁${layout.juShu}局中定位旬首 "${xunShou}"。`,
-    );
+  assertQimenLayoutContext(layout);
+  const dunStem = dunJiaStemByXun[xunShou];
+  if (!dunStem) {
+    throw new Error(`无法识别旬首 "${xunShou}" 的遁干。`);
   }
 
-  // 兼容旧调用：没有当前局信息时，只能退回地支方位，主入口不会使用此兜底。
-  return diPanPalaces[xunShouZhi as keyof typeof diPanPalaces];
+  for (let i = 0; i < sanQiLiuYi.length; i++) {
+    const palace = layout.isYangDun
+      ? ((layout.juShu + i - 1 + 9) % 9) + 1
+      : ((layout.juShu - i - 1 + 9) % 9) + 1;
+    if (sanQiLiuYi[i] === dunStem) return palace;
+  }
+
+  throw new Error(
+    `无法在${layout.isYangDun ? '阳' : '阴'}遁${layout.juShu}局中定位旬首 "${xunShou}"。`,
+  );
 }
 
 function getDoorByXunShouPalace(palace: number): string {
@@ -441,6 +455,8 @@ export function checkSpecialHourConditions(
   isWuBuYuShi: boolean;
   description: string;
 } {
+  assertValidJiazi(hourGanZhi, '时辰干支');
+  if (dayGanZhi !== undefined) assertValidJiazi(dayGanZhi, '日干支');
   const hourGan = hourGanZhi.charAt(0);
   const hourZhi = hourGanZhi.charAt(1);
 
@@ -517,12 +533,12 @@ export function checkSpecialHourConditions(
  *    zhiFuPalace      - 值符所在宫位（即旬首落宫）
  *    specialConditions - 当前时辰的特殊情况
  *
- * @throws 当时辰干支无法识别时
+ * @throws 当时日干支、阴阳遁或局数不合法时
  */
 export function getZhiFuZhiShi(
   hourGanZhi: string,
-  dayGanZhi?: string,
-  layout?: QimenLayoutContext,
+  dayGanZhi: string | undefined,
+  layout: QimenLayoutContext,
 ): {
   zhiFu: string;
   zhiShi: string;
@@ -557,11 +573,11 @@ export function getZhiFuZhiShi(
  *    zhiShi        - 值使门名
  *    xunShouPalace - 旬首所在宫位编号
  *
- * @throws 当干支无法识别时
+ * @throws 当干支、阴阳遁或局数不合法时
  */
 export function getZhiFuZhiShiByGanZhi(
   ganZhi: string,
-  layout?: QimenLayoutContext,
+  layout: QimenLayoutContext,
 ): {
   zhiFu: string;
   zhiShi: string;

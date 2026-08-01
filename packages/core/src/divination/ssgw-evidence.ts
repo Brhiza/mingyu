@@ -1,7 +1,10 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import { getDivinationTime } from '../calendar/timeManager';
+import { createSeededRandom, type RandomTrace } from '../shared/random';
+import { createResultMeta } from '../shared/result';
 import type { SsgwData } from '../types/divination';
-import { SSGW_INTERPRETATION_FIELDS } from './ssgw-data';
+import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from './ssgw-data';
 
 export interface SsgwDrawFact {
   key: '抽签:签池索引';
@@ -677,7 +680,184 @@ function buildLimitationFacts(args: {
   }));
 }
 
-export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
+function assertSsgwTimestamp(timestamp: number): number {
+  if (
+    !Number.isSafeInteger(timestamp) ||
+    timestamp < 0 ||
+    Number.isNaN(new Date(timestamp).getTime())
+  ) {
+    throw new Error('三山国王灵签结果时间戳无效，无法重建可信证据。');
+  }
+  return timestamp;
+}
+
+function normalizeSsgwRandomTrace(input: SsgwData, timestamp: number): RandomTrace | undefined {
+  const rawTrace = input.meta?.random;
+  if (rawTrace === undefined) return undefined;
+  const trace = createResultMeta({
+    algorithm: 'ssgw.audit.trace',
+    input: { number: input.number },
+    calculatedAt: timestamp,
+    random: rawTrace,
+  }).random!;
+  if (trace.mode === 'seeded' && trace.seed === undefined) {
+    throw new Error('三山国王灵签 seeded 随机轨迹缺少种子，无法核验。');
+  }
+  if (trace.mode !== 'seeded' && trace.seed !== undefined) {
+    throw new Error('三山国王灵签非 seeded 随机轨迹不应携带种子。');
+  }
+  if (trace.mode === 'seeded') {
+    const seeded = createSeededRandom(trace.seed!);
+    trace.samples.forEach((sample, index) => {
+      if (seeded() !== sample) {
+        throw new Error(`三山国王灵签随机轨迹第${index + 1}个样本与种子不一致。`);
+      }
+    });
+    return trace;
+  }
+  return { mode: 'replay', samples: [...trace.samples] };
+}
+
+function replaySsgwRandomProcess(trace: RandomTrace): {
+  selectedIndex: number;
+  ritual: NonNullable<SsgwData['ritual']>;
+} {
+  if (trace.samples.length < 3) {
+    throw new Error('三山国王灵签随机轨迹至少需要1个抽签样本和2个掷筊样本。');
+  }
+  if ((trace.samples.length - 1) % 2 !== 0) {
+    throw new Error('三山国王灵签随机轨迹在签号样本后必须按每次2个样本完整记录掷筊。');
+  }
+
+  const selectedIndex = Math.floor(trace.samples[0] * SSGW_SIGNS.length);
+  const throws: NonNullable<SsgwData['ritual']>['throws'] = [];
+  let consecutiveYin = 0;
+  let sampleIndex = 1;
+  let terminated = false;
+
+  while (sampleIndex < trace.samples.length && throws.length < 12) {
+    const first = Math.floor(trace.samples[sampleIndex] * 2);
+    const second = Math.floor(trace.samples[sampleIndex + 1] * 2);
+    sampleIndex += 2;
+    const result = first !== second ? '圣杯' : first === 0 ? '笑杯' : '阴杯';
+    throws.push({
+      result,
+      firstFace: first === 0 ? '阳面' : '阴面',
+      secondFace: second === 0 ? '阳面' : '阴面',
+    });
+    consecutiveYin = result === '阴杯' ? consecutiveYin + 1 : 0;
+    if (result === '圣杯' || consecutiveYin >= 3 || throws.length === 12) {
+      terminated = true;
+      break;
+    }
+  }
+
+  if (!terminated) {
+    throw new Error('三山国王灵签随机轨迹在合法终止状态前已用尽。');
+  }
+  if (sampleIndex !== trace.samples.length) {
+    throw new Error('三山国王灵签随机轨迹在仪式结束后仍有多余样本。');
+  }
+
+  const confirmed = throws.at(-1)?.result === '圣杯';
+  return {
+    selectedIndex,
+    ritual: {
+      throws,
+      confirmed,
+      rejected: !confirmed,
+      reason: confirmed
+        ? '已获圣杯，完成本次模拟求签流程。'
+        : consecutiveYin >= 3
+          ? '连续三次阴杯，按本次模拟流程拒绝起签。'
+          : '连续十二次未获圣杯，停止本次模拟求签，避免无界重试。',
+    },
+  };
+}
+
+/** 只信任合法签号、时间戳及完整随机轨迹或明确手工录入，其余派生字段统一重建。 */
+export function rebuildAuditedSsgwData(input: SsgwData): SsgwData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('三山国王灵签结果必须是对象。');
+  }
+  if (!Number.isSafeInteger(input.number)) {
+    throw new Error('三山国王灵签签号必须是整数。');
+  }
+  const reference = SSGW_SIGNS.find((sign) => sign.id === input.number);
+  if (!reference) {
+    throw new Error(`三山国王灵签签号需为1至${SSGW_SIGNS.length}的整数。`);
+  }
+  const timestamp = assertSsgwTimestamp(input.timestamp);
+  const { ganzhi } = getDivinationTime(new Date(timestamp));
+  const trace = normalizeSsgwRandomTrace(input, timestamp);
+  const declaredMethod = input.draw?.method;
+  if (declaredMethod !== undefined && declaredMethod !== 'manual' && declaredMethod !== 'random') {
+    throw new Error('三山国王灵签抽签来源无效。');
+  }
+  if (declaredMethod === 'manual' && trace) {
+    throw new Error('三山国王灵签手工录入不能同时携带随机轨迹。');
+  }
+  if (declaredMethod === 'manual' && input.ritual !== undefined) {
+    throw new Error('三山国王灵签手工录入不应携带模拟掷筊记录。');
+  }
+
+  let draw: NonNullable<SsgwData['draw']>;
+  let ritual: SsgwData['ritual'];
+  let algorithm: string;
+  if (declaredMethod === 'manual') {
+    draw = {
+      method: 'manual',
+      poolSize: SSGW_SIGNS.length,
+      selectedIndex: null,
+      selectedNumber: reference.id,
+    };
+    algorithm = 'ssgw.resolve.manual';
+  } else {
+    if (!trace) {
+      throw new Error('三山国王灵签随机求签缺少完整随机轨迹，且未声明为手工录入。');
+    }
+    const replayed = replaySsgwRandomProcess(trace);
+    const selectedNumber = SSGW_SIGNS[replayed.selectedIndex]?.id;
+    if (selectedNumber === undefined) {
+      throw new Error('三山国王灵签随机轨迹无法映射到标准签池。');
+    }
+    if (selectedNumber !== reference.id) {
+      throw new Error(
+        `三山国王灵签第${reference.id}签与随机轨迹重放得到的第${selectedNumber}签不一致。`,
+      );
+    }
+    draw = {
+      method: 'random',
+      poolSize: SSGW_SIGNS.length,
+      selectedIndex: replayed.selectedIndex,
+      selectedNumber,
+    };
+    ritual = replayed.ritual;
+    algorithm = 'ssgw.draw';
+  }
+
+  const rebuilt: SsgwData = {
+    number: reference.id,
+    title: reference.title,
+    poem: reference.qianwen,
+    story: reference.story,
+    details: { ...reference.details },
+    timestamp,
+    ganzhi,
+    draw,
+    ...(ritual ? { ritual } : {}),
+    meta: createResultMeta({
+      algorithm,
+      input: declaredMethod === 'manual' ? { number: reference.id, timestamp } : { timestamp },
+      calculatedAt: timestamp,
+      ...(trace ? { random: trace } : {}),
+    }),
+  };
+  rebuilt.evidenceAnalysis = analyzeRebuiltSsgwEvidence(rebuilt);
+  return rebuilt;
+}
+
+function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
   const details = data.details ?? {};
   const story = data.story?.trim() || details['典故']?.trim() || undefined;
   const promptStory = story ? conditionSsgwInterpretation(story) : undefined;
@@ -1126,4 +1306,9 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       '所有象征解释均须回到用户问题和现实资料复核。',
     ],
   };
+}
+
+/** 所有公开证据分析均先经过可信重建，禁止旧签文、释义、仪式和证据字段直接进入提示词。 */
+export function analyzeSsgwEvidence(input: SsgwData): SsgwEvidenceAnalysis {
+  return rebuildAuditedSsgwData(input).evidenceAnalysis!;
 }

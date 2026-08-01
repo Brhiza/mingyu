@@ -12,6 +12,7 @@ import type {
   LiuyaoData,
   MeihuaData,
   QimenData,
+  SsgwData,
   TarotData,
   TaiyiResult,
   XiaoliurenData,
@@ -31,6 +32,7 @@ import {
   analyzeLiuyaoFanFuRelations,
   getLiuyaoFlyingHiddenRelation,
 } from 'mingyu-core/divination/liuyao';
+import { rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -453,35 +455,30 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'ssgw': {
-      if ('ritual' in data && data.ritual?.rejected) {
+      const audited = rebuildAuditedSsgwData(data as SsgwData);
+      if (audited.ritual?.rejected) {
         return {
           title: '灵签仪式未确认',
           tags: ['本次不起签'],
           lines: [
-            `掷筊记录：${data.ritual.throws.map((item) => item.result).join(' → ')}`,
-            data.ritual.reason || '本次未获圣杯，不生成签文结论。',
+            `掷筊记录：${audited.ritual.throws.map((item) => item.result).join(' → ')}`,
+            audited.ritual.reason || '本次未获圣杯，不生成签文结论。',
           ],
         };
       }
-      const storyContent =
-        'number' in data && 'title' in data && 'poem' in data
-          ? resolveSsgwStoryContent(data)
-          : { canonicalStory: '', extraStory: '' };
+      const storyContent = resolveSsgwStoryContent(audited);
 
       return {
         title: '灵签结果',
-        tags: [
-          `签号：${'number' in data ? `第 ${data.number} 签` : '未知'}`,
-          `签题：${'title' in data ? data.title : '未知'}`,
-        ],
+        tags: [`签号：第 ${audited.number} 签`, `签题：${audited.title}`],
         lines: [
-          wrapMainEvidence(formatSsgwFocusSummary(data)),
-          'title' in data && data.title ? `签题：${data.title}` : '',
-          'poem' in data ? `签诗：${data.poem}` : '',
+          wrapMainEvidence(formatSsgwFocusSummary(audited)),
+          `签题：${audited.title}`,
+          `签诗：${audited.poem}`,
           storyContent.canonicalStory ? `典故：${storyContent.canonicalStory}` : '',
           storyContent.extraStory ? `补充：${storyContent.extraStory}` : '',
-          ...('details' in data && data.details
-            ? Object.entries(data.details)
+          ...(audited.details
+            ? Object.entries(audited.details)
                 .filter(([key]) => key !== '典故')
                 .map(([key, value]) => `${key}：${value}`)
             : []),
