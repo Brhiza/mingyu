@@ -662,7 +662,11 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.limitation.includes('不证明现实吉凶'),
     ),
   );
-  assert.equal(analysis.ruleSourceFacts.length, 21);
+  assert.ok(analysis.ruleSourceFacts.length >= 21);
+  assert.equal(
+    new Set(analysis.ruleSourceFacts.map((item) => item.key)).size,
+    analysis.ruleSourceFacts.length,
+  );
   assert.ok(
     analysis.ruleSourceFacts.some(
       (item) =>

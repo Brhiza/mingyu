@@ -1715,3 +1715,51 @@ test('三奇与时干入墓按九干乘九宫全部关闭并公开版本冲突',
   assert.equal(fixedConditions.result.isShiGanRuMu, false);
   assert.match(fixedConditions.promptText, /三奇与时干入墓因版本冲突不自动标记/);
 });
+
+test('三奇受制与会甲按三奇九宫八门九地盘干全组合失败关闭', () => {
+  const sanQi = ['乙', '丙', '丁'] as const;
+  const doors = ['休门', '死门', '伤门', '杜门', '开门', '惊门', '生门', '景门'] as const;
+  const earthStems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  let checked = 0;
+
+  for (const heavenStem of sanQi) {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      for (const door of doors) {
+        for (const earthStem of earthStems) {
+          const palace = {
+            ...buildPalaceAt(gong, heavenStem, earthStem),
+            renPan: { door },
+          };
+          const patterns = getClassicPatterns({
+            jiuGongGe: [palace],
+            zhiFu: '',
+            zhiShi: '',
+            scope: 'hour',
+            hourGanZhi: '甲子',
+          });
+
+          assert.ok(
+            !patterns.some((pattern) => ['三奇受制', '三奇会甲'].includes(pattern.name)),
+            `${heavenStem}/${gong}宫/${door}/地盘${earthStem}`,
+          );
+          checked += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(checked, 3 * 9 * 8 * 9);
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:san-qi-controlled-and-meet-jia-boundary',
+  );
+
+  assert.ok(rule);
+  assert.equal(rule.category, '三奇受制与会甲证据边界');
+  assert.match(rule.promptText, /乙临乾六\/兑七、丙丁临坎一/);
+  assert.match(rule.promptText, /乙临乾并见惊门庚辛囚死/);
+  assert.match(rule.promptText, /未明确闭合丁奇/);
+  assert.match(rule.promptText, /尚未找到可核验的“三奇会甲”原文条件/);
+  assert.match(rule.promptText, /只保留天盘乙丙丁、地盘干、门、宫位和月令状态原始事实/);
+  assert.doesNotMatch(rule.promptText, /万事不可举|必成|必胜|百事皆吉/);
+});
