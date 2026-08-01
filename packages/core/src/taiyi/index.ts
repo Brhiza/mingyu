@@ -432,26 +432,6 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const yuan = Math.ceil(entryYears / 72);
   const ji = Math.ceil(entryYears / 60);
 
-  const judgments: string[] = [];
-  if (shiJiPalace === taiyiPalace)
-    judgments.push('掩：始击与太乙同宫，传统称客目掩太乙；只表示位置条件成立。');
-  const imprisonedRoles = [
-    wenChangPalace === taiyiPalace ? '文昌' : undefined,
-    lordGeneral === taiyiPalace ? '主大将' : undefined,
-    lordAssistant === taiyiPalace ? '主参将' : undefined,
-    guestGeneral === taiyiPalace ? '客大将' : undefined,
-    guestAssistant === taiyiPalace ? '客参将' : undefined,
-  ].filter((item): item is string => item !== undefined);
-  if (imprisonedRoles.length > 0)
-    judgments.push(`囚：${imprisonedRoles.join('、')}与太乙同宫；只表示传统位置条件成立。`);
-  if (lordGeneral === 5 || lordAssistant === 5) {
-    judgments.push('主大将或主参将居中宫；只记录将参位置条件。');
-  }
-  if (guestGeneral === 5 || guestAssistant === 5) {
-    judgments.push('客大将或客参将居中宫；只记录将参位置条件。');
-  }
-  if (judgments.length === 0) judgments.push('本局未见主目、客目与太乙同位。');
-
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
   const sixteenGodsText = sixteenGods.map((item) => `${item.branch}${item.god}`).join('、');
@@ -488,6 +468,9 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     sixteenGods,
     model: TAIYI_MODEL_INFO,
   });
+  const positionConditions = evidenceAnalysis.conditionFacts
+    .map((fact) => `${fact.kind}${fact.matched ? '已命中' : '未命中'}：${fact.calculationText}`)
+    .join('；');
   const prompt = [
     `【太乙神数 · ${scopeInfo.title}】`,
     `起局时间：${dateTime}；本计干支：${ganZhi}。`,
@@ -496,7 +479,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
     `主客定算：主算 ${lordCount}；客算 ${guestCount}；定算 ${setCount}；算数属性待明确底本版本后继续核验。`,
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
-    `判断：${judgments.join('；')}`,
+    `位置条件：${positionConditions}。`,
     `十六神：${sixteenGodsText}。`,
   ].join('\n');
 
@@ -533,7 +516,6 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     setGeneral,
     setAssistant,
     sixteenGods,
-    judgments,
     model: TAIYI_MODEL_INFO,
     evidenceAnalysis,
     prompt,

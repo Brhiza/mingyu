@@ -781,7 +781,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.guestCount, 3);
   assert.equal(r.setCount, 15);
   assert.doesNotMatch(
-    JSON.stringify([r.prompt, r.judgments, r.evidenceAnalysis.forceFacts]),
+    JSON.stringify([r.prompt, r.evidenceAnalysis.forceFacts]),
     /杂阴|纯阴|纯阳|杂阳|阴中重阳|下和|杂重阳|上和|次和|杂重阴/,
   );
   assert.match(r.prompt, /算数属性待明确底本版本后继续核验/);
@@ -792,7 +792,9 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.guestAssistant, 9);
   assert.equal(r.setGeneral, 5);
   assert.equal(r.setAssistant, 5);
-  assert.ok(r.judgments.some((item) => item.startsWith('掩：')));
+  assert.equal('judgments' in r, false);
+  assert.match(r.prompt, /位置条件：掩已命中：始击第3宫与太乙第3宫比较/);
+  assert.doesNotMatch(r.prompt, /判断：|行动条件受限/);
   assert.equal(r.sixteenGods.length, 16);
   assert.equal(r.model.id, 'taiyi-year-calculation-72-table');
   assert.ok(r.prompt.includes('太乙神数'));
@@ -998,6 +1000,43 @@ test('taiyi: 年家 72 局应完整覆盖且宫卦名不与字位混用', () => 
     8: '坎',
     9: '巽',
   });
+});
+
+test('taiyi: 穷举公元 1 至 9999 年时只输出可复算位置条件', () => {
+  const bureaus = new Set<number>();
+
+  for (let year = 1; year <= 9999; year += 1) {
+    const result = core.taiyi.generateTaiyi({ year });
+    const conditions = Object.fromEntries(
+      result.evidenceAnalysis.conditionFacts.map((fact) => [fact.kind, fact]),
+    );
+    const imprisoned = [
+      result.wenChangPalace,
+      result.lordGeneral,
+      result.lordAssistant,
+      result.guestGeneral,
+      result.guestAssistant,
+    ].includes(result.taiyiPalace);
+
+    bureaus.add(result.bureau);
+    assert.equal('judgments' in result, false);
+    assert.equal(conditions.掩.matched, result.shiJiPalace === result.taiyiPalace);
+    assert.equal(conditions.囚.matched, imprisoned);
+    assert.equal(
+      conditions.主将参中宫.matched,
+      result.lordGeneral === 5 || result.lordAssistant === 5,
+    );
+    assert.equal(
+      conditions.客将参中宫.matched,
+      result.guestGeneral === 5 || result.guestAssistant === 5,
+    );
+    assert.doesNotMatch(
+      `${result.prompt}\n${result.evidenceAnalysis.promptText}`,
+      /判断：|行动条件受限|成功率(?:为|：)\d|应期(?:为|：)\d/,
+    );
+  }
+
+  assert.equal(bureaus.size, 72);
 });
 
 test('taiyi: 审核重建只信任原始年份并隔离全部旧盘污染', () => {

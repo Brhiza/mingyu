@@ -559,7 +559,12 @@ export function getDivinationSummaryBlocks(
           `周期分段：第${taiyi.yuan}个72数段、第${taiyi.ji}个60数段`,
           `主客定算：主算${taiyi.lordCount}，客算${taiyi.guestCount}，定算${taiyi.setCount}`,
           `计神：${taiyi.jiShenPosition}`,
-          `判断：${taiyi.judgments.join('；')}`,
+          `位置条件：${taiyi.evidenceAnalysis.conditionFacts
+            .map(
+              (fact) =>
+                `${fact.kind}${fact.matched ? '已命中' : '未命中'}：${fact.calculationText}`,
+            )
+            .join('；')}`,
           `精度：${taiyi.model.precision}`,
         ],
       };

@@ -2254,7 +2254,7 @@ test('太乙页面资料与摘要只凭原始年份重建并忽略旧盘污染',
   assert.deepEqual(rebuiltSummary, cleanSummary);
   assert.doesNotMatch(
     [rebuiltInfo, ...rebuiltSummary.tags, ...rebuiltSummary.lines].join('\n'),
-    /伪造|现实断语/,
+    /伪造|现实断语|判断：|行动条件受限/,
   );
 });
 

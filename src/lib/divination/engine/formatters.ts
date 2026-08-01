@@ -921,6 +921,9 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
 export function formatTaiyiInfo(data: TaiyiResult) {
   const audited = rebuildAuditedTaiyiData(data);
   const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[audited.scope];
+  const positionConditions = audited.evidenceAnalysis.conditionFacts
+    .map((fact) => `${fact.kind}${fact.matched ? '已命中' : '未命中'}：${fact.calculationText}`)
+    .join('；');
   return [
     `占法：太乙神数（${scopeLabel}）`,
     `起局时间：${audited.dateTime}；本计干支：${audited.ganZhi}；${audited.accumulatedLabel}：${audited.accumulatedValue}`,
@@ -929,7 +932,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     `文昌（主目）：${audited.wenChangPosition}；始击（客目）：${audited.shiJiPosition}；计神：${audited.jiShenPosition}`,
     `主客定算：主算${audited.lordCount}；客算${audited.guestCount}；定算${audited.setCount}`,
     `将参：主大${audited.lordGeneral}、主参${audited.lordAssistant}；客大${audited.guestGeneral}、客参${audited.guestAssistant}；定大${audited.setGeneral}、定参${audited.setAssistant}`,
-    `判断：${audited.judgments.join('；')}`,
+    `位置条件：${positionConditions}`,
     `模型：${audited.model.name}；${audited.model.precision}`,
     `十六神：${audited.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`,
   ].join('\n');

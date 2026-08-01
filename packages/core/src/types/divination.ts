@@ -1462,7 +1462,8 @@ export interface TaiyiResult {
   setGeneral: number;
   setAssistant: number;
   sixteenGods: { branch: string; god: string }[];
-  judgments: string[];
+  /** @deprecated 仅供读取旧结果；当前改用 evidenceAnalysis.conditionFacts 输出位置条件。 */
+  judgments?: string[];
   model: TaiyiModelInfo;
   evidenceAnalysis: import('../taiyi/evidence').TaiyiEvidenceAnalysis;
   prompt: string;

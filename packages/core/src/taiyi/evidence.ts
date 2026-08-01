@@ -291,16 +291,14 @@ function buildConditionFacts(data: TaiyiEvidenceInput): TaiyiConditionFact[] {
       kind: '主将参中宫',
       matched: data.lordGeneral === 5 || data.lordAssistant === 5,
       calculationText: `主大将第${data.lordGeneral}宫、主参将第${data.lordAssistant}宫与中五宫比较`,
-      matchedText:
-        '主大将或主参将落中宫，传统上提示主方行动条件受限，须结合现实条件复核，不直接断宜守或成败',
+      matchedText: '主大将或主参将落中宫；只记录将参位置条件，不附加行动结论',
       unmatchedText: '主大将与主参将均未落中宫',
     },
     {
       kind: '客将参中宫',
       matched: data.guestGeneral === 5 || data.guestAssistant === 5,
       calculationText: `客大将第${data.guestGeneral}宫、客参将第${data.guestAssistant}宫与中五宫比较`,
-      matchedText:
-        '客大将或客参将落中宫，传统上提示客方行动条件受限，须结合现实条件复核，不直接断宜守或成败',
+      matchedText: '客大将或客参将落中宫；只记录将参位置条件，不附加行动结论',
       unmatchedText: '客大将与客参将均未落中宫',
     },
   ];
