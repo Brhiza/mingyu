@@ -15,7 +15,7 @@ import {
   isKe,
   isSheng,
 } from '../../../../ganzhi';
-import { getGanZhiWuxing, isBranchKe } from './plate';
+import { DIZHI, getGanZhiWuxing, isBranchKe, TIANGAN } from './plate';
 
 function describeDirectedElementRelation(
   sourceLabel: string,
@@ -160,6 +160,55 @@ type LiurenGuaTiRule = Omit<LiurenGuaTiFact, 'stableKey' | 'branches' | 'matched
     context: LiurenGuaTiContext,
   ) => { branches: string[]; matchedConditions: string[] } | null;
 };
+
+function assertLiurenGuaTiBranch(value: unknown, label: string): asserts value is string {
+  if (typeof value !== 'string' || !DIZHI.includes(value as (typeof DIZHI)[number])) {
+    throw new Error(`${label}必须是有效地支。`);
+  }
+}
+
+function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
+  if (!context || typeof context !== 'object' || Array.isArray(context)) {
+    throw new Error('大六壬课体识别必须提供完整上下文对象。');
+  }
+  if (!Array.isArray(context.transmissionBranches) || context.transmissionBranches.length !== 3) {
+    throw new Error('大六壬课体识别的三传必须恰好包含初传、中传、末传三项。');
+  }
+  context.transmissionBranches.forEach((branch, index) =>
+    assertLiurenGuaTiBranch(branch, `第${index + 1}传`),
+  );
+
+  const optionalBranches: Array<[unknown, string]> = [
+    [context.initialGroundBranch, '初传所临地盘'],
+    [context.yearBranch, '太岁地支'],
+    [context.monthBranch, '月支'],
+    [context.monthLeader, '月将'],
+    [context.noblemanBranch, '贵人所乘上神'],
+    [context.noblemanGroundBranch, '贵人所临地盘'],
+  ];
+  for (const [value, label] of optionalBranches) {
+    if (value !== undefined) assertLiurenGuaTiBranch(value, label);
+  }
+
+  if (context.fourLessons !== undefined) {
+    if (!Array.isArray(context.fourLessons) || context.fourLessons.length !== 4) {
+      throw new Error('大六壬课体识别的四课一经提供，就必须恰好包含完整四课。');
+    }
+    context.fourLessons.forEach((lesson, index) => {
+      if (!lesson || typeof lesson !== 'object') {
+        throw new Error(`第${index + 1}课必须是有效对象。`);
+      }
+      assertLiurenGuaTiBranch(lesson.upper, `第${index + 1}课上神`);
+      if (
+        typeof lesson.lower !== 'string' ||
+        (!DIZHI.includes(lesson.lower as (typeof DIZHI)[number]) &&
+          !TIANGAN.includes(lesson.lower as (typeof TIANGAN)[number]))
+      ) {
+        throw new Error(`第${index + 1}课下位必须是有效天干或地支。`);
+      }
+    });
+  }
+}
 
 function hasSameBranchSet(actualBranches: string[], expectedBranches: string[]) {
   return (
@@ -374,6 +423,7 @@ export const REGISTERED_LIUREN_GUA_TI_COUNT = REGISTERED_GUA_TI_RULES.length;
  * 这里仅按三传地支结构打标签，吉凶仍交由后续断课结合用神、天将与旺衰判断。
  */
 export function getLiurenGuaTiFacts(context: LiurenGuaTiContext): LiurenGuaTiFact[] {
+  assertValidLiurenGuaTiContext(context);
   return REGISTERED_GUA_TI_RULES.flatMap((rule) => {
     const match = rule.detect(context);
     return match

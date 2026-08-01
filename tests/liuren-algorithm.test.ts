@@ -375,6 +375,92 @@ test('大六壬三传成局应按六壬指南输出课体标签', () => {
   assert.deepEqual(getLiurenTransmissionGuaTi(['子', '子', '卯']), []);
 });
 
+test('大六壬全部1728种三传排列应只命中独立登记的课体条件', () => {
+  const counts = new Map<string, number>();
+
+  for (const initial of DIZHI) {
+    for (const middle of DIZHI) {
+      for (const final of DIZHI) {
+        const branches = [initial, middle, final];
+        const uniqueBranches = [...new Set(branches)];
+        const expected: string[] = [];
+        if (
+          uniqueBranches.length === 3 &&
+          uniqueBranches.every((branch) => ['子', '午', '卯', '酉'].includes(branch))
+        ) {
+          expected.push('三交卦');
+        }
+        if (
+          uniqueBranches.length === 3 &&
+          uniqueBranches.every((branch) => ['寅', '申', '巳', '亥'].includes(branch))
+        ) {
+          expected.push('玄胎卦');
+        }
+        if (
+          uniqueBranches.length === 3 &&
+          uniqueBranches.every((branch) => ['辰', '戌', '丑', '未'].includes(branch))
+        ) {
+          expected.push('稼穑卦');
+        }
+        for (const [name, expectedBranches] of [
+          ['曲直卦', ['亥', '卯', '未']],
+          ['从革卦', ['巳', '酉', '丑']],
+          ['炎上卦', ['寅', '午', '戌']],
+          ['润下卦', ['申', '子', '辰']],
+        ] as const) {
+          if (
+            uniqueBranches.length === 3 &&
+            expectedBranches.every((branch) => uniqueBranches.includes(branch))
+          ) {
+            expected.push(name);
+          }
+        }
+        if (branches.join('') === '巳戌卯') expected.push('铸印卦');
+        if (branches.join('') === '午卯子') expected.push('高盖乘轩卦');
+
+        const actual = getLiurenTransmissionGuaTi(branches);
+        assert.deepEqual(actual, expected, `${branches.join('')}的课体命中边界不一致`);
+        actual.forEach((name) => counts.set(name, (counts.get(name) || 0) + 1));
+      }
+    }
+  }
+
+  assert.deepEqual(Object.fromEntries([...counts].sort()), {
+    三交卦: 24,
+    从革卦: 6,
+    曲直卦: 6,
+    润下卦: 6,
+    炎上卦: 6,
+    玄胎卦: 24,
+    稼穑卦: 24,
+    铸印卦: 1,
+    高盖乘轩卦: 1,
+  });
+});
+
+test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文', () => {
+  assert.throws(() => getLiurenTransmissionGuaTi([]), /三传必须恰好包含/);
+  assert.throws(() => getLiurenTransmissionGuaTi(['子', '午']), /三传必须恰好包含/);
+  assert.throws(() => getLiurenTransmissionGuaTi(['子', '午', '卯', '酉']), /三传必须恰好包含/);
+  assert.throws(() => getLiurenTransmissionGuaTi(['子', '午', '甲']), /第3传必须是有效地支/);
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['卯', '辰', '巳'],
+        fourLessons: [{ upper: '卯', lower: '辛' }],
+      }),
+    /四课一经提供.*完整四课/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['子', '寅', '辰'],
+        noblemanGroundBranch: '甲',
+      }),
+    /贵人所临地盘必须是有效地支/,
+  );
+});
+
 test('大六壬课体登记表应固定十三条来源、稳定键和结构条件', () => {
   assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 13);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
@@ -463,7 +549,12 @@ test('大六壬新增六类课体应按完整起课条件命中', () => {
       context: {
         transmissionBranches: ['卯', '辰', '巳'],
         initialGroundBranch: '戌',
-        fourLessons: [{ upper: '卯', lower: '辛' }],
+        fourLessons: [
+          { upper: '卯', lower: '辛' },
+          { upper: '辰', lower: '卯' },
+          { upper: '巳', lower: '午' },
+          { upper: '午', lower: '巳' },
+        ],
       },
       condition: '初传卯从日干辛上发用',
     },
@@ -528,7 +619,12 @@ test('大六壬新增六类课体不得由相似三传或缺失起课条件误�
     !getLiurenGuaTiFacts({
       transmissionBranches: ['卯', '辰', '巳'],
       initialGroundBranch: '戌',
-      fourLessons: [{ upper: '卯', lower: '壬' }],
+      fourLessons: [
+        { upper: '卯', lower: '壬' },
+        { upper: '辰', lower: '卯' },
+        { upper: '巳', lower: '午' },
+        { upper: '午', lower: '巳' },
+      ],
     }).some((candidate) => candidate.name === '斫轮卦'),
     '卯临戌且并非从庚辛干上发用时不应误判为斫轮卦',
   );
@@ -578,6 +674,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
   const ruleCounts = new Map<string, number>();
   const guaTiCounts = new Map<string, number>();
   let caseCount = 0;
+  let guaTiContextCount = 0;
 
   for (const monthLeader of DIZHI) {
     for (const hourBranch of DIZHI) {
@@ -618,6 +715,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
           const label = `${monthLeader}将 ${day}${hourStem}${hourBranch} ${dayNight}`;
 
           for (const yearBranch of DIZHI) {
+            guaTiContextCount += 1;
             const guaTiFacts = getLiurenGuaTiFacts({
               transmissionBranches: branches,
               initialGroundBranch: getPlateItemByBranch(heavenlyPlate, branches[0]).under,
@@ -698,6 +796,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
   }
 
   assert.equal(caseCount, 17_280);
+  assert.equal(guaTiContextCount, 207_360);
   assert.equal(
     guaTiCounts.size,
     REGISTERED_LIUREN_GUA_TI_COUNT,
