@@ -88,14 +88,10 @@ test('三山国王灵签在签谱来源闭合前只保留九十二个签号', ()
 test('三山国王签谱来源未闭合时不得软化后继续输出任何旧解释', () => {
   const forbidden = /必然(?:会|是|失败|走向|两败俱伤)|必定成功|必能|必败|必然后悔/;
 
-  [
-    '所求之事必定成功，无需多虑。',
-    '结果必然失败。',
-    '此签提醒谨慎推进。',
-  ].forEach((text) => {
+  ['所求之事必定成功，无需多虑。', '结果必然失败。', '此签提醒谨慎推进。'].forEach((text) => {
     assert.equal(
       conditionSsgwInterpretation(text),
-      '未采用签谱解释；当前签谱来源未闭合，只保留签号、抽取轨迹与掷筊记录',
+      '未采用签谱解释；当前签谱来源未闭合，只保留签号与抽取轨迹',
     );
   });
   assert.equal(conditionSsgwInterpretation(''), '');
@@ -1817,19 +1813,11 @@ test('时间型占卜算法应拒绝无效自定义时间对象', () => {
   assert.throws(() => drawRandomSign(invalidDate), /自定义时间不是有效日期/);
 });
 
-test('三山国王灵签应保留可重放抽签仪式并失败关闭待校签谱', () => {
+test('三山国王灵签应保留可重放签号并失败关闭待校签谱与掷筊规则', () => {
   const confirmed = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
     replay: [0.1, 0.1, 0.9],
   });
-  assert.equal(confirmed.ritual?.confirmed, true);
-  assert.deepEqual(
-    confirmed.ritual?.throws.map((item) => item.result),
-    ['圣杯'],
-  );
-  assert.deepEqual(
-    confirmed.ritual?.throws.map((item) => [item.firstFace, item.secondFace]),
-    [['阳面', '阴面']],
-  );
+  assert.equal(confirmed.ritual, undefined);
   assert.equal(confirmed.draw?.poolSize, 92);
   assert.equal(confirmed.draw?.selectedNumber, confirmed.number);
   assert.equal(confirmed.evidenceAnalysis?.key, 'ssgw:evidence');
@@ -1862,24 +1850,14 @@ test('三山国王灵签应保留可重放抽签仪式并失败关闭待校签�
   assert.equal(confirmed.evidenceAnalysis?.drawFact.poolSize, 92);
   assert.match(confirmed.evidenceAnalysis?.drawFact.promptText || '', /随机索引/);
   assert.match(confirmed.evidenceAnalysis?.drawFact.limitation || '', /不证明签文有效性/);
-  assert.equal(confirmed.evidenceAnalysis?.ritualFact.status, '已确认');
-  assert.equal(confirmed.evidenceAnalysis?.ritualFact.throws.length, 1);
-  assert.deepEqual(confirmed.evidenceAnalysis?.ritualFact.throws[0], {
-    attempt: 1,
-    firstFace: '阳面',
-    secondFace: '阴面',
-    result: '圣杯',
-    promptText: '第1次阳面+阴面=圣杯',
-  });
-  assert.equal(confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.key, 'ssgw:ritual-throw:1');
-  assert.equal(confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.status, '已记录');
-  assert.equal(confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.ritualFactKey, '仪式:掷筊确认');
-  assert.ok((confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.sources.length ?? 0) > 0);
-  assert.match(confirmed.evidenceAnalysis?.ritualFact.limitation || '', /不证明疾病/);
+  assert.equal(confirmed.evidenceAnalysis?.ritualFact.status, '缺少记录');
+  assert.deepEqual(confirmed.evidenceAnalysis?.ritualFact.throws, []);
+  assert.deepEqual(confirmed.evidenceAnalysis?.ritualThrowFacts, []);
+  assert.match(confirmed.evidenceAnalysis?.ritualFact.limitation || '', /不证明神意/);
   assert.equal(confirmed.evidenceAnalysis?.randomFact.status, '可重放');
   assert.equal(confirmed.evidenceAnalysis?.randomFact.mode, 'replay');
-  assert.equal(confirmed.evidenceAnalysis?.randomFact.sampleCount, 3);
-  assert.deepEqual(confirmed.evidenceAnalysis?.randomFact.samples, [0.1, 0.1, 0.9]);
+  assert.equal(confirmed.evidenceAnalysis?.randomFact.sampleCount, 1);
+  assert.deepEqual(confirmed.evidenceAnalysis?.randomFact.samples, [0.1]);
   assert.ok(confirmed.evidenceAnalysis?.drawFacts.some((item) => item.includes('随机索引')));
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /签谱状态：来源尚未闭合/);
   assert.doesNotMatch(confirmed.evidenceAnalysis?.promptText || '', /明月千山|朱买臣|大吉之兆/);
@@ -1896,12 +1874,12 @@ test('三山国王灵签应保留可重放抽签仪式并失败关闭待校签�
       ['典故覆盖', '存在缺口'],
       ['分类释义覆盖', '存在缺口'],
       ['抽签索引', '可核验'],
-      ['仪式确认', '已确认'],
+      ['仪式确认', '缺少记录'],
       ['随机轨迹', '可重放'],
     ],
   );
   assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.status, '存在需保留反证');
-  assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.factKeys.length, 3);
+  assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.factKeys.length, 4);
   assert.equal(confirmed.evidenceAnalysis?.limitationFacts.length, 6);
   assert.equal(confirmed.evidenceAnalysis?.summaryFact.key, 'ssgw:evidence-summary');
   assert.equal(confirmed.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
@@ -1959,11 +1937,10 @@ test('三山国王灵签应保留可重放抽签仪式并失败关闭待校签�
     ),
   );
   const confirmedItems = confirmed.evidenceAnalysis?.evidence.items ?? [];
-  const confirmedRitual = confirmedItems.find((item) => item.title === '模拟求签仪式完成记录');
+  const confirmedRitual = confirmedItems.find((item) => item.title === '掷筊规则待校');
   const confirmedRandom = confirmedItems.find((item) => item.title === '随机过程重放记录');
-  assert.equal(confirmedRitual?.level, '辅证');
-  assert.notEqual(confirmedRitual?.level, '主证');
-  assert.match(confirmedRitual?.detail || '', /已出现圣杯/);
+  assert.equal(confirmedRitual?.level, '反证');
+  assert.match(confirmedRitual?.detail || '', /来源未闭合.*不自动模拟/);
   assert.equal(confirmedRandom?.level, '辅证');
   assert.match(confirmedRandom?.detail || '', /随机种子与原始样本保留在可重放记录中/);
   assert.match(confirmedRandom?.detail || '', /不表示可信度、神意或预测有效性/);
@@ -1978,25 +1955,15 @@ test('三山国王灵签应保留可重放抽签仪式并失败关闭待校签�
   assert.doesNotMatch(seeded.evidenceAnalysis?.randomFact.promptText || '', /灵签证据样例/);
   assert.doesNotMatch(seeded.evidenceAnalysis?.promptText || '', /灵签证据样例/);
 
-  const rejected = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
-    replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
-  });
-  assert.equal(rejected.ritual?.rejected, true);
-  assert.deepEqual(
-    rejected.ritual?.throws.map((item) => item.result),
-    ['阴杯', '阴杯', '阴杯'],
+  assert.match(
+    confirmed.evidenceAnalysis?.promptText || '',
+    /掷筊流程、杯象判定与终止规则来源未闭合/,
   );
-  assert.match(rejected.ritual?.reason || '', /拒绝起签/);
-  assert.equal(rejected.evidenceAnalysis?.ritualFact.status, '未确认');
-  assert.equal(rejected.evidenceAnalysis?.ritualFact.throws.length, 3);
-  assert.equal(rejected.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
-  assert.equal(rejected.evidenceAnalysis?.calculationSteps[5]?.status, '资料不足');
-  assert.equal(rejected.evidenceAnalysis?.calculationSteps[7]?.status, '资料不足');
-  const rejectedRitual = rejected.evidenceAnalysis?.evidence.items.find(
-    (item) => item.title === '模拟求签仪式未完成',
+  assert.match(confirmed.evidenceAnalysis?.promptText || '', /不自动模拟/);
+  assert.doesNotMatch(
+    confirmed.evidenceAnalysis?.promptText || '',
+    /第\d+次.*(?:圣杯|笑杯|阴杯)|已出现圣杯|未获圣杯|连续十二次/,
   );
-  assert.equal(rejectedRitual?.level, '反证');
-  assert.match(rejectedRitual?.detail || '', /未获圣杯/);
 });
 
 test('三山国王九十二签应逐签失败关闭并忽略外部文本与干支污染', () => {
@@ -2030,7 +1997,7 @@ test('三山国王九十二签应逐签失败关闭并忽略外部文本与干�
   });
 });
 
-test('三山国王灵签随机来源应严格重放签号、掷筊终止状态与完整样本', () => {
+test('三山国王灵签随机来源应只按首个样本重放签号并清除旧仪式污染', () => {
   const date = new Date('2025-01-01T00:00:00+08:00');
   const confirmed = drawRandomSign(date, { replay: [0.1, 0.1, 0.9] });
   const reference = SSGW_SIGNS[confirmed.number - 1];
@@ -2058,7 +2025,8 @@ test('三山国王灵签随机来源应严格重放签号、掷筊终止状态�
   assert.equal(rebuilt.story, reference.story);
   assert.deepEqual(rebuilt.details, reference.details);
   assert.deepEqual(rebuilt.draw, confirmed.draw);
-  assert.deepEqual(rebuilt.ritual, confirmed.ritual);
+  assert.equal(rebuilt.ritual, undefined);
+  assert.deepEqual(rebuilt.meta?.random?.samples, [0.1]);
 
   const info = formatDivinationInfo('ssgw', polluted, '测试问题');
   const summary = getDivinationSummaryBlocks('ssgw', polluted);
@@ -2069,49 +2037,28 @@ test('三山国王灵签随机来源应严格重放签号、掷筊终止状态�
   assert.match(summary.lines.join('\n'), /只保留签号与抽取记录/);
   assert.doesNotMatch(summary.lines.join('\n'), /污染签题|污染签诗|污染典故|污染核心寓意/);
 
-  const twelveSmiles = drawRandomSign(date, {
-    replay: [0.1, ...Array.from({ length: 24 }, () => 0.1)],
-  });
-  assert.equal(twelveSmiles.ritual?.throws.length, 12);
-  assert.equal(twelveSmiles.ritual?.rejected, true);
-  assert.match(twelveSmiles.ritual?.reason || '', /连续十二次/);
-
   assert.throws(
     () => rebuildAuditedSsgwData({ ...confirmed, number: confirmed.number + 1 }),
     /与随机轨迹重放得到的第\d+签不一致/,
   );
+  const normalized = rebuildAuditedSsgwData({
+    ...confirmed,
+    meta: {
+      ...confirmed.meta!,
+      random: { mode: 'replay', samples: [0.1, 0.1, 0.9] },
+    },
+  });
+  assert.deepEqual(normalized.meta?.random?.samples, [0.1]);
   assert.throws(
     () =>
       rebuildAuditedSsgwData({
         ...confirmed,
         meta: {
           ...confirmed.meta!,
-          random: { mode: 'replay', samples: [0.1, 0.1, 0.1] },
+          random: { mode: 'replay', samples: [] },
         },
       }),
-    /合法终止状态前已用尽/,
-  );
-  assert.throws(
-    () =>
-      rebuildAuditedSsgwData({
-        ...confirmed,
-        meta: {
-          ...confirmed.meta!,
-          random: { mode: 'replay', samples: [0.1, 0.1, 0.9, 0.2, 0.8] },
-        },
-      }),
-    /仪式结束后仍有多余样本/,
-  );
-  assert.throws(
-    () =>
-      rebuildAuditedSsgwData({
-        ...confirmed,
-        meta: {
-          ...confirmed.meta!,
-          random: { mode: 'replay', samples: [0.1, 0.1] },
-        },
-      }),
-    /至少需要|必须按每次2个样本/,
+    /至少需要1个抽签样本/,
   );
 
   const seeded = drawRandomSign(date, { seed: '灵签轨迹核验' });
@@ -2145,10 +2092,15 @@ test('三山国王灵签应拒绝来源矛盾、缺失轨迹与无效时间', ()
       }),
     /手工录入不能同时携带随机轨迹/,
   );
-  assert.throws(
-    () => rebuildAuditedSsgwData({ ...manual, ritual: random.ritual }),
-    /手工录入不应携带模拟掷筊记录/,
-  );
+  const manualWithLegacyRitual = rebuildAuditedSsgwData({
+    ...manual,
+    ritual: {
+      throws: [{ result: '圣杯' }],
+      confirmed: true,
+      rejected: false,
+    },
+  });
+  assert.equal(manualWithLegacyRitual.ritual, undefined);
   assert.throws(() => rebuildAuditedSsgwData({ ...random, meta: undefined }), /缺少完整随机轨迹/);
   assert.throws(
     () => rebuildAuditedSsgwData({ ...manual, timestamp: Number.MAX_SAFE_INTEGER }),
@@ -2165,7 +2117,7 @@ test('三山国王灵签条件化工具与公开证据入口都应失败关闭�
   ].forEach((text) => {
     assert.equal(
       conditionSsgwInterpretation(text),
-      '未采用签谱解释；当前签谱来源未闭合，只保留签号、抽取轨迹与掷筊记录',
+      '未采用签谱解释；当前签谱来源未闭合，只保留签号与抽取轨迹',
     );
   });
 
@@ -2375,7 +2327,10 @@ test('塔罗与雷诺曼提示词应只保留原始抽牌资料且不混入工�
   assert.match(lenormandSession.prompt, /占法：雷诺曼/);
   assert.match(lenormandSession.prompt, /牌位顺序：/);
   assert.match(lenormandSession.prompt, /牌位明细：/);
-  assert.match(lenormandSession.prompt, /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/);
+  assert.match(
+    lenormandSession.prompt,
+    /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/,
+  );
   assert.doesNotMatch(lenormandSession.prompt, /关键词：|牌义：|组合明细：/);
   assert.doesNotMatch(lenormandSession.prompt, /结构化证据|证据汇总|计算链|解释限制/);
   assert.doesNotMatch(lenormandSession.prompt, /成功率为\d|成功率提升至|吉凶总分[：=]\d/);

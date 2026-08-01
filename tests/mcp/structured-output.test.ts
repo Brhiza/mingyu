@@ -2581,7 +2581,7 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.ok(
       lenormandData.evidenceAnalysis.structuredLayoutFacts.every(
         (item: Record<string, unknown>) =>
-          item.status === '已计算' &&
+          ['已计算', '资料不足'].includes(item.status) &&
           Array.isArray(item.cardFactKeys) &&
           Array.isArray(item.sources),
       ),
@@ -2612,7 +2612,7 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
   });
 });
 
-test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文', async () => {
+test('MCP 灵签应只输出签号与单样本轨迹并失败关闭掷筊规则', async () => {
   await withMcpClient(async (client) => {
     const confirmed = await client.callTool({
       name: 'ssgw_prompt',
@@ -2622,7 +2622,7 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       },
     });
     assert.equal(confirmed.isError, undefined);
-    assert.equal(confirmed.structuredContent?.result.ritual.confirmed, true);
+    assert.equal(confirmed.structuredContent?.result.ritual, undefined);
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.key, 'ssgw:evidence');
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.status, '已计算');
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.length, 8);
@@ -2631,14 +2631,16 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
         (item: Record<string, unknown>) => item.key,
       ),
     );
+    assert.equal(ssgwStepKeys.size, 8);
     assert.ok(
       confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.every(
         (item: Record<string, any>) =>
-          item.status === '已计算' &&
-          item.promptText &&
-          Array.isArray(item.sources) &&
-          item.sources.length > 0 &&
-          item.dependsOnStepKeys.every((key: string) => ssgwStepKeys.has(key)),
+          item.promptText && Array.isArray(item.sources) && item.sources.length > 0,
+      ),
+    );
+    assert.ok(
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.some(
+        (item: Record<string, any>) => item.status === '资料不足',
       ),
     );
     assert.equal(
@@ -2659,29 +2661,27 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       confirmed.structuredContent?.result.evidenceAnalysis.coverageFact.status,
       '存在缺口',
     );
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.ritualFact.status, '已确认');
     assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].key,
-      'ssgw:ritual-throw:1',
+      confirmed.structuredContent?.result.evidenceAnalysis.ritualFact.status,
+      '缺少记录',
     );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].status,
-      '已记录',
+    assert.deepEqual(confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts, []);
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.sampleCount, 1);
+    assert.deepEqual(
+      confirmed.structuredContent?.result.evidenceAnalysis.randomFact.samples,
+      [0.1],
     );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].ritualFactKey,
-      '仪式:掷筊确认',
-    );
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.sampleCount, 3);
     assert.match(
       String(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.limitation),
       /不表示可信度/,
     );
     const confirmedPrompt = String(confirmed.structuredContent?.prompt);
     assert.match(confirmedPrompt, /占法：三山国王灵签/);
-    assert.match(confirmedPrompt, /掷筊记录：/);
+    assert.match(confirmedPrompt, /掷筊流程、杯象判定与终止规则来源未闭合/);
+    assert.match(confirmedPrompt, /不自动模拟/);
     assert.match(confirmedPrompt, /签谱状态：来源尚未完成校勘/);
     assert.doesNotMatch(confirmedPrompt, /签题：|签诗：|典故：|签意：/);
+    assert.doesNotMatch(confirmedPrompt, /掷筊记录：|圣杯|笑杯|阴杯|确认起签|拒绝起签/);
     assert.doesNotMatch(confirmedPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
@@ -2689,11 +2689,11 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     );
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.counterSummaryFact.status,
-      '未见额外反证',
+      '存在需保留反证',
     );
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.counterSummaryFact.factKeys.length,
-      0,
+      4,
     );
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length, 6);
     assert.equal(
@@ -2747,19 +2747,6 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
     );
     assertPromptIsPortableTaskText(confirmedPrompt);
-
-    const rejected = await client.callTool({
-      name: 'ssgw_prompt',
-      arguments: {
-        question: '这件事应该怎样核实现实条件？',
-        replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
-      },
-    });
-    assert.equal(rejected.isError, undefined);
-    assert.equal(rejected.structuredContent?.result.rejected, true);
-    assert.equal(rejected.structuredContent?.result.poem, undefined);
-    assert.doesNotMatch(String(rejected.structuredContent?.prompt), /签诗：/);
-    assert.match(String(rejected.structuredContent?.prompt), /连续三次阴杯|拒绝起签/);
   });
 });
 

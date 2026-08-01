@@ -446,20 +446,12 @@ export function getDivinationSummaryBlocks(
     }
     case 'ssgw': {
       const audited = rebuildAuditedSsgwData(data as SsgwData);
-      if (audited.ritual?.rejected) {
-        return {
-          title: '灵签仪式未确认',
-          tags: ['本次不起签'],
-          lines: [
-            `掷筊记录：${audited.ritual.throws.map((item) => item.result).join(' → ')}`,
-            audited.ritual.reason || '本次未获圣杯，不生成签文结论。',
-          ],
-        };
-      }
       return {
         title: '灵签结果',
         tags: [`签号：第 ${audited.number} 签`, '签谱待校'],
-        lines: ['签谱来源尚未完成校勘，本次只保留签号与抽取记录，不提供签文解释。'],
+        lines: [
+          '签谱与掷筊规则来源尚未完成校勘，本次只保留签号与抽取记录，不提供签文解释或仪式确认。',
+        ],
       };
     }
     case 'almanac': {

@@ -726,25 +726,12 @@ function formatTarotInfo(data: TarotData) {
 function formatSsgwInfo(data: SsgwData) {
   const audited = rebuildAuditedSsgwData(data);
   const evidenceAnalysis = audited.evidenceAnalysis!;
-  if (audited.ritual?.rejected) {
-    const throwLog = audited.ritual.throws.map((t) => t.result).join(' → ');
-    return [
-      '占法：三山国王灵签',
-      `时间干支：${formatGanzhi(audited.ganzhi).replace('干支：', '')}`,
-      `掷筊记录：${throwLog}`,
-      `结果：${audited.ritual.reason}`,
-    ].join('\n');
-  }
-
-  const ritualLog = audited.ritual?.throws?.length
-    ? `掷筊记录：${audited.ritual.throws.map((t) => t.result).join(' → ')}${audited.ritual.reason ? `（${audited.ritual.reason}）` : ''}`
-    : '';
   return [
     '占法：三山国王灵签',
     `时间干支：${formatGanzhi(audited.ganzhi).replace('干支：', '')}`,
     `签号：第${audited.number}签`,
-    ritualLog,
     '签谱状态：来源尚未完成校勘，本次不提供签题、签诗、典故或分类释义，不得自行补造。',
+    '掷筊状态：流程、杯象判定与终止规则来源未闭合，底层不自动模拟或确认。',
     evidenceAnalysis.randomFact.promptText,
   ]
     .filter(Boolean)

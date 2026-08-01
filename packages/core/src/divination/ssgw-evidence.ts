@@ -55,7 +55,7 @@ export interface SsgwRitualFact {
   reason?: string;
   promptText: string;
   sources: string[];
-  limitation: '掷筊记录只证明模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性';
+  limitation: '掷筊流程、杯象判定与终止规则来源未闭合；底层不自动模拟、确认或拒绝起签，也不证明神意、现实结果或预测有效性';
 }
 
 export interface SsgwRandomFact {
@@ -67,7 +67,7 @@ export interface SsgwRandomFact {
   sampleCount: number;
   promptText: string;
   sources: string[];
-  limitation: '随机模式、种子和原始样本只用于复现抽签与掷筊过程；不表示可信度、神意或预测有效性，也不表示事件概率或结果保证';
+  limitation: '随机模式、种子和原始样本只用于复现签号抽取过程；不表示可信度、神意或预测有效性，也不表示事件概率或结果保证';
 }
 
 export interface SsgwInterpretationFact {
@@ -243,13 +243,10 @@ const SIGN_FACT_LIMITATION =
   '签号只证明本次编号与抽取索引一致；签谱来源未闭合时不提供签题或签诗，也不证明神意来源、预测有效性、现实事件或唯一解释' as const;
 
 const RITUAL_FACT_LIMITATION =
-  '掷筊记录只证明模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性' as const;
-
-const RITUAL_THROW_FACT_LIMITATION =
-  '单次掷筊事实只记录两枚筊杯的阴阳面及其对应结果；不证明神意来源、现实吉凶、事件概率或预测有效性' as const;
+  '掷筊流程、杯象判定与终止规则来源未闭合；底层不自动模拟、确认或拒绝起签，也不证明神意、现实结果或预测有效性' as const;
 
 const RANDOM_FACT_LIMITATION =
-  '随机模式、种子和原始样本只用于复现抽签与掷筊过程；不表示可信度、神意或预测有效性，也不表示事件概率或结果保证' as const;
+  '随机模式、种子和原始样本只用于复现签号抽取过程；不表示可信度、神意或预测有效性，也不表示事件概率或结果保证' as const;
 
 const MISSING_FIELD_FACT_LIMITATION =
   '字段缺失只表示所用资料版本未提供该分类释义；不得依据其他字段反推、补造或宣称该领域已有结论' as const;
@@ -270,15 +267,9 @@ const CALCULATION_STEP_LIMITATION =
 const SUMMARY_FACT_LIMITATION =
   '灵签证据汇总只统计签诗、分类释义、抽签索引、掷筊、随机轨迹、来源与反证覆盖；不得按数量生成吉凶等级、可信度、成功率、神意判断、时间保证或唯一未来' as const;
 
-function conditionSsgwRitualReason(reason?: string) {
-  return reason
-    ?.replace(/完成项目模拟求签流程/g, '完成本次模拟求签流程')
-    .replace(/按项目仪式规则/g, '按本次模拟流程');
-}
-
 export function conditionSsgwInterpretation(text: string): string {
   if (!text.trim()) return '';
-  return '未采用签谱解释；当前签谱来源未闭合，只保留签号、抽取轨迹与掷筊记录';
+  return '未采用签谱解释；当前签谱来源未闭合，只保留签号与抽取轨迹';
 }
 
 function buildCounterEvidenceFacts(args: {
@@ -513,7 +504,7 @@ function buildCalculationSteps(args: {
       dependsOnStepKeys: ['ssgw:calculation:random'],
       promptText: args.ritualThrowFacts.length
         ? `已记录${args.ritualThrowFacts.length}次掷筊：${args.ritualThrowFacts.map((item) => item.promptText).join(' → ')}`
-        : '现有资料没有逐次掷筊记录，不得补写阴阳面或杯象',
+        : '掷筊流程与杯象规则来源未闭合，底层不自动模拟或补写阴阳面',
       sources: args.ritualThrowFacts.length
         ? Array.from(new Set(args.ritualThrowFacts.flatMap((item) => item.sources)))
         : args.ritualFact.sources,
@@ -616,7 +607,7 @@ function buildLimitationFacts(args: {
       key: 'ssgw:limitation:symbolic-model',
       type: '传统象征边界',
       ownerFactKeys: allFactKeys,
-      promptText: '签诗、典故、分类解读与掷筊仪式属于传统象征材料，不是现代统计或因果证据',
+      promptText: '签诗、典故、分类解读与掷筊规则均须有可定位来源；当前未闭合部分不是可执行算法',
       sources: ['传统象征材料与现代实证范围区分'],
     },
     {
@@ -646,8 +637,8 @@ function buildLimitationFacts(args: {
       key: 'ssgw:limitation:ritual-confirmation',
       type: '仪式确认边界',
       ownerFactKeys: [args.ritualFact.key, ...args.ritualThrowFacts.map((item) => item.key)],
-      promptText: '圣杯只表示本次模拟仪式已完成，不证明疾病、法律、财务、隐私或未来事实',
-      sources: ['掷筊顺序与仪式确认状态'],
+      promptText: '掷筊流程、杯象判定和终止条件来源未闭合，底层不自动模拟、确认或拒绝起签',
+      sources: ['掷筊规则来源闭合检查'],
     },
     {
       key: 'ssgw:limitation:high-risk-output',
@@ -710,61 +701,11 @@ function normalizeSsgwRandomTrace(input: SsgwData, timestamp: number): RandomTra
   return { mode: 'replay', samples: [...trace.samples] };
 }
 
-function replaySsgwRandomProcess(trace: RandomTrace): {
-  selectedIndex: number;
-  ritual: NonNullable<SsgwData['ritual']>;
-} {
-  if (trace.samples.length < 3) {
-    throw new Error('三山国王灵签随机轨迹至少需要1个抽签样本和2个掷筊样本。');
+function replaySsgwRandomProcess(trace: RandomTrace): { selectedIndex: number } {
+  if (trace.samples.length < 1) {
+    throw new Error('三山国王灵签随机轨迹至少需要1个抽签样本。');
   }
-  if ((trace.samples.length - 1) % 2 !== 0) {
-    throw new Error('三山国王灵签随机轨迹在签号样本后必须按每次2个样本完整记录掷筊。');
-  }
-
-  const selectedIndex = Math.floor(trace.samples[0] * SSGW_SIGNS.length);
-  const throws: NonNullable<SsgwData['ritual']>['throws'] = [];
-  let consecutiveYin = 0;
-  let sampleIndex = 1;
-  let terminated = false;
-
-  while (sampleIndex < trace.samples.length && throws.length < 12) {
-    const first = Math.floor(trace.samples[sampleIndex] * 2);
-    const second = Math.floor(trace.samples[sampleIndex + 1] * 2);
-    sampleIndex += 2;
-    const result = first !== second ? '圣杯' : first === 0 ? '笑杯' : '阴杯';
-    throws.push({
-      result,
-      firstFace: first === 0 ? '阳面' : '阴面',
-      secondFace: second === 0 ? '阳面' : '阴面',
-    });
-    consecutiveYin = result === '阴杯' ? consecutiveYin + 1 : 0;
-    if (result === '圣杯' || consecutiveYin >= 3 || throws.length === 12) {
-      terminated = true;
-      break;
-    }
-  }
-
-  if (!terminated) {
-    throw new Error('三山国王灵签随机轨迹在合法终止状态前已用尽。');
-  }
-  if (sampleIndex !== trace.samples.length) {
-    throw new Error('三山国王灵签随机轨迹在仪式结束后仍有多余样本。');
-  }
-
-  const confirmed = throws.at(-1)?.result === '圣杯';
-  return {
-    selectedIndex,
-    ritual: {
-      throws,
-      confirmed,
-      rejected: !confirmed,
-      reason: confirmed
-        ? '已获圣杯，完成本次模拟求签流程。'
-        : consecutiveYin >= 3
-          ? '连续三次阴杯，按本次模拟流程拒绝起签。'
-          : '连续十二次未获圣杯，停止本次模拟求签，避免无界重试。',
-    },
-  };
+  return { selectedIndex: Math.floor(trace.samples[0] * SSGW_SIGNS.length) };
 }
 
 /** 只信任合法签号、时间戳及完整随机轨迹或明确手工录入，其余派生字段统一重建。 */
@@ -789,13 +730,10 @@ export function rebuildAuditedSsgwData(input: SsgwData): SsgwData {
   if (declaredMethod === 'manual' && trace) {
     throw new Error('三山国王灵签手工录入不能同时携带随机轨迹。');
   }
-  if (declaredMethod === 'manual' && input.ritual !== undefined) {
-    throw new Error('三山国王灵签手工录入不应携带模拟掷筊记录。');
-  }
 
   let draw: NonNullable<SsgwData['draw']>;
-  let ritual: SsgwData['ritual'];
   let algorithm: string;
+  let canonicalTrace: RandomTrace | undefined;
   if (declaredMethod === 'manual') {
     draw = {
       method: 'manual',
@@ -824,7 +762,11 @@ export function rebuildAuditedSsgwData(input: SsgwData): SsgwData {
       selectedIndex: replayed.selectedIndex,
       selectedNumber,
     };
-    ritual = replayed.ritual;
+    canonicalTrace = {
+      mode: trace.mode,
+      ...(trace.seed !== undefined ? { seed: trace.seed } : {}),
+      samples: [trace.samples[0]],
+    };
     algorithm = 'ssgw.draw';
   }
 
@@ -837,12 +779,11 @@ export function rebuildAuditedSsgwData(input: SsgwData): SsgwData {
     timestamp,
     ganzhi,
     draw,
-    ...(ritual ? { ritual } : {}),
     meta: createResultMeta({
       algorithm,
       input: declaredMethod === 'manual' ? { number: reference.id, timestamp } : { timestamp },
       calculatedAt: timestamp,
-      ...(trace ? { random: trace } : {}),
+      ...(canonicalTrace ? { random: canonicalTrace } : {}),
     }),
   };
   rebuilt.evidenceAnalysis = analyzeRebuiltSsgwEvidence(rebuilt);
@@ -939,60 +880,18 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         `抽签结果核验：第${data.number}签《${data.title}》`,
       ]
     : [`本次资料未附签池索引过程，仅保留已确定的第${data.number}签《${data.title}》`];
-  const ritualThrows: SsgwRitualThrowFact[] =
-    data.ritual?.throws.map((item, index) => ({
-      attempt: index + 1,
-      firstFace: item.firstFace ?? null,
-      secondFace: item.secondFace ?? null,
-      result: item.result,
-      promptText: `第${index + 1}次${item.firstFace && item.secondFace ? `${item.firstFace}+${item.secondFace}=` : ''}${item.result}`,
-    })) ?? [];
-  const ritualThrowFacts: SsgwRitualThrowEvidenceFact[] = ritualThrows.map((item) => ({
-    ...item,
-    key: `ssgw:ritual-throw:${item.attempt}`,
-    status: '已记录',
-    ritualFactKey: '仪式:掷筊确认',
-    sources: ['逐次阴阳面记录', '圣杯、笑杯与阴杯判定规则'],
-    limitation: RITUAL_THROW_FACT_LIMITATION,
-  }));
-  const ritualReason = conditionSsgwRitualReason(data.ritual?.reason);
-  const ritualFact: SsgwRitualFact = data.ritual
-    ? {
-        key: '仪式:掷筊确认',
-        status: data.ritual.confirmed ? '已确认' : '未确认',
-        confirmed: Boolean(data.ritual.confirmed),
-        rejected: Boolean(data.ritual.rejected),
-        throws: ritualThrows,
-        reason: ritualReason,
-        promptText: `掷筊顺序：${ritualThrows.map((item) => item.promptText).join(' → ') || '没有掷筊记录'}；仪式状态：${data.ritual.confirmed ? '已出现圣杯，签文按本次模拟流程确认' : `未获圣杯${ritualReason ? `；${ritualReason}` : ''}`}`,
-        sources: ['三山国王灵签模拟掷筊流程', '逐次阴阳面与圣杯、笑杯、阴杯判定记录'],
-        limitation: RITUAL_FACT_LIMITATION,
-      }
-    : {
-        key: '仪式:掷筊确认',
-        status: '缺少记录',
-        confirmed: null,
-        rejected: null,
-        throws: [],
-        promptText: '仪式状态：既有资料未提供掷筊记录，不得补写圣杯确认',
-        sources: ['掷筊记录完整性核验'],
-        limitation: RITUAL_FACT_LIMITATION,
-      };
-  const ritualFacts = data.ritual
-    ? [
-        `掷筊顺序：${
-          data.ritual.throws
-            .map(
-              (item, index) =>
-                `第${index + 1}次${item.firstFace && item.secondFace ? `${item.firstFace}+${item.secondFace}=` : ''}${item.result}`,
-            )
-            .join(' → ') || '没有掷筊记录'
-        }`,
-        data.ritual.confirmed
-          ? '仪式状态：已出现圣杯，签文按本次模拟流程确认'
-          : `仪式状态：未获圣杯${ritualReason ? `；${ritualReason}` : ''}`,
-      ]
-    : ['仪式状态：既有资料未提供掷筊记录，不得补写圣杯确认'];
+  const ritualThrowFacts: SsgwRitualThrowEvidenceFact[] = [];
+  const ritualFact: SsgwRitualFact = {
+    key: '仪式:掷筊确认',
+    status: '缺少记录',
+    confirmed: null,
+    rejected: null,
+    throws: [],
+    promptText: '仪式状态：掷筊流程、杯象判定与终止规则来源未闭合，底层不自动模拟或补写确认结果',
+    sources: ['掷筊规则来源闭合检查'],
+    limitation: RITUAL_FACT_LIMITATION,
+  };
+  const ritualFacts = ['仪式状态：掷筊规则来源未闭合，底层不自动模拟、确认或拒绝'];
   const trace = data.meta?.random;
   const randomFact: SsgwRandomFact = isManual
     ? {
@@ -1014,7 +913,7 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
           samples: [...trace.samples],
           sampleCount: trace.samples.length,
           promptText: `随机模式：${trace.mode}；原始随机样本数：${trace.samples.length}；随机种子与原始样本保留在可重放记录中，本段提示词不展开`,
-          sources: ['统一随机轨迹协议', '抽签与掷筊共用随机源的原始样本记录'],
+          sources: ['统一随机轨迹协议', '签号抽取的原始随机样本记录'],
           limitation: RANDOM_FACT_LIMITATION,
         }
       : {
@@ -1023,7 +922,7 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
           mode: null,
           samples: [],
           sampleCount: 0,
-          promptText: '本次资料未附随机轨迹，无法验证抽签与掷筊的重放过程',
+          promptText: '本次资料未附随机轨迹，无法验证签号抽取的重放过程',
           sources: ['随机轨迹资料完整性核验'],
           limitation: RANDOM_FACT_LIMITATION,
         };
@@ -1035,7 +934,7 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
           `原始随机样本数：${trace.samples.length}`,
           trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
         ].filter(Boolean)
-      : ['本次资料未附随机轨迹，无法验证抽签与掷筊的重放过程'];
+      : ['本次资料未附随机轨迹，无法验证签号抽取的重放过程'];
   const sourceFacts: SsgwSourceFact[] = [
     {
       key: 'ssgw:source:number-pool',
@@ -1063,12 +962,12 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       title: isManual ? '用户手工录入记录' : '可重放随机轨迹记录',
       evidence: isManual
         ? '签号由用户录入，系统只核对签号与签文资料的对应关系'
-        : '抽签和掷筊使用同一随机源，保留随机种子或重放轨迹所需的原始样本',
+        : '签号抽取使用统一随机源，保留随机种子或重放轨迹所需的原始样本',
       role: '随机协议',
       promptText: isManual
         ? '签号来源：用户手工录入，系统未模拟抽签或掷筊'
-        : '随机记录来源：抽签和掷筊使用同一随机源，并保留重放所需的原始样本',
-      sources: isManual ? ['用户手工录入的签号'] : ['抽签与掷筊随机轨迹记录'],
+        : '随机记录来源：只保留签号抽取所需的原始随机样本，未模拟掷筊',
+      sources: isManual ? ['用户手工录入的签号'] : ['签号抽取随机轨迹记录'],
       limitation: SOURCE_FACT_LIMITATION,
     },
   ];
@@ -1143,7 +1042,7 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
   const items: PromptEvidenceItem[] = [
     {
       level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
-      title: '灵签抽取、签文与仪式计算链',
+      title: '灵签签号抽取与签谱边界计算链',
       detail: `${calculationChain.join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
       source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
       tags: ['计算链', summaryFact.status],
@@ -1200,11 +1099,11 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       tags: ['资料覆盖', coverageFact.status],
     },
     {
-      level: data.ritual?.confirmed ? '辅证' : '反证',
-      title: data.ritual?.confirmed ? '模拟求签仪式完成记录' : '模拟求签仪式未完成',
+      level: '反证',
+      title: '掷筊规则待校',
       detail: `${ritualFact.promptText}；边界：${ritualFact.limitation}`,
       source: ritualFact.sources.join('；'),
-      tags: ['仪式流程', data.ritual?.confirmed ? '已确认' : '未确认', '不代表现实结论'],
+      tags: ['规则待校', '未自动模拟', '不代表现实结论'],
     },
     {
       level: randomFact.status === '缺少轨迹' ? '反证' : '辅证',
@@ -1220,9 +1119,9 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     },
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
       level: '反证',
-      title: '资料或仪式缺口',
+      title: '资料或规则缺口',
       detail,
-      source: '签文字段与掷筊记录逐项核验',
+      source: '签谱字段与掷筊规则逐项核验',
     })),
     {
       level: '反证',
@@ -1240,13 +1139,13 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     },
     {
       level: '限制',
-      title: '灵签文本与仪式证据边界',
+      title: '灵签文本与掷筊规则边界',
       detail: `${limitations.join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
       source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
       tags: ['传统材料', '现实复核'],
     },
   ];
-  const evidence: PromptEvidenceBundle = { title: '三山国王灵签文本与仪式结构化证据', items };
+  const evidence: PromptEvidenceBundle = { title: '三山国王灵签抽取与资料边界结构化证据', items };
   const promptEvidence: PromptEvidenceBundle = {
     ...evidence,
     items: items.map((item) => {
@@ -1260,7 +1159,7 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     }),
   };
   const promptText = [
-    '【三山国王灵签文本与仪式结构化证据】',
+    '【三山国王灵签抽取与资料边界结构化证据】',
     ...formatPromptEvidenceBundle(promptEvidence),
     `仪式事实：${ritualFact.promptText}。`,
     `抽签事实：${drawFact.promptText}。`,
@@ -1306,7 +1205,7 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       '先核对签号与抽取轨迹；签谱来源未闭合时停止读取签题、签诗、典故与分类字段。',
       '只有完成来源校勘的签诗才可作为文本主证，典故与分类解读只能作分层辅助。',
       '未校勘分类释义保持缺失，不用条件化改写掩盖来源缺口。',
-      '独立记录抽签随机轨迹和掷筊仪式状态；未获圣杯时停止签文解释。',
+      '只记录签号抽取的随机轨迹；掷筊流程、杯象判定与终止规则来源未闭合时不自动模拟或确认。',
       '所有象征解释均须回到用户问题和现实资料复核。',
     ],
   };

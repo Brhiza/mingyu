@@ -1496,8 +1496,14 @@ test('八字公开 API prompt builder 空问题走通用问题，不复用本地
   });
 
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(prompt, /【任务】\n请重点核对事业相关的已列事实与资料缺口；【问题】只限定核对范围。/);
-  assert.match(prompt, /不得超出随盘列出的事实与限制，不直接生成性格、健康、财富、婚恋、现实事件、概率、应期或行动建议/);
+  assert.match(
+    prompt,
+    /【任务】\n请重点核对事业相关的已列事实与资料缺口；【问题】只限定核对范围。/,
+  );
+  assert.match(
+    prompt,
+    /不得超出随盘列出的事实与限制，不直接生成性格、健康、财富、婚恋、现实事件、概率、应期或行动建议/,
+  );
   assert.doesNotMatch(prompt, /若【问题】|按通用.*口径|问题未限定/);
   assert.doesNotMatch(prompt, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt, /【任务】\n判断命局更适合守成/);
@@ -2784,14 +2790,14 @@ test('公开 API 雷诺曼接口应返回原始抽牌记录与牌义待校边界
   assert.doesNotMatch(JSON.stringify(body.data), /成功率提升至|吉凶总分[：=]\d/);
 });
 
-test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏签文', async () => {
+test('公开 API 灵签应只返回签号与单样本轨迹并失败关闭掷筊规则', async () => {
   const confirmed = await callApi('divination/ssgw', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ replay: [0.1, 0.1, 0.9] }),
   });
   assert.equal(confirmed.response.status, 200);
-  assert.equal(confirmed.body.data.ritual.confirmed, true);
+  assert.equal(confirmed.body.data.ritual, undefined);
   assert.equal(confirmed.body.data.evidenceAnalysis.key, 'ssgw:evidence');
   assert.equal(confirmed.body.data.evidenceAnalysis.status, '已计算');
   assert.equal(confirmed.body.data.evidenceAnalysis.calculationSteps.length, 8);
@@ -2803,7 +2809,7 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   assert.ok(
     confirmed.body.data.evidenceAnalysis.calculationSteps.every(
       (item: Record<string, any>) =>
-        item.status === '已计算' &&
+        ['已计算', '资料不足'].includes(item.status) &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length > 0 &&
@@ -2822,23 +2828,19 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   );
   assert.equal(confirmed.body.data.evidenceAnalysis.interpretationFacts.length, 0);
   assert.equal(confirmed.body.data.evidenceAnalysis.coverageFact.status, '存在缺口');
-  assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.status, '已确认');
-  assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.throws.length, 1);
-  assert.equal(confirmed.body.data.evidenceAnalysis.ritualThrowFacts[0].key, 'ssgw:ritual-throw:1');
-  assert.equal(confirmed.body.data.evidenceAnalysis.ritualThrowFacts[0].status, '已记录');
-  assert.equal(
-    confirmed.body.data.evidenceAnalysis.ritualThrowFacts[0].ritualFactKey,
-    '仪式:掷筊确认',
-  );
+  assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.status, '缺少记录');
+  assert.deepEqual(confirmed.body.data.evidenceAnalysis.ritualFact.throws, []);
+  assert.deepEqual(confirmed.body.data.evidenceAnalysis.ritualThrowFacts, []);
   assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.status, '可重放');
-  assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.sampleCount, 3);
+  assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.sampleCount, 1);
+  assert.deepEqual(confirmed.body.data.evidenceAnalysis.randomFact.samples, [0.1]);
   assert.ok(confirmed.body.data.evidenceAnalysis.randomFact.sources.length >= 2);
   assert.match(confirmed.body.data.evidenceAnalysis.randomFact.limitation, /不表示可信度/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /签谱状态：来源尚未闭合/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /不证明预测有效性/);
   assert.equal(confirmed.body.data.evidenceAnalysis.counterEvidenceFacts.length, 6);
-  assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.status, '未见额外反证');
-  assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 0);
+  assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
+  assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 4);
   assert.equal(confirmed.body.data.evidenceAnalysis.limitationFacts.length, 6);
   assert.equal(confirmed.body.data.evidenceAnalysis.summaryFact.key, 'ssgw:evidence-summary');
   assert.equal(confirmed.body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
@@ -2895,7 +2897,10 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   assert.match(prompt.body.data.prompt, /占法：三山国王灵签/);
   assert.match(prompt.body.data.prompt, /签号：/);
   assert.match(prompt.body.data.prompt, /签谱状态：来源尚未完成校勘/);
+  assert.match(prompt.body.data.prompt, /掷筊流程、杯象判定与终止规则来源未闭合/);
+  assert.match(prompt.body.data.prompt, /不自动模拟/);
   assert.doesNotMatch(prompt.body.data.prompt, /签题：|签诗：|典故：|签意：/);
+  assert.doesNotMatch(prompt.body.data.prompt, /掷筊记录：|圣杯|笑杯|阴杯|确认起签|拒绝起签/);
   assert.doesNotMatch(prompt.body.data.prompt, /签诗主旨|典故启示|签意结论|宜进还是宜守/);
   assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
   assert.doesNotMatch(
@@ -2903,38 +2908,6 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
     /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
   );
   assertPromptIsPortableTaskText(prompt.body.data.prompt);
-
-  const rejected = await callApi('divination/ssgw', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9] }),
-  });
-  assert.equal(rejected.response.status, 200);
-  assert.equal(rejected.body.data.rejected, true);
-  assert.equal(rejected.body.data.ritual.confirmed, false);
-  assert.equal(rejected.body.data.poem, undefined);
-  assert.equal(rejected.body.data.number, undefined);
-  assert.equal(rejected.body.data.title, undefined);
-  assert.equal(rejected.body.data.story, undefined);
-  assert.equal(rejected.body.data.details, undefined);
-  assert.equal(rejected.body.data.evidenceAnalysis, undefined);
-  assert.match(rejected.body.data.message, /拒绝起签/);
-
-  const rejectedPrompt = await callApi('divination/ssgw/prompt', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      question: '这件事应该怎样核实现实条件？',
-      replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
-      responseMode: 'full',
-    }),
-  });
-  assert.equal(rejectedPrompt.response.status, 200);
-  assert.equal(rejectedPrompt.body.data.result.rejected, true);
-  assert.equal(rejectedPrompt.body.data.result.poem, undefined);
-  assert.equal(rejectedPrompt.body.data.result.details, undefined);
-  assert.doesNotMatch(rejectedPrompt.body.data.prompt, /签诗：/);
-  assert.match(rejectedPrompt.body.data.prompt, /连续三次阴杯.*拒绝起签/);
 });
 
 test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', async () => {

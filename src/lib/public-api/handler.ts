@@ -2727,20 +2727,8 @@ function drawSsgw(input: JsonRecord) {
   return drawRandomSign(readCustomDate(input), readRandomOptions(input));
 }
 
-function shapePublicSsgwResult(result: ReturnType<typeof drawRandomSign>) {
-  if (result.ritual?.rejected) {
-    return {
-      rejected: true,
-      message: result.ritual.reason,
-      ritual: result.ritual,
-      meta: result.meta,
-    };
-  }
-  return result;
-}
-
 function calculateSsgw(input: JsonRecord) {
-  return shapePublicSsgwResult(drawSsgw(input));
+  return drawSsgw(input);
 }
 
 function calculateAlmanac(input: JsonRecord) {
@@ -2939,14 +2927,12 @@ function buildDivinationPromptResult(
   const fullResult =
     method === 'almanac'
       ? shapeAlmanacResult(rawData as AlmanacData, input)
-      : method === 'ssgw'
-        ? shapePublicSsgwResult(rawData as ReturnType<typeof drawRandomSign>)
-        : method === 'astrolabe'
-          ? {
-              ...(rawData as AstrolabeData),
-              scopeEvidence: buildAstrolabeScopeEvidence(input, rawData as AstrolabeData),
-            }
-          : rawData;
+      : method === 'astrolabe'
+        ? {
+            ...(rawData as AstrolabeData),
+            scopeEvidence: buildAstrolabeScopeEvidence(input, rawData as AstrolabeData),
+          }
+        : rawData;
   const summary = getDivinationSummaryBlocks(method, promptData);
   const prompt = buildDivinationPromptText(method, question, promptData, input);
 

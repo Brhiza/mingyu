@@ -14,29 +14,19 @@ const ssgwSchema = z.object({ ...randomOptionShape });
 
 const ssgwPromptSchema = extendPromptSchema(ssgwSchema, '用户希望围绕灵签解读的问题');
 
-function toPublicSsgwResult(result: ReturnType<typeof drawRandomSign>) {
-  if (!result.ritual?.rejected) return result;
-  return {
-    rejected: true,
-    message: result.ritual.reason,
-    ritual: result.ritual,
-    meta: result.meta,
-  };
-}
-
 export function registerSsgwTool(server: McpServer) {
   server.registerTool(
     'divine_ssgw',
     {
       description:
-        '三山国王灵签求签流程：从1至92签号池随机抽取编号，再以掷筊流程记录确认状态。返回签号、抽取轨迹、完整掷筊记录（ritual）和签谱待校状态；来源校勘完成前不返回签题、签诗、典故、吉凶或解签结论',
+        '三山国王灵签签号抽取：从1至92签号池随机抽取编号，返回签号、可重放抽取轨迹和签谱待校状态。掷筊流程、杯象判定与终止规则来源未闭合，不自动模拟；签谱校勘完成前不返回签题、签诗、典故、吉凶或解签结论',
       inputSchema: ssgwSchema.shape,
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = drawRandomSign(readMcpRandomOptions(args));
-        return createStructuredToolResult({ result: toPublicSsgwResult(result) });
+        return createStructuredToolResult({ result });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '求签失败'));
       }
@@ -47,7 +37,7 @@ export function registerSsgwTool(server: McpServer) {
     'ssgw_prompt',
     {
       description:
-        '三山国王灵签求签并生成结构化 AI 解读提示词：一次调用返回灵签结果（含传统掷筊流程）和可直接复制给 AI 的提示词',
+        '三山国王灵签抽取签号并生成结构化 AI 资料核对提示词：一次调用返回签号、可重放抽取轨迹、签谱与掷筊规则待校边界',
       inputSchema: ssgwPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('灵签结果'),
@@ -58,7 +48,7 @@ export function registerSsgwTool(server: McpServer) {
       try {
         const result = drawRandomSign(readMcpRandomOptions(args));
         return createStructuredToolResult({
-          result: toPublicSsgwResult(result),
+          result,
           prompt: buildCommonDivinationPrompt('ssgw', args.question, result, args.promptMode),
         });
       } catch (error) {

@@ -596,7 +596,7 @@ const systems: SystemCapability[] = [
     name: '三山国王灵签',
     category: 'divination',
     inputs: [questionInput],
-    outputs: ['签号', '签谱待校状态', '掷筊记录', '随机轨迹', '结构化证据'],
+    outputs: ['签号', '签谱与掷筊规则待校状态', '随机轨迹', '结构化证据'],
     supports: randomSupports,
     notes: [
       '当前只保留1至92的连续签号池；旧签谱没有可定位来源，完成逐签校勘前失败关闭。',

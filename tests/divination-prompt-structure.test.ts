@@ -1119,7 +1119,10 @@ test('灵签提示词在签谱来源闭合前只保留签号与轨迹', () => {
 
   assert.match(prompt, /签号：第18签/);
   assert.match(prompt, /签谱状态：来源尚未完成校勘/);
+  assert.match(prompt, /掷筊流程、杯象判定与终止规则来源未闭合/);
+  assert.match(prompt, /不自动模拟/);
   assert.doesNotMatch(prompt, /签题：|签诗：|典故：|签意：|核心寓意：/);
+  assert.doesNotMatch(prompt, /掷筊记录：|圣杯|笑杯|阴杯|确认起签|拒绝起签/);
   assert.doesNotMatch(prompt, /吉凶层级|宜忌条件|事项映射|现实映射|典故映射|证据汇总|非事实结论/);
   assert.match(prompt, /不得自行查表、补造或解释/);
   assert.doesNotMatch(prompt, /签诗主旨|典故启示|签意结论|宜进还是宜守/);
