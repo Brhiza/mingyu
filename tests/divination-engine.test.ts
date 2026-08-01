@@ -672,13 +672,14 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.limitation.includes('不证明现实吉凶'),
     ),
   );
-  assert.equal(analysis.ruleSourceFacts.length, 9);
+  assert.equal(analysis.ruleSourceFacts.length, 11);
   assert.ok(
     analysis.ruleSourceFacts.some(
       (item) =>
         item.key === 'rule:qimen:classic-pattern-audit-boundary' &&
         item.promptText.includes('十一项固定格') &&
-        item.promptText.includes('伏干格、飞干格') &&
+        item.promptText.includes('伏干格、飞干格、岁格') &&
+        item.promptText.includes('月干/月朔干') &&
         item.promptText.includes('不得从原始盘面自动补算'),
     ),
   );
@@ -1454,7 +1455,7 @@ test('奇门天地盘干命名格局应进入实际排盘输出', () => {
   );
 });
 
-test('奇门未审核符使、飞宫伏宫、时格与勃格规则不得进入经典格局', () => {
+test('奇门未审核符使、飞宫伏宫、月格时格与普通勃格规则不得进入经典格局', () => {
   const contexts = [
     {
       jiuGongGe: [
@@ -1485,11 +1486,9 @@ test('奇门未审核符使、飞宫伏宫、时格与勃格规则不得进入�
   [
     '天乙飞宫',
     '天乙伏宫',
-    '岁格',
     '月格',
     '时格',
     '勃格',
-    '格勃',
     '地罗遮蔽',
     '相佐',
     '守户',
@@ -1552,9 +1551,11 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
     '小格',
     '伏干格',
     '飞干格',
+    '岁格',
+    '格勃',
   ]);
   const retiredPattern =
-    /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|天假|地假|人假|物假|鬼假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|岁格|月格|时格|勃格|格勃|地罗遮蔽|天辅时|五合时|玉女守门/;
+    /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|天假|地假|人假|物假|鬼假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|月格|时格|勃格|地罗遮蔽|天辅时|五合时|玉女守门/;
 
   for (const method of ['zhuanpan', 'feipan'] as const) {
     for (const year of [2024, 2025, 2026, 2027]) {

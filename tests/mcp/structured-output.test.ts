@@ -5112,6 +5112,8 @@ test('MCP 奇门工具返回位置索引与九宫宫对结构化证据', async (
         'rule:qimen:layout',
         'rule:qimen:relations',
         'rule:qimen:day-stem-context-patterns',
+        'rule:qimen:year-stem-context-patterns',
+        'rule:qimen:geng-value-symbol-pattern',
         'rule:qimen:classic-pattern-audit-boundary',
         'rule:qimen:retained-combo-versions',
         'rule:qimen:special-context-boundary',

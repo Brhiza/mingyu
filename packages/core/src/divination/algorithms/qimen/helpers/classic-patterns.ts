@@ -1,20 +1,25 @@
 /**
  * @file 奇门已校勘经典格局与天地盘干结构事实
  * @description 正式入口输出已经逐条闭环的十一项天地盘固定格，以及只在
- * 完整时家日柱上下文中识别的伏干格、飞干格两项中性结构事实。
- * 九遁、三奇、三诈五假、值符值使、岁月日时格、门迫、击刑、入墓等旧规则
+ * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃四项中性结构事实。
+ * 九遁、三奇、三诈五假、值符值使、月日时格、普通勃格、门迫、击刑、入墓等旧规则
  * 在版本、条件或适用情境完成校勘前失败关闭；可复算的落宫与五行事实仍由九宫、
  * 基础标签、组合事实和天地盘干关系提供，供后续 AI 结合具体问题继续推算。
  */
 
 import type { QimenJiuGongGe, QimenScope } from '../../../../types/divination';
-import { isTianGanHe } from '../../../../ganzhi';
+import { getXunHead, isTianGanHe } from '../../../../ganzhi';
 import { isControlling, isGenerating, stemElements, STEM_TOMB_MAP } from './_constants';
 import { getNamedStemPairPattern, getStemPairPattern } from './stem-pair-patterns';
-import { getDunJiaStem, getTianPanStems } from './palace-utils';
+import {
+  getDunJiaStem,
+  getTianPanStemForStar,
+  getTianPanStems,
+  hasTianPanStar,
+} from './palace-utils';
 
 /** 已校勘、但不能退化为固定天地盘干二元映射的日干上下文格。 */
-export const AUDITED_QIMEN_CONTEXT_PATTERN_NAMES = ['伏干格', '飞干格'] as const;
+export const AUDITED_QIMEN_CONTEXT_PATTERN_NAMES = ['伏干格', '飞干格', '岁格', '格勃'] as const;
 
 export function isAuditedQimenContextPatternName(
   name: string,
@@ -273,14 +278,97 @@ function getDayStemContextPatterns({
   return patterns;
 }
 
+function getYearStemContextPatterns({
+  jiuGongGe,
+  scope,
+  yearGanZhi,
+}: PatternContext): ClassicPattern[] {
+  // 原典条文是时家盘以当年太岁之干为参照；月家、年家不套用同名规则。
+  if (scope !== 'hour' || !yearGanZhi) return [];
+
+  const yearDunStem = getDunJiaStem(yearGanZhi);
+  const yearStemBasis = yearGanZhi.startsWith('甲')
+    ? `本年干支${yearGanZhi}，六甲按旬首遁于${yearDunStem}`
+    : `本年干支${yearGanZhi}，岁干为${yearDunStem}`;
+  const limitation =
+    '这里只登记《太白阴经》《遁甲演义》《奇门遁甲统宗》《奇门法窍》共同支持的时家盘面结构；原典兵占、出行和百事断语不泛化为通用吉凶、现实结果或行动建议';
+  const patterns: ClassicPattern[] = [];
+
+  for (const palace of jiuGongGe) {
+    const earth = palace.diPan.stem;
+    if (!earth) continue;
+
+    for (const heaven of new Set(getTianPanStems(palace))) {
+      if (heaven !== '庚' || earth !== yearDunStem) continue;
+
+      patterns.push({
+        key: `pattern:yearStem:suiGe:${yearGanZhi}:${palace.gong}`,
+        name: '岁格',
+        tone: 'neutral',
+        summary: `天盘庚加地盘${yearDunStem}于${palace.name}；${yearStemBasis}。四书共同条件为“六庚加岁干为岁格”。${limitation}`,
+        palace: palace.gong,
+        tokens: [heaven, earth],
+      });
+    }
+  }
+
+  return patterns;
+}
+
+function getGengValueSymbolPattern({
+  jiuGongGe,
+  zhiFu,
+  scope,
+  hourGanZhi,
+}: PatternContext): ClassicPattern[] {
+  // “六庚为值符”只属于时家甲申旬；缺少完整时柱或值符身份时不推断。
+  if (scope !== 'hour' || !hourGanZhi || !zhiFu) return [];
+
+  const xunHead = getXunHead(hourGanZhi);
+  const expectedValueSymbolStem = getDunJiaStem(xunHead);
+  const valueSymbolPalaces = jiuGongGe.filter((palace) => hasTianPanStar(palace, zhiFu));
+  if (valueSymbolPalaces.length !== 1) {
+    throw new Error(
+      `奇门值符星“${zhiFu}”在天盘应恰有一个落宫，实际为${valueSymbolPalaces.length}个。`,
+    );
+  }
+
+  const palace = valueSymbolPalaces[0];
+  const valueSymbolStem = getTianPanStemForStar(palace, zhiFu);
+  if (valueSymbolStem !== expectedValueSymbolStem) {
+    throw new Error(
+      `奇门时柱“${hourGanZhi}”所属${xunHead}旬应由值符携${expectedValueSymbolStem}，实际为${valueSymbolStem || '空'}。`,
+    );
+  }
+
+  if (xunHead !== '甲申' || valueSymbolStem !== '庚' || palace.diPan.stem !== '丙') return [];
+
+  return [
+    {
+      key: `pattern:valueSymbol:gengOverBing:${hourGanZhi}:${palace.gong}`,
+      name: '格勃',
+      tone: 'neutral',
+      summary: `当前时柱${hourGanZhi}属甲申旬，值符星${zhiFu}携旬首所遁六庚，天盘庚临地盘丙于${palace.name}。采用《奇门遁甲统宗》《奇门宝鉴御定》《奇门旨归》互证的“庚为值符临丙为飞勃，亦为格勃”条件；这里只登记值符身份与天地盘干可复算结构，不采用原典兵占进退、主客胜负或通用吉凶断语`,
+      palace: palace.gong,
+      tokens: ['庚', '丙'],
+    },
+  ];
+}
+
 /**
  * 返回正式允许输出的经典格局。
  *
- * 当前白名单包括十一项天地盘固定格，以及《遁甲演义》《奇门遁甲统宗》与
- * 《奇门法窍》互证的伏干格、飞干格。后两项只在时家、完整日柱和六甲遁干均
- * 可复算时登记中性结构，不继承互有差异的现实断语。其余尚未闭合版本、条件和
- * 使用情境的旧规则都不进入结果；AI 如需继续推算，应从原始九宫事实出发。
+ * 当前白名单包括十一项天地盘固定格，以及独立校勘的伏干格、飞干格、岁格、
+ * 格勃四项时家上下文结构。四项均只在完整干支、六甲遁干和值符身份可复算时登记
+ * 中性结构，不继承互有差异的现实断语。月格因“月干/月朔干”不一，时格因
+ * “本时干/仅三奇/庚值符管十时”不一，普通勃格因“丙临年月日时干/丙加值符庚”
+ * 不一而继续关闭；AI 如需采用，应从原始九宫事实和明示版本继续推算。
  */
 export function getClassicPatterns(context: PatternContext): ClassicPattern[] {
-  return [...getStemPairNamedPatterns(context.jiuGongGe), ...getDayStemContextPatterns(context)];
+  return [
+    ...getStemPairNamedPatterns(context.jiuGongGe),
+    ...getDayStemContextPatterns(context),
+    ...getYearStemContextPatterns(context),
+    ...getGengValueSymbolPattern(context),
+  ];
 }

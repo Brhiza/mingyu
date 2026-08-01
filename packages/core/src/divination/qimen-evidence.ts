@@ -148,6 +148,8 @@ export interface QimenRuleSourceFact {
     | '九宫排布规则'
     | '五行关系规则'
     | '日干上下文格规则'
+    | '岁干上下文格规则'
+    | '六庚值符上下文格规则'
     | '经典格局审核边界'
     | '组合规则版本'
     | '专项情境规则边界'
@@ -344,7 +346,7 @@ function buildPatternFacts(data: QimenData): QimenPatternEvidenceFact[] {
     dayGanZhi: data.ganzhi.day,
     hourGanZhi: data.ganzhi.hour,
   }).map((item, index) => {
-    const isDayStemContextPattern = isAuditedQimenContextPatternName(item.name);
+    const isContextPattern = isAuditedQimenContextPatternName(item.name);
     const palaceName = data.jiuGongGe.find((palace) => palace.gong === item.palace)?.name;
     const [heavenStem, earthStem] = item.tokens ?? [];
     const fixedCondition =
@@ -364,18 +366,34 @@ function buildPatternFacts(data: QimenData): QimenPatternEvidenceFact[] {
       kind: '经典格局' as const,
       traditionalTone,
       originalText: item.summary,
-      promptText: isDayStemContextPattern
-        ? `${item.summary}；命中已校勘日干上下文格“${item.name}”，只供 AI 结合完整盘面继续核验`
+      promptText: isContextPattern
+        ? `${item.summary}；命中已校勘时家上下文格“${item.name}”，只供 AI 结合完整盘面继续核验`
         : `${fixedCondition}，命中《遁甲演义》已校勘固定格“${item.name}”；原典分类为${traditionalTone}，这里只记录名称、条件与原典分类`,
       palaces: item.palace ? [item.palace] : [],
-      sources: isDayStemContextPattern
-        ? [
-            '《遁甲演义》卷二“庚加日干为伏干，日干加庚飞干格”',
-            '《奇门遁甲统宗》“庚临日干伏干格，日干临庚飞干格”',
-            '《奇门法窍》“天上六庚加于今日之干为伏干格”“天上所用之日干加于地下六庚为飞干格”',
-            '当前完整日柱、六甲旬首遁干与宫内天地盘干命中记录',
-          ]
-        : ['《遁甲演义》卷一、卷二十一项固定格', '当前宫天地盘干命中记录'],
+      sources:
+        item.name === '伏干格' || item.name === '飞干格'
+          ? [
+              '《遁甲演义》卷二“庚加日干为伏干，日干加庚飞干格”',
+              '《奇门遁甲统宗》“庚临日干伏干格，日干临庚飞干格”',
+              '《奇门法窍》“天上六庚加于今日之干为伏干格”“天上所用之日干加于地下六庚为飞干格”',
+              '当前完整日柱、六甲旬首遁干与宫内天地盘干命中记录',
+            ]
+          : item.name === '岁格'
+            ? [
+                '《太白阴经》卷九“凡六庚加岁干，为岁格”',
+                '《遁甲演义》卷二“六庚加当年太岁之干，名曰岁格”',
+                '《奇门遁甲统宗》“岁格，庚临岁干”',
+                '《奇门法窍》“六庚加本年、本月、本日、本时均为格”',
+                '当前完整年干支、六甲旬首遁干与宫内天地盘干命中记录',
+              ]
+            : item.name === '格勃'
+              ? [
+                  '《奇门遁甲统宗》“庚符临于丙上，名为飞勃，亦为格勃”',
+                  '《奇门宝鉴御定》“天上直符之庚，加于地之六丙为飞勃，亦名符勃”',
+                  '《奇门旨归》“值符是庚，又宜避丙丁之宫，此是格悖”',
+                  '当前完整时柱、甲申旬首、值符所携六庚与宫内地盘丙命中记录',
+                ]
+              : ['《遁甲演义》卷一、卷二十一项固定格', '当前宫天地盘干命中记录'],
       limitation,
     };
   });
@@ -838,14 +856,16 @@ function collectPalaceIndexSources(data: QimenData, patternFacts: QimenPatternEv
   return sourceMap;
 }
 
-const RETIRED_QIMEN_PATTERN_TEXT =
+// 旧 stemRelations 不是上下文格的可信来源；即使岁格、格勃已开放，也必须由完整
+// 干支、值符身份和重建后的九宫独立复算，不能从调用方夹带的关系说明恢复。
+const UNTRUSTED_QIMEN_STEM_RELATION_PATTERN_TEXT =
   /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|天假|地假|人假|物假|鬼假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|岁格|月格|时格|勃格|格勃|地罗遮蔽|天辅时|五合时|玉女守门|天网四张|地网四张|伏干飞干|伏宫飞宫/;
 
 function getSafeStemRelationPattern(item: { relation: string; pattern?: string }): string | null {
   const pattern = item.pattern?.trim();
   if (
     !pattern ||
-    RETIRED_QIMEN_PATTERN_TEXT.test(pattern) ||
+    UNTRUSTED_QIMEN_STEM_RELATION_PATTERN_TEXT.test(pattern) ||
     pattern.startsWith('门生宫') ||
     pattern.startsWith('宫生门')
   )
@@ -1253,7 +1273,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
         '《遁甲演义》卷二：https://zh.wikisource.org/wiki/遁甲演義_(四庫全書本)/卷2',
       ],
       promptText:
-        '天地盘干规则：八十一种组合完整保留天干、五行生克与标准五合结构；仅青龙返首、飞鸟跌穴、青龙逃走、白虎猖狂、朱雀投江、螣蛇跃蹻、荧入太白、太白入荧、大格、刑格、小格十一项按已校勘固定格输出，其余七十项不得单凭二元组合补造传统名称或现实断语；另有完整日柱时，只按独立规则核验伏干格、飞干格',
+        '天地盘干规则：八十一种组合完整保留天干、五行生克与标准五合结构；仅青龙返首、飞鸟跌穴、青龙逃走、白虎猖狂、朱雀投江、螣蛇跃蹻、荧入太白、太白入荧、大格、刑格、小格十一项按已校勘固定格输出，其余七十项不得单凭二元组合补造传统名称或现实断语；时家另按独立上下文规则核验伏干格、飞干格、岁格与六庚值符临丙格勃',
       limitation: RULE_SOURCE_LIMITATION,
     },
     {
@@ -1273,18 +1293,53 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       limitation: RULE_SOURCE_LIMITATION,
     },
     {
+      key: 'rule:qimen:year-stem-context-patterns',
+      status: '已声明',
+      category: '岁干上下文格规则',
+      rule: '岁格仅在时家完整年干支经六甲遁干后满足天盘庚加地盘岁干时命中；月家、年家不外推，原典兵占、出行和百事断语不采用',
+      appliesTo: ['岁格', '完整年干支', '六甲旬首遁干'],
+      sources: [
+        '《太白阴经》卷九“凡六庚加岁干，为岁格”',
+        '《遁甲演义》卷二“六庚加当年太岁之干，名曰岁格”',
+        '《奇门遁甲统宗》“岁格，庚临岁干”',
+        '《奇门法窍》“六庚加本年、本月、本日、本时均为格”',
+        '《烟波钓叟歌》六甲遁于六仪固定映射',
+      ],
+      promptText:
+        '时家岁干上下文格：只有排盘明确列出的岁格可以作为中性结构事实引用；甲年须按完整年干支确定甲子遁戊、甲戌遁己、甲申遁庚、甲午遁辛、甲辰遁壬、甲寅遁癸。不得把原典兵占、出行和百事断语泛化为当前问题的吉凶、结果或建议；月家、年家不得套用',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
+      key: 'rule:qimen:geng-value-symbol-pattern',
+      status: '已声明',
+      category: '六庚值符上下文格规则',
+      rule: '格勃仅在时家完整时柱属于甲申旬、当前值符星确实携旬首所遁六庚，且该值符宫天盘庚临地盘丙时命中；只登记中性结构，不采用兵占断语',
+      appliesTo: ['格勃', '甲申旬', '六庚值符', '值符宫天地盘干'],
+      sources: [
+        '《奇门遁甲统宗》“庚符临于丙上，名为飞勃，亦为格勃”',
+        '《奇门宝鉴御定》“天上直符之庚，加于地之六丙为飞勃，亦名符勃”',
+        '《奇门旨归》“值符是庚，又宜避丙丁之宫，此是格悖”',
+        '当前时柱旬首、值符所携奇仪与宫内天地盘干复算记录',
+      ],
+      promptText:
+        '六庚值符格勃：只有完整时柱属于甲申旬、值符星实际携庚且值符宫天盘庚临地盘丙三项同时成立时，才把格勃列为中性结构事实。不得把普通庚加丙、普通丙加庚、丙临年月日时干或名称相近的勃格混入，也不得继承原典兵占进退和主客胜负断语',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
       key: 'rule:qimen:classic-pattern-audit-boundary',
       status: '已声明',
       category: '经典格局审核边界',
-      rule: '正式入口输出已逐条校勘的十一项天地盘固定格，以及仅限时家完整日柱的伏干格、飞干格两项中性结构；九遁、三奇、三诈五假、符使、岁月日时格及其他旧格局在版本、条件和适用情境闭环前失败关闭',
+      rule: '正式入口输出已逐条校勘的十一项天地盘固定格，以及仅限时家完整上下文的伏干格、飞干格、岁格、格勃四项中性结构；九遁、三奇、三诈五假、符使、月格、时格、普通勃格及其他旧格局在版本、条件和适用情境闭环前失败关闭',
       appliesTo: ['经典格局', '基础位置标签', '提示词推算边界'],
       sources: [
         '《遁甲演义》卷一、卷二十一项固定天地盘干格逐条校勘结果',
         '《遁甲演义》《奇门遁甲统宗》《奇门法窍》伏干格、飞干格结构条件互证结果',
+        '《太白阴经》《遁甲演义》《奇门遁甲统宗》《奇门法窍》岁格结构条件互证结果',
+        '《奇门遁甲统宗》《奇门宝鉴御定》《奇门旨归》六庚值符临丙的格勃条件互证结果',
         '当前九宫门、星、神、天地盘干、空亡、马星与五行关系原始事实',
       ],
       promptText:
-        '经典格局审核边界：当前把青龙返首、飞鸟跌穴、青龙逃走、白虎猖狂、朱雀投江、螣蛇跃蹻、荧入太白、太白入荧、大格、刑格、小格十一项固定格，以及仅限时家完整日柱复算的伏干格、飞干格视为已校勘命中。后两项只登记中性结构，不采用互有差异的现实断语。九遁、三奇得使、三奇游六仪、三诈五假、三奇升殿/入墓/受制/会甲、符使同宫、相佐守户、天乙飞伏宫、岁月日时格、天辅时、玉女守门、门宫相生等旧规则尚未完成统一版本、完整条件与通用适用边界审核，不得从原始盘面自动补算为既定格局或现实结论',
+        '经典格局审核边界：当前把青龙返首、飞鸟跌穴、青龙逃走、白虎猖狂、朱雀投江、螣蛇跃蹻、荧入太白、太白入荧、大格、刑格、小格十一项固定格，以及仅限时家完整上下文复算的伏干格、飞干格、岁格、六庚值符临丙格勃视为已校勘命中。四项上下文格只登记中性结构，不采用互有差异的现实断语。月格存在“月干/月朔干”差异，时格存在“本时干/仅三奇/庚值符管十时”差异，普通勃格存在“丙临年月日时干/丙加值符庚”等冲突，继续失败关闭；九遁、三奇得使、三奇游六仪、三诈五假、三奇升殿/入墓/受制/会甲、符使同宫、相佐守户、天乙飞伏宫、天辅时、玉女守门、门宫相生等旧规则也不得从原始盘面自动补算为既定格局或现实结论',
       limitation: RULE_SOURCE_LIMITATION,
     },
     {

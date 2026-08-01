@@ -41,6 +41,8 @@ const auditedClassicPatternNames = new Set([
   '小格',
   '伏干格',
   '飞干格',
+  '岁格',
+  '格勃',
 ]);
 
 test('奇门值符值使公开入口应拒绝非法干支、缺局数与坏局数', () => {
