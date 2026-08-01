@@ -348,9 +348,9 @@ export interface LiuyaoMonthGuaShenAnalysis {
   status: LiuyaoMonthGuaShenStatus;
   /** 本卦中所有同支爻位；同一月卦身可能同时临两爻。 */
   matches: LiuyaoMonthGuaShenMatch[];
-  /** @deprecated 旧版单一命中兼容字段；新代码使用 matches。 */
+  /** @deprecated 仅供读取旧结果；当前生成结果不再输出，请使用 matches。 */
   sixRelative?: string;
-  /** @deprecated 旧版单一命中兼容字段；新代码使用 matches。 */
+  /** @deprecated 仅供读取旧结果；当前生成结果不再输出，请使用 matches。 */
   position?: number;
 }
 

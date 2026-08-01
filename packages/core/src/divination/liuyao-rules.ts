@@ -270,12 +270,10 @@ export function analyzeLiuyaoMonthGuaShen(
       sixRelative: item.sixRelative,
       ...(item.najiaTiangan ? { najiaTiangan: item.najiaTiangan } : {}),
     }));
-  const firstMatch = matches[0];
   return {
     branch,
     status: matches.length ? '入卦' : '不入卦',
     matches,
-    ...(firstMatch ? { position: firstMatch.position, sixRelative: firstMatch.sixRelative } : {}),
   };
 }
 

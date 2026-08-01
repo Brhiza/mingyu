@@ -884,7 +884,7 @@ test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
   assert.equal(yangShi.worldAndResponse.indexOf('世') + 1, 5);
   assert.equal(yangShi.yaosDetail[4].yaoType, '阳');
   assert.equal(yangShi.guaShen?.branch, '辰');
-  assert.equal(yangShi.guaShen?.position, 2);
+  assert.deepEqual(yangShi.guaShen?.matches.map((item) => item.position), [2]);
 
   const yinShi = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'), {
     yaos: DUI_WEI_ZE_YAOS,
@@ -893,7 +893,7 @@ test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
   assert.equal(yinShi.worldAndResponse.indexOf('世') + 1, 6);
   assert.equal(yinShi.yaosDetail[5].yaoType, '阴');
   assert.equal(yinShi.guaShen?.branch, '亥');
-  assert.equal(yinShi.guaShen?.position, 4);
+  assert.deepEqual(yinShi.guaShen?.matches.map((item) => item.position), [4]);
 });
 
 test('六爻：六十四卦月卦身应保留不入卦状态与全部同支爻位', () => {
@@ -923,8 +923,8 @@ test('六爻：六十四卦月卦身应保留不入卦状态与全部同支爻�
       guaShen.matches.map((item) => item.position),
       expectedMatches.map((item) => item.position),
     );
-    assert.equal(guaShen.position, expectedMatches[0]?.position);
-    assert.equal(guaShen.sixRelative, expectedMatches[0]?.sixRelative);
+    assert.equal('position' in guaShen, false);
+    assert.equal('sixRelative' in guaShen, false);
 
     if (expectedMatches.length) entered += 1;
     else absent += 1;
