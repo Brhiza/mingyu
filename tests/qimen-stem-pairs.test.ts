@@ -1561,3 +1561,108 @@ test('天辅时120种日干时支组合全部失败关闭并公开版本冲突',
   assert.match(rule.promptText, /只保留日柱、时柱原始事实/);
   assert.doesNotMatch(rule.promptText, /大吉|必成|必胜|百事皆吉/);
 });
+
+test('五合时100种日干时干组合全部不自动命名且保留标准五合事实', () => {
+  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
+  const standardPairs = new Set([
+    '甲己',
+    '己甲',
+    '乙庚',
+    '庚乙',
+    '丙辛',
+    '辛丙',
+    '丁壬',
+    '壬丁',
+    '戊癸',
+    '癸戊',
+  ]);
+  let checked = 0;
+  let standardCombinationCount = 0;
+
+  for (const dayStem of stems) {
+    const dayGanZhi = jiazi.find((item) => item.startsWith(dayStem));
+    assert.ok(dayGanZhi);
+    for (const hourStem of stems) {
+      const hourGanZhi = jiazi.find((item) => item.startsWith(hourStem));
+      assert.ok(hourGanZhi);
+      const patterns = getClassicPatterns({
+        jiuGongGe: [buildPalace('', '')],
+        zhiFu: '',
+        zhiShi: '',
+        scope: 'hour',
+        dayGanZhi,
+        hourGanZhi,
+      });
+
+      assert.ok(!patterns.some((pattern) => ['五合时', '天辅时'].includes(pattern.name)));
+      if (standardPairs.has(`${dayStem}${hourStem}`)) standardCombinationCount += 1;
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 100);
+  assert.equal(standardCombinationCount, 10);
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:five-combination-hour-name-boundary',
+  );
+
+  assert.ok(rule);
+  assert.equal(rule.category, '五合时名称冲突边界');
+  assert.match(rule.promptText, /标准天干五合仍作为可复算结构事实保留/);
+  assert.match(rule.promptText, /林氏把五合时称为天辅时/);
+  assert.match(rule.promptText, /完整日柱、时柱及日干时干五合事实/);
+  assert.doesNotMatch(rule.promptText, /大吉|必成|必胜|百事皆吉/);
+});
+
+test('天网相关六十时柱乘九落宫条件全部失败关闭并公开版本冲突', () => {
+  let checkedTianPanGui = 0;
+  let checkedValueSymbolOverGui = 0;
+
+  for (const hourGanZhi of jiazi) {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      const tianPanGuiPatterns = getClassicPatterns({
+        jiuGongGe: [buildPalaceAt(gong, '癸', '戊')],
+        zhiFu: '',
+        zhiShi: '',
+        scope: 'hour',
+        hourGanZhi,
+      });
+      assert.ok(
+        !tianPanGuiPatterns.some((pattern) => ['天网', '天网四张'].includes(pattern.name)),
+        `${hourGanZhi}时天盘癸落${gong}宫`,
+      );
+      checkedTianPanGui += 1;
+
+      const valueSymbolStem = SIX_JIA_DUN_STEMS[getXunHead(hourGanZhi)];
+      const valueSymbolPalace = buildPalaceAt(gong, valueSymbolStem, '癸');
+      valueSymbolPalace.tianPan.star = '天蓬';
+      const valueSymbolPatterns = getClassicPatterns({
+        jiuGongGe: [valueSymbolPalace],
+        zhiFu: '天蓬',
+        zhiShi: '',
+        scope: 'hour',
+        hourGanZhi,
+      });
+      assert.ok(
+        !valueSymbolPatterns.some((pattern) => ['天网', '天网四张'].includes(pattern.name)),
+        `${hourGanZhi}时值符临地盘癸于${gong}宫`,
+      );
+      checkedValueSymbolOverGui += 1;
+    }
+  }
+
+  assert.equal(checkedTianPanGui, 60 * 9);
+  assert.equal(checkedValueSymbolOverGui, 60 * 9);
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:heaven-net-version-boundary',
+  );
+
+  assert.ok(rule);
+  assert.equal(rule.category, '天网版本冲突边界');
+  assert.match(rule.promptText, /六癸时、天盘癸落宫、值符或旬首临地盘癸/);
+  assert.match(rule.promptText, /癸亥时配阳遁九局、阴遁一局/);
+  assert.match(rule.promptText, /只保留完整时柱、阴阳遁局、天盘癸落宫、地盘癸和值符旬首事实/);
+  assert.doesNotMatch(rule.promptText, /宜出|必成|必胜|百事皆吉/);
+});
