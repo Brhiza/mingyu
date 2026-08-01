@@ -874,8 +874,7 @@ function formatAlmanacInfo(input: AlmanacData) {
 function formatLenormandInfo(data: LenormandData) {
   const audited = rebuildAuditedLenormandData(data);
   const cardLines = audited.cards.map(
-    (card) =>
-      `- ${card.position}：${card.name}；关键词：${card.keywords.join('、')}；牌义：${card.meaning}`,
+    (card) => `- ${card.position}：第${card.id}号 ${card.name}`,
   );
   const combinationLines = (audited.combinations ?? []).map((item) => {
     const positions =
@@ -891,6 +890,7 @@ function formatLenormandInfo(data: LenormandData) {
     '牌位明细：',
     ...cardLines,
     ...(combinationLines.length ? ['组合明细：', ...combinationLines] : []),
+    '牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘，本次不提供。',
   ]
     .filter(Boolean)
     .join('\n');

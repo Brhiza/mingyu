@@ -2548,7 +2548,7 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.doesNotMatch(JSON.stringify(body.data), /成功率为\d|吉凶总分[：=]\d|能量分数[：=]\d/);
 });
 
-test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () => {
+test('公开 API 雷诺曼接口应返回原始抽牌记录与牌义待校边界', async () => {
   const { response, body } = await callApi('divination/lenormand', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2566,7 +2566,7 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
   assert.ok(
     body.data.evidenceAnalysis.calculationSteps.every(
       (item: Record<string, any>) =>
-        item.status === '已计算' &&
+        ['已计算', '资料不足'].includes(item.status) &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length > 0 &&
@@ -2580,8 +2580,8 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
   );
   assert.ok(Array.isArray(body.data.evidenceAnalysis.fixedCombinations));
   assert.ok(Array.isArray(body.data.evidenceAnalysis.adjacentReadings));
-  assert.ok(body.data.evidenceAnalysis.layoutFacts.length > 0);
-  assert.ok(body.data.evidenceAnalysis.traditionalFacts.length >= body.data.cards.length);
+  assert.deepEqual(body.data.evidenceAnalysis.layoutFacts, []);
+  assert.deepEqual(body.data.evidenceAnalysis.traditionalFacts, []);
   assert.equal(body.data.evidenceAnalysis.spreadCoverageFact.status, '完整');
   assert.equal(
     body.data.evidenceAnalysis.spreadCoverageFact.cardFactKeys.length,
@@ -2597,7 +2597,7 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
     ),
   );
   assert.equal(body.data.evidenceAnalysis.sequenceFacts.length, body.data.cards.length - 1);
-  assert.equal(body.data.evidenceAnalysis.layoutCoverageFact.status, '结构化覆盖');
+  assert.equal(body.data.evidenceAnalysis.layoutCoverageFact.status, '结构缺失');
   assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 2);
   assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 6);
   assert.ok(
@@ -2634,9 +2634,9 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
         item.status === '已计算' && Array.isArray(item.cardFactKeys) && Array.isArray(item.sources),
     ),
   );
-  assert.equal(body.data.evidenceAnalysis.structuredLayoutFacts.length, 9);
+  assert.deepEqual(body.data.evidenceAnalysis.structuredLayoutFacts, []);
   assert.equal(body.data.evidenceAnalysis.summaryFact.key, 'lenormand:evidence-summary');
-  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
   assert.equal(
     body.data.evidenceAnalysis.summaryFact.cardFactCount,
     body.data.evidenceAnalysis.cards.length,
@@ -2681,7 +2681,7 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
         String(item.limitation).includes('不自动证明吉凶'),
     ),
   );
-  assert.equal(body.data.evidenceAnalysis.evidence.title, '雷诺曼牌序组合与布局结构化证据');
+  assert.equal(body.data.evidenceAnalysis.evidence.title, '雷诺曼抽牌原始记录与牌义待校边界');
   const lenormandPromptResponse = await callApi('divination/lenormand/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2695,6 +2695,11 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
   assert.match(lenormandPromptResponse.body.data.prompt, /占法：雷诺曼/);
   assert.match(lenormandPromptResponse.body.data.prompt, /牌位顺序：/);
   assert.match(lenormandPromptResponse.body.data.prompt, /牌位明细：/);
+  assert.match(
+    lenormandPromptResponse.body.data.prompt,
+    /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/,
+  );
+  assert.doesNotMatch(lenormandPromptResponse.body.data.prompt, /关键词：|牌义：|组合明细：/);
   assert.doesNotMatch(
     lenormandPromptResponse.body.data.prompt,
     /结构化证据|计算链|证据汇总|解释限制|解释边界/,

@@ -47,7 +47,7 @@ export function registerLenormandTool(server: McpServer) {
     'divine_lenormand',
     {
       description:
-        '雷诺曼抽牌：偏现实事件判断，支持单牌、三牌、五牌十字、关系、选择、九宫、元素牌阵和大桌牌阵',
+        '雷诺曼抽牌记录：从项目内部1至36牌号目录中抽牌，返回牌号、牌名、牌位、抽取顺序和随机轨迹。逐牌牌义版本校勘完成前不返回关键词、牌义、组合或布局解释',
       inputSchema: lenormandSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -65,7 +65,7 @@ export function registerLenormandTool(server: McpServer) {
     'lenormand_prompt',
     {
       description:
-        '雷诺曼抽牌并生成结构化 AI 解读提示词：一次调用返回牌阵结果和可直接复制给 AI 的提示词',
+        '雷诺曼抽牌并生成结构化 AI 核对提示词：返回可复算的牌号、牌名、牌位与抽取轨迹，并要求 AI 先明确牌组版本、牌义文献、牌阵定义和组合规则后再继续解读',
       inputSchema: lenormandPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('雷诺曼牌阵结果'),

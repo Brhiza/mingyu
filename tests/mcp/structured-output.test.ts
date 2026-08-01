@@ -2480,7 +2480,7 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.ok(
       lenormandData.evidenceAnalysis.calculationSteps.every(
         (item: Record<string, any>) =>
-          item.status === '已计算' &&
+          ['已计算', '资料不足'].includes(item.status) &&
           item.promptText &&
           Array.isArray(item.sources) &&
           item.sources.length > 0 &&
@@ -2505,7 +2505,7 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
       ),
     );
     assert.equal(lenormandData.evidenceAnalysis.sequenceFacts.length, 8);
-    assert.equal(lenormandData.evidenceAnalysis.layoutCoverageFact.status, '结构化覆盖');
+    assert.equal(lenormandData.evidenceAnalysis.layoutCoverageFact.status, '结构缺失');
     assert.equal(lenormandData.evidenceAnalysis.counterEvidenceFacts.length, 2);
     assert.equal(lenormandData.evidenceAnalysis.limitationFacts.length, 6);
     assert.ok(
@@ -2524,10 +2524,10 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.equal(lenormandData.evidenceAnalysis.randomFact.status, '可重放');
     assert.equal(lenormandData.evidenceAnalysis.randomFact.seed, 'MCP雷诺曼证据样例');
     assert.doesNotMatch(lenormandData.evidenceAnalysis.randomFact.promptText, /MCP雷诺曼证据样例/);
-    assert.ok(lenormandData.evidenceAnalysis.traditionalFacts.length >= 9);
-    assert.equal(lenormandData.evidenceAnalysis.structuredLayoutFacts.length, 9);
+    assert.deepEqual(lenormandData.evidenceAnalysis.traditionalFacts, []);
+    assert.deepEqual(lenormandData.evidenceAnalysis.structuredLayoutFacts, []);
     assert.equal(lenormandData.evidenceAnalysis.summaryFact.key, 'lenormand:evidence-summary');
-    assert.equal(lenormandData.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(lenormandData.evidenceAnalysis.summaryFact.status, '证据链有缺口');
     assert.equal(
       lenormandData.evidenceAnalysis.summaryFact.cardFactCount,
       lenormandData.evidenceAnalysis.cards.length,
@@ -2591,6 +2591,8 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     const lenormandPrompt = String(lenormandPromptResult.structuredContent?.prompt);
     assert.match(lenormandPrompt, /占法：雷诺曼/);
     assert.match(lenormandPrompt, /牌位顺序：[\s\S]*牌位明细：/);
+    assert.match(lenormandPrompt, /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/);
+    assert.doesNotMatch(lenormandPrompt, /关键词：|牌义：|组合明细：/);
     assert.doesNotMatch(lenormandPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(
       lenormandPrompt,

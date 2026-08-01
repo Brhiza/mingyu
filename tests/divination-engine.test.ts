@@ -2299,7 +2299,7 @@ test('太乙神数占卜入口应拒绝尚未校勘的月日时计', async () =>
   }
 });
 
-test('塔罗与雷诺曼提示词应保留牌面资料且不混入工程证据话术', async () => {
+test('塔罗与雷诺曼提示词应只保留原始抽牌资料且不混入工程证据话术', async () => {
   const tarotSession = await generateDivinationSession(
     buildDraft({ method: 'tarot', tarotSpread: 'three', question: '接下来应如何推进？' }),
   );
@@ -2343,6 +2343,8 @@ test('塔罗与雷诺曼提示词应保留牌面资料且不混入工程证据�
   assert.match(lenormandSession.prompt, /占法：雷诺曼/);
   assert.match(lenormandSession.prompt, /牌位顺序：/);
   assert.match(lenormandSession.prompt, /牌位明细：/);
+  assert.match(lenormandSession.prompt, /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/);
+  assert.doesNotMatch(lenormandSession.prompt, /关键词：|牌义：|组合明细：/);
   assert.doesNotMatch(lenormandSession.prompt, /结构化证据|证据汇总|计算链|解释限制/);
   assert.doesNotMatch(lenormandSession.prompt, /成功率为\d|成功率提升至|吉凶总分[：=]\d/);
 });

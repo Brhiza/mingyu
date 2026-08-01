@@ -26,183 +26,43 @@ export type {
 } from '../lenormand-evidence';
 
 export const LENORMAND_CARDS = [
-  { id: 1, name: '骑士', keywords: ['消息', '到来', '进展'], meaning: '消息抵达，事情开始移动。' },
-  {
-    id: 2,
-    name: '三叶草',
-    keywords: ['机会', '短暂好运', '轻松'],
-    meaning: '短期机会出现，宜快不宜拖。',
-  },
-  { id: 3, name: '船', keywords: ['远方', '变化', '出行'], meaning: '有距离、迁移或方向转换。' },
-  {
-    id: 4,
-    name: '房子',
-    keywords: ['家庭', '稳定', '根基'],
-    meaning: '关注安全感、住所和基础条件。',
-  },
-  {
-    id: 5,
-    name: '树',
-    keywords: ['成长', '健康', '长期'],
-    meaning: '事情发展较慢，但有长期根系。',
-  },
-  {
-    id: 6,
-    name: '云',
-    keywords: ['不明朗', '混乱', '遮蔽'],
-    meaning: '信息不清，需要先辨别真假。',
-  },
-  {
-    id: 7,
-    name: '蛇',
-    keywords: ['复杂', '诱惑', '迂回'],
-    meaning: '关系或路径有绕行与隐藏动机。',
-  },
-  {
-    id: 8,
-    name: '棺材',
-    keywords: ['结束', '停滞', '转折'],
-    meaning: '旧阶段需要收尾，不能强行续命。',
-  },
-  {
-    id: 9,
-    name: '花束',
-    keywords: ['喜悦', '礼物', '好感'],
-    meaning: '有善意、邀请或被认可的机会。',
-  },
-  {
-    id: 10,
-    name: '镰刀',
-    keywords: ['切断', '突发', '决断'],
-    meaning: '快速分割或突然变化，需要果断。',
-  },
-  {
-    id: 11,
-    name: '鞭子',
-    keywords: ['争执', '重复', '压力'],
-    meaning: '反复拉扯，容易因沟通产生摩擦。',
-  },
-  {
-    id: 12,
-    name: '鸟',
-    keywords: ['沟通', '焦虑', '讨论'],
-    meaning: '消息频繁，但情绪也容易放大。',
-  },
-  {
-    id: 13,
-    name: '孩子',
-    keywords: ['新开始', '单纯', '试探'],
-    meaning: '事情尚早，适合从小步尝试。',
-  },
-  {
-    id: 14,
-    name: '狐狸',
-    keywords: ['策略', '警惕', '工作'],
-    meaning: '需要看清利益结构，避免被套路。',
-  },
-  {
-    id: 15,
-    name: '熊',
-    keywords: ['力量', '资源', '保护'],
-    meaning: '资源和权力是关键，也可能有人强势介入。',
-  },
-  {
-    id: 16,
-    name: '星星',
-    keywords: ['希望', '愿景', '网络'],
-    meaning: '目标感增强，远景或线上资源有帮助。',
-  },
-  {
-    id: 17,
-    name: '鹳',
-    keywords: ['变化', '迁移', '改善'],
-    meaning: '适合调整环境，局势有改善空间。',
-  },
-  {
-    id: 18,
-    name: '狗',
-    keywords: ['忠诚', '朋友', '支持'],
-    meaning: '可信任的人或长期关系会提供支持。',
-  },
-  { id: 19, name: '塔', keywords: ['机构', '隔离', '规则'], meaning: '制度、边界或距离感是重点。' },
-  {
-    id: 20,
-    name: '花园',
-    keywords: ['社交', '公开', '圈层'],
-    meaning: '事情会进入公开场域或社交圈。',
-  },
-  { id: 21, name: '山', keywords: ['阻碍', '延迟', '困难'], meaning: '推进受阻，需要绕路或等待。' },
-  {
-    id: 22,
-    name: '路',
-    keywords: ['选择', '分岔', '决定'],
-    meaning: '关键在选择路径，不能两头都要。',
-  },
-  {
-    id: 23,
-    name: '老鼠',
-    keywords: ['消耗', '损失', '焦虑'],
-    meaning: '小问题会持续消耗，需要止损。',
-  },
-  {
-    id: 24,
-    name: '心',
-    keywords: ['感情', '喜欢', '热情'],
-    meaning: '情感动机强，适合看真实心意。',
-  },
-  {
-    id: 25,
-    name: '戒指',
-    keywords: ['承诺', '契约', '循环'],
-    meaning: '关系、合同或重复模式成为主轴。',
-  },
-  {
-    id: 26,
-    name: '书',
-    keywords: ['秘密', '知识', '未知'],
-    meaning: '仍有未公开信息，需继续了解。',
-  },
-  {
-    id: 27,
-    name: '信',
-    keywords: ['文本', '通知', '文件'],
-    meaning: '书面消息、通知或证据很重要。',
-  },
-  {
-    id: 28,
-    name: '男士',
-    keywords: ['男性', '主动方', '本人'],
-    meaning: '男性角色或主动方成为焦点。',
-  },
-  {
-    id: 29,
-    name: '女士',
-    keywords: ['女性', '接收方', '本人'],
-    meaning: '女性角色或接收方成为焦点。',
-  },
-  {
-    id: 30,
-    name: '百合',
-    keywords: ['成熟', '平和', '伦理'],
-    meaning: '需要成熟处理，重视体面与长期安稳。',
-  },
-  { id: 31, name: '太阳', keywords: ['成功', '清晰', '能量'], meaning: '局势转明，推进条件增强。' },
-  {
-    id: 32,
-    name: '月亮',
-    keywords: ['情绪', '名声', '直觉'],
-    meaning: '情绪和外界评价会影响判断。',
-  },
-  { id: 33, name: '钥匙', keywords: ['答案', '突破', '关键'], meaning: '关键条件出现，问题有解。' },
-  { id: 34, name: '鱼', keywords: ['金钱', '流动', '资源'], meaning: '钱、资源和流动性是重点。' },
-  { id: 35, name: '锚', keywords: ['稳定', '工作', '坚持'], meaning: '稳定和长期承诺能带来结果。' },
-  {
-    id: 36,
-    name: '十字架',
-    keywords: ['压力', '宿命感', '责任'],
-    meaning: '责任较重，需要承担代价或接受现实。',
-  },
-];
+  '骑士',
+  '三叶草',
+  '船',
+  '房子',
+  '树',
+  '云',
+  '蛇',
+  '棺材',
+  '花束',
+  '镰刀',
+  '鞭子',
+  '鸟',
+  '孩子',
+  '狐狸',
+  '熊',
+  '星星',
+  '鹳',
+  '狗',
+  '塔',
+  '花园',
+  '山',
+  '路',
+  '老鼠',
+  '心',
+  '戒指',
+  '书',
+  '信',
+  '男士',
+  '女士',
+  '百合',
+  '太阳',
+  '月亮',
+  '钥匙',
+  '鱼',
+  '锚',
+  '十字架',
+].map((name, index) => ({ id: index + 1, name, keywords: [] as string[], meaning: '' }));
 
 export const LENORMAND_SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }> =
   {
@@ -274,130 +134,14 @@ function shuffleCards(rng: RandomSource) {
   return shuffled;
 }
 
-/**
- * 雷诺曼牌组两牌组合含义（为配对解读提供传统关键词）
- * 如 "太阳+鱼" = 财运好、"鞭子+鼠" = 消耗性争执
- */
-export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {
-  '骑士+心': '消息带来感情进展',
-  '心+戒指': '感情的承诺或婚约',
-  '心+花束': '被人喜欢或表白',
-  '心+百合': '成熟的感情关系',
-  '戒指+花束': '订婚或喜讯',
-  '戒指+房子': '家庭契约/购房',
-  '花束+花园': '社交上受到欢迎',
-  '房子+锚': '稳定安家',
-  '锚+星星': '目标明确并趋于稳定',
-  '星星+月亮': '直觉准确的时期',
-  '月亮+太阳': '从迷茫走向清晰',
-  '蛇+狐狸': '欺骗与策略',
-  '云+蛇': '隐藏在迷雾中的欺骗',
-  '棺材+十字架': '沉重的结束与考验',
-  '镰刀+棺材': '突然的结束/切割',
-  '老鼠+十字架': '消耗性的压力',
-  '鱼+星星': '通过网络/远程获利',
-  '鱼+船': '跨国或远距离财运',
-  '船+鹳': '改善环境的搬迁',
-  '书+信': '秘密文件或消息',
-  '钥匙+心': '关键的情感答案',
-  '狗+花束': '朋友的善意',
-  '孩子+房子': '家庭添丁',
-  '塔+山': '制度性阻碍',
-  '路+十字架': '两难选择',
-  '鸟+蛇': '流言蜚语',
-  '鞭子+鸟': '争吵与焦虑',
-  '熊+鱼': '资源或资金充裕',
-  '树+心': '深厚的感情基础',
-};
-
-type LenormandCardPlacement = LenormandData['cards'][number];
-type LenormandCombination = NonNullable<LenormandData['combinations']>[number];
-
-function getFixedCombinationMeaning(firstName: string, secondName: string): string | null {
-  return (
-    LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`] ??
-    LENORMAND_FIXED_COMBINATIONS[`${secondName}+${firstName}`] ??
-    null
-  );
-}
-
-function getGridCombinationCandidates(cards: LenormandCardPlacement[]) {
-  cards.forEach((card, index) => {
-    if (!card.row || !card.column) {
-      throw new Error(`雷诺曼网格牌阵第${index + 1}张缺少行列坐标`);
-    }
-  });
-
-  return cards.flatMap((first, firstIndex) =>
-    cards.slice(firstIndex + 1).flatMap((second) => {
-      const rowDistance = Math.abs(first.row! - second.row!);
-      const columnDistance = Math.abs(first.column! - second.column!);
-      if (rowDistance > 1 || columnDistance > 1 || (rowDistance === 0 && columnDistance === 0)) {
-        return [];
-      }
-      return [
-        {
-          first,
-          second,
-          rowDistance,
-          columnDistance,
-          relation:
-            rowDistance === 0
-              ? ('横向相邻' as const)
-              : columnDistance === 0
-                ? ('纵向相邻' as const)
-                : ('对角相邻' as const),
-        },
-      ];
-    }),
-  );
-}
+/** 固定组合在具体牌组版本、原文与页码闭合前失败关闭。 */
+export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {};
 
 function buildLenormandCombinations(
-  spreadType: LenormandSpreadType,
-  cards: LenormandCardPlacement[],
+  _spreadType: LenormandSpreadType,
+  _cards: LenormandData['cards'],
 ): NonNullable<LenormandData['combinations']> {
-  const candidates =
-    spreadType === 'nine' || spreadType === 'grandTableau'
-      ? getGridCombinationCandidates(cards)
-      : cards.slice(1).map((second, index) => ({
-          first: cards[index],
-          second,
-          rowDistance: 0,
-          columnDistance: 0,
-          relation: '牌序相邻' as const,
-        }));
-
-  return candidates.flatMap(({ first, second, relation, rowDistance, columnDistance }) => {
-    const fixedMeaning = getFixedCombinationMeaning(first.name, second.name);
-    const isPersonNeighborhood =
-      spreadType === 'grandTableau' &&
-      (first.name === '男士' ||
-        first.name === '女士' ||
-        second.name === '男士' ||
-        second.name === '女士');
-    if (spreadType === 'grandTableau' && !fixedMeaning && !isPersonNeighborhood) {
-      return [];
-    }
-    const isSequential = relation === '牌序相邻';
-    const meaning =
-      fixedMeaning ??
-      (isSequential
-        ? `${first.position}${first.name}的“${first.keywords.slice(0, 2).join('、')}”与${second.position}${second.name}的“${second.keywords.slice(0, 2).join('、')}”前后相接，先按${first.meaning}，再看${second.meaning}`
-        : `${first.position}${first.name}与${second.position}${second.name}为${relation}，互参“${first.keywords.slice(0, 2).join('、')}”与“${second.keywords.slice(0, 2).join('、')}”两组线索`);
-    const combination: LenormandCombination = {
-      card1: first.name,
-      card2: second.name,
-      position1: first.position,
-      position2: second.position,
-      relation,
-      rowDistance,
-      columnDistance,
-      meaning,
-      source: fixedMeaning ? '固定组合' : '相邻牌义合读',
-    };
-    return [combination];
-  });
+  return [];
 }
 
 export function validateLenormandReferenceData(): void {
@@ -457,44 +201,10 @@ function buildLenormandCards(
 }
 
 function buildLenormandLayoutEvidence(
-  spreadType: LenormandSpreadType,
-  cards: LenormandData['cards'],
+  _spreadType: LenormandSpreadType,
+  _cards: LenormandData['cards'],
 ): string[] {
-  const layoutEvidence: string[] = [];
-  if (spreadType === 'nine') {
-    const center = cards[4];
-    layoutEvidence.push(
-      `中心牌${center.name}是九宫主轴；上排为背景与思考，中排为当下，下排为落地走向`,
-      `横向：${cards
-        .slice(3, 6)
-        .map((card) => card.name)
-        .join('→')}；纵向：${[cards[1], cards[4], cards[7]].map((card) => card.name).join('→')}`,
-      `对角线：${[cards[0], cards[4], cards[8]].map((card) => card.name).join('→')}；${[cards[2], cards[4], cards[6]].map((card) => card.name).join('→')}`,
-    );
-  }
-  if (spreadType === 'grandTableau') {
-    for (const name of ['男士', '女士']) {
-      const index = cards.findIndex((card) => card.name === name);
-      if (index < 0) continue;
-      const card = cards[index];
-      const neighbors = cards.filter((candidate) => {
-        if (!candidate.row || !candidate.column || !card.row || !card.column) return false;
-        const rowDistance = Math.abs(candidate.row - card.row);
-        const columnDistance = Math.abs(candidate.column - card.column);
-        return rowDistance <= 1 && columnDistance <= 1 && rowDistance + columnDistance > 0;
-      });
-      layoutEvidence.push(
-        `${name}落第${index + 1}宫（${card.house}宫，第${card.row}排第${card.column}列）；近身牌${neighbors.map((item) => item.name).join('、')}`,
-      );
-    }
-    const houseMatches = cards.filter((card) => card.house === card.name);
-    if (houseMatches.length) {
-      layoutEvidence.push(
-        `归宫牌：${houseMatches.map((card) => `${card.name}回到本宫`).join('、')}`,
-      );
-    }
-  }
-  return layoutEvidence;
+  return [];
 }
 
 function buildLenormandDraw(
@@ -669,7 +379,7 @@ export function analyzeLenormandEvidence(input: LenormandData) {
  * 抽牌为随机洗牌，每次独立。
  *
  * @param spreadType 牌阵类型，默认 'single'。
- * @returns 雷诺曼牌阵数据对象 LenormandData，含牌面、位置和两牌组合含义。
+ * @returns 雷诺曼牌阵数据对象，只含项目内部牌号、牌名、位置与可复算抽取记录。
  *
  * @example
  * ```ts

@@ -169,13 +169,13 @@ test('金口诀摘要应从原始起课资料重建，不复活旧课盘派生�
   assert.doesNotMatch([...rebuilt.tags, ...rebuilt.lines].join('\n'), /伪造|保证成功|现实结论/);
 });
 
-test('雷诺曼摘要应使用关键词核验范围而非原始牌义断语', () => {
+test('雷诺曼摘要应只保留原始牌面与牌义待校边界', () => {
   const data = drawLenormandSpread('three', { seed: '摘要条件化样例' });
   const summary = getDivinationSummaryBlocks('lenormand', data);
   const text = [...summary.tags, ...summary.lines].join('\n');
 
-  assert.match(text, /传统单牌|解释范围|现实线索/);
-  for (const card of data.cards) assert.doesNotMatch(text, new RegExp(card.meaning));
+  assert.match(text, /关键词与牌义待具体版本校勘|证据链有缺口/);
+  assert.doesNotMatch(text, /传统单牌|家庭添丁|感情的承诺或婚约|远程获利/);
 });
 
 test('塔罗与雷诺曼摘要应忽略派生字段和旧证据污染', () => {

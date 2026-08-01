@@ -1132,7 +1132,7 @@ test('灵签提示词应忽略外部签文与典故注入并保持失败关闭',
   assert.doesNotMatch(prompt, /签诗主旨|典故启示|签意结论|宜进还是宜守/);
 });
 
-test('雷诺曼提示词保留牌序、关键词、牌义与组合资料', () => {
+test('雷诺曼提示词在牌义版本闭合前只保留抽牌原始记录', () => {
   const prompt = buildDivinationPrompt(
     'lenormand',
     '这件事接下来该怎么推进？',
@@ -1141,10 +1141,11 @@ test('雷诺曼提示词保留牌序、关键词、牌义与组合资料', () =>
 
   assert.match(prompt, /核心结构：牌阵/);
   assert.match(prompt, /牌位顺序：/);
-  assert.match(prompt, /你的状态：骑士.*牌义：/s);
-  assert.match(prompt, /对方状态：山.*牌义：/s);
-  assert.doesNotMatch(prompt, /断牌口径|组合证据|不得把|结构化证据|证据汇总|解释边界/);
-  assert.doesNotMatch(prompt, /核心牌|人物牌|事件链证据|组合权重/);
+  assert.match(prompt, /你的状态：第1号 骑士/);
+  assert.match(prompt, /对方状态：第21号 山/);
+  assert.match(prompt, /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/);
+  assert.match(prompt, /不得补造关键词、牌义、组合或布局趋势/);
+  assert.doesNotMatch(prompt, /关键词：|牌义：|组合明细：|后续发展、行动建议/);
 });
 
 test('塔罗与雷诺曼提示词应由原始牌号重建，不吸收派生字段和旧证据污染', () => {

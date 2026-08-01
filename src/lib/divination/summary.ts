@@ -20,7 +20,6 @@ import type {
 } from '../../types/divination';
 import { rebuildAuditedAlmanacData } from 'mingyu-core/divination/almanac';
 import {
-  conditionLenormandTraditionalText,
   rebuildAuditedLenormandData,
 } from 'mingyu-core/divination/lenormand';
 import { rebuildAuditedTarotData } from 'mingyu-core/divination/tarot';
@@ -518,12 +517,10 @@ export function getDivinationSummaryBlocks(
               .map((card) => `${card.position}${card.name}`)
               .join('；'),
           ),
-          ...lenormand.cards.map((card) => {
-            const fact = evidence.traditionalFacts.find(
-              (item) => item.kind === '单牌牌义' && item.positions.includes(card.position),
-            );
-            return `${card.position}：${card.name}，${fact?.promptText ?? conditionLenormandTraditionalText(card.meaning, { cardNames: [card.name], keywords: card.keywords })}`;
-          }),
+          ...lenormand.cards.map(
+            (card) => `${card.position}：第${card.id}号 ${card.name}；关键词与牌义待具体版本校勘`,
+          ),
+          `证据状态：${evidence.summaryFact.status}`,
         ].filter(Boolean),
       };
     }

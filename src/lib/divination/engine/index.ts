@@ -164,8 +164,11 @@ export function buildDivinationPrompt(
   );
   const isSsgw = method === 'ssgw';
   const isTarot = method === 'tarot';
+  const isLenormand = method === 'lenormand';
   const outputRequirementText = isTarot
     ? '只说明可核验的项目内部牌号、牌名、牌位、正逆位、抽取顺序与随机轨迹，以及牌义版本待校边界；不得补造牌义或给出趋势与行动结论。'
+    : isLenormand
+      ? '只说明可核验的项目内部牌号、牌名、牌位、抽取顺序与随机轨迹，以及牌义版本待校边界；不得补造关键词、牌义、组合或布局趋势，不得给出行动结论。'
     : isSsgw
       ? '只说明可核验的签号、抽取与掷筊记录及签谱待校边界；不得补造签谱内容或给出由签号推导的判断。'
       : isAlmanac
