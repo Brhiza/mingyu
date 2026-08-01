@@ -169,6 +169,7 @@ export interface QimenRuleSourceFact {
     | '门宫五行结构规则'
     | '旬空与驿马适用边界'
     | '经典格局审核边界'
+    | '节令背景事实层级'
     | '组合规则版本'
     | '专项情境规则边界'
     | '方位取用边界';
@@ -822,7 +823,7 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
     wallClock.hour,
     wallClock.minute,
   );
-  const seasonality = buildSeasonality(input.ganzhi, input.timeInfo.solarTerm, seasonalityDate);
+  const seasonality = buildSeasonality(input.ganzhi, seasonalityDate);
   const classicPatterns = getClassicPatterns({
     jiuGongGe: input.jiuGongGe,
     zhiFu: input.zhiFu,
@@ -1625,6 +1626,22 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       limitation: RULE_SOURCE_LIMITATION,
     },
     {
+      key: 'rule:qimen:seasonality-fact-boundary',
+      status: '已声明',
+      category: '节令背景事实层级',
+      rule: '节令背景只保留实际节气、日干旺相休囚死、精确月相与建除名称；上中下元只采用正式定局结果',
+      appliesTo: ['节令背景', '上中下元', '月相', '建除'],
+      sources: [
+        '《奇门法窍》“此法以甲、己两将为符头，如值子午卯酉为上元，寅申巳亥为中元，辰戌丑未为下元”',
+        '《奇门法窍》“甲己临仲上元天，临孟之时作中元，临季下元局日定……五日一候为一元”',
+        '《太白阴经》“五日六十时为一元”',
+        '节气历表、太阳视黄经、历法八相与日月黄经差独立计算结果',
+      ],
+      promptText:
+        '节令背景事实层级：上中下元只引用当前盘按甲己符头或所选置闰法形成的正式定局结果，不得把交节后自然日机械分成三个五日段另造一套三元。月相保留历法八相名称与日月黄经差证据，不把蛾眉月、盈凸月等粗并成上弦或满月。建除只保留名称，不据此补造脱离具体事项的固定吉凶、宜忌或行动建议',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
       key: 'rule:qimen:retained-combo-versions',
       status: '已声明',
       category: '组合规则版本',
@@ -1993,7 +2010,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
           {
             level: '辅证' as const,
             title: '节令与四柱背景事实',
-            detail: `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}；季节五行${data.seasonality.seasonalElement}；日干${data.seasonality.dayStem}属${data.seasonality.dayElement}，与节令五行关系为${data.seasonality.seasonRelation}；月相${data.seasonality.lunarPhase}（${data.seasonality.lunarPhaseDetail}）；建除${data.seasonality.dayOfficer}；四柱互动${data.seasonality.ganzhiInteractions.map((item) => `${item.type}（${item.values.join('、')}）`).join('、') || '未检出明确合冲刑害'}`,
+            detail: `${data.seasonality.currentJieQi}；月令五行${data.seasonality.seasonalElement}；日干${data.seasonality.dayStem}属${data.seasonality.dayElement}，旺相休囚死状态为${data.seasonality.seasonRelation}；历法月相${data.seasonality.lunarPhaseDetail}，日月黄经差${data.seasonality.moonPhaseEvidence.phaseAngleDegrees.toFixed(2)}°；建除${data.seasonality.dayOfficer}；四柱互动${data.seasonality.ganzhiInteractions.map((item) => `${item.type}（${item.values.join('、')}）`).join('、') || '未检出明确合冲刑害'}`,
             source: '节气历表、月相证据、建除规则与四柱关系逐项计算',
             tags: ['节令', '月相', '建除', '四柱互动'],
           },

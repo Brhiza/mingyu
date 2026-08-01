@@ -703,23 +703,15 @@ export interface QimenGanzhiInteraction {
 export interface QimenSeasonalityInfo {
   currentJieQi: string;
   seasonalElement: string;
-  jieQiPhase: {
-    jieQi: string;
-    phase: '上元' | '中元' | '下元';
-    phaseIndex: number;
-    solarTermEvidence: SolarTermEvidence;
-  };
+  solarTermEvidence: SolarTermEvidence;
   dayStem: string;
   dayElement: string;
-  seasonRelation: '得时' | '受生' | '受克' | '被耗' | 'neutral';
+  seasonRelation: '旺' | '相' | '休' | '囚' | '死';
   seasonRelationDescription: string;
-  lunarPhase: '新月' | '上弦' | '满月' | '下弦';
   lunarPhaseDetail: string;
   moonPhaseEvidence: MoonPhaseEvidence;
   lunarPhaseConsistency: boolean;
   dayOfficer: string;
-  dayOfficerFortuneLabel: '吉' | '凶' | '平';
-  dayOfficerAdvice: string;
   ganzhiInteractions: QimenGanzhiInteraction[];
 }
 
@@ -781,7 +773,7 @@ export interface QimenData {
   timeInfo: QimenTimeInfo;
   /** 特殊时辰检查（六甲时、六癸时、时干入墓、五不遇时） */
   specialConditions?: QimenSpecialConditions;
-  /** 节令背景（月相、建除、节气三元、四柱互动等） */
+  /** 节令背景（实际节气、月令五行、精确月相、建除名称与四柱互动等）；定局三元只见 timeInfo.epoch */
   seasonality?: QimenSeasonalityInfo;
   /** 已逐条校勘的十一项天地盘固定格，以及时家上下文、三奇升殿、三诈和三项条件一致五假位置结构；不含失败关闭的九遁与三奇得使 */
   classicPatterns?: Array<{

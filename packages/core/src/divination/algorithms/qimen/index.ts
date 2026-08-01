@@ -349,7 +349,7 @@ export function generateQimen(
     timeInfo.solar.hour ?? 0,
     timeInfo.solar.minute ?? 0,
   );
-  const seasonality = buildSeasonality(ganzhi, jushuResult.actualJieQi || jieQi, seasonalityDate);
+  const seasonality = buildSeasonality(ganzhi, seasonalityDate);
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 11：方位结论边界（通用入口失败关闭，九宫方向事实仍保留）

@@ -5,10 +5,7 @@ import { jiazi } from '../packages/core/src/divination/divination-data.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
 import { getDunJiaStem } from '../packages/core/src/divination/algorithms/qimen/helpers/palace-utils.ts';
 import {
-  getDayOfficerInfo,
   getDaySeasonRelation,
-  getLunarPhase,
-  getLunarPhaseByIndex,
   getSeasonalElement,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality.ts';
 import { getQimenJuShu } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu.ts';
@@ -176,21 +173,55 @@ test('奇门格局应拒绝未知值符和值使，不应按零宫位继续判�
   );
 });
 
-test('奇门节令：未知节气或日干应明确报错，不应降级成无法判定', () => {
+test('奇门节令：十干乘五种月令五行应完整落入旺相休囚死', () => {
+  const stemElements: Record<string, string> = {
+    甲: '木',
+    乙: '木',
+    丙: '火',
+    丁: '火',
+    戊: '土',
+    己: '土',
+    庚: '金',
+    辛: '金',
+    壬: '水',
+    癸: '水',
+  };
+  const expectedByDayElement: Record<string, Record<string, string>> = {
+    木: { 木: '旺', 水: '相', 火: '休', 土: '囚', 金: '死' },
+    火: { 火: '旺', 木: '相', 土: '休', 金: '囚', 水: '死' },
+    土: { 土: '旺', 火: '相', 金: '休', 水: '囚', 木: '死' },
+    金: { 金: '旺', 土: '相', 水: '休', 木: '囚', 火: '死' },
+    水: { 水: '旺', 金: '相', 木: '休', 火: '囚', 土: '死' },
+  };
+
+  for (const [dayStem, dayElement] of Object.entries(stemElements)) {
+    for (const seasonalElement of ['木', '火', '土', '金', '水']) {
+      assert.equal(
+        getDaySeasonRelation(dayStem, seasonalElement).relation,
+        expectedByDayElement[dayElement][seasonalElement],
+        `${dayStem}在${seasonalElement}令的状态`,
+      );
+    }
+  }
+
   assert.equal(getSeasonalElement('立春'), '木');
-  assert.equal(getDaySeasonRelation('甲', '木').relation, '得时');
   assert.throws(() => getSeasonalElement('假节气'), /无法识别节气 "假节气" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('假', '木'), /无法识别日干 "假" 的五行属性/);
-  assert.throws(() => getDaySeasonRelation('甲', ''), /节令五行不能为空/);
+  assert.throws(() => getDaySeasonRelation('甲', ''), /无法识别节令五行/);
+  assert.throws(() => getDaySeasonRelation('甲', '假'), /无法识别节令五行/);
 });
 
-test('奇门月相与建除映射缺失时应报错，不得默认新月或平', () => {
-  assert.equal(getLunarPhaseByIndex(0), '新月');
-  assert.equal(getLunarPhaseByIndex(7), '下弦');
-  assert.equal(getDayOfficerInfo('成').fortune, '吉');
-  assert.throws(() => getLunarPhaseByIndex(8), /无法识别历法月相索引/);
-  assert.throws(() => getLunarPhase(new Date(Number.NaN)), /月相日期必须是有效日期/);
-  assert.throws(() => getDayOfficerInfo('未知'), /无法识别建除十二神/);
+test('奇门节令背景不得再造自然日三元、粗四相或建除吉凶建议', () => {
+  const seasonality = generateQimen(new Date('2024-02-10T12:00:00+08:00')).seasonality!;
+  assert.equal(seasonality.currentJieQi, '立春');
+  assert.equal(seasonality.solarTermEvidence.name, '立春');
+  assert.match(seasonality.lunarPhaseDetail, /月|朔|望/);
+  assert.ok(Number.isFinite(seasonality.moonPhaseEvidence.phaseAngleDegrees));
+  assert.match(seasonality.dayOfficer, /^[建除满平定执破危成收开闭]$/);
+  assert.ok(!('jieQiPhase' in seasonality));
+  assert.ok(!('lunarPhase' in seasonality));
+  assert.ok(!('dayOfficerFortuneLabel' in seasonality));
+  assert.ok(!('dayOfficerAdvice' in seasonality));
 });
 
 test('奇门十干格局应正常返回合法组合并拒绝非法输入', () => {

@@ -535,10 +535,10 @@ function formatQimenInfo(input: QimenData) {
     .join('；');
   const seasonalitySummary = data.seasonality
     ? [
-        `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}`,
-        `节气五行${data.seasonality.seasonalElement || '未列'}`,
-        `日干${data.seasonality.dayStem}${data.seasonality.seasonRelation}`,
-        `月相${data.seasonality.lunarPhaseDetail || data.seasonality.lunarPhase}`,
+        `${data.seasonality.currentJieQi}`,
+        `月令五行${data.seasonality.seasonalElement || '未列'}`,
+        `日干${data.seasonality.dayStem}为${data.seasonality.seasonRelation}`,
+        `月相${data.seasonality.lunarPhaseDetail}`,
         `建除${data.seasonality.dayOfficer}`,
       ].join('；')
     : '';
@@ -562,7 +562,7 @@ function formatQimenInfo(input: QimenData) {
     evidenceAnalysis.calculationEvidenceFacts.find(
       (item) => item.key === 'qimen:calculation:fixed-ganzhi-conditions',
     )?.promptText ?? '';
-  const solarTerm = data.seasonality?.jieQiPhase.solarTermEvidence;
+  const solarTerm = data.seasonality?.solarTermEvidence;
   const moonPhase = data.seasonality?.moonPhaseEvidence;
   const juTerm = data.timeInfo?.juTerm || data.timeInfo?.solarTerm || '未列';
   const palaceText = evidenceAnalysis.palaceFacts

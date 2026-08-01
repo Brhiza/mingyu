@@ -167,7 +167,7 @@ function formatQimenSeasonalitySummary(data: DivinationData) {
   }
 
   const seasonality = data.seasonality;
-  return `节令背景：${seasonality.currentJieQi}${seasonality.jieQiPhase.phase}，节气五行${seasonality.seasonalElement || '未知'}，日干${seasonality.dayStem}${seasonality.seasonRelation}，月相${seasonality.lunarPhaseDetail || seasonality.lunarPhase}，建除${seasonality.dayOfficer}`;
+  return `节令背景：${seasonality.currentJieQi}，月令五行${seasonality.seasonalElement || '未知'}，日干${seasonality.dayStem}为${seasonality.seasonRelation}，月相${seasonality.lunarPhaseDetail}，建除${seasonality.dayOfficer}`;
 }
 
 function formatQimenPatternComboSummary(data: DivinationData) {
