@@ -156,7 +156,7 @@ test('八宅、玄空与住宅风水提示词不得由问题文字恢复现实�
   }
 });
 
-test('生肖未提供问题时仍只要求基于固定关系继续推算', () => {
+test('生肖与太乙共享提示词应只输出可复算事实并关闭现实解释旁路', () => {
   const prompt = buildMetaphysicsPrompt('【生肖与流年关系简析】\n测试资料', undefined, {
     method: 'zodiac',
     currentTime: new Date('2026-07-16T12:00:00+08:00'),
@@ -166,9 +166,26 @@ test('生肖未提供问题时仍只要求基于固定关系继续推算', () =>
     prompt,
     /【问题】\n请说明本次资料命中的固定关系、可继续推算的范围与仍需补充的信息。/,
   );
-  assert.match(prompt, /先区分生肖年支、流年干支、固定地支关系与五行生克方向/);
-  assert.match(prompt, /区分固定关系事实、后续推算、资料缺口与现实条件/);
-  assert.doesNotMatch(prompt, /请综合解读本次排盘的重点、风险与行动建议/);
+  assert.match(prompt, /只核对生肖年支、流年干支、值冲固定刑害破、六合固定支对、三合三会成员与年干五行方向/);
+  assert.match(prompt, /上述关系只证明固定结构，不证明现实贵人、利弊、吉凶、人物意图、事件结果、概率、应期或化解效果/);
+  assert.match(prompt, /不生成现实吉凶、人物意图、事件结果、概率、固定应期、行动建议或化解保证/);
+
+  const taiyiPrompt = buildMetaphysicsPrompt(
+    '【太乙年计】\n测试资料',
+    '请判断这一年适合进攻还是防守。',
+    {
+      method: 'taiyi',
+      currentTime: new Date('2026-07-16T12:00:00+08:00'),
+    },
+  );
+  assert.match(taiyiPrompt, /【问题】只限定核对范围/);
+  assert.match(taiyiPrompt, /不生成总体态势、胜负、时机或行动建议/);
+  for (const result of [prompt, taiyiPrompt]) {
+    assert.doesNotMatch(
+      result,
+      /请直接回答【问题】|先说结论，再展开依据和建议|请综合解读本次排盘的重点、风险与行动建议/,
+    );
+  }
 });
 
 test('太乙未提供问题时只核对已校勘年计事实', () => {

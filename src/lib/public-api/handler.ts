@@ -1855,7 +1855,7 @@ function buildMetaphysicsPrompt(
           ? '请说明本次资料命中的固定关系、可继续推算的范围与仍需补充的信息。'
           : method === 'taiyi'
             ? '请核对本次太乙年计的可复算事实、来源边界与继续解释所需资料。'
-            : '请综合解读本次排盘的重点、风险与行动建议。');
+            : '请核对本次排盘已列出的可复算事实、来源边界与继续解释所需资料。');
   return buildSharedMetaphysicsPrompt(basePrompt, question, { method });
 }
 
