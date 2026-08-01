@@ -1817,7 +1817,7 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assertEvidenceOwnerReferences(body.data.resultSummary.patternEvidenceByScope.yearly);
   const prompt = body.data.prompt;
   assert.match(prompt, /分析范围：流年/);
-  assert.match(prompt, /【重点宫位】/);
+  assert.match(prompt, /【十二宫事实】/);
   assert.match(prompt, /【任务】/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(prompt);
@@ -1992,9 +1992,57 @@ test('公开 API 紫微未指定方向时应默认走综合框架而不是自由
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【分析背景】/);
   assert.match(body.data.prompt, /分析主题：人生解析/);
-  assert.match(body.data.prompt, /【重点宫位】/);
+  assert.match(body.data.prompt, /【十二宫事实】/);
   assert.match(body.data.prompt, /【输出要求】/);
   assert.doesNotMatch(body.data.prompt, /主题只作为|自由问答|解读方法|推断顺序/);
+});
+
+test('紫微公开 API 提示词应穷举十二宫事实并关闭现实解释旁路', async () => {
+  const runtime = await calculateFullZiweiChart(
+    buildZiweiChartInput({
+      name: '测试',
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    }),
+  );
+  const frameworkPrompt = await buildPublicZiweiPromptForRuntime({
+    result: runtime,
+    question: '核对盘面事实。',
+    topic: 'career-wealth',
+    scope: 'origin',
+    mode: 'framework',
+    school: 'sanhe',
+  });
+  const customPrompt = await buildPublicZiweiPromptForRuntime({
+    result: runtime,
+    question: '核对盘面事实。',
+    topic: 'career-wealth',
+    scope: 'origin',
+    mode: 'custom',
+    school: 'sanhe',
+  });
+  for (const prompt of [frameworkPrompt, customPrompt]) {
+    assert.match(prompt, /【十二宫事实】/);
+    const palaceSection =
+      prompt.match(/【十二宫事实】\n([\s\S]*?)(?=\n\n【|\n【|$)/)?.[1] ?? '';
+    assert.equal(
+      palaceSection.split('\n').filter((line) => line.startsWith('- ')).length,
+      12,
+    );
+    assert.match(prompt, /紫微资料口径标签：三合派/);
+    assert.match(prompt, /该标签不提供完整解释规则/);
+    assert.match(prompt, /缺少任一项时保持事实层/);
+    assert.doesNotMatch(prompt, /【重点宫位】|紫微解读侧重点|主线固定/);
+    assert.doesNotMatch(prompt, /现实建议|宫位主线、四化触发|应期条件/);
+  }
+  assert.match(frameworkPrompt, /【任务】\n请核对完整十二宫/);
+  assert.doesNotMatch(customPrompt, /【任务】|【输出要求】/);
 });
 
 test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async () => {

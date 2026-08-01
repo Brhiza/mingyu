@@ -116,11 +116,11 @@ const BAZI_SCHOOL_GUIDANCE: Record<BaziSchool, string> = {
 
 const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = {
   sanhe:
-    '紫微解读侧重点：三合派。主线固定为命身宫位—主星庙旺—对宫与三方四正；四化只作牵引，不改三方会照主轴，不自行补造格局。此选项不改变排盘信息中列明的基础安星口径。',
+    '紫微资料口径标签：三合派。当前只核对盘面已列的命身宫位、星曜位置、庙旺记录、对宫与三方四正索引；该标签不提供完整解释规则，不能据此生成宫位主轴、吉凶、事件或建议。',
   feixing:
-    '紫微解读侧重点：飞星派。主线固定为盘面已提供的生年四化、当前运限四化、自化与飞化落宫；三方四正只作会照辅证，不得补造未提供的宫干飞化或格局。此选项不改变排盘信息中列明的基础安星口径。',
+    '紫微资料口径标签：飞星派。当前只核对盘面已列的生年四化、运限四化及明确提供的飞化位置；该标签不提供起法版本与完整解释规则，不能补造宫干飞化、吉凶、事件、应期或建议。',
   sihua:
-    '紫微解读侧重点：四化派。主线固定为盘面已提供的生年四化定位、运限四化触发与禄权科忌落宫；星曜庙旺与三方只解释四化条件，不补造未提供的宫干四化。此选项不改变排盘信息中列明的基础安星口径。',
+    '紫微资料口径标签：四化派。当前只核对盘面已列的生年四化、运限四化与禄权科忌位置；该标签不提供四化起法版本与完整解释规则，不能补造宫干四化、吉凶、事件、应期或建议。',
 };
 
 export function getBaziSchoolGuidance(school?: BaziSchool) {
@@ -421,7 +421,7 @@ export async function buildZiweiPromptForRuntime(params: {
 }
 
 function buildPublicZiweiTaskText() {
-  return '请结合紫微盘面回答【问题】，说明主要依据和现实建议。';
+  return '请核对完整十二宫、星曜、四化、三方四正、已校验格局与运限等已列事实，并标明资料缺口；解释前提不完整时停在事实层。';
 }
 
 function formatPublicZiweiStar(star: StarFact) {
@@ -459,40 +459,9 @@ function formatPublicZiweiPalaceBrief(palace: PalaceFact) {
   return `- ${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：${details.join('；')}${tags}`;
 }
 
-function findPublicZiweiPalaceByName(palaces: PalaceFact[], name: string) {
-  const normalizedName = name.endsWith('宫') ? name.slice(0, -1) : name;
-  return palaces.find((palace) => palace.name === name || palace.name === normalizedName);
-}
-
-function buildPublicZiweiKeyPalaceSection(params: {
-  palaces: PalaceFact[];
-  activePalace?: PalaceFact;
-  lifePalace?: PalaceFact;
-  bodyPalace?: PalaceFact;
-  isOriginScope: boolean;
-}) {
-  const scopeHitPalaces = params.isOriginScope
-    ? []
-    : params.palaces.filter((palace) => palace.scope_hits.length > 0);
-  const palaceNames = [
-    params.activePalace?.name,
-    params.lifePalace?.name,
-    params.bodyPalace?.name,
-    ...scopeHitPalaces.map((palace) => palace.name),
-    '福德宫',
-    '迁移宫',
-  ].filter(Boolean) as string[];
-  const selected = Array.from(
-    new Map(
-      palaceNames
-        .map((name) => findPublicZiweiPalaceByName(params.palaces, name))
-        .filter((palace): palace is PalaceFact => Boolean(palace))
-        .map((palace) => [palace.index, palace]),
-    ).values(),
-  );
-
-  return selected.length > 0
-    ? `【重点宫位】\n${selected.map(formatPublicZiweiPalaceBrief).join('\n')}`
+function buildPublicZiweiTwelvePalaceSection(palaces: PalaceFact[]) {
+  return palaces.length > 0
+    ? `【十二宫事实】\n${palaces.map(formatPublicZiweiPalaceBrief).join('\n')}`
     : '';
 }
 
@@ -549,13 +518,7 @@ export async function buildPublicZiweiPromptForRuntime(params: {
     buildPromptGuidanceSections('ziwei'),
     `【分析背景】\n分析主题：${topicLabel}\n分析范围：${scopeLabel}\n分析对象：${scope === 'full' ? '本命盘与完整大限流年流月流日流时' : payload.active_scope.label || scopeLabel}\n参考日期：${payload.active_scope.solar_date}\n虚岁：${payload.active_scope.nominal_age}`,
     `【排盘信息】\n${chartLines.join('\n')}`,
-    buildPublicZiweiKeyPalaceSection({
-      palaces: payload.palaces,
-      activePalace,
-      lifePalace,
-      bodyPalace,
-      isOriginScope: payload.active_scope.scope === 'origin',
-    }),
+    buildPublicZiweiTwelvePalaceSection(payload.palaces),
     trueSolarEvidenceText ? `【出生时间校正】\n${trueSolarEvidenceText}` : '',
     scope === 'full' ? `【完整运限资料】\n${formatPublicZiweiFullScopeText(result)}` : '',
     `【问题】\n${params.question ?? ''}`,
@@ -577,7 +540,7 @@ export async function buildPublicZiweiPromptForRuntime(params: {
     '',
     `【任务】\n${buildPublicZiweiTaskText()}`,
     '',
-    '【输出要求】\n先直接回答【问题】，再说明宫位主线、四化触发、三方四正、应期条件和现实建议；不得把未提供的传统格局补造成盘面事实。',
+    '【输出要求】\n按“依据状态、十二宫可复算事实、已校验格局与运限事实、资料缺口、条件性后续推算”的顺序回答。',
   ].join('\n');
 }
 
@@ -631,13 +594,7 @@ function formatPublicZiweiEvidenceText(params: {
     mutagenText ? `当前四化：${mutagenText}` : '',
     `排盘口径：${formatPublicZiweiCalculationConfig(payload)}`,
     trueSolarEvidenceText ? `出生时间校正：\n${trueSolarEvidenceText}` : '',
-    buildPublicZiweiKeyPalaceSection({
-      palaces: payload.palaces,
-      activePalace,
-      lifePalace,
-      bodyPalace,
-      isOriginScope: payload.active_scope.scope === 'origin',
-    }),
+    buildPublicZiweiTwelvePalaceSection(payload.palaces),
     scope === 'full' ? formatPublicZiweiFullScopeText(params.result) : '',
   ]
     .filter(Boolean)
