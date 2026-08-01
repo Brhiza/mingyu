@@ -24,7 +24,7 @@ const modeGuides = [
   },
   {
     title: '合盘模式',
-    description: '看两个人的关系和匹配度。',
+    description: '并列两人的盘面与可复算交叉结构资料。',
     bullets: ['需要填写双方出生信息', '会展示两人的盘面', '常用于感情、合作、磨合'],
   },
   {
@@ -34,7 +34,7 @@ const modeGuides = [
   },
   {
     title: '择日模式',
-    description: '从日期范围内筛选更合适的行动日。',
+    description: '整理日期范围内可核对的历书与参与人关系资料。',
     bullets: ['选择要办的事项', '填写候选日期范围', '可补充参与人的出生信息'],
   },
 ] as const;

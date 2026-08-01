@@ -116,8 +116,8 @@ export function DivinationForm({
     lockedMethod === 'astrolabe'
       ? '生成星体、宫位与相位，并提供可视星盘作为解读依据。'
       : lockedMethod === 'almanac'
-        ? '按事项、日期范围和参与人八字，筛选更合适的行动日。'
-        : '依托传统算法，提供准确卦象。';
+        ? '按日期范围整理历书原始宜忌、参与人固定关系及时段资料。'
+        : '生成所选方法的可复算盘面与完整 AI 核对提示词。';
   const isAlmanac = draft.method === 'almanac';
   const questionLabel = isAlmanac ? '补充信息（可选）' : '问题';
   const questionPlaceholder = isAlmanac

@@ -36,37 +36,37 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   {
     value: 'random',
     label: '随机',
-    description: '随机选择一种占卜类型，适合没有明确偏好时快速起卦。',
+    description: '随机选择一种当前可用的起卦或抽取方式。',
   },
   {
     value: 'liuyao',
     label: '六爻',
-    description: '适合判断能不能、会不会、该不该，重在事态变化。',
+    description: '生成卦象、纳甲、世应、动变及已校勘结构资料。',
   },
   {
     value: 'meihua',
     label: '梅花易数',
-    description: '适合快速起卦，兼顾体用、过程与结果。',
+    description: '生成主卦、互卦、变卦、体用及已校勘盘内关系资料。',
   },
   {
     value: 'qimen',
     label: '奇门遁甲',
-    description: '适合看时机、策略和局势走向。',
+    description: '生成局式、九宫门星神干及已校勘位置结构。',
   },
   {
     value: 'liuren',
     label: '大六壬',
-    description: '适合看事情如何演变、卡点在哪以及该先处理什么。',
+    description: '生成天地盘、四课三传、天将及已校勘课传结构。',
   },
   {
     value: 'taiyi',
     label: '太乙神数',
-    description: '以年家七十二局观察年度气运、动静、攻守与时宜。',
+    description: '生成年计积数、七十二局、核心落宫、算数和十六神位置。',
   },
   {
     value: 'xiaoliuren',
     label: '小六壬',
-    description: '适合快速判断眼前事情的走势、阻力与行动节奏。',
+    description: '记录起课时间和历法事实；未校落宫与歌诀保持关闭。',
   },
   {
     value: 'jinkoujue',
@@ -76,22 +76,22 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   {
     value: 'ssgw',
     label: '三山国王灵签',
-    description: '随机求签，适合快速获得方向提示。',
+    description: '记录签号、签文与随机轨迹；签义须按完整资料继续核对。',
   },
   {
     value: 'tarot',
     label: '塔罗',
-    description: '适合感受关系、能量状态与行动建议。',
+    description: '记录牌号、牌名、牌位、正逆位、抽取顺序与随机轨迹。',
   },
   {
     value: 'almanac',
     label: '黄历择日',
-    description: '按事项、日期范围和参与人八字，筛选更合适的行动日。',
+    description: '按日期范围整理历书原始宜忌、参与人固定关系及时段资料。',
   },
   {
     value: 'lenormand',
     label: '雷诺曼',
-    description: '偏现实事件判断，适合看关系互动、消息走向和具体选择。',
+    description: '记录牌号、牌名、牌位、抽取顺序与版面位置关系。',
   },
   {
     value: 'astrolabe',
