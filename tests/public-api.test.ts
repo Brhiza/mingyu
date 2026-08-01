@@ -3337,6 +3337,7 @@ test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请
     ),
   );
   assert.equal(fullResult.body.data.directions, undefined);
+  assert.equal(fullResult.body.data.horseStar, undefined);
   assert.equal(compactResult.body.data.zhiFu, fullResult.body.data.zhiFu);
   assert.equal(compactResult.body.data.zhiShi, fullResult.body.data.zhiShi);
   assert.equal(compactResult.body.data.jiuGongGe.length, 9);
@@ -3365,6 +3366,7 @@ test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请
   );
 
   assert.equal(compactResult.body.data.directions, undefined);
+  assert.equal(compactResult.body.data.horseStar, undefined);
 });
 
 test('公开 API 占卜提示词默认只返回摘要和提示词', async () => {

@@ -3219,7 +3219,6 @@ function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
     patternDetails: result.patternDetails,
     voidBranches: result.voidBranches,
     voidPalaces: result.voidPalaces,
-    horseStar: result.horseStar,
     specialConditions: result.specialConditions,
     seasonality: result.seasonality,
     jiuGongGe: result.jiuGongGe.map((palace) => ({
