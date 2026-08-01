@@ -109,7 +109,7 @@ test('八字输出提示词应是可复制给在线 AI 的独立任务书，不�
   assertNoEngineeringPromptText(combinedPrompt);
 });
 
-test('八字单盘空问题补通用问题，分类不再塞本地固定问题', () => {
+test('八字本命提示词应只输出可复算事实并关闭现实解释旁路', () => {
   const result = createBaziResult();
 
   const prompt = buildPromptFromConfig(
@@ -126,10 +126,24 @@ test('八字单盘空问题补通用问题，分类不再塞本地固定问题',
   );
 
   assert.match(prompt.user, /【问题】\n请先做整体解读。/);
-  assert.match(prompt.user, /【任务】\n请重点分析事业，并直接回答【问题】。/);
+  assert.match(prompt.user, /这些字段只证明盘面结构与已计算触发，不证明性格、健康、财富、婚恋、现实事件、概率或应期/);
+  assert.match(prompt.user, /【任务】\n请重点核对事业相关的已列事实与资料缺口；【问题】只限定核对范围。/);
+  assert.match(prompt.user, /不得超出随盘列出的事实与限制，不直接生成性格、健康、财富、婚恋、现实事件、概率、应期或行动建议/);
   assert.doesNotMatch(prompt.user, /若【问题】|按通用.*口径|问题未限定/);
   assert.doesNotMatch(prompt.user, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt.user, /【任务】\n判断命局更适合守成/);
+  assert.doesNotMatch(prompt.user, /并直接回答【问题】|先回答【问题】|时机条件和现实建议/);
+
+  const customPrompt = buildPromptFromConfig(
+    '我今年应该换工作吗？',
+    { id: 'ai-job-change', prompt: '测试', scopeLabel: '换工作' },
+    result,
+    null,
+    '换工作',
+    { isCustomQuestion: true },
+  );
+  assert.match(customPrompt.user, /这些字段只证明盘面结构与已计算触发，不证明性格、健康、财富、婚恋、现实事件、概率或应期/);
+  assert.doesNotMatch(customPrompt.user, /【任务】|【输出要求】/);
 });
 
 test('八字提示词写入年限选择后应保留岁运资料并省略控制话术', () => {

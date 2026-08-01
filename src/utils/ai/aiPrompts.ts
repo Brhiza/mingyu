@@ -198,22 +198,24 @@ function buildBaziFullAnalysisObjectSection(): string {
 }
 
 function buildBaziOutputRequirementText() {
-  return '使用简体中文，先回答【问题】，再说明主要命盘依据、时机条件和现实建议。';
+  return '使用简体中文，按“依据状态、可复算事实、已校勘局部结构与触发、待补资料、条件性后续推算”的顺序回答；不得超出随盘列出的事实与限制，不直接生成性格、健康、财富、婚恋、现实事件、概率、应期或行动建议。';
 }
 
 function buildFortunePromptAddon(promptId: string, ctx: FortuneSelectionContext | null): string {
   if (!ctx) return '';
   if (promptId === 'ai-fortune-detail') {
-    if (ctx.scope === 'dayun') return '按逐年列表依次分析这一步大运，先总后分。';
-    if (ctx.scope === 'year') return '按流月列表依次分析这一年，先总后分。';
-    if (ctx.scope === 'month') return '按流日列表依次分析这个流月，先总后分。';
-    return '聚焦这个流日的主题、机会风险和建议。';
+    if (ctx.scope === 'dayun') return '按逐年列表依次核对这一步大运的已列事实，先总后分。';
+    if (ctx.scope === 'year') return '按流月列表依次核对这一年的已列事实，先总后分。';
+    if (ctx.scope === 'month') return '按流日列表依次核对这个流月的已列事实，先总后分。';
+    return '核对这个流日已列的层级、干支与固定触发事实。';
   }
-  if (promptId === 'ai-fortune-overview') return '聚焦整体节奏、机会、风险和应对。';
+  if (promptId === 'ai-fortune-overview') {
+    return '核对完整大运流年中已列的层级、干支与固定触发事实。';
+  }
   return '';
 }
 
-const BAZI_SINGLE_TASK_PROMPT = '请围绕【问题】完成八字分析。';
+const BAZI_SINGLE_TASK_PROMPT = '请核对【问题】范围内已列出的八字事实与资料缺口。';
 const BAZI_COMPATIBILITY_TASK_PROMPT = '请围绕【问题】完成双方八字合盘分析。';
 
 function normalizeBaziScopeLabel(scopeLabel: string | undefined) {
@@ -227,7 +229,7 @@ function buildBaziTaskText(scopeLabel: string | undefined, fallbackTask: string)
     return fallbackTask;
   }
 
-  return `请重点分析${normalizedScopeLabel}，并直接回答【问题】。`;
+  return `请重点核对${normalizedScopeLabel}相关的已列事实与资料缺口；【问题】只限定核对范围。`;
 }
 
 function createBaziPromptOption(id: string, scopeLabel: string): AIPromptOption {
@@ -346,7 +348,7 @@ export function buildPromptFromConfig(
           buildPromptSection('问题', normalizedQuestion),
           isCustomQuestion
             ? ''
-            : buildPromptSection('任务', task || '请依据已给出的命盘字段直接裁定重点。'),
+            : buildPromptSection('任务', task || '请核对已给出的命盘事实与资料缺口。'),
           isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
         ]),
       ),
@@ -375,7 +377,7 @@ export function buildPromptFromConfig(
           : '',
         fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
         buildPromptSection('问题', normalizedQuestion),
-        isCustomQuestion ? '' : buildPromptSection('任务', '请依据已给出的命盘字段直接裁定重点。'),
+        isCustomQuestion ? '' : buildPromptSection('任务', '请核对已给出的命盘事实与资料缺口。'),
         isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
       ]),
     ),
