@@ -24,6 +24,10 @@
   "exclude": [
     "node_modules",
     "dist",
+    "src/bazi/baziTherapeuticRules.ts",
+    "src/bazi/baziTherapeuticRules/**/*.ts",
+    "src/bazi/baziUsefulGodRules.ts",
+    "src/divination/algorithms/_shared/**/*.ts",
     "src/divination/ssgw-data/interpretation.ts",
     "src/divination/ssgw-data/signs-01.ts",
     "src/divination/ssgw-data/signs-02.ts",
