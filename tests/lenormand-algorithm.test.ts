@@ -7,6 +7,7 @@ import {
   drawLenormandSpread,
   LENORMAND_CARDS,
   LENORMAND_FIXED_COMBINATIONS,
+  LENORMAND_SPREADS,
   rebuildAuditedLenormandData,
   resolveInteractiveLenormandCards,
 } from '../packages/core/src/divination/algorithms/lenormand.ts';
@@ -44,6 +45,19 @@ test('雷诺曼全部牌阵应只输出原始牌面与可重放抽取轨迹', ()
     assert.equal(result.cards.length, result.draw?.order.length);
     assert.equal(new Set(result.cards.map((card) => card.id)).size, result.cards.length);
     assert.ok(result.cards.every((card) => card.keywords.length === 0 && card.meaning === ''));
+    assert.deepEqual(
+      result.cards.map((card) => card.position),
+      Array.from({ length: result.cards.length }, (_, index) => `第${index + 1}牌位`),
+    );
+    assert.ok(
+      result.cards.every(
+        (card) => card.house === undefined && card.row === undefined && card.column === undefined,
+      ),
+    );
+    assert.doesNotMatch(
+      LENORMAND_SPREADS[spreadType].positions.join(''),
+      /起因|现状|走向|状态|纽带|建议|核心|行动|能量|情感|直觉|思维|沟通|物质|根基|宫/,
+    );
     assert.deepEqual(result.combinations, []);
     assert.deepEqual(result.layoutEvidence, []);
     assert.deepEqual(evidence.traditionalFacts, []);
@@ -69,7 +83,7 @@ test('雷诺曼全部牌号应按内部目录重建并保持牌义为空', () =>
       name: reference.name,
       keywords: [],
       meaning: '',
-      position: '核心线索',
+      position: '第1牌位',
       house: undefined,
       row: undefined,
       column: undefined,

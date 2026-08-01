@@ -37,6 +37,15 @@ test('塔罗全部牌阵应只输出可复算抽牌事实与牌义待校状态',
     assert.equal(evidence.spreadCoverageFact.expectedCardCount, tarotSpreads[spreadType].cardCount);
     assert.equal(evidence.spreadCoverageFact.actualCardCount, data.cards.length);
     assert.deepEqual(evidence.spreadCoverageFact.positionOrderMismatches, []);
+    assert.deepEqual(
+      data.cards.map((card) => card.position),
+      Array.from({ length: data.cards.length }, (_, index) => `第${index + 1}牌位`),
+    );
+    assert.match(tarotSpreads[spreadType].description, /牌位定义与解释规则待校/);
+    assert.doesNotMatch(
+      `${tarotSpreads[spreadType].description}${tarotSpreads[spreadType].positions.join('')}`,
+      /过去|现在|未来|建议|结果|运势|健康|优势|挑战|机遇|恐惧|影响/,
+    );
     assert.equal(evidence.drawFact.status, '可核验');
     assert.equal(evidence.drawFact.key, `draw:tarot:${spreadType}`);
     assert.deepEqual(evidence.drawFact.mismatchIndexes, []);
@@ -201,9 +210,9 @@ test('塔罗手工录入应保留牌位与正逆位，并将随机轨迹标为�
   assert.deepEqual(
     data.cards.map((card) => [card.id, card.position, card.reversed]),
     [
-      [1, '过去', false],
-      [22, '现在', true],
-      [78, '未来', false],
+      [1, '第1牌位', false],
+      [22, '第2牌位', true],
+      [78, '第3牌位', false],
     ],
   );
   assert.equal(data.draw?.method, '用户按牌位手工录入');
@@ -372,7 +381,7 @@ test('塔罗78张牌应逐张按内部牌号重建唯一名称并关闭未校牌
     );
     const card = rebuilt.cards[0];
     assert.equal(card.id, index + 1);
-    assert.equal(card.position, '当前指引');
+    assert.equal(card.position, '第1牌位');
     assert.equal(card.keywords.length, 0);
     assert.equal(card.uprightMeaning, '');
     assert.equal(card.reversedMeaning, '');

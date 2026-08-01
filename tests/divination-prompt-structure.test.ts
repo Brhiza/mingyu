@@ -1096,15 +1096,15 @@ test('塔罗提示词在牌义版本闭合前只保留抽牌事实', () => {
 
   assert.match(prompt, /核心结构：牌阵/);
   assert.match(prompt, /牌位顺序：/);
-  assert.match(prompt, /- 过去：项目内部牌号7，恋人（正位）/);
-  assert.match(prompt, /- 现在：项目内部牌号8，战车（逆位）/);
+  assert.match(prompt, /- 第1牌位：项目内部牌号7，恋人（正位）/);
+  assert.match(prompt, /- 第2牌位：项目内部牌号8，战车（逆位）/);
   assert.match(prompt, /牌义状态：.*尚未完成校勘/);
   assert.match(prompt, /不得自行补造或使用关键词、牌义、元素、牌阶/);
   assert.match(prompt, /不得补造牌义或给出趋势与行动结论/);
   assert.doesNotMatch(prompt, /断牌口径|现实边界|结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(
     prompt,
-    /关键词：|牌义：|元素主题：|牌阶主题：|牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏/,
+    /关键词：|牌义：|元素主题：|牌阶主题：|牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏|过去：|现在：|未来：|行动建议：|最终结果：/,
   );
 });
 
@@ -1159,11 +1159,14 @@ test('雷诺曼提示词在牌义版本闭合前只保留抽牌原始记录', ()
 
   assert.match(prompt, /核心结构：牌阵/);
   assert.match(prompt, /牌位顺序：/);
-  assert.match(prompt, /你的状态：第1号 骑士/);
-  assert.match(prompt, /对方状态：第21号 山/);
+  assert.match(prompt, /第1牌位：第1号 骑士/);
+  assert.match(prompt, /第2牌位：第21号 山/);
   assert.match(prompt, /牌义状态：关键词、单牌牌义、固定组合、相邻合读和布局解释均待具体版本校勘/);
   assert.match(prompt, /不得补造关键词、牌义、组合或布局趋势/);
-  assert.doesNotMatch(prompt, /关键词：|牌义：|组合明细：|后续发展、行动建议/);
+  assert.doesNotMatch(
+    prompt,
+    /关键词：|牌义：|组合明细：|后续发展、行动建议|你的状态：|对方状态：|后续走向：|关键建议：/,
+  );
 });
 
 test('塔罗与雷诺曼提示词应由原始牌号重建，不吸收派生字段和旧证据污染', () => {
@@ -1220,8 +1223,14 @@ test('星盘及六爻梅花提示词应穷举事实并关闭现实解释旁路',
   assert.match(prompt, /关键提示：逆行星体/);
   assert.match(prompt, /本命相位穷举：选定点位.+共核验276组无序点对，完整保留\d+组命中项/);
   assert.match(prompt, /相位明细：.+实际夹角.+精确角.+偏差.+采用容许度/);
-  assert.match(prompt, /【任务】\n核对【占卜信息】中的出生资料、天体位置、宫位、宫头、相位及所选作用域的计算事实/);
-  assert.match(prompt, /未同时明确具体解释体系与版本来源、完整解释规则、判断对象与范围、出生资料来源与精度时，不生成性格、事件、吉凶、应期、概率或行动建议/);
+  assert.match(
+    prompt,
+    /【任务】\n核对【占卜信息】中的出生资料、天体位置、宫位、宫头、相位及所选作用域的计算事实/,
+  );
+  assert.match(
+    prompt,
+    /未同时明确具体解释体系与版本来源、完整解释规则、判断对象与范围、出生资料来源与精度时，不生成性格、事件、吉凶、应期、概率或行动建议/,
+  );
   assert.doesNotMatch(prompt, /强度\d+%/);
   assert.doesNotMatch(prompt, /紧密等级|中等等级|宽松等级|归一化容许度/);
   assert.doesNotMatch(
@@ -1233,7 +1242,10 @@ test('星盘及六爻梅花提示词应穷举事实并关闭现实解释旁路',
 
   const coreAstrolabeTask = buildTaskText('astrolabe');
   assert.match(coreAstrolabeTask, /请只核对已列的出生资料、天体与角点位置/);
-  assert.match(coreAstrolabeTask, /不得生成性格、健康、财富、关系、吉凶、现实事件、概率、应期或行动建议/);
+  assert.match(
+    coreAstrolabeTask,
+    /不得生成性格、健康、财富、关系、吉凶、现实事件、概率、应期或行动建议/,
+  );
   assert.doesNotMatch(coreAstrolabeTask, /直接回答问题|给出现实建议/);
 
   for (const method of ['liuyao', 'meihua'] as const) {
@@ -1242,7 +1254,10 @@ test('星盘及六爻梅花提示词应穷举事实并关闭现实解释旁路',
       '这件事接下来该怎么推进？',
       createData(method),
     );
-    assert.match(methodPrompt, /不得把候选、支持、反证或数量直接改写为现实吉凶、事件、概率、唯一应期或行动建议/);
+    assert.match(
+      methodPrompt,
+      /不得把候选、支持、反证或数量直接改写为现实吉凶、事件、概率、唯一应期或行动建议/,
+    );
     assert.doesNotMatch(methodPrompt, /先回答【问题】.*时机条件和行动建议/);
   }
 });

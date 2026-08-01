@@ -64,37 +64,31 @@ export const LENORMAND_CARDS = [
   '十字架',
 ].map((name, index) => ({ id: index + 1, name, keywords: [] as string[], meaning: '' }));
 
+function createPendingSpreadPositions(cardCount: number) {
+  return Array.from({ length: cardCount }, (_, index) => `第${index + 1}牌位`);
+}
+
 export const LENORMAND_SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }> =
   {
-    single: { name: '单牌线索', positions: ['核心线索'] },
-    three: { name: '三牌事件线', positions: ['起因', '现状', '走向'] },
-    five: {
-      name: '五牌十字阵',
-      positions: ['过去背景', '当前处境', '隐藏因素', '外在助力', '最终走向'],
-    },
+    single: { name: '单张抽牌', positions: createPendingSpreadPositions(1) },
+    three: { name: '三张抽牌', positions: createPendingSpreadPositions(3) },
+    five: { name: '五张抽牌', positions: createPendingSpreadPositions(5) },
     relationship: {
-      name: '关系牌阵',
-      positions: ['你的状态', '对方状态', '关系纽带', '隐藏因素', '后续走向'],
+      name: '五张抽牌（关系入口）',
+      positions: createPendingSpreadPositions(5),
     },
     decision: {
-      name: '选择牌阵',
-      positions: ['当前处境', '选择A', '选择A走向', '选择B', '选择B走向', '关键建议'],
+      name: '六张抽牌（选择入口）',
+      positions: createPendingSpreadPositions(6),
     },
-    nine: {
-      name: '九宫牌阵',
-      positions: ['左上', '上方', '右上', '左侧', '核心', '右侧', '左下', '下方', '右下'],
-    },
+    nine: { name: '九张抽牌', positions: createPendingSpreadPositions(9) },
     element: {
-      name: '元素牌阵',
-      positions: ['火（行动/能量）', '水（情感/直觉）', '风（思维/沟通）', '土（物质/根基）'],
+      name: '四张抽牌（元素入口）',
+      positions: createPendingSpreadPositions(4),
     },
     grandTableau: {
-      name: '大桌牌阵',
-      positions: Array.from({ length: 36 }, (_, i) => {
-        const card = LENORMAND_CARDS[i];
-        if (!card) throw new Error(`雷诺曼第${i + 1}宫缺少对应宫位牌`);
-        return `第${i + 1}宫（${card.name}宫）`;
-      }),
+      name: '三十六张抽牌（大桌入口）',
+      positions: createPendingSpreadPositions(36),
     },
   };
 
@@ -155,11 +149,8 @@ export function validateLenormandReferenceData(): void {
   ) {
     throw new Error('雷诺曼牌组必须按 1-36 完整登记且牌号、牌名不重复');
   }
-  if (
-    LENORMAND_SPREADS.grandTableau.positions.length !== 36 ||
-    LENORMAND_SPREADS.grandTableau.positions.some((position) => position.includes('未知'))
-  ) {
-    throw new Error('雷诺曼大桌必须完整登记 36 个同序宫位');
+  if (LENORMAND_SPREADS.grandTableau.positions.length !== 36) {
+    throw new Error('雷诺曼大桌入口必须完整登记 36 个中性牌位');
   }
   for (const pair of Object.keys(LENORMAND_FIXED_COMBINATIONS)) {
     const namesInPair = pair.split('+');
@@ -184,18 +175,13 @@ function buildLenormandCards(
 ): LenormandData['cards'] {
   const spread = LENORMAND_SPREADS[spreadType];
   return selectedCards.map((card, index) => {
-    const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
-    const houseCard = spreadType === 'grandTableau' ? LENORMAND_CARDS[index] : undefined;
-    if (spreadType === 'grandTableau' && !houseCard) {
-      throw new Error(`雷诺曼第${index + 1}宫缺少对应宫位牌`);
-    }
     return {
       ...card,
       keywords: [...card.keywords],
       position: spread.positions[index],
-      house: houseCard?.name,
-      row: columns ? Math.floor(index / columns) + 1 : undefined,
-      column: columns ? (index % columns) + 1 : undefined,
+      house: undefined,
+      row: undefined,
+      column: undefined,
     };
   });
 }

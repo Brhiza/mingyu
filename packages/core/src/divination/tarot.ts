@@ -132,7 +132,7 @@ export function drawSingleCard(options?: RandomOptions) {
     {
       card,
       isReversed,
-      position: '当前指引',
+      position: tarotSpreads.single.positions[0],
       timestamp,
     },
     {
