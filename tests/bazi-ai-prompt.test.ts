@@ -6,7 +6,10 @@ import { formatBaziForPrompt as formatBaziForPromptLocal } from '@core/bazi/bazi
 import { formatBaziForPrompt as formatBaziForPromptCore } from '../packages/core/src/bazi/baziAnalysisFormatter';
 import { identifyClassicPattern as identifyClassicPatternCore } from '../packages/core/src/bazi/baziEnhancement/classicPatterns';
 import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/bazi/baziEnhancement/classicPatterns';
-import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
+import {
+  conditionBaziClassicPatternText,
+  generateEnhancedAnalysisSection,
+} from '@core/bazi/baziPromptEnhancement';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 import { assertPromptHasSingleRole } from './prompt-assertions';
 
@@ -577,6 +580,17 @@ test('八字经典格局提示词应保留福德秀气的成格边界，不输�
   assert.match(section, /乙丁己辛癸日坐巳酉丑之一/);
   assert.match(section, /各日干成败不同，不作统一强断/);
   assert.doesNotMatch(section, /主一生福禄厚重|主人聪明智慧/);
+});
+
+test('八字经典格局强断不得降调改写后继续进入提示词', () => {
+  const dangerous = '此格主大富大贵，多主名利双收，财富丰厚。';
+  assert.equal(
+    conditionBaziClassicPatternText(dangerous),
+    '未采用传统断语；当前只保留已校勘格名、命中条件与来源，待明确底本版本和适用口径后继续推算。',
+  );
+
+  const safe = '甲乙日生春月且亥卯未三支齐见，只登记曲直结构候选，不据此断定成格或贵贱。';
+  assert.equal(conditionBaziClassicPatternText(safe), safe);
 });
 
 test('月令确无用且干头无财官七杀时，真实排盘仍可输出经典外格', () => {

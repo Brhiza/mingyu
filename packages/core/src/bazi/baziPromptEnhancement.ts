@@ -23,28 +23,15 @@ function buildEvidenceDrivenHintSection(title: string, evidence: string): string
   return `【${title}】${evidence}。`;
 }
 
-function formatClassicPatternMainClaim(claim: string): string {
-  const normalized = claim.replace(/^人/, '');
-  return `传统多取象为${normalized}，并按原局成败与岁运同看。`;
-}
-
-function toClassicPatternPromptDescription(description: string): string {
-  return description
-    .replace(/主大富大贵。?/g, '传统多视为层次较高，并按原局成败与岁运同看。')
-    .replace(/主大贵。?/g, '传统多视为层次较高，并按原局成败与岁运同看。')
-    .replace(/主清贵富足。?/g, '传统多视为较有清气与发展空间，并按原局成败与岁运同看。')
-    .replace(/主清贵。?/g, '传统多视为较有清气与发展空间，并按原局成败与岁运同看。')
-    .replace(/主名利双收。?/g, '传统多视为较易兼顾名与利，并按原局成败与岁运同看。')
-    .replace(/主异路功名。?/g, '传统多视为发展路径有别于常规，并按原局成败与岁运同看。')
-    .replace(/因祸得福。?/g, '传统多视为在冲动与转折中仍可能藏有转机。')
-    .replace(/财富丰厚。?/g, '传统多视为物质积累倾向较明显。')
-    .replace(/多主([^。；]+)[。；]?/g, (_match, claim: string) =>
-      formatClassicPatternMainClaim(claim),
+export function conditionBaziClassicPatternText(description: string): string {
+  if (
+    /主(?:大富大贵|大贵|清贵|名利双收|异路功名)|多主|因祸得福|财富丰厚|必(?:富|贵|贫|败)|定主|可期|堪图|可许/.test(
+      description,
     )
-    .replace(
-      /(^|[^日])主([^。；]+)[。；]?/g,
-      (_match, prefix: string, claim: string) => `${prefix}${formatClassicPatternMainClaim(claim)}`,
-    );
+  ) {
+    return '未采用传统断语；当前只保留已校勘格名、命中条件与来源，待明确底本版本和适用口径后继续推算。';
+  }
+  return description;
 }
 
 function getKongWangEvidence(chartResult: BaziChartResult): string[] {
@@ -190,7 +177,7 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
       ? '共同边界：干头见官杀即不取；财透两位或单财有根时以财为重，只有单一无根财透不直接阻断；月令另有透干或会支之用仍须优先复核'
       : '来源边界：只按所引古籍保留结构名目，并服从月令无用、干头无财官杀的严格外格前提；不得冒充《子平真诠》本章认可的正式杂格';
 
-  return `【${title}】${classicPattern.name} | 来源：${classicPattern.source.title} | ${eligibilityBoundary} | ${toClassicPatternPromptDescription(classicPattern.description)}`;
+  return `【${title}】${classicPattern.name} | 来源：${classicPattern.source.title} | ${eligibilityBoundary} | ${conditionBaziClassicPatternText(classicPattern.description)}`;
 }
 
 function generateShenshaFactSection(chartResult: BaziChartResult): string {
