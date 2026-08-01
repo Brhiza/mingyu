@@ -636,18 +636,18 @@ export function getPublicApiOpenApiDocument(
       },
       '/divination/jinkoujue': {
         post: {
-          summary: '金口诀起课',
+          summary: '金口诀原始起课记录',
           description: '生成地分、将神、贵神、人元四位一体课盘。',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
-          responses: { '200': { description: '金口诀课盘' } },
+          responses: { '200': { description: '金口诀原始起课记录与待校边界' } },
         },
       },
       '/divination/jinkoujue/prompt': {
         post: {
           summary: '金口诀提示词',
-          description: '生成金口诀课盘与可外发 AI 提示词。',
+          description: '生成金口诀原始起课记录与规则待校提示词。',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest'),
-          responses: { '200': { description: '金口诀课盘与提示词' } },
+          responses: { '200': { description: '金口诀原始起课记录与提示词' } },
         },
       },
       '/divination/xiaoliuren': {

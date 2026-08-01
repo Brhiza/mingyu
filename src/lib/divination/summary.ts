@@ -19,9 +19,7 @@ import type {
   JinkoujueData,
 } from '../../types/divination';
 import { rebuildAuditedAlmanacData } from 'mingyu-core/divination/almanac';
-import {
-  rebuildAuditedLenormandData,
-} from 'mingyu-core/divination/lenormand';
+import { rebuildAuditedLenormandData } from 'mingyu-core/divination/lenormand';
 import { rebuildAuditedTarotData } from 'mingyu-core/divination/tarot';
 import { rebuildAuditedXiaoliurenData } from 'mingyu-core/divination/xiaoliuren';
 import { rebuildAuditedQimenData } from 'mingyu-core/divination/qimen';
@@ -355,24 +353,21 @@ export function getDivinationSummaryBlocks(
     }
     case 'jinkoujue': {
       const jinkoujue = rebuildAuditedJinkoujueData(data as JinkoujueData);
-      const p = jinkoujue.positions;
+      const evidence = jinkoujue.evidenceAnalysis!;
       return {
-        title: '金口诀起课结果',
+        title: '金口诀原始起课记录',
         tags: [
           `起课方式：${jinkoujue.methodLabel}`,
-          `地分：${p.diFen.branch}`,
-          `将神：${p.jiangShen.stem || ''}${p.jiangShen.branch}`,
-          `贵神：${p.guiShen.stem || ''}${p.guiShen.branch}乘${p.guiShen.god || ''}`,
-          `人元：${p.renYuan.stem || ''}${p.renYuan.branch}`,
+          `日柱：${jinkoujue.ganzhi.day}`,
+          `时柱：${jinkoujue.ganzhi.hour}`,
+          `来源状态：${evidence.summaryFact.status}`,
         ],
         lines: [
-          wrapMainEvidence(jinkoujue.mainLine),
-          `阴阳发用：${jinkoujue.yinYangUse.rule}；发用位${jinkoujue.yinYangUse.usePosition}${jinkoujue.yinYangUse.isVoid ? '旬空' : '不空'}`,
-          `动爻：${jinkoujue.movements.map((item) => `${item.name}（${item.trigger}）`).join('、') || '未触发五动或三动'}`,
-          `月将贵人：月将${jinkoujue.monthLeader}；${jinkoujue.dayNight}贵人起${jinkoujue.noblemanBranch}${jinkoujue.calculation.noblemanDirection}`,
-          `四位关系：贵将${jinkoujue.relations.guiToJiang}；贵人${jinkoujue.relations.guiToRen}；将地${jinkoujue.relations.jiangToDi}`,
-          jinkoujue.xunKong?.length ? `旬空：${jinkoujue.xunKong.join('、')}` : '',
-          jinkoujue.summary ? `提示：${jinkoujue.summary}` : '',
+          `四柱：${jinkoujue.ganzhi.year}、${jinkoujue.ganzhi.month}、${jinkoujue.ganzhi.day}、${jinkoujue.ganzhi.hour}`,
+          jinkoujue.method === 'number' ? `用户原始数字：${jinkoujue.numberInput}` : '',
+          jinkoujue.method === 'random' ? evidence.randomTraceFact.promptText : '',
+          evidence.summaryFact.promptText,
+          evidence.limitationFacts.find((item) => item.type === '继续推算条件')?.promptText || '',
         ].filter(Boolean),
       };
     }

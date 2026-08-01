@@ -329,41 +329,32 @@ export function DivinationResult({
 
       {session.method === 'jinkoujue' ? (
         <div className="divination-extra-panel">
-          <div className="divination-extra-title">金口诀四位</div>
+          <div className="divination-extra-title">金口诀原始起课记录</div>
           {(() => {
             const jinkoujue = session.data as JinkoujueData;
             return (
               <>
                 <div className="xiaoliuren-overview-grid">
                   <div className="xiaoliuren-overview-item">
-                    <strong>地分</strong>
-                    <span>{jinkoujue.positions.diFen.branch}</span>
+                    <strong>年柱</strong>
+                    <span>{jinkoujue.ganzhi.year}</span>
                   </div>
                   <div className="xiaoliuren-overview-item">
-                    <strong>将神</strong>
-                    <span>
-                      {jinkoujue.positions.jiangShen.stem || ''}
-                      {jinkoujue.positions.jiangShen.branch}
-                    </span>
+                    <strong>月柱</strong>
+                    <span>{jinkoujue.ganzhi.month}</span>
                   </div>
                   <div className="xiaoliuren-overview-item">
-                    <strong>贵神</strong>
-                    <span>
-                      {jinkoujue.positions.guiShen.stem || ''}
-                      {jinkoujue.positions.guiShen.branch}乘{jinkoujue.positions.guiShen.god || ''}
-                    </span>
+                    <strong>日柱</strong>
+                    <span>{jinkoujue.ganzhi.day}</span>
                   </div>
                   <div className="xiaoliuren-overview-item">
-                    <strong>人元</strong>
-                    <span>
-                      {jinkoujue.positions.renYuan.stem || ''}
-                      {jinkoujue.positions.renYuan.branch}
-                    </span>
+                    <strong>时柱</strong>
+                    <span>{jinkoujue.ganzhi.hour}</span>
                   </div>
                 </div>
                 <div className="xiaoliuren-overview-item">
-                  <strong>阴阳发用与动爻</strong>
-                  <span>{jinkoujue.mainLine}</span>
+                  <strong>规则待校</strong>
+                  <span>{jinkoujue.evidenceAnalysis?.summaryFact.promptText}</span>
                 </div>
               </>
             );

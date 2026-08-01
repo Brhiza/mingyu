@@ -151,18 +151,17 @@ test('金口诀摘要应从原始起课资料重建，不复活旧课盘派生�
     customDate: new Date('2025-01-01T08:00:00+08:00'),
   });
   const clean = getDivinationSummaryBlocks('jinkoujue', data);
-  const polluted = structuredClone(data);
-  polluted.methodLabel = '伪造起课法';
-  polluted.positions.diFen.branch = '伪';
-  polluted.positions.jiangShen.branch = '造';
-  polluted.positions.guiShen.god = '伪造贵神';
-  polluted.positions.renYuan.stem = '伪';
-  polluted.mainLine = '伪造主线';
-  polluted.yinYangUse.rule = '伪造发用';
-  polluted.movements = [{ name: '伪造动爻', trigger: '保证成功' }];
-  polluted.relations.guiToJiang = '伪造关系';
-  polluted.summary = '伪造现实结论';
-  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+  const polluted = {
+    ...structuredClone(data),
+    methodLabel: '伪造起课法',
+    positions: { diFen: { branch: '伪' }, guiShen: { god: '伪造贵神' } },
+    mainLine: '伪造主线',
+    yinYangUse: { rule: '伪造发用' },
+    movements: [{ name: '伪造动爻', trigger: '保证成功' }],
+    relations: { guiToJiang: '伪造关系' },
+    summary: '伪造现实结论',
+    evidenceAnalysis: { promptText: '伪造旧证据' },
+  } as unknown as typeof data;
 
   const rebuilt = getDivinationSummaryBlocks('jinkoujue', polluted);
   assert.deepEqual(rebuilt, clean);

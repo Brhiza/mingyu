@@ -96,56 +96,8 @@ export interface JinkoujueData {
   methodLabel: string;
   timestamp: number;
   ganzhi: BaseGanZhi;
-  dayNight: '昼占' | '夜占';
-  monthLeader: string;
-  divinationBranch: string;
-  noblemanBranch: string;
-  xunKong: string[];
-  diFenBranch: string;
-  positions: {
-    diFen: JinkoujueFourPosition;
-    jiangShen: JinkoujueFourPosition;
-    guiShen: JinkoujueFourPosition;
-    renYuan: JinkoujueFourPosition;
-  };
-  relations: {
-    guiToJiang: string;
-    guiToRen: string;
-    jiangToDi: string;
-    renToDi: string;
-    guiToDi: string;
-  };
-  yinYangUse: {
-    pattern: '三阴一阳' | '三阳一阴' | '二阴二阳' | '纯阴' | '纯阳';
-    yinCount: number;
-    yangCount: number;
-    usePosition: JinkoujuePositionName;
-    rule: string;
-    isVoid: boolean;
-  };
-  movements: JinkoujueMovement[];
-  mainLine: string;
-  calculation: {
-    method: JinkoujueDivinationMethod;
-    methodLabel: string;
-    inputBase: number;
-    inputBaseSource: '占时地支序数' | '用户数字' | '随机数';
-    diFenNote: string;
-    monthLeaderRule: string;
-    yuanDunRule: string;
-    dayNightRule: string;
-    noblemanRule: string;
-    noblemanDirection: '顺布' | '逆布';
-    guiShenRule: string;
-  };
-  focusEvidence?: Array<{
-    target: string;
-    role: string;
-    level: '主证' | '辅证';
-    evidence: string[];
-    limitations: string[];
-  }>;
-  summary: string;
+  /** 数字起课时只保存用户原始输入，不自动映射地分。 */
+  numberInput?: number;
   randomTrace?: import('../shared/random').RandomTrace;
   evidenceAnalysis?: import('../divination/jinkoujue-evidence').JinkoujueEvidenceAnalysis;
 }

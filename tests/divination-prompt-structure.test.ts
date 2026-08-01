@@ -1243,7 +1243,7 @@ test('星盘提示词写入年限选择后应包含分析对象与行运边界',
   assert.ok(prompt.indexOf('【分析对象】') < prompt.indexOf('【占卜信息】'));
 });
 
-test('金口诀提示词应写入阴阳发用、贵神本属与五动三动且可外发', async () => {
+test('金口诀提示词在具体版本闭合前只保留原始起课记录', async () => {
   const { generateJinkoujue } =
     await import('../packages/core/src/divination/algorithms/jinkoujue.ts');
   const { buildDivinationPrompt } = await import('../src/lib/divination/engine/index.ts');
@@ -1262,13 +1262,11 @@ test('金口诀提示词应写入阴阳发用、贵神本属与五动三动且�
     },
   );
   assert.match(prompt, /占法：金口诀/);
-  assert.match(prompt, /阴阳发用：/);
-  assert.match(prompt, /发用位/);
-  assert.match(prompt, /五动|三动/);
-  assert.match(prompt, /贵神本属/);
-  assert.match(prompt, /地分|将神|贵神|人元/);
-  assert.doesNotMatch(prompt, /先以贵神主事|贵神主事、将神主事体/);
-  assert.doesNotMatch(prompt, /你是资深|取证顺序|证据边界|待核|可疑|暂无/);
+  assert.match(prompt, /用户原始数字：5/);
+  assert.match(prompt, /金口诀原始起课事实与待校边界/);
+  assert.match(prompt, /证据链有缺口/);
+  assert.match(prompt, /具体底本、版本/);
+  assert.doesNotMatch(prompt, /阴阳发用：|发用位|四位关系：|动爻：|月将贵人：/);
   assertPromptIsPortableTaskText(prompt);
 });
 
@@ -1281,16 +1279,18 @@ test('金口诀提示词只使用原始起课输入重建，不吸收旧课盘�
     number: 5,
     customDate: new Date('2025-01-01T08:00:00+08:00'),
   });
-  const polluted = structuredClone(clean);
-  polluted.methodLabel = '伪造起课法';
-  polluted.ganzhi.day = '甲子';
-  polluted.positions.guiShen.god = '伪造贵神';
-  polluted.relations.guiToJiang = '保证成功';
-  polluted.yinYangUse.rule = '伪造发用规则';
-  polluted.movements = [];
-  polluted.mainLine = '伪造课盘主线';
-  polluted.summary = '伪造现实结论';
-  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+  const polluted = {
+    ...structuredClone(clean),
+    methodLabel: '伪造起课法',
+    ganzhi: { year: '甲子', month: '甲子', day: '甲子', hour: '甲子' },
+    positions: { guiShen: { god: '伪造贵神' } },
+    relations: { guiToJiang: '保证成功' },
+    yinYangUse: { rule: '伪造发用规则' },
+    movements: [],
+    mainLine: '伪造课盘主线',
+    summary: '伪造现实结论',
+    evidenceAnalysis: { promptText: '伪造旧证据' },
+  } as unknown as typeof clean;
 
   const cleanPrompt = buildDivinationPrompt(
     'jinkoujue',

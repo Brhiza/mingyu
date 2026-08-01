@@ -71,7 +71,7 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   {
     value: 'jinkoujue',
     label: '金口诀',
-    description: '以地分、将神、贵神、人元四位一体判断事情主客、人情与落点。',
+    description: '记录金口诀起课时间、四柱、原始数字或随机轨迹，规则版本明确后再继续推算。',
   },
   {
     value: 'ssgw',

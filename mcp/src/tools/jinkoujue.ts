@@ -53,7 +53,7 @@ export function registerJinkoujueTool(server: McpServer) {
     'divine_jinkoujue',
     {
       description:
-        '金口诀起课：按地分、将神、贵神、人元四位一体生成完整课盘与结构化证据',
+        '金口诀原始起课记录：返回时间、四柱、用户原始数字或随机轨迹及规则待校边界，不自动生成四位和发用',
       inputSchema: jinkoujueSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -70,11 +70,10 @@ export function registerJinkoujueTool(server: McpServer) {
   server.registerTool(
     'jinkoujue_prompt',
     {
-      description:
-        '金口诀起课并生成结构化 AI 解读提示词：一次调用返回四位课盘与可直接复制给 AI 的提示词',
+      description: '金口诀原始起课记录与待校提示词：一次调用返回可复核输入和规则版本边界',
       inputSchema: jinkoujuePromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('金口诀课盘数据'),
+        result: z.unknown().describe('金口诀原始起课记录'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },
