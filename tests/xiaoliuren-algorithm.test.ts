@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   analyzeXiaoliurenEvidence,
   generateXiaoliuren,
+  rebuildAuditedXiaoliurenData,
 } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
@@ -188,15 +189,47 @@ test('小六壬：非时间起课必须明确拒绝', () => {
   );
 });
 
-test('小六壬：缺少计算参数时证据不得伪装成可复核', () => {
-  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
-  const incomplete = { ...data, calculation: undefined } as unknown as Parameters<
-    typeof analyzeXiaoliurenEvidence
-  >[0];
-  const evidence = analyzeXiaoliurenEvidence(incomplete);
+test('小六壬：审核重建只认时间戳，不吸收旧课盘或旧证据污染', () => {
+  const clean = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+  const polluted = structuredClone(clean);
+  polluted.methodLabel = '伪造起课法';
+  polluted.ganzhi.day = '甲子';
+  polluted.lunarMonth = 1;
+  polluted.lunarDay = 1;
+  polluted.hourLabel = '伪造时辰';
+  polluted.sequence.month = polluted.palaceOrder[0]!;
+  polluted.sequence.day = polluted.palaceOrder[0]!;
+  polluted.sequence.hour = { ...polluted.palaceOrder[0]!, verse: '伪造时宫歌诀' };
+  polluted.primary = { ...polluted.palaceOrder[0]!, verse: '伪造主证歌诀' };
+  polluted.evidenceAnalysis!.primaryFact.promptText = '伪造旧主证';
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
 
-  assert.equal(evidence.calculationFact.status, '缺少中间参数');
-  assert.equal(evidence.calculationSteps.length, 0);
-  assert.equal(evidence.summaryFact.status, '证据链有缺口');
-  assert.match(evidence.calculationFact.promptText, /不能复核落宫/);
+  assert.deepEqual(rebuildAuditedXiaoliurenData(clean), clean);
+  assert.deepEqual(rebuildAuditedXiaoliurenData(polluted), clean);
+  assert.deepEqual(analyzeXiaoliurenEvidence(polluted), clean.evidenceAnalysis);
+});
+
+test('小六壬：审核重建应拒绝非法原始来源', () => {
+  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+
+  assert.throws(
+    () => rebuildAuditedXiaoliurenData(null as unknown as typeof data),
+    /结果必须是对象/,
+  );
+  assert.throws(
+    () => rebuildAuditedXiaoliurenData({ ...data, timestamp: Number.NaN }),
+    /时间戳无效/,
+  );
+  assert.throws(
+    () => rebuildAuditedXiaoliurenData({ ...data, method: 'number' as typeof data.method }),
+    /未知的小六壬起课方式/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedXiaoliurenData({
+        ...data,
+        randomTrace: { mode: 'system', samples: [0.5] },
+      } as typeof data),
+    /不应携带随机轨迹/,
+  );
 });

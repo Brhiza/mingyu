@@ -13,9 +13,8 @@ import { getShichenByIndex, getTimeIndexFromClock } from '../../calendar/dateUti
 import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import { attachResultMeta } from '../../shared/result';
-import { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
+import { analyzeRebuiltXiaoliurenEvidence } from '../xiaoliuren-evidence';
 
-export { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
 export type {
   XiaoliurenCalculationFact,
   XiaoliurenCalculationStep,
@@ -92,7 +91,7 @@ assertReferenceData();
  * 闰月沿用同名月序；农历日按东八区民用日零点换日。两项均在结果中显式标注，
  * 以免把有分歧的历法边界伪装成唯一传统口径。
  */
-export function generateXiaoliuren(params?: {
+function buildXiaoliurenData(params?: {
   method?: XiaoliurenDivinationMethod;
   customDate?: Date;
 }): XiaoliurenData {
@@ -153,10 +152,53 @@ export function generateXiaoliuren(params?: {
     primary: palaceAt(hourPalaceIndex),
   };
 
-  const result = attachResultMeta(data, {
+  return attachResultMeta(data, {
     algorithm: 'xiaoliuren',
     input: { method, timestamp },
     calculatedAt: timestamp,
   });
-  return { ...result, evidenceAnalysis: analyzeXiaoliurenEvidence(result) };
+}
+
+function assertXiaoliurenTimestamp(timestamp: number): number {
+  if (!Number.isFinite(timestamp) || Number.isNaN(new Date(timestamp).getTime())) {
+    throw new Error('小六壬结果时间戳无效，无法审核重建。');
+  }
+  return timestamp;
+}
+
+/** 只保留时间起课标识与时间戳，农历、时辰、三宫和证据全部重算。 */
+export function rebuildAuditedXiaoliurenData(input: XiaoliurenData): XiaoliurenData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('小六壬结果必须是对象。');
+  }
+  if (input.method !== 'time') {
+    throw new Error(`未知的小六壬起课方式: ${String(input.method)}`);
+  }
+  const randomTrace = (input as XiaoliurenData & { randomTrace?: unknown }).randomTrace;
+  if (randomTrace || input.meta?.random) {
+    throw new Error('小六壬时间起课不应携带随机轨迹。');
+  }
+  const timestamp = assertXiaoliurenTimestamp(input.timestamp);
+  const rebuilt = buildXiaoliurenData({ method: 'time', customDate: new Date(timestamp) });
+  return {
+    ...rebuilt,
+    evidenceAnalysis: analyzeRebuiltXiaoliurenEvidence(rebuilt),
+  };
+}
+
+/** 所有公开证据分析先按时间戳重建，禁止旧派生字段进入提示词。 */
+export function analyzeXiaoliurenEvidence(input: XiaoliurenData) {
+  return rebuildAuditedXiaoliurenData(input).evidenceAnalysis!;
+}
+
+/** 生成通行小六壬时间课。 */
+export function generateXiaoliuren(params?: {
+  method?: XiaoliurenDivinationMethod;
+  customDate?: Date;
+}): XiaoliurenData {
+  const result = buildXiaoliurenData(params);
+  return {
+    ...result,
+    evidenceAnalysis: analyzeRebuiltXiaoliurenEvidence(result),
+  };
 }

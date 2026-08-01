@@ -79,6 +79,21 @@ test('小六壬摘要应展示时宫主证和顺数轨迹', () => {
   assert.match(text, /月宫空亡.*日宫赤口.*时宫留连/);
   assert.match(text, /零点换日|闰月沿用同名月序/);
   assert.doesNotMatch(text, /起因|过程|五行推进|月令旺衰|六亲|旬空|驿马|桃花/);
+
+  const polluted = structuredClone(data);
+  polluted.methodLabel = '伪造起课法';
+  polluted.sequence.month = polluted.palaceOrder[0]!;
+  polluted.sequence.day = polluted.palaceOrder[0]!;
+  polluted.sequence.hour = { ...polluted.palaceOrder[0]!, verse: '伪造时宫歌诀' };
+  polluted.primary = { ...polluted.palaceOrder[0]!, verse: '伪造主证歌诀' };
+  polluted.evidenceAnalysis!.primaryFact.promptText = '伪造旧主证';
+
+  const rebuilt = getDivinationSummaryBlocks('xiaoliuren', polluted);
+  assert.deepEqual(rebuilt, summary);
+  assert.doesNotMatch(
+    [...rebuilt.tags, ...rebuilt.lines].join('\n'),
+    /伪造起课法|伪造时宫歌诀|伪造主证歌诀|伪造旧主证/,
+  );
 });
 
 test('雷诺曼摘要应使用关键词核验范围而非原始牌义断语', () => {

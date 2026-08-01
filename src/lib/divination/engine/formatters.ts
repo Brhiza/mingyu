@@ -35,7 +35,7 @@ import {
   conditionLiurenTraditionalText,
   rebuildAuditedLiurenData,
 } from '@core/divination/algorithms/liuren';
-import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
+import { rebuildAuditedXiaoliurenData } from '@core/divination/algorithms/xiaoliuren';
 import { rebuildAuditedJinkoujueData } from '@core/divination/algorithms/jinkoujue';
 import { rebuildAuditedTarotData } from '@core/divination/tarot';
 import { rebuildAuditedLenormandData } from '@core/divination/algorithms/lenormand';
@@ -489,18 +489,17 @@ function formatMeihuaInfo(data: MeihuaData) {
 }
 
 function formatXiaoliurenInfo(data: XiaoliurenData) {
-  const evidenceAnalysis = data.evidenceAnalysis?.primaryFact
-    ? data.evidenceAnalysis
-    : analyzeXiaoliurenEvidence(data);
+  const audited = rebuildAuditedXiaoliurenData(data);
+  const evidenceAnalysis = audited.evidenceAnalysis!;
 
   return [
     '占法：小六壬',
-    `时间干支：${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时；农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
-    `顺数轨迹：月宫${data.sequence.month.name}；日宫${data.sequence.day.name}；时宫${data.sequence.hour.name}`,
-    `占得宫：${data.primary.name}`,
-    `歌诀原文：${data.primary.verse}`,
+    `时间干支：${audited.ganzhi.year}年 ${audited.ganzhi.month}月 ${audited.ganzhi.day}日 ${audited.ganzhi.hour}时；农历${audited.isLeapMonth ? '闰' : ''}${audited.lunarMonth}月${audited.lunarDay}日，${audited.hourLabel}`,
+    `顺数轨迹：月宫${audited.sequence.month.name}；日宫${audited.sequence.day.name}；时宫${audited.sequence.hour.name}`,
+    `占得宫：${audited.primary.name}`,
+    `歌诀原文：${audited.primary.verse}`,
     `计算链：${evidenceAnalysis.calculationFact.promptText}`,
-    `历法口径：${data.calculation.dayBoundary}；${data.calculation.leapMonthRule}`,
+    `历法口径：${audited.calculation.dayBoundary}；${audited.calculation.leapMonthRule}`,
     `来源状态：${evidenceAnalysis.sources.map((item) => `${item.title}：${item.evidence}`).join('；')}`,
     `解释限制：${evidenceAnalysis.limitations.join('；')}`,
   ]

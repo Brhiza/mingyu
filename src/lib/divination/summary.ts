@@ -24,7 +24,7 @@ import {
   rebuildAuditedLenormandData,
 } from 'mingyu-core/divination/lenormand';
 import { rebuildAuditedTarotData } from 'mingyu-core/divination/tarot';
-import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
+import { rebuildAuditedXiaoliurenData } from 'mingyu-core/divination/xiaoliuren';
 import { rebuildAuditedQimenData } from 'mingyu-core/divination/qimen';
 import { analyzeLiurenEvidence, rebuildAuditedLiurenData } from 'mingyu-core/divination/liuren';
 import {
@@ -342,8 +342,8 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'xiaoliuren': {
-      const xiaoliuren = data as XiaoliurenData;
-      const evidence = xiaoliuren.evidenceAnalysis ?? analyzeXiaoliurenEvidence(xiaoliuren);
+      const xiaoliuren = rebuildAuditedXiaoliurenData(data as XiaoliurenData);
+      const evidence = xiaoliuren.evidenceAnalysis!;
       return {
         title: '小六壬起课结果',
         tags: [

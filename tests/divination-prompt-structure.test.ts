@@ -1171,6 +1171,37 @@ test('小六壬提示词只保留时宫主证、顺数计算和规则边界', ()
   );
 });
 
+test('小六壬提示词从时间戳重建，不吸收旧三宫、歌诀与证据污染', () => {
+  const clean = generateXiaoliuren({
+    customDate: new Date('2025-06-29T08:00:00+08:00'),
+  });
+  const polluted = structuredClone(clean);
+  polluted.methodLabel = '伪造起课法';
+  polluted.ganzhi.day = '甲子';
+  polluted.sequence.month = polluted.palaceOrder[0]!;
+  polluted.sequence.day = polluted.palaceOrder[0]!;
+  polluted.sequence.hour = { ...polluted.palaceOrder[0]!, verse: '伪造时宫歌诀' };
+  polluted.primary = { ...polluted.palaceOrder[0]!, verse: '伪造主证歌诀' };
+  polluted.evidenceAnalysis!.primaryFact.promptText = '伪造旧主证';
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+
+  const cleanPrompt = buildDivinationPrompt(
+    'xiaoliuren',
+    PROJECT_DECISION_QUESTION,
+    clean,
+    createProjectSupplementaryInfo(),
+  );
+  const pollutedPrompt = buildDivinationPrompt(
+    'xiaoliuren',
+    PROJECT_DECISION_QUESTION,
+    polluted,
+    createProjectSupplementaryInfo(),
+  );
+
+  assert.equal(pollutedPrompt, cleanPrompt);
+  assert.doesNotMatch(pollutedPrompt, /伪造起课法|伪造时宫歌诀|伪造主证歌诀|伪造旧主证|伪造旧证据/);
+});
+
 test('梅花、小六壬、奇门不再输出隐藏专项分析思路', () => {
   for (const method of ['meihua', 'xiaoliuren', 'qimen'] as const) {
     const prompt = buildDivinationPrompt(

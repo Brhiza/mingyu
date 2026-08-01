@@ -160,7 +160,8 @@ function buildPalaceFacts(data: XiaoliurenData): XiaoliurenPalaceFact[] {
   ];
 }
 
-export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvidenceAnalysis {
+/** 仅供已按原始时间戳重建的课盘使用；公开入口位于算法模块。 */
+export function analyzeRebuiltXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvidenceAnalysis {
   const calculationSteps = buildCalculationSteps(data);
   const complete = calculationSteps.length === 3;
   const palaceFacts = buildPalaceFacts(data);
