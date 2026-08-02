@@ -2905,7 +2905,10 @@ test('公开 API 灵签应只返回签号与单样本轨迹并失败关闭掷筊
   const confirmed = await callApi('divination/ssgw', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ replay: [0.1, 0.1, 0.9] }),
+    body: JSON.stringify({
+      customDate: '2025-01-01T08:00:00+08:00',
+      replay: [0.1, 0.1, 0.9],
+    }),
   });
   assert.equal(confirmed.response.status, 200);
   assert.equal(confirmed.body.data.ritual, undefined);
@@ -3006,6 +3009,7 @@ test('公开 API 灵签应只返回签号与单样本轨迹并失败关闭掷筊
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       question: '这件事应该怎样核实现实条件？',
+      customDate: '2025-01-01T08:00:00+08:00',
       replay: [0.1, 0.1, 0.9],
     }),
   });
@@ -5541,6 +5545,7 @@ test('公开 API 时间型占卜缺少明确时间或起法时失败关闭', asy
     ],
     ['divination/qimen', {}, /customDate 必须明确提供/],
     ['divination/liuren', {}, /customDate 必须明确提供/],
+    ['divination/ssgw', {}, /customDate 必须明确提供/],
   ];
 
   for (const [path, input, message] of cases) {

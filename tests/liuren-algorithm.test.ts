@@ -9,7 +9,7 @@ import {
 } from 'mingyu-core/divination/liuren';
 import { getVoidBranches } from '../packages/core/src/calendar/lunar.ts';
 import { EARTHLY_BRANCHES } from '../packages/core/src/ganzhi/data.ts';
-import { SANXING_MAP } from '../packages/core/src/ganzhi/relations.ts';
+import { LIUCHONG_MAP, SANXING_MAP } from '../packages/core/src/ganzhi/relations.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
   getLiurenGuaTiFacts,
@@ -22,7 +22,6 @@ import {
   getTransmissionPattern,
   REGISTERED_LIUREN_GUA_TI_COUNT,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/transmission.ts';
-import { LIUCHONG_MAP } from '../packages/core/src/divination/algorithms/_shared/wuxing.ts';
 import {
   buildFourLessons,
   resolveInitialTransmission,

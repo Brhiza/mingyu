@@ -1,6 +1,6 @@
 import type { SsgwData } from '../../types/divination';
 import { SSGW_SIGNS } from '../../divination/ssgw-data';
-import { getDivinationTime } from '../../calendar/timeManager';
+import { getRequiredDivinationTime } from '../../calendar/timeManager';
 import type { RandomOptions } from '../../shared/random';
 import { createRandomContext, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
@@ -50,31 +50,22 @@ const ssgwSigns: Omit<SsgwData, 'ganzhi' | 'timestamp'>[] = SSGW_SIGNS.map((sign
  * 从三山国王 92 个连续签号中随机抽取一个编号，
  * 自动附带求签时间的干支和 Unix 时间戳。
  *
- * @param customDate 自定义求签时间（可选），不传则使用当前时间。
- *   传入后签文结果的 `ganzhi` 和 `timestamp` 会基于该时间生成。
+ * @param customDate 明确的求签时间。交互入口若使用“当前时间”，应先固定一个 Date 再传入。
+ *   签文结果的 `ganzhi` 和 `timestamp` 会基于该时间生成。
  * @returns 抽签结果 SsgwData，包含签号、待校状态、抽取轨迹及求签时间干支。
  * @remarks 掷筊流程、杯象判定与终止规则来源未闭合，底层不自动模拟或输出确认结论。
  *
  * @example
  * ```ts
- * // 当前时间求签
- * const sign = drawRandomSign();
- *
- * // 指定时间求签
- * const sign = drawRandomSign(new Date('2025-06-15T10:00:00'));
+ * const sign = drawRandomSign(new Date('2025-06-15T10:00:00+08:00'));
  * ```
  */
-export function drawRandomSign(options?: RandomOptions): SsgwData;
-export function drawRandomSign(customDate?: Date, options?: RandomOptions): SsgwData;
 export function drawRandomSign(
-  customDateOrOptions?: Date | RandomOptions,
+  customDate: Date,
   options?: RandomOptions,
 ): SsgwData {
-  const customDate = customDateOrOptions instanceof Date ? customDateOrOptions : undefined;
-  const randomOptions =
-    customDateOrOptions instanceof Date ? options : (customDateOrOptions ?? options);
-  const { ganzhi, timestamp } = getDivinationTime(customDate);
-  const context = createRandomContext(randomOptions);
+  const { ganzhi, timestamp } = getRequiredDivinationTime(customDate, '求签时间');
+  const context = createRandomContext(options);
   const randomIndex = randomInt(ssgwSigns.length, context.random);
   const sign = ssgwSigns[randomIndex];
   const base = attachResultMeta(
@@ -100,7 +91,7 @@ export function drawRandomSign(
 }
 
 /** 核对用户已取得的签号，不模拟抽签或掷筊。 */
-export function resolveSignByNumber(number: number, customDate?: Date): SsgwData {
+export function resolveSignByNumber(number: number, customDate: Date): SsgwData {
   if (!Number.isInteger(number) || number < 1 || number > ssgwSigns.length) {
     throw new Error(`签号需为1至${ssgwSigns.length}的整数`);
   }
@@ -108,7 +99,7 @@ export function resolveSignByNumber(number: number, customDate?: Date): SsgwData
   if (!sign) {
     throw new Error(`未找到第${number}签`);
   }
-  const { ganzhi, timestamp } = getDivinationTime(customDate);
+  const { ganzhi, timestamp } = getRequiredDivinationTime(customDate, '求签时间');
   const base = attachResultMeta(
     {
       ...sign,

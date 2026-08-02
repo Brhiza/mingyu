@@ -87,7 +87,7 @@ test('自定义随机源必须返回合法区间，避免抽取结果被坏输�
   assert.throws(() => createRandomSource('固定种子' as never), /随机选项必须是对象/);
   assert.throws(() => drawSpreadCards('three', [] as never), /随机选项必须是对象/);
   assert.throws(() => drawLenormandSpread('three', null as never), /随机选项必须是对象/);
-  assert.throws(() => drawRandomSign('无效参数' as never), /随机选项必须是对象/);
+  assert.throws(() => drawRandomSign(DATE, '无效参数' as never), /随机选项必须是对象/);
   assert.throws(() => generateMeihua(DATE, '随机' as never), /梅花易数起卦设置必须是对象/);
   assert.throws(() => generateXiaoliuren([] as never), /小六壬起课参数必须是对象/);
   assert.throws(() => generateLiuyao(DATE, null as never), /六爻起卦设置必须是对象/);

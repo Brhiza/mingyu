@@ -682,7 +682,7 @@ export function getPublicApiOpenApiDocument(
       '/divination/ssgw': {
         post: {
           summary: '三山国王灵签求签',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest'),
           responses: { '200': { description: '灵签结果' } },
         },
       },
@@ -2823,7 +2823,7 @@ function calculateTarot(input: JsonRecord) {
 }
 
 function drawSsgw(input: JsonRecord) {
-  return drawRandomSign(readCustomDate(input), readRandomOptions(input));
+  return drawRandomSign(readRequiredCustomDate(input), readRandomOptions(input));
 }
 
 function calculateSsgw(input: JsonRecord) {

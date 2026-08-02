@@ -523,8 +523,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       commonInfo,
     );
 
-    const ssgwData = withSeed(20260521, () => drawRandomSign());
-    ssgwData.timestamp = fixedNow.getTime();
+    const ssgwData = withSeed(20260521, () => drawRandomSign(fixedNow));
     const ssgwPrompt = buildDivinationPrompt('ssgw', commonQuestion, ssgwData, commonInfo);
 
     const almanacData = generateAlmanacSelection({

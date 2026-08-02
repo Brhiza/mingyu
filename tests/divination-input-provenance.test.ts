@@ -6,6 +6,7 @@ import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateQimen } from 'mingyu-core/divination/qimen';
+import { drawRandomSign, resolveSignByNumber } from 'mingyu-core/divination/ssgw';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 
 const DATE = new Date('2025-01-01T08:00:00+08:00');
@@ -27,6 +28,8 @@ test('时间型占卜核心入口缺少明确时间时全部失败关闭', () =>
     () => generateLiuren(),
     () => generateJinkoujue({ method: 'time' }),
     () => generateXiaoliuren({ method: 'time' }),
+    () => drawRandomSign(undefined as never),
+    () => resolveSignByNumber(1, undefined as never),
   ];
 
   for (const run of cases) {

@@ -16,16 +16,13 @@ import {
   SIXTY_CYCLE,
 } from '../packages/core/src/ganzhi/data.ts';
 import { BRANCH_HIDDEN_STEMS } from '../packages/core/src/ganzhi/relations.ts';
-import { LIUCHONG_MAP as LEGACY_LIUCHONG_MAP } from '../packages/core/src/divination/algorithms/_shared/wuxing.ts';
-import { LIUCHONG_MAP } from '../packages/core/src/ganzhi/relations.ts';
 
-test('公共地基层应成为八字与占卜旧路径的单一真相源', () => {
+test('公共地基层应成为八字与占卜的单一真相源', () => {
   assert.equal(BASIC_MAPPINGS.HEAVENLY_STEMS, HEAVENLY_STEMS);
   assert.equal(BASIC_MAPPINGS.EARTHLY_BRANCHES, EARTHLY_BRANCHES);
   assert.equal(BAZI_SIXTY_CYCLE, SIXTY_CYCLE);
   assert.equal(BAZI_NAYIN_MAP, NAYIN_MAP);
   assert.equal(HIDDEN_STEMS, BRANCH_HIDDEN_STEMS);
-  assert.equal(LEGACY_LIUCHONG_MAP, LIUCHONG_MAP);
 });
 
 test('六十甲子工具应返回完整序列与结构化关系', () => {

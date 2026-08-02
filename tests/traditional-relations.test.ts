@@ -13,7 +13,6 @@ import {
   TWELVE_STAGES_MAP,
 } from '../packages/core/src/bazi/baziMappingsData';
 import { MONTH_COMMANDER as appMonthCommander } from '@core/bazi/baziMappingsData';
-import { TIAN_GAN_CHONG as appDivinationChong } from '../packages/core/src/divination/algorithms/_shared/wuxing';
 import {
   BRANCH_HIDDEN_STEMS,
   LIUCHONG_MAP,
@@ -35,7 +34,7 @@ import {
   isLiupo,
   isSanxing,
   getWuxingChangSheng,
-} from '../packages/core/src/divination/algorithms/_shared/wuxing';
+} from '../packages/core/src/ganzhi/relations';
 import { analyzeLifeStageProfile } from '../packages/core/src/bazi/lifeStageAnalysis';
 import { analyzeNayinProfile } from '../packages/core/src/bazi/nayinAnalysis';
 import { getLifeStage as getBaziValueLifeStage } from '../packages/core/src/bazi/baziValues';
@@ -100,7 +99,6 @@ test('天干相冲按主流传统口径不应包含戊己冲', () => {
   for (const chongMap of [
     appBaziMappings.TIAN_GAN_CHONG,
     coreBaziMappings.TIAN_GAN_CHONG,
-    appDivinationChong,
     coreDivinationChong,
   ]) {
     assert.equal(chongMap.甲, '庚');

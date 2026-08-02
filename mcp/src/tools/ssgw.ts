@@ -8,11 +8,22 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
+import { readMcpRequiredCustomDate } from './input-helpers.js';
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
-const ssgwSchema = z.object({ ...randomOptionShape });
+const ssgwSchema = z.object({
+  ...randomOptionShape,
+  customDate: z.string().describe('明确的求签时间（ISO 8601 格式）'),
+});
 
 const ssgwPromptSchema = extendPromptSchema(ssgwSchema, '用户希望围绕灵签解读的问题');
+
+function buildSsgwResult(args: z.infer<typeof ssgwSchema>) {
+  return drawRandomSign(
+    readMcpRequiredCustomDate(args.customDate),
+    readMcpRandomOptions(args),
+  );
+}
 
 export function registerSsgwTool(server: McpServer) {
   server.registerTool(
@@ -25,7 +36,7 @@ export function registerSsgwTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = drawRandomSign(readMcpRandomOptions(args));
+        const result = buildSsgwResult(args);
         return createStructuredToolResult({ result });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '求签失败'));
@@ -46,7 +57,7 @@ export function registerSsgwTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = drawRandomSign(readMcpRandomOptions(args));
+        const result = buildSsgwResult(args);
         return createStructuredToolResult({
           result,
           prompt: buildCommonDivinationPrompt('ssgw', args.question, result, args.promptMode),

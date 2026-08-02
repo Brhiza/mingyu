@@ -453,7 +453,7 @@ function readDateText(value: string, fieldName: string) {
 }
 
 function isTimeBasedDivinationMethod(method: Exclude<DivinationMethodId, 'random'>) {
-  if (method === 'liuyao' || method === 'qimen' || method === 'liuren') {
+  if (method === 'liuyao' || method === 'qimen' || method === 'liuren' || method === 'ssgw') {
     return true;
   }
 
@@ -669,6 +669,9 @@ export async function generateDivinationSession(
     }
     case 'ssgw': {
       const module = await import('mingyu-core/divination/ssgw');
+      if (!customDate) {
+        throw new Error('求签时间必须明确提供');
+      }
       data =
         (draft.ssgwMethod ?? 'random') === 'manual'
           ? module.resolveSignByNumber(Number(draft.ssgwNumber), customDate)

@@ -21,20 +21,5 @@
     "noEmit": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/bazi/baziTherapeuticRules.ts",
-    "src/bazi/baziTherapeuticRules/**/*.ts",
-    "src/bazi/baziUsefulGodRules.ts",
-    "src/bazi/baziUsefulGodStrategy.ts",
-    "src/bazi/baziShenSha/helpers/tenGodAnalysis.ts",
-    "src/bazi/usefulGodPlacement.ts",
-    "src/divination/algorithms/_shared/**/*.ts",
-    "src/divination/ssgw-data/interpretation.ts",
-    "src/divination/ssgw-data/signs-01.ts",
-    "src/divination/ssgw-data/signs-02.ts",
-    "src/divination/ssgw-data/signs-03.ts",
-    "src/divination/ssgw-data/signs-full.ts"
-  ]
+  "exclude": ["node_modules", "dist"]
 }

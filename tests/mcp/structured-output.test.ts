@@ -2641,6 +2641,7 @@ test('MCP 灵签应只输出签号与单样本轨迹并失败关闭掷筊规则'
       name: 'ssgw_prompt',
       arguments: {
         question: '这件事应该怎样核实现实条件？',
+        customDate: '2025-01-01T08:00:00+08:00',
         replay: [0.1, 0.1, 0.9],
       },
     });
@@ -5113,6 +5114,7 @@ test('MCP 时间型占卜缺少明确时间或起法时失败关闭', async () =
       ['divine_jinkoujue', { customDate: '2025-01-01T08:00:00+08:00' }],
       ['divine_qimen', {}],
       ['divine_liuren', {}],
+      ['divine_ssgw', {}],
     ];
 
     for (const [name, args] of cases) {
