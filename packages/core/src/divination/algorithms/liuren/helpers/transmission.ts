@@ -988,6 +988,24 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         : null,
   },
   {
+    id: 'guan-ge',
+    name: '关隔格',
+    category: '天罡临地',
+    sourceTitle: '《六壬指南》卷二·指掌赋',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“天罡加四仲为关隔，人事睽迟。”当前只登记天盘天罡辰临地盘子、午、卯、酉四仲之一的固定结构。',
+    detect(context) {
+      const groundBranch = context.heavenlyDragonGroundBranch;
+      return groundBranch && ['子', '午', '卯', '酉'].includes(groundBranch)
+        ? {
+            branches: ['辰', groundBranch],
+            matchedConditions: [`天盘天罡辰临地盘四仲${groundBranch}`],
+          }
+        : null;
+    },
+  },
+  {
     id: 'gan-zhi-luo-wang',
     name: '干支罗网格',
     category: '干支固定关系',
@@ -2176,6 +2194,60 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     },
   },
   {
+    id: 'yi-shi',
+    name: '遗失格',
+    category: '三传递生',
+    sourceTitle: '《六壬指南》卷二·指掌赋',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“初生中，中生末，名遗失。”当前只登记初传五行生中传、中传五行生末传的顺向递生结构。',
+    detect(context) {
+      const [initial, middle, final] = context.transmissionBranches;
+      return isGanZhiSheng(initial, middle) && isGanZhiSheng(middle, final)
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [`初传${initial}生中传${middle}，中传${middle}生末传${final}`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'rong-sheng',
+    name: '荣盛格',
+    category: '三传递生',
+    sourceTitle: '《六壬指南》卷二·指掌赋',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“末生中，中生用，名荣盛。”当前只登记末传五行生中传、中传五行生初传的逆向递生结构。',
+    detect(context) {
+      const [initial, middle, final] = context.transmissionBranches;
+      return isGanZhiSheng(final, middle) && isGanZhiSheng(middle, initial)
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [`末传${final}生中传${middle}，中传${middle}生初传${initial}`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'die-shi',
+    name: '迭噬格',
+    category: '三传递克',
+    sourceTitle: '《六壬指南》卷二·指掌赋',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“用克中，中克末为迭噬。”当前只登记初传五行克中传、中传五行克末传的顺向递克结构。',
+    detect(context) {
+      const [initial, middle, final] = context.transmissionBranches;
+      return isBranchKe(initial, middle) && isBranchKe(middle, final)
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [`初传${initial}克中传${middle}，中传${middle}克末传${final}`],
+          }
+        : null;
+    },
+  },
+  {
     id: 'ju-sheng',
     name: '俱生格',
     category: '干支生合',
@@ -2236,6 +2308,71 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         ? {
             branches: [context.dayBranch],
             matchedConditions: [`日支${context.dayBranch}加临日干${context.dayStem}上并生日干`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'feng-jiu',
+    name: '俸就格',
+    category: '干支生合',
+    sourceTitle: '《六壬指南》卷二·指掌赋',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“日临辰而受生名俸就。”当前只登记日干寄宫临日支之上，且日支五行生日干的结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const branchUpper = context.fourLessons[2].upper;
+      return branchUpper === stemResidence && isGanZhiSheng(context.dayBranch, context.dayStem)
+        ? {
+            branches: [stemResidence, context.dayBranch],
+            matchedConditions: [
+              `日干${context.dayStem}寄宫${stemResidence}临日支${context.dayBranch}之上，且日支生日干`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'li-xu',
+    name: '历虚格',
+    category: '干支生合',
+    sourceTitle: '《六壬指南》卷二·指掌赋',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“日临辰而生辰名历虚。”当前只登记日干寄宫临日支之上，且日干五行生日支的结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const branchUpper = context.fourLessons[2].upper;
+      return branchUpper === stemResidence && isGanZhiSheng(context.dayStem, context.dayBranch)
+        ? {
+            branches: [stemResidence, context.dayBranch],
+            matchedConditions: [
+              `日干${context.dayStem}寄宫${stemResidence}临日支${context.dayBranch}之上，且日干生日支`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gui-chong',
+    name: '归宠格',
+    category: '干支生合',
+    sourceTitle: '《六壬指南》卷二·指掌赋',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“辰临日而受生名归宠。”当前只登记日支临日干之上，且日干五行生日支的结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      return stemUpper === context.dayBranch && isGanZhiSheng(context.dayStem, context.dayBranch)
+        ? {
+            branches: [context.dayBranch],
+            matchedConditions: [
+              `日支${context.dayBranch}临日干${context.dayStem}之上，且日干生日支`,
+            ],
           }
         : null;
     },

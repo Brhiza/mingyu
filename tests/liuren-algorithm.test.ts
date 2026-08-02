@@ -552,6 +552,21 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
         if (branches.join('') === '巳戌卯') expected.push('铸印卦');
         if (branches.join('') === '午卯子') expected.push('高盖乘轩卦');
         if (
+          isSheng(getGanZhiWuxing(initial), getGanZhiWuxing(middle)) &&
+          isSheng(getGanZhiWuxing(middle), getGanZhiWuxing(final))
+        ) {
+          expected.push('遗失格');
+        }
+        if (
+          isSheng(getGanZhiWuxing(final), getGanZhiWuxing(middle)) &&
+          isSheng(getGanZhiWuxing(middle), getGanZhiWuxing(initial))
+        ) {
+          expected.push('荣盛格');
+        }
+        if (isBranchKe(initial, middle) && isBranchKe(middle, final)) {
+          expected.push('迭噬格');
+        }
+        if (
           ['寅巳申', '巳申寅', '申寅巳', '丑戌未', '戌未丑', '未丑戌'].includes(branches.join(''))
         ) {
           expected.push('三字刑格');
@@ -573,8 +588,10 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
     三字刑格: 6,
     进间: 12,
     进茹: 12,
+    迭噬格: 64,
     从革卦: 6,
     曲直卦: 6,
+    荣盛格: 64,
     润下卦: 6,
     炎上卦: 6,
     玄胎卦: 24,
@@ -583,6 +600,7 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
     稼穑卦: 24,
     铸印卦: 1,
     连珠课: 8,
+    遗失格: 64,
     高盖乘轩卦: 1,
   });
 });
@@ -922,8 +940,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定一百三十一条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 131);
+test('大六壬课体登记表应固定一百三十八条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 138);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -987,6 +1005,131 @@ test('大六壬课体登记表应固定一百三十一条来源、稳定键和�
     `${jinJian.matchedConditions.join('；')}；${tuiJian.matchedConditions.join('；')}`,
     /吉|凶|疾病|婚姻|功名|现实事件/,
   );
+});
+
+test('六壬指南卷二七项闭合结构应按三传、干支与天罡位置整批穷举', () => {
+  const guideNames = new Set([
+    '关隔格',
+    '遗失格',
+    '荣盛格',
+    '迭噬格',
+    '俸就格',
+    '历虚格',
+    '归宠格',
+  ]);
+  const auditedFacts = new Map<string, ReturnType<typeof getLiurenGuaTiFacts>[number]>();
+
+  let transmissionCaseCount = 0;
+  for (const initial of DIZHI) {
+    for (const middle of DIZHI) {
+      for (const final of DIZHI) {
+        const facts = getLiurenGuaTiFacts({ transmissionBranches: [initial, middle, final] });
+        const names = new Set(facts.map((fact) => fact.name));
+        const expected: Readonly<Record<string, boolean>> = {
+          遗失格:
+            isSheng(getGanZhiWuxing(initial), getGanZhiWuxing(middle)) &&
+            isSheng(getGanZhiWuxing(middle), getGanZhiWuxing(final)),
+          荣盛格:
+            isSheng(getGanZhiWuxing(final), getGanZhiWuxing(middle)) &&
+            isSheng(getGanZhiWuxing(middle), getGanZhiWuxing(initial)),
+          迭噬格: isBranchKe(initial, middle) && isBranchKe(middle, final),
+        };
+        for (const [name, shouldMatch] of Object.entries(expected)) {
+          assert.equal(
+            names.has(name),
+            shouldMatch,
+            `${initial}${middle}${final}的${name}边界不一致`,
+          );
+        }
+        for (const fact of facts) {
+          if (guideNames.has(fact.name) && !auditedFacts.has(fact.name)) {
+            auditedFacts.set(fact.name, fact);
+          }
+        }
+        transmissionCaseCount += 1;
+      }
+    }
+  }
+  assert.equal(transmissionCaseCount, 1_728);
+
+  let dayRelationCaseCount = 0;
+  for (const dayStem of TIANGAN) {
+    const stemResidence = getDayStemResidence(dayStem);
+    for (const dayBranch of DIZHI) {
+      for (const stemUpper of DIZHI) {
+        for (const branchUpper of DIZHI) {
+          const facts = getLiurenGuaTiFacts({
+            transmissionBranches: ['子', '子', '子'],
+            dayStem,
+            dayBranch,
+            fourLessons: [
+              { lower: dayStem, upper: stemUpper },
+              { lower: stemUpper, upper: stemUpper },
+              { lower: dayBranch, upper: branchUpper },
+              { lower: branchUpper, upper: branchUpper },
+            ],
+          });
+          const names = new Set(facts.map((fact) => fact.name));
+          const expected: Readonly<Record<string, boolean>> = {
+            俸就格:
+              branchUpper === stemResidence &&
+              isSheng(getGanZhiWuxing(dayBranch), getGanZhiWuxing(dayStem)),
+            历虚格:
+              branchUpper === stemResidence &&
+              isSheng(getGanZhiWuxing(dayStem), getGanZhiWuxing(dayBranch)),
+            归宠格:
+              stemUpper === dayBranch &&
+              isSheng(getGanZhiWuxing(dayStem), getGanZhiWuxing(dayBranch)),
+          };
+          for (const [name, shouldMatch] of Object.entries(expected)) {
+            assert.equal(
+              names.has(name),
+              shouldMatch,
+              `${dayStem}${dayBranch}、干上${stemUpper}、支上${branchUpper}的${name}边界不一致`,
+            );
+          }
+          for (const fact of facts) {
+            if (guideNames.has(fact.name) && !auditedFacts.has(fact.name)) {
+              auditedFacts.set(fact.name, fact);
+            }
+          }
+          dayRelationCaseCount += 1;
+        }
+      }
+    }
+  }
+  assert.equal(dayRelationCaseCount, 17_280);
+
+  let heavenlyDragonCaseCount = 0;
+  for (const groundBranch of DIZHI) {
+    const facts = getLiurenGuaTiFacts({
+      transmissionBranches: ['子', '子', '子'],
+      heavenlyDragonGroundBranch: groundBranch,
+    });
+    const names = new Set(facts.map((fact) => fact.name));
+    assert.equal(
+      names.has('关隔格'),
+      ['子', '午', '卯', '酉'].includes(groundBranch),
+      `天罡临${groundBranch}的关隔格边界不一致`,
+    );
+    for (const fact of facts) {
+      if (guideNames.has(fact.name) && !auditedFacts.has(fact.name)) {
+        auditedFacts.set(fact.name, fact);
+      }
+    }
+    heavenlyDragonCaseCount += 1;
+  }
+  assert.equal(heavenlyDragonCaseCount, 12);
+
+  assert.deepEqual([...auditedFacts.keys()].sort(), [...guideNames].sort());
+  for (const fact of auditedFacts.values()) {
+    assert.match(fact.sourceTitle, /《六壬指南》卷二/);
+    assert.match(fact.sourceUrl, /oldid=854505$/);
+    assert.doesNotMatch(
+      fact.matchedConditions.join('；'),
+      /主(?:婚姻|官非|疾病|死丧|升迁|财利)|必然|必定|现实事件/,
+    );
+  }
 });
 
 test('大六壬课传空陷七类课体应按同一批旬空与坐空轮廓严格命中', () => {
