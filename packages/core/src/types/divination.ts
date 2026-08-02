@@ -687,6 +687,8 @@ export interface QimenData {
   voidBranches?: string[];
   /** 已审核旬空对应的宫位；当前只在时家保存。 */
   voidPalaces?: QimenBranchPalace[];
+  /** 已审核时家日马：按完整日柱的日支起例并映射到九宫；其他层级不外推。 */
+  dayHorse?: QimenBranchPalace;
   /** 排盘时间信息（节气、三元等） */
   timeInfo: QimenTimeInfo;
   /** 特殊时辰检查（六甲时、六癸时、时干入墓、五不遇时） */

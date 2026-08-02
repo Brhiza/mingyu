@@ -487,13 +487,15 @@ test('大六壬提示词与摘要应从时间戳重建完整课盘并忽略全�
   );
 });
 
-test('奇门算法只补出两个时旬空并关闭自动马星', () => {
+test('奇门算法补出两个时旬空和按日支起出的时家日马', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
 
   assert.equal(data.voidBranches?.length, 2);
   assert.equal(new Set(data.voidBranches).size, 2);
   assert.ok(data.voidPalaces?.length);
   assert.ok(data.voidPalaces.every((item) => item.branch && item.palace && item.name));
+  assert.equal(data.ganzhi.day, '庚午');
+  assert.deepEqual(data.dayHorse, { branch: '申', palace: 2, name: '坤二宫' });
   assert.equal('horseStar' in data, false);
   assert.ok(data.patternTags?.every((tag) => !tag.includes('马星')));
 });

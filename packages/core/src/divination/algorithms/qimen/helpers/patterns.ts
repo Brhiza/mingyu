@@ -8,7 +8,7 @@
 import type { QimenJiuGongGe, QimenScope } from '../../../../types/divination';
 import { qimen } from '../../../../divination/divination-data';
 import { getVoidBranches } from '../../../../calendar/lunar';
-import { isKe } from '../../../../ganzhi';
+import { isKe, isValidGanZhi } from '../../../../ganzhi';
 import { getDoorElement, getOppositePalace } from './palace-utils';
 
 const { palaceStars, doorPalaceMap } = qimen;
@@ -47,6 +47,42 @@ export function getAuditedQimenVoidBranches(scope: QimenScope, activeGanZhi: str
     throw new Error(`奇门时家时柱“${activeGanZhi}”未取得两个唯一旬空地支。`);
   }
   return branches;
+}
+
+/**
+ * 时家日马固定起例。
+ *
+ * 《奇门遁甲秘笈大全》明确列出：寅午戌日马在申、申子辰日马在寅、
+ * 巳酉丑日马在亥、亥卯未日马在巳。这里只登记日支到日马支的固定映射，
+ * 不把同一表外推成时马、月马或年马，也不据日马单独生成应期和现实断语。
+ */
+export const QIMEN_DAY_HORSE_BY_DAY_BRANCH: Readonly<Record<string, string>> = {
+  子: '寅',
+  丑: '亥',
+  寅: '申',
+  卯: '巳',
+  辰: '寅',
+  巳: '亥',
+  午: '申',
+  未: '巳',
+  申: '寅',
+  酉: '亥',
+  戌: '申',
+  亥: '巳',
+};
+
+/** 返回当前审核层级允许公开的日马地支；月家、年家及未开放日家不外推。 */
+export function getAuditedQimenDayHorseBranch(scope: QimenScope, dayGanZhi: string): string | null {
+  if (scope !== 'hour') return null;
+  if (!isValidGanZhi(dayGanZhi)) {
+    throw new Error(`奇门时家日马需要完整且合法的日柱，当前为“${String(dayGanZhi)}”。`);
+  }
+  const dayBranch = dayGanZhi.charAt(1);
+  const horseBranch = QIMEN_DAY_HORSE_BY_DAY_BRANCH[dayBranch];
+  if (!horseBranch) {
+    throw new Error(`奇门时家日支“${dayBranch}”未取得已审核日马地支。`);
+  }
+  return horseBranch;
 }
 
 const AUDITED_PATTERN_TAG_PREFIXES = [

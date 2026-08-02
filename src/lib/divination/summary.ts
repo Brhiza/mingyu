@@ -119,8 +119,14 @@ function formatQimenVoidSummary(data: DivinationData) {
   return '旬空：时旬空复核未定位';
 }
 
-function formatQimenHorseSummary(_data: DivinationData) {
-  return '马星：起例层级未闭合，未自动推算';
+function formatQimenHorseSummary(data: DivinationData) {
+  if ('dayHorse' in data && data.dayHorse) {
+    return `日马：${data.dayHorse.branch}落${data.dayHorse.name}`;
+  }
+  if ('scope' in data && data.scope && data.scope !== 'hour') {
+    return '日马：当前层级不外推';
+  }
+  return '日马：复核未定位';
 }
 
 function formatQimenFocusSummary(data: DivinationData) {

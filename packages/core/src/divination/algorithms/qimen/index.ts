@@ -10,7 +10,7 @@
  * 2. 寻值符值使：由对应级别的干支旬首定位值符星和值使门
  * 3. 排九宫格：布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
  * 4. 识别可复算位置标签、十一项天地盘固定格、时家上下文格、三奇升殿、三诈与三项条件一致五假位置结构
- * 5. 辅助分析：保留九宫方位与已审核时家时旬空；跨层级旬空和自动马星失败关闭
+ * 5. 辅助分析：保留九宫方位、已审核时家时旬空与日马；跨层级旬空和其他马星失败关闭
  *
  * 《烟波钓叟歌》核心法理（下称《歌》）：
  *   "阴阳二遁分顺逆，一气三元人莫测"        —— 拆补法定局
@@ -39,6 +39,7 @@ import type { QimenJuMethod, QimenJuShuResult } from './helpers/jushu';
 import { getMonthQimenJuShu, getYearQimenJuShu } from './helpers/jushu-extended';
 import { arrangeJiuGongGe, resolveZhiShiLandingPalace } from './helpers/layout';
 import {
+  getAuditedQimenDayHorseBranch,
   getAuditedQimenVoidBranches,
   getQimenPatternTags,
   buildPatternDetails,
@@ -227,7 +228,7 @@ function mapStemRelations(
  * 4. **排九宫格（转盘法或飞盘法）**：按所选方法排列九星、八门、八神与天地盘干
  *    - 布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
  *
- * 5. **辅助数据**：时家时旬空地支配对；月家、年家旬空及所有马星自动定位失败关闭
+ * 5. **辅助数据**：时家时旬空与按日支起例的日马；月家、年家旬空及其他马星自动定位失败关闭
  *
  * 6. **可复算位置标签**
  *    - 星门伏吟/反吟与六仪击刑落宫仅限时家；门克宫保留结构事实
@@ -307,7 +308,7 @@ export function generateQimen(
     method,
   );
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 5：辅助数据（仅时家时旬空；马星因起例层级未闭合失败关闭）
+  // 步骤 5：辅助数据（仅时家时旬空与日马；其他层级和其他马星失败关闭）
   // ──────────────────────────────────────────────────────────────────────────
   const activeGanForFind = getDunJiaStem(activeGanZhi);
 
@@ -315,6 +316,11 @@ export function generateQimen(
   const voidPalaces = voidBranches
     .map((branch: string) => resolveQimenBranchPalace(branch, jiuGongGe))
     .filter((item): item is { branch: string; palace: number; name: string } => Boolean(item));
+  const dayHorseBranch = getAuditedQimenDayHorseBranch(scope, ganzhi.day);
+  const dayHorse = dayHorseBranch ? resolveQimenBranchPalace(dayHorseBranch, jiuGongGe) : undefined;
+  if (dayHorseBranch && !dayHorse) {
+    throw new Error(`奇门时家日马地支“${dayHorseBranch}”无法映射到完整九宫。`);
+  }
 
   const zhiFuLandingPalace = jiuGongGe.find((gong) => hasTianPanStar(gong, zhiFu))?.gong;
   if (zhiFuLandingPalace === undefined) {
@@ -422,6 +428,7 @@ export function generateQimen(
     patternDetails,
     voidBranches,
     voidPalaces,
+    ...(dayHorse ? { dayHorse } : {}),
     specialConditions,
     seasonality,
     jiuGongGe,

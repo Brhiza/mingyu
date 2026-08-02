@@ -508,7 +508,11 @@ function formatQimenInfo(input: QimenData) {
       : data.scope === 'hour'
         ? '时旬空复核未定位'
         : '适用层级未闭合，未自动推算';
-  const horseText = '起例层级未闭合，未自动推算';
+  const horseText = data.dayHorse
+    ? `日马${data.dayHorse.branch}落${data.dayHorse.name}（仅作位置事实）`
+    : data.scope === 'hour'
+      ? '日马复核未定位'
+      : '当前层级不外推日马；时马、月马、年马未自动推算';
   const basicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '基础格局',
   );
@@ -566,7 +570,7 @@ function formatQimenInfo(input: QimenData) {
   const palaceText = evidenceAnalysis.palaceFacts
     .map(
       (item) =>
-        `${item.name}（${item.direction}${item.element}）：天盘${[item.tianPan.stem, item.tianPan.companionStem, item.tianPan.star, item.tianPan.companionStar].filter(Boolean).join('、')}；地盘${item.diPan.stem}；人盘${item.renPan.door}；神盘${item.shenPan.god}；${item.isVoid ? `时旬空${item.voidBranches.join('、')}` : data.scope === 'hour' ? '未逢已审核时旬空' : '旬空未自动推算'}`,
+        `${item.name}（${item.direction}${item.element}）：天盘${[item.tianPan.stem, item.tianPan.companionStem, item.tianPan.star, item.tianPan.companionStar].filter(Boolean).join('、')}；地盘${item.diPan.stem}；人盘${item.renPan.door}；神盘${item.shenPan.god}；${item.isVoid ? `时旬空${item.voidBranches.join('、')}` : data.scope === 'hour' ? '未逢已审核时旬空' : '旬空未自动推算'}；${item.hasHorse && item.horseSourceBranch ? `日马${item.horseSourceBranch}` : data.scope === 'hour' ? '非日马宫' : '日马未外推'}`,
     )
     .join('；');
   const palaceRelationText = evidenceAnalysis.palaceRelations
@@ -575,7 +579,7 @@ function formatQimenInfo(input: QimenData) {
 
   return [
     '占法：奇门遁甲',
-    `位置索引：${positionIndexText}。这些位置只标记值符、值使、日干、时干或已校勘格局所在宫，不自动指定具体问题的用神宫或方位结论`,
+    `位置索引：${positionIndexText}。这些位置只标记值符、值使、日干、时干、已审核日马或已校勘格局所在宫，不自动指定具体问题的用神宫或方位结论`,
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；值符${data.zhiFu}；值使${data.zhiShi}`,
     `关键提示：实际节气${data.timeInfo?.solarTerm || '未列'}；定局${`${juTerm} ${data.timeInfo?.epoch || ''}`.trim()}；位置标签${basicPatternFacts.map((item) => item.name).join('、') || '无'}`,
@@ -591,7 +595,7 @@ function formatQimenInfo(input: QimenData) {
       : '',
     ganzhiInteractionSummary ? `四柱互动：${ganzhiInteractionSummary}` : '',
     `值符值使与时干：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '未见落宫'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '未见落宫'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '未见落宫'}`,
-    `旬空与马星边界：旬空${voidText}；马星${horseText}`,
+    `旬空与日马边界：旬空${voidText}；${horseText}；日马不直接代表快慢、行动、吉凶或方位结论`,
     `九宫原始盘：${palaceText}`,
     `九宫宫对五行关系（全部36组无序宫对）：${palaceRelationText}`,
     specialConditionsText,
