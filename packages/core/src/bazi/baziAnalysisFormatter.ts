@@ -70,11 +70,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     pillarLifeStages,
     shensha,
   } = baziResult;
-  const {
-    includeShensha = true,
-    includeWuxing = true,
-    includeSpecialPillars = true,
-  } = options;
+  const { includeShensha = true, includeWuxing = true, includeSpecialPillars = true } = options;
 
   let result = '【命盘】\n';
   const isMale = baziResult.gender === 'male';

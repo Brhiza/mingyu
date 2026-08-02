@@ -976,8 +976,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定一百六十五条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 165);
+test('大六壬课体登记表应固定一百六十九条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 169);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -1363,7 +1363,7 @@ test('六壬指南卷二七项闭合结构应按三传、干支与天罡位置�
   }
 });
 
-test('大六壬课传空陷七类课体应按同一批旬空与坐空轮廓严格命中', () => {
+test('大六壬课传空陷九类课体应按同一批旬空与坐空轮廓严格命中', () => {
   const getNames = (
     transmissionBranches: string[],
     transmissionGroundBranches: string[],
@@ -1399,6 +1399,8 @@ test('大六壬课传空陷七类课体应按同一批旬空与坐空轮廓严�
       `空陷轮廓${profile}`,
     );
     assert.equal(names.has('断桥格'), isEmpty[1], `空陷轮廓${profile}`);
+    assert.equal(names.has('斩首格'), isEmpty[0], `空陷轮廓${profile}`);
+    assert.equal(names.has('刖足格'), isEmpty[2], `空陷轮廓${profile}`);
     voidProfileCount += 1;
   }
   assert.equal(voidProfileCount, 64);
@@ -1464,6 +1466,16 @@ test('大六壬课传空陷七类课体应按同一批旬空与坐空轮廓严�
       transmissionGroundBranches: ['子', '戌', '寅'],
     }).find((fact) => fact.name === '断桥格'),
     getLiurenGuaTiFacts({
+      dayGanZhi: '甲子',
+      transmissionBranches: ['戌', '子', '丑'],
+      transmissionGroundBranches: ['子', '子', '丑'],
+    }).find((fact) => fact.name === '斩首格'),
+    getLiurenGuaTiFacts({
+      dayGanZhi: '甲子',
+      transmissionBranches: ['子', '丑', '亥'],
+      transmissionGroundBranches: ['子', '丑', '丑'],
+    }).find((fact) => fact.name === '刖足格'),
+    getLiurenGuaTiFacts({
       dayGanZhi: '壬子',
       transmissionBranches: ['寅', '卯', '辰'],
       transmissionGroundBranches: ['丑', '寅', '卯'],
@@ -1483,7 +1495,7 @@ test('大六壬课传空陷七类课体应按同一批旬空与坐空轮廓严�
   ];
   assert.ok(classicalFacts.every(Boolean));
   assert.ok(classicalFacts.every((fact) => fact?.category === '课传空陷'));
-  assert.equal(new Set(classicalFacts.map((fact) => fact?.stableKey)).size, 7);
+  assert.equal(new Set(classicalFacts.map((fact) => fact?.stableKey)).size, 9);
   assert.ok(classicalFacts.every((fact) => /oldid=8545(?:05|80|81)$/.test(fact?.sourceUrl || '')));
   assert.ok(
     classicalFacts.every(
@@ -2385,7 +2397,7 @@ test('大六壬芜淫、解离与冲破课应按日辰交克和冲神乘破结�
   }
 });
 
-test('大六壬干支生合与固定关系十五类课体应按同一批输入轮廓严格命中', () => {
+test('大六壬干支生合与固定关系十七类课体应按同一批输入轮廓严格命中', () => {
   const generates: Readonly<Record<string, string>> = {
     木: '火',
     火: '土',
@@ -2404,6 +2416,8 @@ test('大六壬干支生合与固定关系十五类课体应按同一批输入�
     ['俱生格', 0],
     ['互生格', 0],
     ['自在格', 0],
+    ['壮基格', 0],
+    ['培本格', 0],
     ['互旺格', 0],
     ['和美课', 0],
     ['外好里槎枒格', 0],
@@ -2454,6 +2468,14 @@ test('大六壬干支生合与固定关系十五类课体应按同一批输入�
                 generates[branchUpperElement] === dayStemElement,
             ],
             ['自在格', stemUpper === dayBranch && generates[dayBranchElement] === dayStemElement],
+            [
+              '壮基格',
+              stemUpper === dayBranch && dayBranchElement === dayStemElement,
+            ],
+            [
+              '培本格',
+              branchUpper === stemResidence && dayBranchElement === dayStemElement,
+            ],
             [
               '互旺格',
               (day === '甲申' && stemUpper === '酉' && branchUpper === '卯') ||
@@ -2540,6 +2562,8 @@ test('大六壬干支生合与固定关系十五类课体应按同一批输入�
     getClassicalFact('俱生格', '丙', '寅', '寅', '亥'),
     getClassicalFact('互生格', '辛', '卯', '亥', '辰'),
     getClassicalFact('自在格', '甲', '子', '子', '寅'),
+    getClassicalFact('壮基格', '甲', '寅', '寅', '子'),
+    getClassicalFact('培本格', '甲', '卯', '子', '寅'),
     getClassicalFact('互旺格', '甲', '申', '酉', '卯'),
     getClassicalFact('和美课', '甲', '子', '丑', '亥'),
     getClassicalFact('外好里槎枒格', '壬', '申', '寅', '亥'),
@@ -2557,7 +2581,7 @@ test('大六壬干支生合与固定关系十五类课体应按同一批输入�
   assert.ok(
     classicalFacts.every((fact) => ['干支生合', '干支固定关系'].includes(fact?.category || '')),
   );
-  assert.ok(classicalFacts.every((fact) => /oldid=8545(?:74|76|81)$/.test(fact?.sourceUrl || '')));
+  assert.ok(classicalFacts.every((fact) => /oldid=8545(?:74|76|78|81)$/.test(fact?.sourceUrl || '')));
   assert.ok(
     classicalFacts.every(
       (fact) =>

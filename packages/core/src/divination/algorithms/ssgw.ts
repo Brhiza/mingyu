@@ -60,10 +60,7 @@ const ssgwSigns: Omit<SsgwData, 'ganzhi' | 'timestamp'>[] = SSGW_SIGNS.map((sign
  * const sign = drawRandomSign(new Date('2025-06-15T10:00:00+08:00'));
  * ```
  */
-export function drawRandomSign(
-  customDate: Date,
-  options?: RandomOptions,
-): SsgwData {
+export function drawRandomSign(customDate: Date, options?: RandomOptions): SsgwData {
   const { ganzhi, timestamp } = getRequiredDivinationTime(customDate, '求签时间');
   const context = createRandomContext(options);
   const randomIndex = randomInt(ssgwSigns.length, context.random);

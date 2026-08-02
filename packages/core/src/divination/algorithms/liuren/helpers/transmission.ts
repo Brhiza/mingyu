@@ -1408,6 +1408,42 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     },
   },
   {
+    id: 'chu-chuan-zhan-shou',
+    name: '斩首格',
+    category: '课传空陷',
+    sourceTitle: '《六壬指南》卷二·指掌赋；《六壬经纬》卷三·格局',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“空亡乃耗散之神，初斩首、中折腰、末刖足。”《六壬经纬》：“初传空曰斩首。”当前只登记初传本支旬空或所临地盘空的结构。',
+    detect(context) {
+      const initial = getTransmissionVoidStates(context)?.[0];
+      return initial?.isEmpty
+        ? {
+            branches: [initial.branch, initial.groundBranch],
+            matchedConditions: [describeTransmissionVoidState(initial)],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'mo-chuan-yue-zu',
+    name: '刖足格',
+    category: '课传空陷',
+    sourceTitle: '《六壬指南》卷二·指掌赋；《六壬经纬》卷三·格局',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“空亡乃耗散之神，初斩首、中折腰、末刖足。”《六壬经纬》：“末传空曰刖足。”当前只登记末传本支旬空或所临地盘空的结构。',
+    detect(context) {
+      const final = getTransmissionVoidStates(context)?.[2];
+      return final?.isEmpty
+        ? {
+            branches: [final.branch, final.groundBranch],
+            matchedConditions: [describeTransmissionVoidState(final)],
+          }
+        : null;
+    },
+  },
+  {
     id: 'sheng-chuan-kong-gu',
     name: '声传空谷格',
     category: '课传空陷',
@@ -2581,6 +2617,51 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             branches: [context.dayBranch],
             matchedConditions: [
               `日支${context.dayBranch}临日干${context.dayStem}之上，且日干生日支`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zhuang-ji',
+    name: '壮基格',
+    category: '干支生合',
+    sourceTitle: '《六壬大全》卷九·赘婿课附格；《六壬经纬》卷三·格局',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬大全》：“支临干……同类曰壮基。”《六壬经纬》：“支加干比干曰壮基。”当前只登记日支加临日干且日支与日干五行比和的结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      return stemUpper === context.dayBranch &&
+        getGanZhiWuxing(context.dayStem) === getGanZhiWuxing(context.dayBranch)
+        ? {
+            branches: [context.dayBranch],
+            matchedConditions: [
+              `日支${context.dayBranch}加临日干${context.dayStem}之上，且日支与日干五行比和`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'pei-ben',
+    name: '培本格',
+    category: '干支生合',
+    sourceTitle: '《六壬大全》卷九·乱首课附格；《六壬经纬》卷三·格局',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬大全》：“干临支……同类曰培本。”《六壬经纬》：“干加支比支曰培本。”当前只登记日干寄宫加临日支且日干与日支五行比和的结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const branchUpper = context.fourLessons[2].upper;
+      return branchUpper === stemResidence &&
+        getGanZhiWuxing(context.dayStem) === getGanZhiWuxing(context.dayBranch)
+        ? {
+            branches: [stemResidence, context.dayBranch],
+            matchedConditions: [
+              `日干${context.dayStem}寄宫${stemResidence}加临日支${context.dayBranch}之上，且日干与日支五行比和`,
             ],
           }
         : null;
