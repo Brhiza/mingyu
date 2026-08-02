@@ -440,6 +440,19 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
             expected.push(name);
           }
         }
+        const initialIndex = DIZHI.indexOf(initial);
+        if (
+          middle === DIZHI[(initialIndex + 1) % DIZHI.length] &&
+          final === DIZHI[(initialIndex + 2) % DIZHI.length]
+        ) {
+          expected.push('进茹');
+        }
+        if (
+          middle === DIZHI[(initialIndex - 1 + DIZHI.length) % DIZHI.length] &&
+          final === DIZHI[(initialIndex - 2 + DIZHI.length) % DIZHI.length]
+        ) {
+          expected.push('退茹');
+        }
         if (branches.join('') === '巳戌卯') expected.push('铸印卦');
         if (branches.join('') === '午卯子') expected.push('高盖乘轩卦');
 
@@ -452,11 +465,13 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
 
   assert.deepEqual(Object.fromEntries([...counts].sort()), {
     三交卦: 24,
+    进茹: 12,
     从革卦: 6,
     曲直卦: 6,
     润下卦: 6,
     炎上卦: 6,
     玄胎卦: 24,
+    退茹: 12,
     稼穑卦: 24,
     铸印卦: 1,
     高盖乘轩卦: 1,
@@ -524,8 +539,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定二十一条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 21);
+test('大六壬课体登记表应固定二十三条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 23);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -536,6 +551,26 @@ test('大六壬课体登记表应固定二十一条来源、稳定键和结构�
   assert.match(fact.sourceTitle, /《六壬指南》卷一/);
   assert.match(fact.sourceUrl, /oldid=854504/);
   assert.equal(fact.sourceQuote, '三传亥卯未曰曲直卦。');
+
+  const jinRu = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '子', '丑'] }).find(
+    (item) => item.name === '进茹',
+  );
+  const tuiRu = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '戌', '酉'] }).find(
+    (item) => item.name === '退茹',
+  );
+  assert.ok(jinRu);
+  assert.ok(tuiRu);
+  assert.equal(jinRu.stableKey, 'liuren:verified-guati:jin-ru');
+  assert.equal(tuiRu.stableKey, 'liuren:verified-guati:tui-ru');
+  assert.equal(jinRu.category, '三传顺逆');
+  assert.equal(tuiRu.category, '三传顺逆');
+  assert.deepEqual(jinRu.matchedConditions, ['三传亥、子、丑依十二地支顺序逐支相连']);
+  assert.deepEqual(tuiRu.matchedConditions, ['三传亥、戌、酉依十二地支逆序逐支相连']);
+  assert.match(`${jinRu.sourceQuote}；${tuiRu.sourceQuote}`, /六壬指南.+六壬粹言/);
+  assert.doesNotMatch(
+    `${jinRu.matchedConditions.join('；')}；${tuiRu.matchedConditions.join('；')}`,
+    /吉|凶|疾病|婚姻|功名|现实事件/,
+  );
 });
 
 test('大六壬九丑课应按十个指定日柱与大吉临本日支穷举严格命中', () => {

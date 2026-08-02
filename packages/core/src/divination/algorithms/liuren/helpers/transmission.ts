@@ -151,6 +151,8 @@ const LIUREN_GUIDE_VOLUME_ONE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/1&oldid=854504';
 const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/7&oldid=854575';
+const LIUREN_GUIDE_VOLUME_TWO_URL =
+  'https://zh.wikisource.org/w/index.php?title=六壬指南/2&oldid=854505';
 const JIU_CHOU_DAYS = new Set([
   '乙卯',
   '乙酉',
@@ -283,6 +285,20 @@ function matchSanhe(context: LiurenGuaTiContext, expectedBranches: string[], con
     : null;
 }
 
+function matchConsecutiveTransmissions(
+  context: LiurenGuaTiContext,
+  step: 1 | -1,
+  condition: string,
+) {
+  const indices = context.transmissionBranches.map((branch) =>
+    DIZHI.indexOf(branch as (typeof DIZHI)[number]),
+  );
+  return indices[1] === (indices[0] + step + DIZHI.length) % DIZHI.length &&
+    indices[2] === (indices[1] + step + DIZHI.length) % DIZHI.length
+    ? { branches: [...context.transmissionBranches], matchedConditions: [condition] }
+    : null;
+}
+
 const XUN_QI_BY_HEAD: Readonly<Record<string, string>> = {
   甲子: '丑',
   甲戌: '丑',
@@ -358,6 +374,36 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
     sourceQuote: '三传申子辰全者曰润下卦。',
     detect: (context) => matchSanhe(context, ['申', '子', '辰'], '三传申子辰全'),
+  },
+  {
+    id: 'jin-ru',
+    name: '进茹',
+    category: '三传顺逆',
+    sourceTitle: '《六壬指南》卷二·指掌赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“若顺连茹亥将顺行。”《六壬粹言》：“谓三传之神俱在一方，顺行而进，曰进茹。”',
+    detect: (context) =>
+      matchConsecutiveTransmissions(
+        context,
+        1,
+        `三传${context.transmissionBranches.join('、')}依十二地支顺序逐支相连`,
+      ),
+  },
+  {
+    id: 'tui-ru',
+    name: '退茹',
+    category: '三传顺逆',
+    sourceTitle: '《六壬指南》卷二·指掌赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“若逆连茹亥位逆推。”《六壬粹言》：“谓三传之神俱在一方，逆行而退，曰退茹。”',
+    detect: (context) =>
+      matchConsecutiveTransmissions(
+        context,
+        -1,
+        `三传${context.transmissionBranches.join('、')}依十二地支逆序逐支相连`,
+      ),
   },
   {
     id: 'long-de',

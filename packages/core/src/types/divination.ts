@@ -782,7 +782,8 @@ export interface LiurenGuaTiFact {
     | '日辰发用'
     | '旬仪发用'
     | '旬奇发用'
-    | '大吉临仲';
+    | '大吉临仲'
+    | '三传顺逆';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;
