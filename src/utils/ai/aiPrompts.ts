@@ -190,7 +190,7 @@ function buildBaziFullAnalysisObjectSection(): string {
 }
 
 function buildBaziOutputRequirementText() {
-  return '使用简体中文，先回答【问题】，再说明主要命盘依据、时机条件和现实建议。';
+  return '先回答【问题】，再说明主要命盘依据、时机条件和现实建议。';
 }
 
 function buildFortunePromptAddon(promptId: string, ctx: FortuneSelectionContext | null): string {

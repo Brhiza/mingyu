@@ -356,6 +356,10 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
       pattern:
         /本次没有提供|当前资料没有|不包含|尚不支持|暂不支持|资料不足|需要补充|请补充|补充资料/,
     },
+    {
+      label: '语言要求',
+      pattern: /简体中文|使用中文|用中文|中文回复|中文回答|请用中文|请以中文|以中文/,
+    },
   ];
 
   samples.forEach((sample) => {

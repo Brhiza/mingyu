@@ -924,10 +924,7 @@ test('占卜提示词的输出要求保持简短明确', async () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(
-    session,
-    /【输出要求】\n使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。/,
-  );
+  assert.match(session, /【输出要求】\n先回答【问题】，再说明主要依据、时机条件和行动建议。/);
   assert.doesNotMatch(session, /请直接回答：/);
   assert.doesNotMatch(session, /语气和表达要求|结论总览|反证限制|行动清单/);
 });
@@ -1252,10 +1249,7 @@ test('大六壬提示词使用简短任务与输出要求', () => {
     prompt,
     /【任务】\n请严格围绕已给出的月将、四课、三传、天将、课体与神煞主线作答，直接说明演变、卡点与下一步。/,
   );
-  assert.match(
-    prompt,
-    /【输出要求】\n使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。/,
-  );
+  assert.match(prompt, /【输出要求】\n先回答【问题】，再说明主要依据、时机条件和行动建议。/);
   assert.doesNotMatch(prompt, /反证限制|证据不足|不硬给日期|取证顺序|回答口径/);
 });
 
