@@ -1,7 +1,7 @@
 /**
  * @file 奇门已校勘经典格局与天地盘干结构事实
  * @description 正式入口输出已经逐条闭环的十一项天地盘固定格，以及只在
- * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃、天乙飞宫格、天乙伏宫格、三奇升殿、三诈、
+ * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃、天乙飞宫格、天乙伏宫格、严格相佐、三奇升殿、三诈、
  * 天假/严格地假/鬼假与玉女守门中性结构事实。九遁与三奇得使已经确认存在版本定义冲突；其余三奇、
  * 人假、物假、神假、值符值使、
  * 月日时格、普通勃格、门迫、入墓等旧规则
@@ -28,6 +28,7 @@ export const AUDITED_QIMEN_CONTEXT_PATTERN_NAMES = [
   '格勃',
   '天乙飞宫格',
   '天乙伏宫格',
+  '相佐',
   '乙奇升殿',
   '丙奇升殿',
   '丁奇升殿',
@@ -398,6 +399,46 @@ function getTianYiFeiFuGongPatterns({
   return patterns;
 }
 
+function getStrictXiangZuoPattern({
+  jiuGongGe,
+  zhiFu,
+  scope,
+  hourGanZhi,
+}: PatternContext): ClassicPattern[] {
+  // 各书对相佐范围有“丙”“丙丁”“三奇”三种版本，只开放共同交集：值符临地盘丙。
+  if (scope !== 'hour' || !hourGanZhi || !zhiFu) return [];
+
+  const xunHead = getXunHead(hourGanZhi);
+  const expectedValueSymbolStem = getDunJiaStem(xunHead);
+  const valueSymbolPalaces = jiuGongGe.filter((palace) => hasTianPanStar(palace, zhiFu));
+  if (valueSymbolPalaces.length !== 1) {
+    throw new Error(
+      `奇门值符星“${zhiFu}”在天盘应恰有一个落宫，实际为${valueSymbolPalaces.length}个。`,
+    );
+  }
+
+  const palace = valueSymbolPalaces[0];
+  const valueSymbolStem = getTianPanStemForStar(palace, zhiFu);
+  if (valueSymbolStem !== expectedValueSymbolStem) {
+    throw new Error(
+      `奇门时柱“${hourGanZhi}”所属${xunHead}旬应由值符携${expectedValueSymbolStem}，实际为${valueSymbolStem || '空'}。`,
+    );
+  }
+
+  if (palace.diPan.stem !== '丙') return [];
+
+  return [
+    {
+      key: `pattern:valueSymbol:strictXiangZuo:${hourGanZhi}:${palace.gong}`,
+      name: '相佐',
+      tone: 'neutral',
+      summary: `当前时柱${hourGanZhi}属${xunHead}旬，值符星${zhiFu}携旬首所遁${valueSymbolStem}临地盘丙于${palace.name}，命中《遁甲演义》《奇门遁甲秘笈大全》《奇门旨归》《奇门法窍》不同版本的共同交集“值符加丙为相佐”。这里只登记值符身份与天地盘干可复算结构；不把地盘乙、丁扩大命名，也不采用助力、贵人、兵事、行动、方位或吉凶断语；月家、年家不得套用`,
+      palace: palace.gong,
+      tokens: [valueSymbolStem, '丙'],
+    },
+  ];
+}
+
 const SAN_QI_SHENG_DIAN_BY_PALACE: Readonly<
   Record<number, { stem: '乙' | '丙' | '丁'; name: '乙奇升殿' | '丙奇升殿' | '丁奇升殿' }>
 > = {
@@ -537,7 +578,7 @@ function getYuNvShouMenPattern({
  * 返回正式允许输出的经典格局。
  *
  * 当前白名单包括十一项天地盘固定格，以及独立校勘的伏干格、飞干格、岁格、
- * 格勃、天乙飞宫格、天乙伏宫格、三奇升殿、三诈、三项条件一致的五假与玉女守门时家上下文结构。它们只在所需干支、值符身份、天盘落宫或
+ * 格勃、天乙飞宫格、天乙伏宫格、严格相佐、三奇升殿、三诈、三项条件一致的五假与玉女守门时家上下文结构。它们只在所需干支、值符身份、天盘落宫或
  * 奇门神三层可复算时登记中性结构，不继承互有差异的现实断语。月格因“月干/月朔干”不一，时格因
  * “本时干/仅三奇/庚值符管十时”不一，普通勃格因“丙临年月日时干/丙加值符庚”
  * 不一而继续关闭；AI 如需采用，应从原始九宫事实和明示版本继续推算。
@@ -549,6 +590,7 @@ export function getClassicPatterns(context: PatternContext): ClassicPattern[] {
     ...getYearStemContextPatterns(context),
     ...getGengValueSymbolPattern(context),
     ...getTianYiFeiFuGongPatterns(context),
+    ...getStrictXiangZuoPattern(context),
     ...getSanQiShengDianPatterns(context),
     ...getSanZhaPatterns(context),
     ...getAuditedWuJiaPatterns(context),

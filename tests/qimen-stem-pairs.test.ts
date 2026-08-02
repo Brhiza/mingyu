@@ -1132,6 +1132,134 @@ test('天乙飞伏宫在转盘飞盘真实盘、证据与提示词中保持同�
   ]);
 });
 
+test('相佐按60时柱乘9种地盘奇仪穷举且只开放值符临丙共同交集', () => {
+  const earthStems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  let checked = 0;
+  let matched = 0;
+
+  for (const hourGanZhi of jiazi) {
+    const valueSymbolStem = SIX_JIA_DUN_STEMS[getXunHead(hourGanZhi)];
+    for (const earthStem of earthStems) {
+      const palace = buildPalaceAt(1, valueSymbolStem, earthStem);
+      palace.tianPan.star = '天蓬';
+      const patterns = getClassicPatterns({
+        jiuGongGe: [palace],
+        zhiFu: '天蓬',
+        zhiShi: '休门',
+        scope: 'hour',
+        hourGanZhi,
+      }).filter((pattern) => pattern.name === '相佐');
+
+      assert.equal(patterns.length, earthStem === '丙' ? 1 : 0, `${hourGanZhi}/地盘${earthStem}`);
+      patterns.forEach((pattern) => {
+        assert.equal(pattern.tone, 'neutral');
+        assert.deepEqual(pattern.tokens, [valueSymbolStem, '丙']);
+        assert.match(pattern.summary, /共同交集“值符加丙为相佐”/);
+        assert.match(pattern.summary, /不把地盘乙、丁扩大命名/);
+        assert.doesNotMatch(pattern.summary, /必有助力|贵人相助|门户安全|必胜|吉方/);
+      });
+      checked += 1;
+      matched += patterns.length;
+    }
+  }
+
+  assert.equal(checked, 60 * 9);
+  assert.equal(matched, 60);
+});
+
+test('相佐缺少时家值符身份或落宫异常时关闭，守户4320组候选全部不命名', () => {
+  const valueSymbolPalace = buildPalaceAt(1, '戊', '丙');
+  valueSymbolPalace.tianPan.star = '天蓬';
+  const base = {
+    jiuGongGe: [valueSymbolPalace],
+    zhiFu: '天蓬',
+    zhiShi: '休门',
+    scope: 'hour' as const,
+    hourGanZhi: '甲子',
+  };
+  const getXiangZuo = (context: Parameters<typeof getClassicPatterns>[0]) =>
+    getClassicPatterns(context).filter((pattern) => pattern.name === '相佐');
+
+  assert.equal(getXiangZuo(base).length, 1);
+  assert.deepEqual(getXiangZuo({ ...base, zhiFu: '' }), []);
+  assert.deepEqual(getXiangZuo({ ...base, hourGanZhi: '' }), []);
+  for (const scope of ['day', 'month', 'year'] as const) {
+    assert.deepEqual(getXiangZuo({ ...base, scope }), []);
+  }
+  assert.throws(
+    () =>
+      getXiangZuo({
+        ...base,
+        jiuGongGe: [valueSymbolPalace, { ...valueSymbolPalace, gong: 2, name: '坤二宫' }],
+      }),
+    /应恰有一个落宫，实际为2个/,
+  );
+
+  const doors = ['休门', '死门', '伤门', '杜门', '开门', '惊门', '生门', '景门'] as const;
+  const earthStems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  let checked = 0;
+  for (const hourGanZhi of jiazi) {
+    for (const door of doors) {
+      for (const earthStem of earthStems) {
+        const palace = {
+          ...buildPalaceAt(1, hourGanZhi.charAt(0), earthStem),
+          renPan: { door },
+        };
+        const patterns = getClassicPatterns({
+          jiuGongGe: [palace],
+          zhiFu: '',
+          zhiShi: door,
+          scope: 'hour',
+          hourGanZhi,
+        });
+        assert.ok(!patterns.some((pattern) => pattern.name === '守户'));
+        checked += 1;
+      }
+    }
+  }
+  assert.equal(checked, 60 * 8 * 9);
+});
+
+test('严格相佐在转盘飞盘真实盘、证据与提示词中保持可靠边界', () => {
+  const start = new Date('2024-01-01T00:00:00+08:00');
+  const reached = new Set<string>();
+
+  for (const method of ['zhuanpan', 'feipan'] as const) {
+    for (let hourOffset = 0; hourOffset < 60; hourOffset += 1) {
+      const date = new Date(start.getTime() + hourOffset * 2 * 60 * 60 * 1000);
+      const chart = generateQimen(date, method, 'hour', 'chaibu');
+      const valueSymbolPalaces = chart.jiuGongGe.filter((palace) =>
+        hasTianPanStar(palace, chart.zhiFu),
+      );
+      const expected = valueSymbolPalaces.length === 1 && valueSymbolPalaces[0].diPan.stem === '丙';
+      const actual = (chart.classicPatterns ?? []).filter((pattern) => pattern.name === '相佐');
+      assert.equal(actual.length, expected ? 1 : 0, `${method}/${date.toISOString()}`);
+      if (!actual.length || reached.has(method)) continue;
+
+      reached.add(method);
+      const analysis = analyzeQimenEvidence(chart);
+      const fact = analysis.patternFacts.find((item) => item.name === '相佐');
+      const rule = analysis.ruleSourceFacts.find(
+        (item) => item.key === 'rule:qimen:xiang-zuo-shou-hu-boundary',
+      );
+      assert.ok(fact);
+      assert.equal(fact.traditionalTone, '中性');
+      assert.ok(fact.sources.some((source) => source.includes('《遁甲演义》')));
+      assert.ok(fact.sources.some((source) => source.includes('《奇门遁甲秘笈大全》')));
+      assert.ok(fact.sources.some((source) => source.includes('《奇门旨归》')));
+      assert.ok(fact.sources.some((source) => source.includes('《奇门法窍》')));
+      assert.match(fact.promptText, /只供 AI 结合完整盘面继续核验/);
+      assert.doesNotMatch(fact.promptText, /必有助力|贵人相助|门户安全|必胜|吉方/);
+      assert.ok(rule);
+      assert.match(rule.promptText, /地盘乙、丁虽见于部分相佐版本，不自动扩大命名/);
+      assert.match(rule.promptText, /守户.*名称和条件未统一/);
+      assert.match(rule.promptText, /玉女守门仍按独立已审核规则处理/);
+    }
+  }
+
+  assert.deepEqual([...reached].sort(), ['feipan', 'zhuanpan']);
+});
+
 test('奇门伏干飞干进入证据提示词时只保留中性结构、交叉来源与适用边界', () => {
   let sample: ReturnType<typeof generateQimen> | undefined;
   for (let index = 0; index < 60 && !sample; index += 1) {
