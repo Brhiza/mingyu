@@ -159,6 +159,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     getPatternTag(transmissionPattern),
   ];
   const initialGroundBranch = getPlateItemByBranch(heavenlyPlate, chu).under;
+  const finalGroundBranch = getPlateItemByBranch(heavenlyPlate, mo).under;
   const greatAuspiciousGroundBranch = getPlateItemByBranch(heavenlyPlate, '丑').under;
   const heavenlyDragonGroundBranch = getPlateItemByBranch(heavenlyPlate, '辰').under;
   const guaTiFacts = getLiurenGuaTiFacts({
@@ -169,6 +170,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     dayBranch,
     hourBranch,
     initialGroundBranch,
+    finalGroundBranch,
     yearBranch: ganzhi.year.charAt(1),
     monthBranch: ganzhi.month.charAt(1),
     monthLeader,

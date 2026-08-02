@@ -592,8 +592,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定三十二条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 32);
+test('大六壬课体登记表应固定三十五条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 35);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -892,6 +892,171 @@ test('大六壬斩关课应按魁罡临日辰发用并乘六合青龙穷举严�
       false,
     );
   }
+});
+
+test('大六壬亨通、闭口与引从课应按严格结构批量穷举并由真实盘复算', () => {
+  const elementByBranch: Readonly<Record<string, string>> = {
+    子: '水',
+    丑: '土',
+    寅: '木',
+    卯: '木',
+    辰: '土',
+    巳: '火',
+    午: '火',
+    未: '土',
+    申: '金',
+    酉: '金',
+    戌: '土',
+    亥: '水',
+  };
+  const elementByStem: Readonly<Record<string, string>> = {
+    甲: '木',
+    乙: '木',
+    丙: '火',
+    丁: '火',
+    戊: '土',
+    己: '土',
+    庚: '金',
+    辛: '金',
+    壬: '水',
+    癸: '水',
+  };
+  const generatedElement: Readonly<Record<string, string>> = {
+    木: '火',
+    火: '土',
+    土: '金',
+    金: '水',
+    水: '木',
+  };
+  let hengTongMatches = 0;
+  for (const dayStem of TIANGAN) {
+    for (const initial of DIZHI) {
+      for (const middle of DIZHI) {
+        for (const final of DIZHI) {
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, middle, final],
+            dayStem,
+          }).find((candidate) => candidate.name === '亨通课');
+          const forward =
+            generatedElement[elementByBranch[initial]] === elementByBranch[middle] &&
+            generatedElement[elementByBranch[middle]] === elementByBranch[final] &&
+            generatedElement[elementByBranch[final]] === elementByStem[dayStem];
+          const reverse =
+            generatedElement[elementByBranch[final]] === elementByBranch[middle] &&
+            generatedElement[elementByBranch[middle]] === elementByBranch[initial] &&
+            generatedElement[elementByBranch[initial]] === elementByStem[dayStem];
+          assert.equal(Boolean(fact), forward || reverse);
+          if (fact) hengTongMatches += 1;
+        }
+      }
+    }
+  }
+  assert.equal(hengTongMatches, 256);
+
+  let biKouMatches = 0;
+  for (const [dayIndex, dayGanZhi] of SIXTY_DAYS.entries()) {
+    const xunStartIndex = dayIndex - (dayIndex % 10);
+    const xunHeadBranch = SIXTY_DAYS[xunStartIndex].charAt(1);
+    const xunTailBranch = SIXTY_DAYS[xunStartIndex + 9].charAt(1);
+    for (const initial of DIZHI) {
+      for (const initialGroundBranch of DIZHI) {
+        const fact = getLiurenGuaTiFacts({
+          transmissionBranches: [initial, '子', '丑'],
+          dayGanZhi,
+          initialGroundBranch,
+        }).find((candidate) => candidate.name === '闭口课');
+        assert.equal(
+          Boolean(fact),
+          initial === xunTailBranch && initialGroundBranch === xunHeadBranch,
+        );
+        if (fact) biKouMatches += 1;
+      }
+    }
+  }
+  assert.equal(biKouMatches, 60);
+
+  const isAdjacentPairAround = (first: string, second: string, target: string) => {
+    const targetIndex = DIZHI.indexOf(target as (typeof DIZHI)[number]);
+    const before = DIZHI[(targetIndex - 1 + DIZHI.length) % DIZHI.length];
+    const after = DIZHI[(targetIndex + 1) % DIZHI.length];
+    return (first === before && second === after) || (first === after && second === before);
+  };
+  let yinCongMatches = 0;
+  for (const dayStem of TIANGAN) {
+    const dayStemResidence = getDayStemResidence(dayStem);
+    for (const dayBranch of DIZHI) {
+      for (const initialGroundBranch of DIZHI) {
+        for (const finalGroundBranch of DIZHI) {
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: ['子', '寅', '辰'],
+            dayStem,
+            dayBranch,
+            initialGroundBranch,
+            finalGroundBranch,
+          }).find((candidate) => candidate.name === '引从课');
+          const expected =
+            isAdjacentPairAround(initialGroundBranch, finalGroundBranch, dayStemResidence) ||
+            isAdjacentPairAround(initialGroundBranch, finalGroundBranch, dayBranch);
+          assert.equal(Boolean(fact), expected);
+          if (fact) yinCongMatches += 1;
+        }
+      }
+    }
+  }
+  assert.equal(yinCongMatches, 460);
+
+  const classicalCases = [
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['申', '亥', '寅'],
+      dayStem: '丙',
+    }).find((candidate) => candidate.name === '亨通课'),
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['巳', '丑', '酉'],
+      dayGanZhi: '甲申',
+      initialGroundBranch: '申',
+    }).find((candidate) => candidate.name === '闭口课'),
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['寅', '午', '子'],
+      dayStem: '庚',
+      dayBranch: '辰',
+      initialGroundBranch: '酉',
+      finalGroundBranch: '未',
+    }).find((candidate) => candidate.name === '引从课'),
+  ];
+  classicalCases.forEach((fact) => {
+    assert.ok(fact);
+    assert.match(fact.sourceUrl, /oldid=854576/);
+    assert.doesNotMatch(fact.matchedConditions.join('；'), /功名|婚姻|财利|疾病|诉讼|吉|凶/);
+  });
+
+  const realCases = [
+    { date: '2020-01-01T18:30:00+08:00', name: '亨通课' },
+    { date: '2020-01-03T08:30:00+08:00', name: '闭口课' },
+    { date: '2020-01-01T04:30:00+08:00', name: '引从课' },
+  ];
+  for (const item of realCases) {
+    const generated = generateLiuren(new Date(item.date));
+    const fact = generated.guaTiFacts.find((candidate) => candidate.name === item.name);
+    assert.ok(fact, `${item.date}应命中${item.name}`);
+    assert.equal(
+      generated.evidenceAnalysis?.traditionalFacts.find(
+        (candidate) => candidate.key === fact.stableKey,
+      )?.promptText,
+      `盘面命中“${item.name}”：${fact.matchedConditions.join('；')}；只登记课体结构，不据此单断现实吉凶`,
+    );
+  }
+
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['寅', '午', '子'],
+        dayStem: '庚',
+        dayBranch: '辰',
+        initialGroundBranch: '酉',
+        finalGroundBranch: '非法',
+      }),
+    /末传所临地盘必须是有效地支/,
+  );
 });
 
 test('大六壬泆女与狡童应按初末传天将和卯酉发用严格命中', () => {
@@ -1724,6 +1889,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
               dayBranch,
               hourBranch,
               initialGroundBranch: getPlateItemByBranch(heavenlyPlate, branches[0]).under,
+              finalGroundBranch: getPlateItemByBranch(heavenlyPlate, branches[2]).under,
               yearBranch,
               monthBranch: MONTH_BRANCH_BY_LEADER[monthLeader],
               monthLeader,

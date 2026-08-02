@@ -212,6 +212,7 @@ export interface LiurenGuaTiContext {
   dayBranch?: string;
   hourBranch?: string;
   initialGroundBranch?: string;
+  finalGroundBranch?: string;
   yearBranch?: string;
   monthBranch?: string;
   monthLeader?: string;
@@ -279,6 +280,7 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
     [context.dayBranch, '日支'],
     [context.hourBranch, '占时地支'],
     [context.initialGroundBranch, '初传所临地盘'],
+    [context.finalGroundBranch, '末传所临地盘'],
     [context.yearBranch, '太岁地支'],
     [context.monthBranch, '月支'],
     [context.monthLeader, '月将'],
@@ -862,6 +864,123 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
       return {
         branches: [initial, context.initialGroundBranch],
         matchedConditions: [`初传${initial}临${position}并乘${initialGod}`],
+      };
+    },
+  },
+  {
+    id: 'heng-tong',
+    name: '亨通课',
+    category: '三传递生',
+    sourceTitle: '《六壬大全》卷八·亨通课；《六壬指南》卷二',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬大全》：“凡课用神生日，及三传递生日干……为亨通课。”《六壬指南》：“三传递生人举荐。”当前只取三传逐级相生并最终生日干的可复算结构。',
+    detect(context) {
+      if (!context.dayStem) return null;
+      const [initial, middle, final] = context.transmissionBranches;
+      const initialElement = getGanZhiWuxing(initial);
+      const middleElement = getGanZhiWuxing(middle);
+      const finalElement = getGanZhiWuxing(final);
+      const dayElement = getGanZhiWuxing(context.dayStem);
+      if (
+        isSheng(initialElement, middleElement) &&
+        isSheng(middleElement, finalElement) &&
+        isSheng(finalElement, dayElement)
+      ) {
+        return {
+          branches: [...context.transmissionBranches],
+          matchedConditions: [
+            `初传${initial}${initialElement}生中传${middle}${middleElement}，中传生末传${final}${finalElement}，末传生日干${context.dayStem}${dayElement}`,
+          ],
+        };
+      }
+      return isSheng(finalElement, middleElement) &&
+        isSheng(middleElement, initialElement) &&
+        isSheng(initialElement, dayElement)
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [
+              `末传${final}${finalElement}生中传${middle}${middleElement}，中传生初传${initial}${initialElement}，初传生日干${context.dayStem}${dayElement}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'bi-kou',
+    name: '闭口课',
+    category: '旬首旬尾',
+    sourceTitle: '《六壬大全》卷一、卷八·闭口课；《六壬指南》卷二',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬大全》：“凡旬尾加旬首……发用者，为闭口课。”《六壬指南》：“闭口旬尾，如乘玄发用。”当前只取各书共同的旬尾临旬首发用结构，不扩展玄武、禄财等异说。',
+    detect(context) {
+      if (!context.dayGanZhi || !context.initialGroundBranch) return null;
+      const xunHead = getXunHead(context.dayGanZhi);
+      const xunHeadBranch = xunHead.charAt(1);
+      const xunHeadIndex = DIZHI.indexOf(xunHeadBranch as (typeof DIZHI)[number]);
+      const xunTailBranch = DIZHI[(xunHeadIndex + 9) % DIZHI.length];
+      return context.transmissionBranches[0] === xunTailBranch &&
+        context.initialGroundBranch === xunHeadBranch
+        ? {
+            branches: [xunTailBranch, xunHeadBranch],
+            matchedConditions: [
+              `日柱${context.dayGanZhi}属${xunHead}旬，旬尾${xunTailBranch}临旬首${xunHeadBranch}发用`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'yin-cong',
+    name: '引从课',
+    category: '初末拱夹',
+    sourceTitle: '《六壬大全》卷八·引从课；《六壬指南》卷二',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬大全》：“凡课日辰干支前后上神发用为初末传，曰引从课。”《六壬指南》：“引从日辰名曰用媒。”当前只取初末传所临地盘相邻夹日干寄宫或日支的结构。',
+    detect(context) {
+      if (
+        !context.dayStem ||
+        !context.dayBranch ||
+        !context.initialGroundBranch ||
+        !context.finalGroundBranch
+      ) {
+        return null;
+      }
+      const initialGroundIndex = DIZHI.indexOf(
+        context.initialGroundBranch as (typeof DIZHI)[number],
+      );
+      const finalGroundIndex = DIZHI.indexOf(context.finalGroundBranch as (typeof DIZHI)[number]);
+      const dayStemResidence = getDayStemResidence(context.dayStem);
+      const isAdjacentPairAround = (target: string) => {
+        const targetIndex = DIZHI.indexOf(target as (typeof DIZHI)[number]);
+        const before = (targetIndex - 1 + DIZHI.length) % DIZHI.length;
+        const after = (targetIndex + 1) % DIZHI.length;
+        return (
+          (initialGroundIndex === before && finalGroundIndex === after) ||
+          (initialGroundIndex === after && finalGroundIndex === before)
+        );
+      };
+      const aroundStem = isAdjacentPairAround(dayStemResidence);
+      const aroundBranch = isAdjacentPairAround(context.dayBranch);
+      if (!aroundStem && !aroundBranch) return null;
+      const target =
+        aroundStem && aroundBranch
+          ? `日干${context.dayStem}寄宫${dayStemResidence}及日支${context.dayBranch}`
+          : aroundStem
+            ? `日干${context.dayStem}寄宫${dayStemResidence}`
+            : `日支${context.dayBranch}`;
+      return {
+        branches: [
+          context.transmissionBranches[0],
+          context.transmissionBranches[2],
+          context.initialGroundBranch,
+          context.finalGroundBranch,
+        ],
+        matchedConditions: [
+          `初传${context.transmissionBranches[0]}临${context.initialGroundBranch}、末传${context.transmissionBranches[2]}临${context.finalGroundBranch}，前后夹${target}`,
+        ],
       };
     },
   },
