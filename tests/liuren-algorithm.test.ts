@@ -3458,6 +3458,18 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     壬: '亥',
     癸: '子',
   };
+  const dayOfficer: Record<string, string> = {
+    甲: '申、酉',
+    乙: '申、酉',
+    丙: '亥、子',
+    丁: '亥、子',
+    戊: '寅、卯',
+    己: '寅、卯',
+    庚: '巳、午',
+    辛: '巳、午',
+    壬: '辰、戌、丑、未',
+    癸: '辰、戌、丑、未',
+  };
   const dayStemShenShaTargets: Record<string, readonly string[]> = {
     干奇: ['午', '巳', '辰', '卯', '寅', '丑', '未', '申', '酉', '戌'],
     日解: ['亥', '申', '未', '丑', '酉', '亥', '申', '未', '丑', '酉'],
@@ -3531,8 +3543,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      165 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
-      `${result.ganzhi.day}应有一百六十五项固定神煞及条件性天合、天赦、天转、地转`,
+      166 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百六十六项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
@@ -3545,6 +3557,11 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
         daySalary[dayStem],
       ],
       `${result.ganzhi.day}日支与日干神煞表`,
+    );
+    assert.deepEqual(
+      [facts.get('日官')?.target, facts.get('日官')?.targetType],
+      [dayOfficer[dayStem], '地支集合'],
+      `${result.ganzhi.day}日官应登记克日干五行的完整地支集合`,
     );
     assert.deepEqual(
       Object.keys(dayStemShenShaTargets).map((name) => facts.get(name)?.target),
@@ -3610,7 +3627,6 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
         '雨师',
         '雷电',
         '晴朗',
-        '日官',
         '稼穑',
         '三奇',
         '六仪',

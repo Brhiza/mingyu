@@ -2141,6 +2141,37 @@ export function buildShenShaFacts(
     });
   }
 
+  const riGuanMap: Record<string, string> = {
+    甲: '申、酉',
+    乙: '申、酉',
+    丙: '亥、子',
+    丁: '亥、子',
+    戊: '寅、卯',
+    己: '寅、卯',
+    庚: '巳、午',
+    辛: '巳、午',
+    壬: '辰、戌、丑、未',
+    癸: '辰、戌、丑、未',
+  };
+  const riGuan = riGuanMap[dayStem];
+  if (riGuan) {
+    addFact({
+      name: '日官',
+      target: riGuan,
+      targetType: '地支集合',
+      category: '十天干神煞',
+      basis: '日干',
+      input: dayStem,
+      rule: '取克日干五行的全部地支：甲乙申酉、丙丁亥子、戊己寅卯、庚辛巳午、壬癸辰戌丑未',
+      source: '《六壬指南注解》卷四《大六壬神煞指南》“克偏为鬼正为官”“日官功名喜”',
+      extraSources: ['《六壬粹言》明确举例“甲干以申酉为官”“庚辛日以巳午为官”“戊己日干上寅为官”'],
+      extraLimitations: [
+        '本项只登记克日干五行所对应的候选地支集合；偏正官鬼之分、是否入课传及所临位置须在具体盘面另行核对',
+        '不得据此自动判断功名、升迁、官司、鬼祟或现实吉凶',
+      ],
+    });
+  }
+
   const dayStemIndex = TIANGAN.findIndex((stem) => stem === dayStem);
   if (dayStemIndex >= 0 && dayBranchIndex >= 0) {
     const xunStartBranchIndex = (dayBranchIndex - dayStemIndex + DIZHI.length) % DIZHI.length;

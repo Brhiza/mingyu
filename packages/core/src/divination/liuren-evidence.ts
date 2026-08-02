@@ -474,7 +474,12 @@ function buildTraditionalFacts(
           originalText: text,
           promptText: `${fact.basis}${fact.input}，按“${fact.rule}”定位${fact.name}在${fact.target}`,
           sources: [...fact.sources],
-          branches: fact.targetType === '地支' ? [fact.target] : undefined,
+          branches:
+            fact.targetType === '地支'
+              ? [fact.target]
+              : fact.targetType === '地支集合'
+                ? fact.target.split('、')
+                : undefined,
           limitation: TRADITIONAL_FACT_LIMITATION,
         };
       })
