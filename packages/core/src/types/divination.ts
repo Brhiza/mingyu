@@ -800,7 +800,8 @@ export interface LiurenGuaTiFact {
     | '课传聚合'
     | '日辰刑害'
     | '鬼墓发用'
-    | '三传递克';
+    | '三传递克'
+    | '干支生合';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;

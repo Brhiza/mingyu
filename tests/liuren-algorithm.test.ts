@@ -13,6 +13,7 @@ import {
   getSeasonState,
   LIUCHONG_MAP,
   LIUHAI_MAP,
+  LIUHE_MAP,
   LIUPO_MAP,
   SANXING_MAP,
 } from '../packages/core/src/ganzhi/relations.ts';
@@ -598,8 +599,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定四十九条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 49);
+test('大六壬课体登记表应固定五十四条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 54);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -1539,6 +1540,126 @@ test('大六壬芜淫、解离与冲破课应按日辰交克和冲神乘破结�
       `盘面命中“${item.name}”：${fact.matchedConditions.join('；')}；只登记课体结构，不据此单断现实吉凶`,
     );
   }
+});
+
+test('大六壬干支生合五类课体应按同一批输入轮廓严格命中', () => {
+  const generates: Readonly<Record<string, string>> = {
+    木: '火',
+    火: '土',
+    土: '金',
+    金: '水',
+    水: '木',
+  };
+  const matchCounts = new Map([
+    ['俱生格', 0],
+    ['互生格', 0],
+    ['自在格', 0],
+    ['互旺格', 0],
+    ['和美课', 0],
+  ]);
+  let profileCount = 0;
+
+  for (const dayStem of TIANGAN) {
+    const dayStemElement = getGanZhiWuxing(dayStem);
+    const stemResidence = getDayStemResidence(dayStem);
+    for (const dayBranch of DIZHI) {
+      const dayBranchElement = getGanZhiWuxing(dayBranch);
+      for (const stemUpper of DIZHI) {
+        const stemUpperElement = getGanZhiWuxing(stemUpper);
+        for (const branchUpper of DIZHI) {
+          const branchUpperElement = getGanZhiWuxing(branchUpper);
+          const facts = new Map(
+            getLiurenGuaTiFacts({
+              transmissionBranches: ['子', '丑', '寅'],
+              dayStem,
+              dayBranch,
+              fourLessons: [
+                { upper: stemUpper, lower: dayStem },
+                { upper: '子', lower: stemUpper },
+                { upper: branchUpper, lower: dayBranch },
+                { upper: '丑', lower: branchUpper },
+              ],
+            }).map((fact) => [fact.name, fact]),
+          );
+          const day = `${dayStem}${dayBranch}`;
+          const expected = new Map<string, boolean>([
+            [
+              '俱生格',
+              generates[stemUpperElement] === dayStemElement &&
+                generates[branchUpperElement] === dayBranchElement,
+            ],
+            [
+              '互生格',
+              generates[stemUpperElement] === dayBranchElement &&
+                generates[branchUpperElement] === dayStemElement,
+            ],
+            ['自在格', stemUpper === dayBranch && generates[dayBranchElement] === dayStemElement],
+            [
+              '互旺格',
+              (day === '甲申' && stemUpper === '酉' && branchUpper === '卯') ||
+                (day === '庚寅' && stemUpper === '卯' && branchUpper === '酉'),
+            ],
+            [
+              '和美课',
+              LIUHE_MAP[stemUpper] === dayBranch && LIUHE_MAP[branchUpper] === stemResidence,
+            ],
+          ]);
+
+          for (const [name, shouldMatch] of expected) {
+            const fact = facts.get(name);
+            assert.equal(
+              Boolean(fact),
+              shouldMatch,
+              `${day}日、干上${stemUpper}、支上${branchUpper}的${name}边界不一致`,
+            );
+            if (fact) matchCounts.set(name, (matchCounts.get(name) || 0) + 1);
+          }
+          profileCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 17_280);
+  assert.equal(matchCounts.get('互旺格'), 2);
+  for (const [name, count] of matchCounts) assert.ok(count > 0, `${name}必须存在可命中轮廓`);
+
+  const getClassicalFact = (
+    name: string,
+    dayStem: string,
+    dayBranch: string,
+    stemUpper: string,
+    branchUpper: string,
+  ) =>
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['子', '丑', '寅'],
+      dayStem,
+      dayBranch,
+      fourLessons: [
+        { upper: stemUpper, lower: dayStem },
+        { upper: '子', lower: stemUpper },
+        { upper: branchUpper, lower: dayBranch },
+        { upper: '丑', lower: branchUpper },
+      ],
+    }).find((fact) => fact.name === name);
+  const classicalFacts = [
+    getClassicalFact('俱生格', '丙', '寅', '寅', '亥'),
+    getClassicalFact('互生格', '辛', '卯', '亥', '辰'),
+    getClassicalFact('自在格', '甲', '子', '子', '寅'),
+    getClassicalFact('互旺格', '甲', '申', '酉', '卯'),
+    getClassicalFact('和美课', '甲', '子', '丑', '亥'),
+  ];
+  assert.ok(classicalFacts.every(Boolean));
+  assert.ok(classicalFacts.every((fact) => fact?.category === '干支生合'));
+  assert.ok(classicalFacts.every((fact) => /oldid=85457[46]$/.test(fact?.sourceUrl || '')));
+  assert.ok(
+    classicalFacts.every(
+      (fact) =>
+        !/疾病|官讼|灾祸|婚姻|吉凶|现实事件/.test(
+          `${fact?.matchedConditions.join('；')}；${fact?.sourceQuote}`,
+        ),
+    ),
+  );
 });
 
 test('大六壬泆女与狡童应按初末传天将和卯酉发用严格命中', () => {

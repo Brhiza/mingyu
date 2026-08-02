@@ -161,6 +161,8 @@ export function getPatternTag(pattern: LiurenData['transmissionPattern']) {
 
 const LIUREN_GUIDE_VOLUME_ONE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/1&oldid=854504';
+const LIUREN_DAQUAN_VOLUME_SIX_URL =
+  'https://zh.wikisource.org/w/index.php?title=六壬大全/6&oldid=854574';
 const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/7&oldid=854575';
 const LIUREN_DAQUAN_VOLUME_EIGHT_URL =
@@ -359,6 +361,10 @@ function hasSameBranchSet(actualBranches: string[], expectedBranches: string[]) 
     actualBranches.length === expectedBranches.length &&
     expectedBranches.every((branch) => actualBranches.includes(branch))
   );
+}
+
+function isGanZhiSheng(source: string, target: string) {
+  return isSheng(getGanZhiWuxing(source), getGanZhiWuxing(target));
 }
 
 function matchThreeOfBranchClass(
@@ -1208,6 +1214,118 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             branches: [...context.transmissionBranches],
             matchedConditions: [
               `末传${final}${finalElement}生中传${middle}${middleElement}，中传生初传${initial}${initialElement}，初传生日干${context.dayStem}${dayElement}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'ju-sheng',
+    name: '俱生格',
+    category: '干支生合',
+    sourceTitle: '《六壬大全》卷六·毕法赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SIX_URL,
+    sourceQuote:
+      '《六壬大全》：“干上神生干，支上神生支，为俱生格。”《六壬粹言》：“谓干支各受上神之生。”当前只登记两处五行生关系。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return isGanZhiSheng(stemUpper, context.dayStem) &&
+        isGanZhiSheng(branchUpper, context.dayBranch)
+        ? {
+            branches: [stemUpper, context.dayBranch, branchUpper],
+            matchedConditions: [
+              `干上神${stemUpper}生日干${context.dayStem}，支上神${branchUpper}生日支${context.dayBranch}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'hu-sheng',
+    name: '互生格',
+    category: '干支生合',
+    sourceTitle: '《六壬大全》卷六·毕法赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SIX_URL,
+    sourceQuote:
+      '《六壬大全》：“干上神生支，支上神生干，为互生格。”《六壬粹言》：“谓干支交车互生。”当前只登记两处交互五行生关系。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return isGanZhiSheng(stemUpper, context.dayBranch) &&
+        isGanZhiSheng(branchUpper, context.dayStem)
+        ? {
+            branches: [stemUpper, context.dayBranch, branchUpper],
+            matchedConditions: [
+              `干上神${stemUpper}生日支${context.dayBranch}，支上神${branchUpper}生日干${context.dayStem}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zi-zai',
+    name: '自在格',
+    category: '干支生合',
+    sourceTitle: '《六壬大全》卷六·毕法赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SIX_URL,
+    sourceQuote:
+      '《六壬大全》：“支加干上而生日，为自在格。”《六壬粹言》列为支来生干的往来相生格。当前按日支加干并生日干的结构复算。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      return stemUpper === context.dayBranch && isGanZhiSheng(context.dayBranch, context.dayStem)
+        ? {
+            branches: [context.dayBranch],
+            matchedConditions: [`日支${context.dayBranch}加临日干${context.dayStem}上并生日干`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'hu-wang',
+    name: '互旺格',
+    category: '干支生合',
+    sourceTitle: '《六壬大全》卷六·毕法赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SIX_URL,
+    sourceQuote:
+      '《六壬大全》《六壬粹言》均只列甲申、庚寅二日：甲申日干上酉、支上卯，庚寅日干上卯、支上酉。当前严格按这两种固定轮廓登记。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const day = `${context.dayStem}${context.dayBranch}`;
+      const matches =
+        (day === '甲申' && stemUpper === '酉' && branchUpper === '卯') ||
+        (day === '庚寅' && stemUpper === '卯' && branchUpper === '酉');
+      return matches
+        ? {
+            branches: [stemUpper, branchUpper],
+            matchedConditions: [`${day}日干上${stemUpper}、支上${branchUpper}，符合固定互旺轮廓`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'he-mei',
+    name: '和美课',
+    category: '干支生合',
+    sourceTitle: '《六壬大全》卷八·和美课；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬大全》以“上下递互相合”为和美课结构之一，《六壬粹言》称“干支交车六合”。当前只取两书共同且可复算的交车六合子结构，不扩展其他三合、六合变体。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      return LIUHE_MAP[stemUpper] === context.dayBranch && LIUHE_MAP[branchUpper] === stemResidence
+        ? {
+            branches: [stemUpper, context.dayBranch, branchUpper, stemResidence],
+            matchedConditions: [
+              `干上神${stemUpper}与日支${context.dayBranch}六合，支上神${branchUpper}与日干${context.dayStem}寄宫${stemResidence}六合`,
             ],
           }
         : null;
