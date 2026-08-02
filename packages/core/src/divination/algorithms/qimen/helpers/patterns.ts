@@ -133,7 +133,8 @@ export interface QimenPatternTagParams {
  *
  * 时家星门伏吟/反吟、门克宫和时家击刑只记录可复算命中条件；不在此处解释吉凶和现实
  * 后果。六甲时直接视为伏吟、天禽寄宫伏反吟、月家年家伏反吟、跨层级马星，以及三奇得、
- * 三奇得使、三奇游六仪、符使同宫等旧标签失败关闭。
+ * 三奇得使、三奇游六仪等旧标签失败关闭。“符使同宫”原文只说明符使同起于旬首甲遁宫
+ * 后分别加临，不足以命名当前落宫独立吉格；当前同宫只由证据层并列保留两个位置索引。
  */
 export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   const {

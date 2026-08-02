@@ -1260,6 +1260,70 @@ test('严格相佐在转盘飞盘真实盘、证据与提示词中保持可靠�
   assert.deepEqual([...reached].sort(), ['feipan', 'zhuanpan']);
 });
 
+test('符使同宫81种落宫组合关闭格名且真实同宫只保留两个位置事实', () => {
+  const palaces = Array.from({ length: 9 }, (_, index) => buildPalaceAt(index + 1, '戊'));
+  let checked = 0;
+
+  for (let zhiFuLandingPalace = 1; zhiFuLandingPalace <= 9; zhiFuLandingPalace += 1) {
+    for (let zhiShiLandingPalace = 1; zhiShiLandingPalace <= 9; zhiShiLandingPalace += 1) {
+      const tags = getQimenPatternTags({
+        zhiFu: '天蓬',
+        zhiShi: '休门',
+        zhiFuLandingPalace,
+        zhiShiLandingPalace,
+        jiuGongGe: palaces,
+        hourGanForFind: '戊',
+      });
+      assert.doesNotMatch(JSON.stringify(tags), /符使同宫|事必成|力量集中|容易出结果/);
+      checked += 1;
+    }
+  }
+  assert.equal(checked, 9 * 9);
+
+  const reached = new Set<string>();
+  const start = new Date('2024-01-01T00:00:00+08:00');
+  for (const method of ['zhuanpan', 'feipan'] as const) {
+    for (let hourOffset = 0; hourOffset < 60 && !reached.has(method); hourOffset += 1) {
+      const date = new Date(start.getTime() + hourOffset * 2 * 60 * 60 * 1000);
+      const chart = generateQimen(date, method, 'hour', 'chaibu');
+      const zhiFuPalaces = chart.jiuGongGe.filter((palace) => hasTianPanStar(palace, chart.zhiFu));
+      const zhiShiPalaces = chart.jiuGongGe.filter((palace) => palace.renPan.door === chart.zhiShi);
+      if (
+        zhiFuPalaces.length !== 1 ||
+        zhiShiPalaces.length !== 1 ||
+        zhiFuPalaces[0].gong !== zhiShiPalaces[0].gong
+      )
+        continue;
+
+      reached.add(method);
+      const analysis = analyzeQimenEvidence(chart);
+      const index = analysis.positionIndexes.find((item) => item.gong === zhiFuPalaces[0].gong);
+      const rule = analysis.ruleSourceFacts.find(
+        (item) => item.key === 'rule:qimen:fu-shi-same-palace-name-boundary',
+      );
+      const derived = JSON.stringify({
+        classicPatterns: chart.classicPatterns,
+        patternTags: chart.patternTags,
+        stemRelations: chart.stemRelations,
+        patternFacts: analysis.patternFacts,
+      });
+
+      assert.ok(index);
+      assert.ok(index.indexSources.includes('值符落宫'));
+      assert.ok(index.indexSources.includes('值使落宫'));
+      assert.doesNotMatch(derived, /符使同宫|事必成|力量集中|容易出结果/);
+      assert.ok(rule);
+      assert.equal(rule.category, '符使同宫名称边界');
+      assert.match(rule.promptText, /同起于旬首甲遁之宫并随时分别加临/);
+      assert.match(rule.promptText, /“值符落宫”和“值使落宫”两个可复算位置事实/);
+      assert.doesNotMatch(rule.promptText, /事必成|力量集中|容易出结果/);
+      assert.doesNotMatch(analysis.promptText, /事必成|力量集中|容易出结果/);
+    }
+  }
+
+  assert.deepEqual([...reached].sort(), ['feipan', 'zhuanpan']);
+});
+
 test('奇门伏干飞干进入证据提示词时只保留中性结构、交叉来源与适用边界', () => {
   let sample: ReturnType<typeof generateQimen> | undefined;
   for (let index = 0; index < 60 && !sample; index += 1) {
