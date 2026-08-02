@@ -72,12 +72,7 @@ export interface AstronomicalTimeLimitationFact {
 
 export interface AstronomicalTimeSummaryFact {
   key: 'astronomical-time:evidence-summary';
-  status:
-    | '民用时间链完整'
-    | '含长期外推'
-    | '含历史时区歧义'
-    | '含固定偏移冲突'
-    | '含历史时区歧义与偏移冲突';
+  status: '民用时间链完整' | '含长期外推';
   factKeys: string[];
   calculationStepCount: number;
   assumptionFactCount: number;
@@ -410,15 +405,7 @@ export function buildAstronomicalTimeEvidence(
     },
   ];
   const summaryStatus: AstronomicalTimeSummaryFact['status'] =
-    timezoneEvidence?.status === 'ambiguous'
-      ? timezoneEvidence.offsetConflict
-        ? '含历史时区歧义与偏移冲突'
-        : '含历史时区歧义'
-      : timezoneEvidence?.offsetConflict
-        ? '含固定偏移冲突'
-        : precisionLevel === '长期外推'
-          ? '含长期外推'
-          : '民用时间链完整';
+    precisionLevel === '长期外推' ? '含长期外推' : '民用时间链完整';
   const summaryFact: AstronomicalTimeSummaryFact = {
     key: 'astronomical-time:evidence-summary',
     status: summaryStatus,

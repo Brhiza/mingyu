@@ -13,7 +13,7 @@ export interface ZiweiTrueSolarInput {
   birthHour: string;
   birthMinute: string;
   birthLongitude: string;
-  timezone?: number;
+  timezone: number;
   applyChinaDst?: boolean;
 }
 

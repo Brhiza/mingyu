@@ -514,6 +514,7 @@ test('公开 API 应提供便捷真太阳时换算接口', async () => {
     body: JSON.stringify({
       localDateTime: '1990-05-15T10:30:20',
       longitude: '116.4074',
+      timezone: 8,
     }),
   });
   assert.equal(response.status, 200);
@@ -553,6 +554,7 @@ test('公开 API 应提供便捷真太阳时换算接口', async () => {
     body: JSON.stringify({
       localDateTime: '1988-07-15T12:00',
       longitude: 116.4074,
+      timezone: 8,
       applyChinaDst: true,
     }),
   });
@@ -561,9 +563,10 @@ test('公开 API 应提供便捷真太阳时换算接口', async () => {
   assert.equal(chinaDst.body.data.chinaDst.applied, true);
 
   for (const payload of [
-    { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074 },
-    { localDateTime: '1990-02-30T10:30', longitude: 116.4074 },
-    { localDateTime: '1990-05-15T10:30', longitude: 181 },
+    { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074, timezone: 8 },
+    { localDateTime: '1990-02-30T10:30', longitude: 116.4074, timezone: 8 },
+    { localDateTime: '1990-05-15T10:30', longitude: 181, timezone: 8 },
+    { localDateTime: '1990-05-15T10:30', longitude: 116.4074 },
     { localDateTime: '1990-05-15T10:30', longitude: 116.4074, timezone: 15 },
     { localDateTime: '1990-05-15T10:30', longitude: 116.4074, applyChinaDst: 'yes' },
   ]) {
@@ -3726,7 +3729,7 @@ test('公开 API 星盘应附带真太阳时参考且不改写现代星历时刻
   );
   assert.equal(body.data.evidenceAnalysis.illuminationFact.status, '可用');
   assert.equal(body.data.evidenceAnalysis.illuminationFact.crossingFactKeys.length, 4);
-  assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 3);
+  assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 2);
   assert.ok(
     ['有未见项', '全部有可列资料'].includes(body.data.evidenceAnalysis.counterSummaryFact.status),
   );

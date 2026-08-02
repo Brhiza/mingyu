@@ -1139,7 +1139,7 @@ test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟�
   await withMcpClient(async (client) => {
     const success = await client.callTool({
       name: 'calendar_true_solar_time',
-      arguments: { localDateTime: '1990-05-15T10:30:20', longitude: 116.4074 },
+      arguments: { localDateTime: '1990-05-15T10:30:20', longitude: 116.4074, timezone: 8 },
     });
     assert.equal(success.isError, undefined);
     assert.equal(success.structuredContent?.result.standardMeridian, 120);
@@ -1175,6 +1175,7 @@ test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟�
       arguments: {
         localDateTime: '1988-07-15T12:00:00',
         longitude: 116.4074,
+        timezone: 8,
         applyChinaDst: true,
       },
     });
@@ -1184,11 +1185,21 @@ test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟�
 
     const invalid = await client.callTool({
       name: 'calendar_true_solar_time',
-      arguments: { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074 },
+      arguments: {
+        localDateTime: '1990-05-15T10:30:20+08:00',
+        longitude: 116.4074,
+        timezone: 8,
+      },
     });
     assert.equal(invalid.isError, true);
     const text = invalid.content[0]?.type === 'text' ? invalid.content[0].text : '';
     assert.match(text, /不要附带时区偏移/);
+
+    const missingTimezone = await client.callTool({
+      name: 'calendar_true_solar_time',
+      arguments: { localDateTime: '1990-05-15T10:30:20', longitude: 116.4074 },
+    });
+    assert.equal(missingTimezone.isError, true);
   });
 });
 

@@ -117,33 +117,29 @@ test('ΔT 长期年份应明确标为外推并拒绝越界年份', () => {
   );
 });
 
-test('天文时间汇总应保留历史时区歧义和固定偏移冲突', () => {
-  const ambiguous = buildAstronomicalTimeEvidence({
-    year: 2024,
-    month: 11,
-    day: 3,
-    hour: 1,
-    minute: 30,
-    timeZoneId: 'America/New_York',
-  });
-  const conflict = buildAstronomicalTimeEvidence({
-    year: 1990,
-    month: 7,
-    day: 1,
-    hour: 12,
-    timeZoneId: 'Asia/Shanghai',
-    timezone: 8,
-  });
-
-  assert.equal(ambiguous.summaryFact.status, '含历史时区歧义');
-  assert.equal(conflict.summaryFact.status, '含固定偏移冲突');
-  assert.ok(
-    ambiguous.summaryFact.factKeys.includes(ambiguous.timezoneEvidence?.summaryFact.key ?? ''),
+test('天文时间应拒绝未消除的历史时区歧义和固定偏移冲突', () => {
+  assert.throws(
+    () =>
+      buildAstronomicalTimeEvidence({
+        year: 2024,
+        month: 11,
+        day: 3,
+        hour: 1,
+        minute: 30,
+        timeZoneId: 'America/New_York',
+      }),
+    /夏令时回拨.*固定 UTC 偏移/,
   );
-  assert.ok(
-    conflict.summaryFact.factKeys.includes(conflict.timezoneEvidence?.summaryFact.key ?? ''),
+  assert.throws(
+    () =>
+      buildAstronomicalTimeEvidence({
+        year: 1990,
+        month: 7,
+        day: 1,
+        hour: 12,
+        timeZoneId: 'Asia/Shanghai',
+        timezone: 8,
+      }),
+    /UTC\+8.*历史偏移不一致.*UTC\+9/,
   );
-  assertEvidenceReferences(ambiguous);
-  assertEvidenceReferences(conflict);
-  assert.match(ambiguous.promptText, /证据汇总：天文时间证据状态为含历史时区歧义/);
 });

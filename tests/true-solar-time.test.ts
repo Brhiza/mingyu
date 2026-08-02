@@ -60,6 +60,7 @@ test('真太阳时公共入口应复用旧八字算法并返回便捷资料', ()
   const result = convertTrueSolarTime({
     localDateTime: '1990-05-15T10:30:20',
     longitude: 116.4074,
+    timezone: 8,
   });
   const raw = calculateTrueSolarTime(
     { year: 1990, month: 5, day: 15, hour: 10, minute: 30, second: 20 },
@@ -90,10 +91,12 @@ test('真太阳时便捷入口应可选自动还原中国历史夏令时', () =>
   const withoutDst = convertTrueSolarTime({
     localDateTime: '1988-07-15T12:00',
     longitude: 116.4074,
+    timezone: 8,
   });
   const withDst = convertTrueSolarTime({
     localDateTime: '1988-07-15T12:00',
     longitude: 116.4074,
+    timezone: 8,
     applyChinaDst: true,
   });
 
@@ -133,7 +136,12 @@ test('真太阳时便捷入口应识别跨日并支持全球时区', () => {
 test('真太阳时便捷入口应拒绝含时区后缀、非法日期和越界参数', () => {
   assert.throws(() => parseLocalDateTime('2026-07-10T12:00:00+08:00'), /不要附带时区偏移/);
   assert.throws(
-    () => convertTrueSolarTime({ localDateTime: '2026-02-30T12:00', longitude: 116.4 }),
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '2026-02-30T12:00',
+        longitude: 116.4,
+        timezone: 8,
+      }),
     /日期需在/,
   );
   assert.throws(
@@ -144,6 +152,37 @@ test('真太阳时便捷入口应拒绝含时区后缀、非法日期和越界�
         timezone: 15,
       }),
     /timezone需在/,
+  );
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '2026-07-10T12:00',
+        longitude: 116.4,
+      } as never),
+    /timezone需在/,
+  );
+});
+
+test('真太阳时入口应拒绝中国夏令时重复或不存在的钟表时刻', () => {
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '1988-04-10T02:30',
+        longitude: 116.4074,
+        timezone: 8,
+        applyChinaDst: true,
+      }),
+    /跳时区间.*不存在/,
+  );
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '1988-09-11T01:30',
+        longitude: 116.4074,
+        timezone: 8,
+        applyChinaDst: true,
+      }),
+    /重复区间.*无法唯一确定/,
   );
 });
 

@@ -63,7 +63,7 @@ export interface TrueSolarTimeLimitationFact {
 
 export interface TrueSolarTimeSummaryFact {
   key: 'true-solar-time:evidence-summary';
-  status: '证据链完整' | '含夏令时重复时段' | '含夏令时不存在时段';
+  status: '证据链完整';
   factKeys: string[];
   calculationStepCount: number;
   correctionFactCount: number;
@@ -75,7 +75,7 @@ export interface TrueSolarTimeSummaryFact {
 
 export interface TrueSolarTimeEvidenceFields {
   key: string;
-  status: '已计算' | '存在时间记录边界';
+  status: '已计算';
   calculationSteps: TrueSolarTimeCalculationStep[];
   calculationChain: string[];
   correctionFacts: TrueSolarTimeCorrectionFact[];
@@ -91,8 +91,8 @@ export interface TrueSolarTimeConversionInput {
   localDateTime: string;
   /** 出生地或观测地经度，东经为正、西经为负。 */
   longitude: number;
-  /** 当地标准时区，默认 UTC+8；支持小数时区。 */
-  timezone?: number;
+  /** 当地标准时区；支持小数时区。 */
+  timezone: number;
   /** 是否按中国 1986-1991 历史规则自动还原夏令时，默认 false。 */
   applyChinaDst?: boolean;
 }
@@ -129,7 +129,7 @@ export interface TrueSolarBirthTimeInput {
   second?: number;
   isLeapMonth?: boolean;
   longitude: number;
-  timezone?: number;
+  timezone: number;
   applyChinaDst?: boolean;
 }
 
@@ -392,11 +392,7 @@ function buildTrueSolarTimeEvidence(
       limitation: TRUE_SOLAR_LIMITATION_FACT_LIMITATION,
     },
   ];
-  const summaryStatus: TrueSolarTimeSummaryFact['status'] = input.chinaDst.nonexistent
-    ? '含夏令时不存在时段'
-    : input.chinaDst.ambiguous
-      ? '含夏令时重复时段'
-      : '证据链完整';
+  const summaryStatus: TrueSolarTimeSummaryFact['status'] = '证据链完整';
   const summaryFact: TrueSolarTimeSummaryFact = {
     key: 'true-solar-time:evidence-summary',
     status: summaryStatus,
@@ -426,7 +422,7 @@ function buildTrueSolarTimeEvidence(
   ].join('；');
   return {
     key: input.key,
-    status: input.chinaDst.ambiguous || input.chinaDst.nonexistent ? '存在时间记录边界' : '已计算',
+    status: '已计算',
     calculationSteps,
     calculationChain: calculationSteps.map((item) => item.promptText),
     correctionFacts,
@@ -581,7 +577,7 @@ export function convertTrueSolarTime(
   input: TrueSolarTimeConversionInput,
 ): TrueSolarTimeConversionResult {
   const clockTime = parseLocalDateTime(input.localDateTime);
-  const timezone = input.timezone ?? 8;
+  const timezone = input.timezone;
   assertNumberInRange(timezone, 'timezone', -12, 14);
   if (input.applyChinaDst !== undefined && typeof input.applyChinaDst !== 'boolean') {
     throw new Error('applyChinaDst 必须是布尔值。');
@@ -596,6 +592,12 @@ export function convertTrueSolarTime(
         clockTime.minute,
       )
     : { inDst: false, offsetMinutes: 0, ambiguous: false, nonexistent: false };
+  if (chinaDstCheck.nonexistent) {
+    throw new Error('当地钟表时间落在中国夏令时开始日的跳时区间，该时刻不存在。');
+  }
+  if (chinaDstCheck.ambiguous) {
+    throw new Error('当地钟表时间落在中国夏令时结束日的重复区间，无法唯一确定实际时刻。');
+  }
   const chinaDstApplied = requestedChinaDst && chinaDstCheck.inDst;
   const standardTime = chinaDstApplied
     ? shiftDateTime(clockTime, chinaDstCheck.offsetMinutes)

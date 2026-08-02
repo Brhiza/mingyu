@@ -350,8 +350,8 @@ test('星盘旧结果缺少可信来源或来源非法时应失败关闭', () =>
   assert.throws(() => rebuildAuditedAstrolabeData(invalidBoolean), /必须是布尔值/);
 });
 
-test('星盘应保存原始固定时区与 IANA 时区供历史偏移重算', () => {
-  const ambiguous = generateAstrolabe({
+test('星盘应使用明确固定偏移消除 IANA 回拨歧义', () => {
+  const result = generateAstrolabe({
     ...validInput,
     year: '2024',
     month: '11',
@@ -365,13 +365,14 @@ test('星盘应保存原始固定时区与 IANA 时区供历史偏移重算', ()
     locationName: '纽约',
   });
 
-  assert.equal(ambiguous.generation.input.timezone, '-4');
-  assert.equal(ambiguous.generation.input.timeZoneId, 'America/New_York');
-  assert.equal(ambiguous.birth.timezoneEvidence?.status, 'ambiguous');
-  assert.equal(ambiguous.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
+  assert.equal(result.generation.input.timezone, '-4');
+  assert.equal(result.generation.input.timeZoneId, 'America/New_York');
+  assert.equal(result.birth.timezoneEvidence?.status, 'unique');
+  assert.equal(result.birth.timezoneEvidence?.resolvedOffsetHours, -4);
+  assert.equal(result.evidenceAnalysis?.summaryFact.status, '证据链完整');
   assert.ok(
-    ambiguous.evidenceAnalysis?.summaryFact.factKeys.includes(
-      ambiguous.birth.timezoneEvidence?.summaryFact.key ?? '',
+    result.evidenceAnalysis?.summaryFact.factKeys.includes(
+      result.birth.timezoneEvidence?.summaryFact.key ?? '',
     ),
   );
 });

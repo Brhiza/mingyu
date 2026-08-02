@@ -435,16 +435,6 @@ export class BaziCalculator {
         warnings.push(
           '出生时刻处于中国夏令时期间（1986-1991），钟表时间比北京标准时间快 1 小时，已自动回拨 60 分钟后排盘。如所记时间已折算为标准时间，请关闭自动夏令时校正选项。',
         );
-        if (trueSolarResult.chinaDst.ambiguous) {
-          warnings.push(
-            '出生时刻落在夏令时结束日 01:00-02:00 的重复时段：该钟表时刻当天会出现两次，本次排盘无法在缺少原始记录标注时唯一定时。',
-          );
-        }
-        if (trueSolarResult.chinaDst.nonexistent) {
-          warnings.push(
-            '出生时刻落在夏令时开始日 02:00-03:00 的跳变时段：该钟表时刻当天并不存在，本次输入不能作为有效出生时刻。',
-          );
-        }
       }
 
       solarTime = SolarTime.fromYmdHms(

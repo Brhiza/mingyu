@@ -140,7 +140,7 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: ['timezone 与 timeZoneId 至少提供一项；同时提供时会保留历史偏移冲突诊断。'],
+    notes: ['timezone 与 timeZoneId 至少提供一项；同时提供时若历史偏移冲突将拒绝计算。'],
   },
   {
     id: 'calendar.moonPhase',

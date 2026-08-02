@@ -907,7 +907,7 @@ export function getPublicApiOpenApiDocument(
       schemas: {
         TrueSolarTimeRequest: {
           type: 'object',
-          required: ['localDateTime', 'longitude'],
+          required: ['localDateTime', 'longitude', 'timezone'],
           properties: {
             localDateTime: {
               type: 'string',
@@ -926,9 +926,8 @@ export function getPublicApiOpenApiDocument(
               type: 'number',
               minimum: -12,
               maximum: 14,
-              default: 8,
               example: 8,
-              description: '当地标准时区，默认 UTC+8，支持 5.5 等小数时区',
+              description: '当地标准时区，支持 5.5 等小数时区',
             },
             applyChinaDst: {
               type: 'boolean',
@@ -939,7 +938,7 @@ export function getPublicApiOpenApiDocument(
         },
         TrueSolarBirthRequest: {
           type: 'object',
-          required: ['dateType', 'year', 'month', 'day', 'hour', 'minute', 'longitude'],
+          required: ['dateType', 'year', 'month', 'day', 'hour', 'minute', 'longitude', 'timezone'],
           properties: {
             dateType: { enum: ['solar', 'lunar'], description: '公历或农历' },
             year: { type: 'integer', minimum: 1900, maximum: 2100 },
@@ -950,7 +949,7 @@ export function getPublicApiOpenApiDocument(
             second: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
             isLeapMonth: { type: 'boolean', default: false, description: '农历是否为闰月' },
             longitude: { type: 'number', minimum: -180, maximum: 180 },
-            timezone: { type: 'number', minimum: -12, maximum: 14, default: 8 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
             applyChinaDst: { type: 'boolean', default: false },
           },
         },
@@ -1621,7 +1620,7 @@ async function route(context: RouteContext) {
 function calculateTrueSolarTimeApi(input: JsonRecord) {
   const localDateTime = readRequiredString(input, 'localDateTime');
   const longitude = readNumberLike(input, 'longitude', -180, 180);
-  const timezone = input.timezone === undefined ? 8 : readNumberLike(input, 'timezone', -12, 14);
+  const timezone = readNumberLike(input, 'timezone', -12, 14);
   const applyChinaDst = readBoolean(input, 'applyChinaDst', false);
   try {
     return convertTrueSolarTime({ localDateTime, longitude, timezone, applyChinaDst });
@@ -1646,7 +1645,7 @@ function calculateTrueSolarBirthApi(input: JsonRecord) {
       second: input.second === undefined ? 0 : readIntegerLike(input, 'second', 0, 59),
       isLeapMonth: readBoolean(input, 'isLeapMonth', false),
       longitude: readNumberLike(input, 'longitude', -180, 180),
-      timezone: input.timezone === undefined ? 8 : readNumberLike(input, 'timezone', -12, 14),
+      timezone: readNumberLike(input, 'timezone', -12, 14),
       applyChinaDst: readBoolean(input, 'applyChinaDst', false),
     });
   } catch (error) {

@@ -87,7 +87,7 @@ test('IANA 历史时区应识别中国 1990 年夏令时', () => {
   assertPromptIsPortableTaskText(evidence.promptText);
 });
 
-test('IANA 历史时区应识别普通唯一时刻与固定偏移冲突', () => {
+test('IANA 历史时区应识别普通唯一时刻并拒绝固定偏移冲突', () => {
   const current = resolveHistoricalTimezone({
     year: 2026,
     month: 7,
@@ -99,26 +99,24 @@ test('IANA 历史时区应识别普通唯一时刻与固定偏移冲突', () => 
   });
   assert.equal(current.resolvedOffsetHours, 8);
 
-  const historical = resolveHistoricalTimezone({
-    year: 1990,
-    month: 7,
-    day: 1,
-    hour: 12,
-    minute: 0,
-    second: 0,
-    timeZoneId: 'Asia/Shanghai',
-    fixedOffsetHours: 8,
-  });
-  assert.equal(historical.offsetConflict, true);
-  assert.match(historical.diagnostics.join('；'), /UTC\+8.*UTC\+9/);
-  assert.equal(historical.calculationSteps[3].status, '存在冲突');
-  assert.equal(historical.diagnosticFacts[1].status, '存在冲突');
-  assert.equal(historical.diagnosticSummaryFact.status, '唯一但偏移冲突');
-  assert.equal(historical.summaryFact.status, '唯一但偏移冲突');
+  assert.throws(
+    () =>
+      resolveHistoricalTimezone({
+        year: 1990,
+        month: 7,
+        day: 1,
+        hour: 12,
+        minute: 0,
+        second: 0,
+        timeZoneId: 'Asia/Shanghai',
+        fixedOffsetHours: 8,
+      }),
+    /UTC\+8.*历史偏移不一致.*UTC\+9/,
+  );
 });
 
-test('IANA 历史时区应保留纽约秋季回拨的两个候选时刻', () => {
-  const evidence = resolveHistoricalTimezone({
+test('IANA 历史时区应要求固定偏移消除纽约秋季回拨歧义', () => {
+  const input = {
     year: 2024,
     month: 11,
     day: 3,
@@ -126,20 +124,22 @@ test('IANA 历史时区应保留纽约秋季回拨的两个候选时刻', () => 
     minute: 30,
     second: 0,
     timeZoneId: 'America/New_York',
-  });
+  };
+  assert.throws(() => resolveHistoricalTimezone(input), /夏令时回拨.*多个时刻.*固定 UTC 偏移/);
 
-  assert.equal(evidence.status, 'ambiguous');
-  assert.deepEqual(evidence.possibleOffsetsHours, [-4, -5]);
-  assert.deepEqual(evidence.possibleUtcDateTimes, [
-    '2024-11-03T05:30:00.000Z',
-    '2024-11-03T06:30:00.000Z',
-  ]);
-  assert.equal(evidence.calculationSteps[2].status, '存在歧义');
-  assert.equal(evidence.diagnosticFacts[0].status, '存在回拨歧义');
-  assert.equal(evidence.diagnosticSummaryFact.status, '存在回拨歧义且未核验固定偏移');
-  assert.equal(evidence.summaryFact.status, '存在回拨歧义且未核验固定偏移');
-  assert.equal(evidence.diagnosticSummaryFact.factKeys.length, 2);
-  assertEvidenceReferences(evidence);
+  const earlier = resolveHistoricalTimezone({ ...input, fixedOffsetHours: -4 });
+  const later = resolveHistoricalTimezone({ ...input, fixedOffsetHours: -5 });
+  assert.equal(earlier.status, 'unique');
+  assert.equal(earlier.selectedUtcDateTime, '2024-11-03T05:30:00.000Z');
+  assert.equal(later.selectedUtcDateTime, '2024-11-03T06:30:00.000Z');
+  assert.deepEqual(earlier.possibleOffsetsHours, [-4, -5]);
+  assert.equal(earlier.diagnosticSummaryFact.status, '唯一且无冲突');
+  assertEvidenceReferences(earlier);
+  assertEvidenceReferences(later);
+  assert.throws(
+    () => resolveHistoricalTimezone({ ...input, fixedOffsetHours: -6 }),
+    /UTC-6.*历史偏移不一致.*UTC-4.*UTC-5/,
+  );
 });
 
 test('IANA 历史时区应拒绝春季跳时与无效时区', () => {
@@ -207,7 +207,25 @@ test('七政四余应采用 IANA 解析出的历史偏移并保留证据', () =>
   assert.equal(result.mansionBoundaries.length, 28);
 });
 
-test('西占本命盘应采用 IANA 历史偏移并保留诊断', () => {
+test('西占本命盘应拒绝冲突偏移并采用一致的 IANA 历史偏移', () => {
+  assert.throws(
+    () =>
+      generateAstrolabe({
+        name: '测试',
+        gender: '男',
+        year: '1990',
+        month: '7',
+        day: '1',
+        hour: '12',
+        minute: '0',
+        latitude: '31.23',
+        longitude: '121.47',
+        timezone: '8',
+        timeZoneId: 'Asia/Shanghai',
+      }),
+    /UTC\+8.*历史偏移不一致.*UTC\+9/,
+  );
+
   const result = generateAstrolabe({
     name: '测试',
     gender: '男',
@@ -218,16 +236,16 @@ test('西占本命盘应采用 IANA 历史偏移并保留诊断', () => {
     minute: '0',
     latitude: '31.23',
     longitude: '121.47',
-    timezone: '8',
+    timezone: '9',
     timeZoneId: 'Asia/Shanghai',
   });
 
   assert.equal(result.birth.timezone, 9);
   assert.equal(result.birth.timeZoneId, 'Asia/Shanghai');
   assert.equal(result.birth.timezoneStatus, 'unique');
-  assert.match(result.birth.timezoneDiagnostics?.join('；') ?? '', /UTC\+8.*UTC\+9/);
+  assert.match(result.birth.timezoneDiagnostics?.join('；') ?? '', /只有一个 UTC 对应时刻/);
   assert.equal(result.birth.timezoneEvidence?.status, 'unique');
-  assert.equal(result.birth.timezoneEvidence?.diagnosticSummaryFact.status, '唯一但偏移冲突');
+  assert.equal(result.birth.timezoneEvidence?.diagnosticSummaryFact.status, '唯一且无冲突');
   assert.equal(result.birth.timezoneEvidence?.limitationFacts.length, 3);
   assert.equal(result.evidenceAnalysis?.timezoneFact?.key, result.birth.timezoneEvidence?.key);
   assert.match(result.evidenceAnalysis?.promptText ?? '', /历史时区映射与诊断/);

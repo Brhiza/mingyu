@@ -26,6 +26,7 @@ test('紫微真太阳时排盘应改用修正后的公历日期与时辰', () =>
     birthHour: '1',
     birthMinute: '20',
     birthLongitude: '73.5',
+    timezone: 8,
   });
 
   assert.equal(
@@ -122,6 +123,7 @@ test('紫微真太阳时缺少经度时应直接报错', () => {
         birthHour: '1',
         birthMinute: '20',
         birthLongitude: '',
+        timezone: 8,
       }),
     /真太阳时缺少精准时间或经度/,
   );
@@ -137,6 +139,7 @@ test('紫微真太阳时应先拒绝无效出生日期和时空参数', () => {
     birthHour: '1',
     birthMinute: '20',
     birthLongitude: '73.5',
+    timezone: 8,
   };
   const invalidCases: Array<[Partial<typeof baseInput>, RegExp]> = [
     [{ year: '0000' }, /出生年份需在 1900-2100 之间/],

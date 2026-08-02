@@ -20,7 +20,7 @@ const trueSolarTimeSchema = z.object({
     .string()
     .describe('当地钟表时间，如 1990-05-15T10:30:00；不要附带 Z 或 +08:00 等时区后缀'),
   longitude: z.number().min(-180).max(180).describe('当地经度，东经为正、西经为负'),
-  timezone: z.number().min(-12).max(14).optional().describe('当地标准时区，默认 UTC+8'),
+  timezone: z.number().min(-12).max(14).describe('当地标准时区'),
   applyChinaDst: z
     .boolean()
     .optional()
@@ -37,7 +37,7 @@ const trueSolarBirthSchema = z.object({
   second: z.number().int().min(0).max(59).optional().describe('秒，默认 0'),
   isLeapMonth: z.boolean().optional().describe('农历是否为闰月'),
   longitude: z.number().min(-180).max(180).describe('当地经度，东经为正、西经为负'),
-  timezone: z.number().min(-12).max(14).optional().describe('当地标准时区，默认 UTC+8'),
+  timezone: z.number().min(-12).max(14).describe('当地标准时区'),
   applyChinaDst: z.boolean().optional().describe('是否自动还原中国历史夏令时'),
 });
 
