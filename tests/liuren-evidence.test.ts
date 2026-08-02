@@ -27,6 +27,10 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
         item.relationFacts.some(
           (fact) => fact.basis === '日干六亲' && fact.value === item.kinship,
         ) &&
+        item.dayStemRelation &&
+        item.relationFacts.some(
+          (fact) => fact.basis === '日干五行关系' && fact.value === item.dayStemRelation,
+        ) &&
         item.relationFacts.every(
           (fact) =>
             fact.ownerKey === item.key &&
@@ -320,6 +324,7 @@ test('大六壬旧结果应重算四课与三传六亲，不沿用旧版中末�
   const data = generateLiuren(fixedDate);
   for (const item of data.fourLessons) {
     delete item.kinship;
+    delete item.dayStemRelation;
   }
   for (const item of data.threeTransmissions) {
     delete item.kinship;
@@ -343,8 +348,12 @@ test('大六壬旧结果应重算四课与三传六亲，不沿用旧版中末�
     evidence.lessons.every(
       (item) =>
         item.kinship &&
+        item.dayStemRelation?.includes(`日干${data.ganzhi.day.charAt(0)}`) &&
         item.relationFacts.some(
           (fact) => fact.basis === '日干六亲' && fact.value === item.kinship,
+        ) &&
+        item.relationFacts.some(
+          (fact) => fact.basis === '日干五行关系' && fact.value === item.dayStemRelation,
         ),
     ),
   );

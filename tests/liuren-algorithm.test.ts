@@ -336,7 +336,10 @@ test('大六壬四课与三传六亲均以日干为中心，并与相邻传关�
   const dayStem = result.ganzhi.day.charAt(0);
   assert.ok(
     result.fourLessons.every(
-      (item) => item.kinship === expectedKinship(dayStem, item.upper),
+      (item) =>
+        item.kinship === expectedKinship(dayStem, item.upper) &&
+        item.dayStemRelation?.includes(`日干${dayStem}`) &&
+        item.dayStemRelation.includes(`${item.name}上神${item.upper}`),
     ),
   );
   assert.ok(

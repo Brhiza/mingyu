@@ -30,6 +30,7 @@ import { resolveLiurenClassicalRules } from './algorithms/liuren/helpers/classic
 import {
   buildTransmissionDetail,
   buildTransmissionNote,
+  describeLessonDayStemRelation,
   describeTransmissionDayBranchRelation,
   describeTransmissionDayStemRelation,
   describeTransmissionTransition,
@@ -70,7 +71,7 @@ export interface LiurenLessonEvidence extends LiurenLesson {
   relationFacts: LiurenRelationEvidenceFact[];
   promptText: string;
   sources: string[];
-  limitation: '四课事实只记录上下神、乘将、相对日干六亲、关系、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果';
+  limitation: '四课事实只记录上下神、乘将、相对日干六亲与五行方向、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果';
 }
 
 export interface LiurenTransmissionEvidence extends LiurenTransmission {
@@ -372,7 +373,7 @@ const PLATE_COVERAGE_LIMITATION =
 const RELATION_FACT_LIMITATION =
   '课传关系事实只说明六亲、五行方向、月令、旬空、日支或相邻传之间的盘内关系；空亡和固定地支关系须结合类神与事项辨用，不得直接解释为现实吉凶、成功率或必然结果' as const;
 const LESSON_FACT_LIMITATION =
-  '四课事实只记录上下神、乘将、相对日干六亲、关系、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果' as const;
+  '四课事实只记录上下神、乘将、相对日干六亲与五行方向、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果' as const;
 const TRANSMISSION_FACT_LIMITATION =
   '三传事实只记录各传相对日干的六亲与五行方向，以及地支、天将、月令、旬空、日支关系与相邻推进；阶段顺序不证明现实事件必然按同样方式发生' as const;
 const TRANSITION_FACT_LIMITATION =
@@ -533,6 +534,7 @@ function buildLessonEvidence(
   const normalized: LiurenLesson = {
     ...lesson,
     kinship: getLiurenKinship(dayStem, lesson.upper),
+    dayStemRelation: describeLessonDayStemRelation(lesson.name, lesson.upper, dayStem),
   };
   const relationFacts: LiurenRelationEvidenceFact[] = [
     {
@@ -558,6 +560,20 @@ function buildLessonEvidence(
         '《六壬经纬》干支三传占时本命等处取印盗鬼财劫',
         '《六壬大全》生我、我生、克我、我克、同类五亲口径',
         '《壬归》四课日上神与日干生克口径',
+      ],
+      limitation: RELATION_FACT_LIMITATION,
+    },
+    {
+      key: `${key}:day-stem-relation`,
+      scope: '四课',
+      ownerKey: key,
+      basis: '日干五行关系',
+      status: '中性',
+      value: normalized.dayStemRelation!,
+      promptText: normalized.dayStemRelation!,
+      sources: [
+        '《壬归》四课日上神与日干生克口径',
+        '《六壬经纬》干支三传等处取印盗鬼财劫口径',
       ],
       limitation: RELATION_FACT_LIMITATION,
     },
@@ -600,7 +616,7 @@ function buildLessonEvidence(
     isInitialSource: lesson.upper === initialBranch,
     constraints,
     relationFacts,
-    promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，乘${lesson.god}，相对日干为${normalized.kinship}，关系${lesson.relation}；${conditionLiurenTraditionalText(lesson.note || '课注未列')}`,
+    promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，乘${lesson.god}，相对日干为${normalized.kinship}，${normalized.dayStemRelation}，上下神关系${lesson.relation}；${conditionLiurenTraditionalText(lesson.note || '课注未列')}`,
     sources: [
       '日干寄宫、日支与天地盘逐课推导',
       '日柱旬空与上下神关系核验',

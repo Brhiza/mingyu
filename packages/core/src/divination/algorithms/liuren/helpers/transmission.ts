@@ -55,6 +55,14 @@ export function describeTransmissionDayStemRelation(
   return describeDirectedElementRelation(`日干`, dayStem, stage, branch);
 }
 
+export function describeLessonDayStemRelation(
+  lessonName: LiurenLesson['name'],
+  branch: string,
+  dayStem: string,
+) {
+  return describeDirectedElementRelation('日干', dayStem, `${lessonName}上神`, branch);
+}
+
 export function describeTransmissionDayBranchRelation(
   stage: LiurenTransmission['stage'],
   branch: string,

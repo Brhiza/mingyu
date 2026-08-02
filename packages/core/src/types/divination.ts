@@ -745,6 +745,8 @@ export interface LiurenLesson {
   note: string;
   /** 本课上神相对日干所得六亲。 */
   kinship?: LiurenKinship;
+  /** 本课上神与日干的有方向五行关系。 */
+  dayStemRelation?: string;
 }
 
 export type LiurenKinship = '父母' | '子孙' | '妻财' | '官鬼' | '兄弟';
