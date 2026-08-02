@@ -599,8 +599,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定五十四条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 54);
+test('大六壬课体登记表应固定六十一条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 61);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -1542,7 +1542,7 @@ test('大六壬芜淫、解离与冲破课应按日辰交克和冲神乘破结�
   }
 });
 
-test('大六壬干支生合五类课体应按同一批输入轮廓严格命中', () => {
+test('大六壬干支生合与固定关系十二类课体应按同一批输入轮廓严格命中', () => {
   const generates: Readonly<Record<string, string>> = {
     木: '火',
     火: '土',
@@ -1556,6 +1556,13 @@ test('大六壬干支生合五类课体应按同一批输入轮廓严格命中',
     ['自在格', 0],
     ['互旺格', 0],
     ['和美课', 0],
+    ['干支全伤', 0],
+    ['干支上下相合格', 0],
+    ['干支上神相合格', 0],
+    ['干支上下六害', 0],
+    ['干支上神相害格', 0],
+    ['交车六害格', 0],
+    ['交车相脱格', 0],
   ]);
   let profileCount = 0;
 
@@ -1603,6 +1610,26 @@ test('大六壬干支生合五类课体应按同一批输入轮廓严格命中',
               '和美课',
               LIUHE_MAP[stemUpper] === dayBranch && LIUHE_MAP[branchUpper] === stemResidence,
             ],
+            ['干支全伤', isBranchKe(stemUpper, dayStem) && isBranchKe(branchUpper, dayBranch)],
+            [
+              '干支上下相合格',
+              LIUHE_MAP[stemUpper] === stemResidence && LIUHE_MAP[branchUpper] === dayBranch,
+            ],
+            ['干支上神相合格', LIUHE_MAP[stemUpper] === branchUpper],
+            [
+              '干支上下六害',
+              LIUHAI_MAP[stemUpper] === stemResidence && LIUHAI_MAP[branchUpper] === dayBranch,
+            ],
+            ['干支上神相害格', LIUHAI_MAP[stemUpper] === branchUpper],
+            [
+              '交车六害格',
+              LIUHAI_MAP[stemUpper] === dayBranch && LIUHAI_MAP[branchUpper] === stemResidence,
+            ],
+            [
+              '交车相脱格',
+              generates[dayBranchElement] === stemUpperElement &&
+                generates[dayStemElement] === branchUpperElement,
+            ],
           ]);
 
           for (const [name, shouldMatch] of expected) {
@@ -1648,10 +1675,19 @@ test('大六壬干支生合五类课体应按同一批输入轮廓严格命中',
     getClassicalFact('自在格', '甲', '子', '子', '寅'),
     getClassicalFact('互旺格', '甲', '申', '酉', '卯'),
     getClassicalFact('和美课', '甲', '子', '丑', '亥'),
+    getClassicalFact('干支全伤', '丁', '亥', '子', '辰'),
+    getClassicalFact('干支上下相合格', '甲', '申', '亥', '巳'),
+    getClassicalFact('干支上神相合格', '戊', '辰', '丑', '子'),
+    getClassicalFact('干支上下六害', '甲', '申', '巳', '亥'),
+    getClassicalFact('干支上神相害格', '辛', '卯', '未', '子'),
+    getClassicalFact('交车六害格', '丁', '丑', '午', '子'),
+    getClassicalFact('交车相脱格', '壬', '午', '未', '寅'),
   ];
   assert.ok(classicalFacts.every(Boolean));
-  assert.ok(classicalFacts.every((fact) => fact?.category === '干支生合'));
-  assert.ok(classicalFacts.every((fact) => /oldid=85457[46]$/.test(fact?.sourceUrl || '')));
+  assert.ok(
+    classicalFacts.every((fact) => ['干支生合', '干支固定关系'].includes(fact?.category || '')),
+  );
+  assert.ok(classicalFacts.every((fact) => /oldid=8545(?:74|76|81)$/.test(fact?.sourceUrl || '')));
   assert.ok(
     classicalFacts.every(
       (fact) =>

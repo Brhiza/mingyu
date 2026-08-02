@@ -171,6 +171,8 @@ const LIUREN_DAQUAN_VOLUME_NINE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/9&oldid=854578';
 const LIUREN_DAQUAN_VOLUME_TEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/10&oldid=854579';
+const LIUREN_DAQUAN_VOLUME_TWELVE_URL =
+  'https://zh.wikisource.org/w/index.php?title=六壬大全/12&oldid=854581';
 const LIUREN_GUIDE_VOLUME_TWO_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/2&oldid=854505';
 const YANG_BRANCHES: ReadonlySet<string> = new Set(['子', '寅', '辰', '午', '申', '戌']);
@@ -1326,6 +1328,162 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             branches: [stemUpper, context.dayBranch, branchUpper, stemResidence],
             matchedConditions: [
               `干上神${stemUpper}与日支${context.dayBranch}六合，支上神${branchUpper}与日干${context.dayStem}寄宫${stemResidence}六合`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gan-zhi-quan-shang',
+    name: '干支全伤',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷十二·毕法赋下；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“谓支干各被上神克伐者。”《六壬粹言》：“谓干支受上神之克。”当前只登记干、支分别被本位上神所克的结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return isBranchKe(stemUpper, context.dayStem) && isBranchKe(branchUpper, context.dayBranch)
+        ? {
+            branches: [stemUpper, context.dayStem, branchUpper, context.dayBranch],
+            matchedConditions: [
+              `干上神${stemUpper}克日干${context.dayStem}，支上神${branchUpper}克日支${context.dayBranch}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gan-zhi-shang-xia-liu-he',
+    name: '干支上下相合格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬粹言》卷三·经课；《御定六壬直指》课例',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬粹言》：“干支上下相合格，谓干支与上神六合。”《御定六壬直指》多处课例以“干支上下相合”复核。当前只登记两处本位六合。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      return LIUHE_MAP[stemUpper] === stemResidence && LIUHE_MAP[branchUpper] === context.dayBranch
+        ? {
+            branches: [stemUpper, stemResidence, branchUpper, context.dayBranch],
+            matchedConditions: [
+              `干上神${stemUpper}与日干${context.dayStem}寄宫${stemResidence}六合，支上神${branchUpper}与日支${context.dayBranch}六合`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gan-zhi-shang-shen-liu-he',
+    name: '干支上神相合格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬粹言》卷三·经课；《御定六壬直指》课例',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬粹言》：“干支上神相合格，谓干支上神作六合。”《御定六壬直指》多处课例直接称“干支上神相合”。当前只登记两上神六合。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return LIUHE_MAP[stemUpper] === branchUpper
+        ? {
+            branches: [stemUpper, branchUpper],
+            matchedConditions: [`干上神${stemUpper}与支上神${branchUpper}六合`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gan-zhi-shang-xia-liu-hai',
+    name: '干支上下六害',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷十二·毕法赋下；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》分列“干支上下皆各作六害”，《六壬粹言》称“干支上下六害”。当前只登记干、支分别与本位上神构成六害。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      return LIUHAI_MAP[stemUpper] === stemResidence &&
+        LIUHAI_MAP[branchUpper] === context.dayBranch
+        ? {
+            branches: [stemUpper, stemResidence, branchUpper, context.dayBranch],
+            matchedConditions: [
+              `干上神${stemUpper}与日干${context.dayStem}寄宫${stemResidence}六害，支上神${branchUpper}与日支${context.dayBranch}六害`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gan-zhi-shang-shen-liu-hai',
+    name: '干支上神相害格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷十二·毕法赋下；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》分列“支干上神作六害”，《六壬粹言》称“干支上神相害格”。当前只登记两上神六害。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return LIUHAI_MAP[stemUpper] === branchUpper
+        ? {
+            branches: [stemUpper, branchUpper],
+            matchedConditions: [`干上神${stemUpper}与支上神${branchUpper}构成六害`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jiao-che-liu-hai',
+    name: '交车六害格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷十二·毕法赋下；《六壬粹言》卷三·经课；《御定六壬直指》课例',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》分列“支干上下交互作六害”，《六壬粹言》称“交车六害格”，《御定六壬直指》有多处实际课例。当前只登记两处交车六害。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      return LIUHAI_MAP[stemUpper] === context.dayBranch &&
+        LIUHAI_MAP[branchUpper] === stemResidence
+        ? {
+            branches: [stemUpper, context.dayBranch, branchUpper, stemResidence],
+            matchedConditions: [
+              `干上神${stemUpper}与日支${context.dayBranch}六害，支上神${branchUpper}与日干${context.dayStem}寄宫${stemResidence}六害`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jiao-che-xiang-tuo',
+    name: '交车相脱格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷十二·毕法赋下；《六壬粹言》卷三·经课；《御定六壬直指》课例',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》《六壬粹言》均以壬午日干上未、支上寅说明交车相脱，《御定六壬直指》另有伏吟课例。当前只登记日支生干上神、日干生支上神的交互泄生结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return isGanZhiSheng(context.dayBranch, stemUpper) &&
+        isGanZhiSheng(context.dayStem, branchUpper)
+        ? {
+            branches: [context.dayBranch, stemUpper, context.dayStem, branchUpper],
+            matchedConditions: [
+              `日支${context.dayBranch}生干上神${stemUpper}，日干${context.dayStem}生支上神${branchUpper}`,
             ],
           }
         : null;

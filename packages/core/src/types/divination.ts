@@ -801,7 +801,8 @@ export interface LiurenGuaTiFact {
     | '日辰刑害'
     | '鬼墓发用'
     | '三传递克'
-    | '干支生合';
+    | '干支生合'
+    | '干支固定关系';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;
