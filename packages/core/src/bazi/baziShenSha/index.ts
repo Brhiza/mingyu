@@ -6,8 +6,7 @@ import { buildLuRules } from './helpers/luRules';
 import { buildDayRules } from './helpers/dayRules';
 import { buildMarriageRules } from './helpers/marriageRules';
 import { buildDisasterRules } from './helpers/disasterRules';
-import { analyzeGlobalShenSha, calculateGlobalShenSha } from './helpers/globalRules';
-import { analyzeShenShaWithTenGod } from './helpers/tenGodAnalysis';
+import { calculateGlobalShenSha } from './helpers/globalRules';
 import type { BaziArray, PillarKey, RuleContext } from './helpers/types';
 import {
   resolveShenShaVariantConfig,
@@ -77,14 +76,6 @@ export class ShenShaCalculator {
       assertHeavenlyStem(pillar[0], `第 ${index + 1} 柱天干`);
       assertEarthlyBranch(pillar[1], `第 ${index + 1} 柱地支`);
     });
-  }
-
-  public analyzeGlobalShenSha(shenShaList: string[]): string[] {
-    return analyzeGlobalShenSha(shenShaList);
-  }
-
-  public analyzeShenShaWithTenGod(shenShaList: string[], tenGod: string): string[] {
-    return analyzeShenShaWithTenGod(shenShaList, tenGod);
   }
 
   private calculatePillarShenSha(

@@ -6,7 +6,6 @@ import { WUXING } from '../wuxing';
 interface FormatBaziOptions {
   includeRules?: boolean;
   includeShensha?: boolean;
-  includeShenShaAnalysis?: boolean;
   includeWuxing?: boolean;
   includeCurrentTiming?: boolean;
   includeSpecialPillars?: boolean;
@@ -298,7 +297,6 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
     return {
       includeRules: true,
       includeShensha: false,
-      includeShenShaAnalysis: true,
       includeWuxing: true,
       includeCurrentTiming: false,
       includeSpecialPillars: true,
@@ -311,7 +309,6 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
     return {
       includeRules: true,
       includeShensha: false,
-      includeShenShaAnalysis: true,
       includeWuxing: true,
       includeCurrentTiming: false,
       includeSpecialPillars: true,
@@ -324,7 +321,6 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
     return {
       includeRules: true,
       includeShensha: false,
-      includeShenShaAnalysis: false,
       includeWuxing: false,
       includeCurrentTiming: false,
       includeSpecialPillars: false,
@@ -337,7 +333,6 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
     return {
       includeRules: true,
       includeShensha: false,
-      includeShenShaAnalysis: false,
       includeWuxing: false,
       includeCurrentTiming: false,
       includeSpecialPillars: false,
@@ -349,7 +344,6 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
   return {
     includeRules: true,
     includeShensha: false,
-    includeShenShaAnalysis: true,
     includeWuxing: true,
     includeCurrentTiming: false,
     includeSpecialPillars: true,

@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 
 import { determineUsefulGod } from '@core/bazi/baziUsefulGodStrategy';
 import { BASE_USEFUL_GOD_RULES } from '@core/bazi/baziUsefulGodRules';
-import { analyzeUsefulGodPlacement } from '@core/bazi/usefulGodPlacement';
 import {
   CLIMATE_RULES,
   STRENGTH_HINT_RULES,
@@ -132,26 +131,4 @@ test('用神失败关闭仍应拒绝非法基础资料', () => {
       }),
     /五行统计数值无效/,
   );
-});
-
-test('旧用神落点入口即使收到完整喜忌也必须返回关闭状态', () => {
-  const result = analyzeUsefulGodPlacement(
-    [
-      { gan: '甲', zhi: '子' },
-      { gan: '丙', zhi: '寅' },
-      { gan: '戊', zhi: '辰' },
-      { gan: '庚', zhi: '申' },
-    ],
-    '戊',
-    () => '偏印',
-    ['木', '火', '土', '金', '水'],
-    ['木', '火', '土', '金', '水'],
-  );
-
-  assert.deepEqual(result, {
-    items: [],
-    favorableCount: 0,
-    unfavorableCount: 0,
-    summary: '自动用神落点规则已关闭',
-  });
 });

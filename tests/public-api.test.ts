@@ -1142,6 +1142,7 @@ test('公开 API 八字排盘接口只返回排盘结果', async () => {
   assert.equal(body.data.gender, 'female');
   assert.equal('prompt' in body.data, false);
   assert.equal('result' in body.data, false);
+  assert.equal('shenShaAnalysis' in body.data, false);
 });
 
 test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明细', async () => {

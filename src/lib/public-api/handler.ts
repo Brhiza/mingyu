@@ -3083,7 +3083,6 @@ function buildCompactBaziResult(result: BaziChartResult) {
     lifeStages: result.lifeStages,
     nayin: result.nayin,
     shensha: result.shensha,
-    shenShaAnalysis: result.shenShaAnalysis,
     kongWang: result.kongWang,
     wuxingSeasonStatus: result.wuxingSeasonStatus,
     monthCommander: result.monthCommander,

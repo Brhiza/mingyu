@@ -112,7 +112,6 @@ export { analyzeRelationStructure } from './relationStructure';
 export { analyzeKongWangProfile } from './kongWangAnalysis';
 export { analyzeTombStorage } from './tombStorage';
 export { analyzeLifeStageProfile, analyzeTenGodLifeStageProfile } from './lifeStageAnalysis';
-export { analyzeUsefulGodPlacement } from './usefulGodPlacement';
 export { calculateMingGua } from './mingGua';
 export { calculateXiaoYunProfile, buildLuckDirectionProfile } from './luckDetails';
 export { analyzeNayinProfile } from './nayinAnalysis';

@@ -1,9 +1,5 @@
 import type { BaziArray } from './types';
 
-export function analyzeGlobalShenSha(_shenShaList: string[]): string[] {
-  return [];
-}
-
 export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
   const globalShenSha: string[] = [];
   const gans = baziArray.map(([gan]) => gan);

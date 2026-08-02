@@ -3,8 +3,6 @@ import assert from 'node:assert/strict';
 
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
-import { analyzeGlobalShenSha } from '@core/bazi/baziShenSha/helpers/globalRules';
-import { analyzeShenShaWithTenGod } from '@core/bazi/baziShenSha/helpers/tenGodAnalysis';
 
 test('核心判断依据会输出旺衰条件，待定时不伪造扶抑喜忌', () => {
   const result = baziCalculator.calculateBazi({
@@ -94,17 +92,7 @@ test('八字提示词资料包应输出已计算出的传统节令与柱位证�
   assert.doesNotMatch(text, /自坐:/);
 });
 
-test('神煞与十神互参及全局神煞现实解释应全部失败关闭', () => {
-  const shensha = ['驿马', '桃花', '羊刃', '天乙贵人'];
-  const tenGods = ['比肩', '劫财', '食神', '伤官', '偏财', '正财', '七杀', '正官', '偏印', '正印'];
-
-  for (const tenGod of tenGods) {
-    assert.deepEqual(analyzeShenShaWithTenGod(shensha, tenGod), []);
-  }
-  assert.deepEqual(analyzeGlobalShenSha(['三奇贵人']), []);
-});
-
-test('八字提示词应忽略旧缓存中的神煞现实解释且不影响结构化命中名称', () => {
+test('八字新结果应省略未校神煞解释，并忽略旧缓存污染', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -115,6 +103,7 @@ test('八字提示词应忽略旧缓存中的神煞现实解释且不影响结�
     isLeapMonth: false,
     useTrueSolarTime: false,
   });
+  assert.equal('shenShaAnalysis' in result, false);
   result.shenShaAnalysis = {
     year: ['旧缓存现实推断：事业必成'],
     month: ['旧缓存现实推断：婚恋有利'],

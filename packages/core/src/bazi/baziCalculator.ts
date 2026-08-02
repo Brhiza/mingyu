@@ -629,7 +629,6 @@ export class BaziCalculator {
         mingGe: { pattern: '未知', isSpecial: false },
         usefulGod: { favorable: [], unfavorable: [], useful: '', avoid: '' },
       },
-      shenShaAnalysis: { year: [], month: [], day: [], hour: [], global: [] },
     };
   }
 
@@ -697,7 +696,6 @@ export class BaziCalculator {
     BaziChartResult,
     | 'analysis'
     | 'shensha'
-    | 'shenShaAnalysis'
     | 'tenGods'
     | 'hiddenStems'
     | 'hiddenTenGods'
@@ -747,20 +745,6 @@ export class BaziCalculator {
     const tenGods = calculateTenGods(pillars, dayMasterGan);
     const shensha = shenShaCalculator.calculateAllShenSha(baziArray, gender);
 
-    const shenShaAnalysis = {
-      year: [] as string[],
-      month: [] as string[],
-      day: [] as string[],
-      hour: [] as string[],
-      global: shensha.global ? shenShaCalculator.analyzeGlobalShenSha(shensha.global) : [],
-    };
-    const pillarKeys = ['year', 'month', 'day', 'hour'] as const;
-    pillarKeys.forEach((key) => {
-      const ssList = shensha[key] || [];
-      const tg = tenGods[key] || '';
-      shenShaAnalysis[key] = shenShaCalculator.analyzeShenShaWithTenGod(ssList, tg);
-    });
-
     return {
       tenGods,
       hiddenStems,
@@ -774,7 +758,6 @@ export class BaziCalculator {
       pillarLifeStages: calculatePillarLifeStages(pillars),
       nayin: calculateNayin(pillars),
       shensha,
-      shenShaAnalysis,
       ziZuo: calculateZiZuo(pillars),
       kongWang: calculateKongWang(pillars),
       wuxingSeasonStatus: getSeasonStatus(pillars.month.zhi),
