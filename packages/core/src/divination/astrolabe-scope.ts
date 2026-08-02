@@ -34,7 +34,7 @@ export interface AstrolabeAdvancedCalculationStep {
   key: string;
   technique: AstrolabeAdvancedTechnique;
   stage: '输入核验' | '时间映射' | '粗略搜索' | '数值细化' | '位置计算' | '推进弧计算' | '相位筛选';
-  status: '已计算' | '近似' | '不可用';
+  status: '已计算' | '不可用';
   dependsOnStepKeys: string[];
   inputs: Record<string, string | number | boolean>;
   result: Record<string, string | number | boolean>;
@@ -85,19 +85,19 @@ export interface AstrolabeAdvancedLimitationFact {
 export interface AstrolabeAdvancedSummaryFact {
   key: string;
   technique: AstrolabeAdvancedTechnique;
-  status: '证据链完整' | '证据链含近似' | '不适用' | '证据链有缺口';
+  status: '证据链完整' | '不适用' | '证据链有缺口';
   factKeys: string[];
   calculationStepCount: number;
   aspectFactCount: number;
   limitationFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '高级时限证据汇总只统计时间映射、位置或推进弧计算、主要相位、近似状态与限制覆盖；不得按数量、偏差或状态生成预测成功率、吉凶分数、事件概率或固定应期';
+  limitation: '高级时限证据汇总只统计时间映射、位置或推进弧计算、主要相位、可用状态与限制覆盖；不得按数量、偏差或状态生成预测成功率、吉凶分数、事件概率或固定应期';
 }
 
 export type SolarReturnEvidence = {
   key: string;
-  status: 'exact' | 'approximate' | 'not-applicable' | 'unavailable';
+  status: 'exact' | 'not-applicable' | 'unavailable';
   targetYear: number;
   dateTime?: string;
   timezone: number;
@@ -165,7 +165,7 @@ const ADVANCED_SUMMARY_LIMITATION =
 const ADVANCED_LIMITATION_FACT_LIMITATION =
   '限制事实用于约束太阳返照、次限推进和太阳弧可以支持的时间与解释范围，不得被反向当作现实事件、吉凶或固定应期证据' as const;
 const ADVANCED_EVIDENCE_SUMMARY_LIMITATION =
-  '高级时限证据汇总只统计时间映射、位置或推进弧计算、主要相位、近似状态与限制覆盖；不得按数量、偏差或状态生成预测成功率、吉凶分数、事件概率或固定应期' as const;
+  '高级时限证据汇总只统计时间映射、位置或推进弧计算、主要相位、可用状态与限制覆盖；不得按数量、偏差或状态生成预测成功率、吉凶分数、事件概率或固定应期' as const;
 
 const SCOPE_LABEL_MAP: Record<AstrolabeScopeMode, string> = {
   natal: '本命',
@@ -615,11 +615,9 @@ function buildAdvancedEvidenceSummaryFact(args: {
   const status: AstrolabeAdvancedSummaryFact['status'] =
     args.evidenceStatus === 'exact' || args.evidenceStatus === 'calculated'
       ? '证据链完整'
-      : args.evidenceStatus === 'approximate'
-        ? '证据链含近似'
-        : args.evidenceStatus === 'not-applicable'
-          ? '不适用'
-          : '证据链有缺口';
+      : args.evidenceStatus === 'not-applicable'
+        ? '不适用'
+        : '证据链有缺口';
   return {
     key: `${techniqueKey}:evidence-summary`,
     technique: args.technique,
@@ -1354,36 +1352,57 @@ function calculateSolarReturnEvidenceFromAuditedData(
         'celestine 太阳位置搜索',
       ]);
     }
+    if (!bracket) {
+      return unavailableEvidence(
+        '生日附近前后48小时的粗略搜索未找到太阳黄经过零区间，已停止返照时刻、星体位置和相位计算。',
+        '粗略搜索',
+        ['celestine 太阳黄经粗略搜索', '太阳黄经差过零条件'],
+      );
+    }
 
     let finalTimestamp = best.timestamp;
     let iterations = 0;
-    if (bracket) {
-      let { left, right, leftDifference } = bracket;
-      while (right - left > 60000 && iterations < 32) {
-        const middle = Math.round((left + right) / 2);
-        const sun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(middle)).find(
-          (planet) => planet.name === 'Sun',
+    let { left, right, leftDifference } = bracket;
+    while (right - left > 60000 && iterations < 32) {
+      const middle = Math.round((left + right) / 2);
+      const sun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(middle)).find(
+        (planet) => planet.name === 'Sun',
+      );
+      if (!sun) {
+        return unavailableEvidence(
+          '太阳返照二分细化过程中未取得太阳位置，已停止后续计算。',
+          '数值细化',
+          ['celestine 太阳位置', '太阳黄经差二分求根'],
         );
-        if (!sun) break;
-        const middleDifference = signedLongitudeDifference(sun.longitude, natalSun.longitude);
-        if (leftDifference * middleDifference <= 0) {
-          right = middle;
-        } else {
-          left = middle;
-          leftDifference = middleDifference;
-        }
-        iterations += 1;
       }
-      finalTimestamp = Math.round((left + right) / 2 / 60000) * 60000;
+      const middleDifference = signedLongitudeDifference(sun.longitude, natalSun.longitude);
+      if (leftDifference * middleDifference <= 0) {
+        right = middle;
+      } else {
+        left = middle;
+        leftDifference = middleDifference;
+      }
+      iterations += 1;
     }
+    if (right - left > 60000) {
+      return unavailableEvidence(
+        '太阳返照二分细化未在迭代上限内收敛到一分钟区间，已停止后续计算。',
+        '数值细化',
+        ['太阳黄经差二分求根', '一分钟收敛条件'],
+      );
+    }
+    finalTimestamp = Math.round((left + right) / 2 / 60000) * 60000;
     const finalDate = datePartsFromWallClockTimestamp(finalTimestamp);
     const returnPlanets = calculateScopePlanets(data, finalDate).filter((planet) =>
       ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'].includes(planet.name),
     );
     const returnSun = returnPlanets.find((planet) => planet.name === 'Sun');
-    const residualDegrees = returnSun
-      ? longitudeDistance(returnSun.longitude, natalSun.longitude)
-      : Math.abs(best.difference);
+    if (!returnSun) {
+      return unavailableEvidence('返照时刻未取得太阳位置，已停止星体位置和相位输出。', '位置计算', [
+        'celestine 返照时刻太阳位置',
+      ]);
+    }
+    const residualDegrees = longitudeDistance(returnSun.longitude, natalSun.longitude);
     const inputStepKey = `${techniqueKey}:calculation:input`;
     const coarseStepKey = `${techniqueKey}:calculation:coarse-search`;
     const refineStepKey = `${techniqueKey}:calculation:refinement`;
@@ -1406,17 +1425,15 @@ function calculateSolarReturnEvidenceFromAuditedData(
         key: coarseStepKey,
         technique,
         stage: '粗略搜索',
-        status: bracket ? '已计算' : '近似',
+        status: '已计算',
         dependsOnStepKeys: [inputStepKey],
         inputs: { searchWindowHours: 48, coarseStepHours: 2 },
         result: {
-          bracketFound: Boolean(bracket),
+          bracketFound: true,
           bestSampleDateTime: formatWallClockDateTime(best.timestamp),
           bestSampleDifferenceDegrees: Number(best.difference.toFixed(6)),
         },
-        promptText: bracket
-          ? '在生日附近前后48小时按2小时步长找到太阳黄经过零区间'
-          : '前后48小时粗搜未找到过零区间，保留最接近的2小时取样点',
+        promptText: '在生日附近前后48小时按2小时步长找到太阳黄经过零区间',
         sources: ['celestine 太阳黄经粗略搜索'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
@@ -1424,16 +1441,14 @@ function calculateSolarReturnEvidenceFromAuditedData(
         key: refineStepKey,
         technique,
         stage: '数值细化',
-        status: bracket ? '已计算' : '近似',
+        status: '已计算',
         dependsOnStepKeys: [coarseStepKey],
         inputs: { refinementToleranceMinutes: 1 },
         result: {
           refinementIterations: iterations,
           finalDateTime: formatWallClockDateTime(finalTimestamp),
         },
-        promptText: bracket
-          ? `对过零区间二分${iterations}次，细化到1分钟内`
-          : '没有过零区间，不执行二分细化',
+        promptText: `对过零区间二分${iterations}次，细化到1分钟内`,
         sources: ['太阳黄经差二分求根'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
@@ -1441,7 +1456,7 @@ function calculateSolarReturnEvidenceFromAuditedData(
         key: positionStepKey,
         technique,
         stage: '位置计算',
-        status: bracket ? '已计算' : '近似',
+        status: '已计算',
         dependsOnStepKeys: [refineStepKey],
         inputs: { returnDateTime: formatWallClockDateTime(finalTimestamp) },
         result: {
@@ -1456,7 +1471,7 @@ function calculateSolarReturnEvidenceFromAuditedData(
         key: aspectStepKey,
         technique,
         stage: '相位筛选',
-        status: bracket ? '已计算' : '近似',
+        status: '已计算',
         dependsOnStepKeys: [positionStepKey],
         inputs: { returnPlanetCount: returnPlanets.length },
         result: { selectedAspectCount: 0 },
@@ -1479,44 +1494,32 @@ function calculateSolarReturnEvidenceFromAuditedData(
       timezone: data.birth.timezone,
       timeZoneId: data.birth.timeZoneId,
     });
-    const limitations = bracket
-      ? [
-          '返照时刻按出生地历史时区或明确固定偏移的当地钟表时间表达。',
-          '分钟级细化只说明数值搜索收敛范围，不代表底层星历达到观测级精度。',
-          '返照相位只提供目标年的阶段性触发线索，不代表事件概率、吉凶比例或固定应期。',
-        ]
-      : [
-          '未找到太阳黄经过零区间，仅返回搜索窗口内最接近的 2 小时取样点。',
-          '近似取样点和太阳黄经残差受底层星历模型影响，不宣称达到观测级预测精度。',
-          '返照相位只提供目标年的阶段性触发线索，不代表事件概率、吉凶比例或固定应期。',
-        ];
+    const limitations = [
+      '返照时刻按出生地历史时区或明确固定偏移的当地钟表时间表达。',
+      '分钟级细化只说明数值搜索收敛范围，不代表底层星历达到观测级精度。',
+      '返照相位只提供目标年的阶段性触发线索，不代表事件概率、吉凶比例或固定应期。',
+    ];
     const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts);
     const limitationFacts = buildAdvancedLimitationFacts(
       technique,
       limitations,
-      bracket
-        ? ['时间映射边界', '数值精度边界', '解释边界']
-        : ['数值精度边界', '星历模型边界', '解释边界'],
-      bracket
-        ? [[coarseStepKey, refineStepKey], [refineStepKey], [aspectStepKey]]
-        : [[coarseStepKey, refineStepKey], [positionStepKey], [aspectStepKey]],
+      ['时间映射边界', '数值精度边界', '解释边界'],
+      [[coarseStepKey, refineStepKey], [refineStepKey], [aspectStepKey]],
     );
     const summaryFact = buildAdvancedEvidenceSummaryFact({
       technique,
-      evidenceStatus: bracket ? 'exact' : 'approximate',
+      evidenceStatus: 'exact',
       calculationSteps,
       aspectFacts,
       aspectSummaryFact,
       limitationFacts,
       additionalFactKeys: [timeScale.key, timeScale.summaryFact.key],
     });
-    const precision = bracket
-      ? `粗搜步长${baseEvidence.coarseStepHours}小时、二分细化至${baseEvidence.refinementToleranceMinutes}分钟内，共${iterations}次迭代`
-      : `仅取得${baseEvidence.coarseStepHours}小时步长的近似取样点`;
+    const precision = `粗搜步长${baseEvidence.coarseStepHours}小时、二分细化至${baseEvidence.refinementToleranceMinutes}分钟内，共${iterations}次迭代`;
     const dateTime = formatWallClockDateTime(finalTimestamp);
     return {
       ...baseEvidence,
-      status: bracket ? 'exact' : 'approximate',
+      status: 'exact',
       dateTime,
       residualDegrees: Number(residualDegrees.toFixed(6)),
       refinementIterations: iterations,
