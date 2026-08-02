@@ -152,6 +152,9 @@ const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
 
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
+  dayStem?: string;
+  dayBranch?: string;
+  hourBranch?: string;
   initialGroundBranch?: string;
   yearBranch?: string;
   monthBranch?: string;
@@ -184,7 +187,16 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
     assertLiurenGuaTiBranch(branch, `第${index + 1}传`),
   );
 
+  if (
+    context.dayStem !== undefined &&
+    !TIANGAN.includes(context.dayStem as (typeof TIANGAN)[number])
+  ) {
+    throw new Error('日干必须是有效天干。');
+  }
+
   const optionalBranches: Array<[unknown, string]> = [
+    [context.dayBranch, '日支'],
+    [context.hourBranch, '占时地支'],
     [context.initialGroundBranch, '初传所临地盘'],
     [context.yearBranch, '太岁地支'],
     [context.monthBranch, '月支'],
@@ -451,6 +463,53 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         ? {
             branches: context.fourLessons.flatMap((lesson) => [lesson.upper, lesson.lower]),
             matchedConditions: ['四课中恰有三课为下位克上神'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'tian-wang',
+    name: '天网卦',
+    category: '时用克日',
+    sourceTitle: '《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote: '凡时与用神并克天干者曰天网卦。',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      return context.dayStem &&
+        context.hourBranch &&
+        isBranchKe(context.hourBranch, context.dayStem) &&
+        isBranchKe(initial, context.dayStem)
+        ? {
+            branches: [context.hourBranch, initial],
+            matchedConditions: [
+              `占时${context.hourBranch}与初传${initial}均克日干${context.dayStem}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'shang-men-luan-shou',
+    name: '上门乱首',
+    category: '日辰发用',
+    sourceTitle: '《六壬大全》卷七·课经集一·乱首课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceQuote: '支临干克干，为上门乱首，更兼发用尤的。',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      const firstLesson = context.fourLessons?.[0];
+      return context.dayStem &&
+        context.dayBranch &&
+        firstLesson?.lower === context.dayStem &&
+        firstLesson.upper === context.dayBranch &&
+        initial === context.dayBranch &&
+        isBranchKe(context.dayBranch, context.dayStem)
+        ? {
+            branches: [context.dayBranch],
+            matchedConditions: [
+              `日支${context.dayBranch}临日干${context.dayStem}并克干，且以日支发用`,
+            ],
           }
         : null;
     },

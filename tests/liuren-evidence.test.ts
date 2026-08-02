@@ -627,6 +627,40 @@ test('大六壬四课克贼课体进入提示词时应只保留可复算结构',
   }
 });
 
+test('大六壬日干受克发用课体进入提示词时应只保留盘面条件', () => {
+  const cases = [
+    {
+      date: new Date('2025-01-04T02:00:00+08:00'),
+      name: '天网卦',
+      condition: '占时丑与初传丑均克日干癸',
+      sourceQuote: '凡时与用神并克天干者曰天网卦。',
+    },
+    {
+      date: new Date('2025-01-07T12:00:00+08:00'),
+      name: '上门乱首',
+      condition: '日支子临日干丙并克干，且以日支发用',
+      sourceQuote: '支临干克干，为上门乱首，更兼发用尤的。',
+    },
+  ] as const;
+
+  for (const item of cases) {
+    const data = generateLiuren(item.date);
+    const fact = data.guaTiFacts.find((candidate) => candidate.name === item.name);
+    assert.ok(fact, `${item.name}应由真实起盘命中`);
+    const traditionalFact = data.evidenceAnalysis?.traditionalFacts.find(
+      (candidate) => candidate.key === fact.stableKey,
+    );
+    assert.ok(traditionalFact);
+    assert.equal(traditionalFact.originalText, item.sourceQuote);
+    assert.equal(
+      traditionalFact.promptText,
+      `盘面命中“${item.name}”：${item.condition}；只登记课体结构，不据此单断现实吉凶`,
+    );
+    assert.match(data.evidenceAnalysis?.promptText ?? '', new RegExp(item.condition));
+    assert.doesNotMatch(traditionalFact.promptText, /刑狱|疾病|死丧|犯上|君臣|父子|吉凶总分/);
+  }
+});
+
 test('十二天将旧类象字段不得保留或软化后继续进入提示词', () => {
   Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
     assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);

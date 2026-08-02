@@ -1591,6 +1591,9 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
   const initialGroundBranch = getPlateItemByBranch(heavenlyPlate, initialBranch).under;
   const guaTiFacts = getLiurenGuaTiFacts({
     transmissionBranches,
+    dayStem,
+    dayBranch,
+    hourBranch,
     initialGroundBranch,
     yearBranch: ganzhi.year.charAt(1),
     monthBranch: ganzhi.month.charAt(1),

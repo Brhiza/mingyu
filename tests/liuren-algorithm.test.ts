@@ -32,6 +32,7 @@ import {
   getGanZhiWuxing,
   getNoblemanBranch,
   getPlateItemByBranch,
+  isBranchKe,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/plate.ts';
 
 const DIZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
@@ -483,10 +484,18 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
       }),
     /贵人所临地盘必须是有效地支/,
   );
+  assert.throws(
+    () => getLiurenGuaTiFacts({ transmissionBranches: ['子', '寅', '辰'], dayStem: '子' }),
+    /日干必须是有效天干/,
+  );
+  assert.throws(
+    () => getLiurenGuaTiFacts({ transmissionBranches: ['子', '寅', '辰'], hourBranch: '甲' }),
+    /占时地支必须是有效地支/,
+  );
 });
 
-test('大六壬课体登记表应固定十六条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 16);
+test('大六壬课体登记表应固定十八条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 18);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -497,6 +506,106 @@ test('大六壬课体登记表应固定十六条来源、稳定键和结构条�
   assert.match(fact.sourceTitle, /《六壬指南》卷一/);
   assert.match(fact.sourceUrl, /oldid=854504/);
   assert.equal(fact.sourceQuote, '三传亥卯未曰曲直卦。');
+});
+
+test('大六壬日干受克发用课体应在完整轮廓中严格命中', () => {
+  let tianWangProfileCount = 0;
+  for (const dayStem of TIANGAN) {
+    for (const hourBranch of DIZHI) {
+      for (const initial of DIZHI) {
+        const fact = getLiurenGuaTiFacts({
+          transmissionBranches: [initial, '寅', '辰'],
+          dayStem,
+          hourBranch,
+        }).find((item) => item.name === '天网卦');
+        assert.equal(
+          !!fact,
+          isBranchKe(hourBranch, dayStem) && isBranchKe(initial, dayStem),
+          `${dayStem}日、${hourBranch}时、${initial}发用的天网边界不一致`,
+        );
+        tianWangProfileCount += 1;
+      }
+    }
+  }
+  assert.equal(tianWangProfileCount, 1_440);
+
+  let luanShouProfileCount = 0;
+  for (const dayStem of TIANGAN) {
+    for (const dayBranch of DIZHI) {
+      for (const firstUpper of DIZHI) {
+        for (const initial of DIZHI) {
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '寅', '辰'],
+            dayStem,
+            dayBranch,
+            fourLessons: [
+              { upper: firstUpper, lower: dayStem },
+              { upper: '寅', lower: '寅' },
+              { upper: '卯', lower: dayBranch },
+              { upper: '辰', lower: '卯' },
+            ],
+          }).find((item) => item.name === '上门乱首');
+          assert.equal(
+            !!fact,
+            firstUpper === dayBranch && initial === dayBranch && isBranchKe(dayBranch, dayStem),
+            `${dayStem}${dayBranch}日、干上${firstUpper}、${initial}发用的上门乱首边界不一致`,
+          );
+          luanShouProfileCount += 1;
+        }
+      }
+    }
+  }
+  assert.equal(luanShouProfileCount, 17_280);
+
+  const tianWang = getLiurenGuaTiFacts({
+    transmissionBranches: ['申', '子', '辰'],
+    dayStem: '甲',
+    hourBranch: '酉',
+  }).find((item) => item.name === '天网卦');
+  assert.ok(tianWang);
+  assert.equal(tianWang.stableKey, 'liuren:verified-guati:tian-wang');
+  assert.equal(tianWang.sourceQuote, '凡时与用神并克天干者曰天网卦。');
+  assert.deepEqual(tianWang.matchedConditions, ['占时酉与初传申均克日干甲']);
+
+  const shangMenLuanShou = getLiurenGuaTiFacts({
+    transmissionBranches: ['寅', '午', '戌'],
+    dayStem: '戊',
+    dayBranch: '寅',
+    fourLessons: [
+      { upper: '寅', lower: '戊' },
+      { upper: '午', lower: '寅' },
+      { upper: '辰', lower: '寅' },
+      { upper: '巳', lower: '辰' },
+    ],
+  }).find((item) => item.name === '上门乱首');
+  assert.ok(shangMenLuanShou);
+  assert.equal(shangMenLuanShou.stableKey, 'liuren:verified-guati:shang-men-luan-shou');
+  assert.equal(shangMenLuanShou.sourceQuote, '支临干克干，为上门乱首，更兼发用尤的。');
+  assert.deepEqual(shangMenLuanShou.matchedConditions, ['日支寅临日干戊并克干，且以日支发用']);
+
+  for (const fact of [tianWang, shangMenLuanShou]) {
+    assert.doesNotMatch(
+      `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+      /刑狱|病|灾|犯上|吉凶|现实事件/,
+    );
+  }
+
+  assert.ok(
+    !getLiurenGuaTiFacts({ transmissionBranches: ['申', '子', '辰'] }).some(
+      (item) => item.name === '天网卦',
+    ),
+  );
+  assert.ok(
+    !getLiurenGuaTiFacts({
+      transmissionBranches: ['寅', '午', '戌'],
+      fourLessons: [
+        { upper: '寅', lower: '戊' },
+        { upper: '午', lower: '寅' },
+        { upper: '辰', lower: '寅' },
+        { upper: '巳', lower: '辰' },
+      ],
+    }).some((item) => item.name === '上门乱首'),
+  );
 });
 
 test('大六壬四课五种关系轮廓应严格识别四项克贼课体', () => {
@@ -806,6 +915,9 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             guaTiContextCount += 1;
             const guaTiFacts = getLiurenGuaTiFacts({
               transmissionBranches: branches,
+              dayStem,
+              dayBranch,
+              hourBranch,
               initialGroundBranch: getPlateItemByBranch(heavenlyPlate, branches[0]).under,
               yearBranch,
               monthLeader,
