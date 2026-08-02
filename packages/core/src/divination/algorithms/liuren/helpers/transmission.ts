@@ -185,6 +185,16 @@ const AUSPICIOUS_GENERALS: ReadonlySet<string> = new Set([
   '太阴',
   '天后',
 ]);
+const LIUREN_LIAN_ZHU_TRANSMISSIONS: ReadonlySet<string> = new Set([
+  '寅卯辰',
+  '辰卯寅',
+  '巳午未',
+  '未午巳',
+  '申酉戌',
+  '戌酉申',
+  '亥子丑',
+  '丑子亥',
+]);
 const INAUSPICIOUS_GENERALS: ReadonlySet<string> = new Set([
   '螣蛇',
   '朱雀',
@@ -712,6 +722,24 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         -1,
         `三传${context.transmissionBranches.join('、')}依十二地支逆序逐支相连`,
       ),
+  },
+  {
+    id: 'lian-zhu',
+    name: '连珠课',
+    category: '三传顺逆',
+    sourceTitle: '《六壬心镜》卷三·连珠卦；《六壬大全》卷十·连珠课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬心镜》：“孟仲季古传……皆曰连珠卦。”《六壬大全》：“三传孟仲季相连……连如贯珠，故名连珠。”当前只登记三传在同一方依孟仲季顺连或逆连的可复算结构；“岁月日相连”分支含义不闭合，不自动命中。',
+    detect: (context) =>
+      LIUREN_LIAN_ZHU_TRANSMISSIONS.has(context.transmissionBranches.join(''))
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [
+              `三传${context.transmissionBranches.join('、')}在同一方依孟仲季次序顺连或逆连`,
+            ],
+          }
+        : null,
   },
   {
     id: 'jin-jian',

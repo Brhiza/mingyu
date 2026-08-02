@@ -502,6 +502,13 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
           expected.push('退茹');
         }
         if (
+          ['寅卯辰', '辰卯寅', '巳午未', '未午巳', '申酉戌', '戌酉申', '亥子丑', '丑子亥'].includes(
+            branches.join(''),
+          )
+        ) {
+          expected.push('连珠课');
+        }
+        if (
           middle === DIZHI[(initialIndex + 2) % DIZHI.length] &&
           final === DIZHI[(initialIndex + 4) % DIZHI.length]
         ) {
@@ -548,6 +555,7 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
     退间: 12,
     稼穑卦: 24,
     铸印卦: 1,
+    连珠课: 8,
     高盖乘轩卦: 1,
   });
 });
@@ -887,8 +895,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定一百二十条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 120);
+test('大六壬课体登记表应固定一百二十一条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 121);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -918,6 +926,21 @@ test('大六壬课体登记表应固定一百二十条来源、稳定键和结�
   assert.doesNotMatch(
     `${jinRu.matchedConditions.join('；')}；${tuiRu.matchedConditions.join('；')}`,
     /吉|凶|疾病|婚姻|功名|现实事件/,
+  );
+
+  const lianZhu = getLiurenGuaTiFacts({ transmissionBranches: ['寅', '卯', '辰'] }).find(
+    (item) => item.name === '连珠课',
+  );
+  assert.ok(lianZhu);
+  assert.equal(lianZhu.stableKey, 'liuren:verified-guati:lian-zhu');
+  assert.deepEqual(lianZhu.matchedConditions, ['三传寅、卯、辰在同一方依孟仲季次序顺连或逆连']);
+  assert.match(lianZhu.sourceTitle, /六壬心镜.+六壬大全/);
+  assert.match(lianZhu.sourceQuote, /岁月日相连.+不自动命中/);
+  assert.equal(
+    getLiurenGuaTiFacts({ transmissionBranches: ['子', '丑', '寅'] }).some(
+      (item) => item.name === '连珠课',
+    ),
+    false,
   );
 
   const jinJian = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '丑', '卯'] }).find(
