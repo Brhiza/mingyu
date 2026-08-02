@@ -14,8 +14,10 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';
-import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from './prompt-assertions';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
+import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from './prompt-assertions';
+
+const TEST_ZIWEI_HOROSCOPE_REFERENCE = { dateStr: '2028-06-12', hourIndex: 4 } as const;
 
 const AUTOMATIC_DIRECTION_CONCLUSION =
   /四吉方[:：]|四凶方[:：]|(?:吉方|凶方)[:：]|较利方位[:：]|命宅相合|命宅相冲|(?:建议)?优先利用|(?:布置|布局|行动)建议[:：]/;
@@ -1371,6 +1373,8 @@ test('公开 API 应支持八字紫微合参提示词', async () => {
       baziPromptTopic: 'job-change',
       ziweiPromptTopic: 'job-change',
       promptScope: 'yearly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeHourIndex: 4,
     }),
   });
 
@@ -1414,6 +1418,8 @@ test('八字紫微合参提示词应只并列可靠事实并关闭现实解释�
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    undefined,
+    TEST_ZIWEI_HOROSCOPE_REFERENCE,
   );
 
   const frameworkPrompt = await buildBaziZiweiPromptForResults({
@@ -1859,6 +1865,8 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
       question: '今年适合换工作吗？',
       promptTopic: 'job-change',
       promptScope: 'yearly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeHourIndex: 4,
     }),
   });
 
@@ -1879,6 +1887,27 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assertPromptIsPortableTaskText(prompt);
 });
 
+test('公开 API 紫微非本命范围缺少运限参考时应失败关闭', async () => {
+  const { response, body } = await callApi('ziwei/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      question: '请看流年。',
+      promptScope: 'yearly',
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.match(body.error.message, /ziweiScopeDate/);
+});
+
 test('公开 API 紫微提示词应忽略已生成盘面的宫位、命中与星曜污染', async () => {
   const runtime = await calculateFullZiweiChart(
     buildZiweiChartInput({
@@ -1892,6 +1921,8 @@ test('公开 API 紫微提示词应忽略已生成盘面的宫位、命中与星
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    undefined,
+    TEST_ZIWEI_HOROSCOPE_REFERENCE,
   );
   const cleanPrompt = await buildPublicZiweiPromptForRuntime({
     result: runtime,
@@ -1928,6 +1959,8 @@ test('公开 API 紫微提示词支持完整输出版范围', async () => {
       question: '整体人生和近期重点怎么看？',
       promptTopic: 'life',
       promptScope: 'full',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeHourIndex: 4,
     }),
   });
 
@@ -1941,9 +1974,10 @@ test('公开 API 紫微提示词支持完整输出版范围', async () => {
     'daily',
     'hourly',
   ]);
-  assert.match(body.data.prompt, /分析范围：完整输出/);
+  assert.match(body.data.prompt, /分析范围：所选时点分层输出/);
+  assert.match(body.data.prompt, /参考日期：2028-06-12/);
   assert.match(body.data.prompt, /【完整运限资料】/);
-  assert.match(body.data.prompt, /完整紫微运限资料：/);
+  assert.match(body.data.prompt, /所选时点的紫微运限层级资料：/);
   assert.match(body.data.prompt, /流时：分析对象：/);
   assertPromptIsPortableTaskText(body.data.prompt);
 });
@@ -1984,6 +2018,8 @@ test('紫微公开 API prompt builder 空问题走通用问题，主题只作为
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    undefined,
+    TEST_ZIWEI_HOROSCOPE_REFERENCE,
   );
 
   const prompt = await buildZiweiPromptForRuntime({
@@ -2012,6 +2048,8 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    undefined,
+    TEST_ZIWEI_HOROSCOPE_REFERENCE,
   );
 
   const prompt = await buildZiweiPromptForRuntime({
@@ -2066,6 +2104,8 @@ test('紫微公开 API 提示词应穷举十二宫事实并关闭现实解释旁
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    undefined,
+    TEST_ZIWEI_HOROSCOPE_REFERENCE,
   );
   const frameworkPrompt = await buildPublicZiweiPromptForRuntime({
     result: runtime,
@@ -2176,6 +2216,8 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
       day: '21',
       timeIndex: 4,
       promptScope: 'monthly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeHourIndex: 4,
     }),
   });
 
@@ -2273,6 +2315,8 @@ test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', asy
       day: '21',
       timeIndex: 4,
       promptScope: 'monthly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeHourIndex: 4,
       detailMode: 'compact',
     }),
   });
@@ -2343,7 +2387,11 @@ test('公开 API 紫微排盘应提供 agent 易解析的四化和宫位列表',
     opposite_palace_index: number;
     surrounded_palace_indexes: number[];
   }>;
-  const fullRuntime = await calculateFullZiweiChart(buildZiweiChartInput(ziweiInput), true);
+  const fullRuntime = await calculateFullZiweiChart(
+    buildZiweiChartInput(ziweiInput),
+    true,
+    TEST_ZIWEI_HOROSCOPE_REFERENCE,
+  );
   const fullPalaces = fullRuntime.payloadByScope.origin.palaces;
 
   assert.equal(publicPalaces.length, fullPalaces.length);
@@ -3879,6 +3927,7 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
       question: '整体人生和近期重点怎么看？',
       astrolabeTopic: 'life',
       astrolabeScope: 'full',
+      astrolabeScopeDate: '2028-06-12',
       responseMode: 'prompt-only',
     }),
   });
@@ -3886,11 +3935,11 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【分析对象】/);
-  assert.match(body.data.prompt, /完整星盘行运资料：/);
-  assert.match(body.data.prompt, /分析对象：本命盘与完整行运资料。/);
-  assert.match(body.data.prompt, /分析对象：流年\d{4}。/);
-  assert.match(body.data.prompt, /分析对象：流月\d{4}-\d{2}。/);
-  assert.match(body.data.prompt, /分析对象：流日\d{4}-\d{2}-\d{2}。/);
+  assert.match(body.data.prompt, /所选日期的星盘层级资料：/);
+  assert.match(body.data.prompt, /所选日期 2028-06-12 对应的年、月、日行运资料/);
+  assert.match(body.data.prompt, /分析对象：流年2028。/);
+  assert.match(body.data.prompt, /分析对象：流月2028-06。/);
+  assert.match(body.data.prompt, /分析对象：流日2028-06-12。/);
   assert.match(body.data.prompt, /本命相位穷举：.*共核验276组无序点对/);
   assert.match(body.data.prompt, /相位明细：.*实际夹角.*精确角.*偏差.*采用容许度/s);
   assert.doesNotMatch(body.data.prompt, /紧密等级|中等等级|宽松等级|归一化容许度/);

@@ -637,7 +637,7 @@ function daysInScopeMonth(year: number, month: number) {
 }
 
 function normalizeZiweiScopeDate(scope: ZiweiScopeMode, dateStr: string) {
-  if (scope === 'origin' || scope === 'full' || !dateStr) {
+  if (scope === 'origin' || !dateStr) {
     return '';
   }
 
@@ -645,8 +645,12 @@ function normalizeZiweiScopeDate(scope: ZiweiScopeMode, dateStr: string) {
 }
 
 function normalizeAstrolabeScopeDate(scope: AstrolabeScopeMode, dateStr: string) {
-  if (scope === 'natal' || scope === 'full' || !dateStr) {
+  if (scope === 'natal' || !dateStr) {
     return '';
+  }
+
+  if (scope === 'full') {
+    return parseScopeDateParts(dateStr) ? dateStr : '';
   }
 
   if (scope === 'yearly') {
@@ -670,6 +674,9 @@ function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
     normalized.ziweiScope,
     normalized.ziweiScopeDate,
   );
+  if (normalized.ziweiScope === 'full' && !normalized.ziweiScopeDate) {
+    normalized.ziweiScope = 'origin';
+  }
 
   if (normalized.astrolabeShortcutMode === '自定义') {
     normalized.astrolabeTopic = 'chat';
@@ -679,6 +686,9 @@ function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
     normalized.astrolabeScope,
     normalized.astrolabeScopeDate,
   );
+  if (normalized.astrolabeScope === 'full' && !normalized.astrolabeScopeDate) {
+    normalized.astrolabeScope = 'natal';
+  }
 
   if (normalized.baziFortuneScope === 'natal' || normalized.baziFortuneScope === 'full') {
     normalized.baziFortuneCycleIndex = '';

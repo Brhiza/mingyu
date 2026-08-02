@@ -62,6 +62,7 @@ export type {
   ZiweiBirthSource,
   ZiweiCalculationSource,
   ZiweiGenerationSource,
+  ZiweiHoroscopeReference,
   ZiweiTraditionalBirthSource,
   ZiweiTrueSolarBirthSource,
 } from '../../types/chart';

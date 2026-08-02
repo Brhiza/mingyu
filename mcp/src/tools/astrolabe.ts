@@ -4,7 +4,10 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import type { AstrolabeBirthInput } from 'mingyu-core/types';
 import { ASTROLABE_PROMPT_TOPICS } from '../../../src/lib/astrolabe-prompts.js';
-import { buildAstrolabeScopeContext } from '../../../src/lib/astrolabe-scope.js';
+import {
+  buildAstrolabeFullScopeContexts,
+  buildAstrolabeScopeContext,
+} from '../../../src/lib/astrolabe-scope.js';
 import { buildAstrolabeSynastryPrompt } from '../../../src/lib/astrolabe-synastry-prompt.js';
 import type { AstrolabeData } from '../../../src/types/divination.js';
 import { resultOutputSchema } from '../schemas.js';
@@ -58,7 +61,9 @@ const astrolabePromptSchema = extendPromptSchema(
     astrolabeScopeDate: z
       .string()
       .optional()
-      .describe('星盘行运日期；yearly 用年份，monthly 用 年-月，daily 用 年-月-日'),
+      .describe(
+        '星盘行运日期；yearly 用 YYYY，monthly 用 YYYY-MM，daily 和 full 用 YYYY-MM-DD；选择非本命范围时必填',
+      ),
     astrolabeScopeText: z
       .string()
       .optional()
@@ -126,19 +131,19 @@ function buildAstrolabeSynastryResult(args: z.infer<typeof astrolabeSynastrySche
   };
 }
 
-function buildAstrolabeFullScopePromptText(data: AstrolabeData) {
-  const contexts = [
-    buildAstrolabeScopeContext(data, 'natal', ''),
-    buildAstrolabeScopeContext(data, 'yearly', ''),
-    buildAstrolabeScopeContext(data, 'monthly', ''),
-    buildAstrolabeScopeContext(data, 'daily', ''),
-  ];
+function buildAstrolabeFullScopePromptText(data: AstrolabeData, dateStr: string) {
+  const contextsByScope = buildAstrolabeFullScopeContexts(data, dateStr);
+  const contexts = Object.values(contextsByScope);
   const lines = contexts
     .map((context) => context.promptText)
     .filter(Boolean)
     .map((line, index) => `${index + 1}. ${line}`);
 
-  return ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n');
+  return [
+    `分析对象：本命盘与所选日期 ${dateStr} 对应的年、月、日行运资料。`,
+    '所选日期的星盘层级资料：',
+    ...lines,
+  ].join('\n');
 }
 
 function buildAstrolabePromptScopeText(
@@ -150,7 +155,7 @@ function buildAstrolabePromptScopeText(
 
   const scope = args.astrolabeScope ?? 'natal';
   if (scope === 'full') {
-    return buildAstrolabeFullScopePromptText(result);
+    return buildAstrolabeFullScopePromptText(result, args.astrolabeScopeDate ?? '');
   }
 
   return buildAstrolabeScopeContext(result, scope, args.astrolabeScopeDate ?? '').promptText;
@@ -167,12 +172,8 @@ function buildAstrolabeScopeEvidence(
   if (scope === 'full') {
     return {
       scope: 'full' as const,
-      contexts: {
-        natal: buildAstrolabeScopeContext(result, 'natal', ''),
-        yearly: buildAstrolabeScopeContext(result, 'yearly', ''),
-        monthly: buildAstrolabeScopeContext(result, 'monthly', ''),
-        daily: buildAstrolabeScopeContext(result, 'daily', ''),
-      },
+      dateStr: args.astrolabeScopeDate ?? '',
+      contexts: buildAstrolabeFullScopeContexts(result, args.astrolabeScopeDate ?? ''),
     };
   }
 

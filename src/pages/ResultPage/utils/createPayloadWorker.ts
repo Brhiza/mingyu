@@ -1,9 +1,10 @@
 import { attachWorkerSafety } from '@/hooks/useWorkerRequest';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
-import type { ChartInput } from '@/types/chart';
+import type { ChartInput, ZiweiHoroscopeReference } from '@/types/chart';
 
 export function createPayloadWorker(
   input: ChartInput,
+  horoscopeReference: ZiweiHoroscopeReference,
   requestId: string,
   onSuccess: (payloadByScope: Record<ScopeType, AnalysisPayloadV1>) => void,
   onError: (message: string) => void,
@@ -35,7 +36,7 @@ export function createPayloadWorker(
     worker.terminate();
   };
 
-  worker.postMessage({ id: requestId, input });
+  worker.postMessage({ id: requestId, input, horoscopeReference });
 
   return () => {
     disarm();

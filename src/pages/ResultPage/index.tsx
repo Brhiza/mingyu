@@ -14,7 +14,7 @@ import {
   type QueryPromptState,
   type ResultTabKey,
 } from '@/lib/query-state';
-import { buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
+import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
 import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { PageTopbar } from '@/components/PageTopbar';
@@ -564,7 +564,8 @@ export function ResultPage() {
       if (promptState.promptSource === 'bazi-ziwei') {
         const mappedZiweiScope = mapBaziFortuneToZiweiScope(next);
         nextPromptState.ziweiScope = mappedZiweiScope.scope;
-        nextPromptState.ziweiScopeDate = mappedZiweiScope.dateStr;
+        nextPromptState.ziweiScopeDate =
+          mappedZiweiScope.scope === 'full' ? currentDateStr : mappedZiweiScope.dateStr;
       }
 
       updatePromptState(nextPromptState);
@@ -591,7 +592,7 @@ export function ResultPage() {
     }
     updatePromptState({
       ziweiScope: value === 'all' ? 'full' : value === 'recent' ? 'monthly' : 'origin',
-      ziweiScopeDate: value === 'recent' ? currentDateStr : '',
+      ziweiScopeDate: value === 'all' || value === 'recent' ? currentDateStr : '',
     });
   }
 
@@ -602,7 +603,7 @@ export function ResultPage() {
     }
     updatePromptState({
       astrolabeScope: value === 'all' ? 'full' : value === 'recent' ? 'monthly' : 'natal',
-      astrolabeScopeDate: value === 'recent' ? currentDateStr : '',
+      astrolabeScopeDate: value === 'all' || value === 'recent' ? currentDateStr : '',
     });
   }
 
@@ -706,13 +707,12 @@ export function ResultPage() {
       return null;
     }
 
-    return buildAstrolabeFullScopePromptText({
-      natal: buildAstrolabeScopeContext(astrolabeCalculation.data, 'natal', ''),
-      yearly: buildAstrolabeScopeContext(astrolabeCalculation.data, 'yearly', ''),
-      monthly: buildAstrolabeScopeContext(astrolabeCalculation.data, 'monthly', ''),
-      daily: buildAstrolabeScopeContext(astrolabeCalculation.data, 'daily', ''),
-    });
-  }, [astrolabeCalculation.data, promptState.astrolabeScope]);
+    const fullContexts = buildAstrolabeFullScopeContexts(
+      astrolabeCalculation.data,
+      promptState.astrolabeScopeDate,
+    );
+    return buildAstrolabeFullScopePromptText(fullContexts);
+  }, [astrolabeCalculation.data, promptState.astrolabeScope, promptState.astrolabeScopeDate]);
 
   const activeBaziQuestionScopeLabel = useMemo(() => {
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
@@ -800,7 +800,7 @@ export function ResultPage() {
 
   const ziweiScopeSummaryText =
     promptState.ziweiScope === 'full'
-      ? '本命盘与完整运限资料'
+      ? `本命盘与 ${promptState.ziweiScopeDate || '所选时点'} 的分层运限资料`
       : promptState.ziweiScope === 'origin'
         ? '本命盘与大运概览'
         : formatZiweiPromptScopeSummary(

@@ -11,12 +11,13 @@ import type { ZiweiPayloadByScopeState, ZiweiRuntimeState } from '../ResultPage.
 
 async function runZiweiMainThread(
   input: ChartInput,
+  horoscopeReference: ReturnType<typeof getDefaultHoroscopeContext>,
   onSuccess: (runtime: NonNullable<ZiweiRuntimeState>) => void,
   onError: (message: string) => void,
 ): Promise<void> {
   try {
     // skipAnalysis=true：不在主线程计算证据池和格局检测，仅生成展示所需的基础数据
-    const runtime = await calculateFullZiweiChart(input, true);
+    const runtime = await calculateFullZiweiChart(input, true, horoscopeReference);
     onSuccess(runtime);
   } catch (error) {
     onError(error instanceof Error ? error.message : '紫微排盘失败。');
@@ -111,6 +112,20 @@ export function useZiweiCalculations(
     () => (partnerZiweiInput ? JSON.stringify(partnerZiweiInput) : ''),
     [partnerZiweiInput],
   );
+  const defaultHoroscopeReference = useMemo(() => getDefaultHoroscopeContext(), []);
+  const horoscopeReference = useMemo(
+    () => ({
+      dateStr:
+        promptState.ziweiScope === 'full' && promptState.ziweiScopeDate
+          ? promptState.ziweiScopeDate
+          : defaultHoroscopeReference.dateStr,
+      hourIndex: defaultHoroscopeReference.hourIndex,
+    }),
+    [defaultHoroscopeReference, promptState.ziweiScope, promptState.ziweiScopeDate],
+  );
+  const horoscopeReferenceKey = `${horoscopeReference.dateStr}:${horoscopeReference.hourIndex}`;
+  const primaryRuntimeKey = `${primaryZiweiInputKey}:${horoscopeReferenceKey}`;
+  const partnerRuntimeKey = `${partnerZiweiInputKey}:${horoscopeReferenceKey}`;
 
   useEffect(() => {
     if (!primaryZiweiInput) {
@@ -123,16 +138,17 @@ export function useZiweiCalculations(
       return;
     }
 
-    if (primaryPayloadKeyRef.current === primaryZiweiInputKey && ziweiPayloadByScope) {
+    if (primaryPayloadKeyRef.current === primaryRuntimeKey && ziweiPayloadByScope) {
       return;
     }
 
     return createPayloadWorker(
       primaryZiweiInput,
+      horoscopeReference,
       `${Date.now()}-primary`,
       (payloadByScope) => {
         setZiweiPayloadByScope(payloadByScope);
-        primaryPayloadKeyRef.current = primaryZiweiInputKey;
+        primaryPayloadKeyRef.current = primaryRuntimeKey;
         setZiweiError('');
       },
       (message) => {
@@ -141,7 +157,13 @@ export function useZiweiCalculations(
       },
       '紫微排盘失败。',
     );
-  }, [primaryZiweiInput, primaryZiweiInputKey, shouldLoadZiweiPromptPayload, ziweiPayloadByScope]);
+  }, [
+    horoscopeReference,
+    primaryRuntimeKey,
+    primaryZiweiInput,
+    shouldLoadZiweiPromptPayload,
+    ziweiPayloadByScope,
+  ]);
 
   useEffect(() => {
     if (!partnerZiweiInput) {
@@ -154,16 +176,17 @@ export function useZiweiCalculations(
       return;
     }
 
-    if (partnerPayloadKeyRef.current === partnerZiweiInputKey && partnerZiweiPayloadByScope) {
+    if (partnerPayloadKeyRef.current === partnerRuntimeKey && partnerZiweiPayloadByScope) {
       return;
     }
 
     return createPayloadWorker(
       partnerZiweiInput,
+      horoscopeReference,
       `${Date.now()}-partner`,
       (payloadByScope) => {
         setPartnerZiweiPayloadByScope(payloadByScope);
-        partnerPayloadKeyRef.current = partnerZiweiInputKey;
+        partnerPayloadKeyRef.current = partnerRuntimeKey;
         setZiweiError('');
       },
       (message) => {
@@ -174,7 +197,8 @@ export function useZiweiCalculations(
     );
   }, [
     partnerZiweiInput,
-    partnerZiweiInputKey,
+    horoscopeReference,
+    partnerRuntimeKey,
     partnerZiweiPayloadByScope,
     shouldLoadZiweiPromptPayload,
   ]);
@@ -186,7 +210,7 @@ export function useZiweiCalculations(
       return;
     }
 
-    if (primaryRuntimeKeyRef.current === primaryZiweiInputKey && ziweiRuntime) {
+    if (primaryRuntimeKeyRef.current === primaryRuntimeKey && ziweiRuntime) {
       return;
     }
 
@@ -195,17 +219,19 @@ export function useZiweiCalculations(
 
     void runZiweiMainThread(
       primaryZiweiInput,
+      horoscopeReference,
       (runtime) => {
         if (!cancelled) {
           setZiweiRuntime(runtime);
           setZiweiPayloadByScope(runtime.payloadByScope);
-          primaryRuntimeKeyRef.current = primaryZiweiInputKey;
-          primaryPayloadKeyRef.current = primaryZiweiInputKey;
+          primaryRuntimeKeyRef.current = primaryRuntimeKey;
+          primaryPayloadKeyRef.current = primaryRuntimeKey;
           setZiweiError('');
 
           // 异步后台 worker 计算完整版（含证据池和格局检测），不阻塞主线程
           cleanupBackgroundWorker = createPayloadWorker(
             primaryZiweiInput,
+            horoscopeReference,
             `${Date.now()}-bg-primary`,
             (fullPayloadByScope) => {
               if (!cancelled) {
@@ -230,7 +256,13 @@ export function useZiweiCalculations(
       cancelled = true;
       cleanupBackgroundWorker?.();
     };
-  }, [primaryZiweiInput, primaryZiweiInputKey, shouldWarmZiweiRuntime, ziweiRuntime]);
+  }, [
+    horoscopeReference,
+    primaryRuntimeKey,
+    primaryZiweiInput,
+    shouldWarmZiweiRuntime,
+    ziweiRuntime,
+  ]);
 
   useEffect(() => {
     if (!shouldWarmPartnerZiweiRuntime || !partnerZiweiInput) {
@@ -239,7 +271,7 @@ export function useZiweiCalculations(
       return;
     }
 
-    if (partnerRuntimeKeyRef.current === partnerZiweiInputKey && partnerZiweiRuntime) {
+    if (partnerRuntimeKeyRef.current === partnerRuntimeKey && partnerZiweiRuntime) {
       return;
     }
 
@@ -248,16 +280,18 @@ export function useZiweiCalculations(
 
     void runZiweiMainThread(
       partnerZiweiInput,
+      horoscopeReference,
       (runtime) => {
         if (!cancelled) {
           setPartnerZiweiRuntime(runtime);
           setPartnerZiweiPayloadByScope(runtime.payloadByScope);
-          partnerRuntimeKeyRef.current = partnerZiweiInputKey;
-          partnerPayloadKeyRef.current = partnerZiweiInputKey;
+          partnerRuntimeKeyRef.current = partnerRuntimeKey;
+          partnerPayloadKeyRef.current = partnerRuntimeKey;
           setZiweiError('');
 
           cleanupBackgroundWorker = createPayloadWorker(
             partnerZiweiInput,
+            horoscopeReference,
             `${Date.now()}-bg-partner`,
             (fullPayloadByScope) => {
               if (!cancelled) {
@@ -282,7 +316,13 @@ export function useZiweiCalculations(
       cancelled = true;
       cleanupBackgroundWorker?.();
     };
-  }, [partnerZiweiInput, partnerZiweiInputKey, partnerZiweiRuntime, shouldWarmPartnerZiweiRuntime]);
+  }, [
+    horoscopeReference,
+    partnerRuntimeKey,
+    partnerZiweiInput,
+    partnerZiweiRuntime,
+    shouldWarmPartnerZiweiRuntime,
+  ]);
 
   const ziweiPromptScopeType =
     promptState.ziweiScope === 'full' ? 'origin' : (promptState.ziweiScope as ScopeType);

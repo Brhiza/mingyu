@@ -26,6 +26,8 @@ import type { AnalysisPayloadV1 } from '../src/types/analysis';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 import { assertPromptHasSingleRole } from './prompt-assertions';
 
+const TEST_ZIWEI_HOROSCOPE_REFERENCE = { dateStr: '2028-06-12', hourIndex: 4 } as const;
+
 test('parseZiweiDateParts 正确解析合法日期', () => {
   assert.deepEqual(parseZiweiDateParts('2024-05-13'), { year: 2024, month: 5, day: 13 });
   assert.deepEqual(parseZiweiDateParts('1990-12-01'), { year: 1990, month: 12, day: 1 });
@@ -254,6 +256,8 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    undefined,
+    TEST_ZIWEI_HOROSCOPE_REFERENCE,
   );
 
   const prompt = buildBaziZiweiEnhancedPrompt({
@@ -331,6 +335,8 @@ test('紫微完整输出版会整理本命与各层运限资料', async () => {
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    undefined,
+    TEST_ZIWEI_HOROSCOPE_REFERENCE,
   );
 
   ziweiRuntime.payloadByScope.yearly.palaces.forEach((palace, index) => {
@@ -339,7 +345,7 @@ test('紫微完整输出版会整理本命与各层运限资料', async () => {
 
   const text = formatZiweiFullScopeText(ziweiRuntime.payloadByScope);
 
-  assert.match(text, /完整紫微运限资料：/);
+  assert.match(text, /所选时点的紫微运限层级资料：/);
   assert.match(text, /本命：分析对象：/);
   assert.match(text, /大限：分析对象：/);
   assert.match(text, /流年：分析对象：/);
@@ -382,8 +388,7 @@ test('星盘完整输出版会整理本命与行运资料', () => {
     },
   });
 
-  assert.match(text, /分析对象：本命盘与完整行运资料。/);
-  assert.match(text, /完整星盘行运资料：/);
+  assert.match(text, /所选日期的星盘层级资料：/);
   assert.match(text, /分析对象：本命盘。/);
   assert.match(text, /分析对象：流年2028。/);
   assert.match(text, /分析对象：流月2028-06。/);

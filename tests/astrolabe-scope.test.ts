@@ -91,13 +91,13 @@ test('星盘本命分析对象只写入本命资料', () => {
   assert.doesNotMatch(context.promptText, /行运落宫：/);
 });
 
-test('星盘完整输出版显示完整行运资料摘要', () => {
+test('星盘完整输出版绑定明确日期而不读取系统时间', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'full', '2028-06-01');
 
   assert.equal(context.scope, 'full');
-  assert.equal(context.displayText, '本命盘与完整行运资料');
-  assert.equal(context.dateStr, '');
-  assert.match(context.promptText, /分析对象：本命盘与完整行运资料。/);
+  assert.equal(context.displayText, '本命盘与 2028-06-01 对应的年、月、日行运资料');
+  assert.equal(context.dateStr, '2028-06-01');
+  assert.match(context.promptText, /所选日期 2028-06-01 对应的流年、流月、流日资料/);
   assert.match(context.promptText, /本命宫主星：第1宫/);
 });
 
@@ -260,12 +260,16 @@ test('星盘流月与流日沿用同一选择器语义并写入对应行运资�
   assert.doesNotMatch(`${monthContext.promptText}\n${dayContext.promptText}`, /不得|时间边界|证据/);
 });
 
-test('星盘范围日期不存在时不应夹到另一天', () => {
-  const invalidDayContext = buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-02-31');
-  const invalidMonthContext = buildAstrolabeScopeContext(astrolabeData, 'monthly', '2028-13');
-
-  assert.notEqual(invalidDayContext.dateStr, '2028-02-29');
-  assert.notEqual(invalidMonthContext.dateStr, '2028-12');
+test('星盘范围日期缺失、不完整或非法时应失败关闭', () => {
+  assert.throws(() => buildAstrolabeScopeContext(astrolabeData, 'yearly', ''), /YYYY/);
+  assert.throws(() => buildAstrolabeScopeContext(astrolabeData, 'monthly', '2028'), /YYYY-MM/);
+  assert.throws(() => buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-02'), /YYYY-MM-DD/);
+  assert.throws(
+    () => buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-02-31'),
+    /YYYY-MM-DD/,
+  );
+  assert.throws(() => buildAstrolabeScopeContext(astrolabeData, 'monthly', '2028-13'), /YYYY-MM/);
+  assert.throws(() => buildAstrolabeScopeContext(astrolabeData, 'full', ''), /必须提供/);
 });
 
 test('星盘行运范围应支持 2100 年以后的有效年份', () => {

@@ -310,6 +310,8 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       baziPromptTopic: 'job-change',
       ziweiPromptTopic: 'job-change',
       promptScope: 'yearly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeHourIndex: 4,
     },
     /【八字排盘信息】/,
   ],

@@ -263,7 +263,7 @@ export function getZiweiPromptCalculationScopes(scope: ZiweiPromptScope): ScopeT
 }
 
 function mapZiweiPromptScopeLabel(scope: ZiweiPromptScope | ScopeType) {
-  return scope === 'full' ? '完整输出' : mapScopeLabel(scope as ScopeType);
+  return scope === 'full' ? '所选时点分层输出' : mapScopeLabel(scope as ScopeType);
 }
 
 function formatPublicZiweiMutagenMap(payload: AnalysisPayloadV1) {
@@ -329,7 +329,9 @@ export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
   }).filter(Boolean);
 
   return lines.length > 0
-    ? ['完整紫微运限资料：', ...lines.map((line, index) => `${index + 1}. ${line}`)].join('\n')
+    ? ['所选时点的紫微运限层级资料：', ...lines.map((line, index) => `${index + 1}. ${line}`)].join(
+        '\n',
+      )
     : '';
 }
 
@@ -506,6 +508,14 @@ export async function buildPublicZiweiPromptForRuntime(params: {
           .join('；')
       : '';
   const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(result.trueSolarEvidence);
+  const referenceDate =
+    scope === 'full'
+      ? result.generation.horoscopeReference?.dateStr
+      : payload.active_scope.solar_date;
+  const referenceAge =
+    scope === 'full'
+      ? result.payloadByScope.yearly?.active_scope.nominal_age
+      : payload.active_scope.nominal_age;
   const chartLines = [
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
     lifePalace ? `命宫：${lifePalace.name}${lifeStarsText ? `；星曜：${lifeStarsText}` : ''}` : '',
@@ -516,7 +526,7 @@ export async function buildPublicZiweiPromptForRuntime(params: {
   ].filter(Boolean);
   const prompt = [
     buildPromptGuidanceSections('ziwei'),
-    `【分析背景】\n分析主题：${topicLabel}\n分析范围：${scopeLabel}\n分析对象：${scope === 'full' ? '本命盘与完整大限流年流月流日流时' : payload.active_scope.label || scopeLabel}\n参考日期：${payload.active_scope.solar_date}\n虚岁：${payload.active_scope.nominal_age}`,
+    `【分析背景】\n分析主题：${topicLabel}\n分析范围：${scopeLabel}\n分析对象：${scope === 'full' ? '本命盘与所选时点对应的大限、流年、流月、流日、流时' : payload.active_scope.label || scopeLabel}\n参考日期：${referenceDate}\n虚岁：${referenceAge}`,
     `【排盘信息】\n${chartLines.join('\n')}`,
     buildPublicZiweiTwelvePalaceSection(payload.palaces),
     trueSolarEvidenceText ? `【出生时间校正】\n${trueSolarEvidenceText}` : '',
@@ -580,13 +590,21 @@ function formatPublicZiweiEvidenceText(params: {
           .join('；')
       : '';
   const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
+  const referenceDate =
+    scope === 'full'
+      ? params.result.generation.horoscopeReference?.dateStr
+      : payload.active_scope.solar_date;
+  const referenceAge =
+    scope === 'full'
+      ? params.result.payloadByScope.yearly?.active_scope.nominal_age
+      : payload.active_scope.nominal_age;
 
   return [
     `分析主题：${topicLabel}`,
     `分析范围：${scopeLabel}`,
-    `分析对象：${scope === 'full' ? '本命盘与完整大限流年流月流日流时' : payload.active_scope.label || scopeLabel}`,
-    `参考日期：${payload.active_scope.solar_date}`,
-    `虚岁：${payload.active_scope.nominal_age}`,
+    `分析对象：${scope === 'full' ? '本命盘与所选时点对应的大限、流年、流月、流日、流时' : payload.active_scope.label || scopeLabel}`,
+    `参考日期：${referenceDate}`,
+    `虚岁：${referenceAge}`,
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
     lifePalace ? `命宫：${lifePalace.name}${lifeStarsText ? `；星曜：${lifeStarsText}` : ''}` : '',
     bodyPalace ? `身宫：${bodyPalace.name}${bodyStarsText ? `；星曜：${bodyStarsText}` : ''}` : '',

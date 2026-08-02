@@ -183,6 +183,10 @@ export function ZiweiScopeModal(props: {
         return (
           selectedDayItem?.dateStr ?? draftDayDateStr ?? draftMonthDateStr ?? draftYearDateStr ?? ''
         );
+      case 'full':
+        return (
+          selectedDayItem?.dateStr ?? draftDayDateStr ?? draftMonthDateStr ?? draftYearDateStr ?? ''
+        );
       default:
         return '';
     }
@@ -207,7 +211,7 @@ export function ZiweiScopeModal(props: {
   })();
   const summaryText =
     draftScope === 'full'
-      ? '本命盘与完整大限流年流月流日流时。'
+      ? `本命盘与 ${draftScopeDateStr || fallbackScopeDateStr} 对应的大限、流年、流月、流日、流时。`
       : draftScope === 'origin'
         ? '仅使用本命信息，不附加任何大限流年流月流日。'
         : formatZiweiPromptScopeSummary(draftScope, draftScopeDateStr, draftScopeDetailLabel);

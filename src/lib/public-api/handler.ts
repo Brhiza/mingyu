@@ -51,7 +51,7 @@ import {
 } from 'mingyu-core/foundation';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
-import { buildAstrolabeScopeContext } from '../astrolabe-scope';
+import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '../astrolabe-scope';
 import { buildAstrolabeSynastryPrompt } from '../astrolabe-synastry-prompt';
 import { getCompatibilityPrompt, type CompatType } from '../../utils/ai/aiPrompts';
 import {
@@ -366,7 +366,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   astrolabeScopeDate: {
     type: 'string',
-    description: '星盘行运日期；yearly 用年份，monthly 用 年-月，daily 用 年-月-日。',
+    description:
+      '星盘行运日期；yearly 用 YYYY，monthly 用 YYYY-MM，daily 和 full 用 YYYY-MM-DD；选择非本命范围时必填。',
   },
   astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
   promptMode: { enum: [...PROMPT_MODES] },
@@ -1305,6 +1306,17 @@ export function getPublicApiOpenApiDocument(
               enum: [...ZIWEI_PROMPT_SCOPES],
               description:
                 '可选。默认只返回本命范围；传入后会额外返回指定分析范围；full 会返回本命、大限、流年、流月、流日、流时。',
+            },
+            ziweiScopeDate: {
+              type: 'string',
+              pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+              description: '运限参考日期；选择非本命范围时必填。',
+            },
+            ziweiScopeHourIndex: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 12,
+              description: '运限参考时辰索引；选择非本命范围时必填。',
             },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
@@ -2440,6 +2452,13 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
         birthMinute: readString(input, 'birthMinute', ''),
         birthLongitude: readString(input, 'birthLongitude', ''),
       };
+  const requiresHoroscopeReference = scopes.some((scope) => scope !== 'origin');
+  const horoscopeReference = requiresHoroscopeReference
+    ? {
+        dateStr: readRequiredString(input, 'ziweiScopeDate'),
+        hourIndex: readInteger(input, 'ziweiScopeHourIndex', 0, 12),
+      }
+    : undefined;
   return calculatePublicZiweiChartForScopes(
     buildZiweiChartInput({
       name: readString(input, 'name', ''),
@@ -2456,6 +2475,7 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
       birthLongitude: timeInput.birthLongitude,
     }),
     Array.from(new Set(['origin' as ScopeType, ...scopes])),
+    horoscopeReference,
   );
 }
 
@@ -2898,19 +2918,18 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
   });
 }
 
-function buildAstrolabeFullScopePromptText(data: AstrolabeData) {
-  const contexts = [
-    buildAstrolabeScopeContext(data, 'natal', ''),
-    buildAstrolabeScopeContext(data, 'yearly', ''),
-    buildAstrolabeScopeContext(data, 'monthly', ''),
-    buildAstrolabeScopeContext(data, 'daily', ''),
-  ];
+function buildAstrolabeFullScopePromptText(data: AstrolabeData, dateStr: string) {
+  const contexts = Object.values(buildAstrolabeFullScopeContexts(data, dateStr));
   const lines = contexts
     .map((context) => context.promptText)
     .filter(Boolean)
     .map((line, index) => `${index + 1}. ${line}`);
 
-  return ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n');
+  return [
+    `分析对象：本命盘与所选日期 ${dateStr} 对应的年、月、日行运资料。`,
+    '所选日期的星盘层级资料：',
+    ...lines,
+  ].join('\n');
 }
 
 function buildAstrolabePromptScopeText(input: JsonRecord, data: AstrolabeData) {
@@ -2925,7 +2944,7 @@ function buildAstrolabePromptScopeText(input: JsonRecord, data: AstrolabeData) {
   ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
 
   if (scope === 'full') {
-    return buildAstrolabeFullScopePromptText(data);
+    return buildAstrolabeFullScopePromptText(data, readString(input, 'astrolabeScopeDate', ''));
   }
 
   const dateStr = readString(input, 'astrolabeScopeDate', '');
@@ -2945,14 +2964,11 @@ function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
     'natal',
   ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
   if (scope === 'full') {
+    const dateStr = readString(input, 'astrolabeScopeDate', '');
     return {
       scope: 'full' as const,
-      contexts: {
-        natal: buildAstrolabeScopeContext(data, 'natal', ''),
-        yearly: buildAstrolabeScopeContext(data, 'yearly', ''),
-        monthly: buildAstrolabeScopeContext(data, 'monthly', ''),
-        daily: buildAstrolabeScopeContext(data, 'daily', ''),
-      },
+      dateStr,
+      contexts: buildAstrolabeFullScopeContexts(data, dateStr),
     };
   }
 

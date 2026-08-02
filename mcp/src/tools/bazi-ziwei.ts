@@ -61,6 +61,18 @@ const baziZiweiPromptSchema = z.object({
     .describe(
       '紫微运限范围：origin=本命, full=完整输出版, decadal=大限, yearly=流年, monthly=流月等',
     ),
+  ziweiScopeDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe('紫微运限参考日期，选择非本命范围时必填'),
+  ziweiScopeHourIndex: z
+    .number()
+    .int()
+    .min(0)
+    .max(12)
+    .optional()
+    .describe('紫微运限参考时辰索引，选择非本命范围时必填'),
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
@@ -85,6 +97,8 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
     day: String(args.day),
     timeIndex: args.timeIndex,
     promptScope: args.promptScope,
+    ziweiScopeDate: args.ziweiScopeDate,
+    ziweiScopeHourIndex: args.ziweiScopeHourIndex,
     isLeapMonth: args.isLeapMonth,
     useTrueSolarTime: args.useTrueSolarTime,
     birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
@@ -109,9 +123,22 @@ export function registerBaziZiweiTool(server: McpServer) {
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
+        if (
+          scope !== 'origin' &&
+          (!args.ziweiScopeDate || args.ziweiScopeHourIndex === undefined)
+        ) {
+          throw new Error('选择紫微非本命范围时，必须提供运限参考日期与时辰。');
+        }
         const ziweiResult = await calculateZiweiChartForScopes(
           buildCombinedZiweiInput(args),
           scopes,
+          undefined,
+          scope === 'origin'
+            ? undefined
+            : {
+                dateStr: args.ziweiScopeDate ?? '',
+                hourIndex: args.ziweiScopeHourIndex ?? -1,
+              },
         );
         const serializableZiweiResult = await buildSerializableZiweiResult(ziweiResult);
 

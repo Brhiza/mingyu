@@ -1,4 +1,4 @@
-import type { ChartInput } from '../../types/chart';
+import type { ChartInput, ZiweiHoroscopeReference } from '../../types/chart';
 import type { AnalysisPayloadV1, ScopeType } from '../../types/analysis';
 import type { IztroAstrolabe, IztroHoroscope } from '../../types/iztro';
 import { getBirthDateValidationMessage } from '../date-validation';
@@ -7,7 +7,6 @@ import {
   buildHoroscopeFromInput,
   buildZiweiCalculationConfig,
   buildAnalysisPayloadV1,
-  getDefaultHoroscopeContext,
   analyzeZiweiCompatibility,
   buildVerifiedDecadalTimelineOptions,
   buildZiweiChartInputFromSources,
@@ -123,7 +122,8 @@ async function calculateZiweiFromGeneration(source: ZiweiGenerationSource): Prom
   const generation = normalizeZiweiGenerationSource(source);
   const input = buildZiweiChartInputFromSources(generation.birth, generation.calculation);
   const astrolabe = await buildAstrolabeFromInput(input);
-  const { dateStr, hourIndex } = getDefaultHoroscopeContext(new Date(generation.timestamp));
+  const { dateStr, hourIndex } =
+    generation.horoscopeReference ?? resolveBirthHoroscopeReference(astrolabe, input);
   const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
   const calculationConfig = buildZiweiCalculationConfig(input);
   const payloadByScope = buildZiweiPayloadByScope({
@@ -145,23 +145,40 @@ async function calculateZiweiFromGeneration(source: ZiweiGenerationSource): Prom
   };
 }
 
+function resolveBirthHoroscopeReference(
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+): ZiweiHoroscopeReference {
+  const matched = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(astrolabe.solarDate);
+  if (!matched) {
+    throw new Error('紫微本命盘缺少可复算的阳历出生日期。');
+  }
+  return {
+    dateStr: `${matched[1]}-${matched[2].padStart(2, '0')}-${matched[3].padStart(2, '0')}`,
+    hourIndex: input.birthTimeIndex,
+  };
+}
+
 export async function calculateFullZiweiChart(
   input: ChartInput,
   skipAnalysis?: boolean,
+  horoscopeReference?: ZiweiHoroscopeReference,
 ): Promise<ZiweiRuntime> {
-  return calculateZiweiChartForScopes(input, ALL_ZIWEI_SCOPES, skipAnalysis);
+  return calculateZiweiChartForScopes(input, ALL_ZIWEI_SCOPES, skipAnalysis, horoscopeReference);
 }
 
 export async function calculateZiweiChartForScopes(
   input: ChartInput,
   scopes?: ScopeType[],
   skipAnalysis?: boolean,
+  horoscopeReference?: ZiweiHoroscopeReference,
 ): Promise<ZiweiRuntime> {
   const requestedScopes = scopes?.length ? scopes : ALL_ZIWEI_SCOPES;
   return calculateZiweiFromGeneration(
     createZiweiGenerationSource({
       input,
       timestamp: Date.now(),
+      horoscopeReference,
       scopes: requestedScopes,
       skipAnalysis,
     }),
@@ -171,18 +188,20 @@ export async function calculateZiweiChartForScopes(
 export async function calculatePublicZiweiChartForScopes(
   input: ChartInput,
   scopes?: ScopeType[],
+  horoscopeReference?: ZiweiHoroscopeReference,
 ): Promise<ZiweiRuntime> {
   const requestedScopes = Array.from(new Set(['origin' as const, ...(scopes ?? [])]));
   return calculateZiweiFromGeneration(
     createZiweiGenerationSource({
       input,
       timestamp: Date.now(),
+      horoscopeReference,
       scopes: requestedScopes,
     }),
   );
 }
 
-/** 只凭出生资料、排盘口径、生成时间与范围重建完整紫微运行结果。 */
+/** 只凭出生资料、排盘口径、运限参考、生成时间与范围重建完整紫微运行结果。 */
 export async function rebuildAuditedZiweiRuntime(
   input: Pick<ZiweiRuntime, 'generation'>,
 ): Promise<ZiweiRuntime> {
@@ -195,9 +214,12 @@ export async function rebuildAuditedZiweiRuntime(
   return calculateZiweiFromGeneration(normalizeZiweiGenerationSource(input.generation));
 }
 
-export async function calculateZiweiPayloadByScope(input: ChartInput) {
+export async function calculateZiweiPayloadByScope(
+  input: ChartInput,
+  horoscopeReference: ZiweiHoroscopeReference,
+) {
   const astrolabe = await buildAstrolabeFromInput(input);
-  const { dateStr, hourIndex } = getDefaultHoroscopeContext();
+  const { dateStr, hourIndex } = horoscopeReference;
   const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
 
   return buildZiweiPayloadByScope({

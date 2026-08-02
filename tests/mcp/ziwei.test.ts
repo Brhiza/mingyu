@@ -7,6 +7,8 @@ import {
 } from '../../src/lib/full-chart-engine/ziwei';
 import { buildSerializableZiweiResult } from '../../src/lib/public-api/prompt-builders';
 
+const TEST_HOROSCOPE_REFERENCE = { dateStr: '2028-06-12', hourIndex: 4 } as const;
+
 test('紫微 MCP 返回结果应为可 JSON 序列化的纯数据', async () => {
   const input = buildZiweiChartInput({
     name: '',
@@ -20,7 +22,7 @@ test('紫微 MCP 返回结果应为可 JSON 序列化的纯数据', async () => 
     useTrueSolarTime: false,
   });
 
-  const runtime = await calculateFullZiweiChart(input);
+  const runtime = await calculateFullZiweiChart(input, undefined, TEST_HOROSCOPE_REFERENCE);
   const result = await buildSerializableZiweiResult(runtime);
   const parsed = JSON.parse(JSON.stringify(result));
 
@@ -64,8 +66,16 @@ test('紫微合盘主题只作为关系范围，不再注入固定问题与任�
     useTrueSolarTime: false,
   });
 
-  const firstRuntime = await calculateFullZiweiChart(firstInput);
-  const secondRuntime = await calculateFullZiweiChart(secondInput);
+  const firstRuntime = await calculateFullZiweiChart(
+    firstInput,
+    undefined,
+    TEST_HOROSCOPE_REFERENCE,
+  );
+  const secondRuntime = await calculateFullZiweiChart(
+    secondInput,
+    undefined,
+    TEST_HOROSCOPE_REFERENCE,
+  );
 
   const cooperationPrompt = buildCombinedZiweiCompatibilityPrompt({
     primaryPayload: firstRuntime.payloadByScope.origin,
@@ -121,8 +131,16 @@ test('紫微合盘自定义问题不应额外拼接任务与输出要求', async
     useTrueSolarTime: false,
   });
 
-  const firstRuntime = await calculateFullZiweiChart(firstInput);
-  const secondRuntime = await calculateFullZiweiChart(secondInput);
+  const firstRuntime = await calculateFullZiweiChart(
+    firstInput,
+    undefined,
+    TEST_HOROSCOPE_REFERENCE,
+  );
+  const secondRuntime = await calculateFullZiweiChart(
+    secondInput,
+    undefined,
+    TEST_HOROSCOPE_REFERENCE,
+  );
 
   const prompt = buildCombinedZiweiCompatibilityPrompt({
     primaryPayload: firstRuntime.payloadByScope.origin,

@@ -8,6 +8,7 @@ import type {
   ZiweiBirthSource,
   ZiweiCalculationSource,
   ZiweiGenerationSource,
+  ZiweiHoroscopeReference,
   ZiweiTraditionalBirthSource,
   ZiweiTrueSolarBirthSource,
 } from '../types/chart';
@@ -235,7 +236,7 @@ export function normalizeZiweiGenerationSource(source: unknown): ZiweiGeneration
   if (!isRecord(source)) throw new Error('紫微可信生成来源必须是对象。');
   assertExactKeys(
     source,
-    ['birth', 'calculation', 'timestamp', 'scopes', 'skipAnalysis'],
+    ['birth', 'calculation', 'timestamp', 'horoscopeReference', 'scopes', 'skipAnalysis'],
     '紫微可信生成来源',
   );
   if (!Number.isSafeInteger(source.timestamp) || (source.timestamp as number) < 0) {
@@ -255,11 +256,42 @@ export function normalizeZiweiGenerationSource(source: unknown): ZiweiGeneration
   if (new Set(scopes).size !== scopes.length) {
     throw new Error('紫微生成范围不能重复。');
   }
+  const requiresHoroscopeReference = scopes.some((scope) => scope !== 'origin');
+  let horoscopeReference: ZiweiHoroscopeReference | null = null;
+  if (source.horoscopeReference !== null) {
+    if (!isRecord(source.horoscopeReference)) {
+      throw new Error('紫微运限参考必须是对象或 null。');
+    }
+    assertExactKeys(source.horoscopeReference, ['dateStr', 'hourIndex'], '紫微运限参考');
+    const dateStr = source.horoscopeReference.dateStr;
+    if (typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      throw new Error('紫微运限参考日期必须使用 YYYY-MM-DD 格式。');
+    }
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const normalizedDate = new Date(Date.UTC(year, month - 1, day));
+    if (
+      year < 1900 ||
+      normalizedDate.getUTCFullYear() !== year ||
+      normalizedDate.getUTCMonth() + 1 !== month ||
+      normalizedDate.getUTCDate() !== day
+    ) {
+      throw new Error('紫微运限参考日期无效或早于 1900 年。');
+    }
+    assertIntegerInRange(source.horoscopeReference.hourIndex, '紫微运限时辰索引', 0, 12);
+    horoscopeReference = {
+      dateStr,
+      hourIndex: source.horoscopeReference.hourIndex,
+    };
+  }
+  if (requiresHoroscopeReference && !horoscopeReference) {
+    throw new Error('紫微非本命范围必须提供明确的运限参考日期与时辰。');
+  }
   assertBoolean(source.skipAnalysis, '紫微轻量分析开关');
   return {
     birth: normalizeZiweiBirthSource(source.birth),
     calculation: normalizeZiweiCalculationSource(source.calculation),
     timestamp,
+    horoscopeReference,
     scopes,
     skipAnalysis: source.skipAnalysis,
   };
@@ -356,6 +388,7 @@ export function createZiweiBirthSource(input: ChartInput): ZiweiBirthSource {
 export function createZiweiGenerationSource(params: {
   input: ChartInput;
   timestamp: number;
+  horoscopeReference?: ZiweiHoroscopeReference | null;
   scopes: ScopeType[];
   skipAnalysis?: boolean;
 }): ZiweiGenerationSource {
@@ -370,6 +403,7 @@ export function createZiweiGenerationSource(params: {
     birth: createZiweiBirthSource(params.input),
     calculation: createZiweiCalculationSource(params.input),
     timestamp: params.timestamp,
+    horoscopeReference: params.horoscopeReference ?? null,
     scopes: Array.from(new Set(params.scopes)),
     skipAnalysis: params.skipAnalysis ?? false,
   });

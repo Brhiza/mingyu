@@ -37,10 +37,16 @@ export type ZiweiCalculationSource = {
   dayDivide: 'current' | 'forward';
 };
 
+export type ZiweiHoroscopeReference = {
+  dateStr: string;
+  hourIndex: number;
+};
+
 export type ZiweiGenerationSource = {
   birth: ZiweiBirthSource;
   calculation: ZiweiCalculationSource;
   timestamp: number;
+  horoscopeReference: ZiweiHoroscopeReference | null;
   scopes: import('./analysis').ScopeType[];
   skipAnalysis: boolean;
 };

@@ -28,6 +28,13 @@ export type AstrolabeScopeContext = {
   solarArcEvidence?: SolarArcEvidence;
 };
 
+export type AstrolabeFullScopeContexts = {
+  natal: AstrolabeScopeContext;
+  yearly: AstrolabeScopeContext;
+  monthly: AstrolabeScopeContext;
+  daily: AstrolabeScopeContext;
+};
+
 export type AstrolabeAdvancedTechnique = '太阳返照' | '次限推进' | '太阳弧';
 
 export interface AstrolabeAdvancedCalculationStep {
@@ -302,15 +309,6 @@ function parseDateParts(dateStr: string) {
   return { year, month, day };
 }
 
-function getCurrentLocalDate() {
-  const now = new Date();
-  return {
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    day: now.getDate(),
-  };
-}
-
 function daysInMonth(year: number, month: number) {
   return daysInAstrolabeScopeMonth(year, month);
 }
@@ -327,19 +325,34 @@ function daysInAstrolabeScopeMonth(year: number, month: number) {
 }
 
 function normalizeTargetDate(scope: AstrolabeScopeMode, dateStr: string) {
-  const current = getCurrentLocalDate();
   const parsed = parseDateParts(dateStr);
-  const year = parsed?.year ?? current.year;
-  const month = scope === 'yearly' ? 7 : Math.min(Math.max(parsed?.month ?? current.month, 1), 12);
-  const maxDay = daysInMonth(year, month);
-  const day =
-    scope === 'yearly'
-      ? Math.min(1, maxDay)
-      : scope === 'monthly'
-        ? Math.min(15, maxDay)
-        : Math.min(Math.max(parsed?.day ?? current.day, 1), maxDay);
-
-  return { year, month, day };
+  if (scope === 'yearly') {
+    if (!/^\d{4}$/.test(dateStr.trim()) || !parsed) {
+      throw new Error('星盘流年日期必须使用 YYYY 格式。');
+    }
+    return { year: parsed.year, month: 7, day: 1 };
+  }
+  if (scope === 'monthly') {
+    if (!/^\d{4}-\d{2}$/.test(dateStr.trim()) || !parsed?.month) {
+      throw new Error('星盘流月日期必须使用 YYYY-MM 格式。');
+    }
+    return {
+      year: parsed.year,
+      month: parsed.month,
+      day: Math.min(15, daysInMonth(parsed.year, parsed.month)),
+    };
+  }
+  if (scope === 'daily' || scope === 'full') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim()) || !parsed?.month || !parsed.day) {
+      throw new Error(
+        scope === 'full'
+          ? '星盘完整输出必须提供 YYYY-MM-DD 格式的参考日期。'
+          : '星盘流日日期必须使用 YYYY-MM-DD 格式。',
+      );
+    }
+    return { year: parsed.year, month: parsed.month, day: parsed.day };
+  }
+  throw new Error('本命范围不需要行运日期。');
 }
 
 function formatDateStr(
@@ -1743,14 +1756,26 @@ export function buildAstrolabeScopeContext(
 
   const auditedData = rebuildAuditedAstrolabeData(data);
   const houseRulerChain = buildHouseRulerChainEvidence(auditedData);
-  if (scope === 'natal' || scope === 'full') {
+  if (scope === 'natal') {
     return {
       scope,
       dateStr: '',
-      displayText: scope === 'full' ? '本命盘与完整行运资料' : '仅使用本命信息',
-      displayLabel: scope === 'full' ? '完整输出版' : '本命盘',
+      displayText: '仅使用本命信息',
+      displayLabel: '本命盘',
+      promptText: ['分析对象：本命盘。', houseRulerChain].join('\n'),
+    };
+  }
+
+  if (scope === 'full') {
+    const target = normalizeTargetDate(scope, dateStr);
+    const normalizedDateStr = formatDateStr('daily', target);
+    return {
+      scope,
+      dateStr: normalizedDateStr,
+      displayText: `本命盘与 ${normalizedDateStr} 对应的年、月、日行运资料`,
+      displayLabel: `完整输出版${normalizedDateStr}`,
       promptText: [
-        scope === 'full' ? '分析对象：本命盘与完整行运资料。' : '分析对象：本命盘。',
+        `分析对象：本命盘与所选日期 ${normalizedDateStr} 对应的流年、流月、流日资料。`,
         houseRulerChain,
       ].join('\n'),
     };
@@ -1799,6 +1824,24 @@ export function buildAstrolabeScopeContext(
     solarReturnEvidence,
     secondaryProgressionEvidence,
     solarArcEvidence,
+  };
+}
+
+export function buildAstrolabeFullScopeContexts(
+  data: AstrolabeData,
+  dateStr: string,
+): AstrolabeFullScopeContexts {
+  const target = normalizeTargetDate('full', dateStr);
+  const dailyDate = formatDateStr('daily', target);
+  return {
+    natal: buildAstrolabeScopeContext(data, 'natal', ''),
+    yearly: buildAstrolabeScopeContext(data, 'yearly', String(target.year)),
+    monthly: buildAstrolabeScopeContext(
+      data,
+      'monthly',
+      `${target.year}-${String(target.month).padStart(2, '0')}`,
+    ),
+    daily: buildAstrolabeScopeContext(data, 'daily', dailyDate),
   };
 }
 

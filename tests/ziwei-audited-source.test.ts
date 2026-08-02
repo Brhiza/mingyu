@@ -22,6 +22,7 @@ import {
 import type { ChartInput } from '../packages/core/src/types/chart';
 
 const FIXED_TIMESTAMP = Date.parse('2026-07-18T06:30:00+08:00');
+const FIXED_HOROSCOPE_REFERENCE = { dateStr: '2028-06-12', hourIndex: 4 } as const;
 const CALCULATION_SOURCE: ZiweiCalculationSource = {
   fixLeap: true,
   algorithm: 'default',
@@ -90,6 +91,7 @@ test('紫微传统时辰结果应只凭最小来源稳定重建全部派生盘�
   const generation = createZiweiGenerationSource({
     input: createTraditionalInput(),
     timestamp: FIXED_TIMESTAMP,
+    horoscopeReference: FIXED_HOROSCOPE_REFERENCE,
     scopes: ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age'],
   });
   const runtime = await rebuildAuditedZiweiRuntime({ generation });
@@ -109,6 +111,7 @@ test('紫微传统时辰结果应只凭最小来源稳定重建全部派生盘�
     },
     calculation: CALCULATION_SOURCE,
     timestamp: FIXED_TIMESTAMP,
+    horoscopeReference: FIXED_HOROSCOPE_REFERENCE,
     scopes: ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age'],
     skipAnalysis: false,
   });
@@ -135,6 +138,7 @@ test('紫微真太阳时结果应保存精准原始资料并重新生成校正�
     birth,
     calculation: CALCULATION_SOURCE,
     timestamp: FIXED_TIMESTAMP,
+    horoscopeReference: null,
     scopes: ['origin'],
     skipAnalysis: false,
   };
@@ -146,7 +150,12 @@ test('紫微真太阳时结果应保存精准原始资料并重新生成校正�
 });
 
 test('紫微审核重建、公开序列化与提示词不得采信旧派生结果污染', async () => {
-  const clean = await calculateZiweiChartForScopes(createTraditionalInput(), ['origin', 'yearly']);
+  const clean = await calculateZiweiChartForScopes(
+    createTraditionalInput(),
+    ['origin', 'yearly'],
+    undefined,
+    FIXED_HOROSCOPE_REFERENCE,
+  );
   const cleanSerializable = await buildSerializableZiweiResult(clean);
   const cleanPrompt = await buildZiweiPromptForRuntime({
     result: clean,
@@ -200,6 +209,8 @@ test('紫微可信来源缺失、夹带、矛盾或非法时应失败关闭', as
     { ...valid, scopes: ['origin', 'origin'] },
     { ...valid, scopes: ['origin', { value: 'yearly' }] },
     { ...valid, skipAnalysis: null },
+    { ...valid, horoscopeReference: { dateStr: '2028-02-30', hourIndex: 4 } },
+    { ...valid, horoscopeReference: { dateStr: '2028-06-12', hourIndex: 13 } },
     { ...valid, calculation: { ...valid.calculation, algorithm: { value: 'default' } } },
     { ...valid, birth: null },
     {
@@ -240,6 +251,30 @@ test('紫微可信来源缺失、夹带、矛盾或非法时应失败关闭', as
       }),
     /缺少精准出生时间与经度来源/,
   );
+});
+
+test('紫微非本命范围必须保存明确运限参考并据此稳定重建', async () => {
+  assert.throws(
+    () =>
+      createZiweiGenerationSource({
+        input: createTraditionalInput(),
+        timestamp: FIXED_TIMESTAMP,
+        scopes: ['origin', 'yearly'],
+      }),
+    /必须提供明确的运限参考日期与时辰/,
+  );
+
+  const runtime = await calculateZiweiChartForScopes(
+    createTraditionalInput(),
+    ['origin', 'yearly'],
+    undefined,
+    FIXED_HOROSCOPE_REFERENCE,
+  );
+  const rebuilt = await rebuildAuditedZiweiRuntime(runtime);
+
+  assert.deepEqual(runtime.generation.horoscopeReference, FIXED_HOROSCOPE_REFERENCE);
+  assert.equal(runtime.payloadByScope.yearly.active_scope.solar_date, '2028-06-12');
+  assert.equal(runtimeSignature(rebuilt), runtimeSignature(runtime));
 });
 
 test('紫微可信来源应穷举性别、历法、十三时辰与完整排盘口径组合', () => {

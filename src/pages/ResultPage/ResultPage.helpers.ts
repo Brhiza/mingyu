@@ -321,7 +321,9 @@ export function formatZiweiFullScopeText(
     .filter(Boolean);
 
   return lines.length
-    ? ['完整紫微运限资料：', ...lines.map((line, index) => `${index + 1}. ${line}`)].join('\n')
+    ? ['所选时点的紫微运限层级资料：', ...lines.map((line, index) => `${index + 1}. ${line}`)].join(
+        '\n',
+      )
     : '';
 }
 
@@ -337,9 +339,7 @@ export function buildAstrolabeFullScopePromptText(
     .filter(Boolean)
     .map((line, index) => `${index + 1}. ${line}`);
 
-  return lines.length
-    ? ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n')
-    : '';
+  return lines.length ? ['所选日期的星盘层级资料：', ...lines].join('\n') : '';
 }
 
 export function formatGender(value: string) {

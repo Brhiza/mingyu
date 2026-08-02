@@ -52,6 +52,18 @@ export const ziweiSchema = z.object({
     .describe(
       '运限范围：origin=本命（默认）, full=完整输出版, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。默认只返回 origin 范围；full 会返回本命、大限、流年、流月、流日、流时。',
     ),
+  ziweiScopeDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe('运限参考日期，YYYY-MM-DD；选择非本命范围时必填'),
+  ziweiScopeHourIndex: z
+    .number()
+    .int()
+    .min(0)
+    .max(12)
+    .optional()
+    .describe('运限参考时辰索引，0=早子时至12=晚子时；选择非本命范围时必填'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
   birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
@@ -133,6 +145,16 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
   });
 }
 
+function buildMcpZiweiHoroscopeReference(args: z.infer<typeof ziweiSchema>) {
+  if ((args.promptScope ?? 'origin') === 'origin') {
+    return undefined;
+  }
+  if (!args.ziweiScopeDate || args.ziweiScopeHourIndex === undefined) {
+    throw new Error('选择紫微非本命范围时，必须提供运限参考日期与时辰。');
+  }
+  return { dateStr: args.ziweiScopeDate, hourIndex: args.ziweiScopeHourIndex };
+}
+
 export function registerZiweiTool(server: McpServer) {
   server.registerTool(
     'ziwei_calculate',
@@ -149,7 +171,12 @@ export function registerZiweiTool(server: McpServer) {
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const result = await calculateZiweiChartForScopes(input, scopes);
+        const result = await calculateZiweiChartForScopes(
+          input,
+          scopes,
+          undefined,
+          buildMcpZiweiHoroscopeReference(args),
+        );
         return createStructuredToolResult(await buildSerializableZiweiResult(result));
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
@@ -175,7 +202,12 @@ export function registerZiweiTool(server: McpServer) {
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const result = await calculateZiweiChartForScopes(input, scopes);
+        const result = await calculateZiweiChartForScopes(
+          input,
+          scopes,
+          undefined,
+          buildMcpZiweiHoroscopeReference(args),
+        );
         return createStructuredToolResult({
           result: await buildSerializableZiweiResult(result),
           prompt: await buildZiweiPromptForRuntime({

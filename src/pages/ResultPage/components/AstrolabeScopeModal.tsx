@@ -89,7 +89,7 @@ function formatDateByScope(scope: AstrolabeScopeMode, year: number, month: numbe
   if (scope === 'monthly') {
     return `${year}-${String(month).padStart(2, '0')}`;
   }
-  if (scope === 'daily') {
+  if (scope === 'daily' || scope === 'full') {
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
   return '';
@@ -143,7 +143,7 @@ export function AstrolabeScopeModal(props: {
     normalizedDraftDay,
   );
   const draftScopeDetailLabel =
-    draftScope === 'natal' || draftScope === 'full'
+    draftScope === 'natal'
       ? ''
       : draftScope === 'yearly'
         ? `${draftYear}年`
@@ -152,7 +152,7 @@ export function AstrolabeScopeModal(props: {
           : `${draftYear}年${draftMonth}月${normalizedDraftDay}日`;
   const summaryText =
     draftScope === 'full'
-      ? '本命盘与完整流年流月流日行运。'
+      ? `本命盘与 ${draftYear}年${draftMonth}月${normalizedDraftDay}日 对应的流年、流月、流日资料。`
       : draftScope === 'natal'
         ? '仅使用本命信息，不附加任何流年、流月或流日行运。'
         : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位证据。`;
@@ -164,9 +164,8 @@ export function AstrolabeScopeModal(props: {
     { scope: 'monthly', label: '流月' },
     { scope: 'daily', label: '流日' },
   ];
-  const showMonthRow =
-    draftScope === 'yearly' || draftScope === 'monthly' || draftScope === 'daily';
-  const showDayRow = draftScope === 'monthly' || draftScope === 'daily';
+  const showMonthRow = draftScope !== 'natal';
+  const showDayRow = draftScope === 'monthly' || draftScope === 'daily' || draftScope === 'full';
 
   function applyCurrentScope(scope: Exclude<AstrolabeScopeMode, 'natal'>) {
     setDraftScope(scope);
@@ -348,10 +347,7 @@ export function AstrolabeScopeModal(props: {
               type="button"
               className="modal-btn modal-btn-primary"
               onClick={() => {
-                onApply(
-                  draftScope,
-                  draftScope === 'natal' || draftScope === 'full' ? '' : draftScopeDateStr,
-                );
+                onApply(draftScope, draftScope === 'natal' ? '' : draftScopeDateStr);
                 onClose();
               }}
             >

@@ -192,7 +192,7 @@ test('紫微提示词指定年限日期会写入并从地址栏恢复', () => {
   assert.equal(parsed.ziweiScopeDate, '2028-06-01');
 });
 
-test('紫微提示词完整输出版会写入并清空日期', () => {
+test('紫微提示词完整输出版会保留明确参考日期', () => {
   const search = buildResultSearch(defaultInputState, {
     ...defaultPromptState,
     promptSource: 'ziwei',
@@ -201,11 +201,11 @@ test('紫微提示词完整输出版会写入并清空日期', () => {
   });
 
   assert.match(search, /zs=full/);
-  assert.doesNotMatch(search, /zsd=2028-06-01/);
+  assert.match(search, /zsd=2028-06-01/);
 
   const parsed = parsePromptState(new URLSearchParams(search));
   assert.equal(parsed.ziweiScope, 'full');
-  assert.equal(parsed.ziweiScopeDate, '');
+  assert.equal(parsed.ziweiScopeDate, '2028-06-01');
 });
 
 test('紫微提示词范围日期非法时应清空日期参数', () => {
@@ -467,20 +467,20 @@ test('星盘提示词指定年限日期会写入并从地址栏恢复', () => {
   assert.equal(parsed.astrolabeScopeDate, '2028-06');
 });
 
-test('星盘提示词完整输出版会写入并清空日期', () => {
+test('星盘提示词完整输出版会保留明确参考日期', () => {
   const search = buildResultSearch(defaultInputState, {
     ...defaultPromptState,
     promptSource: 'astrolabe',
     astrolabeScope: 'full',
-    astrolabeScopeDate: '2028-06',
+    astrolabeScopeDate: '2028-06-01',
   });
 
   assert.match(search, /as=full/);
-  assert.doesNotMatch(search, /asd=2028-06/);
+  assert.match(search, /asd=2028-06-01/);
 
   const parsed = parsePromptState(new URLSearchParams(search));
   assert.equal(parsed.astrolabeScope, 'full');
-  assert.equal(parsed.astrolabeScopeDate, '');
+  assert.equal(parsed.astrolabeScopeDate, '2028-06-01');
 });
 
 test('七政四余和八宅提示词来源可从地址栏恢复', () => {
