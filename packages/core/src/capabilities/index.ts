@@ -828,6 +828,7 @@ const systems: SystemCapability[] = [
         label: '测量误差',
         type: 'number',
         required: false,
+        description: '使用坐向度数时必填；只有确认无误差时才填写 0。',
       },
       {
         id: 'guaType',
@@ -916,6 +917,7 @@ const systems: SystemCapability[] = [
         label: '测量误差',
         type: 'number',
         required: false,
+        description: '使用直接度数或门向读数时必填；只有确认无误差时才填写 0。',
       },
       {
         id: 'guaType',

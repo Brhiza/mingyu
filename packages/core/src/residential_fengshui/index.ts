@@ -433,6 +433,11 @@ function normalizeResidentialInput(input: unknown): ResidentialFengshuiGeneratio
             }
           : null,
   );
+  if ((hasDegree || hasDoor) && input.measurementUncertaintyDegrees === undefined) {
+    throw new Error(
+      '度数测量来源必须明确提供 measurementUncertaintyDegrees；只有确认无误差时才可填写 0。',
+    );
+  }
   return normalizeResidentialGenerationSource({
     person,
     orientation,

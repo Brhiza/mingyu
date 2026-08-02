@@ -47,7 +47,12 @@ const residentialSchema = z.object({
     .optional()
     .describe('指南针读数的北向基准'),
   magneticDeclinationDegrees: z.number().min(-30).max(30).optional().describe('当地磁偏角'),
-  measurementUncertaintyDegrees: z.number().min(0).max(45).optional().describe('测量可能误差'),
+  measurementUncertaintyDegrees: z
+    .number()
+    .min(0)
+    .max(45)
+    .optional()
+    .describe('使用直接度数或门向读数时必填；确认无误差时填 0'),
   guaType: z
     .enum(['下卦', '替卦'])
     .optional()

@@ -50,7 +50,10 @@ import {
   Wuxing,
 } from './baziTypes';
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
-import { getBirthDateValidationMessage } from '../calendar/date-validation';
+import {
+  getBirthDateValidationMessage,
+  requiresExplicitLeapMonthFlag,
+} from '../calendar/date-validation';
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
 import { analyzeBaziNatalEvidence } from './natalEvidence';
@@ -151,6 +154,14 @@ function normalizeBaziGenerationInput(value: unknown, requireCanonicalSource: bo
     if (requireCanonicalSource && value[key] === undefined) {
       throw new Error(`八字可信来源缺少 ${key}。`);
     }
+  }
+
+  if (
+    value.isLunar === true &&
+    value.isLeapMonth === undefined &&
+    requiresExplicitLeapMonthFlag(value.year as number, value.month as number)
+  ) {
+    throw new Error('该农历年份同时存在普通月和同名闰月，必须明确提供闰月标志。');
   }
 
   const isLunar = value.isLunar === true;
@@ -378,7 +389,7 @@ export class BaziCalculator {
       month,
       day,
       dateType: isLunarEnabled ? 'lunar' : 'solar',
-      isLeapMonth: isLeapMonthEnabled,
+      isLeapMonth,
     });
     if (validationMessage) {
       throw new Error(validationMessage);

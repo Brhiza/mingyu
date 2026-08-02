@@ -1150,7 +1150,8 @@ export function getPublicApiOpenApiDocument(
               type: 'number',
               minimum: 0,
               maximum: 45,
-              description: '方位测量可能误差，用于判断跨山向或跨宅卦边界（八宅）',
+              description:
+                '使用直接度数或门向读数时必填；用于判断跨山向或跨宅卦边界，确认无误差时填 0',
             },
             zodiac: {
               type: 'string',
@@ -3679,7 +3680,8 @@ function readBirthDate(
   const year = readPart(input, 'year', 1900, 2100);
   const month = readPart(input, 'month', 1, 12);
   const dateType = options.dateType ?? readEnum(input, 'dateType', ['solar', 'lunar']);
-  const isLeapMonth = readBoolean(input, 'isLeapMonth', false);
+  const isLeapMonth =
+    input.isLeapMonth === undefined ? undefined : readBoolean(input, 'isLeapMonth', false);
   const day = readPart(input, 'day', 1, dateType === 'lunar' ? 30 : 31);
 
   const validationMessage = getBirthDateValidationMessage({

@@ -93,6 +93,7 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
     gender: 'male',
     doorToInteriorDegree: 90,
     northReference: 'true',
+    measurementUncertaintyDegrees: 0,
   });
   assert.equal(result.directionMeasurement.sitMountain, '卯');
   assert.equal(result.directionMeasurement.facingMountain, '酉');
@@ -250,6 +251,7 @@ test('八宅磁北读数缺少磁偏角时应拒绝生成伪精确坐向', () =>
         gender: 'male',
         doorToInteriorDegree: 90,
         northReference: 'magnetic',
+        measurementUncertaintyDegrees: 0,
       }),
     /必须提供当地磁偏角/,
   );

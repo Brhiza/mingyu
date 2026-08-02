@@ -100,7 +100,7 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     month: args.month,
     day: args.day,
     dateType: args.dateType,
-    isLeapMonth: args.isLeapMonth ?? false,
+    isLeapMonth: args.isLeapMonth,
   });
   if (!useTrueSolarTime && typeof args.timeIndex !== 'number') {
     throw new Error('请选择出生时辰。');

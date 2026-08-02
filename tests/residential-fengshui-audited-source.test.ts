@@ -81,6 +81,7 @@ test('住宅风水无居住人时也必须按磁偏角校正门向后再排玄�
     doorToInteriorDegree: 0,
     northReference: 'magnetic',
     magneticDeclinationDegrees: 10,
+    measurementUncertaintyDegrees: 0,
     guaType: '下卦',
   });
   assert.equal(orientationOnly.bazhai, null);
@@ -104,6 +105,7 @@ test('住宅风水无居住人时也必须按磁偏角校正门向后再排玄�
     doorToInteriorDegree: 0,
     northReference: 'magnetic',
     magneticDeclinationDegrees: 10,
+    measurementUncertaintyDegrees: 0,
     guaType: '下卦',
   });
   const measurement = (withPerson.bazhai as { directionMeasurement?: { trueNorthDegree: number } })
@@ -143,6 +145,7 @@ test('住宅风水直接真北度数在缺少宅运年份时也应完整形成�
 
 test('住宅风水直接输入应拒绝来源混用、不完整资料、无效附属字段与伪装值', () => {
   const invalidInputs: Array<[unknown, RegExp]> = [
+    [{ year: 2024, facingDegree: 180 }, /必须明确提供 measurementUncertaintyDegrees/],
     [{ year: 2024, sitMountain: '子', sitDegree: 0 }, /山名、直接度数与门向测量.*不能混用/],
     [
       { year: 2024, facingDegree: 180, doorToInteriorDegree: 0 },

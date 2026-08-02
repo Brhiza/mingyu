@@ -447,8 +447,10 @@ function normalizeDoorInput(
   }
   const magneticDeclinationDegrees =
     input.magneticDeclinationDegrees === undefined ? null : input.magneticDeclinationDegrees;
-  const measurementUncertaintyDegrees =
-    input.measurementUncertaintyDegrees === undefined ? 0 : input.measurementUncertaintyDegrees;
+  if (input.measurementUncertaintyDegrees === undefined) {
+    throw new Error('门向度数来源必须明确提供测量误差；只有确认无误差时才可填写 0。');
+  }
+  const measurementUncertaintyDegrees = input.measurementUncertaintyDegrees;
   return normalizeBaZhaiGenerationSource({
     method: 'door-measurement',
     person: normalizePersonInput(input),
@@ -480,13 +482,15 @@ function normalizeTrueNorthDegreeInput(
   if (input.sitDegree === null || input.facingDegree === null) {
     throw new Error('真北坐向排盘输入不能用 null 代替未填写。');
   }
+  if (input.measurementUncertaintyDegrees === undefined) {
+    throw new Error('真北度数来源必须明确提供测量误差；只有确认无误差时才可填写 0。');
+  }
   return normalizeBaZhaiGenerationSource({
     method: 'true-north-degree',
     person: normalizePersonInput(input),
     sitDegree: input.sitDegree === undefined ? null : input.sitDegree,
     facingDegree: input.facingDegree === undefined ? null : input.facingDegree,
-    measurementUncertaintyDegrees:
-      input.measurementUncertaintyDegrees === undefined ? 0 : input.measurementUncertaintyDegrees,
+    measurementUncertaintyDegrees: input.measurementUncertaintyDegrees,
   }) as Extract<BaZhaiGenerationSource, { method: 'true-north-degree' }>;
 }
 
@@ -526,9 +530,12 @@ function nearestMountainBoundaryDistance(degree: number) {
 /** 只处理门向原始读数、北向基准、磁偏角与误差，不需要伪造居住人资料。 */
 export function resolveBaZhaiDoorMeasurement(input: BaZhaiDoorMeasurementInput) {
   assertDoorDegree(input.doorToInteriorDegree);
+  if (input.measurementUncertaintyDegrees === undefined) {
+    throw new Error('门向度数来源必须明确提供测量误差；只有确认无误差时才可填写 0。');
+  }
   const reference = input.northReference ?? 'unspecified';
   const declination = input.magneticDeclinationDegrees;
-  const uncertainty = input.measurementUncertaintyDegrees ?? 0;
+  const uncertainty = input.measurementUncertaintyDegrees;
   if (!['unspecified', 'magnetic', 'true'].includes(reference)) {
     throw new Error('northReference 只能是 unspecified、magnetic 或 true。');
   }

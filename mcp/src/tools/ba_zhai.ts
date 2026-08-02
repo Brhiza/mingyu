@@ -46,7 +46,7 @@ const baZhaiSchema = z.object({
     .min(0)
     .max(45)
     .optional()
-    .describe('测量可能误差，用于判断是否跨越山向或宅卦边界'),
+    .describe('门向度数必填；测量可能误差，用于判断是否跨越山向或宅卦边界，确认无误差时填 0'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 

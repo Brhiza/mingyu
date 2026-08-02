@@ -26,7 +26,7 @@ const xuanKongSchema = z.object({
     .min(0)
     .max(45)
     .optional()
-    .describe('测量误差，用于边界敏感判断'),
+    .describe('使用坐向度数时必填；测量误差用于边界敏感判断，确认无误差时填 0'),
   guaType: z
     .enum(['下卦', '替卦'])
     .optional()

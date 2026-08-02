@@ -421,8 +421,7 @@ function normalizeXuanKongInput(input: unknown): XuanKongGenerationSource {
   if (!hasDegree && input.measurementUncertaintyDegrees !== undefined) {
     throw new Error('measurementUncertaintyDegrees 只能与度数测量来源一起提供。');
   }
-
-  return normalizeXuanKongGenerationSource({
+  const normalized = normalizeXuanKongGenerationSource({
     year: input.year,
     orientation: hasDegree
       ? {
@@ -438,6 +437,12 @@ function normalizeXuanKongInput(input: unknown): XuanKongGenerationSource {
         },
     guaType: input.guaType ?? null,
   });
+  if (hasDegree && input.measurementUncertaintyDegrees === undefined) {
+    throw new Error(
+      '度数测量来源必须明确提供 measurementUncertaintyDegrees；只有确认无误差时才可填写 0。',
+    );
+  }
+  return normalized;
 }
 
 function generationSourceToInput(generation: XuanKongGenerationSource): XuanKongInput {

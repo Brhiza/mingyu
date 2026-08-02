@@ -1,4 +1,7 @@
-import { getBirthDateValidationMessage } from '../calendar/date-validation';
+import {
+  getBirthDateValidationMessage,
+  requiresExplicitLeapMonthFlag,
+} from '../calendar/date-validation';
 import type { ScopeType } from '../types/analysis';
 import type {
   ChartInput,
@@ -328,13 +331,22 @@ export function createZiweiBirthSource(input: ChartInput): ZiweiBirthSource {
   if (typeof input.birthDate !== 'string') throw new Error('出生日期格式需为 YYYY-MM-DD。');
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input.birthDate.trim());
   if (!match) throw new Error('出生日期格式需为 YYYY-MM-DD。');
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (
+    input.dateType === 'lunar' &&
+    input.isLeapMonth === undefined &&
+    requiresExplicitLeapMonthFlag(year, month)
+  ) {
+    throw new Error('该农历年份同时存在普通月和同名闰月，必须明确提供闰月标志。');
+  }
   return normalizeZiweiBirthSource({
     method: 'time-index',
     name: input.name,
     gender: input.gender,
     dateType: input.dateType,
-    year: Number(match[1]),
-    month: Number(match[2]),
+    year,
+    month,
     day: Number(match[3]),
     isLeapMonth: input.isLeapMonth ?? false,
     birthTimeIndex: input.birthTimeIndex,

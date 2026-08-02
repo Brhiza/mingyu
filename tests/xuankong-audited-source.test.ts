@@ -39,7 +39,12 @@ test('玄空应只保存建造年、单一山向来源与显式卦型口径', ()
   });
   assert.deepEqual(rebuildAuditedXuanKongData(degree), degree);
 
-  const pair = generateXuanKong({ year: 2004, sitDegree: 0, facingDegree: 180 });
+  const pair = generateXuanKong({
+    year: 2004,
+    sitDegree: 0,
+    facingDegree: 180,
+    measurementUncertaintyDegrees: 0,
+  });
   assert.deepEqual(pair.generation.orientation, {
     source: 'degree',
     sitDegree: 0,
@@ -75,6 +80,7 @@ test('玄空派生盘面、证据和提示词被污染时应只凭可信来源�
 
 test('玄空直接输入不得混用来源、夹带未知字段或接受伪装值', () => {
   const invalidInputs: Array<[unknown, RegExp]> = [
+    [{ year: 2024, sitDegree: 0 }, /必须明确提供 measurementUncertaintyDegrees/],
     [{ year: 2024, sitMountain: '子', sitDegree: 0 }, /山名与度数测量.*不能混用/],
     [
       { year: 2024, sitMountain: '子', measurementUncertaintyDegrees: 1 },

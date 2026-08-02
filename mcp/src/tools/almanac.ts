@@ -68,7 +68,7 @@ function buildAlmanacParticipants(
       month: item.month,
       day: item.day,
       dateType: item.dateType,
-      isLeapMonth: item.isLeapMonth ?? false,
+      isLeapMonth: item.isLeapMonth,
     });
 
     const timeIndex = readMcpIntegerLikeInRange(item.timeIndex, 'timeIndex', 0, 12);

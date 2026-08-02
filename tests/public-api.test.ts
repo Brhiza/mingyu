@@ -1240,6 +1240,26 @@ test('公开 API 八字农历闰月不存在时应返回参数错误', async () 
   assert.match(body.error.message, /农历日期不存在/);
 });
 
+test('公开 API 农历同名闰月缺少标志时应失败关闭', async () => {
+  for (const path of ['bazi/calculate', 'ziwei/calculate']) {
+    const { response, body } = await callApi(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: '测试',
+        gender: 'male',
+        year: 2023,
+        month: 2,
+        day: 1,
+        timeIndex: 0,
+        dateType: 'lunar',
+      }),
+    });
+    assert.equal(response.status, 400);
+    assert.match(body.error.message, /必须明确提供闰月标志/);
+  }
+});
+
 test('公开 API 八字提示词接口默认返回轻量摘要和提示词', async () => {
   const { response, body } = await callApi('bazi/prompt', {
     method: 'POST',
@@ -6051,10 +6071,18 @@ test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', asy
   const ambiguous = await callApi('metaphysics/xuankong/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ year: 2024, sitDegree: 3.5 }),
+    body: JSON.stringify({ year: 2024, sitDegree: 3.5, measurementUncertaintyDegrees: 0 }),
   });
   assert.equal(ambiguous.response.status, 400);
   assert.match(ambiguous.body.error.message, /3° 至 4\.5°.*异说区间.*guaType/);
+
+  const missingUncertainty = await callApi('metaphysics/xuankong/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2024, sitDegree: 0 }),
+  });
+  assert.equal(missingUncertainty.response.status, 400);
+  assert.match(missingUncertainty.body.error.message, /必须明确提供 measurementUncertaintyDegrees/);
 
   const mixed = await callApi('metaphysics/xuankong/calculate', {
     method: 'POST',
@@ -6067,7 +6095,12 @@ test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', asy
   const mismatchedDegrees = await callApi('metaphysics/xuankong/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ year: 2024, sitDegree: 0, facingDegree: 181 }),
+    body: JSON.stringify({
+      year: 2024,
+      sitDegree: 0,
+      facingDegree: 181,
+      measurementUncertaintyDegrees: 0,
+    }),
   });
   assert.equal(mismatchedDegrees.response.status, 400);
   assert.match(mismatchedDegrees.body.error.message, /严格相差 180°/);
@@ -6175,6 +6208,7 @@ test('公开 API 住宅风水接口返回八宅与玄空分层事实', async () 
       gender: 'male',
       year: 2024,
       doorToInteriorDegree: 0,
+      measurementUncertaintyDegrees: 0,
       responseMode: 'full',
       question: '这套房怎么看？',
     }),
@@ -6222,6 +6256,7 @@ test('公开 API 住宅风水缺建造或起运年时不得静默生成玄空盘
       birthDay: 12,
       gender: 'male',
       doorToInteriorDegree: 0,
+      measurementUncertaintyDegrees: 0,
     }),
   });
 
@@ -6235,7 +6270,7 @@ test('公开 API 住宅风水缺建造或起运年时不得静默生成玄空盘
   const orientationOnly = await callApi('metaphysics/residential/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ doorToInteriorDegree: 0 }),
+    body: JSON.stringify({ doorToInteriorDegree: 0, measurementUncertaintyDegrees: 0 }),
   });
   assert.equal(orientationOnly.response.status, 400);
   assert.equal(orientationOnly.body.ok, false);
@@ -6251,6 +6286,7 @@ test('公开 API 住宅风水应校正磁北门向并拒绝来源混用和不完
       doorToInteriorDegree: 0,
       northReference: 'magnetic',
       magneticDeclinationDegrees: 10,
+      measurementUncertaintyDegrees: 0,
       guaType: '下卦',
     }),
   });

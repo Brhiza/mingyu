@@ -160,18 +160,30 @@ test('玄空飞星拒绝缺年和不相对坐向，并只在无分歧区间自�
     () => generateXuanKong({ year: 2024, sitMountain: '子', facingMountain: '卯' }),
     /坐向必须严格相对/,
   );
-  assert.equal(generateXuanKong({ year: 2024, sitDegree: 0 }).guaType, '下卦');
-  assert.equal(generateXuanKong({ year: 2024, sitDegree: 3 }).guaType, '下卦');
+  assert.equal(
+    generateXuanKong({ year: 2024, sitDegree: 0, measurementUncertaintyDegrees: 0 }).guaType,
+    '下卦',
+  );
+  assert.equal(
+    generateXuanKong({ year: 2024, sitDegree: 3, measurementUncertaintyDegrees: 0 }).guaType,
+    '下卦',
+  );
   assert.throws(
-    () => generateXuanKong({ year: 2024, sitDegree: 3.01 }),
+    () => generateXuanKong({ year: 2024, sitDegree: 3.01, measurementUncertaintyDegrees: 0 }),
     /3° 至 4\.5°.*异说区间.*guaType/,
   );
   assert.throws(
-    () => generateXuanKong({ year: 2024, sitDegree: 4.49 }),
+    () => generateXuanKong({ year: 2024, sitDegree: 4.49, measurementUncertaintyDegrees: 0 }),
     /3° 至 4\.5°.*异说区间.*guaType/,
   );
-  assert.equal(generateXuanKong({ year: 2024, sitDegree: 4.5 }).guaType, '替卦');
-  assert.equal(generateXuanKong({ year: 2024, sitDegree: 7.5 }).guaType, '替卦');
+  assert.equal(
+    generateXuanKong({ year: 2024, sitDegree: 4.5, measurementUncertaintyDegrees: 0 }).guaType,
+    '替卦',
+  );
+  assert.equal(
+    generateXuanKong({ year: 2024, sitDegree: 7.5, measurementUncertaintyDegrees: 0 }).guaType,
+    '替卦',
+  );
   assert.throws(
     () =>
       generateXuanKong({
@@ -182,7 +194,12 @@ test('玄空飞星拒绝缺年和不相对坐向，并只在无分歧区间自�
     /measurementUncertaintyDegrees/,
   );
 
-  const explicit = generateXuanKong({ year: 2024, sitDegree: 7, guaType: '下卦' });
+  const explicit = generateXuanKong({
+    year: 2024,
+    sitDegree: 7,
+    measurementUncertaintyDegrees: 0,
+    guaType: '下卦',
+  });
   assert.equal(explicit.guaType, '下卦');
   assert.equal(explicit.replacementApplied, false);
 });

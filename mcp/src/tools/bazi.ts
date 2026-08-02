@@ -111,7 +111,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     month: args.month,
     day: args.day,
     dateType: args.dateType,
-    isLeapMonth: args.isLeapMonth ?? false,
+    isLeapMonth: args.isLeapMonth,
   });
 
   if (useTrueSolarTime) {

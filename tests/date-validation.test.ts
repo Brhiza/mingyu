@@ -93,6 +93,25 @@ test('出生日期校验应拒绝不存在的农历闰月和小月三十', () =>
       month: 2,
       day: 1,
       dateType: 'lunar',
+    }),
+    '该农历年份同时存在普通月和同名闰月，必须明确提供闰月标志。',
+  );
+  assert.equal(
+    getBirthDateValidationMessage({
+      year: 2023,
+      month: 2,
+      day: 1,
+      dateType: 'lunar',
+      isLeapMonth: false,
+    }),
+    undefined,
+  );
+  assert.equal(
+    getBirthDateValidationMessage({
+      year: 2023,
+      month: 2,
+      day: 1,
+      dateType: 'lunar',
       isLeapMonth: true,
     }),
     undefined,

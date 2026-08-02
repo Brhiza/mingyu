@@ -61,9 +61,14 @@ test('八宅门向应保存完整测量来源并可等价重建候选盘', () =>
   });
   assert.deepEqual(rebuildAuditedBaZhaiData(result), result);
 
+  assert.throws(
+    () => analyzeBaZhaiByDoorDegree({ mingGua: '坎', doorToInteriorDegree: 0 }),
+    /必须明确提供测量误差/,
+  );
   const defaults = analyzeBaZhaiByDoorDegree({
     mingGua: '坎',
     doorToInteriorDegree: 0,
+    measurementUncertaintyDegrees: 0,
   });
   assert.equal(defaults.generation.method, 'door-measurement');
   if (defaults.generation.method !== 'door-measurement') assert.fail('应保存门向测量来源');

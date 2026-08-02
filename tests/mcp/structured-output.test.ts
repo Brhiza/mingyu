@@ -162,12 +162,26 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
       },
     },
   ],
-  ['metaphysics_bazhai', { birthYear: 1990, gender: 'male', doorToInteriorDegree: 0 }],
+  [
+    'metaphysics_bazhai',
+    {
+      birthYear: 1990,
+      gender: 'male',
+      doorToInteriorDegree: 0,
+      measurementUncertaintyDegrees: 0,
+    },
+  ],
   [
     'metaphysics_residential',
-    { birthYear: 1990, gender: 'male', year: 2024, doorToInteriorDegree: 0 },
+    {
+      birthYear: 1990,
+      gender: 'male',
+      year: 2024,
+      doorToInteriorDegree: 0,
+      measurementUncertaintyDegrees: 0,
+    },
   ],
-  ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
+  ['metaphysics_xuankong', { year: 2024, facingDegree: 0, measurementUncertaintyDegrees: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
   [
@@ -334,6 +348,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       gender: 'male',
       year: 2024,
       doorToInteriorDegree: 0,
+      measurementUncertaintyDegrees: 0,
       question: '这套房怎么看？',
     },
     /【住宅风水排盘】[\s\S]*资料与复核提示：[\s\S]*【问题】\n这套房怎么看？/,
@@ -343,6 +358,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     {
       year: 2024,
       facingDegree: 0,
+      measurementUncertaintyDegrees: 0,
       question: '这套宅的飞星怎么看？',
     },
     /【玄空飞星排盘】[\s\S]*【问题】\n这套宅的飞星怎么看？/,
@@ -3053,7 +3069,7 @@ test('MCP 数值范围错误应返回结构化业务错误', async () => {
   });
 });
 
-test('MCP 八字与紫微工具应拒绝不存在的出生日期', async () => {
+test('MCP 八字与紫微工具应拒绝不存在或同名闰月不明确的出生日期', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       [
@@ -3088,9 +3104,26 @@ test('MCP 八字与紫微工具应拒绝不存在的出生日期', async () => {
         /农历日期不存在/,
       ],
       [
+        'bazi_calculate',
+        {
+          gender: 'male',
+          year: 2023,
+          month: 2,
+          day: 1,
+          timeIndex: 0,
+          dateType: 'lunar',
+        },
+        /必须明确提供闰月标志/,
+      ],
+      [
         'ziwei_calculate',
         { gender: 'male', dateType: 'solar', year: '2024', month: '2', day: '31', timeIndex: 0 },
         /日期需在 1-29 之间/,
+      ],
+      [
+        'ziwei_calculate',
+        { gender: 'male', dateType: 'lunar', year: '2023', month: '2', day: '1', timeIndex: 0 },
+        /必须明确提供闰月标志/,
       ],
       [
         'ziwei_prompt',
@@ -3410,11 +3443,20 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
 
     const ambiguous = await client.callTool({
       name: 'metaphysics_xuankong',
-      arguments: { year: 2024, sitDegree: 3.5 },
+      arguments: { year: 2024, sitDegree: 3.5, measurementUncertaintyDegrees: 0 },
     });
     assert.equal(ambiguous.isError, true);
     const errorText = ambiguous.content[0]?.type === 'text' ? ambiguous.content[0].text : '';
     assert.match(errorText, /3° 至 4\.5°.*异说区间.*guaType/);
+
+    const missingUncertainty = await client.callTool({
+      name: 'metaphysics_xuankong',
+      arguments: { year: 2024, sitDegree: 0 },
+    });
+    assert.equal(missingUncertainty.isError, true);
+    const missingUncertaintyText =
+      missingUncertainty.content[0]?.type === 'text' ? missingUncertainty.content[0].text : '';
+    assert.match(missingUncertaintyText, /必须明确提供 measurementUncertaintyDegrees/);
 
     const mixed = await client.callTool({
       name: 'metaphysics_xuankong',
@@ -3435,6 +3477,7 @@ test('MCP 住宅风水应返回可信来源、校正磁北并拒绝来源混用'
         doorToInteriorDegree: 0,
         northReference: 'magnetic',
         magneticDeclinationDegrees: 10,
+        measurementUncertaintyDegrees: 0,
         guaType: '下卦',
       },
     });

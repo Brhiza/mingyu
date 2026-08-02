@@ -247,7 +247,7 @@ function readParticipantBirthInput(item: AlmanacParticipantInput) {
     month,
     day,
     dateType: item.dateType,
-    isLeapMonth: Boolean(item.isLeapMonth),
+    isLeapMonth: item.isLeapMonth,
   });
 
   if (validationMessage) {

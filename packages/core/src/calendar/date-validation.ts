@@ -1,4 +1,4 @@
-import { LunarHour } from 'tyme4ts';
+import { LunarHour, LunarYear } from 'tyme4ts';
 
 const ISO_DATE_TIME_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -91,6 +91,19 @@ export function isValidClockTime(hour: number, minute: number, second: number = 
   );
 }
 
+/** 同一农历年同时存在普通月与同名闰月时，缺少闰月标志会产生两个合法日期。 */
+export function requiresExplicitLeapMonthFlag(year: number, month: number): boolean {
+  return (
+    Number.isInteger(year) &&
+    year >= 1900 &&
+    year <= 2100 &&
+    Number.isInteger(month) &&
+    month >= 1 &&
+    month <= 12 &&
+    LunarYear.fromYear(year).getLeapMonth() === month
+  );
+}
+
 export function getBirthDateValidationMessage(params: {
   year: number;
   month: number;
@@ -114,6 +127,12 @@ export function getBirthDateValidationMessage(params: {
   if (params.dateType === 'lunar') {
     if (!Number.isInteger(params.day) || params.day < 1 || params.day > 30) {
       return '农历日期需在 1-30 之间。';
+    }
+    if (
+      params.isLeapMonth === undefined &&
+      requiresExplicitLeapMonthFlag(params.year, params.month)
+    ) {
+      return '该农历年份同时存在普通月和同名闰月，必须明确提供闰月标志。';
     }
     try {
       LunarHour.fromYmdHms(
