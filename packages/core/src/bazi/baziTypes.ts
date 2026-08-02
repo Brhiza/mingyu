@@ -282,7 +282,8 @@ export interface UsefulGodAnalysis {
 export interface BaziAnalysisResult {
   dayMasterStrength: DayMasterStrengthAnalysis; // 升级为完整对象
   mingGe: PatternAnalysis; // 升级为完整对象
-  usefulGod: UsefulGodAnalysis; // 升级为完整对象
+  /** @deprecated 自动用神规则尚未完成逐条校勘，新结果不再输出。 */
+  usefulGod?: UsefulGodAnalysis;
 }
 
 import { SolarTime } from 'tyme4ts';

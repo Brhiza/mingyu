@@ -71,7 +71,6 @@ export type {
 } from './baziShenSha/index';
 export { matchesRule } from './baziRuleMatcher/index';
 export { determinePattern } from './baziPatternStrategy';
-export { determineUsefulGod } from './baziUsefulGodStrategy';
 export {
   calculateEquationOfTimeMinutes,
   calculateTrueSolarTime,

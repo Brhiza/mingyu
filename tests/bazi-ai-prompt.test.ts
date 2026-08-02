@@ -71,7 +71,10 @@ test('八字合盘提示词应只输出双盘可复算事实并关闭现实解�
   assert.match(prompt.user, /日主关系：/);
   assert.match(prompt.user, /喜忌资料状态：.*自动喜忌规则尚未完成逐条校勘/s);
   assert.doesNotMatch(prompt.user, /喜忌五行对应：/);
-  assert.match(prompt.user, /这些字段只证明位置与固定结构，不证明关系好坏、现实冲突、事件结果、概率或应期/);
+  assert.match(
+    prompt.user,
+    /这些字段只证明位置与固定结构，不证明关系好坏、现实冲突、事件结果、概率或应期/,
+  );
   assert.match(prompt.user, /【任务】\n关系范围：合伙。请核对已列出的双方命盘/);
   assert.match(prompt.user, /不得超出随盘列出的事实与限制，不直接判断现实关系结果或给出行动建议/);
   assert.doesNotMatch(
@@ -86,7 +89,10 @@ test('八字合盘提示词应只输出双盘可复算事实并关闭现实解�
     'career',
     { isCustomQuestion: true },
   );
-  assert.match(customPrompt.user, /这些字段只证明位置与固定结构，不证明关系好坏、现实冲突、事件结果、概率或应期/);
+  assert.match(
+    customPrompt.user,
+    /这些字段只证明位置与固定结构，不证明关系好坏、现实冲突、事件结果、概率或应期/,
+  );
   assert.doesNotMatch(customPrompt.user, /【任务】|【输出要求】/);
 });
 
@@ -126,9 +132,18 @@ test('八字本命提示词应只输出可复算事实并关闭现实解释旁�
   );
 
   assert.match(prompt.user, /【问题】\n请先做整体解读。/);
-  assert.match(prompt.user, /这些字段只证明盘面结构与已计算触发，不证明性格、健康、财富、婚恋、现实事件、概率或应期/);
-  assert.match(prompt.user, /【任务】\n请重点核对事业相关的已列事实与资料缺口；【问题】只限定核对范围。/);
-  assert.match(prompt.user, /不得超出随盘列出的事实与限制，不直接生成性格、健康、财富、婚恋、现实事件、概率、应期或行动建议/);
+  assert.match(
+    prompt.user,
+    /这些字段只证明盘面结构与已计算触发，不证明性格、健康、财富、婚恋、现实事件、概率或应期/,
+  );
+  assert.match(
+    prompt.user,
+    /【任务】\n请重点核对事业相关的已列事实与资料缺口；【问题】只限定核对范围。/,
+  );
+  assert.match(
+    prompt.user,
+    /不得超出随盘列出的事实与限制，不直接生成性格、健康、财富、婚恋、现实事件、概率、应期或行动建议/,
+  );
   assert.doesNotMatch(prompt.user, /若【问题】|按通用.*口径|问题未限定/);
   assert.doesNotMatch(prompt.user, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt.user, /【任务】\n判断命局更适合守成/);
@@ -142,7 +157,10 @@ test('八字本命提示词应只输出可复算事实并关闭现实解释旁�
     '换工作',
     { isCustomQuestion: true },
   );
-  assert.match(customPrompt.user, /这些字段只证明盘面结构与已计算触发，不证明性格、健康、财富、婚恋、现实事件、概率或应期/);
+  assert.match(
+    customPrompt.user,
+    /这些字段只证明盘面结构与已计算触发，不证明性格、健康、财富、婚恋、现实事件、概率或应期/,
+  );
   assert.doesNotMatch(customPrompt.user, /【任务】|【输出要求】/);
 });
 
@@ -665,8 +683,14 @@ test('八字自动取用待定时不应输出旧取用脉络或内部成格强�
     isLeapMonth: false,
     useTrueSolarTime: false,
   });
-  assert.ok(result.analysis.usefulGod.strategyTrace);
-  result.analysis.usefulGod.strategyTrace.push('运势警语:逢金水运反败');
+  assert.equal('usefulGod' in result.analysis, false);
+  result.analysis.usefulGod = {
+    favorable: [],
+    unfavorable: [],
+    useful: '',
+    avoid: '',
+    strategyTrace: ['运势警语:逢金水运反败'],
+  };
 
   const prompt = buildPromptFromConfig(
     '请分析整体命局。',

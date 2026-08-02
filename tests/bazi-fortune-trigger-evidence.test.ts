@@ -228,8 +228,8 @@ test('六十甲子岁运应全部拒绝旧喜忌字段并只保留结构事实',
   const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
   const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
   const natal = createResult();
-  natal.analysis.usefulGod.favorableWuxing = ['木', '火', '土', '金', '水'];
-  natal.analysis.usefulGod.unfavorableWuxing = ['木', '火', '土', '金', '水'];
+  natal.analysis.usefulGod!.favorableWuxing = ['木', '火', '土', '金', '水'];
+  natal.analysis.usefulGod!.unfavorableWuxing = ['木', '火', '土', '金', '水'];
   let checked = 0;
 
   for (let index = 0; index < 60; index += 1) {
@@ -259,8 +259,8 @@ test('同一运柱的运干与运支应分别保留十神和原局关系，不�
   natal.pillars.month = { gan: '壬', zhi: '子', ganZhi: '壬子' };
   natal.pillars.day = { gan: '丙', zhi: '寅', ganZhi: '丙寅' };
   natal.dayMaster = { gan: '丙' } as BaziChartResult['dayMaster'];
-  natal.analysis.usefulGod.favorableWuxing = ['火'];
-  natal.analysis.usefulGod.unfavorableWuxing = ['水'];
+  natal.analysis.usefulGod!.favorableWuxing = ['火'];
+  natal.analysis.usefulGod!.unfavorableWuxing = ['水'];
 
   const result = analyzeFortuneTriggers(natal, [
     { id: 'dayun', type: 'dayun', label: '丙午大运', ganZhi: '丙午' },

@@ -627,7 +627,6 @@ export class BaziCalculator {
           },
         },
         mingGe: { pattern: '未知', isSpecial: false },
-        usefulGod: { favorable: [], unfavorable: [], useful: '', avoid: '' },
       },
     };
   }
@@ -763,9 +762,7 @@ export class BaziCalculator {
       wuxingSeasonStatus: getSeasonStatus(pillars.month.zhi),
       monthCommander,
       seasonInfo,
-      analysis: this.analyzer.analyzeBaziChart(pillars, hiddenStems, monthCommander, {
-        currentJieqi: seasonInfo.currentJieqi,
-      }),
+      analysis: this.analyzer.analyzeBaziChart(pillars, hiddenStems, monthCommander),
     };
   }
 

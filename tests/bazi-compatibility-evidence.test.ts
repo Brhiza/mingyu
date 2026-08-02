@@ -26,8 +26,14 @@ function withPillars(
   const chart = structuredClone(createChart());
   chart.pillars = pillars;
   chart.dayMaster = dayMaster;
-  chart.analysis.usefulGod.favorableWuxing = useful.favorableWuxing;
-  chart.analysis.usefulGod.unfavorableWuxing = useful.unfavorableWuxing;
+  chart.analysis.usefulGod = {
+    favorable: [],
+    unfavorable: [],
+    useful: '',
+    avoid: '',
+    favorableWuxing: useful.favorableWuxing,
+    unfavorableWuxing: useful.unfavorableWuxing,
+  };
   chart.wuxingStrength.present = Object.entries(composition)
     .filter(([, value]) => value > 0)
     .map(([wuxing]) => wuxing);
@@ -268,10 +274,10 @@ test('八字双盘应穷举旧喜忌子集并始终拒绝重新激活覆盖算�
 
   for (const favorable of subsets) {
     for (const unfavorable of subsets) {
-      chart1.analysis.usefulGod.favorableWuxing = favorable;
-      chart1.analysis.usefulGod.unfavorableWuxing = unfavorable;
-      chart2.analysis.usefulGod.favorableWuxing = [...unfavorable].reverse();
-      chart2.analysis.usefulGod.unfavorableWuxing = [...favorable].reverse();
+      chart1.analysis.usefulGod!.favorableWuxing = favorable;
+      chart1.analysis.usefulGod!.unfavorableWuxing = unfavorable;
+      chart2.analysis.usefulGod!.favorableWuxing = [...unfavorable].reverse();
+      chart2.analysis.usefulGod!.unfavorableWuxing = [...favorable].reverse();
       const result = analyzeBaziCompatibility(chart1, chart2);
       assert.equal(result.status, '存在资料缺口');
       assert.equal(result.summaryFact.status, '存在资料缺口');
@@ -316,10 +322,10 @@ test('八字双盘未命中关系或喜忌覆盖时仍应保留可追溯引用',
   };
   chart1.dayMaster = { gan: '甲', element: '木', yinYang: '阳' };
   chart2.dayMaster = { gan: '戊', element: '土', yinYang: '阳' };
-  chart1.analysis.usefulGod.favorableWuxing = [];
-  chart1.analysis.usefulGod.unfavorableWuxing = [];
-  chart2.analysis.usefulGod.favorableWuxing = [];
-  chart2.analysis.usefulGod.unfavorableWuxing = [];
+  chart1.analysis.usefulGod!.favorableWuxing = [];
+  chart1.analysis.usefulGod!.unfavorableWuxing = [];
+  chart2.analysis.usefulGod!.favorableWuxing = [];
+  chart2.analysis.usefulGod!.unfavorableWuxing = [];
 
   const result = analyzeBaziCompatibility(chart1, chart2);
 

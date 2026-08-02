@@ -832,8 +832,7 @@ test('丁火生巳月案例的劫财格应贯穿证据与最终提示词，用�
   assert.equal(result.monthCommander, '庚');
   assert.equal(result.analysis.mingGe.pattern, '劫财格');
   assert.match(result.analysis.mingGe.basis || '', /月令本气为丙/);
-  assert.equal(result.analysis.usefulGod.primaryReason, '取用待定');
-  assert.deepEqual(result.analysis.usefulGod.matchedRules, []);
+  assert.equal('usefulGod' in result.analysis, false);
   assert.ok(result.evidenceAnalysis);
 
   const patternFact = result.evidenceAnalysis.analysisFacts.find((item) => item.type === '格局');

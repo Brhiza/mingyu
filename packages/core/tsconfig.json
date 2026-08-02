@@ -27,6 +27,7 @@
     "src/bazi/baziTherapeuticRules.ts",
     "src/bazi/baziTherapeuticRules/**/*.ts",
     "src/bazi/baziUsefulGodRules.ts",
+    "src/bazi/baziUsefulGodStrategy.ts",
     "src/bazi/baziShenSha/helpers/tenGodAnalysis.ts",
     "src/bazi/usefulGodPlacement.ts",
     "src/divination/algorithms/_shared/**/*.ts",

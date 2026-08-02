@@ -1,4 +1,4 @@
-import { Wuxing, BaziAnalysisResult, SeasonInfo } from './baziTypes';
+import { Wuxing, BaziAnalysisResult } from './baziTypes';
 import type { HiddenStems, Pillars } from './baziTypes';
 import {
   analyzeFormation,
@@ -9,7 +9,6 @@ import {
   analyzeDayMasterStrength,
 } from './baziStrengthAnalyzer';
 import { determinePattern } from './baziPatternStrategy';
-import { determineUsefulGod } from './baziUsefulGodStrategy';
 import { createBaziAnalysisPipeline } from './baziAnalysisPipeline';
 
 export class BaziAnalyzer {
@@ -37,7 +36,6 @@ export class BaziAnalyzer {
       analyzeSeasonalStatus,
       analyzeDayMasterStrength,
       determinePattern,
-      determineUsefulGod,
     });
   }
 
@@ -45,13 +43,11 @@ export class BaziAnalyzer {
     pillars: Pillars,
     hiddenStems: HiddenStems,
     monthCommander?: string,
-    seasonInfo?: Pick<SeasonInfo, 'currentJieqi'>,
   ): BaziAnalysisResult {
     return this.pipeline.run({
       pillars,
       hiddenStems,
       monthCommander,
-      seasonInfo,
     });
   }
 }

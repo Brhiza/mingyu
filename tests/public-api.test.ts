@@ -63,39 +63,6 @@ function assertEvidenceOwnerReferences(evidence: unknown) {
   );
 }
 
-function assertUsefulGodDecisionOutput(usefulGod: unknown) {
-  const data = usefulGod as {
-    strategyTrace?: string[];
-    matchedRules?: Array<Record<string, unknown>>;
-    favorable?: string[];
-    unfavorable?: string[];
-    favorableWuxing?: string[];
-    unfavorableWuxing?: string[];
-    primaryFavorableWuxing?: string;
-    primaryUnfavorableWuxing?: string;
-    useful?: string;
-    avoid?: string;
-    primaryReason?: string;
-  };
-  const realWorldOutcomePattern =
-    /富贵|贫贱|贫寒|贫苦|孤贫|孤苦|科甲|功名|鼎甲|金榜|衣锦|衣禄|显达|发达|荣华|恩荣|廪贡|生员|秀才|仕途|官位|禄位|夭折|寿夭|遭凶|僧道|常人|平人|下流|下品|愚顽|愚懦|奸诈|仁义|劳碌|奔波|漂泊|安乐|聪明|艺术|才略|名臣|一生|荣显|成名|题名|云程|雁塔|衣食|千金|虚名|虚利|名利|显贵|清贵|浊富|略富|家富|困顿|发福|减贵|定主|必主|多主|可期|堪图|可许|极品|之人|之士|之客|之流/;
-
-  assert.deepEqual(data.strategyTrace, [
-    '自动用神规则尚未完成逐条来源、版本与适用边界校勘，底层保留待定',
-  ]);
-  assert.doesNotMatch(data.strategyTrace?.join('\n') || '', realWorldOutcomePattern);
-  assert.equal(data.primaryReason, '取用待定');
-  assert.deepEqual(data.matchedRules, []);
-  assert.deepEqual(data.favorable, []);
-  assert.deepEqual(data.unfavorable, []);
-  assert.deepEqual(data.favorableWuxing, []);
-  assert.deepEqual(data.unfavorableWuxing, []);
-  assert.equal(data.primaryFavorableWuxing, '');
-  assert.equal(data.primaryUnfavorableWuxing, '');
-  assert.equal(data.useful, '');
-  assert.equal(data.avoid, '');
-}
-
 const timeIndexRangeMap: Record<number, string> = {
   0: '00:00~01:00',
   1: '01:00~03:00',
@@ -1028,7 +995,7 @@ test('公开 API 应支持八字排盘', async () => {
     body.data.evidenceAnalysis.summaryFact.warningFactCount,
     body.data.warningFacts.length,
   );
-  assertUsefulGodDecisionOutput(body.data.analysis.usefulGod);
+  assert.equal('usefulGod' in body.data.analysis, false);
   assertEvidenceOwnerReferences(body.data.evidenceAnalysis);
 });
 

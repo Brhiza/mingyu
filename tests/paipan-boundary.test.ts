@@ -43,9 +43,7 @@ test('金标准盘:1994-12-04 03:15 男 佳木斯(真太阳时) → 甲戌 乙�
   // 正常盘不应产生边界预警噪音
   assert.deepEqual(r.warnings, []);
   // 未逐条校勘的自动调候、用神规则必须失败关闭
-  assert.equal(r.analysis.usefulGod.primaryFavorableWuxing, '');
-  assert.equal(r.analysis.usefulGod.primaryReason, '取用待定');
-  assert.deepEqual(r.analysis.usefulGod.matchedRules, []);
+  assert.equal('usefulGod' in r.analysis, false);
 });
 
 test('回归:日支坐印计入帮扶(甲子日,upstream #27)', () => {

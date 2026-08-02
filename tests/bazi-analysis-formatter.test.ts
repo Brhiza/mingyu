@@ -41,7 +41,12 @@ test('八字提示词应忽略旧缓存注入的完整用神与喜忌字段', ()
     isLeapMonth: false,
     useTrueSolarTime: false,
   });
-  Object.assign(result.analysis.usefulGod, {
+  assert.equal('usefulGod' in result.analysis, false);
+  result.analysis.usefulGod = {
+    favorable: [],
+    unfavorable: [],
+    useful: '',
+    avoid: '',
     primaryFavorableWuxing: '火',
     secondaryFavorableWuxing: ['木'],
     favorableWuxing: ['火', '木'],
@@ -54,7 +59,7 @@ test('八字提示词应忽略旧缓存注入的完整用神与喜忌字段', ()
     avoid: '七杀',
     primaryReason: '旧缓存取用结论',
     strategyTrace: ['旧缓存取用脉络'],
-  });
+  };
 
   const text = formatBaziForPrompt(result);
 
