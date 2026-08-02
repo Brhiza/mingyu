@@ -183,6 +183,8 @@ test('大六壬证据应公开起盘口径主版本、异说与底本文字边�
     ),
   );
   assert.ok(fact.textualVariantFields.some((item) => /《大六壬大全》.*大雪/.test(item)));
+  assert.ok(fact.sources.some((source) => source.includes('《六壬神定经》')));
+  assert.ok(fact.textualVariantFields.some((item) => /《六壬神定经》.*不据此替换/.test(item)));
   assert.match(fact.limitation, /异说不得与主版本拼接使用/);
   assert.match(fact.limitation, /整体重排/);
   assert.equal(evidence.summaryFact.foundationConventionFactCount, 1);
@@ -252,6 +254,7 @@ test('大六壬证据应公开四课与九宗门取传主版本、异说和整�
   );
   assert.ok(fact.alternativeVersionFields.some((item) => /《六壬指南》.*直接依孟仲/.test(item)));
   assert.ok(fact.alternativeVersionFields.some((item) => /《大六壬大全》.*择比/.test(item)));
+  assert.ok(fact.sources.some((source) => source.includes('《六壬神定经》')));
   assert.match(fact.limitation, /异说不得与主版本拼接使用/);
   assert.match(fact.limitation, /初传发用到中末传整体重排/);
   assert.equal(evidence.summaryFact.transmissionConventionFactCount, 1);
@@ -854,6 +857,7 @@ test('十二天将旧类象字段不得保留或软化后继续进入提示词',
   );
   assert.ok(tianJiangFacts?.length);
   tianJiangFacts.forEach((fact) => {
+    assert.ok(fact.sources.some((source) => source.includes('《六壬神定经》')));
     assert.match(
       fact.originalText,
       /^[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥][金木水火土][阴阳]$/,

@@ -71,7 +71,7 @@ export function buildShenShaFacts(
     '只定位神煞所在干支或方位',
     '须按目标类型核对是否入课、入传、临干支或涉及对应方位',
     '不得单项定吉凶',
-    '当前只登记一百六十六项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记一百七十项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表现存六壬古籍神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -455,7 +455,15 @@ export function buildShenShaFacts(
         extraSources: [
           '《六壬大全》卷一“十二地支神煞”支德表',
           '《六壬粹言》“德庆课”支前五位为支德',
+          '《六壬神定经》上卷“释德第十五”十二支德表',
         ],
+      },
+      {
+        name: '支鬼',
+        targets: ['辰', '卯', '申', '酉', '寅', '亥', '子', '卯', '午', '巳', '寅', '未'],
+        rule: '按日支取支鬼：子辰、丑卯、寅申、卯酉、辰寅、巳亥、午子、未卯、申午、酉巳、戌寅、亥未',
+        source: '《六壬神定经》上卷“释鬼第十八”支鬼表',
+        extraLimitations: ['只登记支鬼固定位置，不自动判断官司、鬼祟、灾祸或现实吉凶'],
       },
       {
         name: '支仪',
@@ -564,7 +572,7 @@ export function buildShenShaFacts(
         basis: '日支',
         input: dayBranch,
         rule: table.rule,
-        source,
+        source: 'source' in table ? table.source : source,
         extraSources: 'extraSources' in table ? [...table.extraSources] : [],
         extraLimitations: 'extraLimitations' in table ? [...table.extraLimitations] : [],
       });
@@ -610,6 +618,68 @@ export function buildShenShaFacts(
       input: monthBranch,
       rule: '按逐月神煞表取劫煞：寅午戌月亥、亥卯未月申、申子辰月巳、巳酉丑月寅',
       source: '《六壬大全》卷一“逐月神煞”表',
+      extraSources: ['《六壬神定经》上卷“释杀第十九”劫杀表'],
+    });
+  }
+
+  const zaiShaMap: Record<string, string> = {
+    子: '午',
+    丑: '卯',
+    寅: '子',
+    卯: '酉',
+    辰: '午',
+    巳: '卯',
+    午: '子',
+    未: '酉',
+    申: '午',
+    酉: '卯',
+    戌: '子',
+    亥: '酉',
+  };
+  const zaiSha = zaiShaMap[monthBranch];
+  if (zaiSha) {
+    addFact({
+      name: '灾煞',
+      target: zaiSha,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按《六壬神定经》三合局灾杀表取灾煞：寅午戌月子、亥卯未月酉、申子辰月午、巳酉丑月卯',
+      source: '《六壬神定经》上卷“释杀第十九”灾杀表',
+      extraLimitations: ['只登记月建所起灾煞，不自动判断灾祸、疾病、诉讼或现实结果'],
+    });
+  }
+
+  const yueShaMap: Record<string, string> = {
+    子: '未',
+    丑: '辰',
+    寅: '丑',
+    卯: '戌',
+    辰: '未',
+    巳: '辰',
+    午: '丑',
+    未: '戌',
+    申: '未',
+    酉: '辰',
+    戌: '丑',
+    亥: '戌',
+  };
+  const yueSha = yueShaMap[monthBranch];
+  if (yueSha) {
+    addFact({
+      name: '月煞',
+      target: yueSha,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按《六壬神定经》“年月三杀”表取月煞：寅午戌月丑、亥卯未月戌、申子辰月未、巳酉丑月辰',
+      source: '《六壬神定经》上卷“释杀第十九”天杀及年月三杀表',
+      extraLimitations: [
+        '原书又称天杀；本项统一登记为月煞，不重复生成同位天煞',
+        '本项只按月建登记，不与按年支定位的岁煞合并，也不自动判断修造、灾祸或现实结果',
+      ],
     });
   }
 
@@ -2139,6 +2209,7 @@ export function buildShenShaFacts(
       input: dayStem,
       rule: '甲己寅、乙庚申、丙辛巳、丁壬亥、戊癸巳',
       source: '《六壬大全》卷一“十天干神煞”日德表',
+      extraSources: ['《六壬神定经》上卷“释德第十五”十干德表'],
     });
   }
 
@@ -2165,6 +2236,36 @@ export function buildShenShaFacts(
       input: dayStem,
       rule: '甲寅、乙卯、丙戊巳、丁己午、庚申、辛酉、壬亥、癸子',
       source: '《六壬大全》卷一“十天干神煞”日禄表',
+    });
+  }
+
+  const ganGuiMap: Record<string, string> = {
+    甲: '申',
+    乙: '酉',
+    丙: '子',
+    丁: '亥',
+    戊: '寅',
+    己: '卯',
+    庚: '午',
+    辛: '巳',
+    壬: '戌',
+    癸: '未',
+  };
+  const ganGui = ganGuiMap[dayStem];
+  if (ganGui) {
+    addFact({
+      name: '干鬼',
+      target: ganGui,
+      targetType: '地支',
+      category: '十天干神煞',
+      basis: '日干',
+      input: dayStem,
+      rule: '按日干阴阳对应取干鬼：甲申、乙酉、丙子、丁亥、戊寅、己卯、庚午、辛巳、壬戌、癸未',
+      source: '《六壬神定经》上卷“释鬼第十八”干鬼表',
+      extraLimitations: [
+        '干鬼是按日干阴阳对应的单一固定支，不覆盖或替代日官所列克日干五行的完整候选集合',
+        '只登记固定位置，不自动判断官司、鬼祟、灾祸或现实吉凶',
+      ],
     });
   }
 

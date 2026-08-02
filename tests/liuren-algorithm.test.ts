@@ -42,6 +42,7 @@ import {
   isBranchKe,
   TIANJIANG,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/plate.ts';
+import { buildShenShaFacts } from '../packages/core/src/divination/algorithms/liuren/helpers/shensha.ts';
 
 const DIZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
 const TIANGAN = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
@@ -4026,9 +4027,61 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百六十六项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百七十项可复算神煞规则')),
     ),
   );
+});
+
+test('六壬神定经灾煞、月煞、干鬼与支鬼应按完整干支表复算', () => {
+  const disasterByMonth = ['午', '卯', '子', '酉', '午', '卯', '子', '酉', '午', '卯', '子', '酉'];
+  const monthShaByMonth = ['未', '辰', '丑', '戌', '未', '辰', '丑', '戌', '未', '辰', '丑', '戌'];
+  const ganGuiByStem = ['申', '酉', '子', '亥', '寅', '卯', '午', '巳', '戌', '未'];
+  const zhiGuiByBranch = ['辰', '卯', '申', '酉', '寅', '亥', '子', '卯', '午', '巳', '寅', '未'];
+
+  DIZHI.forEach((monthBranch, index) => {
+    const facts = new Map(
+      buildShenShaFacts('甲', '子', monthBranch, '子', '甲').map((item) => [item.name, item]),
+    );
+    for (const [name, target] of [
+      ['灾煞', disasterByMonth[index]],
+      ['月煞', monthShaByMonth[index]],
+    ] as const) {
+      const fact = facts.get(name);
+      assert.equal(fact?.target, target, `${monthBranch}月${name}`);
+      assert.deepEqual(
+        [fact?.basis, fact?.input, fact?.category, fact?.targetType],
+        ['月建', monthBranch, '逐月神煞', '地支'],
+      );
+      assert.ok(fact?.sources.some((source) => source.includes('《六壬神定经》')));
+    }
+    assert.equal(facts.has('天煞'), false, `${monthBranch}月不得重复生成同位天煞`);
+  });
+
+  TIANGAN.forEach((dayStem, index) => {
+    const fact = buildShenShaFacts('甲', '子', '子', '子', dayStem).find(
+      (item) => item.name === '干鬼',
+    );
+    assert.equal(fact?.target, ganGuiByStem[index], `${dayStem}日干鬼`);
+    assert.deepEqual(
+      [fact?.basis, fact?.input, fact?.category, fact?.targetType],
+      ['日干', dayStem, '十天干神煞', '地支'],
+    );
+    assert.ok(fact?.sources.some((source) => source.includes('《六壬神定经》')));
+    assert.ok(fact?.limitations.some((item) => item.includes('不覆盖或替代日官')));
+  });
+
+  DIZHI.forEach((dayBranch, index) => {
+    const fact = buildShenShaFacts('甲', '子', '子', dayBranch, '甲').find(
+      (item) => item.name === '支鬼',
+    );
+    assert.equal(fact?.target, zhiGuiByBranch[index], `${dayBranch}日支鬼`);
+    assert.deepEqual(
+      [fact?.basis, fact?.input, fact?.category, fact?.targetType],
+      ['日支', dayBranch, '十二地支神煞', '地支'],
+    );
+    assert.ok(fact?.sources.some((source) => source.includes('《六壬神定经》')));
+    assert.ok(fact?.limitations.some((item) => item.includes('不自动判断')));
+  });
 });
 
 test('大六壬十六项岁神煞应按年支完整循环，并与同位别名及其他层级分开', () => {
@@ -6478,8 +6531,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      166 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
-      `${result.ganzhi.day}应有一百六十六项固定神煞及条件性天合、天赦、天转、地转`,
+      170 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百七十项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(

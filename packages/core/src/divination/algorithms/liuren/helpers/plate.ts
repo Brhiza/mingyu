@@ -60,7 +60,8 @@ export type TianJiangName = (typeof TIANJIANG)[number];
 
 /**
  * 十二天将配干支基础表。
- * 配干支由《六壬大全》卷二、《六壬神将释》与《六壬粹言》卷一互证；
+ * 配干支由《六壬神定经》下卷“释天官第二十九”、《六壬大全》卷二、
+ * 《六壬神将释》与《六壬粹言》卷一互证；
  * 五行、阴阳只按所配干支复算。未闭合适用条件的现实类象不保存在基础表中。
  */
 export const TIANJIANG_ATTRIBUTES: Record<
@@ -146,6 +147,7 @@ export const TIANJIANG_ATTRIBUTES: Record<
   },
 };
 
+/** 《六壬神定经》下卷“释天乙第二十八”与后世通行昼夜贵人表互证。 */
 export const GUIREN_BRANCH_BY_STEM: Record<string, { day: string; night: string }> = {
   甲: { day: '丑', night: '未' },
   戊: { day: '丑', night: '未' },
