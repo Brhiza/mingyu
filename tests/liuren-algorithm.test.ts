@@ -2545,6 +2545,21 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '子',
     ],
   };
+  const newestAuditedMonthFactNames = ['皇恩'];
+  const newestAuditedMonthTargets: Record<string, readonly string[]> = {
+    寅: ['未'],
+    卯: ['酉'],
+    辰: ['亥'],
+    巳: ['丑'],
+    午: ['卯'],
+    未: ['巳'],
+    申: ['未'],
+    酉: ['酉'],
+    戌: ['亥'],
+    亥: ['丑'],
+    子: ['卯'],
+    丑: ['巳'],
+  };
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
     const result = generateLiuren(new Date(date));
@@ -2558,6 +2573,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
         ...currentAuditedMonthFactNames,
         ...nextAuditedMonthFactNames,
         ...finalAuditedMonthFactNames,
+        ...newestAuditedMonthFactNames,
       ].map((name) => facts.get(name)?.target),
       [
         ...expectedTargets,
@@ -2568,6 +2584,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
         ...currentAuditedMonthTargets[monthBranch],
         ...nextAuditedMonthTargets[monthBranch],
         ...finalAuditedMonthTargets[monthBranch],
+        ...newestAuditedMonthTargets[monthBranch],
       ],
       `${monthBranch}月逐月神煞表`,
     );
@@ -2583,6 +2600,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       ...currentAuditedMonthFactNames,
       ...nextAuditedMonthFactNames,
       ...finalAuditedMonthFactNames,
+      ...newestAuditedMonthFactNames,
     ]) {
       const fact = facts.get(name);
       if (name === '天合' && expectedTianHe === undefined) {
@@ -2596,7 +2614,6 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     }
     for (const deferredName of [
       '地解',
-      '皇恩',
       '大德',
       '天贼',
       '相负',
@@ -2907,6 +2924,20 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     /悬索（索煞）起点不同.+不合并为“绳索”/,
   );
   assert.match(boundaryFacts.get('长绳')?.limitations.join('；') ?? '', /末传、发用、盗神、玄武/);
+  assert.match(boundaryFacts.get('皇恩')?.rule ?? '', /正月从未起顺行六阴支/);
+  assert.match(boundaryFacts.get('皇恩')?.sources.join('；') ?? '', /六壬大全.+六壬存验.+六壬粹言/);
+  assert.match(
+    boundaryFacts.get('皇恩')?.limitations.join('；') ?? '',
+    /六十二朋丑.+另两处完整表均作巳.+采用巳/,
+  );
+  assert.match(
+    boundaryFacts.get('皇恩')?.limitations.join('；') ?? '',
+    /六壬秘本.+主表冲突.+不合并或择项拼表/,
+  );
+  assert.match(
+    boundaryFacts.get('皇恩')?.limitations.join('；') ?? '',
+    /不因单项出现自动判断赦免、脱罪、升迁、封赠/,
+  );
   assert.match(boundaryFacts.get('悬索')?.rule ?? '', /卯子酉午三轮/);
   assert.match(
     boundaryFacts.get('悬索')?.sources.join('；') ?? '',
@@ -3466,8 +3497,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      163 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
-      `${result.ganzhi.day}应有一百六十三项固定神煞及条件性天合、天赦、天转、地转`,
+      164 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百六十四项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
