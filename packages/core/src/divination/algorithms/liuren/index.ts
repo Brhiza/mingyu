@@ -227,6 +227,8 @@ export function generateLiuren(customDate?: Date): LiurenData {
     Record<
       string,
       {
+        stem: string;
+        branch: string;
         wuxing: string;
         yinYang: string;
         category: string;
@@ -237,6 +239,8 @@ export function generateLiuren(customDate?: Date): LiurenData {
     const attr = TIANJIANG_ATTRIBUTES[t.god as TianJiangName];
     if (attr) {
       acc[t.god] = {
+        stem: attr.stem,
+        branch: attr.branch,
         wuxing: attr.wuxing,
         yinYang: attr.yinYang,
         category: attr.category,

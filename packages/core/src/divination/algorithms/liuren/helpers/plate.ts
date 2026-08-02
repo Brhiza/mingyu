@@ -81,6 +81,8 @@ export type TianJiangName = (typeof TIANJIANG)[number];
 export const TIANJIANG_ATTRIBUTES: Record<
   TianJiangName,
   {
+    stem: string; // 天将所配天干
+    branch: string; // 天将所配地支
     wuxing: string; // 天将五行
     yinYang: '阳' | '阴';
     category: string; // 人事分类
@@ -88,72 +90,96 @@ export const TIANJIANG_ATTRIBUTES: Record<
   }
 > = {
   贵人: {
+    stem: '己',
+    branch: '丑',
     wuxing: '土',
     yinYang: '阴',
     category: '贵人/官长',
     description: '神将之主，传统类神为贵人、官长',
   },
   螣蛇: {
+    stem: '丁',
+    branch: '巳',
     wuxing: '火',
     yinYang: '阴',
     category: '惊恐/怪异',
     description: '传统类象为惊恐、怪异',
   },
   朱雀: {
+    stem: '丙',
+    branch: '午',
     wuxing: '火',
     yinYang: '阳',
     category: '文书/口舌',
     description: '传统类象为文书、信息、口舌',
   },
   六合: {
+    stem: '乙',
+    branch: '卯',
     wuxing: '木',
     yinYang: '阴',
     category: '和合/婚姻',
     description: '传统类象为婚姻、喜庆、交易、媒妁',
   },
   勾陈: {
+    stem: '戊',
+    branch: '辰',
     wuxing: '土',
     yinYang: '阳',
     category: '斗讼/勾留',
     description: '传统类象为斗讼、勾连、迟滞',
   },
   青龙: {
+    stem: '甲',
+    branch: '寅',
     wuxing: '木',
     yinYang: '阳',
     category: '财帛/喜庆',
     description: '传统类象为财帛、文字、官府、升迁、喜庆',
   },
   天空: {
+    stem: '戊',
+    branch: '戌',
     wuxing: '土',
     yinYang: '阳',
     category: '虚空/欺诈',
     description: '传统类象为虚空、欺诈',
   },
   白虎: {
+    stem: '庚',
+    branch: '申',
     wuxing: '金',
     yinYang: '阳',
     category: '疾病/道路',
     description: '传统类象为疾病、孝服、道路、刑伤',
   },
   太常: {
+    stem: '己',
+    branch: '未',
     wuxing: '土',
     yinYang: '阴',
     category: '宴乐/印绶',
     description: '传统类象为文章、印绶、衣服、酒食、宴乐',
   },
   玄武: {
+    stem: '癸',
+    branch: '亥',
     wuxing: '水',
     yinYang: '阴',
     category: '盗贼/遗亡',
     description: '传统类象为盗贼、遗亡、隐秘',
   },
   太阴: {
+    stem: '辛',
+    branch: '酉',
     wuxing: '金',
     yinYang: '阴',
     category: '阴私/暗助',
     description: '传统类象为阴私、暗中相助',
   },
   天后: {
+    stem: '壬',
+    branch: '子',
     wuxing: '水',
     yinYang: '阳',
     category: '妇人/恩泽',

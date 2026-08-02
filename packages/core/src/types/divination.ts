@@ -863,6 +863,8 @@ export interface LiurenData {
   tianJiangProps?: Record<
     string,
     {
+      stem: string;
+      branch: string;
       wuxing: string;
       yinYang: string;
       category: string;

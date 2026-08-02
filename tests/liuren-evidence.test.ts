@@ -609,7 +609,11 @@ test('十二天将类象解释不得软化后继续进入提示词', () => {
   );
   assert.ok(tianJiangFacts?.length);
   tianJiangFacts.forEach((fact) => {
-    assert.match(fact.originalText, /^[金木水火土][阴阳]$/);
+    assert.match(
+      fact.originalText,
+      /^[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥][金木水火土][阴阳]$/,
+    );
+    assert.match(fact.promptText, /配干.+配支.+五行.+阴阳/);
     assert.match(fact.promptText, /类象解释未进入提示词/);
     assert.doesNotMatch(
       `${fact.originalText}${fact.promptText}`,
@@ -619,13 +623,51 @@ test('十二天将类象解释不得软化后继续进入提示词', () => {
 });
 
 test('十二天将不得混入十二月将的五味、主数、地形和身体属性', () => {
+  const expectedStemBranches = {
+    贵人: '己丑',
+    螣蛇: '丁巳',
+    朱雀: '丙午',
+    六合: '乙卯',
+    勾陈: '戊辰',
+    青龙: '甲寅',
+    天空: '戊戌',
+    白虎: '庚申',
+    太常: '己未',
+    玄武: '癸亥',
+    太阴: '辛酉',
+    天后: '壬子',
+  };
+
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.entries(TIANJIANG_ATTRIBUTES).map(([name, item]) => [
+        name,
+        `${item.stem}${item.branch}`,
+      ]),
+    ),
+    expectedStemBranches,
+  );
   Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
-    assert.deepEqual(Object.keys(item).sort(), ['category', 'description', 'wuxing', 'yinYang']);
+    assert.deepEqual(Object.keys(item).sort(), [
+      'branch',
+      'category',
+      'description',
+      'stem',
+      'wuxing',
+      'yinYang',
+    ]);
   });
 
   const data = generateLiuren(fixedDate);
   Object.values(data.tianJiangProps ?? {}).forEach((item) => {
-    assert.deepEqual(Object.keys(item).sort(), ['category', 'description', 'wuxing', 'yinYang']);
+    assert.deepEqual(Object.keys(item).sort(), [
+      'branch',
+      'category',
+      'description',
+      'stem',
+      'wuxing',
+      'yinYang',
+    ]);
   });
 });
 

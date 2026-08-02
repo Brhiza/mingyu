@@ -449,14 +449,18 @@ function buildTraditionalFacts(
         const props = data.tianJiangProps?.[transmission.god];
         if (!props) return facts;
         const previous = facts.get(transmission.god);
-        const originalText = `${props.wuxing}${props.yinYang}`;
+        const originalText = `${props.stem}${props.branch}${props.wuxing}${props.yinYang}`;
         facts.set(transmission.god, {
           key: `tianjiang:${transmission.god}`,
           kind: '天将属性',
           name: transmission.god,
           originalText,
-          promptText: `${props.wuxing}${props.yinYang}；类象解释未进入提示词，只保留三传天将落点与属性事实`,
-          sources: ['《六壬大全》卷二《天将总论》《十二将释》'],
+          promptText: `配干${props.stem}、配支${props.branch}、五行${props.wuxing}、阴阳${props.yinYang}；类象解释未进入提示词，只保留三传天将落点与基础属性事实`,
+          sources: [
+            '《六壬大全》卷二《天将总论》《十二将释》',
+            '《六壬神将释》十二天将配干支',
+            '《六壬粹言》卷一十二天将配干支',
+          ],
           stages: [...(previous?.stages ?? []), transmission.stage],
           branches: [...(previous?.branches ?? []), transmission.branch],
           limitation: TRADITIONAL_FACT_LIMITATION,
@@ -571,10 +575,7 @@ function buildLessonEvidence(
       status: '中性',
       value: normalized.dayStemRelation!,
       promptText: normalized.dayStemRelation!,
-      sources: [
-        '《壬归》四课日上神与日干生克口径',
-        '《六壬经纬》干支三传等处取印盗鬼财劫口径',
-      ],
+      sources: ['《壬归》四课日上神与日干生克口径', '《六壬经纬》干支三传等处取印盗鬼财劫口径'],
       limitation: RELATION_FACT_LIMITATION,
     },
     ...(xunKong.includes(lesson.upper)
