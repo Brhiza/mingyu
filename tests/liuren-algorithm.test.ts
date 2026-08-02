@@ -592,8 +592,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定三十条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 30);
+test('大六壬课体登记表应固定三十一条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 31);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -641,6 +641,145 @@ test('大六壬课体登记表应固定三十条来源、稳定键和结构条�
   assert.doesNotMatch(
     `${jinJian.matchedConditions.join('；')}；${tuiJian.matchedConditions.join('；')}`,
     /吉|凶|疾病|婚姻|功名|现实事件/,
+  );
+});
+
+test('大六壬天狱课应按囚死墓发用与天罡临六壬日本穷举严格命中', () => {
+  const branchElement: Readonly<Record<string, string>> = {
+    子: '水',
+    丑: '土',
+    寅: '木',
+    卯: '木',
+    辰: '土',
+    巳: '火',
+    午: '火',
+    未: '土',
+    申: '金',
+    酉: '金',
+    戌: '土',
+    亥: '水',
+  };
+  const seasonState: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+    木: { 木: '旺', 火: '相', 土: '死', 金: '囚', 水: '休' },
+    火: { 木: '休', 火: '旺', 土: '相', 金: '死', 水: '囚' },
+    土: { 木: '囚', 火: '休', 土: '旺', 金: '相', 水: '死' },
+    金: { 木: '死', 火: '囚', 土: '休', 金: '旺', 水: '相' },
+    水: { 木: '相', 火: '死', 土: '囚', 金: '休', 水: '旺' },
+  };
+  const dayOrigin: Readonly<Record<string, string>> = {
+    甲: '亥',
+    乙: '亥',
+    丙: '寅',
+    丁: '寅',
+    戊: '申',
+    己: '申',
+    庚: '巳',
+    辛: '巳',
+    壬: '申',
+    癸: '申',
+  };
+  const tombBranch: Readonly<Record<string, string>> = {
+    甲: '未',
+    乙: '未',
+    丙: '戌',
+    丁: '戌',
+    戊: '辰',
+    己: '辰',
+    庚: '丑',
+    辛: '丑',
+    壬: '辰',
+    癸: '辰',
+  };
+  let profileCount = 0;
+  let expectedMatchCount = 0;
+  let actualMatchCount = 0;
+
+  for (const dayStem of TIANGAN) {
+    for (const monthBranch of DIZHI) {
+      for (const initial of DIZHI) {
+        for (const heavenlyDragonGroundBranch of DIZHI) {
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '子', '丑'],
+            dayStem,
+            monthBranch,
+            heavenlyDragonGroundBranch,
+          }).find((candidate) => candidate.name === '天狱课');
+          const state = seasonState[branchElement[monthBranch]][branchElement[initial]];
+          const expected =
+            (state === '囚' || state === '死' || initial === tombBranch[dayStem]) &&
+            heavenlyDragonGroundBranch === dayOrigin[dayStem];
+          assert.equal(Boolean(fact), expected);
+          if (expected) expectedMatchCount += 1;
+          if (fact) actualMatchCount += 1;
+          profileCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 17_280);
+  assert.equal(actualMatchCount, 640);
+  assert.equal(actualMatchCount, expectedMatchCount);
+
+  const classicalCase = getLiurenGuaTiFacts({
+    transmissionBranches: ['未', '子', '丑'],
+    dayStem: '乙',
+    monthBranch: '寅',
+    heavenlyDragonGroundBranch: '亥',
+  }).find((candidate) => candidate.name === '天狱课');
+  assert.ok(classicalCase);
+  assert.equal(classicalCase.stableKey, 'liuren:verified-guati:tian-yu');
+  assert.deepEqual(classicalCase.matchedConditions, ['初传未于月建寅为死', '天罡辰临日干乙日本亥']);
+  assert.match(classicalCase.sourceUrl, /oldid=854578/);
+  assert.doesNotMatch(
+    classicalCase.matchedConditions.join('；'),
+    /刑狱|疾病|死亡|出行|吉|凶|现实事件/,
+  );
+
+  const tombOnly = getLiurenGuaTiFacts({
+    transmissionBranches: ['未', '子', '丑'],
+    dayStem: '乙',
+    monthBranch: '辰',
+    heavenlyDragonGroundBranch: '亥',
+  }).find((candidate) => candidate.name === '天狱课');
+  assert.deepEqual(tombOnly?.matchedConditions, ['初传未为日干乙五行墓位', '天罡辰临日干乙日本亥']);
+
+  const generated = generateLiuren(new Date('2024-01-03T22:30:00+08:00'));
+  const generatedFact = generated.guaTiFacts.find((candidate) => candidate.name === '天狱课');
+  assert.deepEqual(generatedFact?.matchedConditions, [
+    '初传辰于月建子为囚',
+    '天罡辰临日干丙日本寅',
+  ]);
+  assert.equal(
+    generated.evidenceAnalysis?.traditionalFacts.find(
+      (candidate) => candidate.key === 'liuren:verified-guati:tian-yu',
+    )?.promptText,
+    '盘面命中“天狱课”：初传辰于月建子为囚；天罡辰临日干丙日本寅；只登记课体结构，不据此单断现实吉凶',
+  );
+
+  for (const context of [
+    {
+      transmissionBranches: ['未', '子', '丑'],
+      monthBranch: '寅',
+      heavenlyDragonGroundBranch: '亥',
+    },
+    { transmissionBranches: ['未', '子', '丑'], dayStem: '乙', heavenlyDragonGroundBranch: '亥' },
+    { transmissionBranches: ['未', '子', '丑'], dayStem: '乙', monthBranch: '寅' },
+  ]) {
+    assert.equal(
+      getLiurenGuaTiFacts(context).some((candidate) => candidate.name === '天狱课'),
+      false,
+    );
+  }
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['未', '子', '丑'],
+        dayStem: '乙',
+        monthBranch: '寅',
+        heavenlyDragonGroundBranch: '非法',
+      }),
+    /天罡所临地盘必须是有效地支/,
   );
 });
 
@@ -1483,6 +1622,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
                 getNoblemanBranch(dayStem, dayNight),
               ).under,
               greatAuspiciousGroundBranch: getPlateItemByBranch(heavenlyPlate, '丑').under,
+              heavenlyDragonGroundBranch: getPlateItemByBranch(heavenlyPlate, '辰').under,
               fourLessons: lessons,
             });
             for (const fact of guaTiFacts) {

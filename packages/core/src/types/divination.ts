@@ -785,6 +785,7 @@ export interface LiurenGuaTiFact {
     | '大吉临仲'
     | '三传天马'
     | '三传天将'
+    | '发用囚死墓'
     | '三传顺逆';
   branches: string[];
   matchedConditions: string[];

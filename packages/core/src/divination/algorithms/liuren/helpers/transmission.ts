@@ -8,6 +8,8 @@ import type {
 } from '../../../../types/divination';
 import {
   getXunHead,
+  getBranchWuxing,
+  getSeasonState,
   isValidGanZhi,
   LIUCHONG_MAP,
   LIUHAI_MAP,
@@ -170,6 +172,30 @@ const JIU_CHOU_DAYS = new Set([
   '壬子',
   '壬午',
 ]);
+const LIUREN_DAY_ORIGIN_BY_STEM: Readonly<Record<string, string>> = {
+  甲: '亥',
+  乙: '亥',
+  丙: '寅',
+  丁: '寅',
+  戊: '申',
+  己: '申',
+  庚: '巳',
+  辛: '巳',
+  壬: '申',
+  癸: '申',
+};
+const ELEMENT_TOMB_BY_STEM: Readonly<Record<string, string>> = {
+  甲: '未',
+  乙: '未',
+  丙: '戌',
+  丁: '戌',
+  戊: '辰',
+  己: '辰',
+  庚: '丑',
+  辛: '丑',
+  壬: '辰',
+  癸: '辰',
+};
 
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
@@ -185,6 +211,7 @@ export interface LiurenGuaTiContext {
   noblemanBranch?: string;
   noblemanGroundBranch?: string;
   greatAuspiciousGroundBranch?: string;
+  heavenlyDragonGroundBranch?: string;
   fourLessons?: Array<Pick<LiurenLesson, 'upper' | 'lower'>>;
 }
 
@@ -251,6 +278,7 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
     [context.noblemanBranch, '贵人所乘上神'],
     [context.noblemanGroundBranch, '贵人所临地盘'],
     [context.greatAuspiciousGroundBranch, '大吉所临地盘'],
+    [context.heavenlyDragonGroundBranch, '天罡所临地盘'],
   ];
   for (const [value, label] of optionalBranches) {
     if (value !== undefined) assertLiurenGuaTiBranch(value, label);
@@ -758,6 +786,37 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             matchedConditions: [
               `初传${initial}乘六合，末传${context.transmissionBranches[2]}乘天后`,
             ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'tian-yu',
+    name: '天狱课',
+    category: '发用囚死墓',
+    sourceTitle: '《六壬指南》卷一、卷二；《六壬大全》卷九·天狱课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬指南》卷一：“凡用神囚死更天罡加日本之上曰天狱卦。”卷二：“用死囚而斗加日本名曰天狱。”《六壬大全》：“凡课囚死墓神发用，斗系日本，为天狱卦。”“日本者，日干长生位也。”“亥为甲乙之本，寅为丙丁之本，申为戊己壬癸之本，巳为庚辛之本。”',
+    detect(context) {
+      if (!context.dayStem || !context.monthBranch || !context.heavenlyDragonGroundBranch) {
+        return null;
+      }
+      const initial = context.transmissionBranches[0];
+      const seasonState = getSeasonState(getBranchWuxing(initial), context.monthBranch);
+      const tombBranch = ELEMENT_TOMB_BY_STEM[context.dayStem];
+      const dayOrigin = LIUREN_DAY_ORIGIN_BY_STEM[context.dayStem];
+      if (!tombBranch || !dayOrigin) return null;
+      const initialCondition =
+        seasonState === '囚' || seasonState === '死'
+          ? `初传${initial}于月建${context.monthBranch}为${seasonState}`
+          : initial === tombBranch
+            ? `初传${initial}为日干${context.dayStem}五行墓位`
+            : null;
+      return initialCondition && context.heavenlyDragonGroundBranch === dayOrigin
+        ? {
+            branches: [initial, dayOrigin],
+            matchedConditions: [initialCondition, `天罡辰临日干${context.dayStem}日本${dayOrigin}`],
           }
         : null;
     },
