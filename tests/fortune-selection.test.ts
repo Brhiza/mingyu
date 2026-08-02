@@ -122,6 +122,38 @@ test('运限选择器对明确给出的越界运、年、月、日应失败关�
   );
 });
 
+test('运限选择器不再用当前时间、首项或较粗层级静默补齐缺失选择', () => {
+  const result = createMockResult();
+
+  assert.throws(
+    () => normalizeFortuneSelection(result, { scope: 'dayun' }),
+    /必须明确提供 cycleIndex.*year/,
+  );
+  assert.throws(
+    () => normalizeFortuneSelection(result, { scope: 'year', cycleIndex: 0 }),
+    /必须明确提供 year/,
+  );
+  assert.throws(
+    () => normalizeFortuneSelection(result, { scope: 'month', year: 2008 }),
+    /必须明确提供 month/,
+  );
+  assert.throws(
+    () => normalizeFortuneSelection(result, { scope: 'day', year: 2008, month: 1 }),
+    /必须明确提供 day/,
+  );
+  assert.deepEqual(normalizeFortuneSelection(result, { scope: 'dayun', year: 2008 }), {
+    scope: 'dayun',
+    cycleIndex: 0,
+  });
+
+  const missingCycles = structuredClone(result);
+  missingCycles.luckInfo.cycles = [];
+  assert.throws(
+    () => normalizeFortuneSelection(missingCycles, { scope: 'dayun', cycleIndex: 0 }),
+    /缺少可选择的大运资料/,
+  );
+});
+
 test('选择大运时会附带该大运下的全部流年', () => {
   const result = createMockResult();
   const context = buildFortuneSelectionContext(result, {
@@ -168,6 +200,22 @@ test('选择大运时会附带该大运下的全部流年', () => {
     ),
   );
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【八字岁运触发结构化证据】/);
+});
+
+test('未检出固定干支关系时只陈述缺口，不引导补造原局喜忌', () => {
+  const result = createMockResult();
+  result.pillars = {
+    year: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+    month: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+    day: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+    hour: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+  };
+  const context = buildFortuneSelectionContext(result, { scope: 'dayun', cycleIndex: 0 });
+
+  assert.ok(context);
+  const promptText = context.promptPayload.summaryLines.join('\n');
+  assert.match(promptText, /未检出所列固定干支关系；不据此推断喜忌、吉凶、事件或应期/);
+  assert.doesNotMatch(promptText, /重点看十神生克、原局喜忌/);
 });
 
 test('真实食神格排盘应把逐字取运事实贯穿到岁运提示资料', () => {

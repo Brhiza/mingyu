@@ -98,10 +98,16 @@ const baziPromptSchema = baziSchema.extend({
     .describe(
       '八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日',
     ),
-  baziFortuneCycleIndex: z.number().optional().describe('大运序号，从 0 开始'),
-  baziFortuneYear: z.number().optional().describe('指定流年年份'),
-  baziFortuneMonth: z.number().optional().describe('指定流月序号'),
-  baziFortuneDay: z.number().optional().describe('指定流日序号'),
+  baziFortuneCycleIndex: z
+    .number()
+    .optional()
+    .describe('大运序号，从 0 开始；选择大运时必须与年份至少提供一项'),
+  baziFortuneYear: z
+    .number()
+    .optional()
+    .describe('指定年份；选择流年、流月或流日时必填，也可用于定位大运'),
+  baziFortuneMonth: z.number().optional().describe('指定流月序号；选择流月或流日时必填'),
+  baziFortuneDay: z.number().optional().describe('指定流日序号；选择流日时必填'),
 });
 
 export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
@@ -207,9 +213,10 @@ export function registerBaziTool(server: McpServer) {
           cycleIndex:
             args.baziFortuneScope &&
             args.baziFortuneScope !== 'natal' &&
-            args.baziFortuneScope !== 'full'
+            args.baziFortuneScope !== 'full' &&
+            args.baziFortuneCycleIndex !== undefined
               ? readMcpIntegerLikeInRange(
-                  args.baziFortuneCycleIndex ?? 0,
+                  args.baziFortuneCycleIndex,
                   'baziFortuneCycleIndex',
                   0,
                   99,

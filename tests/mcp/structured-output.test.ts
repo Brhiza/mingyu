@@ -1335,10 +1335,30 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
         promptTopic: 'career',
         baziFortuneScope: 'year',
         baziFortuneCycleIndex: 1,
+        baziFortuneYear: 2000,
       },
     });
 
     assert.equal(response.isError, undefined);
+    const missingYear = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: {
+        gender: 'male',
+        year: 1990,
+        month: 5,
+        day: 15,
+        timeIndex: 1,
+        dateType: 'solar',
+        question: '核对这一年的事实。',
+        baziFortuneScope: 'year',
+        baziFortuneCycleIndex: 1,
+      },
+    });
+    assert.equal(missingYear.isError, true);
+    const missingYearText =
+      missingYear.content[0]?.type === 'text' ? missingYear.content[0].text : '';
+    assert.match(missingYearText, /必须明确提供 year/);
+
     const result = response.structuredContent?.result as {
       fortuneSelection?: {
         promptPayload?: {
@@ -1421,7 +1441,7 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '成格变格边界'));
     assertEvidenceOwnerReferences(triggerEvidence);
     const prompt = String(response.structuredContent?.prompt);
-    assert.match(prompt, /【分析对象】[\s\S]*分析对象：1997年流年/);
+    assert.match(prompt, /【分析对象】[\s\S]*分析对象：2000年流年/);
     assert.match(prompt, /【岁运重点】[\s\S]*主要触发：/);
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
   });
@@ -2657,6 +2677,12 @@ test('MCP 灵签应只输出签号与单样本轨迹并失败关闭掷筊规则'
       confirmed.structuredContent?.result.evidenceAnalysis.ritualFact.status,
       '缺少记录',
     );
+    const ritualConfirmationStep =
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.find(
+        (item: Record<string, unknown>) => item.key === 'ssgw:calculation:ritual-confirmation',
+      );
+    assert.equal(ritualConfirmationStep.result.confirmed, null);
+    assert.equal(ritualConfirmationStep.result.rejected, null);
     assert.deepEqual(confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts, []);
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.sampleCount, 1);
     assert.deepEqual(

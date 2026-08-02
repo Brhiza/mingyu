@@ -142,7 +142,7 @@ function buildGanZhiTriggerSummary(
     );
   }
 
-  return `${scopeLabel}触发：${triggers.length ? triggers.join('；') : '未见明显合冲刑害破，重点看十神生克、原局喜忌与岁运层级。'}`;
+  return `${scopeLabel}触发：${triggers.length ? triggers.join('；') : '未检出所列固定干支关系；不据此推断喜忌、吉凶、事件或应期。'}`;
 }
 
 function buildFortuneEvidenceLines(params: {
@@ -189,7 +189,7 @@ function buildFortuneEvidenceLines(params: {
 
   if (params.triggerSummary) {
     items.push({
-      level: params.triggerSummary.includes('未见明显') ? '反证' : '主证',
+      level: params.triggerSummary.includes('未检出所列固定干支关系') ? '反证' : '主证',
       title: '刑冲合害触发',
       detail: params.triggerSummary,
       source: '所选干支与原局四柱比对',
@@ -238,49 +238,55 @@ export function normalizeFortuneSelection(
   result: BaziChartResult,
   selection: BaziFortuneSelectionValue,
 ): BaziFortuneSelectionValue {
-  if (selection.scope === 'natal' || selection.scope === 'full' || !result.luckInfo.cycles.length) {
-    if (selection.scope === 'full' && result.luckInfo.cycles.length) {
-      return { scope: 'full' };
-    }
-    return { scope: 'natal' };
+  if (selection.scope === 'natal' || selection.scope === 'full') {
+    return { scope: selection.scope };
+  }
+
+  if (!result.luckInfo.cycles.length) {
+    throw new Error('当前八字命盘缺少可选择的大运资料。');
+  }
+
+  if (selection.scope !== 'dayun' && typeof selection.year !== 'number') {
+    throw new Error('选择流年、流月或流日时必须明确提供 year。');
+  }
+  if (
+    (selection.scope === 'month' || selection.scope === 'day') &&
+    typeof selection.month !== 'number'
+  ) {
+    throw new Error('选择流月或流日时必须明确提供 month。');
+  }
+  if (selection.scope === 'day' && typeof selection.day !== 'number') {
+    throw new Error('选择流日时必须明确提供 day。');
   }
 
   const cycleIndex = resolveCycleIndex(result, selection);
   const cycle = result.luckInfo.cycles[cycleIndex];
 
   if (!cycle) {
-    return { scope: 'natal' };
+    throw new Error('所选大运不存在。');
+  }
+
+  if (selection.scope === 'dayun') {
+    if (typeof selection.year === 'number') {
+      resolveSelectedYear(cycle, selection);
+    }
+    return {
+      scope: 'dayun',
+      cycleIndex,
+    };
   }
 
   const year = resolveSelectedYear(cycle, selection);
-
-  if (selection.scope === 'dayun') {
-    return {
-      scope: 'dayun',
-      cycleIndex,
-      year,
-    };
-  }
-
-  if (!year) {
-    return {
-      scope: 'dayun',
-      cycleIndex,
-    };
-  }
-
-  const month = resolveSelectedMonth(selection);
 
   if (selection.scope === 'year') {
     return {
       scope: 'year',
       cycleIndex,
       year,
-      month,
     };
   }
 
-  const day = resolveSelectedDay(year, month, selection);
+  const month = resolveSelectedMonth(selection);
 
   if (selection.scope === 'month') {
     return {
@@ -288,9 +294,10 @@ export function normalizeFortuneSelection(
       cycleIndex,
       year,
       month,
-      day,
     };
   }
+
+  const day = resolveSelectedDay(year, month, selection);
 
   return {
     scope: 'day',
@@ -310,9 +317,12 @@ export function buildFortuneSelectionContext(
     return null;
   }
 
-  const cycle = result.luckInfo.cycles[normalized.cycleIndex ?? -1];
+  if (typeof normalized.cycleIndex !== 'number') {
+    throw new Error('规范化岁运选择缺少 cycleIndex。');
+  }
+  const cycle = result.luckInfo.cycles[normalized.cycleIndex];
   if (!cycle) {
-    return null;
+    throw new Error('规范化岁运选择对应的大运不存在。');
   }
 
   const cycleLabel = formatCycleLabel(cycle);
@@ -324,7 +334,7 @@ export function buildFortuneSelectionContext(
   const dayInfo = dayInfoList.find((item) => item.day === normalized.day);
 
   const baseContext = {
-    cycleIndex: normalized.cycleIndex ?? 0,
+    cycleIndex: normalized.cycleIndex,
     cycleLabel,
     cycleGanZhi: cycle.ganZhi,
     cycleStartYear: cycle.year,
@@ -394,7 +404,7 @@ export function buildFortuneSelectionContext(
   }
 
   if (!yearItem) {
-    return null;
+    throw new Error('规范化岁运选择对应的流年不存在。');
   }
 
   if (normalized.scope === 'year') {
@@ -465,7 +475,7 @@ export function buildFortuneSelectionContext(
   }
 
   if (!monthInfo || !normalized.month) {
-    return null;
+    throw new Error('规范化岁运选择对应的流月不存在。');
   }
 
   if (normalized.scope === 'month') {
@@ -580,7 +590,7 @@ export function buildFortuneSelectionContext(
   }
 
   if (!dayInfo || !normalized.day) {
-    return null;
+    throw new Error('规范化岁运选择对应的流日不存在。');
   }
 
   const actualDate = dayInfo.solarDate;

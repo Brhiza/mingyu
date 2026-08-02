@@ -1244,20 +1244,24 @@ export function getPublicApiOpenApiDocument(
                 baziFortuneCycleIndex: {
                   type: 'integer',
                   minimum: 0,
-                  description: '大运序号，从 0 开始；选择大运、流年、流月或流日时可传。',
+                  description:
+                    '大运序号，从 0 开始；选择大运时必须与年份至少提供一项，其他岁运层级可传并会与年份交叉核验。',
                 },
-                baziFortuneYear: { type: 'integer', description: '指定流年年份。' },
+                baziFortuneYear: {
+                  type: 'integer',
+                  description: '指定年份；选择流年、流月或流日时必填，也可用于定位大运。',
+                },
                 baziFortuneMonth: {
                   type: 'integer',
                   minimum: 1,
                   maximum: 12,
-                  description: '指定流月序号。',
+                  description: '指定流月序号；选择流月或流日时必填。',
                 },
                 baziFortuneDay: {
                   type: 'integer',
                   minimum: 1,
                   maximum: 31,
-                  description: '指定流日序号。',
+                  description: '指定流日序号；选择流日时必填。',
                 },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
@@ -2311,9 +2315,9 @@ function buildBaziFortuneSelectionFromInput(input: JsonRecord): BaziFortuneSelec
         ? undefined
         : readOptionalInteger('baziFortuneCycleIndex', 0, 99),
     year:
-      scope === 'year' || scope === 'month' || scope === 'day'
-        ? readOptionalInteger('baziFortuneYear', 1900, 2200)
-        : undefined,
+      scope === 'natal' || scope === 'full'
+        ? undefined
+        : readOptionalInteger('baziFortuneYear', 1900, 2200),
     month:
       scope === 'month' || scope === 'day'
         ? readOptionalInteger('baziFortuneMonth', 1, 12)
@@ -2325,7 +2329,16 @@ function buildBaziFortuneSelectionFromInput(input: JsonRecord): BaziFortuneSelec
 function buildBaziPrompt(input: JsonRecord) {
   const result = calculateBazi(input);
   const fortuneSelection = buildBaziFortuneSelectionFromInput(input);
-  const fortuneSelectionContext = buildFortuneSelectionContext(result, fortuneSelection);
+  let fortuneSelectionContext: ReturnType<typeof buildFortuneSelectionContext>;
+  try {
+    fortuneSelectionContext = buildFortuneSelectionContext(result, fortuneSelection);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '八字岁运选择无效。',
+    );
+  }
   const schoolValue = input.school;
   const school =
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)

@@ -169,6 +169,7 @@ test('八字提示词写入年限选择后应保留岁运资料并省略控制�
   const fortuneSelection = {
     scope: 'year',
     cycleIndex: 0,
+    year: result.luckInfo.cycles[0]!.years[0]!.year,
   } as const;
 
   const prompt = buildPromptFromConfig(

@@ -129,13 +129,18 @@ test('八字旧结果缺少可信来源或来源非法时应失败关闭', () =>
 
 test('八字岁运审核入口只接受原始选择并拒绝派生上下文', () => {
   const result = createChart();
-  const context = buildFortuneSelectionContext(result, { scope: 'year', cycleIndex: 0 });
-  assert.ok(context);
-
-  assert.deepEqual(normalizeBaziFortuneSelectionInput({ scope: 'year', cycleIndex: 0 }), {
+  const selectedYear = result.luckInfo.cycles[0]!.years[0]!.year;
+  const context = buildFortuneSelectionContext(result, {
     scope: 'year',
     cycleIndex: 0,
+    year: selectedYear,
   });
+  assert.ok(context);
+
+  assert.deepEqual(
+    normalizeBaziFortuneSelectionInput({ scope: 'year', cycleIndex: 0, year: selectedYear }),
+    { scope: 'year', cycleIndex: 0, year: selectedYear },
+  );
   assert.throws(
     () =>
       buildFortuneSelectionContext(

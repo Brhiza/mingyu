@@ -173,7 +173,7 @@ export interface SsgwEvidenceCalculationStep {
     | '证据汇总';
   status: '已计算' | '资料不足';
   inputs: Record<string, string | number | boolean | string[]>;
-  result: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[] | null>;
   dependsOnStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -517,8 +517,8 @@ function buildCalculationSteps(args: {
       inputs: { throwCount: args.ritualThrowFacts.length },
       result: {
         ritualStatus: args.ritualFact.status,
-        confirmed: args.ritualFact.confirmed ?? false,
-        rejected: args.ritualFact.rejected ?? false,
+        confirmed: args.ritualFact.confirmed,
+        rejected: args.ritualFact.rejected,
       },
       dependsOnStepKeys: ['ssgw:calculation:ritual-throws'],
       promptText: args.ritualFact.promptText,

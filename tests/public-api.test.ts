@@ -1586,10 +1586,29 @@ test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据
       promptTopic: 'career',
       baziFortuneScope: 'year',
       baziFortuneCycleIndex: 1,
+      baziFortuneYear: 2000,
     }),
   });
 
   assert.equal(response.status, 200);
+  const missingYear = await callApi('bazi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 1990,
+      month: 5,
+      day: 15,
+      timeIndex: 1,
+      dateType: 'solar',
+      question: '核对这一年的事实。',
+      baziFortuneScope: 'year',
+      baziFortuneCycleIndex: 1,
+    }),
+  });
+  assert.equal(missingYear.response.status, 400);
+  assert.match(missingYear.body.error.message, /必须明确提供 year/);
+
   const triggerEvidence = body.data.resultSummary.fortuneSelection.promptPayload.triggerEvidence;
   assert.ok(triggerEvidence.layers.some((item: { type: string }) => item.type === 'dayun'));
   assert.ok(triggerEvidence.layers.some((item: { type: string }) => item.type === 'year'));
@@ -2829,6 +2848,11 @@ test('公开 API 灵签应只返回签号与单样本轨迹并失败关闭掷筊
   assert.equal(confirmed.body.data.evidenceAnalysis.interpretationFacts.length, 0);
   assert.equal(confirmed.body.data.evidenceAnalysis.coverageFact.status, '存在缺口');
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.status, '缺少记录');
+  const ritualConfirmationStep = confirmed.body.data.evidenceAnalysis.calculationSteps.find(
+    (item: Record<string, unknown>) => item.key === 'ssgw:calculation:ritual-confirmation',
+  );
+  assert.equal(ritualConfirmationStep.result.confirmed, null);
+  assert.equal(ritualConfirmationStep.result.rejected, null);
   assert.deepEqual(confirmed.body.data.evidenceAnalysis.ritualFact.throws, []);
   assert.deepEqual(confirmed.body.data.evidenceAnalysis.ritualThrowFacts, []);
   assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.status, '可重放');
