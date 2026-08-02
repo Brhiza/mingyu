@@ -3103,9 +3103,6 @@ function buildPromptApiResult(params: {
 }
 
 function buildCompactBaziResult(result: BaziChartResult) {
-  const currentYear = new Date().getFullYear();
-  const currentLiunian = result.liunian?.find((item) => item.year === currentYear);
-
   return {
     generation: result.generation,
     gender: result.gender,
@@ -3149,7 +3146,6 @@ function buildCompactBaziResult(result: BaziChartResult) {
         endSolarTime: cycle.endSolarTime,
       })),
     },
-    currentLiunian,
     warnings: result.warnings,
     warningFacts: result.warningFacts,
     warningSummaryFact: result.warningSummaryFact,

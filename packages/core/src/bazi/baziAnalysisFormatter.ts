@@ -1,16 +1,11 @@
 import type { BaziChartResult } from './baziTypes';
-import { getCurrentTimeDescription } from './calendarTool';
-import { getLuckCycleForDate } from './luckTiming';
 import { WUXING } from '../wuxing';
 
 interface FormatBaziOptions {
   includeRules?: boolean;
   includeShensha?: boolean;
   includeWuxing?: boolean;
-  includeCurrentTiming?: boolean;
   includeSpecialPillars?: boolean;
-  includeLuckOverview?: boolean;
-  includeCurrentLiunian?: boolean;
 }
 
 export type PromptChartScene =
@@ -60,71 +55,6 @@ function formatKinshipSection(baziResult: BaziChartResult): string {
   return lines.join('\n');
 }
 
-function formatPromptLuckOverview(baziResult: BaziChartResult): string {
-  if (!baziResult.luckInfo?.cycles?.length) {
-    return '';
-  }
-
-  const cycles = baziResult.luckInfo.cycles;
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentLuck = getLuckCycleForDate(cycles, now);
-
-  const lines = [`起运: ${baziResult.luckInfo.startInfo}`];
-  const cycleOverview = cycles.map((cycle, index) => {
-    const years = cycle.years ?? [];
-    const firstYear = years[0]?.year;
-    const lastYear = years[years.length - 1]?.year;
-    const yearRange = firstYear && lastYear ? `，含${firstYear}-${lastYear}年流年` : '';
-    const cycleLabel = cycle.isXiaoyun ? `${cycle.ganZhi}童运` : `${cycle.ganZhi}${cycle.type}`;
-    return `${index + 1}. ${cycleLabel}: ${cycle.year}年起，约${cycle.age}岁交运${yearRange}`;
-  });
-
-  if (cycleOverview.length) {
-    lines.push('大运总览:');
-    lines.push(...cycleOverview);
-  }
-
-  if (!currentLuck) {
-    lines.push('当前阶段: 未匹配到当前大运，只能参考大运总览作长期阶段背景。');
-    return lines.join('\n');
-  }
-
-  if (currentLuck.isXiaoyun) {
-    lines.push('当前阶段: 未起运（行童运）');
-    const preview = currentLuck.years
-      .slice(0, 3)
-      .map((year) => `${year.year}年${year.ganZhi}`)
-      .join(' -> ');
-    if (preview) {
-      lines.push(`近期流年: ${preview}`);
-    }
-    return lines.join('\n');
-  }
-
-  const currentIndex = cycles.findIndex(
-    (cycle) => cycle.ganZhi === currentLuck.ganZhi && cycle.age === currentLuck.age,
-  );
-  const relatedCycles = [
-    currentIndex > 0
-      ? `前运: ${cycles[currentIndex - 1].ganZhi}(${cycles[currentIndex - 1].age}岁)`
-      : '',
-    `当前大运: ${currentLuck.ganZhi}(${currentLuck.age}岁)`,
-    currentIndex >= 0 && currentIndex < cycles.length - 1
-      ? `后运: ${cycles[currentIndex + 1].ganZhi}(${cycles[currentIndex + 1].age}岁)`
-      : '',
-  ].filter(Boolean);
-
-  lines.push(...relatedCycles);
-  const nearYears = currentLuck.years
-    .filter((year) => Math.abs(year.year - currentYear) <= 2)
-    .map((year) => `${year.year}年${year.ganZhi}(${year.age}岁，${year.tenGod}/${year.tenGodZhi})`);
-  if (nearYears.length) {
-    lines.push(`近年流年: ${nearYears.join(' -> ')}`);
-  }
-  return lines.join('\n');
-}
-
 function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions): string {
   if (!baziResult) return '无法获取八字数据。';
 
@@ -143,10 +73,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   const {
     includeShensha = true,
     includeWuxing = true,
-    includeCurrentTiming = true,
     includeSpecialPillars = true,
-    includeLuckOverview = true,
-    includeCurrentLiunian = true,
   } = options;
 
   let result = '【命盘】\n';
@@ -256,39 +183,6 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += '\n';
   }
 
-  if (includeLuckOverview && baziResult.luckInfo?.cycles) {
-    result += '\n【大运】\n';
-    result += `${formatPromptLuckOverview(baziResult)}\n`;
-  }
-
-  if (includeCurrentLiunian && baziResult.liunian?.length) {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    let currentLuckStr = '';
-    let currentLiunian = baziResult.liunian.find((year) => year.year === currentYear);
-
-    if (baziResult.luckInfo?.cycles) {
-      const currentLuck = getLuckCycleForDate(baziResult.luckInfo.cycles, now);
-      if (currentLuck?.isXiaoyun) {
-        currentLuckStr = ' | 【当前大运】 未起运(行童运)';
-        currentLiunian =
-          currentLuck.years.find((year) => year.year === currentYear) || currentLiunian;
-      } else if (currentLuck) {
-        currentLuckStr = ` | 【当前大运】 ${currentLuck.ganZhi}运`;
-        currentLiunian =
-          currentLuck.years.find((year) => year.year === currentYear) || currentLiunian;
-      }
-    }
-
-    if (currentLiunian) {
-      result += `\n【当前流年】 ${currentYear}年 ${currentLiunian.ganZhi}${currentLuckStr}\n`;
-      result += `十神: ${currentLiunian.tenGod}/${currentLiunian.tenGodZhi}\n`;
-    }
-  }
-
-  if (includeCurrentTiming) {
-    result += `\n${getCurrentTimeDescription()}`;
-  }
   return result;
 }
 
@@ -298,10 +192,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeRules: true,
       includeShensha: false,
       includeWuxing: true,
-      includeCurrentTiming: false,
       includeSpecialPillars: true,
-      includeLuckOverview: true,
-      includeCurrentLiunian: true,
     };
   }
 
@@ -310,10 +201,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeRules: true,
       includeShensha: false,
       includeWuxing: true,
-      includeCurrentTiming: false,
       includeSpecialPillars: true,
-      includeLuckOverview: true,
-      includeCurrentLiunian: true,
     };
   }
 
@@ -322,10 +210,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeRules: true,
       includeShensha: false,
       includeWuxing: false,
-      includeCurrentTiming: false,
       includeSpecialPillars: false,
-      includeLuckOverview: false,
-      includeCurrentLiunian: false,
     };
   }
 
@@ -334,10 +219,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeRules: true,
       includeShensha: false,
       includeWuxing: false,
-      includeCurrentTiming: false,
       includeSpecialPillars: false,
-      includeLuckOverview: false,
-      includeCurrentLiunian: false,
     };
   }
 
@@ -345,10 +227,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
     includeRules: true,
     includeShensha: false,
     includeWuxing: true,
-    includeCurrentTiming: false,
     includeSpecialPillars: true,
-    includeLuckOverview: true,
-    includeCurrentLiunian: true,
   };
 }
 

@@ -275,7 +275,7 @@ test('八字流月提示词应突出所选日期范围并保留必要触发资�
   assert.doesNotMatch(fortuneSection, /结构化证据|来源：|解释边界|断事层级限制/);
 });
 
-test('八字提示词未选择年限时输出本命资料且不输出岁运重点', () => {
+test('八字提示词未选择年限时只输出本命资料', () => {
   const result = createBaziResult();
 
   const prompt = buildPromptFromConfig(
@@ -294,32 +294,17 @@ test('八字提示词未选择年限时输出本命资料且不输出岁运重�
 
   assert.match(prompt.user, /【分析对象】/);
   assert.match(prompt.user, /分析对象：本命盘/);
-  assert.match(prompt.user, /大运总览:/);
-  assert.match(prompt.user, /\d+\. .+：?\d{4}年起，约\d+岁交运，含\d{4}-\d{4}年流年/);
-  assert.match(prompt.user, /当前大运:|当前阶段:/);
-  assert.match(prompt.user, /近年流年:/);
+  assert.doesNotMatch(prompt.user, /【大运】|大运总览:|当前大运:|当前阶段:|近年流年:/);
   assert.doesNotMatch(prompt.user, /【岁运重点】/);
   assert.doesNotMatch(prompt.user, /【解读方法】/);
   assert.doesNotMatch(prompt.user, /资料说明：|本次未指定|不得自行指定/);
 });
 
-test('八字大运总览应保留上游提供的全部运程', () => {
+test('八字基础排盘资料不应按系统时间自动选择岁运', () => {
   const result = createBaziResult();
-  const cycles = result.luckInfo?.cycles;
-  assert.ok(cycles?.length);
-  const lastCycle = cycles.at(-1);
-  assert.ok(lastCycle);
-  cycles.push({
-    ...structuredClone(lastCycle),
-    ganZhi: '甲午',
-    year: lastCycle.year + 10,
-    age: lastCycle.age + 10,
-  });
-
   const chartText = formatBaziForPromptCore(result);
 
-  assert.ok(cycles.length > 13);
-  assert.match(chartText, /14\. 甲午大运:/);
+  assert.doesNotMatch(chartText, /【大运】|大运总览:|当前大运:|【当前流年】|近年流年:/);
 });
 
 test('合盘提示词不应误要求使用单盘核心用神句式', () => {

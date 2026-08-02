@@ -1142,6 +1142,7 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
   assert.equal(body.ok, true);
   assert.equal(body.data.gender, 'female');
   assert.equal(body.data.liunian, undefined);
+  assert.equal(body.data.currentLiunian, undefined);
   assert.ok(body.data.luckInfo.cycles.length > 0);
   assert.equal(body.data.luckInfo.cycles[0].years, undefined);
   assert.equal(body.data.evidenceAnalysis.key, 'bazi:natal:evidence');
@@ -1281,12 +1282,14 @@ test('公开 API 八字提示词接口默认返回轻量摘要和提示词', asy
   assert.equal(body.data.result, undefined);
   assert.equal(body.data.resultSummary.gender, 'male');
   assert.equal(body.data.resultSummary.liunian, undefined);
+  assert.equal(body.data.resultSummary.currentLiunian, undefined);
   const prompt = body.data.prompt;
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.bazi);
   assert.match(prompt, /【排盘信息】/);
   assert.match(prompt, /核心判断依据/);
   assert.match(prompt, /【四柱】/);
   assert.match(prompt, /我适合创业还是上班/);
+  assert.doesNotMatch(prompt, /【大运】|大运总览:|当前大运:|【当前流年】|近年流年:/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(prompt);
 });
