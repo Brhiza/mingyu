@@ -134,7 +134,7 @@ test('月相证据应拒绝无效时间戳和超出支持范围的年份', () =>
 });
 
 test('奇门应携带月相证据且不将其解释为吉凶', () => {
-  const qimen = generateQimen(new Date('2024-04-08T18:21:00Z'));
+  const qimen = generateQimen(new Date('2024-04-08T18:21:00Z'), 'zhuanpan', 'hour', 'chaibu');
 
   assert.equal(qimen.seasonality?.moonPhaseEvidence.eightPhaseName, '新月');
   assert.equal(typeof qimen.seasonality?.lunarPhaseConsistency, 'boolean');

@@ -639,7 +639,10 @@ export async function generateDivinationSession(
     }
     case 'qimen': {
       const module = await import('mingyu-core/divination/qimen');
-      data = module.generateQimen(customDate);
+      if (!customDate) {
+        throw new Error('奇门遁甲排盘时间必须明确提供');
+      }
+      data = module.generateQimen(customDate, 'zhuanpan', 'hour', 'chaibu');
       break;
     }
     case 'liuren': {

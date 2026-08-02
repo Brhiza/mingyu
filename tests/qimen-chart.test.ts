@@ -81,7 +81,7 @@ function byGong<T extends { gong: number }>(items: T[]): Record<number, T> {
 }
 
 test('奇门转盘应完整复现芒种上元阳六局癸未时盘面', () => {
-  const result = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
+  const result = generateQimen(new Date('2024-06-15T14:30:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   const palaces = byGong(result.jiuGongGe);
 
   assert.equal(result.ganzhi.day, '庚戌');
@@ -226,7 +226,7 @@ test('奇门转盘中宫干随天禽时应进入原始干关系与已审核固�
 });
 
 test('奇门证据提示词应完整展示天芮天禽及各自所携天盘干', () => {
-  const result = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
+  const result = generateQimen(new Date('2024-06-15T14:30:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   const companionFact = result.evidenceAnalysis?.palaceFacts.find(
     (fact) => fact.tianPan.companionStar === '天禽',
   );
@@ -315,7 +315,12 @@ test('奇门三个已开放级别应穷尽主动六十甲子并在两种排盘�
 
   for (const scope of ['hour', 'month', 'year'] as const) {
     const activeGanZhi = new Set<string>();
-    const juMethods = scope === 'hour' ? (['chaibu', 'zhirun'] as const) : (['chaibu'] as const);
+    const juMethods =
+      scope === 'hour'
+        ? (['chaibu', 'zhirun'] as const)
+        : scope === 'month'
+          ? (['yuejia'] as const)
+          : (['nianjia'] as const);
 
     for (const date of datesByScope[scope]) {
       for (const method of ['zhuanpan', 'feipan'] as const) {

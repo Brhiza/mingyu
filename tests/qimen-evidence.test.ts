@@ -10,7 +10,7 @@ import { assertPromptIsPortableTaskText } from './prompt-assertions';
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 
 test('奇门排盘应内置九宫位置与宫间关系结构化证据', () => {
-  const data = generateQimen(fixedDate);
+  const data = generateQimen(fixedDate, 'zhuanpan', 'hour', 'chaibu');
   const evidence = data.evidenceAnalysis;
 
   assert.ok(evidence);
@@ -102,7 +102,7 @@ test('奇门排盘应内置九宫位置与宫间关系结构化证据', () => {
 });
 
 test('奇门证据应在四项取用资料不全时失败关闭', () => {
-  const evidence = analyzeQimenEvidence(generateQimen(fixedDate));
+  const evidence = analyzeQimenEvidence(generateQimen(fixedDate, 'zhuanpan', 'hour', 'chaibu'));
 
   assert.match(evidence.promptText, /不自动指定用神/);
   assert.match(
@@ -119,7 +119,7 @@ test('奇门证据应在四项取用资料不全时失败关闭', () => {
 });
 
 test('奇门证据应保留真实空亡与宫间五行反证', () => {
-  const data = generateQimen(new Date('2024-01-01T17:00:00+08:00'));
+  const data = generateQimen(new Date('2024-01-01T17:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   const evidence = analyzeQimenEvidence(data);
   const voidPalace = evidence.palaceFacts.find((item) => item.isVoid);
 
@@ -130,7 +130,7 @@ test('奇门证据应保留真实空亡与宫间五行反证', () => {
 });
 
 test('奇门审核重建应删除旧方位应期并重算经典格局', () => {
-  const clean = generateQimen(fixedDate);
+  const clean = generateQimen(fixedDate, 'zhuanpan', 'hour', 'chaibu');
   const polluted = {
     ...clean,
     directions: {
@@ -149,7 +149,7 @@ test('奇门审核重建应删除旧方位应期并重算经典格局', () => {
 });
 
 test('奇门审核重建应在派生规则前拒绝残缺或重复九宫', () => {
-  const clean = generateQimen(fixedDate);
+  const clean = generateQimen(fixedDate, 'zhuanpan', 'hour', 'chaibu');
   const missing = structuredClone(clean);
   missing.jiuGongGe = missing.jiuGongGe.filter((item) => item.gong !== 5);
   assert.throws(
@@ -166,7 +166,7 @@ test('奇门审核重建应在派生规则前拒绝残缺或重复九宫', () =>
 });
 
 test('奇门审核重建应拒绝非法四柱、范围、排盘法与局数', () => {
-  const clean = generateQimen(fixedDate);
+  const clean = generateQimen(fixedDate, 'zhuanpan', 'hour', 'chaibu');
   const pillarLabels = {
     year: '年柱',
     month: '月柱',
@@ -226,7 +226,7 @@ test('奇门审核重建应拒绝非法四柱、范围、排盘法与局数', ()
 
 test('日家旧盘不得通过审核重建或提示词证据入口恢复', () => {
   const legacyDay = {
-    ...generateQimen(fixedDate),
+    ...generateQimen(fixedDate, 'zhuanpan', 'hour', 'chaibu'),
     scope: 'day' as const,
   };
 
@@ -241,7 +241,7 @@ test('日家旧盘不得通过审核重建或提示词证据入口恢复', () =>
 });
 
 test('年月家旧定局不得绕过审核重建进入提示词', () => {
-  const month = generateQimen(new Date('2025-06-18T10:30:00+08:00'), 'zhuanpan', 'month');
+  const month = generateQimen(new Date('2025-06-18T10:30:00+08:00'), 'zhuanpan', 'month', 'yuejia');
   const legacyMonth = {
     ...month,
     isYangDun: true,
@@ -252,7 +252,7 @@ test('年月家旧定局不得绕过审核重建进入提示词', () => {
   assert.throws(() => rebuildAuditedQimenData(legacyMonth), /月家奇门旧定局与已校勘规则不一致/);
   assert.throws(() => analyzeQimenEvidence(legacyMonth), /月家奇门旧定局与已校勘规则不一致/);
 
-  const year = generateQimen(new Date('1984-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+  const year = generateQimen(new Date('1984-07-01T08:00:00+08:00'), 'zhuanpan', 'year', 'nianjia');
   const legacyYear = {
     ...year,
     isYangDun: true,
@@ -264,8 +264,8 @@ test('年月家旧定局不得绕过审核重建进入提示词', () => {
 });
 
 test('年月家提示词应写明各自三元定局法而不冒充时家拆补或置闰', () => {
-  const month = generateQimen(new Date('2025-06-18T10:30:00+08:00'), 'zhuanpan', 'month');
-  const year = generateQimen(new Date('1984-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+  const month = generateQimen(new Date('2025-06-18T10:30:00+08:00'), 'zhuanpan', 'month', 'yuejia');
+  const year = generateQimen(new Date('1984-07-01T08:00:00+08:00'), 'zhuanpan', 'year', 'nianjia');
 
   assert.match(month.evidenceAnalysis?.promptText ?? '', /月家五年段三元法/);
   assert.match(month.evidenceAnalysis?.promptText ?? '', /定局结果：行年.*属.*元，阴遁[147]局/);
@@ -277,7 +277,7 @@ test('年月家提示词应写明各自三元定局法而不冒充时家拆补�
 });
 
 test('奇门审核重建应拒绝值符值使落点缺失与原始盘污染', () => {
-  const clean = generateQimen(fixedDate);
+  const clean = generateQimen(fixedDate, 'zhuanpan', 'hour', 'chaibu');
 
   const missingZhiFu = structuredClone(clean);
   const zhiFuPalace = missingZhiFu.jiuGongGe.find(

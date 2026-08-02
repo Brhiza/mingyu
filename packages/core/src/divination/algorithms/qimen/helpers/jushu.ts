@@ -280,7 +280,7 @@ export function getQimenJuShu(
     jieQi: string;
     ganzhi: { day: string };
   },
-  juMethod: QimenJuMethod = 'chaibu',
+  juMethod: QimenJuMethod,
 ): QimenJuShuResult {
   if (juMethod !== 'chaibu' && juMethod !== 'zhirun') {
     throw new Error(`未知的奇门定局方法：${String(juMethod)}。`);

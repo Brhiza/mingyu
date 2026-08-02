@@ -488,7 +488,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       { meihuaFocus: 'decision' },
     );
 
-    const qimenData = generateQimen(auditDate);
+    const qimenData = generateQimen(auditDate, 'zhuanpan', 'hour', 'chaibu');
     const qimenPrompt = buildDivinationPrompt('qimen', commonQuestion, qimenData, commonInfo, {
       qimenFocus: 'strategy',
     });

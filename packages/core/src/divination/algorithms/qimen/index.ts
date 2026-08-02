@@ -2,7 +2,7 @@
  * @file 奇门遁甲排盘算法（主入口）
  * @description 基于转盘法或飞盘法，实现时家、月家、年家奇门完整排盘，
  * 含定局、布盘与已校勘格局事实。
- * @流派 转盘奇门为默认口径，飞盘奇门为可选布局；时家另选拆补或置闰定局
+ * @流派 调用方必须明确选择转盘或飞盘；时家另选拆补或置闰，月家、年家使用各自三元定局法
  * @古籍依据 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》
  *
  * @核心流程
@@ -107,12 +107,50 @@ function resolveQimenBranchPalace(
 }
 
 function assertQimenScope(scope: QimenScope): void {
+  if (scope === undefined || scope === null) {
+    throw new Error('奇门排盘级别必须明确提供 hour、month 或 year。');
+  }
   if (!['hour', 'day', 'month', 'year'].includes(scope)) {
     throw new Error(`未知的奇门排盘级别: ${String(scope)}`);
   }
   if (scope === 'day') {
     throw new Error(
       '日家奇门存在多套互相冲突的古法，当前旧实现曾错误复用时家定局与布局；在选定并完整校勘单一版本前不开放。',
+    );
+  }
+}
+
+function assertQimenMethod(method: QimenMethod): void {
+  if (method === undefined || method === null) {
+    throw new Error('奇门排盘方法必须明确提供 zhuanpan（转盘）或 feipan（飞盘）。');
+  }
+  if (method !== 'zhuanpan' && method !== 'feipan') {
+    throw new Error(`未知的奇门排盘方法: ${String(method)}`);
+  }
+}
+
+type QimenInputJuMethod = QimenJuMethod | 'yuejia' | 'nianjia';
+
+function assertQimenJuMethod(scope: QimenScope, juMethod: QimenInputJuMethod): void {
+  const expected =
+    scope === 'hour'
+      ? ['chaibu', 'zhirun']
+      : scope === 'month'
+        ? ['yuejia']
+        : scope === 'year'
+          ? ['nianjia']
+          : [];
+  if (juMethod === undefined || juMethod === null) {
+    throw new Error(
+      `奇门${scope === 'hour' ? '时家' : scope === 'month' ? '月家' : scope === 'year' ? '年家' : '日家'}定局方法必须明确提供${expected.length > 0 ? ` ${expected.join(' 或 ')}` : '已校勘口径'}。`,
+    );
+  }
+  if (!['chaibu', 'zhirun', 'yuejia', 'nianjia'].includes(juMethod)) {
+    throw new Error(`未知的奇门定局方法：${String(juMethod)}。`);
+  }
+  if (!expected.includes(juMethod)) {
+    throw new Error(
+      `${scope === 'hour' ? '时家' : scope === 'month' ? '月家' : scope === 'year' ? '年家' : '日家'}奇门不接受定局方法“${juMethod}”；必须明确使用 ${expected.join(' 或 ')}。`,
     );
   }
 }
@@ -211,35 +249,33 @@ function mapStemRelations(
  *     通用入口不生成吉方、避方或现代事项用途
  *
  * @param customDate 明确的排盘时间；核心层不会自动读取系统当前时间
- * @param method     排盘方法，默认 'zhuanpan'（转盘法）
- * @param scope      排盘级别，默认 'hour'（时家奇门）
+ * @param method     排盘方法：'zhuanpan'（转盘法）或 'feipan'（飞盘法）
+ * @param scope      排盘级别：'hour'、'month' 或 'year'
+ * @param juMethod   定局方法：时家为 'chaibu' 或 'zhirun'，月家为 'yuejia'，年家为 'nianjia'
  * @returns 完整的奇门遁甲数据 QimenData
  *
  * @example
  * ```ts
  * // 时家奇门
- * const result = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
+ * const result = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
  *
  * // 年家奇门
- * const result = generateQimen(new Date('2025-01-01'), 'zhuanpan', 'year');
+ * const result = generateQimen(new Date('2025-01-01'), 'zhuanpan', 'year', 'nianjia');
  * ```
  */
 export function generateQimen(
-  customDate?: Date,
-  method: QimenMethod = 'zhuanpan',
-  scope: QimenScope = 'hour',
-  juMethod: QimenJuMethod = 'chaibu',
+  customDate: Date,
+  method: QimenMethod,
+  scope: QimenScope,
+  juMethod: QimenInputJuMethod,
 ): QimenData {
+  const { timeInfo, ganzhi, timestamp } = getRequiredDivinationTime(customDate, '奇门遁甲排盘时间');
+  assertQimenMethod(method);
   assertQimenScope(scope);
-  if (scope !== 'hour' && juMethod !== 'chaibu') {
-    throw new Error(
-      `${scope === 'month' ? '月家' : '年家'}奇门不接受时家${juMethod === 'zhirun' ? '置闰法' : `定局方法“${String(juMethod)}”`}；请使用该级别已校勘的三元定局法。`,
-    );
-  }
+  assertQimenJuMethod(scope, juMethod);
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 1：获取统一占卜时间信息
   // ──────────────────────────────────────────────────────────────────────────
-  const { timeInfo, ganzhi, timestamp } = getRequiredDivinationTime(customDate, '奇门遁甲排盘时间');
   const { jieQi } = timeInfo;
 
   // 根据 scope 确定"主动干支"（用于定局、寻符使及时家时旬空）
@@ -427,7 +463,7 @@ function getJushuForScope(
     solar: { year: number; month: number; day: number; hour?: number; minute?: number };
     jieQi: string;
   },
-  juMethod: QimenJuMethod = 'chaibu',
+  juMethod: QimenInputJuMethod,
 ): QimenJuShuResult {
   switch (scope) {
     case 'year': {
@@ -454,6 +490,9 @@ function getJushuForScope(
       throw new Error('日家奇门尚未完成单一版本的定局与布局校勘，当前不开放。');
     case 'hour':
     default: {
+      if (juMethod !== 'chaibu' && juMethod !== 'zhirun') {
+        throw new Error('时家奇门定局方法必须明确提供 chaibu 或 zhirun。');
+      }
       return getQimenJuShu(
         {
           jieQi: timeInfo.jieQi,
@@ -520,7 +559,7 @@ function getZhiFuShiForScope(
   }
 }
 
-export type { QimenScope, QimenMethod }; // re-export for consumer convenience
+export type { QimenScope, QimenMethod, QimenInputJuMethod }; // re-export for consumer convenience
 
 // ============================================================================
 // 导出内部工具（供外部模块或测试使用）

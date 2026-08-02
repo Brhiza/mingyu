@@ -268,11 +268,15 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   qimenMethod: {
     enum: ['zhuanpan', 'feipan'],
-    description: '奇门遁甲排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法。',
+    description: '奇门遁甲排盘方法：zhuanpan 为转盘法，feipan 为飞盘法；必须明确提供。',
+  },
+  qimenScope: {
+    enum: ['hour'],
+    description: '奇门排盘层级；公开 API 当前只开放 hour（时家），必须明确提供。',
   },
   qimenJuMethod: {
     enum: ['chaibu', 'zhirun'],
-    description: '时家奇门定局方法：chaibu 为拆补法（默认），zhirun 为置闰法。',
+    description: '时家奇门定局方法：chaibu 为拆补法，zhirun 为置闰法；必须明确提供。',
   },
   method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
   number: { type: 'integer', minimum: 1 },
@@ -661,7 +665,7 @@ export function getPublicApiOpenApiDocument(
       '/divination/qimen': {
         post: {
           summary: '奇门遁甲排盘',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QimenRequest'),
           responses: { '200': { description: '奇门盘，含节令背景与已校勘组合规则' } },
         },
       },
@@ -1437,6 +1441,11 @@ export function getPublicApiOpenApiDocument(
         },
         DivinationPromptRequest: {
           type: 'object',
+          properties: DIVINATION_REQUEST_PROPERTIES,
+        },
+        QimenRequest: {
+          type: 'object',
+          required: ['customDate', 'qimenMethod', 'qimenScope', 'qimenJuMethod'],
           properties: DIVINATION_REQUEST_PROPERTIES,
         },
         AstrolabeBirthRequest: {
@@ -2729,12 +2738,13 @@ function calculateLiuyao(input: JsonRecord) {
 
 function calculateQimen(input: JsonRecord) {
   assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
-  const method = readEnum(input, 'qimenMethod', ['zhuanpan', 'feipan'], 'zhuanpan');
-  const juMethod = readEnum(input, 'qimenJuMethod', ['chaibu', 'zhirun'], 'chaibu');
+  const method = readEnum(input, 'qimenMethod', ['zhuanpan', 'feipan']);
+  const scope = readEnum(input, 'qimenScope', ['hour']);
+  const juMethod = readEnum(input, 'qimenJuMethod', ['chaibu', 'zhirun']);
   return generateQimen(
     readRequiredCustomDate(input),
     method as 'zhuanpan' | 'feipan',
-    'hour',
+    scope as 'hour',
     juMethod as 'chaibu' | 'zhirun',
   );
 }

@@ -981,7 +981,7 @@ test('奇门伏干飞干进入证据提示词时只保留中性结构、交叉�
   for (let index = 0; index < 60 && !sample; index += 1) {
     const date = new Date('2024-01-01T00:00:00+08:00');
     date.setHours(date.getHours() + index * 2);
-    const candidate = generateQimen(date);
+    const candidate = generateQimen(date, 'zhuanpan', 'hour', 'chaibu');
     if (
       candidate.classicPatterns?.some(
         (pattern) => pattern.name === '伏干格' || pattern.name === '飞干格',
@@ -1025,7 +1025,7 @@ test('奇门岁格与六庚值符格勃在真实转盘飞盘中均与独立复�
     for (let hourOffset = 0; hourOffset < 60; hourOffset += 1) {
       const date = new Date(start);
       date.setHours(date.getHours() + hourOffset * 2);
-      const chart = generateQimen(date, method);
+      const chart = generateQimen(date, method, 'hour', 'chaibu');
       const yearDunStem = SIX_JIA_DUN_STEMS[chart.ganzhi.year] ?? chart.ganzhi.year.charAt(0);
       const expectedSuiGePalaces = chart.jiuGongGe
         .filter(
@@ -1102,7 +1102,7 @@ test('奇门三奇升殿在真实转盘飞盘中与天盘落宫独立复算一�
     for (let hourOffset = 0; hourOffset < 60; hourOffset += 1) {
       const date = new Date(start);
       date.setHours(date.getHours() + hourOffset * 2);
-      const chart = generateQimen(date, method);
+      const chart = generateQimen(date, method, 'hour', 'chaibu');
       const expected = [...targetByPalace.entries()]
         .filter(([gong, config]) => {
           const palace = chart.jiuGongGe.find((item) => item.gong === gong);
@@ -1174,7 +1174,7 @@ test('奇门三诈在真实转盘飞盘中与奇门神三层同宫独立复算�
     for (let hourOffset = 0; hourOffset < 60; hourOffset += 1) {
       const date = new Date(start);
       date.setHours(date.getHours() + hourOffset * 2);
-      const chart = generateQimen(date, method);
+      const chart = generateQimen(date, method, 'hour', 'chaibu');
       const expected = chart.jiuGongGe
         .flatMap((palace) => {
           const name = nameByGod.get(palace.shenPan.god);
@@ -1247,7 +1247,7 @@ test('奇门三项条件一致五假在真实转盘飞盘中与奇仪门神三�
     for (let index = 0; index < 180; index += 1) {
       const date = new Date(start);
       date.setHours(date.getHours() + index * 2);
-      const chart = generateQimen(date, method);
+      const chart = generateQimen(date, method, 'hour', 'chaibu');
       const actual = (chart.classicPatterns ?? [])
         .filter((pattern) => auditedNames.has(pattern.name))
         .flatMap((pattern) => pattern.palaces.map((palace) => `${pattern.name}:${palace}`))
@@ -1320,7 +1320,7 @@ test('奇门60日柱乘12时辰的位置索引均按六甲遁干定位日干与�
       const date = new Date(start);
       date.setDate(date.getDate() + dayOffset);
       date.setHours(hourIndex * 2, 0, 0, 0);
-      const chart = generateQimen(date);
+      const chart = generateQimen(date, 'zhuanpan', 'hour', 'chaibu');
       const evidence = analyzeQimenEvidence(chart);
       const expectedBySource = [
         ['日干落宫', SIX_JIA_DUN_STEMS[chart.ganzhi.day] ?? chart.ganzhi.day.charAt(0)],
@@ -1353,7 +1353,9 @@ test('奇门60日柱乘12时辰的位置索引均按六甲遁干定位日干与�
 });
 
 test('奇门提示词证据声明11项固定格与其余70项结构事实边界', () => {
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const relationRule = analysis.ruleSourceFacts.find((item) => item.key === 'rule:qimen:relations');
 
   assert.ok(relationRule);
@@ -1371,7 +1373,9 @@ test('奇门提示词证据声明11项固定格与其余70项结构事实边界'
 });
 
 test('奇门证据应公开九遁与三奇得使的具体版本冲突及失败关闭边界', () => {
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const nineEscapes = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:nine-escapes-version-boundary',
   );
@@ -1480,7 +1484,7 @@ test('玉女守门在真实转盘飞盘中与六时及值使临地丁独立复�
     for (let hourOffset = 0; hourOffset < 60; hourOffset += 1) {
       const date = new Date(start);
       date.setHours(date.getHours() + hourOffset * 2);
-      const chart = generateQimen(date, method);
+      const chart = generateQimen(date, method, 'hour', 'chaibu');
       const valueDoorPalaces = chart.jiuGongGe.filter(
         (palace) => palace.renPan.door === chart.zhiShi,
       );
@@ -1556,7 +1560,9 @@ test('天辅时120种日干时支组合全部失败关闭并公开版本冲突',
   }
 
   assert.equal(checked, 120);
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const rule = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:tian-fu-hour-version-boundary',
   );
@@ -1609,7 +1615,9 @@ test('五合时100种日干时干组合全部不自动命名且保留标准五�
 
   assert.equal(checked, 100);
   assert.equal(standardCombinationCount, 10);
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const rule = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:five-combination-hour-name-boundary',
   );
@@ -1661,7 +1669,9 @@ test('天网相关六十时柱乘九落宫条件全部失败关闭并公开版�
 
   assert.equal(checkedTianPanGui, 60 * 9);
   assert.equal(checkedValueSymbolOverGui, 60 * 9);
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const rule = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:heaven-net-version-boundary',
   );
@@ -1703,7 +1713,9 @@ test('三奇与时干入墓按九干乘九宫全部关闭并公开版本冲突',
   }
 
   assert.equal(checked, 9 * 9);
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const rule = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:tomb-version-boundary',
   );
@@ -1756,7 +1768,9 @@ test('三奇受制与会甲按三奇九宫八门九地盘干全组合失败关�
   }
 
   assert.equal(checked, 3 * 9 * 8 * 9);
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const rule = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:san-qi-controlled-and-meet-jia-boundary',
   );
@@ -1835,7 +1849,9 @@ test('六仪击刑按九干九宫穷举且只在时家保留六组中性位置�
   assert.equal(hourHits, 6);
   assert.equal(isQimenInstrumentPunishment('甲', 3), false);
 
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const rule = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:instrument-punishment-hour-position',
   );
@@ -1966,7 +1982,9 @@ test('星门伏吟反吟按实际落宫穷举且关闭六甲时捷径天禽寄�
   assert.equal(starChecks, 9 * 9);
   assert.equal(doorChecks, 8 * 9);
 
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const rule = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:star-door-fuyin-fanyin-hour-position',
   );
@@ -2036,7 +2054,9 @@ test('门克宫按八门九宫穷举只保留中性五行结构且关闭争议�
 
   assert.equal(checked, 8 * 9 * 3);
 
-  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const analysis = analyzeQimenEvidence(
+    generateQimen(new Date('2025-01-01T05:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu'),
+  );
   const rule = analysis.ruleSourceFacts.find(
     (item) => item.key === 'rule:qimen:door-controls-palace-structure',
   );
@@ -2067,9 +2087,9 @@ test('旬空按六十时柱固定六组穷举并关闭跨层级旬空与自动�
   });
 
   const date = new Date('2025-01-01T08:00:00+08:00');
-  const hour = generateQimen(date);
-  const month = generateQimen(date, 'zhuanpan', 'month');
-  const year = generateQimen(date, 'zhuanpan', 'year');
+  const hour = generateQimen(date, 'zhuanpan', 'hour', 'chaibu');
+  const month = generateQimen(date, 'zhuanpan', 'month', 'yuejia');
+  const year = generateQimen(date, 'zhuanpan', 'year', 'nianjia');
   assert.equal(hour.voidBranches?.length, 2);
   assert.equal('horseStar' in hour, false);
   for (const chart of [month, year]) {

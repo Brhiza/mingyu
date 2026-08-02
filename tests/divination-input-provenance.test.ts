@@ -10,6 +10,7 @@ import { drawRandomSign, resolveSignByNumber } from 'mingyu-core/divination/ssgw
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 
 const DATE = new Date('2025-01-01T08:00:00+08:00');
+const callQimen = generateQimen as unknown as (...args: unknown[]) => unknown;
 const YAOS = [6, 7, 8, 9, 7, 8] as const;
 const COIN_THROWS = [
   { coins: [2, 2, 2], total: 6 },
@@ -24,7 +25,7 @@ test('时间型占卜核心入口缺少明确时间时全部失败关闭', () =>
   const cases = [
     () => generateLiuyao(undefined, { method: 'time' }),
     () => generateMeihua(undefined, { method: 'time' }),
-    () => generateQimen(),
+    () => callQimen(),
     () => generateLiuren(),
     () => generateJinkoujue({ method: 'time' }),
     () => generateXiaoliuren({ method: 'time' }),
@@ -35,6 +36,21 @@ test('时间型占卜核心入口缺少明确时间时全部失败关闭', () =>
   for (const run of cases) {
     assert.throws(run, /必须明确提供，核心层不会自动读取系统当前时间/);
   }
+});
+
+test('奇门核心入口缺少排盘法、层级或定局法时全部失败关闭', () => {
+  assert.throws(() => callQimen(DATE), /排盘方法必须明确提供/);
+  assert.throws(() => callQimen(DATE, 'zhuanpan'), /排盘级别必须明确提供/);
+  assert.throws(() => callQimen(DATE, 'zhuanpan', 'hour'), /定局方法必须明确提供/);
+
+  assert.throws(
+    () => callQimen(DATE, 'zhuanpan', 'month', 'chaibu'),
+    /月家奇门不接受定局方法.*yuejia/,
+  );
+  assert.throws(
+    () => callQimen(DATE, 'zhuanpan', 'year', 'chaibu'),
+    /年家奇门不接受定局方法.*nianjia/,
+  );
 });
 
 test('存在多种起法的核心入口缺少明确方式时全部失败关闭', () => {

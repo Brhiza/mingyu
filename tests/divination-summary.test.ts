@@ -25,7 +25,7 @@ test('黄历择日摘要应展示候选状态与限制，不暴露内部数字�
 });
 
 test('奇门摘要应把已校勘组合规则标为传统分类且不等于现实吉凶', () => {
-  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
+  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   const summary = getDivinationSummaryBlocks('qimen', data);
   const text = [...summary.tags, ...summary.lines].join('\n');
 
@@ -36,7 +36,7 @@ test('奇门摘要应把已校勘组合规则标为传统分类且不等于现�
 });
 
 test('奇门摘要应统一重建派生资料，不复活旧缓存污染', () => {
-  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
+  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   const clean = getDivinationSummaryBlocks('qimen', data);
   const polluted = {
     ...data,

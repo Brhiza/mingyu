@@ -17,6 +17,13 @@ import { generateQimen } from 'mingyu-core/divination/qimen';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from './prompt-assertions';
 
+const EXPLICIT_QIMEN_INPUT = {
+  customDate: '2025-01-01T08:00:00+08:00',
+  qimenMethod: 'zhuanpan',
+  qimenScope: 'hour',
+  qimenJuMethod: 'chaibu',
+} as const;
+
 const TEST_ZIWEI_HOROSCOPE_REFERENCE = { dateStr: '2028-06-12', hourIndex: 4 } as const;
 
 const AUTOMATIC_DIRECTION_CONCLUSION =
@@ -1368,6 +1375,7 @@ test('公开 API 提示词接口支持只返回提示词，避免下游重复传
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      ...EXPLICIT_QIMEN_INPUT,
       customDate: '2025-01-01T08:30:00+08:00',
       question: '这个项目现在适合推进吗？',
       responseMode: 'prompt-only',
@@ -3210,31 +3218,46 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   assert.match(badRecord.body.error.message, /total 与三枚钱的合计不一致/);
 });
 
-test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async () => {
+test('公开 API 奇门缺少口径时拒绝，显式转盘与飞盘均可复算', async () => {
   const customDate = '2025-01-01T08:00:00+08:00';
-  const zhuanpanStars = generateQimen(new Date(customDate), 'zhuanpan').jiuGongGe.map(
-    (gong) => gong.tianPan.star,
-  );
-  const feipanStars = generateQimen(new Date(customDate), 'feipan').jiuGongGe.map(
+  const zhuanpanStars = generateQimen(
+    new Date(customDate),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  ).jiuGongGe.map((gong) => gong.tianPan.star);
+  const feipanStars = generateQimen(new Date(customDate), 'feipan', 'hour', 'chaibu').jiuGongGe.map(
     (gong) => gong.tianPan.star,
   );
 
-  const defaultResult = await callApi('divination/qimen', {
+  for (const missingKey of ['qimenMethod', 'qimenScope', 'qimenJuMethod'] as const) {
+    const input: Record<string, unknown> = { ...EXPLICIT_QIMEN_INPUT, customDate };
+    delete input[missingKey];
+    const missingResult = await callApi('divination/qimen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    assert.equal(missingResult.response.status, 400);
+    assert.match(missingResult.body.error.message, new RegExp(`${missingKey} 必须是以下值之一`));
+  }
+
+  const zhuanpanResult = await callApi('divination/qimen', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customDate }),
+    body: JSON.stringify({ ...EXPLICIT_QIMEN_INPUT, customDate }),
   });
-  assert.equal(defaultResult.response.status, 200);
-  assert.equal(defaultResult.body.ok, true);
-  assert.equal(defaultResult.body.data.method, 'zhuanpan');
-  assert.equal(defaultResult.body.data.evidenceAnalysis.key, 'qimen:evidence');
-  assert.equal(defaultResult.body.data.evidenceAnalysis.status, '已计算');
-  assert.ok(defaultResult.body.data.evidenceAnalysis.positionIndexes.length > 0);
-  assert.equal(defaultResult.body.data.evidenceAnalysis.calculationEvidenceFacts.length, 6);
-  assert.equal(defaultResult.body.data.evidenceAnalysis.calculationSteps.length, 6);
-  assert.equal(defaultResult.body.data.evidenceAnalysis.calculationChain.length, 6);
+  assert.equal(zhuanpanResult.response.status, 200);
+  assert.equal(zhuanpanResult.body.ok, true);
+  assert.equal(zhuanpanResult.body.data.method, 'zhuanpan');
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.key, 'qimen:evidence');
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.status, '已计算');
+  assert.ok(zhuanpanResult.body.data.evidenceAnalysis.positionIndexes.length > 0);
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.calculationEvidenceFacts.length, 6);
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.calculationSteps.length, 6);
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.calculationChain.length, 6);
   assert.deepEqual(
-    defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.map(
+    zhuanpanResult.body.data.evidenceAnalysis.ruleSourceFacts.map(
       (item: Record<string, unknown>) => item.key,
     ),
     [
@@ -3248,21 +3271,32 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
       'rule:qimen:san-qi-sheng-dian-position',
       'rule:qimen:san-zha-position',
       'rule:qimen:audited-wu-jia-position',
+      'rule:qimen:yu-nv-shou-men',
       'rule:qimen:nine-escapes-version-boundary',
       'rule:qimen:san-qi-de-shi-version-boundary',
+      'rule:qimen:tian-fu-hour-version-boundary',
+      'rule:qimen:five-combination-hour-name-boundary',
+      'rule:qimen:heaven-net-version-boundary',
+      'rule:qimen:tomb-version-boundary',
+      'rule:qimen:san-qi-controlled-and-meet-jia-boundary',
+      'rule:qimen:instrument-punishment-hour-position',
+      'rule:qimen:star-door-fuyin-fanyin-hour-position',
+      'rule:qimen:door-controls-palace-structure',
+      'rule:qimen:void-hour-and-horse-scope-boundary',
       'rule:qimen:classic-pattern-audit-boundary',
+      'rule:qimen:seasonality-fact-boundary',
       'rule:qimen:retained-combo-versions',
       'rule:qimen:special-context-boundary',
       'rule:qimen:direction-boundary',
     ],
   );
-  assert.equal(defaultResult.body.data.evidenceAnalysis.palaceCoverageFact.status, '完整');
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.palaceCoverageFact.status, '完整');
   assert.deepEqual(
-    defaultResult.body.data.evidenceAnalysis.palaceCoverageFact.actualGongs,
+    zhuanpanResult.body.data.evidenceAnalysis.palaceCoverageFact.actualGongs,
     [1, 2, 3, 4, 5, 6, 7, 8, 9],
   );
   assert.ok(
-    defaultResult.body.data.evidenceAnalysis.calculationEvidenceFacts.every(
+    zhuanpanResult.body.data.evidenceAnalysis.calculationEvidenceFacts.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('qimen:calculation:') &&
         item.status === '已确定' &&
@@ -3272,7 +3306,7 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     ),
   );
   assert.ok(
-    defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.every(
+    zhuanpanResult.body.data.evidenceAnalysis.ruleSourceFacts.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('rule:qimen:') &&
         item.status === '已声明' &&
@@ -3284,11 +3318,11 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     ),
   );
   assert.equal(
-    defaultResult.body.data.evidenceAnalysis.palaceFacts.length,
-    defaultResult.body.data.jiuGongGe.length,
+    zhuanpanResult.body.data.evidenceAnalysis.palaceFacts.length,
+    zhuanpanResult.body.data.jiuGongGe.length,
   );
   assert.ok(
-    defaultResult.body.data.evidenceAnalysis.palaceFacts.every(
+    zhuanpanResult.body.data.evidenceAnalysis.palaceFacts.every(
       (item: Record<string, unknown>) =>
         item.status === '已计算' &&
         item.promptText &&
@@ -3300,16 +3334,16 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     ),
   );
   assert.ok(
-    defaultResult.body.data.evidenceAnalysis.positionIndexes.every(
+    zhuanpanResult.body.data.evidenceAnalysis.positionIndexes.every(
       (item: { palaceFactKey: string }) =>
-        defaultResult.body.data.evidenceAnalysis.palaceFacts.some(
+        zhuanpanResult.body.data.evidenceAnalysis.palaceFacts.some(
           (fact: { key: string }) => fact.key === item.palaceFactKey,
         ),
     ),
   );
-  assert.equal(defaultResult.body.data.evidenceAnalysis.palaceRelations.length, 36);
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.palaceRelations.length, 36);
   assert.ok(
-    defaultResult.body.data.evidenceAnalysis.palaceRelations.every(
+    zhuanpanResult.body.data.evidenceAnalysis.palaceRelations.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('qimen:relation:') &&
         item.fromPalaceFactKey &&
@@ -3320,11 +3354,11 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     ),
   );
   assert.equal(
-    defaultResult.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length,
-    defaultResult.body.data.evidenceAnalysis.counterEvidenceFacts.length,
+    zhuanpanResult.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length,
+    zhuanpanResult.body.data.evidenceAnalysis.counterEvidenceFacts.length,
   );
   assert.ok(
-    defaultResult.body.data.evidenceAnalysis.counterEvidenceFacts.every(
+    zhuanpanResult.body.data.evidenceAnalysis.counterEvidenceFacts.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('qimen:counter:') &&
         item.status === '已触发' &&
@@ -3334,7 +3368,7 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     ),
   );
   assert.ok(
-    defaultResult.body.data.evidenceAnalysis.timingFacts.every(
+    zhuanpanResult.body.data.evidenceAnalysis.timingFacts.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('qimen:timing:') &&
         item.promptText &&
@@ -3343,42 +3377,42 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     ),
   );
   assert.equal(
-    defaultResult.body.data.evidenceAnalysis.timingSummaryFact.factKeys.length,
-    defaultResult.body.data.evidenceAnalysis.timingFacts.length,
+    zhuanpanResult.body.data.evidenceAnalysis.timingSummaryFact.factKeys.length,
+    zhuanpanResult.body.data.evidenceAnalysis.timingFacts.length,
   );
-  assert.equal(defaultResult.body.data.evidenceAnalysis.summaryFact.status, '盘面资料完整');
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.summaryFact.status, '盘面资料完整');
   assert.equal(
-    defaultResult.body.data.evidenceAnalysis.summaryFact.palaceFactCount,
-    defaultResult.body.data.evidenceAnalysis.palaceFacts.length,
+    zhuanpanResult.body.data.evidenceAnalysis.summaryFact.palaceFactCount,
+    zhuanpanResult.body.data.evidenceAnalysis.palaceFacts.length,
   );
-  assert.equal(defaultResult.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(zhuanpanResult.body.data.evidenceAnalysis.limitationFacts.length, 6);
   assert.equal(
-    defaultResult.body.data.evidenceAnalysis.limitations.length,
-    defaultResult.body.data.evidenceAnalysis.limitationFacts.length,
+    zhuanpanResult.body.data.evidenceAnalysis.limitations.length,
+    zhuanpanResult.body.data.evidenceAnalysis.limitationFacts.length,
   );
   assert.match(
-    defaultResult.body.data.evidenceAnalysis.directionBoundaryFact.promptText,
+    zhuanpanResult.body.data.evidenceAnalysis.directionBoundaryFact.promptText,
     /不生成吉方、避方或候选方向/,
   );
-  assert.equal(defaultResult.body.data.directions, undefined);
-  assert.equal(defaultResult.body.data.yingQi, undefined);
+  assert.equal(zhuanpanResult.body.data.directions, undefined);
+  assert.equal(zhuanpanResult.body.data.yingQi, undefined);
   assert.doesNotMatch(
-    JSON.stringify(defaultResult.body.data),
-    /天网四张|宜静不宜动|判断人事状态、方向和时机|吉门吉星需|凶象也要看|方向和时机均从/,
+    JSON.stringify(zhuanpanResult.body.data),
+    /宜静不宜动|判断人事状态、方向和时机|吉门吉星需|凶象也要看|方向和时机均从/,
   );
   assert.match(
-    defaultResult.body.data.evidenceAnalysis.promptText,
+    zhuanpanResult.body.data.evidenceAnalysis.promptText,
     /【奇门九宫位置与关系结构化证据】/,
   );
-  assert.match(defaultResult.body.data.evidenceAnalysis.promptText, /奇门九宫逐宫计算事实/);
-  assert.match(defaultResult.body.data.evidenceAnalysis.promptText, /证据汇总：/);
+  assert.match(zhuanpanResult.body.data.evidenceAnalysis.promptText, /奇门九宫逐宫计算事实/);
+  assert.match(zhuanpanResult.body.data.evidenceAnalysis.promptText, /证据汇总：/);
   assert.doesNotMatch(
-    defaultResult.body.data.evidenceAnalysis.promptText,
+    zhuanpanResult.body.data.evidenceAnalysis.promptText,
     /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|成功率[：=]?\d|项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/,
   );
-  assertPromptIsPortableTaskText(defaultResult.body.data.evidenceAnalysis.promptText);
+  assertPromptIsPortableTaskText(zhuanpanResult.body.data.evidenceAnalysis.promptText);
   assert.deepEqual(
-    defaultResult.body.data.jiuGongGe.map(
+    zhuanpanResult.body.data.jiuGongGe.map(
       (gong: { tianPan: { star: string } }) => gong.tianPan.star,
     ),
     zhuanpanStars,
@@ -3387,7 +3421,7 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   const feipanResult = await callApi('divination/qimen', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customDate, qimenMethod: 'feipan' }),
+    body: JSON.stringify({ ...EXPLICIT_QIMEN_INPUT, customDate, qimenMethod: 'feipan' }),
   });
   assert.equal(feipanResult.response.status, 200);
   assert.equal(feipanResult.body.ok, true);
@@ -3418,7 +3452,9 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       customDate,
+      qimenScope: 'hour',
       qimenMethod: 'feipan',
+      qimenJuMethod: 'chaibu',
       question: '我近期事业应该注意什么？',
       responseMode: 'full',
     }),
@@ -3440,12 +3476,12 @@ test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请
   const fullResult = await callApi('divination/qimen', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customDate }),
+    body: JSON.stringify({ ...EXPLICIT_QIMEN_INPUT, customDate }),
   });
   const compactResult = await callApi('divination/qimen', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customDate, detailMode: 'compact' }),
+    body: JSON.stringify({ ...EXPLICIT_QIMEN_INPUT, customDate, detailMode: 'compact' }),
   });
 
   assert.equal(fullResult.response.status, 200);
@@ -3499,6 +3535,7 @@ test('公开 API 占卜提示词默认只返回摘要和提示词', async () => 
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      ...EXPLICIT_QIMEN_INPUT,
       customDate: '2025-01-01T08:00:00+08:00',
       question: '我近期事业应该注意什么？',
     }),
@@ -3519,6 +3556,8 @@ test('公开 API 奇门 qimenMethod 非法值应返回参数错误', async () =>
     body: JSON.stringify({
       customDate: '2025-01-01T08:00:00+08:00',
       qimenMethod: 'unknown',
+      qimenScope: 'hour',
+      qimenJuMethod: 'chaibu',
     }),
   });
 
@@ -3612,7 +3651,10 @@ test('公开 API 奇门不生成自动应期且小六壬只保留原始时间事
   const qimen = await callApi('divination/qimen', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customDate: '2025-01-01T06:00:00+08:00' }),
+    body: JSON.stringify({
+      ...EXPLICIT_QIMEN_INPUT,
+      customDate: '2025-01-01T06:00:00+08:00',
+    }),
   });
   assert.equal(qimen.response.status, 200);
   assert.equal(qimen.body.data.yingQi, undefined);

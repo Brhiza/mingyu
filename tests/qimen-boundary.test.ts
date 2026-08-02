@@ -21,13 +21,23 @@ import {
 } from '../packages/core/src/divination/algorithms/qimen/helpers/stem-pair-patterns.ts';
 
 test('奇门拆补法在交节当天应按具体时刻换节气，不应按整日提前换局', () => {
-  const beforeXiaoman = generateQimen(new Date('2024-05-20T10:00:00+08:00'));
+  const beforeXiaoman = generateQimen(
+    new Date('2024-05-20T10:00:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
   assert.equal(beforeXiaoman.timeInfo.solarTerm, '立夏');
   assert.equal(beforeXiaoman.seasonality?.currentJieQi, '立夏');
   assert.equal(beforeXiaoman.timeInfo.epoch, '中元');
   assert.equal(beforeXiaoman.juShu, 1);
 
-  const afterXiaoman = generateQimen(new Date('2024-05-20T21:30:00+08:00'));
+  const afterXiaoman = generateQimen(
+    new Date('2024-05-20T21:30:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
   assert.equal(afterXiaoman.timeInfo.solarTerm, '小满');
   assert.equal(afterXiaoman.seasonality?.currentJieQi, '小满');
   assert.equal(afterXiaoman.timeInfo.epoch, '中元');
@@ -35,19 +45,29 @@ test('奇门拆补法在交节当天应按具体时刻换节气，不应按整�
 });
 
 test('奇门拆补法定三元应按晚子时日柱推进符头日', () => {
-  const beforeLateZi = generateQimen(new Date('2024-02-19T22:30:00+08:00'));
+  const beforeLateZi = generateQimen(
+    new Date('2024-02-19T22:30:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
   assert.equal(beforeLateZi.ganzhi.day, '癸丑');
   assert.equal(beforeLateZi.timeInfo.solarTerm, '雨水');
   assert.equal(beforeLateZi.timeInfo.epoch, '上元');
   assert.equal(beforeLateZi.juShu, 9);
 
-  const lateZi = generateQimen(new Date('2024-02-19T23:30:00+08:00'));
+  const lateZi = generateQimen(new Date('2024-02-19T23:30:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   assert.equal(lateZi.ganzhi.day, '甲寅');
   assert.equal(lateZi.timeInfo.solarTerm, '雨水');
   assert.equal(lateZi.timeInfo.epoch, '中元');
   assert.equal(lateZi.juShu, 6);
 
-  const jingzheLateZi = generateQimen(new Date('2024-03-10T23:30:00+08:00'));
+  const jingzheLateZi = generateQimen(
+    new Date('2024-03-10T23:30:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
   assert.equal(jingzheLateZi.ganzhi.day, '甲戌');
   assert.equal(jingzheLateZi.timeInfo.solarTerm, '惊蛰');
   assert.equal(jingzheLateZi.timeInfo.epoch, '下元');
@@ -55,7 +75,7 @@ test('奇门拆补法定三元应按晚子时日柱推进符头日', () => {
 });
 
 test('奇门拆补法应识别甲己符头并按符头五日段定三元', () => {
-  const chart = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
+  const chart = generateQimen(new Date('2024-06-15T14:30:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
 
   assert.equal(chart.ganzhi.day, '庚戌');
   assert.equal(chart.timeInfo.solarTerm, '芒种');
@@ -72,6 +92,7 @@ test('奇门排盘：未知排盘级别应明确报错，不应静默当作时�
         new Date('2025-01-01T08:00:00+08:00'),
         'zhuanpan',
         'quarter' as Parameters<typeof generateQimen>[2],
+        'chaibu',
       ),
     /未知的奇门排盘级别/,
   );
@@ -83,6 +104,8 @@ test('奇门排盘：未知排盘方法应明确报错，不应静默当作飞�
       generateQimen(
         new Date('2025-01-01T08:00:00+08:00'),
         'unknown-method' as Parameters<typeof generateQimen>[1],
+        'hour',
+        'chaibu',
       ),
     /未知的奇门排盘方法/,
   );
@@ -140,7 +163,7 @@ test('年家奇门应穷举完整一百八十年三元周期并固定采用阴�
 
 test('日家奇门在版本与完整布局未校勘前应失败关闭', () => {
   assert.throws(
-    () => generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'day'),
+    () => generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'day', 'chaibu'),
     /日家奇门存在多套互相冲突的古法.*不开放/,
   );
 });
@@ -149,7 +172,7 @@ test('年月家奇门不应静默接受时家置闰法', () => {
   for (const scope of ['month', 'year'] as const) {
     assert.throws(
       () => generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', scope, 'zhirun'),
-      /[月年]家奇门不接受时家置闰法.*三元定局法/,
+      /[月年]家奇门不接受定局方法/,
     );
   }
 });
@@ -223,7 +246,12 @@ test('奇门节令：十干乘五种月令五行应完整落入旺相休囚死',
 });
 
 test('奇门节令背景不得再造自然日三元、粗四相或建除吉凶建议', () => {
-  const seasonality = generateQimen(new Date('2024-02-10T12:00:00+08:00')).seasonality!;
+  const seasonality = generateQimen(
+    new Date('2024-02-10T12:00:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  ).seasonality!;
   assert.equal(seasonality.currentJieQi, '立春');
   assert.equal(seasonality.solarTermEvidence.name, '立春');
   assert.match(seasonality.lunarPhaseDetail, /月|朔|望/);

@@ -91,7 +91,14 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['calendar_astronomical_time', { year: 2000, month: 1, day: 1, hour: 12, timezone: 0 }],
   ['calendar_moon_phase', { utcDateTime: '2024-06-21T12:00:00Z' }],
   ['calendar_solar_term', { year: 2024, index: 12 }],
-  ['divine_qimen', { customDate: '2025-01-01T08:00:00+08:00' }],
+  [
+    'divine_qimen',
+    {
+      customDate: '2025-01-01T08:00:00+08:00',
+      qimenMethod: 'zhuanpan',
+      qimenJuMethod: 'chaibu',
+    },
+  ],
   [
     'divine_almanac',
     {
@@ -335,7 +342,12 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
   ],
   [
     'qimen_prompt',
-    { customDate: '2025-01-01T06:00:00+08:00', question: '这件事何时出现转机？' },
+    {
+      customDate: '2025-01-01T06:00:00+08:00',
+      qimenMethod: 'zhuanpan',
+      qimenJuMethod: 'chaibu',
+      question: '这件事何时出现转机？',
+    },
     /占法：奇门遁甲[\s\S]*值符值使与时干：[\s\S]*【问题】\n这件事何时出现转机？/,
   ],
   [
@@ -4630,7 +4642,15 @@ test('MCP 时间型占卜工具应拒绝无效 customDate', async () => {
           question: '今年事业如何？',
         },
       ],
-      ['qimen_prompt', { customDate: '2025-02-30T08:00:00+08:00', question: '今年事业如何？' }],
+      [
+        'qimen_prompt',
+        {
+          customDate: '2025-02-30T08:00:00+08:00',
+          qimenMethod: 'zhuanpan',
+          qimenJuMethod: 'chaibu',
+          question: '今年事业如何？',
+        },
+      ],
       ['divine_liuren', { customDate: '2025-01-01T24:00:00+00:00' }],
     ];
 
@@ -5113,6 +5133,9 @@ test('MCP 时间型占卜缺少明确时间或起法时失败关闭', async () =
       ['divine_xiaoliuren', { customDate: '2025-01-01T08:00:00+08:00' }],
       ['divine_jinkoujue', { customDate: '2025-01-01T08:00:00+08:00' }],
       ['divine_qimen', {}],
+      ['divine_qimen', { customDate: '2025-01-01T08:00:00+08:00' }],
+      ['divine_qimen', { customDate: '2025-01-01T08:00:00+08:00', qimenMethod: 'zhuanpan' }],
+      ['divine_qimen', { customDate: '2025-01-01T08:00:00+08:00', qimenJuMethod: 'chaibu' }],
       ['divine_liuren', {}],
       ['divine_ssgw', {}],
     ];
@@ -5130,6 +5153,8 @@ test('MCP 奇门工具返回位置索引与九宫宫对结构化证据', async (
       name: 'qimen_prompt',
       arguments: {
         customDate: '2025-01-01T08:00:00+08:00',
+        qimenMethod: 'zhuanpan',
+        qimenJuMethod: 'chaibu',
         question: '我现在要不要推进这个项目？',
       },
     });
@@ -5247,9 +5272,20 @@ test('MCP 奇门工具返回位置索引与九宫宫对结构化证据', async (
         'rule:qimen:san-qi-sheng-dian-position',
         'rule:qimen:san-zha-position',
         'rule:qimen:audited-wu-jia-position',
+        'rule:qimen:yu-nv-shou-men',
         'rule:qimen:nine-escapes-version-boundary',
         'rule:qimen:san-qi-de-shi-version-boundary',
+        'rule:qimen:tian-fu-hour-version-boundary',
+        'rule:qimen:five-combination-hour-name-boundary',
+        'rule:qimen:heaven-net-version-boundary',
+        'rule:qimen:tomb-version-boundary',
+        'rule:qimen:san-qi-controlled-and-meet-jia-boundary',
+        'rule:qimen:instrument-punishment-hour-position',
+        'rule:qimen:star-door-fuyin-fanyin-hour-position',
+        'rule:qimen:door-controls-palace-structure',
+        'rule:qimen:void-hour-and-horse-scope-boundary',
         'rule:qimen:classic-pattern-audit-boundary',
+        'rule:qimen:seasonality-fact-boundary',
         'rule:qimen:retained-combo-versions',
         'rule:qimen:special-context-boundary',
         'rule:qimen:direction-boundary',
@@ -5376,7 +5412,7 @@ test('MCP 奇门工具返回位置索引与九宫宫对结构化证据', async (
     assert.equal((chart as unknown as Record<string, unknown>).yingQi, undefined);
     assert.doesNotMatch(
       JSON.stringify({ chart, prompt }),
-      /天网四张|宜静不宜动|判断人事状态、方向和时机|吉门吉星需|凶象也要看|方向和时机均从/,
+      /宜静不宜动|判断人事状态、方向和时机|吉门吉星需|凶象也要看|方向和时机均从/,
     );
     assert.equal(chart.evidenceAnalysis.palaceFacts.length, chart.jiuGongGe.length);
     assert.ok(
@@ -5406,7 +5442,7 @@ test('MCP 奇门工具返回位置索引与九宫宫对结构化证据', async (
     assert.ok(chart.patternCombos.every((item) => item.score === undefined));
     assert.equal((chart as unknown as Record<string, unknown>).directions, undefined);
     assert.match(prompt, /占法：奇门遁甲/);
-    assert.match(prompt, /核心结构：[\s\S]*值符值使与时干：[\s\S]*旬空与马星：/);
+    assert.match(prompt, /核心结构：[\s\S]*值符值使与时干：[\s\S]*旬空与马星边界：/);
     assert.match(prompt, /九宫原始盘：[\s\S]*九宫宫对五行关系（全部36组无序宫对）/);
     assert.match(prompt, /节气交接：[\s\S]*月相：/);
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);

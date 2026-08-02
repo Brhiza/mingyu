@@ -186,7 +186,7 @@ function findQimenStemPairSample(heaven: string, earth: string) {
       cursor < new Date('2024-01-10T00:00:00+08:00');
       cursor = new Date(cursor.getTime() + 2 * 60 * 60 * 1000)
     ) {
-      const data = generateQimen(cursor);
+      const data = generateQimen(cursor, 'zhuanpan', 'hour', 'chaibu');
       for (const palace of data.jiuGongGe) {
         for (const stem of [palace.tianPan.stem, palace.tianPan.companionStem].filter(Boolean)) {
           const key = `${stem}:${palace.diPan.stem}`;
@@ -488,7 +488,7 @@ test('大六壬提示词与摘要应从时间戳重建完整课盘并忽略全�
 });
 
 test('奇门算法只补出两个时旬空并关闭自动马星', () => {
-  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
+  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
 
   assert.equal(data.voidBranches?.length, 2);
   assert.equal(new Set(data.voidBranches).size, 2);
@@ -503,12 +503,22 @@ test('奇门五不遇时应按日干克应判断，不只看时辰干支', () =>
   assert.equal(checkSpecialHourConditions('戊寅', '庚午').isWuBuYuShi, false);
   assert.equal(checkSpecialHourConditions('戊寅').isWuBuYuShi, false);
 
-  const falsePositiveCase = generateQimen(new Date('2025-01-01T04:00:00+08:00'));
+  const falsePositiveCase = generateQimen(
+    new Date('2025-01-01T04:00:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
   assert.equal(falsePositiveCase.ganzhi.day, '庚午');
   assert.equal(falsePositiveCase.ganzhi.hour, '戊寅');
   assert.equal(falsePositiveCase.specialConditions?.isWuBuYuShi, false);
 
-  const trueCase = generateQimen(new Date('2025-01-05T12:00:00+08:00'));
+  const trueCase = generateQimen(
+    new Date('2025-01-05T12:00:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
   assert.equal(trueCase.ganzhi.day, '甲戌');
   assert.equal(trueCase.ganzhi.hour, '庚午');
   assert.equal(trueCase.specialConditions?.isWuBuYuShi, true);
@@ -586,7 +596,7 @@ test('奇门八神应按宝鉴坎一起例分阳逆阴顺', () => {
 });
 
 test('奇门通用排盘不自动生成应期快慢、触发事件或固定日期', () => {
-  const data = generateQimen(new Date('2025-01-01T06:00:00+08:00'));
+  const data = generateQimen(new Date('2025-01-01T06:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   const runtimeData = data as unknown as Record<string, unknown>;
 
   assert.equal(runtimeData.yingQi, undefined);
@@ -603,7 +613,7 @@ test('奇门通用排盘不自动生成应期快慢、触发事件或固定日�
 });
 
 test('奇门算法会输出节令背景与已校勘组合规则且不生成叠加等级', () => {
-  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
+  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
 
   assert.ok(data.seasonality);
   assert.equal(typeof data.seasonality.currentJieQi, 'string');
@@ -628,7 +638,7 @@ test('奇门算法会输出节令背景与已校勘组合规则且不生成叠�
 });
 
 test('奇门定局、值符值使、宫间作用与应期前提应进入统一证据条目', () => {
-  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
+  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   const analysis = data.evidenceAnalysis;
   const items = analysis?.evidence.items ?? [];
 
@@ -862,7 +872,7 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
 });
 
 test('奇门证据与最终提示资料应重算派生字段并拒绝旧缓存污染', () => {
-  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
+  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   assert.ok(data.seasonality);
   const polluted = {
     ...data,
@@ -1436,7 +1446,9 @@ test('公共月将按实际中气切换且奇门通用盘不再消费专项月�
     new Date('2026-02-10T12:00:00+08:00'),
     new Date('2026-02-20T12:00:00+08:00'),
   ]) {
-    const names = new Set(generateQimen(date).patternCombos?.map((combo) => combo.name));
+    const names = new Set(
+      generateQimen(date, 'zhuanpan', 'hour', 'chaibu').patternCombos?.map((combo) => combo.name),
+    );
     assert.ok(!names.has('天马方'));
     assert.ok(!names.has('天罡时'));
     assert.ok(!names.has('迷路法'));
@@ -1470,13 +1482,11 @@ test('奇门亭亭白奸在白奸异表与适用条件未闭合时应失败关�
   assert.ok(!combos.some((combo) => /白奸功曹|白奸胜光|白奸天罡/.test(combo.summary)));
 });
 
-test('奇门默认使用转盘法，飞盘法九星完整且可区分', () => {
+test('奇门显式选择转盘或飞盘时九星完整且可区分', () => {
   const date = new Date('2025-01-01T08:00:00+08:00');
-  const defaultData = generateQimen(date);
-  const zhuanpanData = generateQimen(date, 'zhuanpan');
-  const feipanData = generateQimen(date, 'feipan');
+  const zhuanpanData = generateQimen(date, 'zhuanpan', 'hour', 'chaibu');
+  const feipanData = generateQimen(date, 'feipan', 'hour', 'chaibu');
 
-  assert.equal(defaultData.method, 'zhuanpan');
   assert.equal(zhuanpanData.method, 'zhuanpan');
   assert.equal(feipanData.method, 'feipan');
   assert.ok(
@@ -1517,9 +1527,24 @@ test('奇门默认使用转盘法，飞盘法九星完整且可区分', () => {
 });
 
 test('年家奇门应按实际年份区分同一甲子的三元周期', () => {
-  const year1924 = generateQimen(new Date('1924-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
-  const year1984 = generateQimen(new Date('1984-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
-  const year2044 = generateQimen(new Date('2044-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+  const year1924 = generateQimen(
+    new Date('1924-07-01T08:00:00+08:00'),
+    'zhuanpan',
+    'year',
+    'nianjia',
+  );
+  const year1984 = generateQimen(
+    new Date('1984-07-01T08:00:00+08:00'),
+    'zhuanpan',
+    'year',
+    'nianjia',
+  );
+  const year2044 = generateQimen(
+    new Date('2044-07-01T08:00:00+08:00'),
+    'zhuanpan',
+    'year',
+    'nianjia',
+  );
 
   assert.equal(year1924.ganzhi.year, '甲子');
   assert.equal(year1984.ganzhi.year, '甲子');
@@ -1537,8 +1562,18 @@ test('年家奇门应按实际年份区分同一甲子的三元周期', () => {
 });
 
 test('年家奇门在年初干支未切换时应沿用匹配干支的三元周期年', () => {
-  const beforeYearChange = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'year');
-  const sameGanzhiYear = generateQimen(new Date('2024-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+  const beforeYearChange = generateQimen(
+    new Date('2025-01-01T08:00:00+08:00'),
+    'zhuanpan',
+    'year',
+    'nianjia',
+  );
+  const sameGanzhiYear = generateQimen(
+    new Date('2024-07-01T08:00:00+08:00'),
+    'zhuanpan',
+    'year',
+    'nianjia',
+  );
 
   assert.equal(beforeYearChange.ganzhi.year, '甲辰');
   assert.equal(sameGanzhiYear.ganzhi.year, '甲辰');
@@ -1659,11 +1694,16 @@ test('奇门未审核符使、飞宫伏宫、月格时格与普通勃格规则�
 });
 
 test('奇门六癸时只登记固定干支条件，不自动生成天网行动规则', () => {
-  const lowNet = generateQimen(new Date('2024-01-06T17:00:00+08:00'));
+  const lowNet = generateQimen(new Date('2024-01-06T17:00:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
   assert.equal(lowNet.specialConditions?.isLiuGuiHour, true);
   assert.match(lowNet.specialConditions?.description ?? '', /六癸时辰，癸为阴干之末/);
 
-  const highNet = generateQimen(new Date('2024-01-01T17:00:00+08:00'));
+  const highNet = generateQimen(
+    new Date('2024-01-01T17:00:00+08:00'),
+    'zhuanpan',
+    'hour',
+    'chaibu',
+  );
   assert.equal(highNet.specialConditions?.isLiuGuiHour, true);
   assert.match(highNet.specialConditions?.description ?? '', /六癸时辰，癸为阴干之末/);
   assert.doesNotMatch(
@@ -1731,7 +1771,7 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
       for (let month = 0; month < 12; month += 1) {
         for (const day of [1, 15]) {
           for (let hour = 0; hour < 24; hour += 2) {
-            const data = generateQimen(new Date(year, month, day, hour), method);
+            const data = generateQimen(new Date(year, month, day, hour), method, 'hour', 'chaibu');
             const names = (data.classicPatterns ?? []).map((pattern) => pattern.name);
             const dayDunStem = getDunJiaStem(data.ganzhi.day);
             const expectedDayStemPatterns = new Set<string>();
@@ -1796,7 +1836,12 @@ test('月家与年家奇门不外推时家上下文格、三奇升殿、三诈�
   for (const scope of ['month', 'year'] as const) {
     for (const method of ['zhuanpan', 'feipan'] as const) {
       for (let month = 0; month < 12; month += 1) {
-        const data = generateQimen(new Date(2025, month, 15, 12), method, scope);
+        const data = generateQimen(
+          new Date(2025, month, 15, 12),
+          method,
+          scope,
+          scope === 'month' ? 'yuejia' : 'nianjia',
+        );
         assert.ok(
           (data.classicPatterns ?? []).every((pattern) => !hourOnlyPatternNames.has(pattern.name)),
           `${scope}/${method}/${month + 1}月不应外推时家结构`,
@@ -1811,7 +1856,10 @@ test('时间型占卜算法应拒绝无效自定义时间对象', () => {
 
   assert.throws(() => generateLiuyao(invalidDate, { method: 'time' }), /自定义时间不是有效日期/);
   assert.throws(() => generateMeihua(invalidDate, { method: 'time' }), /自定义时间不是有效日期/);
-  assert.throws(() => generateQimen(invalidDate), /自定义时间不是有效日期/);
+  assert.throws(
+    () => generateQimen(invalidDate, 'zhuanpan', 'hour', 'chaibu'),
+    /自定义时间不是有效日期/,
+  );
   assert.throws(() => generateLiuren(invalidDate), /自定义时间不是有效日期/);
   assert.throws(
     () => generateXiaoliuren({ method: 'time', customDate: invalidDate }),

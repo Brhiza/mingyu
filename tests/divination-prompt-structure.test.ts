@@ -177,7 +177,7 @@ function createData(method: FixtureMethod): DivinationData {
         customDate: new Date('2025-06-29T08:00:00+08:00'),
       });
     case 'qimen':
-      return generateQimen(new Date('2025-06-18T10:30:00+08:00'));
+      return generateQimen(new Date('2025-06-18T10:30:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
     case 'liuren':
       return generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
     case 'tarot':
