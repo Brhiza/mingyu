@@ -2486,8 +2486,5 @@ export function determinePattern(
     pattern: patternName || '杂气格',
     isSpecial: false,
     basis,
-    // 《子平真诠》“论杂格”明确把魁罡列为“既置勿取”，不再写入正式格局标记。
-    // 其他古籍若需保留该名目，应另以带来源的参考事实表达，不能混入月令格局字段。
-    isKuiGang: false,
   };
 }

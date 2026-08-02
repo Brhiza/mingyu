@@ -2071,23 +2071,26 @@ test('旬空按六十时柱固定六组穷举并关闭跨层级旬空与自动�
   const month = generateQimen(date, 'zhuanpan', 'month');
   const year = generateQimen(date, 'zhuanpan', 'year');
   assert.equal(hour.voidBranches?.length, 2);
-  assert.equal(hour.horseStar, undefined);
+  assert.equal('horseStar' in hour, false);
   for (const chart of [month, year]) {
     assert.deepEqual(chart.voidBranches, []);
     assert.deepEqual(chart.voidPalaces, []);
-    assert.equal(chart.horseStar, undefined);
+    assert.equal('horseStar' in chart, false);
     assert.ok(chart.patternTags?.every((tag) => !tag.includes('马星')));
   }
 
-  const rebuiltMonth = rebuildAuditedQimenData({
+  const legacyMonthInput = {
     ...month,
     voidBranches: ['子'],
     voidPalaces: [{ branch: '子', palace: 1, name: '伪造旬空宫' }],
+  };
+  Object.assign(legacyMonthInput as unknown as Record<string, unknown>, {
     horseStar: { sourceBranch: '寅', branch: '申', palace: 2, name: '伪造马星宫' },
   });
+  const rebuiltMonth = rebuildAuditedQimenData(legacyMonthInput);
   assert.deepEqual(rebuiltMonth.voidBranches, []);
   assert.deepEqual(rebuiltMonth.voidPalaces, []);
-  assert.equal(rebuiltMonth.horseStar, undefined);
+  assert.equal('horseStar' in rebuiltMonth, false);
 
   const analysis = analyzeQimenEvidence(hour);
   const rule = analysis.ruleSourceFacts.find(

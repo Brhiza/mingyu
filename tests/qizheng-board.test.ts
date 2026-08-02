@@ -339,8 +339,10 @@ test('七政四余审核重建应忽略全部派生盘面污染', () => {
   polluted.traditionalChartFacts = [];
   polluted.traditionalYearBasis.adoptedYearGanZhi = '甲子';
   polluted.shenshaFacts = [];
-  polluted.shensha = [];
-  polluted.aspects = [];
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    shensha: [],
+    aspects: [],
+  });
   polluted.mingGong = 0;
   polluted.mingGongBranch = '子';
   polluted.shenGong = 0;

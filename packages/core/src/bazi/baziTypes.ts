@@ -251,8 +251,6 @@ export interface PatternAnalysis {
   pattern: string;
   isSpecial: boolean;
   basis?: string;
-  /** @deprecated 《子平真诠》“论杂格”不取魁罡，正式格局管道固定为 false。 */
-  isKuiGang?: boolean;
 }
 
 export interface UsefulGodAnalysis {
@@ -282,8 +280,6 @@ export interface UsefulGodAnalysis {
 export interface BaziAnalysisResult {
   dayMasterStrength: DayMasterStrengthAnalysis; // 升级为完整对象
   mingGe: PatternAnalysis; // 升级为完整对象
-  /** @deprecated 自动用神规则尚未完成逐条校勘，新结果不再输出。 */
-  usefulGod?: UsefulGodAnalysis;
 }
 
 import { SolarTime } from 'tyme4ts';
@@ -364,8 +360,6 @@ export interface BaziChartResult {
   nayin: Nayin;
   /** 神煞（旧版，保留兼容） */
   shensha: ShenShaResult;
-  /** @deprecated 未校勘的神煞现实解释已关闭，新结果不再输出。 */
-  shenShaAnalysis?: ShenShaResult;
   /** 自坐信息 */
   ziZuo: ZiZuoResult;
   /** 空亡结果 */

@@ -52,7 +52,6 @@ test('奇门摘要应统一重建派生资料，不复活旧缓存污染', () =>
     ],
     voidBranches: ['伪'],
     voidPalaces: [{ branch: '伪', palace: 9, name: '伪造空亡宫' }],
-    horseStar: { sourceBranch: '伪', branch: '造', palace: 9, name: '伪造马星宫' },
     specialConditions: { description: '伪造固定应期' },
     seasonality: {
       ...data.seasonality!,
@@ -61,6 +60,9 @@ test('奇门摘要应统一重建派生资料，不复活旧缓存污染', () =>
       dayOfficerFortuneLabel: '大吉',
     },
   } as typeof data;
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    horseStar: { sourceBranch: '伪', branch: '造', palace: 9, name: '伪造马星宫' },
+  });
 
   const rebuilt = getDivinationSummaryBlocks('qimen', polluted);
   assert.deepEqual(rebuilt, clean);
@@ -136,7 +138,9 @@ test('六爻摘要应从原始摇卦资料重建，不复活旧盘派生字段�
   polluted.changingYaos = [{ position: 6, isChanging: true, type: '伪造动爻' }];
   polluted.palace = { name: '伪造宫', wuxing: '伪造五行' };
   polluted.voidBranches = ['伪'];
-  polluted.specialAdvice = '伪造现实结论';
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    specialAdvice: '伪造现实结论',
+  });
   polluted.evidenceAnalysis!.promptText = '伪造旧证据';
 
   const rebuilt = getDivinationSummaryBlocks('liuyao', polluted);

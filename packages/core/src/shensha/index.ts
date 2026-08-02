@@ -602,8 +602,6 @@ export function analyzeShenshaEvidence(
 export interface HuangliShensha {
   /** 神煞名 */
   name: string;
-  /** @deprecated 仅供读取旧结果；当前不采信依赖库未注明底本版本的吉凶分类。 */
-  luck?: string;
 }
 
 export interface HuangliInfo {

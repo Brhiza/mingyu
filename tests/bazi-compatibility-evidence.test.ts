@@ -17,6 +17,17 @@ function createChart(): BaziChartResult {
   });
 }
 
+function getLegacyUsefulGod(chart: BaziChartResult): {
+  favorableWuxing: string[];
+  unfavorableWuxing: string[];
+} {
+  return (
+    chart.analysis as unknown as {
+      usefulGod: { favorableWuxing: string[]; unfavorableWuxing: string[] };
+    }
+  ).usefulGod;
+}
+
 function withPillars(
   pillars: Pillars,
   dayMaster: { gan: string; element: string; yinYang: string },
@@ -26,14 +37,16 @@ function withPillars(
   const chart = structuredClone(createChart());
   chart.pillars = pillars;
   chart.dayMaster = dayMaster;
-  chart.analysis.usefulGod = {
-    favorable: [],
-    unfavorable: [],
-    useful: '',
-    avoid: '',
-    favorableWuxing: useful.favorableWuxing,
-    unfavorableWuxing: useful.unfavorableWuxing,
-  };
+  Object.assign(chart.analysis as unknown as Record<string, unknown>, {
+    usefulGod: {
+      favorable: [],
+      unfavorable: [],
+      useful: '',
+      avoid: '',
+      favorableWuxing: useful.favorableWuxing,
+      unfavorableWuxing: useful.unfavorableWuxing,
+    },
+  });
   chart.wuxingStrength.present = Object.entries(composition)
     .filter(([, value]) => value > 0)
     .map(([wuxing]) => wuxing);
@@ -274,10 +287,10 @@ test('八字双盘应穷举旧喜忌子集并始终拒绝重新激活覆盖算�
 
   for (const favorable of subsets) {
     for (const unfavorable of subsets) {
-      chart1.analysis.usefulGod!.favorableWuxing = favorable;
-      chart1.analysis.usefulGod!.unfavorableWuxing = unfavorable;
-      chart2.analysis.usefulGod!.favorableWuxing = [...unfavorable].reverse();
-      chart2.analysis.usefulGod!.unfavorableWuxing = [...favorable].reverse();
+      getLegacyUsefulGod(chart1).favorableWuxing = favorable;
+      getLegacyUsefulGod(chart1).unfavorableWuxing = unfavorable;
+      getLegacyUsefulGod(chart2).favorableWuxing = [...unfavorable].reverse();
+      getLegacyUsefulGod(chart2).unfavorableWuxing = [...favorable].reverse();
       const result = analyzeBaziCompatibility(chart1, chart2);
       assert.equal(result.status, '存在资料缺口');
       assert.equal(result.summaryFact.status, '存在资料缺口');
@@ -322,10 +335,10 @@ test('八字双盘未命中关系或喜忌覆盖时仍应保留可追溯引用',
   };
   chart1.dayMaster = { gan: '甲', element: '木', yinYang: '阳' };
   chart2.dayMaster = { gan: '戊', element: '土', yinYang: '阳' };
-  chart1.analysis.usefulGod!.favorableWuxing = [];
-  chart1.analysis.usefulGod!.unfavorableWuxing = [];
-  chart2.analysis.usefulGod!.favorableWuxing = [];
-  chart2.analysis.usefulGod!.unfavorableWuxing = [];
+  getLegacyUsefulGod(chart1).favorableWuxing = [];
+  getLegacyUsefulGod(chart1).unfavorableWuxing = [];
+  getLegacyUsefulGod(chart2).favorableWuxing = [];
+  getLegacyUsefulGod(chart2).unfavorableWuxing = [];
 
   const result = analyzeBaziCompatibility(chart1, chart2);
 

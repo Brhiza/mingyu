@@ -684,13 +684,15 @@ test('八字自动取用待定时不应输出旧取用脉络或内部成格强�
     useTrueSolarTime: false,
   });
   assert.equal('usefulGod' in result.analysis, false);
-  result.analysis.usefulGod = {
-    favorable: [],
-    unfavorable: [],
-    useful: '',
-    avoid: '',
-    strategyTrace: ['运势警语:逢金水运反败'],
-  };
+  Object.assign(result.analysis as unknown as Record<string, unknown>, {
+    usefulGod: {
+      favorable: [],
+      unfavorable: [],
+      useful: '',
+      avoid: '',
+      strategyTrace: ['运势警语:逢金水运反败'],
+    },
+  });
 
   const prompt = buildPromptFromConfig(
     '请分析整体命局。',

@@ -148,19 +148,12 @@ export interface QizhengStar {
   tropicalZodiac: (typeof QIZHENG_TROPICAL_ZODIAC_SIGNS)[number];
   branchIndex: number; // 十二支宫序：子0至亥11
   branch: (typeof QIZHENG_EARTHLY_BRANCHES)[number];
-  /** @deprecated 请使用 branchIndex；新结果不再输出重复别名。 */
-  signIndex?: number;
   palace: string;
   retrograde: boolean;
-  /** @deprecated 庙旺原典按具体宿度等条件立表，当前不自动判定。 */
-  dignity?: never;
   sourceId: QizhengPositionSourceId;
   sourceLabel: string;
   precisionClass: '现代天文计算' | '传统均速模型';
 }
-
-/** @deprecated 固定容许度吊照模型已停用；请使用 QizhengPairGeometry。 */
-export type QizhengAspect = never;
 
 export interface QizhengPairGeometry {
   star1: string;
@@ -552,8 +545,6 @@ export interface QizhengResult {
   pairwiseAngles: QizhengPairGeometry[];
   geometryCalculation: QizhengGeometryCalculation;
   traditionalRuleAudit: QizhengTraditionalRuleAudit;
-  /** @deprecated 固定容许度吊照缺少可靠统一依据，新结果不再输出。 */
-  aspects?: QizhengAspect[];
   mingGong: number;
   mingGongBranch: QizhengStar['branch'];
   shenGong: number;
@@ -563,16 +554,12 @@ export interface QizhengResult {
     palace: (typeof TWELVE_PALACES)[number];
     branchIndex: number;
     branch: QizhengStar['branch'];
-    /** @deprecated 请使用 branchIndex；新结果不再输出重复别名。 */
-    signIndex?: number;
   }[];
   traditionalChartRuleCatalog: readonly QizhengTraditionalChartRule[];
   traditionalChartFacts: QizhengTraditionalChartFact[];
   traditionalYearBasis: QizhengTraditionalYearBasis;
   shenshaRuleCatalog: readonly QizhengShenshaRule[];
   shenshaFacts: QizhengShenshaFact[];
-  /** @deprecated 请使用 shenshaFacts；缺少依据与边界的旧简表在新结果中不再输出。 */
-  shensha?: { name: string; value: string }[];
   ziqiModel: ZiqiModelInfo;
   ziqi: ZiqiPosition;
   calculationContext: QizhengCalculationContext;

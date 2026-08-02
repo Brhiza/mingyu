@@ -57,10 +57,10 @@ test('黄历择日：只保留已闭合的宿曜详情、九星名称与日支�
     assert.ok(day.moonPhaseEvidence.phaseAngleDegrees >= 0);
     assert.ok(day.moonPhaseEvidence.phaseAngleDegrees < 360);
     assert.ok(day.nineStar, `${day.date} 应有九星名称`);
-    assert.equal(day.nineStarDetail, undefined);
-    assert.equal(day.pengZu, undefined);
-    assert.equal(day.pengZuGan, undefined);
-    assert.equal(day.pengZuZhi, undefined);
+    assert.equal('nineStarDetail' in day, false);
+    assert.equal('pengZu' in day, false);
+    assert.equal('pengZuGan' in day, false);
+    assert.equal('pengZuZhi' in day, false);
     assert.match(day.clash, /^冲[子丑寅卯辰巳午未申酉戌亥]$/);
     assert.ok(day.twentyEightStarDetail);
     assert.match(day.twentyEightStarDetail.fullName, new RegExp(`^${day.twentyEightStar}`));

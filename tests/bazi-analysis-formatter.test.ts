@@ -42,24 +42,24 @@ test('八字提示词应忽略旧缓存注入的完整用神与喜忌字段', ()
     useTrueSolarTime: false,
   });
   assert.equal('usefulGod' in result.analysis, false);
-  result.analysis.usefulGod = {
-    favorable: [],
-    unfavorable: [],
-    useful: '',
-    avoid: '',
-    primaryFavorableWuxing: '火',
-    secondaryFavorableWuxing: ['木'],
-    favorableWuxing: ['火', '木'],
-    primaryUnfavorableWuxing: '水',
-    secondaryUnfavorableWuxing: ['金'],
-    unfavorableWuxing: ['水', '金'],
-    primaryUseful: '正印',
-    primaryAvoid: '七杀',
-    useful: '正印',
-    avoid: '七杀',
-    primaryReason: '旧缓存取用结论',
-    strategyTrace: ['旧缓存取用脉络'],
-  };
+  Object.assign(result.analysis as unknown as Record<string, unknown>, {
+    usefulGod: {
+      favorable: [],
+      unfavorable: [],
+      useful: '正印',
+      avoid: '七杀',
+      primaryFavorableWuxing: '火',
+      secondaryFavorableWuxing: ['木'],
+      favorableWuxing: ['火', '木'],
+      primaryUnfavorableWuxing: '水',
+      secondaryUnfavorableWuxing: ['金'],
+      unfavorableWuxing: ['水', '金'],
+      primaryUseful: '正印',
+      primaryAvoid: '七杀',
+      primaryReason: '旧缓存取用结论',
+      strategyTrace: ['旧缓存取用脉络'],
+    },
+  });
 
   const text = formatBaziForPrompt(result);
 
@@ -109,13 +109,15 @@ test('八字新结果应省略未校神煞解释，并忽略旧缓存污染', ()
     useTrueSolarTime: false,
   });
   assert.equal('shenShaAnalysis' in result, false);
-  result.shenShaAnalysis = {
-    year: ['旧缓存现实推断：事业必成'],
-    month: ['旧缓存现实推断：婚恋有利'],
-    day: ['旧缓存现实推断：贵人提携'],
-    hour: ['旧缓存现实推断：外出求财'],
-    global: ['旧缓存现实推断：必有机缘'],
-  };
+  Object.assign(result as unknown as Record<string, unknown>, {
+    shenShaAnalysis: {
+      year: ['旧缓存现实推断：事业必成'],
+      month: ['旧缓存现实推断：婚恋有利'],
+      day: ['旧缓存现实推断：贵人提携'],
+      hour: ['旧缓存现实推断：外出求财'],
+      global: ['旧缓存现实推断：必有机缘'],
+    },
+  });
 
   const text = formatBaziForPrompt(result);
 

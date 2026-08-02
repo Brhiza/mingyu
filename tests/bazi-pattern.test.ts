@@ -42,8 +42,8 @@ test('魁罡被《子平真诠》本章明确不取，不再进入正式格局�
     getTenGod,
   );
 
-  assert.equal(eligible.isKuiGang, false);
-  assert.equal(monthUseAlreadyAvailable.isKuiGang, false);
+  assert.equal('isKuiGang' in eligible, false);
+  assert.equal('isKuiGang' in monthUseAlreadyAvailable, false);
 });
 
 function createPatternPillars(

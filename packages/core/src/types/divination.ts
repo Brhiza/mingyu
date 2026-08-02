@@ -348,10 +348,6 @@ export interface LiuyaoMonthGuaShenAnalysis {
   status: LiuyaoMonthGuaShenStatus;
   /** 本卦中所有同支爻位；同一月卦身可能同时临两爻。 */
   matches: LiuyaoMonthGuaShenMatch[];
-  /** @deprecated 仅供读取旧结果；当前生成结果不再输出，请使用 matches。 */
-  sixRelative?: string;
-  /** @deprecated 仅供读取旧结果；当前生成结果不再输出，请使用 matches。 */
-  position?: number;
 }
 
 export interface MeihuaYaoDetail extends BaseYaoDetail {
@@ -425,14 +421,6 @@ export interface LiuyaoData extends BaseHexagramData {
   fanfuRelations?: LiuyaoFanFuRelations;
   /** 从原始爻值计算的动静结构；旧结果可能没有此字段。 */
   activityPattern?: LiuyaoActivityPattern;
-  /** @deprecated 仅供读取旧结果，当前生成结果不再输出；请改用 activityPattern。 */
-  specialPattern?: '静卦' | '独发卦' | '独静卦' | '全动卦' | '乾卦用九' | '坤卦用六';
-  /** @deprecated 仅供读取旧结果，当前生成结果不再输出；请改用 activityPattern.guidance。 */
-  specialAdvice?: string;
-  /** @deprecated “乱动”无跨原典一致的客观阈值，仅供读取旧结果。 */
-  isChaotic?: boolean;
-  /** @deprecated “乱动”无跨原典一致的客观阈值，仅供读取旧结果。 */
-  chaoticReason?: string;
   /** 与日支的三合局 */
   sanheWithDay?: {
     group: string;
@@ -699,10 +687,6 @@ export interface QimenData {
   voidBranches?: string[];
   /** 已审核旬空对应的宫位；当前只在时家保存。 */
   voidPalaces?: QimenBranchPalace[];
-  /** @deprecated 仅兼容旧结果输入；审核重建不采信，当前不自动计算驿马（马星）。 */
-  horseStar?: QimenBranchPalace & {
-    sourceBranch: string;
-  };
   /** 排盘时间信息（节气、三元等） */
   timeInfo: QimenTimeInfo;
   /** 特殊时辰检查（六甲时、六癸时、时干入墓、五不遇时） */
@@ -1045,29 +1029,12 @@ export interface AlmanacDayCandidate {
     sevenStar: string;
     animal: string;
     zone: string;
-    /** @deprecated 仅供读取旧结果；当前不采信依赖库未注明底本版本的吉凶分类。 */
-    fortune?: string;
     source: string;
   } | null;
   nineStar: string;
-  /** @deprecated 仅供读取旧结果；当前不输出依赖库未注明底本版本的九星属性详情。 */
-  nineStarDetail?: {
-    fullName: string;
-    color: string;
-    wuxing: string;
-    dipper: string;
-    direction: string;
-    source: string;
-  } | null;
   gods: string[];
   recommends: string[];
   avoids: string[];
-  /** @deprecated 仅供读取旧结果；当前不输出底本与版本未闭合的彭祖百忌。 */
-  pengZu?: string;
-  /** @deprecated 仅供读取旧结果；当前不输出底本与版本未闭合的彭祖百忌。 */
-  pengZuGan?: string;
-  /** @deprecated 仅供读取旧结果；当前不输出底本与版本未闭合的彭祖百忌。 */
-  pengZuZhi?: string;
   /** 当前仅保存可复算的日支固定相冲，例如“冲午”。 */
   clash: string;
   annualDirectionGods?: AlmanacAnnualDirectionGod[];
@@ -1091,10 +1058,6 @@ export interface AlmanacHourCandidate {
   ganzhi: string;
   branch: string;
   twelveStar: string;
-  /** @deprecated 仅供读取旧结果；当前不输出未闭合底本的黄黑道分类。 */
-  ecliptic?: '黄道' | '黑道';
-  /** @deprecated 仅供读取旧结果；当前不输出依赖库吉凶标签。 */
-  eclipticLuck?: '吉' | '凶';
   recommends: string[];
   avoids: string[];
   highlights: string[];
@@ -1264,8 +1227,6 @@ export interface AstrolabeData {
     elements: Record<string, string[]>;
     modalities: Record<string, string[]>;
     retrograde: string[];
-    /** @deprecated 仅供读取旧结果；依赖库格局未保存完整几何条件，当前生成结果不再输出。 */
-    patterns?: string[];
   };
   timestamp: number;
 }
@@ -1440,14 +1401,6 @@ export interface TaiyiResult {
   segment72: number;
   /** 360 周期余数所在的一基 60 数段。 */
   segment60: number;
-  /** @deprecated 仅供读取旧结果；当前使用 accumulatedValue。 */
-  accumulatedYears?: number;
-  /** @deprecated 仅供读取旧结果；当前使用 cycleRemainder360。 */
-  entryYears?: number;
-  /** @deprecated 仅供读取旧结果；该值只是 segment72，不代表已统一版本口径的“元”。 */
-  yuan?: number;
-  /** @deprecated 仅供读取旧结果；该值只是 segment60，不代表已统一版本口径的“纪”。 */
-  ji?: number;
   yinYang: '阳遁' | '阴遁';
   bureau: number;
   taiyiPosition: string;
@@ -1470,8 +1423,6 @@ export interface TaiyiResult {
   setGeneral: number;
   setAssistant: number;
   sixteenGods: { branch: string; god: string }[];
-  /** @deprecated 仅供读取旧结果；当前改用 evidenceAnalysis.conditionFacts 输出位置条件。 */
-  judgments?: string[];
   model: TaiyiModelInfo;
   evidenceAnalysis: import('../taiyi/evidence').TaiyiEvidenceAnalysis;
   prompt: string;

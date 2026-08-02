@@ -340,12 +340,14 @@ test('六爻页面资料与摘要应重算动静结构并忽略派生字段污�
       stillPositions: [],
       guidance: '伪造的新派生说明',
     },
-    specialPattern: '乾卦用九' as const,
+    evidenceAnalysis: undefined,
+  };
+  Object.assign(tampered as unknown as Record<string, unknown>, {
+    specialPattern: '乾卦用九',
     specialAdvice: '伪造的旧派生说明',
     isChaotic: true,
     chaoticReason: '伪造的乱动结论',
-    evidenceAnalysis: undefined,
-  };
+  });
   const info = formatDivinationInfo('liuyao', tampered, '');
   const summary = getDivinationSummaryBlocks('liuyao', tampered);
 
@@ -396,15 +398,18 @@ test('六爻页面资料应显示月卦身不入卦与同支多现，并忽略�
     method: 'manual',
     yaos: [7, 7, 8, 8, 8, 8],
   });
+  const legacyGuaShen = {
+    branch: '伪',
+    status: '入卦' as const,
+    matches: [{ position: 1, sixRelative: '伪造六亲' }],
+  };
+  Object.assign(legacyGuaShen as unknown as Record<string, unknown>, {
+    position: 1,
+    sixRelative: '伪造六亲',
+  });
   const tamperedQian = {
     ...qian,
-    guaShen: {
-      branch: '伪',
-      status: '入卦' as const,
-      matches: [{ position: 1, sixRelative: '伪造六亲' }],
-      position: 1,
-      sixRelative: '伪造六亲',
-    },
+    guaShen: legacyGuaShen,
     evidenceAnalysis: undefined,
   };
   const qianText = formatDivinationInfo('liuyao', tamperedQian, '');
@@ -489,7 +494,7 @@ test('奇门算法只补出两个时旬空并关闭自动马星', () => {
   assert.equal(new Set(data.voidBranches).size, 2);
   assert.ok(data.voidPalaces?.length);
   assert.ok(data.voidPalaces.every((item) => item.branch && item.palace && item.name));
-  assert.equal(data.horseStar, undefined);
+  assert.equal('horseStar' in data, false);
   assert.ok(data.patternTags?.every((tag) => !tag.includes('马星')));
 });
 
@@ -912,12 +917,6 @@ test('奇门证据与最终提示资料应重算派生字段并拒绝旧缓存�
     },
     voidBranches: ['污染空亡'],
     voidPalaces: [{ branch: '污染空亡', palace: 1, name: '污染空亡宫' }],
-    horseStar: {
-      sourceBranch: '污染马星来源',
-      branch: '污染马星',
-      palace: 1,
-      name: '污染马星宫',
-    },
     seasonality: {
       ...data.seasonality,
       currentJieQi: '污染节气',
@@ -937,6 +936,14 @@ test('奇门证据与最终提示资料应重算派生字段并拒绝旧缓存�
     evidenceAnalysis: { promptText: '污染伪造证据' },
     yingQi: { description: '污染固定三天应验' },
   } as unknown as QimenData;
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    horseStar: {
+      sourceBranch: '污染马星来源',
+      branch: '污染马星',
+      palace: 1,
+      name: '污染马星宫',
+    },
+  });
 
   const cleanEvidence = analyzeQimenEvidence(data);
   const pollutedEvidence = analyzeQimenEvidence(polluted);
@@ -2238,7 +2245,9 @@ test('太乙页面资料与摘要只凭原始年份重建并忽略旧盘污染',
   polluted.lordCount = -1;
   polluted.guestCount = -1;
   polluted.setCount = -1;
-  polluted.judgments = ['伪造现实断语'];
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    judgments: ['伪造现实断语'],
+  });
   polluted.model.name = '伪造模型';
   polluted.evidenceAnalysis.promptText = '伪造旧证据';
 
@@ -2706,7 +2715,9 @@ test('星盘提示词、页面资料与摘要只凭原始出生来源重建', ()
   polluted.houses = [];
   polluted.aspects = [];
   polluted.summary.retrograde = ['伪造逆行'];
-  polluted.summary.patterns = ['伪造格局'];
+  Object.assign(polluted.summary as unknown as Record<string, unknown>, {
+    patterns: ['伪造格局'],
+  });
   polluted.timestamp = Date.parse('2099-12-31T00:00:00+08:00');
   polluted.evidenceAnalysis!.promptText = '伪造旧星盘证据';
 

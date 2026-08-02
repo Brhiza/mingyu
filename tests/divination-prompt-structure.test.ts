@@ -352,7 +352,9 @@ test('太乙提示词只凭原始年份重建，不吸收旧盘与旧证据污�
   polluted.lordCount = -1;
   polluted.guestCount = -1;
   polluted.setCount = -1;
-  polluted.judgments = ['伪造现实断语'];
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    judgments: ['伪造现实断语'],
+  });
   polluted.model.name = '伪造模型';
   polluted.evidenceAnalysis.promptText = '伪造旧证据';
   polluted.prompt = '伪造旧提示词';
@@ -678,7 +680,9 @@ test('六爻提示词只使用原始摇卦资料重建，不吸收完整旧盘�
     isResponse: true,
   };
   polluted.hiddenSpirits = [];
-  polluted.specialAdvice = '伪造现实必胜结论';
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    specialAdvice: '伪造现实必胜结论',
+  });
   polluted.evidenceAnalysis!.promptText = '伪造完整旧证据';
 
   const rebuilt = buildDivinationPrompt(

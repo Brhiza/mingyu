@@ -60,10 +60,12 @@ test('六爻审核重建不得吸收旧卦盘、纳甲旺衰、组合或完整�
   polluted.hiddenSpirits = [];
   polluted.sanheFormations = [];
   polluted.sanxingInYaos = [];
-  polluted.specialPattern = '全动卦';
-  polluted.specialAdvice = '伪造现实结论';
-  polluted.isChaotic = true;
-  polluted.chaoticReason = '伪造的乱动结论';
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    specialPattern: '全动卦',
+    specialAdvice: '伪造现实结论',
+    isChaotic: true,
+    chaoticReason: '伪造的乱动结论',
+  });
   polluted.evidenceAnalysis!.promptText = '伪造完整旧证据';
 
   const rebuilt = rebuildAuditedLiuyaoData(polluted);
@@ -1040,7 +1042,7 @@ test('六爻伏神与取用未定时不得泛化套用透出和空破应期', ()
 
 test('六爻结构事实应重新计算动静与三合并忽略旧派生字段', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
-  const evidence = analyzeLiuyaoEvidence({
+  const polluted = {
     ...data,
     hexagramRelations: {
       original: '六冲卦',
@@ -1059,10 +1061,6 @@ test('六爻结构事实应重新计算动静与三合并忽略旧派生字段',
       fuyin: [],
       labels: ['内卦反吟'],
     },
-    specialPattern: '全动卦',
-    specialAdvice: '伪造的旧说明',
-    isChaotic: true,
-    chaoticReason: '伪造的乱动结论',
     activityPattern: {
       kind: '全动卦',
       movingCount: 6,
@@ -1076,7 +1074,14 @@ test('六爻结构事实应重新计算动静与三合并忽略旧派生字段',
       description: '动变支与日支组成申子辰三合',
     },
     evidenceAnalysis: undefined,
+  };
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    specialPattern: '全动卦',
+    specialAdvice: '伪造的旧说明',
+    isChaotic: true,
+    chaoticReason: '伪造的乱动结论',
   });
+  const evidence = analyzeLiuyaoEvidence(polluted);
 
   assert.deepEqual(
     new Set(evidence.structureFacts.map((item) => item.kind)),
@@ -1153,16 +1158,19 @@ test('六爻证据应从日干与本卦重算六神、月卦身并忽略伪造�
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: [7, 7, 8, 8, 8, 8] });
   assert.equal(data.originalName, '地泽临');
   const current = analyzeLiuyaoEvidence({ ...data, evidenceAnalysis: undefined });
+  const legacyGuaShen = {
+    branch: '伪',
+    status: '入卦' as const,
+    matches: [{ position: 1, sixRelative: '伪造六亲' }],
+  };
+  Object.assign(legacyGuaShen as unknown as Record<string, unknown>, {
+    position: 1,
+    sixRelative: '伪造六亲',
+  });
   const tampered = analyzeLiuyaoEvidence({
     ...data,
     sixGods: Array.from({ length: 6 }, () => '伪造六神'),
-    guaShen: {
-      branch: '伪',
-      status: '入卦',
-      matches: [{ position: 1, sixRelative: '伪造六亲' }],
-      position: 1,
-      sixRelative: '伪造六亲',
-    },
+    guaShen: legacyGuaShen,
     yaosDetail: data.yaosDetail.map((item) => ({ ...item, sixGod: '伪造六神' })),
     evidenceAnalysis: undefined,
   });

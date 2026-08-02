@@ -59,8 +59,6 @@ export interface AlmanacTraditionalFact {
   originalText: string;
   promptText: string;
   sources: string[];
-  /** @deprecated 仅供读取旧证据；当前不采信依赖库未注明底本版本的吉凶分类。 */
-  fortune?: string;
   branch?: string;
   direction?: string;
   limitation: '传统择日资料只用于当前事项的候选比较，不证明现实中的疾病、死亡、灾祸、官非、财损、婚姻或生育结果';
@@ -73,10 +71,6 @@ export interface AlmanacHourEvidence {
   ganzhi: string;
   branch: string;
   twelveStar: string;
-  /** @deprecated 仅供读取旧证据；当前不输出未闭合底本的黄黑道分类。 */
-  ecliptic?: '黄道' | '黑道';
-  /** @deprecated 仅供读取旧证据；当前不输出依赖库吉凶标签。 */
-  eclipticLuck?: '吉' | '凶';
   status: AlmanacCandidateStatus;
   recommends: string[];
   avoids: string[];
@@ -816,9 +810,7 @@ function buildCandidateEvidence(
     ),
   );
   const traditionalFacts = buildTraditionalFacts(day);
-  const directionConstraints = traditionalFacts
-    .filter((item) => item.kind === '全年方位神' && item.fortune === '凶')
-    .map((item) => item.promptText);
+  const directionConstraints: string[] = [];
   const directionFacts = traditionalFacts
     .filter((item) => item.kind === '全年方位神')
     .map((item) => item.promptText);

@@ -4,7 +4,7 @@ import { analyzeFortuneTriggers } from '@core/bazi/fortuneTriggerEvidence';
 import type { BaziChartResult, Pillars } from '@core/bazi/baziTypes';
 
 function createResult(): BaziChartResult {
-  return {
+  const result = {
     pillars: {
       year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
       month: { gan: '己', zhi: '丑', ganZhi: '己丑' },
@@ -12,13 +12,26 @@ function createResult(): BaziChartResult {
       hour: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
     },
     dayMaster: { gan: '庚' },
-    analysis: {
-      usefulGod: {
-        favorableWuxing: ['木', '火'],
-        unfavorableWuxing: ['金'],
-      },
-    },
+    analysis: {},
   } as BaziChartResult;
+  Object.assign(result.analysis as unknown as Record<string, unknown>, {
+    usefulGod: {
+      favorableWuxing: ['木', '火'],
+      unfavorableWuxing: ['金'],
+    },
+  });
+  return result;
+}
+
+function getLegacyUsefulGod(result: BaziChartResult): {
+  favorableWuxing: string[];
+  unfavorableWuxing: string[];
+} {
+  return (
+    result.analysis as unknown as {
+      usefulGod: { favorableWuxing: string[]; unfavorableWuxing: string[] };
+    }
+  ).usefulGod;
 }
 
 function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTriggers>) {
@@ -228,8 +241,8 @@ test('六十甲子岁运应全部拒绝旧喜忌字段并只保留结构事实',
   const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
   const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
   const natal = createResult();
-  natal.analysis.usefulGod!.favorableWuxing = ['木', '火', '土', '金', '水'];
-  natal.analysis.usefulGod!.unfavorableWuxing = ['木', '火', '土', '金', '水'];
+  getLegacyUsefulGod(natal).favorableWuxing = ['木', '火', '土', '金', '水'];
+  getLegacyUsefulGod(natal).unfavorableWuxing = ['木', '火', '土', '金', '水'];
   let checked = 0;
 
   for (let index = 0; index < 60; index += 1) {
@@ -259,8 +272,8 @@ test('同一运柱的运干与运支应分别保留十神和原局关系，不�
   natal.pillars.month = { gan: '壬', zhi: '子', ganZhi: '壬子' };
   natal.pillars.day = { gan: '丙', zhi: '寅', ganZhi: '丙寅' };
   natal.dayMaster = { gan: '丙' } as BaziChartResult['dayMaster'];
-  natal.analysis.usefulGod!.favorableWuxing = ['火'];
-  natal.analysis.usefulGod!.unfavorableWuxing = ['水'];
+  getLegacyUsefulGod(natal).favorableWuxing = ['火'];
+  getLegacyUsefulGod(natal).unfavorableWuxing = ['水'];
 
   const result = analyzeFortuneTriggers(natal, [
     { id: 'dayun', type: 'dayun', label: '丙午大运', ganZhi: '丙午' },

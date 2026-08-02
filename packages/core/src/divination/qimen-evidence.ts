@@ -762,6 +762,7 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
     directions?: unknown;
     yingQi?: unknown;
     palaceInsights?: unknown;
+    horseStar?: unknown;
   };
   delete (baseInput as { directions?: unknown }).directions;
   delete (baseInput as { yingQi?: unknown }).yingQi;

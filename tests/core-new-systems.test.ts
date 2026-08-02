@@ -1030,10 +1030,12 @@ test('taiyi: 审核重建只信任原始年份并隔离全部旧盘污染', () =
   polluted.ganZhi = '伪造干支';
   polluted.dateTime = '伪造时间';
   polluted.accumulatedValue = -1;
-  polluted.accumulatedYears = -2;
-  polluted.entryYears = -3;
-  polluted.yuan = -4;
-  polluted.ji = -5;
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    accumulatedYears: -2,
+    entryYears: -3,
+    yuan: -4,
+    ji: -5,
+  });
   polluted.bureau = 72;
   polluted.yinYang = '阴遁';
   polluted.taiyiPosition = '伪造太乙位';
@@ -1043,7 +1045,9 @@ test('taiyi: 审核重建只信任原始年份并隔离全部旧盘污染', () =
   polluted.lordCount = -1;
   polluted.guestCount = -1;
   polluted.setCount = -1;
-  polluted.judgments = ['伪造现实断语'];
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    judgments: ['伪造现实断语'],
+  });
   polluted.model.name = '伪造模型';
   polluted.evidenceAnalysis.promptText = '伪造旧证据';
   polluted.prompt = '伪造旧提示词';
