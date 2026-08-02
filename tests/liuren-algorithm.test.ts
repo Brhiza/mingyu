@@ -1573,7 +1573,7 @@ test('大六壬天狱课应按囚死墓发用与天罡临六壬日本穷举严�
   );
 });
 
-test('大六壬斩关课应按魁罡临日辰发用并乘六合青龙穷举严格命中', () => {
+test('大六壬斩关课应按魁罡临日辰发用穷举严格命中，并保留所乘天将', () => {
   let profileCount = 0;
   let matchCount = 0;
 
@@ -1592,7 +1592,6 @@ test('大六壬斩关课应按魁罡临日辰发用并乘六合青龙穷举严�
             }).find((candidate) => candidate.name === '斩关课');
             const expected =
               ['辰', '戌'].includes(initial) &&
-              ['六合', '青龙'].includes(initialGod) &&
               [dayStemResidence, dayBranch].includes(initialGroundBranch);
             assert.equal(Boolean(fact), expected);
             if (fact) matchCount += 1;
@@ -1604,7 +1603,7 @@ test('大六壬斩关课应按魁罡临日辰发用并乘六合青龙穷举严�
   }
 
   assert.equal(profileCount, 207_360);
-  assert.equal(matchCount, 920);
+  assert.equal(matchCount, 5_520);
 
   const ancientPlate = buildHeavenlyPlate({
     monthLeader: '未',
@@ -1666,12 +1665,6 @@ test('大六壬斩关课应按魁罡临日辰发用并乘六合青龙穷举严�
   for (const context of [
     {
       transmissionBranches: ['戌', '午', '寅'],
-      dayStem: '甲',
-      dayBranch: '寅',
-      initialGroundBranch: '寅',
-    },
-    {
-      transmissionBranches: ['戌', '午', '寅'],
       transmissionGods: ['六合', '天后', '白虎'],
       dayStem: '甲',
       dayBranch: '寅',
@@ -1682,6 +1675,14 @@ test('大六壬斩关课应按魁罡临日辰发用并乘六合青龙穷举严�
       false,
     );
   }
+
+  const baseFact = getLiurenGuaTiFacts({
+    transmissionBranches: ['戌', '午', '寅'],
+    dayStem: '甲',
+    dayBranch: '寅',
+    initialGroundBranch: '寅',
+  }).find((candidate) => candidate.name === '斩关课');
+  assert.deepEqual(baseFact?.matchedConditions, ['初传戌临日干甲寄宫寅及日支寅']);
 });
 
 test('大六壬亨通、闭口与引从课应按严格结构批量穷举并由真实盘复算', () => {
@@ -1938,7 +1939,7 @@ test('大六壬芜淫、解离与冲破课应按日辰交克和冲神乘破结�
   ];
   classicalCases.forEach((fact) => {
     assert.ok(fact);
-    assert.match(fact.sourceUrl, /oldid=854576/);
+    assert.match(fact.sourceUrl, /oldid=854578/);
     assert.doesNotMatch(fact.matchedConditions.join('；'), /婚姻|淫乱|疾病|诉讼|吉|凶/);
   });
 
@@ -2995,7 +2996,7 @@ test('大六壬赘婿卦应按日支临干受克发用的17280种轮廓严格命
   assert.ok(fact);
   assert.equal(fact.stableKey, 'liuren:verified-guati:zhui-xu');
   assert.deepEqual(fact.matchedConditions, ['日支申临日干丙受干克，且以日支发用']);
-  assert.match(fact.sourceUrl, /六壬大全\/8&oldid=854576$/);
+  assert.match(fact.sourceUrl, /六壬大全\/9&oldid=854578$/);
   assert.match(fact.sourceQuote, /六壬指南.+六壬大全/);
   assert.doesNotMatch(
     `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
@@ -3208,17 +3209,17 @@ test('大六壬新增六类课体应按完整起课条件命中', () => {
     },
     {
       name: '斫轮卦',
-      sourceOldId: '854575',
+      sourceOldId: '854576',
       context: { transmissionBranches: ['卯', '辰', '巳'], initialGroundBranch: '申' },
     },
     {
       name: '铸印卦',
-      sourceOldId: '854575',
+      sourceOldId: '854576',
       context: { transmissionBranches: ['巳', '戌', '卯'] },
     },
     {
       name: '高盖乘轩卦',
-      sourceOldId: '854504',
+      sourceOldId: '854576',
       context: { transmissionBranches: ['午', '卯', '子'] },
     },
     {

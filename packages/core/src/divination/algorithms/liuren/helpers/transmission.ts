@@ -161,8 +161,6 @@ export function getPatternTag(pattern: LiurenData['transmissionPattern']) {
 
 const LIUREN_GUIDE_VOLUME_ONE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/1&oldid=854504';
-const LIUREN_DAQUAN_VOLUME_SIX_URL =
-  'https://zh.wikisource.org/w/index.php?title=六壬大全/6&oldid=854574';
 const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/7&oldid=854575';
 const LIUREN_DAQUAN_VOLUME_EIGHT_URL =
@@ -1388,8 +1386,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'si-ni',
     name: '四逆课',
     category: '贵人顺逆',
-    sourceTitle: '《六壬大全》卷十·四逆课；《六壬灵觉经》·四逆课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceTitle: '《六壬大全》卷九·四逆课；《六壬灵觉经》·四逆课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
     sourceQuote:
       '《六壬大全》：“用吉终凶；用旺终衰；天乙逆行；传入天乙后。”《六壬灵觉经》同列用吉终凶、用旺终衰、贵人逆治、传入贵人后四项。当前只登记四项结构同时成立。',
     detect(context) {
@@ -1438,8 +1436,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'zhuo-lun',
     name: '斫轮卦',
     category: '发用临地',
-    sourceTitle: '《六壬大全》卷七·课经集一·斫轮课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceTitle: '《六壬大全》卷八·斫轮课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
     sourceQuote: '斫轮，卯加庚辛申酉发用。卯为车轮，金为斧斤，木就金斫，故名斫轮。',
     detect(context) {
       if (context.transmissionBranches[0] !== '卯') return null;
@@ -1464,8 +1462,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'zhu-yin',
     name: '铸印卦',
     category: '三传支类',
-    sourceTitle: '《六壬大全》卷七·课经集一·铸印课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceTitle: '《六壬大全》卷八·铸印课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
     sourceQuote: '凡课得戌加巳中传，为铸印课。\n铸印，三传巳戌卯，巳为炉，戌为印，卯为印模。',
     detect: (context) =>
       context.transmissionBranches.join('') === '巳戌卯'
@@ -1479,9 +1477,10 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'gao-gai-cheng-xuan',
     name: '高盖乘轩卦',
     category: '三传支类',
-    sourceTitle: '《六壬指南》卷一·三传课体',
-    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
-    sourceQuote: '午卯子三传曰高盖乘轩卦。',
+    sourceTitle: '《六壬大全》卷八·轩盖课；《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬大全》：“凡课值胜光为用，遇太冲、神后，为轩盖课。”《六壬指南》：“午卯子三传曰高盖乘轩卦。”',
     detect: (context) =>
       context.transmissionBranches.join('') === '午卯子'
         ? { branches: ['午', '卯', '子'], matchedConditions: ['三传依次为午、卯、子'] }
@@ -1581,8 +1580,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'shang-men-luan-shou',
     name: '上门乱首',
     category: '日辰发用',
-    sourceTitle: '《六壬大全》卷七·课经集一·乱首课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceTitle: '《六壬大全》卷九·乱首课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
     sourceQuote: '支临干克干，为上门乱首，更兼发用尤的。',
     detect(context) {
       const initial = context.transmissionBranches[0];
@@ -1606,8 +1605,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'zhui-xu',
     name: '赘婿卦',
     category: '日辰发用',
-    sourceTitle: '《六壬指南》卷一·心印赋；《六壬大全》卷八·赘婿课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceTitle: '《六壬指南》卷一·心印赋；《六壬大全》卷九·赘婿课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
     sourceQuote:
       '《六壬指南》：“支辰加天干之上被克为用曰赘婿卦。”《六壬大全》：“支临干被克，更兼发用尤的。”',
     detect(context) {
@@ -1843,9 +1842,7 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         !context.dayStem ||
         !context.dayBranch ||
         !context.initialGroundBranch ||
-        !initialGod ||
-        !['辰', '戌'].includes(initial) ||
-        !['六合', '青龙'].includes(initialGod)
+        !['辰', '戌'].includes(initial)
       ) {
         return null;
       }
@@ -1861,7 +1858,7 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             : `日支${context.dayBranch}`;
       return {
         branches: [initial, context.initialGroundBranch],
-        matchedConditions: [`初传${initial}临${position}并乘${initialGod}`],
+        matchedConditions: [`初传${initial}临${position}${initialGod ? `并乘${initialGod}` : ''}`],
       };
     },
   },
@@ -1908,8 +1905,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'ju-sheng',
     name: '俱生格',
     category: '干支生合',
-    sourceTitle: '《六壬大全》卷六·毕法赋；《六壬粹言》卷三·经课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SIX_URL,
+    sourceTitle: '《六壬大全》卷八·亨通课、卷十二·毕法赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
     sourceQuote:
       '《六壬大全》：“干上神生干，支上神生支，为俱生格。”《六壬粹言》：“谓干支各受上神之生。”当前只登记两处五行生关系。',
     detect(context) {
@@ -1931,8 +1928,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'hu-sheng',
     name: '互生格',
     category: '干支生合',
-    sourceTitle: '《六壬大全》卷六·毕法赋；《六壬粹言》卷三·经课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SIX_URL,
+    sourceTitle: '《六壬大全》卷八·亨通课、卷十二·毕法赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
     sourceQuote:
       '《六壬大全》：“干上神生支，支上神生干，为互生格。”《六壬粹言》：“谓干支交车互生。”当前只登记两处交互五行生关系。',
     detect(context) {
@@ -1954,8 +1951,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'zi-zai',
     name: '自在格',
     category: '干支生合',
-    sourceTitle: '《六壬大全》卷六·毕法赋；《六壬粹言》卷三·经课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SIX_URL,
+    sourceTitle: '《六壬大全》卷八·亨通课、卷十二·毕法赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
     sourceQuote:
       '《六壬大全》：“支加干上而生日，为自在格。”《六壬粹言》列为支来生干的往来相生格。当前按日支加干并生日干的结构复算。',
     detect(context) {
@@ -1973,8 +1970,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'hu-wang',
     name: '互旺格',
     category: '干支生合',
-    sourceTitle: '《六壬大全》卷六·毕法赋；《六壬粹言》卷三·经课',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_SIX_URL,
+    sourceTitle: '《六壬大全》卷八·亨通课、卷十二·毕法赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
     sourceQuote:
       '《六壬大全》《六壬粹言》均只列甲申、庚寅二日：甲申日干上酉、支上卯，庚寅日干上卯、支上酉。当前严格按这两种固定轮廓登记。',
     detect(context) {
@@ -2452,8 +2449,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'wu-yin',
     name: '芜淫课',
     category: '日辰交克',
-    sourceTitle: '《六壬指南》卷一；《六壬大全》卷八·芜淫课；《六壬粹言》',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceTitle: '《六壬指南》卷一；《六壬大全》卷九·芜淫课；《六壬粹言》',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
     sourceQuote:
       '《六壬指南》：“上神互克干支名曰芜淫卦。”《六壬粹言》：“芜淫课，上神互克其干支。如甲子日，干上戌，支上申。”当前只取干上神克日支、支上神克日干的交互受克结构。',
     detect(context) {
@@ -2474,8 +2471,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'jie-li',
     name: '解离课',
     category: '日辰交克',
-    sourceTitle: '《六壬大全》卷八·解离课；《六壬粹言》；《六壬指南注解》',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceTitle: '《六壬大全》卷九·解离课；《六壬粹言》；《六壬指南注解》',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
     sourceQuote:
       '《六壬大全》：“干克支上神，支克干上神。”《六壬粹言》：“解离课，干支互克其上神。如甲子日，干上午，支上辰。”当前只取日干克支上神、日支克干上神的交互克上神结构。',
     detect(context) {
@@ -2496,8 +2493,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'chong-po',
     name: '冲破课',
     category: '冲神乘破',
-    sourceTitle: '《六壬大全》卷八·冲破课；《御定六壬直指》',
-    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceTitle: '《六壬大全》卷九·冲破课；《御定六壬直指》',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
     sourceQuote:
       '《六壬大全》：“日辰之冲神，加破为用。”《御定六壬直指》庚子日例：“午冲子，冲神乘破发用，为之冲破格。”当前只取日支冲神临该冲神六破支发用的严格结构。',
     detect(context) {
