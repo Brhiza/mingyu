@@ -32,11 +32,7 @@ import { trigramsByIndex } from '../../../divination/hexagram-data';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../../../ganzhi';
 import { assertOptionalRecord } from '../../../shared/validation';
-import {
-  getMeihuaElementRelation,
-  getMeihuaSeasonByJieQi,
-  getMeihuaSeasonByMonth,
-} from './helpers/analysis';
+import { getMeihuaElementRelation, getMeihuaSeasonByJieQi } from './helpers/analysis';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
 import {
   resolveTimeTrigramMethod,
@@ -311,11 +307,7 @@ function buildMeihuaData(customDate?: Date, settings?: MeihuaSettings): MeihuaDa
   const monthElement = getBranchWuxing(monthBranch);
   const tiSeasonState = getSeasonState(tiGua.element, monthBranch);
   const yongSeasonState = getSeasonState(yongGua.element, monthBranch);
-  const seasonByJieQi = getMeihuaSeasonByJieQi(timeInfo.jieQi);
-  const season: '春' | '夏' | '秋' | '冬' =
-    seasonByJieQi !== '未知'
-      ? (seasonByJieQi as '春' | '夏' | '秋' | '冬')
-      : getMeihuaSeasonByMonth(lunar.monthNumber);
+  const season = getMeihuaSeasonByJieQi(timeInfo.jieQi);
 
   const result: MeihuaData = {
     originalName: mainHexagram.name,

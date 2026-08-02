@@ -25,10 +25,10 @@ export interface LiuyueInfo {
   tenGodZhi: string;
   startDate: string;
   endDate: string;
-  startDateTime?: string;
-  endDateTime?: string;
-  startTermName?: string;
-  endTermName?: string;
+  startDateTime: string;
+  endDateTime: string;
+  startTermName: string;
+  endTermName: string;
   jieqi: { name: string; date: string }[];
 }
 
@@ -142,14 +142,15 @@ export function calculateLiuyue(year: number, month: number, dayMaster: string):
   const nextMonth = getNextMonth(year, month);
   const nextMonthTerms = collectSolarTermsInMonth(nextMonth.year, nextMonth.month);
   const nextJie = nextMonthTerms.find(({ term }) => term.isJie());
-  const solarTime = firstJie?.solarTime ?? SolarTime.fromYmdHms(year, month, 15, 12, 0, 0);
+  if (!firstJie || !nextJie) {
+    throw new Error(`${year}年${month}月流月节气边界不完整，无法生成可靠流月。`);
+  }
+  const solarTime = firstJie.solarTime;
   const monthColumn = solarTime.getLunarHour().getEightChar().getMonth();
   const gan = monthColumn.getHeavenStem().getName();
   const zhi = monthColumn.getEarthBranch().getName();
-  const startDate = firstJie?.date ?? `${year}-${String(month).padStart(2, '0')}-01`;
-  const endDate = nextJie
-    ? nextJie.date
-    : `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate().toString().padStart(2, '0')}`;
+  const startDate = firstJie.date;
+  const endDate = nextJie.date;
 
   return {
     month,
@@ -160,10 +161,10 @@ export function calculateLiuyue(year: number, month: number, dayMaster: string):
     tenGodZhi: getTenGodForBranch(zhi, dayMaster),
     startDate,
     endDate,
-    startDateTime: firstJie ? formatLocalDateTime(firstJie.solarTime) : undefined,
-    endDateTime: nextJie ? formatLocalDateTime(nextJie.solarTime) : undefined,
-    startTermName: firstJie?.term.getName(),
-    endTermName: nextJie?.term.getName(),
+    startDateTime: formatLocalDateTime(firstJie.solarTime),
+    endDateTime: formatLocalDateTime(nextJie.solarTime),
+    startTermName: firstJie.term.getName(),
+    endTermName: nextJie.term.getName(),
     jieqi: solarTermsInMonth.map(({ term, date }) => ({
       name: term.getName(),
       date,
@@ -251,7 +252,7 @@ export function getMonthCommander(solarTime: SolarTimeInstance, monthBranch: str
   }
 
   if (!jieBefore) {
-    return '未知(节气未找到)';
+    throw new Error('月令司权所需的前一节气缺失，无法生成可靠司令结果。');
   }
 
   const daysSinceJie = birthTime.getDay() - jieBefore.getJulianDay().getDay();
@@ -326,8 +327,11 @@ export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
     }
   }
 
-  const daysSincePrev = prevTerm ? Math.floor(birthJulianDay.getDay() - prevTerm.jd) : 0;
-  const daysToNext = nextTerm ? Math.floor(nextTerm.jd - birthJulianDay.getDay()) : 0;
+  if (!prevTerm || !nextTerm) {
+    throw new Error('出生时刻前后的节气边界不完整，无法生成可靠节令信息。');
+  }
+  const daysSincePrev = Math.floor(birthJulianDay.getDay() - prevTerm.jd);
+  const daysToNext = Math.floor(nextTerm.jd - birthJulianDay.getDay());
 
   // tyme4ts SolarTerm 索引：0=冬至,3=立春,6=春分,9=立夏,12=夏至,15=立秋,18=秋分,21=立冬。
   // 传统以「四立」分季：立春(3)起春、立夏(9)起夏、立秋(15)起秋、立冬(21)起冬。
@@ -357,30 +361,30 @@ export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
     1: '冬',
     2: '冬',
   };
+  const currentSeason = seasonIndexMap[prevTerm.index];
+  if (!currentSeason) {
+    throw new Error(`节气索引${prevTerm.index}缺少四季映射，无法生成可靠节令信息。`);
+  }
 
   return {
-    currentJieqi: prevTerm ? prevTerm.name : '未知',
-    nextJieqi: nextTerm ? nextTerm.name : '未知',
+    currentJieqi: prevTerm.name,
+    nextJieqi: nextTerm.name,
     daysSincePrev,
     daysToNext,
-    currentSeason: prevTerm ? seasonIndexMap[prevTerm.index] : '未知',
+    currentSeason,
     jieqiList: solarTerms.map((term) => ({ name: term.name, date: term.date })),
-    previousTermEvidence: prevTerm
-      ? calculateSolarTermEvidence(
-          prevTerm.index === 0
-            ? Number(prevTerm.date.slice(0, 4)) + 1
-            : Number(prevTerm.date.slice(0, 4)),
-          prevTerm.index,
-        )
-      : undefined,
-    nextTermEvidence: nextTerm
-      ? calculateSolarTermEvidence(
-          nextTerm.index === 0
-            ? Number(nextTerm.date.slice(0, 4)) + 1
-            : Number(nextTerm.date.slice(0, 4)),
-          nextTerm.index,
-        )
-      : undefined,
+    previousTermEvidence: calculateSolarTermEvidence(
+      prevTerm.index === 0
+        ? Number(prevTerm.date.slice(0, 4)) + 1
+        : Number(prevTerm.date.slice(0, 4)),
+      prevTerm.index,
+    ),
+    nextTermEvidence: calculateSolarTermEvidence(
+      nextTerm.index === 0
+        ? Number(nextTerm.date.slice(0, 4)) + 1
+        : Number(nextTerm.date.slice(0, 4)),
+      nextTerm.index,
+    ),
   };
 }
 

@@ -12,7 +12,7 @@ function assertWuxing(value: string, label: string): void {
   }
 }
 
-export function getMeihuaSeasonByJieQi(jieQi: string): MeihuaSeason | '未知' {
+export function getMeihuaSeasonByJieQi(jieQi: string): MeihuaSeason {
   const seasonByJieQi: Record<string, MeihuaSeason> = {
     立春: '春',
     雨水: '春',
@@ -40,7 +40,11 @@ export function getMeihuaSeasonByJieQi(jieQi: string): MeihuaSeason | '未知' {
     大寒: '冬',
   };
 
-  return seasonByJieQi[jieQi] || '未知';
+  const season = seasonByJieQi[jieQi];
+  if (!season) {
+    throw new Error(`无法识别梅花易数节气：${jieQi}`);
+  }
+  return season;
 }
 
 export function getMeihuaSeasonByMonth(monthNumber: number): MeihuaSeason {

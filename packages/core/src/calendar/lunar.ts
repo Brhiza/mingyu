@@ -317,24 +317,6 @@ export class LunarUtil {
   }
 
   /**
-   * 获取指定公历年份每月的干支
-   */
-  static getGanZhiForYear(year: number): { month: number; ganZhi: string }[] {
-    this.assertSolarYear(year);
-    const result = [];
-    for (let month = 1; month <= 12; month++) {
-      // 使用该月 15 日午时作为公历月代表点，月柱来源统一走 EightChar。
-      const solarTime = SolarTime.fromYmdHms(year, month, 15, 12, 0, 0);
-      const eightChar = solarTime.getLunarHour().getEightChar();
-      result.push({
-        month: month,
-        ganZhi: eightChar.getMonth().getName(),
-      });
-    }
-    return result;
-  }
-
-  /**
    * 格式化时间显示
    */
   static formatTimeDisplay(timeInfo: TimeInfo): {

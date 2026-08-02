@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { getYearMonthsGanZhi } from '@core/bazi/calendarTool';
-import { calculateSeasonInfo } from '@core/bazi/baziCalculatorTime';
+import { calculateLiuyue, calculateSeasonInfo } from '@core/bazi/baziCalculatorTime';
+import { getMeihuaSeasonByJieQi } from '@core/divination/algorithms/meihua/helpers/analysis';
 import { getSolarTermContextByDate } from '@core/divination/algorithms/qimen/helpers/seasonality';
 import { calculateSolarTermEvidence, calculateSolarTermsForYear } from 'mingyu-core/calendar';
 import { SolarTime } from 'tyme4ts';
@@ -88,6 +89,28 @@ test('全年二十四节气应保持名称、黄经和节气属性顺序', () =>
   );
   assert.equal(terms.at(-1)?.name, '冬至');
   assert.match(terms.at(-1)?.utcDateTime ?? '', /^2024-12/);
+});
+
+test('1900至2100年全部流月应取得完整交节边界，不再回退到月初或月中', () => {
+  for (let year = 1900; year <= 2100; year++) {
+    for (let month = 1; month <= 12; month++) {
+      const result = calculateLiuyue(year, month, '甲');
+      assert.match(result.startDateTime, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+      assert.match(result.endDateTime, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+      assert.ok(result.startTermName.length > 0);
+      assert.ok(result.endTermName.length > 0);
+      assert.equal(result.jieqi.filter((item) => item.name === result.startTermName).length, 1);
+    }
+  }
+});
+
+test('梅花二十四节气应全部映射四时，未知节气直接拒绝', () => {
+  const terms = calculateSolarTermsForYear(2024);
+  const seasons = terms.map((item) => getMeihuaSeasonByJieQi(item.name));
+
+  assert.equal(seasons.length, 24);
+  assert.ok(seasons.every((season) => ['春', '夏', '秋', '冬'].includes(season)));
+  assert.throws(() => getMeihuaSeasonByJieQi('假节气'), /无法识别梅花易数节气/);
 });
 
 test('八字节令月应携带起止交节的结构化证据', () => {

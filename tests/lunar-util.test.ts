@@ -30,8 +30,6 @@ test('农历工具应拒绝越界年月参数', () => {
   assert.throws(() => LunarUtil.getGanZhiForMonth(2101, 1), /年份需在 1900-2100 之间/);
   assert.throws(() => LunarUtil.getGanZhiForMonth(2026, 0), /月份需在 1-12 之间/);
   assert.throws(() => LunarUtil.getGanZhiForMonth(2026, 13), /月份需在 1-12 之间/);
-  assert.throws(() => LunarUtil.getGanZhiForYear(1899), /年份需在 1900-2100 之间/);
-  assert.throws(() => LunarUtil.getGanZhiForYear(2101), /年份需在 1900-2100 之间/);
 });
 
 test('农历工具干支应与 tyme4ts EightChar 精确时刻一致', () => {
@@ -73,14 +71,8 @@ test('农历工具显示文本不应保留 tyme4ts toString 的农历前缀，�
   assert.equal(leapMonth.monthNumber, 2);
 });
 
-test('农历工具公历年每月代表干支应统一取 EightChar 月柱', () => {
-  const yearGanZhi = LunarUtil.getGanZhiForYear(2024);
-
-  yearGanZhi.forEach(({ month, ganZhi }) => {
-    const eightChar = SolarTime.fromYmdHms(2024, month, 15, 12, 0, 0).getLunarHour().getEightChar();
-
-    assert.equal(ganZhi, eightChar.getMonth().getName());
-  });
+test('农历工具不得用公历每月十五日代表整月月柱', () => {
+  assert.equal('getGanZhiForYear' in LunarUtil, false);
 });
 
 test('农历工具空亡地支应直接与 tyme4ts 六十甲子结果一致', () => {

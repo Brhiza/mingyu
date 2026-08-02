@@ -13,20 +13,18 @@ function getStemWuxing(stem: string): Wuxing {
   return wuxing;
 }
 
-function getBranchWuxing(branch: string): Wuxing {
-  assertEarthlyBranch(branch, '月支');
-  const index = BASIC_MAPPINGS.EARTHLY_BRANCHES.indexOf(branch as never);
-  const wuxing = BASIC_MAPPINGS.BRANCH_WUXING[index] as Wuxing | undefined;
-  if (!wuxing) {
-    throw new Error(`月支五行数据缺失：${branch}`);
-  }
-  return wuxing;
-}
-
 function getMonthLeadingElement(monthBranch: string): Wuxing {
   const season = SEASON_STATUS[monthBranch];
-  const wangElement = Object.entries(season ?? {}).find(([, status]) => status === '旺')?.[0];
-  return (wangElement as Wuxing | undefined) ?? getBranchWuxing(monthBranch);
+  if (!season) {
+    throw new Error(`月令旺衰数据缺失：${monthBranch}`);
+  }
+  const wangElements = Object.entries(season)
+    .filter(([, status]) => status === '旺')
+    .map(([element]) => element);
+  if (wangElements.length !== 1 || !WUXING.includes(wangElements[0] as Wuxing)) {
+    throw new Error(`${monthBranch}月令必须且只能有一个旺五行。`);
+  }
+  return wangElements[0] as Wuxing;
 }
 
 export function analyzeMonthQiProfile(monthBranch: string, commanderStem?: string): MonthQiProfile {
@@ -43,20 +41,24 @@ export function analyzeMonthQiProfile(monthBranch: string, commanderStem?: strin
   const commanderWuxing = commanderStem ? getStemWuxing(commanderStem) : undefined;
 
   const items: MonthQiElementItem[] = WUXING.map((element) => {
-    const seasonStatus = season[element] ?? '平';
+    const seasonStatus = season[element];
+    if (!seasonStatus || !['旺', '相', '休', '囚', '死'].includes(seasonStatus)) {
+      throw new Error(`月令旺衰数据缺失：${monthBranch}/${element}`);
+    }
+    const auditedSeasonStatus = seasonStatus as MonthQiElementItem['seasonStatus'];
     const commanderApplied = commanderWuxing === element;
     const commanderText = commanderApplied && commanderStem ? `；${commanderStem}司令` : '';
 
     return {
       element,
-      seasonStatus,
+      seasonStatus: auditedSeasonStatus,
       count: 1 + (commanderApplied ? 1 : 0),
       commanderApplied,
       ruleBasis: [
-        `${monthBranch}月状态：${seasonStatus}`,
+        `${monthBranch}月状态：${auditedSeasonStatus}`,
         ...(commanderApplied && commanderStem ? [`${commanderStem}司令五行：${element}`] : []),
       ],
-      summary: `${element}于${monthBranch}月为${seasonStatus}${commanderText}；月令状态与司令分别登记，不换算百分比`,
+      summary: `${element}于${monthBranch}月为${auditedSeasonStatus}${commanderText}；月令状态与司令分别登记，不换算百分比`,
     };
   });
 

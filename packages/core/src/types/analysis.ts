@@ -389,8 +389,8 @@ export interface TenGodFlowProfile {
   summary: string;
 }
 export interface MonthQiElementItem {
-  element: string;
-  seasonStatus: string;
+  element: '木' | '火' | '土' | '金' | '水';
+  seasonStatus: '旺' | '相' | '休' | '囚' | '死';
   /** 月令状态与司令两项事实的登记数量，不表示力量比例。 */
   count: number;
   commanderApplied: boolean;

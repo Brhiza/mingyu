@@ -299,7 +299,10 @@ export function buildSeasonality(ganzhi: BaseGanZhi, date: Date): SeasonalityInf
 
   // ── 2. 日干与节令关系 ──
   const dayStem = ganzhi.day.charAt(0);
-  const dayElement = stemElements[dayStem] ?? '';
+  const dayElement = stemElements[dayStem];
+  if (!dayElement) {
+    throw new Error(`无法识别日干 "${dayStem}" 的五行属性。`);
+  }
   const { relation, description } = getDaySeasonRelation(dayStem, seasonalElement);
 
   // ── 3. 月相 ──
@@ -452,7 +455,10 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
 
       // 天干五合
       if (isTianGanHe(a.gan, b.gan)) {
-        const heWuxing = getTianGanHeWuxing(a.gan) ?? '';
+        const heWuxing = getTianGanHeWuxing(a.gan);
+        if (!heWuxing) {
+          throw new Error(`天干五合${a.gan}${b.gan}缺少对应五行，无法生成可靠关系事实。`);
+        }
         interactions.push({
           type: '天干五合',
           pillars: [a.key, b.key],

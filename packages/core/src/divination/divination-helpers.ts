@@ -28,7 +28,7 @@ function analyzeRebuiltMeihuaHexagram(data: MeihuaData) {
  * 梅花易数专用工具函数
  */
 export const MeihuaHelpers = {
-  getSeasonByJieQi(jieQi: string): '春' | '夏' | '秋' | '冬' | '未知' {
+  getSeasonByJieQi(jieQi: string): '春' | '夏' | '秋' | '冬' {
     return getMeihuaSeasonByJieQi(jieQi);
   },
 

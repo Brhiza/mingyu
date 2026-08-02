@@ -134,6 +134,31 @@ test('月令气数应拒绝非法月支和司令天干，不应降级成平气',
   assert.throws(() => analyzeMonthQiProfile('辰', '不存在'), /司令天干无效/);
 });
 
+test('十二月令乘五行应完整覆盖旺相休囚死且每月仅一项为旺', () => {
+  for (const monthBranch of [
+    '子',
+    '丑',
+    '寅',
+    '卯',
+    '辰',
+    '巳',
+    '午',
+    '未',
+    '申',
+    '酉',
+    '戌',
+    '亥',
+  ]) {
+    const profile = analyzeMonthQiProfile(monthBranch);
+    assert.equal(profile.items.length, 5);
+    assert.equal(new Set(profile.items.map((item) => item.element)).size, 5);
+    assert.equal(profile.items.filter((item) => item.seasonStatus === '旺').length, 1);
+    assert.ok(
+      profile.items.every((item) => ['旺', '相', '休', '囚', '死'].includes(item.seasonStatus)),
+    );
+  }
+});
+
 test('十神结构应按透干与藏支事实分类，不以隐藏权重裁定强弱', () => {
   const profile = analyzeTenGodStructure(
     [
