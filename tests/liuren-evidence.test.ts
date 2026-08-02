@@ -808,6 +808,28 @@ test('大六壬回环赘婿进入提示词时应只保留可复算盘面结构',
   }
 });
 
+test('大六壬游子课进入提示词时应只保留四季三传与天马发用事实', () => {
+  const data = generateLiuren(new Date('2024-01-10T20:00:00+08:00'));
+  const fact = data.guaTiFacts.find((candidate) => candidate.name === '游子课');
+  assert.ok(fact, '游子课应由真实起盘命中');
+  assert.deepEqual(fact.matchedConditions, [
+    '三传辰、未、戌均为辰戌丑未四季，月建丑所起天马辰发用',
+  ]);
+  const traditionalFact = data.evidenceAnalysis?.traditionalFacts.find(
+    (candidate) => candidate.key === fact.stableKey,
+  );
+  assert.ok(traditionalFact);
+  assert.equal(
+    traditionalFact.promptText,
+    '盘面命中“游子课”：三传辰、未、戌均为辰戌丑未四季，月建丑所起天马辰发用；只登记课体结构，不据此单断现实吉凶',
+  );
+  assert.match(data.evidenceAnalysis?.promptText ?? '', /三传辰、未、戌.+天马辰发用/);
+  assert.doesNotMatch(
+    traditionalFact.promptText,
+    /远行|逃亡|疾病|刑狱|婚姻|功名|成败|现实结果|吉凶总分/,
+  );
+});
+
 test('十二天将旧类象字段不得保留或软化后继续进入提示词', () => {
   Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
     assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);

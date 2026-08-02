@@ -2,6 +2,25 @@ import type { LiurenShenShaFact } from '../../../../types/divination';
 import { getOppositeBranch, getYiMa } from '../../../../ganzhi';
 import { DIZHI, getDayStemResidence, TIANGAN } from './plate';
 
+const LIUREN_TIAN_MA_BY_MONTH: Readonly<Record<string, string>> = {
+  寅: '午',
+  卯: '申',
+  辰: '戌',
+  巳: '子',
+  午: '寅',
+  未: '辰',
+  申: '午',
+  酉: '申',
+  戌: '戌',
+  亥: '子',
+  子: '寅',
+  丑: '辰',
+};
+
+export function getLiurenTianMaBranch(monthBranch: string): string | undefined {
+  return LIUREN_TIAN_MA_BY_MONTH[monthBranch];
+}
+
 /**
  * 按《六壬大全》《六壬粹言》分层计算当前已登记、无需本命资料即可确定的岁煞、月煞和日煞。
  * 每项保留起法输入与来源，避免把八字常用的年、日支起法混入六壬逐月神煞。
@@ -782,21 +801,7 @@ export function buildShenShaFacts(
     });
   }
 
-  const tianMaMap: Record<string, string> = {
-    寅: '午',
-    卯: '申',
-    辰: '戌',
-    巳: '子',
-    午: '寅',
-    未: '辰',
-    申: '午',
-    酉: '申',
-    戌: '戌',
-    亥: '子',
-    子: '寅',
-    丑: '辰',
-  };
-  const tianMa = tianMaMap[monthBranch];
+  const tianMa = getLiurenTianMaBranch(monthBranch);
   if (tianMa) {
     addFact({
       name: '天马',

@@ -41,6 +41,20 @@ const SIXTY_DAYS = Array.from(
   { length: 60 },
   (_, index) => `${TIANGAN[index % 10]}${DIZHI[index % 12]}`,
 );
+const MONTH_BRANCH_BY_LEADER: Readonly<Record<string, string>> = {
+  亥: '寅',
+  戌: '卯',
+  酉: '辰',
+  申: '巳',
+  未: '午',
+  午: '未',
+  巳: '申',
+  辰: '酉',
+  卯: '戌',
+  寅: '亥',
+  丑: '子',
+  子: '丑',
+};
 const GUIREN_BRANCH_BY_STEM: Record<string, { day: string; night: string }> = {
   甲: { day: '丑', night: '未' },
   戊: { day: '丑', night: '未' },
@@ -553,8 +567,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定二十七条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 27);
+test('大六壬课体登记表应固定二十八条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 28);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -962,6 +976,82 @@ test('大六壬回环课应穷举全部1370304种三传与四课上神集合轮�
   );
 });
 
+test('大六壬游子课应按十二月建与全部三传轮廓严格命中', () => {
+  const tianMaByMonth: Readonly<Record<string, string>> = {
+    寅: '午',
+    卯: '申',
+    辰: '戌',
+    巳: '子',
+    午: '寅',
+    未: '辰',
+    申: '午',
+    酉: '申',
+    戌: '戌',
+    亥: '子',
+    子: '寅',
+    丑: '辰',
+  };
+  const seasonalBranches = new Set(['辰', '戌', '丑', '未']);
+  let profileCount = 0;
+  let matchCount = 0;
+
+  for (const monthBranch of DIZHI) {
+    for (const initial of DIZHI) {
+      for (const middle of DIZHI) {
+        for (const final of DIZHI) {
+          const transmissionBranches = [initial, middle, final];
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches,
+            monthBranch,
+          }).find((item) => item.name === '游子课');
+          const expected =
+            initial === tianMaByMonth[monthBranch] &&
+            transmissionBranches.every((branch) => seasonalBranches.has(branch));
+          assert.equal(
+            !!fact,
+            expected,
+            `月建${monthBranch}、三传${transmissionBranches.join('、')}的游子课边界不一致`,
+          );
+          if (fact) matchCount += 1;
+          profileCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 20_736);
+  assert.equal(matchCount, 64);
+
+  const fact = getLiurenGuaTiFacts({
+    transmissionBranches: ['戌', '丑', '未'],
+    monthBranch: '辰',
+  }).find((item) => item.name === '游子课');
+  assert.ok(fact);
+  assert.equal(fact.stableKey, 'liuren:verified-guati:you-zi');
+  assert.equal(fact.category, '三传天马');
+  assert.deepEqual(fact.matchedConditions, [
+    '三传戌、丑、未均为辰戌丑未四季，月建辰所起天马戌发用',
+  ]);
+  assert.match(fact.sourceUrl, /六壬大全\/9&oldid=854578$/);
+  assert.match(fact.sourceQuote, /六壬指南.+六壬大全/);
+  assert.doesNotMatch(
+    fact.matchedConditions.join('；'),
+    /吉凶|疾病|刑狱|逃亡|远行|成败|婚姻|功名|现实事件/,
+  );
+
+  assert.ok(
+    !getLiurenGuaTiFacts({ transmissionBranches: ['戌', '丑', '未'] }).some(
+      (item) => item.name === '游子课',
+    ),
+  );
+  assert.ok(
+    !getLiurenGuaTiFacts({
+      transmissionBranches: ['戌', '丑', '未'],
+      monthBranch: '卯',
+    }).some((item) => item.name === '游子课'),
+  );
+});
+
 test('大六壬四课五种关系轮廓应严格识别四项克贼课体', () => {
   const relationLessons = [
     { relation: '上克下', lesson: { upper: '寅', lower: '丑' } },
@@ -1275,6 +1365,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
               hourBranch,
               initialGroundBranch: getPlateItemByBranch(heavenlyPlate, branches[0]).under,
               yearBranch,
+              monthBranch: MONTH_BRANCH_BY_LEADER[monthLeader],
               monthLeader,
               noblemanBranch: getNoblemanBranch(dayStem, dayNight),
               noblemanGroundBranch: getPlateItemByBranch(

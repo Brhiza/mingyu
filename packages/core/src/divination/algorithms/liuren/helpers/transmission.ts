@@ -18,6 +18,7 @@ import {
   isSheng,
 } from '../../../../ganzhi';
 import { DIZHI, getGanZhiWuxing, isBranchKe, TIANGAN } from './plate';
+import { getLiurenTianMaBranch } from './shensha';
 
 function describeDirectedElementRelation(
   sourceLabel: string,
@@ -153,6 +154,8 @@ const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/7&oldid=854575';
 const LIUREN_DAQUAN_VOLUME_EIGHT_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/8&oldid=854576';
+const LIUREN_DAQUAN_VOLUME_NINE_URL =
+  'https://zh.wikisource.org/w/index.php?title=六壬大全/9&oldid=854578';
 const LIUREN_GUIDE_VOLUME_TWO_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/2&oldid=854505';
 const JIU_CHOU_DAYS = new Set([
@@ -670,6 +673,29 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         ? {
             branches: [...context.transmissionBranches],
             matchedConditions: [`三传${context.transmissionBranches.join('、')}均见于四课上神`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'you-zi',
+    name: '游子课',
+    category: '三传天马',
+    sourceTitle: '《六壬指南》卷一、卷二；《六壬大全》卷九·游子课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬指南》卷一：“辰戌丑未为四季，在三传本静，而丁神天马入之曰游子。”卷二：“四季名为游子，乘天马。”《六壬大全》：“凡课三传皆土，遇旬丁天马为用，曰游子课。”',
+    detect(context) {
+      if (!context.monthBranch) return null;
+      const tianMa = getLiurenTianMaBranch(context.monthBranch);
+      return tianMa &&
+        context.transmissionBranches[0] === tianMa &&
+        context.transmissionBranches.every((branch) => ['辰', '戌', '丑', '未'].includes(branch))
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [
+              `三传${context.transmissionBranches.join('、')}均为辰戌丑未四季，月建${context.monthBranch}所起天马${tianMa}发用`,
+            ],
           }
         : null;
     },
