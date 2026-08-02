@@ -10,7 +10,9 @@ import {
 import { getVoidBranches } from '../packages/core/src/calendar/lunar.ts';
 import { EARTHLY_BRANCHES } from '../packages/core/src/ganzhi/data.ts';
 import {
+  getYiMa,
   getSeasonState,
+  isSheng,
   LIUCHONG_MAP,
   LIUHAI_MAP,
   LIUHE_MAP,
@@ -76,6 +78,30 @@ const SIXTY_DAYS = Array.from(
   { length: 60 },
   (_, index) => `${TIANGAN[index % 10]}${DIZHI[index % 12]}`,
 );
+const DAY_LU_BRANCH_BY_STEM: Readonly<Record<string, string>> = {
+  甲: '寅',
+  乙: '卯',
+  丙: '巳',
+  丁: '午',
+  戊: '巳',
+  己: '午',
+  庚: '申',
+  辛: '酉',
+  壬: '亥',
+  癸: '子',
+};
+const LIUREN_CUI_YAN_GUA_TI_NAMES = new Set([
+  '太阳临身格',
+  '太阳射宅格',
+  '时用生日格',
+  '时用克日格',
+  '富贵课',
+  '四路驿马格',
+  '根断源消格',
+  '不入格',
+  '传出格',
+  '传入格',
+]);
 const MONTH_BRANCH_BY_LEADER: Readonly<Record<string, string>> = {
   亥: '寅',
   戌: '卯',
@@ -896,8 +922,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定一百二十一条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 121);
+test('大六壬课体登记表应固定一百三十一条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 131);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -3612,6 +3638,7 @@ test('大六壬天地盘会把月将加在占时地盘上，并保持天地互�
 test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取传', () => {
   const ruleCounts = new Map<string, number>();
   const guaTiCounts = new Map<string, number>();
+  const auditedCuiYanNames = new Set<string>();
   let caseCount = 0;
   let guaTiContextCount = 0;
 
@@ -3681,8 +3708,62 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
               heavenlyDragonGroundBranch: getPlateItemByBranch(heavenlyPlate, '辰').under,
               fourLessons: lessons,
             });
+            const guaTiFactNames = new Set(guaTiFacts.map((fact) => fact.name));
+            const lessonUppers = new Set(lessons.map((lesson) => lesson.upper));
+            const initialBranch = branches[0];
+            const middleBranch = branches[1];
+            const finalBranch = branches[2];
+            const fourYiMa = [
+              getYiMa(yearBranch),
+              getYiMa(MONTH_BRANCH_BY_LEADER[monthLeader]),
+              getYiMa(dayBranch),
+              getYiMa(hourBranch),
+            ];
+            const commonYiMa = fourYiMa[0];
+            const expectedCuiYanMatches: Readonly<Record<string, boolean>> = {
+              太阳临身格: monthLeader === lessons[0].upper,
+              太阳射宅格: monthLeader === lessons[2].upper,
+              时用生日格:
+                hourBranch === initialBranch &&
+                isSheng(getGanZhiWuxing(initialBranch), getGanZhiWuxing(dayStem)),
+              时用克日格: hourBranch === initialBranch && isBranchKe(initialBranch, dayStem),
+              富贵课:
+                lessons[0].upper === getYiMa(dayBranch) &&
+                lessons[2].upper === DAY_LU_BRANCH_BY_STEM[dayStem],
+              四路驿马格:
+                fourYiMa.every((branch) => branch === commonYiMa) && initialBranch === commonYiMa,
+              根断源消格: lessons.every((lesson) =>
+                isSheng(getGanZhiWuxing(lesson.lower), getGanZhiWuxing(lesson.upper)),
+              ),
+              不入格: !lessonUppers.has(initialBranch),
+              传出格:
+                lessonUppers.has(initialBranch) &&
+                [middleBranch, finalBranch].some((branch) => !lessonUppers.has(branch)),
+              传入格:
+                !lessonUppers.has(initialBranch) &&
+                [middleBranch, finalBranch].some((branch) => lessonUppers.has(branch)),
+            };
+            for (const [name, expected] of Object.entries(expectedCuiYanMatches)) {
+              assert.equal(
+                guaTiFactNames.has(name),
+                expected,
+                `${label}、太岁${yearBranch}的${name}命中边界不一致`,
+              );
+            }
             for (const fact of guaTiFacts) {
               guaTiCounts.set(fact.name, (guaTiCounts.get(fact.name) || 0) + 1);
+              if (
+                LIUREN_CUI_YAN_GUA_TI_NAMES.has(fact.name) &&
+                !auditedCuiYanNames.has(fact.name)
+              ) {
+                assert.match(fact.sourceTitle, /《六壬粹言》卷[四七八]/);
+                assert.match(fact.sourceUrl, /shushubook\/blob\/[0-9a-f]{40}\/六壬\/六壬粹言/);
+                assert.doesNotMatch(
+                  fact.matchedConditions.join('；'),
+                  /主(?:婚姻|官非|疾病|死丧|升迁|财利)|必然|必定|现实事件/,
+                );
+                auditedCuiYanNames.add(fact.name);
+              }
             }
           }
 
@@ -3750,6 +3831,11 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
 
   assert.equal(caseCount, 17_280);
   assert.equal(guaTiContextCount, 207_360);
+  assert.deepEqual(
+    [...auditedCuiYanNames].sort(),
+    [...LIUREN_CUI_YAN_GUA_TI_NAMES].sort(),
+    '《六壬粹言》本批十项结构均应能由合法九宗门盘面自然生成',
+  );
   const mainVersionBoundaryNames = ['出三天格', '入三渊格', '凝阳格', '涉疑格', '偃蹇格'];
   assert.equal(guaTiCounts.size, REGISTERED_LIUREN_GUA_TI_COUNT - mainVersionBoundaryNames.length);
   assert.deepEqual(

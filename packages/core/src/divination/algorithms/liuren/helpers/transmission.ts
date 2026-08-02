@@ -7,6 +7,7 @@ import type {
   LiurenTransmission,
 } from '../../../../types/divination';
 import {
+  getYiMa,
   getXunHead,
   getBranchWuxing,
   getSeasonState,
@@ -175,6 +176,8 @@ const LIUREN_DAQUAN_VOLUME_TWELVE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/12&oldid=854581';
 const LIUREN_GUIDE_VOLUME_TWO_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/2&oldid=854505';
+const LIUREN_CUI_YAN_SOURCE_URL =
+  'https://github.com/kentang2017/shushubook/blob/53516cbc9152c10c0b828b42c92abb6f6b211bdb/六壬/六壬粹言-清-刘赤江.txt';
 const YANG_BRANCHES: ReadonlySet<string> = new Set(['子', '寅', '辰', '午', '申', '戌']);
 const YIN_BRANCHES: ReadonlySet<string> = new Set(['丑', '卯', '巳', '未', '酉', '亥']);
 const AUSPICIOUS_GENERALS: ReadonlySet<string> = new Set([
@@ -257,6 +260,18 @@ const DAY_GHOST_BRANCHES_BY_STEM: Readonly<Record<string, readonly string[]>> = 
   辛: ['巳'],
   壬: ['辰', '戌'],
   癸: ['丑', '未'],
+};
+const DAY_LU_BRANCH_BY_STEM: Readonly<Record<string, string>> = {
+  甲: '寅',
+  乙: '卯',
+  丙: '巳',
+  丁: '午',
+  戊: '巳',
+  己: '午',
+  庚: '申',
+  辛: '酉',
+  壬: '亥',
+  癸: '子',
 };
 
 export interface LiurenGuaTiContext {
@@ -1513,6 +1528,237 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
       context.transmissionBranches.join('') === '午卯子'
         ? { branches: ['午', '卯', '子'], matchedConditions: ['三传依次为午、卯、子'] }
         : null,
+  },
+  {
+    id: 'tai-yang-lin-shen',
+    name: '太阳临身格',
+    category: '月将临干支',
+    sourceTitle: '《六壬粹言》卷四·要将；《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“太阳临身格。身谓干也……月将加干。”《六壬大全》亦以月将临身复核。当前只登记月将与干上神同支。',
+    detect(context) {
+      if (!context.monthLeader || !context.dayStem || !context.fourLessons) return null;
+      const firstLesson = context.fourLessons[0];
+      return firstLesson.lower === context.dayStem && firstLesson.upper === context.monthLeader
+        ? {
+            branches: [context.monthLeader],
+            matchedConditions: [`月将${context.monthLeader}临日干${context.dayStem}之上`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'tai-yang-she-zhai',
+    name: '太阳射宅格',
+    category: '月将临干支',
+    sourceTitle: '《六壬粹言》卷四·要将；《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“太阳射宅格。宅谓支也……月将加支。”《六壬大全》亦以月将临支复核。当前只登记月将与支上神同支。',
+    detect(context) {
+      if (!context.monthLeader || !context.dayBranch || !context.fourLessons) return null;
+      const thirdLesson = context.fourLessons[2];
+      return thirdLesson.lower === context.dayBranch && thirdLesson.upper === context.monthLeader
+        ? {
+            branches: [context.monthLeader],
+            matchedConditions: [`月将${context.monthLeader}临日支${context.dayBranch}之上`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'shi-yong-sheng-ri',
+    name: '时用生日格',
+    category: '时用生克',
+    sourceTitle: '《六壬粹言》卷四·要将；《六壬指南》卷二·指掌赋',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“谓占时发用，生其日干。”《六壬指南》亦以正时为先锋并列时生日。当前要求占时与初传同支，且该支五行生日干。',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      return context.hourBranch &&
+        context.dayStem &&
+        context.hourBranch === initial &&
+        isGanZhiSheng(initial, context.dayStem)
+        ? {
+            branches: [initial],
+            matchedConditions: [`占时${context.hourBranch}即初传，且生日干${context.dayStem}`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'shi-yong-ke-ri',
+    name: '时用克日格',
+    category: '时用生克',
+    sourceTitle: '《六壬粹言》卷四·要将；《六壬指南》卷一、卷二',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“谓占时发用，克其日干。”《六壬指南》亦载“时用克日”。当前要求占时与初传同支，且该支五行克日干；不替代条件较宽的天网卦。',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      return context.hourBranch &&
+        context.dayStem &&
+        context.hourBranch === initial &&
+        isBranchKe(initial, context.dayStem)
+        ? {
+            branches: [initial],
+            matchedConditions: [`占时${context.hourBranch}即初传，且克日干${context.dayStem}`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'fu-gui-lu-ma',
+    name: '富贵课',
+    category: '禄马结构',
+    sourceTitle: '《六壬粹言》卷七·格例；《六壬大全》卷十一·毕法赋',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“干上乘支之马，支上乘干之禄，名富贵课。”《六壬大全》：“干上有支驿马，支上有干禄神者。”当前只登记禄马交置结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const firstLesson = context.fourLessons[0];
+      const thirdLesson = context.fourLessons[2];
+      const branchYiMa = getYiMa(context.dayBranch);
+      const dayLu = DAY_LU_BRANCH_BY_STEM[context.dayStem];
+      return firstLesson.lower === context.dayStem &&
+        thirdLesson.lower === context.dayBranch &&
+        firstLesson.upper === branchYiMa &&
+        thirdLesson.upper === dayLu
+        ? {
+            branches: [branchYiMa, dayLu],
+            matchedConditions: [
+              `干上神${firstLesson.upper}为日支${context.dayBranch}驿马，支上神${thirdLesson.upper}为日干${context.dayStem}日禄`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'si-lu-yi-ma',
+    name: '四路驿马格',
+    category: '四建聚合',
+    sourceTitle: '《六壬粹言》卷七·格例；《六壬大全》卷八·官爵课',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“岁月日时俱以寅为马，名四路驿马。”《六壬大全》《观月经》亦列年月日时四路驿马。当前采用无需年命的四建同马且发用版本。',
+    detect(context) {
+      if (
+        !context.yearBranch ||
+        !context.monthBranch ||
+        !context.dayBranch ||
+        !context.hourBranch
+      ) {
+        return null;
+      }
+      const fourYiMa = [
+        getYiMa(context.yearBranch),
+        getYiMa(context.monthBranch),
+        getYiMa(context.dayBranch),
+        getYiMa(context.hourBranch),
+      ];
+      const commonYiMa = fourYiMa[0];
+      return fourYiMa.every((branch) => branch === commonYiMa) &&
+        context.transmissionBranches[0] === commonYiMa
+        ? {
+            branches: [
+              context.yearBranch,
+              context.monthBranch,
+              context.dayBranch,
+              context.hourBranch,
+              commonYiMa,
+            ],
+            matchedConditions: [
+              `太岁${context.yearBranch}、月建${context.monthBranch}、日支${context.dayBranch}、占时${context.hourBranch}的驿马同为${commonYiMa}，且${commonYiMa}发用`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gen-duan-yuan-xiao',
+    name: '根断源消格',
+    category: '四课关系',
+    sourceTitle: '《六壬粹言》卷七·格例、卷八·占法；《六壬大全》卷十一·毕法赋',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“谓四下生其上神，为根断源消。”《六壬大全》亦以课传下生上神复核。当前只登记四课全部由下位生上神。',
+    detect(context) {
+      return context.fourLessons?.every((lesson) => isGanZhiSheng(lesson.lower, lesson.upper))
+        ? {
+            branches: context.fourLessons.flatMap((lesson) => [lesson.lower, lesson.upper]),
+            matchedConditions: ['四课每一课均为下位五行生上神五行'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'bu-ru',
+    name: '不入格',
+    category: '课传聚合',
+    sourceTitle: '《六壬粹言》卷八·占法',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“发用不在四课之上……名曰不入。”当前只登记初传不见于四课上神集合的结构。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const lessonUppers = new Set(context.fourLessons.map((lesson) => lesson.upper));
+      const initial = context.transmissionBranches[0];
+      return !lessonUppers.has(initial)
+        ? {
+            branches: [initial, ...lessonUppers],
+            matchedConditions: [`初传${initial}不在四课上神${[...lessonUppers].join('、')}中`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'chuan-chu',
+    name: '传出格',
+    category: '课传聚合',
+    sourceTitle: '《六壬粹言》卷八·占法',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“三传自干支内发用，传出四课之外。”当前要求初传在四课上神中，且中、末传至少一项离开该集合。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const lessonUppers = new Set(context.fourLessons.map((lesson) => lesson.upper));
+      const [initial, middle, final] = context.transmissionBranches;
+      const outsideBranches = [middle, final].filter((branch) => !lessonUppers.has(branch));
+      return lessonUppers.has(initial) && outsideBranches.length
+        ? {
+            branches: [initial, ...outsideBranches],
+            matchedConditions: [
+              `初传${initial}在四课上神中，中末传${middle}、${final}至少一项传出四课之外`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'chuan-ru',
+    name: '传入格',
+    category: '课传聚合',
+    sourceTitle: '《六壬粹言》卷八·占法',
+    sourceUrl: LIUREN_CUI_YAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬粹言》：“自干支外发用，传入日辰之内。”当前要求初传不在四课上神中，且中、末传至少一项进入该集合。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const lessonUppers = new Set(context.fourLessons.map((lesson) => lesson.upper));
+      const [initial, middle, final] = context.transmissionBranches;
+      const insideBranches = [middle, final].filter((branch) => lessonUppers.has(branch));
+      return !lessonUppers.has(initial) && insideBranches.length
+        ? {
+            branches: [initial, ...insideBranches],
+            matchedConditions: [
+              `初传${initial}在四课上神之外，中末传${middle}、${final}至少一项传入四课之内`,
+            ],
+          }
+        : null;
+    },
   },
   {
     id: 'wu-lu',

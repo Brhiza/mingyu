@@ -585,7 +585,10 @@ test('大六壬登记课体应以稳定键、固定古籍版本进入统一证�
     assert.equal(traditionalFact.originalText, fact.sourceQuote);
     assert.deepEqual(traditionalFact.branches, fact.branches);
     assert.ok(traditionalFact.sources.includes(fact.sourceUrl));
-    assert.match(fact.sourceUrl, /oldid=\d+$/);
+    assert.match(
+      fact.sourceUrl,
+      /(?:oldid=\d+|shushubook\/blob\/[0-9a-f]{40}\/六壬\/六壬粹言-清-刘赤江\.txt)$/,
+    );
     assert.match(traditionalFact.promptText, new RegExp(fact.name));
   }
 });
