@@ -27,7 +27,7 @@
 import type { QimenData, QimenJiuGongGe, QimenScope } from '../../../types/divination';
 import type { ClassicPattern, PatternContext, StemRelation } from './helpers/classic-patterns';
 import type { QimenMethod } from './helpers/layout';
-import { getDivinationTime } from '../../../calendar/timeManager';
+import { getRequiredDivinationTime } from '../../../calendar/timeManager';
 import { diPanPalaces } from './helpers/_constants';
 import {
   getQimenJuShu,
@@ -210,15 +210,15 @@ function mapStemRelations(
  * 10. **方位事实**：保留九宫方向、门、星、神、干、空亡等原始数据；
  *     通用入口不生成吉方、避方或现代事项用途
  *
- * @param customDate 自定义时间（可选，默认当前时间）
+ * @param customDate 明确的排盘时间；核心层不会自动读取系统当前时间
  * @param method     排盘方法，默认 'zhuanpan'（转盘法）
  * @param scope      排盘级别，默认 'hour'（时家奇门）
  * @returns 完整的奇门遁甲数据 QimenData
  *
  * @example
  * ```ts
- * // 时家奇门（默认）
- * const result = generateQimen();
+ * // 时家奇门
+ * const result = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
  *
  * // 年家奇门
  * const result = generateQimen(new Date('2025-01-01'), 'zhuanpan', 'year');
@@ -239,7 +239,7 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 1：获取统一占卜时间信息
   // ──────────────────────────────────────────────────────────────────────────
-  const { timeInfo, ganzhi, timestamp } = getDivinationTime(customDate);
+  const { timeInfo, ganzhi, timestamp } = getRequiredDivinationTime(customDate, '奇门遁甲排盘时间');
   const { jieQi } = timeInfo;
 
   // 根据 scope 确定"主动干支"（用于定局、寻符使及时家时旬空）

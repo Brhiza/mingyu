@@ -520,11 +520,10 @@ function resolveCustomDivinationDate(
   method: Exclude<DivinationMethodId, 'random'>,
   draft: DivinationDraft,
 ): Date | undefined {
-  if (draft.divinationTimeMode !== 'custom' || !isTimeBasedDivinationMethod(method)) {
+  if (!isTimeBasedDivinationMethod(method)) {
     return undefined;
   }
-
-  return readCustomDivinationDate(draft);
+  return draft.divinationTimeMode === 'custom' ? readCustomDivinationDate(draft) : new Date();
 }
 
 function validateDateRange(startDate: string, endDate: string) {

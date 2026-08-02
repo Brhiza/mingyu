@@ -8,14 +8,13 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
-import { readMcpCustomDate } from './input-helpers.js';
+import { readMcpRequiredCustomDate } from './input-helpers.js';
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
 const liuyaoSchema = z.object({
   ...randomOptionShape,
   method: z
     .enum(['time', 'manual', 'coins'])
-    .optional()
     .describe(
       '起卦方式：time=时间戳固定种子的三钱模拟（兼容名），manual=手工爻值，coins=三钱记录或随机模拟',
     ),
@@ -40,8 +39,7 @@ const liuyaoSchema = z.object({
     .describe('逐爻三钱记录，按初爻至上爻传入；每爻三枚钱按字面 2、背面 3 计值'),
   customDate: z
     .string()
-    .optional()
-    .describe('自定义时间（ISO 8601 格式）；time 方法会把时间戳作为固定三钱模拟的种子'),
+    .describe('明确的起卦时间（ISO 8601 格式）；time 方法会把时间戳作为固定三钱模拟的种子'),
   liuyaoTemplate: z
     .enum(['general', 'ganqing', 'shiye', 'caifu', 'guaishen'])
     .optional()
@@ -53,7 +51,7 @@ const liuyaoSchema = z.object({
 const liuyaoPromptSchema = extendPromptSchema(liuyaoSchema, '用户希望围绕卦盘解读的问题');
 
 function buildLiuyaoResult(args: z.infer<typeof liuyaoSchema>) {
-  return generateLiuyao(readMcpCustomDate(args.customDate), {
+  return generateLiuyao(readMcpRequiredCustomDate(args.customDate), {
     method: args.method,
     yaos: args.yaos,
     coinThrows: args.coinThrows,

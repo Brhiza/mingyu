@@ -20,6 +20,22 @@ export interface DivinationTime {
 }
 
 /**
+ * 获取可重放的占卜时间。
+ *
+ * 核心算法不得在缺少输入时自行读取系统当前时间；需要“现在”的交互入口应先固定
+ * 一个 Date，再明确传入核心层。
+ */
+export function getRequiredDivinationTime(
+  customTime: Date | undefined,
+  label = '占卜时间',
+): DivinationTime {
+  if (customTime === undefined) {
+    throw new Error(`${label}必须明确提供，核心层不会自动读取系统当前时间。`);
+  }
+  return TimeManager.getDivinationTime(customTime);
+}
+
+/**
  * 时间管理工具类
  */
 export class TimeManager {

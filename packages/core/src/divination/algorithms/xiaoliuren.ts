@@ -3,12 +3,9 @@
  * @description 只提供可复核的时间、干支、农历月日与时辰，不自动采用未校定的落宫规则和歌诀。
  * @来源 农历与干支由统一历法模块换算；俗传顺数规则尚未取得可核验固定底本。
  */
-import type {
-  XiaoliurenData,
-  XiaoliurenDivinationMethod,
-} from '../../types/divination';
+import type { XiaoliurenData, XiaoliurenDivinationMethod } from '../../types/divination';
 import { getShichenByIndex, getTimeIndexFromClock } from '../../calendar/dateUtils';
-import { getDivinationTime } from '../../calendar/timeManager';
+import { getRequiredDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeRebuiltXiaoliurenEvidence } from '../xiaoliuren-evidence';
@@ -33,12 +30,18 @@ function buildXiaoliurenData(params?: {
   customDate?: Date;
 }): XiaoliurenData {
   assertOptionalRecord(params, '小六壬起课参数');
-  const method = params?.method ?? 'time';
+  const method = params?.method;
+  if (method === undefined) {
+    throw new Error('小六壬起课方式必须明确提供，不能自动使用时间起课。');
+  }
   if (method !== 'time') {
     throw new Error('小六壬当前只保留时间原始事实，不支持其他起课方式。');
   }
 
-  const { ganzhi, timeInfo, timestamp } = getDivinationTime(params?.customDate);
+  const { ganzhi, timeInfo, timestamp } = getRequiredDivinationTime(
+    params?.customDate,
+    '小六壬起课时间',
+  );
   const lunarMonth = timeInfo.lunar.monthNumber;
   const lunarDay = timeInfo.lunar.dayNumber;
   const isLeapMonth = timeInfo.lunar.monthInChinese.startsWith('闰');

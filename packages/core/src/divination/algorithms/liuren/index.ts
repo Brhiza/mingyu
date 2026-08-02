@@ -1,5 +1,5 @@
 import type { LiurenData, LiurenTransmission } from '../../../types/divination';
-import { getDivinationTime } from '../../../calendar/timeManager';
+import { getRequiredDivinationTime } from '../../../calendar/timeManager';
 import { getMonthGeneralByZhongqi } from '../../../calendar/month-general';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { getBranchWuxing, getSeasonState } from '../../../ganzhi';
@@ -32,7 +32,9 @@ import {
 import { buildShenShaFacts } from './helpers/shensha';
 import { analyzeLiurenEvidence } from '../../liuren-evidence';
 
-function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>['timeInfo']) {
+function getMonthLeaderByZhongqi(
+  timeInfo: ReturnType<typeof getRequiredDivinationTime>['timeInfo'],
+) {
   return getMonthGeneralByZhongqi(timeInfo.solar).monthGeneral;
 }
 
@@ -40,19 +42,19 @@ function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>[
  * 生成大六壬完整课盘
  *
  * 按月将加时、天地盘、四课、三传、天将、神煞顺序完成排盘。
- * 支持传入自定义时间，不传则使用当前时间。
+ * 必须传入明确时间，核心层不会自动读取系统当前时间。
  *
- * @param customDate 自定义排盘时间（可选），不传则使用当前时间。
+ * @param customDate 明确的排盘时间。
  * @returns 完整的大六壬课盘数据对象 LiurenData。
  *
  * @example
  * ```ts
- * const result = generateLiuren();
+ * const result = generateLiuren(new Date('2025-01-01T08:00:00+08:00'));
  * // result 包含 fourLessons（四课）、threeTransmissions（三传）等字段
  * ```
  */
 export function generateLiuren(customDate?: Date): LiurenData {
-  const { ganzhi, timeInfo, timestamp } = getDivinationTime(customDate);
+  const { ganzhi, timeInfo, timestamp } = getRequiredDivinationTime(customDate, '大六壬排盘时间');
   const dayStem = ganzhi.day.charAt(0);
   const dayBranch = ganzhi.day.charAt(1);
   const hourStem = ganzhi.hour.charAt(0);

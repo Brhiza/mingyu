@@ -3177,7 +3177,11 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   const recorded = await callApi('divination/liuyao', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customDate: input.customDate, coinThrows }),
+    body: JSON.stringify({
+      customDate: input.customDate,
+      liuyaoMethod: 'coins',
+      coinThrows,
+    }),
   });
   assert.equal(recorded.response.status, 200);
   assert.equal(recorded.body.data.generation.method, 'coins');
@@ -3192,6 +3196,7 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       customDate: input.customDate,
+      liuyaoMethod: 'coins',
       coinThrows: coinThrows.map((item, index) =>
         index === 0 ? { coins: item.coins, total: 7 } : item,
       ),
@@ -3569,12 +3574,12 @@ test('公开 API 可选请求体接口收到非法 JSON 时应返回参数错误
 });
 
 test('公开 API customDate 不应接受非 ISO 或会被 JS 自动进位的无效日期', async () => {
-  const paths = [
-    'divination/liuyao',
-    'divination/meihua',
-    'divination/xiaoliuren',
-    'divination/qimen',
-    'divination/liuren',
+  const cases: Array<[string, Record<string, unknown>]> = [
+    ['divination/liuyao', { liuyaoMethod: 'time' }],
+    ['divination/meihua', { method: 'time' }],
+    ['divination/xiaoliuren', { xiaoliurenMethod: 'time' }],
+    ['divination/qimen', {}],
+    ['divination/liuren', {}],
   ];
   const invalidValues = [
     'May 1 2025 08:00:00',
@@ -3583,12 +3588,12 @@ test('公开 API customDate 不应接受非 ISO 或会被 JS 自动进位的无�
     '2025-01-01T24:00:00+00:00',
   ];
 
-  for (const path of paths) {
+  for (const [path, methodInput] of cases) {
     for (const customDate of invalidValues) {
       const { response, body } = await callApi(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customDate }),
+        body: JSON.stringify({ ...methodInput, customDate }),
       });
 
       assert.equal(response.status, 400, `${path} 应拒绝无效日期 ${customDate}`);
@@ -3616,7 +3621,10 @@ test('公开 API 奇门不生成自动应期且小六壬只保留原始时间事
   const xiaoliuren = await callApi('divination/xiaoliuren', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customDate: '2025-01-01T08:00:00+08:00' }),
+    body: JSON.stringify({
+      xiaoliurenMethod: 'time',
+      customDate: '2025-01-01T08:00:00+08:00',
+    }),
   });
   assert.equal(xiaoliuren.response.status, 200);
   assert.equal(xiaoliuren.body.data.primary, undefined);
@@ -4458,6 +4466,7 @@ test('公开 API 占卜自定义提示词不强塞任务和输出要求', async 
     body: JSON.stringify({
       method: 'number',
       number: 42,
+      customDate: '2025-01-01T08:00:00+08:00',
       question: '只看这件具体事。',
       promptMode: 'custom',
     }),
@@ -5063,6 +5072,7 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       customDate: '2025-01-01T08:00:00+08:00',
+      liuyaoMethod: 'time',
       question: '最近家里总觉得不安，这是不是鬼神怪异或冲犯？',
       liuyaoTemplate: 'guaishen',
     }),
@@ -5506,13 +5516,42 @@ test('公开 API 梅花未知起卦方式应返回 400 而不是内部错误', a
   const { response, body } = await callApi('divination/meihua', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ method: 'external' }),
+    body: JSON.stringify({ method: 'external', customDate: '2025-01-01T08:00:00+08:00' }),
   });
 
   assert.equal(response.status, 400);
   assert.equal(body.ok, false);
   assert.equal(body.error.code, 'BAD_REQUEST');
   assert.doesNotMatch(body.error.message, /内部错误/);
+});
+
+test('公开 API 时间型占卜缺少明确时间或起法时失败关闭', async () => {
+  const cases: Array<[string, Record<string, unknown>, RegExp]> = [
+    ['divination/liuyao', { liuyaoMethod: 'time' }, /customDate 必须明确提供/],
+    ['divination/meihua', { customDate: '2025-01-01T08:00:00+08:00' }, /method 必须是以下值之一/],
+    [
+      'divination/xiaoliuren',
+      { customDate: '2025-01-01T08:00:00+08:00' },
+      /xiaoliurenMethod 必须是以下值之一/,
+    ],
+    [
+      'divination/jinkoujue',
+      { customDate: '2025-01-01T08:00:00+08:00' },
+      /jinkoujueMethod 必须是以下值之一/,
+    ],
+    ['divination/qimen', {}, /customDate 必须明确提供/],
+    ['divination/liuren', {}, /customDate 必须明确提供/],
+  ];
+
+  for (const [path, input, message] of cases) {
+    const { response, body } = await callApi(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    assert.equal(response.status, 400, `${path} 应失败关闭`);
+    assert.match(body.error.message, message);
+  }
 });
 
 test('公开 API 黄历参与人过多应返回 400，引导调用方拆分请求', async () => {

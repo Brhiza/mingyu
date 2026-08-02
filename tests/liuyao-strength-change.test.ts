@@ -36,7 +36,7 @@ const TIAN_SHAN_DUN_YAOS = [8, 8, 7, 7, 7, 7] as const;
 const LEI_SHUI_JIE_YAOS = [8, 7, 8, 7, 8, 8] as const;
 
 function generateSampleLiuyao(yaos: readonly number[] = SHAN_HUO_BI_YAOS) {
-  return generateLiuyao(SAMPLE_DATE, { yaos });
+  return generateLiuyao(SAMPLE_DATE, { method: 'manual', yaos });
 }
 
 test('六爻：动静结构应区分静卦、独发、独静和全动，不硬设乱动阈值', () => {
@@ -413,6 +413,7 @@ test('六爻：爻支与单个月日支不得把任意二支三刑冒充固定�
   let groupOnlyPair: ReturnType<typeof generateSampleLiuyao> | undefined;
   for (let offset = 0; offset < 60; offset += 1) {
     const current = generateLiuyao(new Date(SAMPLE_DATE.getTime() + offset * 86_400_000), {
+      method: 'manual',
       yaos: SHAN_HUO_BI_YAOS,
     });
     if (current.ganzhi.day.endsWith('申')) {
@@ -429,9 +430,11 @@ test('六爻：爻支与单个月日支不得把任意二支三刑冒充固定�
 test('六爻：日冲原始事实应与暗动、日破互斥分类', () => {
   const strongStatic = generateSampleLiuyao(KAN_WEI_SHUI_YAOS).yaosDetail[5];
   const weakStatic = generateLiuyao(new Date('2025-05-01T08:00:00+08:00'), {
+    method: 'manual',
     yaos: KAN_WEI_SHUI_YAOS,
   }).yaosDetail[5];
   const weakMoving = generateLiuyao(new Date('2025-05-01T08:00:00+08:00'), {
+    method: 'manual',
     yaos: [8, 7, 8, 8, 7, 6],
   }).yaosDetail[5];
 
@@ -590,6 +593,7 @@ test('六爻：整卦六合六冲应按初四二五三上爻支成组判断', ()
   });
 
   const data = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'), {
+    method: 'manual',
     yaos: XUN_WEI_FENG_YAOS,
   });
   assert.equal(data.originalName, '巽为风');
@@ -772,6 +776,7 @@ test('六爻：八宫卦位应输出首卦一世游魂归魂等卦序', () => {
   assert.equal(getLiuyaoPalaceStage('火天大有'), '归魂');
 
   const data = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'), {
+    method: 'manual',
     yaos: FENG_SHUI_HUAN_YAOS,
   });
   assert.equal(data.originalName, '风水涣');
@@ -780,6 +785,7 @@ test('六爻：八宫卦位应输出首卦一世游魂归魂等卦序', () => {
 
 test('六爻：静卦不能仅凭静态纳甲支凑成三合局', () => {
   const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+    method: 'manual',
     yaos: KAN_WEI_SHUI_YAOS,
   });
 
@@ -795,6 +801,7 @@ test('六爻：静卦不能仅凭静态纳甲支凑成三合局', () => {
 
 test('六爻：两个不同动爻的变爻可以与日辰补成三合并保留空破条件', () => {
   const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+    method: 'manual',
     yaos: [7, 6, 7, 7, 7, 6],
   });
 
@@ -878,22 +885,30 @@ test('六爻：静爻逢月日合为合起，明暗动爻逢合为合绊', () =>
 
 test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
   const yangShi = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'), {
+    method: 'manual',
     yaos: FENG_SHUI_HUAN_YAOS,
   });
   assert.equal(yangShi.originalName, '风水涣');
   assert.equal(yangShi.worldAndResponse.indexOf('世') + 1, 5);
   assert.equal(yangShi.yaosDetail[4].yaoType, '阳');
   assert.equal(yangShi.guaShen?.branch, '辰');
-  assert.deepEqual(yangShi.guaShen?.matches.map((item) => item.position), [2]);
+  assert.deepEqual(
+    yangShi.guaShen?.matches.map((item) => item.position),
+    [2],
+  );
 
   const yinShi = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'), {
+    method: 'manual',
     yaos: DUI_WEI_ZE_YAOS,
   });
   assert.equal(yinShi.originalName, '兑为泽');
   assert.equal(yinShi.worldAndResponse.indexOf('世') + 1, 6);
   assert.equal(yinShi.yaosDetail[5].yaoType, '阴');
   assert.equal(yinShi.guaShen?.branch, '亥');
-  assert.deepEqual(yinShi.guaShen?.matches.map((item) => item.position), [4]);
+  assert.deepEqual(
+    yinShi.guaShen?.matches.map((item) => item.position),
+    [4],
+  );
 });
 
 test('六爻：六十四卦月卦身应保留不入卦状态与全部同支爻位', () => {
@@ -996,9 +1011,12 @@ test('六爻：动变关系与月卦身应拒绝非法资料', () => {
 });
 
 test('六爻：手工三钱法爻值应严格校验长度与取值', () => {
-  assert.throws(() => generateLiuyao(SAMPLE_DATE, { yaos: [7, 8, 7] }), /必须恰好包含 6 爻/);
   assert.throws(
-    () => generateLiuyao(SAMPLE_DATE, { yaos: [7, 8, 7, 8, 8, 5] }),
+    () => generateLiuyao(SAMPLE_DATE, { method: 'manual', yaos: [7, 8, 7] }),
+    /必须恰好包含 6 爻/,
+  );
+  assert.throws(
+    () => generateLiuyao(SAMPLE_DATE, { method: 'manual', yaos: [7, 8, 7, 8, 8, 5] }),
     /只能是 6、7、8、9/,
   );
 });

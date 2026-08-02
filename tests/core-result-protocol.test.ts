@@ -193,7 +193,7 @@ test('塔罗、雷诺曼、灵签和梅花可由结果元数据完整重放', ()
 });
 
 test('六爻区分时间种子模拟、手工爻值、三钱记录与随机模拟来源', () => {
-  const time = generateLiuyao(DATE);
+  const time = generateLiuyao(DATE, { method: 'time' });
   assert.equal(time.generation.method, 'time');
   assert.equal(time.generation.source, 'time-seeded-coin-simulation');
   assert.equal(time.generation.coinThrows?.length, 6);
@@ -269,6 +269,7 @@ test('六爻区分时间种子模拟、手工爻值、三钱记录与随机模�
     { coins: [2, 3, 3], total: 8 },
   ] as const;
   const handShaken = generateLiuyao(DATE, {
+    method: 'coins',
     coinThrows: handShakenCoinThrows,
   });
   assert.deepEqual(handShaken.yaoArray, [6, 7, 8, 9, 7, 8]);
@@ -286,7 +287,10 @@ test('六爻区分时间种子模拟、手工爻值、三钱记录与随机模�
     coins: [3, 3, 3] as const,
     total: 9 as const,
   }));
-  const alternative = generateLiuyao(DATE, { coinThrows: alternativeRecord });
+  const alternative = generateLiuyao(DATE, {
+    method: 'coins',
+    coinThrows: alternativeRecord,
+  });
   assert.notEqual(alternative.meta.resultId, handShaken.meta.resultId);
   assert.throws(
     () =>
@@ -314,6 +318,6 @@ test('非随机起法不得静默忽略随机设置', () => {
   assert.throws(() => generateMeihua(DATE, { method: 'time', seed: '不应忽略' }), /仅随机起卦接受/);
   assert.throws(
     () => generateXiaoliuren({ method: 'number' as never }),
-    /仅保留有明确顺数规则的时间起课/,
+    /只保留时间原始事实，不支持其他起课方式/,
   );
 });

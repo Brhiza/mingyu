@@ -29,7 +29,7 @@
 
 import type { MeihuaData, MeihuaDivinationMethod, MeihuaSettings } from '../../../types/divination';
 import { trigramsByIndex } from '../../../divination/hexagram-data';
-import { getDivinationTime } from '../../../calendar/timeManager';
+import { getRequiredDivinationTime } from '../../../calendar/timeManager';
 import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../../../ganzhi';
 import { assertOptionalRecord } from '../../../shared/validation';
 import { getMeihuaElementRelation, getMeihuaSeasonByJieQi } from './helpers/analysis';
@@ -169,27 +169,29 @@ function estimateYingQi(params: {
  * 生成梅花易数卦盘
  *
  * 支持时间起卦、数字起卦和随机起卦；timeTrigram 作为历史兼容入口按时间起卦计算。
- * 不传 `customDate` 则使用当前时间。
  *
- * @param customDate 自定义起卦时间（可选），影响时间卦的时间干支。
+ * @param customDate 明确的起卦时间；核心层不会自动读取系统当前时间。
  * @param settings   起卦设置，含 method（起卦方式）、number（数字起卦用）等。
  * @returns 完整的梅花易数卦盘数据对象 MeihuaData。
  *
  * @example
  * ```ts
- * // 时间起卦（默认）
- * const result = generateMeihua();
+ * // 时间起卦
+ * const result = generateMeihua(new Date('2025-01-01T08:00:00+08:00'), { method: 'time' });
  *
  * // 数字起卦
- * const result = generateMeihua(undefined, { method: 'number', number: 123 });
+ * const result = generateMeihua(new Date('2025-01-01T08:00:00+08:00'), { method: 'number', number: 123 });
  * ```
  */
 function buildMeihuaData(customDate?: Date, settings?: MeihuaSettings): MeihuaData {
   assertOptionalRecord(settings, '梅花易数起卦设置');
   // 1. 获取占卜时间的农历及干支信息
-  const { ganzhi, timeInfo, timestamp } = getDivinationTime(customDate);
+  const { ganzhi, timeInfo, timestamp } = getRequiredDivinationTime(customDate, '梅花易数起卦时间');
   const { lunar } = timeInfo;
-  const method = settings?.method ?? 'time';
+  const method = settings?.method;
+  if (method === undefined) {
+    throw new Error('梅花易数起卦方式必须明确提供，不能自动使用时间起卦。');
+  }
   if (method !== 'random' && hasRandomOptions(settings)) {
     throw new Error('梅花易数仅随机起卦接受 seed、replay 或自定义随机源。');
   }

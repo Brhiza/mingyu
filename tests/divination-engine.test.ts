@@ -222,7 +222,7 @@ function buildClassicPattern(overrides: Partial<ClassicPattern>): ClassicPattern
 }
 
 test('六爻算法会补出伏神结构，供提示词直接引用', () => {
-  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'));
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), { method: 'time' });
 
   assert.ok(Array.isArray(data.hiddenSpirits));
   assert.ok(
@@ -266,7 +266,7 @@ test('六爻页面资料与摘要应显示飞伏关系并兼容旧结果', () =>
 });
 
 test('六爻证据不得把未校六亲类象软化后继续输出', () => {
-  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'));
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), { method: 'time' });
   const analysis = analyzeLiuyaoEvidence(data);
   const symbolItem = analysis.evidence.items.find((item) => item.title === '六亲计算标签与爻位');
 
@@ -1809,11 +1809,14 @@ test('月家与年家奇门不外推时家上下文格、三奇升殿、三诈�
 test('时间型占卜算法应拒绝无效自定义时间对象', () => {
   const invalidDate = new Date(Number.NaN);
 
-  assert.throws(() => generateLiuyao(invalidDate), /自定义时间不是有效日期/);
-  assert.throws(() => generateMeihua(invalidDate), /自定义时间不是有效日期/);
+  assert.throws(() => generateLiuyao(invalidDate, { method: 'time' }), /自定义时间不是有效日期/);
+  assert.throws(() => generateMeihua(invalidDate, { method: 'time' }), /自定义时间不是有效日期/);
   assert.throws(() => generateQimen(invalidDate), /自定义时间不是有效日期/);
   assert.throws(() => generateLiuren(invalidDate), /自定义时间不是有效日期/);
-  assert.throws(() => generateXiaoliuren({ customDate: invalidDate }), /自定义时间不是有效日期/);
+  assert.throws(
+    () => generateXiaoliuren({ method: 'time', customDate: invalidDate }),
+    /自定义时间不是有效日期/,
+  );
   assert.throws(() => drawRandomSign(invalidDate), /自定义时间不是有效日期/);
 });
 

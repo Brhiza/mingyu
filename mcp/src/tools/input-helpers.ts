@@ -18,6 +18,14 @@ export function readMcpCustomDate(value?: string) {
   return date;
 }
 
+export function readMcpRequiredCustomDate(value: string | undefined): Date {
+  const date = readMcpCustomDate(value);
+  if (date === undefined) {
+    throw new Error('customDate 必须明确提供；工具不会自动读取系统当前时间。');
+  }
+  return date;
+}
+
 export function readMcpPositiveInteger(value: number | undefined, key: string) {
   if (!Number.isSafeInteger(value) || (value ?? 0) <= 0) {
     throw new Error(`${key} 必须是正整数。`);

@@ -4,7 +4,7 @@
  * @来源 时间与四柱由统一历法模块换算；金口诀具体底本、版本和页码尚未闭合。
  */
 import type { JinkoujueData, JinkoujueDivinationMethod } from '../../types/divination';
-import { getDivinationTime } from '../../calendar/timeManager';
+import { getRequiredDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import {
   createRandomContext,
@@ -36,7 +36,10 @@ function buildJinkoujueData(
   } & RandomOptions,
 ): JinkoujueData {
   assertOptionalRecord(params, '金口诀起课参数');
-  const method = params?.method ?? 'time';
+  const method = params?.method;
+  if (method === undefined) {
+    throw new Error('金口诀起课方式必须明确提供，不能自动使用时间起课。');
+  }
   assertMethod(method);
   if (method !== 'random' && hasRandomOptions(params)) {
     throw new Error('金口诀仅随机起课接受 seed、replay 或自定义随机源。');
@@ -45,7 +48,7 @@ function buildJinkoujueData(
     throw new Error('金口诀数字起课必须提供不小于 1 的安全整数。');
   }
 
-  const { ganzhi, timestamp } = getDivinationTime(params?.customDate);
+  const { ganzhi, timestamp } = getRequiredDivinationTime(params?.customDate, '金口诀起课时间');
   let randomTrace: RandomTrace | undefined;
   if (method === 'random') {
     const context = createRandomContext(params);

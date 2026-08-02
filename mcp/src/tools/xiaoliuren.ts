@@ -8,17 +8,11 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
-import { readMcpCustomDate } from './input-helpers.js';
+import { readMcpRequiredCustomDate } from './input-helpers.js';
 
 const xiaoliurenSchema = z.object({
-  xiaoliurenMethod: z
-    .enum(['time'])
-    .optional()
-    .describe('起课方式：仅支持通行掌诀时间起课'),
-  customDate: z
-    .string()
-    .optional()
-    .describe('自定义起课时间（ISO 8601 格式），不提供则使用当前时间'),
+  xiaoliurenMethod: z.enum(['time']).describe('起课方式：仅支持通行掌诀时间起课'),
+  customDate: z.string().describe('明确的起课时间（ISO 8601 格式）'),
 });
 
 const xiaoliurenPromptSchema = extendPromptSchema(
@@ -28,8 +22,8 @@ const xiaoliurenPromptSchema = extendPromptSchema(
 
 function buildXiaoliurenInput(args: z.infer<typeof xiaoliurenSchema>) {
   return {
-    method: args.xiaoliurenMethod || 'time',
-    customDate: readMcpCustomDate(args.customDate),
+    method: args.xiaoliurenMethod,
+    customDate: readMcpRequiredCustomDate(args.customDate),
   };
 }
 
@@ -55,8 +49,7 @@ export function registerXiaoliurenTool(server: McpServer) {
   server.registerTool(
     'xiaoliuren_prompt',
     {
-      description:
-        '生成小六壬原始时间事实与待校边界提示词；AI 须先明确具体版本和规则才能继续推算',
+      description: '生成小六壬原始时间事实与待校边界提示词；AI 须先明确具体版本和规则才能继续推算',
       inputSchema: xiaoliurenPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('小六壬课盘数据'),

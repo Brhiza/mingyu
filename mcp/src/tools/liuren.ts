@@ -8,13 +8,10 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
-import { readMcpCustomDate } from './input-helpers.js';
+import { readMcpRequiredCustomDate } from './input-helpers.js';
 
 const liurenSchema = z.object({
-  customDate: z
-    .string()
-    .optional()
-    .describe('自定义排盘时间（ISO 8601 格式），不提供则使用当前时间'),
+  customDate: z.string().describe('明确的排盘时间（ISO 8601 格式）'),
   liurenTemplate: z
     .enum(['general', 'ganqing', 'shiye', 'caifu'])
     .optional()
@@ -28,14 +25,14 @@ export function registerLiurenTool(server: McpServer) {
     'divine_liuren',
     {
       description:
-        '大六壬排盘：基于当前时间或自定义时间生成完整的天盘、四课、三传、月将、贵人、旬空等信息，含起盘口径、四课与九宗门取传版本边界、逐传日干六亲、有方向关系、条件化旬空、格局标签和断课模板',
+        '大六壬排盘：基于明确提供的时间生成完整的天盘、四课、三传、月将、贵人、旬空等信息，含起盘口径、四课与九宗门取传版本边界、逐传日干六亲、有方向关系、条件化旬空、格局标签和断课模板',
       inputSchema: liurenSchema.shape,
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = {
-          ...generateLiuren(readMcpCustomDate(args.customDate)),
+          ...generateLiuren(readMcpRequiredCustomDate(args.customDate)),
           template: args.liurenTemplate || 'general',
         };
         return createStructuredToolResult({ result });
@@ -59,7 +56,7 @@ export function registerLiurenTool(server: McpServer) {
     async (args) => {
       try {
         const template = args.liurenTemplate || 'general';
-        const result = { ...generateLiuren(readMcpCustomDate(args.customDate)), template };
+        const result = { ...generateLiuren(readMcpRequiredCustomDate(args.customDate)), template };
         return createStructuredToolResult({
           result,
           prompt: buildCommonDivinationPrompt('liuren', args.question, result, args.promptMode, {

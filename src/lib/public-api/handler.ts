@@ -222,7 +222,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
     type: 'string',
     format: 'date-time',
     description:
-      '时间类占卜的自定义起卦或排盘时间；六爻 time 方法会把该时间戳作为固定三钱模拟的种子，不传则使用当前时间。',
+      '时间类占卜必须明确提供的起卦或排盘时间；六爻 time 方法会把该时间戳作为固定三钱模拟的种子。',
   },
   seed: {
     oneOf: [{ type: 'string' }, { type: 'number' }],
@@ -2714,20 +2714,17 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
 }
 
 function calculateLiuyao(input: JsonRecord) {
-  const method = readOptionalEnum(input, 'liuyaoMethod', ['time', 'manual', 'coins'] as const);
+  const method = readEnum(input, 'liuyaoMethod', ['time', 'manual', 'coins'] as const);
   const yaos = readOptionalIntegerArray(input, 'yaos', 6, 6, 9);
   const coinThrows = readOptionalLiuyaoCoinThrows(input);
   const randomOptions = readRandomOptions(input);
-  const options: LiuyaoGenerationOptions | undefined =
-    method || yaos || coinThrows || randomOptions
-      ? {
-          method,
-          yaos,
-          coinThrows,
-          ...randomOptions,
-        }
-      : undefined;
-  return generateLiuyao(readCustomDate(input), options);
+  const options: LiuyaoGenerationOptions = {
+    method,
+    yaos,
+    coinThrows,
+    ...randomOptions,
+  };
+  return generateLiuyao(readRequiredCustomDate(input), options);
 }
 
 function calculateQimen(input: JsonRecord) {
@@ -2735,7 +2732,7 @@ function calculateQimen(input: JsonRecord) {
   const method = readEnum(input, 'qimenMethod', ['zhuanpan', 'feipan'], 'zhuanpan');
   const juMethod = readEnum(input, 'qimenJuMethod', ['chaibu', 'zhirun'], 'chaibu');
   return generateQimen(
-    readCustomDate(input),
+    readRequiredCustomDate(input),
     method as 'zhuanpan' | 'feipan',
     'hour',
     juMethod as 'chaibu' | 'zhirun',
@@ -2748,7 +2745,7 @@ function calculateQimenApi(input: JsonRecord) {
 }
 
 function calculateMeihua(input: JsonRecord) {
-  const method = readEnum(input, 'method', ['time', 'number', 'random', 'timeTrigram'], 'time');
+  const method = readEnum(input, 'method', ['time', 'number', 'random', 'timeTrigram']);
   const settings: MeihuaSettings = {
     method,
     ...(method === 'number' ? { number: readInteger(input, 'number', 1) } : {}),
@@ -2756,7 +2753,7 @@ function calculateMeihua(input: JsonRecord) {
   };
   if (method !== 'random') assertNoRandomOptions(input, '梅花易数仅随机起卦接受 seed 或 replay。');
 
-  return generateMeihua(readCustomDate(input), settings);
+  return generateMeihua(readRequiredCustomDate(input), settings);
 }
 
 function calculateLiuren(input: JsonRecord) {
@@ -2768,19 +2765,14 @@ function calculateLiuren(input: JsonRecord) {
     'general',
   );
   return {
-    ...generateLiuren(readCustomDate(input)),
+    ...generateLiuren(readRequiredCustomDate(input)),
     template,
   };
 }
 
 function calculateXiaoliuren(input: JsonRecord) {
   assertNoRandomOptions(input, '小六壬是确定性时间起课，不接受 seed 或 replay。');
-  const method = readEnum(
-    input,
-    'xiaoliurenMethod',
-    ['time'],
-    'time',
-  ) as XiaoliurenDivinationMethod;
+  const method = readEnum(input, 'xiaoliurenMethod', ['time']) as XiaoliurenDivinationMethod;
   if (input.xiaoliurenSchool !== undefined || input.xiaoliurenNumber !== undefined) {
     throw new ApiError(
       400,
@@ -2790,19 +2782,19 @@ function calculateXiaoliuren(input: JsonRecord) {
   }
   return generateXiaoliuren({
     method,
-    customDate: readCustomDate(input),
+    customDate: readRequiredCustomDate(input),
   });
 }
 
 function calculateJinkoujue(input: JsonRecord) {
-  const method = readEnum(input, 'jinkoujueMethod', ['time', 'number', 'random'], 'time') as
+  const method = readEnum(input, 'jinkoujueMethod', ['time', 'number', 'random']) as
     'time' | 'number' | 'random';
   if (method !== 'random') {
     assertNoRandomOptions(input, '金口诀仅随机起课接受 seed 或 replay。');
   }
   return generateJinkoujue({
     method,
-    customDate: readCustomDate(input),
+    customDate: readRequiredCustomDate(input),
     ...(method === 'number' ? { number: readInteger(input, 'jinkoujueNumber', 1) } : {}),
     ...(method === 'random' ? readRandomOptions(input) : {}),
   });
@@ -3459,6 +3451,18 @@ function readCustomDate(input: JsonRecord) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime()) || !isValidIsoDateTime(value, date)) {
     throw new ApiError(400, 'BAD_REQUEST', 'customDate 不是有效时间。');
+  }
+  return date;
+}
+
+function readRequiredCustomDate(input: JsonRecord): Date {
+  const date = readCustomDate(input);
+  if (date === undefined) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      'customDate 必须明确提供；服务端不会自动读取系统当前时间。',
+    );
   }
   return date;
 }

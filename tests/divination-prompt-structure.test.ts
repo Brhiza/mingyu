@@ -947,6 +947,7 @@ test('小六壬提示词只保留原始时间事实和待校边界', () => {
 
 test('小六壬提示词从时间戳重建，不吸收旧三宫、歌诀与证据污染', () => {
   const clean = generateXiaoliuren({
+    method: 'time',
     customDate: new Date('2025-06-29T08:00:00+08:00'),
   });
   const polluted = structuredClone(clean);

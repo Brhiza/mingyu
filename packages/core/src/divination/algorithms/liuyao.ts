@@ -23,7 +23,7 @@ import {
   palaceHexagrams,
   trigramNaJiaTiangan,
 } from '../../divination/divination-data';
-import { getDivinationTime } from '../../calendar/timeManager';
+import { getRequiredDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
 import {
@@ -460,23 +460,23 @@ function getWorldAndResponseArray(shiYing: { shi: number; ying: number }): strin
  * 生成六爻卦盘
  *
  * 使用京房八宫法排盘。兼容 `time` 方法名，但该方法并非传统历数起卦，
- * 而是以当前或自定义时间戳固定随机种子，再按三钱概率生成六爻。
+ * 而是以调用方明确提供的时间戳固定随机种子，再按三钱概率生成六爻。
  * 返回完整的六爻卦盘，包含主卦、变卦、互卦、世应、纳甲、六亲、六神等信息。
  *
- * @param customDate 自定义起卦时间（可选），若不提供则使用当前时间。
- * @param options 可选手工三钱法爻值，用于复现真实投掷或固定卦例。
+ * @param customDate 明确的起卦时间；核心层不会自动读取系统当前时间。
+ * @param options 起卦方式与对应原始输入。
  * @returns 完整的六爻卦盘数据对象 LiuyaoData。
  *
  * @example
  * ```ts
- * const result = generateLiuyao();
+ * const result = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), { method: 'time' });
  * // result 包含 mainHexagram、changedHexagram、yaos（六爻详情）等字段
  * ```
  */
 export type LiuyaoGenerationMethod = 'time' | 'manual' | 'coins';
 
 export interface LiuyaoGenerationOptions extends RandomOptions {
-  /** 起卦方式；默认有 yaos 时为 manual，有 coinThrows 时为 coins，否则为 time。 */
+  /** 起卦方式；必须明确提供，不根据其他字段猜测。 */
   method?: LiuyaoGenerationMethod;
   /** 可选手工三钱法爻值，按初爻到上爻传入 6、7、8、9。 */
   yaos?: readonly number[];
@@ -526,9 +526,10 @@ function resolveRawYaos(
   options?: LiuyaoGenerationOptions,
 ): { yaos: number[]; generation: LiuyaoGeneration; randomTrace?: RandomTrace } {
   assertOptionalRecord(options, '六爻起卦设置');
-  const method =
-    options?.method ??
-    (options?.yaos !== undefined ? 'manual' : options?.coinThrows !== undefined ? 'coins' : 'time');
+  const method = options?.method;
+  if (method === undefined) {
+    throw new Error('六爻起卦方式必须明确提供，不能根据爻值、三钱记录或缺省输入自动猜测。');
+  }
   if (!['time', 'manual', 'coins'].includes(method)) {
     throw new Error(`未知的六爻起卦方式: ${method}`);
   }
@@ -605,7 +606,7 @@ function toHexagramBinary(yaos: string[]): string {
 
 function buildLiuyaoData(customDate?: Date, options?: LiuyaoGenerationOptions): LiuyaoData {
   // 1. 获取占卜时间的干支信息
-  const { ganzhi, timestamp } = getDivinationTime(customDate);
+  const { ganzhi, timestamp } = getRequiredDivinationTime(customDate, '六爻起卦时间');
   const resolvedGeneration = resolveRawYaos(timestamp, options);
   const rawYaos = resolvedGeneration.yaos;
 

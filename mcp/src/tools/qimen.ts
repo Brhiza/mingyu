@@ -8,13 +8,10 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
-import { readMcpCustomDate } from './input-helpers.js';
+import { readMcpRequiredCustomDate } from './input-helpers.js';
 
 const qimenSchema = z.object({
-  customDate: z
-    .string()
-    .optional()
-    .describe('自定义排盘时间（ISO 8601 格式），不提供则使用当前时间'),
+  customDate: z.string().describe('明确的排盘时间（ISO 8601 格式）'),
   qimenMethod: z
     .enum(['zhuanpan', 'feipan'])
     .optional()
@@ -32,7 +29,7 @@ export function registerQimenTool(server: McpServer) {
     'divine_qimen',
     {
       description:
-        '奇门遁甲排盘：基于当前时间或自定义时间生成时家奇门盘，包含天地人神四盘、值符值使、位置标签、节令背景与已校勘传统规则事实；不自动生成用神、吉方、避方或应期结论',
+        '奇门遁甲排盘：基于明确提供的时间生成时家奇门盘，包含天地人神四盘、值符值使、位置标签、节令背景与已校勘传统规则事实；不自动生成用神、吉方、避方或应期结论',
       inputSchema: qimenSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -41,7 +38,7 @@ export function registerQimenTool(server: McpServer) {
         const method = args.qimenMethod ?? 'zhuanpan';
         const juMethod = args.qimenJuMethod ?? 'chaibu';
         const result = generateQimen(
-          readMcpCustomDate(args.customDate),
+          readMcpRequiredCustomDate(args.customDate),
           method as 'zhuanpan' | 'feipan',
           'hour',
           juMethod as 'chaibu' | 'zhirun',
@@ -69,7 +66,7 @@ export function registerQimenTool(server: McpServer) {
         const method = args.qimenMethod ?? 'zhuanpan';
         const juMethod = args.qimenJuMethod ?? 'chaibu';
         const result = generateQimen(
-          readMcpCustomDate(args.customDate),
+          readMcpRequiredCustomDate(args.customDate),
           method as 'zhuanpan' | 'feipan',
           'hour',
           juMethod as 'chaibu' | 'zhirun',

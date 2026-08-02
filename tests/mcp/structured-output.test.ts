@@ -91,7 +91,7 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['calendar_astronomical_time', { year: 2000, month: 1, day: 1, hour: 12, timezone: 0 }],
   ['calendar_moon_phase', { utcDateTime: '2024-06-21T12:00:00Z' }],
   ['calendar_solar_term', { year: 2024, index: 12 }],
-  ['divine_qimen', {}],
+  ['divine_qimen', { customDate: '2025-01-01T08:00:00+08:00' }],
   [
     'divine_almanac',
     {
@@ -317,12 +317,20 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
   ],
   [
     'liuyao_prompt',
-    { customDate: '2025-01-01T08:00:00+08:00', question: '今年事业如何？' },
+    {
+      method: 'time',
+      customDate: '2025-01-01T08:00:00+08:00',
+      question: '今年事业如何？',
+    },
     /【占卜信息】/,
   ],
   [
     'xiaoliuren_prompt',
-    { customDate: '2025-01-01T08:00:00+08:00', question: '这件事接下来如何推进？' },
+    {
+      xiaoliurenMethod: 'time',
+      customDate: '2025-01-01T08:00:00+08:00',
+      question: '这件事接下来如何推进？',
+    },
     /顺数轨迹：[\s\S]*占得宫：小吉[\s\S]*【问题】\n这件事接下来如何推进？[\s\S]*不得自行补造[\s\S]*固定应期/,
   ],
   [
@@ -4597,15 +4605,29 @@ test('MCP 小六壬排盘与提示词只返回原始时间事实和待校边界'
 test('MCP 时间型占卜工具应拒绝无效 customDate', async () => {
   await withMcpClient(async (client) => {
     const invalidDateCalls: Array<[string, Record<string, unknown>]> = [
-      ['divine_liuyao', { customDate: 'not-a-date' }],
-      ['divine_liuyao', { customDate: 'May 1 2025 08:00:00' }],
-      ['liuyao_prompt', { customDate: '2025-01-01T08:00:00', question: '今年事业如何？' }],
-      ['divine_meihua', { customDate: '2025-02-30T08:00:00+08:00' }],
-      ['meihua_prompt', { customDate: '2025-02-30T08:00:00+08:00', question: '今年事业如何？' }],
-      ['divine_xiaoliuren', { customDate: '2025-01-01T24:00:00+00:00' }],
+      ['divine_liuyao', { method: 'time', customDate: 'not-a-date' }],
+      ['divine_liuyao', { method: 'time', customDate: 'May 1 2025 08:00:00' }],
+      [
+        'liuyao_prompt',
+        { method: 'time', customDate: '2025-01-01T08:00:00', question: '今年事业如何？' },
+      ],
+      ['divine_meihua', { method: 'time', customDate: '2025-02-30T08:00:00+08:00' }],
+      [
+        'meihua_prompt',
+        {
+          method: 'time',
+          customDate: '2025-02-30T08:00:00+08:00',
+          question: '今年事业如何？',
+        },
+      ],
+      ['divine_xiaoliuren', { xiaoliurenMethod: 'time', customDate: '2025-01-01T24:00:00+00:00' }],
       [
         'xiaoliuren_prompt',
-        { customDate: '2025-01-01T24:00:00+00:00', question: '今年事业如何？' },
+        {
+          xiaoliurenMethod: 'time',
+          customDate: '2025-01-01T24:00:00+00:00',
+          question: '今年事业如何？',
+        },
       ],
       ['qimen_prompt', { customDate: '2025-02-30T08:00:00+08:00', question: '今年事业如何？' }],
       ['divine_liuren', { customDate: '2025-01-01T24:00:00+00:00' }],
@@ -4630,6 +4652,7 @@ test('MCP 梅花数字起卦应要求提供对应数字', async () => {
         name,
         arguments: {
           method: 'number',
+          customDate: '2025-01-01T08:00:00+08:00',
           ...(name.endsWith('_prompt') ? { question: '今年事业如何？' } : {}),
         },
       });
@@ -4646,7 +4669,11 @@ test('MCP 梅花数字起卦应拒绝超出安全整数范围的数字', async (
   await withMcpClient(async (client) => {
     const unsafeInteger = Number.MAX_SAFE_INTEGER + 1;
     const cases: Array<[string, Record<string, unknown>, string]> = [
-      ['divine_meihua', { method: 'number', number: unsafeInteger }, 'number 必须是正整数。'],
+      [
+        'divine_meihua',
+        { method: 'number', number: unsafeInteger, customDate: '2025-01-01T08:00:00+08:00' },
+        'number 必须是正整数。',
+      ],
     ];
 
     for (const [name, args, message] of cases) {
@@ -4678,6 +4705,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     const liuyaoResult = await client.callTool({
       name: 'liuyao_prompt',
       arguments: {
+        method: 'time',
         customDate: '2025-01-01T08:00:00+08:00',
         question: '最近家里总觉得不安，这是不是鬼神怪异或冲犯？',
         liuyaoTemplate: 'guaishen',
@@ -5073,6 +5101,24 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);
+  });
+});
+
+test('MCP 时间型占卜缺少明确时间或起法时失败关闭', async () => {
+  await withMcpClient(async (client) => {
+    const cases: Array<[string, Record<string, unknown>]> = [
+      ['divine_liuyao', { method: 'time' }],
+      ['divine_meihua', { customDate: '2025-01-01T08:00:00+08:00' }],
+      ['divine_xiaoliuren', { customDate: '2025-01-01T08:00:00+08:00' }],
+      ['divine_jinkoujue', { customDate: '2025-01-01T08:00:00+08:00' }],
+      ['divine_qimen', {}],
+      ['divine_liuren', {}],
+    ];
+
+    for (const [name, args] of cases) {
+      const result = await client.callTool({ name, arguments: args });
+      assert.equal(result.isError, true, `${name} 应失败关闭`);
+    }
   });
 });
 
@@ -5984,6 +6030,7 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
       name: 'divine_liuyao',
       arguments: {
         customDate: '2025-01-01T08:00:00+08:00',
+        method: 'coins',
         coinThrows,
       },
     });

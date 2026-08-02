@@ -8,7 +8,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
-import { readMcpCustomDate, readMcpPositiveInteger } from './input-helpers.js';
+import { readMcpPositiveInteger, readMcpRequiredCustomDate } from './input-helpers.js';
 import {
   assertMcpNoRandomOptions,
   randomOptionShape,
@@ -19,13 +19,9 @@ const jinkoujueSchema = z.object({
   ...randomOptionShape,
   jinkoujueMethod: z
     .enum(['time', 'number', 'random'])
-    .optional()
     .describe('起课方式：time=时间起课, number=数字起课, random=随机起课'),
   jinkoujueNumber: z.number().optional().describe('数字起课时使用的正整数'),
-  customDate: z
-    .string()
-    .optional()
-    .describe('自定义起课时间（ISO 8601 格式），不提供则使用当前时间'),
+  customDate: z.string().describe('明确的起课时间（ISO 8601 格式）'),
 });
 
 const jinkoujuePromptSchema = extendPromptSchema(
@@ -34,7 +30,7 @@ const jinkoujuePromptSchema = extendPromptSchema(
 );
 
 function buildJinkoujueInput(args: z.infer<typeof jinkoujueSchema>) {
-  const method = args.jinkoujueMethod || 'time';
+  const method = args.jinkoujueMethod;
   if (method !== 'random') {
     assertMcpNoRandomOptions(args, '金口诀仅随机起课接受 seed 或 replay。');
   }
@@ -43,7 +39,7 @@ function buildJinkoujueInput(args: z.infer<typeof jinkoujueSchema>) {
     ...(method === 'number'
       ? { number: readMcpPositiveInteger(args.jinkoujueNumber, 'jinkoujueNumber') }
       : {}),
-    customDate: readMcpCustomDate(args.customDate),
+    customDate: readMcpRequiredCustomDate(args.customDate),
     ...(method === 'random' ? readMcpRandomOptions(args) : {}),
   };
 }
