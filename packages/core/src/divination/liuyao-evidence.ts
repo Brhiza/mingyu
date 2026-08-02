@@ -265,8 +265,8 @@ export interface LiuyaoHiddenSpiritFact {
 
 export interface LiuyaoGenerationFact {
   key: string;
-  status: '可核验' | '来源链缺失';
-  method: NonNullable<LiuyaoData['generation']>['method'] | '未记录';
+  status: '可核验';
+  method: LiuyaoData['generation']['method'];
   methodLabel: string;
   yaoValues: number[];
   coinThrows: NonNullable<NonNullable<LiuyaoData['generation']>['coinThrows']>;
@@ -293,11 +293,11 @@ export interface LiuyaoLineCoverageFact {
 
 export interface LiuyaoHiddenSpiritCoverageFact {
   key: 'liuyao:hidden-spirit-coverage';
-  status: '有伏神' | '无伏神' | '字段缺失';
+  status: '有伏神' | '无伏神';
   hiddenSpiritFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '伏神覆盖状态只说明当前结果是否明确保存伏神数组以及是否检出伏神；字段缺失时不得把无记录解释为无伏神，也不得反推伏神位置与六亲';
+  limitation: '伏神覆盖状态只说明当前结果是否检出伏神；无伏神必须由完整伏神数组明确确认，不得自行反推伏神位置与六亲';
 }
 
 export interface LiuyaoUsefulGodSelectionFact {
@@ -512,7 +512,7 @@ const GOD_INTERACTION_ASSESSMENT_FACT_LIMITATION =
 const LINE_COVERAGE_FACT_LIMITATION =
   '六爻覆盖状态只说明当前结果能否完整核验初爻至上爻；缺少、重复或越界爻位时不得反推纳甲、六亲、六神、世应、空破墓或动变内容' as const;
 const HIDDEN_SPIRIT_COVERAGE_FACT_LIMITATION =
-  '伏神覆盖状态只说明当前结果是否明确保存伏神数组以及是否检出伏神；字段缺失时不得把无记录解释为无伏神，也不得反推伏神位置与六亲' as const;
+  '伏神覆盖状态只说明当前结果是否检出伏神；无伏神必须由完整伏神数组明确确认，不得自行反推伏神位置与六亲' as const;
 const SELECTION_FACT_LIMITATION =
   '用神选择状态按本卦明现、变爻显出、月日入用、伏神检索的层级记录当前取用；问题关系不足、多现未能闭合或各层均无匹配时不得硬取，也不得把世应、动爻或数组顺序冒充唯一用神' as const;
 const COUNTER_FACT_LIMITATION =
@@ -1417,47 +1417,56 @@ function buildMovingTimingFact(
 }
 
 function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
-  const method = data.generation?.method ?? '未记录';
-  const generationSource = data.generation?.source;
-  const hasRandomTrace = data.meta?.random !== undefined;
+  const { method, source: generationSource } = data.generation;
+  if (!['time', 'manual', 'coins'].includes(method)) {
+    throw new Error(`未知的六爻起卦方式: ${String(method)}`);
+  }
+  const validSource =
+    (method === 'time' && generationSource === 'time-seeded-coin-simulation') ||
+    (method === 'manual' && generationSource === 'manual-yao-values') ||
+    (method === 'coins' &&
+      (generationSource === 'provided-coin-throws' ||
+        generationSource === 'random-coin-simulation'));
+  if (!validSource) {
+    throw new Error(
+      `六爻起卦方式与原始来源矛盾：${method}/${String(generationSource)}，无法生成证据。`,
+    );
+  }
   const methodLabel =
     method === 'coins'
-      ? generationSource === 'provided-coin-throws' || (!generationSource && !hasRandomTrace)
+      ? generationSource === 'provided-coin-throws'
         ? '逐爻三钱记录'
         : '模拟三钱起卦'
       : method === 'manual'
         ? '手工录入六爻值'
-        : method === 'time'
-          ? '时间种子模拟三钱'
-          : '旧结果未记录起卦方式';
-  const coinThrows = (data.generation?.coinThrows ?? []).map((item) => ({
+        : '时间种子模拟三钱';
+  const coinThrows = (data.generation.coinThrows ?? []).map((item) => ({
     coins: [...item.coins] as [2 | 3, 2 | 3, 2 | 3],
     total: item.total,
   }));
   const recordedLineCount = method === 'manual' ? data.yaoArray.length : coinThrows.length;
-  const status =
-    method !== '未记录' && recordedLineCount === 6 ? ('可核验' as const) : ('来源链缺失' as const);
+  if (recordedLineCount !== 6) {
+    throw new Error(`六爻起卦来源必须完整记录6爻，当前为${recordedLineCount}爻。`);
+  }
   const detail =
     method === 'manual'
-      ? `手工爻值为${data.yaoArray.join('、') || '未列'}`
-      : coinThrows.length
-        ? coinThrows
-            .map(
-              (item, index) =>
-                `第${index + 1}爻计算样本${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
-            )
-            .join('；')
-        : '未附逐爻生成记录';
+      ? `手工爻值为${data.yaoArray.join('、')}`
+      : coinThrows
+          .map(
+            (item, index) =>
+              `第${index + 1}爻计算样本${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
+          )
+          .join('；');
   return {
     key: `generation:liuyao:${method}`,
-    status,
+    status: '可核验',
     method,
     methodLabel,
     yaoValues: [...data.yaoArray],
     coinThrows,
     expectedLineCount: 6,
     recordedLineCount,
-    promptText: `起卦方式为${methodLabel}；${detail}${status === '来源链缺失' ? `；当前仅记录${recordedLineCount}/6爻来源，不能完整核验起卦链` : ''}`,
+    promptText: `起卦方式为${methodLabel}；${detail}`,
     sources: [
       method === 'manual'
         ? '调用方手工录入的六个爻值'
@@ -1831,11 +1840,12 @@ function buildHiddenSpiritCoverageFact(
   data: LiuyaoData,
   hiddenSpiritFacts: LiuyaoHiddenSpiritFact[],
 ): LiuyaoHiddenSpiritCoverageFact {
-  const status: LiuyaoHiddenSpiritCoverageFact['status'] = Array.isArray(data.hiddenSpirits)
-    ? hiddenSpiritFacts.length
-      ? '有伏神'
-      : '无伏神'
-    : '字段缺失';
+  if (!Array.isArray(data.hiddenSpirits)) {
+    throw new Error('六爻结果缺少伏神数组，无法生成证据。');
+  }
+  const status: LiuyaoHiddenSpiritCoverageFact['status'] = hiddenSpiritFacts.length
+    ? '有伏神'
+    : '无伏神';
   return {
     key: 'liuyao:hidden-spirit-coverage',
     status,
@@ -1843,9 +1853,7 @@ function buildHiddenSpiritCoverageFact(
     promptText:
       status === '有伏神'
         ? `当前记录${hiddenSpiritFacts.length}条伏神与飞神配对事实`
-        : status === '无伏神'
-          ? '当前结果明确记录伏神数组为空，不补造伏神'
-          : '旧结果未提供伏神字段，不能据此断定无伏神，也不得反推伏神位置',
+        : '当前结果明确记录伏神数组为空，不补造伏神',
     sources: ['当前伏神字段存在性与伏神事实数量核验'],
     limitation: HIDDEN_SPIRIT_COVERAGE_FACT_LIMITATION,
   };
@@ -2191,9 +2199,7 @@ function buildSummaryFact(params: {
     ]),
   );
   const status =
-    params.generationFact.status === '来源链缺失' ||
-    params.lineCoverageFact.status !== '完整' ||
-    params.hiddenSpiritCoverageFact.status === '字段缺失'
+    params.lineCoverageFact.status !== '完整'
       ? '部分资料缺失'
       : params.selectionFact.status === '缺少可用候选'
         ? '缺少可用候选'
@@ -2242,7 +2248,7 @@ function buildCalculationSteps(params: {
     {
       key: 'liuyao:calculation:generation',
       stage: '起卦来源核验',
-      status: params.generationFact.status === '可核验' ? '已计算' : '资料不足',
+      status: '已计算',
       inputs: {
         method: params.generationFact.method,
         expectedLineCount: params.generationFact.expectedLineCount,
@@ -2281,7 +2287,7 @@ function buildCalculationSteps(params: {
     {
       key: 'liuyao:calculation:hidden-spirits',
       stage: '伏神资料核验',
-      status: params.hiddenSpiritCoverageFact.status === '字段缺失' ? '资料不足' : '已计算',
+      status: '已计算',
       inputs: { lineFactCount: params.lineFacts.length },
       result: {
         coverageStatus: params.hiddenSpiritCoverageFact.status,
@@ -2719,8 +2725,8 @@ export function analyzeRebuiltLiuyaoEvidence(
     selectionFact.selectedReferenceKey,
   );
   const generationFact = buildGenerationFact(data);
-  const generationMethod = data.generation?.method;
-  const generationSource = data.generation?.source;
+  const generationMethod = data.generation.method;
+  const generationSource = data.generation.source;
   const methodLabel = generationFact.methodLabel;
   const generationFacts = [
     `起卦方式：${methodLabel}`,
@@ -2733,10 +2739,9 @@ export function analyzeRebuiltLiuyaoEvidence(
   const trace = data.meta?.random;
   const expectsRandomTrace =
     generationSource === 'time-seeded-coin-simulation' ||
-    generationSource === 'random-coin-simulation' ||
-    (!generationSource && (generationMethod === 'time' || trace !== undefined));
+    generationSource === 'random-coin-simulation';
   const randomFact = buildRandomTraceFact({
-    key: `random:liuyao:${generationMethod ?? 'unknown'}`,
+    key: `random:liuyao:${generationMethod}`,
     applicable: expectsRandomTrace,
     trace,
     processLabel: `${methodLabel}的六爻生成过程`,
@@ -2963,12 +2968,7 @@ export function analyzeRebuiltLiuyaoEvidence(
       tags: ['逐爻事实', '纳甲', '世应', '月日', '动变'],
     },
     {
-      level:
-        hiddenSpiritCoverageFact.status === '字段缺失'
-          ? '反证'
-          : hiddenSpiritCoverageFact.status === '有伏神'
-            ? '辅证'
-            : '限制',
+      level: hiddenSpiritCoverageFact.status === '有伏神' ? '辅证' : '限制',
       title: '伏神资料覆盖状态',
       detail: `${hiddenSpiritCoverageFact.promptText}；边界：${hiddenSpiritCoverageFact.limitation}`,
       source: hiddenSpiritCoverageFact.sources.join('、'),
@@ -3043,8 +3043,8 @@ export function analyzeRebuiltLiuyaoEvidence(
       ],
     },
     {
-      level: generationFact.status === '可核验' ? '辅证' : '反证',
-      title: generationFact.status === '可核验' ? `起卦来源：${methodLabel}` : '起卦来源缺失',
+      level: '辅证',
+      title: `起卦来源：${methodLabel}`,
       detail: `${generationFact.promptText}；边界：${generationFact.limitation}`,
       source: generationFact.sources.join('、'),
       tags: ['起卦来源', generationFact.method, generationFact.status],

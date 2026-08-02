@@ -367,12 +367,12 @@ export interface LiuyaoData extends BaseHexagramData {
   /** 用神候选、原神忌神仇神与逐爻支持/反证结构。 */
   evidenceAnalysis?: import('../divination/liuyao-evidence').LiuyaoEvidenceAnalysis;
   /** 起卦来源与三钱投掷轨迹。 */
-  generation?: {
+  generation: {
     method: 'time' | 'manual' | 'coins';
     /**
      * 六个爻值的实际来源；`time` 只是历史兼容方法名，实际使用时间戳固定种子模拟三钱。
      */
-    source?:
+    source:
       | 'time-seeded-coin-simulation'
       | 'manual-yao-values'
       | 'provided-coin-throws'
@@ -396,7 +396,7 @@ export interface LiuyaoData extends BaseHexagramData {
   sixRelatives: string[];
   /** 纳甲地支：各爻对应的十二地支 */
   najiaDizhi: string[];
-  /** 纳甲天干：内外经卦各三爻所纳天干；旧结果可能没有此字段。 */
+  /** 纳甲天干：内外经卦各三爻所纳天干。 */
   najiaTiangan?: string[];
   /** 各爻的五行属性 */
   wuxing: string[];
@@ -414,7 +414,7 @@ export interface LiuyaoData extends BaseHexagramData {
   /** 各爻的完整详情 */
   yaosDetail: LiuyaoYaoDetail[];
   /** 伏神（伏藏之爻） */
-  hiddenSpirits?: LiuyaoHiddenSpirit[];
+  hiddenSpirits: LiuyaoHiddenSpirit[];
   /** 整卦六合/六冲及卦变关系 */
   hexagramRelations?: LiuyaoHexagramRelations;
   /** 六爻卦变反吟/伏吟结构 */
@@ -463,7 +463,7 @@ export interface MeihuaCalculation {
   upperTrigramIndex?: number;
   lowerTrigramIndex?: number;
   movingYaoIndex?: number;
-  methodKey?: MeihuaDivinationMethod;
+  methodKey: MeihuaDivinationMethod;
   [key: string]: unknown;
 }
 
@@ -565,7 +565,7 @@ export interface MeihuaData extends BaseHexagramData {
   /** 各爻详情 */
   yaosDetail: MeihuaYaoDetail[];
   /** 起卦计算过程 */
-  calculation?: MeihuaCalculation;
+  calculation: MeihuaCalculation;
 }
 
 export interface QimenJiuGongGe {

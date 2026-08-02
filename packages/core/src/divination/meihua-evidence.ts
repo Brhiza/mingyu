@@ -1,4 +1,4 @@
-import type { MeihuaData, MeihuaDivinationMethod } from '../types/divination';
+import type { MeihuaCalculation, MeihuaData, MeihuaDivinationMethod } from '../types/divination';
 import { hexagramsData, trigramsByIndex } from './hexagram-data';
 import { getSeasonState, isKe, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
@@ -469,8 +469,8 @@ export interface MeihuaCalculationStep {
 
 export interface MeihuaCalculationFact {
   key: string;
-  status: '完整' | '缺少中间参数';
-  methodKey: MeihuaDivinationMethod | '未记录';
+  status: '完整';
+  methodKey: MeihuaDivinationMethod;
   methodLabel: string;
   inputs: Record<string, string | number>;
   steps: MeihuaCalculationStep[];
@@ -2187,15 +2187,19 @@ function hasText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function appendResolvedResultFacts(facts: string[], data: MeihuaData) {
-  facts.push(
-    `已确定起卦结果：上卦${data.mainHexagram.upper}、下卦${data.mainHexagram.lower}、动爻第${data.movingYao.position}爻`,
-  );
+function requireMeihuaCalculation(data: MeihuaData): MeihuaCalculation {
+  const calculation = data.calculation;
+  if (!calculation || !hasText(calculation.method)) {
+    throw new Error('梅花易数结果缺少起卦方式与计算过程，无法生成证据。');
+  }
+  if (!['time', 'timeTrigram', 'number', 'random'].includes(calculation.methodKey)) {
+    throw new Error(`未知的梅花易数起卦方式: ${String(calculation.methodKey)}`);
+  }
+  return calculation;
 }
 
 function buildCalculationFacts(data: MeihuaData): string[] {
-  const calculation = data.calculation;
-  if (!calculation) return ['起卦计算过程未附，无法复核上下卦与动爻索引来源'];
+  const calculation = requireMeihuaCalculation(data);
   const facts = [`起卦方式：${calculation.method}`];
   if (calculation.methodKey === 'time' || calculation.methodKey === 'timeTrigram') {
     const hasCompleteTimeInputs =
@@ -2208,17 +2212,15 @@ function buildCalculationFacts(data: MeihuaData): string[] {
       hasFiniteNumber(calculation.upperTrigramIndex) &&
       hasFiniteNumber(calculation.lowerTrigramIndex) &&
       hasFiniteNumber(calculation.movingYaoIndex);
-    if (hasCompleteTimeInputs) {
-      facts.push(
-        `时间取数：农历年支${calculation.yearZhi}序${calculation.yearZhiIndex}、月数${calculation.month}、日数${calculation.day}、时支${calculation.timeZhi}序${calculation.timeZhiIndex}`,
-        `上卦=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day})除8取余为${calculation.upperTrigramIndex}`,
-        `下卦=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex})除8取余为${calculation.lowerTrigramIndex}`,
-        `动爻=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex})除6取余为${calculation.movingYaoIndex}`,
-      );
-    } else {
-      facts.push('现有资料未附完整时间取数中间参数，仅保留已确定卦象与动爻结果');
-      appendResolvedResultFacts(facts, data);
+    if (!hasCompleteTimeInputs) {
+      throw new Error('梅花易数时间起卦缺少完整取数中间参数，无法生成证据。');
     }
+    facts.push(
+      `时间取数：农历年支${calculation.yearZhi}序${calculation.yearZhiIndex}、月数${calculation.month}、日数${calculation.day}、时支${calculation.timeZhi}序${calculation.timeZhiIndex}`,
+      `上卦=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day})除8取余为${calculation.upperTrigramIndex}`,
+      `下卦=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex})除8取余为${calculation.lowerTrigramIndex}`,
+      `动爻=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex})除6取余为${calculation.movingYaoIndex}`,
+    );
   } else if (calculation.methodKey === 'number') {
     if (hasFiniteNumber(calculation.number)) facts.push(`输入数字：${calculation.number}`);
     const hasCompleteNumberInputs =
@@ -2229,30 +2231,26 @@ function buildCalculationFacts(data: MeihuaData): string[] {
       hasFiniteNumber(calculation.upperTrigramIndex) &&
       hasFiniteNumber(calculation.lowerTrigramIndex) &&
       hasFiniteNumber(calculation.movingYaoIndex);
-    if (hasCompleteNumberInputs) {
-      facts.push(
-        `数字取数：输入${calculation.number}，时支${calculation.timeZhi}序${calculation.timeZhiIndex}，合计${calculation.totalWithTime}`,
-        `上卦=${calculation.number}除8取余为${calculation.upperTrigramIndex}`,
-        `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
-        `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
-      );
-    } else {
-      facts.push('现有资料未附完整数字取数中间参数，仅保留已确定卦象与动爻结果');
-      appendResolvedResultFacts(facts, data);
+    if (!hasCompleteNumberInputs) {
+      throw new Error('梅花易数数字起卦缺少完整取数中间参数，无法生成证据。');
     }
+    facts.push(
+      `数字取数：输入${calculation.number}，时支${calculation.timeZhi}序${calculation.timeZhiIndex}，合计${calculation.totalWithTime}`,
+      `上卦=${calculation.number}除8取余为${calculation.upperTrigramIndex}`,
+      `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
+      `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
+    );
   } else if (calculation.methodKey === 'random') {
     if (
-      hasFiniteNumber(calculation.upperTrigramIndex) &&
-      hasFiniteNumber(calculation.lowerTrigramIndex) &&
-      hasFiniteNumber(calculation.movingYaoIndex)
+      !hasFiniteNumber(calculation.upperTrigramIndex) ||
+      !hasFiniteNumber(calculation.lowerTrigramIndex) ||
+      !hasFiniteNumber(calculation.movingYaoIndex)
     ) {
-      facts.push(
-        `随机取数结果：上卦索引${calculation.upperTrigramIndex}、下卦索引${calculation.lowerTrigramIndex}、动爻${calculation.movingYaoIndex}`,
-      );
-    } else {
-      facts.push('现有资料未附完整随机取数索引，仅保留已确定卦象与动爻结果');
-      appendResolvedResultFacts(facts, data);
+      throw new Error('梅花易数随机起卦缺少完整取数索引，无法生成证据。');
     }
+    facts.push(
+      `随机取数结果：上卦索引${calculation.upperTrigramIndex}、下卦索引${calculation.lowerTrigramIndex}、动爻${calculation.movingYaoIndex}`,
+    );
   }
   if (hasText(calculation.compatibilityNote)) {
     facts.push(`兼容口径：${calculation.compatibilityNote}`);
@@ -2261,11 +2259,12 @@ function buildCalculationFacts(data: MeihuaData): string[] {
 }
 
 function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
-  const calculation = data.calculation;
-  const methodKey = calculation?.methodKey ?? '未记录';
+  const calculation = requireMeihuaCalculation(data);
+  const methodKey = calculation.methodKey;
+  const calculationFacts = buildCalculationFacts(data);
   const inputs: Record<string, string | number> = {};
   const steps: MeihuaCalculationStep[] = [];
-  if (calculation && (methodKey === 'time' || methodKey === 'timeTrigram')) {
+  if (methodKey === 'time' || methodKey === 'timeTrigram') {
     if (hasText(calculation.yearZhi)) inputs.yearZhi = calculation.yearZhi;
     if (hasFiniteNumber(calculation.yearZhiIndex)) inputs.yearZhiIndex = calculation.yearZhiIndex;
     if (hasFiniteNumber(calculation.month)) inputs.lunarMonth = calculation.month;
@@ -2310,7 +2309,7 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
         },
       );
     }
-  } else if (calculation && methodKey === 'number') {
+  } else if (methodKey === 'number') {
     if (hasFiniteNumber(calculation.number)) inputs.number = calculation.number;
     if (hasText(calculation.timeZhi)) inputs.timeZhi = calculation.timeZhi;
     if (hasFiniteNumber(calculation.timeZhiIndex)) inputs.timeZhiIndex = calculation.timeZhiIndex;
@@ -2350,7 +2349,7 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
         },
       );
     }
-  } else if (calculation && methodKey === 'random') {
+  } else if (methodKey === 'random') {
     if (
       hasFiniteNumber(calculation.upperTrigramIndex) &&
       hasFiniteNumber(calculation.lowerTrigramIndex) &&
@@ -2381,13 +2380,14 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
       );
     }
   }
-  const status = steps.length === 3 ? '完整' : '缺少中间参数';
-  const calculationFacts = buildCalculationFacts(data);
+  if (steps.length !== 3) {
+    throw new Error(`梅花易数起卦计算链应包含3步，当前为${steps.length}步。`);
+  }
   return {
     key: `calculation:meihua:${methodKey}`,
-    status,
+    status: '完整',
     methodKey,
-    methodLabel: calculation?.method ?? '未记录起卦方式',
+    methodLabel: calculation.method,
     inputs,
     steps,
     resolvedResult: {
@@ -2395,7 +2395,7 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
       lowerTrigram: data.mainHexagram.lower,
       movingYao: data.movingYao.position,
     },
-    ...(hasText(calculation?.compatibilityNote)
+    ...(hasText(calculation.compatibilityNote)
       ? { compatibilityNote: calculation.compatibilityNote }
       : {}),
     promptText: calculationFacts.join('；'),
@@ -2404,9 +2404,7 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
         ? '《梅花易数》年月日时取数与八卦、六爻取余规则'
         : methodKey === 'number'
           ? '输入数字、时支序与八卦、六爻取余规则'
-          : methodKey === 'random'
-            ? '随机上下卦与动爻索引记录'
-            : '旧结果已确定的主卦与动爻资料',
+          : '随机上下卦与动爻索引记录',
       '当前主卦上下经卦与动爻结果',
     ],
     limitation: CALCULATION_FACT_LIMITATION,
@@ -2855,7 +2853,7 @@ function buildSummaryFact(params: {
     ]),
   );
   const status =
-    params.calculationFact.status !== '完整' || params.yaoCoverageFact.status !== '完整'
+    params.yaoCoverageFact.status !== '完整'
       ? '部分资料缺失'
       : params.stageCoverageFact.status !== '完整' ||
           params.transitionFacts.some((item) => item.status === '跨阶段缺口')
@@ -2925,7 +2923,7 @@ function buildCalculationSteps(params: {
     {
       key: 'meihua:calculation:generation',
       stage: '起卦取数核验',
-      status: params.calculationFact.status === '完整' ? '已计算' : '资料不足',
+      status: '已计算',
       inputs: {
         method: params.calculationFact.methodLabel,
         inputKeys: Object.keys(params.calculationFact.inputs),
@@ -3440,13 +3438,13 @@ export function analyzeRebuiltMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAn
     sources: ['主卦原体月令条件单次登记，以及各阶段主变体用、互卦响应、用党和应卦制化限制逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
-  const isRandomMethod = data.calculation?.methodKey === 'random';
+  const isRandomMethod = data.calculation.methodKey === 'random';
   const trace = data.meta?.random;
   const randomFact = buildRandomTraceFact({
-    key: `random:meihua:${data.calculation?.methodKey ?? 'unknown'}`,
+    key: `random:meihua:${data.calculation.methodKey}`,
     applicable: isRandomMethod,
     trace,
-    processLabel: `${data.calculation?.method ?? '当前方式'}的上下卦与动爻生成过程`,
+    processLabel: `${data.calculation.method}的上下卦与动爻生成过程`,
     sources: ['梅花起卦方式与取数记录', '随机上下卦、动爻样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
@@ -3551,7 +3549,7 @@ export function analyzeRebuiltMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAn
       tags: ['计算链', summaryFact.status],
     },
     {
-      level: calculationFact.status === '完整' ? '辅证' : '反证',
+      level: '辅证',
       title: '起卦方式与取数算式',
       detail: `${calculationFact.promptText}；边界：${calculationFact.limitation}`,
       source: calculationFact.sources.join('、'),

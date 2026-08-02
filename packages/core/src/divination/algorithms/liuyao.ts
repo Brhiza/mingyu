@@ -859,7 +859,7 @@ function assertCompatibleLiuyaoSource(
   generation: LiuyaoGeneration,
   expected: NonNullable<LiuyaoGeneration['source']>,
 ): void {
-  if (generation.source !== undefined && generation.source !== expected) {
+  if (generation.source !== expected) {
     throw new Error(
       `六爻起卦方式与原始来源矛盾：${generation.method}/${generation.source}，无法审核重建。`,
     );
