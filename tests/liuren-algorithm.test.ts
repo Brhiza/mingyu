@@ -33,6 +33,7 @@ import {
   getNoblemanBranch,
   getPlateItemByBranch,
   isBranchKe,
+  TIANJIANG,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/plate.ts';
 
 const DIZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
@@ -550,6 +551,30 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   assert.throws(
     () =>
       getLiurenGuaTiFacts({
+        transmissionBranches: ['卯', '辰', '巳'],
+        transmissionGods: ['天后', '六合'],
+      }),
+    /三传天将一经提供.*恰好包含/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['卯', '辰', '巳'],
+        transmissionGods: ['天后', '六合', '贵人', '青龙'],
+      }),
+    /三传天将一经提供.*恰好包含/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['卯', '辰', '巳'],
+        transmissionGods: ['天后', '非法天将', '六合'],
+      }),
+    /第2传天将必须是有效十二天将/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
         transmissionBranches: ['子', '寅', '辰'],
         dayGanZhi: '甲子',
         dayStem: '乙',
@@ -567,8 +592,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定二十八条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 28);
+test('大六壬课体登记表应固定三十条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 30);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -617,6 +642,88 @@ test('大六壬课体登记表应固定二十八条来源、稳定键和结构�
     `${jinJian.matchedConditions.join('；')}；${tuiJian.matchedConditions.join('；')}`,
     /吉|凶|疾病|婚姻|功名|现实事件/,
   );
+});
+
+test('大六壬泆女与狡童应按初末传天将和卯酉发用严格命中', () => {
+  const expectedMatchCounts = new Map([
+    ['泆女格', 0],
+    ['狡童格', 0],
+  ]);
+  let profileCount = 0;
+
+  for (const initial of DIZHI) {
+    for (const final of DIZHI) {
+      for (const initialGod of TIANJIANG) {
+        for (const finalGod of TIANJIANG) {
+          const facts = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '子', final],
+            transmissionGods: [initialGod, '贵人', finalGod],
+          });
+          const matchedNames = new Set(facts.map((fact) => fact.name));
+          const expectYiNv =
+            ['卯', '酉'].includes(initial) && initialGod === '天后' && finalGod === '六合';
+          const expectJiaoTong =
+            ['卯', '酉'].includes(initial) && initialGod === '六合' && finalGod === '天后';
+
+          assert.equal(matchedNames.has('泆女格'), expectYiNv);
+          assert.equal(matchedNames.has('狡童格'), expectJiaoTong);
+          if (expectYiNv) expectedMatchCounts.set('泆女格', expectedMatchCounts.get('泆女格')! + 1);
+          if (expectJiaoTong) {
+            expectedMatchCounts.set('狡童格', expectedMatchCounts.get('狡童格')! + 1);
+          }
+          profileCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 20_736);
+  assert.deepEqual(Object.fromEntries(expectedMatchCounts), { 泆女格: 24, 狡童格: 24 });
+
+  const yiNv = getLiurenGuaTiFacts({
+    transmissionBranches: ['卯', '子', '申'],
+    transmissionGods: ['天后', '贵人', '六合'],
+  }).find((fact) => fact.name === '泆女格');
+  const jiaoTong = getLiurenGuaTiFacts({
+    transmissionBranches: ['酉', '子', '寅'],
+    transmissionGods: ['六合', '贵人', '天后'],
+  }).find((fact) => fact.name === '狡童格');
+  assert.ok(yiNv);
+  assert.ok(jiaoTong);
+  assert.equal(yiNv.stableKey, 'liuren:verified-guati:yi-nv');
+  assert.equal(jiaoTong.stableKey, 'liuren:verified-guati:jiao-tong');
+  assert.equal(yiNv.category, '三传天将');
+  assert.equal(jiaoTong.category, '三传天将');
+  assert.doesNotMatch(
+    `${yiNv.matchedConditions.join('；')}；${jiaoTong.matchedConditions.join('；')}`,
+    /婚姻|私奔|淫乱|吉|凶|现实事件/,
+  );
+
+  const realCases = [
+    {
+      date: new Date('2024-01-08T10:00:00+08:00'),
+      name: '狡童格',
+      condition: '初传卯乘六合，末传未乘天后',
+    },
+    {
+      date: new Date('2024-03-12T02:00:00+08:00'),
+      name: '泆女格',
+      condition: '初传酉乘天后，末传巳乘六合',
+    },
+  ] as const;
+  for (const item of realCases) {
+    const data = generateLiuren(item.date);
+    const fact = data.guaTiFacts.find((candidate) => candidate.name === item.name);
+    assert.ok(fact, `${item.name}应由真实起盘命中`);
+    assert.deepEqual(fact.matchedConditions, [item.condition]);
+    const promptFact = data.evidenceAnalysis?.traditionalFacts.find(
+      (candidate) => candidate.key === fact.stableKey,
+    );
+    assert.equal(
+      promptFact?.promptText,
+      `盘面命中“${item.name}”：${item.condition}；只登记课体结构，不据此单断现实吉凶`,
+    );
+  }
 });
 
 test('大六壬九丑课应按十个指定日柱与大吉临本日支穷举严格命中', () => {
@@ -1359,6 +1466,9 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             guaTiContextCount += 1;
             const guaTiFacts = getLiurenGuaTiFacts({
               transmissionBranches: branches,
+              transmissionGods: branches.map(
+                (branch) => getPlateItemByBranch(heavenlyPlate, branch).god,
+              ),
               dayGanZhi: day,
               dayStem,
               dayBranch,

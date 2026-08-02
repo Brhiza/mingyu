@@ -17,7 +17,7 @@ import {
   isKe,
   isSheng,
 } from '../../../../ganzhi';
-import { DIZHI, getGanZhiWuxing, isBranchKe, TIANGAN } from './plate';
+import { DIZHI, getGanZhiWuxing, isBranchKe, TIANGAN, TIANJIANG } from './plate';
 import { getLiurenTianMaBranch } from './shensha';
 
 function describeDirectedElementRelation(
@@ -173,6 +173,7 @@ const JIU_CHOU_DAYS = new Set([
 
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
+  transmissionGods?: string[];
   dayGanZhi?: string;
   dayStem?: string;
   dayBranch?: string;
@@ -209,6 +210,17 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
   context.transmissionBranches.forEach((branch, index) =>
     assertLiurenGuaTiBranch(branch, `第${index + 1}传`),
   );
+
+  if (context.transmissionGods !== undefined) {
+    if (!Array.isArray(context.transmissionGods) || context.transmissionGods.length !== 3) {
+      throw new Error('大六壬课体识别的三传天将一经提供，就必须恰好包含初传、中传、末传三项。');
+    }
+    context.transmissionGods.forEach((god, index) => {
+      if (!TIANJIANG.includes(god as (typeof TIANJIANG)[number])) {
+        throw new Error(`第${index + 1}传天将必须是有效十二天将。`);
+      }
+    });
+  }
 
   if (
     context.dayStem !== undefined &&
@@ -695,6 +707,56 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             branches: [...context.transmissionBranches],
             matchedConditions: [
               `三传${context.transmissionBranches.join('、')}均为辰戌丑未四季，月建${context.monthBranch}所起天马${tianMa}发用`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'yi-nv',
+    name: '泆女格',
+    category: '三传天将',
+    sourceTitle: '《六壬指南》卷一、卷二；《六壬大全》卷九·淫泆课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬指南》卷一：“初传天后，末传六合，更传见卯酉曰淫女卦。”卷二：“凡卯酉作传而前天后后见六合……非佚女而何？”《六壬大全》：“凡课初传卯酉为用，将乘后合，为淫泆课。”“初传天后，末传六合。”',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      const initialGod = context.transmissionGods?.[0];
+      const finalGod = context.transmissionGods?.[2];
+      return initial &&
+        ['卯', '酉'].includes(initial) &&
+        initialGod === '天后' &&
+        finalGod === '六合'
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [
+              `初传${initial}乘天后，末传${context.transmissionBranches[2]}乘六合`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jiao-tong',
+    name: '狡童格',
+    category: '三传天将',
+    sourceTitle: '《六壬指南》卷二；《六壬大全》卷九·淫泆课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬指南》：“凡卯酉作传而前见六合后见天后为阳往求阴，非狡童而何？”《六壬大全》：“凡课初传卯酉为用，将乘后合，为淫泆课。如用起六合，终于天后，为狡童格。”',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      const initialGod = context.transmissionGods?.[0];
+      const finalGod = context.transmissionGods?.[2];
+      return initial &&
+        ['卯', '酉'].includes(initial) &&
+        initialGod === '六合' &&
+        finalGod === '天后'
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [
+              `初传${initial}乘六合，末传${context.transmissionBranches[2]}乘天后`,
             ],
           }
         : null;

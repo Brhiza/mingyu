@@ -784,6 +784,7 @@ export interface LiurenGuaTiFact {
     | '旬奇发用'
     | '大吉临仲'
     | '三传天马'
+    | '三传天将'
     | '三传顺逆';
   branches: string[];
   matchedConditions: string[];

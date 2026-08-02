@@ -1592,6 +1592,7 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
   const greatAuspiciousGroundBranch = getPlateItemByBranch(heavenlyPlate, '丑').under;
   const guaTiFacts = getLiurenGuaTiFacts({
     transmissionBranches,
+    transmissionGods: threeTransmissions.map((item) => item.god),
     dayGanZhi: ganzhi.day,
     dayStem,
     dayBranch,
