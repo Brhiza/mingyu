@@ -152,11 +152,38 @@ test('统一出生档案可复用到八字与星盘输入', () => {
   const astrolabeInput = birthProfileToAstrolabeInput(profile);
   const normalized = normalizeBirthProfile(profile);
   assert.equal(baziInput.birthLongitude, 116.4);
+  assert.equal(baziInput.birthTimezone, 8);
   assert.equal(baziInput.useTrueSolarTime, true);
   assert.equal(astrolabeInput.longitude, '116.4');
   assert.equal(astrolabeInput.latitude, '39.9');
   assert.equal(astrolabeInput.useTrueSolarTime, true);
   assert.equal(normalized.trueSolarEvidence?.summaryFact.status, '证据链完整');
+});
+
+test('统一出生档案的真太阳时和星盘适配器缺少时区时应失败关闭', () => {
+  const profile = {
+    gender: 'male' as const,
+    calendarType: 'solar' as const,
+    year: 1990,
+    month: 5,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    location: { longitude: 116.4, latitude: 39.9 },
+    useTrueSolarTime: true,
+  };
+
+  const normalized = normalizeBirthProfile(profile);
+  assert.equal(normalized.usedTrueSolarTime, false);
+  assert.ok(normalized.diagnostics.some((item) => item.code === 'TIMEZONE_REQUIRED'));
+  assert.throws(
+    () => birthProfileToBaziPerson(profile),
+    (error: unknown) => error instanceof BirthProfileError && error.code === 'TIMEZONE_REQUIRED',
+  );
+  assert.throws(
+    () => birthProfileToAstrolabeInput({ ...profile, useTrueSolarTime: false }),
+    (error: unknown) => error instanceof BirthProfileError && error.code === 'TIMEZONE_REQUIRED',
+  );
 });
 
 test('择日适配器保持真太阳时跨日后的日期与时辰一致', () => {

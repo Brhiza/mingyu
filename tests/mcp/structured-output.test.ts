@@ -1230,6 +1230,7 @@ test('MCP 统一出生真太阳时工具应支持农历与跨日资料', async (
         year: 1990,
         month: 5,
         day: 23,
+        isLeapMonth: false,
         hour: 12,
         minute: 0,
         longitude: 116.4074,
@@ -2783,6 +2784,7 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       birthHour: 1,
       birthMinute: 20,
       birthLongitude: 73.5,
+      birthTimezone: 8,
     };
     const baziExpected = baziCalculator.calculateBazi(baziPerson);
     const baziResult = await client.callTool({
@@ -2797,6 +2799,7 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
         birthHour: baziPerson.birthHour,
         birthMinute: baziPerson.birthMinute,
         birthLongitude: baziPerson.birthLongitude,
+        birthTimezone: baziPerson.birthTimezone,
       },
     });
 
@@ -2863,6 +2866,7 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
         birthHour: '1',
         birthMinute: '20',
         birthLongitude: '73.5',
+        birthTimezone: 8,
       },
     });
 
@@ -2893,6 +2897,7 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
         birthHour: '1',
         birthMinute: '20',
         birthLongitude: '73.5',
+        birthTimezone: 8,
         question: '请分析整体命盘。',
       },
     });
@@ -2961,6 +2966,7 @@ test('MCP 紫微真太阳时参数缺失或越界时应返回明确错误', asyn
           useTrueSolarTime: true,
           birthHour: '1',
           birthMinute: '20',
+          birthTimezone: 8,
         },
         /birthLongitude 必须是数字/,
       ],
@@ -2976,6 +2982,7 @@ test('MCP 紫微真太阳时参数缺失或越界时应返回明确错误', asyn
           birthHour: '24',
           birthMinute: '20',
           birthLongitude: '73.5',
+          birthTimezone: 8,
           question: '看看整体。',
         },
         /birthHour 不能大于 23/,
@@ -2992,6 +2999,7 @@ test('MCP 紫微真太阳时参数缺失或越界时应返回明确错误', asyn
           birthHour: '1',
           birthMinute: '60',
           birthLongitude: '73.5',
+          birthTimezone: 8,
         },
         /birthMinute 不能大于 59/,
       ],
@@ -3007,9 +3015,25 @@ test('MCP 紫微真太阳时参数缺失或越界时应返回明确错误', asyn
           birthHour: '1',
           birthMinute: '20',
           birthLongitude: '181',
+          birthTimezone: 8,
           question: '看看整体。',
         },
         /birthLongitude 不能大于 180/,
+      ],
+      [
+        'ziwei_calculate',
+        {
+          gender: 'female',
+          dateType: 'solar',
+          year: '1992',
+          month: '8',
+          day: '21',
+          useTrueSolarTime: true,
+          birthHour: '1',
+          birthMinute: '20',
+          birthLongitude: '73.5',
+        },
+        /birthTimezone 必须是数字/,
       ],
     ];
 
@@ -3045,6 +3069,7 @@ test('MCP 数值范围错误应返回结构化业务错误', async () => {
           birthHour: 24,
           birthMinute: 20,
           birthLongitude: 116.4,
+          birthTimezone: 8,
           question: '看看整体。',
         },
         /birthHour 不能大于 23/,

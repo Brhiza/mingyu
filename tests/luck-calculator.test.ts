@@ -412,6 +412,7 @@ test('八字核心计算应先拒绝越界真太阳时参数', () => {
     birthHour: 1,
     birthMinute: 20,
     birthLongitude: 73.5,
+    birthTimezone: 8,
   };
   const invalidCases: Array<[Partial<typeof baseInput>, RegExp]> = [
     [{ birthHour: 24 }, /出生小时需在 0-23 之间/],

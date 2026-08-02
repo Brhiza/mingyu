@@ -97,52 +97,31 @@ export function shiftSolarDateTimeYears(time: SolarDateTimeInfo, years: number):
   };
 }
 
-function getFallbackCycleEnd(cycle: LuckCycle): Date {
-  assertSolarYear(cycle.year);
-  if (cycle.isXiaoyun) {
-    return new Date(cycle.year + Math.max(cycle.years.length, 1), 0, 1, 0, 0, 0);
-  }
-
-  return new Date(cycle.year + 10, 0, 1, 0, 0, 0);
-}
-
-export function isDateWithinLuckCycle(cycle: LuckCycle, referenceDate: Date = new Date()): boolean {
+export function isDateWithinLuckCycle(cycle: LuckCycle, referenceDate: Date): boolean {
   assertValidDate(referenceDate, '参考时间');
-  const cycleStart = cycle.startSolarTime
-    ? toNativeDate(cycle.startSolarTime)
-    : new Date(cycle.year, 0, 1, 0, 0, 0);
-  const cycleEnd = cycle.endSolarTime
-    ? toNativeDate(cycle.endSolarTime)
-    : getFallbackCycleEnd(cycle);
+  if (!cycle.startSolarTime || !cycle.endSolarTime) {
+    throw new Error('大运周期缺少精确起止时刻，禁止按年份静默补齐。');
+  }
+  const cycleStart = toNativeDate(cycle.startSolarTime);
+  const cycleEnd = toNativeDate(cycle.endSolarTime);
+  if (cycleEnd <= cycleStart) {
+    throw new Error('大运周期结束时刻必须晚于开始时刻。');
+  }
 
   return referenceDate >= cycleStart && referenceDate < cycleEnd;
 }
 
-export function getLuckCycleForDate(
-  cycles: LuckCycle[],
-  referenceDate: Date = new Date(),
-): LuckCycle | null {
+export function getLuckCycleForDate(cycles: LuckCycle[], referenceDate: Date): LuckCycle | null {
   assertValidDate(referenceDate, '参考时间');
   if (!cycles.length) {
     return null;
   }
 
-  const exactMatch = cycles.find((cycle) => isDateWithinLuckCycle(cycle, referenceDate));
-  if (exactMatch) {
-    return exactMatch;
+  const exactMatches = cycles.filter((cycle) => isDateWithinLuckCycle(cycle, referenceDate));
+  if (exactMatches.length > 1) {
+    throw new Error('大运周期精确起止时刻互相重叠，无法唯一定位。');
   }
-
-  const referenceYear = referenceDate.getFullYear();
-  const fallbackMatch = cycles.find((cycle) => {
-    if (cycle.isXiaoyun) {
-      const endYear = cycle.years.at(-1)?.year ?? cycle.year;
-      return referenceYear >= cycle.year && referenceYear <= endYear;
-    }
-
-    return referenceYear >= cycle.year && referenceYear < cycle.year + 10;
-  });
-
-  return fallbackMatch || null;
+  return exactMatches[0] ?? null;
 }
 
 export function formatSolarDateTime(time: SolarDateTimeInfo, withYear = false): string {

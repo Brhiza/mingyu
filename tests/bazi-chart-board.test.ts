@@ -17,6 +17,7 @@ test('八字结果盘应展示排盘预警和稳定基础参考', () => {
     birthHour: 12,
     birthMinute: 0,
     birthLongitude: 116.4,
+    birthTimezone: 8,
     birthPlace: '北京',
   });
 

@@ -1180,6 +1180,7 @@ test('公开 API 八字排盘应支持真太阳时精确时分和经度', async 
       birthHour: 1,
       birthMinute: 20,
       birthLongitude: 73.5,
+      birthTimezone: 8,
       birthPlace: '新疆喀什',
     }),
   });
@@ -1200,6 +1201,28 @@ test('公开 API 八字排盘应支持真太阳时精确时分和经度', async 
     body.data.timing.evidence.calculationSteps.length,
   );
   assert.match(body.data.timing.evidence.promptText, /唯一映射为/);
+});
+
+test('公开 API 八字启用真太阳时缺少时区时应失败关闭', async () => {
+  const { response, body } = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 1990,
+      month: 4,
+      day: 15,
+      dateType: 'solar',
+      useTrueSolarTime: true,
+      birthHour: 1,
+      birthMinute: 20,
+      birthLongitude: 73.5,
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.match(body.error.message, /birthTimezone/);
 });
 
 test('公开 API 八字公历日期不存在时应返回参数错误', async () => {
@@ -2163,6 +2186,7 @@ test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async 
       birthHour: '1',
       birthMinute: '20',
       birthLongitude: '73.5',
+      birthTimezone: 8,
     }),
   });
 
@@ -2192,6 +2216,7 @@ test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async 
       birthHour: '1',
       birthMinute: '20',
       birthLongitude: '73.5',
+      birthTimezone: 8,
       question: '请分析整体命盘。',
       responseMode: 'full',
     }),
@@ -2418,6 +2443,7 @@ test('公开 API 紫微真太阳时参数缺失或越界时应返回 400', async
       useTrueSolarTime: true,
       birthHour: '1',
       birthMinute: '20',
+      birthTimezone: 8,
     },
     {
       name: '测试',
@@ -2430,6 +2456,7 @@ test('公开 API 紫微真太阳时参数缺失或越界时应返回 400', async
       birthHour: '24',
       birthMinute: '20',
       birthLongitude: '73.5',
+      birthTimezone: 8,
     },
     {
       name: '测试',
@@ -2442,6 +2469,7 @@ test('公开 API 紫微真太阳时参数缺失或越界时应返回 400', async
       birthHour: '1',
       birthMinute: '60',
       birthLongitude: '73.5',
+      birthTimezone: 8,
     },
     {
       name: '测试',
@@ -2454,6 +2482,19 @@ test('公开 API 紫微真太阳时参数缺失或越界时应返回 400', async
       birthHour: '1',
       birthMinute: '20',
       birthLongitude: '181',
+      birthTimezone: 8,
+    },
+    {
+      name: '测试',
+      gender: 'male',
+      dateType: 'solar',
+      year: '1990',
+      month: '4',
+      day: '15',
+      useTrueSolarTime: true,
+      birthHour: '1',
+      birthMinute: '20',
+      birthLongitude: '73.5',
     },
   ]) {
     const { response, body } = await callApi('ziwei/calculate', {

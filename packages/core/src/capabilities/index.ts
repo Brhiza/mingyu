@@ -225,7 +225,7 @@ const systems: SystemCapability[] = [
       batch: false,
     },
     notes: [
-      '未启用真太阳时时可直接使用明确的时辰索引；启用真太阳时时需提供完整小时、分钟和出生地。输入为空或非法时会在计算前拒绝。',
+      '未启用真太阳时时可直接使用明确的时辰索引；启用真太阳时时需提供完整小时、分钟、出生地经度与明确时区。中国历史夏令时只在明确启用时校正；输入为空或非法时会在计算前拒绝。',
     ],
   },
   {
@@ -253,6 +253,7 @@ const systems: SystemCapability[] = [
       batch: false,
     },
     optionalDependencies: ['iztro'],
+    notes: ['启用真太阳时时需提供完整小时、分钟、出生地经度与明确时区，不默认东八区。'],
   },
   {
     id: 'astrolabe',

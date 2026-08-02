@@ -69,6 +69,11 @@ export const ziweiSchema = z.object({
   birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
   birthMinute: z.string().optional().describe('精准出生分钟，启用真太阳时时必填，如 20'),
   birthLongitude: z.string().optional().describe('出生地经度，启用真太阳时时必填，如 116.4074'),
+  birthTimezone: z.number().optional().describe('出生地固定时区，启用真太阳时时必填，例如中国为 8'),
+  applyChinaDst: z
+    .boolean()
+    .optional()
+    .describe('是否明确按中国 1986-1991 历史夏令时校正；默认不启用'),
 });
 
 const ziweiPromptSchema = ziweiSchema.extend({
@@ -125,6 +130,7 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
         birthLongitude: String(
           readMcpNumberLikeInRange(args.birthLongitude, 'birthLongitude', -180, 180),
         ),
+        birthTimezone: readMcpNumberLikeInRange(args.birthTimezone, 'birthTimezone', -12, 14),
       }
     : null;
   const timeIndex: number | '' = trueSolarTimeInput ? '' : args.timeIndex!;
@@ -142,6 +148,8 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     birthHour: trueSolarTimeInput?.birthHour ?? args.birthHour ?? '',
     birthMinute: trueSolarTimeInput?.birthMinute ?? args.birthMinute ?? '',
     birthLongitude: trueSolarTimeInput?.birthLongitude ?? args.birthLongitude ?? '',
+    birthTimezone: trueSolarTimeInput?.birthTimezone,
+    applyChinaDst: args.applyChinaDst ?? false,
   });
 }
 

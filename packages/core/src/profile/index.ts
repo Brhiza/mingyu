@@ -1,4 +1,5 @@
 import {
+  resolveBirthSolarClockTime,
   resolveTrueSolarBirthTime,
   type SolarDateTimeParts,
   type TrueSolarTimeEvidenceFields,
@@ -64,6 +65,7 @@ export interface BirthProfile {
 export type BirthProfileDiagnosticCode =
   | 'LOCATION_REQUIRED_FOR_TRUE_SOLAR_TIME'
   | 'LATITUDE_REQUIRED'
+  | 'TIMEZONE_REQUIRED'
   | 'GENDER_REQUIRED'
   | 'TIME_REQUIRED'
   | 'PRECISE_TIME_REQUIRED'
@@ -245,11 +247,19 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
       message: '真太阳时需要出生地经度和时区。',
     });
   }
+  if (profile.useTrueSolarTime && profile.location?.timezone === undefined) {
+    diagnostics.push({
+      code: 'TIMEZONE_REQUIRED',
+      level: 'error',
+      field: 'location.timezone',
+      message: '真太阳时需要明确提供出生地时区，不能默认使用东八区。',
+    });
+  }
 
   const second = profile.second ?? 0;
   assertIntegerInRange(second, '出生秒数', 0, 59);
 
-  const resolved = resolveTrueSolarBirthTime({
+  const solarClockTime = resolveBirthSolarClockTime({
     dateType: profile.calendarType,
     year: profile.year,
     month: profile.month,
@@ -258,12 +268,22 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     minute,
     second,
     isLeapMonth: profile.isLeapMonth,
-    longitude: profile.location?.longitude ?? (profile.location?.timezone ?? 8) * 15,
-    timezone: profile.location?.timezone ?? 8,
-    applyChinaDst: profile.useTrueSolarTime ? profile.applyChinaDst : false,
   });
 
-  if (profile.useTrueSolarTime && profile.location) {
+  if (profile.useTrueSolarTime && profile.location?.timezone !== undefined) {
+    const resolved = resolveTrueSolarBirthTime({
+      dateType: profile.calendarType,
+      year: profile.year,
+      month: profile.month,
+      day: profile.day,
+      hour,
+      minute,
+      second,
+      isLeapMonth: profile.isLeapMonth,
+      longitude: profile.location.longitude,
+      timezone: profile.location.timezone,
+      applyChinaDst: profile.applyChinaDst,
+    });
     const selectedShichen = getShichenByIndex(resolved.timeIndex);
     if (!selectedShichen) throw new Error('真太阳时时辰状态异常。');
     const trueSolarEvidence: TrueSolarTimeEvidenceFields = {
@@ -325,16 +345,16 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     inputHour: hour,
     inputMinute: minute,
     selectedShichen,
-    solarClockTime: resolved.solarClockTime,
-    effectiveTime: resolved.solarClockTime,
+    solarClockTime,
+    effectiveTime: solarClockTime,
     usedTrueSolarTime: false,
     requestedTrueSolarTime: profile.useTrueSolarTime ?? false,
     diagnostics,
   });
   return {
     profile,
-    solarClockTime: resolved.solarClockTime,
-    effectiveTime: resolved.solarClockTime,
+    solarClockTime,
+    effectiveTime: solarClockTime,
     timeIndex: timeInput.timeIndex,
     timeInputMode: timeInput.inputMode,
     timePrecision: timeInput.inputMode === 'traditional-shichen' ? 'shichen' : 'minute',
@@ -375,6 +395,7 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
       : {}),
     birthPlace: profile.location?.name,
     birthLongitude: profile.location?.longitude,
+    birthTimezone: profile.location?.timezone,
     applyChinaDst: profile.applyChinaDst,
   };
 }
@@ -400,6 +421,15 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
           message: '星盘必须提供出生地纬度。',
         }
       : undefined;
+  const timezoneDiagnostic: BirthProfileDiagnostic | undefined =
+    profile.location?.timezone === undefined
+      ? {
+          code: 'TIMEZONE_REQUIRED',
+          level: 'error',
+          field: 'location.timezone',
+          message: '星盘必须明确提供出生地时区，不能默认使用东八区。',
+        }
+      : undefined;
   const genderDiagnostic: BirthProfileDiagnostic | undefined =
     profile.gender === 'unspecified'
       ? {
@@ -409,10 +439,15 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
           message: '星盘现有输入需要明确性别。',
         }
       : undefined;
-  requireReady(normalized, preciseTimeDiagnostic ?? locationDiagnostic ?? genderDiagnostic);
+  requireReady(
+    normalized,
+    preciseTimeDiagnostic ?? locationDiagnostic ?? timezoneDiagnostic ?? genderDiagnostic,
+  );
   const clock = normalized.solarClockTime;
   const location = profile.location;
-  if (!location || location.latitude === undefined) throw new Error('出生地状态异常。');
+  if (!location || location.latitude === undefined || location.timezone === undefined) {
+    throw new Error('出生地状态异常。');
+  }
   return {
     name: profile.name ?? '',
     gender: profile.gender === 'male' ? '男' : '女',
@@ -423,7 +458,7 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
     minute: String(clock.minute),
     latitude: String(location.latitude),
     longitude: String(location.longitude),
-    timezone: String(location.timezone ?? 8),
+    timezone: String(location.timezone),
     locationName: location.name,
     useTrueSolarTime: profile.useTrueSolarTime,
   };

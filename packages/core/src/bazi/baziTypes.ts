@@ -28,11 +28,13 @@ export interface Person {
   birthMinute?: number;
   birthPlace?: string;
   birthLongitude?: number;
+  /** 出生地钟表时间对应的明确固定时区；启用真太阳时时必填。 */
+  birthTimezone?: number;
   age?: number;
   shenShaVariants?: Partial<ShenShaVariantConfig>;
   /**
    * 是否自动校正中国夏令时（1986-1991，钟表时间快 1 小时）。
-   * 默认 true；仅在真太阳时模式（有精确时分）下执行 -60 分钟校正，
+   * 默认 false；仅在明确请求且启用真太阳时模式（有精确时分）下执行 -60 分钟校正，
    * 仅时辰精度时只输出提示不做校正。
    */
   applyChinaDst?: boolean;

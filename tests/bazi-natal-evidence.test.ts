@@ -788,6 +788,7 @@ test('八字真太阳时本命证据应引用校正后的唯一时间并采用�
     birthHour: 1,
     birthMinute: 20,
     birthLongitude: 73.5,
+    birthTimezone: 8,
     birthPlace: '新疆喀什',
   });
   const analysis = result.evidenceAnalysis;
@@ -823,6 +824,7 @@ test('丁火生巳月案例的劫财格应贯穿证据与最终提示词，用�
     birthMinute: 23,
     birthPlace: '上海',
     birthLongitude: 121.4737,
+    birthTimezone: 8,
   });
 
   assert.deepEqual(

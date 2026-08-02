@@ -1,6 +1,5 @@
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import type { BaziChartResult } from '@core/bazi/baziTypes';
-import type { Person } from '@/composables/useFormState';
+import type { BaziChartResult, Person } from '@core/bazi/baziTypes';
 
 function readInteger(value: string | number, label: string) {
   if (typeof value === 'number') {
@@ -51,6 +50,7 @@ export function buildPersonFromInput(input: {
   birthMinute: string;
   birthPlace: string;
   birthLongitude: string;
+  birthTimezone?: number;
 }): Person {
   const year = readInteger(input.year, '出生年份');
   const month = readInteger(input.month, '出生月份');
@@ -70,9 +70,15 @@ export function buildPersonFromInput(input: {
     ? readIntegerInRange(input.birthMinute, '出生分钟', 0, 59)
     : undefined;
   const birthLongitude = input.useTrueSolarTime ? readLongitude(input.birthLongitude) : undefined;
+  const birthTimezone = input.useTrueSolarTime ? input.birthTimezone : undefined;
+  if (
+    input.useTrueSolarTime &&
+    (!Number.isFinite(birthTimezone) || birthTimezone! < -12 || birthTimezone! > 14)
+  ) {
+    throw new Error('启用真太阳时时必须明确提供 -12 到 14 之间的出生地时区。');
+  }
 
   return {
-    name: '',
     gender: input.gender,
     year,
     month,
@@ -85,6 +91,8 @@ export function buildPersonFromInput(input: {
     birthMinute,
     birthPlace: input.useTrueSolarTime ? input.birthPlace : '',
     birthLongitude,
+    birthTimezone,
+    applyChinaDst: false,
   };
 }
 
@@ -102,5 +110,7 @@ export function calculateFullBaziChart(person: Person): BaziChartResult {
     birthMinute: person.birthMinute,
     birthPlace: person.birthPlace,
     birthLongitude: person.birthLongitude,
+    birthTimezone: person.birthTimezone,
+    applyChinaDst: person.applyChinaDst,
   });
 }

@@ -60,12 +60,13 @@ test('紫微农历输入启用真太阳时跨日时应改用校正后的公历�
     year: '2020',
     month: '6',
     day: '12',
-    timeIndex: '',
+    timeIndex: '' as const,
     isLeapMonth: false,
     useTrueSolarTime: true,
     birthHour: '0',
     birthMinute: '40',
     birthLongitude: '75.98',
+    birthTimezone: 8,
   });
 
   assert.equal(input.dateType, 'solar');
@@ -100,6 +101,7 @@ test('紫微农历闰月输入启用真太阳时时应转为公历并清除闰�
     birthHour: '9',
     birthMinute: '0',
     birthLongitude: '120',
+    birthTimezone: 8,
   });
 
   assert.equal(input.dateType, 'solar');
@@ -109,6 +111,29 @@ test('紫微农历闰月输入启用真太阳时时应转为公历并清除闰�
   );
   assert.equal(input.birthTimeIndex, getTimeIndexFromClock(corrected.hour, corrected.minute));
   assert.equal(input.isLeapMonth, false);
+});
+
+test('紫微真太阳时必须使用明确时区且不同标准经线不得得出同一时刻', () => {
+  const baseInput = {
+    name: '时区核验',
+    gender: 'male' as const,
+    dateType: 'solar' as const,
+    year: '1990',
+    month: '4',
+    day: '15',
+    timeIndex: '' as const,
+    isLeapMonth: false,
+    useTrueSolarTime: true,
+    birthHour: '1',
+    birthMinute: '20',
+    birthLongitude: '75',
+  };
+
+  assert.throws(() => buildZiweiChartInput(baseInput), /时区/);
+  const utcFive = buildZiweiChartInput({ ...baseInput, birthTimezone: 5 });
+  const utcEight = buildZiweiChartInput({ ...baseInput, birthTimezone: 8 });
+  assert.notEqual(utcFive.birthTimeIndex, utcEight.birthTimeIndex);
+  assert.notEqual(utcFive.birthDate, utcEight.birthDate);
 });
 
 test('紫微真太阳时缺少经度时应直接报错', () => {

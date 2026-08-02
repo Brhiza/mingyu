@@ -12,6 +12,17 @@ export interface SolarDateTimeParts {
   second: number;
 }
 
+export interface BirthCalendarTimeInput {
+  dateType: 'solar' | 'lunar';
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second?: number;
+  isLeapMonth?: boolean;
+}
+
 export interface TrueSolarTimeResult {
   correctedTime: SolarDateTimeParts;
   longitudeCorrectionMinutes: number;
@@ -95,6 +106,46 @@ export interface TrueSolarTimeConversionInput {
   timezone: number;
   /** 是否按中国 1986-1991 历史规则自动还原夏令时，默认 false。 */
   applyChinaDst?: boolean;
+}
+
+/** 只做出生历法合法性核验与农历转公历，不引入任何地点或时区假设。 */
+export function resolveBirthSolarClockTime(input: BirthCalendarTimeInput): SolarDateTimeParts {
+  if (input.dateType !== 'solar' && input.dateType !== 'lunar') {
+    throw new Error('dateType 必须是 solar 或 lunar。');
+  }
+  if (input.isLeapMonth !== undefined && typeof input.isLeapMonth !== 'boolean') {
+    throw new Error('isLeapMonth 必须是布尔值。');
+  }
+  const second = input.second ?? 0;
+  validateTimePart(input.hour, input.minute, second);
+  const dateMessage = getBirthDateValidationMessage({
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    dateType: input.dateType,
+    isLeapMonth: input.isLeapMonth,
+  });
+  if (dateMessage) throw new Error(dateMessage);
+
+  const solarTime =
+    input.dateType === 'lunar'
+      ? LunarHour.fromYmdHms(
+          input.year,
+          input.isLeapMonth ? -Math.abs(input.month) : input.month,
+          input.day,
+          input.hour,
+          input.minute,
+          second,
+        ).getSolarTime()
+      : SolarTime.fromYmdHms(input.year, input.month, input.day, input.hour, input.minute, second);
+  return {
+    year: solarTime.getYear(),
+    month: solarTime.getMonth(),
+    day: solarTime.getDay(),
+    hour: solarTime.getHour(),
+    minute: solarTime.getMinute(),
+    second: solarTime.getSecond(),
+  };
 }
 
 export interface TrueSolarTimeConversionResult
@@ -665,42 +716,7 @@ export function convertTrueSolarTime(
 export function resolveTrueSolarBirthTime(
   input: TrueSolarBirthTimeInput,
 ): TrueSolarBirthTimeResult {
-  if (input.dateType !== 'solar' && input.dateType !== 'lunar') {
-    throw new Error('dateType 必须是 solar 或 lunar。');
-  }
-  if (input.isLeapMonth !== undefined && typeof input.isLeapMonth !== 'boolean') {
-    throw new Error('isLeapMonth 必须是布尔值。');
-  }
-  const second = input.second ?? 0;
-  validateTimePart(input.hour, input.minute, second);
-  const dateMessage = getBirthDateValidationMessage({
-    year: input.year,
-    month: input.month,
-    day: input.day,
-    dateType: input.dateType,
-    isLeapMonth: input.isLeapMonth,
-  });
-  if (dateMessage) throw new Error(dateMessage);
-
-  const solarTime =
-    input.dateType === 'lunar'
-      ? LunarHour.fromYmdHms(
-          input.year,
-          input.isLeapMonth ? -Math.abs(input.month) : input.month,
-          input.day,
-          input.hour,
-          input.minute,
-          second,
-        ).getSolarTime()
-      : SolarTime.fromYmdHms(input.year, input.month, input.day, input.hour, input.minute, second);
-  const solarClockTime: SolarDateTimeParts = {
-    year: solarTime.getYear(),
-    month: solarTime.getMonth(),
-    day: solarTime.getDay(),
-    hour: solarTime.getHour(),
-    minute: solarTime.getMinute(),
-    second: solarTime.getSecond(),
-  };
+  const solarClockTime = resolveBirthSolarClockTime(input);
   const converted = convertTrueSolarTime({
     localDateTime: formatSolarDateTimeParts(solarClockTime),
     longitude: input.longitude,

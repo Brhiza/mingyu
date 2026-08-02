@@ -31,6 +31,7 @@ test('金标准盘:1994-12-04 03:15 男 佳木斯(真太阳时) → 甲戌 乙�
     birthHour: 3,
     birthMinute: 15,
     birthLongitude: 130.37,
+    birthTimezone: 8,
     birthPlace: '黑龙江佳木斯',
   });
   assert.equal(ganZhi(r.pillars.year), '甲戌');
@@ -124,6 +125,7 @@ test('真太阳时跨日:喀什 2020-08-01 00:40 → 日柱退回前一日乙亥
     birthHour: 0,
     birthMinute: 40,
     birthLongitude: 75.98,
+    birthTimezone: 8,
     birthPlace: '新疆喀什',
   });
   assert.equal(ganZhi(r.pillars.day), '乙亥');
@@ -142,7 +144,9 @@ test('夏令时:1988-07-15 12:00 北京(钟表) → 自动回拨 60 分钟,时�
     birthHour: 12,
     birthMinute: 0,
     birthLongitude: 116.4,
+    birthTimezone: 8,
     birthPlace: '北京',
+    applyChinaDst: true,
   });
   assert.equal(r.timing?.dstCorrectionMinutes, -60);
   // 12:00 钟表 → 11:00 标准 → 经度-14.4min + 均时差≈-6min → 约 10:40,巳时
@@ -163,7 +167,7 @@ test('夏令时:1988-07-15 12:00 北京(钟表) → 自动回拨 60 分钟,时�
 });
 
 test('夏令时:applyChinaDst=false 时不校正,时柱午时', () => {
-  const r = baziCalculator.calculateBazi({
+  const input = {
     year: 1988,
     month: 7,
     day: 15,
@@ -173,21 +177,54 @@ test('夏令时:applyChinaDst=false 时不校正,时柱午时', () => {
     birthHour: 12,
     birthMinute: 0,
     birthLongitude: 116.4,
+    birthTimezone: 8,
+  } as const;
+  const r = baziCalculator.calculateBazi({
+    ...input,
     applyChinaDst: false,
   });
+  const omitted = baziCalculator.calculateBazi(input);
   assert.equal(r.timing?.dstCorrectionMinutes, undefined);
+  assert.deepEqual(omitted.pillars, r.pillars);
+  assert.equal(omitted.timing?.dstCorrectionMinutes, undefined);
   // 12:00 → 经度-14.4min + 均时差≈-6min → 约 11:40,午时
   assert.equal(r.pillars.hour.zhi, '午');
   assert.ok(!r.warnings.some((w) => w.includes('夏令时')));
 });
 
-test('夏令时:仅时辰精度时只提示不校正', () => {
+test('真太阳时必须使用明确时区并覆盖全部合法整数时区', () => {
+  const baseInput = {
+    year: 2000,
+    month: 1,
+    day: 15,
+    timeIndex: 6,
+    gender: 'male' as const,
+    useTrueSolarTime: true,
+    birthHour: 12,
+    birthMinute: 0,
+    birthLongitude: 0,
+  };
+
+  assert.throws(() => baziCalculator.calculateBazi(baseInput), /时区/);
+  for (let birthTimezone = -12; birthTimezone <= 14; birthTimezone += 1) {
+    const result = baziCalculator.calculateBazi({ ...baseInput, birthTimezone });
+    assert.equal(
+      result.timing?.longitudeCorrectionMinutes,
+      (baseInput.birthLongitude - birthTimezone * 15) * 4,
+      `UTC${birthTimezone >= 0 ? '+' : ''}${birthTimezone} 应按自身标准经线计算`,
+    );
+    assert.match(result.timing?.evidence.key ?? '', new RegExp(`:${birthTimezone}$`));
+  }
+});
+
+test('夏令时:明确启用且仅有时辰精度时只提示不校正', () => {
   const r = baziCalculator.calculateBazi({
     year: 1988,
     month: 7,
     day: 15,
     timeIndex: 6,
     gender: 'male',
+    applyChinaDst: true,
   });
   assert.ok(r.warnings.some((w) => w.includes('夏令时')));
 });

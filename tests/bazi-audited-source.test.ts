@@ -34,7 +34,7 @@ test('八字结果应保存完整规范化出生来源并可等价重建', () =>
 
   assert.deepEqual(result.generation.input, {
     ...PERSON,
-    applyChinaDst: true,
+    applyChinaDst: false,
     shenShaVariants: {
       kongWangBasis: 'day-and-year',
       yangRenMode: 'yang-stems-only',
@@ -163,6 +163,7 @@ test('八字真太阳时可信来源应固定精准时间、经度和时辰映�
     birthHour: 10,
     birthMinute: 20,
     birthLongitude: 116.4074,
+    birthTimezone: 8,
     birthPlace: '  北京  ',
     applyChinaDst: false,
   });

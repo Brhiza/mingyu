@@ -1102,6 +1102,17 @@ export function getPublicApiOpenApiDocument(
             birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
+            birthTimezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              description: '启用真太阳时时必填，禁止默认使用东八区',
+            },
+            applyChinaDst: {
+              type: 'boolean',
+              default: false,
+              description: '仅在明确需要按中国 1986-1991 历史夏令时校正时启用',
+            },
             shenShaVariants: { $ref: '#/components/schemas/ShenShaVariants' },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
@@ -1324,6 +1335,17 @@ export function getPublicApiOpenApiDocument(
             birthHour: { type: 'string' },
             birthMinute: { type: 'string' },
             birthLongitude: { type: 'string' },
+            birthTimezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              description: '启用真太阳时时必填，禁止默认使用东八区',
+            },
+            applyChinaDst: {
+              type: 'boolean',
+              default: false,
+              description: '仅在明确需要按中国 1986-1991 历史夏令时校正时启用',
+            },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
@@ -2258,6 +2280,7 @@ function readBaziPerson(input: JsonRecord): Person {
   const birthLongitude = useTrueSolarTime
     ? readNumber(input, 'birthLongitude', -180, 180)
     : undefined;
+  const birthTimezone = useTrueSolarTime ? readNumber(input, 'birthTimezone', -12, 14) : undefined;
   const derivedTimeIndex =
     useTrueSolarTime && typeof birthHour === 'number' && typeof birthMinute === 'number'
       ? getTimeIndexFromClock(birthHour, birthMinute)
@@ -2293,7 +2316,9 @@ function readBaziPerson(input: JsonRecord): Person {
     birthHour,
     birthMinute,
     birthLongitude,
+    birthTimezone,
     birthPlace: readString(input, 'birthPlace', ''),
+    applyChinaDst: readBoolean(input, 'applyChinaDst', false),
     shenShaVariants: readShenShaVariants(input),
   };
 
@@ -2457,12 +2482,14 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
         birthHour: String(readIntegerLike(input, 'birthHour', 0, 23)),
         birthMinute: String(readIntegerLike(input, 'birthMinute', 0, 59)),
         birthLongitude: String(readNumberLike(input, 'birthLongitude', -180, 180)),
+        birthTimezone: readNumberLike(input, 'birthTimezone', -12, 14),
       }
     : {
         timeIndex: readInteger(input, 'timeIndex', 0, 12),
         birthHour: readString(input, 'birthHour', ''),
         birthMinute: readString(input, 'birthMinute', ''),
         birthLongitude: readString(input, 'birthLongitude', ''),
+        birthTimezone: undefined,
       };
   const requiresHoroscopeReference = scopes.some((scope) => scope !== 'origin');
   const horoscopeReference = requiresHoroscopeReference
@@ -2485,6 +2512,8 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
       birthHour: timeInput.birthHour,
       birthMinute: timeInput.birthMinute,
       birthLongitude: timeInput.birthLongitude,
+      birthTimezone: timeInput.birthTimezone,
+      applyChinaDst: readBoolean(input, 'applyChinaDst', false),
     }),
     Array.from(new Set(['origin' as ScopeType, ...scopes])),
     horoscopeReference,

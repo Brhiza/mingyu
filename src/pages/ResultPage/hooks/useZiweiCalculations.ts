@@ -9,6 +9,8 @@ import { createDisplayWorker } from '../utils/createDisplayWorker';
 import { createPayloadWorker } from '../utils/createPayloadWorker';
 import type { ZiweiPayloadByScopeState, ZiweiRuntimeState } from '../ResultPage.types';
 
+const MAINLAND_CHINA_TIMEZONE = 8;
+
 async function runZiweiMainThread(
   input: ChartInput,
   horoscopeReference: ReturnType<typeof getDefaultHoroscopeContext>,
@@ -67,7 +69,10 @@ export function useZiweiCalculations(
 
   const primaryZiweiInput = useMemo(() => {
     try {
-      return buildZiweiChartInput(inputState);
+      return buildZiweiChartInput({
+        ...inputState,
+        birthTimezone: MAINLAND_CHINA_TIMEZONE,
+      });
     } catch {
       return null;
     }
@@ -92,6 +97,7 @@ export function useZiweiCalculations(
         birthHour: inputState.partnerBirthHour,
         birthMinute: inputState.partnerBirthMinute,
         birthLongitude: inputState.partnerBirthLongitude,
+        birthTimezone: MAINLAND_CHINA_TIMEZONE,
       });
     } catch {
       return null;

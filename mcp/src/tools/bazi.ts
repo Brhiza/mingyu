@@ -46,6 +46,11 @@ export const baziSchema = z.object({
   birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
+  birthTimezone: z.number().optional().describe('出生地固定时区，启用真太阳时时必填，例如中国为 8'),
+  applyChinaDst: z
+    .boolean()
+    .optional()
+    .describe('是否明确按中国 1986-1991 历史夏令时校正；默认不启用'),
 });
 
 const baziCompatibilityTypes = [
@@ -124,9 +129,10 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     if (
       typeof args.birthHour !== 'number' ||
       typeof args.birthMinute !== 'number' ||
-      typeof args.birthLongitude !== 'number'
+      typeof args.birthLongitude !== 'number' ||
+      typeof args.birthTimezone !== 'number'
     ) {
-      throw new Error('真太阳时缺少精准时间或经度。');
+      throw new Error('真太阳时缺少精准时间、经度或时区。');
     }
 
     const birthHour = readMcpIntegerLikeInRange(args.birthHour, 'birthHour', 0, 23);
@@ -137,6 +143,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
       -180,
       180,
     );
+    const birthTimezone = readMcpNumberLikeInRange(args.birthTimezone, 'birthTimezone', -12, 14);
     const derivedTimeIndex = getTimeIndexFromClock(birthHour, birthMinute);
     if (derivedTimeIndex < 0) {
       throw new Error('birthHour 和 birthMinute 无法换算为有效时辰。');
@@ -155,6 +162,8 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
       birthMinute,
       birthPlace: args.birthPlace ?? '',
       birthLongitude,
+      birthTimezone,
+      applyChinaDst: args.applyChinaDst ?? false,
     };
   }
 
@@ -173,6 +182,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     isLunar: args.dateType === 'lunar',
     isLeapMonth: args.isLeapMonth ?? false,
     useTrueSolarTime,
+    applyChinaDst: args.applyChinaDst ?? false,
   };
 }
 

@@ -75,6 +75,7 @@ const BAZI_GENERATION_INPUT_KEYS = new Set([
   'birthMinute',
   'birthPlace',
   'birthLongitude',
+  'birthTimezone',
   'age',
   'shenShaVariants',
   'applyChinaDst',
@@ -167,7 +168,7 @@ function normalizeBaziGenerationInput(value: unknown, requireCanonicalSource: bo
   const isLunar = value.isLunar === true;
   const isLeapMonth = value.isLeapMonth === true;
   const useTrueSolarTime = value.useTrueSolarTime === true;
-  const applyChinaDst = value.applyChinaDst !== false;
+  const applyChinaDst = value.applyChinaDst === true;
   if (!isLunar && isLeapMonth) {
     throw new Error('公历出生输入不能标记为闰月。');
   }
@@ -215,6 +216,14 @@ function normalizeBaziGenerationInput(value: unknown, requireCanonicalSource: bo
     ) {
       throw new Error('出生经度需在 -180 到 180 之间。');
     }
+    if (
+      typeof value.birthTimezone !== 'number' ||
+      !Number.isFinite(value.birthTimezone) ||
+      value.birthTimezone < -12 ||
+      value.birthTimezone > 14
+    ) {
+      throw new Error('启用真太阳时时必须明确提供 -12 到 14 之间的出生地时区。');
+    }
     if (value.birthPlace !== undefined && typeof value.birthPlace !== 'string') {
       throw new Error('birthPlace 必须是字符串。');
     }
@@ -233,10 +242,13 @@ function normalizeBaziGenerationInput(value: unknown, requireCanonicalSource: bo
     normalized.birthHour = value.birthHour;
     normalized.birthMinute = value.birthMinute;
     normalized.birthLongitude = value.birthLongitude;
+    normalized.birthTimezone = value.birthTimezone;
     normalized.birthPlace = birthPlace;
   } else if (
     requireCanonicalSource &&
-    ['birthHour', 'birthMinute', 'birthLongitude', 'birthPlace'].some((key) => key in value)
+    ['birthHour', 'birthMinute', 'birthLongitude', 'birthTimezone', 'birthPlace'].some(
+      (key) => key in value,
+    )
   ) {
     throw new Error('未启用真太阳时的八字可信来源不能夹带精准时间或地点字段。');
   }
@@ -322,6 +334,7 @@ export class BaziCalculator {
       birthMinute,
       birthPlace,
       birthLongitude,
+      birthTimezone,
     } = person;
     if (typeof isLunar !== 'undefined' && typeof isLunar !== 'boolean') {
       throw new Error('isLunar 必须是布尔值。');
@@ -352,9 +365,10 @@ export class BaziCalculator {
       useTrueSolarTimeEnabled &&
       (typeof birthHour !== 'number' ||
         typeof birthMinute !== 'number' ||
-        typeof birthLongitude !== 'number')
+        typeof birthLongitude !== 'number' ||
+        typeof birthTimezone !== 'number')
     ) {
-      throw new Error('真太阳时缺少精准时间或经度');
+      throw new Error('真太阳时缺少精准时间、经度或时区');
     }
     if (
       useTrueSolarTimeEnabled &&
@@ -373,6 +387,12 @@ export class BaziCalculator {
       (!Number.isFinite(birthLongitude) || birthLongitude! < -180 || birthLongitude! > 180)
     ) {
       throw new Error('出生经度需在 -180 到 180 之间。');
+    }
+    if (
+      useTrueSolarTimeEnabled &&
+      (!Number.isFinite(birthTimezone) || birthTimezone! < -12 || birthTimezone! > 14)
+    ) {
+      throw new Error('出生地时区需在 -12 到 14 之间。');
     }
     if (!Number.isInteger(year) || year < 1900 || year > 2100) {
       throw new Error('出生年份需在 1900-2100 之间。');
@@ -413,7 +433,7 @@ export class BaziCalculator {
       lunarHour = solarTime.getLunarHour();
     }
 
-    const applyChinaDst = person.applyChinaDst !== false;
+    const applyChinaDst = person.applyChinaDst === true;
     const warnings: string[] = [];
 
     if (useTrueSolarTimeEnabled) {
@@ -436,7 +456,7 @@ export class BaziCalculator {
         second: 0,
         isLeapMonth: isLeapMonthEnabled,
         longitude: birthLongitude!,
-        timezone: 8,
+        timezone: birthTimezone!,
         applyChinaDst,
       });
       const dstCorrectionMinutes = trueSolarResult.chinaDst.applied

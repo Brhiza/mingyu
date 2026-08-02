@@ -264,6 +264,8 @@ export function buildZiweiChartInput(input: {
   birthHour?: string;
   birthMinute?: string;
   birthLongitude?: string;
+  birthTimezone?: number;
+  applyChinaDst?: boolean;
 }): ChartInput {
   if (!input.useTrueSolarTime && input.timeIndex === '') {
     throw new Error('请选择出生时辰。');
@@ -271,6 +273,14 @@ export function buildZiweiChartInput(input: {
 
   const birthDateParts = readZiweiBirthDate(input);
   const birthTimeIndex = input.useTrueSolarTime ? 0 : readTimeIndex(input.timeIndex);
+  if (
+    input.useTrueSolarTime &&
+    (!Number.isFinite(input.birthTimezone) ||
+      input.birthTimezone! < -12 ||
+      input.birthTimezone! > 14)
+  ) {
+    throw new Error('启用真太阳时时必须明确提供 -12 到 14 之间的出生地时区。');
+  }
   const gender = input.gender === 'male' ? '男' : '女';
   const birthSource: ZiweiBirthSource = input.useTrueSolarTime
     ? {
@@ -285,8 +295,8 @@ export function buildZiweiChartInput(input: {
         birthHour: readInteger(input.birthHour ?? '', '出生小时'),
         birthMinute: readInteger(input.birthMinute ?? '', '出生分钟'),
         birthLongitude: Number(input.birthLongitude),
-        timezone: 8,
-        applyChinaDst: false,
+        timezone: input.birthTimezone!,
+        applyChinaDst: input.applyChinaDst === true,
       }
     : {
         method: 'time-index',

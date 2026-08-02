@@ -3,6 +3,8 @@ import { buildPersonFromInput, calculateFullBaziChart } from '@/lib/full-chart-e
 import type { BaziChartResult } from '@core/bazi/baziTypes';
 import type { QueryInputState } from '@/lib/query-state';
 
+const MAINLAND_CHINA_TIMEZONE = 8;
+
 export interface BaziCalculations {
   baziResult: BaziChartResult | null;
   partnerBaziResult: BaziChartResult | null;
@@ -12,7 +14,12 @@ export interface BaziCalculations {
 export function useBaziCalculations(inputState: QueryInputState): BaziCalculations {
   const primaryBazi = useMemo(() => {
     try {
-      return { result: calculateFullBaziChart(buildPersonFromInput(inputState)), error: '' };
+      return {
+        result: calculateFullBaziChart(
+          buildPersonFromInput({ ...inputState, birthTimezone: MAINLAND_CHINA_TIMEZONE }),
+        ),
+        error: '',
+      };
     } catch (error) {
       return {
         result: null as BaziChartResult | null,
@@ -40,6 +47,7 @@ export function useBaziCalculations(inputState: QueryInputState): BaziCalculatio
         birthMinute: inputState.partnerBirthMinute,
         birthPlace: inputState.partnerBirthPlace,
         birthLongitude: inputState.partnerBirthLongitude,
+        birthTimezone: MAINLAND_CHINA_TIMEZONE,
       });
       return { result: calculateFullBaziChart(partner), error: '' };
     } catch (error) {
