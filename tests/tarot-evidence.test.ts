@@ -332,8 +332,10 @@ test('塔罗派生字段污染应被覆盖，牌号、牌数和牌阵异常应�
   const tampered: TarotData = structuredClone(data);
   tampered.cards[1].position = tampered.cards[0].position;
   tampered.cards[1].name = '伪造牌名';
-  tampered.cards[1].keywords = ['伪造关键词'];
-  tampered.cards[1].uprightMeaning = '伪造牌义';
+  Object.assign(tampered.cards[1] as unknown as Record<string, unknown>, {
+    keywords: ['伪造关键词'],
+    uprightMeaning: '伪造牌义',
+  });
   tampered.spreadName = '伪造牌阵';
   tampered.evidenceAnalysis = structuredClone(data.evidenceAnalysis);
   tampered.evidenceAnalysis!.promptText = '伪造旧证据';
@@ -359,10 +361,11 @@ test('塔罗主题标签在版本来源闭合前应失败关闭', () => {
       { id: 2, reversed: false },
     ],
   });
-  data.cards = data.cards.map((card, index) => ({
-    ...card,
-    element: index < 2 ? '伪造元素' : '伪造大阿卡纳',
-  }));
+  data.cards.forEach((card, index) => {
+    Object.assign(card as unknown as Record<string, unknown>, {
+      element: index < 2 ? '伪造元素' : '伪造大阿卡纳',
+    });
+  });
   const evidence = analyzeTarotEvidence(data);
   assert.deepEqual(evidence.themeFacts, []);
   assert.deepEqual(evidence.recurringThemeFacts, []);

@@ -1176,13 +1176,12 @@ test('塔罗与雷诺曼提示词应由原始牌号重建，不吸收派生字�
   const tarot = createData('tarot') as TarotData;
   const tarotPolluted = structuredClone(tarot);
   tarotPolluted.spreadName = '伪造塔罗牌阵';
-  tarotPolluted.cards[0] = {
-    ...tarotPolluted.cards[0],
+  Object.assign(tarotPolluted.cards[0] as unknown as Record<string, unknown>, {
     name: '伪造塔罗牌',
     position: '伪造牌位',
     keywords: ['保证成功'],
     uprightMeaning: '伪造现实结论',
-  };
+  });
   tarotPolluted.evidenceAnalysis!.promptText = '伪造旧塔罗证据';
   assert.equal(
     buildDivinationPrompt('tarot', '这件事接下来该怎么推进？', tarotPolluted),
@@ -1192,13 +1191,12 @@ test('塔罗与雷诺曼提示词应由原始牌号重建，不吸收派生字�
   const lenormand = createLenormandData() as LenormandData;
   const lenormandPolluted = structuredClone(lenormand);
   lenormandPolluted.spreadName = '伪造雷诺曼牌阵';
-  lenormandPolluted.cards[0] = {
-    ...lenormandPolluted.cards[0],
+  Object.assign(lenormandPolluted.cards[0] as unknown as Record<string, unknown>, {
     name: '伪造雷诺曼牌',
     position: '伪造牌位',
     keywords: ['必然获利'],
     meaning: '伪造现实结论',
-  };
+  });
   lenormandPolluted.combinations = [{ card1: '伪造甲', card2: '伪造乙', meaning: '伪造组合' }];
   lenormandPolluted.layoutEvidence = ['伪造布局'];
   lenormandPolluted.evidenceAnalysis!.promptText = '伪造旧雷诺曼证据';

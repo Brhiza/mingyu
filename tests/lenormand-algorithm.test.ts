@@ -125,8 +125,10 @@ test('雷诺曼重建应忽略旧派生牌义、组合和布局文字', () => {
   const result = drawLenormandSpread('three', { seed: '雷诺曼旧派生污染' });
   const tampered: LenormandData = structuredClone(result);
   tampered.cards[0].name = '伪造牌名';
-  tampered.cards[0].keywords = ['伪造关键词'];
-  tampered.cards[0].meaning = '伪造牌义';
+  Object.assign(tampered.cards[0] as unknown as Record<string, unknown>, {
+    keywords: ['伪造关键词'],
+    meaning: '伪造牌义',
+  });
   tampered.combinations = [{ card1: '伪造甲', card2: '伪造乙', meaning: '伪造组合' }];
   tampered.layoutEvidence = ['伪造布局'];
   tampered.evidenceAnalysis = undefined;

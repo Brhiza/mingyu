@@ -819,8 +819,6 @@ export interface LiurenData {
   monthLeader: string;
   /** 占时地支（起课时辰） */
   divinationBranch: string;
-  /** @deprecated 旧版误设字段，无独立六壬含义；新结果不再生成。 */
-  dayOfficer?: string;
   /** 贵人临支 */
   noblemanBranch?: string;
   /** 贵人所临地盘 */
@@ -888,16 +886,6 @@ export interface TarotData {
     name: string;
     position: string;
     reversed: boolean;
-    /** @deprecated 逐牌关键词来源尚未完成版本校勘，新结果不再输出。 */
-    keywords?: string[];
-    /** @deprecated 逐牌正位牌义来源尚未完成版本校勘，新结果不再输出。 */
-    uprightMeaning?: string;
-    /** @deprecated 逐牌逆位牌义来源尚未完成版本校勘，新结果不再输出。 */
-    reversedMeaning?: string;
-    /** @deprecated 逐牌元素来源尚未完成版本校勘，新结果不再输出。 */
-    element?: string;
-    /** @deprecated 逐牌原型来源尚未完成版本校勘，新结果不再输出。 */
-    archetype?: string;
   }[];
   draw?: {
     deckSize: number;
@@ -1159,10 +1147,6 @@ export interface LenormandData {
     id: number;
     name: string;
     position: string;
-    /** @deprecated 逐牌关键词来源尚未完成版本校勘，新结果不再输出。 */
-    keywords?: string[];
-    /** @deprecated 逐牌牌义来源尚未完成版本校勘，新结果不再输出。 */
-    meaning?: string;
     house?: string;
     row?: number;
     column?: number;
