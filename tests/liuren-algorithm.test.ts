@@ -592,8 +592,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定三十一条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 31);
+test('大六壬课体登记表应固定三十二条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 32);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -781,6 +781,117 @@ test('大六壬天狱课应按囚死墓发用与天罡临六壬日本穷举严�
       }),
     /天罡所临地盘必须是有效地支/,
   );
+});
+
+test('大六壬斩关课应按魁罡临日辰发用并乘六合青龙穷举严格命中', () => {
+  let profileCount = 0;
+  let matchCount = 0;
+
+  for (const dayStem of TIANGAN) {
+    const dayStemResidence = getDayStemResidence(dayStem);
+    for (const dayBranch of DIZHI) {
+      for (const initial of DIZHI) {
+        for (const initialGroundBranch of DIZHI) {
+          for (const initialGod of TIANJIANG) {
+            const fact = getLiurenGuaTiFacts({
+              transmissionBranches: [initial, '子', '丑'],
+              transmissionGods: [initialGod, '贵人', '天后'],
+              dayStem,
+              dayBranch,
+              initialGroundBranch,
+            }).find((candidate) => candidate.name === '斩关课');
+            const expected =
+              ['辰', '戌'].includes(initial) &&
+              ['六合', '青龙'].includes(initialGod) &&
+              [dayStemResidence, dayBranch].includes(initialGroundBranch);
+            assert.equal(Boolean(fact), expected);
+            if (fact) matchCount += 1;
+            profileCount += 1;
+          }
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 207_360);
+  assert.equal(matchCount, 920);
+
+  const ancientPlate = buildHeavenlyPlate({
+    monthLeader: '未',
+    divinationBranch: '亥',
+    noblemanBranch: getNoblemanBranch('甲', '夜占'),
+    dayNight: '夜占',
+  });
+  const ancientResidence = getDayStemResidence('甲');
+  const ancientLessons = buildFourLessons({
+    heavenlyPlate: ancientPlate,
+    dayStem: '甲',
+    dayBranch: '寅',
+    dayStemResidence: ancientResidence,
+    xunKong: getVoidBranches('甲寅'),
+  });
+  const ancientInitial = resolveInitialTransmission(ancientLessons, {
+    dayStem: '甲',
+    dayBranch: '寅',
+    dayStemResidence: ancientResidence,
+    hourStem: '乙',
+    hourBranch: '亥',
+    heavenlyPlate: ancientPlate,
+  });
+  assert.equal(ancientInitial.initial, '戌');
+  const ancientFact = getLiurenGuaTiFacts({
+    transmissionBranches: [
+      ancientInitial.initial,
+      getUpperByUnder(ancientPlate, ancientInitial.initial),
+      getUpperByUnder(ancientPlate, getUpperByUnder(ancientPlate, ancientInitial.initial)),
+    ],
+    transmissionGods: [
+      getPlateItemByBranch(ancientPlate, ancientInitial.initial).god,
+      '天后',
+      '白虎',
+    ],
+    dayStem: '甲',
+    dayBranch: '寅',
+    initialGroundBranch: getPlateItemByBranch(ancientPlate, ancientInitial.initial).under,
+  }).find((candidate) => candidate.name === '斩关课');
+  assert.ok(ancientFact);
+  assert.equal(ancientFact.stableKey, 'liuren:verified-guati:zhan-guan');
+  assert.deepEqual(ancientFact.matchedConditions, ['初传戌临日干甲寄宫寅及日支寅并乘六合']);
+  assert.match(ancientFact.sourceUrl, /oldid=854576/);
+  assert.doesNotMatch(
+    `${ancientFact.matchedConditions.join('；')}；${ancientFact.sourceQuote}`,
+    /逃亡|出行|疾病|官讼|吉|凶|现实事件/,
+  );
+
+  const generated = generateLiuren(new Date('2024-01-01T10:30:00+08:00'));
+  const generatedFact = generated.guaTiFacts.find((candidate) => candidate.name === '斩关课');
+  assert.deepEqual(generatedFact?.matchedConditions, ['初传戌临日干甲寄宫寅并乘六合']);
+  assert.equal(
+    generated.evidenceAnalysis?.traditionalFacts.find(
+      (candidate) => candidate.key === 'liuren:verified-guati:zhan-guan',
+    )?.promptText,
+    '盘面命中“斩关课”：初传戌临日干甲寄宫寅并乘六合；只登记课体结构，不据此单断现实吉凶',
+  );
+
+  for (const context of [
+    {
+      transmissionBranches: ['戌', '午', '寅'],
+      dayStem: '甲',
+      dayBranch: '寅',
+      initialGroundBranch: '寅',
+    },
+    {
+      transmissionBranches: ['戌', '午', '寅'],
+      transmissionGods: ['六合', '天后', '白虎'],
+      dayStem: '甲',
+      dayBranch: '寅',
+    },
+  ]) {
+    assert.equal(
+      getLiurenGuaTiFacts(context).some((candidate) => candidate.name === '斩关课'),
+      false,
+    );
+  }
 });
 
 test('大六壬泆女与狡童应按初末传天将和卯酉发用严格命中', () => {

@@ -19,7 +19,14 @@ import {
   isKe,
   isSheng,
 } from '../../../../ganzhi';
-import { DIZHI, getGanZhiWuxing, isBranchKe, TIANGAN, TIANJIANG } from './plate';
+import {
+  DIZHI,
+  getDayStemResidence,
+  getGanZhiWuxing,
+  isBranchKe,
+  TIANGAN,
+  TIANJIANG,
+} from './plate';
 import { getLiurenTianMaBranch } from './shensha';
 
 function describeDirectedElementRelation(
@@ -819,6 +826,43 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             matchedConditions: [initialCondition, `天罡辰临日干${context.dayStem}日本${dayOrigin}`],
           }
         : null;
+    },
+  },
+  {
+    id: 'zhan-guan',
+    name: '斩关课',
+    category: '魁罡临日辰',
+    sourceTitle: '《六壬指南》卷一、卷二；《六壬大全》卷八·斩关课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬指南》卷一：“魁罡加干支，上更得六合、青龙名斩关卦。”卷二：“日辰见辰戌又发用为斩关。”《六壬大全》：“凡卦魁罡加日辰发用，为斩关课。”',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      const initialGod = context.transmissionGods?.[0];
+      if (
+        !context.dayStem ||
+        !context.dayBranch ||
+        !context.initialGroundBranch ||
+        !initialGod ||
+        !['辰', '戌'].includes(initial) ||
+        !['六合', '青龙'].includes(initialGod)
+      ) {
+        return null;
+      }
+      const dayStemResidence = getDayStemResidence(context.dayStem);
+      const isOnDayStem = context.initialGroundBranch === dayStemResidence;
+      const isOnDayBranch = context.initialGroundBranch === context.dayBranch;
+      if (!isOnDayStem && !isOnDayBranch) return null;
+      const position =
+        isOnDayStem && isOnDayBranch
+          ? `日干${context.dayStem}寄宫${dayStemResidence}及日支${context.dayBranch}`
+          : isOnDayStem
+            ? `日干${context.dayStem}寄宫${dayStemResidence}`
+            : `日支${context.dayBranch}`;
+      return {
+        branches: [initial, context.initialGroundBranch],
+        matchedConditions: [`初传${initial}临${position}并乘${initialGod}`],
+      };
     },
   },
   {
