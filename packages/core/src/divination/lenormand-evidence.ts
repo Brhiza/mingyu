@@ -76,15 +76,14 @@ export interface LenormandSequenceFact {
 
 export interface LenormandLayoutCoverageFact {
   key: 'lenormand:layout-coverage';
-  status: '结构化覆盖' | '旧版字符串兼容' | '结构缺失' | '不适用';
+  status: '结构化覆盖' | '结构缺失' | '不适用';
   spreadType: string;
   expectedRequiredFactCount: number;
   structuredFactCount: number;
-  legacyFactCount: number;
   layoutFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '布局覆盖只说明九宫或大桌所需的中心、路径、宫位和人物牌近身关系是否有可核验结构；旧版字符串不得反推行列、宫位、距离或缺失布局事实';
+  limitation: '布局覆盖只说明九宫或大桌所需的中心、路径、宫位和人物牌近身关系是否有可核验结构；缺少已校勘结构化规则时不得生成或反推布局事实';
 }
 
 export interface LenormandCounterEvidenceFact {
@@ -184,10 +183,10 @@ export interface LenormandLayoutFact {
 
 export interface LenormandDrawFact {
   key: string;
-  status: '可核验' | '来源链缺失' | '来源链不一致';
-  deckSize?: number;
-  method?: string;
-  order: NonNullable<LenormandData['draw']>['order'];
+  status: '可核验' | '来源链不一致';
+  deckSize: number;
+  method: string;
+  order: LenormandData['draw']['order'];
   expectedCardCount: number;
   recordedCardCount: number;
   orderFactKeys: string[];
@@ -241,7 +240,7 @@ const DRAW_ORDER_FACT_LIMITATION =
 const SEQUENCE_FACT_LIMITATION =
   '牌序事实只描述抽取或登记顺序与牌面衔接，不代表两张牌在网格中空间相邻；不得把牌阵顺序直接写成现实事件必然按同样阶段发生' as const;
 const LAYOUT_COVERAGE_LIMITATION =
-  '布局覆盖只说明九宫或大桌所需的中心、路径、宫位和人物牌近身关系是否有可核验结构；旧版字符串不得反推行列、宫位、距离或缺失布局事实' as const;
+  '布局覆盖只说明九宫或大桌所需的中心、路径、宫位和人物牌近身关系是否有可核验结构；缺少已校勘结构化规则时不得生成或反推布局事实' as const;
 const COUNTER_FACT_LIMITATION =
   '反证事实只记录固定组合或布局证据是否存在；没有命中不代表现实不利，存在证据也不证明现实事件、吉凶或预测有效性' as const;
 const COUNTER_SUMMARY_LIMITATION =
@@ -340,7 +339,7 @@ function buildDrawOrderFacts(
   data: LenormandData,
   cards: LenormandCardEvidence[],
 ): LenormandDrawOrderFact[] {
-  return (data.draw?.order ?? []).map((item, orderIndex) => {
+  return data.draw.order.map((item, orderIndex) => {
     const expectedIndex = orderIndex + 1;
     const card = cards[orderIndex];
     const mismatches = card
@@ -383,9 +382,9 @@ function buildDrawFact(
   data: LenormandData,
   drawOrderFacts: LenormandDrawOrderFact[],
 ): LenormandDrawFact {
-  const isManual = data.draw?.method === '用户按牌位手工录入';
-  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
-  const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
+  const isManual = data.draw.method === '用户按牌位手工录入';
+  const isInteractive = data.draw.method === '用户逐张触发前端随机抽取';
+  const order = data.draw.order.map((item) => ({ ...item }));
   const missingIndexes = Array.from(
     { length: Math.max(0, data.cards.length - order.length) },
     (_, index) => order.length + index + 1,
@@ -399,17 +398,12 @@ function buildDrawFact(
     ...missingIndexes,
     ...extraIndexes,
   ].filter((item, index, values) => values.indexOf(item) === index);
-  const status: LenormandDrawFact['status'] =
-    !data.draw || order.length !== data.cards.length
-      ? '来源链缺失'
-      : mismatchIndexes.length
-        ? '来源链不一致'
-        : '可核验';
+  const status: LenormandDrawFact['status'] = mismatchIndexes.length ? '来源链不一致' : '可核验';
   return {
     key: `draw:lenormand:${data.spreadType}`,
     status,
-    deckSize: data.draw?.deckSize,
-    method: data.draw?.method,
+    deckSize: data.draw.deckSize,
+    method: data.draw.method,
     order,
     expectedCardCount: data.cards.length,
     recordedCardCount: order.length,
@@ -417,9 +411,7 @@ function buildDrawFact(
     mismatchIndexes,
     missingIndexes,
     extraIndexes,
-    promptText: data.draw
-      ? `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : isInteractive ? '抽取方式' : '洗牌与取牌方法'}：${data.draw.method}；${drawOrderFacts.map((fact) => fact.promptText).join('；')}${status === '来源链缺失' ? `；现有资料仅记录${order.length}/${data.cards.length}张来源顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
-      : `现有资料未附洗牌方法与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
+    promptText: `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : isInteractive ? '抽取方式' : '洗牌与取牌方法'}：${data.draw.method}；${drawOrderFacts.map((fact) => fact.promptText).join('；')}${status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`,
     sources: isManual
       ? ['36张雷诺曼牌组', '用户按牌位逐张录入的牌号记录']
       : isInteractive
@@ -478,7 +470,6 @@ function buildSequenceFacts(cards: LenormandCardEvidence[]): LenormandSequenceFa
 function buildLayoutCoverageFact(
   data: LenormandData,
   structuredLayoutFacts: LenormandLayoutFact[],
-  layoutFacts: string[],
 ): LenormandLayoutCoverageFact {
   const expectedRequiredFactCount =
     data.spreadType === 'nine' ? 9 : data.spreadType === 'grandTableau' ? 38 : 0;
@@ -486,26 +477,21 @@ function buildLayoutCoverageFact(
     ? '不适用'
     : structuredLayoutFacts.length >= expectedRequiredFactCount
       ? '结构化覆盖'
-      : layoutFacts.length
-        ? '旧版字符串兼容'
-        : '结构缺失';
+      : '结构缺失';
   return {
     key: 'lenormand:layout-coverage',
     status,
     spreadType: data.spreadType,
     expectedRequiredFactCount,
     structuredFactCount: structuredLayoutFacts.length,
-    legacyFactCount: layoutFacts.length,
     layoutFactKeys: structuredLayoutFacts.map((fact) => fact.key),
     promptText:
       status === '结构化覆盖'
         ? `${data.spreadName}已保存${structuredLayoutFacts.length}条结构化布局事实，覆盖所需中心、路径、宫位与人物牌近身关系`
-        : status === '旧版字符串兼容'
-          ? `${data.spreadName}仅有${layoutFacts.length}条旧版布局文字，不得反推缺失的行列、宫位或距离事实`
-          : status === '结构缺失'
-            ? `${data.spreadName}缺少适用的结构化布局事实，也没有可兼容的旧版布局文字`
-            : `${data.spreadName}不要求九宫或大桌布局事实，只按牌位与相邻顺序读取`,
-    sources: ['牌阵类型与布局适用范围', '结构化布局事实和旧版布局文字逐项计数'],
+        : status === '结构缺失'
+          ? `${data.spreadName}缺少已校勘的结构化布局规则，本次不生成中心、路径、宫位或人物牌近身事实`
+          : `${data.spreadName}不要求九宫或大桌布局事实，只按牌位与抽取顺序读取`,
+    sources: ['牌阵类型与布局适用范围', '结构化布局事实逐项计数'],
     limitation: LAYOUT_COVERAGE_LIMITATION,
   };
 }
@@ -516,9 +502,7 @@ function buildCounterEvidenceFacts(
 ): LenormandCounterEvidenceFact[] {
   const fixedCombinationAvailable = fixedCombinationFacts.length > 0;
   const layoutAvailable =
-    layoutCoverageFact.status === '结构化覆盖' ||
-    layoutCoverageFact.status === '旧版字符串兼容' ||
-    layoutCoverageFact.status === '不适用';
+    layoutCoverageFact.status === '结构化覆盖' || layoutCoverageFact.status === '不适用';
   return [
     {
       key: 'lenormand:counter:fixed-combination',
@@ -578,7 +562,6 @@ function buildSummaryFact(params: {
 }): LenormandSummaryFact {
   const layoutComplete =
     params.layoutCoverageFact.status === '结构化覆盖' ||
-    params.layoutCoverageFact.status === '旧版字符串兼容' ||
     params.layoutCoverageFact.status === '不适用';
   const status =
     params.spreadCoverageFact.status === '完整' &&
@@ -636,7 +619,6 @@ function buildCalculationSteps(params: {
 }): LenormandEvidenceCalculationStep[] {
   const layoutComplete =
     params.layoutCoverageFact.status === '结构化覆盖' ||
-    params.layoutCoverageFact.status === '旧版字符串兼容' ||
     params.layoutCoverageFact.status === '不适用';
   return [
     {
@@ -733,7 +715,6 @@ function buildCalculationSteps(params: {
       result: {
         layoutStatus: params.layoutCoverageFact.status,
         structuredLayoutFactCount: params.structuredLayoutFacts.length,
-        legacyLayoutFactCount: params.layoutCoverageFact.legacyFactCount,
       },
       dependsOnStepKeys: ['lenormand:calculation:sequence-combinations'],
       promptText: params.layoutCoverageFact.promptText,
@@ -878,6 +859,17 @@ function buildLimitationFacts(params: {
 /** 仅供标准数据重建后的内部调用；公开入口必须先执行可信重建。 */
 export function analyzeRebuiltLenormandEvidence(data: LenormandData): LenormandEvidenceAnalysis {
   if (!data.cards.length) throw new Error('雷诺曼结构化证据至少需要一张牌。');
+  if (
+    !data.draw ||
+    !Array.isArray(data.draw.order) ||
+    !Array.isArray(data.combinations) ||
+    !Array.isArray(data.layoutEvidence)
+  ) {
+    throw new Error('雷诺曼结构化派生字段不完整，必须从原始抽牌输入重建。');
+  }
+  if (data.layoutEvidence.length) {
+    throw new Error('雷诺曼旧版布局字符串已停用，必须从原始抽牌输入重建。');
+  }
   const cards = data.cards.map((card, index): LenormandCardEvidence => {
     const key = `lenormand:card:${index + 1}:${card.id}`;
     return {
@@ -898,26 +890,24 @@ export function analyzeRebuiltLenormandEvidence(data: LenormandData): LenormandE
   const spreadCoverageFact = buildSpreadCoverageFact(data, cards);
   const sequenceFacts = buildSequenceFacts(cards);
   const sequence = sequenceFacts.map((fact) => fact.promptText);
-  const fixedCombinations = (data.combinations ?? []).filter((item) => item.source === '固定组合');
-  const adjacentReadings = (data.combinations ?? []).filter((item) => item.source !== '固定组合');
-  const traditionalFacts = buildTraditionalFacts(cards, data.combinations ?? []);
+  const fixedCombinations = data.combinations.filter((item) => item.source === '固定组合');
+  const adjacentReadings = data.combinations.filter((item) => item.source !== '固定组合');
+  const traditionalFacts = buildTraditionalFacts(cards, data.combinations);
   const structuredLayoutFacts = buildStructuredLayoutFacts(data, cards);
-  const layoutFacts = data.layoutEvidence ?? [];
-  const layoutCoverageFact = buildLayoutCoverageFact(data, structuredLayoutFacts, layoutFacts);
+  const layoutFacts: string[] = [];
+  const layoutCoverageFact = buildLayoutCoverageFact(data, structuredLayoutFacts);
   const drawOrderFacts = buildDrawOrderFacts(data, cards);
   const drawFact = buildDrawFact(data, drawOrderFacts);
-  const drawFacts = data.draw
-    ? [
-        `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}`,
-        ...drawOrderFacts.map(
-          (fact) =>
-            `第${fact.recordedIndex}张对应${fact.position}：牌号${fact.cardId} ${fact.cardName}${fact.house ? `，落${fact.house}宫` : ''}${fact.row && fact.column ? `，第${fact.row}排第${fact.column}列` : ''}`,
-        ),
-      ]
-    : ['现有资料未附洗牌方法与抽取顺序，仅保留已确定牌面，不能反推完整抽牌来源链'];
+  const drawFacts = [
+    `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}`,
+    ...drawOrderFacts.map(
+      (fact) =>
+        `第${fact.recordedIndex}张对应${fact.position}：牌号${fact.cardId} ${fact.cardName}${fact.house ? `，落${fact.house}宫` : ''}${fact.row && fact.column ? `，第${fact.row}排第${fact.column}列` : ''}`,
+    ),
+  ];
   const trace = data.meta?.random;
-  const isManual = data.draw?.method === '用户按牌位手工录入';
-  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
+  const isManual = data.draw.method === '用户按牌位手工录入';
+  const isInteractive = data.draw.method === '用户逐张触发前端随机抽取';
   const randomFact = buildRandomTraceFact({
     key: `random:lenormand:${data.spreadType}`,
     applicable: !isManual,
@@ -993,9 +983,7 @@ export function analyzeRebuiltLenormandEvidence(data: LenormandData): LenormandE
       ? isManual
         ? '手工录入牌序事实'
         : '洗牌与抽取顺序事实'
-      : drawFact.status === '来源链不一致'
-        ? '抽牌来源链不一致'
-        : '抽牌来源链缺失';
+      : '抽牌来源链不一致';
   const items: PromptEvidenceItem[] = [
     {
       level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
@@ -1068,15 +1056,6 @@ export function analyzeRebuiltLenormandEvidence(data: LenormandData): LenormandE
         source: fact.sources.join('、'),
         tags: ['布局证据', fact.kind],
       })),
-    ...(structuredLayoutFacts.length
-      ? []
-      : layoutFacts.map((detail, index): PromptEvidenceItem => ({
-          level: '辅证',
-          title: `旧版布局资料${index + 1}`,
-          detail: `${detail}；该字符串只作旧结果兼容，不能替代可核验的结构化行列与宫位事实`,
-          source: '旧版牌阵布局资料',
-          tags: ['布局证据', '旧版兼容'],
-        }))),
     ...counterEvidenceFacts
       .filter((fact) => fact.status === '存在缺口')
       .map((fact): PromptEvidenceItem => ({

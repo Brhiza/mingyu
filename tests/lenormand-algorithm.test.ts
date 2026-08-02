@@ -11,6 +11,7 @@ import {
   rebuildAuditedLenormandData,
   resolveInteractiveLenormandCards,
 } from '../packages/core/src/divination/algorithms/lenormand.ts';
+import { analyzeRebuiltLenormandEvidence } from '../packages/core/src/divination/lenormand-evidence.ts';
 import type { LenormandData, LenormandSpreadType } from '../packages/core/src/types/divination.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
@@ -134,6 +135,20 @@ test('雷诺曼重建应忽略旧派生牌义、组合和布局文字', () => {
   tampered.evidenceAnalysis = undefined;
 
   assert.deepEqual(rebuildAuditedLenormandData(tampered), rebuildAuditedLenormandData(result));
+});
+
+test('雷诺曼内部证据只接受完整重建数据，公开入口仍可兼容旧抽牌记录', () => {
+  const result = drawLenormandSpread('three', { seed: '雷诺曼旧抽牌来源' });
+  const missingDraw = structuredClone(result);
+  delete (missingDraw as Partial<LenormandData>).draw;
+  missingDraw.evidenceAnalysis = undefined;
+
+  assert.throws(() => analyzeRebuiltLenormandEvidence(missingDraw), /结构化派生字段不完整/);
+  assert.deepEqual(analyzeLenormandEvidence(missingDraw), result.evidenceAnalysis);
+
+  const legacyLayout = structuredClone(result);
+  legacyLayout.layoutEvidence = ['旧版布局文字'];
+  assert.throws(() => analyzeRebuiltLenormandEvidence(legacyLayout), /旧版布局字符串已停用/);
 });
 
 test('雷诺曼来源链异常应失败关闭', () => {

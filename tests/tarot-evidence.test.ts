@@ -301,11 +301,10 @@ test('塔罗正逆位只保留原始记录而不自动解释', () => {
 
 test('塔罗旧派生抽牌记录缺失时应从随机轨迹完整重建', () => {
   const data = drawTarotSpread('three', { seed: '塔罗缺少抽牌记录' });
-  const evidence = analyzeTarotEvidence({
-    ...data,
-    draw: undefined,
-    evidenceAnalysis: undefined,
-  });
+  const legacyData = structuredClone(data);
+  delete (legacyData as Partial<TarotData>).draw;
+  legacyData.evidenceAnalysis = undefined;
+  const evidence = analyzeTarotEvidence(legacyData);
 
   assert.deepEqual(evidence, data.evidenceAnalysis);
   assert.equal(evidence.drawFact.status, '可核验');
@@ -318,8 +317,8 @@ test('塔罗旧派生抽牌记录缺失时应从随机轨迹完整重建', () =>
 test('塔罗派生抽牌记录被污染时应忽略并按可信来源重建', () => {
   const data = drawTarotSpread('three', { seed: '塔罗来源一致性' });
   const tampered: TarotData = structuredClone(data);
-  tampered.draw!.order[1].index = 1;
-  tampered.draw!.order[1].cardName = `${tampered.draw!.order[1].cardName}（篡改）`;
+  tampered.draw.order[1].index = 1;
+  tampered.draw.order[1].cardName = `${tampered.draw.order[1].cardName}（篡改）`;
   tampered.evidenceAnalysis = undefined;
   const evidence = analyzeTarotEvidence(tampered);
 

@@ -270,39 +270,41 @@ export function drawTarotSpread(
 
   if (spreadType === 'single') {
     const draw = drawSingleCard(options);
+    const cards: TarotData['cards'] = [
+      {
+        id: draw.card.number,
+        name: draw.card.name,
+        position: draw.position,
+        reversed: draw.isReversed,
+      },
+    ];
     const data: TarotData = {
       spreadType,
       spreadName: '单牌指引',
-      cards: [
-        {
-          id: draw.card.number,
-          name: draw.card.name,
-          position: draw.position,
-          reversed: draw.isReversed,
-        },
-      ],
+      cards,
+      draw: buildDrawFacts(cards),
       timestamp: draw.timestamp,
       meta: draw.meta,
     };
-    data.draw = buildDrawFacts(data.cards);
     data.evidenceAnalysis = analyzeTarotEvidence(data);
     return data;
   }
 
   const draw = drawSpreadCards(spreadType, options);
+  const cards: TarotData['cards'] = draw.cards.map((item) => ({
+    id: item.card.number,
+    name: item.card.name,
+    position: item.position,
+    reversed: item.isReversed,
+  }));
   const data: TarotData = {
     spreadType,
     spreadName: draw.spreadName,
-    cards: draw.cards.map((item) => ({
-      id: item.card.number,
-      name: item.card.name,
-      position: item.position,
-      reversed: item.isReversed,
-    })),
+    cards,
+    draw: buildDrawFacts(cards),
     timestamp: draw.timestamp,
     meta: draw.meta,
   };
-  data.draw = buildDrawFacts(data.cards);
   data.evidenceAnalysis = analyzeTarotEvidence(data);
   return data;
 }

@@ -192,11 +192,11 @@ export interface TarotTraditionalFact {
 
 export interface TarotDrawFact {
   key: string;
-  status: '可核验' | '来源链缺失' | '来源链不一致';
-  deckSize?: number;
-  method?: string;
-  orientationRule?: string;
-  order: NonNullable<TarotData['draw']>['order'];
+  status: '可核验' | '来源链不一致';
+  deckSize: number;
+  method: string;
+  orientationRule: string;
+  order: TarotData['draw']['order'];
   expectedCardCount: number;
   recordedCardCount: number;
   orderFactKeys: string[];
@@ -324,7 +324,7 @@ function buildSpreadCoverageFact(
 }
 
 function buildDrawOrderFacts(data: TarotData, cards: TarotCardEvidence[]): TarotDrawOrderFact[] {
-  return (data.draw?.order ?? []).map((item, orderIndex) => {
+  return data.draw.order.map((item, orderIndex) => {
     const expectedIndex = orderIndex + 1;
     const card = cards[orderIndex];
     const mismatches = card
@@ -360,9 +360,9 @@ function buildDrawOrderFacts(data: TarotData, cards: TarotCardEvidence[]): Tarot
 }
 
 function buildDrawFact(data: TarotData, drawOrderFacts: TarotDrawOrderFact[]): TarotDrawFact {
-  const isManual = data.draw?.method === '用户按牌位手工录入';
-  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
-  const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
+  const isManual = data.draw.method === '用户按牌位手工录入';
+  const isInteractive = data.draw.method === '用户逐张触发前端随机抽取';
+  const order = data.draw.order.map((item) => ({ ...item }));
   const missingIndexes = Array.from(
     { length: Math.max(0, data.cards.length - order.length) },
     (_, index) => order.length + index + 1,
@@ -376,18 +376,13 @@ function buildDrawFact(data: TarotData, drawOrderFacts: TarotDrawOrderFact[]): T
     ...missingIndexes,
     ...extraIndexes,
   ].filter((item, index, values) => values.indexOf(item) === index);
-  const status: TarotDrawFact['status'] =
-    !data.draw || order.length !== data.cards.length
-      ? '来源链缺失'
-      : mismatchIndexes.length
-        ? '来源链不一致'
-        : '可核验';
+  const status: TarotDrawFact['status'] = mismatchIndexes.length ? '来源链不一致' : '可核验';
   return {
     key: `draw:tarot:${data.spreadType}`,
     status,
-    deckSize: data.draw?.deckSize,
-    method: data.draw?.method,
-    orientationRule: data.draw?.orientationRule,
+    deckSize: data.draw.deckSize,
+    method: data.draw.method,
+    orientationRule: data.draw.orientationRule,
     order,
     expectedCardCount: data.cards.length,
     recordedCardCount: order.length,
@@ -395,9 +390,7 @@ function buildDrawFact(data: TarotData, drawOrderFacts: TarotDrawOrderFact[]): T
     mismatchIndexes,
     missingIndexes,
     extraIndexes,
-    promptText: data.draw
-      ? `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : isInteractive ? '抽取方式' : '洗牌方法'}：${data.draw.method}；正逆位规则：${data.draw.orientationRule}；${drawOrderFacts.map((item) => item.promptText).join('；')}${status === '来源链缺失' ? `；当前仅记录${order.length}/${data.cards.length}张来源顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
-      : `现有资料未附洗牌与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
+    promptText: `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : isInteractive ? '抽取方式' : '洗牌方法'}：${data.draw.method}；正逆位规则：${data.draw.orientationRule}；${drawOrderFacts.map((item) => item.promptText).join('；')}${status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`,
     sources: isManual
       ? ['78张塔罗牌组', '用户按牌位逐张录入的牌号与正逆位记录']
       : isInteractive
@@ -932,6 +925,9 @@ export function rebuildAuditedTarotData(input: TarotData): TarotData {
 
 function analyzeRebuiltTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   if (!data.cards.length) throw new Error('塔罗结构化证据至少需要一张牌。');
+  if (!data.draw || !Array.isArray(data.draw.order)) {
+    throw new Error('塔罗结构化抽牌来源链不完整，必须从原始抽牌输入重建。');
+  }
   const sources: TarotEvidenceAnalysis['sources'] = [
     {
       title: '项目内部78张牌号与牌名目录',
@@ -964,16 +960,14 @@ function analyzeRebuiltTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   const spreadCoverageFact = buildSpreadCoverageFact(data, cards);
   const drawOrderFacts = buildDrawOrderFacts(data, cards);
   const drawFact = buildDrawFact(data, drawOrderFacts);
-  const drawFacts = data.draw
-    ? [
-        `牌组规模：${data.draw.deckSize}张；洗牌方法：${data.draw.method}`,
-        `正逆位规则：${data.draw.orientationRule}`,
-        ...drawOrderFacts.map(
-          (fact) =>
-            `第${fact.recordedIndex}张对应${fact.position}：牌号${fact.cardId} ${fact.cardName}${fact.orientation}`,
-        ),
-      ]
-    : [drawFact.promptText];
+  const drawFacts = [
+    `牌组规模：${data.draw.deckSize}张；洗牌方法：${data.draw.method}`,
+    `正逆位规则：${data.draw.orientationRule}`,
+    ...drawOrderFacts.map(
+      (fact) =>
+        `第${fact.recordedIndex}张对应${fact.position}：牌号${fact.cardId} ${fact.cardName}${fact.orientation}`,
+    ),
+  ];
   const sequenceFacts = buildSequenceFacts(cards);
   const sequence = sequenceFacts.map((fact) => fact.promptText);
   const elementInteractionFacts: TarotElementInteractionFact[] = [];
@@ -984,8 +978,8 @@ function analyzeRebuiltTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     (fact) => `${fact.theme}主题出现${fact.count}张，只表示牌面重复，不等于权重分数`,
   );
   const trace = data.meta?.random;
-  const isManual = data.draw?.method === '用户按牌位手工录入';
-  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
+  const isManual = data.draw.method === '用户按牌位手工录入';
+  const isInteractive = data.draw.method === '用户逐张触发前端随机抽取';
   const randomFact = buildRandomTraceFact({
     key: `random:tarot:${data.spreadType}`,
     applicable: !isManual,
@@ -1057,9 +1051,7 @@ function analyzeRebuiltTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
       ? isManual
         ? '手工录入牌序与正逆位事实'
         : '洗牌、抽取顺序与正逆位事实'
-      : drawFact.status === '来源链不一致'
-        ? '抽牌来源链不一致'
-        : '抽牌来源链缺失';
+      : '抽牌来源链不一致';
   const items: PromptEvidenceItem[] = [
     {
       level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',

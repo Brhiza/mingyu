@@ -711,17 +711,16 @@ test('tarot: 未校逐牌解释不得作为公共接口或新结果字段输出'
 
 test('tarot: 旧派生抽牌记录缺失时应从随机轨迹完整重建', () => {
   const result = drawTarotSpread('single', { seed: '旧塔罗抽牌来源' });
-  const evidence = analyzeTarotEvidence({
-    ...result,
-    draw: undefined,
-    evidenceAnalysis: undefined,
-  });
+  const legacyResult = structuredClone(result);
+  delete (legacyResult as Partial<TarotData>).draw;
+  legacyResult.evidenceAnalysis = undefined;
+  const evidence = analyzeTarotEvidence(legacyResult);
 
   assert.deepEqual(evidence, result.evidenceAnalysis);
   assert.equal(evidence.drawFact.status, '可核验');
 });
 
-test('tarot: 条件化牌义不得把象征解释写成现实事实', () => {
+test('tarot: 条件化牌义在版本校勘完成前应统一失败关闭', () => {
   const promptText = [
     '正位强调成功、喜悦、活力，表示这些能量正在直接发挥作用。',
     '逆位重点：信息被隐藏，或成功比预期更晚到来。',
@@ -729,9 +728,10 @@ test('tarot: 条件化牌义不得把象征解释写成现实事实', () => {
     .map(conditionTarotTraditionalText)
     .join('；');
 
-  assert.match(promptText, /正位传统牌义侧重/);
-  assert.match(promptText, /逆位传统牌义提示可留意/);
-  assert.match(promptText, /须结合牌位.*现实资料核实/);
+  assert.equal(
+    promptText,
+    '逐牌牌义来源尚未完成版本校勘，不得补造或解释；逐牌牌义来源尚未完成版本校勘，不得补造或解释',
+  );
   assert.doesNotMatch(promptText, /表示这些能量正在直接发挥作用|信息被隐藏|成功比预期更晚到来/);
 });
 

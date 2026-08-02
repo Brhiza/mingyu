@@ -871,7 +871,7 @@ export interface TarotData {
     position: string;
     reversed: boolean;
   }[];
-  draw?: {
+  draw: {
     deckSize: number;
     method:
       'Fisher-Yates洗牌后依牌位顺序取顶牌' | '用户按牌位手工录入' | '用户逐张触发前端随机抽取';
@@ -1092,7 +1092,7 @@ export interface LenormandData {
   meta?: CoreResultMeta;
   spreadType: LenormandSpreadType;
   spreadName: string;
-  draw?: {
+  draw: {
     deckSize: number;
     method:
       'Fisher-Yates洗牌后依牌位顺序取顶牌' | '用户按牌位手工录入' | '用户逐张触发前端随机抽取';
@@ -1114,7 +1114,7 @@ export interface LenormandData {
     row?: number;
     column?: number;
   }[];
-  combinations?: Array<{
+  combinations: Array<{
     card1: string;
     card2: string;
     position1?: string;
@@ -1125,7 +1125,8 @@ export interface LenormandData {
     meaning: string;
     source?: '固定组合' | '相邻牌义合读';
   }>;
-  layoutEvidence?: string[];
+  /** 旧字符串布局证据已停用；当前重建固定为空数组。 */
+  layoutEvidence: string[];
   timestamp: number;
   evidenceAnalysis?: import('../divination/lenormand-evidence').LenormandEvidenceAnalysis;
 }
