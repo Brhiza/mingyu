@@ -1,5 +1,4 @@
 import { formatPromptCurrentTime } from './prompt-time';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildPromptGuidanceSections, type MetaphysicsPromptMethod } from './prompt-guidance';
 
 export interface MetaphysicsPromptOptions {
@@ -24,7 +23,7 @@ export function formatPromptRealWorldContext(context?: PromptRealWorldContext): 
     ['当前状态', context.currentState],
     ['已知事实', context.knownFacts],
     ['期望结果', context.desiredOutcome],
-    ['现实限制', context.constraints],
+    ['现实条件', context.constraints],
   ]
     .filter((item): item is [string, string] => Boolean(item[1]?.trim()))
     .map(([label, value]) => `${label}：${value.trim()}`)
@@ -49,28 +48,26 @@ export function buildMetaphysicsPrompt(
   question: string | undefined,
   options: MetaphysicsPromptOptions,
 ): string {
-  const normalizedQuestion = question?.trim() || '请综合解读本次排盘的重点、风险与行动建议。';
+  const normalizedQuestion = question?.trim() || '请综合解读本次排盘的重点与趋势。';
   const contextText = formatPromptRealWorldContext(options.context);
 
-  return appendTraditionalResearchNotice(
-    [
-      buildPromptGuidanceSections(options.method),
-      '',
-      '【当前时间】',
-      formatPromptCurrentTime(options.currentTime),
-      '',
-      basePrompt,
-      ...(options.measurement ? ['', '【测量换算】', options.measurement] : []),
-      ...(contextText ? ['', '【补充信息】', contextText] : []),
-      '',
-      '【问题】',
-      normalizedQuestion,
-      '',
-      '【任务】',
-      '请直接回答【问题】，说明关键盘面依据，并给出可执行建议。',
-      '',
-      '【输出要求】',
-      '使用简体中文，先说结论，再展开依据和建议。',
-    ].join('\n'),
-  );
+  return [
+    buildPromptGuidanceSections(options.method),
+    '',
+    '【当前时间】',
+    formatPromptCurrentTime(options.currentTime),
+    '',
+    basePrompt,
+    ...(options.measurement ? ['', '【测量换算】', options.measurement] : []),
+    ...(contextText ? ['', '【补充信息】', contextText] : []),
+    '',
+    '【问题】',
+    normalizedQuestion,
+    '',
+    '【任务】',
+    '请直接回答【问题】，说明关键盘面依据。',
+    '',
+    '【输出要求】',
+    '先说结论，再展开依据。',
+  ].join('\n');
 }

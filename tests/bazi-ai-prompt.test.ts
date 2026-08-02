@@ -898,11 +898,11 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   assert.doesNotMatch(careerPrompt.user, /【合盘分析思路】/);
   assert.match(
     careerPrompt.user,
-    /【任务】\n关系范围：合伙。请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。/,
+    /【任务】\n关系范围：合伙。请先判断关系主轴，再说明相处模式、互补点、冲突点和阶段趋势。/,
   );
   assert.match(
     careerPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。/,
+    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和阶段趋势，并结合双方盘面资料说明。/,
   );
 
   const friendshipPrompt = getCompatibilityPrompt(
@@ -922,7 +922,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   assert.doesNotMatch(childrenPrompt.user, /【合盘分析思路】|【子女缘分】/);
   assert.match(
     childrenPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。/,
+    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和阶段趋势，并结合双方盘面资料说明。/,
   );
 
   const parentsPrompt = getCompatibilityPrompt('请分析双方父母情况。', result1, result2, 'parents');

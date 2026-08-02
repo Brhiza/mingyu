@@ -2,16 +2,14 @@
  * @file 太乙神数年计
  * @description 依《太乙金镜式经》与固定版本 Kintaiyi 交叉校核年计七十二局基础盘。
  *
- * 当前只开放已完成来源校勘的年计：
+ * 当前只开放年计：
  *   - 年计：太乙积年 10153917 起算。
  *   - 局数：积年除 72，余 0 作第 72 局。
  *   - 太乙、文昌（主目）、始击（客目）按七十二局逐局表定位。
  *   - 主算、客算按七十二局立成表取值，不再用洛书宫简单累加代替。
  *   - 年计采用阳遁立成。
  *
- * 《太乙金镜式经》虽载年、月、日、时四计，但月计须按逐月节气时刻，日时计还涉及
- * 章月、月法、日法、气应与小余。旧实现采用现代固定历元近似，未复现完整古籍历法链，
- * 因此月、日、时计在完成校勘前失败关闭，不输出近似盘冒充传统精确结果。
+ * 《太乙金镜式经》虽载年、月、日、时四计，当前仅按已完成校勘的年计提供排盘。
  */
 import { getGanZhiFromDate, isValidGanZhi } from '../ganzhi';
 import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
@@ -292,12 +290,12 @@ export const TAIYI_MODEL_INFO: TaiyiModelInfo = {
   id: 'taiyi-year-calculation-72-table',
   name: '太乙年计七十二局基础盘',
   supportedScopes: ['year'],
-  precision: '年计按积年与阳遁七十二局立成起局；月、日、时计待完整古籍历法链校勘后恢复',
+  precision: '年计按积年与阳遁七十二局立成起局',
   sources: [
     {
       title: '《太乙金镜式经》',
       url: 'https://zh.wikisource.org/wiki/太乙金鏡式經_(四庫全書本)',
-      evidence: '年计积年及太乙行宫、文昌、始击、主客算；月日时计历法条文仅用于确认当前缺口',
+      evidence: '年计积年及太乙行宫、文昌、始击、主客算',
     },
     {
       title: 'Kintaiyi',
@@ -401,9 +399,7 @@ function validateInput(input: TaiyiInput): {
   const scope = input.scope ?? 'year';
   if (!SCOPE_LABELS[scope]) throw new Error(`太乙计式无效：${String(scope)}`);
   if (scope !== 'year') {
-    throw new Error(
-      '太乙月计、日计、时计尚未完成章月、月法、日法、节气时刻、气应与小余的古籍历法链校勘，当前停止输出近似盘。',
-    );
+    throw new Error('太乙当前只支持年计。');
   }
   if (
     input.date !== undefined &&
@@ -469,8 +465,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const ji = Math.ceil(entryYears / 60);
 
   const judgments: string[] = [];
-  if (shiJiPalace === taiyiPalace)
-    judgments.push('掩：始击与太乙同宫，传统称客目掩太乙；只表示位置条件成立。');
+  if (shiJiPalace === taiyiPalace) judgments.push('掩：始击与太乙同宫，传统称客目掩太乙。');
   const imprisonedRoles = [
     wenChangPalace === taiyiPalace ? '文昌' : undefined,
     lordGeneral === taiyiPalace ? '主大将' : undefined,
@@ -478,8 +473,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     guestGeneral === taiyiPalace ? '客大将' : undefined,
     guestAssistant === taiyiPalace ? '客参将' : undefined,
   ].filter((item): item is string => item !== undefined);
-  if (imprisonedRoles.length > 0)
-    judgments.push(`囚：${imprisonedRoles.join('、')}与太乙同宫；只表示传统位置条件成立。`);
+  if (imprisonedRoles.length > 0) judgments.push(`囚：${imprisonedRoles.join('、')}与太乙同宫。`);
   const lordNature = countNature(lordCount);
   const guestNature = countNature(guestCount);
   const setNature = countNature(setCount);
@@ -487,12 +481,12 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   if (guestNature) judgments.push(`客算 ${guestCount} 为${guestNature}。`);
   if (setNature) judgments.push(`定算 ${setCount} 为${setNature}。`);
   if (lordGeneral === 5 || lordAssistant === 5) {
-    judgments.push('主大将或主参将居中宫；只记录将参位置条件。');
+    judgments.push('主大将或主参将居中宫。');
   }
   if (guestGeneral === 5 || guestAssistant === 5) {
-    judgments.push('客大将或客参将居中宫；只记录将参位置条件。');
+    judgments.push('客大将或客参将居中宫。');
   }
-  if (judgments.length === 0) judgments.push('本局未见主目、客目与太乙同位。');
+  if (judgments.length === 0) judgments.push('主目、客目与太乙不同宫。');
 
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
@@ -538,7 +532,6 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const prompt = [
     `【太乙神数 · ${scopeInfo.title}】`,
     `起局时间：${dateTime}；本计干支：${ganZhi}。`,
-    `推算口径：${TAIYI_MODEL_INFO.name}；${TAIYI_MODEL_INFO.precision}。`,
     `太乙${scopeInfo.accumulated}：${accumulatedValue}；360 周期余数：${entryYears}；第 ${yuan} 个 72 数段、第 ${ji} 个 60 数段；${yinYang}第 ${bureau} 局。`,
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
     `主客定算：主算 ${lordCount}${lordNature ? `（${lordNature}）` : ''}；客算 ${guestCount}${guestNature ? `（${guestNature}）` : ''}；定算 ${setCount}${setNature ? `（${setNature}）` : ''}。`,

@@ -302,7 +302,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
   [
     'xiaoliuren_prompt',
     { customDate: '2025-01-01T08:00:00+08:00', question: '这件事接下来如何推进？' },
-    /顺数轨迹：[\s\S]*占得宫：小吉[\s\S]*【问题】\n这件事接下来如何推进？[\s\S]*不得自行补造[\s\S]*固定应期/,
+    /顺数轨迹：[\s\S]*占得宫：小吉[\s\S]*【问题】\n这件事接下来如何推进？[\s\S]*【任务】/,
   ],
   [
     'qimen_prompt',
@@ -2050,7 +2050,7 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
     assert.match(prompt, /【跨盘相位】/);
     assert.match(prompt, /【跨盘落宫】/);
     assert.match(prompt, /容许度/);
-    assert.match(prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
+    assert.match(prompt, /分析互动主轴、互补点、张力点与触发条件/);
     assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
     assert.doesNotMatch(prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
     assert.doesNotMatch(prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
@@ -2110,7 +2110,7 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
     assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
-    assert.match(ziweiFrameworkPrompt, /基础十二宫、星曜、四化与运限由 iztro 排盘资料提供/);
+    assert.match(ziweiFrameworkPrompt, /基础十二宫、星曜、四化与运限由排盘资料提供/);
     assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请结合宫位、星曜、四化和三方四正/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /四化、格局和三方四正/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
@@ -2466,7 +2466,8 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     );
     const confirmedPrompt = String(confirmed.structuredContent?.prompt);
     assert.match(confirmedPrompt, /占法：三山国王灵签/);
-    assert.match(confirmedPrompt, /掷筊记录：[\s\S]*签诗：[\s\S]*签意：/);
+    assert.match(confirmedPrompt, /签诗：[\s\S]*签意：/);
+    assert.doesNotMatch(confirmedPrompt, /掷筊记录|掷筊状态|行动建议|风险提醒/);
     assert.doesNotMatch(confirmedPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
@@ -2980,7 +2981,10 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     assert.equal(promptResponse.isError, undefined);
     const prompt = String(promptResponse.structuredContent?.prompt);
     assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.qizheng);
-    assert.match(prompt, /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*【问题】\n请分析本命结构。/);
+    assert.match(
+      prompt,
+      /【七政四余 · 果老星宗】[\s\S]*二十八宿：按目标日期距星真实黄经划分宿度。[\s\S]*【问题】\n请分析本命结构。/,
+    );
     assertPromptIsPortableTaskText(prompt);
   });
 });
@@ -3490,8 +3494,8 @@ test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', asyn
     assert.match(prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
     assert.match(prompt, /占得宫：留连/);
     assert.match(prompt, /歌诀原文：留连事难成/);
-    assert.match(prompt, /计算链：/);
-    assert.match(prompt, /解释限制：/);
+    assert.match(prompt, /历法口径：/);
+    assert.doesNotMatch(prompt, /计算链|解释限制/);
     assert.doesNotMatch(prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);
     assertPromptIsPortableTaskText(prompt);

@@ -112,12 +112,11 @@ const BAZI_SCHOOL_GUIDANCE: Record<BaziSchool, string> = {
 };
 
 const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = {
-  sanhe:
-    '紫微解读侧重点：三合派。主线固定为命身宫位—主星庙旺—对宫与三方四正；四化只作牵引，不改三方会照主轴，不自行补造格局。此选项不改变排盘信息中列明的基础安星口径。',
+  sanhe: '紫微解读侧重点：三合派。主线为命身宫位、主星庙旺、对宫与三方四正；四化作牵引。',
   feixing:
-    '紫微解读侧重点：飞星派。主线固定为盘面已提供的生年四化、当前运限四化、自化与飞化落宫；三方四正只作会照辅证，不得补造未提供的宫干飞化或格局。此选项不改变排盘信息中列明的基础安星口径。',
+    '紫微解读侧重点：飞星派。主线为盘面生年四化、当前运限四化、自化与飞化落宫；三方四正作会照。',
   sihua:
-    '紫微解读侧重点：四化派。主线固定为盘面已提供的生年四化定位、运限四化触发与禄权科忌落宫；星曜庙旺与三方只解释四化条件，不补造未提供的宫干四化。此选项不改变排盘信息中列明的基础安星口径。',
+    '紫微解读侧重点：四化派。主线为盘面生年四化定位、运限四化触发与禄权科忌落宫；星曜庙旺与三方解释四化条件。',
 };
 
 export function getBaziSchoolGuidance(school?: BaziSchool) {
@@ -418,7 +417,7 @@ export function buildZiweiPromptForRuntime(params: {
 }
 
 function buildPublicZiweiTaskText() {
-  return '请结合紫微盘面回答【问题】，说明主要依据和现实建议。';
+  return '请结合紫微盘面回答【问题】，说明主要依据。';
 }
 
 function formatPublicZiweiStar(star: StarFact) {
@@ -568,7 +567,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
     '',
     `【任务】\n${buildPublicZiweiTaskText()}`,
     '',
-    '【输出要求】\n先直接回答【问题】，再说明宫位主线、四化触发、三方四正、应期条件和现实建议；不得把未提供的传统格局补造成盘面事实。',
+    '【输出要求】\n先直接回答【问题】，再说明宫位主线、四化触发、三方四正和应期条件。',
   ].join('\n');
 }
 
@@ -688,6 +687,6 @@ export function buildBaziZiweiPromptForResults(params: {
   return [
     ...baseSections,
     '【任务】\n请结合八字和紫微盘面回答【问题】，说明两者一致或分歧之处。',
-    '【输出要求】\n先直接回答问题，再说明主要依据和现实建议。',
+    '【输出要求】\n先直接回答问题，再说明主要依据。',
   ].join('\n\n');
 }

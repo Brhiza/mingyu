@@ -40,7 +40,6 @@ import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { bazhai, zodiac, taiyi, qizheng, xuankong, residentialFengshui } from 'mingyu-core';
 import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import {
   analyzeCompassDirection,
   analyzeShenshaEvidence,
@@ -1814,8 +1813,7 @@ function buildMetaphysicsPrompt(
   input: JsonRecord,
   method: 'zodiac' | 'taiyi' | 'qizheng' | 'xuankong' | 'residential',
 ): string {
-  const question =
-    readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。';
+  const question = readString(input, 'question', '').trim() || '请综合解读本次排盘的重点与趋势。';
   return buildSharedMetaphysicsPrompt(basePrompt, question, { method });
 }
 
@@ -1885,7 +1883,7 @@ function buildBaZhaiPrompt(input: JsonRecord) {
     responseMode: readPromptResponseMode(input),
     prompt: buildSharedMetaphysicsPrompt(
       result.prompt,
-      readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。',
+      readString(input, 'question', '').trim() || '请综合解读本次排盘的重点与趋势。',
       {
         method: 'bazhai',
         measurement: (result as { directionMeasurement?: { promptText: string } })
@@ -2971,7 +2969,7 @@ function buildPromptApiResult(params: {
   fullResult: unknown;
   resultSummary?: unknown;
 }) {
-  const prompt = appendTraditionalResearchNotice(params.prompt);
+  const prompt = params.prompt;
   if (params.responseMode === 'prompt-only') {
     return { prompt };
   }

@@ -3333,8 +3333,8 @@ test('公开 API 奇门应期与小六壬顺数证据应保持各自规则边界
   assert.match(xiaoliurenPrompt.body.data.prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
   assert.match(xiaoliurenPrompt.body.data.prompt, /占得宫：留连/);
   assert.match(xiaoliurenPrompt.body.data.prompt, /歌诀原文：留连事难成/);
-  assert.match(xiaoliurenPrompt.body.data.prompt, /计算链：/);
-  assert.match(xiaoliurenPrompt.body.data.prompt, /解释限制：/);
+  assert.match(xiaoliurenPrompt.body.data.prompt, /历法口径：/);
+  assert.doesNotMatch(xiaoliurenPrompt.body.data.prompt, /计算链|解释限制/);
   assert.doesNotMatch(xiaoliurenPrompt.body.data.prompt, /核心结构：起因|五行推进：|月令旺衰：/);
 });
 
@@ -3775,7 +3775,7 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
   assert.match(body.data.prompt, /实际夹角\d+\.\d{2}°，容许度\d+\.\d{2}°，(?:紧密|中等|宽松)/);
   assert.match(body.data.prompt, /【跨盘落宫】/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%|匹配率\d+%/);
-  assert.match(body.data.prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
+  assert.match(body.data.prompt, /分析互动主轴、互补点、张力点与触发条件。/);
   assert.doesNotMatch(body.data.prompt, /不得输出|不得编造|只依据/);
   assert.doesNotMatch(body.data.prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
   assert.doesNotMatch(body.data.prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
@@ -3796,6 +3796,7 @@ test('公开 API 黄历择日提示词不强制填写问题', async () => {
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【占卜信息】/);
+  assert.match(body.data.prompt, /【问题】/);
   assert.match(body.data.prompt, /【任务】/);
   assert.match(body.data.prompt, /占法：黄历择日/);
   assert.match(body.data.prompt, /候选日期明细：/);
@@ -3804,7 +3805,6 @@ test('公开 API 黄历择日提示词不强制填写问题', async () => {
     body.data.prompt,
     /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|毒气入肠|大凶|辅助加分/,
   );
-  assert.doesNotMatch(body.data.prompt, /【问题】/);
   assert.match(body.data.prompt, /给出首选日期、备选日期和慎用日期/);
   assert.doesNotMatch(body.data.prompt, /先直接回答【问题】/);
 });
@@ -4902,7 +4902,7 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
   assert.match(prompt.body.data.prompt, /【生肖与流年关系简析】/);
   assert.match(prompt.body.data.prompt, /干支关系：/);
   assert.match(prompt.body.data.prompt, /犯太岁明细：/);
-  assert.match(prompt.body.data.prompt, /行动信号：/);
+  assert.match(prompt.body.data.prompt, /不利关系：/);
   assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|证据汇总|解释限制|计算链/);
   assert.doesNotMatch(prompt.body.data.prompt, /综合定级：|吉凶总分[：=]\d|成功率为\d/);
 });
@@ -4972,7 +4972,7 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
   assertPromptHasSingleRole(promptResponse.body.data.prompt, PROMPT_ROLE_TEXT.qizheng);
   assert.match(
     promptResponse.body.data.prompt,
-    /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*【问题】\n请分析本命结构。/,
+    /【七政四余 · 果老星宗】[\s\S]*二十八宿：按目标日期距星真实黄经划分宿度。[\s\S]*【问题】\n请分析本命结构。/,
   );
   assertPromptIsPortableTaskText(promptResponse.body.data.prompt);
 });

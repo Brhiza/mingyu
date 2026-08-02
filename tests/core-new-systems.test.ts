@@ -754,10 +754,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   );
   assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
   for (const scope of ['month', 'day', 'hour'] as const) {
-    assert.throws(
-      () => core.taiyi.generateTaiyi({ year: 2004, scope }),
-      /古籍历法链校勘.*停止输出近似盘/,
-    );
+    assert.throws(() => core.taiyi.generateTaiyi({ year: 2004, scope }), /太乙当前只支持年计/);
   }
   assert.throws(
     () => core.taiyi.generateTaiyi({} as Parameters<typeof core.taiyi.generateTaiyi>[0]),

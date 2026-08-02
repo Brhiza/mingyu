@@ -478,10 +478,7 @@ function buildPalaces(yun: number[], shan: number[], xiang: number[]): XuanKongP
   }));
 }
 
-function buildPrompt(
-  result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>,
-  evidenceText: string,
-) {
+function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>) {
   const palaceLines = result.palaces
     .map(
       (item) =>
@@ -511,8 +508,6 @@ function buildPrompt(
             : ''
         }`
       : '',
-    '【结构化证据】',
-    evidenceText,
   ]
     .filter(Boolean)
     .join('\n');
@@ -647,7 +642,7 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
   };
 
   const evidenceAnalysis = analyzeXuanKongEvidence(partial);
-  const prompt = buildPrompt(partial, evidenceAnalysis.promptText);
+  const prompt = buildPrompt(partial);
   return {
     ...partial,
     evidenceAnalysis,

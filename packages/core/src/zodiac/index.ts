@@ -322,13 +322,12 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破、三合、六合及三会判断。`,
     `干支关系：${relation}。`,
     noble ? `贵人：${noble}。` : '',
-    meeting ? `三会：${meeting}；仅表示两支同属三会组，不表示完整三会成局。` : '',
+    meeting ? `三会：${meeting}。` : '',
     conflicts.length
       ? `犯太岁明细：${conflicts.map((conflict) => `${conflict.type}（${conflict.desc}）`).join('；')}`
       : '',
     favorableRelations.length ? `有利关系：${favorableRelations.join('；')}。` : '',
-    riskRelations.length ? `风险关系：${riskRelations.join('；')}。` : '',
-    actionSignals.length ? `行动信号：${actionSignals.join('；')}。` : '',
+    riskRelations.length ? `不利关系：${riskRelations.join('；')}。` : '',
   ]
     .filter(Boolean)
     .join('\n');

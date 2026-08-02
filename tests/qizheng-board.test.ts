@@ -43,7 +43,7 @@ test('七政四余完整盘采用二十八宿真实距星边界并保持位置�
       .filter((star) => !star.name.startsWith('紫炁'))
       .every((star) => star.precisionClass === '现代天文计算'),
   );
-  assert.match(result.prompt, /宿界模型.*28颗距星/);
+  assert.match(result.prompt, /二十八宿：按目标日期距星真实黄经划分宿度。/);
   assert.doesNotMatch(result.prompt, /366\.5|等比例换算/);
 });
 

@@ -65,5 +65,5 @@ export function getAstrolabeDefaultQuestion(
 }
 
 export function buildAstrolabeTopicTask(_topic?: string) {
-  return '请结合星体、宫位和相位直接回答【问题】，并给出现实建议。';
+  return '请结合星体、宫位和相位直接回答【问题】。';
 }

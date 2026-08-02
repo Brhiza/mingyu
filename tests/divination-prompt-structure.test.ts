@@ -102,6 +102,7 @@ function assertAlmanacPromptStructure(prompt: string) {
     '【当前时间】',
     '【补充信息】',
     '【占卜信息】',
+    '【问题】',
     '【任务】',
     '【输出要求】',
   ];
@@ -113,7 +114,6 @@ function assertAlmanacPromptStructure(prompt: string) {
 
   assert.match(prompt, /占法：黄历择日/);
   assert.match(prompt, /核心结构：/);
-  assert.doesNotMatch(prompt, /^【问题】$/m);
   assert.doesNotMatch(prompt, /你是资深|【要求】|取证顺序|回答口径|证据边界/);
   assertPromptIsPortableTaskText(prompt);
 }
@@ -886,10 +886,7 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.match(prompt, /候选日期：2026-06-01 至 2026-06-03/);
   assert.match(prompt, /事项范围：搬家入宅/);
   assert.doesNotMatch(prompt, /事项未限定|按通用.*口径|当前首列候选/);
-  assert.match(
-    prompt,
-    /岁支十二神方位太岁午正南、太阳未西南偏南、岁破子正北、福德卯正东（只列方位，不据此判吉凶）/,
-  );
+  assert.match(prompt, /岁支十二神方位太岁午正南、太阳未西南偏南、岁破子正北、福德卯正东/);
   assert.doesNotMatch(prompt, /岁支方位避|可参考太阳|可参考福德/);
   assert.match(prompt, /第1候选：2026-06-01/);
   assert.match(prompt, /第2候选：2026-06-02/);
@@ -898,7 +895,7 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
 });
 
-test('择日提示词应保留用户补充诉求但不强制输出问题 section', () => {
+test('择日提示词应保留用户补充诉求并输出问题 section', () => {
   const prompt = buildDivinationPrompt(
     'almanac',
     '计划六月上旬签合作合同，希望兼顾资金安全和双方合作稳定。',
@@ -909,7 +906,7 @@ test('择日提示词应保留用户补充诉求但不强制输出问题 section
     prompt,
     /【补充信息】\n择日补充：计划六月上旬签合作合同，希望兼顾资金安全和双方合作稳定。/,
   );
-  assert.doesNotMatch(prompt, /^【问题】$/m);
+  assert.match(prompt, /^【问题】$/m);
   assert.ok(
     findPromptSectionHeadingIndex(prompt, '【补充信息】') <
       findPromptSectionHeadingIndex(prompt, '【占卜信息】'),
@@ -924,10 +921,7 @@ test('占卜提示词的输出要求保持简短明确', async () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(
-    session,
-    /【输出要求】\n使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。/,
-  );
+  assert.match(session, /【输出要求】\n先回答【问题】，再说明主要依据、时机条件和趋势方向。/);
   assert.doesNotMatch(session, /请直接回答：/);
   assert.doesNotMatch(session, /语气和表达要求|结论总览|反证限制|行动清单/);
 });
@@ -1149,7 +1143,8 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /应期资料：动爻第3爻：对应阶段、层位或触发点/);
   assert.match(prompt, /主卦卦辞分类：.*(?:传统.*标签|未见明确吉凶或进退标签)/);
   assert.match(prompt, /动爻传统辅助：.*当前爻位已发动/);
-  assert.match(prompt, /未发动，不展开爻辞解释/);
+  assert.match(prompt, /第6爻（静，属用）：阴爻；以卦象、体用与互变关系合参/);
+  assert.doesNotMatch(prompt, /未发动，不展开爻辞解释/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
   const meihua = createData('meihua') as MeihuaData;
@@ -1169,7 +1164,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /第3爻.*动.*属体/);
 });
 
-test('小六壬提示词只保留时宫主证、顺数计算和规则边界', () => {
+test('小六壬提示词只保留时宫主证、顺数轨迹和历法口径', () => {
   const prompt = buildDivinationPrompt(
     'xiaoliuren',
     '这件事接下来该怎么推进？',
@@ -1181,10 +1176,11 @@ test('小六壬提示词只保留时宫主证、顺数计算和规则边界', ()
   assert.match(prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
   assert.match(prompt, /占得宫：留连/);
   assert.match(prompt, /歌诀原文：留连事难成/);
-  assert.match(prompt, /计算链：正月从大安起/);
   assert.match(prompt, /历法口径：东八区民用日零点换日；闰月沿用同名月序/);
-  assert.match(prompt, /署名不作为已证实的古籍归属/);
-  assert.match(prompt, /月宫和日宫只是顺数中间位置/);
+  assert.doesNotMatch(
+    prompt,
+    /计算链|解释限制|署名不作为已证实的古籍归属|月宫和日宫只是顺数中间位置/,
+  );
   assert.doesNotMatch(
     prompt,
     /核心结构：起因|五行推进：|月令旺衰：|日干六亲：|课盘神煞：|应期参考：/,
@@ -1250,12 +1246,9 @@ test('大六壬提示词使用简短任务与输出要求', () => {
 
   assert.match(
     prompt,
-    /【任务】\n请严格围绕已给出的月将、四课、三传、天将、课体与神煞主线作答，直接说明演变、卡点与下一步。/,
+    /【任务】\n请围绕已给出的月将、四课、三传、天将、课体与神煞主线直接回答【问题】，说明发端、转折与归结。/,
   );
-  assert.match(
-    prompt,
-    /【输出要求】\n使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。/,
-  );
+  assert.match(prompt, /【输出要求】\n先回答【问题】，再说明主要依据、时机条件和趋势方向。/);
   assert.doesNotMatch(prompt, /反证限制|证据不足|不硬给日期|取证顺序|回答口径/);
 });
 

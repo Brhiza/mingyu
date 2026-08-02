@@ -346,8 +346,6 @@ function buildPrompt(result: {
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
   agreements: ResidentialFengshuiAgreement[];
-  advice: string[];
-  evidencePromptText: string;
   xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'];
 }) {
   const lines = [
@@ -362,10 +360,6 @@ function buildPrompt(result: {
       : '八宅：未排盘（缺少居住人出生信息或命卦）',
     '合参要点：',
     ...result.agreements.map((item) => `- ${item.title}：${item.detail}`),
-    '行动建议：',
-    ...result.advice.map((item) => `- ${item}`),
-    '【结构化证据】',
-    result.evidencePromptText,
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -412,8 +406,6 @@ export function generateResidentialFengshui(
     bazhai,
     xuankong,
     agreements,
-    advice,
-    evidencePromptText,
     xuankongStatus,
   });
 

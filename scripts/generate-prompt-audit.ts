@@ -24,6 +24,7 @@ import { generateResidentialFengshui } from '@core/residential_fengshui';
 import { generateXuanKong } from '@core/xuan_kong';
 import { getZodiacYearFortune } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
+import { generateQizheng } from 'mingyu-core/qizheng';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 
@@ -39,6 +40,15 @@ type RequiredSampleFields = {
   sampleName: string;
   requiredFields: string[];
 };
+
+const COMMON_REQUIRED_PROMPT_FIELDS = [
+  '【当前时间】',
+  '【传统判断规则】',
+  '【传统依据】',
+  '【问题】',
+  '【任务】',
+  '【输出要求】',
+];
 
 const AUDIT_DATE = new Date('2026-05-19T10:30:00+08:00');
 const AUDIT_DATE_TEXT = '2026年5月19日 10时30分（北京时间）';
@@ -115,9 +125,6 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '顺数轨迹',
       '占得宫',
       '歌诀原文',
-      '计算链',
-      '来源状态',
-      '解释限制',
     ]),
   },
   {
@@ -148,7 +155,6 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '感情',
       '学业',
       '健康',
-      '行动建议',
     ]),
   },
   {
@@ -173,7 +179,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '住宅风水',
-    requiredFields: ['【当前时间】', '【传统判断规则】', '【传统依据】', '合参要点', '结构化证据'],
+    requiredFields: ['【当前时间】', '【传统判断规则】', '【传统依据】', '合参要点'],
   },
   {
     sampleName: '玄空飞星',
@@ -184,7 +190,6 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '运盘',
       '山盘',
       '向盘',
-      '结构化证据',
     ],
   },
   {
@@ -202,6 +207,10 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '将参',
       '十六神',
     ],
+  },
+  {
+    sampleName: '七政四余',
+    requiredFields: ['【当前时间】', '【传统判断规则】', '【传统依据】', '命宫', '十二宫映射', '二十八宿'],
   },
 ];
 
@@ -270,7 +279,7 @@ function buildPromptMarkdown(samples: PromptSample[]) {
     '',
     `生成时间：${AUDIT_DATE_TEXT}`,
     '',
-    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、住宅风水、玄空飞星、生肖流年、太乙神数。七政四余完整盘在传统坐标链校勘完成前暂停输出，因此不生成可交给模型解读的样本。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
+    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、住宅风水、玄空飞星、生肖流年、太乙神数、七政四余。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
     '',
     '## 审计原则',
     '',
@@ -323,6 +332,12 @@ function assertRequiredSampleFields(samples: PromptSample[]) {
       return;
     }
 
+    COMMON_REQUIRED_PROMPT_FIELDS.forEach((field) => {
+      if (!sample.prompt.includes(field)) {
+        missingMessages.push(`${sampleName} 缺少通用字段：${field}`);
+      }
+    });
+
     requiredFields.forEach((field) => {
       if (!sample.prompt.includes(field)) {
         missingMessages.push(`${sampleName} 缺少字段：${field}`);
@@ -355,6 +370,15 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
       label: '外部补充或缺项清单',
       pattern:
         /本次没有提供|当前资料没有|不包含|尚不支持|暂不支持|资料不足|需要补充|请补充|补充资料/,
+    },
+    {
+      label: '提示词噪音',
+      pattern:
+        /行动建议|风险提醒|现实建议|计算链|来源状态|解释限制|结构化证据|证据汇总|反证汇总|反证核验|掷筊记录|掷筊状态|随机轨迹|尚未完成|未校勘|未校验|暂停输出|当前只开放|算法返回|本模块|系统提示词|在线\s*AI|工程语境|资料缺口|位置来源|精度层级|计算上下文|宿界模型|推算口径|证据链状态/,
+    },
+    {
+      label: '否定限制',
+      pattern: /不得|不要|不能|禁止|请勿|不应|无须/,
     },
   ];
 
@@ -590,6 +614,23 @@ async function buildSamples(): Promise<PromptSample[]> {
       { method: 'taiyi', currentTime: fixedNow },
     );
 
+    const qizhengData = generateQizheng({
+      year: 1993,
+      month: 4,
+      day: 8,
+      hour: 23,
+      minute: 34,
+      latitude: 1.3521,
+      longitude: 103.8198,
+      timezone: 8,
+      useTrueSolarTime: true,
+    });
+    const qizhengPrompt = buildMetaphysicsPrompt(
+      qizhengData.prompt,
+      '请分析本命结构、主要星曜落宫与阶段趋势。',
+      { method: 'qizheng', currentTime: fixedNow },
+    );
+
     const residentialData = generateResidentialFengshui({
       birthYear: 1990,
       birthMonth: 6,
@@ -741,10 +782,15 @@ async function buildSamples(): Promise<PromptSample[]> {
         source: '项目太乙年计七十二局立成真实生成；展示 2026 年年计。',
         inputSummary: '2026年太乙年计；问题为本年度的攻守与行动时宜。',
         prompt: taiyiPrompt,
-        notes: [
-          '当前只开放完成积年与七十二局立成校勘的年计。',
-          '月、日、时计等待完整古籍历法链校勘，不生成近似盘审查样本。',
-        ],
+        notes: [],
+      },
+      {
+        name: '七政四余',
+        source: '项目七政四余完整盘真实生成；展示 1993年4月8日 23:34 新加坡出生盘。',
+        inputSummary:
+          '1993年4月8日 23:34，新加坡出生；纬度 1.3521，经度 103.8198，UTC+8；启用真太阳时。',
+        prompt: qizhengPrompt,
+        notes: ['样本包含十一星、命身十二宫、二十八宿与主要吊照。'],
       },
     ];
   });

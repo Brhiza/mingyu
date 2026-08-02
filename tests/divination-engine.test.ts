@@ -4295,8 +4295,11 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.match(session.prompt, /太乙：艮（第3宫/);
   assert.match(session.prompt, /主客定算：主算24/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制/);
-  assert.match(session.prompt, /当前只解读已完成历法链校勘的年计字段/);
-  assert.match(session.prompt, /判断年度气运、动静、攻守与时宜/);
+  assert.match(
+    session.prompt,
+    /【任务】\n请围绕年家局数、太乙、文昌、始击、计神与主客定算直接回答【问题】，说明年度态势、动静与时宜。/,
+  );
+  assert.match(session.prompt, /年度节奏/);
   assert.doesNotMatch(session.prompt, /尚未计算|月计、日计或时计/);
   assert.match(
     session.prompt,
@@ -4324,7 +4327,7 @@ test('太乙神数占卜入口应拒绝尚未校勘的月日时计', async () =>
             taiyiYear: '2026',
           }),
         ),
-      /古籍历法链校勘.*只开放年计/,
+      /太乙当前只支持年计/,
     );
   }
 });
@@ -4590,7 +4593,7 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.ok('days' in session.data && session.data.days.length === 5);
 });
 
-test('黄历择日不强制填写问题，空补充时仍生成完整择日提示词和历史标题', async () => {
+test('黄历择日不强制填写问题，空补充时仍生成完整择日提示词、问题与历史标题', async () => {
   const session = await generateDivinationSession(
     buildDraft({
       method: 'almanac',
@@ -4604,9 +4607,9 @@ test('黄历择日不强制填写问题，空补充时仍生成完整择日提�
   assert.equal(session.method, 'almanac');
   assert.equal(session.question, '黄历择日：签约合作（2026-06-01 至 2026-06-03）');
   assert.match(session.prompt, /【占卜信息】/);
+  assert.match(session.prompt, /【问题】\n黄历择日：签约合作（2026-06-01 至 2026-06-03）/);
   assert.match(session.prompt, /【任务】/);
   assert.match(session.prompt, /【输出要求】/);
-  assert.doesNotMatch(session.prompt, /【问题】/);
 });
 
 test('占卜引擎黄历择日应在本地拒绝无效日期范围', async () => {
@@ -4735,8 +4738,8 @@ test('小六壬只按时间起课，并生成可复核顺数与时宫提示词',
   assert.match(timeSession.prompt, /顺数轨迹：月宫.*；日宫.*；时宫/);
   assert.match(timeSession.prompt, /占得宫：/);
   assert.match(timeSession.prompt, /歌诀原文：/);
-  assert.match(timeSession.prompt, /计算链：/);
-  assert.match(timeSession.prompt, /解释限制：/);
+  assert.match(timeSession.prompt, /历法口径：/);
+  assert.doesNotMatch(timeSession.prompt, /计算链|解释限制/);
   assert.doesNotMatch(timeSession.prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
 });
 

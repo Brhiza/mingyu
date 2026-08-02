@@ -411,7 +411,7 @@ function buildZiweiScopePriorityText(payload: AnalysisPayloadV1) {
 }
 
 function buildZiweiOutputRequirementText() {
-  return '使用简体中文，先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。';
+  return '先回答【问题】，再说明主要宫位、星曜、四化依据。';
 }
 
 function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompatibility>) {
@@ -496,7 +496,7 @@ export function buildCombinedZiweiPrompt(
       ? []
       : [
           '',
-          '【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】，并给出现实建议。',
+          '【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】。',
           '',
           `【输出要求】\n${buildZiweiOutputRequirementText()}`,
         ]),
@@ -552,7 +552,7 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   const partnerName = params.partnerName?.trim() || '第二人';
   const compatibilityTopic = params.topic || 'chat';
   const compatibilityTask =
-    '请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。';
+    '请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点与触发机制。';
   const compatibilityQuestion = getZiweiCompatibilityDefaultQuestion(compatibilityTopic);
 
   return [
@@ -577,7 +577,7 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
       ? []
       : [
           `【任务】\n${compatibilityTask}`,
-          '【输出要求】\n先直接回答【问题】，再说明互动主轴、互补点、冲突点、触发机制和现实建议。',
+          '【输出要求】\n先直接回答【问题】，再说明互动主轴、互补点、冲突点与触发机制。',
         ]),
   ].join('\n');
 }

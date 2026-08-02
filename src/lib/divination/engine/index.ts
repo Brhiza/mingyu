@@ -32,7 +32,6 @@ import {
 import { buildTaskText } from '@core/divination/engine/method-text';
 import { buildLiurenTemplateText } from '@core/divination/engine/liuren-template';
 import { buildLiuyaoTemplateText } from '@core/divination/engine/liuyao-template';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildPromptGuidanceSections } from '../../prompt-guidance';
 import { tarotSpreads } from '@core/divination/tarot';
 import { LENORMAND_SPREADS } from '@core/divination/algorithms/lenormand';
@@ -145,9 +144,11 @@ export function buildDivinationPrompt(
   const normalizedQuestion =
     method === 'astrolabe'
       ? question.trim() || getAstrolabeDefaultQuestion(astrolabeTopic, { isCustomQuestion })
-      : question;
+      : method === 'almanac'
+        ? question.trim() || buildAlmanacSessionTitle(data as AlmanacData)
+        : question;
   const timeInfo = method === 'astrolabe' ? buildSolarTimeInfoText(data) : buildTimeInfoText(data);
-  const almanacQuestionSupplement = isAlmanac ? normalizedQuestion.trim() : '';
+  const almanacQuestionSupplement = isAlmanac ? question.trim() : '';
   const effectiveSupplementaryInfo =
     almanacQuestionSupplement && !supplementaryInfo?.userSupplement?.trim()
       ? { ...(supplementaryInfo ?? {}), userSupplement: almanacQuestionSupplement }
@@ -162,10 +163,10 @@ export function buildDivinationPrompt(
   );
   const isSsgw = method === 'ssgw';
   const outputRequirementText = isSsgw
-    ? '直接回答【问题】，依次说明签诗主旨、典故启示、事项判断和行动建议。'
+    ? '直接回答【问题】，依次说明签诗主旨、典故启示、事项判断和节奏方向。'
     : isAlmanac
-      ? '给出首选日期、备选日期和慎用日期，说明取舍依据与执行建议。'
-      : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
+      ? '给出首选日期、备选日期和慎用日期，说明取舍依据与可用时段。'
+      : '先回答【问题】，再说明主要依据、时机条件和趋势方向。';
   const liurenTemplateSection =
     method === 'liuren'
       ? buildSection('【问题范围】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
@@ -180,39 +181,35 @@ export function buildDivinationPrompt(
       : buildTaskText(method);
 
   if (method === 'liuren') {
-    return appendTraditionalResearchNotice(
-      [
-        buildPromptGuidanceSections(method),
-        buildSection('【当前时间】', timeInfo),
-        supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
-        buildSection('【排盘信息】', infoText),
-        buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
-        buildSection('【问题】', normalizedQuestion),
-        isCustomQuestion ? '' : liurenTemplateSection,
-        isCustomQuestion ? '' : buildSection('【任务】', taskText),
-        isCustomQuestion ? '' : buildSection('【输出要求】', outputRequirementText),
-      ]
-        .filter(Boolean)
-        .join('\n\n'),
-    );
-  }
-
-  return appendTraditionalResearchNotice(
-    [
+    return [
       buildPromptGuidanceSections(method),
       buildSection('【当前时间】', timeInfo),
       supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
-      astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
-      buildSection('【占卜信息】', infoText),
-      isAlmanac ? '' : buildSection('【问题】', normalizedQuestion),
-      isCustomQuestion ? '' : buildSection('【任务】', taskText),
-      isCustomQuestion ? '' : liuyaoTemplateSection,
+      buildSection('【排盘信息】', infoText),
+      buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
+      buildSection('【问题】', normalizedQuestion),
       isCustomQuestion ? '' : liurenTemplateSection,
+      isCustomQuestion ? '' : buildSection('【任务】', taskText),
       isCustomQuestion ? '' : buildSection('【输出要求】', outputRequirementText),
     ]
       .filter(Boolean)
-      .join('\n\n'),
-  );
+      .join('\n\n');
+  }
+
+  return [
+    buildPromptGuidanceSections(method),
+    buildSection('【当前时间】', timeInfo),
+    supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
+    astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
+    buildSection('【占卜信息】', infoText),
+    buildSection('【问题】', normalizedQuestion),
+    isCustomQuestion ? '' : buildSection('【任务】', taskText),
+    isCustomQuestion ? '' : liuyaoTemplateSection,
+    isCustomQuestion ? '' : liurenTemplateSection,
+    isCustomQuestion ? '' : buildSection('【输出要求】', outputRequirementText),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | undefined {
@@ -319,7 +316,7 @@ function validateDraft(draft: DivinationDraft) {
 
   if (draft.method === 'taiyi') {
     if ((draft.taiyiScope ?? 'year') !== 'year') {
-      throw new Error('太乙月计、日计、时计尚未完成古籍历法链校勘，当前只开放年计。');
+      throw new Error('太乙当前只支持年计。');
     }
     const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
     assertNumberRange(year, '太乙年计年份', 1900, 2200);

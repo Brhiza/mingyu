@@ -9,7 +9,6 @@ import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import { buildPromptGuidanceSections } from '../../lib/prompt-guidance';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 
 export interface AIPromptOption {
   id: string;
@@ -190,7 +189,7 @@ function buildBaziFullAnalysisObjectSection(): string {
 }
 
 function buildBaziOutputRequirementText() {
-  return '使用简体中文，先回答【问题】，再说明主要命盘依据、时机条件和现实建议。';
+  return '先回答【问题】，再说明主要命盘依据和时机条件。';
 }
 
 function buildFortunePromptAddon(promptId: string, ctx: FortuneSelectionContext | null): string {
@@ -199,9 +198,9 @@ function buildFortunePromptAddon(promptId: string, ctx: FortuneSelectionContext 
     if (ctx.scope === 'dayun') return '按逐年列表依次分析这一步大运，先总后分。';
     if (ctx.scope === 'year') return '按流月列表依次分析这一年，先总后分。';
     if (ctx.scope === 'month') return '按流日列表依次分析这个流月，先总后分。';
-    return '聚焦这个流日的主题、机会风险和建议。';
+    return '聚焦这个流日的主题与阶段趋势。';
   }
-  if (promptId === 'ai-fortune-overview') return '聚焦整体节奏、机会、风险和应对。';
+  if (promptId === 'ai-fortune-overview') return '聚焦整体节奏与阶段趋势。';
   return '';
 }
 
@@ -311,27 +310,25 @@ export function buildPromptFromConfig(
 
     return {
       system: SYSTEM_PROMPT,
-      user: appendTraditionalResearchNotice(
-        joinPromptSections([
-          buildPromptGuidanceSections('bazi'),
-          buildPromptSection('当前时间', formatPromptCurrentTime()),
-          buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
-          hasFullFortuneOutput
-            ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
-            : '',
-          !isCustomQuestion && !fortuneSection && !hasFullFortuneOutput
-            ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
-            : '',
-          fortuneSection ? buildPromptSection('分析对象', fortuneSection) : '',
-          fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
-          fortuneEvidenceSection ? buildPromptSection('岁运重点', fortuneEvidenceSection) : '',
-          buildPromptSection('问题', normalizedQuestion),
-          isCustomQuestion
-            ? ''
-            : buildPromptSection('任务', task || '请依据已给出的命盘字段直接裁定重点。'),
-          isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
-        ]),
-      ),
+      user: joinPromptSections([
+        buildPromptGuidanceSections('bazi'),
+        buildPromptSection('当前时间', formatPromptCurrentTime()),
+        buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
+        hasFullFortuneOutput
+          ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
+          : '',
+        !isCustomQuestion && !fortuneSection && !hasFullFortuneOutput
+          ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
+          : '',
+        fortuneSection ? buildPromptSection('分析对象', fortuneSection) : '',
+        fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
+        fortuneEvidenceSection ? buildPromptSection('岁运重点', fortuneEvidenceSection) : '',
+        buildPromptSection('问题', normalizedQuestion),
+        isCustomQuestion
+          ? ''
+          : buildPromptSection('任务', task || '请依据已给出的命盘字段直接裁定重点。'),
+        isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
+      ]),
     };
   }
 
@@ -344,23 +341,21 @@ export function buildPromptFromConfig(
 
   return {
     system: SYSTEM_PROMPT,
-    user: appendTraditionalResearchNotice(
-      joinPromptSections([
-        buildPromptGuidanceSections('bazi'),
-        buildPromptSection('当前时间', formatPromptCurrentTime()),
-        buildPromptSection('排盘信息', chartData),
-        hasFullFortuneOutput
-          ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
-          : '',
-        !isCustomQuestion && !hasFullFortuneOutput
-          ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
-          : '',
-        fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
-        buildPromptSection('问题', normalizedQuestion),
-        isCustomQuestion ? '' : buildPromptSection('任务', '请依据已给出的命盘字段直接裁定重点。'),
-        isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
-      ]),
-    ),
+    user: joinPromptSections([
+      buildPromptGuidanceSections('bazi'),
+      buildPromptSection('当前时间', formatPromptCurrentTime()),
+      buildPromptSection('排盘信息', chartData),
+      hasFullFortuneOutput
+        ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
+        : '',
+      !isCustomQuestion && !hasFullFortuneOutput
+        ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
+        : '',
+      fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
+      buildPromptSection('问题', normalizedQuestion),
+      isCustomQuestion ? '' : buildPromptSection('任务', '请依据已给出的命盘字段直接裁定重点。'),
+      isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
+    ]),
   };
 }
 
@@ -377,12 +372,12 @@ function getCompatibilityTask(compatType?: CompatType): string {
   };
   const label = compatType ? labelMap[compatType] : '';
   const prefix = label ? `关系范围：${label}。` : '';
-  return `${prefix}请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。`;
+  return `${prefix}请先判断关系主轴，再说明相处模式、互补点、冲突点和阶段趋势。`;
 }
 
 function getCompatibilityOutputRequirement(compatType?: CompatType): string {
   void compatType;
-  return '先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。';
+  return '先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和阶段趋势，并结合双方盘面资料说明。';
 }
 
 function formatCompatibilityFacts(result: ReturnType<typeof analyzeBaziCompatibility>): string {
@@ -430,22 +425,20 @@ export function getCompatibilityPrompt(
 
   return {
     system: COMPATIBILITY_SYSTEM_PROMPT,
-    user: appendTraditionalResearchNotice(
-      joinPromptSections([
-        buildPromptGuidanceSections('bazi-compatibility'),
-        buildPromptSection('当前时间', formatPromptCurrentTime()),
-        buildPromptSection('第一人排盘信息', data1),
-        buildPromptSection('第二人排盘信息', data2),
-        buildPromptSection('双盘关系资料', compatibilityEvidence),
-        buildPromptSection(
-          '问题',
-          questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),
-        ),
-        isCustomQuestion ? '' : buildPromptSection('任务', getCompatibilityTask(compatType)),
-        isCustomQuestion
-          ? ''
-          : buildPromptSection('输出要求', getCompatibilityOutputRequirement(compatType)),
-      ]),
-    ),
+    user: joinPromptSections([
+      buildPromptGuidanceSections('bazi-compatibility'),
+      buildPromptSection('当前时间', formatPromptCurrentTime()),
+      buildPromptSection('第一人排盘信息', data1),
+      buildPromptSection('第二人排盘信息', data2),
+      buildPromptSection('双盘关系资料', compatibilityEvidence),
+      buildPromptSection(
+        '问题',
+        questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),
+      ),
+      isCustomQuestion ? '' : buildPromptSection('任务', getCompatibilityTask(compatType)),
+      isCustomQuestion
+        ? ''
+        : buildPromptSection('输出要求', getCompatibilityOutputRequirement(compatType)),
+    ]),
   };
 }

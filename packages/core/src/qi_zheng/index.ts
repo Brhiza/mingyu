@@ -1628,23 +1628,20 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `【七政四余 · 果老星宗】`,
     `出生时空：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}，纬度${lat}°，经度${lon}°，UTC${tz >= 0 ? '+' : ''}${tz}。`,
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
-    `紫炁推算口径：${ZIQI_MODEL_INFO.name}；周期${ZIQI_MODEL_INFO.periodDays}日，日行${ZIQI_MODEL_INFO.dailyMotionDegrees.toFixed(12)}°；${ZIQI_MODEL_INFO.precision}。`,
-    `计算上下文：当地民用时间${calculationContext.localDateTime}，对应UTC ${calculationContext.utcDateTime}；地点来源${calculationContext.locationSource === '用户提供' ? '输入明确' : calculationContext.locationSource}，时区来源${calculationContext.timezoneSource === '用户提供' ? '输入明确' : calculationContext.timezoneSource}。`,
     `月相：${calculationContext.moonPhase.eightPhaseName}（${calculationContext.moonPhase.waxing ? '盈' : '亏'}），日月黄经差约${calculationContext.moonPhase.phaseAngleDegrees.toFixed(2)}°，照明约${calculationContext.moonPhase.illuminationPercent.toFixed(1)}%。`,
     `出生时刻光照：太阳高度${calculationContext.solarIllumination.solarAltitudeDegrees.toFixed(2)}°，方位角${calculationContext.solarIllumination.solarAzimuthDegrees.toFixed(2)}°，视太阳正午${calculationContext.solarIllumination.apparentSolarNoonLocalDateTime}。`,
-    `位置来源：${QIZHENG_POSITION_SOURCES.map((source) => `${source.objects.join('、')}取自${source.provider}（${source.precisionClass}）`).join('；')}。`,
-    `宿界模型：${QIZHENG_MANSION_MODEL.id}；28颗距星按目标日期真黄经形成实际弧段。`,
-    `紫炁位置：顺行，传统均速模型回归黄经${ziqi.tropicalLongitude.toFixed(3)}°。`,
+    `二十八宿：按目标日期距星真实黄经划分宿度。`,
+    `紫炁：传统均速模型，顺行回归黄经${ziqi.tropicalLongitude.toFixed(3)}°。`,
     ...stars.map(
       (s) =>
-        `${s.kind} ${s.name}：目标日期黄经${s.longitude.toFixed(3)}°，在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}；来源${s.sourceLabel}（${s.precisionClass}）`,
+        `${s.kind} ${s.name}：目标日期黄经${s.longitude.toFixed(3)}°，在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,
     ),
     `七政四余吊照：${
       aspects.length
         ? aspects
             .map(
               (aspect) =>
-                `${aspect.star1}与${aspect.star2}${aspect.type}（实际夹角${aspect.actualAngle.toFixed(2)}°，距精确角偏差${aspect.orb.toFixed(2)}°，${aspect.closeness}容许度、${aspect.precisionClass}证据）`,
+                `${aspect.star1}与${aspect.star2}${aspect.type}（实际夹角${aspect.actualAngle.toFixed(2)}°，距精确角偏差${aspect.orb.toFixed(2)}°，${aspect.closeness}容许度）`,
             )
             .join('；')
         : '未见容许度内的主要同宫、六合、四正、三方或对照'
