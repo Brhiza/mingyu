@@ -1589,6 +1589,7 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
     classicalRules,
   );
   const initialGroundBranch = getPlateItemByBranch(heavenlyPlate, initialBranch).under;
+  const greatAuspiciousGroundBranch = getPlateItemByBranch(heavenlyPlate, '丑').under;
   const guaTiFacts = getLiurenGuaTiFacts({
     transmissionBranches,
     dayGanZhi: ganzhi.day,
@@ -1601,6 +1602,7 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
     monthLeader,
     noblemanBranch,
     noblemanGroundBranch,
+    greatAuspiciousGroundBranch,
     fourLessons,
   });
   const guaTi = guaTiFacts.map((fact) => fact.name);

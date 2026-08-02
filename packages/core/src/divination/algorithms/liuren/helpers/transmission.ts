@@ -151,6 +151,18 @@ const LIUREN_GUIDE_VOLUME_ONE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/1&oldid=854504';
 const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/7&oldid=854575';
+const JIU_CHOU_DAYS = new Set([
+  '乙卯',
+  '乙酉',
+  '戊子',
+  '戊午',
+  '己卯',
+  '己酉',
+  '辛卯',
+  '辛酉',
+  '壬子',
+  '壬午',
+]);
 
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
@@ -164,6 +176,7 @@ export interface LiurenGuaTiContext {
   monthLeader?: string;
   noblemanBranch?: string;
   noblemanGroundBranch?: string;
+  greatAuspiciousGroundBranch?: string;
   fourLessons?: Array<Pick<LiurenLesson, 'upper' | 'lower'>>;
 }
 
@@ -218,6 +231,7 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
     [context.monthLeader, '月将'],
     [context.noblemanBranch, '贵人所乘上神'],
     [context.noblemanGroundBranch, '贵人所临地盘'],
+    [context.greatAuspiciousGroundBranch, '大吉所临地盘'],
   ];
   for (const [value, label] of optionalBranches) {
     if (value !== undefined) assertLiurenGuaTiBranch(value, label);
@@ -533,6 +547,27 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             branches: [context.dayBranch],
             matchedConditions: [
               `日支${context.dayBranch}临日干${context.dayStem}并克干，且以日支发用`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jiu-chou',
+    name: '九丑课',
+    category: '大吉临仲',
+    sourceTitle: '《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote: '乙戊己辛壬日更得四仲相并而又大吉加仲上曰九丑卦。',
+    detect(context) {
+      if (!context.dayGanZhi || !context.greatAuspiciousGroundBranch) return null;
+      const dayBranch = context.dayGanZhi.charAt(1);
+      return JIU_CHOU_DAYS.has(context.dayGanZhi) &&
+        context.greatAuspiciousGroundBranch === dayBranch
+        ? {
+            branches: [dayBranch],
+            matchedConditions: [
+              `日柱${context.dayGanZhi}为九丑十日之一，天盘大吉丑临日支${dayBranch}`,
             ],
           }
         : null;

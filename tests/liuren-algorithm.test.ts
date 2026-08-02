@@ -485,6 +485,14 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
     /贵人所临地盘必须是有效地支/,
   );
   assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['子', '寅', '辰'],
+        greatAuspiciousGroundBranch: '甲',
+      }),
+    /大吉所临地盘必须是有效地支/,
+  );
+  assert.throws(
     () => getLiurenGuaTiFacts({ transmissionBranches: ['子', '寅', '辰'], dayStem: '子' }),
     /日干必须是有效天干/,
   );
@@ -516,8 +524,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定二十条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 20);
+test('大六壬课体登记表应固定二十一条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 21);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -528,6 +536,63 @@ test('大六壬课体登记表应固定二十条来源、稳定键和结构条�
   assert.match(fact.sourceTitle, /《六壬指南》卷一/);
   assert.match(fact.sourceUrl, /oldid=854504/);
   assert.equal(fact.sourceQuote, '三传亥卯未曰曲直卦。');
+});
+
+test('大六壬九丑课应按十个指定日柱与大吉临本日支穷举严格命中', () => {
+  const jiuChouDays = new Set([
+    '乙卯',
+    '乙酉',
+    '戊子',
+    '戊午',
+    '己卯',
+    '己酉',
+    '辛卯',
+    '辛酉',
+    '壬子',
+    '壬午',
+  ]);
+  let profileCount = 0;
+  let matchCount = 0;
+
+  for (const dayGanZhi of SIXTY_DAYS) {
+    const dayBranch = dayGanZhi.charAt(1);
+    for (const greatAuspiciousGroundBranch of DIZHI) {
+      const fact = getLiurenGuaTiFacts({
+        transmissionBranches: ['申', '子', '辰'],
+        dayGanZhi,
+        dayStem: dayGanZhi.charAt(0),
+        dayBranch,
+        greatAuspiciousGroundBranch,
+      }).find((item) => item.name === '九丑课');
+      const expected = jiuChouDays.has(dayGanZhi) && greatAuspiciousGroundBranch === dayBranch;
+      assert.equal(
+        !!fact,
+        expected,
+        `${dayGanZhi}日、大吉丑临${greatAuspiciousGroundBranch}的九丑边界不一致`,
+      );
+      if (fact) matchCount += 1;
+      profileCount += 1;
+    }
+  }
+
+  assert.equal(profileCount, 720);
+  assert.equal(matchCount, 10);
+
+  const fact = getLiurenGuaTiFacts({
+    transmissionBranches: ['申', '子', '辰'],
+    dayGanZhi: '乙酉',
+    dayBranch: '酉',
+    greatAuspiciousGroundBranch: '酉',
+  }).find((item) => item.name === '九丑课');
+  assert.ok(fact);
+  assert.equal(fact.stableKey, 'liuren:verified-guati:jiu-chou');
+  assert.equal(fact.category, '大吉临仲');
+  assert.deepEqual(fact.branches, ['酉']);
+  assert.deepEqual(fact.matchedConditions, ['日柱乙酉为九丑十日之一，天盘大吉丑临日支酉']);
+  assert.doesNotMatch(
+    `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+    /灾|婚姻|疾病|刑狱|死亡|吉凶|现实事件/,
+  );
 });
 
 test('大六壬六旬仪奇课体应按六十日柱乘十二发用穷举严格命中', () => {
@@ -1040,6 +1105,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
                 heavenlyPlate,
                 getNoblemanBranch(dayStem, dayNight),
               ).under,
+              greatAuspiciousGroundBranch: getPlateItemByBranch(heavenlyPlate, '丑').under,
               fourLessons: lessons,
             });
             for (const fact of guaTiFacts) {

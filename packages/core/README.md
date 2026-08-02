@@ -486,7 +486,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeMeihuaEvidence(data)`                                        | 先审核重建，再返回主互变逐阶段体用、旺衰与支持/限制证据                      |
 | `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置九宫原始事实、位置索引与全部宫对关系                     |
 | `analyzeQimenEvidence(data)`                                         | 重建经审核的九宫、旬空马星、固定格、位置索引及应期方位边界                   |
-| `generateLiuren(date?)`                                              | 大六壬排盘；含 20 条已校勘课体，不代表传统课体总目录已穷尽                   |
+| `generateLiuren(date?)`                                              | 大六壬排盘；含 21 条已校勘课体，不代表传统课体总目录已穷尽                   |
 | `analyzeLiurenEvidence(data)`                                        | 起盘与取传版本、逐传日干六亲、有方向关系、旺衰及条件化旬空证据               |
 | `getLiurenGuaTiFacts(context)`                                       | 严格校验完整三传及可选四课后，返回已校勘课体事实                             |
 | `generateXiaoliuren(params?)`                                        | 小六壬起课                                                                   |

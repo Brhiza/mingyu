@@ -159,6 +159,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     getPatternTag(transmissionPattern),
   ];
   const initialGroundBranch = getPlateItemByBranch(heavenlyPlate, chu).under;
+  const greatAuspiciousGroundBranch = getPlateItemByBranch(heavenlyPlate, '丑').under;
   const guaTiFacts = getLiurenGuaTiFacts({
     transmissionBranches,
     dayGanZhi: ganzhi.day,
@@ -171,6 +172,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     monthLeader,
     noblemanBranch,
     noblemanGroundBranch,
+    greatAuspiciousGroundBranch,
     fourLessons,
   });
   const guaTi = guaTiFacts.map((fact) => fact.name);
