@@ -797,7 +797,10 @@ export interface LiurenGuaTiFact {
     | '三传顺逆'
     | '贵人顺逆'
     | '四建聚合'
-    | '课传聚合';
+    | '课传聚合'
+    | '日辰刑害'
+    | '鬼墓发用'
+    | '三传递克';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;

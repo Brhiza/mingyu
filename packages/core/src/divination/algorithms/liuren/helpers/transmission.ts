@@ -225,6 +225,25 @@ const ELEMENT_TOMB_BY_STEM: Readonly<Record<string, string>> = {
   壬: '辰',
   癸: '辰',
 };
+const TOMB_BRANCH_BY_ELEMENT: Readonly<Record<string, string>> = {
+  木: '未',
+  火: '戌',
+  土: '辰',
+  金: '丑',
+  水: '辰',
+};
+const DAY_GHOST_BRANCHES_BY_STEM: Readonly<Record<string, readonly string[]>> = {
+  甲: ['申'],
+  乙: ['酉'],
+  丙: ['子'],
+  丁: ['亥'],
+  戊: ['寅'],
+  己: ['卯'],
+  庚: ['午'],
+  辛: ['巳'],
+  壬: ['辰', '戌'],
+  癸: ['丑', '未'],
+};
 
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
@@ -1334,6 +1353,132 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             branches: [context.dayBranch, initial, context.initialGroundBranch],
             matchedConditions: [
               `初传${initial}冲日支${context.dayBranch}，并临其六破地盘${context.initialGroundBranch}发用`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'qin-hai',
+    name: '侵害课',
+    category: '日辰刑害',
+    sourceTitle: '《六壬大全》卷九·侵害课；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬大全》：“凡课日辰六害相加……为侵害课。”《六壬粹言》：“凡六害加干支发用，为侵害课。”当前只登记六害上神临日干寄宫或日支并发用的共同结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const initial = context.transmissionBranches[0];
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const harmsStem = initial === stemUpper && LIUHAI_MAP[stemUpper] === stemResidence;
+      const harmsBranch = initial === branchUpper && LIUHAI_MAP[branchUpper] === context.dayBranch;
+      if (!harmsStem && !harmsBranch) return null;
+      return {
+        branches: [
+          initial,
+          ...(harmsStem ? [stemResidence] : []),
+          ...(harmsBranch ? [context.dayBranch] : []),
+        ],
+        matchedConditions: [
+          ...(harmsStem
+            ? [`初传${initial}临日干${context.dayStem}寄宫${stemResidence}，两支构成六害`]
+            : []),
+          ...(harmsBranch ? [`初传${initial}临日支${context.dayBranch}，两支构成六害`] : []),
+        ],
+      };
+    },
+  },
+  {
+    id: 'xing-shang',
+    name: '刑伤课',
+    category: '日辰刑害',
+    sourceTitle: '《六壬大全》卷九·刑伤课；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬大全》：“凡课中三刑发用……为刑伤课。”《六壬粹言》：“三刑加干支发用，为刑伤课。”当前只登记定向刑神临日干寄宫或日支并发用的共同结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const initial = context.transmissionBranches[0];
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const punishesStem = initial === stemUpper && SANXING_MAP[stemUpper] === stemResidence;
+      const punishesBranch =
+        initial === branchUpper && SANXING_MAP[branchUpper] === context.dayBranch;
+      if (!punishesStem && !punishesBranch) return null;
+      return {
+        branches: [
+          initial,
+          ...(punishesStem ? [stemResidence] : []),
+          ...(punishesBranch ? [context.dayBranch] : []),
+        ],
+        matchedConditions: [
+          ...(punishesStem
+            ? [`初传${initial}临日干${context.dayStem}寄宫${stemResidence}，定向刑及寄宫`]
+            : []),
+          ...(punishesBranch ? [`初传${initial}临日支${context.dayBranch}，定向刑及日支`] : []),
+        ],
+      };
+    },
+  },
+  {
+    id: 'gui-mu',
+    name: '鬼墓课',
+    category: '鬼墓发用',
+    sourceTitle: '《六壬大全》卷十·鬼墓课；《六壬灵觉经》·鬼墓课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》《六壬灵觉经》均载：“凡日辰墓神及日鬼发用，为鬼墓课。”当前只按原文固定日干墓、日支五行墓及同阴阳日鬼三类发用位置登记。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch) return null;
+      const initial = context.transmissionBranches[0];
+      const stemTomb = ELEMENT_TOMB_BY_STEM[context.dayStem];
+      const branchTomb = TOMB_BRANCH_BY_ELEMENT[getBranchWuxing(context.dayBranch)];
+      const isDayGhost = DAY_GHOST_BRANCHES_BY_STEM[context.dayStem]?.includes(initial) ?? false;
+      const matchedConditions = [
+        ...(initial === stemTomb ? [`初传${initial}为日干${context.dayStem}五行墓位`] : []),
+        ...(initial === branchTomb ? [`初传${initial}为日支${context.dayBranch}五行墓位`] : []),
+        ...(isDayGhost ? [`初传${initial}为日干${context.dayStem}同阴阳日鬼`] : []),
+      ];
+      return matchedConditions.length ? { branches: [initial], matchedConditions } : null;
+    },
+  },
+  {
+    id: 'yang-jiu',
+    name: '殃咎课',
+    category: '三传递克',
+    sourceTitle: '《六壬大全》卷十·殃咎课；《六壬灵觉经》·殃咎课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“凡三传递克日……为殃咎课。”《六壬灵觉经》列初克中、中克末、末克日及末克中、中克初、初克日两种递克次序。当前只登记这两种完整五行克制链。',
+    detect(context) {
+      if (!context.dayStem) return null;
+      const [initial, middle, final] = context.transmissionBranches;
+      const initialElement = getBranchWuxing(initial);
+      const middleElement = getBranchWuxing(middle);
+      const finalElement = getBranchWuxing(final);
+      const dayElement = getGanZhiWuxing(context.dayStem);
+      if (
+        isKe(initialElement, middleElement) &&
+        isKe(middleElement, finalElement) &&
+        isKe(finalElement, dayElement)
+      ) {
+        return {
+          branches: [...context.transmissionBranches],
+          matchedConditions: [
+            `初传${initial}${initialElement}克中传${middle}${middleElement}，中传克末传${final}${finalElement}，末传克日干${context.dayStem}${dayElement}`,
+          ],
+        };
+      }
+      return isKe(finalElement, middleElement) &&
+        isKe(middleElement, initialElement) &&
+        isKe(initialElement, dayElement)
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [
+              `末传${final}${finalElement}克中传${middle}${middleElement}，中传克初传${initial}${initialElement}，初传克日干${context.dayStem}${dayElement}`,
             ],
           }
         : null;

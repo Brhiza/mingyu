@@ -12,6 +12,7 @@ import { EARTHLY_BRANCHES } from '../packages/core/src/ganzhi/data.ts';
 import {
   getSeasonState,
   LIUCHONG_MAP,
+  LIUHAI_MAP,
   LIUPO_MAP,
   SANXING_MAP,
 } from '../packages/core/src/ganzhi/relations.ts';
@@ -597,8 +598,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定四十五条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 45);
+test('大六壬课体登记表应固定四十九条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 49);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -2272,6 +2273,201 @@ test('大六壬新增六类课体不得由相似三传或缺失起课条件误�
     }).some((candidate) => candidate.name === '斫轮卦'),
     '卯临戌且并非从庚辛干上发用时不应误判为斫轮卦',
   );
+});
+
+test('大六壬刑害、鬼墓与递克四类课体应按全部输入轮廓严格命中', () => {
+  let lessonProfileCount = 0;
+  let qinHaiMatchCount = 0;
+  let xingShangMatchCount = 0;
+  for (const dayStem of TIANGAN) {
+    const stemResidence = getDayStemResidence(dayStem);
+    for (const dayBranch of DIZHI) {
+      for (const stemUpper of DIZHI) {
+        for (const branchUpper of DIZHI) {
+          for (const initial of DIZHI) {
+            const facts = getLiurenGuaTiFacts({
+              transmissionBranches: [initial, '子', '丑'],
+              dayStem,
+              dayBranch,
+              fourLessons: [
+                { upper: stemUpper, lower: dayStem },
+                { upper: '子', lower: stemUpper },
+                { upper: branchUpper, lower: dayBranch },
+                { upper: '丑', lower: branchUpper },
+              ],
+            });
+            const qinHai = facts.find((fact) => fact.name === '侵害课');
+            const xingShang = facts.find((fact) => fact.name === '刑伤课');
+            const expectedQinHai =
+              (initial === stemUpper && LIUHAI_MAP[stemUpper] === stemResidence) ||
+              (initial === branchUpper && LIUHAI_MAP[branchUpper] === dayBranch);
+            const expectedXingShang =
+              (initial === stemUpper && SANXING_MAP[stemUpper] === stemResidence) ||
+              (initial === branchUpper && SANXING_MAP[branchUpper] === dayBranch);
+
+            assert.equal(
+              Boolean(qinHai),
+              expectedQinHai,
+              `${dayStem}${dayBranch}日、干上${stemUpper}、支上${branchUpper}、${initial}发用的侵害边界不一致`,
+            );
+            assert.equal(
+              Boolean(xingShang),
+              expectedXingShang,
+              `${dayStem}${dayBranch}日、干上${stemUpper}、支上${branchUpper}、${initial}发用的刑伤边界不一致`,
+            );
+            if (qinHai) qinHaiMatchCount += 1;
+            if (xingShang) xingShangMatchCount += 1;
+            lessonProfileCount += 1;
+          }
+        }
+      }
+    }
+  }
+  assert.equal(lessonProfileCount, 207_360);
+  assert.ok(qinHaiMatchCount > 0);
+  assert.ok(xingShangMatchCount > 0);
+
+  const tombByStem: Readonly<Record<string, string>> = {
+    甲: '未',
+    乙: '未',
+    丙: '戌',
+    丁: '戌',
+    戊: '辰',
+    己: '辰',
+    庚: '丑',
+    辛: '丑',
+    壬: '辰',
+    癸: '辰',
+  };
+  const tombByElement: Readonly<Record<string, string>> = {
+    木: '未',
+    火: '戌',
+    土: '辰',
+    金: '丑',
+    水: '辰',
+  };
+  const ghostBranchesByStem: Readonly<Record<string, readonly string[]>> = {
+    甲: ['申'],
+    乙: ['酉'],
+    丙: ['子'],
+    丁: ['亥'],
+    戊: ['寅'],
+    己: ['卯'],
+    庚: ['午'],
+    辛: ['巳'],
+    壬: ['辰', '戌'],
+    癸: ['丑', '未'],
+  };
+  let guiMuProfileCount = 0;
+  let guiMuMatchCount = 0;
+  for (const dayStem of TIANGAN) {
+    for (const dayBranch of DIZHI) {
+      for (const initial of DIZHI) {
+        const fact = getLiurenGuaTiFacts({
+          transmissionBranches: [initial, '子', '丑'],
+          dayStem,
+          dayBranch,
+        }).find((candidate) => candidate.name === '鬼墓课');
+        const expected =
+          initial === tombByStem[dayStem] ||
+          initial === tombByElement[getGanZhiWuxing(dayBranch)] ||
+          ghostBranchesByStem[dayStem].includes(initial);
+        assert.equal(
+          Boolean(fact),
+          expected,
+          `${dayStem}${dayBranch}日、${initial}发用的鬼墓边界不一致`,
+        );
+        if (fact) guiMuMatchCount += 1;
+        guiMuProfileCount += 1;
+      }
+    }
+  }
+  assert.equal(guiMuProfileCount, 1_440);
+  assert.ok(guiMuMatchCount > 0);
+
+  const controls: Readonly<Record<string, string>> = {
+    木: '土',
+    土: '水',
+    水: '火',
+    火: '金',
+    金: '木',
+  };
+  let yangJiuProfileCount = 0;
+  let yangJiuMatchCount = 0;
+  for (const dayStem of TIANGAN) {
+    const dayElement = getGanZhiWuxing(dayStem);
+    for (const initial of DIZHI) {
+      const initialElement = getGanZhiWuxing(initial);
+      for (const middle of DIZHI) {
+        const middleElement = getGanZhiWuxing(middle);
+        for (const final of DIZHI) {
+          const finalElement = getGanZhiWuxing(final);
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, middle, final],
+            dayStem,
+          }).find((candidate) => candidate.name === '殃咎课');
+          const expected =
+            (controls[initialElement] === middleElement &&
+              controls[middleElement] === finalElement &&
+              controls[finalElement] === dayElement) ||
+            (controls[finalElement] === middleElement &&
+              controls[middleElement] === initialElement &&
+              controls[initialElement] === dayElement);
+          assert.equal(
+            Boolean(fact),
+            expected,
+            `${dayStem}日、三传${initial}${middle}${final}的殃咎边界不一致`,
+          );
+          if (fact) yangJiuMatchCount += 1;
+          yangJiuProfileCount += 1;
+        }
+      }
+    }
+  }
+  assert.equal(yangJiuProfileCount, 17_280);
+  assert.ok(yangJiuMatchCount > 0);
+
+  const classicalFacts = [
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['未', '子', '丑'],
+      dayStem: '甲',
+      dayBranch: '子',
+      fourLessons: [
+        { upper: '未', lower: '甲' },
+        { upper: '子', lower: '未' },
+        { upper: '未', lower: '子' },
+        { upper: '寅', lower: '未' },
+      ],
+    }).find((fact) => fact.name === '侵害课'),
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['巳', '子', '丑'],
+      dayStem: '甲',
+      dayBranch: '申',
+      fourLessons: [
+        { upper: '巳', lower: '甲' },
+        { upper: '子', lower: '巳' },
+        { upper: '巳', lower: '申' },
+        { upper: '寅', lower: '巳' },
+      ],
+    }).find((fact) => fact.name === '刑伤课'),
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['申', '子', '丑'],
+      dayStem: '甲',
+      dayBranch: '寅',
+    }).find((fact) => fact.name === '鬼墓课'),
+    getLiurenGuaTiFacts({ transmissionBranches: ['寅', '丑', '子'], dayStem: '丙' }).find(
+      (fact) => fact.name === '殃咎课',
+    ),
+  ];
+  classicalFacts.forEach((fact) => {
+    assert.ok(fact);
+    assert.match(fact.stableKey, /^liuren:verified-guati:/);
+    assert.match(fact.sourceUrl, /oldid=85457[89]$/);
+    assert.doesNotMatch(
+      `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+      /疾病|官讼|灾祸|婚姻|吉凶|现实事件/,
+    );
+  });
 });
 
 test('大六壬伏吟返吟只按天地盘取传规则识别，不以三传首尾关系替代', () => {
