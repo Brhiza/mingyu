@@ -597,8 +597,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定四十一条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 41);
+test('大六壬课体登记表应固定四十五条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 45);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -785,6 +785,233 @@ test('大六壬三阳与六纯课应按旺相、贵人顺布及七处阴阳轮�
       .join('；'),
     /吉|凶|疾病|婚姻|功名|现实事件/,
   );
+});
+
+test('大六壬四顺四逆与天心盘珠应按贵人顺逆和课传容器整批命中', () => {
+  const auspiciousGenerals = new Set(['贵人', '六合', '青龙', '太常', '太阴', '天后']);
+  const inauspiciousGenerals = new Set(['螣蛇', '朱雀', '勾陈', '天空', '白虎', '玄武']);
+  const forwardGroundBranches = new Set(['亥', '子', '丑', '寅', '卯', '辰']);
+  const reverseGroundBranches = new Set(['巳', '午', '未', '申', '酉', '戌']);
+  const makeLessons = (uppers: readonly string[]) =>
+    uppers.map((upper, index) => ({ upper, lower: DIZHI[index] }));
+  const stateOf = (branch: string, monthBranch: string) =>
+    getSeasonState(getGanZhiWuxing(branch), monthBranch);
+  const hasFact = (context: Parameters<typeof getLiurenGuaTiFacts>[0], name: string) =>
+    getLiurenGuaTiFacts(context).some((candidate) => candidate.name === name);
+
+  let generalProfiles = 0;
+  let fourShunGeneralMatches = 0;
+  let fourNiGeneralMatches = 0;
+  for (const initialGod of TIANJIANG) {
+    for (const finalGod of TIANJIANG) {
+      generalProfiles += 1;
+      const transmissionGods = [initialGod, '天空', finalGod];
+      const fourShun = hasFact(
+        {
+          transmissionBranches: ['申', '子', '寅'],
+          transmissionGods,
+          monthBranch: '寅',
+          noblemanBranch: '子',
+          noblemanGroundBranch: '亥',
+        },
+        '四顺课',
+      );
+      const fourNi = hasFact(
+        {
+          transmissionBranches: ['寅', '子', '申'],
+          transmissionGods,
+          monthBranch: '寅',
+          noblemanBranch: '子',
+          noblemanGroundBranch: '巳',
+        },
+        '四逆课',
+      );
+      assert.equal(
+        fourShun,
+        inauspiciousGenerals.has(initialGod) && auspiciousGenerals.has(finalGod),
+      );
+      assert.equal(
+        fourNi,
+        auspiciousGenerals.has(initialGod) && inauspiciousGenerals.has(finalGod),
+      );
+      if (fourShun) fourShunGeneralMatches += 1;
+      if (fourNi) fourNiGeneralMatches += 1;
+    }
+  }
+  assert.equal(generalProfiles, 144);
+  assert.equal(fourShunGeneralMatches, 36);
+  assert.equal(fourNiGeneralMatches, 36);
+
+  let positionProfiles = 0;
+  let fourShunPositionMatches = 0;
+  let fourNiPositionMatches = 0;
+  for (const noblemanBranch of DIZHI) {
+    for (const noblemanGroundBranch of DIZHI) {
+      for (const final of DIZHI) {
+        positionProfiles += 1;
+        const flourishingMonth = DIZHI.find((month) =>
+          ['旺', '相'].includes(stateOf(final, month)),
+        );
+        const decliningMonth = DIZHI.find((month) => ['囚', '死'].includes(stateOf(final, month)));
+        assert.ok(flourishingMonth);
+        assert.ok(decliningMonth);
+        const decliningInitial = DIZHI.find((branch) =>
+          ['囚', '死'].includes(stateOf(branch, flourishingMonth)),
+        );
+        const flourishingInitial = DIZHI.find((branch) =>
+          ['旺', '相'].includes(stateOf(branch, decliningMonth)),
+        );
+        assert.ok(decliningInitial);
+        assert.ok(flourishingInitial);
+        const step =
+          (DIZHI.indexOf(final) - DIZHI.indexOf(noblemanBranch) + DIZHI.length) % DIZHI.length;
+        const fourShun = hasFact(
+          {
+            transmissionBranches: [decliningInitial, '子', final],
+            transmissionGods: ['螣蛇', '天空', '贵人'],
+            monthBranch: flourishingMonth,
+            noblemanBranch,
+            noblemanGroundBranch,
+          },
+          '四顺课',
+        );
+        const fourNi = hasFact(
+          {
+            transmissionBranches: [flourishingInitial, '子', final],
+            transmissionGods: ['贵人', '天空', '螣蛇'],
+            monthBranch: decliningMonth,
+            noblemanBranch,
+            noblemanGroundBranch,
+          },
+          '四逆课',
+        );
+        assert.equal(
+          fourShun,
+          forwardGroundBranches.has(noblemanGroundBranch) && step >= 1 && step <= 5,
+        );
+        assert.equal(
+          fourNi,
+          reverseGroundBranches.has(noblemanGroundBranch) && step >= 6 && step <= 11,
+        );
+        if (fourShun) fourShunPositionMatches += 1;
+        if (fourNi) fourNiPositionMatches += 1;
+      }
+    }
+  }
+  assert.equal(positionProfiles, 1_728);
+  assert.equal(fourShunPositionMatches, 360);
+  assert.equal(fourNiPositionMatches, 432);
+
+  const lessonUppers = ['丑', '子', '亥', '戌'];
+  const lessons = makeLessons(lessonUppers);
+  let fourEstablishmentProfiles = 0;
+  let lessonContainerMatches = 0;
+  let transmissionContainerMatches = 0;
+  for (const yearBranch of DIZHI) {
+    for (const monthBranch of DIZHI) {
+      for (const dayBranch of DIZHI) {
+        for (const hourBranch of DIZHI) {
+          fourEstablishmentProfiles += 1;
+          const establishments = [yearBranch, monthBranch, dayBranch, hourBranch];
+          const lessonMatch = getLiurenGuaTiFacts({
+            transmissionBranches: ['申', '午', '辰'],
+            yearBranch,
+            monthBranch,
+            dayBranch,
+            hourBranch,
+            fourLessons: lessons,
+          })
+            .find((candidate) => candidate.name === '天心格')
+            ?.matchedConditions.some((condition) => condition.includes('四课上神'));
+          const transmissionMatch = hasFact(
+            {
+              transmissionBranches: ['巳', '丑', '酉'],
+              yearBranch,
+              monthBranch,
+              dayBranch,
+              hourBranch,
+            },
+            '天心格',
+          );
+          assert.equal(
+            !!lessonMatch,
+            establishments.every((branch) => lessonUppers.includes(branch)),
+          );
+          assert.equal(
+            transmissionMatch,
+            establishments.every((branch) => ['巳', '丑', '酉'].includes(branch)),
+          );
+          if (lessonMatch) lessonContainerMatches += 1;
+          if (transmissionMatch) transmissionContainerMatches += 1;
+        }
+      }
+    }
+  }
+  assert.equal(fourEstablishmentProfiles, 20_736);
+  assert.equal(lessonContainerMatches, 256);
+  assert.equal(transmissionContainerMatches, 81);
+
+  assert.equal(
+    hasFact(
+      {
+        transmissionBranches: ['丑', '申', '酉'],
+        yearBranch: '丑',
+        monthBranch: '子',
+        dayBranch: '申',
+        hourBranch: '酉',
+        fourLessons: makeLessons(['子', '寅', '辰', '午']),
+      },
+      '天心格',
+    ),
+    false,
+    '四建拆分在四课与三传时不得误判天心格',
+  );
+
+  let transmissionProfiles = 0;
+  let panZhuMatches = 0;
+  for (const initial of DIZHI) {
+    for (const middle of DIZHI) {
+      for (const final of DIZHI) {
+        transmissionProfiles += 1;
+        const matched = hasFact(
+          {
+            transmissionBranches: [initial, middle, final],
+            yearBranch: '戌',
+            monthBranch: '丑',
+            dayBranch: '子',
+            hourBranch: '丑',
+            fourLessons: lessons,
+          },
+          '盘珠课',
+        );
+        const expected = [initial, middle, final].every((branch) => lessonUppers.includes(branch));
+        assert.equal(matched, expected);
+        if (matched) panZhuMatches += 1;
+      }
+    }
+  }
+  assert.equal(transmissionProfiles, 1_728);
+  assert.equal(panZhuMatches, 64);
+
+  const panZhuFacts = getLiurenGuaTiFacts({
+    transmissionBranches: ['子', '亥', '戌'],
+    yearBranch: '戌',
+    monthBranch: '丑',
+    dayBranch: '子',
+    hourBranch: '丑',
+    fourLessons: lessons,
+  });
+  assert.ok(panZhuFacts.some((candidate) => candidate.name === '天心格'));
+  assert.ok(panZhuFacts.some((candidate) => candidate.name === '盘珠课'));
+  const transmissionTianXin = getLiurenGuaTiFacts({
+    transmissionBranches: ['巳', '丑', '酉'],
+    yearBranch: '巳',
+    monthBranch: '丑',
+    dayBranch: '酉',
+    hourBranch: '巳',
+  });
+  assert.ok(transmissionTianXin.some((candidate) => candidate.name === '天心格'));
+  assert.ok(!transmissionTianXin.some((candidate) => candidate.name === '盘珠课'));
 });
 
 test('大六壬天狱课应按囚死墓发用与天罡临六壬日本穷举严格命中', () => {

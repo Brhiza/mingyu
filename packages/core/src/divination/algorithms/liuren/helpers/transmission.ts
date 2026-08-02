@@ -25,6 +25,7 @@ import {
   getDayStemResidence,
   getGanZhiWuxing,
   isBranchKe,
+  REVERSE_GENERAL_GROUND_BRANCHES,
   TIANGAN,
   TIANJIANG,
 } from './plate';
@@ -172,6 +173,22 @@ const LIUREN_GUIDE_VOLUME_TWO_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/2&oldid=854505';
 const YANG_BRANCHES: ReadonlySet<string> = new Set(['子', '寅', '辰', '午', '申', '戌']);
 const YIN_BRANCHES: ReadonlySet<string> = new Set(['丑', '卯', '巳', '未', '酉', '亥']);
+const AUSPICIOUS_GENERALS: ReadonlySet<string> = new Set([
+  '贵人',
+  '六合',
+  '青龙',
+  '太常',
+  '太阴',
+  '天后',
+]);
+const INAUSPICIOUS_GENERALS: ReadonlySet<string> = new Set([
+  '螣蛇',
+  '朱雀',
+  '勾陈',
+  '天空',
+  '白虎',
+  '玄武',
+]);
 const JIU_CHOU_DAYS = new Set([
   '乙卯',
   '乙酉',
@@ -608,6 +625,106 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     },
   },
   {
+    id: 'si-shun',
+    name: '四顺课',
+    category: '贵人顺逆',
+    sourceTitle: '《六壬大全》卷七·课经集一·四顺课；《六壬灵觉经》·四顺课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“初神将凶，末神吉；初死囚，末旺相；天乙顺行；传出天乙前。”《六壬灵觉经》：“用起凶神恶将，传得吉神良将；用起囚死，传得旺相；贵人顺治；传出贵人前。”当前只登记四项结构同时成立。',
+    detect(context) {
+      const initialGod = context.transmissionGods?.[0];
+      const finalGod = context.transmissionGods?.[2];
+      if (
+        !initialGod ||
+        !finalGod ||
+        !context.monthBranch ||
+        !context.noblemanBranch ||
+        !context.noblemanGroundBranch ||
+        !INAUSPICIOUS_GENERALS.has(initialGod) ||
+        !AUSPICIOUS_GENERALS.has(finalGod) ||
+        !FORWARD_GENERAL_GROUND_BRANCHES.has(context.noblemanGroundBranch)
+      ) {
+        return null;
+      }
+      const initial = context.transmissionBranches[0];
+      const final = context.transmissionBranches[2];
+      const initialState = getSeasonState(getBranchWuxing(initial), context.monthBranch);
+      const finalState = getSeasonState(getBranchWuxing(final), context.monthBranch);
+      const finalStep =
+        (DIZHI.indexOf(final as (typeof DIZHI)[number]) -
+          DIZHI.indexOf(context.noblemanBranch as (typeof DIZHI)[number]) +
+          DIZHI.length) %
+        DIZHI.length;
+      if (
+        !['囚', '死'].includes(initialState) ||
+        !['旺', '相'].includes(finalState) ||
+        finalStep < 1 ||
+        finalStep > 5
+      ) {
+        return null;
+      }
+      return {
+        branches: [initial, final, context.noblemanBranch],
+        matchedConditions: [
+          `初传${initial}乘${initialGod}，末传${final}乘${finalGod}`,
+          `初传于月建${context.monthBranch}为${initialState}，末传为${finalState}`,
+          `贵人${context.noblemanBranch}临地盘${context.noblemanGroundBranch}顺布，末传居贵人前第${finalStep}位`,
+        ],
+      };
+    },
+  },
+  {
+    id: 'si-ni',
+    name: '四逆课',
+    category: '贵人顺逆',
+    sourceTitle: '《六壬大全》卷十·四逆课；《六壬灵觉经》·四逆课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“用吉终凶；用旺终衰；天乙逆行；传入天乙后。”《六壬灵觉经》同列用吉终凶、用旺终衰、贵人逆治、传入贵人后四项。当前只登记四项结构同时成立。',
+    detect(context) {
+      const initialGod = context.transmissionGods?.[0];
+      const finalGod = context.transmissionGods?.[2];
+      if (
+        !initialGod ||
+        !finalGod ||
+        !context.monthBranch ||
+        !context.noblemanBranch ||
+        !context.noblemanGroundBranch ||
+        !AUSPICIOUS_GENERALS.has(initialGod) ||
+        !INAUSPICIOUS_GENERALS.has(finalGod) ||
+        !REVERSE_GENERAL_GROUND_BRANCHES.has(context.noblemanGroundBranch)
+      ) {
+        return null;
+      }
+      const initial = context.transmissionBranches[0];
+      const final = context.transmissionBranches[2];
+      const initialState = getSeasonState(getBranchWuxing(initial), context.monthBranch);
+      const finalState = getSeasonState(getBranchWuxing(final), context.monthBranch);
+      const finalStep =
+        (DIZHI.indexOf(final as (typeof DIZHI)[number]) -
+          DIZHI.indexOf(context.noblemanBranch as (typeof DIZHI)[number]) +
+          DIZHI.length) %
+        DIZHI.length;
+      if (
+        !['旺', '相'].includes(initialState) ||
+        !['囚', '死'].includes(finalState) ||
+        finalStep < 6 ||
+        finalStep > 11
+      ) {
+        return null;
+      }
+      return {
+        branches: [initial, final, context.noblemanBranch],
+        matchedConditions: [
+          `初传${initial}乘${initialGod}，末传${final}乘${finalGod}`,
+          `初传于月建${context.monthBranch}为${initialState}，末传为${finalState}`,
+          `贵人${context.noblemanBranch}临地盘${context.noblemanGroundBranch}逆布，末传居贵人后第${12 - finalStep}位`,
+        ],
+      };
+    },
+  },
+  {
     id: 'zhuo-lun',
     name: '斫轮卦',
     category: '发用临地',
@@ -817,6 +934,84 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             matchedConditions: [`三传${context.transmissionBranches.join('、')}均见于四课上神`],
           }
         : null;
+    },
+  },
+  {
+    id: 'tian-xin',
+    name: '天心格',
+    category: '四建聚合',
+    sourceTitle: '《六壬大全》卷十·天心格；《六壬粹言》卷三·经课；《六壬寻源》',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“岁月日时俱在四课之上，或俱在三传之中。”《六壬粹言》分列“四建全在四课中”与“四建全在三传中”。当前不把两个容器拆开取并集。',
+    detect(context) {
+      if (
+        !context.yearBranch ||
+        !context.monthBranch ||
+        !context.dayBranch ||
+        !context.hourBranch
+      ) {
+        return null;
+      }
+      const fourEstablishments = [
+        context.yearBranch,
+        context.monthBranch,
+        context.dayBranch,
+        context.hourBranch,
+      ];
+      const lessonUppers = new Set(context.fourLessons?.map((lesson) => lesson.upper) ?? []);
+      const transmissionBranches = new Set(context.transmissionBranches);
+      const allInLessons =
+        !!context.fourLessons && fourEstablishments.every((branch) => lessonUppers.has(branch));
+      const allInTransmissions = fourEstablishments.every((branch) =>
+        transmissionBranches.has(branch),
+      );
+      if (!allInLessons && !allInTransmissions) return null;
+      return {
+        branches: fourEstablishments,
+        matchedConditions: [
+          `太岁${context.yearBranch}、月建${context.monthBranch}、日支${context.dayBranch}、占时${context.hourBranch}全在${allInLessons ? '四课上神' : '三传'}中`,
+        ],
+      };
+    },
+  },
+  {
+    id: 'pan-zhu',
+    name: '盘珠课',
+    category: '课传聚合',
+    sourceTitle: '《六壬大全》卷十·盘珠课；《六壬寻源》',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“太岁、月建及日、时并三传皆在四课之中。”《六壬寻源》同列四建与三传全在四课的结构。',
+    detect(context) {
+      if (
+        !context.yearBranch ||
+        !context.monthBranch ||
+        !context.dayBranch ||
+        !context.hourBranch ||
+        !context.fourLessons
+      ) {
+        return null;
+      }
+      const lessonUppers = new Set(context.fourLessons.map((lesson) => lesson.upper));
+      const fourEstablishments = [
+        context.yearBranch,
+        context.monthBranch,
+        context.dayBranch,
+        context.hourBranch,
+      ];
+      if (
+        !fourEstablishments.every((branch) => lessonUppers.has(branch)) ||
+        !context.transmissionBranches.every((branch) => lessonUppers.has(branch))
+      ) {
+        return null;
+      }
+      return {
+        branches: [...fourEstablishments, ...context.transmissionBranches],
+        matchedConditions: [
+          `太岁${context.yearBranch}、月建${context.monthBranch}、日支${context.dayBranch}、占时${context.hourBranch}及三传${context.transmissionBranches.join('、')}均见于四课上神`,
+        ],
+      };
     },
   },
   {

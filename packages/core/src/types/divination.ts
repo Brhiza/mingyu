@@ -794,7 +794,10 @@ export interface LiurenGuaTiFact {
     | '冲神乘破'
     | '贵顺旺相'
     | '课传阴阳'
-    | '三传顺逆';
+    | '三传顺逆'
+    | '贵人顺逆'
+    | '四建聚合'
+    | '课传聚合';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;
