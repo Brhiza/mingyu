@@ -2308,7 +2308,7 @@ function buildBaziFortuneSelectionFromInput(input: JsonRecord): BaziFortuneSelec
     cycleIndex:
       scope === 'natal' || scope === 'full'
         ? undefined
-        : readInteger(input, 'baziFortuneCycleIndex', 0, 99, 0),
+        : readOptionalInteger('baziFortuneCycleIndex', 0, 99),
     year:
       scope === 'year' || scope === 'month' || scope === 'day'
         ? readOptionalInteger('baziFortuneYear', 1900, 2200)

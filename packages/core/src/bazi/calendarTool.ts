@@ -354,6 +354,10 @@ export function getCalendarInfo(date: Date = new Date()): CalendarInfo {
     }
   }
 
+  if (prevJieQiName === '未知' || nextJieQiName === '未知' || !prevJieQiDate || !nextJieQiDate) {
+    throw new Error('当前时刻前后的节气边界不完整，无法生成可靠日历信息。');
+  }
+
   return {
     solarDate: `${year}年${month}月${day}日 ${hour}时`,
     lunarDate: `${lunarYear.getYear()}年${lunarMonth.getName()}${lunarDay.getName()}`,

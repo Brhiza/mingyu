@@ -22,11 +22,10 @@ export function formatYearLabel(yearInfo: LiunianInfo) {
 export function resolveCycleIndex(result: BaziChartResult, selection: BaziFortuneSelectionValue) {
   if (!result.luckInfo.cycles.length) return -1;
 
-  if (
-    typeof selection.cycleIndex === 'number' &&
-    selection.cycleIndex >= 0 &&
-    selection.cycleIndex < result.luckInfo.cycles.length
-  ) {
+  if (typeof selection.cycleIndex === 'number') {
+    if (selection.cycleIndex < 0 || selection.cycleIndex >= result.luckInfo.cycles.length) {
+      throw new Error(`八字岁运 cycleIndex ${selection.cycleIndex} 超出当前命盘的大运范围。`);
+    }
     return selection.cycleIndex;
   }
 
@@ -41,6 +40,7 @@ export function resolveCycleIndex(result: BaziChartResult, selection: BaziFortun
     if (matchedIndex >= 0) {
       return matchedIndex;
     }
+    throw new Error(`八字岁运年份 ${selection.year} 不在当前命盘的大运范围内。`);
   }
 
   const currentYear = new Date().getFullYear();
@@ -66,6 +66,9 @@ export function resolveSelectedYear(
   ) {
     return selection.year;
   }
+  if (typeof selection.year === 'number') {
+    throw new Error(`八字岁运年份 ${selection.year} 不属于所选大运。`);
+  }
 
   const currentYear = new Date().getFullYear();
   const currentItem = cycle.years.find((item) => item.year === currentYear);
@@ -82,6 +85,9 @@ export function resolveSelectedMonth(selection: BaziFortuneSelectionValue) {
     selection.month <= monthOptions.length
   ) {
     return selection.month;
+  }
+  if (typeof selection.month === 'number') {
+    throw new Error(`八字岁运月份 ${selection.month} 超出 ${selection.year} 年的节气月范围。`);
   }
 
   return getBaziMonthIndexByDate(selection.year, new Date()) ?? 1;
@@ -101,6 +107,9 @@ export function resolveSelectedDay(
     selection.day <= dayOptions.length
   ) {
     return selection.day;
+  }
+  if (typeof selection.day === 'number') {
+    throw new Error(`八字岁运日期序号 ${selection.day} 超出所选节气月的流日范围。`);
   }
 
   return getBaziDayIndexByDate(year, month, new Date()) ?? 1;

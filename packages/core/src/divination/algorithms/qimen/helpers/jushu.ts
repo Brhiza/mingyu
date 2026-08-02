@@ -269,7 +269,7 @@ function getDoorByXunShouPalace(palace: number): string {
  */
 export function getQimenJuShu(
   timeInfo: {
-    solar?: {
+    solar: {
       year: number;
       month: number;
       day: number;
@@ -381,30 +381,7 @@ export function getQimenJuShu(
     };
   }
 
-  // 兜底：无 solar 字段时使用日干支序数定元
-  const { jieQi, ganzhi } = timeInfo;
-  const dayGanZhi = ganzhi.day;
-  const rule = jieQiJuShuMap[jieQi as keyof typeof jieQiJuShuMap];
-  if (!rule) {
-    throw new Error(`找不到节气 "${jieQi}" 对应的局数规则。`);
-  }
-  const isYangDun = rule.dun === '阳';
-  if (juMethod === 'zhirun') {
-    throw new Error('置闰法必须提供精确公历日期，不能仅凭日干支和当前节气推算。');
-  }
-  const { yuanIndex, fuTouGanZhi } = getChaibuYuan(dayGanZhi);
-  const yuan = ['上元', '中元', '下元'][yuanIndex];
-  const juShu = rule.ju[yuanIndex];
-  return {
-    isYangDun,
-    juShu,
-    yuan,
-    jieQi,
-    juMethod,
-    fuTou: fuTouGanZhi,
-    isZhiRun: false,
-    juMethodNote: '拆补法兜底：无精确公历时刻时退回日干支序数定元',
-  };
+  throw new Error('奇门定局必须提供精确公历日期，不能仅凭日干支和当前节气推算。');
 }
 
 // ============================================================================

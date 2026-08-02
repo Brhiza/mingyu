@@ -88,6 +88,40 @@ test('近期年限预设会选择当前流月而不是锁定当天', () => {
   });
 });
 
+test('运限选择器对明确给出的越界运、年、月、日应失败关闭', () => {
+  const result = createMockResult();
+
+  assert.throws(
+    () => normalizeFortuneSelection(result, { scope: 'dayun', cycleIndex: 1 }),
+    /超出当前命盘的大运范围/,
+  );
+  assert.throws(
+    () => normalizeFortuneSelection(result, { scope: 'year', cycleIndex: 0, year: 2010 }),
+    /不属于所选大运/,
+  );
+  assert.throws(
+    () =>
+      normalizeFortuneSelection(result, {
+        scope: 'month',
+        cycleIndex: 0,
+        year: 2008,
+        month: 13,
+      }),
+    /超出 2008 年的节气月范围/,
+  );
+  assert.throws(
+    () =>
+      normalizeFortuneSelection(result, {
+        scope: 'day',
+        cycleIndex: 0,
+        year: 2008,
+        month: 1,
+        day: 32,
+      }),
+    /超出所选节气月的流日范围/,
+  );
+});
+
 test('选择大运时会附带该大运下的全部流年', () => {
   const result = createMockResult();
   const context = buildFortuneSelectionContext(result, {

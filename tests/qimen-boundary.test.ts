@@ -392,11 +392,10 @@ test('奇门置闰法在1900至2100年应保持十五日三元连续且只在芒
   }
 });
 
-test('奇门置闰法缺少精确公历日期时应拒绝近似推算', () => {
-  assert.throws(
-    () => getQimenJuShu({ jieQi: '芒种', ganzhi: { day: '甲子' } }, 'zhirun'),
-    /必须提供精确公历日期/,
-  );
+test('奇门拆补法和置闰法缺少精确公历日期时均应拒绝近似推算', () => {
+  const incompleteTime = { jieQi: '芒种', ganzhi: { day: '甲子' } } as never;
+  assert.throws(() => getQimenJuShu(incompleteTime, 'chaibu'), /必须提供精确公历日期/);
+  assert.throws(() => getQimenJuShu(incompleteTime, 'zhirun'), /必须提供精确公历日期/);
 });
 
 test('奇门未知定局方法应明确报错', () => {
