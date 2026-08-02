@@ -489,7 +489,11 @@ test('七政四余真太阳时不得把历史夏令时偏移冒充标准经线',
   assert.equal(result.calculationContext.timezone, 9);
   assert.equal(result.calculationContext.standardMeridian, 120);
   assert.equal(result.calculationContext.standardMeridianSource, '用户提供');
-  assert.match(result.calculationContext.palaceTimeNote ?? '', /标准经线120°，来源用户提供/);
+  assert.match(
+    result.calculationContext.palaceTimeNote ?? '',
+    /标准经线120°，来源用户提供；历史法定时区还原 -60\.00 分/,
+  );
+  assert.match(result.traditionalYearBasis.traditionalDateTime, /^1990-06-15T09:/);
 });
 
 test('二十八宿距星黄经与 Astropy ERFA 独立金标一致', () => {

@@ -255,7 +255,8 @@ export function ResultPage() {
       minute: inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute),
       latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
       longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
-      timezone: 8,
+      timeZoneId: 'Asia/Shanghai',
+      standardMeridian: 120,
       useTrueSolarTime: inputState.useTrueSolarTime,
     };
   }, [baziResult, hasPreciseBirthData, inputState]);
@@ -673,8 +674,15 @@ export function ResultPage() {
   const qizhengCalculation = useMemo<{ data: QizhengResult | null; error: string }>(() => {
     if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
     try {
+      if (sharedBirthData.latitude === undefined || sharedBirthData.longitude === undefined) {
+        throw new Error('七政四余需要出生地，请返回输入页选择出生地。');
+      }
       return {
-        data: generateQizheng(sharedBirthData),
+        data: generateQizheng({
+          ...sharedBirthData,
+          latitude: sharedBirthData.latitude,
+          longitude: sharedBirthData.longitude,
+        }),
         error: '',
       };
     } catch (error) {

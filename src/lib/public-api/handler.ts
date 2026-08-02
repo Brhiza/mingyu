@@ -781,15 +781,21 @@ export function getPublicApiOpenApiDocument(
       '/metaphysics/qizheng/calculate': {
         post: {
           summary: '七政四余排盘',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '十一星、真实距星宿界与结构化证据' } },
+          requestBody: openApiJsonRequestBody('#/components/schemas/QizhengRequest'),
+          responses: {
+            '200': { description: '十一星、真实距星宿界与结构化证据' },
+            '400': { description: '出生时间、地点或时区资料不完整或无效' },
+          },
         },
       },
       '/metaphysics/qizheng/prompt': {
         post: {
           summary: '七政四余排盘并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '七政四余盘与结构化提示词' } },
+          requestBody: openApiJsonRequestBody('#/components/schemas/QizhengRequest'),
+          responses: {
+            '200': { description: '七政四余盘与结构化提示词' },
+            '400': { description: '出生时间、地点或时区资料不完整或无效' },
+          },
         },
       },
       '/metaphysics/xuankong/calculate': {
@@ -1192,6 +1198,30 @@ export function getPublicApiOpenApiDocument(
             promptMode: { type: 'string', description: '提示词模式（prompt 端点）' },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
+        },
+        QizhengRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/MetaphysicsRequest' },
+            {
+              type: 'object',
+              required: ['year', 'month', 'day', 'hour', 'latitude', 'longitude'],
+              anyOf: [{ required: ['timezone'] }, { required: ['timeZoneId'] }],
+              properties: {
+                timeZoneId: {
+                  type: 'string',
+                  minLength: 1,
+                  description: 'IANA 历史时区，例如 Asia/Shanghai',
+                },
+                useTrueSolarTime: { type: 'boolean' },
+                standardMeridian: {
+                  type: 'number',
+                  minimum: -180,
+                  maximum: 180,
+                  description: '真太阳时采用的当地标准经线',
+                },
+              },
+            },
+          ],
         },
         BaziPromptRequest: {
           allOf: [
@@ -2007,11 +2037,14 @@ function calculateQizhengApi(input: JsonRecord) {
   const hour = readInteger(input, 'hour', 0, 23);
   const minute = optInt(input, 'minute', 0, 59) ?? 0;
   buildSolarDate(year, month, day, hour, minute);
-  const latitude = optNumber(input, 'latitude', -90, 90);
-  const longitude = optNumber(input, 'longitude', -180, 180);
+  const latitude = readNumber(input, 'latitude', -90, 90);
+  const longitude = readNumber(input, 'longitude', -180, 180);
   const timezone = optNumber(input, 'timezone', -12, 14);
   const timeZoneId =
     input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
+  if (timezone === undefined && !timeZoneId) {
+    throw new ApiError(400, 'BAD_REQUEST', 'timezone 与 timeZoneId 至少需要提供一项。');
+  }
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
   const standardMeridian = optNumber(input, 'standardMeridian', -180, 180);
   try {
@@ -2021,8 +2054,8 @@ function calculateQizhengApi(input: JsonRecord) {
       day,
       hour,
       minute,
-      ...(latitude !== undefined ? { latitude } : {}),
-      ...(longitude !== undefined ? { longitude } : {}),
+      latitude,
+      longitude,
       ...(timezone !== undefined ? { timezone } : {}),
       ...(timeZoneId ? { timeZoneId } : {}),
       ...(standardMeridian !== undefined ? { standardMeridian } : {}),

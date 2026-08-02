@@ -3243,11 +3243,31 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
 
 test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () => {
   await withMcpClient(async (client) => {
+    const valid = {
+      year: 2024,
+      month: 6,
+      day: 15,
+      hour: 12,
+      latitude: 39.9,
+      longitude: 116.4,
+      timezone: 8,
+    };
     const invalidCalls: Array<[Record<string, unknown>, RegExp | null]> = [
-      [{ year: 2024, month: 6, day: 31, hour: 12 }, /日期需在 1-30 之间/],
-      [{ year: 2024, month: 6, day: 15, hour: 12, latitude: 91 }, null],
-      [{ year: 2024, month: 6, day: 15, hour: 12, longitude: 181 }, null],
-      [{ year: 2024, month: 6, day: 15, hour: 12, timezone: 15 }, null],
+      [{ ...valid, day: 31 }, /日期需在 1-30 之间/],
+      [{ ...valid, latitude: 91 }, null],
+      [{ ...valid, longitude: 181 }, null],
+      [{ ...valid, timezone: 15 }, null],
+      [
+        {
+          year: 2024,
+          month: 6,
+          day: 15,
+          hour: 12,
+          latitude: 39.9,
+          longitude: 116.4,
+        },
+        /timezone 或 timeZoneId|至少.*一项/,
+      ],
     ];
 
     for (const [args, messagePattern] of invalidCalls) {
@@ -3270,6 +3290,16 @@ test('MCP 七政、太乙和玄空不得补造缺失必填参数', async () => {
       ['metaphysics_qizheng', { year: 2024, day: 15, hour: 12 }, null],
       ['metaphysics_qizheng', { year: 2024, month: 6, hour: 12 }, null],
       ['metaphysics_qizheng', { year: 2024, month: 6, day: 15 }, null],
+      [
+        'metaphysics_qizheng',
+        { year: 2024, month: 6, day: 15, hour: 12, longitude: 116.4, timezone: 8 },
+        null,
+      ],
+      [
+        'metaphysics_qizheng',
+        { year: 2024, month: 6, day: 15, hour: 12, latitude: 39.9, timezone: 8 },
+        null,
+      ],
       ['metaphysics_taiyi', { scope: 'year' }, /年计必须提供公历年份/],
       ['metaphysics_taiyi', { scope: 'month', year: 2026 }, null],
       ['metaphysics_taiyi', { scope: 'day', year: 2026 }, null],

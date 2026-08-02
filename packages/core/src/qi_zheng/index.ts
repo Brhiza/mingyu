@@ -292,8 +292,8 @@ export interface QizhengCalculationContext {
   timezone: number;
   latitude: number;
   longitude: number;
-  locationSource: '用户提供' | '默认北京坐标' | '部分坐标使用默认值';
-  timezoneSource: 'IANA历史时区' | '用户提供' | '默认东八区';
+  locationSource: '用户提供';
+  timezoneSource: 'IANA历史时区' | '用户提供';
   standardMeridian?: number;
   standardMeridianSource?: '用户提供' | '固定时区换算';
   astronomicalTime: AstronomicalTimeEvidence;
@@ -350,8 +350,7 @@ export interface QizhengCalculationStep {
 
 export interface QizhengCalculationFact {
   key: 'calculation:qizheng:chart';
-  status: '输入明确' | '含默认值';
-  defaults: string[];
+  status: '输入明确';
   context: {
     localDateTime: string;
     utcDateTime: string;
@@ -364,7 +363,7 @@ export interface QizhengCalculationFact {
   steps: QizhengCalculationStep[];
   promptText: string;
   sources: string[];
-  limitation: '计算链只证明民用时间、时区、地点、天文时间尺度、位置模型和坐标换算如何形成当前七政四余盘；默认地点、近似时间尺度与传统均速模型不得提升为真实出生地或观测级精度，也不证明现实事件或吉凶结果';
+  limitation: '计算链只证明民用时间、明确时区、明确地点、天文时间尺度、位置模型和坐标换算如何形成当前七政四余盘；近似时间尺度与传统均速模型不得提升为观测级精度，也不证明现实事件或吉凶结果';
 }
 
 export interface QizhengPositionSourceFact {
@@ -422,7 +421,6 @@ export interface QizhengCounterEvidenceFact {
   type: '输入完整性' | '位置精度分层' | '星对几何覆盖' | '传统年界口径';
   status:
     | '输入明确'
-    | '含默认值'
     | '同层现代天文'
     | '混合模型'
     | '完整穷举'
@@ -432,7 +430,7 @@ export interface QizhengCounterEvidenceFact {
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录七政四余输入默认值、位置精度分层、55组星对覆盖与传统年界口径是否一致；默认值、混合模型、年界分歧或资料缺口不直接等于现实不利，有资料也不证明吉凶结果';
+  limitation: '反证事实只记录七政四余输入完整性、位置精度分层、55组星对覆盖与传统年界口径是否一致；混合模型、年界分歧或资料缺口不直接等于现实不利，有资料也不证明吉凶结果';
 }
 
 export interface QizhengCounterSummaryFact {
@@ -441,13 +439,13 @@ export interface QizhengCounterSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证汇总只用于防止忽略默认输入、混合精度、星对几何缺口和传统年界分歧；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分';
+  limitation: '反证汇总只用于防止忽略输入完整性、混合精度、星对几何缺口和传统年界分歧；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分';
 }
 
 export interface QizhengLimitationFact {
   key: string;
   type:
-    | '输入默认边界'
+    | '输入完整性边界'
     | '时间尺度边界'
     | '位置来源边界'
     | '混合精度边界'
@@ -483,15 +481,15 @@ const STAR_FACT_LIMITATION =
 const PAIR_GEOMETRY_FACT_LIMITATION =
   '星对几何只描述两星目标日期黄经的最小夹角；混合模型不得提升为现代天文同精度证据，夹角本身不等于传统吊照命中，也不代表吉凶、事件概率或必然结果' as const;
 const CALCULATION_FACT_LIMITATION =
-  '计算链只证明民用时间、时区、地点、天文时间尺度、位置模型和坐标换算如何形成当前七政四余盘；默认地点、近似时间尺度与传统均速模型不得提升为真实出生地或观测级精度，也不证明现实事件或吉凶结果' as const;
+  '计算链只证明民用时间、明确时区、明确地点、天文时间尺度、位置模型和坐标换算如何形成当前七政四余盘；近似时间尺度与传统均速模型不得提升为观测级精度，也不证明现实事件或吉凶结果' as const;
 const POSITION_SOURCE_FACT_LIMITATION =
   '位置来源事实只说明各星体采用的提供方、模型、坐标和精度层级；来源可追溯不等于结果达到观测级精度，也不证明占星解释、现实事件或吉凶结论' as const;
 const QIZHENG_CALCULATION_STEP_LIMITATION =
   '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度宫支、传统命身十二职宫、星对几何穷举与传统年界核验的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率' as const;
 const QIZHENG_COUNTER_FACT_LIMITATION =
-  '反证事实只记录七政四余输入默认值、位置精度分层、55组星对覆盖与传统年界口径是否一致；默认值、混合模型、年界分歧或资料缺口不直接等于现实不利，有资料也不证明吉凶结果' as const;
+  '反证事实只记录七政四余输入完整性、位置精度分层、55组星对覆盖与传统年界口径是否一致；混合模型、年界分歧或资料缺口不直接等于现实不利，有资料也不证明吉凶结果' as const;
 const QIZHENG_COUNTER_SUMMARY_LIMITATION =
-  '反证汇总只用于防止忽略默认输入、混合精度、星对几何缺口和传统年界分歧；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分' as const;
+  '反证汇总只用于防止忽略输入完整性、混合精度、星对几何缺口和传统年界分歧；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分' as const;
 const QIZHENG_LIMITATION_FACT_LIMITATION =
   '限制事实用于约束七政四余输入、时间尺度、位置来源、混合模型、传统规则、月相和光照资料可以支持的解释范围，不得被反向当作现实事件、吉凶或精度证据' as const;
 const QIZHENG_SUMMARY_FACT_LIMITATION =
@@ -508,16 +506,19 @@ function conditionQizhengPortableText(text: string): string {
     .replace(/这是项目明确采用/g, '这是当前计算明确采用');
 }
 
-export interface QizhengInput {
+export interface QizhengTimeInput {
   year: number;
   month: number;
   day: number;
   hour: number;
   minute?: number;
-  latitude?: number;
-  longitude?: number;
   timezone?: number;
   timeZoneId?: string;
+}
+
+export interface QizhengInput extends QizhengTimeInput {
+  latitude: number;
+  longitude: number;
   /**
    * 真太阳时使用的当地标准经线（东经为正，西经为负）。
    * 使用 IANA 历史时区时必须明确提供，禁止把法定钟表偏移直接猜成标准经线。
@@ -1274,7 +1275,28 @@ function assertNumberRange(value: number, label: string, min: number, max: numbe
   }
 }
 
-function validateQizhengInput(input: QizhengInput, includeLocation: boolean): void {
+function shiftQizhengLocalDateTime(
+  value: Pick<QizhengTimeInput, 'year' | 'month' | 'day' | 'hour'> & { minute: number },
+  offsetMinutes: number,
+) {
+  const shifted = new Date(
+    Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute) +
+      offsetMinutes * 60_000,
+  );
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+  };
+}
+
+function validateQizhengInput(
+  input: QizhengTimeInput & Partial<QizhengInput>,
+  includeLocation: boolean,
+): void {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('七政四余参数必须是对象。');
   }
@@ -1287,6 +1309,9 @@ function validateQizhengInput(input: QizhengInput, includeLocation: boolean): vo
   assertIntegerRange(input.hour, '小时', 0, 23);
   assertIntegerRange(input.minute ?? 0, '分钟', 0, 59);
   if (input.timezone !== undefined) assertNumberRange(input.timezone, '时区', -12, 14);
+  if (input.timezone === undefined && !input.timeZoneId?.trim()) {
+    throw new Error('七政四余必须明确提供 timezone 或 timeZoneId，禁止默认使用东八区。');
+  }
   if (input.standardMeridian !== undefined) {
     assertNumberRange(input.standardMeridian, '标准经线', -180, 180);
   }
@@ -1294,8 +1319,11 @@ function validateQizhengInput(input: QizhengInput, includeLocation: boolean): vo
     throw new Error('IANA 时区名不能为空。');
   }
   if (includeLocation) {
-    assertNumberRange(input.latitude ?? 39.9, '纬度', -90, 90);
-    assertNumberRange(input.longitude ?? 116.4, '经度', -180, 180);
+    if (input.latitude === undefined || input.longitude === undefined) {
+      throw new Error('七政四余必须明确提供出生地纬度和经度，禁止使用默认北京坐标。');
+    }
+    assertNumberRange(input.latitude, '纬度', -90, 90);
+    assertNumberRange(input.longitude, '经度', -180, 180);
   }
 }
 
@@ -1332,8 +1360,8 @@ function normalizeQizhengInput(input: QizhengInput): QizhengInput {
     day: input.day,
     hour: input.hour,
     ...(input.minute !== undefined ? { minute: input.minute } : {}),
-    ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
-    ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
+    latitude: input.latitude,
+    longitude: input.longitude,
     ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
     ...(normalizedTimeZoneId !== undefined ? { timeZoneId: normalizedTimeZoneId } : {}),
     ...(input.standardMeridian !== undefined ? { standardMeridian: input.standardMeridian } : {}),
@@ -1354,12 +1382,12 @@ function assertQizhengGenerationTimestamp(timestamp: unknown): asserts timestamp
   }
 }
 
-function getTargetUtcMs(input: QizhengInput): number {
+function getTargetUtcMs(input: QizhengTimeInput): number {
   validateQizhengInput(input, false);
   return buildQizhengAstronomicalTime(input).unixMilliseconds;
 }
 
-function buildQizhengAstronomicalTime(input: QizhengInput): AstronomicalTimeEvidence {
+function buildQizhengAstronomicalTime(input: QizhengTimeInput): AstronomicalTimeEvidence {
   return buildAstronomicalTimeEvidence({
     year: input.year,
     month: input.month,
@@ -1381,7 +1409,7 @@ function getDecimalYear(utcMs: number): number {
 }
 
 /** 依《七政算内篇》单一古法模型计算紫炁回归黄经。 */
-export function calculateZiqiTropicalLongitude(input: QizhengInput): number {
+export function calculateZiqiTropicalLongitude(input: QizhengTimeInput): number {
   const targetUtcMs = getTargetUtcMs(input);
   const elapsedDays = (targetUtcMs - ZIQI_MODERN_EPOCH_UTC_MS) / 86_400_000;
   return normalizeLongitude(ZIQI_MODERN_EPOCH_LONGITUDE + elapsedDays * ZIQI_DAILY_MOTION);
@@ -1405,7 +1433,7 @@ function toSidereal(tropical: number, year: number): number {
 }
 
 /** 返回紫炁的完整可审计位置数据；项目中不存在第二套紫炁计算模型。 */
-export function calculateZiqiPosition(input: QizhengInput): ZiqiPosition {
+export function calculateZiqiPosition(input: QizhengTimeInput): ZiqiPosition {
   const targetUtcMs = getTargetUtcMs(input);
   const tropicalLongitude = calculateZiqiTropicalLongitude(input);
   const siderealLongitude = toSidereal(tropicalLongitude, getDecimalYear(targetUtcMs));
@@ -1529,8 +1557,6 @@ function buildCalculationContext(
   longitude: number,
   astronomicalTime: AstronomicalTimeEvidence,
 ): QizhengCalculationContext {
-  const hasLatitude = input.latitude !== undefined;
-  const hasLongitude = input.longitude !== undefined;
   const moonPhase = calculateMoonPhaseEvidence(astronomicalTime.unixMilliseconds);
   const solarIllumination = calculateSolarIlluminationEvidence({
     year: input.year,
@@ -1550,17 +1576,8 @@ function buildCalculationContext(
     timezone: astronomicalTime.timezone,
     latitude,
     longitude,
-    locationSource:
-      hasLatitude && hasLongitude
-        ? '用户提供'
-        : !hasLatitude && !hasLongitude
-          ? '默认北京坐标'
-          : '部分坐标使用默认值',
-    timezoneSource: input.timeZoneId
-      ? 'IANA历史时区'
-      : input.timezone === undefined
-        ? '默认东八区'
-        : '用户提供',
+    locationSource: '用户提供',
+    timezoneSource: input.timeZoneId ? 'IANA历史时区' : '用户提供',
     astronomicalTime,
     moonPhase,
     solarIllumination,
@@ -1598,11 +1615,8 @@ function buildQizhengCounterEvidenceFacts(args: {
         args.calculationFact.key,
         ...args.calculationFact.steps.map((item) => item.key),
       ],
-      promptText:
-        args.calculationFact.status === '输入明确'
-          ? '出生时间、地点和时区输入明确，未使用默认地点或默认时区'
-          : `本次使用${args.calculationFact.defaults.join('、')}，宫位和光照资料不得宣称已按真实出生地完整校准`,
-      sources: ['七政四余输入完整性与默认值逐项核验'],
+      promptText: '出生时间、地点和时区输入明确，未使用默认地点或默认时区',
+      sources: ['七政四余输入完整性逐项核验'],
       limitation: QIZHENG_COUNTER_FACT_LIMITATION,
     },
     {
@@ -1656,7 +1670,7 @@ function buildQizhengCounterSummaryFact(
     promptText: issueFacts.length
       ? `需保留${issueFacts.map((item) => `${item.type}${item.status}`).join('、')}；不得静默补齐或提升精度`
       : '输入完整性、位置精度分层与星对几何覆盖未见额外缺口',
-    sources: ['输入默认值、位置来源精度与星对几何覆盖逐项汇总'],
+    sources: ['输入完整性、位置来源精度与星对几何覆盖逐项汇总'],
     limitation: QIZHENG_COUNTER_SUMMARY_LIMITATION,
   };
 }
@@ -1680,11 +1694,11 @@ function buildQizhengLimitationFacts(args: {
     Pick<QizhengLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
   > = [
     {
-      key: 'qizheng:limitation:input-defaults',
-      type: '输入默认边界',
+      key: 'qizheng:limitation:input-completeness',
+      type: '输入完整性边界',
       ownerFactKeys: [args.calculationFact.key, 'qizheng:calculation:utc'],
-      promptText: `${args.locationSourceText}；${args.timezoneSourceText}，地点或时区并非明确输入时，不得宣称宫位结果已按真实出生地校准`,
-      sources: ['地点、时区输入与默认值记录'],
+      promptText: `${args.locationSourceText}；${args.timezoneSourceText}，计算只采用明确输入，不从缺失资料猜测地点或时区`,
+      sources: ['地点与时区输入完整性记录'],
     },
     {
       key: 'qizheng:limitation:time-scales',
@@ -1848,20 +1862,13 @@ function buildQizhengEvidence(
     ziqiModel: ZiqiModelInfo;
   },
 ): QizhengEvidenceAnalysis {
-  const locationSourceText =
-    context.locationSource === '用户提供' ? '地点输入明确' : context.locationSource;
+  const locationSourceText = '地点输入明确';
   const timezoneSourceText =
     context.timezoneSource === '用户提供'
       ? '时区输入明确'
       : context.timezoneSource === 'IANA历史时区'
         ? 'IANA历史时区已解析'
         : context.timezoneSource;
-  const defaults = [
-    context.locationSource === '用户提供' ? '' : `地点来源${context.locationSource}`,
-    context.timezoneSource === '用户提供' || context.timezoneSource === 'IANA历史时区'
-      ? ''
-      : `时区来源${context.timezoneSource}`,
-  ].filter(Boolean);
   const calculationSteps: QizhengCalculationStep[] = [
     {
       key: 'qizheng:calculation:utc',
@@ -2012,8 +2019,7 @@ function buildQizhengEvidence(
   ];
   const calculationFact: QizhengCalculationFact = {
     key: 'calculation:qizheng:chart',
-    status: defaults.length ? '含默认值' : '输入明确',
-    defaults,
+    status: '输入明确',
     context: {
       localDateTime: context.localDateTime,
       utcDateTime: context.utcDateTime,
@@ -2165,9 +2171,9 @@ function buildQizhengEvidence(
   );
   const items: PromptEvidenceItem[] = [
     {
-      level: calculationFact.status === '输入明确' ? '辅证' : '反证',
+      level: '辅证',
       title: '七政四余输入与坐标计算链',
-      detail: `${calculationFact.promptText}；${calculationFact.defaults.length ? `默认项：${calculationFact.defaults.join('、')}；` : ''}边界：${calculationFact.limitation}`,
+      detail: `${calculationFact.promptText}；边界：${calculationFact.limitation}`,
       source: calculationFact.sources.join('、'),
       tags: ['计算链', calculationFact.status],
     },
@@ -2300,7 +2306,7 @@ function buildQizhengEvidence(
       '按《张果星宗》逐项保留传统神煞起例目标支；先比较农历年干支与立春年柱，年界口径不一致时不自动选边。',
       '月相只保留日月黄经差、照明近似和前后朔弦望时刻，不把月相直接解释为吉凶。',
       '太阳高度与日出日落只作为地点相关的天文光照背景，不直接生成庙旺或吉凶结论。',
-      '最终把输入缺省、模型差异和坐标近似作为强制限制证据。',
+      '最终把输入完整性、模型差异和坐标近似作为强制限制证据。',
     ],
   };
 }
@@ -2308,8 +2314,8 @@ function buildQizhengEvidence(
 function buildQizheng(input: QizhengInput, timestamp: number): QizhengResult {
   input = normalizeQizhengInput(input);
   assertQizhengGenerationTimestamp(timestamp);
-  const lat = input.latitude ?? 39.9;
-  const lon = input.longitude ?? 116.4;
+  const lat = input.latitude;
+  const lon = input.longitude;
   const astronomicalTime = buildQizhengAstronomicalTime(input);
   const tz = astronomicalTime.timezone;
   const calculationContext = buildCalculationContext(input, lat, lon, astronomicalTime);
@@ -2341,7 +2347,8 @@ function buildQizheng(input: QizhengInput, timestamp: number): QizhengResult {
       standardMeridianSource = '固定时区换算';
       standardMeridian = tz * 15;
     }
-    const trueSolar = calculateTrueSolarTime(
+    const legalOffsetCorrectionMinutes = input.timeZoneId ? (standardMeridian / 15 - tz) * 60 : 0;
+    const standardTime = shiftQizhengLocalDateTime(
       {
         year: input.year,
         month: input.month,
@@ -2349,15 +2356,15 @@ function buildQizheng(input: QizhengInput, timestamp: number): QizhengResult {
         hour: input.hour,
         minute: input.minute ?? 0,
       },
-      lon,
-      standardMeridian,
+      legalOffsetCorrectionMinutes,
     );
+    const trueSolar = calculateTrueSolarTime(standardTime, lon, standardMeridian);
     palaceHour = trueSolar.correctedTime.hour;
     palaceMinute = trueSolar.correctedTime.minute;
     traditionalDateParts = trueSolar.correctedTime;
     calculationContext.standardMeridian = standardMeridian;
     calculationContext.standardMeridianSource = standardMeridianSource;
-    trueSolarNote = `传统命宫所用生时与可能跨日的年界已按真太阳时校正（标准经线${standardMeridian}°，来源${standardMeridianSource}；经度修正 ${trueSolar.longitudeCorrectionMinutes.toFixed(2)} 分，均时差 ${trueSolar.equationOfTimeMinutes.toFixed(2)} 分）；身宫直接取太阴所在宫，七政四余位置仍用现代星历`;
+    trueSolarNote = `传统命宫所用生时与可能跨日的年界已按真太阳时校正（标准经线${standardMeridian}°，来源${standardMeridianSource}；历史法定时区还原 ${legalOffsetCorrectionMinutes.toFixed(2)} 分；经度修正 ${trueSolar.longitudeCorrectionMinutes.toFixed(2)} 分，均时差 ${trueSolar.equationOfTimeMinutes.toFixed(2)} 分）；身宫直接取太阴所在宫，七政四余位置仍用现代星历`;
     calculationContext.palaceTimeNote = trueSolarNote;
   } else {
     calculationContext.palaceTimeNote = trueSolarNote;

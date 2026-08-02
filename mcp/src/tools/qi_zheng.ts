@@ -15,17 +15,22 @@ const qiZhengSchema = z.object({
   day: z.number().int().min(1).max(31).describe('日'),
   hour: z.number().int().min(0).max(23).describe('时'),
   minute: z.number().int().min(0).max(59).optional().describe('分'),
-  latitude: z.number().min(-90).max(90).optional().describe('纬度（默认北京）'),
-  longitude: z.number().min(-180).max(180).optional().describe('经度（默认北京）'),
+  latitude: z.number().min(-90).max(90).describe('出生地纬度，必须明确提供'),
+  longitude: z.number().min(-180).max(180).describe('出生地经度，必须明确提供'),
   useTrueSolarTime: z
     .boolean()
     .optional()
     .describe('是否用真太阳时校正命宫所用生时与可能跨日的传统年界；身宫仍取太阴所在宫'),
-  timezone: z.number().min(-12).max(14).optional().describe('时区偏移（默认 +8）'),
+  timezone: z
+    .number()
+    .min(-12)
+    .max(14)
+    .optional()
+    .describe('固定时区偏移；与 timeZoneId 至少明确提供一项'),
   timeZoneId: z
     .string()
     .optional()
-    .describe('IANA 历史时区，例如 Asia/Shanghai；提供后会自动解析当年的夏令时'),
+    .describe('IANA 历史时区，例如 Asia/Shanghai；与 timezone 至少明确提供一项'),
   standardMeridian: z
     .number()
     .min(-180)

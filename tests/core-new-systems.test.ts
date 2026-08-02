@@ -1102,6 +1102,9 @@ test('qizheng: 应返回十一星、二十八宿界、完整星对几何与传�
     month: 6,
     day: 15,
     hour: 12,
+    latitude: 39.9,
+    longitude: 116.4,
+    timezone: 8,
   });
   assert.equal(result.stars.length, 11);
   assert.equal(result.mansionBoundaries.length, 28);
@@ -1117,8 +1120,35 @@ test('qizheng: 应返回十一星、二十八宿界、完整星对几何与传�
   assert.equal(result.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
 });
 
-test('qizheng: 核心入口仍应优先拒绝无效输入', () => {
-  const valid = { year: 2024, month: 6, day: 15, hour: 12 };
+test('qizheng: 核心入口仍应优先拒绝无效或缺失输入', () => {
+  const valid = {
+    year: 2024,
+    month: 6,
+    day: 15,
+    hour: 12,
+    latitude: 39.9,
+    longitude: 116.4,
+    timezone: 8,
+  };
+  const generateUnchecked = core.qizheng.generateQizheng as (
+    input: Record<string, unknown>,
+  ) => unknown;
+  assert.throws(
+    () => generateUnchecked({ year: 2024, month: 6, day: 15, hour: 12, timezone: 8 }),
+    /必须明确提供出生地纬度和经度/,
+  );
+  assert.throws(
+    () =>
+      generateUnchecked({
+        year: 2024,
+        month: 6,
+        day: 15,
+        hour: 12,
+        latitude: 39.9,
+        longitude: 116.4,
+      }),
+    /必须明确提供 timezone 或 timeZoneId/,
+  );
   assert.throws(() => core.qizheng.generateQizheng({ ...valid, day: 31 }), /日期需在 1-30 之间/);
   assert.throws(() => core.qizheng.generateQizheng({ ...valid, hour: 24 }), /小时需在 0-23 之间/);
   assert.throws(

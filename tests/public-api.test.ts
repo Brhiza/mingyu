@@ -313,7 +313,15 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     body.data.paths['/metaphysics/qizheng/prompt'].post.responses['200'].description,
     '七政四余盘与结构化提示词',
   );
-  assert.equal(body.data.paths['/metaphysics/qizheng/calculate'].post.responses['400'], undefined);
+  assert.equal(
+    body.data.paths['/metaphysics/qizheng/calculate'].post.responses['400'].description,
+    '出生时间、地点或时区资料不完整或无效',
+  );
+  assert.equal(
+    body.data.paths['/metaphysics/qizheng/calculate'].post.requestBody.content['application/json']
+      .schema.$ref,
+    '#/components/schemas/QizhengRequest',
+  );
   assert.equal(
     body.data.paths['/foundation/shensha'].post.requestBody.content['application/json'].schema.$ref,
     '#/components/schemas/FoundationShenshaRequest',
@@ -6079,6 +6087,18 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     ['metaphysics/qizheng/calculate', { year: 2026, month: 2, day: 30, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, latitude: 120 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, timezone: 15 }],
+    [
+      'metaphysics/qizheng/calculate',
+      { year: 2026, month: 1, day: 1, hour: 12, longitude: 116.4, timezone: 8 },
+    ],
+    [
+      'metaphysics/qizheng/calculate',
+      { year: 2026, month: 1, day: 1, hour: 12, latitude: 39.9, timezone: 8 },
+    ],
+    [
+      'metaphysics/qizheng/calculate',
+      { year: 2026, month: 1, day: 1, hour: 12, latitude: 39.9, longitude: 116.4 },
+    ],
     ['metaphysics/xuankong/calculate', { sitMountain: '子' }],
   ] as const;
 
