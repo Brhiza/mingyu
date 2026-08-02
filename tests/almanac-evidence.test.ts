@@ -476,14 +476,14 @@ test('择日参与人冲、固定刑、害、破应保留逐项结构化依据�
   assert.doesNotMatch(JSON.stringify(facts), /"score"\s*:/);
 });
 
-test('旧结果中的参与人冲、固定刑、害、破不得继续把候选降为慎用', () => {
+test('公开审核应从原始输入重建并忽略旧参与人关系污染', () => {
   const createLegacyData = () =>
     generateAlmanacSelection({
       topic: 'custom',
       startDate: '2026-01-03',
       endDate: '2026-01-03',
     });
-  const baseline = analyzeAlmanacEvidence(createLegacyData());
+  const baseline = analyzeAuditedAlmanacEvidence(createLegacyData());
 
   const structuredData = createLegacyData();
   const structuredDay = structuredData.days[0];
@@ -504,32 +504,27 @@ test('旧结果中的参与人冲、固定刑、害、破不得继续把候选�
       limitation: '旧结果',
     },
   ];
-  const structuredEvidence = analyzeAlmanacEvidence(structuredData);
+  const structuredEvidence = analyzeAuditedAlmanacEvidence(structuredData);
   const structuredCandidate = structuredEvidence.candidates[0];
 
   assert.equal(structuredCandidate.status, baseline.candidates[0].status);
-  assert.equal(structuredCandidate.participantRelationFacts[0].status, '未采用');
-  assert.match(structuredCandidate.participantRelationFacts[0].promptText, /不自动改变候选分组/);
+  assert.deepEqual(structuredCandidate.participantRelationFacts, []);
   assert.deepEqual(structuredCandidate.participantConflicts, []);
-  assert.ok(
-    structuredCandidate.decisionFact.limitingFactKeys.every(
-      (key) => !key.includes(':participant:'),
-    ),
-  );
+  assert.doesNotMatch(structuredEvidence.promptText, /旧参与人/);
 
   const textData = createLegacyData();
   const textDay = textData.days[0];
-  textDay.participantRelationFacts = undefined;
+  delete (textDay as Partial<typeof textDay>).participantRelationFacts;
   textDay.participantNotes = ['旧参与人：候选日地支丑害生肖/年支午，需谨慎'];
-  const textCandidate = analyzeAlmanacEvidence(textData).candidates[0];
+  assert.throws(() => analyzeAlmanacEvidence(textData), /结构化派生字段不完整/);
+  const textCandidate = analyzeAuditedAlmanacEvidence(textData).candidates[0];
 
   assert.equal(textCandidate.status, baseline.candidates[0].status);
-  assert.equal(textCandidate.participantRelationFacts[0].status, '未采用');
-  assert.match(textCandidate.participantRelationFacts[0].promptText, /不自动改变候选分组/);
+  assert.deepEqual(textCandidate.participantRelationFacts, []);
   assert.deepEqual(textCandidate.participantConflicts, []);
 });
 
-test('旧结果中的参与人简单喜忌支持只保留为未采用参考', () => {
+test('公开审核不得采用旧结果中的参与人简单喜忌支持', () => {
   const data = generateAlmanacSelection({
     topic: 'custom',
     startDate: '2026-01-03',
@@ -554,18 +549,12 @@ test('旧结果中的参与人简单喜忌支持只保留为未采用参考', ()
     },
   ];
 
-  const candidate = analyzeAlmanacEvidence(data).candidates[0];
+  const evidence = analyzeAuditedAlmanacEvidence(data);
+  const candidate = evidence.candidates[0];
 
-  assert.equal(candidate.participantRelationFacts[0].status, '未采用');
-  assert.match(candidate.participantRelationFacts[0].promptText, /仅保留原说明供核对/);
+  assert.deepEqual(candidate.participantRelationFacts, []);
   assert.deepEqual(candidate.participantSupport, []);
-  assert.ok(
-    candidate.decisionFact.supportingFactKeys.every((key) => !key.includes(':participant:')),
-  );
-  assert.equal(
-    candidate.decisionFact.steps.find((step) => step.stage === '参与人关系')?.status,
-    '通过',
-  );
+  assert.doesNotMatch(evidence.promptText, /旧参与人|命中喜用火/);
 });
 
 test('择日不应把候选日干支五行简单命中喜忌作为限制或支持', () => {
@@ -599,35 +588,35 @@ test('择日不应把候选日干支五行简单命中喜忌作为限制或支�
   assert.ok(!candidate.participantSupport.some((item) => /命中喜用|触及忌神/.test(item)));
 });
 
-test('旧黄历字符串结果应生成兼容事实且不反推缺失参数', () => {
+test('黄历内部证据层应拒绝残缺派生数据，公开入口应从原始输入重建', () => {
   const result = generateAlmanacSelection({
     topic: 'contract',
     startDate: '2026-06-01',
     endDate: '2026-06-01',
   });
   const day = result.days[0];
-  day.topicMatchFacts = undefined;
-  day.godFacts = undefined;
-  day.participantRelationFacts = undefined;
-  for (const hour of day.hours ?? []) {
-    hour.topicMatchFacts = undefined;
-    hour.participantRelationFacts = undefined;
+  delete (day as Partial<typeof day>).topicMatchFacts;
+  delete (day as Partial<typeof day>).godFacts;
+  delete (day as Partial<typeof day>).participantRelationFacts;
+  for (const hour of day.hours) {
+    delete (hour as Partial<typeof hour>).topicMatchFacts;
+    delete (hour as Partial<typeof hour>).participantRelationFacts;
   }
 
-  const evidence = analyzeAlmanacEvidence(result);
+  assert.throws(() => analyzeAlmanacEvidence(result), /结构化派生字段不完整/);
+  const evidence = analyzeAuditedAlmanacEvidence(result);
   const candidate = evidence.candidates[0];
-  assert.ok(candidate.topicMatchFacts.every((item) => item.key.includes(':legacy-topic:')));
-  assert.ok(candidate.godFacts.every((item) => item.key.includes(':legacy-god:')));
+  assert.ok(candidate.topicMatchFacts.every((item) => !item.key.includes(':legacy-topic:')));
+  assert.ok(candidate.godFacts.every((item) => !item.key.includes(':legacy-god:')));
   assert.ok(candidate.godFacts.every((item) => item.classification === '未分级'));
-  assert.ok(candidate.godFacts.every((item) => /未保存原生吉凶分类/.test(item.promptText)));
   assert.ok(
     candidate.topicMatchFacts.every((item) =>
-      item.sources.some((source) => source.includes('未保存原始关键词匹配参数')),
+      item.sources.some((source) => source.includes('当前产品事项直接对应词表')),
     ),
   );
   assert.ok(
     candidate.usableHours.every((hour) =>
-      hour.topicMatchFacts.every((item) => item.key.includes(':legacy-topic:')),
+      hour.topicMatchFacts.every((item) => !item.key.includes(':legacy-topic:')),
     ),
   );
 });
@@ -639,7 +628,7 @@ test('旧结果中的已删除建除与神煞事项硬规则不得继续改变�
     endDate: '2026-01-01',
   });
   const legacyTextDay = legacyTextData.days[0];
-  legacyTextDay.topicMatchFacts = undefined;
+  delete (legacyTextDay as Partial<typeof legacyTextDay>).topicMatchFacts;
   legacyTextDay.highlights = ['事项规则支持执日闭', '执日闭宜自定义事项'];
   legacyTextDay.cautions = [
     '事项规则限制执日闭',
@@ -647,10 +636,10 @@ test('旧结果中的已删除建除与神煞事项硬规则不得继续改变�
     '执日闭宜收敛修补安床，忌出行动土移徙',
   ];
 
-  const legacyTextEvidence = analyzeAlmanacEvidence(legacyTextData);
+  const legacyTextEvidence = analyzeAuditedAlmanacEvidence(legacyTextData);
   const legacyTextCandidate = legacyTextEvidence.candidates[0];
   assert.equal(legacyTextCandidate.status, '可用候选');
-  assert.equal(legacyTextCandidate.topicMatchFacts.length, 0);
+  assert.equal(legacyTextCandidate.topicMatchFacts.length, 2);
   assert.doesNotMatch(
     [
       ...legacyTextCandidate.traditionalSupport,
@@ -686,7 +675,7 @@ test('旧结果中的已删除建除与神煞事项硬规则不得继续改变�
     },
   ];
 
-  const legacyFactCandidate = analyzeAlmanacEvidence(legacyFactData).candidates[0];
+  const legacyFactCandidate = analyzeAuditedAlmanacEvidence(legacyFactData).candidates[0];
   assert.equal(legacyFactCandidate.status, '可用候选');
   assert.ok(
     legacyFactCandidate.topicMatchFacts.every(

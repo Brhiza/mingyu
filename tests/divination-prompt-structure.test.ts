@@ -469,7 +469,7 @@ test('择日提示词从原始输入重建神煞分类，不吸收旧事项规�
   });
   const clean = buildDivinationPrompt('almanac', '', data);
   const polluted = structuredClone(data);
-  polluted.days[0].godFacts = undefined;
+  delete (polluted.days[0] as Partial<(typeof polluted.days)[number]>).godFacts;
   polluted.days[0].highlights = ['事项规则命中喜神四相'];
   polluted.days[0].cautions = ['事项规则触及忌神游祸'];
 

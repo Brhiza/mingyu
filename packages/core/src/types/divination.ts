@@ -798,27 +798,27 @@ export interface LiurenData {
   /** Unix 时间戳（毫秒） */
   timestamp: number;
   /** 昼夜占：昼占或夜占 */
-  dayNight?: '昼占' | '夜占';
+  dayNight: '昼占' | '夜占';
   /** 月将（所用太阳过宫） */
   monthLeader: string;
   /** 占时地支（起课时辰） */
   divinationBranch: string;
   /** 贵人临支 */
-  noblemanBranch?: string;
+  noblemanBranch: string;
   /** 贵人所临地盘 */
-  noblemanGroundBranch?: string;
+  noblemanGroundBranch: string;
   /** 旬空地支 */
-  xunKong?: string[];
+  xunKong: string[];
   /** 发用规则名称（如涉害、遥克、昴星等九宗门） */
-  transmissionRule?: string;
+  transmissionRule: string;
   /** 三传特殊模式：伏吟/反吟/回环/递传 */
-  transmissionPattern?: '伏吟' | '反吟' | '回环' | '递传';
+  transmissionPattern: '伏吟' | '反吟' | '回环' | '递传';
   /** 三传详细说明 */
-  transmissionDetail?: string;
+  transmissionDetail: string;
   /** 地盘十二支 */
-  earthlyPlate?: string[];
+  earthlyPlate: string[];
   /** 日干寄宫 */
-  dayStemResidence?: string;
+  dayStemResidence: string;
   /** 天盘（十二支加十二天将） */
   heavenlyPlate: LiurenPlateItem[];
   /** 四课 */
@@ -826,23 +826,23 @@ export interface LiurenData {
   /** 三传（初传/中传/末传） */
   threeTransmissions: LiurenTransmission[];
   /** 课体标签 */
-  patternTags?: string[];
+  patternTags: string[];
   /** 经典课体 */
-  classicalRules?: LiurenClassicalRule[];
+  classicalRules: LiurenClassicalRule[];
   /** 四课概要总结 */
-  lessonSummary?: string;
+  lessonSummary: string;
   /** 三传概要总结 */
-  transmissionSummary?: string;
+  transmissionSummary: string;
   /** 课体名称列表 */
-  guaTi?: string[];
+  guaTi: string[];
   /** 逐项登记、可复算且带固定古籍来源的课体事实 */
-  guaTiFacts?: LiurenGuaTiFact[];
+  guaTiFacts: LiurenGuaTiFact[];
   /** 神煞汇总 */
-  shenShaSummary?: string[];
+  shenShaSummary: string[];
   /** 可逐项复算的神煞定位事实 */
-  shenShaFacts?: LiurenShenShaFact[];
+  shenShaFacts: LiurenShenShaFact[];
   /** 三传天将的配干支、五行与阴阳基础事实 */
-  tianJiangProps?: Record<
+  tianJiangProps: Record<
     string,
     {
       stem: string;
@@ -851,14 +851,14 @@ export interface LiurenData {
       yinYang: string;
     }
   >;
-  focusEvidence?: Array<{
+  focusEvidence: Array<{
     target: string;
     role: string;
     level: '主证' | '辅证';
     evidence: string[];
     limitations: string[];
   }>;
-  timingEvidence?: string[];
+  timingEvidence: string[];
 }
 
 export interface TarotData {
@@ -1012,7 +1012,7 @@ export interface AlmanacParticipantRelationFact {
 export interface AlmanacDayCandidate {
   date: string;
   /** 以该民用日期中国标准时间12:00为统一参照的月相事实，不参与传统宜忌评分。 */
-  moonPhaseEvidence?: MoonPhaseEvidence;
+  moonPhaseEvidence: MoonPhaseEvidence;
   weekday: string;
   lunarDate: string;
   ganzhi: {
@@ -1024,7 +1024,7 @@ export interface AlmanacDayCandidate {
   dayOfficer: string;
   twelveStar: string;
   twentyEightStar: string;
-  twentyEightStarDetail?: {
+  twentyEightStarDetail: {
     fullName: string;
     sevenStar: string;
     animal: string;
@@ -1037,19 +1037,19 @@ export interface AlmanacDayCandidate {
   avoids: string[];
   /** 当前仅保存可复算的日支固定相冲，例如“冲午”。 */
   clash: string;
-  annualDirectionGods?: AlmanacAnnualDirectionGod[];
+  annualDirectionGods: AlmanacAnnualDirectionGod[];
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
-  topicMatchFacts?: AlmanacTopicMatchFact[];
-  godFacts?: AlmanacGodFact[];
-  participantRelationFacts?: AlmanacParticipantRelationFact[];
-  hours?: AlmanacHourCandidate[];
+  topicMatchFacts: AlmanacTopicMatchFact[];
+  godFacts: AlmanacGodFact[];
+  participantRelationFacts: AlmanacParticipantRelationFact[];
+  hours: AlmanacHourCandidate[];
   /**
    * 兼容字段：按“可用候选、条件候选”分组并保持组内自然时序的无强冲突时辰全集；
    * 不表示唯一最佳，也不按支持项数量截取名次。慎用时辰仍保留在 hours。
    */
-  bestHours?: AlmanacHourCandidate[];
+  bestHours: AlmanacHourCandidate[];
 }
 
 export interface AlmanacHourCandidate {
@@ -1063,8 +1063,8 @@ export interface AlmanacHourCandidate {
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
-  topicMatchFacts?: AlmanacTopicMatchFact[];
-  participantRelationFacts?: AlmanacParticipantRelationFact[];
+  topicMatchFacts: AlmanacTopicMatchFact[];
+  participantRelationFacts: AlmanacParticipantRelationFact[];
 }
 
 export interface AlmanacData {

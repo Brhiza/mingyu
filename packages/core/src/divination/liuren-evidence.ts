@@ -103,17 +103,17 @@ export interface LiurenTransitionFact {
 
 export interface LiurenTransmissionRuleFact {
   key: 'liuren:transmission-rule';
-  status: '已确定' | '缺少规则名';
-  rule: string | null;
-  pattern: LiurenData['transmissionPattern'] | null;
+  status: '已确定';
+  rule: string;
+  pattern: LiurenData['transmissionPattern'];
   initialBranch: string;
   initialGod: string;
   initialSourceLessonKeys: string[];
-  detail: string | null;
+  detail: string;
   classicalRuleKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '取传规则事实只说明当前四课如何形成初传及三传模式；缺少规则名时不得按结果反推九宗门名称，也不单独证明现实吉凶或应期';
+  limitation: '取传规则事实只说明当前四课如何形成初传及三传模式，不单独证明现实吉凶或应期';
 }
 
 export interface LiurenCounterEvidenceFact {
@@ -187,11 +187,11 @@ export interface LiurenCalculationFact {
   ganzhi: LiurenData['ganzhi'];
   monthLeader: string;
   divinationBranch: string;
-  dayNight: LiurenData['dayNight'] | '未列';
-  noblemanBranch?: string;
-  noblemanGroundBranch?: string;
+  dayNight: LiurenData['dayNight'];
+  noblemanBranch: string;
+  noblemanGroundBranch: string;
   dayStem: string;
-  dayStemResidence?: string;
+  dayStemResidence: string;
   xunKong: string[];
   promptText: string;
   sources: string[];
@@ -379,7 +379,7 @@ const TRANSMISSION_FACT_LIMITATION =
 const TRANSITION_FACT_LIMITATION =
   '相邻传推进事实只描述三传先后与地支关系，不证明现实事件必然推进、停滞、成功或失败' as const;
 const RULE_FACT_LIMITATION =
-  '取传规则事实只说明当前四课如何形成初传及三传模式；缺少规则名时不得按结果反推九宗门名称，也不单独证明现实吉凶或应期' as const;
+  '取传规则事实只说明当前四课如何形成初传及三传模式，不单独证明现实吉凶或应期' as const;
 const COUNTER_FACT_LIMITATION =
   '反证事实只表示盘内存在经当前口径确认的限制条件；旬空、生克及固定地支关系不得脱离类神、事项和作用方向自动列为反证，也不得把单项反证直接写成现实失败、灾祸或必然结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
@@ -412,7 +412,7 @@ function buildTraditionalFacts(
   data: LiurenData,
   patternEvidence: string[],
 ): LiurenTraditionalFact[] {
-  const classicalFacts = (data.classicalRules ?? []).map((item, index): LiurenTraditionalFact => ({
+  const classicalFacts = data.classicalRules.map((item, index): LiurenTraditionalFact => ({
     key: `classical:${index}:${item.rule}`,
     kind: '经典取传规则',
     name: item.rule,
@@ -421,8 +421,8 @@ function buildTraditionalFacts(
     sources: [item.source],
     limitation: TRADITIONAL_FACT_LIMITATION,
   }));
-  const registeredNames = new Set((data.guaTiFacts ?? []).map((fact) => fact.name));
-  const registeredPatternFacts = (data.guaTiFacts ?? []).map((fact): LiurenTraditionalFact => ({
+  const registeredNames = new Set(data.guaTiFacts.map((fact) => fact.name));
+  const registeredPatternFacts = data.guaTiFacts.map((fact): LiurenTraditionalFact => ({
     key: fact.stableKey,
     kind: '课体',
     name: fact.name,
@@ -446,7 +446,7 @@ function buildTraditionalFacts(
   const tianJiangFacts = Array.from(
     data.threeTransmissions
       .reduce((facts, transmission) => {
-        const props = data.tianJiangProps?.[transmission.god];
+        const props = data.tianJiangProps[transmission.god];
         if (!props) return facts;
         const previous = facts.get(transmission.god);
         const originalText = `${props.stem}${props.branch}${props.wuxing}${props.yinYang}`;
@@ -469,34 +469,24 @@ function buildTraditionalFacts(
       }, new Map<string, LiurenTraditionalFact>())
       .values(),
   );
-  const shenShaFacts = data.shenShaFacts?.length
-    ? data.shenShaFacts.map((fact, index): LiurenTraditionalFact => {
-        const text = `${fact.name}在${fact.target}`;
-        return {
-          key: `shensha:${index}:${fact.name}:${fact.target}`,
-          kind: '神煞',
-          name: fact.name,
-          originalText: text,
-          promptText: `${fact.basis}${fact.input}，按“${fact.rule}”定位${fact.name}在${fact.target}`,
-          sources: [...fact.sources],
-          branches:
-            fact.targetType === '地支'
-              ? [fact.target]
-              : fact.targetType === '地支集合'
-                ? fact.target.split('、')
-                : undefined,
-          limitation: TRADITIONAL_FACT_LIMITATION,
-        };
-      })
-    : (data.shenShaSummary ?? []).map((text, index): LiurenTraditionalFact => ({
-        key: `shensha:${index}:${text}`,
-        kind: '神煞',
-        name: text.replace(/在.+$/, ''),
-        originalText: text,
-        promptText: `旧结果只保存“${conditionLiurenTraditionalText(text)}”，未保存起法输入，不能据此复算`,
-        sources: ['旧结果未保存逐项起法与来源'],
-        limitation: TRADITIONAL_FACT_LIMITATION,
-      }));
+  const shenShaFacts = data.shenShaFacts.map((fact, index): LiurenTraditionalFact => {
+    const text = `${fact.name}在${fact.target}`;
+    return {
+      key: `shensha:${index}:${fact.name}:${fact.target}`,
+      kind: '神煞',
+      name: fact.name,
+      originalText: text,
+      promptText: `${fact.basis}${fact.input}，按“${fact.rule}”定位${fact.name}在${fact.target}`,
+      sources: [...fact.sources],
+      branches:
+        fact.targetType === '地支'
+          ? [fact.target]
+          : fact.targetType === '地支集合'
+            ? fact.target.split('、')
+            : undefined,
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    };
+  });
 
   return [
     ...classicalFacts,
@@ -792,7 +782,7 @@ function buildTimingFacts(
   transmissions: LiurenTransmissionEvidence[],
 ): { timingFacts: LiurenTimingFact[]; normalizedInput: string[] } {
   const initial = transmissions[0];
-  const normalizedInput = Array.from(new Set(data.timingEvidence ?? [])).filter((item) => {
+  const normalizedInput = Array.from(new Set(data.timingEvidence)).filter((item) => {
     if (!item.includes(`初传${initial.branch}`)) return true;
     return initial.isVoid
       ? !new RegExp(`初传${initial.branch}不空`).test(item)
@@ -874,7 +864,7 @@ function buildFocusFacts(
   transmissions: LiurenTransmissionEvidence[],
 ): LiurenFocusFact[] {
   const initial = transmissions[0];
-  return (data.focusEvidence ?? []).map((item, index) => {
+  return data.focusEvidence.map((item, index) => {
     const isInitialFocus = item.target.startsWith(`初传${initial.branch}`);
     const evidence = isInitialFocus
       ? [
@@ -1050,13 +1040,13 @@ function buildCalculationFact(data: LiurenData, xunKong: string[]): LiurenCalcul
     ganzhi: { ...data.ganzhi },
     monthLeader: data.monthLeader,
     divinationBranch: data.divinationBranch,
-    dayNight: data.dayNight ?? '未列',
+    dayNight: data.dayNight,
     noblemanBranch: data.noblemanBranch,
     noblemanGroundBranch: data.noblemanGroundBranch,
     dayStem,
     dayStemResidence: data.dayStemResidence,
     xunKong: [...xunKong],
-    promptText: `四柱干支为年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}；月将${data.monthLeader}加占时${data.divinationBranch}；${data.dayNight ?? '昼夜未列'}，日干贵人${data.noblemanBranch ?? '未列'}${data.noblemanGroundBranch ? `临地盘${data.noblemanGroundBranch}` : ''}；日干${dayStem}寄${data.dayStemResidence ?? '未列'}；日柱旬空${xunKong.join('、') || '未列'}`,
+    promptText: `四柱干支为年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}；月将${data.monthLeader}加占时${data.divinationBranch}；${data.dayNight}，日干贵人${data.noblemanBranch}临地盘${data.noblemanGroundBranch}；日干${dayStem}寄${data.dayStemResidence}；日柱旬空${xunKong.join('、')}`,
     sources: [
       '占时四柱与月将中气切换计算',
       '月将加时天地盘规则',
@@ -1144,8 +1134,7 @@ function buildSummaryFact(params: {
     params.plateFact.status === '完整' &&
     params.lessons.length === 4 &&
     params.transmissions.length === 3 &&
-    params.transitionFacts.length === 2 &&
-    params.transmissionRuleFact.status === '已确定'
+    params.transitionFacts.length === 2
       ? '证据链完整'
       : '证据链有缺口';
   return {
@@ -1203,10 +1192,10 @@ function buildCalculationSteps(params: {
         divinationBranch: params.calculationFact.divinationBranch,
       },
       result: {
-        dayNight: params.calculationFact.dayNight ?? '未列',
-        noblemanBranch: params.calculationFact.noblemanBranch ?? '未列',
-        noblemanGroundBranch: params.calculationFact.noblemanGroundBranch ?? '未列',
-        dayStemResidence: params.calculationFact.dayStemResidence ?? '未列',
+        dayNight: params.calculationFact.dayNight,
+        noblemanBranch: params.calculationFact.noblemanBranch,
+        noblemanGroundBranch: params.calculationFact.noblemanGroundBranch,
+        dayStemResidence: params.calculationFact.dayStemResidence,
         xunKong: params.calculationFact.xunKong,
       },
       dependsOnStepKeys: [],
@@ -1223,7 +1212,7 @@ function buildCalculationSteps(params: {
       inputs: {
         monthLeader: params.calculationFact.monthLeader,
         divinationBranch: params.calculationFact.divinationBranch,
-        noblemanGroundBranch: params.calculationFact.noblemanGroundBranch ?? '未列',
+        noblemanGroundBranch: params.calculationFact.noblemanGroundBranch,
       },
       result: {
         coverageStatus: params.plateFact.status,
@@ -1259,15 +1248,15 @@ function buildCalculationSteps(params: {
     {
       key: 'liuren:calculation:transmission-rule',
       stage: '取传规则核验',
-      status: params.transmissionRuleFact.status === '已确定' ? '已计算' : '资料不足',
+      status: '已计算',
       inputs: {
         lessonCount: params.lessons.length,
         initialSourceLessonKeys: params.transmissionRuleFact.initialSourceLessonKeys,
       },
       result: {
         ruleStatus: params.transmissionRuleFact.status,
-        rule: params.transmissionRuleFact.rule ?? '未记录',
-        pattern: params.transmissionRuleFact.pattern ?? '未记录',
+        rule: params.transmissionRuleFact.rule,
+        pattern: params.transmissionRuleFact.pattern,
         initialBranch: params.transmissionRuleFact.initialBranch,
         initialGod: params.transmissionRuleFact.initialGod,
       },
@@ -1401,7 +1390,7 @@ function buildLimitationFacts(params: {
         params.transmissionConventionFact.key,
       ],
       promptText:
-        '四课与九宗门采用已登记的递取、贼克比用、涉害古法及特殊取法主版本；直接取孟仲、择比与返吟名称异说不得拼接，换版本须从初传到中末传整体重排。四课记录上下神、乘将、生克、旬空和初传来源，取传规则只说明如何发用；缺少规则名时不得按结果反推，已有规则也不单独证明现实成败',
+        '四课与九宗门采用已登记的递取、贼克比用、涉害古法及特殊取法主版本；直接取孟仲、择比与返吟名称异说不得拼接，换版本须从初传到中末传整体重排。四课记录上下神、乘将、生克、旬空和初传来源，取传规则只说明如何发用，不单独证明现实成败',
       sources: ['四课取传口径版本事实、四课关系事实、初传来源与九宗门取传结果'],
     },
     {
@@ -1708,7 +1697,7 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
 export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis {
   const data = rebuildAuditedLiurenData(input);
   const initial = data.threeTransmissions[0];
-  const xunKong = data.xunKong!;
+  const xunKong = data.xunKong;
   const calculationFact = buildCalculationFact(data, xunKong);
   const foundationConventionFact = buildFoundationConventionFact();
   const transmissionConventionFact = buildTransmissionConventionFact();
@@ -1717,25 +1706,18 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
     `四课取传口径：${transmissionConventionFact.promptText}`,
     `四柱干支：年${calculationFact.ganzhi.year}、月${calculationFact.ganzhi.month}、日${calculationFact.ganzhi.day}、时${calculationFact.ganzhi.hour}`,
     `月将加时：月将${calculationFact.monthLeader}加占时${calculationFact.divinationBranch}`,
-    `贵人定位：${calculationFact.dayNight}，日干贵人${calculationFact.noblemanBranch ?? '未列'}${calculationFact.noblemanGroundBranch ? `临地盘${calculationFact.noblemanGroundBranch}` : ''}`,
-    `日干寄宫：${calculationFact.dayStem}寄${calculationFact.dayStemResidence ?? '未列'}`,
-    `日柱旬空：${calculationFact.xunKong.join('、') || '未列'}`,
+    `贵人定位：${calculationFact.dayNight}，日干贵人${calculationFact.noblemanBranch}临地盘${calculationFact.noblemanGroundBranch}`,
+    `日干寄宫：${calculationFact.dayStem}寄${calculationFact.dayStemResidence}`,
+    `日柱旬空：${calculationFact.xunKong.join('、')}`,
   ];
   const platePositionFacts = buildPlatePositionFacts(data);
   const plateFact = buildPlateCoverageFact(platePositionFacts);
   const plateFacts = platePositionFacts.map(
     (item) => `地盘${item.earthBranch}上见天盘${item.heavenBranch}乘${item.god}`,
   );
-  const patternEvidence = Array.from(
-    new Set([...(data.patternTags ?? []), ...(data.guaTi ?? [])].filter(Boolean)),
-  );
+  const patternEvidence = Array.from(new Set([...data.patternTags, ...data.guaTi].filter(Boolean)));
   const shenShaEvidence = Array.from(
-    new Set(
-      (data.shenShaSummary?.length
-        ? data.shenShaSummary
-        : (data.shenShaFacts ?? []).map((item) => `${item.name}在${item.target}`)
-      ).filter(Boolean),
-    ),
+    new Set(data.shenShaFacts.map((item) => `${item.name}在${item.target}`).filter(Boolean)),
   );
   const traditionalFacts = buildTraditionalFacts(data, patternEvidence);
   const dayStem = data.ganzhi.day.charAt(0);
@@ -1806,7 +1788,7 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
     sources: ['四课与三传关系事实逐项筛选'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
-  const focusEvidence = data.focusEvidence ?? [];
+  const focusEvidence = data.focusEvidence;
   const focusFacts = buildFocusFacts(data, transmissions);
   const focusSummaryFact: LiurenFocusSummaryFact = {
     key: 'liuren:focus-summary',
@@ -1831,20 +1813,18 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
     .map((item) => item.key);
   const transmissionRuleFact: LiurenTransmissionRuleFact = {
     key: 'liuren:transmission-rule',
-    status: data.transmissionRule ? '已确定' : '缺少规则名',
-    rule: data.transmissionRule || null,
-    pattern: data.transmissionPattern ?? null,
+    status: '已确定',
+    rule: data.transmissionRule,
+    pattern: data.transmissionPattern,
     initialBranch: initial.branch,
     initialGod: initial.god,
     initialSourceLessonKeys: lessons.filter((item) => item.isInitialSource).map((item) => item.key),
-    detail: data.transmissionDetail?.trim() || null,
+    detail: data.transmissionDetail.trim(),
     classicalRuleKeys,
-    promptText: data.transmissionRule
-      ? `按${data.transmissionRule}取初传${initial.branch}乘${initial.god}${data.transmissionPattern ? `，三传模式${data.transmissionPattern}` : ''}${initialSourceLessons.length ? `，初传上神见于${initialSourceLessons.join('、')}` : '，特殊取传未直接对应单一课上神'}`
-      : `当前结果未保存取传规则名，仅保留初传${initial.branch}乘${initial.god}；不得按三传结果反推九宗门名称`,
+    promptText: `按${data.transmissionRule}取初传${initial.branch}乘${initial.god}，三传模式${data.transmissionPattern}${initialSourceLessons.length ? `，初传上神见于${initialSourceLessons.join('、')}` : '，特殊取传未直接对应单一课上神'}`,
     sources: [
       '当前结果保存的四课、初传与三传结构',
-      ...(data.transmissionRule ? ['已确定的九宗门取传结果'] : []),
+      '已确定的九宗门取传结果',
       ...traditionalFacts
         .filter((item) => item.kind === '经典取传规则')
         .flatMap((item) => item.sources),
@@ -1909,7 +1889,7 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
   });
   const limitations = limitationFacts.map((item) => item.promptText);
 
-  const classicalText = data.classicalRules?.length
+  const classicalText = data.classicalRules.length
     ? traditionalFacts
         .filter((item) => item.kind === '经典取传规则')
         .map((item) => `${item.sources.join('、')}《${item.name}》：${item.promptText}`)
@@ -1958,7 +1938,7 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
       title: '四课取传与初传发用',
       detail: `四课${lessons.map((item) => `${item.name}${item.upper}临${item.lower}（${item.relation}）`).join('；')}；${transmissionRuleFact.promptText}；规则边界：${transmissionRuleFact.limitation}；古籍依据：${classicalText}`,
       source: transmissionRuleFact.sources.join('、'),
-      tags: ['四课', transmissionRuleFact.rule || '取传规则缺失'],
+      tags: ['四课', transmissionRuleFact.rule],
     },
     ...lessons.map((item): PromptEvidenceItem => ({
       level: item.isInitialSource ? '主证' : '辅证',
@@ -1981,21 +1961,13 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
       source: fact.sources.join('、'),
       tags: ['三传推进', index === 0 ? '过程' : '落点', fact.status],
     })),
-    ...(data.transmissionDetail
-      ? [
-          {
-            level: '辅证' as const,
-            title: '取传规则与三传模式说明',
-            detail: conditionLiurenTraditionalText(data.transmissionDetail),
-            source: '九宗门取传结果、三传结构与经典规则合并说明',
-            tags: [
-              '取传规则',
-              data.transmissionRule || '未命名',
-              data.transmissionPattern || '未分类',
-            ],
-          },
-        ]
-      : []),
+    {
+      level: '辅证' as const,
+      title: '取传规则与三传模式说明',
+      detail: conditionLiurenTraditionalText(data.transmissionDetail),
+      source: '九宗门取传结果、三传结构与经典规则合并说明',
+      tags: ['取传规则', data.transmissionRule, data.transmissionPattern],
+    },
     ...(patternEvidence.length
       ? [
           {
