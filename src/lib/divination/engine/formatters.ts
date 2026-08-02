@@ -46,34 +46,36 @@ import { rebuildAuditedLenormandData } from '@core/divination/algorithms/lenorma
 import { rebuildAuditedTaiyiData } from 'mingyu-core/taiyi';
 import { rebuildAuditedAstrolabeData } from 'mingyu-core/divination/astrolabe';
 
-function resolveDivinationTimestamp(data?: DivinationData): number | null {
+function assertValidDivinationTimestamp(timestamp: unknown): number {
+  if (
+    typeof timestamp !== 'number' ||
+    !Number.isSafeInteger(timestamp) ||
+    timestamp < 0 ||
+    Number.isNaN(new Date(timestamp).getTime())
+  ) {
+    throw new Error('占卜结果缺少有效的原始时间，禁止回退到系统当前时间。');
+  }
+  return timestamp;
+}
+
+function resolveDivinationTimestamp(data?: DivinationData): number | undefined {
+  if (!data) return undefined;
   if (data && 'generation' in data && data.generation && typeof data.generation === 'object') {
     const generation = data.generation as { timestamp?: unknown };
     if ('timestamp' in generation) {
-      return typeof generation.timestamp === 'number' &&
-        Number.isSafeInteger(generation.timestamp) &&
-        generation.timestamp >= 0 &&
-        !Number.isNaN(new Date(generation.timestamp).getTime())
-        ? generation.timestamp
-        : null;
+      return assertValidDivinationTimestamp(generation.timestamp);
     }
   }
 
-  if (
-    !data ||
-    !('timestamp' in data) ||
-    typeof data.timestamp !== 'number' ||
-    !Number.isFinite(data.timestamp)
-  ) {
-    return null;
+  if (!('timestamp' in data)) {
+    throw new Error('占卜结果缺少原始时间，禁止回退到系统当前时间。');
   }
-
-  return data.timestamp;
+  return assertValidDivinationTimestamp(data.timestamp);
 }
 
 function resolveDivinationDate(data?: DivinationData): Date | undefined {
   const timestamp = resolveDivinationTimestamp(data);
-  if (timestamp === null) {
+  if (timestamp === undefined) {
     return undefined;
   }
 

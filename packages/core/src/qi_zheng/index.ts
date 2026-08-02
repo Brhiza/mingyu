@@ -1395,7 +1395,7 @@ function buildQizhengAstronomicalTime(input: QizhengTimeInput): AstronomicalTime
     hour: input.hour,
     minute: input.minute ?? 0,
     second: 0,
-    timezone: input.timezone ?? (input.timeZoneId ? undefined : 8),
+    timezone: input.timezone,
     timeZoneId: input.timeZoneId,
   });
 }

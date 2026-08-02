@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { EarthBranch, HeavenStem, SixtyCycle } from 'tyme4ts';
 import * as core from '../packages/core/src/index.ts';
 import {
   analyzeTarotEvidence,
@@ -1184,6 +1185,45 @@ test('ganzhi: tyme4ts 权威后端（纳音/干支五行/合冲害/十神）', (
   // 十神（新增，委托 tyme4ts）
   assert.equal(core.ganzhi.getTenStar('甲', '甲'), '比肩');
   assert.equal(core.ganzhi.getTenStar('甲', '乙'), '劫财');
+});
+
+test('ganzhi: 全量固定表应与 tyme4ts 逐项互校且非法输入失败关闭', () => {
+  for (const stem of core.ganzhi.HEAVENLY_STEMS) {
+    assert.equal(
+      core.ganzhi.getStemWuxing(stem),
+      HeavenStem.fromName(stem).getElement().getName(),
+      stem,
+    );
+  }
+  for (const branch of core.ganzhi.EARTHLY_BRANCHES) {
+    assert.equal(
+      core.ganzhi.getBranchWuxing(branch),
+      EarthBranch.fromName(branch).getElement().getName(),
+      branch,
+    );
+  }
+  for (const ganZhi of core.ganzhi.SIXTY_CYCLE) {
+    assert.equal(
+      core.ganzhi.getNayin(ganZhi),
+      SixtyCycle.fromName(ganZhi).getSound().getName(),
+      ganZhi,
+    );
+  }
+  const yangStemByWuxing = { 木: '甲', 火: '丙', 土: '戊', 金: '庚', 水: '壬' } as const;
+  for (const [wuxing, stem] of Object.entries(yangStemByWuxing)) {
+    for (const branch of core.ganzhi.EARTHLY_BRANCHES) {
+      assert.equal(
+        core.ganzhi.getChangShengState(wuxing, branch),
+        HeavenStem.fromName(stem).getTerrain(EarthBranch.fromName(branch)).getName(),
+        `${wuxing}/${branch}`,
+      );
+    }
+  }
+  assert.throws(() => core.ganzhi.getStemWuxing('风'), /天干无效/);
+  assert.throws(() => core.ganzhi.getBranchWuxing('风'), /地支无效/);
+  assert.throws(() => core.ganzhi.getNayin('甲丑'), /干支组合无效/);
+  assert.throws(() => core.ganzhi.getChangShengState('风', '子'), /五行长生状态缺失/);
+  assert.throws(() => core.ganzhi.getChangShengState('木', '风'), /地支无效/);
 });
 
 test('shensha: 黄历神煞层（委托 tyme4ts 151 神煞）', () => {

@@ -3,10 +3,11 @@
  * @description 把散落在各系统中的干支/五行基础逻辑收敛为对外导出的公共能力。
  *
  * 设计取向（深度整合 tyme4ts）：
- *   - 纳音、干支五行、地支合/冲/害、天干五合、十神 —— 直接委托 tyme4ts
- *     （按《钦定协纪辨方书》等实现的权威历法库），保证与经典一致且单一真相源。
+ *   - 纳音、干支五行 —— 由公共固定表与 tyme4ts 逐项互校；任一项不一致时失败关闭，
+ *     不在依赖异常时静默切换数据源。
+ *   - 地支合/冲/害、天干五合、十神 —— 直接委托 tyme4ts。
  *   - 十二长生统一「土长生在寅」流派（火土同宫，与八字/奇门所用 tyme4ts 一致）：
- *     委托 tyme4ts HeavenStem.getTerrain(branch) 取得权威长生状态；本地表仅作异常回退。
+ *     tyme4ts HeavenStem.getTerrain(branch) 与公共固定表逐项互校，不一致时失败关闭。
  *   - 刑、破、三合、三会、驿马、桃花、旬空 —— tyme4ts 未提供，由公共 relations 模块实现。
  *
  * 对外函数签名与返回形状保持不变，已接入 API/MCP 的模块无需改动。
@@ -374,7 +375,7 @@ function buildGanZhiEvidence(profile: GanZhiBaseProfile): GanZhiEvidenceFields {
     limitation: GANZHI_SUMMARY_LIMITATION,
   };
   const source =
-    '六十甲子、纳音、阴阳、藏干及关系表来自公共干支单一真相源；天干地支五行与基础历法能力对齐 tyme4ts';
+    '六十甲子、纳音、阴阳、藏干及关系表来自公共干支固定资料；纳音、天干地支五行与 tyme4ts 逐项互校，不一致时失败关闭';
 
   return {
     key: `foundation:ganzhi:${profile.ganZhi}`,
@@ -491,15 +492,16 @@ export function getGanZhiFromDate(date: Date): GanZhiDate {
   };
 }
 
-/** 天干五行（委托 tyme4ts，回退到本地表） */
+/** 天干五行：公共固定表与 tyme4ts 必须一致，不允许静默回退。 */
 export function getStemWuxing(stem: string): string {
-  try {
-    return HeavenStem.fromName(stem).getElement().getName();
-  } catch {
-    const w = STEM_WUXING[stem];
-    if (!w) throw new Error(`天干五行数据缺失：${stem}`);
-    return w;
+  getStemIndex(stem);
+  const expected = STEM_WUXING[stem];
+  if (!expected) throw new Error(`天干五行数据缺失：${stem}`);
+  const actual = HeavenStem.fromName(stem).getElement().getName();
+  if (actual !== expected) {
+    throw new Error(`天干五行数据源不一致：${stem}公共表为${expected}，tyme4ts为${actual}。`);
   }
+  return actual;
 }
 
 /** 天干阴阳 */
@@ -570,15 +572,16 @@ function assertValidGanZhi(ganZhi: string): void {
   }
 }
 
-/** 纳音（如「海中金」，委托 tyme4ts，与《纳音歌》一致） */
+/** 纳音：公共六十甲子表与 tyme4ts 必须一致，不允许静默回退。 */
 export function getNayin(ganZhi: string): string {
-  try {
-    return SixtyCycle.fromName(ganZhi).getSound().getName();
-  } catch {
-    const na = NAYIN_MAP[ganZhi];
-    if (!na) throw new Error(`纳音数据缺失：${ganZhi}`);
-    return na;
+  assertValidGanZhi(ganZhi);
+  const expected = NAYIN_MAP[ganZhi];
+  if (!expected) throw new Error(`纳音数据缺失：${ganZhi}`);
+  const actual = SixtyCycle.fromName(ganZhi).getSound().getName();
+  if (actual !== expected) {
+    throw new Error(`纳音数据源不一致：${ganZhi}公共表为${expected}，tyme4ts为${actual}。`);
   }
+  return actual;
 }
 
 /** 纳音五行（纳音名称均以五行字结尾，如海中金、炉中火） */
@@ -600,8 +603,8 @@ export function getNayinWuxing(ganZhi: string): string {
 /**
  * 十二长生状态（统一「土长生在寅」流派，与八字/奇门所用 tyme4ts 一致）。
  * 实现：以该五行的阳性天干代算（木→甲、火→丙、土→戊、金→庚、水→壬），
- * 调 tyme4ts HeavenStem.getTerrain(branch) 取得权威长生状态。
- * 本地表（WUXING_CHANGSHENG_START，已同步为寅派）仅作 tyme4ts 异常时的回退。
+ * 调 tyme4ts HeavenStem.getTerrain(branch)，再与已审核的公共起点表逐项互校；
+ * 不一致或依赖异常时失败关闭。
  */
 const YANG_STEM_OF_WUXING: Record<string, string> = {
   木: '甲',
@@ -613,18 +616,19 @@ const YANG_STEM_OF_WUXING: Record<string, string> = {
 export function getChangShengState(wuxing: string, branch: string): ChangShengState {
   const stem = YANG_STEM_OF_WUXING[wuxing];
   if (!stem) throw new Error(`五行长生状态缺失：${wuxing}`);
-  try {
-    const terrain = HeavenStem.fromName(stem).getTerrain(EarthBranch.fromName(branch)).getName();
-    return terrain as ChangShengState;
-  } catch {
-    const start = WUXING_CHANGSHENG_START[wuxing];
-    if (!start) throw new Error(`五行长生起点缺失：${wuxing}`);
-    const startIdx = EARTHLY_BRANCHES.indexOf(start as EarthlyBranch);
-    const branchIdx = EARTHLY_BRANCHES.indexOf(branch as EarthlyBranch);
-    if (branchIdx < 0) throw new Error(`地支无效：${branch}`);
-    const offset = (((branchIdx - startIdx) % 12) + 12) % 12;
-    return CHANGSHENG_ORDER[offset];
+  const branchIdx = getBranchIndex(branch);
+  const start = WUXING_CHANGSHENG_START[wuxing];
+  if (!start) throw new Error(`五行长生起点缺失：${wuxing}`);
+  const startIdx = getBranchIndex(start);
+  const offset = (((branchIdx - startIdx) % 12) + 12) % 12;
+  const expected = CHANGSHENG_ORDER[offset];
+  const actual = HeavenStem.fromName(stem).getTerrain(EarthBranch.fromName(branch)).getName();
+  if (actual !== expected) {
+    throw new Error(
+      `十二长生数据源不一致：${wuxing}见${branch}公共表为${expected}，tyme4ts为${actual}。`,
+    );
   }
+  return actual as ChangShengState;
 }
 
 /** 生肖（由年支取） */
@@ -634,15 +638,16 @@ export function getZodiac(yearBranch: string): string {
   return ZODIACS[idx];
 }
 
-/** 地支五行（委托 tyme4ts，回退到本地表） */
+/** 地支五行：公共固定表与 tyme4ts 必须一致，不允许静默回退。 */
 export function getBranchWuxing(branch: string): string {
-  try {
-    return EarthBranch.fromName(branch).getElement().getName();
-  } catch {
-    const w = BRANCH_WUXING[branch];
-    if (!w) throw new Error(`地支五行数据缺失：${branch}`);
-    return w;
+  getBranchIndex(branch);
+  const expected = BRANCH_WUXING[branch];
+  if (!expected) throw new Error(`地支五行数据缺失：${branch}`);
+  const actual = EarthBranch.fromName(branch).getElement().getName();
+  if (actual !== expected) {
+    throw new Error(`地支五行数据源不一致：${branch}公共表为${expected}，tyme4ts为${actual}。`);
   }
+  return actual;
 }
 
 /** 地支六合（委托 tyme4ts） */

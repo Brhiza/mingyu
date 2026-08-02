@@ -1162,7 +1162,8 @@ export function getPublicApiOpenApiDocument(
               type: 'integer',
               minimum: 1900,
               maximum: 2200,
-              description: '公元年（默认今年）',
+              description:
+                '明确的公元流年；生肖与流年关系中与 yearGanZhi 至少提供一项，同时提供时必须一致',
             },
             yearGanZhi: {
               type: 'string',

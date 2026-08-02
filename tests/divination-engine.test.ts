@@ -2148,11 +2148,13 @@ test('三山国王灵签条件化工具与公开证据入口都应失败关闭�
   assert.doesNotMatch(analysis.promptText, /污染签题|污染典故|污染核心寓意/);
 });
 
-test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {
-  assert.doesNotThrow(() =>
-    buildTimeInfoText({
-      timestamp: Number.MAX_VALUE,
-    } as Parameters<typeof buildTimeInfoText>[0]),
+test('占卜时间格式化遇到无效结果时间时应失败关闭', () => {
+  assert.throws(
+    () =>
+      buildTimeInfoText({
+        timestamp: Number.MAX_VALUE,
+      } as Parameters<typeof buildTimeInfoText>[0]),
+    /禁止回退到系统当前时间/,
   );
 });
 

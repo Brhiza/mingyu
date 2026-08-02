@@ -51,21 +51,22 @@ export function registerQizhengTool(server: McpServer) {
     },
     async (args) => {
       try {
+        const parsed = qiZhengSchema.parse(args);
         const result = qizheng.generateQizheng({
-          year: args.year,
-          month: args.month,
-          day: args.day,
-          hour: args.hour,
-          minute: args.minute ?? 0,
-          ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
-          ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
-          ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
-          ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
-          ...(args.standardMeridian !== undefined
-            ? { standardMeridian: args.standardMeridian }
+          year: parsed.year,
+          month: parsed.month,
+          day: parsed.day,
+          hour: parsed.hour,
+          minute: parsed.minute ?? 0,
+          latitude: parsed.latitude,
+          longitude: parsed.longitude,
+          ...(parsed.timezone !== undefined ? { timezone: parsed.timezone } : {}),
+          ...(parsed.timeZoneId ? { timeZoneId: parsed.timeZoneId } : {}),
+          ...(parsed.standardMeridian !== undefined
+            ? { standardMeridian: parsed.standardMeridian }
             : {}),
-          ...(args.useTrueSolarTime !== undefined
-            ? { useTrueSolarTime: args.useTrueSolarTime }
+          ...(parsed.useTrueSolarTime !== undefined
+            ? { useTrueSolarTime: parsed.useTrueSolarTime }
             : {}),
         });
         return createStructuredToolResult({ result });
@@ -84,27 +85,28 @@ export function registerQizhengTool(server: McpServer) {
     },
     async (args) => {
       try {
+        const parsed = qiZhengSchema.parse(args);
         const generated = qizheng.generateQizheng({
-          year: args.year,
-          month: args.month,
-          day: args.day,
-          hour: args.hour,
-          minute: args.minute ?? 0,
-          ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
-          ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
-          ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
-          ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
-          ...(args.standardMeridian !== undefined
-            ? { standardMeridian: args.standardMeridian }
+          year: parsed.year,
+          month: parsed.month,
+          day: parsed.day,
+          hour: parsed.hour,
+          minute: parsed.minute ?? 0,
+          latitude: parsed.latitude,
+          longitude: parsed.longitude,
+          ...(parsed.timezone !== undefined ? { timezone: parsed.timezone } : {}),
+          ...(parsed.timeZoneId ? { timeZoneId: parsed.timeZoneId } : {}),
+          ...(parsed.standardMeridian !== undefined
+            ? { standardMeridian: parsed.standardMeridian }
             : {}),
-          ...(args.useTrueSolarTime !== undefined
-            ? { useTrueSolarTime: args.useTrueSolarTime }
+          ...(parsed.useTrueSolarTime !== undefined
+            ? { useTrueSolarTime: parsed.useTrueSolarTime }
             : {}),
         });
         const result = qizheng.rebuildAuditedQizhengData(generated);
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'qizheng' }),
+          prompt: buildMetaphysicsPrompt(result.prompt, parsed.question, { method: 'qizheng' }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成七政四余提示词失败'));
