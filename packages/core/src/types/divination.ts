@@ -859,7 +859,7 @@ export interface LiurenData {
   shenShaSummary?: string[];
   /** 可逐项复算的神煞定位事实 */
   shenShaFacts?: LiurenShenShaFact[];
-  /** 天将属性详情 */
+  /** 三传天将的配干支、五行与阴阳基础事实 */
   tianJiangProps?: Record<
     string,
     {
@@ -867,8 +867,6 @@ export interface LiurenData {
       branch: string;
       wuxing: string;
       yinYang: string;
-      category: string;
-      description?: string;
     }
   >;
   focusEvidence?: Array<{

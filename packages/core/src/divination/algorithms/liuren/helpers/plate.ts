@@ -59,24 +59,9 @@ export const TIANJIANG = [
 export type TianJiangName = (typeof TIANJIANG)[number];
 
 /**
- * 十二天将基础属性（《大六壬大全》卷二《天将总论》《十二将释》）：
- *
- * 五行、阴阳由各将所配天干地支确定，类象取自十二将释。
- * 五味、主数、身体等属于十二月将/地支神类象，不能移植到十二天将。
- *
- * 各将属性来源：
- * - 贵人：己丑土，《大全》"贵人己丑旺，主官爵印信，紫衣"
- * - 螣蛇：丁巳火，《大全》"螣蛇丁巳主惊疑，凶将赤色"
- * - 朱雀：丙午火，《大全》"朱雀丙午主文书口舌"
- * - 六合：乙卯木，《大全》"六合乙卯主和合婚姻"
- * - 勾陈：戊辰土，《大全》"勾陈戊辰主勾连争斗"
- * - 青龙：甲寅木，《大全》"青龙甲寅主财帛庆贺"
- * - 天空：戊戌土，《大全》"天空戊戌主虚诈孤独"
- * - 白虎：庚申金，《大全》"白虎庚申主疾病凶丧"
- * - 太常：己未土，《大全》"太常己未主筵宴印绶"
- * - 玄武：癸亥水，《大全》"玄武癸亥主盗贼阴私"
- * - 太阴：辛酉金，《大全》"太阴辛酉主阴私妇女"
- * - 天后：壬子水，《大全》"天后壬子主恩泽婚姻"
+ * 十二天将配干支基础表。
+ * 配干支由《六壬大全》卷二、《六壬神将释》与《六壬粹言》卷一互证；
+ * 五行、阴阳只按所配干支复算。未闭合适用条件的现实类象不保存在基础表中。
  */
 export const TIANJIANG_ATTRIBUTES: Record<
   TianJiangName,
@@ -85,8 +70,6 @@ export const TIANJIANG_ATTRIBUTES: Record<
     branch: string; // 天将所配地支
     wuxing: string; // 天将五行
     yinYang: '阳' | '阴';
-    category: string; // 人事分类
-    description: string; // 传统类象摘要
   }
 > = {
   贵人: {
@@ -94,96 +77,72 @@ export const TIANJIANG_ATTRIBUTES: Record<
     branch: '丑',
     wuxing: '土',
     yinYang: '阴',
-    category: '贵人/官长',
-    description: '神将之主，传统类神为贵人、官长',
   },
   螣蛇: {
     stem: '丁',
     branch: '巳',
     wuxing: '火',
     yinYang: '阴',
-    category: '惊恐/怪异',
-    description: '传统类象为惊恐、怪异',
   },
   朱雀: {
     stem: '丙',
     branch: '午',
     wuxing: '火',
     yinYang: '阳',
-    category: '文书/口舌',
-    description: '传统类象为文书、信息、口舌',
   },
   六合: {
     stem: '乙',
     branch: '卯',
     wuxing: '木',
     yinYang: '阴',
-    category: '和合/婚姻',
-    description: '传统类象为婚姻、喜庆、交易、媒妁',
   },
   勾陈: {
     stem: '戊',
     branch: '辰',
     wuxing: '土',
     yinYang: '阳',
-    category: '斗讼/勾留',
-    description: '传统类象为斗讼、勾连、迟滞',
   },
   青龙: {
     stem: '甲',
     branch: '寅',
     wuxing: '木',
     yinYang: '阳',
-    category: '财帛/喜庆',
-    description: '传统类象为财帛、文字、官府、升迁、喜庆',
   },
   天空: {
     stem: '戊',
     branch: '戌',
     wuxing: '土',
     yinYang: '阳',
-    category: '虚空/欺诈',
-    description: '传统类象为虚空、欺诈',
   },
   白虎: {
     stem: '庚',
     branch: '申',
     wuxing: '金',
     yinYang: '阳',
-    category: '疾病/道路',
-    description: '传统类象为疾病、孝服、道路、刑伤',
   },
   太常: {
     stem: '己',
     branch: '未',
     wuxing: '土',
     yinYang: '阴',
-    category: '宴乐/印绶',
-    description: '传统类象为文章、印绶、衣服、酒食、宴乐',
   },
   玄武: {
     stem: '癸',
     branch: '亥',
     wuxing: '水',
     yinYang: '阴',
-    category: '盗贼/遗亡',
-    description: '传统类象为盗贼、遗亡、隐秘',
   },
   太阴: {
     stem: '辛',
     branch: '酉',
     wuxing: '金',
     yinYang: '阴',
-    category: '阴私/暗助',
-    description: '传统类象为阴私、暗中相助',
   },
   天后: {
     stem: '壬',
     branch: '子',
     wuxing: '水',
     yinYang: '阳',
-    category: '妇人/恩泽',
-    description: '传统类象为宫廷、妇人、婚姻、恩泽',
   },
 };
 

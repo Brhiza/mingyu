@@ -455,7 +455,7 @@ function buildTraditionalFacts(
           kind: '天将属性',
           name: transmission.god,
           originalText,
-          promptText: `配干${props.stem}、配支${props.branch}、五行${props.wuxing}、阴阳${props.yinYang}；类象解释未进入提示词，只保留三传天将落点与基础属性事实`,
+          promptText: `配干${props.stem}、配支${props.branch}、五行${props.wuxing}、阴阳${props.yinYang}；未闭合适用条件的类象字段未保存，只保留三传天将落点与基础属性事实`,
           sources: [
             '《六壬大全》卷二《天将总论》《十二将释》',
             '《六壬神将释》十二天将配干支',

@@ -231,8 +231,6 @@ export function generateLiuren(customDate?: Date): LiurenData {
         branch: string;
         wuxing: string;
         yinYang: string;
-        category: string;
-        description?: string;
       }
     >
   >((acc, t) => {
@@ -243,8 +241,6 @@ export function generateLiuren(customDate?: Date): LiurenData {
         branch: attr.branch,
         wuxing: attr.wuxing,
         yinYang: attr.yinYang,
-        category: attr.category,
-        description: attr.description,
       };
     }
     return acc;

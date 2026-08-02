@@ -587,15 +587,9 @@ test('大六壬登记课体应以稳定键、固定古籍版本进入统一证�
   }
 });
 
-test('十二天将类象解释不得软化后继续进入提示词', () => {
-  const originalTexts = Object.values(TIANJIANG_ATTRIBUTES).map((item) => item.description);
-  const promptTexts = originalTexts.map(conditionLiurenTraditionalText);
-
-  assert.ok(originalTexts.some((item) => /婚姻/.test(item)));
-  assert.ok(originalTexts.some((item) => /疾病/.test(item)));
-  assert.ok(originalTexts.some((item) => /盗贼/.test(item)));
-  promptTexts.forEach((text) => {
-    assert.equal(text, '未采用传统解释；当前只保留可复算盘面事实');
+test('十二天将旧类象字段不得保留或软化后继续进入提示词', () => {
+  Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
+    assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);
   });
 
   const dangerousText = conditionLiurenTraditionalText(
@@ -604,6 +598,9 @@ test('十二天将类象解释不得软化后继续进入提示词', () => {
   assert.equal(dangerousText, '未采用传统解释；当前只保留可复算盘面事实');
 
   const data = generateLiuren(fixedDate);
+  Object.values(data.tianJiangProps ?? {}).forEach((item) => {
+    assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);
+  });
   const tianJiangFacts = data.evidenceAnalysis?.traditionalFacts.filter(
     (item) => item.kind === '天将属性',
   );
@@ -614,7 +611,7 @@ test('十二天将类象解释不得软化后继续进入提示词', () => {
       /^[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥][金木水火土][阴阳]$/,
     );
     assert.match(fact.promptText, /配干.+配支.+五行.+阴阳/);
-    assert.match(fact.promptText, /类象解释未进入提示词/);
+    assert.match(fact.promptText, /类象字段未保存/);
     assert.doesNotMatch(
       `${fact.originalText}${fact.promptText}`,
       /婚姻|疾病|盗贼|官非|欺诈|升迁|财帛|死丧|传统类象/,
@@ -648,26 +645,12 @@ test('十二天将不得混入十二月将的五味、主数、地形和身体�
     expectedStemBranches,
   );
   Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
-    assert.deepEqual(Object.keys(item).sort(), [
-      'branch',
-      'category',
-      'description',
-      'stem',
-      'wuxing',
-      'yinYang',
-    ]);
+    assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);
   });
 
   const data = generateLiuren(fixedDate);
   Object.values(data.tianJiangProps ?? {}).forEach((item) => {
-    assert.deepEqual(Object.keys(item).sort(), [
-      'branch',
-      'category',
-      'description',
-      'stem',
-      'wuxing',
-      'yinYang',
-    ]);
+    assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);
   });
 });
 
