@@ -212,7 +212,7 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
       result.stars.slice(firstIndex + 1).map((second) => [first.name, second.name]),
     ),
   );
-  assert.deepEqual(result.aspects, []);
+  assert.equal('aspects' in result, false);
   assert.equal(result.traditionalRuleAudit.dignity.status, '未采用');
   assert.equal(result.traditionalRuleAudit.aspects.status, '未采用');
   assert.equal(result.traditionalRuleAudit.chart.status, '已校勘');
@@ -253,10 +253,7 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
         fact.limitation.includes('目标支不等于已经落入'),
     ),
   );
-  assert.deepEqual(
-    result.shensha,
-    result.shenshaFacts.map((fact) => ({ name: fact.name, value: fact.targetBranch })),
-  );
+  assert.equal('shensha' in result, false);
   assert.ok(result.stars.every((star) => !Object.hasOwn(star, 'dignity')));
   assert.ok(
     result.pairwiseAngles.every(
@@ -340,6 +337,7 @@ test('七政四余审核重建应忽略全部派生盘面污染', () => {
   polluted.traditionalYearBasis.adoptedYearGanZhi = '甲子';
   polluted.shenshaFacts = [];
   polluted.shensha = [];
+  polluted.aspects = [];
   polluted.mingGong = 0;
   polluted.mingGongBranch = '子';
   polluted.shenGong = 0;
@@ -411,7 +409,7 @@ test('七政四余传统神煞在春节与立春年界分歧时不自动选边',
     },
   );
   assert.deepEqual(result.shenshaFacts, []);
-  assert.deepEqual(result.shensha, []);
+  assert.equal('shensha' in result, false);
   assert.equal(result.shenshaRuleCatalog.length, 8);
   assert.equal(result.evidenceAnalysis.summaryFact.status, '可用事实链有缺口');
   assert.ok(

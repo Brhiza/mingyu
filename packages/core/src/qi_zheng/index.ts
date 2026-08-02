@@ -546,9 +546,6 @@ export interface QizhengGenerationSource {
   timestamp: number;
 }
 
-export const QIZHENG_TRADITIONAL_CHART_DISABLED_MESSAGE =
-  '七政四余传统盘已恢复；此常量仅为旧调用方兼容保留。';
-
 export interface QizhengResult {
   /** 七政四余可信来源；公开证据、提示词和辅助入口只允许从这里重建。 */
   generation: QizhengGenerationSource;
@@ -556,8 +553,8 @@ export interface QizhengResult {
   pairwiseAngles: QizhengPairGeometry[];
   geometryCalculation: QizhengGeometryCalculation;
   traditionalRuleAudit: QizhengTraditionalRuleAudit;
-  /** @deprecated 固定容许度吊照缺少可靠统一依据，兼容字段恒为空。 */
-  aspects: QizhengAspect[];
+  /** @deprecated 固定容许度吊照缺少可靠统一依据，新结果不再输出。 */
+  aspects?: QizhengAspect[];
   mingGong: number;
   mingGongBranch: QizhengStar['branch'];
   shenGong: number;
@@ -575,8 +572,8 @@ export interface QizhengResult {
   traditionalYearBasis: QizhengTraditionalYearBasis;
   shenshaRuleCatalog: readonly QizhengShenshaRule[];
   shenshaFacts: QizhengShenshaFact[];
-  /** @deprecated 请使用 shenshaFacts；兼容字段只保留已校勘起例的名称与目标支。 */
-  shensha: { name: string; value: string }[];
+  /** @deprecated 请使用 shenshaFacts；缺少依据与边界的旧简表在新结果中不再输出。 */
+  shensha?: { name: string; value: string }[];
   ziqiModel: ZiqiModelInfo;
   ziqi: ZiqiPosition;
   calculationContext: QizhengCalculationContext;
@@ -2516,10 +2513,6 @@ function buildQizheng(input: QizhengInput, timestamp: number): QizhengResult {
     useTrueSolarTime ? '真太阳时' : '民用时间',
   );
   const shenshaFacts = buildQizhengShenshaFacts(traditionalYearBasis);
-  const shensha = shenshaFacts.map((fact) => ({
-    name: fact.name,
-    value: fact.targetBranch,
-  }));
   const evidenceAnalysis = buildQizhengEvidence(stars, pairwiseAngles, calculationContext, {
     mingGong,
     shenGong,
@@ -2574,7 +2567,6 @@ function buildQizheng(input: QizhengInput, timestamp: number): QizhengResult {
     pairwiseAngles,
     geometryCalculation,
     traditionalRuleAudit: QIZHENG_TRADITIONAL_RULE_AUDIT,
-    aspects: [],
     mingGong,
     mingGongBranch: QIZHENG_EARTHLY_BRANCHES[mingGong],
     shenGong,
@@ -2586,7 +2578,6 @@ function buildQizheng(input: QizhengInput, timestamp: number): QizhengResult {
     traditionalYearBasis,
     shenshaRuleCatalog: QIZHENG_SHENSHA_RULE_CATALOG,
     shenshaFacts,
-    shensha,
     ziqiModel: ZIQI_MODEL_INFO,
     ziqi,
     calculationContext,

@@ -3155,7 +3155,7 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
             sourceQuote: string;
             limitation: string;
           }>;
-          aspects: unknown[];
+          aspects?: unknown[];
           mansionBoundaries: unknown[];
           mansionModel: { id: string };
           evidenceAnalysis: {
@@ -3174,7 +3174,8 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     assert.equal(chart.pairwiseAngles.length, 55);
     assert.equal(chart.evidenceAnalysis.pairGeometryFacts.length, 55);
     assert.equal(chart.geometryCalculation.complete, true);
-    assert.deepEqual(chart.aspects, []);
+    assert.equal('aspects' in chart, false);
+    assert.equal('shensha' in chart, false);
     assert.equal(chart.traditionalRuleAudit.chart.status, '已校勘');
     assert.equal(chart.traditionalRuleAudit.dignity.status, '未采用');
     assert.equal(chart.traditionalRuleAudit.aspects.status, '未采用');
