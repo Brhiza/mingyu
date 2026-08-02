@@ -70,7 +70,7 @@ export interface LiurenLessonEvidence extends LiurenLesson {
   relationFacts: LiurenRelationEvidenceFact[];
   promptText: string;
   sources: string[];
-  limitation: '四课事实只记录上下神、乘将、关系、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果';
+  limitation: '四课事实只记录上下神、乘将、相对日干六亲、关系、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果';
 }
 
 export interface LiurenTransmissionEvidence extends LiurenTransmission {
@@ -372,7 +372,7 @@ const PLATE_COVERAGE_LIMITATION =
 const RELATION_FACT_LIMITATION =
   '课传关系事实只说明六亲、五行方向、月令、旬空、日支或相邻传之间的盘内关系；空亡和固定地支关系须结合类神与事项辨用，不得直接解释为现实吉凶、成功率或必然结果' as const;
 const LESSON_FACT_LIMITATION =
-  '四课事实只记录上下神、乘将、关系、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果' as const;
+  '四课事实只记录上下神、乘将、相对日干六亲、关系、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果' as const;
 const TRANSMISSION_FACT_LIMITATION =
   '三传事实只记录各传相对日干的六亲与五行方向，以及地支、天将、月令、旬空、日支关系与相邻推进；阶段顺序不证明现实事件必然按同样方式发生' as const;
 const TRANSITION_FACT_LIMITATION =
@@ -527,8 +527,13 @@ function buildLessonEvidence(
   index: number,
   initialBranch: string,
   xunKong: string[],
+  dayStem: string,
 ): LiurenLessonEvidence {
   const key = `liuren:lesson:${index + 1}:${lesson.name}`;
+  const normalized: LiurenLesson = {
+    ...lesson,
+    kinship: getLiurenKinship(dayStem, lesson.upper),
+  };
   const relationFacts: LiurenRelationEvidenceFact[] = [
     {
       key: `${key}:relation`,
@@ -539,6 +544,21 @@ function buildLessonEvidence(
       value: lesson.relation,
       promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，上下神关系${lesson.relation}`,
       sources: ['日干寄宫、日支与天地盘逐课推导', '五行生克与地支关系'],
+      limitation: RELATION_FACT_LIMITATION,
+    },
+    {
+      key: `${key}:kinship`,
+      scope: '四课',
+      ownerKey: key,
+      basis: '日干六亲',
+      status: '中性',
+      value: normalized.kinship!,
+      promptText: `${lesson.name}上神${lesson.upper}以日干${dayStem}为中心取六亲${normalized.kinship}`,
+      sources: [
+        '《六壬经纬》干支三传占时本命等处取印盗鬼财劫',
+        '《六壬大全》生我、我生、克我、我克、同类五亲口径',
+        '《壬归》四课日上神与日干生克口径',
+      ],
       limitation: RELATION_FACT_LIMITATION,
     },
     ...(xunKong.includes(lesson.upper)
@@ -574,14 +594,18 @@ function buildLessonEvidence(
   ];
   const constraints = lessonConstraints();
   return {
-    ...lesson,
+    ...normalized,
     key,
     index: index + 1,
     isInitialSource: lesson.upper === initialBranch,
     constraints,
     relationFacts,
-    promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，乘${lesson.god}，关系${lesson.relation}；${conditionLiurenTraditionalText(lesson.note || '课注未列')}`,
-    sources: ['日干寄宫、日支与天地盘逐课推导', '日柱旬空与上下神关系核验'],
+    promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，乘${lesson.god}，相对日干为${normalized.kinship}，关系${lesson.relation}；${conditionLiurenTraditionalText(lesson.note || '课注未列')}`,
+    sources: [
+      '日干寄宫、日支与天地盘逐课推导',
+      '日柱旬空与上下神关系核验',
+      '《六壬经纬》《六壬大全》《壬归》四课上神六亲口径',
+    ],
     limitation: LESSON_FACT_LIMITATION,
   };
 }
@@ -1697,14 +1721,14 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
     ),
   );
   const traditionalFacts = buildTraditionalFacts(data, patternEvidence);
+  const dayStem = data.ganzhi.day.charAt(0);
+  const dayBranch = data.ganzhi.day.charAt(1);
   const lessons = data.fourLessons.map((lesson, index) =>
-    buildLessonEvidence(lesson, index, initial.branch, xunKong),
+    buildLessonEvidence(lesson, index, initial.branch, xunKong, dayStem),
   );
   const initialSourceLessons = lessons
     .filter((item) => item.isInitialSource)
     .map((item) => item.name);
-  const dayStem = data.ganzhi.day.charAt(0);
-  const dayBranch = data.ganzhi.day.charAt(1);
   const transmissions = data.threeTransmissions.map((item, index) =>
     buildTransmissionEvidence(
       item,

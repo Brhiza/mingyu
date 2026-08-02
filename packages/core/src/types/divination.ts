@@ -743,6 +743,8 @@ export interface LiurenLesson {
   god: string;
   relation: string;
   note: string;
+  /** 本课上神相对日干所得六亲。 */
+  kinship?: LiurenKinship;
 }
 
 export type LiurenKinship = '父母' | '子孙' | '妻财' | '官鬼' | '兄弟';

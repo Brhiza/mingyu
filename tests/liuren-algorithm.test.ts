@@ -285,7 +285,7 @@ test('大六壬会输出完整的四课三传与天盘结构', () => {
   assert.equal(mo, getUpperByUnder(result.heavenlyPlate, zhong));
 });
 
-test('大六壬三传六亲均以日干为中心，并与相邻传关系分字段保存', () => {
+test('大六壬四课与三传六亲均以日干为中心，并与相邻传关系分字段保存', () => {
   const elementByValue: Record<string, string> = {
     甲: '木',
     乙: '木',
@@ -334,6 +334,11 @@ test('大六壬三传六亲均以日干为中心，并与相邻传关系分字�
 
   const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
   const dayStem = result.ganzhi.day.charAt(0);
+  assert.ok(
+    result.fourLessons.every(
+      (item) => item.kinship === expectedKinship(dayStem, item.upper),
+    ),
+  );
   assert.ok(
     result.threeTransmissions.every(
       (item) =>

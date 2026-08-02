@@ -216,7 +216,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     },
   ];
   const timingEvidence = [
-    `一级发用：初传${firstTransmission.branch}${firstTransmission.isVoid ? '落旬空' : '不空'}；这里只记录位置状态，出空、填实、冲实仅作候选触发，不等于已选类神或现实事件发动`,
+    `一级发用：初传${firstTransmission.branch}${firstTransmission.isVoid ? '落旬空' : '不空'}；空亡有宜有忌，须结合类神与事项判断，出空、填实、冲实仅作候选触发`,
     `二级三传：${threeTransmissions.map((item) => `${item.stage}${item.branch}（月令${item.seasonState}${item.isVoid ? '、空' : ''}）`).join('→')}`,
     `三级日月：只登记日支${dayBranch}、月支${ganzhi.month.charAt(1)}与初传的同支、冲合及旺衰事实；类神未由通用盘选定`,
     '未同时明确具体类神底本版本、事项类别与参与者角色、完整类神取用规则、已指定类神对象和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',

@@ -23,7 +23,10 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
     evidence.lessons.every(
       (item) =>
         item.key.startsWith('liuren:lesson:') &&
-        item.relationFacts.length > 0 &&
+        item.kinship &&
+        item.relationFacts.some(
+          (fact) => fact.basis === '日干六亲' && fact.value === item.kinship,
+        ) &&
         item.relationFacts.every(
           (fact) =>
             fact.ownerKey === item.key &&
@@ -313,8 +316,11 @@ test('大六壬证据重建应拒绝与时间戳不一致的有效四柱和非�
   assert.throws(() => analyzeLiurenEvidence(invalidTimestamp), /有效的毫秒时间戳/);
 });
 
-test('大六壬旧结果应逐传重算日干六亲与有方向关系，不沿用旧版中末传关系', () => {
+test('大六壬旧结果应重算四课与三传六亲，不沿用旧版中末传关系', () => {
   const data = generateLiuren(fixedDate);
+  for (const item of data.fourLessons) {
+    delete item.kinship;
+  }
   for (const item of data.threeTransmissions) {
     delete item.kinship;
     delete item.dayStemRelation;
@@ -333,6 +339,15 @@ test('大六壬旧结果应逐传重算日干六亲与有方向关系，不沿�
 
   const evidence = analyzeLiurenEvidence(data);
 
+  assert.ok(
+    evidence.lessons.every(
+      (item) =>
+        item.kinship &&
+        item.relationFacts.some(
+          (fact) => fact.basis === '日干六亲' && fact.value === item.kinship,
+        ),
+    ),
+  );
   assert.ok(
     evidence.transmissions.every(
       (item) =>

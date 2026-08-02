@@ -35,16 +35,16 @@ function describeDirectedElementRelation(
   throw new Error(`无法判断${sourceLabel}${sourceValue}与${targetLabel}${targetValue}的五行关系。`);
 }
 
-/** 三传六亲一律以日干为比较中心，不以初中末传彼此替代。 */
-export function getLiurenKinship(dayStem: string, transmissionBranch: string): LiurenKinship {
+/** 大六壬六亲一律以日干为比较中心，不以四课下位或初中末传彼此替代。 */
+export function getLiurenKinship(dayStem: string, targetBranch: string): LiurenKinship {
   const dayElement = getGanZhiWuxing(dayStem);
-  const transmissionElement = getGanZhiWuxing(transmissionBranch);
-  if (dayElement === transmissionElement) return '兄弟';
-  if (isSheng(transmissionElement, dayElement)) return '父母';
-  if (isSheng(dayElement, transmissionElement)) return '子孙';
-  if (isKe(dayElement, transmissionElement)) return '妻财';
-  if (isKe(transmissionElement, dayElement)) return '官鬼';
-  throw new Error(`无法判断日干${dayStem}与三传${transmissionBranch}的六亲。`);
+  const targetElement = getGanZhiWuxing(targetBranch);
+  if (dayElement === targetElement) return '兄弟';
+  if (isSheng(targetElement, dayElement)) return '父母';
+  if (isSheng(dayElement, targetElement)) return '子孙';
+  if (isKe(dayElement, targetElement)) return '妻财';
+  if (isKe(targetElement, dayElement)) return '官鬼';
+  throw new Error(`无法判断日干${dayStem}与地支${targetBranch}的六亲。`);
 }
 
 export function describeTransmissionDayStemRelation(

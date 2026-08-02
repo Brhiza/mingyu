@@ -22,6 +22,7 @@ import {
   TIANGAN,
   TIANJIANG,
 } from './plate';
+import { getLiurenKinship } from './transmission';
 
 const YANG_STEMS = new Set(['甲', '丙', '戊', '庚', '壬']);
 const YANG_BRANCHES = new Set(['子', '寅', '辰', '午', '申', '戌']);
@@ -187,6 +188,7 @@ export function buildFourLessons(args: {
       god,
       relation,
       note: buildLessonNote(relation, args.xunKong, item.upper, item.lower),
+      kinship: getLiurenKinship(args.dayStem, item.upper),
     };
   }) satisfies LiurenLesson[];
 }
