@@ -503,7 +503,7 @@ function formatQimenInfo(input: QimenData) {
     ? data.voidPalaces.map((item) => `${item.branch}空落${item.name}`).join('、')
     : data.voidBranches?.length
       ? `${data.voidBranches.join('、')}空`
-      : (data.scope ?? 'hour') === 'hour'
+      : data.scope === 'hour'
         ? '时旬空复核未定位'
         : '适用层级未闭合，未自动推算';
   const horseText = '起例层级未闭合，未自动推算';
@@ -564,7 +564,7 @@ function formatQimenInfo(input: QimenData) {
   const palaceText = evidenceAnalysis.palaceFacts
     .map(
       (item) =>
-        `${item.name}（${item.direction}${item.element}）：天盘${[item.tianPan.stem, item.tianPan.companionStem, item.tianPan.star, item.tianPan.companionStar].filter(Boolean).join('、')}；地盘${item.diPan.stem}；人盘${item.renPan.door}；神盘${item.shenPan.god}；${item.isVoid ? `时旬空${item.voidBranches.join('、')}` : (data.scope ?? 'hour') === 'hour' ? '未逢已审核时旬空' : '旬空未自动推算'}`,
+        `${item.name}（${item.direction}${item.element}）：天盘${[item.tianPan.stem, item.tianPan.companionStem, item.tianPan.star, item.tianPan.companionStar].filter(Boolean).join('、')}；地盘${item.diPan.stem}；人盘${item.renPan.door}；神盘${item.shenPan.god}；${item.isVoid ? `时旬空${item.voidBranches.join('、')}` : data.scope === 'hour' ? '未逢已审核时旬空' : '旬空未自动推算'}`,
     )
     .join('；');
   const palaceRelationText = evidenceAnalysis.palaceRelations
@@ -881,12 +881,7 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
   const moon = data.planets.find((item) => item.name === 'Moon');
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
   const formatAspect = (item: AstrolabeData['aspects'][number]) => {
-    const geometry =
-      item.actualAngle !== undefined &&
-      item.exactAngle !== undefined &&
-      item.allowedOrb !== undefined
-        ? `实际夹角${item.actualAngle.toFixed(2)}°，精确角${item.exactAngle.toFixed(2)}°，偏差${item.orb.toFixed(2)}°，采用容许度${item.allowedOrb.toFixed(2)}°`
-        : `偏差${item.orb.toFixed(2)}°，旧结果未记录完整几何量`;
+    const geometry = `实际夹角${item.actualAngle.toFixed(2)}°，精确角${item.exactAngle.toFixed(2)}°，偏差${item.orb.toFixed(2)}°，采用容许度${item.allowedOrb.toFixed(2)}°`;
     const phase = item.applying === null ? '入出相未判定' : item.applying ? '入相' : '出相';
     return `${item.body1}${item.symbol}${item.body2}（${item.type}，${geometry}，${phase}${item.isOutOfSign ? '，跨星座相位' : ''}）`;
   };
@@ -903,9 +898,7 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     `核心位置：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}`,
     `星体位置：${data.planets.map((item) => `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`).join('；')}`,
     `宫头位置：${data.houses.map((item) => `${item.label}${item.formatted}`).join('；')}`,
-    aspectCalculation
-      ? `本命相位穷举：选定点位${aspectCalculation.selectedPointNames.join('、')}；共核验${aspectCalculation.evaluatedPairCount}组无序点对，完整保留${aspectCalculation.matchedAspectCount}组命中项；相位定义${aspectCalculation.aspectDefinitions.map((item) => `${item.type}${item.exactAngle}°±${item.allowedOrb}°`).join('、')}。`
-      : '',
+    `本命相位穷举：选定点位${aspectCalculation.selectedPointNames.join('、')}；共核验${aspectCalculation.evaluatedPairCount}组无序点对，完整保留${aspectCalculation.matchedAspectCount}组命中项；相位定义${aspectCalculation.aspectDefinitions.map((item) => `${item.type}${item.exactAngle}°±${item.allowedOrb}°`).join('、')}。`,
     data.aspects.length ? `相位明细：${data.aspects.map(formatAspect).join('；')}` : '',
   ]
     .filter(Boolean)

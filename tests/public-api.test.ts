@@ -3706,7 +3706,7 @@ test('公开 API 星盘应附带真太阳时参考且不改写现代星历时刻
   assert.ok(
     body.data.evidenceAnalysis.aspectFacts.every(
       (item: Record<string, unknown>) =>
-        (item.status === '几何完整' || item.status === '旧记录缺几何量') &&
+        item.status === '几何完整' &&
         Array.isArray(item.positionFactKeys) &&
         Array.isArray(item.sources) &&
         typeof item.actualAngle === 'number' &&

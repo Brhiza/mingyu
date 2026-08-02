@@ -1918,7 +1918,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
           typeof item.actualAngle === 'number' &&
           typeof item.exactAngle === 'number' &&
           typeof item.allowedOrb === 'number' &&
-          (item.status === '几何完整' || item.status === '旧记录缺几何量') &&
+          item.status === '几何完整' &&
           Array.isArray(item.positionFactKeys) &&
           Array.isArray(item.sources) &&
           item.limitation?.includes('不代表事件概率'),

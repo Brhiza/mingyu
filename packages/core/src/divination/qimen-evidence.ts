@@ -348,7 +348,7 @@ function buildPatternFacts(data: QimenData): QimenPatternEvidenceFact[] {
     jiuGongGe: data.jiuGongGe,
     zhiFu: data.zhiFu,
     zhiShi: data.zhiShi,
-    scope: data.scope ?? 'hour',
+    scope: data.scope,
     yearGanZhi: data.ganzhi.year,
     monthGanZhi: data.ganzhi.month,
     dayStem: data.ganzhi.day.charAt(0),
@@ -616,8 +616,8 @@ function assertQimenPalaceMatches(actual: QimenJiuGongGe, expected: QimenJiuGong
 }
 
 function assertAuditableQimenInput(input: QimenData): void {
-  const scope = input.scope ?? 'hour';
-  if (!['hour', 'day', 'month', 'year'].includes(scope)) {
+  const scope = input.scope;
+  if (!scope || !['hour', 'day', 'month', 'year'].includes(scope)) {
     throw new Error(`奇门审核重建无法识别排盘级别“${String(input.scope)}”。`);
   }
   if (scope === 'day') {
@@ -625,9 +625,13 @@ function assertAuditableQimenInput(input: QimenData): void {
       '日家奇门存在多套互相冲突的古法，旧数据不得通过审核重建或提示词入口恢复；完成单一版本校勘前不开放。',
     );
   }
-  const method = input.method ?? 'zhuanpan';
-  if (!['zhuanpan', 'feipan'].includes(method)) {
+  const method = input.method;
+  if (!method || !['zhuanpan', 'feipan'].includes(method)) {
     throw new Error(`奇门审核重建无法识别排盘法“${String(input.method)}”。`);
+  }
+  const juMethod = input.juMethod;
+  if (!juMethod || !['chaibu', 'zhirun', 'yuejia', 'nianjia'].includes(juMethod)) {
+    throw new Error(`奇门审核重建无法识别定局法“${String(input.juMethod)}”。`);
   }
   if (typeof input.isYangDun !== 'boolean') {
     throw new Error('奇门审核重建缺少明确的阴阳遁标记。');
@@ -650,7 +654,11 @@ function assertAuditableQimenInput(input: QimenData): void {
     }
   }
 
-  if (scope === 'month' || scope === 'year') {
+  if (scope === 'hour') {
+    if (!['chaibu', 'zhirun'].includes(juMethod) || input.timeInfo?.juMethod !== juMethod) {
+      throw new Error('时家奇门定局法必须明确为拆补法或置闰法，并与排盘时间记录一致。');
+    }
+  } else if (scope === 'month' || scope === 'year') {
     const expected =
       scope === 'month'
         ? getMonthQimenJuShu(input.ganzhi.month, input.ganzhi.year)
@@ -724,7 +732,7 @@ function rebuildSpecialConditions(
   data: QimenData,
   activeGanZhi: string,
 ): Exclude<QimenData['specialConditions'], undefined> {
-  if ((data.scope ?? 'hour') === 'hour') {
+  if (data.scope === 'hour') {
     return checkSpecialHourConditions(activeGanZhi, data.ganzhi.day);
   }
 
@@ -772,7 +780,7 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
   if (!zhiFuPalace || !zhiShiPalace) {
     throw new Error('奇门值符值使落宫复核失败，已禁止计算格局标签。');
   }
-  const scope = input.scope ?? 'hour';
+  const scope = input.scope;
   const voidBranches = getAuditedQimenVoidBranches(scope, activeGanZhi);
   const voidPalaces = voidBranches.map((branch) => {
     const palace = diPanPalaces[branch];
@@ -819,7 +827,7 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
     jiuGongGe: input.jiuGongGe,
     zhiFu: input.zhiFu,
     zhiShi: input.zhiShi,
-    scope: input.scope ?? 'hour',
+    scope: input.scope,
     yearGanZhi: input.ganzhi.year,
     monthGanZhi: input.ganzhi.month,
     dayStem: input.ganzhi.day.charAt(0),
@@ -1208,12 +1216,11 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
     sources: ['当前九宫数组的宫号、数量与唯一性核验'],
     limitation: PALACE_COVERAGE_FACT_LIMITATION,
   };
-  const scope = data.scope ?? 'hour';
+  const scope = data.scope;
   const scopeLabel = SCOPE_LABELS[scope];
-  const layoutMethod = data.method ?? 'zhuanpan';
+  const layoutMethod = data.method;
   const layoutMethodLabel = layoutMethod === 'feipan' ? '飞盘法' : '转盘法';
-  const juMethod =
-    data.juMethod ?? (data.timeInfo?.juMethod as QimenData['juMethod'] | undefined) ?? 'chaibu';
+  const juMethod = data.juMethod;
   const juMethodLabel = {
     chaibu: '拆补法',
     zhirun: '置闰法',

@@ -201,6 +201,27 @@ test('奇门审核重建应拒绝非法四柱、范围、排盘法与局数', ()
   );
   assert.throws(() => rebuildAuditedQimenData({ ...clean, juShu: 0 }), /局数必须是1至9的整数/);
   assert.throws(() => rebuildAuditedQimenData({ ...clean, timestamp: Number.NaN }), /时间戳无效/);
+
+  for (const [field, expected] of [
+    ['scope', /无法识别排盘级别/],
+    ['method', /无法识别排盘法/],
+    ['juMethod', /无法识别定局法/],
+  ] as const) {
+    const missing = structuredClone(clean) as unknown as Record<string, unknown>;
+    delete missing[field];
+    assert.throws(
+      () =>
+        rebuildAuditedQimenData(
+          missing as unknown as Parameters<typeof rebuildAuditedQimenData>[0],
+        ),
+      expected,
+    );
+  }
+
+  assert.throws(
+    () => rebuildAuditedQimenData({ ...clean, juMethod: 'zhirun' }),
+    /时家奇门定局法必须明确.*并与排盘时间记录一致/,
+  );
 });
 
 test('日家旧盘不得通过审核重建或提示词证据入口恢复', () => {

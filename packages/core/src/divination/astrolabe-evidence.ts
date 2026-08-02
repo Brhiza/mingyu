@@ -24,20 +24,20 @@ export interface AstrolabePositionFact {
 
 export interface AstrolabeAspectFact {
   key: string;
-  status: '几何完整' | '旧记录缺几何量';
-  body1PositionFactKey: string | null;
-  body2PositionFactKey: string | null;
+  status: '几何完整';
+  body1PositionFactKey: string;
+  body2PositionFactKey: string;
   positionFactKeys: string[];
   body1: string;
   body2: string;
   type: string;
   symbol: string;
-  exactAngle?: number;
-  actualAngle?: number;
+  exactAngle: number;
+  actualAngle: number;
   orb: number;
-  allowedOrb?: number;
+  allowedOrb: number;
   phase: '入相' | '出相' | '未判定';
-  isOutOfSign?: boolean;
+  isOutOfSign: boolean;
   promptText: string;
   source: string;
   sources: string[];
@@ -290,21 +290,18 @@ function buildAspectFact(
   );
   const body1PositionFactKey = body1PositionFacts[0]?.key ?? null;
   const body2PositionFactKey = body2PositionFacts[0]?.key ?? null;
+  if (!body1PositionFactKey || !body2PositionFactKey) {
+    throw new Error(
+      `星盘相位“${item.body1}${item.symbol}${item.body2}”无法对应完整位置事实，已禁止生成证据。`,
+    );
+  }
   const positionFactKeys = [...body1PositionFacts, ...body2PositionFacts]
     .map((fact) => fact.key)
     .filter((key, index, values) => values.indexOf(key) === index);
-  const geometry =
-    item.actualAngle !== undefined && item.exactAngle !== undefined && item.allowedOrb !== undefined
-      ? `实际夹角${item.actualAngle.toFixed(2)}°，精确角${item.exactAngle.toFixed(2)}°，采用容许度${item.allowedOrb.toFixed(2)}°，距精确角偏差${item.orb.toFixed(2)}°`
-      : `旧结果未记录实际夹角、精确角或采用容许度，仅保留距精确角偏差${item.orb.toFixed(2)}°`;
+  const geometry = `实际夹角${item.actualAngle.toFixed(2)}°，精确角${item.exactAngle.toFixed(2)}°，采用容许度${item.allowedOrb.toFixed(2)}°，距精确角偏差${item.orb.toFixed(2)}°`;
   return {
     key: `${item.body1}:${item.type}:${item.body2}`,
-    status:
-      item.actualAngle !== undefined &&
-      item.exactAngle !== undefined &&
-      item.allowedOrb !== undefined
-        ? '几何完整'
-        : '旧记录缺几何量',
+    status: '几何完整',
     body1PositionFactKey,
     body2PositionFactKey,
     positionFactKeys,
@@ -319,8 +316,8 @@ function buildAspectFact(
     phase,
     isOutOfSign: item.isOutOfSign,
     promptText: `${item.body1}${item.symbol}${item.body2}（${item.type}）：${geometry}，${phase}${item.isOutOfSign ? '，跨星座相位' : ''}`,
-    source: item.source ?? 'celestine 本命相位计算',
-    sources: [item.source ?? 'celestine 本命相位计算', '两计算点位置事实与相位几何量核验'],
+    source: item.source,
+    sources: [item.source, '两计算点位置事实与相位几何量核验'],
     limitation: ASPECT_FACT_LIMITATION,
   };
 }
@@ -329,15 +326,10 @@ function buildCalculationFact(
   data: Omit<AstrolabeData, 'evidenceAnalysis'>,
 ): AstrolabeCalculationFact {
   const isTrueSolarTime = Boolean(data.birth.isTrueSolarTime);
-  const geometricRecordCount = data.aspects.filter(
-    (item) =>
-      item.actualAngle !== undefined &&
-      item.exactAngle !== undefined &&
-      item.allowedOrb !== undefined,
-  ).length;
+  const geometricRecordCount = data.aspects.length;
   const effectiveDateTime = data.birth.standardDateTime ?? data.birth.dateTime;
-  const selectedPointCount = data.aspectCalculation?.selectedPointNames.length;
-  const evaluatedPairCount = data.aspectCalculation?.evaluatedPairCount;
+  const selectedPointCount = data.aspectCalculation.selectedPointNames.length;
+  const evaluatedPairCount = data.aspectCalculation.evaluatedPairCount;
   const missing = [
     !data.birth.dateTime ? '出生民用时间' : '',
     !data.birth.location ? '出生地点' : '',
@@ -346,7 +338,6 @@ function buildCalculationFact(
     data.planets.length === 0 ? '星体与计算点位置' : '',
     data.angles.length < 4 ? '完整四轴位置' : '',
     data.houses.length < 12 ? '完整十二宫宫头' : '',
-    data.aspects.length > 0 && geometricRecordCount < data.aspects.length ? '完整相位几何量' : '',
   ].filter(Boolean);
   const steps: AstrolabeCalculationStep[] = [
     {
@@ -416,24 +407,18 @@ function buildCalculationFact(
     {
       key: 'astrolabe:calculation:aspects',
       stage: '相位筛选',
-      status:
-        data.aspects.length === 0 || geometricRecordCount === data.aspects.length
-          ? '完整'
-          : '缺少记录',
+      status: '完整',
       inputs: {
-        selectedPointCount: selectedPointCount ?? data.planets.length + data.angles.length,
-        aspectDefinitionCount: data.aspectCalculation?.aspectDefinitions.length ?? 0,
+        selectedPointCount,
+        aspectDefinitionCount: data.aspectCalculation.aspectDefinitions.length,
       },
       outputs: {
-        ...(evaluatedPairCount === undefined ? {} : { evaluatedPairCount }),
+        evaluatedPairCount,
         selectedAspectCount: data.aspects.length,
         geometricRecordCount,
       },
       dependsOnStepKeys: ['astrolabe:calculation:chart'],
-      promptText:
-        data.aspectCalculation?.enumeration === '完整穷举'
-          ? `对${selectedPointCount}个选定点穷举${evaluatedPairCount}组无序点对，按${data.aspectCalculation.aspectDefinitions.length}种相位精确角与容许度完整保留${data.aspects.length}组命中项，不按派生强度筛选或截断`
-          : `按相位精确角与容许度保留${data.aspects.length}组命中项，并逐项记录实际夹角、精确角、偏差、采用容许度和入相出相状态`,
+      promptText: `对${selectedPointCount}个选定点穷举${evaluatedPairCount}组无序点对，按${data.aspectCalculation.aspectDefinitions.length}种相位精确角与容许度完整保留${data.aspects.length}组命中项，不按派生强度筛选或截断`,
       sources: ['celestine 本命相位计算', '相位几何量与容许度核验'],
       limitation: STEP_FACT_LIMITATION,
     },
@@ -854,6 +839,41 @@ function buildSummaryFact(args: {
 export function analyzeRebuiltAstrolabeEvidence(
   data: Omit<AstrolabeData, 'evidenceAnalysis'>,
 ): AstrolabeEvidenceAnalysis {
+  if (
+    !data.aspectCalculation ||
+    data.aspectCalculation.enumeration !== '完整穷举' ||
+    new Set(data.aspectCalculation.selectedPointNames).size !==
+      data.aspectCalculation.selectedPointNames.length ||
+    data.aspectCalculation.evaluatedPairCount !==
+      (data.aspectCalculation.selectedPointNames.length *
+        (data.aspectCalculation.selectedPointNames.length - 1)) /
+        2 ||
+    data.aspectCalculation.matchedAspectCount !== data.aspects.length
+  ) {
+    throw new Error('星盘相位缺少完整穷举记录，已禁止生成证据。');
+  }
+  data.aspects.forEach((item, index) => {
+    if (
+      !Number.isFinite(item.actualAngle) ||
+      !Number.isFinite(item.exactAngle) ||
+      !Number.isFinite(item.orb) ||
+      !Number.isFinite(item.allowedOrb) ||
+      item.actualAngle < 0 ||
+      item.actualAngle > 180 ||
+      item.exactAngle < 0 ||
+      item.exactAngle > 180 ||
+      item.allowedOrb < 0 ||
+      item.allowedOrb > 15 ||
+      item.orb < 0 ||
+      item.orb > item.allowedOrb ||
+      Math.abs(item.orb - Math.abs(item.actualAngle - item.exactAngle)) > 0.011 ||
+      typeof item.isOutOfSign !== 'boolean' ||
+      typeof item.source !== 'string' ||
+      item.source.length === 0
+    ) {
+      throw new Error(`星盘第${index + 1}项相位几何记录不完整，已禁止生成证据。`);
+    }
+  });
   const positionFacts = [
     ...data.planets.map((item) => buildPositionFact(item, '星体与计算点')),
     ...data.angles.map((item) => buildPositionFact(item, '四轴')),

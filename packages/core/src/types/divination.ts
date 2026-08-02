@@ -658,12 +658,12 @@ export type QimenScope = 'hour' | 'day' | 'month' | 'year';
 export interface QimenData {
   /** 中性位置索引、宫内结构、九宫宫对、位置限制与推算边界。 */
   evidenceAnalysis?: import('../divination/qimen-evidence').QimenEvidenceAnalysis;
-  /** 九宫排布方法：zhuanpan=转盘法，feipan=飞盘法。旧结果未记录时按转盘法兼容。 */
-  method?: 'zhuanpan' | 'feipan';
+  /** 九宫排布方法：zhuanpan=转盘法，feipan=飞盘法。审核重建时必须明确提供。 */
+  method: 'zhuanpan' | 'feipan';
   /** 排盘级别：hour=时家, month=月家, year=年家；day 仅供旧数据类型兼容，运行时拒绝。 */
-  scope?: QimenScope;
+  scope: QimenScope;
   /** 定局方法：时家为 chaibu/zhirun，月家为 yuejia，年家为 nianjia。 */
-  juMethod?: 'chaibu' | 'zhirun' | 'yuejia' | 'nianjia';
+  juMethod: 'chaibu' | 'zhirun' | 'yuejia' | 'nianjia';
   /** 九宫格完整数据（1-9宫） */
   jiuGongGe: QimenJiuGongGe[];
   /** 四柱干支（年/月/日/时） */
@@ -1170,16 +1170,16 @@ export interface AstrolabeAspect {
   body2: string;
   type: string;
   symbol: string;
-  /** 相位类型的标准精确角。旧结果可能缺少。 */
-  exactAngle?: number;
-  /** 两计算点黄经的实际最小夹角。旧结果可能缺少。 */
-  actualAngle?: number;
+  /** 相位类型的标准精确角。 */
+  exactAngle: number;
+  /** 两计算点黄经的实际最小夹角。 */
+  actualAngle: number;
   orb: number;
-  /** 本次相位筛选采用的容许度。旧结果可能缺少。 */
-  allowedOrb?: number;
-  /** 是否为跨星座相位。旧结果可能缺少。 */
-  isOutOfSign?: boolean;
-  source?: string;
+  /** 本次相位筛选采用的容许度。 */
+  allowedOrb: number;
+  /** 是否为跨星座相位。 */
+  isOutOfSign: boolean;
+  source: string;
   applying: boolean | null;
 }
 
@@ -1220,8 +1220,8 @@ export interface AstrolabeData {
   angles: AstrolabePoint[];
   houses: AstrolabePoint[];
   aspects: AstrolabeAspect[];
-  /** 当前本命相位所用点位、相位定义与完整穷举数量。旧结果可能缺少。 */
-  aspectCalculation?: AstrolabeAspectCalculation;
+  /** 当前本命相位所用点位、相位定义与完整穷举数量。 */
+  aspectCalculation: AstrolabeAspectCalculation;
   solarIllumination?: SolarIlluminationEvidence;
   summary: {
     elements: Record<string, string[]>;
