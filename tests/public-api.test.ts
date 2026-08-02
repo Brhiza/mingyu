@@ -5714,6 +5714,32 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.doesNotMatch(JSON.stringify(body.data), AUTOMATIC_DIRECTION_CONCLUSION);
 });
 
+test('公开 API 生肖流年应拒绝缺失或矛盾的年份来源', async () => {
+  const missing = await callApi('metaphysics/zodiac/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '马' }),
+  });
+  assert.equal(missing.response.status, 400);
+  assert.match(missing.body.error.message, /必须明确提供 year 或 yearGanZhi/);
+
+  const conflicting = await callApi('metaphysics/zodiac/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '马', year: 2024, yearGanZhi: '庚子' }),
+  });
+  assert.equal(conflicting.response.status, 400);
+  assert.match(conflicting.body.error.message, /year 与 yearGanZhi 不一致/);
+
+  const yearOnly = await callApi('metaphysics/zodiac/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '马', year: 2024 }),
+  });
+  assert.equal(yearOnly.response.status, 200);
+  assert.equal(yearOnly.body.data.yearGanZhi, '甲辰');
+});
+
 test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶定级', async () => {
   const calculate = await callApi('metaphysics/zodiac/calculate', {
     method: 'POST',

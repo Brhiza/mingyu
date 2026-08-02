@@ -5344,6 +5344,35 @@ test('MCP 奇门工具返回位置索引与九宫宫对结构化证据', async (
   });
 });
 
+test('MCP 生肖工具应拒绝缺失或矛盾的年份来源', async () => {
+  await withMcpClient(async (client) => {
+    const missing = await client.callTool({
+      name: 'metaphysics_zodiac',
+      arguments: { zodiac: '马' },
+    });
+    assert.equal(missing.isError, true);
+    const missingText = missing.content[0]?.type === 'text' ? missing.content[0].text : '';
+    assert.match(missingText, /必须明确提供 year 或 yearGanZhi/);
+
+    const conflicting = await client.callTool({
+      name: 'metaphysics_zodiac',
+      arguments: { zodiac: '马', year: 2024, yearGanZhi: '庚子' },
+    });
+    assert.equal(conflicting.isError, true);
+    const conflictingText =
+      conflicting.content[0]?.type === 'text' ? conflicting.content[0].text : '';
+    assert.match(conflictingText, /year 与 yearGanZhi 不一致/);
+
+    const yearOnly = await client.callTool({
+      name: 'metaphysics_zodiac',
+      arguments: { zodiac: '马', year: 2024 },
+    });
+    assert.equal(yearOnly.isError, undefined);
+    const chart = (yearOnly.structuredContent as { result: { yearGanZhi: string } }).result;
+    assert.equal(chart.yearGanZhi, '甲辰');
+  });
+});
+
 test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({

@@ -19,6 +19,7 @@ import {
   ZODIACS,
   EARTHLY_BRANCHES,
   SIXTY_CYCLE,
+  getGanZhiFromDate,
 } from '../ganzhi';
 import { isAuditedSanxingPair } from '../ganzhi/relations';
 import { analyzeZodiacEvidence as buildZodiacEvidence } from './evidence';
@@ -206,6 +207,50 @@ export interface ZodiacGenerationSource {
   yearGanZhi: string;
 }
 
+export interface ZodiacYearReferenceInput {
+  year?: number;
+  yearGanZhi?: string;
+}
+
+/**
+ * 将明确的公元年或流年干支归一为六十甲子。
+ *
+ * 不使用系统当前年份；两项同时提供时必须指向同一个立春年，避免调用方静默忽略冲突输入。
+ */
+export function resolveZodiacYearGanZhi(input: ZodiacYearReferenceInput): string {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('生肖流年必须提供年份来源对象。');
+  }
+  const hasYear = input.year !== undefined;
+  const hasYearGanZhi = input.yearGanZhi !== undefined;
+  if (!hasYear && !hasYearGanZhi) {
+    throw new Error('生肖流年必须明确提供 year 或 yearGanZhi，不能回退到系统当前年份。');
+  }
+
+  let calculatedGanZhi: string | undefined;
+  if (hasYear) {
+    if (!Number.isSafeInteger(input.year) || input.year! < 1900 || input.year! > 2200) {
+      throw new Error('生肖流年 year 必须是1900至2200之间的整数。');
+    }
+    // 取 2 月 10 日正午，确保位于当年立春之后，并避开午夜时区边界。
+    calculatedGanZhi = getGanZhiFromDate(new Date(input.year!, 1, 10, 12, 0, 0, 0)).year;
+  }
+
+  if (hasYearGanZhi) {
+    if (typeof input.yearGanZhi !== 'string' || !isValidGanZhi(input.yearGanZhi)) {
+      throw new Error(`生肖流年 yearGanZhi 不是有效的六十甲子：${String(input.yearGanZhi)}。`);
+    }
+    if (calculatedGanZhi && calculatedGanZhi !== input.yearGanZhi) {
+      throw new Error(
+        `生肖流年 year 与 yearGanZhi 不一致：${input.year}年立春后为${calculatedGanZhi}，不是${input.yearGanZhi}。`,
+      );
+    }
+    return input.yearGanZhi;
+  }
+
+  return calculatedGanZhi!;
+}
+
 export interface ZodiacElementRelation {
   kind: '年干生生肖' | '生肖生年干' | '年干克生肖' | '生肖克年干' | '同类';
   label: string;
@@ -385,6 +430,7 @@ export const zodiac = {
   TAI_SUI_STARS,
   getTaiSuiConflicts,
   getYearTaiSui,
+  resolveZodiacYearGanZhi,
   getZodiacYearFortune,
   rebuildAuditedZodiacData,
   analyzeZodiacEvidence,

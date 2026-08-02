@@ -39,7 +39,7 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { bazhai, zodiac, taiyi, qizheng, xuankong, residentialFengshui } from 'mingyu-core';
-import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
+import { isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import {
@@ -1996,13 +1996,24 @@ function buildBaZhaiPrompt(input: JsonRecord) {
 
 function calculateZodiacApi(input: JsonRecord) {
   const zodiacBranch = resolveZodiacBranch(input.zodiac);
-  const yearGanZhi = readString(input, 'yearGanZhi', '');
+  const yearGanZhi = readString(input, 'yearGanZhi', '').trim();
   if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
   }
-  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
-  // 以"立春"为年界：取 2 月 10 日（必在立春之后）推算流年干支，避免 2/4 凌晨尚属上一干支年的误差
-  const gz = yearGanZhi || getGanZhiFromDate(new Date(year, 1, 10)).year;
+  const year = input.year === undefined ? undefined : readInteger(input, 'year', 1900, 2200);
+  let gz: string;
+  try {
+    gz = zodiac.resolveZodiacYearGanZhi({
+      year,
+      yearGanZhi: yearGanZhi || undefined,
+    });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '生肖流年年份来源无效。',
+    );
+  }
   return zodiac.rebuildAuditedZodiacData(zodiac.getZodiacYearFortune(zodiacBranch, gz));
 }
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { zodiac } from 'mingyu-core';
-import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
+import { isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -12,12 +12,12 @@ import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 
 const zodiacSchema = z.object({
   zodiac: z.string().describe('生肖或地支，如「鼠」或「子」'),
-  year: z.number().int().min(1900).max(2200).optional().describe('公元年（默认今年）'),
+  year: z.number().int().min(1900).max(2200).optional().describe('明确的公元流年'),
   yearGanZhi: z
     .string()
     .refine(isValidGanZhi, 'yearGanZhi 必须是有效的六十甲子')
     .optional()
-    .describe('直接给定流年干支，如「甲辰」'),
+    .describe('直接给定流年干支，如「甲辰」；与 year 至少提供一项，同时提供时必须一致'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -40,9 +40,10 @@ export function registerZodiacTool(server: McpServer) {
     async (args) => {
       try {
         const branch = resolveZodiacBranch(args.zodiac);
-        const yearGanZhi =
-          args.yearGanZhi ||
-          getGanZhiFromDate(new Date(args.year ?? new Date().getFullYear(), 1, 10)).year;
+        const yearGanZhi = zodiac.resolveZodiacYearGanZhi({
+          year: args.year,
+          yearGanZhi: args.yearGanZhi,
+        });
         const result = zodiac.rebuildAuditedZodiacData(
           zodiac.getZodiacYearFortune(branch, yearGanZhi),
         );
@@ -64,9 +65,10 @@ export function registerZodiacTool(server: McpServer) {
     async (args) => {
       try {
         const branch = resolveZodiacBranch(args.zodiac);
-        const yearGanZhi =
-          args.yearGanZhi ||
-          getGanZhiFromDate(new Date(args.year ?? new Date().getFullYear(), 1, 10)).year;
+        const yearGanZhi = zodiac.resolveZodiacYearGanZhi({
+          year: args.year,
+          yearGanZhi: args.yearGanZhi,
+        });
         const result = zodiac.rebuildAuditedZodiacData(
           zodiac.getZodiacYearFortune(branch, yearGanZhi),
         );
