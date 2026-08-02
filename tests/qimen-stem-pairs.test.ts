@@ -977,6 +977,161 @@ test('奇门六庚值符格勃缺少身份字段、时柱非法或值符干矛�
   );
 });
 
+test('天乙飞伏宫按60时柱乘9种地盘奇仪穷举且甲申旬身份重合关闭', () => {
+  const earthStems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  let checked = 0;
+  let feiCount = 0;
+  let fuCount = 0;
+
+  for (const hourGanZhi of jiazi) {
+    const xunHead = getXunHead(hourGanZhi);
+    const valueSymbolStem = SIX_JIA_DUN_STEMS[xunHead];
+
+    for (const earthStem of earthStems) {
+      const valueSymbolPalace = buildPalaceAt(1, valueSymbolStem, earthStem);
+      valueSymbolPalace.tianPan.star = '天蓬';
+      const gengPalace = buildPalaceAt(2, '庚', earthStem);
+      gengPalace.tianPan.star = '天芮';
+      const patterns = getClassicPatterns({
+        jiuGongGe: [valueSymbolPalace, gengPalace],
+        zhiFu: '天蓬',
+        zhiShi: '休门',
+        scope: 'hour',
+        hourGanZhi,
+      }).filter((pattern) => pattern.name === '天乙飞宫格' || pattern.name === '天乙伏宫格');
+      const expectedNames =
+        xunHead === '甲申'
+          ? []
+          : [
+              ...(valueSymbolPalace.diPan.stem === '庚' ? ['天乙飞宫格'] : []),
+              ...(gengPalace.diPan.stem === valueSymbolStem ? ['天乙伏宫格'] : []),
+            ];
+
+      assert.deepEqual(
+        patterns.map((pattern) => pattern.name),
+        expectedNames,
+        `${hourGanZhi}时值符遁${valueSymbolStem}/地盘${earthStem}`,
+      );
+      patterns.forEach((pattern) => {
+        assert.equal(pattern.tone, 'neutral');
+        assert.match(pattern.summary, /可复算结构/);
+        assert.match(pattern.summary, /月家、年家不得套用/);
+        assert.doesNotMatch(pattern.summary, /必胜|必败|贵人受困|宜出|吉方/);
+      });
+      checked += 1;
+      feiCount += patterns.filter((pattern) => pattern.name === '天乙飞宫格').length;
+      fuCount += patterns.filter((pattern) => pattern.name === '天乙伏宫格').length;
+    }
+  }
+
+  assert.equal(checked, 60 * 9);
+  assert.equal(feiCount, 50);
+  assert.equal(fuCount, 50);
+});
+
+test('天乙飞伏宫缺少完整时家值符身份、落宫异常或级别不符时失败关闭', () => {
+  const valueSymbolPalace = buildPalaceAt(1, '戊', '庚');
+  valueSymbolPalace.tianPan.star = '天蓬';
+  const getTianYiPatterns = (context: Parameters<typeof getClassicPatterns>[0]) =>
+    getClassicPatterns(context).filter(
+      (pattern) => pattern.name === '天乙飞宫格' || pattern.name === '天乙伏宫格',
+    );
+  const base = {
+    jiuGongGe: [valueSymbolPalace],
+    zhiFu: '天蓬',
+    zhiShi: '休门',
+    scope: 'hour' as const,
+    hourGanZhi: '甲子',
+  };
+
+  assert.equal(getTianYiPatterns(base).length, 1);
+  assert.deepEqual(getTianYiPatterns({ ...base, zhiFu: '' }), []);
+  assert.deepEqual(getTianYiPatterns({ ...base, hourGanZhi: '' }), []);
+  for (const scope of ['day', 'month', 'year'] as const) {
+    assert.deepEqual(getTianYiPatterns({ ...base, scope }), []);
+  }
+  assert.throws(
+    () =>
+      getTianYiPatterns({
+        ...base,
+        jiuGongGe: [valueSymbolPalace, { ...valueSymbolPalace, gong: 2, name: '坤二宫' }],
+      }),
+    /应恰有一个落宫，实际为2个/,
+  );
+  assert.throws(
+    () => getTianYiPatterns({ ...base, hourGanZhi: '甲戌' }),
+    /所属甲戌旬应由值符携己，实际为戊/,
+  );
+});
+
+test('天乙飞伏宫在转盘飞盘真实盘、证据与提示词中保持同一中性结构', () => {
+  const samples = [
+    { method: 'zhuanpan' as const, date: '2024-01-01T06:00:00+08:00' },
+    { method: 'zhuanpan' as const, date: '2024-01-01T12:00:00+08:00' },
+    { method: 'feipan' as const, date: '2024-01-01T04:00:00+08:00' },
+    { method: 'feipan' as const, date: '2024-01-01T12:00:00+08:00' },
+  ];
+  const reached = new Set<string>();
+
+  for (const sample of samples) {
+    const chart = generateQimen(new Date(sample.date), sample.method, 'hour', 'chaibu');
+    const xunHead = getXunHead(chart.ganzhi.hour);
+    const valueSymbolStem = SIX_JIA_DUN_STEMS[xunHead];
+    const valueSymbolPalace = chart.jiuGongGe.find((palace) => hasTianPanStar(palace, chart.zhiFu));
+    assert.ok(valueSymbolPalace);
+    const expectedNames =
+      valueSymbolStem === '庚'
+        ? []
+        : [
+            ...(valueSymbolPalace.diPan.stem === '庚' ? ['天乙飞宫格'] : []),
+            ...(chart.jiuGongGe.some(
+              (palace) =>
+                getTianPanStems(palace).includes('庚') && palace.diPan.stem === valueSymbolStem,
+            )
+              ? ['天乙伏宫格']
+              : []),
+          ];
+    const actualNames = (chart.classicPatterns ?? [])
+      .filter((pattern) => pattern.name === '天乙飞宫格' || pattern.name === '天乙伏宫格')
+      .map((pattern) => pattern.name);
+
+    assert.deepEqual(actualNames, expectedNames, `${sample.method}/${sample.date}`);
+    actualNames.forEach((name) => reached.add(`${sample.method}:${name}`));
+
+    const analysis = analyzeQimenEvidence(chart);
+    const facts = analysis.patternFacts.filter(
+      (fact) => fact.name === '天乙飞宫格' || fact.name === '天乙伏宫格',
+    );
+    assert.deepEqual(
+      facts.map((fact) => fact.name),
+      expectedNames,
+    );
+    facts.forEach((fact) => {
+      assert.equal(fact.traditionalTone, '中性');
+      assert.ok(fact.sources.some((source) => source.includes('《奇门遁甲统宗》')));
+      assert.ok(fact.sources.some((source) => source.includes('《奇门旨归》')));
+      assert.ok(fact.sources.some((source) => source.includes('《奇门法窍》')));
+      assert.ok(fact.sources.some((source) => source.includes('《遁甲演义》')));
+      assert.match(fact.promptText, /只供 AI 结合完整盘面继续核验/);
+      assert.doesNotMatch(fact.promptText, /必胜|必败|贵人受困|宜出|吉方/);
+    });
+    const rule = analysis.ruleSourceFacts.find(
+      (fact) => fact.key === 'rule:qimen:tian-yi-fei-fu-gong',
+    );
+    assert.ok(rule);
+    assert.equal(rule.category, '天乙飞伏宫时家结构规则');
+    assert.match(rule.promptText, /甲申旬中值符本身即六庚/);
+    assert.match(rule.promptText, /月家、年家不得套用/);
+  }
+
+  assert.deepEqual([...reached].sort(), [
+    'feipan:天乙伏宫格',
+    'feipan:天乙飞宫格',
+    'zhuanpan:天乙伏宫格',
+    'zhuanpan:天乙飞宫格',
+  ]);
+});
+
 test('奇门伏干飞干进入证据提示词时只保留中性结构、交叉来源与适用边界', () => {
   let sample: ReturnType<typeof generateQimen> | undefined;
   for (let index = 0; index < 60 && !sample; index += 1) {
