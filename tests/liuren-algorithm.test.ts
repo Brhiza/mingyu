@@ -553,8 +553,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定二十五条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 25);
+test('大六壬课体登记表应固定二十七条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 27);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -850,6 +850,115 @@ test('大六壬日干受克发用课体应在完整轮廓中严格命中', () =>
         { upper: '巳', lower: '辰' },
       ],
     }).some((item) => item.name === '上门乱首'),
+  );
+});
+
+test('大六壬赘婿卦应按日支临干受克发用的17280种轮廓严格命中', () => {
+  let profileCount = 0;
+  let matchCount = 0;
+
+  for (const dayStem of TIANGAN) {
+    for (const dayBranch of DIZHI) {
+      for (const firstUpper of DIZHI) {
+        for (const initial of DIZHI) {
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '寅', '辰'],
+            dayStem,
+            dayBranch,
+            fourLessons: [
+              { upper: firstUpper, lower: dayStem },
+              { upper: '寅', lower: '寅' },
+              { upper: '卯', lower: dayBranch },
+              { upper: '辰', lower: '卯' },
+            ],
+          }).find((item) => item.name === '赘婿卦');
+          const expected =
+            firstUpper === dayBranch && initial === dayBranch && isBranchKe(dayStem, dayBranch);
+          assert.equal(
+            !!fact,
+            expected,
+            `${dayStem}${dayBranch}日、干上${firstUpper}、${initial}发用的赘婿边界不一致`,
+          );
+          if (fact) matchCount += 1;
+          profileCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 17_280);
+  assert.equal(matchCount, 24);
+
+  const fact = getLiurenGuaTiFacts({
+    transmissionBranches: ['申', '子', '辰'],
+    dayStem: '丙',
+    dayBranch: '申',
+    fourLessons: [
+      { upper: '申', lower: '丙' },
+      { upper: '子', lower: '申' },
+      { upper: '亥', lower: '申' },
+      { upper: '寅', lower: '亥' },
+    ],
+  }).find((item) => item.name === '赘婿卦');
+  assert.ok(fact);
+  assert.equal(fact.stableKey, 'liuren:verified-guati:zhui-xu');
+  assert.deepEqual(fact.matchedConditions, ['日支申临日干丙受干克，且以日支发用']);
+  assert.match(fact.sourceUrl, /六壬大全\/8&oldid=854576$/);
+  assert.match(fact.sourceQuote, /六壬指南.+六壬大全/);
+  assert.doesNotMatch(
+    `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+    /婚姻|屈辱|刑狱|疾病|功名|吉凶|现实事件/,
+  );
+});
+
+test('大六壬回环课应穷举全部1370304种三传与四课上神集合轮廓', () => {
+  const upperSets: string[][] = [];
+  for (let mask = 1; mask < 1 << DIZHI.length; mask += 1) {
+    const uppers = DIZHI.filter((_, index) => (mask & (1 << index)) !== 0);
+    if (uppers.length <= 4) upperSets.push(uppers);
+  }
+  assert.equal(upperSets.length, 793);
+
+  let profileCount = 0;
+  let matchCount = 0;
+  let matchedFact: ReturnType<typeof getLiurenGuaTiFacts>[number] | undefined;
+  for (const initial of DIZHI) {
+    for (const middle of DIZHI) {
+      for (const final of DIZHI) {
+        const branches = [initial, middle, final];
+        for (const uppers of upperSets) {
+          const lessons = Array.from({ length: 4 }, (_, index) => ({
+            upper: uppers[index] ?? uppers[0],
+            lower: DIZHI[index],
+          }));
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: branches,
+            fourLessons: lessons,
+          }).find((item) => item.name === '回环课');
+          const expected = branches.every((branch) => uppers.includes(branch));
+          if (!!fact !== expected) {
+            assert.fail(
+              `三传${branches.join('、')}与四课上神集合${uppers.join('、')}的回环边界不一致`,
+            );
+          }
+          if (fact) {
+            matchCount += 1;
+            matchedFact ??= fact;
+          }
+          profileCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 1_370_304);
+  assert.equal(matchCount, 38_160);
+  assert.ok(matchedFact);
+  assert.equal(matchedFact.stableKey, 'liuren:verified-guati:hui-huan');
+  assert.match(matchedFact.sourceQuote, /六壬指南.+六壬粹言/);
+  assert.doesNotMatch(
+    `${matchedFact.matchedConditions.join('；')}；${matchedFact.sourceQuote}`,
+    /成败|吉|凶|婚姻|疾病|功名|现实事件/,
   );
 });
 

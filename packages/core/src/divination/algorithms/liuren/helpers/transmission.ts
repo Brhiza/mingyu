@@ -151,6 +151,8 @@ const LIUREN_GUIDE_VOLUME_ONE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/1&oldid=854504';
 const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/7&oldid=854575';
+const LIUREN_DAQUAN_VOLUME_EIGHT_URL =
+  'https://zh.wikisource.org/w/index.php?title=六壬大全/8&oldid=854576';
 const LIUREN_GUIDE_VOLUME_TWO_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/2&oldid=854505';
 const JIU_CHOU_DAYS = new Set([
@@ -624,6 +626,50 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             matchedConditions: [
               `日支${context.dayBranch}临日干${context.dayStem}并克干，且以日支发用`,
             ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zhui-xu',
+    name: '赘婿卦',
+    category: '日辰发用',
+    sourceTitle: '《六壬指南》卷一·心印赋；《六壬大全》卷八·赘婿课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬指南》：“支辰加天干之上被克为用曰赘婿卦。”《六壬大全》：“支临干被克，更兼发用尤的。”',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      const firstLesson = context.fourLessons?.[0];
+      return context.dayStem &&
+        context.dayBranch &&
+        firstLesson?.lower === context.dayStem &&
+        firstLesson.upper === context.dayBranch &&
+        initial === context.dayBranch &&
+        isBranchKe(context.dayStem, context.dayBranch)
+        ? {
+            branches: [context.dayBranch],
+            matchedConditions: [
+              `日支${context.dayBranch}临日干${context.dayStem}受干克，且以日支发用`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'hui-huan',
+    name: '回环课',
+    category: '四课关系',
+    sourceTitle: '《六壬指南》卷二·指掌赋；《六壬粹言》卷八·占法',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote: '《六壬指南》：“三传不离四课名曰回环。”《六壬粹言》：“三传全在四课之中，曰回环。”',
+    detect(context) {
+      if (context.fourLessons?.length !== 4) return null;
+      const lessonUppers = new Set(context.fourLessons.map((lesson) => lesson.upper));
+      return context.transmissionBranches.every((branch) => lessonUppers.has(branch))
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [`三传${context.transmissionBranches.join('、')}均见于四课上神`],
           }
         : null;
     },
