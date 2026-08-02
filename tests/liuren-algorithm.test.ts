@@ -9,7 +9,7 @@ import {
 } from 'mingyu-core/divination/liuren';
 import { getVoidBranches } from '../packages/core/src/calendar/lunar.ts';
 import { EARTHLY_BRANCHES } from '../packages/core/src/ganzhi/data.ts';
-import { LIUCHONG_MAP, SANXING_MAP } from '../packages/core/src/ganzhi/relations.ts';
+import { LIUCHONG_MAP, LIUPO_MAP, SANXING_MAP } from '../packages/core/src/ganzhi/relations.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
   getLiurenGuaTiFacts,
@@ -592,8 +592,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定三十五条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 35);
+test('大六壬课体登记表应固定三十八条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 38);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -1057,6 +1057,117 @@ test('大六壬亨通、闭口与引从课应按严格结构批量穷举并由�
       }),
     /末传所临地盘必须是有效地支/,
   );
+});
+
+test('大六壬芜淫、解离与冲破课应按日辰交克和冲神乘破结构批量穷举', () => {
+  let wuYinMatches = 0;
+  let jieLiMatches = 0;
+  for (const dayStem of TIANGAN) {
+    for (const dayBranch of DIZHI) {
+      for (const stemUpper of DIZHI) {
+        for (const branchUpper of DIZHI) {
+          const fourLessons = [
+            { upper: stemUpper, lower: dayStem },
+            { upper: '子', lower: stemUpper },
+            { upper: branchUpper, lower: dayBranch },
+            { upper: '丑', lower: branchUpper },
+          ];
+          const facts = getLiurenGuaTiFacts({
+            transmissionBranches: ['寅', '卯', '辰'],
+            dayStem,
+            dayBranch,
+            fourLessons,
+          });
+          const wuYin = facts.find((candidate) => candidate.name === '芜淫课');
+          const jieLi = facts.find((candidate) => candidate.name === '解离课');
+          assert.equal(
+            Boolean(wuYin),
+            isBranchKe(stemUpper, dayBranch) && isBranchKe(branchUpper, dayStem),
+          );
+          assert.equal(
+            Boolean(jieLi),
+            isBranchKe(dayStem, branchUpper) && isBranchKe(dayBranch, stemUpper),
+          );
+          if (wuYin) wuYinMatches += 1;
+          if (jieLi) jieLiMatches += 1;
+        }
+      }
+    }
+  }
+  assert.equal(wuYinMatches, 672);
+  assert.equal(jieLiMatches, 672);
+
+  let chongPoMatches = 0;
+  for (const dayBranch of DIZHI) {
+    for (const initial of DIZHI) {
+      for (const initialGroundBranch of DIZHI) {
+        const fact = getLiurenGuaTiFacts({
+          transmissionBranches: [initial, '子', '丑'],
+          dayBranch,
+          initialGroundBranch,
+        }).find((candidate) => candidate.name === '冲破课');
+        assert.equal(
+          Boolean(fact),
+          initial === LIUCHONG_MAP[dayBranch] && initialGroundBranch === LIUPO_MAP[initial],
+        );
+        if (fact) chongPoMatches += 1;
+      }
+    }
+  }
+  assert.equal(chongPoMatches, 12);
+
+  const classicalCases = [
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['寅', '卯', '辰'],
+      dayStem: '甲',
+      dayBranch: '子',
+      fourLessons: [
+        { upper: '戌', lower: '甲' },
+        { upper: '子', lower: '戌' },
+        { upper: '申', lower: '子' },
+        { upper: '丑', lower: '申' },
+      ],
+    }).find((candidate) => candidate.name === '芜淫课'),
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['寅', '卯', '辰'],
+      dayStem: '甲',
+      dayBranch: '子',
+      fourLessons: [
+        { upper: '午', lower: '甲' },
+        { upper: '子', lower: '午' },
+        { upper: '辰', lower: '子' },
+        { upper: '丑', lower: '辰' },
+      ],
+    }).find((candidate) => candidate.name === '解离课'),
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['午', '申', '戌'],
+      dayStem: '庚',
+      dayBranch: '子',
+      initialGroundBranch: '卯',
+    }).find((candidate) => candidate.name === '冲破课'),
+  ];
+  classicalCases.forEach((fact) => {
+    assert.ok(fact);
+    assert.match(fact.sourceUrl, /oldid=854576/);
+    assert.doesNotMatch(fact.matchedConditions.join('；'), /婚姻|淫乱|疾病|诉讼|吉|凶/);
+  });
+
+  const realCases = [
+    { date: '2018-01-01T04:30:00+08:00', name: '芜淫课' },
+    { date: '2018-01-02T12:30:00+08:00', name: '解离课' },
+    { date: '2018-01-03T08:30:00+08:00', name: '冲破课' },
+  ];
+  for (const item of realCases) {
+    const generated = generateLiuren(new Date(item.date));
+    const fact = generated.guaTiFacts.find((candidate) => candidate.name === item.name);
+    assert.ok(fact, `${item.date}应命中${item.name}`);
+    assert.equal(
+      generated.evidenceAnalysis?.traditionalFacts.find(
+        (candidate) => candidate.key === fact.stableKey,
+      )?.promptText,
+      `盘面命中“${item.name}”：${fact.matchedConditions.join('；')}；只登记课体结构，不据此单断现实吉凶`,
+    );
+  }
 });
 
 test('大六壬泆女与狡童应按初末传天将和卯酉发用严格命中', () => {

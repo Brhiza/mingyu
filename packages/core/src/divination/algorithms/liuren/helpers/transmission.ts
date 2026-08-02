@@ -985,6 +985,73 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     },
   },
   {
+    id: 'wu-yin',
+    name: '芜淫课',
+    category: '日辰交克',
+    sourceTitle: '《六壬指南》卷一；《六壬大全》卷八·芜淫课；《六壬粹言》',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬指南》：“上神互克干支名曰芜淫卦。”《六壬粹言》：“芜淫课，上神互克其干支。如甲子日，干上戌，支上申。”当前只取干上神克日支、支上神克日干的交互受克结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return isBranchKe(stemUpper, context.dayBranch) && isBranchKe(branchUpper, context.dayStem)
+        ? {
+            branches: [stemUpper, context.dayBranch, branchUpper],
+            matchedConditions: [
+              `干上神${stemUpper}克日支${context.dayBranch}，支上神${branchUpper}克日干${context.dayStem}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jie-li',
+    name: '解离课',
+    category: '日辰交克',
+    sourceTitle: '《六壬大全》卷八·解离课；《六壬粹言》；《六壬指南注解》',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬大全》：“干克支上神，支克干上神。”《六壬粹言》：“解离课，干支互克其上神。如甲子日，干上午，支上辰。”当前只取日干克支上神、日支克干上神的交互克上神结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return isBranchKe(context.dayStem, branchUpper) && isBranchKe(context.dayBranch, stemUpper)
+        ? {
+            branches: [context.dayStem, branchUpper, context.dayBranch, stemUpper],
+            matchedConditions: [
+              `日干${context.dayStem}克支上神${branchUpper}，日支${context.dayBranch}克干上神${stemUpper}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'chong-po',
+    name: '冲破课',
+    category: '冲神乘破',
+    sourceTitle: '《六壬大全》卷八·冲破课；《御定六壬直指》',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_EIGHT_URL,
+    sourceQuote:
+      '《六壬大全》：“日辰之冲神，加破为用。”《御定六壬直指》庚子日例：“午冲子，冲神乘破发用，为之冲破格。”当前只取日支冲神临该冲神六破支发用的严格结构。',
+    detect(context) {
+      if (!context.dayBranch || !context.initialGroundBranch) return null;
+      const initial = context.transmissionBranches[0];
+      const clashBranch = LIUCHONG_MAP[context.dayBranch];
+      const breakBranch = LIUPO_MAP[initial];
+      return initial === clashBranch && context.initialGroundBranch === breakBranch
+        ? {
+            branches: [context.dayBranch, initial, context.initialGroundBranch],
+            matchedConditions: [
+              `初传${initial}冲日支${context.dayBranch}，并临其六破地盘${context.initialGroundBranch}发用`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
     id: 'jiu-chou',
     name: '九丑课',
     category: '大吉临仲',

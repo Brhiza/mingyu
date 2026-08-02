@@ -790,6 +790,8 @@ export interface LiurenGuaTiFact {
     | '三传递生'
     | '旬首旬尾'
     | '初末拱夹'
+    | '日辰交克'
+    | '冲神乘破'
     | '三传顺逆';
   branches: string[];
   matchedConditions: string[];
