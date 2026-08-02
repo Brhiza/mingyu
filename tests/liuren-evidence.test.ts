@@ -695,20 +695,25 @@ test('大六壬旬仪旬奇发用课体进入提示词时应只保留日柱与�
   }
 });
 
-test('大六壬九丑课进入提示词时应只保留指定日柱与大吉落地事实', () => {
+test('大六壬九丑课进入提示词时应保留不发用临支订讹', () => {
   const data = generateLiuren(new Date('2024-01-16T06:00:00+08:00'));
   const fact = data.guaTiFacts.find((candidate) => candidate.name === '九丑课');
   assert.ok(fact, '九丑课应由真实起盘命中');
-  assert.deepEqual(fact.matchedConditions, ['日柱己卯为九丑十日之一，天盘大吉丑临日支卯']);
+  assert.deepEqual(fact.matchedConditions, [
+    '日柱己卯为九丑十日之一，四仲时卯占，天盘大吉丑临日支卯，依《订讹》不发用而临支上者亦是',
+  ]);
   const traditionalFact = data.evidenceAnalysis?.traditionalFacts.find(
     (candidate) => candidate.key === fact.stableKey,
   );
   assert.ok(traditionalFact);
   assert.equal(
     traditionalFact.promptText,
-    '盘面命中“九丑课”：日柱己卯为九丑十日之一，天盘大吉丑临日支卯；只登记课体结构，不据此单断现实吉凶',
+    '盘面命中“九丑课”：日柱己卯为九丑十日之一，四仲时卯占，天盘大吉丑临日支卯，依《订讹》不发用而临支上者亦是；只登记课体结构，不据此单断现实吉凶',
   );
-  assert.match(data.evidenceAnalysis?.promptText ?? '', /日柱己卯.+大吉丑临日支卯/);
+  assert.match(
+    data.evidenceAnalysis?.promptText ?? '',
+    /日柱己卯.+四仲时卯占.+大吉丑临日支卯.+不发用而临支上者亦是/,
+  );
   assert.doesNotMatch(traditionalFact.promptText, /灾|婚姻|疾病|刑狱|死亡|功名|现实结果|吉凶总分/);
 });
 

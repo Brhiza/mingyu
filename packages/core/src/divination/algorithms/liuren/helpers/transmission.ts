@@ -29,7 +29,7 @@ import {
   TIANGAN,
   TIANJIANG,
 } from './plate';
-import { getLiurenTianMaBranch } from './shensha';
+import { getLiurenMonthlyCompositeBranch, getLiurenTianMaBranch } from './shensha';
 
 function describeDirectedElementRelation(
   sourceLabel: string,
@@ -171,6 +171,8 @@ const LIUREN_DAQUAN_VOLUME_NINE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/9&oldid=854578';
 const LIUREN_DAQUAN_VOLUME_TEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/10&oldid=854579';
+const LIUREN_DAQUAN_VOLUME_ELEVEN_URL =
+  'https://zh.wikisource.org/w/index.php?title=六壬大全/11&oldid=854580';
 const LIUREN_DAQUAN_VOLUME_TWELVE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/12&oldid=854581';
 const LIUREN_GUIDE_VOLUME_TWO_URL =
@@ -252,6 +254,7 @@ const DAY_GHOST_BRANCHES_BY_STEM: Readonly<Record<string, readonly string[]>> = 
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
   transmissionGods?: string[];
+  transmissionGroundBranches?: string[];
   dayGanZhi?: string;
   dayStem?: string;
   dayBranch?: string;
@@ -302,6 +305,18 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
     });
   }
 
+  if (context.transmissionGroundBranches !== undefined) {
+    if (
+      !Array.isArray(context.transmissionGroundBranches) ||
+      context.transmissionGroundBranches.length !== 3
+    ) {
+      throw new Error('大六壬课体识别的三传所临地盘一经提供，就必须恰好包含初传、中传、末传三项。');
+    }
+    context.transmissionGroundBranches.forEach((branch, index) =>
+      assertLiurenGuaTiBranch(branch, `第${index + 1}传所临地盘`),
+    );
+  }
+
   if (
     context.dayStem !== undefined &&
     !TIANGAN.includes(context.dayStem as (typeof TIANGAN)[number])
@@ -336,6 +351,21 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
   ];
   for (const [value, label] of optionalBranches) {
     if (value !== undefined) assertLiurenGuaTiBranch(value, label);
+  }
+
+  if (
+    context.initialGroundBranch !== undefined &&
+    context.transmissionGroundBranches !== undefined &&
+    context.initialGroundBranch !== context.transmissionGroundBranches[0]
+  ) {
+    throw new Error('初传所临地盘与三传所临地盘第一项不一致。');
+  }
+  if (
+    context.finalGroundBranch !== undefined &&
+    context.transmissionGroundBranches !== undefined &&
+    context.finalGroundBranch !== context.transmissionGroundBranches[2]
+  ) {
+    throw new Error('末传所临地盘与三传所临地盘第三项不一致。');
   }
 
   if (context.fourLessons !== undefined) {
@@ -402,6 +432,86 @@ function matchConsecutiveTransmissions(
     : null;
 }
 
+function getPreviousLiurenBranch(branch: string): string {
+  const index = DIZHI.indexOf(branch as (typeof DIZHI)[number]);
+  if (index < 0) throw new Error(`无法定位地支${branch}的前一位。`);
+  return DIZHI[(index - 1 + DIZHI.length) % DIZHI.length];
+}
+
+function getNextLiurenBranch(branch: string): string {
+  const index = DIZHI.indexOf(branch as (typeof DIZHI)[number]);
+  if (index < 0) throw new Error(`无法定位地支${branch}的后一位。`);
+  return DIZHI[(index + 1) % DIZHI.length];
+}
+
+function getLiurenXunTailBranch(dayGanZhi: string): string {
+  const xunHeadBranch = getXunHead(dayGanZhi).charAt(1);
+  const xunHeadIndex = DIZHI.indexOf(xunHeadBranch as (typeof DIZHI)[number]);
+  if (xunHeadIndex < 0) throw new Error(`无法定位${dayGanZhi}的旬首地支。`);
+  return DIZHI[(xunHeadIndex + 9) % DIZHI.length];
+}
+
+const TRANSMISSION_STAGE_NAMES = ['初传', '中传', '末传'] as const;
+
+interface LiurenTransmissionVoidState {
+  stage: (typeof TRANSMISSION_STAGE_NAMES)[number];
+  branch: string;
+  groundBranch: string;
+  branchIsVoid: boolean;
+  groundIsVoid: boolean;
+  isEmpty: boolean;
+}
+
+function getLiurenVoidBranches(dayGanZhi: string): [string, string] {
+  const xunHead = getXunHead(dayGanZhi);
+  const xunHeadIndex = DIZHI.indexOf(xunHead.charAt(1) as (typeof DIZHI)[number]);
+  if (xunHeadIndex < 0) throw new Error(`无法定位${dayGanZhi}的旬首地支。`);
+  return [DIZHI[(xunHeadIndex + 10) % 12], DIZHI[(xunHeadIndex + 11) % 12]];
+}
+
+function getTransmissionVoidStates(
+  context: LiurenGuaTiContext,
+): LiurenTransmissionVoidState[] | null {
+  if (!context.dayGanZhi || !context.transmissionGroundBranches) return null;
+  const voidBranches = new Set(getLiurenVoidBranches(context.dayGanZhi));
+  return context.transmissionBranches.map((branch, index) => {
+    const groundBranch = context.transmissionGroundBranches?.[index];
+    if (!groundBranch) throw new Error(`缺少第${index + 1}传所临地盘。`);
+    const branchIsVoid = voidBranches.has(branch);
+    const groundIsVoid = voidBranches.has(groundBranch);
+    return {
+      stage: TRANSMISSION_STAGE_NAMES[index],
+      branch,
+      groundBranch,
+      branchIsVoid,
+      groundIsVoid,
+      isEmpty: branchIsVoid || groundIsVoid,
+    };
+  });
+}
+
+function describeTransmissionVoidState(state: LiurenTransmissionVoidState): string {
+  if (state.branchIsVoid && state.groundIsVoid) {
+    return `${state.stage}${state.branch}旬空且所临地盘${state.groundBranch}空`;
+  }
+  if (state.branchIsVoid) return `${state.stage}${state.branch}旬空`;
+  if (state.groundIsVoid) {
+    return `${state.stage}${state.branch}所临地盘${state.groundBranch}空`;
+  }
+  return `${state.stage}${state.branch}及所临地盘${state.groundBranch}均实`;
+}
+
+function getAllEmptyTransmissionMatch(context: LiurenGuaTiContext) {
+  const states = getTransmissionVoidStates(context);
+  return states?.every((state) => state.isEmpty)
+    ? {
+        states,
+        branches: [...context.transmissionBranches, ...(context.transmissionGroundBranches || [])],
+        matchedConditions: states.map(describeTransmissionVoidState),
+      }
+    : null;
+}
+
 const XUN_QI_BY_HEAD: Readonly<Record<string, string>> = {
   甲子: '丑',
   甲戌: '丑',
@@ -410,6 +520,102 @@ const XUN_QI_BY_HEAD: Readonly<Record<string, string>> = {
   甲辰: '亥',
   甲寅: '亥',
 };
+
+const LIUREN_DAQUAN_INTERVAL_RULE_SPECS = [
+  { id: 'deng-san-tian', name: '登三天格', branches: ['辰', '午', '申'] },
+  { id: 'chu-san-tian', name: '出三天格', branches: ['午', '申', '戌'] },
+  { id: 'she-san-yuan', name: '涉三渊格', branches: ['申', '戌', '子'] },
+  { id: 'ru-san-yuan', name: '入三渊格', branches: ['戌', '子', '寅'] },
+  { id: 'xiang-yang', name: '向阳格', branches: ['子', '寅', '辰'] },
+  { id: 'chu-yang', name: '出阳格', branches: ['寅', '辰', '午'] },
+  { id: 'chu-hu', name: '出户格', branches: ['丑', '卯', '巳'] },
+  { id: 'ying-yang', name: '盈阳格', branches: ['卯', '巳', '未'] },
+  { id: 'chong-ying', name: '充盈格', branches: ['巳', '未', '酉'] },
+  { id: 'ru-ming', name: '入冥格', branches: ['未', '酉', '亥'] },
+  { id: 'ning-yin', name: '凝阴格', branches: ['酉', '亥', '丑'] },
+  { id: 'ming-meng', name: '溟蒙格', branches: ['亥', '丑', '卯'] },
+  { id: 'ming-yin', name: '冥阴格', branches: ['寅', '子', '戌'] },
+  { id: 'yan-jian', name: '偃蹇格', branches: ['子', '戌', '申'] },
+  { id: 'bei-li', name: '悖戾格', branches: ['戌', '申', '午'] },
+  { id: 'ning-yang', name: '凝阳格', branches: ['申', '午', '辰'] },
+  { id: 'gu-zu', name: '顾祖格', branches: ['午', '辰', '寅'] },
+  { id: 'she-yi', name: '涉疑格', branches: ['辰', '寅', '子'] },
+  { id: 'ji-yin', name: '极阴格', branches: ['丑', '亥', '酉'] },
+  { id: 'shi-dun', name: '时遁格', branches: ['亥', '酉', '未'] },
+  { id: 'li-ming', name: '励明格', branches: ['酉', '未', '巳'] },
+  { id: 'hui-ming', name: '回明格', branches: ['未', '巳', '卯'] },
+  { id: 'zhuan-bei', name: '转悖格', branches: ['巳', '卯', '丑'] },
+  { id: 'duan-jian', name: '断涧格', branches: ['卯', '丑', '亥'] },
+] as const;
+
+const LIUREN_DAQUAN_INTERVAL_RULES: LiurenGuaTiRule[] = LIUREN_DAQUAN_INTERVAL_RULE_SPECS.map(
+  (spec) => ({
+    id: spec.id,
+    name: spec.name,
+    category: '三传顺逆',
+    sourceTitle: '《六壬大全》卷十·间传课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote: `《六壬大全》：“${spec.branches.join('')}为${spec.name}。”当前只登记初中末传的固定次序。`,
+    detect: (context) =>
+      context.transmissionBranches.every((branch, index) => branch === spec.branches[index])
+        ? {
+            branches: [...spec.branches],
+            matchedConditions: [`三传固定为${spec.branches.join('、')}`],
+          }
+        : null,
+  }),
+);
+
+const LIUREN_DAQUAN_COMBINATION_SELF_PUNISHMENT_SPECS = [
+  {
+    id: 'jin-gang',
+    name: '金刚格',
+    transmissionBranches: ['巳', '酉', '丑'],
+    repeatedBranch: '酉',
+  },
+  {
+    id: 'huo-qiang',
+    name: '火强格',
+    transmissionBranches: ['寅', '午', '戌'],
+    repeatedBranch: '午',
+  },
+  {
+    id: 'shui-liu-qu-dong',
+    name: '水流趋东格',
+    transmissionBranches: ['申', '子', '辰'],
+    repeatedBranch: '辰',
+  },
+  {
+    id: 'mu-luo-gui-gen',
+    name: '木落归根格',
+    transmissionBranches: ['亥', '卯', '未'],
+    repeatedBranch: '亥',
+  },
+] as const;
+
+const LIUREN_DAQUAN_COMBINATION_SELF_PUNISHMENT_RULES: LiurenGuaTiRule[] =
+  LIUREN_DAQUAN_COMBINATION_SELF_PUNISHMENT_SPECS.map((spec) => ({
+    id: spec.id,
+    name: spec.name,
+    category: '三合成局',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote: `《六壬大全》：“${spec.transmissionBranches.join('')}三合为三传，支干上复见${spec.repeatedBranch}者，为${spec.name}。”当前只登记三传全局且干支任一上神复见指定支的结构。`,
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return hasSameBranchSet(context.transmissionBranches, [...spec.transmissionBranches]) &&
+        [stemUpper, branchUpper].includes(spec.repeatedBranch)
+        ? {
+            branches: [...context.transmissionBranches, stemUpper, branchUpper],
+            matchedConditions: [
+              `三传为${spec.transmissionBranches.join('、')}全局，干上神${stemUpper}、支上神${branchUpper}中复见${spec.repeatedBranch}`,
+            ],
+          }
+        : null;
+    },
+  }));
 
 const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
   {
@@ -478,6 +684,7 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     sourceQuote: '三传申子辰全者曰润下卦。',
     detect: (context) => matchSanhe(context, ['申', '子', '辰'], '三传申子辰全'),
   },
+  ...LIUREN_DAQUAN_COMBINATION_SELF_PUNISHMENT_RULES,
   {
     id: 'jin-ru',
     name: '进茹',
@@ -538,6 +745,464 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         `三传${context.transmissionBranches.join('、')}依十二地支逆序每次间隔一位`,
       ),
   },
+  ...LIUREN_DAQUAN_INTERVAL_RULES,
+  {
+    id: 'zhuang-gan',
+    name: '撞干格',
+    category: '日辰关隔',
+    sourceTitle: '《六壬大全》卷十·撞干格',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“干支前一位为关隔……初末传撞日之关……如辛巳日三传丑亥酉……末传撞辛之关。”当前只登记初传或末传碰到日干寄宫前一位的固定结构。',
+    detect(context) {
+      if (!context.dayStem) return null;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const barrier = getPreviousLiurenBranch(stemResidence);
+      const matchedStages = [
+        ...(context.transmissionBranches[0] === barrier ? ['初传'] : []),
+        ...(context.transmissionBranches[2] === barrier ? ['末传'] : []),
+      ];
+      return matchedStages.length
+        ? {
+            branches: [barrier, stemResidence],
+            matchedConditions: [
+              `日干${context.dayStem}寄宫${stemResidence}的前一位关隔为${barrier}，${matchedStages.join('、')}撞关`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zhuang-zhi',
+    name: '撞支格',
+    category: '日辰关隔',
+    sourceTitle: '《六壬大全》卷十·撞支格',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“干支前一位为关隔……三传通连日之支辰，为撞支格。盖初末传撞支之隔。”当前只登记初传或末传碰到日支前一位的固定结构。',
+    detect(context) {
+      if (!context.dayBranch) return null;
+      const barrier = getPreviousLiurenBranch(context.dayBranch);
+      const matchedStages = [
+        ...(context.transmissionBranches[0] === barrier ? ['初传'] : []),
+        ...(context.transmissionBranches[2] === barrier ? ['末传'] : []),
+      ];
+      return matchedStages.length
+        ? {
+            branches: [barrier, context.dayBranch],
+            matchedConditions: [
+              `日支${context.dayBranch}的前一位关隔为${barrier}，${matchedStages.join('、')}撞关`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zhou-er-fu-shi',
+    name: '周而复始格',
+    category: '旬首旬尾',
+    sourceTitle: '《六壬大全》卷十一·首尾相见始终宜',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_ELEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“干上有旬尾，支上有旬首，名周而复始格，亦名一旬周遍格。”下文另列干上旬首、支上旬尾的反向结构；当前两向均只登记旬首旬尾落位事实。',
+    detect(context) {
+      if (!context.dayGanZhi || !context.fourLessons) return null;
+      const xunHead = getXunHead(context.dayGanZhi).charAt(1);
+      const xunTail = getLiurenXunTailBranch(context.dayGanZhi);
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const isForward = stemUpper === xunTail && branchUpper === xunHead;
+      const isReverse = stemUpper === xunHead && branchUpper === xunTail;
+      return isForward || isReverse
+        ? {
+            branches: [stemUpper, branchUpper],
+            matchedConditions: [
+              `${context.dayGanZhi}属${getXunHead(context.dayGanZhi)}旬，干上神${stemUpper}与支上神${branchUpper}分居旬${isForward ? '尾、旬首' : '首、旬尾'}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zhi-chuan-gan',
+    name: '支传干格',
+    category: '四课关系',
+    sourceTitle: '《六壬大全》卷十一·彼求我事支传干',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_ELEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“谓初传从支上起，末传归干上者。”当前只登记初传等于支上神、末传等于干上神的首末结构。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return context.transmissionBranches[0] === branchUpper &&
+        context.transmissionBranches[2] === stemUpper
+        ? {
+            branches: [branchUpper, stemUpper],
+            matchedConditions: [`初传从支上神${branchUpper}起，末传归干上神${stemUpper}`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gan-chuan-zhi',
+    name: '干传支格',
+    category: '四课关系',
+    sourceTitle: '《六壬大全》卷十一·我求彼事干传支',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_ELEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“谓初传从干上起，末传归在支上者。”当前只登记初传等于干上神、末传等于支上神的首末结构。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return context.transmissionBranches[0] === stemUpper &&
+        context.transmissionBranches[2] === branchUpper
+        ? {
+            branches: [stemUpper, branchUpper],
+            matchedConditions: [`初传从干上神${stemUpper}起，末传归支上神${branchUpper}`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zi-sheng-chuan-mu',
+    name: '自生传墓格',
+    category: '三传支类',
+    sourceTitle: '《六壬大全》卷十一·有始无终难变易',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_ELEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“初传是日之长生，末传为干之墓……自生传墓。”当前只登记初传为日干长生、末传为日干墓位的结构。',
+    detect(context) {
+      if (!context.dayStem) return null;
+      const dayOrigin = LIUREN_DAY_ORIGIN_BY_STEM[context.dayStem];
+      const dayTomb = ELEMENT_TOMB_BY_STEM[context.dayStem];
+      return context.transmissionBranches[0] === dayOrigin &&
+        context.transmissionBranches[2] === dayTomb
+        ? {
+            branches: [dayOrigin, dayTomb],
+            matchedConditions: [
+              `初传${dayOrigin}为日干${context.dayStem}长生，末传${dayTomb}为日干墓位`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zi-mu-chuan-sheng',
+    name: '自墓传生格',
+    category: '三传支类',
+    sourceTitle: '《六壬大全》卷十一·有始无终难变易',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_ELEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“初为干墓，末传为干之长生……自墓传生。”当前只登记初传为日干墓位、末传为日干长生的结构。',
+    detect(context) {
+      if (!context.dayStem) return null;
+      const dayOrigin = LIUREN_DAY_ORIGIN_BY_STEM[context.dayStem];
+      const dayTomb = ELEMENT_TOMB_BY_STEM[context.dayStem];
+      return context.transmissionBranches[0] === dayTomb &&
+        context.transmissionBranches[2] === dayOrigin
+        ? {
+            branches: [dayTomb, dayOrigin],
+            matchedConditions: [
+              `初传${dayTomb}为日干${context.dayStem}墓位，末传${dayOrigin}为日干长生`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'kui-du-tian-men',
+    name: '魁度天门格',
+    category: '发用临地',
+    sourceTitle: '《六壬大全》卷十二·魁度天门关隔定',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“谓戌为天魁，亥为天门，凡戌加亥为用者。”当前只登记天魁戌临地盘亥发用的固定结构。',
+    detect(context) {
+      if (!context.transmissionGroundBranches) return null;
+      return context.transmissionBranches[0] === '戌' &&
+        context.transmissionGroundBranches[0] === '亥'
+        ? {
+            branches: ['戌', '亥'],
+            matchedConditions: ['天魁戌临地盘天门亥发用'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'gang-sai-gui-hu',
+    name: '罡塞鬼户格',
+    category: '天罡临地',
+    sourceTitle: '《六壬大全》卷十二·罡塞鬼户任谋为',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“谓辰为天罡，寅为鬼户，凡辰加寅为罡塞鬼门，不论在传不在传。”当前只登记天盘辰临地盘寅的固定天地盘结构。',
+    detect: (context) =>
+      context.heavenlyDragonGroundBranch === '寅'
+        ? {
+            branches: ['辰', '寅'],
+            matchedConditions: ['天盘天罡辰临地盘鬼户寅'],
+          }
+        : null,
+  },
+  {
+    id: 'gan-zhi-luo-wang',
+    name: '干支罗网格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷十二·所谋多拙逢罗网',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“谓干上乘干前一辰，支上乘支前一辰，故名一在罗地网。”当前只登记干支上神分别为日干寄宫、日支后一位的固定结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const stemNet = getNextLiurenBranch(stemResidence);
+      const branchNet = getNextLiurenBranch(context.dayBranch);
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return stemUpper === stemNet && branchUpper === branchNet
+        ? {
+            branches: [stemNet, branchNet],
+            matchedConditions: [
+              `干上神${stemUpper}为日干${context.dayStem}寄宫${stemResidence}后一位，支上神${branchUpper}为日支${context.dayBranch}后一位`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'san-liu-he',
+    name: '三六合格',
+    category: '三合成局',
+    sourceTitle: '《六壬大全》卷十二·万事喜忻三六合',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》分列寅午戌见未、亥卯未见戌、申子辰见丑、巳酉丑见辰四种“三合中有六合”结构。当前只登记三传成局且干支任一上神复见对应六合支。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const upperBranches = [context.fourLessons[0].upper, context.fourLessons[2].upper];
+      const spec = [
+        { sanhe: ['寅', '午', '戌'], companion: '未' },
+        { sanhe: ['亥', '卯', '未'], companion: '戌' },
+        { sanhe: ['申', '子', '辰'], companion: '丑' },
+        { sanhe: ['巳', '酉', '丑'], companion: '辰' },
+      ].find(
+        (candidate) =>
+          hasSameBranchSet(context.transmissionBranches, candidate.sanhe) &&
+          upperBranches.includes(candidate.companion),
+      );
+      return spec
+        ? {
+            branches: [...context.transmissionBranches, spec.companion],
+            matchedConditions: [
+              `三传${context.transmissionBranches.join('、')}成三合局，干支上神复见六合支${spec.companion}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'he-zhong-fan-sha',
+    name: '合中犯杀格',
+    category: '三合成局',
+    sourceTitle: '《六壬大全》卷十二·合中犯杀蜜中砒',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》逐局列出三合局在干支上神复见本局自刑、六害或六冲支的十二种固定结构。当前只登记对应犯杀支复见，不继承现实断语。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const upperBranches = [context.fourLessons[0].upper, context.fourLessons[2].upper];
+      const spec = [
+        { sanhe: ['寅', '午', '戌'], offenders: ['午', '丑', '子'] },
+        { sanhe: ['亥', '卯', '未'], offenders: ['子', '辰', '酉'] },
+        { sanhe: ['申', '子', '辰'], offenders: ['卯', '未', '午'] },
+        { sanhe: ['巳', '酉', '丑'], offenders: ['酉', '戌', '卯'] },
+      ].find((candidate) => hasSameBranchSet(context.transmissionBranches, candidate.sanhe));
+      if (!spec) return null;
+      const matchedOffenders = [
+        ...new Set(upperBranches.filter((branch) => spec.offenders.includes(branch))),
+      ];
+      return matchedOffenders.length
+        ? {
+            branches: [...context.transmissionBranches, ...matchedOffenders],
+            matchedConditions: [
+              `三传${context.transmissionBranches.join('、')}成三合局，干支上神复见本局犯杀支${matchedOffenders.join('、')}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'san-chuan-jie-kong',
+    name: '三传皆空格',
+    category: '课传空陷',
+    sourceTitle: '《六壬大全》卷十二·毕法赋；《六壬粹言》卷三·毕法赋；《御定六壬直指》课例',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“谓三传皆空亡者是也。”《六壬粹言》分列“三传皆空格”，《御定六壬直指》按传支旬空或所临地盘空逐传复核。当前只登记初中末三传全部空陷的结构。',
+    detect(context) {
+      const match = getAllEmptyTransmissionMatch(context);
+      return match
+        ? { branches: match.branches, matchedConditions: match.matchedConditions }
+        : null;
+    },
+  },
+  {
+    id: 'si-ke-quan-kong',
+    name: '四课全空格',
+    category: '课传空陷',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“四课全空格，四课无形。”原例逐课分别按上神旬空或所临下位空核对；当前只登记四课逐课均有一层空亡的结构。',
+    detect(context) {
+      if (!context.dayGanZhi || !context.fourLessons) return null;
+      const voidBranches = new Set(getLiurenVoidBranches(context.dayGanZhi));
+      const states = context.fourLessons.map((lesson, index) => {
+        const upperIsVoid = voidBranches.has(lesson.upper);
+        const lowerIsVoid = voidBranches.has(lesson.lower);
+        return {
+          isEmpty: upperIsVoid || lowerIsVoid,
+          branches: [upperIsVoid ? lesson.upper : '', lowerIsVoid ? lesson.lower : ''].filter(
+            Boolean,
+          ),
+          condition: upperIsVoid
+            ? `第${index + 1}课上神${lesson.upper}旬空`
+            : lowerIsVoid
+              ? `第${index + 1}课所临下位${lesson.lower}空`
+              : `第${index + 1}课上下均实`,
+        };
+      });
+      return states.every((state) => state.isEmpty)
+        ? {
+            branches: states.flatMap((state) => state.branches),
+            matchedConditions: states.map((state) => state.condition),
+          }
+        : null;
+    },
+  },
+  {
+    id: 'fa-yong-shang-xia-jie-kong',
+    name: '发用上下皆空格',
+    category: '课传空陷',
+    sourceTitle: '《六壬大全》卷十二·毕法赋；《六壬粹言》卷三·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬粹言》：“谓发用旬空，又坐空乡。”《六壬大全》分别说明发用天盘旬空与地盘空。当前要求初传本支与其所临地盘同时属于本日旬空。',
+    detect(context) {
+      const initial = getTransmissionVoidStates(context)?.[0];
+      return initial?.branchIsVoid && initial.groundIsVoid
+        ? {
+            branches: [initial.branch, initial.groundBranch],
+            matchedConditions: [describeTransmissionVoidState(initial)],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'du-chuan-bu-xing',
+    name: '杜传不行格',
+    category: '课传空陷',
+    sourceTitle: '《六壬大全》卷十二·毕法赋；《六壬粹言》卷三·毕法赋；《御定六壬直指》课例',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬粹言》：“杜传不行，谓初实而中末空亡也。”《六壬大全》《御定六壬直指》均以中末俱空而只存初传复核。当前严格要求初传不空、中末两传均空陷。',
+    detect(context) {
+      const states = getTransmissionVoidStates(context);
+      return states && !states[0].isEmpty && states[1].isEmpty && states[2].isEmpty
+        ? {
+            branches: [
+              ...context.transmissionBranches,
+              ...(context.transmissionGroundBranches || []),
+            ],
+            matchedConditions: states.map(describeTransmissionVoidState),
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zhong-chuan-duan-qiao',
+    name: '断桥格',
+    category: '课传空陷',
+    sourceTitle: '《六壬大全》卷十二·毕法赋；《六壬粹言》卷三·毕法赋；《御定六壬直指》课例',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》《六壬粹言》均称“中传空，为断桥”，《御定六壬直指》又称“断桥折腰”。当前只登记中传本支旬空或所临地盘空的结构。',
+    detect(context) {
+      const middle = getTransmissionVoidStates(context)?.[1];
+      return middle?.isEmpty
+        ? {
+            branches: [middle.branch, middle.groundBranch],
+            matchedConditions: [describeTransmissionVoidState(middle)],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'sheng-chuan-kong-gu',
+    name: '声传空谷格',
+    category: '课传空陷',
+    sourceTitle: '《六壬大全》卷十一·毕法赋；《六壬指南》卷二·指掌赋；《六壬粹言》卷三·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_ELEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“进茹空亡宜退步”，并以三传寅卯辰、辰巳午皆空为例；《六壬指南》《六壬粹言》称“声传空谷”。当前只登记进茹三传全部空陷。',
+    detect(context) {
+      const match = getAllEmptyTransmissionMatch(context);
+      if (!match || !matchConsecutiveTransmissions(context, 1, '')) return null;
+      return {
+        branches: match.branches,
+        matchedConditions: [
+          `三传${context.transmissionBranches.join('、')}顺行逐支相连`,
+          ...match.matchedConditions,
+        ],
+      };
+    },
+  },
+  {
+    id: 'jiao-ta-kong-wang',
+    name: '脚踏空亡格',
+    category: '课传空陷',
+    sourceTitle: '《六壬大全》卷十一·毕法赋；《六壬指南》卷二·指掌赋；《六壬粹言》卷三·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_ELEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“谓退步传全值空亡者，故名踏脚空亡。”《六壬指南》《六壬粹言》同以退茹三传全部空陷复核。当前不继承进退或现实吉凶断语。',
+    detect(context) {
+      const match = getAllEmptyTransmissionMatch(context);
+      if (!match || !matchConsecutiveTransmissions(context, -1, '')) return null;
+      return {
+        branches: match.branches,
+        matchedConditions: [
+          `三传${context.transmissionBranches.join('、')}逆行逐支相连`,
+          ...match.matchedConditions,
+        ],
+      };
+    },
+  },
+  {
+    id: 'lai-qu-ju-kong',
+    name: '来去俱空格',
+    category: '课传空陷',
+    sourceTitle: '《六壬大全》卷十二·毕法赋；《六壬粹言》卷三·返吟；《御定六壬直指》课例',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“来去者，返吟卦也……内有三传皆空亡者。”《六壬粹言》《御定六壬直指》亦按返吟三传空陷复核。当前只登记返吟天地盘与三传皆空的共同结构。',
+    detect(context) {
+      const match = getAllEmptyTransmissionMatch(context);
+      return match &&
+        !!context.monthLeader &&
+        !!context.hourBranch &&
+        LIUCHONG_MAP[context.monthLeader] === context.hourBranch
+        ? {
+            branches: [...match.branches, context.monthLeader, context.hourBranch],
+            matchedConditions: [
+              `月将${context.monthLeader}与占时${context.hourBranch}六冲，天地盘为返吟`,
+              ...match.matchedConditions,
+            ],
+          }
+        : null;
+    },
+  },
   {
     id: 'long-de',
     name: '龙德课',
@@ -559,6 +1224,24 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
                 ? `初传${initial}同时为太岁、月将并乘贵人`
                 : `太岁${initial}乘贵人发用，月将${context.monthLeader}另见于三传`,
             ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'de-ru-tian-men',
+    name: '德入天门格',
+    category: '日辰发用',
+    sourceTitle: '《六壬大全》卷十一·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_ELEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“德入天门格，乃日德加亥为用。”依本书日德表，丁、壬日的日德为亥；当前只登记丁壬日亥发用。',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      return context.dayStem && ['丁', '壬'].includes(context.dayStem) && initial === '亥'
+        ? {
+            branches: [initial],
+            matchedConditions: [`日干${context.dayStem}之日德为亥，初传亥发用并居天门`],
           }
         : null;
     },
@@ -1334,6 +2017,53 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     },
   },
   {
+    id: 'wai-hao-li-cha-ya',
+    name: '外好里槎枒格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷八·和美课；卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“干支上神作六合，而地下干支作六害，为外好里牙槎。”当前只登记上神六合、日干寄宫与日支六害同时成立的结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const stemResidence = getDayStemResidence(context.dayStem);
+      return LIUHE_MAP[stemUpper] === branchUpper && LIUHAI_MAP[stemResidence] === context.dayBranch
+        ? {
+            branches: [stemUpper, branchUpper, stemResidence, context.dayBranch],
+            matchedConditions: [
+              `干上神${stemUpper}与支上神${branchUpper}六合，日干${context.dayStem}寄宫${stemResidence}与日支${context.dayBranch}六害`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'hu-cheng-mu-shen',
+    name: '互乘墓神格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“干乘支之墓，支乘干之墓者。”当前只登记干上神为日支五行墓、支上神为日干五行墓的交互结构。',
+    detect(context) {
+      if (!context.dayStem || !context.dayBranch || !context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const dayBranchTomb = TOMB_BRANCH_BY_ELEMENT[getGanZhiWuxing(context.dayBranch)];
+      const dayStemTomb = ELEMENT_TOMB_BY_STEM[context.dayStem];
+      return stemUpper === dayBranchTomb && branchUpper === dayStemTomb
+        ? {
+            branches: [stemUpper, context.dayBranch, branchUpper],
+            matchedConditions: [
+              `干上神${stemUpper}为日支${context.dayBranch}五行之墓，支上神${branchUpper}为日干${context.dayStem}五行之墓`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
     id: 'gan-zhi-quan-shang',
     name: '干支全伤',
     category: '干支固定关系',
@@ -1350,6 +2080,132 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             branches: [stemUpper, context.dayStem, branchUpper, context.dayBranch],
             matchedConditions: [
               `干上神${stemUpper}克日干${context.dayStem}，支上神${branchUpper}克日支${context.dayBranch}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'si-sheng-sha',
+    name: '四胜煞格',
+    category: '干支固定关系',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“乃干上酉、支上午，或支上酉、干上午者皆是。”当前只登记干支上神为午酉交错的固定结构。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return (stemUpper === '酉' && branchUpper === '午') ||
+        (stemUpper === '午' && branchUpper === '酉')
+        ? {
+            branches: [stemUpper, branchUpper],
+            matchedConditions: [`干上神${stemUpper}、支上神${branchUpper}为午酉交错`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'yi-zi-xing',
+    name: '一字刑格',
+    category: '日辰刑害',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“一字刑者，乃四课上神全逢辰午酉亥者是。”当前只登记四课上神全部属于四个自刑支的结构。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const upperBranches = context.fourLessons.map((lesson) => lesson.upper);
+      return upperBranches.every((branch) => ['辰', '午', '酉', '亥'].includes(branch))
+        ? {
+            branches: upperBranches,
+            matchedConditions: [`四课上神${upperBranches.join('、')}全部属于辰午酉亥自刑支`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'er-zi-xing',
+    name: '二字刑格',
+    category: '日辰刑害',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“二字刑者，乃支干上全乘子卯是也。”当前只登记干上神、支上神分别为子卯的结构。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      return new Set([stemUpper, branchUpper]).size === 2 &&
+        [stemUpper, branchUpper].every((branch) => ['子', '卯'].includes(branch))
+        ? {
+            branches: [stemUpper, branchUpper],
+            matchedConditions: [`干上神${stemUpper}、支上神${branchUpper}分别为子卯`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'san-zi-xing',
+    name: '三字刑格',
+    category: '日辰刑害',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“三字刑者，乃三传寅巳申或丑戌未是也。”原文只列两组三刑各自依定向刑序轮转的三种次序；当前不扩展为任意排列。',
+    detect(context) {
+      const sequence = context.transmissionBranches.join('');
+      return ['寅巳申', '巳申寅', '申寅巳', '丑戌未', '戌未丑', '未丑戌'].includes(sequence)
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [
+              `三传${context.transmissionBranches.join('、')}依大六壬定向刑序组成三字刑`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'san-chuan-ri-chen-nei-zhan',
+    name: '三传日辰内战格',
+    category: '四课关系',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“支干三传皆下克上者。”当前严格要求日干、日支及初中末传五处全部由下位克上神。',
+    detect(context) {
+      if (
+        !context.dayStem ||
+        !context.dayBranch ||
+        !context.fourLessons ||
+        !context.transmissionGroundBranches
+      ) {
+        return null;
+      }
+      const transmissionGroundBranches = context.transmissionGroundBranches;
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const transmissionMatches = context.transmissionBranches.every((branch, index) => {
+        const ground = transmissionGroundBranches[index];
+        return !!ground && isBranchKe(ground, branch);
+      });
+      return isBranchKe(context.dayStem, stemUpper) &&
+        isBranchKe(context.dayBranch, branchUpper) &&
+        transmissionMatches
+        ? {
+            branches: [
+              stemUpper,
+              branchUpper,
+              ...context.transmissionBranches,
+              ...transmissionGroundBranches,
+            ],
+            matchedConditions: [
+              `日干${context.dayStem}克干上神${stemUpper}，日支${context.dayBranch}克支上神${branchUpper}`,
+              ...context.transmissionBranches.map(
+                (branch, index) =>
+                  `${['初', '中', '末'][index]}传下位${transmissionGroundBranches[index]}克上神${branch}`,
+              ),
             ],
           }
         : null;
@@ -1510,6 +2366,31 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             matchedConditions: [
               `日柱${context.dayGanZhi}属${xunHead}旬，旬尾${xunTailBranch}临旬首${xunHeadBranch}发用`,
             ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jue-shen-jia-sheng',
+    name: '绝神加生格',
+    category: '发用临地',
+    sourceTitle: '《六壬大全》卷十二·毕法赋',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TWELVE_URL,
+    sourceQuote:
+      '《六壬大全》：“凡巳加寅、申加巳、亥加申、寅加亥。”当前只登记四种绝神临长生地并发用的固定结构。',
+    detect(context) {
+      const initial = context.transmissionBranches[0];
+      const ground = context.initialGroundBranch;
+      if (!initial || !ground) return null;
+      const matches =
+        (initial === '巳' && ground === '寅') ||
+        (initial === '申' && ground === '巳') ||
+        (initial === '亥' && ground === '申') ||
+        (initial === '寅' && ground === '亥');
+      return matches
+        ? {
+            branches: [initial, ground],
+            matchedConditions: [`初传${initial}临地盘${ground}，符合绝神加生固定轮廓`],
           }
         : null;
     },
@@ -1700,6 +2581,89 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     },
   },
   {
+    id: 'po-hua',
+    name: '魄化课',
+    category: '发用囚死墓',
+    sourceTitle: '《六壬大全》卷九·魄化课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬大全》：“白虎乘死神死气及囚死，临日辰行年发用……为魄化。”当前只登记现有盘面可完整复算的临日干或日支发用结构，不补造行年条件。',
+    detect(context) {
+      if (
+        !context.dayStem ||
+        !context.dayBranch ||
+        !context.monthBranch ||
+        !context.transmissionGods ||
+        !context.transmissionGroundBranches
+      ) {
+        return null;
+      }
+      const initial = context.transmissionBranches[0];
+      const initialGod = context.transmissionGods[0];
+      const initialGround = context.transmissionGroundBranches[0];
+      const deadQi = getLiurenMonthlyCompositeBranch('死气', context.monthBranch);
+      const deadSpirit = getLiurenMonthlyCompositeBranch('死神', context.monthBranch);
+      const matchedMonthlyNames = [
+        ...(initial === deadSpirit ? ['死神'] : []),
+        ...(initial === deadQi ? ['死气'] : []),
+      ];
+      const seasonState = getSeasonState(getBranchWuxing(initial), context.monthBranch);
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const location =
+        initialGround === stemResidence
+          ? `日干${context.dayStem}寄宫${stemResidence}`
+          : initialGround === context.dayBranch
+            ? `日支${context.dayBranch}`
+            : '';
+      return initialGod === '白虎' &&
+        matchedMonthlyNames.length > 0 &&
+        ['囚', '死'].includes(seasonState) &&
+        !!location
+        ? {
+            branches: [initial, initialGround],
+            matchedConditions: [
+              `月建${context.monthBranch}所起${matchedMonthlyNames.join('、')}${initial}发用乘白虎，月令为${seasonState}并临${location}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'fu-yang',
+    name: '伏殃卦',
+    category: '日辰发用',
+    sourceTitle: '《六壬大全》卷十·伏殃卦',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“伏殃，即天鬼也……如行年日辰发用。”《订讹》：“天鬼临日辰发用或临年命发用。”当前只登记现有盘面可完整复算的临日干或日支发用结构。',
+    detect(context) {
+      if (
+        !context.dayStem ||
+        !context.dayBranch ||
+        !context.monthBranch ||
+        !context.transmissionGroundBranches
+      ) {
+        return null;
+      }
+      const initial = context.transmissionBranches[0];
+      const initialGround = context.transmissionGroundBranches[0];
+      const heavenlyGhost = getLiurenMonthlyCompositeBranch('天鬼', context.monthBranch);
+      const stemResidence = getDayStemResidence(context.dayStem);
+      const location =
+        initialGround === stemResidence
+          ? `日干${context.dayStem}寄宫${stemResidence}`
+          : initialGround === context.dayBranch
+            ? `日支${context.dayBranch}`
+            : '';
+      return initial === heavenlyGhost && !!location
+        ? {
+            branches: [initial, initialGround],
+            matchedConditions: [`月建${context.monthBranch}所起天鬼${initial}临${location}发用`],
+          }
+        : null;
+    },
+  },
+  {
     id: 'gui-mu',
     name: '鬼墓课',
     category: '鬼墓发用',
@@ -1764,18 +2728,25 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'jiu-chou',
     name: '九丑课',
     category: '大吉临仲',
-    sourceTitle: '《六壬指南》卷一·三传课体',
-    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
-    sourceQuote: '乙戊己辛壬日更得四仲相并而又大吉加仲上曰九丑卦。',
+    sourceTitle: '《六壬大全》卷九·九丑课；《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_NINE_URL,
+    sourceQuote:
+      '《六壬大全》：“戊子、戊午、壬子、壬午、乙卯、乙酉、己卯、己酉、辛卯、辛酉十日……如四仲时占，丑临日加四仲上发用，为九丑课。”《订讹》：“不发用而临支上者亦是。四仲时占更的。”',
     detect(context) {
-      if (!context.dayGanZhi || !context.greatAuspiciousGroundBranch) return null;
+      if (!context.dayGanZhi || !context.hourBranch || !context.greatAuspiciousGroundBranch) {
+        return null;
+      }
       const dayBranch = context.dayGanZhi.charAt(1);
+      const initial = context.transmissionBranches[0];
       return JIU_CHOU_DAYS.has(context.dayGanZhi) &&
+        ['子', '午', '卯', '酉'].includes(context.hourBranch) &&
         context.greatAuspiciousGroundBranch === dayBranch
         ? {
-            branches: [dayBranch],
+            branches: [initial, dayBranch, context.hourBranch],
             matchedConditions: [
-              `日柱${context.dayGanZhi}为九丑十日之一，天盘大吉丑临日支${dayBranch}`,
+              initial === '丑'
+                ? `日柱${context.dayGanZhi}为九丑十日之一，四仲时${context.hourBranch}占，天盘大吉丑临日支${dayBranch}并发用`
+                : `日柱${context.dayGanZhi}为九丑十日之一，四仲时${context.hourBranch}占，天盘大吉丑临日支${dayBranch}，依《订讹》不发用而临支上者亦是`,
             ],
           }
         : null;

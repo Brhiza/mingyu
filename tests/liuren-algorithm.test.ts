@@ -45,6 +45,32 @@ import {
 
 const DIZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
 const TIANGAN = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
+const LIUREN_INTERVAL_GUA_TI_BY_TRANSMISSIONS: Readonly<Record<string, string>> = {
+  辰午申: '登三天格',
+  午申戌: '出三天格',
+  申戌子: '涉三渊格',
+  戌子寅: '入三渊格',
+  子寅辰: '向阳格',
+  寅辰午: '出阳格',
+  丑卯巳: '出户格',
+  卯巳未: '盈阳格',
+  巳未酉: '充盈格',
+  未酉亥: '入冥格',
+  酉亥丑: '凝阴格',
+  亥丑卯: '溟蒙格',
+  寅子戌: '冥阴格',
+  子戌申: '偃蹇格',
+  戌申午: '悖戾格',
+  申午辰: '凝阳格',
+  午辰寅: '顾祖格',
+  辰寅子: '涉疑格',
+  丑亥酉: '极阴格',
+  亥酉未: '时遁格',
+  酉未巳: '励明格',
+  未巳卯: '回明格',
+  巳卯丑: '转悖格',
+  卯丑亥: '断涧格',
+};
 const SIXTY_DAYS = Array.from(
   { length: 60 },
   (_, index) => `${TIANGAN[index % 10]}${DIZHI[index % 12]}`,
@@ -487,8 +513,15 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
         ) {
           expected.push('退间');
         }
+        const intervalName = LIUREN_INTERVAL_GUA_TI_BY_TRANSMISSIONS[branches.join('')];
+        if (intervalName) expected.push(intervalName);
         if (branches.join('') === '巳戌卯') expected.push('铸印卦');
         if (branches.join('') === '午卯子') expected.push('高盖乘轩卦');
+        if (
+          ['寅巳申', '巳申寅', '申寅巳', '丑戌未', '戌未丑', '未丑戌'].includes(branches.join(''))
+        ) {
+          expected.push('三字刑格');
+        }
 
         const actual = getLiurenTransmissionGuaTi(branches);
         assert.deepEqual(actual, expected, `${branches.join('')}的课体命中边界不一致`);
@@ -497,8 +530,13 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
     }
   }
 
+  for (const intervalName of Object.values(LIUREN_INTERVAL_GUA_TI_BY_TRANSMISSIONS)) {
+    assert.equal(counts.get(intervalName), 1, `${intervalName}应只命中唯一固定三传`);
+    counts.delete(intervalName);
+  }
   assert.deepEqual(Object.fromEntries([...counts].sort()), {
     三交卦: 24,
+    三字刑格: 6,
     进间: 12,
     进茹: 12,
     从革卦: 6,
@@ -512,6 +550,231 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
     铸印卦: 1,
     高盖乘轩卦: 1,
   });
+});
+
+test('大六壬绝神加生格应按十二发用乘十二所临地盘穷举严格命中', () => {
+  const expectedPairs = new Set(['巳寅', '申巳', '亥申', '寅亥']);
+  let profileCount = 0;
+  let matchCount = 0;
+
+  for (const initial of DIZHI) {
+    for (const initialGroundBranch of DIZHI) {
+      const fact = getLiurenGuaTiFacts({
+        transmissionBranches: [initial, '子', '丑'],
+        initialGroundBranch,
+      }).find((candidate) => candidate.name === '绝神加生格');
+      const shouldMatch = expectedPairs.has(`${initial}${initialGroundBranch}`);
+      assert.equal(Boolean(fact), shouldMatch, `${initial}加${initialGroundBranch}命中边界不一致`);
+      if (fact) matchCount += 1;
+      profileCount += 1;
+    }
+  }
+
+  assert.equal(profileCount, 144);
+  assert.equal(matchCount, 4);
+});
+
+test('大六壬四课全空格应按四课上下八处空实轮廓整批穷举', () => {
+  let profileCount = 0;
+  let matchCount = 0;
+
+  for (let profile = 0; profile < 2 ** 8; profile += 1) {
+    const fourLessons = Array.from({ length: 4 }, (_, lessonIndex) => ({
+      upper: profile & (1 << (lessonIndex * 2)) ? '戌' : '子',
+      lower: profile & (1 << (lessonIndex * 2 + 1)) ? '亥' : '丑',
+    }));
+    const fact = getLiurenGuaTiFacts({
+      transmissionBranches: ['子', '丑', '寅'],
+      dayGanZhi: '甲子',
+      fourLessons,
+    }).find((candidate) => candidate.name === '四课全空格');
+    const shouldMatch = fourLessons.every(
+      (lesson) => ['戌', '亥'].includes(lesson.upper) || ['戌', '亥'].includes(lesson.lower),
+    );
+    assert.equal(Boolean(fact), shouldMatch, `四课空实轮廓${profile.toString(2).padStart(8, '0')}`);
+    if (fact) matchCount += 1;
+    profileCount += 1;
+  }
+
+  assert.equal(profileCount, 256);
+  assert.equal(matchCount, 3 ** 4);
+});
+
+test('大六壬德入天门格应按十日干乘十二发用穷举严格命中', () => {
+  let profileCount = 0;
+  let matchCount = 0;
+
+  for (const dayStem of TIANGAN) {
+    for (const initial of DIZHI) {
+      const fact = getLiurenGuaTiFacts({
+        transmissionBranches: [initial, '子', '丑'],
+        dayStem,
+      }).find((candidate) => candidate.name === '德入天门格');
+      const shouldMatch = ['丁', '壬'].includes(dayStem) && initial === '亥';
+      assert.equal(Boolean(fact), shouldMatch, `${dayStem}日${initial}发用边界不一致`);
+      if (fact) matchCount += 1;
+      profileCount += 1;
+    }
+  }
+
+  assert.equal(profileCount, 120);
+  assert.equal(matchCount, 2);
+});
+
+test('大六壬四组三合局自刑专名应按三传与干支上神轮廓整批穷举', () => {
+  const specs = new Map([
+    ['金刚格', { branches: ['巳', '酉', '丑'], repeatedBranch: '酉' }],
+    ['火强格', { branches: ['寅', '午', '戌'], repeatedBranch: '午' }],
+    ['水流趋东格', { branches: ['申', '子', '辰'], repeatedBranch: '辰' }],
+    ['木落归根格', { branches: ['亥', '卯', '未'], repeatedBranch: '亥' }],
+  ] as const);
+  const matchCounts = new Map([...specs.keys()].map((name) => [name, 0]));
+  const upperProfiles = [
+    ...[...specs.values()].flatMap((spec) => [
+      [spec.repeatedBranch, '子'],
+      ['子', spec.repeatedBranch],
+    ]),
+    ['子', '丑'],
+  ];
+  let profileCount = 0;
+
+  for (const initial of DIZHI) {
+    for (const middle of DIZHI) {
+      for (const final of DIZHI) {
+        const transmissions = [initial, middle, final];
+        const transmissionSet = new Set(transmissions);
+        for (const [stemUpper, branchUpper] of upperProfiles) {
+          const names = new Set(
+            getLiurenGuaTiFacts({
+              transmissionBranches: transmissions,
+              fourLessons: [
+                { upper: stemUpper, lower: '甲' },
+                { upper: '子', lower: stemUpper },
+                { upper: branchUpper, lower: '子' },
+                { upper: '丑', lower: branchUpper },
+              ],
+            }).map((fact) => fact.name),
+          );
+          for (const [name, spec] of specs) {
+            const shouldMatch =
+              transmissionSet.size === 3 &&
+              spec.branches.every((branch) => transmissionSet.has(branch)) &&
+              [stemUpper, branchUpper].includes(spec.repeatedBranch);
+            assert.equal(
+              names.has(name),
+              shouldMatch,
+              `${transmissions.join('')}、干上${stemUpper}、支上${branchUpper}的${name}边界不一致`,
+            );
+            if (names.has(name)) matchCounts.set(name, (matchCounts.get(name) || 0) + 1);
+          }
+          profileCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 15_552);
+  assert.deepEqual(Object.fromEntries(matchCounts), {
+    金刚格: 12,
+    火强格: 12,
+    水流趋东格: 12,
+    木落归根格: 12,
+  });
+});
+
+test('大六壬一字刑、二字刑、三字刑应分别按完整输入轮廓穷举', () => {
+  let oneCharacterProfiles = 0;
+  let oneCharacterMatches = 0;
+  for (let profile = 0; profile < 2 ** 4; profile += 1) {
+    const upperBranches = Array.from({ length: 4 }, (_, index) =>
+      profile & (1 << index) ? '辰' : '子',
+    );
+    const fact = getLiurenGuaTiFacts({
+      transmissionBranches: ['子', '丑', '寅'],
+      fourLessons: upperBranches.map((upper, index) => ({
+        upper,
+        lower: index === 0 ? '甲' : '子',
+      })),
+    }).find((candidate) => candidate.name === '一字刑格');
+    assert.equal(
+      Boolean(fact),
+      upperBranches.every((branch) => branch === '辰'),
+    );
+    if (fact) oneCharacterMatches += 1;
+    oneCharacterProfiles += 1;
+  }
+  assert.equal(oneCharacterProfiles, 16);
+  assert.equal(oneCharacterMatches, 1);
+
+  let twoCharacterProfiles = 0;
+  let twoCharacterMatches = 0;
+  for (const stemUpper of DIZHI) {
+    for (const branchUpper of DIZHI) {
+      const fact = getLiurenGuaTiFacts({
+        transmissionBranches: ['子', '丑', '寅'],
+        fourLessons: [
+          { upper: stemUpper, lower: '甲' },
+          { upper: '辰', lower: stemUpper },
+          { upper: branchUpper, lower: '子' },
+          { upper: '午', lower: branchUpper },
+        ],
+      }).find((candidate) => candidate.name === '二字刑格');
+      const shouldMatch =
+        `${stemUpper}${branchUpper}` === '子卯' || `${stemUpper}${branchUpper}` === '卯子';
+      assert.equal(Boolean(fact), shouldMatch);
+      if (fact) twoCharacterMatches += 1;
+      twoCharacterProfiles += 1;
+    }
+  }
+  assert.equal(twoCharacterProfiles, 144);
+  assert.equal(twoCharacterMatches, 2);
+
+  const expectedSequences = new Set(['寅巳申', '巳申寅', '申寅巳', '丑戌未', '戌未丑', '未丑戌']);
+  let threeCharacterProfiles = 0;
+  let threeCharacterMatches = 0;
+  for (const initial of DIZHI) {
+    for (const middle of DIZHI) {
+      for (const final of DIZHI) {
+        const sequence = `${initial}${middle}${final}`;
+        const fact = getLiurenGuaTiFacts({
+          transmissionBranches: [initial, middle, final],
+        }).find((candidate) => candidate.name === '三字刑格');
+        assert.equal(Boolean(fact), expectedSequences.has(sequence), `${sequence}三字刑边界不一致`);
+        if (fact) threeCharacterMatches += 1;
+        threeCharacterProfiles += 1;
+      }
+    }
+  }
+  assert.equal(threeCharacterProfiles, 1_728);
+  assert.equal(threeCharacterMatches, 6);
+});
+
+test('大六壬三传日辰内战格应按五处下克上轮廓整批穷举', () => {
+  let matchCount = 0;
+  for (let profile = 0; profile < 2 ** 5; profile += 1) {
+    const stemUpper = profile & 1 ? '辰' : '子';
+    const branchUpper = profile & 2 ? '辰' : '子';
+    const transmissionGroundBranches = [2, 3, 4].map((bit) => (profile & (1 << bit) ? '寅' : '午'));
+    const fact = getLiurenGuaTiFacts({
+      transmissionBranches: ['辰', '辰', '辰'],
+      transmissionGroundBranches,
+      dayStem: '甲',
+      dayBranch: '寅',
+      fourLessons: [
+        { upper: stemUpper, lower: '甲' },
+        { upper: '子', lower: stemUpper },
+        { upper: branchUpper, lower: '寅' },
+        { upper: '丑', lower: branchUpper },
+      ],
+    }).find((candidate) => candidate.name === '三传日辰内战格');
+    assert.equal(
+      Boolean(fact),
+      profile === 31,
+      `五处内战轮廓${profile.toString(2).padStart(5, '0')}`,
+    );
+    if (fact) matchCount += 1;
+  }
+  assert.equal(matchCount, 1);
 });
 
 test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文', () => {
@@ -582,6 +845,31 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   assert.throws(
     () =>
       getLiurenGuaTiFacts({
+        transmissionBranches: ['卯', '辰', '巳'],
+        transmissionGroundBranches: ['寅', '卯'],
+      }),
+    /三传所临地盘一经提供.*恰好包含/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['卯', '辰', '巳'],
+        transmissionGroundBranches: ['寅', '甲', '辰'],
+      }),
+    /第2传所临地盘必须是有效地支/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['卯', '辰', '巳'],
+        transmissionGroundBranches: ['寅', '卯', '辰'],
+        initialGroundBranch: '丑',
+      }),
+    /初传所临地盘与三传所临地盘第一项不一致/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
         transmissionBranches: ['子', '寅', '辰'],
         dayGanZhi: '甲子',
         dayStem: '乙',
@@ -599,8 +887,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定六十一条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 61);
+test('大六壬课体登记表应固定一百二十条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 120);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -648,6 +936,136 @@ test('大六壬课体登记表应固定六十一条来源、稳定键和结构�
   assert.doesNotMatch(
     `${jinJian.matchedConditions.join('；')}；${tuiJian.matchedConditions.join('；')}`,
     /吉|凶|疾病|婚姻|功名|现实事件/,
+  );
+});
+
+test('大六壬课传空陷七类课体应按同一批旬空与坐空轮廓严格命中', () => {
+  const getNames = (
+    transmissionBranches: string[],
+    transmissionGroundBranches: string[],
+    extra: Partial<Parameters<typeof getLiurenGuaTiFacts>[0]> = {},
+  ) =>
+    new Set(
+      getLiurenGuaTiFacts({
+        transmissionBranches,
+        transmissionGroundBranches,
+        dayGanZhi: '甲子',
+        ...extra,
+      }).map((fact) => fact.name),
+    );
+
+  let voidProfileCount = 0;
+  for (let profile = 0; profile < 64; profile += 1) {
+    const branchIsVoid = [0, 1, 2].map((index) => Boolean(profile & (1 << index)));
+    const groundIsVoid = [0, 1, 2].map((index) => Boolean(profile & (1 << (index + 3))));
+    const branches = branchIsVoid.map((isVoid) => (isVoid ? '戌' : '子'));
+    const grounds = groundIsVoid.map((isVoid) => (isVoid ? '亥' : '丑'));
+    const isEmpty = branchIsVoid.map((isVoid, index) => isVoid || groundIsVoid[index]);
+    const names = getNames(branches, grounds);
+
+    assert.equal(names.has('三传皆空格'), isEmpty.every(Boolean), `空陷轮廓${profile}`);
+    assert.equal(
+      names.has('发用上下皆空格'),
+      branchIsVoid[0] && groundIsVoid[0],
+      `空陷轮廓${profile}`,
+    );
+    assert.equal(
+      names.has('杜传不行格'),
+      !isEmpty[0] && isEmpty[1] && isEmpty[2],
+      `空陷轮廓${profile}`,
+    );
+    assert.equal(names.has('断桥格'), isEmpty[1], `空陷轮廓${profile}`);
+    voidProfileCount += 1;
+  }
+  assert.equal(voidProfileCount, 64);
+
+  const voidBranches = new Set(['戌', '亥']);
+  let transmissionProfileCount = 0;
+  let shengChuanCount = 0;
+  let jiaoTaCount = 0;
+  let laiQuCount = 0;
+  for (const initial of DIZHI) {
+    for (const middle of DIZHI) {
+      for (const final of DIZHI) {
+        const branches = [initial, middle, final];
+        const grounds = branches.map((branch) => (voidBranches.has(branch) ? '丑' : '戌'));
+        const names = getNames(branches, grounds, { monthLeader: '午', hourBranch: '子' });
+        const indices = branches.map((branch) => DIZHI.indexOf(branch));
+        const isForward =
+          indices[1] === (indices[0] + 1) % 12 && indices[2] === (indices[1] + 1) % 12;
+        const isBackward =
+          indices[1] === (indices[0] + 11) % 12 && indices[2] === (indices[1] + 11) % 12;
+
+        assert.equal(names.has('声传空谷格'), isForward, branches.join(''));
+        assert.equal(names.has('脚踏空亡格'), isBackward, branches.join(''));
+        assert.ok(names.has('来去俱空格'), branches.join(''));
+        if (names.has('声传空谷格')) shengChuanCount += 1;
+        if (names.has('脚踏空亡格')) jiaoTaCount += 1;
+        if (names.has('来去俱空格')) laiQuCount += 1;
+        transmissionProfileCount += 1;
+      }
+    }
+  }
+  assert.equal(transmissionProfileCount, 1_728);
+  assert.equal(shengChuanCount, 12);
+  assert.equal(jiaoTaCount, 12);
+  assert.equal(laiQuCount, 1_728);
+  assert.ok(
+    !getNames(['巳', '亥', '巳'], ['亥', '巳', '亥'], {
+      dayGanZhi: '己亥',
+      monthLeader: '辰',
+      hourBranch: '亥',
+    }).has('来去俱空格'),
+  );
+
+  const classicalFacts = [
+    getLiurenGuaTiFacts({
+      dayGanZhi: '己亥',
+      transmissionBranches: ['巳', '亥', '巳'],
+      transmissionGroundBranches: ['亥', '巳', '亥'],
+    }).find((fact) => fact.name === '三传皆空格'),
+    getLiurenGuaTiFacts({
+      dayGanZhi: '癸酉',
+      transmissionBranches: ['亥', '子', '丑'],
+      transmissionGroundBranches: ['戌', '亥', '子'],
+    }).find((fact) => fact.name === '发用上下皆空格'),
+    getLiurenGuaTiFacts({
+      dayGanZhi: '甲子',
+      transmissionBranches: ['申', '亥', '寅'],
+      transmissionGroundBranches: ['未', '申', '戌'],
+    }).find((fact) => fact.name === '杜传不行格'),
+    getLiurenGuaTiFacts({
+      dayGanZhi: '甲子',
+      transmissionBranches: ['子', '丑', '寅'],
+      transmissionGroundBranches: ['子', '戌', '寅'],
+    }).find((fact) => fact.name === '断桥格'),
+    getLiurenGuaTiFacts({
+      dayGanZhi: '壬子',
+      transmissionBranches: ['寅', '卯', '辰'],
+      transmissionGroundBranches: ['丑', '寅', '卯'],
+    }).find((fact) => fact.name === '声传空谷格'),
+    getLiurenGuaTiFacts({
+      dayGanZhi: '戊申',
+      transmissionBranches: ['卯', '寅', '丑'],
+      transmissionGroundBranches: ['辰', '卯', '寅'],
+    }).find((fact) => fact.name === '脚踏空亡格'),
+    getLiurenGuaTiFacts({
+      dayGanZhi: '己亥',
+      transmissionBranches: ['巳', '亥', '巳'],
+      transmissionGroundBranches: ['亥', '巳', '亥'],
+      monthLeader: '巳',
+      hourBranch: '亥',
+    }).find((fact) => fact.name === '来去俱空格'),
+  ];
+  assert.ok(classicalFacts.every(Boolean));
+  assert.ok(classicalFacts.every((fact) => fact?.category === '课传空陷'));
+  assert.equal(new Set(classicalFacts.map((fact) => fact?.stableKey)).size, 7);
+  assert.ok(classicalFacts.every((fact) => /oldid=8545(?:05|80|81)$/.test(fact?.sourceUrl || '')));
+  assert.ok(
+    classicalFacts.every(
+      (fact) =>
+        !/宜|不宜|疾病|官讼|灾祸|婚姻|吉凶|现实事件/.test(fact?.matchedConditions.join('；') || ''),
+    ),
   );
 });
 
@@ -1111,7 +1529,7 @@ test('大六壬天狱课应按囚死墓发用与天罡临六壬日本穷举严�
   const tombOnly = getLiurenGuaTiFacts({
     transmissionBranches: ['未', '子', '丑'],
     dayStem: '乙',
-    monthBranch: '辰',
+    monthBranch: '巳',
     heavenlyDragonGroundBranch: '亥',
   }).find((candidate) => candidate.name === '天狱课');
   assert.deepEqual(tombOnly?.matchedConditions, ['初传未为日干乙五行墓位', '天罡辰临日干乙日本亥']);
@@ -1542,7 +1960,7 @@ test('大六壬芜淫、解离与冲破课应按日辰交克和冲神乘破结�
   }
 });
 
-test('大六壬干支生合与固定关系十二类课体应按同一批输入轮廓严格命中', () => {
+test('大六壬干支生合与固定关系十五类课体应按同一批输入轮廓严格命中', () => {
   const generates: Readonly<Record<string, string>> = {
     木: '火',
     火: '土',
@@ -1550,12 +1968,22 @@ test('大六壬干支生合与固定关系十二类课体应按同一批输入�
     金: '水',
     水: '木',
   };
+  const tombByElement: Readonly<Record<string, string>> = {
+    木: '未',
+    火: '戌',
+    土: '辰',
+    金: '丑',
+    水: '辰',
+  };
   const matchCounts = new Map([
     ['俱生格', 0],
     ['互生格', 0],
     ['自在格', 0],
     ['互旺格', 0],
     ['和美课', 0],
+    ['外好里槎枒格', 0],
+    ['互乘墓神格', 0],
+    ['四胜煞格', 0],
     ['干支全伤', 0],
     ['干支上下相合格', 0],
     ['干支上神相合格', 0],
@@ -1609,6 +2037,20 @@ test('大六壬干支生合与固定关系十二类课体应按同一批输入�
             [
               '和美课',
               LIUHE_MAP[stemUpper] === dayBranch && LIUHE_MAP[branchUpper] === stemResidence,
+            ],
+            [
+              '外好里槎枒格',
+              LIUHE_MAP[stemUpper] === branchUpper && LIUHAI_MAP[stemResidence] === dayBranch,
+            ],
+            [
+              '互乘墓神格',
+              stemUpper === tombByElement[dayBranchElement] &&
+                branchUpper === tombByElement[dayStemElement],
+            ],
+            [
+              '四胜煞格',
+              (stemUpper === '酉' && branchUpper === '午') ||
+                (stemUpper === '午' && branchUpper === '酉'),
             ],
             ['干支全伤', isBranchKe(stemUpper, dayStem) && isBranchKe(branchUpper, dayBranch)],
             [
@@ -1675,6 +2117,9 @@ test('大六壬干支生合与固定关系十二类课体应按同一批输入�
     getClassicalFact('自在格', '甲', '子', '子', '寅'),
     getClassicalFact('互旺格', '甲', '申', '酉', '卯'),
     getClassicalFact('和美课', '甲', '子', '丑', '亥'),
+    getClassicalFact('外好里槎枒格', '壬', '申', '寅', '亥'),
+    getClassicalFact('互乘墓神格', '戊', '寅', '未', '辰'),
+    getClassicalFact('四胜煞格', '甲', '子', '酉', '午'),
     getClassicalFact('干支全伤', '丁', '亥', '子', '辰'),
     getClassicalFact('干支上下相合格', '甲', '申', '亥', '巳'),
     getClassicalFact('干支上神相合格', '戊', '辰', '丑', '子'),
@@ -1780,7 +2225,7 @@ test('大六壬泆女与狡童应按初末传天将和卯酉发用严格命中',
   }
 });
 
-test('大六壬九丑课应按十个指定日柱与大吉临本日支穷举严格命中', () => {
+test('大六壬九丑课应区分丑发用正文与不发用临支订讹', () => {
   const jiuChouDays = new Set([
     '乙卯',
     '乙酉',
@@ -1798,43 +2243,515 @@ test('大六壬九丑课应按十个指定日柱与大吉临本日支穷举严�
 
   for (const dayGanZhi of SIXTY_DAYS) {
     const dayBranch = dayGanZhi.charAt(1);
-    for (const greatAuspiciousGroundBranch of DIZHI) {
-      const fact = getLiurenGuaTiFacts({
-        transmissionBranches: ['申', '子', '辰'],
-        dayGanZhi,
-        dayStem: dayGanZhi.charAt(0),
-        dayBranch,
-        greatAuspiciousGroundBranch,
-      }).find((item) => item.name === '九丑课');
-      const expected = jiuChouDays.has(dayGanZhi) && greatAuspiciousGroundBranch === dayBranch;
-      assert.equal(
-        !!fact,
-        expected,
-        `${dayGanZhi}日、大吉丑临${greatAuspiciousGroundBranch}的九丑边界不一致`,
-      );
-      if (fact) matchCount += 1;
-      profileCount += 1;
+    for (const hourBranch of DIZHI) {
+      for (const greatAuspiciousGroundBranch of DIZHI) {
+        for (const initial of ['丑', '子']) {
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '申', '辰'],
+            dayGanZhi,
+            dayStem: dayGanZhi.charAt(0),
+            dayBranch,
+            hourBranch,
+            greatAuspiciousGroundBranch,
+          }).find((item) => item.name === '九丑课');
+          const expected =
+            jiuChouDays.has(dayGanZhi) &&
+            ['子', '午', '卯', '酉'].includes(hourBranch) &&
+            greatAuspiciousGroundBranch === dayBranch;
+          assert.equal(
+            !!fact,
+            expected,
+            `${dayGanZhi}日、${hourBranch}时、${initial}发用、大吉临${greatAuspiciousGroundBranch}边界不一致`,
+          );
+          if (fact) matchCount += 1;
+          profileCount += 1;
+        }
+      }
     }
   }
 
-  assert.equal(profileCount, 720);
-  assert.equal(matchCount, 10);
+  assert.equal(profileCount, 17_280);
+  assert.equal(matchCount, 80);
 
   const fact = getLiurenGuaTiFacts({
-    transmissionBranches: ['申', '子', '辰'],
+    transmissionBranches: ['丑', '申', '辰'],
     dayGanZhi: '乙酉',
     dayBranch: '酉',
+    hourBranch: '子',
     greatAuspiciousGroundBranch: '酉',
   }).find((item) => item.name === '九丑课');
   assert.ok(fact);
   assert.equal(fact.stableKey, 'liuren:verified-guati:jiu-chou');
   assert.equal(fact.category, '大吉临仲');
-  assert.deepEqual(fact.branches, ['酉']);
-  assert.deepEqual(fact.matchedConditions, ['日柱乙酉为九丑十日之一，天盘大吉丑临日支酉']);
+  assert.deepEqual(fact.branches, ['丑', '酉', '子']);
+  assert.deepEqual(fact.matchedConditions, [
+    '日柱乙酉为九丑十日之一，四仲时子占，天盘大吉丑临日支酉并发用',
+  ]);
+  const correctionFact = getLiurenGuaTiFacts({
+    transmissionBranches: ['子', '申', '辰'],
+    dayGanZhi: '乙酉',
+    dayBranch: '酉',
+    hourBranch: '子',
+    greatAuspiciousGroundBranch: '酉',
+  }).find((item) => item.name === '九丑课');
+  assert.deepEqual(correctionFact?.matchedConditions, [
+    '日柱乙酉为九丑十日之一，四仲时子占，天盘大吉丑临日支酉，依《订讹》不发用而临支上者亦是',
+  ]);
   assert.doesNotMatch(
     `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
     /灾|婚姻|疾病|刑狱|死亡|吉凶|现实事件/,
   );
+});
+
+test('大六壬伏殃卦应按十二月天鬼临日辰发用轮廓整批穷举', () => {
+  const monthBranches = ['寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑'];
+  const heavenlyGhostByMonth = [
+    '酉',
+    '午',
+    '卯',
+    '子',
+    '酉',
+    '午',
+    '卯',
+    '子',
+    '酉',
+    '午',
+    '卯',
+    '子',
+  ];
+  let profileCount = 0;
+  let matchCount = 0;
+
+  monthBranches.forEach((monthBranch, monthIndex) => {
+    for (const initial of DIZHI) {
+      for (const initialGround of DIZHI) {
+        const fact = getLiurenGuaTiFacts({
+          transmissionBranches: [initial, '丑', '寅'],
+          transmissionGroundBranches: [initialGround, '寅', '卯'],
+          dayStem: '甲',
+          dayBranch: '子',
+          monthBranch,
+        }).find((item) => item.name === '伏殃卦');
+        const expected =
+          initial === heavenlyGhostByMonth[monthIndex] && ['寅', '子'].includes(initialGround);
+        assert.equal(
+          !!fact,
+          expected,
+          `${monthBranch}月、${initial}发用、临${initialGround}的伏殃边界不一致`,
+        );
+        if (fact) matchCount += 1;
+        profileCount += 1;
+      }
+    }
+  });
+
+  assert.equal(profileCount, 1_728);
+  assert.equal(matchCount, 24);
+  const fact = getLiurenGuaTiFacts({
+    transmissionBranches: ['酉', '丑', '寅'],
+    transmissionGroundBranches: ['子', '寅', '卯'],
+    dayStem: '甲',
+    dayBranch: '子',
+    monthBranch: '寅',
+  }).find((item) => item.name === '伏殃卦');
+  assert.ok(fact);
+  assert.deepEqual(fact.matchedConditions, ['月建寅所起天鬼酉临日支子发用']);
+  assert.doesNotMatch(
+    `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+    /疾病|伤亡|吉凶结论|现实事件/,
+  );
+});
+
+test('大六壬撞干撞支应按日干寄宫与日支前一位整批穷举', () => {
+  let profileCount = 0;
+  let stemMatchCount = 0;
+  let branchMatchCount = 0;
+
+  for (const dayStem of TIANGAN) {
+    const stemResidence = getDayStemResidence(dayStem);
+    const stemBarrier = DIZHI[(DIZHI.indexOf(stemResidence as (typeof DIZHI)[number]) + 11) % 12];
+    for (const dayBranch of DIZHI) {
+      const branchBarrier = DIZHI[(DIZHI.indexOf(dayBranch) + 11) % 12];
+      for (const initial of DIZHI) {
+        for (const final of DIZHI) {
+          const facts = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '子', final],
+            dayStem,
+            dayBranch,
+          });
+          const stemFact = facts.find((item) => item.name === '撞干格');
+          const branchFact = facts.find((item) => item.name === '撞支格');
+          const expectedStem = initial === stemBarrier || final === stemBarrier;
+          const expectedBranch = initial === branchBarrier || final === branchBarrier;
+          assert.equal(
+            !!stemFact,
+            expectedStem,
+            `${dayStem}寄宫${stemResidence}、三传${initial}子${final}的撞干边界不一致`,
+          );
+          assert.equal(
+            !!branchFact,
+            expectedBranch,
+            `${dayBranch}支、三传${initial}子${final}的撞支边界不一致`,
+          );
+          if (stemFact) stemMatchCount += 1;
+          if (branchFact) branchMatchCount += 1;
+          profileCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(profileCount, 17_280);
+  assert.equal(stemMatchCount, 2_760);
+  assert.equal(branchMatchCount, 2_760);
+  const fact = getLiurenGuaTiFacts({
+    transmissionBranches: ['丑', '亥', '酉'],
+    dayStem: '辛',
+    dayBranch: '巳',
+  }).find((item) => item.name === '撞干格');
+  assert.ok(fact);
+  assert.equal(fact.category, '日辰关隔');
+  assert.deepEqual(fact.matchedConditions, ['日干辛寄宫戌的前一位关隔为酉，末传撞关']);
+  assert.doesNotMatch(
+    `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+    /事急|吉凶|疾病|现实事件/,
+  );
+});
+
+test('大六壬魄化课应按逐月死神死气、囚死、白虎与临日辰条件整批穷举', () => {
+  const monthBranches = ['寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑'];
+  const deadSpiritByMonth = [
+    '巳',
+    '午',
+    '未',
+    '申',
+    '酉',
+    '戌',
+    '亥',
+    '子',
+    '丑',
+    '寅',
+    '卯',
+    '辰',
+  ];
+  const deadQiByMonth = ['午', '未', '申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰', '巳'];
+  let profileCount = 0;
+  let expectedMatchCount = 0;
+  let matchCount = 0;
+
+  monthBranches.forEach((monthBranch, monthIndex) => {
+    for (const initial of DIZHI) {
+      for (const initialGround of DIZHI) {
+        for (const initialGod of TIANJIANG) {
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '丑', '寅'],
+            transmissionGods: [initialGod, '六合', '青龙'],
+            transmissionGroundBranches: [initialGround, '寅', '卯'],
+            dayStem: '甲',
+            dayBranch: '子',
+            monthBranch,
+          }).find((item) => item.name === '魄化课');
+          const seasonState = getSeasonState(getGanZhiWuxing(initial), monthBranch);
+          const expected =
+            [deadSpiritByMonth[monthIndex], deadQiByMonth[monthIndex]].includes(initial) &&
+            ['囚', '死'].includes(seasonState) &&
+            initialGod === '白虎' &&
+            ['寅', '子'].includes(initialGround);
+          assert.equal(
+            !!fact,
+            expected,
+            `${monthBranch}月、${initial}发用乘${initialGod}、临${initialGround}、月令${seasonState}的魄化边界不一致`,
+          );
+          if (expected) expectedMatchCount += 1;
+          if (fact) matchCount += 1;
+          profileCount += 1;
+        }
+      }
+    }
+  });
+
+  assert.equal(profileCount, 20_736);
+  assert.equal(matchCount, expectedMatchCount);
+  assert.ok(matchCount > 0);
+  const fact = getLiurenGuaTiFacts({
+    transmissionBranches: ['未', '丑', '寅'],
+    transmissionGods: ['白虎', '六合', '青龙'],
+    transmissionGroundBranches: ['寅', '寅', '卯'],
+    dayStem: '甲',
+    dayBranch: '子',
+    monthBranch: '卯',
+  }).find((item) => item.name === '魄化课');
+  assert.ok(fact);
+  assert.deepEqual(fact.matchedConditions, [
+    '月建卯所起死气未发用乘白虎，月令为死并临日干甲寄宫寅',
+  ]);
+  assert.doesNotMatch(
+    `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+    /疾病|伤亡|死亡结论|吉凶结论|现实事件/,
+  );
+});
+
+test('大六壬旬首旬尾与干支首末传四格应按完整位置轮廓整批穷举', () => {
+  let cycleProfileCount = 0;
+  let cycleMatchCount = 0;
+  for (const [dayIndex, dayGanZhi] of SIXTY_DAYS.entries()) {
+    const xunHead = SIXTY_DAYS[Math.floor(dayIndex / 10) * 10].charAt(1);
+    const xunTail = DIZHI[(DIZHI.indexOf(xunHead as (typeof DIZHI)[number]) + 9) % 12];
+    for (const stemUpper of DIZHI) {
+      for (const branchUpper of DIZHI) {
+        const fact = getLiurenGuaTiFacts({
+          transmissionBranches: ['子', '丑', '寅'],
+          dayGanZhi,
+          fourLessons: [
+            { upper: stemUpper, lower: dayGanZhi.charAt(0) },
+            { upper: '子', lower: stemUpper },
+            { upper: branchUpper, lower: dayGanZhi.charAt(1) },
+            { upper: '子', lower: branchUpper },
+          ],
+        }).find((item) => item.name === '周而复始格');
+        const expected =
+          (stemUpper === xunTail && branchUpper === xunHead) ||
+          (stemUpper === xunHead && branchUpper === xunTail);
+        if (!!fact !== expected) {
+          assert.fail(`${dayGanZhi}日干上${stemUpper}、支上${branchUpper}的旬首旬尾边界不一致`);
+        }
+        if (fact) cycleMatchCount += 1;
+        cycleProfileCount += 1;
+      }
+    }
+  }
+  assert.equal(cycleProfileCount, 8_640);
+  assert.equal(cycleMatchCount, 120);
+
+  let transferProfileCount = 0;
+  let branchToStemCount = 0;
+  let stemToBranchCount = 0;
+  for (const initial of DIZHI) {
+    for (const final of DIZHI) {
+      for (const stemUpper of DIZHI) {
+        for (const branchUpper of DIZHI) {
+          const names = new Set(
+            getLiurenGuaTiFacts({
+              transmissionBranches: [initial, '子', final],
+              fourLessons: [
+                { upper: stemUpper, lower: '甲' },
+                { upper: '子', lower: stemUpper },
+                { upper: branchUpper, lower: '子' },
+                { upper: '子', lower: branchUpper },
+              ],
+            }).map((item) => item.name),
+          );
+          const expectedBranchToStem = initial === branchUpper && final === stemUpper;
+          const expectedStemToBranch = initial === stemUpper && final === branchUpper;
+          if (names.has('支传干格') !== expectedBranchToStem) {
+            assert.fail(
+              `初${initial}末${final}、干上${stemUpper}支上${branchUpper}的支传干边界不一致`,
+            );
+          }
+          if (names.has('干传支格') !== expectedStemToBranch) {
+            assert.fail(
+              `初${initial}末${final}、干上${stemUpper}支上${branchUpper}的干传支边界不一致`,
+            );
+          }
+          if (expectedBranchToStem) branchToStemCount += 1;
+          if (expectedStemToBranch) stemToBranchCount += 1;
+          transferProfileCount += 1;
+        }
+      }
+    }
+  }
+  assert.equal(transferProfileCount, 20_736);
+  assert.equal(branchToStemCount, 144);
+  assert.equal(stemToBranchCount, 144);
+});
+
+test('大六壬自生传墓与自墓传生应按十干首末传轮廓整批穷举', () => {
+  const originByStem: Readonly<Record<string, string>> = {
+    甲: '亥',
+    乙: '亥',
+    丙: '寅',
+    丁: '寅',
+    戊: '申',
+    己: '申',
+    庚: '巳',
+    辛: '巳',
+    壬: '申',
+    癸: '申',
+  };
+  const tombByStem: Readonly<Record<string, string>> = {
+    甲: '未',
+    乙: '未',
+    丙: '戌',
+    丁: '戌',
+    戊: '辰',
+    己: '辰',
+    庚: '丑',
+    辛: '丑',
+    壬: '辰',
+    癸: '辰',
+  };
+  let profileCount = 0;
+  let birthToTombCount = 0;
+  let tombToBirthCount = 0;
+  for (const dayStem of TIANGAN) {
+    for (const initial of DIZHI) {
+      for (const final of DIZHI) {
+        const names = new Set(
+          getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '子', final],
+            dayStem,
+          }).map((item) => item.name),
+        );
+        const expectedBirthToTomb =
+          initial === originByStem[dayStem] && final === tombByStem[dayStem];
+        const expectedTombToBirth =
+          initial === tombByStem[dayStem] && final === originByStem[dayStem];
+        if (names.has('自生传墓格') !== expectedBirthToTomb) {
+          assert.fail(`${dayStem}日初${initial}末${final}的自生传墓边界不一致`);
+        }
+        if (names.has('自墓传生格') !== expectedTombToBirth) {
+          assert.fail(`${dayStem}日初${initial}末${final}的自墓传生边界不一致`);
+        }
+        if (expectedBirthToTomb) birthToTombCount += 1;
+        if (expectedTombToBirth) tombToBirthCount += 1;
+        profileCount += 1;
+      }
+    }
+  }
+  assert.equal(profileCount, 1_440);
+  assert.equal(birthToTombCount, 10);
+  assert.equal(tombToBirthCount, 10);
+});
+
+test('大六壬魁度天门、罡塞鬼户与干支罗网应按天地盘和干支位置整批穷举', () => {
+  let gateProfileCount = 0;
+  let kuiMatchCount = 0;
+  let gangMatchCount = 0;
+  for (const initial of DIZHI) {
+    for (const initialGround of DIZHI) {
+      for (const dragonGround of DIZHI) {
+        const names = new Set(
+          getLiurenGuaTiFacts({
+            transmissionBranches: [initial, '子', '丑'],
+            transmissionGroundBranches: [initialGround, '寅', '卯'],
+            heavenlyDragonGroundBranch: dragonGround,
+          }).map((item) => item.name),
+        );
+        const expectedKui = initial === '戌' && initialGround === '亥';
+        const expectedGang = dragonGround === '寅';
+        if (names.has('魁度天门格') !== expectedKui) {
+          assert.fail(`初传${initial}临${initialGround}的魁度天门边界不一致`);
+        }
+        if (names.has('罡塞鬼户格') !== expectedGang) {
+          assert.fail(`天罡临${dragonGround}的罡塞鬼户边界不一致`);
+        }
+        if (expectedKui) kuiMatchCount += 1;
+        if (expectedGang) gangMatchCount += 1;
+        gateProfileCount += 1;
+      }
+    }
+  }
+  assert.equal(gateProfileCount, 1_728);
+  assert.equal(kuiMatchCount, 12);
+  assert.equal(gangMatchCount, 144);
+
+  let netProfileCount = 0;
+  let netMatchCount = 0;
+  for (const dayStem of TIANGAN) {
+    const stemResidence = getDayStemResidence(dayStem);
+    const stemNet = DIZHI[(DIZHI.indexOf(stemResidence as (typeof DIZHI)[number]) + 1) % 12];
+    for (const dayBranch of DIZHI) {
+      const branchNet = DIZHI[(DIZHI.indexOf(dayBranch) + 1) % 12];
+      for (const stemUpper of DIZHI) {
+        for (const branchUpper of DIZHI) {
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: ['子', '丑', '寅'],
+            dayStem,
+            dayBranch,
+            fourLessons: [
+              { upper: stemUpper, lower: dayStem },
+              { upper: '子', lower: stemUpper },
+              { upper: branchUpper, lower: dayBranch },
+              { upper: '子', lower: branchUpper },
+            ],
+          }).find((item) => item.name === '干支罗网格');
+          const expected = stemUpper === stemNet && branchUpper === branchNet;
+          if (!!fact !== expected) {
+            assert.fail(`${dayStem}${dayBranch}干上${stemUpper}支上${branchUpper}的罗网边界不一致`);
+          }
+          if (fact) netMatchCount += 1;
+          netProfileCount += 1;
+        }
+      }
+    }
+  }
+  assert.equal(netProfileCount, 17_280);
+  assert.equal(netMatchCount, 120);
+});
+
+test('大六壬三六合与合中犯杀应按全部三传和干支上神轮廓整批穷举', () => {
+  const sanheSpecs: ReadonlyArray<{
+    sanhe: readonly string[];
+    companion: string;
+    offenders: readonly string[];
+  }> = [
+    { sanhe: ['寅', '午', '戌'], companion: '未', offenders: ['午', '丑', '子'] },
+    { sanhe: ['亥', '卯', '未'], companion: '戌', offenders: ['子', '辰', '酉'] },
+    { sanhe: ['申', '子', '辰'], companion: '丑', offenders: ['卯', '未', '午'] },
+    { sanhe: ['巳', '酉', '丑'], companion: '辰', offenders: ['酉', '戌', '卯'] },
+  ];
+  let profileCount = 0;
+  let sanLiuheMatchCount = 0;
+  let offenderMatchCount = 0;
+  for (const initial of DIZHI) {
+    for (const middle of DIZHI) {
+      for (const final of DIZHI) {
+        const transmissions = [initial, middle, final];
+        const spec = sanheSpecs.find(
+          (candidate) =>
+            new Set(transmissions).size === 3 &&
+            candidate.sanhe.every((branch) =>
+              transmissions.includes(branch as (typeof DIZHI)[number]),
+            ),
+        );
+        for (const stemUpper of DIZHI) {
+          for (const branchUpper of DIZHI) {
+            const names = new Set(
+              getLiurenGuaTiFacts({
+                transmissionBranches: transmissions,
+                fourLessons: [
+                  { upper: stemUpper, lower: '甲' },
+                  { upper: '子', lower: stemUpper },
+                  { upper: branchUpper, lower: '子' },
+                  { upper: '子', lower: branchUpper },
+                ],
+              }).map((item) => item.name),
+            );
+            const expectedSanLiuhe =
+              !!spec && [stemUpper, branchUpper].includes(spec.companion as (typeof DIZHI)[number]);
+            const expectedOffender =
+              !!spec && [stemUpper, branchUpper].some((branch) => spec.offenders.includes(branch));
+            if (names.has('三六合格') !== expectedSanLiuhe) {
+              assert.fail(
+                `三传${transmissions.join('')}、干上${stemUpper}支上${branchUpper}的三六合边界不一致`,
+              );
+            }
+            if (names.has('合中犯杀格') !== expectedOffender) {
+              assert.fail(
+                `三传${transmissions.join('')}、干上${stemUpper}支上${branchUpper}的合中犯杀边界不一致`,
+              );
+            }
+            if (expectedSanLiuhe) sanLiuheMatchCount += 1;
+            if (expectedOffender) offenderMatchCount += 1;
+            profileCount += 1;
+          }
+        }
+      }
+    }
+  }
+  assert.equal(profileCount, 248_832);
+  assert.equal(sanLiuheMatchCount, 552);
+  assert.equal(offenderMatchCount, 1_512);
 });
 
 test('大六壬六旬仪奇课体应按六十日柱乘十二发用穷举严格命中', () => {
@@ -2718,6 +3635,9 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
               transmissionGods: branches.map(
                 (branch) => getPlateItemByBranch(heavenlyPlate, branch).god,
               ),
+              transmissionGroundBranches: branches.map(
+                (branch) => getPlateItemByBranch(heavenlyPlate, branch).under,
+              ),
               dayGanZhi: day,
               dayStem,
               dayBranch,
@@ -2805,12 +3725,12 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
 
   assert.equal(caseCount, 17_280);
   assert.equal(guaTiContextCount, 207_360);
-  assert.equal(
-    guaTiCounts.size,
-    REGISTERED_LIUREN_GUA_TI_COUNT,
-    `全部登记课体都应能由合法月将、占时、日柱、昼夜和太岁组合命中，实际为${JSON.stringify(
-      Object.fromEntries([...guaTiCounts].sort()),
-    )}`,
+  const mainVersionBoundaryNames = ['出三天格', '入三渊格', '凝阳格', '涉疑格', '偃蹇格'];
+  assert.equal(guaTiCounts.size, REGISTERED_LIUREN_GUA_TI_COUNT - mainVersionBoundaryNames.length);
+  assert.deepEqual(
+    mainVersionBoundaryNames.filter((name) => !guaTiCounts.has(name)),
+    mainVersionBoundaryNames,
+    '五条间传专名已经直接结构穷举，但当前主版本九宗门合法排盘不会自然生成',
   );
   assert.ok((guaTiCounts.get('铸印卦') || 0) > 0, '铸印卦不得成为仅人工上下文可命中的死规则');
   assert.deepEqual(Object.fromEntries([...ruleCounts].sort()), {

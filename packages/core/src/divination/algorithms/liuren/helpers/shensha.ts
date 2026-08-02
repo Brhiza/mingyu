@@ -17,6 +17,40 @@ const LIUREN_TIAN_MA_BY_MONTH: Readonly<Record<string, string>> = {
   丑: '辰',
 };
 
+const LIUREN_MONTH_BRANCH_ORDER = [
+  '寅',
+  '卯',
+  '辰',
+  '巳',
+  '午',
+  '未',
+  '申',
+  '酉',
+  '戌',
+  '亥',
+  '子',
+  '丑',
+] as const;
+
+const LIUREN_MONTHLY_COMPOSITE_BRANCHES = {
+  天鬼: ['酉', '午', '卯', '子', '酉', '午', '卯', '子', '酉', '午', '卯', '子'],
+  死气: ['午', '未', '申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰', '巳'],
+  死神: ['巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰'],
+} as const;
+
+export type LiurenMonthlyCompositeName = keyof typeof LIUREN_MONTHLY_COMPOSITE_BRANCHES;
+
+/** 为伏殃、魄化等复合课体复用逐月神煞表，不另造第二套起法。 */
+export function getLiurenMonthlyCompositeBranch(
+  name: LiurenMonthlyCompositeName,
+  monthBranch: string,
+): string | undefined {
+  const monthIndex = LIUREN_MONTH_BRANCH_ORDER.indexOf(
+    monthBranch as (typeof LIUREN_MONTH_BRANCH_ORDER)[number],
+  );
+  return monthIndex >= 0 ? LIUREN_MONTHLY_COMPOSITE_BRANCHES[name][monthIndex] : undefined;
+}
+
 export function getLiurenTianMaBranch(monthBranch: string): string | undefined {
   return LIUREN_TIAN_MA_BY_MONTH[monthBranch];
 }
@@ -815,21 +849,9 @@ export function buildShenShaFacts(
     });
   }
 
-  const monthShenShaOrder = [
-    '寅',
-    '卯',
-    '辰',
-    '巳',
-    '午',
-    '未',
-    '申',
-    '酉',
-    '戌',
-    '亥',
-    '子',
-    '丑',
-  ];
-  const monthShenShaIndex = monthShenShaOrder.indexOf(monthBranch);
+  const monthShenShaIndex = LIUREN_MONTH_BRANCH_ORDER.indexOf(
+    monthBranch as (typeof LIUREN_MONTH_BRANCH_ORDER)[number],
+  );
   if (monthShenShaIndex >= 0) {
     const monthShenShaTables = [
       {
@@ -1005,7 +1027,7 @@ export function buildShenShaFacts(
       },
       {
         name: '天鬼',
-        targets: ['酉', '午', '卯', '子', '酉', '午', '卯', '子', '酉', '午', '卯', '子'],
+        targets: LIUREN_MONTHLY_COMPOSITE_BRANCHES.天鬼,
         rule: '正月酉、二月午、三月卯、四月子，每四月循环',
         source: '《六壬指南注解》卷四“天鬼”正酉逆四仲表与伏殃条件',
         extraSources: [
@@ -1034,7 +1056,7 @@ export function buildShenShaFacts(
       },
       {
         name: '死气',
-        targets: ['午', '未', '申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰', '巳'],
+        targets: LIUREN_MONTHLY_COMPOSITE_BRANCHES.死气,
         rule: '正月从午起逐月顺行一支，与生气逐月对冲',
         source: '《六壬指南注解》卷四“死气正午顺行十二”',
         extraSources: [
@@ -1047,7 +1069,7 @@ export function buildShenShaFacts(
       },
       {
         name: '死神',
-        targets: ['巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰'],
+        targets: LIUREN_MONTHLY_COMPOSITE_BRANCHES.死神,
         rule: '正月从巳起逐月顺行一支',
         source: '《六壬指南注解》卷四“死神正巳顺行十二”表与歌诀',
         extraSources: [

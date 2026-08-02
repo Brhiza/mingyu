@@ -113,7 +113,7 @@ export interface LiurenTransmissionRuleFact {
   classicalRuleKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '取传规则事实只说明当前四课如何形成初传及三传模式，不单独证明现实吉凶或应期';
+  limitation: '取传规则事实只说明当前四课如何形成初传及三传模式，不得按结果反推九宗门名称，也不单独证明现实吉凶或应期';
 }
 
 export interface LiurenCounterEvidenceFact {
@@ -379,7 +379,7 @@ const TRANSMISSION_FACT_LIMITATION =
 const TRANSITION_FACT_LIMITATION =
   '相邻传推进事实只描述三传先后与地支关系，不证明现实事件必然推进、停滞、成功或失败' as const;
 const RULE_FACT_LIMITATION =
-  '取传规则事实只说明当前四课如何形成初传及三传模式，不单独证明现实吉凶或应期' as const;
+  '取传规则事实只说明当前四课如何形成初传及三传模式，不得按结果反推九宗门名称，也不单独证明现实吉凶或应期' as const;
 const COUNTER_FACT_LIMITATION =
   '反证事实只表示盘内存在经当前口径确认的限制条件；旬空、生克及固定地支关系不得脱离类神、事项和作用方向自动列为反证，也不得把单项反证直接写成现实失败、灾祸或必然结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
@@ -1590,11 +1590,15 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
   );
   const initialGroundBranch = getPlateItemByBranch(heavenlyPlate, initialBranch).under;
   const finalGroundBranch = getPlateItemByBranch(heavenlyPlate, finalBranch).under;
+  const transmissionGroundBranches = transmissionBranches.map(
+    (branch) => getPlateItemByBranch(heavenlyPlate, branch).under,
+  );
   const greatAuspiciousGroundBranch = getPlateItemByBranch(heavenlyPlate, '丑').under;
   const heavenlyDragonGroundBranch = getPlateItemByBranch(heavenlyPlate, '辰').under;
   const guaTiFacts = getLiurenGuaTiFacts({
     transmissionBranches,
     transmissionGods: threeTransmissions.map((item) => item.god),
+    transmissionGroundBranches,
     dayGanZhi: ganzhi.day,
     dayStem,
     dayBranch,
@@ -2089,6 +2093,7 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
     `触发条件：${timingFacts.map((item) => `${item.promptText}（${item.sourceStatus}）`).join('；')}`,
     `盘面位置焦点状态：${focusSummaryFact.promptText}；边界：${focusSummaryFact.limitation}`,
     '应期边界：四项类神资料与目标期限未全部明确时不换算唯一日期，不以问题文字、神煞、课体或单项关系指定应期。',
+    '解释任务边界：具体类神底本版本、事项类别与参与者角色、完整类神取用规则和已指定类神对象缺少任一项时，不生成现实演变、吉凶总分、成功率、时机、行动建议或绝对日期。',
     `计算链：${calculationChain.join(' → ')}`,
     `证据汇总：${summaryFact.promptText}。`,
     `解释限制：${limitations.join('；')}。`,

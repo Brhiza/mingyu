@@ -158,13 +158,17 @@ export function generateLiuren(customDate?: Date): LiurenData {
     threeTransmissions.some((item) => xunKong.includes(item.branch)) ? '空亡入传' : '传不逢空',
     getPatternTag(transmissionPattern),
   ];
-  const initialGroundBranch = getPlateItemByBranch(heavenlyPlate, chu).under;
-  const finalGroundBranch = getPlateItemByBranch(heavenlyPlate, mo).under;
+  const transmissionGroundBranches = transmissionBranches.map(
+    (branch) => getPlateItemByBranch(heavenlyPlate, branch).under,
+  );
+  const initialGroundBranch = transmissionGroundBranches[0];
+  const finalGroundBranch = transmissionGroundBranches[2];
   const greatAuspiciousGroundBranch = getPlateItemByBranch(heavenlyPlate, '丑').under;
   const heavenlyDragonGroundBranch = getPlateItemByBranch(heavenlyPlate, '辰').under;
   const guaTiFacts = getLiurenGuaTiFacts({
     transmissionBranches,
     transmissionGods: threeTransmissions.map((item) => item.god),
+    transmissionGroundBranches,
     dayGanZhi: ganzhi.day,
     dayStem,
     dayBranch,
