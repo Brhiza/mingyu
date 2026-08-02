@@ -169,6 +169,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     transmissionBranches,
     transmissionGods: threeTransmissions.map((item) => item.god),
     transmissionGroundBranches,
+    transmissionRule: initialResult.rule,
     dayGanZhi: ganzhi.day,
     dayStem,
     dayBranch,

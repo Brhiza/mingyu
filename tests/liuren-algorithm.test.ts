@@ -74,6 +74,28 @@ const LIUREN_INTERVAL_GUA_TI_BY_TRANSMISSIONS: Readonly<Record<string, string>> 
   巳卯丑: '转悖格',
   卯丑亥: '断涧格',
 };
+const LIUREN_GUIDE_CONSECUTIVE_NAME_BY_TRANSMISSIONS: Readonly<Record<string, string>> = {
+  亥子丑: '龙潜',
+  子丑寅: '含春',
+  丑寅卯: '将泰',
+  寅卯辰: '正和',
+  卯辰巳: '离渐',
+  辰巳午: '升阶',
+  未申酉: '回春',
+  申酉戌: '流金',
+  酉戌亥: '革故',
+  戌亥子: '隐明',
+  亥戌酉: '回阴',
+  戌酉申: '返驾',
+  酉申未: '出狱',
+  午巳辰: '登庸',
+  巳辰卯: '正己',
+  辰卯寅: '返照',
+  卯寅丑: '联芳',
+  寅丑子: '游魂',
+  丑子亥: '入墓',
+  子亥戌: '重阴',
+};
 const SIXTY_DAYS = Array.from(
   { length: 60 },
   (_, index) => `${TIANGAN[index % 10]}${DIZHI[index % 12]}`,
@@ -528,6 +550,8 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
         ) {
           expected.push('退茹');
         }
+        const consecutiveName = LIUREN_GUIDE_CONSECUTIVE_NAME_BY_TRANSMISSIONS[branches.join('')];
+        if (consecutiveName) expected.push(consecutiveName);
         if (
           ['寅卯辰', '辰卯寅', '巳午未', '未午巳', '申酉戌', '戌酉申', '亥子丑', '丑子亥'].includes(
             branches.join(''),
@@ -582,6 +606,10 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
   for (const intervalName of Object.values(LIUREN_INTERVAL_GUA_TI_BY_TRANSMISSIONS)) {
     assert.equal(counts.get(intervalName), 1, `${intervalName}应只命中唯一固定三传`);
     counts.delete(intervalName);
+  }
+  for (const consecutiveName of Object.values(LIUREN_GUIDE_CONSECUTIVE_NAME_BY_TRANSMISSIONS)) {
+    assert.equal(counts.get(consecutiveName), 1, `${consecutiveName}应只命中唯一固定三传`);
+    counts.delete(consecutiveName);
   }
   assert.deepEqual(Object.fromEntries([...counts].sort()), {
     三交卦: 24,
@@ -899,6 +927,14 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
     () =>
       getLiurenGuaTiFacts({
         transmissionBranches: ['卯', '辰', '巳'],
+        transmissionRule: '   ',
+      }),
+    /取传规则一经提供.*非空字符串/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['卯', '辰', '巳'],
         transmissionGroundBranches: ['寅', '卯'],
       }),
     /三传所临地盘一经提供.*恰好包含/,
@@ -940,8 +976,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定一百三十八条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 138);
+test('大六壬课体登记表应固定一百六十条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 160);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -972,6 +1008,25 @@ test('大六壬课体登记表应固定一百三十八条来源、稳定键和�
     `${jinRu.matchedConditions.join('；')}；${tuiRu.matchedConditions.join('；')}`,
     /吉|凶|疾病|婚姻|功名|现实事件/,
   );
+
+  for (const [branchesText, expectedName] of Object.entries(
+    LIUREN_GUIDE_CONSECUTIVE_NAME_BY_TRANSMISSIONS,
+  )) {
+    const branches = [...branchesText];
+    const namedFact = getLiurenGuaTiFacts({ transmissionBranches: branches }).find(
+      (item) => item.name === expectedName,
+    );
+    assert.ok(namedFact, `${branchesText}应识别为${expectedName}`);
+    assert.deepEqual(namedFact.matchedConditions, [`三传固定为${branches.join('、')}`]);
+    assert.match(namedFact.sourceTitle, /六壬指南.+六壬大全/);
+    assert.match(namedFact.sourceUrl, /oldid=854505$/);
+    assert.doesNotMatch(namedFact.matchedConditions.join('；'), /吉|凶|疾病|婚姻|功名|现实事件/);
+  }
+  const fanJia = getLiurenGuaTiFacts({ transmissionBranches: ['戌', '酉', '申'] }).find(
+    (item) => item.name === '返驾',
+  );
+  assert.ok(fanJia);
+  assert.match(fanJia.sourceQuote, /电子正文.+酉戌申.+占例.+戌酉申.+六壬大全.+共同校正/);
 
   const lianZhu = getLiurenGuaTiFacts({ transmissionBranches: ['寅', '卯', '辰'] }).find(
     (item) => item.name === '连珠课',
@@ -1004,6 +1059,51 @@ test('大六壬课体登记表应固定一百三十八条来源、稳定键和�
   assert.doesNotMatch(
     `${jinJian.matchedConditions.join('；')}；${tuiJian.matchedConditions.join('；')}`,
     /吉|凶|疾病|婚姻|功名|现实事件/,
+  );
+});
+
+test('六壬指南昴星蛇虎两个子格应按取传方法与初传十二天将整批穷举', () => {
+  const expectedByInitialGod: Readonly<Record<string, string>> = {
+    螣蛇: '冬蛇掩目',
+    白虎: '虎视转蓬',
+  };
+  let caseCount = 0;
+
+  for (const transmissionRule of ['昴星法', '元首法']) {
+    for (const initialGod of TIANJIANG) {
+      const facts = getLiurenGuaTiFacts({
+        transmissionBranches: ['午', '戌', '寅'],
+        transmissionGods: [initialGod, '青龙', '太阴'],
+        transmissionRule,
+      });
+      const matchedNames = facts
+        .map((fact) => fact.name)
+        .filter((name) => ['冬蛇掩目', '虎视转蓬'].includes(name));
+      const expectedName =
+        transmissionRule === '昴星法' ? expectedByInitialGod[initialGod] : undefined;
+      assert.deepEqual(
+        matchedNames,
+        expectedName ? [expectedName] : [],
+        `${transmissionRule}且${initialGod}发用的蛇虎子格边界不一致`,
+      );
+      if (expectedName) {
+        const fact = facts.find((candidate) => candidate.name === expectedName);
+        assert.ok(fact);
+        assert.deepEqual(fact.matchedConditions, ['取传规则为昴星法', `初传午乘${initialGod}`]);
+        assert.match(fact.sourceUrl, /oldid=854504$/);
+      }
+      caseCount += 1;
+    }
+  }
+
+  assert.equal(caseCount, 24);
+  assert.equal(
+    getLiurenGuaTiFacts({
+      transmissionBranches: ['午', '戌', '寅'],
+      transmissionRule: '昴星法',
+    }).some((fact) => ['冬蛇掩目', '虎视转蓬'].includes(fact.name)),
+    false,
+    '缺少初传天将时必须失败关闭',
   );
 });
 
@@ -3827,6 +3927,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             guaTiContextCount += 1;
             const guaTiFacts = getLiurenGuaTiFacts({
               transmissionBranches: branches,
+              transmissionRule: initial.rule,
               transmissionGods: branches.map(
                 (branch) => getPlateItemByBranch(heavenlyPlate, branch).god,
               ),
@@ -3979,12 +4080,26 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
     [...LIUREN_CUI_YAN_GUA_TI_NAMES].sort(),
     '《六壬粹言》本批十项结构均应能由合法九宗门盘面自然生成',
   );
-  const mainVersionBoundaryNames = ['出三天格', '入三渊格', '凝阳格', '涉疑格', '偃蹇格'];
+  const mainVersionBoundaryNames = [
+    '出三天格',
+    '入三渊格',
+    '凝阳格',
+    '涉疑格',
+    '偃蹇格',
+    '含春',
+    '离渐',
+    '隐明',
+    '回阴',
+    '出狱',
+    '返照',
+    '游魂',
+    '虎视转蓬',
+  ];
   assert.equal(guaTiCounts.size, REGISTERED_LIUREN_GUA_TI_COUNT - mainVersionBoundaryNames.length);
   assert.deepEqual(
     mainVersionBoundaryNames.filter((name) => !guaTiCounts.has(name)),
     mainVersionBoundaryNames,
-    '五条间传专名已经直接结构穷举，但当前主版本九宗门合法排盘不会自然生成',
+    '十三条课体已经直接结构穷举，但当前主版本九宗门合法排盘不会自然生成',
   );
   assert.ok((guaTiCounts.get('铸印卦') || 0) > 0, '铸印卦不得成为仅人工上下文可命中的死规则');
   assert.deepEqual(Object.fromEntries([...ruleCounts].sort()), {

@@ -1603,6 +1603,7 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
     transmissionBranches,
     transmissionGods: threeTransmissions.map((item) => item.god),
     transmissionGroundBranches,
+    transmissionRule: initialResult.rule,
     dayGanZhi: ganzhi.day,
     dayStem,
     dayBranch,

@@ -278,6 +278,7 @@ export interface LiurenGuaTiContext {
   transmissionBranches: string[];
   transmissionGods?: string[];
   transmissionGroundBranches?: string[];
+  transmissionRule?: string;
   dayGanZhi?: string;
   dayStem?: string;
   dayBranch?: string;
@@ -338,6 +339,13 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
     context.transmissionGroundBranches.forEach((branch, index) =>
       assertLiurenGuaTiBranch(branch, `第${index + 1}传所临地盘`),
     );
+  }
+
+  if (
+    context.transmissionRule !== undefined &&
+    (typeof context.transmissionRule !== 'string' || !context.transmissionRule.trim())
+  ) {
+    throw new Error('取传规则一经提供，就必须是非空字符串。');
   }
 
   if (
@@ -589,6 +597,75 @@ const LIUREN_DAQUAN_INTERVAL_RULES: LiurenGuaTiRule[] = LIUREN_DAQUAN_INTERVAL_R
   }),
 );
 
+const LIUREN_GUIDE_CONSECUTIVE_NAME_SPECS = [
+  { id: 'long-qian', name: '龙潜', branches: ['亥', '子', '丑'] },
+  { id: 'han-chun', name: '含春', branches: ['子', '丑', '寅'] },
+  { id: 'jiang-tai', name: '将泰', branches: ['丑', '寅', '卯'] },
+  { id: 'zheng-he', name: '正和', branches: ['寅', '卯', '辰'] },
+  { id: 'li-jian', name: '离渐', branches: ['卯', '辰', '巳'] },
+  { id: 'sheng-jie', name: '升阶', branches: ['辰', '巳', '午'] },
+  { id: 'hui-chun', name: '回春', branches: ['未', '申', '酉'] },
+  { id: 'liu-jin', name: '流金', branches: ['申', '酉', '戌'] },
+  { id: 'ge-gu', name: '革故', branches: ['酉', '戌', '亥'] },
+  { id: 'yin-ming', name: '隐明', branches: ['戌', '亥', '子'] },
+  { id: 'hui-yin', name: '回阴', branches: ['亥', '戌', '酉'] },
+  { id: 'fan-jia', name: '返驾', branches: ['戌', '酉', '申'] },
+  { id: 'chu-yu', name: '出狱', branches: ['酉', '申', '未'] },
+  { id: 'deng-yong', name: '登庸', branches: ['午', '巳', '辰'] },
+  { id: 'zheng-ji', name: '正己', branches: ['巳', '辰', '卯'] },
+  { id: 'fan-zhao', name: '返照', branches: ['辰', '卯', '寅'] },
+  { id: 'lian-fang', name: '联芳', branches: ['卯', '寅', '丑'] },
+  { id: 'you-hun', name: '游魂', branches: ['寅', '丑', '子'] },
+  { id: 'ru-mu', name: '入墓', branches: ['丑', '子', '亥'] },
+  { id: 'chong-yin', name: '重阴', branches: ['子', '亥', '戌'] },
+] as const;
+
+const LIUREN_GUIDE_CONSECUTIVE_NAME_RULES: LiurenGuaTiRule[] =
+  LIUREN_GUIDE_CONSECUTIVE_NAME_SPECS.map((spec) => ({
+    id: spec.id,
+    name: spec.name,
+    category: '三传顺逆',
+    sourceTitle: '《六壬指南》卷二·指掌赋；《六壬大全》卷十·连茹课',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      spec.name === '返驾'
+        ? '《六壬指南》电子正文次序讹作“酉戌申”，但同书占例明确作“戌酉申为返驾”，《六壬大全》亦作戌酉申；当前据同书位置占例与另一底本共同校正，只登记固定三传次序。'
+        : `《六壬指南》《六壬大全》均以三传${spec.branches.join('')}名“${spec.name}”；当前只登记固定次序，不继承现实断语。`,
+    detect: (context) =>
+      context.transmissionBranches.every((branch, index) => branch === spec.branches[index])
+        ? {
+            branches: [...spec.branches],
+            matchedConditions: [`三传固定为${spec.branches.join('、')}`],
+          }
+        : null,
+  }));
+
+const LIUREN_GUIDE_MAO_XING_GENERAL_SPECS = [
+  { id: 'dong-she-yan-mu', name: '冬蛇掩目', initialGod: '螣蛇' },
+  { id: 'hu-shi-zhuan-peng', name: '虎视转蓬', initialGod: '白虎' },
+] as const;
+
+const LIUREN_GUIDE_MAO_XING_GENERAL_RULES: LiurenGuaTiRule[] =
+  LIUREN_GUIDE_MAO_XING_GENERAL_SPECS.map((spec) => ({
+    id: spec.id,
+    name: spec.name,
+    category: '三传天将',
+    sourceTitle: '《六壬指南》卷一·指掌赋；《六壬指南注解》卷一',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote: `《六壬指南》：“昴星卦有${spec.initialGod}发用曰${spec.name}。”当前只登记昴星法且初传乘${spec.initialGod}的结构，不继承现实断语。`,
+    detect: (context) =>
+      context.transmissionRule?.includes('昴星') &&
+      context.transmissionGods?.[0] === spec.initialGod
+        ? {
+            branches: [...context.transmissionBranches],
+            matchedConditions: [
+              '取传规则为昴星法',
+              `初传${context.transmissionBranches[0]}乘${spec.initialGod}`,
+            ],
+          }
+        : null,
+  }));
+
 const LIUREN_DAQUAN_COMBINATION_SELF_PUNISHMENT_SPECS = [
   {
     id: 'jin-gang',
@@ -738,6 +815,8 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         `三传${context.transmissionBranches.join('、')}依十二地支逆序逐支相连`,
       ),
   },
+  ...LIUREN_GUIDE_CONSECUTIVE_NAME_RULES,
+  ...LIUREN_GUIDE_MAO_XING_GENERAL_RULES,
   {
     id: 'lian-zhu',
     name: '连珠课',
