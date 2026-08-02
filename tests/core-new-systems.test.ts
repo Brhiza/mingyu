@@ -5,9 +5,8 @@ import {
   analyzeTarotEvidence,
   conditionTarotTraditionalText,
   drawTarotSpread,
-  getCardEvidence,
 } from '../packages/core/src/divination/tarot.ts';
-import { tarotCards } from '../packages/core/src/divination/tarot-data.ts';
+import * as tarotApi from '../packages/core/src/divination/tarot.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const AUTOMATIC_ZODIAC_CONCLUSION =
@@ -692,44 +691,22 @@ test('zodiac: 三会只记录固定组成员事实，不冒充完整关系、贵
   assert.doesNotMatch(JSON.stringify(southFire), AUTOMATIC_ZODIAC_CONCLUSION);
 });
 
-test('tarot: 逐牌证据应区分正逆位、元素与牌阶', () => {
-  const major = getCardEvidence('魔术师');
-  const minor = getCardEvidence('权杖骑士');
+test('tarot: 未校逐牌解释不得作为公共接口或新结果字段输出', () => {
+  const data = drawTarotSpread('three', { seed: '塔罗牌义失败关闭' });
 
-  assert.match(major.uprightMeaning, /正位强调/);
-  assert.match(major.reversedMeaning, /逆位重点/);
-  assert.match(minor.reversedMeaning, /受阻、过度、内化或方向偏离/);
-  assert.match(minor.element, /火/);
-  assert.match(minor.archetype, /行动节奏/);
-});
-
-test('tarot: 全部牌义应保留原文并生成条件化解释事实', () => {
-  const facts = tarotCards.flatMap((card, index) => {
-    return [false, true].flatMap((reversed) => {
-      const data = drawTarotSpread('single', {
-        manualCards: [{ id: index + 1, reversed }],
-      });
-      return analyzeTarotEvidence(data).traditionalFacts;
-    });
-  });
-
-  assert.equal(facts.length, tarotCards.length * 2);
-  assert.deepEqual(new Set(facts.map((item) => item.orientation)), new Set(['正位', '逆位']));
+  assert.equal('getCardEvidence' in tarotApi, false);
+  assert.equal('getCardKeywords' in tarotApi, false);
   assert.ok(
-    facts.every(
-      (item) =>
-        item.originalText &&
-        item.promptText &&
-        item.sources.length > 0 &&
-        item.limitation.includes('不证明现实事件'),
+    data.cards.every(
+      (card) =>
+        !('keywords' in card) &&
+        !('uprightMeaning' in card) &&
+        !('reversedMeaning' in card) &&
+        !('element' in card) &&
+        !('archetype' in card),
     ),
   );
-  assert.ok(facts.some((item) => /表示这些能量正在直接发挥作用/.test(item.originalText)));
-  assert.ok(facts.some((item) => /成功比预期更晚到来/.test(item.originalText)));
-  assert.doesNotMatch(
-    facts.map((item) => item.promptText).join('\n'),
-    /表示这些能量正在直接发挥作用|成功比预期更晚到来|信息被隐藏|一定|必然/,
-  );
+  assert.deepEqual(data.evidenceAnalysis?.traditionalFacts, []);
 });
 
 test('tarot: 旧派生抽牌记录缺失时应从随机轨迹完整重建', () => {

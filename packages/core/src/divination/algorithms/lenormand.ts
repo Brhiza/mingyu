@@ -62,7 +62,7 @@ export const LENORMAND_CARDS = [
   '鱼',
   '锚',
   '十字架',
-].map((name, index) => ({ id: index + 1, name, keywords: [] as string[], meaning: '' }));
+].map((name, index) => ({ id: index + 1, name }));
 
 function createPendingSpreadPositions(cardCount: number) {
   return Array.from({ length: cardCount }, (_, index) => `第${index + 1}牌位`);
@@ -174,16 +174,10 @@ function buildLenormandCards(
   selectedCards: readonly LenormandReferenceCard[],
 ): LenormandData['cards'] {
   const spread = LENORMAND_SPREADS[spreadType];
-  return selectedCards.map((card, index) => {
-    return {
-      ...card,
-      keywords: [...card.keywords],
-      position: spread.positions[index],
-      house: undefined,
-      row: undefined,
-      column: undefined,
-    };
-  });
+  return selectedCards.map((card, index) => ({
+    ...card,
+    position: spread.positions[index],
+  }));
 }
 
 function buildLenormandLayoutEvidence(
@@ -210,9 +204,9 @@ function buildLenormandDraw(
       position: card.position,
       cardId: card.id,
       cardName: card.name,
-      house: card.house,
-      row: card.row,
-      column: card.column,
+      ...(card.house ? { house: card.house } : {}),
+      ...(card.row !== undefined ? { row: card.row } : {}),
+      ...(card.column !== undefined ? { column: card.column } : {}),
     })),
   };
 }

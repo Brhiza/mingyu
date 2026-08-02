@@ -2568,8 +2568,9 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   );
   assert.ok(body.data.evidenceAnalysis.randomFact.sources.length >= 2);
   assert.equal(body.data.evidenceAnalysis.traditionalFacts.length, 0);
-  assert.equal(body.data.evidenceAnalysis.cards[0].traditionalFactKey, null);
-  assert.deepEqual(body.data.evidenceAnalysis.cards[0].keywords, []);
+  assert.equal('traditionalFactKey' in body.data.evidenceAnalysis.cards[0], false);
+  assert.equal('keywords' in body.data.evidenceAnalysis.cards[0], false);
+  assert.equal('activeMeaning' in body.data.evidenceAnalysis.cards[0], false);
   assert.equal(body.data.evidenceAnalysis.summaryFact.key, 'tarot:evidence-summary');
   assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
   assert.equal(

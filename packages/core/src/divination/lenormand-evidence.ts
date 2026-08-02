@@ -14,12 +14,9 @@ export interface LenormandCardEvidence {
   cardId: number;
   name: string;
   position: string;
-  keywords: string[];
-  meaning: string;
   house?: string;
   row?: number;
   column?: number;
-  traditionalFactKey: string;
   promptText: string;
   sources: string[];
   limitation: '逐牌事实只记录项目内部中性牌位序号、牌号、牌名和抽取顺序；关键词、牌义与布局规则版本未闭合，不得继续解释';
@@ -883,7 +880,6 @@ export function analyzeRebuiltLenormandEvidence(data: LenormandData): LenormandE
   if (!data.cards.length) throw new Error('雷诺曼结构化证据至少需要一张牌。');
   const cards = data.cards.map((card, index): LenormandCardEvidence => {
     const key = `lenormand:card:${index + 1}:${card.id}`;
-    const traditionalFactKey = `lenormand:card-meaning:pending:${card.id}`;
     return {
       key,
       status: '已映射',
@@ -891,12 +887,9 @@ export function analyzeRebuiltLenormandEvidence(data: LenormandData): LenormandE
       cardId: card.id,
       name: card.name,
       position: card.position,
-      keywords: [...card.keywords],
-      meaning: card.meaning,
-      house: card.house,
-      row: card.row,
-      column: card.column,
-      traditionalFactKey,
+      ...(card.house ? { house: card.house } : {}),
+      ...(card.row !== undefined ? { row: card.row } : {}),
+      ...(card.column !== undefined ? { column: card.column } : {}),
       promptText: `第${card.id}号${card.name}位于${card.position}${card.house ? `；项目内部计算落${card.house}宫` : ''}${card.row && card.column ? `；第${card.row}排第${card.column}列` : ''}；关键词与牌义待具体版本校勘`,
       sources: ['已声明牌阵牌位', '项目内部1至36连续牌号与牌名目录'],
       limitation: CARD_FACT_LIMITATION,
@@ -1030,7 +1023,7 @@ export function analyzeRebuiltLenormandEvidence(data: LenormandData): LenormandE
       title: `${card.position}：${card.name}`,
       detail: `${card.promptText}；边界：${card.limitation}`,
       source: card.sources.join('、'),
-      tags: [card.position, card.name, ...card.keywords.slice(0, 3)],
+      tags: [card.position, card.name],
     })),
     ...(sequenceFacts.length
       ? [

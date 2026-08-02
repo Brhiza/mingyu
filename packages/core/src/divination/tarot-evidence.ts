@@ -11,7 +11,6 @@ import { createResultMeta } from '../shared/result';
 import type { TarotData } from '../types/divination';
 import type { TarotSpreadType } from '../types/divination';
 import { tarotCards, tarotSpreads } from './tarot-data';
-import { getCardEvidence } from './tarot-reference';
 
 export interface TarotCardEvidence {
   key: string;
@@ -21,13 +20,6 @@ export interface TarotCardEvidence {
   position: string;
   name: string;
   orientation: '正位' | '逆位';
-  keywords: string[];
-  element: string;
-  archetype: string;
-  activeMeaning: string;
-  promptMeaning: string;
-  constraints: string[];
-  traditionalFactKey: string | null;
   promptText: string;
   sources: string[];
   limitation: '逐牌事实只记录项目内部牌号、牌名、牌位与正逆位；关键词、牌义、元素、牌阶与组合规则在版本校勘完成前不得输出';
@@ -908,7 +900,6 @@ export function rebuildAuditedTarotData(input: TarotData): TarotData {
       name: reference.name,
       position: spread.positions[index],
       reversed: rawCard.reversed,
-      ...getCardEvidence(reference.name),
     };
   });
   const algorithm =
@@ -955,8 +946,6 @@ function analyzeRebuiltTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   ];
   const cards = data.cards.map((card, index): TarotCardEvidence => {
     const orientation = card.reversed ? '逆位' : '正位';
-    const activeMeaning = '';
-    const promptMeaning = conditionTarotTraditionalText('', orientation);
     const key = `tarot:card:${index + 1}:${card.id}:${orientation}`;
     return {
       key,
@@ -966,14 +955,7 @@ function analyzeRebuiltTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
       position: card.position,
       name: card.name,
       orientation,
-      keywords: [],
-      element: '未提供',
-      archetype: '未提供',
-      activeMeaning,
-      promptMeaning,
-      constraints: [],
-      traditionalFactKey: null,
-      promptText: `${card.position}为项目内部牌号${card.id}、牌名${card.name}、${orientation}；${promptMeaning}`,
+      promptText: `${card.position}为项目内部牌号${card.id}、牌名${card.name}、${orientation}；逐牌牌义来源尚未完成版本校勘，不作解释`,
       sources: ['已声明牌阵牌位', '项目内部牌号与牌名目录', '已记录正逆位'],
       limitation: CARD_FACT_LIMITATION,
     };

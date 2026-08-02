@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { drawSpreadCards, getCardKeywords } from '../packages/core/src/divination/tarot.ts';
+import { drawSpreadCards, drawTarotSpread } from '../packages/core/src/divination/tarot.ts';
 import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
@@ -38,9 +38,12 @@ test('随机占法支持种子复现抽取结果', () => {
   assert.deepEqual(meihua(SEED), meihua(SEED));
 });
 
-test('塔罗抽牌应拒绝未知牌阵和未知牌名，不应用泛化关键词掩盖错误', () => {
+test('塔罗抽牌应拒绝未知牌阵和未知牌号', () => {
   assert.throws(() => drawSpreadCards('unknown' as never), /未知的牌阵类型/);
-  assert.throws(() => getCardKeywords('不存在的牌'), /未知的塔罗牌名/);
+  assert.throws(
+    () => drawTarotSpread('single', { manualCards: [{ id: 999, reversed: false }] }),
+    /塔罗牌录入无效/,
+  );
 });
 
 test('时间种子模拟工具应拒绝非法范围和数量，避免返回空结果或 NaN', () => {

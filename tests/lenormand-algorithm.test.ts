@@ -32,7 +32,7 @@ test('雷诺曼36张目录应只保留连续牌号与唯一牌名', () => {
     Array.from({ length: 36 }, (_, index) => index + 1),
   );
   assert.equal(new Set(LENORMAND_CARDS.map((card) => card.name)).size, 36);
-  assert.ok(LENORMAND_CARDS.every((card) => card.keywords.length === 0 && card.meaning === ''));
+  assert.ok(LENORMAND_CARDS.every((card) => !('keywords' in card) && !('meaning' in card)));
   assert.deepEqual(LENORMAND_FIXED_COMBINATIONS, {});
 });
 
@@ -44,15 +44,18 @@ test('雷诺曼全部牌阵应只输出原始牌面与可重放抽取轨迹', ()
     assert.ok(evidence);
     assert.equal(result.cards.length, result.draw?.order.length);
     assert.equal(new Set(result.cards.map((card) => card.id)).size, result.cards.length);
-    assert.ok(result.cards.every((card) => card.keywords.length === 0 && card.meaning === ''));
+    assert.ok(result.cards.every((card) => !('keywords' in card) && !('meaning' in card)));
+    assert.ok(
+      evidence.cards.every(
+        (card) => !('keywords' in card) && !('meaning' in card) && !('traditionalFactKey' in card),
+      ),
+    );
     assert.deepEqual(
       result.cards.map((card) => card.position),
       Array.from({ length: result.cards.length }, (_, index) => `第${index + 1}牌位`),
     );
     assert.ok(
-      result.cards.every(
-        (card) => card.house === undefined && card.row === undefined && card.column === undefined,
-      ),
+      result.cards.every((card) => !('house' in card) && !('row' in card) && !('column' in card)),
     );
     assert.doesNotMatch(
       LENORMAND_SPREADS[spreadType].positions.join(''),
@@ -81,12 +84,7 @@ test('雷诺曼全部牌号应按内部目录重建并保持牌义为空', () =>
     assert.deepEqual(result.cards[0], {
       id: reference.id,
       name: reference.name,
-      keywords: [],
-      meaning: '',
       position: '第1牌位',
-      house: undefined,
-      row: undefined,
-      column: undefined,
     });
     assert.equal(result.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
     assert.equal(result.evidenceAnalysis?.randomFact.status, '不适用');

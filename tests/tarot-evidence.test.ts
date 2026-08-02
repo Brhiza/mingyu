@@ -92,8 +92,9 @@ test('塔罗全部牌阵应只输出可复算抽牌事实与牌义待校状态',
       evidence.cards.every(
         (card) =>
           card.status === '已映射' &&
-          card.traditionalFactKey === null &&
-          card.keywords.length === 0 &&
+          !('traditionalFactKey' in card) &&
+          !('keywords' in card) &&
+          !('activeMeaning' in card) &&
           card.promptText &&
           card.sources.length >= 2 &&
           card.limitation.includes('版本校勘'),
@@ -382,11 +383,11 @@ test('塔罗78张牌应逐张按内部牌号重建唯一名称并关闭未校牌
     const card = rebuilt.cards[0];
     assert.equal(card.id, index + 1);
     assert.equal(card.position, '第1牌位');
-    assert.equal(card.keywords.length, 0);
-    assert.equal(card.uprightMeaning, '');
-    assert.equal(card.reversedMeaning, '');
-    assert.equal(card.element, '');
-    assert.equal(card.archetype, '');
+    assert.equal('keywords' in card, false);
+    assert.equal('uprightMeaning' in card, false);
+    assert.equal('reversedMeaning' in card, false);
+    assert.equal('element' in card, false);
+    assert.equal('archetype' in card, false);
     return [card.id, card.name];
   });
   assert.equal(new Set(rows.map((row) => row[0])).size, 78);

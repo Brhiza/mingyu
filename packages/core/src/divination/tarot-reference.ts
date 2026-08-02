@@ -20,23 +20,3 @@ export function validateTarotReferenceData(): void {
 }
 
 validateTarotReferenceData();
-
-/** @deprecated 逐牌关键词来源尚未闭合，公开调用只返回空值。 */
-export function getCardKeywords(cardName: string): string {
-  if (!tarotCards.some((card) => card.name === cardName)) {
-    throw new Error(`未知的塔罗牌名: ${cardName}`);
-  }
-  return '';
-}
-
-/** 只返回失败关闭后的空解释字段，供既有数据结构兼容。 */
-export function getCardEvidence(cardName: string) {
-  getCardKeywords(cardName);
-  return {
-    keywords: [] as string[],
-    uprightMeaning: '',
-    reversedMeaning: '',
-    element: '',
-    archetype: '',
-  };
-}

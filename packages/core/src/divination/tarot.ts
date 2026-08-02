@@ -10,10 +10,9 @@ import {
 import { attachResultMeta } from '../shared/result';
 import type { TarotData, TarotSpreadType } from '../types/divination';
 import { analyzeTarotEvidence } from './tarot-evidence';
-import { getCardEvidence } from './tarot-reference';
+import './tarot-reference';
 
 export { tarotCards, tarotSpreads } from './tarot-data';
-export { getCardEvidence, getCardKeywords } from './tarot-reference';
 export {
   analyzeTarotEvidence,
   conditionTarotTraditionalText,
@@ -207,7 +206,6 @@ export function drawTarotSpread(
       (card, index) => ({
         ...card,
         position: spread.positions[index],
-        ...getCardEvidence(card.name),
       }),
     );
     const timestamp = Date.now();
@@ -250,7 +248,6 @@ export function drawTarotSpread(
         name: card.name,
         position: spread.positions[index],
         reversed: input.reversed,
-        ...getCardEvidence(card.name),
       };
     });
     const timestamp = Date.now();
@@ -282,7 +279,6 @@ export function drawTarotSpread(
           name: draw.card.name,
           position: draw.position,
           reversed: draw.isReversed,
-          ...getCardEvidence(draw.card.name),
         },
       ],
       timestamp: draw.timestamp,
@@ -302,7 +298,6 @@ export function drawTarotSpread(
       name: item.card.name,
       position: item.position,
       reversed: item.isReversed,
-      ...getCardEvidence(item.card.name),
     })),
     timestamp: draw.timestamp,
     meta: draw.meta,

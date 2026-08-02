@@ -2445,9 +2445,7 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.ok(
       tarotData.evidenceAnalysis.cards.every(
         (item: Record<string, unknown>) =>
-          item.traditionalFactKey === null &&
-          Array.isArray(item.keywords) &&
-          item.keywords.length === 0,
+          !('traditionalFactKey' in item) && !('keywords' in item) && !('activeMeaning' in item),
       ),
     );
 

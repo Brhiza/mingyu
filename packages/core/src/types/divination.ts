@@ -884,10 +884,15 @@ export interface TarotData {
     name: string;
     position: string;
     reversed: boolean;
-    keywords: string[];
+    /** @deprecated 逐牌关键词来源尚未完成版本校勘，新结果不再输出。 */
+    keywords?: string[];
+    /** @deprecated 逐牌正位牌义来源尚未完成版本校勘，新结果不再输出。 */
     uprightMeaning?: string;
+    /** @deprecated 逐牌逆位牌义来源尚未完成版本校勘，新结果不再输出。 */
     reversedMeaning?: string;
+    /** @deprecated 逐牌元素来源尚未完成版本校勘，新结果不再输出。 */
     element?: string;
+    /** @deprecated 逐牌原型来源尚未完成版本校勘，新结果不再输出。 */
     archetype?: string;
   }[];
   draw?: {
@@ -1150,8 +1155,10 @@ export interface LenormandData {
     id: number;
     name: string;
     position: string;
-    keywords: string[];
-    meaning: string;
+    /** @deprecated 逐牌关键词来源尚未完成版本校勘，新结果不再输出。 */
+    keywords?: string[];
+    /** @deprecated 逐牌牌义来源尚未完成版本校勘，新结果不再输出。 */
+    meaning?: string;
     house?: string;
     row?: number;
     column?: number;
