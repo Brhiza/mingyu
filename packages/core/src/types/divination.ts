@@ -850,6 +850,10 @@ export interface LiurenData {
   xunKong: string[];
   /** 发用规则名称（如涉害、遥克、昴星等九宗门） */
   transmissionRule: string;
+  /** 初传实际取自四课中的课序，0 至 3 分别对应一至四课；特殊取传可缺省 */
+  initialSourceLessonIndex?: number;
+  /** 遥克原始方向；多候选经比用或涉害筛选后仍保留蒿矢、弹射之别 */
+  remoteKeDirection?: '蒿矢' | '弹射';
   /** 三传特殊模式：伏吟/反吟/回环/递传 */
   transmissionPattern: '伏吟' | '反吟' | '回环' | '递传';
   /** 三传详细说明 */

@@ -524,6 +524,7 @@ function buildLessonEvidence(
   initialBranch: string,
   xunKong: string[],
   dayStem: string,
+  initialSourceLessonIndex?: number,
 ): LiurenLessonEvidence {
   const key = `liuren:lesson:${index + 1}:${lesson.name}`;
   const normalized: LiurenLesson = {
@@ -605,7 +606,10 @@ function buildLessonEvidence(
     ...normalized,
     key,
     index: index + 1,
-    isInitialSource: lesson.upper === initialBranch,
+    isInitialSource:
+      initialSourceLessonIndex === undefined
+        ? lesson.upper === initialBranch
+        : index === initialSourceLessonIndex,
     constraints,
     relationFacts,
     promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，乘${lesson.god}，相对日干为${normalized.kinship}，${normalized.dayStemRelation}，上下神关系${lesson.relation}；${conditionLiurenTraditionalText(lesson.note || '课注未列')}`,
@@ -1604,6 +1608,7 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
     transmissionGods: threeTransmissions.map((item) => item.god),
     transmissionGroundBranches,
     transmissionRule: initialResult.rule,
+    initialSourceLessonIndex: initialResult.sourceLessonIndex,
     dayGanZhi: ganzhi.day,
     dayStem,
     dayBranch,
@@ -1623,6 +1628,9 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
   const patternTags = [
     `${threeTransmissions[0].god}发用`,
     initialResult.tag,
+    ...(initialResult.remoteKeDirection && initialResult.remoteKeDirection !== initialResult.tag
+      ? [initialResult.remoteKeDirection]
+      : []),
     threeTransmissions.some((item) => item.isVoid) ? '空亡入传' : '传不逢空',
     getPatternTag(transmissionPattern),
     ...guaTi,
@@ -1693,6 +1701,8 @@ export function rebuildAuditedLiurenData(input: LiurenData): LiurenData {
     noblemanGroundBranch,
     xunKong,
     transmissionRule: initialResult.rule,
+    initialSourceLessonIndex: initialResult.sourceLessonIndex,
+    remoteKeDirection: initialResult.remoteKeDirection,
     transmissionPattern,
     transmissionDetail,
     earthlyPlate: [...DIZHI],
@@ -1743,7 +1753,14 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
   const dayStem = data.ganzhi.day.charAt(0);
   const dayBranch = data.ganzhi.day.charAt(1);
   const lessons = data.fourLessons.map((lesson, index) =>
-    buildLessonEvidence(lesson, index, initial.branch, xunKong, dayStem),
+    buildLessonEvidence(
+      lesson,
+      index,
+      initial.branch,
+      xunKong,
+      dayStem,
+      data.initialSourceLessonIndex,
+    ),
   );
   const initialSourceLessons = lessons
     .filter((item) => item.isInitialSource)
@@ -1841,7 +1858,7 @@ export function analyzeLiurenEvidence(input: LiurenData): LiurenEvidenceAnalysis
     initialSourceLessonKeys: lessons.filter((item) => item.isInitialSource).map((item) => item.key),
     detail: data.transmissionDetail.trim(),
     classicalRuleKeys,
-    promptText: `按${data.transmissionRule}取初传${initial.branch}乘${initial.god}，三传模式${data.transmissionPattern}${initialSourceLessons.length ? `，初传上神见于${initialSourceLessons.join('、')}` : '，特殊取传未直接对应单一课上神'}`,
+    promptText: `按${data.transmissionRule}取初传${initial.branch}乘${initial.god}${data.remoteKeDirection ? `，遥克方向为${data.remoteKeDirection}` : ''}，三传模式${data.transmissionPattern}${initialSourceLessons.length ? `，初传实际取自${initialSourceLessons.join('、')}` : '，特殊取传未直接对应单一课上神'}`,
     sources: [
       '当前结果保存的四课、初传与三传结构',
       '已确定的九宗门取传结果',

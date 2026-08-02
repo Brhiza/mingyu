@@ -54,6 +54,8 @@ export interface InitialTransmissionResult {
   rule: string;
   tag: string;
   branches?: string[];
+  sourceLessonIndex?: number;
+  remoteKeDirection?: '蒿矢' | '弹射';
 }
 
 interface KeCandidate {
@@ -189,11 +191,7 @@ export function buildFourLessons(args: {
       relation,
       note: buildLessonNote(relation, args.xunKong, item.upper, item.lower),
       kinship: getLiurenKinship(args.dayStem, item.upper),
-      dayStemRelation: describeLessonDayStemRelation(
-        lessonNames[index],
-        item.upper,
-        args.dayStem,
-      ),
+      dayStemRelation: describeLessonDayStemRelation(lessonNames[index], item.upper, args.dayStem),
     };
   }) satisfies LiurenLesson[];
 }
@@ -331,6 +329,7 @@ function resolveMultipleCandidates(
       initial: picked.lesson.upper,
       rule: tagPrefix ? `${tagPrefix}比用法` : '比用法',
       tag: tagPrefix ? `${tagPrefix}比用` : '比用',
+      sourceLessonIndex: picked.index,
     };
   }
 
@@ -343,6 +342,7 @@ function resolveMultipleCandidates(
     initial: picked.lesson.upper,
     rule: tagPrefix ? `${tagPrefix}涉害法` : '涉害法',
     tag: tagPrefix ? `${tagPrefix}涉害` : '涉害',
+    sourceLessonIndex: picked.index,
   };
 }
 
@@ -361,6 +361,7 @@ function resolveKeCandidates(
       initial: picked.upper,
       rule: rulePrefix ? `${rulePrefix}重审法` : '重审法',
       tag: rulePrefix ? `${rulePrefix}重审` : '重审',
+      sourceLessonIndex: uniqueLowerKeUpper[0].index,
     };
   }
 
@@ -374,6 +375,7 @@ function resolveKeCandidates(
       initial: picked.upper,
       rule: rulePrefix ? `${rulePrefix}元首法` : '元首法',
       tag: rulePrefix ? `${rulePrefix}元首` : '元首',
+      sourceLessonIndex: uniqueUpperKeLower[0].index,
     };
   }
 
@@ -393,25 +395,43 @@ function resolveRemoteKe(
   }
 
   const dayStemWuxing = getStemWuxing(context.dayStem);
-  const remoteLessons = lessons.slice(1);
+  const remoteLessons = lessons.map((lesson, index) => ({ lesson, index })).slice(1);
   const upperKeDay = remoteLessons
-    .filter((lesson) => isElementKe(getGanZhiWuxing(lesson.upper), dayStemWuxing))
-    .map((lesson, index) => ({ lesson, type: '上克下', index: index + 1 }) satisfies KeCandidate);
+    .filter(({ lesson }) => isElementKe(getGanZhiWuxing(lesson.upper), dayStemWuxing))
+    .map(({ lesson, index }) => ({ lesson, type: '上克下', index }) satisfies KeCandidate);
   const dayKeUpper = remoteLessons
-    .filter((lesson) => isElementKe(dayStemWuxing, getGanZhiWuxing(lesson.upper)))
-    .map((lesson, index) => ({ lesson, type: '下贼上', index: index + 1 }) satisfies KeCandidate);
+    .filter(({ lesson }) => isElementKe(dayStemWuxing, getGanZhiWuxing(lesson.upper)))
+    .map(({ lesson, index }) => ({ lesson, type: '下贼上', index }) satisfies KeCandidate);
 
   if (upperKeDay.length === 1) {
-    return { initial: upperKeDay[0].lesson.upper, rule: '遥克法', tag: '蒿矢' };
+    return {
+      initial: upperKeDay[0].lesson.upper,
+      rule: '遥克法',
+      tag: '蒿矢',
+      sourceLessonIndex: upperKeDay[0].index,
+      remoteKeDirection: '蒿矢',
+    };
   }
   if (upperKeDay.length > 1) {
-    return resolveMultipleCandidates(upperKeDay, context, '遥克');
+    return {
+      ...resolveMultipleCandidates(upperKeDay, context, '遥克'),
+      remoteKeDirection: '蒿矢',
+    };
   }
   if (dayKeUpper.length === 1) {
-    return { initial: dayKeUpper[0].lesson.upper, rule: '遥克法', tag: '弹射' };
+    return {
+      initial: dayKeUpper[0].lesson.upper,
+      rule: '遥克法',
+      tag: '弹射',
+      sourceLessonIndex: dayKeUpper[0].index,
+      remoteKeDirection: '弹射',
+    };
   }
   if (dayKeUpper.length > 1) {
-    return resolveMultipleCandidates(dayKeUpper, context, '遥克');
+    return {
+      ...resolveMultipleCandidates(dayKeUpper, context, '遥克'),
+      remoteKeDirection: '弹射',
+    };
   }
 
   return null;

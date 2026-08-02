@@ -155,6 +155,9 @@ export function generateLiuren(customDate?: Date): LiurenData {
   const patternTags = [
     `${threeTransmissions[0].god}发用`,
     initialResult.tag,
+    ...(initialResult.remoteKeDirection && initialResult.remoteKeDirection !== initialResult.tag
+      ? [initialResult.remoteKeDirection]
+      : []),
     threeTransmissions.some((item) => xunKong.includes(item.branch)) ? '空亡入传' : '传不逢空',
     getPatternTag(transmissionPattern),
   ];
@@ -170,6 +173,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     transmissionGods: threeTransmissions.map((item) => item.god),
     transmissionGroundBranches,
     transmissionRule: initialResult.rule,
+    initialSourceLessonIndex: initialResult.sourceLessonIndex,
     dayGanZhi: ganzhi.day,
     dayStem,
     dayBranch,
@@ -274,6 +278,8 @@ export function generateLiuren(customDate?: Date): LiurenData {
     noblemanGroundBranch,
     xunKong,
     transmissionRule: initialResult.rule,
+    initialSourceLessonIndex: initialResult.sourceLessonIndex,
+    remoteKeDirection: initialResult.remoteKeDirection,
     transmissionPattern,
     transmissionDetail,
     earthlyPlate: [...DIZHI],

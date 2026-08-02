@@ -162,6 +162,8 @@ export function getPatternTag(pattern: LiurenData['transmissionPattern']) {
 
 const LIUREN_GUIDE_VOLUME_ONE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/1&oldid=854504';
+const LIUREN_DAQUAN_SOURCE_URL =
+  'https://github.com/kentang2017/shushubook/blob/53516cbc9152c10c0b828b42c92abb6f6b211bdb/六壬/六壬大全-明-郭载騋.txt';
 const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/7&oldid=854575';
 const LIUREN_DAQUAN_VOLUME_EIGHT_URL =
@@ -178,6 +180,8 @@ const LIUREN_GUIDE_VOLUME_TWO_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/2&oldid=854505';
 const LIUREN_CUI_YAN_SOURCE_URL =
   'https://github.com/kentang2017/shushubook/blob/53516cbc9152c10c0b828b42c92abb6f6b211bdb/六壬/六壬粹言-清-刘赤江.txt';
+const LIUREN_XUN_YUAN_SOURCE_URL =
+  'https://github.com/kentang2017/shushubook/blob/53516cbc9152c10c0b828b42c92abb6f6b211bdb/六壬/六壬寻源-清-张纯照.txt';
 const YANG_BRANCHES: ReadonlySet<string> = new Set(['子', '寅', '辰', '午', '申', '戌']);
 const YIN_BRANCHES: ReadonlySet<string> = new Set(['丑', '卯', '巳', '未', '酉', '亥']);
 const AUSPICIOUS_GENERALS: ReadonlySet<string> = new Set([
@@ -279,6 +283,7 @@ export interface LiurenGuaTiContext {
   transmissionGods?: string[];
   transmissionGroundBranches?: string[];
   transmissionRule?: string;
+  initialSourceLessonIndex?: number;
   dayGanZhi?: string;
   dayStem?: string;
   dayBranch?: string;
@@ -346,6 +351,14 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
     (typeof context.transmissionRule !== 'string' || !context.transmissionRule.trim())
   ) {
     throw new Error('取传规则一经提供，就必须是非空字符串。');
+  }
+  if (
+    context.initialSourceLessonIndex !== undefined &&
+    (!Number.isInteger(context.initialSourceLessonIndex) ||
+      context.initialSourceLessonIndex < 0 ||
+      context.initialSourceLessonIndex > 3)
+  ) {
+    throw new Error('初传来源课序号一经提供，就必须是 0 至 3 的整数。');
   }
 
   if (
@@ -417,6 +430,17 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
       }
     });
   }
+  if (context.initialSourceLessonIndex !== undefined) {
+    if (!context.fourLessons) {
+      throw new Error('初传来源课序号一经提供，就必须同时提供完整四课。');
+    }
+    if (
+      context.fourLessons[context.initialSourceLessonIndex].upper !==
+      context.transmissionBranches[0]
+    ) {
+      throw new Error('初传来源课的上神必须与初传一致。');
+    }
+  }
 }
 
 function hasSameBranchSet(actualBranches: string[], expectedBranches: string[]) {
@@ -461,6 +485,13 @@ function matchConsecutiveTransmissions(
     indices[2] === (indices[1] + step + DIZHI.length) % DIZHI.length
     ? { branches: [...context.transmissionBranches], matchedConditions: [condition] }
     : null;
+}
+
+function getForwardBranchStep(from: string, to: string): number {
+  const fromIndex = DIZHI.indexOf(from as (typeof DIZHI)[number]);
+  const toIndex = DIZHI.indexOf(to as (typeof DIZHI)[number]);
+  if (fromIndex < 0 || toIndex < 0) throw new Error(`无法计算地支${from}至${to}的盘面位移。`);
+  return (toIndex - fromIndex + DIZHI.length) % DIZHI.length;
 }
 
 function getPreviousLiurenBranch(branch: string): string {
@@ -718,6 +749,105 @@ const LIUREN_DAQUAN_COMBINATION_SELF_PUNISHMENT_RULES: LiurenGuaTiRule[] =
   }));
 
 const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
+  {
+    id: 'bu-bei',
+    name: '不备课',
+    category: '四课关系',
+    sourceTitle: '《六壬指南》卷一·别责；《六壬粹言》·不备课',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote:
+      '《六壬指南》：“四课有首尾相同为三课者，有二三相同而为三课者，名曰不备。”《六壬粹言》同载一四或二三相同而缺一课；当前只登记四课上神恰有三个不同值的结构，不把别责的无克、无遥克附加条件误并入不备。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const uniqueUppers = [...new Set(context.fourLessons.map((lesson) => lesson.upper))];
+      return uniqueUppers.length === 3
+        ? {
+            branches: uniqueUppers,
+            matchedConditions: [
+              `四课上神依次为${context.fourLessons.map((lesson) => lesson.upper).join('、')}，去重后恰为三课`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'si-jue',
+    name: '四绝课',
+    category: '月将临干支',
+    sourceTitle: '《六壬大全》卷三·心印赋；《六壬粹言》',
+    sourceUrl: LIUREN_DAQUAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬大全》：“午加亥上酉加寅，子居巳位卯居申，诸经名此为四绝。”四组同属天盘相对地盘顺移七位；《御定六壬直指》720 局中所标四绝均落在该唯一盘面位移。当前只登记天地盘结构，不继承结旧图新等现实断语。',
+    detect(context) {
+      if (!context.hourBranch || !context.monthLeader) return null;
+      return getForwardBranchStep(context.hourBranch, context.monthLeader) === 7
+        ? {
+            branches: ['午', '亥', '酉', '寅', '子', '巳', '卯', '申'],
+            matchedConditions: [
+              `月将${context.monthLeader}加占时${context.hourBranch}形成天盘顺移七位，午加亥、酉加寅、子加巳、卯加申四组同时成立`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'mo-yue',
+    name: '蓦越课',
+    category: '发用临地',
+    sourceTitle: '《六壬寻源》·应期；《六壬粹言》·支上发用；《御定六壬直指》',
+    sourceUrl: LIUREN_XUN_YUAN_SOURCE_URL,
+    sourceQuote:
+      '《六壬寻源》：“用起第四课者，名蓦越课。”《六壬粹言》亦载第四课发用为蓦越；当前依取传过程保存的精确课序登记，不以初传上神碰巧重复出现在第四课冒充来源。',
+    detect: (context) =>
+      context.initialSourceLessonIndex === 3 && context.fourLessons
+        ? {
+            branches: [context.transmissionBranches[0], context.fourLessons[3].upper],
+            matchedConditions: [
+              `初传${context.transmissionBranches[0]}由第四课上神${context.fourLessons[3].upper}直接发用`,
+            ],
+          }
+        : null,
+  },
+  {
+    id: 'jian-ji',
+    name: '见机课',
+    category: '发用临地',
+    sourceTitle: '《六壬大全》卷七·见机课；《六壬粹言》·见机课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“俱比俱不比，以寅申巳亥孟神用为见机格。”《六壬粹言》：“涉害取四孟上神为用，曰见机。”当前只在主版本确由涉害法取传且初传所临地盘为四孟时登记。',
+    detect: (context) =>
+      context.transmissionRule === '涉害法' &&
+      context.initialGroundBranch &&
+      ['寅', '巳', '申', '亥'].includes(context.initialGroundBranch)
+        ? {
+            branches: [context.transmissionBranches[0], context.initialGroundBranch],
+            matchedConditions: [
+              `按${context.transmissionRule}发用，初传${context.transmissionBranches[0]}所临地盘${context.initialGroundBranch}为四孟之一`,
+            ],
+          }
+        : null,
+  },
+  {
+    id: 'cha-wei',
+    name: '察微课',
+    category: '发用临地',
+    sourceTitle: '《六壬大全》卷七·察微课；《六壬粹言》·察微课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“无孟取仲季用，为察微格。”《六壬粹言》以涉害取四仲上神为察微，《六壬灵觉经》明载仲季均属察微；当前采用仲季合称口径，并只在主版本确由涉害法取传时登记。',
+    detect: (context) =>
+      context.transmissionRule === '涉害法' &&
+      context.initialGroundBranch &&
+      ['子', '卯', '午', '酉', '辰', '戌', '丑', '未'].includes(context.initialGroundBranch)
+        ? {
+            branches: [context.transmissionBranches[0], context.initialGroundBranch],
+            matchedConditions: [
+              `按${context.transmissionRule}发用，初传${context.transmissionBranches[0]}所临地盘${context.initialGroundBranch}为四仲或四季之一`,
+            ],
+          }
+        : null,
+  },
   {
     id: 'san-jiao',
     name: '三交卦',
