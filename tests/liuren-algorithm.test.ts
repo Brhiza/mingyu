@@ -485,8 +485,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定十三条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 13);
+test('大六壬课体登记表应固定十六条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 16);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -497,6 +497,70 @@ test('大六壬课体登记表应固定十三条来源、稳定键和结构条�
   assert.match(fact.sourceTitle, /《六壬指南》卷一/);
   assert.match(fact.sourceUrl, /oldid=854504/);
   assert.equal(fact.sourceQuote, '三传亥卯未曰曲直卦。');
+});
+
+test('大六壬四课五种关系轮廓应严格识别四项克贼课体', () => {
+  const relationLessons = [
+    { relation: '上克下', lesson: { upper: '寅', lower: '丑' } },
+    { relation: '下克上', lesson: { upper: '子', lower: '丑' } },
+    { relation: '上生下', lesson: { upper: '寅', lower: '午' } },
+    { relation: '下生上', lesson: { upper: '午', lower: '寅' } },
+    { relation: '比和', lesson: { upper: '寅', lower: '卯' } },
+  ] as const;
+  const targetNames = new Set(['无禄卦', '绝嗣卦', '幼度厄', '长度厄']);
+  const matchedFacts = new Map<string, ReturnType<typeof getLiurenGuaTiFacts>[number]>();
+
+  for (let profile = 0; profile < 5 ** 4; profile += 1) {
+    let remainder = profile;
+    const selected = Array.from({ length: 4 }, () => {
+      const selectedRelation = relationLessons[remainder % relationLessons.length];
+      remainder = Math.floor(remainder / relationLessons.length);
+      return selectedRelation;
+    });
+    const upperKeCount = selected.filter((item) => item.relation === '上克下').length;
+    const lowerKeCount = selected.filter((item) => item.relation === '下克上').length;
+    const expected = [
+      ...(upperKeCount === 4 ? ['无禄卦'] : []),
+      ...(lowerKeCount === 4 ? ['绝嗣卦'] : []),
+      ...(upperKeCount === 3 ? ['幼度厄'] : []),
+      ...(lowerKeCount === 3 ? ['长度厄'] : []),
+    ];
+    const actualFacts = getLiurenGuaTiFacts({
+      transmissionBranches: ['子', '寅', '辰'],
+      fourLessons: selected.map((item) => item.lesson),
+    }).filter((fact) => targetNames.has(fact.name));
+
+    assert.deepEqual(
+      actualFacts.map((fact) => fact.name),
+      expected,
+      `关系轮廓${selected.map((item) => item.relation).join('、')}命中边界不一致`,
+    );
+    actualFacts.forEach((fact) => matchedFacts.set(fact.name, fact));
+  }
+
+  const expectedFacts = [
+    ['无禄卦', 'liuren:verified-guati:wu-lu', '凡四上克下曰无禄卦。', '四课均为上神克下位'],
+    ['绝嗣卦', 'liuren:verified-guati:jue-si', '凡四下克上曰绝嗣卦。', '四课均为下位克上神'],
+    ['幼度厄', 'liuren:verified-guati:you-du-e', '三上克为幼度厄。', '四课中恰有三课为上神克下位'],
+    [
+      '长度厄',
+      'liuren:verified-guati:zhang-du-e',
+      '三下克为长度厄。',
+      '四课中恰有三课为下位克上神',
+    ],
+  ] as const;
+  for (const [name, stableKey, sourceQuote, matchedCondition] of expectedFacts) {
+    const fact = matchedFacts.get(name);
+    assert.ok(fact);
+    assert.equal(fact.stableKey, stableKey);
+    assert.equal(fact.sourceQuote, sourceQuote);
+    assert.deepEqual(fact.matchedConditions, [matchedCondition]);
+    assert.match(fact.sourceUrl, /oldid=854504$/);
+    assert.doesNotMatch(
+      `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+      /贫苦|疾病|死丧|婚姻|官非|吉凶|现实事件/,
+    );
+  }
 });
 
 test('大六壬新增六类课体应按完整起课条件命中', () => {

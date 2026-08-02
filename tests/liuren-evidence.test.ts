@@ -587,6 +587,46 @@ test('大六壬登记课体应以稳定键、固定古籍版本进入统一证�
   }
 });
 
+test('大六壬四课克贼课体进入提示词时应只保留可复算结构', () => {
+  const cases = [
+    {
+      date: new Date('2025-01-02T16:00:00+08:00'),
+      name: '长度厄',
+      condition: '四课中恰有三课为下位克上神',
+      sourceQuote: '三下克为长度厄。',
+    },
+    {
+      date: new Date('2025-01-11T12:00:00+08:00'),
+      name: '绝嗣卦',
+      condition: '四课均为下位克上神',
+      sourceQuote: '凡四下克上曰绝嗣卦。',
+    },
+    {
+      date: new Date('2025-01-13T16:00:00+08:00'),
+      name: '幼度厄',
+      condition: '四课中恰有三课为上神克下位',
+      sourceQuote: '三上克为幼度厄。',
+    },
+  ] as const;
+
+  for (const item of cases) {
+    const data = generateLiuren(item.date);
+    const fact = data.guaTiFacts.find((candidate) => candidate.name === item.name);
+    assert.ok(fact, `${item.name}应由真实起盘命中`);
+    const traditionalFact = data.evidenceAnalysis?.traditionalFacts.find(
+      (candidate) => candidate.key === fact.stableKey,
+    );
+    assert.ok(traditionalFact);
+    assert.equal(traditionalFact.originalText, item.sourceQuote);
+    assert.equal(
+      traditionalFact.promptText,
+      `盘面命中“${item.name}”：${item.condition}；只登记课体结构，不据此单断现实吉凶`,
+    );
+    assert.match(data.evidenceAnalysis?.promptText ?? '', new RegExp(item.condition));
+    assert.doesNotMatch(traditionalFact.promptText, /贫苦|长幼有厄|疾病|死丧|婚姻|官非/);
+  }
+});
+
 test('十二天将旧类象字段不得保留或软化后继续进入提示词', () => {
   Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
     assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);

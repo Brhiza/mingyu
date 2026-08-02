@@ -405,6 +405,57 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     },
   },
   {
+    id: 'jue-si',
+    name: '绝嗣卦',
+    category: '四课关系',
+    sourceTitle: '《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote: '凡四下克上曰绝嗣卦。',
+    detect(context) {
+      return context.fourLessons?.length === 4 &&
+        context.fourLessons.every((lesson) => isBranchKe(lesson.lower, lesson.upper))
+        ? {
+            branches: context.fourLessons.flatMap((lesson) => [lesson.upper, lesson.lower]),
+            matchedConditions: ['四课均为下位克上神'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'you-du-e',
+    name: '幼度厄',
+    category: '四课关系',
+    sourceTitle: '《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote: '三上克为幼度厄。',
+    detect(context) {
+      return context.fourLessons?.length === 4 &&
+        context.fourLessons.filter((lesson) => isBranchKe(lesson.upper, lesson.lower)).length === 3
+        ? {
+            branches: context.fourLessons.flatMap((lesson) => [lesson.upper, lesson.lower]),
+            matchedConditions: ['四课中恰有三课为上神克下位'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zhang-du-e',
+    name: '长度厄',
+    category: '四课关系',
+    sourceTitle: '《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote: '三下克为长度厄。',
+    detect(context) {
+      return context.fourLessons?.length === 4 &&
+        context.fourLessons.filter((lesson) => isBranchKe(lesson.lower, lesson.upper)).length === 3
+        ? {
+            branches: context.fourLessons.flatMap((lesson) => [lesson.upper, lesson.lower]),
+            matchedConditions: ['四课中恰有三课为下位克上神'],
+          }
+        : null;
+    },
+  },
+  {
     id: 'li-de',
     name: '励德卦',
     category: '贵人临地',
