@@ -255,6 +255,9 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
   );
   assert.equal('shensha' in result, false);
   assert.ok(result.stars.every((star) => !Object.hasOwn(star, 'dignity')));
+  assert.ok(result.stars.every((star) => !Object.hasOwn(star, 'signIndex')));
+  assert.ok(result.twelvePalaces.every((palace) => !Object.hasOwn(palace, 'signIndex')));
+  assert.ok(result.evidenceAnalysis.starFacts.every((fact) => !Object.hasOwn(fact, 'signIndex')));
   assert.ok(
     result.pairwiseAngles.every(
       (pair) =>

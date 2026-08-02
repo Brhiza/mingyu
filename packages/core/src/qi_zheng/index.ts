@@ -148,8 +148,8 @@ export interface QizhengStar {
   tropicalZodiac: (typeof QIZHENG_TROPICAL_ZODIAC_SIGNS)[number];
   branchIndex: number; // 十二支宫序：子0至亥11
   branch: (typeof QIZHENG_EARTHLY_BRANCHES)[number];
-  /** @deprecated 请使用 branchIndex；兼容字段同为子0至亥11。 */
-  signIndex: number;
+  /** @deprecated 请使用 branchIndex；新结果不再输出重复别名。 */
+  signIndex?: number;
   palace: string;
   retrograde: boolean;
   /** @deprecated 庙旺原典按具体宿度等条件立表，当前不自动判定。 */
@@ -403,7 +403,6 @@ export interface QizhengStarFact {
   tropicalZodiac: QizhengStar['tropicalZodiac'];
   branchIndex: number;
   branch: QizhengStar['branch'];
-  signIndex: number;
   palace: string;
   retrograde: boolean;
   sourceId: QizhengPositionSourceId;
@@ -564,8 +563,8 @@ export interface QizhengResult {
     palace: (typeof TWELVE_PALACES)[number];
     branchIndex: number;
     branch: QizhengStar['branch'];
-    /** @deprecated 请使用 branchIndex；兼容字段同为子0至亥11。 */
-    signIndex: number;
+    /** @deprecated 请使用 branchIndex；新结果不再输出重复别名。 */
+    signIndex?: number;
   }[];
   traditionalChartRuleCatalog: readonly QizhengTraditionalChartRule[];
   traditionalChartFacts: QizhengTraditionalChartFact[];
@@ -1183,7 +1182,6 @@ export function buildQizhengTwelvePalaces(mingGong: number): QizhengResult['twel
       palace,
       branchIndex,
       branch: QIZHENG_EARTHLY_BRANCHES[branchIndex],
-      signIndex: branchIndex,
     };
   });
 }
@@ -2088,7 +2086,6 @@ function buildQizhengEvidence(
     tropicalZodiac: star.tropicalZodiac,
     branchIndex: star.branchIndex,
     branch: star.branch,
-    signIndex: star.signIndex,
     palace: star.palace,
     retrograde: star.retrograde,
     sourceId: star.sourceId,
@@ -2434,7 +2431,6 @@ function buildQizheng(input: QizhengInput, timestamp: number): QizhengResult {
       tropicalZodiac: zodiacBranch.tropicalZodiac,
       branchIndex: zodiacBranch.branchIndex,
       branch: zodiacBranch.branch,
-      signIndex: zodiacBranch.branchIndex,
       palace: '',
       retrograde,
       sourceId,
