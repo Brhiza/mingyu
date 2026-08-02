@@ -661,6 +661,40 @@ test('大六壬日干受克发用课体进入提示词时应只保留盘面条�
   }
 });
 
+test('大六壬旬仪旬奇发用课体进入提示词时应只保留日柱与初传事实', () => {
+  const cases = [
+    {
+      date: new Date('2025-01-01T10:00:00+08:00'),
+      name: '六仪课',
+      condition: '日柱庚午属甲子旬，旬首地支子发用',
+      sourceQuote: '旬首发用为六仪。',
+    },
+    {
+      date: new Date('2025-01-04T02:00:00+08:00'),
+      name: '三奇课',
+      condition: '日柱癸酉属甲子旬，旬奇丑发用',
+      sourceQuote: '三奇发用。子戌旬奇在丑，申午旬奇在子，辰寅旬中奇在亥。',
+    },
+  ] as const;
+
+  for (const item of cases) {
+    const data = generateLiuren(item.date);
+    const fact = data.guaTiFacts.find((candidate) => candidate.name === item.name);
+    assert.ok(fact, `${item.name}应由真实起盘命中`);
+    const traditionalFact = data.evidenceAnalysis?.traditionalFacts.find(
+      (candidate) => candidate.key === fact.stableKey,
+    );
+    assert.ok(traditionalFact);
+    assert.equal(traditionalFact.originalText, item.sourceQuote);
+    assert.equal(
+      traditionalFact.promptText,
+      `盘面命中“${item.name}”：${item.condition}；只登记课体结构，不据此单断现实吉凶`,
+    );
+    assert.match(data.evidenceAnalysis?.promptText ?? '', new RegExp(item.condition));
+    assert.doesNotMatch(traditionalFact.promptText, /病|狱|灾|喜庆|功名|婚姻|现实结果|吉凶总分/);
+  }
+});
+
 test('十二天将旧类象字段不得保留或软化后继续进入提示词', () => {
   Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
     assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);

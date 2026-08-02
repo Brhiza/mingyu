@@ -161,6 +161,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
   const initialGroundBranch = getPlateItemByBranch(heavenlyPlate, chu).under;
   const guaTiFacts = getLiurenGuaTiFacts({
     transmissionBranches,
+    dayGanZhi: ganzhi.day,
     dayStem,
     dayBranch,
     hourBranch,

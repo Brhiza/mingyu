@@ -492,10 +492,32 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
     () => getLiurenGuaTiFacts({ transmissionBranches: ['子', '寅', '辰'], hourBranch: '甲' }),
     /占时地支必须是有效地支/,
   );
+  assert.throws(
+    () => getLiurenGuaTiFacts({ transmissionBranches: ['子', '寅', '辰'], dayGanZhi: '甲丑' }),
+    /日柱必须是完整且有效的六十甲子/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['子', '寅', '辰'],
+        dayGanZhi: '甲子',
+        dayStem: '乙',
+      }),
+    /日柱与日干不一致/,
+  );
+  assert.throws(
+    () =>
+      getLiurenGuaTiFacts({
+        transmissionBranches: ['子', '寅', '辰'],
+        dayGanZhi: '甲子',
+        dayBranch: '午',
+      }),
+    /日柱与日支不一致/,
+  );
 });
 
-test('大六壬课体登记表应固定十八条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 18);
+test('大六壬课体登记表应固定二十条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 20);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -506,6 +528,97 @@ test('大六壬课体登记表应固定十八条来源、稳定键和结构条�
   assert.match(fact.sourceTitle, /《六壬指南》卷一/);
   assert.match(fact.sourceUrl, /oldid=854504/);
   assert.equal(fact.sourceQuote, '三传亥卯未曰曲直卦。');
+});
+
+test('大六壬六旬仪奇课体应按六十日柱乘十二发用穷举严格命中', () => {
+  const xunHeads = ['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅'] as const;
+  const xunQiByHead: Readonly<Record<string, string>> = {
+    甲子: '丑',
+    甲戌: '丑',
+    甲申: '子',
+    甲午: '子',
+    甲辰: '亥',
+    甲寅: '亥',
+  };
+  let profileCount = 0;
+  let liuYiMatchCount = 0;
+  let sanQiMatchCount = 0;
+
+  for (const [dayIndex, dayGanZhi] of SIXTY_DAYS.entries()) {
+    const xunHead = xunHeads[Math.floor(dayIndex / 10)];
+    assert.ok(xunHead);
+    const xunInstrument = xunHead.charAt(1);
+    const xunQi = xunQiByHead[xunHead];
+    assert.ok(xunQi);
+
+    for (const initial of DIZHI) {
+      const facts = getLiurenGuaTiFacts({
+        transmissionBranches: [initial, '巳', '酉'],
+        dayGanZhi,
+        dayStem: dayGanZhi.charAt(0),
+        dayBranch: dayGanZhi.charAt(1),
+      });
+      const liuYi = facts.find((item) => item.name === '六仪课');
+      const sanQi = facts.find((item) => item.name === '三奇课');
+      assert.equal(
+        !!liuYi,
+        initial === xunInstrument,
+        `${dayGanZhi}日、${initial}发用的六仪边界不一致`,
+      );
+      assert.equal(!!sanQi, initial === xunQi, `${dayGanZhi}日、${initial}发用的旬奇边界不一致`);
+      if (liuYi) liuYiMatchCount += 1;
+      if (sanQi) sanQiMatchCount += 1;
+      profileCount += 1;
+    }
+  }
+
+  assert.equal(profileCount, 720);
+  assert.equal(liuYiMatchCount, 60);
+  assert.equal(sanQiMatchCount, 60);
+
+  const liuYi = getLiurenGuaTiFacts({
+    transmissionBranches: ['子', '申', '丑'],
+    dayGanZhi: '乙丑',
+  }).find((item) => item.name === '六仪课');
+  assert.ok(liuYi);
+  assert.equal(liuYi.stableKey, 'liuren:verified-guati:liu-yi');
+  assert.equal(liuYi.category, '旬仪发用');
+  assert.deepEqual(liuYi.matchedConditions, ['日柱乙丑属甲子旬，旬首地支子发用']);
+  assert.equal(liuYi.sourceQuote, '旬首发用为六仪。');
+
+  const sanQi = getLiurenGuaTiFacts({
+    transmissionBranches: ['丑', '申', '子'],
+    dayGanZhi: '乙丑',
+  }).find((item) => item.name === '三奇课');
+  assert.ok(sanQi);
+  assert.equal(sanQi.stableKey, 'liuren:verified-guati:xun-san-qi');
+  assert.equal(sanQi.category, '旬奇发用');
+  assert.deepEqual(sanQi.matchedConditions, ['日柱乙丑属甲子旬，旬奇丑发用']);
+  assert.match(sanQi.sourceQuote, /三奇发用.+子戌旬奇在丑/);
+
+  const middleAndFinalOnly = getLiurenGuaTiFacts({
+    transmissionBranches: ['申', '子', '丑'],
+    dayGanZhi: '乙丑',
+  });
+  assert.ok(!middleAndFinalOnly.some((item) => item.name === '六仪课'));
+  assert.ok(!middleAndFinalOnly.some((item) => item.name === '三奇课'));
+  assert.ok(
+    !getLiurenGuaTiFacts({ transmissionBranches: ['子', '申', '丑'] }).some(
+      (item) => item.name === '六仪课',
+    ),
+  );
+  assert.ok(
+    !getLiurenGuaTiFacts({ transmissionBranches: ['丑', '申', '子'] }).some(
+      (item) => item.name === '三奇课',
+    ),
+  );
+
+  for (const fact of [liuYi, sanQi]) {
+    assert.doesNotMatch(
+      `${fact.matchedConditions.join('；')}；${fact.sourceQuote}`,
+      /疾病|刑狱|灾|吉庆|吉凶|现实事件/,
+    );
+  }
 });
 
 test('大六壬日干受克发用课体应在完整轮廓中严格命中', () => {
@@ -915,6 +1028,7 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             guaTiContextCount += 1;
             const guaTiFacts = getLiurenGuaTiFacts({
               transmissionBranches: branches,
+              dayGanZhi: day,
               dayStem,
               dayBranch,
               hourBranch,

@@ -7,6 +7,8 @@ import type {
   LiurenTransmission,
 } from '../../../../types/divination';
 import {
+  getXunHead,
+  isValidGanZhi,
   LIUCHONG_MAP,
   LIUHAI_MAP,
   LIUHE_MAP,
@@ -152,6 +154,7 @@ const LIUREN_DAQUAN_VOLUME_SEVEN_URL =
 
 export interface LiurenGuaTiContext {
   transmissionBranches: string[];
+  dayGanZhi?: string;
   dayStem?: string;
   dayBranch?: string;
   hourBranch?: string;
@@ -192,6 +195,18 @@ function assertValidLiurenGuaTiContext(context: LiurenGuaTiContext): void {
     !TIANGAN.includes(context.dayStem as (typeof TIANGAN)[number])
   ) {
     throw new Error('日干必须是有效天干。');
+  }
+
+  if (context.dayGanZhi !== undefined) {
+    if (!isValidGanZhi(context.dayGanZhi)) {
+      throw new Error('日柱必须是完整且有效的六十甲子。');
+    }
+    if (context.dayStem !== undefined && context.dayGanZhi.charAt(0) !== context.dayStem) {
+      throw new Error('日柱与日干不一致。');
+    }
+    if (context.dayBranch !== undefined && context.dayGanZhi.charAt(1) !== context.dayBranch) {
+      throw new Error('日柱与日支不一致。');
+    }
   }
 
   const optionalBranches: Array<[unknown, string]> = [
@@ -253,6 +268,15 @@ function matchSanhe(context: LiurenGuaTiContext, expectedBranches: string[], con
     ? { branches: [...context.transmissionBranches], matchedConditions: [condition] }
     : null;
 }
+
+const XUN_QI_BY_HEAD: Readonly<Record<string, string>> = {
+  甲子: '丑',
+  甲戌: '丑',
+  甲申: '子',
+  甲午: '子',
+  甲辰: '亥',
+  甲寅: '亥',
+};
 
 const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
   {
@@ -510,6 +534,47 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
             matchedConditions: [
               `日支${context.dayBranch}临日干${context.dayStem}并克干，且以日支发用`,
             ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'liu-yi',
+    name: '六仪课',
+    category: '旬仪发用',
+    sourceTitle: '《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote: '旬首发用为六仪。',
+    detect(context) {
+      if (!context.dayGanZhi) return null;
+      const xunHead = getXunHead(context.dayGanZhi);
+      const xunInstrument = xunHead.charAt(1);
+      return context.transmissionBranches[0] === xunInstrument
+        ? {
+            branches: [xunInstrument],
+            matchedConditions: [
+              `日柱${context.dayGanZhi}属${xunHead}旬，旬首地支${xunInstrument}发用`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'xun-san-qi',
+    name: '三奇课',
+    category: '旬奇发用',
+    sourceTitle: '《六壬指南》卷一·三传课体',
+    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
+    sourceQuote: '三奇发用。子戌旬奇在丑，申午旬奇在子，辰寅旬中奇在亥。',
+    detect(context) {
+      if (!context.dayGanZhi) return null;
+      const xunHead = getXunHead(context.dayGanZhi);
+      const xunQi = XUN_QI_BY_HEAD[xunHead];
+      if (!xunQi) throw new Error(`无法定位${xunHead}旬的旬奇。`);
+      return context.transmissionBranches[0] === xunQi
+        ? {
+            branches: [xunQi],
+            matchedConditions: [`日柱${context.dayGanZhi}属${xunHead}旬，旬奇${xunQi}发用`],
           }
         : null;
     },

@@ -779,7 +779,9 @@ export interface LiurenGuaTiFact {
     | '四课关系'
     | '贵人临地'
     | '时用克日'
-    | '日辰发用';
+    | '日辰发用'
+    | '旬仪发用'
+    | '旬奇发用';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;
