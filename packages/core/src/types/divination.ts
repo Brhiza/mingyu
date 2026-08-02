@@ -792,6 +792,8 @@ export interface LiurenGuaTiFact {
     | '初末拱夹'
     | '日辰交克'
     | '冲神乘破'
+    | '贵顺旺相'
+    | '课传阴阳'
     | '三传顺逆';
   branches: string[];
   matchedConditions: string[];

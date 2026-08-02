@@ -475,34 +475,34 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 ### 占卜（`mingyu-core/divination/*`）
 
-| 导出                                                                 | 说明                                                                         |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `generateLiuyao(date?, options?)`                                    | 六爻时间种子模拟、手工爻值或三钱记录/模拟，并保留来源轨迹                    |
-| `rebuildAuditedLiuyaoData(data)`                                     | 只凭时间戳与时间种子、手工爻值、实投三钱或 18 个可重放样本重建完整六爻卦盘   |
-| `analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch)`   | 重算三合参与爻、成立模式、月日补局、虚一待用及空破墓状态                     |
-| `analyzeLiuyaoEvidence(data, options?)`                              | 先审核重建，再返回分层用神、作用链、逐爻支持/反证及病药应期证据              |
-| `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                                 |
-| `rebuildAuditedMeihuaData(data)`                                     | 只凭时间、方法、用户数字或可重放随机轨迹重建完整梅花卦盘                     |
-| `analyzeMeihuaEvidence(data)`                                        | 先审核重建，再返回主互变逐阶段体用、旺衰与支持/限制证据                      |
-| `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置九宫原始事实、位置索引与全部宫对关系                     |
-| `analyzeQimenEvidence(data)`                                         | 重建经审核的九宫、旬空马星、固定格、位置索引及应期方位边界                   |
-| `generateLiuren(date?)`                                              | 大六壬排盘；含 38 条已校勘课体，不代表传统课体总目录已穷尽                   |
-| `analyzeLiurenEvidence(data)`                                        | 起盘与取传版本、逐传日干六亲、有方向关系、旺衰及条件化旬空证据               |
-| `getLiurenGuaTiFacts(context)`                                       | 严格校验完整三传及可选四课后，返回已校勘课体事实                             |
-| `generateXiaoliuren(params?)`                                        | 小六壬起课                                                                   |
-| `generateAlmanacSelection(params)`                                   | 黄历择日，并内置透明约束与候选证据                                           |
-| `rebuildAuditedAlmanacData(data)`                                    | 只凭原始事项、日期范围、参与人出生输入和生成时间重建完整或分页结果           |
-| `selectAuditedAlmanacData(data, view)`                               | 完整重算并排序后截取可复算分页视图                                           |
-| `analyzeAlmanacEvidence(data)`                                       | 先审核重建，再返回日期分组、事项宜忌、参与人冲突、时辰与现实约束证据         |
-| `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；支持 `seed` 和 `replay` 完整复现                                   |
+| 导出                                                                 | 说明                                                                                 |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `generateLiuyao(date?, options?)`                                    | 六爻时间种子模拟、手工爻值或三钱记录/模拟，并保留来源轨迹                            |
+| `rebuildAuditedLiuyaoData(data)`                                     | 只凭时间戳与时间种子、手工爻值、实投三钱或 18 个可重放样本重建完整六爻卦盘           |
+| `analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch)`   | 重算三合参与爻、成立模式、月日补局、虚一待用及空破墓状态                             |
+| `analyzeLiuyaoEvidence(data, options?)`                              | 先审核重建，再返回分层用神、作用链、逐爻支持/反证及病药应期证据                      |
+| `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                                         |
+| `rebuildAuditedMeihuaData(data)`                                     | 只凭时间、方法、用户数字或可重放随机轨迹重建完整梅花卦盘                             |
+| `analyzeMeihuaEvidence(data)`                                        | 先审核重建，再返回主互变逐阶段体用、旺衰与支持/限制证据                              |
+| `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置九宫原始事实、位置索引与全部宫对关系                             |
+| `analyzeQimenEvidence(data)`                                         | 重建经审核的九宫、旬空马星、固定格、位置索引及应期方位边界                           |
+| `generateLiuren(date?)`                                              | 大六壬排盘；含 41 条已校勘课体，不代表传统课体总目录已穷尽                           |
+| `analyzeLiurenEvidence(data)`                                        | 起盘与取传版本、逐传日干六亲、有方向关系、旺衰及条件化旬空证据                       |
+| `getLiurenGuaTiFacts(context)`                                       | 严格校验完整三传及可选四课后，返回已校勘课体事实                                     |
+| `generateXiaoliuren(params?)`                                        | 小六壬起课                                                                           |
+| `generateAlmanacSelection(params)`                                   | 黄历择日，并内置透明约束与候选证据                                                   |
+| `rebuildAuditedAlmanacData(data)`                                    | 只凭原始事项、日期范围、参与人出生输入和生成时间重建完整或分页结果                   |
+| `selectAuditedAlmanacData(data, view)`                               | 完整重算并排序后截取可复算分页视图                                                   |
+| `analyzeAlmanacEvidence(data)`                                       | 先审核重建，再返回日期分组、事项宜忌、参与人冲突、时辰与现实约束证据                 |
+| `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；支持 `seed` 和 `replay` 完整复现                                           |
 | `drawRandomSign(date?, options?)`                                    | 三山国王灵签；抽签后模拟掷筊确认，支持 `seed`、`replay` 和轨迹复现；待校签谱文本为空 |
-| `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；支持 `seed` 和 `replay` 完整复现                                 |
-| `generateAstrolabe(input)`                                           | 西洋星盘                                                                     |
-| `rebuildAuditedAstrolabeData(data)`                                  | 只凭规范化出生输入和生成时间重建完整本命盘                                   |
-| `analyzeAstrolabeEvidence(data)`                                     | 先审核重建，再返回星体、宫位、相位、光照与限制证据                           |
-| `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运与证据资料                                     |
-| `analyzeAstrolabeSynastry(chart1, chart2, options?)`                 | 从双方可信本命来源计算完整双盘几何事实                                       |
-| `rebuildAuditedAstrolabeSynastryData(data)`                          | 只凭双方出生来源、完整双盘参数和生成时间重建双盘                             |
+| `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；支持 `seed` 和 `replay` 完整复现                                         |
+| `generateAstrolabe(input)`                                           | 西洋星盘                                                                             |
+| `rebuildAuditedAstrolabeData(data)`                                  | 只凭规范化出生输入和生成时间重建完整本命盘                                           |
+| `analyzeAstrolabeEvidence(data)`                                     | 先审核重建，再返回星体、宫位、相位、光照与限制证据                                   |
+| `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运与证据资料                                             |
+| `analyzeAstrolabeSynastry(chart1, chart2, options?)`                 | 从双方可信本命来源计算完整双盘几何事实                                               |
+| `rebuildAuditedAstrolabeSynastryData(data)`                          | 只凭双方出生来源、完整双盘参数和生成时间重建双盘                                     |
 
 ### 历法与术数便捷入口
 

@@ -21,6 +21,7 @@ import {
 } from '../../../../ganzhi';
 import {
   DIZHI,
+  FORWARD_GENERAL_GROUND_BRANCHES,
   getDayStemResidence,
   getGanZhiWuxing,
   isBranchKe,
@@ -165,8 +166,12 @@ const LIUREN_DAQUAN_VOLUME_EIGHT_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/8&oldid=854576';
 const LIUREN_DAQUAN_VOLUME_NINE_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬大全/9&oldid=854578';
+const LIUREN_DAQUAN_VOLUME_TEN_URL =
+  'https://zh.wikisource.org/w/index.php?title=六壬大全/10&oldid=854579';
 const LIUREN_GUIDE_VOLUME_TWO_URL =
   'https://zh.wikisource.org/w/index.php?title=六壬指南/2&oldid=854505';
+const YANG_BRANCHES: ReadonlySet<string> = new Set(['子', '寅', '辰', '午', '申', '戌']);
+const YIN_BRANCHES: ReadonlySet<string> = new Set(['丑', '卯', '巳', '未', '酉', '亥']);
 const JIU_CHOU_DAYS = new Set([
   '乙卯',
   '乙酉',
@@ -509,6 +514,94 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
               initial === context.monthLeader
                 ? `初传${initial}同时为太岁、月将并乘贵人`
                 : `太岁${initial}乘贵人发用，月将${context.monthLeader}另见于三传`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'san-yang',
+    name: '三阳课',
+    category: '贵顺旺相',
+    sourceTitle: '《六壬大全》卷七·课经集一·三阳课；《六壬心镜》·吉泰门',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceQuote:
+      '《六壬大全》：“天乙顺行，日辰有气居前，旺相气发用，为三阳课。”《订讹》：“天乙顺行，日辰居前，发用旺相。”《六壬心镜》：“天乙顺行为正理……日辰有气复居前……立用之神兼旺相。”当前按贵人顺布、干支上神均在贵人前五位、初传旺相登记。',
+    detect(context) {
+      if (
+        !context.monthBranch ||
+        !context.noblemanBranch ||
+        !context.noblemanGroundBranch ||
+        !context.fourLessons ||
+        !FORWARD_GENERAL_GROUND_BRANCHES.has(context.noblemanGroundBranch)
+      ) {
+        return null;
+      }
+      const initial = context.transmissionBranches[0];
+      const initialState = getSeasonState(getBranchWuxing(initial), context.monthBranch);
+      if (initialState !== '旺' && initialState !== '相') return null;
+      const noblemanIndex = DIZHI.indexOf(context.noblemanBranch as (typeof DIZHI)[number]);
+      const stemUpper = context.fourLessons[0].upper;
+      const branchUpper = context.fourLessons[2].upper;
+      const getForwardStep = (upper: string) =>
+        (DIZHI.indexOf(upper as (typeof DIZHI)[number]) - noblemanIndex + DIZHI.length) %
+        DIZHI.length;
+      const stemStep = getForwardStep(stemUpper);
+      const branchStep = getForwardStep(branchUpper);
+      if (stemStep < 1 || stemStep > 5 || branchStep < 1 || branchStep > 5) return null;
+      return {
+        branches: [initial, context.noblemanBranch, stemUpper, branchUpper],
+        matchedConditions: [
+          `贵人${context.noblemanBranch}临地盘${context.noblemanGroundBranch}，十二天将顺布`,
+          `干上神${stemUpper}与支上神${branchUpper}分别居贵人前第${stemStep}、${branchStep}位`,
+          `初传${initial}于月建${context.monthBranch}为${initialState}`,
+        ],
+      };
+    },
+  },
+  {
+    id: 'liu-yang',
+    name: '六阳课',
+    category: '课传阴阳',
+    sourceTitle: '《六壬大全》卷十·六纯课；《六壬灵觉经》·六阳六阴课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“凡四课三传俱阳……为六阳课。”《六壬灵觉经》：“凡四课三传俱阳神，或四课三传俱阴神，皆名六纯课。”当前只登记四课上神与三传七处纯阳结构。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const branches = [
+        ...context.fourLessons.map((lesson) => lesson.upper),
+        ...context.transmissionBranches,
+      ];
+      return branches.every((branch) => YANG_BRANCHES.has(branch))
+        ? {
+            branches,
+            matchedConditions: [
+              `四课上神${context.fourLessons.map((lesson) => lesson.upper).join('、')}与三传${context.transmissionBranches.join('、')}均为阳支`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'liu-yin',
+    name: '六阴课',
+    category: '课传阴阳',
+    sourceTitle: '《六壬大全》卷十·六纯课；《六壬灵觉经》·六阳六阴课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_TEN_URL,
+    sourceQuote:
+      '《六壬大全》：“若四课阴……中末皆阴，为六阴格。”《六壬灵觉经》：“凡四课三传俱阳神，或四课三传俱阴神，皆名六纯课。”当前只登记四课上神与三传七处纯阴结构。',
+    detect(context) {
+      if (!context.fourLessons) return null;
+      const branches = [
+        ...context.fourLessons.map((lesson) => lesson.upper),
+        ...context.transmissionBranches,
+      ];
+      return branches.every((branch) => YIN_BRANCHES.has(branch))
+        ? {
+            branches,
+            matchedConditions: [
+              `四课上神${context.fourLessons.map((lesson) => lesson.upper).join('、')}与三传${context.transmissionBranches.join('、')}均为阴支`,
             ],
           }
         : null;

@@ -9,7 +9,12 @@ import {
 } from 'mingyu-core/divination/liuren';
 import { getVoidBranches } from '../packages/core/src/calendar/lunar.ts';
 import { EARTHLY_BRANCHES } from '../packages/core/src/ganzhi/data.ts';
-import { LIUCHONG_MAP, LIUPO_MAP, SANXING_MAP } from '../packages/core/src/ganzhi/relations.ts';
+import {
+  getSeasonState,
+  LIUCHONG_MAP,
+  LIUPO_MAP,
+  SANXING_MAP,
+} from '../packages/core/src/ganzhi/relations.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
   getLiurenGuaTiFacts,
@@ -592,8 +597,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定三十八条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 38);
+test('大六壬课体登记表应固定四十一条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 41);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -640,6 +645,144 @@ test('大六壬课体登记表应固定三十八条来源、稳定键和结构�
   assert.match(`${jinJian.sourceQuote}；${tuiJian.sourceQuote}`, /六壬指南.+六壬粹言/);
   assert.doesNotMatch(
     `${jinJian.matchedConditions.join('；')}；${tuiJian.matchedConditions.join('；')}`,
+    /吉|凶|疾病|婚姻|功名|现实事件/,
+  );
+});
+
+test('大六壬三阳与六纯课应按旺相、贵人顺布及七处阴阳轮廓整批命中', () => {
+  const makeLessons = (uppers: readonly string[]) =>
+    uppers.map((upper) => ({ upper, lower: '子' }));
+  const isFlourishing = (branch: string, monthBranch: string) => {
+    const state = getSeasonState(getGanZhiWuxing(branch), monthBranch);
+    return state === '旺' || state === '相';
+  };
+
+  let seasonProfileCount = 0;
+  let expectedSeasonMatchCount = 0;
+  let actualSeasonMatchCount = 0;
+  for (const monthBranch of DIZHI) {
+    for (const initial of DIZHI) {
+      seasonProfileCount += 1;
+      const matched = getLiurenGuaTiFacts({
+        transmissionBranches: [initial, '子', '丑'],
+        monthBranch,
+        noblemanBranch: '子',
+        noblemanGroundBranch: '亥',
+        fourLessons: makeLessons(['寅', '子', '辰', '子']),
+      }).some((candidate) => candidate.name === '三阳课');
+      const expected = isFlourishing(initial, monthBranch);
+      if (expected) expectedSeasonMatchCount += 1;
+      if (matched) actualSeasonMatchCount += 1;
+      assert.equal(matched, expected, `${monthBranch}月、${initial}发用的三阳旺相边界错误`);
+    }
+  }
+  assert.equal(seasonProfileCount, 144);
+  assert.equal(actualSeasonMatchCount, expectedSeasonMatchCount);
+
+  const forwardGroundBranches = new Set(['亥', '子', '丑', '寅', '卯', '辰']);
+  let positionProfileCount = 0;
+  let expectedPositionMatchCount = 0;
+  let actualPositionMatchCount = 0;
+  for (const noblemanBranch of DIZHI) {
+    const noblemanIndex = DIZHI.indexOf(noblemanBranch);
+    for (const noblemanGroundBranch of DIZHI) {
+      for (const stemUpper of DIZHI) {
+        for (const branchUpper of DIZHI) {
+          positionProfileCount += 1;
+          const stemStep = (DIZHI.indexOf(stemUpper) - noblemanIndex + DIZHI.length) % DIZHI.length;
+          const branchStep =
+            (DIZHI.indexOf(branchUpper) - noblemanIndex + DIZHI.length) % DIZHI.length;
+          const expected =
+            forwardGroundBranches.has(noblemanGroundBranch) &&
+            stemStep >= 1 &&
+            stemStep <= 5 &&
+            branchStep >= 1 &&
+            branchStep <= 5;
+          const fact = getLiurenGuaTiFacts({
+            transmissionBranches: ['寅', '子', '丑'],
+            monthBranch: '寅',
+            noblemanBranch,
+            noblemanGroundBranch,
+            fourLessons: makeLessons([stemUpper, '子', branchUpper, '子']),
+          }).find((candidate) => candidate.name === '三阳课');
+          if (expected) expectedPositionMatchCount += 1;
+          if (fact) actualPositionMatchCount += 1;
+          assert.equal(
+            !!fact,
+            expected,
+            `贵人${noblemanBranch}临${noblemanGroundBranch}、干上${stemUpper}、支上${branchUpper}的三阳位置边界错误`,
+          );
+        }
+      }
+    }
+  }
+  assert.equal(positionProfileCount, 20_736);
+  assert.equal(expectedPositionMatchCount, 1_800);
+  assert.equal(actualPositionMatchCount, 1_800);
+
+  const yangBranches = new Set(['子', '寅', '辰', '午', '申', '戌']);
+  let sixYangMatchCount = 0;
+  let sixYinMatchCount = 0;
+  for (let profile = 0; profile < 2 ** 7; profile += 1) {
+    const branches = Array.from({ length: 7 }, (_, index) =>
+      profile & (1 << index) ? '子' : '丑',
+    );
+    const facts = getLiurenGuaTiFacts({
+      transmissionBranches: branches.slice(4),
+      fourLessons: makeLessons(branches.slice(0, 4)),
+    });
+    const hasSixYang = facts.some((candidate) => candidate.name === '六阳课');
+    const hasSixYin = facts.some((candidate) => candidate.name === '六阴课');
+    if (hasSixYang) sixYangMatchCount += 1;
+    if (hasSixYin) sixYinMatchCount += 1;
+    assert.equal(hasSixYang, profile === 127, `第${profile}种轮廓的六阳判断错误`);
+    assert.equal(hasSixYin, profile === 0, `第${profile}种轮廓的六阴判断错误`);
+  }
+  assert.equal(sixYangMatchCount, 1);
+  assert.equal(sixYinMatchCount, 1);
+
+  for (const branch of DIZHI) {
+    const facts = getLiurenGuaTiFacts({
+      transmissionBranches: [branch, branch, branch],
+      fourLessons: makeLessons([branch, branch, branch, branch]),
+    });
+    assert.equal(
+      facts.some((candidate) => candidate.name === '六阳课'),
+      yangBranches.has(branch),
+      `${branch}的六阳阴阳映射错误`,
+    );
+    assert.equal(
+      facts.some((candidate) => candidate.name === '六阴课'),
+      !yangBranches.has(branch),
+      `${branch}的六阴阴阳映射错误`,
+    );
+  }
+
+  const classicalSanYang = getLiurenGuaTiFacts({
+    transmissionBranches: ['寅', '卯', '辰'],
+    monthBranch: '寅',
+    noblemanBranch: '子',
+    noblemanGroundBranch: '亥',
+    fourLessons: makeLessons(['巳', '午', '寅', '卯']),
+  }).find((candidate) => candidate.name === '三阳课');
+  const classicalSixYang = getLiurenGuaTiFacts({
+    transmissionBranches: ['戌', '申', '寅'],
+    fourLessons: makeLessons(['子', '戌', '戌', '申']),
+  }).find((candidate) => candidate.name === '六阳课');
+  const classicalSixYin = getLiurenGuaTiFacts({
+    transmissionBranches: ['未', '巳', '卯'],
+    fourLessons: makeLessons(['酉', '未', '未', '巳']),
+  }).find((candidate) => candidate.name === '六阴课');
+  assert.ok(classicalSanYang);
+  assert.ok(classicalSixYang);
+  assert.ok(classicalSixYin);
+  assert.match(classicalSanYang.sourceUrl, /oldid=854575/);
+  assert.match(classicalSixYang.sourceUrl, /oldid=854579/);
+  assert.match(classicalSixYin.sourceUrl, /oldid=854579/);
+  assert.doesNotMatch(
+    [classicalSanYang, classicalSixYang, classicalSixYin]
+      .flatMap((fact) => fact.matchedConditions)
+      .join('；'),
     /吉|凶|疾病|婚姻|功名|现实事件/,
   );
 });
