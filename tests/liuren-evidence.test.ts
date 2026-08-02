@@ -743,6 +743,37 @@ test('大六壬进退茹进入提示词时应只保留三传逐支顺逆事实',
   }
 });
 
+test('大六壬进退间进入提示词时应只保留三传隔位顺逆事实', () => {
+  const cases = [
+    {
+      date: new Date('2024-01-01T22:00:00+08:00'),
+      name: '进间',
+      condition: '三传辰、午、申依十二地支顺序每次间隔一位',
+    },
+    {
+      date: new Date('2024-01-01T06:00:00+08:00'),
+      name: '退间',
+      condition: '三传戌、申、午依十二地支逆序每次间隔一位',
+    },
+  ] as const;
+
+  for (const item of cases) {
+    const data = generateLiuren(item.date);
+    const fact = data.guaTiFacts.find((candidate) => candidate.name === item.name);
+    assert.ok(fact, `${item.name}应由真实起盘命中`);
+    const traditionalFact = data.evidenceAnalysis?.traditionalFacts.find(
+      (candidate) => candidate.key === fact.stableKey,
+    );
+    assert.ok(traditionalFact);
+    assert.equal(
+      traditionalFact.promptText,
+      `盘面命中“${item.name}”：${item.condition}；只登记课体结构，不据此单断现实吉凶`,
+    );
+    assert.match(data.evidenceAnalysis?.promptText ?? '', new RegExp(item.condition));
+    assert.doesNotMatch(traditionalFact.promptText, /疾病|婚姻|功名|成败|刑狱|现实结果|吉凶总分/);
+  }
+});
+
 test('十二天将旧类象字段不得保留或软化后继续进入提示词', () => {
   Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
     assert.deepEqual(Object.keys(item).sort(), ['branch', 'stem', 'wuxing', 'yinYang']);

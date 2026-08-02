@@ -453,6 +453,18 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
         ) {
           expected.push('退茹');
         }
+        if (
+          middle === DIZHI[(initialIndex + 2) % DIZHI.length] &&
+          final === DIZHI[(initialIndex + 4) % DIZHI.length]
+        ) {
+          expected.push('进间');
+        }
+        if (
+          middle === DIZHI[(initialIndex - 2 + DIZHI.length) % DIZHI.length] &&
+          final === DIZHI[(initialIndex - 4 + DIZHI.length) % DIZHI.length]
+        ) {
+          expected.push('退间');
+        }
         if (branches.join('') === '巳戌卯') expected.push('铸印卦');
         if (branches.join('') === '午卯子') expected.push('高盖乘轩卦');
 
@@ -465,6 +477,7 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
 
   assert.deepEqual(Object.fromEntries([...counts].sort()), {
     三交卦: 24,
+    进间: 12,
     进茹: 12,
     从革卦: 6,
     曲直卦: 6,
@@ -472,6 +485,7 @@ test('大六壬全部1728种三传排列应只命中独立登记的课体条件'
     炎上卦: 6,
     玄胎卦: 24,
     退茹: 12,
+    退间: 12,
     稼穑卦: 24,
     铸印卦: 1,
     高盖乘轩卦: 1,
@@ -539,8 +553,8 @@ test('大六壬课体识别应拒绝残缺、超长或非法的外部上下文',
   );
 });
 
-test('大六壬课体登记表应固定二十三条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 23);
+test('大六壬课体登记表应固定二十五条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 25);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -569,6 +583,24 @@ test('大六壬课体登记表应固定二十三条来源、稳定键和结构�
   assert.match(`${jinRu.sourceQuote}；${tuiRu.sourceQuote}`, /六壬指南.+六壬粹言/);
   assert.doesNotMatch(
     `${jinRu.matchedConditions.join('；')}；${tuiRu.matchedConditions.join('；')}`,
+    /吉|凶|疾病|婚姻|功名|现实事件/,
+  );
+
+  const jinJian = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '丑', '卯'] }).find(
+    (item) => item.name === '进间',
+  );
+  const tuiJian = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '酉', '未'] }).find(
+    (item) => item.name === '退间',
+  );
+  assert.ok(jinJian);
+  assert.ok(tuiJian);
+  assert.equal(jinJian.stableKey, 'liuren:verified-guati:jin-jian');
+  assert.equal(tuiJian.stableKey, 'liuren:verified-guati:tui-jian');
+  assert.deepEqual(jinJian.matchedConditions, ['三传亥、丑、卯依十二地支顺序每次间隔一位']);
+  assert.deepEqual(tuiJian.matchedConditions, ['三传亥、酉、未依十二地支逆序每次间隔一位']);
+  assert.match(`${jinJian.sourceQuote}；${tuiJian.sourceQuote}`, /六壬指南.+六壬粹言/);
+  assert.doesNotMatch(
+    `${jinJian.matchedConditions.join('；')}；${tuiJian.matchedConditions.join('；')}`,
     /吉|凶|疾病|婚姻|功名|现实事件/,
   );
 });

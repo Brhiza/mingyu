@@ -287,7 +287,7 @@ function matchSanhe(context: LiurenGuaTiContext, expectedBranches: string[], con
 
 function matchConsecutiveTransmissions(
   context: LiurenGuaTiContext,
-  step: 1 | -1,
+  step: 1 | -1 | 2 | -2,
   condition: string,
 ) {
   const indices = context.transmissionBranches.map((branch) =>
@@ -403,6 +403,36 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
         context,
         -1,
         `三传${context.transmissionBranches.join('、')}依十二地支逆序逐支相连`,
+      ),
+  },
+  {
+    id: 'jin-jian',
+    name: '进间',
+    category: '三传顺逆',
+    sourceTitle: '《六壬指南》卷二·指掌赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“故顺三间之课，亥丑卯……”《六壬粹言》：“凡课得间一位作三传，顺行而进，曰进间。”',
+    detect: (context) =>
+      matchConsecutiveTransmissions(
+        context,
+        2,
+        `三传${context.transmissionBranches.join('、')}依十二地支顺序每次间隔一位`,
+      ),
+  },
+  {
+    id: 'tui-jian',
+    name: '退间',
+    category: '三传顺逆',
+    sourceTitle: '《六壬指南》卷二·指掌赋；《六壬粹言》卷三·经课',
+    sourceUrl: LIUREN_GUIDE_VOLUME_TWO_URL,
+    sourceQuote:
+      '《六壬指南》：“至若逆三间之课，亥酉未……”《六壬粹言》：“谓课得间一位作三传，逆行而退，曰退间。”',
+    detect: (context) =>
+      matchConsecutiveTransmissions(
+        context,
+        -2,
+        `三传${context.transmissionBranches.join('、')}依十二地支逆序每次间隔一位`,
       ),
   },
   {
