@@ -230,20 +230,20 @@ function buildAgreements(
     items.push({
       level: '可互补',
       title: '宅运与人宅分层并观',
-      detail: `玄空见${xuankong.period.label}、${xuankong.daoShanXiang.summary}；八宅命卦${bazhai.mingGua}、命宅关系${bazhai.match}。两者分别说明宅运结构与对人适配，不互相改写。`,
+      detail: `玄空见${xuankong.period.label}、${xuankong.daoShanXiang.summary}；八宅命卦${bazhai.mingGua}、命宅关系${bazhai.match}。宅运结构与人宅适配分层并列。`,
     });
 
     if (bazhai.match === '相合') {
       items.push({
         level: '一致关注',
         title: '命宅相合可提高关注优先级',
-        detail: '八宅显示命宅同组，可与玄空中的山向、当运结构一起作为优先关注，不代表必然吉利。',
+        detail: '八宅显示命宅同组，与玄空中的山向、当运结构并列作为关注资料。',
       });
     } else if (bazhai.match === '相冲') {
       items.push({
         level: '口径不同需分述',
         title: '命宅不同组需分开说明',
-        detail: '八宅显示命宅不同组，应分别说明个人吉方与住宅山向结构，不可直接合成单一结论。',
+        detail: '八宅显示命宅不同组，个人吉方与住宅山向结构分列。',
       });
     }
 
@@ -251,7 +251,7 @@ function buildAgreements(
       items.push({
         level: '资料不足',
         title: '山向或宅卦边界仍敏感',
-        detail: '测量接近边界或宅卦未完全确定时，应保留候选山向，不把中心读数当作唯一坐向。',
+        detail: '测量误差范围内的候选山向与宅卦一并列出。',
       });
     }
   }
@@ -329,13 +329,6 @@ function buildEvidencePrompt(params: {
       source: '住宅风水合参',
     });
   }
-  items.push({
-    level: '限制',
-    title: '合参边界',
-    detail:
-      '住宅风水只分层并列八宅与玄空，不生成综合吉凶总分，也不覆盖形峦、阴宅或全套装修方案保证。',
-    source: '项目住宅风水 v1',
-  });
   const bundle: PromptEvidenceBundle = { title: '住宅风水证据', items };
   return formatPromptEvidenceBundle(bundle).join('\n');
 }
@@ -345,10 +338,8 @@ function buildPrompt(result: {
   houseYear: number | null;
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
-  agreements: ResidentialFengshuiAgreement[];
-  advice: string[];
-  evidencePromptText: string;
   xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'];
+  agreements: ResidentialFengshuiAgreement[];
 }) {
   const lines = [
     '【住宅风水排盘】',
@@ -356,16 +347,17 @@ function buildPrompt(result: {
     result.houseYear != null ? `宅运年份：${result.houseYear}` : '',
     result.xuankong
       ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.guaType}；${result.xuankong.daoShanXiang.summary}`
-      : `玄空：未排盘（${result.xuankongStatus}）`,
+      : result.bazhai
+        ? result.xuankongStatus === '缺少建造年或起运年'
+          ? '玄空：未排盘（缺少建造年或起运年）'
+          : '玄空：未排盘'
+        : '',
     result.bazhai
-      ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}），宅卦${result.bazhai.houseGua ?? '未定'}，命宅关系${result.bazhai.match}`
-      : '八宅：未排盘（缺少居住人出生信息或命卦）',
-    '合参要点：',
-    ...result.agreements.map((item) => `- ${item.title}：${item.detail}`),
-    '行动建议：',
-    ...result.advice.map((item) => `- ${item}`),
-    '【结构化证据】',
-    result.evidencePromptText,
+      ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}）${result.bazhai.houseGua ? `，宅卦${result.bazhai.houseGua}，命宅关系${result.bazhai.match}` : ''}`
+      : '',
+    ...(result.xuankong && result.bazhai
+      ? [`合参要点：${result.agreements.map((item) => `${item.title}：${item.detail}`).join('；')}`]
+      : []),
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -411,10 +403,8 @@ export function generateResidentialFengshui(
     houseYear,
     bazhai,
     xuankong,
-    agreements,
-    advice,
-    evidencePromptText,
     xuankongStatus,
+    agreements,
   });
 
   return {

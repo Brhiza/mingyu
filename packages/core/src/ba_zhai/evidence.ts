@@ -217,7 +217,7 @@ function buildCalculationFact(
   const yearBoundaryStatus: BaZhaiCalculationFact['yearBoundaryStatus'] =
     data.effectiveBirthYear === null
       ? '直接命卦'
-      : data.birthYearBoundaryNote.includes('只提供了出生年份')
+      : data.birthYearBoundaryNote.includes('未提供月日')
         ? '待复核'
         : '已核定';
   const steps: BaZhaiCalculationStep[] = [

@@ -184,12 +184,13 @@ export function buildEnhancedZiweiPromptPack(payload: AnalysisPayloadV1, selecte
     selected_topic: selectedTopic,
     scope_type: payload.active_scope.scope,
     scope_label: payload.active_scope.label,
-    focus_notes: ['本资料用于与八字结论交叉校验，不单独脱离问题做空泛总论。'],
+    focus_notes: [],
   };
 
   return buildPortablePromptPack({
     payload,
     reportContext,
+    mode: 'task-book',
   });
 }
 
@@ -221,12 +222,11 @@ export function buildBaziZiweiEnhancedPrompt(params: {
       : '',
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${params.ziweiText}`,
-    `【问题】\n${normalizedQuestion}`,
+    ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
     ...(isCustomQuestion
       ? []
       : [
-          '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点，最后整合成一致结论、冲突点、应期触发与现实建议。',
-          '【输出要求】\n先直接回答【问题】，再说明八字主线、紫微校验、两者一致或分歧之处、应期触发和现实建议。',
+          '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点。',
         ]),
   ]
     .filter(Boolean)
@@ -300,12 +300,6 @@ export function formatZiweiFullScopeText(
         (palace) => palace.index === payload.active_scope.palace_index,
       );
       const palaceText = activePalace ? `当前落宫：本命${activePalace.name}宫。` : '';
-      const dateText = payload.active_scope.solar_date
-        ? `参考日期：${payload.active_scope.solar_date}。`
-        : '';
-      const ageText = payload.active_scope.nominal_age
-        ? `虚岁：${payload.active_scope.nominal_age}。`
-        : '';
       const scopeDetails =
         scope === 'origin'
           ? ''
@@ -314,7 +308,7 @@ export function formatZiweiFullScopeText(
               `运限命中：${formatZiweiScopeHits(payload)}。`,
             ].join('');
 
-      return `${scopeLabel}：分析对象：${payload.active_scope.label || scopeLabel}。${dateText}${ageText}${palaceText}${scopeDetails}`;
+      return `${scopeLabel}：分析对象：${payload.active_scope.label || scopeLabel}。${palaceText}${scopeDetails}`;
     })
     .filter(Boolean);
 

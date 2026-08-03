@@ -395,8 +395,8 @@ function collectPalaceEvidence(params: {
         star_names: [],
         mutagens: [target.mutagen],
         description: isToSelf
-          ? `${palace.name}的化${target.mutagen}目标宫索引仍为${palace.index}，属于回入本宫。`
-          : `${palace.name}的化${target.mutagen}目标宫索引为${target.palace_index}，对应${target.palace_name}。`,
+          ? `${palace.name}化${target.mutagen}回入本宫。`
+          : `${palace.name}化${target.mutagen}落${target.palace_name}宫。`,
         priority: target.mutagen === '忌' ? 86 : target.mutagen === '禄' ? 84 : 78,
       });
     });

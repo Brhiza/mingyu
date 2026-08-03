@@ -1,11 +1,11 @@
 export function formatScalarValue(value: unknown) {
   if (value === undefined || value === null || value === '') {
-    return '无';
+    return '';
   }
 
   if (Array.isArray(value)) {
     if (value.length === 0) {
-      return '无';
+      return '';
     }
 
     if (value.every((item) => ['string', 'number', 'boolean'].includes(typeof item))) {
@@ -22,14 +22,17 @@ export function formatScalarValue(value: unknown) {
 
 export function formatKeyValueBlock(record: Record<string, unknown>) {
   return Object.entries(record)
-    .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `- ${key}：${formatScalarValue(value)}`)
+    .map(([key, value]) => {
+      const body = formatScalarValue(value);
+      return body ? `- ${key}：${body}` : '';
+    })
+    .filter(Boolean)
     .join('\n');
 }
 
 export function formatObjectList(items: Array<Record<string, unknown>>) {
   if (items.length === 0) {
-    return '- 无';
+    return '';
   }
 
   return items

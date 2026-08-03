@@ -101,7 +101,8 @@ export function registerAlmanacTool(server: McpServer) {
   server.registerTool(
     'divine_almanac',
     {
-      description: '黄历择日：按事项、日期范围和可选参与人八字，筛选首选日期、备选日期和慎用日期',
+      description:
+        '黄历择日：按事项、日期范围和可选参与人八字，列出候选日期、逐日宜忌、神煞与参与人关系',
       inputSchema: almanacSchema.shape,
       outputSchema: resultOutputSchema,
     },

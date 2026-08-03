@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 
 import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
 import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
   getLiurenGuaTiFacts,
   getLiurenTransmissionGuaTi,
@@ -117,7 +116,6 @@ test('大六壬应输出分层取用与应期证据', () => {
     ),
   );
   assert.match(evidence.promptText, /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/);
-  assertPromptIsPortableTaskText(evidence.promptText);
   for (const transmission of result.threeTransmissions) {
     assert.ok(transmission.wuxing);
     assert.ok(transmission.seasonState);
@@ -139,7 +137,6 @@ test('大六壬旧资料缺少取传规则名时应保留证据缺口，不按�
   assert.equal(evidence.calculationSteps[3]?.status, '资料不足');
   assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
   assert.match(evidence.transmissionRuleFact.promptText, /不得按三传结果反推九宗门名称/);
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 function getUpperByUnder(

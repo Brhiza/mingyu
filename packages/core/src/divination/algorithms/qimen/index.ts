@@ -48,7 +48,7 @@ import { hasTianPanStar, hasTianPanStem } from './helpers/palace-utils';
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
 export type { QimenPriorityPalace } from './helpers/guidance';
-export { analyzeQimenEvidence, conditionQimenTraditionalText } from '../../qimen-evidence';
+export { analyzeQimenEvidence } from '../../qimen-evidence';
 export type {
   QimenCalculationEvidenceFact,
   QimenCounterEvidenceFact,

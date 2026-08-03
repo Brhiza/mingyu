@@ -341,17 +341,6 @@ const QIZHENG_LIMITATION_FACT_LIMITATION =
 const QIZHENG_SUMMARY_FACT_LIMITATION =
   '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、吊照、月相光照、反证与限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期' as const;
 
-function conditionQizhengPortableText(text: string): string {
-  return text
-    .replace(/项目恒星黄经/g, '目标日期黄经')
-    .replace(/项目岁差/g, '当前岁差')
-    .replace(/本项目统一/g, '统一')
-    .replace(/项目统一/g, '统一')
-    .replace(/本项目调用依赖库结果/g, '位置计算调用依赖库结果')
-    .replace(/本项目/g, '当前计算')
-    .replace(/这是项目明确采用/g, '这是当前计算明确采用');
-}
-
 export interface QizhengInput {
   year: number;
   month: number;
@@ -1222,7 +1211,7 @@ function buildQizhengEvidence(
   };
   const positionSourceFacts: QizhengPositionSourceFact[] = QIZHENG_POSITION_SOURCES.map(
     (source) => {
-      const promptLimitations = source.limitations.map(conditionQizhengPortableText);
+      const promptLimitations = source.limitations;
       return {
         key: `qizheng:position-source:${source.id}`,
         sourceId: source.id,
@@ -1240,7 +1229,7 @@ function buildQizhengEvidence(
             : [source.provider],
         limitations: [...source.limitations],
         promptLimitations,
-        promptText: `${source.objects.join('、')}采用${source.provider}（${source.precisionClass}）：${conditionQizhengPortableText(source.calculation)}；坐标口径${conditionQizhengPortableText(source.coordinate)}`,
+        promptText: `${source.objects.join('、')}采用${source.provider}（${source.precisionClass}）：${source.calculation}；坐标口径${source.coordinate}`,
         limitation: POSITION_SOURCE_FACT_LIMITATION,
       };
     },
@@ -1626,31 +1615,24 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
 
   const prompt = [
     `【七政四余 · 果老星宗】`,
-    `出生时空：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}，纬度${lat}°，经度${lon}°，UTC${tz >= 0 ? '+' : ''}${tz}。`,
+    `出生时间：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}。`,
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
-    `紫炁推算口径：${ZIQI_MODEL_INFO.name}；周期${ZIQI_MODEL_INFO.periodDays}日，日行${ZIQI_MODEL_INFO.dailyMotionDegrees.toFixed(12)}°；${ZIQI_MODEL_INFO.precision}。`,
-    `计算上下文：当地民用时间${calculationContext.localDateTime}，对应UTC ${calculationContext.utcDateTime}；地点来源${calculationContext.locationSource === '用户提供' ? '输入明确' : calculationContext.locationSource}，时区来源${calculationContext.timezoneSource === '用户提供' ? '输入明确' : calculationContext.timezoneSource}。`,
-    `月相：${calculationContext.moonPhase.eightPhaseName}（${calculationContext.moonPhase.waxing ? '盈' : '亏'}），日月黄经差约${calculationContext.moonPhase.phaseAngleDegrees.toFixed(2)}°，照明约${calculationContext.moonPhase.illuminationPercent.toFixed(1)}%。`,
-    `出生时刻光照：太阳高度${calculationContext.solarIllumination.solarAltitudeDegrees.toFixed(2)}°，方位角${calculationContext.solarIllumination.solarAzimuthDegrees.toFixed(2)}°，视太阳正午${calculationContext.solarIllumination.apparentSolarNoonLocalDateTime}。`,
-    `位置来源：${QIZHENG_POSITION_SOURCES.map((source) => `${source.objects.join('、')}取自${source.provider}（${source.precisionClass}）`).join('；')}。`,
-    `宿界模型：${QIZHENG_MANSION_MODEL.id}；28颗距星按目标日期真黄经形成实际弧段。`,
-    `紫炁位置：顺行，传统均速模型回归黄经${ziqi.tropicalLongitude.toFixed(3)}°。`,
+    `宿界模型：二十八宿按目标日期真实距星边界（28颗距星）划分宿度。`,
     ...stars.map(
       (s) =>
-        `${s.kind} ${s.name}：目标日期黄经${s.longitude.toFixed(3)}°，在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}；来源${s.sourceLabel}（${s.precisionClass}）`,
+        `${s.kind} ${s.name}：在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,
     ),
     `七政四余吊照：${
       aspects.length
         ? aspects
             .map(
               (aspect) =>
-                `${aspect.star1}与${aspect.star2}${aspect.type}（实际夹角${aspect.actualAngle.toFixed(2)}°，距精确角偏差${aspect.orb.toFixed(2)}°，${aspect.closeness}容许度、${aspect.precisionClass}证据）`,
+                `${aspect.star1}与${aspect.star2}${aspect.type}（${aspect.actualAngle.toFixed(2)}°）`,
             )
             .join('；')
         : '未见容许度内的主要同宫、六合、四正、三方或对照'
     }。`,
     `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
-    trueSolarNote,
     `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=黄道第${item.signIndex + 1}宫`).join('；')}。`,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
   ].join('\n');

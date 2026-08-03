@@ -11,19 +11,17 @@ import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
+import { drawSpreadCards, getCardEvidence } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaZhai } from '@core/ba_zhai';
 import { generateResidentialFengshui } from '@core/residential_fengshui';
 import { generateXuanKong } from '@core/xuan_kong';
-import { getZodiacYearFortune } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
+import { qizheng } from '@core/qi_zheng';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 
@@ -44,128 +42,78 @@ const AUDIT_DATE = new Date('2026-05-19T10:30:00+08:00');
 const AUDIT_DATE_TEXT = '2026年5月19日 10时30分（北京时间）';
 const CUSTOM_DATE = '2026-05-19T10:30:00+08:00';
 const CONTEST_SOURCE = 'docs/2025第十六届全球算命师比赛/00_原题目.md；本脚本未读取“正确答案.md”。';
-const COMMON_PROJECT_QUESTION = '我现在应该继续推进这个项目，还是先调整策略再行动？';
-const COMMON_PROJECT_SUPPLEMENT = '正在做一个需要投入时间和资金的新项目，想判断行动节奏。';
-const COMMON_PROJECT_SUPPLEMENT_FIELD = `现实背景：${COMMON_PROJECT_SUPPLEMENT}`;
+const COMMON_PROJECT_QUESTION = '请做整体解读。';
 
 function buildCommonProjectInputSummary(extra: string) {
-  return `问题：${COMMON_PROJECT_QUESTION}；${extra}；补充：男，1990年生；现实背景：${COMMON_PROJECT_SUPPLEMENT}`;
-}
-
-function withCommonProjectSupplementRequired(fields: string[]) {
-  return [COMMON_PROJECT_SUPPLEMENT_FIELD, ...fields];
+  return `问题：${COMMON_PROJECT_QUESTION}；${extra}`;
 }
 
 const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   {
     sampleName: '八字排盘',
-    requiredFields: ['【传统判断规则】', '【传统依据】', '【分析对象】', '【岁运重点】'],
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '【排盘信息】'],
   },
   {
     sampleName: '紫微斗数',
-    requiredFields: ['【传统判断规则】', '【传统依据】', '【分析对象】', '【本命资料】'],
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '【本命资料】',
+      '【重点宫位资料】',
+    ],
   },
   {
     sampleName: '星盘',
-    requiredFields: ['【传统判断规则】', '【传统依据】', '【分析对象】', '行运'],
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '星盘'],
+  },
+  {
+    sampleName: '七政四余',
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '【七政四余 · 果老星宗】',
+      '命宫',
+      '吊照',
+    ],
   },
   {
     sampleName: '六爻',
-    requiredFields: withCommonProjectSupplementRequired([
-      '【传统判断规则】',
-      '【传统依据】',
-      '应期',
-    ]),
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '用神'],
   },
   {
     sampleName: '梅花易数',
-    requiredFields: withCommonProjectSupplementRequired([
-      '【传统判断规则】',
-      '【传统依据】',
-      '体用关系',
-    ]),
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '体用'],
   },
   {
     sampleName: '奇门遁甲',
-    requiredFields: withCommonProjectSupplementRequired([
-      '【传统判断规则】',
-      '【传统依据】',
-      '值符',
-      '值使',
-      '旬空',
-      '马星',
-    ]),
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '值符'],
   },
   {
     sampleName: '大六壬',
-    requiredFields: withCommonProjectSupplementRequired([
-      '【传统判断规则】',
-      '【传统依据】',
-      '【排盘信息】',
-      '发用',
-      '三传',
-      '四课',
-    ]),
-  },
-  {
-    sampleName: '小六壬',
-    requiredFields: withCommonProjectSupplementRequired([
-      '【传统判断规则】',
-      '【传统依据】',
-      '顺数轨迹',
-      '占得宫',
-      '歌诀原文',
-      '计算链',
-      '来源状态',
-      '解释限制',
-    ]),
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '三传'],
   },
   {
     sampleName: '塔罗牌',
-    requiredFields: withCommonProjectSupplementRequired([
-      '【传统判断规则】',
-      '【传统依据】',
-      '关键词',
-    ]),
-  },
-  {
-    sampleName: '雷诺曼',
-    requiredFields: withCommonProjectSupplementRequired([
-      '【传统判断规则】',
-      '【传统依据】',
-      '关键词',
-    ]),
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '牌位明细'],
   },
   {
     sampleName: '三山国王灵签',
-    requiredFields: withCommonProjectSupplementRequired([
-      '【传统判断规则】',
-      '【传统依据】',
-      '签诗',
-      '核心寓意',
-      '事业',
-      '财运',
-      '感情',
-      '学业',
-      '健康',
-      '行动建议',
-    ]),
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '签诗'],
   },
   {
     sampleName: '择日',
-    requiredFields: [
-      '择日补充：计划在六月上旬签署项目合作合同，希望兼顾推进效率、资金安全和双方合作稳定。',
-      '【传统判断规则】',
-      '【传统依据】',
-      '参与人',
-      '可用时段',
-    ],
+    requiredFields: ['【当前时间】', '【任务】', '【传统依据】', '参与人', '候选日期'],
   },
   {
     sampleName: '八宅风水',
     requiredFields: [
       '【当前时间】',
-      '【传统判断规则】',
+      '【问题】',
+      '【任务】',
       '【传统依据】',
       '命卦八宫明细',
       '宅卦八宫明细',
@@ -173,29 +121,27 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '住宅风水',
-    requiredFields: ['【当前时间】', '【传统判断规则】', '【传统依据】', '合参要点', '结构化证据'],
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '住宅风水排盘', '玄空', '八宅'],
   },
   {
     sampleName: '玄空飞星',
     requiredFields: [
       '【当前时间】',
-      '【传统判断规则】',
+      '【问题】',
+      '【任务】',
       '【传统依据】',
-      '运盘',
-      '山盘',
-      '向盘',
-      '结构化证据',
+      '玄空飞星排盘',
+      '三盘九宫',
+      '局型',
+      '到山到向',
     ],
-  },
-  {
-    sampleName: '生肖流年',
-    requiredFields: ['【当前时间】', '【传统判断规则】', '【传统依据】', '太岁'],
   },
   {
     sampleName: '太乙神数',
     requiredFields: [
       '【当前时间】',
-      '【传统判断规则】',
+      '【问题】',
+      '【任务】',
       '【传统依据】',
       '核心宫位',
       '主客定算',
@@ -270,19 +216,19 @@ function buildPromptMarkdown(samples: PromptSample[]) {
     '',
     `生成时间：${AUDIT_DATE_TEXT}`,
     '',
-    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、住宅风水、玄空飞星、生肖流年、太乙神数。七政四余完整盘在传统坐标链校勘完成前暂停输出，因此不生成可交给模型解读的样本。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
+    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、七政四余、六爻、梅花易数、奇门遁甲、大六壬、塔罗牌、三山国王灵签、择日、八宅风水、住宅风水、玄空飞星、太乙神数。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
     '',
     '## 审计原则',
     '',
     '使用场景：以下提示词会由用户直接复制到外部在线 AI 中解读，外部 AI 不知道本仓库、页面、接口、内部实现或生成过程。',
     '',
-    '硬性要求：每份提示词必须像用户手动写成的完整任务书，独立包含当前时间、盘面资料、问题、任务、证据要求、输出要求和必要边界；提示词正文不得出现本项目、算法返回、本模块、接口、代码、调试、系统提示词等工程语境。',
+    '硬性要求：每份提示词必须像用户手动写成的完整任务书，独立包含当前时间、盘面资料、问题、任务和传统依据；提示词正文不得出现项目、算法返回、模块、接口、代码、调试、系统提示词等工程语境。',
     '',
-    '理由：工程语境会让外部 AI 误以为需要理解或评价软件实现，也可能使它依赖并不存在的上下文，导致偏离盘面和用户问题。改用“本盘”“上方资料”“推算口径”“资料边界”等自然表达，能让解读只围绕已提供事实展开。',
+    '理由：外部 AI 只需要接受盘面资料和传统依据后直接完成解读；工程语境会让它偏离盘面，转为评价实现或补充项目背景。',
     '',
-    '完整性标准：不以字数作为通过条件；已有信息充分的体系不机械加长，较短体系应优先补入真实可用的结构化资料、主证、辅证、反证或限制、精度边界和现实边界，不得编造排盘未提供的内容。',
+    '完整性标准：不以字数作为通过条件；已有信息充分的体系不机械加长，较短体系应优先补入真实可用的盘面资料和传统依据，不得编造排盘未提供的内容。',
     '',
-    '缺项处理：现有排盘能力可以直接得出的信息，应先写入任务书再交给外部 AI；确实无法生成的内容不在提示词正文罗列缺项清单，改用“只解读本命结构”“应期只到流年层级”等正向范围表达。提示词只负责提供完整任务与依据，不替外部 AI 规定可使用的能力。',
+    '缺项处理：现有排盘能力可以直接得出的信息，应先写入任务书再交给外部 AI；确实无法生成的内容不进入提示词。',
     '',
   ];
 
@@ -349,12 +295,17 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     {
       label: '工程语境',
       pattern:
-        /本项目|当前项目|项目(?:统一|明确)|本地(?:算法|系统|实现|程序|代码)|算法(?:结果|返回|生成|实际)|本模块|当前数据|实际返回|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程|接口|\bAPI\b|\bMCP\b|调试|用户补充：/,
+        /本项目|当前项目|项目(?:统一|明确)|本地(?:系统|实现|程序|代码)|算法(?:结果|返回|生成|实际)|本模块|当前数据|实际返回|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程|接口|\bAPI\b|\bMCP\b|调试|用户补充：|排盘口径|定盘口径|取样时间|推算口径|现代天文|公开天文|坐标口径|紫炁周期|日行|目标日期黄经|公共罗盘|tyme4ts|原生吉凶属性|吉神明细|黄历宜项命中|时辰宜项命中/,
     },
     {
       label: '外部补充或缺项清单',
       pattern:
-        /本次没有提供|当前资料没有|不包含|尚不支持|暂不支持|资料不足|需要补充|请补充|补充资料/,
+        /需要补充|请补充|补充资料/,
+    },
+    {
+      label: '提示词任务噪音',
+      pattern:
+        /【输出要求】|使用简体中文|简体中文输出|行动建议|现实建议|风险提醒|掷筊|证据汇总|解释限制|结构化证据|计算链|不得|不要/,
     },
   ];
 
@@ -464,13 +415,26 @@ async function buildSamples(): Promise<PromptSample[]> {
       { astrolabeTopic: 'career', astrolabeScopeText: astrolabeScope.promptText },
     );
 
+    const qizhengData = qizheng.generateQizheng({
+      year: 1993,
+      month: 4,
+      day: 8,
+      hour: 23,
+      minute: 34,
+      latitude: 1.3521,
+      longitude: 103.8198,
+      timezone: 8,
+      useTrueSolarTime: false,
+    });
+    const qizhengPrompt = buildMetaphysicsPrompt(
+      qizhengData.prompt,
+      '请分析本命结构。',
+      { method: 'qizheng', currentTime: fixedNow },
+    );
+
     const auditDate = new Date(CUSTOM_DATE);
     const commonQuestion = COMMON_PROJECT_QUESTION;
-    const commonInfo = {
-      gender: '男' as const,
-      birthYear: 1990,
-      userSupplement: COMMON_PROJECT_SUPPLEMENT,
-    };
+    const commonInfo = {} as const;
 
     const liuyaoData = withSeed(20260518, () => generateLiuyao(auditDate));
     const liuyaoPrompt = buildDivinationPrompt('liuyao', commonQuestion, liuyaoData, commonInfo, {
@@ -478,62 +442,36 @@ async function buildSamples(): Promise<PromptSample[]> {
     });
 
     const meihuaData = generateMeihua(auditDate, { method: 'number', number: 42 });
-    const meihuaPrompt = buildDivinationPrompt(
-      'meihua',
-      commonQuestion,
-      meihuaData,
-      {
-        ...commonInfo,
-        meihuaSettings: { method: 'number', number: 42 },
-      },
-      { meihuaFocus: 'decision' },
-    );
+    const meihuaPrompt = buildDivinationPrompt('meihua', commonQuestion, meihuaData, {
+      ...commonInfo,
+      meihuaSettings: { method: 'number', number: 42 },
+    });
 
     const qimenData = generateQimen(auditDate);
-    const qimenPrompt = buildDivinationPrompt('qimen', commonQuestion, qimenData, commonInfo, {
-      qimenFocus: 'strategy',
-    });
+    const qimenPrompt = buildDivinationPrompt('qimen', commonQuestion, qimenData, commonInfo);
 
     const liurenData = generateLiuren(auditDate);
     const liurenPrompt = buildDivinationPrompt('liuren', commonQuestion, liurenData, commonInfo, {
       liurenTemplate: 'shiye',
     });
 
-    const xiaoliurenData = generateXiaoliuren({
-      method: 'time',
-      customDate: auditDate,
-    });
-    const xiaoliurenPrompt = buildDivinationPrompt(
-      'xiaoliuren',
-      commonQuestion,
-      xiaoliurenData,
-      commonInfo,
-      { xiaoliurenFocus: 'career' },
-    );
-
     const tarotDraw = withSeed(20260519, () => drawSpreadCards('decision'));
     const tarotData = {
       spreadType: tarotDraw.spreadType,
       spreadName: tarotDraw.spreadName,
-      cards: tarotDraw.cards.map((item) => ({
-        id: item.card.number,
-        name: item.card.name,
-        position: item.position,
-        reversed: item.isReversed,
-        keywords: getCardKeywords(item.card.name).split(','),
-      })),
+      cards: tarotDraw.cards.map((item) => {
+        const evidence = getCardEvidence(item.card.name);
+        return {
+          id: item.card.number,
+          name: item.card.name,
+          position: item.position,
+          reversed: item.isReversed,
+          ...evidence,
+        };
+      }),
       timestamp: fixedNow.getTime(),
     };
     const tarotPrompt = buildDivinationPrompt('tarot', commonQuestion, tarotData, commonInfo);
-
-    const lenormandData = withSeed(20260520, () => drawLenormandSpread('decision'));
-    lenormandData.timestamp = fixedNow.getTime();
-    const lenormandPrompt = buildDivinationPrompt(
-      'lenormand',
-      commonQuestion,
-      lenormandData,
-      commonInfo,
-    );
 
     const ssgwData = withSeed(20260521, () => drawRandomSign());
     ssgwData.timestamp = fixedNow.getTime();
@@ -574,13 +512,6 @@ async function buildSamples(): Promise<PromptSample[]> {
       bazhaiData.prompt,
       '住宅的大门、卧室和书房应该怎样安排方位？',
       { method: 'bazhai', currentTime: fixedNow },
-    );
-
-    const zodiacData = getZodiacYearFortune('午', '甲辰');
-    const zodiacPrompt = buildMetaphysicsPrompt(
-      zodiacData.prompt,
-      '属马的人在甲辰年应该重点留意哪些方面？',
-      { method: 'zodiac', currentTime: fixedNow },
     );
 
     const taiyiData = generateTaiyi({ year: 2026, scope: 'year' });
@@ -646,6 +577,17 @@ async function buildSamples(): Promise<PromptSample[]> {
         ],
       },
       {
+        name: '七政四余',
+        source:
+          '项目七政四余算法真实生成；西历 1993年4月8日 23:34，新加坡，经度 103.8198，纬度 1.3521，UTC+8。',
+        inputSummary: '西历 1993年4月8日 23:34，新加坡出生；问题为本命结构。',
+        prompt: qizhengPrompt,
+        notes: [
+          '七政、罗计、月孛采用现代天文位置，紫炁采用《七政算内篇》均速模型。',
+          '二十八宿采用目标日期真实距星黄经边界。',
+        ],
+      },
+      {
         name: '六爻',
         source: '项目算法真实起卦；固定时间 2026-05-19T10:30:00+08:00；固定随机种子 20260518。',
         inputSummary: buildCommonProjectInputSummary('模板：事业断卦'),
@@ -674,24 +616,10 @@ async function buildSamples(): Promise<PromptSample[]> {
         notes: [],
       },
       {
-        name: '小六壬',
-        source: '项目算法真实起课；固定时间 2026-05-19T10:30:00+08:00；时间起课。',
-        inputSummary: buildCommonProjectInputSummary('焦点：事业；时间起课'),
-        prompt: xiaoliurenPrompt,
-        notes: [],
-      },
-      {
         name: '塔罗牌',
         source: '项目牌组真实抽牌；固定随机种子 20260519；决策牌阵。',
         inputSummary: buildCommonProjectInputSummary('牌阵：决策'),
         prompt: tarotPrompt,
-        notes: [],
-      },
-      {
-        name: '雷诺曼',
-        source: '项目牌组真实抽牌；固定随机种子 20260520；选择牌阵。',
-        inputSummary: buildCommonProjectInputSummary('牌阵：选择'),
-        prompt: lenormandPrompt,
         notes: [],
       },
       {
@@ -728,13 +656,6 @@ async function buildSamples(): Promise<PromptSample[]> {
         inputSummary: '建造/起运年 2024；朝向 0°；问题为飞星结构与重点宫位。',
         prompt: xuankongPrompt,
         notes: ['当前样本只审计飞星盘面结构，不扩展形峦或全流派替卦。'],
-      },
-      {
-        name: '生肖流年',
-        source: '项目生肖流年算法真实生成；复用干支五行及值、冲、刑、害、破关系。',
-        inputSummary: '生肖午马；流年甲辰；问题为年度重点注意事项。',
-        prompt: zodiacPrompt,
-        notes: ['生肖样本只代表出生年支层级，不包含完整四柱和大运。'],
       },
       {
         name: '太乙神数',

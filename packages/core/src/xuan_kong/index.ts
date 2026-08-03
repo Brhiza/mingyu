@@ -478,10 +478,7 @@ function buildPalaces(yun: number[], shan: number[], xiang: number[]): XuanKongP
   }));
 }
 
-function buildPrompt(
-  result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>,
-  evidenceText: string,
-) {
+function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>) {
   const palaceLines = result.palaces
     .map(
       (item) =>
@@ -492,27 +489,22 @@ function buildPrompt(
     '【玄空飞星排盘】',
     `运程：${result.period.label}`,
     `山向：坐${result.sitMountain}向${result.facingMountain}`,
-    `卦型：${result.guaType}；${result.replacementReason}`,
+    `卦型：${result.guaType}`,
     `局型：${result.formation}`,
     result.combinations.length
       ? `组合：${result.combinations.map((item) => item.name).join('、')}`
-      : '组合：未检出已实现的特殊组合',
+      : '组合：未检出特殊组合',
     `到山到向：${result.daoShanXiang.summary}`,
+    ...(result.measurement?.stability === '山向边界敏感' &&
+    result.measurement.candidateMountains?.length
+      ? [
+          `候选山向：${result.measurement.candidateMountains
+            .map((item) => `坐${item.sitMountain}向${item.facingMountain}`)
+            .join('、')}`,
+        ]
+      : []),
     '三盘九宫：',
     palaceLines,
-    result.measurement
-      ? `测量：稳定性${result.measurement.stability}${
-          result.measurement.nearestBoundaryDistanceDegrees !== undefined
-            ? `，距边界 ${result.measurement.nearestBoundaryDistanceDegrees}°`
-            : ''
-        }${
-          result.measurement.candidateMountains?.length
-            ? `；候选 ${result.measurement.candidateMountains.map((item) => item.label).join('、')}`
-            : ''
-        }`
-      : '',
-    '【结构化证据】',
-    evidenceText,
   ]
     .filter(Boolean)
     .join('\n');
@@ -647,7 +639,7 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
   };
 
   const evidenceAnalysis = analyzeXuanKongEvidence(partial);
-  const prompt = buildPrompt(partial, evidenceAnalysis.promptText);
+  const prompt = buildPrompt(partial);
   return {
     ...partial,
     evidenceAnalysis,

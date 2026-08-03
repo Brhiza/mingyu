@@ -413,8 +413,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   {
     id: 'ri-de',
     name: '日德格',
-    description:
-      '甲寅、丙辰、戊辰、庚辰、壬戌五日生人。日德入命，主性格敦厚宽仁，多福多寿。忌刑冲破害，喜官印相生。',
+    description: '甲寅、丙辰、戊辰、庚辰、壬戌五日生人。日德入命，传统多取象为性格敦厚宽仁。',
     conditions: {
       dayStems: ['甲', '丙', '戊', '庚', '壬'],
       anyConditions: ['日柱为甲寅', '日柱为丙辰', '日柱为戊辰', '日柱为庚辰', '日柱为壬戌'],

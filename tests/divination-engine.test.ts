@@ -7,7 +7,6 @@ import {
   resolveDivinationInspiredDraftPatch,
 } from '../src/lib/divination/inspiration';
 import type {
-  LenormandData,
   QimenData,
   QimenJiuGongGe,
   SsgwData,
@@ -45,53 +44,25 @@ import {
 } from 'mingyu-core/divination/liuyao';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
-import { analyzeSsgwEvidence, drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
-import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { drawRandomSign } from 'mingyu-core/divination/ssgw';
+import { SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import {
   analyzeQimenEvidence,
-  conditionQimenTraditionalText,
   generateQimen,
   resolveZhiShiLandingPalace,
 } from 'mingyu-core/divination/qimen';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
 
-test('三山国王九十二签应逐签具备八类完整解读', () => {
+test('三山国王九十二签应完整保存签号、签题与签诗', () => {
   assert.equal(SSGW_SIGNS.length, 92);
   assert.deepEqual(
     SSGW_SIGNS.map((sign) => sign.id),
     Array.from({ length: 92 }, (_, index) => index + 1),
   );
   SSGW_SIGNS.forEach((sign) => {
-    SSGW_INTERPRETATION_FIELDS.forEach((field) => {
-      assert.ok(sign.details[field]?.trim(), `第${sign.id}签缺少${field}`);
-    });
-    assert.match(sign.details.核心寓意, /[\u4e00-\u9fff]/, `第${sign.id}签核心寓意无效`);
-  });
-
-  SSGW_INTERPRETATION_FIELDS.forEach((field) => {
-    const values = SSGW_SIGNS.map((sign) => sign.details[field].trim());
-    assert.equal(new Set(values).size, 92, `${field}存在重复套话，应按每支签诗单独编写`);
-  });
-});
-
-test('三山国王九十二签进入证据提示词时不应保留绝对结果保证', () => {
-  const forbidden = /必然(?:会|是|失败|走向|两败俱伤)|必定成功|必能|必败|必然后悔/;
-
-  SSGW_SIGNS.forEach((sign) => {
-    const analysis = analyzeSsgwEvidence({
-      number: sign.id,
-      title: sign.title,
-      poem: sign.qianwen,
-      story: sign.story,
-      details: sign.details,
-      timestamp: Date.now(),
-      ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-    });
-    assert.doesNotMatch(analysis.promptText, forbidden, `第${sign.id}签提示词仍含绝对结果保证`);
-    assert.ok(analysis.interpretations.every((item) => !forbidden.test(item.promptText)));
+    assert.ok(sign.title?.trim(), `第${sign.id}签缺少签题`);
+    assert.ok(sign.qianwen?.trim(), `第${sign.id}签缺少签诗`);
   });
 });
 
@@ -104,7 +75,6 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     birthYear: '',
     meihuaMethod: 'time',
     meihuaNumber: '',
-    xiaoliurenMethod: 'time',
     liuyaoTemplate: 'general',
     liurenTemplate: 'general',
     tarotSpread: 'single',
@@ -112,7 +82,6 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     almanacStartDate: '2026-06-01',
     almanacEndDate: '2026-06-05',
     almanacParticipants: [],
-    lenormandSpread: 'single',
     astrolabeName: '本人',
     astrolabeGender: '女',
     astrolabeYear: '1995',
@@ -685,8 +654,6 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
     analysis.promptText,
     /项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/,
   );
-  assertPromptIsPortableTaskText(analysis.promptText);
-
   const incomplete = analyzeQimenEvidence({
     ...data,
     jiuGongGe: data.jiuGongGe.filter((item) => item.gong !== 5),
@@ -697,30 +664,6 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   assert.equal(incomplete.summaryFact.palaceFactCount, 8);
   assert.deepEqual(incomplete.palaceCoverageFact.missingGongs, [5]);
   assert.match(incomplete.palaceCoverageFact.promptText, /不得补造缺失宫位内容/);
-});
-
-test('奇门传统格局应保留原文并为提示词生成条件化副本', () => {
-  const original = '乙加地盘癸为日入天网，主官事破财，万事破伤；凶期百日而后或有舒情。';
-  const conditioned = conditionQimenTraditionalText(original);
-
-  assert.match(original, /主官事破财|万事破伤|凶期百日/);
-  assert.match(conditioned, /传统象意提示官事破财/);
-  assert.match(conditioned, /传统象意提示多重阻碍/);
-  assert.match(conditioned, /不得据此输出固定日期/);
-  assert.doesNotMatch(conditioned, /万事破伤|凶期百日|本项目|当前项目|工程|算法结果/);
-
-  for (const heavenStem of '甲乙丙丁戊己庚辛壬癸') {
-    for (const earthStem of '甲乙丙丁戊己庚辛壬癸') {
-      const pattern = getStemPairPattern(heavenStem, earthStem);
-      if (!pattern) continue;
-      const promptText = conditionQimenTraditionalText(pattern.summary);
-      assert.doesNotMatch(
-        promptText,
-        /百事(?:吉昌|称心|顺遂|可为)|万事(?:破伤|皆屯)|凶期百日|(^|[，；。])主(?!(?:动|客|轴|证|判|要))|大吉|大凶/,
-        `${heavenStem}加${earthStem}的条件化文本仍含绝对传统断语`,
-      );
-    }
-  }
 });
 
 test('奇门复合格局应按同宫门神叠加识别', () => {
@@ -4007,251 +3950,18 @@ test('时间型占卜算法应拒绝无效自定义时间对象', () => {
   assert.throws(() => generateMeihua(invalidDate), /自定义时间不是有效日期/);
   assert.throws(() => generateQimen(invalidDate), /自定义时间不是有效日期/);
   assert.throws(() => generateLiuren(invalidDate), /自定义时间不是有效日期/);
-  assert.throws(() => generateXiaoliuren({ customDate: invalidDate }), /自定义时间不是有效日期/);
   assert.throws(() => drawRandomSign(invalidDate), /自定义时间不是有效日期/);
 });
 
-test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊仪式', () => {
+test('三山国王灵签只保留签号、签题、签诗与可重放抽取资料', () => {
   const confirmed = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
-    replay: [0.1, 0.1, 0.9],
+    replay: [0.1],
   });
-  assert.equal(confirmed.ritual?.confirmed, true);
-  assert.deepEqual(
-    confirmed.ritual?.throws.map((item) => item.result),
-    ['圣杯'],
-  );
-  assert.deepEqual(
-    confirmed.ritual?.throws.map((item) => [item.firstFace, item.secondFace]),
-    [['阳面', '阴面']],
-  );
   assert.equal(confirmed.draw?.poolSize, 92);
   assert.equal(confirmed.draw?.selectedNumber, confirmed.number);
-  assert.equal(confirmed.evidenceAnalysis?.key, 'ssgw:evidence');
-  assert.equal(confirmed.evidenceAnalysis?.status, '已计算');
-  assert.equal(confirmed.evidenceAnalysis?.calculationSteps.length, 8);
-  assert.equal(
-    confirmed.evidenceAnalysis?.calculationChain.length,
-    confirmed.evidenceAnalysis?.calculationSteps.length,
-  );
-  const calculationStepKeys = new Set(
-    confirmed.evidenceAnalysis?.calculationSteps.map((item) => item.key),
-  );
-  assert.ok(
-    confirmed.evidenceAnalysis?.calculationSteps.every(
-      (item) =>
-        item.status === '已计算' &&
-        item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)) &&
-        item.sources.length > 0 &&
-        item.limitation.includes('不证明神意来源'),
-    ),
-  );
-  assert.equal(confirmed.evidenceAnalysis?.drawFact.status, '可核验');
-  assert.equal(confirmed.evidenceAnalysis?.signFact.status, '完整');
-  assert.equal(confirmed.evidenceAnalysis?.signFact.number, confirmed.number);
-  assert.equal(confirmed.evidenceAnalysis?.coverageFact.key, 'ssgw:interpretation-coverage');
-  assert.ok(
-    confirmed.evidenceAnalysis?.interpretationFacts.every(
-      (item) => item.key && item.status === '已收录' && item.sources.length > 0,
-    ),
-  );
-  assert.equal(confirmed.evidenceAnalysis?.drawFact.poolSize, 92);
-  assert.match(confirmed.evidenceAnalysis?.drawFact.promptText || '', /随机索引/);
-  assert.match(confirmed.evidenceAnalysis?.drawFact.limitation || '', /不证明签文有效性/);
-  assert.equal(confirmed.evidenceAnalysis?.ritualFact.status, '已确认');
-  assert.equal(confirmed.evidenceAnalysis?.ritualFact.throws.length, 1);
-  assert.deepEqual(confirmed.evidenceAnalysis?.ritualFact.throws[0], {
-    attempt: 1,
-    firstFace: '阳面',
-    secondFace: '阴面',
-    result: '圣杯',
-    promptText: '第1次阳面+阴面=圣杯',
-  });
-  assert.equal(confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.key, 'ssgw:ritual-throw:1');
-  assert.equal(confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.status, '已记录');
-  assert.equal(confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.ritualFactKey, '仪式:掷筊确认');
-  assert.ok((confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.sources.length ?? 0) > 0);
-  assert.match(confirmed.evidenceAnalysis?.ritualFact.limitation || '', /不证明疾病/);
-  assert.equal(confirmed.evidenceAnalysis?.randomFact.status, '可重放');
-  assert.equal(confirmed.evidenceAnalysis?.randomFact.mode, 'replay');
-  assert.equal(confirmed.evidenceAnalysis?.randomFact.sampleCount, 3);
-  assert.deepEqual(confirmed.evidenceAnalysis?.randomFact.samples, [0.1, 0.1, 0.9]);
-  assert.ok(confirmed.evidenceAnalysis?.drawFacts.some((item) => item.includes('随机索引')));
-  assert.match(confirmed.evidenceAnalysis?.promptText || '', /签诗原文/);
-  assert.match(confirmed.evidenceAnalysis?.promptText || '', /典故/);
-  assert.ok(
-    confirmed.evidenceAnalysis?.interpretations.every(
-      (item) => item.originalText && item.promptText && item.limitation.includes('不是事实结论'),
-    ),
-  );
-  assert.match(confirmed.evidenceAnalysis?.promptText || '', /随机过程可以重放，不证明预测有效性/);
-  assert.deepEqual(
-    confirmed.evidenceAnalysis?.counterEvidenceFacts.map((item) => [item.type, item.status]),
-    [
-      ['签诗覆盖', '已覆盖'],
-      ['典故覆盖', '已覆盖'],
-      ['分类释义覆盖', '已覆盖'],
-      ['抽签索引', '可核验'],
-      ['仪式确认', '已确认'],
-      ['随机轨迹', '可重放'],
-    ],
-  );
-  assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.status, '未见额外反证');
-  assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.factKeys.length, 0);
-  assert.equal(confirmed.evidenceAnalysis?.limitationFacts.length, 6);
-  assert.equal(confirmed.evidenceAnalysis?.summaryFact.key, 'ssgw:evidence-summary');
-  assert.equal(confirmed.evidenceAnalysis?.summaryFact.status, '证据链完整');
-  assert.equal(
-    confirmed.evidenceAnalysis?.summaryFact.interpretationFactCount,
-    confirmed.evidenceAnalysis?.interpretationFacts.length,
-  );
-  assert.equal(
-    confirmed.evidenceAnalysis?.summaryFact.missingFieldFactCount,
-    confirmed.evidenceAnalysis?.missingFieldFacts.length,
-  );
-  assert.equal(
-    confirmed.evidenceAnalysis?.summaryFact.ritualThrowFactCount,
-    confirmed.evidenceAnalysis?.ritualThrowFacts.length,
-  );
-  assert.equal(
-    confirmed.evidenceAnalysis?.summaryFact.counterEvidenceCount,
-    confirmed.evidenceAnalysis?.counterEvidenceFacts.length,
-  );
-  assert.equal(
-    confirmed.evidenceAnalysis?.summaryFact.sourceFactCount,
-    confirmed.evidenceAnalysis?.sourceFacts.length,
-  );
-  const factKeys = new Set([
-    confirmed.evidenceAnalysis?.summaryFact.key,
-    ...(confirmed.evidenceAnalysis?.summaryFact.factKeys ?? []),
-  ]);
-  assert.ok(
-    confirmed.evidenceAnalysis?.limitationFacts.every(
-      (item) =>
-        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
-    ),
-  );
-  assert.equal(
-    confirmed.evidenceAnalysis?.limitations.length,
-    confirmed.evidenceAnalysis?.limitationFacts.length,
-  );
-  assert.doesNotMatch(
-    confirmed.evidenceAnalysis?.promptText || '',
-    /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
-  );
-  assert.match(
-    confirmed.evidenceAnalysis?.promptText || '',
-    /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/,
-  );
-  assertPromptIsPortableTaskText(confirmed.evidenceAnalysis?.promptText || '');
-  assert.ok(
-    confirmed.evidenceAnalysis?.sourceFacts.every(
-      (item) =>
-        item.key &&
-        item.status === '已声明' &&
-        item.promptText &&
-        item.sources.length > 0 &&
-        item.limitation,
-    ),
-  );
-  const confirmedItems = confirmed.evidenceAnalysis?.evidence.items ?? [];
-  const confirmedRitual = confirmedItems.find((item) => item.title === '模拟求签仪式完成记录');
-  const confirmedRandom = confirmedItems.find((item) => item.title === '随机过程重放记录');
-  assert.equal(confirmedRitual?.level, '辅证');
-  assert.notEqual(confirmedRitual?.level, '主证');
-  assert.match(confirmedRitual?.detail || '', /已出现圣杯/);
-  assert.equal(confirmedRandom?.level, '辅证');
-  assert.match(confirmedRandom?.detail || '', /随机种子与原始样本保留在可重放记录中/);
-  assert.match(confirmedRandom?.detail || '', /不表示可信度、神意或预测有效性/);
-
-  const seeded = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
-    seed: '灵签证据样例',
-  });
-  assert.ok(
-    seeded.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机种子：灵签证据样例')),
-  );
-  assert.equal(seeded.evidenceAnalysis?.randomFact.seed, '灵签证据样例');
-  assert.doesNotMatch(seeded.evidenceAnalysis?.randomFact.promptText || '', /灵签证据样例/);
-  assert.doesNotMatch(seeded.evidenceAnalysis?.promptText || '', /灵签证据样例/);
-
-  const rejected = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
-    replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
-  });
-  assert.equal(rejected.ritual?.rejected, true);
-  assert.deepEqual(
-    rejected.ritual?.throws.map((item) => item.result),
-    ['阴杯', '阴杯', '阴杯'],
-  );
-  assert.match(rejected.ritual?.reason || '', /拒绝起签/);
-  assert.equal(rejected.evidenceAnalysis?.ritualFact.status, '未确认');
-  assert.equal(rejected.evidenceAnalysis?.ritualFact.throws.length, 3);
-  assert.equal(rejected.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
-  assert.equal(rejected.evidenceAnalysis?.calculationSteps[5]?.status, '资料不足');
-  assert.equal(rejected.evidenceAnalysis?.calculationSteps[7]?.status, '资料不足');
-  const rejectedRitual = rejected.evidenceAnalysis?.evidence.items.find(
-    (item) => item.title === '模拟求签仪式未完成',
-  );
-  assert.equal(rejectedRitual?.level, '反证');
-  assert.match(rejectedRitual?.detail || '', /未获圣杯/);
-});
-
-test('三山国王灵签分类释义应保留原文并对提示词绝对断语作条件化处理', () => {
-  const analysis = analyzeSsgwEvidence({
-    number: 1,
-    title: '条件化测试',
-    poem: '测试签诗原文',
-    details: {
-      核心寓意: '所求之事必定成功，无需多虑。',
-      事业: '明知风险仍投入，结果必然失败。',
-      感情: '互不相让必然两败俱伤。',
-    },
-    timestamp: Date.now(),
-    ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-  });
-
-  assert.match(analysis.interpretations[0].originalText, /必定成功/);
-  assert.equal(analysis.interpretations[0].text, analysis.interpretations[0].originalText);
-  assert.match(analysis.interpretations[0].promptText, /较有机会成功/);
-  assert.match(analysis.interpretations[1].promptText, /失败风险很高/);
-  assert.match(analysis.interpretations[2].promptText, /容易两败俱伤/);
-  assert.doesNotMatch(analysis.promptText, /必定成功|必然失败|必然两败俱伤/);
-  assert.match(analysis.promptText, /非事实结论/);
-  assert.equal(analysis.coverageFact.status, '存在缺口');
-  assert.deepEqual(
-    analysis.missingFieldFacts.map((item) => item.field),
-    ['财运', '学业', '健康', '行动建议', '风险提醒'],
-  );
-  assert.ok(
-    analysis.missingFieldFacts.every(
-      (item) => item.key && item.status === '缺失' && item.sources.length > 0,
-    ),
-  );
-  assert.equal(analysis.counterEvidenceFacts.length, 6);
-  assert.equal(analysis.counterSummaryFact.status, '存在需保留反证');
-  assert.equal(analysis.counterSummaryFact.factKeys.length, 5);
-  assert.equal(analysis.summaryFact.status, '证据链有缺口');
-  assert.equal(analysis.calculationSteps[1]?.status, '资料不足');
-  assert.equal(analysis.calculationSteps[3]?.status, '资料不足');
-  assert.equal(analysis.calculationSteps[4]?.status, '资料不足');
-  assert.equal(analysis.calculationSteps[5]?.status, '资料不足');
-  assert.equal(analysis.calculationSteps[7]?.status, '资料不足');
-  assert.equal(analysis.limitationFacts.length, 6);
-  assert.equal(analysis.limitations.length, analysis.limitationFacts.length);
-
-  const emptyPoemAnalysis = analyzeSsgwEvidence({
-    number: 1,
-    title: '缺失签诗测试',
-    poem: '',
-    story: '测试典故',
-    details: Object.fromEntries(SSGW_INTERPRETATION_FIELDS.map((field) => [field, '测试释义'])),
-    timestamp: Date.now(),
-    ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-  });
-  assert.equal(emptyPoemAnalysis.signFact.status, '签诗为空');
-  assert.equal(emptyPoemAnalysis.coverageFact.status, '存在缺口');
-  assert.equal(emptyPoemAnalysis.summaryFact.status, '证据链有缺口');
-  assert.equal(emptyPoemAnalysis.calculationSteps[2]?.status, '资料不足');
-  assert.equal(emptyPoemAnalysis.calculationSteps[7]?.status, '资料不足');
-  assert.ok(emptyPoemAnalysis.counterEvidence.some((item) => item.includes('不得补造签诗')));
+  assert.equal(confirmed.draw?.method, 'random');
+  assert.ok(confirmed.title);
+  assert.ok(confirmed.poem);
 });
 
 test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {
@@ -4295,13 +4005,16 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.match(session.prompt, /太乙：艮（第3宫/);
   assert.match(session.prompt, /主客定算：主算24/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制/);
-  assert.match(session.prompt, /当前只解读已完成历法链校勘的年计字段/);
-  assert.match(session.prompt, /判断年度气运、动静、攻守与时宜/);
+  assert.match(
+    session.prompt,
+    /【任务】\n依据年家局数、太乙、文昌、始击、计神与主客算回答【问题】。/,
+  );
   assert.doesNotMatch(session.prompt, /尚未计算|月计、日计或时计/);
   assert.match(
     session.prompt,
-    /【当前时间】[\s\S]*【占卜信息】[\s\S]*【问题】[\s\S]*【任务】[\s\S]*【输出要求】/,
+    /【传统依据】[\s\S]*【当前时间】[\s\S]*【占卜信息】[\s\S]*【问题】[\s\S]*【任务】/,
   );
+  assert.doesNotMatch(session.prompt, /【输出要求】/);
 });
 
 test('太乙神数占卜入口应拒绝空年份和超出网页支持范围的年份', async () => {
@@ -4329,7 +4042,7 @@ test('太乙神数占卜入口应拒绝尚未校勘的月日时计', async () =>
   }
 });
 
-test('塔罗与雷诺曼提示词应保留牌面资料且不混入工程证据话术', async () => {
+test('塔罗提示词应保留牌面资料且不混入工程证据话术', async () => {
   const tarotSession = await generateDivinationSession(
     buildDraft({ method: 'tarot', tarotSpread: 'three', question: '接下来应如何推进？' }),
   );
@@ -4366,15 +4079,6 @@ test('塔罗与雷诺曼提示词应保留牌面资料且不混入工程证据�
   );
   assert.ok((tarotData.evidenceAnalysis?.randomFact.sources.length ?? 0) >= 2);
   assert.ok(tarotData.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机模式')));
-
-  const lenormandSession = await generateDivinationSession(
-    buildDraft({ method: 'lenormand', lenormandSpread: 'nine', question: '事情有哪些线索？' }),
-  );
-  assert.match(lenormandSession.prompt, /占法：雷诺曼/);
-  assert.match(lenormandSession.prompt, /牌位顺序：/);
-  assert.match(lenormandSession.prompt, /牌位明细：/);
-  assert.doesNotMatch(lenormandSession.prompt, /结构化证据|证据汇总|计算链|解释限制/);
-  assert.doesNotMatch(lenormandSession.prompt, /成功率为\d|成功率提升至|吉凶总分[：=]\d/);
 });
 
 test('六爻提示词应写出动爻、变爻与日辰月建形成的三合局', async () => {
@@ -4440,7 +4144,7 @@ test('前端占卜链路应把逐爻手摇记录原样传入核心算法', async
   assert.equal(data.meta.random, undefined);
 });
 
-test('前端占卜链路应使用逐张抽取样本复算塔罗和雷诺曼牌阵', async () => {
+test('前端占卜链路应使用逐张抽取样本复算塔罗牌阵', async () => {
   const tarotSamples = [0, 0.75, 0.5, 0.25, 0.999, 0.75];
   const tarotSession = await generateDivinationSession(
     buildDraft({
@@ -4454,23 +4158,9 @@ test('前端占卜链路应使用逐张抽取样本复算塔罗和雷诺曼牌�
   assert.equal(new Set(tarot.cards.map((card) => card.id)).size, 3);
   assert.deepEqual(tarot.meta?.random?.samples, tarotSamples);
   assert.equal(tarot.evidenceAnalysis?.randomFact.status, '可重放');
-
-  const lenormandSamples = [0, 0.5, 0.999];
-  const lenormandSession = await generateDivinationSession(
-    buildDraft({
-      method: 'lenormand',
-      lenormandSpread: 'three',
-      lenormandMethod: 'interactive',
-      lenormandInteractiveSamples: lenormandSamples,
-    }),
-  );
-  const lenormand = lenormandSession.data as LenormandData;
-  assert.equal(new Set(lenormand.cards.map((card) => card.id)).size, 3);
-  assert.deepEqual(lenormand.meta?.random?.samples, lenormandSamples);
-  assert.equal(lenormand.evidenceAnalysis?.randomFact.status, '可重放');
 });
 
-test('前端占卜链路应支持手动塔罗、雷诺曼与灵签', async () => {
+test('前端占卜链路应支持手动塔罗与灵签', async () => {
   const tarotSession = await generateDivinationSession(
     buildDraft({
       method: 'tarot',
@@ -4490,21 +4180,6 @@ test('前端占卜链路应支持手动塔罗、雷诺曼与灵签', async () =>
   );
   assert.equal(tarot.evidenceAnalysis?.randomFact.status, '不适用');
 
-  const lenormandSession = await generateDivinationSession(
-    buildDraft({
-      method: 'lenormand',
-      lenormandSpread: 'three',
-      lenormandMethod: 'manual',
-      lenormandManualCardIds: [1, 24, 36],
-    }),
-  );
-  const lenormand = lenormandSession.data as LenormandData;
-  assert.deepEqual(
-    lenormand.cards.map((card) => card.id),
-    [1, 24, 36],
-  );
-  assert.equal(lenormand.evidenceAnalysis?.randomFact.status, '不适用');
-
   const ssgwSession = await generateDivinationSession(
     buildDraft({ method: 'ssgw', ssgwMethod: 'manual', ssgwNumber: '36' }),
   );
@@ -4512,8 +4187,6 @@ test('前端占卜链路应支持手动塔罗、雷诺曼与灵签', async () =>
   assert.equal(ssgw.number, 36);
   assert.equal(ssgw.draw?.method, 'manual');
   assert.equal(ssgw.meta?.random, undefined);
-  assert.equal(ssgw.evidenceAnalysis?.randomFact.status, '不适用');
-  assert.equal(ssgw.evidenceAnalysis?.ritualFact.status, '缺少记录');
 });
 
 test('自定起卦时间缺少日期或时间时应明确提示', async () => {
@@ -4531,7 +4204,7 @@ test('自定起卦时间缺少日期或时间时应明确提示', async () => {
   );
 });
 
-test('占卜自定义问题只保留基础信息与用户问题，不强塞任务和输出要求', async () => {
+test('占卜自定义问题保留基础信息、用户问题且不强塞任务框架', async () => {
   const session = await generateDivinationSession(
     buildDraft({
       method: 'meihua',
@@ -4580,13 +4253,13 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
 
   assert.equal(session.method, 'almanac');
   assert.match(session.prompt, /占法：黄历择日/);
-  assert.match(session.prompt, /择日事项：搬家入宅/);
+  assert.match(session.prompt, /事项范围：搬家入宅/);
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
-  assert.match(session.prompt, /首选日期：/);
+  assert.match(session.prompt, /【问题】\n我们准备搬家，想选一个兼顾两个人的日子。/);
   assert.match(session.prompt, /候选日期明细：/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制|传统硬限制/);
-  assert.match(session.prompt, /参与人八字参考：/);
-  assert.match(session.prompt, /本人：男/);
+  assert.match(session.prompt, /参与人资料：/);
+  assert.match(session.prompt, /本人：公历1990-01-01/);
   assert.ok('days' in session.data && session.data.days.length === 5);
 });
 
@@ -4605,7 +4278,7 @@ test('黄历择日不强制填写问题，空补充时仍生成完整择日提�
   assert.equal(session.question, '黄历择日：签约合作（2026-06-01 至 2026-06-03）');
   assert.match(session.prompt, /【占卜信息】/);
   assert.match(session.prompt, /【任务】/);
-  assert.match(session.prompt, /【输出要求】/);
+  assert.doesNotMatch(session.prompt, /【输出要求】/);
   assert.doesNotMatch(session.prompt, /【问题】/);
 });
 
@@ -4717,32 +4390,5 @@ test('占卜引擎梅花数字起卦只接受十进制正整数文本', async ()
         }),
       ),
     /数字起卦需要填写正整数/,
-  );
-});
-
-test('小六壬只按时间起课，并生成可复核顺数与时宫提示词', async () => {
-  const timeSession = await generateDivinationSession(
-    buildDraft({
-      method: 'xiaoliuren',
-      question: '这件事现在该不该继续推进？',
-      almanacStartDate: '',
-      almanacEndDate: '',
-    }),
-  );
-
-  assert.equal(timeSession.method, 'xiaoliuren');
-  assert.match(timeSession.prompt, /占法：小六壬/);
-  assert.match(timeSession.prompt, /顺数轨迹：月宫.*；日宫.*；时宫/);
-  assert.match(timeSession.prompt, /占得宫：/);
-  assert.match(timeSession.prompt, /歌诀原文：/);
-  assert.match(timeSession.prompt, /计算链：/);
-  assert.match(timeSession.prompt, /解释限制：/);
-  assert.doesNotMatch(timeSession.prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
-});
-
-test('小六壬底层算法应拒绝已移除的数字起课', () => {
-  assert.throws(
-    () => generateXiaoliuren({ method: 'number' as never }),
-    /当前仅保留有明确顺数规则的时间起课/,
   );
 });

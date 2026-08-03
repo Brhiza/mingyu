@@ -1,6 +1,5 @@
 import type { BaziChartResult } from './baziTypes';
 import { getCurrentTimeDescription } from './calendarTool';
-import { getLuckCycleForDate } from './luckTiming';
 import { WUXING } from '../wuxing';
 
 interface FormatBaziOptions {
@@ -50,17 +49,24 @@ function formatWuxingSeasonStatus(baziResult: BaziChartResult): string {
     .join(' ');
 }
 
-function filterPromptStrategyTrace(strategyTrace: string[] | undefined): string[] {
-  if (!strategyTrace?.length) return [];
+function formatSolarDateTime(value: {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+}) {
+  return `${value.year}年${value.month}月${value.day}日 ${value.hour}:${String(value.minute).padStart(2, '0')}`;
+}
 
-  return strategyTrace.filter((trace) => {
-    const normalized = trace.trim();
-    if (!normalized) return false;
-
-    return !['成格层次:', '成格转轻:', '病药提示:', '运势警语:'].some((prefix) =>
-      normalized.startsWith(prefix),
-    );
-  });
+function filterPortableStrategyTrace(values: string[] | undefined) {
+  return (values ?? []).filter(
+    (value) =>
+      value &&
+      !['成格层次:', '成格转轻:', '病药提示:', '运势警语:'].some((prefix) =>
+        value.startsWith(prefix),
+      ),
+  );
 }
 
 function formatPromptLuckOverview(baziResult: BaziChartResult): string {
@@ -69,9 +75,6 @@ function formatPromptLuckOverview(baziResult: BaziChartResult): string {
   }
 
   const cycles = baziResult.luckInfo.cycles;
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentLuck = getLuckCycleForDate(cycles, now);
 
   const lines = [`起运: ${baziResult.luckInfo.startInfo}`];
   const cycleOverview = cycles.slice(0, 13).map((cycle, index) => {
@@ -88,43 +91,29 @@ function formatPromptLuckOverview(baziResult: BaziChartResult): string {
     lines.push(...cycleOverview);
   }
 
-  if (!currentLuck) {
-    lines.push('当前阶段: 未匹配到当前大运，只能参考大运总览作长期阶段背景。');
-    return lines.join('\n');
-  }
-
-  if (currentLuck.isXiaoyun) {
-    lines.push('当前阶段: 未起运（行童运）');
-    const preview = currentLuck.years
-      .slice(0, 3)
-      .map((year) => `${year.year}年${year.ganZhi}`)
-      .join(' -> ');
-    if (preview) {
-      lines.push(`近期流年: ${preview}`);
-    }
-    return lines.join('\n');
-  }
-
-  const currentIndex = cycles.findIndex(
-    (cycle) => cycle.ganZhi === currentLuck.ganZhi && cycle.age === currentLuck.age,
+  const currentYear = new Date().getFullYear();
+  const currentCycle = cycles.find((cycle) =>
+    cycle.years.some((year) => year.year === currentYear),
   );
-  const relatedCycles = [
-    currentIndex > 0
-      ? `前运: ${cycles[currentIndex - 1].ganZhi}(${cycles[currentIndex - 1].age}岁)`
-      : '',
-    `当前大运: ${currentLuck.ganZhi}(${currentLuck.age}岁)`,
-    currentIndex >= 0 && currentIndex < cycles.length - 1
-      ? `后运: ${cycles[currentIndex + 1].ganZhi}(${cycles[currentIndex + 1].age}岁)`
-      : '',
-  ].filter(Boolean);
-
-  lines.push(...relatedCycles);
-  const nearYears = currentLuck.years
-    .filter((year) => Math.abs(year.year - currentYear) <= 2)
-    .map((year) => `${year.year}年${year.ganZhi}(${year.age}岁，${year.tenGod}/${year.tenGodZhi})`);
-  if (nearYears.length) {
-    lines.push(`近年流年: ${nearYears.join(' -> ')}`);
+  if (currentCycle) {
+    const currentCycleLabel = currentCycle.isXiaoyun
+      ? `${currentCycle.ganZhi}童运`
+      : `${currentCycle.ganZhi}${currentCycle.type}`;
+    lines.push(`当前大运: ${currentCycleLabel}（${currentCycle.year}年起）`);
   }
+
+  const recentYears = cycles
+    .flatMap((cycle) => cycle.years)
+    .filter((year) => year.year >= currentYear - 2 && year.year <= currentYear + 3)
+    .sort((a, b) => a.year - b.year);
+  if (recentYears.length) {
+    lines.push(
+      `近年流年: ${recentYears
+        .map((year) => `${year.year}年${year.ganZhi}（${year.age}岁）`)
+        .join('、')}`,
+    );
+  }
+
   return lines.join('\n');
 }
 
@@ -152,21 +141,24 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     includeCurrentTiming = true,
     includeSpecialPillars = true,
     includeLuckOverview = true,
-    includeCurrentLiunian = true,
   } = options;
 
   let result = '【命盘】\n';
   const isMale = baziResult.gender === 'male';
   result += `基本信息: ${isMale ? '乾造' : '坤造'} | ${solarDate.year}年${solarDate.month}月${solarDate.day}日 ${timeInfo.name}\n`;
   result += `出生历法: 阳历${solarDate.year}年${solarDate.month}月${solarDate.day}日 | 农历${formatLunarDate(baziResult)} | 生肖:${baziResult.zodiac}\n`;
-  if (baziResult.timing?.enabled) {
-    result += `真太阳时: ${baziResult.timing.correctedTime.year}年${baziResult.timing.correctedTime.month}月${baziResult.timing.correctedTime.day}日 ${String(baziResult.timing.correctedTime.hour).padStart(2, '0')}:${String(baziResult.timing.correctedTime.minute).padStart(2, '0')} | 出生地:${baziResult.timing.birthPlace || '经度定点'} | 经度:${baziResult.timing.birthLongitude}\n`;
-    if (baziResult.timing.dstCorrectionMinutes) {
-      result += `夏令时校正: ${baziResult.timing.dstCorrectionMinutes} 分钟（中国夏令时 1986-1991）\n`;
+  if (baziResult.timing?.enabled && baziResult.timing.correctedTime) {
+    result += `真太阳时: ${formatSolarDateTime(baziResult.timing.correctedTime)}`;
+    if (baziResult.timing.birthPlace) {
+      result += ` | 出生地:${baziResult.timing.birthPlace}`;
     }
+    if (baziResult.timing.birthLongitude != null) {
+      result += ` | 经度:${baziResult.timing.birthLongitude}`;
+    }
+    result += '\n';
   }
-  if (baziResult.warnings?.length) {
-    result += `【定盘说明】\n${baziResult.warnings.map((w) => `- ${w}`).join('\n')}\n`;
+  if (baziResult.timing?.dstCorrectionMinutes != null) {
+    result += `夏令时校正: ${baziResult.timing.dstCorrectionMinutes} 分钟\n`;
   }
   result += `日元本命: ${dayMaster.gan}${dayMaster.element} (${dayMaster.yinYang})\n`;
   if (baziResult.monthCommander) result += `月令司权: ${baziResult.monthCommander}\n`;
@@ -228,21 +220,11 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     if (includeRules && analysis.usefulGod.primaryReason) {
       result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
     }
-    const promptStrategyTrace = filterPromptStrategyTrace(analysis.usefulGod.strategyTrace);
-    if (includeRules && promptStrategyTrace.length) {
-      result += `取用脉络: ${promptStrategyTrace.join(' -> ')}\n`;
+    const strategyLines = filterPortableStrategyTrace(analysis.usefulGod.strategyTrace);
+    if (strategyLines.length) {
+      result += `取用脉络: ${strategyLines.join('；')}\n`;
     }
   }
-
-  result += '\n【定盘口径】\n';
-  result += '换日口径: 晚子时换日（23:00 起换日柱）\n';
-  result += '节气口径: 以节气历表交接时刻换年、换月\n';
-  if (baziResult.timing?.enabled) {
-    result += '时间口径: 已按出生地经度与历史夏令时规则完成真太阳时校正，并采用唯一校正时刻\n';
-  } else {
-    result += '时间口径: 采用明确传统时辰排盘\n';
-  }
-  result += '解读口径: 旺衰、格局、用神均按本次盘面字段与既定规则链直接裁定\n';
 
   result += '\n【四柱】\n';
   const pillarNames = ['年柱', '月柱', '日柱', '时柱'] as const;
@@ -309,31 +291,6 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (includeLuckOverview && baziResult.luckInfo?.cycles) {
     result += '\n【大运】\n';
     result += `${formatPromptLuckOverview(baziResult)}\n`;
-  }
-
-  if (includeCurrentLiunian && baziResult.liunian?.length) {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    let currentLuckStr = '';
-    let currentLiunian = baziResult.liunian.find((year) => year.year === currentYear);
-
-    if (baziResult.luckInfo?.cycles) {
-      const currentLuck = getLuckCycleForDate(baziResult.luckInfo.cycles, now);
-      if (currentLuck?.isXiaoyun) {
-        currentLuckStr = ' | 【当前大运】 未起运(行童运)';
-        currentLiunian =
-          currentLuck.years.find((year) => year.year === currentYear) || currentLiunian;
-      } else if (currentLuck) {
-        currentLuckStr = ` | 【当前大运】 ${currentLuck.ganZhi}运`;
-        currentLiunian =
-          currentLuck.years.find((year) => year.year === currentYear) || currentLiunian;
-      }
-    }
-
-    if (currentLiunian) {
-      result += `\n【当前流年】 ${currentYear}年 ${currentLiunian.ganZhi}${currentLuckStr}\n`;
-      result += `十神: ${currentLiunian.tenGod}/${currentLiunian.tenGodZhi}\n`;
-    }
   }
 
   if (includeCurrentTiming) {

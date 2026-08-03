@@ -6,7 +6,6 @@ import {
   listShenshaCatalog,
   registerShensha,
 } from '../packages/core/src/shensha/index.ts';
-import { assertPromptIsPortableTaskText } from './prompt-assertions.ts';
 
 const context = {
   yearGanZhi: '甲子',
@@ -43,13 +42,12 @@ test('通用神煞证据应严格核验完整四柱并逐项定位命中柱位',
   assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
   assert.ok(analysis.matchFacts.every((item) => item.evidenceStatus === '来源已声明'));
   assert.ok(analysis.matchFacts.every((item) => item.ownerStepKeys.length === 2));
-  assert.match(analysis.promptText, /【通用神煞结构化证据】/);
-  assert.match(analysis.promptText, /神煞命中只能作为传统辅助资料/);
+  assert.match(analysis.promptText, /【通用神煞资料】/);
+  assert.match(analysis.promptText, /【传统依据】/);
   assert.doesNotMatch(
     analysis.promptText,
     /吉凶总分[：=]?\s*\d|成功率[：=]?\s*\d|事件概率[：=]?\s*\d|候选时辰|缺时柱/,
   );
-  assertPromptIsPortableTaskText(analysis.promptText);
 });
 
 test('通用神煞证据应拒绝未知编号、缺柱与非法六十甲子', () => {
@@ -83,5 +81,5 @@ test('动态注册规则未声明来源时应显式保留证据缺口', () => {
   assert.equal(analysis.matchFacts[0]?.evidenceStatus, '来源未声明');
   assert.equal(analysis.summaryFact.status, '存在来源未声明');
   assert.equal(analysis.summaryFact.undeclaredSourceRuleCount, 1);
-  assert.match(analysis.promptText, /本次规则存在未声明来源/);
+  assert.match(analysis.promptText, /未提供公开出处/);
 });

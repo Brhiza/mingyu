@@ -278,10 +278,7 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
   );
   assert.doesNotMatch(prompt, /【断盘要点】/);
   assert.doesNotMatch(prompt, /【八字分析思路】/);
-  assert.match(
-    prompt,
-    /【输出要求】\n先直接回答【问题】，再说明八字主线、紫微校验、两者一致或分歧之处、应期触发和现实建议/,
-  );
+  assert.doesNotMatch(prompt, /【输出要求】|现实建议/);
 });
 
 test('八字紫微合参提示词可写入完整大运流年资料', () => {

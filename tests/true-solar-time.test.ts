@@ -10,7 +10,6 @@ import {
 } from 'mingyu-core/calendar';
 import { calculateTrueSolarTime as legacyCalculateTrueSolarTime } from '../packages/core/src/bazi/trueSolarTime.ts';
 import { checkChinaDst as legacyCheckChinaDst } from '../packages/core/src/bazi/chinaDst.ts';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 type TrueSolarEvidenceResult =
   ReturnType<typeof convertTrueSolarTime> | ReturnType<typeof resolveTrueSolarBirthTime>;
@@ -53,7 +52,6 @@ function assertTrueSolarEvidence(result: TrueSolarEvidenceResult) {
   assert.match(result.promptText, /计算链：/);
   assert.match(result.promptText, /证据汇总：/);
   assert.doesNotMatch(result.promptText, /候选时辰为|出生时间敏感性|缺少时柱/);
-  assertPromptIsPortableTaskText(result.promptText);
 }
 
 test('真太阳时公共入口应复用旧八字算法并返回便捷资料', () => {

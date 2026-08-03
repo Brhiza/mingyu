@@ -338,24 +338,20 @@ export function conditionMeihuaTraditionalText(
 ): Pick<MeihuaTraditionalFact, 'promptText' | 'traditionalSignals' | 'topicTags'> {
   const traditionalSignals = classifyTraditionalSignals(text);
   const topicTags = classifyTraditionalTopics(text);
-  const signalText = traditionalSignals.join('、') || '未见明确吉凶或进退标签';
-  const topicText = topicTags.join('、') || '通用处境类象';
   const location =
     context.kind === '卦辞'
       ? `${context.stage}${context.hexagram}卦辞`
       : context.kind === '用辞'
         ? `${context.stage}${context.hexagram}特殊用辞`
         : `${context.stage}${context.hexagram}第${context.yaoPosition ?? '?'}爻爻辞`;
-  const applicability =
-    context.kind === '卦辞'
-      ? '只作为该阶段卦象的传统分类辅助'
-      : context.kind === '用辞'
-        ? '本次采用单动爻起卦口径，不满足六爻皆变的特殊用辞条件，因此不作为本次判断依据'
-        : context.stage === '主卦' && context.isMoving
-          ? '当前爻位已发动，可作为动爻层位的传统辅助'
-          : '当前爻位未发动，不作为独立判断依据';
+  const promptText =
+    context.kind === '用辞'
+      ? `${location}：仅六爻皆变时使用；当前不满足六爻皆变，不作为本次判断依据`
+      : context.kind === '卦辞'
+        ? `${location}：${traditionalSignals.join('、')}；${topicTags.join('、')}`
+        : `${location}：${context.isMoving ? '当前爻位已发动；' : ''}${traditionalSignals.join('、')}；${topicTags.join('、')}`;
   return {
-    promptText: `${location}包含${signalText}，涉及${topicText}；${applicability}，须以体用生克、主互变推进和现实资料复核，不把古辞中的吉凶、人物、婚育、伤亡或时间措辞直接当作现实结论`,
+    promptText,
     traditionalSignals,
     topicTags,
   };

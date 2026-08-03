@@ -176,7 +176,7 @@ export interface TarotSummaryFact {
   traditionalFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '塔罗证据汇总只统计随机、抽牌、牌阵、逐牌、牌序、相邻元素互参、主题、逆位约束与传统牌义的覆盖情况；不得按数量生成能量分数、吉凶总分、成功率、人物判断或唯一未来';
+  limitation: '塔罗证据汇总只统计随机、抽牌、牌阵、逐牌、牌序、相邻元素互参、主题、逆位约束与牌面事实的覆盖情况；不得按数量生成能量分数、吉凶总分、成功率、人物判断或唯一未来';
 }
 
 export interface TarotTraditionalFact {
@@ -186,11 +186,11 @@ export interface TarotTraditionalFact {
   position: string;
   card: string;
   orientation: '正位' | '逆位';
-  kind: '牌义解释';
+  kind: '牌面事实';
   originalText: string;
   promptText: string;
   sources: string[];
-  limitation: '牌义、关键词、元素与牌阶只作为当前牌位的象征解释材料，不证明现实事件、他人意图、心理状态、疾病、法律事实、财务结果或唯一未来';
+  limitation: '逐牌事实只记录牌位、牌名、正逆位、关键词、元素与牌阶；不证明现实事件、他人意图、心理状态、疾病、法律事实、财务结果或唯一未来';
 }
 
 export interface TarotDrawFact {
@@ -248,7 +248,7 @@ function normalizeElement(element?: string) {
 }
 
 const TRADITIONAL_FACT_LIMITATION =
-  '牌义、关键词、元素与牌阶只作为当前牌位的象征解释材料，不证明现实事件、他人意图、心理状态、疾病、法律事实、财务结果或唯一未来' as const;
+  '逐牌事实只记录牌位、牌名、正逆位、关键词、元素与牌阶；不证明现实事件、他人意图、心理状态、疾病、法律事实、财务结果或唯一未来' as const;
 const DRAW_FACT_LIMITATION =
   '抽牌来源只记录洗牌、牌位顺序与正逆位生成过程；来源链完整不表示牌义可信度、预测有效性或现实结果' as const;
 const CARD_FACT_LIMITATION =
@@ -272,7 +272,7 @@ const LIMITATION_FACT_LIMITATION =
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明随机轨迹、抽牌记录、牌阵覆盖、逐牌映射、牌序、相邻元素互参、主题与逆位约束如何形成当前证据；不证明预测有效性、现实吉凶、人物意图或唯一未来' as const;
 const SUMMARY_FACT_LIMITATION =
-  '塔罗证据汇总只统计随机、抽牌、牌阵、逐牌、牌序、相邻元素互参、主题、逆位约束与传统牌义的覆盖情况；不得按数量生成能量分数、吉凶总分、成功率、人物判断或唯一未来' as const;
+  '塔罗证据汇总只统计随机、抽牌、牌阵、逐牌、牌序、相邻元素互参、主题、逆位约束与牌面事实的覆盖情况；不得按数量生成能量分数、吉凶总分、成功率、人物判断或唯一未来' as const;
 
 function buildSpreadCoverageFact(
   data: TarotData,
@@ -420,31 +420,6 @@ function buildDrawFact(data: TarotData, drawOrderFacts: TarotDrawOrderFact[]): T
         : ['78张塔罗牌组与 Fisher-Yates 洗牌记录', '牌位顺序取牌与逐牌正逆位判定记录'],
     limitation: DRAW_FACT_LIMITATION,
   };
-}
-
-export function conditionTarotTraditionalText(text: string, orientation?: '正位' | '逆位'): string {
-  const conditioned = text
-    .replace(/信息被隐藏/g, '信息可能尚未充分公开')
-    .replace(/还没找到真正答案/g, '尚未取得足以核实的答案')
-    .replace(/公平结果尚未落定/g, '与公平相关的现实结果仍待核实')
-    .replace(/成功比预期更晚到来/g, '与成功期待相关的进展可能晚于预期')
-    .replace(/隐藏信息正在慢慢显现/g, '尚未核实的信息可能逐步出现线索')
-    .replace(/内部结构已不稳/g, '可留意既有安排是否存在不稳定迹象')
-    .replace(/必然/g, '可能')
-    .replace(/一定/g, '可能');
-  const upright = conditioned.match(/^正位强调(.+?)[，,]表示这些能量正在直接发挥作用[。.]?$/);
-  if (upright) {
-    return `正位传统牌义侧重${upright[1]}；可作为这些主题可能较直接呈现的象征线索，须结合牌位与现实资料核实`;
-  }
-  if (orientation === '正位') {
-    const meaning = conditioned.replace(/[。.]$/, '');
-    return `正位传统牌义提示可留意${meaning || '相关主题可能较直接呈现'}；须结合牌位、整组牌序与现实资料核实`;
-  }
-  const reversed = conditioned.replace(/^逆位重点[：:]?/, '').replace(/[。.]$/, '');
-  if (orientation === '逆位' || /^逆位重点[：:]?/.test(conditioned)) {
-    return `逆位传统牌义提示可留意${reversed || '相关主题可能受阻、过度、内化或方向偏离'}；须结合牌位、整组牌序与现实资料核实`;
-  }
-  return `传统牌义提示可留意${reversed || '当前牌面主题'}；须结合正逆位、牌位、整组牌序与现实资料核实`;
 }
 
 function buildSequenceFacts(cards: TarotCardEvidence[]): TarotSequenceFact[] {
@@ -629,8 +604,8 @@ function buildSummaryFact(params: {
     recurringThemeFactCount: params.recurringThemeFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
-    promptText: `证据链状态：${status}；逐牌${params.cards.length}项、抽取顺序${params.drawOrderFacts.length}项、牌序关系${params.sequenceFacts.length}项、相邻元素互参${params.elementInteractionFacts.length}项、主题标签${params.themeFacts.length}项、重复主题${params.recurringThemeFacts.length}项、逆位约束${params.counterEvidenceFacts.length}项、传统牌义${params.traditionalFacts.length}项`,
-    sources: ['全部随机、抽牌、牌阵、逐牌、牌序、相邻元素互参、主题、逆位与传统牌义事实逐项汇总'],
+    promptText: `证据链状态：${status}；逐牌${params.cards.length}项、抽取顺序${params.drawOrderFacts.length}项、牌序关系${params.sequenceFacts.length}项、相邻元素互参${params.elementInteractionFacts.length}项、主题标签${params.themeFacts.length}项、重复主题${params.recurringThemeFacts.length}项、逆位约束${params.counterEvidenceFacts.length}项、牌面事实${params.traditionalFacts.length}项`,
+    sources: ['全部随机、抽牌、牌阵、逐牌、牌序、相邻元素互参、主题、逆位与牌面事实逐项汇总'],
     limitation: SUMMARY_FACT_LIMITATION,
   };
 }
@@ -826,7 +801,7 @@ function buildLimitationFacts(params: {
         ...params.traditionalFacts.map((item) => item.key),
       ],
       promptText: '牌位、牌名、正逆位、关键词、元素和牌阶属于象征解释材料，不是现代统计证据',
-      sources: ['韦特系牌组结构', '牌位与传统牌义解释范围'],
+      sources: ['韦特系牌组结构', '牌位与牌面资料'],
     },
     {
       key: 'tarot:limitation:aggregation',
@@ -866,7 +841,7 @@ function buildLimitationFacts(params: {
       key: 'tarot:limitation:timing',
       type: '时间边界',
       ownerFactKeys: [params.summaryFact.key],
-      promptText: '未给现实期限时不得把牌号、张数或牌义换算为绝对日期',
+      promptText: '未给现实期限时不得把牌号或张数换算为绝对日期',
       sources: ['牌号、张数与现实时间无确定换算关系'],
     },
   ];
@@ -889,17 +864,15 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
       role: '牌组结构',
     },
     {
-      title: '韦特系牌义与牌阵资料',
-      evidence: '牌位、关键词、正逆位、元素主题和牌阶主题的统一解释范围',
-      role: '传统解释来源',
+      title: '韦特系牌名、牌位与牌阵资料',
+      evidence: '牌位、牌名、正逆位、关键词、元素主题和牌阶主题的牌面资料',
+      role: '牌组结构',
     },
   ];
   const cards = data.cards.map((card, index): TarotCardEvidence => {
     const orientation = card.reversed ? '逆位' : '正位';
-    const activeMeaning = card.reversed
-      ? card.reversedMeaning || `${card.keywords.join('、')}相关主题可能受阻、过度或内化`
-      : card.uprightMeaning || `${card.keywords.join('、')}相关主题直接呈现`;
-    const promptMeaning = conditionTarotTraditionalText(activeMeaning, orientation);
+    const activeMeaning = card.keywords.join('、');
+    const promptMeaning = `${card.position}为${card.name}${orientation}`;
     const key = `tarot:card:${index + 1}:${card.id}:${orientation}`;
     const traditionalFactKey = `card:${index + 1}:${card.name}:${orientation}`;
     return {
@@ -919,7 +892,7 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
         ? ['逆位只表示该牌主题可能受阻、过度、内化或方向偏离，须结合牌位与整组牌序']
         : [],
       traditionalFactKey,
-      promptText: `${card.position}为${card.name}${orientation}；关键词${card.keywords.join('、') || '未列'}；元素主题${card.element || '元素未列'}；牌阶主题${card.archetype || '牌阶主题未列'}；${promptMeaning}`,
+      promptText: `${card.position}为${card.name}${orientation}；关键词${card.keywords.join('、') || '未列'}；元素主题${card.element || '元素未列'}；牌阶主题${card.archetype || '牌阶主题未列'}`,
       sources: ['已声明牌阵牌位', '已确定牌号、牌名与正逆位', '韦特系逐牌关键词、元素与牌阶资料'],
       limitation: CARD_FACT_LIMITATION,
     };
@@ -931,10 +904,10 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     position: card.position,
     card: card.name,
     orientation: card.orientation,
-    kind: '牌义解释',
-    originalText: card.activeMeaning,
-    promptText: card.promptMeaning,
-    sources: ['韦特系78张牌组结构', '当前逐牌关键词与正逆位解释资料'],
+    kind: '牌面事实',
+    originalText: `${card.position}为${card.name}${card.orientation}`,
+    promptText: card.promptText,
+    sources: ['韦特系78张牌组结构', '当前逐牌关键词、元素与牌阶资料'],
     limitation: TRADITIONAL_FACT_LIMITATION,
   }));
   const spreadCoverageFact = buildSpreadCoverageFact(data, cards);

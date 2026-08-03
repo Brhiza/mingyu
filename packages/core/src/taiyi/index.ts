@@ -292,7 +292,7 @@ export const TAIYI_MODEL_INFO: TaiyiModelInfo = {
   id: 'taiyi-year-calculation-72-table',
   name: '太乙年计七十二局基础盘',
   supportedScopes: ['year'],
-  precision: '年计按积年与阳遁七十二局立成起局；月、日、时计待完整古籍历法链校勘后恢复',
+  precision: '年计按积年与阳遁七十二局立成起局',
   sources: [
     {
       title: '《太乙金镜式经》',
@@ -469,8 +469,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const ji = Math.ceil(entryYears / 60);
 
   const judgments: string[] = [];
-  if (shiJiPalace === taiyiPalace)
-    judgments.push('掩：始击与太乙同宫，传统称客目掩太乙；只表示位置条件成立。');
+  if (shiJiPalace === taiyiPalace) judgments.push('掩：始击与太乙同宫，传统称客目掩太乙。');
   const imprisonedRoles = [
     wenChangPalace === taiyiPalace ? '文昌' : undefined,
     lordGeneral === taiyiPalace ? '主大将' : undefined,
@@ -478,8 +477,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     guestGeneral === taiyiPalace ? '客大将' : undefined,
     guestAssistant === taiyiPalace ? '客参将' : undefined,
   ].filter((item): item is string => item !== undefined);
-  if (imprisonedRoles.length > 0)
-    judgments.push(`囚：${imprisonedRoles.join('、')}与太乙同宫；只表示传统位置条件成立。`);
+  if (imprisonedRoles.length > 0) judgments.push(`囚：${imprisonedRoles.join('、')}与太乙同宫。`);
   const lordNature = countNature(lordCount);
   const guestNature = countNature(guestCount);
   const setNature = countNature(setCount);
@@ -487,12 +485,11 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   if (guestNature) judgments.push(`客算 ${guestCount} 为${guestNature}。`);
   if (setNature) judgments.push(`定算 ${setCount} 为${setNature}。`);
   if (lordGeneral === 5 || lordAssistant === 5) {
-    judgments.push('主大将或主参将居中宫；只记录将参位置条件。');
+    judgments.push('主大将或主参将居中宫。');
   }
   if (guestGeneral === 5 || guestAssistant === 5) {
-    judgments.push('客大将或客参将居中宫；只记录将参位置条件。');
+    judgments.push('客大将或客参将居中宫。');
   }
-  if (judgments.length === 0) judgments.push('本局未见主目、客目与太乙同位。');
 
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
@@ -537,13 +534,12 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   });
   const prompt = [
     `【太乙神数 · ${scopeInfo.title}】`,
-    `起局时间：${dateTime}；本计干支：${ganZhi}。`,
-    `推算口径：${TAIYI_MODEL_INFO.name}；${TAIYI_MODEL_INFO.precision}。`,
+    `本计干支：${ganZhi}。`,
     `太乙${scopeInfo.accumulated}：${accumulatedValue}；360 周期余数：${entryYears}；第 ${yuan} 个 72 数段、第 ${ji} 个 60 数段；${yinYang}第 ${bureau} 局。`,
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
     `主客定算：主算 ${lordCount}${lordNature ? `（${lordNature}）` : ''}；客算 ${guestCount}${guestNature ? `（${guestNature}）` : ''}；定算 ${setCount}${setNature ? `（${setNature}）` : ''}。`,
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
-    `判断：${judgments.join('；')}`,
+    ...(judgments.length ? [`判断：${judgments.join('；')}`] : []),
     `十六神：${sixteenGodsText}。`,
   ].join('\n');
 

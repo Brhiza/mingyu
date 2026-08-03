@@ -349,7 +349,14 @@ test('择日传统资料应保留原文并为提示词生成条件化事实', ()
     ),
   );
   const candidateTraditionalFacts = evidence.candidates.flatMap((item) => item.traditionalFacts);
-  assert.ok(candidateTraditionalFacts.some((item) => /原生吉凶属性/.test(item.originalText)));
+  assert.ok(candidateTraditionalFacts.some((item) => item.kind === '二十八宿'));
+  assert.doesNotMatch(
+    candidateTraditionalFacts
+      .filter((item) => item.kind === '二十八宿')
+      .map((item) => item.originalText)
+      .join('；'),
+    /tyme4ts|原生吉凶属性/,
+  );
   assert.doesNotMatch(
     candidateTraditionalFacts
       .filter(

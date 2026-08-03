@@ -9,7 +9,6 @@ import {
 } from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeData } from 'mingyu-core/types';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const astrolabeData = generateAstrolabe({
   name: '本人',
@@ -71,7 +70,6 @@ function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
   );
   assert.match(evidence.promptText, /计算链：/);
   assert.match(evidence.promptText, /证据汇总：/);
-  assertPromptIsPortableTaskText(evidence.promptText);
 }
 
 test('星盘本命分析对象只写入本命资料', () => {
@@ -101,7 +99,6 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.equal(context.displayText, '流年 · 2028');
   assert.equal(context.dateStr, '2028');
   assert.match(context.promptText, /分析对象：流年2028。/);
-  assert.match(context.promptText, /取样时间：2028-07-01 12:00/);
   assert.match(context.promptText, /本命宫主星：第1宫/);
   assert.match(context.promptText, /主要行运相位：/);
   assert.match(context.promptText, /行运落宫：/);

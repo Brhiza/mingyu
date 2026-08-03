@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  analyzeLiurenEvidence,
-  conditionLiurenTraditionalText,
-  generateLiuren,
-} from 'mingyu-core/divination/liuren';
+import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
 import { TIANJIANG_ATTRIBUTES } from '../packages/core/src/divination/algorithms/liuren/helpers/plate';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
@@ -322,25 +318,6 @@ test('大六壬登记课体应以稳定键、固定古籍版本进入统一证�
     assert.match(fact.sourceUrl, /oldid=\d+$/);
     assert.match(traditionalFact.promptText, new RegExp(fact.name));
   }
-});
-
-test('十二天将传统属性进入提示词时不得直接证明疾病、死亡、犯罪或婚姻结果', () => {
-  const originalTexts = Object.values(TIANJIANG_ATTRIBUTES).map((item) => item.description);
-  const promptTexts = originalTexts.map(conditionLiurenTraditionalText);
-
-  assert.ok(originalTexts.some((item) => /婚姻/.test(item)));
-  assert.ok(originalTexts.some((item) => /疾病/.test(item)));
-  assert.ok(originalTexts.some((item) => /盗贼/.test(item)));
-  promptTexts.forEach((text) => {
-    assert.doesNotMatch(text, /主婚姻|主官非|主疾病|主死丧|主失窃|主欺骗|必然|必定/);
-  });
-
-  const dangerousText = conditionLiurenTraditionalText(
-    '白虎为凶丧之神，主疾病、死丧、血光、刀兵、破财；六合主婚姻；勾陈主官非。',
-  );
-  assert.match(dangerousText, /传统类象涉及健康、损伤、安全与财物风险等议题/);
-  assert.match(dangerousText, /六合传统类象涉及婚姻/);
-  assert.match(dangerousText, /勾陈传统类象涉及官非/);
 });
 
 test('十二天将不得混入十二月将的五味、主数、地形和身体属性', () => {

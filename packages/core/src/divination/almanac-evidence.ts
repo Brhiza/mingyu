@@ -311,7 +311,7 @@ function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact
   const facts: AlmanacTraditionalFact[] = [];
   if (day.twentyEightStarDetail) {
     const detail = day.twentyEightStarDetail;
-    const originalText = `${detail.fullName}，${detail.zone}方七宿，tyme4ts 原生吉凶属性${detail.fortune}`;
+    const originalText = `${detail.fullName}，${detail.zone}方七宿，${detail.fortune}`;
     facts.push({
       key: `${day.date}:twenty-eight-star:${day.twentyEightStar}`,
       date: day.date,

@@ -163,7 +163,6 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     { birthYear: 1990, gender: 'male', year: 2024, doorToInteriorDegree: 0 },
   ],
   ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
-  ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
   [
     'astrolabe_synastry',
@@ -300,11 +299,6 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     /【占卜信息】/,
   ],
   [
-    'xiaoliuren_prompt',
-    { customDate: '2025-01-01T08:00:00+08:00', question: '这件事接下来如何推进？' },
-    /顺数轨迹：[\s\S]*占得宫：小吉[\s\S]*【问题】\n这件事接下来如何推进？[\s\S]*不得自行补造[\s\S]*固定应期/,
-  ],
-  [
     'qimen_prompt',
     { customDate: '2025-01-01T06:00:00+08:00', question: '这件事何时出现转机？' },
     /占法：奇门遁甲[\s\S]*值符值使与时干：[\s\S]*【问题】\n这件事何时出现转机？/,
@@ -342,11 +336,6 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     },
     /【玄空飞星排盘】[\s\S]*【问题】\n这套宅的飞星怎么看？/,
   ],
-  [
-    'zodiac_prompt',
-    { zodiac: '马', yearGanZhi: '庚子', question: '今年应注意什么？' },
-    /【生肖与流年关系简析】[\s\S]*马（午）遇庚子年[\s\S]*【问题】\n今年应注意什么？/,
-  ],
 ];
 
 const promptToolNames = [
@@ -357,19 +346,15 @@ const promptToolNames = [
   'bazi_ziwei_prompt',
   'liuyao_prompt',
   'meihua_prompt',
-  'xiaoliuren_prompt',
-  'jinkoujue_prompt',
   'qimen_prompt',
   'liuren_prompt',
   'tarot_prompt',
   'ssgw_prompt',
   'almanac_prompt',
-  'lenormand_prompt',
   'astrolabe_prompt',
   'astrolabe_synastry_prompt',
   'bazhai_prompt',
   'residential_prompt',
-  'zodiac_prompt',
   'taiyi_prompt',
 ];
 
@@ -395,7 +380,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 56);
+    assert.equal(tools.length, 48);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -414,8 +399,6 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
-    assert.ok(tools.find((tool) => tool.name === 'divine_jinkoujue'));
-    assert.ok(tools.find((tool) => tool.name === 'jinkoujue_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_residential'));
     assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));
@@ -627,7 +610,8 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           { pillar: 'monthGanZhi', label: '月柱', ganZhi: '丙寅', branch: '寅' },
         ]);
         assert.ok(analysis.matchFacts.every((item) => item.evidenceStatus === '来源已声明'));
-        assert.match(analysis.promptText, /不得凭单项神煞定吉凶/);
+        assert.match(analysis.promptText, /【神煞】/);
+        assert.doesNotMatch(analysis.promptText, /不得凭单项神煞定吉凶/);
         assertPromptIsPortableTaskText(analysis.promptText);
       }
       if (name === 'calendar_astronomical_time') {
@@ -1208,9 +1192,6 @@ test('MCP 一站式提示词工具应同时返回结果和 prompt', async () => 
       assert.ok(result.structuredContent?.result, `${name} 应返回 result`);
       const prompt = String(result.structuredContent?.prompt);
       assert.match(prompt, promptPattern, `${name} prompt 格式不正确`);
-      if (name === 'xiaoliuren_prompt') {
-        assert.doesNotMatch(prompt, /应期触发条件：|换算固定日数/);
-      }
       assertPromptIsPortableTaskText(prompt);
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
@@ -2050,7 +2031,7 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
     assert.match(prompt, /【跨盘相位】/);
     assert.match(prompt, /【跨盘落宫】/);
     assert.match(prompt, /容许度/);
-    assert.match(prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
+    assert.match(prompt, /分析互动主轴、互补点与张力点/);
     assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
     assert.doesNotMatch(prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
     assert.doesNotMatch(prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
@@ -2110,15 +2091,17 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
     assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
-    assert.match(ziweiFrameworkPrompt, /基础十二宫、星曜、四化与运限由 iztro 排盘资料提供/);
-    assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请结合宫位、星曜、四化和三方四正/);
+    assert.doesNotMatch(ziweiFrameworkPrompt, /iztro|排盘资料提供/);
+    assert.match(ziweiFrameworkPrompt, /【当前时间】/);
+    assert.match(ziweiFrameworkPrompt, /【本命资料】/);
+    assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请依据紫微盘面完成解读/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /四化、格局和三方四正/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
     assertPromptIsPortableTaskText(ziweiFrameworkPrompt);
   });
 });
 
-test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', async () => {
+test('MCP 塔罗应返回分层结构化证据并写入提示词', async () => {
   await withMcpClient(async (client) => {
     const tarot = await client.callTool({
       name: 'divine_tarot',
@@ -2260,291 +2243,45 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.doesNotMatch(tarotPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(tarotPrompt, /表示这些能量正在直接发挥作用|信息被隐藏/);
     assertPromptIsPortableTaskText(tarotPrompt);
-
-    const lenormand = await client.callTool({
-      name: 'divine_lenormand',
-      arguments: { spreadType: 'nine', seed: 'MCP雷诺曼证据样例' },
-    });
-    const lenormandData = lenormand.structuredContent?.result as Record<string, any>;
-    assert.equal(lenormand.isError, undefined);
-    assert.equal(lenormandData.evidenceAnalysis.key, 'lenormand:evidence');
-    assert.equal(lenormandData.evidenceAnalysis.status, '已计算');
-    assert.equal(lenormandData.evidenceAnalysis.calculationSteps.length, 8);
-    const lenormandStepKeys = new Set(
-      lenormandData.evidenceAnalysis.calculationSteps.map(
-        (item: Record<string, unknown>) => item.key,
-      ),
-    );
-    assert.ok(
-      lenormandData.evidenceAnalysis.calculationSteps.every(
-        (item: Record<string, any>) =>
-          item.status === '已计算' &&
-          item.promptText &&
-          Array.isArray(item.sources) &&
-          item.sources.length > 0 &&
-          item.dependsOnStepKeys.every((key: string) => lenormandStepKeys.has(key)),
-      ),
-    );
-    assert.equal(
-      lenormandData.evidenceAnalysis.calculationChain.length,
-      lenormandData.evidenceAnalysis.calculationSteps.length,
-    );
-    assert.ok(Array.isArray(lenormandData.evidenceAnalysis.fixedCombinations));
-    assert.ok(Array.isArray(lenormandData.evidenceAnalysis.adjacentReadings));
-    assert.equal(lenormandData.evidenceAnalysis.spreadCoverageFact.status, '完整');
-    assert.equal(lenormandData.evidenceAnalysis.spreadCoverageFact.cardFactKeys.length, 9);
-    assert.equal(lenormandData.evidenceAnalysis.drawFact.status, '可核验');
-    assert.equal(lenormandData.evidenceAnalysis.drawFact.deckSize, 36);
-    assert.equal(lenormandData.evidenceAnalysis.drawFact.order.length, 9);
-    assert.equal(lenormandData.evidenceAnalysis.drawOrderFacts.length, 9);
-    assert.ok(
-      lenormandData.evidenceAnalysis.drawOrderFacts.every(
-        (item: Record<string, unknown>) => item.status === '一致' && item.cardFactKey,
-      ),
-    );
-    assert.equal(lenormandData.evidenceAnalysis.sequenceFacts.length, 8);
-    assert.equal(lenormandData.evidenceAnalysis.layoutCoverageFact.status, '结构化覆盖');
-    assert.equal(lenormandData.evidenceAnalysis.counterEvidenceFacts.length, 2);
-    assert.equal(lenormandData.evidenceAnalysis.limitationFacts.length, 6);
-    assert.ok(
-      lenormandData.evidenceAnalysis.limitationFacts.every(
-        (item: Record<string, any>) =>
-          Array.isArray(item.ownerFactKeys) &&
-          item.ownerFactKeys.length > 0 &&
-          item.ownerFactKeys.every(
-            (key: string) =>
-              key === lenormandData.evidenceAnalysis.summaryFact.key ||
-              lenormandData.evidenceAnalysis.summaryFact.factKeys.includes(key),
-          ),
-      ),
-    );
-    assert.ok(lenormandData.evidenceAnalysis.drawFact.sources.length >= 2);
-    assert.equal(lenormandData.evidenceAnalysis.randomFact.status, '可重放');
-    assert.equal(lenormandData.evidenceAnalysis.randomFact.seed, 'MCP雷诺曼证据样例');
-    assert.doesNotMatch(lenormandData.evidenceAnalysis.randomFact.promptText, /MCP雷诺曼证据样例/);
-    assert.ok(lenormandData.evidenceAnalysis.traditionalFacts.length >= 9);
-    assert.equal(lenormandData.evidenceAnalysis.structuredLayoutFacts.length, 9);
-    assert.equal(lenormandData.evidenceAnalysis.summaryFact.key, 'lenormand:evidence-summary');
-    assert.equal(lenormandData.evidenceAnalysis.summaryFact.status, '证据链完整');
-    assert.equal(
-      lenormandData.evidenceAnalysis.summaryFact.cardFactCount,
-      lenormandData.evidenceAnalysis.cards.length,
-    );
-    assert.equal(
-      lenormandData.evidenceAnalysis.summaryFact.drawOrderFactCount,
-      lenormandData.evidenceAnalysis.drawOrderFacts.length,
-    );
-    assert.equal(
-      lenormandData.evidenceAnalysis.summaryFact.sequenceFactCount,
-      lenormandData.evidenceAnalysis.sequenceFacts.length,
-    );
-    assert.equal(
-      lenormandData.evidenceAnalysis.summaryFact.fixedCombinationCount,
-      lenormandData.evidenceAnalysis.fixedCombinations.length,
-    );
-    assert.equal(
-      lenormandData.evidenceAnalysis.summaryFact.adjacentReadingCount,
-      lenormandData.evidenceAnalysis.adjacentReadings.length,
-    );
-    assert.equal(
-      lenormandData.evidenceAnalysis.summaryFact.structuredLayoutFactCount,
-      lenormandData.evidenceAnalysis.structuredLayoutFacts.length,
-    );
-    assert.equal(
-      lenormandData.evidenceAnalysis.summaryFact.counterEvidenceCount,
-      lenormandData.evidenceAnalysis.counterEvidenceFacts.length,
-    );
-    assert.equal(
-      lenormandData.evidenceAnalysis.summaryFact.traditionalFactCount,
-      lenormandData.evidenceAnalysis.traditionalFacts.length,
-    );
-    assert.ok(
-      lenormandData.evidenceAnalysis.traditionalFacts.every(
-        (item: Record<string, unknown>) =>
-          item.status === '已映射' &&
-          Array.isArray(item.cardFactKeys) &&
-          item.cardFactKeys.length > 0 &&
-          item.originalText &&
-          item.promptText &&
-          Array.isArray(item.verificationTargets) &&
-          item.verificationTargets.length > 0 &&
-          Array.isArray(item.sources) &&
-          item.sources.length > 0 &&
-          String(item.limitation).includes('不证明现实事件'),
-      ),
-    );
-    assert.ok(
-      lenormandData.evidenceAnalysis.structuredLayoutFacts.every(
-        (item: Record<string, unknown>) =>
-          item.status === '已计算' &&
-          Array.isArray(item.cardFactKeys) &&
-          Array.isArray(item.sources),
-      ),
-    );
-
-    const lenormandPromptResult = await client.callTool({
-      name: 'lenormand_prompt',
-      arguments: { spreadType: 'nine', seed: 'MCP雷诺曼证据样例', question: '有哪些线索？' },
-    });
-    const lenormandPrompt = String(lenormandPromptResult.structuredContent?.prompt);
-    assert.match(lenormandPrompt, /占法：雷诺曼/);
-    assert.match(lenormandPrompt, /牌位顺序：[\s\S]*牌位明细：/);
-    assert.doesNotMatch(lenormandPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
-    assert.doesNotMatch(
-      lenormandPrompt,
-      /感情的承诺或婚约|家庭添丁|通过网络\/远程获利|隐藏在迷雾中的欺骗/,
-    );
-    assert.doesNotMatch(
-      `${tarotPrompt}\n${lenormandPrompt}`,
-      /成功率为\d|成功率提升至|吉凶总分[：=]\d/,
-    );
-    assertPromptIsPortableTaskText(lenormandPrompt);
   });
 });
 
-test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文', async () => {
+test('MCP 灵签应返回签号、签题与签诗', async () => {
   await withMcpClient(async (client) => {
-    const confirmed = await client.callTool({
-      name: 'ssgw_prompt',
-      arguments: {
-        question: '这件事应该怎样核实现实条件？',
-        replay: [0.1, 0.1, 0.9],
-      },
+    const drawn = await client.callTool({
+      name: 'divine_ssgw',
+      arguments: { seed: 'MCP灵签样例' },
     });
-    assert.equal(confirmed.isError, undefined);
-    assert.equal(confirmed.structuredContent?.result.ritual.confirmed, true);
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.key, 'ssgw:evidence');
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.status, '已计算');
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.length, 8);
-    const ssgwStepKeys = new Set(
-      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.map(
-        (item: Record<string, unknown>) => item.key,
-      ),
-    );
-    assert.ok(
-      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.every(
-        (item: Record<string, any>) =>
-          item.status === '已计算' &&
-          item.promptText &&
-          Array.isArray(item.sources) &&
-          item.sources.length > 0 &&
-          item.dependsOnStepKeys.every((key: string) => ssgwStepKeys.has(key)),
-      ),
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.calculationChain.length,
-      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.length,
-    );
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.drawFact.status, '可核验');
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.signFact.status, '完整');
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.coverageFact.key,
-      'ssgw:interpretation-coverage',
-    );
-    assert.ok(
-      confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.every(
-        (item: Record<string, unknown>) => item.key && item.status === '已收录' && item.promptText,
-      ),
-    );
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.ritualFact.status, '已确认');
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].key,
-      'ssgw:ritual-throw:1',
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].status,
-      '已记录',
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].ritualFactKey,
-      '仪式:掷筊确认',
-    );
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.sampleCount, 3);
-    assert.match(
-      String(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.limitation),
-      /不表示可信度/,
-    );
-    const confirmedPrompt = String(confirmed.structuredContent?.prompt);
-    assert.match(confirmedPrompt, /占法：三山国王灵签/);
-    assert.match(confirmedPrompt, /掷筊记录：[\s\S]*签诗：[\s\S]*签意：/);
-    assert.doesNotMatch(confirmedPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
-      6,
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.counterSummaryFact.status,
-      '未见额外反证',
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.counterSummaryFact.factKeys.length,
-      0,
-    );
-    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length, 6);
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.key,
-      'ssgw:evidence-summary',
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.status,
-      '证据链完整',
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.interpretationFactCount,
-      confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.length,
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.missingFieldFactCount,
-      confirmed.structuredContent?.result.evidenceAnalysis.missingFieldFacts.length,
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.ritualThrowFactCount,
-      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts.length,
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.counterEvidenceCount,
-      confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.sourceFactCount,
-      confirmed.structuredContent?.result.evidenceAnalysis.sourceFacts.length,
-    );
-    assert.ok(
-      confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.every(
-        (item: Record<string, any>) =>
-          Array.isArray(item.ownerFactKeys) &&
-          item.ownerFactKeys.length > 0 &&
-          item.ownerFactKeys.every(
-            (key: string) =>
-              key === confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.key ||
-              confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.factKeys.includes(
-                key,
-              ),
-          ),
-      ),
-    );
-    assert.equal(
-      confirmed.structuredContent?.result.evidenceAnalysis.limitations.length,
-      confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length,
-    );
-    assert.doesNotMatch(
-      confirmedPrompt,
-      /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
-    );
-    assertPromptIsPortableTaskText(confirmedPrompt);
+    assert.equal(drawn.isError, undefined);
+    assert.equal(typeof drawn.structuredContent?.result.number, 'number');
+    assert.ok(drawn.structuredContent?.result.title);
+    assert.ok(drawn.structuredContent?.result.poem);
+    assert.equal(typeof drawn.structuredContent?.result.timestamp, 'number');
+    assert.ok(drawn.structuredContent?.result.ganzhi.year);
+    assert.equal(drawn.structuredContent?.result.ritual, undefined);
+    assert.equal(drawn.structuredContent?.result.evidenceAnalysis, undefined);
 
-    const rejected = await client.callTool({
+    const prompted = await client.callTool({
       name: 'ssgw_prompt',
       arguments: {
-        question: '这件事应该怎样核实现实条件？',
-        replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
+        question: '这件事接下来该怎么推进？',
+        seed: 'MCP灵签样例',
       },
     });
-    assert.equal(rejected.isError, undefined);
-    assert.equal(rejected.structuredContent?.result.rejected, true);
-    assert.equal(rejected.structuredContent?.result.poem, undefined);
-    assert.doesNotMatch(String(rejected.structuredContent?.prompt), /签诗：/);
-    assert.match(String(rejected.structuredContent?.prompt), /连续三次阴杯|拒绝起签/);
+    assert.equal(prompted.isError, undefined);
+    assert.equal(typeof prompted.structuredContent?.result.number, 'number');
+    assert.ok(prompted.structuredContent?.result.title);
+    assert.ok(prompted.structuredContent?.result.poem);
+    const prompt = String(prompted.structuredContent?.prompt);
+    assert.match(prompt, /占法：三山国王灵签/);
+    assert.match(prompt, /签号：第\d+签/);
+    assert.match(prompt, /签题：《.+》/);
+    assert.match(prompt, /签诗：/);
+    assert.doesNotMatch(
+      prompt,
+      /掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】/,
+    );
+    assertPromptIsPortableTaskText(prompt);
   });
 });
 
@@ -3403,101 +3140,6 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
   });
 });
 
-test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', async () => {
-  await withMcpClient(async (client) => {
-    const chart = await client.callTool({
-      name: 'divine_xiaoliuren',
-      arguments: {
-        xiaoliurenMethod: 'time',
-        customDate: '2025-06-29T08:00:00+08:00',
-      },
-    });
-    const result = (chart.structuredContent as { result: any }).result;
-    assert.equal(result.sequence.month.name, '空亡');
-    assert.equal(result.sequence.day.name, '赤口');
-    assert.equal(result.sequence.hour.name, '留连');
-    assert.equal(result.primary.name, '留连');
-    assert.equal(result.evidenceAnalysis.key, 'xiaoliuren:evidence');
-    assert.equal(result.evidenceAnalysis.status, '已计算');
-    assert.equal(result.evidenceAnalysis.calculationSteps.length, 3);
-    const calculationStepKeys = new Set(
-      result.evidenceAnalysis.calculationSteps.map((item) => item.key),
-    );
-    assert.ok(
-      result.evidenceAnalysis.calculationSteps.every((item) =>
-        item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)),
-      ),
-    );
-    assert.deepEqual(
-      result.evidenceAnalysis.palaceFacts.map((item) => [item.role, item.level]),
-      [
-        ['月宫', '计算轨迹'],
-        ['日宫', '计算轨迹'],
-        ['时宫', '主证'],
-      ],
-    );
-    assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
-    assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
-    assert.ok(
-      result.evidenceAnalysis.calculationFact.steps.every(
-        (item) =>
-          item.key &&
-          item.stage &&
-          item.formula &&
-          item.status === '已计算' &&
-          item.palace &&
-          item.source &&
-          item.limitation,
-      ),
-    );
-    assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链完整');
-    assert.equal(
-      result.evidenceAnalysis.summaryFact.calculationStepCount,
-      result.evidenceAnalysis.calculationSteps.length,
-    );
-    assert.equal(
-      result.evidenceAnalysis.summaryFact.palaceFactCount,
-      result.evidenceAnalysis.palaceFacts.length,
-    );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 5);
-    assert.equal(
-      result.evidenceAnalysis.limitations.length,
-      result.evidenceAnalysis.limitationFacts.length,
-    );
-    const factKeys = new Set([
-      result.evidenceAnalysis.calculationFact.key,
-      ...result.evidenceAnalysis.calculationSteps.map((item) => item.key),
-      ...result.evidenceAnalysis.palaceFacts.map((item) => item.key),
-    ]);
-    assert.ok(
-      result.evidenceAnalysis.limitationFacts.every(
-        (item) =>
-          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
-      ),
-    );
-    assert.match(result.evidenceAnalysis.promptText, /署名不作为已证实的古籍归属/);
-
-    const promptResult = await client.callTool({
-      name: 'xiaoliuren_prompt',
-      arguments: {
-        xiaoliurenMethod: 'time',
-        customDate: '2025-06-29T08:00:00+08:00',
-        question: '这件事应如何推进？',
-      },
-    });
-    const prompt = String(promptResult.structuredContent?.prompt);
-    assert.match(prompt, /占法：小六壬/);
-    assert.match(prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
-    assert.match(prompt, /占得宫：留连/);
-    assert.match(prompt, /歌诀原文：留连事难成/);
-    assert.match(prompt, /计算链：/);
-    assert.match(prompt, /解释限制：/);
-    assert.doesNotMatch(prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
-    assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);
-    assertPromptIsPortableTaskText(prompt);
-  });
-});
-
 test('MCP 时间型占卜工具应拒绝无效 customDate', async () => {
   await withMcpClient(async (client) => {
     const invalidDateCalls: Array<[string, Record<string, unknown>]> = [
@@ -3506,11 +3148,6 @@ test('MCP 时间型占卜工具应拒绝无效 customDate', async () => {
       ['liuyao_prompt', { customDate: '2025-01-01T08:00:00', question: '今年事业如何？' }],
       ['divine_meihua', { customDate: '2025-02-30T08:00:00+08:00' }],
       ['meihua_prompt', { customDate: '2025-02-30T08:00:00+08:00', question: '今年事业如何？' }],
-      ['divine_xiaoliuren', { customDate: '2025-01-01T24:00:00+00:00' }],
-      [
-        'xiaoliuren_prompt',
-        { customDate: '2025-01-01T24:00:00+00:00', question: '今年事业如何？' },
-      ],
       ['qimen_prompt', { customDate: '2025-02-30T08:00:00+08:00', question: '今年事业如何？' }],
       ['divine_liuren', { customDate: '2025-01-01T24:00:00+00:00' }],
     ];
@@ -3557,22 +3194,6 @@ test('MCP 梅花数字起卦应拒绝超出安全整数范围的数字', async (
       const result = await client.callTool({ name, arguments: args });
       assert.equal(result.isError, true, `${name} 超出安全整数范围时应返回错误`);
       assert.equal((result.structuredContent as { error?: string } | undefined)?.error, message);
-    }
-  });
-});
-
-test('MCP 小六壬应拒绝已移除的数字起课方式', async () => {
-  await withMcpClient(async (client) => {
-    for (const name of ['divine_xiaoliuren', 'xiaoliuren_prompt']) {
-      const result = await client.callTool({
-        name,
-        arguments: {
-          xiaoliurenMethod: 'number',
-          xiaoliurenNumber: 18,
-          ...(name.endsWith('_prompt') ? { question: '今年事业如何？' } : {}),
-        },
-      });
-      assert.equal(result.isError, true, `${name} 应拒绝已移除的数字起课方式`);
     }
   });
 });
@@ -4180,164 +3801,6 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);
     assert.doesNotMatch(prompt, /项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/);
     assertPromptIsPortableTaskText(prompt);
-  });
-});
-
-test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级', async () => {
-  await withMcpClient(async (client) => {
-    const result = await client.callTool({
-      name: 'metaphysics_zodiac',
-      arguments: { zodiac: '马', yearGanZhi: '庚子' },
-    });
-    assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
-    const chart = (
-      result.structuredContent as {
-        result: Record<string, unknown> & {
-          evidenceAnalysis: {
-            calculationSteps: Array<{
-              key: string;
-              status: string;
-              dependsOnStepKeys: string[];
-              promptText: string;
-              sources: string[];
-              dependsOnStepKeys: string[];
-              limitation: string;
-            }>;
-            relations: Array<{
-              key: string;
-              status: string;
-              sources: string[];
-              promptText: string;
-              limitation: string;
-            }>;
-            counterEvidenceFacts: Array<{
-              type: string;
-              status: string;
-              ownerRelationKeys: string[];
-              ownerFactKeys: string[];
-            }>;
-            counterSummaryFact: { status: string; factKeys: string[] };
-            summaryFact: {
-              key: string;
-              status: string;
-              factKeys: string[];
-              relationFactCount: number;
-              primaryEvidenceCount: number;
-              supportingEvidenceCount: number;
-              counterEvidenceCount: number;
-              limitationFactCount: number;
-            };
-            limitations: string[];
-            limitationFacts: Array<{
-              key: string;
-              status: string;
-              ownerFactKeys: string[];
-              sources: string[];
-            }>;
-            promptText: string;
-          };
-        };
-      }
-    ).result;
-    assert.equal(chart.interpretationBoundary, '仅限生肖与流年关系');
-    assert.equal(chart.evidenceAnalysis.key, 'zodiac:evidence');
-    assert.equal(chart.evidenceAnalysis.status, '已计算');
-    assert.equal(chart.level, undefined);
-    assert.equal(chart.confidence, undefined);
-    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 4);
-    assert.ok(
-      chart.evidenceAnalysis.calculationSteps.every(
-        (item) =>
-          item.key.startsWith('zodiac:calculation:') &&
-          item.status === '已计算' &&
-          Array.isArray(item.dependsOnStepKeys) &&
-          item.promptText &&
-          item.sources.length >= 2 &&
-          item.limitation.includes('不证明个人现实事件'),
-      ),
-    );
-    assert.ok(
-      chart.evidenceAnalysis.relations.every(
-        (item) =>
-          item.key.startsWith('关系:') &&
-          item.status === '已命中' &&
-          item.sources.length >= 2 &&
-          item.promptText.length > 0 &&
-          item.limitation.includes('不证明现实事件'),
-      ),
-    );
-    assert.equal(chart.evidenceAnalysis.counterEvidenceFacts.length, 3);
-    assert.equal(
-      chart.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '太岁关系覆盖')
-        ?.status,
-      '有可用证据',
-    );
-    assert.equal(chart.evidenceAnalysis.counterSummaryFact.status, '有未命中关系');
-    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 5);
-    assert.equal(chart.evidenceAnalysis.summaryFact.key, 'zodiac:evidence-summary');
-    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
-    assert.equal(
-      chart.evidenceAnalysis.summaryFact.relationFactCount,
-      chart.evidenceAnalysis.relations.length,
-    );
-    assert.equal(
-      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
-      chart.evidenceAnalysis.counterEvidenceFacts.length,
-    );
-    assert.equal(
-      chart.evidenceAnalysis.summaryFact.limitationFactCount,
-      chart.evidenceAnalysis.limitationFacts.length,
-    );
-    const zodiacFactKeys = new Set([
-      chart.evidenceAnalysis.summaryFact.key,
-      ...chart.evidenceAnalysis.summaryFact.factKeys,
-    ]);
-    assert.ok(
-      chart.evidenceAnalysis.counterEvidenceFacts.every(
-        (item) =>
-          item.ownerFactKeys.length > 0 &&
-          item.ownerFactKeys.every((key) => zodiacFactKeys.has(key)),
-      ),
-    );
-    assert.ok(
-      chart.evidenceAnalysis.limitationFacts.every(
-        (item) =>
-          item.ownerFactKeys.length > 0 &&
-          item.ownerFactKeys.every((key) => zodiacFactKeys.has(key)),
-      ),
-    );
-    assert.equal(
-      chart.evidenceAnalysis.limitations.length,
-      chart.evidenceAnalysis.limitationFacts.length,
-    );
-    assert.doesNotMatch(
-      chart.evidenceAnalysis.promptText,
-      /命语|本项目|项目统一|工程|接口|API|MCP/,
-    );
-    assert.match(chart.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
-    assertPromptIsPortableTaskText(chart.evidenceAnalysis.promptText);
-  });
-});
-
-test('MCP 生肖工具返回三会固定关系且不改写为贵人或吉凶', async () => {
-  await withMcpClient(async (client) => {
-    const result = await client.callTool({
-      name: 'metaphysics_zodiac',
-      arguments: { zodiac: '虎', yearGanZhi: '丁卯' },
-    });
-    assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
-    const chart = (result.structuredContent as { result: Record<string, any> }).result;
-    assert.equal(chart.meeting, '三会关系（东方木）');
-    assert.equal(chart.noble, null);
-    assert.ok(!chart.favorableRelations.includes(chart.meeting));
-    assert.ok(!chart.riskRelations.includes(chart.meeting));
-    assert.ok(
-      chart.evidenceAnalysis.relations.some(
-        (item: { category: string; relation: string }) =>
-          item.category === '地支会合' && item.relation === '三会关系（东方木）',
-      ),
-    );
-    assert.match(chart.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
   });
 });
 

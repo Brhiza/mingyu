@@ -24,17 +24,17 @@ function buildEvidenceDrivenHintSection(title: string, evidence: string): string
 
 function formatClassicPatternMainClaim(claim: string): string {
   const normalized = claim.replace(/^人/, '');
-  return `传统多取象为${normalized}，并按原局成败与岁运同看。`;
+  return `传统多取象为${normalized}。`;
 }
 
 function toClassicPatternPromptDescription(description: string): string {
   return description
-    .replace(/主大富大贵。?/g, '传统多视为层次较高，并按原局成败与岁运同看。')
-    .replace(/主大贵。?/g, '传统多视为层次较高，并按原局成败与岁运同看。')
-    .replace(/主清贵富足。?/g, '传统多视为较有清气与发展空间，并按原局成败与岁运同看。')
-    .replace(/主清贵。?/g, '传统多视为较有清气与发展空间，并按原局成败与岁运同看。')
-    .replace(/主名利双收。?/g, '传统多视为较易兼顾名与利，并按原局成败与岁运同看。')
-    .replace(/主异路功名。?/g, '传统多视为发展路径有别于常规，并按原局成败与岁运同看。')
+    .replace(/主大富大贵。?/g, '传统多视为层次较高。')
+    .replace(/主大贵。?/g, '传统多视为层次较高。')
+    .replace(/主清贵富足。?/g, '传统多视为较有清气与发展空间。')
+    .replace(/主清贵。?/g, '传统多视为较有清气与发展空间。')
+    .replace(/主名利双收。?/g, '传统多视为较易兼顾名与利。')
+    .replace(/主异路功名。?/g, '传统多视为发展路径有别于常规。')
     .replace(/因祸得福。?/g, '传统多视为在冲动与转折中仍可能藏有转机。')
     .replace(/财富丰厚。?/g, '传统多视为物质积累倾向较明显。')
     .replace(/多主([^。；]+)[。；]?/g, (_match, claim: string) =>
@@ -44,6 +44,10 @@ function toClassicPatternPromptDescription(description: string): string {
       /(^|[^日])主([^。；]+)[。；]?/g,
       (_match, prefix: string, claim: string) => `${prefix}${formatClassicPatternMainClaim(claim)}`,
     );
+}
+
+function formatClassicPatternLevel(level: string): string {
+  return `传统等级参考：${level}，以成败条件裁定`;
 }
 
 function getKongWangEvidence(chartResult: BaziChartResult): string[] {
@@ -163,7 +167,7 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
 
   if (!classicPattern) return '';
 
-  return `【经典格局】${classicPattern.name}（传统等级参考：${classicPattern.level}，以成败条件裁定） | ${toClassicPatternPromptDescription(classicPattern.description)}`;
+  return `【经典格局】${classicPattern.name}（${formatClassicPatternLevel(classicPattern.level)}） | ${toClassicPatternPromptDescription(classicPattern.description)}`;
 }
 
 /**
@@ -186,9 +190,9 @@ function generatePeachBlossomDetailSection(chartResult: BaziChartResult): string
     const pillarTaohua = chartResult.shensha?.[pillar]?.find((s) => s.includes('桃花'));
     if (pillarTaohua) {
       const d = getPeachBlossomDetail(pillar);
-      lines.push(
-        `${PILLAR_LABELS[pillar]}:${d.type} | ${d.description} | 提示:${d.favorable} | 留意:${d.unfavorable}`,
-      );
+      lines.push(`${PILLAR_LABELS[pillar]}:${d.type} | ${d.description}`);
+      lines.push(`提示:${d.favorable}`);
+      lines.push(`留意:${d.unfavorable}`);
     }
   }
 

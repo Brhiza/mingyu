@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateMoonPhaseEvidence } from '../packages/core/src/calendar/moon-phase-evidence.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const MINUTE = 60_000;
 
@@ -80,7 +79,6 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
       (item) => item.sources.length > 0 && item.limitation.length > 0,
     ),
   );
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('月相证据应区分望、上弦、下弦及盈亏方向', () => {

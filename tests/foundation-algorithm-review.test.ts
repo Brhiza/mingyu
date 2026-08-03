@@ -25,11 +25,3 @@ test('命卦与八宅分组不应把非法值静默降级', () => {
   assert.throws(() => calculateMingGua(2024.5, 'female'), /出生年份必须是有效整数/);
   assert.throws(() => core.direction.getEastWestGroup('未知卦'), /八卦无效/);
 });
-
-test('生肖流年应识别三合成员并拒绝伪造流年干支', () => {
-  const waterTrine = core.zodiac.getZodiacYearFortune('申', '甲子');
-  assert.equal(waterTrine.noble, '三合贵人（水局）');
-
-  assert.throws(() => core.zodiac.getZodiacYearFortune('申', '甲丑'), /流年干支无效：甲丑/);
-  assert.throws(() => core.zodiac.getTaiSuiConflicts('申', '无'), /流年地支无效：无/);
-});

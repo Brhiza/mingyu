@@ -71,18 +71,12 @@ import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
-import {
-  buildMetaphysicsPrompt,
-  insertPromptRealWorldContext,
-  type PromptRealWorldContext,
-} from '@/lib/metaphysics-prompt';
+import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
 import {
   calculateResidentialChart,
   type ResidentialMeasurement,
 } from '@/lib/residential-fengshui-chart';
-import { PromptContextFields } from '@/components/PromptContextFields';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
 
@@ -152,7 +146,6 @@ const LazyMetaphysicsPanel = lazy(async () => {
 
 export function ResultPage() {
   const navigate = useNavigate();
-  const [promptContext, setPromptContext] = useState<PromptRealWorldContext>({});
   const [metaphysicsQuestionDraft, setMetaphysicsQuestionDraft] = useState('');
   const [residentialResult, setResidentialResult] = useState<ResidentialFengshuiResult | null>(
     null,
@@ -1165,9 +1158,7 @@ export function ResultPage() {
             : promptState.promptSource === 'bazi'
               ? previewBaziPromptText
               : previewZiweiPromptText;
-  const previewActivePromptText = appendTraditionalResearchNotice(
-    insertPromptRealWorldContext(basePreviewActivePromptText, promptContext),
-  );
+  const previewActivePromptText = basePreviewActivePromptText;
 
   const aiContextPrompt = useMemo(() => {
     if (promptState.tab !== 'prompt') return '';
@@ -1188,9 +1179,7 @@ export function ResultPage() {
             : promptState.promptSource === 'bazi'
               ? latestBaziPromptText
               : latestZiweiPromptText;
-  const latestActivePromptText = appendTraditionalResearchNotice(
-    insertPromptRealWorldContext(baseLatestActivePromptText, promptContext),
-  );
+  const latestActivePromptText = baseLatestActivePromptText;
   const { copyState, shareState, handleCopy, handleShare } =
     usePromptCopyShare(latestActivePromptText);
   const showShareButton = shouldShowPromptShareButton({
@@ -1600,7 +1589,6 @@ export function ResultPage() {
                       </div>
                     </div>
                     <div className="field-list">
-                      <PromptContextFields value={promptContext} onChange={setPromptContext} />
                       {metaphysicsPromptQuestionField}
                       <div className="prompt-compact-grid">
                         <label className="field-card">
@@ -1750,14 +1738,11 @@ export function ResultPage() {
                   <div className="panel-head">
                     <div>
                       <h2 className="prompt-settings-title">提示词设置</h2>
-                      <p>
-                        选择已生成的排盘作为解读依据，再补充问题和现实情况，即可生成完整提示词。
-                      </p>
+                      <p>选择已生成的排盘作为解读依据，再输入问题，即可生成完整提示词。</p>
                     </div>
                   </div>
 
                   <div className="field-list">
-                    <PromptContextFields value={promptContext} onChange={setPromptContext} />
                     {metaphysicsPromptQuestionField}
                     <>
                       <div className="prompt-compact-grid">
@@ -1903,7 +1888,7 @@ export function ResultPage() {
                   <div className="panel-head">
                     <div>
                       <h2>提示词正文</h2>
-                      <p>排盘资料、问题和输出要求已整理好，复制这一整段提示词即可。</p>
+                      <p>排盘资料和问题已整理好，复制这一整段提示词即可。</p>
                     </div>
                     <div className="action-row compact-actions">
                       <button

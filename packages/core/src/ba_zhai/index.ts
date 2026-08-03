@@ -238,7 +238,7 @@ function resolveEffectiveBirthYear(input: BaZhaiInput): {
   if (!hasMonth || !hasDay) {
     return {
       year,
-      note: '只提供了出生年份；若出生在当年立春前，命卦应按上一年复核。',
+      note: `出生年份：${year}年，未提供月日，按 ${year} 年推命卦。`,
     };
   }
   const month = input.birthMonth!;
@@ -288,9 +288,7 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
   lines.push(`立春年界：${r.birthYearBoundaryNote}`);
   if (r.houseGua) {
     lines.push(`宅卦：${r.houseGua}（${r.houseGroup}）`);
-    lines.push(`命宅配合：${r.match}。${r.matchAdvice}`);
-  } else {
-    lines.push('宅卦：未提供');
+    lines.push(`命宅配合：${r.match}`);
   }
   lines.push(`四吉方：${r.luckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
   lines.push(`四凶方：${r.unluckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
@@ -418,16 +416,31 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
     label,
     promptText: [
       `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
-      `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
+      `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°。`,
       `中心读数换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
       `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅${item.match}）`).join('、')}。`,
+      `测量稳定性为${measurement.stability}，候选坐向${candidateDirections.map((item) => item.label).join('、')}。`,
+      ...(measurement.warnings.length
+        ? [
+            `测量边界：${measurement.warnings
+              .map((warning) =>
+                warning.includes('候选盘')
+                  ? '测量误差范围跨越宅卦边界，并列候选盘'
+                  : warning.includes('磁北')
+                    ? '北向基准未声明，按原始读数处理'
+                    : warning.includes('二十四山')
+                      ? '测量误差范围跨越二十四山边界，候选山向仍属同一宅卦'
+                      : warning,
+              )
+              .join('；')}`,
+          ]
+        : []),
       ...(measurement.stability === '宅卦不稳定'
         ? candidateDirections.map(
             (item) =>
               `- 候选${item.label}：${item.houseGua}宅八宫为${item.housePalace.map((palace) => `${palace.direction}${palace.label}`).join('、')}`,
           )
         : []),
-      measurement.warnings.length ? `测量限制：${measurement.warnings.join('；')}。` : '',
     ]
       .filter(Boolean)
       .join('\n'),

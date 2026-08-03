@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateLiuyao, analyzeLiuyaoEvidence } from 'mingyu-core/divination/liuyao';
 import { isKe, isSheng } from 'mingyu-core/ganzhi';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 const fixedYaos = [7, 8, 9, 6, 7, 8] as const;
@@ -153,8 +152,6 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.ok(changingFact?.changedYao);
   assert.match(evidence.promptText, /→.*（回头|化进|化退|变爻空亡）/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
-  assertPromptIsPortableTaskText(evidence.promptText);
-
   const incomplete = analyzeLiuyaoEvidence({
     ...data,
     yaosDetail: data.yaosDetail.slice(0, 5),
