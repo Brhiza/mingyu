@@ -71,6 +71,32 @@ test('罗计真交点与月孛平均远地点与 Swiss Moshier 独立金标一�
   assert.equal(yueBei.sourceId, 'moshier-mean-lilith');
 });
 
+test('月孛明确采用平均远地点模型，不得回退为瞬时真远地点口径', () => {
+  const result = generateQizheng({
+    year: 2004,
+    month: 1,
+    day: 15,
+    hour: 12,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+  const yueBei = result.stars.find((star) => star.name === '月孛(水余)');
+  const source = result.positionSources.find((item) => item.id === 'moshier-mean-lilith');
+
+  assert.ok(yueBei && source);
+  assert.equal(yueBei.sourceId, 'moshier-mean-lilith');
+  assert.equal(yueBei.precisionClass, '现代天文计算');
+  assert.match(source.calculation, /平均远地点/);
+  assert.match(source.limitations.join('；'), /平均远地点、瞬时真远地点等不同口径/);
+  assert.ok(Math.abs(yueBei.tropicalLongitude - 67.5591396094347) < 0.02);
+  assert.ok(
+    Math.abs(yueBei.tropicalLongitude - 97.47136201100378) > 20,
+    '月孛结果不应采用瞬时真远地点口径',
+  );
+});
+
 test('二十八宿距星黄经与 Astropy ERFA 独立金标一致', () => {
   const boundaries = calculateQizhengMansionBoundaries(new Date('2000-01-01T12:00:00Z'));
   const astropyGold = new Map([

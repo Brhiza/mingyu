@@ -143,6 +143,64 @@ function referenceZhuanpan(
   return result;
 }
 
+function referenceFeipan(
+  isYangDun: boolean,
+  juShu: number,
+  ganZhi: string,
+): Array<{
+  diPan: string;
+  star: string;
+  stem: string;
+  door: string;
+  god: string;
+}> {
+  const diPan = referenceDiPan(isYangDun, juShu);
+  const { zhiFu, zhiShi } = referenceZhiFuZhiShi(ganZhi, isYangDun, juShu);
+  const hourGan = ganZhi.startsWith('甲') ? DUN_JIA[ganZhi] : ganZhi.charAt(0);
+  const zhiFuLanding = diPan.indexOf(hourGan) + 1;
+  const zhiFuHome = STAR_HOME[zhiFu];
+  const steps = HEAVENLY_STEMS.indexOf(ganZhi.charAt(0));
+  const zhiShiRaw = ((zhiFuHome - 1 + (isYangDun ? steps : -steps) + 90) % 9) + 1;
+  const zhiShiLanding = zhiShiRaw === 5 ? 2 : zhiShiRaw;
+
+  const result = Array.from({ length: 9 }, () => ({
+    diPan: '',
+    star: '',
+    stem: '',
+    door: '',
+    god: '',
+  }));
+  for (let index = 0; index < 9; index += 1) {
+    result[index].diPan = diPan[index];
+  }
+
+  const zhiFuStarIndex = PALACE_STARS.indexOf(zhiFu);
+  for (let index = 0; index < 9; index += 1) {
+    const starIndex = (zhiFuStarIndex + index) % 9;
+    const palace = ((zhiFuLanding - 1 + (isYangDun ? index : -index) + 9) % 9) + 1;
+    const star = PALACE_STARS[starIndex];
+    result[palace - 1].star = star;
+    result[palace - 1].stem = diPan[STAR_HOME[star] - 1];
+  }
+
+  const zhiShiDoorIndex = DOORS.indexOf(zhiShi);
+  const zhiShiLuoShuIndex = LUO_SHU_PATH.indexOf(zhiShiLanding);
+  for (let index = 0; index < 8; index += 1) {
+    const palace = LUO_SHU_PATH[(zhiShiLuoShuIndex + index) % 8];
+    result[palace - 1].door = DOORS[(zhiShiDoorIndex + index) % 8];
+  }
+
+  const shenPanStart = zhiFuLanding === 5 ? 2 : zhiFuLanding;
+  const startIndex = LUO_SHU_PATH.indexOf(shenPanStart);
+  const direction = isYangDun ? -1 : 1;
+  for (let index = 0; index < 8; index += 1) {
+    const pathIndex = (startIndex + direction * index + 8) % 8;
+    result[LUO_SHU_PATH[pathIndex] - 1].god = GODS[index];
+  }
+
+  return result;
+}
+
 function snapshots(palaces: ReturnType<typeof arrangeJiuGongGe>) {
   return palaces.map((palace) => ({
     diPan: palace.diPan.stem,
@@ -150,6 +208,16 @@ function snapshots(palaces: ReturnType<typeof arrangeJiuGongGe>) {
     stem: palace.tianPan.stem,
     companionStar: palace.tianPan.companionStar ?? '',
     companionStem: palace.tianPan.companionStem ?? '',
+    door: palace.renPan.door,
+    god: palace.shenPan.god,
+  }));
+}
+
+function feipanSnapshots(palaces: ReturnType<typeof arrangeJiuGongGe>) {
+  return palaces.map((palace) => ({
+    diPan: palace.diPan.stem,
+    star: palace.tianPan.star,
+    stem: palace.tianPan.stem,
     door: palace.renPan.door,
     god: palace.shenPan.god,
   }));
@@ -168,6 +236,25 @@ test('奇门转盘18局六十时辰应逐宫复现独立经典排盘规则', () 
           actual,
           expected,
           `${isYangDun ? '阳' : '阴'}遁${juShu}局 ${ganZhi} 盘面与独立规则不一致`,
+        );
+      }
+    }
+  }
+});
+
+test('奇门飞盘18局六十时辰应逐宫复现独立经典排盘规则', () => {
+  for (const isYangDun of [true, false]) {
+    for (let juShu = 1; juShu <= 9; juShu += 1) {
+      for (const ganZhi of SIXTY_JIAZI) {
+        const { zhiFu, zhiShi } = referenceZhiFuZhiShi(ganZhi, isYangDun, juShu);
+        const actual = feipanSnapshots(
+          arrangeJiuGongGe(isYangDun, juShu, zhiFu, zhiShi, { hour: ganZhi }, 'feipan'),
+        );
+        const expected = referenceFeipan(isYangDun, juShu, ganZhi);
+        assert.deepEqual(
+          actual,
+          expected,
+          `${isYangDun ? '阳' : '阴'}遁${juShu}局 ${ganZhi} 飞盘盘面与独立规则不一致`,
         );
       }
     }
