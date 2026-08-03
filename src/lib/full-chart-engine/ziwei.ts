@@ -411,7 +411,7 @@ function buildZiweiScopePriorityText(payload: AnalysisPayloadV1) {
 }
 
 function buildZiweiOutputRequirementText() {
-  return '使用简体中文，先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。';
+  return '先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。';
 }
 
 function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompatibility>) {
