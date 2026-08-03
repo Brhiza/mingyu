@@ -4077,10 +4077,6 @@ select {
   gap: 8px;
 }
 
-.manual-card-editor.is-lenormand {
-  grid-template-columns: minmax(180px, 1fr) auto;
-}
-
 .manual-card-editor .primary-button {
   min-height: 42px;
   padding-inline: 16px;
@@ -4264,83 +4260,6 @@ select {
 .astrolabe-chart-head strong {
   color: var(--text-strong);
   font-size: 14px;
-}
-
-.xiaoliuren-board {
-  margin-top: 14px;
-}
-
-.xiaoliuren-board .divination-extra-head span {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.xiaoliuren-card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.xiaoliuren-stage-card {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  background: var(--surface-elevated);
-}
-
-.xiaoliuren-stage-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.xiaoliuren-stage-head span {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.xiaoliuren-stage-head strong,
-.xiaoliuren-overview-item strong {
-  color: var(--text-strong);
-  font-size: 14px;
-}
-
-.xiaoliuren-stage-card p,
-.xiaoliuren-overview-item p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.xiaoliuren-stage-card small {
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.xiaoliuren-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.xiaoliuren-overview-item {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  background: var(--surface-elevated);
-}
-
-.xiaoliuren-overview-item span {
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .liuren-board {
@@ -6555,8 +6474,7 @@ div.form-actions.page-submit-actions {
     grid-template-columns: 1fr;
   }
 
-  .manual-card-editor,
-  .manual-card-editor.is-lenormand {
+  .manual-card-editor {
     grid-template-columns: 1fr;
   }
 
@@ -6665,16 +6583,8 @@ div.form-actions.page-submit-actions {
     border-radius: 10px;
   }
 
-  .xiaoliuren-card-grid,
-  .xiaoliuren-overview-grid,
   .astrolabe-board-layout {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .xiaoliuren-stage-card,
-  .xiaoliuren-overview-item {
-    padding: 10px;
-    border-radius: 12px;
   }
 
   .form-row,

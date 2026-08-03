@@ -10,7 +10,6 @@ import {
   normalizeBirthProfile,
 } from '../packages/core/src/profile/index';
 import { getCapabilities, getSystemCapability } from '../packages/core/src/capabilities/index';
-import { generateXiaoliuren } from '../packages/core/src/divination/algorithms/xiaoliuren';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 test('统一出生档案缺少时间时应在排盘前拒绝', () => {
@@ -231,20 +230,4 @@ test('能力清单可序列化且返回副本', () => {
     readFileSync(new URL('../packages/core/package.json', import.meta.url), 'utf8'),
   ) as { version: string };
   assert.equal(first.version, packageJson.version, '能力清单版本必须与核心包版本一致');
-});
-
-test('小六壬能力清单只公开可核验的时间起课', () => {
-  const date = new Date('2026-07-11T08:00:00+08:00');
-  const result = generateXiaoliuren({ method: 'time', customDate: date });
-  const capability = getSystemCapability('xiaoliuren');
-
-  assert.deepEqual(
-    capability?.methods?.map((item) => item.value),
-    ['time'],
-  );
-  assert.equal(capability?.supports.seed, false);
-  assert.equal(capability?.supports.replay, false);
-  assert.equal(capability?.supports.customRandomSource, false);
-  assert.ok(capability?.outputs.includes('时宫主证'));
-  assert.equal(result.primary.name, result.sequence.hour.name);
 });

@@ -184,7 +184,7 @@ export function buildEnhancedZiweiPromptPack(payload: AnalysisPayloadV1, selecte
     selected_topic: selectedTopic,
     scope_type: payload.active_scope.scope,
     scope_label: payload.active_scope.label,
-    focus_notes: ['本资料用于与八字结论交叉校验，不单独脱离问题做空泛总论。'],
+    focus_notes: [],
   };
 
   return buildPortablePromptPack({
@@ -225,8 +225,7 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     ...(isCustomQuestion
       ? []
       : [
-          '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点，最后整合成一致结论、冲突点、应期触发与现实建议。',
-          '【输出要求】\n先直接回答【问题】，再说明八字主线、紫微校验、两者一致或分歧之处、应期触发和现实建议。',
+          '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点，最后整合成一致结论、冲突点与应期触发。',
         ]),
   ]
     .filter(Boolean)

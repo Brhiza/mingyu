@@ -8,10 +8,8 @@
  * - 六爻 (Liuyao / Six Lines)
  * - 梅花易数 (Meihua Yishu / Plum Blossom Divination)
  * - 大六壬 (Da Liuren / Great Six Ren)
- * - 小六壬 (Xiao Liuren / Small Six Ren)
  * - 紫微斗数 (Ziwei Doushu / Purple Star Astrology)
  * - 西洋占星 (Western Astrology)
- * - 雷诺曼 (Lenormand)
  * - 塔罗 (Tarot)
  * - 择日 (Almanac / Day Selection)
  *
@@ -36,7 +34,6 @@ export * as promptEvidence from './prompt-evidence/index';
 
 // 新增术数系统
 export * as bazhai from './ba_zhai/index';
-export * as zodiac from './zodiac/index';
 export * as taiyi from './taiyi/index';
 export * as qizheng from './qi_zheng/index';
 export * as xuankong from './xuan_kong/index';

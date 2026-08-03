@@ -28,19 +28,15 @@ import {
 } from '../date-validation';
 import { generateLiuyao, type LiuyaoGenerationOptions } from 'mingyu-core/divination/liuyao';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
-import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
-import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { bazhai, zodiac, taiyi, qizheng, xuankong, residentialFengshui } from 'mingyu-core';
-import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
+import { bazhai, taiyi, qizheng, xuankong, residentialFengshui } from 'mingyu-core';
+import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import {
   analyzeCompassDirection,
   analyzeShenshaEvidence,
@@ -67,13 +63,11 @@ import type {
   AstrolabeData,
   AstrolabeBirthInput,
   DivinationData,
-  LenormandSpreadType,
   LiuyaoTemplateType,
   LiurenTemplateType,
   MeihuaSettings,
   RandomOptions,
   SupplementaryInfo,
-  XiaoliurenDivinationMethod,
 } from '../../types/divination';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -193,14 +187,11 @@ export function isPublicApiRequestPath(pathname: string) {
 const DIVINATION_METHODS = [
   'liuyao',
   'meihua',
-  'xiaoliuren',
-  'jinkoujue',
   'qimen',
   'liuren',
   'tarot',
   'ssgw',
   'almanac',
-  'lenormand',
   'astrolabe',
 ] as const;
 
@@ -223,7 +214,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
     type: 'string',
     format: 'date-time',
     description:
-      '时间类占卜的自定义起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬；不传则使用当前时间。',
+      '时间类占卜的自定义起卦或排盘时间，支持六爻、梅花易数、奇门遁甲、大六壬；不传则使用当前时间。',
   },
   seed: {
     oneOf: [{ type: 'string' }, { type: 'number' }],
@@ -256,12 +247,6 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
   number: { type: 'integer', minimum: 1 },
-  xiaoliurenMethod: {
-    enum: ['time'],
-    description: '小六壬当前仅保留可核验的通行时间起课。',
-  },
-  jinkoujueMethod: { enum: ['time', 'number', 'random'] },
-  jinkoujueNumber: { type: 'integer', minimum: 1 },
   spreadType: {
     enum: [
       'single',
@@ -274,14 +259,9 @@ const DIVINATION_REQUEST_PROPERTIES = {
       'year',
       'mindBodySpirit',
       'horseshoe',
-      'five',
-      'relationship',
-      'nine',
-      'element',
-      'grandTableau',
     ],
     description:
-      '塔罗支持 single、three、love、career、decision、celtic、chakra、year、mindBodySpirit、horseshoe；雷诺曼支持 single、three、five、relationship、decision、nine、element、grandTableau；不传时使用 single。',
+      '塔罗支持 single、three、love、career、decision、celtic、chakra、year、mindBodySpirit、horseshoe；不传时使用 single。',
   },
   liuyaoTemplate: { enum: ['general', 'ganqing', 'shiye', 'caifu', 'guaishen'] },
   liurenTemplate: { enum: ['general', 'ganqing', 'shiye', 'caifu'] },
@@ -377,7 +357,7 @@ export function getPublicApiOpenApiDocument(
       title: 'AOV 命理与占卜公开 API',
       version: API_VERSION,
       description:
-        '提供真太阳时换算、六十甲子、五行等公共地基能力，以及八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
+        '提供真太阳时换算、六十甲子、五行等公共地基能力，以及八字、紫微斗数、六爻、梅花易数、奇门遁甲、大六壬、塔罗、三山国王灵签、黄历择日、星盘和提示词生成能力。',
     },
     servers: [{ url: `${runtime.origin}/api/${API_VERSION}` }],
     paths: {
@@ -608,29 +588,6 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '梅花易数卦盘' } },
         },
       },
-      '/divination/jinkoujue': {
-        post: {
-          summary: '金口诀起课',
-          description: '生成地分、将神、贵神、人元四位一体课盘。',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
-          responses: { '200': { description: '金口诀课盘' } },
-        },
-      },
-      '/divination/jinkoujue/prompt': {
-        post: {
-          summary: '金口诀提示词',
-          description: '生成金口诀课盘与可外发 AI 提示词。',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest'),
-          responses: { '200': { description: '金口诀课盘与提示词' } },
-        },
-      },
-      '/divination/xiaoliuren': {
-        post: {
-          summary: '小六壬起课',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
-          responses: { '200': { description: '小六壬课盘' } },
-        },
-      },
       '/divination/qimen': {
         post: {
           summary: '奇门遁甲排盘',
@@ -664,13 +621,6 @@ export function getPublicApiOpenApiDocument(
           summary: '黄历择日',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest'),
           responses: { '200': { description: '择日结果' } },
-        },
-      },
-      '/divination/lenormand': {
-        post: {
-          summary: '雷诺曼抽牌',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
-          responses: { '200': { description: '雷诺曼牌阵' } },
         },
       },
       '/divination/astrolabe': {
@@ -722,20 +672,6 @@ export function getPublicApiOpenApiDocument(
           summary: '八宅风水排盘并生成 AI 解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
           responses: { '200': { description: '八宅盘与结构化提示词' } },
-        },
-      },
-      '/metaphysics/zodiac/calculate': {
-        post: {
-          summary: '生肖犯太岁与流年运程',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '犯太岁与运程等级' } },
-        },
-      },
-      '/metaphysics/zodiac/prompt': {
-        post: {
-          summary: '生肖犯太岁与流年运程并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '运程与提示词' } },
         },
       },
       '/metaphysics/taiyi/calculate': {
@@ -1122,14 +1058,12 @@ export function getPublicApiOpenApiDocument(
               maximum: 45,
               description: '方位测量可能误差，用于判断跨山向或跨宅卦边界（八宅）',
             },
-            zodiac: { type: 'string', description: '生肖或地支，如「鼠」或「子」（生肖运程）' },
             year: {
               type: 'integer',
               minimum: 1900,
               maximum: 2200,
-              description: '公元年（默认今年）',
+              description: '公元年（默认今年，用于太乙年计）',
             },
-            yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
             scope: {
               enum: ['year'],
               description: '太乙计式：当前仅开放完成古籍历法链校勘的年计',
@@ -1487,14 +1421,6 @@ async function route(context: RouteContext) {
       return calculateMeihua(await readJson(context.request, true));
     case 'divination/meihua/prompt':
       return buildDivinationPromptResult('meihua', await readJson(context.request));
-    case 'divination/xiaoliuren':
-      return calculateXiaoliuren(await readJson(context.request, true));
-    case 'divination/xiaoliuren/prompt':
-      return buildDivinationPromptResult('xiaoliuren', await readJson(context.request));
-    case 'divination/jinkoujue':
-      return calculateJinkoujue(await readJson(context.request, true));
-    case 'divination/jinkoujue/prompt':
-      return buildDivinationPromptResult('jinkoujue', await readJson(context.request));
     case 'divination/qimen':
       return calculateQimenApi(await readJson(context.request, true));
     case 'divination/qimen/prompt':
@@ -1515,10 +1441,6 @@ async function route(context: RouteContext) {
       return calculateAlmanacApi(await readJson(context.request));
     case 'divination/almanac/prompt':
       return buildDivinationPromptResult('almanac', await readJson(context.request));
-    case 'divination/lenormand':
-      return calculateLenormand(await readJson(context.request, true));
-    case 'divination/lenormand/prompt':
-      return buildDivinationPromptResult('lenormand', await readJson(context.request));
     case 'divination/astrolabe':
       return calculateAstrolabe(await readJson(context.request));
     case 'divination/astrolabe/prompt':
@@ -1532,10 +1454,6 @@ async function route(context: RouteContext) {
       return calculateBaZhaiApi(await readJson(context.request));
     case 'metaphysics/bazhai/prompt':
       return buildBaZhaiPrompt(await readJson(context.request));
-    case 'metaphysics/zodiac/calculate':
-      return calculateZodiacApi(await readJson(context.request));
-    case 'metaphysics/zodiac/prompt':
-      return buildZodiacPrompt(await readJson(context.request));
     case 'metaphysics/taiyi/calculate':
       return calculateTaiyiApi(await readJson(context.request));
     case 'metaphysics/taiyi/prompt':
@@ -1812,20 +1730,10 @@ function buildSolarDate(year: number, month: number, day: number, hour = 0, minu
 function buildMetaphysicsPrompt(
   basePrompt: string,
   input: JsonRecord,
-  method: 'zodiac' | 'taiyi' | 'qizheng' | 'xuankong' | 'residential',
+  method: 'taiyi' | 'qizheng' | 'xuankong' | 'residential',
 ): string {
-  const question =
-    readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。';
+  const question = readString(input, 'question', '').trim() || '请综合解读本次排盘。';
   return buildSharedMetaphysicsPrompt(basePrompt, question, { method });
-}
-
-function resolveZodiacBranch(z: unknown): string {
-  if (typeof z !== 'string' || !z)
-    throw new ApiError(400, 'BAD_REQUEST', 'zodiac 必须是生肖或地支。');
-  if ((EARTHLY_BRANCHES as readonly string[]).includes(z)) return z;
-  const idx = ZODIACS.findIndex((name) => name === z);
-  if (idx >= 0) return EARTHLY_BRANCHES[idx];
-  throw new ApiError(400, 'BAD_REQUEST', `无法识别的生肖/地支：${z}`);
 }
 
 function calculateBaZhaiApi(input: JsonRecord) {
@@ -1885,34 +1793,13 @@ function buildBaZhaiPrompt(input: JsonRecord) {
     responseMode: readPromptResponseMode(input),
     prompt: buildSharedMetaphysicsPrompt(
       result.prompt,
-      readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。',
+      readString(input, 'question', '').trim() || '请综合解读本次排盘。',
       {
         method: 'bazhai',
         measurement: (result as { directionMeasurement?: { promptText: string } })
           .directionMeasurement?.promptText,
       },
     ),
-    fullResult: result,
-  });
-}
-
-function calculateZodiacApi(input: JsonRecord) {
-  const zodiacBranch = resolveZodiacBranch(input.zodiac);
-  const yearGanZhi = readString(input, 'yearGanZhi', '');
-  if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
-    throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
-  }
-  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
-  // 以"立春"为年界：取 2 月 10 日（必在立春之后）推算流年干支，避免 2/4 凌晨尚属上一干支年的误差
-  const gz = yearGanZhi || getGanZhiFromDate(new Date(year, 1, 10)).year;
-  return zodiac.getZodiacYearFortune(zodiacBranch, gz);
-}
-
-function buildZodiacPrompt(input: JsonRecord) {
-  const result = calculateZodiacApi(input);
-  return buildPromptApiResult({
-    responseMode: readPromptResponseMode(input),
-    prompt: buildMetaphysicsPrompt(result.prompt, input, 'zodiac'),
     fullResult: result,
   });
 }
@@ -2593,41 +2480,6 @@ function calculateLiuren(input: JsonRecord) {
   };
 }
 
-function calculateXiaoliuren(input: JsonRecord) {
-  assertNoRandomOptions(input, '小六壬是确定性时间起课，不接受 seed 或 replay。');
-  const method = readEnum(
-    input,
-    'xiaoliurenMethod',
-    ['time'],
-    'time',
-  ) as XiaoliurenDivinationMethod;
-  if (input.xiaoliurenSchool !== undefined || input.xiaoliurenNumber !== undefined) {
-    throw new ApiError(
-      400,
-      'BAD_REQUEST',
-      '小六壬已移除无可靠来源的流派和数字起课参数，当前仅接受时间起课。',
-    );
-  }
-  return generateXiaoliuren({
-    method,
-    customDate: readCustomDate(input),
-  });
-}
-
-function calculateJinkoujue(input: JsonRecord) {
-  const method = readEnum(input, 'jinkoujueMethod', ['time', 'number', 'random'], 'time') as
-    'time' | 'number' | 'random';
-  if (method !== 'random') {
-    assertNoRandomOptions(input, '金口诀仅随机起课接受 seed 或 replay。');
-  }
-  return generateJinkoujue({
-    method,
-    customDate: readCustomDate(input),
-    ...(method === 'number' ? { number: readInteger(input, 'jinkoujueNumber', 1) } : {}),
-    ...(method === 'random' ? readRandomOptions(input) : {}),
-  });
-}
-
 function calculateTarot(input: JsonRecord) {
   const randomOptions = readRandomOptions(input);
   const spreadType = readEnum(
@@ -2654,20 +2506,8 @@ function drawSsgw(input: JsonRecord) {
   return drawRandomSign(readCustomDate(input), readRandomOptions(input));
 }
 
-function shapePublicSsgwResult(result: ReturnType<typeof drawRandomSign>) {
-  if (result.ritual?.rejected) {
-    return {
-      rejected: true,
-      message: result.ritual.reason,
-      ritual: result.ritual,
-      meta: result.meta,
-    };
-  }
-  return result;
-}
-
 function calculateSsgw(input: JsonRecord) {
-  return shapePublicSsgwResult(drawSsgw(input));
+  return drawSsgw(input);
 }
 
 function calculateAlmanac(input: JsonRecord) {
@@ -2700,18 +2540,6 @@ function calculateAlmanac(input: JsonRecord) {
 function calculateAlmanacApi(input: JsonRecord) {
   const result = calculateAlmanac(input);
   return shapeAlmanacResult(result, input);
-}
-
-function calculateLenormand(input: JsonRecord) {
-  return drawLenormandSpread(
-    readEnum(
-      input,
-      'spreadType',
-      ['single', 'three', 'five', 'relationship', 'decision', 'nine', 'element', 'grandTableau'],
-      'single',
-    ) as LenormandSpreadType,
-    readRandomOptions(input),
-  );
 }
 
 function calculateAstrolabe(input: JsonRecord) {
@@ -2860,14 +2688,12 @@ function buildDivinationPromptResult(
   const fullResult =
     method === 'almanac'
       ? shapeAlmanacResult(rawData as AlmanacData, input)
-      : method === 'ssgw'
-        ? shapePublicSsgwResult(rawData as ReturnType<typeof drawRandomSign>)
-        : method === 'astrolabe'
-          ? {
-              ...(rawData as AstrolabeData),
-              scopeEvidence: buildAstrolabeScopeEvidence(input, rawData as AstrolabeData),
-            }
-          : rawData;
+      : method === 'astrolabe'
+        ? {
+            ...(rawData as AstrolabeData),
+            scopeEvidence: buildAstrolabeScopeEvidence(input, rawData as AstrolabeData),
+          }
+        : rawData;
   const summary = getDivinationSummaryBlocks(method, promptData);
   const prompt = buildDivinationPromptText(method, question, promptData, input);
 
@@ -2888,10 +2714,6 @@ function calculateDivinationData(
       return calculateLiuyao(input);
     case 'meihua':
       return calculateMeihua(input);
-    case 'xiaoliuren':
-      return calculateXiaoliuren(input);
-    case 'jinkoujue':
-      return calculateJinkoujue(input);
     case 'qimen':
       return calculateQimen(input);
     case 'liuren':
@@ -2902,8 +2724,6 @@ function calculateDivinationData(
       return drawSsgw(input);
     case 'almanac':
       return calculateAlmanac(input);
-    case 'lenormand':
-      return calculateLenormand(input);
     case 'astrolabe':
       return calculateAstrolabe(input);
     default:
@@ -2971,7 +2791,7 @@ function buildPromptApiResult(params: {
   fullResult: unknown;
   resultSummary?: unknown;
 }) {
-  const prompt = appendTraditionalResearchNotice(params.prompt);
+  const prompt = params.prompt;
   if (params.responseMode === 'prompt-only') {
     return { prompt };
   }

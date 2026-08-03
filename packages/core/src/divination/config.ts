@@ -1,13 +1,10 @@
 import type {
   AlmanacTopic,
   DivinationType,
-  LenormandSpreadType,
   LiuyaoTemplateType,
   LiurenTemplateType,
   MeihuaDivinationMethod,
   TarotSpreadType,
-  XiaoliurenDivinationMethod,
-  JinkoujueDivinationMethod,
 } from '../types/divination';
 
 export type DivinationMethodId =
@@ -16,14 +13,11 @@ export type DivinationMethodId =
       DivinationType,
       | 'liuyao'
       | 'meihua'
-      | 'xiaoliuren'
-      | 'jinkoujue'
       | 'qimen'
       | 'liuren'
       | 'tarot'
       | 'ssgw'
       | 'almanac'
-      | 'lenormand'
       | 'astrolabe'
       | 'taiyi'
     >;
@@ -64,16 +58,6 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     description: '以年家七十二局观察年度气运、动静、攻守与时宜。',
   },
   {
-    value: 'xiaoliuren',
-    label: '小六壬',
-    description: '适合快速判断眼前事情的走势、阻力与行动节奏。',
-  },
-  {
-    value: 'jinkoujue',
-    label: '金口诀',
-    description: '以地分、将神、贵神、人元四位一体判断事情主客、人情与落点。',
-  },
-  {
     value: 'ssgw',
     label: '三山国王灵签',
     description: '随机求签，适合快速获得方向提示。',
@@ -81,17 +65,12 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   {
     value: 'tarot',
     label: '塔罗',
-    description: '适合感受关系、能量状态与行动建议。',
+    description: '适合感受关系、能量状态与牌面指引。',
   },
   {
     value: 'almanac',
     label: '黄历择日',
     description: '按事项、日期范围和参与人八字，筛选更合适的行动日。',
-  },
-  {
-    value: 'lenormand',
-    label: '雷诺曼',
-    description: '偏现实事件判断，适合看关系互动、消息走向和具体选择。',
   },
   {
     value: 'astrolabe',
@@ -111,20 +90,6 @@ export const MEIHUA_METHOD_OPTIONS: Array<{
   { value: 'time', label: '时间起卦' },
   { value: 'number', label: '数字起卦' },
   { value: 'random', label: '随机起卦' },
-];
-
-export const XIAOLIUREN_METHOD_OPTIONS: Array<{
-  value: XiaoliurenDivinationMethod;
-  label: string;
-}> = [{ value: 'time', label: '时间起课' }];
-
-export const JINKOUJUE_METHOD_OPTIONS: Array<{
-  value: JinkoujueDivinationMethod;
-  label: string;
-}> = [
-  { value: 'time', label: '时间起课' },
-  { value: 'number', label: '数字起课' },
-  { value: 'random', label: '随机起课' },
 ];
 
 export const LIUYAO_TEMPLATE_OPTIONS: Array<{
@@ -178,15 +143,4 @@ export const ALMANAC_TOPIC_OPTIONS: Array<{
   { value: 'burial', label: '安葬修坟' },
   { value: 'renovation', label: '修造动土' },
   { value: 'custom', label: '自定义事项' },
-];
-
-export const LENORMAND_SPREAD_OPTIONS: Array<{
-  value: LenormandSpreadType;
-  label: string;
-}> = [
-  { value: 'single', label: '单牌线索' },
-  { value: 'three', label: '三牌事件线' },
-  { value: 'relationship', label: '关系牌阵' },
-  { value: 'decision', label: '选择牌阵' },
-  { value: 'nine', label: '九宫牌阵' },
 ];

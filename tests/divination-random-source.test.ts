@@ -3,9 +3,7 @@ import assert from 'node:assert/strict';
 
 import { drawSpreadCards, getCardKeywords } from '../packages/core/src/divination/tarot.ts';
 import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw.ts';
-import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
-import { generateXiaoliuren } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
 import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao.ts';
 import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
 import { createRandomSource, randomInt } from '../packages/core/src/shared/random.ts';
@@ -21,8 +19,6 @@ test('随机占法支持种子复现抽取结果', () => {
       item.isReversed,
     ]);
   const ssgw = (seed: string) => drawRandomSign(DATE, { seed }).number;
-  const lenormand = (seed: string) =>
-    drawLenormandSpread('five', { seed }).cards.map((item) => [item.id, item.position]);
   const meihua = (seed: string) => {
     const data = generateMeihua(DATE, { method: 'random', seed });
     return [
@@ -34,7 +30,6 @@ test('随机占法支持种子复现抽取结果', () => {
 
   assert.deepEqual(tarot(SEED), tarot(SEED));
   assert.equal(ssgw(SEED), ssgw(SEED));
-  assert.deepEqual(lenormand(SEED), lenormand(SEED));
   assert.deepEqual(meihua(SEED), meihua(SEED));
 });
 
@@ -83,10 +78,8 @@ test('时间三钱法应能稳定产生老阴老阳，分布接近 1:3:3:1', () 
 test('自定义随机源必须返回合法区间，避免抽取结果被坏输入静默污染', () => {
   assert.throws(() => createRandomSource('固定种子' as never), /随机选项必须是对象/);
   assert.throws(() => drawSpreadCards('three', [] as never), /随机选项必须是对象/);
-  assert.throws(() => drawLenormandSpread('three', null as never), /随机选项必须是对象/);
   assert.throws(() => drawRandomSign('无效参数' as never), /随机选项必须是对象/);
   assert.throws(() => generateMeihua(DATE, '随机' as never), /梅花易数起卦设置必须是对象/);
-  assert.throws(() => generateXiaoliuren([] as never), /小六壬起课参数必须是对象/);
   assert.throws(() => generateLiuyao(DATE, null as never), /六爻起卦设置必须是对象/);
   assert.throws(() => createRandomSource({ rng: 0.5 as never }), /自定义随机源必须是函数/);
   assert.throws(

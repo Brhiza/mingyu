@@ -62,20 +62,16 @@
 | `POST /divination/liuyao/prompt`             | 六爻起卦并生成 AI 解读提示词                                                   |
 | `POST /divination/meihua`                    | 梅花易数起卦                                                                   |
 | `POST /divination/meihua/prompt`             | 梅花易数起卦并生成 AI 解读提示词                                               |
-| `POST /divination/xiaoliuren`                | 小六壬起课                                                                     |
-| `POST /divination/xiaoliuren/prompt`         | 小六壬起课并生成 AI 解读提示词                                                 |
 | `POST /divination/qimen`                     | 奇门遁甲排盘                                                                   |
 | `POST /divination/qimen/prompt`              | 奇门遁甲排盘并生成 AI 解读提示词                                               |
 | `POST /divination/liuren`                    | 大六壬排盘                                                                     |
 | `POST /divination/liuren/prompt`             | 大六壬排盘并生成 AI 解读提示词                                                 |
 | `POST /divination/tarot`                     | 塔罗抽牌，返回牌位、正逆位、牌序与结构化证据                                   |
 | `POST /divination/tarot/prompt`              | 塔罗抽牌并生成含解释边界的 AI 解读提示词                                       |
-| `POST /divination/ssgw`                      | 三山国王灵签求签：模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦 |
-| `POST /divination/ssgw/prompt`               | 三山国王灵签求签并生成含签诗主证、典故辅证、仪式反证与现实限制的 AI 提示词     |
+| `POST /divination/ssgw`                      | 三山国王灵签求签：随机取一签并返回签号、签题与签诗原文                         |
+| `POST /divination/ssgw/prompt`               | 三山国王灵签求签并生成 AI 解读提示词                                           |
 | `POST /divination/almanac`                   | 黄历择日                                                                       |
 | `POST /divination/almanac/prompt`            | 黄历择日并生成 AI 解读提示词                                                   |
-| `POST /divination/lenormand`                 | 雷诺曼抽牌，分层返回固定组合、相邻合读与布局证据                               |
-| `POST /divination/lenormand/prompt`          | 雷诺曼抽牌并生成含证据缺口和解释边界的 AI 提示词                               |
 | `POST /divination/astrolabe`                 | 星盘生成                                                                       |
 | `POST /divination/astrolabe/prompt`          | 星盘生成并生成 AI 解读提示词                                                   |
 | `POST /divination/astrolabe/synastry`        | 西占双盘相位、落宫与证据计算                                                   |
@@ -84,8 +80,6 @@
 | `POST /metaphysics/bazhai/prompt`            | 八宅排盘并生成含测量和现实边界的 AI 解读提示词                                 |
 | `POST /metaphysics/residential/calculate`   | 住宅风水：八宅与玄空飞星分层合参结果                                           |
 | `POST /metaphysics/residential/prompt`      | 住宅风水合参并生成 AI 解读提示词                                               |
-| `POST /metaphysics/zodiac/calculate`         | 生肖与流年值冲刑害破、三合六合及结构化关系证据                                 |
-| `POST /metaphysics/zodiac/prompt`            | 生肖流年关系排盘并生成含信息量限制的 AI 解读提示词                             |
 | `POST /metaphysics/taiyi/calculate`          | 太乙神数排盘                                                                   |
 | `POST /metaphysics/taiyi/prompt`             | 太乙神数排盘并生成 AI 解读提示词                                               |
 | `POST /metaphysics/qizheng/calculate`        | 七政四余十一星、真实距星宿界、命身十二宫、庙旺吊照与结构化证据                 |
@@ -101,11 +95,11 @@
 
 1. 用户提供了完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先用 `POST /bazi-ziwei/prompt`。八字负责定命局主线、喜忌和岁运，紫微负责校验宫位、四化、三方四正和运限，通常比单独八字或单独紫微更稳。
 2. 用户只提供出生年月日时，但问题只要求单一体系，或明确要求“只看八字”“只看紫微”时，再分别用 `POST /bazi/prompt` 或 `POST /ziwei/prompt`。
-3. 用户问“这件事现在能不能做、要不要推进、对方态度、短期成败、近期应期”这类即时问题，优先用时间类占卜提示词：六爻、奇门、梅花、小六壬、大六壬。
+3. 用户问“这件事现在能不能做、要不要推进、对方态度、短期成败、近期应期”这类即时问题，优先用时间类占卜提示词：六爻、奇门、梅花、大六壬。
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
-6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、雷诺曼、灵签等提示词接口。
-7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；生肖犯太岁、太乙和七政四余仍用各自 `/metaphysics/{method}/prompt`。
+6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
+7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙和七政四余仍用各自 `/metaphysics/{method}/prompt`。
 
 常见问题到推荐接口：
 
@@ -123,17 +117,15 @@
 | 只看紫微宫位、四化、某年某月运限   | `POST /ziwei/prompt`                         | `promptTopic`，`promptScope: "full"`、`"yearly"`、`"monthly"`、`"daily"` 或 `"hourly"`                                                                      | 明确要求紫微时使用                                                               |
 | 当前事项能否推进、短期成败         | `POST /divination/liuyao/prompt`             | `question`，必要时传 `customDate`                                                                                                                           | 六爻适合一事一问、取用和应期                                                     |
 | 项目推进、方向选择、谈判出行、方位 | `POST /divination/qimen/prompt`              | `question`，可选 `qimenMethod: "zhuanpan"` 或 `"feipan"`，必要时传 `customDate`                                                                             | 奇门适合时空局势、路径、方位和行动窗口                                           |
-| 临时小事、快速判断                 | `POST /divination/xiaoliuren/prompt`         | `question`，可选 `xiaoliurenMethod: "time"` 和 `customDate`                                                                                                | 返回月、日、时顺数轨迹、时宫歌诀及来源、历法与解释限制；不用于长期命运 |
 | 以数字或时间起卦的象意判断         | `POST /divination/meihua/prompt`             | `question`，可选 `method`、`number` 或 `customDate`                                                                                                         | 梅花适合象意、触发点和过程结果                                                   |
 | 更传统复杂的一事一课               | `POST /divination/liuren/prompt`             | `question`，可选 `liurenTemplate` 和 `customDate`                                                                                                           | 大六壬适合较严肃的事项推演                                                       |
 | 结婚、搬家、开业、签约、出行、安葬 | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`                                                                                    | 只在候选日期范围内择优，不应让 AI 推荐范围外日期                                 |
 | 星盘本命、行运、流年流月           | `POST /divination/astrolabe/prompt`          | 出生时间地点，经纬度，`astrolabeTopic`，`astrolabeScope: "full"` 或指定范围                                                                                 | 需要经纬度和时区，资料不足时应先补齐                                             |
 | 西占双方关系、合作或婚恋互动       | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                                                                                                     | 返回跨盘相位、容许度、落宫和解释边界，不给虚假匹配分                             |
-| 牌面灵感、关系牌阵、选择牌阵       | `POST /divination/tarot/prompt` 或雷诺曼     | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                                 |
-| 求签                               | `POST /divination/ssgw/prompt`               | `question`                                                                                                                                                  | 有三连阴杯等拒签情况时，应如实返回，不强行解释                                   |
+| 牌面灵感、关系牌阵、选择牌阵       | `POST /divination/tarot/prompt`             | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                                 |
+| 求签                               | `POST /divination/ssgw/prompt`               | `question`                                                                                                                                                  | 返回签号、签题与签诗，直接围绕问题解读                                           |
 | 住宅风水（八宅+玄空）             | `POST /metaphysics/residential/prompt`       | 山向或居住人至少一项：`birthYear`+`gender`/`mingGua`，`sitMountain`/`facingDegree`/`doorToInteriorDegree`，可选 `year` 建造/起运年                         | 统一入口；可只做人宅、只做宅运或两者合参；不给综合吉凶总分                        |
 | 仅八宅命卦、坐山吉凶               | `POST /metaphysics/bazhai/prompt`            | `birthYear`、`gender`、可选 `sitMountain`；实测可传 `doorToInteriorDegree`、`northReference`、`magneticDeclinationDegrees`、`measurementUncertaintyDegrees` | 返回磁北/真北换算、候选坐向与边界稳定性                                          |
-| 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                                               |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | 当前只接受 `scope: "year"` 与 `year`                                                                                                                       | 年计按积年与阳遁七十二局立成；结果含 `evidenceAnalysis` 结构化证据              |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`                                                                        | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照和分层天文证据                       |
 | 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选 `guaType`（下卦或替卦）、测量误差                                                                      | 返回下卦或兼向替卦的三元九运、三盘飞星、替星过程、到山到向与结构化证据             |
@@ -385,12 +377,10 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 八字 `school` 支持 `traditional`（传统派子平正法）、`mangpai`（盲派十神象法）、`xinpai`（新派调候流通）。不传则不附加流派指引。
 - 八字 `shenShaVariants` 用于请求神煞争议口径；不传时使用默认主流口径：空亡只按日柱旬空、羊刃只取阳干帝旺、童子煞只查日柱和时柱。可选值：`kongWangBasis` 为 `day` 或 `day-and-year`；`yangRenMode` 为 `yang-stems-only` 或 `include-yin-ren`；`tongZiScope` 为 `day-hour` 或 `all-pillars`。
 - 紫微 `school` 支持 `sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。它只改变提示词的解读侧重点，不改变底层安星算法；本次实际采用的 `iztro` 算法、闰月、分年、运限月份、小限年龄和晚子时口径以 `calculationConfig` / `payloadByScope.*.calculation_config` 为准。
-- `customDate` 用于指定时间类占卜的起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬；不传时使用服务器当前时间。该字段必须使用带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00` 或 `2025-01-01T00:00:00Z`。
+- `customDate` 用于指定时间类占卜的起卦或排盘时间，支持六爻、梅花易数、奇门遁甲、大六壬；不传时使用服务器当前时间。该字段必须使用带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00` 或 `2025-01-01T00:00:00Z`。
 - Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用时请显式设置正常 `User-Agent`，例如 `curl/8.0.0` 或业务自己的客户端名称。
 - 梅花易数 `method` 支持 `time`、`number`、`random`、`timeTrigram`。数字起卦使用 `number`；`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。
 - 梅花排盘结果的 `evidenceAnalysis` 返回主卦起因、互卦过程、变卦结果三阶段体用关系、月建旺衰、推进变化、支持项、限制项和触发条件。动爻与卦数只保留为层位和取数旁证，不机械换算绝对日期，也不输出吉凶总分或成功率。
-- 小六壬 `xiaoliurenMethod` 当前仅支持 `time`（默认）；可用 `customDate` 指定起课时间。数字、随机、流派参数已移除，因为未取得足以支持这些扩展的可靠出处。
-- 金口诀 `jinkoujueMethod` 支持 `time`、`number`、`random`，数字起课时使用 `jinkoujueNumber`；排盘结果含地分、将神、贵神、人元四位、取用主线与结构化证据。
 - 塔罗 `spreadType` 支持 `single`、`three`、`love`、`career`、`decision`、`celtic`、`chakra`、`year`、`mindBodySpirit`、`horseshoe`。
 - 六爻 `liuyaoTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`、`guaishen`。
 - 六爻排盘结果的 `evidenceAnalysis` 返回用神候选、本卦与伏神爻位、原神忌神仇神作用链、月日和动变支持、空破墓退反证及触发条件。提示词会按 `liuyaoTemplate` 重新选择对应主题候选；候选不等于已定用神，也不输出吉凶总分或成功率。
@@ -401,7 +391,6 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。日期范围一次最多 31 天，`participants` 一次最多 30 位；更大范围或更多参与人请拆成多次请求。
 - 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时保持旧行为返回全部日期；传分页后只返回当前页日期，并带 `pagination`。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
 - 黄历择日结果的 `evidenceAnalysis` 会把当前返回范围内的日期分成可用、条件和慎用候选，逐日列出事项宜忌、建除神煞、参与人刑冲破害、方向限制、可用时辰与现实约束。分页时证据会按当前页重新计算；核心结果、公开 API、MCP 与提示词均不返回内部日期或时辰排序分数，也不把排序解释成成功率。
-- 雷诺曼 `spreadType` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`，不传时使用 `single`。
 - 星盘需要 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。历史日期及实行夏令时的地区推荐使用 IANA 时区；秋季回拨的一时两刻会保留候选和警告，春季跳时中不存在的当地时刻会被拒绝。可传 `useTrueSolarTime` 附带真太阳时参考证据，但现代星历始终采用民用出生时间对应的真实 UTC 瞬间。
 - 星盘本命与行运相位会输出距精确角偏差、紧密等级和归一化容许度位置；归一化位置只用于相位分层，不代表事件概率或吉凶比例。
 - 流年星盘中的太阳返照先在出生日期附近按 2 小时步长寻找太阳黄经过零区间，再用二分法细化至 1 分钟范围；提示词会同时写出当地钟表时刻、固定时区、黄经残差、迭代次数、星历来源和精度边界，不以显示到分钟宣称观测级精度。

@@ -162,7 +162,7 @@ test('紫微提示词快照不得重新接入未校勘的旧格局数据', () =>
   assert.match(snapshot, /【十二宫资料】/);
 });
 
-test('紫微提示词快照应输出已校勘格局的条件、古籍依据与判断边界', () => {
+test('紫微提示词快照应输出已校勘格局的条件与古籍依据', () => {
   const payload = createPayload();
   payload.patterns = detectPatterns({ palaces: payload.palaces });
   payload.pattern_analysis = buildPatternAnalysis({
@@ -178,7 +178,6 @@ test('紫微提示词快照应输出已校勘格局的条件、古籍依据与�
   assert.match(snapshot, /格局：紫府同宫/);
   assert.match(snapshot, /命中条件：紫微与天府同坐命宫/);
   assert.match(snapshot, /古籍依据：《紫微斗数全书》卷一/);
-  assert.match(snapshot, /只表示盘面满足该条登记条件/);
   assert.doesNotMatch(snapshot, /因此必然|命盘总分|保证实现/);
 });
 
@@ -448,14 +447,8 @@ test('紫微运限提示词应保留分析对象和简短任务', () => {
   assert.doesNotMatch(prompt, /【分析对象优先级】/);
   assert.doesNotMatch(prompt, /【运限解读规则】/);
   assert.doesNotMatch(prompt, /【分析框架】/);
-  assert.match(
-    prompt,
-    /【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】，并给出现实建议。/,
-  );
-  assert.match(
-    prompt,
-    /【输出要求】\n使用简体中文，先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。/,
-  );
+  assert.match(prompt, /【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】。/);
+  assert.doesNotMatch(prompt, /【输出要求】|现实建议|使用简体中文/);
   assert.doesNotMatch(
     prompt,
     /【解读目标】|【解读范围】|【解读方法】|【断盘要点】|证据汇总|解释边界/,

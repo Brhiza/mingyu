@@ -100,7 +100,6 @@ function buildPatternSummary(payload: AnalysisPayloadV1) {
     涉及宫位: pattern.palace_names.join('、'),
     涉及星曜: pattern.star_names.join('、'),
     古籍依据: pattern.sources?.[0],
-    判断边界: '只表示盘面满足该条登记条件，须结合全盘与现实资料，不代表必然结果',
   }));
 }
 

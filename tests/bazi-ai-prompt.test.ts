@@ -68,7 +68,7 @@ test('八字合盘不再附加系统提示词，并保留双盘资料与简明�
   assertPromptHasSingleRole(prompt.user, PROMPT_ROLE_TEXT['bazi-compatibility']);
   assert.match(prompt.user, /【双盘关系资料】/);
   assert.match(prompt.user, /日主关系：/);
-  assert.match(prompt.user, /【任务】\n关系范围：合伙。请先判断关系主轴/);
+  assert.match(prompt.user, /【任务】\n关系范围：合伙。请依据双方盘面回答【问题】。/);
   assert.doesNotMatch(prompt.user, /结构化证据|证据边界|不得编造|只基于/);
 });
 
@@ -85,7 +85,8 @@ test('八字输出提示词应是可复制给在线 AI 的独立任务书，不�
     { id: 'ai-career', prompt: '测试', scopeLabel: '事业' },
     result,
   );
-  const combinedPrompt = `${prompt.system}\n\n${prompt.user}`;
+  assert.equal(prompt.system, '');
+  const combinedPrompt = prompt.user;
 
   assertPromptHasSingleRole(combinedPrompt, PROMPT_ROLE_TEXT.bazi);
   assertNoEngineeringPromptText(combinedPrompt);
@@ -896,14 +897,8 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
     'career',
   );
   assert.doesNotMatch(careerPrompt.user, /【合盘分析思路】/);
-  assert.match(
-    careerPrompt.user,
-    /【任务】\n关系范围：合伙。请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。/,
-  );
-  assert.match(
-    careerPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。/,
-  );
+  assert.match(careerPrompt.user, /【任务】\n关系范围：合伙。请依据双方盘面回答【问题】。/);
+  assert.doesNotMatch(careerPrompt.user, /【输出要求】|现实建议/);
 
   const friendshipPrompt = getCompatibilityPrompt(
     '请分析我们两人的朋友相处模式。',
@@ -920,10 +915,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
     'children',
   );
   assert.doesNotMatch(childrenPrompt.user, /【合盘分析思路】|【子女缘分】/);
-  assert.match(
-    childrenPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。/,
-  );
+  assert.doesNotMatch(childrenPrompt.user, /【输出要求】|现实建议/);
 
   const parentsPrompt = getCompatibilityPrompt('请分析双方父母情况。', result1, result2, 'parents');
   assert.doesNotMatch(parentsPrompt.user, /【合盘分析思路】|【父母研判】/);

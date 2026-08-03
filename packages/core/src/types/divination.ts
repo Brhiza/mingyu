@@ -14,159 +14,20 @@ export type SixGod = '青龙' | '朱雀' | '勾陈' | '螣蛇' | '白虎' | '玄
 export type DivinationType =
   | 'liuyao'
   | 'meihua'
-  | 'xiaoliuren'
-  | 'jinkoujue'
   | 'qimen'
   | 'liuren'
   | 'tarot'
   | 'tarot_single'
   | 'ssgw'
   | 'almanac'
-  | 'lenormand'
   | 'astrolabe'
   | 'taiyi';
 
 export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
 
-export type XiaoliurenDivinationMethod = 'time';
-
 export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
   number?: number;
-}
-
-export interface XiaoliurenPalaceDetail {
-  name: '大安' | '留连' | '速喜' | '赤口' | '小吉' | '空亡';
-  index: number;
-  verse: string;
-}
-
-export interface XiaoliurenData {
-  meta?: CoreResultMeta;
-  method: XiaoliurenDivinationMethod;
-  methodLabel: string;
-  timestamp: number;
-  lunarMonth: number;
-  lunarDay: number;
-  isLeapMonth: boolean;
-  hourIndex: number;
-  hourLabel: string;
-  ganzhi: { year: string; month: string; day: string; hour: string };
-  /** 起课输入、逐宫顺数与六宫归一的可复核计算过程。 */
-  calculation: {
-    lunarMonth: number;
-    lunarDay: number;
-    hourNumber: number;
-    monthSeed: number;
-    daySeed: number;
-    hourSeed: number;
-    monthPalaceIndex: number;
-    dayPalaceIndex: number;
-    hourPalaceIndex: number;
-    dayBoundary: '东八区民用日零点换日';
-    leapMonthRule: '闰月沿用同名月序';
-  };
-  sequence: {
-    month: XiaoliurenPalaceDetail;
-    day: XiaoliurenPalaceDetail;
-    hour: XiaoliurenPalaceDetail;
-  };
-  palaceOrder: XiaoliurenPalaceDetail[];
-  primary: XiaoliurenPalaceDetail;
-  evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
-}
-
-export type JinkoujueDivinationMethod = 'time' | 'number' | 'random';
-
-export type JinkoujuePositionName = '地分' | '将神' | '贵神' | '人元';
-
-export type JinkoujueYinYang = '阳' | '阴';
-
-export interface JinkoujueFourPosition {
-  name: JinkoujuePositionName;
-  role: string;
-  branch: string;
-  stem?: string;
-  stemElement?: string;
-  god?: string;
-  element: string;
-  elementBasis: '地分支' | '月将支' | '贵神本属' | '人元干';
-  yinYang: JinkoujueYinYang;
-  seasonState: string;
-  isVoid: boolean;
-  support: string[];
-  constraints: string[];
-  promptText: string;
-}
-
-export interface JinkoujueMovement {
-  category: '五动' | '三动';
-  name: '妻动' | '官动' | '贼动' | '财动' | '鬼动' | '父母动' | '子孙动' | '兄弟动';
-  from: JinkoujuePositionName;
-  to: JinkoujuePositionName;
-  relation: '克' | '生' | '比和';
-  trigger: string;
-  source: string;
-}
-
-export interface JinkoujueData {
-  meta?: CoreResultMeta;
-  method: JinkoujueDivinationMethod;
-  methodLabel: string;
-  timestamp: number;
-  ganzhi: BaseGanZhi;
-  dayNight: '昼占' | '夜占';
-  monthLeader: string;
-  divinationBranch: string;
-  noblemanBranch: string;
-  xunKong: string[];
-  diFenBranch: string;
-  positions: {
-    diFen: JinkoujueFourPosition;
-    jiangShen: JinkoujueFourPosition;
-    guiShen: JinkoujueFourPosition;
-    renYuan: JinkoujueFourPosition;
-  };
-  relations: {
-    guiToJiang: string;
-    guiToRen: string;
-    jiangToDi: string;
-    renToDi: string;
-    guiToDi: string;
-  };
-  yinYangUse: {
-    pattern: '三阴一阳' | '三阳一阴' | '二阴二阳' | '纯阴' | '纯阳';
-    yinCount: number;
-    yangCount: number;
-    usePosition: JinkoujuePositionName;
-    rule: string;
-    isVoid: boolean;
-  };
-  movements: JinkoujueMovement[];
-  mainLine: string;
-  calculation: {
-    method: JinkoujueDivinationMethod;
-    methodLabel: string;
-    inputBase: number;
-    inputBaseSource: '占时地支序数' | '用户数字' | '随机数';
-    diFenNote: string;
-    monthLeaderRule: string;
-    yuanDunRule: string;
-    dayNightRule: string;
-    noblemanRule: string;
-    noblemanDirection: '顺布' | '逆布';
-    guiShenRule: string;
-  };
-  focusEvidence?: Array<{
-    target: string;
-    role: string;
-    level: '主证' | '辅证';
-    evidence: string[];
-    limitations: string[];
-  }>;
-  summary: string;
-  randomTrace?: import('../shared/random').RandomTrace;
-  evidenceAnalysis?: import('../divination/jinkoujue-evidence').JinkoujueEvidenceAnalysis;
 }
 
 export interface BaseGanZhi {
@@ -1018,55 +879,6 @@ export interface AlmanacData {
   timestamp: number;
 }
 
-export type LenormandSpreadType =
-  'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau';
-
-export type LenormandCombinationRelation = '牌序相邻' | '横向相邻' | '纵向相邻' | '对角相邻';
-
-export interface LenormandData {
-  meta?: CoreResultMeta;
-  spreadType: LenormandSpreadType;
-  spreadName: string;
-  draw?: {
-    deckSize: number;
-    method:
-      'Fisher-Yates洗牌后依牌位顺序取顶牌' | '用户按牌位手工录入' | '用户逐张触发前端随机抽取';
-    order: Array<{
-      index: number;
-      position: string;
-      cardId: number;
-      cardName: string;
-      house?: string;
-      row?: number;
-      column?: number;
-    }>;
-  };
-  cards: {
-    id: number;
-    name: string;
-    position: string;
-    keywords: string[];
-    meaning: string;
-    house?: string;
-    row?: number;
-    column?: number;
-  }[];
-  combinations?: Array<{
-    card1: string;
-    card2: string;
-    position1?: string;
-    position2?: string;
-    relation?: LenormandCombinationRelation;
-    rowDistance?: number;
-    columnDistance?: number;
-    meaning: string;
-    source?: '固定组合' | '相邻牌义合读';
-  }>;
-  layoutEvidence?: string[];
-  timestamp: number;
-  evidenceAnalysis?: import('../divination/lenormand-evidence').LenormandEvidenceAnalysis;
-}
-
 export interface AstrolabeBirthInput {
   name: string;
   gender: AlmanacParticipantGender;
@@ -1345,26 +1157,11 @@ export interface TaiyiResult {
   prompt: string;
 }
 
-export interface SsgwRitualThrow {
-  result: '圣杯' | '笑杯' | '阴杯';
-  firstFace?: '阳面' | '阴面';
-  secondFace?: '阳面' | '阴面';
-}
-
-export interface SsgwRitual {
-  throws: SsgwRitualThrow[];
-  confirmed?: boolean;
-  rejected?: boolean;
-  reason?: string;
-}
-
 export interface SsgwData {
   meta?: CoreResultMeta;
   number: number;
   title: string;
   poem: string;
-  story?: string;
-  details?: { [key: string]: string };
   timestamp: number;
   ganzhi: BaseGanZhi;
   draw?: {
@@ -1373,21 +1170,16 @@ export interface SsgwData {
     selectedIndex: number | null;
     selectedNumber: number;
   };
-  ritual?: SsgwRitual;
-  evidenceAnalysis?: import('../divination/ssgw-evidence').SsgwEvidenceAnalysis;
 }
 
 export type DivinationData =
   | LiuyaoData
   | MeihuaData
-  | XiaoliurenData
-  | JinkoujueData
   | QimenData
   | LiurenData
   | TarotData
   | SsgwData
   | AlmanacData
-  | LenormandData
   | AstrolabeData
   | TaiyiResult;
 

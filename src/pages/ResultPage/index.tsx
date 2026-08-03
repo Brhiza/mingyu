@@ -82,7 +82,6 @@ import {
 } from '@/lib/residential-fengshui-chart';
 import { PromptContextFields } from '@/components/PromptContextFields';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
 
@@ -1165,8 +1164,9 @@ export function ResultPage() {
             : promptState.promptSource === 'bazi'
               ? previewBaziPromptText
               : previewZiweiPromptText;
-  const previewActivePromptText = appendTraditionalResearchNotice(
-    insertPromptRealWorldContext(basePreviewActivePromptText, promptContext),
+  const previewActivePromptText = insertPromptRealWorldContext(
+    basePreviewActivePromptText,
+    promptContext,
   );
 
   const aiContextPrompt = useMemo(() => {
@@ -1188,8 +1188,9 @@ export function ResultPage() {
             : promptState.promptSource === 'bazi'
               ? latestBaziPromptText
               : latestZiweiPromptText;
-  const latestActivePromptText = appendTraditionalResearchNotice(
-    insertPromptRealWorldContext(baseLatestActivePromptText, promptContext),
+  const latestActivePromptText = insertPromptRealWorldContext(
+    baseLatestActivePromptText,
+    promptContext,
   );
   const { copyState, shareState, handleCopy, handleShare } =
     usePromptCopyShare(latestActivePromptText);
@@ -1903,7 +1904,7 @@ export function ResultPage() {
                   <div className="panel-head">
                     <div>
                       <h2>提示词正文</h2>
-                      <p>排盘资料、问题和输出要求已整理好，复制这一整段提示词即可。</p>
+                      <p>排盘资料和问题已整理好，复制这一整段提示词即可。</p>
                     </div>
                     <div className="action-row compact-actions">
                       <button

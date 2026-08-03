@@ -44,39 +44,42 @@ export function findPromptSectionHeadingIndex(prompt: string, section: string) {
 
 export function assertPromptHasSingleRole(
   prompt: string,
-  expectedGuidance?: {
-    identity: string;
-    analysis: string;
-    tradition?: string;
-    sources?: string;
-    output: string;
-  },
+  expectedGuidance?: Record<string, string>,
 ) {
   assert.doesNotMatch(prompt, /^【角色】$/m, '角色设定不应使用【角色】标签');
-  assert.equal(prompt.match(/^【解读主线】$/gm)?.length ?? 0, 1, '解读主线应且只应出现一次');
-  assert.equal(prompt.match(/^【输出结构】$/gm)?.length ?? 0, 1, '输出结构应且只应出现一次');
-  if (expectedGuidance) {
-    assert.match(prompt, new RegExp(`^${escapeRegExp(expectedGuidance.identity)}$`, 'm'));
+  assert.doesNotMatch(prompt, /^【解读主线】$/m, '解读主线不应作为独立 section');
+  assert.doesNotMatch(prompt, /^【输出结构】$/m, '输出结构不应作为独立 section');
+  assert.doesNotMatch(prompt, /^【输出要求】$/m, '输出要求不应作为独立 section');
+  assert.match(prompt, /^【当前时间】$/m, '任务书应包含【当前时间】');
+  assert.match(prompt, /^【传统依据】$/m, '任务书应包含【传统依据】');
+  assert.ok(
+    prompt.indexOf('【传统依据】') < prompt.indexOf('【当前时间】'),
+    '【传统依据】应位于【当前时间】之前',
+  );
+  if (
+    findPromptSectionHeadingIndex(prompt, '【问题】') !== -1 &&
+    findPromptSectionHeadingIndex(prompt, '【任务】') !== -1
+  ) {
+    assert.ok(
+      findPromptSectionHeadingIndex(prompt, '【问题】') <
+        findPromptSectionHeadingIndex(prompt, '【任务】'),
+      '【问题】应位于【任务】之前',
+    );
+  }
+  assert.doesNotMatch(
+    prompt,
+    /现实建议|风险提醒|掷筊|只依据|只基于|给出行动建议|提供行动建议|输出行动建议/,
+    '最终任务书不应包含行动建议、风险提醒或限制性措辞',
+  );
+
+  if (expectedGuidance?.tradition) {
     assert.match(
       prompt,
-      new RegExp(`^【解读主线】\\n${escapeRegExp(expectedGuidance.analysis)}$`, 'm'),
+      new RegExp(
+        `^【传统依据】\\n[\\s\\S]*${escapeRegExp(expectedGuidance.tradition.slice(0, 24))}`,
+      ),
+      '传统依据应包含对应方法的传统口径',
     );
-    assert.match(
-      prompt,
-      new RegExp(`^【输出结构】\\n${escapeRegExp(expectedGuidance.output)}$`, 'm'),
-    );
-    if (expectedGuidance.tradition) {
-      assert.match(
-        prompt,
-        new RegExp(`^【传统判断规则】\\n${escapeRegExp(expectedGuidance.tradition)}$`, 'm'),
-      );
-    }
-    if (expectedGuidance.sources) {
-      assert.match(
-        prompt,
-        new RegExp(`^【传统依据】\\n${escapeRegExp(expectedGuidance.sources)}$`, 'm'),
-      );
-    }
   }
 }
 
@@ -103,4 +106,8 @@ export function assertPromptIsPortableTaskText(prompt: string) {
   assertNoPromptPlaceholders(prompt);
   assertNoEngineeringPromptText(prompt);
   assert.doesNotMatch(prompt, /\*\*/);
+  assert.doesNotMatch(
+    prompt,
+    /使用简体中文|简体中文输出|【输出要求】|现实建议|风险提醒|掷筊|给出行动建议|提供行动建议|输出行动建议|行动清单/,
+  );
 }

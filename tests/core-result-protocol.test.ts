@@ -12,10 +12,8 @@ import {
 import { buildRandomTraceFact, createRandomContext } from 'mingyu-core/random';
 import { normalizeBirthProfile, BirthProfileError } from 'mingyu-core/profile';
 import { drawSpreadCards } from '../packages/core/src/divination/tarot';
-import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand';
 import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index';
-import { generateXiaoliuren } from '../packages/core/src/divination/algorithms/xiaoliuren';
 import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao';
 import { TimeManager } from '../packages/core/src/calendar/timeManager';
 
@@ -165,18 +163,11 @@ test('随机轨迹事实应区分可重放、轨迹缺失和不适用', () => {
   assert.match(notApplicable.promptText, /不依赖随机抽样/);
 });
 
-test('塔罗、雷诺曼、灵签和梅花可由结果元数据完整重放', () => {
+test('塔罗、灵签和梅花可由结果元数据完整重放', () => {
   const tarot = drawSpreadCards('three', { seed: '塔罗样例' });
   const tarotReplay = drawSpreadCards('three', { replay: tarot.meta.random?.samples });
   assert.deepEqual(tarotReplay.cards, tarot.cards);
   assert.equal(tarotReplay.meta.resultId, tarot.meta.resultId);
-
-  const lenormand = drawLenormandSpread('nine', { seed: '雷诺曼样例' });
-  const lenormandReplay = drawLenormandSpread('nine', {
-    replay: lenormand.meta?.random?.samples,
-  });
-  assert.deepEqual(lenormandReplay.cards, lenormand.cards);
-  assert.equal(lenormandReplay.meta?.resultId, lenormand.meta?.resultId);
 
   const sign = drawRandomSign(DATE, { seed: '灵签样例' });
   const signReplay = drawRandomSign(DATE, { replay: sign.meta?.random?.samples });
@@ -280,8 +271,4 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
 
 test('非随机起法不得静默忽略随机设置', () => {
   assert.throws(() => generateMeihua(DATE, { method: 'time', seed: '不应忽略' }), /仅随机起卦接受/);
-  assert.throws(
-    () => generateXiaoliuren({ method: 'number' as never }),
-    /仅保留有明确顺数规则的时间起课/,
-  );
 });
