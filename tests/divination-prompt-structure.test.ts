@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { taiyi } from 'mingyu-core';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
+import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
 import {
   assertNoPromptPlaceholders,
   assertPromptHasSingleRole,
@@ -930,6 +931,15 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
   assert.doesNotMatch(prompt, /问事参考/);
   assert.doesNotMatch(prompt, /卦象|课传|牌阵|签诗|牌位/);
+});
+
+test('奇门提示词的四柱互动应显示参与柱位，节令关系不使用英文', () => {
+  const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
+  const prompt = buildDivinationPrompt('qimen', '整体解读', data);
+
+  assert.match(prompt, /日干癸持平/);
+  assert.match(prompt, /四柱互动：月柱癸、时柱丁天干相冲；日柱癸、时柱丁天干相冲/);
+  assert.doesNotMatch(prompt, /neutral|天干相冲癸、丁/);
 });
 
 test('奇门提示词不再根据问题词表输出问事参考', () => {

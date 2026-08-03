@@ -158,10 +158,11 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
         item.twelveStar &&
         item.promptText.includes(item.ganzhi) &&
         item.sources.length >= 2 &&
-        item.rawTabooFact.key.startsWith(item.key) &&
-        item.topicMatchFacts.length === 3 &&
-        item.topicMatchFacts.every((fact) => fact.scope === '时辰') &&
-        item.limitation.includes('不证明该时辰必然成功'),
+        Array.isArray(item.participantRelationFacts) &&
+        item.limitation.includes('不证明该时辰必然成功') &&
+        !('rawTabooFact' in item) &&
+        !('recommends' in item) &&
+        !('avoids' in item),
     ),
   );
   assert.match(result.evidenceAnalysis?.promptText ?? '', /原始宜项/);
@@ -304,7 +305,6 @@ test('旧黄历字符串结果应生成兼容事实且不反推缺失参数', ()
   day.godFacts = undefined;
   day.participantRelationFacts = undefined;
   for (const hour of day.hours ?? []) {
-    hour.topicMatchFacts = undefined;
     hour.participantRelationFacts = undefined;
   }
 
@@ -318,8 +318,8 @@ test('旧黄历字符串结果应生成兼容事实且不反推缺失参数', ()
     ),
   );
   assert.ok(
-    candidate.usableHours.every((hour) =>
-      hour.topicMatchFacts.every((item) => item.key.includes(':legacy-topic:')),
+    candidate.usableHours.every(
+      (hour) => !('topicMatchFacts' in hour) && Array.isArray(hour.participantRelationFacts),
     ),
   );
 });

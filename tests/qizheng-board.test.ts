@@ -47,6 +47,30 @@ test('七政四余完整盘采用二十八宿真实距星边界并保持位置�
   assert.doesNotMatch(result.prompt, /366\.5|等比例换算/);
 });
 
+test('罗计真交点与月孛平均远地点与 Swiss Moshier 独立金标一致', () => {
+  const result = generateQizheng({
+    year: 2000,
+    month: 1,
+    day: 15,
+    hour: 12,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+  const luoHou = result.stars.find((star) => star.name === '罗睺(火余)');
+  const jiDu = result.stars.find((star) => star.name === '计都(土余)');
+  const yueBei = result.stars.find((star) => star.name === '月孛(水余)');
+  assert.ok(luoHou && jiDu && yueBei);
+
+  assert.ok(Math.abs(luoHou.tropicalLongitude - 123.74054939272715) < 0.02);
+  assert.ok(Math.abs(jiDu.tropicalLongitude - 303.74054939272715) < 0.02);
+  assert.ok(Math.abs(yueBei.tropicalLongitude - 264.98784404655476) < 0.02);
+  assert.equal(luoHou.sourceId, 'astronomy-engine-true-node');
+  assert.equal(jiDu.sourceId, 'astronomy-engine-true-node');
+  assert.equal(yueBei.sourceId, 'moshier-mean-lilith');
+});
+
 test('二十八宿距星黄经与 Astropy ERFA 独立金标一致', () => {
   const boundaries = calculateQizhengMansionBoundaries(new Date('2000-01-01T12:00:00Z'));
   const astropyGold = new Map([
@@ -66,10 +90,25 @@ test('二十八宿距星黄经与 Astropy ERFA 独立金标一致', () => {
 
 test('宿界前后必须落入相邻两宿，边界本身归入新宿', () => {
   const boundaries = calculateQizhengMansionBoundaries(new Date('2024-06-15T04:00:00Z'));
+  for (const boundary of boundaries) {
+    const exact = longitudeToQizhengMansion(boundary.longitude, boundaries);
+    assert.equal(exact.xiu, boundary.mansion);
+    assert.ok(Math.abs(exact.xiuDegree) < 1e-9);
+  }
   const angle = boundaries.find((item) => item.mansion === '角');
   assert.ok(angle);
-  assert.equal(longitudeToQizhengMansion(angle.longitude, boundaries).xiu, '角');
   assert.equal(longitudeToQizhengMansion(angle.longitude - 1e-6, boundaries).xiu, '轸');
+});
+
+test('二十八宿边界应覆盖公开年份上限 2200 年', () => {
+  const boundaries = calculateQizhengMansionBoundaries(new Date('2200-06-15T12:00:00Z'));
+  assert.equal(boundaries.length, 28);
+  assert.ok(
+    boundaries.every(
+      (boundary) =>
+        longitudeToQizhengMansion(boundary.longitude, boundaries).xiu === boundary.mansion,
+    ),
+  );
 });
 
 test('宿界查询应接受乱序资料，并拒绝重复宿名、无效宿宽与不连续边界', () => {

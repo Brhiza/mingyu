@@ -341,13 +341,13 @@ export function longitudeToQizhengMansion(
   }
   const exactBoundary = sortedBoundaries.find((item) => {
     const separation = normalizeLongitude(target - item.longitude);
-    return Math.min(separation, 360 - separation) < 1e-10;
+    return Math.min(separation, 360 - separation) < 1e-7;
   });
   const boundary =
     exactBoundary ??
     [...sortedBoundaries].reverse().find((item) => item.longitude < target) ??
     sortedBoundaries[sortedBoundaries.length - 1];
-  const xiuDegree = normalizeLongitude(target - boundary.longitude);
+  const xiuDegree = exactBoundary ? 0 : normalizeLongitude(target - boundary.longitude);
   if (xiuDegree >= boundary.widthDegrees + 1e-9) {
     throw new Error(`七政四余宿界不连续：${boundary.mansion}宿。`);
   }

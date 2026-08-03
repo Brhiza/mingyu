@@ -61,6 +61,41 @@ export interface ResidentialFengshuiResult {
   evidencePromptText: string;
 }
 
+function normalizeDegree(value: number) {
+  return ((value % 360) + 360) % 360;
+}
+
+function resolveDoorNorth(input: ResidentialFengshuiInput): number {
+  if (
+    typeof input.doorToInteriorDegree !== 'number' ||
+    !Number.isFinite(input.doorToInteriorDegree) ||
+    input.doorToInteriorDegree < 0 ||
+    input.doorToInteriorDegree > 360
+  ) {
+    throw new Error('大门朝向屋内的度数必须是 0-360 之间的有限数字。');
+  }
+  const reference = input.northReference ?? 'unspecified';
+  if (!['unspecified', 'magnetic', 'true'].includes(reference)) {
+    throw new Error('northReference 只能是 unspecified、magnetic 或 true。');
+  }
+  const declination = input.magneticDeclinationDegrees;
+  if (
+    declination !== undefined &&
+    (!Number.isFinite(declination) || declination < -30 || declination > 30)
+  ) {
+    throw new Error('磁偏角必须是 -30 至 30 之间的有限数字，东偏为正、西偏为负。');
+  }
+  if (reference === 'magnetic' && declination === undefined) {
+    throw new Error('读数采用磁北时必须提供当地磁偏角。');
+  }
+  if (reference !== 'magnetic' && declination !== undefined) {
+    throw new Error('只有 northReference 为 magnetic 时才应提供磁偏角。');
+  }
+  return normalizeDegree(
+    input.doorToInteriorDegree + (reference === 'magnetic' ? declination! : 0),
+  );
+}
+
 function hasPersonInput(input: ResidentialFengshuiInput) {
   return Boolean(input.mingGua || (input.birthYear != null && input.gender));
 }
@@ -174,9 +209,11 @@ function buildXuanKong(
     if (measurement.facingMountain) xuanInput.facingMountain = measurement.facingMountain;
   } else if (input.doorToInteriorDegree != null) {
     // 无居住人时仍可用门向起玄空宅运盘。
-    const position = getBaZhaiSitFacingFromDoorDegree(input.doorToInteriorDegree);
-    xuanInput.sitMountain = position.sit.mountain;
-    xuanInput.facingMountain = position.facing.mountain;
+    const trueNorthDegree = resolveDoorNorth(input);
+    const position = getBaZhaiSitFacingFromDoorDegree(trueNorthDegree);
+    xuanInput.sitDegree = position.sit.degree;
+    xuanInput.facingDegree = position.facing.degree;
+    xuanInput.measurementUncertaintyDegrees = input.measurementUncertaintyDegrees ?? 0;
   } else if (input.sitMountain || input.facingMountain) {
     if (input.sitMountain) xuanInput.sitMountain = input.sitMountain;
     if (input.facingMountain) xuanInput.facingMountain = input.facingMountain;

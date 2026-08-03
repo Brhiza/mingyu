@@ -158,6 +158,14 @@ function nearestMountainBoundaryDistance(degree: number) {
 }
 
 function resolveDoorMeasurement(input: BaZhaiDoorDegreeInput) {
+  if (
+    typeof input.doorToInteriorDegree !== 'number' ||
+    !Number.isFinite(input.doorToInteriorDegree) ||
+    input.doorToInteriorDegree < 0 ||
+    input.doorToInteriorDegree > 360
+  ) {
+    throw new Error('大门朝向屋内的度数必须是 0-360 之间的有限数字。');
+  }
   const reference = input.northReference ?? 'unspecified';
   const declination = input.magneticDeclinationDegrees;
   const uncertainty = input.measurementUncertaintyDegrees ?? 0;

@@ -3409,7 +3409,7 @@ test('公开 API 黄历择日支持分页和轻量模式', async () => {
   assert.ok(body.data.days[0].date);
   for (const day of body.data.days) {
     assert.equal(day.score, undefined);
-    for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
+    for (const hour of day.hours ?? []) {
       assert.equal(hour.score, undefined);
     }
   }
@@ -3480,8 +3480,7 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
       promptText: string;
       sources: string[];
       limitation: string;
-      rawTabooFact: { key: string; status: string };
-      topicMatchFacts: Array<{ key: string; scope: string; sources: string[] }>;
+      participantRelationFacts: Array<{ key: string }>;
     }>;
   }>;
   assert.ok(
@@ -3521,11 +3520,7 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
             hour.key.startsWith(`${item.date}:hour:`) &&
             hour.promptText &&
             hour.sources.length >= 2 &&
-            hour.rawTabooFact.key.startsWith(hour.key) &&
-            hour.topicMatchFacts.length === 3 &&
-            hour.topicMatchFacts.every(
-              (fact) => fact.key.startsWith(hour.key) && fact.scope === '时辰',
-            ) &&
+            Array.isArray(hour.participantRelationFacts) &&
             hour.limitation.includes('不证明该时辰必然成功'),
         ),
     ),
@@ -3589,7 +3584,7 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   );
   for (const day of body.data.result.days) {
     assert.equal(day.score, undefined);
-    for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
+    for (const hour of day.hours ?? []) {
       assert.equal(hour.score, undefined);
     }
   }

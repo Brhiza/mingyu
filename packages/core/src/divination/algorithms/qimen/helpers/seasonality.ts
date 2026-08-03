@@ -177,11 +177,11 @@ export function getJieQiPhaseByDate(date: Date): JieQiPhaseResult {
  * 《五行大义》论旺相休囚死：
  *   同令为旺（日干与当令五行相同）→ 得时
  *   令生为相（当令五行生日干）   → 受生
- *   克令为囚（日干克当令五行）   → neutral（持平）
+ *   克令为囚（日干克当令五行）   → 持平
  *   生令为休（日干生当令五行）   → 被耗
  *   令克为死（当令五行克日干）   → 受克
  */
-export type DaySeasonRelation = '得时' | '受生' | '受克' | '被耗' | 'neutral';
+export type DaySeasonRelation = '得时' | '受生' | '受克' | '被耗' | '持平';
 
 /**
  * 计算日干与节令五行的关系
@@ -198,7 +198,7 @@ export type DaySeasonRelation = '得时' | '受生' | '受克' | '被耗' | 'neu
  *   以"我"为日干五行，"令"为季节当令五行：
  *   同令 → 旺（得时）相 → 令生为相（受生）
  *   令克 → 死（受克）  生令 → 休（被耗）
- *   克令 → 囚（neutral）
+ *   克令 → 囚（持平）
  */
 export function getDaySeasonRelation(
   dayStem: string,
@@ -249,12 +249,12 @@ export function getDaySeasonRelation(
   // 我克令（element 克 seasonalElement）= 囚
   if (isControlling(element, seasonalElement)) {
     return {
-      relation: 'neutral',
+      relation: '持平',
       description: `${dayStem}之${element}克节令${seasonalElement}，虽能克令但亦耗力，持平。`,
     };
   }
 
-  return { relation: 'neutral', description: '无明显生克关系' };
+  return { relation: '持平', description: '无明显生克关系' };
 }
 
 // ============================================================================

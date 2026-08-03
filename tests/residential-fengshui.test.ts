@@ -92,3 +92,48 @@ test('住宅风水仅有门向度数时可出玄空，不依赖出生信息', ()
   assert.equal(result.xuankong?.facingMountain, '午');
   assert.match(result.prompt, /仅完成玄空宅运层|玄空/);
 });
+
+test('住宅风水无居住人时门向磁北应换算真北并同步玄空盘', () => {
+  const result = generateResidentialFengshui({
+    year: 2024,
+    doorToInteriorDegree: 64,
+    northReference: 'magnetic',
+    magneticDeclinationDegrees: 1,
+    measurementUncertaintyDegrees: 3,
+  });
+
+  assert.equal(result.bazhai, null);
+  assert.ok(result.xuankong);
+  assert.equal(result.xuankong?.measurement?.sitDegree, 65);
+  assert.equal(result.xuankong?.measurement?.stability, '山向边界敏感');
+  assert.equal(result.xuankong?.sitMountain, '寅');
+  assert.equal(result.xuankong?.facingMountain, '申');
+  assert.ok(result.xuankong?.measurement?.candidateMountains?.length === 2);
+});
+
+test('住宅风水无居住人时门向测量参数应执行与八宅一致的校验', () => {
+  for (const input of [
+    {
+      year: 2024,
+      doorToInteriorDegree: 0,
+      northReference: 'magnetic' as const,
+    },
+    {
+      year: 2024,
+      doorToInteriorDegree: 0,
+      northReference: 'true' as const,
+      magneticDeclinationDegrees: 1,
+    },
+    {
+      year: 2024,
+      doorToInteriorDegree: 0,
+      northReference: 'invalid' as never,
+    },
+    {
+      year: 2024,
+      doorToInteriorDegree: 361,
+    },
+  ]) {
+    assert.throws(() => generateResidentialFengshui(input));
+  }
+});

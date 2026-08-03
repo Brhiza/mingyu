@@ -1359,7 +1359,6 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
           days: Array<{
             score?: number;
             hours?: Array<{ score?: number }>;
-            bestHours?: Array<{ score?: number }>;
           }>;
           evidenceAnalysis: {
             key: string;
@@ -1400,8 +1399,7 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
                 promptText: string;
                 sources: string[];
                 limitation: string;
-                rawTabooFact: { key: string };
-                topicMatchFacts: Array<{ key: string; scope: string }>;
+                participantRelationFacts: Array<{ key: string }>;
               }>;
             }>;
             cautionDates: string[];
@@ -1485,11 +1483,7 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
               hour.key.startsWith(`${item.date}:hour:`) &&
               hour.promptText &&
               hour.sources.length >= 2 &&
-              hour.rawTabooFact.key.startsWith(hour.key) &&
-              hour.topicMatchFacts.length === 3 &&
-              hour.topicMatchFacts.every(
-                (fact) => fact.key.startsWith(hour.key) && fact.scope === '时辰',
-              ) &&
+              Array.isArray(hour.participantRelationFacts) &&
               hour.limitation.includes('不证明该时辰必然成功'),
           ),
       ),
@@ -1544,7 +1538,7 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
     );
     for (const day of chart.days) {
       assert.equal(day.score, undefined);
-      for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
+      for (const hour of day.hours ?? []) {
         assert.equal(hour.score, undefined);
       }
     }

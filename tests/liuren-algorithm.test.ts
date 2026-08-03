@@ -1050,7 +1050,7 @@ test('大六壬阴日八专从支阴神逆数三位发用', () => {
   assert.deepEqual(result.branches, ['丑', '巳', '巳']);
 });
 
-test('大六壬非八专日即使干支同寄宫，也不能误判为八专法', () => {
+test('大六壬癸丑日伏吟仍按伏吟法取传，不因八专日误走八专法', () => {
   const result = resolveInitialTransmission(
     [
       createLesson('丑', '丑'),
@@ -1067,6 +1067,7 @@ test('大六壬非八专日即使干支同寄宫，也不能误判为八专法',
   );
 
   assert.notEqual(result.rule, '八专法');
+  assert.equal(result.rule, '伏吟法');
 });
 
 test('大六壬应与传统排盘样本的申将午时天地盘和十二天将一致', () => {

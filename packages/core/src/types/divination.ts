@@ -406,7 +406,7 @@ export interface QimenSeasonalityInfo {
   };
   dayStem: string;
   dayElement: string;
-  seasonRelation: '得时' | '受生' | '受克' | '被耗' | 'neutral';
+  seasonRelation: '得时' | '受生' | '受克' | '被耗' | '持平';
   seasonRelationDescription: string;
   lunarPhase: '新月' | '上弦' | '满月' | '下弦';
   lunarPhaseDetail: string;
@@ -847,7 +847,6 @@ export interface AlmanacDayCandidate {
   godFacts?: AlmanacGodFact[];
   participantRelationFacts?: AlmanacParticipantRelationFact[];
   hours?: AlmanacHourCandidate[];
-  bestHours?: AlmanacHourCandidate[];
 }
 
 export interface AlmanacHourCandidate {
@@ -856,12 +855,9 @@ export interface AlmanacHourCandidate {
   ganzhi: string;
   branch: string;
   twelveStar: string;
-  recommends: string[];
-  avoids: string[];
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
-  topicMatchFacts?: AlmanacTopicMatchFact[];
   participantRelationFacts?: AlmanacParticipantRelationFact[];
 }
 

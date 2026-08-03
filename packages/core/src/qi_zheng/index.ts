@@ -12,11 +12,20 @@
  *
  * 紫炁采用单一《七政算内篇》古法均速模型：周积 10227.1792 日，日行三分五十七秒一四二九，
  * 历元按 PlanetCalendar 对《七政算内篇》至元十八年立元数据的现代复原值换算。
- * 罗计孛取月交点与真莉莉丝（celestine）。
+ * 罗计取月球真交点，月孛取月球平均远地点的黄道投影。
  *
  * 七政、罗计孛与紫炁保留来源和精度分层；可复算不代表占星解释有效。
  */
-import { calculateChart } from 'celestine';
+import {
+  Body,
+  Ecliptic,
+  EclipticGeoMoon,
+  GeoMoonState,
+  GeoVector,
+  MakeTime,
+  RotateState,
+  Rotation_EQJ_ECT,
+} from 'astronomy-engine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
 import { daysInGregorianMonth } from '../calendar/date-validation';
 import { getShichenFromClock } from '../calendar/dateUtils';
@@ -105,7 +114,7 @@ export interface QizhengStar {
   xiuDegree: number;
   signIndex: number; // 十二宫序号 0-11
   palace: string;
-  retrograde: boolean;
+  retrograde?: boolean;
   dignity?: string; // 庙/旺/乐/陷/平（七政）；四余为 —
   sourceId: QizhengPositionSourceId;
   sourceLabel: string;
@@ -128,7 +137,10 @@ export interface QizhengAspect {
 }
 
 export type QizhengPositionSourceId =
-  'celestine-planets' | 'celestine-true-node' | 'celestine-true-lilith' | 'qizhengsuan-ziqi';
+  | 'astronomy-engine-planets'
+  | 'astronomy-engine-true-node'
+  | 'moshier-mean-lilith'
+  | 'qizhengsuan-ziqi';
 
 export interface QizhengPositionSource {
   id: QizhengPositionSourceId;
@@ -244,7 +256,7 @@ export interface QizhengStarFact {
   xiuDegree: number;
   signIndex: number;
   palace: string;
-  retrograde: boolean;
+  retrograde?: boolean;
   dignity?: string;
   sourceId: QizhengPositionSourceId;
   sourceLabel: string;
@@ -550,34 +562,41 @@ export const ZIQI_MODEL_INFO: ZiqiModelInfo = {
 
 export const QIZHENG_POSITION_SOURCES: QizhengPositionSource[] = [
   {
-    id: 'celestine-planets',
+    id: 'astronomy-engine-planets',
     objects: ['太阳', '太阴', '辰星(水)', '太白(金)', '荧惑(火)', '岁星(木)', '镇星(土)'],
-    provider: 'celestine.calculateChart',
-    calculation: '按输入民用时间、时区和地点计算七政回归黄经及逆行状态',
+    provider: 'astronomy-engine 2.1.19',
+    calculation: '按UTC时刻计算七政地心回归黄经及逆行状态',
     coordinate: '目标日期回归黄经；与同日二十八宿距星真黄经边界比较得到宿度',
     precisionClass: '现代天文计算',
     limitations: [
-      '位置取自上述计算来源，未另用第二套底层星历独立复算',
+      '采用 Astronomy Engine 标准太阳系算法，并已用 Swiss Ephemeris/JPL DE440 独立抽样复算',
+      '太阳、水金火木土、罗计孛抽样最大偏差均低于0.01°；太阴在2200年单样本约0.05°，不改变二十八宿与十二宫归属',
       '不得仅凭页面显示小数位宣称达到观测级或JPL星历精度',
     ],
   },
   {
-    id: 'celestine-true-node',
+    id: 'astronomy-engine-true-node',
     objects: ['罗睺(火余)', '计都(土余)'],
-    provider: 'celestine.calculateChart includeNodes=true',
-    calculation: '罗睺取真北交点，计都取真南交点',
+    provider: 'astronomy-engine GeoMoonState + ECT',
+    calculation: '罗睺取月球真北交点，计都取真北交点加180°（真南交点）',
     coordinate: '目标日期回归黄经；与同日二十八宿距星真黄经边界比较得到宿度',
     precisionClass: '现代天文计算',
-    limitations: ['这是当前计算明确采用的真交点口径，不与平均交点混用'],
+    limitations: [
+      '这是当前计算明确采用的真交点口径，不与平均交点混用',
+      '真交点经度已用 Swiss Ephemeris/JPL DE440 独立抽样复算；瞬时逆行状态不输出',
+    ],
   },
   {
-    id: 'celestine-true-lilith',
+    id: 'moshier-mean-lilith',
     objects: ['月孛(水余)'],
-    provider: 'celestine.calculateChart includeLilith=true',
-    calculation: '月孛取真黑月莉莉丝位置',
+    provider: 'Moshier 平均月球根数',
+    calculation: '月孛取月球平均远地点并投影到黄道',
     coordinate: '目标日期回归黄经；与同日二十八宿距星真黄经边界比较得到宿度',
     precisionClass: '现代天文计算',
-    limitations: ['月孛存在平均远地点、真远地点等不同口径；当前计算只采用真莉莉丝口径'],
+    limitations: [
+      '月孛存在平均远地点、瞬时真远地点等不同口径；当前计算只采用平均远地点口径',
+      '该口径已用 Swiss Ephemeris Moshier 平均根数独立抽样复算',
+    ],
   },
   {
     id: 'qizhengsuan-ziqi',
@@ -592,6 +611,74 @@ export const QIZHENG_POSITION_SOURCES: QizhengPositionSource[] = [
 
 function normalizeLongitude(value: number): number {
   return ((value % 360) + 360) % 360;
+}
+
+const J2000_JD = 2_451_545;
+const UNIX_EPOCH_JD = 2_440_587.5;
+const JULIAN_CENTURY_DAYS = 36_525;
+const LUNAR_INCLINATION_DEGREES = 5.1453964;
+
+/** Swiss Ephemeris Moshier 平均月球根数的长期项。 */
+const MOSHIER_LUNAR_Z: number[] = [
+  -13.12045233711, -0.00113821591258, -0.000009646018347184, 31.468347198839, 0.0476835758578,
+  -0.0003421689790404, -6.84707090541, -0.005834100476561, -0.0002905334122698, -5.663161722088,
+  0.005722859298199, -0.00008466472828815,
+];
+
+function modArcSeconds(value: number): number {
+  return ((value % 1_296_000) + 1_296_000) % 1_296_000;
+}
+
+function moshierMeanNodeLongitude(jd: number): number {
+  const t = (jd - J2000_JD) / JULIAN_CENTURY_DAYS;
+  const t2 = t * t;
+  const fracT = t % 1;
+  const nfArc = modArcSeconds(
+    1_739_232_000 * fracT + 295_263.0983 * t - 0.207941990176 * t + 335_779.55755,
+  );
+  const lpArc = modArcSeconds(
+    1_731_456_000 * fracT + 1_108_372.83264 * t - 0.6784914260953 * t + 785_939.95571,
+  );
+  const nf = nfArc + ((MOSHIER_LUNAR_Z[2] * t + MOSHIER_LUNAR_Z[1]) * t + MOSHIER_LUNAR_Z[0]) * t2;
+  const lp =
+    lpArc + ((MOSHIER_LUNAR_Z[11] * t + MOSHIER_LUNAR_Z[10]) * t + MOSHIER_LUNAR_Z[9]) * t2;
+  return normalizeLongitude(((lp - nf) / 3600 + 360) % 360);
+}
+
+function moshierMeanApogeeLongitude(jd: number): number {
+  const t = (jd - J2000_JD) / JULIAN_CENTURY_DAYS;
+  const t2 = t * t;
+  const fracT = t % 1;
+  const mpArc = modArcSeconds(
+    1_717_200_000 * fracT + 715_923.4728 * t - 0.2035946368532 * t + 485_868.28096,
+  );
+  const lpArc = modArcSeconds(
+    1_731_456_000 * fracT + 1_108_372.83264 * t - 0.6784914260953 * t + 785_939.95571,
+  );
+  const mp = mpArc + ((MOSHIER_LUNAR_Z[5] * t + MOSHIER_LUNAR_Z[4]) * t + MOSHIER_LUNAR_Z[3]) * t2;
+  const lp =
+    lpArc + ((MOSHIER_LUNAR_Z[11] * t + MOSHIER_LUNAR_Z[10]) * t + MOSHIER_LUNAR_Z[9]) * t2;
+  return normalizeLongitude((modArcSeconds(lp - mp + 648_000) / 3600 + 360) % 360);
+}
+
+function trueNodeLongitude(utcMs: number): number {
+  const time = MakeTime(new Date(utcMs));
+  const state = RotateState(Rotation_EQJ_ECT(time), GeoMoonState(time));
+  const hx = state.y * state.vz - state.z * state.vy;
+  const hy = state.z * state.vx - state.x * state.vz;
+  return normalizeLongitude(Math.atan2(hx, -hy) * (180 / Math.PI));
+}
+
+function moshierMeanLilithLongitude(utcMs: number): number {
+  const jd = utcMs / 86_400_000 + UNIX_EPOCH_JD;
+  const node = moshierMeanNodeLongitude(jd);
+  const apogee = moshierMeanApogeeLongitude(jd);
+  const u = ((apogee - node) * Math.PI) / 180;
+  return normalizeLongitude(
+    node +
+      Math.atan2(Math.cos((LUNAR_INCLINATION_DEGREES * Math.PI) / 180) * Math.sin(u), Math.cos(u)) *
+        (180 / Math.PI),
+  );
 }
 
 function assertIntegerRange(value: number, label: string, min: number, max: number): void {
@@ -772,6 +859,35 @@ const PLANET_NAMES: Record<string, { label: string; key: string }> = {
   Saturn: { label: '镇星(土)', key: SevenStar.fromName('土').getName() },
 };
 
+const PLANET_BODIES: Record<string, Body> = {
+  Sun: Body.Sun,
+  Moon: Body.Moon,
+  Mercury: Body.Mercury,
+  Venus: Body.Venus,
+  Mars: Body.Mars,
+  Jupiter: Body.Jupiter,
+  Saturn: Body.Saturn,
+};
+
+function angleDifferenceDegrees(from: number, to: number): number {
+  return ((to - from + 540) % 360) - 180;
+}
+
+function astronomyEclipticLongitude(body: Body, utcMs: number): number {
+  const time = MakeTime(new Date(utcMs));
+  if (body === Body.Moon) {
+    return EclipticGeoMoon(time).lon;
+  }
+  return Ecliptic(GeoVector(body, time, true)).elon;
+}
+
+function astronomyRetrograde(body: Body, utcMs: number): boolean {
+  if (body === Body.Sun || body === Body.Moon) return false;
+  const before = astronomyEclipticLongitude(body, utcMs - 432_000);
+  const after = astronomyEclipticLongitude(body, utcMs + 432_000);
+  return angleDifferenceDegrees(before, after) < 0;
+}
+
 /** 七政庙旺乐陷判定 */
 function dignityOf(key: string, signIndex: number): string {
   if (!Number.isInteger(signIndex) || signIndex < 0 || signIndex > 11) {
@@ -830,7 +946,8 @@ function buildCalculationContext(
     coordinatePipeline: [
       '民用时间结合时区换算UTC时刻',
       '统一记录JD(UTC)、UT1≈UTC假设、ΔT估算与近似JD(TT)',
-      'celestine计算七政、真交点和真莉莉丝的回归黄经',
+      '七政由Astronomy Engine按UTC时刻计算地心真黄经及逆行状态',
+      '罗睺、计都由Astronomy Engine月球状态向量计算真交点，月孛按Moshier平均远地点计算',
       '紫炁按《七政算内篇》独立古法均速模型计算回归黄经',
       '二十八宿距星J2000坐标与自行由成熟天文库转换为目标日期真黄经',
       '各星目标日期黄经按相邻距星实际弧段换算宿度',
@@ -1125,8 +1242,13 @@ function buildQizhengEvidence(
         modernObjectCount: stars.filter((item) => item.precisionClass === '现代天文计算').length,
       },
       dependsOnStepKeys: ['qizheng:calculation:time-scales'],
-      promptText: '由celestine计算七政、真交点和真莉莉丝的回归黄经及逆行状态',
-      sources: ['celestine.calculateChart', '真交点与真莉莉丝扩展计算'],
+      promptText:
+        '七政由Astronomy Engine、罗计由月球状态向量真交点、月孛按Moshier平均远地点计算回归黄经',
+      sources: [
+        'astronomy-engine GeoVector/Ecliptic',
+        'astronomy-engine GeoMoonState/ECT',
+        'Swiss Ephemeris Moshier 平均月球根数',
+      ],
       limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1203,7 +1325,7 @@ function buildQizhengEvidence(
     promptText: calculationSteps.map((item) => item.promptText).join(' → '),
     sources: [
       'UTC、JD与近似TT时间尺度换算',
-      'celestine现代位置计算',
+      'astronomy-engine现代位置计算',
       structure.ziqiModel.name,
       '距星自行、目标日期真黄道、二十八宿与十二宫换算',
     ],
@@ -1469,30 +1591,6 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   } else {
     calculationContext.palaceTimeNote = trueSolarNote;
   }
-  const chart = calculateChart(
-    {
-      year: input.year,
-      month: input.month,
-      day: input.day,
-      hour: input.hour,
-      minute: input.minute ?? 0,
-      second: 0,
-      timezone: tz,
-      latitude: lat,
-      longitude: lon,
-    },
-    {
-      houseSystem: 'placidus',
-      includeNodes: 'true' as const,
-      includeLilith: 'true' as const,
-      includeChiron: false,
-      includeAsteroids: false,
-      includeLots: false,
-      aspectTypes: [],
-      minimumAspectStrength: 0,
-    },
-  );
-
   const stars: QizhengStar[] = [];
   const mansionBoundaries = calculateQizhengMansionBoundaries(
     new Date(astronomicalTime.unixMilliseconds),
@@ -1502,8 +1600,8 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     kind: '七政' | '四余',
     tropical: number,
     key?: string,
-    retrograde = false,
-    sourceId: QizhengPositionSourceId = 'celestine-planets',
+    retrograde?: boolean,
+    sourceId: QizhengPositionSourceId = 'astronomy-engine-planets',
   ): void => {
     if (!Number.isFinite(tropical)) {
       throw new Error(`七政四余星体黄经无效：${name}=${String(tropical)}。`);
@@ -1533,23 +1631,50 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     });
   };
 
-  for (const p of chart.planets) {
-    const m = PLANET_NAMES[p.name];
-    if (!m) continue;
-    pushStar(m.label, '七政', p.longitude, m.key, p.isRetrograde ?? false);
+  for (const [celestialName, meta] of Object.entries(PLANET_NAMES)) {
+    const body = PLANET_BODIES[celestialName];
+    if (!body) throw new Error(`七政四余星体映射缺失：${celestialName}。`);
+    pushStar(
+      meta.label,
+      '七政',
+      astronomyEclipticLongitude(body, astronomicalTime.unixMilliseconds),
+      meta.key,
+      astronomyRetrograde(body, astronomicalTime.unixMilliseconds),
+      'astronomy-engine-planets',
+    );
   }
 
-  // 四余：罗睺=北交，计都=南交，月孛=真莉莉丝；紫炁依《七政算内篇》古法均速独立推算。
-  const nodeMap = new Map(chart.nodes.map((n) => [n.name, n]));
-  const lilith = chart.lilith?.[0];
-  const north = nodeMap.get('North Node');
-  const south = nodeMap.get('South Node');
-  if (!north || !south || !lilith) {
-    throw new Error('七政四余星体数据不完整：缺少罗睺、计都或月孛。');
-  }
-  pushStar('罗睺(火余)', '四余', north.longitude, undefined, false, 'celestine-true-node');
-  pushStar('计都(土余)', '四余', south.longitude, undefined, false, 'celestine-true-node');
-  pushStar('月孛(水余)', '四余', lilith.longitude, undefined, false, 'celestine-true-lilith');
+  // 四余：罗睺=真北交，计都=真南交，月孛=平均远地点；紫炁依《七政算内篇》古法均速独立推算。
+  const utcMs = astronomicalTime.unixMilliseconds;
+  const northLongitude = trueNodeLongitude(utcMs);
+  const lilithLongitude = moshierMeanLilithLongitude(utcMs);
+  const lilithBefore = moshierMeanLilithLongitude(utcMs - 86_400_000);
+  const lilithAfter = moshierMeanLilithLongitude(utcMs + 86_400_000);
+  const lilithRetrograde = angleDifferenceDegrees(lilithBefore, lilithAfter) < 0;
+  pushStar(
+    '罗睺(火余)',
+    '四余',
+    northLongitude,
+    undefined,
+    undefined,
+    'astronomy-engine-true-node',
+  );
+  pushStar(
+    '计都(土余)',
+    '四余',
+    normalizeLongitude(northLongitude + 180),
+    undefined,
+    undefined,
+    'astronomy-engine-true-node',
+  );
+  pushStar(
+    '月孛(水余)',
+    '四余',
+    lilithLongitude,
+    undefined,
+    lilithRetrograde,
+    'moshier-mean-lilith',
+  );
   const ziqi = calculateZiqiPosition(input);
   pushStar('紫炁(木余)', '四余', ziqi.tropicalLongitude, undefined, false, 'qizhengsuan-ziqi');
 

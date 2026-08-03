@@ -429,7 +429,18 @@ function formatQimenInfo(data: QimenData) {
   const ganzhiInteractionSummary = data.seasonality?.ganzhiInteractions?.length
     ? data.seasonality.ganzhiInteractions
         .slice(0, 5)
-        .map((item) => `${item.type}${item.values.join('、')}`)
+        .map((item) => {
+          const pillarLabels: Record<string, string> = {
+            year: '年柱',
+            month: '月柱',
+            day: '日柱',
+            hour: '时柱',
+          };
+          const pillarText = item.pillars
+            .map((key, index) => `${pillarLabels[key] ?? key}${item.values[index] ?? ''}`)
+            .join('、');
+          return `${pillarText}${item.type}`;
+        })
         .join('；')
     : '';
   const comboPatternFacts = evidenceAnalysis.patternFacts.filter(
@@ -639,11 +650,6 @@ function formatAlmanacInfo(data: AlmanacData) {
       godText,
       annualDirectionGodsText,
       item.cautions?.length ? `黄历忌项：${item.cautions.join('、')}` : '',
-      item.bestHours?.length
-        ? `时辰资料${item.bestHours
-            .map((hour) => `${hour.name}${hour.range}（${hour.ganzhi}、${hour.twelveStar}）`)
-            .join('、')}`
-        : '',
     ].filter(Boolean);
     return `- 第${index + 1}候选：${item.date} ${item.weekday}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
   });

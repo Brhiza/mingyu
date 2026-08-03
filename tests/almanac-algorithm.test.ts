@@ -49,7 +49,7 @@ test('黄历基础资料缺失或输入非法时应明确报错', () => {
   assert.throws(() => getAlmanacAnnualDirectionGods('无'), /年支无效/);
 });
 
-test('黄历择日：二十八宿与九星详情应直接来自 tyme4ts 原生属性', () => {
+test('黄历择日：二十八宿与九星详情应使用经过校勘的原始属性', () => {
   const result = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
@@ -67,8 +67,24 @@ test('黄历择日：二十八宿与九星详情应直接来自 tyme4ts 原生�
     assert.equal(day.nineStarDetail.source, 'tyme4ts NineStar 原生属性');
     assert.ok(day.twentyEightStarDetail);
     assert.match(day.twentyEightStarDetail.fullName, new RegExp(`^${day.twentyEightStar}`));
-    assert.equal(day.twentyEightStarDetail.source, 'tyme4ts TwentyEightStar 原生属性');
+    assert.match(day.twentyEightStarDetail.source, /tyme4ts TwentyEightStar 原生属性/);
   }
+});
+
+test('黄历基础资料：彭祖百忌与二十八宿动物应使用校勘后的传统文本', () => {
+  assert.equal(getAlmanacPengZuDetails('壬', '酉').gan, '壬不泱水更难提防');
+  assert.equal(getAlmanacPengZuDetails('壬', '酉').zhi, '酉不会客醉坐颠狂');
+  assert.equal(getAlmanacPengZuDetails('壬', '戌').zhi, '戌不吃犬作怪上床');
+  assert.equal(getAlmanacTwentyEightStarDetail('壁').animal, '貐');
+  assert.equal(getAlmanacTwentyEightStarDetail('胃').animal, '雉');
+
+  const day = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-06-01',
+    endDate: '2026-06-01',
+  }).days[0];
+  assert.equal(day.pengZu, `${day.pengZuGan} ${day.pengZuZhi}`);
+  assert.doesNotMatch(day.pengZu, /汲水|宴客|吃狗/);
 });
 
 test('黄历择日：同一吉神不应因配置重复而重复加分和重复输出', () => {
@@ -337,7 +353,7 @@ test('黄历择日：核心算法应限制参与人数量，避免绕过 API 放
   );
 });
 
-test('黄历择日：每个候选日应给出完整时辰并排除诸事不宜的首选时辰', () => {
+test('黄历择日：每个候选日应给出完整时辰，不生成首选时辰', () => {
   const result = generateAlmanacSelection({
     topic: 'contract',
     startDate: '2026-06-01',
@@ -365,12 +381,9 @@ test('黄历择日：每个候选日应给出完整时辰并排除诸事不宜�
       ],
     );
     assert.equal(new Set(day.hours?.map((hour) => hour.range)).size, 13);
-    assert.ok((day.bestHours?.length ?? 0) > 0, `${day.date} 应给出首选时辰`);
-    for (const hour of day.bestHours ?? []) {
-      assert.doesNotMatch(
-        [...hour.recommends, ...hour.avoids, ...hour.cautions].join('；'),
-        /诸事不宜/,
-      );
+    assert.ok(!('bestHours' in day), `${day.date} 不应生成首选时辰`);
+    for (const hour of day.hours ?? []) {
+      assert.ok(!('recommends' in hour) && !('avoids' in hour));
     }
   }
 });
