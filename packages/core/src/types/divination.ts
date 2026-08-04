@@ -1370,5 +1370,13 @@ export type DivinationData =
   | TaiyiResult;
 
 export interface SupplementaryInfo {
+  gender?: '男' | '女';
+  birthYear?: number;
+  userSupplement?: string;
+  currentSituation?: string;
+  currentState?: string;
+  knownFacts?: string;
+  desiredOutcome?: string;
+  constraints?: string;
   meihuaSettings?: MeihuaSettings;
 }

@@ -808,8 +808,8 @@ function formatAlmanacInfo(data: AlmanacData) {
       godText,
       annualDirectionGodsText,
       item.participantNotes.length ? `参与人${item.participantNotes.join('；')}` : '',
-      item.bestHours?.length
-        ? `可用时辰${item.bestHours
+      candidate?.usableHours.length
+        ? `可用时辰${candidate.usableHours
             .map((hour) => `${hour.name}${hour.range}（${hour.ganzhi}、${hour.twelveStar}）`)
             .join('、')}`
         : '',
@@ -818,6 +818,9 @@ function formatAlmanacInfo(data: AlmanacData) {
     return `- 第${index + 1}候选：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
   });
   const bestDay = topDays[0];
+  const bestCandidate = bestDay
+    ? evidenceAnalysis.candidates.find((candidate) => candidate.date === bestDay.date)
+    : undefined;
   const backupDays = topDays.slice(1, 3);
   const topicScopeEvidence = data.topic === 'custom' ? '' : `事项范围：${data.topicLabel}`;
   const participantFitEvidence = data.participants.length
@@ -843,8 +846,8 @@ function formatAlmanacInfo(data: AlmanacData) {
     : '';
   const availableWindowEvidence = [
     `候选范围：${data.startDate}至${data.endDate}`,
-    bestDay?.bestHours?.length
-      ? `首选日可用时辰${bestDay.bestHours.map((hour) => `${hour.name}${hour.range}`).join('、')}`
+    bestCandidate?.usableHours.length
+      ? `首选日可用时辰${bestCandidate.usableHours.map((hour) => `${hour.name}${hour.range}`).join('、')}`
       : '',
     bestDay
       ? `首选日期${bestDay.date}，备选${backupDays.map((item) => item.date).join('、') || '无'}`
