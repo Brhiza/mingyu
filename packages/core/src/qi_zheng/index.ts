@@ -16,16 +16,8 @@
  *
  * 七政、罗计孛与紫炁保留来源和精度分层；可复算不代表占星解释有效。
  */
-import {
-  Body,
-  Ecliptic,
-  EclipticGeoMoon,
-  GeoMoonState,
-  GeoVector,
-  MakeTime,
-  RotateState,
-  Rotation_EQJ_ECT,
-} from 'astronomy-engine';
+import * as AstronomyEngine from 'astronomy-engine';
+import type { Body } from 'astronomy-engine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
 import { daysInGregorianMonth } from '../calendar/date-validation';
 import { getShichenFromClock } from '../calendar/dateUtils';
@@ -52,6 +44,20 @@ import {
   QIZHENG_MANSION_STARS,
   type QizhengMansionBoundary,
 } from './mansion-boundaries';
+
+// Node 22 + tsx 会把 astronomy-engine 作为默认导出，Node 24 与浏览器保留具名导出。
+const Astronomy =
+  (AstronomyEngine as unknown as { default?: typeof AstronomyEngine }).default ?? AstronomyEngine;
+const {
+  Body: AstronomyBody,
+  Ecliptic,
+  EclipticGeoMoon,
+  GeoMoonState,
+  GeoVector,
+  MakeTime,
+  RotateState,
+  Rotation_EQJ_ECT,
+} = Astronomy;
 
 export {
   calculateQizhengMansionBoundaries,
@@ -860,13 +866,13 @@ const PLANET_NAMES: Record<string, { label: string; key: string }> = {
 };
 
 const PLANET_BODIES: Record<string, Body> = {
-  Sun: Body.Sun,
-  Moon: Body.Moon,
-  Mercury: Body.Mercury,
-  Venus: Body.Venus,
-  Mars: Body.Mars,
-  Jupiter: Body.Jupiter,
-  Saturn: Body.Saturn,
+  Sun: AstronomyBody.Sun,
+  Moon: AstronomyBody.Moon,
+  Mercury: AstronomyBody.Mercury,
+  Venus: AstronomyBody.Venus,
+  Mars: AstronomyBody.Mars,
+  Jupiter: AstronomyBody.Jupiter,
+  Saturn: AstronomyBody.Saturn,
 };
 
 function angleDifferenceDegrees(from: number, to: number): number {
@@ -875,14 +881,14 @@ function angleDifferenceDegrees(from: number, to: number): number {
 
 function astronomyEclipticLongitude(body: Body, utcMs: number): number {
   const time = MakeTime(new Date(utcMs));
-  if (body === Body.Moon) {
+  if (body === AstronomyBody.Moon) {
     return EclipticGeoMoon(time).lon;
   }
   return Ecliptic(GeoVector(body, time, true)).elon;
 }
 
 function astronomyRetrograde(body: Body, utcMs: number): boolean {
-  if (body === Body.Sun || body === Body.Moon) return false;
+  if (body === AstronomyBody.Sun || body === AstronomyBody.Moon) return false;
   const before = astronomyEclipticLongitude(body, utcMs - 432_000);
   const after = astronomyEclipticLongitude(body, utcMs + 432_000);
   return angleDifferenceDegrees(before, after) < 0;
