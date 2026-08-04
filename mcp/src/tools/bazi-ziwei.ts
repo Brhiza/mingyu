@@ -46,6 +46,10 @@ const baziZiweiPromptSchema = z.object({
   birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
+  algorithm: z
+    .enum(['default', 'zhongzhou'])
+    .optional()
+    .describe('紫微底层安星口径：default=传统通行安星法，zhongzhou=中州派安星法'),
   question: z.string().describe('用户希望围绕八字和紫微合参解读的问题'),
   baziPromptTopic: z
     .enum(BAZI_PROMPT_TOPICS)
@@ -90,6 +94,7 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
     birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
     birthMinute: args.birthMinute === undefined ? undefined : String(args.birthMinute),
     birthLongitude: args.birthLongitude === undefined ? undefined : String(args.birthLongitude),
+    algorithm: args.algorithm,
   });
 }
 

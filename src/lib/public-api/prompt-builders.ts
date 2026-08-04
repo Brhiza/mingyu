@@ -664,8 +664,13 @@ export function buildPublicZiweiPromptForRuntime(params: {
           })
           .join('；')
       : '';
+  const algorithmText =
+    payload.calculation_config.algorithm === 'zhongzhou'
+      ? '安星口径：中州派安星法'
+      : '安星口径：传统通行安星法';
   const chartLines = [
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
+    algorithmText,
     lifePalace
       ? `命宫：${lifePalace.name}${formatStars(lifePalace) ? `；星曜：${formatStars(lifePalace)}` : ''}`
       : '',
@@ -747,6 +752,9 @@ function formatPublicZiweiEvidenceText(params: { result: ZiweiRuntime; scope?: Z
   return [
     `分析对象：${scope === 'full' ? '本命盘与完整大限流年流月流日流时' : payload.active_scope.label || scopeLabel}`,
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
+    payload.calculation_config.algorithm === 'zhongzhou'
+      ? '安星口径：中州派安星法'
+      : '安星口径：传统通行安星法',
     lifePalace
       ? `命宫：${lifePalace.name}${formatStars(lifePalace) ? `；星曜：${formatStars(lifePalace)}` : ''}`
       : '',

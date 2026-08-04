@@ -40,6 +40,24 @@ test('紫微 MCP 返回结果应为可 JSON 序列化的纯数据', async () => 
   assert.equal(parsed.horoscope, undefined);
 });
 
+test('紫微 MCP 支持中州派底层安星口径', async () => {
+  const input = buildZiweiChartInput({
+    name: '',
+    gender: 'female',
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '21',
+    timeIndex: 4,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    algorithm: 'zhongzhou',
+  });
+
+  const runtime = await calculateFullZiweiChart(input);
+  assert.equal(runtime.payloadByScope.origin.calculation_config.algorithm, 'zhongzhou');
+});
+
 test('紫微合盘主题只作为关系范围，不再注入固定问题与任务口径', async () => {
   const firstInput = buildZiweiChartInput({
     name: '甲',

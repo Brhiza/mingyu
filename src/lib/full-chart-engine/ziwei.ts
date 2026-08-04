@@ -215,6 +215,7 @@ export function buildZiweiChartInput(input: {
   birthHour?: string;
   birthMinute?: string;
   birthLongitude?: string;
+  algorithm?: 'default' | 'zhongzhou';
 }): ChartInput {
   if (!input.useTrueSolarTime && input.timeIndex === '') {
     throw new Error('请选择出生时辰。');
@@ -248,7 +249,7 @@ export function buildZiweiChartInput(input: {
     trueSolarEvidence: trueSolarBirth?.trueSolarEvidence,
     isLeapMonth: input.useTrueSolarTime ? false : input.isLeapMonth,
     fixLeap: true,
-    algorithm: 'default',
+    algorithm: input.algorithm ?? 'default',
     yearDivide: 'normal',
     horoscopeDivide: 'normal',
     ageDivide: 'normal',
