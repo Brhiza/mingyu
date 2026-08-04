@@ -356,6 +356,10 @@ function formatDateStr(
   return '';
 }
 
+function formatAnchorDate(date: { year: number; month: number; day: number }) {
+  return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} 12:00`;
+}
+
 function formatAstrolabePlanetPosition(
   planet: Pick<ChartPlanet, 'signName' | 'degree' | 'minute'>,
 ) {
@@ -1847,7 +1851,7 @@ export function buildAstrolabeScopeContext(
     displayLabel: `${scopeLabel}${normalizedDateStr}`,
     promptText: [
       `分析对象：${scopeLabel}${normalizedDateStr}。`,
-      `取样时间：${anchorDate}（按出生地时区${timezoneLabel}的中午取样，用于计算行运行星触发）。`,
+      `行运基准：${anchorDate}（按出生地时区${timezoneLabel}的中午计算行运行星触发）。`,
       houseRulerChain,
       transitEvidence,
       transitHouseEvidence,
