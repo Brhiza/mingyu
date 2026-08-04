@@ -856,28 +856,28 @@ test('大六壬多处贼克且同阴阳候选不唯一时进入涉害法', () =>
   assert.ok(['巳', '未', '亥'].includes(result.initial));
 });
 
-test('大六壬涉害先按所临地盘孟仲季取传，同组再依深浅与课序', () => {
+test('大六壬涉害先按受克深浅，复等再取干支上与孟仲季', () => {
   const cases = [
     {
       day: '丁卯',
       hour: '辛丑',
       monthLeader: '亥',
-      expected: ['丑', '亥', '酉'],
-      source: '《六壬指南》涉害取法：无孟取仲',
+      expected: ['亥', '酉', '未'],
+      source: '《六壬大全》卷四丁卯日丑时亥将涉害例',
     },
     {
       day: '庚子',
-      hour: '丁丑',
-      monthLeader: '亥',
+      hour: '丁戌',
+      monthLeader: '申',
       expected: ['午', '辰', '寅'],
-      source: '《大六壬大全》庚子日涉害例',
+      source: '《六壬大全》卷四庚子日戌时申将见机例',
     },
     {
       day: '甲午',
-      hour: '庚午',
-      monthLeader: '申',
+      hour: '庚辰',
+      monthLeader: '午',
       expected: ['辰', '午', '申'],
-      source: '《大六壬大全》甲午日复等例',
+      source: '《六壬大全》卷四甲午日辰时午将缀瑕例',
     },
   ];
 
@@ -893,7 +893,7 @@ test('大六壬涉害先按所临地盘孟仲季取传，同组再依深浅与�
   }
 });
 
-test('大六壬庚午日第三局应依古籍午发用，不按季位深度改取寅', () => {
+test('大六壬涉害深度较大时应优先取深，不被孟位浅害改取', () => {
   const result = buildReferenceLiurenPlate({
     day: '庚午',
     hour: '庚寅',
@@ -901,10 +901,10 @@ test('大六壬庚午日第三局应依古籍午发用，不按季位深度改�
   });
 
   assert.equal(result.initial.rule, '涉害法');
-  assert.deepEqual(result.branches, ['午', '辰', '寅']);
+  assert.deepEqual(result.branches, ['寅', '子', '戌']);
 });
 
-test('大六壬庚午日第五局应依戌为孟上神发用，不按深度改取子', () => {
+test('大六壬涉害深度较大时应优先取深，不被孟位浅害改取戌', () => {
   const result = buildReferenceLiurenPlate({
     day: '庚午',
     hour: '庚辰',
@@ -912,7 +912,7 @@ test('大六壬庚午日第五局应依戌为孟上神发用，不按深度改�
   });
 
   assert.equal(result.initial.rule, '涉害法');
-  assert.deepEqual(result.branches, ['戌', '午', '寅']);
+  assert.deepEqual(result.branches, ['子', '申', '辰']);
 });
 
 test('大六壬无上下克时不会把四课比和误判为比用法', () => {
@@ -1016,6 +1016,7 @@ test('大六壬乙日伏吟有下贼上时按伏吟重审从干上传发用', ()
 
   assert.equal(result.rule, '伏吟重审法');
   assert.equal(result.initial, '辰');
+  assert.deepEqual(result.branches, ['辰', '丑', '戌']);
 });
 
 test('大六壬癸日伏吟有上克下时按伏吟元首从干上传发用', () => {
@@ -1036,6 +1037,7 @@ test('大六壬癸日伏吟有上克下时按伏吟元首从干上传发用', ()
 
   assert.equal(result.rule, '伏吟元首法');
   assert.equal(result.initial, '丑');
+  assert.deepEqual(result.branches, ['丑', '戌', '未']);
 });
 
 test('大六壬伏吟普通阴日按自信从支上传发用', () => {

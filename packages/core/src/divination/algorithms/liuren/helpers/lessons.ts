@@ -297,7 +297,14 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
   const maxDepth = Math.max(...ranked.map((item) => item.depth));
   let tied = ranked.filter((item) => item.depth === maxDepth);
 
-  // 深浅相同再看发用上神所居四孟、四仲、四季（见机、察微）。
+  // 涉害复等（《六壬大全》“缀瑕”）：阳日先见干上神，阴日先见支上神。
+  // 这是深浅完全相等时的先见取法，应先于孟仲季的次级区分。
+  const preferred = tied.find((item) => item.candidate.lesson.upper === preferredUpper);
+  if (preferred) {
+    return preferred.candidate;
+  }
+
+  // 深浅相同且无干支上神时，再看发用上神所居四孟、四仲、四季（见机、察微）。
   // 这里比较的是上神本身，而非它所临的地盘；“亥加丑”仍属四孟上神。
   for (const branchGroup of [MENG_BRANCHES, ZHONG_BRANCHES, JI_BRANCHES]) {
     const sameClass = tied.filter((item) => branchGroup.has(item.candidate.lesson.upper));
@@ -305,12 +312,6 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
       tied = sameClass;
       break;
     }
-  }
-
-  // 涉害复等：阳日取干上神，阴日取支上神；若仍无法区分，保留四课先后。
-  const preferred = tied.find((item) => item.candidate.lesson.upper === preferredUpper);
-  if (preferred) {
-    return preferred.candidate;
   }
 
   const picked = tied.sort((left, right) => left.index - right.index)[0];
@@ -455,6 +456,27 @@ function getPunishment(branch: string) {
   return punishment;
 }
 
+function buildFuyinBranches(initial: string, yiKeUpper: string, sanKeUpper: string) {
+  let middle = getPunishment(initial);
+
+  // 初传自刑时，中传取日辰另一侧；这条规则同样适用于乙、癸日有克发用。
+  if (middle === initial) {
+    middle = initial === yiKeUpper ? sanKeUpper : yiKeUpper;
+  }
+
+  let final = getPunishment(middle);
+  // 中传再次自刑，末传取冲神；否则按三刑推进。
+  if (final === middle) {
+    const opposite = LIUCHONG_MAP[middle];
+    if (!opposite) {
+      throw new Error(`地支 ${middle} 的六冲映射缺失。`);
+    }
+    final = opposite;
+  }
+
+  return [initial, middle, final];
+}
+
 function resolveFuyinTransmission(
   lessons: LiurenLesson[],
   context: ResolveTransmissionContext,
@@ -478,30 +500,18 @@ function resolveFuyinTransmission(
     );
   const keResult = resolveKeCandidates(lowerKeUpper, upperKeLower, context, '伏吟');
   if (keResult) {
-    return keResult;
+    return {
+      ...keResult,
+      branches: buildFuyinBranches(keResult.initial, yiKeUpper, sanKeUpper),
+    };
   }
 
   const useDayStemSide = isYangDay;
   const initial = useDayStemSide ? yiKeUpper : sanKeUpper;
-  let middle = getPunishment(initial);
-
-  if (middle === initial) {
-    middle = useDayStemSide ? sanKeUpper : yiKeUpper;
-  }
-
-  let final = getPunishment(middle);
-  // 中传自刑时，古法以冲神为末传；三刑回到初传并不属于此例。
-  if (final === middle) {
-    const opposite = LIUCHONG_MAP[middle];
-    if (!opposite) {
-      throw new Error(`地支 ${middle} 的六冲映射缺失。`);
-    }
-    final = opposite;
-  }
 
   return {
     initial,
-    branches: [initial, middle, final],
+    branches: buildFuyinBranches(initial, yiKeUpper, sanKeUpper),
     rule: '伏吟法',
     tag: isYangDay ? '自任' : '自信',
   };
