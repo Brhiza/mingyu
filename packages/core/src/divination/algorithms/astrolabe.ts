@@ -1,3 +1,7 @@
+/**
+ * @file 西洋星盘算法
+ * @传统依据 现代西方占星通行的本命、宫位、相位与行运定义；星体位置采用现代天文星历计算资料。
+ */
 import { AspectType, calculateChart } from 'celestine';
 import type {
   AstrolabeAspect,

@@ -51,6 +51,25 @@ function assertStandardPromptStructure(prompt: string) {
   assertPromptIsPortableTaskText(prompt);
 }
 
+function assertSsgwPromptStructure(prompt: string) {
+  const expectedSections = ['【当前时间】', '【占卜信息】', '【问题】', '【任务】'];
+
+  assertPromptSectionsInOrder(prompt, expectedSections, {
+    requireUnique: true,
+    requireBodyAfterHeading: true,
+  });
+  assert.doesNotMatch(prompt, /^【传统依据】$/m);
+  assert.match(prompt, /占法：三山国王灵签/);
+  assert.match(prompt, /签号：第\d+签/);
+  assert.match(prompt, /签题：/);
+  assert.match(prompt, /签诗：/);
+  assert.match(prompt, /吉凶级别：/);
+  assert.match(prompt, /典故：/);
+  assert.match(prompt, /基础解签：/);
+  assert.match(prompt, /补充解释：/);
+  assertPromptIsPortableTaskText(prompt);
+}
+
 function assertLiurenPromptStructure(prompt: string) {
   const expectedSections = [
     '【传统依据】',
@@ -757,12 +776,17 @@ test('各类占卜提示词都使用统一的角色加信息加问题结构', as
       createSupplementaryInfo(),
     );
     const role = item.method as DivinationPromptGuidanceMethod;
-    assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT[role]);
-    if (item.structure === 'liuren') {
+    if (item.method === 'ssgw') {
+      assertPromptHasSingleRole(prompt, undefined, { requireTraditionalGuidance: false });
+      assertSsgwPromptStructure(prompt);
+    } else if (item.structure === 'liuren') {
+      assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT[role]);
       assertLiurenPromptStructure(prompt);
     } else if (item.structure === 'almanac') {
+      assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT[role]);
       assertAlmanacPromptStructure(prompt);
     } else {
+      assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT[role]);
       assertStandardPromptStructure(prompt);
     }
   }
