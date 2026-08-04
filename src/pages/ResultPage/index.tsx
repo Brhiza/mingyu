@@ -230,11 +230,14 @@ export function ResultPage() {
   const { baziResult, partnerBaziResult, baziError } = useBaziCalculations(inputState);
   const sharedBirthData = useMemo(() => {
     if (!hasPreciseBirthData || !baziResult) return null;
-    const selectedHour =
+    const selectedBirthTime =
       inputState.birthHour !== ''
-        ? Number(inputState.birthHour)
+        ? {
+            hour: Number(inputState.birthHour),
+            minute: inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute),
+          }
         : inputState.timeIndex !== ''
-          ? BIRTH_TIME_OPTIONS[Number(inputState.timeIndex)]?.hour
+          ? BIRTH_TIME_OPTIONS[Number(inputState.timeIndex)]
           : undefined;
     return {
       ...(inputState.dateType === 'solar'
@@ -244,8 +247,8 @@ export function ResultPage() {
             day: Number(inputState.day),
           }
         : baziResult.solarDate),
-      hour: selectedHour ?? 12,
-      minute: inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute),
+      hour: selectedBirthTime?.hour ?? 12,
+      minute: selectedBirthTime?.minute ?? 0,
       latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
       longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
       timezone: 8,

@@ -181,7 +181,7 @@ export function buildBirthTimeEvidence(input: BirthTimeEvidenceInput): BirthTime
     promptText: hasBlockingDiagnostic
       ? `当前资料未满足所请求时间口径，不能进入排盘：${input.diagnostics.map((item) => item.message).join('；')}`
       : input.inputMode === 'traditional-shichen'
-        ? `直接采用已确认的${input.selectedShichen.name}，时辰索引为${input.selectedShichen.index}；日期换算所用${String(input.inputHour).padStart(2, '0')}:00只是该时辰的代表时刻，不表示精确出生分钟`
+        ? `直接采用已确认的${input.selectedShichen.name}，时辰索引为${input.selectedShichen.index}；日期换算所用${String(input.inputHour).padStart(2, '0')}:${String(input.inputMinute).padStart(2, '0')}只是该时辰的代表时刻，不表示精确出生分钟`
         : `按${formatDateTime(input.effectiveTime)}确定为${input.selectedShichen.name}，时辰索引为${input.selectedShichen.index}`,
     sources: ['统一时辰目录与早晚子时拆分口径'],
     limitation: STEP_LIMITATION,

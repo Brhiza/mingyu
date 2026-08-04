@@ -39,12 +39,12 @@ function collectExpectedXiaoyunByAge(
   gender: 'male' | 'female',
   ages: number[],
 ) {
-  const hour = TIME_MAP[timeIndex]?.hour;
-  if (typeof hour !== 'number') {
+  const timeInfo = TIME_MAP[timeIndex];
+  if (!timeInfo || typeof timeInfo.hour !== 'number' || typeof timeInfo.minute !== 'number') {
     throw new Error(`无效的时辰索引：${timeIndex}`);
   }
 
-  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, 0, 0);
+  const solarTime = SolarTime.fromYmdHms(year, month, day, timeInfo.hour, timeInfo.minute, 0);
   const childLimit = ChildLimit.fromSolarTime(
     solarTime,
     gender === 'male' ? Gender.MAN : Gender.WOMAN,
@@ -63,12 +63,12 @@ function collectExpectedDayun(
   gender: 'male' | 'female',
   count: number,
 ) {
-  const hour = TIME_MAP[timeIndex]?.hour;
-  if (typeof hour !== 'number') {
+  const timeInfo = TIME_MAP[timeIndex];
+  if (!timeInfo || typeof timeInfo.hour !== 'number' || typeof timeInfo.minute !== 'number') {
     throw new Error(`无效的时辰索引：${timeIndex}`);
   }
 
-  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, 0, 0);
+  const solarTime = SolarTime.fromYmdHms(year, month, day, timeInfo.hour, timeInfo.minute, 0);
   const childLimit = ChildLimit.fromSolarTime(
     solarTime,
     gender === 'male' ? Gender.MAN : Gender.WOMAN,

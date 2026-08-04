@@ -85,7 +85,7 @@ test('节气换月:2024-03-05 10:23 惊蛰,前后月柱翻转', () => {
     year: 2024,
     month: 3,
     day: 5,
-    timeIndex: 5, // 巳时代表时刻 09:00,在惊蛰前
+    timeIndex: 5, // 巳时代表时刻 10:00,在惊蛰前
     gender: 'male',
   });
   assert.equal(ganZhi(before.pillars.month), '丙寅');
@@ -94,10 +94,38 @@ test('节气换月:2024-03-05 10:23 惊蛰,前后月柱翻转', () => {
     year: 2024,
     month: 3,
     day: 5,
-    timeIndex: 6, // 午时代表时刻 11:00,在惊蛰后
+    timeIndex: 6, // 午时代表时刻 12:00,在惊蛰后
     gender: 'male',
   });
   assert.equal(ganZhi(after.pillars.month), '丁卯');
+});
+
+test('时辰代表时刻按时段中点:2015-02-04 午时,立春 12:00 后换年柱月柱', () => {
+  const r = baziCalculator.calculateBazi({
+    year: 2015,
+    month: 2,
+    day: 4,
+    timeIndex: 6,
+    gender: 'male',
+  });
+  assert.equal(ganZhi(r.pillars.year), '乙未');
+  assert.equal(ganZhi(r.pillars.month), '戊寅');
+  assert.equal(ganZhi(r.pillars.day), '辛亥');
+  assert.equal(ganZhi(r.pillars.hour), '甲午');
+});
+
+test('时辰代表时刻按时段中点:2019-02-04 午时,立春 12:00 后换年柱月柱', () => {
+  const r = baziCalculator.calculateBazi({
+    year: 2019,
+    month: 2,
+    day: 4,
+    timeIndex: 6,
+    gender: 'male',
+  });
+  assert.equal(ganZhi(r.pillars.year), '己亥');
+  assert.equal(ganZhi(r.pillars.month), '丙寅');
+  assert.equal(ganZhi(r.pillars.day), '壬申');
+  assert.equal(ganZhi(r.pillars.hour), '丙午');
 });
 
 test('晚子时:23:00 后日柱按子初换日(本引擎流派)', () => {

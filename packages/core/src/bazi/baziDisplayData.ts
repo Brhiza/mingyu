@@ -8,9 +8,10 @@
 import { SHICHEN_PERIODS } from '../calendar/dateUtils';
 
 // 兼容八字旧名，实际由公共日历时辰目录派生。
-export const TIME_MAP = SHICHEN_PERIODS.map(({ index, name, range, hour }) => ({
+export const TIME_MAP = SHICHEN_PERIODS.map(({ index, name, range, hour, minute }) => ({
   index,
   name,
   range,
   hour,
+  minute,
 }));

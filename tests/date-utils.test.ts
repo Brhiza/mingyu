@@ -19,6 +19,24 @@ test('时辰索引工具应拒绝非法小时或分钟', () => {
   assert.equal(getTimeIndexFromClock(12, 60), -1);
   assert.equal(getTimeIndexFromClock(12, -1), -1);
   assert.equal(SHICHEN_PERIODS.length, 13);
+  assert.deepEqual(
+    SHICHEN_PERIODS.map((period) => [period.name, period.hour, period.minute]),
+    [
+      ['早子时', 0, 30],
+      ['丑时', 2, 0],
+      ['寅时', 4, 0],
+      ['卯时', 6, 0],
+      ['辰时', 8, 0],
+      ['巳时', 10, 0],
+      ['午时', 12, 0],
+      ['未时', 14, 0],
+      ['申时', 16, 0],
+      ['酉时', 18, 0],
+      ['戌时', 20, 0],
+      ['亥时', 22, 0],
+      ['晚子时', 23, 30],
+    ],
+  );
   assert.equal(getShichenFromClock(23, 30)?.name, '晚子时');
   assert.equal(getShichenFromClock(3, 0)?.branch, '寅');
   assert.equal(getShichenByIndex(0)?.name, '早子时');
