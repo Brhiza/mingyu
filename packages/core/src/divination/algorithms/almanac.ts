@@ -1,3 +1,7 @@
+/**
+ * @file 黄历择日算法
+ * @传统依据 《钦定协纪辨方书》《选择要略》等择日资料；日历属性由当前历法数据提供。
+ */
 import { NineStar, SolarDay, SolarTime, TwentyEightStar } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';

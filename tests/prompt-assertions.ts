@@ -45,17 +45,21 @@ export function findPromptSectionHeadingIndex(prompt: string, section: string) {
 export function assertPromptHasSingleRole(
   prompt: string,
   expectedGuidance?: Record<string, string>,
+  options: { requireTraditionalGuidance?: boolean } = {},
 ) {
+  const requireTraditionalGuidance = options.requireTraditionalGuidance ?? true;
   assert.doesNotMatch(prompt, /^【角色】$/m, '角色设定不应使用【角色】标签');
   assert.doesNotMatch(prompt, /^【解读主线】$/m, '解读主线不应作为独立 section');
   assert.doesNotMatch(prompt, /^【输出结构】$/m, '输出结构不应作为独立 section');
   assert.doesNotMatch(prompt, /^【输出要求】$/m, '输出要求不应作为独立 section');
   assert.match(prompt, /^【当前时间】$/m, '任务书应包含【当前时间】');
-  assert.match(prompt, /^【传统依据】$/m, '任务书应包含【传统依据】');
-  assert.ok(
-    prompt.indexOf('【传统依据】') < prompt.indexOf('【当前时间】'),
-    '【传统依据】应位于【当前时间】之前',
-  );
+  if (requireTraditionalGuidance) {
+    assert.match(prompt, /^【传统依据】$/m, '任务书应包含【传统依据】');
+    assert.ok(
+      prompt.indexOf('【传统依据】') < prompt.indexOf('【当前时间】'),
+      '【传统依据】应位于【当前时间】之前',
+    );
+  }
   if (
     findPromptSectionHeadingIndex(prompt, '【问题】') !== -1 &&
     findPromptSectionHeadingIndex(prompt, '【任务】') !== -1
@@ -72,7 +76,7 @@ export function assertPromptHasSingleRole(
     '最终任务书不应包含行动建议、风险提醒或限制性措辞',
   );
 
-  if (expectedGuidance?.tradition) {
+  if (requireTraditionalGuidance && expectedGuidance?.tradition) {
     assert.match(
       prompt,
       new RegExp(

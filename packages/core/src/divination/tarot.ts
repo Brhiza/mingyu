@@ -1,3 +1,7 @@
+/**
+ * @file 塔罗牌算法
+ * @传统依据 Rider-Waite-Smith 体系及 A. E. Waite《The Pictorial Key to the Tarot》通行牌义。
+ */
 import { tarotCards, tarotSpreads } from './tarot-data';
 import type { RandomOptions } from '../shared/random';
 import {

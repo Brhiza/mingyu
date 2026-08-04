@@ -245,14 +245,14 @@ const BAZI_SCHOOL_PROFILES: Record<'ziping' | 'mangpai' | 'xinpai', BaziSchoolPr
     label: '盲派',
     task: '以年、月、日、时四柱宫位为骨架，按十神落柱、藏干、宾主体用与组合取象，结合大运流年分段观察应期。',
     basis:
-      '十神、藏干和四柱宫位的基础参照《渊海子平》《三命通会》《滴天髓》；盲派常用象法、宾主体用与年限分段按盘面结构取证。',
+      '十神、藏干和四柱宫位的基础参照《渊海子平》《三命通会》《滴天髓》；宾主体用、组合取象与年限分段属于近现代盲派传承的整理口径，按盘面结构取证。',
     formatFacts: formatMangpaiFacts,
   },
   xinpai: {
     label: '新派',
     task: '以日主旺衰为起点，观察五行流通、调候和生克制化，把大运、流年与原局作用叠加，定位动态触发。',
     basis:
-      '以《子平真诠》《滴天髓》《穷通宝鉴》《三命通会》的月令、旺衰与调候资料为基础，采用五行流通和岁运动态的现代整理。',
+      '以《子平真诠》《滴天髓》《穷通宝鉴》《三命通会》的月令、旺衰与调候资料为基础；五行流通与岁运动态属于近现代新派整理口径。',
     formatFacts: formatXinpaiFacts,
   },
 };
@@ -268,12 +268,33 @@ const BAZI_SCHOOL_GUIDANCE: Record<BaziSchool, string> = {
   xinpai: `${BAZI_SCHOOL_PROFILES.xinpai.label}：${BAZI_SCHOOL_PROFILES.xinpai.task}\n依据：${BAZI_SCHOOL_PROFILES.xinpai.basis}`,
 };
 
-const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = {
-  sanhe: '紫微流派：三合派。命身宫位、主星庙旺、对宫与三方四正构成盘面资料，四化作牵引。',
-  feixing: '紫微流派：飞星派。盘面提供生年四化、当前运限四化、自化与飞化落宫，三方四正作会照资料。',
-  sihua:
-    '紫微流派：四化派。生年四化、运限四化与禄权科忌落宫构成盘面资料，星曜庙旺与三方构成四化条件资料。',
+const ZIWEI_SCHOOL_PROFILES: Record<ZiweiSchool, { label: string; task: string; basis: string }> = {
+  sanhe: {
+    label: '三合派',
+    task: '以命宫、身宫为核心，先看本宫主星庙旺，再合看对宫与三方四正，辅煞杂曜和夹拱作为会照资料。',
+    basis:
+      '宫位、星曜与三方四正资料参照《紫微斗数全书》《紫微斗数全集》等通行典籍；“三合派”是后世流派称法。',
+  },
+  feixing: {
+    label: '飞星派',
+    task: '以生年四化、运限四化、自化和飞化落宫为主线，追踪四化从起点到落宫的宫位链，三方四正作为会照资料。',
+    basis:
+      '四化表与飞化落宫参照《紫微斗数全书》的通行四化资料及后世飞星派读法，四化表按盘面列出的十干对应关系解读。',
+  },
+  sihua: {
+    label: '四化派',
+    task: '以禄、权、科、忌落宫和宫位对应为主线，先定生年四化，再分层观察运限四化，星曜庙旺与三方四正补充四化条件。',
+    basis:
+      '十干四化与禄权科忌落宫参照《紫微斗数全书》的通行四化资料及四化派读法，四化表按盘面列出的十干对应关系解读。',
+  },
 };
+
+const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = Object.fromEntries(
+  Object.entries(ZIWEI_SCHOOL_PROFILES).map(([school, profile]) => [
+    school,
+    `紫微流派：${profile.label}。${profile.task}\n依据：${profile.basis}`,
+  ]),
+) as Record<ZiweiSchool, string>;
 
 export function getBaziSchoolGuidance(school?: BaziSchool) {
   if (!school || !BAZI_SCHOOL_GUIDANCE[school]) {

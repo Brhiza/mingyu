@@ -1824,6 +1824,56 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
   assert.doesNotMatch(prompt, /重点参考宫位：官禄宫、迁移宫、财帛宫、命宫/);
 });
 
+test('紫微提示词按三合、飞星、四化流派输出对应任务与依据', async () => {
+  const runtime = await calculateFullZiweiChart(
+    buildZiweiChartInput({
+      name: '测试',
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    }),
+  );
+
+  const prompts = {
+    sanhe: buildZiweiPromptForRuntime({
+      result: runtime,
+      question: '整体命局如何判断？',
+      school: 'sanhe',
+    }),
+    feixing: buildZiweiPromptForRuntime({
+      result: runtime,
+      question: '整体命局如何判断？',
+      school: 'feixing',
+    }),
+    sihua: buildZiweiPromptForRuntime({
+      result: runtime,
+      question: '整体命局如何判断？',
+      school: 'sihua',
+    }),
+  };
+
+  assert.match(prompts.sanhe, /紫微流派：三合派/);
+  assert.match(prompts.sanhe, /命宫、身宫/);
+  assert.match(prompts.sanhe, /《紫微斗数全书》/);
+  assert.match(prompts.feixing, /紫微流派：飞星派/);
+  assert.match(prompts.feixing, /生年四化/);
+  assert.match(prompts.feixing, /飞化落宫/);
+  assert.match(prompts.feixing, /后世飞星派读法/);
+  assert.match(prompts.sihua, /紫微流派：四化派/);
+  assert.match(prompts.sihua, /禄、权、科、忌落宫/);
+  assert.match(prompts.sihua, /十干四化/);
+  Object.values(prompts).forEach((prompt) => {
+    assert.match(prompt, /【流派】/);
+    assert.doesNotMatch(prompt, /排盘口径|项目|API|MCP|工程/);
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
 test('公开 API 紫微未指定方向时应默认走综合框架而不是自由问答', async () => {
   const { response, body } = await callApi('ziwei/prompt', {
     method: 'POST',

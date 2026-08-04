@@ -1,3 +1,7 @@
+/**
+ * @file 雷诺曼牌算法
+ * @传统依据 Petit Lenormand 通行牌序与组合读法；历史牌组参照 1799 年《Das Spiel der Hoffnung》资料。
+ */
 import type { LenormandData, LenormandSpreadType } from '../../types/divination';
 import type { RandomOptions, RandomSource } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';

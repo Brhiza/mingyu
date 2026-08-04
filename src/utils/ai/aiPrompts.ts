@@ -148,7 +148,7 @@ function buildBaziFullAnalysisObjectSection(): string {
   return '分析对象：本命盘与完整大运流年';
 }
 
-function buildFortunePromptAddon(promptId: string, ctx: FortuneSelectionContext | null): string {
+function buildFortunePromptAddon(ctx: FortuneSelectionContext | null): string {
   if (!ctx) return '';
   return '';
 }
@@ -246,7 +246,7 @@ export function buildPromptFromConfig(
     const fullFortuneSection = hasFullFortuneOutput
       ? formatFullFortuneOutputSection(chartResult)
       : '';
-    const fortuneAddon = buildFortunePromptAddon(promptConfig.id, fortuneSelectionContext);
+    const fortuneAddon = buildFortunePromptAddon(fortuneSelectionContext);
     const task = [buildBaziTaskText(scopeLabel, promptConfig.prompt), fortuneAddon]
       .filter(Boolean)
       .join(' ');
