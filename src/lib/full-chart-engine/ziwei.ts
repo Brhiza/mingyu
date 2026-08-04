@@ -437,10 +437,15 @@ function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompa
 
 export function formatZiweiTrueSolarEvidence(evidence?: ZiweiTrueSolarEvidence): string {
   if (!evidence) return '';
-  return evidence.correctionFacts
-    .map((fact) => fact.promptText)
+  const corrected = evidence.correctionFacts
+    .find((fact) => fact.type === '总校正')
+    ?.promptText.match(/真太阳时为(.+)$/)?.[1];
+  const shichen = evidence.correctionFacts
+    .find((fact) => fact.type === '时辰结果')
+    ?.promptText.match(/唯一时辰为(.+?)（/)?.[1];
+  return [corrected ? `真太阳时：${corrected}` : '', shichen ? `时辰：${shichen}` : '']
     .filter(Boolean)
-    .join('；');
+    .join('，');
 }
 
 export function buildCombinedZiweiPrompt(

@@ -27,7 +27,6 @@ const xuanKongSchema = z.object({
     .max(45)
     .optional()
     .describe('测量误差，用于边界敏感判断'),
-  guaType: z.enum(['下卦', '替卦']).optional().describe('可选强制卦型'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -41,7 +40,6 @@ function calculateXuanKong(args: z.infer<typeof xuanKongSchema>) {
     ...(args.measurementUncertaintyDegrees !== undefined
       ? { measurementUncertaintyDegrees: args.measurementUncertaintyDegrees }
       : {}),
-    ...(args.guaType ? { guaType: args.guaType } : {}),
   });
 }
 

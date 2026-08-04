@@ -201,15 +201,13 @@ test('能力清单可序列化且返回副本', () => {
   assert.ok(qizheng?.outputs.includes('七政四余十一星'));
   assert.ok(qizheng?.outputs.includes('二十八宿真实距星边界'));
   assert.ok(qizheng?.outputs.includes('位置来源与精度分层'));
-  assert.ok(
-    getSystemCapability('xuankong')
-      ?.inputs.find((input) => input.id === 'guaType')
-      ?.options?.some((item) => item.value === '替卦'),
+  assert.equal(
+    getSystemCapability('xuankong')?.inputs.some((input) => input.id === 'guaType'),
+    false,
   );
-  assert.ok(
-    getSystemCapability('residential')
-      ?.inputs.find((input) => input.id === 'guaType')
-      ?.options?.some((item) => item.value === '替卦'),
+  assert.equal(
+    getSystemCapability('residential')?.inputs.some((input) => input.id === 'guaType'),
+    false,
   );
   for (const systemId of ['calendar.trueSolarBirth', 'bazi', 'ziwei', 'astrolabe']) {
     assert.ok(

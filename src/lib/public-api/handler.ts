@@ -1880,10 +1880,6 @@ function calculateXuanKongApi(input: JsonRecord) {
     input.measurementUncertaintyDegrees === undefined
       ? undefined
       : readNumberLike(input, 'measurementUncertaintyDegrees', 0, 45);
-  const guaType =
-    input.guaType === undefined
-      ? undefined
-      : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
   try {
     return xuankong.generateXuanKong({
       year,
@@ -1892,7 +1888,6 @@ function calculateXuanKongApi(input: JsonRecord) {
       ...(facingDegree !== undefined ? { facingDegree } : {}),
       ...(sitDegree !== undefined ? { sitDegree } : {}),
       ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
-      ...(guaType ? { guaType } : {}),
     });
   } catch (error) {
     throw new ApiError(
@@ -1924,10 +1919,6 @@ function calculateResidentialApi(input: JsonRecord) {
     input.northReference === undefined ? undefined : readString(input, 'northReference', '');
   const magneticDeclinationDegrees = optNumber(input, 'magneticDeclinationDegrees', -30, 30);
   const measurementUncertaintyDegrees = optNumber(input, 'measurementUncertaintyDegrees', 0, 45);
-  const guaType =
-    input.guaType === undefined
-      ? undefined
-      : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
 
   if (mingGua && !BAGUA.includes(mingGua)) {
     throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
@@ -1967,7 +1958,6 @@ function calculateResidentialApi(input: JsonRecord) {
         : {}),
       ...(magneticDeclinationDegrees !== undefined ? { magneticDeclinationDegrees } : {}),
       ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
-      ...(guaType ? { guaType } : {}),
     });
   } catch (error) {
     throw new ApiError(

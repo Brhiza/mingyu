@@ -1742,7 +1742,6 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `【七政四余 · 果老星宗】`,
     `出生时间：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}。`,
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
-    `宿界模型：二十八宿按目标日期真实距星边界（28颗距星）划分宿度。`,
     ...stars.map(
       (s) =>
         `${s.kind} ${s.name}：在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,

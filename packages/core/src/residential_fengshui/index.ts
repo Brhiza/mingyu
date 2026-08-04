@@ -34,7 +34,6 @@ export interface ResidentialFengshuiInput {
   northReference?: 'unspecified' | 'magnetic' | 'true';
   magneticDeclinationDegrees?: number;
   measurementUncertaintyDegrees?: number;
-  guaType?: '下卦' | '替卦';
 }
 
 export interface ResidentialFengshuiAgreement {
@@ -194,7 +193,6 @@ function buildXuanKong(
 
   const xuanInput: XuanKongInput = {
     year: input.year,
-    ...(input.guaType ? { guaType: input.guaType } : {}),
     ...(input.measurementUncertaintyDegrees != null
       ? { measurementUncertaintyDegrees: input.measurementUncertaintyDegrees }
       : {}),
@@ -305,7 +303,7 @@ function buildAdvice(
   const advice: string[] = [];
   if (xuankong) {
     advice.push(
-      `先看宅运：${xuankong.period.label}，坐${xuankong.sitMountain}向${xuankong.facingMountain}，${xuankong.guaType}，${xuankong.daoShanXiang.summary}。`,
+      `先看宅运：${xuankong.period.label}，坐${xuankong.sitMountain}向${xuankong.facingMountain}，${xuankong.daoShanXiang.summary}。`,
     );
   }
   if (bazhai) {
@@ -346,7 +344,7 @@ function buildEvidencePrompt(params: {
     items.push({
       level: '主证',
       title: '玄空宅运层',
-      detail: `${params.xuankong.period.label}；坐${params.xuankong.sitMountain}向${params.xuankong.facingMountain}；${params.xuankong.guaType}；${params.xuankong.daoShanXiang.summary}`,
+      detail: `${params.xuankong.period.label}；坐${params.xuankong.sitMountain}向${params.xuankong.facingMountain}；${params.xuankong.daoShanXiang.summary}`,
       source: '玄空飞星 v1',
     });
   }
@@ -376,14 +374,13 @@ function buildPrompt(result: {
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
   xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'];
-  agreements: ResidentialFengshuiAgreement[];
 }) {
   const lines = [
     '【住宅风水排盘】',
     `山向：${result.orientationText}`,
     result.houseYear != null ? `宅运年份：${result.houseYear}` : '',
     result.xuankong
-      ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.guaType}；${result.xuankong.daoShanXiang.summary}`
+      ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.daoShanXiang.summary}`
       : result.bazhai
         ? result.xuankongStatus === '缺少建造年或起运年'
           ? '玄空：未排盘（缺少建造年或起运年）'
@@ -392,9 +389,6 @@ function buildPrompt(result: {
     result.bazhai
       ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}）${result.bazhai.houseGua ? `，宅卦${result.bazhai.houseGua}，命宅关系${result.bazhai.match}` : ''}`
       : '',
-    ...(result.xuankong && result.bazhai
-      ? [`合参要点：${result.agreements.map((item) => `${item.title}：${item.detail}`).join('；')}`]
-      : []),
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -441,7 +435,6 @@ export function generateResidentialFengshui(
     bazhai,
     xuankong,
     xuankongStatus,
-    agreements,
   });
 
   return {

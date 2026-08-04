@@ -14,29 +14,10 @@ export interface XuanKongEvidenceSourceResult {
   };
   sitMountain: string;
   facingMountain: string;
-  guaType: string;
-  replacementApplied: boolean;
   plates: { yun: number[]; shan: number[]; xiang: number[] };
   formation: string;
   combinations: Array<{ name: string; kind: string; palaces?: number[]; note: string }>;
   engine: { name: string; version: string; mode: string };
-  replacement?: {
-    mountain: {
-      originalCenterStar: number;
-      referenceMountain: string;
-      replacementStar: number;
-      direction: string;
-    };
-    facing: {
-      originalCenterStar: number;
-      referenceMountain: string;
-      replacementStar: number;
-      direction: string;
-    };
-    rule: string;
-    sourceUrl: string;
-    verificationSourceUrl: string;
-  };
   daoShanXiang: { summary: string };
   measurement?: { stability: string };
 }
@@ -82,13 +63,10 @@ export interface XuanKongEvidenceAnalysis {
   promptText: string;
 }
 
-const STEP_LIMIT =
-  '计算步骤只证明三元九运、山向、下卦或替卦与三盘飞布如何形成当前盘面，不证明装修效果、财运健康或现实吉凶';
-const FACT_LIMIT =
-  '飞星事实只记录当运、山向飞布与到山到向结构，不得直接换算为吉凶总分、成功率或唯一布局方案';
-const COUNTER_LIMIT = '反证只用于提示测量边界和输入限制，不等于住宅必然不利';
-const LIMIT_LIMIT =
-  '限制事实用于约束玄空飞星 v1 的解释范围，不得被反向当作形峦、大卦或装修有效性证据';
+const STEP_LIMIT = '计算步骤记录三元九运、山向与下卦三盘飞布如何形成当前盘面';
+const FACT_LIMIT = '飞星事实记录当运、山向飞布与到山到向结构';
+const COUNTER_LIMIT = '反证用于提示测量边界和输入限制';
+const LIMIT_LIMIT = '限制事实用于界定玄空飞星 v1 的输出范围';
 
 export function analyzeXuanKongEvidence(
   result: XuanKongEvidenceSourceResult,
@@ -104,23 +82,18 @@ export function analyzeXuanKongEvidence(
     {
       key: 'xuankong:calculation:mountain',
       stage: '定山向',
-      promptText: `坐山${result.sitMountain}，朝向${result.facingMountain}，采用${result.guaType}`,
-      sources: ['二十四山罗盘换算', '下卦中央九度与兼向替卦边界规则'],
+      promptText: `坐山${result.sitMountain}，朝向${result.facingMountain}，采用下卦`,
+      sources: ['二十四山罗盘换算', '下卦中央九度边界规则'],
       limitation: STEP_LIMIT,
     },
     {
       key: 'xuankong:calculation:plates',
       stage: '飞布三盘',
-      promptText: result.replacement
-        ? `运星${result.period.yunStar}顺飞生成运盘；山盘原${result.replacement.mountain.originalCenterStar}入中，取${result.replacement.mountain.referenceMountain}山替为${result.replacement.mountain.replacementStar}${result.replacement.mountain.direction}；向盘原${result.replacement.facing.originalCenterStar}入中，取${result.replacement.facing.referenceMountain}山替为${result.replacement.facing.replacementStar}${result.replacement.facing.direction}`
-        : `运星${result.period.yunStar}顺飞生成运盘；山向盘按入中星本宫同元龙山阴阳定顺逆，五黄入中时借原山阴阳`,
-      sources: result.replacement
-        ? [
-            result.replacement.sourceUrl,
-            result.replacement.verificationSourceUrl,
-            '二十四山替星表与元龙阴阳顺逆规则',
-          ]
-        : [`${result.engine.name}@${result.engine.version} 下卦引擎`, '玄空飞星元龙阴阳顺逆规则'],
+      promptText: `运星${result.period.yunStar}顺飞生成运盘；山向盘按入中星本宫同元龙山阴阳定顺逆，五黄入中时借原山阴阳`,
+      sources: [
+        `${result.engine.name}@${result.engine.version} 下卦引擎`,
+        '玄空飞星元龙阴阳顺逆规则',
+      ],
       limitation: STEP_LIMIT,
     },
   ];
@@ -173,17 +146,14 @@ export function analyzeXuanKongEvidence(
     {
       key: 'xuankong:limitation:scope',
       type: '体系边界',
-      promptText:
-        result.formation === '替卦未成四正局'
-          ? '当前替卦三盘未形成旺山旺向、上山下水、双星到向或双星到坐，组合检测已保守跳过；不覆盖形峦、玄空大卦或不同门派的其他替卦口诀'
-          : '当前输出下卦及兼向替卦的运盘、山盘、向盘、局型与已登记组合；不覆盖形峦、玄空大卦或不同门派的其他替卦口诀',
+      promptText: '当前输出下卦运盘、山盘、向盘、局型与已登记组合',
       sources: ['项目玄空飞星范围声明'],
       limitation: LIMIT_LIMIT,
     },
     {
       key: 'xuankong:limitation:no-score',
       type: '高风险输出边界',
-      promptText: '不生成吉凶总分、财运百分比、健康保证或唯一装修方案',
+      promptText: '输出范围限为盘面与组合',
       sources: ['结构化证据限制'],
       limitation: LIMIT_LIMIT,
     },
@@ -192,7 +162,7 @@ export function analyzeXuanKongEvidence(
   const summaryFact = {
     key: 'xuankong:summary',
     status: counterFacts.length ? '含边界提示' : '结构完整',
-    promptText: `${result.period.yuan}${result.period.yun}运，坐${result.sitMountain}向${result.facingMountain}，${result.guaType}，${result.formation}；${result.daoShanXiang.summary}`,
+    promptText: `${result.period.yuan}${result.period.yun}运，坐${result.sitMountain}向${result.facingMountain}，${result.formation}；${result.daoShanXiang.summary}`,
     sources: ['定运、山向、三盘飞布与到山到向汇总'],
     limitation: FACT_LIMIT,
   };
@@ -200,22 +170,12 @@ export function analyzeXuanKongEvidence(
   const sources = [
     {
       title: '玄空飞星通行规则',
-      evidence: '三元九运、运盘顺飞、元龙阴阳定山向盘顺逆、下卦边界与兼向替星表',
+      evidence: '三元九运、运盘顺飞、元龙阴阳定山向盘顺逆与下卦边界',
       role: '传统规则来源' as const,
     },
     {
       title: '@soul-atelier/xuankong 0.2.1',
       evidence: '下卦三盘、局型与组合检测，包含公开金标盘回归测试',
-      role: '公共算法来源' as const,
-    },
-    {
-      title: 'funfwo/Fengshui 固定提交',
-      evidence: '固定提交 bd7d85e 的 getJianshanxiangpan：同元龙取本宫山、查替星并沿用原山阴阳顺逆',
-      role: '公共算法来源' as const,
-    },
-    {
-      title: 'weig19364/xuankongfeixing 固定提交',
-      evidence: '固定提交 324623c 的单文件 tiGuaMap：完整列出二十四山替星表，用于逐山交叉核验',
       role: '公共算法来源' as const,
     },
     {

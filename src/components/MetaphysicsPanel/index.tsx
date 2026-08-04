@@ -110,8 +110,7 @@ function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
       <div className="result-side-head">
         <h3>玄空九宫盘</h3>
         <p>
-          {xuankong.period.label} · 坐{xuankong.sitMountain}向{xuankong.facingMountain} ·{' '}
-          {xuankong.guaType}
+          {xuankong.period.label} · 坐{xuankong.sitMountain}向{xuankong.facingMountain}
         </p>
       </div>
       <div className="xuankong-grid" role="img" aria-label="玄空飞星九宫盘">
@@ -151,8 +150,8 @@ function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
           <strong>{xuankong.daoShanXiang.summary}</strong>
         </div>
         <div>
-          <span>卦型说明</span>
-          <strong>{xuankong.replacementReason}</strong>
+          <span>卦型</span>
+          <strong>下卦</strong>
         </div>
         {xuankong.measurement?.candidateMountains?.length ? (
           <div>

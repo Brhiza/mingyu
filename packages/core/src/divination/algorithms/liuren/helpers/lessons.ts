@@ -285,34 +285,36 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
     depth: getHarmDepth(candidate, context),
     under: getUnderByUpper(context.heavenlyPlate, candidate.lesson.upper),
   }));
-  const maxDepth = Math.max(...ranked.map((item) => item.depth));
-  let tied = ranked.filter((item) => item.depth === maxDepth);
-
-  for (const branchGroup of [MENG_BRANCHES, ZHONG_BRANCHES, JI_BRANCHES]) {
-    const sameDepthGroup = tied.filter((item) => branchGroup.has(item.under));
-    if (sameDepthGroup.length === 1) {
-      return sameDepthGroup[0].candidate;
-    }
-    if (sameDepthGroup.length > 1) {
-      tied = sameDepthGroup;
-      break;
-    }
-  }
-
   const preferredUpper = YANG_STEMS.has(context.dayStem)
     ? getUpperByUnder(context.heavenlyPlate, context.dayStemResidence)
     : getUpperByUnder(context.heavenlyPlate, context.dayBranch);
-  const picked = tied.find((item) => item.candidate.lesson.upper === preferredUpper)?.candidate;
-  if (!picked) {
-    throw new Error('涉害复等无法按刚日干上或柔日支上确定发用。');
+
+  // 《六壬指南》涉害取法先按所临地盘孟、仲、季分组；同组再以深浅、课序和刚日干上/柔日支上细分。
+  for (const branchGroup of [MENG_BRANCHES, ZHONG_BRANCHES, JI_BRANCHES]) {
+    const samePositionGroup = ranked.filter((item) => branchGroup.has(item.under));
+    if (samePositionGroup.length === 0) {
+      continue;
+    }
+
+    const maxDepth = Math.max(...samePositionGroup.map((item) => item.depth));
+    const tied = samePositionGroup
+      .filter((item) => item.depth === maxDepth)
+      .sort((left, right) => left.index - right.index);
+    const picked = tied.find((item) => item.candidate.lesson.upper === preferredUpper) ?? tied[0];
+    if (!picked) {
+      throw new Error('涉害法没有可供比较的候选课。');
+    }
+    return picked.candidate;
   }
-  return picked;
+
+  throw new Error('涉害法没有可供比较的候选课。');
 }
 
 function resolveMultipleCandidates(
   candidates: KeCandidate[],
   context: ResolveTransmissionContext,
   tagPrefix = '',
+  directionTag?: string,
 ): InitialTransmissionResult {
   const uniqueCandidates = uniqueCandidatesByUpper(candidates);
   const biYongCandidates = uniqueCandidates.filter((item) =>
@@ -324,7 +326,7 @@ function resolveMultipleCandidates(
     return {
       initial: picked.lesson.upper,
       rule: tagPrefix ? `${tagPrefix}比用法` : '比用法',
-      tag: tagPrefix ? `${tagPrefix}比用` : '比用',
+      tag: directionTag ?? (tagPrefix ? `${tagPrefix}比用` : '比用'),
     };
   }
 
@@ -336,7 +338,7 @@ function resolveMultipleCandidates(
   return {
     initial: picked.lesson.upper,
     rule: tagPrefix ? `${tagPrefix}涉害法` : '涉害法',
-    tag: tagPrefix ? `${tagPrefix}涉害` : '涉害',
+    tag: directionTag ?? (tagPrefix ? `${tagPrefix}涉害` : '涉害'),
   };
 }
 
@@ -399,13 +401,13 @@ function resolveRemoteKe(
     return { initial: upperKeDay[0].lesson.upper, rule: '遥克法', tag: '蒿矢' };
   }
   if (upperKeDay.length > 1) {
-    return resolveMultipleCandidates(upperKeDay, context, '遥克');
+    return resolveMultipleCandidates(upperKeDay, context, '遥克', '蒿矢');
   }
   if (dayKeUpper.length === 1) {
     return { initial: dayKeUpper[0].lesson.upper, rule: '遥克法', tag: '弹射' };
   }
   if (dayKeUpper.length > 1) {
-    return resolveMultipleCandidates(dayKeUpper, context, '遥克');
+    return resolveMultipleCandidates(dayKeUpper, context, '遥克', '弹射');
   }
 
   return null;

@@ -191,8 +191,6 @@ function generatePeachBlossomDetailSection(chartResult: BaziChartResult): string
     if (pillarTaohua) {
       const d = getPeachBlossomDetail(pillar);
       lines.push(`${PILLAR_LABELS[pillar]}:${d.type} | ${d.description}`);
-      lines.push(`提示:${d.favorable}`);
-      lines.push(`留意:${d.unfavorable}`);
     }
   }
 

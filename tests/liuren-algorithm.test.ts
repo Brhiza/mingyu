@@ -854,14 +854,14 @@ test('大六壬多处贼克且同阴阳候选不唯一时进入涉害法', () =>
   assert.ok(['巳', '未', '亥'].includes(result.initial));
 });
 
-test('大六壬涉害从所临地盘之后起算，并依深浅、孟仲季取用', () => {
+test('大六壬涉害先按所临地盘孟仲季取传，同组再依深浅与课序', () => {
   const cases = [
     {
       day: '丁卯',
       hour: '辛丑',
       monthLeader: '亥',
-      expected: ['亥', '酉', '未'],
-      source: '《六壬粹言》丁卯日两下贼上例',
+      expected: ['丑', '亥', '酉'],
+      source: '《六壬指南》涉害取法：无孟取仲',
     },
     {
       day: '庚子',
@@ -891,35 +891,26 @@ test('大六壬涉害从所临地盘之后起算，并依深浅、孟仲季取�
   }
 });
 
-test('大六壬涉害依《六壬粹言》古法不另用择比改传', () => {
-  const cases = [
-    {
-      day: '乙卯',
-      hour: '戊寅',
-      expected: ['亥', '酉', '未'],
-    },
-    {
-      day: '甲辰',
-      hour: '戊辰',
-      expected: ['子', '申', '辰'],
-    },
-    {
-      day: '庚午',
-      hour: '庚辰',
-      expected: ['子', '申', '辰'],
-    },
-  ];
+test('大六壬庚午日第三局应依古籍午发用，不按季位深度改取寅', () => {
+  const result = buildReferenceLiurenPlate({
+    day: '庚午',
+    hour: '庚寅',
+    monthLeader: '子',
+  });
 
-  for (const item of cases) {
-    const result = buildReferenceLiurenPlate({
-      day: item.day,
-      hour: item.hour,
-      monthLeader: '子',
-    });
+  assert.equal(result.initial.rule, '涉害法');
+  assert.deepEqual(result.branches, ['午', '辰', '寅']);
+});
 
-    assert.equal(result.initial.rule, '涉害法', item.day);
-    assert.deepEqual(result.branches, item.expected, item.day);
-  }
+test('大六壬庚午日第五局应依戌为孟上神发用，不按深度改取子', () => {
+  const result = buildReferenceLiurenPlate({
+    day: '庚午',
+    hour: '庚辰',
+    monthLeader: '子',
+  });
+
+  assert.equal(result.initial.rule, '涉害法');
+  assert.deepEqual(result.branches, ['戌', '午', '寅']);
 });
 
 test('大六壬无上下克时不会把四课比和误判为比用法', () => {
@@ -936,6 +927,38 @@ test('大六壬无上下克时不会把四课比和误判为比用法', () => {
   assert.equal(result.rule, '遥克法');
   assert.equal(result.tag, '蒿矢');
   assert.equal(result.initial, '申');
+});
+
+test('大六壬多候选遥克比用仍保留蒿矢方向标签', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('寅', '亥'),
+      createLesson('申', '子'),
+      createLesson('酉', '亥'),
+      createLesson('午', '辰'),
+    ],
+    createResolveContext({ dayStem: '甲' }),
+  );
+
+  assert.equal(result.rule, '遥克比用法');
+  assert.equal(result.tag, '蒿矢');
+  assert.equal(result.initial, '申');
+});
+
+test('大六壬多候选遥克比用仍保留弹射方向标签', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('午', '寅'),
+      createLesson('寅', '子'),
+      createLesson('卯', '子'),
+      createLesson('丑', '酉'),
+    ],
+    createResolveContext({ dayStem: '庚' }),
+  );
+
+  assert.equal(result.rule, '遥克比用法');
+  assert.equal(result.tag, '弹射');
+  assert.equal(result.initial, '寅');
 });
 
 test('大六壬遥克只看二三四课，不把一课上神误作遥克发用', () => {

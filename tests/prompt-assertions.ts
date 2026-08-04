@@ -68,7 +68,7 @@ export function assertPromptHasSingleRole(
   }
   assert.doesNotMatch(
     prompt,
-    /现实建议|风险提醒|掷筊|只依据|只基于|给出行动建议|提供行动建议|输出行动建议/,
+    /现实建议|风险提醒|掷筊|投筊|提示:|留意:|合参要点|宿界模型|只依据|只基于|给出行动建议|提供行动建议|输出行动建议/,
     '最终任务书不应包含行动建议、风险提醒或限制性措辞',
   );
 
@@ -108,6 +108,6 @@ export function assertPromptIsPortableTaskText(prompt: string) {
   assert.doesNotMatch(prompt, /\*\*/);
   assert.doesNotMatch(
     prompt,
-    /使用简体中文|简体中文输出|【输出要求】|现实建议|风险提醒|掷筊|给出行动建议|提供行动建议|输出行动建议|行动清单/,
+    /使用简体中文|简体中文输出|【输出要求】|现实建议|风险提醒|掷筊|投筊|提示:|留意:|合参要点|宿界模型|给出行动建议|提供行动建议|输出行动建议|行动清单/,
   );
 }

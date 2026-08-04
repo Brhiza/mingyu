@@ -676,9 +676,7 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
   const trueSolarCorrection =
     data.birth.trueSolarEvidence && data.birth.trueSolarDateTime
-      ? `出生时间校正：${data.birth.trueSolarEvidence.correctionFacts
-          .map((item) => item.promptText)
-          .join('；')}；采用真太阳时${data.birth.trueSolarDateTime}。`
+      ? `出生时间校正：真太阳时${data.birth.trueSolarDateTime}。`
       : '';
   const aspectSummary = data.aspects
     .slice(0, 3)

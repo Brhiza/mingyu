@@ -325,7 +325,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       doorToInteriorDegree: 0,
       question: '这套房怎么看？',
     },
-    /【住宅风水排盘】[\s\S]*合参要点：[\s\S]*【问题】\n这套房怎么看？/,
+    /【住宅风水排盘】[\s\S]*八宅：[\s\S]*【问题】\n这套房怎么看？/,
   ],
   [
     'xuankong_prompt',
@@ -2408,8 +2408,11 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     assert.equal(ziweiPromptResult.isError, undefined);
     const ziweiPrompt = String(ziweiPromptResult.structuredContent?.prompt ?? '');
     assert.match(ziweiPrompt, /【出生时间校正】/);
-    assert.match(ziweiPrompt, /钟表时间|真太阳时/);
-    assert.doesNotMatch(ziweiPrompt, /结构化证据|计算步骤|出生时间敏感性|候选时辰|缺时柱/);
+    assert.match(ziweiPrompt, /真太阳时：[\s\S]*时辰：/);
+    assert.doesNotMatch(
+      ziweiPrompt,
+      /已核验|未请求|经度时差|均时差|总校正|校正后唯一时辰|结构化证据|计算步骤|出生时间敏感性|候选时辰|缺时柱/,
+    );
 
     const astrolabePromptResult = await client.callTool({
       name: 'astrolabe_prompt',
@@ -2444,10 +2447,10 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       7,
     );
     assert.ok(astrolabePromptResultData.result?.evidenceAnalysis?.trueSolarTimeFact?.key);
-    assert.match(astrolabePromptResultData.prompt ?? '', /出生时间校正：[\s\S]*采用真太阳时/);
+    assert.match(astrolabePromptResultData.prompt ?? '', /出生时间校正：[\s\S]*真太阳时/);
     assert.doesNotMatch(
       astrolabePromptResultData.prompt ?? '',
-      /结构化证据|计算链|证据汇总|解释限制/,
+      /已核验|未请求|经度时差|均时差|总校正|校正后唯一时辰|结构化证据|计算链|证据汇总|解释限制/,
     );
   });
 });
@@ -2711,7 +2714,8 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     assert.equal(promptResponse.isError, undefined);
     const prompt = String(promptResponse.structuredContent?.prompt);
     assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.qizheng);
-    assert.match(prompt, /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*【问题】\n请分析本命结构。/);
+    assert.match(prompt, /【七政四余 · 果老星宗】[\s\S]*七政：[\s\S]*【问题】\n请分析本命结构。/);
+    assert.doesNotMatch(prompt, /宿界模型/);
     assertPromptIsPortableTaskText(prompt);
   });
 });
@@ -2768,58 +2772,23 @@ test('MCP 七政、太乙和玄空不得补造缺失必填参数', async () => {
   });
 });
 
-test('MCP 玄空应返回可核验替卦和替星过程', async () => {
+test('MCP 玄空应只返回可核验下卦盘', async () => {
   await withMcpClient(async (client) => {
     const response = await client.callTool({
       name: 'metaphysics_xuankong',
-      arguments: { year: 2008, sitMountain: '子', guaType: '替卦' },
+      arguments: { year: 2008, sitMountain: '子' },
     });
     assert.equal(response.isError, undefined);
     const chart = (
       response.structuredContent as {
         result: {
-          guaType: string;
-          replacementApplied: boolean;
-          replacement: {
-            mountain: {
-              originalCenterStar: number;
-              referenceMountain: string;
-              replacementStar: number;
-              direction: string;
-            };
-            facing: {
-              originalCenterStar: number;
-              referenceMountain: string;
-              replacementStar: number;
-              direction: string;
-            };
-            verificationSourceUrl: string;
-          };
           engine: { mode: string };
           evidenceAnalysis: { promptText: string };
         };
       }
     ).result;
-    assert.equal(chart.guaType, '替卦');
-    assert.equal(chart.replacementApplied, true);
-    assert.deepEqual(chart.replacement.mountain, {
-      originalCenterStar: 4,
-      referenceMountain: '巽',
-      replacementStar: 6,
-      direction: '顺飞',
-    });
-    assert.deepEqual(chart.replacement.facing, {
-      originalCenterStar: 3,
-      referenceMountain: '卯',
-      replacementStar: 2,
-      direction: '逆飞',
-    });
-    assert.match(
-      chart.replacement.verificationSourceUrl,
-      /324623c5460b035d537a8ff2da6b6567f9b85e9e/,
-    );
-    assert.equal(chart.engine.mode, '替卦');
-    assert.match(chart.evidenceAnalysis.promptText, /替星|巽山替为6顺飞|卯山替为2逆飞/);
+    assert.equal(chart.engine.mode, '下卦');
+    assert.match(chart.evidenceAnalysis.promptText, /下卦|元龙阴阳|双星到向/);
   });
 });
 

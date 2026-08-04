@@ -659,8 +659,8 @@ test('柱位出现桃花时即使全局神煞没有桃花也应生成桃花详�
   assert.match(prompt.user, /时柱:墙外桃花/);
   assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*利:/);
   assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*忌:/);
-  assert.match(prompt.user, /【桃花详解】[\s\S]*提示:/);
-  assert.match(prompt.user, /【桃花详解】[\s\S]*留意:/);
+  assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*提示:/);
+  assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*留意:/);
 });
 
 test('八字提示词的空亡详解应按实际空亡柱位显隐并写明证据', () => {
