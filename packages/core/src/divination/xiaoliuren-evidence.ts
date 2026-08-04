@@ -1,4 +1,3 @@
-import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { XiaoliurenData, XiaoliurenPalaceDetail } from '../types/divination';
 
@@ -278,12 +277,14 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
   };
   const limitations = limitationFacts.map((fact) => fact.promptText);
   const promptText = [
-    '【小六壬通行时间课结构化证据】',
-    ...formatPromptEvidenceBundle(evidence),
+    '【传统依据】',
+    RULE_SOURCE,
     '',
-    `【计算链】${calculationFact.promptText}`,
-    `【证据汇总】${summaryFact.promptText}`,
-    `【解释限制】${limitations.join('；')}`,
+    '【排盘资料】',
+    `农历：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
+    `顺数轨迹：月宫${data.sequence.month.name}；日宫${data.sequence.day.name}；时宫${data.sequence.hour.name}`,
+    `占得宫：${data.primary.name}`,
+    `歌诀原文：${data.primary.verse}`,
   ].join('\n');
 
   return {

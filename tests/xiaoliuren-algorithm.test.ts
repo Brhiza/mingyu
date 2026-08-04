@@ -162,12 +162,13 @@ test('小六壬：证据步骤依赖与限制归属应全部闭合', () => {
 test('小六壬：来源限制必须明确，提示词不得恢复无来源扩展', () => {
   const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
   const evidenceText = data.evidenceAnalysis?.promptText ?? '';
+  const limitationText = data.evidenceAnalysis?.limitations.join('\n') ?? '';
 
   assert.match(evidenceText, /通行俗传小六壬掌诀/);
-  assert.match(evidenceText, /署名不作为已证实的古籍归属/);
-  assert.match(evidenceText, /未取得可核验的早期刻本、页码或定本/);
+  assert.match(limitationText, /署名不作为已证实的古籍归属/);
+  assert.match(limitationText, /未取得可核验的早期刻本、页码或定本/);
   assert.doesNotMatch(data.primary.verse, FORBIDDEN_EXTENSIONS);
-  assert.match(evidenceText, /未采用无可核验出处的华山派完整课/);
+  assert.match(limitationText, /未采用无可核验出处的华山派完整课/);
   const { evidenceAnalysis: _evidenceAnalysis, ...chartData } = data;
   assert.doesNotMatch(JSON.stringify(chartData), FORBIDDEN_EXTENSIONS);
   assert.ok(

@@ -507,14 +507,21 @@ export function analyzeShenshaEvidence(
   const source = Array.from(
     new Set(matchFacts.flatMap((item) => item.sources).filter((item) => !item.includes('未声明'))),
   ).join('、');
+  const promptSourceFor = (itemSources: string[]) =>
+    Array.from(
+      new Set(
+        itemSources
+          .filter((item) => !item.includes('未声明'))
+          .map((item) => item.replace(/^tyme4ts /, '').replace(/^公共/, '')),
+      ),
+    ).join('、') || '未提供公开出处';
   const promptText = [
-    '【通用神煞结构化证据】',
+    '【通用神煞资料】',
     `【四柱】${pillarFacts.map((item) => `${item.label}${item.ganZhi}`).join('、')}。`,
-    `【计算链】${calculationSteps.map((item) => item.promptText).join(' → ')}。`,
-    `【命中事实】${matchFacts.map((item) => item.promptText).join('；')}。`,
-    `【证据汇总】${summaryFact.promptText}。`,
-    `【来源】${source || '本次规则存在未声明来源'}。`,
-    `【解释限制】${limitations.join('；')}。`,
+    `【神煞】${matchFacts.map((item) => item.promptText).join('；')}。`,
+    `【传统依据】${matchFacts
+      .map((item) => `${item.name}：${item.ruleText}（${promptSourceFor(item.sources)}）`)
+      .join('；')}。`,
   ].join('\n');
 
   return {

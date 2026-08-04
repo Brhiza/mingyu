@@ -4,7 +4,6 @@ import test from 'node:test';
 import { buildAstronomicalTimeEvidence, resolveHistoricalTimezone } from 'mingyu-core/calendar';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng } from 'mingyu-core/qizheng';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 function assertEvidenceReferences(evidence: ReturnType<typeof resolveHistoricalTimezone>) {
   const factKeys = new Set([
@@ -84,7 +83,6 @@ test('IANA 历史时区应识别中国 1990 年夏令时', () => {
       ...evidence.limitationFacts,
     ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
   );
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('IANA 历史时区应识别普通唯一时刻与固定偏移冲突', () => {

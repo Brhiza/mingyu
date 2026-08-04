@@ -220,7 +220,7 @@ function resolveBirthTimeInput(profile: BirthProfile): ResolvedBirthTimeInput {
   return {
     inputMode: 'traditional-shichen',
     hour: shichen.hour,
-    minute: 0,
+    minute: shichen.minute,
     timeIndex: shichen.index,
   };
 }

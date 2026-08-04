@@ -28,8 +28,6 @@ export const ASTROLABE_PROMPT_TOPICS = [
 
 export type AstrolabePromptTopic = (typeof ASTROLABE_PROMPT_TOPICS)[number];
 
-const ASTROLABE_GENERAL_DEFAULT_QUESTION = '请先根据这张星盘回答当前最值得关注的重点。';
-
 export const ASTROLABE_SHORTCUT_ACTIONS = [
   { label: '综合', topic: 'life' },
   { label: '事业', topic: 'career' },
@@ -61,9 +59,9 @@ export function getAstrolabeDefaultQuestion(
   _topic?: string,
   _options: { isCustomQuestion?: boolean } = {},
 ) {
-  return ASTROLABE_GENERAL_DEFAULT_QUESTION;
+  return '';
 }
 
 export function buildAstrolabeTopicTask(_topic?: string) {
-  return '请结合星体、宫位和相位直接回答【问题】，并给出现实建议。';
+  return '请依据星体、宫位和相位完成解读。';
 }

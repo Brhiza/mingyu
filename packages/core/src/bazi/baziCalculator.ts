@@ -211,7 +211,7 @@ export class BaziCalculator {
     let lunarHour: LunarHourInstance;
     let timing: TimingInfo | undefined;
     const baseHour = useTrueSolarTimeEnabled ? birthHour! : selectedTimeInfo!.hour;
-    const baseMinute = useTrueSolarTimeEnabled ? birthMinute! : 0;
+    const baseMinute = useTrueSolarTimeEnabled ? birthMinute! : selectedTimeInfo!.minute;
 
     if (isLunarEnabled) {
       // 如果选择农历，使用 LunarHour.fromYmdHms() 创建，然后转换为 SolarTime

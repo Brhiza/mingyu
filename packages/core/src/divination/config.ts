@@ -1,13 +1,13 @@
 import type {
   AlmanacTopic,
   DivinationType,
+  JinkoujueDivinationMethod,
   LenormandSpreadType,
   LiuyaoTemplateType,
   LiurenTemplateType,
   MeihuaDivinationMethod,
   TarotSpreadType,
   XiaoliurenDivinationMethod,
-  JinkoujueDivinationMethod,
 } from '../types/divination';
 
 export type DivinationMethodId =
@@ -59,11 +59,6 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     description: '适合看事情如何演变、卡点在哪以及该先处理什么。',
   },
   {
-    value: 'taiyi',
-    label: '太乙神数',
-    description: '以年家七十二局观察年度气运、动静、攻守与时宜。',
-  },
-  {
     value: 'xiaoliuren',
     label: '小六壬',
     description: '适合快速判断眼前事情的走势、阻力与行动节奏。',
@@ -74,6 +69,11 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     description: '以地分、将神、贵神、人元四位一体判断事情主客、人情与落点。',
   },
   {
+    value: 'taiyi',
+    label: '太乙神数',
+    description: '以年家七十二局观察年度气运、动静、攻守与时宜。',
+  },
+  {
     value: 'ssgw',
     label: '三山国王灵签',
     description: '随机求签，适合快速获得方向提示。',
@@ -81,17 +81,17 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   {
     value: 'tarot',
     label: '塔罗',
-    description: '适合感受关系、能量状态与行动建议。',
-  },
-  {
-    value: 'almanac',
-    label: '黄历择日',
-    description: '按事项、日期范围和参与人八字，筛选更合适的行动日。',
+    description: '适合感受关系、能量状态与牌面指引。',
   },
   {
     value: 'lenormand',
     label: '雷诺曼',
     description: '偏现实事件判断，适合看关系互动、消息走向和具体选择。',
+  },
+  {
+    value: 'almanac',
+    label: '黄历择日',
+    description: '按事项、日期范围和参与人八字，筛选更合适的行动日。',
   },
   {
     value: 'astrolabe',

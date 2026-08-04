@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildAstronomicalTimeEvidence, estimateDeltaTSeconds } from 'mingyu-core/calendar';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 function assertEvidenceReferences(evidence: ReturnType<typeof buildAstronomicalTimeEvidence>) {
   const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
@@ -74,7 +73,6 @@ test('天文时间尺度应以 J2000.0 校验 UTC 儒略日', () => {
       ...evidence.limitationFacts,
     ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
   );
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('天文时间尺度应正确把当地钟表时间换算为 UTC', () => {

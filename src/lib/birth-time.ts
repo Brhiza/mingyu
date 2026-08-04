@@ -1,15 +1,9 @@
-export const BIRTH_TIME_OPTIONS = [
-  { label: '早子时', range: '0:00-1:00', hour: 0 },
-  { label: '丑时', range: '1:00-3:00', hour: 1 },
-  { label: '寅时', range: '3:00-5:00', hour: 3 },
-  { label: '卯时', range: '5:00-7:00', hour: 5 },
-  { label: '辰时', range: '7:00-9:00', hour: 7 },
-  { label: '巳时', range: '9:00-11:00', hour: 9 },
-  { label: '午时', range: '11:00-13:00', hour: 11 },
-  { label: '未时', range: '13:00-15:00', hour: 13 },
-  { label: '申时', range: '15:00-17:00', hour: 15 },
-  { label: '酉时', range: '17:00-19:00', hour: 17 },
-  { label: '戌时', range: '19:00-21:00', hour: 19 },
-  { label: '亥时', range: '21:00-23:00', hour: 21 },
-  { label: '晚子时', range: '23:00-24:00', hour: 23 },
-] as const;
+import { SHICHEN_PERIODS } from '@core/calendar/dateUtils';
+
+export const BIRTH_TIME_OPTIONS = SHICHEN_PERIODS.map(({ index, name, range, hour, minute }) => ({
+  index,
+  label: name,
+  range,
+  hour,
+  minute,
+}));

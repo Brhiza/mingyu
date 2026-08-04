@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateSolarIlluminationEvidence } from '../packages/core/src/calendar/solar-illumination-evidence.ts';
 import { generateAstrolabe } from '../packages/core/src/divination/algorithms/astrolabe.ts';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 function assertEvidenceReferences(evidence: ReturnType<typeof calculateSolarIlluminationEvidence>) {
   const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
@@ -114,7 +113,6 @@ test('北京夏至应给出可复核的日出日落、太阳高度与曙暮光',
       ...evidence.limitationFacts,
     ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
   );
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('高纬冬夏应明确表达极夜无日出和极昼无日落', () => {

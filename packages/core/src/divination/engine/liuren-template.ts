@@ -2,19 +2,19 @@ import type { LiurenData, LiurenTemplateType } from '../../types/divination';
 
 export function getLiurenPatternHint(pattern?: LiurenData['transmissionPattern']) {
   if (pattern === '伏吟') {
-    return '传态伏吟：旧因反复，先稳局再推进。';
+    return '传态伏吟：旧因反复。';
   }
   if (pattern === '反吟') {
-    return '传态反吟：冲动与反复并存，先定底线和止损。';
+    return '传态反吟：冲动与反复并存。';
   }
   if (pattern === '回环') {
-    return '传态回环：问题会回到原点，要先切断循环触发点。';
+    return '传态回环：问题会回到原点。';
   }
   if (pattern === '递传') {
-    return '传态递传：宜分阶段推进，按节奏逐步落地。';
+    return '传态递传：按阶段推进。';
   }
 
-  return '传态未标注：优先按初传-中传-末传的顺序说明。';
+  return '传态未标注。';
 }
 
 export function buildLiurenTemplateText(template: LiurenTemplateType, _data: LiurenData) {

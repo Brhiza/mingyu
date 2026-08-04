@@ -48,11 +48,9 @@ type AiProviderConfig = {
 type UpstreamFetchResult =
   { ok: true; response: Response; attempts: number } | { ok: false; error: Response };
 
-const SYSTEM_PROMPT_SINGLE =
-  '请根据用户提供的排盘资料和问题，用简体中文直接解读，并使用 Markdown 清晰排版。';
+const SYSTEM_PROMPT_SINGLE = '请根据用户提供的排盘资料和问题直接解读。';
 
-const SYSTEM_PROMPT_CHAT =
-  '用户的第一条消息是本次排盘资料和问题。请用简体中文继续围绕这份资料解读，并使用 Markdown 清晰排版。';
+const SYSTEM_PROMPT_CHAT = '用户的第一条消息是本次排盘资料和问题。请继续围绕这份资料解读。';
 
 /**
  * 处理 AI 解析请求，返回 SSE Response。

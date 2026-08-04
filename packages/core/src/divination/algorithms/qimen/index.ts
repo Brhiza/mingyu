@@ -3,7 +3,7 @@
  * @description 基于转盘法或飞盘法，实现时家/日家/月家/年家奇门完整排盘，
  * 含定局、布盘、格局识别、方位建议、应期判断。
  * @流派 转盘奇门为默认口径，飞盘奇门为可选口径（拆补法定局）
- * @古籍依据 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》
+ * @古籍依据 《烟波钓叟歌》《御定奇门宝鉴》《遁甲演义》《奇门遁甲秘籍大全》
  *
  * @核心流程
  * 1. 定局数（拆补法/月家法/年家法）：根据 scope 选择不同定局方式
@@ -48,7 +48,7 @@ import { hasTianPanStar, hasTianPanStem } from './helpers/palace-utils';
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
 export type { QimenPriorityPalace } from './helpers/guidance';
-export { analyzeQimenEvidence, conditionQimenTraditionalText } from '../../qimen-evidence';
+export { analyzeQimenEvidence } from '../../qimen-evidence';
 export type {
   QimenCalculationEvidenceFact,
   QimenCounterEvidenceFact,

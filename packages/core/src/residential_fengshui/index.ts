@@ -34,7 +34,6 @@ export interface ResidentialFengshuiInput {
   northReference?: 'unspecified' | 'magnetic' | 'true';
   magneticDeclinationDegrees?: number;
   measurementUncertaintyDegrees?: number;
-  guaType?: '下卦' | '替卦';
 }
 
 export interface ResidentialFengshuiAgreement {
@@ -59,6 +58,41 @@ export interface ResidentialFengshuiResult {
   advice: string[];
   prompt: string;
   evidencePromptText: string;
+}
+
+function normalizeDegree(value: number) {
+  return ((value % 360) + 360) % 360;
+}
+
+function resolveDoorNorth(input: ResidentialFengshuiInput): number {
+  if (
+    typeof input.doorToInteriorDegree !== 'number' ||
+    !Number.isFinite(input.doorToInteriorDegree) ||
+    input.doorToInteriorDegree < 0 ||
+    input.doorToInteriorDegree > 360
+  ) {
+    throw new Error('大门朝向屋内的度数必须是 0-360 之间的有限数字。');
+  }
+  const reference = input.northReference ?? 'unspecified';
+  if (!['unspecified', 'magnetic', 'true'].includes(reference)) {
+    throw new Error('northReference 只能是 unspecified、magnetic 或 true。');
+  }
+  const declination = input.magneticDeclinationDegrees;
+  if (
+    declination !== undefined &&
+    (!Number.isFinite(declination) || declination < -30 || declination > 30)
+  ) {
+    throw new Error('磁偏角必须是 -30 至 30 之间的有限数字，东偏为正、西偏为负。');
+  }
+  if (reference === 'magnetic' && declination === undefined) {
+    throw new Error('读数采用磁北时必须提供当地磁偏角。');
+  }
+  if (reference !== 'magnetic' && declination !== undefined) {
+    throw new Error('只有 northReference 为 magnetic 时才应提供磁偏角。');
+  }
+  return normalizeDegree(
+    input.doorToInteriorDegree + (reference === 'magnetic' ? declination! : 0),
+  );
 }
 
 function hasPersonInput(input: ResidentialFengshuiInput) {
@@ -159,7 +193,6 @@ function buildXuanKong(
 
   const xuanInput: XuanKongInput = {
     year: input.year,
-    ...(input.guaType ? { guaType: input.guaType } : {}),
     ...(input.measurementUncertaintyDegrees != null
       ? { measurementUncertaintyDegrees: input.measurementUncertaintyDegrees }
       : {}),
@@ -174,9 +207,11 @@ function buildXuanKong(
     if (measurement.facingMountain) xuanInput.facingMountain = measurement.facingMountain;
   } else if (input.doorToInteriorDegree != null) {
     // 无居住人时仍可用门向起玄空宅运盘。
-    const position = getBaZhaiSitFacingFromDoorDegree(input.doorToInteriorDegree);
-    xuanInput.sitMountain = position.sit.mountain;
-    xuanInput.facingMountain = position.facing.mountain;
+    const trueNorthDegree = resolveDoorNorth(input);
+    const position = getBaZhaiSitFacingFromDoorDegree(trueNorthDegree);
+    xuanInput.sitDegree = position.sit.degree;
+    xuanInput.facingDegree = position.facing.degree;
+    xuanInput.measurementUncertaintyDegrees = input.measurementUncertaintyDegrees ?? 0;
   } else if (input.sitMountain || input.facingMountain) {
     if (input.sitMountain) xuanInput.sitMountain = input.sitMountain;
     if (input.facingMountain) xuanInput.facingMountain = input.facingMountain;
@@ -230,20 +265,20 @@ function buildAgreements(
     items.push({
       level: '可互补',
       title: '宅运与人宅分层并观',
-      detail: `玄空见${xuankong.period.label}、${xuankong.daoShanXiang.summary}；八宅命卦${bazhai.mingGua}、命宅关系${bazhai.match}。两者分别说明宅运结构与对人适配，不互相改写。`,
+      detail: `玄空见${xuankong.period.label}、${xuankong.daoShanXiang.summary}；八宅命卦${bazhai.mingGua}、命宅关系${bazhai.match}。宅运结构与人宅适配分层并列。`,
     });
 
     if (bazhai.match === '相合') {
       items.push({
         level: '一致关注',
         title: '命宅相合可提高关注优先级',
-        detail: '八宅显示命宅同组，可与玄空中的山向、当运结构一起作为优先关注，不代表必然吉利。',
+        detail: '八宅显示命宅同组，与玄空中的山向、当运结构并列作为关注资料。',
       });
     } else if (bazhai.match === '相冲') {
       items.push({
         level: '口径不同需分述',
         title: '命宅不同组需分开说明',
-        detail: '八宅显示命宅不同组，应分别说明个人吉方与住宅山向结构，不可直接合成单一结论。',
+        detail: '八宅显示命宅不同组，个人吉方与住宅山向结构分列。',
       });
     }
 
@@ -251,7 +286,7 @@ function buildAgreements(
       items.push({
         level: '资料不足',
         title: '山向或宅卦边界仍敏感',
-        detail: '测量接近边界或宅卦未完全确定时，应保留候选山向，不把中心读数当作唯一坐向。',
+        detail: '测量误差范围内的候选山向与宅卦一并列出。',
       });
     }
   }
@@ -268,7 +303,7 @@ function buildAdvice(
   const advice: string[] = [];
   if (xuankong) {
     advice.push(
-      `先看宅运：${xuankong.period.label}，坐${xuankong.sitMountain}向${xuankong.facingMountain}，${xuankong.guaType}，${xuankong.daoShanXiang.summary}。`,
+      `先看宅运：${xuankong.period.label}，坐${xuankong.sitMountain}向${xuankong.facingMountain}，${xuankong.daoShanXiang.summary}。`,
     );
   }
   if (bazhai) {
@@ -309,7 +344,7 @@ function buildEvidencePrompt(params: {
     items.push({
       level: '主证',
       title: '玄空宅运层',
-      detail: `${params.xuankong.period.label}；坐${params.xuankong.sitMountain}向${params.xuankong.facingMountain}；${params.xuankong.guaType}；${params.xuankong.daoShanXiang.summary}`,
+      detail: `${params.xuankong.period.label}；坐${params.xuankong.sitMountain}向${params.xuankong.facingMountain}；${params.xuankong.daoShanXiang.summary}`,
       source: '玄空飞星 v1',
     });
   }
@@ -329,13 +364,6 @@ function buildEvidencePrompt(params: {
       source: '住宅风水合参',
     });
   }
-  items.push({
-    level: '限制',
-    title: '合参边界',
-    detail:
-      '住宅风水只分层并列八宅与玄空，不生成综合吉凶总分，也不覆盖形峦、阴宅或全套装修方案保证。',
-    source: '项目住宅风水 v1',
-  });
   const bundle: PromptEvidenceBundle = { title: '住宅风水证据', items };
   return formatPromptEvidenceBundle(bundle).join('\n');
 }
@@ -345,9 +373,6 @@ function buildPrompt(result: {
   houseYear: number | null;
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
-  agreements: ResidentialFengshuiAgreement[];
-  advice: string[];
-  evidencePromptText: string;
   xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'];
 }) {
   const lines = [
@@ -355,17 +380,15 @@ function buildPrompt(result: {
     `山向：${result.orientationText}`,
     result.houseYear != null ? `宅运年份：${result.houseYear}` : '',
     result.xuankong
-      ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.guaType}；${result.xuankong.daoShanXiang.summary}`
-      : `玄空：未排盘（${result.xuankongStatus}）`,
+      ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.daoShanXiang.summary}`
+      : result.bazhai
+        ? result.xuankongStatus === '缺少建造年或起运年'
+          ? '玄空：未排盘（缺少建造年或起运年）'
+          : '玄空：未排盘'
+        : '',
     result.bazhai
-      ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}），宅卦${result.bazhai.houseGua ?? '未定'}，命宅关系${result.bazhai.match}`
-      : '八宅：未排盘（缺少居住人出生信息或命卦）',
-    '合参要点：',
-    ...result.agreements.map((item) => `- ${item.title}：${item.detail}`),
-    '行动建议：',
-    ...result.advice.map((item) => `- ${item}`),
-    '【结构化证据】',
-    result.evidencePromptText,
+      ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}）${result.bazhai.houseGua ? `，宅卦${result.bazhai.houseGua}，命宅关系${result.bazhai.match}` : ''}`
+      : '',
   ];
   return lines.filter(Boolean).join('\n');
 }
@@ -411,9 +434,6 @@ export function generateResidentialFengshui(
     houseYear,
     bazhai,
     xuankong,
-    agreements,
-    advice,
-    evidencePromptText,
     xuankongStatus,
   });
 

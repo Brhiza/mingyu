@@ -43,6 +43,7 @@ export interface TimeInfo {
   name: string;
   range: string;
   hour: number;
+  minute: number;
 }
 
 export interface Pillar {

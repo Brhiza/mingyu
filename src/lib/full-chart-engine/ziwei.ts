@@ -401,19 +401,6 @@ function demoteEmbeddedPromptSections(content: string) {
   return content.replace(/^【([^】]+)】$/gm, '$1：');
 }
 
-function buildZiweiScopePriorityText(payload: AnalysisPayloadV1) {
-  const scope = payload.active_scope.scope;
-  const scopeLabel = payload.active_scope.label || '当前分析对象';
-  const dateText = payload.active_scope.solar_date || '未标注参考日期';
-  const isOrigin = scope === 'origin';
-
-  return `分析对象：${isOrigin ? '本命盘' : scopeLabel}（${dateText}）。`;
-}
-
-function buildZiweiOutputRequirementText() {
-  return '使用简体中文，先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。';
-}
-
 function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompatibility>) {
   const overlayLines = result.palaceOverlays
     .filter((item) =>
@@ -443,7 +430,6 @@ function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompa
     ...overlayLines,
     mutagenLines.length ? '跨盘四化：' : '',
     ...mutagenLines,
-    !overlayLines.length && !mutagenLines.length ? '未见可列出的宫位对应或跨盘四化。' : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -451,10 +437,15 @@ function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompa
 
 export function formatZiweiTrueSolarEvidence(evidence?: ZiweiTrueSolarEvidence): string {
   if (!evidence) return '';
-  return evidence.correctionFacts
-    .map((fact) => fact.promptText)
+  const corrected = evidence.correctionFacts
+    .find((fact) => fact.type === '总校正')
+    ?.promptText.match(/真太阳时为(.+)$/)?.[1];
+  const shichen = evidence.correctionFacts
+    .find((fact) => fact.type === '时辰结果')
+    ?.promptText.match(/唯一时辰为(.+?)（/)?.[1];
+  return [corrected ? `真太阳时：${corrected}` : '', shichen ? `时辰：${shichen}` : '']
     .filter(Boolean)
-    .join('；');
+    .join('，');
 }
 
 export function buildCombinedZiweiPrompt(
@@ -475,31 +466,18 @@ export function buildCombinedZiweiPrompt(
     reportContext,
     mode: 'task-book',
   });
-  const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(options.trueSolarEvidence);
-
-  // pack 已含【分析对象】；本命时再补一句优先级摘要，避免重复 section 标题
-  const analysisPriorityText = buildZiweiScopePriorityText(payload);
-  const packWithPriority =
-    isCustomQuestion || payload.active_scope.scope !== 'origin'
-      ? pack
-      : pack.replace('【分析对象】\n', `【分析对象】\n${analysisPriorityText}\n`);
+  const trueSolarText = formatZiweiTrueSolarEvidence(options.trueSolarEvidence);
 
   return [
     buildPromptGuidanceSections('ziwei'),
     `【当前时间】\n${formatPromptCurrentTime()}`,
+    trueSolarText ? `【出生时间校正】\n${trueSolarText}` : '',
     '',
-    packWithPriority,
-    ...(trueSolarEvidenceText ? ['', `【出生时间校正】\n${trueSolarEvidenceText}`] : []),
+    pack,
     '',
-    `【问题】\n${normalizedQuestion}`,
-    ...(isCustomQuestion
-      ? []
-      : [
-          '',
-          '【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】，并给出现实建议。',
-          '',
-          `【输出要求】\n${buildZiweiOutputRequirementText()}`,
-        ]),
+    ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
+    '',
+    ...(isCustomQuestion ? [] : ['【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】。']),
   ].join('\n');
 }
 
@@ -516,7 +494,6 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   primaryTrueSolarEvidence?: ZiweiTrueSolarEvidence;
   partnerTrueSolarEvidence?: ZiweiTrueSolarEvidence;
 }) {
-  const isCustomQuestion = Boolean(params.isCustomQuestion);
   const primaryContext = createZiweiReportContext(params.primaryPayload, params.topic);
   const partnerContext = createZiweiReportContext(params.partnerPayload, params.topic);
   const primaryPack = buildPortablePromptPack({
@@ -531,12 +508,6 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   });
   const primaryEmbeddedPack = demoteEmbeddedPromptSections(primaryPack);
   const partnerEmbeddedPack = demoteEmbeddedPromptSections(partnerPack);
-  const primaryTrueSolarEvidenceText = formatZiweiTrueSolarEvidence(
-    params.primaryTrueSolarEvidence,
-  );
-  const partnerTrueSolarEvidenceText = formatZiweiTrueSolarEvidence(
-    params.partnerTrueSolarEvidence,
-  );
   const compatibilityResult = analyzeZiweiCompatibility(
     params.primaryPayload,
     params.partnerPayload,
@@ -551,33 +522,25 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   const primaryName = params.primaryName?.trim() || '第一人';
   const partnerName = params.partnerName?.trim() || '第二人';
   const compatibilityTopic = params.topic || 'chat';
-  const compatibilityTask =
-    '请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。';
-  const compatibilityQuestion = getZiweiCompatibilityDefaultQuestion(compatibilityTopic);
+  const isCustomQuestion = Boolean(params.isCustomQuestion);
+  const compatibilityTask = '请依据双方紫微盘面和跨盘关系资料完成解读。';
+  const compatibilityQuestion =
+    params.question.trim() ||
+    (isCustomQuestion ? '' : getZiweiCompatibilityDefaultQuestion(compatibilityTopic));
+  const compatibilityInfoText = compatibilityInfo.trim();
 
   return [
     buildPromptGuidanceSections('ziwei-compatibility'),
     `【当前时间】\n${formatPromptCurrentTime()}`,
     `【${primaryName}盘面】`,
     primaryEmbeddedPack,
-    ...(primaryTrueSolarEvidenceText
-      ? ['', `【${primaryName}出生时间校正】\n${primaryTrueSolarEvidenceText}`]
-      : []),
     '',
     `【${partnerName}盘面】`,
     partnerEmbeddedPack,
-    ...(partnerTrueSolarEvidenceText
-      ? ['', `【${partnerName}出生时间校正】\n${partnerTrueSolarEvidenceText}`]
-      : []),
+    compatibilityInfoText ? ['', `【双盘关系资料】\n${compatibilityInfoText}`] : '',
     '',
-    `【双盘关系资料】\n${compatibilityInfo}`,
+    ...(compatibilityQuestion ? [`【问题】\n${compatibilityQuestion}`] : []),
     '',
-    `【问题】\n${params.question.trim() || compatibilityQuestion}`,
-    ...(isCustomQuestion
-      ? []
-      : [
-          `【任务】\n${compatibilityTask}`,
-          '【输出要求】\n先直接回答【问题】，再说明互动主轴、互补点、冲突点、触发机制和现实建议。',
-        ]),
+    ...(isCustomQuestion ? [] : [`【任务】\n${compatibilityTask}`]),
   ].join('\n');
 }

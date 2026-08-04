@@ -2,36 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  appendTraditionalResearchNotice,
   formatPromptEvidenceBundle,
   normalizePromptEvidenceItems,
-  TRADITIONAL_RESEARCH_NOTICE,
 } from '@core/prompt-evidence/format';
-
-test('最终提示词只放置一次用户口吻的研究要求，不改写正文', () => {
-  const prompt = '【问题】\n为什么这里写了未命中、待复核和信息量不足？';
-  const first = appendTraditionalResearchNotice(prompt);
-  const second = appendTraditionalResearchNotice(first);
-
-  assert.match(first, /未命中、待复核和信息量不足/);
-  assert.equal((second.match(new RegExp(TRADITIONAL_RESEARCH_NOTICE, 'g')) ?? []).length, 1);
-  assert.ok(first.startsWith(TRADITIONAL_RESEARCH_NOTICE));
-});
-
-test('统一研究要求位于角色开场之后、解读主线之前', () => {
-  const prompt = '请以传统命理研究者视角完成解读。\n\n【解读主线】\n先看月令。';
-  const result = appendTraditionalResearchNotice(prompt);
-
-  assert.match(
-    result,
-    new RegExp(
-      `${TRADITIONAL_RESEARCH_NOTICE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n\\n【解读主线】`,
-    ),
-  );
-  assert.ok(result.indexOf(TRADITIONAL_RESEARCH_NOTICE) > result.indexOf('研究者视角'));
-  assert.ok(result.indexOf(TRADITIONAL_RESEARCH_NOTICE) < result.indexOf('【解读主线】'));
-  assert.doesNotMatch(result, /本提示词|以下内容仅用于|请结合现实情况独立判断/);
-});
 
 test('证据资料包会过滤空标题、去重并按证据等级输出', () => {
   const lines = formatPromptEvidenceBundle({

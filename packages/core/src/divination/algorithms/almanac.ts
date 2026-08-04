@@ -89,7 +89,6 @@ function assertAlmanacTopic(topic: AlmanacTopic): void {
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 const MAX_ALMANAC_PARTICIPANTS = 30;
-const AUSPICIOUS_HOUR_STARS = new Set(['青龙', '明堂', '金匮', '天德', '玉堂', '司命']);
 type ParticipantBranchConflictType = '冲' | '刑' | '害' | '破';
 
 const BRANCH_DIRECTIONS: Record<string, string> = {
@@ -337,14 +336,17 @@ export function getAlmanacTwentyEightStarDetail(name: string) {
   try {
     const star = TwentyEightStar.fromName(name);
     const sevenStar = star.getSevenStar().getName();
-    const animal = star.getAnimal().getName();
     return {
-      fullName: `${name}${sevenStar}${animal}`,
+      fullName: `${name}${sevenStar}${requireReferenceValue(
+        TWENTY_EIGHT_STAR_ANIMALS,
+        name,
+        '二十八宿动物',
+      )}`,
       sevenStar,
-      animal,
+      animal: requireReferenceValue(TWENTY_EIGHT_STAR_ANIMALS, name, '二十八宿动物'),
       zone: star.getZone().getName(),
       fortune: star.getLuck().getName(),
-      source: 'tyme4ts TwentyEightStar 原生属性',
+      source: 'tyme4ts TwentyEightStar 原生属性；二十八宿动物按本地校勘表',
     };
   } catch {
     throw new Error(`黄历二十八宿资料缺失：${name || '空值'}`);
@@ -401,7 +403,7 @@ const PENGZU_DAY_GAN: Record<string, string> = {
   己: '己不破券二比并亡',
   庚: '庚不经络织机虚张',
   辛: '辛不合酱主人不尝',
-  壬: '壬不汲水更难提防',
+  壬: '壬不泱水更难提防',
   癸: '癸不词讼理弱敌强',
 };
 
@@ -415,9 +417,40 @@ const PENGZU_DAY_ZHI: Record<string, string> = {
   午: '午不苫盖屋主更张',
   未: '未不服药毒气入肠',
   申: '申不安床鬼祟入房',
-  酉: '酉不宴客醉坐颠狂',
-  戌: '戌不吃狗作怪上床',
+  酉: '酉不会客醉坐颠狂',
+  戌: '戌不吃犬作怪上床',
   亥: '亥不嫁娶不利新郎',
+};
+
+const TWENTY_EIGHT_STAR_ANIMALS: Record<string, string> = {
+  角: '蛟',
+  亢: '龙',
+  氐: '貉',
+  房: '兔',
+  心: '狐',
+  尾: '虎',
+  箕: '豹',
+  斗: '獬',
+  牛: '牛',
+  女: '蝠',
+  虚: '鼠',
+  危: '燕',
+  室: '猪',
+  壁: '貐',
+  奎: '狼',
+  娄: '狗',
+  胃: '雉',
+  昴: '鸡',
+  毕: '乌',
+  觜: '猴',
+  参: '猿',
+  井: '犴',
+  鬼: '羊',
+  柳: '獐',
+  星: '马',
+  张: '鹿',
+  翼: '蛇',
+  轸: '蚓',
 };
 
 function assertExactReferenceKeys(
@@ -440,6 +473,11 @@ function assertExactReferenceKeys(
 export function validateAlmanacReferenceData(): void {
   assertExactReferenceKeys('彭祖天干百忌', PENGZU_DAY_GAN, HEAVENLY_STEMS);
   assertExactReferenceKeys('彭祖地支百忌', PENGZU_DAY_ZHI, EARTHLY_BRANCHES);
+  assertExactReferenceKeys(
+    '二十八宿动物',
+    TWENTY_EIGHT_STAR_ANIMALS,
+    TWENTY_EIGHT_STAR_ANIMALS_KEYS,
+  );
   assertExactReferenceKeys('地支方位', BRANCH_DIRECTIONS, EARTHLY_BRANCHES);
   if (
     ANNUAL_DIRECTION_GOD_SEQUENCE.length !== EARTHLY_BRANCHES.length ||
@@ -448,6 +486,37 @@ export function validateAlmanacReferenceData(): void {
     throw new Error('黄历岁支十二神资料表必须恰好包含 12 个不重复神名');
   }
 }
+
+const TWENTY_EIGHT_STAR_ANIMALS_KEYS = [
+  '角',
+  '亢',
+  '氐',
+  '房',
+  '心',
+  '尾',
+  '箕',
+  '斗',
+  '牛',
+  '女',
+  '虚',
+  '危',
+  '室',
+  '壁',
+  '奎',
+  '娄',
+  '胃',
+  '昴',
+  '毕',
+  '觜',
+  '参',
+  '井',
+  '鬼',
+  '柳',
+  '星',
+  '张',
+  '翼',
+  '轸',
+];
 
 export function getAlmanacPengZuDetails(dayStem: string, dayBranch: string) {
   return {
@@ -685,11 +754,8 @@ function buildDayFacts(params: {
 function buildHourCandidates(
   dateKey: string,
   lunarDay: AlmanacLunarDaySource,
-  topic: AlmanacTopic,
   participants: AlmanacParticipantProfile[],
 ): AlmanacHourCandidate[] {
-  const recommendKeywords = TOPIC_RECOMMEND_KEYWORDS[topic];
-  const avoidKeywords = TOPIC_AVOID_KEYWORDS[topic];
   const lunarHours = lunarDay.getHours();
   if (lunarHours.length !== SHICHEN_PERIODS.length) {
     throw new Error(
@@ -707,74 +773,12 @@ function buildHourCandidates(
       throw new Error(`黄历第${index + 1}个时辰地支与时段不一致：${ganzhi}对应${period.name}`);
     }
     const twelveStar = hour.getTwelveStar().getName();
-    const recommends = normalizeTaboos(hour.getRecommends());
-    const avoids = normalizeTaboos(hour.getAvoids());
     const highlights: string[] = [];
     const cautions: string[] = [];
     const participantNotes: string[] = [];
-    const topicMatchFacts: AlmanacTopicMatchFact[] = [];
     const participantRelationFacts: AlmanacParticipantRelationFact[] = [];
     const hourName = period.name;
     const hourKey = `${dateKey}:hour:${ganzhi}:${hourName}`;
-    const recommendMatches = findKeywordMatches(recommends, recommendKeywords);
-    const avoidMatches = findKeywordMatches(avoids, [...avoidKeywords, '诸事不宜']);
-    if (AUSPICIOUS_HOUR_STARS.has(twelveStar)) {
-      highlights.push(`${twelveStar}黄道时`);
-    } else {
-      cautions.push(`${twelveStar}时须结合时辰宜忌慎用`);
-    }
-    topicMatchFacts.push(
-      buildTopicMatchFact({
-        key: `${hourKey}:topic:recommends`,
-        scope: '时辰',
-        topic,
-        sourceType: '原始宜项',
-        status: recommendMatches.length ? '支持' : '中性',
-        inputItems: [...recommends],
-        keywords: [...recommendKeywords],
-        matchedItems: recommendMatches,
-        promptText: recommendMatches.length
-          ? `时辰宜项命中${ALMANAC_TOPIC_LABELS[topic]}：${recommendMatches.join('、')}`
-          : `时辰宜项未命中${ALMANAC_TOPIC_LABELS[topic]}关键词`,
-        sources: ['tyme4ts 时辰宜项', '当前事项宜用关键词表'],
-      }),
-      buildTopicMatchFact({
-        key: `${hourKey}:topic:avoids`,
-        scope: '时辰',
-        topic,
-        sourceType: '原始忌项',
-        status: avoidMatches.length ? '限制' : '中性',
-        inputItems: [...avoids],
-        keywords: [...avoidKeywords, '诸事不宜'],
-        matchedItems: avoidMatches,
-        promptText: avoidMatches.length
-          ? `时辰忌项触及${ALMANAC_TOPIC_LABELS[topic]}或广泛避忌：${avoidMatches.join('、')}`
-          : `时辰忌项未触及${ALMANAC_TOPIC_LABELS[topic]}关键词`,
-        sources: ['tyme4ts 时辰忌项', '当前事项避忌关键词表'],
-      }),
-      buildTopicMatchFact({
-        key: `${hourKey}:topic:twelve-star`,
-        scope: '时辰',
-        topic,
-        sourceType: '十二神',
-        status: AUSPICIOUS_HOUR_STARS.has(twelveStar) ? '支持' : '限制',
-        inputItems: [twelveStar],
-        keywords: [...AUSPICIOUS_HOUR_STARS],
-        matchedItems: AUSPICIOUS_HOUR_STARS.has(twelveStar) ? [twelveStar] : [],
-        promptText: AUSPICIOUS_HOUR_STARS.has(twelveStar)
-          ? `${twelveStar}列入黄道时辅助支持`
-          : `${twelveStar}不在当前黄道时集合，须结合具体宜忌`,
-        sources: ['逐时十二神', '常用黄道时集合'],
-      }),
-    );
-    if (recommendMatches.length) {
-      highlights.push(`时辰宜项命中${ALMANAC_TOPIC_LABELS[topic]}`);
-    }
-    if (avoids.includes('诸事不宜')) {
-      cautions.push('时辰明列诸事不宜');
-    } else if (avoidMatches.length) {
-      cautions.push(`时辰忌项触及${ALMANAC_TOPIC_LABELS[topic]}`);
-    }
     participants.forEach((participant) => {
       const conflict = getParticipantBranchConflictSummary(branch, participant);
       participantRelationFacts.push(
@@ -798,12 +802,9 @@ function buildHourCandidates(
       ganzhi,
       branch,
       twelveStar,
-      recommends,
-      avoids,
       highlights,
       cautions,
       participantNotes,
-      topicMatchFacts,
       participantRelationFacts,
     };
   });
@@ -848,32 +849,7 @@ function buildDayCandidate(
   const twentyEightStar = lunarDay.getTwentyEightStar().getName();
   const nineStar = lunarDay.getNineStar().getName();
   const pengZuDetails = getAlmanacPengZuDetails(dayStemName, dayZhiName);
-  const hours = buildHourCandidates(dateKey, lunarDay, topic, participants);
-  const hourPriority = (hour: AlmanacHourCandidate) => {
-    const hasDirectConstraint =
-      hour.avoids.includes('诸事不宜') ||
-      (hour.topicMatchFacts ?? []).some(
-        (fact) => fact.status === '限制' && fact.key.endsWith(':topic:avoids'),
-      ) ||
-      (hour.participantRelationFacts ?? []).some(
-        (fact) =>
-          fact.status === '限制' &&
-          ['年支', '日支'].includes(fact.basis) &&
-          ['冲', '刑', '害', '破'].includes(fact.relation),
-      );
-    return hasDirectConstraint ? 2 : hour.cautions.length ? 1 : 0;
-  };
-  const bestHours = [...hours]
-    .filter((hour) => hourPriority(hour) < 2)
-    .sort((a, b) => {
-      const priorityDifference = hourPriority(a) - hourPriority(b);
-      if (priorityDifference) return priorityDifference;
-      const supportDifference =
-        (b.topicMatchFacts ?? []).filter((fact) => fact.status === '支持').length -
-        (a.topicMatchFacts ?? []).filter((fact) => fact.status === '支持').length;
-      return supportDifference;
-    })
-    .slice(0, 3);
+  const hours = buildHourCandidates(dateKey, lunarDay, participants);
 
   return {
     date: dateKey,
@@ -895,7 +871,7 @@ function buildDayCandidate(
     gods,
     recommends,
     avoids,
-    pengZu: dayCycle.getPengZu().getName(),
+    pengZu: `${pengZuDetails.gan} ${pengZuDetails.zhi}`,
     // 彭祖百忌完整：天干+地支
     pengZuGan: pengZuDetails.gan,
     pengZuZhi: pengZuDetails.zhi,
@@ -910,7 +886,6 @@ function buildDayCandidate(
     godFacts: scoring.godFacts,
     participantRelationFacts: scoring.participantRelationFacts,
     hours,
-    bestHours,
   };
 }
 

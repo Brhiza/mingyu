@@ -9,7 +9,7 @@
     "build": "pnpm --filter mingyu-core build && vite build",
     "preview": "vite preview",
     "test": "pnpm --filter mingyu-core build && tsx --tsconfig tsconfig.app.json --test \"tests/*.test.ts\"",
-    "test:e2e": "tsx --tsconfig tsconfig.app.json --test \"tests/mcp/*.test.ts\"",
+    "test:e2e": "tsx --tsconfig tsconfig.app.json --test --test-concurrency=1 \"tests/mcp/*.test.ts\"",
     "lint": "eslint src packages/core/src --max-warnings 999",
     "lint:fix": "eslint src packages/core/src --fix --max-warnings 999",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"packages/core/src/**/*.ts\" \"packages/core/scripts/**/*.mjs\" \"tests/**/*.ts\" \"build/**/*.ts\"",

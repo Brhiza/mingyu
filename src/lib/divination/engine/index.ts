@@ -27,12 +27,10 @@ import {
   buildSolarTimeInfoText,
   buildTimeInfoText,
   formatDivinationInfo,
-  formatSupplementaryInfoSection,
 } from './formatters';
 import { buildTaskText } from '@core/divination/engine/method-text';
 import { buildLiurenTemplateText } from '@core/divination/engine/liuren-template';
 import { buildLiuyaoTemplateText } from '@core/divination/engine/liuyao-template';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildPromptGuidanceSections } from '../../prompt-guidance';
 import { tarotSpreads } from '@core/divination/tarot';
 import { LENORMAND_SPREADS } from '@core/divination/algorithms/lenormand';
@@ -138,7 +136,6 @@ export function buildDivinationPrompt(
   const isCustomQuestion = Boolean(options.isCustomQuestion);
   const liuyaoTemplate = options.liuyaoTemplate ?? 'general';
   const liurenTemplate = options.liurenTemplate ?? 'general';
-  const isAlmanac = method === 'almanac';
   const astrolabeTopic =
     method === 'astrolabe' ? (options.astrolabeTopic ?? (isCustomQuestion ? 'chat' : 'life')) : '';
   const astrolabeScopeText = method === 'astrolabe' ? options.astrolabeScopeText?.trim() || '' : '';
@@ -147,25 +144,9 @@ export function buildDivinationPrompt(
       ? question.trim() || getAstrolabeDefaultQuestion(astrolabeTopic, { isCustomQuestion })
       : question;
   const timeInfo = method === 'astrolabe' ? buildSolarTimeInfoText(data) : buildTimeInfoText(data);
-  const almanacQuestionSupplement = isAlmanac ? normalizedQuestion.trim() : '';
-  const effectiveSupplementaryInfo =
-    almanacQuestionSupplement && !supplementaryInfo?.userSupplement?.trim()
-      ? { ...(supplementaryInfo ?? {}), userSupplement: almanacQuestionSupplement }
-      : supplementaryInfo;
-  const supplementarySection = formatSupplementaryInfoSection(method, effectiveSupplementaryInfo);
-  const infoText = formatDivinationInfo(
-    method,
-    data,
-    normalizedQuestion,
-    effectiveSupplementaryInfo,
-    { liuyaoTemplate },
-  );
-  const isSsgw = method === 'ssgw';
-  const outputRequirementText = isSsgw
-    ? '直接回答【问题】，依次说明签诗主旨、典故启示、事项判断和行动建议。'
-    : isAlmanac
-      ? '给出首选日期、备选日期和慎用日期，说明取舍依据与执行建议。'
-      : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
+  const infoText = formatDivinationInfo(method, data, normalizedQuestion, supplementaryInfo, {
+    liuyaoTemplate,
+  });
   const liurenTemplateSection =
     method === 'liuren'
       ? buildSection('【问题范围】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
@@ -180,39 +161,31 @@ export function buildDivinationPrompt(
       : buildTaskText(method);
 
   if (method === 'liuren') {
-    return appendTraditionalResearchNotice(
-      [
-        buildPromptGuidanceSections(method),
-        buildSection('【当前时间】', timeInfo),
-        supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
-        buildSection('【排盘信息】', infoText),
-        buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
-        buildSection('【问题】', normalizedQuestion),
-        isCustomQuestion ? '' : liurenTemplateSection,
-        isCustomQuestion ? '' : buildSection('【任务】', taskText),
-        isCustomQuestion ? '' : buildSection('【输出要求】', outputRequirementText),
-      ]
-        .filter(Boolean)
-        .join('\n\n'),
-    );
-  }
-
-  return appendTraditionalResearchNotice(
-    [
+    return [
       buildPromptGuidanceSections(method),
       buildSection('【当前时间】', timeInfo),
-      supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
-      astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
-      buildSection('【占卜信息】', infoText),
-      isAlmanac ? '' : buildSection('【问题】', normalizedQuestion),
+      buildSection('【排盘信息】', infoText),
+      buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
+      buildSection('【问题】', normalizedQuestion),
+      liurenTemplateSection,
       isCustomQuestion ? '' : buildSection('【任务】', taskText),
-      isCustomQuestion ? '' : liuyaoTemplateSection,
-      isCustomQuestion ? '' : liurenTemplateSection,
-      isCustomQuestion ? '' : buildSection('【输出要求】', outputRequirementText),
     ]
       .filter(Boolean)
-      .join('\n\n'),
-  );
+      .join('\n\n');
+  }
+
+  return [
+    buildPromptGuidanceSections(method),
+    buildSection('【当前时间】', timeInfo),
+    astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
+    buildSection('【占卜信息】', infoText),
+    buildSection('【问题】', normalizedQuestion),
+    isCustomQuestion ? '' : buildSection('【任务】', taskText),
+    isCustomQuestion ? '' : liuyaoTemplateSection,
+    isCustomQuestion ? '' : liurenTemplateSection,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | undefined {
@@ -697,7 +670,7 @@ export async function generateDivinationSession(
     method === 'almanac' && !inputQuestion
       ? buildAlmanacSessionTitle(data as AlmanacData)
       : inputQuestion;
-  const prompt = buildDivinationPrompt(method, question, data, supplementaryInfo, {
+  const prompt = buildDivinationPrompt(method, inputQuestion, data, supplementaryInfo, {
     isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
     liuyaoTemplate: draft.liuyaoTemplate,
     liurenTemplate: draft.liurenTemplate,

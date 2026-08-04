@@ -25,7 +25,8 @@ import {
 
 const YANG_STEMS = new Set(['甲', '丙', '戊', '庚', '壬']);
 const YANG_BRANCHES = new Set(['子', '寅', '辰', '午', '申', '戌']);
-const BAZHUAN_DAYS = new Set(['甲寅', '庚申', '丁未', '己未']);
+// 八专日：甲寅、庚申、丁未、己未、癸丑。《六壬大全》《六壬心镜》《六壬粹言》同列此五日。
+const BAZHUAN_DAYS = new Set(['甲寅', '庚申', '丁未', '己未', '癸丑']);
 const STEM_RESIDENCE_MAP = DAY_STEM_RESIDENCE_MAP;
 // POST_HORSE_MAP / LIUCHONG_MAP / SANXING_MAP / STEM_HE_MAP 已复用公共干支数据
 const MENG_BRANCHES = new Set(['寅', '巳', '申', '亥']);
@@ -282,36 +283,49 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
     candidate,
     index,
     depth: getHarmDepth(candidate, context),
-    under: getUnderByUpper(context.heavenlyPlate, candidate.lesson.upper),
   }));
+  const preferredUpper = YANG_STEMS.has(context.dayStem)
+    ? getUpperByUnder(context.heavenlyPlate, context.dayStemResidence)
+    : getUpperByUnder(context.heavenlyPlate, context.dayBranch);
+
+  if (ranked.length === 0) {
+    throw new Error('涉害法没有可供比较的候选课。');
+  }
+
+  // 《六壬大全》卷四《涉害课》：“以涉害深者为用”。先取受克层数最多者，
+  // 不能先按孟仲季淘汰深度较大的候选。
   const maxDepth = Math.max(...ranked.map((item) => item.depth));
   let tied = ranked.filter((item) => item.depth === maxDepth);
 
+  // 涉害复等（《六壬大全》“缀瑕”）：阳日先见干上神，阴日先见支上神。
+  // 这是深浅完全相等时的先见取法，应先于孟仲季的次级区分。
+  const preferred = tied.find((item) => item.candidate.lesson.upper === preferredUpper);
+  if (preferred) {
+    return preferred.candidate;
+  }
+
+  // 深浅相同且无干支上神时，再看发用上神所居四孟、四仲、四季（见机、察微）。
+  // 这里比较的是上神本身，而非它所临的地盘；“亥加丑”仍属四孟上神。
   for (const branchGroup of [MENG_BRANCHES, ZHONG_BRANCHES, JI_BRANCHES]) {
-    const sameDepthGroup = tied.filter((item) => branchGroup.has(item.under));
-    if (sameDepthGroup.length === 1) {
-      return sameDepthGroup[0].candidate;
-    }
-    if (sameDepthGroup.length > 1) {
-      tied = sameDepthGroup;
+    const sameClass = tied.filter((item) => branchGroup.has(item.candidate.lesson.upper));
+    if (sameClass.length > 0) {
+      tied = sameClass;
       break;
     }
   }
 
-  const preferredUpper = YANG_STEMS.has(context.dayStem)
-    ? getUpperByUnder(context.heavenlyPlate, context.dayStemResidence)
-    : getUpperByUnder(context.heavenlyPlate, context.dayBranch);
-  const picked = tied.find((item) => item.candidate.lesson.upper === preferredUpper)?.candidate;
+  const picked = tied.sort((left, right) => left.index - right.index)[0];
   if (!picked) {
-    throw new Error('涉害复等无法按刚日干上或柔日支上确定发用。');
+    throw new Error('涉害法没有可供比较的候选课。');
   }
-  return picked;
+  return picked.candidate;
 }
 
 function resolveMultipleCandidates(
   candidates: KeCandidate[],
   context: ResolveTransmissionContext,
   tagPrefix = '',
+  directionTag?: string,
 ): InitialTransmissionResult {
   const uniqueCandidates = uniqueCandidatesByUpper(candidates);
   const biYongCandidates = uniqueCandidates.filter((item) =>
@@ -323,7 +337,7 @@ function resolveMultipleCandidates(
     return {
       initial: picked.lesson.upper,
       rule: tagPrefix ? `${tagPrefix}比用法` : '比用法',
-      tag: tagPrefix ? `${tagPrefix}比用` : '比用',
+      tag: directionTag ?? (tagPrefix ? `${tagPrefix}比用` : '比用'),
     };
   }
 
@@ -335,7 +349,7 @@ function resolveMultipleCandidates(
   return {
     initial: picked.lesson.upper,
     rule: tagPrefix ? `${tagPrefix}涉害法` : '涉害法',
-    tag: tagPrefix ? `${tagPrefix}涉害` : '涉害',
+    tag: directionTag ?? (tagPrefix ? `${tagPrefix}涉害` : '涉害'),
   };
 }
 
@@ -398,13 +412,13 @@ function resolveRemoteKe(
     return { initial: upperKeDay[0].lesson.upper, rule: '遥克法', tag: '蒿矢' };
   }
   if (upperKeDay.length > 1) {
-    return resolveMultipleCandidates(upperKeDay, context, '遥克');
+    return resolveMultipleCandidates(upperKeDay, context, '遥克', '蒿矢');
   }
   if (dayKeUpper.length === 1) {
     return { initial: dayKeUpper[0].lesson.upper, rule: '遥克法', tag: '弹射' };
   }
   if (dayKeUpper.length > 1) {
-    return resolveMultipleCandidates(dayKeUpper, context, '遥克');
+    return resolveMultipleCandidates(dayKeUpper, context, '遥克', '弹射');
   }
 
   return null;
@@ -418,8 +432,20 @@ function isFanyinPlate(plate: LiurenPlateItem[]) {
   return plate.length === 12 && plate.every((item) => LIUCHONG_MAP[item.under] === item.branch);
 }
 
-function getUniqueLessonPairCount(lessons: LiurenLesson[]) {
-  return new Set(lessons.map((lesson) => lesson.upper)).size;
+function getLessonPairKey(lesson: LiurenLesson) {
+  return `${lesson.upper}/${lesson.lower}`;
+}
+
+/**
+ * 《六壬指南》把“不备”限定为四课首尾相同，或二、三课相同。
+ * 只比较上神会把不同的课对误合并，进而把昴星误判为别责。
+ */
+function isThreeLessonPattern(lessons: LiurenLesson[]) {
+  const first = getLessonPairKey(lessons[0]);
+  const second = getLessonPairKey(lessons[1]);
+  const third = getLessonPairKey(lessons[2]);
+  const fourth = getLessonPairKey(lessons[3]);
+  return first === fourth || second === third;
 }
 
 function getPunishment(branch: string) {
@@ -430,23 +456,17 @@ function getPunishment(branch: string) {
   return punishment;
 }
 
-function resolveFuyinTransmission(
-  lessons: LiurenLesson[],
-  context: ResolveTransmissionContext,
-): InitialTransmissionResult {
-  const yiKeUpper = lessons[0].upper;
-  const sanKeUpper = lessons[2].upper;
-  const isYangDay = YANG_STEMS.has(context.dayStem);
-  const useDayStemSide = isYangDay || context.dayStem === '乙' || context.dayStem === '癸';
-  const initial = useDayStemSide ? yiKeUpper : sanKeUpper;
+function buildFuyinBranches(initial: string, yiKeUpper: string, sanKeUpper: string) {
   let middle = getPunishment(initial);
 
+  // 初传自刑时，中传取日辰另一侧；这条规则同样适用于乙、癸日有克发用。
   if (middle === initial) {
-    middle = useDayStemSide ? sanKeUpper : yiKeUpper;
+    middle = initial === yiKeUpper ? sanKeUpper : yiKeUpper;
   }
 
   let final = getPunishment(middle);
-  if (final === middle || getPunishment(middle) === initial) {
+  // 中传再次自刑，末传取冲神；否则按三刑推进。
+  if (final === middle) {
     const opposite = LIUCHONG_MAP[middle];
     if (!opposite) {
       throw new Error(`地支 ${middle} 的六冲映射缺失。`);
@@ -454,9 +474,44 @@ function resolveFuyinTransmission(
     final = opposite;
   }
 
+  return [initial, middle, final];
+}
+
+function resolveFuyinTransmission(
+  lessons: LiurenLesson[],
+  context: ResolveTransmissionContext,
+): InitialTransmissionResult {
+  const yiKeUpper = lessons[0].upper;
+  const sanKeUpper = lessons[2].upper;
+  const isYangDay = YANG_STEMS.has(context.dayStem);
+  // 伏吟先核验四课本身的上下克。古籍明确指出只有乙、癸日会在
+  // 干上神形成直接克，不能把这两日一概按“阴日从支上”处理。
+  const lowerKeUpper = lessons
+    .filter((item) => isBranchKe(item.lower, item.upper))
+    .map(
+      (lesson) =>
+        ({ lesson, type: '下贼上', index: lessons.indexOf(lesson) }) satisfies KeCandidate,
+    );
+  const upperKeLower = lessons
+    .filter((item) => isBranchKe(item.upper, item.lower))
+    .map(
+      (lesson) =>
+        ({ lesson, type: '上克下', index: lessons.indexOf(lesson) }) satisfies KeCandidate,
+    );
+  const keResult = resolveKeCandidates(lowerKeUpper, upperKeLower, context, '伏吟');
+  if (keResult) {
+    return {
+      ...keResult,
+      branches: buildFuyinBranches(keResult.initial, yiKeUpper, sanKeUpper),
+    };
+  }
+
+  const useDayStemSide = isYangDay;
+  const initial = useDayStemSide ? yiKeUpper : sanKeUpper;
+
   return {
     initial,
-    branches: [initial, middle, final],
+    branches: buildFuyinBranches(initial, yiKeUpper, sanKeUpper),
     rule: '伏吟法',
     tag: isYangDay ? '自任' : '自信',
   };
@@ -518,7 +573,7 @@ function resolveSpecialTransmission(
     };
   }
 
-  if (getUniqueLessonPairCount(lessons) === 4) {
+  if (!isThreeLessonPattern(lessons)) {
     const initial = isYangDay
       ? getUpperByUnder(context.heavenlyPlate, '酉')
       : getUnderByUpper(context.heavenlyPlate, '酉');
@@ -530,7 +585,7 @@ function resolveSpecialTransmission(
     };
   }
 
-  if (getUniqueLessonPairCount(lessons) === 3) {
+  if (isThreeLessonPattern(lessons)) {
     if (isYangDay) {
       const heStem = TIAN_GAN_HE[context.dayStem]?.partner;
       if (!heStem) {

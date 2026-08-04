@@ -52,7 +52,6 @@ export interface XiaoliurenData {
   hourIndex: number;
   hourLabel: string;
   ganzhi: { year: string; month: string; day: string; hour: string };
-  /** 起课输入、逐宫顺数与六宫归一的可复核计算过程。 */
   calculation: {
     lunarMonth: number;
     lunarDay: number;
@@ -545,7 +544,7 @@ export interface QimenSeasonalityInfo {
   };
   dayStem: string;
   dayElement: string;
-  seasonRelation: '得时' | '受生' | '受克' | '被耗' | 'neutral';
+  seasonRelation: '得时' | '受生' | '受克' | '被耗' | '持平';
   seasonRelationDescription: string;
   lunarPhase: '新月' | '上弦' | '满月' | '下弦';
   lunarPhaseDetail: string;
@@ -813,8 +812,6 @@ export interface TarotData {
     position: string;
     reversed: boolean;
     keywords: string[];
-    uprightMeaning?: string;
-    reversedMeaning?: string;
     element?: string;
     archetype?: string;
   }[];
@@ -988,7 +985,6 @@ export interface AlmanacDayCandidate {
   godFacts?: AlmanacGodFact[];
   participantRelationFacts?: AlmanacParticipantRelationFact[];
   hours?: AlmanacHourCandidate[];
-  bestHours?: AlmanacHourCandidate[];
 }
 
 export interface AlmanacHourCandidate {
@@ -997,12 +993,9 @@ export interface AlmanacHourCandidate {
   ganzhi: string;
   branch: string;
   twelveStar: string;
-  recommends: string[];
-  avoids: string[];
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
-  topicMatchFacts?: AlmanacTopicMatchFact[];
   participantRelationFacts?: AlmanacParticipantRelationFact[];
 }
 
@@ -1345,19 +1338,6 @@ export interface TaiyiResult {
   prompt: string;
 }
 
-export interface SsgwRitualThrow {
-  result: '圣杯' | '笑杯' | '阴杯';
-  firstFace?: '阳面' | '阴面';
-  secondFace?: '阳面' | '阴面';
-}
-
-export interface SsgwRitual {
-  throws: SsgwRitualThrow[];
-  confirmed?: boolean;
-  rejected?: boolean;
-  reason?: string;
-}
-
 export interface SsgwData {
   meta?: CoreResultMeta;
   number: number;
@@ -1373,8 +1353,6 @@ export interface SsgwData {
     selectedIndex: number | null;
     selectedNumber: number;
   };
-  ritual?: SsgwRitual;
-  evidenceAnalysis?: import('../divination/ssgw-evidence').SsgwEvidenceAnalysis;
 }
 
 export type DivinationData =
@@ -1400,11 +1378,5 @@ export interface SupplementaryInfo {
   knownFacts?: string;
   desiredOutcome?: string;
   constraints?: string;
-  interpretationStyle?: '入门' | '专业';
-  outputLength?: '精简' | '详细' | '超详细';
-  dayPillar?: {
-    heavenlyStem: string;
-    earthlyBranch: string;
-  };
   meihuaSettings?: MeihuaSettings;
 }

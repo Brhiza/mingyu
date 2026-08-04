@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 
 import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
 import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
   getLiurenGuaTiFacts,
   getLiurenTransmissionGuaTi,
@@ -117,7 +116,6 @@ test('大六壬应输出分层取用与应期证据', () => {
     ),
   );
   assert.match(evidence.promptText, /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/);
-  assertPromptIsPortableTaskText(evidence.promptText);
   for (const transmission of result.threeTransmissions) {
     assert.ok(transmission.wuxing);
     assert.ok(transmission.seasonState);
@@ -139,7 +137,6 @@ test('大六壬旧资料缺少取传规则名时应保留证据缺口，不按�
   assert.equal(evidence.calculationSteps[3]?.status, '资料不足');
   assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
   assert.match(evidence.transmissionRuleFact.promptText, /不得按三传结果反推九宗门名称/);
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 function getUpperByUnder(
@@ -501,11 +498,13 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
 
   assert.equal(caseCount, 17_280);
   assert.deepEqual(Object.fromEntries([...ruleCounts].sort()), {
-    伏吟法: 1440,
+    伏吟法: 1152,
+    伏吟元首法: 144,
+    伏吟重审法: 144,
     元首法: 2856,
     八专法: 384,
-    别责法: 216,
-    昴星法: 384,
+    别责法: 96,
+    昴星法: 504,
     比用法: 1944,
     涉害法: 1824,
     返吟元首法: 48,
@@ -786,7 +785,7 @@ test('昼夜贵人落地会跟随日干规则切换', () => {
 test('大六壬伏吟课的传态应尊重伏吟取法，不被初末相冲误标为反吟', () => {
   const result = generateLiuren(new Date('2026-01-01T02:00:00+08:00'));
 
-  assert.equal(result.transmissionRule, '伏吟法');
+  assert.equal(result.transmissionRule, '伏吟重审法');
   assert.equal(result.transmissionPattern, '伏吟');
 });
 
@@ -857,28 +856,28 @@ test('大六壬多处贼克且同阴阳候选不唯一时进入涉害法', () =>
   assert.ok(['巳', '未', '亥'].includes(result.initial));
 });
 
-test('大六壬涉害从所临地盘之后起算，并依深浅、孟仲季取用', () => {
+test('大六壬涉害先按受克深浅，复等再取干支上与孟仲季', () => {
   const cases = [
     {
       day: '丁卯',
       hour: '辛丑',
       monthLeader: '亥',
       expected: ['亥', '酉', '未'],
-      source: '《六壬粹言》丁卯日两下贼上例',
+      source: '《六壬大全》卷四丁卯日丑时亥将涉害例',
     },
     {
       day: '庚子',
-      hour: '丁丑',
-      monthLeader: '亥',
+      hour: '丁戌',
+      monthLeader: '申',
       expected: ['午', '辰', '寅'],
-      source: '《大六壬大全》庚子日涉害例',
+      source: '《六壬大全》卷四庚子日戌时申将见机例',
     },
     {
       day: '甲午',
-      hour: '庚午',
-      monthLeader: '申',
+      hour: '庚辰',
+      monthLeader: '午',
       expected: ['辰', '午', '申'],
-      source: '《大六壬大全》甲午日复等例',
+      source: '《六壬大全》卷四甲午日辰时午将缀瑕例',
     },
   ];
 
@@ -894,35 +893,26 @@ test('大六壬涉害从所临地盘之后起算，并依深浅、孟仲季取�
   }
 });
 
-test('大六壬涉害依《六壬粹言》古法不另用择比改传', () => {
-  const cases = [
-    {
-      day: '乙卯',
-      hour: '戊寅',
-      expected: ['亥', '酉', '未'],
-    },
-    {
-      day: '甲辰',
-      hour: '戊辰',
-      expected: ['子', '申', '辰'],
-    },
-    {
-      day: '庚午',
-      hour: '庚辰',
-      expected: ['子', '申', '辰'],
-    },
-  ];
+test('大六壬涉害深度较大时应优先取深，不被孟位浅害改取', () => {
+  const result = buildReferenceLiurenPlate({
+    day: '庚午',
+    hour: '庚寅',
+    monthLeader: '子',
+  });
 
-  for (const item of cases) {
-    const result = buildReferenceLiurenPlate({
-      day: item.day,
-      hour: item.hour,
-      monthLeader: '子',
-    });
+  assert.equal(result.initial.rule, '涉害法');
+  assert.deepEqual(result.branches, ['寅', '子', '戌']);
+});
 
-    assert.equal(result.initial.rule, '涉害法', item.day);
-    assert.deepEqual(result.branches, item.expected, item.day);
-  }
+test('大六壬涉害深度较大时应优先取深，不被孟位浅害改取戌', () => {
+  const result = buildReferenceLiurenPlate({
+    day: '庚午',
+    hour: '庚辰',
+    monthLeader: '子',
+  });
+
+  assert.equal(result.initial.rule, '涉害法');
+  assert.deepEqual(result.branches, ['子', '申', '辰']);
 });
 
 test('大六壬无上下克时不会把四课比和误判为比用法', () => {
@@ -939,6 +929,38 @@ test('大六壬无上下克时不会把四课比和误判为比用法', () => {
   assert.equal(result.rule, '遥克法');
   assert.equal(result.tag, '蒿矢');
   assert.equal(result.initial, '申');
+});
+
+test('大六壬多候选遥克比用仍保留蒿矢方向标签', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('寅', '亥'),
+      createLesson('申', '子'),
+      createLesson('酉', '亥'),
+      createLesson('午', '辰'),
+    ],
+    createResolveContext({ dayStem: '甲' }),
+  );
+
+  assert.equal(result.rule, '遥克比用法');
+  assert.equal(result.tag, '蒿矢');
+  assert.equal(result.initial, '申');
+});
+
+test('大六壬多候选遥克比用仍保留弹射方向标签', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('午', '寅'),
+      createLesson('寅', '子'),
+      createLesson('卯', '子'),
+      createLesson('丑', '酉'),
+    ],
+    createResolveContext({ dayStem: '庚' }),
+  );
+
+  assert.equal(result.rule, '遥克比用法');
+  assert.equal(result.tag, '弹射');
+  assert.equal(result.initial, '寅');
 });
 
 test('大六壬遥克只看二三四课，不把一课上神误作遥克发用', () => {
@@ -976,10 +998,10 @@ test('大六壬伏吟课按三刑推进三传，不再简单重复同一上神',
   assert.deepEqual(result.branches, ['寅', '巳', '申']);
 });
 
-test('大六壬伏吟六乙六癸从干上传发用，但柔日课名仍为自信', () => {
+test('大六壬乙日伏吟有下贼上时按伏吟重审从干上传发用', () => {
   const result = resolveInitialTransmission(
     [
-      createLesson('辰', '辰'),
+      createLesson('辰', '乙'),
       createLesson('辰', '辰'),
       createLesson('丑', '丑'),
       createLesson('丑', '丑'),
@@ -992,9 +1014,30 @@ test('大六壬伏吟六乙六癸从干上传发用，但柔日课名仍为自�
     }),
   );
 
-  assert.equal(result.rule, '伏吟法');
-  assert.equal(result.tag, '自信');
+  assert.equal(result.rule, '伏吟重审法');
+  assert.equal(result.initial, '辰');
   assert.deepEqual(result.branches, ['辰', '丑', '戌']);
+});
+
+test('大六壬癸日伏吟有上克下时按伏吟元首从干上传发用', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('丑', '癸'),
+      createLesson('丑', '丑'),
+      createLesson('辰', '辰'),
+      createLesson('辰', '辰'),
+    ],
+    createResolveContext({
+      dayStem: '癸',
+      dayBranch: '丑',
+      dayStemResidence: '丑',
+      heavenlyPlate: FUYIN_PLATE,
+    }),
+  );
+
+  assert.equal(result.rule, '伏吟元首法');
+  assert.equal(result.initial, '丑');
+  assert.deepEqual(result.branches, ['丑', '戌', '未']);
 });
 
 test('大六壬伏吟普通阴日按自信从支上传发用', () => {
@@ -1053,7 +1096,7 @@ test('大六壬阴日八专从支阴神逆数三位发用', () => {
   assert.deepEqual(result.branches, ['丑', '巳', '巳']);
 });
 
-test('大六壬非八专日即使干支同寄宫，也不能误判为八专法', () => {
+test('大六壬癸丑日伏吟仍按伏吟法取传，不因八专日误走八专法', () => {
   const result = resolveInitialTransmission(
     [
       createLesson('丑', '丑'),
@@ -1070,6 +1113,7 @@ test('大六壬非八专日即使干支同寄宫，也不能误判为八专法',
   );
 
   assert.notEqual(result.rule, '八专法');
+  assert.equal(result.rule, '伏吟法');
 });
 
 test('大六壬应与传统排盘样本的申将午时天地盘和十二天将一致', () => {

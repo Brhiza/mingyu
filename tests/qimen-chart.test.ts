@@ -94,7 +94,7 @@ test('奇门飞盘应复现元灵经阴八局天任加中古例', () => {
   assert.equal(palaces[1].renPan.door, '生门');
 });
 
-test('奇门转盘值使最终落中时应按遁甲演义统一寄坤二', () => {
+test('奇门转盘值使最终落中时应按御定奇门宝鉴统一寄坤二', () => {
   assert.equal(resolveZhiShiLandingPalace(true, '休门', '戊辰', 1, 'zhuanpan'), 2);
   assert.equal(resolveZhiShiLandingPalace(false, '景门', '戊辰', 9, 'zhuanpan'), 2);
 });

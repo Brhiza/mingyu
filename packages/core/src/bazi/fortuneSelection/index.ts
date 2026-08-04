@@ -128,7 +128,7 @@ function buildGanZhiTriggerSummary(
     }
   });
 
-  return `${scopeLabel}触发：${triggers.length ? triggers.join('；') : '未见明显合冲刑害破，重点看十神生克、原局喜忌与岁运层级。'}`;
+  return `${scopeLabel}触发：${triggers.length ? triggers.join('；') : '未见明显合冲刑害破。'}`;
 }
 
 function buildFortuneEvidenceLines(params: {

@@ -13,11 +13,9 @@
 - [梅花易数 Meihua](#梅花易数-meihua)
 - [奇门遁甲 Qimen](#奇门遁甲-qimen)
 - [大六壬 Liuren](#大六壬-liuren)
-- [小六壬 Xiaoliuren](#小六壬-xiaoliuren)
 - [择日 Almanac](#择日-almanac)
 - [灵签 SSGW](#灵签-ssgw)
 - [塔罗 Tarot](#塔罗-tarot)
-- [雷诺曼 Lenormand](#雷诺曼-lenormand)
 - [西洋占星 Astrolabe](#西洋占星-astrolabe)
 - [紫微斗数 Ziwei](#紫微斗数-ziwei)
 - [历法 Calendar](#历法-calendar)
@@ -215,21 +213,6 @@
 
 ---
 
-## 小六壬 Xiaoliuren
-
-导入：`import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren'`
-
-### `generateXiaoliuren(params?)`
-
-**参数：**
-- `method?: 'time' \| 'number' \| 'random'`
-- `number?: number`
-- `customDate?: Date`
-
-**返回 `XiaoliurenData`：** 含月宫、日宫、时宫顺数轨迹（大安/留连/速喜/赤口/小吉/空亡）、时宫主证、通行歌诀、逐步计算参数及来源、历法和解释限制。
-
----
-
 ## 择日 Almanac
 
 导入：`import { generateAlmanacSelection } from 'mingyu-core/divination/almanac'`
@@ -253,7 +236,7 @@
 - `customDate?: Date`
 - `options?: { seed?: string | number; rng?: () => number }`
 
-**返回 `SsgwData`：** 随机抽取三山国王 92 签之一，含签号、签题、签诗、典故故事、分类解签。
+**返回 `SsgwData`：** 随机抽取三山国王 92 签之一，返回签号、签题、签诗原文、求签时间与干支。
 
 ---
 
@@ -271,21 +254,6 @@
 - `options?: { seed?: string | number; rng?: () => number }`
 
 **返回：** 抽取的牌、牌位、正逆位和时间戳。`tarotSpreads` 只保留牌阵结构，不再附带默认问题。
-
----
-
-## 雷诺曼 Lenormand
-
-导入：`import { drawLenormandSpread } from 'mingyu-core/divination/lenormand'`
-
-### `drawLenormandSpread(spreadType?, options?)`
-
-**参数：**
-
-- `spreadType?: 'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau'`，不传时使用 `single`
-- `options?: { seed?: string | number; rng?: () => number }`
-
-**返回 `LenormandData`：** 36 张雷诺曼牌、Fisher-Yates 洗牌、各位置牌义、相邻两牌组合含义。
 
 ---
 

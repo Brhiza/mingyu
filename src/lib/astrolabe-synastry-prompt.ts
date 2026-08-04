@@ -16,12 +16,11 @@ function formatSynastryFacts(synastry: AstrolabeSynastryData) {
   );
 
   return [
-    '【跨盘相位】',
-    ...(aspectLines.length ? aspectLines : ['- 本次未见主要跨盘相位。']),
-    '',
-    '【跨盘落宫】',
-    ...(overlayLines.length ? overlayLines : ['- 本次未见可用跨盘落宫资料。']),
-  ].join('\n');
+    aspectLines.length ? '【跨盘相位】\n' + aspectLines.join('\n') : '',
+    overlayLines.length ? '【跨盘落宫】\n' + overlayLines.join('\n') : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function buildAstrolabeSynastryPrompt(params: {
@@ -32,7 +31,8 @@ export function buildAstrolabeSynastryPrompt(params: {
   promptMode?: AstrolabeSynastryPromptMode;
   currentTime?: Date;
 }) {
-  const question = params.question?.trim() || '请先整体判断双方关系中的互动主轴。';
+  const question = params.question?.trim() ?? '';
+  const synastryFacts = formatSynastryFacts(params.synastry);
   const baseSections = [
     buildPromptGuidanceSections('astrolabe-synastry'),
     '',
@@ -44,24 +44,13 @@ export function buildAstrolabeSynastryPrompt(params: {
     '',
     '【第二人本命盘】',
     formatAstrolabeInfo(params.chart2),
+    synastryFacts ? ['', synastryFacts] : '',
     '',
-    formatSynastryFacts(params.synastry),
-    '',
-    '【问题】',
-    question,
-  ];
-
-  if (params.promptMode === 'custom') {
-    return baseSections.join('\n');
-  }
-
-  return [
-    ...baseSections,
+    ...(question ? ['【问题】', question] : []),
     '',
     '【任务】',
-    '结合双方本命盘、跨盘相位、跨盘落宫和【问题】，分析互动主轴、互补点、张力点与现实触发条件。',
-    '',
-    '【输出要求】',
-    '先直接回答【问题】，再说明互动主轴、互补点、张力点和现实建议，并结合相关星体、宫位、相位或落宫资料说明。',
-  ].join('\n');
+    '请依据双方本命盘、跨盘相位和跨盘落宫，分析互动主轴、互补点与张力点。',
+  ];
+
+  return baseSections.flat().filter(Boolean).join('\n');
 }

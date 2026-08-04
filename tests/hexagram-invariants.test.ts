@@ -101,6 +101,14 @@ test('梅花与六爻的 64 卦乘 6 动爻应得到相同主卦、互卦和变�
         const expectedChanged = hexagramNameFromBottomUpLines(changedLines);
         const expectedInter = hexagramNameFromBottomUpLines(interLines);
         const label = `${expectedMain}第${movingYaoIndex}爻`;
+        const interLowerIndex = trigramIndexByLines.get(interLines.slice(0, 3).join(''));
+        const interUpperIndex = trigramIndexByLines.get(interLines.slice(3, 6).join(''));
+        const changedLowerIndex = trigramIndexByLines.get(changedLines.slice(0, 3).join(''));
+        const changedUpperIndex = trigramIndexByLines.get(changedLines.slice(3, 6).join(''));
+        assert.notEqual(interLowerIndex, undefined, `${label}互卦下卦真值缺失`);
+        assert.notEqual(interUpperIndex, undefined, `${label}互卦上卦真值缺失`);
+        assert.notEqual(changedLowerIndex, undefined, `${label}变卦下卦真值缺失`);
+        assert.notEqual(changedUpperIndex, undefined, `${label}变卦上卦真值缺失`);
 
         const meihua = generateMeihua(SAMPLE_DATE, {
           method: 'random',
@@ -133,10 +141,64 @@ test('梅花与六爻的 64 卦乘 6 动爻应得到相同主卦、互卦和变�
           [expectedMain, expectedInter, expectedChanged],
           `${label}梅花主互变`,
         );
+        assert.equal(
+          meihua.mainHexagram.upper,
+          TRIGRAM_TRUTHS[upperIndex - 1].name,
+          `${label}梅花主卦上卦`,
+        );
+        assert.equal(
+          meihua.mainHexagram.lower,
+          TRIGRAM_TRUTHS[lowerIndex - 1].name,
+          `${label}梅花主卦下卦`,
+        );
+        assert.equal(
+          meihua.interHexagram?.upper,
+          TRIGRAM_TRUTHS[interUpperIndex].name,
+          `${label}梅花互卦上卦`,
+        );
+        assert.equal(
+          meihua.interHexagram?.lower,
+          TRIGRAM_TRUTHS[interLowerIndex].name,
+          `${label}梅花互卦下卦`,
+        );
+        assert.equal(
+          meihua.changedHexagram?.upper,
+          TRIGRAM_TRUTHS[changedUpperIndex].name,
+          `${label}梅花变卦上卦`,
+        );
+        assert.equal(
+          meihua.changedHexagram?.lower,
+          TRIGRAM_TRUTHS[changedLowerIndex].name,
+          `${label}梅花变卦下卦`,
+        );
+        assert.equal(meihua.movingYao.position, movingYaoIndex, `${label}梅花动爻`);
         assert.deepEqual(
           [liuyao.originalName, liuyao.interName, liuyao.changedName],
           [expectedMain, expectedInter, expectedChanged],
           `${label}六爻主互变`,
+        );
+        const liuyaoInterHexagram = hexagramsData.find(
+          (hexagram) => hexagram.name === liuyao.interName,
+        );
+        const liuyaoChangedHexagram = hexagramsData.find(
+          (hexagram) => hexagram.name === liuyao.changedName,
+        );
+        assert.ok(liuyaoInterHexagram, `${label}六爻互卦数据缺失`);
+        assert.ok(liuyaoChangedHexagram, `${label}六爻变卦数据缺失`);
+        assert.equal(
+          liuyaoInterHexagram.binarySymbol,
+          `${TRIGRAM_TRUTHS[interUpperIndex].lines.join('')}${TRIGRAM_TRUTHS[interLowerIndex].lines.join('')}`,
+          `${label}六爻互卦卦画`,
+        );
+        assert.equal(
+          liuyaoChangedHexagram.binarySymbol,
+          `${TRIGRAM_TRUTHS[changedUpperIndex].lines.join('')}${TRIGRAM_TRUTHS[changedLowerIndex].lines.join('')}`,
+          `${label}六爻变卦卦画`,
+        );
+        assert.deepEqual(
+          liuyao.changingYaos.map((yao) => yao.position),
+          [movingYaoIndex],
+          `${label}六爻动爻`,
         );
       }
     }

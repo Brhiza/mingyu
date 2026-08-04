@@ -298,45 +298,6 @@ const SUMMARY_FACT_LIMITATION =
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束大六壬占时、天地盘、四课取传、三传、类神、课体、天将、神煞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、人物身份、疾病灾祸、事件概率或固定应期的证据' as const;
 
-export function conditionLiurenTraditionalText(text: string): string {
-  return text
-    .replace(
-      /凶丧之神，主疾病、死丧、血光、刀兵、破财/g,
-      '传统属性归为风险类，传统类象涉及健康、损伤、安全与财物风险等议题',
-    )
-    .replace(
-      /争斗纠纷之神，主官非、土地、契约、争执/g,
-      '传统属性归为纠纷类，传统类象涉及法律、土地、契约与争议等议题',
-    )
-    .replace(
-      /盗贼隐秘之神，主失窃、欺骗、隐私、阴私/g,
-      '传统属性归为隐秘类，传统类象涉及财物安全、信息真实性、隐私与隐情等议题',
-    )
-    .replace(
-      /和合之神，主婚姻、合作、合同、中介、子息/g,
-      '传统属性归为和合类，传统类象涉及婚恋、合作、合同、中介与子女等议题',
-    )
-    .replace(
-      /恩泽之神，主婚姻、恩宠、庇护、女性、长辈/g,
-      '传统属性归为恩泽类，传统类象涉及婚恋、支持、照护、女性与长辈等议题',
-    )
-    .replace(
-      /财喜之神，主升迁、钱财、喜事、贵人、仁德/g,
-      '传统属性归为财喜类，传统类象涉及职位、财物、喜庆、助力与仁德等议题',
-    )
-    .replace(
-      /虚诈孤独之神，主空亡、欺骗、孤寡、无成/g,
-      '传统属性归为虚空类，传统类象涉及落空、信息真实性、疏离与推进受阻等议题',
-    )
-    .replace(/主反复动荡/g, '传统类象涉及反复与变动')
-    .replace(/主伏而不动/g, '传统类象涉及停滞与不动')
-    .replace(/事情会逐步推进/g, '传统解释可从逐步推进角度核验')
-    .replace(/结果更利于/g, '传统上可关注')
-    .replace(/必然/g, '可能')
-    .replace(/必定/g, '较可能')
-    .replace(/主(?!(?:轴|证|线|要|客|动))/g, '传统类象涉及');
-}
-
 function buildTraditionalFacts(
   data: LiurenData,
   patternEvidence: string[],
@@ -346,7 +307,7 @@ function buildTraditionalFacts(
     kind: '经典取传规则',
     name: item.rule,
     originalText: item.summary,
-    promptText: conditionLiurenTraditionalText(item.summary),
+    promptText: item.summary,
     sources: [item.source],
     limitation: TRADITIONAL_FACT_LIMITATION,
   }));
@@ -356,7 +317,7 @@ function buildTraditionalFacts(
     kind: '课体',
     name: fact.name,
     originalText: fact.sourceQuote,
-    promptText: `盘面命中“${fact.name}”：${fact.matchedConditions.join('；')}；只登记课体结构，不据此单断现实吉凶`,
+    promptText: `盘面命中“${fact.name}”：${fact.matchedConditions.join('；')}。`,
     sources: [`${fact.sourceTitle}：“${fact.sourceQuote}”`, fact.sourceUrl],
     branches: [...fact.branches],
     limitation: TRADITIONAL_FACT_LIMITATION,
@@ -368,7 +329,7 @@ function buildTraditionalFacts(
       kind: '课体',
       name,
       originalText: name,
-      promptText: `盘面命中“${name}”结构标签；该标签须与四课取传、三传、旺衰和空亡互证`,
+      promptText: `盘面命中“${name}”结构标签。`,
       sources: ['发用、三传结构、空亡与课体规则逐项命中'],
       limitation: TRADITIONAL_FACT_LIMITATION,
     }));
@@ -384,7 +345,7 @@ function buildTraditionalFacts(
           kind: '天将属性',
           name: transmission.god,
           originalText,
-          promptText: `${props.wuxing}${props.yinYang}，传统分类为${props.category}；${conditionLiurenTraditionalText(originalText)}`,
+          promptText: `${props.wuxing}${props.yinYang}，传统分类为${props.category}；${originalText}`,
           sources: ['《六壬大全》卷二《天将总论》《十二将释》'],
           stages: [...(previous?.stages ?? []), transmission.stage],
           branches: [...(previous?.branches ?? []), transmission.branch],
@@ -394,7 +355,7 @@ function buildTraditionalFacts(
       }, new Map<string, LiurenTraditionalFact>())
       .values(),
   );
-  const shenShaFacts = data.shenShaFacts?.length
+  const shenShaFacts: LiurenTraditionalFact[] = data.shenShaFacts?.length
     ? data.shenShaFacts.map((fact, index): LiurenTraditionalFact => {
         const text = `${fact.name}在${fact.target}`;
         return {
@@ -408,15 +369,34 @@ function buildTraditionalFacts(
           limitation: TRADITIONAL_FACT_LIMITATION,
         };
       })
-    : (data.shenShaSummary ?? []).map((text, index): LiurenTraditionalFact => ({
-        key: `shensha:${index}:${text}`,
-        kind: '神煞',
-        name: text.replace(/在.+$/, ''),
-        originalText: text,
-        promptText: `旧结果只保存“${conditionLiurenTraditionalText(text)}”，未保存起法输入，不能据此复算`,
-        sources: ['旧结果未保存逐项起法与来源'],
-        limitation: TRADITIONAL_FACT_LIMITATION,
-      }));
+    : data.shenShaSummary?.length
+      ? data.shenShaSummary.map((summary, index): LiurenTraditionalFact => {
+          const match = /^(.+)在(.+)$/.exec(summary);
+          const name = match?.[1] ?? `神煞${index + 1}`;
+          const target = match?.[2] ?? '盘面';
+          return {
+            key: `shensha:legacy:${index}:${name}`,
+            kind: '神煞',
+            name,
+            originalText: `${name}在${target}`,
+            promptText: `${name}在${target}；未保存起法输入，不能据此复算`,
+            sources: ['旧结果未保存逐项起法与来源'],
+            branches: undefined,
+            limitation: TRADITIONAL_FACT_LIMITATION,
+          };
+        })
+      : [
+          {
+            key: 'shensha:legacy:unavailable',
+            kind: '神煞',
+            name: '传统神煞',
+            originalText: '传统神煞在盘面',
+            promptText: '传统神煞在盘面；未保存起法输入，不能据此复算',
+            sources: ['旧结果未保存逐项起法与来源'],
+            branches: undefined,
+            limitation: TRADITIONAL_FACT_LIMITATION,
+          },
+        ];
 
   return [
     ...classicalFacts,
@@ -522,7 +502,7 @@ function buildLessonEvidence(
     isInitialSource: lesson.upper === initialBranch,
     constraints,
     relationFacts,
-    promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，乘${lesson.god}，关系${lesson.relation}；${conditionLiurenTraditionalText(lesson.note || '课注未列')}`,
+    promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，乘${lesson.god}，关系${lesson.relation}；${lesson.note || '课注未列'}`,
     sources: ['日干寄宫、日支与天地盘逐课推导', '日柱旬空与上下神关系核验'],
     limitation: LESSON_FACT_LIMITATION,
   };
@@ -591,7 +571,7 @@ function buildTransmissionEvidence(
     support: transmissionSupport(normalized),
     constraints: transmissionConstraints(normalized),
     relationFacts,
-    promptText: `${formattedTransmission}；与前位关系${item.relation}；与日支关系${item.dayRelation || '未列'}；${conditionLiurenTraditionalText(item.note || '传注未列')}`,
+    promptText: `${formattedTransmission}；与前位关系${item.relation}；与日支关系${item.dayRelation || '未列'}；${item.note || '传注未列'}`,
     sources: ['三传、天将、月令旺衰、旬空与日支关系核验'],
     limitation: TRANSMISSION_FACT_LIMITATION,
   };
@@ -636,8 +616,8 @@ function buildTimingFacts(
       type: '初传状态',
       matcher: (text) => text.startsWith('一级发用：'),
       computed: initial.isVoid
-        ? `一级发用：先看初传${initial.branch}空亡，待出空、填实、冲实或现实条件落实再验`
-        : `一级发用：先看初传${initial.branch}不空，可作为当前起始信号，但仍须现实事件验证`,
+        ? `一级发用：初传${initial.branch}空亡，以出空、填实、冲实或条件落实为应期触发`
+        : `一级发用：初传${initial.branch}不空，为当前起始信号`,
       sources: ['初传地支与日柱旬空核验'],
     },
     {
@@ -654,9 +634,9 @@ function buildTimingFacts(
     },
     {
       type: '期限边界',
-      matcher: (text) => /未给.*期限|不硬换成唯一日期/.test(text),
-      computed: '未给出目标期限时，只判断先后、快慢和触发条件，不换算唯一日期',
-      sources: ['应期解释边界'],
+      matcher: (text) => /未给出目标期限|未给期限/.test(text),
+      computed: '未给出目标期限时，以盘面先后、快慢与触发条件为应期资料',
+      sources: ['当前问题是否给出目标期限、盘面先后快慢与触发条件'],
     },
   ];
   const consumed = new Set<string>();
@@ -1352,7 +1332,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
           {
             level: '辅证' as const,
             title: '取传规则与三传模式说明',
-            detail: conditionLiurenTraditionalText(data.transmissionDetail),
+            detail: data.transmissionDetail,
             source: '九宗门取传结果、三传结构与经典规则合并说明',
             tags: [
               '取传规则',

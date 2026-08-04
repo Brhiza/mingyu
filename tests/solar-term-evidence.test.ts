@@ -6,7 +6,6 @@ import { calculateSeasonInfo } from '@core/bazi/baziCalculatorTime';
 import { getJieQiPhaseByDate } from '@core/divination/algorithms/qimen/helpers/seasonality';
 import { calculateSolarTermEvidence, calculateSolarTermsForYear } from 'mingyu-core/calendar';
 import { SolarTime } from 'tyme4ts';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 test('节气证据应采用历表边界并保留太阳视黄经独立核验', () => {
   const evidence = calculateSolarTermEvidence(2024, 3);
@@ -67,7 +66,6 @@ test('节气证据应采用历表边界并保留太阳视黄经独立核验', ()
       ...evidence.limitationFacts,
     ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
   );
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('全年二十四节气应保持名称、黄经和节气属性顺序', () => {

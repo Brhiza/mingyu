@@ -5,7 +5,6 @@ import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { Person } from '@core/bazi/baziTypes';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
 import {
   BAZI_PROMPT_TOPICS,
@@ -90,7 +89,7 @@ const baziPromptSchema = baziSchema.extend({
     .enum(BAZI_SCHOOLS)
     .optional()
     .describe(
-      '八字流派：traditional=传统派（子平正法、格局调候）, mangpai=盲派（十神象法、年限分段）, xinpai=新派（调候流通）。不传则不附加流派指引',
+      '八字流派：traditional=传统兼容名（子平派）, ziping=子平派（月令格局、调候行运）, mangpai=盲派（宫位十神、宾主体用、年限）, xinpai=新派（旺衰流通、动态岁运）。不传则不附加流派指引',
     ),
   baziFortuneScope: z
     .enum(BAZI_FORTUNE_SCOPES)
@@ -302,9 +301,7 @@ export function registerBaziTool(server: McpServer) {
             person2Name: args.person2.name,
           },
         );
-        const prompt = appendTraditionalResearchNotice(
-          [promptParts.system, promptParts.user].filter(Boolean).join('\n\n'),
-        );
+        const prompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
         return createStructuredToolResult({
           result: { charts: { person1: chart1, person2: chart2 }, compatibility },
           prompt,

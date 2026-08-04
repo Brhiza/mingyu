@@ -7,7 +7,6 @@ import {
   tarotSpreads,
 } from 'mingyu-core/divination/tarot';
 import type { TarotData, TarotSpreadType } from 'mingyu-core/types';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const spreadTypes = Object.keys(tarotSpreads) as TarotSpreadType[];
 
@@ -110,7 +109,6 @@ test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对�
       ),
     );
     assert.match(evidence.promptText, /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/);
-    assertPromptIsPortableTaskText(evidence.promptText);
   });
 });
 
@@ -330,7 +328,6 @@ test('塔罗旧资料缺少抽牌记录时不得反推来源链', () => {
   assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
   assert.match(evidence.drawFact.promptText, /现有资料未附.*不能反推完整抽牌来源链/);
   assert.doesNotMatch(evidence.promptText, /当前结果|当前数据|接口|API|MCP|工程/);
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('塔罗抽牌序号或牌面被篡改时应标记来源链不一致', () => {

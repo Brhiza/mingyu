@@ -9,7 +9,6 @@ import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import { buildPromptGuidanceSections } from '../../lib/prompt-guidance';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 
 export interface AIPromptOption {
   id: string;
@@ -45,108 +44,83 @@ function resolvePromptScene(promptId: string): PromptChartScene {
   return 'general';
 }
 
-function removePromptLabel(value: string, label: string) {
-  return value.startsWith(label) ? value.slice(label.length).trim() : value;
-}
-
-function findFortuneSummaryLine(ctx: FortuneSelectionContext, prefixes: string[]) {
-  return ctx.promptPayload.summaryLines.find((line) =>
-    prefixes.some((prefix) => line.startsWith(prefix)),
-  );
-}
-
-function buildFortuneSelectedObjectText(ctx: FortuneSelectionContext) {
-  return removePromptLabel(ctx.promptPayload.scopeLabel, '分析对象：');
-}
-
-function buildFortuneTimingText(ctx: FortuneSelectionContext) {
-  if (ctx.scope === 'dayun') {
-    return `选择日期：${ctx.cycleStartYear}年起，约${ctx.cycleAge}岁交运`;
-  }
-
-  if (ctx.scope === 'year') {
-    return `选择日期：${ctx.year ?? '未标注'}年${ctx.yearAge ? `（${ctx.yearAge}岁）` : ''}`;
-  }
-
-  if (ctx.scope === 'month') {
-    const month = ctx.monthBreakdown?.[0];
-    if (!month) return '';
-    const start = [month.startTermName, month.startDateTime].filter(Boolean).join(' ');
-    const end = [month.endTermName, month.endDateTime].filter(Boolean).join(' ');
-    const jieqiText =
-      start || end
-        ? `（节气月：${start || month.startDate} 起，${end || month.endDate} 交下节）`
-        : '';
-    return `选择日期：${month.startDate} 至 ${month.endDate}${jieqiText}`;
-  }
-
-  const day = ctx.dayBreakdown?.[0];
-  const ziChuText = findFortuneSummaryLine(ctx, ['按子初换日：']);
-  return ['选择日期：', day?.date ?? ctx.displayLabel, ziChuText ? `（${ziChuText}）` : ''].join(
-    '',
-  );
-}
-
-function buildFortuneHierarchyText(ctx: FortuneSelectionContext) {
-  const parents = ctx.promptPayload.summaryLines
-    .filter(
-      (line) =>
-        line.startsWith('所属大运：') ||
-        line.startsWith('所属流年：') ||
-        line.startsWith('所属流月：'),
-    )
-    .map((line) =>
-      line
-        .replace(/^所属大运：/, '')
-        .replace(/^所属流年：/, '')
-        .replace(/^所属流月：/, '')
-        .replace(/\s+/g, ''),
-    );
-
-  return parents.length ? `上层岁运：${parents.join(' > ')}` : '';
-}
-
-function buildFortuneGanZhiText(ctx: FortuneSelectionContext) {
-  const ganZhiLine = findFortuneSummaryLine(ctx, ['大运干支：', '流年干支：', '流月：', '流日：']);
-  const tenGodLine = findFortuneSummaryLine(ctx, [
-    '大运十神：',
-    '流年十神：',
-    '流月十神：',
-    '流日十神：',
-  ]);
-
-  if (!ganZhiLine && !tenGodLine) return '';
-  return [
-    '当前干支：',
-    ganZhiLine ? removePromptLabel(ganZhiLine, ganZhiLine.split('：')[0] + '：') : '',
-    tenGodLine ? `；${removePromptLabel(tenGodLine, tenGodLine.split('：')[0] + '：')}` : '',
-  ].join('');
-}
-
-function buildFortuneTriggerText(ctx: FortuneSelectionContext) {
-  const triggerLine = ctx.promptPayload.summaryLines.find((line) => line.includes('触发：'));
-  return triggerLine ? `核心触发：${triggerLine.replace(/^[^：]+触发：/, '')}` : '';
-}
-
 function formatFortuneSelectionSection(
   ctx: FortuneSelectionContext | null | undefined,
   _options: { includeBreakdown?: boolean } = {},
-): string {
-  if (!ctx) return '';
-  const { promptPayload } = ctx;
-  const lines = [promptPayload.scopeLabel, buildFortuneTimingText(ctx)];
-  const detailGroups =
-    promptPayload.detailGroups?.filter((group) => group.title && group.lines.length > 0) ?? [];
-  if (detailGroups.length) {
-    detailGroups.forEach((group) => {
-      lines.push(group.title);
-      lines.push(...group.lines.map((line, i) => `${i + 1}. ${line}`));
-    });
-  } else if (promptPayload.breakdownTitle && promptPayload.breakdownLines?.length) {
-    lines.push(promptPayload.breakdownTitle);
-    lines.push(...promptPayload.breakdownLines.map((line, i) => `${i + 1}. ${line}`));
+): { analysisObject: string; focus: string } | null {
+  if (!ctx) return null;
+  const { promptPayload, scope } = ctx;
+  const summary = promptPayload.summaryLines ?? [];
+  const lines: string[] = [promptPayload.scopeLabel];
+
+  const selectedDate =
+    scope === 'year'
+      ? `${ctx.year}年`
+      : scope === 'dayun'
+        ? `${ctx.cycleStartYear}年起`
+        : scope === 'month'
+          ? summary.find((line) => line.startsWith('日期范围：'))?.replace('日期范围：', '')
+          : ctx.dayBreakdown?.[0]?.date;
+  if (selectedDate) {
+    lines.push(`选择日期：${selectedDate}`);
   }
-  return lines.join('\n');
+
+  if (scope === 'month') {
+    const monthLine = summary.find((line) => line.startsWith('流月：'));
+    const jieqiLine = summary.find((line) => line.startsWith('交节时刻：'));
+    if (monthLine) {
+      lines.push(`节气月：${monthLine.replace('流月：', '')}`);
+    }
+    if (jieqiLine) {
+      lines.push(jieqiLine.replace('交节时刻：', '交节：'));
+    }
+  }
+
+  const upperDayun = summary.find((line) => line.startsWith('所属大运：'));
+  if (upperDayun) {
+    lines.push(upperDayun.replace('所属大运：', '上层岁运：'));
+  }
+  const upperYear = summary.find((line) => line.startsWith('所属流年：'));
+  if (upperYear) {
+    lines.push(upperYear.replace('所属流年：', '上层流年：'));
+  }
+
+  const selectedGanZhi =
+    summary.find((line) => line.startsWith('流年干支：')) ??
+    summary.find((line) => line.startsWith('流月：')) ??
+    summary.find((line) => line.startsWith('流日：')) ??
+    summary.find((line) => line.startsWith('大运干支：'));
+  if (selectedGanZhi) {
+    const label = selectedGanZhi.includes('流年')
+      ? '流年干支：'
+      : selectedGanZhi.includes('流月')
+        ? '流月：'
+        : selectedGanZhi.includes('流日')
+          ? '流日：'
+          : '大运干支：';
+    lines.push(`所选干支：${selectedGanZhi.replace(label, '')}`);
+  }
+
+  const triggerLine = summary.find((line) => line.includes('触发：'));
+  if (triggerLine) {
+    lines.push(`主要触发：${triggerLine.split('：').slice(1).join('：')}`);
+  }
+
+  const detailTitles = (promptPayload.detailGroups ?? []).map((group) => group.title);
+  if (detailTitles.length) {
+    lines.push(detailTitles.join('、'));
+  }
+
+  for (const group of promptPayload.detailGroups ?? []) {
+    if (group.lines.length) {
+      lines.push(`${group.title}\n${group.lines.map((line) => `  - ${line}`).join('\n')}`);
+    }
+  }
+
+  return {
+    analysisObject: promptPayload.scopeLabel,
+    focus: lines.join('\n'),
+  };
 }
 
 function formatFullFortuneOutputSection(result: BaziChartResult | null): string {
@@ -166,21 +140,6 @@ function formatFullFortuneOutputSection(result: BaziChartResult | null): string 
   return lines.join('\n');
 }
 
-function formatFortuneEvidenceSection(ctx: FortuneSelectionContext | null | undefined): string {
-  if (!ctx) return '';
-
-  const summary = [
-    `分析对象：${buildFortuneSelectedObjectText(ctx)}`,
-    buildFortuneTimingText(ctx),
-    buildFortuneHierarchyText(ctx),
-    buildFortuneGanZhiText(ctx).replace(/^当前干支：/, '所选干支：'),
-    buildFortuneTriggerText(ctx).replace(/^核心触发：/, '主要触发：'),
-  ]
-    .filter(Boolean)
-    .join('\n');
-  return summary;
-}
-
 function buildBaziNatalAnalysisObjectSection(): string {
   return '分析对象：本命盘';
 }
@@ -189,24 +148,13 @@ function buildBaziFullAnalysisObjectSection(): string {
   return '分析对象：本命盘与完整大运流年';
 }
 
-function buildBaziOutputRequirementText() {
-  return '使用简体中文，先回答【问题】，再说明主要命盘依据、时机条件和现实建议。';
-}
-
 function buildFortunePromptAddon(promptId: string, ctx: FortuneSelectionContext | null): string {
   if (!ctx) return '';
-  if (promptId === 'ai-fortune-detail') {
-    if (ctx.scope === 'dayun') return '按逐年列表依次分析这一步大运，先总后分。';
-    if (ctx.scope === 'year') return '按流月列表依次分析这一年，先总后分。';
-    if (ctx.scope === 'month') return '按流日列表依次分析这个流月，先总后分。';
-    return '聚焦这个流日的主题、机会风险和建议。';
-  }
-  if (promptId === 'ai-fortune-overview') return '聚焦整体节奏、机会、风险和应对。';
   return '';
 }
 
-const BAZI_SINGLE_TASK_PROMPT = '请围绕【问题】完成八字分析。';
-const BAZI_COMPATIBILITY_TASK_PROMPT = '请围绕【问题】完成双方八字合盘分析。';
+const BAZI_SINGLE_TASK_PROMPT = '请依据八字排盘资料完成解读。';
+const BAZI_COMPATIBILITY_TASK_PROMPT = '请依据双方盘面回答【问题】。';
 
 function normalizeBaziScopeLabel(scopeLabel: string | undefined) {
   const normalized = scopeLabel?.trim();
@@ -291,76 +239,67 @@ export function buildPromptFromConfig(
   if (promptConfig) {
     const chartData = chartResult
       ? formatBaziForPrompt(chartResult, selectedOption, resolvePromptScene(promptConfig.id))
-      : '无法获取命盘数据。';
+      : '';
     const fortuneSection = formatFortuneSelectionSection(fortuneSelectionContext, {
       includeBreakdown: promptConfig.id === 'ai-fortune-detail',
     });
     const fullFortuneSection = hasFullFortuneOutput
       ? formatFullFortuneOutputSection(chartResult)
       : '';
-    const fortuneEvidenceSection = formatFortuneEvidenceSection(fortuneSelectionContext);
     const fortuneAddon = buildFortunePromptAddon(promptConfig.id, fortuneSelectionContext);
     const task = [buildBaziTaskText(scopeLabel, promptConfig.prompt), fortuneAddon]
       .filter(Boolean)
       .join(' ');
 
     let enhancedSection = '';
-    if (chartResult && !isCustomQuestion) {
+    if (chartResult) {
       enhancedSection = generateEnhancedAnalysisSection(chartResult);
     }
 
     return {
       system: SYSTEM_PROMPT,
-      user: appendTraditionalResearchNotice(
-        joinPromptSections([
-          buildPromptGuidanceSections('bazi'),
-          buildPromptSection('当前时间', formatPromptCurrentTime()),
-          buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
-          hasFullFortuneOutput
-            ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
-            : '',
-          !isCustomQuestion && !fortuneSection && !hasFullFortuneOutput
-            ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
-            : '',
-          fortuneSection ? buildPromptSection('分析对象', fortuneSection) : '',
-          fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
-          fortuneEvidenceSection ? buildPromptSection('岁运重点', fortuneEvidenceSection) : '',
-          buildPromptSection('问题', normalizedQuestion),
-          isCustomQuestion
-            ? ''
-            : buildPromptSection('任务', task || '请依据已给出的命盘字段直接裁定重点。'),
-          isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
-        ]),
-      ),
+      user: joinPromptSections([
+        buildPromptGuidanceSections('bazi'),
+        buildPromptSection('当前时间', formatPromptCurrentTime()),
+        buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
+        hasFullFortuneOutput
+          ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
+          : '',
+        !fortuneSection && !hasFullFortuneOutput
+          ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
+          : '',
+        fortuneSection ? buildPromptSection('分析对象', fortuneSection.analysisObject) : '',
+        fortuneSection ? buildPromptSection('岁运重点', fortuneSection.focus) : '',
+        fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
+        normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
+        isCustomQuestion ? '' : buildPromptSection('任务', task || '请依据八字排盘资料完成解读。'),
+      ]),
     };
   }
 
   const chartData = chartResult?.pillars
     ? formatBaziForPrompt(chartResult, selectedOption, 'general')
-    : '命盘数据格式不支持。';
+    : '';
   const fullFortuneSection = hasFullFortuneOutput
     ? formatFullFortuneOutputSection(chartResult)
     : '';
 
   return {
     system: SYSTEM_PROMPT,
-    user: appendTraditionalResearchNotice(
-      joinPromptSections([
-        buildPromptGuidanceSections('bazi'),
-        buildPromptSection('当前时间', formatPromptCurrentTime()),
-        buildPromptSection('排盘信息', chartData),
-        hasFullFortuneOutput
-          ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
-          : '',
-        !isCustomQuestion && !hasFullFortuneOutput
-          ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
-          : '',
-        fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
-        buildPromptSection('问题', normalizedQuestion),
-        isCustomQuestion ? '' : buildPromptSection('任务', '请依据已给出的命盘字段直接裁定重点。'),
-        isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
-      ]),
-    ),
+    user: joinPromptSections([
+      buildPromptGuidanceSections('bazi'),
+      buildPromptSection('当前时间', formatPromptCurrentTime()),
+      buildPromptSection('排盘信息', chartData),
+      hasFullFortuneOutput
+        ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
+        : '',
+      !hasFullFortuneOutput
+        ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
+        : '',
+      fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
+      normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
+      isCustomQuestion ? '' : buildPromptSection('任务', '请依据八字排盘资料完成解读。'),
+    ]),
   };
 }
 
@@ -377,12 +316,7 @@ function getCompatibilityTask(compatType?: CompatType): string {
   };
   const label = compatType ? labelMap[compatType] : '';
   const prefix = label ? `关系范围：${label}。` : '';
-  return `${prefix}请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。`;
-}
-
-function getCompatibilityOutputRequirement(compatType?: CompatType): string {
-  void compatType;
-  return '先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。';
+  return `${prefix}请依据双方盘面回答【问题】。`;
 }
 
 function formatCompatibilityFacts(result: ReturnType<typeof analyzeBaziCompatibility>): string {
@@ -411,13 +345,12 @@ export function getCompatibilityPrompt(
   compatType?: CompatType,
   options: { isCustomQuestion?: boolean; person1Name?: string; person2Name?: string } = {},
 ): { system: string; user: string } {
-  const isCustomQuestion = Boolean(options.isCustomQuestion);
   const data1 = baziResult1
     ? demoteEmbeddedPromptSections(formatBaziForPrompt(baziResult1, null, 'compatibility'))
-    : '无法获取第一人命盘数据。';
+    : '';
   const data2 = baziResult2
     ? demoteEmbeddedPromptSections(formatBaziForPrompt(baziResult2, null, 'compatibility'))
-    : '无法获取第二人命盘数据。';
+    : '';
   const compatibilityEvidence =
     baziResult1 && baziResult2
       ? formatCompatibilityFacts(
@@ -426,26 +359,27 @@ export function getCompatibilityPrompt(
             person2Name: options.person2Name,
           }),
         )
-      : '双方命盘不完整，无法生成双盘关系资料。';
+      : '';
+
+  const taskSection = options.isCustomQuestion
+    ? ''
+    : buildPromptSection('任务', getCompatibilityTask(compatType));
 
   return {
     system: COMPATIBILITY_SYSTEM_PROMPT,
-    user: appendTraditionalResearchNotice(
-      joinPromptSections([
-        buildPromptGuidanceSections('bazi-compatibility'),
-        buildPromptSection('当前时间', formatPromptCurrentTime()),
-        buildPromptSection('第一人排盘信息', data1),
-        buildPromptSection('第二人排盘信息', data2),
-        buildPromptSection('双盘关系资料', compatibilityEvidence),
-        buildPromptSection(
-          '问题',
-          questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),
-        ),
-        isCustomQuestion ? '' : buildPromptSection('任务', getCompatibilityTask(compatType)),
-        isCustomQuestion
-          ? ''
-          : buildPromptSection('输出要求', getCompatibilityOutputRequirement(compatType)),
-      ]),
-    ),
+    user: joinPromptSections([
+      buildPromptGuidanceSections('bazi-compatibility'),
+      buildPromptSection('当前时间', formatPromptCurrentTime()),
+      buildPromptSection('第一人排盘信息', data1),
+      buildPromptSection('第二人排盘信息', data2),
+      buildPromptSection('双盘关系资料', compatibilityEvidence),
+      questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType)
+        ? buildPromptSection(
+            '问题',
+            questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),
+          )
+        : '',
+      taskSection,
+    ]),
   };
 }

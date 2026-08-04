@@ -1304,7 +1304,7 @@ export function analyzeLiuyaoEvidence(
           .filter((item) => item.sixRelative === relative)
           .map((item) => item.position),
         originalText,
-        promptText: `${originalText}；须先结合问题主题、求测者身份、世应、动变、月日旺衰与空破墓判断`,
+        promptText: `${originalText}，须先结合问题主题。`,
         source: '传统六亲类象表与当前六亲排布',
         sources: ['传统六亲类象表', '当前本卦与伏神六亲排布'],
         limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果',
@@ -1356,7 +1356,7 @@ export function analyzeLiuyaoEvidence(
         ...lineFacts.filter((item) => item.isVoid).map((item) => item.key),
         ...hiddenSpiritFacts.filter((item) => item.isVoid).map((item) => item.key),
       ],
-      promptText: `空亡${data.voidBranches.join('、')}须待出空、冲实或透出再验`,
+      promptText: `空亡${data.voidBranches.join('、')}，传统以出空、冲实或透出为应期触发`,
       sources: ['日柱旬空地支', '本卦与伏神空亡标记'],
       limitation: TIMING_FACT_LIMITATION,
     });
@@ -1367,7 +1367,7 @@ export function analyzeLiuyaoEvidence(
       type: '伏神透出',
       sourceStatus: '由盘面生成',
       ownerFactKeys: hiddenSpiritFacts.map((item) => item.key),
-      promptText: '伏神须待透出、飞神受冲或得月日生扶再验',
+      promptText: '伏神传统以透出、飞神受冲或得月日生扶为应期触发',
       sources: ['伏神与飞神配对事实', '伏神透出及得助触发口径'],
       limitation: TIMING_FACT_LIMITATION,
     });
@@ -1379,7 +1379,7 @@ export function analyzeLiuyaoEvidence(
       type: '反吟伏吟节奏',
       sourceStatus: '由盘面生成',
       ownerFactKeys: fanfuFacts.map((item) => item.key),
-      promptText: `反吟伏吟只提示反复、停滞或原地重复的传统节奏，须由现实进展复核`,
+      promptText: '反吟伏吟传统取象为反复、停滞或原地重复的节奏',
       sources: ['当前反吟伏吟结构事实'],
       limitation: TIMING_FACT_LIMITATION,
     });
@@ -1390,7 +1390,7 @@ export function analyzeLiuyaoEvidence(
       type: '静卦边界',
       sourceStatus: '由盘面生成',
       ownerFactKeys: lineFacts.map((item) => item.key),
-      promptText: '静卦先看世应用神与月日旺衰，不补造动爻触发或绝对日期',
+      promptText: '静卦以世应用神与月日旺衰为主要资料',
       sources: ['当前六爻动静状态'],
       limitation: TIMING_FACT_LIMITATION,
     });

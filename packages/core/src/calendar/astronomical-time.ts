@@ -157,7 +157,7 @@ function decimalYearFromUtc(date: Date) {
  * 返回 TT-UT1 的估计秒数，不应解释为观测 DUT1。
  */
 export function estimateDeltaTSeconds(decimalYear: number) {
-  if (!Number.isFinite(decimalYear) || decimalYear < 1900 || decimalYear > 2200) {
+  if (!Number.isFinite(decimalYear) || decimalYear < 1900 || decimalYear >= 2201) {
     throw new Error('ΔT 估算年份需在 1900-2200 之间。');
   }
   let value: number;

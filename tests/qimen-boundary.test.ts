@@ -188,6 +188,7 @@ test('奇门格局应拒绝未知值符和值使，不应按零宫位继续判�
 test('奇门节令：未知节气或日干应明确报错，不应降级成无法判定', () => {
   assert.equal(getSeasonalElement('立春'), '木');
   assert.equal(getDaySeasonRelation('甲', '木').relation, '得时');
+  assert.equal(getDaySeasonRelation('癸', '火').relation, '持平');
   assert.throws(() => getSeasonalElement('假节气'), /无法识别节气 "假节气" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('假', '木'), /无法识别日干 "假" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('甲', ''), /节令五行不能为空/);

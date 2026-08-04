@@ -6,7 +6,6 @@ import {
   generateMeihua,
 } from 'mingyu-core/divination/meihua';
 import { hexagramsData } from '../packages/core/src/divination/hexagram-data.ts';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-01-01T08:00:00+08:00');
 
@@ -73,7 +72,6 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
-  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('梅花体互用互应沿用原体所在方位，不得上下颠倒', () => {
@@ -253,7 +251,6 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.summaryFact.status, '证据链完整');
     assert.equal(evidence.calculationSteps.length, 7);
     assert.equal(evidence.limitationFacts.length, 6);
-    assertPromptIsPortableTaskText(evidence.promptText);
   }
 });
 

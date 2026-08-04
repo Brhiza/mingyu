@@ -358,10 +358,6 @@ function formatDateStr(
   return '';
 }
 
-function formatAnchorDate(date: { year: number; month: number; day: number }) {
-  return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} 12:00`;
-}
-
 function formatAstrolabePlanetPosition(
   planet: Pick<ChartPlanet, 'signName' | 'degree' | 'minute'>,
 ) {
@@ -1801,7 +1797,6 @@ export function buildAstrolabeScopeContext(
   const normalizedDateStr = formatDateStr(scope, target);
   const scopeLabel = SCOPE_LABEL_MAP[scope];
   const displayText = `${scopeLabel} · ${normalizedDateStr}`;
-  const anchorDate = formatAnchorDate(target);
   const transitEvidence = buildTransitEvidence(data, target);
   const transitHouseEvidence = buildTransitHouseEvidence(data, scope, target);
   const solarReturnEvidence =
@@ -1823,7 +1818,6 @@ export function buildAstrolabeScopeContext(
     displayLabel: `${scopeLabel}${normalizedDateStr}`,
     promptText: [
       `分析对象：${scopeLabel}${normalizedDateStr}。`,
-      `取样时间：${anchorDate}（按北京时间中午取样，用于计算行运行星触发）。`,
       houseRulerChain,
       transitEvidence,
       transitHouseEvidence,

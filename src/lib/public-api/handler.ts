@@ -40,7 +40,6 @@ import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { bazhai, zodiac, taiyi, qizheng, xuankong, residentialFengshui } from 'mingyu-core';
 import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
-import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import {
   analyzeCompassDirection,
   analyzeShenshaEvidence,
@@ -1202,7 +1201,7 @@ export function getPublicApiOpenApiDocument(
                 school: {
                   enum: [...BAZI_SCHOOLS],
                   description:
-                    '八字流派指引：traditional=传统派（子平正法、格局调候）, mangpai=盲派（十神象法、年限分段）, xinpai=新派（调候流通）。不传则不附加流派指引。',
+                    '八字流派指引：traditional=传统兼容名（子平派）, ziping=子平派（月令格局、调候行运）, mangpai=盲派（宫位十神、宾主体用、年限）, xinpai=新派（旺衰流通、动态岁运）。不传则不附加流派指引。',
                 },
               },
             },
@@ -2654,20 +2653,8 @@ function drawSsgw(input: JsonRecord) {
   return drawRandomSign(readCustomDate(input), readRandomOptions(input));
 }
 
-function shapePublicSsgwResult(result: ReturnType<typeof drawRandomSign>) {
-  if (result.ritual?.rejected) {
-    return {
-      rejected: true,
-      message: result.ritual.reason,
-      ritual: result.ritual,
-      meta: result.meta,
-    };
-  }
-  return result;
-}
-
 function calculateSsgw(input: JsonRecord) {
-  return shapePublicSsgwResult(drawSsgw(input));
+  return drawSsgw(input);
 }
 
 function calculateAlmanac(input: JsonRecord) {
@@ -2861,7 +2848,7 @@ function buildDivinationPromptResult(
     method === 'almanac'
       ? shapeAlmanacResult(rawData as AlmanacData, input)
       : method === 'ssgw'
-        ? shapePublicSsgwResult(rawData as ReturnType<typeof drawRandomSign>)
+        ? rawData
         : method === 'astrolabe'
           ? {
               ...(rawData as AstrolabeData),
@@ -2971,7 +2958,7 @@ function buildPromptApiResult(params: {
   fullResult: unknown;
   resultSummary?: unknown;
 }) {
-  const prompt = appendTraditionalResearchNotice(params.prompt);
+  const prompt = params.prompt;
   if (params.responseMode === 'prompt-only') {
     return { prompt };
   }

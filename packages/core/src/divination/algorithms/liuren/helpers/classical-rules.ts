@@ -1,7 +1,7 @@
 import type { LiurenClassicalRule } from '../../../../types/divination';
 
 const MAIN_SOURCE = '《大六壬大全》九宗门取传法';
-const SHEHAI_SOURCE = '《六壬粹言》涉害第六及《大六壬大全》涉害课';
+const SHEHAI_SOURCE = '《六壬指南》涉害取法及《六壬大全》涉害课';
 
 const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
   {
@@ -31,7 +31,7 @@ const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
     rule: '遥克',
     category: '遥克法',
     summary:
-      '四课无直接上下克时，取二三四课上神与日干遥相克者，再依克日、日克及比用涉害次序取发用。',
+      '四课无直接上下克时，取二三四课上神与日干遥相克者；上神克日干为蒿矢，日干克上神为弹射，多候选再依比用、涉害次序取发用。',
   },
   {
     match: /重审/,
@@ -67,7 +67,7 @@ const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
     rule: '涉害',
     category: '涉害法',
     summary:
-      '多处贼克且阴阳比用不能独定时，从上神所临地盘之后历归本家，先比受克深浅，再依孟仲季及刚日干上、柔日支上取用；不另用“择比”改传。',
+      '多处贼克且阴阳比用候选仍有多支时，先比较各上神归本家途中所受克的深浅；复等先按阳日干上、阴日支上取先见神，无法复等再取四孟、四仲、四季上神。',
   },
   {
     match: /昴星/,

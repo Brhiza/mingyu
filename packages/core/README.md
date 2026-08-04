@@ -85,7 +85,7 @@ import { getCapabilities } from 'mingyu-core/capabilities';
 
 `getCapabilities()` 返回可序列化副本，包含各系统支持的起法、输入、输出、随机种子、随机轨迹重放、真太阳时、是否要求完整出生时间、批量计算和可选依赖状态。能力清单只描述核心包真实提供的能力，不把页面、本地报告或历史记录算作核心能力。
 
-八字、紫微若不启用真太阳时，可以直接使用明确的时辰索引排盘；这属于有效的确定输入，不属于出生时间缺失。统一档案会明确记录输入精度、代表时刻边界、时辰映射、真太阳时状态、证据汇总和解释限制。启用真太阳时，或转换为星盘等分钟级算法输入时，才需要具体小时、分钟和出生地资料；时辰代表值不会被冒充为精确分钟。
+八字、紫微若不启用真太阳时，可以直接使用明确的时辰索引排盘；这属于有效的确定输入，不属于出生时间缺失。仅有时辰精度时，统一采用各时段中点作为完成历法日期换算的代表时刻（如午时按 12:00、早子时按 00:30）。统一档案会明确记录输入精度、代表时刻边界、时辰映射、真太阳时状态、证据汇总和解释限制。启用真太阳时，或转换为星盘等分钟级算法输入时，才需要具体小时、分钟和出生地资料；时辰代表值不会被冒充为精确分钟。
 
 ## 可选结果元数据与随机重放
 
@@ -118,10 +118,8 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **梅花易数 Meihua**    | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                     |
 | **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据                 |
 | **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞及四课取传与三传推进证据                                       |
-| **小六壬 Xiaoliuren**  | `mingyu-core/divination/xiaoliuren`                                                                                                           | 六宫掌诀、通行/华山流派、五行生克、完整课象、月令旺衰                                                   |
 | **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                       |
-| **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签、掷筊确认、随机重放与文本证据分层                                                       |
-| **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                            |
+| **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签，返回签号、签题与签诗原文，支持 `seed` 和 `replay`                                     |
 | **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、扩展点、相位偏差、容许度分层、行运与太阳返照求根证据                      |
 | **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 双方主要跨盘相位、实际夹角、精确角、可配置容许度、紧密等级、跨盘落宫与结构化证据                       |
 | **历法 Calendar**      | `mingyu-core/calendar`                                                                                                                        | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据              |
@@ -266,10 +264,6 @@ console.log(createQimenPriorityPalaces(qimen)); // 结构化重点宫位候选
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 const liuren = generateLiuren();
 
-// 小六壬
-import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
-const xiaoliuren = generateXiaoliuren({ method: 'time' });
-const huashan = generateXiaoliuren({ method: 'time', school: 'huashan' });
 ```
 
 ### 公共地基与新增术数
@@ -283,7 +277,6 @@ import {
   direction,
   shensha,
   bazhai,
-  zodiac,
   taiyi,
   qizheng,
 } from 'mingyu-core';
@@ -345,7 +338,6 @@ const natalAstrolabe = generateAstrolabe({
 });
 const yearlyAstrolabe = buildAstrolabeScopeContext(natalAstrolabe, 'yearly', '2028');
 console.log(yearlyAstrolabe.displayText, yearlyAstrolabe.promptText);
-const zodiacYear = zodiac.getZodiacYearFortune('午', '甲辰');
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
 const qizhengChart = qizheng.generateQizheng({
   year: 2024,
@@ -448,12 +440,10 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                         |
 | `generateLiuren(date?)`                                              | 大六壬排盘                                                                   |
 | `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制                                   |
-| `generateXiaoliuren(params?)`                                        | 小六壬起课                                                                   |
 | `generateAlmanacSelection(params)`                                   | 黄历择日，并内置透明约束与候选证据                                           |
 | `analyzeAlmanacEvidence(data)`                                       | 日期分组、事项宜忌、参与人冲突、时辰与现实约束证据                           |
 | `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；支持 `seed` 和 `replay` 完整复现                                   |
-| `drawRandomSign(date?, options?)`                                    | 三山国王灵签；抽签后模拟掷筊确认，支持 `seed`、`replay` 和结构化证据完整复现 |
-| `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；支持 `seed` 和 `replay` 完整复现                                 |
+| `drawRandomSign(date?, options?)`                                    | 三山国王灵签；随机取一签并返回签号、签题与签诗，支持 `seed` 和 `replay`     |
 | `generateAstrolabe(input)`                                           | 西洋星盘                                                                     |
 | `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运与证据资料                                     |
 
