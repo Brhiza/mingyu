@@ -3953,7 +3953,7 @@ test('时间型占卜算法应拒绝无效自定义时间对象', () => {
   assert.throws(() => drawRandomSign(invalidDate), /自定义时间不是有效日期/);
 });
 
-test('三山国王灵签只保留签号、签题、签诗与可重放抽取资料', () => {
+test('三山国王灵签返回完整签谱与可重放抽取资料', () => {
   const confirmed = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
     replay: [0.1],
   });
@@ -3962,6 +3962,10 @@ test('三山国王灵签只保留签号、签题、签诗与可重放抽取资�
   assert.equal(confirmed.draw?.method, 'random');
   assert.ok(confirmed.title);
   assert.ok(confirmed.poem);
+  assert.ok(confirmed.story);
+  assert.ok(confirmed.details?.['吉凶']);
+  assert.equal('ritual' in confirmed, false);
+  assert.equal('evidenceAnalysis' in confirmed, false);
 });
 
 test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {
@@ -4259,7 +4263,7 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.match(session.prompt, /候选日期明细：/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制|传统硬限制/);
   assert.match(session.prompt, /参与人资料：/);
-  assert.match(session.prompt, /本人：公历1990-01-01/);
+  assert.match(session.prompt, /本人：男，公历1990-01-01/);
   assert.ok('days' in session.data && session.data.days.length === 5);
 });
 

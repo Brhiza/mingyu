@@ -4,9 +4,12 @@ import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
 import type {
   AstrolabeData,
+  JinkoujueData,
   LiurenData,
   LiurenPlateItem,
   LiurenTransmission,
+  XiaoliurenData,
+  XiaoliurenPalaceDetail,
 } from '@/types/divination';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import { AiChatPanel } from '@/components/AiChatPanel';
@@ -47,6 +50,56 @@ function findLiurenTransmissionStage(
   branch: string,
 ): LiurenTransmission['stage'] | null {
   return transmissions.find((item) => item.branch === branch)?.stage || null;
+}
+
+function XiaoliurenPalaceCard(props: {
+  label: string;
+  detail: XiaoliurenPalaceDetail;
+  primary?: boolean;
+}) {
+  const { label, detail, primary = false } = props;
+
+  return (
+    <article className="xiaoliuren-stage-card">
+      <div className="xiaoliuren-stage-head">
+        <span>{label}</span>
+        <strong>{detail.name}</strong>
+      </div>
+      {primary ? <p>{detail.verse}</p> : <small>顺数中间位置</small>}
+    </article>
+  );
+}
+
+function XiaoliurenBoard({ data }: { data: XiaoliurenData }) {
+  return (
+    <div className="divination-extra-panel xiaoliuren-board">
+      <div className="divination-extra-head">
+        <strong>小六壬时间课</strong>
+        <span>
+          农历{data.isLeapMonth ? '闰' : ''}
+          {data.lunarMonth}月{data.lunarDay}日 · {data.hourLabel}
+        </span>
+      </div>
+
+      <div className="xiaoliuren-card-grid">
+        <XiaoliurenPalaceCard label="月宫" detail={data.sequence.month} />
+        <XiaoliurenPalaceCard label="日宫" detail={data.sequence.day} />
+        <XiaoliurenPalaceCard label="时宫" detail={data.sequence.hour} primary />
+      </div>
+
+      <div className="xiaoliuren-overview-grid">
+        <div className="xiaoliuren-overview-item">
+          <span>占得宫</span>
+          <strong>{data.primary.name}</strong>
+        </div>
+        <div className="xiaoliuren-overview-item">
+          <span>历法口径</span>
+          <strong>{data.calculation.dayBoundary}</strong>
+          <p>{data.calculation.leapMonthRule}</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function LiurenPlateCell({ data, item }: { data: LiurenData; item: LiurenPlateItem }) {
@@ -291,6 +344,54 @@ export function DivinationResult({
 
       {session.method === 'astrolabe' ? (
         <AstrolabeChart data={session.data as AstrolabeData} />
+      ) : null}
+
+      {session.method === 'jinkoujue' ? (
+        <div className="divination-extra-panel">
+          <div className="divination-extra-title">金口诀四位</div>
+          {(() => {
+            const jinkoujue = session.data as JinkoujueData;
+            return (
+              <>
+                <div className="xiaoliuren-overview-grid">
+                  <div className="xiaoliuren-overview-item">
+                    <strong>地分</strong>
+                    <span>{jinkoujue.positions.diFen.branch}</span>
+                  </div>
+                  <div className="xiaoliuren-overview-item">
+                    <strong>将神</strong>
+                    <span>
+                      {jinkoujue.positions.jiangShen.stem || ''}
+                      {jinkoujue.positions.jiangShen.branch}
+                    </span>
+                  </div>
+                  <div className="xiaoliuren-overview-item">
+                    <strong>贵神</strong>
+                    <span>
+                      {jinkoujue.positions.guiShen.stem || ''}
+                      {jinkoujue.positions.guiShen.branch}乘{jinkoujue.positions.guiShen.god || ''}
+                    </span>
+                  </div>
+                  <div className="xiaoliuren-overview-item">
+                    <strong>人元</strong>
+                    <span>
+                      {jinkoujue.positions.renYuan.stem || ''}
+                      {jinkoujue.positions.renYuan.branch}
+                    </span>
+                  </div>
+                </div>
+                <div className="xiaoliuren-overview-item">
+                  <strong>阴阳发用与动爻</strong>
+                  <span>{jinkoujue.mainLine}</span>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      ) : null}
+
+      {session.method === 'xiaoliuren' ? (
+        <XiaoliurenBoard data={session.data as XiaoliurenData} />
       ) : null}
 
       {session.method === 'liuren' ? <LiurenBoard data={session.data as LiurenData} /> : null}

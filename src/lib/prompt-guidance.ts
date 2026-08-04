@@ -35,6 +35,16 @@ export const PROMPT_GUIDANCE_TEXT = {
       '本卦、互卦、变卦与动爻构成盘面；体用分体卦与用卦的生克比和。互卦按《梅花易数》卷三沿用原体方位，体在上则上互为体互、下互为用互，体在下则反之；变卦表示结果趋势，结合四时旺衰、卦气与爻辞取象。体用生克与单卦吉凶辞句并列。',
     sources: '参考邵雍传《梅花易数》通行体用、互变与四时旺衰口径。',
   },
+  xiaoliuren: {
+    tradition:
+      '小六壬以正月从大安起，月上起初一，日上起子时，依大安、留连、速喜、赤口、小吉、空亡六宫顺行；月宫与日宫为顺数过程，时宫为占得宫。',
+    sources: '参考通行俗传小六壬掌诀与六宫歌诀。',
+  },
+  jinkoujue: {
+    tradition:
+      '金口诀以地分、月将、贵神、人元四位为盘面；月将加时取地分所临将神，昼夜贵人依日干排至地分，五子元遁定人元、神干与将干。阴阳发用按四位阴阳规则取位，五位生克与五动三动构成盘内作用。',
+    sources: '参考《六壬神课金口诀古本》入式歌解、贵神起例、五子元遁起例、阴阳次第五用与五动三动。',
+  },
   qimen: {
     tradition:
       '用神包括日干、年命、事项类神等；值符值使与用神落宫、宫位旺衰、天地盘干、九星、八门、八神及宫间生克构成基本盘面。空亡、马星、门迫、击刑、入墓、伏吟反吟与已列格局构成条件资料；吉门吉星、用神宫受制、逢空或入墓，以及得生扶或受制的盘面条件并列；方向和时机由用神宫、值使门及盘内动静条件形成。',
@@ -56,6 +66,11 @@ export const PROMPT_GUIDANCE_TEXT = {
       '牌阵主题与各牌位职能构成解牌骨架；正逆位、大阿尔克那与小阿尔克那层次、元素和牌序推进构成牌面资料。牌位职能、牌组主线与单张牌辞并列，牌阵结构列出解牌顺序。',
     sources:
       '参考 Rider-Waite-Smith 体系及 A. E. Waite《The Pictorial Key to the Tarot》等塔罗通行牌义。',
+  },
+  lenormand: {
+    tradition:
+      '雷诺曼以牌序、邻牌组合、固定组合和牌阵布局为主要资料；牌位顺序与相邻关系优先于单牌辞义，主题牌统领整局。',
+    sources: '参考 Petit Lenormand 传统牌义及《Das Spiel der Hoffnung》历史牌组资料。',
   },
   ssgw: {
     tradition: '签诗原文与签题构成传统签文资料。',
@@ -82,6 +97,11 @@ export const PROMPT_GUIDANCE_TEXT = {
       '立春年界确定命卦与东四西四；宅卦、坐向门向和八方吉凶构成宅盘；命卦、宅卦、方位分类与测量基准构成人宅资料。',
     sources: '参考《八宅明镜》《阳宅十书》命卦、宅卦与大游年八宫口径。',
   },
+  zodiac: {
+    tradition:
+      '生肖运势以生肖地支与流年干支逐年核对值、冲、刑、害、破、六合、三合、三会和年干五行关系；单项地支关系与年干关系并列。',
+    sources: '参考干支合冲刑害破通行规则与六十太岁公开传统资料。',
+  },
   qizheng: {
     tradition:
       '七政四余以真实距星黄经划界二十八宿与十二宫，按真太阳时校定星曜宫位；命身宫、吊照与星曜宫位并列，紫炁依《七政算内篇》古法，神煞作旁证。',
@@ -103,9 +123,21 @@ export const PROMPT_GUIDANCE_TEXT = {
 export type PromptGuidanceId = keyof typeof PROMPT_GUIDANCE_TEXT;
 
 export type DivinationPromptGuidanceMethod =
-  'liuyao' | 'meihua' | 'qimen' | 'liuren' | 'taiyi' | 'tarot' | 'ssgw' | 'almanac' | 'astrolabe';
+  | 'liuyao'
+  | 'meihua'
+  | 'xiaoliuren'
+  | 'jinkoujue'
+  | 'qimen'
+  | 'liuren'
+  | 'taiyi'
+  | 'tarot'
+  | 'lenormand'
+  | 'ssgw'
+  | 'almanac'
+  | 'astrolabe';
 
-export type MetaphysicsPromptMethod = 'bazhai' | 'residential' | 'taiyi' | 'qizheng' | 'xuankong';
+export type MetaphysicsPromptMethod =
+  'bazhai' | 'residential' | 'zodiac' | 'taiyi' | 'qizheng' | 'xuankong';
 
 export function buildPromptGuidanceSections(method: PromptGuidanceId) {
   const guidance = PROMPT_GUIDANCE_TEXT[method];

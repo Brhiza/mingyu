@@ -268,7 +268,19 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
       in: 'path',
       required: true,
       schema: {
-        enum: ['liuyao', 'meihua', 'qimen', 'liuren', 'tarot', 'ssgw', 'almanac', 'astrolabe'],
+        enum: [
+          'liuyao',
+          'meihua',
+          'xiaoliuren',
+          'jinkoujue',
+          'qimen',
+          'liuren',
+          'tarot',
+          'ssgw',
+          'almanac',
+          'lenormand',
+          'astrolabe',
+        ],
       },
       description: '占卜方法。',
     },
@@ -339,11 +351,16 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     'year',
     'mindBodySpirit',
     'horseshoe',
+    'five',
+    'relationship',
+    'nine',
+    'element',
+    'grandTableau',
   ]) {
     assert.ok(spreadTypeSchema.enum.includes(spreadType), `spreadType 应包含 ${spreadType}`);
   }
-  assert.ok(!spreadTypeSchema.enum.includes('nine'));
   assert.match(spreadTypeSchema.description, /horseshoe/);
+  assert.match(spreadTypeSchema.description, /grandTableau/);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.astrolabeTopic);
   assert.equal(
     Boolean(body.data.components.schemas.DivinationPromptRequest.properties.template),

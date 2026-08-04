@@ -203,11 +203,11 @@ test('能力清单可序列化且返回副本', () => {
   assert.ok(qizheng?.outputs.includes('位置来源与精度分层'));
   assert.equal(
     getSystemCapability('xuankong')?.inputs.some((input) => input.id === 'guaType'),
-    false,
+    true,
   );
   assert.equal(
     getSystemCapability('residential')?.inputs.some((input) => input.id === 'guaType'),
-    false,
+    true,
   );
   for (const systemId of ['calendar.trueSolarBirth', 'bazi', 'ziwei', 'astrolabe']) {
     assert.ok(

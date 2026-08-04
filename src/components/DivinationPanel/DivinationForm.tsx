@@ -1,20 +1,28 @@
 import {
   ALMANAC_TOPIC_OPTIONS,
   GENERAL_DIVINATION_METHOD_OPTIONS,
+  LENORMAND_SPREAD_OPTIONS,
   LIUYAO_TEMPLATE_OPTIONS,
   LIUREN_TEMPLATE_OPTIONS,
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
+  JINKOUJUE_METHOD_OPTIONS,
 } from '@core/divination/config';
 import { resolveInteractiveTarotCards, tarotSpreads } from '@core/divination/tarot';
+import {
+  LENORMAND_SPREADS,
+  resolveInteractiveLenormandCards,
+} from '@core/divination/algorithms/lenormand';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import {
   almanacTopicLabelMap,
+  lenormandSpreadLabelMap,
   liuyaoTemplateLabelMap,
   liurenTemplateLabelMap,
   meihuaMethodLabelMap,
   methodLabelMap,
   tarotSpreadLabelMap,
+  jinkoujueMethodLabelMap,
 } from './constants';
 
 const DIVINATION_TIME_MODE_OPTIONS = [
@@ -61,7 +69,7 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
     return true;
   }
 
-  if (draft.method === 'meihua') {
+  if (draft.method === 'meihua' || draft.method === 'xiaoliuren' || draft.method === 'jinkoujue') {
     return true;
   }
 
@@ -135,6 +143,13 @@ export function DivinationForm({
     draft.tarotSpread,
     tarotInteractiveSamples,
   );
+  const lenormandMethod = draft.lenormandMethod ?? 'random';
+  const lenormandInteractiveSamples = draft.lenormandInteractiveSamples ?? [];
+  const lenormandSpread = LENORMAND_SPREADS[draft.lenormandSpread];
+  const lenormandInteractiveCards = resolveInteractiveLenormandCards(
+    draft.lenormandSpread,
+    lenormandInteractiveSamples,
+  );
   const ssgwMethod = draft.ssgwMethod ?? 'random';
   const ssgwNumber = draft.ssgwNumber ?? '';
   const isManualInputIncomplete =
@@ -144,6 +159,9 @@ export function DivinationForm({
     (draft.method === 'tarot' &&
       tarotMethod === 'interactive' &&
       tarotInteractiveCards.length !== tarotSpread.cardCount) ||
+    (draft.method === 'lenormand' &&
+      lenormandMethod === 'interactive' &&
+      lenormandInteractiveCards.length !== lenormandSpread.positions.length) ||
     (draft.method === 'ssgw' &&
       ssgwMethod === 'manual' &&
       (!/^\d+$/.test(ssgwNumber) || Number(ssgwNumber) < 1 || Number(ssgwNumber) > 92));
@@ -181,6 +199,23 @@ export function DivinationForm({
 
   function resetTarotCards() {
     updateDraft('tarotInteractiveSamples', []);
+  }
+
+  function updateLenormandSpread(value: DivinationDraft['lenormandSpread']) {
+    updateDraft('lenormandSpread', value);
+    updateDraft('lenormandInteractiveSamples', []);
+  }
+
+  function drawLenormandCard() {
+    if (lenormandInteractiveCards.length >= lenormandSpread.positions.length) return;
+    updateDraft('lenormandInteractiveSamples', [
+      ...lenormandInteractiveSamples,
+      createRandomSample(),
+    ]);
+  }
+
+  function resetLenormandCards() {
+    updateDraft('lenormandInteractiveSamples', []);
   }
 
   function updateAlmanacParticipant(
@@ -297,6 +332,34 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
+                    {draft.method === 'jinkoujue' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="jinkoujue-method-select">起课方式</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <span className="divination-trigger-text">
+                            {jinkoujueMethodLabelMap[draft.jinkoujueMethod]}
+                          </span>
+                          <select
+                            id="jinkoujue-method-select"
+                            value={draft.jinkoujueMethod}
+                            className="form-input divination-overlay-select"
+                            onChange={(event) =>
+                              updateDraft(
+                                'jinkoujueMethod',
+                                event.target.value as DivinationDraft['jinkoujueMethod'],
+                              )
+                            }
+                          >
+                            {JINKOUJUE_METHOD_OPTIONS.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {draft.method === 'meihua' && draft.meihuaMethod === 'number' ? (
                       <div className="form-item divination-inline-field divination-inline-number-field">
                         <label htmlFor="meihua-number-input">起卦数字</label>
@@ -309,6 +372,23 @@ export function DivinationForm({
                           value={draft.meihuaNumber}
                           onChange={(event) =>
                             updateDraft('meihuaNumber', event.target.value.replace(/[^\d]/g, ''))
+                          }
+                        />
+                      </div>
+                    ) : null}
+
+                    {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number' ? (
+                      <div className="form-item divination-inline-field divination-inline-number-field">
+                        <label htmlFor="jinkoujue-number-input">起课数字</label>
+                        <input
+                          id="jinkoujue-number-input"
+                          type="text"
+                          inputMode="numeric"
+                          className="form-input"
+                          placeholder="例如 7"
+                          value={draft.jinkoujueNumber}
+                          onChange={(event) =>
+                            updateDraft('jinkoujueNumber', event.target.value.replace(/[^\d]/g, ''))
                           }
                         />
                       </div>
@@ -453,6 +533,33 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
+                    {draft.method === 'lenormand' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="lenormand-spread-select">牌阵</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <span className="divination-trigger-text">
+                            {lenormandSpreadLabelMap[draft.lenormandSpread]}
+                          </span>
+                          <select
+                            id="lenormand-spread-select"
+                            value={draft.lenormandSpread}
+                            className="form-input divination-overlay-select"
+                            onChange={(event) =>
+                              updateLenormandSpread(
+                                event.target.value as DivinationDraft['lenormandSpread'],
+                              )
+                            }
+                          >
+                            {LENORMAND_SPREAD_OPTIONS.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {isTimeBasedDivination ? (
                       <div className="form-item divination-inline-field">
                         <label htmlFor="divination-time-mode-select">起卦时间</label>
@@ -500,9 +607,11 @@ export function DivinationForm({
                 className={`divination-mobile-control-row ${
                   draft.method === 'meihua' ||
                   draft.method === 'liuyao' ||
+                  draft.method === 'jinkoujue' ||
                   draft.method === 'liuren' ||
                   draft.method === 'tarot' ||
-                  draft.method === 'almanac'
+                  draft.method === 'almanac' ||
+                  draft.method === 'lenormand'
                     ? 'has-secondary'
                     : ''
                 }`}
@@ -546,6 +655,31 @@ export function DivinationForm({
                       }
                     >
                       {MEIHUA_METHOD_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                {draft.method === 'jinkoujue' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <span className="divination-mobile-trigger-text divination-trigger-text">
+                      {jinkoujueMethodLabelMap[draft.jinkoujueMethod]}
+                    </span>
+                    <select
+                      aria-label="金口诀起课方式"
+                      value={draft.jinkoujueMethod}
+                      className="form-input divination-mobile-method-select divination-overlay-select"
+                      onChange={(event) =>
+                        updateDraft(
+                          'jinkoujueMethod',
+                          event.target.value as DivinationDraft['jinkoujueMethod'],
+                        )
+                      }
+                    >
+                      {JINKOUJUE_METHOD_OPTIONS.map((item) => (
                         <option key={item.value} value={item.value}>
                           {item.label}
                         </option>
@@ -676,6 +810,30 @@ export function DivinationForm({
                   </div>
                 ) : null}
 
+                {draft.method === 'lenormand' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <span className="divination-mobile-trigger-text divination-trigger-text">
+                      {lenormandSpreadLabelMap[draft.lenormandSpread]}
+                    </span>
+                    <select
+                      aria-label="雷诺曼牌阵"
+                      value={draft.lenormandSpread}
+                      className="form-input divination-mobile-method-select divination-overlay-select"
+                      onChange={(event) =>
+                        updateLenormandSpread(
+                          event.target.value as DivinationDraft['lenormandSpread'],
+                        )
+                      }
+                    >
+                      {LENORMAND_SPREAD_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
                 {isTimeBasedDivination ? (
                   <div className="divination-mobile-secondary-picker">
                     <span className="divination-mobile-trigger-text divination-trigger-text">
@@ -727,6 +885,25 @@ export function DivinationForm({
                   value={draft.meihuaNumber}
                   onChange={(event) =>
                     updateDraft('meihuaNumber', event.target.value.replace(/[^\d]/g, ''))
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number' ? (
+            <div className="form-row divination-mobile-only">
+              <div className="form-item">
+                <label htmlFor="jinkoujue-number-input-mobile">起课数字</label>
+                <input
+                  id="jinkoujue-number-input-mobile"
+                  type="text"
+                  inputMode="numeric"
+                  className="form-input"
+                  placeholder="例如 7"
+                  value={draft.jinkoujueNumber}
+                  onChange={(event) =>
+                    updateDraft('jinkoujueNumber', event.target.value.replace(/[^\d]/g, ''))
                   }
                 />
               </div>
@@ -884,6 +1061,65 @@ export function DivinationForm({
             </div>
           ) : null}
 
+          {draft.method === 'lenormand' ? (
+            <div className="divination-extra-panel manual-entry-panel">
+              <div className="manual-mode-switch" role="group" aria-label="雷诺曼抽牌方式">
+                {MANUAL_METHOD_OPTIONS.map((item) => (
+                  <button
+                    type="button"
+                    className={lenormandMethod === item.value ? 'is-active' : ''}
+                    key={item.value}
+                    onClick={() => updateDraft('lenormandMethod', item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              {lenormandMethod === 'interactive' ? (
+                <div className="interactive-draw-session">
+                  <div className="manual-entry-head">
+                    <strong>
+                      {lenormandInteractiveCards.length < lenormandSpread.positions.length
+                        ? `当前牌位：${lenormandSpread.positions[lenormandInteractiveCards.length]}`
+                        : '牌阵已抽完'}
+                    </strong>
+                    <span>
+                      {lenormandInteractiveCards.length} / {lenormandSpread.positions.length}
+                    </span>
+                  </div>
+                  <div className="manual-record-list" aria-live="polite">
+                    {lenormandInteractiveCards.map((card, index) => (
+                      <div className="manual-record-item is-revealed" key={`${card.id}-${index}`}>
+                        <span>{lenormandSpread.positions[index]}</span>
+                        <strong>{card.name}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="manual-session-actions">
+                    {lenormandInteractiveCards.length < lenormandSpread.positions.length ? (
+                      <button
+                        type="button"
+                        className="primary-button interactive-draw-button"
+                        onClick={drawLenormandCard}
+                      >
+                        抽一张
+                      </button>
+                    ) : null}
+                    {lenormandInteractiveCards.length > 0 ? (
+                      <button
+                        type="button"
+                        className="secondary-page-button compact-action-button manual-reset-button"
+                        onClick={resetLenormandCards}
+                      >
+                        重新抽取
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {draft.method === 'ssgw' ? (
             <div className="divination-extra-panel manual-entry-panel ssgw-manual-panel">
               <div className="manual-mode-switch" role="group" aria-label="灵签求签方式">
@@ -971,6 +1207,33 @@ export function DivinationForm({
               </div>
             </div>
           ) : null}
+
+          <details className="form-item divination-context-fields">
+            <summary>补充现实信息（可选，填写越具体越利于解读）</summary>
+            <div className="form-row">
+              {[
+                ['currentSituation', '当前情况', '例如：正在考虑换工作，已经拿到一个新机会。'],
+                ['currentState', '当前状态', '例如：时间紧、压力较大，但仍有一定选择空间。'],
+                ['knownFacts', '已知事实', '例如：对方已明确报价，合同尚未签署。'],
+                ['desiredOutcome', '期望结果', '例如：希望兼顾收入提升与长期稳定。'],
+                ['constraints', '现实限制', '例如：三个月内不能搬家，预算上限为两万元。'],
+              ].map(([key, label, placeholder]) => (
+                <div className="form-item" key={key}>
+                  <label htmlFor={`divination-${key}`}>{label}</label>
+                  <textarea
+                    id={`divination-${key}`}
+                    rows={2}
+                    value={(draft[key as keyof DivinationDraft] as string | undefined) ?? ''}
+                    className="form-input divination-textarea"
+                    placeholder={placeholder}
+                    onChange={(event) =>
+                      updateDraft(key as keyof DivinationDraft, event.target.value as never)
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </details>
 
           {draft.method === 'almanac' ? (
             <div className="divination-extra-panel">
@@ -1231,6 +1494,45 @@ export function DivinationForm({
                   />
                 </div>
               </div>
+            </div>
+          ) : null}
+
+          {!isAlmanac ? (
+            <div
+              className={`form-row-flex divination-meta-row ${draft.method === 'tarot' ? 'is-single' : ''}`}
+            >
+              <div className="form-item">
+                <label htmlFor="divination-gender-select">性别（可选）</label>
+                <select
+                  id="divination-gender-select"
+                  value={draft.gender}
+                  className="form-input"
+                  onChange={(event) =>
+                    updateDraft('gender', event.target.value as DivinationDraft['gender'])
+                  }
+                >
+                  <option value="">不填</option>
+                  <option value="男">男</option>
+                  <option value="女">女</option>
+                </select>
+              </div>
+
+              {draft.method !== 'tarot' ? (
+                <div className="form-item">
+                  <label htmlFor="divination-birth-year-input">出生年份（可选）</label>
+                  <input
+                    id="divination-birth-year-input"
+                    type="text"
+                    inputMode="numeric"
+                    className="form-input"
+                    placeholder="例如 1998"
+                    value={draft.birthYear}
+                    onChange={(event) =>
+                      updateDraft('birthYear', event.target.value.replace(/[^\d]/g, ''))
+                    }
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

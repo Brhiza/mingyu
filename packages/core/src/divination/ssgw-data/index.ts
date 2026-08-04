@@ -1,7 +1,9 @@
-import type { RawSsgwSign } from './types';
+import type { SsgwSign } from './types';
 import { SIGNS_FULL } from './signs-full';
+import { enrichSsgwSign } from './interpretation';
 
-export type { RawSsgwSign } from './types';
+export { SSGW_INTERPRETATION_FIELDS } from './types';
+export type { SsgwInterpretation, SsgwInterpretationField, SsgwSign } from './types';
 
-// 三山国王灵签数据（共92签，只保留签号、签题与签诗）
-export const SSGW_SIGNS: RawSsgwSign[] = SIGNS_FULL;
+// 三山国王灵签数据（共92签，源自官方版本）
+export const SSGW_SIGNS: SsgwSign[] = SIGNS_FULL.map(enrichSsgwSign);

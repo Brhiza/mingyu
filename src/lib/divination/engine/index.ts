@@ -4,6 +4,7 @@ import type {
   AlmanacTopic,
   AstrolabeBirthInput,
   DivinationData,
+  LenormandSpreadType,
   LiuyaoTemplateType,
   LiurenData,
   LiurenTemplateType,
@@ -11,6 +12,8 @@ import type {
   TarotSpreadType,
   TaiyiResult,
   TaiyiScope,
+  XiaoliurenDivinationMethod,
+  JinkoujueDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from '@core/divination/config';
 import { daysInSolarMonth } from '../../date-validation';
@@ -30,15 +33,19 @@ import { buildLiurenTemplateText } from '@core/divination/engine/liuren-template
 import { buildLiuyaoTemplateText } from '@core/divination/engine/liuyao-template';
 import { buildPromptGuidanceSections } from '../../prompt-guidance';
 import { tarotSpreads } from '@core/divination/tarot';
+import { LENORMAND_SPREADS } from '@core/divination/algorithms/lenormand';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [
   'liuyao',
   'meihua',
+  'xiaoliuren',
+  'jinkoujue',
   'qimen',
   'liuren',
   'taiyi',
   'tarot',
   'ssgw',
+  'lenormand',
 ];
 
 function buildLiurenAnalysisObjectText(data: LiurenData) {
@@ -54,6 +61,13 @@ export type DivinationDraft = {
   method: DivinationMethodId;
   question: string;
   questionSource?: 'custom' | 'inspiration';
+  currentSituation?: string;
+  currentState?: string;
+  knownFacts?: string;
+  desiredOutcome?: string;
+  constraints?: string;
+  gender: '' | '男' | '女';
+  birthYear: string;
   divinationTimeMode?: 'current' | 'custom';
   customDivinationDate?: string;
   customDivinationTime?: string;
@@ -62,6 +76,9 @@ export type DivinationDraft = {
   liuyaoCoinThrows?: Array<{ coins: [2 | 3, 2 | 3, 2 | 3]; total: 6 | 7 | 8 | 9 }>;
   meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
   meihuaNumber: string;
+  xiaoliurenMethod: XiaoliurenDivinationMethod;
+  jinkoujueMethod: JinkoujueDivinationMethod;
+  jinkoujueNumber: string;
   liuyaoTemplate: LiuyaoTemplateType;
   liurenTemplate: LiurenTemplateType;
   tarotSpread: TarotSpreadType;
@@ -74,6 +91,10 @@ export type DivinationDraft = {
   almanacStartDate: string;
   almanacEndDate: string;
   almanacParticipants: AlmanacParticipantInput[];
+  lenormandSpread: LenormandSpreadType;
+  lenormandMethod?: 'random' | 'manual' | 'interactive';
+  lenormandManualCardIds?: number[];
+  lenormandInteractiveSamples?: number[];
   astrolabeName: string;
   astrolabeGender: '' | '男' | '女';
   astrolabeYear: string;
@@ -115,7 +136,6 @@ export function buildDivinationPrompt(
   const isCustomQuestion = Boolean(options.isCustomQuestion);
   const liuyaoTemplate = options.liuyaoTemplate ?? 'general';
   const liurenTemplate = options.liurenTemplate ?? 'general';
-  const isAlmanac = method === 'almanac';
   const astrolabeTopic =
     method === 'astrolabe' ? (options.astrolabeTopic ?? (isCustomQuestion ? 'chat' : 'life')) : '';
   const astrolabeScopeText = method === 'astrolabe' ? options.astrolabeScopeText?.trim() || '' : '';
@@ -159,22 +179,29 @@ export function buildDivinationPrompt(
     buildSection('【当前时间】', timeInfo),
     astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
     buildSection('【占卜信息】', infoText),
-    isAlmanac
-      ? normalizedQuestion
-        ? buildSection('【问题】', normalizedQuestion)
-        : ''
-      : buildSection('【问题】', normalizedQuestion),
+    buildSection('【问题】', normalizedQuestion),
     isCustomQuestion ? '' : buildSection('【任务】', taskText),
-    liuyaoTemplateSection,
-    liurenTemplateSection,
+    isCustomQuestion ? '' : liuyaoTemplateSection,
+    isCustomQuestion ? '' : liurenTemplateSection,
   ]
     .filter(Boolean)
     .join('\n\n');
 }
 
 function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | undefined {
+  const birthYear = draft.birthYear.trim()
+    ? readOptionalPositiveIntegerText(draft.birthYear)
+    : undefined;
+  const hasBirthYear = typeof birthYear === 'number' && Number.isFinite(birthYear);
+
   const info: SupplementaryInfo = {};
 
+  if (draft.gender) {
+    info.gender = draft.gender;
+  }
+  if (hasBirthYear) {
+    info.birthYear = birthYear;
+  }
   if (draft.method === 'meihua') {
     info.meihuaSettings = {
       method: draft.meihuaMethod,
@@ -183,6 +210,20 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
         : {}),
     };
   }
+  if (draft.method === 'almanac' && draft.question.trim()) {
+    info.userSupplement = draft.question.trim();
+  }
+  const contextFields = [
+    ['currentSituation', draft.currentSituation],
+    ['currentState', draft.currentState],
+    ['knownFacts', draft.knownFacts],
+    ['desiredOutcome', draft.desiredOutcome],
+    ['constraints', draft.constraints],
+  ] as const;
+  contextFields.forEach(([key, value]) => {
+    if (value?.trim()) info[key] = value.trim();
+  });
+
   return Object.keys(info).length > 0 ? info : undefined;
 }
 
@@ -224,11 +265,29 @@ function validateDraft(draft: DivinationDraft) {
     }
   }
 
+  if (draft.method === 'lenormand' && (draft.lenormandMethod ?? 'random') === 'manual') {
+    const expectedCount = LENORMAND_SPREADS[draft.lenormandSpread].positions.length;
+    if (draft.lenormandManualCardIds?.length !== expectedCount) {
+      throw new Error(`当前牌阵需要按牌位录入${expectedCount}张牌`);
+    }
+  }
+
+  if (draft.method === 'lenormand' && draft.lenormandMethod === 'interactive') {
+    const expectedCount = LENORMAND_SPREADS[draft.lenormandSpread].positions.length;
+    if (draft.lenormandInteractiveSamples?.length !== expectedCount) {
+      throw new Error(`当前牌阵需要逐张抽取${expectedCount}张牌`);
+    }
+  }
+
   if (draft.method === 'ssgw' && (draft.ssgwMethod ?? 'random') === 'manual') {
     const number = Number(draft.ssgwNumber);
     if (!/^\d+$/.test(draft.ssgwNumber?.trim() ?? '') || number < 1 || number > 92) {
       throw new Error('签号需为1至92的整数');
     }
+  }
+
+  if (draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number') {
+    readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课');
   }
 
   if (draft.method === 'taiyi') {
@@ -270,6 +329,15 @@ function readIntegerText(value: string, label: string) {
     throw new Error(`${label}必须是整数`);
   }
   return Number(text);
+}
+
+function readOptionalPositiveIntegerText(value: string) {
+  const text = value.trim();
+  if (!/^\d+$/.test(text)) {
+    return undefined;
+  }
+  const number = Number(text);
+  return Number.isSafeInteger(number) && number > 0 ? number : undefined;
 }
 
 function readPositiveIntegerText(value: string, label: string) {
@@ -336,7 +404,12 @@ function isTimeBasedDivinationMethod(method: Exclude<DivinationMethodId, 'random
     return true;
   }
 
-  if (method === 'meihua' || method === 'taiyi') {
+  if (
+    method === 'meihua' ||
+    method === 'xiaoliuren' ||
+    method === 'jinkoujue' ||
+    method === 'taiyi'
+  ) {
     return true;
   }
 
@@ -493,6 +566,25 @@ export async function generateDivinationSession(
       data = module.generateMeihua(customDate, supplementaryInfo?.meihuaSettings);
       break;
     }
+    case 'xiaoliuren': {
+      const module = await import('mingyu-core/divination/xiaoliuren');
+      data = module.generateXiaoliuren({
+        method: draft.xiaoliurenMethod,
+        customDate,
+      });
+      break;
+    }
+    case 'jinkoujue': {
+      const module = await import('mingyu-core/divination/jinkoujue');
+      data = module.generateJinkoujue({
+        method: draft.jinkoujueMethod,
+        customDate,
+        ...(draft.jinkoujueMethod === 'number' && draft.jinkoujueNumber.trim()
+          ? { number: readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课') }
+          : {}),
+      });
+      break;
+    }
     case 'qimen': {
       const module = await import('mingyu-core/divination/qimen');
       data = module.generateQimen(customDate);
@@ -541,6 +633,18 @@ export async function generateDivinationSession(
       });
       break;
     }
+    case 'lenormand': {
+      const module = await import('mingyu-core/divination/lenormand');
+      data = module.drawLenormandSpread(
+        draft.lenormandSpread,
+        draft.lenormandMethod === 'interactive'
+          ? { interactiveSamples: draft.lenormandInteractiveSamples }
+          : (draft.lenormandMethod ?? 'random') === 'manual'
+            ? { manualCardIds: draft.lenormandManualCardIds }
+            : undefined,
+      );
+      break;
+    }
     case 'astrolabe': {
       const module = await import('mingyu-core/divination/astrolabe');
       const input: AstrolabeBirthInput = {
@@ -566,18 +670,12 @@ export async function generateDivinationSession(
     method === 'almanac' && !inputQuestion
       ? buildAlmanacSessionTitle(data as AlmanacData)
       : inputQuestion;
-  const prompt = buildDivinationPrompt(
-    method,
-    method === 'almanac' && !inputQuestion ? '' : question,
-    data,
-    supplementaryInfo,
-    {
-      isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
-      liuyaoTemplate: draft.liuyaoTemplate,
-      liurenTemplate: draft.liurenTemplate,
-      astrolabeTopic: draft.astrolabeTopic,
-    },
-  );
+  const prompt = buildDivinationPrompt(method, inputQuestion, data, supplementaryInfo, {
+    isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
+    liuyaoTemplate: draft.liuyaoTemplate,
+    liurenTemplate: draft.liurenTemplate,
+    astrolabeTopic: draft.astrolabeTopic,
+  });
   return {
     method,
     requestedMethod: draft.method,

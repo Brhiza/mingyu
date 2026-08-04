@@ -201,6 +201,82 @@ export const DIVINATION_INSPIRATION_CONTENT: Record<
   ],
 };
 
+export const JINKOUJUE_SPECIAL_INSPIRATION_CONTENT: DivinationInspirationSection[] = [
+  {
+    heading: '主客判断',
+    questions: [
+      '这件事当前谁更占主动？',
+      '对方现在是配合还是牵制？',
+      '我这边的人情和气势能不能撑住局面？',
+      '当前最大的卡点落在人、事，还是场合？',
+      '这件事适合硬推进，还是先换路径？',
+    ],
+  },
+  {
+    heading: '人事落点',
+    questions: [
+      '这件事的关键人物态度会怎样变化？',
+      '当前场合和落点是否有利？',
+      '推进时更容易得助，还是更容易受制？',
+      '我该先处理人情，还是先处理事体？',
+      '结果更可能落实到哪里？',
+    ],
+  },
+];
+
+export const XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT: DivinationInspirationSection[] = [
+  {
+    heading: '感情速断',
+    questions: [
+      '这段关系接下来整体会往哪边走？',
+      '对方近期对我的态度会不会有变化？',
+      '这段关系现在更适合主动推进，还是先缓一缓？',
+      '这段关系当前最大的阻力或风险在哪？',
+      '这件感情事近期会不会有新消息或转机？',
+    ],
+  },
+  {
+    heading: '事业速断',
+    questions: [
+      '这件事我现在适合继续推进吗？',
+      '这件事接下来整体会顺，还是会卡？',
+      '我更适合先等等，还是马上行动？',
+      '我眼下最大的推进阻力或风险在哪？',
+      '近期工作上会不会很快出现转机？',
+    ],
+  },
+  {
+    heading: '财富速断',
+    questions: [
+      '这笔钱我现在适合投入吗？',
+      '这件事最后能不能见到实际收益？',
+      '这次合作在钱上更偏机会还是风险？',
+      '我近期财务压力会不会缓下来？',
+      '我现在该继续观望，还是尽快落袋为安？',
+    ],
+  },
+  {
+    heading: '人际速断',
+    questions: [
+      '这次沟通适合直接说开吗？',
+      '我和这个人接下来更容易缓和还是起冲突？',
+      '当前最大的沟通风险在哪里？',
+      '这件事要不要请别人帮我推进？',
+      '对方现在是真心配合，还是表面应付？',
+    ],
+  },
+  {
+    heading: '趋势速断',
+    questions: [
+      '我这件事现在最该等，还是最该动？',
+      '这件事接下来整体会往好走，还是先反复？',
+      '我当下的判断有没有看偏？',
+      '我现在最需要先处理哪一个卡点？',
+      '继续投入这件事，风险会不会越来越大？',
+    ],
+  },
+];
+
 export const MEIHUA_SPECIAL_INSPIRATION_CONTENT: DivinationInspirationSection[] = [
   {
     heading: '梅花趋势',
@@ -363,6 +439,108 @@ export const LIUREN_TEMPLATE_INSPIRATION_CONTENT: Record<
   ],
 };
 
+export const LENORMAND_SPREAD_INSPIRATION_CONTENT: Record<
+  DivinationDraft['lenormandSpread'],
+  DivinationInspirationSection[]
+> = {
+  single: [
+    {
+      heading: '雷诺曼单牌线索',
+      questions: [
+        '我现在最该看清的核心线索是什么？',
+        '眼前这件事真正的突破口在哪里？',
+        '这张牌更像提醒我防什么，还是抓什么？',
+        '我现在最不该忽略的风险信号是什么？',
+        '这件事接下来最值得我先处理的一步是什么？',
+      ],
+    },
+  ],
+  three: [
+    {
+      heading: '雷诺曼三牌事件线',
+      questions: [
+        '这件事从起因到结果，会怎么一步步发展？',
+        '我当前所处的位置，是开局、中段，还是临近结果？',
+        '接下来最关键的转折点会出现在哪里？',
+        '这件事短期内会不会有明确的新消息或变化？',
+        '我现在最该顺着哪条线先推进？',
+      ],
+    },
+  ],
+  five: [
+    {
+      heading: '雷诺曼五牌走势',
+      questions: [
+        '这件事从现在到结果，中间会经历哪些关键变化？',
+        '当前局势里，哪一步最容易成为转折点？',
+        '这件事短期内会先顺起来，还是先出现阻力？',
+        '我现在最该抓住的机会和最该避开的风险分别是什么？',
+        '如果按现在的节奏走下去，结果会更接近哪一种状态？',
+      ],
+    },
+  ],
+  relationship: [
+    {
+      heading: '雷诺曼关系牌阵',
+      questions: [
+        '我和TA现在的关系真实状态到底是什么？',
+        '对方接下来会更靠近我，还是继续拉开距离？',
+        '这段关系里最需要被说破的问题是什么？',
+        '我们之间还有没有继续发展的机会？',
+        '我现在在这段关系里更适合主动，还是先观察？',
+      ],
+    },
+  ],
+  decision: [
+    {
+      heading: '雷诺曼选择牌阵',
+      questions: [
+        '这两个选项里，哪一个更顺势、更适合现在的我？',
+        '如果我选择方案 A，后续最可能怎么发展？',
+        '如果我选择方案 B，最大的机会和代价分别是什么？',
+        '我现在做这个决定，最容易忽略的风险问题是什么？',
+        '这件事我该尽快定下来，还是再等一等信息？',
+      ],
+    },
+  ],
+  element: [
+    {
+      heading: '雷诺曼元素牌阵',
+      questions: [
+        '这件事的核心动力、阻力和结果分别是什么？',
+        '当前局面里，哪一类因素最影响后续走向？',
+        '我应该先处理现实条件、情绪关系，还是外部时机？',
+        '这个问题里最被低估的一环是什么？',
+        '如果想让结果更稳，我现在最该补强哪一块？',
+      ],
+    },
+  ],
+  grandTableau: [
+    {
+      heading: '雷诺曼全景牌阵',
+      questions: [
+        '请从全局看，我当前人生或这件事的主线是什么？',
+        '全景牌阵里最需要优先解读的主题是什么？',
+        '当前局面中，哪些长期因素正在影响短期结果？',
+        '我接下来一段时间最该注意的人、事和机会是什么？',
+        '这个全局走势里，我最适合采取的行动策略是什么？',
+      ],
+    },
+  ],
+  nine: [
+    {
+      heading: '雷诺曼九宫牌阵',
+      questions: [
+        '这件事的整体局势现在到底是什么样？',
+        '我最该优先关注的核心宫位或信号是什么？',
+        '当前局面里，表面信息和真实走向有没有反差？',
+        '这件事后续是会逐渐清晰，还是还会继续反复？',
+        '面对这个局面，我最稳妥的行动顺序应该是什么？',
+      ],
+    },
+  ],
+};
+
 export const TAROT_SPREAD_INSPIRATION_QUESTIONS: Partial<
   Record<DivinationDraft['tarotSpread'], string[]>
 > = {
@@ -419,12 +597,31 @@ export type DivinationSpecialInspiration = {
 
 type DivinationInspiredDraftPatch = Pick<
   DivinationDraft,
-  'question' | 'questionSource' | 'liuyaoTemplate' | 'liurenTemplate' | 'tarotSpread'
+  | 'question'
+  | 'questionSource'
+  | 'liuyaoTemplate'
+  | 'liurenTemplate'
+  | 'tarotSpread'
+  | 'lenormandSpread'
 >;
 
 export function getDivinationSpecialInspiration(
-  draft: Pick<DivinationDraft, 'method' | 'liuyaoTemplate' | 'liurenTemplate'>,
+  draft: Pick<DivinationDraft, 'method' | 'liuyaoTemplate' | 'liurenTemplate' | 'lenormandSpread'>,
 ): DivinationSpecialInspiration | null {
+  if (draft.method === 'xiaoliuren') {
+    return {
+      label: '速断',
+      sections: XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT,
+    };
+  }
+
+  if (draft.method === 'jinkoujue') {
+    return {
+      label: '四位',
+      sections: JINKOUJUE_SPECIAL_INSPIRATION_CONTENT,
+    };
+  }
+
   if (draft.method === 'meihua') {
     return {
       label: '卦解',
@@ -453,11 +650,18 @@ export function getDivinationSpecialInspiration(
     };
   }
 
+  if (draft.method === 'lenormand') {
+    return {
+      label: '牌阵',
+      sections: LENORMAND_SPREAD_INSPIRATION_CONTENT[draft.lenormandSpread],
+    };
+  }
+
   return null;
 }
 
 export function getDefaultDivinationInspirationTab(
-  draft: Pick<DivinationDraft, 'method' | 'liuyaoTemplate' | 'liurenTemplate'>,
+  draft: Pick<DivinationDraft, 'method' | 'liuyaoTemplate' | 'liurenTemplate' | 'lenormandSpread'>,
 ): DivinationInspirationTabId {
   if (draft.method === 'tarot') {
     return 'spread';
@@ -486,7 +690,10 @@ export function isDivinationInspirationTabVisible(
 }
 
 export function getDivinationInspirationSections(
-  _draft: Pick<DivinationDraft, 'method' | 'tarotSpread' | 'liuyaoTemplate' | 'liurenTemplate'>,
+  _draft: Pick<
+    DivinationDraft,
+    'method' | 'tarotSpread' | 'liuyaoTemplate' | 'liurenTemplate' | 'lenormandSpread'
+  >,
   tabId: DivinationInspirationTabId,
 ) {
   if (tabId === 'spread' || tabId === 'special') {
@@ -506,5 +713,6 @@ export function resolveDivinationInspiredDraftPatch(
     liuyaoTemplate: current.liuyaoTemplate,
     liurenTemplate: current.liurenTemplate,
     tarotSpread: current.tarotSpread,
+    lenormandSpread: current.lenormandSpread,
   };
 }

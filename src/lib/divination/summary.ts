@@ -7,12 +7,21 @@ import type {
   AlmanacData,
   AstrolabeData,
   DivinationData,
+  LenormandData,
   LiuyaoData,
   MeihuaData,
   TarotData,
   TaiyiResult,
+  XiaoliurenData,
+  JinkoujueData,
 } from '../../types/divination';
 import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
+import {
+  analyzeLenormandEvidence,
+  conditionLenormandTraditionalText,
+} from 'mingyu-core/divination/lenormand';
+import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
+import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
   title: string;
@@ -267,6 +276,14 @@ function formatTarotFocusSummary(data: TarotData) {
     .join('；');
 }
 
+function formatSsgwFocusSummary(data: DivinationData) {
+  if (!('poem' in data) || !data.poem) {
+    return '';
+  }
+
+  return `签诗“${data.poem}”`;
+}
+
 export function getDivinationSummaryBlocks(
   method: DivinationDraft['method'],
   data: DivinationData,
@@ -314,6 +331,46 @@ export function getDivinationSummaryBlocks(
           formatMeihuaRelationSummary(meihua),
           formatMeihuaChangedSummary(meihua),
           formatMeihuaMethodSummary(meihua),
+        ].filter(Boolean),
+      };
+    }
+    case 'xiaoliuren': {
+      const xiaoliuren = data as XiaoliurenData;
+      const evidence = xiaoliuren.evidenceAnalysis ?? analyzeXiaoliurenEvidence(xiaoliuren);
+      return {
+        title: '小六壬起课结果',
+        tags: [
+          `起课方式：${xiaoliuren.methodLabel}`,
+          `占得宫：${xiaoliuren.primary.name}`,
+          `时辰：${xiaoliuren.hourLabel}`,
+        ],
+        lines: [
+          wrapMainEvidence(evidence.primaryFact.promptText),
+          `顺数轨迹：月宫${xiaoliuren.sequence.month.name}；日宫${xiaoliuren.sequence.day.name}；时宫${xiaoliuren.sequence.hour.name}`,
+          `历法口径：${xiaoliuren.calculation.dayBoundary}；${xiaoliuren.calculation.leapMonthRule}`,
+        ].filter(Boolean),
+      };
+    }
+    case 'jinkoujue': {
+      const jinkoujue = data as JinkoujueData;
+      const p = jinkoujue.positions;
+      return {
+        title: '金口诀起课结果',
+        tags: [
+          `起课方式：${jinkoujue.methodLabel}`,
+          `地分：${p.diFen.branch}`,
+          `将神：${p.jiangShen.stem || ''}${p.jiangShen.branch}`,
+          `贵神：${p.guiShen.stem || ''}${p.guiShen.branch}乘${p.guiShen.god || ''}`,
+          `人元：${p.renYuan.stem || ''}${p.renYuan.branch}`,
+        ],
+        lines: [
+          wrapMainEvidence(jinkoujue.mainLine),
+          `阴阳发用：${jinkoujue.yinYangUse.rule}；发用位${jinkoujue.yinYangUse.usePosition}${jinkoujue.yinYangUse.isVoid ? '旬空' : '不空'}`,
+          `动爻：${jinkoujue.movements.map((item) => `${item.name}（${item.trigger}）`).join('、') || '未触发五动或三动'}`,
+          `月将贵人：月将${jinkoujue.monthLeader}；${jinkoujue.dayNight}贵人起${jinkoujue.noblemanBranch}${jinkoujue.calculation.noblemanDirection}`,
+          `四位关系：贵将${jinkoujue.relations.guiToJiang}；贵人${jinkoujue.relations.guiToRen}；将地${jinkoujue.relations.jiangToDi}`,
+          jinkoujue.xunKong?.length ? `旬空：${jinkoujue.xunKong.join('、')}` : '',
+          jinkoujue.summary ? `提示：${jinkoujue.summary}` : '',
         ].filter(Boolean),
       };
     }
@@ -389,6 +446,11 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'ssgw': {
+      const storyContent =
+        'number' in data && 'title' in data && 'poem' in data
+          ? resolveSsgwStoryContent(data)
+          : { canonicalStory: '', extraStory: '' };
+
       return {
         title: '灵签结果',
         tags: [
@@ -396,8 +458,16 @@ export function getDivinationSummaryBlocks(
           `签题：${'title' in data ? data.title : '未知'}`,
         ],
         lines: [
+          wrapMainEvidence(formatSsgwFocusSummary(data)),
           'title' in data && data.title ? `签题：${data.title}` : '',
           'poem' in data ? `签诗：${data.poem}` : '',
+          storyContent.canonicalStory ? `典故：${storyContent.canonicalStory}` : '',
+          storyContent.extraStory ? `补充：${storyContent.extraStory}` : '',
+          ...('details' in data && data.details
+            ? Object.entries(data.details)
+                .filter(([key]) => key !== '典故')
+                .map(([key, value]) => `${key}：${value}`)
+            : []),
         ].filter(Boolean),
       };
     }
@@ -435,6 +505,32 @@ export function getDivinationSummaryBlocks(
               : [];
             return `${item.date}：${candidate?.status ?? '待核验候选'}，${item.ganzhi.day}日，${item.dayOfficer}执；${constraints.length ? `限制：${constraints.slice(0, 2).join('、')}` : `未见明确传统禁忌；${item.clash}`}`;
           }) ?? []),
+        ].filter(Boolean),
+      };
+    }
+    case 'lenormand': {
+      const lenormand = data as LenormandData;
+      const evidence =
+        lenormand.evidenceAnalysis?.traditionalFacts &&
+        lenormand.evidenceAnalysis.structuredLayoutFacts
+          ? lenormand.evidenceAnalysis
+          : analyzeLenormandEvidence(lenormand);
+      return {
+        title: '雷诺曼抽牌结果',
+        tags: [`牌阵：${lenormand.spreadName}`, `张数：${lenormand.cards.length} 张`],
+        lines: [
+          wrapMainEvidence(
+            lenormand.cards
+              .slice(0, 3)
+              .map((card) => `${card.position}${card.name}`)
+              .join('；'),
+          ),
+          ...lenormand.cards.map((card) => {
+            const fact = evidence.traditionalFacts.find(
+              (item) => item.kind === '单牌牌义' && item.positions.includes(card.position),
+            );
+            return `${card.position}：${card.name}，${fact?.promptText ?? conditionLenormandTraditionalText(card.meaning, { cardNames: [card.name], keywords: card.keywords })}`;
+          }),
         ].filter(Boolean),
       };
     }

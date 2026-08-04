@@ -356,6 +356,10 @@ const promptToolNames = [
   'bazhai_prompt',
   'residential_prompt',
   'taiyi_prompt',
+  'xiaoliuren_prompt',
+  'jinkoujue_prompt',
+  'lenormand_prompt',
+  'zodiac_prompt',
 ];
 
 async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
@@ -380,7 +384,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 48);
+    assert.equal(tools.length, 56);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -403,6 +407,10 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));
     assert.ok(tools.find((tool) => tool.name === 'xuankong_prompt'));
+    assert.ok(tools.find((tool) => tool.name === 'divine_xiaoliuren'));
+    assert.ok(tools.find((tool) => tool.name === 'divine_jinkoujue'));
+    assert.ok(tools.find((tool) => tool.name === 'divine_lenormand'));
+    assert.ok(tools.find((tool) => tool.name === 'metaphysics_zodiac'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),

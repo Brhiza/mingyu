@@ -579,6 +579,14 @@ function createData(method: FixtureMethod): DivinationData {
         number: 18,
         title: '刘备借荆州',
         poem: '前路迢迢莫强求，且看云开月自明。',
+        story: '刘备向东吴借取荆州。',
+        details: {
+          吉凶: '中平签',
+          核心寓意: '事情仍有转圜空间，宜结合现况审慎研判。',
+          事业: '先核对资源与时机。',
+          行动建议: '暂缓推进。',
+          风险提醒: '留意反复。',
+        },
         timestamp: Date.now(),
         ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
       };
@@ -840,7 +848,7 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.doesNotMatch(prompt, /岁支方位避|可参考太阳|可参考福德/);
   assert.match(prompt, /第1候选：2026-06-01/);
   assert.match(prompt, /第2候选：2026-06-02/);
-  assert.match(prompt, /黄历忌项触及搬家入宅/);
+  assert.match(prompt, /忌入宅、移徙/);
   assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
 });
@@ -1240,7 +1248,7 @@ test('塔罗提示词保留牌阵、牌位、关键词、元素与牌阶', () =>
   );
 });
 
-test('灵签提示词保留签号、签题和签诗', () => {
+test('灵签提示词保留完整签谱资料', () => {
   const prompt = buildDivinationPrompt(
     'ssgw',
     '这件事接下来该怎么推进？',
@@ -1251,10 +1259,14 @@ test('灵签提示词保留签号、签题和签诗', () => {
   assert.match(prompt, /签号：第18签/);
   assert.match(prompt, /签题：《刘备借荆州》/);
   assert.match(prompt, /签诗：前路迢迢莫强求，且看云开月自明。/);
-  assert.doesNotMatch(prompt, /典故|签意|解签|吉凶层级|宜忌条件|事项映射|证据汇总/);
+  assert.match(prompt, /吉凶级别：中平签/);
+  assert.match(prompt, /典故：刘备向东吴借取荆州。/);
+  assert.match(prompt, /基础解签：事情仍有转圜空间，宜结合现况审慎研判。/);
+  assert.match(prompt, /补充解释：事业：先核对资源与时机。/);
+  assert.doesNotMatch(prompt, /行动建议|风险提醒|掷筊|签谱状态|来源状态|证据汇总/);
 });
 
-test('灵签提示词只输出签号、签题与签诗，不写入故事和解签条目', () => {
+test('灵签提示词合并重复典故并保留基础解签', () => {
   const prompt = buildDivinationPrompt(
     'ssgw',
     '这件事接下来该怎么推进？',
@@ -1274,7 +1286,10 @@ test('灵签提示词只输出签号、签题与签诗，不写入故事和解�
   );
 
   assert.match(prompt, /签诗：静待云开见月明，不妨暂且敛锋芒。/);
-  assert.doesNotMatch(prompt, /典故：|韩信受胯下之辱|解签|辅助证据/);
+  assert.match(prompt, /典故：韩信受胯下之辱，先忍后成大业。/);
+  assert.match(prompt, /基础解签：宜暂避锋芒，等待时机。/);
+  assert.equal((prompt.match(/韩信受胯下之辱/g) ?? []).length, 1);
+  assert.doesNotMatch(prompt, /辅助证据|行动建议|风险提醒|掷筊/);
 });
 
 test('星盘提示词应直接给出太阳月亮上升和主要相位资料', () => {
