@@ -235,38 +235,37 @@ export function normalizeFortuneSelection(
   const cycle = result.luckInfo.cycles[cycleIndex];
 
   if (!cycle) {
-    return { scope: 'natal' };
+    throw new Error(
+      selection.scope === 'dayun'
+        ? '选择大运时必须提供有效的大运序号。'
+        : '选择流年、流月或流日时必须提供有效的大运序号，或提供可定位大运的流年年份。',
+    );
   }
-
-  const year = resolveSelectedYear(cycle, selection);
 
   if (selection.scope === 'dayun') {
     return {
       scope: 'dayun',
       cycleIndex,
-      year,
     };
   }
 
+  const year = resolveSelectedYear(cycle, selection);
   if (!year) {
-    return {
-      scope: 'dayun',
-      cycleIndex,
-    };
+    throw new Error('所选范围必须提供属于该大运的有效流年年份。');
   }
-
-  const month = resolveSelectedMonth(selection);
 
   if (selection.scope === 'year') {
     return {
       scope: 'year',
       cycleIndex,
       year,
-      month,
     };
   }
 
-  const day = resolveSelectedDay(year, month, selection);
+  const month = resolveSelectedMonth(selection);
+  if (!month) {
+    throw new Error('选择流月或流日时必须提供有效的流月序号。');
+  }
 
   if (selection.scope === 'month') {
     return {
@@ -274,8 +273,12 @@ export function normalizeFortuneSelection(
       cycleIndex,
       year,
       month,
-      day,
     };
+  }
+
+  const day = resolveSelectedDay(year, month, selection);
+  if (!day) {
+    throw new Error('选择流日时必须提供该节令月内的有效流日序号。');
   }
 
   return {

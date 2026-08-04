@@ -14,7 +14,7 @@ import {
   type QueryPromptState,
   type ResultTabKey,
 } from '@/lib/query-state';
-import { buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
+import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
 import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { PageTopbar } from '@/components/PageTopbar';
@@ -499,7 +499,11 @@ export function ResultPage() {
       return { scope: 'natal' as const };
     }
 
-    return baziFortuneSelectionModule.normalizeFortuneSelection(baziResult, baziFortuneSelection);
+    try {
+      return baziFortuneSelectionModule.normalizeFortuneSelection(baziResult, baziFortuneSelection);
+    } catch {
+      return { scope: 'natal' as const };
+    }
   }, [baziFortuneSelection, baziFortuneSelectionModule, baziResult]);
   const baziFortuneContext = useMemo(() => {
     if (!baziResult || !baziFortuneSelectionModule) {
@@ -518,9 +522,9 @@ export function ResultPage() {
     [baziResult, currentScopeDate],
   );
   const baziFortunePreset: FortuneScopePreset =
-    promptState.baziFortuneScope === 'natal'
+    normalizedBaziFortuneSelection.scope === 'natal'
       ? 'default'
-      : promptState.baziFortuneScope === 'full'
+      : normalizedBaziFortuneSelection.scope === 'full'
         ? 'all'
         : recentBaziFortuneSelection &&
             isSameBaziFortuneSelection(normalizedBaziFortuneSelection, recentBaziFortuneSelection)
@@ -597,7 +601,7 @@ export function ResultPage() {
     }
     updatePromptState({
       astrolabeScope: value === 'all' ? 'full' : value === 'recent' ? 'monthly' : 'natal',
-      astrolabeScopeDate: value === 'recent' ? currentDateStr : '',
+      astrolabeScopeDate: value === 'recent' || value === 'all' ? currentDateStr : '',
     });
   }
 
@@ -694,13 +698,10 @@ export function ResultPage() {
       return null;
     }
 
-    return buildAstrolabeFullScopePromptText({
-      natal: buildAstrolabeScopeContext(astrolabeCalculation.data, 'natal', ''),
-      yearly: buildAstrolabeScopeContext(astrolabeCalculation.data, 'yearly', ''),
-      monthly: buildAstrolabeScopeContext(astrolabeCalculation.data, 'monthly', ''),
-      daily: buildAstrolabeScopeContext(astrolabeCalculation.data, 'daily', ''),
-    });
-  }, [astrolabeCalculation.data, promptState.astrolabeScope]);
+    return buildAstrolabeFullScopePromptText(
+      buildAstrolabeFullScopeContexts(astrolabeCalculation.data, promptState.astrolabeScopeDate),
+    );
+  }, [astrolabeCalculation.data, promptState.astrolabeScope, promptState.astrolabeScopeDate]);
 
   const activeBaziQuestionScopeLabel = useMemo(() => {
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
@@ -1927,7 +1928,7 @@ export function ResultPage() {
         <Suspense fallback={<BaziFortuneLoadingModal />}>
           <LazyBaziFortuneModal
             result={baziResult}
-            selection={baziFortuneSelection}
+            selection={normalizedBaziFortuneSelection}
             onClose={() => setIsBaziFortuneModalOpen(false)}
             onApply={applyBaziFortuneSelection}
           />

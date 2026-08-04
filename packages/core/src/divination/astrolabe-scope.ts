@@ -28,6 +28,13 @@ export type AstrolabeScopeContext = {
   solarArcEvidence?: SolarArcEvidence;
 };
 
+export type AstrolabeFullScopeContexts = {
+  natal: AstrolabeScopeContext;
+  yearly: AstrolabeScopeContext;
+  monthly: AstrolabeScopeContext;
+  daily: AstrolabeScopeContext;
+};
+
 export type AstrolabeAdvancedTechnique = '太阳返照' | '次限推进' | '太阳弧';
 
 export interface AstrolabeAdvancedCalculationStep {
@@ -302,19 +309,6 @@ function parseDateParts(dateStr: string) {
   return { year, month, day };
 }
 
-function getCurrentLocalDate() {
-  const now = new Date();
-  return {
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    day: now.getDate(),
-  };
-}
-
-function daysInMonth(year: number, month: number) {
-  return daysInAstrolabeScopeMonth(year, month);
-}
-
 function daysInAstrolabeScopeMonth(year: number, month: number) {
   if (!Number.isInteger(year) || year < 1900 || year > 2200) {
     throw new Error('年份需在 1900-2200 之间。');
@@ -327,17 +321,21 @@ function daysInAstrolabeScopeMonth(year: number, month: number) {
 }
 
 function normalizeTargetDate(scope: AstrolabeScopeMode, dateStr: string) {
-  const current = getCurrentLocalDate();
+  const pattern =
+    scope === 'yearly' ? /^\d{4}$/ : scope === 'monthly' ? /^\d{4}-\d{2}$/ : /^\d{4}-\d{2}-\d{2}$/;
+  const expected = scope === 'yearly' ? 'YYYY' : scope === 'monthly' ? 'YYYY-MM' : 'YYYY-MM-DD';
+  if (!pattern.test(dateStr.trim())) {
+    throw new Error(`${SCOPE_LABEL_MAP[scope]}必须提供 ${expected} 格式的明确日期。`);
+  }
+
   const parsed = parseDateParts(dateStr);
-  const year = parsed?.year ?? current.year;
-  const month = scope === 'yearly' ? 7 : Math.min(Math.max(parsed?.month ?? current.month, 1), 12);
-  const maxDay = daysInMonth(year, month);
-  const day =
-    scope === 'yearly'
-      ? Math.min(1, maxDay)
-      : scope === 'monthly'
-        ? Math.min(15, maxDay)
-        : Math.min(Math.max(parsed?.day ?? current.day, 1), maxDay);
+  if (!parsed) {
+    throw new Error(`${SCOPE_LABEL_MAP[scope]}日期无效或超出 1900-2200 年范围。`);
+  }
+
+  const year = parsed.year;
+  const month = scope === 'yearly' ? 7 : parsed.month!;
+  const day = scope === 'yearly' ? 1 : scope === 'monthly' ? 15 : parsed.day!;
 
   return { year, month, day };
 }
@@ -356,6 +354,10 @@ function formatDateStr(
     return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
   }
   return '';
+}
+
+function formatAnchorDate(date: { year: number; month: number; day: number }) {
+  return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} 12:00`;
 }
 
 function formatAstrolabePlanetPosition(
@@ -480,19 +482,30 @@ function parseBirthDateTime(data: AstrolabeData) {
   };
 }
 
+function resolveScopeTimezone(
+  data: AstrolabeData,
+  date: { year: number; month: number; day: number; hour: number; minute: number },
+) {
+  if (data.birth.timeZoneId) {
+    return resolveHistoricalTimezone({
+      ...date,
+      second: 0,
+      timeZoneId: data.birth.timeZoneId,
+      fixedOffsetHours: data.birth.timezone,
+    }).resolvedOffsetHours;
+  }
+  if (!Number.isFinite(data.birth.timezone)) {
+    throw new Error('星盘缺少有效时区，无法计算行运。');
+  }
+  return data.birth.timezone;
+}
+
 function calculateScopePlanets(
   data: AstrolabeData,
   date: { year: number; month: number; day: number; hour: number; minute: number },
 ) {
   const coordinates = parseBirthCoordinates(data);
-  const timezone = data.birth.timeZoneId
-    ? resolveHistoricalTimezone({
-        ...date,
-        second: 0,
-        timeZoneId: data.birth.timeZoneId,
-        fixedOffsetHours: data.birth.timezone,
-      }).resolvedOffsetHours
-    : data.birth.timezone;
+  const timezone = resolveScopeTimezone(data, date);
   return calculatePlanets(
     {
       ...date,
@@ -1254,10 +1267,19 @@ export function calculateSolarReturnEvidence(
   const techniqueKey = advancedTechniqueKey(technique);
   const birth = parseBirthDateTime(data);
   const natalSun = data.planets.find((planet) => planet.name === 'Sun');
+  const targetTimezone = birth
+    ? resolveScopeTimezone(data, {
+        year: targetYear,
+        month: birth.month,
+        day: Math.min(birth.day, daysInAstrolabeScopeMonth(targetYear, birth.month)),
+        hour: birth.hour,
+        minute: birth.minute,
+      })
+    : data.birth.timezone;
   const baseEvidence = {
     key: `${techniqueKey}:${targetYear}`,
     targetYear,
-    timezone: data.birth.timezone,
+    timezone: targetTimezone,
     searchWindowHours: 48,
     coarseStepHours: 2,
     refinementToleranceMinutes: 1,
@@ -1614,15 +1636,31 @@ function buildHouseRulerChainEvidence(data: AstrolabeData) {
 }
 
 function parseBirthCoordinates(data: AstrolabeData) {
-  const matched = /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/.exec(data.birth.location);
-  if (!matched) {
-    return { latitude: 0, longitude: 0 };
+  if (
+    typeof data.birth.latitude === 'number' &&
+    Number.isFinite(data.birth.latitude) &&
+    data.birth.latitude >= -90 &&
+    data.birth.latitude <= 90 &&
+    typeof data.birth.longitude === 'number' &&
+    Number.isFinite(data.birth.longitude) &&
+    data.birth.longitude >= -180 &&
+    data.birth.longitude <= 180
+  ) {
+    return { latitude: data.birth.latitude, longitude: data.birth.longitude };
   }
 
-  return {
-    latitude: Number(matched[1]),
-    longitude: Number(matched[2]),
-  };
+  const matched = /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/.exec(data.birth.location);
+  if (!matched) {
+    throw new Error('星盘缺少有效出生地经纬度，无法计算行运。');
+  }
+
+  const latitude = Number(matched[1]);
+  const longitude = Number(matched[2]);
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    throw new Error('星盘出生地经纬度超出有效范围，无法计算行运。');
+  }
+
+  return { latitude, longitude };
 }
 
 function getTransitBodiesForScope(scope: AstrolabeScopeMode) {
@@ -1639,100 +1677,78 @@ function buildTransitHouseEvidence(
   data: AstrolabeData,
   scope: AstrolabeScopeMode,
   target: { year: number; month: number; day: number },
+  timezone: number,
 ) {
   const cusps = getNatalHouseCusps(data);
   if (!cusps) {
     return '行运落宫：本命宫头资料不足。';
   }
 
-  try {
-    const coordinates = parseBirthCoordinates(data);
-    const planets = calculatePlanets(
-      {
-        year: target.year,
-        month: target.month,
-        day: target.day,
-        hour: 12,
-        minute: 0,
-        second: 0,
-        timezone: 8,
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
-      },
-      {
-        houseSystem: 'placidus',
-        includeAsteroids: false,
-        includeChiron: false,
-        includeLilith: false,
-        includeNodes: false,
-        includeLots: false,
-      },
-    );
-    const allowedBodies = getTransitBodiesForScope(scope);
-    const lines = planets
-      .filter((planet) => allowedBodies.has(planet.name))
-      .map((planet) => {
-        const natalHouse = getNatalHouseByLongitude(planet.longitude, cusps);
-        const label = CELESTIAL_BODY_LABELS[planet.name] ?? planet.name;
-        const position = formatAstrolabePlanetPosition(planet);
-        const retrograde = planet.isRetrograde ? '，逆行' : '';
-        return natalHouse
-          ? `${label}${position}${retrograde}落本命第${natalHouse}宫`
-          : `${label}${position}${retrograde}未能定位本命落宫`;
-      });
+  const planets = calculateScopePlanets(data, {
+    ...target,
+    hour: 12,
+    minute: 0,
+  });
+  const allowedBodies = getTransitBodiesForScope(scope);
+  const lines = planets
+    .filter((planet) => allowedBodies.has(planet.name))
+    .map((planet) => {
+      const natalHouse = getNatalHouseByLongitude(planet.longitude, cusps);
+      const label = CELESTIAL_BODY_LABELS[planet.name] ?? planet.name;
+      const position = formatAstrolabePlanetPosition(planet);
+      const retrograde = planet.isRetrograde ? '，逆行' : '';
+      return natalHouse
+        ? `${label}${position}${retrograde}落本命第${natalHouse}宫`
+        : `${label}${position}${retrograde}未能定位本命落宫`;
+    });
 
-    return lines.length ? `行运落宫：${lines.join('；')}。` : '行运落宫：未取得可用行运行星位置。';
-  } catch {
-    return '行运落宫：计算失败。';
+  if (!lines.length) {
+    throw new Error('未取得可用行运行星位置，无法计算行运落宫。');
   }
+  return `行运落宫：取样时区UTC${timezone >= 0 ? '+' : ''}${timezone}；${lines.join('；')}。`;
 }
 
 function buildTransitEvidence(
   data: AstrolabeData,
   target: { year: number; month: number; day: number },
+  timezone: number,
 ) {
   const natalPoints = buildNatalPoints(data);
   if (natalPoints.length < 3) {
     return '主要行运相位：本命点经度资料不足。';
   }
 
-  try {
-    const julianDate = time.toJulianDate({
-      year: target.year,
-      month: target.month,
-      day: target.day,
-      hour: 12,
-      minute: 0,
-      second: 0,
-      timezone: 8,
-    });
-    const result = calculateTransits(natalPoints, julianDate, {
-      aspectTypes: [
-        AspectType.Conjunction,
-        AspectType.Sextile,
-        AspectType.Square,
-        AspectType.Trine,
-        AspectType.Opposition,
-      ],
-      transitingBodies: TRANSITING_BODIES,
-      minimumStrength: 35,
-      includeOutOfSign: true,
-    });
-    const transitLines = result.transits
-      .sort(
-        (first, second) => second.strength - first.strength || first.deviation - second.deviation,
-      )
-      .slice(0, 10)
-      .map(formatTransitLine);
+  const julianDate = time.toJulianDate({
+    year: target.year,
+    month: target.month,
+    day: target.day,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    timezone,
+  });
+  const result = calculateTransits(natalPoints, julianDate, {
+    aspectTypes: [
+      AspectType.Conjunction,
+      AspectType.Sextile,
+      AspectType.Square,
+      AspectType.Trine,
+      AspectType.Opposition,
+    ],
+    transitingBodies: TRANSITING_BODIES,
+    minimumStrength: 35,
+    includeOutOfSign: true,
+  });
+  const transitLines = result.transits
+    .sort((first, second) => second.strength - first.strength || first.deviation - second.deviation)
+    .slice(0, 10)
+    .map(formatTransitLine);
 
-    if (transitLines.length === 0) {
-      return '主要行运相位：所选日期未见当前容许度内的主要相位。';
-    }
-
-    return `主要行运相位：${transitLines.join('；')}。`;
-  } catch {
-    return '主要行运相位：计算失败。';
+  if (transitLines.length === 0) {
+    return '主要行运相位：所选日期未见当前容许度内的主要相位。';
   }
+
+  return `主要行运相位：${transitLines.join('；')}。`;
 }
 
 function formatAdvancedScopeFacts(params: {
@@ -1780,14 +1796,26 @@ export function buildAstrolabeScopeContext(
   }
 
   const houseRulerChain = buildHouseRulerChainEvidence(data);
-  if (scope === 'natal' || scope === 'full') {
+  if (scope === 'natal') {
     return {
       scope,
       dateStr: '',
-      displayText: scope === 'full' ? '本命盘与完整行运资料' : '仅使用本命信息',
-      displayLabel: scope === 'full' ? '完整输出版' : '本命盘',
+      displayText: '仅使用本命信息',
+      displayLabel: '本命盘',
+      promptText: ['分析对象：本命盘。', houseRulerChain].join('\n'),
+    };
+  }
+
+  if (scope === 'full') {
+    const reference = normalizeTargetDate('full', dateStr);
+    const normalizedReferenceDate = formatDateStr('daily', reference);
+    return {
+      scope,
+      dateStr: normalizedReferenceDate,
+      displayText: `本命盘与完整行运资料 · ${normalizedReferenceDate}`,
+      displayLabel: `完整输出版${normalizedReferenceDate}`,
       promptText: [
-        scope === 'full' ? '分析对象：本命盘与完整行运资料。' : '分析对象：本命盘。',
+        `分析对象：本命盘与以${normalizedReferenceDate}为基准的完整行运资料。`,
         houseRulerChain,
       ].join('\n'),
     };
@@ -1797,8 +1825,13 @@ export function buildAstrolabeScopeContext(
   const normalizedDateStr = formatDateStr(scope, target);
   const scopeLabel = SCOPE_LABEL_MAP[scope];
   const displayText = `${scopeLabel} · ${normalizedDateStr}`;
-  const transitEvidence = buildTransitEvidence(data, target);
-  const transitHouseEvidence = buildTransitHouseEvidence(data, scope, target);
+  const anchorDate = formatAnchorDate(target);
+  const targetTimezone = resolveScopeTimezone(data, { ...target, hour: 12, minute: 0 });
+  const timezoneLabel = data.birth.timeZoneId
+    ? `${data.birth.timeZoneId}（UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}）`
+    : `UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}`;
+  const transitEvidence = buildTransitEvidence(data, target, targetTimezone);
+  const transitHouseEvidence = buildTransitHouseEvidence(data, scope, target, targetTimezone);
   const solarReturnEvidence =
     scope === 'yearly' ? calculateSolarReturnEvidence(data, target.year) : undefined;
   const secondaryProgressionEvidence =
@@ -1818,6 +1851,7 @@ export function buildAstrolabeScopeContext(
     displayLabel: `${scopeLabel}${normalizedDateStr}`,
     promptText: [
       `分析对象：${scopeLabel}${normalizedDateStr}。`,
+      `行运基准：${anchorDate}（按出生地时区${timezoneLabel}的中午计算行运行星触发）。`,
       houseRulerChain,
       transitEvidence,
       transitHouseEvidence,
@@ -1826,6 +1860,23 @@ export function buildAstrolabeScopeContext(
     solarReturnEvidence,
     secondaryProgressionEvidence,
     solarArcEvidence,
+  };
+}
+
+export function buildAstrolabeFullScopeContexts(
+  data: AstrolabeData,
+  referenceDateStr: string,
+): AstrolabeFullScopeContexts {
+  const reference = normalizeTargetDate('full', referenceDateStr);
+  const dailyDate = formatDateStr('daily', reference);
+  const monthlyDate = formatDateStr('monthly', reference);
+  const yearlyDate = formatDateStr('yearly', reference);
+
+  return {
+    natal: buildAstrolabeScopeContext(data, 'natal', ''),
+    yearly: buildAstrolabeScopeContext(data, 'yearly', yearlyDate),
+    monthly: buildAstrolabeScopeContext(data, 'monthly', monthlyDate),
+    daily: buildAstrolabeScopeContext(data, 'daily', dailyDate),
   };
 }
 

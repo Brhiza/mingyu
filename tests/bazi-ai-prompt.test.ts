@@ -120,6 +120,7 @@ test('八字提示词写入年限选择后应保留岁运资料并省略控制�
   const fortuneContext = buildFortuneSelectionContext(result, {
     scope: 'year',
     cycleIndex: 0,
+    year: 1990,
   });
 
   assert.ok(fortuneContext);
