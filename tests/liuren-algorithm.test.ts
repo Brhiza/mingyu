@@ -498,11 +498,13 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
 
   assert.equal(caseCount, 17_280);
   assert.deepEqual(Object.fromEntries([...ruleCounts].sort()), {
-    伏吟法: 1440,
+    伏吟法: 1152,
+    伏吟元首法: 144,
+    伏吟重审法: 144,
     元首法: 2856,
     八专法: 384,
-    别责法: 216,
-    昴星法: 384,
+    别责法: 96,
+    昴星法: 504,
     比用法: 1944,
     涉害法: 1824,
     返吟元首法: 48,
@@ -783,7 +785,7 @@ test('昼夜贵人落地会跟随日干规则切换', () => {
 test('大六壬伏吟课的传态应尊重伏吟取法，不被初末相冲误标为反吟', () => {
   const result = generateLiuren(new Date('2026-01-01T02:00:00+08:00'));
 
-  assert.equal(result.transmissionRule, '伏吟法');
+  assert.equal(result.transmissionRule, '伏吟重审法');
   assert.equal(result.transmissionPattern, '伏吟');
 });
 
@@ -996,10 +998,10 @@ test('大六壬伏吟课按三刑推进三传，不再简单重复同一上神',
   assert.deepEqual(result.branches, ['寅', '巳', '申']);
 });
 
-test('大六壬伏吟六乙六癸从干上传发用，但柔日课名仍为自信', () => {
+test('大六壬乙日伏吟有下贼上时按伏吟重审从干上传发用', () => {
   const result = resolveInitialTransmission(
     [
-      createLesson('辰', '辰'),
+      createLesson('辰', '乙'),
       createLesson('辰', '辰'),
       createLesson('丑', '丑'),
       createLesson('丑', '丑'),
@@ -1012,9 +1014,28 @@ test('大六壬伏吟六乙六癸从干上传发用，但柔日课名仍为自�
     }),
   );
 
-  assert.equal(result.rule, '伏吟法');
-  assert.equal(result.tag, '自信');
-  assert.deepEqual(result.branches, ['辰', '丑', '戌']);
+  assert.equal(result.rule, '伏吟重审法');
+  assert.equal(result.initial, '辰');
+});
+
+test('大六壬癸日伏吟有上克下时按伏吟元首从干上传发用', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('丑', '癸'),
+      createLesson('丑', '丑'),
+      createLesson('辰', '辰'),
+      createLesson('辰', '辰'),
+    ],
+    createResolveContext({
+      dayStem: '癸',
+      dayBranch: '丑',
+      dayStemResidence: '丑',
+      heavenlyPlate: FUYIN_PLATE,
+    }),
+  );
+
+  assert.equal(result.rule, '伏吟元首法');
+  assert.equal(result.initial, '丑');
 });
 
 test('大六壬伏吟普通阴日按自信从支上传发用', () => {

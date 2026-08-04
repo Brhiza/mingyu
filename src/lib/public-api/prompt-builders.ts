@@ -82,7 +82,13 @@ export const ZIWEI_PROMPT_SCOPES = [
 export const PROMPT_MODES = ['framework', 'custom'] as const;
 export const BAZI_FORTUNE_SCOPES = ['natal', 'full', 'dayun', 'year', 'month', 'day'] as const;
 
-export const BAZI_SCHOOLS = ['traditional', 'mangpai', 'xinpai'] as const;
+/**
+ * 八字提示词流派入口。
+ *
+ * traditional 是历史兼容名，语义与 ziping（子平派）相同；保留它可以避免
+ * 已有 API 调用失效，同时让新调用方能明确表达所采用的子平口径。
+ */
+export const BAZI_SCHOOLS = ['traditional', 'ziping', 'mangpai', 'xinpai'] as const;
 export const ZIWEI_SCHOOLS = ['sanhe', 'feixing', 'sihua'] as const;
 
 export type BaziPromptTopic = (typeof BAZI_PROMPT_TOPICS)[number];
@@ -102,10 +108,164 @@ const FULL_ZIWEI_SCOPE_ORDER: ScopeType[] = [
   'hourly',
 ];
 
+type BaziSchoolProfile = {
+  label: string;
+  task: string;
+  basis: string;
+  formatFacts: (result: BaziChartResult) => string;
+};
+
+type BaziPillarKey = 'year' | 'month' | 'day' | 'hour';
+
+const BAZI_PILLAR_KEYS: BaziPillarKey[] = ['year', 'month', 'day', 'hour'];
+const BAZI_PILLAR_LABELS: Record<BaziPillarKey, string> = {
+  year: '年柱',
+  month: '月柱',
+  day: '日柱',
+  hour: '时柱',
+};
+
+function joinBaziFacts(values: Array<string | undefined | null>, fallback = '未记录') {
+  const text = values.filter((value): value is string => Boolean(value && value.trim())).join('；');
+  return text || fallback;
+}
+
+function formatBaziPillarsForSchool(result: BaziChartResult, includeLifeStage = false) {
+  return BAZI_PILLAR_KEYS.map((key) => {
+    const pillar = result.pillars[key];
+    const hiddenStems = result.hiddenStems[key]?.join('、') || '无';
+    const hiddenTenGods = result.hiddenTenGods[key]?.join('、') || '无';
+    const lifeStage = includeLifeStage
+      ? result.lifeStages[key]
+        ? `；日主十二长生${result.lifeStages[key]}`
+        : ''
+      : '';
+    return `${BAZI_PILLAR_LABELS[key]}${pillar.ganZhi}，天干十神${result.tenGods[key] || '未记录'}，藏干${hiddenStems}，藏干十神${hiddenTenGods}${lifeStage}`;
+  }).join('\n');
+}
+
+function formatBaziFortuneForSchool(result: BaziChartResult) {
+  const cycles = result.luckInfo?.cycles ?? [];
+  const cycleText = cycles
+    .filter((cycle) => !cycle.isXiaoyun)
+    .slice(0, 8)
+    .map((cycle) => `${cycle.ganZhi}（${cycle.year}年起，约${cycle.age}岁）`)
+    .join('、');
+  const currentYear = new Date().getFullYear();
+  const currentYears = cycles
+    .flatMap((cycle) => cycle.years ?? [])
+    .filter((item) => item.year >= currentYear - 1 && item.year <= currentYear + 2)
+    .map((item) => `${item.year}${item.ganZhi}`)
+    .join('、');
+  return joinBaziFacts([
+    result.luckInfo?.startInfo ? `起运${result.luckInfo.startInfo}` : undefined,
+    cycleText ? `大运${cycleText}` : undefined,
+    currentYears ? `近年流年${currentYears}` : undefined,
+  ]);
+}
+
+function formatBaziRelationsForSchool(result: BaziChartResult) {
+  const relations = result.pillarRelations;
+  return joinBaziFacts([
+    relations.fuxin.length ? `同柱与伏吟${relations.fuxin.join('、')}` : undefined,
+    relations.fanyin.length ? `反吟与天克地冲${relations.fanyin.join('、')}` : undefined,
+    relations.xingChong.length
+      ? `合冲刑害破与三合三会${relations.xingChong.join('、')}`
+      : undefined,
+  ]);
+}
+
+function formatBaziUsefulGodForSchool(result: BaziChartResult) {
+  const useful = result.analysis.usefulGod;
+  return joinBaziFacts([
+    useful.primaryFavorableWuxing ? `主用${useful.primaryFavorableWuxing}` : undefined,
+    useful.secondaryFavorableWuxing?.length
+      ? `辅用${useful.secondaryFavorableWuxing.join('、')}`
+      : undefined,
+    useful.primaryUnfavorableWuxing ? `主忌${useful.primaryUnfavorableWuxing}` : undefined,
+    useful.secondaryUnfavorableWuxing?.length
+      ? `次忌${useful.secondaryUnfavorableWuxing.join('、')}`
+      : undefined,
+    useful.primaryReason ? `取用理由${useful.primaryReason}` : undefined,
+  ]);
+}
+
+function formatZipingFacts(result: BaziChartResult) {
+  const strength = result.analysis.dayMasterStrength;
+  const details = strength.details;
+  return [
+    `月令与节候：月柱${result.pillars.month.ganZhi}，月令司权${result.monthCommander || '未记录'}，${result.seasonInfo.currentSeason || '当前'}令，节气${result.seasonInfo.currentJieqi || '未记录'}`,
+    `日主旺衰：${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，${strength.status}；得令${details.timely ? '是' : '否'}，通根${details.hasRoot ? '有' : '无'}，强根${details.hasStrongRoot ? '有' : '无'}，帮扶${details.hasSupport ? '可见' : '不显'}，克泄耗${details.hasConstraint ? '可见' : '不显'}`,
+    `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
+    `调候与取用：${formatBaziUsefulGodForSchool(result)}；五行季节状态${
+      Object.entries(result.wuxingSeasonStatus)
+        .map(([element, status]) => `${element}${status}`)
+        .join('、') || '未记录'
+    }`,
+    `岁运：${formatBaziFortuneForSchool(result)}`,
+  ].join('\n');
+}
+
+function formatMangpaiFacts(result: BaziChartResult) {
+  const dayPillar = result.pillars.day;
+  return [
+    '四柱宫位与十神：',
+    formatBaziPillarsForSchool(result, true),
+    `日主与夫妻宫资料：日主${result.dayMaster.gan}；日柱${dayPillar.ganZhi}；日支${dayPillar.zhi}`,
+    `四柱组合资料：${formatBaziRelationsForSchool(result)}`,
+    `象法取用资料：${formatBaziUsefulGodForSchool(result)}；纳音${BAZI_PILLAR_KEYS.map((key) => `${BAZI_PILLAR_LABELS[key]}${result.nayin[key] || '未记录'}`).join('、')}`,
+    `年限应期资料：${formatBaziFortuneForSchool(result)}`,
+  ].join('\n');
+}
+
+function formatXinpaiFacts(result: BaziChartResult) {
+  const strength = result.analysis.dayMasterStrength;
+  return [
+    `旺衰起点：日主${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，${strength.status}；月令${strength.details.seasonalEffect}，司令${strength.details.commanderEffect}，成局${strength.details.formationEffect}`,
+    `五行流通：已见${result.wuxingStrength.present.join('、') || '未记录'}；偏重${result.wuxingStrength.dominantByRule.join('、') || '未记录'}；缺项${result.wuxingStrength.missing.join('、') || '无'}；月令状态${
+      Object.entries(result.wuxingSeasonStatus)
+        .map(([element, status]) => `${element}${status}`)
+        .join('、') || '未记录'
+    }`,
+    `调候与用神：${formatBaziUsefulGodForSchool(result)}；格局${result.analysis.mingGe.pattern}`,
+    `原局作用：${formatBaziRelationsForSchool(result)}`,
+    `动态岁运：${formatBaziFortuneForSchool(result)}`,
+  ].join('\n');
+}
+
+const BAZI_SCHOOL_PROFILES: Record<'ziping' | 'mangpai' | 'xinpai', BaziSchoolProfile> = {
+  ziping: {
+    label: '子平派（传统）',
+    task: '先以月令定格，结合日主得令、通根、透干与全局制化判断旺衰，再以调候、格局成败和岁运引动回答问题。',
+    basis:
+      '《渊海子平》《子平真诠》《三命通会》《滴天髓》《穷通宝鉴》的子平法月令、格局、旺衰、调候与行运资料。',
+    formatFacts: formatZipingFacts,
+  },
+  mangpai: {
+    label: '盲派',
+    task: '以年、月、日、时四柱宫位为骨架，按十神落柱、藏干、宾主体用与组合取象，结合大运流年分段观察应期。',
+    basis:
+      '十神、藏干和四柱宫位的基础参照《渊海子平》《三命通会》《滴天髓》；盲派常用象法、宾主体用与年限分段按盘面结构取证。',
+    formatFacts: formatMangpaiFacts,
+  },
+  xinpai: {
+    label: '新派',
+    task: '以日主旺衰为起点，观察五行流通、调候和生克制化，把大运、流年与原局作用叠加，定位动态触发。',
+    basis:
+      '以《子平真诠》《滴天髓》《穷通宝鉴》《三命通会》的月令、旺衰与调候资料为基础，采用五行流通和岁运动态的现代整理。',
+    formatFacts: formatXinpaiFacts,
+  },
+};
+
+function normalizeBaziSchool(school: BaziSchool): keyof typeof BAZI_SCHOOL_PROFILES {
+  return school === 'traditional' ? 'ziping' : school;
+}
+
 const BAZI_SCHOOL_GUIDANCE: Record<BaziSchool, string> = {
-  traditional: '八字流派：传统派。以子平格局与调候论命。',
-  mangpai: '八字流派：盲派。以十神象法与年限分段论命。',
-  xinpai: '八字流派：新派。以旺衰、调候与流通论命。',
+  traditional: `${BAZI_SCHOOL_PROFILES.ziping.label}：${BAZI_SCHOOL_PROFILES.ziping.task}\n依据：${BAZI_SCHOOL_PROFILES.ziping.basis}`,
+  ziping: `${BAZI_SCHOOL_PROFILES.ziping.label}：${BAZI_SCHOOL_PROFILES.ziping.task}\n依据：${BAZI_SCHOOL_PROFILES.ziping.basis}`,
+  mangpai: `${BAZI_SCHOOL_PROFILES.mangpai.label}：${BAZI_SCHOOL_PROFILES.mangpai.task}\n依据：${BAZI_SCHOOL_PROFILES.mangpai.basis}`,
+  xinpai: `${BAZI_SCHOOL_PROFILES.xinpai.label}：${BAZI_SCHOOL_PROFILES.xinpai.task}\n依据：${BAZI_SCHOOL_PROFILES.xinpai.basis}`,
 };
 
 const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = {
@@ -120,6 +280,19 @@ export function getBaziSchoolGuidance(school?: BaziSchool) {
     return '';
   }
   return BAZI_SCHOOL_GUIDANCE[school];
+}
+
+export function buildBaziSchoolPromptSection(result: BaziChartResult, school?: BaziSchool) {
+  if (!school) return '';
+  const profile = BAZI_SCHOOL_PROFILES[normalizeBaziSchool(school)];
+  return [
+    '【流派】',
+    `八字流派：${profile.label}`,
+    `流派任务：${profile.task}`,
+    `流派依据：${profile.basis}`,
+    '流派盘面资料：',
+    profile.formatFacts(result),
+  ].join('\n');
 }
 
 export function getZiweiSchoolGuidance(school?: ZiweiSchool) {
@@ -216,9 +389,9 @@ export function buildBaziPromptForResult(params: {
   );
 
   const baseText = buildCombinedPromptText(prompt.system, prompt.user);
-  const schoolGuidance = getBaziSchoolGuidance(params.school);
-  if (schoolGuidance) {
-    return insertPromptSectionBeforeHeading(baseText, '【问题】', `【流派】\n${schoolGuidance}`);
+  const schoolSection = buildBaziSchoolPromptSection(params.result, params.school);
+  if (schoolSection) {
+    return insertPromptSectionBeforeHeading(baseText, '【问题】', schoolSection);
   }
   return baseText;
 }
@@ -592,13 +765,13 @@ export function buildBaziZiweiPromptForResults(params: {
     scope: ziweiScope,
   });
   const guidance = [
-    getBaziSchoolGuidance(params.baziSchool),
-    getZiweiSchoolGuidance(params.ziweiSchool),
+    buildBaziSchoolPromptSection(params.baziResult, params.baziSchool),
+    params.ziweiSchool ? `【紫微流派】\n${getZiweiSchoolGuidance(params.ziweiSchool)}` : '',
   ].filter(Boolean);
 
   const baseSections = [
     buildPromptGuidanceSections('bazi-ziwei'),
-    guidance.length ? `【流派】\n${guidance.join('\n')}` : '',
+    guidance.join('\n\n'),
     `【当前时间】\n${formatPromptCurrentTime()}`,
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${ziweiText}`,

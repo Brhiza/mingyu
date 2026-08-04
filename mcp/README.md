@@ -178,7 +178,7 @@ npm run mcp
 
 ### 八字流派与紫微流派
 
-`bazi_prompt` 工具支持 `school` 参数：`traditional`（传统派子平正法）、`mangpai`（盲派十神象法）、`xinpai`（新派调候流通）。不传则不附加流派指引。
+`bazi_prompt` 工具支持 `school` 参数：`traditional`（传统兼容名，等同子平派）、`ziping`（子平派月令格局、调候行运）、`mangpai`（盲派宫位十神、宾主体用、年限）、`xinpai`（新派旺衰流通、动态岁运）。选择流派后，提示词会同时给出该流派的任务、传统依据和对应盘面资料；不传则不附加流派段落。
 
 `ziwei_prompt` 工具支持 `school` 参数：`sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。不传则不附加流派指引。
 

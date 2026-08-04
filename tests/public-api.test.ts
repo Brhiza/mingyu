@@ -1415,6 +1415,47 @@ test('八字公开 API 提示词支持完整输出版命限范围', () => {
   assert.doesNotMatch(prompt, /详细命限资料|资料量|聚焦当前分析对象/);
 });
 
+test('八字提示词按流派输出不同任务、依据与盘面证据', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  const ziping = buildBaziPromptForResult({
+    result,
+    question: '整体命局如何判断？',
+    school: 'ziping',
+  });
+  assert.match(ziping, /八字流派：子平派（传统）/);
+  assert.match(ziping, /月令与节候：/);
+  assert.match(ziping, /《子平真诠》/);
+  assert.match(ziping, /流派任务：先以月令定格/);
+
+  const mangpai = buildBaziPromptForResult({
+    result,
+    question: '整体命局如何判断？',
+    school: 'mangpai',
+  });
+  assert.match(mangpai, /八字流派：盲派/);
+  assert.match(mangpai, /四柱宫位与十神/);
+  assert.match(mangpai, /四柱组合资料：/);
+  assert.match(mangpai, /《渊海子平》/);
+  assert.notEqual(ziping, mangpai);
+
+  const legacy = buildBaziPromptForResult({
+    result,
+    question: '整体命局如何判断？',
+    school: 'traditional',
+  });
+  assert.match(legacy, /八字流派：子平派（传统）/);
+});
+
 test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据话术', async () => {
   const { response, body } = await callApi('bazi/prompt', {
     method: 'POST',
