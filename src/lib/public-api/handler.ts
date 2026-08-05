@@ -344,7 +344,26 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
   promptMode: { enum: [...PROMPT_MODES] },
-  supplementaryInfo: { type: 'object' },
+  supplementaryInfo: {
+    type: 'object',
+    properties: {
+      gender: { enum: ['男', '女', ''] },
+      birthYear: { type: 'integer', minimum: 1, maximum: 9999 },
+      userSupplement: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+      currentSituation: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+      currentState: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+      knownFacts: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+      desiredOutcome: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+      constraints: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+      meihuaSettings: {
+        type: 'object',
+        properties: {
+          method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
+          number: { type: 'integer', minimum: 1 },
+        },
+      },
+    },
+  },
   responseMode: {
     enum: [...PROMPT_RESPONSE_MODES],
     description:
@@ -2943,9 +2962,7 @@ function buildDivinationPromptText(
   data: unknown,
   input: JsonRecord,
 ) {
-  const baseSupplementaryInfo = isRecord(input.supplementaryInfo)
-    ? (input.supplementaryInfo as SupplementaryInfo)
-    : undefined;
+  const baseSupplementaryInfo = readSupplementaryInfo(input);
   const supplementaryInfo =
     method === 'almanac' && question.trim()
       ? {
@@ -2980,6 +2997,70 @@ function buildDivinationPromptText(
         ? buildAstrolabePromptScopeText(input, data as AstrolabeData)
         : undefined,
   });
+}
+
+function readSupplementaryInfo(input: JsonRecord): SupplementaryInfo | undefined {
+  const value = input.supplementaryInfo;
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'supplementaryInfo 必须是对象。');
+  }
+
+  const info: SupplementaryInfo = {};
+  const gender = readEnum(value, 'gender', ['男', '女', ''], '');
+  if (gender) {
+    info.gender = gender;
+  }
+
+  const birthYear = optInt(value, 'birthYear', 1, 9999);
+  if (birthYear !== undefined) {
+    info.birthYear = birthYear;
+  }
+
+  const textFields = [
+    'userSupplement',
+    'currentSituation',
+    'currentState',
+    'knownFacts',
+    'desiredOutcome',
+    'constraints',
+  ] as const;
+  for (const key of textFields) {
+    if (value[key] !== undefined) {
+      const text = readString(value, key, '');
+      if (text) {
+        info[key] = text;
+      }
+    }
+  }
+
+  const rawMeihuaSettings = value.meihuaSettings;
+  if (rawMeihuaSettings !== undefined) {
+    if (!isRecord(rawMeihuaSettings)) {
+      throw new ApiError(400, 'BAD_REQUEST', 'supplementaryInfo.meihuaSettings 必须是对象。');
+    }
+
+    const meihuaSettings: MeihuaSettings = {};
+    if (rawMeihuaSettings.method !== undefined) {
+      meihuaSettings.method = readEnum(rawMeihuaSettings, 'method', [
+        'time',
+        'number',
+        'random',
+        'timeTrigram',
+      ]);
+    }
+    const number = optInt(rawMeihuaSettings, 'number', 1);
+    if (number !== undefined) {
+      meihuaSettings.number = number;
+    }
+    if (Object.keys(meihuaSettings).length > 0) {
+      info.meihuaSettings = meihuaSettings;
+    }
+  }
+
+  return Object.keys(info).length > 0 ? info : undefined;
 }
 
 function readPromptResponseMode(input: JsonRecord) {

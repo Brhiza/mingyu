@@ -27,6 +27,7 @@ import {
   buildSolarTimeInfoText,
   buildTimeInfoText,
   formatDivinationInfo,
+  formatSupplementaryInfoSection,
 } from './formatters';
 import { buildTaskText } from '@core/divination/engine/method-text';
 import { buildLiurenTemplateText } from '@core/divination/engine/liuren-template';
@@ -147,6 +148,12 @@ export function buildDivinationPrompt(
   const infoText = formatDivinationInfo(method, data, normalizedQuestion, supplementaryInfo, {
     liuyaoTemplate,
   });
+  const supplementarySection = formatSupplementaryInfoSection(
+    method,
+    method === 'almanac' && supplementaryInfo?.userSupplement
+      ? { ...supplementaryInfo, userSupplement: '' }
+      : supplementaryInfo,
+  );
   const liurenTemplateSection =
     method === 'liuren'
       ? buildSection('【问题范围】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
@@ -164,6 +171,7 @@ export function buildDivinationPrompt(
     return [
       buildPromptGuidanceSections(method),
       buildSection('【当前时间】', timeInfo),
+      supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
       buildSection('【排盘信息】', infoText),
       buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
       buildSection('【问题】', normalizedQuestion),
@@ -177,6 +185,7 @@ export function buildDivinationPrompt(
   return [
     buildPromptGuidanceSections(method),
     buildSection('【当前时间】', timeInfo),
+    supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
     astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
     buildSection('【占卜信息】', infoText),
     buildSection('【问题】', normalizedQuestion),
