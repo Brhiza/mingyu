@@ -913,7 +913,37 @@ test('非梅花占法不混入梅花专属的起卦方式和数字', () => {
   );
 
   assert.match(prompt, /【占卜信息】/);
-  assert.doesNotMatch(prompt, /【补充信息】|起卦方式：数字起卦|起卦数字：123/);
+  assert.match(prompt, /【补充信息】/);
+  assert.match(prompt, /性别：男/);
+  assert.match(prompt, /出生年份：1995/);
+  assert.doesNotMatch(prompt, /起卦方式：数字起卦|起卦数字：123/);
+});
+
+test('大六壬提示词保留用户补充的现实信息', () => {
+  const prompt = buildDivinationPrompt('liuren', '这件事接下来该怎么推进？', createData('liuren'), {
+    gender: '男',
+    birthYear: 1990,
+    userSupplement: '正在考虑换工作，已经拿到一个新机会。',
+    currentSituation: '正在考虑换工作，已经拿到一个新机会。',
+    currentState: '时间紧、压力较大，但仍有一定选择空间。',
+    knownFacts: '对方已明确报价，合同尚未签署。',
+    desiredOutcome: '希望兼顾收入提升与长期稳定。',
+    constraints: '三个月内不能搬家，预算上限为两万元。',
+  });
+
+  assert.match(prompt, /【补充信息】/);
+  assert.match(prompt, /性别：男/);
+  assert.match(prompt, /出生年份：1990/);
+  assert.match(prompt, /现实背景：正在考虑换工作，已经拿到一个新机会。/);
+  assert.match(prompt, /当前情况：正在考虑换工作，已经拿到一个新机会。/);
+  assert.match(prompt, /当前状态：时间紧、压力较大，但仍有一定选择空间。/);
+  assert.match(prompt, /已知事实：对方已明确报价，合同尚未签署。/);
+  assert.match(prompt, /期望结果：希望兼顾收入提升与长期稳定。/);
+  assert.match(prompt, /现实限制：三个月内不能搬家，预算上限为两万元。/);
+  assert.ok(
+    findPromptSectionHeadingIndex(prompt, '【补充信息】') <
+      findPromptSectionHeadingIndex(prompt, '【排盘信息】'),
+  );
 });
 
 test('占卜提示词的当前时间应来自起盘结果而不是运行环境当前时间', () => {
