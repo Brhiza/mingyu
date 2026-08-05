@@ -16,16 +16,7 @@
  *
  * 七政、罗计孛与紫炁保留来源和精度分层；可复算不代表占星解释有效。
  */
-import {
-  Body as AstronomyBody,
-  Ecliptic,
-  EclipticGeoMoon,
-  GeoMoonState,
-  GeoVector,
-  MakeTime,
-  RotateState,
-  Rotation_EQJ_ECT,
-} from 'astronomy-engine';
+import * as AstronomyEngine from 'astronomy-engine';
 import type { Body } from 'astronomy-engine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
 import { daysInGregorianMonth } from '../calendar/date-validation';
@@ -53,6 +44,23 @@ import {
   QIZHENG_MANSION_STARS,
   type QizhengMansionBoundary,
 } from './mansion-boundaries';
+
+// astronomy-engine 在 Node 22 的 tsx 环境中可能以 default 暴露，浏览器和 Rollup
+// 则通常直接暴露具名导出。动态读取只用于选择运行时模块形态，避免静态读取
+// `default` 触发 Rollup 的 "default is not exported" 警告。
+const astronomyNamespace = AstronomyEngine as unknown as Record<string, unknown>;
+const Astronomy = (Reflect.get(astronomyNamespace, 'default') ??
+  AstronomyEngine) as typeof AstronomyEngine;
+const {
+  Body: AstronomyBody,
+  Ecliptic,
+  EclipticGeoMoon,
+  GeoMoonState,
+  GeoVector,
+  MakeTime,
+  RotateState,
+  Rotation_EQJ_ECT,
+} = Astronomy;
 
 export {
   calculateQizhengMansionBoundaries,
