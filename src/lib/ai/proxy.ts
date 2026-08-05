@@ -427,11 +427,6 @@ function isUnsafeCustomAiHost(hostname: string): boolean {
     return isUnsafeIpv4Address(ipv4);
   }
 
-  const mappedIpv4 = host.startsWith('::ffff:') ? parseIpv4Address(host.slice(7)) : null;
-  if (mappedIpv4) {
-    return isUnsafeIpv4Address(mappedIpv4);
-  }
-
   if (host.includes(':')) {
     return isUnsafeIpv6Address(host);
   }
@@ -467,14 +462,65 @@ function isUnsafeIpv4Address([a, b]: [number, number, number, number]): boolean 
 }
 
 function isUnsafeIpv6Address(host: string): boolean {
-  return (
-    host === '::' ||
-    host === '::1' ||
-    host.startsWith('fc') ||
-    host.startsWith('fd') ||
-    /^fe[89ab]/.test(host) ||
-    host.startsWith('ff')
-  );
+  const words = parseIpv6Address(host);
+  if (!words) return true;
+
+  const firstWord = words[0];
+  const isUnspecified = words.every((word) => word === 0);
+  const isLoopback = words.slice(0, 7).every((word) => word === 0) && words[7] === 1;
+  const isUniqueLocal = (firstWord & 0xfe00) === 0xfc00;
+  const isLinkLocal = (firstWord & 0xffc0) === 0xfe80;
+  const isMulticast = (firstWord & 0xff00) === 0xff00;
+  const isIpv4Compatible = words.slice(0, 6).every((word) => word === 0);
+  const isIpv4Mapped = words.slice(0, 5).every((word) => word === 0) && words[5] === 0xffff;
+
+  if (isUnspecified || isLoopback || isUniqueLocal || isLinkLocal || isMulticast) {
+    return true;
+  }
+
+  if (isIpv4Mapped) {
+    return isUnsafeIpv4Address([words[6] >>> 8, words[6] & 0xff, words[7] >>> 8, words[7] & 0xff]);
+  }
+
+  // IPv4 兼容地址已经废弃，部分网络栈仍可能把它按 IPv4 解释。
+  return isIpv4Compatible;
+}
+
+function parseIpv6Address(host: string): number[] | null {
+  const sections = host.split('::');
+  if (sections.length > 2) return null;
+
+  const parseSection = (section: string): number[] | null => {
+    if (!section) return [];
+    const parts = section.split(':');
+    const words: number[] = [];
+
+    for (const part of parts) {
+      if (/^[0-9a-f]{1,4}$/i.test(part)) {
+        words.push(Number.parseInt(part, 16));
+        continue;
+      }
+
+      // URL 通常会规范化 IPv4 嵌入尾段；这里仍保留直接调用时的校验能力。
+      const ipv4 = parseIpv4Address(part);
+      if (!ipv4 || part !== parts[parts.length - 1]) return null;
+      words.push((ipv4[0] << 8) | ipv4[1], (ipv4[2] << 8) | ipv4[3]);
+    }
+
+    return words;
+  };
+
+  const left = parseSection(sections[0]);
+  const right = sections.length === 2 ? parseSection(sections[1]) : [];
+  if (!left || !right) return null;
+
+  if (sections.length === 1) {
+    return left.length === 8 ? left : null;
+  }
+
+  const omittedWords = 8 - left.length - right.length;
+  if (omittedWords < 1) return null;
+  return [...left, ...Array.from({ length: omittedWords }, () => 0), ...right];
 }
 
 async function fetchUpstreamWithRetry(

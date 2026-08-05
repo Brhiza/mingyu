@@ -340,6 +340,10 @@ test('自定义 AI 应拒绝非 HTTPS、本机和内网接口地址', async () =
     'https://172.16.0.2/v1',
     'https://192.168.1.2/v1',
     'https://169.254.169.254/latest',
+    'https://[::1]/v1',
+    'https://[::ffff:7f00:1]/v1',
+    'https://[0:0:0:0:0:ffff:c0a8:0101]/v1',
+    'https://[::ffff:a9fe:a9fe]/v1',
     'https://metadata.google.internal/v1',
     'https://ollama/v1',
   ];
