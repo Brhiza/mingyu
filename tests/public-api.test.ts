@@ -4183,6 +4183,55 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.doesNotMatch(liuren.body.data.prompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
 });
 
+test('公开 API supplementaryInfo 应校验嵌套字段并保留合法文本', async () => {
+  const baseRequest = {
+    customDate: '2025-01-01T08:00:00+08:00',
+    question: '我现在要不要换工作？',
+  };
+  const valid = await callApi('divination/liuren/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...baseRequest,
+      supplementaryInfo: {
+        gender: '男',
+        birthYear: 1990,
+        currentSituation: '已经拿到一个新机会。',
+      },
+    }),
+  });
+
+  assert.equal(valid.response.status, 200);
+  assert.match(valid.body.data.prompt, /【补充信息】/);
+  assert.match(valid.body.data.prompt, /性别：男/);
+  assert.match(valid.body.data.prompt, /出生年份：1990/);
+  assert.match(valid.body.data.prompt, /当前情况：已经拿到一个新机会。/);
+
+  const invalidNestedField = await callApi('divination/liuren/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...baseRequest,
+      supplementaryInfo: { currentSituation: 123 },
+    }),
+  });
+
+  assert.equal(invalidNestedField.response.status, 400);
+  assert.equal(invalidNestedField.body.ok, false);
+  assert.equal(invalidNestedField.body.error.code, 'BAD_REQUEST');
+  assert.match(invalidNestedField.body.error.message, /currentSituation/);
+
+  const invalidObject = await callApi('divination/liuren/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...baseRequest, supplementaryInfo: [] }),
+  });
+
+  assert.equal(invalidObject.response.status, 400);
+  assert.equal(invalidObject.body.error.code, 'BAD_REQUEST');
+  assert.match(invalidObject.body.error.message, /supplementaryInfo/);
+});
+
 test('公开 API 参数错误应返回统一错误结构', async () => {
   const { response, body } = await callApi('bazi/calculate', {
     method: 'POST',
