@@ -16,7 +16,16 @@
  *
  * 七政、罗计孛与紫炁保留来源和精度分层；可复算不代表占星解释有效。
  */
-import * as AstronomyEngine from 'astronomy-engine';
+import {
+  Body as AstronomyBody,
+  Ecliptic,
+  EclipticGeoMoon,
+  GeoMoonState,
+  GeoVector,
+  MakeTime,
+  RotateState,
+  Rotation_EQJ_ECT,
+} from 'astronomy-engine';
 import type { Body } from 'astronomy-engine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
 import { daysInGregorianMonth } from '../calendar/date-validation';
@@ -44,20 +53,6 @@ import {
   QIZHENG_MANSION_STARS,
   type QizhengMansionBoundary,
 } from './mansion-boundaries';
-
-// Node 22 + tsx 会把 astronomy-engine 作为默认导出，Node 24 与浏览器保留具名导出。
-const Astronomy =
-  (AstronomyEngine as unknown as { default?: typeof AstronomyEngine }).default ?? AstronomyEngine;
-const {
-  Body: AstronomyBody,
-  Ecliptic,
-  EclipticGeoMoon,
-  GeoMoonState,
-  GeoVector,
-  MakeTime,
-  RotateState,
-  Rotation_EQJ_ECT,
-} = Astronomy;
 
 export {
   calculateQizhengMansionBoundaries,
