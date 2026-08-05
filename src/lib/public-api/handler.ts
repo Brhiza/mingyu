@@ -1250,6 +1250,11 @@ export function getPublicApiOpenApiDocument(
             birthHour: { type: 'string' },
             birthMinute: { type: 'string' },
             birthLongitude: { type: 'string' },
+            algorithm: {
+              enum: ['default', 'zhongzhou'],
+              description:
+                '紫微安星口径：default 为传统通行安星法，zhongzhou 为中州派安星法；它改变底层排盘，不等同于提示词解读流派。',
+            },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
@@ -1330,6 +1335,11 @@ export function getPublicApiOpenApiDocument(
                 ziweiSchool: {
                   enum: [...ZIWEI_SCHOOLS],
                   description: '紫微侧流派指引；不传则不附加。',
+                },
+                algorithm: {
+                  enum: ['default', 'zhongzhou'],
+                  description:
+                    '紫微安星口径：default 为传统通行安星法，zhongzhou 为中州派安星法；它改变底层排盘，不等同于提示词解读流派。',
                 },
               },
             },
@@ -2358,6 +2368,8 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
       birthHour: timeInput.birthHour,
       birthMinute: timeInput.birthMinute,
       birthLongitude: timeInput.birthLongitude,
+      algorithm: readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default') as
+        'default' | 'zhongzhou',
     }),
     Array.from(new Set(['origin' as ScopeType, ...scopes])),
   );

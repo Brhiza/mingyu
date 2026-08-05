@@ -57,6 +57,10 @@ export const ziweiSchema = z.object({
   birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
   birthMinute: z.string().optional().describe('精准出生分钟，启用真太阳时时必填，如 20'),
   birthLongitude: z.string().optional().describe('出生地经度，启用真太阳时时必填，如 116.4074'),
+  algorithm: z
+    .enum(['default', 'zhongzhou'])
+    .optional()
+    .describe('底层安星口径：default=传统通行安星法，zhongzhou=中州派安星法；不等同于解读流派'),
 });
 
 const ziweiPromptSchema = ziweiSchema.extend({
@@ -130,6 +134,7 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     birthHour: trueSolarTimeInput?.birthHour ?? args.birthHour ?? '',
     birthMinute: trueSolarTimeInput?.birthMinute ?? args.birthMinute ?? '',
     birthLongitude: trueSolarTimeInput?.birthLongitude ?? args.birthLongitude ?? '',
+    algorithm: args.algorithm ?? 'default',
   });
 }
 

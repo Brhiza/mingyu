@@ -45,9 +45,12 @@ import {
   type QizhengMansionBoundary,
 } from './mansion-boundaries';
 
-// Node 22 + tsx 会把 astronomy-engine 作为默认导出，Node 24 与浏览器保留具名导出。
-const Astronomy =
-  (AstronomyEngine as unknown as { default?: typeof AstronomyEngine }).default ?? AstronomyEngine;
+// astronomy-engine 在 Node 22 的 tsx 环境中可能以 default 暴露，浏览器和 Rollup
+// 则通常直接暴露具名导出。动态读取只用于选择运行时模块形态，避免静态读取
+// `default` 触发 Rollup 的 "default is not exported" 警告。
+const astronomyNamespace = AstronomyEngine as unknown as Record<string, unknown>;
+const Astronomy = (Reflect.get(astronomyNamespace, 'default') ??
+  AstronomyEngine) as typeof AstronomyEngine;
 const {
   Body: AstronomyBody,
   Ecliptic,

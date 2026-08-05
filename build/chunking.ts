@@ -15,6 +15,10 @@ export function getManualChunk(id: string) {
     return 'tyme-vendor';
   }
 
+  if (id.includes('packages/core/src/ziwei/iztro/pattern-detection.ts')) {
+    return 'ziwei-patterns';
+  }
+
   if (
     id.includes('packages/core/src/bazi') ||
     id.includes('packages/core/src/ziwei/iztro') ||

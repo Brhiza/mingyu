@@ -464,6 +464,14 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     assert.match(baziTopicSchema, new RegExp(topic), `八字 promptTopic 应包含 ${topic}`);
   }
   assert.ok(body.data.components.schemas.ZiweiRequest.properties.promptScope);
+  assert.deepEqual(body.data.components.schemas.ZiweiRequest.properties.algorithm.enum, [
+    'default',
+    'zhongzhou',
+  ]);
+  assert.match(
+    body.data.components.schemas.ZiweiRequest.properties.algorithm.description,
+    /中州派安星法.*不等同于提示词解读流派/,
+  );
   assert.ok(body.data.components.schemas.BaziZiweiPromptRequest);
   assert.deepEqual(
     body.data.components.schemas.BaziZiweiPromptRequest.allOf[1].properties.baziPromptTopic.enum,
@@ -1875,6 +1883,32 @@ test('紫微提示词按三合、飞星、四化流派输出对应任务与依�
   });
 });
 
+test('紫微中州派安星口径进入底层排盘与可复制提示词', async () => {
+  const runtime = await calculateFullZiweiChart(
+    buildZiweiChartInput({
+      name: '测试',
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+      algorithm: 'zhongzhou',
+    }),
+  );
+
+  assert.equal(runtime.payloadByScope.origin.calculation_config.algorithm, 'zhongzhou');
+  const prompt = buildZiweiPromptForRuntime({
+    result: runtime,
+    question: '整体命局如何判断？',
+  });
+  assert.match(prompt, /安星口径：中州派安星法/);
+  assert.doesNotMatch(prompt, /iztro|项目|API|MCP|工程/);
+  assertPromptIsPortableTaskText(prompt);
+});
+
 test('公开 API 紫微未指定方向时应默认走综合框架而不是自由问答', async () => {
   const { response, body } = await callApi('ziwei/prompt', {
     method: 'POST',
@@ -1898,6 +1932,30 @@ test('公开 API 紫微未指定方向时应默认走综合框架而不是自由
   assert.match(body.data.prompt, /【重点宫位资料】/);
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
   assert.doesNotMatch(body.data.prompt, /主题只作为|自由问答|解读方法|推断顺序/);
+});
+
+test('公开 API 紫微支持中州派底层安星口径', async () => {
+  const { response, body } = await callApi('ziwei/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '测试',
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      algorithm: 'zhongzhou',
+      question: '请先做整体解读。',
+      responseMode: 'full',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.result.payloadByScope.origin.calculation_config.algorithm, 'zhongzhou');
+  assert.match(body.data.prompt, /安星口径：中州派安星法/);
 });
 
 test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async () => {

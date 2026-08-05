@@ -10,7 +10,7 @@ test('React 与路由依赖会进入基础 vendor 分块', () => {
   );
 });
 
-test('命理核心模块会进入统一计算分块，避免八字与紫微互相引用时产生循环分块', () => {
+test('命理核心模块进入统一计算分块，避免八字与紫微互相引用时产生循环分块', () => {
   assert.equal(getManualChunk('D:/project/node_modules/iztro/lib/index.js'), 'iztro-vendor');
   assert.equal(getManualChunk('D:/project/node_modules/tyme4ts/dist/index.js'), 'tyme-vendor');
   assert.equal(
@@ -22,6 +22,10 @@ test('命理核心模块会进入统一计算分块，避免八字与紫微互�
   assert.equal(
     getManualChunk('D:/project/packages/core/src/bazi/baziCalculator.ts'),
     'chart-engine',
+  );
+  assert.equal(
+    getManualChunk('D:/project/packages/core/src/ziwei/iztro/pattern-detection.ts'),
+    'ziwei-patterns',
   );
 });
 
