@@ -19,5 +19,18 @@ export * from './engine/liuren-template';
 export * from './engine/method-text';
 export * from './astrolabe-scope';
 export * from './astrolabe-synastry';
+export * from './session';
+export * from './ssgw-content';
+
+// 结果摘要与提示词编排属于框架无关的核心能力，供已有结果直接复用。
+export {
+  buildDivinationPrompt,
+  buildDivinationPromptDocument,
+  formatDivinationInfo,
+  formatDivinationSolarTime,
+  formatDivinationTime,
+  getDivinationSummaryBlocks,
+} from '../prompt/divination';
+export type { DivinationPromptOptions, DivinationSummaryBlocks } from '../prompt/divination';
 
 export type * from '../types/index';

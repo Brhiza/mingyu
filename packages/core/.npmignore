@@ -1,0 +1,6 @@
+# 构建产物 dist 是 npm 包的运行时代码，不能沿用仓库根目录对 dist/ 的忽略规则。
+src/
+scripts/
+tsconfig.json
+tsconfig.tsbuildinfo
+*.tsbuildinfo

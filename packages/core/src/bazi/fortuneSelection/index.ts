@@ -21,6 +21,11 @@ import {
 import type { BaziFortuneSelectionValue, FortuneSelectionContext } from './helpers/types';
 
 export type { BaziFortuneSelectionValue, FortuneSelectionContext } from './helpers/types';
+export {
+  buildCurrentBaziFortuneSelection,
+  buildRecentBaziFortuneSelection,
+  getCurrentBaziLuckCycle,
+} from './current';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 

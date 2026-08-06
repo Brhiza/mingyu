@@ -6,6 +6,10 @@ export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
       return '依据用神、世应、动变、伏神与月日资料回答【问题】。';
     case 'meihua':
       return '依据体用、互卦、变卦与四时旺衰回答【问题】。';
+    case 'xiaoliuren':
+      return '依据月宫、日宫、时宫顺数轨迹与占得宫回答【问题】。';
+    case 'jinkoujue':
+      return '依据地分、将神、贵神、人元四位、阴阳发用与五动三动回答【问题】。';
     case 'qimen':
       return '依据用神、值符值使、宫位门星神干与格局回答【问题】。';
     case 'liuren':

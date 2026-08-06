@@ -1,15 +1,17 @@
-import type { DecadalTimelineOption } from '@core/ziwei/iztro';
+import type { DecadalTimelineOption } from 'mingyu-core/ziwei';
 import { formatPromptCurrentTime } from '@/lib/prompt-time';
 import type { AstrolabeScopeMode, QueryPromptState, ZiweiScopeMode } from '@/lib/query-state';
 import type { AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
 import { buildPortablePromptPack, type PromptContext } from '@/lib/ziwei-prompts';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
-import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import {
+  formatBaziForPrompt,
+  type BaziChartResult,
+  type BaziFortuneSelectionValue,
+} from 'mingyu-core/bazi';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { AstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import type { PalaceFact } from '@/types/analysis';
-import type { BaziChartResult } from '@core/bazi/baziTypes';
-import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
 import { safeStorage } from '@/lib/safe-storage';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { buildPromptGuidanceSections } from '@/lib/prompt-guidance';

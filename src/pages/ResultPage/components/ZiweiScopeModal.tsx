@@ -3,11 +3,11 @@ import {
   findCurrentDecadalOption,
   formatDecadalAgeRange,
   getDefaultHoroscopeContext,
-} from '@core/ziwei/iztro';
+} from 'mingyu-core/ziwei';
 import { type ZiweiScopeMode } from '@/lib/query-state';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
-import type { DecadalTimelineOption } from '@core/ziwei/iztro';
+import type { DecadalTimelineOption } from 'mingyu-core/ziwei';
 import { ziweiScopeLabelMap } from '../ResultPage.constants';
 import { useZiweiFortuneOptionsWorker } from '../hooks/useZiweiFortuneOptionsWorker';
 import {

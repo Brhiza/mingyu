@@ -3,15 +3,13 @@ import assert from 'node:assert/strict';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { getMonthDaysInfo, getYearInfo } from '@core/bazi/calendarTool';
 import {
+  buildCurrentBaziFortuneSelection,
   buildFortuneSelectionContext,
+  buildRecentBaziFortuneSelection,
   normalizeFortuneSelection,
-} from '@core/bazi/fortuneSelection';
+} from 'mingyu-core/bazi';
 import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
-import {
-  buildCurrentBaziFortuneSelection,
-  buildRecentBaziFortuneSelection,
-} from '../src/components/BaziFortuneTools/helpers';
 
 function createMockResult(): BaziChartResult {
   return {

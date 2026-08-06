@@ -8,4 +8,4 @@ export {
   getPalaceByIndex,
   getPalaceByName,
   getSurroundedPalaces,
-} from 'mingyu-core/ziwei/iztro';
+} from 'mingyu-core/ziwei';

@@ -28,6 +28,8 @@ export interface Person {
   birthMinute?: number;
   birthPlace?: string;
   birthLongitude?: number;
+  /** 当地标准时区，例如中国为 UTC+8；真太阳时模式默认 UTC+8。 */
+  timezone?: number;
   age?: number;
   shenShaVariants?: Partial<ShenShaVariantConfig>;
   /**
@@ -129,6 +131,8 @@ export interface TimingInfo {
   correctedTime: SolarDateTimeInfo;
   birthPlace?: string;
   birthLongitude?: number;
+  timezone: number;
+  standardMeridian: number;
   longitudeCorrectionMinutes: number;
   equationOfTimeMinutes: number;
   totalCorrectionMinutes: number;

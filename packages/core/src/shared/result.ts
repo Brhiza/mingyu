@@ -37,6 +37,29 @@ export interface CoreResultMetaInput {
   diagnostics?: CoreDiagnostic[];
 }
 
+export interface MingyuCoreErrorJSON<TCode extends string = string> {
+  name: string;
+  code: TCode;
+  category: CoreErrorCategory;
+  message: string;
+  field?: string;
+  recoverable: boolean;
+  diagnostics: CoreDiagnostic<TCode>[];
+  context?: Record<string, unknown>;
+}
+
+export type CoreExecutionResult<T> =
+  { ok: true; data: T } | { ok: false; error: MingyuCoreErrorJSON };
+
+export interface NormalizeCoreErrorOptions {
+  code?: string;
+  category?: CoreErrorCategory;
+  message?: string;
+  field?: string;
+  recoverable?: boolean;
+  context?: Record<string, unknown>;
+}
+
 export class MingyuCoreError<TCode extends string = string> extends Error {
   readonly code: TCode;
   readonly category: CoreErrorCategory;
@@ -73,7 +96,7 @@ export class MingyuCoreError<TCode extends string = string> extends Error {
     this.context = options.context;
   }
 
-  toJSON() {
+  toJSON(): MingyuCoreErrorJSON<TCode> {
     return {
       name: this.name,
       code: this.code,
@@ -84,6 +107,89 @@ export class MingyuCoreError<TCode extends string = string> extends Error {
       diagnostics: this.diagnostics,
       context: this.context,
     };
+  }
+}
+
+function inferErrorCategory(error: unknown): CoreErrorCategory {
+  if (error instanceof TypeError || error instanceof RangeError) return 'validation';
+  if (
+    error instanceof Error &&
+    /(?:cannot find|failed to resolve|module not found|找不到).*(?:iztro|依赖)|(?:iztro|依赖).*(?:cannot find|failed to resolve|module not found|找不到)/i.test(
+      error.message,
+    )
+  ) {
+    return 'dependency';
+  }
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    if (/正好位于.*分界线|边界.*(?:敏感|无法唯一|重新测量)/.test(message)) return 'boundary';
+    if (
+      /(?:不支持的|未知的)(?:出生排盘系统|合盘系统|占法)|(?:当前|暂时|目前).*(?:只开放|仅开放|不支持|不可用)|(?:只|仅)支持/.test(
+        message,
+      )
+    ) {
+      return 'unsupported';
+    }
+    if (
+      /(?:必须|需提供|需要提供|至少需要|至少提供|不能为空|不能同时|不得同时|只能是|只能为|需在|必须在|必须是|参数无效|输入无效|不是有效|无法识别的生肖)/.test(
+        message,
+      )
+    ) {
+      return 'validation';
+    }
+  }
+  return 'calculation';
+}
+
+/** 把任意运行时异常转换为可识别、可序列化的核心错误。 */
+export function normalizeCoreError(
+  error: unknown,
+  options: NormalizeCoreErrorOptions = {},
+): MingyuCoreError {
+  if (error instanceof MingyuCoreError) return error;
+
+  const originalMessage = error instanceof Error ? error.message.trim() : '';
+  const category = options.category ?? inferErrorCategory(error);
+  const fallbackCode =
+    category === 'dependency'
+      ? 'DEPENDENCY_UNAVAILABLE'
+      : category === 'validation'
+        ? 'INPUT_VALIDATION_FAILED'
+        : category === 'unsupported'
+          ? 'OPERATION_UNSUPPORTED'
+          : category === 'boundary'
+            ? 'INPUT_BOUNDARY_AMBIGUOUS'
+            : 'CORE_EXECUTION_FAILED';
+  return new MingyuCoreError({
+    code: options.code ?? fallbackCode,
+    category,
+    message: options.message ?? (originalMessage || '核心能力执行失败。'),
+    field: options.field,
+    recoverable:
+      options.recoverable ??
+      (category === 'validation' || category === 'boundary' || category === 'dependency'),
+    context: options.context,
+    cause: error,
+  });
+}
+
+/** 安全执行同步能力，失败时返回可直接 JSON 序列化的错误对象。 */
+export function executeSafelySync<T>(operation: () => T): CoreExecutionResult<T> {
+  try {
+    return { ok: true, data: operation() };
+  } catch (error) {
+    return { ok: false, error: normalizeCoreError(error).toJSON() };
+  }
+}
+
+/** 安全执行同步或异步能力，统一返回可判别联合类型。 */
+export async function executeSafely<T>(
+  operation: () => T | Promise<T>,
+): Promise<CoreExecutionResult<T>> {
+  try {
+    return { ok: true, data: await operation() };
+  } catch (error) {
+    return { ok: false, error: normalizeCoreError(error).toJSON() };
   }
 }
 
@@ -300,3 +406,6 @@ export function attachResultMeta<T extends object>(
 export function serializeCoreResult(value: unknown): string {
   return stableStringify(value);
 }
+
+/** 统一结果协议的简短公共名称。 */
+export const serializeResult = serializeCoreResult;

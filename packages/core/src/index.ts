@@ -33,6 +33,7 @@ export * as capabilities from './capabilities/index';
 export * as result from './shared/result';
 export * as random from './shared/random';
 export * as promptEvidence from './prompt-evidence/index';
+export * as prompt from './prompt/index';
 
 // 新增术数系统
 export * as bazhai from './ba_zhai/index';
@@ -41,11 +42,23 @@ export * as taiyi from './taiyi/index';
 export * as qizheng from './qi_zheng/index';
 export * as xuankong from './xuan_kong/index';
 export * as residentialFengshui from './residential_fengshui/index';
+export * as location from './location/index';
+export * as birth from './birth/index';
+export * as compatibility from './compatibility/index';
+export * as client from './client/index';
 
 // 全局配置
 export { configure } from './calendar/timeManager';
-export { getCapabilities, getSystemCapability } from './capabilities/index';
+export {
+  SYSTEM_CAPABILITY_IDS,
+  getCapabilities,
+  getSystemCapability,
+  requireSystemCapability,
+} from './capabilities/index';
 export * from './profile/index';
+export * from './birth/index';
+export * from './compatibility/index';
+export * from './client/index';
 export type * from './capabilities/index';
 export * from './shared/result';
 

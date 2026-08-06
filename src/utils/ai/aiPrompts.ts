@@ -1,13 +1,21 @@
-import { formatBaziForPrompt, type PromptChartScene } from '@core/bazi/baziAnalysisFormatter';
-import type { BaziChartResult } from '@core/bazi/baziTypes';
-import type { FortuneSelectionContext } from '@core/bazi/fortuneSelection';
+import {
+  formatBaziForPrompt,
+  generateEnhancedAnalysisSection,
+  analyzeBaziCompatibility,
+  type BaziChartResult,
+  type FortuneSelectionContext,
+  type PromptChartScene,
+} from 'mingyu-core/bazi';
 import {
   getBaziCompatibilityDefaultQuestion,
   getBaziDefaultQuestion,
 } from '../../lib/prompt-default-questions';
+import {
+  BAZI_COMPATIBILITY_PROMPT_PRESETS,
+  BAZI_PROMPT_PRESETS,
+  formatBaziFortuneSelection,
+} from 'mingyu-core/prompt';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
-import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
-import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import { buildPromptGuidanceSections } from '../../lib/prompt-guidance';
 
 export interface AIPromptOption {
@@ -44,85 +52,6 @@ function resolvePromptScene(promptId: string): PromptChartScene {
   return 'general';
 }
 
-function formatFortuneSelectionSection(
-  ctx: FortuneSelectionContext | null | undefined,
-  _options: { includeBreakdown?: boolean } = {},
-): { analysisObject: string; focus: string } | null {
-  if (!ctx) return null;
-  const { promptPayload, scope } = ctx;
-  const summary = promptPayload.summaryLines ?? [];
-  const lines: string[] = [promptPayload.scopeLabel];
-
-  const selectedDate =
-    scope === 'year'
-      ? `${ctx.year}年`
-      : scope === 'dayun'
-        ? `${ctx.cycleStartYear}年起`
-        : scope === 'month'
-          ? summary.find((line) => line.startsWith('日期范围：'))?.replace('日期范围：', '')
-          : ctx.dayBreakdown?.[0]?.date;
-  if (selectedDate) {
-    lines.push(`选择日期：${selectedDate}`);
-  }
-
-  if (scope === 'month') {
-    const monthLine = summary.find((line) => line.startsWith('流月：'));
-    const jieqiLine = summary.find((line) => line.startsWith('交节时刻：'));
-    if (monthLine) {
-      lines.push(`节气月：${monthLine.replace('流月：', '')}`);
-    }
-    if (jieqiLine) {
-      lines.push(jieqiLine.replace('交节时刻：', '交节：'));
-    }
-  }
-
-  const upperDayun = summary.find((line) => line.startsWith('所属大运：'));
-  if (upperDayun) {
-    lines.push(upperDayun.replace('所属大运：', '上层岁运：'));
-  }
-  const upperYear = summary.find((line) => line.startsWith('所属流年：'));
-  if (upperYear) {
-    lines.push(upperYear.replace('所属流年：', '上层流年：'));
-  }
-
-  const selectedGanZhi =
-    summary.find((line) => line.startsWith('流年干支：')) ??
-    summary.find((line) => line.startsWith('流月：')) ??
-    summary.find((line) => line.startsWith('流日：')) ??
-    summary.find((line) => line.startsWith('大运干支：'));
-  if (selectedGanZhi) {
-    const label = selectedGanZhi.includes('流年')
-      ? '流年干支：'
-      : selectedGanZhi.includes('流月')
-        ? '流月：'
-        : selectedGanZhi.includes('流日')
-          ? '流日：'
-          : '大运干支：';
-    lines.push(`所选干支：${selectedGanZhi.replace(label, '')}`);
-  }
-
-  const triggerLine = summary.find((line) => line.includes('触发：'));
-  if (triggerLine) {
-    lines.push(`主要触发：${triggerLine.split('：').slice(1).join('：')}`);
-  }
-
-  const detailTitles = (promptPayload.detailGroups ?? []).map((group) => group.title);
-  if (detailTitles.length) {
-    lines.push(detailTitles.join('、'));
-  }
-
-  for (const group of promptPayload.detailGroups ?? []) {
-    if (group.lines.length) {
-      lines.push(`${group.title}\n${group.lines.map((line) => `  - ${line}`).join('\n')}`);
-    }
-  }
-
-  return {
-    analysisObject: promptPayload.scopeLabel,
-    focus: lines.join('\n'),
-  };
-}
-
 function formatFullFortuneOutputSection(result: BaziChartResult | null): string {
   if (!result?.luckInfo?.cycles?.length) return '';
 
@@ -153,9 +82,6 @@ function buildFortunePromptAddon(ctx: FortuneSelectionContext | null): string {
   return '';
 }
 
-const BAZI_SINGLE_TASK_PROMPT = '请依据八字排盘资料完成解读。';
-const BAZI_COMPATIBILITY_TASK_PROMPT = '请依据双方盘面回答【问题】。';
-
 function normalizeBaziScopeLabel(scopeLabel: string | undefined) {
   const normalized = scopeLabel?.trim();
   return normalized && normalized !== '综合' ? normalized : '通用';
@@ -170,49 +96,17 @@ function buildBaziTaskText(scopeLabel: string | undefined, fallbackTask: string)
   return `请重点分析${normalizedScopeLabel}，并直接回答【问题】。`;
 }
 
-function createBaziPromptOption(id: string, scopeLabel: string): AIPromptOption {
-  return { id, prompt: BAZI_SINGLE_TASK_PROMPT, scopeLabel };
-}
-
-function createBaziCompatibilityPromptOption(id: string, scopeLabel: string): AIPromptOption {
-  return { id, prompt: BAZI_COMPATIBILITY_TASK_PROMPT, scopeLabel };
-}
-
 export const BAZI_AI_PROMPTS = {
-  single: [
-    createBaziPromptOption('ai-mingge-zonglun', '通用'),
-    createBaziPromptOption('ai-recent', '近期'),
-    createBaziPromptOption('ai-career', '事业'),
-    createBaziPromptOption('ai-job-change', '换工作'),
-    createBaziPromptOption('ai-startup-partnership', '创业合作'),
-    createBaziPromptOption('ai-investment-partnership', '投资合作'),
-    createBaziPromptOption('ai-wealth-timing', '财运'),
-    createBaziPromptOption('ai-marriage', '婚恋'),
-    createBaziPromptOption('ai-relationship-push', '关系推进'),
-    createBaziPromptOption('ai-relationship-decision', '关系去留'),
-    createBaziPromptOption('ai-reconciliation-decision', '复合判断'),
-    createBaziPromptOption('ai-children-fate', '子女'),
-    createBaziPromptOption('ai-health', '健康'),
-    createBaziPromptOption('ai-family', '六亲'),
-    createBaziPromptOption('ai-home', '家庭'),
-    createBaziPromptOption('ai-home-move', '搬家置业'),
-    createBaziPromptOption('ai-settle-relocate', '定居换城'),
-    createBaziPromptOption('ai-social', '人际'),
-    createBaziPromptOption('ai-emotion', '情绪'),
-    createBaziPromptOption('ai-study', '学业'),
-    createBaziPromptOption('ai-study-advance', '考证进修'),
-    createBaziPromptOption('ai-exam-landing', '考试上岸'),
-    createBaziPromptOption('ai-growth', '成长'),
-    createBaziPromptOption('ai-talent', '天赋'),
-  ] as AIPromptOption[],
-  combined: [
-    createBaziCompatibilityPromptOption('ai-compat-marriage', '合婚'),
-    createBaziCompatibilityPromptOption('ai-compat-career', '合伙'),
-    createBaziCompatibilityPromptOption('ai-compat-friendship', '友情'),
-    createBaziCompatibilityPromptOption('ai-compat-children', '子女'),
-    createBaziCompatibilityPromptOption('ai-compat-parents', '父母'),
-    createBaziCompatibilityPromptOption('ai-compat-siblings', '兄弟'),
-  ] as AIPromptOption[],
+  single: BAZI_PROMPT_PRESETS.map(({ id, prompt, scopeLabel }) => ({
+    id,
+    prompt,
+    scopeLabel,
+  })) as AIPromptOption[],
+  combined: BAZI_COMPATIBILITY_PROMPT_PRESETS.map(({ id, prompt, scopeLabel }) => ({
+    id,
+    prompt,
+    scopeLabel,
+  })) as AIPromptOption[],
 };
 
 type SinglePromptConfig = (typeof BAZI_AI_PROMPTS.single)[number];
@@ -240,9 +134,7 @@ export function buildPromptFromConfig(
     const chartData = chartResult
       ? formatBaziForPrompt(chartResult, selectedOption, resolvePromptScene(promptConfig.id))
       : '';
-    const fortuneSection = formatFortuneSelectionSection(fortuneSelectionContext, {
-      includeBreakdown: promptConfig.id === 'ai-fortune-detail',
-    });
+    const fortuneSection = formatBaziFortuneSelection(fortuneSelectionContext);
     const fullFortuneSection = hasFullFortuneOutput
       ? formatFullFortuneOutputSection(chartResult)
       : '';

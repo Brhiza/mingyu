@@ -1,1 +1,1 @@
-export * from '@core/calendar/date-validation';
+export * from 'mingyu-core/calendar';

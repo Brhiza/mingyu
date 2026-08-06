@@ -185,6 +185,13 @@ export class BaziCalculator {
     ) {
       throw new Error('出生经度需在 -180 到 180 之间。');
     }
+    const timezone = person.timezone ?? 8;
+    if (
+      useTrueSolarTimeEnabled &&
+      (!Number.isFinite(timezone) || timezone < -12 || timezone > 14)
+    ) {
+      throw new Error('时区需在 UTC-12 到 UTC+14 之间。');
+    }
     if (!Number.isInteger(year) || year < 1900 || year > 2100) {
       throw new Error('出生年份需在 1900-2100 之间。');
     }
@@ -247,7 +254,7 @@ export class BaziCalculator {
         second: 0,
         isLeapMonth: isLeapMonthEnabled,
         longitude: birthLongitude!,
-        timezone: 8,
+        timezone,
         applyChinaDst,
       });
       const dstCorrectionMinutes = trueSolarResult.chinaDst.applied
@@ -284,6 +291,8 @@ export class BaziCalculator {
         correctedTime: trueSolarResult.correctedTime,
         birthPlace: birthPlace?.trim() || '',
         birthLongitude,
+        timezone,
+        standardMeridian: trueSolarResult.standardMeridian,
         longitudeCorrectionMinutes: trueSolarResult.longitudeCorrectionMinutes,
         equationOfTimeMinutes: trueSolarResult.equationOfTimeMinutes,
         totalCorrectionMinutes: trueSolarResult.totalCorrectionMinutes,

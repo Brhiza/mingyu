@@ -1,11 +1,8 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
-import {
-  buildCombinedZiweiCompatibilityPrompt,
-  buildZiweiChartInput,
-  calculateZiweiChartForScopes,
-} from '../../../src/lib/full-chart-engine/ziwei.js';
+import { buildZiweiChartInput, calculateZiweiChartForScopes } from 'mingyu-core/ziwei';
+import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei/iztro';
 import {
   PROMPT_MODES,

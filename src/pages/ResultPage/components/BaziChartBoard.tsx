@@ -1,5 +1,5 @@
 import { Suspense, lazy, memo } from 'react';
-import type { BaziChartResult } from '@core/bazi/baziTypes';
+import type { BaziChartResult } from 'mingyu-core/bazi';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
 import {
   formatAvoidGodPrioritySummary,

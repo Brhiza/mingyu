@@ -21,6 +21,7 @@ import {
   ZODIACS,
   EARTHLY_BRANCHES,
   SIXTY_CYCLE,
+  getGanZhiFromDate,
 } from '../ganzhi';
 import { analyzeZodiacEvidence } from './evidence';
 
@@ -212,6 +213,40 @@ export interface ZodiacElementRelation {
   zodiacWuxing: string;
 }
 
+/** 生肖流年便捷输入；可传生肖名称或年支，并以公历年自动换算立春后的流年干支。 */
+export interface ZodiacYearFortuneInput {
+  zodiac: string;
+  /** 公历流年；未提供 yearGanZhi 时使用，默认当前公历年。 */
+  year?: number;
+  /** 直接指定六十甲子；同时提供 year 时以此字段为准。 */
+  yearGanZhi?: string;
+}
+
+function resolveZodiacBranch(value: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new TypeError('zodiac 必须是生肖名称或十二地支。');
+  }
+  const normalized = value.trim();
+  if ((EARTHLY_BRANCHES as readonly string[]).includes(normalized)) return normalized;
+  const index = ZODIACS.findIndex((name) => name === normalized);
+  if (index >= 0) return EARTHLY_BRANCHES[index];
+  throw new TypeError(`无法识别的生肖或地支：${normalized}。`);
+}
+
+function resolveYearGanZhi(input: ZodiacYearFortuneInput): string {
+  if (input.yearGanZhi !== undefined) {
+    const value = input.yearGanZhi.trim();
+    if (!isValidGanZhi(value)) throw new TypeError(`yearGanZhi 不是有效的六十甲子：${value}。`);
+    return value;
+  }
+  const year = input.year ?? new Date().getFullYear();
+  if (!Number.isSafeInteger(year) || year < 1900 || year > 2200) {
+    throw new RangeError('year 必须是 1900-2200 之间的整数。');
+  }
+  // 2 月 10 日一定在立春之后，可稳定取得该公历流年的年柱。
+  return getGanZhiFromDate(new Date(year, 1, 10, 12, 0, 0)).year;
+}
+
 function getElementRelation(yearStemWuxing: string, zodiacWuxing: string): ZodiacElementRelation {
   if (isSheng(yearStemWuxing, zodiacWuxing)) {
     return {
@@ -341,9 +376,18 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   };
 }
 
+/** 从前端常用的“生肖/年支 + 公历年”输入直接生成生肖流年结果。 */
+export function calculateZodiacYearFortune(input: ZodiacYearFortuneInput): ZodiacYearFortune {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new TypeError('生肖流年参数必须是对象。');
+  }
+  return getZodiacYearFortune(resolveZodiacBranch(input.zodiac), resolveYearGanZhi(input));
+}
+
 export const zodiac = {
   TAI_SUI_STARS,
   getTaiSuiConflicts,
   getYearTaiSui,
   getZodiacYearFortune,
+  calculateZodiacYearFortune,
 };
