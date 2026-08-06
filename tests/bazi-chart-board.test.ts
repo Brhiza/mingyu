@@ -37,6 +37,8 @@ test('八字结果盘应展示排盘预警和稳定基础参考', () => {
   assert.match(html, /天干十神/);
   assert.match(html, /地支十神/);
   assert.match(html, /元男/);
+  assert.ok(html.indexOf('天干十神') < html.indexOf('元男'));
+  assert.ok(html.indexOf('元男') < html.indexOf('>天干<'));
   assert.match(html, /data-wuxing="[木火土金水]"/);
   assert.match(html, /藏干十神/);
   assert.match(html, /自坐/);
@@ -72,4 +74,6 @@ test('八字女命日柱应标注元女', () => {
 
   assert.match(html, /元女/);
   assert.doesNotMatch(html, /元男/);
+  assert.ok(html.indexOf('天干十神') < html.indexOf('元女'));
+  assert.ok(html.indexOf('元女') < html.indexOf('>天干<'));
 });

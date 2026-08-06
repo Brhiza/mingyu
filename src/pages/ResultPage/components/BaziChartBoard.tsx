@@ -94,7 +94,9 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   }> = [
     {
       label: '天干十神',
-      values: PILLAR_KEYS.map((key) => result.tenGods[key]),
+      values: PILLAR_KEYS.map((key) =>
+        key === 'day' && dayOwnerLabel ? dayOwnerLabel : result.tenGods[key],
+      ),
     },
     {
       label: '天干',
@@ -213,10 +215,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <div className="bazi-pillars-cell is-label is-head">信息</div>
             <div className="bazi-pillars-cell is-head">年柱</div>
             <div className="bazi-pillars-cell is-head">月柱</div>
-            <div className="bazi-pillars-cell is-head is-day-master">
-              <span>日柱</span>
-              {dayOwnerLabel ? <small className="bazi-day-owner">{dayOwnerLabel}</small> : null}
-            </div>
+            <div className="bazi-pillars-cell is-head is-day-master">日柱</div>
             <div className="bazi-pillars-cell is-head">时柱</div>
             {pillarRows.flatMap((row) => [
               <div key={`${row.label}-label`} className="bazi-pillars-cell is-label">
