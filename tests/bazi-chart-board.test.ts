@@ -50,8 +50,12 @@ test('八字结果盘应展示排盘预警和稳定基础参考', () => {
     ...result.shensha.day,
     ...result.shensha.hour,
   ];
-  assert.ok(allShenSha.length > 3);
-  allShenSha.forEach((item) => assert.ok(html.includes(item), `盘面应展示神煞：${item}`));
+  ['天乙贵人', '太极贵人', '文昌贵人', '华盖', '金舆'].forEach((item) =>
+    assert.ok(html.includes(`>${item}<`), `盘面应展示常用神煞：${item}`),
+  );
+  assert.ok(allShenSha.includes('马财库'), '底层结果仍应保留扩展神煞');
+  assert.ok(!html.includes('>马财库<'), '盘面应隐藏不常用神煞');
+  assert.ok(!html.includes('>真鬼刑疾<'), '盘面应隐藏不常用神煞');
   assert.match(html, /bazi-shensha-tag is-(lucky|unlucky|neutral)/);
 });
 

@@ -18,6 +18,57 @@ const LazyBaziFortuneSelector = lazy(async () => {
 });
 
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
+const BAZI_BOARD_COMMON_SHENSHA = new Set([
+  '天乙贵人',
+  '太极贵人',
+  '天德贵人',
+  '天德合',
+  '月德贵人',
+  '月德合',
+  '福星贵人',
+  '文昌贵人',
+  '国印贵人',
+  '天厨贵人',
+  '德秀贵人',
+  '学堂',
+  '词馆',
+  '禄神',
+  '羊刃',
+  '飞刃',
+  '驿马',
+  '将星',
+  '华盖',
+  '金舆',
+  '天赦日',
+  '天医',
+  '魁罡',
+  '金神',
+  '桃花',
+  '红鸾',
+  '天喜',
+  '孤辰',
+  '寡宿',
+  '红艳煞',
+  '孤鸾煞',
+  '亡神',
+  '劫煞',
+  '灾煞',
+  '六厄',
+  '元辰',
+  '血刃',
+  '流霞',
+  '天罗',
+  '地网',
+  '阴差阳错',
+  '十恶大败',
+  '四废日',
+  '童子煞',
+  '勾绞煞',
+]);
+
+function filterBaziBoardShensha(items: string[]) {
+  return uniqueNonEmptyStrings(items).filter((item) => BAZI_BOARD_COMMON_SHENSHA.has(item));
+}
 
 function BaziGanZhiValue(props: { value: string }) {
   const wuxing = getWuxing(props.value);
@@ -33,7 +84,7 @@ function BaziGanZhiValue(props: { value: string }) {
 }
 
 function BaziShenShaList(props: { items: string[] }) {
-  const items = uniqueNonEmptyStrings(props.items);
+  const items = filterBaziBoardShensha(props.items);
 
   if (items.length === 0) {
     return <span className="bazi-shensha-empty">无</span>;
