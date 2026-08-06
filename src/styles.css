@@ -2055,6 +2055,14 @@ select {
   gap: 12px;
 }
 
+.ziwei-detail-card > .result-tag-cloud {
+  height: 54px;
+  align-content: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .ziwei-detail-head {
   display: flex;
   justify-content: space-between;
