@@ -101,7 +101,7 @@ export class TimeManager {
    * @returns 统一的时间数据
    */
   static getDivinationTime(customTime?: Date): DivinationTime {
-    const targetTime = customTime || new Date();
+    const targetTime = customTime === undefined ? new Date() : customTime;
     if (!(targetTime instanceof Date) || Number.isNaN(targetTime.getTime())) {
       throw new Error('自定义时间不是有效日期。');
     }

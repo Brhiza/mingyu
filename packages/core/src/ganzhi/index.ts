@@ -63,8 +63,16 @@ import {
   type EarthlyBranch,
   type ChangShengState,
 } from './data';
+import {
+  assertEarthlyBranch,
+  assertHeavenlyStem,
+  assertValidGanZhi,
+  assertWuxing,
+  isValidGanZhi,
+} from './validation';
 
 export * from './data';
+export * from './validation';
 
 export {
   BRANCH_ORDER,
@@ -447,7 +455,7 @@ export interface GanZhiDate {
  * 公历必须先创建 `SolarTime`，再调用 `getLunarHour()`。
  */
 export function getLunarHourFromDate(date: Date) {
-  if (Number.isNaN(date.getTime())) throw new Error('日期无效');
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) throw new Error('日期无效');
   return SolarTime.fromYmdHms(
     date.getFullYear(),
     date.getMonth() + 1,
@@ -471,6 +479,7 @@ export function getGanZhiFromDate(date: Date): GanZhiDate {
 
 /** 天干五行（委托 tyme4ts，回退到本地表） */
 export function getStemWuxing(stem: string): string {
+  assertHeavenlyStem(stem);
   try {
     return HeavenStem.fromName(stem).getElement().getName();
   } catch {
@@ -482,6 +491,7 @@ export function getStemWuxing(stem: string): string {
 
 /** 天干阴阳 */
 export function getStemYinYang(stem: string): '阳' | '阴' {
+  assertHeavenlyStem(stem);
   const y = STEM_YINYANG[stem];
   if (!y) throw new Error(`天干阴阳数据缺失：${stem}`);
   return y;
@@ -489,6 +499,7 @@ export function getStemYinYang(stem: string): '阳' | '阴' {
 
 /** 地支阴阳 */
 export function getBranchYinYang(branch: string): '阳' | '阴' {
+  assertEarthlyBranch(branch);
   const y = BRANCH_YINYANG[branch];
   if (!y) throw new Error(`地支阴阳数据缺失：${branch}`);
   return y;
@@ -502,15 +513,15 @@ export function getGanZhiYinYang(ganZhi: string): '阳' | '阴' {
 
 /** 天干序号（0-9） */
 export function getStemIndex(stem: string): number {
+  assertHeavenlyStem(stem);
   const idx = HEAVENLY_STEMS.indexOf(stem as HeavenlyStem);
-  if (idx < 0) throw new Error(`天干无效：${stem}`);
   return idx;
 }
 
 /** 地支序号（0-11） */
 export function getBranchIndex(branch: string): number {
+  assertEarthlyBranch(branch);
   const idx = EARTHLY_BRANCHES.indexOf(branch as EarthlyBranch);
-  if (idx < 0) throw new Error(`地支无效：${branch}`);
   return idx;
 }
 
@@ -537,19 +548,9 @@ export function getXunHead(ganZhi: string): string {
   return xunHead;
 }
 
-/** 是否为真实存在的六十甲子组合，而非仅由合法天干和地支随意拼接。 */
-export function isValidGanZhi(ganZhi: string): boolean {
-  return typeof ganZhi === 'string' && ganZhi.length === 2 && NAYIN_MAP[ganZhi] !== undefined;
-}
-
-function assertValidGanZhi(ganZhi: string): void {
-  if (!isValidGanZhi(ganZhi)) {
-    throw new Error(`干支组合无效：${ganZhi}`);
-  }
-}
-
 /** 纳音（如「海中金」，委托 tyme4ts，与《纳音歌》一致） */
 export function getNayin(ganZhi: string): string {
+  assertValidGanZhi(ganZhi);
   try {
     return SixtyCycle.fromName(ganZhi).getSound().getName();
   } catch {
@@ -589,6 +590,8 @@ const YANG_STEM_OF_WUXING: Record<string, string> = {
   水: '壬',
 };
 export function getChangShengState(wuxing: string, branch: string): ChangShengState {
+  assertWuxing(wuxing);
+  assertEarthlyBranch(branch);
   const stem = YANG_STEM_OF_WUXING[wuxing];
   if (!stem) throw new Error(`五行长生状态缺失：${wuxing}`);
   try {
@@ -607,13 +610,14 @@ export function getChangShengState(wuxing: string, branch: string): ChangShengSt
 
 /** 生肖（由年支取） */
 export function getZodiac(yearBranch: string): string {
+  assertEarthlyBranch(yearBranch, '年支');
   const idx = EARTHLY_BRANCHES.indexOf(yearBranch as EarthlyBranch);
-  if (idx < 0) throw new Error(`年支无效：${yearBranch}`);
   return ZODIACS[idx];
 }
 
 /** 地支五行（委托 tyme4ts，回退到本地表） */
 export function getBranchWuxing(branch: string): string {
+  assertEarthlyBranch(branch);
   try {
     return EarthBranch.fromName(branch).getElement().getName();
   } catch {
@@ -625,31 +629,42 @@ export function getBranchWuxing(branch: string): string {
 
 /** 地支六合（委托 tyme4ts） */
 export function isLiuhe(a: string, b: string): boolean {
+  assertEarthlyBranch(a, '第一个地支');
+  assertEarthlyBranch(b, '第二个地支');
   return EarthBranch.fromName(a).getCombine().getName() === b;
 }
 
 /** 地支六冲（委托 tyme4ts） */
 export function isLiuchong(a: string, b: string): boolean {
+  assertEarthlyBranch(a, '第一个地支');
+  assertEarthlyBranch(b, '第二个地支');
   return EarthBranch.fromName(a).getOpposite().getName() === b;
 }
 
 /** 地支六害（委托 tyme4ts） */
 export function isLiuhai(a: string, b: string): boolean {
+  assertEarthlyBranch(a, '第一个地支');
+  assertEarthlyBranch(b, '第二个地支');
   return EarthBranch.fromName(a).getHarm().getName() === b;
 }
 
 /** 天干五合（委托 tyme4ts） */
 export function isTianGanHe(a: string, b: string): boolean {
+  assertHeavenlyStem(a, '第一个天干');
+  assertHeavenlyStem(b, '第二个天干');
   return HeavenStem.fromName(a).getCombine().getName() === b;
 }
 
 /** 地支对宫（委托 tyme4ts） */
 export function getOppositeBranch(branch: string): string {
+  assertEarthlyBranch(branch);
   return EarthBranch.fromName(branch).getOpposite().getName();
 }
 
 /** 十神：以 dayStem 为日主，求 stem 的相对十神（委托 tyme4ts，新增能力） */
 export function getTenStar(dayStem: string, stem: string): string {
+  assertHeavenlyStem(dayStem, '日干');
+  assertHeavenlyStem(stem, '目标天干');
   return HeavenStem.fromName(dayStem).getTenStar(HeavenStem.fromName(stem)).getName();
 }
 

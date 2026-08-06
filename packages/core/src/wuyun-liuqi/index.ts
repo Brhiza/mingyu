@@ -1,0 +1,297 @@
+/**
+ * @file 五运六气年度结构
+ * @description 依据年干支推导岁运太过不及、司天在泉以及六步主气与客气。
+ * @传统依据 《素问·天元纪大论》《素问·五运行大论》《素问·六微旨大论》及运气七篇大论。
+ */
+import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
+
+export const WUYUN_LIUQI_SOURCES = [
+  {
+    title: '《素问·天元纪大论》',
+    scope: '天干化五运、地支配司天以及运气年度纲领。',
+  },
+  {
+    title: '《素问·五运行大论》',
+    scope: '五运与五行、气候属性的传统关系。',
+  },
+  {
+    title: '《素问·六微旨大论》',
+    scope: '六气司天、在泉与主客气位置关系。',
+  },
+] as const;
+
+export type WuyunElement = '木' | '火' | '土' | '金' | '水';
+export type WuyunStrength = '太过' | '不及';
+export type LiuqiName = '厥阴风木' | '少阴君火' | '少阳相火' | '太阴湿土' | '阳明燥金' | '太阳寒水';
+
+export interface WuyunLiuqiInput {
+  /** 公历年；按该年年中所属年柱换算，避免元旦与立春边界混淆。 */
+  year?: number;
+  /** 明确指定年干支；提供后以此为准。 */
+  yearGanZhi?: string;
+  /** 可选问题，只用于生成完整提示词，不改变排盘。 */
+  question?: string;
+}
+
+export interface AnnualMovement {
+  stem: string;
+  element: WuyunElement;
+  name: string;
+  yinYang: '阳' | '阴';
+  strength: WuyunStrength;
+  basis: string;
+}
+
+export interface LiuqiProfile {
+  name: LiuqiName;
+  phase: '厥阴' | '少阴' | '少阳' | '太阴' | '阳明' | '太阳';
+  qi: '风' | '君火' | '相火' | '湿' | '燥' | '寒';
+  element: WuyunElement;
+}
+
+export interface LiuqiStep {
+  order: number;
+  label: '初之气' | '二之气' | '三之气' | '四之气' | '五之气' | '终之气';
+  hostQi: LiuqiProfile;
+  guestQi: LiuqiProfile;
+  guestRole?: '司天' | '在泉';
+}
+
+export interface WuyunLiuqiCalculation {
+  input: {
+    year?: number;
+    yearGanZhi: string;
+    yearGanZhiSource: '明确年干支' | '公历年年中换算';
+  };
+  annualMovement: AnnualMovement;
+  sitian: LiuqiProfile;
+  zaiquan: LiuqiProfile;
+  qiSteps: LiuqiStep[];
+  calculationChain: string[];
+  sources: Array<{ title: string; scope: string }>;
+  limitations: string[];
+}
+
+export interface WuyunLiuqiResult extends WuyunLiuqiCalculation {
+  prompt: string;
+}
+
+const STEM_MOVEMENT: Record<
+  string,
+  { element: WuyunElement; yinYang: '阳' | '阴'; strength: WuyunStrength }
+> = {
+  甲: { element: '土', yinYang: '阳', strength: '太过' },
+  乙: { element: '金', yinYang: '阴', strength: '不及' },
+  丙: { element: '水', yinYang: '阳', strength: '太过' },
+  丁: { element: '木', yinYang: '阴', strength: '不及' },
+  戊: { element: '火', yinYang: '阳', strength: '太过' },
+  己: { element: '土', yinYang: '阴', strength: '不及' },
+  庚: { element: '金', yinYang: '阳', strength: '太过' },
+  辛: { element: '水', yinYang: '阴', strength: '不及' },
+  壬: { element: '木', yinYang: '阳', strength: '太过' },
+  癸: { element: '火', yinYang: '阴', strength: '不及' },
+};
+
+const QI_PROFILES: Record<LiuqiName, LiuqiProfile> = {
+  厥阴风木: { name: '厥阴风木', phase: '厥阴', qi: '风', element: '木' },
+  少阴君火: { name: '少阴君火', phase: '少阴', qi: '君火', element: '火' },
+  少阳相火: { name: '少阳相火', phase: '少阳', qi: '相火', element: '火' },
+  太阴湿土: { name: '太阴湿土', phase: '太阴', qi: '湿', element: '土' },
+  阳明燥金: { name: '阳明燥金', phase: '阳明', qi: '燥', element: '金' },
+  太阳寒水: { name: '太阳寒水', phase: '太阳', qi: '寒', element: '水' },
+};
+
+/** 主气的少阳、太阴次序与客气轮转不同。 */
+export const HOST_QI_ORDER: readonly LiuqiName[] = [
+  '厥阴风木',
+  '少阴君火',
+  '少阳相火',
+  '太阴湿土',
+  '阳明燥金',
+  '太阳寒水',
+];
+
+export const GUEST_QI_ORDER: readonly LiuqiName[] = [
+  '厥阴风木',
+  '少阴君火',
+  '太阴湿土',
+  '少阳相火',
+  '阳明燥金',
+  '太阳寒水',
+];
+
+const BRANCH_SITIAN_ZAIQUAN: Record<string, readonly [LiuqiName, LiuqiName]> = {
+  子: ['少阴君火', '阳明燥金'],
+  午: ['少阴君火', '阳明燥金'],
+  丑: ['太阴湿土', '太阳寒水'],
+  未: ['太阴湿土', '太阳寒水'],
+  寅: ['少阳相火', '厥阴风木'],
+  申: ['少阳相火', '厥阴风木'],
+  卯: ['阳明燥金', '少阴君火'],
+  酉: ['阳明燥金', '少阴君火'],
+  辰: ['太阳寒水', '太阴湿土'],
+  戌: ['太阳寒水', '太阴湿土'],
+  巳: ['厥阴风木', '少阳相火'],
+  亥: ['厥阴风木', '少阳相火'],
+};
+
+const QI_STEP_LABELS: LiuqiStep['label'][] = [
+  '初之气',
+  '二之气',
+  '三之气',
+  '四之气',
+  '五之气',
+  '终之气',
+];
+
+function mod(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function normalizeYear(year: number): number {
+  if (!Number.isSafeInteger(year) || year < 1 || year > 9999) {
+    throw new Error('公历年必须是 1-9999 之间的整数。');
+  }
+  return year;
+}
+
+/** 公历年中对应的年柱；1984 年为甲子年。 */
+export function getWuyunLiuqiYearGanZhi(year: number): string {
+  const normalized = normalizeYear(year);
+  const ganZhi = SIXTY_CYCLE[mod(normalized - 1984, 60)];
+  if (!ganZhi) throw new Error(`无法换算公历年干支：${normalized}`);
+  return ganZhi;
+}
+
+function resolveYearInput(input: WuyunLiuqiInput): WuyunLiuqiCalculation['input'] {
+  const hasYear = input.year !== undefined;
+  const hasGanZhi = input.yearGanZhi !== undefined;
+  if (!hasYear && !hasGanZhi) {
+    throw new Error('必须提供 year 或 yearGanZhi。');
+  }
+
+  const year = hasYear ? normalizeYear(input.year as number) : undefined;
+  if (hasGanZhi) {
+    assertValidGanZhi(input.yearGanZhi, '年干支');
+    if (year !== undefined) {
+      const derived = getWuyunLiuqiYearGanZhi(year);
+      if (derived !== input.yearGanZhi) {
+        throw new Error(`year 与 yearGanZhi 不一致：${year} 年年中为 ${derived}。`);
+      }
+    }
+    return { year, yearGanZhi: input.yearGanZhi, yearGanZhiSource: '明确年干支' };
+  }
+
+  const yearGanZhi = getWuyunLiuqiYearGanZhi(year as number);
+  return { year, yearGanZhi, yearGanZhiSource: '公历年年中换算' };
+}
+
+function profile(name: LiuqiName): LiuqiProfile {
+  return { ...QI_PROFILES[name] };
+}
+
+function buildQiSteps(sitianName: LiuqiName): LiuqiStep[] {
+  const sitianIndex = GUEST_QI_ORDER.indexOf(sitianName);
+  if (sitianIndex < 0) throw new Error(`司天气序数据缺失：${sitianName}`);
+
+  return QI_STEP_LABELS.map((label, index) => {
+    const guestName = GUEST_QI_ORDER[mod(sitianIndex + index - 2, 6)];
+    return {
+      order: index + 1,
+      label,
+      hostQi: profile(HOST_QI_ORDER[index]),
+      guestQi: profile(guestName),
+      guestRole: index === 2 ? '司天' : index === 5 ? '在泉' : undefined,
+    };
+  });
+}
+
+function normalizeQuestion(question?: string): string | undefined {
+  if (question === undefined) return undefined;
+  if (typeof question !== 'string' || !question.trim()) {
+    throw new Error('问题必须是非空字符串。');
+  }
+  return question.trim();
+}
+
+export function buildWuyunLiuqiPrompt(result: WuyunLiuqiCalculation, question?: string): string {
+  const normalizedQuestion = normalizeQuestion(question);
+  const lines = [
+    '【任务】',
+    '依据所列年度运气资料，先复核天干化运、太过不及、地支司天在泉和客气轮转，再解释岁运、司天在泉、六步主客气的结构、相互关系和传统气候节律含义。说明同气、相生、相克等显著关系，并将传统年度气候模型与地域、时令、实际气象资料分层参照；健康相关内容按传统文化资料说明，并结合专业医疗资料判断。',
+  ];
+  if (normalizedQuestion) lines.push('', '【问题】', normalizedQuestion);
+  lines.push(
+    '',
+    '【盘面资料】',
+    `年干支：${result.input.yearGanZhi}${result.input.year === undefined ? '' : `（公历 ${result.input.year} 年）`}`,
+    `岁运：${result.annualMovement.name}，${result.annualMovement.strength}（${result.annualMovement.yinYang}干）`,
+    `司天：${result.sitian.name}`,
+    `在泉：${result.zaiquan.name}`,
+    '六步主客气：',
+    ...result.qiSteps.map(
+      (step) =>
+        `${step.order}. ${step.label}：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}`,
+    ),
+    '',
+    '【传统依据】',
+    ...result.sources.map((source) => `- ${source.title}：${source.scope}`),
+  );
+  return lines.join('\n');
+}
+
+export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
+  if (!input || typeof input !== 'object') throw new Error('五运六气输入不能为空。');
+  const resolved = resolveYearInput(input);
+  const stem = resolved.yearGanZhi[0];
+  const branch = resolved.yearGanZhi[1];
+  const movement = STEM_MOVEMENT[stem];
+  const pair = BRANCH_SITIAN_ZAIQUAN[branch];
+  if (!movement || !pair) throw new Error(`五运六气基础表缺失：${resolved.yearGanZhi}`);
+
+  const annualMovement: AnnualMovement = {
+    stem,
+    element: movement.element,
+    name: `${movement.element}运`,
+    yinYang: movement.yinYang,
+    strength: movement.strength,
+    basis: `${stem}干化${movement.element}运；${movement.yinYang}干为${movement.strength}。`,
+  };
+  const sitian = profile(pair[0]);
+  const zaiquan = profile(pair[1]);
+  const qiSteps = buildQiSteps(pair[0]);
+  if (qiSteps[2].guestQi.name !== sitian.name || qiSteps[5].guestQi.name !== zaiquan.name) {
+    throw new Error(`客气轮转与司天在泉不一致：${resolved.yearGanZhi}`);
+  }
+
+  const calculation: WuyunLiuqiCalculation = {
+    input: resolved,
+    annualMovement,
+    sitian,
+    zaiquan,
+    qiSteps,
+    calculationChain: [
+      `${resolved.yearGanZhi}取年干${stem}、年支${branch}`,
+      annualMovement.basis,
+      `${branch}支对应${sitian.name}司天、${zaiquan.name}在泉`,
+      `客气以${sitian.name}落三之气，依客气次序前后轮转，${zaiquan.name}落终之气`,
+    ],
+    sources: WUYUN_LIUQI_SOURCES.map((source) => ({ ...source })),
+    limitations: [
+      '结果为年度固定表结构，不含精确交运时刻与逐日气候计算。',
+      '传统运气模型不能替代地域气象资料、个人健康资料或医疗诊断。',
+      '天符、岁会、太乙天符等派生格局等待独立版本依据校勘后再加入。',
+    ],
+  };
+
+  return { ...calculation, prompt: buildWuyunLiuqiPrompt(calculation, input.question) };
+}
+
+export const wuyunLiuqi = {
+  HOST_QI_ORDER,
+  GUEST_QI_ORDER,
+  WUYUN_LIUQI_SOURCES,
+  getWuyunLiuqiYearGanZhi,
+  calculateWuyunLiuqi,
+  buildWuyunLiuqiPrompt,
+};

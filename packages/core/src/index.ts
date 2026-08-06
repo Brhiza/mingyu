@@ -42,6 +42,8 @@ export * as taiyi from './taiyi/index';
 export * as qizheng from './qi_zheng/index';
 export * as xuankong from './xuan_kong/index';
 export * as residentialFengshui from './residential_fengshui/index';
+export * as wuyunLiuqi from './wuyun-liuqi/index';
+export * as huangjiJingshi from './huangji-jingshi/index';
 export * as location from './location/index';
 export * as birth from './birth/index';
 export * as compatibility from './compatibility/index';

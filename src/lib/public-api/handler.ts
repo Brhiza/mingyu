@@ -34,7 +34,16 @@ import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { bazhai, zodiac, taiyi, qizheng, xuankong, residentialFengshui } from 'mingyu-core';
+import {
+  bazhai,
+  zodiac,
+  taiyi,
+  wuyunLiuqi,
+  huangjiJingshi,
+  qizheng,
+  xuankong,
+  residentialFengshui,
+} from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import {
@@ -393,7 +402,7 @@ export function getPublicApiOpenApiDocument(
       title: 'AOV 命理与占卜公开 API',
       version: API_VERSION,
       description:
-        '提供真太阳时换算、六十甲子、五行等公共地基能力，以及八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
+        '提供真太阳时换算、六十甲子、五行等公共地基能力，以及八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、五运六气、皇极经世、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
     },
     servers: [{ url: `${runtime.origin}/api/${API_VERSION}` }],
     paths: {
@@ -766,6 +775,34 @@ export function getPublicApiOpenApiDocument(
           summary: '太乙神数排盘并生成提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
           responses: { '200': { description: '太乙盘与提示词' } },
+        },
+      },
+      '/metaphysics/wuyun-liuqi/calculate': {
+        post: {
+          summary: '五运六气年度结构计算',
+          requestBody: openApiJsonRequestBody('#/components/schemas/WuyunLiuqiRequest'),
+          responses: { '200': { description: '岁运太过不及、司天在泉及六步主客气' } },
+        },
+      },
+      '/metaphysics/wuyun-liuqi/prompt': {
+        post: {
+          summary: '五运六气计算并生成完整解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/WuyunLiuqiRequest'),
+          responses: { '200': { description: '五运六气结构与自包含提示词' } },
+        },
+      },
+      '/metaphysics/huangji-jingshi/calculate': {
+        post: {
+          summary: '皇极经世元会运世周期换算',
+          requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
+          responses: { '200': { description: '元会运世位置及各层起止年坐标' } },
+        },
+      },
+      '/metaphysics/huangji-jingshi/prompt': {
+        post: {
+          summary: '皇极经世周期换算并生成完整解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
+          responses: { '200': { description: '元会运世结果与自包含提示词' } },
         },
       },
       '/metaphysics/qizheng/calculate': {
@@ -1178,6 +1215,52 @@ export function getPublicApiOpenApiDocument(
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
+        WuyunLiuqiRequest: {
+          type: 'object',
+          description:
+            'year 与 yearGanZhi 至少提供一项；同时提供时会校验公历年年中所属年柱是否一致。',
+          anyOf: [{ required: ['year'] }, { required: ['yearGanZhi'] }],
+          properties: {
+            year: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '公历年，按该年年中所属年柱换算。',
+            },
+            yearGanZhi: {
+              type: 'string',
+              minLength: 2,
+              maxLength: 2,
+              description: '明确年干支，如「丙午」。',
+            },
+            question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+          },
+        },
+        HuangjiJingshiRequest: {
+          type: 'object',
+          required: ['epochYear'],
+          description:
+            'epochYear 表示某一元第一年的整数坐标；year 与 elapsedYears 必须且只能提供一个。',
+          oneOf: [{ required: ['year'] }, { required: ['elapsedYears'] }],
+          properties: {
+            epochYear: {
+              type: 'integer',
+              description: '某一元第一年的整数坐标；不会自动解释为公元或其他纪年。',
+            },
+            year: {
+              type: 'integer',
+              description: '目标整数年坐标，不能早于 epochYear。',
+            },
+            elapsedYears: {
+              type: 'integer',
+              minimum: 0,
+              description: '距纪元第一年已经过的完整年数，0 表示第一年。',
+            },
+            question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+          },
+        },
         BaziPromptRequest: {
           allOf: [
             { $ref: '#/components/schemas/BaziRequest' },
@@ -1570,6 +1653,14 @@ async function route(context: RouteContext) {
       return calculateTaiyiApi(await readJson(context.request));
     case 'metaphysics/taiyi/prompt':
       return buildTaiyiPrompt(await readJson(context.request));
+    case 'metaphysics/wuyun-liuqi/calculate':
+      return calculateWuyunLiuqiApi(await readJson(context.request));
+    case 'metaphysics/wuyun-liuqi/prompt':
+      return buildWuyunLiuqiPromptApi(await readJson(context.request));
+    case 'metaphysics/huangji-jingshi/calculate':
+      return calculateHuangjiJingshiApi(await readJson(context.request));
+    case 'metaphysics/huangji-jingshi/prompt':
+      return buildHuangjiJingshiPromptApi(await readJson(context.request));
     case 'metaphysics/qizheng/calculate':
       return calculateQizhengApi(await readJson(context.request));
     case 'metaphysics/qizheng/prompt':
@@ -1968,6 +2059,85 @@ function buildTaiyiPrompt(input: JsonRecord) {
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildMetaphysicsPrompt(result.prompt, input, 'taiyi'),
+    fullResult: result,
+  });
+}
+
+function calculateWuyunLiuqiApi(input: JsonRecord) {
+  const year = optInt(input, 'year', 1, 9999);
+  const yearGanZhi = readString(input, 'yearGanZhi', '').trim();
+  const question = readString(input, 'question', '').trim();
+  if (year === undefined && !yearGanZhi) {
+    throw new ApiError(400, 'BAD_REQUEST', 'year 与 yearGanZhi 至少提供一个。');
+  }
+  if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
+    throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
+  }
+  try {
+    return wuyunLiuqi.calculateWuyunLiuqi({
+      ...(year !== undefined ? { year } : {}),
+      ...(yearGanZhi ? { yearGanZhi } : {}),
+      ...(question ? { question } : {}),
+    });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '五运六气参数无效。',
+    );
+  }
+}
+
+function buildWuyunLiuqiPromptApi(input: JsonRecord) {
+  const result = calculateWuyunLiuqiApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: result.prompt,
+    resultSummary: {
+      yearGanZhi: result.input.yearGanZhi,
+      annualMovement: result.annualMovement,
+      sitian: result.sitian,
+      zaiquan: result.zaiquan,
+      qiSteps: result.qiSteps,
+    },
+    fullResult: result,
+  });
+}
+
+function calculateHuangjiJingshiApi(input: JsonRecord) {
+  const epochYear = readInteger(input, 'epochYear');
+  const year = optInt(input, 'year');
+  const elapsedYears = optInt(input, 'elapsedYears', 0);
+  const question = readString(input, 'question', '').trim();
+  if ((year === undefined) === (elapsedYears === undefined)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'year 与 elapsedYears 必须且只能提供一个。');
+  }
+  try {
+    return huangjiJingshi.calculateHuangjiJingshi({
+      epochYear,
+      ...(year !== undefined ? { year } : {}),
+      ...(elapsedYears !== undefined ? { elapsedYears } : {}),
+      ...(question ? { question } : {}),
+    });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '皇极经世参数无效。',
+    );
+  }
+}
+
+function buildHuangjiJingshiPromptApi(input: JsonRecord) {
+  const result = calculateHuangjiJingshiApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: result.prompt,
+    resultSummary: {
+      input: result.input,
+      position: result.position,
+      conversion: result.conversion,
+    },
     fullResult: result,
   });
 }

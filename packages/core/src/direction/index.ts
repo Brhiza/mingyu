@@ -388,6 +388,9 @@ export interface NineStarProfile {
 
 /** 九星资料（委托 tyme4ts） */
 export function getNineStarProfile(index: number): NineStarProfile {
+  if (!Number.isInteger(index) || index < 0 || index > 8) {
+    throw new Error(`九星索引必须是 0-8 之间的整数：${String(index)}`);
+  }
   const star = NineStar.fromIndex(index);
   return {
     number: star.getName(),

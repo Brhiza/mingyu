@@ -23,6 +23,12 @@ test('农历工具应拒绝无效时间对象', () => {
   assert.throws(() => LunarUtil.getTimeInfo(invalidDate), /时间不是有效日期/);
   assert.throws(() => LunarUtil.getGanZhi(invalidDate), /时间不是有效日期/);
   assert.throws(() => LunarUtil.getLunar(invalidDate), /时间不是有效日期/);
+  assert.throws(() => LunarUtil.getGanZhi(null as unknown as Date), /时间不是有效日期/);
+  assert.throws(() => LunarUtil.getLunar(null as unknown as Date), /时间不是有效日期/);
+  assert.throws(
+    () => TimeManager.getDivinationTime(null as unknown as Date),
+    /自定义时间不是有效日期/,
+  );
 });
 
 test('农历工具应拒绝越界年月参数', () => {

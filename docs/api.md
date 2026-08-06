@@ -86,6 +86,10 @@
 | `POST /metaphysics/zodiac/prompt`            | 生肖流年关系排盘并生成含信息量限制的 AI 解读提示词                             |
 | `POST /metaphysics/taiyi/calculate`          | 太乙神数排盘                                                                   |
 | `POST /metaphysics/taiyi/prompt`             | 太乙神数排盘并生成 AI 解读提示词                                               |
+| `POST /metaphysics/wuyun-liuqi/calculate`    | 五运六气岁运、司天在泉及六步主客气                                             |
+| `POST /metaphysics/wuyun-liuqi/prompt`       | 五运六气计算并生成自包含 AI 解读提示词                                         |
+| `POST /metaphysics/huangji-jingshi/calculate` | 按明确纪元换算元会运世位置及各层起止年坐标                                    |
+| `POST /metaphysics/huangji-jingshi/prompt`   | 皇极经世周期换算并生成自包含 AI 解读提示词                                     |
 | `POST /metaphysics/qizheng/calculate`        | 七政四余十一星、真实距星宿界、命身十二宫、庙旺吊照与结构化证据                 |
 | `POST /metaphysics/qizheng/prompt`           | 七政四余排盘并生成含分层天文证据的 AI 解读提示词                               |
 | `POST /ai/analyze`                           | AI 解读，返回 SSE 流式响应                                                     |
@@ -103,7 +107,7 @@
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
-7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙和七政四余仍用各自 `/metaphysics/{method}/prompt`。
+7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世不自动选择纪元，缺少明确纪元年坐标时应先补资料。
 
 常见问题到推荐接口：
 
@@ -134,6 +138,8 @@
 | 仅八宅命卦、坐山吉凶               | `POST /metaphysics/bazhai/prompt`            | `birthYear`、`gender`、可选 `sitMountain`；实测可传 `doorToInteriorDegree`、`northReference`、`magneticDeclinationDegrees`、`measurementUncertaintyDegrees` | 返回磁北/真北换算、候选坐向与边界稳定性                                          |
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                                                |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | 当前只接受 `scope: "year"` 与 `year`                                                                                                                       | 年计按积年与阳遁七十二局立成；结果含 `evidenceAnalysis` 结构化证据              |
+| 五运六气年度结构                   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`；同时提供时会校验一致性，可选 `question`                                                                                              | 返回岁运太过不及、司天在泉和六步主客气；不替代实际气象或医疗资料                 |
+| 皇极经世元会运世                   | `POST /metaphysics/huangji-jingshi/prompt`   | 必填 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个                                                                                                     | 返回纯数学周期位置和起止年坐标；纪元由调用方明确，不自动补值年卦                 |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`                                                                        | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照和分层天文证据                       |
 | 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选测量误差                                                                                                | 返回下卦的三元九运、三盘飞星、局型、到山到向与结构化证据                           |
 
@@ -272,6 +278,22 @@ curl -X POST https://aov.cc/api/v1/metaphysics/bazhai/prompt \
 
 ```
 
+五运六气提示词：
+
+```bash
+curl -X POST https://aov.cc/api/v1/metaphysics/wuyun-liuqi/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"year":2026,"question":"请解释本年的运气结构和气候节律。","responseMode":"prompt-only"}'
+```
+
+皇极经世周期提示词（示例纪元仅表示调用方已经明确的整数坐标）：
+
+```bash
+curl -X POST https://aov.cc/api/v1/metaphysics/huangji-jingshi/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"epochYear":1000,"year":2026,"question":"请解释目标年的元会运世周期位置。","responseMode":"prompt-only"}'
+```
+
 塔罗抽牌并生成提示词：
 
 ```bash
@@ -363,6 +385,9 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 ```
 
 ## 参数约定
+
+- 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算。
+- 皇极经世必须明确提供 `epochYear`，表示某一元第一年的整数坐标；`year` 与 `elapsedYears` 必须且只能提供一个，`elapsedYears: 0` 表示纪元第一年。整数坐标不会自动解释为公元或其他纪年。
 
 - `gender` 使用 `male` 或 `female`。
 - `dateType` 使用 `solar` 或 `lunar`。

@@ -129,6 +129,10 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/astrolabe/prompt'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/wuyun-liuqi/calculate'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/wuyun-liuqi/prompt'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/huangji-jingshi/calculate'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/huangji-jingshi/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/ai/analyze'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/ai/models'));
   assert.ok(body.data.endpoints.includes('GET /.well-known/aov-mingyu-api.json'));
@@ -301,6 +305,27 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     body.data.paths['/metaphysics/qizheng/prompt'].post.responses['200'].description,
     '七政四余盘与结构化提示词',
   );
+  assert.equal(
+    body.data.paths['/metaphysics/wuyun-liuqi/calculate'].post.requestBody.content[
+      'application/json'
+    ].schema.$ref,
+    '#/components/schemas/WuyunLiuqiRequest',
+  );
+  assert.equal(
+    body.data.paths['/metaphysics/huangji-jingshi/prompt'].post.requestBody.content[
+      'application/json'
+    ].schema.$ref,
+    '#/components/schemas/HuangjiJingshiRequest',
+  );
+  assert.deepEqual(body.data.components.schemas.WuyunLiuqiRequest.anyOf, [
+    { required: ['year'] },
+    { required: ['yearGanZhi'] },
+  ]);
+  assert.deepEqual(body.data.components.schemas.HuangjiJingshiRequest.oneOf, [
+    { required: ['year'] },
+    { required: ['elapsedYears'] },
+  ]);
+  assert.deepEqual(body.data.components.schemas.HuangjiJingshiRequest.required, ['epochYear']);
   assert.equal(body.data.paths['/metaphysics/qizheng/calculate'].post.responses['400'], undefined);
   assert.equal(
     body.data.paths['/foundation/shensha'].post.requestBody.content['application/json'].schema.$ref,
@@ -4828,6 +4853,77 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   );
 });
 
+test('公开 API 五运六气应返回年度主客气结构与轻量提示词结果', async () => {
+  const calculation = await callApi('metaphysics/wuyun-liuqi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2026, yearGanZhi: '丙午' }),
+  });
+
+  assert.equal(calculation.response.status, 200);
+  assert.equal(calculation.body.data.input.yearGanZhi, '丙午');
+  assert.equal(calculation.body.data.annualMovement.name, '水运');
+  assert.equal(calculation.body.data.annualMovement.strength, '太过');
+  assert.equal(calculation.body.data.sitian.name, '少阴君火');
+  assert.equal(calculation.body.data.zaiquan.name, '阳明燥金');
+  assert.equal(calculation.body.data.qiSteps.length, 6);
+  assert.equal(calculation.body.data.qiSteps[2].guestRole, '司天');
+  assert.equal(calculation.body.data.qiSteps[5].guestRole, '在泉');
+
+  const prompted = await callApi('metaphysics/wuyun-liuqi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      yearGanZhi: '丙午',
+      question: '请解释本年的气候节律。',
+      responseMode: 'summary',
+    }),
+  });
+
+  assert.equal(prompted.response.status, 200);
+  assert.equal(prompted.body.data.result, undefined);
+  assert.equal(prompted.body.data.resultSummary.yearGanZhi, '丙午');
+  assert.equal(prompted.body.data.resultSummary.qiSteps.length, 6);
+  assert.match(prompted.body.data.prompt, /【盘面资料】[\s\S]*少阴君火/);
+  assert.match(prompted.body.data.prompt, /【问题】\n请解释本年的气候节律。/);
+  assertPromptIsPortableTaskText(prompted.body.data.prompt);
+});
+
+test('公开 API 皇极经世应按明确纪元返回元会运世与轻量提示词结果', async () => {
+  const calculation = await callApi('metaphysics/huangji-jingshi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ epochYear: 1000, year: 2026 }),
+  });
+
+  assert.equal(calculation.response.status, 200);
+  assert.equal(calculation.body.data.input.elapsedYears, 1026);
+  assert.equal(calculation.body.data.position.yuan.indexFromEpoch, 1);
+  assert.equal(calculation.body.data.position.hui.indexInYuan, 1);
+  assert.equal(calculation.body.data.position.yun.indexInYuan, 3);
+  assert.equal(calculation.body.data.position.shi.indexInYun, 11);
+  assert.equal(calculation.body.data.position.year.indexInShi, 7);
+
+  const prompted = await callApi('metaphysics/huangji-jingshi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      epochYear: 1000,
+      elapsedYears: 1026,
+      question: '请解释目标年的周期位置。',
+      responseMode: 'summary',
+    }),
+  });
+
+  assert.equal(prompted.response.status, 200);
+  assert.equal(prompted.body.data.result, undefined);
+  assert.equal(prompted.body.data.resultSummary.input.epochYear, 1000);
+  assert.equal(prompted.body.data.resultSummary.position.year.coordinate, 2026);
+  assert.match(prompted.body.data.prompt, /【周期资料】[\s\S]*目标年坐标：2026/);
+  assert.match(prompted.body.data.prompt, /【问题】\n请解释目标年的周期位置。/);
+  assertPromptIsPortableTaskText(prompted.body.data.prompt);
+});
+
 test('公开 API 太乙应拒绝尚未校勘的月日时计', async () => {
   for (const path of ['metaphysics/taiyi/calculate', 'metaphysics/taiyi/prompt']) {
     for (const scope of ['month', 'day', 'hour']) {
@@ -4869,6 +4965,13 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     ['metaphysics/taiyi/calculate', { year: 2004, scope: 'month' }],
     ['metaphysics/taiyi/calculate', { year: 2026, scope: 'hour', month: 7, day: 11 }],
     ['metaphysics/taiyi/calculate', { year: 2026, scope: 'minute', month: 7, day: 11, hour: 14 }],
+    ['metaphysics/wuyun-liuqi/calculate', {}],
+    ['metaphysics/wuyun-liuqi/calculate', { yearGanZhi: '甲丑' }],
+    ['metaphysics/wuyun-liuqi/calculate', { year: 2026, yearGanZhi: '乙巳' }],
+    ['metaphysics/huangji-jingshi/calculate', { year: 2026 }],
+    ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000 }],
+    ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000, year: 2026, elapsedYears: 1026 }],
+    ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000, year: 999 }],
     ['metaphysics/qizheng/calculate', { month: 1, day: 1, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, day: 1, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, hour: 12 }],
