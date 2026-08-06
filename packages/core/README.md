@@ -47,7 +47,7 @@ yarn add mingyu-core
 
 - `tyme4ts`、`astronomy-engine`、`celestine` 与 `@soul-atelier/xuankong` 是正式依赖，安装 `mingyu-core` 时会自动安装。
 - `iztro` 是可选的 peer dependency；只有使用紫微斗数能力时才需要另行安装：`pnpm add iztro`。
-- 中国省市区地点树体积较大，单独放在可选的 `mingyu-location-china` 包中，不会增加核心包体积。
+- 中国省市区地点树和经度数据已内置，可直接用于出生地级联选择和真太阳时校正。
 
 ## 统一客户端
 
@@ -144,22 +144,18 @@ console.log(bundle.qizheng);
 
 七政四余适配器会把原始民用时间交给七政四余自身校正；八字、紫微和星盘则分别采用各自明确的时间口径，不会把同一份真太阳时重复校正。
 
-### 中国地点可选数据包
+### 中国地点与真太阳时经度
 
-需要中国省、市、区级联和真太阳时经度时，可单独安装地点包：
-
-```bash
-pnpm add mingyu-core mingyu-location-china
-```
+中国省、市、区级联和真太阳时所需经度随 `mingyu-core` 一同安装，无需额外地点包：
 
 ```ts
-import { findBirthPlaceByRegionId, resolveBirthPlaceLongitude } from 'mingyu-location-china';
+import { findBirthPlaceByRegionId, resolveBirthPlaceLongitude } from 'mingyu-core/location';
 
 const place = findBirthPlaceByRegionId('110101');
 const longitude = resolveBirthPlaceLongitude('北京市 东城区');
 ```
 
-地点包提供 34 个省级、392 个市级和 3210 个区县级节点。现有区县数据提供经度，不提供精确纬度；`resolveBirthPlaceApproximateLatitude()` 只适合作为明确标注的省会级回退，星盘应传入真实纬度。
+核心包内置 34 个省级、392 个市级和 3210 个区县级节点。现有区县数据提供经度，不提供精确纬度；`resolveBirthPlaceApproximateLatitude()` 只适合作为明确标注的省会级回退，星盘应传入真实纬度。
 
 双人合盘也可直接使用两份 `BirthProfile`：
 
