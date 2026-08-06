@@ -56,6 +56,7 @@ export {
   assertPillars,
   getTenGod,
   getTenGodForBranch,
+  getShenShaType,
   getWuxing,
   isEarthlyBranch,
   isGanZhiPair,

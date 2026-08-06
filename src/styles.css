@@ -610,7 +610,7 @@ select {
 .bazi-pillars-table {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: 64px repeat(4, minmax(0, 1fr));
+  grid-template-columns: 72px repeat(4, minmax(0, 1fr));
   border: 1px solid var(--border-soft);
   border-radius: 16px;
   overflow: hidden;
@@ -649,14 +649,129 @@ select {
   background: var(--accent-soft);
 }
 
-.bazi-pillars-cell.is-stem {
+.bazi-ganzhi-value {
+  display: inline-grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.bazi-ganzhi-symbol {
+  color: var(--text-strong);
+  line-height: 1;
+}
+
+.bazi-pillars-cell.is-stem .bazi-ganzhi-symbol {
   font-size: 24px;
   font-weight: 700;
 }
 
-.bazi-pillars-cell.is-branch {
+.bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
   font-size: 22px;
   font-weight: 700;
+}
+
+.bazi-wuxing-label {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.bazi-wuxing-label[data-wuxing='木'] {
+  color: #15803d;
+}
+
+.bazi-wuxing-label[data-wuxing='火'] {
+  color: #dc2626;
+}
+
+.bazi-wuxing-label[data-wuxing='土'] {
+  color: #a16207;
+}
+
+.bazi-wuxing-label[data-wuxing='金'] {
+  color: #64748b;
+}
+
+.bazi-wuxing-label[data-wuxing='水'] {
+  color: #2563eb;
+}
+
+.bazi-pillars-cell.is-shensha {
+  min-height: 72px;
+  padding: 8px 5px;
+  align-items: flex-start;
+}
+
+.bazi-shensha-list {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.bazi-shensha-tag {
+  --bazi-shensha-tone: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--bazi-shensha-tone) 24%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bazi-shensha-tone) 9%, transparent);
+  color: var(--bazi-shensha-tone);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.bazi-shensha-tag.is-lucky {
+  --bazi-shensha-tone: #15803d;
+}
+
+.bazi-shensha-tag.is-unlucky {
+  --bazi-shensha-tone: #b91c1c;
+}
+
+.bazi-shensha-tag.is-neutral {
+  --bazi-shensha-tone: #a16207;
+}
+
+.bazi-shensha-empty {
+  color: var(--text-muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  .bazi-wuxing-label[data-wuxing='木'] {
+    color: #86efac;
+  }
+
+  .bazi-wuxing-label[data-wuxing='火'] {
+    color: #fca5a5;
+  }
+
+  .bazi-wuxing-label[data-wuxing='土'] {
+    color: #fcd34d;
+  }
+
+  .bazi-wuxing-label[data-wuxing='金'] {
+    color: #cbd5e1;
+  }
+
+  .bazi-wuxing-label[data-wuxing='水'] {
+    color: #93c5fd;
+  }
+
+  .bazi-shensha-tag.is-lucky {
+    --bazi-shensha-tone: #86efac;
+  }
+
+  .bazi-shensha-tag.is-unlucky {
+    --bazi-shensha-tone: #fca5a5;
+  }
+
+  .bazi-shensha-tag.is-neutral {
+    --bazi-shensha-tone: #fcd34d;
+  }
 }
 
 .bazi-side-panel,
@@ -1235,10 +1350,9 @@ select {
   display: grid;
   width: 100%;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(160px, 1fr));
   gap: 8px;
   min-width: 0;
-  aspect-ratio: 1 / 1.08;
 }
 
 .ziwei-relation-lines {
@@ -1497,7 +1611,7 @@ select {
   border-radius: 8px;
   padding: 16px 4px 4px;
   text-align: left;
-  min-height: 118px;
+  min-height: 160px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1548,8 +1662,8 @@ select {
 
 .chart-cell-body {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) 22px;
-  gap: 2px;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 4px;
   align-items: stretch;
   min-height: 0;
   flex: 1;
@@ -1625,11 +1739,22 @@ select {
   opacity: 0.78;
 }
 
+.chart-cell-stars-other {
+  color: var(--text-muted);
+}
+
 .chart-star {
   display: inline-flex;
   align-items: center;
   gap: 1px;
   white-space: nowrap;
+}
+
+.chart-cell-star-layers {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
 }
 
 .chart-cell-major-column {
@@ -1654,12 +1779,17 @@ select {
 }
 
 .chart-star-minor .chart-star-name,
+.chart-star-other .chart-star-name,
 .chart-star-scope .chart-star-name {
   font-size: 0.48rem;
 }
 
 .chart-star-minor .chart-star-name {
   color: var(--text-primary);
+}
+
+.chart-star-other .chart-star-name {
+  color: var(--text-muted);
 }
 
 .chart-star-scope .chart-star-name {
@@ -1680,6 +1810,13 @@ select {
   font-weight: 700;
 }
 
+.chart-star-brightness {
+  color: var(--text-muted);
+  font-size: 0.42rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
 .chart-star-mark-birth {
   background: #fee2e2;
   color: #b91c1c;
@@ -1690,14 +1827,46 @@ select {
   color: var(--accent-strong);
 }
 
+.chart-star-mark-horoscope {
+  background: var(--secondary-soft);
+  color: var(--secondary-strong);
+}
+
+.chart-star-mark.is-lu {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.chart-star-mark.is-quan {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.chart-star-mark.is-ke {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.chart-star-mark.is-ji {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .chart-star-empty {
   color: var(--text-secondary);
+}
+
+.chart-cell-age-cycle {
+  color: var(--text-muted);
+  font-size: 0.46rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .chart-cell-foot {
   margin-top: auto;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 2px;
 }
@@ -1750,10 +1919,53 @@ select {
 
 .chart-center-info {
   display: grid;
-  gap: 2px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px 6px;
   font-size: 0.6rem;
   line-height: 1.2;
   color: var(--text-primary);
+}
+
+.chart-center-info-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 4px;
+}
+
+.chart-center-info-row span {
+  color: var(--text-muted);
+}
+
+.chart-center-info-row strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.chart-center-info-wide {
+  grid-column: 1 / -1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chart-star-mark.is-lu {
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
+  }
+
+  .chart-star-mark.is-quan {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+  }
+
+  .chart-star-mark.is-ke {
+    background: rgba(168, 85, 247, 0.2);
+    color: #d8b4fe;
+  }
+
+  .chart-star-mark.is-ji {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+  }
 }
 
 .chart-center-grid {
@@ -1841,6 +2053,14 @@ select {
   background: transparent;
   display: grid;
   gap: 12px;
+}
+
+.ziwei-detail-card > .result-tag-cloud {
+  height: 54px;
+  align-content: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .ziwei-detail-head {
@@ -4487,7 +4707,11 @@ select {
   border: 1px solid var(--border-contrast);
   border-radius: 18px;
   background:
-    radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--accent-soft) 42%, transparent), transparent 38%),
+    radial-gradient(
+      circle at 12% 0%,
+      color-mix(in srgb, var(--accent-soft) 42%, transparent),
+      transparent 38%
+    ),
     linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
   box-shadow: var(--shadow-sm);
 }
@@ -4976,7 +5200,11 @@ select {
 }
 
 .traditional-tarot-card.is-reversed {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--accent-soft) 48%, var(--surface-base)), var(--surface-soft));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--accent-soft) 48%, var(--surface-base)),
+    var(--surface-soft)
+  );
 }
 
 .traditional-card-index {
@@ -6557,9 +6785,8 @@ div.form-actions.page-submit-actions {
     width: 100%;
     min-width: 0;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(120px, 1fr));
     gap: 4px;
-    aspect-ratio: 1 / 1.08;
   }
 
   .ziwei-relation-lines {
@@ -6594,11 +6821,11 @@ div.form-actions.page-submit-actions {
   .chart-cell {
     border-radius: 7px;
     padding: 15px 3px 3px;
-    min-height: 0;
+    min-height: 120px;
   }
 
   .chart-cell-body {
-    grid-template-columns: 12px minmax(0, 1fr) 24px;
+    grid-template-columns: 12px minmax(0, 1fr);
     gap: 2px;
   }
 
@@ -6625,6 +6852,7 @@ div.form-actions.page-submit-actions {
   }
 
   .chart-star-minor .chart-star-name,
+  .chart-star-other .chart-star-name,
   .chart-star-scope .chart-star-name {
     font-size: 0.48rem;
   }
@@ -6745,7 +6973,7 @@ div.form-actions.page-submit-actions {
 
   .bazi-pillars-table {
     margin-top: 6px;
-    grid-template-columns: 48px repeat(4, minmax(0, 1fr));
+    grid-template-columns: 54px repeat(4, minmax(0, 1fr));
     border-radius: 10px;
   }
 
@@ -6759,12 +6987,18 @@ div.form-actions.page-submit-actions {
     line-height: 1.3;
   }
 
-  .bazi-pillars-cell.is-stem {
+  .bazi-pillars-cell.is-stem .bazi-ganzhi-symbol {
     font-size: 16px;
   }
 
-  .bazi-pillars-cell.is-branch {
+  .bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
     font-size: 15px;
+  }
+
+  .bazi-shensha-tag {
+    min-height: 18px;
+    padding: 2px 4px;
+    font-size: 9px;
   }
 
   .wuxing-bar-row {
@@ -7961,7 +8195,7 @@ div.form-actions.page-submit-actions {
   }
 
   .bazi-pillars-table {
-    grid-template-columns: 42px repeat(4, minmax(0, 1fr));
+    grid-template-columns: 48px repeat(4, minmax(0, 1fr));
   }
 
   .bazi-pillars-cell {
@@ -7973,11 +8207,11 @@ div.form-actions.page-submit-actions {
     line-height: 1.25;
   }
 
-  .bazi-pillars-cell.is-stem {
+  .bazi-pillars-cell.is-stem .bazi-ganzhi-symbol {
     font-size: 14px;
   }
 
-  .bazi-pillars-cell.is-branch {
+  .bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
     font-size: 13px;
   }
 
@@ -8061,9 +8295,8 @@ div.form-actions.page-submit-actions {
   }
 
   .ziwei-traditional-grid {
-    grid-template-rows: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(108px, 1fr));
     gap: 3px;
-    aspect-ratio: 1 / 1.1;
   }
 
   .prompt-compact-grid {
@@ -8096,6 +8329,7 @@ div.form-actions.page-submit-actions {
 
   .chart-cell {
     padding: 14px 4px 4px;
+    min-height: 108px;
   }
 
   .chart-cell-title {
@@ -8111,6 +8345,7 @@ div.form-actions.page-submit-actions {
   }
 
   .chart-star-minor .chart-star-name,
+  .chart-star-other .chart-star-name,
   .chart-star-scope .chart-star-name {
     font-size: 0.45rem;
   }
