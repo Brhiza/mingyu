@@ -1,6 +1,6 @@
 import type { AnalysisPayloadV1 } from '../../types/analysis';
-import { buildZiweiReadableSnapshot, buildZiweiTaskBookSnapshot } from './snapshot';
-import type { PromptContext } from './types';
+import { buildPortablePromptPack as buildCorePortablePromptPack } from 'mingyu-core/ziwei/prompt';
+import { toZiweiPromptContext, type PromptContext } from './types';
 
 export type { PromptContext } from './types';
 
@@ -9,10 +9,9 @@ export function buildPortablePromptPack(params: {
   reportContext: PromptContext;
   mode?: 'full' | 'task-book';
 }) {
-  const { payload, reportContext } = params;
-
-  const builder =
-    params.mode === 'task-book' ? buildZiweiTaskBookSnapshot : buildZiweiReadableSnapshot;
-
-  return [builder({ payload, reportContext })].join('\n');
+  return buildCorePortablePromptPack({
+    payload: params.payload,
+    reportContext: toZiweiPromptContext(params.reportContext),
+    mode: params.mode === 'task-book' ? 'task-book' : 'readable',
+  });
 }

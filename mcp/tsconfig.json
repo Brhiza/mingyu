@@ -12,7 +12,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["../src/*"],
-      "@core/*": ["../packages/core/src/*"]
+      "@core/*": ["../packages/core/src/*"],
+      "mingyu-location-china": ["../packages/location-china/src/index.ts"]
     },
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
@@ -22,7 +23,8 @@
     "../src/utils/**/*.ts",
     "../src/types/**/*.ts",
     "../src/services/**/*.ts",
-    "../packages/core/src/**/*.ts"
+    "../packages/core/src/**/*.ts",
+    "../packages/location-china/src/**/*.ts"
   ],
   "exclude": [
     "../src/**/*.tsx",

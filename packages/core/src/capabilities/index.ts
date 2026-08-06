@@ -9,8 +9,38 @@ import {
   JINKOUJUE_METHOD_OPTIONS,
 } from '../divination/config';
 import { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
+import { MingyuCoreError } from '../shared/result';
 
 export { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
+
+export const SYSTEM_CAPABILITY_IDS = [
+  'calendar.trueSolarBirth',
+  'calendar.astronomicalTime',
+  'calendar.moonPhase',
+  'calendar.solarIllumination',
+  'calendar.solarTerm',
+  'bazi',
+  'ziwei',
+  'astrolabe',
+  'qimen',
+  'liuyao',
+  'meihua',
+  'xiaoliuren',
+  'jinkoujue',
+  'liuren',
+  'tarot',
+  'lenormand',
+  'ssgw',
+  'almanac',
+  'bazhai',
+  'zodiac',
+  'taiyi',
+  'qizheng',
+  'xuankong',
+  'residential',
+] as const;
+
+export type SystemCapabilityId = (typeof SYSTEM_CAPABILITY_IDS)[number];
 
 export type CapabilityInputType =
   'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' | 'array' | 'object';
@@ -31,7 +61,7 @@ export interface CapabilityInput {
 }
 
 export interface SystemCapability {
-  id: string;
+  id: SystemCapabilityId;
   name: string;
   category: 'chart' | 'divination' | 'calendar' | 'environment';
   /** 省略或为 true 表示可计算；false 表示只保留兼容入口并明确失败关闭。 */
@@ -94,7 +124,39 @@ const systems: SystemCapability[] = [
     id: 'calendar.trueSolarBirth',
     name: '出生真太阳时',
     category: 'calendar',
-    inputs: [birthProfileInput],
+    inputs: [
+      {
+        id: 'dateType',
+        label: '历法类型',
+        type: 'select',
+        required: true,
+        options: options([
+          { value: 'solar', label: '公历' },
+          { value: 'lunar', label: '农历' },
+        ]),
+      },
+      { id: 'year', label: '出生年', type: 'number', required: true },
+      { id: 'month', label: '出生月', type: 'number', required: true },
+      { id: 'day', label: '出生日', type: 'number', required: true },
+      { id: 'hour', label: '出生小时', type: 'number', required: true },
+      { id: 'minute', label: '出生分钟', type: 'number', required: true },
+      { id: 'second', label: '出生秒', type: 'number', required: false },
+      {
+        id: 'isLeapMonth',
+        label: '是否闰月',
+        type: 'boolean',
+        required: false,
+        requiredWhen: { dateType: 'lunar' },
+      },
+      { id: 'longitude', label: '出生地经度', type: 'number', required: true },
+      { id: 'timezone', label: '固定时区偏移', type: 'number', required: false },
+      {
+        id: 'applyChinaDst',
+        label: '应用中国历史夏令时',
+        type: 'boolean',
+        required: false,
+      },
+    ],
     outputs: [
       '标准时间',
       '真太阳时',
@@ -121,7 +183,12 @@ const systems: SystemCapability[] = [
     name: '天文时间尺度',
     category: 'calendar',
     inputs: [
-      { id: 'localDateTime', label: '当地钟表时间', type: 'datetime', required: true },
+      { id: 'year', label: '当地年份', type: 'number', required: true },
+      { id: 'month', label: '当地月份', type: 'number', required: true },
+      { id: 'day', label: '当地日期', type: 'number', required: true },
+      { id: 'hour', label: '当地小时', type: 'number', required: false },
+      { id: 'minute', label: '当地分钟', type: 'number', required: false },
+      { id: 'second', label: '当地秒', type: 'number', required: false },
       { id: 'timezone', label: '固定时区偏移', type: 'number', required: false },
       { id: 'timeZoneId', label: 'IANA历史时区', type: 'text', required: false },
     ],
@@ -162,7 +229,42 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    optionalDependencies: ['celestine'],
+  },
+  {
+    id: 'calendar.solarIllumination',
+    name: '太阳高度与曙暮光',
+    category: 'calendar',
+    inputs: [
+      { id: 'year', label: '当地年份', type: 'number', required: true },
+      { id: 'month', label: '当地月份', type: 'number', required: true },
+      { id: 'day', label: '当地日期', type: 'number', required: true },
+      { id: 'hour', label: '当地小时', type: 'number', required: false },
+      { id: 'minute', label: '当地分钟', type: 'number', required: false },
+      { id: 'second', label: '当地秒', type: 'number', required: false },
+      { id: 'latitude', label: '纬度', type: 'number', required: true },
+      { id: 'longitude', label: '经度', type: 'number', required: true },
+      { id: 'timezone', label: '固定时区偏移', type: 'number', required: false },
+      { id: 'timeZoneId', label: 'IANA历史时区', type: 'text', required: false },
+    ],
+    outputs: [
+      '参考时刻太阳高度与方位',
+      '太阳赤纬与时间方程',
+      '视太阳正午',
+      '日出日落',
+      '民用、航海与天文曙暮光',
+      '极昼极夜等全天状态',
+      '结构化计算链、证据汇总与限制',
+    ],
+    supports: {
+      seed: false,
+      customRandomSource: false,
+      trueSolarTime: false,
+      birthTimeRequired: false,
+      batch: false,
+    },
+    notes: [
+      'timezone 与 timeZoneId 至少提供一项；结果为理想地平线下的低阶天文模型，不代表天气、遮挡或建筑采光。',
+    ],
   },
   {
     id: 'calendar.solarTerm',
@@ -184,8 +286,9 @@ const systems: SystemCapability[] = [
       customRandomSource: false,
       trueSolarTime: false,
       birthTimeRequired: false,
-      batch: false,
+      batch: true,
     },
+    notes: ['solarTerm(year, index) 查询单个节气；solarTerms(year) 按公历年份返回 24 个节气。'],
   },
   {
     id: 'bazi',
@@ -282,7 +385,6 @@ const systems: SystemCapability[] = [
       birthTimeModes: ['precise-clock-time'],
       batch: false,
     },
-    optionalDependencies: ['celestine'],
   },
   {
     id: 'qimen',
@@ -483,9 +585,18 @@ const systems: SystemCapability[] = [
     id: 'liuren',
     name: '大六壬',
     category: 'divination',
-    methods: options(LIUREN_TEMPLATE_OPTIONS),
-    defaultMethod: 'general',
-    inputs: [{ id: 'date', label: '起课时间', type: 'datetime', required: false }, questionInput],
+    inputs: [
+      { id: 'date', label: '起课时间', type: 'datetime', required: false },
+      {
+        id: 'template',
+        label: '问题范围',
+        type: 'select',
+        required: false,
+        options: options(LIUREN_TEMPLATE_OPTIONS),
+        description: '仅用于组织提示词中的断课范围，不改变排盘算法。',
+      },
+      questionInput,
+    ],
     outputs: [
       '天地盘',
       '四课',
@@ -508,8 +619,6 @@ const systems: SystemCapability[] = [
     id: 'tarot',
     name: '塔罗',
     category: 'divination',
-    methods: options(TAROT_SPREAD_OPTIONS),
-    defaultMethod: 'single',
     inputs: [
       {
         id: 'spread',
@@ -517,6 +626,20 @@ const systems: SystemCapability[] = [
         type: 'select',
         required: false,
         options: options(TAROT_SPREAD_OPTIONS),
+      },
+      {
+        id: 'manualCards',
+        label: '手工牌面与正逆位',
+        type: 'array',
+        required: false,
+        description: '按牌位顺序传入牌号和正逆位；与交互抽牌、随机设置互斥。',
+      },
+      {
+        id: 'interactiveSamples',
+        label: '逐张交互抽牌样本',
+        type: 'array',
+        required: false,
+        description: '每张牌依次提供牌面和正逆位样本；与手工牌面、随机设置互斥。',
       },
       questionInput,
     ],
@@ -527,8 +650,6 @@ const systems: SystemCapability[] = [
     id: 'lenormand',
     name: '雷诺曼',
     category: 'divination',
-    methods: options(LENORMAND_SPREAD_OPTIONS),
-    defaultMethod: 'single',
     inputs: [
       {
         id: 'spread',
@@ -536,6 +657,20 @@ const systems: SystemCapability[] = [
         type: 'select',
         required: false,
         options: options(LENORMAND_SPREAD_OPTIONS),
+      },
+      {
+        id: 'manualCardIds',
+        label: '手工牌号',
+        type: 'array',
+        required: false,
+        description: '按牌位顺序传入牌号；与交互抽牌、随机设置互斥。',
+      },
+      {
+        id: 'interactiveSamples',
+        label: '逐张交互抽牌样本',
+        type: 'array',
+        required: false,
+        description: '每张牌提供一个抽牌样本；与手工牌号、随机设置互斥。',
       },
       questionInput,
     ],
@@ -546,8 +681,22 @@ const systems: SystemCapability[] = [
     id: 'ssgw',
     name: '三山国王灵签',
     category: 'divination',
-    inputs: [questionInput],
-    outputs: ['签号', '签诗原文', '典故辅证', '分类解读', '掷筊记录', '随机轨迹', '结构化证据'],
+    methods: options([
+      { value: 'random', label: '随机求签' },
+      { value: 'manual', label: '指定签号' },
+    ]),
+    defaultMethod: 'random',
+    inputs: [
+      {
+        id: 'number',
+        label: '签号',
+        type: 'number',
+        required: false,
+        requiredWhen: { method: 'manual' },
+      },
+      questionInput,
+    ],
+    outputs: ['签号', '签诗原文', '典故辅证', '分类解读', '随机轨迹', '结构化证据'],
     supports: randomSupports,
     notes: [
       '签文数据治理独立于通用接口，本能力清单不改变权威签文内容。',
@@ -558,7 +707,6 @@ const systems: SystemCapability[] = [
     id: 'almanac',
     name: '黄历择日',
     category: 'calendar',
-    methods: options(ALMANAC_TOPIC_OPTIONS),
     inputs: [
       {
         id: 'topic',
@@ -584,8 +732,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: false,
-      birthTimeRequired: true,
-      birthTimeModes: ['traditional-shichen', 'precise-clock-time'],
+      birthTimeRequired: false,
       batch: true,
     },
   },
@@ -594,14 +741,47 @@ const systems: SystemCapability[] = [
     name: '八宅',
     category: 'environment',
     inputs: [
-      birthProfileInput,
+      {
+        id: 'birthYear',
+        label: '出生公历年',
+        type: 'number',
+        required: false,
+        description: '与 gender 同时提供可计算命卦；也可直接提供 mingGua。',
+      },
+      { id: 'birthMonth', label: '出生月', type: 'number', required: false },
+      { id: 'birthDay', label: '出生日', type: 'number', required: false },
+      {
+        id: 'gender',
+        label: '性别',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: 'male', label: '男' },
+          { value: 'female', label: '女' },
+        ]),
+      },
+      { id: 'mingGua', label: '直接指定命卦', type: 'text', required: false },
+      { id: 'sitMountain', label: '坐山', type: 'text', required: false },
       {
         id: 'doorToInteriorDegree',
         label: '大门朝屋内角度',
         type: 'number',
-        required: true,
-        description: '站在大门处面向屋内测量，范围 0° 至小于 360°。',
+        required: false,
+        description: '使用门向便捷入口时必填；站在大门处面向屋内测量，范围 0° 至 360°。',
       },
+      {
+        id: 'northReference',
+        label: '北向基准',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: 'unspecified', label: '未指定' },
+          { value: 'magnetic', label: '磁北' },
+          { value: 'true', label: '真北' },
+        ]),
+      },
+      { id: 'magneticDeclinationDegrees', label: '磁偏角', type: 'number', required: false },
+      { id: 'measurementUncertaintyDegrees', label: '测量误差', type: 'number', required: false },
     ],
     outputs: [
       '二十四山',
@@ -624,6 +804,10 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
+    notes: [
+      '命卦资料至少提供 birthYear+gender 或 mingGua；sitMountain 和门向测量均为可选住宅资料。',
+      'doorToInteriorDegree 由 analyzeBaZhaiByDoorDegree 使用；普通 analyzeBaZhai 直接接收 sitMountain。',
+    ],
   },
   {
     id: 'zodiac',
@@ -758,22 +942,12 @@ const systems: SystemCapability[] = [
         type: 'number',
         required: false,
       },
-      {
-        id: 'guaType',
-        label: '卦型',
-        type: 'select',
-        required: false,
-        options: options([
-          { value: '下卦', label: '下卦' },
-          { value: '替卦', label: '替卦' },
-        ]),
-      },
       questionInput,
     ],
     outputs: [
       '三元九运',
       '山向',
-      '下卦与替卦',
+      '下卦',
       '运盘',
       '山盘',
       '向盘',
@@ -790,8 +964,8 @@ const systems: SystemCapability[] = [
       batch: false,
     },
     notes: [
-      '玄空飞星输出可复现的下卦或兼向替卦三盘、局型、组合与证据，不覆盖形峦、玄空大卦或其他门派替卦口诀。',
-      '可明确指定下卦或替卦；未指定时，坐山度数落在每山中央9°外会自动采用兼向替卦。',
+      '玄空飞星输出可复现的下卦三盘、局型、组合与证据，不覆盖形峦、玄空大卦或替卦口诀。',
+      '度数落在二十四山边界附近时会返回候选山向与测量警告，但仍按下卦分别计算。',
     ],
   },
   {
@@ -799,7 +973,26 @@ const systems: SystemCapability[] = [
     name: '住宅风水',
     category: 'environment',
     inputs: [
-      birthProfileInput,
+      {
+        id: 'birthYear',
+        label: '出生公历年',
+        type: 'number',
+        required: false,
+        description: '与 gender 同时提供可计算八宅命卦；也可直接提供 mingGua。',
+      },
+      { id: 'birthMonth', label: '出生月', type: 'number', required: false },
+      { id: 'birthDay', label: '出生日', type: 'number', required: false },
+      {
+        id: 'gender',
+        label: '性别',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: 'male', label: '男' },
+          { value: 'female', label: '女' },
+        ]),
+      },
+      { id: 'mingGua', label: '直接指定命卦', type: 'text', required: false },
       { id: 'year', label: '建造或起运年', type: 'number', required: false },
       {
         id: 'sitMountain',
@@ -847,23 +1040,12 @@ const systems: SystemCapability[] = [
         type: 'number',
         required: false,
       },
-      {
-        id: 'guaType',
-        label: '玄空卦型',
-        type: 'select',
-        required: false,
-        options: options([
-          { value: '下卦', label: '下卦' },
-          { value: '替卦', label: '替卦' },
-        ]),
-      },
-      questionInput,
     ],
     outputs: [
       '宅运结构',
       '人宅适配',
       '八宅命卦宅卦',
-      '玄空下卦或替卦运盘山盘向盘',
+      '玄空下卦运盘山盘向盘',
       '合参要点',
       '行动建议',
       '结构化证据',
@@ -895,4 +1077,18 @@ export function getCapabilities(): MingyuCapabilities {
 export function getSystemCapability(id: string): SystemCapability | undefined {
   const capability = systems.find((item) => item.id === id);
   return capability ? structuredClone(capability) : undefined;
+}
+
+/** 查询必须存在的能力；适合客户端、API 和表单把未知 ID 转成明确错误。 */
+export function requireSystemCapability(id: SystemCapabilityId | string): SystemCapability {
+  const capability = getSystemCapability(id);
+  if (capability) return capability;
+  throw new MingyuCoreError({
+    code: 'CAPABILITY_NOT_FOUND',
+    category: 'validation',
+    message: `不存在能力 ${id || '（空）'}。`,
+    field: 'id',
+    recoverable: true,
+    context: { id, availableIds: [...SYSTEM_CAPABILITY_IDS] },
+  });
 }

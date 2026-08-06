@@ -1,12 +1,12 @@
-import { baziCalculator } from '@core/bazi/baziCalculator';
-import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
-import { analyzeZiweiCompatibility } from '@core/ziwei/iztro';
-import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
-import type { BaziChartResult, Person } from '@core/bazi/baziTypes';
 import {
-  buildFortuneSelectionContext,
-  type BaziFortuneSelectionValue,
-} from '@core/bazi/fortuneSelection';
+  analyzeBaziCompatibility,
+  type BaziChartResult,
+  type Person,
+  type ShenShaVariantConfig,
+} from 'mingyu-core/bazi';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
+import { buildFortuneSelectionContext, type BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import {
   buildAstronomicalTimeEvidence,
   calculateMoonPhaseEvidence,
@@ -16,11 +16,8 @@ import {
   getTimeIndexFromClock,
   resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
-import {
-  buildCombinedZiweiCompatibilityPrompt,
-  buildZiweiChartInput,
-  calculatePublicZiweiChartForScopes,
-} from '../full-chart-engine/ziwei';
+import { buildZiweiChartInput, calculatePublicZiweiChartForScopes } from 'mingyu-core/ziwei';
+import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import {
   daysInSolarMonth,
   getBirthDateValidationMessage,
@@ -38,7 +35,7 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { bazhai, zodiac, taiyi, qizheng, xuankong, residentialFengshui } from 'mingyu-core';
-import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
+import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import {
   analyzeCompassDirection,
@@ -75,7 +72,7 @@ import type {
   XiaoliurenDivinationMethod,
 } from '../../types/divination';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
-import type { DivinationMethodId } from '@core/divination/config';
+import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import type { ScopeType } from '../../types/analysis';
 import {
   BAZI_PROMPT_TOPICS,
@@ -1852,15 +1849,6 @@ function buildMetaphysicsPrompt(
   return buildSharedMetaphysicsPrompt(basePrompt, question, { method });
 }
 
-function resolveZodiacBranch(z: unknown): string {
-  if (typeof z !== 'string' || !z)
-    throw new ApiError(400, 'BAD_REQUEST', 'zodiac 必须是生肖或地支。');
-  if ((EARTHLY_BRANCHES as readonly string[]).includes(z)) return z;
-  const idx = ZODIACS.findIndex((name) => name === z);
-  if (idx >= 0) return EARTHLY_BRANCHES[idx];
-  throw new ApiError(400, 'BAD_REQUEST', `无法识别的生肖/地支：${z}`);
-}
-
 function calculateBaZhaiApi(input: JsonRecord) {
   const gender =
     input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : undefined;
@@ -1930,15 +1918,18 @@ function buildBaZhaiPrompt(input: JsonRecord) {
 }
 
 function calculateZodiacApi(input: JsonRecord) {
-  const zodiacBranch = resolveZodiacBranch(input.zodiac);
+  const zodiacName = readString(input, 'zodiac', '');
+  if (!zodiacName) throw new ApiError(400, 'BAD_REQUEST', 'zodiac 必须是生肖或地支。');
   const yearGanZhi = readString(input, 'yearGanZhi', '');
   if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
   }
   const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
-  // 以"立春"为年界：取 2 月 10 日（必在立春之后）推算流年干支，避免 2/4 凌晨尚属上一干支年的误差
-  const gz = yearGanZhi || getGanZhiFromDate(new Date(year, 1, 10)).year;
-  return zodiac.getZodiacYearFortune(zodiacBranch, gz);
+  return zodiac.calculateZodiacYearFortune({
+    zodiac: zodiacName,
+    year,
+    ...(yearGanZhi ? { yearGanZhi } : {}),
+  });
 }
 
 function buildZodiacPrompt(input: JsonRecord) {

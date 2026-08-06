@@ -1,78 +1,37 @@
-import rawBirthPlaceTree from '@/data/chinaBirthPlaceTree.json';
+import {
+  findBirthPlaceByDisplayName,
+  findBirthPlaceByRegionId,
+  getBirthPlaceCityOptions,
+  getBirthPlaceDistrictOptions,
+  getBirthPlaceProvinceOptions,
+  isDistrictBirthPlacePath,
+  type BirthPlaceCascadePath,
+  type BirthPlaceCityOption,
+  type BirthPlaceDistrictOption,
+  type BirthPlaceProvinceOption,
+} from 'mingyu-location-china';
 
-export interface BirthPlaceDistrictOption {
-  id: string;
-  label: string;
-  displayName: string;
-  pinyin: string;
-  longitude: number;
-}
+export type { BirthPlaceCityOption, BirthPlaceDistrictOption, BirthPlaceProvinceOption };
 
-export interface BirthPlaceCityOption {
-  id: string;
-  label: string;
-  displayName: string;
-  pinyin: string;
-  longitude: number;
-  districts: BirthPlaceDistrictOption[];
-}
-
-export interface BirthPlaceProvinceOption {
-  id: string;
-  label: string;
-  pinyin: string;
-  longitude: number;
-  cities: BirthPlaceCityOption[];
-}
-
-interface BirthPlaceCascadePath {
-  province: BirthPlaceProvinceOption;
+type DistrictBirthPlaceCascadePath = BirthPlaceCascadePath & {
   city: BirthPlaceCityOption;
   district: BirthPlaceDistrictOption;
-}
+};
 
-const birthPlaceTree = rawBirthPlaceTree as BirthPlaceProvinceOption[];
+export { getBirthPlaceCityOptions, getBirthPlaceDistrictOptions, getBirthPlaceProvinceOptions };
 
-const districtPathById = new Map<string, BirthPlaceCascadePath>();
-const districtPathByDisplayName = new Map<string, BirthPlaceCascadePath>();
-
-for (const province of birthPlaceTree) {
-  for (const city of province.cities) {
-    for (const district of city.districts) {
-      const path = { province, city, district };
-      districtPathById.set(district.id, path);
-      districtPathByDisplayName.set(district.displayName, path);
-    }
-  }
-}
-
-export function getBirthPlaceProvinceOptions(): BirthPlaceProvinceOption[] {
-  return birthPlaceTree;
-}
-
-export function getBirthPlaceCityOptions(provinceId: string): BirthPlaceCityOption[] {
-  return birthPlaceTree.find((province) => province.id === provinceId)?.cities || [];
-}
-
-export function getBirthPlaceDistrictOptions(cityId: string): BirthPlaceDistrictOption[] {
-  for (const province of birthPlaceTree) {
-    const city = province.cities.find((item) => item.id === cityId);
-    if (city) {
-      return city.districts;
-    }
-  }
-
-  return [];
+function toDistrictPath(path: BirthPlaceCascadePath | null): DistrictBirthPlaceCascadePath | null {
+  return isDistrictBirthPlacePath(path) && path.city ? path : null;
 }
 
 export function findBirthPlaceCascadeByDistrictId(
   districtId: string,
-): BirthPlaceCascadePath | null {
-  return districtPathById.get(districtId) || null;
+): DistrictBirthPlaceCascadePath | null {
+  return toDistrictPath(findBirthPlaceByRegionId(districtId));
 }
 
 export function findBirthPlaceCascadeByDisplayName(
   displayName: string,
-): BirthPlaceCascadePath | null {
-  return districtPathByDisplayName.get(displayName) || null;
+): DistrictBirthPlaceCascadePath | null {
+  return toDistrictPath(findBirthPlaceByDisplayName(displayName));
 }

@@ -1,7 +1,10 @@
-import { Suspense, lazy, memo } from 'react';
-import type { ReactNode } from 'react';
-import type { BaziChartResult } from '@core/bazi/baziTypes';
-import { getShenShaType, getTenGodForBranch, getWuxing } from '@core/bazi/baziUtils';
+import { Suspense, lazy, memo, type ReactNode } from 'react';
+import {
+  getShenShaType,
+  getTenGodForBranch,
+  getWuxing,
+  type BaziChartResult,
+} from 'mingyu-core/bazi';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
 import {
   formatAvoidGodPrioritySummary,

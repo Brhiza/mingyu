@@ -1,37 +1,5 @@
-const PROVINCE_LATITUDE_BY_ID_PREFIX: Record<string, number> = {
-  '11': 39.9042,
-  '12': 39.3434,
-  '13': 38.0428,
-  '14': 37.8706,
-  '15': 40.8175,
-  '21': 41.8057,
-  '22': 43.8171,
-  '23': 45.8038,
-  '31': 31.2304,
-  '32': 32.0603,
-  '33': 30.2741,
-  '34': 31.8206,
-  '35': 26.0745,
-  '36': 28.682,
-  '37': 36.6512,
-  '41': 34.7466,
-  '42': 30.5928,
-  '43': 28.2282,
-  '44': 23.1291,
-  '45': 22.817,
-  '46': 20.044,
-  '50': 29.563,
-  '51': 30.5728,
-  '52': 26.647,
-  '53': 25.0389,
-  '54': 29.652,
-  '61': 34.3416,
-  '62': 36.0611,
-  '63': 36.6171,
-  '64': 38.4872,
-  '65': 43.8256,
-};
+import { resolveBirthPlaceApproximateLatitude } from 'mingyu-location-china';
 
 export function resolveBirthPlaceLatitude(placeId: string): number {
-  return PROVINCE_LATITUDE_BY_ID_PREFIX[placeId.slice(0, 2)] ?? 35;
+  return resolveBirthPlaceApproximateLatitude(placeId);
 }

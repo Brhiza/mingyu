@@ -1,210 +1,296 @@
 {
   "name": "mingyu-core",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "Mingyu core algorithms: traditional Chinese metaphysics (八字Bazi, 紫微斗数Ziwei, 奇门遁甲Qimen, 六爻Liuyao, 六壬Liuren, 梅花易数Meihua, and more)",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./bazi": {
-      "import": "./dist/bazi/index.js",
-      "types": "./dist/bazi/index.d.ts"
+      "types": "./dist/bazi/index.d.ts",
+      "import": "./dist/bazi/index.js"
     },
     "./divination/liuyao": {
-      "import": "./dist/divination/algorithms/liuyao.js",
-      "types": "./dist/divination/algorithms/liuyao.d.ts"
+      "types": "./dist/divination/algorithms/liuyao.d.ts",
+      "import": "./dist/divination/algorithms/liuyao.js"
     },
     "./divination/meihua": {
-      "import": "./dist/divination/algorithms/meihua/index.js",
-      "types": "./dist/divination/algorithms/meihua/index.d.ts"
+      "types": "./dist/divination/algorithms/meihua/index.d.ts",
+      "import": "./dist/divination/algorithms/meihua/index.js"
     },
     "./divination/qimen": {
-      "import": "./dist/divination/algorithms/qimen/index.js",
-      "types": "./dist/divination/algorithms/qimen/index.d.ts"
+      "types": "./dist/divination/algorithms/qimen/index.d.ts",
+      "import": "./dist/divination/algorithms/qimen/index.js"
     },
     "./divination/liuren": {
-      "import": "./dist/divination/algorithms/liuren/index.js",
-      "types": "./dist/divination/algorithms/liuren/index.d.ts"
+      "types": "./dist/divination/algorithms/liuren/index.d.ts",
+      "import": "./dist/divination/algorithms/liuren/index.js"
     },
     "./divination/xiaoliuren": {
-      "import": "./dist/divination/algorithms/xiaoliuren.js",
-      "types": "./dist/divination/algorithms/xiaoliuren.d.ts"
+      "types": "./dist/divination/algorithms/xiaoliuren.d.ts",
+      "import": "./dist/divination/algorithms/xiaoliuren.js"
     },
     "./divination/jinkoujue": {
-      "import": "./dist/divination/algorithms/jinkoujue.js",
-      "types": "./dist/divination/algorithms/jinkoujue.d.ts"
+      "types": "./dist/divination/algorithms/jinkoujue.d.ts",
+      "import": "./dist/divination/algorithms/jinkoujue.js"
     },
     "./divination/lenormand": {
-      "import": "./dist/divination/algorithms/lenormand.js",
-      "types": "./dist/divination/algorithms/lenormand.d.ts"
+      "types": "./dist/divination/algorithms/lenormand.d.ts",
+      "import": "./dist/divination/algorithms/lenormand.js"
     },
     "./divination/ssgw": {
-      "import": "./dist/divination/algorithms/ssgw.js",
-      "types": "./dist/divination/algorithms/ssgw.d.ts"
+      "types": "./dist/divination/algorithms/ssgw.d.ts",
+      "import": "./dist/divination/algorithms/ssgw.js"
     },
     "./divination/almanac": {
-      "import": "./dist/divination/algorithms/almanac.js",
-      "types": "./dist/divination/algorithms/almanac.d.ts"
+      "types": "./dist/divination/algorithms/almanac.d.ts",
+      "import": "./dist/divination/algorithms/almanac.js"
     },
     "./divination/astrolabe": {
-      "import": "./dist/divination/algorithms/astrolabe.js",
-      "types": "./dist/divination/algorithms/astrolabe.d.ts"
+      "types": "./dist/divination/algorithms/astrolabe.d.ts",
+      "import": "./dist/divination/algorithms/astrolabe.js"
     },
     "./divination/astrolabe-scope": {
-      "import": "./dist/divination/astrolabe-scope.js",
-      "types": "./dist/divination/astrolabe-scope.d.ts"
+      "types": "./dist/divination/astrolabe-scope.d.ts",
+      "import": "./dist/divination/astrolabe-scope.js"
     },
     "./divination/astrolabe-synastry": {
-      "import": "./dist/divination/astrolabe-synastry.js",
-      "types": "./dist/divination/astrolabe-synastry.d.ts"
+      "types": "./dist/divination/astrolabe-synastry.d.ts",
+      "import": "./dist/divination/astrolabe-synastry.js"
+    },
+    "./divination": {
+      "types": "./dist/divination/index.d.ts",
+      "import": "./dist/divination/index.js"
+    },
+    "./divination/session": {
+      "types": "./dist/divination/session.d.ts",
+      "import": "./dist/divination/session.js"
     },
     "./prompt-evidence": {
-      "import": "./dist/prompt-evidence/index.js",
-      "types": "./dist/prompt-evidence/index.d.ts"
+      "types": "./dist/prompt-evidence/index.d.ts",
+      "import": "./dist/prompt-evidence/index.js"
+    },
+    "./prompt": {
+      "types": "./dist/prompt/index.d.ts",
+      "import": "./dist/prompt/index.js"
+    },
+    "./prompt/formatters": {
+      "types": "./dist/prompt/formatters.d.ts",
+      "import": "./dist/prompt/formatters.js"
+    },
+    "./prompt/divination-enhanced": {
+      "types": "./dist/prompt/divination-enhanced.d.ts",
+      "import": "./dist/prompt/divination-enhanced.js"
+    },
+    "./prompt/presets": {
+      "types": "./dist/prompt/presets.d.ts",
+      "import": "./dist/prompt/presets.js"
+    },
+    "./prompt/inspiration": {
+      "types": "./dist/prompt/inspiration.d.ts",
+      "import": "./dist/prompt/inspiration.js"
+    },
+    "./prompt/public-api": {
+      "types": "./dist/prompt/public-api.d.ts",
+      "import": "./dist/prompt/public-api.js"
     },
     "./divination/config": {
-      "import": "./dist/divination/config.js",
-      "types": "./dist/divination/config.d.ts"
+      "types": "./dist/divination/config.d.ts",
+      "import": "./dist/divination/config.js"
     },
     "./divination/engine/liuyao-template": {
-      "import": "./dist/divination/engine/liuyao-template.js",
-      "types": "./dist/divination/engine/liuyao-template.d.ts"
+      "types": "./dist/divination/engine/liuyao-template.d.ts",
+      "import": "./dist/divination/engine/liuyao-template.js"
     },
     "./divination/engine/liuren-template": {
-      "import": "./dist/divination/engine/liuren-template.js",
-      "types": "./dist/divination/engine/liuren-template.d.ts"
+      "types": "./dist/divination/engine/liuren-template.d.ts",
+      "import": "./dist/divination/engine/liuren-template.js"
     },
     "./divination/engine/method-text": {
-      "import": "./dist/divination/engine/method-text.js",
-      "types": "./dist/divination/engine/method-text.d.ts"
+      "types": "./dist/divination/engine/method-text.d.ts",
+      "import": "./dist/divination/engine/method-text.js"
     },
     "./divination/divination-data": {
-      "import": "./dist/divination/divination-data.js",
-      "types": "./dist/divination/divination-data.d.ts"
+      "types": "./dist/divination/divination-data.d.ts",
+      "import": "./dist/divination/divination-data.js"
     },
     "./divination/hexagram-data": {
-      "import": "./dist/divination/hexagram-data.js",
-      "types": "./dist/divination/hexagram-data.d.ts"
+      "types": "./dist/divination/hexagram-data.d.ts",
+      "import": "./dist/divination/hexagram-data.js"
     },
     "./divination/tarot": {
-      "import": "./dist/divination/tarot.js",
-      "types": "./dist/divination/tarot.d.ts"
+      "types": "./dist/divination/tarot.d.ts",
+      "import": "./dist/divination/tarot.js"
     },
     "./divination/tarot-data": {
-      "import": "./dist/divination/tarot-data.js",
-      "types": "./dist/divination/tarot-data.d.ts"
+      "types": "./dist/divination/tarot-data.d.ts",
+      "import": "./dist/divination/tarot-data.js"
     },
     "./divination/divination-helpers": {
-      "import": "./dist/divination/divination-helpers.js",
-      "types": "./dist/divination/divination-helpers.d.ts"
+      "types": "./dist/divination/divination-helpers.d.ts",
+      "import": "./dist/divination/divination-helpers.js"
+    },
+    "./divination/ssgw-content": {
+      "types": "./dist/divination/ssgw-content.d.ts",
+      "import": "./dist/divination/ssgw-content.js"
+    },
+    "./prompt/divination": {
+      "types": "./dist/prompt/divination.d.ts",
+      "import": "./dist/prompt/divination.js"
     },
     "./ziwei/iztro": {
-      "import": "./dist/ziwei/iztro/index.js",
-      "types": "./dist/ziwei/iztro/index.d.ts"
+      "types": "./dist/ziwei/iztro/index.d.ts",
+      "import": "./dist/ziwei/iztro/index.js"
+    },
+    "./ziwei": {
+      "types": "./dist/ziwei/iztro/index.d.ts",
+      "import": "./dist/ziwei/iztro/index.js"
+    },
+    "./ziwei/runtime": {
+      "types": "./dist/ziwei/runtime.d.ts",
+      "import": "./dist/ziwei/runtime.js"
+    },
+    "./ziwei/fortune": {
+      "types": "./dist/ziwei/fortune-options.d.ts",
+      "import": "./dist/ziwei/fortune-options.js"
+    },
+    "./ziwei/prompt": {
+      "types": "./dist/ziwei/prompt/index.d.ts",
+      "import": "./dist/ziwei/prompt/index.js"
     },
     "./ziwei/true-solar-input": {
-      "import": "./dist/ziwei/true-solar-input.js",
-      "types": "./dist/ziwei/true-solar-input.d.ts"
+      "types": "./dist/ziwei/true-solar-input.d.ts",
+      "import": "./dist/ziwei/true-solar-input.js"
     },
     "./calendar": {
-      "import": "./dist/calendar/index.js",
-      "types": "./dist/calendar/index.d.ts"
+      "types": "./dist/calendar/index.d.ts",
+      "import": "./dist/calendar/index.js"
+    },
+    "./calendar/true-solar-time": {
+      "types": "./dist/calendar/true-solar-time.d.ts",
+      "import": "./dist/calendar/true-solar-time.js"
     },
     "./ganzhi": {
-      "import": "./dist/ganzhi/index.js",
-      "types": "./dist/ganzhi/index.d.ts"
+      "types": "./dist/ganzhi/index.d.ts",
+      "import": "./dist/ganzhi/index.js"
     },
     "./wuxing": {
-      "import": "./dist/wuxing/index.js",
-      "types": "./dist/wuxing/index.d.ts"
+      "types": "./dist/wuxing/index.d.ts",
+      "import": "./dist/wuxing/index.js"
     },
     "./direction": {
-      "import": "./dist/direction/index.js",
-      "types": "./dist/direction/index.d.ts"
+      "types": "./dist/direction/index.d.ts",
+      "import": "./dist/direction/index.js"
     },
     "./shensha": {
-      "import": "./dist/shensha/index.js",
-      "types": "./dist/shensha/index.d.ts"
+      "types": "./dist/shensha/index.d.ts",
+      "import": "./dist/shensha/index.js"
     },
     "./foundation": {
-      "import": "./dist/foundation/index.js",
-      "types": "./dist/foundation/index.d.ts"
+      "types": "./dist/foundation/index.d.ts",
+      "import": "./dist/foundation/index.js"
     },
     "./profile": {
-      "import": "./dist/profile/index.js",
-      "types": "./dist/profile/index.d.ts"
+      "types": "./dist/profile/index.d.ts",
+      "import": "./dist/profile/index.js"
+    },
+    "./profile/input": {
+      "types": "./dist/profile/input.d.ts",
+      "import": "./dist/profile/input.js"
+    },
+    "./birth": {
+      "types": "./dist/birth/index.d.ts",
+      "import": "./dist/birth/index.js"
+    },
+    "./compatibility": {
+      "types": "./dist/compatibility/index.d.ts",
+      "import": "./dist/compatibility/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
     },
     "./capabilities": {
-      "import": "./dist/capabilities/index.js",
-      "types": "./dist/capabilities/index.d.ts"
+      "types": "./dist/capabilities/index.d.ts",
+      "import": "./dist/capabilities/index.js"
     },
     "./result": {
-      "import": "./dist/shared/result.js",
-      "types": "./dist/shared/result.d.ts"
+      "types": "./dist/shared/result.d.ts",
+      "import": "./dist/shared/result.js"
     },
     "./random": {
-      "import": "./dist/shared/random.js",
-      "types": "./dist/shared/random.d.ts"
+      "types": "./dist/shared/random.d.ts",
+      "import": "./dist/shared/random.js"
     },
     "./bazhai": {
-      "import": "./dist/ba_zhai/index.js",
-      "types": "./dist/ba_zhai/index.d.ts"
+      "types": "./dist/ba_zhai/index.d.ts",
+      "import": "./dist/ba_zhai/index.js"
     },
     "./zodiac": {
-      "import": "./dist/zodiac/index.js",
-      "types": "./dist/zodiac/index.d.ts"
+      "types": "./dist/zodiac/index.d.ts",
+      "import": "./dist/zodiac/index.js"
     },
     "./taiyi": {
-      "import": "./dist/taiyi/index.js",
-      "types": "./dist/taiyi/index.d.ts"
+      "types": "./dist/taiyi/index.d.ts",
+      "import": "./dist/taiyi/index.js"
     },
     "./qizheng": {
-      "import": "./dist/qi_zheng/index.js",
-      "types": "./dist/qi_zheng/index.d.ts"
+      "types": "./dist/qi_zheng/index.d.ts",
+      "import": "./dist/qi_zheng/index.js"
     },
     "./xuankong": {
-      "import": "./dist/xuan_kong/index.js",
-      "types": "./dist/xuan_kong/index.d.ts"
+      "types": "./dist/xuan_kong/index.d.ts",
+      "import": "./dist/xuan_kong/index.js"
     },
     "./residential-fengshui": {
-      "import": "./dist/residential_fengshui/index.js",
-      "types": "./dist/residential_fengshui/index.d.ts"
+      "types": "./dist/residential_fengshui/index.d.ts",
+      "import": "./dist/residential_fengshui/index.js"
+    },
+    "./location": {
+      "types": "./dist/location/index.d.ts",
+      "import": "./dist/location/index.js"
     },
     "./types": {
-      "import": "./dist/types/index.js",
-      "types": "./dist/types/index.d.ts"
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
     }
   },
   "files": [
     "dist",
+    "docs",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && tsc --build tsconfig.json --force && node scripts/add-esm-extensions.mjs",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build",
+    "clean": "node scripts/clean-dist.mjs",
+    "prepublishOnly": "pnpm build",
     "test": "node scripts/run-core-tests.mjs"
   },
   "dependencies": {
     "@soul-atelier/xuankong": "0.2.1",
     "astronomy-engine": "2.1.19",
-    "tyme4ts": "^1.3.3"
+    "tyme4ts": "^1.3.3",
+    "celestine": "^0.2.1"
   },
   "peerDependencies": {
-    "celestine": "^0.2.1",
     "iztro": "^2.5.8"
   },
   "peerDependenciesMeta": {
     "iztro": {
-      "optional": true
-    },
-    "celestine": {
       "optional": true
     }
   },
@@ -237,7 +323,6 @@
   },
   "devDependencies": {
     "celestine": "^0.2.1",
-    "iztro": "^2.5.8",
-    "tsup": "^8.5.1"
+    "iztro": "^2.5.8"
   }
 }

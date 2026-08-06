@@ -1,5 +1,4 @@
-import { buildAstrolabeFromInput, buildHoroscope, shiftLunarYear } from '@core/ziwei/iztro';
-import { getDaysInMonth } from 'mingyu-core/calendar';
+import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei';
 import type { ChartInput } from '@/types/chart';
 
 type DecadalOptionInput = {
@@ -56,16 +55,6 @@ type ZiweiFortuneOptionsResponse =
       error: string;
     };
 
-function getDateParts(dateStr: string) {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return { year, month, day };
-}
-
-function formatMonthDayLabel(dateStr: string) {
-  const [, month, day] = dateStr.split('-');
-  return `${month}/${day}`;
-}
-
 self.onmessage = async (event: MessageEvent<ZiweiFortuneOptionsRequest>) => {
   try {
     if (!event.data.selectedDecadal) {
@@ -82,81 +71,17 @@ self.onmessage = async (event: MessageEvent<ZiweiFortuneOptionsRequest>) => {
       return;
     }
 
-    const astrolabe = await buildAstrolabeFromInput(event.data.input);
-    const yearOptions: YearOption[] = [];
-
-    for (
-      let age = event.data.selectedDecadal.startAge;
-      age <= event.data.selectedDecadal.endAge;
-      age += 1
-    ) {
-      const dateStr = shiftLunarYear(event.data.birthSolarDate, age - 1);
-      const horoscope = buildHoroscope(astrolabe, dateStr, event.data.hourIndex);
-      const year = getDateParts(dateStr).year;
-      yearOptions.push({
-        year,
-        age,
-        dateStr,
-        label: `${year}年`,
-        ganZhi: `${horoscope.yearly.heavenlyStem}${horoscope.yearly.earthlyBranch}`,
-      });
-    }
-
-    const effectiveYearDateStr =
-      yearOptions.find((item) => item.dateStr === event.data.selectedYearDateStr)?.dateStr ??
-      yearOptions[0]?.dateStr ??
-      '';
-
-    const monthOptions: MonthOption[] = effectiveYearDateStr
-      ? Array.from({ length: 12 }, (_, index) => {
-          const { year } = getDateParts(effectiveYearDateStr);
-          const dateStr = `${year}-${String(index + 1).padStart(2, '0')}-15`;
-          const horoscope = buildHoroscope(astrolabe, dateStr, event.data.hourIndex);
-          const monthNumber = index + 1;
-          return {
-            month: monthNumber,
-            dateStr,
-            label: `${monthNumber}月`,
-            ganZhi: `${horoscope.monthly.heavenlyStem}${horoscope.monthly.earthlyBranch}`,
-          };
-        })
-      : [];
-
-    const effectiveMonthDateStr =
-      monthOptions.find((item) => item.dateStr === event.data.selectedMonthDateStr)?.dateStr ??
-      monthOptions[0]?.dateStr ??
-      '';
-
-    const dayOptions: DayOption[] = effectiveMonthDateStr
-      ? Array.from(
-          {
-            length: getDaysInMonth(
-              getDateParts(effectiveMonthDateStr).year,
-              getDateParts(effectiveMonthDateStr).month,
-            ),
-          },
-          (_, index) => {
-            const { year, month } = getDateParts(effectiveMonthDateStr);
-            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`;
-            const horoscope = buildHoroscope(astrolabe, dateStr, event.data.hourIndex);
-            return {
-              day: index + 1,
-              dateStr,
-              label: formatMonthDayLabel(dateStr),
-              ganZhi: `${horoscope.daily.heavenlyStem}${horoscope.daily.earthlyBranch}`,
-            };
-          },
-        )
-      : [];
+    const result = await buildZiweiFortuneOptions(event.data.input, event.data.selectedDecadal, {
+      birthSolarDate: event.data.birthSolarDate,
+      hourIndex: event.data.hourIndex,
+      selectedYearDateStr: event.data.selectedYearDateStr,
+      selectedMonthDateStr: event.data.selectedMonthDateStr,
+    });
 
     const response: ZiweiFortuneOptionsResponse = {
       id: event.data.id,
       ok: true,
-      yearOptions,
-      monthOptions,
-      dayOptions,
-      effectiveYearDateStr,
-      effectiveMonthDateStr,
+      ...result,
     };
     self.postMessage(response);
   } catch (error) {

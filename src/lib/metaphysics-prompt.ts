@@ -1,5 +1,9 @@
-import { formatPromptCurrentTime } from './prompt-time';
-import { buildPromptGuidanceSections, type MetaphysicsPromptMethod } from './prompt-guidance';
+import {
+  buildMetaphysicsPrompt as buildCoreMetaphysicsPrompt,
+  type MetaphysicsPromptMethod,
+} from 'mingyu-core/prompt';
+
+export type { MetaphysicsPromptMethod };
 
 export interface MetaphysicsPromptOptions {
   method: MetaphysicsPromptMethod;
@@ -7,28 +11,11 @@ export interface MetaphysicsPromptOptions {
   currentTime?: Date;
 }
 
+/** 页面兼容入口；元学提示词包装统一由 mingyu-core 提供。 */
 export function buildMetaphysicsPrompt(
   basePrompt: string,
   question: string | undefined,
   options: MetaphysicsPromptOptions,
 ): string {
-  const normalizedQuestion = question?.trim() ?? '';
-  const questionSection = normalizedQuestion ? ['', '【问题】', normalizedQuestion] : [];
-
-  return [
-    buildPromptGuidanceSections(options.method),
-    '',
-    '【当前时间】',
-    formatPromptCurrentTime(options.currentTime),
-    '',
-    basePrompt,
-    ...(options.measurement ? ['', '【测量换算】', options.measurement] : []),
-    ...questionSection,
-    '',
-    '【任务】',
-    '请依据盘面资料和传统依据完成解读。',
-  ]
-    .flat()
-    .filter((line): line is string => typeof line === 'string' && line !== '')
-    .join('\n');
+  return buildCoreMetaphysicsPrompt(basePrompt, question, options);
 }

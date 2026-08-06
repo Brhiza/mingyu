@@ -8,6 +8,7 @@ import type { ZiweiCalculationConfig } from '../../types/analysis';
 import { daysInSolarMonth } from '../../calendar/date-validation';
 import { getTimeIndexFromClock } from '../../calendar/dateUtils';
 import { TimeManager } from '../../calendar/timeManager';
+import { MingyuCoreError } from '../../shared/result';
 
 const VALID_GENDERS = ['男', '女'] as const;
 const VALID_ALGORITHMS = ['default', 'zhongzhou'] as const;
@@ -94,7 +95,19 @@ export const DEFAULT_ZIWEI_CALCULATION_CONFIG: ZiweiCalculationConfig = buildZiw
 export async function buildAstrolabeFromInput(input: ChartInput): Promise<FunctionalAstrolabe> {
   const normalized = normalizeChartInput(input);
   assertValidChartInput(normalized);
-  const { astro } = await import('iztro');
+  let astro: typeof import('iztro').astro;
+  try {
+    ({ astro } = await import('iztro'));
+  } catch (cause) {
+    throw new MingyuCoreError({
+      code: 'IZTRO_DEPENDENCY_REQUIRED',
+      category: 'dependency',
+      message: '紫微斗数能力需要安装可选依赖 iztro。',
+      recoverable: true,
+      context: { dependency: 'iztro', install: 'pnpm add iztro' },
+      cause,
+    });
+  }
 
   return astro.withOptions({
     type: normalized.dateType,

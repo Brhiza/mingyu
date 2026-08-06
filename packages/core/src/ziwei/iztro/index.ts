@@ -49,7 +49,33 @@ export {
   type ZiweiTrueSolarBirth,
   type ZiweiTrueSolarInput,
 } from '../true-solar-input';
+export {
+  DEFAULT_ZIWEI_RUNTIME_SCOPES,
+  buildZiweiChartInput,
+  buildZiweiPayloadByScope,
+  calculateFullZiweiChart,
+  calculatePublicZiweiChartForScopes,
+  calculateZiweiChart,
+  calculateZiweiChartForScopes,
+  calculateZiweiDisplayPayload,
+  calculateZiweiPayloadByScope,
+  type ZiweiChartInputDraft,
+  type ZiweiHoroscopeContext,
+  type ZiweiRuntime,
+  type ZiweiRuntimeOptions,
+} from '../runtime';
 export { analyzeZiweiCompatibility } from './compatibility-evidence';
+export * from '../prompt/index';
+export { buildSerializableZiweiResult } from '../../prompt/ziwei';
+export type { SerializableZiweiResult } from '../../prompt/ziwei';
+export { buildZiweiFortuneOptions } from '../fortune-options';
+export type {
+  ZiweiDayOption,
+  ZiweiFortuneOptions,
+  ZiweiFortuneOptionsBuildOptions,
+  ZiweiMonthOption,
+  ZiweiYearOption,
+} from '../fortune-options';
 export type {
   ZiweiCompatibilityCalculationStep,
   ZiweiCompatibilityCounterEvidenceFact,

@@ -1,1 +1,1 @@
-export type * from '@core/types/iztro';
+export type * from 'mingyu-core/types';

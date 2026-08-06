@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { QizhengAspect, QizhengResult, QizhengStar } from '@core/qi_zheng';
+import type { QizhengAspect, QizhengResult, QizhengStar } from 'mingyu-core/qizheng';
 
 const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 const STAR_STYLES: Array<{ match: string; symbol: string; color: string }> = [

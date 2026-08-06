@@ -15,7 +15,7 @@ import type {
   XiaoliurenDivinationMethod,
   JinkoujueDivinationMethod,
 } from '../../../types/divination';
-import type { DivinationMethodId } from '@core/divination/config';
+import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { daysInSolarMonth } from '../../date-validation';
 import {
   buildAstrolabeTopicTask,
@@ -29,12 +29,12 @@ import {
   formatDivinationInfo,
   formatSupplementaryInfoSection,
 } from './formatters';
-import { buildTaskText } from '@core/divination/engine/method-text';
-import { buildLiurenTemplateText } from '@core/divination/engine/liuren-template';
-import { buildLiuyaoTemplateText } from '@core/divination/engine/liuyao-template';
+import { buildTaskText } from 'mingyu-core/divination/engine/method-text';
+import { buildLiurenTemplateText } from 'mingyu-core/divination/engine/liuren-template';
+import { buildLiuyaoTemplateText } from 'mingyu-core/divination/engine/liuyao-template';
 import { buildPromptGuidanceSections } from '../../prompt-guidance';
-import { tarotSpreads } from '@core/divination/tarot';
-import { LENORMAND_SPREADS } from '@core/divination/algorithms/lenormand';
+import { tarotSpreads } from 'mingyu-core/divination/tarot';
+import { LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [
   'liuyao',

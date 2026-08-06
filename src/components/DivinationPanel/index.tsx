@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { TAROT_SPREAD_OPTIONS } from '@core/divination/config';
+import { TAROT_SPREAD_OPTIONS } from 'mingyu-core/divination/config';
 import {
   generateDivinationSession,
   type DivinationDraft,

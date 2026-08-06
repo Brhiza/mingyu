@@ -7,12 +7,12 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
-} from '@core/divination/config';
-import { resolveInteractiveTarotCards, tarotSpreads } from '@core/divination/tarot';
+} from 'mingyu-core/divination/config';
+import { resolveInteractiveTarotCards, tarotSpreads } from 'mingyu-core/divination/tarot';
 import {
   LENORMAND_SPREADS,
   resolveInteractiveLenormandCards,
-} from '@core/divination/algorithms/lenormand';
+} from 'mingyu-core/divination/lenormand';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import {
   almanacTopicLabelMap,

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { zodiac } from 'mingyu-core';
-import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
+import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -21,13 +21,6 @@ const zodiacSchema = z.object({
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
-function resolveZodiacBranch(z: string): string {
-  if ((EARTHLY_BRANCHES as readonly string[]).includes(z)) return z;
-  const idx = ZODIACS.findIndex((name) => name === z);
-  if (idx >= 0) return EARTHLY_BRANCHES[idx];
-  throw new Error(`无法识别的生肖/地支：${z}`);
-}
-
 export function registerZodiacTool(server: McpServer) {
   server.registerTool(
     'metaphysics_zodiac',
@@ -39,11 +32,7 @@ export function registerZodiacTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const branch = resolveZodiacBranch(args.zodiac);
-        const yearGanZhi =
-          args.yearGanZhi ||
-          getGanZhiFromDate(new Date(args.year ?? new Date().getFullYear(), 1, 10)).year;
-        const result = zodiac.getZodiacYearFortune(branch, yearGanZhi);
+        const result = zodiac.calculateZodiacYearFortune(args);
         return createStructuredToolResult({ result });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生肖运程推算失败'));
@@ -60,11 +49,7 @@ export function registerZodiacTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const branch = resolveZodiacBranch(args.zodiac);
-        const yearGanZhi =
-          args.yearGanZhi ||
-          getGanZhiFromDate(new Date(args.year ?? new Date().getFullYear(), 1, 10)).year;
-        const result = zodiac.getZodiacYearFortune(branch, yearGanZhi);
+        const result = zodiac.calculateZodiacYearFortune(args);
         return createStructuredToolResult({
           result,
           prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'zodiac' }),

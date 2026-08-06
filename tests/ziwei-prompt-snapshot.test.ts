@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
-} from '../src/lib/full-chart-engine/ziwei';
+  formatZiweiTrueSolarEvidence,
+} from 'mingyu-core/ziwei/prompt';
+import { resolveZiweiTrueSolarBirth } from 'mingyu-core/ziwei/true-solar-input';
 import {
   buildEvidenceAnalysis,
   buildEvidencePool,
@@ -492,6 +494,52 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
   assert.doesNotMatch(prompt, /^【重点宫位资料】$/m);
   assert.match(prompt, /分析背景：\n/);
   assert.match(prompt, /重点宫位资料：\n/);
+});
+
+test('紫微双盘提示词应分别输出双方真实计算的真太阳时校正资料', () => {
+  const primaryBirth = resolveZiweiTrueSolarBirth({
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '18',
+    isLeapMonth: false,
+    birthHour: '12',
+    birthMinute: '0',
+    birthLongitude: '116.4',
+    timezone: 8,
+  });
+  const partnerBirth = resolveZiweiTrueSolarBirth({
+    dateType: 'solar',
+    year: '1990',
+    month: '5',
+    day: '12',
+    isLeapMonth: false,
+    birthHour: '23',
+    birthMinute: '50',
+    birthLongitude: '87.6',
+    timezone: 8,
+  });
+  const primaryCorrection = formatZiweiTrueSolarEvidence(primaryBirth.trueSolarEvidence);
+  const partnerCorrection = formatZiweiTrueSolarEvidence(partnerBirth.trueSolarEvidence);
+
+  const prompt = buildCombinedZiweiCompatibilityPrompt({
+    primaryPayload: createPayload(),
+    partnerPayload: createPayload(),
+    topic: 'relationship',
+    question: '请分析双方互动。',
+    primaryName: '甲方',
+    partnerName: '乙方',
+    primaryTrueSolarEvidence: primaryBirth.trueSolarEvidence,
+    partnerTrueSolarEvidence: partnerBirth.trueSolarEvidence,
+  });
+
+  assert.ok(primaryCorrection);
+  assert.ok(partnerCorrection);
+  assert.notEqual(primaryCorrection, partnerCorrection);
+  assert.ok(prompt.includes(`【甲方出生时间校正】\n${primaryCorrection}`));
+  assert.ok(prompt.includes(`【乙方出生时间校正】\n${partnerCorrection}`));
+  assert.ok(prompt.indexOf('【甲方出生时间校正】') < prompt.indexOf('【甲方盘面】'));
+  assert.ok(prompt.indexOf('【乙方出生时间校正】') < prompt.indexOf('【乙方盘面】'));
 });
 
 test('紫微证据池应输出大限流年流月流日落宫与运限四化飞入证据', () => {

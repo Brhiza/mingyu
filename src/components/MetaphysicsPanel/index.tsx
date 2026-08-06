@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { BaZhaiResult } from '@core/ba_zhai';
-import type { ResidentialFengshuiResult } from '@core/residential_fengshui';
-import type { XuanKongResult } from '@core/xuan_kong';
+import type { BaZhaiResult } from 'mingyu-core/bazhai';
+import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
+import type { XuanKongResult } from 'mingyu-core/xuankong';
 import {
   calculateResidentialChart,
   resolveResidentialDoorDirection,

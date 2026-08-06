@@ -2,9 +2,18 @@
  * @file Bazi algorithms barrel
  */
 export { baziCalculator, BaziCalculator } from './baziCalculator';
+export { buildBaziPersonInput, calculateBaziChartFromInput } from './input';
+export type { BaziChartInputDraft, BaziInputText } from './input';
 export { formatBaziForPrompt } from './baziAnalysisFormatter';
+export type { PromptChartScene } from './baziAnalysisFormatter';
 export { generateEnhancedAnalysisSection } from './baziPromptEnhancement';
-export { buildFortuneSelectionContext, normalizeFortuneSelection } from './fortuneSelection/index';
+export {
+  buildCurrentBaziFortuneSelection,
+  buildFortuneSelectionContext,
+  buildRecentBaziFortuneSelection,
+  getCurrentBaziLuckCycle,
+  normalizeFortuneSelection,
+} from './fortuneSelection/index';
 export type { BaziFortuneSelectionValue, FortuneSelectionContext } from './fortuneSelection/index';
 export {
   isFortuneModalDetailOptionActive,
@@ -23,6 +32,8 @@ export type {
   BaziAnalysisResult,
   BaziWarningFact,
   BaziWarningSummaryFact,
+  SolarDateTimeInfo,
+  TimingInfo,
   Wuxing,
 } from './baziTypes';
 export {

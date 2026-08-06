@@ -3,10 +3,10 @@ import {
   findCurrentDecadalOption,
   formatDecadalAgeRange,
   getDefaultHoroscopeContext,
-} from '@core/ziwei/iztro';
+} from 'mingyu-core/ziwei';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
-import type { DecadalTimelineOption } from '@core/ziwei/iztro';
+import type { DecadalTimelineOption } from 'mingyu-core/ziwei';
 import { formatMonthDayLabel, splitGanZhi } from '../ResultPage.helpers';
 import { useZiweiFortuneOptionsWorker } from '../hooks/useZiweiFortuneOptionsWorker';
 import { BaziFortuneLoadingCard } from './skeletons';

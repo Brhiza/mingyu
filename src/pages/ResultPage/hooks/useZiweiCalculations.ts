@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildZiweiChartInput, calculateFullZiweiChart } from '@/lib/full-chart-engine';
-import { getDefaultHoroscopeContext } from '@core/ziwei/iztro';
+import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei';
 import type { AnalysisPayloadV1 } from '@/types/analysis';
 import type { ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';

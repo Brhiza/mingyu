@@ -4,8 +4,11 @@ import {
   type TrueSolarTimeEvidenceFields,
 } from '../calendar/true-solar-time';
 import { getShichenByIndex, getTimeIndexFromClock } from '../calendar/dateUtils';
-import type { Person } from '../bazi/baziTypes';
+import { baziCalculator } from '../bazi/baziCalculator';
+import type { BaziChartResult, Person } from '../bazi/baziTypes';
 import type { AlmanacParticipantInput, AstrolabeBirthInput } from '../types/divination';
+import type { ChartInput } from '../types/chart';
+import type { QizhengInput } from '../qi_zheng';
 import { MingyuCoreError, type CoreDiagnostic } from '../shared/result';
 import {
   buildBirthTimeEvidence,
@@ -13,6 +16,13 @@ import {
   type BirthTimeInputMode,
   type BirthTimePrecision,
 } from './evidence';
+export {
+  clampNumericField,
+  validateBirthInput,
+  type BirthInputFields,
+  type BirthInputText,
+  type BirthInputValidationResult,
+} from './input';
 
 export type {
   BirthTimeCalculationStep,
@@ -361,25 +371,73 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
   const normalized = normalizeBirthProfile(profile);
   requireReady(normalized);
   const clock = normalized.solarClockTime;
+  const useTrueSolarTime = profile.useTrueSolarTime === true;
   return {
-    year: profile.year,
-    month: profile.month,
-    day: profile.day,
+    // 真太阳时前先把农历输入落成公历钟表时间，避免 BaziCalculator 再次把
+    // 已换算的时间按农历解释；真太阳时校正仍由 BaziCalculator 统一执行一次。
+    year: useTrueSolarTime ? clock.year : profile.year,
+    month: useTrueSolarTime ? clock.month : profile.month,
+    day: useTrueSolarTime ? clock.day : profile.day,
     timeIndex: normalized.timeIndex,
     gender: profile.gender === 'unspecified' ? '' : profile.gender,
-    isLunar: profile.calendarType === 'lunar',
-    isLeapMonth: profile.isLeapMonth,
-    useTrueSolarTime: profile.useTrueSolarTime,
+    isLunar: useTrueSolarTime ? false : profile.calendarType === 'lunar',
+    isLeapMonth: useTrueSolarTime ? false : profile.isLeapMonth,
+    useTrueSolarTime,
     ...(normalized.timePrecision === 'minute'
       ? { birthHour: clock.hour, birthMinute: clock.minute }
       : {}),
     birthPlace: profile.location?.name,
     birthLongitude: profile.location?.longitude,
+    timezone: profile.location?.timezone,
     applyChinaDst: profile.applyChinaDst,
   };
 }
 
-/** 将统一档案转换为星盘既有输入。星盘必须有经纬度和准确时辰。 */
+/** 直接按统一出生档案生成八字传统盘数据。 */
+export function calculateBaziFromBirthProfile(profile: BirthProfile): BaziChartResult {
+  return baziCalculator.calculateBazi(birthProfileToBaziPerson(profile));
+}
+
+function formatBirthDate(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** 将统一出生档案转换为紫微斗数传统盘的 ChartInput。 */
+export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput {
+  const normalized = normalizeBirthProfile(profile);
+  const genderDiagnostic: BirthProfileDiagnostic | undefined =
+    profile.gender === 'unspecified'
+      ? {
+          code: 'GENDER_REQUIRED',
+          level: 'error',
+          field: 'gender',
+          message: '紫微斗数排盘需要明确性别。',
+        }
+      : undefined;
+  requireReady(normalized, genderDiagnostic);
+
+  const useTrueSolarTime = profile.useTrueSolarTime === true;
+  const date = useTrueSolarTime ? normalized.effectiveTime : undefined;
+  return {
+    name: profile.name ?? '',
+    gender: profile.gender === 'male' ? '男' : '女',
+    dateType: useTrueSolarTime ? 'solar' : profile.calendarType,
+    birthDate: date
+      ? formatBirthDate(date.year, date.month, date.day)
+      : formatBirthDate(profile.year, profile.month, profile.day),
+    birthTimeIndex: normalized.timeIndex,
+    trueSolarEvidence: normalized.trueSolarEvidence,
+    isLeapMonth: useTrueSolarTime ? false : profile.isLeapMonth,
+    fixLeap: true,
+    algorithm: 'default',
+    yearDivide: 'normal',
+    horoscopeDivide: 'normal',
+    ageDivide: 'normal',
+    dayDivide: 'forward',
+  };
+}
+
+/** 将统一出生档案转换为星盘既有输入。星盘必须有经纬度和准确时辰。 */
 export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBirthInput {
   const normalized = normalizeBirthProfile(profile);
   const preciseTimeDiagnostic: BirthProfileDiagnostic | undefined =
@@ -426,6 +484,31 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
     timezone: String(location.timezone ?? 8),
     locationName: location.name,
     useTrueSolarTime: profile.useTrueSolarTime,
+  };
+}
+
+/**
+ * 将统一出生档案转换为七政四余输入。
+ *
+ * 七政四余只接受公历时刻，因此农历档案先沿用统一档案的公历钟表时间。
+ * 启用真太阳时后，把原始民用时间交给七政四余自身校正，避免重复校正；
+ * 这与八字、紫微适配器的输出口径不同，调用方不应混用已校正时间。
+ */
+export function birthProfileToQizhengInput(profile: BirthProfile): QizhengInput {
+  const normalized = normalizeBirthProfile(profile);
+  requireReady(normalized);
+  const clock = normalized.solarClockTime;
+  const location = profile.location;
+  return {
+    year: clock.year,
+    month: clock.month,
+    day: clock.day,
+    hour: clock.hour,
+    minute: clock.minute,
+    ...(location?.latitude !== undefined ? { latitude: location.latitude } : {}),
+    ...(location?.longitude !== undefined ? { longitude: location.longitude } : {}),
+    ...(location?.timezone !== undefined ? { timezone: location.timezone } : {}),
+    useTrueSolarTime: profile.useTrueSolarTime === true,
   };
 }
 
