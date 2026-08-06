@@ -46,6 +46,14 @@ export function ZiweiTraditionalBoard(props: {
     centerFocusTags.length === 0
       ? uniqueNonEmptyStrings(selectedPalace.summary_tags).slice(0, 2)
       : [];
+  const fourPillars = payload.basic_info.four_pillars
+    ? [
+        payload.basic_info.four_pillars.year_pillar,
+        payload.basic_info.four_pillars.month_pillar,
+        payload.basic_info.four_pillars.day_pillar,
+        payload.basic_info.four_pillars.hour_pillar,
+      ].join(' ')
+    : '';
 
   return (
     <section className="ziwei-traditional-shell">
@@ -109,17 +117,49 @@ export function ZiweiTraditionalBoard(props: {
                 <div className="ziwei-board-center chart-center" key={`center-${index}`}>
                   <div className="ziwei-board-center-head chart-center-head">
                     <div className="chart-center-scope">{payload.active_scope.label}</div>
-                    <div className="chart-center-age">{payload.active_scope.nominal_age} 岁</div>
+                    <div className="chart-center-age">
+                      {payload.active_scope.nominal_age > 0
+                        ? `${payload.active_scope.nominal_age} 岁`
+                        : '本命盘'}
+                    </div>
                   </div>
                   <div className="chart-center-info">
-                    <div>
-                      {name} · {payload.basic_info.gender}
+                    <div className="chart-center-info-row chart-center-info-wide">
+                      <span>命盘</span>
+                      <strong>
+                        {name} · {payload.basic_info.gender}
+                      </strong>
                     </div>
-                    <div>{payload.basic_info.zodiac}</div>
-                    <div>{payload.basic_info.solar_date}</div>
-                    <div>{payload.basic_info.lunar_date}</div>
-                    <div>{payload.basic_info.birth_time_label}</div>
-                    <div>{payload.active_scope.solar_date}</div>
+                    <div className="chart-center-info-row">
+                      <span>生肖</span>
+                      <strong>
+                        {payload.basic_info.zodiac} · {payload.basic_info.sign}
+                      </strong>
+                    </div>
+                    <div className="chart-center-info-row">
+                      <span>阳历</span>
+                      <strong>{payload.basic_info.solar_date}</strong>
+                    </div>
+                    <div className="chart-center-info-row chart-center-info-wide">
+                      <span>农历</span>
+                      <strong>{payload.basic_info.lunar_date}</strong>
+                    </div>
+                    <div className="chart-center-info-row">
+                      <span>时辰</span>
+                      <strong>{payload.basic_info.birth_time_label}</strong>
+                    </div>
+                    {fourPillars ? (
+                      <div className="chart-center-info-row chart-center-info-wide">
+                        <span>四柱</span>
+                        <strong>{fourPillars}</strong>
+                      </div>
+                    ) : null}
+                    {payload.active_scope.scope !== 'origin' ? (
+                      <div className="chart-center-info-row chart-center-info-wide">
+                        <span>当前</span>
+                        <strong>{payload.active_scope.solar_date}</strong>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="ziwei-board-center-meta chart-center-grid">
                     <div className="chart-center-chip">命主 {payload.basic_info.soul}</div>
@@ -130,8 +170,9 @@ export function ZiweiTraditionalBoard(props: {
                     <div className="chart-center-chip">
                       命宫 {payload.basic_info.soul_palace_branch}
                     </div>
-                    <div className="chart-center-chip">长生 {selectedPalace.changsheng12}</div>
-                    <div className="chart-center-chip">博士 {selectedPalace.boshi12}</div>
+                    <div className="chart-center-chip">
+                      身宫 {payload.basic_info.body_palace_branch}
+                    </div>
                   </div>
                   <div className="ziwei-board-center-relation chart-center-focus">
                     <div className="chart-center-focus-label">当前宫位</div>
@@ -189,10 +230,18 @@ export function ZiweiTraditionalBoard(props: {
             const isOpposite = palace.index === selectedPalace.opposite_palace_index;
             const isSurrounded = surroundedIndexSet.has(palace.index);
             const footerBadges = uniqueNonEmptyStrings([
-              palace.dynamic_scope_name ?? palace.scope_hits[0],
-              palace.summary_tags[0],
-              palace.changsheng12,
-            ]).slice(0, 2);
+              palace.dynamic_scope_name,
+              palace.changsheng12 ? `长生 ${palace.changsheng12}` : '',
+              palace.boshi12 ? `博士 ${palace.boshi12}` : '',
+              palace.base_jiangqian12 ? `将前 ${palace.base_jiangqian12}` : '',
+              palace.base_suiqian12 ? `岁前 ${palace.base_suiqian12}` : '',
+              payload.active_scope.scope === 'origin' || !palace.yearly_jiangqian12
+                ? ''
+                : `流年将前 ${palace.yearly_jiangqian12}`,
+              payload.active_scope.scope === 'origin' || !palace.yearly_suiqian12
+                ? ''
+                : `流年岁前 ${palace.yearly_suiqian12}`,
+            ]);
 
             return (
               <button
@@ -223,30 +272,23 @@ export function ZiweiTraditionalBoard(props: {
                     </div>
                   </div>
 
-                  <div className="chart-cell-major-column">
+                  <div className="chart-cell-star-layers">
                     <ChartStarLine
                       fallback="无主星"
-                      layout="column"
+                      layout="wrap"
                       stars={palace.major_stars}
                       tone="major"
                     />
-                  </div>
-
-                  <div className="chart-cell-side-columns">
-                    <ChartStarLine
-                      layout="column"
-                      limit={5}
-                      stars={palace.minor_stars}
-                      tone="minor"
-                    />
-                    <ChartStarLine
-                      layout="column"
-                      limit={4}
-                      stars={palace.scope_stars}
-                      tone="scope"
-                    />
+                    <ChartStarLine layout="wrap" stars={palace.minor_stars} tone="minor" />
+                    <ChartStarLine layout="wrap" stars={palace.other_stars} tone="other" />
+                    <ChartStarLine layout="wrap" stars={palace.scope_stars} tone="scope" />
                   </div>
                 </div>
+                {palace.ages.length > 0 ? (
+                  <div className="chart-cell-age-cycle" title="本宫流年虚岁序列">
+                    流年 {palace.ages.join('·')}
+                  </div>
+                ) : null}
                 <div className="ziwei-grid-cell-foot chart-cell-foot">
                   {footerBadges.map((item) => (
                     <span className="chart-cell-badge" key={`${palace.index}-${item}`}>
