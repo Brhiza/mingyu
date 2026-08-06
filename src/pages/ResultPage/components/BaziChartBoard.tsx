@@ -1,5 +1,7 @@
 import { Suspense, lazy, memo } from 'react';
+import type { ReactNode } from 'react';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
+import { getShenShaType, getTenGodForBranch, getWuxing } from '@core/bazi/baziUtils';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
 import {
   formatAvoidGodPrioritySummary,
@@ -14,6 +16,49 @@ const LazyBaziFortuneSelector = lazy(async () => {
   const module = await import('@/components/BaziFortuneTools/BaziFortuneSelector');
   return { default: module.BaziFortuneSelector };
 });
+
+const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
+
+function BaziGanZhiValue(props: { value: string }) {
+  const wuxing = getWuxing(props.value);
+
+  return (
+    <span className="bazi-ganzhi-value">
+      <strong className="bazi-ganzhi-symbol">{props.value}</strong>
+      <small className="bazi-wuxing-label" data-wuxing={wuxing}>
+        {wuxing}
+      </small>
+    </span>
+  );
+}
+
+function BaziShenShaList(props: { items: string[] }) {
+  const items = uniqueNonEmptyStrings(props.items);
+
+  if (items.length === 0) {
+    return <span className="bazi-shensha-empty">无</span>;
+  }
+
+  return (
+    <span className="bazi-shensha-list">
+      {items.map((item) => {
+        const type = getShenShaType(item);
+        const toneClassName =
+          type === '吉' ? 'is-lucky' : type === '凶' ? 'is-unlucky' : 'is-neutral';
+
+        return (
+          <span
+            className={`bazi-shensha-tag ${toneClassName}`}
+            aria-label={`${item}（${type}）`}
+            key={item}
+          >
+            {item}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 export const BaziChartBoard = memo(function BaziChartBoard(props: {
   title: string;
@@ -40,73 +85,68 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   if (result.shenGong) {
     referenceItems.push({ label: '身宫', value: result.shenGong, detail: '后天着力' });
   }
-  const pillarRows = [
+  const dayOwnerLabel =
+    result.gender === 'male' ? '元男' : result.gender === 'female' ? '元女' : '';
+  const pillarRows: Array<{
+    label: string;
+    values: ReactNode[];
+    className?: string;
+  }> = [
+    {
+      label: '天干十神',
+      values: PILLAR_KEYS.map((key) => result.tenGods[key]),
+    },
     {
       label: '天干',
-      values: [
-        result.pillars.year.gan,
-        result.pillars.month.gan,
-        result.pillars.day.gan,
-        result.pillars.hour.gan,
-      ],
+      values: PILLAR_KEYS.map((key) => (
+        <BaziGanZhiValue key={key} value={result.pillars[key].gan} />
+      )),
       className: 'is-stem',
     },
     {
       label: '地支',
-      values: [
-        result.pillars.year.zhi,
-        result.pillars.month.zhi,
-        result.pillars.day.zhi,
-        result.pillars.hour.zhi,
-      ],
+      values: PILLAR_KEYS.map((key) => (
+        <BaziGanZhiValue key={key} value={result.pillars[key].zhi} />
+      )),
       className: 'is-branch',
     },
     {
-      label: '十神',
-      values: [result.tenGods.year, result.tenGods.month, result.tenGods.day, result.tenGods.hour],
+      label: '地支十神',
+      values: PILLAR_KEYS.map((key) =>
+        getTenGodForBranch(result.pillars[key].zhi, result.dayMaster.gan),
+      ),
     },
     {
       label: '藏干',
-      values: [
-        joinMultilineText(result.hiddenStems.year, '无'),
-        joinMultilineText(result.hiddenStems.month, '无'),
-        joinMultilineText(result.hiddenStems.day, '无'),
-        joinMultilineText(result.hiddenStems.hour, '无'),
-      ],
+      values: PILLAR_KEYS.map((key) => joinMultilineText(result.hiddenStems[key], '无')),
       className: 'is-multiline',
     },
     {
-      label: '副星',
-      values: [
-        joinMultilineText(result.hiddenTenGods.year, '无'),
-        joinMultilineText(result.hiddenTenGods.month, '无'),
-        joinMultilineText(result.hiddenTenGods.day, '无'),
-        joinMultilineText(result.hiddenTenGods.hour, '无'),
-      ],
+      label: '藏干十神',
+      values: PILLAR_KEYS.map((key) => joinMultilineText(result.hiddenTenGods[key], '无')),
       className: 'is-multiline',
     },
     {
       label: '纳音',
-      values: [result.nayin.year, result.nayin.month, result.nayin.day, result.nayin.hour],
+      values: PILLAR_KEYS.map((key) => result.nayin[key]),
+    },
+    {
+      label: '自坐',
+      values: PILLAR_KEYS.map((key) => result.ziZuo[key]),
     },
     {
       label: '长生',
-      values: [
-        result.pillarLifeStages.year,
-        result.pillarLifeStages.month,
-        result.pillarLifeStages.day,
-        result.pillarLifeStages.hour,
-      ],
+      values: PILLAR_KEYS.map((key) => result.pillarLifeStages[key]),
+    },
+    {
+      label: '空亡',
+      values: PILLAR_KEYS.map((key) => joinMultilineText(result.kongWang[key], '无')),
+      className: 'is-multiline',
     },
     {
       label: '神煞',
-      values: [
-        joinMultilineText(result.shensha.year.slice(0, 3), '无'),
-        joinMultilineText(result.shensha.month.slice(0, 3), '无'),
-        joinMultilineText(result.shensha.day.slice(0, 3), '无'),
-        joinMultilineText(result.shensha.hour.slice(0, 3), '无'),
-      ],
-      className: 'is-multiline',
+      values: PILLAR_KEYS.map((key) => <BaziShenShaList items={result.shensha[key]} key={key} />),
+      className: 'is-shensha',
     },
   ];
 
@@ -173,7 +213,10 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <div className="bazi-pillars-cell is-label is-head">信息</div>
             <div className="bazi-pillars-cell is-head">年柱</div>
             <div className="bazi-pillars-cell is-head">月柱</div>
-            <div className="bazi-pillars-cell is-head is-day-master">日柱</div>
+            <div className="bazi-pillars-cell is-head is-day-master">
+              <span>日柱</span>
+              {dayOwnerLabel ? <small className="bazi-day-owner">{dayOwnerLabel}</small> : null}
+            </div>
             <div className="bazi-pillars-cell is-head">时柱</div>
             {pillarRows.flatMap((row) => [
               <div key={`${row.label}-label`} className="bazi-pillars-cell is-label">
