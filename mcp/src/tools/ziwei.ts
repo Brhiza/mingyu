@@ -152,7 +152,7 @@ export function registerZiweiTool(server: McpServer) {
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
         const result = await calculateZiweiChartForScopes(input, scopes);
-        return createStructuredToolResult(buildSerializableZiweiResult(result));
+        return createStructuredToolResult({ ...buildSerializableZiweiResult(result) });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
       }

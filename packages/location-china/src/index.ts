@@ -1,6 +1,7 @@
 import {
   createBirthPlaceIndex,
   type BirthPlaceCascadePath,
+  type BirthPlaceCityOption,
   type BirthPlaceDistrictOption,
   type BirthPlaceIndex,
   type BirthPlaceProvinceOption,
@@ -90,6 +91,9 @@ export function resolveBirthPlaceApproximateLatitude(regionId: string, fallback 
 /** 确认查询结果包含区县节点，便于表单从通用路径收窄类型。 */
 export function isDistrictBirthPlacePath(
   path: BirthPlaceCascadePath | null,
-): path is BirthPlaceCascadePath & { district: BirthPlaceDistrictOption } {
-  return Boolean(path?.district);
+): path is BirthPlaceCascadePath & {
+  city: BirthPlaceCityOption;
+  district: BirthPlaceDistrictOption;
+} {
+  return Boolean(path?.city && path.district);
 }
