@@ -298,6 +298,9 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         minute: standardBirth.minute,
         longitude,
         timezone,
+        timeZoneId: input.timeZoneId,
+        ziHourMode: input.ziHourMode,
+        southernHemisphere: input.southernHemisphere,
       })
     : null;
   const locationName = readOptionalText(input.locationName, '');

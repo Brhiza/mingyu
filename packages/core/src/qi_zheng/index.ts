@@ -1592,6 +1592,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
       },
       lon,
       standardMeridian,
+      input.timeZoneId?.trim() ? { timeZoneId: input.timeZoneId.trim() } : undefined,
     );
     palaceHour = trueSolar.correctedTime.hour;
     palaceMinute = trueSolar.correctedTime.minute;

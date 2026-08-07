@@ -1074,6 +1074,10 @@ export interface AstrolabeBirthInput {
   timeZoneId?: string;
   locationName?: string;
   useTrueSolarTime?: boolean;
+  /** 子时口径：'standard'（默认）23:00 起晚子时；'conservative' 23:00 仍归亥时。 */
+  ziHourMode?: 'standard' | 'conservative';
+  /** 南半球标记：仅透传，由上层词库解读季节/年界。 */
+  southernHemisphere?: boolean;
 }
 
 export interface AstrolabePoint {

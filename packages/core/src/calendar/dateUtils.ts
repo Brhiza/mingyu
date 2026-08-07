@@ -42,7 +42,17 @@ export function getShichenByIndex(index: number): ShichenPeriod | null {
   return SHICHEN_PERIODS[index];
 }
 
-export function getTimeIndexFromClock(hour: number, minute = 0): number {
+/**
+ * 由钟表时刻求时辰索引。
+ * @param ziHourMode 子时口径：
+ *  - 'standard'（默认）子时按本项目口径拆为早子时(00:00-01:00)与晚子时(23:00-24:00)；
+ *  - 'conservative' 传统口径，23:00 仍归亥时，不使用晚子时拆分。
+ */
+export function getTimeIndexFromClock(
+  hour: number,
+  minute = 0,
+  ziHourMode: 'standard' | 'conservative' = 'standard',
+): number {
   if (
     !Number.isInteger(hour) ||
     !Number.isInteger(minute) ||
@@ -54,12 +64,16 @@ export function getTimeIndexFromClock(hour: number, minute = 0): number {
     return -1;
   }
 
-  if (hour === 24) return minute === 0 ? 12 : -1;
-  if (hour === 23) return 12;
+  if (hour === 24) return minute === 0 ? (ziHourMode === 'conservative' ? 0 : 12) : -1;
+  if (hour === 23) return ziHourMode === 'conservative' ? 11 : 12;
   if (hour === 0) return 0;
   return Math.floor((hour + 1) / 2);
 }
 
-export function getShichenFromClock(hour: number, minute = 0): ShichenPeriod | null {
-  return getShichenByIndex(getTimeIndexFromClock(hour, minute));
+export function getShichenFromClock(
+  hour: number,
+  minute = 0,
+  ziHourMode: 'standard' | 'conservative' = 'standard',
+): ShichenPeriod | null {
+  return getShichenByIndex(getTimeIndexFromClock(hour, minute, ziHourMode));
 }

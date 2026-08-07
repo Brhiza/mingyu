@@ -256,6 +256,9 @@ export class BaziCalculator {
         longitude: birthLongitude!,
         timezone,
         applyChinaDst,
+        timeZoneId: person.timeZoneId,
+        ziHourMode: person.ziHourMode,
+        southernHemisphere: person.southernHemisphere,
       });
       const dstCorrectionMinutes = trueSolarResult.chinaDst.applied
         ? trueSolarResult.chinaDst.offsetMinutes

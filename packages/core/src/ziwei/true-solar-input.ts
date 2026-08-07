@@ -15,6 +15,12 @@ export interface ZiweiTrueSolarInput {
   birthLongitude: string;
   timezone?: number;
   applyChinaDst?: boolean;
+  /** IANA 时区名；提供时按历史规则解析 UTC 偏移并重算标准经线，自动含夏令时，覆盖 timezone。 */
+  timeZoneId?: string;
+  /** 子时口径：'standard'（默认）23:00 起晚子时；'conservative' 23:00 仍归亥时。 */
+  ziHourMode?: 'standard' | 'conservative';
+  /** 南半球标记：仅透传，由上层词库解读季节/年界。 */
+  southernHemisphere?: boolean;
 }
 
 export interface ZiweiTrueSolarBirth {
@@ -85,6 +91,9 @@ export function resolveZiweiTrueSolarBirth(input: ZiweiTrueSolarInput): ZiweiTru
     longitude: birthLongitude,
     timezone: input.timezone,
     applyChinaDst: input.applyChinaDst,
+    timeZoneId: input.timeZoneId,
+    ziHourMode: input.ziHourMode,
+    southernHemisphere: input.southernHemisphere,
   });
   const corrected = resolved.correctedTime;
   return {
