@@ -199,6 +199,7 @@ export interface ZiweiChartInputDraft {
   birthMinute?: ZiweiInputText;
   birthLongitude?: ZiweiInputText;
   timezone?: number;
+  timeZoneId?: string;
   applyChinaDst?: boolean;
   algorithm?: 'default' | 'zhongzhou';
 }
@@ -255,6 +256,7 @@ export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
         birthMinute: input.birthMinute === undefined ? '' : String(input.birthMinute),
         birthLongitude: input.birthLongitude === undefined ? '' : String(input.birthLongitude),
         timezone: input.timezone,
+        timeZoneId: input.timeZoneId,
         applyChinaDst: input.applyChinaDst,
       })
     : null;

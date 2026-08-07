@@ -20,7 +20,13 @@ const trueSolarTimeSchema = z.object({
     .string()
     .describe('当地钟表时间，如 1990-05-15T10:30:00；不要附带 Z 或 +08:00 等时区后缀'),
   longitude: z.number().min(-180).max(180).describe('当地经度，东经为正、西经为负'),
-  timezone: z.number().min(-12).max(14).optional().describe('当地标准时区，默认 UTC+8'),
+  timezone: z
+    .number()
+    .min(-12)
+    .max(14)
+    .optional()
+    .describe('固定 UTC 偏移；未提供 timeZoneId 时默认 UTC+8，也可用于回拨时间消歧'),
+  timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
   applyChinaDst: z
     .boolean()
     .optional()
@@ -37,7 +43,13 @@ const trueSolarBirthSchema = z.object({
   second: z.number().int().min(0).max(59).optional().describe('秒，默认 0'),
   isLeapMonth: z.boolean().optional().describe('农历是否为闰月'),
   longitude: z.number().min(-180).max(180).describe('当地经度，东经为正、西经为负'),
-  timezone: z.number().min(-12).max(14).optional().describe('当地标准时区，默认 UTC+8'),
+  timezone: z
+    .number()
+    .min(-12)
+    .max(14)
+    .optional()
+    .describe('固定 UTC 偏移；未提供 timeZoneId 时默认 UTC+8，也可用于回拨时间消歧'),
+  timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
   applyChinaDst: z.boolean().optional().describe('是否自动还原中国历史夏令时'),
 });
 
@@ -90,7 +102,7 @@ export function registerCalendarTools(server: McpServer) {
     'calendar_true_solar_time',
     {
       description:
-        '将当地钟表时间换算为真太阳时，返回唯一校正时间、经度与均时差修正、跨日和时辰结果，以及可核验的计算链、校正事实、证据汇总、来源与限制',
+        '将当地钟表时间按固定偏移或IANA历史时区换算为真太阳时，返回唯一校正时间、经度与均时差修正、跨日和时辰结果，以及可核验的计算链、校正事实、证据汇总、来源与限制',
       inputSchema: trueSolarTimeSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -107,7 +119,7 @@ export function registerCalendarTools(server: McpServer) {
     'calendar_true_solar_birth',
     {
       description:
-        '统一换算公历或农历出生真太阳时，返回历法换算、历史夏令时、跨日、唯一时辰索引及完整结构化计算链、校正事实、证据汇总、来源与限制',
+        '统一按固定偏移或IANA历史时区换算公历或农历出生真太阳时，返回历法换算、历史夏令时、跨日、唯一时辰索引及完整结构化计算链、校正事实、证据汇总、来源与限制',
       inputSchema: trueSolarBirthSchema.shape,
       outputSchema: resultOutputSchema,
     },

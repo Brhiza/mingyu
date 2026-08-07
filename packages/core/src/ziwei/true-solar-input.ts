@@ -14,6 +14,7 @@ export interface ZiweiTrueSolarInput {
   birthMinute: string;
   birthLongitude: string;
   timezone?: number;
+  timeZoneId?: string;
   applyChinaDst?: boolean;
 }
 
@@ -84,6 +85,7 @@ export function resolveZiweiTrueSolarBirth(input: ZiweiTrueSolarInput): ZiweiTru
     isLeapMonth: input.isLeapMonth,
     longitude: birthLongitude,
     timezone: input.timezone,
+    timeZoneId: input.timeZoneId,
     applyChinaDst: input.applyChinaDst,
   });
   const corrected = resolved.correctedTime;
@@ -99,6 +101,7 @@ export function resolveZiweiTrueSolarBirth(input: ZiweiTrueSolarInput): ZiweiTru
       summaryFact: resolved.summaryFact,
       limitations: resolved.limitations,
       limitationFacts: resolved.limitationFacts,
+      timezoneEvidence: resolved.timezoneEvidence,
       source: resolved.source,
       promptText: resolved.promptText,
     },

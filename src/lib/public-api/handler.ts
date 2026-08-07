@@ -931,12 +931,14 @@ export function getPublicApiOpenApiDocument(
         TrueSolarTimeRequest: {
           type: 'object',
           required: ['localDateTime', 'longitude'],
+          description:
+            '可用 timezone 提供固定 UTC 偏移，或用 timeZoneId 按当地日期解析历史偏移；两者同时提供时，timezone 用于回拨重复时刻消歧和一致性核验。',
           properties: {
             localDateTime: {
               type: 'string',
               example: '1990-05-15T10:30:00',
               description:
-                '当地钟表时间，格式为 YYYY-MM-DDTHH:mm 或 YYYY-MM-DDTHH:mm:ss，不要附带 Z 或时区偏移；夏令时需先还原为标准时间',
+                '当地钟表时间，格式为 YYYY-MM-DDTHH:mm 或 YYYY-MM-DDTHH:mm:ss，不要附带 Z 或时区偏移；IANA 时区会自动解析历史夏令时',
             },
             longitude: {
               type: 'number',
@@ -949,9 +951,13 @@ export function getPublicApiOpenApiDocument(
               type: 'number',
               minimum: -12,
               maximum: 14,
-              default: 8,
               example: 8,
-              description: '当地标准时区，默认 UTC+8，支持 5.5 等小数时区',
+              description: '固定 UTC 偏移；未提供 timeZoneId 时默认 UTC+8，支持 5.5 等小数时区',
+            },
+            timeZoneId: {
+              type: 'string',
+              example: 'America/New_York',
+              description: 'IANA 历史时区；会按当地日期解析当时的法定 UTC 偏移',
             },
             applyChinaDst: {
               type: 'boolean',
@@ -963,6 +969,8 @@ export function getPublicApiOpenApiDocument(
         TrueSolarBirthRequest: {
           type: 'object',
           required: ['dateType', 'year', 'month', 'day', 'hour', 'minute', 'longitude'],
+          description:
+            '可用 timezone 提供固定 UTC 偏移，或用 timeZoneId 按出生日期解析历史偏移；回拨重复时刻需同时提供 timezone 消歧。',
           properties: {
             dateType: { enum: ['solar', 'lunar'], description: '公历或农历' },
             year: { type: 'integer', minimum: 1900, maximum: 2100 },
@@ -973,7 +981,8 @@ export function getPublicApiOpenApiDocument(
             second: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
             isLeapMonth: { type: 'boolean', default: false, description: '农历是否为闰月' },
             longitude: { type: 'number', minimum: -180, maximum: 180 },
-            timezone: { type: 'number', minimum: -12, maximum: 14, default: 8 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
+            timeZoneId: { type: 'string', example: 'America/New_York' },
             applyChinaDst: { type: 'boolean', default: false },
           },
         },
@@ -1126,6 +1135,9 @@ export function getPublicApiOpenApiDocument(
             birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
+            timeZoneId: { type: 'string', example: 'America/New_York' },
+            applyChinaDst: { type: 'boolean' },
             shenShaVariants: { $ref: '#/components/schemas/ShenShaVariants' },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
@@ -1351,6 +1363,9 @@ export function getPublicApiOpenApiDocument(
             birthHour: { type: 'string' },
             birthMinute: { type: 'string' },
             birthLongitude: { type: 'string' },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
+            timeZoneId: { type: 'string', example: 'America/New_York' },
+            applyChinaDst: { type: 'boolean' },
             algorithm: {
               enum: ['default', 'zhongzhou'],
               description:
@@ -1683,10 +1698,19 @@ async function route(context: RouteContext) {
 function calculateTrueSolarTimeApi(input: JsonRecord) {
   const localDateTime = readRequiredString(input, 'localDateTime');
   const longitude = readNumberLike(input, 'longitude', -180, 180);
-  const timezone = input.timezone === undefined ? 8 : readNumberLike(input, 'timezone', -12, 14);
+  const timezone =
+    input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14);
+  const timeZoneId =
+    input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
   const applyChinaDst = readBoolean(input, 'applyChinaDst', false);
   try {
-    return convertTrueSolarTime({ localDateTime, longitude, timezone, applyChinaDst });
+    return convertTrueSolarTime({
+      localDateTime,
+      longitude,
+      timezone,
+      timeZoneId,
+      applyChinaDst,
+    });
   } catch (error) {
     throw new ApiError(
       400,
@@ -1708,7 +1732,10 @@ function calculateTrueSolarBirthApi(input: JsonRecord) {
       second: input.second === undefined ? 0 : readIntegerLike(input, 'second', 0, 59),
       isLeapMonth: readBoolean(input, 'isLeapMonth', false),
       longitude: readNumberLike(input, 'longitude', -180, 180),
-      timezone: input.timezone === undefined ? 8 : readNumberLike(input, 'timezone', -12, 14),
+      timezone:
+        input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
+      timeZoneId:
+        input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
       applyChinaDst: readBoolean(input, 'applyChinaDst', false),
     });
   } catch (error) {
@@ -2384,6 +2411,11 @@ function readBaziPerson(input: JsonRecord): Person {
     birthMinute,
     birthLongitude,
     birthPlace: readString(input, 'birthPlace', ''),
+    timezone: input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
+    timeZoneId:
+      input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
+    applyChinaDst:
+      input.applyChinaDst === undefined ? undefined : readBoolean(input, 'applyChinaDst', false),
     shenShaVariants: readShenShaVariants(input),
   };
 
@@ -2565,6 +2597,12 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
       birthHour: timeInput.birthHour,
       birthMinute: timeInput.birthMinute,
       birthLongitude: timeInput.birthLongitude,
+      timezone:
+        input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
+      timeZoneId:
+        input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
+      applyChinaDst:
+        input.applyChinaDst === undefined ? undefined : readBoolean(input, 'applyChinaDst', false),
       algorithm: readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default') as
         'default' | 'zhongzhou',
     }),

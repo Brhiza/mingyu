@@ -46,6 +46,8 @@ export interface BirthProfileLocation {
   latitude?: number;
   /** 当地标准时区，例如中国为 UTC+8。 */
   timezone?: number;
+  /** IANA 历史时区，例如 America/New_York。 */
+  timeZoneId?: string;
 }
 
 export interface ResolvedBirthProfileLocation {
@@ -53,7 +55,8 @@ export interface ResolvedBirthProfileLocation {
   name?: string;
   longitude: number;
   latitude?: number;
-  timezone: number;
+  timezone?: number;
+  timeZoneId?: string;
   coordinateAccuracy?: BirthPlaceCoordinateAccuracy | 'user-provided' | 'mixed';
 }
 
@@ -159,6 +162,12 @@ function assertProfileShape(profile: BirthProfile): void {
     if (profile.location.timezone !== undefined) {
       assertFiniteInRange(profile.location.timezone, '时区', -12, 14);
     }
+    if (
+      profile.location.timeZoneId !== undefined &&
+      (typeof profile.location.timeZoneId !== 'string' || !profile.location.timeZoneId.trim())
+    ) {
+      throw new TypeError('IANA 时区名不能为空。');
+    }
   }
 }
 
@@ -200,7 +209,8 @@ export function resolveBirthProfileLocation(
     name: location.name ?? region?.displayName,
     longitude: location.longitude ?? region!.longitude,
     latitude,
-    timezone: location.timezone ?? region?.timezone ?? 8,
+    timezone: location.timezone ?? (location.timeZoneId ? undefined : (region?.timezone ?? 8)),
+    ...(location.timeZoneId ? { timeZoneId: location.timeZoneId.trim() } : {}),
     coordinateAccuracy,
   };
 }
@@ -331,7 +341,10 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     second,
     isLeapMonth: profile.isLeapMonth,
     longitude: resolvedLocation?.longitude ?? (resolvedLocation?.timezone ?? 8) * 15,
-    timezone: resolvedLocation?.timezone ?? 8,
+    timezone: profile.useTrueSolarTime
+      ? (resolvedLocation?.timezone ?? (resolvedLocation?.timeZoneId ? undefined : 8))
+      : 8,
+    timeZoneId: profile.useTrueSolarTime ? resolvedLocation?.timeZoneId : undefined,
     applyChinaDst: profile.useTrueSolarTime ? profile.applyChinaDst : false,
   });
 
@@ -347,6 +360,7 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
       summaryFact: resolved.summaryFact,
       limitations: resolved.limitations,
       limitationFacts: resolved.limitationFacts,
+      timezoneEvidence: resolved.timezoneEvidence,
       source: resolved.source,
       promptText: resolved.promptText,
     };
@@ -454,6 +468,7 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
     birthPlace: location?.name,
     birthLongitude: location?.longitude,
     timezone: location?.timezone,
+    timeZoneId: location?.timeZoneId,
     applyChinaDst: profile.applyChinaDst,
   };
 }
@@ -546,7 +561,8 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
     minute: String(clock.minute),
     latitude: String(location.latitude),
     longitude: String(location.longitude),
-    timezone: String(location.timezone ?? 8),
+    ...(location.timezone !== undefined ? { timezone: String(location.timezone) } : {}),
+    ...(location.timeZoneId ? { timeZoneId: location.timeZoneId } : {}),
     locationName: location.name,
     useTrueSolarTime: profile.useTrueSolarTime,
   };
@@ -573,6 +589,7 @@ export function birthProfileToQizhengInput(profile: BirthProfile): QizhengInput 
     ...(location?.latitude !== undefined ? { latitude: location.latitude } : {}),
     ...(location?.longitude !== undefined ? { longitude: location.longitude } : {}),
     ...(location?.timezone !== undefined ? { timezone: location.timezone } : {}),
+    ...(location?.timeZoneId ? { timeZoneId: location.timeZoneId } : {}),
     useTrueSolarTime: profile.useTrueSolarTime === true,
   };
 }

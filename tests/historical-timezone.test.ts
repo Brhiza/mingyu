@@ -140,6 +140,37 @@ test('IANA 历史时区应保留纽约秋季回拨的两个候选时刻', () => 
   assertEvidenceReferences(evidence);
 });
 
+test('固定偏移应选择秋季回拨时间中对应的唯一候选', () => {
+  const daylight = resolveHistoricalTimezone({
+    year: 2024,
+    month: 11,
+    day: 3,
+    hour: 1,
+    minute: 30,
+    second: 0,
+    timeZoneId: 'America/New_York',
+    fixedOffsetHours: -4,
+  });
+  const standard = resolveHistoricalTimezone({
+    year: 2024,
+    month: 11,
+    day: 3,
+    hour: 1,
+    minute: 30,
+    second: 0,
+    timeZoneId: 'America/New_York',
+    fixedOffsetHours: -5,
+  });
+
+  assert.equal(daylight.selectedUtcDateTime, '2024-11-03T05:30:00.000Z');
+  assert.equal(daylight.resolvedOffsetHours, -4);
+  assert.equal(daylight.offsetConflict, false);
+  assert.equal(standard.selectedUtcDateTime, '2024-11-03T06:30:00.000Z');
+  assert.equal(standard.resolvedOffsetHours, -5);
+  assert.equal(standard.offsetConflict, false);
+  assert.match(standard.diagnostics[0], /固定偏移 UTC-5/);
+});
+
 test('IANA 历史时区应拒绝春季跳时与无效时区', () => {
   assert.throws(
     () =>

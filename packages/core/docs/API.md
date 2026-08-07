@@ -52,6 +52,7 @@
 | `birthMinute`      | `number`                        | *    | 真太阳时模式下的分钟（0-59）                                                              |
 | `birthLongitude`   | `number`                        | *    | 出生地经度（-180~180）                                                                    |
 | `timezone`         | `number`                        |      | 当地标准时区（UTC-12~UTC+14），默认 UTC+8；影响标准经线                                   |
+| `timeZoneId`       | `string`                        |      | IANA 历史时区；按出生日期解析当时的法定 UTC 偏移                                          |
 | `applyChinaDst`    | `boolean`                       |      | 是否自动校正中国夏令时（1986-1991），默认开启；若出生记录已折算为标准时间，可设为 `false` |
 | `shenShaVariants`  | `Partial<ShenShaVariantConfig>` |      | 神煞争议口径配置；不传时使用默认主流口径                                                  |
 
@@ -360,7 +361,7 @@
 | `birthProfileToQizhengInput(profile)`       | 生成七政四余输入；真太阳时保留原始民用时间交给七政四余引擎校正 |
 | `birthProfileToAlmanacParticipant(profile)` | 生成择日参与人输入                                             |
 
-真太阳时模式下必须提供 `hour`、`minute` 和 `location.longitude`；`location.timezone` 未提供时按 UTC+8 处理。八字结果的 `timing` 会返回 `timezone`、`standardMeridian`、经度修正、均时差、跨日结果和完整证据链。
+真太阳时模式下必须提供 `hour`、`minute` 和 `location.longitude`；地点可用 `location.timezone` 提供固定偏移，也可用 `location.timeZoneId` 按出生日期解析 IANA 历史时区，两者都不提供时按 UTC+8 处理。秋季回拨的重复当地时间必须同时提供固定偏移消歧；固定偏移冲突、春季不存在时间及 `timeZoneId` 与 `applyChinaDst` 同时启用会被拒绝。八字结果的 `timing` 会返回解析后的 `timezone`、`standardMeridian`、经度修正、均时差、跨日结果和完整证据链。
 
 ---
 
@@ -425,8 +426,8 @@ console.log(reading.promptText);
 | `getTimeIndexFromClock(hour, minute)`       | 由时钟转时辰索引                                                   |
 | `daysInSolarMonth(year, month)`             | 公历月天数                                                         |
 | `getBirthDateValidationMessage(...)`        | 出生日期校验                                                       |
-| `convertTrueSolarTime(input)`               | 按当地钟表时间、时区、经度和均时差换算真太阳时                     |
-| `resolveTrueSolarBirthTime(input)`          | 统一处理公历/农历、闰月、夏令时、跨日和时辰索引                    |
+| `convertTrueSolarTime(input)`               | 按当地钟表时间、固定偏移或 IANA 历史时区、经度和均时差换算真太阳时 |
+| `resolveTrueSolarBirthTime(input)`          | 统一处理公历/农历、闰月、历史时区、夏令时、跨日和时辰索引          |
 | `buildAstronomicalTimeEvidence(input)`      | 由当地时间与固定偏移或 IANA 时区生成 UTC、JD、近似 UT1、ΔT 和 TT   |
 | `calculateMoonPhaseEvidence(utcTimestamp)`  | 由 UTC Unix 毫秒生成月相、照明比例和前后朔弦望事件                 |
 | `calculateSolarTermEvidence(year, index)`   | 生成单个节气的历表时刻、目标黄经、独立求根及差值核验               |

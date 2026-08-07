@@ -113,7 +113,7 @@
 
 | 用户问题类型                       | 首选接口                                     | 推荐参数                                                                                                                                                    | 说明                                                                       |
 | ---------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 换算真太阳时                       | `POST /calendar/true-solar-time`             | `localDateTime`、`longitude`，可选 `timezone`、`applyChinaDst`                                                                                              | 默认 UTC+8，返回修正明细、跨日状态和对应时辰                               |
+| 换算真太阳时                       | `POST /calendar/true-solar-time`             | `localDateTime`、`longitude`，可选 `timezone`、`timeZoneId`、`applyChinaDst`                                                                                | 支持固定偏移或 IANA 历史时区，返回修正明细、跨日状态和对应时辰             |
 | 计算太阳光照证据                   | `POST /calendar/solar-illumination`          | `year`、`month`、`day`、`latitude`、`longitude`，并提供 `timezone` 或 `timeZoneId`；可选参考时分秒                                                          | 返回太阳高度、方位、视太阳正午、日出日落与三类曙暮光                       |
 | 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                    | `ganZhi`，如“甲子”                                                                                                                                          | 返回统一公共地基资料，不需重复实现                                         |
 | 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认计入地支藏干权重                                                       |
@@ -165,7 +165,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-time \
   -d '{"localDateTime":"1988-07-15T12:00:00","longitude":116.4074,"timezone":8,"applyChinaDst":true}'
 ```
 
-`localDateTime` 是当地钟表时间，不要附带 `Z` 或 `+08:00`。`timezone` 默认是 `8`；中国 1986–1991 年历史出生记录可传 `applyChinaDst: true` 自动还原夏令时，其他地区仍应按当地历史规则先还原为标准时间。
+`localDateTime` 是当地钟表时间，不要附带 `Z` 或 `+08:00`。未传 `timeZoneId` 时，`timezone` 默认是 `8`；历史日期或实行夏令时的地区可传 IANA 时区（如 `America/New_York`），系统会解析当时的法定偏移。秋季回拨的重复当地时间必须再传与原始记录一致的 `timezone` 消歧，固定偏移与 IANA 规则冲突时会拒绝计算。`timeZoneId` 已包含历史夏令时规则，不能同时启用 `applyChinaDst`；中国 1986–1991 年记录也可只用固定 `timezone: 8` 配合 `applyChinaDst: true` 走兼容口径。
 
 六十甲子基础资料：
 

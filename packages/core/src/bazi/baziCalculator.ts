@@ -185,9 +185,10 @@ export class BaziCalculator {
     ) {
       throw new Error('出生经度需在 -180 到 180 之间。');
     }
-    const timezone = person.timezone ?? 8;
+    const timezone = person.timezone ?? (person.timeZoneId ? undefined : 8);
     if (
       useTrueSolarTimeEnabled &&
+      timezone !== undefined &&
       (!Number.isFinite(timezone) || timezone < -12 || timezone > 14)
     ) {
       throw new Error('时区需在 UTC-12 到 UTC+14 之间。');
@@ -231,7 +232,9 @@ export class BaziCalculator {
       lunarHour = solarTime.getLunarHour();
     }
 
-    const applyChinaDst = person.applyChinaDst !== false;
+    const applyChinaDst = person.timeZoneId
+      ? (person.applyChinaDst ?? false)
+      : person.applyChinaDst !== false;
     const warnings: string[] = [];
 
     if (useTrueSolarTimeEnabled) {
@@ -255,6 +258,7 @@ export class BaziCalculator {
         isLeapMonth: isLeapMonthEnabled,
         longitude: birthLongitude!,
         timezone,
+        timeZoneId: person.timeZoneId,
         applyChinaDst,
       });
       const dstCorrectionMinutes = trueSolarResult.chinaDst.applied
@@ -291,7 +295,8 @@ export class BaziCalculator {
         correctedTime: trueSolarResult.correctedTime,
         birthPlace: birthPlace?.trim() || '',
         birthLongitude,
-        timezone,
+        timezone: trueSolarResult.timezone,
+        ...(trueSolarResult.timeZoneId ? { timeZoneId: trueSolarResult.timeZoneId } : {}),
         standardMeridian: trueSolarResult.standardMeridian,
         longitudeCorrectionMinutes: trueSolarResult.longitudeCorrectionMinutes,
         equationOfTimeMinutes: trueSolarResult.equationOfTimeMinutes,
@@ -305,6 +310,7 @@ export class BaziCalculator {
           summaryFact: trueSolarResult.summaryFact,
           limitations: trueSolarResult.limitations,
           limitationFacts: trueSolarResult.limitationFacts,
+          timezoneEvidence: trueSolarResult.timezoneEvidence,
           source: trueSolarResult.source,
           promptText: trueSolarResult.promptText,
         },
