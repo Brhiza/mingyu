@@ -53,7 +53,7 @@
 | `birthLongitude`   | `number`                        | *    | 出生地经度（-180~180）                                                                    |
 | `timezone`         | `number`                        |      | 当地标准时区（UTC-12~UTC+14），默认 UTC+8；影响标准经线                                   |
 | `timeZoneId`       | `string`                        |      | IANA 历史时区；按出生日期解析当时的法定 UTC 偏移                                          |
-| `applyChinaDst`    | `boolean`                       |      | 是否自动校正中国夏令时（1986-1991），默认开启；若出生记录已折算为标准时间，可设为 `false` |
+| `applyChinaDst`    | `boolean`                       |      | 旧固定偏移调用是否校正中国夏令时（1986-1991），默认关闭；推荐改用 `timeZoneId`          |
 | `shenShaVariants`  | `Partial<ShenShaVariantConfig>` |      | 神煞争议口径配置；不传时使用默认主流口径                                                  |
 
 \* `timeIndex` 与真太阳时三参数二选一。
@@ -426,16 +426,19 @@ console.log(reading.promptText);
 | `getTimeIndexFromClock(hour, minute)`       | 由时钟转时辰索引                                                   |
 | `daysInSolarMonth(year, month)`             | 公历月天数                                                         |
 | `getBirthDateValidationMessage(...)`        | 出生日期校验                                                       |
+| `resolveCivilTime(input, options?)`          | 将当地钟表时间、固定偏移或 IANA 历史时区解析为唯一 UTC 时刻        |
+| `resolveBirthCalendarClockTime(input)`       | 只校验公历/农历出生输入并换算为公历钟表时间，不执行时区或太阳时校正 |
 | `convertTrueSolarTime(input)`               | 按当地钟表时间、固定偏移或 IANA 历史时区、经度和均时差换算真太阳时 |
 | `resolveTrueSolarBirthTime(input)`          | 统一处理公历/农历、闰月、历史时区、夏令时、跨日和时辰索引          |
 | `buildAstronomicalTimeEvidence(input)`      | 由当地时间与固定偏移或 IANA 时区生成 UTC、JD、近似 UT1、ΔT 和 TT   |
+| `queryAstronomicalFacts(input)`              | 按统一民用时间口径计算可复算的现代天文位置事实                     |
 | `calculateMoonPhaseEvidence(utcTimestamp)`  | 由 UTC Unix 毫秒生成月相、照明比例和前后朔弦望事件                 |
 | `calculateSolarTermEvidence(year, index)`   | 生成单个节气的历表时刻、目标黄经、独立求根及差值核验               |
 | `calculateSolarTermsForYear(year)`          | 按公历年份生成从小寒至冬至的 24 个节气证据                         |
 | `findSolarTermEvidence(name, year)`         | 按节气名称和节气周期年份查询单项证据                               |
 | `calculateSolarIlluminationEvidence(input)` | 由当地日期时间、经纬度和时区生成太阳位置、日出日落及三类曙暮光证据 |
 
-`buildAstronomicalTimeEvidence()` 与 `calculateSolarIlluminationEvidence()` 的年月日时分秒按输入地点的当地民用时间解释，必须提供 `timezone` 或 `timeZoneId`。`calculateMoonPhaseEvidence()` 直接接受 UTC Unix 毫秒。单项节气底层索引以冬至为 `0`、大雪为 `23`；若目标是普通公历年列表，应使用 `calculateSolarTermsForYear(year)` 或客户端 `solarTerms(year)`，返回该年小寒至冬至的时间顺序。
+`resolveCivilTime()`、`queryAstronomicalFacts()`、`buildAstronomicalTimeEvidence()` 与 `calculateSolarIlluminationEvidence()` 的年月日时分秒都按输入地点的当地民用时间解释，必须提供 `timezone` 或 `timeZoneId`。IANA 时区优先；同时提供时，固定偏移只用于秋季回拨消歧和一致性核验。未消歧回拨、春季跳时缺口和固定偏移冲突都会拒绝计算。固定偏移范围统一为 UTC-12 至 UTC+14。`calculateMoonPhaseEvidence()` 直接接受 UTC Unix 毫秒。单项节气底层索引以冬至为 `0`、大雪为 `23`；若目标是普通公历年列表，应使用 `calculateSolarTermsForYear(year)` 或客户端 `solarTerms(year)`，返回该年小寒至冬至的时间顺序。
 
 ---
 

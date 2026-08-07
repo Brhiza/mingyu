@@ -165,6 +165,7 @@ test('固定偏移应选择秋季回拨时间中对应的唯一候选', () => {
   assert.equal(daylight.selectedUtcDateTime, '2024-11-03T05:30:00.000Z');
   assert.equal(daylight.resolvedOffsetHours, -4);
   assert.equal(daylight.offsetConflict, false);
+  assert.equal(daylight.ambiguityResolvedByFixedOffset, true);
   assert.equal(standard.selectedUtcDateTime, '2024-11-03T06:30:00.000Z');
   assert.equal(standard.resolvedOffsetHours, -5);
   assert.equal(standard.offsetConflict, false);
@@ -236,7 +237,24 @@ test('七政四余应采用 IANA 解析出的历史偏移并保留证据', () =>
   assert.equal(result.mansionBoundaries.length, 28);
 });
 
-test('西占本命盘应采用 IANA 历史偏移并保留诊断', () => {
+test('西占本命盘应采用 IANA 历史偏移，并拒绝冲突固定偏移', () => {
+  assert.throws(
+    () =>
+      generateAstrolabe({
+        name: '测试',
+        gender: '男',
+        year: '1990',
+        month: '7',
+        day: '1',
+        hour: '12',
+        minute: '0',
+        latitude: '31.23',
+        longitude: '121.47',
+        timezone: '8',
+        timeZoneId: 'Asia/Shanghai',
+      }),
+    /固定偏移.*历史偏移不一致/,
+  );
   const result = generateAstrolabe({
     name: '测试',
     gender: '男',
@@ -247,17 +265,20 @@ test('西占本命盘应采用 IANA 历史偏移并保留诊断', () => {
     minute: '0',
     latitude: '31.23',
     longitude: '121.47',
-    timezone: '8',
     timeZoneId: 'Asia/Shanghai',
   });
 
   assert.equal(result.birth.timezone, 9);
   assert.equal(result.birth.timeZoneId, 'Asia/Shanghai');
   assert.equal(result.birth.timezoneStatus, 'unique');
-  assert.match(result.birth.timezoneDiagnostics?.join('；') ?? '', /UTC\+8.*UTC\+9/);
+  assert.match(result.birth.timezoneDiagnostics?.join('；') ?? '', /只有一个 UTC 对应时刻/);
   assert.equal(result.birth.timezoneEvidence?.status, 'unique');
-  assert.equal(result.birth.timezoneEvidence?.diagnosticSummaryFact.status, '唯一但偏移冲突');
+  assert.equal(
+    result.birth.timezoneEvidence?.diagnosticSummaryFact.status,
+    '唯一映射且未核验固定偏移',
+  );
   assert.equal(result.birth.timezoneEvidence?.limitationFacts.length, 3);
   assert.equal(result.evidenceAnalysis?.timezoneFact?.key, result.birth.timezoneEvidence?.key);
+  assert.equal(result.evidenceAnalysis?.summaryFact.status, '证据链完整');
   assert.match(result.evidenceAnalysis?.promptText ?? '', /历史时区映射与诊断/);
 });

@@ -318,11 +318,14 @@ test('星盘行运应使用目标日期的出生地时区而不是固定北京�
     timeZoneId: 'America/New_York',
     locationName: '纽约',
   });
-  const context = buildAstrolabeScopeContext(newYorkData, 'daily', '2028-07-12');
+  const summer = buildAstrolabeScopeContext(newYorkData, 'daily', '2028-07-12');
+  const winter = buildAstrolabeScopeContext(newYorkData, 'daily', '2028-01-12');
 
-  assert.match(context.promptText, /America\/New_York（UTC-4）/);
-  assert.match(context.promptText, /行运落宫：取样时区UTC-4/);
-  assert.doesNotMatch(context.promptText, /按北京时间|取样时区UTC\+8/);
+  assert.match(summer.promptText, /America\/New_York（UTC-4）/);
+  assert.match(summer.promptText, /行运落宫：取样时区UTC-4/);
+  assert.match(winter.promptText, /America\/New_York（UTC-5）/);
+  assert.match(winter.promptText, /行运落宫：取样时区UTC-5/);
+  assert.doesNotMatch(`${summer.promptText}\n${winter.promptText}`, /按北京时间|取样时区UTC\+8/);
 });
 
 test('星盘行运缺少真实经纬度时不得静默使用零度坐标', () => {

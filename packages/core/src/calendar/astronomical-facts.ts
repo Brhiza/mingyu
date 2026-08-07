@@ -1,6 +1,7 @@
 import { calculatePlanets } from 'celestine';
 
-import { daysInGregorianMonth, isValidClockTime } from './date-validation';
+import { formatFixedTimezoneOffset, resolveCivilTime } from './civil-time';
+import type { HistoricalTimezoneEvidence } from './historical-timezone';
 
 export const ASTRONOMY_FACT_MODEL = {
   provider: 'celestine',
@@ -27,7 +28,10 @@ export interface AstronomicalFactInput {
   hour: number;
   minute: number;
   second?: number;
-  timezone: number;
+  /** 固定 UTC 偏移；与 IANA 同时提供时只用于回拨消歧和一致性核验。 */
+  timezone?: number;
+  /** IANA 历史时区，例如 Asia/Shanghai。 */
+  timeZoneId?: string;
   latitude?: number;
   longitude?: number;
 }
@@ -55,6 +59,9 @@ export interface AstronomicalBodyFact {
 export interface AstronomicalFacts {
   localDateTime: string;
   utcDateTime: string;
+  timezone: number;
+  timeZoneId?: string;
+  timezoneEvidence?: HistoricalTimezoneEvidence;
   julianDateUtc: number;
   coordinate: typeof ASTRONOMY_FACT_MODEL.coordinate;
   bodies: AstronomicalBodyFact[];
@@ -91,17 +98,7 @@ function validateInput(input: AstronomicalFactInput) {
   if (!Number.isInteger(input.year) || input.year < minimumYear || input.year > maximumYear) {
     throw new Error(`天文事实查询年份需在 ${minimumYear}-${maximumYear} 之间。`);
   }
-  const maximumDay = daysInGregorianMonth(input.year, input.month);
-  if (!Number.isInteger(input.day) || input.day < 1 || input.day > maximumDay) {
-    throw new Error(`天文事实查询日期需在 1-${maximumDay} 之间。`);
-  }
   const second = input.second ?? 0;
-  if (!isValidClockTime(input.hour, input.minute, second)) {
-    throw new Error('天文事实查询时分秒无效。');
-  }
-  if (!Number.isFinite(input.timezone) || input.timezone < -14 || input.timezone > 14) {
-    throw new Error('天文事实查询时区偏移需在 UTC-14 至 UTC+14 之间。');
-  }
   if (
     input.latitude !== undefined &&
     (!Number.isFinite(input.latitude) || input.latitude < -90 || input.latitude > 90)
@@ -117,15 +114,19 @@ function validateInput(input: AstronomicalFactInput) {
   return second;
 }
 
-function formatLocalDateTime(input: AstronomicalFactInput, second: number) {
-  return `${String(input.year).padStart(4, '0')}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}T${String(input.hour).padStart(2, '0')}:${String(input.minute).padStart(2, '0')}:${String(second).padStart(2, '0')}${input.timezone >= 0 ? '+' : '-'}${String(Math.floor(Math.abs(input.timezone))).padStart(2, '0')}:${String(Math.round((Math.abs(input.timezone) % 1) * 60)).padStart(2, '0')}`;
-}
-
 export function queryAstronomicalFacts(input: AstronomicalFactInput): AstronomicalFacts {
   const second = validateInput(input);
-  const utcMilliseconds =
-    Date.UTC(input.year, input.month - 1, input.day, input.hour, input.minute, second) -
-    input.timezone * 60 * 60 * 1000;
+  const civilTime = resolveCivilTime({
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    hour: input.hour,
+    minute: input.minute,
+    second,
+    timezone: input.timezone,
+    timeZoneId: input.timeZoneId,
+  });
+  const { timezone, timeZoneId, timezoneEvidence, utcTimestamp: utcMilliseconds } = civilTime;
   const utcDate = new Date(utcMilliseconds);
   const planets = calculatePlanets(
     {
@@ -135,7 +136,7 @@ export function queryAstronomicalFacts(input: AstronomicalFactInput): Astronomic
       hour: input.hour,
       minute: input.minute,
       second,
-      timezone: input.timezone,
+      timezone,
       latitude: input.latitude ?? 0,
       longitude: input.longitude ?? 0,
     },
@@ -168,8 +169,11 @@ export function queryAstronomicalFacts(input: AstronomicalFactInput): Astronomic
   const elongationDegrees = normalizeDegrees(moon.longitudeDegrees - sun.longitudeDegrees);
 
   return {
-    localDateTime: formatLocalDateTime(input, second),
+    localDateTime: `${civilTime.localDateTime}${formatFixedTimezoneOffset(timezone)}`,
     utcDateTime: utcDate.toISOString(),
+    timezone,
+    ...(timeZoneId ? { timeZoneId } : {}),
+    ...(timezoneEvidence ? { timezoneEvidence } : {}),
     julianDateUtc: utcMilliseconds / 86_400_000 + 2_440_587.5,
     coordinate: ASTRONOMY_FACT_MODEL.coordinate,
     bodies,

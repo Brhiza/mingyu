@@ -216,7 +216,28 @@ test('真太阳时便捷入口应拒绝含时区后缀、非法日期和越界�
         longitude: 116.4,
         timezone: 15,
       }),
-    /timezone需在/,
+    /timezone\s*需在/,
+  );
+});
+
+test('旧中国夏令时兼容模式应拒绝跳时缺口和未消歧重复时段', () => {
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '1988-04-10T02:30:00',
+        longitude: 116.4074,
+        applyChinaDst: true,
+      }),
+    /夏令时跳时缺口.*不存在/,
+  );
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '1988-09-11T01:30:00',
+        longitude: 116.4074,
+        applyChinaDst: true,
+      }),
+    /夏令时回拨重复时段.*timeZoneId=Asia\/Shanghai/,
   );
 });
 

@@ -14,7 +14,7 @@ import {
   buildAstronomicalTimeEvidence,
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
-import { resolveHistoricalTimezone } from '../calendar/historical-timezone';
+import { resolveCivilTime, type CivilTimeZoneInput } from '../calendar/civil-time';
 import { classifyAspectClosenessFromStrength } from './astrolabe-aspect-evidence';
 
 export type AstrolabeScopeContext = {
@@ -486,18 +486,19 @@ function resolveScopeTimezone(
   data: AstrolabeData,
   date: { year: number; month: number; day: number; hour: number; minute: number },
 ) {
-  if (data.birth.timeZoneId) {
-    return resolveHistoricalTimezone({
-      ...date,
-      second: 0,
-      timeZoneId: data.birth.timeZoneId,
-      fixedOffsetHours: data.birth.timezone,
-    }).resolvedOffsetHours;
-  }
+  return resolveCivilTime({
+    ...date,
+    second: 0,
+    ...getScopeTimeZoneInput(data),
+  }).timezone;
+}
+
+function getScopeTimeZoneInput(data: AstrolabeData): CivilTimeZoneInput {
+  if (data.birth.timeZoneId) return { timeZoneId: data.birth.timeZoneId };
   if (!Number.isFinite(data.birth.timezone)) {
     throw new Error('星盘缺少有效时区，无法计算行运。');
   }
-  return data.birth.timezone;
+  return { timezone: data.birth.timezone };
 }
 
 function calculateScopePlanets(
@@ -1521,8 +1522,7 @@ export function calculateSolarReturnEvidence(
     const timeScale = buildAstronomicalTimeEvidence({
       ...finalDate,
       second: 0,
-      timezone: data.birth.timezone,
-      timeZoneId: data.birth.timeZoneId,
+      ...getScopeTimeZoneInput(data),
     });
     const limitations = bracket
       ? [

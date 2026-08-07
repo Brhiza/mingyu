@@ -55,6 +55,7 @@ test('npm 八字输入适配器应支持真太阳时精确时分和经度', () =
     birthMinute: '5',
     birthLongitude: '75',
     timezone: 8,
+    timeZoneId: 'Asia/Shanghai',
   });
 
   assert.equal(input.useTrueSolarTime, true);
@@ -63,6 +64,7 @@ test('npm 八字输入适配器应支持真太阳时精确时分和经度', () =
   assert.equal(input.birthMinute, 5);
   assert.equal(input.birthLongitude, 75);
   assert.equal(input.timezone, 8);
+  assert.equal(input.timeZoneId, 'Asia/Shanghai');
 });
 
 test('npm 地点索引应支持级联查询、路径反查和经度读取', () => {

@@ -55,7 +55,7 @@ test('星盘底层算法应拒绝越界经纬度和时区', () => {
   );
   assert.throws(
     () => generateAstrolabe({ ...validInput, timezone: '15' }),
-    /时区需在 -12 到 14 之间/,
+    /timezone 需在 UTC-12 到 UTC\+14 之间/,
   );
   assert.throws(
     () => generateAstrolabe({ ...validInput, locationName: 123 as never }),
@@ -364,7 +364,7 @@ test('星盘无相位、逆行和格局时应输出逐项反证与汇总', () =>
   assert.match(evidence.counterSummaryFact.promptText, /未见不等于不存在其他关系/);
 });
 
-test('星盘时区诊断应转为带来源和计算步骤引用的限制事实', () => {
+test('星盘时区诊断应转为限制事实，明确固定偏移消歧后保持完整证据链', () => {
   const result = generateAstrolabe(validInput);
   const diagnosed = structuredClone(result) as AstrolabeData;
   delete diagnosed.evidenceAnalysis;
@@ -395,7 +395,13 @@ test('星盘时区诊断应转为带来源和计算步骤引用的限制事实',
     locationName: '纽约',
   });
   assert.equal(ambiguous.birth.timezoneEvidence?.status, 'ambiguous');
-  assert.equal(ambiguous.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
+  assert.equal(ambiguous.birth.timezoneEvidence?.ambiguityResolvedByFixedOffset, true);
+  assert.equal(ambiguous.evidenceAnalysis?.summaryFact.status, '证据链完整');
+  assert.equal(
+    ambiguous.evidenceAnalysis?.evidence.items.find((item) => item.title === '历史时区映射与诊断')
+      ?.level,
+    '辅证',
+  );
   assert.ok(
     ambiguous.evidenceAnalysis?.summaryFact.factKeys.includes(
       ambiguous.birth.timezoneEvidence?.summaryFact.key ?? '',

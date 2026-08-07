@@ -475,7 +475,7 @@ const result2 = baziCalculator.calculateBazi({
 });
 ```
 
-1986-1991 年中国夏令时期间，真太阳时模式会默认把钟表时间自动回拨 60 分钟，并在 `warnings` 中提示校正依据。若你的出生记录已经折算为北京标准时间，可关闭自动校正：
+中国 1986-1991 年夏令时优先通过 `timeZoneId: 'Asia/Shanghai'` 自动解析。`applyChinaDst` 默认关闭，只为没有 IANA 时区资料的旧固定偏移调用保留；明确启用后会把命中时段的钟表时间回拨 60 分钟，并在 `warnings` 中提示校正依据：
 
 ```typescript
 const result = baziCalculator.calculateBazi({
@@ -487,9 +487,11 @@ const result = baziCalculator.calculateBazi({
   birthHour: 12,
   birthMinute: 0,
   birthLongitude: 116.4,
-  applyChinaDst: false,
+  applyChinaDst: true,
 });
 ```
+
+不要同时传 `timeZoneId` 和 `applyChinaDst: true`，否则会因重复应用历史夏令时规则而拒绝计算。
 
 ### 占卜算法
 

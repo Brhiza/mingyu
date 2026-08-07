@@ -999,7 +999,7 @@ export function getPublicApiOpenApiDocument(
             second: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
             latitude: { type: 'number', minimum: -90, maximum: 90 },
             longitude: { type: 'number', minimum: -180, maximum: 180 },
-            timezone: { type: 'number', minimum: -14, maximum: 14 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
             timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
           },
         },
@@ -1013,10 +1013,11 @@ export function getPublicApiOpenApiDocument(
             hour: { type: 'integer', minimum: 0, maximum: 23, default: 0 },
             minute: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
             second: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
-            timezone: { type: 'number', minimum: -14, maximum: 14 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
             timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
           },
-          description: 'timezone 与 timeZoneId 至少提供一项；同时提供时会保留偏移冲突诊断。',
+          description:
+            'timezone 与 timeZoneId 至少提供一项；IANA 时区优先，timezone 仅用于回拨消歧和一致性核验，冲突时拒绝计算。',
         },
         MoonPhaseRequest: {
           type: 'object',
@@ -1751,7 +1752,7 @@ function calculateTrueSolarBirthApi(input: JsonRecord) {
 function calculateSolarIlluminationApi(input: JsonRecord) {
   try {
     const timezone =
-      input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -14, 14);
+      input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14);
     const timeZoneId =
       input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
     if (timezone === undefined && !timeZoneId) {
@@ -1782,7 +1783,7 @@ function calculateSolarIlluminationApi(input: JsonRecord) {
 function calculateAstronomicalTimeApi(input: JsonRecord) {
   try {
     const timezone =
-      input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -14, 14);
+      input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14);
     const timeZoneId =
       input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
     if (timezone === undefined && !timeZoneId) {
