@@ -80,6 +80,7 @@ import {
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
+import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
 
 type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
 
@@ -1262,6 +1263,13 @@ export function ResultPage() {
       <div className="tab-strip">
         <button
           type="button"
+          className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
+          onClick={() => switchTab('prompt')}
+        >
+          {isAiEnabled ? 'AI 解析' : '复制提示词'}
+        </button>
+        <button
+          type="button"
           className={`tab-chip ${promptState.tab === 'bazi' ? 'is-active' : ''}`}
           onClick={() => switchTab('bazi')}
         >
@@ -1301,13 +1309,6 @@ export function ResultPage() {
             住宅风水
           </button>
         ) : null}
-        <button
-          type="button"
-          className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
-          onClick={() => switchTab('prompt')}
-        >
-          {isAiEnabled ? 'AI 解析' : '提示词'}
-        </button>
       </div>
 
       <div className={`result-tab-stage${isDesktopAiWorkspace ? ' is-ai-wide' : ''}`}>
@@ -1737,17 +1738,15 @@ export function ResultPage() {
                 </div>
               )
             ) : (
-              /* ── 非 AI 模式：原始布局，左侧设置+提示词快捷面板，右侧提示词正文 ── */
-              <div className="workspace-grid">
-                <section className="panel">
-                  <div className="panel-head">
-                    <div>
-                      <h2 className="prompt-settings-title">提示词设置</h2>
-                      <p>选择已生成的排盘作为解读依据，再输入问题，即可生成完整提示词。</p>
-                    </div>
-                  </div>
+              /* ── 非 AI 模式：复制优先，设置与完整正文按需查看 ── */
+              <div className="workspace-grid prompt-output-grid">
+                <details className="panel prompt-settings-panel">
+                  <summary className="prompt-settings-summary">
+                    <span>调整提示词（可选）</span>
+                    <small>更换排盘来源、年限或问题</small>
+                  </summary>
 
-                  <div className="field-list">
+                  <div className="prompt-settings-content field-list">
                     {metaphysicsPromptQuestionField}
                     <>
                       <div className="prompt-compact-grid">
@@ -1883,7 +1882,7 @@ export function ResultPage() {
                       ) : null}
                     </>
                   </div>
-                </section>
+                </details>
 
                 {isAstrolabePromptSource && astrolabeCalculation.error ? (
                   <p className="error-text">{astrolabeCalculation.error}</p>
@@ -1892,8 +1891,8 @@ export function ResultPage() {
                 <section className="panel panel-output">
                   <div className="panel-head">
                     <div>
-                      <h2>提示词正文</h2>
-                      <p>排盘资料和问题已整理好，复制这一整段提示词即可。</p>
+                      <h2>复制提示词</h2>
+                      <p>完整提示词已经生成，可以直接复制使用。</p>
                     </div>
                     <div className="action-row compact-actions">
                       <button
@@ -1913,11 +1912,10 @@ export function ResultPage() {
                   <div className="prompt-send-tip">
                     点击复制后，发送到你常用的在线 AI 软件继续提问。
                   </div>
-                  {previewActivePromptText ? (
-                    <pre className="result-pre">{previewActivePromptText}</pre>
-                  ) : (
-                    <PromptPreSkeleton />
-                  )}
+                  <CollapsiblePromptPreview
+                    promptText={previewActivePromptText}
+                    fallback={<PromptPreSkeleton />}
+                  />
                 </section>
               </div>
             )

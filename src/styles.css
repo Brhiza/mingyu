@@ -2648,6 +2648,65 @@ select {
   min-width: 0;
 }
 
+.prompt-output-grid > .panel-output {
+  order: -1;
+}
+
+.prompt-settings-panel {
+  height: fit-content;
+  padding: 0;
+  overflow: hidden;
+}
+
+.prompt-settings-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 22px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.prompt-settings-summary::-webkit-details-marker,
+.prompt-preview-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.prompt-settings-summary span {
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.prompt-settings-summary small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.prompt-settings-summary::after,
+.prompt-preview-details > summary::after {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+  content: '展开';
+}
+
+.prompt-settings-panel[open] > .prompt-settings-summary,
+.prompt-preview-details[open] > summary {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.prompt-settings-panel[open] > .prompt-settings-summary::after,
+.prompt-preview-details[open] > summary::after {
+  content: '收起';
+}
+
+.prompt-settings-content {
+  padding: 20px 22px 22px;
+}
+
 .copy-button {
   border: none;
   border-radius: var(--radius-control);
@@ -2680,6 +2739,35 @@ select {
   max-width: 100%;
   overflow: auto;
   overflow-wrap: anywhere;
+}
+
+.prompt-preview-details {
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-control);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
+}
+
+.prompt-preview-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+
+.prompt-preview-details > .result-pre {
+  max-height: min(520px, 55vh);
+  min-height: 0;
+  margin: 0;
+  padding: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .prompt-send-tip {
@@ -7116,6 +7204,29 @@ div.form-actions.page-submit-actions {
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
+  }
+
+  .prompt-output-grid > .prompt-settings-panel {
+    padding: 0;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
+  }
+
+  .prompt-settings-summary {
+    padding: 12px 14px;
+  }
+
+  .prompt-settings-summary small {
+    display: none;
+  }
+
+  .prompt-settings-content {
+    padding: 12px;
+  }
+
+  .prompt-preview-details > .result-pre {
+    max-height: 44vh;
   }
 
   .panel-head {

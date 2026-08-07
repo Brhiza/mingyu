@@ -7,6 +7,7 @@ import { AiChatPanel } from '@/components/AiChatPanel';
 import { TraditionalDivinationBoard } from '@/components/DivinationPanel/TraditionalDivinationBoard';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
+import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
 
 interface DivinationResultProps {
   isSubmitting: boolean;
@@ -310,13 +311,11 @@ export function DivinationResult({
 
   return (
     <div className="workspace-grid divination-output-grid">
-      {resultBlock}
-
       <section className="panel panel-output divination-result-panel">
         <div className="panel-head divination-prompt-head">
           <div>
-            <h2>占卜提示词</h2>
-            <p>系统要求、结构化结果和你的问题都已经合并，复制整段即可使用。</p>
+            <h2>复制占卜提示词</h2>
+            <p>完整提示词已经生成，可以直接复制使用。</p>
           </div>
           <div className="action-row compact-actions divination-prompt-actions">
             <button className="copy-button secondary-button" type="button" onClick={onCopy}>
@@ -330,9 +329,13 @@ export function DivinationResult({
           </div>
         </div>
         <div className="prompt-send-tip">点击复制后，发送到你常用的在线 AI 软件继续提问。</div>
-
-        <pre className="result-pre">{session.prompt}</pre>
+        <CollapsiblePromptPreview promptText={session.prompt} />
       </section>
+
+      <details className="divination-result-collapse">
+        <summary>查看排盘依据</summary>
+        {resultBlock}
+      </details>
     </div>
   );
 }

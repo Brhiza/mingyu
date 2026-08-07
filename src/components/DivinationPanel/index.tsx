@@ -240,18 +240,6 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
 
   return (
     <div className="divination-panel-shell">
-      <DivinationForm
-        draft={draft}
-        updateDraft={updateDraft}
-        lockedMethod={lockedMethod}
-        isSubmitting={isSubmitting}
-        error={error}
-        onSubmit={handleSubmit}
-        onOpenInspiration={openQuestionInspirationModal}
-        onNavigateToHistory={() => navigate('/records?tab=divination')}
-        questionInputRef={questionInputRef}
-      />
-
       <DivinationResult
         isSubmitting={isSubmitting}
         session={session}
@@ -262,6 +250,18 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
         showShareButton={showShareButton}
         onCopy={handleCopy}
         onShare={handleShare}
+      />
+
+      <DivinationForm
+        draft={draft}
+        updateDraft={updateDraft}
+        lockedMethod={lockedMethod}
+        isSubmitting={isSubmitting}
+        error={error}
+        onSubmit={handleSubmit}
+        onOpenInspiration={openQuestionInspirationModal}
+        onNavigateToHistory={() => navigate('/records?tab=divination')}
+        questionInputRef={questionInputRef}
       />
 
       {isQuestionInspirationModalOpen ? (
