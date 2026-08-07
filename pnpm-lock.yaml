@@ -23,9 +23,6 @@ importers:
       mingyu-core:
         specifier: workspace:*
         version: link:packages/core
-      mingyu-location-china:
-        specifier: workspace:*
-        version: link:packages/location-china
       react:
         specifier: ^19.1.1
         version: 19.2.7
@@ -109,16 +106,6 @@ importers:
       iztro:
         specifier: ^2.5.8
         version: 2.5.8
-
-  packages/location-china:
-    dependencies:
-      mingyu-core:
-        specifier: workspace:^
-        version: link:../core
-    devDependencies:
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
 
 packages:
 

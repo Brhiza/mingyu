@@ -9,7 +9,7 @@ import {
   type BirthPlaceCityOption,
   type BirthPlaceDistrictOption,
   type BirthPlaceProvinceOption,
-} from 'mingyu-location-china';
+} from 'mingyu-core/location';
 
 export type { BirthPlaceCityOption, BirthPlaceDistrictOption, BirthPlaceProvinceOption };
 
