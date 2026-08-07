@@ -121,7 +121,7 @@ import { getCapabilities } from 'mingyu-core/capabilities';
 
 八字、紫微若不启用真太阳时，可以直接使用明确的时辰索引排盘；这属于有效的确定输入，不属于出生时间缺失。仅有时辰精度时，统一采用各时段中点作为完成历法日期换算的代表时刻（如午时按 12:00、早子时按 00:30）。统一档案会明确记录输入精度、代表时刻边界、时辰映射、真太阳时状态、证据汇总和解释限制。启用真太阳时，或转换为星盘等分钟级算法输入时，才需要具体小时、分钟和出生地资料；时辰代表值不会被冒充为精确分钟。
 
-统一档案也提供传统盘便捷入口：`calculateBaziFromBirthProfile(profile)` 直接生成八字结果，`birthProfileToZiweiChartInput(profile)` 生成可交给 `mingyu-core/ziwei` 的紫微输入。农历真太阳时会先转换为公历钟表时间，再由八字引擎统一校正一次；出生地的 `timezone` 会参与标准经线计算，未提供时默认 UTC+8。
+统一档案也提供传统盘便捷入口：`calculateBaziFromBirthProfile(profile)` 直接生成八字结果，`birthProfileToZiweiChartInput(profile)` 生成可交给 `mingyu-core/ziwei` 的紫微输入。农历真太阳时会先转换为公历钟表时间，再由八字引擎统一校正一次；出生地可用 `timezone` 提供固定偏移，或用 `timeZoneId` 按出生日期解析 IANA 历史时区，两者都未提供时默认 UTC+8。
 
 如果应用需要一次取得多种盘面，可使用 `mingyu-core/birth` 的 `calculateBirthChartBundle`。默认只计算八字；需要紫微时请安装可选的 `iztro`，并通过 `systems` 明确选择系统：
 
@@ -704,8 +704,8 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 | 导出                                              | 说明                                                             |
 | ------------------------------------------------- | ---------------------------------------------------------------- |
-| `calendar.resolveTrueSolarBirthTime(input)`       | 公历/农历出生真太阳时、夏令时、跨日和时辰索引统一换算            |
-| `calendar.convertTrueSolarTime(input)`            | 当地钟表时间按时区、经度和均时差换算真太阳时                     |
+| `calendar.resolveTrueSolarBirthTime(input)`       | 公历/农历出生真太阳时、历史时区、夏令时、跨日和时辰索引统一换算  |
+| `calendar.convertTrueSolarTime(input)`            | 当地钟表时间按固定偏移或 IANA 历史时区、经度和均时差换算真太阳时 |
 | `profile.calculateBaziFromBirthProfile(profile)`  | 从统一出生档案直接生成八字传统盘结果                             |
 | `profile.birthProfileToZiweiChartInput(profile)`  | 将统一出生档案转换为紫微传统盘输入                               |
 | `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宅结果与候选坐向 |

@@ -216,13 +216,19 @@ export function resolveHistoricalTimezone(
     );
   }
 
-  const selected = matches[0];
   const fixedOffsetHours = input.fixedOffsetHours;
-  const offsetConflict =
-    fixedOffsetHours !== undefined && Math.abs(fixedOffsetHours - selected.offset) > 1e-6;
+  const fixedOffsetMatch =
+    fixedOffsetHours === undefined
+      ? undefined
+      : matches.find((candidate) => Math.abs(fixedOffsetHours - candidate.offset) <= 1e-6);
+  const selected = fixedOffsetMatch ?? matches[0];
+  const offsetConflict = fixedOffsetHours !== undefined && !fixedOffsetMatch;
+  const ambiguityResolvedByFixedOffset = matches.length > 1 && fixedOffsetMatch !== undefined;
   const diagnostics = [
     matches.length > 1
-      ? `该当地时刻因夏令时回拨对应 ${matches.length} 个 UTC 时刻；默认选择较早的 ${toIso(selected.timestamp)}，调用方应结合出生记录确认。`
+      ? ambiguityResolvedByFixedOffset
+        ? `该当地时刻因夏令时回拨对应 ${matches.length} 个 UTC 时刻；已按固定偏移 UTC${fixedOffsetHours! >= 0 ? '+' : ''}${fixedOffsetHours} 选择 ${toIso(selected.timestamp)}。`
+        : `该当地时刻因夏令时回拨对应 ${matches.length} 个 UTC 时刻；未提供可用于消歧的固定偏移，默认选择较早的 ${toIso(selected.timestamp)}，调用方应结合出生记录确认。`
       : '该当地时刻在当前 IANA 时区数据库中只有一个 UTC 对应时刻。',
   ];
   if (offsetConflict) {
@@ -270,7 +276,9 @@ export function resolveHistoricalTimezone(
       },
       promptText:
         matches.length > 1
-          ? `当地钟表时间${wallClockDateTime}匹配到${matches.length}个 UTC 时刻，按明确规则暂取较早的${toIso(selected.timestamp)}`
+          ? ambiguityResolvedByFixedOffset
+            ? `当地钟表时间${wallClockDateTime}匹配到${matches.length}个 UTC 时刻，按固定偏移 UTC${fixedOffsetHours! >= 0 ? '+' : ''}${fixedOffsetHours}选择${toIso(selected.timestamp)}`
+            : `当地钟表时间${wallClockDateTime}匹配到${matches.length}个 UTC 时刻，未提供可用于消歧的固定偏移，暂取较早的${toIso(selected.timestamp)}`
           : `当地钟表时间${wallClockDateTime}唯一映射为 UTC ${toIso(selected.timestamp)}`,
       sources: ['IANA 当地钟表时间反向匹配'],
       limitation: CALCULATION_STEP_LIMITATION,
@@ -344,7 +352,7 @@ export function resolveHistoricalTimezone(
   };
   const limitations = [
     'IANA 历史规则随所用时区数据库版本更新，极早期地方平太阳时或资料修订可能出现版本差异。',
-    '回拨歧义默认选择较早 UTC 时刻只用于保持计算确定性，仍应结合原始钟表记录确认。',
+    '回拨歧义在固定偏移匹配候选时按该偏移消歧；否则默认选择较早 UTC 时刻只用于保持计算确定性，仍应结合原始钟表记录确认。',
     '固定偏移冲突只表示两种时间口径不一致，不自动证明其中任一记录错误。',
   ];
   const limitationFacts: HistoricalTimezoneLimitationFact[] = [

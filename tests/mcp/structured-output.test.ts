@@ -1146,6 +1146,30 @@ test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟�
     assert.equal(chinaDst.structuredContent?.result.standardDateTime, '1988-07-15T11:00:00');
     assert.equal(chinaDst.structuredContent?.result.chinaDst.applied, true);
 
+    const iana = await client.callTool({
+      name: 'calendar_true_solar_time',
+      arguments: {
+        localDateTime: '2024-07-01T12:00:00',
+        longitude: -74.006,
+        timeZoneId: 'America/New_York',
+      },
+    });
+    assert.equal(iana.isError, undefined);
+    assert.equal(iana.structuredContent?.result.timezone, -4);
+    assert.equal(iana.structuredContent?.result.timezoneEvidence.timeZoneId, 'America/New_York');
+
+    const ambiguous = await client.callTool({
+      name: 'calendar_true_solar_time',
+      arguments: {
+        localDateTime: '2024-11-03T01:30:00',
+        longitude: -74.006,
+        timeZoneId: 'America/New_York',
+      },
+    });
+    assert.equal(ambiguous.isError, true);
+    const ambiguousText = ambiguous.content[0]?.type === 'text' ? ambiguous.content[0].text : '';
+    assert.match(ambiguousText, /回拨歧义.*timezone/);
+
     const invalid = await client.callTool({
       name: 'calendar_true_solar_time',
       arguments: { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074 },

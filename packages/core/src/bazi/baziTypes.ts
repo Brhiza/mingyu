@@ -30,6 +30,8 @@ export interface Person {
   birthLongitude?: number;
   /** 当地标准时区，例如中国为 UTC+8；真太阳时模式默认 UTC+8。 */
   timezone?: number;
+  /** IANA 历史时区；提供后按出生日期解析当时的法定 UTC 偏移。 */
+  timeZoneId?: string;
   age?: number;
   shenShaVariants?: Partial<ShenShaVariantConfig>;
   /**
@@ -132,6 +134,7 @@ export interface TimingInfo {
   birthPlace?: string;
   birthLongitude?: number;
   timezone: number;
+  timeZoneId?: string;
   standardMeridian: number;
   longitudeCorrectionMinutes: number;
   equationOfTimeMinutes: number;

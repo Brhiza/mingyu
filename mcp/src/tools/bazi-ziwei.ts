@@ -46,6 +46,9 @@ const baziZiweiPromptSchema = z.object({
   birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
+  timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
+  timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
+  applyChinaDst: z.boolean().optional().describe('是否应用中国 1986-1991 历史夏令时校正'),
   algorithm: z
     .enum(['default', 'zhongzhou'])
     .optional()
@@ -94,6 +97,9 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
     birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
     birthMinute: args.birthMinute === undefined ? undefined : String(args.birthMinute),
     birthLongitude: args.birthLongitude === undefined ? undefined : String(args.birthLongitude),
+    timezone: args.timezone,
+    timeZoneId: args.timeZoneId,
+    applyChinaDst: args.applyChinaDst,
     algorithm: args.algorithm,
   });
 }

@@ -8,6 +8,7 @@ import {
   birthProfileToAstrolabeInput,
   birthProfileToAlmanacParticipant,
   birthProfileToBaziPerson,
+  birthProfileToQizhengInput,
   calculateBaziFromBirthProfile,
   normalizeBirthProfile,
 } from '../packages/core/src/profile/index';
@@ -162,6 +163,44 @@ test('统一出生档案可复用到八字与星盘输入', () => {
   assert.equal(astrolabeInput.latitude, '39.9');
   assert.equal(astrolabeInput.useTrueSolarTime, true);
   assert.equal(normalized.trueSolarEvidence?.summaryFact.status, '证据链完整');
+});
+
+test('统一出生档案应向八字、星盘和七政四余透传 IANA 历史时区', () => {
+  const profile = {
+    name: '纽约历史时区样例',
+    gender: 'male' as const,
+    calendarType: 'solar' as const,
+    year: 2024,
+    month: 7,
+    day: 1,
+    hour: 12,
+    minute: 0,
+    location: {
+      longitude: -74.006,
+      latitude: 40.7128,
+      timeZoneId: 'America/New_York',
+    },
+    useTrueSolarTime: true,
+  };
+
+  const normalized = normalizeBirthProfile(profile);
+  const baziInput = birthProfileToBaziPerson(profile);
+  const astrolabeInput = birthProfileToAstrolabeInput(profile);
+  const qizhengInput = birthProfileToQizhengInput(profile);
+  const chart = calculateBaziFromBirthProfile(profile);
+
+  assert.equal(normalized.resolvedLocation?.timezone, undefined);
+  assert.equal(normalized.resolvedLocation?.timeZoneId, 'America/New_York');
+  assert.equal(normalized.trueSolarEvidence?.timezoneEvidence?.resolvedOffsetHours, -4);
+  assert.equal(baziInput.timezone, undefined);
+  assert.equal(baziInput.timeZoneId, 'America/New_York');
+  assert.equal(astrolabeInput.timezone, undefined);
+  assert.equal(astrolabeInput.timeZoneId, 'America/New_York');
+  assert.equal(qizhengInput.timezone, undefined);
+  assert.equal(qizhengInput.timeZoneId, 'America/New_York');
+  assert.equal(chart.timing?.timezone, -4);
+  assert.equal(chart.timing?.timeZoneId, 'America/New_York');
+  assert.equal(chart.timing?.evidence.timezoneEvidence?.resolvedOffsetHours, -4);
 });
 
 test('农历统一档案启用真太阳时应只换算一次，并保留时区', () => {

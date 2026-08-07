@@ -128,6 +128,81 @@ test('真太阳时便捷入口应识别跨日并支持全球时区', () => {
   assert.equal(utcPlus14.standardMeridian, 210);
 });
 
+test('真太阳时应按 IANA 历史时区解析偏移并保留证据', () => {
+  const result = convertTrueSolarTime({
+    localDateTime: '2024-07-01T12:00:00',
+    longitude: -74.006,
+    timeZoneId: 'America/New_York',
+  });
+
+  assert.equal(result.timezone, -4);
+  assert.equal(result.timeZoneId, 'America/New_York');
+  assert.equal(result.timezoneEvidence?.resolvedOffsetHours, -4);
+  assert.equal(result.timezoneEvidence?.status, 'unique');
+  assert.equal(
+    result.correctionFacts.some((item) => item.type === '历史时区'),
+    true,
+  );
+  assert.equal(
+    result.calculationSteps.some((item) => item.stage === '历史时区解析'),
+    true,
+  );
+  assert.match(result.promptText, /America\/New_York.*UTC-4/);
+  assertTrueSolarEvidence(result);
+});
+
+test('真太阳时应严格处理 IANA 跳时、回拨消歧和冲突组合', () => {
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '2024-03-10T02:30:00',
+        longitude: -74.006,
+        timeZoneId: 'America/New_York',
+      }),
+    /不存在.*夏令时跳时/,
+  );
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '2024-11-03T01:30:00',
+        longitude: -74.006,
+        timeZoneId: 'America/New_York',
+      }),
+    /回拨歧义.*timezone/,
+  );
+
+  const resolved = convertTrueSolarTime({
+    localDateTime: '2024-11-03T01:30:00',
+    longitude: -74.006,
+    timezone: -5,
+    timeZoneId: 'America/New_York',
+  });
+  assert.equal(resolved.timezone, -5);
+  assert.equal(resolved.timezoneEvidence?.selectedUtcDateTime, '2024-11-03T06:30:00.000Z');
+  assert.equal(resolved.summaryFact.status, '历史时区歧义已消解');
+
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '2024-07-01T12:00:00',
+        longitude: -74.006,
+        timezone: -5,
+        timeZoneId: 'America/New_York',
+      }),
+    /固定偏移.*历史偏移不一致/,
+  );
+  assert.throws(
+    () =>
+      convertTrueSolarTime({
+        localDateTime: '1990-07-01T12:00:00',
+        longitude: 121.47,
+        timeZoneId: 'Asia/Shanghai',
+        applyChinaDst: true,
+      }),
+    /不能同时启用 applyChinaDst/,
+  );
+});
+
 test('真太阳时便捷入口应拒绝含时区后缀、非法日期和越界参数', () => {
   assert.throws(() => parseLocalDateTime('2026-07-10T12:00:00+08:00'), /不要附带时区偏移/);
   assert.throws(

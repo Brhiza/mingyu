@@ -153,6 +153,7 @@ const systems: SystemCapability[] = [
       },
       { id: 'longitude', label: '出生地经度', type: 'number', required: true },
       { id: 'timezone', label: '固定时区偏移', type: 'number', required: false },
+      { id: 'timeZoneId', label: 'IANA历史时区', type: 'text', required: false },
       {
         id: 'applyChinaDst',
         label: '应用中国历史夏令时',
@@ -168,6 +169,7 @@ const systems: SystemCapability[] = [
       '跨日状态',
       '时辰索引',
       '真太阳时结构化计算链与校正事实',
+      'IANA历史时区映射与消歧证据',
       '真太阳时证据汇总、来源与限制',
       'UTC与儒略日时间尺度证据',
       'ΔT与近似TT儒略日',
@@ -180,6 +182,10 @@ const systems: SystemCapability[] = [
       birthTimeModes: ['precise-clock-time'],
       batch: false,
     },
+    notes: [
+      '未提供 timeZoneId 时 timezone 默认 UTC+8；回拨重复时刻使用 IANA 时区时需同时提供 timezone 消歧。',
+      'timeZoneId 已包含历史夏令时规则，不能同时启用 applyChinaDst。',
+    ],
   },
   {
     id: 'calendar.astronomicalTime',

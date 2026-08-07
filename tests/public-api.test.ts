@@ -574,6 +574,32 @@ test('公开 API 应提供便捷真太阳时换算接口', async () => {
   assert.equal(chinaDst.body.data.standardDateTime, '1988-07-15T11:00:00');
   assert.equal(chinaDst.body.data.chinaDst.applied, true);
 
+  const iana = await callApi('calendar/true-solar-time', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      localDateTime: '2024-07-01T12:00:00',
+      longitude: -74.006,
+      timeZoneId: 'America/New_York',
+    }),
+  });
+  assert.equal(iana.response.status, 200);
+  assert.equal(iana.body.data.timezone, -4);
+  assert.equal(iana.body.data.timeZoneId, 'America/New_York');
+  assert.equal(iana.body.data.timezoneEvidence.resolvedOffsetHours, -4);
+
+  const ambiguous = await callApi('calendar/true-solar-time', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      localDateTime: '2024-11-03T01:30:00',
+      longitude: -74.006,
+      timeZoneId: 'America/New_York',
+    }),
+  });
+  assert.equal(ambiguous.response.status, 400);
+  assert.match(ambiguous.body.error.message, /回拨歧义.*timezone/);
+
   for (const payload of [
     { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074 },
     { localDateTime: '1990-02-30T10:30', longitude: 116.4074 },
@@ -614,6 +640,24 @@ test('公开 API 应提供统一公历农历出生真太阳时接口', async () 
   assert.equal(body.data.calculationSteps[0].stage, '历法输入换算');
   assert.equal(body.data.correctionFacts[0].type, '历法输入');
   assert.equal(body.data.summaryFact.status, '证据链完整');
+
+  const iana = await callApi('calendar/true-solar-birth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dateType: 'solar',
+      year: 2024,
+      month: 7,
+      day: 1,
+      hour: 12,
+      minute: 0,
+      longitude: -74.006,
+      timeZoneId: 'America/New_York',
+    }),
+  });
+  assert.equal(iana.response.status, 200);
+  assert.equal(iana.body.data.timezone, -4);
+  assert.equal(iana.body.data.timezoneEvidence.timeZoneId, 'America/New_York');
 });
 
 test('公开 API 应提供太阳高度、日出日落与曙暮光证据接口', async () => {
@@ -1129,6 +1173,27 @@ test('公开 API 八字排盘应支持真太阳时精确时分和经度', async 
     body.data.timing.evidence.calculationSteps.length,
   );
   assert.match(body.data.timing.evidence.promptText, /唯一映射为/);
+
+  const iana = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 2024,
+      month: 7,
+      day: 1,
+      dateType: 'solar',
+      useTrueSolarTime: true,
+      birthHour: 12,
+      birthMinute: 0,
+      birthLongitude: -74.006,
+      timeZoneId: 'America/New_York',
+    }),
+  });
+  assert.equal(iana.response.status, 200);
+  assert.equal(iana.body.data.timing.timezone, -4);
+  assert.equal(iana.body.data.timing.timeZoneId, 'America/New_York');
+  assert.equal(iana.body.data.timing.evidence.timezoneEvidence.resolvedOffsetHours, -4);
 });
 
 test('公开 API 八字公历日期不存在时应返回参数错误', async () => {
@@ -2024,6 +2089,26 @@ test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async 
   assert.equal(body.data.trueSolarEvidence.status, '已计算');
   assert.equal(body.data.trueSolarEvidence.calculationSteps.length, 7);
   assert.equal(body.data.trueSolarEvidence.summaryFact.status, '证据链完整');
+
+  const iana = await callApi('ziwei/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '纽约测试',
+      gender: 'male',
+      dateType: 'solar',
+      year: '2024',
+      month: '7',
+      day: '1',
+      useTrueSolarTime: true,
+      birthHour: '12',
+      birthMinute: '0',
+      birthLongitude: '-74.006',
+      timeZoneId: 'America/New_York',
+    }),
+  });
+  assert.equal(iana.response.status, 200);
+  assert.equal(iana.body.data.trueSolarEvidence.timezoneEvidence.resolvedOffsetHours, -4);
 
   const promptResult = await callApi('ziwei/prompt', {
     method: 'POST',

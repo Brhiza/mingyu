@@ -54,6 +54,9 @@ export const ziweiSchema = z.object({
   birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
   birthMinute: z.string().optional().describe('精准出生分钟，启用真太阳时时必填，如 20'),
   birthLongitude: z.string().optional().describe('出生地经度，启用真太阳时时必填，如 116.4074'),
+  timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
+  timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
+  applyChinaDst: z.boolean().optional().describe('是否应用中国 1986-1991 历史夏令时校正'),
   algorithm: z
     .enum(['default', 'zhongzhou'])
     .optional()
@@ -131,6 +134,9 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     birthHour: trueSolarTimeInput?.birthHour ?? args.birthHour ?? '',
     birthMinute: trueSolarTimeInput?.birthMinute ?? args.birthMinute ?? '',
     birthLongitude: trueSolarTimeInput?.birthLongitude ?? args.birthLongitude ?? '',
+    timezone: args.timezone,
+    timeZoneId: args.timeZoneId,
+    applyChinaDst: args.applyChinaDst,
     algorithm: args.algorithm ?? 'default',
   });
 }
