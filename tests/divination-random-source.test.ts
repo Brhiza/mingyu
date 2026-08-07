@@ -6,7 +6,14 @@ import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw.
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao.ts';
 import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
-import { createRandomSource, randomInt } from '../packages/core/src/shared/random.ts';
+import {
+  createRandomContext,
+  createRandomSource,
+  randomInt,
+  secureRandomFloat,
+  secureRandomIndexSample,
+  secureRandomInt,
+} from '../packages/core/src/shared/random.ts';
 
 const SEED = 'fixed-random-source';
 const DATE = new Date('2025-01-01T08:00:00+08:00');
@@ -51,7 +58,7 @@ test('时间起卦随机工具应拒绝非法范围和数量，避免返回空�
   assert.throws(() => TimeManager.generateYaosByRandom(-1), /爻象数量必须是安全范围内的正整数/);
   assert.throws(
     () => randomInt(Number.MAX_SAFE_INTEGER + 1, () => 0.5),
-    /随机整数范围必须是安全范围内的正整数/,
+    /随机整数范围必须是 1 至 4294967296 之间的整数/,
   );
 });
 
@@ -90,4 +97,40 @@ test('自定义随机源必须返回合法区间，避免抽取结果被坏输�
   assert.throws(() => randomInt(10, () => Number.NaN), /随机源必须返回/);
   assert.throws(() => randomInt(10, () => 1), /随机源必须返回/);
   assert.throws(() => randomInt(10, () => -0.1), /随机源必须返回/);
+  assert.throws(() => secureRandomInt(0), /安全随机整数范围必须是/);
+  assert.throws(() => secureRandomInt(0x1_0000_0001), /安全随机整数范围必须是/);
+  assert.throws(() => randomInt(0x1_0000_0001, () => 0.5), /随机整数范围必须是/);
+});
+
+test('随机整数应拒绝不能均分的尾部样本，并可由同一轨迹复现', () => {
+  const samples = [0xffff_ffff / 0x1_0000_0000, 0.25];
+  let index = 0;
+  const result = randomInt(10, () => samples[index++]!);
+
+  assert.equal(result, 2);
+  assert.equal(index, 2);
+  let replayIndex = 0;
+  assert.equal(
+    randomInt(10, () => samples[replayIndex++]!),
+    result,
+  );
+  assert.equal(replayIndex, 2);
+});
+
+test('默认随机上下文与安全随机入口应使用系统级随机源并保持合法范围', () => {
+  const context = createRandomContext();
+  const values = Array.from({ length: 32 }, () => context.random());
+
+  assert.equal(context.getTrace().mode, 'system');
+  assert.equal(context.getTrace().samples.length, 32);
+  assert.ok(values.every((value) => value >= 0 && value < 1));
+  assert.ok(values.some((value) => value !== values[0]));
+  assert.ok(Array.from({ length: 32 }, () => secureRandomFloat()).every((value) => value < 1));
+  assert.ok(Array.from({ length: 64 }, () => secureRandomInt(10)).every((value) => value < 10));
+  assert.ok(
+    Array.from({ length: 64 }, () => secureRandomIndexSample(10)).every((value) => {
+      const index = Math.floor(value * 10);
+      return value >= 0 && value < 1 && value === (index + 0.5) / 10;
+    }),
+  );
 });

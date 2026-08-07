@@ -5,6 +5,11 @@
  * @古籍依据 《渊海子平》《三命通会》《协纪辨方书》《蠡海集》
  */
 import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from './data';
+import {
+  assertEarthlyBranch,
+  assertHeavenlyStem,
+  assertWuxing as assertWuxingValue,
+} from './validation';
 
 export const BRANCH_WUXING: Record<string, string> = {
   子: '水',
@@ -106,6 +111,7 @@ export const BRANCH_SANHE: Record<string, { group: string; partners: string[] }>
  * 如有申子而无辰，为水局半合，合而不全
  */
 export function isHalfSanhe(branches: string[]): string | null {
+  branches.forEach((branch, index) => assertEarthlyBranch(branch, `第 ${index + 1} 个地支`));
   const uniqueBranches = Array.from(new Set(branches));
   for (const [group, members] of Object.entries(SANHE_GROUPS)) {
     const present = uniqueBranches.filter((b) => members.includes(b));
@@ -242,6 +248,7 @@ export enum SanxingType {
 
 /** 获取三刑类型 */
 export function getSanxingType(branch: string): SanxingType | null {
+  assertEarthlyBranch(branch);
   if (branch === '子' || branch === '卯') return SanxingType.WULI;
   if (['寅', '巳', '申'].includes(branch)) return SanxingType.WUEN;
   if (['丑', '戌', '未'].includes(branch)) return SanxingType.SHISHI;
@@ -281,11 +288,13 @@ export function getHiddenMainStem(branch: string): string {
 
 /** 地支所藏中气（次气） */
 export function getHiddenMediumStem(branch: string): string | undefined {
+  assertEarthlyBranch(branch);
   return BRANCH_HIDDEN_STEMS[branch]?.[1];
 }
 
 /** 地支所藏余气 */
 export function getHiddenResidualStem(branch: string): string | undefined {
+  assertEarthlyBranch(branch);
   return BRANCH_HIDDEN_STEMS[branch]?.[2];
 }
 
@@ -351,15 +360,11 @@ export const KE_MAP: Record<string, string> = {
 };
 
 function assertBranch(branch: string, label = '地支'): void {
-  if (!BRANCH_ORDER.includes(branch)) {
-    throw new Error(`${label}无效：${branch}`);
-  }
+  assertEarthlyBranch(branch, label);
 }
 
 function assertWuxing(wuxing: string, label = '五行'): void {
-  if (!(WUXING as readonly string[]).includes(wuxing)) {
-    throw new Error(`${label}无效：${wuxing}`);
-  }
+  assertWuxingValue(wuxing, label);
 }
 
 /**
@@ -394,36 +399,49 @@ export function getBranchWuxing(branch: string): string {
 }
 
 export function isSheng(source: string, target: string): boolean {
+  assertWuxing(source, '生方五行');
+  assertWuxing(target, '受生方五行');
   return SHENG_MAP[source] === target;
 }
 
 export function isKe(source: string, target: string): boolean {
+  assertWuxing(source, '克方五行');
+  assertWuxing(target, '受克方五行');
   return KE_MAP[source] === target;
 }
 
 /** 检查两个地支是否为六合关系 */
 export function isLiuhe(a: string, b: string): boolean {
+  assertBranch(a, '第一个地支');
+  assertBranch(b, '第二个地支');
   return LIUHE_MAP[a] === b;
 }
 
 /** 检查两个地支是否为六冲关系 */
 export function isLiuchong(a: string, b: string): boolean {
+  assertBranch(a, '第一个地支');
+  assertBranch(b, '第二个地支');
   return LIUCHONG_MAP[a] === b;
 }
 
 /** 检查两个地支是否为六破/相破关系 */
 export function isLiupo(a: string, b: string): boolean {
+  assertBranch(a, '第一个地支');
+  assertBranch(b, '第二个地支');
   return LIUPO_MAP[a] === b;
 }
 
 /** 检查两个地支是否为六害关系 */
 export function isLiuhai(a: string, b: string): boolean {
+  assertBranch(a, '第一个地支');
+  assertBranch(b, '第二个地支');
   return LIUHAI_MAP[a] === b;
 }
 
 /** 检查两个地支是否为三刑关系 */
 export function isSanxing(a: string, b: string): boolean {
-  if (!a || !b) return false;
+  assertBranch(a, '第一个地支');
+  assertBranch(b, '第二个地支');
   if ((a === '子' && b === '卯') || (a === '卯' && b === '子')) return true;
   if (['寅', '巳', '申'].includes(a) && ['寅', '巳', '申'].includes(b) && a !== b) return true;
   if (['丑', '戌', '未'].includes(a) && ['丑', '戌', '未'].includes(b) && a !== b) return true;
@@ -433,6 +451,7 @@ export function isSanxing(a: string, b: string): boolean {
 
 /** 检查数组中是否构成完整的三合局 */
 export function isCompleteSanhe(branches: string[]): string | null {
+  branches.forEach((branch, index) => assertBranch(branch, `第 ${index + 1} 个地支`));
   for (const [group, members] of Object.entries(SANHE_GROUPS)) {
     if (members.every((m) => branches.includes(m))) {
       return group;
@@ -443,6 +462,7 @@ export function isCompleteSanhe(branches: string[]): string | null {
 
 /** 检查数组中是否构成三会局 */
 export function isCompleteSanhui(branches: string[]): string | null {
+  branches.forEach((branch, index) => assertBranch(branch, `第 ${index + 1} 个地支`));
   for (const [group, members] of Object.entries(SANHUI_GROUPS)) {
     if (members.every((m) => branches.includes(m))) {
       return group;
@@ -453,11 +473,14 @@ export function isCompleteSanhui(branches: string[]): string | null {
 
 /** 检查两个天干是否为五合关系 */
 export function isTianGanHe(a: string, b: string): boolean {
+  assertHeavenlyStem(a, '第一个天干');
+  assertHeavenlyStem(b, '第二个天干');
   return TIAN_GAN_HE[a]?.partner === b;
 }
 
 /** 获取天干五合的化气五行 */
 export function getTianGanHeWuxing(stem: string): string | null {
+  assertHeavenlyStem(stem);
   return TIAN_GAN_HE[stem]?.wuxing || null;
 }
 

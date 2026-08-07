@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChartInput } from '@/types/chart';
+import { createSecureId } from '@/lib/secure-id';
 import type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from '../ResultPage.types';
 
 interface SelectedDecadal {
@@ -74,7 +75,7 @@ export function useZiweiFortuneOptionsWorker(
       return;
     }
 
-    const requestId = `${draftDecadalIndex}-${draftYearDateStr}-${draftMonthDateStr}-${Date.now()}`;
+    const requestId = `${draftDecadalIndex}-${draftYearDateStr}-${draftMonthDateStr}-${createSecureId()}`;
     setIsLoading(true);
 
     let settled = false;

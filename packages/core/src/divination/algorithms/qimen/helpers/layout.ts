@@ -67,6 +67,24 @@ function assertQimenMethod(method: QimenMethod): void {
   }
 }
 
+function assertDunDirection(isYangDun: boolean): void {
+  if (typeof isYangDun !== 'boolean') {
+    throw new Error(`阴阳遁标记必须是布尔值，收到 ${String(isYangDun)}。`);
+  }
+}
+
+function assertJuShu(juShu: number): void {
+  if (!Number.isInteger(juShu) || juShu < 1 || juShu > 9) {
+    throw new Error(`奇门局数必须是 1-9 的整数，收到 ${String(juShu)}。`);
+  }
+}
+
+function assertGanZhiInput(ganzhi: { hour: string }): void {
+  if (!ganzhi || typeof ganzhi !== 'object' || typeof ganzhi.hour !== 'string') {
+    throw new Error('奇门排盘必须提供形如 { hour: "甲子" } 的时辰干支。');
+  }
+}
+
 function advanceNinePalace(startPalace: number, steps: number, isYangDun: boolean): number {
   if (!Number.isInteger(startPalace) || startPalace < 1 || startPalace > 9) {
     throw new Error(`无效九宫编号 "${startPalace}"。`);
@@ -108,6 +126,7 @@ export function resolveZhiShiLandingPalace(
   startPalace?: number,
   method: QimenMethod = 'zhuanpan',
 ): number {
+  assertDunDirection(isYangDun);
   assertQimenMethod(method);
   const zhiShiDoorIndex = palaceDoors.indexOf(zhiShi);
   if (zhiShiDoorIndex === -1) {
@@ -153,6 +172,9 @@ export function arrangeJiuGongGe(
   ganzhi: { hour: string },
   method: QimenMethod = 'zhuanpan',
 ): QimenJiuGongGe[] {
+  assertDunDirection(isYangDun);
+  assertJuShu(juShu);
+  assertGanZhiInput(ganzhi);
   assertQimenMethod(method);
   // ──────────────────────────────────────────────
   // 第一步：初始化九宫

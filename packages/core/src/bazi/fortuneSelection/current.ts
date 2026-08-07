@@ -18,21 +18,19 @@ export function getCurrentBaziLuckCycle(
     const cycle = result.luckInfo.cycles[index];
     if (cycle.years?.some((item) => item.year === currentYear)) return cycle;
   }
-  return result.luckInfo.cycles[0] ?? null;
+  return null;
 }
 
 /** 生成可直接传给 buildFortuneSelectionContext 的当前流日选择。 */
 export function buildCurrentBaziFortuneSelection(
   result: BaziChartResult,
   now = new Date(),
-): BaziFortuneSelectionValue {
+): BaziFortuneSelectionValue | null {
   assertValidDate(now);
   const year = now.getFullYear();
   const currentCycle = getCurrentBaziLuckCycle(result, year);
-  const cycleIndex = Math.max(
-    0,
-    result.luckInfo.cycles.findIndex((item) => item === currentCycle),
-  );
+  if (!currentCycle) return null;
+  const cycleIndex = result.luckInfo.cycles.findIndex((item) => item === currentCycle);
   const month = getBaziMonthIndexByDate(year, now) ?? 1;
   const day = getBaziDayIndexByDate(year, month, now) ?? 1;
   return { scope: 'day', cycleIndex, year, month, day };
@@ -42,8 +40,9 @@ export function buildCurrentBaziFortuneSelection(
 export function buildRecentBaziFortuneSelection(
   result: BaziChartResult,
   now = new Date(),
-): BaziFortuneSelectionValue {
+): BaziFortuneSelectionValue | null {
   const current = buildCurrentBaziFortuneSelection(result, now);
+  if (!current) return null;
   return {
     scope: 'month',
     cycleIndex: current.cycleIndex,

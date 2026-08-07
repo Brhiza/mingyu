@@ -10,6 +10,7 @@ import type { AlmanacParticipantInput, AstrolabeBirthInput } from '../types/divi
 import type { ChartInput } from '../types/chart';
 import type { QizhengInput } from '../qi_zheng';
 import { MingyuCoreError, type CoreDiagnostic } from '../shared/result';
+import { resolveBirthPlace, type BirthPlaceCoordinateAccuracy } from '../location';
 import {
   buildBirthTimeEvidence,
   type BirthTimeEvidence,
@@ -38,11 +39,22 @@ export type BirthGender = 'male' | 'female' | 'unspecified';
 export type BirthCalendarType = 'solar' | 'lunar';
 
 export interface BirthProfileLocation {
+  /** 中国省、市、区行政区代码；提供后可自动补全地点名称和坐标。 */
+  regionId?: string;
   name?: string;
-  longitude: number;
+  longitude?: number;
   latitude?: number;
   /** 当地标准时区，例如中国为 UTC+8。 */
   timezone?: number;
+}
+
+export interface ResolvedBirthProfileLocation {
+  regionId?: string;
+  name?: string;
+  longitude: number;
+  latitude?: number;
+  timezone: number;
+  coordinateAccuracy?: BirthPlaceCoordinateAccuracy | 'user-provided' | 'mixed';
 }
 
 /**
@@ -73,6 +85,8 @@ export interface BirthProfile {
 
 export type BirthProfileDiagnosticCode =
   | 'LOCATION_REQUIRED_FOR_TRUE_SOLAR_TIME'
+  | 'LOCATION_NOT_FOUND'
+  | 'LOCATION_COORDINATES_REQUIRED'
   | 'LATITUDE_REQUIRED'
   | 'GENDER_REQUIRED'
   | 'TIME_REQUIRED'
@@ -83,6 +97,8 @@ export type BirthProfileDiagnostic = CoreDiagnostic<BirthProfileDiagnosticCode>;
 
 export interface NormalizedBirthProfile {
   profile: BirthProfile;
+  /** 已按行政区代码补全并校验的实际排盘地点。 */
+  resolvedLocation?: ResolvedBirthProfileLocation;
   solarClockTime: SolarDateTimeParts;
   effectiveTime: SolarDateTimeParts;
   timeIndex: number;
@@ -134,7 +150,9 @@ function assertProfileShape(profile: BirthProfile): void {
   assertIntegerInRange(profile.month, '出生月份', 1, 12);
   assertIntegerInRange(profile.day, '出生日期', 1, 31);
   if (profile.location) {
-    assertFiniteInRange(profile.location.longitude, '出生地经度', -180, 180);
+    if (profile.location.longitude !== undefined) {
+      assertFiniteInRange(profile.location.longitude, '出生地经度', -180, 180);
+    }
     if (profile.location.latitude !== undefined) {
       assertFiniteInRange(profile.location.latitude, '出生地纬度', -90, 90);
     }
@@ -142,6 +160,49 @@ function assertProfileShape(profile: BirthProfile): void {
       assertFiniteInRange(profile.location.timezone, '时区', -12, 14);
     }
   }
+}
+
+/** 将行政区代码或显式坐标统一为可直接排盘的出生地点。 */
+export function resolveBirthProfileLocation(
+  location?: BirthProfileLocation,
+): ResolvedBirthProfileLocation | undefined {
+  if (!location) return undefined;
+  const region = location.regionId ? resolveBirthPlace(location.regionId) : null;
+
+  if (location.regionId && !region && location.longitude === undefined) {
+    throw new BirthProfileError({
+      code: 'LOCATION_NOT_FOUND',
+      level: 'error',
+      field: 'location.regionId',
+      message: `未找到行政区代码 ${location.regionId}，请检查出生地区。`,
+    });
+  }
+  if (location.longitude === undefined && !region) {
+    throw new BirthProfileError({
+      code: 'LOCATION_COORDINATES_REQUIRED',
+      level: 'error',
+      field: 'location.longitude',
+      message: '出生地点需要提供有效行政区代码或经度。',
+    });
+  }
+
+  const latitude = location.latitude ?? region?.latitude;
+  const hasExplicitLongitude = location.longitude !== undefined;
+  const hasExplicitLatitude = location.latitude !== undefined;
+  const coordinateAccuracy =
+    region && hasExplicitLongitude !== hasExplicitLatitude
+      ? 'mixed'
+      : hasExplicitLongitude || hasExplicitLatitude
+        ? 'user-provided'
+        : region?.coordinateAccuracy;
+  return {
+    regionId: region?.regionId ?? location.regionId,
+    name: location.name ?? region?.displayName,
+    longitude: location.longitude ?? region!.longitude,
+    latitude,
+    timezone: location.timezone ?? region?.timezone ?? 8,
+    coordinateAccuracy,
+  };
 }
 
 interface ResolvedBirthTimeInput {
@@ -244,10 +305,11 @@ function resolveBirthTimeInput(profile: BirthProfile): ResolvedBirthTimeInput {
 export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthProfile {
   assertProfileShape(profile);
   const diagnostics: BirthProfileDiagnostic[] = [];
+  const resolvedLocation = resolveBirthProfileLocation(profile.location);
   const timeInput = resolveBirthTimeInput(profile);
   const { hour, minute } = timeInput;
 
-  if (profile.useTrueSolarTime && !profile.location) {
+  if (profile.useTrueSolarTime && !resolvedLocation) {
     diagnostics.push({
       code: 'LOCATION_REQUIRED_FOR_TRUE_SOLAR_TIME',
       level: 'error',
@@ -268,12 +330,12 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     minute,
     second,
     isLeapMonth: profile.isLeapMonth,
-    longitude: profile.location?.longitude ?? (profile.location?.timezone ?? 8) * 15,
-    timezone: profile.location?.timezone ?? 8,
+    longitude: resolvedLocation?.longitude ?? (resolvedLocation?.timezone ?? 8) * 15,
+    timezone: resolvedLocation?.timezone ?? 8,
     applyChinaDst: profile.useTrueSolarTime ? profile.applyChinaDst : false,
   });
 
-  if (profile.useTrueSolarTime && profile.location) {
+  if (profile.useTrueSolarTime && resolvedLocation) {
     const selectedShichen = getShichenByIndex(resolved.timeIndex);
     if (!selectedShichen) throw new Error('真太阳时时辰状态异常。');
     const trueSolarEvidence: TrueSolarTimeEvidenceFields = {
@@ -309,6 +371,7 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     });
     return {
       profile,
+      resolvedLocation,
       solarClockTime: resolved.solarClockTime,
       effectiveTime: resolved.correctedTime,
       timeIndex: resolved.timeIndex,
@@ -343,6 +406,7 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
   });
   return {
     profile,
+    resolvedLocation,
     solarClockTime: resolved.solarClockTime,
     effectiveTime: resolved.solarClockTime,
     timeIndex: timeInput.timeIndex,
@@ -371,6 +435,7 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
   const normalized = normalizeBirthProfile(profile);
   requireReady(normalized);
   const clock = normalized.solarClockTime;
+  const location = normalized.resolvedLocation;
   const useTrueSolarTime = profile.useTrueSolarTime === true;
   return {
     // 真太阳时前先把农历输入落成公历钟表时间，避免 BaziCalculator 再次把
@@ -386,9 +451,9 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
     ...(normalized.timePrecision === 'minute'
       ? { birthHour: clock.hour, birthMinute: clock.minute }
       : {}),
-    birthPlace: profile.location?.name,
-    birthLongitude: profile.location?.longitude,
-    timezone: profile.location?.timezone,
+    birthPlace: location?.name,
+    birthLongitude: location?.longitude,
+    timezone: location?.timezone,
     applyChinaDst: profile.applyChinaDst,
   };
 }
@@ -440,6 +505,7 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
 /** 将统一出生档案转换为星盘既有输入。星盘必须有经纬度和准确时辰。 */
 export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBirthInput {
   const normalized = normalizeBirthProfile(profile);
+  const location = normalized.resolvedLocation;
   const preciseTimeDiagnostic: BirthProfileDiagnostic | undefined =
     normalized.timePrecision !== 'minute'
       ? {
@@ -450,7 +516,7 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
         }
       : undefined;
   const locationDiagnostic: BirthProfileDiagnostic | undefined =
-    profile.location?.latitude === undefined
+    location?.latitude === undefined
       ? {
           code: 'LATITUDE_REQUIRED',
           level: 'error',
@@ -469,7 +535,6 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
       : undefined;
   requireReady(normalized, preciseTimeDiagnostic ?? locationDiagnostic ?? genderDiagnostic);
   const clock = normalized.solarClockTime;
-  const location = profile.location;
   if (!location || location.latitude === undefined) throw new Error('出生地状态异常。');
   return {
     name: profile.name ?? '',
@@ -498,7 +563,7 @@ export function birthProfileToQizhengInput(profile: BirthProfile): QizhengInput 
   const normalized = normalizeBirthProfile(profile);
   requireReady(normalized);
   const clock = normalized.solarClockTime;
-  const location = profile.location;
+  const location = normalized.resolvedLocation;
   return {
     year: clock.year,
     month: clock.month,

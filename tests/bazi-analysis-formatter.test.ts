@@ -5,6 +5,25 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import { analyzeShenShaWithTenGod } from '@core/bazi/baziShenSha/helpers/tenGodAnalysis';
 
+test('命盘基础资料只输出命盘内的大运范围，不按系统当前年裁剪流年', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1995,
+    month: 8,
+    day: 15,
+    timeIndex: 6,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  const text = formatBaziForPrompt(result);
+
+  assert.match(text, /大运总览:/);
+  assert.match(text, /含\d{4}-\d{4}年流年/);
+  assert.doesNotMatch(text, /当前大运:|近年流年:/);
+});
+
 test('核心判断依据会输出旺衰条件与十神归类，不把内部权重外显为吉凶分', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,

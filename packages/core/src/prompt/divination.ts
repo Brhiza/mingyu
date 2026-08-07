@@ -1,7 +1,6 @@
 import { buildTaskText } from '../divination/engine/method-text';
 import { buildLiurenTemplateText } from '../divination/engine/liuren-template';
 import { buildLiuyaoTemplateText } from '../divination/engine/liuyao-template';
-import { LunarUtil, getDivinationTime } from '../calendar';
 import type { DivinationMethodId } from '../divination/config';
 import { analyzeAlmanacEvidence } from '../divination/algorithms/almanac';
 import {
@@ -40,17 +39,12 @@ import type { AstrolabePromptTopic } from './astrolabe';
 import type { PromptBuildOptions, PromptDocument } from './types';
 import { formatEnhancedDivinationInfo } from './divination-enhanced';
 import { resolveSsgwStoryContent } from '../divination/ssgw-content';
+import { buildSolarTimeInfoText, buildTimeInfoText } from './formatters';
 
 export interface DivinationSummaryBlocks {
   title: string;
   tags: string[];
   lines: string[];
-}
-
-function resolveDivinationDate(data?: DivinationData): Date | undefined {
-  if (!data || !('timestamp' in data) || typeof data.timestamp !== 'number') return undefined;
-  const date = new Date(data.timestamp);
-  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 type SupportedDivinationMethod = Exclude<DivinationMethodId, 'random'>;
@@ -493,19 +487,14 @@ export function getDivinationSummaryBlocks(
   }
 }
 
-/** 格式化占课时间，统一使用结果中的时间戳；无时间戳时使用当前时间。 */
+/** 格式化占课时间；无时间戳时使用当前时间，显式无效时间戳直接报错。 */
 export function formatDivinationTime(data?: DivinationData) {
-  const date = resolveDivinationDate(data);
-  const timeInfo = date ? getDivinationTime(date).timeInfo : getDivinationTime().timeInfo;
-  const display = LunarUtil.formatTimeDisplay(timeInfo);
-  return [display.solar, display.lunar, display.ganzhi, `节气：${timeInfo.jieQi}`].join('\n');
+  return buildTimeInfoText(data);
 }
 
 /** 只返回占课当地民用公历时间，适合星盘等需要单独展示出生时间的场景。 */
 export function formatDivinationSolarTime(data?: DivinationData) {
-  const date = resolveDivinationDate(data);
-  const timeInfo = date ? getDivinationTime(date).timeInfo : getDivinationTime().timeInfo;
-  return LunarUtil.formatTimeDisplay(timeInfo).solar;
+  return buildSolarTimeInfoText(data);
 }
 
 export function formatDivinationInfo(

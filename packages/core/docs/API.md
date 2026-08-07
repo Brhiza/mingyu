@@ -309,7 +309,7 @@
 
 `calculateZiweiChart` 默认使用当前时间生成运限资料；需要可复现结果时应显式传入 `horoscopeContext`。`skipAnalysis` 只跳过证据与格局分析，不影响盘面计算。
 
-运限选择便捷入口：`import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune'`。传入一个童限或大限年龄范围后，可一次得到流年、流月、流日选项及各自干支。八字对应提供 `getCurrentBaziLuckCycle()`、`buildCurrentBaziFortuneSelection()` 和 `buildRecentBaziFortuneSelection()`，可直接生成 `buildFortuneSelectionContext()` 所需选择值。
+运限选择便捷入口：`import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune'`。传入一个童限或大限年龄范围后，可一次得到流年、流月、流日选项及各自干支。八字对应提供 `getCurrentBaziLuckCycle()`、`buildCurrentBaziFortuneSelection()` 和 `buildRecentBaziFortuneSelection()`，可直接生成 `buildFortuneSelectionContext()` 所需选择值；目标年份不在命盘已计算的童限或大运范围内时，这三个入口返回 `null`，不会回退到第一步大运。
 
 依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前固定版本传统目录登记 87 项，其中 55 条具备卷次、原文和可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中。空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
 
@@ -377,6 +377,28 @@ const bundle = await calculateBirthChartBundle(profile, {
   systems: ['bazi', 'ziwei'],
   ziwei: { scopes: ['origin'], horoscopeContext: { dateStr: '2026-08-06', hourIndex: 5 } },
 });
+```
+
+---
+
+## 八字紫微合参 Synthesis
+
+导入：`import { calculateBaziZiweiCombinedReading } from 'mingyu-core/synthesis'`
+
+### `calculateBaziZiweiCombinedReading(profile, options)`
+
+从一份 `BirthProfile` 生成八字、紫微、十个主题的并列证据及可独立交给 AI 的完整任务书。调用时必须在 `options.ziwei.horoscopeContext` 中提供明确日期与时辰索引，或在 `options.ziwei.now` 中提供明确日期对象；合参不会隐式采用运行机器的当前时间。
+
+返回值包含 `bundle`、`synthesis` 和 `promptText`。`synthesis.timingReference` 记录本次实际采用的 `dateStr`、`year`、`hourIndex` 与 `shichen`；八字只选择该日期所在的大运或童限及同一公历年的流年，紫微运限也使用同一个日期快照。
+
+```ts
+const reading = await calculateBaziZiweiCombinedReading(profile, {
+  ziwei: { horoscopeContext: { dateStr: '2026-08-06', hourIndex: 5 } },
+  prompt: { question: '未来十年的事业重点是什么？' },
+});
+
+console.log(reading.synthesis.timingReference);
+console.log(reading.promptText);
 ```
 
 ---
@@ -499,20 +521,22 @@ const text = buildBaziPrompt({
 
 ## 地点索引 Location
 
-`mingyu-core/location` 内置中国省市区数据和真太阳时所需经度，同时提供 `createBirthPlaceIndex(tree)`，可对调用方自己的地点树执行级联查询、行政区代码或显示名称反查和经度解析。
+`mingyu-core/location` 内置中国省市区数据、真太阳时所需经度及行政中心纬度，同时提供 `createBirthPlaceIndex(tree)`，可对调用方自己的地点树执行级联查询、搜索、反查和坐标解析。
 
-| 导出                                                  | 说明                                     |
-| ----------------------------------------------------- | ---------------------------------------- |
-| `chinaBirthPlaceTree`                                 | 34 个省级、392 个市级、3210 个区县级节点 |
-| `getBirthPlaceProvinceOptions()`                      | 获取省级选项                             |
-| `getBirthPlaceCityOptions(provinceId)`                | 获取指定省的市级选项                     |
-| `getBirthPlaceDistrictOptions(cityId)`                | 获取指定市的区县选项                     |
-| `findBirthPlaceByRegionId(id)`                        | 按行政区代码返回完整路径                 |
-| `findBirthPlaceByDisplayName(name)`                   | 按完整显示名或节点名称返回路径           |
-| `resolveBirthPlaceLongitude(idOrName)`                | 解析真太阳时所需经度                     |
-| `resolveBirthPlaceApproximateLatitude(id, fallback?)` | 返回明确标注为近似值的省会级纬度回退     |
+| 导出                                                  | 说明                                                |
+| ----------------------------------------------------- | --------------------------------------------------- |
+| `chinaBirthPlaceTree`                                 | 34 个省级、392 个市级、3210 个区县级节点            |
+| `getBirthPlaceProvinceOptions()`                      | 获取省级选项                                        |
+| `getBirthPlaceCityOptions(provinceId)`                | 获取指定省的市级选项                                |
+| `getBirthPlaceDistrictOptions(cityId)`                | 获取指定市的区县选项                                |
+| `findBirthPlaceByRegionId(id)`                        | 按行政区代码返回完整路径                            |
+| `findBirthPlaceByDisplayName(name)`                   | 按完整显示名或唯一简称返回路径；重名简称返回 `null` |
+| `searchBirthPlaces(query, options?)`                  | 按名称、完整路径、拼音或代码搜索，分别保留重名地点  |
+| `resolveBirthPlace(idOrName)`                         | 返回地点路径、经纬度、时区及 `coordinateAccuracy`   |
+| `resolveBirthPlaceLongitude(idOrName)`                | 解析真太阳时所需经度；重名简称返回 `null`           |
+| `resolveBirthPlaceApproximateLatitude(id, fallback?)` | 返回明确标注为近似值的省级纬度兼容回退              |
 
-内置地点数据不提供精确区县纬度。西洋星盘等需要真实纬度的算法必须由调用方补充坐标。
+内置地点树共 3636 个节点，其中 3255 个附有行政中心纬度，其余 381 个使用省级近似纬度。行政中心不等于实际出生地点，精度敏感的星盘仍应优先使用真实出生地坐标；自定义地点树没有可用纬度来源时不会自动套用通用纬度。简称存在重名时应先调用 `searchBirthPlaces()`，再使用完整路径或行政区代码解析。
 
 ---
 

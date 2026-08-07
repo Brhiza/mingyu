@@ -173,7 +173,7 @@ export class LunarUtil {
    * 获取干支信息
    */
   static getGanZhi(date?: Date): GanZhiInfo {
-    const targetDate = date || new Date();
+    const targetDate = date === undefined ? new Date() : date;
     this.assertValidDate(targetDate);
     try {
       const solarTime = SolarTime.fromYmdHms(
@@ -202,7 +202,7 @@ export class LunarUtil {
    * 获取农历信息
    */
   static getLunar(date?: Date): LunarInfo {
-    const targetDate = date || new Date();
+    const targetDate = date === undefined ? new Date() : date;
     this.assertValidDate(targetDate);
     try {
       const solarTime = SolarTime.fromYmdHms(

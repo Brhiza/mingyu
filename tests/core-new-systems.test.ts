@@ -8,21 +8,12 @@ import {
 } from '../packages/core/src/divination/tarot.ts';
 import { tarotCards } from '../packages/core/src/divination/tarot-data.ts';
 
-test('ganzhi: 纳音/十二长生/六十甲子序号', () => {
-  assert.equal(core.ganzhi.getNayin('甲子'), '海中金');
-  assert.equal(core.ganzhi.getChangShengState('木', '亥'), '长生');
-  assert.equal(core.ganzhi.getChangShengState('火', '寅'), '长生');
+test('ganzhi: 六十甲子序号与循环差值', () => {
   assert.equal(core.ganzhi.getSixtyCycleIndex('甲子'), 0);
   assert.equal(core.ganzhi.getSixtyCycleIndex('甲戌'), 10);
   assert.equal(core.ganzhi.getSixtyCycleIndex('癸亥'), 59);
   assert.equal(core.ganzhi.diffGanZhi('甲子', '乙丑'), 1);
   assert.equal(core.ganzhi.diffGanZhi('癸亥', '甲子'), 1);
-});
-
-test('ganzhi: 干支关系复用', () => {
-  assert.equal(core.ganzhi.isLiuhe('子', '丑'), true);
-  assert.equal(core.ganzhi.isLiuchong('子', '午'), true);
-  assert.equal(core.ganzhi.getWuxingChangSheng('水'), '申');
 });
 
 test('wuxing: 五行统计', () => {

@@ -3968,11 +3968,20 @@ test('三山国王灵签返回完整签谱与可重放抽取资料', () => {
   assert.equal('evidenceAnalysis' in confirmed, false);
 });
 
-test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {
-  assert.doesNotThrow(() =>
-    buildTimeInfoText({
-      timestamp: Number.MAX_VALUE,
-    } as Parameters<typeof buildTimeInfoText>[0]),
+test('占卜时间格式化遇到无效时间戳时应明确报错，不得静默回退当前时间', () => {
+  assert.throws(
+    () =>
+      buildTimeInfoText({
+        timestamp: Number.MAX_VALUE,
+      } as Parameters<typeof buildTimeInfoText>[0]),
+    /无法转换为有效日期/,
+  );
+  assert.throws(
+    () =>
+      buildTimeInfoText({
+        timestamp: Number.NaN,
+      } as Parameters<typeof buildTimeInfoText>[0]),
+    /必须是有限毫秒数/,
   );
 });
 

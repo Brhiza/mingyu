@@ -108,6 +108,7 @@ export function BaziFortuneModal(props: {
   const showDayRow = draftScope === 'month' || draftScope === 'day';
 
   function handleJumpToCurrent(scope: BaziFortuneScope) {
+    if (!currentQuickSelection) return;
     const nextSelection = normalizeFortuneSelection(result, {
       scope,
       cycleIndex: currentQuickSelection.cycleIndex,
@@ -143,6 +144,8 @@ export function BaziFortuneModal(props: {
             <button
               type="button"
               className="fortune-modal-quick-btn"
+              disabled={!currentQuickSelection}
+              title={currentQuickSelection ? undefined : '当前日期不在命盘的大运范围内'}
               onClick={() => handleJumpToCurrent('dayun')}
             >
               大运
@@ -150,6 +153,8 @@ export function BaziFortuneModal(props: {
             <button
               type="button"
               className="fortune-modal-quick-btn"
+              disabled={!currentQuickSelection}
+              title={currentQuickSelection ? undefined : '当前日期不在命盘的大运范围内'}
               onClick={() => handleJumpToCurrent('year')}
             >
               流年
@@ -157,6 +162,8 @@ export function BaziFortuneModal(props: {
             <button
               type="button"
               className="fortune-modal-quick-btn"
+              disabled={!currentQuickSelection}
+              title={currentQuickSelection ? undefined : '当前日期不在命盘的大运范围内'}
               onClick={() => handleJumpToCurrent('month')}
             >
               流月
@@ -164,6 +171,8 @@ export function BaziFortuneModal(props: {
             <button
               type="button"
               className="fortune-modal-quick-btn"
+              disabled={!currentQuickSelection}
+              title={currentQuickSelection ? undefined : '当前日期不在命盘的大运范围内'}
               onClick={() => handleJumpToCurrent('day')}
             >
               流日

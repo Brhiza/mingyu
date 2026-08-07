@@ -164,6 +164,9 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ],
   ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
+  ['metaphysics_zodiac', { zodiac: '鼠', year: 2026 }],
+  ['metaphysics_wuyun_liuqi', { year: 2026, yearGanZhi: '丙午' }],
+  ['metaphysics_huangji_jingshi', { epochYear: 1000, year: 2026 }],
   [
     'astrolabe_synastry',
     {
@@ -336,6 +339,21 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     },
     /【玄空飞星排盘】[\s\S]*【问题】\n这套宅的飞星怎么看？/,
   ],
+  [
+    'zodiac_prompt',
+    { zodiac: '鼠', yearGanZhi: '丙午', question: '请解释本年的生肖关系。' },
+    /【生肖与流年关系简析】[\s\S]*【问题】\n请解释本年的生肖关系。/,
+  ],
+  [
+    'wuyun_liuqi_prompt',
+    { yearGanZhi: '丙午', question: '请解释本年的气候节律。' },
+    /【问题】\n请解释本年的气候节律。[\s\S]*【盘面资料】[\s\S]*年干支：丙午/,
+  ],
+  [
+    'huangji_jingshi_prompt',
+    { epochYear: 1000, year: 2026, question: '请解释目标年的周期位置。' },
+    /【问题】\n请解释目标年的周期位置。[\s\S]*【周期资料】[\s\S]*目标年坐标：2026/,
+  ],
 ];
 
 const promptToolNames = [
@@ -356,6 +374,8 @@ const promptToolNames = [
   'bazhai_prompt',
   'residential_prompt',
   'taiyi_prompt',
+  'wuyun_liuqi_prompt',
+  'huangji_jingshi_prompt',
   'xiaoliuren_prompt',
   'jinkoujue_prompt',
   'lenormand_prompt',
@@ -384,7 +404,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 56);
+    assert.equal(tools.length, 60);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -411,6 +431,10 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'divine_jinkoujue'));
     assert.ok(tools.find((tool) => tool.name === 'divine_lenormand'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_zodiac'));
+    assert.ok(tools.find((tool) => tool.name === 'metaphysics_wuyun_liuqi'));
+    assert.ok(tools.find((tool) => tool.name === 'wuyun_liuqi_prompt'));
+    assert.ok(tools.find((tool) => tool.name === 'metaphysics_huangji_jingshi'));
+    assert.ok(tools.find((tool) => tool.name === 'huangji_jingshi_prompt'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),
@@ -1059,6 +1083,22 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
   });
 });
 
+test('MCP 生肖流年应拒绝缺失或互相冲突的年份依据', async () => {
+  await withMcpClient(async (client) => {
+    for (const [name, arguments_] of [
+      ['metaphysics_zodiac', { zodiac: '鼠' }],
+      ['zodiac_prompt', { zodiac: '鼠', year: 1900, yearGanZhi: '甲子' }],
+    ] as const) {
+      const result = await client.callTool({ name, arguments: arguments_ });
+      assert.equal(result.isError, true, `${name} 应拒绝不完整或冲突年份`);
+      assert.match(
+        String((result.structuredContent as { error?: string } | undefined)?.error),
+        /必须提供 year 或 yearGanZhi|不一致/,
+      );
+    }
+  });
+});
+
 test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟表时间', async () => {
   await withMcpClient(async (client) => {
     const success = await client.callTool({
@@ -1204,6 +1244,118 @@ test('MCP 一站式提示词工具应同时返回结果和 prompt', async () => 
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
       assert.deepEqual(JSON.parse(text), result.structuredContent);
+    }
+  });
+});
+
+test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲突输入', async () => {
+  await withMcpClient(async (client) => {
+    const wuyun = await client.callTool({
+      name: 'metaphysics_wuyun_liuqi',
+      arguments: { year: 2026, yearGanZhi: '丙午' },
+    });
+    const wuyunResult = wuyun.structuredContent?.result as {
+      input: { yearGanZhi: string };
+      annualMovement: { name: string; strength: string };
+      sitian: { name: string };
+      zaiquan: { name: string };
+      annualRelation: { kind: string };
+      annualConformities: {
+        names: string[];
+        sourceReconciliation: { distinctYearsByListedRules: number };
+      };
+      movementSteps: Array<{
+        hostMovement: { toneName: string };
+        guestMovement: { toneName: string };
+        startBoundary: { description: string };
+      }>;
+      qiSteps: Array<{
+        guestRole?: string;
+        solarTerms: string[];
+        hostGuestRelation: { kind: string };
+      }>;
+    };
+    assert.equal(wuyun.isError, undefined);
+    assert.equal(wuyunResult.input.yearGanZhi, '丙午');
+    assert.deepEqual(
+      [wuyunResult.annualMovement.name, wuyunResult.annualMovement.strength],
+      ['水运', '太过'],
+    );
+    assert.deepEqual([wuyunResult.sitian.name, wuyunResult.zaiquan.name], ['少阴君火', '阳明燥金']);
+    assert.equal(wuyunResult.annualRelation.kind, '不和');
+    assert.deepEqual(wuyunResult.annualConformities.names, []);
+    assert.equal(
+      wuyunResult.annualConformities.sourceReconciliation.distinctYearsByListedRules,
+      26,
+    );
+    assert.equal(wuyunResult.movementSteps.length, 5);
+    assert.deepEqual(
+      wuyunResult.movementSteps.map((step) => step.hostMovement.toneName),
+      ['太角', '少徵', '太宫', '少商', '太羽'],
+    );
+    assert.equal(wuyunResult.movementSteps[0].guestMovement.toneName, '太羽');
+    assert.equal(wuyunResult.movementSteps[1].startBoundary.description, '春分后第13日起');
+    assert.deepEqual(wuyunResult.qiSteps[0].solarTerms, ['大寒', '立春', '雨水', '惊蛰']);
+    assert.equal(typeof wuyunResult.qiSteps[0].hostGuestRelation.kind, 'string');
+    assert.equal(wuyunResult.qiSteps[2].guestRole, '司天');
+    assert.equal(wuyunResult.qiSteps[5].guestRole, '在泉');
+
+    const huangji = await client.callTool({
+      name: 'metaphysics_huangji_jingshi',
+      arguments: { epochYear: 1000, elapsedYears: 1026 },
+    });
+    const huangjiResult = huangji.structuredContent?.result as {
+      input: { year: number; elapsedYears: number };
+      position: {
+        yun: { indexInYuan: number };
+        shi: { indexInYun: number };
+        year: { indexInShi: number };
+      };
+      progress: {
+        shi: {
+          currentYearIndex: number;
+          completedYears: number;
+          remainingYearsAfterCurrent: number;
+          nextCycleStartYear: number;
+        };
+      };
+    };
+    assert.equal(huangji.isError, undefined);
+    assert.equal(huangjiResult.input.year, 2026);
+    assert.equal(huangjiResult.input.elapsedYears, 1026);
+    assert.equal(huangjiResult.position.yun.indexInYuan, 3);
+    assert.equal(huangjiResult.position.shi.indexInYun, 11);
+    assert.equal(huangjiResult.position.year.indexInShi, 7);
+    assert.deepEqual(huangjiResult.progress.shi, {
+      currentYearIndex: 7,
+      completedYears: 6,
+      remainingYearsAfterCurrent: 23,
+      nextCycleStartYear: 2050,
+    });
+
+    const invalidCalls: Array<[string, Record<string, unknown>, RegExp | null]> = [
+      ['metaphysics_wuyun_liuqi', {}, /必须提供 year 或 yearGanZhi/],
+      ['metaphysics_wuyun_liuqi', { year: 2026, yearGanZhi: '乙巳' }, /year 与 yearGanZhi 不一致/],
+      ['metaphysics_wuyun_liuqi', { yearGanZhi: '甲丑' }, null],
+      ['metaphysics_huangji_jingshi', { year: 2026 }, null],
+      ['metaphysics_huangji_jingshi', { epochYear: 1000 }, /必须且只能提供一个/],
+      [
+        'metaphysics_huangji_jingshi',
+        { epochYear: 1000, year: 2026, elapsedYears: 1026 },
+        /必须且只能提供一个/,
+      ],
+      ['metaphysics_huangji_jingshi', { epochYear: 1000, year: 999 }, /不能早于 epochYear/],
+    ];
+
+    for (const [name, arguments_, errorPattern] of invalidCalls) {
+      const result = await client.callTool({ name, arguments: arguments_ });
+      assert.equal(result.isError, true, `${name} 应拒绝无效或冲突输入`);
+      if (errorPattern) {
+        assert.match(
+          String((result.structuredContent as { error?: string } | undefined)?.error),
+          errorPattern,
+        );
+      }
     }
   });
 });

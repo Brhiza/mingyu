@@ -35,6 +35,7 @@ import { buildLiuyaoTemplateText } from 'mingyu-core/divination/engine/liuyao-te
 import { buildPromptGuidanceSections } from '../../prompt-guidance';
 import { tarotSpreads } from 'mingyu-core/divination/tarot';
 import { LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
+import { secureRandomInt } from 'mingyu-core/random';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [
   'liuyao',
@@ -523,26 +524,12 @@ function buildAlmanacSessionTitle(data: AlmanacData) {
   return `黄历择日：${data.topicLabel}（${data.startDate} 至 ${data.endDate}）`;
 }
 
-function getRandomIndex(length: number) {
-  if (!Number.isInteger(length) || length <= 0) {
-    throw new Error('随机范围必须是正整数');
-  }
-  const cryptoObject = globalThis.crypto;
-  if (cryptoObject?.getRandomValues) {
-    const values = new Uint32Array(1);
-    cryptoObject.getRandomValues(values);
-    return values[0] % length;
-  }
-  const fallbackNow = globalThis.performance?.now?.() ?? 0;
-  return Math.floor((Date.now() + fallbackNow) % length);
-}
-
 function resolveMethod(method: DivinationMethodId): Exclude<DivinationMethodId, 'random'> {
   if (method !== 'random') {
     return method;
   }
 
-  const index = getRandomIndex(CONCRETE_DIVINATION_METHODS.length);
+  const index = secureRandomInt(CONCRETE_DIVINATION_METHODS.length);
   return CONCRETE_DIVINATION_METHODS[index];
 }
 

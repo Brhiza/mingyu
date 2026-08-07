@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
+import { createSecureId } from '@/lib/secure-id';
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
@@ -57,7 +58,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
       return;
     }
 
-    const requestId = `${selectedScope}-${selectedDateStr}-${Date.now()}`;
+    const requestId = `${selectedScope}-${selectedDateStr}-${createSecureId()}`;
     setIsDisplayPayloadLoading(true);
 
     return createDisplayWorker(

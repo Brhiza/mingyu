@@ -99,6 +99,30 @@ test('奇门转盘值使最终落中时应按御定奇门宝鉴统一寄坤二',
   assert.equal(resolveZhiShiLandingPalace(false, '景门', '戊辰', 9, 'zhuanpan'), 2);
 });
 
+test('奇门九宫底层入口应拒绝非法阴阳遁、局数和干支结构', () => {
+  const arrange = (...args: Parameters<typeof arrangeJiuGongGe>) => arrangeJiuGongGe(...args);
+
+  assert.throws(
+    () => arrange('阳遁' as unknown as boolean, 1, '天蓬', '休门', { hour: '甲子' }),
+    /阴阳遁标记必须是布尔值/,
+  );
+  for (const juShu of [0, 1.5, 10, Number.NaN]) {
+    assert.throws(
+      () => arrange(true, juShu, '天蓬', '休门', { hour: '甲子' }),
+      /奇门局数必须是 1-9 的整数/,
+    );
+  }
+  assert.throws(
+    () => arrange(true, 1, '天蓬', '休门', null as unknown as { hour: string }),
+    /必须提供.*时辰干支/,
+  );
+  assert.throws(() => arrange(true, 1, '天蓬', '休门', { hour: '不存在' }), /无法识别干支/);
+  assert.throws(
+    () => resolveZhiShiLandingPalace(1 as unknown as boolean, '休门', '甲子', 1, 'zhuanpan'),
+    /阴阳遁标记必须是布尔值/,
+  );
+});
+
 test('奇门转盘天禽值符应随天芮落宫并保留自己所携中宫干', () => {
   const hour = '丙辰';
   const setup = getZhiFuZhiShiByGanZhi(hour, { isYangDun: true, juShu: 9 });

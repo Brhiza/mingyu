@@ -2,13 +2,13 @@ import type { QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
 import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
 import { safeStorage } from '@/lib/safe-storage';
+import { createSecureId } from '@/lib/secure-id';
 
 const PERSONAL_HISTORY_STORAGE_KEY = 'prompt_studio_personal_history_v1';
 const COMPATIBILITY_HISTORY_STORAGE_KEY = 'prompt_studio_compatibility_history_v1';
 const DIVINATION_HISTORY_STORAGE_KEY = 'prompt_studio_divination_history_v1';
 const MAX_HISTORY_RECORDS = 20;
 const DEFAULT_CASE_NAME = '案例';
-let divinationHistoryIdCounter = 0;
 
 type PersonalHistoryRecord = {
   id: string;
@@ -192,11 +192,7 @@ function resolveDivinationRecordTitle(draft: DivinationDraft, session: Divinatio
 }
 
 function createDivinationHistoryId() {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-  divinationHistoryIdCounter += 1;
-  return `${Date.now().toString(36)}-${divinationHistoryIdCounter.toString(36)}`;
+  return createSecureId();
 }
 
 export function loadPersonalHistory() {

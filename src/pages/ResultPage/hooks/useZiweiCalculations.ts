@@ -5,6 +5,7 @@ import type { AnalysisPayloadV1 } from '@/types/analysis';
 import type { ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { QueryInputState } from '@/lib/query-state';
+import { createSecureId } from '@/lib/secure-id';
 import { createDisplayWorker } from '../utils/createDisplayWorker';
 import { createPayloadWorker } from '../utils/createPayloadWorker';
 import type { ZiweiPayloadByScopeState, ZiweiRuntimeState } from '../ResultPage.types';
@@ -146,7 +147,7 @@ export function useZiweiCalculations(
 
     return createPayloadWorker(
       primaryZiweiInput,
-      `${Date.now()}-primary`,
+      `${createSecureId()}-primary`,
       (payloadByScope) => {
         setZiweiPayloadByScope(payloadByScope);
         setPrimaryPayloadInputKey(primaryZiweiInputKey);
@@ -190,7 +191,7 @@ export function useZiweiCalculations(
 
     return createPayloadWorker(
       partnerZiweiInput,
-      `${Date.now()}-partner`,
+      `${createSecureId()}-partner`,
       (payloadByScope) => {
         setPartnerZiweiPayloadByScope(payloadByScope);
         setPartnerPayloadInputKey(partnerZiweiInputKey);
@@ -234,7 +235,7 @@ export function useZiweiCalculations(
           if (!shouldLoadZiweiPromptPayload) {
             cleanupBackgroundWorker = createPayloadWorker(
               primaryZiweiInput,
-              `${Date.now()}-bg-primary`,
+              `${createSecureId()}-bg-primary`,
               (fullPayloadByScope) => {
                 if (!cancelled) {
                   setZiweiPayloadByScope(fullPayloadByScope);
@@ -297,7 +298,7 @@ export function useZiweiCalculations(
           if (!shouldLoadZiweiPromptPayload) {
             cleanupBackgroundWorker = createPayloadWorker(
               partnerZiweiInput,
-              `${Date.now()}-bg-partner`,
+              `${createSecureId()}-bg-partner`,
               (fullPayloadByScope) => {
                 if (!cancelled) {
                   setPartnerZiweiPayloadByScope(fullPayloadByScope);
@@ -348,7 +349,7 @@ export function useZiweiCalculations(
     }
 
     const { hourIndex } = getDefaultHoroscopeContext();
-    const requestId = `prompt-primary-${ziweiPromptScopeType}-${promptState.ziweiScopeDate}-${Date.now()}`;
+    const requestId = `prompt-primary-${ziweiPromptScopeType}-${promptState.ziweiScopeDate}-${createSecureId()}`;
 
     return createDisplayWorker(
       {
@@ -382,7 +383,7 @@ export function useZiweiCalculations(
     }
 
     const { hourIndex } = getDefaultHoroscopeContext();
-    const requestId = `prompt-partner-${ziweiPromptScopeType}-${promptState.ziweiScopeDate}-${Date.now()}`;
+    const requestId = `prompt-partner-${ziweiPromptScopeType}-${promptState.ziweiScopeDate}-${createSecureId()}`;
 
     return createDisplayWorker(
       {
