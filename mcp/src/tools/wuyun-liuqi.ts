@@ -30,7 +30,7 @@ export function registerWuyunLiuqiTool(server: McpServer) {
   server.registerTool(
     'metaphysics_wuyun_liuqi',
     {
-      description: '五运六气年度计算：返回岁运太过不及、司天在泉及六步主客气',
+      description: '五运六气年度计算：返回岁运、司天在泉、气运相临、天符岁会及六步节令主客气',
       inputSchema: wuyunLiuqiSchema.omit({ question: true }).shape,
       outputSchema: resultOutputSchema,
     },
@@ -47,7 +47,7 @@ export function registerWuyunLiuqiTool(server: McpServer) {
   server.registerTool(
     'wuyun_liuqi_prompt',
     {
-      description: '五运六气年度计算并生成可直接交给 AI 的完整任务书',
+      description: '五运六气年度深化计算并生成可直接交给 AI 的完整任务书',
       inputSchema: wuyunLiuqiSchema.shape,
       outputSchema: promptOutputSchema,
     },

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   GUEST_QI_ORDER,
   HOST_QI_ORDER,
+  QI_STEP_SOLAR_TERMS,
   calculateWuyunLiuqi,
   getWuyunLiuqiYearGanZhi,
 } from '@core/wuyun-liuqi';
@@ -78,6 +79,87 @@ test('主气和客气应保留各自次序，不混淆少阳与太阴', () => {
   ]);
 });
 
+test('气运相临应在六十甲子中各得十二年同气、顺化、天刑、小逆与不和', () => {
+  const counts = new Map<string, number>();
+  SIXTY_CYCLE.forEach((yearGanZhi) => {
+    const kind = calculateWuyunLiuqi({ yearGanZhi }).annualRelation.kind;
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  });
+  ['同气', '顺化', '天刑', '小逆', '不和'].forEach((kind) => {
+    assert.equal(counts.get(kind), 12, kind);
+  });
+});
+
+test('天符岁会等五类符会应按通行六十年固定集合核验', () => {
+  type ConformityField = 'tianfu' | 'suihui' | 'taiyiTianfu' | 'tongTianfu' | 'tongSuihui';
+  const expected: Record<ConformityField, string[]> = {
+    tianfu: [
+      '丁巳',
+      '丁亥',
+      '戊子',
+      '戊午',
+      '戊寅',
+      '戊申',
+      '己丑',
+      '己未',
+      '乙卯',
+      '乙酉',
+      '丙辰',
+      '丙戌',
+    ],
+    suihui: ['丁卯', '戊午', '乙酉', '丙子', '甲辰', '甲戌', '己丑', '己未'],
+    taiyiTianfu: ['己丑', '己未', '乙酉', '戊午'],
+    tongTianfu: ['壬寅', '壬申', '甲辰', '甲戌', '庚子', '庚午'],
+    tongSuihui: ['辛丑', '辛未', '癸卯', '癸酉', '癸巳', '癸亥'],
+  };
+
+  for (const field of Object.keys(expected) as ConformityField[]) {
+    const years = expected[field];
+    const actual = SIXTY_CYCLE.filter(
+      (yearGanZhi) => calculateWuyunLiuqi({ yearGanZhi }).annualConformities[field],
+    );
+    assert.deepEqual([...actual].sort(), [...years].sort(), field);
+  }
+
+  const allConformityYears = SIXTY_CYCLE.filter(
+    (yearGanZhi) => calculateWuyunLiuqi({ yearGanZhi }).annualConformities.names.length > 0,
+  );
+  assert.equal(allConformityYears.length, 26);
+  assert.deepEqual(
+    calculateWuyunLiuqi({ yearGanZhi: '甲子' }).annualConformities.sourceReconciliation,
+    {
+      distinctYearsByListedRules: 26,
+      sourceSummaryYears: 28,
+      handling:
+        '吴谦《运气要诀》逐项名单按六十甲子去重为26年，与原文“二十八年”汇总不一致；计算采用逐项定义和逐年名单，不用汇总数反改规则。',
+    },
+  );
+  assert.deepEqual(calculateWuyunLiuqi({ yearGanZhi: '戊午' }).annualConformities.names, [
+    '天符',
+    '岁会',
+    '太乙天符',
+  ]);
+});
+
+test('六步节令和主客气关系应完整覆盖二十四节气', () => {
+  assert.deepEqual(QI_STEP_SOLAR_TERMS, [
+    ['大寒', '立春', '雨水', '惊蛰'],
+    ['春分', '清明', '谷雨', '立夏'],
+    ['小满', '芒种', '夏至', '小暑'],
+    ['大暑', '立秋', '处暑', '白露'],
+    ['秋分', '寒露', '霜降', '立冬'],
+    ['小雪', '大雪', '冬至', '小寒'],
+  ]);
+  const result = calculateWuyunLiuqi({ yearGanZhi: '丙午' });
+  assert.equal(result.qiSteps.flatMap((step) => step.solarTerms).length, 24);
+  result.qiSteps.forEach((step) => {
+    assert.ok(
+      ['同气', '客生主', '主生客', '客克主', '主克客'].includes(step.hostGuestRelation.kind),
+    );
+    assert.match(step.hostGuestRelation.basis, /主气|客气/);
+  });
+});
+
 test('公历年换算应采用稳定年中口径，并校验显式干支一致性', () => {
   assert.equal(getWuyunLiuqiYearGanZhi(1984), '甲子');
   assert.equal(getWuyunLiuqiYearGanZhi(2024), '甲辰');
@@ -100,7 +182,10 @@ test('五运六气提示词应是可独立使用的完整任务书', () => {
   assert.match(prompt, /【盘面资料】/);
   assert.match(prompt, /水运，太过/);
   assert.match(prompt, /少阴君火/);
+  assert.match(prompt, /司天与中运：不和/);
+  assert.match(prompt, /大寒、立春、雨水、惊蛰/);
   assert.match(prompt, /《素问·天元纪大论》/);
+  assert.match(prompt, /吴谦《运气要诀》/);
   assert.doesNotMatch(prompt, /mingyu|API|MCP|仓库|内部字段/i);
   assertPromptIsPortableTaskText(prompt);
 });

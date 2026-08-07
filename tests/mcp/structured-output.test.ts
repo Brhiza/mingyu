@@ -1237,7 +1237,16 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
       annualMovement: { name: string; strength: string };
       sitian: { name: string };
       zaiquan: { name: string };
-      qiSteps: Array<{ guestRole?: string }>;
+      annualRelation: { kind: string };
+      annualConformities: {
+        names: string[];
+        sourceReconciliation: { distinctYearsByListedRules: number };
+      };
+      qiSteps: Array<{
+        guestRole?: string;
+        solarTerms: string[];
+        hostGuestRelation: { kind: string };
+      }>;
     };
     assert.equal(wuyun.isError, undefined);
     assert.equal(wuyunResult.input.yearGanZhi, '丙午');
@@ -1246,6 +1255,14 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
       ['水运', '太过'],
     );
     assert.deepEqual([wuyunResult.sitian.name, wuyunResult.zaiquan.name], ['少阴君火', '阳明燥金']);
+    assert.equal(wuyunResult.annualRelation.kind, '不和');
+    assert.deepEqual(wuyunResult.annualConformities.names, []);
+    assert.equal(
+      wuyunResult.annualConformities.sourceReconciliation.distinctYearsByListedRules,
+      26,
+    );
+    assert.deepEqual(wuyunResult.qiSteps[0].solarTerms, ['大寒', '立春', '雨水', '惊蛰']);
+    assert.equal(typeof wuyunResult.qiSteps[0].hostGuestRelation.kind, 'string');
     assert.equal(wuyunResult.qiSteps[2].guestRole, '司天');
     assert.equal(wuyunResult.qiSteps[5].guestRole, '在泉');
 
@@ -1260,6 +1277,14 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
         shi: { indexInYun: number };
         year: { indexInShi: number };
       };
+      progress: {
+        shi: {
+          currentYearIndex: number;
+          completedYears: number;
+          remainingYearsAfterCurrent: number;
+          nextCycleStartYear: number;
+        };
+      };
     };
     assert.equal(huangji.isError, undefined);
     assert.equal(huangjiResult.input.year, 2026);
@@ -1267,6 +1292,12 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
     assert.equal(huangjiResult.position.yun.indexInYuan, 3);
     assert.equal(huangjiResult.position.shi.indexInYun, 11);
     assert.equal(huangjiResult.position.year.indexInShi, 7);
+    assert.deepEqual(huangjiResult.progress.shi, {
+      currentYearIndex: 7,
+      completedYears: 6,
+      remainingYearsAfterCurrent: 23,
+      nextCycleStartYear: 2050,
+    });
 
     const invalidCalls: Array<[string, Record<string, unknown>, RegExp | null]> = [
       ['metaphysics_wuyun_liuqi', {}, /必须提供 year 或 yearGanZhi/],

@@ -4866,7 +4866,15 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assert.equal(calculation.body.data.annualMovement.strength, '太过');
   assert.equal(calculation.body.data.sitian.name, '少阴君火');
   assert.equal(calculation.body.data.zaiquan.name, '阳明燥金');
+  assert.equal(calculation.body.data.annualRelation.kind, '不和');
+  assert.deepEqual(calculation.body.data.annualConformities.names, []);
+  assert.equal(
+    calculation.body.data.annualConformities.sourceReconciliation.distinctYearsByListedRules,
+    26,
+  );
   assert.equal(calculation.body.data.qiSteps.length, 6);
+  assert.deepEqual(calculation.body.data.qiSteps[0].solarTerms, ['大寒', '立春', '雨水', '惊蛰']);
+  assert.equal(typeof calculation.body.data.qiSteps[0].hostGuestRelation.kind, 'string');
   assert.equal(calculation.body.data.qiSteps[2].guestRole, '司天');
   assert.equal(calculation.body.data.qiSteps[5].guestRole, '在泉');
 
@@ -4883,8 +4891,14 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assert.equal(prompted.response.status, 200);
   assert.equal(prompted.body.data.result, undefined);
   assert.equal(prompted.body.data.resultSummary.yearGanZhi, '丙午');
+  assert.equal(prompted.body.data.resultSummary.annualRelation.kind, '不和');
+  assert.equal(
+    prompted.body.data.resultSummary.annualConformities.sourceReconciliation.sourceSummaryYears,
+    28,
+  );
   assert.equal(prompted.body.data.resultSummary.qiSteps.length, 6);
-  assert.match(prompted.body.data.prompt, /【盘面资料】[\s\S]*少阴君火/);
+  assert.match(prompted.body.data.prompt, /【盘面资料】[\s\S]*司天与中运：不和/);
+  assert.match(prompted.body.data.prompt, /大寒、立春、雨水、惊蛰/);
   assert.match(prompted.body.data.prompt, /【问题】\n请解释本年的气候节律。/);
   assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });
@@ -4903,6 +4917,9 @@ test('公开 API 皇极经世应按明确纪元返回元会运世与轻量提示
   assert.equal(calculation.body.data.position.yun.indexInYuan, 3);
   assert.equal(calculation.body.data.position.shi.indexInYun, 11);
   assert.equal(calculation.body.data.position.year.indexInShi, 7);
+  assert.equal(calculation.body.data.progress.shi.completedYears, 6);
+  assert.equal(calculation.body.data.progress.shi.remainingYearsAfterCurrent, 23);
+  assert.equal(calculation.body.data.progress.shi.nextCycleStartYear, 2050);
 
   const prompted = await callApi('metaphysics/huangji-jingshi/prompt', {
     method: 'POST',
@@ -4919,7 +4936,9 @@ test('公开 API 皇极经世应按明确纪元返回元会运世与轻量提示
   assert.equal(prompted.body.data.result, undefined);
   assert.equal(prompted.body.data.resultSummary.input.epochYear, 1000);
   assert.equal(prompted.body.data.resultSummary.position.year.coordinate, 2026);
+  assert.equal(prompted.body.data.resultSummary.progress.shi.nextCycleStartYear, 2050);
   assert.match(prompted.body.data.prompt, /【周期资料】[\s\S]*目标年坐标：2026/);
+  assert.match(prompted.body.data.prompt, /周期边界：[\s\S]*下一世始于 2050/);
   assert.match(prompted.body.data.prompt, /【问题】\n请解释目标年的周期位置。/);
   assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });

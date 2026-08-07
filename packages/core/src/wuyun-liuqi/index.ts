@@ -4,6 +4,7 @@
  * @传统依据 《素问·天元纪大论》《素问·五运行大论》《素问·六微旨大论》及运气七篇大论。
  */
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
+import { isKe, isSheng } from '../wuxing';
 
 export const WUYUN_LIUQI_SOURCES = [
   {
@@ -18,11 +19,18 @@ export const WUYUN_LIUQI_SOURCES = [
     title: '《素问·六微旨大论》',
     scope: '六气司天、在泉与主客气位置关系。',
   },
+  {
+    title: '吴谦《运气要诀》',
+    scope: '六步节令、气运相临以及天符、岁会、太乙天符、同天符、同岁会。',
+  },
 ] as const;
 
 export type WuyunElement = '木' | '火' | '土' | '金' | '水';
 export type WuyunStrength = '太过' | '不及';
 export type LiuqiName = '厥阴风木' | '少阴君火' | '少阳相火' | '太阴湿土' | '阳明燥金' | '太阳寒水';
+export type AnnualQiMovementRelationKind = '同气' | '顺化' | '天刑' | '小逆' | '不和';
+export type HostGuestRelationKind = '同气' | '客生主' | '主生客' | '客克主' | '主克客';
+export type AnnualConformityName = '天符' | '岁会' | '太乙天符' | '同天符' | '同岁会';
 
 export interface WuyunLiuqiInput {
   /** 公历年；按该年年中所属年柱换算，避免元旦与立春边界混淆。 */
@@ -52,9 +60,43 @@ export interface LiuqiProfile {
 export interface LiuqiStep {
   order: number;
   label: '初之气' | '二之气' | '三之气' | '四之气' | '五之气' | '终之气';
+  solarTerms: string[];
   hostQi: LiuqiProfile;
   guestQi: LiuqiProfile;
+  hostGuestRelation: {
+    kind: HostGuestRelationKind;
+    basis: string;
+  };
   guestRole?: '司天' | '在泉';
+}
+
+export interface AnnualQiMovementRelation {
+  kind: AnnualQiMovementRelationKind;
+  movementElement: WuyunElement;
+  sitianElement: WuyunElement;
+  basis: string;
+}
+
+export interface AnnualConformityFact {
+  name: AnnualConformityName;
+  matched: boolean;
+  rule: string;
+  basis: string;
+}
+
+export interface AnnualConformities {
+  names: AnnualConformityName[];
+  tianfu: boolean;
+  suihui: boolean;
+  taiyiTianfu: boolean;
+  tongTianfu: boolean;
+  tongSuihui: boolean;
+  facts: AnnualConformityFact[];
+  sourceReconciliation: {
+    distinctYearsByListedRules: 26;
+    sourceSummaryYears: 28;
+    handling: string;
+  };
 }
 
 export interface WuyunLiuqiCalculation {
@@ -66,6 +108,8 @@ export interface WuyunLiuqiCalculation {
   annualMovement: AnnualMovement;
   sitian: LiuqiProfile;
   zaiquan: LiuqiProfile;
+  annualRelation: AnnualQiMovementRelation;
+  annualConformities: AnnualConformities;
   qiSteps: LiuqiStep[];
   calculationChain: string[];
   sources: Array<{ title: string; scope: string }>;
@@ -144,6 +188,35 @@ const QI_STEP_LABELS: LiuqiStep['label'][] = [
   '终之气',
 ];
 
+/** 一年二十四节气按六步分主，每步四个节气。 */
+export const QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, string])[] = [
+  ['大寒', '立春', '雨水', '惊蛰'],
+  ['春分', '清明', '谷雨', '立夏'],
+  ['小满', '芒种', '夏至', '小暑'],
+  ['大暑', '立秋', '处暑', '白露'],
+  ['秋分', '寒露', '霜降', '立冬'],
+  ['小雪', '大雪', '冬至', '小寒'],
+];
+
+/** 岁会只取本运临本支之位：木卯、火午、土四维、金酉、水子。 */
+const SUIHUI_BRANCH_ELEMENT: Partial<Record<string, WuyunElement>> = {
+  卯: '木',
+  午: '火',
+  辰: '土',
+  戌: '土',
+  丑: '土',
+  未: '土',
+  酉: '金',
+  子: '水',
+};
+
+export const ANNUAL_CONFORMITY_SOURCE_RECONCILIATION = Object.freeze({
+  distinctYearsByListedRules: 26 as const,
+  sourceSummaryYears: 28 as const,
+  handling:
+    '吴谦《运气要诀》逐项名单按六十甲子去重为26年，与原文“二十八年”汇总不一致；计算采用逐项定义和逐年名单，不用汇总数反改规则。',
+});
+
 function mod(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
 }
@@ -190,17 +263,128 @@ function profile(name: LiuqiName): LiuqiProfile {
   return { ...QI_PROFILES[name] };
 }
 
+function buildAnnualRelation(
+  movementElement: WuyunElement,
+  sitianElement: WuyunElement,
+): AnnualQiMovementRelation {
+  let kind: AnnualQiMovementRelationKind;
+  let basis: string;
+  if (movementElement === sitianElement) {
+    kind = '同气';
+    basis = `司天${sitianElement}与中运${movementElement}同气。`;
+  } else if (isSheng(sitianElement, movementElement)) {
+    kind = '顺化';
+    basis = `司天${sitianElement}生中运${movementElement}，为顺化。`;
+  } else if (isKe(sitianElement, movementElement)) {
+    kind = '天刑';
+    basis = `司天${sitianElement}克中运${movementElement}，为天刑。`;
+  } else if (isSheng(movementElement, sitianElement)) {
+    kind = '小逆';
+    basis = `中运${movementElement}生司天${sitianElement}，为小逆。`;
+  } else if (isKe(movementElement, sitianElement)) {
+    kind = '不和';
+    basis = `中运${movementElement}克司天${sitianElement}，为不和。`;
+  } else {
+    throw new Error(`无法判定中运${movementElement}与司天${sitianElement}的生克关系。`);
+  }
+  return { kind, movementElement, sitianElement, basis };
+}
+
+function buildHostGuestRelation(
+  hostElement: WuyunElement,
+  guestElement: WuyunElement,
+): LiuqiStep['hostGuestRelation'] {
+  if (hostElement === guestElement) {
+    return { kind: '同气', basis: `客气${guestElement}与主气${hostElement}同气。` };
+  }
+  if (isSheng(guestElement, hostElement)) {
+    return { kind: '客生主', basis: `客气${guestElement}生主气${hostElement}。` };
+  }
+  if (isSheng(hostElement, guestElement)) {
+    return { kind: '主生客', basis: `主气${hostElement}生客气${guestElement}。` };
+  }
+  if (isKe(guestElement, hostElement)) {
+    return { kind: '客克主', basis: `客气${guestElement}克主气${hostElement}。` };
+  }
+  if (isKe(hostElement, guestElement)) {
+    return { kind: '主克客', basis: `主气${hostElement}克客气${guestElement}。` };
+  }
+  throw new Error(`无法判定主气${hostElement}与客气${guestElement}的生克关系。`);
+}
+
+function buildAnnualConformities(
+  yearGanZhi: string,
+  movement: AnnualMovement,
+  sitian: LiuqiProfile,
+  zaiquan: LiuqiProfile,
+): AnnualConformities {
+  const branch = yearGanZhi[1];
+  const suihuiBranchElement = SUIHUI_BRANCH_ELEMENT[branch];
+  const tianfu = movement.element === sitian.element;
+  const suihui = suihuiBranchElement === movement.element;
+  const taiyiTianfu = tianfu && suihui;
+  const zaiquanMatches = movement.element === zaiquan.element;
+  const tongTianfu = movement.yinYang === '阳' && zaiquanMatches;
+  const tongSuihui = movement.yinYang === '阴' && zaiquanMatches;
+  const facts: AnnualConformityFact[] = [
+    {
+      name: '天符',
+      matched: tianfu,
+      rule: '中运五行与司天五行相同。',
+      basis: `中运为${movement.element}，司天为${sitian.element}，${tianfu ? '两者同气' : '两者不同气'}。`,
+    },
+    {
+      name: '岁会',
+      matched: suihui,
+      rule: '本运临本支之位：木卯、火午、土辰戌丑未、金酉、水子。',
+      basis: `${branch}支${suihuiBranchElement ? `本位五行为${suihuiBranchElement}` : '不属于岁会所列本位'}，中运为${movement.element}，${suihui ? '相合' : '不相合'}。`,
+    },
+    {
+      name: '太乙天符',
+      matched: taiyiTianfu,
+      rule: '同一年同时构成天符与岁会。',
+      basis: `天符${tianfu ? '成立' : '不成立'}，岁会${suihui ? '成立' : '不成立'}。`,
+    },
+    {
+      name: '同天符',
+      matched: tongTianfu,
+      rule: '阳干年中运五行与在泉五行相同。',
+      basis: `${movement.yinYang}干年，中运为${movement.element}，在泉为${zaiquan.element}，${tongTianfu ? '符合' : '不符合'}同天符。`,
+    },
+    {
+      name: '同岁会',
+      matched: tongSuihui,
+      rule: '阴干年中运五行与在泉五行相同。',
+      basis: `${movement.yinYang}干年，中运为${movement.element}，在泉为${zaiquan.element}，${tongSuihui ? '符合' : '不符合'}同岁会。`,
+    },
+  ];
+  return {
+    names: facts.filter((fact) => fact.matched).map((fact) => fact.name),
+    tianfu,
+    suihui,
+    taiyiTianfu,
+    tongTianfu,
+    tongSuihui,
+    facts,
+    sourceReconciliation: { ...ANNUAL_CONFORMITY_SOURCE_RECONCILIATION },
+  };
+}
+
 function buildQiSteps(sitianName: LiuqiName): LiuqiStep[] {
   const sitianIndex = GUEST_QI_ORDER.indexOf(sitianName);
   if (sitianIndex < 0) throw new Error(`司天气序数据缺失：${sitianName}`);
 
   return QI_STEP_LABELS.map((label, index) => {
     const guestName = GUEST_QI_ORDER[mod(sitianIndex + index - 2, 6)];
+    const hostQi = profile(HOST_QI_ORDER[index]);
+    const guestQi = profile(guestName);
     return {
       order: index + 1,
       label,
-      hostQi: profile(HOST_QI_ORDER[index]),
-      guestQi: profile(guestName),
+      solarTerms: [...QI_STEP_SOLAR_TERMS[index]],
+      hostQi,
+      guestQi,
+      hostGuestRelation: buildHostGuestRelation(hostQi.element, guestQi.element),
       guestRole: index === 2 ? '司天' : index === 5 ? '在泉' : undefined,
     };
   });
@@ -228,10 +412,12 @@ export function buildWuyunLiuqiPrompt(result: WuyunLiuqiCalculation, question?: 
     `岁运：${result.annualMovement.name}，${result.annualMovement.strength}（${result.annualMovement.yinYang}干）`,
     `司天：${result.sitian.name}`,
     `在泉：${result.zaiquan.name}`,
+    `司天与中运：${result.annualRelation.kind}；${result.annualRelation.basis}`,
+    `年度符会：${result.annualConformities.names.length ? result.annualConformities.names.join('、') : '未形成天符、岁会、太乙天符、同天符或同岁会'}`,
     '六步主客气：',
     ...result.qiSteps.map(
       (step) =>
-        `${step.order}. ${step.label}：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}`,
+        `${step.order}. ${step.label}（${step.solarTerms.join('、')}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`,
     ),
     '',
     '【传统依据】',
@@ -263,24 +449,37 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
   if (qiSteps[2].guestQi.name !== sitian.name || qiSteps[5].guestQi.name !== zaiquan.name) {
     throw new Error(`客气轮转与司天在泉不一致：${resolved.yearGanZhi}`);
   }
+  const annualRelation = buildAnnualRelation(annualMovement.element, sitian.element);
+  const annualConformities = buildAnnualConformities(
+    resolved.yearGanZhi,
+    annualMovement,
+    sitian,
+    zaiquan,
+  );
 
   const calculation: WuyunLiuqiCalculation = {
     input: resolved,
     annualMovement,
     sitian,
     zaiquan,
+    annualRelation,
+    annualConformities,
     qiSteps,
     calculationChain: [
       `${resolved.yearGanZhi}取年干${stem}、年支${branch}`,
       annualMovement.basis,
       `${branch}支对应${sitian.name}司天、${zaiquan.name}在泉`,
+      annualRelation.basis,
+      `年度符会逐项核验：${annualConformities.names.length ? annualConformities.names.join('、') : '五项均未形成'}`,
       `客气以${sitian.name}落三之气，依客气次序前后轮转，${zaiquan.name}落终之气`,
+      '二十四节气自大寒起按每四气一组分为六步，并逐步核验主客气五行关系',
     ],
     sources: WUYUN_LIUQI_SOURCES.map((source) => ({ ...source })),
     limitations: [
       '结果为年度固定表结构，不含精确交运时刻与逐日气候计算。',
       '传统运气模型不能替代地域气象资料、个人健康资料或医疗诊断。',
-      '天符、岁会、太乙天符等派生格局等待独立版本依据校勘后再加入。',
+      '符会与气运关系按吴谦《运气要诀》通行口径核验，不延伸为疾病轻重或现实事件预测。',
+      ANNUAL_CONFORMITY_SOURCE_RECONCILIATION.handling,
     ],
   };
 
@@ -290,6 +489,8 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
 export const wuyunLiuqi = {
   HOST_QI_ORDER,
   GUEST_QI_ORDER,
+  QI_STEP_SOLAR_TERMS,
+  ANNUAL_CONFORMITY_SOURCE_RECONCILIATION,
   WUYUN_LIUQI_SOURCES,
   getWuyunLiuqiYearGanZhi,
   calculateWuyunLiuqi,

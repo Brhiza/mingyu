@@ -31,7 +31,7 @@ export function registerHuangjiJingshiTool(server: McpServer) {
   server.registerTool(
     'metaphysics_huangji_jingshi',
     {
-      description: '皇极经世周期换算：按明确纪元返回元会运世位置与各层起止年坐标',
+      description: '皇极经世周期换算：按明确纪元返回元会运世位置、进度与下一层边界',
       inputSchema: huangjiJingshiSchema.omit({ question: true }).shape,
       outputSchema: resultOutputSchema,
     },
@@ -48,7 +48,7 @@ export function registerHuangjiJingshiTool(server: McpServer) {
   server.registerTool(
     'huangji_jingshi_prompt',
     {
-      description: '皇极经世周期换算并生成可直接交给 AI 的完整任务书',
+      description: '皇极经世位置与周期边界换算并生成可直接交给 AI 的完整任务书',
       inputSchema: huangjiJingshiSchema.shape,
       outputSchema: promptOutputSchema,
     },

@@ -37,6 +37,10 @@ test('公开 API 文档和 skill 应覆盖五运六气与皇极经世的关键�
     assert.match(content, /POST \/metaphysics\/wuyun-liuqi\/calculate/);
     assert.match(content, /POST \/metaphysics\/wuyun-liuqi\/prompt/);
     assert.match(content, /year.*yearGanZhi|yearGanZhi.*year/);
+    assert.match(content, /天符.*岁会/);
+    assert.match(content, /sourceReconciliation/);
+    assert.match(content, /26 年|26年/);
+    assert.match(content, /二十八年/);
     assert.match(content, /POST \/metaphysics\/huangji-jingshi\/calculate/);
     assert.match(content, /POST \/metaphysics\/huangji-jingshi\/prompt/);
     assert.match(content, /epochYear/);

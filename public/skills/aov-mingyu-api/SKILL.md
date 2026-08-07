@@ -80,8 +80,8 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 | 牌阵启发                       | `POST /divination/tarot/prompt`              | `spreadType`、`question`                                                    |
 | 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                    |
 | 生肖犯太岁、流年贵人           | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                            |
-| 年度五运六气、司天在泉         | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`，可选 `question`                                     |
-| 元会运世周期位置               | `POST /metaphysics/huangji-jingshi/prompt`   | `epochYear`，再从 `year`、`elapsedYears` 中选一个                            |
+| 年度五运六气、符会与六步节令   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`，可选 `question`                                     |
+| 元会运世周期位置               | `POST /metaphysics/huangji-jingshi/prompt`   | `epochYear`，再从 `year`、`elapsedYears` 中选一个                           |
 | 求签                           | `POST /divination/ssgw/prompt`               | `question`                                                                  |
 
 参数默认建议：
@@ -130,8 +130,8 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /divination/astrolabe/synastry/prompt`：西占双盘计算并生成结构化证据提示词。
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
 - `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：年家太乙七十二局排盘与提示词；当前不提供未完整复原的月、日、时家。
-- `POST /metaphysics/wuyun-liuqi/calculate`、`POST /metaphysics/wuyun-liuqi/prompt`：岁运太过不及、司天在泉、六步主客气及完整提示词。
-- `POST /metaphysics/huangji-jingshi/calculate`、`POST /metaphysics/huangji-jingshi/prompt`：按明确纪元换算元会运世位置、序号和起止年坐标；不会自动补纪元。
+- `POST /metaphysics/wuyun-liuqi/calculate`、`POST /metaphysics/wuyun-liuqi/prompt`：岁运太过不及、司天在泉、气运相临、天符岁会等五类符会、六步节令主客气及完整提示词。
+- `POST /metaphysics/huangji-jingshi/calculate`、`POST /metaphysics/huangji-jingshi/prompt`：按明确纪元换算元会运世位置、进度和下一层边界；不会自动补纪元。
 - `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、分层天文证据与提示词。
 - `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。
@@ -328,8 +328,10 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `responseMode`：`/prompt` 可用。`summary` 默认只返回提示词和轻量摘要；`full` 返回完整排盘和提示词；`prompt-only` 只返回提示词。
 - `detailMode`：八字、紫微、奇门和黄历排盘可用。`full` 返回完整结构；`compact` 返回轻量结构。
 - `question` 和 `astrolabeScopeText` 最多 5000 个字符。
-- 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算，避免把元旦当作干支年界。
+- 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算，避免把元旦当作干支年界。结果会逐项给出同气、顺化、天刑、小逆、不和，天符、岁会、太乙天符、同天符、同岁会，以及六步节令和主客气五行关系。
+- 吴谦《运气要诀》的五类符会逐年名单去重为 26 年，与原文“二十八年”汇总不一致；返回值保留 `sourceReconciliation`，并按逐项定义计算。
 - 皇极经世的 `epochYear` 表示某一元第一年的整数坐标，必须明确提供；`year` 与 `elapsedYears` 必须且只能提供一个，`elapsedYears: 0` 表示纪元第一年。整数坐标不会自动解释为公元或其他历史纪年。
+- 皇极经世返回的 `progress` 会列出当前元、会、运、世内已过年数、当前年之后剩余的完整年数和下一层开始年坐标；所有层级序号从 1 开始。
 
 八字 `promptTopic` 支持以下主题：
 `general`（综合）、`recent`（近期）、`career`（事业）、`job-change`（跳槽）、`startup-partnership`（创业合作）、`investment-partnership`（投资合作）、`wealth`（财运）、`marriage`（婚恋）、`relationship-push`（感情推进）、`relationship-decision`（关系去留）、`reconciliation-decision`（复合判断）、`children`（子女）、`family`（家庭）、`home-move`（搬家置业）、`settle-relocate`（定居换城）、`social`（人际合作）、`emotion`（情绪心理）、`health`（健康）、`parents`（父母）、`study`（学业）、`study-advance`（考证进修）、`exam-landing`（考试上岸）、`growth`（成长方向）、`talent`（天赋特质）。

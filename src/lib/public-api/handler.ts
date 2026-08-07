@@ -2098,6 +2098,8 @@ function buildWuyunLiuqiPromptApi(input: JsonRecord) {
       annualMovement: result.annualMovement,
       sitian: result.sitian,
       zaiquan: result.zaiquan,
+      annualRelation: result.annualRelation,
+      annualConformities: result.annualConformities,
       qiSteps: result.qiSteps,
     },
     fullResult: result,
@@ -2136,6 +2138,7 @@ function buildHuangjiJingshiPromptApi(input: JsonRecord) {
     resultSummary: {
       input: result.input,
       position: result.position,
+      progress: result.progress,
       conversion: result.conversion,
     },
     fullResult: result,

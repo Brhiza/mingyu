@@ -47,6 +47,13 @@ export interface HuangjiCycleRange {
   endYear: number;
 }
 
+export interface HuangjiCycleProgress {
+  currentYearIndex: number;
+  completedYears: number;
+  remainingYearsAfterCurrent: number;
+  nextCycleStartYear: number;
+}
+
 export interface HuangjiJingshiCalculation {
   input: {
     mode: '年坐标' | '已过年数';
@@ -60,6 +67,12 @@ export interface HuangjiJingshiCalculation {
     yun: HuangjiCycleRange & { indexInYuan: number; indexInHui: number };
     shi: HuangjiCycleRange & { indexInYuan: number; indexInYun: number };
     year: { coordinate: number; indexInShi: number; indexInYuan: number };
+  };
+  progress: {
+    yuan: HuangjiCycleProgress;
+    hui: HuangjiCycleProgress;
+    yun: HuangjiCycleProgress;
+    shi: HuangjiCycleProgress;
   };
   conversion: {
     yearsPerShi: 30;
@@ -133,6 +146,26 @@ function buildRange(startYear: number, length: number, label: string): HuangjiCy
   return { startYear, endYear: checkedAdd(startYear, length - 1, `${label}结束年`) };
 }
 
+function buildProgress(
+  range: HuangjiCycleRange,
+  year: number,
+  length: number,
+  label: string,
+): HuangjiCycleProgress {
+  const completedYears = year - range.startYear;
+  assertNonNegativeSafeInteger(completedYears, `${label}内已过年数`);
+  if (completedYears >= length || year > range.endYear) {
+    throw new Error(`${label}进度超出当前周期范围。`);
+  }
+  const currentYearIndex = completedYears + 1;
+  return {
+    currentYearIndex,
+    completedYears,
+    remainingYearsAfterCurrent: length - currentYearIndex,
+    nextCycleStartYear: checkedAdd(range.endYear, 1, `下一${label}开始年`),
+  };
+}
+
 export function buildHuangjiJingshiPrompt(
   result: HuangjiJingshiCalculation,
   question?: string,
@@ -155,6 +188,7 @@ export function buildHuangjiJingshiPrompt(
     `运：本元第 ${position.yun.indexInYuan} 运、本会第 ${position.yun.indexInHui} 运，${position.yun.startYear} 至 ${position.yun.endYear}`,
     `世：本元第 ${position.shi.indexInYuan} 世、本运第 ${position.shi.indexInYun} 世，${position.shi.startYear} 至 ${position.shi.endYear}`,
     `年：本世第 ${position.year.indexInShi} 年、本元第 ${position.year.indexInYuan} 年`,
+    `周期边界：本世当前为第 ${result.progress.shi.currentYearIndex} 年，当前年后尚余 ${result.progress.shi.remainingYearsAfterCurrent} 个完整年，下一世始于 ${result.progress.shi.nextCycleStartYear}；下一运始于 ${result.progress.yun.nextCycleStartYear}；下一会始于 ${result.progress.hui.nextCycleStartYear}；下一元始于 ${result.progress.yuan.nextCycleStartYear}`,
     '',
     '【换算规则】',
     '1 世 = 30 年；1 运 = 12 世 = 360 年；1 会 = 30 运 = 10800 年；1 元 = 12 会 = 360 运 = 4320 世 = 129600 年。',
@@ -195,33 +229,43 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
     (shiIndexInYuan - 1) * HUANGJI_CYCLE_YEARS.shi,
     '世开始年',
   );
+  const yuanRange = buildRange(yuanStart, HUANGJI_CYCLE_YEARS.yuan, '元');
+  const huiRange = buildRange(huiStart, HUANGJI_CYCLE_YEARS.hui, '会');
+  const yunRange = buildRange(yunStart, HUANGJI_CYCLE_YEARS.yun, '运');
+  const shiRange = buildRange(shiStart, HUANGJI_CYCLE_YEARS.shi, '世');
 
   const calculation: HuangjiJingshiCalculation = {
     input: normalized,
     position: {
       yuan: {
         indexFromEpoch: yuanOffset + 1,
-        ...buildRange(yuanStart, HUANGJI_CYCLE_YEARS.yuan, '元'),
+        ...yuanRange,
       },
       hui: {
         indexInYuan: huiIndex,
-        ...buildRange(huiStart, HUANGJI_CYCLE_YEARS.hui, '会'),
+        ...huiRange,
       },
       yun: {
         indexInYuan: yunIndexInYuan,
         indexInHui: yunIndexInHui,
-        ...buildRange(yunStart, HUANGJI_CYCLE_YEARS.yun, '运'),
+        ...yunRange,
       },
       shi: {
         indexInYuan: shiIndexInYuan,
         indexInYun: shiIndexInYun,
-        ...buildRange(shiStart, HUANGJI_CYCLE_YEARS.shi, '世'),
+        ...shiRange,
       },
       year: {
         coordinate: normalized.year,
         indexInShi: yearIndexInShi,
         indexInYuan: offsetInYuan + 1,
       },
+    },
+    progress: {
+      yuan: buildProgress(yuanRange, normalized.year, HUANGJI_CYCLE_YEARS.yuan, '元'),
+      hui: buildProgress(huiRange, normalized.year, HUANGJI_CYCLE_YEARS.hui, '会'),
+      yun: buildProgress(yunRange, normalized.year, HUANGJI_CYCLE_YEARS.yun, '运'),
+      shi: buildProgress(shiRange, normalized.year, HUANGJI_CYCLE_YEARS.shi, '世'),
     },
     conversion: {
       yearsPerShi: 30,
@@ -237,6 +281,7 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
       `${elapsed} ÷ 129600 定位第 ${yuanOffset + 1} 元，本元内偏移 ${offsetInYuan} 年`,
       `本元第 ${huiIndex} 会、第 ${yunIndexInYuan} 运、第 ${shiIndexInYuan} 世`,
       `本运第 ${shiIndexInYun} 世，本世第 ${yearIndexInShi} 年`,
+      `当前年后距下一世、运、会、元边界分别尚余 ${HUANGJI_CYCLE_YEARS.shi - yearIndexInShi}、${HUANGJI_CYCLE_YEARS.yun - ((offsetInYuan % HUANGJI_CYCLE_YEARS.yun) + 1)}、${HUANGJI_CYCLE_YEARS.hui - ((offsetInYuan % HUANGJI_CYCLE_YEARS.hui) + 1)}、${HUANGJI_CYCLE_YEARS.yuan - (offsetInYuan + 1)} 个完整年`,
     ],
     sources: HUANGJI_JINGSHI_SOURCES.map((source) => ({ ...source })),
     limitations: [
