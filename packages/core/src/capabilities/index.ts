@@ -21,6 +21,7 @@ export const SYSTEM_CAPABILITY_IDS = [
   'calendar.solarTerm',
   'bazi',
   'ziwei',
+  'bazi-ziwei-synthesis',
   'astrolabe',
   'qimen',
   'liuyao',
@@ -356,6 +357,53 @@ const systems: SystemCapability[] = [
       batch: false,
     },
     optionalDependencies: ['iztro'],
+  },
+  {
+    id: 'bazi-ziwei-synthesis',
+    name: '八字紫微合参',
+    category: 'chart',
+    inputs: [
+      birthProfileInput,
+      {
+        id: 'ziweiTiming',
+        label: '紫微运限基准时间',
+        type: 'object',
+        required: true,
+        description:
+          '在 ziwei.horoscopeContext 中提供日期与时辰索引，或在 ziwei.now 中提供明确日期对象。',
+      },
+      questionInput,
+      {
+        id: 'detailLevel',
+        label: '解读层级',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: 'concise', label: '简明' },
+          { value: 'standard', label: '标准' },
+          { value: 'professional', label: '专业' },
+        ]),
+      },
+    ],
+    outputs: [
+      '统一出生资料生成的八字与紫微双盘',
+      '十项人生主题的双系统并列证据',
+      '八字与紫微资料缺口清单',
+      '可独立交给 AI 的合参任务书',
+    ],
+    supports: {
+      seed: false,
+      customRandomSource: false,
+      trueSolarTime: true,
+      birthTimeRequired: true,
+      birthTimeModes: ['traditional-shichen', 'precise-clock-time'],
+      batch: false,
+    },
+    optionalDependencies: ['iztro'],
+    notes: [
+      '合参只按主题并列两套盘面的事实链，不把不同体系压成分数，也不让一套规则改写另一套。',
+      '必须显式提供紫微运限基准时间；缺少时拒绝计算，不用运行时当前时间补齐。',
+    ],
   },
   {
     id: 'astrolabe',

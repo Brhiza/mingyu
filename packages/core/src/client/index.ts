@@ -9,6 +9,11 @@ import {
   type CompatibilityBundleOptions,
 } from '../compatibility';
 import {
+  calculateBaziZiweiCombinedReading,
+  type BaziZiweiCombinedReading,
+  type BaziZiweiCombinedReadingOptions,
+} from '../synthesis';
+import {
   generateDivinationSession,
   type DivinationRequest,
   type DivinationSession,
@@ -68,6 +73,7 @@ import {
 export interface MingyuClientDefaults {
   birth?: BirthChartBundleOptions;
   compatibility?: CompatibilityBundleOptions;
+  synthesis?: BaziZiweiCombinedReadingOptions;
 }
 
 export interface MingyuClientOptions {
@@ -85,6 +91,10 @@ export interface MingyuSafeClient {
     partner: BirthProfile,
     options?: CompatibilityBundleOptions,
   ): Promise<CoreExecutionResult<CompatibilityBundle>>;
+  baziZiwei(
+    profile: BirthProfile,
+    options?: BaziZiweiCombinedReadingOptions,
+  ): Promise<CoreExecutionResult<BaziZiweiCombinedReading>>;
   divination(request: DivinationRequest): CoreExecutionResult<DivinationSession>;
   normalizeBirth(profile: BirthProfile): CoreExecutionResult<NormalizedBirthProfile>;
   trueSolarBirth(input: TrueSolarBirthTimeInput): CoreExecutionResult<TrueSolarBirthTimeResult>;
@@ -114,6 +124,11 @@ export interface MingyuClient {
     partner: BirthProfile,
     options?: CompatibilityBundleOptions,
   ): Promise<CompatibilityBundle>;
+  /** 从一份出生档案生成八字、紫微与逐主题合参资料。 */
+  baziZiwei(
+    profile: BirthProfile,
+    options?: BaziZiweiCombinedReadingOptions,
+  ): Promise<BaziZiweiCombinedReading>;
   divination(request: DivinationRequest): DivinationSession;
   /** 校验并统一公历/农历、传统时辰、精准时分与真太阳时口径。 */
   normalizeBirth(profile: BirthProfile): NormalizedBirthProfile;
@@ -174,6 +189,18 @@ function mergeCompatibilityOptions(
   };
 }
 
+function mergeSynthesisOptions(
+  defaults: BaziZiweiCombinedReadingOptions | undefined,
+  options: BaziZiweiCombinedReadingOptions | undefined,
+): BaziZiweiCombinedReadingOptions {
+  return {
+    ...defaults,
+    ...options,
+    ziwei: { ...defaults?.ziwei, ...options?.ziwei },
+    prompt: { ...defaults?.prompt, ...options?.prompt },
+  };
+}
+
 /**
  * 创建统一高层客户端。
  *
@@ -192,6 +219,14 @@ export function createMingyuClient(options: MingyuClientOptions = {}): MingyuCli
       primary,
       partner,
       mergeCompatibilityOptions(options.defaults?.compatibility, callOptions),
+    );
+  const baziZiwei = (
+    profile: BirthProfile,
+    callOptions?: BaziZiweiCombinedReadingOptions,
+  ) =>
+    calculateBaziZiweiCombinedReading(
+      profile,
+      mergeSynthesisOptions(options.defaults?.synthesis, callOptions),
     );
   const divination = (request: DivinationRequest) => generateDivinationSession(request);
   const normalizeBirth = (profile: BirthProfile) => normalizeBirthProfile(profile);
@@ -218,6 +253,7 @@ export function createMingyuClient(options: MingyuClientOptions = {}): MingyuCli
   return {
     birth,
     compatibility,
+    baziZiwei,
     divination,
     normalizeBirth,
     trueSolarBirth,
@@ -240,6 +276,8 @@ export function createMingyuClient(options: MingyuClientOptions = {}): MingyuCli
       birth: (profile, callOptions) => executeSafely(() => birth(profile, callOptions)),
       compatibility: (primary, partner, callOptions) =>
         executeSafely(() => compatibility(primary, partner, callOptions)),
+      baziZiwei: (profile, callOptions) =>
+        executeSafely(() => baziZiwei(profile, callOptions)),
       divination: (request) => executeSafelySync(() => divination(request)),
       normalizeBirth: (profile) => executeSafelySync(() => normalizeBirth(profile)),
       trueSolarBirth: (input) => executeSafelySync(() => trueSolarBirth(input)),

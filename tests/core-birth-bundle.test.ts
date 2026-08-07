@@ -63,3 +63,32 @@ test('出生 Bundle 默认只计算八字，避免无意触发可选紫微依赖
   assert.equal(bundle.astrolabe, undefined);
   assert.equal(bundle.qizheng, undefined);
 });
+
+test('统一出生档案应能只按行政区代码补全地点与坐标', () => {
+  const normalized = normalizeBirthProfile({
+    ...profile,
+    location: { regionId: '110101' },
+  });
+
+  assert.equal(normalized.resolvedLocation?.name, '北京市 东城区');
+  assert.equal(normalized.resolvedLocation?.longitude, 116.416334);
+  assert.equal(normalized.resolvedLocation?.latitude, 39.928359);
+  assert.equal(normalized.resolvedLocation?.timezone, 8);
+  assert.equal(normalized.resolvedLocation?.coordinateAccuracy, 'administrative-center');
+});
+
+test('统一出生档案混用显式坐标与行政中心坐标时应保留精度来源', () => {
+  const mixed = normalizeBirthProfile({
+    ...profile,
+    location: { regionId: '110101', longitude: 116.5 },
+  });
+  const provided = normalizeBirthProfile({
+    ...profile,
+    location: { regionId: '110101', longitude: 116.5, latitude: 40 },
+  });
+
+  assert.equal(mixed.resolvedLocation?.longitude, 116.5);
+  assert.equal(mixed.resolvedLocation?.latitude, 39.928359);
+  assert.equal(mixed.resolvedLocation?.coordinateAccuracy, 'mixed');
+  assert.equal(provided.resolvedLocation?.coordinateAccuracy, 'user-provided');
+});

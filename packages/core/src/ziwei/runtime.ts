@@ -16,6 +16,8 @@ import { buildVerifiedDecadalTimelineOptions } from './iztro/decadal';
 export type ZiweiRuntime = {
   astrolabe: IztroAstrolabe;
   horoscope: IztroHoroscope;
+  /** 本次运限计算实际采用的日期与时辰，便于缓存、审计和重放。 */
+  horoscopeContext: ZiweiHoroscopeContext;
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
   decadalTimeline: Awaited<ReturnType<typeof buildVerifiedDecadalTimelineOptions>>;
   trueSolarEvidence?: ChartInput['trueSolarEvidence'];
@@ -116,6 +118,7 @@ export async function calculateZiweiChart(
   return {
     astrolabe,
     horoscope,
+    horoscopeContext: { ...horoscopeContext },
     payloadByScope,
     decadalTimeline,
     trueSolarEvidence: input.trueSolarEvidence,

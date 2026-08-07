@@ -47,6 +47,7 @@ export * as huangjiJingshi from './huangji-jingshi/index';
 export * as location from './location/index';
 export * as birth from './birth/index';
 export * as compatibility from './compatibility/index';
+export * as synthesis from './synthesis/index';
 export * as client from './client/index';
 
 // 全局配置
@@ -60,6 +61,7 @@ export {
 export * from './profile/index';
 export * from './birth/index';
 export * from './compatibility/index';
+export * from './synthesis/index';
 export * from './client/index';
 export type * from './capabilities/index';
 export * from './shared/result';
