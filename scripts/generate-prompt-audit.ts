@@ -152,21 +152,6 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
 ];
 
-function withSeed<T>(seed: number, callback: () => T): T {
-  const originalRandom = Math.random;
-  let state = seed >>> 0;
-  Math.random = () => {
-    state = (1664525 * state + 1013904223) >>> 0;
-    return state / 0x100000000;
-  };
-
-  try {
-    return callback();
-  } finally {
-    Math.random = originalRandom;
-  }
-}
-
 async function withFixedNow<T>(date: Date, callback: () => Promise<T>): Promise<T> {
   const RealDate = Date;
   const fixedTime = date.getTime();
@@ -209,6 +194,26 @@ function duplicateSectionNames(prompt: string) {
   return Array.from(counts.entries())
     .filter(([, count]) => count > 1)
     .map(([name, count]) => `${name}x${count}`);
+}
+
+function sectionContents(prompt: string, sectionName: string) {
+  const contents: string[] = [];
+  let active = false;
+  let lines: string[] = [];
+
+  prompt.split('\n').forEach((line) => {
+    const heading = line.match(/^【([^】]+)】$/)?.[1];
+    if (heading) {
+      if (active) contents.push(lines.join('\n').trim());
+      active = heading === sectionName;
+      lines = [];
+      return;
+    }
+    if (active) lines.push(line);
+  });
+
+  if (active) contents.push(lines.join('\n').trim());
+  return contents;
 }
 
 function buildPromptMarkdown(samples: PromptSample[]) {
@@ -306,7 +311,7 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     {
       label: '提示词任务噪音',
       pattern:
-        /【输出要求】|使用简体中文|简体中文输出|行动建议|现实建议|风险提醒|掷筊|投筊|提示:|留意:|合参要点|宿界模型|证据汇总|解释限制|结构化证据|计算链|不得|不要/,
+        /【输出要求】|使用简体中文|简体中文输出|行动建议|现实建议|风险提醒|掷筊|投筊|提示:|留意:|合参要点|宿界模型|证据汇总|解释限制|结构化证据|计算链/,
     },
   ];
 
@@ -327,6 +332,18 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
           `${sample.name} 出现异常占位或工程字段：${label}（命中“${matched[0]}”${matchedLine ? `；所在行“${matchedLine}”` : ''}）`,
         );
       }
+    });
+
+    sectionContents(sample.prompt, '任务').forEach((task) => {
+      const matched = task.match(/不得|不要/);
+      if (!matched) return;
+      const matchedLine = task
+        .split('\n')
+        .find((line) => line.includes(matched[0]))
+        ?.trim();
+      leakedMessages.push(
+        `${sample.name} 的任务段出现否定性限制（命中“${matched[0]}”${matchedLine ? `；所在行“${matchedLine}”` : ''}）`,
+      );
     });
   });
 
@@ -437,7 +454,7 @@ async function buildSamples(): Promise<PromptSample[]> {
     const commonQuestion = COMMON_PROJECT_QUESTION;
     const commonInfo = {} as const;
 
-    const liuyaoData = withSeed(20260518, () => generateLiuyao(auditDate));
+    const liuyaoData = generateLiuyao(auditDate);
     const liuyaoPrompt = buildDivinationPrompt('liuyao', commonQuestion, liuyaoData, commonInfo, {
       liuyaoTemplate: 'shiye',
     });
@@ -456,7 +473,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       liurenTemplate: 'shiye',
     });
 
-    const tarotDraw = withSeed(20260519, () => drawSpreadCards('decision'));
+    const tarotDraw = drawSpreadCards('decision', { seed: 20260519 });
     const tarotData = {
       spreadType: tarotDraw.spreadType,
       spreadName: tarotDraw.spreadName,
@@ -474,8 +491,7 @@ async function buildSamples(): Promise<PromptSample[]> {
     };
     const tarotPrompt = buildDivinationPrompt('tarot', commonQuestion, tarotData, commonInfo);
 
-    const ssgwData = withSeed(20260521, () => drawRandomSign());
-    ssgwData.timestamp = fixedNow.getTime();
+    const ssgwData = drawRandomSign(auditDate, { seed: 20260521 });
     const ssgwPrompt = buildDivinationPrompt('ssgw', commonQuestion, ssgwData, commonInfo);
 
     const almanacData = generateAlmanacSelection({
@@ -590,7 +606,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       },
       {
         name: '六爻',
-        source: '项目算法真实起卦；固定时间 2026-05-19T10:30:00+08:00；固定随机种子 20260518。',
+        source: '项目算法真实时间起卦；固定时间 2026-05-19T10:30:00+08:00。',
         inputSummary: buildCommonProjectInputSummary('模板：事业断卦'),
         prompt: liuyaoPrompt,
         notes: [],
