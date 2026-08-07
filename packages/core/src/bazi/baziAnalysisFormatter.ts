@@ -1,5 +1,4 @@
 import type { BaziChartResult } from './baziTypes';
-import { getCurrentTimeDescription } from './calendarTool';
 import { WUXING } from '../wuxing';
 
 interface FormatBaziOptions {
@@ -7,10 +6,8 @@ interface FormatBaziOptions {
   includeShensha?: boolean;
   includeShenShaAnalysis?: boolean;
   includeWuxing?: boolean;
-  includeCurrentTiming?: boolean;
   includeSpecialPillars?: boolean;
   includeLuckOverview?: boolean;
-  includeCurrentLiunian?: boolean;
 }
 
 export type PromptChartScene =
@@ -91,29 +88,6 @@ function formatPromptLuckOverview(baziResult: BaziChartResult): string {
     lines.push(...cycleOverview);
   }
 
-  const currentYear = new Date().getFullYear();
-  const currentCycle = cycles.find((cycle) =>
-    cycle.years.some((year) => year.year === currentYear),
-  );
-  if (currentCycle) {
-    const currentCycleLabel = currentCycle.isXiaoyun
-      ? `${currentCycle.ganZhi}童运`
-      : `${currentCycle.ganZhi}${currentCycle.type}`;
-    lines.push(`当前大运: ${currentCycleLabel}（${currentCycle.year}年起）`);
-  }
-
-  const recentYears = cycles
-    .flatMap((cycle) => cycle.years)
-    .filter((year) => year.year >= currentYear - 2 && year.year <= currentYear + 3)
-    .sort((a, b) => a.year - b.year);
-  if (recentYears.length) {
-    lines.push(
-      `近年流年: ${recentYears
-        .map((year) => `${year.year}年${year.ganZhi}（${year.age}岁）`)
-        .join('、')}`,
-    );
-  }
-
   return lines.join('\n');
 }
 
@@ -138,7 +112,6 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     includeShensha = true,
     includeShenShaAnalysis = false,
     includeWuxing = true,
-    includeCurrentTiming = true,
     includeSpecialPillars = true,
     includeLuckOverview = true,
   } = options;
@@ -293,9 +266,6 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += `${formatPromptLuckOverview(baziResult)}\n`;
   }
 
-  if (includeCurrentTiming) {
-    result += `\n${getCurrentTimeDescription()}`;
-  }
   return result;
 }
 
@@ -306,10 +276,8 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeShensha: false,
       includeShenShaAnalysis: true,
       includeWuxing: true,
-      includeCurrentTiming: false,
       includeSpecialPillars: true,
       includeLuckOverview: true,
-      includeCurrentLiunian: true,
     };
   }
 
@@ -319,10 +287,8 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeShensha: false,
       includeShenShaAnalysis: true,
       includeWuxing: true,
-      includeCurrentTiming: false,
       includeSpecialPillars: true,
       includeLuckOverview: true,
-      includeCurrentLiunian: true,
     };
   }
 
@@ -332,10 +298,8 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeShensha: false,
       includeShenShaAnalysis: false,
       includeWuxing: false,
-      includeCurrentTiming: false,
       includeSpecialPillars: false,
       includeLuckOverview: false,
-      includeCurrentLiunian: false,
     };
   }
 
@@ -345,10 +309,8 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeShensha: false,
       includeShenShaAnalysis: false,
       includeWuxing: false,
-      includeCurrentTiming: false,
       includeSpecialPillars: false,
       includeLuckOverview: false,
-      includeCurrentLiunian: false,
     };
   }
 
@@ -357,15 +319,14 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
     includeShensha: false,
     includeShenShaAnalysis: true,
     includeWuxing: true,
-    includeCurrentTiming: false,
     includeSpecialPillars: true,
     includeLuckOverview: true,
-    includeCurrentLiunian: true,
   };
 }
 
 export function formatBaziForPrompt(
   baziResult: BaziChartResult,
+  /** @deprecated 兼容旧调用签名，具体岁运应通过 FortuneSelectionContext 传入。 */
   _selectedOption: unknown = null,
   scene: PromptChartScene = 'general',
 ): string {

@@ -238,16 +238,9 @@ function formatFortune(result: BaziChartResult) {
     .slice(0, 8)
     .map((cycle) => `${cycle.ganZhi}（${cycle.year}年起，约${cycle.age}岁）`)
     .join('、');
-  const currentYear = new Date().getFullYear();
-  const currentYears = cycles
-    .flatMap((cycle) => cycle.years ?? [])
-    .filter((item) => item.year >= currentYear - 1 && item.year <= currentYear + 2)
-    .map((item) => `${item.year}${item.ganZhi}`)
-    .join('、');
   return joinFacts([
     result.luckInfo?.startInfo ? `起运${result.luckInfo.startInfo}` : undefined,
     cycleText ? `大运${cycleText}` : undefined,
-    currentYears ? `近年流年${currentYears}` : undefined,
   ]);
 }
 

@@ -1193,6 +1193,7 @@ test('公开 API 八字提示词接口默认返回轻量摘要和提示词', asy
   assert.equal(body.data.result, undefined);
   assert.equal(body.data.resultSummary.gender, 'male');
   assert.equal(body.data.resultSummary.liunian, undefined);
+  assert.equal(body.data.resultSummary.currentLiunian, undefined);
   const prompt = body.data.prompt;
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.bazi);
   assert.match(prompt, /【排盘信息】/);
@@ -4853,6 +4854,45 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   );
 });
 
+test('公开 API 生肖流年应要求明确年份并校验年份干支一致', async () => {
+  const calculation = await callApi('metaphysics/zodiac/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '鼠', year: 2026 }),
+  });
+
+  assert.equal(calculation.response.status, 200);
+  assert.equal(calculation.body.data.zodiacBranch, '子');
+  assert.equal(calculation.body.data.yearGanZhi, '丙午');
+
+  const prompted = await callApi('metaphysics/zodiac/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      zodiac: '鼠',
+      yearGanZhi: '丙午',
+      question: '请解释本年的生肖关系。',
+      responseMode: 'full',
+    }),
+  });
+  assert.equal(prompted.response.status, 200);
+  assert.equal(prompted.body.data.result.yearGanZhi, '丙午');
+  assert.match(prompted.body.data.prompt, /【生肖与流年关系简析】/);
+  assert.match(prompted.body.data.prompt, /【问题】\n请解释本年的生肖关系。/);
+  assertPromptIsPortableTaskText(prompted.body.data.prompt);
+
+  for (const input of [{ zodiac: '鼠' }, { zodiac: '鼠', year: 1900, yearGanZhi: '甲子' }]) {
+    const invalid = await callApi('metaphysics/zodiac/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    assert.equal(invalid.response.status, 400);
+    assert.equal(invalid.body.error.code, 'BAD_REQUEST');
+    assert.match(invalid.body.error.message, /至少提供一个|不一致/);
+  }
+});
+
 test('公开 API 五运六气应返回年度主客气结构与轻量提示词结果', async () => {
   const calculation = await callApi('metaphysics/wuyun-liuqi/calculate', {
     method: 'POST',
@@ -4872,6 +4912,15 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
     calculation.body.data.annualConformities.sourceReconciliation.distinctYearsByListedRules,
     26,
   );
+  assert.equal(calculation.body.data.movementSteps.length, 5);
+  assert.deepEqual(
+    calculation.body.data.movementSteps.map(
+      (step: { hostMovement: { toneName: string } }) => step.hostMovement.toneName,
+    ),
+    ['太角', '少徵', '太宫', '少商', '太羽'],
+  );
+  assert.equal(calculation.body.data.movementSteps[0].guestMovement.toneName, '太羽');
+  assert.equal(calculation.body.data.movementSteps[1].startBoundary.description, '春分后第13日起');
   assert.equal(calculation.body.data.qiSteps.length, 6);
   assert.deepEqual(calculation.body.data.qiSteps[0].solarTerms, ['大寒', '立春', '雨水', '惊蛰']);
   assert.equal(typeof calculation.body.data.qiSteps[0].hostGuestRelation.kind, 'string');
@@ -4896,8 +4945,10 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
     prompted.body.data.resultSummary.annualConformities.sourceReconciliation.sourceSummaryYears,
     28,
   );
+  assert.equal(prompted.body.data.resultSummary.movementSteps.length, 5);
   assert.equal(prompted.body.data.resultSummary.qiSteps.length, 6);
   assert.match(prompted.body.data.prompt, /【盘面资料】[\s\S]*司天与中运：不和/);
+  assert.match(prompted.body.data.prompt, /五步主客运：[\s\S]*初运/);
   assert.match(prompted.body.data.prompt, /大寒、立春、雨水、惊蛰/);
   assert.match(prompted.body.data.prompt, /【问题】\n请解释本年的气候节律。/);
   assertPromptIsPortableTaskText(prompted.body.data.prompt);

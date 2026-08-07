@@ -50,6 +50,7 @@ test('npm 紫微运行时应支持固定运限时刻和指定范围', async () =
   const second = await calculateZiweiChart(input, options);
 
   assert.deepEqual(Object.keys(first.payloadByScope), ['origin', 'yearly']);
+  assert.deepEqual(first.horoscopeContext, { dateStr: '2026-08-06', hourIndex: 4 });
   assert.deepEqual(first.payloadByScope, second.payloadByScope);
   assert.equal(first.payloadByScope.origin.evidence_pool.length, 0);
   assert.equal(first.payloadByScope.yearly.active_scope.scope, 'yearly');

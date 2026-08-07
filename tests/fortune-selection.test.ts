@@ -6,6 +6,7 @@ import {
   buildCurrentBaziFortuneSelection,
   buildFortuneSelectionContext,
   buildRecentBaziFortuneSelection,
+  getCurrentBaziLuckCycle,
   normalizeFortuneSelection,
 } from 'mingyu-core/bazi';
 import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
@@ -84,6 +85,15 @@ test('近期年限预设会选择当前流月而不是锁定当天', () => {
     year: 2008,
     month: 1,
   });
+});
+
+test('当前年份不在命盘运限范围时不应静默回退到第一步大运', () => {
+  const result = createMockResult();
+  const outOfRangeDate = new Date(1980, 1, 8, 12);
+
+  assert.equal(getCurrentBaziLuckCycle(result, 1980), null);
+  assert.equal(buildCurrentBaziFortuneSelection(result, outOfRangeDate), null);
+  assert.equal(buildRecentBaziFortuneSelection(result, outOfRangeDate), null);
 });
 
 test('选择大运时会附带该大运下的全部流年', () => {

@@ -781,7 +781,9 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '五运六气年度结构计算',
           requestBody: openApiJsonRequestBody('#/components/schemas/WuyunLiuqiRequest'),
-          responses: { '200': { description: '岁运太过不及、司天在泉及六步主客气' } },
+          responses: {
+            '200': { description: '岁运太过不及、五步主客运、司天在泉及六步主客气' },
+          },
         },
       },
       '/metaphysics/wuyun-liuqi/prompt': {
@@ -1180,7 +1182,7 @@ export function getPublicApiOpenApiDocument(
               type: 'integer',
               minimum: 1900,
               maximum: 2200,
-              description: '公元年（默认今年）',
+              description: '公元年；生肖运程与 yearGanZhi 至少提供一项',
             },
             yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
             scope: {
@@ -2015,12 +2017,23 @@ function calculateZodiacApi(input: JsonRecord) {
   if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
   }
-  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
-  return zodiac.calculateZodiacYearFortune({
-    zodiac: zodiacName,
-    year,
-    ...(yearGanZhi ? { yearGanZhi } : {}),
-  });
+  const year = optInt(input, 'year', 1900, 2200);
+  if (year === undefined && !yearGanZhi) {
+    throw new ApiError(400, 'BAD_REQUEST', 'year 与 yearGanZhi 至少提供一个。');
+  }
+  try {
+    return zodiac.calculateZodiacYearFortune({
+      zodiac: zodiacName,
+      ...(year !== undefined ? { year } : {}),
+      ...(yearGanZhi ? { yearGanZhi } : {}),
+    });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '生肖流年参数无效。',
+    );
+  }
 }
 
 function buildZodiacPrompt(input: JsonRecord) {
@@ -2100,6 +2113,7 @@ function buildWuyunLiuqiPromptApi(input: JsonRecord) {
       zaiquan: result.zaiquan,
       annualRelation: result.annualRelation,
       annualConformities: result.annualConformities,
+      movementSteps: result.movementSteps,
       qiSteps: result.qiSteps,
     },
     fullResult: result,
@@ -3263,9 +3277,6 @@ function buildPromptApiResult(params: {
 }
 
 function buildCompactBaziResult(result: BaziChartResult) {
-  const currentYear = new Date().getFullYear();
-  const currentLiunian = result.liunian?.find((item) => item.year === currentYear);
-
   return {
     gender: result.gender,
     solarDate: result.solarDate,
@@ -3309,7 +3320,6 @@ function buildCompactBaziResult(result: BaziChartResult) {
         endSolarTime: cycle.endSolarTime,
       })),
     },
-    currentLiunian,
     warnings: result.warnings,
     warningFacts: result.warningFacts,
     warningSummaryFact: result.warningSummaryFact,

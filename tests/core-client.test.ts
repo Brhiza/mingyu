@@ -183,16 +183,18 @@ test('生肖流年便捷入口应支持生肖、地支、公历年和指定干�
   const client = createMingyuClient();
   const fromName = client.zodiac({ zodiac: '鼠', year: 2026 });
   const fromBranch = client.zodiac({ zodiac: '子', year: 2026 });
-  const overrideYear = client.zodiac({ zodiac: '鼠', year: 1900, yearGanZhi: ' 甲子 ' });
+  const fromGanZhi = client.zodiac({ zodiac: '鼠', yearGanZhi: ' 甲子 ' });
 
   assert.deepEqual(fromName, fromBranch);
   assert.deepEqual(fromName, getZodiacYearFortune('子', '丙午'));
-  assert.deepEqual(overrideYear, getZodiacYearFortune('子', '甲子'));
+  assert.deepEqual(fromGanZhi, getZodiacYearFortune('子', '甲子'));
 
   for (const input of [
+    { zodiac: '鼠' },
     { zodiac: '猫', year: 2026 },
     { zodiac: '鼠', year: 1899 },
     { zodiac: '鼠', yearGanZhi: '甲午年' },
+    { zodiac: '鼠', year: 1900, yearGanZhi: '甲子' },
   ]) {
     const result = client.safe.zodiac(input);
     assert.equal(result.ok, false);

@@ -90,6 +90,62 @@ export interface RandomContext {
   getTrace(): RandomTrace;
 }
 
+const UINT32_RANGE = 0x1_0000_0000;
+
+function getSystemCrypto(): Crypto {
+  const cryptoObject = globalThis.crypto;
+  if (!cryptoObject?.getRandomValues) {
+    throwRandomError(
+      'RANDOM_SYSTEM_UNAVAILABLE',
+      '当前环境不支持系统级安全随机数，请改用 seed、replay 或自定义随机源。',
+    );
+  }
+  return cryptoObject;
+}
+
+/** 从当前运行环境的 Web Crypto 取得一个均匀的 32 位无符号整数。 */
+export function secureRandomUint32(): number {
+  const values = new Uint32Array(1);
+  getSystemCrypto().getRandomValues(values);
+  return values[0]!;
+}
+
+/** 生成具有 53 位随机精度、范围为 [0, 1) 的系统级安全随机样本。 */
+export function secureRandomFloat(): number {
+  const high = secureRandomUint32() >>> 5;
+  const low = secureRandomUint32() >>> 6;
+  return (high * 67_108_864 + low) / 9_007_199_254_740_992;
+}
+
+/**
+ * 使用拒绝采样生成无模偏差的系统级安全随机整数。
+ * 当前实现覆盖全部 32 位无符号整数范围，足以支持抽签、洗牌与占法选择。
+ */
+export function secureRandomInt(maxExclusive: number): number {
+  if (!Number.isSafeInteger(maxExclusive) || maxExclusive <= 0 || maxExclusive > UINT32_RANGE) {
+    throwRandomError(
+      'RANDOM_SECURE_RANGE_INVALID',
+      '安全随机整数范围必须是 1 至 4294967296 之间的整数',
+    );
+  }
+
+  const acceptanceLimit = UINT32_RANGE - (UINT32_RANGE % maxExclusive);
+  let value: number;
+  do {
+    value = secureRandomUint32();
+  } while (value >= acceptanceLimit);
+  return value % maxExclusive;
+}
+
+/**
+ * 生成可由既有 [0, 1) 样本协议还原的无偏索引样本。
+ * 适用于需要保存浮点样本、但实际业务是从有限集合中等概率抽取一项的场景。
+ */
+export function secureRandomIndexSample(maxExclusive: number): number {
+  const index = secureRandomInt(maxExclusive);
+  return (index + 0.5) / maxExclusive;
+}
+
 /** 判断调用方是否显式提供了任一种随机来源。 */
 export function hasRandomOptions(options?: RandomOptions): boolean {
   return (
@@ -160,7 +216,7 @@ export function createRandomContext(options?: RandomOptions): RandomContext {
   }
   const customRandom = options?.random ?? options?.rng;
   let mode: RandomMode = 'system';
-  let source: RandomSource = Math.random;
+  let source: RandomSource = secureRandomFloat;
   if (options?.replay !== undefined) {
     if (!Array.isArray(options.replay) || options.replay.length === 0) {
       throwRandomError('RANDOM_REPLAY_REQUIRED', '随机重放样本必须是非空数组。', 'replay');
@@ -213,8 +269,17 @@ export function randomFloat(rng: RandomSource): number {
 }
 
 export function randomInt(maxExclusive: number, rng: RandomSource): number {
-  if (!Number.isSafeInteger(maxExclusive) || maxExclusive <= 0) {
-    throwRandomError('RANDOM_RANGE_INVALID', '随机整数范围必须是安全范围内的正整数');
+  if (!Number.isSafeInteger(maxExclusive) || maxExclusive <= 0 || maxExclusive > UINT32_RANGE) {
+    throwRandomError('RANDOM_RANGE_INVALID', '随机整数范围必须是 1 至 4294967296 之间的整数');
   }
-  return Math.floor(randomFloat(rng) * maxExclusive);
+
+  // 将随机样本稳定映射到均匀的 32 位空间，再按等宽桶拒绝尾部余数。
+  // 系统、种子与重放模式都能保留同一条样本轨迹，并避免直接缩放造成的模偏差。
+  const bucketSize = Math.floor(UINT32_RANGE / maxExclusive);
+  const acceptanceLimit = bucketSize * maxExclusive;
+  let candidate: number;
+  do {
+    candidate = Math.floor(randomFloat(rng) * UINT32_RANGE);
+  } while (candidate >= acceptanceLimit);
+  return Math.floor(candidate / bucketSize);
 }

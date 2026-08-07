@@ -149,13 +149,18 @@ console.log(bundle.qizheng);
 中国省、市、区级联和真太阳时所需经度随 `mingyu-core` 一同安装，无需额外地点包：
 
 ```ts
-import { findBirthPlaceByRegionId, resolveBirthPlaceLongitude } from 'mingyu-core/location';
+import {
+  findBirthPlaceByRegionId,
+  resolveBirthPlaceLongitude,
+  searchBirthPlaces,
+} from 'mingyu-core/location';
 
 const place = findBirthPlaceByRegionId('110101');
 const longitude = resolveBirthPlaceLongitude('北京市 东城区');
+const gulouDistricts = searchBirthPlaces('鼓楼区', { levels: ['district'] });
 ```
 
-核心包内置 34 个省级、392 个市级和 3210 个区县级节点。现有区县数据提供经度，不提供精确纬度；`resolveBirthPlaceApproximateLatitude()` 只适合作为明确标注的省会级回退，星盘应传入真实纬度。
+核心包内置 34 个省级、392 个市级和 3210 个区县级节点，其中 3255 个节点附有来源可追溯的行政中心纬度，其余 381 个节点会明确标记为省级近似纬度。行政中心坐标不等于实际出生地点；精度敏感的星盘应优先传入真实经纬度。自定义地点树缺少纬度时不会套用无依据的通用纬度。同名简称不会静默选中任意地点，应先搜索，再使用行政区代码或完整路径解析。
 
 双人合盘也可直接使用两份 `BirthProfile`：
 
@@ -192,6 +197,28 @@ const bazi = calculateBaziFromBirthProfile(profile);
 const ziweiInput = birthProfileToZiweiChartInput(profile);
 const ziwei = await buildAstrolabeFromInput(ziweiInput);
 ```
+
+需要把同一命主的八字与紫微资料放在统一主题下核对时，可直接使用合参入口。它保留两套体系各自的证据，不把结果压成综合分数。合参必须在 `ziwei.horoscopeContext` 中显式传入运限日期与时辰，或通过 `ziwei.now` 传入明确日期对象，避免运行时间改变结果：
+
+```ts
+import { calculateBaziZiweiCombinedReading } from 'mingyu-core/synthesis';
+
+const reading = await calculateBaziZiweiCombinedReading(profile, {
+  ziwei: {
+    horoscopeContext: {
+      dateStr: '2026-08-06',
+      hourIndex: 7,
+    },
+  },
+  prompt: { question: '未来十年的事业与迁移重点是什么？' },
+});
+
+console.log(reading.synthesis.themes);
+console.log(reading.synthesis.timingReference);
+console.log(reading.promptText);
+```
+
+合参的八字大运、童限和流年与紫微运限使用同一个日期快照；八字侧只纳入基准日期所在运限和同一公历年的流年，不会把无关年份整批写入任务书。
 
 ### 可直接复用的提示词与摘要
 
@@ -305,9 +332,13 @@ const ziweiOptions = await buildZiweiFortuneOptions(ziweiInput, selectedDecadal,
 });
 ```
 
+当目标年份不在命盘已计算的童限或大运范围内时，三个八字当前运限入口都会返回 `null`，不会静默套用第一步大运。
+
 ## 可选结果元数据与随机重放
 
 随机类算法会额外返回可选 `meta`，旧字段保持不变。`meta` 用于历史记录、缓存和复现，不参与传统排盘判断：
+
+未传 `seed`、`replay` 或自定义随机源时，核心包使用运行环境的 Web Crypto；随机整数采用拒绝采样消除取模偏差。环境缺少安全随机能力时会明确报错，不会静默降级为时间戳或 `Math.random`。
 
 ```ts
 import { drawSpreadCards } from 'mingyu-core/divination/tarot';
@@ -349,7 +380,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **提示词与摘要 Prompt**  | `mingyu-core/prompt`                                                                                                                          | 八字、紫微、星盘、元学和占法完整任务书；提供八字岁运、占法摘要、详细结果格式化与统一时间格式         |
 | **统一占法会话 Session** | `mingyu-core/divination/session`                                                                                                              | 纯数据请求校验、占法分发、统一摘要、提示词和稳定序列化                                               |
 | **结果协议 Result**      | `mingyu-core/result`                                                                                                                          | 稳定序列化、结果身份、结构版本与统一诊断                                                             |
-| **随机能力 Random**      | `mingyu-core/random`                                                                                                                          | 种子、自定义随机源、原始样本记录与完整重放                                                           |
+| **随机能力 Random**      | `mingyu-core/random`                                                                                                                          | 系统级安全随机、无模偏差整数、种子、自定义随机源、原始样本记录与完整重放                             |
 | **类型 Types**           | `mingyu-core/types`                                                                                                                           | 所有共享类型定义                                                                                     |
 | **占法配置 Config**      | `mingyu-core/divination/config`                                                                                                               | 占法列表、起盘方式和前端共享配置                                                                     |
 | **占法提示文本**         | `mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template`、`mingyu-core/divination/engine/liuren-template` | 占法方法说明与六爻、大六壬问题范围提示                                                               |

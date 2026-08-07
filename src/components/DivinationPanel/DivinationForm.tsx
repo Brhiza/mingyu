@@ -8,12 +8,19 @@ import {
   TAROT_SPREAD_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from 'mingyu-core/divination/config';
-import { resolveInteractiveTarotCards, tarotSpreads } from 'mingyu-core/divination/tarot';
 import {
+  resolveInteractiveTarotCards,
+  tarotCards,
+  tarotSpreads,
+} from 'mingyu-core/divination/tarot';
+import {
+  LENORMAND_CARDS,
   LENORMAND_SPREADS,
   resolveInteractiveLenormandCards,
 } from 'mingyu-core/divination/lenormand';
+import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
 import type { DivinationDraft } from '@/lib/divination/engine';
+import { createSecureId } from '@/lib/secure-id';
 import {
   almanacTopicLabelMap,
   lenormandSpreadLabelMap,
@@ -74,16 +81,6 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   }
 
   return false;
-}
-
-function createRandomSample() {
-  const cryptoObject = globalThis.crypto;
-  if (cryptoObject?.getRandomValues) {
-    const value = new Uint32Array(1);
-    cryptoObject.getRandomValues(value);
-    return value[0] / 4294967296;
-  }
-  return Math.random();
 }
 
 interface DivinationFormProps {
@@ -174,11 +171,7 @@ export function DivinationForm({
 
   function shakeLiuyaoYao() {
     if (liuyaoCoinThrows.length >= 6) return;
-    const coins = [0, 1, 2].map(() => (createRandomSample() < 0.5 ? 2 : 3)) as [
-      2 | 3,
-      2 | 3,
-      2 | 3,
-    ];
+    const coins = [0, 1, 2].map(() => (secureRandomInt(2) === 0 ? 2 : 3)) as [2 | 3, 2 | 3, 2 | 3];
     const total = coins.reduce<number>((sum, coin) => sum + coin, 0) as 6 | 7 | 8 | 9;
     updateDraft('liuyaoCoinThrows', [...liuyaoCoinThrows, { coins, total }]);
   }
@@ -192,8 +185,8 @@ export function DivinationForm({
     if (tarotInteractiveCards.length >= tarotSpread.cardCount) return;
     updateDraft('tarotInteractiveSamples', [
       ...tarotInteractiveSamples,
-      createRandomSample(),
-      createRandomSample(),
+      secureRandomIndexSample(tarotCards.length - tarotInteractiveCards.length),
+      secureRandomIndexSample(2),
     ]);
   }
 
@@ -210,7 +203,7 @@ export function DivinationForm({
     if (lenormandInteractiveCards.length >= lenormandSpread.positions.length) return;
     updateDraft('lenormandInteractiveSamples', [
       ...lenormandInteractiveSamples,
-      createRandomSample(),
+      secureRandomIndexSample(LENORMAND_CARDS.length - lenormandInteractiveCards.length),
     ]);
   }
 
@@ -240,7 +233,7 @@ export function DivinationForm({
     updateDraft('almanacParticipants', [
       ...draft.almanacParticipants,
       {
-        id: `participant-${Date.now()}`,
+        id: `participant-${createSecureId()}`,
         name: '',
         gender: '',
         year: '',

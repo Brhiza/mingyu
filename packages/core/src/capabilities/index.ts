@@ -865,8 +865,20 @@ const systems: SystemCapability[] = [
     category: 'chart',
     inputs: [
       { id: 'zodiac', label: '生肖或年支', type: 'text', required: true },
-      { id: 'year', label: '流年年份', type: 'number', required: false },
-      { id: 'yearGanZhi', label: '流年干支', type: 'text', required: false },
+      {
+        id: 'year',
+        label: '流年年份',
+        type: 'number',
+        required: false,
+        description: '与流年干支至少提供一项。',
+      },
+      {
+        id: 'yearGanZhi',
+        label: '流年干支',
+        type: 'text',
+        required: false,
+        description: '与流年年份至少提供一项；同时提供会校验一致性。',
+      },
     ],
     outputs: [
       '值冲刑害破关系',
@@ -884,7 +896,10 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: ['生肖流年是只使用出生年支的轻量关系模型，不替代完整八字或现实资料。'],
+    notes: [
+      '生肖流年必须明确提供 year 或 yearGanZhi，不根据运行日期静默选择流年。',
+      '生肖流年是只使用出生年支的轻量关系模型，不替代完整八字或现实资料。',
+    ],
   },
   {
     id: 'taiyi',
@@ -942,6 +957,11 @@ const systems: SystemCapability[] = [
     outputs: [
       '岁运五行',
       '太过不及',
+      '五音太少',
+      '五步主运',
+      '五步客运',
+      '五步交司日期',
+      '逐步主客运五行关系',
       '司天',
       '在泉',
       '气运相临',
@@ -961,7 +981,7 @@ const systems: SystemCapability[] = [
       batch: false,
     },
     notes: [
-      '当前实现年度固定表、气运相临、五类符会和六步节令关系，不含精确交运时刻，也不替代气象资料或医疗诊断。',
+      '当前实现岁运、五步主客运、传统交司日期、气运相临、五类符会和六步节令关系；交司日期不伪装成精确到时分秒的现代时刻，也不替代气象资料或医疗诊断。',
       '吴谦《运气要诀》逐项符会名单去重为26年，与原文“二十八年”汇总不一致；结果采用逐项定义并显式保留校勘说明。',
     ],
   },

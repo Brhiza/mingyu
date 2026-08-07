@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   GUEST_QI_ORDER,
+  HOST_MOVEMENT_ORDER,
   HOST_QI_ORDER,
+  MOVEMENT_STEP_BOUNDARIES,
   QI_STEP_SOLAR_TERMS,
   calculateWuyunLiuqi,
   getWuyunLiuqiYearGanZhi,
@@ -77,6 +79,129 @@ test('主气和客气应保留各自次序，不混淆少阳与太阴', () => {
     '阳明燥金',
     '太阳寒水',
   ]);
+});
+
+test('五步主运应固定木火土金水，并由中运推定五音太少', () => {
+  assert.deepEqual(HOST_MOVEMENT_ORDER, ['木', '火', '土', '金', '水']);
+
+  const cases: Array<{
+    yearGanZhi: string;
+    annualTone: string;
+    hostTones: string[];
+    guestTones: string[];
+  }> = [
+    {
+      yearGanZhi: '甲子',
+      annualTone: '太宫',
+      hostTones: ['太角', '少徵', '太宫', '少商', '太羽'],
+      guestTones: ['太宫', '少商', '太羽', '少角', '太徵'],
+    },
+    {
+      yearGanZhi: '戊午',
+      annualTone: '太徵',
+      hostTones: ['少角', '太徵', '少宫', '太商', '少羽'],
+      guestTones: ['太徵', '少宫', '太商', '少羽', '太角'],
+    },
+    {
+      yearGanZhi: '丁卯',
+      annualTone: '少角',
+      hostTones: ['少角', '太徵', '少宫', '太商', '少羽'],
+      guestTones: ['少角', '太徵', '少宫', '太商', '少羽'],
+    },
+    {
+      yearGanZhi: '癸亥',
+      annualTone: '少徵',
+      hostTones: ['太角', '少徵', '太宫', '少商', '太羽'],
+      guestTones: ['少徵', '太宫', '少商', '太羽', '少角'],
+    },
+  ];
+
+  cases.forEach(({ yearGanZhi, annualTone, hostTones, guestTones }) => {
+    const result = calculateWuyunLiuqi({ yearGanZhi });
+    assert.equal(result.annualMovement.toneName, annualTone);
+    assert.deepEqual(
+      result.movementSteps.map((step) => step.hostMovement.toneName),
+      hostTones,
+    );
+    assert.deepEqual(
+      result.movementSteps.map((step) => step.guestMovement.toneName),
+      guestTones,
+    );
+    assert.equal(result.movementSteps[0].guestRole, '中运起点');
+    assert.equal(result.movementSteps[0].guestMovement.toneName, annualTone);
+  });
+});
+
+test('五步客运应以中运起步相生轮转，并按太少相生逐步交替', () => {
+  SIXTY_CYCLE.forEach((yearGanZhi) => {
+    const result = calculateWuyunLiuqi({ yearGanZhi });
+    assert.equal(result.movementSteps.length, 5);
+    assert.deepEqual(
+      result.movementSteps.map((step) => step.hostMovement.element),
+      HOST_MOVEMENT_ORDER,
+    );
+    assert.equal(
+      result.movementSteps[0].guestMovement.element,
+      result.annualMovement.element,
+      yearGanZhi,
+    );
+    result.movementSteps.forEach((step, index) => {
+      assert.equal(
+        step.guestMovement.toneStrength,
+        index % 2 === 0
+          ? result.annualMovement.toneStrength
+          : result.annualMovement.toneStrength === '太'
+            ? '少'
+            : '太',
+        yearGanZhi,
+      );
+      assert.ok(
+        ['同气', '客生主', '主生客', '客克主', '主克客'].includes(step.hostGuestRelation.kind),
+      );
+      assert.match(step.hostGuestRelation.basis, /主运|客运/);
+    });
+  });
+});
+
+test('五步交司应保留古籍日期序号，不伪装成精确时刻', () => {
+  assert.deepEqual(MOVEMENT_STEP_BOUNDARIES, [
+    {
+      solarTerm: '大寒',
+      offsetDays: 0,
+      description: '大寒日起',
+      periodRule: '大寒日起，至春分后第12日',
+    },
+    {
+      solarTerm: '春分',
+      offsetDays: 13,
+      description: '春分后第13日起',
+      periodRule: '春分后第13日起，至芒种后第9日',
+    },
+    {
+      solarTerm: '芒种',
+      offsetDays: 10,
+      description: '芒种后第10日起',
+      periodRule: '芒种后第10日起，至处暑后第6日',
+    },
+    {
+      solarTerm: '处暑',
+      offsetDays: 7,
+      description: '处暑后第7日起',
+      periodRule: '处暑后第7日起，至立冬后第3日',
+    },
+    {
+      solarTerm: '立冬',
+      offsetDays: 4,
+      description: '立冬后第4日起',
+      periodRule: '立冬后第4日起，至小寒末日',
+    },
+  ]);
+  const result = calculateWuyunLiuqi({ yearGanZhi: '丙午' });
+  assert.deepEqual(
+    result.movementSteps.map((step) => step.startBoundary.precision),
+    Array(5).fill('传统日期序号'),
+  );
+  assert.match(result.limitations.join('\n'), /不把.*精确到时分秒/);
 });
 
 test('气运相临应在六十甲子中各得十二年同气、顺化、天刑、小逆与不和', () => {
@@ -180,7 +305,9 @@ test('五运六气提示词应是可独立使用的完整任务书', () => {
   assert.match(prompt, /【任务】/);
   assert.match(prompt, /【问题】/);
   assert.match(prompt, /【盘面资料】/);
-  assert.match(prompt, /水运，太过/);
+  assert.match(prompt, /水运（太羽），太过/);
+  assert.match(prompt, /五步主客运/);
+  assert.match(prompt, /初运（大寒日起，至春分后第12日）/);
   assert.match(prompt, /少阴君火/);
   assert.match(prompt, /司天与中运：不和/);
   assert.match(prompt, /大寒、立春、雨水、惊蛰/);

@@ -113,6 +113,11 @@ try {
     installedCoreFiles.some((path) => path.startsWith('scripts/')),
     false,
   );
+  assert.equal(
+    installedCoreFiles.includes('data/chinaBirthPlaceTree.sources.md'),
+    true,
+    '核心包应附带中国地点坐标的数据来源与许可说明',
+  );
 
   const coreSpecifiers = Object.keys(installedCoreManifest.exports).map((subpath) =>
     subpath === '.' ? 'mingyu-core' : `mingyu-core${subpath.slice(1)}`,
@@ -190,11 +195,20 @@ if (ziwei.ok || ziwei.error.code !== 'IZTRO_DEPENDENCY_REQUIRED') {
 }
 
 const location = await import('mingyu-core/location');
+const dongcheng = location.resolveBirthPlace('110101');
+const duplicatedGulou = location.searchBirthPlaces('鼓楼区', {
+  levels: ['district'],
+  limit: 20,
+});
 if (
   location.chinaBirthPlaceTree.length !== 34 ||
-  location.resolveBirthPlaceLongitude('110101') !== 116.416334
+  location.resolveBirthPlaceLongitude('110101') !== 116.416334 ||
+  dongcheng?.latitude !== 39.928359 ||
+  dongcheng?.coordinateAccuracy !== 'administrative-center' ||
+  duplicatedGulou.length !== 4 ||
+  location.resolveBirthPlace('鼓楼区') !== null
 ) {
-  throw new Error('隔离安装后的中国地点经度查询失败。');
+  throw new Error('隔离安装后的中国地点坐标或重名处理失败。');
 }
 const trueSolarBirth = client.trueSolarBirth({
   dateType: 'solar', year: 1992, month: 8, day: 18, hour: 12, minute: 0,

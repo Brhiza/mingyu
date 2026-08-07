@@ -1,5 +1,6 @@
 import type { ChatTurn } from '@/hooks/useAiChat';
 import { safeStorage } from '@/lib/safe-storage';
+import { createSecureId } from '@/lib/secure-id';
 
 export type AiChatPromptMode = 'context' | 'context-question';
 
@@ -115,10 +116,7 @@ export function saveAiChatHistory(storageKey: string, state: AiChatHistoryState)
 }
 
 export function createAiChatSessionId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return createSecureId();
 }
 
 export function createAiChatTitle(value: string, fallback = '新对话') {

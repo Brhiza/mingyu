@@ -30,7 +30,8 @@ export function registerWuyunLiuqiTool(server: McpServer) {
   server.registerTool(
     'metaphysics_wuyun_liuqi',
     {
-      description: '五运六气年度计算：返回岁运、司天在泉、气运相临、天符岁会及六步节令主客气',
+      description:
+        '五运六气年度计算：返回岁运、五步主客运与五音太少、司天在泉、气运相临、天符岁会及六步节令主客气',
       inputSchema: wuyunLiuqiSchema.omit({ question: true }).shape,
       outputSchema: resultOutputSchema,
     },

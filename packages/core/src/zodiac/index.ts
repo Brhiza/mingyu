@@ -213,12 +213,12 @@ export interface ZodiacElementRelation {
   zodiacWuxing: string;
 }
 
-/** 生肖流年便捷输入；可传生肖名称或年支，并以公历年自动换算立春后的流年干支。 */
+/** 生肖流年便捷输入；可传生肖名称或年支，并明确提供公历年或流年干支。 */
 export interface ZodiacYearFortuneInput {
   zodiac: string;
-  /** 公历流年；未提供 yearGanZhi 时使用，默认当前公历年。 */
+  /** 公历流年；与 yearGanZhi 至少提供一项。 */
   year?: number;
-  /** 直接指定六十甲子；同时提供 year 时以此字段为准。 */
+  /** 直接指定六十甲子；与 year 同时提供时会校验一致性。 */
   yearGanZhi?: string;
 }
 
@@ -234,17 +234,28 @@ function resolveZodiacBranch(value: string): string {
 }
 
 function resolveYearGanZhi(input: ZodiacYearFortuneInput): string {
+  const year = input.year;
+  if (year !== undefined && (!Number.isSafeInteger(year) || year < 1900 || year > 2200)) {
+    throw new RangeError('year 必须是 1900-2200 之间的整数。');
+  }
+
+  const derived =
+    year === undefined
+      ? undefined
+      : // 2 月 10 日一定在立春之后，可稳定取得该公历流年的年柱。
+        getGanZhiFromDate(new Date(year, 1, 10, 12, 0, 0)).year;
   if (input.yearGanZhi !== undefined) {
     const value = input.yearGanZhi.trim();
     if (!isValidGanZhi(value)) throw new TypeError(`yearGanZhi 不是有效的六十甲子：${value}。`);
+    if (derived !== undefined && derived !== value) {
+      throw new RangeError(`year 与 yearGanZhi 不一致：${year} 年为 ${derived}。`);
+    }
     return value;
   }
-  const year = input.year ?? new Date().getFullYear();
-  if (!Number.isSafeInteger(year) || year < 1900 || year > 2200) {
-    throw new RangeError('year 必须是 1900-2200 之间的整数。');
+  if (derived === undefined) {
+    throw new TypeError('生肖流年必须提供 year 或 yearGanZhi。');
   }
-  // 2 月 10 日一定在立春之后，可稳定取得该公历流年的年柱。
-  return getGanZhiFromDate(new Date(year, 1, 10, 12, 0, 0)).year;
+  return derived;
 }
 
 function getElementRelation(yearStemWuxing: string, zodiacWuxing: string): ZodiacElementRelation {

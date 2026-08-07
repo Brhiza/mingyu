@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildAiChatInitialPrompt,
+  createAiChatSessionId,
   createAiChatTitle,
   extractPromptQuestion,
   normalizeAiChatHistory,
@@ -50,6 +51,14 @@ test('AI 对话标题与自动解析问题应保持简洁', () => {
 
   assert.equal(extractPromptQuestion(prompt), '我未来三年的事业发展如何？');
   assert.equal(createAiChatTitle('  事业   和   财运  '), '事业 和 财运');
+});
+
+test('AI 对话标识应使用系统级安全随机且不重复', () => {
+  const first = createAiChatSessionId();
+  const second = createAiChatSessionId();
+
+  assert.ok(first.length >= 32);
+  assert.notEqual(first, second);
 });
 
 test('AI 历史会话恢复时应重建首轮完整提示词', () => {

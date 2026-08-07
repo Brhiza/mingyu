@@ -58,7 +58,10 @@ test('八字紫微合参应按主题保留两套结构化资料', async () => {
   });
   const timing = reading.synthesis.themes.find((theme) => theme.id === 'timing');
   assert.equal(timing?.baziEvidence.filter((fact) => fact.title === '流年序列').length, 1);
-  assert.match(timing?.baziEvidence.find((fact) => fact.title === '流年序列')?.detail ?? '', /2026年/);
+  assert.match(
+    timing?.baziEvidence.find((fact) => fact.title === '流年序列')?.detail ?? '',
+    /2026年/,
+  );
   assert.doesNotMatch(timing?.baziEvidence.map((fact) => fact.detail).join('\n') ?? '', /2027年/);
   assert.match(reading.promptText, /八字与紫微斗数合参/);
   assert.match(reading.promptText, /【运限基准】\n2026-08-07 申时/);

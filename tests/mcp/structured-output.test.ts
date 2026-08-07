@@ -164,6 +164,7 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ],
   ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
+  ['metaphysics_zodiac', { zodiac: '鼠', year: 2026 }],
   ['metaphysics_wuyun_liuqi', { year: 2026, yearGanZhi: '丙午' }],
   ['metaphysics_huangji_jingshi', { epochYear: 1000, year: 2026 }],
   [
@@ -337,6 +338,11 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       question: '这套宅的飞星怎么看？',
     },
     /【玄空飞星排盘】[\s\S]*【问题】\n这套宅的飞星怎么看？/,
+  ],
+  [
+    'zodiac_prompt',
+    { zodiac: '鼠', yearGanZhi: '丙午', question: '请解释本年的生肖关系。' },
+    /【生肖与流年关系简析】[\s\S]*【问题】\n请解释本年的生肖关系。/,
   ],
   [
     'wuyun_liuqi_prompt',
@@ -1077,6 +1083,22 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
   });
 });
 
+test('MCP 生肖流年应拒绝缺失或互相冲突的年份依据', async () => {
+  await withMcpClient(async (client) => {
+    for (const [name, arguments_] of [
+      ['metaphysics_zodiac', { zodiac: '鼠' }],
+      ['zodiac_prompt', { zodiac: '鼠', year: 1900, yearGanZhi: '甲子' }],
+    ] as const) {
+      const result = await client.callTool({ name, arguments: arguments_ });
+      assert.equal(result.isError, true, `${name} 应拒绝不完整或冲突年份`);
+      assert.match(
+        String((result.structuredContent as { error?: string } | undefined)?.error),
+        /必须提供 year 或 yearGanZhi|不一致/,
+      );
+    }
+  });
+});
+
 test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟表时间', async () => {
   await withMcpClient(async (client) => {
     const success = await client.callTool({
@@ -1242,6 +1264,11 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
         names: string[];
         sourceReconciliation: { distinctYearsByListedRules: number };
       };
+      movementSteps: Array<{
+        hostMovement: { toneName: string };
+        guestMovement: { toneName: string };
+        startBoundary: { description: string };
+      }>;
       qiSteps: Array<{
         guestRole?: string;
         solarTerms: string[];
@@ -1261,6 +1288,13 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
       wuyunResult.annualConformities.sourceReconciliation.distinctYearsByListedRules,
       26,
     );
+    assert.equal(wuyunResult.movementSteps.length, 5);
+    assert.deepEqual(
+      wuyunResult.movementSteps.map((step) => step.hostMovement.toneName),
+      ['太角', '少徵', '太宫', '少商', '太羽'],
+    );
+    assert.equal(wuyunResult.movementSteps[0].guestMovement.toneName, '太羽');
+    assert.equal(wuyunResult.movementSteps[1].startBoundary.description, '春分后第13日起');
     assert.deepEqual(wuyunResult.qiSteps[0].solarTerms, ['大寒', '立春', '雨水', '惊蛰']);
     assert.equal(typeof wuyunResult.qiSteps[0].hostGuestRelation.kind, 'string');
     assert.equal(wuyunResult.qiSteps[2].guestRole, '司天');

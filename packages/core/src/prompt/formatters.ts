@@ -5,12 +5,18 @@ import type { DivinationData, SupplementaryInfo } from '../types/divination';
 type SupportedMethod = Exclude<DivinationMethodId, 'random'>;
 
 function resolveDivinationDate(data?: DivinationData): Date | undefined {
-  if (!data || !('timestamp' in data) || typeof data.timestamp !== 'number') return undefined;
+  if (!data || !('timestamp' in data)) return undefined;
+  if (typeof data.timestamp !== 'number' || !Number.isFinite(data.timestamp)) {
+    throw new TypeError('占课时间戳必须是有限毫秒数。');
+  }
   const date = new Date(data.timestamp);
-  return Number.isNaN(date.getTime()) ? undefined : date;
+  if (Number.isNaN(date.getTime())) {
+    throw new RangeError('占课时间戳无法转换为有效日期。');
+  }
+  return date;
 }
 
-/** 格式化占课时间；优先使用结果中的时间戳，没有时使用当前时间。 */
+/** 格式化占课时间；没有时间戳时使用当前时间，显式无效时间戳直接报错。 */
 export function buildTimeInfoText(data?: DivinationData) {
   const date = resolveDivinationDate(data);
   const timeInfo = date ? getDivinationTime(date).timeInfo : getDivinationTime().timeInfo;
@@ -18,7 +24,7 @@ export function buildTimeInfoText(data?: DivinationData) {
   return [display.solar, display.lunar, display.ganzhi, `节气：${timeInfo.jieQi}`].join('\n');
 }
 
-/** 只格式化当地民用公历时间，适合星盘等不需要重复展示农历的场景。 */
+/** 只格式化当地民用公历时间；显式无效时间戳直接报错。 */
 export function buildSolarTimeInfoText(data?: DivinationData) {
   const date = resolveDivinationDate(data);
   const timeInfo = date ? getDivinationTime(date).timeInfo : getDivinationTime().timeInfo;
