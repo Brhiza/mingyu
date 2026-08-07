@@ -220,10 +220,7 @@ export function createMingyuClient(options: MingyuClientOptions = {}): MingyuCli
       partner,
       mergeCompatibilityOptions(options.defaults?.compatibility, callOptions),
     );
-  const baziZiwei = (
-    profile: BirthProfile,
-    callOptions?: BaziZiweiCombinedReadingOptions,
-  ) =>
+  const baziZiwei = (profile: BirthProfile, callOptions?: BaziZiweiCombinedReadingOptions) =>
     calculateBaziZiweiCombinedReading(
       profile,
       mergeSynthesisOptions(options.defaults?.synthesis, callOptions),
@@ -276,8 +273,7 @@ export function createMingyuClient(options: MingyuClientOptions = {}): MingyuCli
       birth: (profile, callOptions) => executeSafely(() => birth(profile, callOptions)),
       compatibility: (primary, partner, callOptions) =>
         executeSafely(() => compatibility(primary, partner, callOptions)),
-      baziZiwei: (profile, callOptions) =>
-        executeSafely(() => baziZiwei(profile, callOptions)),
+      baziZiwei: (profile, callOptions) => executeSafely(() => baziZiwei(profile, callOptions)),
       divination: (request) => executeSafelySync(() => divination(request)),
       normalizeBirth: (profile) => executeSafelySync(() => normalizeBirth(profile)),
       trueSolarBirth: (input) => executeSafelySync(() => trueSolarBirth(input)),

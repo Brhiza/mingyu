@@ -1,9 +1,6 @@
 import type { BaziChartResult } from '../bazi/baziTypes';
 import { getLuckCycleForDate } from '../bazi/luckTiming';
-import {
-  calculateBirthChartBundle,
-  type BirthChartBundle,
-} from '../birth';
+import { calculateBirthChartBundle, type BirthChartBundle } from '../birth';
 import { getShichenByIndex } from '../calendar/dateUtils';
 import type { BirthProfile } from '../profile';
 import type { EvidenceFact, PalaceFact, ScopeType } from '../types/analysis';
@@ -164,11 +161,7 @@ function resolveTimingReference(runtime: ZiweiRuntime): {
   const month = Number(match[2]);
   const day = Number(match[3]);
   const date = new Date(year, month - 1, day, shichen.hour, shichen.minute, 0, 0);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
     throw new Error('紫微运限上下文日期无效。');
   }
   return {
@@ -200,17 +193,21 @@ function createBaziFacts(
   const pillars = ['year', 'month', 'day', 'hour'] as const;
   const pillarText = pillars
     .map((key) => {
-      const fact = evidence?.pillarFacts.find((item) => item.pillar.startsWith(
-        key === 'year' ? '年' : key === 'month' ? '月' : key === 'day' ? '日' : '时',
-      ));
+      const fact = evidence?.pillarFacts.find((item) =>
+        item.pillar.startsWith(
+          key === 'year' ? '年' : key === 'month' ? '月' : key === 'day' ? '日' : '时',
+        ),
+      );
       return fact?.promptText ?? chart.pillars[key].ganZhi;
     })
     .join('；');
   const useful = chart.analysis.usefulGod;
   const currentCycle = getLuckCycleForDate(chart.luckInfo.cycles, timingReference.date);
-  const annual = chart.liunian?.filter((item) => item.year === timingReference.fact.year).map(
-    (item) => `${item.year}年${item.ganZhi}，干支十神${item.tenGod}/${item.tenGodZhi}`,
-  ) ?? [];
+  const annual =
+    chart.liunian
+      ?.filter((item) => item.year === timingReference.fact.year)
+      .map((item) => `${item.year}年${item.ganZhi}，干支十神${item.tenGod}/${item.tenGodZhi}`) ??
+    [];
 
   return {
     pillars: [
@@ -467,12 +464,8 @@ export function formatBaziZiweiSynthesisForPrompt(
         : '兼顾传统术语与白话解释，完整交代判断依据';
   const themeText = synthesis.themes
     .map((theme) => {
-      const bazi = theme.baziEvidence
-        .map((item) => `- ${item.title}：${item.detail}`)
-        .join('\n');
-      const ziwei = theme.ziweiEvidence
-        .map((item) => `- ${item.title}：${item.detail}`)
-        .join('\n');
+      const bazi = theme.baziEvidence.map((item) => `- ${item.title}：${item.detail}`).join('\n');
+      const ziwei = theme.ziweiEvidence.map((item) => `- ${item.title}：${item.detail}`).join('\n');
       return [
         `### ${theme.label}`,
         `分析主线：${theme.focus}`,
@@ -515,7 +508,9 @@ export interface BaziZiweiCombinedReading {
 
 function assertExplicitZiweiTiming(options: BaziZiweiCombinedReadingOptions): void {
   if (options.ziwei?.horoscopeContext === undefined && options.ziwei?.now === undefined) {
-    throw new Error('八字紫微合参必须显式提供 ziwei.horoscopeContext 或 ziwei.now 作为运限基准时间。');
+    throw new Error(
+      '八字紫微合参必须显式提供 ziwei.horoscopeContext 或 ziwei.now 作为运限基准时间。',
+    );
   }
 }
 

@@ -10,10 +10,7 @@ import type { AlmanacParticipantInput, AstrolabeBirthInput } from '../types/divi
 import type { ChartInput } from '../types/chart';
 import type { QizhengInput } from '../qi_zheng';
 import { MingyuCoreError, type CoreDiagnostic } from '../shared/result';
-import {
-  resolveBirthPlace,
-  type BirthPlaceCoordinateAccuracy,
-} from '../location';
+import { resolveBirthPlace, type BirthPlaceCoordinateAccuracy } from '../location';
 import {
   buildBirthTimeEvidence,
   type BirthTimeEvidence,
