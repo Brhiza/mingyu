@@ -2664,7 +2664,9 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     assert.equal(astrolabePromptResult.isError, undefined);
     const astrolabePromptResultData = astrolabePromptResult.structuredContent as {
       result?: {
-        birth?: { trueSolarEvidence?: { status: string; calculationSteps: unknown[] } };
+        birth?: {
+          trueSolarEvidence?: { status: string; calculationSteps: Array<{ stage: string }> };
+        };
         evidenceAnalysis?: { trueSolarTimeFact?: { key: string } };
       };
       prompt?: string;
@@ -2672,7 +2674,12 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     assert.equal(astrolabePromptResultData.result?.birth?.trueSolarEvidence?.status, '已计算');
     assert.equal(
       astrolabePromptResultData.result?.birth?.trueSolarEvidence?.calculationSteps.length,
-      7,
+      8,
+    );
+    assert.ok(
+      astrolabePromptResultData.result?.birth?.trueSolarEvidence?.calculationSteps.some(
+        (item) => item.stage === '历史时区解析',
+      ),
     );
     assert.ok(astrolabePromptResultData.result?.evidenceAnalysis?.trueSolarTimeFact?.key);
     assert.match(astrolabePromptResultData.prompt ?? '', /出生时间校正：[\s\S]*真太阳时/);

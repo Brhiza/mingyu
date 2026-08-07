@@ -171,6 +171,7 @@ test('夏令时:1988-07-15 12:00 北京(钟表) → 自动回拨 60 分钟,时�
     birthMinute: 0,
     birthLongitude: 116.4,
     birthPlace: '北京',
+    applyChinaDst: true,
   });
   assert.equal(r.timing?.dstCorrectionMinutes, -60);
   // 12:00 钟表 → 11:00 标准 → 经度-14.4min + 均时差≈-6min → 约 10:40,巳时
@@ -216,6 +217,7 @@ test('夏令时:仅时辰精度时只提示不校正', () => {
     day: 15,
     timeIndex: 6,
     gender: 'male',
+    applyChinaDst: true,
   });
   assert.ok(r.warnings.some((w) => w.includes('夏令时')));
 });

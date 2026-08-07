@@ -987,7 +987,7 @@ test('公开 API 应支持八字排盘', async () => {
   assert.equal(body.data.pillars.day.ganZhi.length, 2);
   assert.equal(body.data.gender, 'male');
   assert.equal(body.data.warningFacts.length, body.data.warnings.length);
-  assert.equal(body.data.warningSummaryFact.status, '存在边界提示');
+  assert.equal(body.data.warningSummaryFact.status, '无预警');
   assert.equal(
     body.data.seasonInfo.previousTermEvidence.calculationChain.length,
     body.data.seasonInfo.previousTermEvidence.calculationSteps.length,
@@ -3283,7 +3283,12 @@ test('公开 API 星盘应附带真太阳时参考且不改写现代星历时刻
   assert.equal(body.data.birth.isTrueSolarTime, true);
   assert.equal(body.data.birth.dateTime, '1995-05-20 01:20');
   assert.equal(body.data.birth.trueSolarEvidence.status, '已计算');
-  assert.equal(body.data.birth.trueSolarEvidence.calculationSteps.length, 7);
+  assert.equal(body.data.birth.trueSolarEvidence.calculationSteps.length, 8);
+  assert.ok(
+    body.data.birth.trueSolarEvidence.calculationSteps.some(
+      (item: { stage: string }) => item.stage === '历史时区解析',
+    ),
+  );
   assert.equal(body.data.birth.timezoneEvidence.status, 'unique');
   assert.equal(body.data.birth.timezoneEvidence.calculationSteps.length, 4);
   assert.deepEqual(

@@ -1,4 +1,5 @@
 import {
+  resolveBirthCalendarClockTime,
   resolveTrueSolarBirthTime,
   type SolarDateTimeParts,
   type TrueSolarTimeEvidenceFields,
@@ -331,24 +332,21 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
   const second = profile.second ?? 0;
   assertIntegerInRange(second, '出生秒数', 0, 59);
 
-  const resolved = resolveTrueSolarBirthTime({
-    dateType: profile.calendarType,
-    year: profile.year,
-    month: profile.month,
-    day: profile.day,
-    hour,
-    minute,
-    second,
-    isLeapMonth: profile.isLeapMonth,
-    longitude: resolvedLocation?.longitude ?? (resolvedLocation?.timezone ?? 8) * 15,
-    timezone: profile.useTrueSolarTime
-      ? (resolvedLocation?.timezone ?? (resolvedLocation?.timeZoneId ? undefined : 8))
-      : 8,
-    timeZoneId: profile.useTrueSolarTime ? resolvedLocation?.timeZoneId : undefined,
-    applyChinaDst: profile.useTrueSolarTime ? profile.applyChinaDst : false,
-  });
-
   if (profile.useTrueSolarTime && resolvedLocation) {
+    const resolved = resolveTrueSolarBirthTime({
+      dateType: profile.calendarType,
+      year: profile.year,
+      month: profile.month,
+      day: profile.day,
+      hour,
+      minute,
+      second,
+      isLeapMonth: profile.isLeapMonth,
+      longitude: resolvedLocation.longitude,
+      timezone: resolvedLocation.timezone ?? (resolvedLocation.timeZoneId ? undefined : 8),
+      timeZoneId: resolvedLocation.timeZoneId,
+      applyChinaDst: profile.applyChinaDst,
+    });
     const selectedShichen = getShichenByIndex(resolved.timeIndex);
     if (!selectedShichen) throw new Error('真太阳时时辰状态异常。');
     const trueSolarEvidence: TrueSolarTimeEvidenceFields = {
@@ -398,6 +396,16 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     };
   }
 
+  const solarClockTime = resolveBirthCalendarClockTime({
+    dateType: profile.calendarType,
+    year: profile.year,
+    month: profile.month,
+    day: profile.day,
+    hour,
+    minute,
+    second,
+    isLeapMonth: profile.isLeapMonth,
+  });
   const selectedShichen = getShichenByIndex(timeInput.timeIndex);
   if (!selectedShichen) throw new Error('出生时辰状态异常。');
   const timeEvidence = buildBirthTimeEvidence({
@@ -412,8 +420,8 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     inputHour: hour,
     inputMinute: minute,
     selectedShichen,
-    solarClockTime: resolved.solarClockTime,
-    effectiveTime: resolved.solarClockTime,
+    solarClockTime,
+    effectiveTime: solarClockTime,
     usedTrueSolarTime: false,
     requestedTrueSolarTime: profile.useTrueSolarTime ?? false,
     diagnostics,
@@ -421,8 +429,8 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
   return {
     profile,
     resolvedLocation,
-    solarClockTime: resolved.solarClockTime,
-    effectiveTime: resolved.solarClockTime,
+    solarClockTime,
+    effectiveTime: solarClockTime,
     timeIndex: timeInput.timeIndex,
     timeInputMode: timeInput.inputMode,
     timePrecision: timeInput.inputMode === 'traditional-shichen' ? 'shichen' : 'minute',

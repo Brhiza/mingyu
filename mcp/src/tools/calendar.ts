@@ -63,7 +63,7 @@ const solarIlluminationSchema = z
     second: z.number().int().min(0).max(59).optional().describe('参考当地秒，默认0'),
     latitude: z.number().min(-90).max(90).describe('纬度，北纬为正'),
     longitude: z.number().min(-180).max(180).describe('经度，东经为正'),
-    timezone: z.number().min(-14).max(14).optional().describe('法定UTC偏移'),
+    timezone: z.number().min(-12).max(14).optional().describe('法定UTC偏移'),
     timeZoneId: z.string().min(1).optional().describe('IANA历史时区，如 Asia/Shanghai'),
   })
   .refine((value) => value.timezone !== undefined || Boolean(value.timeZoneId), {
@@ -78,7 +78,7 @@ const astronomicalTimeSchema = z
     hour: z.number().int().min(0).max(23).optional().describe('当地小时，默认0'),
     minute: z.number().int().min(0).max(59).optional().describe('当地分钟，默认0'),
     second: z.number().int().min(0).max(59).optional().describe('当地秒，默认0'),
-    timezone: z.number().min(-14).max(14).optional().describe('固定法定UTC偏移'),
+    timezone: z.number().min(-12).max(14).optional().describe('固定法定UTC偏移'),
     timeZoneId: z.string().min(1).optional().describe('IANA历史时区，如 Asia/Shanghai'),
   })
   .refine((value) => value.timezone !== undefined || Boolean(value.timeZoneId), {

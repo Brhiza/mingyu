@@ -203,7 +203,7 @@ npm run mcp
 
 ### 星盘参数
 
-星盘工具需要提供 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。国际地点及历史日期推荐传 IANA 时区（如 `Asia/Shanghai`、`America/New_York`），以识别历史夏令时、回拨歧义和跳时缺口；同时传固定偏移时会保留冲突诊断。`gender` 使用 `男`、`女` 或空字符串，`locationName` 可选；可传 `useTrueSolarTime` 附带真太阳时参考证据，但现代星历仍采用民用出生时间对应的真实 UTC 瞬间。
+星盘工具需要提供 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。国际地点及历史日期推荐传 IANA 时区（如 `Asia/Shanghai`、`America/New_York`），以识别历史夏令时、回拨歧义和跳时缺口；同时传固定偏移时，它只用于回拨消歧和一致性核验。未消歧回拨、跳时缺口和固定偏移冲突都会拒绝计算。`gender` 使用 `男`、`女` 或空字符串，`locationName` 可选；可传 `useTrueSolarTime` 附带真太阳时参考证据，但现代星历仍采用民用出生时间对应的真实 UTC 瞬间。
 
 西占双盘工具使用 `person1`、`person2` 分别传入上述星盘参数。结果中的跨盘相位、实际夹角、精确角、偏差、允许容许度、紧密等级和落宫属于可复核盘面事实；结果不返回百分制相位强度，避免被误读为关系概率、匹配率或吉凶百分比，也禁止把单一相位写成必然结果。
 

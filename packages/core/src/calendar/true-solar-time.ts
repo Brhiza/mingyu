@@ -2,16 +2,14 @@ import { LunarHour, SolarTime } from 'tyme4ts';
 import { daysInSolarMonth, getBirthDateValidationMessage } from './date-validation';
 import { getShichenFromClock } from './dateUtils';
 import { checkChinaDst, type ChinaDstCheckResult } from './china-dst';
-import { resolveHistoricalTimezone, type HistoricalTimezoneEvidence } from './historical-timezone';
+import {
+  DEFAULT_CHINA_TIMEZONE_HOURS,
+  resolveCivilTime,
+  type CivilDateTimeParts,
+} from './civil-time';
+import type { HistoricalTimezoneEvidence } from './historical-timezone';
 
-export interface SolarDateTimeParts {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-  second: number;
-}
+export interface SolarDateTimeParts extends CivilDateTimeParts {}
 
 export interface TrueSolarTimeResult {
   correctedTime: SolarDateTimeParts;
@@ -133,7 +131,7 @@ export interface TrueSolarTimeConversionResult
   };
 }
 
-export interface TrueSolarBirthTimeInput {
+export interface BirthCalendarClockTimeInput {
   dateType: 'solar' | 'lunar';
   year: number;
   month: number;
@@ -142,6 +140,9 @@ export interface TrueSolarBirthTimeInput {
   minute: number;
   second?: number;
   isLeapMonth?: boolean;
+}
+
+export interface TrueSolarBirthTimeInput extends BirthCalendarClockTimeInput {
   longitude: number;
   timezone?: number;
   timeZoneId?: string;
@@ -670,40 +671,21 @@ export function convertTrueSolarTime(
   input: TrueSolarTimeConversionInput,
 ): TrueSolarTimeConversionResult {
   const clockTime = parseLocalDateTime(input.localDateTime);
-  if (input.timezone !== undefined) {
-    assertNumberInRange(input.timezone, 'timezone', -12, 14);
-  }
-  if (input.timeZoneId !== undefined && typeof input.timeZoneId !== 'string') {
-    throw new Error('timeZoneId 必须是 IANA 时区名称。');
-  }
-  const timeZoneId = input.timeZoneId?.trim();
-  if (input.timeZoneId !== undefined && !timeZoneId) {
-    throw new Error('IANA 时区名不能为空。');
-  }
   if (input.applyChinaDst !== undefined && typeof input.applyChinaDst !== 'boolean') {
     throw new Error('applyChinaDst 必须是布尔值。');
   }
+  const civilTime = resolveCivilTime(
+    {
+      ...clockTime,
+      timezone: input.timezone,
+      timeZoneId: input.timeZoneId,
+    },
+    { defaultTimezone: DEFAULT_CHINA_TIMEZONE_HOURS },
+  );
+  const { timeZoneId, timezoneEvidence, timezone } = civilTime;
   if (timeZoneId && input.applyChinaDst === true) {
     throw new Error('timeZoneId 已包含历史夏令时规则，不能同时启用 applyChinaDst。');
   }
-  const timezoneEvidence = timeZoneId
-    ? resolveHistoricalTimezone({
-        ...clockTime,
-        timeZoneId,
-        fixedOffsetHours: input.timezone,
-      })
-    : undefined;
-  if (timezoneEvidence?.status === 'ambiguous' && input.timezone === undefined) {
-    throw new Error(
-      `${timeZoneId} 的当地钟表时间 ${input.localDateTime} 存在夏令时回拨歧义，请同时提供与原始记录一致的 timezone 固定偏移。`,
-    );
-  }
-  if (timezoneEvidence?.offsetConflict) {
-    throw new Error(
-      `timezone 固定偏移 UTC${input.timezone! >= 0 ? '+' : ''}${input.timezone} 与 ${timeZoneId} 在该当地时刻的历史偏移不一致。`,
-    );
-  }
-  const timezone = timezoneEvidence?.resolvedOffsetHours ?? input.timezone ?? 8;
   const requestedChinaDst = input.applyChinaDst ?? false;
   const chinaDstCheck = requestedChinaDst
     ? checkChinaDst(
@@ -714,6 +696,14 @@ export function convertTrueSolarTime(
         clockTime.minute,
       )
     : { inDst: false, offsetMinutes: 0, ambiguous: false, nonexistent: false };
+  if (requestedChinaDst && chinaDstCheck.nonexistent) {
+    throw new Error('该中国历史钟表时间处于夏令时跳时缺口，实际并不存在。');
+  }
+  if (requestedChinaDst && chinaDstCheck.ambiguous) {
+    throw new Error(
+      '该中国历史钟表时间处于夏令时回拨重复时段，请改用 timeZoneId=Asia/Shanghai 并提供 timezone 固定偏移消歧。',
+    );
+  }
   const chinaDstApplied = requestedChinaDst && chinaDstCheck.inDst;
   const standardTime = chinaDstApplied
     ? shiftDateTime(clockTime, chinaDstCheck.offsetMinutes)
@@ -778,12 +768,12 @@ export function convertTrueSolarTime(
 }
 
 /**
- * 面向各类排盘的统一出生真太阳时入口。
- * 统一处理公历/农历、闰月、时区、中国历史夏令时、跨日与时辰索引。
+ * 只校验出生历法输入并换算为公历钟表时间。
+ * 不解析时区，也不执行夏令时、经度或均时差校正。
  */
-export function resolveTrueSolarBirthTime(
-  input: TrueSolarBirthTimeInput,
-): TrueSolarBirthTimeResult {
+export function resolveBirthCalendarClockTime(
+  input: BirthCalendarClockTimeInput,
+): SolarDateTimeParts {
   if (input.dateType !== 'solar' && input.dateType !== 'lunar') {
     throw new Error('dateType 必须是 solar 或 lunar。');
   }
@@ -812,7 +802,7 @@ export function resolveTrueSolarBirthTime(
           second,
         ).getSolarTime()
       : SolarTime.fromYmdHms(input.year, input.month, input.day, input.hour, input.minute, second);
-  const solarClockTime: SolarDateTimeParts = {
+  return {
     year: solarTime.getYear(),
     month: solarTime.getMonth(),
     day: solarTime.getDay(),
@@ -820,6 +810,16 @@ export function resolveTrueSolarBirthTime(
     minute: solarTime.getMinute(),
     second: solarTime.getSecond(),
   };
+}
+
+/**
+ * 面向各类排盘的统一出生真太阳时入口。
+ * 统一处理公历/农历、闰月、时区、中国历史夏令时、跨日与时辰索引。
+ */
+export function resolveTrueSolarBirthTime(
+  input: TrueSolarBirthTimeInput,
+): TrueSolarBirthTimeResult {
+  const solarClockTime = resolveBirthCalendarClockTime(input);
   const converted = convertTrueSolarTime({
     localDateTime: formatSolarDateTimeParts(solarClockTime),
     longitude: input.longitude,

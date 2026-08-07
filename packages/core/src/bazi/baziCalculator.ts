@@ -232,9 +232,7 @@ export class BaziCalculator {
       lunarHour = solarTime.getLunarHour();
     }
 
-    const applyChinaDst = person.timeZoneId
-      ? (person.applyChinaDst ?? false)
-      : person.applyChinaDst !== false;
+    const applyChinaDst = person.applyChinaDst === true;
     const warnings: string[] = [];
 
     if (useTrueSolarTimeEnabled) {

@@ -86,6 +86,8 @@ export interface HistoricalTimezoneEvidence {
   possibleUtcDateTimes: string[];
   possibleOffsetsHours: number[];
   fixedOffsetHours?: number;
+  /** 重复当地时刻是否已由匹配的固定偏移明确消歧。 */
+  ambiguityResolvedByFixedOffset: boolean;
   offsetConflict: boolean;
   diagnostics: string[];
   calculationSteps: HistoricalTimezoneCalculationStep[];
@@ -415,6 +417,7 @@ export function resolveHistoricalTimezone(
     possibleUtcDateTimes: matches.map((item) => toIso(item.timestamp)),
     possibleOffsetsHours: matches.map((item) => item.offset),
     fixedOffsetHours,
+    ambiguityResolvedByFixedOffset,
     offsetConflict,
     diagnostics,
     calculationSteps,

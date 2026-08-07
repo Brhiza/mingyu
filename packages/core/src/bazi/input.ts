@@ -19,6 +19,7 @@ export interface BaziChartInputDraft {
   birthPlace?: string;
   birthLongitude?: BaziInputText;
   timezone?: number;
+  timeZoneId?: string;
   applyChinaDst?: boolean;
   age?: number;
 }
@@ -109,6 +110,7 @@ export function buildBaziPersonInput(input: BaziChartInputDraft): Person {
     birthPlace: input.birthPlace?.trim() || undefined,
     birthLongitude,
     timezone: input.timezone,
+    ...(input.timeZoneId ? { timeZoneId: input.timeZoneId } : {}),
     applyChinaDst: input.applyChinaDst,
     age: input.age,
   };

@@ -10,7 +10,7 @@ import type {
   AstrolabePoint,
 } from '../../types/divination';
 import { daysInSolarMonth } from '../../calendar/date-validation';
-import { resolveHistoricalTimezone } from '../../calendar/historical-timezone';
+import { resolveCivilTime } from '../../calendar/civil-time';
 import { calculateSolarIlluminationEvidence } from '../../calendar/solar-illumination-evidence';
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
 import { classifyAspectClosenessByRatio } from '../astrolabe-aspect-evidence';
@@ -276,15 +276,13 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   }
   const fixedTimezone =
     input.timezone === undefined ? undefined : requireNumber(input.timezone, '时区');
-  const timezoneEvidence = input.timeZoneId
-    ? resolveHistoricalTimezone({
-        ...standardBirth,
-        second: 0,
-        timeZoneId: input.timeZoneId,
-        fixedOffsetHours: fixedTimezone,
-      })
-    : undefined;
-  const timezone = timezoneEvidence?.resolvedOffsetHours ?? fixedTimezone!;
+  const civilTime = resolveCivilTime({
+    ...standardBirth,
+    second: 0,
+    timezone: fixedTimezone,
+    timeZoneId: input.timeZoneId,
+  });
+  const { timezone, timezoneEvidence, timeZoneId } = civilTime;
   assertNumberRange(latitude, '出生地纬度', -90, 90);
   assertNumberRange(longitude, '出生地经度', -180, 180);
   assertNumberRange(timezone, '时区', -12, 14);
@@ -297,7 +295,8 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         hour: standardBirth.hour,
         minute: standardBirth.minute,
         longitude,
-        timezone,
+        timezone: fixedTimezone,
+        timeZoneId,
       })
     : null;
   const locationName = readOptionalText(input.locationName, '');
@@ -307,7 +306,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     latitude,
     longitude,
     timezone: fixedTimezone,
-    timeZoneId: input.timeZoneId,
+    timeZoneId,
   });
 
   const chart = calculateChart(
@@ -367,7 +366,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       latitude,
       longitude,
       timezone,
-      timeZoneId: input.timeZoneId,
+      timeZoneId,
       timezoneStatus: timezoneEvidence?.status,
       timezoneDiagnostics: timezoneEvidence?.diagnostics,
       timezoneEvidence,

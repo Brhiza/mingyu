@@ -67,6 +67,7 @@ import { PromptShortcutPanel } from './components/PromptShortcutPanel';
 import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useZiweiCalculations } from './hooks/useZiweiCalculations';
+import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { useAiSettings } from '@/hooks/useAiSettings';
@@ -251,7 +252,7 @@ export function ResultPage() {
       minute: selectedBirthTime?.minute ?? 0,
       latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
       longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
-      timezone: 8,
+      timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
       useTrueSolarTime: inputState.useTrueSolarTime,
     };
   }, [baziResult, hasPreciseBirthData, inputState]);
@@ -641,7 +642,7 @@ export function ResultPage() {
           minute: inputState.birthMinute,
           latitude: inputState.birthLatitude,
           longitude: inputState.birthLongitude,
-          timezone: '8',
+          timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
           locationName: inputState.birthPlace,
           useTrueSolarTime: inputState.useTrueSolarTime,
         }),

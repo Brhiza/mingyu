@@ -838,7 +838,9 @@ function buildSummaryFact(args: {
   const status =
     args.calculationFact.status === '完整' &&
     (!args.timezoneFact ||
-      (args.timezoneFact.status === 'unique' && !args.timezoneFact.offsetConflict)) &&
+      (!args.timezoneFact.offsetConflict &&
+        (args.timezoneFact.status === 'unique' ||
+          args.timezoneFact.ambiguityResolvedByFixedOffset))) &&
     (!args.trueSolarTimeFact || args.trueSolarTimeFact.status === '已计算') &&
     args.primaryCoverageFact.status === '完整' &&
     args.positionFacts.length > 0 &&
@@ -976,7 +978,8 @@ export function analyzeAstrolabeEvidence(
       ? [
           {
             level:
-              timezoneFact.status === 'ambiguous' || timezoneFact.offsetConflict
+              timezoneFact.offsetConflict ||
+              (timezoneFact.status === 'ambiguous' && !timezoneFact.ambiguityResolvedByFixedOffset)
                 ? ('反证' as const)
                 : ('辅证' as const),
             title: '历史时区映射与诊断',
