@@ -6,6 +6,7 @@ package-lock.json
 
 # 构建产物
 dist/
+packages/core/src/location/china-data.js
 
 # TypeScript 增量编译缓存
 *.tsbuildinfo

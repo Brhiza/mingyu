@@ -5,7 +5,15 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import prettierRecommended from 'eslint-plugin-prettier/recommended';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', '.claude', 'build'] },
+  {
+    ignores: [
+      'dist',
+      'node_modules',
+      '.claude',
+      'build',
+      'packages/core/src/location/china-data.js',
+    ],
+  },
   js.configs.recommended,
   tseslint.configs.recommended,
   reactHooks.configs.flat['recommended-latest'],

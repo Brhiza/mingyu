@@ -16,7 +16,6 @@ import { spawnSync } from 'node:child_process';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const coreDirectory = join(repositoryRoot, 'packages', 'core');
-const locationDirectory = join(repositoryRoot, 'packages', 'location-china');
 const pnpmEntry = process.env.npm_execpath;
 
 if (!pnpmEntry) {
@@ -61,21 +60,11 @@ try {
   mkdirSync(tarballDirectory, { recursive: true });
   mkdirSync(consumerDirectory, { recursive: true });
   const coreManifest = readJson(join(coreDirectory, 'package.json'));
-  const locationManifest = readJson(join(locationDirectory, 'package.json'));
   const coreTarball = join(tarballDirectory, `${coreManifest.name}-${coreManifest.version}.tgz`);
-  const locationTarball = join(
-    tarballDirectory,
-    `${locationManifest.name}-${locationManifest.version}.tgz`,
-  );
 
   runPnpm(['pack', '--out', coreTarball], coreDirectory);
-  runPnpm(['pack', '--out', locationTarball], locationDirectory);
 
   assert.ok(statSync(coreTarball).size <= 1_200_000, 'mingyu-core 压缩包不应超过 1.2 MB');
-  assert.ok(
-    statSync(locationTarball).size <= 150_000,
-    'mingyu-location-china 压缩包不应超过 150 KB',
-  );
 
   writeFileSync(
     join(consumerDirectory, 'package.json'),
@@ -86,7 +75,6 @@ try {
         type: 'module',
         dependencies: {
           'mingyu-core': `file:${coreTarball}`,
-          'mingyu-location-china': `file:${locationTarball}`,
         },
       },
       null,
@@ -94,34 +82,13 @@ try {
     )}\n`,
     'utf8',
   );
-  writeFileSync(
-    join(consumerDirectory, 'pnpm-workspace.yaml'),
-    `overrides:\n  mingyu-core: ${JSON.stringify(`file:${coreTarball.replaceAll('\\', '/')}`)}\n`,
-    'utf8',
-  );
-
   runPnpm(['install', '--prefer-offline', '--ignore-scripts'], consumerDirectory, {
     npm_config_auto_install_peers: 'false',
   });
 
   const installedCoreDirectory = join(consumerDirectory, 'node_modules', 'mingyu-core');
-  const installedLocationDirectory = join(
-    consumerDirectory,
-    'node_modules',
-    'mingyu-location-china',
-  );
   const installedCoreManifest = readJson(join(installedCoreDirectory, 'package.json'));
-  const installedLocationManifest = readJson(join(installedLocationDirectory, 'package.json'));
-
-  assert.equal(
-    installedLocationManifest.dependencies['mingyu-core'],
-    `^${coreManifest.version}`,
-    '地点包中的 workspace 协议必须转换为公开 semver',
-  );
-  assert.deepEqual(Object.keys(installedLocationManifest.exports['.']).slice(0, 2), [
-    'types',
-    'import',
-  ]);
+  assert.equal(existsSync(join(consumerDirectory, 'node_modules', 'mingyu-location-china')), false);
   assert.equal(existsSync(join(consumerDirectory, 'node_modules', 'iztro')), false);
   assert.equal(installedCoreManifest.sideEffects, false);
   assert.equal(installedCoreManifest.engines.node, '>=18');
@@ -222,9 +189,19 @@ if (ziwei.ok || ziwei.error.code !== 'IZTRO_DEPENDENCY_REQUIRED') {
   throw new Error('缺少 iztro 时未返回明确的依赖错误。');
 }
 
-const location = await import('mingyu-location-china');
-if (location.resolveBirthPlaceLongitude('110101') !== 116.416334) {
+const location = await import('mingyu-core/location');
+if (
+  location.chinaBirthPlaceTree.length !== 34 ||
+  location.resolveBirthPlaceLongitude('110101') !== 116.416334
+) {
   throw new Error('隔离安装后的中国地点经度查询失败。');
+}
+const trueSolarBirth = client.trueSolarBirth({
+  dateType: 'solar', year: 1992, month: 8, day: 18, hour: 12, minute: 0,
+  longitude: location.resolveBirthPlaceLongitude('110101'), timezone: 8,
+});
+if (trueSolarBirth.longitude !== 116.416334) {
+  throw new Error('隔离安装后的内置地点经度未能直接用于真太阳时。');
 }
 `;
   writeFileSync(join(consumerDirectory, 'runtime-check.mjs'), runtimeFixture.trimStart(), 'utf8');
@@ -243,7 +220,7 @@ import {
 import {
   findBirthPlaceByRegionId,
   type BirthPlaceCascadePath,
-} from 'mingyu-location-china';
+} from 'mingyu-core/location';
 import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
@@ -391,11 +368,7 @@ target.textContent = result.data.yearGanZhi;
           browserBytes,
           zodiacBrowserBytes,
         },
-        locationChina: {
-          version: locationManifest.version,
-          tarballBytes: statSync(locationTarball).size,
-          dependency: installedLocationManifest.dependencies['mingyu-core'],
-        },
+        chinaLocationIncluded: true,
         optionalIztroInstalled: false,
       },
       null,

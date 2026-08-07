@@ -499,9 +499,7 @@ const text = buildBaziPrompt({
 
 ## 地点索引 Location
 
-`mingyu-core/location` 提供不携带具体地区数据的 `createBirthPlaceIndex(tree)`，可对调用方自己的地点树执行级联查询、行政区代码或显示名称反查和经度解析。
-
-中国省市区数据单独发布为 `mingyu-location-china`：
+`mingyu-core/location` 内置中国省市区数据和真太阳时所需经度，同时提供 `createBirthPlaceIndex(tree)`，可对调用方自己的地点树执行级联查询、行政区代码或显示名称反查和经度解析。
 
 | 导出                                                  | 说明                                     |
 | ----------------------------------------------------- | ---------------------------------------- |
@@ -514,7 +512,7 @@ const text = buildBaziPrompt({
 | `resolveBirthPlaceLongitude(idOrName)`                | 解析真太阳时所需经度                     |
 | `resolveBirthPlaceApproximateLatitude(id, fallback?)` | 返回明确标注为近似值的省会级纬度回退     |
 
-地点包不提供精确区县纬度。西洋星盘等需要真实纬度的算法必须由调用方补充坐标。
+内置地点数据不提供精确区县纬度。西洋星盘等需要真实纬度的算法必须由调用方补充坐标。
 
 ---
 

@@ -1,4 +1,4 @@
-import { resolveBirthPlaceApproximateLatitude } from 'mingyu-location-china';
+import { resolveBirthPlaceApproximateLatitude } from 'mingyu-core/location';
 
 export function resolveBirthPlaceLatitude(placeId: string): number {
   return resolveBirthPlaceApproximateLatitude(placeId);

@@ -11,9 +11,9 @@ import {
   isDistrictBirthPlacePath,
   resolveBirthPlaceApproximateLatitude,
   resolveBirthPlaceLongitude,
-} from 'mingyu-location-china';
+} from 'mingyu-core/location';
 
-test('中国地点包应提供完整的省市区树和级联查询', () => {
+test('核心包应内置完整的中国省市区树和级联查询', () => {
   const provinces = getBirthPlaceProvinceOptions();
   const cities = provinces.flatMap((province) => province.cities);
   const districts = cities.flatMap((city) => city.districts);
@@ -28,7 +28,7 @@ test('中国地点包应提供完整的省市区树和级联查询', () => {
   assert.deepEqual(getBirthPlaceDistrictOptions('不存在'), []);
 });
 
-test('中国地点包应支持行政区代码、显示名称和区县简称反查', () => {
+test('核心包地点能力应支持行政区代码、显示名称和区县简称反查', () => {
   const byId = findBirthPlaceByRegionId('110101');
   const byDisplayName = findBirthPlaceByDisplayName('北京市 东城区');
   const byLabel = findBirthPlaceByDisplayName('东城区');
@@ -44,7 +44,7 @@ test('中国地点包应支持行政区代码、显示名称和区县简称反�
   assert.equal(isDistrictBirthPlacePath(null), false);
 });
 
-test('中国地点包应返回经度并明确区分近似纬度回退', () => {
+test('核心包地点能力应返回经度并明确区分近似纬度回退', () => {
   assert.equal(resolveBirthPlaceLongitude('110101'), 116.416334);
   assert.equal(resolveBirthPlaceLongitude('北京市 东城区'), 116.416334);
   assert.equal(resolveBirthPlaceLongitude('不存在的地点'), null);
