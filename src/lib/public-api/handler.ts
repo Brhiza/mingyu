@@ -1806,6 +1806,8 @@ function calculateSolarIlluminationApi(input: JsonRecord) {
     if (timezone === undefined && !timeZoneId) {
       throw new ApiError(400, 'BAD_REQUEST', 'timezone 与 timeZoneId 至少需要提供一项。');
     }
+    const latitude = readNumberLike(input, 'latitude', -90, 90);
+    assertSupportedLatitude(latitude, '太阳光照');
     return calculateSolarIlluminationEvidence({
       year: readIntegerLike(input, 'year', 1900, 2200),
       month: readIntegerLike(input, 'month', 1, 12),
@@ -1813,13 +1815,15 @@ function calculateSolarIlluminationApi(input: JsonRecord) {
       hour: input.hour === undefined ? 12 : readIntegerLike(input, 'hour', 0, 23),
       minute: input.minute === undefined ? 0 : readIntegerLike(input, 'minute', 0, 59),
       second: input.second === undefined ? 0 : readIntegerLike(input, 'second', 0, 59),
-      latitude: readNumberLike(input, 'latitude', -90, 90),
+      latitude,
       longitude: readNumberLike(input, 'longitude', -180, 180),
       timezone,
       timeZoneId,
     });
   } catch (error) {
     if (error instanceof ApiError) throw error;
+    // 501 墙不能被下面的 400 兜底吞掉，必须原样上抛给 handleError 映射。
+    if (error instanceof MingyuCoreError) throw error;
     throw new ApiError(
       400,
       'BAD_REQUEST',
@@ -1971,6 +1975,30 @@ function calculateFoundationShensha(input: JsonRecord) {
 }
 
 // ===== 新增术数系统 API =====
+
+/**
+ * 南半球 501 墙。
+ *
+ * 真太阳时校正、节气分界与宫位起法均只在北半球验证过，南半球（latitude < 0）
+ * 会算出一张「看起来正常但实际未经校验」的盘。与其静默返回错误结果，不如显式拒绝。
+ *
+ * 走 MingyuCoreError({ category: 'unsupported' }) 而不是 ApiError：
+ * ApiError 只能表达 4xx，而「功能尚未实现」的语义是 501，由 handleError 统一映射。
+ *
+ * 🔴 undefined 必须放行：大量存量调用根本不传 latitude，
+ * 因此判定写成 `latitude < 0`，绝不能写成 `!(latitude >= 0)`——后者会把 undefined 判真，
+ * 把所有不传纬度的调用全部打成 501。
+ */
+function assertSupportedLatitude(latitude: number | undefined, endpoint: string): void {
+  if (latitude !== undefined && latitude < 0) {
+    throw new MingyuCoreError({
+      code: 'SOUTHERN_HEMISPHERE_UNSUPPORTED',
+      category: 'unsupported',
+      field: 'latitude',
+      message: `${endpoint} 暂不支持南半球（latitude < 0）：真太阳时与节气模型未在南半球验证。`,
+    });
+  }
+}
 
 function optInt(input: JsonRecord, key: string, min?: number, max?: number): number | undefined {
   const v = input[key];
@@ -2243,6 +2271,8 @@ function calculateQizhengApi(input: JsonRecord) {
   const minute = optInt(input, 'minute', 0, 59) ?? 0;
   buildSolarDate(year, month, day, hour, minute);
   const latitude = optNumber(input, 'latitude', -90, 90);
+  // optNumber 缺省返回 undefined —— 不传纬度的存量调用必须放行，只拦真正的负纬度。
+  assertSupportedLatitude(latitude, '七政四余');
   const longitude = optNumber(input, 'longitude', -180, 180);
   const timezone = optNumber(input, 'timezone', -12, 14);
   const timeZoneId =
@@ -3029,6 +3059,8 @@ function calculateAstrolabe(input: JsonRecord) {
   if (timezone === undefined && !timeZoneId) {
     throw new ApiError(400, 'BAD_REQUEST', 'timezone 与 timeZoneId 至少需要提供一项。');
   }
+  const latitude = readNumber(input, 'latitude', -90, 90);
+  assertSupportedLatitude(latitude, '星盘');
   const astrolabeInput: AstrolabeBirthInput = {
     name: readString(input, 'name', ''),
     gender: readEnum(input, 'gender', ['男', '女', ''], ''),
@@ -3037,7 +3069,7 @@ function calculateAstrolabe(input: JsonRecord) {
     day: String(birthDate.day),
     hour: String(readInteger(input, 'hour', 0, 23)),
     minute: String(readInteger(input, 'minute', 0, 59)),
-    latitude: String(readNumber(input, 'latitude', -90, 90)),
+    latitude: String(latitude),
     longitude: String(readNumber(input, 'longitude', -180, 180)),
     ...(timezone !== undefined ? { timezone: String(timezone) } : {}),
     ...(timeZoneId ? { timeZoneId } : {}),
@@ -4069,14 +4101,20 @@ function json(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
   });
 }
 
-function handleError(error: unknown, runtime: PublicApiRuntime) {
+export function handleError(error: unknown, runtime: PublicApiRuntime) {
   if (error instanceof ApiError) {
     return json(failure(error.code, error.message, runtime), error.status);
   }
 
   if (error instanceof MingyuCoreError) {
     const status =
-      error.category === 'validation' ? 400 : error.category === 'boundary' ? 422 : 500;
+      error.category === 'validation'
+        ? 400
+        : error.category === 'boundary'
+          ? 422
+          : error.category === 'unsupported'
+            ? 501
+            : 500;
     return json(failure(error.code, error.message, runtime), status);
   }
 
