@@ -4489,7 +4489,10 @@ select {
 }
 
 .divination-output-grid {
+  width: 100%;
   margin-top: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
 }
 
 .divination-output-grid > .panel {
