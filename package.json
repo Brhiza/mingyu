@@ -24,7 +24,9 @@
     "contest:evaluate": "node scripts/evaluate-fortune-contest-model.js",
     "mcp": "tsx --tsconfig mcp/tsconfig.json mcp/src/server.ts",
     "core:build": "pnpm --filter mingyu-core build",
-    "core:test": "pnpm test:core"
+    "core:test": "pnpm test:core",
+    "check:location-data": "pnpm --filter mingyu-core check:location-data",
+    "check:location-data:source": "pnpm --filter mingyu-core check:location-data:source"
   },
   "dependencies": {
     "celestine": "^0.2.1",

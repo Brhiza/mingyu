@@ -289,6 +289,8 @@
   ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && node scripts/generate-china-location-data.mjs && tsc --build tsconfig.json --force && node scripts/add-esm-extensions.mjs",
+    "check:location-data": "node scripts/check-china-location-data.mjs",
+    "check:location-data:source": "node scripts/check-china-location-data.mjs --source-only",
     "clean": "node scripts/clean-dist.mjs",
     "prepublishOnly": "pnpm build",
     "test": "node scripts/run-core-tests.mjs"

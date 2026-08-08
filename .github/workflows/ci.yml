@@ -58,5 +58,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # 源数据质量：构建前先断言 chinaBirthPlaceTree.json 可解析且 longitude 全量覆盖。
+      # 用独立脚本而非 `-- --source-only`，避免依赖两层 pnpm 的参数转发语义。
+      - name: Check china location source data
+        run: pnpm run check:location-data:source
       - run: pnpm --filter mingyu-core build
+      # 陈旧产物守卫：构建后校验 china-data.js 是否仍与 data/chinaBirthPlaceTree.json 一致，
+      # 防止生成器脱离构建链。
+      - name: Check generated china location data
+        run: pnpm run check:location-data
       - run: pnpm run build
