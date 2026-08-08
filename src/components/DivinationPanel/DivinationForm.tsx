@@ -21,16 +21,7 @@ import {
 import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import { createSecureId } from '@/lib/secure-id';
-import {
-  almanacTopicLabelMap,
-  lenormandSpreadLabelMap,
-  liuyaoTemplateLabelMap,
-  liurenTemplateLabelMap,
-  meihuaMethodLabelMap,
-  methodLabelMap,
-  tarotSpreadLabelMap,
-  jinkoujueMethodLabelMap,
-} from './constants';
+import { DropdownSelect } from '@/components/DropdownSelect';
 
 const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'current', label: '当前时间' },
@@ -57,19 +48,33 @@ const MANUAL_METHOD_OPTIONS = [
   { value: 'interactive', label: '手动抽取' },
 ] as const;
 
-const liuyaoMethodLabelMap: Record<NonNullable<DivinationDraft['liuyaoMethod']>, string> = {
-  time: '时间起卦',
-  coins: '手摇',
-  manual: '手动录入',
-};
+const OPTIONAL_GENDER_OPTIONS = [
+  { value: '', label: '不填' },
+  { value: '男', label: '男' },
+  { value: '女', label: '女' },
+] as const;
 
-const divinationTimeModeLabelMap: Record<
-  NonNullable<DivinationDraft['divinationTimeMode']>,
-  string
-> = {
-  current: '当前时间',
-  custom: '自定时间',
-};
+const CALENDAR_TYPE_OPTIONS = [
+  { value: 'solar', label: '公历' },
+  { value: 'lunar', label: '农历' },
+] as const;
+
+const BIRTH_TIME_OPTIONS = [
+  { value: '', label: '请选择' },
+  { value: '0', label: '早子时' },
+  { value: '1', label: '丑时' },
+  { value: '2', label: '寅时' },
+  { value: '3', label: '卯时' },
+  { value: '4', label: '辰时' },
+  { value: '5', label: '巳时' },
+  { value: '6', label: '午时' },
+  { value: '7', label: '未时' },
+  { value: '8', label: '申时' },
+  { value: '9', label: '酉时' },
+  { value: '10', label: '戌时' },
+  { value: '11', label: '亥时' },
+  { value: '12', label: '晚子时' },
+] as const;
 
 function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   if (draft.method === 'liuyao' || draft.method === 'qimen' || draft.method === 'liuren') {
@@ -301,26 +306,14 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="meihua-method-select">起卦方式</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {meihuaMethodLabelMap[draft.meihuaMethod]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="meihua-method-select"
                             value={draft.meihuaMethod}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
-                              updateDraft(
-                                'meihuaMethod',
-                                event.target.value as DivinationDraft['meihuaMethod'],
-                              )
+                            options={MEIHUA_METHOD_OPTIONS}
+                            onChange={(value) =>
+                              updateDraft('meihuaMethod', value as DivinationDraft['meihuaMethod'])
                             }
-                          >
-                            {MEIHUA_METHOD_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -329,26 +322,17 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="jinkoujue-method-select">起课方式</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {jinkoujueMethodLabelMap[draft.jinkoujueMethod]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="jinkoujue-method-select"
                             value={draft.jinkoujueMethod}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
+                            options={JINKOUJUE_METHOD_OPTIONS}
+                            onChange={(value) =>
                               updateDraft(
                                 'jinkoujueMethod',
-                                event.target.value as DivinationDraft['jinkoujueMethod'],
+                                value as DivinationDraft['jinkoujueMethod'],
                               )
                             }
-                          >
-                            {JINKOUJUE_METHOD_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -391,26 +375,17 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="liuyao-template-select">问题范围</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {liuyaoTemplateLabelMap[draft.liuyaoTemplate]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="liuyao-template-select"
                             value={draft.liuyaoTemplate}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
+                            options={LIUYAO_TEMPLATE_OPTIONS}
+                            onChange={(value) =>
                               updateDraft(
                                 'liuyaoTemplate',
-                                event.target.value as DivinationDraft['liuyaoTemplate'],
+                                value as DivinationDraft['liuyaoTemplate'],
                               )
                             }
-                          >
-                            {LIUYAO_TEMPLATE_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -419,26 +394,17 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="liuyao-method-select">起卦方式</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {liuyaoMethodLabelMap[liuyaoMethod]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="liuyao-method-select"
                             value={liuyaoMethod}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
+                            options={LIUYAO_METHOD_OPTIONS}
+                            onChange={(value) =>
                               updateDraft(
                                 'liuyaoMethod',
-                                event.target.value as NonNullable<DivinationDraft['liuyaoMethod']>,
+                                value as NonNullable<DivinationDraft['liuyaoMethod']>,
                               )
                             }
-                          >
-                            {LIUYAO_METHOD_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -447,26 +413,17 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="liuren-template-select">问题范围</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {liurenTemplateLabelMap[draft.liurenTemplate]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="liuren-template-select"
                             value={draft.liurenTemplate}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
+                            options={LIUREN_TEMPLATE_OPTIONS}
+                            onChange={(value) =>
                               updateDraft(
                                 'liurenTemplate',
-                                event.target.value as DivinationDraft['liurenTemplate'],
+                                value as DivinationDraft['liurenTemplate'],
                               )
                             }
-                          >
-                            {LIUREN_TEMPLATE_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -475,25 +432,14 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="tarot-spread-select">牌阵</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {tarotSpreadLabelMap[draft.tarotSpread]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="tarot-spread-select"
                             value={draft.tarotSpread}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
-                              updateTarotSpread(
-                                event.target.value as DivinationDraft['tarotSpread'],
-                              )
+                            options={TAROT_SPREAD_OPTIONS}
+                            onChange={(value) =>
+                              updateTarotSpread(value as DivinationDraft['tarotSpread'])
                             }
-                          >
-                            {TAROT_SPREAD_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -502,26 +448,14 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="almanac-topic-select">择日事项</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {almanacTopicLabelMap[draft.almanacTopic]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="almanac-topic-select"
                             value={draft.almanacTopic}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
-                              updateDraft(
-                                'almanacTopic',
-                                event.target.value as DivinationDraft['almanacTopic'],
-                              )
+                            options={ALMANAC_TOPIC_OPTIONS}
+                            onChange={(value) =>
+                              updateDraft('almanacTopic', value as DivinationDraft['almanacTopic'])
                             }
-                          >
-                            {ALMANAC_TOPIC_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -530,25 +464,14 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="lenormand-spread-select">牌阵</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {lenormandSpreadLabelMap[draft.lenormandSpread]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="lenormand-spread-select"
                             value={draft.lenormandSpread}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
-                              updateLenormandSpread(
-                                event.target.value as DivinationDraft['lenormandSpread'],
-                              )
+                            options={LENORMAND_SPREAD_OPTIONS}
+                            onChange={(value) =>
+                              updateLenormandSpread(value as DivinationDraft['lenormandSpread'])
                             }
-                          >
-                            {LENORMAND_SPREAD_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -557,28 +480,17 @@ export function DivinationForm({
                       <div className="form-item divination-inline-field">
                         <label htmlFor="divination-time-mode-select">起卦时间</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {divinationTimeModeLabelMap[divinationTimeMode]}
-                          </span>
-                          <select
+                          <DropdownSelect
                             id="divination-time-mode-select"
                             value={divinationTimeMode}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
+                            options={DIVINATION_TIME_MODE_OPTIONS}
+                            onChange={(value) =>
                               updateDraft(
                                 'divinationTimeMode',
-                                event.target.value as NonNullable<
-                                  DivinationDraft['divinationTimeMode']
-                                >,
+                                value as NonNullable<DivinationDraft['divinationTimeMode']>,
                               )
                             }
-                          >
-                            {DIVINATION_TIME_MODE_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -611,244 +523,137 @@ export function DivinationForm({
               >
                 {!isMethodLocked ? (
                   <div className="divination-mobile-method-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {methodLabelMap[draft.method]}
-                    </span>
-                    <select
-                      aria-label="占卜类型"
+                    <DropdownSelect
                       value={draft.method}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateDraft('method', event.target.value as DivinationDraft['method'])
+                      options={GENERAL_DIVINATION_METHOD_OPTIONS}
+                      ariaLabel="占卜类型"
+                      onChange={(value) =>
+                        updateDraft('method', value as DivinationDraft['method'])
                       }
-                    >
-                      {GENERAL_DIVINATION_METHOD_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {draft.method === 'meihua' ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {meihuaMethodLabelMap[draft.meihuaMethod]}
-                    </span>
-                    <select
-                      aria-label="起卦方式"
+                    <DropdownSelect
                       value={draft.meihuaMethod}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateDraft(
-                          'meihuaMethod',
-                          event.target.value as DivinationDraft['meihuaMethod'],
-                        )
+                      options={MEIHUA_METHOD_OPTIONS}
+                      ariaLabel="起卦方式"
+                      onChange={(value) =>
+                        updateDraft('meihuaMethod', value as DivinationDraft['meihuaMethod'])
                       }
-                    >
-                      {MEIHUA_METHOD_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {draft.method === 'jinkoujue' ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {jinkoujueMethodLabelMap[draft.jinkoujueMethod]}
-                    </span>
-                    <select
-                      aria-label="金口诀起课方式"
+                    <DropdownSelect
                       value={draft.jinkoujueMethod}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateDraft(
-                          'jinkoujueMethod',
-                          event.target.value as DivinationDraft['jinkoujueMethod'],
-                        )
+                      options={JINKOUJUE_METHOD_OPTIONS}
+                      ariaLabel="金口诀起课方式"
+                      onChange={(value) =>
+                        updateDraft('jinkoujueMethod', value as DivinationDraft['jinkoujueMethod'])
                       }
-                    >
-                      {JINKOUJUE_METHOD_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {draft.method === 'liuyao' ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {liuyaoTemplateLabelMap[draft.liuyaoTemplate]}
-                    </span>
-                    <select
-                      aria-label="六爻问题范围"
+                    <DropdownSelect
                       value={draft.liuyaoTemplate}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateDraft(
-                          'liuyaoTemplate',
-                          event.target.value as DivinationDraft['liuyaoTemplate'],
-                        )
+                      options={LIUYAO_TEMPLATE_OPTIONS}
+                      ariaLabel="六爻问题范围"
+                      onChange={(value) =>
+                        updateDraft('liuyaoTemplate', value as DivinationDraft['liuyaoTemplate'])
                       }
-                    >
-                      {LIUYAO_TEMPLATE_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {draft.method === 'liuyao' ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {liuyaoMethodLabelMap[liuyaoMethod]}
-                    </span>
-                    <select
-                      aria-label="六爻起卦方式"
+                    <DropdownSelect
                       value={liuyaoMethod}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
+                      options={LIUYAO_METHOD_OPTIONS}
+                      ariaLabel="六爻起卦方式"
+                      onChange={(value) =>
                         updateDraft(
                           'liuyaoMethod',
-                          event.target.value as NonNullable<DivinationDraft['liuyaoMethod']>,
+                          value as NonNullable<DivinationDraft['liuyaoMethod']>,
                         )
                       }
-                    >
-                      {LIUYAO_METHOD_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {draft.method === 'tarot' ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {tarotSpreadLabelMap[draft.tarotSpread]}
-                    </span>
-                    <select
-                      aria-label="牌阵"
+                    <DropdownSelect
                       value={draft.tarotSpread}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateTarotSpread(event.target.value as DivinationDraft['tarotSpread'])
+                      options={TAROT_SPREAD_OPTIONS}
+                      ariaLabel="牌阵"
+                      onChange={(value) =>
+                        updateTarotSpread(value as DivinationDraft['tarotSpread'])
                       }
-                    >
-                      {TAROT_SPREAD_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {draft.method === 'liuren' ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {liurenTemplateLabelMap[draft.liurenTemplate]}
-                    </span>
-                    <select
-                      aria-label="大六壬问题范围"
+                    <DropdownSelect
                       value={draft.liurenTemplate}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateDraft(
-                          'liurenTemplate',
-                          event.target.value as DivinationDraft['liurenTemplate'],
-                        )
+                      options={LIUREN_TEMPLATE_OPTIONS}
+                      ariaLabel="大六壬问题范围"
+                      onChange={(value) =>
+                        updateDraft('liurenTemplate', value as DivinationDraft['liurenTemplate'])
                       }
-                    >
-                      {LIUREN_TEMPLATE_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {draft.method === 'almanac' ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {almanacTopicLabelMap[draft.almanacTopic]}
-                    </span>
-                    <select
-                      aria-label="择日事项"
+                    <DropdownSelect
                       value={draft.almanacTopic}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateDraft(
-                          'almanacTopic',
-                          event.target.value as DivinationDraft['almanacTopic'],
-                        )
+                      options={ALMANAC_TOPIC_OPTIONS}
+                      ariaLabel="择日事项"
+                      onChange={(value) =>
+                        updateDraft('almanacTopic', value as DivinationDraft['almanacTopic'])
                       }
-                    >
-                      {ALMANAC_TOPIC_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {draft.method === 'lenormand' ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {lenormandSpreadLabelMap[draft.lenormandSpread]}
-                    </span>
-                    <select
-                      aria-label="雷诺曼牌阵"
+                    <DropdownSelect
                       value={draft.lenormandSpread}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateLenormandSpread(
-                          event.target.value as DivinationDraft['lenormandSpread'],
-                        )
+                      options={LENORMAND_SPREAD_OPTIONS}
+                      ariaLabel="雷诺曼牌阵"
+                      onChange={(value) =>
+                        updateLenormandSpread(value as DivinationDraft['lenormandSpread'])
                       }
-                    >
-                      {LENORMAND_SPREAD_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
                 {isTimeBasedDivination ? (
                   <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {divinationTimeModeLabelMap[divinationTimeMode]}
-                    </span>
-                    <select
-                      aria-label="起卦时间"
+                    <DropdownSelect
                       value={divinationTimeMode}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
+                      options={DIVINATION_TIME_MODE_OPTIONS}
+                      ariaLabel="起卦时间"
+                      onChange={(value) =>
                         updateDraft(
                           'divinationTimeMode',
-                          event.target.value as NonNullable<DivinationDraft['divinationTimeMode']>,
+                          value as NonNullable<DivinationDraft['divinationTimeMode']>,
                         )
                       }
-                    >
-                      {DIVINATION_TIME_MODE_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 ) : null}
 
@@ -1201,8 +1006,8 @@ export function DivinationForm({
             </div>
           ) : null}
 
-          <details className="form-item divination-context-fields">
-            <summary>补充现实信息（可选，填写越具体越利于解读）</summary>
+          <details className="divination-context-fields">
+            <summary>补充信息（可选）</summary>
             <div className="form-row">
               {[
                 ['currentSituation', '当前情况', '例如：正在考虑换工作，已经拿到一个新机会。'],
@@ -1254,7 +1059,7 @@ export function DivinationForm({
               </div>
 
               <div className="divination-extra-head">
-                <strong>参与人出生信息</strong>
+                <strong>参与人出生信息（可选）</strong>
                 <button type="button" className="quick-chip" onClick={addAlmanacParticipant}>
                   添加参与人
                 </button>
@@ -1265,15 +1070,13 @@ export function DivinationForm({
                   <div className="almanac-participant-card" key={participant.id}>
                     <div className="almanac-participant-head">
                       <strong>参与人 {index + 1}</strong>
-                      {draft.almanacParticipants.length > 1 ? (
-                        <button
-                          type="button"
-                          className="history-action-btn"
-                          onClick={() => removeAlmanacParticipant(participant.id)}
-                        >
-                          删除
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        className="history-action-btn"
+                        onClick={() => removeAlmanacParticipant(participant.id)}
+                      >
+                        删除
+                      </button>
                     </div>
                     <div className="form-row-flex">
                       <div className="form-item">
@@ -1290,18 +1093,15 @@ export function DivinationForm({
                       </div>
                       <div className="form-item">
                         <label htmlFor={`${participant.id}-gender-select`}>性别</label>
-                        <select
+                        <DropdownSelect
                           id={`${participant.id}-gender-select`}
-                          className="form-input"
                           value={participant.gender}
-                          onChange={(event) =>
-                            updateAlmanacParticipant(participant.id, 'gender', event.target.value)
+                          options={OPTIONAL_GENDER_OPTIONS}
+                          variant="field"
+                          onChange={(value) =>
+                            updateAlmanacParticipant(participant.id, 'gender', value)
                           }
-                        >
-                          <option value="">不填</option>
-                          <option value="男">男</option>
-                          <option value="女">女</option>
-                        </select>
+                        />
                       </div>
                     </div>
                     <div className="form-row-flex has-third-item">
@@ -1329,47 +1129,27 @@ export function DivinationForm({
                     <div className="form-row-flex">
                       <div className="form-item">
                         <label htmlFor={`${participant.id}-calendar-select`}>日历</label>
-                        <select
+                        <DropdownSelect
                           id={`${participant.id}-calendar-select`}
-                          className="form-input"
                           value={participant.dateType}
-                          onChange={(event) =>
-                            updateAlmanacParticipant(participant.id, 'dateType', event.target.value)
+                          options={CALENDAR_TYPE_OPTIONS}
+                          variant="field"
+                          onChange={(value) =>
+                            updateAlmanacParticipant(participant.id, 'dateType', value)
                           }
-                        >
-                          <option value="solar">公历</option>
-                          <option value="lunar">农历</option>
-                        </select>
+                        />
                       </div>
                       <div className="form-item">
                         <label htmlFor={`${participant.id}-time-select`}>时辰</label>
-                        <select
+                        <DropdownSelect
                           id={`${participant.id}-time-select`}
-                          className="form-input"
                           value={participant.timeIndex}
-                          onChange={(event) =>
-                            updateAlmanacParticipant(
-                              participant.id,
-                              'timeIndex',
-                              event.target.value,
-                            )
+                          options={BIRTH_TIME_OPTIONS}
+                          variant="field"
+                          onChange={(value) =>
+                            updateAlmanacParticipant(participant.id, 'timeIndex', value)
                           }
-                        >
-                          <option value="">请选择</option>
-                          <option value="0">早子时</option>
-                          <option value="1">丑时</option>
-                          <option value="2">寅时</option>
-                          <option value="3">卯时</option>
-                          <option value="4">辰时</option>
-                          <option value="5">巳时</option>
-                          <option value="6">午时</option>
-                          <option value="7">未时</option>
-                          <option value="8">申时</option>
-                          <option value="9">酉时</option>
-                          <option value="10">戌时</option>
-                          <option value="11">亥时</option>
-                          <option value="12">晚子时</option>
-                        </select>
+                        />
                       </div>
                     </div>
                   </div>
@@ -1392,21 +1172,15 @@ export function DivinationForm({
                 </div>
                 <div className="form-item">
                   <label htmlFor="astrolabe-gender-select">性别</label>
-                  <select
+                  <DropdownSelect
                     id="astrolabe-gender-select"
-                    className="form-input"
                     value={draft.astrolabeGender}
-                    onChange={(event) =>
-                      updateDraft(
-                        'astrolabeGender',
-                        event.target.value as DivinationDraft['astrolabeGender'],
-                      )
+                    options={OPTIONAL_GENDER_OPTIONS}
+                    variant="field"
+                    onChange={(value) =>
+                      updateDraft('astrolabeGender', value as DivinationDraft['astrolabeGender'])
                     }
-                  >
-                    <option value="">不填</option>
-                    <option value="男">男</option>
-                    <option value="女">女</option>
-                  </select>
+                  />
                 </div>
               </div>
               <div className="form-row-flex has-third-item">
@@ -1490,42 +1264,20 @@ export function DivinationForm({
             </div>
           ) : null}
 
-          {!isAlmanac ? (
-            <div
-              className={`form-row-flex divination-meta-row ${draft.method === 'tarot' ? 'is-single' : ''}`}
-            >
-              <div className="form-item">
-                <label htmlFor="divination-gender-select">性别（可选）</label>
-                <select
-                  id="divination-gender-select"
-                  value={draft.gender}
-                  className="form-input"
-                  onChange={(event) =>
-                    updateDraft('gender', event.target.value as DivinationDraft['gender'])
-                  }
-                >
-                  <option value="">不填</option>
-                  <option value="男">男</option>
-                  <option value="女">女</option>
-                </select>
-              </div>
-
-              {draft.method !== 'tarot' ? (
-                <div className="form-item">
-                  <label htmlFor="divination-birth-year-input">出生年份（可选）</label>
-                  <input
-                    id="divination-birth-year-input"
-                    type="text"
-                    inputMode="numeric"
-                    className="form-input"
-                    placeholder="例如 1998"
-                    value={draft.birthYear}
-                    onChange={(event) =>
-                      updateDraft('birthYear', event.target.value.replace(/[^\d]/g, ''))
-                    }
-                  />
-                </div>
-              ) : null}
+          {draft.method === 'qimen' ? (
+            <div className="form-item divination-birth-year-field">
+              <label htmlFor="divination-birth-year-input">出生年份（年命，可选）</label>
+              <input
+                id="divination-birth-year-input"
+                type="text"
+                inputMode="numeric"
+                className="form-input"
+                placeholder="例如 1998"
+                value={draft.birthYear}
+                onChange={(event) =>
+                  updateDraft('birthYear', event.target.value.replace(/[^\d]/g, ''))
+                }
+              />
             </div>
           ) : null}
         </div>

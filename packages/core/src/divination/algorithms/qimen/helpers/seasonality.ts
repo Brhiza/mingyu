@@ -1,7 +1,7 @@
 /**
  * @file 节令背景（Seasonal Context）分析
  * @description 奇门遁甲节气背景分析：二十四节气五行属性映射、
- * 节气三元阶段判定、日干与节令五行的旺相关系、月相、
+ * 节气内自然日阶段、日干与节令五行的旺相关系、月相、
  * 十二建除、以及干支互动（六合/三合/半合/六冲/相刑/相害）。
  *
  * 古籍依据：
@@ -115,16 +115,16 @@ export function getSeasonalElement(jieQi: string): string {
 }
 
 // ============================================================================
-// 2. 节气三元阶段判定
+// 2. 节气内自然日阶段判定
 // ============================================================================
 
 /**
- * 节气三元阶段结果
+ * 交节后自然日阶段结果
  */
 export interface JieQiPhaseResult {
   /** 节气名称 */
   jieQi: string;
-  /** 三元：上元（初）、中元、下元（末） */
+  /** 节气内自然日阶段：上元（初）、中元、下元（末），不作为奇门正式定局三元 */
   phase: '上元' | '中元' | '下元';
   /** 数字索引：0 → 上元，1 → 中元，2 → 下元 */
   phaseIndex: number;
@@ -133,13 +133,13 @@ export interface JieQiPhaseResult {
 }
 
 /**
- * 由太阳历日期精确计算节气三元阶段
+ * 由太阳历日期计算交节后的自然日阶段
  *
  * 每个节气跨度约 15 天，拆分为上元（第 1-5 天）、中元（第 6-10 天）、
- * 下元（第 11-15 天）。此划分与奇门遁甲三元定局法相呼应。
+ * 下元（第 11-15 天）。此字段只描述节气内日期位置；正式定局三元由定局算法给出。
  *
  * @param date 太阳历（公历）日期
- * @returns 节气三元阶段信息
+ * @returns 节气内自然日阶段信息
  */
 export function getJieQiPhaseByDate(date: Date): JieQiPhaseResult {
   const solarTime = SolarTime.fromYmdHms(
@@ -334,7 +334,7 @@ export interface SeasonalityInfo {
   currentJieQi: string;
   /** 节气对应的五行属性 */
   seasonalElement: string;
-  /** 节气三元阶段（上元/中元/下元） */
+  /** 交节后自然日阶段（上元/中元/下元），不作为正式定局三元 */
   jieQiPhase: JieQiPhaseResult;
 
   /** 日干 */

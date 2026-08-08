@@ -353,8 +353,17 @@ const DIVINATION_REQUEST_PROPERTIES = {
   supplementaryInfo: {
     type: 'object',
     properties: {
-      gender: { enum: ['男', '女', ''] },
-      birthYear: { type: 'integer', minimum: 1, maximum: 9999 },
+      gender: {
+        enum: ['男', '女', ''],
+        deprecated: true,
+        description: '兼容字段；通用占卜不再把性别写入提示词。',
+      },
+      birthYear: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 9999,
+        description: '仅用于奇门年命换算，其他占法不会写入提示词。',
+      },
       userSupplement: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
       currentSituation: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
       currentState: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },

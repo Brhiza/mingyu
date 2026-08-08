@@ -197,6 +197,8 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
       return;
     }
 
+    setSession(null);
+    setError('');
     setDraft((current) => ({
       ...current,
       [key]: value,
@@ -210,6 +212,8 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
   }
 
   function applyInspiredQuestion(question: string) {
+    setSession(null);
+    setError('');
     setDraft((current) => ({
       ...current,
       ...resolveDivinationInspiredDraftPatch(current, question),

@@ -47,13 +47,6 @@ export function formatSupplementaryInfoSection(
   if (!supplementaryInfo) return '';
 
   const lines: string[] = [];
-  if (supplementaryInfo.gender) lines.push(`性别：${supplementaryInfo.gender}`);
-  if (
-    typeof supplementaryInfo.birthYear === 'number' &&
-    Number.isFinite(supplementaryInfo.birthYear)
-  ) {
-    lines.push(`出生年份：${supplementaryInfo.birthYear}`);
-  }
   if (method === 'meihua' && supplementaryInfo.meihuaSettings?.method) {
     const labels: Record<string, string> = {
       time: '时间起卦',

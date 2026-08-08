@@ -904,7 +904,7 @@ test('占卜提示词不写入输出要求或行动建议', async () => {
   assert.match(session, /【任务】/);
 });
 
-test('非梅花占法不混入梅花专属的起卦方式和数字', () => {
+test('非对应占法不混入梅花设置或通用出生资料', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -913,9 +913,8 @@ test('非梅花占法不混入梅花专属的起卦方式和数字', () => {
   );
 
   assert.match(prompt, /【占卜信息】/);
-  assert.match(prompt, /【补充信息】/);
-  assert.match(prompt, /性别：男/);
-  assert.match(prompt, /出生年份：1995/);
+  assert.doesNotMatch(prompt, /【补充信息】/);
+  assert.doesNotMatch(prompt, /性别：男|出生年份：1995/);
   assert.doesNotMatch(prompt, /起卦方式：数字起卦|起卦数字：123/);
 });
 
@@ -932,8 +931,7 @@ test('大六壬提示词保留用户补充的现实信息', () => {
   });
 
   assert.match(prompt, /【补充信息】/);
-  assert.match(prompt, /性别：男/);
-  assert.match(prompt, /出生年份：1990/);
+  assert.doesNotMatch(prompt, /性别：男|出生年份：1990/);
   assert.match(prompt, /现实背景：正在考虑换工作，已经拿到一个新机会。/);
   assert.match(prompt, /当前情况：正在考虑换工作，已经拿到一个新机会。/);
   assert.match(prompt, /当前状态：时间紧、压力较大，但仍有一定选择空间。/);
@@ -986,6 +984,7 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
 
   assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
   assert.match(prompt, /取用主线：/);
+  assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
   assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
   assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
   assert.match(prompt, /太白入荧/);
@@ -1002,6 +1001,38 @@ test('奇门提示词的四柱互动应显示参与柱位，节令关系不使�
   assert.match(prompt, /日干癸持平/);
   assert.match(prompt, /四柱互动：月柱癸、时柱丁天干相冲；日柱癸、时柱丁天干相冲/);
   assert.doesNotMatch(prompt, /neutral|天干相冲癸、丁/);
+});
+
+test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落宫', () => {
+  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
+  const prompt = buildDivinationPrompt('qimen', '整体解读', data, { birthYear: 1989 });
+
+  assert.equal(data.ganzhi.day, '甲寅');
+  assert.equal(data.timeInfo.solarTerm, '立秋');
+  assert.equal(data.timeInfo.epoch, '中元');
+  assert.equal(data.isYangDun, false);
+  assert.equal(data.juShu, 5);
+  assert.match(prompt, /实际节气立秋；定局立秋 中元/);
+  assert.doesNotMatch(prompt, /立秋上元/);
+  assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
+  assert.ok(Math.max(...prompt.split('\n').map((line) => line.length)) < 200);
+  assert.match(prompt, /年命资料：公历1989年按年中口径取年命干支己巳，命干己/);
+  assert.match(prompt, /立春前出生则取年命干支戊辰，命干戊/);
+  assert.doesNotMatch(prompt, /【补充信息】/);
+  assert.match(
+    prompt,
+    /年命落宫（年中口径）：命干己落.+宫（.+；八门.+、九星.+、八神.+、天盘.+、地盘.+）/,
+  );
+});
+
+test('奇门年命资料应处理六甲遁干，未填写出生年份时不输出', () => {
+  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'));
+  const withBirthYear = buildDivinationPrompt('qimen', '整体解读', data, { birthYear: 1984 });
+  const withoutBirthYear = buildDivinationPrompt('qimen', '整体解读', data);
+
+  assert.match(withBirthYear, /公历1984年按年中口径取年命干支甲子，命干甲/);
+  assert.match(withBirthYear, /年命落宫（年中口径）：命干甲遁戊落.+宫/);
+  assert.doesNotMatch(withoutBirthYear, /年命资料|年命落宫/);
 });
 
 test('奇门提示词不再根据问题词表输出问事参考', () => {
@@ -1201,8 +1232,8 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   assert.match(prompt, /核心结构：盘面摘要：月将亥；占时卯；昼占；贵人亥临卯；旬空戌、亥/);
   assert.match(prompt, /课传主线：取传比用法；传态递传；发用亥乘贵人；末传寅/);
   assert.match(prompt, /古籍依据：《大六壬大全》九宗门取传法：知一\/比用/);
-  assert.match(prompt, /四课：一课亥临卯乘贵人，水生木/);
-  assert.match(prompt, /三传：初传亥乘贵人，生扶，起因来自外部推动/);
+  assert.match(prompt, /四课：\n- 一课亥临卯乘贵人，水生木/);
+  assert.match(prompt, /三传：\n- 初传亥乘贵人，生扶，起因来自外部推动/);
   assert.match(prompt, /旬空：戌、亥，命中初传亥/);
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);
@@ -1316,7 +1347,7 @@ test('灵签提示词保留完整签谱资料', () => {
   assert.match(prompt, /吉凶级别：中平签/);
   assert.match(prompt, /典故：刘备向东吴借取荆州。/);
   assert.match(prompt, /基础解签：事情仍有转圜空间，宜结合现况审慎研判。/);
-  assert.match(prompt, /补充解释：事业：先核对资源与时机。/);
+  assert.match(prompt, /补充解释：\n- 事业：先核对资源与时机。/);
   assert.doesNotMatch(prompt, /行动建议|风险提醒|掷筊|签谱状态|来源状态|证据汇总/);
 });
 

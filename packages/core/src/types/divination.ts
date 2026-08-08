@@ -536,6 +536,7 @@ export interface QimenGanzhiInteraction {
 export interface QimenSeasonalityInfo {
   currentJieQi: string;
   seasonalElement: string;
+  /** 交节后按自然日分段的节气内阶段，仅用于节令背景，不作为奇门正式定局三元。 */
   jieQiPhase: {
     jieQi: string;
     phase: '上元' | '中元' | '下元';
@@ -621,7 +622,7 @@ export interface QimenData {
   timeInfo: QimenTimeInfo;
   /** 特殊时辰检查（六甲时、六癸时、时干入墓、五不遇时） */
   specialConditions?: QimenSpecialConditions;
-  /** 节令背景（月相、建除、节气三元、四柱互动等） */
+  /** 节令背景（月相、建除、节气内自然日阶段、四柱互动等） */
   seasonality?: QimenSeasonalityInfo;
   /** 经典格局（九遁、三奇得使、天乙等） */
   classicPatterns?: Array<{
@@ -1372,7 +1373,9 @@ export type DivinationData =
   | TaiyiResult;
 
 export interface SupplementaryInfo {
+  /** @deprecated 通用占卜不再使用性别；命盘与择日请通过各自的完整出生资料传入。 */
   gender?: '男' | '女';
+  /** 仅用于奇门年命换算；其他占法不会把出生年份写入提示词。 */
   birthYear?: number;
   userSupplement?: string;
   currentSituation?: string;

@@ -16,7 +16,13 @@ import type {
 } from '../types/divination';
 import { analyzeQimenEvidence } from '../divination/algorithms/qimen';
 import { analyzeAlmanacEvidence } from '../divination/algorithms/almanac';
-import { LIUCHONG_MAP } from '../ganzhi';
+import { LIUCHONG_MAP, SIXTY_CYCLE } from '../ganzhi';
+import {
+  formatTianPanStars,
+  formatTianPanStems,
+  getDunJiaStem,
+  hasTianPanStem,
+} from '../divination/algorithms/qimen/helpers/palace-utils';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import {
   analyzeLiuyaoEvidence,
@@ -33,6 +39,13 @@ function formatGanzhi(ganzhi?: { year: string; month: string; day: string; hour:
   }
 
   return `干支：${ganzhi.year}年 ${ganzhi.month}月 ${ganzhi.day}日 ${ganzhi.hour}时`;
+}
+
+function joinPromptSentences(items: Array<string | undefined>) {
+  return items
+    .filter((item): item is string => Boolean(item?.trim()))
+    .map((item) => item.trim().replace(/[。、；，]+$/u, ''))
+    .join('；');
 }
 
 function getMeihuaMethodLabel(
@@ -370,14 +383,61 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     .join('\n');
 }
 
-function formatQimenInfo(data: QimenData) {
+function getBirthYearGanZhi(year: number) {
+  const cycleIndex =
+    (((year - 1984) % SIXTY_CYCLE.length) + SIXTY_CYCLE.length) % SIXTY_CYCLE.length;
+  return SIXTY_CYCLE[cycleIndex];
+}
+
+function formatQimenBirthStemPalaces(data: QimenData, ganZhi: string, label: string) {
+  const birthStem = ganZhi.charAt(0);
+  const visibleStem = getDunJiaStem(ganZhi);
+  const palaces = data.jiuGongGe.filter((palace) => hasTianPanStem(palace, visibleStem));
+  const stemText = birthStem === visibleStem ? birthStem : `${birthStem}遁${visibleStem}`;
+  if (!palaces.length) return `${label}${stemText}的天盘落宫未定位`;
+
+  return `${label}${stemText}落${palaces
+    .map(
+      (palace) =>
+        `${palace.name}（${palace.direction}，五行${palace.element}；八门${palace.renPan.door}、九星${formatTianPanStars(palace) || '未列'}、八神${palace.shenPan.god}、天盘${formatTianPanStems(palace) || '未列'}、地盘${palace.diPan.stem}${data.voidPalaces?.some((item) => item.palace === palace.gong) ? '，逢空' : ''}${data.horseStar?.palace === palace.gong ? '，马星同宫' : ''}）`,
+    )
+    .join('、')}`;
+}
+
+function formatQimenBirthInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo) {
+  const birthYear = supplementaryInfo?.birthYear;
+  if (!Number.isSafeInteger(birthYear) || birthYear === undefined) return '';
+
+  const ganZhi = getBirthYearGanZhi(birthYear);
+  const previousGanZhi = getBirthYearGanZhi(birthYear - 1);
+  return [
+    `年命资料：公历${birthYear}年按年中口径取年命干支${ganZhi}，命干${ganZhi.charAt(0)}；立春前出生则取年命干支${previousGanZhi}，命干${previousGanZhi.charAt(0)}`,
+    formatQimenBirthStemPalaces(data, ganZhi, '年命落宫（年中口径）：命干'),
+    formatQimenBirthStemPalaces(data, previousGanZhi, '年命落宫（立春前备选）：命干'),
+  ].join('\n');
+}
+
+function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo) {
   const evidenceAnalysis = data.evidenceAnalysis?.palaceFacts
     ? data.evidenceAnalysis
     : analyzeQimenEvidence(data);
   const primaryUsefulPalace = evidenceAnalysis.candidates[0];
-  const focusText = primaryUsefulPalace
-    ? `取用主线：优先看${primaryUsefulPalace.name}（${primaryUsefulPalace.direction}，${primaryUsefulPalace.element}）；门星神干为${[primaryUsefulPalace.palace.renPan.door, primaryUsefulPalace.palace.tianPan.star, primaryUsefulPalace.palace.tianPan.companionStar, primaryUsefulPalace.palace.shenPan.god, primaryUsefulPalace.palace.tianPan.stem, primaryUsefulPalace.palace.tianPan.companionStem, primaryUsefulPalace.palace.diPan.stem].filter(Boolean).join('、')}；${primaryUsefulPalace.support.join('、') || '盘面平稳'}；${primaryUsefulPalace.constraints.join('、') || '未见明显空亡入墓'}`
-    : '取用主线：以值符、值使、时干落宫为先，再看格局与宫间生克';
+  const formatUsefulPalaceFactLines = (items: string[], fallback: string) =>
+    (items.length ? items : [fallback]).map((item) => joinPromptSentences([item]));
+  const focusLines = primaryUsefulPalace
+    ? [
+        `取用主线：优先看${primaryUsefulPalace.name}（${primaryUsefulPalace.direction}，${primaryUsefulPalace.element}）`,
+        `- 门星神干：${[primaryUsefulPalace.palace.renPan.door, primaryUsefulPalace.palace.tianPan.star, primaryUsefulPalace.palace.tianPan.companionStar, primaryUsefulPalace.palace.shenPan.god, primaryUsefulPalace.palace.tianPan.stem, primaryUsefulPalace.palace.tianPan.companionStem, primaryUsefulPalace.palace.diPan.stem].filter(Boolean).join('、')}`,
+        '支持条件：',
+        ...formatUsefulPalaceFactLines(primaryUsefulPalace.support, '盘面平稳').map(
+          (item) => `- ${item}`,
+        ),
+        '制约条件：',
+        ...formatUsefulPalaceFactLines(primaryUsefulPalace.constraints, '未见明显空亡入墓').map(
+          (item) => `- ${item}`,
+        ),
+      ]
+    : ['取用主线：以值符、值使、时干落宫为先，再看格局与宫间生克'];
   const zhiFuPalace = data.jiuGongGe.find(
     (item) => item.tianPan.star === data.zhiFu || item.tianPan.companionStar === data.zhiFu,
   );
@@ -400,19 +460,18 @@ function formatQimenInfo(data: QimenData) {
   const basicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '基础格局',
   );
-  const patternSummary = basicPatternFacts
-    .map((item) => `${item.name}：${item.promptText}`)
-    .join('；');
+  const patternLines = basicPatternFacts.map((item) =>
+    joinPromptSentences([`${item.name}：${item.promptText}`]),
+  );
   // 经典格局（九遁、三奇得使等）—— 比一般格局标签更优先的判断依据
   const classicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '经典格局',
   );
-  const classicPatternSummary = classicPatternFacts.length
-    ? classicPatternFacts
-        .slice(0, 4)
-        .map((item) => `${item.name}（${item.traditionalTone}）：${item.promptText}`)
-        .join('；')
-    : '';
+  const classicPatternLines = classicPatternFacts
+    .slice(0, 4)
+    .map((item) =>
+      joinPromptSentences([`${item.name}（${item.traditionalTone}）：${item.promptText}`]),
+    );
   // 天地盘干关系（八十一格精选）—— 取最有代表性的格式
   const stemRelationSummary = data.stemRelations?.length
     ? data.stemRelations
@@ -446,7 +505,7 @@ function formatQimenInfo(data: QimenData) {
     : '';
   const seasonalitySummary = data.seasonality
     ? [
-        `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}`,
+        `实际节气${data.seasonality.currentJieQi}`,
         `节气五行${data.seasonality.seasonalElement || '未列'}`,
         `日干${data.seasonality.dayStem}${data.seasonality.seasonRelation}`,
         `月相${data.seasonality.lunarPhaseDetail || data.seasonality.lunarPhase}`,
@@ -475,31 +534,28 @@ function formatQimenInfo(data: QimenData) {
   const comboPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '复合格局',
   );
-  const patternComboSummary = comboPatternFacts.length
-    ? comboPatternFacts
-        .slice(0, 4)
-        .map((item) => {
-          const tone =
-            item.traditionalTone === '有利'
-              ? '条件较集中'
-              : item.traditionalTone === '风险'
-                ? '条件较集中'
-                : '条件并见';
-          return `${item.name}（${tone}）：${item.promptText}`;
-        })
-        .join('；')
-    : '';
+  const patternComboLines = comboPatternFacts.slice(0, 4).map((item) => {
+    const tone =
+      item.traditionalTone === '有利'
+        ? '条件较集中'
+        : item.traditionalTone === '风险'
+          ? '条件较集中'
+          : '条件并见';
+    return joinPromptSentences([`${item.name}（${tone}）：${item.promptText}`]);
+  });
   const specialConditionsText = data.specialConditions?.description?.trim() || '';
   const solarTerm = data.seasonality?.jieQiPhase.solarTermEvidence;
   const moonPhase = data.seasonality?.moonPhaseEvidence;
   const juTerm = data.timeInfo?.juTerm || data.timeInfo?.solarTerm || '未列';
+  const birthInfo = formatQimenBirthInfo(data, supplementaryInfo);
 
   return [
     '占法：奇门遁甲',
-    focusText,
+    ...focusLines,
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；值符${data.zhiFu}；值使${data.zhiShi}`,
     `关键提示：实际节气${data.timeInfo?.solarTerm || '未列'}；定局${`${juTerm} ${data.timeInfo?.epoch || ''}`.trim()}；格局标签${data.patternTags?.join('、') || '无'}`,
+    birthInfo,
     seasonalitySummary ? `节令背景：${seasonalitySummary}` : '',
     solarTerm
       ? `节气交接：${solarTerm.name}交节时刻 ${solarTerm.utcDateTime}（UTC），太阳黄经${solarTerm.targetLongitudeDegrees.toFixed(0)}°。`
@@ -511,9 +567,12 @@ function formatQimenInfo(data: QimenData) {
     `值符值使与时干：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '未见落宫'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '未见落宫'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '未见落宫'}`,
     `旬空与马星：旬空${voidText}；马星${horseText}`,
     specialConditionsText ? `特殊时辰：${specialConditionsText}` : '',
-    patternSummary ? `判断依据：${patternSummary}` : '',
-    classicPatternSummary ? `经典格局：${classicPatternSummary}` : '',
-    patternComboSummary ? `复合格局：${patternComboSummary}` : '',
+    patternLines.length ? '判断依据：' : '',
+    ...patternLines.map((item) => `- ${item}`),
+    classicPatternLines.length ? '经典格局：' : '',
+    ...classicPatternLines.map((item) => `- ${item}`),
+    patternComboLines.length ? '复合格局：' : '',
+    ...patternComboLines.map((item) => `- ${item}`),
     stemRelationSummary ? `天地盘干：${stemRelationSummary}` : '',
     directionSummary ? `方位吉凶：${directionSummary}` : '',
   ]
@@ -527,19 +586,20 @@ function formatLiurenInfo(data: LiurenData) {
   const firstTransmission = data.threeTransmissions[0];
   const lastTransmission = data.threeTransmissions[2];
 
-  const lessonText = data.fourLessons
-    .map((item) => `${item.name}${item.upper}临${item.lower}乘${item.god}，${item.relation}`)
-    .join('；');
-  const transmissionText = data.threeTransmissions
-    .map((item) => `${item.stage}${item.branch}乘${item.god}，${item.relation}，${item.note}`)
-    .join('；');
+  const lessonLines = data.fourLessons.map(
+    (item) => `${item.name}${item.upper}临${item.lower}乘${item.god}，${item.relation}`,
+  );
+  const transmissionLines = data.threeTransmissions.map(
+    (item) => `${item.stage}${item.branch}乘${item.god}，${item.relation}，${item.note}`,
+  );
   const voidHits = data.threeTransmissions
     .filter((item) => data.xunKong?.includes(item.branch))
     .map((item) => `${item.stage}${item.branch}`);
-  const summaryText = [data.lessonSummary, data.transmissionSummary, data.transmissionDetail]
-    .filter(Boolean)
-    .map((item) => item || '')
-    .join('；');
+  const summaryText = joinPromptSentences([
+    data.lessonSummary,
+    data.transmissionSummary,
+    data.transmissionDetail,
+  ]);
   const mainLineText = [
     data.transmissionRule ? `取传${data.transmissionRule}` : '',
     data.transmissionPattern ? `传态${data.transmissionPattern}` : '',
@@ -560,44 +620,44 @@ function formatLiurenInfo(data: LiurenData) {
     noblemanText,
     data.xunKong?.length ? `旬空${data.xunKong.join('、')}` : '',
   ].filter(Boolean);
-  const heavenlyPlateText = data.heavenlyPlate
-    .map((item) => `${item.under}上${item.branch}乘${item.god}`)
-    .join('；');
-  const classicalRuleText = traditionalFacts.some((item) => item.kind === '经典取传规则')
-    ? traditionalFacts
-        .filter((item) => item.kind === '经典取传规则')
-        .map((item) => `${item.sources.join('、')}：${item.name}，${item.promptText}`)
-        .join('；')
-    : '';
+  const heavenlyPlateLines = data.heavenlyPlate.map(
+    (item) => `${item.under}上${item.branch}乘${item.god}`,
+  );
+  const classicalRuleText = joinPromptSentences(
+    traditionalFacts
+      .filter((item) => item.kind === '经典取传规则')
+      .map((item) => `${item.sources.join('、')}：${item.name}，${item.promptText}`),
+  );
   const guaTiText = data.guaTi?.length ? data.guaTi.join('、') : '';
   const guaTiSection = guaTiText ? `课体：${guaTiText}` : '';
   const tianJiangContext = traditionalFacts
     .filter((item) => item.kind === '天将属性')
     .map((item) => `${item.stages?.join('、') || ''}${item.name}：${item.promptText}`);
-  const tianJiangSection = tianJiangContext?.length
-    ? `天将属性：${tianJiangContext.join('；')}`
-    : '';
-  const shenShaCategorized = traditionalFacts
+  const shenShaLines = traditionalFacts
     .filter((item) => item.kind === '神煞')
-    .map((item) => item.promptText)
-    .join('；');
+    .map((item) => item.promptText);
 
   return [
     '占法：大六壬',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：盘面摘要：${plateSummaryText.join('；')}`,
     data.earthlyPlate?.length ? `地盘：${data.earthlyPlate.join('、')}` : '',
-    heavenlyPlateText ? `天盘：${heavenlyPlateText}` : '',
+    heavenlyPlateLines.length ? '天盘：' : '',
+    ...heavenlyPlateLines.map((item) => `- ${item}`),
     data.dayStemResidence ? `日干寄宫：${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence}` : '',
     mainLineText.length ? `课传主线：${mainLineText.join('；')}` : '',
     classicalRuleText ? `古籍依据：${classicalRuleText}` : '',
     guaTiSection,
-    lessonText ? `四课：${lessonText}` : '',
-    transmissionText ? `三传：${transmissionText}` : '',
-    tianJiangSection,
-    shenShaCategorized ? `神煞：${shenShaCategorized}` : '',
+    lessonLines.length ? '四课：' : '',
+    ...lessonLines.map((item) => `- ${item}`),
+    transmissionLines.length ? '三传：' : '',
+    ...transmissionLines.map((item) => `- ${item}`),
+    tianJiangContext.length ? '天将属性：' : '',
+    ...tianJiangContext.map((item) => `- ${item}`),
+    shenShaLines.length ? '神煞：' : '',
+    ...shenShaLines.map((item) => `- ${item}`),
     evidenceAnalysis.timingEvidence.length
-      ? `应期资料：${evidenceAnalysis.timingEvidence.join('；')}`
+      ? `应期资料：${joinPromptSentences(evidenceAnalysis.timingEvidence)}`
       : '',
     data.xunKong?.length
       ? `旬空：${data.xunKong.join('、')}${voidHits.length ? `，命中${voidHits.join('、')}` : ''}`
@@ -642,10 +702,9 @@ function formatSsgwInfo(data: SsgwData) {
     '行动建议',
     '风险提醒',
   ]);
-  const supplementaryInterpretation = Object.entries(details)
+  const supplementaryInterpretationLines = Object.entries(details)
     .filter(([key, value]) => !excludedFields.has(key) && value.trim())
-    .map(([key, value]) => `${key}：${value.trim()}`)
-    .join('；');
+    .map(([key, value]) => `${key}：${value.trim()}`);
   const story = data.story?.trim() || '';
 
   return [
@@ -656,7 +715,8 @@ function formatSsgwInfo(data: SsgwData) {
     details['吉凶']?.trim() ? `吉凶级别：${details['吉凶'].trim()}` : '',
     story ? `典故：${story}` : '',
     basicInterpretation ? `基础解签：${basicInterpretation}` : '',
-    supplementaryInterpretation ? `补充解释：${supplementaryInterpretation}` : '',
+    supplementaryInterpretationLines.length ? '补充解释：' : '',
+    ...supplementaryInterpretationLines.map((item) => `- ${item}`),
   ]
     .filter(Boolean)
     .join('\n');
@@ -681,7 +741,7 @@ function formatAlmanacInfo(data: AlmanacData) {
       : '';
     return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，农历${item.lunarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year}年 ${item.pillars.month}月 ${item.pillars.day}日 ${item.pillars.hour}时，${useful}`;
   });
-  const dayLines = topDays.map((item, index) => {
+  const dayLines = topDays.flatMap((item, index) => {
     const candidate = evidenceAnalysis.candidates.find(
       (candidateItem) => candidateItem.date === item.date,
     );
@@ -712,7 +772,11 @@ function formatAlmanacInfo(data: AlmanacData) {
         : '',
     ].filter(Boolean);
     const status = candidate?.status;
-    return `- 第${index + 1}候选：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
+    return [
+      `- 第${index + 1}候选：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日`,
+      `  - 日课：${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}`,
+      ...evidence.map((fact) => `  - ${fact}`),
+    ];
   });
   const bestDay = topDays[0];
   const bestCandidate = bestDay
@@ -810,6 +874,14 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
         `${item.body1}${item.symbol}${item.body2}（${item.type}，${describeAspectCloseness(item)}等级）`,
     )
     .join('；');
+  const planetLines = data.planets.map(
+    (item) => `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`,
+  );
+  const houseLines = data.houses.map((item) => `${item.label}${item.formatted}`);
+  const aspectLines = data.aspects.map(
+    (item) =>
+      `${item.body1}${item.symbol}${item.body2}（${item.type}，容许度${item.orb.toFixed(2)}°）`,
+  );
 
   return [
     '占法：星盘',
@@ -820,11 +892,12 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     `核心结构：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}；共${data.planets.length}颗星体、${data.houses.length}个宫位、${data.aspects.length}组主要相位`,
     `盘面概况：逆行星体${data.summary.retrograde.join('、') || '无'}；格局${data.summary.patterns.join('、') || '未见明显格局'}`,
     `核心位置：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}；主要相位${aspectSummary || '无'}`,
-    `星体位置：${data.planets.map((item) => `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`).join('；')}`,
-    `宫头位置：${data.houses.map((item) => `${item.label}${item.formatted}`).join('；')}`,
-    data.aspects.length
-      ? `相位明细：${data.aspects.map((item) => `${item.body1}${item.symbol}${item.body2}（${item.type}，容许度${item.orb.toFixed(2)}°）`).join('；')}`
-      : '',
+    planetLines.length ? '星体位置：' : '',
+    ...planetLines.map((item) => `- ${item}`),
+    houseLines.length ? '宫头位置：' : '',
+    ...houseLines.map((item) => `- ${item}`),
+    aspectLines.length ? '相位明细：' : '',
+    ...aspectLines.map((item) => `- ${item}`),
   ]
     .filter(Boolean)
 
@@ -884,7 +957,7 @@ export function formatEnhancedDivinationInfo(
     case 'jinkoujue':
       return formatJinkoujueInfo(data as JinkoujueData);
     case 'qimen':
-      return formatQimenInfo(data as QimenData);
+      return formatQimenInfo(data as QimenData, _supplementaryInfo);
     case 'liuren':
       return formatLiurenInfo(data as LiurenData);
     case 'tarot':

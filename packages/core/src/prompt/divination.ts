@@ -149,7 +149,7 @@ function formatQimenFocusSummary(data: QimenData) {
 function formatQimenSeasonalitySummary(data: QimenData) {
   const seasonality = data.seasonality;
   if (!seasonality) return '';
-  return `节令背景：${seasonality.currentJieQi}${seasonality.jieQiPhase.phase}，节气五行${seasonality.seasonalElement || '未知'}，日干${seasonality.dayStem}${seasonality.seasonRelation}，月相${seasonality.lunarPhaseDetail || seasonality.lunarPhase}，建除${seasonality.dayOfficer}${seasonality.dayOfficerFortuneLabel}`;
+  return `节令背景：实际节气${seasonality.currentJieQi}，节气五行${seasonality.seasonalElement || '未知'}，日干${seasonality.dayStem}${seasonality.seasonRelation}，月相${seasonality.lunarPhaseDetail || seasonality.lunarPhase}，建除${seasonality.dayOfficer}${seasonality.dayOfficerFortuneLabel}`;
 }
 
 function formatMeihuaFocusSummary(data: MeihuaData) {
@@ -315,10 +315,8 @@ export function getDivinationSummaryBlocks(
         ],
         lines: [
           `干支：${item.ganzhi.year}、${item.ganzhi.month}、${item.ganzhi.day}、${item.ganzhi.hour}`,
-          `节气：${item.timeInfo.solarTerm}`,
-          item.timeInfo.juTerm && item.timeInfo.juTerm !== item.timeInfo.solarTerm
-            ? `定局节气：${item.timeInfo.juTerm}${item.timeInfo.epoch}`
-            : '',
+          `实际节气：${item.timeInfo.solarTerm}`,
+          `定局：${item.timeInfo.juTerm || item.timeInfo.solarTerm}${item.timeInfo.epoch}`,
           wrapMainEvidence(formatQimenFocusSummary(item)),
           `格局：${item.patternTags?.join('、') || '未列'}`,
           formatQimenPatternComboSummary(item),
@@ -535,19 +533,25 @@ const ASTROLABE_TOPIC_LABELS: Record<AstrolabePromptTopic, string> = {
   chat: '自由问答',
 };
 
-export function formatSupplementaryInfo(info?: SupplementaryInfo) {
+export function formatSupplementaryInfo(
+  info?: SupplementaryInfo,
+  method?: SupportedDivinationMethod,
+) {
   if (!info) return '';
+  const includeMeihuaSettings = !method || method === 'meihua';
   return [
-    info.gender ? `性别：${info.gender}` : '',
-    info.birthYear ? `出生年份：${info.birthYear}` : '',
     info.currentSituation ? `当前情境：${info.currentSituation}` : '',
     info.currentState ? `当前状态：${info.currentState}` : '',
     info.knownFacts ? `已知事实：${info.knownFacts}` : '',
     info.desiredOutcome ? `期望结果：${info.desiredOutcome}` : '',
     info.constraints ? `现实约束：${info.constraints}` : '',
     info.userSupplement ? `补充说明：${info.userSupplement}` : '',
-    info.meihuaSettings?.method ? `梅花起卦方式：${info.meihuaSettings.method}` : '',
-    info.meihuaSettings?.number !== undefined ? `梅花起卦数字：${info.meihuaSettings.number}` : '',
+    includeMeihuaSettings && info.meihuaSettings?.method
+      ? `梅花起卦方式：${info.meihuaSettings.method}`
+      : '',
+    includeMeihuaSettings && info.meihuaSettings?.number !== undefined
+      ? `梅花起卦数字：${info.meihuaSettings.number}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -579,14 +583,18 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
       : options.method === 'liuren'
         ? buildLiurenTemplateText(liurenTemplate, options.data as LiurenData)
         : '';
+  const supplementaryText = formatSupplementaryInfo(options.supplementaryInfo, options.method);
   const user = joinPromptSections([
     buildPromptGuidance(options.method),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
-    formatSupplementaryInfo(options.supplementaryInfo)
-      ? buildPromptSection('补充信息', formatSupplementaryInfo(options.supplementaryInfo))
-      : '',
+    supplementaryText ? buildPromptSection('补充信息', supplementaryText) : '',
     options.astrolabeScopeText ? buildPromptSection('分析对象', options.astrolabeScopeText) : '',
-    buildPromptSection('占卜资料', formatDivinationInfo(options.method, options.data)),
+    buildPromptSection(
+      '占卜资料',
+      formatDivinationInfo(options.method, options.data, question, options.supplementaryInfo, {
+        liuyaoTemplate,
+      }),
+    ),
     buildPromptSection('问题', question),
     templateText ? buildPromptSection('问题范围', templateText) : '',
     options.isCustomQuestion ? '' : buildPromptSection('任务', task),

@@ -1576,7 +1576,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       out.push({
         key: `combo:zhiFuOpenClose:${tianYiPalace.gong}`,
         name: '值符开通闭塞',
-        tone: 'mixed',
+        tone: openCloseState.name === '开通' ? 'super-good' : 'super-bad',
         score: 0,
         summary: `值符星${ctx.zhiFu}落${tianYiPalace.name}，符临${tianYiPalace.gong}宫为${openCloseState.name}；${openCloseState.advice}。此为《奇门宝鉴御定》开合时机参考，不作通用吉凶评分。`,
         palace: tianYiPalace.gong,

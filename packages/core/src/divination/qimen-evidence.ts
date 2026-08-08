@@ -310,6 +310,24 @@ const SUMMARY_FACT_LIMITATION =
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束奇门排盘、候选宫、格局、应期与方位资料能够支持的解释范围，不得被反向当作现实吉凶、人物意图、事件概率、方位保证或固定应期的证据' as const;
 
+function getBasicPatternTone(tag: string): QimenPatternEvidenceFact['traditionalTone'] {
+  if (
+    ['星伏吟', '星反吟', '门伏吟', '门反吟', '门迫', '击刑', '入墓'].some((prefix) =>
+      tag.startsWith(prefix),
+    )
+  ) {
+    return '风险';
+  }
+  if (
+    ['三奇得（', '宝鉴三奇得使', '符使同宫', '三奇得使', '三奇游六仪'].some((prefix) =>
+      tag.startsWith(prefix),
+    )
+  ) {
+    return '有利';
+  }
+  return '中性';
+}
+
 function buildPatternFacts(data: QimenData): QimenPatternEvidenceFact[] {
   const limitation =
     '传统格局命中只证明盘面满足当前列明规则，不是现实结果、吉凶分或事件概率' as const;
@@ -318,7 +336,7 @@ function buildPatternFacts(data: QimenData): QimenPatternEvidenceFact[] {
     status: '已命中' as const,
     name: item.tag,
     kind: '基础格局' as const,
-    traditionalTone: /迫|刑|墓|空|凶|反吟/.test(item.tag) ? ('风险' as const) : ('中性' as const),
+    traditionalTone: getBasicPatternTone(item.tag),
     originalText: item.summary,
     promptText: item.summary,
     palaces: [],
@@ -462,11 +480,9 @@ function buildPalaceEvidence(
 ): QimenPalaceEvidence {
   const isVoid = Boolean(data.voidPalaces?.some((item) => item.palace === palace.gong));
   const hasHorse = data.horseStar?.palace === palace.gong;
-  const patterns = unique(
-    patternFacts
-      .filter((item) => item.palaces.includes(palace.gong))
-      .map((item) => `${item.name}：${item.promptText}`),
-  );
+  const palacePatternFacts = patternFacts.filter((item) => item.palaces.includes(palace.gong));
+  const formatPatternFact = (item: QimenPatternEvidenceFact) => `${item.name}：${item.promptText}`;
+  const patterns = unique(palacePatternFacts.map(formatPatternFact));
   const stemRelations = unique(
     (data.stemRelations ?? [])
       .filter((item) => item.gong === palace.gong)
@@ -478,13 +494,12 @@ function buildPalaceEvidence(
   const insights = (data.palaceInsights ?? []).filter((item) => item.gong === palace.gong);
   const support = unique([
     ...insights.filter((item) => item.level === '有利').map((item) => item.summary),
-    ...patterns.filter((item) => !/凶|迫|刑|墓|逃|猖狂|投江|夭矫|入荧|大格|小格/.test(item)),
-    hasHorse ? '马星同宫，具移动、变动或外部推动信号' : '',
+    ...palacePatternFacts.filter((item) => item.traditionalTone === '有利').map(formatPatternFact),
   ]);
   const constraints = unique([
     isVoid ? '宫位逢空，相关信息可能尚未落实，须等待现实条件或填实信号复核' : '',
     ...insights.filter((item) => item.level === '风险').map((item) => item.summary),
-    ...patterns.filter((item) => /凶|迫|刑|墓|逃|猖狂|投江|夭矫|入荧|大格|小格/.test(item)),
+    ...palacePatternFacts.filter((item) => item.traditionalTone === '风险').map(formatPatternFact),
     ...(data.specialConditions?.description ? [data.specialConditions.description] : []),
   ]);
   return {
@@ -1269,7 +1284,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
           {
             level: '辅证' as const,
             title: '节令与四柱背景事实',
-            detail: `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}；季节五行${data.seasonality.seasonalElement}；日干${data.seasonality.dayStem}属${data.seasonality.dayElement}，${data.seasonality.seasonRelationDescription}；月相${data.seasonality.lunarPhase}（${data.seasonality.lunarPhaseDetail}）；建除${data.seasonality.dayOfficer}（${data.seasonality.dayOfficerFortuneLabel}）；四柱互动${data.seasonality.ganzhiInteractions.map((item) => item.description).join('、') || '未检出明确合冲刑害'}`,
+            detail: `实际节气${data.seasonality.currentJieQi}；定局${data.timeInfo.juTerm || data.timeInfo.solarTerm}${data.timeInfo.epoch}；季节五行${data.seasonality.seasonalElement}；日干${data.seasonality.dayStem}属${data.seasonality.dayElement}，${data.seasonality.seasonRelationDescription}；月相${data.seasonality.lunarPhase}（${data.seasonality.lunarPhaseDetail}）；建除${data.seasonality.dayOfficer}（${data.seasonality.dayOfficerFortuneLabel}）；四柱互动${data.seasonality.ganzhiInteractions.map((item) => item.description).join('、') || '未检出明确合冲刑害'}`,
             source: '节气历表、月相证据、建除规则与四柱关系逐项计算',
             tags: ['节令', '月相', '建除', '四柱互动'],
           },
