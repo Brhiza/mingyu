@@ -102,5 +102,115 @@
 **不联动的出口**：七政四余、择日、星盘不消费 `dayDivide`——它们的时间轴不按日柱分界，
 用的是精确时刻或节气，日界口径对其无意义。
 
-`ziwei/runtime.ts` 的 `buildZiweiChartInput()` 是紫微独立入口（入参 `ZiweiChartInputDraft` 不经过
-`BirthProfile`，也不产出八字），其 `dayDivide` 仍硬编码为 `'forward'`，不存在与八字打架的场景。
+### 6.1 两条链路都必须接线（`buildZiweiChartInput` 曾漏接）
+
+紫微有**两条**入口链路，`dayDivide` 必须两条都接：
+
+| 链路 | 入口 | 消费者 |
+| --- | --- | --- |
+| 档案路径 | `birthProfileToZiweiChartInput(profile)` | 统一档案（八字+紫微同出） |
+| draft 路径 | `buildZiweiChartInput(input: ZiweiChartInputDraft)` | **公开 API / MCP / 前端紫微独立排盘** |
+
+早期实现只接了档案路径，`buildZiweiChartInput()` 内部把 `dayDivide` 硬编码为 `'forward'`。
+
+**这是缺陷，不是设计取舍。** 本文档的早期版本曾把它记述为「紫微独立入口，不存在与八字打架的场景」——
+该说法是错的，必须纠正：
+
+- draft 路径不是边缘入口，而是紫微流量的**主路**——公开 API、MCP 工具、前端排盘全部走它，
+  档案路径反而是少数场景。
+- 后果是用户在 API/MCP 上显式传了 `dayDivide: 'current'`，参数被静默丢弃，
+  拿到的仍是 `forward` 的盘，且**无任何报错**——静默给出错误结果是所有失败模式里最坏的一种。
+- 「不产出八字所以不会打架」也不成立：同一个人用 API 单独排的紫微盘，
+  与用统一档案排的紫微盘会不一致，自己和自己打架。
+
+该缺陷已修复（`buildZiweiChartInput()` 现读取 `input.dayDivide ?? 'forward'`），
+回归覆盖见 `tests/ziwei-day-divide-wiring.test.ts`（单元 / MCP / 端到端三层）。
+
+## 7. 真太阳时 × `dayDivide`：经度会改变是否触发日柱回退
+
+这是最容易被忽略的交互：**晚子时守卫读的是真太阳时校正之后的小时**，不是用户输入的钟表时刻。
+
+```
+钟表时刻 --（真太阳时校正：经度、均时差）--> 校正后时刻 --（是否 >= 23:00）--> 是否走 dayDivide 分支
+```
+
+因此**同一个钟表时刻，在不同经度会得到不同结果**。实测（2024-03-15 23:30，`useTrueSolarTime: true`）：
+
+| 出生经度 | 校正后约 | 时辰索引 | `dayDivide` 是否生效 | `current` 日柱 | `forward` 日柱 |
+| --- | --- | --- | --- | --- | --- |
+| 东经 120° | ≈ 23:20 | 12（晚子时） | **生效** | 戊寅 | 己卯 |
+| 东经 105° | ≈ 22:20 | 11（亥时） | **不生效** | 戊寅 | 戊寅 |
+
+东经 105° 的人虽然钟表上是 23:30，但真太阳时尚未到 23:00，根本不在晚子时区间，
+`dayDivide` 对他没有任何作用——传 `current` 或 `forward` 得到完全相同的盘。
+
+**这不是 bug，是真太阳时的定义**：日界应当按当地太阳位置判定，而不是按行政时区的钟表读数。
+但调用方必须知道：**`dayDivide` 的生效与否依赖经度**，不能假设「只要是 23:30 就会触发回退」。
+
+回归覆盖见 `tests/day-divide-blindspots.test.ts`（`C-盲区2`，真实构造两个经度做对照）。
+
+## 8. FAQ
+
+**Q：我传了 `dayDivide: 'current'`，但四柱和 `forward` 一模一样，是没生效吗？**
+
+先看时辰。`dayDivide` **只在晚子时（时辰索引 12，即 23:00-24:00）才有任何作用**，
+其余 11 个时辰下两个口径的输出必然完全相同——这是正确行为，不是没接线。
+若确实是 23:00 之后出生却仍无差异，检查是否开了 `useTrueSolarTime`：
+真太阳时校正后可能落回亥时（见第 7 节），此时不触发回退。
+
+**Q：`current` 会不会把年柱、月柱也一起回退？**
+
+不会，只回退**日柱与时柱**。年柱/月柱由节气（立春、月令）决定，与日界无关。
+这一点在立春当日尤其重要：`00:30` 与 `23:30` 可能分处节气两侧，
+若整体替换 `EightChar` 会连带回退年/月柱，造成生肖与月令错乱。实现上刻意只取日柱与时柱两项。
+
+## 9. 第三方依赖基线：`iztro`
+
+紫微侧的日界行为由 `iztro` 的 `late_zi_rule` 实际执行，本项目只负责把 `dayDivide` 透传过去。
+
+| 项 | 值 |
+| --- | --- |
+| 声明版本 | `iztro: "^2.5.8"`（根 `package.json:33`、`packages/core/package.json:305`/`:345`） |
+| 实际锁定 | `2.5.8`（`pnpm-lock.yaml`） |
+
+`tests/day-divide.test.ts` 的「§16 紫微联动」用例（命宫主星 `current → ['太阴']`、`forward → []`）
+是一条**承重断言**：它断言的不是我们自己的代码，而是 `iztro` 的排盘输出。
+
+**因此升级 `iztro` 必须重跑该用例并人工确认差异**。若升级后该断言变红，
+先判断是 `iztro` 修了自己的 bug 还是引入了回归，再决定是改断言还是锁版本——
+不要因为「测试红了」就直接改期望值，那会把第三方回归洗成我们的既定行为。
+
+声明保留 `^2.5.8` 而不改成精确版本：lockfile 已经锁死实际安装版本，
+在 monorepo 内再钉死 caret 只会增加升级摩擦而不增加安全性。
+
+## 10. 教训
+
+**1）接口加字段，必须 grep 出全部调用点，一个个接。**
+`dayDivide` 加进档案路径时看起来「已经做完了」，但 draft 路径（`buildZiweiChartInput`）
+还硬编码着 `'forward'`。**profile 路径接好，不代表 draft 路径接好。**
+新增可选字段尤其危险：漏接不会报错、不会崩、类型检查也过，只会静默丢参数。
+
+**2）测试写在已经正确的路径上，等于没测。**
+最初的紫微联动测试打在 `birthProfileToZiweiChartInput()` 上——而那条路径本来就是对的，
+所以测试从第一天起就是绿的，硬编码 bug 在它眼皮底下活了很久。
+**断言必须打在真正会坏的那条路上。** 判据很简单：把修复回滚掉，测试变红吗？
+不变红，这条测试就是零信息。（`tests/ziwei-day-divide-wiring.test.ts` 与
+`tests/unsupported-501.test.ts` 均已按此标准做过突变验证。）
+
+**3）本仓测试有 src / dist 两个来源，选错来源会让测试测不到东西。**
+
+| 导入写法 | 实际解析到 | 何时更新 |
+| --- | --- | --- |
+| `@core/*` | `packages/core/src/*` | 改完源码立即生效 |
+| `mingyu-core/*` | `packages/core/dist/*` | **必须先 build** |
+
+两个后果：
+
+- **本地跳过 build 直接跑单个测试文件时，只有 `@core/*` 来源的断言能抓到 core 回归**；
+  `mingyu-core/*` 来源的断言读的是旧 dist，改动没生效它也照样绿。
+  验证 core 改动务必先 build，或直接跑 `pnpm test`（CI 会先 build 再测，三层都会红）。
+- **`instanceof` 会跨来源失效。** src 与 dist 是两个不同的 class 对象。
+  实例：`tests/unsupported-501.test.ts` 第一版从 `@core/shared/result` 导入 `MingyuCoreError`，
+  而 `handler.ts` 从 `'mingyu-core'` 导入，导致 handler 里的
+  `error instanceof MingyuCoreError` 判假，501 被降级成 500 兜底。
+  **抛错方与捕获方必须同源**——测试里构造 core 错误对象时，要跟被测代码用同一个导入路径。
