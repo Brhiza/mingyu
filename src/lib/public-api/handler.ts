@@ -43,6 +43,7 @@ import {
   qizheng,
   xuankong,
   residentialFengshui,
+  MingyuCoreError,
 } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
@@ -1516,6 +1517,50 @@ export function normalizeApiPath(pathname: string) {
   return path.replace(/^\/+/, '').split('/').filter(Boolean);
 }
 
+// S-06 防御纵深：per-IP 滑动窗口限流。
+// 注意：workerd 单 isolate 内有效，非分布式替代；真正的分布式限流须由
+// Cloudflare WAF / Rate Limiting 规则或 KV / Durable Objects 承担（下一轮专项）。
+// 限流自身异常一律 fail-open，绝不因此阻断正常请求（避免自DoS）。
+const RATE_LIMIT_MAX = 120;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const rateLimitHits = new Map<string, number[]>();
+
+function getClientIp(request: Request): string {
+  const cf = request.headers.get('CF-Connecting-IP');
+  if (cf) return cf;
+  const xff = request.headers.get('x-forwarded-for');
+  if (xff) return xff.split(',')[0]!.trim();
+  return 'unknown';
+}
+
+function enforceRateLimit(request: Request): Response | null {
+  try {
+    const ip = getClientIp(request);
+    const now = Date.now();
+    const hits = (rateLimitHits.get(ip) ?? []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+    if (hits.length >= RATE_LIMIT_MAX) {
+      rateLimitHits.set(ip, hits);
+      return new Response(
+        JSON.stringify({ error: 'too_many_requests', message: '请求过于频繁，请稍后再试。' }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Retry-After': '60',
+            ...CORS_HEADERS,
+          },
+        },
+      );
+    }
+    hits.push(now);
+    rateLimitHits.set(ip, hits);
+    if (rateLimitHits.size > 20000) rateLimitHits.clear();
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function handlePublicApiRequest(request: Request, segments?: string[], env?: AiEnv) {
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -1523,6 +1568,9 @@ export async function handlePublicApiRequest(request: Request, segments?: string
       headers: CORS_HEADERS,
     });
   }
+
+  const rateLimited = enforceRateLimit(request);
+  if (rateLimited) return rateLimited;
 
   const routeSegments = segments ?? normalizeApiPath(new URL(request.url).pathname);
   const runtime = getPublicApiRuntime(request);
@@ -1704,6 +1752,7 @@ function calculateTrueSolarTimeApi(input: JsonRecord) {
   const timeZoneId =
     input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
   const applyChinaDst = readBoolean(input, 'applyChinaDst', false);
+  const ziHourMode = input.ziHourMode === undefined ? 'standard' : readEnum(input, 'ziHourMode', ['standard', 'conservative'] as const);
   try {
     return convertTrueSolarTime({
       localDateTime,
@@ -1711,6 +1760,7 @@ function calculateTrueSolarTimeApi(input: JsonRecord) {
       timezone,
       timeZoneId,
       applyChinaDst,
+      ziHourMode,
     });
   } catch (error) {
     throw new ApiError(
@@ -1738,6 +1788,7 @@ function calculateTrueSolarBirthApi(input: JsonRecord) {
       timeZoneId:
         input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
       applyChinaDst: readBoolean(input, 'applyChinaDst', false),
+      ziHourMode: input.ziHourMode === undefined ? 'standard' : readEnum(input, 'ziHourMode', ['standard', 'conservative'] as const),
     });
   } catch (error) {
     if (error instanceof ApiError) throw error;
@@ -2376,9 +2427,13 @@ function readBaziPerson(input: JsonRecord): Person {
   const birthLongitude = useTrueSolarTime
     ? readNumber(input, 'birthLongitude', -180, 180)
     : undefined;
+  const ziHourMode =
+    input.ziHourMode === undefined
+      ? 'standard'
+      : readEnum(input, 'ziHourMode', ['standard', 'conservative'] as const);
   const derivedTimeIndex =
     useTrueSolarTime && typeof birthHour === 'number' && typeof birthMinute === 'number'
-      ? getTimeIndexFromClock(birthHour, birthMinute)
+      ? getTimeIndexFromClock(birthHour, birthMinute, ziHourMode)
       : -1;
 
   // 未启用真太阳时时 timeIndex 必填；启用时优先使用 derivedTimeIndex
@@ -4014,6 +4069,12 @@ function json(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
 function handleError(error: unknown, runtime: PublicApiRuntime) {
   if (error instanceof ApiError) {
     return json(failure(error.code, error.message, runtime), error.status);
+  }
+
+  if (error instanceof MingyuCoreError) {
+    const status =
+      error.category === 'validation' ? 400 : error.category === 'boundary' ? 422 : 500;
+    return json(failure(error.code, error.message, runtime), status);
   }
 
   console.error('公开 API 未处理异常', error);
