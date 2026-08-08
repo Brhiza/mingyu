@@ -1752,7 +1752,6 @@ function calculateTrueSolarTimeApi(input: JsonRecord) {
   const timeZoneId =
     input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
   const applyChinaDst = readBoolean(input, 'applyChinaDst', false);
-  const ziHourMode = input.ziHourMode === undefined ? 'standard' : readEnum(input, 'ziHourMode', ['standard', 'conservative'] as const);
   try {
     return convertTrueSolarTime({
       localDateTime,
@@ -1760,7 +1759,6 @@ function calculateTrueSolarTimeApi(input: JsonRecord) {
       timezone,
       timeZoneId,
       applyChinaDst,
-      ziHourMode,
     });
   } catch (error) {
     throw new ApiError(
@@ -1788,7 +1786,6 @@ function calculateTrueSolarBirthApi(input: JsonRecord) {
       timeZoneId:
         input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
       applyChinaDst: readBoolean(input, 'applyChinaDst', false),
-      ziHourMode: input.ziHourMode === undefined ? 'standard' : readEnum(input, 'ziHourMode', ['standard', 'conservative'] as const),
     });
   } catch (error) {
     if (error instanceof ApiError) throw error;
@@ -2430,7 +2427,7 @@ function readBaziPerson(input: JsonRecord): Person {
   const ziHourMode =
     input.ziHourMode === undefined
       ? 'standard'
-      : readEnum(input, 'ziHourMode', ['standard', 'conservative'] as const);
+      : readEnum(input, 'ziHourMode', ['standard'] as const);
   const derivedTimeIndex =
     useTrueSolarTime && typeof birthHour === 'number' && typeof birthMinute === 'number'
       ? getTimeIndexFromClock(birthHour, birthMinute, ziHourMode)

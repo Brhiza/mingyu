@@ -40,6 +40,15 @@ export interface Person {
    * 仅时辰精度时只输出提示不做校正。
    */
   applyChinaDst?: boolean;
+  /**
+   * 子时（晚子时 23:00-24:00）的日柱口径（§16 收敛结论）。
+   * - 'standard'（默认）：沿用 tyme4ts 原生 next-day 口径，晚子时日柱取次日。
+   * - 'conservative'：current-day 口径，晚子时日柱与当日早子时同柱——
+   *   日柱、时柱同步回退，时干按五鼠遁自洽（戊日壬子、己日甲子），不可只滚日不滚时。
+   * 仅影响八字日柱/时柱，不影响时辰索引、年柱、月柱。
+   * 注：「归亥时」第三口径已废弃，不实现。
+   */
+  ziHourMode?: 'standard' | 'conservative';
 }
 
 export interface TimeInfo {
