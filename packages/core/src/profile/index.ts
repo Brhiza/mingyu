@@ -85,6 +85,14 @@ export interface BirthProfile {
   location?: BirthProfileLocation;
   useTrueSolarTime?: boolean;
   applyChinaDst?: boolean;
+  /**
+   * 日柱分界口径，八字与紫微共用同一口径（同名同义，避免同一档案两套日期）。
+   * 'forward'（默认）沿用 next-day 口径，晚子时（23:00-24:00）日柱/农历日取次日；
+   * 'current' 归当日。消费方：birthProfileToBaziPerson（日柱/时柱）、
+   * birthProfileToZiweiChartInput（iztro late_zi_rule）。
+   * 七政 / 择日 / 星盘等出口不消费此字段（其时间轴不按日柱分界）。详见 docs/day-divide.md。
+   */
+  dayDivide?: 'forward' | 'current';
 }
 
 export type BirthProfileDiagnosticCode =
@@ -478,6 +486,7 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
     timezone: location?.timezone,
     timeZoneId: location?.timeZoneId,
     applyChinaDst: profile.applyChinaDst,
+    dayDivide: profile.dayDivide,
   };
 }
 
@@ -521,7 +530,9 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
     yearDivide: 'normal',
     horoscopeDivide: 'normal',
     ageDivide: 'normal',
-    dayDivide: 'forward',
+    // 与八字共用同一日柱分界口径：同一档案不得出现「八字当日、紫微次日」的日期打架。
+    // 默认仍为 'forward'（iztro late_zi_rule 生效），存量调用零影响。
+    dayDivide: profile.dayDivide ?? 'forward',
   };
 }
 

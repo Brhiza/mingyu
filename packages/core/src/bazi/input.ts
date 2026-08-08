@@ -22,6 +22,8 @@ export interface BaziChartInputDraft {
   timeZoneId?: string;
   applyChinaDst?: boolean;
   age?: number;
+  /** 日柱分界口径，见 Person.dayDivide；缺省为 'forward'。详见 docs/day-divide.md。 */
+  dayDivide?: 'forward' | 'current';
 }
 
 function readInteger(value: BaziInputText | undefined, label: string): number {
@@ -65,6 +67,14 @@ function readLongitude(value: BaziInputText | undefined) {
   return parsed;
 }
 
+function readDayDivide(value: unknown): 'forward' | 'current' | undefined {
+  if (value === undefined) return undefined;
+  if (value !== 'forward' && value !== 'current') {
+    throw new Error('日柱分界口径必须是 forward 或 current。');
+  }
+  return value;
+}
+
 /** 将普通 JSON 或页面表单值转换为严格的八字 Person 输入。 */
 export function buildBaziPersonInput(input: BaziChartInputDraft): Person {
   const year = readInteger(input.year, '出生年份');
@@ -95,6 +105,7 @@ export function buildBaziPersonInput(input: BaziChartInputDraft): Person {
     ? readIntegerInRange(input.birthMinute, '出生分钟', 0, 59)
     : undefined;
   const birthLongitude = useTrueSolarTime ? readLongitude(input.birthLongitude) : undefined;
+  const dayDivide = readDayDivide(input.dayDivide);
 
   return {
     year,
@@ -113,6 +124,7 @@ export function buildBaziPersonInput(input: BaziChartInputDraft): Person {
     ...(input.timeZoneId ? { timeZoneId: input.timeZoneId } : {}),
     applyChinaDst: input.applyChinaDst,
     age: input.age,
+    ...(dayDivide ? { dayDivide } : {}),
   };
 }
 

@@ -107,8 +107,6 @@ export interface TrueSolarTimeConversionInput {
   timeZoneId?: string;
   /** 是否按中国 1986-1991 历史规则自动还原夏令时，默认 false。 */
   applyChinaDst?: boolean;
-  /** 子时口径：'standard'（默认，含晚子时拆分）或 'conservative'（传统，23:00 归亥时）。 */
-  ziHourMode?: 'standard' | 'conservative';
 }
 
 export interface TrueSolarTimeConversionResult
@@ -143,8 +141,6 @@ export interface BirthCalendarClockTimeInput {
   minute: number;
   second?: number;
   isLeapMonth?: boolean;
-  /** 子时口径：'standard'（默认）或 'conservative'。 */
-  ziHourMode?: 'standard' | 'conservative';
 }
 
 export interface TrueSolarBirthTimeInput extends BirthCalendarClockTimeInput {
@@ -720,7 +716,7 @@ export function convertTrueSolarTime(
     : clockTime;
   const standardMeridian = timezone * 15;
   const result = calculateTrueSolarTime(standardTime, input.longitude, standardMeridian);
-  const shichen = getShichenFromClock(result.correctedTime.hour, result.correctedTime.minute, input.ziHourMode);
+  const shichen = getShichenFromClock(result.correctedTime.hour, result.correctedTime.minute);
   if (!shichen) {
     throw new MingyuCoreError({ code: 'SHICHEN_UNRESOLVABLE', category: 'boundary', message: '无法根据校正后的真太阳时确定时辰。' });
   }
@@ -836,7 +832,6 @@ export function resolveTrueSolarBirthTime(
     timezone: input.timezone,
     timeZoneId: input.timeZoneId,
     applyChinaDst: input.applyChinaDst,
-    ziHourMode: input.ziHourMode,
   });
   const solarClockDateTime = formatSolarDateTimeParts(solarClockTime);
   const calendarStep: TrueSolarTimeCalculationStep = {

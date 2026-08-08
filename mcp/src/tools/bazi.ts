@@ -48,6 +48,12 @@ export const baziSchema = z.object({
   timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
   timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
   applyChinaDst: z.boolean().optional().describe('是否应用中国 1986-1991 历史夏令时校正'),
+  dayDivide: z
+    .enum(['forward', 'current'])
+    .optional()
+    .describe(
+      '日柱分界口径：forward=默认，晚子时(23:00-24:00)日柱取次日；current=晚子时日柱归当日（日柱与时柱同步回退）',
+    ),
 });
 
 const baziCompatibilityTypes = [
@@ -157,6 +163,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
       timezone: args.timezone,
       timeZoneId: args.timeZoneId,
       applyChinaDst: args.applyChinaDst,
+      ...(args.dayDivide ? { dayDivide: args.dayDivide } : {}),
     };
   }
 
@@ -175,6 +182,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     isLunar: args.dateType === 'lunar',
     isLeapMonth: args.isLeapMonth ?? false,
     useTrueSolarTime,
+    ...(args.dayDivide ? { dayDivide: args.dayDivide } : {}),
   };
 }
 

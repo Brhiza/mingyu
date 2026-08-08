@@ -2424,13 +2424,13 @@ function readBaziPerson(input: JsonRecord): Person {
   const birthLongitude = useTrueSolarTime
     ? readNumber(input, 'birthLongitude', -180, 180)
     : undefined;
-  const ziHourMode =
-    input.ziHourMode === undefined
-      ? 'standard'
-      : readEnum(input, 'ziHourMode', ['standard'] as const);
+  const dayDivide =
+    input.dayDivide === undefined
+      ? 'forward'
+      : readEnum(input, 'dayDivide', ['forward', 'current'] as const);
   const derivedTimeIndex =
     useTrueSolarTime && typeof birthHour === 'number' && typeof birthMinute === 'number'
-      ? getTimeIndexFromClock(birthHour, birthMinute, ziHourMode)
+      ? getTimeIndexFromClock(birthHour, birthMinute)
       : -1;
 
   // 未启用真太阳时时 timeIndex 必填；启用时优先使用 derivedTimeIndex
@@ -2457,6 +2457,7 @@ function readBaziPerson(input: JsonRecord): Person {
     month: birthDate.month,
     day: birthDate.day,
     timeIndex: finalTimeIndex,
+    dayDivide,
     isLunar: dateType === 'lunar',
     isLeapMonth: readBoolean(input, 'isLeapMonth', false),
     useTrueSolarTime,

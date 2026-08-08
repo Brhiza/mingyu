@@ -133,6 +133,7 @@ export class BaziCalculator {
       birthMinute,
       birthPlace,
       birthLongitude,
+      dayDivide,
     } = person;
     if (typeof isLunar !== 'undefined' && typeof isLunar !== 'boolean') {
       throw new Error('isLunar 必须是布尔值。');
@@ -341,8 +342,25 @@ export class BaziCalculator {
 
     const yearColumn = eightChar.getYear();
     const monthColumn = eightChar.getMonth();
-    const dayColumn = eightChar.getDay();
-    const hourColumn = eightChar.getHour();
+    // §16 收敛：dayDivide='current' 晚子时（23:00-24:00）归当日，与当日早子时同柱。
+    // 仅替换日柱/时柱，年柱/月柱保留原始 eightChar——立春当日 00:30 与 23:30 分处节气两侧，
+    // 若整体替换为同日 00:30 的 eightChar，会把年/月柱也回退（生肖/月令错乱）。
+    // 用同日 00:30 一次取全日/时两柱：12:00 只能给对日柱，时柱会拿到午时，故不用。
+    // 日干回退后时干按五鼠遁自动同步（戊日壬子、己日甲子），不可只滚日柱不滚时柱，否则盘破裂。
+    let dayColumn = eightChar.getDay();
+    let hourColumn = eightChar.getHour();
+    if (dayDivide === 'current' && solarTime.getHour() === 23) {
+      const sameDayEarlyZi = SolarTime.fromYmdHms(
+        solarTime.getYear(),
+        solarTime.getMonth(),
+        solarTime.getDay(),
+        0,
+        30,
+        0,
+      ).getLunarHour().getEightChar();
+      dayColumn = sameDayEarlyZi.getDay();
+      hourColumn = sameDayEarlyZi.getHour();
+    }
 
     const pillars: Pillars = {
       year: {
