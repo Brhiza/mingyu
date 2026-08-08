@@ -18,6 +18,7 @@ import {
 } from '@/lib/divination/inspiration';
 import { addDivinationHistory, getDivinationHistoryById } from '@/lib/history-records';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
+import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import {
@@ -173,6 +174,10 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     viewportHeight: viewportSize.height,
     hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
   });
+  const isPhoneLayout = shouldUsePhoneLayout({
+    viewportWidth: viewportSize.width,
+    viewportHeight: viewportSize.height,
+  });
 
   useEffect(() => {
     if (!lockedMethod || draft.method === lockedMethod) {
@@ -260,6 +265,7 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
         copyState={copyState}
         shareState={shareState}
         showShareButton={showShareButton}
+        isPhoneLayout={isPhoneLayout}
         onCopy={handleCopy}
         onShare={handleShare}
       />

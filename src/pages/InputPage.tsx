@@ -320,7 +320,7 @@ export function InputPage() {
         pathname: '/result',
         search: `?${buildResultSearch(form, {
           ...defaultPromptState,
-          tab: 'bazi',
+          tab: 'prompt',
           promptSource: 'bazi',
           baziShortcutMode:
             form.analysisMode === 'compatibility' ? '合婚' : defaultPromptState.baziShortcutMode,
