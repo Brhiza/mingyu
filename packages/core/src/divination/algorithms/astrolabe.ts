@@ -417,7 +417,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         变动: chart.summary.modalities.mutable.map((item) => PLANET_LABELS[item] ?? item),
       },
       retrograde: chart.summary.retrograde.map((item) => PLANET_LABELS[item] ?? item),
-      patterns: chart.summary.patterns,
+      patterns: [...new Set(chart.summary.patterns.map((item) => item.trim()).filter(Boolean))],
     },
     timestamp: Date.now(),
   };

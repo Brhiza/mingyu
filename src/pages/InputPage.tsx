@@ -25,8 +25,7 @@ import { PersonForm } from './InputPage.PersonForm';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { useAiSettings } from '@/hooks/useAiSettings';
-
-type InputEntryMode = 'single' | 'compatibility' | 'divination' | 'almanac';
+import { resolveInputEntryMode, type InputEntryMode } from './input-entry-mode';
 
 const DONATION_URL = 'https://lk.sydf.cc/';
 const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
@@ -41,7 +40,9 @@ export function InputPage() {
   const [, startSubmitTransition] = useTransition();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState<QueryInputState>(defaultInputState);
-  const [entryMode, setEntryMode] = useState<InputEntryMode>('single');
+  const [entryMode, setEntryMode] = useState<InputEntryMode>(() =>
+    resolveInputEntryMode(searchParams),
+  );
   const [error, setError] = useState('');
   const [aiSettings, setAiSettings] = useAiSettings();
   const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState(false);
@@ -53,14 +54,7 @@ export function InputPage() {
   const birthPlace = useBirthPlace({ form, setForm });
 
   useEffect(() => {
-    const nextEntryMode =
-      searchParams.get('mode') === 'compatibility'
-        ? 'compatibility'
-        : searchParams.get('mode') === 'divination'
-          ? 'divination'
-          : searchParams.get('mode') === 'almanac'
-            ? 'almanac'
-            : 'single';
+    const nextEntryMode = resolveInputEntryMode(searchParams);
     setEntryMode(nextEntryMode);
 
     if (nextEntryMode === 'divination' || nextEntryMode === 'almanac') {

@@ -7898,6 +7898,10 @@ div.form-actions.page-submit-actions {
     width: 100%;
   }
 
+  .divination-prompt-actions .copy-button {
+    min-height: 44px;
+  }
+
   .divination-random-note {
     margin-bottom: 10px;
     padding: 8px 10px;

@@ -80,6 +80,12 @@ test('星盘底层算法应保留扩展计算点，不再只返回十大星体',
   assert.ok(labels.includes('精神点'));
 });
 
+test('星盘格局摘要应按名称去重并保留首次出现顺序', () => {
+  const result = generateAstrolabe(validInput);
+
+  assert.deepEqual(result.summary.patterns, [...new Set(result.summary.patterns)]);
+});
+
 test('星盘真太阳时应透传统一校正证据并纳入总汇总', () => {
   const result = generateAstrolabe({ ...validInput, useTrueSolarTime: true });
   const evidence = result.birth.trueSolarEvidence;

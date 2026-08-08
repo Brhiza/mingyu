@@ -264,10 +264,7 @@ export function DivinationResult({
     <section className="panel divination-result-panel">
       {!isLiurenResult ? (
         <div className="panel-head">
-          <div>
-            <h2>{summary.title}</h2>
-            <p>这部分是本地算法生成的结构化结果，方便你判断本次提示词是否符合预期。</p>
-          </div>
+          <h2>{summary.title}</h2>
         </div>
       ) : null}
 

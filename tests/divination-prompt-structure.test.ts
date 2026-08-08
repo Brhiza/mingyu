@@ -984,6 +984,7 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
 
   assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
   assert.match(prompt, /取用主线：/);
+  assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
   assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
   assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
   assert.match(prompt, /太白入荧/);
@@ -1013,6 +1014,8 @@ test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落�
   assert.equal(data.juShu, 5);
   assert.match(prompt, /实际节气立秋；定局立秋 中元/);
   assert.doesNotMatch(prompt, /立秋上元/);
+  assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
+  assert.ok(Math.max(...prompt.split('\n').map((line) => line.length)) < 200);
   assert.match(prompt, /年命资料：公历1989年按年中口径取年命干支己巳，命干己/);
   assert.match(prompt, /立春前出生则取年命干支戊辰，命干戊/);
   assert.doesNotMatch(prompt, /【补充信息】/);
@@ -1229,8 +1232,8 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   assert.match(prompt, /核心结构：盘面摘要：月将亥；占时卯；昼占；贵人亥临卯；旬空戌、亥/);
   assert.match(prompt, /课传主线：取传比用法；传态递传；发用亥乘贵人；末传寅/);
   assert.match(prompt, /古籍依据：《大六壬大全》九宗门取传法：知一\/比用/);
-  assert.match(prompt, /四课：一课亥临卯乘贵人，水生木/);
-  assert.match(prompt, /三传：初传亥乘贵人，生扶，起因来自外部推动/);
+  assert.match(prompt, /四课：\n- 一课亥临卯乘贵人，水生木/);
+  assert.match(prompt, /三传：\n- 初传亥乘贵人，生扶，起因来自外部推动/);
   assert.match(prompt, /旬空：戌、亥，命中初传亥/);
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);
@@ -1344,7 +1347,7 @@ test('灵签提示词保留完整签谱资料', () => {
   assert.match(prompt, /吉凶级别：中平签/);
   assert.match(prompt, /典故：刘备向东吴借取荆州。/);
   assert.match(prompt, /基础解签：事情仍有转圜空间，宜结合现况审慎研判。/);
-  assert.match(prompt, /补充解释：事业：先核对资源与时机。/);
+  assert.match(prompt, /补充解释：\n- 事业：先核对资源与时机。/);
   assert.doesNotMatch(prompt, /行动建议|风险提醒|掷筊|签谱状态|来源状态|证据汇总/);
 });
 
