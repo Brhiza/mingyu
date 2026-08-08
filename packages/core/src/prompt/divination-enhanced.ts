@@ -16,7 +16,13 @@ import type {
 } from '../types/divination';
 import { analyzeQimenEvidence } from '../divination/algorithms/qimen';
 import { analyzeAlmanacEvidence } from '../divination/algorithms/almanac';
-import { LIUCHONG_MAP } from '../ganzhi';
+import { LIUCHONG_MAP, SIXTY_CYCLE } from '../ganzhi';
+import {
+  formatTianPanStars,
+  formatTianPanStems,
+  getDunJiaStem,
+  hasTianPanStem,
+} from '../divination/algorithms/qimen/helpers/palace-utils';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import {
   analyzeLiuyaoEvidence,
@@ -370,7 +376,41 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     .join('\n');
 }
 
-function formatQimenInfo(data: QimenData) {
+function getBirthYearGanZhi(year: number) {
+  const cycleIndex =
+    (((year - 1984) % SIXTY_CYCLE.length) + SIXTY_CYCLE.length) % SIXTY_CYCLE.length;
+  return SIXTY_CYCLE[cycleIndex];
+}
+
+function formatQimenBirthStemPalaces(data: QimenData, ganZhi: string, label: string) {
+  const birthStem = ganZhi.charAt(0);
+  const visibleStem = getDunJiaStem(ganZhi);
+  const palaces = data.jiuGongGe.filter((palace) => hasTianPanStem(palace, visibleStem));
+  const stemText = birthStem === visibleStem ? birthStem : `${birthStem}遁${visibleStem}`;
+  if (!palaces.length) return `${label}${stemText}的天盘落宫未定位`;
+
+  return `${label}${stemText}落${palaces
+    .map(
+      (palace) =>
+        `${palace.name}（${palace.direction}，五行${palace.element}；八门${palace.renPan.door}、九星${formatTianPanStars(palace) || '未列'}、八神${palace.shenPan.god}、天盘${formatTianPanStems(palace) || '未列'}、地盘${palace.diPan.stem}${data.voidPalaces?.some((item) => item.palace === palace.gong) ? '，逢空' : ''}${data.horseStar?.palace === palace.gong ? '，马星同宫' : ''}）`,
+    )
+    .join('、')}`;
+}
+
+function formatQimenBirthInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo) {
+  const birthYear = supplementaryInfo?.birthYear;
+  if (!Number.isSafeInteger(birthYear) || birthYear === undefined) return '';
+
+  const ganZhi = getBirthYearGanZhi(birthYear);
+  const previousGanZhi = getBirthYearGanZhi(birthYear - 1);
+  return [
+    `年命资料：公历${birthYear}年按年中口径取年命干支${ganZhi}，命干${ganZhi.charAt(0)}；立春前出生则取年命干支${previousGanZhi}，命干${previousGanZhi.charAt(0)}`,
+    formatQimenBirthStemPalaces(data, ganZhi, '年命落宫（年中口径）：命干'),
+    formatQimenBirthStemPalaces(data, previousGanZhi, '年命落宫（立春前备选）：命干'),
+  ].join('\n');
+}
+
+function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo) {
   const evidenceAnalysis = data.evidenceAnalysis?.palaceFacts
     ? data.evidenceAnalysis
     : analyzeQimenEvidence(data);
@@ -446,7 +486,7 @@ function formatQimenInfo(data: QimenData) {
     : '';
   const seasonalitySummary = data.seasonality
     ? [
-        `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}`,
+        `实际节气${data.seasonality.currentJieQi}`,
         `节气五行${data.seasonality.seasonalElement || '未列'}`,
         `日干${data.seasonality.dayStem}${data.seasonality.seasonRelation}`,
         `月相${data.seasonality.lunarPhaseDetail || data.seasonality.lunarPhase}`,
@@ -493,6 +533,7 @@ function formatQimenInfo(data: QimenData) {
   const solarTerm = data.seasonality?.jieQiPhase.solarTermEvidence;
   const moonPhase = data.seasonality?.moonPhaseEvidence;
   const juTerm = data.timeInfo?.juTerm || data.timeInfo?.solarTerm || '未列';
+  const birthInfo = formatQimenBirthInfo(data, supplementaryInfo);
 
   return [
     '占法：奇门遁甲',
@@ -500,6 +541,7 @@ function formatQimenInfo(data: QimenData) {
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；值符${data.zhiFu}；值使${data.zhiShi}`,
     `关键提示：实际节气${data.timeInfo?.solarTerm || '未列'}；定局${`${juTerm} ${data.timeInfo?.epoch || ''}`.trim()}；格局标签${data.patternTags?.join('、') || '无'}`,
+    birthInfo,
     seasonalitySummary ? `节令背景：${seasonalitySummary}` : '',
     solarTerm
       ? `节气交接：${solarTerm.name}交节时刻 ${solarTerm.utcDateTime}（UTC），太阳黄经${solarTerm.targetLongitudeDegrees.toFixed(0)}°。`
@@ -884,7 +926,7 @@ export function formatEnhancedDivinationInfo(
     case 'jinkoujue':
       return formatJinkoujueInfo(data as JinkoujueData);
     case 'qimen':
-      return formatQimenInfo(data as QimenData);
+      return formatQimenInfo(data as QimenData, _supplementaryInfo);
     case 'liuren':
       return formatLiurenInfo(data as LiurenData);
     case 'tarot':

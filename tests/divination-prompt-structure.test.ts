@@ -1004,6 +1004,35 @@ test('奇门提示词的四柱互动应显示参与柱位，节令关系不使�
   assert.doesNotMatch(prompt, /neutral|天干相冲癸、丁/);
 });
 
+test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落宫', () => {
+  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'), 'zhuanpan', 'hour', 'chaibu');
+  const prompt = buildDivinationPrompt('qimen', '整体解读', data, { birthYear: 1989 });
+
+  assert.equal(data.ganzhi.day, '甲寅');
+  assert.equal(data.timeInfo.solarTerm, '立秋');
+  assert.equal(data.timeInfo.epoch, '中元');
+  assert.equal(data.isYangDun, false);
+  assert.equal(data.juShu, 5);
+  assert.match(prompt, /实际节气立秋；定局立秋 中元/);
+  assert.doesNotMatch(prompt, /立秋上元/);
+  assert.match(prompt, /年命资料：公历1989年按年中口径取年命干支己巳，命干己/);
+  assert.match(prompt, /立春前出生则取年命干支戊辰，命干戊/);
+  assert.match(
+    prompt,
+    /年命落宫（年中口径）：命干己落.+宫（.+；八门.+、九星.+、八神.+、天盘.+、地盘.+）/,
+  );
+});
+
+test('奇门年命资料应处理六甲遁干，未填写出生年份时不输出', () => {
+  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'));
+  const withBirthYear = buildDivinationPrompt('qimen', '整体解读', data, { birthYear: 1984 });
+  const withoutBirthYear = buildDivinationPrompt('qimen', '整体解读', data);
+
+  assert.match(withBirthYear, /公历1984年按年中口径取年命干支甲子，命干甲/);
+  assert.match(withBirthYear, /年命落宫（年中口径）：命干甲遁戊落.+宫/);
+  assert.doesNotMatch(withoutBirthYear, /年命资料|年命落宫/);
+});
+
 test('奇门提示词不再根据问题词表输出问事参考', () => {
   const data = {
     ...createData('qimen'),

@@ -136,6 +136,21 @@ test('npm 占法增强格式化应直接提供前端使用的关键证据', () =
   assert.match(qimenText, /旬空与马星：/);
 });
 
+test('npm 奇门提示词应统一定局三元并输出年命落宫', () => {
+  const qimen = generateQimen(new Date('2026-08-08T15:14:00+08:00'));
+  const prompt = buildDivinationPrompt({
+    method: 'qimen',
+    data: qimen,
+    question: '整体解读',
+    supplementaryInfo: { birthYear: 1989 },
+  });
+
+  assert.match(prompt, /实际节气立秋；定局立秋 中元/);
+  assert.doesNotMatch(prompt, /立秋上元/);
+  assert.match(prompt, /年命资料：公历1989年按年中口径取年命干支己巳，命干己/);
+  assert.match(prompt, /年命落宫（年中口径）：命干己落.+宫/);
+});
+
 test('npm 元学提示词入口应覆盖住宅类排盘', () => {
   const prompt = buildMetaphysicsPrompt(
     '【住宅风水排盘】\n坐山：子山，朝向：午向',

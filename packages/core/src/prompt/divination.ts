@@ -149,7 +149,7 @@ function formatQimenFocusSummary(data: QimenData) {
 function formatQimenSeasonalitySummary(data: QimenData) {
   const seasonality = data.seasonality;
   if (!seasonality) return '';
-  return `节令背景：${seasonality.currentJieQi}${seasonality.jieQiPhase.phase}，节气五行${seasonality.seasonalElement || '未知'}，日干${seasonality.dayStem}${seasonality.seasonRelation}，月相${seasonality.lunarPhaseDetail || seasonality.lunarPhase}，建除${seasonality.dayOfficer}${seasonality.dayOfficerFortuneLabel}`;
+  return `节令背景：实际节气${seasonality.currentJieQi}，节气五行${seasonality.seasonalElement || '未知'}，日干${seasonality.dayStem}${seasonality.seasonRelation}，月相${seasonality.lunarPhaseDetail || seasonality.lunarPhase}，建除${seasonality.dayOfficer}${seasonality.dayOfficerFortuneLabel}`;
 }
 
 function formatMeihuaFocusSummary(data: MeihuaData) {
@@ -315,10 +315,8 @@ export function getDivinationSummaryBlocks(
         ],
         lines: [
           `干支：${item.ganzhi.year}、${item.ganzhi.month}、${item.ganzhi.day}、${item.ganzhi.hour}`,
-          `节气：${item.timeInfo.solarTerm}`,
-          item.timeInfo.juTerm && item.timeInfo.juTerm !== item.timeInfo.solarTerm
-            ? `定局节气：${item.timeInfo.juTerm}${item.timeInfo.epoch}`
-            : '',
+          `实际节气：${item.timeInfo.solarTerm}`,
+          `定局：${item.timeInfo.juTerm || item.timeInfo.solarTerm}${item.timeInfo.epoch}`,
           wrapMainEvidence(formatQimenFocusSummary(item)),
           `格局：${item.patternTags?.join('、') || '未列'}`,
           formatQimenPatternComboSummary(item),
@@ -586,7 +584,12 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
       ? buildPromptSection('补充信息', formatSupplementaryInfo(options.supplementaryInfo))
       : '',
     options.astrolabeScopeText ? buildPromptSection('分析对象', options.astrolabeScopeText) : '',
-    buildPromptSection('占卜资料', formatDivinationInfo(options.method, options.data)),
+    buildPromptSection(
+      '占卜资料',
+      formatDivinationInfo(options.method, options.data, question, options.supplementaryInfo, {
+        liuyaoTemplate,
+      }),
+    ),
     buildPromptSection('问题', question),
     templateText ? buildPromptSection('问题范围', templateText) : '',
     options.isCustomQuestion ? '' : buildPromptSection('任务', task),

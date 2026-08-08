@@ -81,6 +81,15 @@ test('奇门证据应明确候选不等于已按问题选定用神', () => {
   assert.match(evidence.promptText, /不得输出吉凶总分、成功率/);
 });
 
+test('Issue #204：结构化依据中的节令背景应采用正式定局三元', () => {
+  const data = generateQimen(new Date('2026-08-08T15:14:00+08:00'));
+  const evidence = analyzeQimenEvidence(data);
+
+  assert.equal(data.timeInfo.epoch, '中元');
+  assert.match(evidence.promptText, /定局立秋中元/);
+  assert.doesNotMatch(evidence.promptText, /立秋上元/);
+});
+
 test('奇门证据应保留空亡与宫间五行反证', () => {
   const data = generateQimen(fixedDate);
   const first = data.evidenceAnalysis?.candidates[0];
