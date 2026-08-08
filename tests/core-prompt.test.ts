@@ -149,6 +149,23 @@ test('npm 奇门提示词应统一定局三元并输出年命落宫', () => {
   assert.doesNotMatch(prompt, /立秋上元/);
   assert.match(prompt, /年命资料：公历1989年按年中口径取年命干支己巳，命干己/);
   assert.match(prompt, /年命落宫（年中口径）：命干己落.+宫/);
+  assert.doesNotMatch(prompt, /【补充信息】[\s\S]*出生年份/);
+});
+
+test('npm 通用占法提示词不混入未参与排盘的个人字段和梅花设置', () => {
+  const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
+  const prompt = buildDivinationPrompt({
+    method: 'xiaoliuren',
+    data,
+    question: '眼前事情如何推进？',
+    supplementaryInfo: {
+      gender: '女',
+      birthYear: 1990,
+      meihuaSettings: { method: 'number', number: 123 },
+    },
+  });
+
+  assert.doesNotMatch(prompt, /【补充信息】|性别：女|出生年份：1990|梅花起卦/);
 });
 
 test('npm 元学提示词入口应覆盖住宅类排盘', () => {
@@ -174,15 +191,17 @@ test('当前时间公共格式化入口应包含公历和干支历', () => {
 test('npm 提示词格式化适配器应覆盖时间、补充资料和通用分段', () => {
   const time = buildTimeInfoText({ timestamp: Date.parse('2026-08-06T12:30:00+08:00') } as never);
   assert.match(time, /节气：/);
+  const supplementaryText = formatSupplementaryInfoSection('meihua', {
+    gender: '女',
+    birthYear: 1990,
+    meihuaSettings: { method: 'number', number: 123 },
+    currentSituation: '正在考虑换工作',
+  });
   assert.match(
-    formatSupplementaryInfoSection('meihua', {
-      gender: '女',
-      birthYear: 1990,
-      meihuaSettings: { method: 'number', number: 123 },
-      currentSituation: '正在考虑换工作',
-    }),
+    supplementaryText,
     /起卦方式：数字起卦[\s\S]*起卦数字：123[\s\S]*当前情况：正在考虑换工作/,
   );
+  assert.doesNotMatch(supplementaryText, /性别|出生年份/);
   assert.equal(buildSection('标题', '内容'), '标题\n内容');
   assert.equal(buildSection('标题', '  '), '');
 });

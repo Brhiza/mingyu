@@ -533,19 +533,25 @@ const ASTROLABE_TOPIC_LABELS: Record<AstrolabePromptTopic, string> = {
   chat: '自由问答',
 };
 
-export function formatSupplementaryInfo(info?: SupplementaryInfo) {
+export function formatSupplementaryInfo(
+  info?: SupplementaryInfo,
+  method?: SupportedDivinationMethod,
+) {
   if (!info) return '';
+  const includeMeihuaSettings = !method || method === 'meihua';
   return [
-    info.gender ? `性别：${info.gender}` : '',
-    info.birthYear ? `出生年份：${info.birthYear}` : '',
     info.currentSituation ? `当前情境：${info.currentSituation}` : '',
     info.currentState ? `当前状态：${info.currentState}` : '',
     info.knownFacts ? `已知事实：${info.knownFacts}` : '',
     info.desiredOutcome ? `期望结果：${info.desiredOutcome}` : '',
     info.constraints ? `现实约束：${info.constraints}` : '',
     info.userSupplement ? `补充说明：${info.userSupplement}` : '',
-    info.meihuaSettings?.method ? `梅花起卦方式：${info.meihuaSettings.method}` : '',
-    info.meihuaSettings?.number !== undefined ? `梅花起卦数字：${info.meihuaSettings.number}` : '',
+    includeMeihuaSettings && info.meihuaSettings?.method
+      ? `梅花起卦方式：${info.meihuaSettings.method}`
+      : '',
+    includeMeihuaSettings && info.meihuaSettings?.number !== undefined
+      ? `梅花起卦数字：${info.meihuaSettings.number}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -577,12 +583,11 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
       : options.method === 'liuren'
         ? buildLiurenTemplateText(liurenTemplate, options.data as LiurenData)
         : '';
+  const supplementaryText = formatSupplementaryInfo(options.supplementaryInfo, options.method);
   const user = joinPromptSections([
     buildPromptGuidance(options.method),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
-    formatSupplementaryInfo(options.supplementaryInfo)
-      ? buildPromptSection('补充信息', formatSupplementaryInfo(options.supplementaryInfo))
-      : '',
+    supplementaryText ? buildPromptSection('补充信息', supplementaryText) : '',
     options.astrolabeScopeText ? buildPromptSection('分析对象', options.astrolabeScopeText) : '',
     buildPromptSection(
       '占卜资料',

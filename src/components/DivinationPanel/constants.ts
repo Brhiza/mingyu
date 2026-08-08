@@ -19,7 +19,6 @@ export const defaultDraft: DivinationDraft = {
   knownFacts: '',
   desiredOutcome: '',
   constraints: '',
-  gender: '',
   birthYear: '',
   divinationTimeMode: 'current',
   customDivinationDate: '',

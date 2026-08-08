@@ -497,7 +497,7 @@ const result = generateDivinationSession({
 | `formatDetailedDivinationInfo(method, data)`                   | 返回包含爻位、体用互变、九宫、四课三传、候选日等结构明细的占法资料                             |
 | `formatDivinationTime(data?)`                                  | 按占课结果时间戳格式化公历、农历、干支和节气                                                   |
 | `formatDivinationSolarTime(data?)`                             | 只格式化占课结果的公历时间                                                                     |
-| `formatSupplementaryInfo(info?)`                               | 格式化性别、出生年份、现实背景和梅花起卦设置                                                   |
+| `formatSupplementaryInfo(info?)`                               | 格式化现实背景和梅花起卦设置；奇门出生年份由年命资料格式器处理                                 |
 | `formatPromptCurrentTime(date?)`                               | 格式化公历、农历、干支历和当前节气                                                             |
 | `buildPromptGuidanceSections(method)`                          | 返回与前端一致的传统依据段落                                                                   |
 | `insertPromptSectionBeforeHeading(prompt, heading, section)`   | 在指定标题前稳定插入提示词分段                                                                 |

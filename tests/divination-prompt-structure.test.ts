@@ -904,7 +904,7 @@ test('占卜提示词不写入输出要求或行动建议', async () => {
   assert.match(session, /【任务】/);
 });
 
-test('非梅花占法不混入梅花专属的起卦方式和数字', () => {
+test('非对应占法不混入梅花设置或通用出生资料', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -913,9 +913,8 @@ test('非梅花占法不混入梅花专属的起卦方式和数字', () => {
   );
 
   assert.match(prompt, /【占卜信息】/);
-  assert.match(prompt, /【补充信息】/);
-  assert.match(prompt, /性别：男/);
-  assert.match(prompt, /出生年份：1995/);
+  assert.doesNotMatch(prompt, /【补充信息】/);
+  assert.doesNotMatch(prompt, /性别：男|出生年份：1995/);
   assert.doesNotMatch(prompt, /起卦方式：数字起卦|起卦数字：123/);
 });
 
@@ -932,8 +931,7 @@ test('大六壬提示词保留用户补充的现实信息', () => {
   });
 
   assert.match(prompt, /【补充信息】/);
-  assert.match(prompt, /性别：男/);
-  assert.match(prompt, /出生年份：1990/);
+  assert.doesNotMatch(prompt, /性别：男|出生年份：1990/);
   assert.match(prompt, /现实背景：正在考虑换工作，已经拿到一个新机会。/);
   assert.match(prompt, /当前情况：正在考虑换工作，已经拿到一个新机会。/);
   assert.match(prompt, /当前状态：时间紧、压力较大，但仍有一定选择空间。/);
@@ -1017,6 +1015,7 @@ test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落�
   assert.doesNotMatch(prompt, /立秋上元/);
   assert.match(prompt, /年命资料：公历1989年按年中口径取年命干支己巳，命干己/);
   assert.match(prompt, /立春前出生则取年命干支戊辰，命干戊/);
+  assert.doesNotMatch(prompt, /【补充信息】/);
   assert.match(
     prompt,
     /年命落宫（年中口径）：命干己落.+宫（.+；八门.+、九星.+、八神.+、天盘.+、地盘.+）/,

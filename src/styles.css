@@ -4471,12 +4471,8 @@ select {
   width: 100%;
 }
 
-.divination-meta-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.divination-meta-row.is-single {
-  grid-template-columns: minmax(0, 1fr);
+.divination-birth-year-field {
+  max-width: calc(50% - 9px);
 }
 
 .divination-desktop-inspiration-btn {
@@ -7796,6 +7792,10 @@ div.form-actions.page-submit-actions {
   .form-row-flex,
   .form-row-flex.has-third-item {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .divination-birth-year-field {
+    max-width: none;
   }
 
   .birth-date-row {
