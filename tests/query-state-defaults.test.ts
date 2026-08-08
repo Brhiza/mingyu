@@ -682,3 +682,31 @@ test('短参数链接可以完整恢复输入与提示词状态', () => {
   assert.equal(parsedPrompt.ziweiScope, 'yearly');
   assert.equal(parsedPrompt.ziweiScopeDate, '2028-06-01');
 });
+
+test('夏令时开关应序列化为短参数 dst/pdst 且可完整往返', () => {
+  // 本人开启：序列化含 dst=1，解析后还原为 true（验收：URL 带 &dst=1 还原）
+  const enabled = { ...defaultInputState, year: '1988', applyChinaDst: true };
+  const enabledSearch = buildResultSearch(enabled, defaultPromptState);
+  assert.ok(enabledSearch.includes('dst=1'), `应包含 dst=1，实际: ${enabledSearch}`);
+  assert.equal(parseInputState(new URLSearchParams(enabledSearch)).applyChinaDst, true);
+
+  // 本人默认关闭：序列化省略 dst 参数（验收：不勾选时 URL 无 dst 参数）
+  const disabled = { ...defaultInputState, year: '1988', applyChinaDst: false };
+  const disabledSearch = buildResultSearch(disabled, defaultPromptState);
+  assert.ok(!disabledSearch.includes('dst'), `不应含 dst，实际: ${disabledSearch}`);
+  assert.equal(parseInputState(new URLSearchParams(disabledSearch)).applyChinaDst, false);
+
+  // 合盘对象开启：序列化为 pdst=1 并往返
+  const partnerEnabled = {
+    ...defaultInputState,
+    analysisMode: 'compatibility' as const,
+    partnerYear: '1990',
+    partnerApplyChinaDst: true,
+  };
+  const partnerSearch = buildResultSearch(partnerEnabled, defaultPromptState);
+  assert.ok(partnerSearch.includes('pdst=1'), `应包含 pdst=1，实际: ${partnerSearch}`);
+  assert.equal(
+    parseInputState(new URLSearchParams(partnerSearch)).partnerApplyChinaDst,
+    true,
+  );
+});

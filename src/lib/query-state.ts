@@ -29,6 +29,7 @@ export type QueryInputState = {
   birthPlace: string;
   birthLongitude: string;
   birthLatitude: string;
+  applyChinaDst: boolean;
   partnerName: string;
   partnerGender: 'male' | 'female';
   partnerDateType: 'solar' | 'lunar';
@@ -43,6 +44,7 @@ export type QueryInputState = {
   partnerBirthPlace: string;
   partnerBirthLongitude: string;
   partnerBirthLatitude: string;
+  partnerApplyChinaDst: boolean;
 };
 
 export type QueryPromptState = {
@@ -143,6 +145,7 @@ export const defaultInputState: QueryInputState = {
   birthPlace: '',
   birthLongitude: '',
   birthLatitude: '',
+  applyChinaDst: false,
   partnerName: '',
   partnerGender: 'female',
   partnerDateType: 'solar',
@@ -157,6 +160,7 @@ export const defaultInputState: QueryInputState = {
   partnerBirthPlace: '',
   partnerBirthLongitude: '',
   partnerBirthLatitude: '',
+  partnerApplyChinaDst: false,
 };
 
 export const defaultPromptState: QueryPromptState = {
@@ -224,6 +228,7 @@ const INPUT_PARAM_KEYS: Record<keyof QueryInputState, string> = {
   birthPlace: 'bp',
   birthLongitude: 'lo',
   birthLatitude: 'la',
+  applyChinaDst: 'dst',
   partnerName: 'pn',
   partnerGender: 'pg',
   partnerDateType: 'pdt',
@@ -238,6 +243,7 @@ const INPUT_PARAM_KEYS: Record<keyof QueryInputState, string> = {
   partnerBirthPlace: 'pbp',
   partnerBirthLongitude: 'plo',
   partnerBirthLatitude: 'pla',
+  partnerApplyChinaDst: 'pdst',
 };
 
 const PROMPT_PARAM_KEYS: Record<keyof QueryPromptState, string> = {
@@ -310,6 +316,7 @@ function appendInputStateParams(params: URLSearchParams, input: QueryInputState)
   setCompactParam(params, 'birthPlace', input.birthPlace, defaultInputState.birthPlace);
   setCompactParam(params, 'birthLongitude', input.birthLongitude, defaultInputState.birthLongitude);
   setCompactParam(params, 'birthLatitude', input.birthLatitude, defaultInputState.birthLatitude);
+  setCompactParam(params, 'applyChinaDst', input.applyChinaDst, defaultInputState.applyChinaDst);
   setCompactParam(params, 'partnerName', input.partnerName, defaultInputState.partnerName);
   setCompactParam(params, 'partnerGender', input.partnerGender, defaultInputState.partnerGender);
   setCompactParam(
@@ -368,6 +375,12 @@ function appendInputStateParams(params: URLSearchParams, input: QueryInputState)
     'partnerBirthLatitude',
     input.partnerBirthLatitude,
     defaultInputState.partnerBirthLatitude,
+  );
+  setCompactParam(
+    params,
+    'partnerApplyChinaDst',
+    input.partnerApplyChinaDst,
+    defaultInputState.partnerApplyChinaDst,
   );
 }
 
@@ -765,6 +778,7 @@ export function parseInputState(params: URLSearchParams): QueryInputState {
     birthLatitude: parseLatitude(
       getString(params, 'birthLatitude', defaultInputState.birthLatitude),
     ),
+    applyChinaDst: getString(params, 'applyChinaDst', '0') === '1',
     partnerName: getString(params, 'partnerName', defaultInputState.partnerName),
     partnerGender:
       getString(params, 'partnerGender', defaultInputState.partnerGender) === 'male'
@@ -792,6 +806,7 @@ export function parseInputState(params: URLSearchParams): QueryInputState {
     partnerBirthLatitude: parseLatitude(
       getString(params, 'partnerBirthLatitude', defaultInputState.partnerBirthLatitude),
     ),
+    partnerApplyChinaDst: getString(params, 'partnerApplyChinaDst', '0') === '1',
   };
 }
 

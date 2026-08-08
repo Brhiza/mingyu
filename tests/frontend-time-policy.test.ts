@@ -9,11 +9,18 @@ import {
   FRONTEND_DEFAULT_TIME_ZONE_ID,
 } from '../src/lib/time-policy';
 
-test('网页端应固定关闭旧夏令时开关，只在真太阳时模式注入统一历史时区', () => {
+test('网页端夏令时开关在非真太阳时模式透传、真太阳时模式恒关闭', () => {
+  // 非真太阳时模式：UI 显式开启时透传 true（方案A 前端小开关）
   assert.deepEqual(
     applyFrontendBirthTimeDefaults({ useTrueSolarTime: false, applyChinaDst: true }),
+    { useTrueSolarTime: false, applyChinaDst: true },
+  );
+  // 非真太阳时模式：默认（未开启）保持 false，不含 timeZoneId 注入
+  assert.deepEqual(
+    applyFrontendBirthTimeDefaults({ useTrueSolarTime: false }),
     { useTrueSolarTime: false, applyChinaDst: false },
   );
+  // 真太阳时模式：与 timeZoneId 互斥，无论入参如何恒为 false
   assert.deepEqual(
     applyFrontendBirthTimeDefaults({ useTrueSolarTime: true, applyChinaDst: true }),
     {

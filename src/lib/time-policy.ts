@@ -9,14 +9,16 @@ interface FrontendBirthTimeOptions {
 }
 
 /**
- * 网页端只采用一套默认时间策略：精准出生时间按中国历史时区自动解析；
- * 旧的中国夏令时开关只保留给 API 和核心包兼容调用，网页端始终关闭。
+ * 网页端时间策略：
+ * - 普通时辰 / 真太阳时模式统一按 IANA `Asia/Shanghai` 解析，该时区已自动覆盖 1986–1991 中国夏令时。
+ * - `applyChinaDst` 仅在「网页端显式开启」时透传（UI 小开关，限定 1986–1991 出生时辰模式），
+ *   其余情况默认 false；真太阳时分支因与 timeZoneId 互斥（见 true-solar-time.ts 互斥守卫），恒为 false。
  */
 export function applyFrontendBirthTimeDefaults<T extends FrontendBirthTimeOptions>(input: T): T {
   if (input.useTrueSolarTime !== true) {
     return {
       ...input,
-      applyChinaDst: false,
+      applyChinaDst: input.applyChinaDst === true,
     };
   }
   return {

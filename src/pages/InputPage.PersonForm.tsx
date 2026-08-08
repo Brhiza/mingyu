@@ -74,6 +74,8 @@ export const PersonForm = memo(function PersonForm({
     historyHintOverride ||
     (role === 'self' ? '录入姓名后会自动保存。' : '合盘模式下会自动生成合盘历史。');
   const trueSolarTimeLabel = getTrueSolarTimeLabel(form, role);
+  const birthYear = Number(getPersonValue(form, role, 'year'));
+  const showChinaDstToggle = !useTrueSolarTime && birthYear >= 1986 && birthYear <= 1991;
 
   return (
     <section className={`person-section ${role === 'partner' ? 'second-person' : ''}`}>
@@ -259,6 +261,24 @@ export const PersonForm = memo(function PersonForm({
               <div className="birth-time-hint">
                 普通排盘可直接按明确时辰生成完整时柱，无需精确到分钟。
               </div>
+              {showChinaDstToggle ? (
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    className="checkbox-input"
+                    checked={Boolean(getPersonValue(form, role, 'applyChinaDst'))}
+                    onChange={(event) =>
+                      updatePersonField(role, 'applyChinaDst', event.target.checked)
+                    }
+                  />
+                  出生在 1986–1991 年中国夏令时期间，按夏令时修正出生时辰
+                </label>
+              ) : null}
+              {showChinaDstToggle ? (
+                <div className="birth-time-hint">
+                  该年份中国实行夏令时，若出生在夏令时切换时段，勾选后可按官方时钟修正时辰。
+                </div>
+              ) : null}
             </div>
           </div>
         )}

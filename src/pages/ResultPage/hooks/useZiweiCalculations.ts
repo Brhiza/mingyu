@@ -96,6 +96,7 @@ export function useZiweiCalculations(
         birthHour: inputState.partnerBirthHour,
         birthMinute: inputState.partnerBirthMinute,
         birthLongitude: inputState.partnerBirthLongitude,
+        applyChinaDst: inputState.partnerApplyChinaDst,
       });
     } catch {
       return null;

@@ -36,6 +36,7 @@ export function useBaziCalculations(inputState: QueryInputState): BaziCalculatio
         dateType: inputState.partnerDateType,
         isLeapMonth: inputState.partnerIsLeapMonth,
         useTrueSolarTime: inputState.partnerUseTrueSolarTime,
+        applyChinaDst: inputState.partnerApplyChinaDst,
         birthHour: inputState.partnerBirthHour,
         birthMinute: inputState.partnerBirthMinute,
         birthPlace: inputState.partnerBirthPlace,
