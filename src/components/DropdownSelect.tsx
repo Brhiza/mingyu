@@ -22,6 +22,7 @@ type DropdownSelectProps<T extends string> = {
   onChange: (value: T) => void;
   ariaLabel?: string;
   disabled?: boolean;
+  variant?: 'compact' | 'field';
 };
 
 function findEnabledOption<T extends string>(
@@ -46,6 +47,7 @@ export function DropdownSelect<T extends string>({
   onChange,
   ariaLabel,
   disabled = false,
+  variant = 'compact',
 }: DropdownSelectProps<T>) {
   const generatedId = useId();
   const triggerId = id ?? `dropdown-select-${generatedId}`;
@@ -141,6 +143,14 @@ export function DropdownSelect<T extends string>({
     if (isOpen) setActiveIndex(selectedIndex);
   }, [isOpen, selectedIndex]);
 
+  useEffect(() => {
+    if (!isOpen || activeIndex < 0) return;
+
+    menuRef.current
+      ?.querySelectorAll<HTMLElement>('[role="option"]')
+      [activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, isOpen]);
+
   function moveActiveIndex(direction: 1 | -1) {
     const nextIndex = findEnabledOption(options, activeIndex + direction, direction);
     if (nextIndex >= 0) setActiveIndex(nextIndex);
@@ -185,7 +195,7 @@ export function DropdownSelect<T extends string>({
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-activedescendant={isOpen ? `${menuId}-option-${activeIndex}` : undefined}
-        className="dropdown-select-trigger"
+        className={`dropdown-select-trigger ${variant === 'field' ? 'form-input dropdown-select-field' : ''}`}
         disabled={disabled}
         onClick={() => (isOpen ? closeMenu() : openMenu())}
         onKeyDown={handleKeyDown}

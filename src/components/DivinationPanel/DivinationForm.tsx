@@ -48,6 +48,34 @@ const MANUAL_METHOD_OPTIONS = [
   { value: 'interactive', label: '手动抽取' },
 ] as const;
 
+const OPTIONAL_GENDER_OPTIONS = [
+  { value: '', label: '不填' },
+  { value: '男', label: '男' },
+  { value: '女', label: '女' },
+] as const;
+
+const CALENDAR_TYPE_OPTIONS = [
+  { value: 'solar', label: '公历' },
+  { value: 'lunar', label: '农历' },
+] as const;
+
+const BIRTH_TIME_OPTIONS = [
+  { value: '', label: '请选择' },
+  { value: '0', label: '早子时' },
+  { value: '1', label: '丑时' },
+  { value: '2', label: '寅时' },
+  { value: '3', label: '卯时' },
+  { value: '4', label: '辰时' },
+  { value: '5', label: '巳时' },
+  { value: '6', label: '午时' },
+  { value: '7', label: '未时' },
+  { value: '8', label: '申时' },
+  { value: '9', label: '酉时' },
+  { value: '10', label: '戌时' },
+  { value: '11', label: '亥时' },
+  { value: '12', label: '晚子时' },
+] as const;
+
 function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   if (draft.method === 'liuyao' || draft.method === 'qimen' || draft.method === 'liuren') {
     return true;
@@ -1067,18 +1095,15 @@ export function DivinationForm({
                       </div>
                       <div className="form-item">
                         <label htmlFor={`${participant.id}-gender-select`}>性别</label>
-                        <select
+                        <DropdownSelect
                           id={`${participant.id}-gender-select`}
-                          className="form-input"
                           value={participant.gender}
-                          onChange={(event) =>
-                            updateAlmanacParticipant(participant.id, 'gender', event.target.value)
+                          options={OPTIONAL_GENDER_OPTIONS}
+                          variant="field"
+                          onChange={(value) =>
+                            updateAlmanacParticipant(participant.id, 'gender', value)
                           }
-                        >
-                          <option value="">不填</option>
-                          <option value="男">男</option>
-                          <option value="女">女</option>
-                        </select>
+                        />
                       </div>
                     </div>
                     <div className="form-row-flex has-third-item">
@@ -1106,47 +1131,27 @@ export function DivinationForm({
                     <div className="form-row-flex">
                       <div className="form-item">
                         <label htmlFor={`${participant.id}-calendar-select`}>日历</label>
-                        <select
+                        <DropdownSelect
                           id={`${participant.id}-calendar-select`}
-                          className="form-input"
                           value={participant.dateType}
-                          onChange={(event) =>
-                            updateAlmanacParticipant(participant.id, 'dateType', event.target.value)
+                          options={CALENDAR_TYPE_OPTIONS}
+                          variant="field"
+                          onChange={(value) =>
+                            updateAlmanacParticipant(participant.id, 'dateType', value)
                           }
-                        >
-                          <option value="solar">公历</option>
-                          <option value="lunar">农历</option>
-                        </select>
+                        />
                       </div>
                       <div className="form-item">
                         <label htmlFor={`${participant.id}-time-select`}>时辰</label>
-                        <select
+                        <DropdownSelect
                           id={`${participant.id}-time-select`}
-                          className="form-input"
                           value={participant.timeIndex}
-                          onChange={(event) =>
-                            updateAlmanacParticipant(
-                              participant.id,
-                              'timeIndex',
-                              event.target.value,
-                            )
+                          options={BIRTH_TIME_OPTIONS}
+                          variant="field"
+                          onChange={(value) =>
+                            updateAlmanacParticipant(participant.id, 'timeIndex', value)
                           }
-                        >
-                          <option value="">请选择</option>
-                          <option value="0">早子时</option>
-                          <option value="1">丑时</option>
-                          <option value="2">寅时</option>
-                          <option value="3">卯时</option>
-                          <option value="4">辰时</option>
-                          <option value="5">巳时</option>
-                          <option value="6">午时</option>
-                          <option value="7">未时</option>
-                          <option value="8">申时</option>
-                          <option value="9">酉时</option>
-                          <option value="10">戌时</option>
-                          <option value="11">亥时</option>
-                          <option value="12">晚子时</option>
-                        </select>
+                        />
                       </div>
                     </div>
                   </div>
@@ -1169,21 +1174,15 @@ export function DivinationForm({
                 </div>
                 <div className="form-item">
                   <label htmlFor="astrolabe-gender-select">性别</label>
-                  <select
+                  <DropdownSelect
                     id="astrolabe-gender-select"
-                    className="form-input"
                     value={draft.astrolabeGender}
-                    onChange={(event) =>
-                      updateDraft(
-                        'astrolabeGender',
-                        event.target.value as DivinationDraft['astrolabeGender'],
-                      )
+                    options={OPTIONAL_GENDER_OPTIONS}
+                    variant="field"
+                    onChange={(value) =>
+                      updateDraft('astrolabeGender', value as DivinationDraft['astrolabeGender'])
                     }
-                  >
-                    <option value="">不填</option>
-                    <option value="男">男</option>
-                    <option value="女">女</option>
-                  </select>
+                  />
                 </div>
               </div>
               <div className="form-row-flex has-third-item">

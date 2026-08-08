@@ -4474,6 +4474,19 @@ select {
   border-radius: 7px;
 }
 
+.dropdown-select-trigger.dropdown-select-field {
+  justify-content: flex-start;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6.5 8 10l4-3.5' stroke='%2365566f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+
+.dropdown-select-field[aria-expanded='true'] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 9.5 4-3.5 4 3.5' stroke='%2365566f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
 .divination-select-shell:has(.dropdown-select-trigger[aria-expanded='true'])::after,
 .divination-mobile-method-picker:has(.dropdown-select-trigger[aria-expanded='true'])::after,
 .divination-mobile-secondary-picker:has(.dropdown-select-trigger[aria-expanded='true'])::after {

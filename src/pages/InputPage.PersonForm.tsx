@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { DropdownSelect } from '@/components/DropdownSelect';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getPersonSectionTitle } from '@/lib/input-labels';
@@ -7,6 +8,14 @@ import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { isValidHourMinute } from '@/lib/input-validation';
 import { getPersonValue, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from './InputPage.field-helpers';
+
+const BIRTH_TIME_DROPDOWN_OPTIONS = [
+  { value: '', label: '请选择时辰' },
+  ...BIRTH_TIME_OPTIONS.map((time, index) => ({
+    value: String(index),
+    label: `${time.label}（${time.range}）`,
+  })),
+];
 
 function getTrueSolarTimeLabel(form: QueryInputState, role: PersonRole) {
   const rawHour = getPersonValue(form, role, 'birthHour');
@@ -233,29 +242,15 @@ export const PersonForm = memo(function PersonForm({
           <div className="form-row">
             <div className="form-item">
               <label htmlFor={`${role}-time-index-input`}>时辰</label>
-              <select
+              <DropdownSelect
                 id={`${role}-time-index-input`}
-                value={
-                  getPersonValue(form, role, 'timeIndex') === ''
-                    ? ''
-                    : Number(getPersonValue(form, role, 'timeIndex'))
+                value={String(getPersonValue(form, role, 'timeIndex'))}
+                options={BIRTH_TIME_DROPDOWN_OPTIONS}
+                variant="field"
+                onChange={(value) =>
+                  updatePersonField(role, 'timeIndex', value === '' ? '' : Number(value))
                 }
-                className="form-input"
-                onChange={(event) =>
-                  updatePersonField(
-                    role,
-                    'timeIndex',
-                    event.target.value === '' ? '' : Number(event.target.value),
-                  )
-                }
-              >
-                <option value="">请选择时辰</option>
-                {BIRTH_TIME_OPTIONS.map((time, index) => (
-                  <option key={time.label} value={index}>
-                    {time.label}（{time.range}）
-                  </option>
-                ))}
-              </select>
+              />
               <div className="birth-time-hint">
                 普通排盘可直接按明确时辰生成完整时柱，无需精确到分钟。
               </div>
