@@ -4462,6 +4462,7 @@ select {
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .divination-mobile-method-picker > .dropdown-select-trigger {
@@ -4530,6 +4531,7 @@ select {
   line-height: 1.35;
   text-align: left;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .dropdown-select-option:hover,
@@ -7612,7 +7614,7 @@ div.form-actions.page-submit-actions {
   }
 
   .tutorial-entry-button {
-    min-height: 0;
+    min-height: 44px;
     min-width: auto;
     padding: 0;
     font-size: 12px;
@@ -7679,10 +7681,15 @@ div.form-actions.page-submit-actions {
   }
 
   .top-ai-settings-icon-button {
-    width: 36px;
-    height: 36px;
-    flex-basis: 36px;
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
     font-size: 17px;
+  }
+
+  .top-switch-control .segmented-control-react,
+  .top-switch-control .segmented-control-item-react {
+    min-height: 44px;
   }
 
   .input-page-shell.has-floating-tutorial-entry {
@@ -7857,7 +7864,7 @@ div.form-actions.page-submit-actions {
     width: auto;
     min-width: max-content;
     padding: 7px 12px;
-    min-height: 36px;
+    min-height: 44px;
     flex: 0 0 auto;
     margin-left: auto;
     white-space: nowrap;
@@ -7866,7 +7873,7 @@ div.form-actions.page-submit-actions {
   .divination-mobile-method-picker {
     flex: 1 1 140px;
     min-width: 0;
-    min-height: 36px;
+    min-height: 44px;
     overflow: hidden;
     border-radius: 8px;
   }
@@ -7874,7 +7881,7 @@ div.form-actions.page-submit-actions {
   .divination-mobile-secondary-picker {
     flex: 0 1 auto;
     max-width: 100%;
-    min-height: 36px;
+    min-height: 44px;
     overflow: hidden;
     border-radius: 8px;
   }
@@ -7899,6 +7906,11 @@ div.form-actions.page-submit-actions {
   }
 
   .divination-prompt-actions .copy-button {
+    min-height: 44px;
+  }
+
+  .dropdown-select-trigger.dropdown-select-field,
+  .dropdown-select-option {
     min-height: 44px;
   }
 
@@ -7963,9 +7975,14 @@ div.form-actions.page-submit-actions {
   }
 
   .form-input {
-    min-height: 42px;
+    min-height: 44px;
     padding: 9px 11px;
     font-size: 16px;
+  }
+
+  .divination-extra-head .quick-chip,
+  .almanac-participant-head .history-action-btn {
+    min-height: 44px;
   }
 
   .segmented-control-react {

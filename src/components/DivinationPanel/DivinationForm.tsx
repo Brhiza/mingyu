@@ -1059,7 +1059,7 @@ export function DivinationForm({
               </div>
 
               <div className="divination-extra-head">
-                <strong>参与人出生信息</strong>
+                <strong>参与人出生信息（可选）</strong>
                 <button type="button" className="quick-chip" onClick={addAlmanacParticipant}>
                   添加参与人
                 </button>
@@ -1070,15 +1070,13 @@ export function DivinationForm({
                   <div className="almanac-participant-card" key={participant.id}>
                     <div className="almanac-participant-head">
                       <strong>参与人 {index + 1}</strong>
-                      {draft.almanacParticipants.length > 1 ? (
-                        <button
-                          type="button"
-                          className="history-action-btn"
-                          onClick={() => removeAlmanacParticipant(participant.id)}
-                        >
-                          删除
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        className="history-action-btn"
+                        onClick={() => removeAlmanacParticipant(participant.id)}
+                      >
+                        删除
+                      </button>
                     </div>
                     <div className="form-row-flex">
                       <div className="form-item">

@@ -90,6 +90,18 @@ test('Issue #204：结构化依据中的节令背景应采用正式定局三元'
   assert.doesNotMatch(evidence.promptText, /立秋上元/);
 });
 
+test('Issue #204 同类：候选宫支持与制约应按格局类型归类', () => {
+  const evidence = analyzeQimenEvidence(generateQimen(new Date('2026-08-08T15:14:00+08:00')));
+  const palace = evidence.candidates.find((item) => item.gong === 1);
+
+  assert.ok(palace);
+  assert.ok(palace.support.some((item) => item.includes('值符开通闭塞')));
+  assert.ok(palace.constraints.some((item) => item.includes('青龙网罗')));
+  assert.ok(palace.constraints.some((item) => item.includes('蛇入狱刑')));
+  assert.ok(palace.support.every((item) => !/青龙网罗|蛇入狱刑/.test(item)));
+  assert.ok(palace.constraints.every((item) => !/逢开利以有为|天乙击冲/.test(item)));
+});
+
 test('奇门证据应保留空亡与宫间五行反证', () => {
   const data = generateQimen(fixedDate);
   const first = data.evidenceAnalysis?.candidates[0];
