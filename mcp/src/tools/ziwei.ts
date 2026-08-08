@@ -61,6 +61,10 @@ export const ziweiSchema = z.object({
     .enum(['default', 'zhongzhou'])
     .optional()
     .describe('底层安星口径：default=传统通行安星法，zhongzhou=中州派安星法；不等同于解读流派'),
+  dayDivide: z
+    .enum(['forward', 'current'])
+    .optional()
+    .describe('日柱分界口径：forward=默认，晚子时(23:00-24:00)日柱取次日；current=晚子时日柱归当日（日柱与时柱同步回退）'),
 });
 
 const ziweiPromptSchema = ziweiSchema.extend({
@@ -138,6 +142,7 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
     timeZoneId: args.timeZoneId,
     applyChinaDst: args.applyChinaDst,
     algorithm: args.algorithm ?? 'default',
+    dayDivide: args.dayDivide,
   });
 }
 

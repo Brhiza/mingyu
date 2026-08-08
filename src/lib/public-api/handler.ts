@@ -2620,9 +2620,13 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
   });
 }
 
-async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['origin']) {
+export async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['origin']) {
   const birthDate = readBirthDate(input, { asString: true });
   const { dateType } = birthDate;
+  const dayDivide =
+    input.dayDivide === undefined
+      ? 'forward'
+      : readEnum(input, 'dayDivide', ['forward', 'current'] as const);
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
   const timeInput = useTrueSolarTime
     ? {
@@ -2642,6 +2646,7 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
       name: readString(input, 'name', ''),
       gender: readEnum(input, 'gender', ['male', 'female']),
       dateType,
+      dayDivide,
       year: String(birthDate.year),
       month: String(birthDate.month),
       day: String(birthDate.day),

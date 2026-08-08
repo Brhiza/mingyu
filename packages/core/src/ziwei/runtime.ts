@@ -202,6 +202,8 @@ export interface ZiweiChartInputDraft {
   timeZoneId?: string;
   applyChinaDst?: boolean;
   algorithm?: 'default' | 'zhongzhou';
+  /** 日柱分界口径：forward=晚子时日柱取次日（默认），current=晚子时日柱归当日。由 buildZiweiChartInput 透传到 iztro late_zi_rule。 */
+  dayDivide?: 'forward' | 'current';
 }
 
 function readInteger(value: ZiweiInputText, label: string): number {
@@ -278,6 +280,6 @@ export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
     yearDivide: 'normal',
     horoscopeDivide: 'normal',
     ageDivide: 'normal',
-    dayDivide: 'forward',
+    dayDivide: input.dayDivide ?? 'forward',
   };
 }
