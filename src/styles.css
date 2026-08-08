@@ -4417,9 +4417,12 @@ select {
 .divination-mobile-secondary-picker {
   position: relative;
   display: inline-flex;
+  min-height: 32px;
   align-items: center;
   width: max-content;
   max-width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
 }
 
 .divination-desktop-select-shell {
@@ -4442,33 +4445,161 @@ select {
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6.5 8 10l4-3.5' stroke='%2365566f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
-.divination-trigger-text,
-.divination-mobile-trigger-text {
-  display: inline-block;
+.dropdown-select-trigger {
+  display: flex;
+  min-width: 0;
+  min-height: inherit;
   max-width: 100%;
+  align-items: center;
   padding-right: 20px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
   color: var(--text-secondary);
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.divination-overlay-select,
-.divination-mobile-method-select {
-  position: absolute;
-  inset: 0;
-  min-height: 100%;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  appearance: none;
-  -webkit-appearance: none;
-  opacity: 0;
-  cursor: pointer;
+.divination-mobile-method-picker > .dropdown-select-trigger {
   width: 100%;
+}
+
+.dropdown-select-trigger:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: -2px;
+  border-radius: 7px;
+}
+
+.divination-select-shell:has(.dropdown-select-trigger[aria-expanded='true'])::after,
+.divination-mobile-method-picker:has(.dropdown-select-trigger[aria-expanded='true'])::after,
+.divination-mobile-secondary-picker:has(.dropdown-select-trigger[aria-expanded='true'])::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.dropdown-select-menu {
+  position: fixed;
+  z-index: 1200;
+  display: grid;
+  gap: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-md);
+  overscroll-behavior: contain;
+  animation: dropdown-select-menu-in 0.12s ease-out;
+}
+
+.dropdown-select-menu.is-above {
+  transform: translateY(-100%);
+}
+
+.dropdown-select-option {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdown-select-option:hover,
+.dropdown-select-option.is-active {
+  background: var(--accent-soft);
+  color: var(--text-strong);
+}
+
+.dropdown-select-option[aria-selected='true'] {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.dropdown-select-option:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: -2px;
+}
+
+.dropdown-select-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@keyframes dropdown-select-menu-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.divination-context-fields {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+}
+
+.divination-context-fields > summary {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  outline: none;
+}
+
+.divination-context-fields > summary:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent-strong);
+}
+
+.divination-context-fields > summary::-webkit-details-marker {
+  display: none;
+}
+
+.divination-context-fields > summary::before {
+  content: '▶';
+  flex: 0 0 auto;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.divination-context-fields[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.divination-context-fields > .form-row {
+  padding: 12px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface-panel);
 }
 
 .divination-birth-year-field {
@@ -7722,11 +7853,17 @@ div.form-actions.page-submit-actions {
   .divination-mobile-method-picker {
     flex: 1 1 140px;
     min-width: 0;
+    min-height: 36px;
+    overflow: hidden;
+    border-radius: 8px;
   }
 
   .divination-mobile-secondary-picker {
     flex: 0 1 auto;
     max-width: 100%;
+    min-height: 36px;
+    overflow: hidden;
+    border-radius: 8px;
   }
 
   .divination-mobile-control-row {
