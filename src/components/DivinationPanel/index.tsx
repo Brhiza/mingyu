@@ -18,6 +18,7 @@ import {
 } from '@/lib/divination/inspiration';
 import { addDivinationHistory, getDivinationHistoryById } from '@/lib/history-records';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
+import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import {
@@ -173,6 +174,10 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     viewportHeight: viewportSize.height,
     hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
   });
+  const isPhoneLayout = shouldUsePhoneLayout({
+    viewportWidth: viewportSize.width,
+    viewportHeight: viewportSize.height,
+  });
 
   useEffect(() => {
     if (!lockedMethod || draft.method === lockedMethod) {
@@ -240,18 +245,6 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
 
   return (
     <div className="divination-panel-shell">
-      <DivinationResult
-        isSubmitting={isSubmitting}
-        session={session}
-        summary={summary}
-        methodLabelMap={methodLabelMap}
-        copyState={copyState}
-        shareState={shareState}
-        showShareButton={showShareButton}
-        onCopy={handleCopy}
-        onShare={handleShare}
-      />
-
       <DivinationForm
         draft={draft}
         updateDraft={updateDraft}
@@ -262,6 +255,19 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
         onOpenInspiration={openQuestionInspirationModal}
         onNavigateToHistory={() => navigate('/records?tab=divination')}
         questionInputRef={questionInputRef}
+      />
+
+      <DivinationResult
+        isSubmitting={isSubmitting}
+        session={session}
+        summary={summary}
+        methodLabelMap={methodLabelMap}
+        copyState={copyState}
+        shareState={shareState}
+        showShareButton={showShareButton}
+        isPhoneLayout={isPhoneLayout}
+        onCopy={handleCopy}
+        onShare={handleShare}
       />
 
       {isQuestionInspirationModalOpen ? (
