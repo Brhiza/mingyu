@@ -515,6 +515,11 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     body.data.components.schemas.BaziRequest.properties.shenShaVariants.$ref,
     '#/components/schemas/ShenShaVariants',
   );
+  assert.deepEqual(body.data.components.schemas.BaziRequest.properties.shenShaScope.enum, [
+    'common',
+    'all',
+  ]);
+  assert.equal(body.data.components.schemas.BaziRequest.properties.shenShaScope.default, 'common');
   assert.match(body.data.components.schemas.ShenShaVariants.description, /默认主流口径/);
   assert.deepEqual(body.data.components.schemas.ShenShaVariants.properties.kongWangBasis.enum, [
     'day',
@@ -1032,6 +1037,56 @@ test('公开 API 八字神煞默认使用主流口径', async () => {
   assert.deepEqual(body.data.kongWang.day, ['戌', '亥']);
   assert.ok(!body.data.shensha.month.includes('空亡'));
   assert.ok(!body.data.shensha.hour.includes('空亡'));
+});
+
+test('公开 API 八字神煞默认精简，显式 all 返回全部', async () => {
+  const input = {
+    gender: 'male',
+    year: 1988,
+    month: 7,
+    day: 15,
+    timeIndex: 6,
+    dateType: 'solar',
+  };
+  const common = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const all = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, shenShaScope: 'all' }),
+  });
+  const commonNames = Object.values(common.body.data.shensha).flat() as string[];
+  const allNames = Object.values(all.body.data.shensha).flat() as string[];
+
+  assert.equal(common.response.status, 200);
+  assert.equal(all.response.status, 200);
+  assert.ok(!commonNames.includes('马财库'));
+  assert.ok(allNames.includes('马财库'));
+  assert.ok(allNames.length > commonNames.length);
+});
+
+test('公开 API 八字 shenShaScope 非法值应返回参数错误', async () => {
+  const { response, body } = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 1988,
+      month: 7,
+      day: 15,
+      timeIndex: 6,
+      dateType: 'solar',
+      shenShaScope: 'extended',
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.equal(body.error.code, 'BAD_REQUEST');
+  assert.match(body.error.message, /shenShaScope 必须是以下值之一/);
 });
 
 test('公开 API 八字可通过 shenShaVariants 请求兼容争议口径', async () => {

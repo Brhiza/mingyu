@@ -48,6 +48,10 @@ export const baziSchema = z.object({
   timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
   timeZoneId: z.string().min(1).optional().describe('IANA 历史时区，如 America/New_York'),
   applyChinaDst: z.boolean().optional().describe('是否应用中国 1986-1991 历史夏令时校正'),
+  shenShaScope: z
+    .enum(['common', 'all'])
+    .optional()
+    .describe('神煞输出范围：common=默认55个常用神煞，all=全部已计算神煞'),
 });
 
 const baziCompatibilityTypes = [
@@ -157,6 +161,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
       timezone: args.timezone,
       timeZoneId: args.timeZoneId,
       applyChinaDst: args.applyChinaDst,
+      shenShaScope: args.shenShaScope,
     };
   }
 
@@ -175,6 +180,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     isLunar: args.dateType === 'lunar',
     isLeapMonth: args.isLeapMonth ?? false,
     useTrueSolarTime,
+    shenShaScope: args.shenShaScope,
   };
 }
 

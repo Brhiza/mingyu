@@ -9,6 +9,7 @@ import { buildDisasterRules } from './helpers/disasterRules';
 import { analyzeGlobalShenSha, calculateGlobalShenSha } from './helpers/globalRules';
 import { analyzeShenShaWithTenGod } from './helpers/tenGodAnalysis';
 import type { BaziArray, PillarKey, RuleContext } from './helpers/types';
+import { filterCommonBaziShenSha, type ShenShaScope } from './scope';
 import {
   resolveShenShaVariantConfig,
   type ShenShaCalculatorOptions,
@@ -16,6 +17,7 @@ import {
 } from './variants';
 
 export { DEFAULT_SHENSHA_VARIANT_CONFIG, resolveShenShaVariantConfig } from './variants';
+export { COMMON_BAZI_SHENSHA_NAMES, filterCommonBaziShenSha } from './scope';
 export type {
   ShenShaCalculatorOptions,
   ShenShaKongWangBasis,
@@ -23,16 +25,19 @@ export type {
   ShenShaVariantConfig,
   ShenShaYangRenMode,
 } from './variants';
+export type { ShenShaScope } from './scope';
 
 export class ShenShaCalculator {
   private ctg: readonly string[];
   private cdz: readonly string[];
   private variants: ShenShaVariantConfig;
+  private scope: ShenShaScope;
 
   constructor(options: ShenShaCalculatorOptions = {}) {
     this.ctg = BASIC_MAPPINGS.HEAVENLY_STEMS;
     this.cdz = BASIC_MAPPINGS.EARTHLY_BRANCHES;
     this.variants = resolveShenShaVariantConfig(options.variants);
+    this.scope = options.scope ?? 'common';
   }
 
   private zhiIdx(zhi: string): number {
@@ -62,7 +67,17 @@ export class ShenShaCalculator {
       result.global = globalShenSha;
     }
 
-    return result;
+    if (this.scope === 'all') return result;
+
+    const commonResult: ShenShaResult = {
+      year: filterCommonBaziShenSha(result.year),
+      month: filterCommonBaziShenSha(result.month),
+      day: filterCommonBaziShenSha(result.day),
+      hour: filterCommonBaziShenSha(result.hour),
+    };
+    const global = filterCommonBaziShenSha(result.global ?? []);
+    if (global.length > 0) commonResult.global = global;
+    return commonResult;
   }
 
   private assertBaziArray(baziArray: BaziArray): void {

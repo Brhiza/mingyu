@@ -2626,6 +2626,38 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
   });
 });
 
+test('MCP 八字神煞默认精简，显式 all 返回全部', async () => {
+  await withMcpClient(async (client) => {
+    const input = {
+      gender: 'male' as const,
+      year: 1988,
+      month: 7,
+      day: 15,
+      timeIndex: 6,
+      dateType: 'solar' as const,
+    };
+    const common = await client.callTool({ name: 'bazi_calculate', arguments: input });
+    const all = await client.callTool({
+      name: 'bazi_calculate',
+      arguments: { ...input, shenShaScope: 'all' },
+    });
+    const commonChart = common.structuredContent?.result as {
+      shensha: Record<string, string[]>;
+    };
+    const allChart = all.structuredContent?.result as {
+      shensha: Record<string, string[]>;
+    };
+    const commonNames = Object.values(commonChart.shensha).flat();
+    const allNames = Object.values(allChart.shensha).flat();
+
+    assert.equal(common.isError, undefined);
+    assert.equal(all.isError, undefined);
+    assert.ok(!commonNames.includes('马财库'));
+    assert.ok(allNames.includes('马财库'));
+    assert.ok(allNames.length > commonNames.length);
+  });
+});
+
 test('MCP 紫微真太阳时参数缺失或越界时应返回明确错误', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[string, Record<string, unknown>, RegExp]> = [

@@ -542,9 +542,10 @@ export class BaziCalculator {
       pillars,
       monthCommander,
     );
-    const shenShaCalculator = person.shenShaVariants
-      ? new ShenShaCalculator({ variants: person.shenShaVariants })
-      : this.shenShaCalculator;
+    const shenShaCalculator =
+      person.shenShaVariants || person.shenShaScope
+        ? new ShenShaCalculator({ variants: person.shenShaVariants, scope: person.shenShaScope })
+        : this.shenShaCalculator;
 
     const tenGods = calculateTenGods(pillars, dayMasterGan);
     const shensha = shenShaCalculator.calculateAllShenSha(baziArray, gender);

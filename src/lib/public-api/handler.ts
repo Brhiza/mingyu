@@ -2,6 +2,7 @@ import {
   analyzeBaziCompatibility,
   type BaziChartResult,
   type Person,
+  type ShenShaScope,
   type ShenShaVariantConfig,
 } from 'mingyu-core/bazi';
 import { baziCalculator } from '@core/bazi/baziCalculator';
@@ -149,6 +150,7 @@ type AlmanacApiResult = Omit<AlmanacData, 'days'> & {
 const SHENSHA_KONG_WANG_BASIS = ['day', 'day-and-year'] as const;
 const SHENSHA_YANG_REN_MODE = ['yang-stems-only', 'include-yin-ren'] as const;
 const SHENSHA_TONG_ZI_SCOPE = ['day-hour', 'all-pillars'] as const;
+const SHENSHA_SCOPES = ['common', 'all'] as const;
 const MAX_PUBLIC_API_TEXT_FIELD_LENGTH = 5000;
 const MAX_PUBLIC_API_RESPONSE_BYTES = 1024 * 1024;
 const MAX_ALMANAC_PARTICIPANTS = 30;
@@ -1149,6 +1151,11 @@ export function getPublicApiOpenApiDocument(
             timezone: { type: 'number', minimum: -12, maximum: 14 },
             timeZoneId: { type: 'string', example: 'America/New_York' },
             applyChinaDst: { type: 'boolean' },
+            shenShaScope: {
+              enum: [...SHENSHA_SCOPES],
+              default: 'common',
+              description: '神煞输出范围：common=默认仅返回55个常用神煞；all=返回全部已计算神煞。',
+            },
             shenShaVariants: { $ref: '#/components/schemas/ShenShaVariants' },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
@@ -2427,6 +2434,7 @@ function readBaziPerson(input: JsonRecord): Person {
       input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
     applyChinaDst:
       input.applyChinaDst === undefined ? undefined : readBoolean(input, 'applyChinaDst', false),
+    shenShaScope: readEnum(input, 'shenShaScope', SHENSHA_SCOPES, 'common') as ShenShaScope,
     shenShaVariants: readShenShaVariants(input),
   };
 
