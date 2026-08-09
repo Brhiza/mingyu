@@ -56,10 +56,9 @@ export function registerXiaoliurenTool(server: McpServer) {
     'xiaoliuren_prompt',
     {
       description:
-        '小六壬起课并生成结构化 AI 解读提示词：一次调用返回课盘结果和可直接复制给 AI 的提示词',
+        '小六壬起课并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要课盘结果时调用 divine_xiaoliuren',
       inputSchema: xiaoliurenPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('小六壬课盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

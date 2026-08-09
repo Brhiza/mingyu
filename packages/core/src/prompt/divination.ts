@@ -28,13 +28,7 @@ import type {
 } from '../types/divination';
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance } from './guidance';
-import { formatAstrolabeForPrompt } from './astrolabe';
-import {
-  buildPromptDocument,
-  buildPromptSection,
-  formatEvidencePromptText,
-  joinPromptSections,
-} from './sections';
+import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
 import type { AstrolabePromptTopic } from './astrolabe';
 import type { PromptBuildOptions, PromptDocument } from './types';
 import { formatEnhancedDivinationInfo } from './divination-enhanced';
@@ -77,11 +71,6 @@ function formatAlmanacCandidateSummary(data: AlmanacData) {
       : [];
     return `${day.date}：${candidate?.status ?? '待核验候选'}，${day.ganzhi.day}日，${day.dayOfficer}执，宜${day.recommends.slice(0, 5).join('、') || '未列'}，忌${day.avoids.slice(0, 5).join('、') || '未列'}；${constraints.length ? `限制：${constraints.slice(0, 2).join('、')}` : day.clash}`;
   });
-}
-
-function evidenceLine(data: DivinationData) {
-  const value = formatEvidencePromptText(data);
-  return value ? `证据：${value}` : '';
 }
 
 function wrapMainEvidence(text: string) {
@@ -229,7 +218,6 @@ export function getDivinationSummaryBlocks(
           `空亡：${item.voidBranches.join('、') || '无'}`,
           `特殊卦式：${item.specialPattern || '常规卦'}`,
           formatLiuyaoHiddenSpiritSummary(item),
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }
@@ -257,7 +245,6 @@ export function getDivinationSummaryBlocks(
           item.calculation?.method || item.calculation?.methodKey
             ? `起卦法：${item.calculation.method || item.calculation.methodKey}`
             : '',
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }
@@ -275,7 +262,6 @@ export function getDivinationSummaryBlocks(
           wrapMainEvidence(evidence.primaryFact.promptText),
           `顺数轨迹：月宫${item.sequence.month.name}；日宫${item.sequence.day.name}；时宫${item.sequence.hour.name}`,
           `历法口径：${item.calculation.dayBoundary}；${item.calculation.leapMonthRule}`,
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }
@@ -300,7 +286,6 @@ export function getDivinationSummaryBlocks(
           `四位关系：贵将${item.relations.guiToJiang}；贵人${item.relations.guiToRen}；将地${item.relations.jiangToDi}`,
           item.xunKong.length ? `旬空：${item.xunKong.join('、')}` : '',
           item.summary,
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }
@@ -326,7 +311,6 @@ export function getDivinationSummaryBlocks(
             : '',
           formatQimenSeasonalitySummary(item),
           item.specialConditions?.description ? `时辰：${item.specialConditions.description}` : '',
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }
@@ -353,7 +337,6 @@ export function getDivinationSummaryBlocks(
           `神煞：${item.shenShaSummary?.length ? item.shenShaSummary.join('；') : '无'}`,
           item.transmissionDetail ? `取传说明：${item.transmissionDetail}` : '',
           ...formatLiurenDetailSummary(item),
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }
@@ -367,7 +350,6 @@ export function getDivinationSummaryBlocks(
           ...item.cards.map(
             (card) => `${card.position}：${card.name}（${card.reversed ? '逆位' : '正位'}）`,
           ),
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }
@@ -438,7 +420,6 @@ export function getDivinationSummaryBlocks(
           ...(item.combinations ?? []).map(
             (combination) => `${combination.card1}+${combination.card2}：${combination.meaning}`,
           ),
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }
@@ -462,7 +443,6 @@ export function getDivinationSummaryBlocks(
               .map((aspect) => `${aspect.body1}${aspect.symbol}${aspect.body2}`)
               .join('、') || '无'
           }`,
-          formatAstrolabeForPrompt(item),
         ],
       };
     }
@@ -475,8 +455,6 @@ export function getDivinationSummaryBlocks(
           `主算${item.lordCount}；客算${item.guestCount}；定算${item.setCount}`,
           `文昌${item.wenChangPosition}；始击${item.shiJiPosition}；计神${item.jiShenPosition}`,
           `判断：${item.judgments.join('；')}`,
-          item.prompt,
-          evidenceLine(item),
         ].filter(Boolean),
       };
     }

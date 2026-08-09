@@ -49,10 +49,9 @@ export function registerLiurenTool(server: McpServer) {
     'liuren_prompt',
     {
       description:
-        '大六壬排盘并生成结构化 AI 解读提示词：一次调用返回课盘数据和可直接复制给 AI 的提示词',
+        '大六壬排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要课盘数据时调用 divine_liuren',
       inputSchema: liurenPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('大六壬课盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

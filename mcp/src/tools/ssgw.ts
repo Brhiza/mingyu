@@ -37,10 +37,9 @@ export function registerSsgwTool(server: McpServer) {
     'ssgw_prompt',
     {
       description:
-        '三山国王灵签求签并生成可直接复制给 AI 的解读提示词：返回签号、签题与签诗原文',
+        '三山国王灵签求签并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要签号、签题与签诗原文时调用 divine_ssgw',
       inputSchema: ssgwPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('灵签结果'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

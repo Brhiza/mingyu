@@ -441,7 +441,10 @@ test('MCP 工具列表应声明输出结构', async () => {
       false,
     );
     for (const name of promptToolNames) {
-      assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.result);
+      assert.equal(
+        tools.find((tool) => tool.name === name)?.outputSchema?.properties?.result,
+        undefined,
+      );
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.prompt);
     }
   });
@@ -464,7 +467,7 @@ test('通用神煞 MCP 输入应拒绝重复编号', async () => {
   });
 });
 
-test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async () => {
+test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复完整 JSON', async () => {
   await withMcpClient(async (client) => {
     for (const [name, args] of toolCalls) {
       const result = await client.callTool({ name, arguments: args });
@@ -1078,7 +1081,8 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
       }
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
-      assert.deepEqual(JSON.parse(text), result.structuredContent);
+      assert.equal(text, '结构化结果已返回，请读取 structuredContent。');
+      assert.ok(text.length < 100);
     }
   });
 });
@@ -1255,19 +1259,20 @@ test('MCP 太阳光照工具应返回日出日落与曙暮光结构化证据', a
   });
 });
 
-test('MCP 一站式提示词工具应同时返回结果和 prompt', async () => {
+test('MCP 一站式提示词工具应只返回 prompt，避免混入完整排盘', async () => {
   await withMcpClient(async (client) => {
     for (const [name, args, promptPattern] of promptToolCalls) {
       const result = await client.callTool({ name, arguments: args });
 
       assert.equal(result.isError, undefined, `${name} 不应返回错误`);
-      assert.ok(result.structuredContent?.result, `${name} 应返回 result`);
+      assert.deepEqual(Object.keys(result.structuredContent ?? {}), ['prompt']);
       const prompt = String(result.structuredContent?.prompt);
       assert.match(prompt, promptPattern, `${name} prompt 格式不正确`);
       assertPromptIsPortableTaskText(prompt);
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
-      assert.deepEqual(JSON.parse(text), result.structuredContent);
+      assert.equal(text, prompt);
+      assert.ok(JSON.stringify(result).length < prompt.length * 3 + 1000);
     }
   });
 });
@@ -1384,7 +1389,7 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
   });
 });
 
-test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
+test('MCP 八字年限提示词应保留岁运重点且不返回内部证据对象', async () => {
   await withMcpClient(async (client) => {
     const response = await client.callTool({
       name: 'bazi_prompt',
@@ -1404,50 +1409,7 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     });
 
     assert.equal(response.isError, undefined);
-    const result = response.structuredContent?.result as {
-      fortuneSelection?: {
-        promptPayload?: {
-          triggerEvidence?: {
-            key?: string;
-            status?: string;
-            layers?: Array<{ key?: string; status?: string }>;
-            relations?: Array<{
-              key?: string;
-              status?: string;
-              sourceLayerKey?: string;
-              targetLayerKey?: string;
-              calculationStepKey?: string;
-            }>;
-            calculationSteps?: Array<{ key: string; dependsOnStepKeys: string[] }>;
-            relationSummaryFact?: { relationCount?: number };
-            counterEvidenceFacts?: unknown[];
-            limitationFacts?: Array<{ type?: string }>;
-          };
-        };
-      };
-    };
-    const triggerEvidence = result.fortuneSelection?.promptPayload?.triggerEvidence;
-    assert.equal(triggerEvidence?.key, 'bazi:fortune-trigger:evidence');
-    assert.equal(triggerEvidence?.status, '已计算');
-    assert.ok(triggerEvidence?.layers?.every((item) => item.key && item.status === '已计算'));
-    assert.ok(triggerEvidence?.relations?.length);
-    assert.ok(
-      triggerEvidence?.relations?.every(
-        (item) =>
-          item.key &&
-          item.status === '已命中' &&
-          item.sourceLayerKey &&
-          item.targetLayerKey &&
-          triggerEvidence.calculationSteps?.some((step) => step.key === item.calculationStepKey),
-      ),
-    );
-    assert.equal(
-      triggerEvidence?.relationSummaryFact?.relationCount,
-      triggerEvidence?.relations?.length,
-    );
-    assert.ok(triggerEvidence?.counterEvidenceFacts?.length);
-    assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '层级应期边界'));
-    assertEvidenceOwnerReferences(triggerEvidence);
+    assert.equal(response.structuredContent?.result, undefined);
     const prompt = String(response.structuredContent?.prompt);
     assert.match(prompt, /【分析对象】[\s\S]*分析对象：1998年流年/);
     assert.match(prompt, /【岁运重点】[\s\S]*主要触发：/);
@@ -1498,10 +1460,10 @@ test('MCP 八字和星盘年限缺少明确层级参数时应返回业务错误'
   });
 });
 
-test('MCP 八字双盘应返回计算链、反证、汇总与限制对象', async () => {
+test('MCP 八字双盘排盘工具应返回计算链、反证、汇总与限制对象', async () => {
   await withMcpClient(async (client) => {
     const response = await client.callTool({
-      name: 'bazi_compatibility_prompt',
+      name: 'bazi_compatibility',
       arguments: {
         person1: {
           name: '甲方',
@@ -1521,8 +1483,6 @@ test('MCP 八字双盘应返回计算链、反证、汇总与限制对象', asyn
           timeIndex: 5,
           dateType: 'solar',
         },
-        question: '双方适合长期合作吗？',
-        compatType: 'career',
       },
     });
 
@@ -1562,16 +1522,13 @@ test('MCP 八字双盘应返回计算链、反证、汇总与限制对象', asyn
     assert.ok(compatibility?.counterEvidenceFacts?.length);
     assert.ok(compatibility?.limitationFacts?.some((item) => item.type === '高风险输出边界'));
     assertEvidenceOwnerReferences(compatibility);
-    const prompt = String(response.structuredContent?.prompt);
-    assert.match(prompt, /【双盘关系资料】[\s\S]*日主关系：[\s\S]*四柱关系：/);
-    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|bazi:compatibility:/);
   });
 });
 
-test('MCP 黄历择日提示词应允许省略问题', async () => {
+test('MCP 黄历择日排盘保留证据，提示词允许省略问题且只返回 prompt', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({
-      name: 'almanac_prompt',
+      name: 'divine_almanac',
       arguments: {
         topic: 'contract',
         startDate: '2026-06-01',
@@ -1579,8 +1536,7 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
       },
     });
 
-    assert.equal(result.isError, undefined, 'almanac_prompt 不填 question 不应返回错误');
-    assert.ok(result.structuredContent?.result, 'almanac_prompt 应返回 result');
+    assert.equal(result.isError, undefined, 'divine_almanac 不应返回错误');
     const chart = (
       result.structuredContent as {
         result: {
@@ -1770,7 +1726,17 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
         assert.equal(hour.score, undefined);
       }
     }
-    const prompt = String(result.structuredContent?.prompt);
+    const promptResult = await client.callTool({
+      name: 'almanac_prompt',
+      arguments: {
+        topic: 'contract',
+        startDate: '2026-06-01',
+        endDate: '2026-06-03',
+      },
+    });
+    assert.equal(promptResult.isError, undefined, 'almanac_prompt 不填 question 不应返回错误');
+    assert.deepEqual(Object.keys(promptResult.structuredContent ?? {}), ['prompt']);
+    const prompt = String(promptResult.structuredContent?.prompt);
     assert.match(prompt, /【占卜信息】/);
     assert.match(prompt, /占法：黄历择日/);
     assert.match(prompt, /候选日期明细：/);
@@ -1809,8 +1775,26 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     });
 
     assert.equal(result.isError, undefined, 'astrolabe_prompt 不应返回错误');
+    const calculation = await client.callTool({
+      name: 'divine_astrolabe',
+      arguments: {
+        name: '本人',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 12,
+        minute: 30,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+        timeZoneId: 'Asia/Shanghai',
+        locationName: '北京',
+      },
+    });
+    assert.equal(calculation.isError, undefined, 'divine_astrolabe 不应返回错误');
     const chart = (
-      result.structuredContent as {
+      calculation.structuredContent as {
         result?: {
           birth?: {
             timezoneEvidence?: {
@@ -2074,88 +2058,9 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
         astrolabeScopeDate: '2028',
       },
     });
-    const scopeEvidence = (
-      yearlyResult.structuredContent as {
-        result?: {
-          scopeEvidence?: {
-            scope: string;
-            solarReturnEvidence?: {
-              key: string;
-              calculationSteps: unknown[];
-              calculationChain: string[];
-              aspectFacts: Array<{ ownerFactKeys: string[] }>;
-              summaryFact: {
-                key: string;
-                factKeys: string[];
-                calculationStepCount: number;
-                aspectFactCount: number;
-                limitationFactCount: number;
-              };
-              limitationFacts: Array<{ ownerFactKeys: string[] }>;
-              limitations: string[];
-              promptText: string;
-            };
-            secondaryProgressionEvidence?: {
-              key: string;
-              calculationSteps: unknown[];
-              calculationChain: string[];
-              aspectFacts: Array<{ ownerFactKeys: string[] }>;
-              summaryFact: {
-                key: string;
-                factKeys: string[];
-                calculationStepCount: number;
-                aspectFactCount: number;
-                limitationFactCount: number;
-              };
-              limitationFacts: Array<{ ownerFactKeys: string[] }>;
-              promptText: string;
-            };
-            solarArcEvidence?: {
-              key: string;
-              calculationSteps: unknown[];
-              calculationChain: string[];
-              aspectFacts: Array<{ ownerFactKeys: string[] }>;
-              summaryFact: {
-                key: string;
-                factKeys: string[];
-                calculationStepCount: number;
-                aspectFactCount: number;
-                limitationFactCount: number;
-              };
-              limitationFacts: Array<{ ownerFactKeys: string[] }>;
-              promptText: string;
-            };
-          };
-        };
-      }
-    ).result?.scopeEvidence;
-    assert.equal(scopeEvidence?.scope, 'yearly');
-    assert.equal(scopeEvidence?.solarReturnEvidence?.key, 'solar-return:2028');
-    assert.equal(scopeEvidence?.secondaryProgressionEvidence?.key, 'secondary-progression:2028');
-    assert.equal(scopeEvidence?.solarArcEvidence?.key, 'solar-arc:2028');
-    assert.equal(
-      scopeEvidence?.solarReturnEvidence?.limitations.length,
-      scopeEvidence?.solarReturnEvidence?.limitationFacts.length,
-    );
-    for (const evidence of [
-      scopeEvidence?.solarReturnEvidence,
-      scopeEvidence?.secondaryProgressionEvidence,
-      scopeEvidence?.solarArcEvidence,
-    ]) {
-      assert.ok(evidence);
-      assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
-      assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
-      assert.equal(evidence.summaryFact.aspectFactCount, evidence.aspectFacts.length);
-      assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
-      const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
-      assert.ok(
-        [...evidence.aspectFacts, ...evidence.limitationFacts].every(
-          (item) =>
-            item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
-        ),
-      );
-      assert.match(evidence.promptText, /证据汇总：/);
-    }
+    assert.equal(yearlyResult.isError, undefined);
+    assert.equal(yearlyResult.structuredContent?.result, undefined);
+    assert.match(String(yearlyResult.structuredContent?.prompt), /2028/);
   });
 });
 
@@ -2193,9 +2098,38 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
     });
 
     assert.equal(result.isError, undefined);
-    assert.ok(result.structuredContent?.result);
+    const calculation = await client.callTool({
+      name: 'astrolabe_synastry',
+      arguments: {
+        person1: {
+          name: '甲',
+          gender: '女',
+          year: 1995,
+          month: 5,
+          day: 20,
+          hour: 12,
+          minute: 30,
+          latitude: 39.9042,
+          longitude: 116.4074,
+          timezone: 8,
+        },
+        person2: {
+          name: '乙',
+          gender: '男',
+          year: 1992,
+          month: 8,
+          day: 21,
+          hour: 8,
+          minute: 15,
+          latitude: 31.2304,
+          longitude: 121.4737,
+          timezone: 8,
+        },
+      },
+    });
+    assert.equal(calculation.isError, undefined);
     const chart = (
-      result.structuredContent as {
+      calculation.structuredContent as {
         result?: {
           synastry?: {
             key?: string;
@@ -2491,9 +2425,7 @@ test('MCP 灵签应返回签号、签题与签诗', async () => {
       },
     });
     assert.equal(prompted.isError, undefined);
-    assert.equal(typeof prompted.structuredContent?.result.number, 'number');
-    assert.ok(prompted.structuredContent?.result.title);
-    assert.ok(prompted.structuredContent?.result.poem);
+    assert.equal(prompted.structuredContent?.result, undefined);
     const prompt = String(prompted.structuredContent?.prompt);
     assert.match(prompt, /占法：三山国王灵签/);
     assert.match(prompt, /签号：第\d+签/);
@@ -2642,49 +2574,53 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       /已核验|未请求|经度时差|均时差|总校正|校正后唯一时辰|结构化证据|计算步骤|出生时间敏感性|候选时辰|缺时柱/,
     );
 
-    const astrolabePromptResult = await client.callTool({
-      name: 'astrolabe_prompt',
-      arguments: {
-        name: '本人',
-        gender: '女',
-        year: 1995,
-        month: 5,
-        day: 20,
-        hour: 1,
-        minute: 20,
-        latitude: 39.9042,
-        longitude: 73.5,
-        timezone: 8,
-        timeZoneId: 'Asia/Shanghai',
-        locationName: '喀什',
-        useTrueSolarTime: true,
-        question: '请分析整体星盘。',
-      },
+    const astrolabeArguments = {
+      name: '本人',
+      gender: '女',
+      year: 1995,
+      month: 5,
+      day: 20,
+      hour: 1,
+      minute: 20,
+      latitude: 39.9042,
+      longitude: 73.5,
+      timezone: 8,
+      timeZoneId: 'Asia/Shanghai',
+      locationName: '喀什',
+      useTrueSolarTime: true,
+    };
+    const astrolabeResult = await client.callTool({
+      name: 'divine_astrolabe',
+      arguments: astrolabeArguments,
     });
-    assert.equal(astrolabePromptResult.isError, undefined);
-    const astrolabePromptResultData = astrolabePromptResult.structuredContent as {
+    assert.equal(astrolabeResult.isError, undefined);
+    const astrolabeResultData = astrolabeResult.structuredContent as {
       result?: {
         birth?: {
           trueSolarEvidence?: { status: string; calculationSteps: Array<{ stage: string }> };
         };
         evidenceAnalysis?: { trueSolarTimeFact?: { key: string } };
       };
-      prompt?: string;
     };
-    assert.equal(astrolabePromptResultData.result?.birth?.trueSolarEvidence?.status, '已计算');
-    assert.equal(
-      astrolabePromptResultData.result?.birth?.trueSolarEvidence?.calculationSteps.length,
-      8,
-    );
+    assert.equal(astrolabeResultData.result?.birth?.trueSolarEvidence?.status, '已计算');
+    assert.equal(astrolabeResultData.result?.birth?.trueSolarEvidence?.calculationSteps.length, 8);
     assert.ok(
-      astrolabePromptResultData.result?.birth?.trueSolarEvidence?.calculationSteps.some(
+      astrolabeResultData.result?.birth?.trueSolarEvidence?.calculationSteps.some(
         (item) => item.stage === '历史时区解析',
       ),
     );
-    assert.ok(astrolabePromptResultData.result?.evidenceAnalysis?.trueSolarTimeFact?.key);
-    assert.match(astrolabePromptResultData.prompt ?? '', /出生时间校正：[\s\S]*真太阳时/);
+    assert.ok(astrolabeResultData.result?.evidenceAnalysis?.trueSolarTimeFact?.key);
+
+    const astrolabePromptResult = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: { ...astrolabeArguments, question: '请分析整体星盘。' },
+    });
+    assert.equal(astrolabePromptResult.isError, undefined);
+    assert.equal(astrolabePromptResult.structuredContent?.result, undefined);
+    const astrolabePrompt = String(astrolabePromptResult.structuredContent?.prompt ?? '');
+    assert.match(astrolabePrompt, /出生时间校正：[\s\S]*真太阳时/);
     assert.doesNotMatch(
-      astrolabePromptResultData.prompt ?? '',
+      astrolabePrompt,
       /已核验|未请求|经度时差|均时差|总校正|校正后唯一时辰|结构化证据|计算链|证据汇总|解释限制/,
     );
   });
@@ -3429,8 +3365,16 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.match(liurenPrompt, /【问题范围】\n事业工作/);
     assert.doesNotMatch(liurenPrompt, /结构化证据|计算链|证据汇总|解释限制|断课要点/);
     assert.doesNotMatch(liurenPrompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
+    const liurenChart = await client.callTool({
+      name: 'divine_liuren',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        liurenTemplate: 'shiye',
+      },
+    });
+    assert.equal(liurenChart.isError, undefined, 'divine_liuren 不应返回错误');
     const liurenData = (
-      liurenResult.structuredContent as {
+      liurenChart.structuredContent as {
         result: {
           evidenceAnalysis: {
             key: string;
@@ -3703,8 +3647,13 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     });
     assert.equal(result.isError, undefined, 'qimen_prompt 不应返回错误');
     const prompt = String(result.structuredContent?.prompt);
+    const chartResult = await client.callTool({
+      name: 'divine_qimen',
+      arguments: { customDate: '2025-01-01T08:00:00+08:00' },
+    });
+    assert.equal(chartResult.isError, undefined, 'divine_qimen 不应返回错误');
     const chart = (
-      result.structuredContent as {
+      chartResult.structuredContent as {
         result: {
           method: string;
           jiuGongGe: unknown[];
@@ -4014,8 +3963,13 @@ test('MCP 太乙工具返回年计七十二局结构化证据', async () => {
     });
     assert.equal(result.isError, undefined, 'taiyi_prompt 不应返回错误');
     const prompt = String(result.structuredContent?.prompt);
+    const chartResult = await client.callTool({
+      name: 'metaphysics_taiyi',
+      arguments: { year: 2004, scope: 'year' },
+    });
+    assert.equal(chartResult.isError, undefined, 'metaphysics_taiyi 不应返回错误');
     const chart = (
-      result.structuredContent as {
+      chartResult.structuredContent as {
         result: {
           evidenceAnalysis: {
             key: string;

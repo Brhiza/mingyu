@@ -120,10 +120,9 @@ export function registerAlmanacTool(server: McpServer) {
     'almanac_prompt',
     {
       description:
-        '黄历择日并生成结构化 AI 解读提示词：一次调用返回择日结果和可直接复制给 AI 的提示词',
+        '黄历择日并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整择日结果时调用 divine_almanac',
       inputSchema: almanacPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('黄历择日结果'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

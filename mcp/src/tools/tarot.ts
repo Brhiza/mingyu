@@ -55,10 +55,9 @@ export function registerTarotTool(server: McpServer) {
     'tarot_prompt',
     {
       description:
-        '塔罗抽牌并生成结构化 AI 解读提示词：一次调用返回牌阵数据和可直接复制给 AI 的提示词',
+        '塔罗抽牌并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要牌阵数据时调用 divine_tarot',
       inputSchema: tarotPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('塔罗牌阵数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

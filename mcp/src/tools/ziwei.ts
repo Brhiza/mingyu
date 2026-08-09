@@ -169,10 +169,9 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_prompt',
     {
       description:
-        '紫微斗数排盘并生成结构化 AI 解读提示词：返回命盘数据、真太阳时校正证据和可直接复制给 AI 的完整提示词。默认只返回 origin（本命）范围；通过 promptScope 可指定额外运限范围',
+        '紫微斗数排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要命盘数据时调用 ziwei_calculate',
       inputSchema: ziweiPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('紫微命盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },
@@ -248,7 +247,6 @@ export function registerZiweiTool(server: McpServer) {
         '紫微双盘计算并生成结构化 AI 提示词：保留宫位叠盘、跨盘四化证据、方法说明和解释限制',
       inputSchema: ziweiCompatibilityPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('双方命盘与双盘结构化证据'),
         prompt: z.string().describe('可直接用于 AI 解读的完整证据提示词'),
       },
     },

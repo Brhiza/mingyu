@@ -437,6 +437,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.equal(divinationRequestProperties.endDate.format, 'date');
   assert.equal(divinationRequestProperties.responseMode.enum.includes('full'), true);
   assert.equal(divinationRequestProperties.responseMode.enum.includes('summary'), true);
+  assert.equal(divinationRequestProperties.responseMode.default, 'prompt-only');
   assert.equal(divinationRequestProperties.detailMode.enum.includes('compact'), true);
   assert.equal(divinationRequestProperties.page.minimum, 1);
   assert.equal(divinationRequestProperties.pageSize.maximum, 31);
@@ -1121,12 +1122,9 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
   assert.equal(body.data.liunian, undefined);
   assert.ok(body.data.luckInfo.cycles.length > 0);
   assert.equal(body.data.luckInfo.cycles[0].years, undefined);
-  assert.equal(body.data.evidenceAnalysis.key, 'bazi:natal:evidence');
-  assert.equal(body.data.evidenceAnalysis.calculationSteps.length, 5);
-  assert.equal(body.data.evidenceAnalysis.pillarFacts.length, 4);
-  assert.equal(body.data.evidenceAnalysis.analysisFacts.length, 3);
-  assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 6);
-  assertEvidenceOwnerReferences(body.data.evidenceAnalysis);
+  assert.equal(body.data.evidenceAnalysis, undefined);
+  assert.equal(body.data.shensha, undefined);
+  assert.equal(body.data.shenShaAnalysis, undefined);
 });
 
 test('公开 API 八字排盘应支持真太阳时精确时分和经度', async () => {
@@ -1237,7 +1235,7 @@ test('公开 API 八字农历闰月不存在时应返回参数错误', async () 
   assert.match(body.error.message, /农历日期不存在/);
 });
 
-test('公开 API 八字提示词接口默认返回轻量摘要和提示词', async () => {
+test('公开 API 八字提示词接口默认只返回提示词', async () => {
   const { response, body } = await callApi('bazi/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1255,10 +1253,7 @@ test('公开 API 八字提示词接口默认返回轻量摘要和提示词', asy
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.equal(body.data.result, undefined);
-  assert.equal(body.data.resultSummary.gender, 'male');
-  assert.equal(body.data.resultSummary.liunian, undefined);
-  assert.equal(body.data.resultSummary.currentLiunian, undefined);
+  assert.deepEqual(Object.keys(body.data), ['prompt']);
   const prompt = body.data.prompt;
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.bazi);
   assert.match(prompt, /【排盘信息】/);
@@ -1346,6 +1341,7 @@ test('公开 API 应支持八字紫微合参提示词', async () => {
       baziPromptTopic: 'job-change',
       ziweiPromptTopic: 'job-change',
       promptScope: 'yearly',
+      responseMode: 'summary',
     }),
   });
 
@@ -1354,6 +1350,7 @@ test('公开 API 应支持八字紫微合参提示词', async () => {
   assert.equal(body.data.result, undefined);
   assert.equal(body.data.resultSummary.bazi.gender, 'female');
   assert.equal(body.data.resultSummary.ziwei.scopeNames.includes('yearly'), true);
+  assert.ok(JSON.stringify(body.data.resultSummary).length < 50000);
   assertPromptHasSingleRole(body.data.prompt, PROMPT_ROLE_TEXT['bazi-ziwei']);
   assert.match(body.data.prompt, /【八字排盘信息】/);
   assert.match(body.data.prompt, /【紫微盘面信息】/);
@@ -1571,46 +1568,13 @@ test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据
       baziFortuneScope: 'year',
       baziFortuneCycleIndex: 1,
       baziFortuneYear: 1998,
+      responseMode: 'summary',
     }),
   });
 
   assert.equal(response.status, 200);
-  const triggerEvidence = body.data.resultSummary.fortuneSelection.promptPayload.triggerEvidence;
-  assert.ok(triggerEvidence.layers.some((item: { type: string }) => item.type === 'dayun'));
-  assert.ok(triggerEvidence.layers.some((item: { type: string }) => item.type === 'year'));
-  assert.equal(triggerEvidence.key, 'bazi:fortune-trigger:evidence');
-  assert.equal(triggerEvidence.status, '已计算');
-  assert.ok(
-    triggerEvidence.layers.every(
-      (item: { key?: string; status?: string }) => item.key && item.status === '已计算',
-    ),
-  );
-  assert.ok(triggerEvidence.calculationSteps.length > triggerEvidence.layers.length);
-  assert.ok(triggerEvidence.relations.length > 0);
-  assert.ok(
-    triggerEvidence.relations.every(
-      (item: {
-        key?: string;
-        status?: string;
-        sourceLayerKey?: string;
-        targetLayerKey?: string;
-        calculationStepKey?: string;
-      }) =>
-        item.key &&
-        item.status === '已命中' &&
-        item.sourceLayerKey &&
-        item.targetLayerKey &&
-        triggerEvidence.calculationSteps.some(
-          (step: { key: string }) => step.key === item.calculationStepKey,
-        ),
-    ),
-  );
-  assert.equal(triggerEvidence.relationSummaryFact.relationCount, triggerEvidence.relations.length);
-  assert.ok(triggerEvidence.counterEvidenceFacts.length > 0);
-  assert.ok(
-    triggerEvidence.limitationFacts.some((item: { type: string }) => item.type === '层级应期边界'),
-  );
-  assertEvidenceOwnerReferences(triggerEvidence);
+  assert.equal(body.data.resultSummary.fortuneSelection, undefined);
+  assert.ok(JSON.stringify(body.data.resultSummary).length < 20000);
   assert.match(body.data.prompt, /【分析对象】/);
   assert.match(body.data.prompt, /【岁运重点】/);
   assert.match(body.data.prompt, /这一年的事业触发有哪些/);
@@ -1642,7 +1606,7 @@ test('公开 API 八字自定义提示词不强塞专项框架', async () => {
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
 });
 
-test('公开 API 紫微提示词接口默认返回轻量摘要和提示词', async () => {
+test('公开 API 紫微提示词接口默认只返回提示词', async () => {
   const { response, body } = await callApi('ziwei/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1662,9 +1626,7 @@ test('公开 API 紫微提示词接口默认返回轻量摘要和提示词', asy
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.equal(body.data.result, undefined);
-  assert.deepEqual(body.data.resultSummary.scopeNames, ['origin']);
-  assert.equal(body.data.resultSummary.activeScopes.origin.active_scope.scope, 'origin');
+  assert.deepEqual(Object.keys(body.data), ['prompt']);
   const prompt = body.data.prompt;
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.ziwei);
   assert.match(prompt, /【问题】/);
@@ -1755,6 +1717,7 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
       person2,
       question: '双方长期合作关系应注意什么？',
       promptTopic: 'career-wealth',
+      responseMode: 'summary',
     }),
   });
 
@@ -1763,6 +1726,7 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.equal(prompted.body.data.resultSummary.people.person1, '甲方');
   assert.equal(prompted.body.data.resultSummary.key, 'ziwei:compatibility:evidence');
   assert.equal(prompted.body.data.resultSummary.summaryFact.palaceOverlayCount > 0, true);
+  assert.ok(JSON.stringify(prompted.body.data.resultSummary).length < 5000);
   assert.match(prompted.body.data.prompt, /【甲方盘面】/);
   assert.match(prompted.body.data.prompt, /【双盘关系资料】/);
   assert.match(prompted.body.data.prompt, /宫位对应：/);
@@ -1789,6 +1753,7 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
       question: '今年适合换工作吗？',
       promptTopic: 'job-change',
       promptScope: 'yearly',
+      responseMode: 'summary',
     }),
   });
 
@@ -1797,10 +1762,10 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assert.deepEqual(body.data.resultSummary.scopeNames, ['origin', 'yearly']);
   assert.equal(body.data.resultSummary.activeScopes.yearly.active_scope.scope, 'yearly');
   assert.equal(body.data.resultSummary.activeScopes.decadal, undefined);
-  assert.equal(body.data.resultSummary.evidenceByScope.yearly.key, 'ziwei:evidence');
-  assertEvidenceOwnerReferences(body.data.resultSummary.evidenceByScope.yearly);
-  assert.equal(body.data.resultSummary.patternEvidenceByScope.yearly.key, 'ziwei:patterns');
-  assertEvidenceOwnerReferences(body.data.resultSummary.patternEvidenceByScope.yearly);
+  assert.equal(body.data.resultSummary.evidenceSummaryByScope.yearly.status, '已计算');
+  assert.ok(body.data.resultSummary.evidenceSummaryByScope.yearly.summaryFact);
+  assert.equal(body.data.resultSummary.patternSummaryByScope.yearly.status, '已计算');
+  assert.ok(body.data.resultSummary.patternSummaryByScope.yearly.summaryFact);
   const prompt = body.data.prompt;
   assert.match(prompt, /分析范围：流年/);
   assert.match(prompt, /【重点宫位资料】/);
@@ -1824,6 +1789,7 @@ test('公开 API 紫微提示词支持完整输出版范围', async () => {
       question: '整体人生和近期重点怎么看？',
       promptTopic: 'life',
       promptScope: 'full',
+      responseMode: 'summary',
     }),
   });
 
@@ -1837,6 +1803,7 @@ test('公开 API 紫微提示词支持完整输出版范围', async () => {
     'daily',
     'hourly',
   ]);
+  assert.ok(JSON.stringify(body.data.resultSummary).length < 50000);
   assert.match(body.data.prompt, /分析范围：完整输出/);
   assert.match(body.data.prompt, /【完整运限资料】/);
   assert.match(body.data.prompt, /完整紫微运限资料：/);
@@ -2251,21 +2218,13 @@ test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', asy
   assert.deepEqual(body.data.scopeNames, ['origin', 'monthly']);
   assert.equal(body.data.payloadByScope, undefined);
   assert.equal(body.data.gongList, undefined);
-  assert.equal(body.data.evidenceByScope.monthly.key, 'ziwei:evidence');
-  assert.equal(body.data.evidenceByScope.monthly.calculationSteps.length, 4);
-  assert.equal(body.data.evidenceByScope.monthly.counterEvidenceFacts.length, 3);
-  assert.equal(body.data.evidenceByScope.monthly.limitationFacts.length, 5);
-  assert.ok(body.data.evidenceByScope.monthly.summaryFact.evidenceFactCount > 0);
-  assertEvidenceOwnerReferences(body.data.evidenceByScope.monthly);
-  assert.equal(body.data.patternEvidenceByScope.monthly.key, 'ziwei:patterns');
-  assert.equal(body.data.patternEvidenceByScope.monthly.calculationSteps.length, 4);
-  assert.equal(body.data.patternEvidenceByScope.monthly.counterEvidenceFacts.length, 3);
-  assert.equal(body.data.patternEvidenceByScope.monthly.limitationFacts.length, 4);
+  assert.equal(body.data.evidenceSummaryByScope.monthly.status, '已计算');
+  assert.ok(body.data.evidenceSummaryByScope.monthly.summaryFact.evidenceFactCount > 0);
+  assert.equal(body.data.patternSummaryByScope.monthly.status, '已计算');
   assert.equal(
-    body.data.patternEvidenceByScope.monthly.summaryFact.evaluatedRuleCount,
-    body.data.patternEvidenceByScope.monthly.summaryFact.registeredRuleCount,
+    body.data.patternSummaryByScope.monthly.summaryFact.evaluatedRuleCount,
+    body.data.patternSummaryByScope.monthly.summaryFact.registeredRuleCount,
   );
-  assertEvidenceOwnerReferences(body.data.patternEvidenceByScope.monthly);
   assert.equal(body.data.activeScopes.monthly.active_scope.scope, 'monthly');
   assert.equal(body.data.activeScopes.monthly.palaces.length, 12);
   assert.ok(body.data.activeScopes.monthly.palaces[0].major_stars);
@@ -3104,7 +3063,7 @@ test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请
   }
 });
 
-test('公开 API 占卜提示词默认只返回摘要和提示词', async () => {
+test('公开 API 占卜提示词默认只返回提示词', async () => {
   const { response, body } = await callApi('divination/qimen/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -3116,10 +3075,26 @@ test('公开 API 占卜提示词默认只返回摘要和提示词', async () => 
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.equal(body.data.result, undefined);
+  assert.deepEqual(Object.keys(body.data), ['prompt']);
+  assert.match(body.data.prompt, /我近期事业应该注意什么/);
+});
+
+test('公开 API 占卜提示词显式摘要不应包含完整证据长文', async () => {
+  const { response, body } = await callApi('divination/qimen/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate: '2025-01-01T08:00:00+08:00',
+      question: '我近期事业应该注意什么？',
+      responseMode: 'summary',
+    }),
+  });
+
+  assert.equal(response.status, 200);
   assert.equal(body.data.summary.title, '奇门起局结果');
   assert.ok(Array.isArray(body.data.summary.lines));
-  assert.match(body.data.prompt, /我近期事业应该注意什么/);
+  assert.doesNotMatch(body.data.summary.lines.join('\n'), /证据：/);
+  assert.ok(JSON.stringify(body.data.summary).length < 5000);
 });
 
 test('公开 API 奇门 qimenMethod 非法值应返回参数错误', async () => {
@@ -3692,10 +3667,8 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
   assert.equal(body.ok, true);
   assert.equal(body.data.resultSummary.key, 'astrolabe:synastry:evidence');
   assert.equal(body.data.resultSummary.status, '已计算');
-  assert.equal(body.data.resultSummary.calculationSteps.length, 7);
-  assert.equal(body.data.resultSummary.counterEvidenceFacts.length, 4);
-  assert.equal(body.data.resultSummary.limitationFacts.length, 6);
   assert.ok(body.data.resultSummary.summaryFact.returnedAspectCount > 0);
+  assert.ok(JSON.stringify(body.data.resultSummary).length < 5000);
   assertPromptHasSingleRole(body.data.prompt, PROMPT_ROLE_TEXT['astrolabe-synastry']);
   assert.match(body.data.prompt, /【第一人本命盘】/);
   assert.match(body.data.prompt, /【第二人本命盘】/);

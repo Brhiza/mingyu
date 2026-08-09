@@ -67,10 +67,9 @@ export function registerLiuyaoTool(server: McpServer) {
     'liuyao_prompt',
     {
       description:
-        '六爻起卦并生成结构化 AI 解读提示词：一次调用返回卦盘数据和可直接复制给 AI 的提示词',
+        '六爻起卦并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要卦盘数据时调用 divine_liuyao',
       inputSchema: liuyaoPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('六爻卦盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

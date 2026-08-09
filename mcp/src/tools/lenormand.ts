@@ -65,10 +65,9 @@ export function registerLenormandTool(server: McpServer) {
     'lenormand_prompt',
     {
       description:
-        '雷诺曼抽牌并生成结构化 AI 解读提示词：一次调用返回牌阵结果和可直接复制给 AI 的提示词',
+        '雷诺曼抽牌并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要牌阵结果时调用 divine_lenormand',
       inputSchema: lenormandPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('雷诺曼牌阵结果'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

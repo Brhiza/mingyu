@@ -202,7 +202,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_prompt',
     {
       description:
-        '八字排盘并生成结构化 AI 解读提示词：返回命盘、结构化证据和可直接复制给 AI 的提示词；真太阳时校正证据会随排盘资料写入提示词',
+        '八字排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整命盘时调用 bazi_calculate',
       inputSchema: baziPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -302,7 +302,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_compatibility_prompt',
     {
       description:
-        '八字双盘计算并生成结构化 AI 解读提示词：返回双方命盘、可复核交叉证据和完整关系分析任务书',
+        '八字双盘计算并生成完整关系分析任务书，仅返回提示词；需要双方命盘和交叉证据时调用 bazi_compatibility',
       inputSchema: baziCompatibilityPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

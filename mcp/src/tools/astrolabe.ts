@@ -213,10 +213,9 @@ export function registerAstrolabeTool(server: McpServer) {
     'astrolabe_prompt',
     {
       description:
-        '星盘生成并生成结构化 AI 解读提示词：返回星盘结果、结构化证据和可直接复制给 AI 的提示词；真太阳时仅作为参考证据，不改写现代星历时刻',
+        '星盘生成并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要星盘和结构化证据时调用 divine_astrolabe',
       inputSchema: astrolabePromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('星盘结果'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },
@@ -257,10 +256,9 @@ export function registerAstrolabeTool(server: McpServer) {
     'astrolabe_synastry_prompt',
     {
       description:
-        '西洋占星双盘计算并生成结构化 AI 解读提示词：返回双方本命盘、跨盘证据和可直接使用的完整任务书',
+        '西洋占星双盘计算并生成可直接使用的完整任务书，仅返回提示词；需要本命盘和跨盘证据时调用 astrolabe_synastry',
       inputSchema: astrolabeSynastryPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('双方本命盘与西占双盘结构化结果'),
         prompt: z.string().describe('可直接用于 AI 解读的双盘证据提示词'),
       },
     },

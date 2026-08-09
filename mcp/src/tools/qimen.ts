@@ -57,10 +57,9 @@ export function registerQimenTool(server: McpServer) {
     'qimen_prompt',
     {
       description:
-        '奇门遁甲排盘并生成结构化 AI 解读提示词：一次调用返回奇门盘、节令背景、复合格局和可直接复制给 AI 的提示词',
+        '奇门遁甲排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整奇门盘时调用 divine_qimen',
       inputSchema: qimenPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('奇门盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

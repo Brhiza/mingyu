@@ -5,7 +5,6 @@ export const resultOutputSchema = {
 };
 
 export const promptOutputSchema = {
-  result: z.unknown().describe('工具返回的结构化结果'),
   prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
 };
 
