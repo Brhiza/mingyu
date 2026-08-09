@@ -73,7 +73,9 @@ export type {
   ShenShaTongZiScope,
   ShenShaVariantConfig,
   ShenShaYangRenMode,
+  ShenShaScope,
 } from './baziShenSha/index';
+export { COMMON_BAZI_SHENSHA_NAMES, filterCommonBaziShenSha } from './baziShenSha/index';
 export { matchesRule } from './baziRuleMatcher/index';
 export { determinePattern } from './baziPatternStrategy';
 export { determineUsefulGod } from './baziUsefulGodStrategy';

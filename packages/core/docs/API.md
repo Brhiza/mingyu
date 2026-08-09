@@ -54,11 +54,14 @@
 | `timezone`         | `number`                        |      | 当地标准时区（UTC-12~UTC+14），默认 UTC+8；影响标准经线                                   |
 | `timeZoneId`       | `string`                        |      | IANA 历史时区；按出生日期解析当时的法定 UTC 偏移                                          |
 | `applyChinaDst`    | `boolean`                       |      | 旧固定偏移调用是否校正中国夏令时（1986-1991），默认关闭；推荐改用 `timeZoneId`          |
+| `shenShaScope`     | `'common' \| 'all'`             |      | 神煞输出范围；默认 `common` 返回 55 个常用神煞，`all` 返回全部已计算神煞                  |
 | `shenShaVariants`  | `Partial<ShenShaVariantConfig>` |      | 神煞争议口径配置；不传时使用默认主流口径                                                  |
 
 \* `timeIndex` 与真太阳时三参数二选一。
 
 **神煞争议口径 `shenShaVariants`：**
+
+神煞默认使用 `shenShaScope: 'common'`，并将简称统一为完整名称；需要研究、审计或兼容旧调用时显式传入 `shenShaScope: 'all'` 获取未裁剪的全部计算结果。
 
 | 字段            | 默认值            | 可选值                                | 说明                                                     |
 | --------------- | ----------------- | ------------------------------------- | -------------------------------------------------------- |

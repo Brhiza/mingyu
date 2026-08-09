@@ -1,6 +1,7 @@
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import { baziCalculator } from './baziCalculator';
 import type { BaziChartResult, Person } from './baziTypes';
+import type { ShenShaScope } from './baziShenSha/scope';
 
 export type BaziInputText = string | number;
 
@@ -22,6 +23,7 @@ export interface BaziChartInputDraft {
   timeZoneId?: string;
   applyChinaDst?: boolean;
   age?: number;
+  shenShaScope?: ShenShaScope;
 }
 
 function readInteger(value: BaziInputText | undefined, label: string): number {
@@ -113,6 +115,7 @@ export function buildBaziPersonInput(input: BaziChartInputDraft): Person {
     ...(input.timeZoneId ? { timeZoneId: input.timeZoneId } : {}),
     applyChinaDst: input.applyChinaDst,
     age: input.age,
+    ...(input.shenShaScope ? { shenShaScope: input.shenShaScope } : {}),
   };
 }
 

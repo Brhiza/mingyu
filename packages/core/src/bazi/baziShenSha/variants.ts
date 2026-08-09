@@ -1,3 +1,5 @@
+import type { ShenShaScope } from './scope';
+
 export type ShenShaKongWangBasis = 'day' | 'day-and-year';
 export type ShenShaYangRenMode = 'yang-stems-only' | 'include-yin-ren';
 export type ShenShaTongZiScope = 'day-hour' | 'all-pillars';
@@ -10,6 +12,8 @@ export interface ShenShaVariantConfig {
 
 export interface ShenShaCalculatorOptions {
   variants?: Partial<ShenShaVariantConfig>;
+  /** 神煞输出范围；默认仅返回常用神煞，all 返回全部已计算项目。 */
+  scope?: ShenShaScope;
 }
 
 export const DEFAULT_SHENSHA_VARIANT_CONFIG: ShenShaVariantConfig = {
