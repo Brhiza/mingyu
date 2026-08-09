@@ -1750,7 +1750,6 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   const prompt = [
     `【七政四余 · 果老星宗】`,
     `出生时间：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}。`,
-    `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
     ...stars.map(
       (s) =>
         `${s.kind} ${s.name}：在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,
@@ -1758,6 +1757,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `七政四余吊照：${
       aspects.length
         ? aspects
+            .slice(0, 5)
             .map(
               (aspect) =>
                 `${aspect.star1}与${aspect.star2}${aspect.type}（${aspect.actualAngle.toFixed(2)}°）`,
@@ -1765,9 +1765,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
             .join('；')
         : '未见容许度内的主要同宫、六合、四正、三方或对照'
     }。`,
-    `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
-    `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=黄道第${item.signIndex + 1}宫`).join('；')}。`,
-    `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
+    `命宫在黄道第 ${mingGong + 1} 宫，命主${mingZhu}；身宫在黄道第 ${shenGong + 1} 宫。`,
   ].join('\n');
 
   return {

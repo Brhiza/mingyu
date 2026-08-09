@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import type { LenormandSpreadType } from 'mingyu-core/types';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -48,13 +48,13 @@ export function registerLenormandTool(server: McpServer) {
     {
       description:
         '雷诺曼抽牌：偏现实事件判断，支持单牌、三牌、五牌十字、关系、选择、九宫、元素牌阵和大桌牌阵',
-      inputSchema: lenormandSchema.shape,
+      inputSchema: { ...lenormandSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = buildLenormandResult(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '雷诺曼抽牌失败'));
       }

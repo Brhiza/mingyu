@@ -155,7 +155,7 @@
 
 `/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。
 
-为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时显式传 `responseMode: "summary"` 获取轻量摘要；确实需要同一次响应带完整排盘时才传 `responseMode: "full"`。大体量数据建议拆成多次请求，或先调用排盘接口用 `detailMode: "compact"` 按需取轻量字段。
+为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认使用 `responseMode: "prompt-only"`，只返回 `data.prompt`。需要结构化展示时显式传 `responseMode: "summary"` 获取轻量摘要；确实需要同一次响应带完整排盘时才传 `responseMode: "full"`。所有命理、占卜和风水计算接口默认使用 `detailMode: "compact"`，保留盘面与解读所需字段，省略提示词、证据链和重复计算过程；审计或研究场景可显式传 `detailMode: "full"`。
 
 真太阳时换算：
 
@@ -396,7 +396,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `timeIndex` 范围为 `0` 到 `12`，其中 `0` 为早子时，`12` 为晚子时。
 - `question` 是所有 `/prompt` 接口的必填字段，黄历择日 `/prompt` 可不填；`question` 和 `astrolabeScopeText` 最多 5000 个字符。
 - `/prompt` 支持 `responseMode`：`prompt-only` 为默认值，只返回提示词；`summary` 返回提示词和轻量摘要；`full` 返回完整排盘和提示词。
-- 八字、紫微、奇门和黄历择日排盘接口支持 `detailMode`：`full` 返回完整结构；`compact` 返回轻量结构，适合自动化或多次分页请求。
+- 所有命理、占卜和风水排盘接口支持 `detailMode`：默认 `compact`，保留核心盘面并省略证据链、提示词与重复计算过程；显式传 `full` 才返回完整结构。基础历法、天文和五行等公共地基接口不受此参数影响。
 - 八字 `promptTopic` 支持 `general`、`career`、`wealth`、`marriage`、`children`、`health`、`relationship-push`、`relationship-decision`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`home-move`、`settle-relocate`、`study-advance`、`exam-landing`、`reconciliation-decision`、`emotion`、`talent`、`growth`、`social`。
 - 八字 `/bazi/prompt` 可传 `baziFortuneScope` 指定命限范围，支持 `natal`、`full`、`dayun`、`year`、`month`、`day`；除 `natal`、`full` 外必须提供所选层级需要的明确年限参数，工具不会自动选择当前时间或第一项。
 - 紫微 `promptTopic` 支持 `destiny`、`relationship`、`relationship-push`、`relationship-decision`、`children`、`career-wealth`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`family`、`home-move`、`settle-relocate`、`social`、`emotion`、`health`、`study`、`study-advance`、`exam-landing`、`reconciliation-decision`、`growth`、`talent`、`life`、`chat`。

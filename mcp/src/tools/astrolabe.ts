@@ -10,7 +10,7 @@ import {
 } from '../../../src/lib/astrolabe-scope.js';
 import { buildAstrolabeSynastryPrompt } from '../../../src/lib/astrolabe-synastry-prompt.js';
 import type { AstrolabeData } from '../../../src/types/divination.js';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -196,13 +196,13 @@ export function registerAstrolabeTool(server: McpServer) {
     {
       description:
         '星盘生成：根据民用出生时间、经纬度和时区生成星体、宫位、相位、元素模式及结构化证据；可附带真太阳时参考，但不改写现代星历时刻',
-      inputSchema: astrolabeSchema.shape,
+      inputSchema: { ...astrolabeSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = buildAstrolabeResult(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '星盘生成失败'));
       }
@@ -240,12 +240,15 @@ export function registerAstrolabeTool(server: McpServer) {
     {
       description:
         '西洋占星双盘关系计算：返回双方本命盘、主要跨盘相位、精确角距、容许度、跨盘落宫与结构化证据',
-      inputSchema: astrolabeSynastrySchema.shape,
+      inputSchema: { ...astrolabeSynastrySchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
-        return createStructuredToolResult({ result: buildAstrolabeSynastryResult(args) });
+        return createStructuredToolResult(
+          { result: buildAstrolabeSynastryResult(args) },
+          args.detailMode,
+        );
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '西占双盘计算失败'));
       }

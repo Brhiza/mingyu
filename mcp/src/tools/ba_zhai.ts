@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { bazhai } from 'mingyu-core';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -78,13 +78,13 @@ export function registerBaZhaiTool(server: McpServer) {
     {
       description:
         '八宅风水排盘：以命卦（东四/西四命）与宅卦配合，排八宅大游年四吉四凶方，分析命宅配合与宜忌方位',
-      inputSchema: baZhaiSchema.shape,
+      inputSchema: { ...baZhaiSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = calculateBaZhai(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '八宅排盘失败'));
       }

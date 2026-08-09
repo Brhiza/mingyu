@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -11,10 +11,7 @@ import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-co
 import { readMcpCustomDate } from './input-helpers.js';
 
 const xiaoliurenSchema = z.object({
-  xiaoliurenMethod: z
-    .enum(['time'])
-    .optional()
-    .describe('起课方式：仅支持通行掌诀时间起课'),
+  xiaoliurenMethod: z.enum(['time']).optional().describe('起课方式：仅支持通行掌诀时间起课'),
   customDate: z
     .string()
     .optional()
@@ -39,13 +36,13 @@ export function registerXiaoliurenTool(server: McpServer) {
     {
       description:
         '小六壬通行时间课：按农历月、日、时辰逐步顺数，返回时宫歌诀与来源、历法和解释限制',
-      inputSchema: xiaoliurenSchema.shape,
+      inputSchema: { ...xiaoliurenSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = generateXiaoliuren(buildXiaoliurenInput(args));
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '小六壬起课失败'));
       }

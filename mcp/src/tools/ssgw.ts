@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -18,15 +18,14 @@ export function registerSsgwTool(server: McpServer) {
   server.registerTool(
     'divine_ssgw',
     {
-      description:
-        '三山国王灵签求签：随机取一签并返回签号、签题与签诗原文。',
-      inputSchema: ssgwSchema.shape,
+      description: '三山国王灵签求签：随机取一签并返回签号、签题与签诗原文。',
+      inputSchema: { ...ssgwSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = drawRandomSign(readMcpRandomOptions(args));
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '求签失败'));
       }

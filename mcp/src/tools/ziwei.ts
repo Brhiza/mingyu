@@ -17,7 +17,7 @@ import {
   type ZiweiPromptTopic,
   type ZiweiSchool,
 } from '../../../src/lib/public-api/prompt-builders.js';
-import { ziweiOutputSchema } from '../schemas.js';
+import { calculationDetailShape, ziweiOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -147,7 +147,7 @@ export function registerZiweiTool(server: McpServer) {
     {
       description:
         '紫微斗数排盘：根据出生信息计算紫微命盘；启用真太阳时时返回统一校正计算链、事实、汇总与限制，关闭时保留传统时辰直接排盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外运限范围',
-      inputSchema: ziweiSchema.shape,
+      inputSchema: { ...ziweiSchema.shape, ...calculationDetailShape },
       outputSchema: ziweiOutputSchema,
     },
     async (args) => {
@@ -158,7 +158,10 @@ export function registerZiweiTool(server: McpServer) {
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
         const result = await calculateZiweiChartForScopes(input, scopes);
-        return createStructuredToolResult({ ...buildSerializableZiweiResult(result) });
+        return createStructuredToolResult(
+          { ...buildSerializableZiweiResult(result) },
+          args.detailMode,
+        );
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
       }
@@ -205,7 +208,7 @@ export function registerZiweiTool(server: McpServer) {
     {
       description:
         '紫微双盘结构化证据计算：返回双方本命盘、关键宫位叠盘、跨盘生年四化落宫和解释边界，不输出匹配总分',
-      inputSchema: ziweiCompatibilitySchema.shape,
+      inputSchema: { ...ziweiCompatibilitySchema.shape, ...calculationDetailShape },
       outputSchema: {
         charts: z.unknown().describe('双方紫微本命盘'),
         compatibility: z.unknown().describe('宫位叠盘、四化交叉落宫与结构化证据'),
@@ -227,13 +230,16 @@ export function registerZiweiTool(server: McpServer) {
             astrolabe2: person2.astrolabe,
           },
         );
-        return createStructuredToolResult({
-          charts: {
-            person1: buildSerializableZiweiResult(person1),
-            person2: buildSerializableZiweiResult(person2),
+        return createStructuredToolResult(
+          {
+            charts: {
+              person1: buildSerializableZiweiResult(person1),
+              person2: buildSerializableZiweiResult(person2),
+            },
+            compatibility,
           },
-          compatibility,
-        });
+          args.detailMode,
+        );
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '紫微双盘计算失败'));
       }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -50,13 +50,13 @@ export function registerLiuyaoTool(server: McpServer) {
     {
       description:
         '六爻起卦：基于当前时间或自定义时间生成六爻卦象，包含纳甲、六亲、六神、世应、动变、空亡等完整信息',
-      inputSchema: liuyaoSchema.shape,
+      inputSchema: { ...liuyaoSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = buildLiuyaoResult(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '起卦失败'));
       }

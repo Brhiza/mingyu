@@ -237,7 +237,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       question: '我适合创业还是上班？',
       promptTopic: 'career',
     },
-    /【排盘信息】[\s\S]*【核心判断依据】[\s\S]*【四柱】/,
+    /【排盘信息】[\s\S]*【核心判断】[\s\S]*【四柱】/,
   ],
   [
     'ziwei_prompt',
@@ -470,7 +470,11 @@ test('通用神煞 MCP 输入应拒绝重复编号', async () => {
 test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复完整 JSON', async () => {
   await withMcpClient(async (client) => {
     for (const [name, args] of toolCalls) {
-      const result = await client.callTool({ name, arguments: args });
+      const arguments_ =
+        name.startsWith('foundation_') || name.startsWith('calendar_')
+          ? args
+          : { ...args, detailMode: 'full' };
+      const result = await client.callTool({ name, arguments: arguments_ });
       assert.equal(result.isError, undefined, `${name} 不应返回错误`);
       assert.ok(result.structuredContent, `${name} 缺少 structuredContent`);
       assert.equal(result.content[0]?.type, 'text', `${name} 缺少文本兼容输出`);
@@ -1087,6 +1091,36 @@ test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复�
   });
 });
 
+test('MCP 排盘工具默认保留盘面并省略冗长证据', async () => {
+  await withMcpClient(async (client) => {
+    const calls: Array<[string, Record<string, unknown>, string]> = [
+      ['divine_tarot', { spreadType: 'single', seed: '默认精简样例' }, 'cards'],
+      [
+        'bazi_calculate',
+        { gender: 'male', year: 1990, month: 5, day: 15, timeIndex: 1, dateType: 'solar' },
+        'pillars',
+      ],
+      [
+        'metaphysics_residential',
+        { birthYear: 1990, gender: 'male', year: 2024, doorToInteriorDegree: 0 },
+        'bazhai',
+      ],
+    ];
+
+    for (const [name, arguments_, coreKey] of calls) {
+      const response = await client.callTool({ name, arguments: arguments_ });
+      assert.equal(response.isError, undefined, `${name} 不应返回错误`);
+      const result = (response.structuredContent as { result?: Record<string, unknown> }).result;
+      assert.ok(result?.[coreKey], `${name} 应保留核心盘面字段 ${coreKey}`);
+      assert.doesNotMatch(
+        JSON.stringify(response.structuredContent),
+        /"(?:prompt|evidenceAnalysis|evidence_analysis|evidencePromptText|calculationChain|calculationSteps|trueSolarEvidence|timezoneEvidence)"/,
+        `${name} 默认结果不应混入完整证据链`,
+      );
+    }
+  });
+});
+
 test('MCP 生肖流年应拒绝缺失或互相冲突的年份依据', async () => {
   await withMcpClient(async (client) => {
     for (const [name, arguments_] of [
@@ -1465,6 +1499,7 @@ test('MCP 八字双盘排盘工具应返回计算链、反证、汇总与限制�
     const response = await client.callTool({
       name: 'bazi_compatibility',
       arguments: {
+        detailMode: 'full',
         person1: {
           name: '甲方',
           gender: 'female',
@@ -1530,6 +1565,7 @@ test('MCP 黄历择日排盘保留证据，提示词允许省略问题且只返�
     const result = await client.callTool({
       name: 'divine_almanac',
       arguments: {
+        detailMode: 'full',
         topic: 'contract',
         startDate: '2026-06-01',
         endDate: '2026-06-03',
@@ -1778,6 +1814,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     const calculation = await client.callTool({
       name: 'divine_astrolabe',
       arguments: {
+        detailMode: 'full',
         name: '本人',
         gender: '女',
         year: 1995,
@@ -2033,7 +2070,8 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     );
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /占法：星盘/);
-    assert.match(prompt, /星体位置：[\s\S]*宫头位置：[\s\S]*相位明细：/);
+    assert.match(prompt, /星体位置：[\s\S]*相位明细：/);
+    assert.doesNotMatch(prompt, /宫头位置：/);
     assert.match(prompt, /【分析对象】\n分析对象：流年2028。/);
     assert.match(prompt, /行运证据：土星□太阳/);
     assert.doesNotMatch(prompt, /强度\d+%/);
@@ -2101,6 +2139,7 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
     const calculation = await client.callTool({
       name: 'astrolabe_synastry',
       arguments: {
+        detailMode: 'full',
         person1: {
           name: '甲',
           gender: '女',
@@ -2261,7 +2300,7 @@ test('MCP 塔罗应返回分层结构化证据并写入提示词', async () => {
   await withMcpClient(async (client) => {
     const tarot = await client.callTool({
       name: 'divine_tarot',
-      arguments: { spreadType: 'three', seed: 'MCP塔罗证据样例' },
+      arguments: { spreadType: 'three', seed: 'MCP塔罗证据样例', detailMode: 'full' },
     });
     const tarotData = tarot.structuredContent?.result as Record<string, any>;
     assert.equal(tarot.isError, undefined);
@@ -2457,6 +2496,7 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     const baziResult = await client.callTool({
       name: 'bazi_calculate',
       arguments: {
+        detailMode: 'full',
         gender: baziPerson.gender,
         year: baziPerson.year,
         month: baziPerson.month,
@@ -2523,6 +2563,7 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     const ziweiResult = await client.callTool({
       name: 'ziwei_calculate',
       arguments: {
+        detailMode: 'full',
         gender: 'female',
         dateType: 'solar',
         year: '1992',
@@ -2591,7 +2632,7 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     };
     const astrolabeResult = await client.callTool({
       name: 'divine_astrolabe',
-      arguments: astrolabeArguments,
+      arguments: { ...astrolabeArguments, detailMode: 'full' },
     });
     assert.equal(astrolabeResult.isError, undefined);
     const astrolabeResultData = astrolabeResult.structuredContent as {
@@ -2889,7 +2930,7 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     };
     const chartResponse = await client.callTool({
       name: 'metaphysics_qizheng',
-      arguments: arguments_,
+      arguments: { ...arguments_, detailMode: 'full' },
     });
     assert.equal(chartResponse.isError, undefined);
     const chart = (
@@ -2917,7 +2958,10 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     assert.equal(promptResponse.isError, undefined);
     const prompt = String(promptResponse.structuredContent?.prompt);
     assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.qizheng);
-    assert.match(prompt, /【七政四余 · 果老星宗】[\s\S]*七政：[\s\S]*【问题】\n请分析本命结构。/);
+    assert.match(
+      prompt,
+      /【七政四余 · 果老星宗】[\s\S]*七政 太阳：[\s\S]*【问题】\n请分析本命结构。/,
+    );
     assert.doesNotMatch(prompt, /宿界模型/);
     assertPromptIsPortableTaskText(prompt);
   });
@@ -2979,7 +3023,7 @@ test('MCP 玄空应只返回可核验下卦盘', async () => {
   await withMcpClient(async (client) => {
     const response = await client.callTool({
       name: 'metaphysics_xuankong',
-      arguments: { year: 2008, sitMountain: '子' },
+      arguments: { year: 2008, sitMountain: '子', detailMode: 'full' },
     });
     assert.equal(response.isError, undefined);
     const chart = (
@@ -3055,6 +3099,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     const chart = await client.callTool({
       name: 'divine_meihua',
       arguments: {
+        detailMode: 'full',
         method: 'number',
         number: 123,
         customDate: '2025-01-01T08:00:00+08:00',
@@ -3299,7 +3344,8 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     });
     const promptText = String(prompt.structuredContent?.prompt);
     assert.match(promptText, /占法：梅花易数/);
-    assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*结构明细：/);
+    assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*互卦：[\s\S]*变卦：/);
+    assert.doesNotMatch(promptText, /结构明细：|静爻/);
     assert.doesNotMatch(promptText, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(promptText, /妇三岁不孕|焚如，死如|至于八月有凶/);
     assert.doesNotMatch(promptText, /体用评分：|类象权重：|\d+日内|\d+月左右/);
@@ -3377,7 +3423,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.equal(liuyaoResult.isError, undefined, 'liuyao_prompt 不应返回错误');
     const liuyaoPrompt = String(liuyaoResult.structuredContent?.prompt);
     assert.match(liuyaoPrompt, /占法：六爻/);
-    assert.match(liuyaoPrompt, /六亲持世：[\s\S]*世应动变：[\s\S]*月日触发：/);
+    assert.match(liuyaoPrompt, /世应：[\s\S]*动变：[\s\S]*月日触发：/);
     assert.match(liuyaoPrompt, /【问题范围】\n鬼神怪异/);
     assert.doesNotMatch(liuyaoPrompt, /结构化证据|计算链|证据汇总|解释限制|断卦要点/);
     assertPromptIsPortableTaskText(liuyaoPrompt);
@@ -3400,6 +3446,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     const liurenChart = await client.callTool({
       name: 'divine_liuren',
       arguments: {
+        detailMode: 'full',
         customDate: '2025-01-01T08:00:00+08:00',
         liurenTemplate: 'shiye',
       },
@@ -3660,8 +3707,8 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       new Set(['经典取传规则', '课体', '天将属性', '神煞']),
     );
     assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
-    assert.match(liurenPrompt, /古籍依据：/);
-    assert.match(liurenPrompt, /应期资料：/);
+    assert.doesNotMatch(liurenPrompt, /取传依据：/);
+    assert.doesNotMatch(liurenPrompt, /应期线索：/);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);
@@ -3681,7 +3728,10 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     const prompt = String(result.structuredContent?.prompt);
     const chartResult = await client.callTool({
       name: 'divine_qimen',
-      arguments: { customDate: '2025-01-01T08:00:00+08:00' },
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        detailMode: 'full',
+      },
     });
     assert.equal(chartResult.isError, undefined, 'divine_qimen 不应返回错误');
     const chart = (
@@ -3974,7 +4024,8 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     );
     assert.match(prompt, /占法：奇门遁甲/);
     assert.match(prompt, /核心结构：[\s\S]*值符值使与时干：[\s\S]*旬空与马星：/);
-    assert.match(prompt, /节气交接：[\s\S]*月相：/);
+    assert.match(prompt, /节令：[\s\S]*值符值使与时干：/);
+    assert.doesNotMatch(prompt, /节气交接：|完整天地盘|四柱互动/);
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
     assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);
@@ -3997,7 +4048,7 @@ test('MCP 太乙工具返回年计七十二局结构化证据', async () => {
     const prompt = String(result.structuredContent?.prompt);
     const chartResult = await client.callTool({
       name: 'metaphysics_taiyi',
-      arguments: { year: 2004, scope: 'year' },
+      arguments: { year: 2004, scope: 'year', detailMode: 'full' },
     });
     assert.equal(chartResult.isError, undefined, 'metaphysics_taiyi 不应返回错误');
     const chart = (
@@ -4163,6 +4214,7 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
         customDate: '2025-01-01T08:00:00+08:00',
         method: 'coins',
         seed: 'MCP 固定样例',
+        detailMode: 'full',
       },
     });
     assert.equal(first.isError, undefined);

@@ -112,6 +112,7 @@ import {
   getPublicApiRuntime,
   type PublicApiRuntime,
 } from './metadata';
+import { RESULT_DETAIL_MODES, shapeCalculationResult } from '../result-detail';
 
 type ApiMeta = {
   service: string;
@@ -159,7 +160,7 @@ const MAX_COMPACT_QIMEN_CLASSIC_PATTERNS = 8;
 const MAX_COMPACT_QIMEN_PATTERN_COMBOS = 10;
 const MAX_COMPACT_QIMEN_PALACE_INSIGHTS = 9;
 const PROMPT_RESPONSE_MODES = ['summary', 'full', 'prompt-only'] as const;
-const DETAIL_MODES = ['full', 'compact'] as const;
+const DETAIL_MODES = RESULT_DETAIL_MODES;
 const ASTROLABE_PROMPT_SCOPES = ['natal', 'full', 'yearly', 'monthly', 'daily'] as const;
 
 type RouteContext = {
@@ -389,8 +390,9 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   detailMode: {
     enum: [...DETAIL_MODES],
+    default: 'compact',
     description:
-      '排盘接口返回细节：full 返回完整结构；compact 返回轻量摘要，适合自动化和多次分页请求。',
+      '排盘接口返回细节：compact 为默认值，只返回盘面与解读所需字段；full 显式返回完整证据链和计算过程。',
   },
   page: {
     type: 'integer',
@@ -1610,107 +1612,117 @@ async function route(context: RouteContext) {
     case 'foundation/shensha':
       return calculateFoundationShensha(await readJson(context.request));
     case 'bazi/calculate':
-      return calculateBaziApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateBaziApi);
     case 'bazi/prompt':
       return buildBaziPrompt(await readJson(context.request));
     case 'bazi/compatibility':
-      return calculateBaziCompatibilityApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateBaziCompatibilityApi);
     case 'bazi/compatibility/prompt':
       return buildBaziCompatibilityPromptApi(await readJson(context.request));
     case 'ziwei/calculate':
-      return calculateZiwei(await readJson(context.request));
+      return calculateApiResult(context.request, calculateZiwei);
     case 'ziwei/prompt':
       return buildZiweiPrompt(await readJson(context.request));
     case 'ziwei/compatibility':
-      return calculateZiweiCompatibilityApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateZiweiCompatibilityApi);
     case 'ziwei/compatibility/prompt':
       return buildZiweiCompatibilityPromptApi(await readJson(context.request));
     case 'bazi-ziwei/prompt':
       return buildBaziZiweiPrompt(await readJson(context.request));
     case 'divination/liuyao':
-      return calculateLiuyao(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateLiuyao, true);
     case 'divination/liuyao/prompt':
       return buildDivinationPromptResult('liuyao', await readJson(context.request));
     case 'divination/meihua':
-      return calculateMeihua(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateMeihua, true);
     case 'divination/meihua/prompt':
       return buildDivinationPromptResult('meihua', await readJson(context.request));
     case 'divination/xiaoliuren':
-      return calculateXiaoliuren(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateXiaoliuren, true);
     case 'divination/xiaoliuren/prompt':
       return buildDivinationPromptResult('xiaoliuren', await readJson(context.request));
     case 'divination/jinkoujue':
-      return calculateJinkoujue(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateJinkoujue, true);
     case 'divination/jinkoujue/prompt':
       return buildDivinationPromptResult('jinkoujue', await readJson(context.request));
     case 'divination/qimen':
-      return calculateQimenApi(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateQimenApi, true);
     case 'divination/qimen/prompt':
       return buildDivinationPromptResult('qimen', await readJson(context.request));
     case 'divination/liuren':
-      return calculateLiuren(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateLiuren, true);
     case 'divination/liuren/prompt':
       return buildDivinationPromptResult('liuren', await readJson(context.request));
     case 'divination/tarot':
-      return calculateTarot(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateTarot, true);
     case 'divination/tarot/prompt':
       return buildDivinationPromptResult('tarot', await readJson(context.request));
     case 'divination/ssgw':
-      return calculateSsgw(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateSsgw, true);
     case 'divination/ssgw/prompt':
       return buildDivinationPromptResult('ssgw', await readJson(context.request));
     case 'divination/almanac':
-      return calculateAlmanacApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateAlmanacApi);
     case 'divination/almanac/prompt':
       return buildDivinationPromptResult('almanac', await readJson(context.request));
     case 'divination/lenormand':
-      return calculateLenormand(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateLenormand, true);
     case 'divination/lenormand/prompt':
       return buildDivinationPromptResult('lenormand', await readJson(context.request));
     case 'divination/astrolabe':
-      return calculateAstrolabe(await readJson(context.request));
+      return calculateApiResult(context.request, calculateAstrolabe);
     case 'divination/astrolabe/prompt':
       return buildDivinationPromptResult('astrolabe', await readJson(context.request));
     case 'divination/astrolabe/synastry':
-      return calculateAstrolabeSynastryApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateAstrolabeSynastryApi);
     case 'divination/astrolabe/synastry/prompt':
       return buildAstrolabeSynastryPromptApi(await readJson(context.request));
     // 新增术数系统（地基层之上的新体系）
     case 'metaphysics/bazhai/calculate':
-      return calculateBaZhaiApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateBaZhaiApi);
     case 'metaphysics/bazhai/prompt':
       return buildBaZhaiPrompt(await readJson(context.request));
     case 'metaphysics/zodiac/calculate':
-      return calculateZodiacApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateZodiacApi);
     case 'metaphysics/zodiac/prompt':
       return buildZodiacPrompt(await readJson(context.request));
     case 'metaphysics/taiyi/calculate':
-      return calculateTaiyiApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateTaiyiApi);
     case 'metaphysics/taiyi/prompt':
       return buildTaiyiPrompt(await readJson(context.request));
     case 'metaphysics/wuyun-liuqi/calculate':
-      return calculateWuyunLiuqiApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateWuyunLiuqiApi);
     case 'metaphysics/wuyun-liuqi/prompt':
       return buildWuyunLiuqiPromptApi(await readJson(context.request));
     case 'metaphysics/huangji-jingshi/calculate':
-      return calculateHuangjiJingshiApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateHuangjiJingshiApi);
     case 'metaphysics/huangji-jingshi/prompt':
       return buildHuangjiJingshiPromptApi(await readJson(context.request));
     case 'metaphysics/qizheng/calculate':
-      return calculateQizhengApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateQizhengApi);
     case 'metaphysics/qizheng/prompt':
       return buildQizhengPrompt(await readJson(context.request));
     case 'metaphysics/xuankong/calculate':
-      return calculateXuanKongApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateXuanKongApi);
     case 'metaphysics/xuankong/prompt':
       return buildXuanKongPrompt(await readJson(context.request));
     case 'metaphysics/residential/calculate':
-      return calculateResidentialApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateResidentialApi);
     case 'metaphysics/residential/prompt':
       return buildResidentialPrompt(await readJson(context.request));
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
   }
+}
+
+async function calculateApiResult(
+  request: Request,
+  calculate: (input: JsonRecord) => unknown | Promise<unknown>,
+  optionalBody = false,
+) {
+  const input = await readJson(request, optionalBody);
+  const result = await calculate(input);
+  return shapeCalculationResult(result, readDetailMode(input));
 }
 
 function calculateTrueSolarTimeApi(input: JsonRecord) {
@@ -2380,7 +2392,7 @@ function buildQizhengPrompt(input: JsonRecord) {
 
 function calculateBaziApi(input: JsonRecord) {
   const result = calculateBazi(input);
-  return readDetailMode(input) === 'compact' ? buildCompactBaziResult(result) : result;
+  return input.detailMode === 'compact' ? buildCompactBaziResult(result) : result;
 }
 
 function readBaziPerson(input: JsonRecord): Person {
@@ -2633,7 +2645,7 @@ async function calculateZiwei(input: JsonRecord) {
   const result = buildSerializableZiweiResult(
     await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope)),
   );
-  return readDetailMode(input) === 'compact' ? buildCompactZiweiResult(result) : result;
+  return input.detailMode === 'compact' ? buildCompactZiweiResult(result) : result;
 }
 
 async function buildZiweiPrompt(input: JsonRecord) {
@@ -2835,7 +2847,7 @@ function calculateQimen(input: JsonRecord) {
 
 function calculateQimenApi(input: JsonRecord) {
   const result = calculateQimen(input);
-  return readDetailMode(input) === 'compact' ? buildCompactQimenResult(result) : result;
+  return input.detailMode === 'compact' ? buildCompactQimenResult(result) : result;
 }
 
 function calculateMeihua(input: JsonRecord) {
@@ -3298,7 +3310,7 @@ function readPromptResponseMode(input: JsonRecord) {
 }
 
 function readDetailMode(input: JsonRecord) {
-  return readEnum(input, 'detailMode', DETAIL_MODES, 'full');
+  return readEnum(input, 'detailMode', DETAIL_MODES, 'compact');
 }
 
 function buildPromptApiResult(params: {

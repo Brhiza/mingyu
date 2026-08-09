@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import type { MeihuaSettings } from 'mingyu-core/types';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -51,14 +51,14 @@ export function registerMeihuaTool(server: McpServer) {
     {
       description:
         '梅花易数起卦：支持时间起卦、数字起卦、随机起卦，timeTrigram 作为兼容旧参数按时间起卦计算，生成主卦、互卦、变卦/体用生克分析及应期判断',
-      inputSchema: meihuaSchema.shape,
+      inputSchema: { ...meihuaSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const settings = buildMeihuaSettings(args);
         const result = generateMeihua(readMcpCustomDate(args.customDate), settings);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '起卦失败'));
       }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -52,15 +52,14 @@ export function registerJinkoujueTool(server: McpServer) {
   server.registerTool(
     'divine_jinkoujue',
     {
-      description:
-        '金口诀起课：按地分、将神、贵神、人元四位一体生成完整课盘与结构化证据',
-      inputSchema: jinkoujueSchema.shape,
+      description: '金口诀起课：按地分、将神、贵神、人元四位一体生成完整课盘与结构化证据',
+      inputSchema: { ...jinkoujueSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = generateJinkoujue(buildJinkoujueInput(args));
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '金口诀起课失败'));
       }

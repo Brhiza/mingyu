@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { residentialFengshui } from 'mingyu-core';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -82,13 +82,16 @@ export function registerResidentialFengshuiTool(server: McpServer) {
     {
       description:
         '住宅风水一站式：分层计算八宅与玄空飞星，输出宅运结构、人宅适配、合参要点与证据；玄空层须提供建造年或起运年，不生成综合吉凶总分',
-      inputSchema: residentialSchema.omit({ question: true }).shape,
+      inputSchema: {
+        ...residentialSchema.omit({ question: true }).shape,
+        ...calculationDetailShape,
+      },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = calculateResidential(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '住宅风水排盘失败'));
       }

@@ -493,7 +493,6 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
 
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
-  const sixteenGodsText = sixteenGods.map((item) => `${item.branch}${item.god}`).join('、');
   const scopeInfo = SCOPE_LABELS[scope];
   const dateTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   const evidenceAnalysis = buildTaiyiEvidence({
@@ -535,12 +534,16 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const prompt = [
     `【太乙神数 · ${scopeInfo.title}】`,
     `本计干支：${ganZhi}。`,
-    `太乙${scopeInfo.accumulated}：${accumulatedValue}；360 周期余数：${entryYears}；第 ${yuan} 个 72 数段、第 ${ji} 个 60 数段；${yinYang}第 ${bureau} 局。`,
+    `${yinYang}第 ${bureau} 局。`,
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
     `主客定算：主算 ${lordCount}${lordNature ? `（${lordNature}）` : ''}；客算 ${guestCount}${guestNature ? `（${guestNature}）` : ''}；定算 ${setCount}${setNature ? `（${setNature}）` : ''}。`,
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
-    ...(judgments.length ? [`判断：${judgments.join('；')}`] : []),
-    `十六神：${sixteenGodsText}。`,
+    ...(() => {
+      const specialJudgments = judgments.filter(
+        (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item),
+      );
+      return specialJudgments.length ? [`判断：${specialJudgments.join('；')}`] : [];
+    })(),
   ].join('\n');
 
   return {

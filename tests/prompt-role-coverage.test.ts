@@ -34,12 +34,12 @@ test('核心传统术数指引覆盖排盘与取用主线', () => {
   const expectedTerms = {
     bazi: ['月令', '格局', '调候', '岁运'],
     liuyao: ['用神', '月建', '动爻', '伏神'],
-    ziwei: ['命宫', '身宫', '三方四正', '四化'],
+    ziwei: ['命身', '三方四正', '四化'],
     qimen: ['用神', '值符值使', '空亡', '格局'],
     liuren: ['四课', '取传规则', '三传', '天将'],
     meihua: ['本卦', '体用', '互卦', '变卦'],
     taiyi: ['积年', '阳遁', '七十二局', '主客定算'],
-    bazhai: ['命卦', '宅卦', '东四西四', '测量'],
+    bazhai: ['命卦', '宅卦', '八方吉凶'],
     xuankong: ['三元九运', '山向', '运盘', '下卦'],
     residential: ['宅运', '人宅', '适配', '山向飞布'],
     almanac: ['原始宜忌', '建除', '参与人', '十二神'],
@@ -66,10 +66,12 @@ test('八宅、住宅风水、太乙与玄空提示词使用任务书结构', ()
   });
 });
 
-test('七政四余提示词指引覆盖真实距星宿界与混合精度', () => {
+test('七政四余提示词指引保留解读所需主线', () => {
   const guidance = PROMPT_GUIDANCE_TEXT.qizheng;
 
-  assert.match(guidance.tradition, /真实距星黄经划界/);
-  assert.match(guidance.tradition, /真太阳时/);
+  assert.match(guidance.tradition, /二十八宿/);
+  assert.match(guidance.tradition, /命身宫/);
+  assert.match(guidance.tradition, /主要吊照/);
+  assert.doesNotMatch(guidance.tradition, /真实距星黄经划界|真太阳时|计算/);
   assert.match(guidance.sources, /《.+》/);
 });

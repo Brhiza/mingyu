@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -29,7 +29,7 @@ export function registerLiurenTool(server: McpServer) {
     {
       description:
         '大六壬排盘：基于当前时间或自定义时间生成完整的天盘、四课、三传、月将、贵人、旬空等信息，含格局标签与断课模板',
-      inputSchema: liurenSchema.shape,
+      inputSchema: { ...liurenSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
@@ -38,7 +38,7 @@ export function registerLiurenTool(server: McpServer) {
           ...generateLiuren(readMcpCustomDate(args.customDate)),
           template: args.liurenTemplate || 'general',
         };
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
       }

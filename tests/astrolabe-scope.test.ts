@@ -79,7 +79,7 @@ test('星盘本命分析对象只写入本命资料', () => {
   assert.equal(context.displayText, '仅使用本命信息');
   assert.equal(context.dateStr, '');
   assert.match(context.promptText, /分析对象：本命盘。/);
-  assert.match(context.promptText, /本命宫主星：第1宫/);
+  assert.doesNotMatch(context.promptText, /宫主星落宫/);
   assert.doesNotMatch(context.promptText, /不得|资料范围|时间边界|证据/);
   assert.doesNotMatch(context.promptText, /行运落宫：/);
 });
@@ -91,7 +91,7 @@ test('星盘完整输出版显示完整行运资料摘要', () => {
   assert.equal(context.displayText, '本命盘与完整行运资料 · 2028-06-01');
   assert.equal(context.dateStr, '2028-06-01');
   assert.match(context.promptText, /以2028-06-01为基准的完整行运资料/);
-  assert.match(context.promptText, /本命宫主星：第1宫/);
+  assert.doesNotMatch(context.promptText, /宫主星落宫/);
 
   const contexts = buildAstrolabeFullScopeContexts(astrolabeData, '2028-06-01');
   assert.equal(contexts.yearly.dateStr, '2028');
@@ -105,13 +105,15 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.equal(context.displayText, '流年 · 2028');
   assert.equal(context.dateStr, '2028');
   assert.match(context.promptText, /分析对象：流年2028。/);
-  assert.match(context.promptText, /本命宫主星：第1宫/);
+  assert.doesNotMatch(context.promptText, /宫主星落宫/);
+  assert.match(context.promptText, /行运取样：2028-07-01 12:00（UTC\+8）/);
   assert.match(context.promptText, /主要行运相位：/);
   assert.match(context.promptText, /行运落宫：/);
-  assert.match(context.promptText, /太阳返照：/);
-  assert.match(context.promptText, /次限推进：/);
-  assert.match(context.promptText, /太阳弧：/);
+  assert.match(context.promptText, /太阳返照（.+）：/);
+  assert.match(context.promptText, /次限相位：/);
+  assert.match(context.promptText, /太阳弧相位：/);
   assert.match(context.promptText, /落本命第\d+宫/);
+  assert.doesNotMatch(context.promptText, /次限推进：|太阳弧：\d|行运基准：/);
   assert.doesNotMatch(context.promptText, /计算链|证据汇总|解释限制|时间边界|不得|不代表/);
   assert.equal(context.solarReturnEvidence?.status, 'exact');
   assert.equal(context.secondaryProgressionEvidence?.status, 'calculated');
