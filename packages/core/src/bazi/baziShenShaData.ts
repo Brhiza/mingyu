@@ -315,6 +315,7 @@ export const shenShaTypes: { lucky: string[]; unlucky: string[]; neutral: string
     '自刃',
     '天罗',
     '地网',
+    '天罗地网',
     '太岁',
     '剑锋',
     '伏尸',

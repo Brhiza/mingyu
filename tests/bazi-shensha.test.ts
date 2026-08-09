@@ -1,12 +1,51 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ShenShaCalculator as CoreShenShaCalculator } from '../packages/core/src/bazi/baziShenSha';
-import { ShenShaCalculator } from '@core/bazi/baziShenSha';
+import {
+  COMMON_BAZI_SHENSHA_NAMES,
+  filterCommonBaziShenSha,
+  ShenShaCalculator as CoreShenShaCalculator,
+} from '../packages/core/src/bazi/baziShenSha';
+import { ShenShaCalculator as AppShenShaCalculator } from '@core/bazi/baziShenSha';
+
+class ShenShaCalculator extends AppShenShaCalculator {
+  constructor(options: ConstructorParameters<typeof AppShenShaCalculator>[0] = {}) {
+    super({ scope: 'all', ...options });
+  }
+}
 
 function createCalculators(options?: ConstructorParameters<typeof CoreShenShaCalculator>[0]) {
-  return [new ShenShaCalculator(options), new CoreShenShaCalculator(options)];
+  return [new ShenShaCalculator(options), new CoreShenShaCalculator({ scope: 'all', ...options })];
 }
+
+test('神煞默认只返回 55 个常用项目，显式 all 可返回全部项目', () => {
+  const bazi = [
+    ['甲', '子'],
+    ['乙', '寅'],
+    ['壬', '午'],
+    ['丁', '亥'],
+  ] as const;
+  const common = new AppShenShaCalculator().calculateAllShenSha(bazi, 'male');
+  const all = new AppShenShaCalculator({ scope: 'all' }).calculateAllShenSha(bazi, 'male');
+
+  assert.equal(COMMON_BAZI_SHENSHA_NAMES.length, 55);
+  assert.ok(!(COMMON_BAZI_SHENSHA_NAMES as readonly string[]).includes('六厄'));
+  assert.ok(
+    Object.values(common)
+      .flat()
+      .every((name) => COMMON_BAZI_SHENSHA_NAMES.includes(name)),
+  );
+  assert.ok(Object.values(all).flat().includes('月空'));
+  assert.ok(!Object.values(common).flat().includes('月空'));
+});
+
+test('常用神煞过滤应还原完整名称并去重', () => {
+  assert.deepEqual(filterCommonBaziShenSha(['天罗', '地网', '天乙', '天乙贵人', '六厄', '勾绞']), [
+    '天罗地网',
+    '天乙贵人',
+    '勾绞煞',
+  ]);
+});
 
 test('神煞计算应先拒绝不完整四柱、非法干支和非法性别', () => {
   for (const calculator of createCalculators()) {

@@ -88,6 +88,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 
 - `responseMode` 通常保持默认；只需要提示词时用 `prompt-only`；需要完整排盘时才用 `full`。
 - `promptMode` 通常保持 `framework`，这样提示词更完整；只有用户已写好完整自由问题时才用 `custom`。
+- 八字神煞保持默认 `shenShaScope: "common"`，只返回 55 个常用神煞；用户明确要求全部神煞、研究或审计原始结果时才传 `shenShaScope: "all"`。
 - 出生时辰未知时，不要自行补时辰。八字可以保守分析，紫微和八字紫微合参应先让用户补足时辰。
 
 ## 常用接口

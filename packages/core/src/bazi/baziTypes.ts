@@ -4,6 +4,7 @@
  */
 
 import type { ShenShaVariantConfig } from './baziShenSha/variants';
+import type { ShenShaScope } from './baziShenSha/scope';
 import type { MingGuaProfile } from '../types/analysis';
 import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
@@ -34,6 +35,8 @@ export interface Person {
   timeZoneId?: string;
   age?: number;
   shenShaVariants?: Partial<ShenShaVariantConfig>;
+  /** 神煞输出范围；默认 common，all 返回全部已计算项目。 */
+  shenShaScope?: ShenShaScope;
   /**
    * 是否自动校正中国夏令时（1986-1991，钟表时间快 1 小时）。
    * 默认 false；仅为没有 IANA 时区资料的旧调用方保留。真太阳时模式下执行 -60 分钟校正，
