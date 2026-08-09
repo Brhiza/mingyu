@@ -17,6 +17,77 @@ const VALID_HOROSCOPE_DIVIDES = ['normal', 'exact'] as const;
 const VALID_AGE_DIVIDES = ['normal', 'birthday'] as const;
 const VALID_DAY_DIVIDES = ['current', 'forward'] as const;
 
+type IztroAstro = typeof import('iztro').astro;
+type IztroModuleShape = {
+  astro?: IztroAstro;
+  default?:
+    | IztroAstro
+    | {
+        astro?: IztroAstro;
+        default?: IztroAstro | { astro?: IztroAstro };
+      };
+};
+
+function isIztroAstro(value: unknown): value is IztroAstro {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { withOptions?: unknown }).withOptions === 'function' &&
+    typeof (value as { config?: unknown }).config === 'function'
+  );
+}
+
+/**
+ * 兼容 iztro 的 CommonJS 导出在 Node、Vite 和 Webpack 中的不同包装方式。
+ */
+export function resolveIztroAstro(moduleValue: unknown): IztroAstro {
+  const moduleShape = moduleValue as IztroModuleShape;
+  const defaultValue = moduleShape?.default;
+  const nestedDefault =
+    typeof defaultValue === 'object' && defaultValue !== null && 'default' in defaultValue
+      ? defaultValue.default
+      : undefined;
+  const candidates = [
+    moduleShape?.astro,
+    defaultValue,
+    typeof defaultValue === 'object' && defaultValue !== null && 'astro' in defaultValue
+      ? defaultValue.astro
+      : undefined,
+    nestedDefault,
+    typeof nestedDefault === 'object' && nestedDefault !== null && 'astro' in nestedDefault
+      ? nestedDefault.astro
+      : undefined,
+  ];
+
+  const astro = candidates.find(isIztroAstro);
+  if (!astro) {
+    throw new MingyuCoreError({
+      code: 'IZTRO_EXPORT_INVALID',
+      category: 'dependency',
+      message: '当前 iztro 包未提供可用的紫微排盘入口。',
+      recoverable: true,
+      context: { dependency: 'iztro', expected: 'astro.withOptions' },
+    });
+  }
+  return astro;
+}
+
+async function loadIztroAstro(): Promise<IztroAstro> {
+  try {
+    return resolveIztroAstro(await import('iztro'));
+  } catch (cause) {
+    if (cause instanceof MingyuCoreError) throw cause;
+    throw new MingyuCoreError({
+      code: 'IZTRO_DEPENDENCY_REQUIRED',
+      category: 'dependency',
+      message: '紫微斗数能力需要安装可选依赖 iztro。',
+      recoverable: true,
+      context: { dependency: 'iztro', install: 'pnpm add iztro' },
+      cause,
+    });
+  }
+}
+
 function normalizeTextField(value: unknown, label: string, fallback = ''): string {
   if (value === undefined || value === null) {
     return fallback;
@@ -95,19 +166,7 @@ export const DEFAULT_ZIWEI_CALCULATION_CONFIG: ZiweiCalculationConfig = buildZiw
 export async function buildAstrolabeFromInput(input: ChartInput): Promise<FunctionalAstrolabe> {
   const normalized = normalizeChartInput(input);
   assertValidChartInput(normalized);
-  let astro: typeof import('iztro').astro;
-  try {
-    ({ astro } = await import('iztro'));
-  } catch (cause) {
-    throw new MingyuCoreError({
-      code: 'IZTRO_DEPENDENCY_REQUIRED',
-      category: 'dependency',
-      message: '紫微斗数能力需要安装可选依赖 iztro。',
-      recoverable: true,
-      context: { dependency: 'iztro', install: 'pnpm add iztro' },
-      cause,
-    });
-  }
+  const astro = await loadIztroAstro();
 
   return astro.withOptions({
     type: normalized.dateType,
@@ -210,7 +269,7 @@ export async function buildHoroscopeFromInput(
   const normalized = normalizeChartInput(input);
   assertValidChartInput(normalized);
   assertValidHoroscopeInput(dateStr, hourIndex);
-  const { astro } = await import('iztro');
+  const astro = await loadIztroAstro();
 
   // iztro 的配置是全局状态；每次取运限前恢复本盘配置，避免不同口径串盘。
   astro.config(buildIztroConfig(normalized));

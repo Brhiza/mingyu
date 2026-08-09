@@ -1,5 +1,6 @@
 import { getBaziDayIndexByDate, getBaziMonthIndexByDate } from '../calendarTool';
 import type { BaziChartResult } from '../baziTypes';
+import { getLuckCycleForDate } from '../luckTiming';
 import type { BaziFortuneSelectionValue } from './helpers/types';
 
 function assertValidDate(value: Date): void {
@@ -8,17 +9,14 @@ function assertValidDate(value: Date): void {
   }
 }
 
-/** 按公历年份定位覆盖该年的最后一个大运或童运周期。 */
+/** 按精确交运时刻定位大运；数字年份参数仅为旧调用方式保留。 */
 export function getCurrentBaziLuckCycle(
   result: BaziChartResult,
-  currentYear = new Date().getFullYear(),
+  reference: Date | number = new Date(),
 ): BaziChartResult['luckInfo']['cycles'][number] | null {
-  if (!Number.isInteger(currentYear)) throw new TypeError('当前年份必须是整数。');
-  for (let index = result.luckInfo.cycles.length - 1; index >= 0; index -= 1) {
-    const cycle = result.luckInfo.cycles[index];
-    if (cycle.years?.some((item) => item.year === currentYear)) return cycle;
-  }
-  return null;
+  if (reference instanceof Date) return getLuckCycleForDate(result.luckInfo.cycles, reference);
+  if (!Number.isInteger(reference)) throw new TypeError('当前年份必须是整数。');
+  return getLuckCycleForDate(result.luckInfo.cycles, new Date(reference, 6, 1, 12, 0, 0));
 }
 
 /** 生成可直接传给 buildFortuneSelectionContext 的当前流日选择。 */
@@ -28,7 +26,7 @@ export function buildCurrentBaziFortuneSelection(
 ): BaziFortuneSelectionValue | null {
   assertValidDate(now);
   const year = now.getFullYear();
-  const currentCycle = getCurrentBaziLuckCycle(result, year);
+  const currentCycle = getCurrentBaziLuckCycle(result, now);
   if (!currentCycle) return null;
   const cycleIndex = result.luckInfo.cycles.findIndex((item) => item === currentCycle);
   const month = getBaziMonthIndexByDate(year, now) ?? 1;

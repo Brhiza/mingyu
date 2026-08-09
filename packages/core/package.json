@@ -226,6 +226,10 @@
       "types": "./dist/client/index.d.ts",
       "import": "./dist/client/index.js"
     },
+    "./consumption": {
+      "types": "./dist/consumption/index.d.ts",
+      "import": "./dist/consumption/index.js"
+    },
     "./capabilities": {
       "types": "./dist/capabilities/index.d.ts",
       "import": "./dist/capabilities/index.js"

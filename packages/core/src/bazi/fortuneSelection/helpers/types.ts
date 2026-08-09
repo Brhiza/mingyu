@@ -1,4 +1,12 @@
 import type { FortuneTriggerEvidenceResult } from '../../fortuneTriggerEvidence';
+import type { LocalTimeRange } from '../../baziTypes';
+
+export type FortuneHourMode = 'twelve' | 'splitZi';
+
+export interface FortuneSelectionOptions {
+  /** 默认十二时辰；splitZi 保留旧版早子时、晚子时拆分。 */
+  hourMode?: FortuneHourMode;
+}
 
 export interface FortunePromptPayload {
   scopeLabel: string;
@@ -23,6 +31,7 @@ export interface FortuneSelectionContext {
   cycleAge: number;
   cycleType: string;
   isXiaoyun: boolean;
+  cycleTimeRange: LocalTimeRange;
   year?: number;
   yearGanZhi?: string;
   yearAge?: number;
@@ -37,6 +46,7 @@ export interface FortuneSelectionContext {
     year: number;
     ganZhi: string;
     age: number;
+    timeRange: LocalTimeRange;
   }>;
   monthBreakdown?: Array<{
     month: number;
@@ -48,6 +58,7 @@ export interface FortuneSelectionContext {
     endDateTime?: string;
     startTermName?: string;
     endTermName?: string;
+    timeRange: LocalTimeRange;
   }>;
   dayBreakdown?: Array<{
     date: string;
@@ -56,11 +67,13 @@ export interface FortuneSelectionContext {
     startDateTime?: string;
     endDateTime?: string;
     boundaryNote?: string;
+    timeRange: LocalTimeRange;
   }>;
   hourBreakdown?: Array<{
     label: string;
     ganZhi: string;
     timeRange?: string;
+    interval: LocalTimeRange;
   }>;
   displayLabel: string;
   displayText: string;

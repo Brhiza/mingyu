@@ -4,6 +4,8 @@ import {
   type SolarTermEvidence,
 } from '../calendar/solar-term-evidence';
 import { EARTHLY_BRANCHES, ZODIACS } from './baziMappingsData';
+import type { LocalTimeRange } from './baziTypes';
+import { createLocalTimeRange } from './luckTiming';
 
 type SolarTermInstance = ReturnType<typeof SolarTerm.fromIndex>;
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
@@ -20,6 +22,7 @@ export interface BaziMonthInfo {
   endTermName?: string;
   startTermEvidence?: SolarTermEvidence;
   endTermEvidence?: SolarTermEvidence;
+  timeRange: LocalTimeRange;
 }
 
 export interface BaziMonthDayInfo {
@@ -32,6 +35,7 @@ export interface BaziMonthDayInfo {
   startDateTime?: string;
   endDateTime?: string;
   boundaryNote?: string;
+  timeRange: LocalTimeRange;
 }
 
 export interface CalendarInfo {
@@ -218,6 +222,7 @@ function buildBaziMonthInfoFromTerm(
       termYear + Math.floor((termIndex + 2) / 24),
       (termIndex + 2) % 24,
     ),
+    timeRange: createLocalTimeRange(startAt, endAt),
     startAt,
     endAt,
   };
@@ -295,6 +300,7 @@ function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMont
       startDateTime: formatDateTime(sliceStart),
       endDateTime: formatDateTime(new Date(sliceEnd.getTime() - 1000)),
       boundaryNote: boundaryNotes.join('；'),
+      timeRange: createLocalTimeRange(sliceStart, sliceEnd),
       startAt: sliceStart,
       endAt: sliceEnd,
     });

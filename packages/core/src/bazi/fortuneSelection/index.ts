@@ -1,6 +1,8 @@
 import { getMonthDaysInfo, getYearInfo } from '../calendarTool';
 import { BASIC_MAPPINGS } from '../baziMappingsData';
 import type { BaziChartResult } from '../baziTypes';
+import type { LocalTimeRange } from '../baziTypes';
+import { getLuckCycleTimeRange, intersectLocalTimeRanges } from '../luckTiming';
 import { getTenGod, getTenGodForBranch, isGanZhiPair } from '../baziUtils';
 import { formatPromptEvidenceBundle } from '../../prompt-evidence/format';
 import type { PromptEvidenceItem } from '../../prompt-evidence/types';
@@ -18,9 +20,18 @@ import {
   resolveSelectedMonth,
   resolveSelectedYear,
 } from './helpers/resolvers';
-import type { BaziFortuneSelectionValue, FortuneSelectionContext } from './helpers/types';
+import type {
+  BaziFortuneSelectionValue,
+  FortuneSelectionContext,
+  FortuneSelectionOptions,
+} from './helpers/types';
 
-export type { BaziFortuneSelectionValue, FortuneSelectionContext } from './helpers/types';
+export type {
+  BaziFortuneSelectionValue,
+  FortuneHourMode,
+  FortuneSelectionContext,
+  FortuneSelectionOptions,
+} from './helpers/types';
 export {
   buildCurrentBaziFortuneSelection,
   buildRecentBaziFortuneSelection,
@@ -225,6 +236,24 @@ function analyzeSelectionTriggers(result: BaziChartResult, layers: FortuneTrigge
   );
 }
 
+function getYearTimeRange(year: number): LocalTimeRange {
+  const months = getYearInfo(year).months;
+  const first = months[0]?.timeRange;
+  const last = months.at(-1)?.timeRange;
+  if (!first || !last) throw new Error(`${year}年缺少流月时间范围。`);
+  return {
+    start: first.start,
+    end: last.end,
+    startTimestamp: first.startTimestamp,
+    endTimestamp: last.endTimestamp,
+    endExclusive: true,
+  };
+}
+
+function clipToCycle(range: LocalTimeRange, cycleRange: LocalTimeRange) {
+  return intersectLocalTimeRanges(range, cycleRange);
+}
+
 export function normalizeFortuneSelection(
   result: BaziChartResult,
   selection: BaziFortuneSelectionValue,
@@ -298,6 +327,7 @@ export function normalizeFortuneSelection(
 export function buildFortuneSelectionContext(
   result: BaziChartResult,
   selection: BaziFortuneSelectionValue,
+  options: FortuneSelectionOptions = {},
 ): FortuneSelectionContext | null {
   const normalized = normalizeFortuneSelection(result, selection);
   if (normalized.scope === 'natal' || normalized.scope === 'full') {
@@ -310,6 +340,7 @@ export function buildFortuneSelectionContext(
   }
 
   const cycleLabel = formatCycleLabel(cycle);
+  const cycleTimeRange = getLuckCycleTimeRange(cycle);
   const yearItem = cycle.years.find((item) => item.year === normalized.year);
   const monthInfoList = normalized.year ? getYearInfo(normalized.year).months : [];
   const monthInfo = normalized.month ? monthInfoList[normalized.month - 1] : undefined;
@@ -325,17 +356,17 @@ export function buildFortuneSelectionContext(
     cycleAge: cycle.age,
     cycleType: cycle.type,
     isXiaoyun: cycle.isXiaoyun,
+    cycleTimeRange,
     year: yearItem?.year,
     yearGanZhi: yearItem?.ganZhi,
     yearAge: yearItem?.age,
   };
 
   if (normalized.scope === 'dayun') {
-    const breakdown = cycle.years.map((item) => ({
-      year: item.year,
-      ganZhi: item.ganZhi,
-      age: item.age,
-    }));
+    const breakdown = cycle.years.flatMap((item) => {
+      const timeRange = clipToCycle(getYearTimeRange(item.year), cycleTimeRange);
+      return timeRange ? [{ year: item.year, ganZhi: item.ganZhi, age: item.age, timeRange }] : [];
+    });
     const cycleTenGod = formatGanZhiTenGod(result, cycle.ganZhi);
     const cycleTriggerSummary = buildGanZhiTriggerSummary(result, cycle.ganZhi, '大运');
     const triggerEvidence = analyzeSelectionTriggers(result, [
@@ -391,19 +422,32 @@ export function buildFortuneSelectionContext(
     return null;
   }
 
+  const yearTimeRange = clipToCycle(getYearTimeRange(yearItem.year), cycleTimeRange);
+  if (!yearTimeRange) return null;
+
   if (normalized.scope === 'year') {
-    const breakdown = monthInfoList.map((item, index) => ({
-      month: index + 1,
-      label: item.month,
-      ganZhi: item.ganZhi,
-      startDate: item.startDate,
-      endDate: item.endDate,
-      startDateTime: item.startDateTime,
-      endDateTime: item.endDateTime,
-      startTermName: item.startTermName,
-      endTermName: item.endTermName,
-    }));
-    const cycleYearLines = cycle.years.map((item) => formatYearBreakdownLine(result, item));
+    const breakdown = monthInfoList.flatMap((item, index) => {
+      const timeRange = clipToCycle(item.timeRange, cycleTimeRange);
+      return timeRange
+        ? [
+            {
+              month: index + 1,
+              label: item.month,
+              ganZhi: item.ganZhi,
+              startDate: item.startDate,
+              endDate: item.endDate,
+              startDateTime: item.startDateTime,
+              endDateTime: item.endDateTime,
+              startTermName: item.startTermName,
+              endTermName: item.endTermName,
+              timeRange,
+            },
+          ]
+        : [];
+    });
+    const cycleYearLines = cycle.years
+      .filter((item) => clipToCycle(getYearTimeRange(item.year), cycleTimeRange))
+      .map((item) => formatYearBreakdownLine(result, item));
     const monthLines = breakdown.map((item) => formatMonthBreakdownLine(result, item));
     const yearTenGod = formatGanZhiTenGod(result, yearItem.ganZhi);
     const yearTriggerSummary = buildGanZhiTriggerSummary(result, yearItem.ganZhi, '流年');
@@ -461,27 +505,45 @@ export function buildFortuneSelectionContext(
   if (!monthInfo || !normalized.month) {
     return null;
   }
+  const monthTimeRange = clipToCycle(monthInfo.timeRange, cycleTimeRange);
+  if (!monthTimeRange) return null;
 
   if (normalized.scope === 'month') {
-    const breakdown = dayInfoList.map((item) => ({
-      date: item.solarDate,
-      label: item.solarLabel,
-      ganZhi: item.ganZhi,
-      startDateTime: item.startDateTime,
-      endDateTime: item.endDateTime,
-      boundaryNote: item.boundaryNote,
-    }));
-    const yearMonthBreakdown = monthInfoList.map((item, index) => ({
-      month: index + 1,
-      label: item.month,
-      ganZhi: item.ganZhi,
-      startDate: item.startDate,
-      endDate: item.endDate,
-      startDateTime: item.startDateTime,
-      endDateTime: item.endDateTime,
-      startTermName: item.startTermName,
-      endTermName: item.endTermName,
-    }));
+    const breakdown = dayInfoList.flatMap((item) => {
+      const timeRange = clipToCycle(item.timeRange, cycleTimeRange);
+      return timeRange
+        ? [
+            {
+              date: item.solarDate,
+              label: item.solarLabel,
+              ganZhi: item.ganZhi,
+              startDateTime: item.startDateTime,
+              endDateTime: item.endDateTime,
+              boundaryNote: item.boundaryNote,
+              timeRange,
+            },
+          ]
+        : [];
+    });
+    const yearMonthBreakdown = monthInfoList.flatMap((item, index) => {
+      const timeRange = clipToCycle(item.timeRange, cycleTimeRange);
+      return timeRange
+        ? [
+            {
+              month: index + 1,
+              label: item.month,
+              ganZhi: item.ganZhi,
+              startDate: item.startDate,
+              endDate: item.endDate,
+              startDateTime: item.startDateTime,
+              endDateTime: item.endDateTime,
+              startTermName: item.startTermName,
+              endTermName: item.endTermName,
+              timeRange,
+            },
+          ]
+        : [];
+    });
     const yearMonthLines = yearMonthBreakdown.map((item) => formatMonthBreakdownLine(result, item));
     const dayLines = breakdown.map((item) => formatDayBreakdownLine(result, item));
     const monthTenGod = formatGanZhiTenGod(result, monthInfo.ganZhi);
@@ -515,6 +577,7 @@ export function buildFortuneSelectionContext(
           endDateTime: monthInfo.endDateTime,
           startTermName: monthInfo.startTermName,
           endTermName: monthInfo.endTermName,
+          timeRange: monthTimeRange,
         },
       ],
       dayBreakdown: breakdown,
@@ -576,10 +639,20 @@ export function buildFortuneSelectionContext(
   if (!dayInfo || !normalized.day) {
     return null;
   }
+  const dayTimeRange = clipToCycle(dayInfo.timeRange, cycleTimeRange);
+  if (!dayTimeRange) return null;
 
   const actualDate = dayInfo.solarDate;
   const [actualYear, actualMonth, actualDay] = actualDate.split('-').map(Number);
-  const hourBreakdown = getDayHourBreakdown(actualYear, actualMonth, actualDay);
+  const hourBreakdown = getDayHourBreakdown(
+    actualYear,
+    actualMonth,
+    actualDay,
+    options.hourMode ?? 'twelve',
+  ).flatMap((item) => {
+    const interval = clipToCycle(item.interval, cycleTimeRange);
+    return interval ? [{ ...item, interval }] : [];
+  });
   const previousDate = new Date(actualYear, actualMonth - 1, actualDay - 1);
   const ziChuStart = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-${String(previousDate.getDate()).padStart(2, '0')} 23:00`;
   const ziChuEnd = `${actualDate} 22:59`;
@@ -614,6 +687,10 @@ export function buildFortuneSelectionContext(
         date: actualDate,
         label: dayInfo.solarLabel,
         ganZhi: dayInfo.ganZhi,
+        startDateTime: dayInfo.startDateTime,
+        endDateTime: dayInfo.endDateTime,
+        boundaryNote: dayInfo.boundaryNote,
+        timeRange: dayTimeRange,
       },
     ],
     displayLabel: actualDate,

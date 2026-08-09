@@ -178,8 +178,7 @@ test('八字流月提示词应突出所选日期范围并保留必要触发资�
   const result = createBaziResult();
   const fortuneContext = buildFortuneSelectionContext(result, {
     scope: 'month',
-    cycleIndex: 0,
-    year: 1990,
+    year: 1998,
     month: 1,
   });
 

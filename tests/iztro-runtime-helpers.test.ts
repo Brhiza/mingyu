@@ -12,6 +12,7 @@ import {
   buildZiweiCalculationConfig,
   findCurrentDecadalOption,
   getDefaultHoroscopeContext,
+  resolveIztroAstro,
   shiftLocalDate,
   shiftLunarYear,
 } from '@core/ziwei/iztro';
@@ -30,6 +31,14 @@ const DEFAULT_CHART_INPUT = {
   ageDivide: 'normal' as const,
   dayDivide: 'forward' as const,
 };
+
+test('紫微运行期应兼容 Node、Vite 与 Webpack 的 CommonJS 导出包装', () => {
+  assert.equal(resolveIztroAstro({ astro }), astro);
+  assert.equal(resolveIztroAstro({ default: { astro } }), astro);
+  assert.equal(resolveIztroAstro({ default: astro }), astro);
+  assert.equal(resolveIztroAstro({ default: { default: { astro } } }), astro);
+  assert.throws(() => resolveIztroAstro({ default: {} }), /未提供可用的紫微排盘入口/);
+});
 
 function resetIztroDefaultConfig() {
   astro.config({

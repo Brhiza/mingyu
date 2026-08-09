@@ -1,5 +1,7 @@
 import { SolarTime } from 'tyme4ts';
 import { daysInSolarMonth } from '../../../calendar/date-validation';
+import { createLocalTimeRange } from '../../luckTiming';
+import type { FortuneHourMode } from './types';
 
 function assertSolarDate(year: number, month: number, day: number) {
   if (!Number.isInteger(year) || year < 1900 || year > 2100) {
@@ -18,10 +20,15 @@ function assertSolarDate(year: number, month: number, day: number) {
   }
 }
 
-export function getDayHourBreakdown(year: number, month: number, day: number) {
+export function getDayHourBreakdown(
+  year: number,
+  month: number,
+  day: number,
+  mode: FortuneHourMode = 'twelve',
+) {
   assertSolarDate(year, month, day);
   const previousDate = new Date(year, month - 1, day - 1);
-  const entries = [
+  const splitZiEntries = [
     {
       year: previousDate.getFullYear(),
       month: previousDate.getMonth() + 1,
@@ -128,6 +135,21 @@ export function getDayHourBreakdown(year: number, month: number, day: number) {
     },
   ];
 
+  const entries =
+    mode === 'splitZi'
+      ? splitZiEntries
+      : [
+          {
+            year: previousDate.getFullYear(),
+            month: previousDate.getMonth() + 1,
+            day: previousDate.getDate(),
+            hour: 23,
+            label: '子时',
+            timeRange: `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-${String(previousDate.getDate()).padStart(2, '0')} 23:00-${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} 00:59`,
+          },
+          ...splitZiEntries.slice(2),
+        ];
+
   return entries.map((entry) => {
     const solarTime = SolarTime.fromYmdHms(entry.year, entry.month, entry.day, entry.hour, 0, 0);
     const hourPillar = solarTime.getLunarHour().getEightChar().getHour();
@@ -136,6 +158,26 @@ export function getDayHourBreakdown(year: number, month: number, day: number) {
       label: entry.label,
       ganZhi: hourPillar.getName(),
       timeRange: entry.timeRange,
+      interval: createLocalTimeRange(
+        new Date(
+          entry.year,
+          entry.month - 1,
+          entry.day,
+          entry.hour === 0 ? 0 : entry.hour - (entry.hour % 2 === 0 ? 1 : 0),
+          0,
+          0,
+        ),
+        entry.label === '子时'
+          ? new Date(year, month - 1, day, 1, 0, 0)
+          : new Date(
+              entry.year,
+              entry.month - 1,
+              entry.day,
+              entry.hour === 0 ? 1 : entry.hour + 1,
+              0,
+              0,
+            ),
+      ),
     };
   });
 }

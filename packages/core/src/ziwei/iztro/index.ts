@@ -8,6 +8,7 @@ export {
   buildZiweiCalculationConfig,
   DEFAULT_ZIWEI_CALCULATION_CONFIG,
   getDefaultHoroscopeContext,
+  resolveIztroAstro,
 } from './runtime-helpers';
 export { shiftLocalDate, shiftLunarYear } from './runtime-helpers';
 export type { DecadalTimelineOption } from './decadal';

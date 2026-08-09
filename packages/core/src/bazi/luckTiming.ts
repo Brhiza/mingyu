@@ -1,4 +1,4 @@
-import type { LuckCycle, SolarDateTimeInfo } from './baziTypes';
+import type { LocalTimeRange, LuckCycle, SolarDateTimeInfo } from './baziTypes';
 
 function getLastDayOfMonth(year: number, month: number) {
   assertSolarYear(year);
@@ -59,6 +59,50 @@ export function toNativeDate(time: SolarDateTimeInfo | Date): Date {
   return new Date(time.year, time.month - 1, time.day, time.hour, time.minute, time.second);
 }
 
+export function fromNativeDate(time: Date): SolarDateTimeInfo {
+  assertValidDate(time, '时间');
+  return {
+    year: time.getFullYear(),
+    month: time.getMonth() + 1,
+    day: time.getDate(),
+    hour: time.getHours(),
+    minute: time.getMinutes(),
+    second: time.getSeconds(),
+  };
+}
+
+export function createLocalTimeRange(start: Date, end: Date): LocalTimeRange {
+  assertValidDate(start, '开始时间');
+  assertValidDate(end, '结束时间');
+  if (start.getTime() >= end.getTime()) {
+    throw new Error('时间范围的结束时间必须晚于开始时间。');
+  }
+  return {
+    start: fromNativeDate(start),
+    end: fromNativeDate(end),
+    startTimestamp: start.getTime(),
+    endTimestamp: end.getTime(),
+    endExclusive: true,
+  };
+}
+
+export function getLuckCycleTimeRange(cycle: LuckCycle): LocalTimeRange {
+  const start = cycle.startSolarTime
+    ? toNativeDate(cycle.startSolarTime)
+    : new Date(cycle.year, 0, 1, 0, 0, 0);
+  const end = cycle.endSolarTime ? toNativeDate(cycle.endSolarTime) : getFallbackCycleEnd(cycle);
+  return createLocalTimeRange(start, end);
+}
+
+export function intersectLocalTimeRanges(
+  left: LocalTimeRange,
+  right: LocalTimeRange,
+): LocalTimeRange | null {
+  const start = Math.max(left.startTimestamp, right.startTimestamp);
+  const end = Math.min(left.endTimestamp, right.endTimestamp);
+  return start < end ? createLocalTimeRange(new Date(start), new Date(end)) : null;
+}
+
 export function toSolarDateTimeInfo(time: {
   getYear(): number;
   getMonth(): number;
@@ -108,14 +152,11 @@ function getFallbackCycleEnd(cycle: LuckCycle): Date {
 
 export function isDateWithinLuckCycle(cycle: LuckCycle, referenceDate: Date = new Date()): boolean {
   assertValidDate(referenceDate, '参考时间');
-  const cycleStart = cycle.startSolarTime
-    ? toNativeDate(cycle.startSolarTime)
-    : new Date(cycle.year, 0, 1, 0, 0, 0);
-  const cycleEnd = cycle.endSolarTime
-    ? toNativeDate(cycle.endSolarTime)
-    : getFallbackCycleEnd(cycle);
+  const range = getLuckCycleTimeRange(cycle);
 
-  return referenceDate >= cycleStart && referenceDate < cycleEnd;
+  return (
+    referenceDate.getTime() >= range.startTimestamp && referenceDate.getTime() < range.endTimestamp
+  );
 }
 
 export function getLuckCycleForDate(
@@ -128,21 +169,7 @@ export function getLuckCycleForDate(
   }
 
   const exactMatch = cycles.find((cycle) => isDateWithinLuckCycle(cycle, referenceDate));
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const referenceYear = referenceDate.getFullYear();
-  const fallbackMatch = cycles.find((cycle) => {
-    if (cycle.isXiaoyun) {
-      const endYear = cycle.years.at(-1)?.year ?? cycle.year;
-      return referenceYear >= cycle.year && referenceYear <= endYear;
-    }
-
-    return referenceYear >= cycle.year && referenceYear < cycle.year + 10;
-  });
-
-  return fallbackMatch || null;
+  return exactMatch ?? null;
 }
 
 export function formatSolarDateTime(time: SolarDateTimeInfo, withYear = false): string {
