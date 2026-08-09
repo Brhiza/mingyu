@@ -11,18 +11,22 @@ import {
 const safeInteger = z.number().int().refine(Number.isSafeInteger, '必须是安全范围内的整数');
 
 const huangjiJingshiSchema = z.object({
-  epochYear: safeInteger.describe('某一元第一年的整数坐标，必须明确提供'),
-  year: safeInteger.optional().describe('目标整数年坐标，与 elapsedYears 二选一'),
+  epochYear: safeInteger.optional().describe('可选的自定义纪元年坐标；省略时按通行公元值年卦排法'),
+  year: safeInteger.optional().describe('目标公元年或自定义纪元下的目标整数年坐标'),
   elapsedYears: safeInteger
     .min(0)
     .optional()
-    .describe('距纪元第一年已经过的完整年数，0 表示第一年；与 year 二选一'),
+    .describe('自定义纪元下距第一年已经过的完整年数；仅与 epochYear 同时使用'),
   question: z.string().min(1).optional().describe('希望 AI 重点解释的问题'),
 });
 
 function calculateHuangjiJingshi(args: z.infer<typeof huangjiJingshiSchema>) {
-  if ((args.year === undefined) === (args.elapsedYears === undefined)) {
-    throw new Error('皇极经世的 year 与 elapsedYears 必须且只能提供一个。');
+  if (args.epochYear === undefined) {
+    if (args.year === undefined || args.elapsedYears !== undefined) {
+      throw new Error('皇极经世通行公元模式必须只提供 year。');
+    }
+  } else if ((args.year === undefined) === (args.elapsedYears === undefined)) {
+    throw new Error('皇极经世自定义纪元模式的 year 与 elapsedYears 必须且只能提供一个。');
   }
   return huangjiJingshi.calculateHuangjiJingshi(args);
 }
@@ -31,7 +35,8 @@ export function registerHuangjiJingshiTool(server: McpServer) {
   server.registerTool(
     'metaphysics_huangji_jingshi',
     {
-      description: '皇极经世周期换算：按明确纪元返回元会运世位置、进度与下一层边界',
+      description:
+        '皇极经世排盘：普通公元年直接返回元会运世、统卦、运卦、十年卦和值年卦；也支持自定义纪元换算',
       inputSchema: huangjiJingshiSchema.omit({ question: true }).shape,
       outputSchema: resultOutputSchema,
     },
@@ -48,7 +53,7 @@ export function registerHuangjiJingshiTool(server: McpServer) {
   server.registerTool(
     'huangji_jingshi_prompt',
     {
-      description: '皇极经世位置与周期边界换算并生成可直接交给 AI 的完整任务书',
+      description: '皇极经世完整排盘并生成可直接交给 AI 解读的自包含任务书',
       inputSchema: huangjiJingshiSchema.shape,
       outputSchema: promptOutputSchema,
     },
