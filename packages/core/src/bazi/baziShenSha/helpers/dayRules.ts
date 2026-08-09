@@ -1,4 +1,4 @@
-import { BASIC_MAPPINGS } from '../../baziDefinitions';
+import { NAYIN_MAP } from '../../baziMappingsData';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
 const JIE_LU_KONG_WANG_HOUR_BRANCHES: Record<string, string[]> = {
@@ -85,7 +85,6 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
     riGZ,
     pillarGZ,
     baziArray,
-    ctg,
     zhiIdx,
     variants,
   } = ctx;
@@ -149,9 +148,7 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       ].includes(riGZ),
     孤鸾煞: () =>
       pillarIndex === 2 &&
-      ['乙巳', '丁巳', '辛亥', '戊申', '甲寅', '壬子', '丙午', '戊午', '己未', '癸丑'].includes(
-        riGZ,
-      ),
+      ['乙巳', '丁巳', '辛亥', '戊申', '甲寅', '壬子', '丙午', '戊午'].includes(riGZ),
     十灵日: () =>
       pillarIndex === 2 &&
       ['甲辰', '乙亥', '丙辰', '丁酉', '戊午', '庚寅', '庚戌', '辛亥', '壬寅', '癸未'].includes(
@@ -164,7 +161,7 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       ['甲寅', '乙卯', '丁未', '戊戌', '己未', '庚申', '辛酉', '癸丑'].includes(riGZ),
     九丑: () =>
       pillarIndex === 2 &&
-      ['乙卯', '戊子', '戊午', '己卯', '己酉', '辛卯', '辛酉', '壬子', '壬午'].includes(riGZ),
+      ['丁酉', '戊子', '戊午', '己卯', '己酉', '辛卯', '辛酉', '壬子', '壬午'].includes(riGZ),
     四废日: () => {
       if (pillarIndex !== 2) return false;
       const rulesMap: Record<string, string[]> = {
@@ -173,13 +170,17 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
         秋: ['甲寅', '乙卯'],
         冬: ['丙午', '丁巳'],
       };
+      return !!season && rulesMap[season].includes(riGZ);
+    },
+    大四废日: () => {
+      if (pillarIndex !== 2) return false;
       const bigRulesMap: Record<string, string[]> = {
         春: ['申', '酉'],
         夏: ['亥', '子'],
         秋: ['寅', '卯'],
         冬: ['巳', '午'],
       };
-      return !!season && (rulesMap[season].includes(riGZ) || bigRulesMap[season].includes(riZhi));
+      return !!season && bigRulesMap[season].includes(riZhi);
     },
     十恶大败: () => {
       if (pillarIndex !== 2) return false;
@@ -220,27 +221,25 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       if ((season === '春' || season === '秋') && (zhi === '寅' || zhi === '子')) return true;
       if ((season === '夏' || season === '冬') && (zhi === '卯' || zhi === '未' || zhi === '辰'))
         return true;
-      const riGanWuxing = BASIC_MAPPINGS.STEM_WUXING[ctg.indexOf(riGan)];
-      if ((riGanWuxing === '木' || riGanWuxing === '火') && (zhi === '丑' || zhi === '辰'))
+      // “金木、水火、土命”指生年纳音五行，不是日干五行。
+      const yearNayin = NAYIN_MAP[baziArray[0].join('')] || '';
+      const yearNayinWuxing = yearNayin.slice(-1);
+      if ((yearNayinWuxing === '金' || yearNayinWuxing === '木') && ['午', '卯'].includes(zhi))
         return true;
-      if (
-        (riGanWuxing === '金' || riGanWuxing === '水') &&
-        (zhi === '午' || zhi === '戌' || zhi === '辰')
-      )
+      if ((yearNayinWuxing === '水' || yearNayinWuxing === '火') && ['酉', '戌'].includes(zhi))
         return true;
-      if (riGanWuxing === '土' && (zhi === '辰' || zhi === '巳')) return true;
+      if (yearNayinWuxing === '土' && ['辰', '巳'].includes(zhi)) return true;
       return false;
     },
     天转: () =>
-      (pillarIndex === 2 || pillarIndex === 3) &&
+      pillarIndex === 2 &&
       !!season &&
-      // 冬水旺壬子（原「癸子」阴阳错配，不属六十甲子）
-      ({ 春: '乙卯', 夏: '戊午', 秋: '辛酉', 冬: '壬子' } as Record<string, string>)[season] ===
+      ({ 春: '乙卯', 夏: '丙午', 秋: '辛酉', 冬: '壬子' } as Record<string, string>)[season] ===
         pillarGZ,
     地转: () =>
-      (pillarIndex === 2 || pillarIndex === 3) &&
+      pillarIndex === 2 &&
       !!season &&
-      ({ 春: '甲寅', 夏: '丁巳', 秋: '庚申', 冬: '癸亥' } as Record<string, string>)[season] ===
+      ({ 春: '辛卯', 夏: '戊午', 秋: '癸酉', 冬: '丙子' } as Record<string, string>)[season] ===
         pillarGZ,
     隔角: () => {
       if (pillarIndex !== 3) return false;

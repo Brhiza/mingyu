@@ -1,7 +1,7 @@
 import type { RuleContext, ShenShaRuleMap } from './types';
 
 export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
-  const { zhi, nianZhi, riGan, riZhi, pillarGZ, isMan, cdz, zhiIdx } = ctx;
+  const { zhi, pillarIndex, nianZhi, riGan, riZhi, pillarGZ, isMan, cdz, zhiIdx } = ctx;
 
   return {
     桃花: () => {
@@ -19,7 +19,9 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '午',
         丑: '午',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) || (pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     红鸾: () => {
       const map: Record<string, string> = {
@@ -36,7 +38,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '巳',
         亥: '辰',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return pillarIndex !== 0 && map[nianZhi] === zhi;
     },
     天喜: () => {
       const map: Record<string, string> = {
@@ -53,7 +55,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '亥',
         亥: '戌',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return pillarIndex !== 0 && map[nianZhi] === zhi;
     },
     孤辰: () => {
       const map: Record<string, string> = {
@@ -70,7 +72,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '亥',
         戌: '亥',
       };
-      return map[nianZhi] === zhi;
+      return pillarIndex !== 0 && map[nianZhi] === zhi;
     },
     寡宿: () => {
       const map: Record<string, string> = {
@@ -87,7 +89,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '未',
         戌: '未',
       };
-      return map[nianZhi] === zhi;
+      return pillarIndex !== 0 && map[nianZhi] === zhi;
     },
     红艳煞: () => {
       const map: Record<string, string> = {
@@ -108,7 +110,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
     勾绞煞: () => {
       const gouIdx = (zhiIdx(nianZhi) + 3) % 12;
       const jiaoIdx = (zhiIdx(nianZhi) - 3 + 12) % 12;
-      return zhi === cdz[gouIdx] || zhi === cdz[jiaoIdx];
+      return pillarIndex !== 0 && (zhi === cdz[gouIdx] || zhi === cdz[jiaoIdx]);
     },
   };
 }

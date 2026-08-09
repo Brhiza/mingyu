@@ -20,22 +20,13 @@ export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
   const sequences: string[][] = [
     ['甲', '戊', '庚'],
     ['乙', '丙', '丁'],
-    ['辛', '壬', '癸'],
+    ['壬', '癸', '辛'],
   ];
-  const hasOrderedStems = (sequence: string[]) => {
-    let index = 0;
-    for (const gan of gans) {
-      if (gan === sequence[index]) {
-        index += 1;
-      }
-      if (index === sequence.length) {
-        return true;
-      }
-    }
-    return false;
-  };
   for (const seq of sequences) {
-    if (hasOrderedStems(seq)) {
+    if (
+      gans.slice(0, 3).every((gan, index) => gan === seq[index]) ||
+      gans.slice(1, 4).every((gan, index) => gan === seq[index])
+    ) {
       globalShenSha.push('三奇贵人');
       break;
     }

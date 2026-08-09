@@ -709,7 +709,7 @@ test('八字提示词的空亡详解应按实际空亡柱位显隐并写明证�
   assert.doesNotMatch(withoutPrompt.user, /【空亡详解】/);
 });
 
-test('八字提示词空亡详解不应把年柱旬空宽松口径当作日柱空亡证据', () => {
+test('八字提示词空亡详解应跟随年日旬空的实际命中柱位', () => {
   const result = baziCalculator.calculateBazi({
     year: 1980,
     month: 1,
@@ -723,8 +723,8 @@ test('八字提示词空亡详解不应把年柱旬空宽松口径当作日柱�
 
   assert.deepEqual(result.kongWang.year, ['子', '丑']);
   assert.deepEqual(result.kongWang.day, ['戌', '亥']);
-  assert.ok(!result.shensha.month.includes('空亡'));
-  assert.ok(!result.shensha.hour.includes('空亡'));
+  assert.ok(result.shensha.month.includes('空亡'));
+  assert.ok(result.shensha.hour.includes('空亡'));
 
   const prompt = buildPromptFromConfig(
     '请分析我的婚恋。',
@@ -735,7 +735,7 @@ test('八字提示词空亡详解不应把年柱旬空宽松口径当作日柱�
     { isCustomQuestion: false },
   );
 
-  assert.doesNotMatch(prompt.user, /【空亡详解】/);
+  assert.match(prompt.user, /【空亡详解】命盘见空亡：月柱、时柱。/);
   assert.doesNotMatch(prompt.user, /月柱:[^\n]*\(空亡\)|时柱:[^\n]*\(空亡\)/);
 
   const localFormatted = formatBaziForPromptLocal(result);

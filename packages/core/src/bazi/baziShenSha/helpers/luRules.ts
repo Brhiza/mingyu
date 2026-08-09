@@ -84,8 +84,6 @@ const SHI_SHEN_DAI_LU_BY_STEM: Record<string, string> = {
   己: '辛酉',
 };
 
-const FEI_REN_PILLARS = ['丙子', '丁丑', '戊子', '己丑', '壬午', '癸未'];
-
 const GOU_CHEN_BY_STEM: Record<string, string[]> = {
   甲: ['巳', '亥'],
   乙: ['巳', '亥'],
@@ -262,14 +260,13 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '辰',
         亥: '巳',
       };
-      const hasYangRenFeiRen = yangRenZhi ? clashMap[yangRenZhi] === zhi : false;
-      return (
-        hasYangRenFeiRen ||
-        ((pillarIndex === 2 || pillarIndex === 3) && FEI_REN_PILLARS.includes(pillarGZ))
-      );
+      return yangRenZhi ? clashMap[yangRenZhi] === zhi : false;
     },
     驿马: () => {
-      return YI_MA_BY_BRANCH[nianZhi] === zhi || YI_MA_BY_BRANCH[riZhi] === zhi;
+      return (
+        (pillarIndex !== 0 && YI_MA_BY_BRANCH[nianZhi] === zhi) ||
+        (pillarIndex !== 2 && YI_MA_BY_BRANCH[riZhi] === zhi)
+      );
     },
     生成马: () =>
       SHENG_CHENG_MA_BY_BRANCH[nianZhi] === pillarGZ ||
@@ -339,7 +336,10 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '酉',
         丑: '酉',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      // 年支、日支都是起算基准，只在其余柱见目标支时落星，不把起算柱自身重复标记。
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) || (pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     华盖: () => {
       const map: Record<string, string> = {
@@ -356,9 +356,13 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '丑',
         丑: '丑',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) || (pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     金舆: () => {
+      // 常用子平口径：以年干或日干的禄前二辰查四柱地支。
+      // “命前二辰、马前二辰”属于《五行精纪》并列异法，默认不混算。
       const map: Record<string, string> = {
         甲: '辰',
         乙: '巳',
@@ -371,17 +375,22 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         壬: '丑',
         癸: '寅',
       };
-      const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
-      const riYiMa = YI_MA_BY_BRANCH[riZhi];
-      return (
-        map[riGan] === zhi ||
-        map[nianGan] === zhi ||
-        forwardBranch(nianZhi, 2) === zhi ||
-        forwardBranch(nianYiMa, 2) === zhi ||
-        forwardBranch(riYiMa, 2) === zhi
-      );
+      return map[riGan] === zhi || map[nianGan] === zhi;
     },
     金神: () =>
       ['乙丑', '己巳', '癸酉'].includes(pillarGZ) && (pillarIndex === 2 || pillarIndex === 3),
+    拱禄: () => {
+      if (pillarIndex !== 3) return false;
+      const dayHourMap: Record<string, { hour: string; luBranch: string }> = {
+        癸亥: { hour: '癸丑', luBranch: '子' },
+        癸丑: { hour: '癸亥', luBranch: '子' },
+        丁巳: { hour: '丁未', luBranch: '午' },
+        己未: { hour: '己巳', luBranch: '午' },
+        戊辰: { hour: '戊午', luBranch: '巳' },
+      };
+      const config = dayHourMap[ctx.riGZ];
+      if (!config || config.hour !== pillarGZ) return false;
+      return !ctx.baziArray.some(([, currentZhi]) => currentZhi === config.luBranch);
+    },
   };
 }
