@@ -2648,10 +2648,6 @@ select {
   min-width: 0;
 }
 
-.prompt-output-grid > .panel-output {
-  order: -1;
-}
-
 .prompt-settings-panel {
   height: fit-content;
   padding: 0;
