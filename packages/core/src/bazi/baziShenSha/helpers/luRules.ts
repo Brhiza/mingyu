@@ -203,6 +203,7 @@ function getYangRenMap(includeYinRen: boolean): Record<string, string> {
 
 export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
   const { zhi, pillarIndex, nianGan, nianZhi, riGan, riZhi, pillarGZ, cdz, zhiIdx, variants } = ctx;
+  const isWenzhen = variants.referenceProfile === 'wenzhen';
   const yangRenMap = getYangRenMap(variants.yangRenMode === 'include-yin-ren');
   const forwardBranch = (branch: string, offset: number) => {
     const index = zhiIdx(branch);
@@ -263,10 +264,10 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         亥: '巳',
       };
       const hasYangRenFeiRen = yangRenZhi ? clashMap[yangRenZhi] === zhi : false;
-      return (
-        hasYangRenFeiRen ||
-        ((pillarIndex === 2 || pillarIndex === 3) && FEI_REN_PILLARS.includes(pillarGZ))
-      );
+      return isWenzhen
+        ? hasYangRenFeiRen
+        : hasYangRenFeiRen ||
+            ((pillarIndex === 2 || pillarIndex === 3) && FEI_REN_PILLARS.includes(pillarGZ));
     },
     驿马: () => {
       return YI_MA_BY_BRANCH[nianZhi] === zhi || YI_MA_BY_BRANCH[riZhi] === zhi;
@@ -373,6 +374,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       };
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
       const riYiMa = YI_MA_BY_BRANCH[riZhi];
+      if (isWenzhen) return map[riGan] === zhi || map[nianGan] === zhi;
       return (
         map[riGan] === zhi ||
         map[nianGan] === zhi ||

@@ -1231,10 +1231,13 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   assert.match(prompt, /【排盘信息】/);
   assert.match(prompt, /核心结构：盘面摘要：月将亥；占时卯；昼占；贵人亥临卯；旬空戌、亥/);
   assert.match(prompt, /课传主线：取传比用法；传态递传；发用亥乘贵人；末传寅/);
-  assert.match(prompt, /古籍依据：《大六壬大全》九宗门取传法：知一\/比用/);
   assert.match(prompt, /四课：\n- 一课亥临卯乘贵人，水生木/);
   assert.match(prompt, /三传：\n- 初传亥乘贵人，生扶，起因来自外部推动/);
   assert.match(prompt, /旬空：戌、亥，命中初传亥/);
+  assert.doesNotMatch(
+    prompt,
+    /古籍依据：|四课由生入克|三传顺传，事情会逐步推进|未给出目标期限|不硬换成唯一日期/,
+  );
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);
   assert.doesNotMatch(prompt, /发用主线：/);
@@ -1291,7 +1294,8 @@ test('大六壬提示词会吸收课体与神煞补充信息', () => {
   );
 
   assert.match(prompt, /课体：龙德卦、连珠卦/);
-  assert.match(prompt, /神煞：/);
+  assert.match(prompt, /神煞：旬奇在初传、天马在末传/);
+  assert.doesNotMatch(prompt, /旬奇起例|天马起例/);
   assert.doesNotMatch(prompt, /辅证：/);
   assert.doesNotMatch(prompt, /课体补充：龙德卦、连珠卦/);
   assert.doesNotMatch(prompt, /神煞补充：/);

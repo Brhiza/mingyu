@@ -28,6 +28,28 @@ import {
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
 
+const shenShaVariantsSchema = z
+  .object({
+    referenceProfile: z
+      .enum(['wenzhen', 'classical'])
+      .optional()
+      .describe('整组参考口径：wenzhen=问真学堂整理口径，classical=原有传统兼容口径'),
+    kongWangBasis: z
+      .enum(['day', 'day-and-year'])
+      .optional()
+      .describe('空亡口径：day=只按日柱旬空，day-and-year=日柱与年柱旬空并参'),
+    yangRenMode: z
+      .enum(['yang-stems-only', 'include-yin-ren'])
+      .optional()
+      .describe('羊刃口径：只取阳干羊刃，或把阴干帝旺位作为阴刃并入'),
+    tongZiScope: z
+      .enum(['day-hour', 'all-pillars'])
+      .optional()
+      .describe('童子煞口径：只查日时，或四柱同查'),
+  })
+  .optional()
+  .describe('神煞争议口径；不传时使用问真学堂整理口径');
+
 export const baziSchema = z.object({
   name: z.string().optional().describe('称呼（可选，用于双盘证据来源标注）'),
   gender: z.enum(['male', 'female']).describe('性别：male 为男，female 为女'),
@@ -52,6 +74,7 @@ export const baziSchema = z.object({
     .enum(['common', 'all'])
     .optional()
     .describe('神煞输出范围：common=默认55个常用神煞，all=全部已计算神煞'),
+  shenShaVariants: shenShaVariantsSchema,
 });
 
 const baziCompatibilityTypes = [
@@ -162,6 +185,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
       timeZoneId: args.timeZoneId,
       applyChinaDst: args.applyChinaDst,
       shenShaScope: args.shenShaScope,
+      shenShaVariants: args.shenShaVariants,
     };
   }
 
@@ -181,6 +205,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     isLeapMonth: args.isLeapMonth ?? false,
     useTrueSolarTime,
     shenShaScope: args.shenShaScope,
+    shenShaVariants: args.shenShaVariants,
   };
 }
 

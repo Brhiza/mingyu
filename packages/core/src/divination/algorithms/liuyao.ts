@@ -48,8 +48,9 @@ import {
 /**
  * 五行入墓支（《卜筮正宗》卷三《墓库章》、《增删卜易·入墓》定例）：
  * 金墓在丑、木墓在未、火墓在戌、水土墓在辰。
- * 入墓主事物被收藏、束缚、限制或结束。
- * 爻值月墓为月建入墓，值日墓为日辰入墓，二者皆主该爻气运被压抑。
+ * 《增删卜易》所列三墓为入日墓、入动墓、动而化墓；月建仅用于旺衰，
+ * 不因月支恰为某五行墓库就直接判为“入月墓”。当前结构先准确提供日墓，
+ * 动墓与化墓待结合动变关系另行结构化，避免把未实现的口径混入结果。
  */
 const WUXING_RUMU: Record<string, string> = {
   金: '丑',
@@ -97,18 +98,6 @@ function getShiErGong(wuxing: string, branch: string): string {
   return stage;
 }
 
-/** 判断爻之地支是否入墓（按地支五行入墓支） */
-function isRuMu(branchWuxing: string, monthBranch: string): boolean {
-  const muBranch = WUXING_RUMU[branchWuxing];
-  return muBranch === monthBranch;
-}
-
-/** 判断爻之地支是否在当月为月墓 */
-function isYueMu(branch: string, monthBranch: string): boolean {
-  const wuxing = BRANCH_WUXING[branch];
-  return isRuMu(wuxing, monthBranch);
-}
-
 /** 判断爻之地支是否入日墓 */
 function isRiMu(branch: string, dayBranch: string): boolean {
   const wuxing = BRANCH_WUXING[branch];
@@ -142,7 +131,7 @@ function checkSanheWithTrigger(
   return null;
 }
 
-// 六合月日暗助检测（已在 yaosDetail 中通过 seasonState + isDayBreak + isChanging 实现暗动判定）
+// 六合月日暗助检测（已在 yaosDetail 中通过月令旺衰、日冲与动静状态实现暗动判定）
 
 /**
  * 回头生克冲：动爻变出之爻对动爻本身的关系。
@@ -253,10 +242,8 @@ export function getLiuyaoGuaShenBranch(shiPosition: number, shiYaoIsYang: boolea
   return branch;
 }
 
-/**
- * 判断是否为日破：爻的地支被日辰地支冲克
- */
-function isDayBreak(branch: string, dayBranch: string): boolean {
+/** 判断爻支是否被日辰相冲；暗动、日破与动爻日冲须在此基础上再按动静旺衰区分。 */
+function isDayClash(branch: string, dayBranch: string): boolean {
   return isLiuchong(branch, dayBranch);
 }
 
@@ -993,7 +980,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
   const yaosDetail = yaosInfo.map((info, index) => {
     const isChanging = rawYaos[index] === 6 || rawYaos[index] === 9;
     const changedInfo = isChanging ? changedYaosInfo[index] : null;
-    const isDayBreakFlag = isDayBreak(info.dizhi, dayBranch);
+    const isDayClashFlag = isDayClash(info.dizhi, dayBranch);
     const isMonthBreakFlag = isMonthBreak(info.dizhi, monthBranch);
     const changeDirection = changedInfo
       ? getLiuyaoChangeDirection(info.dizhi, changedInfo.dizhi)
@@ -1001,10 +988,11 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
 
     // 月令旺衰：按月建定爻之五行的旺相休囚死。旺相为有力，休囚死为无力。
     const seasonState = getSeasonState(info.wuxing, monthBranch);
-    // 暗动：静爻被日辰冲为暗动（旺相有力，暗中发动）；休囚被日冲为日破（无力）。
-    // 与 isDayBreak 互补：日冲静爻按旺衰区分暗动（有力可用）与日破（无力）。
+    // 《增删卜易·暗动章》：旺相静爻逢日冲为暗动，休囚静爻逢日冲为日破。
+    // 动爻逢日冲另属“动散章”，原文强调不能见冲即断散，因此只记录日辰冲动事实。
     const isHiddenMove =
-      !isChanging && isDayBreakFlag && (seasonState === '旺' || seasonState === '相');
+      !isChanging && isDayClashFlag && (seasonState === '旺' || seasonState === '相');
+    const isDayBreakFlag = !isChanging && isDayClashFlag && !isHiddenMove;
     // 回头生克冲：动爻变出之爻对动爻本身的关系（仅动爻有变爻时计算）。
     const changeRelation = changedInfo
       ? getLiuyaoChangeRelation(
@@ -1038,6 +1026,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       isWorld: shiYing.shi === index + 1,
       isResponse: shiYing.ying === index + 1,
       isVoid: voids.includes(info.dizhi),
+      isDayClash: isDayClashFlag,
       isDayBreak: isDayBreakFlag,
       isMonthBreak: isMonthBreakFlag,
       isHiddenMove: isHiddenMove,
@@ -1055,9 +1044,10 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
           ? monthBranch
           : undefined,
       isLiuhai: isLiuhai(info.dizhi, dayBranch) || isLiuhai(info.dizhi, monthBranch),
-      isRuMu: isRuMu(info.wuxing, dayBranch) || isRuMu(info.wuxing, monthBranch),
+      isRuMu: isRiMu(info.dizhi, dayBranch),
       shiErGong: getShiErGong(info.wuxing, info.dizhi),
-      isYueMu: isYueMu(info.dizhi, monthBranch),
+      // 兼容旧字段：古籍三墓不含“月墓”，因此固定为 false。
+      isYueMu: false,
       isRiMu: isRiMu(info.dizhi, dayBranch),
       changedYao: changedInfo
         ? {

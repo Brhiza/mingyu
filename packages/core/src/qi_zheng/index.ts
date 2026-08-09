@@ -7,7 +7,7 @@
  *   - 安十二宫：自命宫逆数（命、财帛、兄弟、田宅、男女、奴仆、妻妾、疾厄、迁移、官禄、福德、相貌）。
  *   - 安命主：寅亥木、卯戌火、辰酉金、巳申水、子丑土、午日、未月。
  *   - 二十八宿按明清修订距星目录，以 J2000/ICRS 坐标、自行和目标日期真黄道变换求边界。
- *   - 庙旺：七政于十二宫之庙、旺、乐、陷。
+ *   - 星曜喜怒：七政于十二宫之庙、旺、喜、乐，采用《星学大成》第三章明载歌诀。
  *   - 神煞：天乙贵人（日干）、驿马/劫煞/咸池/华盖/孤辰/寡宿（年支）。
  *
  * 紫炁采用单一《七政算内篇》古法均速模型：周积 10227.1792 日，日行三分五十七秒一四二九，
@@ -86,31 +86,59 @@ export const TWELVE_PALACES = [
   '相貌',
 ];
 
-/** 命主：十二宫序（子0…亥11）→ 主星 */
-const MING_ZHU: Record<number, string> = {
-  0: '土',
-  1: '土',
-  2: '木',
-  3: '火',
-  4: '金',
-  5: '水',
-  6: '日',
-  7: '月',
-  8: '水',
-  9: '金',
-  10: '火',
-  11: '木',
+/**
+ * 现代回归黄经十二宫与传统宫支的固定对应。
+ * astronomy-engine 的 0 宫从白羊起，而传统果老盘按戌、酉……亥排列，二者不可共用同一数字序。
+ */
+export const QIZHENG_SIGN_BRANCHES = [
+  '戌',
+  '酉',
+  '申',
+  '未',
+  '午',
+  '巳',
+  '辰',
+  '卯',
+  '寅',
+  '丑',
+  '子',
+  '亥',
+] as const;
+
+export type QizhengSignBranch = (typeof QIZHENG_SIGN_BRANCHES)[number];
+
+/** 命主：《星学大成》所载寅亥木、卯戌火、辰酉金、巳申水、子丑土、午日、未月。 */
+const MING_ZHU_BY_BRANCH: Record<QizhengSignBranch, string> = {
+  子: '土',
+  丑: '土',
+  寅: '木',
+  卯: '火',
+  辰: '金',
+  巳: '水',
+  午: '日',
+  未: '月',
+  申: '水',
+  酉: '金',
+  戌: '火',
+  亥: '木',
 };
 
-/** 七政庙旺乐陷（按十二宫序，子0…亥11） */
-const DIGNITY: Record<string, { miao: number[]; wang: number[]; le: number[]; xian: number[] }> = {
-  日: { miao: [6], wang: [8], le: [1, 7], xian: [0] },
-  月: { miao: [7], wang: [9], le: [2], xian: [5] },
-  木: { miao: [2], wang: [11], le: [3], xian: [8] },
-  火: { miao: [3], wang: [2], le: [5], xian: [11] },
-  土: { miao: [0], wang: [1], le: [4], xian: [6] },
-  金: { miao: [9], wang: [4], le: [1], xian: [3] },
-  水: { miao: [0], wang: [8], le: [11], xian: [5] },
+type QizhengDignityBranches = {
+  miao: readonly QizhengSignBranch[];
+  wang: readonly QizhengSignBranch[];
+  xi: readonly QizhengSignBranch[];
+  le: readonly QizhengSignBranch[];
+};
+
+/** 《星学大成·第三章星曜喜怒》七政庙、旺、喜、乐表；同宫状态可以重叠。 */
+const DIGNITY: Record<string, QizhengDignityBranches> = {
+  日: { miao: ['戌'], wang: ['巳'], xi: ['寅'], le: ['午'] },
+  月: { miao: ['戌'], wang: ['酉'], xi: ['亥'], le: ['未'] },
+  水: { miao: ['午'], wang: ['子', '巳'], xi: ['辰'], le: ['巳', '申'] },
+  金: { miao: ['辰'], wang: ['午', '亥'], xi: [], le: ['辰', '酉'] },
+  火: { miao: ['卯'], wang: ['丑'], xi: ['申'], le: ['卯', '戌'] },
+  木: { miao: ['亥'], wang: ['未', '亥'], xi: ['未'], le: ['亥', '寅'] },
+  土: { miao: ['丑'], wang: ['卯', '辰'], xi: ['午'], le: ['子', '丑'] },
 };
 
 export interface QizhengStar {
@@ -121,10 +149,11 @@ export interface QizhengStar {
   xiu: string;
   sevenStar: string;
   xiuDegree: number;
-  signIndex: number; // 十二宫序号 0-11
+  signIndex: number; // 现代回归黄经宫序：白羊0…双鱼11
+  signBranch: QizhengSignBranch;
   palace: string;
   retrograde?: boolean;
-  dignity?: string; // 庙/旺/乐/陷/平（七政）；四余为 —
+  dignity?: string; // 庙/旺/喜/乐可并见，否则为平；四余为 —
   sourceId: QizhengPositionSourceId;
   sourceLabel: string;
   precisionClass: '现代天文计算' | '传统均速模型';
@@ -264,6 +293,7 @@ export interface QizhengStarFact {
   sevenStar: string;
   xiuDegree: number;
   signIndex: number;
+  signBranch: QizhengSignBranch;
   palace: string;
   retrograde?: boolean;
   dignity?: string;
@@ -388,7 +418,7 @@ export interface QizhengResult {
   mingGong: number;
   shenGong: number;
   mingZhu: string;
-  twelvePalaces: { palace: string; signIndex: number }[];
+  twelvePalaces: { palace: string; signIndex: number; signBranch: QizhengSignBranch }[];
   shensha: { name: string; value: string }[];
   ziqiModel: ZiqiModelInfo;
   ziqi: ZiqiPosition;
@@ -897,18 +927,36 @@ function astronomyRetrograde(body: Body, utcMs: number): boolean {
   return angleDifferenceDegrees(before, after) < 0;
 }
 
-/** 七政庙旺乐陷判定 */
-function dignityOf(key: string, signIndex: number): string {
+/** 将现代黄经宫序换成传统宫支。 */
+export function getQizhengSignBranch(signIndex: number): QizhengSignBranch {
   if (!Number.isInteger(signIndex) || signIndex < 0 || signIndex > 11) {
-    throw new Error(`七政四余庙旺宫位无效：${String(signIndex)}。`);
+    throw new Error(`七政四余黄道宫位无效：${String(signIndex)}。`);
   }
+  const branch = QIZHENG_SIGN_BRANCHES[signIndex];
+  if (!branch) throw new Error(`七政四余宫支映射缺失：${String(signIndex)}。`);
+  return branch;
+}
+
+/** 按命宫实际宫支查命主，避免把白羊起的黄经宫序误作子支起序。 */
+export function getQizhengMingZhu(signIndex: number): string {
+  const branch = getQizhengSignBranch(signIndex);
+  const mingZhu = MING_ZHU_BY_BRANCH[branch];
+  if (!mingZhu) throw new Error(`七政四余命主资料缺失：命宫${branch}。`);
+  return mingZhu;
+}
+
+/** 《星学大成》七政庙旺喜乐判定；同一宫命中多种状态时全部保留。 */
+export function getQizhengDignity(key: string, signIndex: number): string {
+  const branch = getQizhengSignBranch(signIndex);
   const d = DIGNITY[key];
   if (!d) throw new Error(`七政四余庙旺资料缺失：${key}。`);
-  if (d.miao.includes(signIndex)) return '庙';
-  if (d.wang.includes(signIndex)) return '旺';
-  if (d.le.includes(signIndex)) return '乐';
-  if (d.xian.includes(signIndex)) return '陷';
-  return '平';
+  const statuses = [
+    d.miao.includes(branch) ? '庙' : '',
+    d.wang.includes(branch) ? '旺' : '',
+    d.xi.includes(branch) ? '喜' : '',
+    d.le.includes(branch) ? '乐' : '',
+  ].filter(Boolean);
+  return statuses.length ? statuses.join('/') : '平';
 }
 
 function buildCalculationContext(
@@ -1375,13 +1423,14 @@ function buildQizhengEvidence(
     sevenStar: star.sevenStar,
     xiuDegree: star.xiuDegree,
     signIndex: star.signIndex,
+    signBranch: star.signBranch,
     palace: star.palace,
     retrograde: star.retrograde,
     dignity: star.dignity,
     sourceId: star.sourceId,
     sourceLabel: star.sourceLabel,
     precisionClass: star.precisionClass,
-    promptText: `${star.name}（${star.kind}，${star.precisionClass}）：目标日期黄经${star.longitude.toFixed(3)}°，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.palace}${star.dignity && star.dignity !== '—' ? `，状态${star.dignity}` : ''}${star.retrograde ? '，逆行' : ''}`,
+    promptText: `${star.name}（${star.kind}，${star.precisionClass}）：目标日期黄经${star.longitude.toFixed(3)}°，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.signBranch}宫${star.palace}${star.dignity && star.dignity !== '—' ? `，状态${star.dignity}` : ''}${star.retrograde ? '，逆行' : ''}`,
     sources: [
       star.sourceLabel,
       `位置源标识${star.sourceId}`,
@@ -1408,10 +1457,10 @@ function buildQizhengEvidence(
   }));
   const primaryFacts = starFacts.map(
     (fact) =>
-      `${fact.name}据${fact.sourceLabel}得${fact.precisionClass}位置，落${fact.palace}、${fact.xiu}宿${fact.dignity && fact.dignity !== '—' ? `、状态${fact.dignity}` : ''}`,
+      `${fact.name}据${fact.sourceLabel}得${fact.precisionClass}位置，落${fact.signBranch}宫${fact.palace}、${fact.xiu}宿${fact.dignity && fact.dignity !== '—' ? `、状态${fact.dignity}` : ''}`,
   );
   primaryFacts.push(
-    `命宫落黄道第${structure.mingGong + 1}宫，身宫落黄道第${structure.shenGong + 1}宫，命主${structure.mingZhu}`,
+    `命宫落${getQizhengSignBranch(structure.mingGong)}宫，身宫落${getQizhengSignBranch(structure.shenGong)}宫，命主${structure.mingZhu}`,
   );
   const supportingFacts = aspectFacts.slice(0, 12).map((aspect) => aspect.promptText);
   supportingFacts.push(
@@ -1552,7 +1601,7 @@ function buildQizhengEvidence(
     methodology: [
       '先固定民用时间、时区、地点和UTC计算时刻。',
       '逐星保留计算来源，区分现代天文位置与传统紫炁均速模型。',
-      '再按目标日期二十八宿距星真黄经边界换算宿度、十二宫和庙旺。',
+      '再按目标日期二十八宿距星真黄经边界换算宿度、十二宫和庙旺喜乐。',
       '吊照只按实际夹角和容许度分级，不换算为吉凶百分比。',
       '月相只保留日月黄经差、照明近似和前后朔弦望时刻，不把月相直接解释为吉凶。',
       '太阳高度与日出日落只作为地点相关的天文光照背景，不直接生成庙旺或吉凶结论。',
@@ -1619,7 +1668,8 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     const { xiu, xiuDegree } = longitudeToQizhengMansion(longitude, mansionBoundaries);
     const sevenStar = TwentyEightStar.fromName(xiu).getSevenStar().getName();
     const signIndex = Math.floor(longitude / 30);
-    const dignity = key ? dignityOf(key, signIndex) : '—';
+    const signBranch = getQizhengSignBranch(signIndex);
+    const dignity = key ? getQizhengDignity(key, signIndex) : '—';
     const source = QIZHENG_POSITION_SOURCES.find((item) => item.id === sourceId);
     if (!source) throw new Error(`七政四余位置来源缺失：${sourceId}。`);
     stars.push({
@@ -1631,6 +1681,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
       sevenStar,
       xiuDegree,
       signIndex,
+      signBranch,
       palace: '',
       retrograde,
       dignity,
@@ -1710,7 +1761,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   const twelvePalaces = TWELVE_PALACES.map((palace, i) => ({
     palace,
     signIndex: (mingGong - i + 12) % 12, // 自命宫逆布
-  }));
+  })).map((item) => ({ ...item, signBranch: getQizhengSignBranch(item.signIndex) }));
   const palaceBySign = new Map(twelvePalaces.map((t) => [t.signIndex, t.palace]));
   for (const s of stars) {
     const palace = palaceBySign.get(s.signIndex);
@@ -1718,8 +1769,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     s.palace = palace;
   }
 
-  const mingZhu = MING_ZHU[mingGong];
-  if (!mingZhu) throw new Error(`七政四余命主资料缺失：命宫序号 ${mingGong}。`);
+  const mingZhu = getQizhengMingZhu(mingGong);
   const aspects = buildQizhengAspects(stars);
 
   // 神煞（年支 + 日干）
@@ -1753,7 +1803,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
     ...stars.map(
       (s) =>
-        `${s.kind} ${s.name}：在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,
+        `${s.kind} ${s.name}：在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.signBranch}宫${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,
     ),
     `七政四余吊照：${
       aspects.length
@@ -1765,8 +1815,8 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
             .join('；')
         : '未见容许度内的主要同宫、六合、四正、三方或对照'
     }。`,
-    `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
-    `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=黄道第${item.signIndex + 1}宫`).join('；')}。`,
+    `命宫在${TWELVE_PALACES[0]}（${getQizhengSignBranch(mingGong)}宫），命主${mingZhu}；身宫在${getQizhengSignBranch(shenGong)}宫。`,
+    `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=${item.signBranch}宫`).join('；')}。`,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
   ].join('\n');
 
@@ -1798,6 +1848,10 @@ export const qizheng = {
   QIZHENG_POSITION_SOURCES,
   QIZHENG_MANSION_STARS,
   QIZHENG_MANSION_MODEL,
+  QIZHENG_SIGN_BRANCHES,
+  getQizhengSignBranch,
+  getQizhengMingZhu,
+  getQizhengDignity,
   calculateQizhengMansionBoundaries,
   longitudeToQizhengMansion,
 };

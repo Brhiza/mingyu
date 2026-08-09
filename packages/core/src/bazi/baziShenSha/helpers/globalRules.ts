@@ -1,4 +1,5 @@
 import type { BaziArray } from './types';
+import type { ShenShaReferenceProfile } from '../variants';
 
 export function analyzeGlobalShenSha(shenShaList: string[]): string[] {
   const analysis: string[] = [];
@@ -10,7 +11,10 @@ export function analyzeGlobalShenSha(shenShaList: string[]): string[] {
   return analysis;
 }
 
-export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
+export function calculateGlobalShenSha(
+  baziArray: BaziArray,
+  referenceProfile: ShenShaReferenceProfile = 'wenzhen',
+): string[] {
   const globalShenSha: string[] = [];
   const gans = baziArray.map(([gan]) => gan);
   const zhis = baziArray.map(([, zhi]) => zhi);
@@ -20,9 +24,12 @@ export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
   const sequences: string[][] = [
     ['甲', '戊', '庚'],
     ['乙', '丙', '丁'],
-    ['辛', '壬', '癸'],
+    referenceProfile === 'wenzhen' ? ['壬', '癸', '辛'] : ['辛', '壬', '癸'],
   ];
   const hasOrderedStems = (sequence: string[]) => {
+    if (referenceProfile === 'wenzhen') {
+      return gans.some((_, index) => gans.slice(index, index + 3).join('') === sequence.join(''));
+    }
     let index = 0;
     for (const gan of gans) {
       if (gan === sequence[index]) {
@@ -39,6 +46,18 @@ export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
       globalShenSha.push('三奇贵人');
       break;
     }
+  }
+
+  const dayHour = `${baziArray[2].join('')}日${baziArray[3].join('')}时`;
+  const gongLuPairs = new Set([
+    '癸亥日癸丑时',
+    '癸丑日癸亥时',
+    '丁巳日丁未时',
+    '己未日己巳时',
+    '戊辰日戊午时',
+  ]);
+  if (referenceProfile === 'wenzhen' && gongLuPairs.has(dayHour)) {
+    globalShenSha.push('拱禄');
   }
 
   if (

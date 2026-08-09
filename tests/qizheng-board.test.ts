@@ -4,8 +4,75 @@ import assert from 'node:assert/strict';
 import {
   calculateQizhengMansionBoundaries,
   generateQizheng,
+  getQizhengDignity,
+  getQizhengMingZhu,
+  getQizhengSignBranch,
   longitudeToQizhengMansion,
+  QIZHENG_SIGN_BRANCHES,
 } from '@core/qi_zheng';
+
+test('现代黄经宫序必须先换成传统宫支再查命主', () => {
+  assert.deepEqual(QIZHENG_SIGN_BRANCHES, [
+    '戌',
+    '酉',
+    '申',
+    '未',
+    '午',
+    '巳',
+    '辰',
+    '卯',
+    '寅',
+    '丑',
+    '子',
+    '亥',
+  ]);
+  const expectedMingZhuByBranch = {
+    子: '土',
+    丑: '土',
+    寅: '木',
+    卯: '火',
+    辰: '金',
+    巳: '水',
+    午: '日',
+    未: '月',
+    申: '水',
+    酉: '金',
+    戌: '火',
+    亥: '木',
+  } as const;
+
+  for (let signIndex = 0; signIndex < 12; signIndex += 1) {
+    const branch = getQizhengSignBranch(signIndex);
+    assert.equal(getQizhengMingZhu(signIndex), expectedMingZhuByBranch[branch]);
+  }
+  assert.equal(getQizhengMingZhu(0), '火', '白羊黄经宫对应戌宫，不得误按子宫取土');
+  assert.equal(getQizhengMingZhu(10), '土', '水瓶黄经宫才对应传统子宫');
+});
+
+test('七政庙旺喜乐应与星学大成第三章一致并保留重叠状态', () => {
+  const expected = {
+    日: { 戌: '庙', 巳: '旺', 寅: '喜', 午: '乐' },
+    月: { 戌: '庙', 酉: '旺', 亥: '喜', 未: '乐' },
+    水: { 午: '庙', 子: '旺', 巳: '旺/乐', 辰: '喜', 申: '乐' },
+    金: { 辰: '庙/乐', 午: '旺', 亥: '旺', 酉: '乐' },
+    火: { 卯: '庙/乐', 丑: '旺', 申: '喜', 戌: '乐' },
+    木: { 亥: '庙/旺/乐', 未: '旺/喜', 寅: '乐' },
+    土: { 丑: '庙/乐', 卯: '旺', 辰: '旺', 午: '喜', 子: '乐' },
+  } as const;
+
+  for (const [star, branchStatuses] of Object.entries(expected)) {
+    for (const [branch, status] of Object.entries(branchStatuses)) {
+      const signIndex = QIZHENG_SIGN_BRANCHES.indexOf(branch as never);
+      assert.notEqual(signIndex, -1);
+      assert.equal(getQizhengDignity(star, signIndex), status, `${star}在${branch}宫状态错误`);
+    }
+  }
+  assert.equal(getQizhengDignity('金', QIZHENG_SIGN_BRANCHES.indexOf('子')), '平');
+  assert.doesNotMatch(
+    QIZHENG_SIGN_BRANCHES.map((_, index) => getQizhengDignity('金', index)).join('、'),
+    /陷/,
+  );
+});
 
 test('七政四余完整盘采用二十八宿真实距星边界并保持位置来源分层', () => {
   const result = generateQizheng({
@@ -33,7 +100,16 @@ test('七政四余完整盘采用二十八宿真实距星边界并保持位置�
     const boundary = result.mansionBoundaries.find((item) => item.mansion === star.xiu);
     assert.ok(boundary);
     assert.ok(star.xiuDegree >= 0 && star.xiuDegree < boundary.widthDegrees);
+    assert.equal(star.signBranch, getQizhengSignBranch(star.signIndex));
+    assert.match(result.prompt, new RegExp(`落${star.signBranch}宫${star.palace}`));
   }
+  assert.ok(
+    result.evidenceAnalysis.starFacts.every(
+      (fact) =>
+        fact.signBranch === getQizhengSignBranch(fact.signIndex) &&
+        fact.promptText.includes(`落${fact.signBranch}宫${fact.palace}`),
+    ),
+  );
   assert.equal(
     result.stars.find((star) => star.name.startsWith('紫炁'))?.precisionClass,
     '传统均速模型',

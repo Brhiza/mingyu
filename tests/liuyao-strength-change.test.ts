@@ -11,6 +11,7 @@ import {
   getLiuyaoHexagramRelations,
   getLiuyaoPalaceStage,
 } from 'mingyu-core/divination/liuyao';
+import { formatEnhancedDivinationInfo } from 'mingyu-core/prompt';
 import type { LiuyaoYaoDetail } from 'mingyu-core/types';
 
 // 2025-01-01 农历为丙子月（子月：水旺木相金休土囚火死）、丙寅日（日支寅）
@@ -48,6 +49,23 @@ test('六爻：各爻输出月令旺相休囚死状态', () => {
   }
 });
 
+test('六爻：月建为墓库支时不得直接判作入月墓', () => {
+  // 辰月水爻只按月令判断旺衰；《增删卜易》三墓为日墓、动墓、化墓，不含月墓。
+  const data = generateLiuyao(new Date('2025-04-10T08:00:00+08:00'), {
+    yaos: SHAN_HUO_BI_YAOS,
+  });
+
+  assert.equal(data.ganzhi.month.slice(1), '辰');
+  assert.notEqual(data.ganzhi.day.slice(1), '辰');
+  const waterYaos = data.yaosDetail.filter((yao) => yao.wuxing === '水');
+  assert.ok(waterYaos.length > 0, '样本卦应包含水爻');
+  for (const yao of waterYaos) {
+    assert.equal(yao.isYueMu, false, `第${yao.position}爻不得因辰月直接判作入月墓`);
+    assert.equal(yao.isRuMu, false, `第${yao.position}爻未逢日墓时不得汇总为入墓`);
+  }
+  assert.doesNotMatch(data.evidenceAnalysis?.promptText ?? '', /入月墓/);
+});
+
 test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', () => {
   const data = generateSampleLiuyao();
 
@@ -63,24 +81,39 @@ test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', ()
   );
 });
 
-test('六爻：静爻被日冲且旺相标记为暗动，休囚标记为日破', () => {
-  const data = generateSampleLiuyao();
-  const dayBranch = data.ganzhi.day.slice(1);
+test('六爻：日冲应按旺相静爻、休囚静爻与动爻分别处理', () => {
+  const hiddenMoveData = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+    yaos: KAN_WEI_SHUI_YAOS,
+  });
+  const hiddenMoveYao = hiddenMoveData.yaosDetail.find((yao) => yao.najiaDizhi === '子');
+  assert.equal(hiddenMoveData.ganzhi.month.slice(1), '子');
+  assert.equal(hiddenMoveData.ganzhi.day.slice(1), '午');
+  assert.equal(hiddenMoveYao?.seasonState, '旺');
+  assert.equal(hiddenMoveYao?.isDayClash, true);
+  assert.equal(hiddenMoveYao?.isHiddenMove, true);
+  assert.equal(hiddenMoveYao?.isDayBreak, false);
+  assert.match(formatEnhancedDivinationInfo('liuyao', hiddenMoveData), /暗动/);
 
-  // 暗动与日破互斥：暗动要求静爻(非动)且被日冲且旺相
-  for (const yao of data.yaosDetail) {
-    if (yao.isHiddenMove) {
-      assert.ok(!yao.isChanging, `第${yao.position}爻暗动应为静爻`);
-      assert.ok(yao.isDayBreak, `第${yao.position}爻暗动应被日冲`);
-      assert.ok(
-        yao.seasonState === '旺' || yao.seasonState === '相',
-        `第${yao.position}爻暗动应旺相，实际 ${yao.seasonState}`,
-      );
-    }
-    // 日破与暗动不同时成立
-    assert.ok(!(yao.isDayBreak && yao.isHiddenMove) || yao.isHiddenMove, '');
-  }
-  void dayBranch;
+  const dayClashDate = new Date('2025-01-07T08:00:00+08:00');
+  const dayBreakData = generateLiuyao(dayClashDate, { yaos: [7, 7, 7, 7, 7, 7] });
+  const dayBreakYao = dayBreakData.yaosDetail.find((yao) => yao.najiaDizhi === '午');
+  assert.equal(dayBreakData.ganzhi.month.slice(1), '丑');
+  assert.equal(dayBreakData.ganzhi.day.slice(1), '子');
+  assert.equal(dayBreakYao?.seasonState, '休');
+  assert.equal(dayBreakYao?.isDayClash, true);
+  assert.equal(dayBreakYao?.isHiddenMove, false);
+  assert.equal(dayBreakYao?.isDayBreak, true);
+
+  const movingData = generateLiuyao(dayClashDate, { yaos: [7, 7, 7, 9, 7, 7] });
+  const movingYao = movingData.yaosDetail.find((yao) => yao.najiaDizhi === '午');
+  assert.equal(movingYao?.isChanging, true);
+  assert.equal(movingYao?.isDayClash, true);
+  assert.equal(movingYao?.isHiddenMove, false);
+  assert.equal(movingYao?.isDayBreak, false);
+  const movingFact = movingData.evidenceAnalysis?.lineFacts.find((item) => item.position === 4);
+  assert.ok(movingFact?.dayState.relations.includes('日辰冲动'));
+  assert.ok(!movingFact?.dayState.relations.includes('日冲成破'));
+  assert.match(formatEnhancedDivinationInfo('liuyao', movingData), /日辰冲动/);
 });
 
 test('六爻：动爻变爻应完整输出回头、化泄、化耗等五行关系', () => {

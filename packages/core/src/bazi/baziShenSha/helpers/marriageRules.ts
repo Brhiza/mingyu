@@ -2,6 +2,7 @@ import type { RuleContext, ShenShaRuleMap } from './types';
 
 export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
   const { zhi, nianZhi, riGan, riZhi, pillarGZ, isMan, cdz, zhiIdx } = ctx;
+  const isWenzhen = ctx.variants.referenceProfile === 'wenzhen';
 
   return {
     桃花: () => {
@@ -36,7 +37,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '巳',
         亥: '辰',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return map[nianZhi] === zhi || (!isWenzhen && map[riZhi] === zhi);
     },
     天喜: () => {
       const map: Record<string, string> = {
@@ -53,7 +54,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '亥',
         亥: '戌',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return map[nianZhi] === zhi || (!isWenzhen && map[riZhi] === zhi);
     },
     孤辰: () => {
       const map: Record<string, string> = {
@@ -90,18 +91,31 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianZhi] === zhi;
     },
     红艳煞: () => {
-      const map: Record<string, string> = {
-        甲: '午',
-        乙: '午',
-        丙: '寅',
-        丁: '未',
-        戊: '子',
-        己: '辰',
-        庚: '戌',
-        辛: '酉',
-        壬: '巳',
-        癸: '申',
-      };
+      const map: Record<string, string> = isWenzhen
+        ? {
+            甲: '午',
+            乙: '午',
+            丙: '寅',
+            丁: '未',
+            戊: '辰',
+            己: '辰',
+            庚: '戌',
+            辛: '酉',
+            壬: '子',
+            癸: '申',
+          }
+        : {
+            甲: '午',
+            乙: '午',
+            丙: '寅',
+            丁: '未',
+            戊: '子',
+            己: '辰',
+            庚: '戌',
+            辛: '酉',
+            壬: '巳',
+            癸: '申',
+          };
       return map[riGan] === zhi;
     },
     阴阳煞: () => (isMan ? pillarGZ === '丙子' : pillarGZ === '戊午'),

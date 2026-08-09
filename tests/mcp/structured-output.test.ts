@@ -2722,6 +2722,40 @@ test('MCP 八字神煞默认精简，显式 all 返回全部', async () => {
   });
 });
 
+test('MCP 八字神煞默认采用问真口径，并可切换原有传统口径', async () => {
+  await withMcpClient(async (client) => {
+    const input = {
+      gender: 'male' as const,
+      year: 1980,
+      month: 1,
+      day: 1,
+      timeIndex: 0,
+      dateType: 'solar' as const,
+    };
+    const wenzhen = await client.callTool({ name: 'bazi_calculate', arguments: input });
+    const classical = await client.callTool({
+      name: 'bazi_calculate',
+      arguments: {
+        ...input,
+        shenShaVariants: { referenceProfile: 'classical' },
+      },
+    });
+    const wenzhenChart = wenzhen.structuredContent?.result as {
+      shensha: Record<string, string[]>;
+    };
+    const classicalChart = classical.structuredContent?.result as {
+      shensha: Record<string, string[]>;
+    };
+
+    assert.equal(wenzhen.isError, undefined);
+    assert.equal(classical.isError, undefined);
+    assert.ok(wenzhenChart.shensha.month.includes('空亡'));
+    assert.ok(wenzhenChart.shensha.hour.includes('空亡'));
+    assert.ok(!classicalChart.shensha.month.includes('空亡'));
+    assert.ok(!classicalChart.shensha.hour.includes('空亡'));
+  });
+});
+
 test('MCP 紫微真太阳时参数缺失或越界时应返回明确错误', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[string, Record<string, unknown>, RegExp]> = [
@@ -3716,7 +3750,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       new Set(['经典取传规则', '课体', '天将属性', '神煞']),
     );
     assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
-    assert.match(liurenPrompt, /古籍依据：/);
+    assert.doesNotMatch(liurenPrompt, /古籍依据：|按逐月神煞表取|未给出目标期限|不硬换成唯一日期/);
     assert.match(liurenPrompt, /应期资料：/);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);

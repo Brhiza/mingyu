@@ -150,6 +150,7 @@ type AlmanacApiResult = Omit<AlmanacData, 'days'> & {
 const SHENSHA_KONG_WANG_BASIS = ['day', 'day-and-year'] as const;
 const SHENSHA_YANG_REN_MODE = ['yang-stems-only', 'include-yin-ren'] as const;
 const SHENSHA_TONG_ZI_SCOPE = ['day-hour', 'all-pillars'] as const;
+const SHENSHA_REFERENCE_PROFILES = ['wenzhen', 'classical'] as const;
 const SHENSHA_SCOPES = ['common', 'all'] as const;
 const MAX_PUBLIC_API_TEXT_FIELD_LENGTH = 5000;
 const MAX_PUBLIC_API_RESPONSE_BYTES = 1024 * 1024;
@@ -1108,8 +1109,14 @@ export function getPublicApiOpenApiDocument(
         ShenShaVariants: {
           type: 'object',
           description:
-            '可选。神煞争议口径配置；不传时使用默认主流口径。只影响已声明的争议神煞算法，不改变基础历法与干支排盘。',
+            '可选。神煞争议口径配置；不传时使用问真学堂整理口径。只影响已声明的争议神煞算法，不改变基础历法与干支排盘。',
           properties: {
+            referenceProfile: {
+              enum: [...SHENSHA_REFERENCE_PROFILES],
+              default: 'wenzhen',
+              description:
+                '整组参考口径：wenzhen=问真学堂整理口径；classical=原有传统兼容口径。单项配置可继续覆盖整组默认值。',
+            },
             kongWangBasis: {
               enum: [...SHENSHA_KONG_WANG_BASIS],
               description: '空亡口径：day=只按日柱旬空；day-and-year=日柱与年柱旬空并参。',
@@ -2452,10 +2459,12 @@ function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> |
   }
 
   const variants: Partial<ShenShaVariantConfig> = {};
+  const referenceProfile = readOptionalEnum(value, 'referenceProfile', SHENSHA_REFERENCE_PROFILES);
   const kongWangBasis = readOptionalEnum(value, 'kongWangBasis', SHENSHA_KONG_WANG_BASIS);
   const yangRenMode = readOptionalEnum(value, 'yangRenMode', SHENSHA_YANG_REN_MODE);
   const tongZiScope = readOptionalEnum(value, 'tongZiScope', SHENSHA_TONG_ZI_SCOPE);
 
+  if (referenceProfile) variants.referenceProfile = referenceProfile;
   if (kongWangBasis) variants.kongWangBasis = kongWangBasis;
   if (yangRenMode) variants.yangRenMode = yangRenMode;
   if (tongZiScope) variants.tongZiScope = tongZiScope;

@@ -215,13 +215,15 @@ function formatLiuyaoInfo(
       const changedText = item.changedYao
         ? `化${item.changedYao.liuqin}${item.changedYao.dizhi}${item.changedYao.wuxing}${changeRelations.length ? `（${changeRelations.join('、')}）` : item.changedYao.isVoid ? '（变空）' : ''}${item.changeDirection ? `（${item.changeDirection}）` : ''}`
         : '无变爻资料';
-      const breakText = item.isDayBreak
-        ? item.isHiddenMove
-          ? '（暗动）'
-          : '（日破）'
-        : item.isMonthBreak
-          ? '（月破）'
-          : '';
+      const breakText = item.isHiddenMove
+        ? '（暗动）'
+        : item.isDayBreak
+          ? '（日破）'
+          : item.isChanging && item.isDayClash
+            ? '（日辰冲动）'
+            : item.isMonthBreak
+              ? '（月破）'
+              : '';
       return `${formatLiuyaoYaoBrief(item)}${item.isVoid ? '（空）' : ''}${breakText}${changedText}`;
     });
   const voidYaoText = data.yaosDetail
@@ -595,11 +597,6 @@ function formatLiurenInfo(data: LiurenData) {
   const voidHits = data.threeTransmissions
     .filter((item) => data.xunKong?.includes(item.branch))
     .map((item) => `${item.stage}${item.branch}`);
-  const summaryText = joinPromptSentences([
-    data.lessonSummary,
-    data.transmissionSummary,
-    data.transmissionDetail,
-  ]);
   const mainLineText = [
     data.transmissionRule ? `取传${data.transmissionRule}` : '',
     data.transmissionPattern ? `传态${data.transmissionPattern}` : '',
@@ -623,19 +620,20 @@ function formatLiurenInfo(data: LiurenData) {
   const heavenlyPlateLines = data.heavenlyPlate.map(
     (item) => `${item.under}上${item.branch}乘${item.god}`,
   );
-  const classicalRuleText = joinPromptSentences(
-    traditionalFacts
-      .filter((item) => item.kind === '经典取传规则')
-      .map((item) => `${item.sources.join('、')}：${item.name}，${item.promptText}`),
-  );
   const guaTiText = data.guaTi?.length ? data.guaTi.join('、') : '';
   const guaTiSection = guaTiText ? `课体：${guaTiText}` : '';
   const tianJiangContext = traditionalFacts
     .filter((item) => item.kind === '天将属性')
     .map((item) => `${item.stages?.join('、') || ''}${item.name}：${item.promptText}`);
-  const shenShaLines = traditionalFacts
-    .filter((item) => item.kind === '神煞')
-    .map((item) => item.promptText);
+  const shenShaText = (
+    data.shenShaFacts?.length
+      ? data.shenShaFacts.map((item) => `${item.name}在${item.target}`)
+      : data.shenShaSummary || []
+  ).join('、');
+  const timingText = evidenceAnalysis.timingFacts
+    .filter((item) => item.type !== '期限边界')
+    .map((item) => item.promptText.replace(/^[一二三]级(?:发用|三传|日月)：/, ''))
+    .join('；');
 
   return [
     '占法：大六壬',
@@ -646,7 +644,6 @@ function formatLiurenInfo(data: LiurenData) {
     ...heavenlyPlateLines.map((item) => `- ${item}`),
     data.dayStemResidence ? `日干寄宫：${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence}` : '',
     mainLineText.length ? `课传主线：${mainLineText.join('；')}` : '',
-    classicalRuleText ? `古籍依据：${classicalRuleText}` : '',
     guaTiSection,
     lessonLines.length ? '四课：' : '',
     ...lessonLines.map((item) => `- ${item}`),
@@ -654,15 +651,11 @@ function formatLiurenInfo(data: LiurenData) {
     ...transmissionLines.map((item) => `- ${item}`),
     tianJiangContext.length ? '天将属性：' : '',
     ...tianJiangContext.map((item) => `- ${item}`),
-    shenShaLines.length ? '神煞：' : '',
-    ...shenShaLines.map((item) => `- ${item}`),
-    evidenceAnalysis.timingEvidence.length
-      ? `应期资料：${joinPromptSentences(evidenceAnalysis.timingEvidence)}`
-      : '',
+    shenShaText ? `神煞：${shenShaText}` : '',
+    timingText ? `应期资料：${timingText}` : '',
     data.xunKong?.length
       ? `旬空：${data.xunKong.join('、')}${voidHits.length ? `，命中${voidHits.join('、')}` : ''}`
       : '',
-    summaryText || '',
   ]
     .filter(Boolean)
     .join('\n');

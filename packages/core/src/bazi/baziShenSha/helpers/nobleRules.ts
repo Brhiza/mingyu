@@ -1,4 +1,4 @@
-import { TWELVE_STAGES_MAP } from '../../baziDefinitions';
+import { NAYIN_MAP, TWELVE_STAGES_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
 function getStageBranch(stem: string, stageName: string) {
@@ -151,6 +151,9 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
     cdz,
     zhiIdx,
   } = ctx;
+  const isWenzhen = ctx.variants.referenceProfile === 'wenzhen';
+  const yueGan = baziArray[1]?.[0] || '';
+  const yearNayinElement = NAYIN_MAP[`${nianGan}${nianZhi}`]?.slice(-1) || '';
   const shiZhi = baziArray[3]?.[1] || '';
   const branchFromHour = (offset: number) => {
     const index = zhiIdx(shiZhi);
@@ -328,6 +331,21 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return map[yueZhi] === gan;
     },
     福星贵人: () => {
+      if (isWenzhen) {
+        const map: Record<string, string[]> = {
+          甲: ['寅', '子'],
+          丙: ['寅', '子'],
+          乙: ['卯', '丑'],
+          癸: ['卯', '丑'],
+          戊: ['申'],
+          己: ['未'],
+          丁: ['亥'],
+          庚: ['午'],
+          辛: ['巳'],
+          壬: ['辰'],
+        };
+        return map[nianGan]?.includes(zhi) || map[yueGan]?.includes(zhi) || false;
+      }
       const map: Record<string, string[]> = {
         甲: ['丙寅', '丙子'],
         乙: ['丁丑', '丁亥'],
@@ -361,18 +379,31 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
     文昌贵人: () => {
-      const map: Record<string, string> = {
-        甲: '巳',
-        乙: '亥',
-        丙: '戌',
-        丁: '辰',
-        戊: '申',
-        己: '午',
-        庚: '寅',
-        辛: '未',
-        壬: '卯',
-        癸: '丑',
-      };
+      const map: Record<string, string> = isWenzhen
+        ? {
+            甲: '巳',
+            乙: '午',
+            丙: '申',
+            丁: '酉',
+            戊: '申',
+            己: '酉',
+            庚: '亥',
+            辛: '子',
+            壬: '寅',
+            癸: '卯',
+          }
+        : {
+            甲: '巳',
+            乙: '亥',
+            丙: '戌',
+            丁: '辰',
+            戊: '申',
+            己: '午',
+            庚: '寅',
+            辛: '未',
+            壬: '卯',
+            癸: '丑',
+          };
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
     文星贵: () => {
@@ -420,11 +451,31 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
     学堂: () => {
+      if (isWenzhen) {
+        const map: Record<string, string> = {
+          金: '巳',
+          木: '亥',
+          水: '申',
+          土: '申',
+          火: '寅',
+        };
+        return pillarIndex > 0 && map[yearNayinElement] === zhi;
+      }
       const riChangsheng = getChangshengBranch(riGan);
       const nianChangsheng = getChangshengBranch(nianGan);
       return riChangsheng === zhi || nianChangsheng === zhi;
     },
     词馆: () => {
+      if (isWenzhen) {
+        const map: Record<string, string> = {
+          金: '申',
+          木: '寅',
+          水: '亥',
+          土: '亥',
+          火: '巳',
+        };
+        return pillarIndex > 0 && map[yearNayinElement] === zhi;
+      }
       const riLinguan = getLinguanBranch(riGan);
       const nianLinguan = getLinguanBranch(nianGan);
       return riLinguan === zhi || nianLinguan === zhi;
@@ -491,6 +542,7 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       };
       const config = deXiuMap[yueZhi];
       if (!config) return false;
+      if (isWenzhen) return config.de.includes(gan) || config.xiu.includes(gan);
       const heGanMap: Record<string, string> = {
         甲: '己',
         乙: '庚',

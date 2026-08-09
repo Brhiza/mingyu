@@ -53,6 +53,18 @@ const baziZiweiPromptSchema = z.object({
     .enum(['common', 'all'])
     .optional()
     .describe('神煞输出范围：common=默认55个常用神煞，all=全部已计算神煞'),
+  shenShaVariants: z
+    .object({
+      referenceProfile: z
+        .enum(['wenzhen', 'classical'])
+        .optional()
+        .describe('整组参考口径：wenzhen=问真学堂整理口径，classical=原有传统兼容口径'),
+      kongWangBasis: z.enum(['day', 'day-and-year']).optional(),
+      yangRenMode: z.enum(['yang-stems-only', 'include-yin-ren']).optional(),
+      tongZiScope: z.enum(['day-hour', 'all-pillars']).optional(),
+    })
+    .optional()
+    .describe('神煞争议口径；不传时使用问真学堂整理口径'),
   algorithm: z
     .enum(['default', 'zhongzhou'])
     .optional()

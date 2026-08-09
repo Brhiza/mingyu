@@ -677,6 +677,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     baziArray,
     variants,
   } = ctx;
+  const isWenzhen = variants.referenceProfile === 'wenzhen';
   const anJinSha = AN_JIN_SHA_BY_YEAR_BRANCH[nianZhi];
   const anJinShaHits = anJinSha?.branch === zhi;
   const sanQiuWuMu = SAN_QIU_WU_MU_BY_MONTH_BRANCH[yueZhi];
@@ -775,7 +776,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '卯',
         丑: '卯',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return map[nianZhi] === zhi || (!isWenzhen && map[riZhi] === zhi);
     },
     天杀: () => TIAN_SHA_BY_BRANCH[nianZhi] === zhi || TIAN_SHA_BY_BRANCH[riZhi] === zhi,
     地杀: () => DI_SHA_BY_BRANCH[nianZhi] === zhi || DI_SHA_BY_BRANCH[riZhi] === zhi,
@@ -816,20 +817,35 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       return yuanChenBranch === zhi;
     },
     血刃: () => {
-      const map: Record<string, string> = {
-        寅: '丑',
-        卯: '寅',
-        辰: '卯',
-        巳: '辰',
-        午: '巳',
-        未: '午',
-        申: '未',
-        酉: '申',
-        戌: '酉',
-        亥: '戌',
-        子: '亥',
-        丑: '子',
-      };
+      const map: Record<string, string> = isWenzhen
+        ? {
+            寅: '丑',
+            卯: '未',
+            辰: '寅',
+            巳: '申',
+            午: '卯',
+            未: '酉',
+            申: '辰',
+            酉: '戌',
+            戌: '巳',
+            亥: '亥',
+            子: '午',
+            丑: '子',
+          }
+        : {
+            寅: '丑',
+            卯: '寅',
+            辰: '卯',
+            巳: '辰',
+            午: '巳',
+            未: '午',
+            申: '未',
+            酉: '申',
+            戌: '酉',
+            亥: '戌',
+            子: '亥',
+            丑: '子',
+          };
       return map[yueZhi] === zhi;
     },
     流霞: () => {
@@ -848,11 +864,25 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       return map[riGan] === zhi;
     },
     天罗: () => {
+      if (isWenzhen) {
+        const matches = (source: string, target: string) =>
+          (source === '戌' && target === '亥') || (source === '亥' && target === '戌');
+        return (
+          (pillarIndex !== 0 && matches(nianZhi, zhi)) || (pillarIndex !== 2 && matches(riZhi, zhi))
+        );
+      }
       const hasXu = baziArray.some((p) => p[1] === '戌');
       const hasHai = baziArray.some((p) => p[1] === '亥');
       return hasXu && hasHai && (zhi === '戌' || zhi === '亥');
     },
     地网: () => {
+      if (isWenzhen) {
+        const matches = (source: string, target: string) =>
+          (source === '辰' && target === '巳') || (source === '巳' && target === '辰');
+        return (
+          (pillarIndex !== 0 && matches(nianZhi, zhi)) || (pillarIndex !== 2 && matches(riZhi, zhi))
+        );
+      }
       const hasChen = baziArray.some((p) => p[1] === '辰');
       const hasSi = baziArray.some((p) => p[1] === '巳');
       return hasChen && hasSi && (zhi === '辰' || zhi === '巳');
