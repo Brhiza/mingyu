@@ -2,30 +2,44 @@
     <a href="https://linux.do" alt="LINUX DO">
         <img
             src="https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyMS0uMDU2IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZWNlY2VjO2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTQ3LjI2NiAyLjk1N3EyMi41My0uNjUgMzcuNzc3IDE1LjczOGE0OS43IDQ5LjcgMCAwIDEgNi44NjcgMTAuMTU3cS00MS45NjQuMjIyLTgzLjkzIDAgOS43NS0xOC42MTYgMzAuMDI0LTI0LjM4N2E2MSA2MSAwIDAgMSA5LjI2Mi0xLjUwOCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpldmVub2RkO2ZpbGw6IzE5MTkxOTtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Ik03Ljk4IDcwLjkyNmMyNy45NzctLjAzNSA1NS45NTQgMCA4My45My4xMTNRODMuNDI2IDg3LjQ3MyA2Ni4xMyA5NC4wODZxLTE4LjgxIDYuNTQ0LTM2LjgzMi0xLjg5OC0xNC4yMDMtNy4wOS0yMS4zMTctMjEuMjYyIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5kZDtmaWxsOiNmOWFmMDA7ZmlsbC1vcGFjaXR5OjEiLz48L3N2Zz4=" /></a>
+    <a href="https://www.npmjs.com/package/mingyu-core" alt="mingyu-core on npm">
+        <img src="https://img.shields.io/npm/v/mingyu-core?label=mingyu-core&color=CB3837" /></a>
+    <a href="https://github.com/Brhiza/mingyu/actions/workflows/ci.yml" alt="CI">
+        <img src="https://github.com/Brhiza/mingyu/actions/workflows/ci.yml/badge.svg" /></a>
 </p>
 
 # 命语
 
-命语是一个算命、占卜、择日的提示词生成项目，目标是把排盘、起卦、抽牌、结构化数据和 AI 提示词连接成一条清晰可复用的流程。让所有人都可以快速的生成专业可靠的排盘信息，而不是依靠模糊的关键词和无脑堆叠专业词汇，让AI占卜相对更加可靠，享受术数的神秘智慧。
+命语是一套面向用户和开发者的命理、占卜与择日工具。它把排盘、起卦、抽牌、结构化结果和 AI 提示词连接成清晰流程，让用户得到可核对的盘面资料，也让开发者能够直接复用同一套核心算法。
 
-你可以在网页端快速完成排盘或占卜，时间类占卜支持使用当前时间或自定北京时间，并复制提示词给你常用的所有 AI 工具继续解读；对于移动端用户还可以使用分享功能快速跳转；也可以通过公开 API、MCP Server 或 skill，把命语的排盘与提示词能力接入自己的应用、工作流和智能体系统。
+网页端适合快速排盘、调整并复制提示词；公开 API、MCP Server、skill 和独立 npm 包 `mingyu-core` 适合接入应用、工作流与智能体。默认输出只保留盘面和有效解读资料，来源、规则与计算过程按需提供，避免把冗长证据链混入用户界面和 AI 任务书。
 
-项目网页目前按“排盘、合盘、占卜、择日”组织：排盘包含八字、紫微、星盘、七政四余和住宅风水，占卜包含六爻、梅花易数、奇门遁甲、大六壬、太乙神数、塔罗牌和三山国王灵签。住宅风水为产品统一入口，后台分层计算八宅与玄空飞星后再合参；底层八宅、玄空仍可通过 API / MCP 单独调用。
+项目网页按“排盘、合盘、占卜、择日”组织，覆盖八字、紫微斗数、星盘、七政四余、住宅风水、六爻、梅花易数、奇门遁甲、大六壬、太乙神数、皇极经世、五运六气、塔罗牌、灵签与黄历择日等能力。
 
-线上体验：[https://aov.cc](https://aov.cc)
+<p align="center">
+    <a href="https://aov.cc">在线体验</a> ·
+    <a href="https://aov.cc/api/v1/manifest">公开 API</a> ·
+    <a href="https://aov.cc/api/v1/openapi.json">OpenAPI</a> ·
+    <a href="https://www.npmjs.com/package/mingyu-core">mingyu-core</a> ·
+    <a href="https://aov.cc/skills/aov-mingyu-api/SKILL.md">公开 skill</a>
+</p>
 
-公开 API：[https://aov.cc/api/v1/manifest](https://aov.cc/api/v1/manifest)
-
-OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
-
-公开 skill：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
-
-以上 `aov.cc` 是本项目的官方线上实例；如果你 fork 后部署到自己的 Cloudflare Pages 或其他域名，公开 API 会按实际访问域名生成元数据和 OpenAPI 地址。
+`aov.cc` 是本项目的官方线上实例；fork 后部署到自己的 Cloudflare Pages 或其他域名时，公开 API 会按实际访问域名生成元数据和 OpenAPI 地址。
 
 功德箱：[https://lk.sydf.cc/](https://lk.sydf.cc/)
 
+## 基于命语构建
+
+### 时月东方
+
+时月东方是一款基于命语核心能力构建的东方术数工具，使用 Vue 3 与 Vite 实现，也可以作为 `mingyu-core` 在独立产品中接入和消费的实际参考。
+
+- 在线体验：[https://sydf.cc](https://sydf.cc)
+- 项目源码：[https://github.com/Brhiza/sydf](https://github.com/Brhiza/sydf)
+
 ## 快速导航
 
+- [基于命语构建](#基于命语构建)
 - [核心能力](#核心能力)
 - [集成方式](#集成方式)
 - [核心算法包](#核心算法包-mingyu-core)
@@ -34,16 +48,29 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 
 ## 核心能力
 
+以下条目描述核心计算可提供的完整资料。网页、提示词、公开 API 和 MCP 默认采用精简输出；只有审计、研究或二次计算时才显式请求完整证据。
+
+<details>
+<summary>面向产品的统一消费层</summary>
+
+- 排盘结果按 `input`、`calendar`、`chart`、`timing`、`summary`、`evidence` 和 `warnings` 提供统一视图，底层各术式仍保留自己的专业结构。
+- 公开 API 与排盘类 MCP 默认使用 `detailMode: "compact"`，保留核心盘面并省略提示词、完整证据链和重复计算过程；显式传 `detailMode: "full"` 才返回完整结构。
+- 提示词接口默认只返回可直接交给 AI 的自包含任务书，不再要求调用方用正则表达式清理工程字段和审计资料。
+- 八字岁运按精确交运时刻裁剪可选范围，时间边界提供结构化资料；标准十二时辰模式不会额外补造“晚子时”。
+- 紫微入口已纳入 Vite 与 Webpack 浏览器契约测试，应用无需绕过核心包直接调用 `iztro`。
+
+</details>
+
 <details>
 <summary>命理排盘</summary>
 
-- 八字排盘：四柱、十神、藏干、纳音、神煞、大运、流年、旺衰、格局、用神与调候分析；出生时间必须通过输入约束后才进入排盘，不生成模糊时间候选盘；年限提示词可输出原局—大运—流年—流月—流日逐层合冲刑害破、伏吟、岁运并临与天克地冲证据；双盘可计算日主、日支、四柱交叉关系、双向十神、喜忌覆盖与结构化证据，支持传统派、盲派、新派流派指引。
+- 八字排盘：四柱、十神、藏干、纳音、神煞、大运、流年、旺衰、格局、用神与调候分析；神煞默认采用问真整理口径并返回常用范围，也可显式切换传统兼容口径或请求全部项目；岁运按精确交运边界筛选，提示词只保留所选层级的有效触发资料；双盘可计算日主、日支、四柱交叉关系、双向十神、喜忌覆盖与结构化证据。
 - 紫微斗数：以 `iztro` 原生能力输出十二宫、星曜、亮度、四化、三方四正及本命、大限、流年、流月、流日、流时，并随结果披露实际安星、闰月、分年、运限月份、小限年龄和晚子时口径；三合派、飞星派、四化派选项只改变解读侧重点，不改底层安星。固定版本传统目录现登记 87 项，其中 55 条具备原文与可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中；原 84 条未校勘项目规则继续停用，目录外格局不作判断。
 - 星盘排盘：西方占星完整排盘，包含太阳、月亮、上升星座与宫位、十大行星、逆行提示与主要相位分析；本命、行运和双盘相位输出角度偏差、容许度位置与紧密等级，不把归一化值包装成事件概率、匹配率或吉凶百分比；太阳返照采用粗定位加二分细化，并返回黄经残差、搜索过程和精度边界。
 - 奇门遁甲：输出值符、值使、日干、时干对应的用神宫候选，逐宫保留门星神干、空亡、马星、格局、宫间作用、反证及方位与时间触发条件，不用数字评分替代判断。
 - 住宅风水：产品统一入口，分层计算八宅人宅适配与玄空飞星宅运结构，再输出合参要点与建议；不生成综合吉凶总分。只需普通出生年月日+性别，或只填大门向屋内度数/山向，即可使用；可填建造/起运年。八宅负责命卦宅卦与四吉四凶，玄空负责下卦的运盘/山盘/向盘与到山到向，并在边界敏感时保留候选山向。底层仍可单独调用八宅与玄空。
 - 七政四余：输出七政四余十一星、命身十二宫、宿度庙旺、吊照、月相与出生时刻光照。七政、罗睺、计都和月孛采用现代天文位置，二十八宿用 28 颗真实距星在目标日期的黄经划界；紫炁保留《七政算内篇》古法均速模型，并明确区分位置精度层级。
-- 时间型占卜不机械换算固定天数、周数或百分比：奇门只输出盘内相对节奏、触发条件与限制。
+- 时间型术式不机械换算固定天数、周数或百分比，只输出盘内相对节奏、触发条件与适用边界。
 - 合盘与关系分析：支持双方盘面结构化提示词，适配婚恋、合作、友情、亲子、父母、兄弟等场景。
 
 </details>
@@ -72,6 +99,8 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 - 奇门遁甲：时家奇门默认转盘法，可通过 API 参数请求飞盘法；定局默认拆补法，也可请求置闰法。包含天地人神四盘、值符值使、格局标签（含入墓、击刑、伏吟反吟、门迫等）、节令背景、复合格局与宫位洞察。
 - 大六壬：天盘、四课、三传、月将、贵人、旬空、课体与问题范围选择；输出四课取传依据、初传发用、三传推进及逐传旺衰空亡支持与限制。
 - 太乙神数：当前开放完成积年与阳遁七十二局立成校勘的年计，输出太乙、文昌、始击、计神、主客定算、将参与十六神盘，并提供计算链、主证、辅证、反证和方法限制组成的结构化证据。月、日、时计须补齐节气时刻、章月、月法、日法、气应与小余等古籍历法链后再开放；Kintaiyi 的简式与分计不作为古籍真值。
+- 皇极经世：支持通行公元值年卦排盘，返回会内统卦、运卦、六十年统卦、十年卦、值年卦及互卦、错卦、综卦；研究场景仍可使用指定纪元的元会运世周期换算。
+- 五运六气：按公历年输出中运太过不及、司天在泉、五步主客运、六步主客气、五音太少、气运相临和符会结构，并保留交司日期的古籍口径边界。
 - 自定起卦时间：六爻、梅花易数、奇门遁甲、大六壬可在网页端选择当前时间或自定北京时间；公开 API、MCP Server 和 skill 使用 `customDate` 传入带时区的 ISO 8601 时间。
 - 塔罗牌：78 张塔罗牌，支持单牌、时间流、爱情、事业、选择等牌阵；逐牌保留牌位、正逆位、关键词、元素、牌阶、牌序和解释限制，不输出能量分数或成功率。
 - 三山国王灵签：92 签灵签，源自广东潮汕三山国王祖庙；保留签号、签题与签诗原文，直接围绕问题解读。
@@ -97,7 +126,7 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 
 ## 集成方式
 
-命语提供三种集成方式：公开 API、MCP Server、公开 skill。API 和 MCP 都支持一站式返回 `result` 与 `prompt`；六爻、梅花易数、奇门遁甲、大六壬还支持通过 `customDate` 指定起卦或排盘时间。README 只保留快速入口和安装方式，接口参数、客户端配置和调用示例请跳转到对应文档。
+命语提供公开 API、MCP Server、公开 skill 和 `mingyu-core` npm 包四种集成方式。提示词接口默认只返回 `prompt`；排盘接口默认返回精简结构，需要审计资料时再请求完整结果。六爻、梅花易数、奇门遁甲和大六壬还支持通过 `customDate` 指定起卦时间。README 只保留快速入口，完整参数和调用示例请查看对应文档。
 
 <details>
 <summary>公开 API</summary>
@@ -124,13 +153,13 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 ```bash
 git clone https://github.com/Brhiza/mingyu.git
 cd mingyu
-npm install
+pnpm install
 ```
 
 启动命令：
 
 ```bash
-npm run mcp
+pnpm mcp
 ```
 
 详细文档：[mcp/README.md](mcp/README.md)
@@ -219,11 +248,14 @@ import { generateLiuren } from 'mingyu-core/divination/liuren';
 // 历法工具
 import { getDivinationTime, getVoidBranches } from 'mingyu-core/calendar';
 
+// 将专业结果拆成盘面视图与审计资料
+import { createConsumptionView } from 'mingyu-core/consumption';
+
 // 类型
 import type { BaziChartResult, QimenData, LiurenData } from 'mingyu-core/types';
 ```
 
-包覆盖能力：八字（含调候用神、格局、神煞、大运、命卦、小运、排盘边界预警、中国夏令时校正及透干根气、十神结构、合化评估等增强分析）、奇门遁甲（含节令背景、复合格局、方位应期）、六爻、大六壬、梅花易数、紫微斗数、西洋占星、七政四余、择日、塔罗、三山国王灵签，以及住宅风水（八宅+玄空合参）、八宅、玄空飞星、太乙和干支、五行、方位、神煞公共模块。
+包覆盖能力：八字（含调候用神、格局、神煞、精确岁运边界、中国夏令时校正及增强分析）、紫微斗数、西洋占星、七政四余、六爻、梅花易数、奇门遁甲、大六壬、太乙神数、皇极经世、五运六气、择日、塔罗、三山国王灵签，以及住宅风水（八宅与玄空合参）、八宅、玄空飞星和干支、五行、方位、神煞等公共模块。
 
 真太阳时及其所需的中国省市区、经度数据随 `mingyu-core` 一同提供，可直接从 `mingyu-core/location` 查询，无需安装额外地点包。
 
@@ -506,7 +538,7 @@ AI 代理会对上游临时错误自动重试 2 次。只重试网络异常、40
 交互式运行：
 
 ```bash
-npm run contest:evaluate
+pnpm contest:evaluate
 ```
 
 脚本会依次询问接口 URL、API Key 和模型名称，自动读取 8 份提示词与 `正确答案.md`。每个命例只要求模型输出 5 个 A/B/C/D 答案字母，减少长理由导致的截断和解析错误；调用完成后输出 100 分制总分、准确率、分命例得分和逐题明细。
@@ -514,13 +546,13 @@ npm run contest:evaluate
 也可以直接传参：
 
 ```bash
-npm run contest:evaluate -- --format chat --url https://api.openai.com/v1 --key your-api-key --model gpt-4.1-mini
+pnpm contest:evaluate -- --format chat --url https://api.openai.com/v1 --key your-api-key --model gpt-4.1-mini
 ```
 
 批量并发评测：
 
 ```bash
-npm run contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key your-api-key --concurrency 3 --models "GPT-5.4=openai/gpt-5.4,Claude Sonnet 4.6=anthropic/claude-sonnet-4.6"
+pnpm contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key your-api-key --concurrency 3 --models "GPT-5.4=openai/gpt-5.4,Claude Sonnet 4.6=anthropic/claude-sonnet-4.6"
 ```
 
 `--concurrency` 控制同时评测的模型数量，默认批量为 3；`--caseConcurrency` 控制同一模型内命例并发数量，默认 1。批量模式会合并更新比赛目录下的 `模型评测排名报告.md` 和 `评测结果/本次排名原始结果.json`。
