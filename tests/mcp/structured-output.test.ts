@@ -1324,6 +1324,29 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
     assert.equal(wuyunResult.qiSteps[2].guestRole, '司天');
     assert.equal(wuyunResult.qiSteps[5].guestRole, '在泉');
 
+    const huangjiStandard = await client.callTool({
+      name: 'metaphysics_huangji_jingshi',
+      arguments: { year: 2026 },
+    });
+    const huangjiStandardResult = huangjiStandard.structuredContent?.result as {
+      input: { mode: string };
+      forecast: {
+        hui: { branch: string };
+        hexagrams: {
+          sixtyYear: { hexagram: { name: string } };
+          decade: { hexagram: { name: string } };
+          annual: { name: string; ganzhi: string };
+        };
+      };
+    };
+    assert.equal(huangjiStandard.isError, undefined);
+    assert.equal(huangjiStandardResult.input.mode, '通行公元年');
+    assert.equal(huangjiStandardResult.forecast.hui.branch, '午');
+    assert.equal(huangjiStandardResult.forecast.hexagrams.sixtyYear.hexagram.name, '火风鼎');
+    assert.equal(huangjiStandardResult.forecast.hexagrams.decade.hexagram.name, '天风姤');
+    assert.equal(huangjiStandardResult.forecast.hexagrams.annual.name, '天火同人');
+    assert.equal(huangjiStandardResult.forecast.hexagrams.annual.ganzhi, '丙午');
+
     const huangji = await client.callTool({
       name: 'metaphysics_huangji_jingshi',
       arguments: { epochYear: 1000, elapsedYears: 1026 },
@@ -1361,7 +1384,8 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
       ['metaphysics_wuyun_liuqi', {}, /必须提供 year 或 yearGanZhi/],
       ['metaphysics_wuyun_liuqi', { year: 2026, yearGanZhi: '乙巳' }, /year 与 yearGanZhi 不一致/],
       ['metaphysics_wuyun_liuqi', { yearGanZhi: '甲丑' }, null],
-      ['metaphysics_huangji_jingshi', { year: 2026 }, null],
+      ['metaphysics_huangji_jingshi', { elapsedYears: 1026 }, /必须只提供 year/],
+      ['metaphysics_huangji_jingshi', { year: 0 }, /非零安全整数/],
       ['metaphysics_huangji_jingshi', { epochYear: 1000 }, /必须且只能提供一个/],
       [
         'metaphysics_huangji_jingshi',

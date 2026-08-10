@@ -1280,23 +1280,28 @@ export function getPublicApiOpenApiDocument(
         },
         HuangjiJingshiRequest: {
           type: 'object',
-          required: ['epochYear'],
           description:
-            'epochYear 表示某一元第一年的整数坐标；year 与 elapsedYears 必须且只能提供一个。',
-          oneOf: [{ required: ['year'] }, { required: ['elapsedYears'] }],
+            '普通用户只需提供公元 year，即可获得通行值年卦完整排盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
+          oneOf: [
+            { required: ['year'], not: { required: ['elapsedYears'] } },
+            {
+              required: ['epochYear', 'elapsedYears'],
+              not: { required: ['year'] },
+            },
+          ],
           properties: {
             epochYear: {
               type: 'integer',
-              description: '某一元第一年的整数坐标；不会自动解释为公元或其他纪年。',
+              description: '可选的自定义纪元第一年整数坐标；省略时采用通行公元值年卦排法。',
             },
             year: {
               type: 'integer',
-              description: '目标整数年坐标，不能早于 epochYear。',
+              description: '目标公元年；提供 epochYear 时表示该自定义纪元下的目标年坐标。',
             },
             elapsedYears: {
               type: 'integer',
               minimum: 0,
-              description: '距纪元第一年已经过的完整年数，0 表示第一年。',
+              description: '自定义纪元下距第一年已经过的完整年数，0 表示第一年。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
@@ -2185,16 +2190,24 @@ function buildWuyunLiuqiPromptApi(input: JsonRecord) {
 }
 
 function calculateHuangjiJingshiApi(input: JsonRecord) {
-  const epochYear = readInteger(input, 'epochYear');
+  const epochYear = optInt(input, 'epochYear');
   const year = optInt(input, 'year');
   const elapsedYears = optInt(input, 'elapsedYears', 0);
   const question = readString(input, 'question', '').trim();
-  if ((year === undefined) === (elapsedYears === undefined)) {
-    throw new ApiError(400, 'BAD_REQUEST', 'year 与 elapsedYears 必须且只能提供一个。');
+  if (epochYear === undefined) {
+    if (year === undefined || elapsedYears !== undefined) {
+      throw new ApiError(400, 'BAD_REQUEST', '通行公元值年卦模式必须只提供 year。');
+    }
+  } else if ((year === undefined) === (elapsedYears === undefined)) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '自定义纪元模式的 year 与 elapsedYears 必须且只能提供一个。',
+    );
   }
   try {
     return huangjiJingshi.calculateHuangjiJingshi({
-      epochYear,
+      ...(epochYear !== undefined ? { epochYear } : {}),
       ...(year !== undefined ? { year } : {}),
       ...(elapsedYears !== undefined ? { elapsedYears } : {}),
       ...(question ? { question } : {}),
@@ -2218,6 +2231,7 @@ function buildHuangjiJingshiPromptApi(input: JsonRecord) {
       position: result.position,
       progress: result.progress,
       conversion: result.conversion,
+      forecast: result.forecast,
     },
     fullResult: result,
   });
