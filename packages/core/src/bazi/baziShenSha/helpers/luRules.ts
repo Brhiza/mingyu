@@ -340,7 +340,10 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '酉',
         丑: '酉',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
+        (pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     华盖: () => {
       const map: Record<string, string> = {
@@ -357,7 +360,10 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '丑',
         丑: '丑',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
+        (pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     金舆: () => {
       const map: Record<string, string> = {

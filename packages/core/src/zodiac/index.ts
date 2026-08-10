@@ -321,7 +321,6 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const zodiac = ZODIACS[zodiacIdx];
   const conflicts = getTaiSuiConflicts(zodiacBranch, yearBranch);
   const yearStemWuxing = getStemWuxing(yearGanZhi[0]);
-  const yearBranchWuxing = getBranchWuxing(yearBranch);
   const zodiacWuxing = getBranchWuxing(zodiacBranch);
   const elementRelation = getElementRelation(yearStemWuxing, zodiacWuxing);
   const relation = elementRelation.label;
@@ -366,16 +365,10 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const prompt = [
     `【生肖与流年关系简析】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${taiSui.star}太岁）。`,
-    `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破、三合、六合及三会判断。`,
-    `干支关系：${relation}。`,
+    `五行关系：流年年干${yearGanZhi[0]}属${yearStemWuxing}，生肖地支${zodiacBranch}属${zodiacWuxing}，${relation}。`,
     noble ? `贵人：${noble}。` : '',
-    meeting ? `三会：${meeting}；仅表示两支同属三会组，不表示完整三会成局。` : '',
-    conflicts.length
-      ? `犯太岁明细：${conflicts.map((conflict) => `${conflict.type}（${conflict.desc}）`).join('；')}`
-      : '',
-    favorableRelations.length ? `有利关系：${favorableRelations.join('；')}。` : '',
-    riskRelations.length ? `风险关系：${riskRelations.join('；')}。` : '',
-    actionSignals.length ? `行动信号：${actionSignals.join('；')}。` : '',
+    meeting ? `三会关系：${meeting}` : '',
+    conflicts.length ? `太岁关系：${conflicts.map((conflict) => conflict.type).join('；')}` : '',
   ]
     .filter(Boolean)
     .join('\n');

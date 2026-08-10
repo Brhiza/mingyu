@@ -599,7 +599,7 @@ export function buildWuyunLiuqiPrompt(result: WuyunLiuqiCalculation, question?: 
   const normalizedQuestion = normalizeQuestion(question);
   const lines = [
     '【任务】',
-    '依据所列年度运气资料，先复核天干化运、五音太少、五步主客运、地支司天在泉和客气轮转，再解释岁运、五步主客运、司天在泉、六步主客气的结构、相互关系和传统气候节律含义。说明同气、相生、相克等显著关系，并将传统年度气候模型与地域、时令、实际气象资料分层参照；健康相关内容按传统文化资料说明，并结合专业医疗资料判断。',
+    normalizedQuestion ? '请结合年度运气资料回答【问题】。' : '请解读年度运气节律。',
   ];
   if (normalizedQuestion) lines.push('', '【问题】', normalizedQuestion);
   lines.push(
@@ -623,7 +623,7 @@ export function buildWuyunLiuqiPrompt(result: WuyunLiuqiCalculation, question?: 
     ),
     '',
     '【传统依据】',
-    ...result.sources.map((source) => `- ${source.title}：${source.scope}`),
+    '以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
   );
   return lines.join('\n');
 }

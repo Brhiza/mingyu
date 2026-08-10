@@ -62,6 +62,92 @@ test('问真默认口径应采用紧邻三奇并保留传统口径兼容选项',
   }
 });
 
+test('问真福星贵人应按年干或日干对应地支判断，不要求目标柱带指定天干', () => {
+  const calculator = new ShenShaCalculator();
+  const yearStemHit = calculator.calculateAllShenSha(
+    [
+      ['甲', '子'],
+      ['丁', '酉'],
+      ['庚', '午'],
+      ['戊', '寅'],
+    ],
+    'male',
+  );
+  const dayStemHit = calculator.calculateAllShenSha(
+    [
+      ['甲', '子'],
+      ['丁', '酉'],
+      ['辛', '丑'],
+      ['乙', '巳'],
+    ],
+    'male',
+  );
+  const missResult = calculator.calculateAllShenSha(
+    [
+      ['甲', '子'],
+      ['丁', '酉'],
+      ['辛', '丑'],
+      ['乙', '卯'],
+    ],
+    'male',
+  );
+
+  assert.ok(yearStemHit.hour.includes('福星贵人'));
+  assert.ok(dayStemHit.hour.includes('福星贵人'));
+  assert.ok(!missResult.hour.includes('福星贵人'));
+});
+
+test('问真华盖和将星不应把起算柱自身重复标记', () => {
+  const calculator = new ShenShaCalculator();
+  const result = calculator.calculateAllShenSha(
+    [
+      ['甲', '辰'],
+      ['丙', '辰'],
+      ['庚', '午'],
+      ['戊', '午'],
+    ],
+    'female',
+  );
+
+  assert.ok(!result.year.includes('华盖'));
+  assert.ok(result.month.includes('华盖'));
+  assert.ok(!result.day.includes('将星'));
+  assert.ok(result.hour.includes('将星'));
+});
+
+test('问真红鸾和天喜应只按出生年支起算并排除起算柱', () => {
+  const calculator = new ShenShaCalculator();
+  const result = calculator.calculateAllShenSha(
+    [
+      ['甲', '子'],
+      ['丁', '卯'],
+      ['丙', '午'],
+      ['辛', '酉'],
+    ],
+    'female',
+  );
+
+  assert.ok(result.month.includes('红鸾'));
+  assert.ok(!result.month.includes('天喜'));
+  assert.ok(result.hour.includes('天喜'));
+  assert.ok(!result.hour.includes('红鸾'));
+});
+
+test('问真灾煞只按年支查余三支，不应混入日支起法', () => {
+  const calculator = new ShenShaCalculator();
+  const result = calculator.calculateAllShenSha(
+    [
+      ['甲', '丑'],
+      ['丙', '寅'],
+      ['戊', '辰'],
+      ['庚', '午'],
+    ],
+    'male',
+  );
+
+  assert.ok(!result.hour.includes('灾煞'));
+});
+
 test('问真默认口径应按整理表计算文昌、学堂、词馆与血刃', () => {
   for (const calculator of createCalculators()) {
     const wenchang = calculator.calculateAllShenSha(

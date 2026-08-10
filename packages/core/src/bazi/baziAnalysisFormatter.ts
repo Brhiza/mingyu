@@ -6,7 +6,6 @@ interface FormatBaziOptions {
   includeShensha?: boolean;
   includeShenShaAnalysis?: boolean;
   includeWuxing?: boolean;
-  includeSpecialPillars?: boolean;
   includeLuckOverview?: boolean;
 }
 
@@ -56,16 +55,6 @@ function formatSolarDateTime(value: {
   return `${value.year}年${value.month}月${value.day}日 ${value.hour}:${String(value.minute).padStart(2, '0')}`;
 }
 
-function filterPortableStrategyTrace(values: string[] | undefined) {
-  return (values ?? []).filter(
-    (value) =>
-      value &&
-      !['成格层次:', '成格转轻:', '病药提示:', '运势警语:'].some((prefix) =>
-        value.startsWith(prefix),
-      ),
-  );
-}
-
 function formatPromptLuckOverview(baziResult: BaziChartResult): string {
   if (!baziResult.luckInfo?.cycles?.length) {
     return '';
@@ -102,8 +91,6 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     tenGods,
     hiddenStems,
     hiddenTenGods,
-    nayin,
-    pillarLifeStages,
     shensha,
     shenShaAnalysis,
   } = baziResult;
@@ -112,7 +99,6 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     includeShensha = true,
     includeShenShaAnalysis = false,
     includeWuxing = true,
-    includeSpecialPillars = true,
     includeLuckOverview = true,
   } = options;
 
@@ -140,28 +126,10 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   const wuxingSeasonStatus = formatWuxingSeasonStatus(baziResult);
   if (wuxingSeasonStatus) result += `月令旺相: ${wuxingSeasonStatus}\n`;
 
-  const specialPillars = [
-    baziResult.mingGua
-      ? `命卦:${baziResult.mingGua.gua}${baziResult.mingGua.number}(${baziResult.mingGua.eastWest})`
-      : '',
-    baziResult.mingGong ? `命宫:${baziResult.mingGong}` : '',
-    baziResult.shenGong ? `身宫:${baziResult.shenGong}` : '',
-    baziResult.taiYuan ? `胎元:${baziResult.taiYuan}` : '',
-    baziResult.taiXi ? `胎息:${baziResult.taiXi}` : '',
-  ]
-    .filter(Boolean)
-    .join(' | ');
-  if (includeSpecialPillars && specialPillars) result += `特殊宫位: ${specialPillars}\n`;
-
-  result += '\n【核心判断依据】\n';
+  result += '\n【核心判断】\n';
   const analysis = baziResult.analysis;
-  const strengthDetails = analysis.dayMasterStrength.details;
   result += `旺衰: ${analysis.dayMasterStrength.status}\n`;
-  result += `旺衰依据: 月令${strengthDetails.seasonalEffect} | 司令${strengthDetails.commanderEffect} | 成局${strengthDetails.formationEffect} | 通根${strengthDetails.hasRoot ? '有根' : '无根'} | 帮扶${strengthDetails.hasSupport ? '可见' : '不明显'} | 克泄耗${strengthDetails.hasConstraint ? '可见' : '不明显'}\n`;
   result += `格局: ${analysis.mingGe.pattern}\n`;
-  if (analysis.mingGe.basis) {
-    result += `格局依据: ${analysis.mingGe.basis}\n`;
-  }
   if (analysis.usefulGod) {
     const primaryFavorableWuxing =
       analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.[0] || '无';
@@ -186,16 +154,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
         ? analysis.usefulGod.primaryUnfavorable || analysis.usefulGod.unfavorable?.slice(0, 2) || []
         : [];
 
-    result += `用神: 主用${primaryFavorableWuxing}${secondaryFavorableWuxing.length ? '+辅' + secondaryFavorableWuxing.join('、') : ''}(${joinOrFallback(primaryFavorableTenGods)}) | 主忌${primaryUnfavorableWuxing}${secondaryUnfavorableWuxing.length ? '+次' + secondaryUnfavorableWuxing.join('、') : ''}(${joinOrFallback(primaryUnfavorableTenGods)})\n`;
-    result += `喜忌五行: ${joinOrFallback(analysis.usefulGod.favorableWuxing)} | ${joinOrFallback(analysis.usefulGod.unfavorableWuxing)}\n`;
-    result += `喜忌十神: ${joinOrFallback(analysis.usefulGod.favorable)} | ${joinOrFallback(analysis.usefulGod.unfavorable)}\n`;
-    result += `十神归类: 喜${analysis.usefulGod.useful} 忌${analysis.usefulGod.avoid}\n`;
+    result += `取用: 主用${primaryFavorableWuxing}${secondaryFavorableWuxing.length ? '，辅' + secondaryFavorableWuxing.join('、') : ''}（${joinOrFallback(primaryFavorableTenGods)}）；忌${primaryUnfavorableWuxing}${secondaryUnfavorableWuxing.length ? '，次忌' + secondaryUnfavorableWuxing.join('、') : ''}（${joinOrFallback(primaryUnfavorableTenGods)}）\n`;
     if (includeRules && analysis.usefulGod.primaryReason) {
       result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
-    }
-    const strategyLines = filterPortableStrategyTrace(analysis.usefulGod.strategyTrace);
-    if (strategyLines.length) {
-      result += `取用脉络: ${strategyLines.join('；')}\n`;
     }
   }
 
@@ -207,14 +168,11 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   keys.forEach((key, index) => {
     const pillar = pillars[key];
     const tenGod = tenGods[key];
-    const nayinValue = nayin?.[key] || '';
-    const lifeStage = pillarLifeStages?.[key] || '';
     const shenShaValue = shensha?.[key]?.join(',') || '';
     const kongWangFlag = dayKongWangBranches.includes(pillar.zhi) ? '(空亡)' : '';
     const hiddenStemValues = hiddenStems?.[key] || [];
     const hiddenTenGodValues = hiddenTenGods?.[key] || [];
     const dayMasterLifeStage = baziResult.lifeStages?.[key] || '';
-    const kongWangValue = baziResult.kongWang?.[key]?.join('') || '';
     const hiddenStr = hiddenStemValues
       .map((stem, idx) => `${stem}${hiddenTenGodValues[idx] ? `[${hiddenTenGodValues[idx]}]` : ''}`)
       .join('');
@@ -223,17 +181,13 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     const pillarParts = [
       `${pillarNames[index]}: ${pillar.ganZhi}`,
       tenGod ? `[${tenGod}]` : '',
-      nayinValue,
-      lifeStage,
       kongWangFlag,
     ]
       .filter(Boolean)
       .join(' ');
     result += `${pillarParts}\n`;
     if (hiddenStr) result += `  藏干: ${hiddenStr}\n`;
-    if (dayMasterLifeStage || kongWangValue) {
-      result += `  日主十二运: ${dayMasterLifeStage || '无'} | 旬空: ${kongWangValue || '无'}\n`;
-    }
+    if (dayMasterLifeStage) result += `  十二运: ${dayMasterLifeStage}\n`;
     if (includeShensha && shenShaValue) result += `  神煞: ${shenShaValue}\n`;
     if (includeShensha && shenShaExplain) result += `  传统旁证: ${shenShaExplain}\n`;
     if (!includeShensha && includeShenShaAnalysis && shenShaExplain)
@@ -274,10 +228,9 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
     return {
       includeRules: true,
       includeShensha: false,
-      includeShenShaAnalysis: true,
-      includeWuxing: true,
-      includeSpecialPillars: true,
-      includeLuckOverview: true,
+      includeShenShaAnalysis: false,
+      includeWuxing: false,
+      includeLuckOverview: false,
     };
   }
 
@@ -285,10 +238,9 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
     return {
       includeRules: true,
       includeShensha: false,
-      includeShenShaAnalysis: true,
-      includeWuxing: true,
-      includeSpecialPillars: true,
-      includeLuckOverview: true,
+      includeShenShaAnalysis: false,
+      includeWuxing: false,
+      includeLuckOverview: false,
     };
   }
 
@@ -298,7 +250,6 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeShensha: false,
       includeShenShaAnalysis: false,
       includeWuxing: false,
-      includeSpecialPillars: false,
       includeLuckOverview: false,
     };
   }
@@ -309,7 +260,6 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
       includeShensha: false,
       includeShenShaAnalysis: false,
       includeWuxing: false,
-      includeSpecialPillars: false,
       includeLuckOverview: false,
     };
   }
@@ -317,10 +267,9 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
   return {
     includeRules: true,
     includeShensha: false,
-    includeShenShaAnalysis: true,
-    includeWuxing: true,
-    includeSpecialPillars: true,
-    includeLuckOverview: true,
+    includeShenShaAnalysis: false,
+    includeWuxing: false,
+    includeLuckOverview: false,
   };
 }
 

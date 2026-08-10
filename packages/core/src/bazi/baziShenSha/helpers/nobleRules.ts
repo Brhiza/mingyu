@@ -152,7 +152,6 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
     zhiIdx,
   } = ctx;
   const isWenzhen = ctx.variants.referenceProfile === 'wenzhen';
-  const yueGan = baziArray[1]?.[0] || '';
   const yearNayinElement = NAYIN_MAP[`${nianGan}${nianZhi}`]?.slice(-1) || '';
   const shiZhi = baziArray[3]?.[1] || '';
   const branchFromHour = (offset: number) => {
@@ -344,7 +343,7 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
           辛: ['巳'],
           壬: ['辰'],
         };
-        return map[nianGan]?.includes(zhi) || map[yueGan]?.includes(zhi) || false;
+        return map[nianGan]?.includes(zhi) || map[riGan]?.includes(zhi) || false;
       }
       const map: Record<string, string[]> = {
         甲: ['丙寅', '丙子'],

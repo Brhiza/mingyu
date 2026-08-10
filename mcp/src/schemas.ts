@@ -1,11 +1,18 @@
 import { z } from 'zod';
+import { RESULT_DETAIL_MODES } from '../../src/lib/result-detail.js';
+
+export const calculationDetailShape = {
+  detailMode: z
+    .enum(RESULT_DETAIL_MODES)
+    .optional()
+    .describe('返回细节：默认 compact 精简证据噪音；full 返回完整证据链和计算过程'),
+};
 
 export const resultOutputSchema = {
   result: z.unknown().describe('工具返回的结构化结果'),
 };
 
 export const promptOutputSchema = {
-  result: z.unknown().describe('工具返回的结构化结果'),
   prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
 };
 

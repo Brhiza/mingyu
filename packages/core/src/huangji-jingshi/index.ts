@@ -174,7 +174,7 @@ export function buildHuangjiJingshiPrompt(
   const { input, position } = result;
   const lines = [
     '【任务】',
-    '依据所列元会运世换算规则，逐层复核元、会、运、世和年序号及起止年坐标，解释目标年在指定纪元坐标中的周期位置与层级之间的数学关系。先说明纯数学周期位置，再说明传统周期观下的结构意义，并标明结论对本次纪元选择的依赖。',
+    normalizedQuestion ? '请结合周期资料回答【问题】。' : '请解读目标年所处的周期位置。',
   ];
   if (normalizedQuestion) lines.push('', '【问题】', normalizedQuestion);
   lines.push(
@@ -188,13 +188,10 @@ export function buildHuangjiJingshiPrompt(
     `运：本元第 ${position.yun.indexInYuan} 运、本会第 ${position.yun.indexInHui} 运，${position.yun.startYear} 至 ${position.yun.endYear}`,
     `世：本元第 ${position.shi.indexInYuan} 世、本运第 ${position.shi.indexInYun} 世，${position.shi.startYear} 至 ${position.shi.endYear}`,
     `年：本世第 ${position.year.indexInShi} 年、本元第 ${position.year.indexInYuan} 年`,
-    `周期边界：本世当前为第 ${result.progress.shi.currentYearIndex} 年，当前年后尚余 ${result.progress.shi.remainingYearsAfterCurrent} 个完整年，下一世始于 ${result.progress.shi.nextCycleStartYear}；下一运始于 ${result.progress.yun.nextCycleStartYear}；下一会始于 ${result.progress.hui.nextCycleStartYear}；下一元始于 ${result.progress.yuan.nextCycleStartYear}`,
-    '',
-    '【换算规则】',
-    '1 世 = 30 年；1 运 = 12 世 = 360 年；1 会 = 30 运 = 10800 年；1 元 = 12 会 = 360 运 = 4320 世 = 129600 年。',
+    `周期边界：本世当前为第 ${result.progress.shi.currentYearIndex} 年，尚余 ${result.progress.shi.remainingYearsAfterCurrent} 个完整年；下一世始于 ${result.progress.shi.nextCycleStartYear}，下一运始于 ${result.progress.yun.nextCycleStartYear}`,
     '',
     '【传统依据】',
-    ...result.sources.map((source) => `- ${source.title}：${source.scope}`),
+    '按一元十二会、一会三十运、一运十二世、一世三十年的元会运世层级定位。',
   );
   return lines.join('\n');
 }

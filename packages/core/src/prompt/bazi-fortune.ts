@@ -20,7 +20,7 @@ export function formatBaziFortuneSelection(
 
   const { promptPayload, scope } = context;
   const summary = promptPayload.summaryLines ?? [];
-  const lines: string[] = [promptPayload.scopeLabel];
+  const lines: string[] = [];
 
   const selectedDate =
     scope === 'year'
@@ -66,7 +66,11 @@ export function formatBaziFortuneSelection(
     lines.push(`主要触发：${triggerLine.split('：').slice(1).join('：')}`);
   }
 
-  const detailGroups = (promptPayload.detailGroups ?? []).filter((group) => group.lines.length);
+  const detailGroups = (promptPayload.detailGroups ?? []).filter(
+    (group) =>
+      group.lines.length &&
+      (scope === 'dayun' || (scope === 'day' && group.title === '该流日包含的流时')),
+  );
   if (detailGroups.length) lines.push(detailGroups.map((group) => group.title).join('、'));
   for (const group of detailGroups) {
     lines.push(`${group.title}\n${group.lines.map((line) => `  - ${line}`).join('\n')}`);

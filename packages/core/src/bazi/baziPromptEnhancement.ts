@@ -51,13 +51,9 @@ function formatClassicPatternLevel(level: string): string {
 }
 
 function getKongWangEvidence(chartResult: BaziChartResult): string[] {
-  const dayKongWangBranches = chartResult.kongWang?.day || [];
-  if (!dayKongWangBranches.length || !chartResult.pillars) return [];
-
-  // 提示词只把日柱旬空作为主证，避免把神煞列表中的年空宽松口径写成强证据。
-  return PILLAR_KEYS.filter((pillar) =>
-    dayKongWangBranches.includes(chartResult.pillars[pillar].zhi),
-  ).map((pillar) => PILLAR_LABELS[pillar]);
+  return PILLAR_KEYS.filter((pillar) => chartResult.shensha?.[pillar]?.includes('空亡')).map(
+    (pillar) => PILLAR_LABELS[pillar],
+  );
 }
 
 export interface BaziPillarRelations {

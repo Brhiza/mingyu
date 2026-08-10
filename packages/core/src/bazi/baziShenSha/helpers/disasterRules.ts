@@ -776,7 +776,10 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '卯',
         丑: '卯',
       };
-      return map[nianZhi] === zhi || (!isWenzhen && map[riZhi] === zhi);
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
+        (!isWenzhen && pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     天杀: () => TIAN_SHA_BY_BRANCH[nianZhi] === zhi || TIAN_SHA_BY_BRANCH[riZhi] === zhi,
     地杀: () => DI_SHA_BY_BRANCH[nianZhi] === zhi || DI_SHA_BY_BRANCH[riZhi] === zhi,

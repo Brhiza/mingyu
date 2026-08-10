@@ -98,10 +98,11 @@ test('皇极经世提示词应标明纪元依赖并保持自包含', () => {
   assert.match(prompt, /【任务】/);
   assert.match(prompt, /【周期资料】/);
   assert.match(prompt, /纪元年坐标：1000/);
-  assert.match(prompt, /1 世 = 30 年/);
+  assert.doesNotMatch(prompt, /换算规则|1 世 = 30 年|1 运 = 12 世/);
   assert.match(prompt, /周期边界：本世当前为第 7 年/);
   assert.match(prompt, /下一世始于 2050/);
-  assert.match(prompt, /《皇极经世》/);
+  assert.match(prompt, /一元十二会、一会三十运、一运十二世、一世三十年/);
+  assert.doesNotMatch(prompt, /参考《|《皇极经世》/);
   assert.doesNotMatch(prompt, /mingyu|API|MCP|仓库|内部字段/i);
   assertPromptIsPortableTaskText(prompt);
 });

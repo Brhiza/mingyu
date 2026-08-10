@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { qizheng } from 'mingyu-core';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -32,7 +32,7 @@ export function registerQizhengTool(server: McpServer) {
     {
       description:
         '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、庙旺、吊照及分层天文证据',
-      inputSchema: qiZhengSchema.shape,
+      inputSchema: { ...qiZhengSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
@@ -51,7 +51,7 @@ export function registerQizhengTool(server: McpServer) {
             ? { useTrueSolarTime: args.useTrueSolarTime }
             : {}),
         });
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '七政四余排盘失败'));
       }

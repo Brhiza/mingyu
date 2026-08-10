@@ -300,22 +300,6 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
   }
   lines.push(`四吉方：${r.luckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
   lines.push(`四凶方：${r.unluckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
-  lines.push('命卦八宫明细：');
-  lines.push(
-    ...r.mingPalace.map(
-      (palace) =>
-        `- ${palace.gua}宫：${palace.direction} ${palace.degree}°，${palace.label}（${palace.luck}）`,
-    ),
-  );
-  if (r.housePalace) {
-    lines.push('宅卦八宫明细：');
-    lines.push(
-      ...r.housePalace.map(
-        (palace) =>
-          `- ${palace.gua}宫：${palace.direction} ${palace.degree}°，${palace.label}（${palace.luck}）`,
-      ),
-    );
-  }
   return lines.join('\n');
 }
 

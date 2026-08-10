@@ -511,10 +511,9 @@ const ASTROLABE_TOPIC_LABELS: Record<AstrolabePromptTopic, string> = {
 
 export function formatSupplementaryInfo(
   info?: SupplementaryInfo,
-  method?: SupportedDivinationMethod,
+  _method?: SupportedDivinationMethod,
 ) {
   if (!info) return '';
-  const includeMeihuaSettings = !method || method === 'meihua';
   return [
     info.currentSituation ? `当前情境：${info.currentSituation}` : '',
     info.currentState ? `当前状态：${info.currentState}` : '',
@@ -522,12 +521,6 @@ export function formatSupplementaryInfo(
     info.desiredOutcome ? `期望结果：${info.desiredOutcome}` : '',
     info.constraints ? `现实约束：${info.constraints}` : '',
     info.userSupplement ? `补充说明：${info.userSupplement}` : '',
-    includeMeihuaSettings && info.meihuaSettings?.method
-      ? `梅花起卦方式：${info.meihuaSettings.method}`
-      : '',
-    includeMeihuaSettings && info.meihuaSettings?.number !== undefined
-      ? `梅花起卦数字：${info.meihuaSettings.number}`
-      : '',
   ]
     .filter(Boolean)
     .join('\n');

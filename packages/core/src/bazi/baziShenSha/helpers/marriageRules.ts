@@ -1,7 +1,7 @@
 import type { RuleContext, ShenShaRuleMap } from './types';
 
 export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
-  const { zhi, nianZhi, riGan, riZhi, pillarGZ, isMan, cdz, zhiIdx } = ctx;
+  const { zhi, pillarIndex, nianZhi, riGan, riZhi, pillarGZ, isMan, cdz, zhiIdx } = ctx;
   const isWenzhen = ctx.variants.referenceProfile === 'wenzhen';
 
   return {
@@ -37,7 +37,10 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '巳',
         亥: '辰',
       };
-      return map[nianZhi] === zhi || (!isWenzhen && map[riZhi] === zhi);
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
+        (!isWenzhen && pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     天喜: () => {
       const map: Record<string, string> = {
@@ -54,7 +57,10 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '亥',
         亥: '戌',
       };
-      return map[nianZhi] === zhi || (!isWenzhen && map[riZhi] === zhi);
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
+        (!isWenzhen && pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     孤辰: () => {
       const map: Record<string, string> = {

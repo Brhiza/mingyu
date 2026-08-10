@@ -89,8 +89,10 @@ test('bazhai: 命宅配合', () => {
   assert.equal(r.houseGua, '坎');
   assert.equal(r.match, '相合');
   assert.ok(r.prompt.includes('八宅风水'));
-  assert.ok(r.prompt.includes('命卦八宫明细'));
-  assert.ok(r.prompt.includes('宅卦八宫明细'));
+  assert.ok(r.prompt.includes('四吉方'));
+  assert.ok(r.prompt.includes('四凶方'));
+  assert.doesNotMatch(r.prompt, /命卦八宫明细/);
+  assert.doesNotMatch(r.prompt, /宅卦八宫明细/);
   assert.doesNotMatch(r.prompt, /结构化证据|证据边界|计算链|解释限制/);
   assert.equal(r.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
   assert.equal(r.evidenceAnalysis.calculationFact.status, '命宅完整');
@@ -366,7 +368,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.sixteenGods.length, 16);
   assert.equal(r.model.id, 'taiyi-year-calculation-72-table');
   assert.ok(r.prompt.includes('太乙神数'));
-  assert.ok(r.prompt.includes('十六神'));
+  assert.doesNotMatch(r.prompt, /十六神/);
   assert.ok(r.prompt.includes('主客定算'));
   assert.ok(r.prompt.includes('将参'));
   assert.ok(r.prompt.includes('核心宫位'));
