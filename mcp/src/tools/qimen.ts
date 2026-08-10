@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateQimen } from 'mingyu-core/divination/qimen';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -33,7 +33,7 @@ export function registerQimenTool(server: McpServer) {
     {
       description:
         '奇门遁甲排盘：基于当前时间或自定义时间生成时家奇门盘，包含天地人神四盘、值符值使、格局标签、节令背景、复合格局与宫位洞察',
-      inputSchema: qimenSchema.shape,
+      inputSchema: { ...qimenSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
@@ -46,7 +46,7 @@ export function registerQimenTool(server: McpServer) {
           'hour',
           juMethod as 'chaibu' | 'zhirun',
         );
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
       }
@@ -57,10 +57,9 @@ export function registerQimenTool(server: McpServer) {
     'qimen_prompt',
     {
       description:
-        '奇门遁甲排盘并生成结构化 AI 解读提示词：一次调用返回奇门盘、节令背景、复合格局和可直接复制给 AI 的提示词',
+        '奇门遁甲排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整奇门盘时调用 divine_qimen',
       inputSchema: qimenPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('奇门盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

@@ -156,7 +156,7 @@ test('丁火生巳月案例的劫财格应贯穿取用、证据与最终提示�
 
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /格局: 劫财格/);
-  assert.match(prompt, /取用脉络: 普通格局:劫财格/);
+  assert.doesNotMatch(prompt, /取用脉络:/);
   assert.doesNotMatch(JSON.stringify(result), /正财格/);
   assert.doesNotMatch(prompt, /正财格/);
 });

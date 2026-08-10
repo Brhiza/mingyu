@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { taiyi } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -26,7 +26,7 @@ export function registerTaiyiTool(server: McpServer) {
     'metaphysics_taiyi',
     {
       description: '太乙神数年计：按积年与阳遁七十二局立成表生成式盘',
-      inputSchema: taiyiSchema.shape,
+      inputSchema: { ...taiyiSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
@@ -39,7 +39,7 @@ export function registerTaiyiTool(server: McpServer) {
           year: args.year,
           ...(args.ganZhi ? { ganZhi: args.ganZhi } : {}),
         });
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '太乙排盘失败'));
       }

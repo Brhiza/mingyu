@@ -1,6 +1,5 @@
 import {
   formatBaziForPrompt,
-  generateEnhancedAnalysisSection,
   analyzeBaziCompatibility,
   type BaziChartResult,
   type FortuneSelectionContext,
@@ -131,10 +130,14 @@ export function buildPromptFromConfig(
     questionText.trim() || getBaziDefaultQuestion(undefined, { isCustomQuestion });
 
   if (promptConfig) {
-    const chartData = chartResult
-      ? formatBaziForPrompt(chartResult, selectedOption, resolvePromptScene(promptConfig.id))
-      : '';
     const fortuneSection = formatBaziFortuneSelection(fortuneSelectionContext);
+    const chartData = chartResult
+      ? formatBaziForPrompt(
+          chartResult,
+          selectedOption,
+          fortuneSection ? 'fortune' : resolvePromptScene(promptConfig.id),
+        )
+      : '';
     const fullFortuneSection = hasFullFortuneOutput
       ? formatFullFortuneOutputSection(chartResult)
       : '';
@@ -143,17 +146,12 @@ export function buildPromptFromConfig(
       .filter(Boolean)
       .join(' ');
 
-    let enhancedSection = '';
-    if (chartResult) {
-      enhancedSection = generateEnhancedAnalysisSection(chartResult);
-    }
-
     return {
       system: SYSTEM_PROMPT,
       user: joinPromptSections([
         buildPromptGuidanceSections('bazi'),
         buildPromptSection('当前时间', formatPromptCurrentTime()),
-        buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
+        buildPromptSection('排盘信息', chartData),
         hasFullFortuneOutput
           ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
           : '',

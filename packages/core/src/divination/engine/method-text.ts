@@ -7,7 +7,7 @@ export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     case 'meihua':
       return '依据体用、互卦、变卦与四时旺衰回答【问题】。';
     case 'xiaoliuren':
-      return '依据月宫、日宫、时宫顺数轨迹与占得宫回答【问题】。';
+      return '依据占得宫与歌诀回答【问题】。';
     case 'jinkoujue':
       return '依据地分、将神、贵神、人元四位、阴阳发用与五动三动回答【问题】。';
     case 'qimen':

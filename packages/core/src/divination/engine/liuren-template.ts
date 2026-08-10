@@ -25,10 +25,10 @@ export function buildLiurenTemplateText(template: LiurenTemplateType, _data: Liu
     caifu: '财富财运',
   };
   const mainLineMap: Record<LiurenTemplateType, string> = {
-    general: '类神主线：以初传发用为主轴，日干为我、日支为事，三传看发端—转折—归结',
-    ganqing: '类神主线：以初传与天后/六合/青龙等感情类象优先，日干为我、日支为对方或关系场',
-    shiye: '类神主线：以初传与贵人/朱雀/青龙等事业文书类象优先，日干为我、日支为职场或事务场',
-    caifu: '类神主线：以初传与青龙/太常/天空等财帛类象优先，日干为我、日支为财源或交易场',
+    general: '类神：日干为我、日支为事；三传看发端、转折和归结',
+    ganqing: '类神：感情看天后、六合、青龙；日干为我、日支为关系',
+    shiye: '类神：事业看贵人、朱雀、青龙；日干为我、日支为事务',
+    caifu: '类神：财运看青龙、太常、天空；日干为我、日支为财源或交易',
   };
   const safeTemplate = templateLabelMap[template] ? template : 'general';
 

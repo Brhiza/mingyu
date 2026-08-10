@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -29,7 +29,7 @@ export function registerLiurenTool(server: McpServer) {
     {
       description:
         '大六壬排盘：基于当前时间或自定义时间生成完整的天盘、四课、三传、月将、贵人、旬空等信息，含格局标签与断课模板',
-      inputSchema: liurenSchema.shape,
+      inputSchema: { ...liurenSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
@@ -38,7 +38,7 @@ export function registerLiurenTool(server: McpServer) {
           ...generateLiuren(readMcpCustomDate(args.customDate)),
           template: args.liurenTemplate || 'general',
         };
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
       }
@@ -49,10 +49,9 @@ export function registerLiurenTool(server: McpServer) {
     'liuren_prompt',
     {
       description:
-        '大六壬排盘并生成结构化 AI 解读提示词：一次调用返回课盘数据和可直接复制给 AI 的提示词',
+        '大六壬排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要课盘数据时调用 divine_liuren',
       inputSchema: liurenPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('大六壬课盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },
