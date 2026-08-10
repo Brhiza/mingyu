@@ -1042,8 +1042,8 @@ test('公开 API 八字神煞默认使用主流口径', async () => {
   assert.equal(body.ok, true);
   assert.deepEqual(body.data.kongWang.year, ['子', '丑']);
   assert.deepEqual(body.data.kongWang.day, ['戌', '亥']);
-  assert.ok(!body.data.shensha.month.includes('空亡'));
-  assert.ok(!body.data.shensha.hour.includes('空亡'));
+  assert.ok(body.data.shensha.month.includes('空亡'));
+  assert.ok(body.data.shensha.hour.includes('空亡'));
 });
 
 test('公开 API 八字神煞默认精简，显式 all 返回全部', async () => {

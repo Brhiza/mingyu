@@ -691,7 +691,7 @@ test('八字提示词只在柱位标记空亡，不另起详解段', () => {
   assert.doesNotMatch(withoutPrompt.user, /【空亡详解】/);
 });
 
-test('八字提示词空亡详解不应把年柱旬空宽松口径当作日柱空亡证据', () => {
+test('八字提示词不应把问真年柱旬空口径展开为空亡详解', () => {
   const result = baziCalculator.calculateBazi({
     year: 1980,
     month: 1,
@@ -705,8 +705,8 @@ test('八字提示词空亡详解不应把年柱旬空宽松口径当作日柱�
 
   assert.deepEqual(result.kongWang.year, ['子', '丑']);
   assert.deepEqual(result.kongWang.day, ['戌', '亥']);
-  assert.ok(!result.shensha.month.includes('空亡'));
-  assert.ok(!result.shensha.hour.includes('空亡'));
+  assert.ok(result.shensha.month.includes('空亡'));
+  assert.ok(result.shensha.hour.includes('空亡'));
 
   const prompt = buildPromptFromConfig(
     '请分析我的婚恋。',

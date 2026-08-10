@@ -17,8 +17,8 @@ export interface ShenShaCalculatorOptions {
 }
 
 export const DEFAULT_SHENSHA_VARIANT_CONFIG: ShenShaVariantConfig = {
-  kongWangBasis: 'day',
-  yangRenMode: 'yang-stems-only',
+  kongWangBasis: 'day-and-year',
+  yangRenMode: 'include-yin-ren',
   tongZiScope: 'day-hour',
 };
 

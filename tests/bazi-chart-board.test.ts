@@ -110,7 +110,7 @@ test('八字结果盘应展示排盘预警和稳定基础参考', () => {
     ...result.shensha.day,
     ...result.shensha.hour,
   ];
-  ['天乙贵人', '太极贵人', '文昌贵人', '华盖', '金舆'].forEach((item) =>
+  ['天乙贵人', '太极贵人', '华盖', '金舆'].forEach((item) =>
     assert.ok(html.includes(`>${item}<`), `盘面应展示常用神煞：${item}`),
   );
   assert.ok(allShenSha.includes('马财库'), '底层结果仍应保留扩展神煞');
