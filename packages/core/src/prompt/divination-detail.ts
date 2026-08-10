@@ -174,17 +174,13 @@ function formatLenormandDetail(data: LenormandData) {
 }
 
 function formatAstrolabeDetail(data: AstrolabeData) {
-  return [
-    formatAstrolabeForPrompt(data),
-    data.evidenceAnalysis?.promptText ? `证据资料：${data.evidenceAnalysis.promptText}` : '',
-  ];
+  return [formatAstrolabeForPrompt(data)];
 }
 
 function formatTaiyiDetail(data: TaiyiResult) {
   return [
     `宫位：太乙${data.taiyiPosition}；文昌${data.wenChangPosition}；始击${data.shiJiPosition}；计神${data.jiShenPosition}`,
     `主客定算：主算${data.lordCount}、客算${data.guestCount}、定算${data.setCount}；主大${data.lordGeneral}、主参${data.lordAssistant}；客大${data.guestGeneral}、客参${data.guestAssistant}；定大${data.setGeneral}、定参${data.setAssistant}`,
-    `十六神：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`,
   ];
 }
 

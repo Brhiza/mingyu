@@ -1,14 +1,28 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { shapeCalculationResult, type ResultDetailMode } from '../../src/lib/result-detail.js';
 
 type StructuredContent = Record<string, unknown>;
 
-export function createStructuredToolResult(structuredContent: StructuredContent): CallToolResult {
+export function createStructuredToolResult(
+  structuredContent: StructuredContent,
+  detailMode?: ResultDetailMode | null,
+): CallToolResult {
+  const prompt =
+    typeof structuredContent.prompt === 'string' ? structuredContent.prompt : undefined;
+  const shouldShapeCalculation = arguments.length >= 2 && detailMode !== null;
+  const responseContent =
+    prompt === undefined && shouldShapeCalculation
+      ? shapeCalculationResult(structuredContent, detailMode ?? 'compact')
+      : prompt === undefined
+        ? structuredContent
+        : { prompt };
+
   return {
-    structuredContent,
+    structuredContent: responseContent,
     content: [
       {
         type: 'text',
-        text: JSON.stringify(structuredContent, null, 2),
+        text: prompt ?? '结构化结果已返回，请读取 structuredContent。',
       },
     ],
   };

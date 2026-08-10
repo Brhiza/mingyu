@@ -112,6 +112,7 @@ import {
   getPublicApiRuntime,
   type PublicApiRuntime,
 } from './metadata';
+import { RESULT_DETAIL_MODES, shapeCalculationResult } from '../result-detail';
 
 type ApiMeta = {
   service: string;
@@ -159,7 +160,7 @@ const MAX_COMPACT_QIMEN_CLASSIC_PATTERNS = 8;
 const MAX_COMPACT_QIMEN_PATTERN_COMBOS = 10;
 const MAX_COMPACT_QIMEN_PALACE_INSIGHTS = 9;
 const PROMPT_RESPONSE_MODES = ['summary', 'full', 'prompt-only'] as const;
-const DETAIL_MODES = ['full', 'compact'] as const;
+const DETAIL_MODES = RESULT_DETAIL_MODES;
 const ASTROLABE_PROMPT_SCOPES = ['natal', 'full', 'yearly', 'monthly', 'daily'] as const;
 
 type RouteContext = {
@@ -383,13 +384,15 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   responseMode: {
     enum: [...PROMPT_RESPONSE_MODES],
+    default: 'prompt-only',
     description:
-      '提示词接口返回模式：summary 默认只返回提示词和摘要，full 才返回完整排盘，prompt-only 只返回提示词。',
+      '提示词接口返回模式：prompt-only 为默认值，只返回提示词；summary 额外返回轻量摘要；full 返回完整排盘。',
   },
   detailMode: {
     enum: [...DETAIL_MODES],
+    default: 'compact',
     description:
-      '排盘接口返回细节：full 返回完整结构；compact 返回轻量摘要，适合自动化和多次分页请求。',
+      '排盘接口返回细节：compact 为默认值，只返回盘面与解读所需字段；full 显式返回完整证据链和计算过程。',
   },
   page: {
     type: 'integer',
@@ -1609,107 +1612,117 @@ async function route(context: RouteContext) {
     case 'foundation/shensha':
       return calculateFoundationShensha(await readJson(context.request));
     case 'bazi/calculate':
-      return calculateBaziApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateBaziApi);
     case 'bazi/prompt':
       return buildBaziPrompt(await readJson(context.request));
     case 'bazi/compatibility':
-      return calculateBaziCompatibilityApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateBaziCompatibilityApi);
     case 'bazi/compatibility/prompt':
       return buildBaziCompatibilityPromptApi(await readJson(context.request));
     case 'ziwei/calculate':
-      return calculateZiwei(await readJson(context.request));
+      return calculateApiResult(context.request, calculateZiwei);
     case 'ziwei/prompt':
       return buildZiweiPrompt(await readJson(context.request));
     case 'ziwei/compatibility':
-      return calculateZiweiCompatibilityApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateZiweiCompatibilityApi);
     case 'ziwei/compatibility/prompt':
       return buildZiweiCompatibilityPromptApi(await readJson(context.request));
     case 'bazi-ziwei/prompt':
       return buildBaziZiweiPrompt(await readJson(context.request));
     case 'divination/liuyao':
-      return calculateLiuyao(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateLiuyao, true);
     case 'divination/liuyao/prompt':
       return buildDivinationPromptResult('liuyao', await readJson(context.request));
     case 'divination/meihua':
-      return calculateMeihua(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateMeihua, true);
     case 'divination/meihua/prompt':
       return buildDivinationPromptResult('meihua', await readJson(context.request));
     case 'divination/xiaoliuren':
-      return calculateXiaoliuren(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateXiaoliuren, true);
     case 'divination/xiaoliuren/prompt':
       return buildDivinationPromptResult('xiaoliuren', await readJson(context.request));
     case 'divination/jinkoujue':
-      return calculateJinkoujue(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateJinkoujue, true);
     case 'divination/jinkoujue/prompt':
       return buildDivinationPromptResult('jinkoujue', await readJson(context.request));
     case 'divination/qimen':
-      return calculateQimenApi(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateQimenApi, true);
     case 'divination/qimen/prompt':
       return buildDivinationPromptResult('qimen', await readJson(context.request));
     case 'divination/liuren':
-      return calculateLiuren(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateLiuren, true);
     case 'divination/liuren/prompt':
       return buildDivinationPromptResult('liuren', await readJson(context.request));
     case 'divination/tarot':
-      return calculateTarot(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateTarot, true);
     case 'divination/tarot/prompt':
       return buildDivinationPromptResult('tarot', await readJson(context.request));
     case 'divination/ssgw':
-      return calculateSsgw(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateSsgw, true);
     case 'divination/ssgw/prompt':
       return buildDivinationPromptResult('ssgw', await readJson(context.request));
     case 'divination/almanac':
-      return calculateAlmanacApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateAlmanacApi);
     case 'divination/almanac/prompt':
       return buildDivinationPromptResult('almanac', await readJson(context.request));
     case 'divination/lenormand':
-      return calculateLenormand(await readJson(context.request, true));
+      return calculateApiResult(context.request, calculateLenormand, true);
     case 'divination/lenormand/prompt':
       return buildDivinationPromptResult('lenormand', await readJson(context.request));
     case 'divination/astrolabe':
-      return calculateAstrolabe(await readJson(context.request));
+      return calculateApiResult(context.request, calculateAstrolabe);
     case 'divination/astrolabe/prompt':
       return buildDivinationPromptResult('astrolabe', await readJson(context.request));
     case 'divination/astrolabe/synastry':
-      return calculateAstrolabeSynastryApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateAstrolabeSynastryApi);
     case 'divination/astrolabe/synastry/prompt':
       return buildAstrolabeSynastryPromptApi(await readJson(context.request));
     // 新增术数系统（地基层之上的新体系）
     case 'metaphysics/bazhai/calculate':
-      return calculateBaZhaiApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateBaZhaiApi);
     case 'metaphysics/bazhai/prompt':
       return buildBaZhaiPrompt(await readJson(context.request));
     case 'metaphysics/zodiac/calculate':
-      return calculateZodiacApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateZodiacApi);
     case 'metaphysics/zodiac/prompt':
       return buildZodiacPrompt(await readJson(context.request));
     case 'metaphysics/taiyi/calculate':
-      return calculateTaiyiApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateTaiyiApi);
     case 'metaphysics/taiyi/prompt':
       return buildTaiyiPrompt(await readJson(context.request));
     case 'metaphysics/wuyun-liuqi/calculate':
-      return calculateWuyunLiuqiApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateWuyunLiuqiApi);
     case 'metaphysics/wuyun-liuqi/prompt':
       return buildWuyunLiuqiPromptApi(await readJson(context.request));
     case 'metaphysics/huangji-jingshi/calculate':
-      return calculateHuangjiJingshiApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateHuangjiJingshiApi);
     case 'metaphysics/huangji-jingshi/prompt':
       return buildHuangjiJingshiPromptApi(await readJson(context.request));
     case 'metaphysics/qizheng/calculate':
-      return calculateQizhengApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateQizhengApi);
     case 'metaphysics/qizheng/prompt':
       return buildQizhengPrompt(await readJson(context.request));
     case 'metaphysics/xuankong/calculate':
-      return calculateXuanKongApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateXuanKongApi);
     case 'metaphysics/xuankong/prompt':
       return buildXuanKongPrompt(await readJson(context.request));
     case 'metaphysics/residential/calculate':
-      return calculateResidentialApi(await readJson(context.request));
+      return calculateApiResult(context.request, calculateResidentialApi);
     case 'metaphysics/residential/prompt':
       return buildResidentialPrompt(await readJson(context.request));
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
   }
+}
+
+async function calculateApiResult(
+  request: Request,
+  calculate: (input: JsonRecord) => unknown | Promise<unknown>,
+  optionalBody = false,
+) {
+  const input = await readJson(request, optionalBody);
+  const result = await calculate(input);
+  return shapeCalculationResult(result, readDetailMode(input));
 }
 
 function calculateTrueSolarTimeApi(input: JsonRecord) {
@@ -2379,7 +2392,7 @@ function buildQizhengPrompt(input: JsonRecord) {
 
 function calculateBaziApi(input: JsonRecord) {
   const result = calculateBazi(input);
-  return readDetailMode(input) === 'compact' ? buildCompactBaziResult(result) : result;
+  return input.detailMode === 'compact' ? buildCompactBaziResult(result) : result;
 }
 
 function readBaziPerson(input: JsonRecord): Person {
@@ -2524,7 +2537,6 @@ function buildBaziPrompt(input: JsonRecord) {
     },
     resultSummary: {
       ...buildCompactBaziResult(result),
-      ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
     },
   });
 }
@@ -2579,7 +2591,7 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
       people: result.compatibility.people,
       dayMasterRelation: result.compatibility.dayMasterRelation,
       spousePalaceRelations: result.compatibility.spousePalaceRelations,
-      evidence: result.compatibility.evidence,
+      summaryFact: result.compatibility.summaryFact,
     },
   });
 }
@@ -2633,7 +2645,7 @@ async function calculateZiwei(input: JsonRecord) {
   const result = buildSerializableZiweiResult(
     await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope)),
   );
-  return readDetailMode(input) === 'compact' ? buildCompactZiweiResult(result) : result;
+  return input.detailMode === 'compact' ? buildCompactZiweiResult(result) : result;
 }
 
 async function buildZiweiPrompt(input: JsonRecord) {
@@ -2746,13 +2758,7 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
       key: compatibility.key,
       status: compatibility.status,
       people: compatibility.people,
-      calculationSteps: compatibility.calculationSteps,
-      palaceOverlays: compatibility.palaceOverlays,
-      crossMutagenPlacements: compatibility.crossMutagenPlacements,
-      counterEvidenceFacts: compatibility.counterEvidenceFacts,
       summaryFact: compatibility.summaryFact,
-      limitationFacts: compatibility.limitationFacts,
-      evidence: compatibility.evidence,
     },
   });
 }
@@ -2841,7 +2847,7 @@ function calculateQimen(input: JsonRecord) {
 
 function calculateQimenApi(input: JsonRecord) {
   const result = calculateQimen(input);
-  return readDetailMode(input) === 'compact' ? buildCompactQimenResult(result) : result;
+  return input.detailMode === 'compact' ? buildCompactQimenResult(result) : result;
 }
 
 function calculateMeihua(input: JsonRecord) {
@@ -3040,12 +3046,14 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
       key: result.synastry.key,
       status: result.synastry.status,
       people: result.synastry.people,
-      calculationSteps: result.synastry.calculationSteps,
-      summary: result.synastry.summary,
-      counterEvidenceFacts: result.synastry.counterEvidenceFacts,
-      summaryFact: result.synastry.summaryFact,
-      limitationFacts: result.synastry.limitationFacts,
-      evidence: result.synastry.evidence,
+      summary: {
+        totalAspects: result.synastry.summary.totalAspects,
+        harmonious: result.synastry.summary.harmonious,
+        tense: result.synastry.summary.tense,
+        neutral: result.synastry.summary.neutral,
+        tightAspects: result.synastry.summary.tightAspects,
+      },
+      summaryFact: buildCompactAstrolabeSynastrySummaryFact(result.synastry.summaryFact),
     },
   });
 }
@@ -3298,11 +3306,11 @@ function readSupplementaryInfo(input: JsonRecord): SupplementaryInfo | undefined
 }
 
 function readPromptResponseMode(input: JsonRecord) {
-  return readEnum(input, 'responseMode', PROMPT_RESPONSE_MODES, 'summary');
+  return readEnum(input, 'responseMode', PROMPT_RESPONSE_MODES, 'prompt-only');
 }
 
 function readDetailMode(input: JsonRecord) {
-  return readEnum(input, 'detailMode', DETAIL_MODES, 'full');
+  return readEnum(input, 'detailMode', DETAIL_MODES, 'compact');
 }
 
 function buildPromptApiResult(params: {
@@ -3343,56 +3351,23 @@ function buildCompactBaziResult(result: BaziChartResult) {
     zodiac: result.zodiac,
     constellation: result.constellation,
     mingGua: result.mingGua,
-    tenGods: result.tenGods,
-    hiddenStems: result.hiddenStems,
-    hiddenTenGods: result.hiddenTenGods,
     wuxingStrength: result.wuxingStrength,
     analysis: result.analysis,
     mingGong: result.mingGong,
     shenGong: result.shenGong,
     taiYuan: result.taiYuan,
     taiXi: result.taiXi,
-    lifeStages: result.lifeStages,
-    nayin: result.nayin,
-    shensha: result.shensha,
-    shenShaAnalysis: result.shenShaAnalysis,
     kongWang: result.kongWang,
-    wuxingSeasonStatus: result.wuxingSeasonStatus,
     monthCommander: result.monthCommander,
-    seasonInfo: {
-      ...result.seasonInfo,
-      jieqiList: result.seasonInfo.jieqiList.slice(0, 6),
-    },
     luckInfo: {
       startInfo: result.luckInfo.startInfo,
-      handoverInfo: result.luckInfo.handoverInfo,
       cycles: result.luckInfo.cycles.map((cycle) => ({
         age: cycle.age,
         year: cycle.year,
         ganZhi: cycle.ganZhi,
-        isXiaoyun: cycle.isXiaoyun,
-        type: cycle.type,
-        startSolarTime: cycle.startSolarTime,
-        endSolarTime: cycle.endSolarTime,
       })),
     },
     warnings: result.warnings,
-    warningFacts: result.warningFacts,
-    warningSummaryFact: result.warningSummaryFact,
-    evidenceAnalysis: result.evidenceAnalysis
-      ? {
-          key: result.evidenceAnalysis.key,
-          status: result.evidenceAnalysis.status,
-          calculationSteps: result.evidenceAnalysis.calculationSteps,
-          pillarFacts: result.evidenceAnalysis.pillarFacts,
-          analysisFacts: result.evidenceAnalysis.analysisFacts,
-          relationFacts: result.evidenceAnalysis.relationFacts,
-          counterEvidenceFacts: result.evidenceAnalysis.counterEvidenceFacts,
-          counterSummaryFact: result.evidenceAnalysis.counterSummaryFact,
-          summaryFact: result.evidenceAnalysis.summaryFact,
-          limitationFacts: result.evidenceAnalysis.limitationFacts,
-        }
-      : undefined,
   };
 }
 
@@ -3401,32 +3376,28 @@ function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiwe
     basicInfo: result.basicInfo,
     calculationConfig: result.calculationConfig,
     scopeNames: result.scopeNames,
-    evidenceByScope: Object.fromEntries(
+    evidenceSummaryByScope: Object.fromEntries(
       Object.entries(result.payloadByScope).map(([scope, payload]) => [
         scope,
         payload.evidence_analysis
           ? {
-              key: payload.evidence_analysis.key,
               status: payload.evidence_analysis.status,
-              calculationSteps: payload.evidence_analysis.calculationSteps,
-              counterEvidenceFacts: payload.evidence_analysis.counterEvidenceFacts,
-              summaryFact: payload.evidence_analysis.summaryFact,
-              limitationFacts: payload.evidence_analysis.limitationFacts,
+              summaryFact: buildCompactZiweiEvidenceSummaryFact(
+                payload.evidence_analysis.summaryFact,
+              ),
             }
           : undefined,
       ]),
     ),
-    patternEvidenceByScope: Object.fromEntries(
+    patternSummaryByScope: Object.fromEntries(
       Object.entries(result.payloadByScope).map(([scope, payload]) => [
         scope,
         payload.pattern_analysis
           ? {
-              key: payload.pattern_analysis.key,
               status: payload.pattern_analysis.status,
-              calculationSteps: payload.pattern_analysis.calculationSteps,
-              counterEvidenceFacts: payload.pattern_analysis.counterEvidenceFacts,
-              summaryFact: payload.pattern_analysis.summaryFact,
-              limitationFacts: payload.pattern_analysis.limitationFacts,
+              summaryFact: buildCompactZiweiPatternSummaryFact(
+                payload.pattern_analysis.summaryFact,
+              ),
             }
           : undefined,
       ]),
@@ -3439,23 +3410,12 @@ function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiwe
           palaces: payload.palaces.map((palace) => ({
             index: palace.index,
             name: palace.name,
-            heavenly_stem: palace.heavenly_stem,
-            earthly_branch: palace.earthly_branch,
             is_body_palace: palace.is_body_palace,
             major_stars: palace.major_stars.map((star) => ({
               name: star.name,
               brightness: star.brightness,
               birth_mutagen: star.birth_mutagen,
             })),
-            minor_stars: palace.minor_stars.map((star) => ({
-              name: star.name,
-              brightness: star.brightness,
-              birth_mutagen: star.birth_mutagen,
-            })),
-            summary_tags: palace.summary_tags,
-            opposite_palace_index: palace.opposite_palace_index,
-            surrounded_palace_indexes: palace.surrounded_palace_indexes,
-            scope_hits: palace.scope_hits,
           })),
         },
       ]),
@@ -3466,6 +3426,67 @@ function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiwe
     身宫: result.身宫,
     五行局: result.五行局,
     四化: result.四化,
+  };
+}
+
+function buildCompactZiweiEvidenceSummaryFact(
+  summaryFact: NonNullable<
+    ReturnType<
+      typeof buildSerializableZiweiResult
+    >['payloadByScope'][ScopeType]['evidence_analysis']
+  >['summaryFact'],
+) {
+  return {
+    key: summaryFact.key,
+    status: summaryFact.status,
+    evidenceFactCount: summaryFact.evidenceFactCount,
+    natalFactCount: summaryFact.natalFactCount,
+    scopeFactCount: summaryFact.scopeFactCount,
+    primaryFactCount: summaryFact.primaryFactCount,
+    supportingFactCount: summaryFact.supportingFactCount,
+    missingFactCount: summaryFact.missingFactCount,
+    counterEvidenceCount: summaryFact.counterEvidenceCount,
+    limitationFactCount: summaryFact.limitationFactCount,
+  };
+}
+
+function buildCompactZiweiPatternSummaryFact(
+  summaryFact: NonNullable<
+    ReturnType<typeof buildSerializableZiweiResult>['payloadByScope'][ScopeType]['pattern_analysis']
+  >['summaryFact'],
+) {
+  return {
+    key: summaryFact.key,
+    status: summaryFact.status,
+    registeredRuleCount: summaryFact.registeredRuleCount,
+    evaluatedRuleCount: summaryFact.evaluatedRuleCount,
+    unevaluatedRuleCount: summaryFact.unevaluatedRuleCount,
+    matchedPatternCount: summaryFact.matchedPatternCount,
+    unmatchedRuleCount: summaryFact.unmatchedRuleCount,
+    auspiciousPatternCount: summaryFact.auspiciousPatternCount,
+    inauspiciousPatternCount: summaryFact.inauspiciousPatternCount,
+    neutralPatternCount: summaryFact.neutralPatternCount,
+    counterEvidenceCount: summaryFact.counterEvidenceCount,
+    limitationFactCount: summaryFact.limitationFactCount,
+  };
+}
+
+function buildCompactAstrolabeSynastrySummaryFact(
+  summaryFact: ReturnType<typeof analyzeAstrolabeSynastry>['summaryFact'],
+) {
+  return {
+    key: summaryFact.key,
+    status: summaryFact.status,
+    selectedPointCount1: summaryFact.selectedPointCount1,
+    selectedPointCount2: summaryFact.selectedPointCount2,
+    evaluatedPairCount: summaryFact.evaluatedPairCount,
+    matchedAspectCount: summaryFact.matchedAspectCount,
+    returnedAspectCount: summaryFact.returnedAspectCount,
+    truncatedAspectCount: summaryFact.truncatedAspectCount,
+    houseOverlayCount: summaryFact.houseOverlayCount,
+    coreHouseOverlayCount: summaryFact.coreHouseOverlayCount,
+    aspectTypeCounts: summaryFact.aspectTypeCounts,
+    tendencyCounts: summaryFact.tendencyCounts,
   };
 }
 

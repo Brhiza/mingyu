@@ -10,7 +10,7 @@ import {
 } from '../../../src/lib/astrolabe-scope.js';
 import { buildAstrolabeSynastryPrompt } from '../../../src/lib/astrolabe-synastry-prompt.js';
 import type { AstrolabeData } from '../../../src/types/divination.js';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -196,13 +196,13 @@ export function registerAstrolabeTool(server: McpServer) {
     {
       description:
         '星盘生成：根据民用出生时间、经纬度和时区生成星体、宫位、相位、元素模式及结构化证据；可附带真太阳时参考，但不改写现代星历时刻',
-      inputSchema: astrolabeSchema.shape,
+      inputSchema: { ...astrolabeSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = buildAstrolabeResult(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '星盘生成失败'));
       }
@@ -213,10 +213,9 @@ export function registerAstrolabeTool(server: McpServer) {
     'astrolabe_prompt',
     {
       description:
-        '星盘生成并生成结构化 AI 解读提示词：返回星盘结果、结构化证据和可直接复制给 AI 的提示词；真太阳时仅作为参考证据，不改写现代星历时刻',
+        '星盘生成并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要星盘和结构化证据时调用 divine_astrolabe',
       inputSchema: astrolabePromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('星盘结果'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },
@@ -241,12 +240,15 @@ export function registerAstrolabeTool(server: McpServer) {
     {
       description:
         '西洋占星双盘关系计算：返回双方本命盘、主要跨盘相位、精确角距、容许度、跨盘落宫与结构化证据',
-      inputSchema: astrolabeSynastrySchema.shape,
+      inputSchema: { ...astrolabeSynastrySchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
-        return createStructuredToolResult({ result: buildAstrolabeSynastryResult(args) });
+        return createStructuredToolResult(
+          { result: buildAstrolabeSynastryResult(args) },
+          args.detailMode,
+        );
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '西占双盘计算失败'));
       }
@@ -257,10 +259,9 @@ export function registerAstrolabeTool(server: McpServer) {
     'astrolabe_synastry_prompt',
     {
       description:
-        '西洋占星双盘计算并生成结构化 AI 解读提示词：返回双方本命盘、跨盘证据和可直接使用的完整任务书',
+        '西洋占星双盘计算并生成可直接使用的完整任务书，仅返回提示词；需要本命盘和跨盘证据时调用 astrolabe_synastry',
       inputSchema: astrolabeSynastryPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('双方本命盘与西占双盘结构化结果'),
         prompt: z.string().describe('可直接用于 AI 解读的双盘证据提示词'),
       },
     },

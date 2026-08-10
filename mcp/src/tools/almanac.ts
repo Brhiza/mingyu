@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import type { AlmanacParticipantInput, AlmanacTopic } from 'mingyu-core/types';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -103,13 +103,13 @@ export function registerAlmanacTool(server: McpServer) {
     {
       description:
         '黄历择日：按事项、日期范围和可选参与人八字，列出候选日期、逐日宜忌、神煞与参与人关系',
-      inputSchema: almanacSchema.shape,
+      inputSchema: { ...almanacSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = buildAlmanacResult(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '黄历择日失败'));
       }
@@ -120,10 +120,9 @@ export function registerAlmanacTool(server: McpServer) {
     'almanac_prompt',
     {
       description:
-        '黄历择日并生成结构化 AI 解读提示词：一次调用返回择日结果和可直接复制给 AI 的提示词',
+        '黄历择日并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整择日结果时调用 divine_almanac',
       inputSchema: almanacPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('黄历择日结果'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

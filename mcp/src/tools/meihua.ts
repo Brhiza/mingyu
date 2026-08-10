@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import type { MeihuaSettings } from 'mingyu-core/types';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -51,14 +51,14 @@ export function registerMeihuaTool(server: McpServer) {
     {
       description:
         '梅花易数起卦：支持时间起卦、数字起卦、随机起卦，timeTrigram 作为兼容旧参数按时间起卦计算，生成主卦、互卦、变卦/体用生克分析及应期判断',
-      inputSchema: meihuaSchema.shape,
+      inputSchema: { ...meihuaSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const settings = buildMeihuaSettings(args);
         const result = generateMeihua(readMcpCustomDate(args.customDate), settings);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '起卦失败'));
       }
@@ -69,10 +69,9 @@ export function registerMeihuaTool(server: McpServer) {
     'meihua_prompt',
     {
       description:
-        '梅花易数起卦并生成结构化 AI 解读提示词：一次调用返回卦盘数据（含主互变卦、体用生克、应期判断）和可直接复制给 AI 的提示词',
+        '梅花易数起卦并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要主互变卦等卦盘数据时调用 divine_meihua',
       inputSchema: meihuaPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('梅花易数卦盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

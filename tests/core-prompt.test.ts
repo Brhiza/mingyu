@@ -74,10 +74,12 @@ test('npm 八字提示词应保留指定岁运的上下层资料', () => {
     question: '这一年的重点是什么？',
   });
 
-  assert.match(prompt, /【指定岁运资料】/);
+  assert.match(prompt, /【岁运重点】/);
   assert.match(prompt, new RegExp(String(year.year)));
-  assert.match(prompt, new RegExp(cycle.ganZhi));
-  assert.match(prompt, /所属大运/);
+  assert.match(prompt, new RegExp(context.cycleLabel));
+  assert.match(prompt, /上层岁运/);
+  assert.doesNotMatch(prompt, /该流年包含的流月/);
+  assert.doesNotMatch(prompt, /交节时刻/);
 
   const sections = formatBaziFortuneSelection(context);
   assert.ok(sections);
@@ -113,9 +115,9 @@ test('统一占法摘要应覆盖小六壬且不落回通用文案', () => {
   });
 
   assert.equal(summary.title, '小六壬起课结果');
-  assert.match(info, /月宫/);
-  assert.match(info, /时宫/);
-  assert.match(prompt, /依据月宫、日宫、时宫顺数轨迹/);
+  assert.match(info, /占得宫/);
+  assert.doesNotMatch(info, /顺数轨迹/);
+  assert.match(prompt, /依据占得宫与歌诀/);
   assert.match(prompt, /眼前事情如何推进/);
   assert.match(formatDetailedDivinationInfo('xiaoliuren', data), /顺数/);
   assert.match(formatDivinationTime(data), /节气：/);
@@ -128,11 +130,11 @@ test('npm 占法增强格式化应直接提供前端使用的关键证据', () =
   const liuyaoText = formatEnhancedDivinationInfo('liuyao', liuyao);
   const qimenText = formatEnhancedDivinationInfo('qimen', qimen);
 
-  assert.match(liuyaoText, /用神主线：/);
+  assert.match(liuyaoText, /用神：/);
   assert.match(liuyaoText, /月日触发：/);
-  assert.match(liuyaoText, /应期资料：/);
+  assert.doesNotMatch(liuyaoText, /应期资料：/);
   assert.match(qimenText, /值符值使与时干：/);
-  assert.match(qimenText, /节令背景：/);
+  assert.match(qimenText, /节令：/);
   assert.match(qimenText, /旬空与马星：/);
 });
 
@@ -145,7 +147,7 @@ test('npm 奇门提示词应统一定局三元并输出年命落宫', () => {
     supplementaryInfo: { birthYear: 1989 },
   });
 
-  assert.match(prompt, /实际节气立秋；定局立秋 中元/);
+  assert.match(prompt, /核心结构：阴遁5局；立秋 中元/);
   assert.doesNotMatch(prompt, /立秋上元/);
   assert.match(prompt, /年命资料：公历1989年按年中口径取年命干支己巳，命干己/);
   assert.match(prompt, /年命落宫（年中口径）：命干己落.+宫/);
@@ -197,10 +199,8 @@ test('npm 提示词格式化适配器应覆盖时间、补充资料和通用分�
     meihuaSettings: { method: 'number', number: 123 },
     currentSituation: '正在考虑换工作',
   });
-  assert.match(
-    supplementaryText,
-    /起卦方式：数字起卦[\s\S]*起卦数字：123[\s\S]*当前情况：正在考虑换工作/,
-  );
+  assert.equal(supplementaryText, '当前情况：正在考虑换工作');
+  assert.doesNotMatch(supplementaryText, /起卦方式|起卦数字/);
   assert.doesNotMatch(supplementaryText, /性别|出生年份/);
   assert.equal(buildSection('标题', '内容'), '标题\n内容');
   assert.equal(buildSection('标题', '  '), '');

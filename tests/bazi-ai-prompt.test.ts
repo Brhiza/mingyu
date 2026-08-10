@@ -146,9 +146,7 @@ test('八字提示词写入年限选择后应保留岁运资料并省略控制�
   assert.match(prompt.user, /上层岁运：/);
   assert.match(prompt.user, /所选干支：/);
   assert.match(prompt.user, /主要触发：/);
-  assert.match(prompt.user, /所属大运包含的流年/);
-  assert.match(prompt.user, /该流年包含的流月/);
-  assert.match(prompt.user, /交下节/);
+  assert.doesNotMatch(prompt.user, /所属大运包含的流年|该流年包含的流月|交下节/);
   assert.doesNotMatch(prompt.user, /结构化证据|【主证】|【辅证】|【限制】|【解读方法】|解读范围：/);
   assert.ok(prompt.user.indexOf('【分析对象】') < prompt.user.indexOf('【岁运重点】'));
   assert.ok(prompt.user.indexOf('【岁运重点】') < prompt.user.indexOf('【问题】'));
@@ -199,13 +197,11 @@ test('八字流月提示词应突出所选日期范围并保留必要触发资�
   );
   const fortuneSection = prompt.user.match(/【岁运重点】([\s\S]*?)\n\n【问题】/)?.[1] || '';
 
-  assert.match(fortuneSection, /分析对象：\d{4}年.+流月/);
+  assert.match(prompt.user, /【分析对象】\n分析对象：\d{4}年.+流月/);
   assert.match(fortuneSection, /选择日期：\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}/);
   assert.match(fortuneSection, /节气月：/);
   assert.match(fortuneSection, /上层岁运：/);
-  assert.match(prompt.user, /所属流年包含的流月/);
-  assert.match(prompt.user, /该流月包含的流日/);
-  assert.match(prompt.user, /\d{4}-\d{2}-\d{2} .+｜十神/);
+  assert.doesNotMatch(prompt.user, /所属流年包含的流月|该流月包含的流日/);
   assert.doesNotMatch(fortuneSection, /结构化证据|来源：|解释边界|断事层级限制/);
 });
 
@@ -228,9 +224,7 @@ test('八字提示词未选择年限时输出本命资料且不输出岁运重�
 
   assert.match(prompt.user, /【分析对象】/);
   assert.match(prompt.user, /分析对象：本命盘/);
-  assert.match(prompt.user, /大运总览:/);
-  assert.match(prompt.user, /\d+\. .+：?\d{4}年起，约\d+岁交运，含\d{4}-\d{4}年流年/);
-  assert.doesNotMatch(prompt.user, /当前大运:|近年流年:/);
+  assert.doesNotMatch(prompt.user, /大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
   assert.doesNotMatch(prompt.user, /【岁运重点】/);
   assert.doesNotMatch(prompt.user, /【解读方法】/);
   assert.doesNotMatch(prompt.user, /资料说明：|本次未指定|不得自行指定/);
@@ -252,10 +246,10 @@ test('八字合盘内嵌命盘资料不应重复使用顶层 section 标题', ()
   assert.equal((prompt.user.match(/^【第一人排盘信息】$/gm) ?? []).length, 1);
   assert.equal((prompt.user.match(/^【第二人排盘信息】$/gm) ?? []).length, 1);
   assert.doesNotMatch(prompt.user, /^【命盘】$/m);
-  assert.doesNotMatch(prompt.user, /^【核心判断依据】$/m);
+  assert.doesNotMatch(prompt.user, /^【核心判断】$/m);
   assert.doesNotMatch(prompt.user, /^【四柱】$/m);
   assert.match(prompt.user, /命盘：\n/);
-  assert.match(prompt.user, /核心判断依据：\n/);
+  assert.match(prompt.user, /核心判断：\n/);
   assert.match(prompt.user, /四柱：\n/);
 });
 
@@ -280,8 +274,8 @@ test('八字提示词不应由五行百分比阈值自动生成病药结论', ()
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /主忌火/);
-  assert.match(prompt.user, /【五行结构】/);
+  assert.match(prompt.user, /；忌火/);
+  assert.doesNotMatch(prompt.user, /【五行结构】/);
   assert.doesNotMatch(prompt.user, /【病药法】/);
 });
 
@@ -306,11 +300,11 @@ test('八字提示词不应把五行构成阈值包装为过强过弱病药断�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /喜忌五行: 火、水、土、金 \| 木/);
+  assert.match(prompt.user, /取用: 主用火，辅水、土、金.+；忌木/);
   assert.doesNotMatch(prompt.user, /【病药法】|过弱为病|过旺为病/);
 });
 
-test('八字提示词中的经典格局片段不应再单列独立喜忌，避免与正式主线冲突', () => {
+test('八字提示词不再附加经典格局长段', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,
     month: 1,
@@ -331,15 +325,10 @@ test('八字提示词中的经典格局片段不应再单列独立喜忌，避�
     { isCustomQuestion: false },
   );
 
-  assert.match(
-    prompt.user,
-    /【经典格局】丙辛化水格（传统等级参考：极品，以成败条件裁定） \| 丙辛合化水/,
-  );
-  assert.doesNotMatch(prompt.user, /【经典格局】[^\n]* \| 喜:/);
-  assert.doesNotMatch(prompt.user, /【经典格局】[^\n]* 忌:/);
+  assert.doesNotMatch(prompt.user, /【经典格局】/);
 });
 
-test('八字提示词中的经典格局片段应收起传统强断语，避免直接带偏在线 AI', () => {
+test('八字提示词不写入经典格局强断语', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 2,
@@ -360,9 +349,7 @@ test('八字提示词中的经典格局片段应收起传统强断语，避免�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【经典格局】壬骑龙背格（传统等级参考：极品，以成败条件裁定）/);
-  assert.match(prompt.user, /壬辰日生，地支多辰，取辰多冲戌中官星。忌戌字填实冲破。/);
-  assert.doesNotMatch(prompt.user, /主大富大贵/);
+  assert.doesNotMatch(prompt.user, /【经典格局】|壬骑龙背格|主大富大贵/);
 });
 
 test('八字经典格局多选一条件应任一命中，不应要求全部同时成立', () => {
@@ -539,7 +526,7 @@ test('八字经典格局提示词应保留福德秀气的成格边界，不输�
   assert.doesNotMatch(section, /主一生福禄厚重|主人聪明智慧/);
 });
 
-test('八字提示词资料包中的取用脉络应保留判断依据，不直出内部成格强断语', () => {
+test('八字提示词不展开内部取用脉络', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -562,13 +549,12 @@ test('八字提示词资料包中的取用脉络应保留判断依据，不直�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /取用脉络:/);
-  assert.match(prompt.user, /调候优先:火 -> 水/);
+  assert.doesNotMatch(prompt.user, /取用脉络:|调候优先:火 -> 水/);
   const finalUsefulGodTrace = result.analysis.usefulGod.strategyTrace.find((item) =>
     item.startsWith('最终取用:'),
   );
   assert.ok(finalUsefulGodTrace);
-  assert.ok(prompt.user.includes(finalUsefulGodTrace));
+  assert.ok(!prompt.user.includes(finalUsefulGodTrace));
   assert.doesNotMatch(prompt.user, /成格层次:/);
   assert.doesNotMatch(prompt.user, /病药提示:/);
   assert.doesNotMatch(prompt.user, /运势警语:|逢金水运反败/);
@@ -629,7 +615,7 @@ test('八字提示词不应由五行百分比阈值自动生成通关结论', ()
   assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
-test('柱位出现桃花时即使全局神煞没有桃花也应生成桃花详解', () => {
+test('八字提示词不默认展开桃花神煞详解', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -654,16 +640,10 @@ test('柱位出现桃花时即使全局神煞没有桃花也应生成桃花详�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【桃花详解】命盘见桃花：月柱、时柱/);
-  assert.match(prompt.user, /月柱:墙外桃花/);
-  assert.match(prompt.user, /时柱:墙外桃花/);
-  assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*利:/);
-  assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*忌:/);
-  assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*提示:/);
-  assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*留意:/);
+  assert.doesNotMatch(prompt.user, /【桃花详解】|墙外桃花/);
 });
 
-test('八字提示词的空亡详解应按实际空亡柱位显隐并写明证据', () => {
+test('八字提示词只在柱位标记空亡，不另起详解段', () => {
   const withKongWang = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -684,7 +664,9 @@ test('八字提示词的空亡详解应按实际空亡柱位显隐并写明证�
     { isCustomQuestion: false },
   );
 
-  assert.match(withPrompt.user, /【空亡详解】命盘见空亡：月柱、时柱。/);
+  assert.match(withPrompt.user, /月柱:[^\n]*\(空亡\)/);
+  assert.match(withPrompt.user, /时柱:[^\n]*\(空亡\)/);
+  assert.doesNotMatch(withPrompt.user, /【空亡详解】/);
 
   const withoutKongWang = baziCalculator.calculateBazi({
     year: 1995,
@@ -744,7 +726,7 @@ test('八字提示词空亡详解应跟随年日旬空的实际命中柱位', ()
   assert.doesNotMatch(coreFormatted, /月柱:[^\n]*\(空亡\)|时柱:[^\n]*\(空亡\)/);
 });
 
-test('八字提示词的伏吟反吟段应按实际证据显隐', () => {
+test('八字提示词不默认展开伏吟反吟段', () => {
   const withFuxin = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -765,9 +747,7 @@ test('八字提示词的伏吟反吟段应按实际证据显隐', () => {
     { isCustomQuestion: false },
   );
 
-  assert.match(withPrompt.user, /【伏吟反吟】命盘见伏吟：/);
-  assert.match(withPrompt.user, /年柱与日柱地支同为卯/);
-  assert.match(withPrompt.user, /月柱与时柱地支同为子/);
+  assert.doesNotMatch(withPrompt.user, /【伏吟反吟】|年柱与日柱地支同为卯|月柱与时柱地支同为子/);
 
   const withoutFuxin = baziCalculator.calculateBazi({
     year: 1988,
@@ -792,7 +772,7 @@ test('八字提示词的伏吟反吟段应按实际证据显隐', () => {
   assert.doesNotMatch(withoutPrompt.user, /【伏吟反吟】/);
 });
 
-test('八字提示词的刑冲合会破段应直接写入盘面证据', () => {
+test('八字提示词不展开可由四柱复核的刑冲合会破清单', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -813,12 +793,10 @@ test('八字提示词的刑冲合会破段应直接写入盘面证据', () => {
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【刑冲合会破】命盘见：/);
-  assert.match(prompt.user, /年柱丁与月柱壬合/);
-  assert.match(prompt.user, /年柱卯与月柱子刑/);
+  assert.doesNotMatch(prompt.user, /【刑冲合会破】|年柱丁与月柱壬合|年柱卯与月柱子刑/);
 });
 
-test('八字提示词输出全部相合条件，避免把相合结构直接当成成化', () => {
+test('八字提示词不展开内部相合成化判定过程', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -839,12 +817,10 @@ test('八字提示词输出全部相合条件，避免把相合结构直接当�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【干支相合条件】命盘见相合结构：/);
-  assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：逢冲破合，作用破合/);
-  assert.match(prompt.user, /非日干配合，只记相合，不作化气/);
-  assert.doesNotMatch(prompt.user, /相合结构：[^\n]*\d+分|合化评分|80分以下/);
-  assert.doesNotMatch(prompt.user, /概率或吉凶分/);
-  assert.doesNotMatch(prompt.user, /原组合可按化神木参与后续结构判断/);
+  assert.doesNotMatch(
+    prompt.user,
+    /【干支相合条件】|逢冲破合，作用破合|非日干配合，只记相合，不作化气|合化评分/,
+  );
 });
 
 test('八字增强资料包不再按用户分类切换本地模板', () => {

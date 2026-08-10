@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { huangjiJingshi } from 'mingyu-core';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -32,13 +32,16 @@ export function registerHuangjiJingshiTool(server: McpServer) {
     'metaphysics_huangji_jingshi',
     {
       description: '皇极经世周期换算：按明确纪元返回元会运世位置、进度与下一层边界',
-      inputSchema: huangjiJingshiSchema.omit({ question: true }).shape,
+      inputSchema: {
+        ...huangjiJingshiSchema.omit({ question: true }).shape,
+        ...calculationDetailShape,
+      },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = calculateHuangjiJingshi(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '皇极经世周期换算失败'));
       }

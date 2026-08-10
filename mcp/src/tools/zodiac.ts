@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { zodiac } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -33,13 +33,13 @@ export function registerZodiacTool(server: McpServer) {
     {
       description:
         '生肖流年关系：必须明确提供 year 或 yearGanZhi，由年支逐项推算值/冲/刑/害/破、流年干支五行与三合六合三会关系，并返回证据和解释边界',
-      inputSchema: zodiacSchema.shape,
+      inputSchema: { ...zodiacSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = zodiac.calculateZodiacYearFortune(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生肖运程推算失败'));
       }

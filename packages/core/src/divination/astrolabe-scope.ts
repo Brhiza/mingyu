@@ -15,7 +15,6 @@ import {
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
 import { resolveCivilTime, type CivilTimeZoneInput } from '../calendar/civil-time';
-import { classifyAspectClosenessFromStrength } from './astrolabe-aspect-evidence';
 
 export type AstrolabeScopeContext = {
   scope: AstrolabeScopeMode;
@@ -229,27 +228,6 @@ const SIGN_LABELS: Record<string, string> = {
   Pisces: '双鱼座',
 };
 
-const HOUSE_RULER_MAP: Record<
-  string,
-  {
-    primary: string;
-    modern?: string;
-  }
-> = {
-  白羊座: { primary: 'Mars' },
-  金牛座: { primary: 'Venus' },
-  双子座: { primary: 'Mercury' },
-  巨蟹座: { primary: 'Moon' },
-  狮子座: { primary: 'Sun' },
-  处女座: { primary: 'Mercury' },
-  天秤座: { primary: 'Venus' },
-  天蝎座: { primary: 'Mars', modern: 'Pluto' },
-  射手座: { primary: 'Jupiter' },
-  摩羯座: { primary: 'Saturn' },
-  水瓶座: { primary: 'Saturn', modern: 'Uranus' },
-  双鱼座: { primary: 'Jupiter', modern: 'Neptune' },
-};
-
 const ASPECT_LABELS: Record<string, string> = {
   conjunction: '合相',
   sextile: '六合',
@@ -423,8 +401,7 @@ function formatTransitLine(transit: Transit) {
   const aspect = ASPECT_LABELS[transit.aspectType] ?? transit.aspectType;
   const phase = PHASE_LABELS[transit.phase] ?? transit.phase;
   const retrograde = transit.isRetrograde ? '，逆行' : '';
-  const closeness = classifyAspectClosenessFromStrength(transit.strength);
-  return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，偏差${transit.deviation.toFixed(2)}°，${closeness}，${phase}${retrograde}）`;
+  return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，偏差${transit.deviation.toFixed(2)}°，${phase}${retrograde}）`;
 }
 
 function getNatalHouseCusps(data: AstrolabeData) {
@@ -1604,37 +1581,6 @@ function getNatalHouseByLongitude(longitude: number, cusps: number[]) {
   return null;
 }
 
-function buildHouseRulerChainEvidence(data: AstrolabeData) {
-  const lines = data.houses
-    .slice()
-    .sort((first, second) => first.house - second.house)
-    .map((house) => {
-      const ruler = HOUSE_RULER_MAP[house.sign];
-      if (!ruler) {
-        return `第${house.house}宫${house.sign}宫头，宫主星未识别`;
-      }
-
-      const primary = data.planets.find((planet) => planet.name === ruler.primary);
-      const modern = ruler.modern
-        ? data.planets.find((planet) => planet.name === ruler.modern)
-        : null;
-      const primaryLabel = CELESTIAL_BODY_LABELS[ruler.primary] ?? ruler.primary;
-      const primaryText = primary
-        ? `${primaryLabel}落本命第${primary.house}宫${primary.formatted}${primary.retrograde ? '逆行' : ''}`
-        : `${primaryLabel}未提供落点`;
-      const modernText =
-        ruler.modern && modern
-          ? `，现代辅看${CELESTIAL_BODY_LABELS[ruler.modern] ?? ruler.modern}落本命第${modern.house}宫`
-          : ruler.modern
-            ? `，现代辅看${CELESTIAL_BODY_LABELS[ruler.modern] ?? ruler.modern}但未提供落点`
-            : '';
-
-      return `第${house.house}宫${house.sign}宫头，${primaryText}${modernText}`;
-    });
-
-  return `本命宫主星：${lines.join('；')}。`;
-}
-
 function parseBirthCoordinates(data: AstrolabeData) {
   if (
     typeof data.birth.latitude === 'number' &&
@@ -1741,7 +1687,7 @@ function buildTransitEvidence(
   });
   const transitLines = result.transits
     .sort((first, second) => second.strength - first.strength || first.deviation - second.deviation)
-    .slice(0, 10)
+    .slice(0, 4)
     .map(formatTransitLine);
 
   if (transitLines.length === 0) {
@@ -1760,21 +1706,37 @@ function formatAdvancedScopeFacts(params: {
   const solarReturn = params.solarReturnEvidence;
   const progression = params.secondaryProgressionEvidence;
   const solarArc = params.solarArcEvidence;
+  const formatAspectFacts = (
+    facts: AstrolabeAdvancedAspectFact[],
+    technique: AstrolabeAdvancedTechnique,
+  ) =>
+    facts
+      .filter(
+        (fact) =>
+          technique !== '太阳返照' ||
+          !(
+            fact.movingPoint === '太阳' &&
+            fact.natalPoint === '太阳' &&
+            fact.aspectName === '合相'
+          ),
+      )
+      .slice(0, 1)
+      .map(
+        (fact) =>
+          `${fact.movingPoint}${fact.aspectName}${fact.natalPoint}（偏差${fact.deviation.toFixed(2)}°，${fact.closeness}）`,
+      )
+      .join('；');
 
   if (solarReturn) {
     lines.push(
-      `太阳返照：${solarReturn.dateTime || '未取得返照时刻'}；主要相位：${solarReturn.aspects.join('；') || '暂无'}。`,
+      `太阳返照${solarReturn.dateTime ? `（${solarReturn.dateTime}）` : ''}：${formatAspectFacts(solarReturn.aspectFacts, '太阳返照') || '暂无'}。`,
     );
   }
   if (progression) {
-    lines.push(
-      `次限推进：${progression.progressedDateTime || '未取得推进日期'}；主要相位：${progression.aspects.join('；') || '暂无'}。`,
-    );
+    lines.push(`次限相位：${formatAspectFacts(progression.aspectFacts, '次限推进') || '暂无'}。`);
   }
   if (solarArc) {
-    lines.push(
-      `太阳弧：${solarArc.arcDegrees === undefined ? '未取得推进弧' : `${solarArc.arcDegrees.toFixed(2)}°`}；主要相位：${solarArc.aspects.join('；') || '暂无'}。`,
-    );
+    lines.push(`太阳弧相位：${formatAspectFacts(solarArc.aspectFacts, '太阳弧') || '暂无'}。`);
   }
 
   return lines;
@@ -1795,14 +1757,13 @@ export function buildAstrolabeScopeContext(
     };
   }
 
-  const houseRulerChain = buildHouseRulerChainEvidence(data);
   if (scope === 'natal') {
     return {
       scope,
       dateStr: '',
       displayText: '仅使用本命信息',
       displayLabel: '本命盘',
-      promptText: ['分析对象：本命盘。', houseRulerChain].join('\n'),
+      promptText: '分析对象：本命盘。',
     };
   }
 
@@ -1814,10 +1775,7 @@ export function buildAstrolabeScopeContext(
       dateStr: normalizedReferenceDate,
       displayText: `本命盘与完整行运资料 · ${normalizedReferenceDate}`,
       displayLabel: `完整输出版${normalizedReferenceDate}`,
-      promptText: [
-        `分析对象：本命盘与以${normalizedReferenceDate}为基准的完整行运资料。`,
-        houseRulerChain,
-      ].join('\n'),
+      promptText: `分析对象：本命盘与以${normalizedReferenceDate}为基准的完整行运资料。`,
     };
   }
 
@@ -1851,8 +1809,7 @@ export function buildAstrolabeScopeContext(
     displayLabel: `${scopeLabel}${normalizedDateStr}`,
     promptText: [
       `分析对象：${scopeLabel}${normalizedDateStr}。`,
-      `行运基准：${anchorDate}（按出生地时区${timezoneLabel}的中午计算行运行星触发）。`,
-      houseRulerChain,
+      `行运取样：${anchorDate}（${timezoneLabel}）。`,
       transitEvidence,
       transitHouseEvidence,
       ...advancedYearlyFacts,

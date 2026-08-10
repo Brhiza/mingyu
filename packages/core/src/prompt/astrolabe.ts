@@ -75,17 +75,18 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
   const sun = data.planets.find((item) => item.name === 'Sun');
   const moon = data.planets.find((item) => item.name === 'Moon');
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
-  const aspects = data.aspects.map(
-    (item) =>
-      `${item.body1}${item.symbol}${item.body2}（${item.type}，容许度${item.orb.toFixed(2)}°，${item.closeness ?? '未分级'}）`,
-  );
+  const aspects = data.aspects
+    .slice(0, 6)
+    .map(
+      (item) =>
+        `${item.body1}${item.symbol}${item.body2}（${item.type}，容许度${item.orb.toFixed(2)}°，${item.closeness ?? '未分级'}）`,
+    );
   return [
     `出生信息：${data.birth.name}；${data.birth.gender || '性别未填'}；${data.birth.dateTime}；位置${data.birth.location}；时区UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
     data.birth.isTrueSolarTime
       ? `出生时间校正：当地钟表时间${data.birth.standardDateTime || '未记录'}；真太阳时${data.birth.trueSolarDateTime || data.birth.dateTime}`
       : '',
     `核心位置：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}`,
-    `盘面数量：${data.planets.length}颗星体；${data.houses.length}个宫位；${data.aspects.length}组主要相位`,
     `元素分布：${
       Object.entries(data.summary.elements)
         .map(([key, values]) => `${key}${values.join('、')}`)
@@ -100,8 +101,6 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
     `格局：${formatStringList(data.summary.patterns, '未列明显格局')}`,
     '星体位置：',
     ...data.planets.map((item) => `- ${formatPoint(item)}`),
-    '宫头位置：',
-    ...data.houses.map((item) => `- ${item.label}${item.formatted}`),
     aspects.length ? '相位明细：' : '',
     ...aspects.map((item) => `- ${item}`),
   ]
