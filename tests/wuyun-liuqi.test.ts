@@ -311,8 +311,9 @@ test('五运六气提示词应是可独立使用的完整任务书', () => {
   assert.match(prompt, /少阴君火/);
   assert.match(prompt, /司天与中运：不和/);
   assert.match(prompt, /大寒、立春、雨水、惊蛰/);
-  assert.match(prompt, /《素问·天元纪大论》/);
-  assert.match(prompt, /吴谦《运气要诀》/);
+  assert.match(prompt, /以年干定岁运太过不及/);
+  assert.match(prompt, /以年支定司天在泉/);
+  assert.doesNotMatch(prompt, /参考《|《素问·天元纪大论》|《运气要诀》/);
   assert.doesNotMatch(prompt, /mingyu|API|MCP|仓库|内部字段/i);
   assertPromptIsPortableTaskText(prompt);
 });

@@ -38,11 +38,11 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 
 1. 先读取 `GET /manifest` 或 `GET /openapi.json` 确认接口能力。
 2. 只需要结构化数据时，调用 `/calculate` 或 `/divination/{method}` 排盘接口。
-3. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口，默认读取 `data.prompt` 和轻量摘要；八字、紫微和八字紫微合参为 `data.resultSummary`，占卜类为 `data.summary`。
+3. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口并传 `responseMode: "prompt-only"`，只读取 `data.prompt`。只有确实需要向用户展示结构化盘面时才改用 `summary`，需要完整原始排盘时才改用 `full`。
 4. 同一人需要“先八字定主线、再紫微校验”的深度解读时，优先调用 `/bazi-ziwei/prompt`，不要分别调用八字和紫微后自行拼接提示词。
 5. 向用户展示结果时，说明这是排盘和提示词数据，不替代医疗、法律、投资等专业建议。
 
-`/prompt` 默认不返回完整排盘，避免响应和下游 AI 消息过大。需要完整排盘时传 `responseMode: "full"`；只要提示词时传 `responseMode: "prompt-only"`。八字、紫微、奇门和黄历排盘可传 `detailMode: "compact"` 获取轻量结构。黄历大范围或多参与人应使用 `page/pageSize` 拆成多次请求。
+`/prompt` 默认采用 `prompt-only`，只返回可直接交给 AI 的完整提示词，避免响应和下游 AI 消息过大。需要轻量结构化展示时传 `responseMode: "summary"`；需要完整排盘时才传 `responseMode: "full"`。八字、紫微、奇门和黄历排盘可传 `detailMode: "compact"` 获取轻量结构。黄历大范围或多参与人应使用 `page/pageSize` 拆成多次请求。
 
 ## 调用选择指南
 
@@ -86,7 +86,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 
 参数默认建议：
 
-- `responseMode` 通常保持默认；只需要提示词时用 `prompt-only`；需要完整排盘时才用 `full`。
+- `responseMode` 默认和推荐值都是 `prompt-only`；需要结构化展示时用 `summary`；需要完整排盘时才用 `full`。
 - `promptMode` 通常保持 `framework`，这样提示词更完整；只有用户已写好完整自由问题时才用 `custom`。
 - 八字神煞保持默认 `shenShaScope: "common"`，只返回 55 个常用神煞；用户明确要求全部神煞、研究或审计原始结果时才传 `shenShaScope: "all"`。
 - 出生时辰未知时，不要自行补时辰。八字可以保守分析，紫微和八字紫微合参应先让用户补足时辰。
@@ -326,7 +326,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `timeIndex`：范围为 `0` 到 `12`，其中 `0` 为早子时，`1` 为丑时，...，`11` 为亥时，`12` 为晚子时。
 - `isLeapMonth`：布尔值，仅农历有效。
 - `useTrueSolarTime`：布尔值。八字和紫微开启后需提供 `birthHour`、`birthMinute`、`birthLongitude`，此时 `timeIndex` 由程序自动换算；星盘开启后只附带真太阳时参考证据，现代星历仍采用民用出生时间对应的真实 UTC 瞬间。
-- `responseMode`：`/prompt` 可用。`summary` 默认只返回提示词和轻量摘要；`full` 返回完整排盘和提示词；`prompt-only` 只返回提示词。
+- `responseMode`：`/prompt` 可用。`prompt-only` 为默认值，只返回提示词；`summary` 返回提示词和轻量摘要；`full` 返回完整排盘和提示词。
 - `detailMode`：八字、紫微、奇门和黄历排盘可用。`full` 返回完整结构；`compact` 返回轻量结构。
 - `question` 和 `astrolabeScopeText` 最多 5000 个字符。
 - 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算，避免把元旦当作干支年界。结果会逐项给出同气、顺化、天刑、小逆、不和，天符、岁会、太乙天符、同天符、同岁会，以及六步节令和主客气五行关系。
@@ -349,7 +349,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 
 紫微 `patterns` 当前评估 55 条已按《紫微斗数全书》固定版本登记且可复算的规则，每项包含卷次、原文、命中条件和解释边界；另有 32 项原典边界不伪造命中，`pattern_analysis` 汇总 87 项固定目录的登记数、评估数与命中数。原 84 条未校勘项目规则继续停用；空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局，也不要自行补造目录外格局。
 
-八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`responseMode`。默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；需要完整双盘时传 `responseMode: "full"`。
+八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`responseMode`。默认只返回 `data.prompt`；需要轻量双盘摘要时传 `responseMode: "summary"`，需要完整双盘时传 `responseMode: "full"`。
 
 `promptMode` 支持：`framework`（内置完整框架，默认）、`custom`（只围绕用户问题自由作答，不塞框架）。
 

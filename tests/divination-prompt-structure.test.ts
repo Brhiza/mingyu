@@ -866,10 +866,10 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
 
   assert.match(prompt, /占法：黄历择日/);
   assert.match(prompt, /候选日期：2026-06-01 至 2026-06-03/);
-  assert.match(prompt, /事项范围：搬家入宅/);
+  assert.match(prompt, /核心结构：择日事项：搬家入宅/);
+  assert.doesNotMatch(prompt, /事项范围：|日期结论：|可用候选|慎用候选/);
   assert.doesNotMatch(prompt, /事项未限定|按通用.*口径|当前首列候选/);
-  assert.match(prompt, /岁支十二神方位太岁午正南、太阳未西南偏南、岁破子正北、福德卯正东/);
-  assert.doesNotMatch(prompt, /岁支方位避|可参考太阳|可参考福德/);
+  assert.doesNotMatch(prompt, /岁支十二神方位|全年方位神|岁支方位避|可参考太阳|可参考福德/);
   assert.match(prompt, /第1候选：2026-06-01/);
   assert.match(prompt, /第2候选：2026-06-02/);
   assert.match(prompt, /忌入宅、移徙/);
@@ -982,7 +982,7 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
     birthYear: 1995,
   });
 
-  assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
+  assert.match(prompt, /核心结构：阳遁3局；[^\n]+/);
   assert.match(prompt, /取用主线：/);
   assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
   assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
@@ -994,12 +994,12 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
   assert.doesNotMatch(prompt, /卦象|课传|牌阵|签诗|牌位/);
 });
 
-test('奇门提示词的四柱互动应显示参与柱位，节令关系不使用英文', () => {
+test('奇门提示词保留节令关系并省略重复的四柱互动明细', () => {
   const data = generateQimen(new Date('2026-05-19T10:30:00+08:00'));
   const prompt = buildDivinationPrompt('qimen', '整体解读', data);
 
   assert.match(prompt, /日干癸持平/);
-  assert.match(prompt, /四柱互动：月柱癸、时柱丁天干相冲；日柱癸、时柱丁天干相冲/);
+  assert.doesNotMatch(prompt, /四柱互动：/);
   assert.doesNotMatch(prompt, /neutral|天干相冲癸、丁/);
 });
 
@@ -1012,7 +1012,7 @@ test('Issue #204：奇门提示词应统一正式定局三元并补齐年命落�
   assert.equal(data.timeInfo.epoch, '中元');
   assert.equal(data.isYangDun, false);
   assert.equal(data.juShu, 5);
-  assert.match(prompt, /实际节气立秋；定局立秋 中元/);
+  assert.match(prompt, /核心结构：阴遁5局；立秋 中元/);
   assert.doesNotMatch(prompt, /立秋上元/);
   assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
   assert.ok(Math.max(...prompt.split('\n').map((line) => line.length)) < 200);
@@ -1082,17 +1082,17 @@ test('六爻提示词会保留世应、动变、空亡、伏神和月日资料',
   );
 
   assert.match(prompt, /核心结构：主卦/);
-  assert.match(prompt, /六亲持世：第1爻兄弟持世/);
-  assert.match(prompt, /世应动变：世爻第1爻兄弟子水；应爻第6爻兄弟戌土；动变/);
-  assert.match(prompt, /空亡与伏神：/);
+  assert.match(prompt, /世应：世爻第1爻兄弟子水；应爻第6爻兄弟戌土/);
+  assert.match(prompt, /动变：第1爻兄弟子水/);
+  assert.match(prompt, /旬空戌、亥；命中.+；伏神/);
   assert.doesNotMatch(prompt, /兄弟持世，主竞争、破财、朋友/);
   assert.doesNotMatch(prompt, /取用评分表|权重\d/);
   assert.match(
     prompt,
     /月日触发：月建丑：未直接同支入爻；日辰寅：同支第2爻子孙寅木，冲第5爻父母申金/,
   );
-  assert.match(prompt, /应期资料：动变触发：第1爻兄弟子水动/);
-  assert.match(prompt, /用神主线：/);
+  assert.match(prompt, /用神：/);
+  assert.doesNotMatch(prompt, /应期资料：|组合时机：|六亲持世：|应爻与动变：/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|只使用上方/);
   assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
 });
@@ -1107,7 +1107,9 @@ test('六爻提示词不再按问题词表补充取用参考', () => {
 
   assert.doesNotMatch(prompt, /取用参考：/);
   assert.doesNotMatch(prompt, /事业职位|事业工作：以官鬼为取用参考/);
-  assert.match(prompt, /世应动变：/);
+  assert.match(prompt, /世应：/);
+  assert.match(prompt, /动变：/);
+  assert.doesNotMatch(prompt, /应爻与动变：|应期资料：/);
 });
 
 test('六爻用户选择事业模板只写入简短问题范围', () => {
@@ -1167,11 +1169,10 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /互卦：泽风大过；体互兑（金）；用互巽（木）；原体克体互；用互生原体/);
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /应期资料：动爻第3爻；/);
-  assert.match(prompt, /主卦卦辞分类：/);
-  assert.match(prompt, /动爻传统资料：/);
+  assert.match(prompt, /应期线索：动爻第3爻；春季体卦相、用卦旺/);
+  assert.doesNotMatch(prompt, /卦辞分类：|动爻传统资料：/);
   assert.doesNotMatch(prompt, /未发动，不展开爻辞解释/);
-  assert.match(prompt, /第1爻（静，属体）：阳爻/);
+  assert.doesNotMatch(prompt, /第1爻（静，属体）：阳爻|结构明细：/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
   const meihua = createData('meihua') as MeihuaData;
@@ -1188,7 +1189,6 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
         .join('|'),
     ),
   );
-  assert.match(prompt, /第3爻.*动.*属体/);
 });
 
 test('梅花、奇门不再输出隐藏专项分析思路', () => {
@@ -1229,15 +1229,16 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   );
 
   assert.match(prompt, /【排盘信息】/);
-  assert.match(prompt, /核心结构：盘面摘要：月将亥；占时卯；昼占；贵人亥临卯；旬空戌、亥/);
-  assert.match(prompt, /课传主线：取传比用法；传态递传；发用亥乘贵人；末传寅/);
-  assert.match(prompt, /古籍依据：《大六壬大全》九宗门取传法：知一\/比用/);
+  assert.match(prompt, /核心结构：月将亥；占时卯；昼占；贵人亥临卯；旬空戌、亥（命中初传亥）/);
+  assert.match(prompt, /课传主线：取传比用法；传态递传/);
+  assert.doesNotMatch(prompt, /取传依据：/);
   assert.match(prompt, /四课：\n- 一课亥临卯乘贵人，水生木/);
-  assert.match(prompt, /三传：\n- 初传亥乘贵人，生扶，起因来自外部推动/);
-  assert.match(prompt, /旬空：戌、亥，命中初传亥/);
+  assert.match(prompt, /三传：\n- 初传亥乘贵人，生扶/);
+  assert.doesNotMatch(prompt, /课传主线：.*发用|课传主线：.*末传/);
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);
   assert.doesNotMatch(prompt, /发用主线：/);
+  assert.doesNotMatch(prompt, /地盘：|天盘：|天将属性：|取传规则全文/);
 });
 
 test('大六壬提示词使用简短任务', () => {
@@ -1253,7 +1254,7 @@ test('大六壬提示词使用简短任务', () => {
   assert.doesNotMatch(prompt, /反证限制|证据不足|不硬给日期|取证顺序|回答口径/);
 });
 
-test('大六壬提示词会吸收课体与神煞补充信息', () => {
+test('大六壬提示词保留课体并省略低价值神煞列表', () => {
   const data = {
     ...createData('liuren'),
     guaTi: ['龙德卦', '连珠卦'],
@@ -1291,7 +1292,7 @@ test('大六壬提示词会吸收课体与神煞补充信息', () => {
   );
 
   assert.match(prompt, /课体：龙德卦、连珠卦/);
-  assert.match(prompt, /神煞：/);
+  assert.doesNotMatch(prompt, /神煞：/);
   assert.doesNotMatch(prompt, /辅证：/);
   assert.doesNotMatch(prompt, /课体补充：龙德卦、连珠卦/);
   assert.doesNotMatch(prompt, /神煞补充：/);
@@ -1312,7 +1313,7 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 
-test('塔罗提示词保留牌阵、牌位、关键词、元素与牌阶', () => {
+test('塔罗提示词保留牌阵、牌位、正逆位与关键词', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -1321,10 +1322,11 @@ test('塔罗提示词保留牌阵、牌位、关键词、元素与牌阶', () =>
   );
 
   assert.match(prompt, /核心结构：牌阵/);
-  assert.match(prompt, /牌位顺序：/);
+  assert.match(prompt, /牌位明细：/);
+  assert.doesNotMatch(prompt, /牌位顺序：/);
   assert.match(prompt, /- 现状：恋人（正位）；关键词：/);
   assert.match(prompt, /- 建议：战车（逆位）；关键词：/);
-  assert.match(prompt, /元素主题：/);
+  assert.doesNotMatch(prompt, /元素主题：|牌阶主题：/);
   assert.doesNotMatch(prompt, /牌义：/);
   assert.doesNotMatch(prompt, /断牌口径|现实边界|结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(
@@ -1384,12 +1386,12 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位资料', ()
     createAstrolabeData(),
   );
 
-  assert.match(prompt, /核心结构：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
-  assert.match(
-    prompt,
-    /核心位置：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°；主要相位太阳△月亮（三分，紧密等级）；太阳合水星（合相，紧密等级）/,
-  );
-  assert.match(prompt, /盘面概况：逆行星体无；格局土象偏强/);
+  assert.match(prompt, /上升：狮子座 12°/);
+  assert.match(prompt, /太阳金牛座 29°，第10宫/);
+  assert.match(prompt, /月亮处女座 08°，第2宫/);
+  assert.doesNotMatch(prompt, /核心位置：/);
+  assert.match(prompt, /主要格局：土象偏强/);
+  assert.doesNotMatch(prompt, /逆行星体无/);
   assert.match(prompt, /相位明细：/);
   assert.doesNotMatch(prompt, /强度\d+%/);
   assert.doesNotMatch(

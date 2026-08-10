@@ -1,5 +1,6 @@
 import { analyzeBaziCompatibility, formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
+import { formatBaziFortuneSelection } from './bazi-fortune';
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance } from './guidance';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
@@ -126,27 +127,9 @@ export interface BaziPromptOptions extends PromptBuildOptions {
   fortuneFocus?: string;
   /**
    * 页面、服务端或其他调用方已选中的具体岁运资料。
-   * 传入后会把大运、流年、流月或流日的上下层背景、触发事实和边界资料
-   * 一并写入提示词，避免调用方自行拼接而遗漏层级关系。
+   * 传入后只把所选层级、必要上下层背景与主要触发写入提示词。
    */
   fortuneSelectionContext?: FortuneSelectionContext | null;
-}
-
-function formatFortuneSelectionContext(context: FortuneSelectionContext) {
-  const payload = context.promptPayload;
-  const detailGroups = (payload.detailGroups ?? [])
-    .filter((group) => group.lines.length > 0)
-    .map((group) => [group.title, ...group.lines].join('\n'));
-
-  return [
-    context.displayLabel ? `选定范围：${context.displayLabel}` : '',
-    context.displayText ? `选定资料：${context.displayText}` : '',
-    payload.scopeLabel,
-    ...payload.summaryLines,
-    ...detailGroups,
-  ]
-    .filter(Boolean)
-    .join('\n');
 }
 
 export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocument {
@@ -159,8 +142,10 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     null,
     options.fortuneScope === 'natal' ? 'general' : 'fortune',
   );
-  const scopeText =
-    options.fortuneScope && options.fortuneScope !== 'natal'
+  const fortuneSelection = formatBaziFortuneSelection(options.fortuneSelectionContext);
+  const scopeText = fortuneSelection
+    ? fortuneSelection.analysisObject
+    : options.fortuneScope && options.fortuneScope !== 'natal'
       ? `分析对象：${options.fortuneScope === 'full' ? '本命盘与完整大运流年' : options.fortuneScope}`
       : '分析对象：本命盘';
 
@@ -173,12 +158,7 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
       : '',
     buildPromptSection('分析对象', scopeText),
     options.fortuneFocus ? buildPromptSection('岁运重点', options.fortuneFocus) : '',
-    options.fortuneSelectionContext
-      ? buildPromptSection(
-          '指定岁运资料',
-          formatFortuneSelectionContext(options.fortuneSelectionContext),
-        )
-      : '',
+    fortuneSelection ? buildPromptSection('岁运重点', fortuneSelection.focus) : '',
     options.fortuneScope === 'full'
       ? buildPromptSection('命限资料', formatFullFortune(options.result))
       : '',

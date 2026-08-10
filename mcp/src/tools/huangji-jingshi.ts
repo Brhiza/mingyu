@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { huangjiJingshi } from 'mingyu-core';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -37,13 +37,16 @@ export function registerHuangjiJingshiTool(server: McpServer) {
     {
       description:
         '皇极经世排盘：普通公元年直接返回元会运世、统卦、运卦、十年卦和值年卦；也支持自定义纪元换算',
-      inputSchema: huangjiJingshiSchema.omit({ question: true }).shape,
+      inputSchema: {
+        ...huangjiJingshiSchema.omit({ question: true }).shape,
+        ...calculationDetailShape,
+      },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = calculateHuangjiJingshi(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '皇极经世周期换算失败'));
       }

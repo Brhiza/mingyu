@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { xuankong } from 'mingyu-core';
 import { TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -49,13 +49,16 @@ export function registerXuanKongTool(server: McpServer) {
     {
       description:
         '玄空飞星 v1：按建造/起运年与山向生成运盘、山盘、向盘、到山到向及结构化证据；不做形峦或吉凶总分',
-      inputSchema: xuanKongSchema.omit({ question: true }).shape,
+      inputSchema: {
+        ...xuanKongSchema.omit({ question: true }).shape,
+        ...calculationDetailShape,
+      },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = calculateXuanKong(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '玄空飞星排盘失败'));
       }

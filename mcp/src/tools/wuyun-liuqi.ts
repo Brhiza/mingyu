@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { wuyunLiuqi } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
-import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -32,13 +32,16 @@ export function registerWuyunLiuqiTool(server: McpServer) {
     {
       description:
         '五运六气年度计算：返回岁运、五步主客运与五音太少、司天在泉、气运相临、天符岁会及六步节令主客气',
-      inputSchema: wuyunLiuqiSchema.omit({ question: true }).shape,
+      inputSchema: {
+        ...wuyunLiuqiSchema.omit({ question: true }).shape,
+        ...calculationDetailShape,
+      },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = calculateWuyunLiuqi(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '五运六气计算失败'));
       }

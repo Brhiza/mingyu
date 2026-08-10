@@ -6,6 +6,7 @@ import {
   filterCommonBaziShenSha,
   ShenShaCalculator as CoreShenShaCalculator,
 } from '../packages/core/src/bazi/baziShenSha';
+import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
 import { ShenShaCalculator as AppShenShaCalculator } from '@core/bazi/baziShenSha';
 
 class ShenShaCalculator extends AppShenShaCalculator {
@@ -18,7 +19,7 @@ function createCalculators(options?: ConstructorParameters<typeof CoreShenShaCal
   return [new ShenShaCalculator(options), new CoreShenShaCalculator({ scope: 'all', ...options })];
 }
 
-test('神煞默认只返回 55 个常用项目，显式 all 可返回全部项目', () => {
+test('神煞默认返回问真目录的 55 个常用项目，显式 all 可返回全部项目', () => {
   const bazi = [
     ['甲', '子'],
     ['乙', '寅'],
@@ -30,6 +31,7 @@ test('神煞默认只返回 55 个常用项目，显式 all 可返回全部项�
 
   assert.equal(COMMON_BAZI_SHENSHA_NAMES.length, 55);
   assert.ok(!(COMMON_BAZI_SHENSHA_NAMES as readonly string[]).includes('六厄'));
+  assert.ok((COMMON_BAZI_SHENSHA_NAMES as readonly string[]).includes('拱禄'));
   assert.ok(
     Object.values(common)
       .flat()
@@ -155,6 +157,32 @@ test('童子煞按常用口诀应识别春秋寅子贵', () => {
   assert.ok(result.day.includes('童子煞'));
 });
 
+test('童子煞五行口诀应按生年纳音取用，不应按日干五行误判', () => {
+  const calculator = new ShenShaCalculator();
+  const fireNayinResult = calculator.calculateAllShenSha(
+    [
+      ['甲', '辰'],
+      ['丙', '寅'],
+      ['辛', '酉'],
+      ['甲', '申'],
+    ],
+    'female',
+  );
+  const screenshotResult = calculator.calculateAllShenSha(
+    [
+      ['甲', '辰'],
+      ['甲', '戌'],
+      ['庚', '午'],
+      ['甲', '申'],
+    ],
+    'female',
+  );
+
+  assert.ok(fireNayinResult.day.includes('童子煞'), '覆灯火命见酉应按水火鸡犬口诀命中');
+  assert.ok(!screenshotResult.day.includes('童子煞'), '不应因庚日属金把午误判为童子煞');
+  assert.ok(!screenshotResult.hour.includes('童子煞'));
+});
+
 test('勾绞煞应取年支前三辰后三辰，不应错算成四辰', () => {
   const calculator = new ShenShaCalculator();
   const result = calculator.calculateAllShenSha(
@@ -195,41 +223,32 @@ test('金神按经典口径取日柱或时柱，不应只取时柱', () => {
   assert.ok(result2.hour.includes('金神'));
 });
 
-test('德秀贵人在申子辰月应按三命通会取干表', () => {
+test('德秀贵人应按月令干表逐柱命中，不要求德秀同时出现或扩展五合', () => {
   const calculator = new ShenShaCalculator();
   const hitResult = calculator.calculateAllShenSha(
     [
       ['辛', '酉'],
-      ['戊', '申'],
+      ['甲', '寅'],
       ['丙', '午'],
-      ['辛', '卯'],
-    ],
-    'male',
-  );
-  const missResult = calculator.calculateAllShenSha(
-    [
-      ['戊', '辰'],
-      ['戊', '申'],
-      ['乙', '卯'],
-      ['癸', '亥'],
+      ['庚', '申'],
     ],
     'male',
   );
 
-  assert.ok(hitResult.month.includes('德秀贵人'));
   assert.ok(hitResult.day.includes('德秀贵人'));
-  assert.ok(!missResult.month.includes('德秀贵人'));
-  assert.ok(!missResult.day.includes('德秀贵人'));
+  assert.ok(!hitResult.year.includes('德秀贵人'), '辛只是丙的五合对象，不应扩展命中');
+  assert.ok(!hitResult.month.includes('德秀贵人'));
+  assert.ok(!hitResult.hour.includes('德秀贵人'));
 });
 
-test('三奇贵人应按年月日时顺布取用，不应要求相邻三柱', () => {
+test('三奇贵人只认相邻三柱顺布，隔柱不应命中', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
       [
         ['乙', '丑'],
         ['丙', '寅'],
-        ['庚', '申'],
-        ['丁', '亥'],
+        ['丁', '申'],
+        ['庚', '亥'],
       ],
       'male',
     );
@@ -1235,18 +1254,9 @@ test('天厨贵人对己日应取酉，不应错判为未', () => {
   assert.ok(!missResult.hour.includes('天厨贵人'));
 });
 
-test('福星贵人应按完整干支组合判断，不应只看地支', () => {
+test('福星贵人应按年干或日干对应地支判断，不要求目标柱带指定天干', () => {
   const calculator = new ShenShaCalculator();
   const hitResult = calculator.calculateAllShenSha(
-    [
-      ['甲', '子'],
-      ['丁', '酉'],
-      ['庚', '午'],
-      ['丙', '寅'],
-    ],
-    'male',
-  );
-  const missResult = calculator.calculateAllShenSha(
     [
       ['甲', '子'],
       ['丁', '酉'],
@@ -1255,19 +1265,28 @@ test('福星贵人应按完整干支组合判断，不应只看地支', () => {
     ],
     'male',
   );
+  const missResult = calculator.calculateAllShenSha(
+    [
+      ['甲', '子'],
+      ['丁', '酉'],
+      ['庚', '午'],
+      ['己', '卯'],
+    ],
+    'male',
+  );
 
   assert.ok(hitResult.hour.includes('福星贵人'));
   assert.ok(!missResult.hour.includes('福星贵人'));
 });
 
-test('福星贵人对辛日应识别癸未与癸巳，而不是单看巳支', () => {
+test('福星贵人对辛日应按巳支命中，不受目标柱天干影响', () => {
   const calculator = new ShenShaCalculator();
   const hitResult = calculator.calculateAllShenSha(
     [
       ['甲', '子'],
       ['丁', '酉'],
       ['辛', '丑'],
-      ['癸', '巳'],
+      ['乙', '巳'],
     ],
     'male',
   );
@@ -1276,7 +1295,7 @@ test('福星贵人对辛日应识别癸未与癸巳，而不是单看巳支', ()
       ['甲', '子'],
       ['丁', '酉'],
       ['辛', '丑'],
-      ['乙', '巳'],
+      ['乙', '卯'],
     ],
     'male',
   );
@@ -1311,23 +1330,23 @@ test('天乙贵人对庚干应取丑未，不应误取寅午', () => {
   }
 });
 
-test('文昌贵人应按五行精纪与三命通会口诀取用', () => {
+test('文昌贵人默认应采用现代专业排盘通行表', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
       [
-        ['甲', '子'],
+        ['丁', '丑'],
         ['丙', '寅'],
         ['乙', '丑'],
-        ['辛', '亥'],
+        ['丙', '午'],
       ],
       'male',
     );
     const missResult = calculator.calculateAllShenSha(
       [
-        ['甲', '子'],
+        ['丁', '丑'],
         ['丙', '寅'],
         ['乙', '丑'],
-        ['辛', '午'],
+        ['乙', '亥'],
       ],
       'male',
     );
@@ -1337,68 +1356,63 @@ test('文昌贵人应按五行精纪与三命通会口诀取用', () => {
   }
 });
 
-test('学堂应按年干或日干十干长生支判断，不应按五行长生简化错判阴干', () => {
+test('学堂应按生年纳音五行查月日时支，不限制目标天干', () => {
   const cases = [
-    { stem: '乙', hitBranch: '午', oldElementBranch: '亥' },
-    { stem: '丁', hitBranch: '酉', oldElementBranch: '寅' },
-    { stem: '己', hitBranch: '酉', oldElementBranch: '寅' },
-    { stem: '辛', hitBranch: '子', oldElementBranch: '巳' },
-    { stem: '癸', hitBranch: '卯', oldElementBranch: '申' },
+    { year: ['甲', '子'], target: ['辛', '巳'], wrongStem: ['乙', '巳'] },
+    { year: ['戊', '辰'], target: ['己', '亥'], wrongStem: ['丁', '亥'] },
+    { year: ['丙', '子'], target: ['甲', '申'], wrongStem: ['戊', '申'] },
+    { year: ['庚', '午'], target: ['戊', '申'], wrongStem: ['甲', '申'] },
+    { year: ['甲', '辰'], target: ['丙', '寅'], wrongStem: ['戊', '寅'] },
   ];
 
   for (const calculator of createCalculators()) {
     for (const item of cases) {
       const hitResult = calculator.calculateAllShenSha(
-        [
-          [item.stem, '丑'],
-          ['甲', '辰'],
-          [item.stem, '丑'],
-          ['戊', item.hitBranch],
-        ],
+        [item.year, ['甲', '辰'], ['庚', '午'], item.target] as [string, string][],
         'male',
       );
       const missResult = calculator.calculateAllShenSha(
-        [
-          [item.stem, '丑'],
-          ['甲', '辰'],
-          [item.stem, '丑'],
-          ['戊', item.oldElementBranch],
-        ],
+        [item.year, ['甲', '辰'], ['庚', '午'], item.wrongStem] as [string, string][],
         'male',
       );
 
-      assert.ok(hitResult.hour.includes('学堂'), `${item.stem}干应以${item.hitBranch}为学堂`);
       assert.ok(
-        !missResult.hour.includes('学堂'),
-        `${item.stem}干不应以${item.oldElementBranch}为学堂`,
+        hitResult.hour.includes('学堂'),
+        `${item.year.join('')}年命应以${item.target.join('')}为学堂`,
       );
+      assert.ok(missResult.hour.includes('学堂'), '普通学堂只看目标地支，不限正位天干');
+      assert.ok(!hitResult.year.includes('学堂'), '出生年柱不参与命中');
     }
   }
 });
 
-test('词馆应按年干或日干十干临官支判断，不应只看日干', () => {
-  for (const calculator of createCalculators()) {
-    const hitResult = calculator.calculateAllShenSha(
-      [
-        ['甲', '子'],
-        ['丙', '寅'],
-        ['乙', '丑'],
-        ['丁', '未'],
-      ],
-      'male',
-    );
-    const missResult = calculator.calculateAllShenSha(
-      [
-        ['甲', '子'],
-        ['丙', '辰'],
-        ['乙', '丑'],
-        ['丁', '未'],
-      ],
-      'male',
-    );
+test('词馆应按生年纳音五行查月日时支，不限制目标天干', () => {
+  const cases = [
+    { year: ['甲', '子'], target: ['壬', '申'] },
+    { year: ['戊', '辰'], target: ['庚', '寅'] },
+    { year: ['丙', '子'], target: ['癸', '亥'] },
+    { year: ['庚', '午'], target: ['丁', '亥'] },
+    { year: ['甲', '辰'], target: ['乙', '巳'] },
+  ];
 
-    assert.ok(hitResult.month.includes('词馆'), '甲年干应以寅为词馆');
-    assert.ok(!missResult.month.includes('词馆'), '甲年干不应以辰为词馆');
+  for (const calculator of createCalculators()) {
+    for (const item of cases) {
+      const hitResult = calculator.calculateAllShenSha(
+        [item.year, ['甲', '辰'], ['庚', '午'], item.target] as [string, string][],
+        'male',
+      );
+      const missResult = calculator.calculateAllShenSha(
+        [item.year, ['甲', '辰'], ['庚', '午'], ['甲', item.target[1]]] as [string, string][],
+        'male',
+      );
+
+      assert.ok(
+        hitResult.hour.includes('词馆'),
+        `${item.year.join('')}年命应以${item.target.join('')}为词馆`,
+      );
+      assert.ok(missResult.hour.includes('词馆'), '普通词馆只看目标地支，不限正位天干');
+      assert.ok(!hitResult.year.includes('词馆'), '出生年柱不参与命中');
+    }
   }
 });
 
@@ -1853,7 +1867,7 @@ test('十灵日应包含庚寅日', () => {
   }
 });
 
-test('空亡默认只按日柱旬空判断，不应再把年柱旬空并入', () => {
+test('空亡默认按年柱与日柱旬空查其余三支', () => {
   for (const calculator of createCalculators()) {
     const result = calculator.calculateAllShenSha(
       [
@@ -1865,7 +1879,8 @@ test('空亡默认只按日柱旬空判断，不应再把年柱旬空并入', ()
       'male',
     );
 
-    assert.ok(!result.month.includes('空亡'));
+    assert.ok(result.month.includes('空亡'));
+    assert.ok(!result.year.includes('空亡'), '年柱自身不按年柱旬空重复标记');
   }
 });
 
@@ -1886,7 +1901,7 @@ test('孤虚默认应取日柱旬空对宫', () => {
   }
 });
 
-test('羊刃默认只取阳干帝旺位，不把阴干帝旺位直接算作羊刃', () => {
+test('羊刃默认包含阴干帝旺位', () => {
   for (const calculator of createCalculators()) {
     const result = calculator.calculateAllShenSha(
       [
@@ -1898,11 +1913,11 @@ test('羊刃默认只取阳干帝旺位，不把阴干帝旺位直接算作羊�
       'male',
     );
 
-    assert.ok(!result.month.includes('羊刃'));
+    assert.ok(result.month.includes('羊刃'));
   }
 });
 
-test('飞刃默认跟随阳干羊刃口径，不由阴干帝旺位推出', () => {
+test('飞刃默认包含阴干羊刃的六冲位', () => {
   for (const calculator of createCalculators()) {
     const result = calculator.calculateAllShenSha(
       [
@@ -1914,33 +1929,202 @@ test('飞刃默认跟随阳干羊刃口径，不由阴干帝旺位推出', () =>
       'male',
     );
 
-    assert.ok(!result.month.includes('飞刃'));
+    assert.ok(result.month.includes('飞刃'));
   }
 });
 
-test('金舆应兼取命前二辰与马前二辰', () => {
+test('金舆默认只按年干或日干的禄前二辰取用', () => {
   const calculator = new ShenShaCalculator();
-  const mingJinYu = calculator.calculateAllShenSha(
+  const result = calculator.calculateAllShenSha(
     [
-      ['丁', '子'],
+      ['甲', '辰'],
+      ['甲', '戌'],
+      ['庚', '午'],
+      ['甲', '申'],
+    ],
+    'female',
+  );
+
+  assert.ok(result.year.includes('金舆'));
+  assert.ok(result.month.includes('金舆'));
+  assert.ok(!result.day.includes('金舆'));
+  assert.ok(!result.hour.includes('金舆'));
+});
+
+test('华盖和将星不应把年支、日支起算柱自身重复标记', () => {
+  const calculator = new ShenShaCalculator();
+  const result = calculator.calculateAllShenSha(
+    [
+      ['甲', '辰'],
       ['丙', '辰'],
       ['庚', '午'],
-      ['戊', '寅'],
+      ['戊', '午'],
     ],
-    'male',
+    'female',
   );
-  const maJinYu = calculator.calculateAllShenSha(
+
+  assert.ok(!result.year.includes('华盖'));
+  assert.ok(result.month.includes('华盖'), '其余柱再见年支所起华盖仍应命中');
+  assert.ok(!result.day.includes('将星'));
+  assert.ok(result.hour.includes('将星'), '其余柱再见日支所起将星仍应命中');
+});
+
+test('红鸾和天喜应只按出生年支起算，不应混入日支', () => {
+  const calculator = new ShenShaCalculator();
+  const result = calculator.calculateAllShenSha(
     [
-      ['丁', '亥'],
-      ['丙', '辰'],
-      ['庚', '子'],
-      ['戊', '未'],
+      ['甲', '子'],
+      ['丁', '卯'],
+      ['丙', '午'],
+      ['辛', '酉'],
+    ],
+    'female',
+  );
+
+  assert.ok(result.month.includes('红鸾'));
+  assert.ok(!result.month.includes('天喜'));
+  assert.ok(result.hour.includes('天喜'));
+  assert.ok(!result.hour.includes('红鸾'));
+});
+
+test('2024年11月2日申时女命应完整复现专业排盘的基础盘面', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 2024,
+    month: 11,
+    day: 2,
+    timeIndex: 8,
+    gender: 'female',
+  });
+
+  assert.deepEqual(result.lunarDate, {
+    year: 2024,
+    month: 10,
+    day: 2,
+    monthName: '十月',
+    dayName: '初二',
+  });
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['甲辰', '甲戌', '庚午', '甲申'],
+  );
+  assert.deepEqual(result.tenGods, {
+    year: '偏财',
+    month: '偏财',
+    day: '日主',
+    hour: '偏财',
+  });
+  assert.deepEqual(result.hiddenStems, {
+    year: ['戊', '乙', '癸'],
+    month: ['戊', '辛', '丁'],
+    day: ['丁', '己'],
+    hour: ['庚', '壬', '戊'],
+  });
+  assert.deepEqual(result.lifeStages, {
+    year: '养',
+    month: '衰',
+    day: '沐浴',
+    hour: '临官',
+  });
+  assert.deepEqual(result.ziZuo, {
+    year: '衰',
+    month: '养',
+    day: '沐浴',
+    hour: '绝',
+  });
+  assert.deepEqual(result.kongWang, {
+    year: ['寅', '卯'],
+    month: ['申', '酉'],
+    day: ['戌', '亥'],
+    hour: ['午', '未'],
+  });
+  assert.deepEqual(result.nayin, {
+    year: '覆灯火',
+    month: '山头火',
+    day: '路旁土',
+    hour: '泉中水',
+  });
+
+  assert.deepEqual([...result.shensha.year].sort(), ['国印贵人', '金舆', '流霞'].sort());
+  assert.deepEqual(
+    [...result.shensha.month].sort(),
+    ['国印贵人', '红艳煞', '华盖', '金舆', '空亡'].sort(),
+  );
+  assert.deepEqual([...result.shensha.day].sort(), ['太极贵人', '福星贵人', '丧门', '灾煞'].sort());
+  assert.deepEqual([...result.shensha.hour].sort(), ['驿马', '禄神'].sort());
+});
+
+test('血刃应按十二月令固定表查四支', () => {
+  const calculator = new ShenShaCalculator();
+  const cases = [
+    ['寅', '丑'],
+    ['卯', '未'],
+    ['辰', '寅'],
+    ['巳', '申'],
+    ['午', '卯'],
+    ['未', '酉'],
+    ['申', '辰'],
+    ['酉', '戌'],
+    ['戌', '巳'],
+    ['亥', '亥'],
+    ['子', '午'],
+    ['丑', '子'],
+  ] as const;
+
+  for (const [monthBranch, targetBranch] of cases) {
+    const result = calculator.calculateAllShenSha(
+      [
+        ['甲', '辰'],
+        ['丙', monthBranch],
+        ['庚', targetBranch],
+        ['壬', '申'],
+      ],
+      'female',
+    );
+    assert.ok(result.day.includes('血刃'), `${monthBranch}月见${targetBranch}应命中血刃`);
+  }
+});
+
+test('拱禄应识别五组日时配对，禄支填实时不命中', () => {
+  const calculator = new ShenShaCalculator();
+  const cases = [
+    { day: ['癸', '亥'], hour: ['癸', '丑'], luBranch: '子' },
+    { day: ['癸', '丑'], hour: ['癸', '亥'], luBranch: '子' },
+    { day: ['丁', '巳'], hour: ['丁', '未'], luBranch: '午' },
+    { day: ['己', '未'], hour: ['己', '巳'], luBranch: '午' },
+    { day: ['戊', '辰'], hour: ['戊', '午'], luBranch: '巳' },
+  ] as const;
+
+  for (const item of cases) {
+    const hitResult = calculator.calculateAllShenSha(
+      [['甲', '辰'], ['丙', '寅'], item.day, item.hour],
+      'male',
+    );
+    const filledResult = calculator.calculateAllShenSha(
+      [['甲', item.luBranch], ['丙', '寅'], item.day, item.hour],
+      'male',
+    );
+
+    assert.ok(
+      hitResult.hour.includes('拱禄'),
+      `${item.day.join('')}日${item.hour.join('')}时应命中拱禄`,
+    );
+    assert.ok(!filledResult.hour.includes('拱禄'), `四柱已有${item.luBranch}时不应再算拱禄`);
+  }
+});
+
+test('灾煞只按年支查余三支，不应混入日支起法', () => {
+  const calculator = new ShenShaCalculator();
+  const result = calculator.calculateAllShenSha(
+    [
+      ['甲', '丑'],
+      ['丙', '寅'],
+      ['戊', '辰'],
+      ['庚', '午'],
     ],
     'male',
   );
 
-  assert.ok(mingJinYu.hour.includes('金舆'));
-  assert.ok(maJinYu.hour.includes('金舆'));
+  assert.ok(!result.hour.includes('灾煞'), '辰日见午不能单独起灾煞');
 });
 
 test('八专应取丁未日，不应误取丁巳日', () => {
@@ -1995,7 +2179,7 @@ test('九丑应取辛酉日，不应误取丁卯日', () => {
   }
 });
 
-test('九丑应按三命通会定例取乙卯不取丁酉', () => {
+test('九丑应按问真表取丁酉不取乙卯', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
       [
@@ -2016,14 +2200,14 @@ test('九丑应按三命通会定例取乙卯不取丁酉', () => {
       'male',
     );
 
-    assert.ok(hitResult.day.includes('九丑'));
-    assert.ok(!missResult.day.includes('九丑'));
+    assert.ok(!hitResult.day.includes('九丑'));
+    assert.ok(missResult.day.includes('九丑'));
   }
 });
 
-test('四废日应包含五行精纪大四废季支', () => {
+test('四废日与大四废日应按各自口径分开返回', () => {
   for (const calculator of createCalculators()) {
-    const hitResult = calculator.calculateAllShenSha(
+    const onlyBigResult = calculator.calculateAllShenSha(
       [
         ['甲', '子'],
         ['丁', '卯'],
@@ -2032,18 +2216,79 @@ test('四废日应包含五行精纪大四废季支', () => {
       ],
       'male',
     );
-    const missResult = calculator.calculateAllShenSha(
+    const bothResult = calculator.calculateAllShenSha(
       [
         ['甲', '子'],
         ['丁', '卯'],
-        ['甲', '午'],
+        ['庚', '申'],
         ['戊', '辰'],
       ],
       'male',
     );
 
-    assert.ok(hitResult.day.includes('四废日'));
-    assert.ok(!missResult.day.includes('四废日'));
+    assert.ok(!onlyBigResult.day.includes('四废日'));
+    assert.ok(onlyBigResult.day.includes('大四废日'));
+    assert.ok(bothResult.day.includes('四废日'));
+    assert.ok(bothResult.day.includes('大四废日'));
+  }
+});
+
+test('孤鸾煞按三命通会八日口径，不误收己未与癸丑', () => {
+  for (const calculator of createCalculators()) {
+    for (const dayPillar of [
+      ['乙', '巳'],
+      ['丁', '巳'],
+      ['辛', '亥'],
+      ['戊', '申'],
+      ['甲', '寅'],
+      ['壬', '子'],
+      ['丙', '午'],
+      ['戊', '午'],
+    ] as const) {
+      const result = calculator.calculateAllShenSha(
+        [['甲', '子'], ['丙', '寅'], dayPillar, ['戊', '辰']],
+        'female',
+      );
+      assert.ok(result.day.includes('孤鸾煞'));
+    }
+
+    for (const dayPillar of [
+      ['己', '未'],
+      ['癸', '丑'],
+    ] as const) {
+      const result = calculator.calculateAllShenSha(
+        [['甲', '子'], ['丙', '寅'], dayPillar, ['戊', '辰']],
+        'female',
+      );
+      assert.ok(!result.day.includes('孤鸾煞'));
+    }
+  }
+});
+
+test('天转与地转应按四季八个日柱判断，并且只落日柱', () => {
+  const cases = [
+    { month: '寅', name: '天转', pillar: ['乙', '卯'] },
+    { month: '巳', name: '天转', pillar: ['丙', '午'] },
+    { month: '申', name: '天转', pillar: ['辛', '酉'] },
+    { month: '亥', name: '天转', pillar: ['壬', '子'] },
+    { month: '寅', name: '地转', pillar: ['辛', '卯'] },
+    { month: '巳', name: '地转', pillar: ['戊', '午'] },
+    { month: '申', name: '地转', pillar: ['癸', '酉'] },
+    { month: '亥', name: '地转', pillar: ['丙', '子'] },
+  ] as const;
+
+  for (const calculator of createCalculators()) {
+    for (const item of cases) {
+      const result = calculator.calculateAllShenSha(
+        [['甲', '辰'], ['丙', item.month], item.pillar, item.pillar],
+        'male',
+      );
+      assert.ok(
+        result.day.includes(item.name),
+        `${item.month}月${item.pillar.join('')}应命中${item.name}`,
+      );
+      assert.ok(!result.hour.includes(item.name), `${item.name}不应落到时柱`);
+    }
   }
 });
 
@@ -3091,7 +3336,7 @@ test('五行精纪五鬼空亡、破祖空亡与鸱枭杀应按古籍原文取�
   }
 });
 
-test('五行精纪自刃、飞刃、五行真日时与离祖杀应按日时原文取用', () => {
+test('五行精纪自刃、五行真日时与离祖杀保留，异法飞刃不混入默认同名项', () => {
   for (const calculator of createCalculators()) {
     const ziRenResult = calculator.calculateAllShenSha(
       [
@@ -3141,7 +3386,7 @@ test('五行精纪自刃、飞刃、五行真日时与离祖杀应按日时原�
 
     assert.ok(ziRenResult.day.includes('自刃'));
     assert.ok(ziRenResult.hour.includes('自刃'));
-    assert.ok(feiRenResult.hour.includes('飞刃'));
+    assert.ok(!feiRenResult.hour.includes('飞刃'));
     assert.ok(zhenRiShiResult.hour.includes('五行真日时'));
     assert.ok(liZuResult.hour.includes('离祖杀'));
     assert.ok(!Object.values(missResult).flat().includes('自刃'));

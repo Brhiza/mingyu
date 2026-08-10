@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -38,13 +38,13 @@ export function registerTarotTool(server: McpServer) {
     'divine_tarot',
     {
       description: '塔罗牌抽牌：从 78 张塔罗牌中洗牌抽牌，支持单牌指引和多种牌阵，含正逆位与关键词',
-      inputSchema: tarotSchema.shape,
+      inputSchema: { ...tarotSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = buildTarotSpread(args.spreadType || 'single', readMcpRandomOptions(args));
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '抽牌失败'));
       }
@@ -55,10 +55,9 @@ export function registerTarotTool(server: McpServer) {
     'tarot_prompt',
     {
       description:
-        '塔罗抽牌并生成结构化 AI 解读提示词：一次调用返回牌阵数据和可直接复制给 AI 的提示词',
+        '塔罗抽牌并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要牌阵数据时调用 divine_tarot',
       inputSchema: tarotPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('塔罗牌阵数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

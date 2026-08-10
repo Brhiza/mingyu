@@ -50,13 +50,8 @@ const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> 
   'lenormand',
 ];
 
-function buildLiurenAnalysisObjectText(data: LiurenData) {
-  const initial = data.threeTransmissions[0];
-  return [
-    '分析对象：大六壬起课盘',
-    `起课范围：${data.dayNight || '昼夜未标注'}；月将${data.monthLeader}加占时${data.divinationBranch}`,
-    `主线对象：${data.transmissionRule || '取传法未标注'}；${initial ? `初传${initial.branch}乘${initial.god}` : '初传未标注'}`,
-  ].join('\n');
+function buildLiurenAnalysisObjectText(_data: LiurenData) {
+  return '大六壬起课盘';
 }
 
 export type DivinationDraft = {

@@ -16,7 +16,7 @@ import {
   type BaziSchool,
   type PromptMode,
 } from '../../../src/lib/public-api/prompt-builders.js';
-import { promptOutputSchema, resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -190,14 +190,14 @@ export function registerBaziTool(server: McpServer) {
     {
       description:
         '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据；启用真太阳时时同时返回统一计算链、校正事实、证据汇总和限制，关闭时仍可直接按明确时辰排盘',
-      inputSchema: baziSchema.shape,
+      inputSchema: { ...baziSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const person = buildBaziPerson(args);
         const result = baziCalculator.calculateBazi(person);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
       }
@@ -208,7 +208,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_prompt',
     {
       description:
-        '八字排盘并生成结构化 AI 解读提示词：返回命盘、结构化证据和可直接复制给 AI 的提示词；真太阳时校正证据会随排盘资料写入提示词',
+        '八字排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整命盘时调用 bazi_calculate',
       inputSchema: baziPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -284,7 +284,7 @@ export function registerBaziTool(server: McpServer) {
     {
       description:
         '八字双盘结构化证据计算：返回双方命盘、日主与日支关系、四柱交叉合冲刑害破、双向十神、喜忌覆盖和证据包',
-      inputSchema: baziCompatibilitySchema.shape,
+      inputSchema: { ...baziCompatibilitySchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
@@ -295,9 +295,10 @@ export function registerBaziTool(server: McpServer) {
           person1Name: args.person1.name,
           person2Name: args.person2.name,
         });
-        return createStructuredToolResult({
-          result: { charts: { person1: chart1, person2: chart2 }, compatibility },
-        });
+        return createStructuredToolResult(
+          { result: { charts: { person1: chart1, person2: chart2 }, compatibility } },
+          args.detailMode,
+        );
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '八字双盘计算失败'));
       }
@@ -308,7 +309,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_compatibility_prompt',
     {
       description:
-        '八字双盘计算并生成结构化 AI 解读提示词：返回双方命盘、可复核交叉证据和完整关系分析任务书',
+        '八字双盘计算并生成完整关系分析任务书，仅返回提示词；需要双方命盘和交叉证据时调用 bazi_compatibility',
       inputSchema: baziCompatibilityPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

@@ -34,7 +34,10 @@ export function buildMetaphysicsPromptDocument(
     buildPromptSection('排盘资料', basePrompt),
     options.measurement ? buildPromptSection('测量换算', options.measurement) : '',
     question?.trim() ? buildPromptSection('问题', question) : '',
-    buildPromptSection('任务', '请依据排盘资料、测量资料和传统依据完成解读。'),
+    buildPromptSection(
+      '任务',
+      question?.trim() ? '请结合以上资料回答【问题】。' : '请结合以上资料完成解读。',
+    ),
   ];
 
   return buildPromptDocument(joinPromptSections(sections));

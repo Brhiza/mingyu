@@ -113,7 +113,7 @@ export function registerBaziZiweiTool(server: McpServer) {
     'bazi_ziwei_prompt',
     {
       description:
-        '八字紫微合参提示词：同一份出生信息同时计算八字和紫微斗数，返回双盘数据和可直接用于 AI 深度解读的合参提示词',
+        '八字紫微合参提示词：同一份出生信息同时计算八字和紫微斗数，仅返回可直接用于 AI 深度解读的完整提示词',
       inputSchema: baziZiweiPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

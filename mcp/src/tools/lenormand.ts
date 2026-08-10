@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import type { LenormandSpreadType } from 'mingyu-core/types';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -48,13 +48,13 @@ export function registerLenormandTool(server: McpServer) {
     {
       description:
         '雷诺曼抽牌：偏现实事件判断，支持单牌、三牌、五牌十字、关系、选择、九宫、元素牌阵和大桌牌阵',
-      inputSchema: lenormandSchema.shape,
+      inputSchema: { ...lenormandSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = buildLenormandResult(args);
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '雷诺曼抽牌失败'));
       }
@@ -65,10 +65,9 @@ export function registerLenormandTool(server: McpServer) {
     'lenormand_prompt',
     {
       description:
-        '雷诺曼抽牌并生成结构化 AI 解读提示词：一次调用返回牌阵结果和可直接复制给 AI 的提示词',
+        '雷诺曼抽牌并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要牌阵结果时调用 divine_lenormand',
       inputSchema: lenormandPromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('雷诺曼牌阵结果'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

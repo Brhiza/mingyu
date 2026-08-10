@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
-import { resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -52,15 +52,14 @@ export function registerJinkoujueTool(server: McpServer) {
   server.registerTool(
     'divine_jinkoujue',
     {
-      description:
-        '金口诀起课：按地分、将神、贵神、人元四位一体生成完整课盘与结构化证据',
-      inputSchema: jinkoujueSchema.shape,
+      description: '金口诀起课：按地分、将神、贵神、人元四位一体生成完整课盘与结构化证据',
+      inputSchema: { ...jinkoujueSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const result = generateJinkoujue(buildJinkoujueInput(args));
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '金口诀起课失败'));
       }
@@ -71,10 +70,9 @@ export function registerJinkoujueTool(server: McpServer) {
     'jinkoujue_prompt',
     {
       description:
-        '金口诀起课并生成结构化 AI 解读提示词：一次调用返回四位课盘与可直接复制给 AI 的提示词',
+        '金口诀起课并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要四位课盘时调用 divine_jinkoujue',
       inputSchema: jinkoujuePromptSchema.shape,
       outputSchema: {
-        result: z.unknown().describe('金口诀课盘数据'),
         prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
       },
     },

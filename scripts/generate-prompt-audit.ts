@@ -11,6 +11,9 @@ import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
+import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
+import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
@@ -22,6 +25,9 @@ import { generateResidentialFengshui } from '@core/residential_fengshui';
 import { generateXuanKong } from '@core/xuan_kong';
 import { generateTaiyi } from '@core/taiyi';
 import { qizheng } from '@core/qi_zheng';
+import { calculateWuyunLiuqi } from '@core/wuyun-liuqi';
+import { calculateHuangjiJingshi } from '@core/huangji-jingshi';
+import { calculateZodiacYearFortune } from '@core/zodiac';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 
@@ -111,18 +117,19 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '八宅风水',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '四吉方', '四凶方'],
+  },
+  {
+    sampleName: '住宅风水',
     requiredFields: [
       '【当前时间】',
       '【问题】',
       '【任务】',
       '【传统依据】',
-      '命卦八宫明细',
-      '宅卦八宫明细',
+      '住宅风水排盘',
+      '玄空',
+      '八宅',
     ],
-  },
-  {
-    sampleName: '住宅风水',
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '住宅风水排盘', '玄空', '八宅'],
   },
   {
     sampleName: '玄空飞星',
@@ -147,8 +154,31 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '核心宫位',
       '主客定算',
       '将参',
-      '十六神',
     ],
+  },
+  {
+    sampleName: '小六壬',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '占得宫'],
+  },
+  {
+    sampleName: '金口诀',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '四位'],
+  },
+  {
+    sampleName: '雷诺曼',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '牌位明细'],
+  },
+  {
+    sampleName: '五运六气',
+    requiredFields: ['【问题】', '【任务】', '【传统依据】', '五步主客运', '六步主客气'],
+  },
+  {
+    sampleName: '皇极经世',
+    requiredFields: ['【问题】', '【任务】', '【传统依据】', '【周期资料】', '本元第'],
+  },
+  {
+    sampleName: '生肖流年',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '生肖与流年关系'],
   },
 ];
 
@@ -305,13 +335,17 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     },
     {
       label: '外部补充或缺项清单',
-      pattern:
-        /需要补充|请补充|补充资料/,
+      pattern: /需要补充|请补充|补充资料/,
     },
     {
       label: '提示词任务噪音',
       pattern:
         /【输出要求】|使用简体中文|简体中文输出|行动建议|现实建议|风险提醒|掷筊|投筊|提示:|留意:|合参要点|宿界模型|证据汇总|解释限制|结构化证据|计算链/,
+    },
+    {
+      label: '重复或低价值展开',
+      pattern:
+        /时间干支：|关键提示：|补充提示：|牌位顺序：|宫主星落宫：|宫头位置：|十二宫映射：|命卦八宫明细：|宅卦八宫明细：|十六神：|取传依据：|卦辞分类：|顺数轨迹：|元素主题：|牌阶主题：|旺衰依据:|格局依据:|喜忌五行:|喜忌十神:|十神归类:|取用脉络:|特殊宫位:|盘面数量：|应期资料：|组合时机：|起课方式：|月将贵人：|类神主线：|日期结论：|行运基准：|次限推进：/,
     },
   ];
 
@@ -444,11 +478,10 @@ async function buildSamples(): Promise<PromptSample[]> {
       timezone: 8,
       useTrueSolarTime: false,
     });
-    const qizhengPrompt = buildMetaphysicsPrompt(
-      qizhengData.prompt,
-      '请分析本命结构。',
-      { method: 'qizheng', currentTime: fixedNow },
-    );
+    const qizhengPrompt = buildMetaphysicsPrompt(qizhengData.prompt, '请分析本命结构。', {
+      method: 'qizheng',
+      currentTime: fixedNow,
+    });
 
     const auditDate = new Date(CUSTOM_DATE);
     const commonQuestion = COMMON_PROJECT_QUESTION;
@@ -473,6 +506,22 @@ async function buildSamples(): Promise<PromptSample[]> {
       liurenTemplate: 'shiye',
     });
 
+    const xiaoliurenData = generateXiaoliuren({ customDate: auditDate });
+    const xiaoliurenPrompt = buildDivinationPrompt(
+      'xiaoliuren',
+      commonQuestion,
+      xiaoliurenData,
+      commonInfo,
+    );
+
+    const jinkoujueData = generateJinkoujue({ customDate: auditDate, method: 'time' });
+    const jinkoujuePrompt = buildDivinationPrompt(
+      'jinkoujue',
+      commonQuestion,
+      jinkoujueData,
+      commonInfo,
+    );
+
     const tarotDraw = drawSpreadCards('decision', { seed: 20260519 });
     const tarotData = {
       spreadType: tarotDraw.spreadType,
@@ -490,6 +539,14 @@ async function buildSamples(): Promise<PromptSample[]> {
       timestamp: fixedNow.getTime(),
     };
     const tarotPrompt = buildDivinationPrompt('tarot', commonQuestion, tarotData, commonInfo);
+
+    const lenormandData = drawLenormandSpread('five', { seed: 20260520 });
+    const lenormandPrompt = buildDivinationPrompt(
+      'lenormand',
+      commonQuestion,
+      lenormandData,
+      commonInfo,
+    );
 
     const ssgwData = drawRandomSign(auditDate, { seed: 20260521 });
     const ssgwPrompt = buildDivinationPrompt('ssgw', commonQuestion, ssgwData, commonInfo);
@@ -536,6 +593,22 @@ async function buildSamples(): Promise<PromptSample[]> {
       taiyiData.prompt,
       '请分析 2026 年更适合主动推进还是稳守，以及应观察什么信号。',
       { method: 'taiyi', currentTime: fixedNow },
+    );
+
+    const wuyunLiuqiData = calculateWuyunLiuqi({
+      year: 2026,
+      question: '请解读本年的运气节律重点。',
+    });
+    const huangjiJingshiData = calculateHuangjiJingshi({
+      epochYear: 1,
+      year: 2026,
+      question: '请解读目标年所处的周期位置。',
+    });
+    const zodiacData = calculateZodiacYearFortune({ zodiac: '午', year: 2026 });
+    const zodiacPrompt = buildMetaphysicsPrompt(
+      zodiacData.prompt,
+      '属马的人在 2026 年应重点关注哪些流年关系？',
+      { method: 'zodiac', currentTime: fixedNow },
     );
 
     const residentialData = generateResidentialFengshui({
@@ -633,10 +706,31 @@ async function buildSamples(): Promise<PromptSample[]> {
         notes: [],
       },
       {
+        name: '小六壬',
+        source: '项目小六壬时间课真实生成；固定时间 2026-05-19T10:30:00+08:00。',
+        inputSummary: buildCommonProjectInputSummary('时间起课'),
+        prompt: xiaoliurenPrompt,
+        notes: [],
+      },
+      {
+        name: '金口诀',
+        source: '项目金口诀时间课真实生成；固定时间 2026-05-19T10:30:00+08:00。',
+        inputSummary: buildCommonProjectInputSummary('时间起课'),
+        prompt: jinkoujuePrompt,
+        notes: [],
+      },
+      {
         name: '塔罗牌',
         source: '项目牌组真实抽牌；固定随机种子 20260519；决策牌阵。',
         inputSummary: buildCommonProjectInputSummary('牌阵：决策'),
         prompt: tarotPrompt,
+        notes: [],
+      },
+      {
+        name: '雷诺曼',
+        source: '项目牌组真实抽牌；固定随机种子 20260520；五牌十字阵。',
+        inputSummary: buildCommonProjectInputSummary('牌阵：五牌十字阵'),
+        prompt: lenormandPrompt,
         notes: [],
       },
       {
@@ -683,6 +777,27 @@ async function buildSamples(): Promise<PromptSample[]> {
           '当前只开放完成积年与七十二局立成校勘的年计。',
           '月、日、时计等待完整古籍历法链校勘，不生成近似盘审查样本。',
         ],
+      },
+      {
+        name: '五运六气',
+        source: '项目五运六气算法真实生成；公历 2026 年。',
+        inputSummary: '2026年年度运气结构；问题为本年运气节律重点。',
+        prompt: wuyunLiuqiData.prompt,
+        notes: [],
+      },
+      {
+        name: '皇极经世',
+        source: '项目皇极经世元会运世周期算法真实生成；纪元坐标 1，目标年坐标 2026。',
+        inputSummary: '纪元第一年坐标为1，目标年坐标为2026；问题为周期位置。',
+        prompt: huangjiJingshiData.prompt,
+        notes: [],
+      },
+      {
+        name: '生肖流年',
+        source: '项目生肖流年算法真实生成；午生肖，2026丙午年。',
+        inputSummary: '生肖午（马）；流年2026；问题为重点流年关系。',
+        prompt: zodiacPrompt,
+        notes: [],
       },
     ];
   });

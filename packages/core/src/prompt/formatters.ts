@@ -47,20 +47,6 @@ export function formatSupplementaryInfoSection(
   if (!supplementaryInfo) return '';
 
   const lines: string[] = [];
-  if (method === 'meihua' && supplementaryInfo.meihuaSettings?.method) {
-    const labels: Record<string, string> = {
-      time: '时间起卦',
-      number: '数字起卦',
-      random: '随机起卦',
-      timeTrigram: '时间起卦兼容项',
-    };
-    lines.push(
-      `起卦方式：${labels[supplementaryInfo.meihuaSettings.method] || supplementaryInfo.meihuaSettings.method}`,
-    );
-  }
-  if (method === 'meihua' && typeof supplementaryInfo.meihuaSettings?.number === 'number') {
-    lines.push(`起卦数字：${supplementaryInfo.meihuaSettings.number}`);
-  }
   if (supplementaryInfo.userSupplement?.trim()) {
     lines.push(
       method === 'almanac'
