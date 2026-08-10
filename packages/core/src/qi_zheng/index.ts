@@ -1816,7 +1816,6 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
         : '未见容许度内的主要同宫、六合、四正、三方或对照'
     }。`,
     `命宫在${TWELVE_PALACES[0]}（${getQizhengSignBranch(mingGong)}宫），命主${mingZhu}；身宫在${getQizhengSignBranch(shenGong)}宫。`,
-    `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=${item.signBranch}宫`).join('；')}。`,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
   ].join('\n');
 

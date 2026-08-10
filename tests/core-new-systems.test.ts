@@ -602,6 +602,7 @@ test('qizheng: 完整传统盘应返回十一星、二十八宿界与结构化�
   assert.equal(result.mansionBoundaries.length, 28);
   assert.equal(result.evidenceAnalysis.status, '已计算');
   assert.equal(result.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
+  assert.doesNotMatch(result.prompt, /十二宫映射：/);
 });
 
 test('qizheng: 核心入口仍应优先拒绝无效输入', () => {
