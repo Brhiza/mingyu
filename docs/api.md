@@ -88,8 +88,8 @@
 | `POST /metaphysics/taiyi/prompt`              | 太乙神数排盘并生成 AI 解读提示词                               |
 | `POST /metaphysics/wuyun-liuqi/calculate`     | 五运六气五步主客运、符会及六步主客气                           |
 | `POST /metaphysics/wuyun-liuqi/prompt`        | 五运六气计算并生成自包含 AI 解读提示词                         |
-| `POST /metaphysics/huangji-jingshi/calculate` | 按明确纪元换算元会运世位置、进度与下一层周期边界               |
-| `POST /metaphysics/huangji-jingshi/prompt`    | 皇极经世周期换算并生成自包含 AI 解读提示词                     |
+| `POST /metaphysics/huangji-jingshi/calculate` | 皇极经世元会运世、统卦、运卦、十年卦和值年卦完整排盘           |
+| `POST /metaphysics/huangji-jingshi/prompt`    | 皇极经世完整排盘并生成自包含 AI 解读提示词                     |
 | `POST /metaphysics/qizheng/calculate`         | 七政四余十一星、真实距星宿界、命身十二宫、庙旺吊照与结构化证据 |
 | `POST /metaphysics/qizheng/prompt`            | 七政四余排盘并生成含分层天文证据的 AI 解读提示词               |
 | `POST /ai/analyze`                            | AI 解读，返回 SSE 流式响应                                     |
@@ -107,41 +107,41 @@
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
-7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世不自动选择纪元，缺少明确纪元年坐标时应先补资料。
+7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世普通占断只需提供公元年，研究其他纪元时再额外提供 `epochYear`。
 
 常见问题到推荐接口：
 
-| 用户问题类型                       | 首选接口                                     | 推荐参数                                                                                                                                                    | 说明                                                                       |
-| ---------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 换算真太阳时                       | `POST /calendar/true-solar-time`             | `localDateTime`、`longitude`，可选 `timezone`、`timeZoneId`、`applyChinaDst`                                                                                | 支持固定偏移或 IANA 历史时区，返回修正明细、跨日状态和对应时辰             |
-| 计算太阳光照证据                   | `POST /calendar/solar-illumination`          | `year`、`month`、`day`、`latitude`、`longitude`，并提供 `timezone` 或 `timeZoneId`；可选参考时分秒                                                          | 返回太阳高度、方位、视太阳正午、日出日落与三类曙暮光                       |
-| 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                    | `ganZhi`，如“甲子”                                                                                                                                          | 返回统一公共地基资料，不需重复实现                                         |
-| 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认计入地支藏干权重                                                       |
-| 核验通用神煞命中                   | `POST /foundation/shensha`                   | 完整年、月、日、时四柱干支；可选 `ids`                                                                                                                      | 返回空亡、驿马、桃花的固定起法、目标地支、命中柱位、来源与限制             |
-| 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`                                                                       | 有完整出生信息时优先合参；想看完整阶段时用 `full`                          |
-| 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题填事业、财运、感情等                                                                                                           | 八字看岁运触发，紫微看流年落宫与四化                                       |
-| 换工作、创业、合伙、投资合作       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题                                                                               | 这类问题兼具长期结构和当前触发，优先合参                                   |
-| 只看八字格局、用神、流年流月       | `POST /bazi/prompt`                          | `promptTopic`，`baziFortuneScope: "full"`、`"year"`、`"month"` 或 `"day"`                                                                                   | 明确要求八字时使用                                                         |
-| 只看紫微宫位、四化、某年某月运限   | `POST /ziwei/prompt`                         | `promptTopic`，`promptScope: "full"`、`"yearly"`、`"monthly"`、`"daily"` 或 `"hourly"`                                                                      | 明确要求紫微时使用                                                         |
-| 当前事项能否推进、短期成败         | `POST /divination/liuyao/prompt`             | `question`，必要时传 `customDate`                                                                                                                           | 六爻适合一事一问、取用和应期                                               |
-| 项目推进、方向选择、谈判出行、方位 | `POST /divination/qimen/prompt`              | `question`，可选 `qimenMethod: "zhuanpan"` 或 `"feipan"`，必要时传 `customDate`                                                                             | 奇门适合时空局势、路径、方位和行动窗口                                     |
-| 临时小事、快速判断                 | `POST /divination/xiaoliuren/prompt`         | `question`，可选 `xiaoliurenMethod`、`xiaoliurenSchool` 和 `xiaoliurenNumber`                                                                               | 返回三宫推进、五行、旺衰、触发条件与反证限制；不用于长期命运               |
-| 以数字或时间起卦的象意判断         | `POST /divination/meihua/prompt`             | `question`，可选 `method`、`number` 或 `customDate`                                                                                                         | 梅花适合象意、触发点和过程结果                                             |
-| 更传统复杂的一事一课               | `POST /divination/liuren/prompt`             | `question`，可选 `liurenTemplate` 和 `customDate`                                                                                                           | 大六壬适合较严肃的事项推演                                                 |
-| 结婚、搬家、开业、签约、出行、安葬 | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`                                                                                    | 只在候选日期范围内择优，不应让 AI 推荐范围外日期                           |
-| 星盘本命、行运、流年流月           | `POST /divination/astrolabe/prompt`          | 出生时间地点、经纬度、时区、`astrolabeTopic`、`astrolabeScope`；行运范围同时传 `astrolabeScopeDate`                                                         | 需要明确行运日期；不会自动套用服务器当前日期                               |
-| 西占双方关系、合作或婚恋互动       | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                                                                                                     | 返回跨盘相位、容许度、落宫和解释边界，不给虚假匹配分                       |
-| 牌面灵感、关系牌阵、选择牌阵       | `POST /divination/tarot/prompt`              | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                           |
-| 雷诺曼关系或选择牌阵               | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                           |
-| 求签                               | `POST /divination/ssgw/prompt`               | `question`                                                                                                                                                  | 有拒签情况时如实返回，不强行解释                                           |
-| 住宅风水（八宅+玄空）              | `POST /metaphysics/residential/prompt`       | 山向或居住人至少一项：`birthYear`+`gender`/`mingGua`，`sitMountain`/`facingDegree`/`doorToInteriorDegree`，可选 `year` 建造/起运年                          | 统一入口；可只做人宅、只做宅运或两者合参；不给综合吉凶总分                 |
-| 仅八宅命卦、坐山吉凶               | `POST /metaphysics/bazhai/prompt`            | `birthYear`、`gender`、可选 `sitMountain`；实测可传 `doorToInteriorDegree`、`northReference`、`magneticDeclinationDegrees`、`measurementUncertaintyDegrees` | 返回磁北/真北换算、候选坐向与边界稳定性                                    |
-| 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                                         |
-| 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | 当前只接受 `scope: "year"` 与 `year`                                                                                                                        | 年计按积年与阳遁七十二局立成；结果含 `evidenceAnalysis` 结构化证据         |
-| 五运六气年度结构                   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`；同时提供时会校验一致性，可选 `question`                                                                                             | 返回五步主客运、五类符会与六步主客气；不替代实际气象或医疗资料             |
-| 皇极经世元会运世                   | `POST /metaphysics/huangji-jingshi/prompt`   | 必填 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个                                                                                                    | 返回周期位置、已过与剩余年数及下一层边界；纪元由调用方明确，不自动补值年卦 |
-| 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`                                                                        | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照和分层天文证据               |
-| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选测量误差                                                                                                 | 返回下卦的三元九运、三盘飞星、局型、到山到向与结构化证据                   |
+| 用户问题类型                       | 首选接口                                     | 推荐参数                                                                                                                                                    | 说明                                                               |
+| ---------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 换算真太阳时                       | `POST /calendar/true-solar-time`             | `localDateTime`、`longitude`，可选 `timezone`、`timeZoneId`、`applyChinaDst`                                                                                | 支持固定偏移或 IANA 历史时区，返回修正明细、跨日状态和对应时辰     |
+| 计算太阳光照证据                   | `POST /calendar/solar-illumination`          | `year`、`month`、`day`、`latitude`、`longitude`，并提供 `timezone` 或 `timeZoneId`；可选参考时分秒                                                          | 返回太阳高度、方位、视太阳正午、日出日落与三类曙暮光               |
+| 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                    | `ganZhi`，如“甲子”                                                                                                                                          | 返回统一公共地基资料，不需重复实现                                 |
+| 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认计入地支藏干权重                                               |
+| 核验通用神煞命中                   | `POST /foundation/shensha`                   | 完整年、月、日、时四柱干支；可选 `ids`                                                                                                                      | 返回空亡、驿马、桃花的固定起法、目标地支、命中柱位、来源与限制     |
+| 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`                                                                       | 有完整出生信息时优先合参；想看完整阶段时用 `full`                  |
+| 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题填事业、财运、感情等                                                                                                           | 八字看岁运触发，紫微看流年落宫与四化                               |
+| 换工作、创业、合伙、投资合作       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题                                                                               | 这类问题兼具长期结构和当前触发，优先合参                           |
+| 只看八字格局、用神、流年流月       | `POST /bazi/prompt`                          | `promptTopic`，`baziFortuneScope: "full"`、`"year"`、`"month"` 或 `"day"`                                                                                   | 明确要求八字时使用                                                 |
+| 只看紫微宫位、四化、某年某月运限   | `POST /ziwei/prompt`                         | `promptTopic`，`promptScope: "full"`、`"yearly"`、`"monthly"`、`"daily"` 或 `"hourly"`                                                                      | 明确要求紫微时使用                                                 |
+| 当前事项能否推进、短期成败         | `POST /divination/liuyao/prompt`             | `question`，必要时传 `customDate`                                                                                                                           | 六爻适合一事一问、取用和应期                                       |
+| 项目推进、方向选择、谈判出行、方位 | `POST /divination/qimen/prompt`              | `question`，可选 `qimenMethod: "zhuanpan"` 或 `"feipan"`，必要时传 `customDate`                                                                             | 奇门适合时空局势、路径、方位和行动窗口                             |
+| 临时小事、快速判断                 | `POST /divination/xiaoliuren/prompt`         | `question`，可选 `xiaoliurenMethod`、`xiaoliurenSchool` 和 `xiaoliurenNumber`                                                                               | 返回三宫推进、五行、旺衰、触发条件与反证限制；不用于长期命运       |
+| 以数字或时间起卦的象意判断         | `POST /divination/meihua/prompt`             | `question`，可选 `method`、`number` 或 `customDate`                                                                                                         | 梅花适合象意、触发点和过程结果                                     |
+| 更传统复杂的一事一课               | `POST /divination/liuren/prompt`             | `question`，可选 `liurenTemplate` 和 `customDate`                                                                                                           | 大六壬适合较严肃的事项推演                                         |
+| 结婚、搬家、开业、签约、出行、安葬 | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`                                                                                    | 只在候选日期范围内择优，不应让 AI 推荐范围外日期                   |
+| 星盘本命、行运、流年流月           | `POST /divination/astrolabe/prompt`          | 出生时间地点、经纬度、时区、`astrolabeTopic`、`astrolabeScope`；行运范围同时传 `astrolabeScopeDate`                                                         | 需要明确行运日期；不会自动套用服务器当前日期                       |
+| 西占双方关系、合作或婚恋互动       | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                                                                                                     | 返回跨盘相位、容许度、落宫和解释边界，不给虚假匹配分               |
+| 牌面灵感、关系牌阵、选择牌阵       | `POST /divination/tarot/prompt`              | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                   |
+| 雷诺曼关系或选择牌阵               | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                   |
+| 求签                               | `POST /divination/ssgw/prompt`               | `question`                                                                                                                                                  | 有拒签情况时如实返回，不强行解释                                   |
+| 住宅风水（八宅+玄空）              | `POST /metaphysics/residential/prompt`       | 山向或居住人至少一项：`birthYear`+`gender`/`mingGua`，`sitMountain`/`facingDegree`/`doorToInteriorDegree`，可选 `year` 建造/起运年                          | 统一入口；可只做人宅、只做宅运或两者合参；不给综合吉凶总分         |
+| 仅八宅命卦、坐山吉凶               | `POST /metaphysics/bazhai/prompt`            | `birthYear`、`gender`、可选 `sitMountain`；实测可传 `doorToInteriorDegree`、`northReference`、`magneticDeclinationDegrees`、`measurementUncertaintyDegrees` | 返回磁北/真北换算、候选坐向与边界稳定性                            |
+| 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                                 |
+| 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | 当前只接受 `scope: "year"` 与 `year`                                                                                                                        | 年计按积年与阳遁七十二局立成；结果含 `evidenceAnalysis` 结构化证据 |
+| 五运六气年度结构                   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`；同时提供时会校验一致性，可选 `question`                                                                                             | 返回五步主客运、五类符会与六步主客气；不替代实际气象或医疗资料     |
+| 皇极经世年度占断                   | `POST /metaphysics/huangji-jingshi/prompt`   | 普通模式只传公元 `year`；自定义纪元传 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个                                                                   | 返回元会运世、统卦、运卦、六十年统卦、十年卦、值年卦及互错综卦     |
+| 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`                                                                        | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照和分层天文证据       |
+| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选测量误差                                                                                                 | 返回下卦的三元九运、三盘飞星、局型、到山到向与结构化证据           |
 
 参数选择建议：
 
@@ -286,12 +286,12 @@ curl -X POST https://aov.cc/api/v1/metaphysics/wuyun-liuqi/prompt \
   -d '{"year":2026,"question":"请解释本年的运气结构和气候节律。","responseMode":"prompt-only"}'
 ```
 
-皇极经世周期提示词（示例纪元仅表示调用方已经明确的整数坐标）：
+皇极经世完整值年卦提示词：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/metaphysics/huangji-jingshi/prompt \
   -H "Content-Type: application/json" \
-  -d '{"epochYear":1000,"year":2026,"question":"请解释目标年的元会运世周期位置。","responseMode":"prompt-only"}'
+  -d '{"year":2026,"question":"请解释这一年的事业环境与主要变化。","responseMode":"prompt-only"}'
 ```
 
 塔罗抽牌并生成提示词：
@@ -388,8 +388,9 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 
 - 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算。结果包含固定木火土金水的五步主运、从中运起按相生轮转的五步客运、五音太少、传统交司日期、司天与中运的同气、顺化、天刑、小逆、不和关系，天符、岁会、太乙天符、同天符、同岁会逐项核验，以及从大寒起每四个节气一组的六步主客气。交司日期保留《运气要诀》的“节气后第几日”口径，不包装成精确到时分秒的现代时刻。
 - 吴谦《运气要诀》列出的五类符会逐年名单按六十甲子去重为 26 年，与原文“二十八年”汇总不一致；接口保留 `sourceReconciliation` 校勘说明，并以逐项定义和逐年名单为计算依据。
-- 皇极经世必须明确提供 `epochYear`，表示某一元第一年的整数坐标；`year` 与 `elapsedYears` 必须且只能提供一个，`elapsedYears: 0` 表示纪元第一年。整数坐标不会自动解释为公元或其他纪年。
-- 皇极经世返回的 `progress` 分别给出当前元、会、运、世内已过年数、当前年之后剩余的完整年数，以及下一元、会、运、世开始年坐标；所有层级序号均从 1 开始。
+- 皇极经世普通模式只需提供公元 `year`，默认采用公元前 67017 年为本元起点、1984 年鼎卦为甲子值年锚点的通行排法，返回会内统卦、运卦、六十年统卦、十年卦、值年卦及互卦、错卦、综卦。
+- 研究自定义纪元时提供 `epochYear`，并从 `year` 与 `elapsedYears` 中选择一项；该模式保留纯元会运世坐标换算，不附通行值年卦。
+- `progress` 分别给出当前元、会、运、世内已过年数、当前年之后剩余的完整年数，以及下一元、会、运、世开始年；所有层级序号均从 1 开始。
 
 - `gender` 使用 `male` 或 `female`。
 - `dateType` 使用 `solar` 或 `lunar`。

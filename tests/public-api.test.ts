@@ -328,10 +328,10 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     { required: ['yearGanZhi'] },
   ]);
   assert.deepEqual(body.data.components.schemas.HuangjiJingshiRequest.oneOf, [
-    { required: ['year'] },
-    { required: ['elapsedYears'] },
+    { required: ['year'], not: { required: ['elapsedYears'] } },
+    { required: ['epochYear', 'elapsedYears'], not: { required: ['year'] } },
   ]);
-  assert.deepEqual(body.data.components.schemas.HuangjiJingshiRequest.required, ['epochYear']);
+  assert.equal(body.data.components.schemas.HuangjiJingshiRequest.required, undefined);
   assert.equal(body.data.paths['/metaphysics/qizheng/calculate'].post.responses['400'], undefined);
   assert.equal(
     body.data.paths['/foundation/shensha'].post.requestBody.content['application/json'].schema.$ref,
@@ -5110,7 +5110,22 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });
 
-test('公开 API 皇极经世应按明确纪元返回元会运世与轻量提示词结果', async () => {
+test('公开 API 皇极经世应直接按公元年返回完整值年卦，并保留自定义纪元换算', async () => {
+  const standard = await callApi('metaphysics/huangji-jingshi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2026 }),
+  });
+
+  assert.equal(standard.response.status, 200);
+  assert.equal(standard.body.data.input.mode, '通行公元年');
+  assert.equal(standard.body.data.forecast.hui.branch, '午');
+  assert.equal(standard.body.data.forecast.hexagrams.governing.hexagram.name, '泽风大过');
+  assert.equal(standard.body.data.forecast.hexagrams.yun.hexagram.name, '天风姤');
+  assert.equal(standard.body.data.forecast.hexagrams.sixtyYear.hexagram.name, '火风鼎');
+  assert.equal(standard.body.data.forecast.hexagrams.decade.hexagram.name, '天风姤');
+  assert.equal(standard.body.data.forecast.hexagrams.annual.name, '天火同人');
+
   const calculation = await callApi('metaphysics/huangji-jingshi/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -5127,26 +5142,27 @@ test('公开 API 皇极经世应按明确纪元返回元会运世与轻量提示
   assert.equal(calculation.body.data.progress.shi.completedYears, 6);
   assert.equal(calculation.body.data.progress.shi.remainingYearsAfterCurrent, 23);
   assert.equal(calculation.body.data.progress.shi.nextCycleStartYear, 2050);
+  assert.equal(calculation.body.data.forecast, undefined);
 
   const prompted = await callApi('metaphysics/huangji-jingshi/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      epochYear: 1000,
-      elapsedYears: 1026,
-      question: '请解释目标年的周期位置。',
+      year: 2026,
+      question: '请解释这一年的事业环境。',
       responseMode: 'summary',
     }),
   });
 
   assert.equal(prompted.response.status, 200);
   assert.equal(prompted.body.data.result, undefined);
-  assert.equal(prompted.body.data.resultSummary.input.epochYear, 1000);
+  assert.equal(prompted.body.data.resultSummary.input.epochYear, -67017);
   assert.equal(prompted.body.data.resultSummary.position.year.coordinate, 2026);
-  assert.equal(prompted.body.data.resultSummary.progress.shi.nextCycleStartYear, 2050);
-  assert.match(prompted.body.data.prompt, /【周期资料】[\s\S]*目标年坐标：2026/);
-  assert.match(prompted.body.data.prompt, /周期边界：[\s\S]*下一世始于 2050/);
-  assert.match(prompted.body.data.prompt, /【问题】\n请解释目标年的周期位置。/);
+  assert.equal(prompted.body.data.resultSummary.forecast.hexagrams.annual.name, '天火同人');
+  assert.match(prompted.body.data.prompt, /【排盘资料】[\s\S]*目标年份：公元2026年/);
+  assert.match(prompted.body.data.prompt, /六十年统卦：火风鼎[\s\S]*十年卦：天风姤/);
+  assert.match(prompted.body.data.prompt, /值年卦：天火同人/);
+  assert.match(prompted.body.data.prompt, /【问题】\n请解释这一年的事业环境。/);
   assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });
 
@@ -5194,7 +5210,9 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     ['metaphysics/wuyun-liuqi/calculate', {}],
     ['metaphysics/wuyun-liuqi/calculate', { yearGanZhi: '甲丑' }],
     ['metaphysics/wuyun-liuqi/calculate', { year: 2026, yearGanZhi: '乙巳' }],
-    ['metaphysics/huangji-jingshi/calculate', { year: 2026 }],
+    ['metaphysics/huangji-jingshi/calculate', { elapsedYears: 1026 }],
+    ['metaphysics/huangji-jingshi/calculate', { year: 0 }],
+    ['metaphysics/huangji-jingshi/calculate', { year: 2026, elapsedYears: 1026 }],
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000 }],
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000, year: 2026, elapsedYears: 1026 }],
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000, year: 999 }],
