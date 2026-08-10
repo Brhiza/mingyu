@@ -691,7 +691,7 @@ test('八字提示词只在柱位标记空亡，不另起详解段', () => {
   assert.doesNotMatch(withoutPrompt.user, /【空亡详解】/);
 });
 
-test('八字提示词空亡详解应跟随年日旬空的实际命中柱位', () => {
+test('八字提示词不应把问真年柱旬空口径展开为空亡详解', () => {
   const result = baziCalculator.calculateBazi({
     year: 1980,
     month: 1,
@@ -717,7 +717,7 @@ test('八字提示词空亡详解应跟随年日旬空的实际命中柱位', ()
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【空亡详解】命盘见空亡：月柱、时柱。/);
+  assert.doesNotMatch(prompt.user, /【空亡详解】/);
   assert.doesNotMatch(prompt.user, /月柱:[^\n]*\(空亡\)|时柱:[^\n]*\(空亡\)/);
 
   const localFormatted = formatBaziForPromptLocal(result);
