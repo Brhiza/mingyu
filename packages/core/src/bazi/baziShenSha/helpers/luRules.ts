@@ -341,8 +341,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         丑: '酉',
       };
       return (
-        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
-        (pillarIndex !== 2 && map[riZhi] === zhi)
+        (pillarIndex !== 0 && map[nianZhi] === zhi) || (pillarIndex !== 2 && map[riZhi] === zhi)
       );
     },
     华盖: () => {
@@ -361,8 +360,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         丑: '丑',
       };
       return (
-        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
-        (pillarIndex !== 2 && map[riZhi] === zhi)
+        (pillarIndex !== 0 && map[nianZhi] === zhi) || (pillarIndex !== 2 && map[riZhi] === zhi)
       );
     },
     金舆: () => {
