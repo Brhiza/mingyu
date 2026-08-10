@@ -171,13 +171,15 @@ function formatLiuyaoInfo(
       const changedText = item.changedYao
         ? `化${item.changedYao.liuqin}${item.changedYao.dizhi}${item.changedYao.wuxing}${changeRelations.length ? `（${changeRelations.join('、')}）` : item.changedYao.isVoid ? '（变空）' : ''}${item.changeDirection ? `（${item.changeDirection}）` : ''}`
         : '无变爻资料';
-      const breakText = item.isDayBreak
-        ? item.isHiddenMove
-          ? '（暗动）'
-          : '（日破）'
-        : item.isMonthBreak
-          ? '（月破）'
-          : '';
+      const breakText = item.isHiddenMove
+        ? '（暗动）'
+        : item.isDayBreak
+          ? '（日破）'
+          : item.isChanging && item.isDayClash
+            ? '（日辰冲动）'
+            : item.isMonthBreak
+              ? '（月破）'
+              : '';
       return `${formatLiuyaoYaoBrief(item)}${item.isVoid ? '（空）' : ''}${breakText}${changedText}`;
     });
   const voidYaoText = data.yaosDetail
@@ -449,12 +451,20 @@ function formatLiurenInfo(data: LiurenData) {
   ].filter(Boolean);
   const guaTiText = data.guaTi?.length ? data.guaTi.join('、') : '';
   const guaTiSection = guaTiText ? `课体：${guaTiText}` : '';
+  const shenShaText = (
+    data.shenShaFacts?.length
+      ? data.shenShaFacts.map((item) => `${item.name}在${item.target}`)
+      : data.shenShaSummary || []
+  )
+    .slice(0, 6)
+    .join('、');
   return [
     '占法：大六壬',
     `核心结构：${plateSummaryText.join('；')}`,
     data.dayStemResidence ? `日干寄宫：${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence}` : '',
     mainLineText.length ? `课传主线：${mainLineText.join('；')}` : '',
     guaTiSection,
+    shenShaText ? `神煞：${shenShaText}` : '',
     lessonLines.length ? '四课：' : '',
     ...lessonLines.map((item) => `- ${item}`),
     transmissionLines.length ? '三传：' : '',

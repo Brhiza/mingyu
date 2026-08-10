@@ -96,6 +96,16 @@ test('当前年份不在命盘运限范围时不应静默回退到第一步大�
   assert.equal(buildRecentBaziFortuneSelection(result, outOfRangeDate), null);
 });
 
+test('当前大运定位应服从交运时刻而不是只看交运年份', () => {
+  const result = createMockResult();
+  const cycle = result.luckInfo.cycles[0];
+  cycle.startSolarTime = { year: 2008, month: 2, day: 8, hour: 12, minute: 0, second: 0 };
+  cycle.endSolarTime = { year: 2018, month: 2, day: 8, hour: 12, minute: 0, second: 0 };
+
+  assert.equal(getCurrentBaziLuckCycle(result, new Date(2008, 1, 8, 11, 59, 59)), null);
+  assert.equal(getCurrentBaziLuckCycle(result, new Date(2008, 1, 8, 12)), cycle);
+});
+
 test('选择大运时会附带该大运下的全部流年', () => {
   const result = createMockResult();
   const context = buildFortuneSelectionContext(result, {
@@ -229,14 +239,14 @@ test('选择流日时只保留该流日本身', () => {
   assert.equal(context.scope, 'day');
   assert.equal(context.promptPayload.breakdownTitle, '该流日包含的流时');
   assert.equal(context.dayBreakdown?.length, 1);
-  assert.equal(context.hourBreakdown?.length, 13);
+  assert.equal(context.hourBreakdown?.length, 12);
   assert.match(context.promptPayload.summaryLines.join('\n'), /流日：2008-02-08/);
   assert.match(
     context.promptPayload.summaryLines.join('\n'),
     /按子初换日：2008-02-07 23:00 至 2008-02-08 22:59/,
   );
-  assert.match(context.promptPayload.breakdownLines?.[0] ?? '', /晚子时/);
-  assert.match(context.promptPayload.breakdownLines?.[1] ?? '', /早子时/);
+  assert.match(context.promptPayload.breakdownLines?.[0] ?? '', /子时/);
+  assert.doesNotMatch(context.promptPayload.breakdownLines?.join('\n') ?? '', /晚子时|早子时/);
   assert.doesNotMatch(
     context.promptPayload.breakdownLines?.join('\n') ?? '',
     /2008-02-08 23:00-23:59/,
@@ -244,6 +254,59 @@ test('选择流日时只保留该流日本身', () => {
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】流日干支与十神/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /按子初换日/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /不得改写长期命局或整年趋势/);
+});
+
+test('流日可显式保留旧版早晚子时拆分', () => {
+  const context = buildFortuneSelectionContext(
+    createMockResult(),
+    { scope: 'day', cycleIndex: 0, year: 2008, month: 1, day: 5 },
+    { hourMode: 'splitZi' },
+  );
+
+  assert.equal(context?.hourBreakdown?.length, 13);
+  assert.match(context?.hourBreakdown?.[0]?.label ?? '', /晚子时/);
+  assert.match(context?.hourBreakdown?.[1]?.label ?? '', /早子时/);
+});
+
+test('岁运各层应按精确交运时刻裁剪并返回结构化时间', () => {
+  const result = createMockResult();
+  const cycle = result.luckInfo.cycles[0];
+  cycle.startSolarTime = { year: 2008, month: 2, day: 8, hour: 12, minute: 0, second: 0 };
+  cycle.endSolarTime = { year: 2008, month: 2, day: 9, hour: 12, minute: 0, second: 0 };
+
+  const year = buildFortuneSelectionContext(result, {
+    scope: 'year',
+    cycleIndex: 0,
+    year: 2008,
+  });
+  assert.equal(year?.monthBreakdown?.length, 1);
+  assert.equal(year?.monthBreakdown?.[0]?.timeRange.start.hour, 12);
+  assert.equal(year?.monthBreakdown?.[0]?.timeRange.start.day, 8);
+  assert.equal(year?.monthBreakdown?.[0]?.timeRange.end.day, 9);
+
+  const month = buildFortuneSelectionContext(result, {
+    scope: 'month',
+    cycleIndex: 0,
+    year: 2008,
+    month: 1,
+  });
+  assert.equal(month?.dayBreakdown?.length, 2);
+  assert.equal(month?.dayBreakdown?.[0]?.timeRange.start.hour, 12);
+  assert.equal(month?.dayBreakdown?.[1]?.timeRange.end.hour, 12);
+
+  const day = buildFortuneSelectionContext(result, {
+    scope: 'day',
+    cycleIndex: 0,
+    year: 2008,
+    month: 1,
+    day: 5,
+  });
+  assert.equal(day?.cycleTimeRange.startTimestamp, new Date(2008, 1, 8, 12).getTime());
+  assert.ok(
+    day?.hourBreakdown?.every(
+      (item) => item.interval.startTimestamp >= day.cycleTimeRange.startTimestamp,
+    ),
+  );
 });
 
 test('流日时辰拆解应先拒绝无效日期', () => {

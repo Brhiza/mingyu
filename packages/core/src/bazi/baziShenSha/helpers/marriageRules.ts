@@ -2,6 +2,7 @@ import type { RuleContext, ShenShaRuleMap } from './types';
 
 export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
   const { zhi, pillarIndex, nianZhi, riGan, riZhi, pillarGZ, isMan, cdz, zhiIdx } = ctx;
+  const isWenzhen = ctx.variants.referenceProfile === 'wenzhen';
 
   return {
     桃花: () => {
@@ -19,9 +20,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '午',
         丑: '午',
       };
-      return (
-        (pillarIndex !== 0 && map[nianZhi] === zhi) || (pillarIndex !== 2 && map[riZhi] === zhi)
-      );
+      return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
     红鸾: () => {
       const map: Record<string, string> = {
@@ -38,7 +37,10 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '巳',
         亥: '辰',
       };
-      return pillarIndex !== 0 && map[nianZhi] === zhi;
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
+        (!isWenzhen && pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     天喜: () => {
       const map: Record<string, string> = {
@@ -55,7 +57,10 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '亥',
         亥: '戌',
       };
-      return pillarIndex !== 0 && map[nianZhi] === zhi;
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
+        (!isWenzhen && pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     孤辰: () => {
       const map: Record<string, string> = {
@@ -72,7 +77,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '亥',
         戌: '亥',
       };
-      return pillarIndex !== 0 && map[nianZhi] === zhi;
+      return map[nianZhi] === zhi;
     },
     寡宿: () => {
       const map: Record<string, string> = {
@@ -89,28 +94,41 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '未',
         戌: '未',
       };
-      return pillarIndex !== 0 && map[nianZhi] === zhi;
+      return map[nianZhi] === zhi;
     },
     红艳煞: () => {
-      const map: Record<string, string> = {
-        甲: '午',
-        乙: '午',
-        丙: '寅',
-        丁: '未',
-        戊: '子',
-        己: '辰',
-        庚: '戌',
-        辛: '酉',
-        壬: '巳',
-        癸: '申',
-      };
+      const map: Record<string, string> = isWenzhen
+        ? {
+            甲: '午',
+            乙: '午',
+            丙: '寅',
+            丁: '未',
+            戊: '辰',
+            己: '辰',
+            庚: '戌',
+            辛: '酉',
+            壬: '子',
+            癸: '申',
+          }
+        : {
+            甲: '午',
+            乙: '午',
+            丙: '寅',
+            丁: '未',
+            戊: '子',
+            己: '辰',
+            庚: '戌',
+            辛: '酉',
+            壬: '巳',
+            癸: '申',
+          };
       return map[riGan] === zhi;
     },
     阴阳煞: () => (isMan ? pillarGZ === '丙子' : pillarGZ === '戊午'),
     勾绞煞: () => {
       const gouIdx = (zhiIdx(nianZhi) + 3) % 12;
       const jiaoIdx = (zhiIdx(nianZhi) - 3 + 12) % 12;
-      return pillarIndex !== 0 && (zhi === cdz[gouIdx] || zhi === cdz[jiaoIdx]);
+      return zhi === cdz[gouIdx] || zhi === cdz[jiaoIdx];
     },
   };
 }

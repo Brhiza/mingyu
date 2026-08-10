@@ -14,6 +14,7 @@
     "test:prompt": "pnpm --filter mingyu-core build && tsx --tsconfig tsconfig.app.json --test tests/prompt-evidence.test.ts tests/fortune-selection.test.ts tests/bazi-ai-prompt.test.ts tests/ziwei-prompt-snapshot.test.ts tests/astrolabe-scope.test.ts tests/divination-prompt-structure.test.ts tests/divination-engine.test.ts",
     "test:mcp": "pnpm --filter mingyu-core build && pnpm test:e2e",
     "test:e2e": "tsx --tsconfig tsconfig.app.json --test --test-concurrency=1 \"tests/mcp/*.test.ts\"",
+    "test:browser-contract": "pnpm --filter mingyu-core build && node scripts/test-browser-contracts.mjs",
     "package:check": "pnpm --filter mingyu-core build && node scripts/test-package-tarballs.mjs",
     "lint": "eslint src packages/core/src --max-warnings 999",
     "lint:fix": "eslint src packages/core/src --fix --max-warnings 999",
@@ -53,6 +54,8 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.59.3",
     "vite": "^7.1.7",
+    "webpack": "5.101.3",
+    "webpack-cli": "6.0.1",
     "zod": "^4.4.3"
   }
 }

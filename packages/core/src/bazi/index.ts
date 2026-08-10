@@ -14,7 +14,12 @@ export {
   getCurrentBaziLuckCycle,
   normalizeFortuneSelection,
 } from './fortuneSelection/index';
-export type { BaziFortuneSelectionValue, FortuneSelectionContext } from './fortuneSelection/index';
+export type {
+  BaziFortuneSelectionValue,
+  FortuneHourMode,
+  FortuneSelectionContext,
+  FortuneSelectionOptions,
+} from './fortuneSelection/index';
 export {
   isFortuneModalDetailOptionActive,
   isFortuneModalParentOptionActive,
@@ -33,6 +38,7 @@ export type {
   BaziWarningFact,
   BaziWarningSummaryFact,
   SolarDateTimeInfo,
+  LocalTimeRange,
   TimingInfo,
   Wuxing,
 } from './baziTypes';
@@ -106,7 +112,11 @@ export { LuckCalculator } from './LuckCalculator';
 export { CHILD_LIMIT_METHOD, createChildLimit } from './childLimit';
 export {
   formatSolarDateTime,
+  createLocalTimeRange,
+  fromNativeDate,
   getLuckCycleForDate,
+  getLuckCycleTimeRange,
+  intersectLocalTimeRanges,
   isDateWithinLuckCycle,
   shiftSolarDateTimeYears,
   toNativeDate,

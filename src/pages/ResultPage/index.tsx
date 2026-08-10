@@ -1263,13 +1263,6 @@ export function ResultPage() {
       <div className="tab-strip">
         <button
           type="button"
-          className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
-          onClick={() => switchTab('prompt')}
-        >
-          {isAiEnabled ? 'AI 解析' : '复制提示词'}
-        </button>
-        <button
-          type="button"
           className={`tab-chip ${promptState.tab === 'bazi' ? 'is-active' : ''}`}
           onClick={() => switchTab('bazi')}
         >
@@ -1309,6 +1302,13 @@ export function ResultPage() {
             住宅风水
           </button>
         ) : null}
+        <button
+          type="button"
+          className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
+          onClick={() => switchTab('prompt')}
+        >
+          {isAiEnabled ? 'AI 解析' : '复制提示词'}
+        </button>
       </div>
 
       <div className={`result-tab-stage${isDesktopAiWorkspace ? ' is-ai-wide' : ''}`}>
@@ -1738,9 +1738,9 @@ export function ResultPage() {
                 </div>
               )
             ) : (
-              /* ── 非 AI 模式：复制优先，设置与完整正文按需查看 ── */
+              /* ── 非 AI 模式：先调整提示词，再复制最终内容 ── */
               <div className="workspace-grid prompt-output-grid">
-                <details className="panel prompt-settings-panel">
+                <details className="panel prompt-settings-panel" open>
                   <summary className="prompt-settings-summary">
                     <span>调整提示词（可选）</span>
                     <small>更换排盘来源、年限或问题</small>

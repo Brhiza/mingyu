@@ -112,7 +112,13 @@ function LiuyaoTraditionalBoard({ data }: { data: LiuyaoData }) {
             yao.isResponse ? '应' : '',
             yao.isVoid ? '空' : '',
             yao.isMonthBreak ? '月破' : '',
-            yao.isDayBreak ? '日破' : '',
+            yao.isHiddenMove
+              ? '暗动'
+              : yao.isDayBreak
+                ? '日破'
+                : yao.isChanging && yao.isDayClash
+                  ? '日辰冲动'
+                  : '',
           ].filter(Boolean);
           const relation = yao.changeRelations?.join('、') || yao.changeRelation || '';
           return (

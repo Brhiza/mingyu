@@ -49,6 +49,7 @@ export * as birth from './birth/index';
 export * as compatibility from './compatibility/index';
 export * as synthesis from './synthesis/index';
 export * as client from './client/index';
+export * as consumption from './consumption/index';
 
 // 全局配置
 export { configure } from './calendar/timeManager';
@@ -63,6 +64,7 @@ export * from './birth/index';
 export * from './compatibility/index';
 export * from './synthesis/index';
 export * from './client/index';
+export * from './consumption/index';
 export type * from './capabilities/index';
 export * from './shared/result';
 

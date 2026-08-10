@@ -526,7 +526,15 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     'all',
   ]);
   assert.equal(body.data.components.schemas.BaziRequest.properties.shenShaScope.default, 'common');
-  assert.match(body.data.components.schemas.ShenShaVariants.description, /默认主流口径/);
+  assert.match(body.data.components.schemas.ShenShaVariants.description, /问真学堂整理口径/);
+  assert.deepEqual(body.data.components.schemas.ShenShaVariants.properties.referenceProfile.enum, [
+    'wenzhen',
+    'classical',
+  ]);
+  assert.equal(
+    body.data.components.schemas.ShenShaVariants.properties.referenceProfile.default,
+    'wenzhen',
+  );
   assert.deepEqual(body.data.components.schemas.ShenShaVariants.properties.kongWangBasis.enum, [
     'day',
     'day-and-year',
@@ -1024,7 +1032,7 @@ test('公开 API 应支持八字排盘', async () => {
   assertEvidenceOwnerReferences(body.data.evidenceAnalysis);
 });
 
-test('公开 API 八字神煞默认使用主流口径', async () => {
+test('公开 API 八字神煞默认使用问真口径', async () => {
   const { response, body } = await callApi('bazi/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1096,7 +1104,7 @@ test('公开 API 八字 shenShaScope 非法值应返回参数错误', async () =
   assert.match(body.error.message, /shenShaScope 必须是以下值之一/);
 });
 
-test('公开 API 八字可通过 shenShaVariants 请求兼容争议口径', async () => {
+test('公开 API 八字可通过 referenceProfile 请求原有传统兼容口径', async () => {
   const { response, body } = await callApi('bazi/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1108,15 +1116,15 @@ test('公开 API 八字可通过 shenShaVariants 请求兼容争议口径', asyn
       timeIndex: 0,
       dateType: 'solar',
       shenShaVariants: {
-        kongWangBasis: 'day-and-year',
+        referenceProfile: 'classical',
       },
     }),
   });
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.ok(body.data.shensha.month.includes('空亡'));
-  assert.ok(body.data.shensha.hour.includes('空亡'));
+  assert.ok(!body.data.shensha.month.includes('空亡'));
+  assert.ok(!body.data.shensha.hour.includes('空亡'));
 });
 
 test('公开 API 八字 shenShaVariants 非法值应返回参数错误', async () => {
@@ -1131,7 +1139,7 @@ test('公开 API 八字 shenShaVariants 非法值应返回参数错误', async (
       timeIndex: 0,
       dateType: 'solar',
       shenShaVariants: {
-        kongWangBasis: 'year',
+        referenceProfile: 'modern',
       },
     }),
   });
@@ -1139,7 +1147,7 @@ test('公开 API 八字 shenShaVariants 非法值应返回参数错误', async (
   assert.equal(response.status, 400);
   assert.equal(body.ok, false);
   assert.equal(body.error.code, 'BAD_REQUEST');
-  assert.match(body.error.message, /kongWangBasis 必须是以下值之一/);
+  assert.match(body.error.message, /referenceProfile 必须是以下值之一/);
 });
 
 test('公开 API 八字排盘接口只返回排盘结果', async () => {

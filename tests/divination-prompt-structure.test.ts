@@ -1254,7 +1254,7 @@ test('大六壬提示词使用简短任务', () => {
   assert.doesNotMatch(prompt, /反证限制|证据不足|不硬给日期|取证顺序|回答口径/);
 });
 
-test('大六壬提示词保留课体并省略低价值神煞列表', () => {
+test('大六壬提示词保留课体与精简神煞摘要', () => {
   const data = {
     ...createData('liuren'),
     guaTi: ['龙德卦', '连珠卦'],
@@ -1292,7 +1292,8 @@ test('大六壬提示词保留课体并省略低价值神煞列表', () => {
   );
 
   assert.match(prompt, /课体：龙德卦、连珠卦/);
-  assert.doesNotMatch(prompt, /神煞：/);
+  assert.match(prompt, /神煞：旬奇在初传、天马在末传/);
+  assert.doesNotMatch(prompt, /旬奇起例|天马起例/);
   assert.doesNotMatch(prompt, /辅证：/);
   assert.doesNotMatch(prompt, /课体补充：龙德卦、连珠卦/);
   assert.doesNotMatch(prompt, /神煞补充：/);

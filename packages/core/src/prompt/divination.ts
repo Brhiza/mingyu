@@ -330,12 +330,10 @@ export function getDivinationSummaryBlocks(
           `日干寄宫：${item.dayStemResidence ? `${item.ganzhi.day.charAt(0)}寄${item.dayStemResidence}` : '未知'}`,
           `旬空：${item.xunKong?.length ? item.xunKong.join('、') : '未知'}`,
           `取传法：${item.transmissionRule || '未记录'}；传态：${item.transmissionPattern || '未记录'}`,
-          `古籍依据：${item.classicalRules?.length ? item.classicalRules.map((rule) => `${rule.source}之${rule.rule}：${rule.summary}`).join('；') : '未标注'}`,
           `四课：${item.fourLessons.map((lesson) => `${lesson.name}${lesson.upper}/${lesson.lower}${lesson.relation}`).join('；')}`,
           `三传：${item.threeTransmissions.map((transmission) => `${transmission.stage}${transmission.branch}乘${transmission.god}`).join(' → ')}`,
           `课体：${item.guaTi?.join('、') || '无'}`,
           `神煞：${item.shenShaSummary?.length ? item.shenShaSummary.join('；') : '无'}`,
-          item.transmissionDetail ? `取传说明：${item.transmissionDetail}` : '',
           ...formatLiurenDetailSummary(item),
         ].filter(Boolean),
       };

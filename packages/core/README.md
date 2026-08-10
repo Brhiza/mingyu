@@ -277,12 +277,14 @@ const session = generateDivinationSession({
 });
 
 console.log(session.data); // 结构化排盘结果
-console.log(session.formattedResult); // 稳定的摘要文本
-console.log(session.prompt); // 可直接交给在线 AI 的任务书
+console.log(session.displaySummary); // 简短展示摘要，不含审计证据
+console.log(session.aiPrompt); // 只含问题和有效盘面资料，可直接交给在线 AI
+console.log(session.auditEvidence); // 来源、规则、计算过程和限制，仅按需审计
+console.log(session.view); // kind/input/chart/timing/summary/evidence/warnings/raw 统一视图
 console.log(session.serializedResult); // 稳定 JSON，可用于缓存或历史记录
 ```
 
-`generateDivinationSession` 覆盖六爻、梅花、小六壬、金口诀、奇门、大六壬、太乙、塔罗、灵签、黄历、雷诺曼和星盘；`validateDivinationRequest` 可单独用于提交前校验。手工牌面、三钱记录、逐张随机样本、灵签选号、种子和 replay 均保留在对应请求字段中。
+`generateDivinationSession` 覆盖六爻、梅花、小六壬、金口诀、奇门、大六壬、太乙、塔罗、灵签、黄历、雷诺曼和星盘；`validateDivinationRequest` 可单独用于提交前校验。旧版 `summary`、`prompt`、`data` 字段继续保留，新接入优先使用严格分层后的三个字段。手工牌面、三钱记录、逐张随机样本、灵签选号、种子和 replay 均保留在对应请求字段中。
 
 如果需要一次得到本命盘、运限盘、结构化分析资料和大限时间线，可以直接使用紫微运行时入口。它支持数字或文本表单输入；服务端、缓存和测试建议显式传入 `horoscopeContext`，让同一出生盘在不同运行时保持相同快照：
 
@@ -322,7 +324,7 @@ import {
 } from 'mingyu-core/bazi';
 import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune';
 
-const currentCycle = getCurrentBaziLuckCycle(baziResult, 2026);
+const currentCycle = getCurrentBaziLuckCycle(baziResult, new Date('2026-08-06T12:00:00+08:00'));
 const currentDay = buildCurrentBaziFortuneSelection(baziResult, new Date('2026-08-06'));
 const recentMonth = buildRecentBaziFortuneSelection(baziResult, new Date('2026-08-06'));
 
@@ -333,6 +335,8 @@ const ziweiOptions = await buildZiweiFortuneOptions(ziweiInput, selectedDecadal,
 ```
 
 当目标年份不在命盘已计算的童限或大运范围内时，三个八字当前运限入口都会返回 `null`，不会静默套用第一步大运。
+
+`buildFortuneSelectionContext()` 会按精确交运时刻裁剪流年、流月、流日和流时，并在各级 `timeRange` 返回结构化本地时间与毫秒时间戳。流日默认返回标准十二时辰；需要兼容旧版早、晚子时拆分时，传入第三个参数 `{ hourMode: 'splitZi' }`。
 
 ## 可选结果元数据与随机重放
 

@@ -130,6 +130,15 @@ export interface SolarDateTimeInfo {
   second: number;
 }
 
+/** 采用运行环境本地时区解释的半开时间区间：[start, end)。 */
+export interface LocalTimeRange {
+  start: SolarDateTimeInfo;
+  end: SolarDateTimeInfo;
+  startTimestamp: number;
+  endTimestamp: number;
+  endExclusive: true;
+}
+
 export interface TimingInfo {
   enabled: boolean;
   standardTime: SolarDateTimeInfo;

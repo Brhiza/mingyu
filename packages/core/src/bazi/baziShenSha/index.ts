@@ -21,6 +21,7 @@ export { COMMON_BAZI_SHENSHA_NAMES, filterCommonBaziShenSha } from './scope';
 export type {
   ShenShaCalculatorOptions,
   ShenShaKongWangBasis,
+  ShenShaReferenceProfile,
   ShenShaTongZiScope,
   ShenShaVariantConfig,
   ShenShaYangRenMode,
@@ -62,7 +63,7 @@ export class ShenShaCalculator {
       result[pillars[index]] = shenShaList;
     });
 
-    const globalShenSha = calculateGlobalShenSha(baziArray);
+    const globalShenSha = calculateGlobalShenSha(baziArray, this.variants.referenceProfile);
     if (globalShenSha.length > 0) {
       result.global = globalShenSha;
     }

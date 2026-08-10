@@ -194,6 +194,9 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isWorld: boolean;
   isResponse: boolean;
   isVoid: boolean;
+  /** 是否与日辰相冲；须结合动静和月令旺衰区分暗动、日破或动爻受冲。 */
+  isDayClash?: boolean;
+  /** 静爻休囚而受日冲；旺相静爻应读取 isHiddenMove，动爻受冲应读取 isDayClash。 */
   isDayBreak?: boolean;
   isMonthBreak?: boolean;
   isHiddenMove?: boolean;
@@ -216,6 +219,7 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isLiuhai?: boolean;
   isRuMu?: boolean;
   shiErGong?: string;
+  /** @deprecated 古籍三墓不含“月墓”；为兼容旧结构保留，始终为 false。 */
   isYueMu?: boolean;
   isRiMu?: boolean;
 }

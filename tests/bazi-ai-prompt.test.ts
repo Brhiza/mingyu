@@ -174,12 +174,23 @@ test('八字完整输出版会附加完整大运流年资料', () => {
 
 test('八字流月提示词应突出所选日期范围并保留必要触发资料', () => {
   const result = createBaziResult();
-  const fortuneContext = buildFortuneSelectionContext(result, {
-    scope: 'month',
-    cycleIndex: 0,
-    year: 1990,
-    month: 1,
-  });
+  let fortuneContext = null;
+
+  for (const [cycleIndex, cycle] of result.luckInfo.cycles.entries()) {
+    for (const { year } of cycle.years) {
+      for (let month = 1; month <= 12; month += 1) {
+        fortuneContext = buildFortuneSelectionContext(result, {
+          scope: 'month',
+          cycleIndex,
+          year,
+          month,
+        });
+        if (fortuneContext) break;
+      }
+      if (fortuneContext) break;
+    }
+    if (fortuneContext) break;
+  }
 
   assert.ok(fortuneContext);
 

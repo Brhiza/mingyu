@@ -17,18 +17,31 @@ import { serializeCoreResult } from '../shared/result';
 import {
   buildDivinationPromptDocument,
   formatDivinationInfo,
+  formatSupplementaryInfo,
   getDivinationSummaryBlocks,
   type DivinationPromptOptions,
 } from '../prompt/divination';
 import type { PromptDocument } from '../prompt/types';
+import { formatPromptCurrentTime } from '../prompt/current-time';
+import { buildPromptDocument, buildPromptSection, joinPromptSections } from '../prompt/sections';
+import { buildTaskText } from './engine/method-text';
+import {
+  createUnifiedResultView,
+  partitionResultForConsumption,
+  type AuditEvidenceEntry,
+  type UnifiedResultView,
+} from '../consumption/index';
 import type {
   AlmanacParticipantInput,
   AlmanacTopic,
   AstrolabeBirthInput,
+  AstrolabeData,
   DivinationData,
   JinkoujueDivinationMethod,
   LenormandSpreadType,
+  LiuyaoData,
   MeihuaSettings,
+  QimenData,
   SupplementaryInfo,
   TarotSpreadType,
   TaiyiResult,
@@ -96,6 +109,22 @@ export interface DivinationSession {
   serializedResult: string;
   prompt: string;
   promptDocument: PromptDocument;
+  /** 直接展示给用户的简短结果。 */
+  displaySummary: ReturnType<typeof getDivinationSummaryBlocks>;
+  /** 只含任务、问题和有效盘面资料，可直接交给在线 AI。 */
+  aiPrompt: string;
+  /** 来源、规则、计算过程及限制，仅在审计场景按需读取。 */
+  auditEvidence: AuditEvidenceEntry[];
+  /** 跨术式稳定消费视图；raw 保留当前专业结果以兼容旧调用方。 */
+  view: UnifiedResultView<
+    DivinationRequest,
+    null,
+    unknown,
+    null,
+    ReturnType<typeof getDivinationSummaryBlocks>,
+    AuditEvidenceEntry[],
+    DivinationData
+  >;
 }
 
 export function summarizeDivinationResult(method: DivinationSessionMethod, data: DivinationData) {
@@ -108,6 +137,62 @@ export function formatDivinationResult(method: DivinationSessionMethod, data: Di
 
 export function serializeDivinationResult(data: DivinationData) {
   return serializeCoreResult(data);
+}
+
+function buildDivinationAiPrompt(options: {
+  method: DivinationSessionMethod;
+  question: string;
+  currentTime?: Date;
+  supplementaryInfo?: SupplementaryInfo;
+  chartText: string;
+}) {
+  const supplementary = formatSupplementaryInfo(options.supplementaryInfo, options.method);
+  return buildPromptDocument(
+    joinPromptSections([
+      buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
+      supplementary ? buildPromptSection('补充信息', supplementary) : '',
+      buildPromptSection('占卜资料', options.chartText),
+      buildPromptSection('问题', options.question || '请依据本次盘面资料完成解读。'),
+      buildPromptSection('任务', buildTaskText(options.method)),
+    ]),
+  );
+}
+
+function formatAiChart(
+  method: DivinationSessionMethod,
+  data: DivinationData,
+  summary: ReturnType<typeof getDivinationSummaryBlocks>,
+) {
+  const base = [summary.title, summary.tags.join('；'), ...summary.lines].filter(Boolean);
+  if (method === 'liuyao') {
+    const item = data as LiuyaoData;
+    base.push(
+      '六爻明细：',
+      ...item.yaosDetail.map(
+        (yao) =>
+          `第${yao.position}爻：${yao.yaoType}爻，${yao.sixGod}${yao.sixRelative}${yao.najiaDizhi}${yao.wuxing}${yao.isWorld ? '，世爻' : ''}${yao.isResponse ? '，应爻' : ''}${yao.isChanging ? `，动爻${yao.changedYao ? `化${yao.changedYao.liuqin}${yao.changedYao.dizhi}${yao.changedYao.wuxing}` : ''}` : ''}${yao.isVoid ? '，空亡' : ''}`,
+      ),
+    );
+  } else if (method === 'qimen') {
+    const item = data as QimenData;
+    base.push(
+      '九宫明细：',
+      ...item.jiuGongGe.map(
+        (palace) =>
+          `${palace.name}（${palace.direction}、${palace.element}）：天盘${palace.tianPan.stem}${palace.tianPan.star}${palace.tianPan.companionStem ? `，随${palace.tianPan.companionStem}${palace.tianPan.companionStar || ''}` : ''}；地盘${palace.diPan.stem}；门${palace.renPan.door}；神${palace.shenPan.god}`,
+      ),
+    );
+  } else if (method === 'astrolabe') {
+    const item = data as AstrolabeData;
+    base.push(
+      `出生资料：${item.birth.dateTime}，${item.birth.location}`,
+      `星体：${item.planets.map((point) => `${point.name}${point.formatted}`).join('；')}`,
+      `四轴：${item.angles.map((point) => `${point.name}${point.formatted}`).join('；')}`,
+      `宫位：${item.houses.map((point) => `第${point.house}宫宫头${point.formatted}`).join('；')}`,
+      `相位：${item.aspects.map((aspect) => `${aspect.body1}${aspect.symbol}${aspect.body2}，容许度${aspect.orb.toFixed(2)}°`).join('；') || '无'}`,
+    );
+  }
+  return base.join('\n');
 }
 
 const RANDOM_METHODS: DivinationSessionMethod[] = [
@@ -291,17 +376,37 @@ export function generateDivinationSession(request: DivinationRequest): Divinatio
   const customDate = normalizeDate(request.divinationTime, '起课时间');
   const data = generateData(request, method, customDate, selectionRandom);
   const question = buildQuestion(method, request.question, data);
+  const currentTime = normalizeCurrentTime(request.currentTime);
   const promptOptions: DivinationPromptOptions = {
     method,
     data,
     question,
-    currentTime: normalizeCurrentTime(request.currentTime),
+    currentTime,
     ...request.prompt,
     supplementaryInfo: request.supplementaryInfo,
     isCustomQuestion: request.questionSource === 'custom',
   };
   const promptDocument = buildDivinationPromptDocument(promptOptions);
   const summary = summarizeDivinationResult(method, data);
+  const { chart, auditEvidence } = partitionResultForConsumption(data);
+  const aiPromptDocument = buildDivinationAiPrompt({
+    method,
+    question,
+    currentTime,
+    supplementaryInfo: request.supplementaryInfo,
+    chartText: formatAiChart(method, data, summary),
+  });
+  const aiPrompt = aiPromptDocument.text;
+  const view = createUnifiedResultView({
+    kind: method,
+    input: request,
+    calendar: null,
+    chart,
+    timing: null,
+    summary,
+    evidence: auditEvidence,
+    raw: data,
+  });
   return {
     requestedMethod: request.method,
     method,
@@ -312,6 +417,10 @@ export function generateDivinationSession(request: DivinationRequest): Divinatio
     serializedResult: serializeDivinationResult(data),
     prompt: promptDocument.text,
     promptDocument,
+    displaySummary: summary,
+    aiPrompt,
+    auditEvidence,
+    view,
   };
 }
 

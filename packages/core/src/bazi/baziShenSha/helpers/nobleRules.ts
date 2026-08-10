@@ -1,21 +1,19 @@
-import { NAYIN_MAP } from '../../baziMappingsData';
+import { NAYIN_MAP, TWELVE_STAGES_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
-const XUE_TANG_BRANCH_BY_NAYIN_WUXING: Record<string, string> = {
-  金: '巳',
-  木: '亥',
-  水: '申',
-  土: '申',
-  火: '寅',
-};
+function getStageBranch(stem: string, stageName: string) {
+  const stages = TWELVE_STAGES_MAP[stem];
+  if (!stages) return '';
+  return Object.entries(stages).find(([, stage]) => stage === stageName)?.[0] || '';
+}
 
-const CI_GUAN_BRANCH_BY_NAYIN_WUXING: Record<string, string> = {
-  金: '申',
-  木: '寅',
-  水: '亥',
-  土: '亥',
-  火: '巳',
-};
+function getChangshengBranch(stem: string) {
+  return getStageBranch(stem, '长生');
+}
+
+function getLinguanBranch(stem: string) {
+  return getStageBranch(stem, '临官');
+}
 
 const OFFICIAL_ACADEMY_BRANCHES_BY_STEM: Record<string, string[]> = {
   甲: ['巳', '申'],
@@ -153,10 +151,9 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
     cdz,
     zhiIdx,
   } = ctx;
+  const isWenzhen = ctx.variants.referenceProfile === 'wenzhen';
+  const yearNayinElement = NAYIN_MAP[`${nianGan}${nianZhi}`]?.slice(-1) || '';
   const shiZhi = baziArray[3]?.[1] || '';
-  const yearPillar = baziArray[0]?.join('') || '';
-  const yearNayin = NAYIN_MAP[yearPillar] || '';
-  const yearNayinWuxing = yearNayin.slice(-1);
   const branchFromHour = (offset: number) => {
     const index = zhiIdx(shiZhi);
     return index < 0 ? '' : cdz[(index + offset + cdz.length) % cdz.length];
@@ -333,21 +330,37 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return map[yueZhi] === gan;
     },
     福星贵人: () => {
-      // 常用子平口径：以年干或日干查四柱地支。
-      // 不要求目标柱同时带食神天干，否则会漏掉“庚见午”等通行排盘结果。
+      if (isWenzhen) {
+        const map: Record<string, string[]> = {
+          甲: ['寅', '子'],
+          丙: ['寅', '子'],
+          乙: ['卯', '丑'],
+          癸: ['卯', '丑'],
+          戊: ['申'],
+          己: ['未'],
+          丁: ['亥'],
+          庚: ['午'],
+          辛: ['巳'],
+          壬: ['辰'],
+        };
+        return map[nianGan]?.includes(zhi) || map[riGan]?.includes(zhi) || false;
+      }
       const map: Record<string, string[]> = {
-        甲: ['寅', '子'],
-        乙: ['丑', '卯'],
-        丙: ['寅', '子'],
-        丁: ['亥'],
-        戊: ['申'],
-        己: ['未'],
-        庚: ['午'],
-        辛: ['巳'],
-        壬: ['辰'],
-        癸: ['丑', '卯'],
+        甲: ['丙寅', '丙子'],
+        乙: ['丁丑', '丁亥'],
+        丙: ['戊子', '戊戌'],
+        丁: ['己亥', '己酉'],
+        戊: ['庚戌', '庚申'],
+        己: ['辛酉', '辛未'],
+        庚: ['壬申', '壬午'],
+        辛: ['癸未', '癸巳'],
+        壬: ['甲午', '甲辰'],
+        癸: ['乙巳', '乙卯'],
       };
-      return (map[nianGan]?.includes(zhi) ?? false) || (map[riGan]?.includes(zhi) ?? false);
+      return (
+        (map[nianGan] && map[nianGan].includes(pillarGZ)) ||
+        (map[riGan] && map[riGan].includes(pillarGZ))
+      );
     },
     天官贵人: () => {
       const map: Record<string, string> = {
@@ -365,19 +378,31 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
     文昌贵人: () => {
-      // 采用现代专业排盘通行的食神临官、长生表；《五行精纪》的同名异表不混入默认结果。
-      const map: Record<string, string> = {
-        甲: '巳',
-        乙: '午',
-        丙: '申',
-        丁: '酉',
-        戊: '申',
-        己: '酉',
-        庚: '亥',
-        辛: '子',
-        壬: '寅',
-        癸: '卯',
-      };
+      const map: Record<string, string> = isWenzhen
+        ? {
+            甲: '巳',
+            乙: '午',
+            丙: '申',
+            丁: '酉',
+            戊: '申',
+            己: '酉',
+            庚: '亥',
+            辛: '子',
+            壬: '寅',
+            癸: '卯',
+          }
+        : {
+            甲: '巳',
+            乙: '亥',
+            丙: '戌',
+            丁: '辰',
+            戊: '申',
+            己: '午',
+            庚: '寅',
+            辛: '未',
+            壬: '卯',
+            癸: '丑',
+          };
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
     文星贵: () => {
@@ -424,9 +449,36 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       };
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
-    // 以生年纳音五行查月、日、时支；正位完整干支不另加名称，避免重复输出。
-    学堂: () => pillarIndex !== 0 && XUE_TANG_BRANCH_BY_NAYIN_WUXING[yearNayinWuxing] === zhi,
-    词馆: () => pillarIndex !== 0 && CI_GUAN_BRANCH_BY_NAYIN_WUXING[yearNayinWuxing] === zhi,
+    学堂: () => {
+      if (isWenzhen) {
+        const map: Record<string, string> = {
+          金: '巳',
+          木: '亥',
+          水: '申',
+          土: '申',
+          火: '寅',
+        };
+        return pillarIndex > 0 && map[yearNayinElement] === zhi;
+      }
+      const riChangsheng = getChangshengBranch(riGan);
+      const nianChangsheng = getChangshengBranch(nianGan);
+      return riChangsheng === zhi || nianChangsheng === zhi;
+    },
+    词馆: () => {
+      if (isWenzhen) {
+        const map: Record<string, string> = {
+          金: '申',
+          木: '寅',
+          水: '亥',
+          土: '亥',
+          火: '巳',
+        };
+        return pillarIndex > 0 && map[yearNayinElement] === zhi;
+      }
+      const riLinguan = getLinguanBranch(riGan);
+      const nianLinguan = getLinguanBranch(nianGan);
+      return riLinguan === zhi || nianLinguan === zhi;
+    },
     官贵学馆: () => {
       const targets = [
         ...(OFFICIAL_ACADEMY_BRANCHES_BY_STEM[riGan] || []),
@@ -472,6 +524,7 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return riLuBranch === zhi || nianLuBranch === zhi;
     },
     德秀贵人: () => {
+      // 来源：《三命通会》卷三《论德秀》。
       const deXiuMap: Record<string, { de: string[]; xiu: string[] }> = {
         寅: { de: ['丙', '丁'], xiu: ['戊', '癸'] },
         午: { de: ['丙', '丁'], xiu: ['戊', '癸'] },
@@ -488,7 +541,28 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       };
       const config = deXiuMap[yueZhi];
       if (!config) return false;
-      return config.de.includes(gan) || config.xiu.includes(gan);
+      if (isWenzhen) return config.de.includes(gan) || config.xiu.includes(gan);
+      const heGanMap: Record<string, string> = {
+        甲: '己',
+        乙: '庚',
+        丙: '辛',
+        丁: '壬',
+        戊: '癸',
+        己: '甲',
+        庚: '乙',
+        辛: '丙',
+        壬: '丁',
+        癸: '戊',
+      };
+      const allGans = baziArray.map(([currentGan]) => currentGan);
+      const hasDe = config.de.some((d) => allGans.includes(d) || allGans.includes(heGanMap[d]));
+      const hasXiu = config.xiu.some((s) => allGans.includes(s) || allGans.includes(heGanMap[s]));
+      const isDeOrXiu =
+        config.de.includes(gan) ||
+        config.xiu.includes(gan) ||
+        config.de.some((d) => heGanMap[d] === gan) ||
+        config.xiu.some((s) => heGanMap[s] === gan);
+      return hasDe && hasXiu && isDeOrXiu;
     },
   };
 }

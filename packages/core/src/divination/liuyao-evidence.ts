@@ -484,11 +484,10 @@ function buildVisibleReference(
   const constraints = [
     yao.isVoid ? '本爻空亡' : '',
     yao.isMonthBreak ? '月破' : '',
-    yao.isDayBreak && !yao.isHiddenMove ? '日破' : '',
+    yao.isDayBreak ? '日破' : '',
     yao.seasonState === '休' || yao.seasonState === '囚' || yao.seasonState === '死'
       ? `月令${yao.seasonState}`
       : '',
-    yao.isYueMu ? '入月墓' : '',
     yao.isRiMu ? '入日墓' : '',
     changeRelations.includes('回头克') ? '回头克' : '',
     changeRelations.includes('回头冲') ? '回头冲' : '',
@@ -568,14 +567,19 @@ function buildLineFacts(
       yao.najiaDizhi === monthBranch ? '值月建' : '',
       isLiuhe(yao.najiaDizhi, monthBranch) ? '合月建' : '',
       yao.isMonthBreak ? '月破' : '',
-      yao.isYueMu ? '入月墓' : '',
       isLiuhai(yao.najiaDizhi, monthBranch) ? '与月建相害' : '',
       isSanxing(yao.najiaDizhi, monthBranch) ? '与月建成刑' : '',
     ].filter(Boolean);
     const dayRelations = [
       yao.najiaDizhi === dayBranch ? '值日辰' : '',
       isLiuhe(yao.najiaDizhi, dayBranch) ? '合日辰' : '',
-      yao.isHiddenMove ? '日冲暗动' : yao.isDayBreak ? '日冲成破' : '',
+      yao.isHiddenMove
+        ? '日冲暗动'
+        : yao.isDayBreak
+          ? '日冲成破'
+          : yao.isChanging && yao.isDayClash
+            ? '日辰冲动'
+            : '',
       yao.isRiMu ? '入日墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
       isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',

@@ -38,24 +38,24 @@
 
 **参数 `person`：**
 
-| 字段               | 类型                            | 必填 | 说明                                                                                      |
-| ------------------ | ------------------------------- | ---- | ----------------------------------------------------------------------------------------- |
-| `year`             | `number`                        | ✅   | 公历或农历年（1900-2100）                                                                 |
-| `month`            | `number`                        | ✅   | 月（1-12）                                                                                |
-| `day`              | `number`                        | ✅   | 日                                                                                        |
-| `timeIndex`        | `number`                        | ✅*  | 时辰索引 0-12（0=早子，1=丑...11=亥，12=晚子）                                            |
-| `gender`           | `'male' \| 'female'`            | ✅   | 性别                                                                                      |
-| `isLunar`          | `boolean`                       |      | 输入是否农历，默认公历                                                                    |
-| `isLeapMonth`      | `boolean`                       |      | 农历是否闰月                                                                              |
-| `useTrueSolarTime` | `boolean`                       |      | 启用真太阳时                                                                              |
-| `birthHour`        | `number`                        | *    | 真太阳时模式下的小时（0-23）                                                              |
-| `birthMinute`      | `number`                        | *    | 真太阳时模式下的分钟（0-59）                                                              |
-| `birthLongitude`   | `number`                        | *    | 出生地经度（-180~180）                                                                    |
-| `timezone`         | `number`                        |      | 当地标准时区（UTC-12~UTC+14），默认 UTC+8；影响标准经线                                   |
-| `timeZoneId`       | `string`                        |      | IANA 历史时区；按出生日期解析当时的法定 UTC 偏移                                          |
-| `applyChinaDst`    | `boolean`                       |      | 旧固定偏移调用是否校正中国夏令时（1986-1991），默认关闭；推荐改用 `timeZoneId`          |
-| `shenShaScope`     | `'common' \| 'all'`             |      | 神煞输出范围；默认 `common` 返回 55 个常用神煞，`all` 返回全部已计算神煞                  |
-| `shenShaVariants`  | `Partial<ShenShaVariantConfig>` |      | 神煞争议口径配置；不传时使用默认主流口径                                                  |
+| 字段               | 类型                            | 必填 | 说明                                                                           |
+| ------------------ | ------------------------------- | ---- | ------------------------------------------------------------------------------ |
+| `year`             | `number`                        | ✅   | 公历或农历年（1900-2100）                                                      |
+| `month`            | `number`                        | ✅   | 月（1-12）                                                                     |
+| `day`              | `number`                        | ✅   | 日                                                                             |
+| `timeIndex`        | `number`                        | ✅*  | 时辰索引 0-12（0=早子，1=丑...11=亥，12=晚子）                                 |
+| `gender`           | `'male' \| 'female'`            | ✅   | 性别                                                                           |
+| `isLunar`          | `boolean`                       |      | 输入是否农历，默认公历                                                         |
+| `isLeapMonth`      | `boolean`                       |      | 农历是否闰月                                                                   |
+| `useTrueSolarTime` | `boolean`                       |      | 启用真太阳时                                                                   |
+| `birthHour`        | `number`                        | *    | 真太阳时模式下的小时（0-23）                                                   |
+| `birthMinute`      | `number`                        | *    | 真太阳时模式下的分钟（0-59）                                                   |
+| `birthLongitude`   | `number`                        | *    | 出生地经度（-180~180）                                                         |
+| `timezone`         | `number`                        |      | 当地标准时区（UTC-12~UTC+14），默认 UTC+8；影响标准经线                        |
+| `timeZoneId`       | `string`                        |      | IANA 历史时区；按出生日期解析当时的法定 UTC 偏移                               |
+| `applyChinaDst`    | `boolean`                       |      | 旧固定偏移调用是否校正中国夏令时（1986-1991），默认关闭；推荐改用 `timeZoneId` |
+| `shenShaScope`     | `'common' \| 'all'`             |      | 神煞输出范围；默认 `common` 返回 55 个常用神煞，`all` 返回全部已计算神煞       |
+| `shenShaVariants`  | `Partial<ShenShaVariantConfig>` |      | 神煞争议口径配置；不传时使用默认主流口径                                       |
 
 \* `timeIndex` 与真太阳时三参数二选一。
 
@@ -313,7 +313,7 @@
 
 `calculateZiweiChart` 默认使用当前时间生成运限资料；需要可复现结果时应显式传入 `horoscopeContext`。`skipAnalysis` 只跳过证据与格局分析，不影响盘面计算。
 
-运限选择便捷入口：`import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune'`。传入一个童限或大限年龄范围后，可一次得到流年、流月、流日选项及各自干支。八字对应提供 `getCurrentBaziLuckCycle()`、`buildCurrentBaziFortuneSelection()` 和 `buildRecentBaziFortuneSelection()`，可直接生成 `buildFortuneSelectionContext()` 所需选择值；目标年份不在命盘已计算的童限或大运范围内时，这三个入口返回 `null`，不会回退到第一步大运。
+运限选择便捷入口：`import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune'`。传入一个童限或大限年龄范围后，可一次得到流年、流月、流日选项及各自干支。八字对应提供 `getCurrentBaziLuckCycle()`、`buildCurrentBaziFortuneSelection()` 和 `buildRecentBaziFortuneSelection()`，可直接生成 `buildFortuneSelectionContext()` 所需选择值；定位与各层列表均按精确交运时刻裁剪，时间范围同时返回结构化本地时间与时间戳。流时默认使用十二时辰，第三个参数传 `{ hourMode: 'splitZi' }` 可兼容旧版早晚子时拆分。目标时间不在命盘已计算的童限或大运范围内时，这三个入口返回 `null`，不会回退到第一步大运。
 
 依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前固定版本传统目录登记 87 项，其中 55 条具备卷次、原文和可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中。空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
 
@@ -421,25 +421,25 @@ console.log(reading.promptText);
 
 导入：`import { ... } from 'mingyu-core/calendar'`
 
-| 函数                                        | 说明                                                               |
-| ------------------------------------------- | ------------------------------------------------------------------ |
-| `getDivinationTime(customDate?)`            | 获取占卜时间（干支+农历+节气+时间戳）                              |
-| `getVoidBranches(dayGanZhi)`                | 由日柱干支查旬空地支                                               |
-| `getSixAnimals(dayGan)`                     | 由日干起六神                                                       |
-| `getTimeIndexFromClock(hour, minute)`       | 由时钟转时辰索引                                                   |
-| `daysInSolarMonth(year, month)`             | 公历月天数                                                         |
-| `getBirthDateValidationMessage(...)`        | 出生日期校验                                                       |
-| `resolveCivilTime(input, options?)`          | 将当地钟表时间、固定偏移或 IANA 历史时区解析为唯一 UTC 时刻        |
-| `resolveBirthCalendarClockTime(input)`       | 只校验公历/农历出生输入并换算为公历钟表时间，不执行时区或太阳时校正 |
-| `convertTrueSolarTime(input)`               | 按当地钟表时间、固定偏移或 IANA 历史时区、经度和均时差换算真太阳时 |
-| `resolveTrueSolarBirthTime(input)`          | 统一处理公历/农历、闰月、历史时区、夏令时、跨日和时辰索引          |
-| `buildAstronomicalTimeEvidence(input)`      | 由当地时间与固定偏移或 IANA 时区生成 UTC、JD、近似 UT1、ΔT 和 TT   |
-| `queryAstronomicalFacts(input)`              | 按统一民用时间口径计算可复算的现代天文位置事实                     |
-| `calculateMoonPhaseEvidence(utcTimestamp)`  | 由 UTC Unix 毫秒生成月相、照明比例和前后朔弦望事件                 |
-| `calculateSolarTermEvidence(year, index)`   | 生成单个节气的历表时刻、目标黄经、独立求根及差值核验               |
-| `calculateSolarTermsForYear(year)`          | 按公历年份生成从小寒至冬至的 24 个节气证据                         |
-| `findSolarTermEvidence(name, year)`         | 按节气名称和节气周期年份查询单项证据                               |
-| `calculateSolarIlluminationEvidence(input)` | 由当地日期时间、经纬度和时区生成太阳位置、日出日落及三类曙暮光证据 |
+| 函数                                        | 说明                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| `getDivinationTime(customDate?)`            | 获取占卜时间（干支+农历+节气+时间戳）                               |
+| `getVoidBranches(dayGanZhi)`                | 由日柱干支查旬空地支                                                |
+| `getSixAnimals(dayGan)`                     | 由日干起六神                                                        |
+| `getTimeIndexFromClock(hour, minute)`       | 由时钟转时辰索引                                                    |
+| `daysInSolarMonth(year, month)`             | 公历月天数                                                          |
+| `getBirthDateValidationMessage(...)`        | 出生日期校验                                                        |
+| `resolveCivilTime(input, options?)`         | 将当地钟表时间、固定偏移或 IANA 历史时区解析为唯一 UTC 时刻         |
+| `resolveBirthCalendarClockTime(input)`      | 只校验公历/农历出生输入并换算为公历钟表时间，不执行时区或太阳时校正 |
+| `convertTrueSolarTime(input)`               | 按当地钟表时间、固定偏移或 IANA 历史时区、经度和均时差换算真太阳时  |
+| `resolveTrueSolarBirthTime(input)`          | 统一处理公历/农历、闰月、历史时区、夏令时、跨日和时辰索引           |
+| `buildAstronomicalTimeEvidence(input)`      | 由当地时间与固定偏移或 IANA 时区生成 UTC、JD、近似 UT1、ΔT 和 TT    |
+| `queryAstronomicalFacts(input)`             | 按统一民用时间口径计算可复算的现代天文位置事实                      |
+| `calculateMoonPhaseEvidence(utcTimestamp)`  | 由 UTC Unix 毫秒生成月相、照明比例和前后朔弦望事件                  |
+| `calculateSolarTermEvidence(year, index)`   | 生成单个节气的历表时刻、目标黄经、独立求根及差值核验                |
+| `calculateSolarTermsForYear(year)`          | 按公历年份生成从小寒至冬至的 24 个节气证据                          |
+| `findSolarTermEvidence(name, year)`         | 按节气名称和节气周期年份查询单项证据                                |
+| `calculateSolarIlluminationEvidence(input)` | 由当地日期时间、经纬度和时区生成太阳位置、日出日落及三类曙暮光证据  |
 
 `resolveCivilTime()`、`queryAstronomicalFacts()`、`buildAstronomicalTimeEvidence()` 与 `calculateSolarIlluminationEvidence()` 的年月日时分秒都按输入地点的当地民用时间解释，必须提供 `timezone` 或 `timeZoneId`。IANA 时区优先；同时提供时，固定偏移只用于秋季回拨消歧和一致性核验。未消歧回拨、春季跳时缺口和固定偏移冲突都会拒绝计算。固定偏移范围统一为 UTC-12 至 UTC+14。`calculateMoonPhaseEvidence()` 直接接受 UTC Unix 毫秒。单项节气底层索引以冬至为 `0`、大雪为 `23`；若目标是普通公历年列表，应使用 `calculateSolarTermsForYear(year)` 或客户端 `solarTerms(year)`，返回该年小寒至冬至的时间顺序。
 
@@ -451,14 +451,14 @@ console.log(reading.promptText);
 
 统一会话入口将前端原本的占法选择、输入校验、算法分发、结果摘要和提示词组装收敛为框架无关的纯数据接口。它不负责 HTTP、分页、存储或界面状态。
 
-| 导出                                      | 说明                                                                                                          |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `generateDivinationSession(request)`      | 完成一次占法计算，返回 `data`、`summary`、`formattedResult`、`serializedResult`、`prompt` 和 `promptDocument` |
-| `validateDivinationRequest(request)`      | 只校验请求，不执行排盘；适合表单或 API 提交前调用                                                             |
-| `generateDivination(request)`             | `generateDivinationSession` 的兼容别名                                                                        |
-| `summarizeDivinationResult(method, data)` | 返回标题、标签和明细行                                                                                        |
-| `formatDivinationResult(method, data)`    | 返回统一的占法资料文本                                                                                        |
-| `serializeDivinationResult(data)`         | 输出键顺序稳定的 JSON，适合缓存、历史记录和跨端传输                                                           |
+| 导出                                      | 说明                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `generateDivinationSession(request)`      | 完成一次占法计算；新增互不混杂的 `displaySummary`、`aiPrompt`、`auditEvidence` 和统一 `view`，旧字段继续保留 |
+| `validateDivinationRequest(request)`      | 只校验请求，不执行排盘；适合表单或 API 提交前调用                                                            |
+| `generateDivination(request)`             | `generateDivinationSession` 的兼容别名                                                                       |
+| `summarizeDivinationResult(method, data)` | 返回标题、标签和明细行                                                                                       |
+| `formatDivinationResult(method, data)`    | 返回统一的占法资料文本                                                                                       |
+| `serializeDivinationResult(data)`         | 输出键顺序稳定的 JSON，适合缓存、历史记录和跨端传输                                                          |
 
 请求的 `method` 支持 `liuyao`、`meihua`、`xiaoliuren`、`jinkoujue`、`qimen`、`liuren`、`taiyi`、`tarot`、`ssgw`、`almanac`、`lenormand`、`astrolabe` 和 `random`。各占法的手工输入、牌阵、日期范围、出生资料等放在同名字段下；随机能力统一使用顶层 `random`，支持 `seed`、`replay` 和自定义随机源。
 
@@ -470,6 +470,8 @@ const result = generateDivinationSession({
   random: { seed: 'example' },
 });
 ```
+
+新接入应直接展示 `displaySummary`、复制 `aiPrompt`，只有审计页面才读取 `auditEvidence`。`view` 固定提供 `kind`、`schemaVersion`、`input`、`calendar`、`chart`、`timing`、`summary`、`evidence`、`warnings` 和 `raw`；底层专业数据继续保留在 `raw`。任意核心结果也可从 `mingyu-core/consumption` 使用 `createConsumptionView()` 建立同一顶层协议。
 
 ---
 

@@ -2723,6 +2723,40 @@ test('MCP 八字神煞默认精简，显式 all 返回全部', async () => {
   });
 });
 
+test('MCP 八字神煞默认采用问真口径，并可切换原有传统口径', async () => {
+  await withMcpClient(async (client) => {
+    const input = {
+      gender: 'male' as const,
+      year: 1980,
+      month: 1,
+      day: 1,
+      timeIndex: 0,
+      dateType: 'solar' as const,
+    };
+    const wenzhen = await client.callTool({ name: 'bazi_calculate', arguments: input });
+    const classical = await client.callTool({
+      name: 'bazi_calculate',
+      arguments: {
+        ...input,
+        shenShaVariants: { referenceProfile: 'classical' },
+      },
+    });
+    const wenzhenChart = wenzhen.structuredContent?.result as {
+      shensha: Record<string, string[]>;
+    };
+    const classicalChart = classical.structuredContent?.result as {
+      shensha: Record<string, string[]>;
+    };
+
+    assert.equal(wenzhen.isError, undefined);
+    assert.equal(classical.isError, undefined);
+    assert.ok(wenzhenChart.shensha.month.includes('空亡'));
+    assert.ok(wenzhenChart.shensha.hour.includes('空亡'));
+    assert.ok(!classicalChart.shensha.month.includes('空亡'));
+    assert.ok(!classicalChart.shensha.hour.includes('空亡'));
+  });
+});
+
 test('MCP 紫微真太阳时参数缺失或越界时应返回明确错误', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[string, Record<string, unknown>, RegExp]> = [

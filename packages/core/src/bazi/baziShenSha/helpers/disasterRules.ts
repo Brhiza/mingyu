@@ -677,6 +677,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     baziArray,
     variants,
   } = ctx;
+  const isWenzhen = variants.referenceProfile === 'wenzhen';
   const anJinSha = AN_JIN_SHA_BY_YEAR_BRANCH[nianZhi];
   const anJinShaHits = anJinSha?.branch === zhi;
   const sanQiuWuMu = SAN_QIU_WU_MU_BY_MONTH_BRANCH[yueZhi];
@@ -722,9 +723,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
   };
 
   return {
-    空亡: () =>
-      (pillarIndex !== 2 && riKongWangBranches.includes(zhi)) ||
-      (pillarIndex !== 0 && nianKongWangBranches.includes(zhi)),
+    空亡: () => kongWangBranches.includes(zhi),
     孤虚: () => guXuBranches.includes(zhi),
     亡神: () => {
       const map: Record<string, string> = {
@@ -741,9 +740,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '寅',
         丑: '寅',
       };
-      return (
-        (pillarIndex !== 0 && map[nianZhi] === zhi) || (pillarIndex !== 2 && map[riZhi] === zhi)
-      );
+      return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
     劫煞: () => {
       const map: Record<string, string> = {
@@ -760,9 +757,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '申',
         丑: '申',
       };
-      return (
-        (pillarIndex !== 0 && map[nianZhi] === zhi) || (pillarIndex !== 2 && map[riZhi] === zhi)
-      );
+      return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
     劫头杀: () => jieTouShaPillar === pillarGZ,
     劫头鬼: () => jieTouGuiPillar === pillarGZ,
@@ -781,7 +776,10 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '卯',
         丑: '卯',
       };
-      return pillarIndex !== 0 && map[nianZhi] === zhi;
+      return (
+        (pillarIndex !== 0 && map[nianZhi] === zhi) ||
+        (!isWenzhen && pillarIndex !== 2 && map[riZhi] === zhi)
+      );
     },
     天杀: () => TIAN_SHA_BY_BRANCH[nianZhi] === zhi || TIAN_SHA_BY_BRANCH[riZhi] === zhi,
     地杀: () => DI_SHA_BY_BRANCH[nianZhi] === zhi || DI_SHA_BY_BRANCH[riZhi] === zhi,
@@ -819,23 +817,38 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
     元辰: () => {
-      return pillarIndex !== 0 && yuanChenBranch === zhi;
+      return yuanChenBranch === zhi;
     },
     血刃: () => {
-      const map: Record<string, string> = {
-        寅: '丑',
-        卯: '未',
-        辰: '寅',
-        巳: '申',
-        午: '卯',
-        未: '酉',
-        申: '辰',
-        酉: '戌',
-        戌: '巳',
-        亥: '亥',
-        子: '午',
-        丑: '子',
-      };
+      const map: Record<string, string> = isWenzhen
+        ? {
+            寅: '丑',
+            卯: '未',
+            辰: '寅',
+            巳: '申',
+            午: '卯',
+            未: '酉',
+            申: '辰',
+            酉: '戌',
+            戌: '巳',
+            亥: '亥',
+            子: '午',
+            丑: '子',
+          }
+        : {
+            寅: '丑',
+            卯: '寅',
+            辰: '卯',
+            巳: '辰',
+            午: '巳',
+            未: '午',
+            申: '未',
+            酉: '申',
+            戌: '酉',
+            亥: '戌',
+            子: '亥',
+            丑: '子',
+          };
       return map[yueZhi] === zhi;
     },
     流霞: () => {
@@ -854,26 +867,34 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       return map[riGan] === zhi;
     },
     天罗: () => {
-      return (
-        (pillarIndex !== 0 &&
-          ((nianZhi === '戌' && zhi === '亥') || (nianZhi === '亥' && zhi === '戌'))) ||
-        (pillarIndex !== 2 &&
-          ((riZhi === '戌' && zhi === '亥') || (riZhi === '亥' && zhi === '戌')))
-      );
+      if (isWenzhen) {
+        const matches = (source: string, target: string) =>
+          (source === '戌' && target === '亥') || (source === '亥' && target === '戌');
+        return (
+          (pillarIndex !== 0 && matches(nianZhi, zhi)) || (pillarIndex !== 2 && matches(riZhi, zhi))
+        );
+      }
+      const hasXu = baziArray.some((p) => p[1] === '戌');
+      const hasHai = baziArray.some((p) => p[1] === '亥');
+      return hasXu && hasHai && (zhi === '戌' || zhi === '亥');
     },
     地网: () => {
-      return (
-        (pillarIndex !== 0 &&
-          ((nianZhi === '辰' && zhi === '巳') || (nianZhi === '巳' && zhi === '辰'))) ||
-        (pillarIndex !== 2 &&
-          ((riZhi === '辰' && zhi === '巳') || (riZhi === '巳' && zhi === '辰')))
-      );
+      if (isWenzhen) {
+        const matches = (source: string, target: string) =>
+          (source === '辰' && target === '巳') || (source === '巳' && target === '辰');
+        return (
+          (pillarIndex !== 0 && matches(nianZhi, zhi)) || (pillarIndex !== 2 && matches(riZhi, zhi))
+        );
+      }
+      const hasChen = baziArray.some((p) => p[1] === '辰');
+      const hasSi = baziArray.some((p) => p[1] === '巳');
+      return hasChen && hasSi && (zhi === '辰' || zhi === '巳');
     },
     天医: () => {
       const monthIdx = cdz.indexOf(yueZhi);
       if (monthIdx === -1) return false;
       const targetIdx = (monthIdx - 1 + 12) % 12;
-      return pillarIndex !== 1 && cdz[targetIdx] === zhi;
+      return cdz[targetIdx] === zhi;
     },
     太岁: () => annualPalace(0),
     剑锋: () => annualPalace(0),
@@ -931,12 +952,12 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     鸱枭杀: () => pillarIndex >= 2 && yueZhi === chiXiaoMonthBranch && zhi === chiXiaoDayHourBranch,
     冲天杀: () =>
       (pillarIndex === 1 && clashes(nianZhi, zhi)) || (pillarIndex === 3 && clashes(riZhi, zhi)),
-    丧门: () => pillarIndex !== 0 && annualPalace(2),
+    丧门: () => annualPalace(2),
     地丧: () => annualPalace(2),
     勾绞: () => annualPalace(3),
     贯索: () => annualPalace(3),
-    吊客: () => pillarIndex !== 0 && annualPalace(-2),
-    披麻: () => pillarIndex !== 0 && annualPalace(-3),
+    吊客: () => annualPalace(-2),
+    披麻: () => annualPalace(-3),
     五鬼: () => pillarIndex >= 2 && annualPalace(4),
     小耗: () => pillarIndex >= 1 && annualPalace(5),
     栏杆: () => annualPalace(6),
