@@ -5,6 +5,10 @@ import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance } from './guidance';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
 import type { PromptBuildOptions, PromptDocument } from './types';
+import {
+  formatBaziSchoolPrompt,
+  type BaziPromptSchool as SharedBaziPromptSchool,
+} from './bazi-school';
 
 export const BAZI_PROMPT_TOPICS = [
   'general',
@@ -36,7 +40,7 @@ export const BAZI_PROMPT_TOPICS = [
 
 export type BaziPromptTopic = (typeof BAZI_PROMPT_TOPICS)[number];
 export type BaziPromptMode = 'framework' | 'custom';
-export type BaziPromptSchool = 'traditional' | 'ziping' | 'mangpai' | 'xinpai';
+export type BaziPromptSchool = SharedBaziPromptSchool;
 export type BaziPromptFortuneScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 
 const TOPIC_LABELS: Record<BaziPromptTopic, string> = {
@@ -67,29 +71,6 @@ const TOPIC_LABELS: Record<BaziPromptTopic, string> = {
   talent: '天赋',
 };
 
-const SCHOOL_TEXT: Record<BaziPromptSchool, { label: string; task: string; basis: string }> = {
-  traditional: {
-    label: '子平派（传统）',
-    task: '先以月令定格，结合日主得令、通根、透干与全局制化判断旺衰，再以调候、格局成败和岁运引动回答问题。',
-    basis: '参考《渊海子平》《子平真诠》《三命通会》《滴天髓》《穷通宝鉴》。',
-  },
-  ziping: {
-    label: '子平派',
-    task: '以月令、旺衰、格局、调候和岁运为主线，先建立原局，再观察岁运引动。',
-    basis: '参考《渊海子平》《子平真诠》《三命通会》《滴天髓》《穷通宝鉴》。',
-  },
-  mangpai: {
-    label: '盲派',
-    task: '以四柱宫位、十神落柱、藏干和组合取象为骨架，结合大运流年分段观察应期。',
-    basis: '基础参照《渊海子平》《三命通会》《滴天髓》，组合取象按近现代盲派整理口径。',
-  },
-  xinpai: {
-    label: '新派',
-    task: '以日主旺衰为起点，观察五行流通、调候和生克制化，把大运、流年与原局作用叠加。',
-    basis: '基础参照《子平真诠》《滴天髓》《穷通宝鉴》《三命通会》，五行流通按近现代新派整理口径。',
-  },
-};
-
 function formatFullFortune(result: BaziChartResult) {
   const cycles = result.luckInfo?.cycles ?? [];
   if (!cycles.length) return '';
@@ -99,22 +80,6 @@ function formatFullFortune(result: BaziChartResult) {
       `${index + 1}. ${cycle.ganZhi}${cycle.isXiaoyun ? '童运' : cycle.type}：${cycle.year}年起，约${cycle.age}岁交运`,
       ...(cycle.years ?? []).map((year) => `  - ${year.year}年（${year.age}岁）${year.ganZhi}`),
     ]),
-  ].join('\n');
-}
-
-function formatSchoolSection(result: BaziChartResult, school: BaziPromptSchool) {
-  const profile = SCHOOL_TEXT[school];
-  const pillars = (['year', 'month', 'day', 'hour'] as const)
-    .map(
-      (key) =>
-        `${{ year: '年柱', month: '月柱', day: '日柱', hour: '时柱' }[key]}${result.pillars[key].ganZhi}`,
-    )
-    .join('、');
-  return [
-    `八字流派：${profile.label}`,
-    `流派任务：${profile.task}`,
-    `流派依据：${profile.basis}`,
-    `流派盘面资料：${pillars}；日主${result.dayMaster.gan}${result.dayMaster.element}，${result.analysis.dayMasterStrength.status}；格局${result.analysis.mingGe.pattern}`,
   ].join('\n');
 }
 
@@ -154,7 +119,7 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('排盘信息', chart),
     options.school
-      ? buildPromptSection('流派', formatSchoolSection(options.result, options.school))
+      ? buildPromptSection('流派', formatBaziSchoolPrompt(options.result, options.school))
       : '',
     buildPromptSection('分析对象', scopeText),
     options.fortuneFocus ? buildPromptSection('岁运重点', options.fortuneFocus) : '',

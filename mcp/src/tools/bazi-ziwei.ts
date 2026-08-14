@@ -91,7 +91,9 @@ const baziZiweiPromptSchema = z.object({
   baziSchool: z
     .enum(BAZI_SCHOOLS)
     .optional()
-    .describe('八字流派：traditional=传统兼容名, ziping=子平派, mangpai=盲派, xinpai=新派'),
+    .describe(
+      '八字流派：traditional=传统兼容名, ziping=子平派, mangpai=盲派（宫位十神、主宾体用、组合取象）, xinpai=新派（旺衰判定、十神流通、喜忌落位）',
+    ),
   ziweiSchool: z
     .enum(ZIWEI_SCHOOLS)
     .optional()

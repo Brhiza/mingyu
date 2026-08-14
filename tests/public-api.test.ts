@@ -1612,9 +1612,29 @@ test('八字提示词按流派输出不同任务、依据与盘面证据', () =>
   });
   assert.match(mangpai, /八字流派：盲派/);
   assert.match(mangpai, /四柱宫位与十神/);
-  assert.match(mangpai, /四柱组合资料：/);
+  assert.match(mangpai, /四柱组合与做功线索：/);
+  assert.match(mangpai, /主宾定位：/);
+  assert.match(mangpai, /主位为日柱.+与时柱/);
+  assert.match(mangpai, /十神显隐：/);
+  assert.match(mangpai, /墓库与空亡：/);
+  assert.match(mangpai, /分柱年限：年柱约对应1至16岁/);
   assert.match(mangpai, /《渊海子平》/);
   assert.notEqual(ziping, mangpai);
+
+  const xinpai = buildBaziPromptForResult({
+    result,
+    question: '整体命局如何判断？',
+    school: 'xinpai',
+  });
+  assert.match(xinpai, /八字流派：新派/);
+  assert.match(xinpai, /旺衰判定：/);
+  assert.match(xinpai, /旺衰依据：/);
+  assert.match(xinpai, /十神流通：/);
+  assert.match(xinpai, /喜忌落位：/);
+  assert.match(xinpai, /动态岁运：/);
+  assert.doesNotMatch(xinpai, /不把旺相休囚死|限制事实|工程上下文/);
+  assert.notEqual(mangpai, xinpai);
+  assert.doesNotMatch(`${mangpai}\n${xinpai}`, /undefined|\[object Object\]/);
 
   const legacy = buildBaziPromptForResult({
     result,

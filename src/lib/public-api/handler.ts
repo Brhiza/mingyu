@@ -1351,7 +1351,7 @@ export function getPublicApiOpenApiDocument(
                 school: {
                   enum: [...BAZI_SCHOOLS],
                   description:
-                    '八字流派指引：traditional=传统兼容名（子平派）, ziping=子平派（月令格局、调候行运）, mangpai=盲派（宫位十神、宾主体用、年限）, xinpai=新派（旺衰流通、动态岁运）。不传则不附加流派指引。',
+                    '八字流派指引：traditional=传统兼容名（子平派）, ziping=子平派（月令格局、调候行运）, mangpai=盲派（宫位十神、主宾体用、通根墓库、组合取象、分柱年限）, xinpai=新派（旺衰判定、十神流通、喜忌落位、动态岁运）。不传则不附加流派指引。',
                 },
               },
             },

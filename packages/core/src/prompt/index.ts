@@ -1,5 +1,15 @@
 export * from './astrolabe';
 export * from './bazi';
+export {
+  BAZI_PROMPT_SCHOOLS,
+  BAZI_SCHOOL_PROFILES,
+  buildBaziSchoolPromptSection,
+  formatBaziSchoolFacts,
+  formatBaziSchoolPrompt,
+  getBaziSchoolGuidance,
+  normalizeBaziPromptSchool,
+  type NormalizedBaziPromptSchool,
+} from './bazi-school';
 export * from './bazi-fortune';
 export * from './current-time';
 export * from './divination';

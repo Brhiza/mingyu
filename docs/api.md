@@ -410,7 +410,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 八字出生时间必须满足接口输入约束后才会进入排盘；接口不接受模糊时间误差范围，也不会基于误差范围继续排盘。
 - 八字紫微合参接口为 `POST /bazi-ziwei/prompt`，使用同一份出生信息，同时计算八字和紫微，默认只返回 `data.prompt`；传 `responseMode: "summary"` 可返回轻量双盘摘要，传 `responseMode: "full"` 才返回完整双盘。该接口使用 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope` 区分两套体系的分析范围。
 - `promptMode` 支持 `framework`（完整任务书，默认）和 `custom`（只围绕用户问题自由作答）。
-- 八字 `school` 支持 `traditional`（传统派子平正法）、`mangpai`（盲派十神象法）、`xinpai`（新派调候流通）。不传则不附加流派指引。
+- 八字 `school` 支持 `traditional`（传统兼容名，等同子平派）、`ziping`（子平派月令格局、调候行运）、`mangpai`（盲派宫位十神、主宾体用、通根墓库、组合取象与分柱年限）、`xinpai`（新派旺衰判定、十神流通、喜忌落位与动态岁运）。选择盲派或新派后，提示词会写入对应的逐项盘面资料；不传则不附加流派段落。
 - 八字 `shenShaScope` 默认 `common`，返回 55 个常用神煞；传 `all` 返回全部已计算神煞。`shenShaVariants` 用于请求争议口径；`referenceProfile` 默认为 `wenzhen`（问真整理口径），传 `classical` 可兼容 0.1.27 及更早版本的原有查法。单项可选值：`kongWangBasis` 为 `day` 或 `day-and-year`；`yangRenMode` 为 `yang-stems-only` 或 `include-yin-ren`；`tongZiScope` 为 `day-hour` 或 `all-pillars`。
 - 紫微 `school` 支持 `sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。它只改变提示词的解读侧重点，不改变底层安星算法；本次实际采用的 `iztro` 算法、闰月、分年、运限月份、小限年龄和晚子时口径以 `calculationConfig` / `payloadByScope.*.calculation_config` 为准。
 - `customDate` 用于指定时间类占卜的起卦或排盘时间，支持六爻、梅花易数、奇门遁甲、大六壬；不传时使用服务器当前时间。该字段必须使用带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00` 或 `2025-01-01T00:00:00Z`。

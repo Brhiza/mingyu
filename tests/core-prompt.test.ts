@@ -55,6 +55,33 @@ test('npm 提示词入口应生成自包含的八字任务书', () => {
   assert.doesNotMatch(prompt, /API|MCP|仓库|项目名|工程上下文/);
 });
 
+test('npm 八字提示词入口应输出完整且有差异的盲派与新派资料', () => {
+  const result = createChart('female', 15);
+  const mangpai = buildBaziPrompt({
+    result,
+    school: 'mangpai',
+    question: '事业和家庭的主线如何？',
+  });
+  const xinpai = buildBaziPrompt({
+    result,
+    school: 'xinpai',
+    question: '事业和家庭的主线如何？',
+  });
+
+  assert.match(mangpai, /四柱宫位与十神落位/);
+  assert.match(mangpai, /主宾定位/);
+  assert.match(mangpai, /四柱组合与做功线索/);
+  assert.match(mangpai, /透干通根/);
+  assert.match(mangpai, /墓库与空亡/);
+  assert.match(xinpai, /旺衰判定/);
+  assert.match(xinpai, /十神结构/);
+  assert.match(xinpai, /十神流通/);
+  assert.match(xinpai, /喜忌落位/);
+  assert.match(xinpai, /动态岁运/);
+  assert.notEqual(mangpai, xinpai);
+  assert.doesNotMatch(`${mangpai}\n${xinpai}`, /API|MCP|仓库|项目名|工程上下文/);
+});
+
 test('npm 八字提示词应保留指定岁运的上下层资料', () => {
   const result = createChart('female', 15);
   const cycle = result.luckInfo.cycles.find((item) => item.years.length > 0);
