@@ -25,7 +25,7 @@ function createChart(gender: 'male' | 'female', day: number) {
   });
 }
 
-test('共享派系注册表应覆盖全部可选术数且每种至少提供两种断法', () => {
+test('解读口径注册表只覆盖规划内适用术数且每种至少提供两种口径', () => {
   for (const method of Object.keys(PROMPT_SCHOOL_PROFILES)) {
     assert.ok(
       getPromptSchoolIds(method as keyof typeof PROMPT_SCHOOL_PROFILES).length >= 2,

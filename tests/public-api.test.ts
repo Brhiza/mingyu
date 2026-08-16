@@ -275,7 +275,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.match(body.data.info.description, /星盘/);
   assert.equal(
     body.data.paths['/divination/{method}/prompt'].post.summary,
-    '起卦、抽牌或求签并生成 AI 解读提示词',
+    '起卦、抽牌或排盘并生成 AI 解读提示词',
   );
   assert.deepEqual(body.data.paths['/divination/{method}/prompt'].post.parameters, [
     {
@@ -291,7 +291,6 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
           'qimen',
           'liuren',
           'tarot',
-          'ssgw',
           'almanac',
           'lenormand',
           'astrolabe',
@@ -305,6 +304,12 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     /摘要/,
   );
   assert.ok(body.data.paths['/divination/almanac']);
+  assert.equal(
+    body.data.paths['/divination/ssgw/prompt'].post.requestBody.content['application/json'].schema
+      .$ref,
+    '#/components/schemas/SsgwPromptRequest',
+  );
+  assert.equal(body.data.components.schemas.SsgwPromptRequest.properties.schools, undefined);
   assert.ok(body.data.paths['/bazi-ziwei/prompt']);
   assert.ok(body.data.paths['/divination/astrolabe']);
   assert.ok(body.data.paths['/foundation/shensha']);
@@ -344,6 +349,11 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.equal(
     body.data.components.schemas.ZiweiCompatibilityRequest.properties.schools.uniqueItems,
     true,
+  );
+  assert.deepEqual(
+    body.data.components.schemas.AstrolabeSynastryPromptRequest.allOf[1].properties.schools.items
+      .enum,
+    ['modern', 'traditional', 'timing'],
   );
   assert.equal(body.data.paths['/metaphysics/qizheng/calculate'].post.responses['400'], undefined);
   assert.equal(
@@ -2738,6 +2748,18 @@ test('公开 API 灵签应返回签号、签题与签诗', async () => {
     /掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】|解读派系|多派合参/,
   );
   assertPromptIsPortableTaskText(prompt.body.data.prompt);
+
+  const unsupportedSchools = await callApi('divination/ssgw/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: '这件事接下来该怎么推进？',
+      schools: ['任意值'],
+    }),
+  });
+  assert.equal(unsupportedSchools.response.status, 400);
+  assert.equal(unsupportedSchools.body.error.code, 'BAD_REQUEST');
+  assert.match(unsupportedSchools.body.error.message, /不提供解读流派或断法选择/);
 });
 
 test('公开 API 应拒绝空、重复、超量和非法的派系数组', async () => {
@@ -3791,6 +3813,7 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
         timezone: 8,
       },
       question: '我们在长期合作中最需要注意什么？',
+      schools: ['modern', 'timing'],
       responseMode: 'summary',
     }),
   });
@@ -3807,6 +3830,9 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
   assert.match(body.data.prompt, /【跨盘相位】/);
   assert.match(body.data.prompt, /实际夹角\d+\.\d{2}°，容许度\d+\.\d{2}°，(?:紧密|中等|宽松)/);
   assert.match(body.data.prompt, /【跨盘落宫】/);
+  assert.match(body.data.prompt, /【多口径合参】/);
+  assert.match(body.data.prompt, /流派1：现代心理占星/);
+  assert.match(body.data.prompt, /断法2：时限触发法/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%|匹配率\d+%/);
   assert.match(body.data.prompt, /分析互动主轴、互补点与张力点/);
   assert.doesNotMatch(body.data.prompt, /不得输出|不得编造|只依据/);

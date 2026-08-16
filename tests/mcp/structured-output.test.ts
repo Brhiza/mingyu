@@ -2156,6 +2156,7 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
           timezone: 8,
         },
         question: '我们的长期合作关系有哪些互补和张力？',
+        schools: ['modern', 'timing'],
       },
     });
 
@@ -2250,6 +2251,9 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
     assert.match(prompt, /【跨盘相位】/);
     assert.match(prompt, /【跨盘落宫】/);
     assert.match(prompt, /容许度/);
+    assert.match(prompt, /【多口径合参】/);
+    assert.match(prompt, /流派1：现代心理占星/);
+    assert.match(prompt, /断法2：时限触发法/);
     assert.match(prompt, /分析互动主轴、互补点与张力点/);
     assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
     assert.doesNotMatch(prompt, /结构化证据|计算链概览|证据汇总|解释限制/);

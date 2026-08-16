@@ -220,6 +220,8 @@ const DIVINATION_METHODS = [
   'astrolabe',
 ] as const;
 
+const DIVINATION_PROMPT_METHODS = DIVINATION_METHODS.filter((method) => method !== 'ssgw');
+
 function openApiJsonRequestBody(schemaRef: string, required = true) {
   return {
     required,
@@ -714,6 +716,15 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '灵签结果' } },
         },
       },
+      '/divination/ssgw/prompt': {
+        post: {
+          summary: '三山国王灵签求签并生成 AI 解读提示词',
+          description:
+            '签谱提示词只使用本次签号、签题、签诗、吉凶、典故和解签资料，不提供解读流派选择。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/SsgwPromptRequest'),
+          responses: { '200': { description: '灵签结果与签谱提示词' } },
+        },
+      },
       '/divination/almanac': {
         post: {
           summary: '黄历择日',
@@ -745,19 +756,21 @@ export function getPublicApiOpenApiDocument(
       '/divination/astrolabe/synastry/prompt': {
         post: {
           summary: '西洋占星双盘计算并生成 AI 解读提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/AstrolabeSynastryRequest'),
+          requestBody: openApiJsonRequestBody(
+            '#/components/schemas/AstrolabeSynastryPromptRequest',
+          ),
           responses: { '200': { description: '西占双盘结果与结构化证据提示词' } },
         },
       },
       '/divination/{method}/prompt': {
         post: {
-          summary: '起卦、抽牌或求签并生成 AI 解读提示词',
+          summary: '起卦、抽牌或排盘并生成 AI 解读提示词',
           parameters: [
             {
               name: 'method',
               in: 'path',
               required: true,
-              schema: { enum: [...DIVINATION_METHODS] },
+              schema: { enum: [...DIVINATION_PROMPT_METHODS] },
               description: '占卜方法。',
             },
           ],
@@ -1596,9 +1609,38 @@ export function getPublicApiOpenApiDocument(
           properties: {
             person1: { $ref: '#/components/schemas/AstrolabeBirthRequest' },
             person2: { $ref: '#/components/schemas/AstrolabeBirthRequest' },
+          },
+        },
+        AstrolabeSynastryPromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/AstrolabeSynastryRequest' },
+            {
+              type: 'object',
+              properties: {
+                question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+                promptMode: { enum: [...PROMPT_MODES] },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+                schools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...getPromptSchoolIds('astrolabe')] },
+                  description: '西占双盘解读口径；支持现代心理占星、古典占星和时限触发法合参。',
+                },
+              },
+            },
+          ],
+        },
+        SsgwPromptRequest: {
+          type: 'object',
+          required: ['question'],
+          properties: {
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
             promptMode: { enum: [...PROMPT_MODES] },
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+            seed: DIVINATION_REQUEST_PROPERTIES.seed,
+            replay: DIVINATION_REQUEST_PROPERTIES.replay,
           },
         },
       },
@@ -3166,6 +3208,10 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
     synastry: result.synastry,
     question: readString(input, 'question', ''),
     promptMode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework'),
+    schools:
+      input.schools === undefined
+        ? undefined
+        : readPromptSchools(input, getPromptSchoolIds('astrolabe')),
   });
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
@@ -3267,6 +3313,13 @@ function buildDivinationPromptResult(
   method: Exclude<DivinationMethodId, 'random'>,
   input: JsonRecord,
 ) {
+  if (method === 'ssgw' && input.schools !== undefined) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '三山国王灵签不提供解读流派或断法选择，请移除 schools。',
+    );
+  }
   const question =
     method === 'almanac'
       ? readString(input, 'question', '')

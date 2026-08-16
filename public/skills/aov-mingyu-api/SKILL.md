@@ -357,11 +357,11 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 
 紫微 `school` 支持：`sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。不传则不附加流派指引。
 
-适合区分解读口径的提示词接口统一支持 `schools` 数组，一次选择一至三个流派、断法或解读侧重。传一个值时按该口径解读；传两个或三个值时，提示词会要求各口径分别判断，再归纳共同结论、分歧及各自盘面依据，最后形成综合判断。同属流派时称“多派合参”，同属断法时称“多法合参”，混合类型时称“多口径合参”。八字、紫微原有 `school` 为单派兼容参数，同时传入时以 `schools` 为准；八字紫微合参分别使用 `baziSchools`、`ziweiSchools`。
+只对规划内确有合理差异的提示词接口提供 `schools` 数组，一次选择一至三个流派、断法或解读侧重。传一个值时按该口径解读；传两个或三个值时，提示词会要求各口径分别判断，再归纳共同结论、分歧及各自盘面依据，最后形成综合判断。同属流派时称“多派合参”，同属断法时称“多法合参”，混合类型时称“多口径合参”。八字、紫微、住宅风水属于真实流派选择；塔罗、黄历择日、星盘和七政四余同时包含流派与断法；其余登记项属于不同断法，不称作不同派系。八字、紫微原有 `school` 为单派兼容参数，同时传入时以 `schools` 为准；八字紫微合参分别使用 `baziSchools`、`ziweiSchools`。
 
 各术数允许值：八字 `ziping/mangpai/xinpai`；紫微 `sanhe/feixing/sihua`；六爻 `huozhulin/bushizhengzong/zengshanbuyi`；梅花 `tiyong/xiangshu/yaoci`；小六壬 `shunshu/gongjue`；金口诀 `siwei/fayong/wudong`；奇门 `gongwei/geju/zhuke`；大六壬 `keti/bifafu/leishen`；塔罗 `rws/yuansu/narrative`；雷诺曼 `combination/eventline/significator`；黄历择日 `xieji/jianchu/comprehensive`；星盘及西占双盘 `modern/traditional/timing`；太乙 `zhuke/gongwei`；八宅 `dayounian/mingzhai`；住宅风水 `bazhai/xuankong`；玄空 `sanYuan/shanxiang`；七政四余 `guolao/wuxingjingyi`；生肖 `ganzhi/sanhe`；五运六气 `yunqi/sitian/kezhu`；皇极经世 `yuanhui/guaqi`。
 
-奇门的转盘/飞盘、拆补/置闰和时家/日家等参数决定实际排盘，`schools` 只改变解读方法；紫微 `algorithm` 同理属于排盘口径。三山国王灵签提示词只列本次签谱资料，不附加派系段落。
+奇门的转盘/飞盘、拆补/置闰和时家/日家等参数决定实际排盘，`schools` 只改变解读方法；紫微 `algorithm` 同理属于排盘口径。三山国王灵签提示词只列本次签谱资料，不附加派系段落，也不接受 `schools`。
 
 Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用时请显式设置正常 `User-Agent`，例如 `curl/8.0.0` 或业务自己的客户端名称。
 
