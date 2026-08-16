@@ -38,6 +38,7 @@ import { LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
 import { secureRandomInt } from 'mingyu-core/random';
 import {
   formatPromptSchoolGuidance,
+  getPromptSchoolSectionTitle,
   normalizePromptSchoolIds,
   type PromptSchoolMethod,
 } from 'mingyu-core/prompt';
@@ -175,7 +176,10 @@ export function buildDivinationPrompt(
     ? formatPromptSchoolGuidance(method as PromptSchoolMethod, selectedSchools)
     : '';
   const schoolSection = schoolText
-    ? buildSection(selectedSchools.length > 1 ? '【多派合参】' : '【解读派系】', schoolText)
+    ? buildSection(
+        `【${getPromptSchoolSectionTitle(method as PromptSchoolMethod, selectedSchools)}】`,
+        schoolText,
+      )
     : '';
 
   if (method === 'liuren') {

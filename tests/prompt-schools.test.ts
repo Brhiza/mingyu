@@ -12,6 +12,7 @@ import {
   buildDivinationPrompt,
   formatPromptSchoolGuidance,
   getPromptSchoolIds,
+  getPromptSchoolSectionTitle,
 } from 'mingyu-core/prompt';
 
 function createChart(gender: 'male' | 'female', day: number) {
@@ -34,7 +35,7 @@ test('共享派系注册表应覆盖全部可选术数且每种至少提供两�
   assert.equal('ssgw' in PROMPT_SCHOOL_PROFILES, false);
 });
 
-test('多派合参应要求分别判断、归纳共识分歧并形成综合判断', () => {
+test('多口径合参应按流派或断法命名并归纳共识分歧', () => {
   const guidance = formatPromptSchoolGuidance('liuyao', [
     'huozhulin',
     'bushizhengzong',
@@ -44,13 +45,18 @@ test('多派合参应要求分别判断、归纳共识分歧并形成综合判�
   assert.match(guidance, /火珠林法/);
   assert.match(guidance, /《卜筮正宗》法/);
   assert.match(guidance, /《增删卜易》法/);
-  assert.match(guidance, /分别形成判断/);
+  assert.match(guidance, /每种解读口径分别形成判断/);
   assert.match(guidance, /共同结论、分歧/);
   assert.match(guidance, /综合判断/);
+  assert.match(guidance, /断法1：火珠林法/);
+  assert.equal(getPromptSchoolSectionTitle('liuyao', ['huozhulin', 'bushizhengzong']), '多法合参');
+  assert.equal(getPromptSchoolSectionTitle('bazi', ['ziping', 'mangpai']), '多派合参');
+  assert.equal(getPromptSchoolSectionTitle('tarot', ['rws', 'yuansu']), '多口径合参');
   const single = formatPromptSchoolGuidance('liuyao', ['huozhulin']);
   assert.match(single, /断法：火珠林法/);
   assert.doesNotMatch(single, /合参任务/);
-  assert.throws(() => formatPromptSchoolGuidance('liuyao', ['unknown']), /不支持解读派系/);
+  assert.equal(getPromptSchoolSectionTitle('liuyao', ['huozhulin']), '解读断法');
+  assert.throws(() => formatPromptSchoolGuidance('liuyao', ['unknown']), /不支持解读口径/);
 });
 
 test('八字单盘与合盘应支持子平、盲派和新派合参', () => {
@@ -92,7 +98,7 @@ test('奇门提示词应同时标明起局方法与多种解读断法', () => {
   assert.match(prompt, /主客方略法/);
 });
 
-test('五运六气与皇极经世核心构建器应原生支持多派合参', () => {
+test('五运六气与皇极经世核心构建器应原生支持多法合参', () => {
   const wuyunResult = wuyunLiuqi.calculateWuyunLiuqi({ year: 2026 });
   const wuyunPrompt = wuyunLiuqi.buildWuyunLiuqiPrompt(wuyunResult, '全年节律如何？', [
     'yunqi',
@@ -104,10 +110,10 @@ test('五运六气与皇极经世核心构建器应原生支持多派合参', ()
     'guaqi',
   ]);
 
-  assert.match(wuyunPrompt, /【多派合参】/);
+  assert.match(wuyunPrompt, /【多法合参】/);
   assert.match(wuyunPrompt, /五运六气法/);
   assert.match(wuyunPrompt, /客主加临法/);
-  assert.match(huangjiPrompt, /【多派合参】/);
+  assert.match(huangjiPrompt, /【多法合参】/);
   assert.match(huangjiPrompt, /元会运世法/);
   assert.match(huangjiPrompt, /值年卦气法/);
 });

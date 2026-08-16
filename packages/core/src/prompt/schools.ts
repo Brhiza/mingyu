@@ -391,13 +391,29 @@ export function normalizePromptSchoolIds(
   for (const school of schools) {
     if (!(school in profiles)) {
       throw new RangeError(
-        `${method} 不支持解读派系 ${school}；可选值：${Object.keys(profiles).join('、')}。`,
+        `${method} 不支持解读口径 ${school}；可选值：${Object.keys(profiles).join('、')}。`,
       );
     }
     if (!selected.includes(school)) selected.push(school);
   }
-  if (selected.length > 3) throw new RangeError('多派合参最多选择三个派系。');
+  if (selected.length > 3) throw new RangeError('多口径合参最多选择三个值。');
   return selected;
+}
+
+export function getPromptSchoolSectionTitle(
+  method: PromptSchoolMethod,
+  schools?: readonly string[] | null,
+) {
+  const selected = normalizePromptSchoolIds(method, schools);
+  if (!selected.length) return '';
+  const profiles = getPromptSchoolProfiles(method);
+  const categories = [...new Set(selected.map((school) => profiles[school].category))];
+
+  if (selected.length === 1) return `解读${categories[0]}`;
+  if (categories.length > 1) return '多口径合参';
+  if (categories[0] === '流派') return '多派合参';
+  if (categories[0] === '断法') return '多法合参';
+  return '多角度合参';
 }
 
 export function formatPromptSchoolGuidance(
@@ -409,7 +425,7 @@ export function formatPromptSchoolGuidance(
   const profiles = getPromptSchoolProfiles(method);
   const blocks = selected.map((school, index) => {
     const profile = profiles[school];
-    const prefix = selected.length > 1 ? `派系${index + 1}` : profile.category;
+    const prefix = selected.length > 1 ? `${profile.category}${index + 1}` : profile.category;
     return [
       `${prefix}：${profile.label}`,
       `${profile.category}任务：${profile.task}`,
@@ -418,7 +434,7 @@ export function formatPromptSchoolGuidance(
   });
   if (selected.length > 1) {
     blocks.push(
-      '合参任务：请先按每种派系分别形成判断，再归纳共同结论、分歧及各自对应的盘面依据，最后围绕问题给出综合判断。',
+      '合参任务：请先按每种解读口径分别形成判断，再归纳共同结论、分歧及各自对应的盘面依据，最后围绕问题给出综合判断。',
     );
   }
   return blocks.join('\n\n');
@@ -431,6 +447,6 @@ export function buildPromptSchoolSection(
   const selected = normalizePromptSchoolIds(method, schools);
   const guidance = formatPromptSchoolGuidance(method, selected);
   return guidance
-    ? buildPromptSection(selected.length > 1 ? '多派合参' : '解读派系', guidance)
+    ? buildPromptSection(getPromptSchoolSectionTitle(method, selected), guidance)
     : '';
 }

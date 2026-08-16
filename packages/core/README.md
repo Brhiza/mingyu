@@ -405,7 +405,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 
 `analyzeFortuneTriggers(chart, activeLayers)` 提供统一岁运触发证据：逐层比较原局四柱、大运、流年、流月、流日或流时的同干、五合、相冲、同支、六合、六冲、刑、害、破，并单列岁运并临与天克地冲。返回值保留双方层级、时间范围、规则来源、解释限制和 `promptText`，不从单条关系直接推断吉凶事件。
 
-`mingyu-core/prompt` 的八字任务书支持 `school`：盲派会组织四柱宫位十神、主宾体用、透干通根、墓库空亡、组合取象和分柱年限资料；新派会组织旺衰判定链、五行与十神流通、喜忌逐柱落位和动态岁运资料。通用 `schools` 参数可选择一至三个派系或断法；多值时会要求分别判断、归纳共识与分歧并形成综合判断。派系注册表、允许值和格式化能力由 `PROMPT_SCHOOL_PROFILES`、`getPromptSchoolIds()`、`formatPromptSchoolGuidance()` 提供，公开 API、MCP 与 npm 提示词入口共用同一生成口径。
+`mingyu-core/prompt` 的八字任务书支持 `school`：盲派会组织四柱宫位十神、主宾体用、透干通根、墓库空亡、组合取象和分柱年限资料；新派会组织旺衰判定链、五行与十神流通、喜忌逐柱落位和动态岁运资料。适用术数的通用 `schools` 参数可选择一至三个流派、断法或解读侧重；多值时会要求分别判断、归纳共识与分歧并形成综合判断，并按实际类型使用“多派合参”“多法合参”或“多口径合参”。解读口径注册表、允许值和格式化能力由 `PROMPT_SCHOOL_PROFILES`、`getPromptSchoolIds()`、`formatPromptSchoolGuidance()` 提供，公开 API、MCP 与 npm 提示词入口共用同一生成口径。
 
 八字排盘只接受满足精度要求的出生时间。真太阳时、历史夏令时和节气边界校正属于确定性计算链；输入不满足要求时应在进入排盘前拒绝，不基于模糊范围继续计算。
 

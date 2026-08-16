@@ -396,7 +396,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
     maxItems: 3,
     uniqueItems: true,
     items: { type: 'string' },
-    description: '解读派系或断法，可选值随术数而定；选择两个或三个时生成多派合参提示词。',
+    description: '解读流派、断法或侧重，可选值随术数而定；选择两个或三个时生成多口径合参提示词。',
   },
   responseMode: {
     enum: [...PROMPT_RESPONSE_MODES],
@@ -3912,7 +3912,7 @@ function readPromptSchools(
   const value = input[key];
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length < 1 || value.length > 3) {
-    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须包含一至三个解读派系。`);
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须包含一至三个解读口径。`);
   }
   const selected = value.map((item, index) => {
     if (typeof item !== 'string' || !allowedValues.includes(item)) {
@@ -3925,7 +3925,7 @@ function readPromptSchools(
     return item;
   });
   if (new Set(selected).size !== selected.length) {
-    throw new ApiError(400, 'BAD_REQUEST', `${key} 不能包含重复派系。`);
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 不能包含重复解读口径。`);
   }
   return selected;
 }

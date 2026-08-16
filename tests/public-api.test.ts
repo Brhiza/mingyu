@@ -2686,12 +2686,16 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
       spreadType: 'single',
       seed: '公开接口塔罗证据链',
       question: '当前有哪些可核验线索？',
+      schools: ['rws', 'yuansu'],
     }),
   });
   assert.equal(tarotPromptResponse.response.status, 200);
   assert.match(tarotPromptResponse.body.data.prompt, /占法：塔罗/);
   assert.match(tarotPromptResponse.body.data.prompt, /核心结构：牌阵/);
   assert.match(tarotPromptResponse.body.data.prompt, /正位|逆位/);
+  assert.match(tarotPromptResponse.body.data.prompt, /【多口径合参】/);
+  assert.match(tarotPromptResponse.body.data.prompt, /流派1：RWS 图像法/);
+  assert.match(tarotPromptResponse.body.data.prompt, /断法2：元素与数序法/);
   assert.doesNotMatch(
     tarotPromptResponse.body.data.prompt,
     /结构化证据|计算链|证据汇总|解释限制|解释边界/,
