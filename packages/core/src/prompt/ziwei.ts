@@ -4,6 +4,8 @@ import { analyzeZiweiCompatibility } from '../ziwei/iztro/index';
 import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance } from './guidance';
+import { formatPromptSchoolGuidance } from './schools';
+import { formatBaziSchoolsPrompt, normalizeBaziPromptSchools } from './bazi-school';
 import {
   buildPromptDocument,
   buildPromptSection,
@@ -228,6 +230,7 @@ export interface ZiweiPromptOptions extends PromptBuildOptions {
   runtime: ZiweiRuntime;
   scope?: ZiweiPromptScope;
   school?: ZiweiPromptSchool;
+  schools?: readonly ZiweiPromptSchool[];
   topic?: ZiweiPromptTopic;
   focusPalaceNames?: readonly string[];
 }
@@ -252,12 +255,16 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
   const question =
     options.question?.trim() ||
     (topicLabel ? `请围绕${topicLabel}解读紫微盘面资料。` : '请结合盘面资料完成紫微斗数解读。');
-  const school = options.school ? SCHOOL_TEXT[options.school] : undefined;
-  const schoolText = school
-    ? [`紫微流派：${school.label}`, `流派任务：${school.task}`, `流派依据：${school.basis}`].join(
-        '\n',
-      )
-    : '';
+  const selectedSchools = options.schools?.length ? options.schools : [];
+  const school =
+    !selectedSchools.length && options.school ? SCHOOL_TEXT[options.school] : undefined;
+  const schoolText = selectedSchools.length
+    ? formatPromptSchoolGuidance('ziwei', selectedSchools)
+    : school
+      ? [`紫微流派：${school.label}`, `流派任务：${school.task}`, `流派依据：${school.basis}`].join(
+          '\n',
+        )
+      : '';
 
   const user = joinPromptSections([
     buildPromptGuidance('ziwei'),
@@ -266,7 +273,9 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
       ? buildPromptSection('出生时间校正', formatTrueSolarEvidence(options.runtime))
       : '',
     buildPromptSection('紫微盘面资料', chartText),
-    schoolText ? buildPromptSection('流派', schoolText) : '',
+    schoolText
+      ? buildPromptSection(selectedSchools.length > 1 ? '多派合参' : '流派', schoolText)
+      : '',
     buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
@@ -305,6 +314,7 @@ function formatZiweiCompatibilityFacts(result: ReturnType<typeof analyzeZiweiCom
 export interface ZiweiCompatibilityPromptOptions extends PromptBuildOptions {
   payload1: AnalysisPayloadV1;
   payload2: AnalysisPayloadV1;
+  schools?: readonly ZiweiPromptSchool[];
   compatibility?: ReturnType<typeof analyzeZiweiCompatibility>;
   person1Name?: string;
   person2Name?: string;
@@ -326,11 +336,18 @@ export function buildZiweiCompatibilityPromptDocument(
   const question =
     options.question?.trim() ||
     (topicLabel ? `请分析双方在${topicLabel}方面的互动。` : '请分析双方互动主轴、互补点与张力点。');
+  const schoolText = formatPromptSchoolGuidance('ziwei', options.schools);
   const user = joinPromptSections([
     buildPromptGuidance('ziwei-compatibility'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection(`${person1}盘面`, formatZiweiPayloadForPrompt(options.payload1)),
     buildPromptSection(`${person2}盘面`, formatZiweiPayloadForPrompt(options.payload2)),
+    schoolText
+      ? buildPromptSection(
+          options.schools && options.schools.length > 1 ? '多派合参' : '解读流派',
+          schoolText,
+        )
+      : '',
     buildPromptSection('双盘关系资料', formatZiweiCompatibilityFacts(compatibility)),
     buildPromptSection('问题', question),
     buildPromptSection(
@@ -349,7 +366,12 @@ export interface BaziZiweiPromptOptions extends PromptBuildOptions {
   bazi: BaziChartResult;
   ziwei: ZiweiRuntime | AnalysisPayloadV1;
   topic?: string;
+  /** 旧版八字单派兼容字段。 */
   school?: import('./bazi').BaziPromptSchool;
+  baziSchool?: import('./bazi').BaziPromptSchool;
+  baziSchools?: readonly import('./bazi').BaziPromptSchool[];
+  ziweiSchool?: ZiweiPromptSchool;
+  ziweiSchools?: readonly ZiweiPromptSchool[];
 }
 
 function resolveZiweiPayload(ziwei: ZiweiRuntime | AnalysisPayloadV1) {
@@ -361,13 +383,36 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
   const payload = resolveZiweiPayload(options.ziwei);
   const topic = options.topic?.trim() || '整体人生';
   const question = options.question?.trim() || `请结合八字与紫微资料分析${topic}。`;
+  const selectedBaziSchools = normalizeBaziPromptSchools(
+    options.baziSchools?.length
+      ? options.baziSchools
+      : options.baziSchool || options.school
+        ? [options.baziSchool ?? options.school!]
+        : [],
+  );
+  const selectedZiweiSchools = options.ziweiSchools?.length
+    ? options.ziweiSchools
+    : options.ziweiSchool
+      ? [options.ziweiSchool]
+      : [];
   const user = joinPromptSections([
     buildPromptGuidance('bazi'),
     buildPromptGuidance('ziwei'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('八字盘面资料', formatBaziForPrompt(options.bazi, null, 'general')),
-    options.school ? buildPromptSection('八字流派', `采用${options.school}口径分析八字盘面。`) : '',
+    selectedBaziSchools.length
+      ? buildPromptSection(
+          selectedBaziSchools.length > 1 ? '八字多派合参' : '八字解读流派',
+          formatBaziSchoolsPrompt(options.bazi, selectedBaziSchools),
+        )
+      : '',
     buildPromptSection('紫微盘面资料', formatZiweiPayloadForPrompt(payload)),
+    selectedZiweiSchools.length
+      ? buildPromptSection(
+          selectedZiweiSchools.length > 1 ? '紫微多派合参' : '紫微解读流派',
+          formatPromptSchoolGuidance('ziwei', selectedZiweiSchools),
+        )
+      : '',
     buildPromptSection('分析对象', topic),
     buildPromptSection('问题', question),
     buildPromptSection(

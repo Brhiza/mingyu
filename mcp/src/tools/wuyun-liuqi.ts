@@ -8,6 +8,7 @@ import {
   createStructuredToolResult,
   getErrorMessage,
 } from '../tool-results.js';
+import { createPromptSchoolsShape } from './school-options.js';
 
 const wuyunLiuqiSchema = z.object({
   year: z.number().int().min(1).max(9999).optional().describe('公历年，按该年年中所属年柱换算'),
@@ -52,13 +53,19 @@ export function registerWuyunLiuqiTool(server: McpServer) {
     'wuyun_liuqi_prompt',
     {
       description: '五运六气年度深化计算并生成可直接交给 AI 的完整任务书',
-      inputSchema: wuyunLiuqiSchema.shape,
+      inputSchema: {
+        ...wuyunLiuqiSchema.shape,
+        ...createPromptSchoolsShape('wuyun-liuqi'),
+      },
       outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {
         const result = calculateWuyunLiuqi(args);
-        return createStructuredToolResult({ result, prompt: result.prompt });
+        return createStructuredToolResult({
+          result,
+          prompt: wuyunLiuqi.buildWuyunLiuqiPrompt(result, args.question, args.schools),
+        });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成五运六气提示词失败'));
       }

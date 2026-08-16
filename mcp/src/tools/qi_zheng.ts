@@ -8,6 +8,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
+import { createPromptSchoolsShape } from './school-options.js';
 
 const qiZhengSchema = z.object({
   year: z.number().int().min(1900).max(2200).describe('公元年'),
@@ -62,7 +63,7 @@ export function registerQizhengTool(server: McpServer) {
     'qizheng_prompt',
     {
       description: '七政四余排盘并生成可直接复制给 AI 的结构化提示词',
-      inputSchema: qiZhengSchema.shape,
+      inputSchema: { ...qiZhengSchema.shape, ...createPromptSchoolsShape('qizheng') },
       outputSchema: promptOutputSchema,
     },
     async (args) => {
@@ -83,7 +84,10 @@ export function registerQizhengTool(server: McpServer) {
         });
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'qizheng' }),
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
+            method: 'qizheng',
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成七政四余提示词失败'));

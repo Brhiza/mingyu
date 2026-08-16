@@ -7,8 +7,11 @@ import { buildPromptDocument, buildPromptSection, joinPromptSections } from './s
 import type { PromptBuildOptions, PromptDocument } from './types';
 import {
   formatBaziSchoolPrompt,
+  formatBaziSchoolsPrompt,
+  normalizeBaziPromptSchools,
   type BaziPromptSchool as SharedBaziPromptSchool,
 } from './bazi-school';
+import { formatPromptSchoolGuidance } from './schools';
 
 export const BAZI_PROMPT_TOPICS = [
   'general',
@@ -88,6 +91,7 @@ export interface BaziPromptOptions extends PromptBuildOptions {
   topic?: BaziPromptTopic;
   mode?: BaziPromptMode;
   school?: BaziPromptSchool;
+  schools?: readonly BaziPromptSchool[];
   fortuneScope?: BaziPromptFortuneScope;
   fortuneFocus?: string;
   /**
@@ -113,14 +117,20 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     : options.fortuneScope && options.fortuneScope !== 'natal'
       ? `分析对象：${options.fortuneScope === 'full' ? '本命盘与完整大运流年' : options.fortuneScope}`
       : '分析对象：本命盘';
+  const selectedSchools = normalizeBaziPromptSchools(options.schools);
 
   const user = joinPromptSections([
     buildPromptGuidance('bazi'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('排盘信息', chart),
-    options.school
-      ? buildPromptSection('流派', formatBaziSchoolPrompt(options.result, options.school))
-      : '',
+    selectedSchools.length
+      ? buildPromptSection(
+          selectedSchools.length > 1 ? '多派合参' : '解读流派',
+          formatBaziSchoolsPrompt(options.result, selectedSchools),
+        )
+      : options.school
+        ? buildPromptSection('流派', formatBaziSchoolPrompt(options.result, options.school))
+        : '',
     buildPromptSection('分析对象', scopeText),
     options.fortuneFocus ? buildPromptSection('岁运重点', options.fortuneFocus) : '',
     fortuneSelection ? buildPromptSection('岁运重点', fortuneSelection.focus) : '',
@@ -155,6 +165,7 @@ const COMPATIBILITY_LABELS: Record<BaziCompatibilityType, string> = {
 export interface BaziCompatibilityPromptOptions extends PromptBuildOptions {
   result1: BaziChartResult;
   result2: BaziChartResult;
+  schools?: readonly BaziPromptSchool[];
   compatibilityType?: BaziCompatibilityType;
   person1Name?: string;
   person2Name?: string;
@@ -180,6 +191,8 @@ export function buildBaziCompatibilityPromptDocument(
     `喜忌覆盖：${relation.usefulGodCoverage.map((item) => item.promptText).join('；') || '资料不足'}`,
     relation.summaryFact.promptText,
   ].join('\n');
+  const selectedSchools = normalizeBaziPromptSchools(options.schools);
+  const schoolText = formatPromptSchoolGuidance('bazi', selectedSchools);
 
   const user = joinPromptSections([
     buildPromptGuidance('bazi-compatibility'),
@@ -192,6 +205,9 @@ export function buildBaziCompatibilityPromptDocument(
       '第二人排盘信息',
       formatBaziForPrompt(options.result2, null, 'compatibility'),
     ),
+    schoolText
+      ? buildPromptSection(selectedSchools.length > 1 ? '多派合参' : '解读流派', schoolText)
+      : '',
     buildPromptSection('双盘关系资料', evidence),
     relationLabel ? buildPromptSection('关系范围', relationLabel) : '',
     buildPromptSection('问题', question),

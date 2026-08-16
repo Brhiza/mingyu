@@ -4,6 +4,8 @@
  * @传统依据 《素问·天元纪大论》《素问·五运行大论》《素问·六微旨大论》及运气七篇大论。
  */
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
+import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
+import { insertPromptSectionBeforeHeading } from '../prompt/guidance';
 import { isKe, isSheng } from '../wuxing';
 
 export const WUYUN_LIUQI_SOURCES = [
@@ -595,7 +597,11 @@ function normalizeQuestion(question?: string): string | undefined {
   return question.trim();
 }
 
-export function buildWuyunLiuqiPrompt(result: WuyunLiuqiCalculation, question?: string): string {
+export function buildWuyunLiuqiPrompt(
+  result: WuyunLiuqiCalculation,
+  question?: string,
+  schools?: readonly PromptSchoolId<'wuyun-liuqi'>[],
+): string {
   const normalizedQuestion = normalizeQuestion(question);
   const lines = [
     '【任务】',
@@ -625,7 +631,11 @@ export function buildWuyunLiuqiPrompt(result: WuyunLiuqiCalculation, question?: 
     '【传统依据】',
     '以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
   );
-  return lines.join('\n');
+  return insertPromptSectionBeforeHeading(
+    lines.join('\n'),
+    '【问题】',
+    buildPromptSchoolSection('wuyun-liuqi', schools),
+  );
 }
 
 export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {

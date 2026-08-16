@@ -206,6 +206,7 @@ test('公开 API 八字双盘应返回交叉证据与完整提示词', async () 
       compatType: 'career',
       person1Name: '甲方',
       person2Name: '乙方',
+      schools: ['ziping', 'mangpai', 'xinpai'],
       responseMode: 'full',
     }),
   });
@@ -214,6 +215,10 @@ test('公开 API 八字双盘应返回交叉证据与完整提示词', async () 
   assert.match(prompted.body.data.prompt, /【双盘关系资料】/);
   assert.match(prompted.body.data.prompt, /请分析双方是否适合长期合作/);
   assert.match(prompted.body.data.prompt, /甲方.*乙方/);
+  assert.match(prompted.body.data.prompt, /【多派合参】/);
+  assert.match(prompted.body.data.prompt, /子平派/);
+  assert.match(prompted.body.data.prompt, /盲派/);
+  assert.match(prompted.body.data.prompt, /新派/);
   assert.doesNotMatch(
     prompted.body.data.prompt,
     /【角色与总则】|结构化证据|证据汇总|解释边界|计算链/,
@@ -332,6 +337,14 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     { required: ['epochYear', 'elapsedYears'], not: { required: ['year'] } },
   ]);
   assert.equal(body.data.components.schemas.HuangjiJingshiRequest.required, undefined);
+  assert.equal(
+    body.data.components.schemas.BaziCompatibilityRequest.properties.schools.maxItems,
+    3,
+  );
+  assert.equal(
+    body.data.components.schemas.ZiweiCompatibilityRequest.properties.schools.uniqueItems,
+    true,
+  );
   assert.equal(body.data.paths['/metaphysics/qizheng/calculate'].post.responses['400'], undefined);
   assert.equal(
     body.data.paths['/foundation/shensha'].post.requestBody.content['application/json'].schema.$ref,
@@ -1809,6 +1822,7 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
       person2,
       question: '双方长期合作关系应注意什么？',
       promptTopic: 'career-wealth',
+      schools: ['sanhe', 'feixing', 'sihua'],
       responseMode: 'summary',
     }),
   });
@@ -1823,6 +1837,10 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.match(prompted.body.data.prompt, /【双盘关系资料】/);
   assert.match(prompted.body.data.prompt, /宫位对应：/);
   assert.match(prompted.body.data.prompt, /双方长期合作关系应注意什么/);
+  assert.match(prompted.body.data.prompt, /【多派合参】/);
+  assert.match(prompted.body.data.prompt, /三合派/);
+  assert.match(prompted.body.data.prompt, /飞星派/);
+  assert.match(prompted.body.data.prompt, /四化派/);
   assert.doesNotMatch(
     prompted.body.data.prompt,
     /结构化证据|证据汇总|解释边界|计算链|边界：宫位叠盘/,
@@ -2713,9 +2731,21 @@ test('公开 API 灵签应返回签号、签题与签诗', async () => {
   assert.match(prompt.body.data.prompt, /签诗：/);
   assert.doesNotMatch(
     prompt.body.data.prompt,
-    /掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】/,
+    /掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】|解读派系|多派合参/,
   );
   assertPromptIsPortableTaskText(prompt.body.data.prompt);
+});
+
+test('公开 API 应拒绝空、重复、超量和非法的派系数组', async () => {
+  for (const schools of [[], ['rws', 'rws'], ['rws', 'yuansu', 'narrative', 'rws'], ['unknown']]) {
+    const { response, body } = await callApi('divination/tarot/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: '近期重点是什么？', schools }),
+    });
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, 'BAD_REQUEST');
+  }
 });
 
 test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', async () => {

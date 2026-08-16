@@ -349,13 +349,19 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 
 紫微 `patterns` 当前评估 55 条已按《紫微斗数全书》固定版本登记且可复算的规则，每项包含卷次、原文、命中条件和解释边界；另有 32 项原典边界不伪造命中，`pattern_analysis` 汇总 87 项固定目录的登记数、评估数与命中数。原 84 条未校勘项目规则继续停用；空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局，也不要自行补造目录外格局。
 
-八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`responseMode`。默认只返回 `data.prompt`；需要轻量双盘摘要时传 `responseMode: "summary"`，需要完整双盘时传 `responseMode: "full"`。
+八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`baziSchools`、`ziweiSchools`、`responseMode`。默认只返回 `data.prompt`；需要轻量双盘摘要时传 `responseMode: "summary"`，需要完整双盘时传 `responseMode: "full"`。
 
 `promptMode` 支持：`framework`（内置完整框架，默认）、`custom`（只围绕用户问题自由作答，不塞框架）。
 
 八字 `school` 支持：`traditional`（传统兼容名，等同子平派）、`ziping`（子平派月令格局、调候行运）、`mangpai`（盲派宫位十神、主宾体用、通根墓库、组合取象与分柱年限）、`xinpai`（新派旺衰判定、十神流通、喜忌落位与动态岁运）。选择盲派或新派后，提示词会写入对应的逐项盘面资料；不传则不附加流派段落。
 
 紫微 `school` 支持：`sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。不传则不附加流派指引。
+
+提示词接口统一支持 `schools` 数组，一次选择一至三个派系、断法或解读侧重。传一个值时按该口径解读；传两个或三个值时，提示词会要求各派分别判断，再归纳共同结论、分歧及各自盘面依据，最后形成综合判断。八字、紫微原有 `school` 为单派兼容参数，同时传入时以 `schools` 为准；八字紫微合参分别使用 `baziSchools`、`ziweiSchools`。
+
+各术数允许值：八字 `ziping/mangpai/xinpai`；紫微 `sanhe/feixing/sihua`；六爻 `huozhulin/bushizhengzong/zengshanbuyi`；梅花 `tiyong/xiangshu/yaoci`；小六壬 `shunshu/gongjue`；金口诀 `siwei/fayong/wudong`；奇门 `gongwei/geju/zhuke`；大六壬 `keti/bifafu/leishen`；塔罗 `rws/yuansu/narrative`；雷诺曼 `combination/eventline/significator`；黄历择日 `xieji/jianchu/comprehensive`；星盘及西占双盘 `modern/traditional/timing`；太乙 `zhuke/gongwei`；八宅 `dayounian/mingzhai`；住宅风水 `bazhai/xuankong`；玄空 `sanYuan/shanxiang`；七政四余 `guolao/wuxingjingyi`；生肖 `ganzhi/sanhe`；五运六气 `yunqi/sitian/kezhu`；皇极经世 `yuanhui/guaqi`。
+
+奇门的转盘/飞盘、拆补/置闰和时家/日家等参数决定实际排盘，`schools` 只改变解读方法；紫微 `algorithm` 同理属于排盘口径。三山国王灵签提示词只列本次签谱资料，不附加派系段落。
 
 Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用时请显式设置正常 `User-Agent`，例如 `curl/8.0.0` 或业务自己的客户端名称。
 

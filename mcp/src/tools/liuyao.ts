@@ -34,7 +34,7 @@ const liuyaoSchema = z.object({
     ),
 });
 
-const liuyaoPromptSchema = extendPromptSchema(liuyaoSchema, '用户希望围绕卦盘解读的问题');
+const liuyaoPromptSchema = extendPromptSchema(liuyaoSchema, 'liuyao', '用户希望围绕卦盘解读的问题');
 
 function buildLiuyaoResult(args: z.infer<typeof liuyaoSchema>) {
   return generateLiuyao(readMcpCustomDate(args.customDate), {
@@ -80,6 +80,7 @@ export function registerLiuyaoTool(server: McpServer) {
           result,
           prompt: buildCommonDivinationPrompt('liuyao', args.question, result, args.promptMode, {
             liuyaoTemplate: args.liuyaoTemplate,
+            schools: args.schools,
           }),
         });
       } catch (error) {

@@ -32,6 +32,7 @@ const lenormandSchema = z.object({
 
 const lenormandPromptSchema = extendPromptSchema(
   lenormandSchema,
+  'lenormand',
   '用户希望围绕雷诺曼牌阵解读的问题',
 );
 
@@ -76,7 +77,9 @@ export function registerLenormandTool(server: McpServer) {
         const result = buildLenormandResult(args);
         return createStructuredToolResult({
           result,
-          prompt: buildCommonDivinationPrompt('lenormand', args.question, result, args.promptMode),
+          prompt: buildCommonDivinationPrompt('lenormand', args.question, result, args.promptMode, {
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成雷诺曼提示词失败'));

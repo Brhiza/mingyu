@@ -30,6 +30,7 @@ const jinkoujueSchema = z.object({
 
 const jinkoujuePromptSchema = extendPromptSchema(
   jinkoujueSchema,
+  'jinkoujue',
   '用户希望围绕金口诀结果解读的问题',
 );
 
@@ -81,7 +82,9 @@ export function registerJinkoujueTool(server: McpServer) {
         const result = generateJinkoujue(buildJinkoujueInput(args));
         return createStructuredToolResult({
           result,
-          prompt: buildCommonDivinationPrompt('jinkoujue', args.question, result, args.promptMode),
+          prompt: buildCommonDivinationPrompt('jinkoujue', args.question, result, args.promptMode, {
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成金口诀提示词失败'));

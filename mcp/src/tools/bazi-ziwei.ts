@@ -5,6 +5,7 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateZiweiChartForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_PROMPT_TOPICS,
+  BAZI_MULTI_SCHOOLS,
   BAZI_SCHOOLS,
   PROMPT_MODES,
   ZIWEI_PROMPT_SCOPES,
@@ -94,10 +95,24 @@ const baziZiweiPromptSchema = z.object({
     .describe(
       '八字流派：traditional=传统兼容名, ziping=子平派, mangpai=盲派（宫位十神、主宾体用、组合取象）, xinpai=新派（旺衰判定、十神流通、喜忌落位）',
     ),
+  baziSchools: z
+    .array(z.enum(BAZI_MULTI_SCHOOLS))
+    .min(1)
+    .max(3)
+    .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
+    .optional()
+    .describe('八字侧多派合参'),
   ziweiSchool: z
     .enum(ZIWEI_SCHOOLS)
     .optional()
     .describe('紫微流派：sanhe=三合派, feixing=飞星派, sihua=四化派'),
+  ziweiSchools: z
+    .array(z.enum(ZIWEI_SCHOOLS))
+    .min(1)
+    .max(3)
+    .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
+    .optional()
+    .describe('紫微侧多派合参'),
 });
 
 function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
@@ -158,7 +173,9 @@ export function registerBaziZiweiTool(server: McpServer) {
             ziweiScope: scope,
             mode: (args.promptMode ?? 'framework') as PromptMode,
             baziSchool: args.baziSchool as BaziSchool | undefined,
+            baziSchools: args.baziSchools as BaziSchool[] | undefined,
             ziweiSchool: args.ziweiSchool as ZiweiSchool | undefined,
+            ziweiSchools: args.ziweiSchools as ZiweiSchool[] | undefined,
           }),
         });
       } catch (error) {

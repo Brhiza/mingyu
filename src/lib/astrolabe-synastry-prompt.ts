@@ -11,6 +11,7 @@ export function buildAstrolabeSynastryPrompt(params: {
   question?: string;
   promptMode?: AstrolabeSynastryPromptMode;
   currentTime?: Date;
+  schools?: readonly string[];
 }) {
   return buildCoreAstrolabeSynastryPrompt({
     chart1: params.chart1,
@@ -18,5 +19,6 @@ export function buildAstrolabeSynastryPrompt(params: {
     synastry: params.synastry,
     question: params.question,
     currentTime: params.currentTime,
+    schools: params.schools,
   });
 }

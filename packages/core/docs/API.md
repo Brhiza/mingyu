@@ -483,12 +483,12 @@ const result = generateDivinationSession({
 
 | 导出                                                           | 说明                                                                                           |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `buildBaziPrompt(options)`                                     | 生成八字单盘任务书，支持主题、流派、问题和岁运范围                                             |
+| `buildBaziPrompt(options)`                                     | 生成八字单盘任务书，支持主题、单派或多派合参、问题和岁运范围                                   |
 | `formatBaziFortuneSelection(context)`                          | 将岁运选择结果统一整理为可用于“分析对象”和“岁运重点”的文本                                     |
-| `buildBaziCompatibilityPrompt(options)`                        | 生成八字双盘任务书，并附带双盘关系证据                                                         |
+| `buildBaziCompatibilityPrompt(options)`                        | 生成八字双盘任务书，支持多派合参并附带双盘关系证据                                             |
 | `buildZiweiPrompt(options)`                                    | 生成紫微本命或指定运限任务书，支持完整范围和真太阳时证据                                       |
 | `buildZiweiTaskBookPrompt(options)`                            | 生成按主题和重点宫位组织的紫微任务书                                                           |
-| `buildZiweiCompatibilityPrompt(options)`                       | 生成紫微双盘任务书，并附带宫位叠盘与跨盘四化资料                                               |
+| `buildZiweiCompatibilityPrompt(options)`                       | 生成紫微双盘任务书，支持多派合参并附带宫位叠盘与跨盘四化资料                                   |
 | `buildCombinedZiweiPrompt(payload, topic, question, options?)` | 生成与现有完整紫微盘面链路一致的结构化任务书                                                   |
 | `buildCombinedZiweiCompatibilityPrompt(options)`               | 生成双方完整紫微快照、宫位叠盘、跨盘四化和各自时间校正任务书                                   |
 | `buildBaziZiweiPrompt(options)`                                | 将八字和紫微盘面放入同一份联合任务书                                                           |
@@ -496,6 +496,8 @@ const result = generateDivinationSession({
 | `buildAstrolabeSynastryPrompt(options)`                        | 生成星盘合盘任务书，包含跨盘相位和落宫                                                         |
 | `buildDivinationPrompt(options)`                               | 将六爻、梅花、奇门、六壬、小六壬、金口诀、塔罗、灵签、择日、雷诺曼、星盘和太乙结果组装为任务书 |
 | `buildMetaphysicsPrompt(basePrompt, question, options)`        | 将八宅、住宅综合、生肖、七政四余或玄空排盘包装为完整任务书                                     |
+| `getPromptSchoolIds(method)`                                  | 返回指定术数允许的一组派系、断法或解读侧重                                                     |
+| `formatPromptSchoolGuidance(method, schools)`                 | 生成单派或最多三派的解读任务、传统依据和合参要求                                               |
 | `getDivinationSummaryBlocks(method, data)`                     | 返回标题、标签和明细行，适合自定义 UI 展示                                                     |
 | `formatDivinationInfo(method, data)`                           | 返回统一的增强占法资料文本；包含前端原有的用神、应期、宫位、节令、参与人和牌面证据             |
 | `formatEnhancedDivinationInfo(method, data)`                   | 增强格式化的明确入口；`formatDivinationInfo` 已兼容转发到此入口                                |

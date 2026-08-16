@@ -9,6 +9,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
+import { createPromptSchoolsShape } from './school-options.js';
 
 const zodiacSchema = z.object({
   zodiac: z.string().describe('生肖或地支，如「鼠」或「子」'),
@@ -50,7 +51,7 @@ export function registerZodiacTool(server: McpServer) {
     'zodiac_prompt',
     {
       description: '生肖流年逐项关系证据，并生成结构化 AI 解读提示词',
-      inputSchema: zodiacSchema.shape,
+      inputSchema: { ...zodiacSchema.shape, ...createPromptSchoolsShape('zodiac') },
       outputSchema: promptOutputSchema,
     },
     async (args) => {
@@ -58,7 +59,10 @@ export function registerZodiacTool(server: McpServer) {
         const result = zodiac.calculateZodiacYearFortune(args);
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'zodiac' }),
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
+            method: 'zodiac',
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成生肖运程提示词失败'));

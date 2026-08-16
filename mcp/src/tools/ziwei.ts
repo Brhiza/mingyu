@@ -81,6 +81,13 @@ const ziweiPromptSchema = ziweiSchema.extend({
     .describe(
       '紫微解读侧重点：sanhe=三合派（三方四正、星曜庙旺）, feixing=飞星派（只读取盘面已有四化飞星链路）, sihua=四化派（生年四化主线）。只影响提示词，不改变 iztro 基础安星口径',
     ),
+  schools: z
+    .array(z.enum(ZIWEI_SCHOOLS))
+    .min(1)
+    .max(3)
+    .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
+    .optional()
+    .describe('紫微多派合参；分别解读后归纳共同结论、分歧和综合判断'),
 });
 
 const ziweiCompatibilitySchema = z.object({
@@ -95,6 +102,13 @@ const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
     .enum(PROMPT_MODES)
     .optional()
     .describe('framework=内置关系框架，custom=只围绕用户问题作答'),
+  schools: z
+    .array(z.enum(ZIWEI_SCHOOLS))
+    .min(1)
+    .max(3)
+    .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
+    .optional()
+    .describe('紫微合盘解读流派；选择两个或三个时生成多派合参'),
 });
 
 export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
@@ -195,6 +209,7 @@ export function registerZiweiTool(server: McpServer) {
             scope,
             mode: (args.promptMode ?? 'framework') as PromptMode,
             school: args.school as ZiweiSchool | undefined,
+            schools: args.schools as ZiweiSchool[] | undefined,
           }),
         });
       } catch (error) {
@@ -293,6 +308,7 @@ export function registerZiweiTool(server: McpServer) {
             topic: args.promptTopic ?? 'relationship',
             question: args.question ?? '',
             isCustomQuestion: args.promptMode === 'custom',
+            schools: args.schools,
           }),
         });
       } catch (error) {

@@ -10,6 +10,7 @@ import {
 } from '../bazi';
 
 export const BAZI_PROMPT_SCHOOLS = ['traditional', 'ziping', 'mangpai', 'xinpai'] as const;
+export const BAZI_PROMPT_MULTI_SCHOOLS = ['ziping', 'mangpai', 'xinpai'] as const;
 
 export type BaziPromptSchool = (typeof BAZI_PROMPT_SCHOOLS)[number];
 export type NormalizedBaziPromptSchool = Exclude<BaziPromptSchool, 'traditional'>;
@@ -325,4 +326,48 @@ export function formatBaziSchoolPrompt(result: BaziChartResult, school: BaziProm
 
 export function buildBaziSchoolPromptSection(result: BaziChartResult, school?: BaziPromptSchool) {
   return school ? `【流派】\n${formatBaziSchoolPrompt(result, school)}` : '';
+}
+
+export function normalizeBaziPromptSchools(
+  schools?: readonly BaziPromptSchool[] | null,
+): NormalizedBaziPromptSchool[] {
+  if (!schools?.length) return [];
+  const selected = schools.map(normalizeBaziPromptSchool).filter((school, index, list) => {
+    return list.indexOf(school) === index;
+  });
+  if (selected.length > 3) throw new RangeError('八字多派合参最多选择三个流派。');
+  return selected;
+}
+
+export function formatBaziSchoolsPrompt(
+  result: BaziChartResult,
+  schools?: readonly BaziPromptSchool[] | null,
+) {
+  const selected = normalizeBaziPromptSchools(schools);
+  if (!selected.length) return '';
+  const blocks = selected.map((school, index) => {
+    const profile = BAZI_SCHOOL_PROFILES[school];
+    return [
+      `派系${index + 1}：${profile.label}`,
+      `流派任务：${profile.task}`,
+      `流派依据：${profile.basis}`,
+      '本派盘面资料：',
+      formatBaziSchoolFacts(result, school),
+    ].join('\n');
+  });
+  if (selected.length > 1) {
+    blocks.push(
+      '合参任务：请先按每个流派分别形成判断，再归纳共同结论、分歧及各自对应的盘面依据，最后围绕问题给出综合判断。',
+    );
+  }
+  return blocks.join('\n\n');
+}
+
+export function buildBaziSchoolsPromptSection(
+  result: BaziChartResult,
+  schools?: readonly BaziPromptSchool[] | null,
+) {
+  const selected = normalizeBaziPromptSchools(schools);
+  const content = formatBaziSchoolsPrompt(result, selected);
+  return content ? `【${selected.length > 1 ? '多派合参' : '解读流派'}】\n${content}` : '';
 }

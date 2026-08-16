@@ -21,7 +21,7 @@ const liurenSchema = z.object({
     .describe('断课模板：general=通用, ganqing=感情, shiye=事业, caifu=财富'),
 });
 
-const liurenPromptSchema = extendPromptSchema(liurenSchema, '用户希望围绕课盘解读的问题');
+const liurenPromptSchema = extendPromptSchema(liurenSchema, 'liuren', '用户希望围绕课盘解读的问题');
 
 export function registerLiurenTool(server: McpServer) {
   server.registerTool(
@@ -63,6 +63,7 @@ export function registerLiurenTool(server: McpServer) {
           result,
           prompt: buildCommonDivinationPrompt('liuren', args.question, result, args.promptMode, {
             liurenTemplate: template,
+            schools: args.schools,
           }),
         });
       } catch (error) {

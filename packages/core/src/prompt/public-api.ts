@@ -13,10 +13,13 @@ import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance } from './guidance';
 import {
   BAZI_PROMPT_SCHOOLS,
+  BAZI_PROMPT_MULTI_SCHOOLS,
   buildBaziSchoolPromptSection,
+  buildBaziSchoolsPromptSection,
   getBaziSchoolGuidance,
   type BaziPromptSchool,
 } from './bazi-school';
+import { formatPromptSchoolGuidance } from './schools';
 
 export const BAZI_PROMPT_TOPICS = [
   'general',
@@ -86,6 +89,7 @@ export const ZIWEI_PROMPT_SCOPES = [
 export const PROMPT_MODES = ['framework', 'custom'] as const;
 export const BAZI_FORTUNE_SCOPES = ['natal', 'full', 'dayun', 'year', 'month', 'day'] as const;
 export const BAZI_SCHOOLS = BAZI_PROMPT_SCHOOLS;
+export const BAZI_MULTI_SCHOOLS = BAZI_PROMPT_MULTI_SCHOOLS;
 export const ZIWEI_SCHOOLS = ['sanhe', 'feixing', 'sihua'] as const;
 
 export type BaziPromptTopic = (typeof BAZI_PROMPT_TOPICS)[number];
@@ -96,7 +100,7 @@ export type PublicBaziFortuneScope = (typeof BAZI_FORTUNE_SCOPES)[number];
 export type BaziSchool = BaziPromptSchool;
 export type ZiweiSchool = (typeof ZIWEI_SCHOOLS)[number];
 
-export { buildBaziSchoolPromptSection, getBaziSchoolGuidance };
+export { buildBaziSchoolPromptSection, buildBaziSchoolsPromptSection, getBaziSchoolGuidance };
 
 const BAZI_TOPIC_LABELS: Record<BaziPromptTopic, string> = {
   general: '通用',
@@ -241,6 +245,7 @@ export function buildBaziPromptForResult(params: {
   topic?: BaziPromptTopic;
   mode?: PromptMode;
   school?: BaziSchool;
+  schools?: readonly BaziSchool[];
   fortuneSelectionContext?: FortuneSelectionContext | null;
   fortuneScope?: PublicBaziFortuneScope;
 }) {
@@ -275,7 +280,9 @@ export function buildBaziPromptForResult(params: {
     section('问题', question),
     task ? section('任务', task) : '',
   ]);
-  const schoolSection = buildBaziSchoolPromptSection(params.result, params.school);
+  const schoolSection = params.schools?.length
+    ? buildBaziSchoolsPromptSection(params.result, params.schools)
+    : buildBaziSchoolPromptSection(params.result, params.school);
   return schoolSection ? insertBeforeHeading(prompt, '【问题】', schoolSection) : prompt;
 }
 
@@ -444,6 +451,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
   scope?: ZiweiPromptScope;
   mode?: PromptMode;
   school?: ZiweiSchool;
+  schools?: readonly ZiweiSchool[];
 }) {
   const scope = params.scope ?? 'origin';
   const mode = params.mode ?? 'framework';
@@ -505,8 +513,19 @@ export function buildPublicZiweiPromptForRuntime(params: {
     section('问题', question),
     mode === 'custom' ? '' : section('任务', '请依据紫微盘面完成解读。'),
   ]);
-  const school = params.school ? getZiweiSchoolGuidance(params.school) : '';
-  return school ? insertBeforeHeading(prompt, '【问题】', `【流派】\n${school}`) : prompt;
+  const selectedSchools = params.schools?.length ? params.schools : [];
+  const schoolsText = formatPromptSchoolGuidance('ziwei', selectedSchools);
+  if (schoolsText) {
+    return insertBeforeHeading(
+      prompt,
+      '【问题】',
+      `【${selectedSchools.length > 1 ? '多派合参' : '解读流派'}】\n${schoolsText}`,
+    );
+  }
+  const legacySchool = params.school ? getZiweiSchoolGuidance(params.school) : '';
+  return legacySchool
+    ? insertBeforeHeading(prompt, '【问题】', `【流派】\n${legacySchool}`)
+    : prompt;
 }
 
 export const buildZiweiPromptForRuntime = buildPublicZiweiPromptForRuntime;
@@ -520,13 +539,21 @@ export function buildBaziZiweiPromptForResults(params: {
   ziweiScope?: ZiweiPromptScope;
   mode?: PromptMode;
   baziSchool?: BaziSchool;
+  baziSchools?: readonly BaziSchool[];
   ziweiSchool?: ZiweiSchool;
+  ziweiSchools?: readonly ZiweiSchool[];
 }) {
   const baziText = formatBaziForPrompt(params.baziResult, null, 'general');
   const ziweiText = formatZiweiEvidenceText(params.ziweiResult, params.ziweiScope ?? 'origin');
   const guidance = [
-    buildBaziSchoolPromptSection(params.baziResult, params.baziSchool),
-    params.ziweiSchool ? `【紫微流派】\n${getZiweiSchoolGuidance(params.ziweiSchool)}` : '',
+    params.baziSchools?.length
+      ? buildBaziSchoolsPromptSection(params.baziResult, params.baziSchools)
+      : buildBaziSchoolPromptSection(params.baziResult, params.baziSchool),
+    params.ziweiSchools?.length
+      ? `【紫微多派合参】\n${formatPromptSchoolGuidance('ziwei', params.ziweiSchools)}`
+      : params.ziweiSchool
+        ? `【紫微流派】\n${getZiweiSchoolGuidance(params.ziweiSchool)}`
+        : '',
   ]
     .filter(Boolean)
     .join('\n\n');

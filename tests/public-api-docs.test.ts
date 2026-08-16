@@ -51,3 +51,17 @@ test('公开 API 文档和 skill 应覆盖五运六气与皇极经世的关键�
     assert.match(content, /自定义纪元/);
   }
 });
+
+test('公开 API 文档和 skill 应说明统一多派合参与排盘口径边界', () => {
+  for (const content of [publicApiDocs, publicSkill]) {
+    assert.match(content, /`schools`/);
+    assert.match(content, /一至三个/);
+    assert.match(content, /共同结论|共识/);
+    assert.match(content, /ziping.*mangpai.*xinpai/);
+    assert.match(content, /huozhulin.*bushizhengzong.*zengshanbuyi/);
+    assert.match(content, /modern.*traditional.*timing/);
+    assert.match(content, /yuanhui.*guaqi/);
+    assert.match(content, /转盘.*飞盘.*实际(?:排)?盘/);
+    assert.match(content, /三山国王灵签.*不附加派系/);
+  }
+});

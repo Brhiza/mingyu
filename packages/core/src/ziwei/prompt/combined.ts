@@ -1,5 +1,6 @@
 import { buildPromptGuidanceSections } from '../../prompt/guidance';
 import { formatPromptCurrentTime } from '../../prompt/current-time';
+import { buildPromptSchoolSection, type PromptSchoolId } from '../../prompt/schools';
 import type { AnalysisPayloadV1 } from '../../types/analysis';
 import {
   analyzeZiweiCompatibility,
@@ -253,6 +254,8 @@ export interface CombinedZiweiCompatibilityPromptOptions {
   partnerName?: string;
   primaryTrueSolarEvidence?: ZiweiTrueSolarEvidence;
   partnerTrueSolarEvidence?: ZiweiTrueSolarEvidence;
+  /** 一至三个紫微解读流派；多个值会生成分派判断、共识与分歧任务。 */
+  schools?: readonly PromptSchoolId<'ziwei'>[];
   /** 固定提示词中的当前时间；省略时使用调用时刻。 */
   currentTime?: Date;
 }
@@ -304,6 +307,7 @@ export function buildCombinedZiweiCompatibilityPrompt(
     `【${partnerName}盘面】`,
     partnerEmbeddedPack,
     compatibilityInfoText ? ['', `【双盘关系资料】\n${compatibilityInfoText}`] : '',
+    buildPromptSchoolSection('ziwei', params.schools),
     '',
     ...(compatibilityQuestion ? [`【问题】\n${compatibilityQuestion}`] : []),
     '',

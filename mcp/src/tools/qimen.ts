@@ -25,7 +25,7 @@ const qimenSchema = z.object({
     .describe('定局方法：chaibu 为拆补法（默认），zhirun 为置闰法；仅时家/日家生效'),
 });
 
-const qimenPromptSchema = extendPromptSchema(qimenSchema, '用户希望围绕奇门盘解读的问题');
+const qimenPromptSchema = extendPromptSchema(qimenSchema, 'qimen', '用户希望围绕奇门盘解读的问题');
 
 export function registerQimenTool(server: McpServer) {
   server.registerTool(
@@ -75,7 +75,9 @@ export function registerQimenTool(server: McpServer) {
         );
         return createStructuredToolResult({
           result,
-          prompt: buildCommonDivinationPrompt('qimen', args.question, result, args.promptMode),
+          prompt: buildCommonDivinationPrompt('qimen', args.question, result, args.promptMode, {
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成奇门提示词失败'));

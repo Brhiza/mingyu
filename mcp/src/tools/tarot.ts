@@ -31,7 +31,7 @@ const tarotSchema = z.object({
     ),
 });
 
-const tarotPromptSchema = extendPromptSchema(tarotSchema, '用户希望围绕牌阵解读的问题');
+const tarotPromptSchema = extendPromptSchema(tarotSchema, 'tarot', '用户希望围绕牌阵解读的问题');
 
 export function registerTarotTool(server: McpServer) {
   server.registerTool(
@@ -66,7 +66,9 @@ export function registerTarotTool(server: McpServer) {
         const result = buildTarotSpread(args.spreadType || 'single', readMcpRandomOptions(args));
         return createStructuredToolResult({
           result,
-          prompt: buildCommonDivinationPrompt('tarot', args.question, result, args.promptMode),
+          prompt: buildCommonDivinationPrompt('tarot', args.question, result, args.promptMode, {
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成塔罗提示词失败'));

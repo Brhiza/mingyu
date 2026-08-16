@@ -264,16 +264,22 @@ test('npm 提示词入口应覆盖紫微任务书、紫微合盘和八字紫微�
     payload1: first.payloadByScope.origin,
     payload2: second.payloadByScope.origin,
     topic: 'relationship',
+    schools: ['sanhe', 'feixing', 'sihua'],
   });
   const baziZiwei = buildBaziZiweiPrompt({
     bazi: createChart('female', 15),
     ziwei: first,
     topic: '事业财运',
+    baziSchools: ['ziping', 'mangpai', 'xinpai'],
+    ziweiSchools: ['sanhe', 'feixing', 'sihua'],
   });
 
   assert.match(taskBook, /【任务】/);
   assert.match(taskBook, /事业财运/);
   assert.match(compatibility, /【双盘关系资料】/);
+  assert.match(compatibility, /【多派合参】/);
   assert.match(baziZiwei, /【八字盘面资料】/);
   assert.match(baziZiwei, /【紫微盘面资料】/);
+  assert.match(baziZiwei, /【八字多派合参】/);
+  assert.match(baziZiwei, /【紫微多派合参】/);
 });

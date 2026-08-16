@@ -5,14 +5,18 @@ import type { tarotSpreads } from 'mingyu-core/divination/tarot';
 import { PROMPT_MODES } from '../../../src/lib/public-api/prompt-builders.js';
 import type { PromptMode } from '../../../src/lib/public-api/prompt-builders.js';
 import { buildDivinationPromptText } from './prompt-helpers.js';
+import type { PromptSchoolMethod } from 'mingyu-core/prompt';
+import { createPromptSchoolsShape } from './school-options.js';
 
 type TarotSpreadKey = keyof typeof tarotSpreads;
 
 export function extendPromptSchema<T extends z.ZodRawShape>(
   baseSchema: z.ZodObject<T>,
+  method: PromptSchoolMethod,
   questionDescription = '用户希望围绕结果解读的问题',
 ) {
   return baseSchema.extend({
+    ...createPromptSchoolsShape(method),
     question: z.string().describe(questionDescription),
     promptMode: z
       .enum(PROMPT_MODES)
@@ -23,9 +27,11 @@ export function extendPromptSchema<T extends z.ZodRawShape>(
 
 export function extendOptionalQuestionPromptSchema<T extends z.ZodRawShape>(
   baseSchema: z.ZodObject<T>,
+  method: PromptSchoolMethod,
   questionDescription = '用户希望围绕结果解读的问题',
 ) {
   return baseSchema.extend({
+    ...createPromptSchoolsShape(method),
     question: z.string().optional().describe(questionDescription),
     promptMode: z
       .enum(PROMPT_MODES)
@@ -44,6 +50,7 @@ export function buildCommonDivinationPrompt(
     liurenTemplate?: string;
     astrolabeTopic?: string;
     astrolabeScopeText?: string;
+    schools?: readonly string[];
   },
 ) {
   return buildDivinationPromptText({
@@ -61,6 +68,7 @@ export function buildCommonDivinationPrompt(
       typeof buildDivinationPromptText
     >[0]['astrolabeTopic'],
     astrolabeScopeText: options?.astrolabeScopeText,
+    schools: options?.schools,
   });
 }
 
