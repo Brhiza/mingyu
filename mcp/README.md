@@ -185,13 +185,34 @@ npm run mcp
 奇门遁甲工具支持 `qimenMethod` 参数：`zhuanpan`（转盘法，默认）或 `feipan`（飞盘法）。
 返回结果会包含 `timeInfo`（正式定局节气与三元）、`seasonality`（实际节气、节气五行、月相、建除十二神、四柱干支互动）和 `patternCombos`（吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局），提示词工具会把这些字段作为解读证据。
 
-### 八字流派与紫微流派
+### 解读口径与合参
 
-`bazi_prompt` 工具支持 `school` 参数：`traditional`（传统兼容名，等同子平派）、`ziping`（子平派月令格局、调候行运）、`mangpai`（盲派宫位十神、宾主体用、年限）、`xinpai`（新派旺衰流通、动态岁运）。选择流派后，提示词会同时给出该流派的任务、传统依据和对应盘面资料；不传则不附加流派段落。
+只对规划内确有合理差异的提示词工具提供 `schools`，可传一至三个值。传一个值时按该流派、断法或侧重解读；传两个或三个值时，提示词会要求分别判断，再归纳共同结论、分歧及各自盘面依据，最后形成综合判断。同属流派时称“多派合参”，同属断法时称“多法合参”，混合类型时称“多口径合参”。八字、紫微、住宅风水属于真实流派选择；塔罗、黄历择日、星盘和七政四余同时包含流派与断法；其余登记项属于不同断法，不称作不同派系。八字和紫微原有 `school` 参数继续兼容；同时传入时以 `schools` 为准。八字紫微合参分别使用 `baziSchools`、`ziweiSchools`。
 
-`ziwei_prompt` 工具支持 `school` 参数：`sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。不传则不附加流派指引。
+| 术数 | `schools` 可选值 |
+| --- | --- |
+| 八字 | `ziping`、`mangpai`、`xinpai`；单派兼容值另有 `traditional` |
+| 紫微 | `sanhe`、`feixing`、`sihua` |
+| 六爻 | `huozhulin`、`bushizhengzong`、`zengshanbuyi` |
+| 梅花 | `tiyong`、`xiangshu`、`yaoci` |
+| 小六壬 | `shunshu`、`gongjue` |
+| 金口诀 | `siwei`、`fayong`、`wudong` |
+| 奇门 | `gongwei`、`geju`、`zhuke` |
+| 大六壬 | `keti`、`bifafu`、`leishen` |
+| 塔罗 | `rws`、`yuansu`、`narrative` |
+| 雷诺曼 | `combination`、`eventline`、`significator` |
+| 黄历择日 | `xieji`、`jianchu`、`comprehensive` |
+| 星盘及西占双盘 | `modern`、`traditional`、`timing` |
+| 太乙 | `zhuke`、`gongwei` |
+| 八宅 | `dayounian`、`mingzhai` |
+| 住宅风水 | `bazhai`、`xuankong` |
+| 玄空 | `sanYuan`、`shanxiang` |
+| 七政四余 | `guolao`、`wuxingjingyi` |
+| 生肖 | `ganzhi`、`sanhe` |
+| 五运六气 | `yunqi`、`sitian`、`kezhu` |
+| 皇极经世 | `yuanhui`、`guaqi` |
 
-`bazi_ziwei_prompt` 工具使用同一份出生信息，同时计算八字和紫微斗数。它支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`，适合需要先用八字判断命局主线，再用紫微校验宫位、四化和运限的深度问题。
+奇门的 `qimenMethod`、`qimenJuMethod` 和范围参数决定实际排盘，`schools` 只决定如何解读既有盘面。紫微 `algorithm` 同理决定底层安星口径。三山国王灵签提示词只保留本次签谱资料，不附加派系段落，也不接受 `schools`。
 
 紫微格局当前评估 55 条可复算规则的命中结果，每条包含《紫微斗数全书》固定版本、卷次、原文、盘面条件与解释边界；另登记 32 项因原文含糊或依赖运限而不能唯一复算的边界。原 84 条未校勘项目规则继续停用；空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。十二宫、星曜、四化、三方四正和运限继续正常返回。
 

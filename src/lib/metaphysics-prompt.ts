@@ -8,6 +8,7 @@ export type { MetaphysicsPromptMethod };
 export interface MetaphysicsPromptOptions {
   method: MetaphysicsPromptMethod;
   measurement?: string;
+  schools?: readonly string[];
   currentTime?: Date;
 }
 

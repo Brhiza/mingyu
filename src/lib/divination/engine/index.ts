@@ -36,6 +36,12 @@ import { buildPromptGuidanceSections } from '../../prompt-guidance';
 import { tarotSpreads } from 'mingyu-core/divination/tarot';
 import { LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
 import { secureRandomInt } from 'mingyu-core/random';
+import {
+  formatPromptSchoolGuidance,
+  getPromptSchoolSectionTitle,
+  normalizePromptSchoolIds,
+  type PromptSchoolMethod,
+} from 'mingyu-core/prompt';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [
   'liuyao',
@@ -120,6 +126,7 @@ export type BuildDivinationPromptOptions = {
   liurenTemplate?: LiurenTemplateType;
   astrolabeTopic?: AstrolabePromptTopic;
   astrolabeScopeText?: string;
+  schools?: readonly string[];
 };
 
 export function buildDivinationPrompt(
@@ -161,6 +168,19 @@ export function buildDivinationPrompt(
     method === 'astrolabe' && !isCustomQuestion
       ? buildAstrolabeTopicTask(astrolabeTopic)
       : buildTaskText(method);
+  const selectedSchools =
+    method !== 'ssgw' && options.schools?.length
+      ? normalizePromptSchoolIds(method as PromptSchoolMethod, options.schools)
+      : [];
+  const schoolText = selectedSchools.length
+    ? formatPromptSchoolGuidance(method as PromptSchoolMethod, selectedSchools)
+    : '';
+  const schoolSection = schoolText
+    ? buildSection(
+        `【${getPromptSchoolSectionTitle(method as PromptSchoolMethod, selectedSchools)}】`,
+        schoolText,
+      )
+    : '';
 
   if (method === 'liuren') {
     return [
@@ -169,6 +189,7 @@ export function buildDivinationPrompt(
       supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
       buildSection('【排盘信息】', infoText),
       buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
+      schoolSection,
       buildSection('【问题】', normalizedQuestion),
       liurenTemplateSection,
       isCustomQuestion ? '' : buildSection('【任务】', taskText),
@@ -183,6 +204,7 @@ export function buildDivinationPrompt(
     supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
     astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
     buildSection('【占卜信息】', infoText),
+    schoolSection,
     buildSection('【问题】', normalizedQuestion),
     isCustomQuestion ? '' : buildSection('【任务】', taskText),
     isCustomQuestion ? '' : liuyaoTemplateSection,

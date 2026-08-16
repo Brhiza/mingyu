@@ -31,7 +31,7 @@ const meihuaSchema = z.object({
     .describe('自定义起卦时间（ISO 8601 格式），不提供则使用当前时间'),
 });
 
-const meihuaPromptSchema = extendPromptSchema(meihuaSchema, '用户希望围绕卦盘解读的问题');
+const meihuaPromptSchema = extendPromptSchema(meihuaSchema, 'meihua', '用户希望围绕卦盘解读的问题');
 
 function buildMeihuaSettings(args: z.infer<typeof meihuaSchema>): MeihuaSettings {
   const method = args.method || 'time';
@@ -81,7 +81,9 @@ export function registerMeihuaTool(server: McpServer) {
         const result = generateMeihua(readMcpCustomDate(args.customDate), settings);
         return createStructuredToolResult({
           result,
-          prompt: buildCommonDivinationPrompt('meihua', args.question, result, args.promptMode),
+          prompt: buildCommonDivinationPrompt('meihua', args.question, result, args.promptMode, {
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成梅花提示词失败'));

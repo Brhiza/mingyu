@@ -9,6 +9,7 @@ import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/a
 import {
   BAZI_PROMPT_TOPICS,
   BAZI_FORTUNE_SCOPES,
+  BAZI_MULTI_SCHOOLS,
   BAZI_SCHOOLS,
   PROMPT_MODES,
   buildBaziPromptForResult,
@@ -27,6 +28,7 @@ import {
   readMcpIntegerLikeInRange,
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
+import { applyPromptSchools } from './school-options.js';
 
 const shenShaVariantsSchema = z
   .object({
@@ -101,6 +103,13 @@ const baziCompatibilityPromptSchema = baziCompatibilitySchema.extend({
     .enum(PROMPT_MODES)
     .optional()
     .describe('提示词模式：framework=完整框架，custom=只围绕自定义问题'),
+  schools: z
+    .array(z.enum(BAZI_MULTI_SCHOOLS))
+    .min(1)
+    .max(3)
+    .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
+    .optional()
+    .describe('八字合盘解读流派；选择两个或三个时生成多派合参'),
 });
 
 const baziPromptSchema = baziSchema.extend({
@@ -119,8 +128,15 @@ const baziPromptSchema = baziSchema.extend({
     .enum(BAZI_SCHOOLS)
     .optional()
     .describe(
-      '八字流派：traditional=传统兼容名（子平派）, ziping=子平派（月令格局、调候行运）, mangpai=盲派（宫位十神、宾主体用、年限）, xinpai=新派（旺衰流通、动态岁运）。不传则不附加流派指引',
+      '八字流派：traditional=传统兼容名（子平派）, ziping=子平派（月令格局、调候行运）, mangpai=盲派（宫位十神、主宾体用、通根墓库、组合取象、分柱年限）, xinpai=新派（旺衰判定、十神流通、喜忌落位、动态岁运）。不传则不附加流派指引',
     ),
+  schools: z
+    .array(z.enum(BAZI_MULTI_SCHOOLS))
+    .min(1)
+    .max(3)
+    .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
+    .optional()
+    .describe('八字多派合参；分别解读后归纳共同结论、分歧和综合判断'),
   baziFortuneScope: z
     .enum(BAZI_FORTUNE_SCOPES)
     .optional()
@@ -290,6 +306,7 @@ export function registerBaziTool(server: McpServer) {
           fortuneSelectionContext,
           fortuneScope: args.baziFortuneScope ?? 'natal',
           school: args.school as BaziSchool | undefined,
+          schools: args.schools as BaziSchool[] | undefined,
         });
         return createStructuredToolResult({
           result: {
@@ -357,7 +374,8 @@ export function registerBaziTool(server: McpServer) {
             person2Name: args.person2.name,
           },
         );
-        const prompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
+        const basePrompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
+        const prompt = applyPromptSchools(basePrompt, 'bazi', args.schools);
         return createStructuredToolResult({
           result: { charts: { person1: chart1, person2: chart2 }, compatibility },
           prompt,

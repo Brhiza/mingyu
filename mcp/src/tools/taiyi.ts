@@ -9,6 +9,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
+import { createPromptSchoolsShape } from './school-options.js';
 
 const taiyiSchema = z.object({
   scope: z.literal('year').optional().describe('太乙计式；当前只开放已校勘的年计'),
@@ -50,7 +51,7 @@ export function registerTaiyiTool(server: McpServer) {
     'taiyi_prompt',
     {
       description: '太乙神数排盘并生成结构化 AI 解读提示词',
-      inputSchema: taiyiSchema.shape,
+      inputSchema: { ...taiyiSchema.shape, ...createPromptSchoolsShape('taiyi') },
       outputSchema: promptOutputSchema,
     },
     async (args) => {
@@ -65,7 +66,10 @@ export function registerTaiyiTool(server: McpServer) {
         });
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'taiyi' }),
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
+            method: 'taiyi',
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成太乙提示词失败'));

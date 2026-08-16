@@ -83,10 +83,17 @@ import type {
 } from '../../types/divination';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
+import {
+  formatPromptSchoolGuidance,
+  getPromptSchoolIds,
+  insertPromptSectionBeforeHeading,
+  type PromptSchoolMethod,
+} from 'mingyu-core/prompt';
 import type { ScopeType } from '../../types/analysis';
 import {
   BAZI_PROMPT_TOPICS,
   BAZI_FORTUNE_SCOPES,
+  BAZI_MULTI_SCHOOLS,
   BAZI_SCHOOLS,
   PROMPT_MODES,
   ZIWEI_PROMPT_SCOPES,
@@ -212,6 +219,8 @@ const DIVINATION_METHODS = [
   'lenormand',
   'astrolabe',
 ] as const;
+
+const DIVINATION_PROMPT_METHODS = DIVINATION_METHODS.filter((method) => method !== 'ssgw');
 
 function openApiJsonRequestBody(schemaRef: string, required = true) {
   return {
@@ -382,6 +391,14 @@ const DIVINATION_REQUEST_PROPERTIES = {
         },
       },
     },
+  },
+  schools: {
+    type: 'array',
+    minItems: 1,
+    maxItems: 3,
+    uniqueItems: true,
+    items: { type: 'string' },
+    description: '解读流派、断法或侧重，可选值随术数而定；选择两个或三个时生成多口径合参提示词。',
   },
   responseMode: {
     enum: [...PROMPT_RESPONSE_MODES],
@@ -699,6 +716,15 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '灵签结果' } },
         },
       },
+      '/divination/ssgw/prompt': {
+        post: {
+          summary: '三山国王灵签求签并生成 AI 解读提示词',
+          description:
+            '签谱提示词只使用本次签号、签题、签诗、吉凶、典故和解签资料，不提供解读流派选择。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/SsgwPromptRequest'),
+          responses: { '200': { description: '灵签结果与签谱提示词' } },
+        },
+      },
       '/divination/almanac': {
         post: {
           summary: '黄历择日',
@@ -730,19 +756,21 @@ export function getPublicApiOpenApiDocument(
       '/divination/astrolabe/synastry/prompt': {
         post: {
           summary: '西洋占星双盘计算并生成 AI 解读提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/AstrolabeSynastryRequest'),
+          requestBody: openApiJsonRequestBody(
+            '#/components/schemas/AstrolabeSynastryPromptRequest',
+          ),
           responses: { '200': { description: '西占双盘结果与结构化证据提示词' } },
         },
       },
       '/divination/{method}/prompt': {
         post: {
-          summary: '起卦、抽牌或求签并生成 AI 解读提示词',
+          summary: '起卦、抽牌或排盘并生成 AI 解读提示词',
           parameters: [
             {
               name: 'method',
               in: 'path',
               required: true,
-              schema: { enum: [...DIVINATION_METHODS] },
+              schema: { enum: [...DIVINATION_PROMPT_METHODS] },
               description: '占卜方法。',
             },
           ],
@@ -1253,6 +1281,7 @@ export function getPublicApiOpenApiDocument(
             },
             question: { type: 'string', description: '解读问题（prompt 端点）' },
             promptMode: { type: 'string', description: '提示词模式（prompt 端点）' },
+            schools: DIVINATION_REQUEST_PROPERTIES.schools,
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
@@ -1275,6 +1304,7 @@ export function getPublicApiOpenApiDocument(
               description: '明确年干支，如「丙午」。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            schools: DIVINATION_REQUEST_PROPERTIES.schools,
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
           },
         },
@@ -1304,6 +1334,7 @@ export function getPublicApiOpenApiDocument(
               description: '自定义纪元下距第一年已经过的完整年数，0 表示第一年。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            schools: DIVINATION_REQUEST_PROPERTIES.schools,
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
           },
         },
@@ -1351,7 +1382,15 @@ export function getPublicApiOpenApiDocument(
                 school: {
                   enum: [...BAZI_SCHOOLS],
                   description:
-                    '八字流派指引：traditional=传统兼容名（子平派）, ziping=子平派（月令格局、调候行运）, mangpai=盲派（宫位十神、宾主体用、年限）, xinpai=新派（旺衰流通、动态岁运）。不传则不附加流派指引。',
+                    '八字流派指引：traditional=传统兼容名（子平派）, ziping=子平派（月令格局、调候行运）, mangpai=盲派（宫位十神、主宾体用、通根墓库、组合取象、分柱年限）, xinpai=新派（旺衰判定、十神流通、喜忌落位、动态岁运）。不传则不附加流派指引。',
+                },
+                schools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...BAZI_MULTI_SCHOOLS] },
+                  description: '八字多派合参；按数组顺序分别解读后归纳共识与分歧。',
                 },
               },
             },
@@ -1371,6 +1410,14 @@ export function getPublicApiOpenApiDocument(
               description: '关系范围；只影响任务范围，不改变双盘事实计算。',
             },
             promptMode: { enum: [...PROMPT_MODES] },
+            schools: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 3,
+              uniqueItems: true,
+              items: { enum: [...BAZI_MULTI_SCHOOLS] },
+              description: '八字合盘解读流派；选择两个或三个时生成多派合参。',
+            },
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
           },
         },
@@ -1426,6 +1473,14 @@ export function getPublicApiOpenApiDocument(
                   description:
                     '紫微流派指引：sanhe=三合派（三方四正、星曜庙旺）, feixing=飞星派（四化飞星链路）, sihua=四化派（生年四化主线）。不传则不附加流派指引。',
                 },
+                schools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...ZIWEI_SCHOOLS] },
+                  description: '紫微多派合参；按数组顺序分别解读后归纳共识与分歧。',
+                },
               },
             },
           ],
@@ -1450,6 +1505,14 @@ export function getPublicApiOpenApiDocument(
               description: '关系分析主题；只影响提示词任务范围。',
             },
             promptMode: { enum: [...PROMPT_MODES] },
+            schools: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 3,
+              uniqueItems: true,
+              items: { enum: [...ZIWEI_SCHOOLS] },
+              description: '紫微合盘解读流派；选择两个或三个时生成多派合参。',
+            },
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
           },
         },
@@ -1480,9 +1543,25 @@ export function getPublicApiOpenApiDocument(
                   enum: [...BAZI_SCHOOLS],
                   description: '八字侧流派指引；不传则不附加。',
                 },
+                baziSchools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...BAZI_MULTI_SCHOOLS] },
+                  description: '八字侧多派合参。',
+                },
                 ziweiSchool: {
                   enum: [...ZIWEI_SCHOOLS],
                   description: '紫微侧流派指引；不传则不附加。',
+                },
+                ziweiSchools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...ZIWEI_SCHOOLS] },
+                  description: '紫微侧多派合参。',
                 },
                 algorithm: {
                   enum: ['default', 'zhongzhou'],
@@ -1530,9 +1609,38 @@ export function getPublicApiOpenApiDocument(
           properties: {
             person1: { $ref: '#/components/schemas/AstrolabeBirthRequest' },
             person2: { $ref: '#/components/schemas/AstrolabeBirthRequest' },
+          },
+        },
+        AstrolabeSynastryPromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/AstrolabeSynastryRequest' },
+            {
+              type: 'object',
+              properties: {
+                question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+                promptMode: { enum: [...PROMPT_MODES] },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+                schools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...getPromptSchoolIds('astrolabe')] },
+                  description: '西占双盘解读口径；支持现代心理占星、古典占星和时限触发法合参。',
+                },
+              },
+            },
+          ],
+        },
+        SsgwPromptRequest: {
+          type: 'object',
+          required: ['question'],
+          properties: {
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
             promptMode: { enum: [...PROMPT_MODES] },
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+            seed: DIVINATION_REQUEST_PROPERTIES.seed,
+            replay: DIVINATION_REQUEST_PROPERTIES.replay,
           },
         },
       },
@@ -2008,7 +2116,9 @@ function buildMetaphysicsPrompt(
 ): string {
   const question =
     readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。';
-  return buildSharedMetaphysicsPrompt(basePrompt, question, { method });
+  const schools =
+    input.schools === undefined ? undefined : readPromptSchools(input, getPromptSchoolIds(method));
+  return buildSharedMetaphysicsPrompt(basePrompt, question, { method, schools });
 }
 
 function calculateBaZhaiApi(input: JsonRecord) {
@@ -2071,6 +2181,10 @@ function buildBaZhaiPrompt(input: JsonRecord) {
       readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。',
       {
         method: 'bazhai',
+        schools:
+          input.schools === undefined
+            ? undefined
+            : readPromptSchools(input, getPromptSchoolIds('bazhai')),
         measurement: (result as { directionMeasurement?: { promptText: string } })
           .directionMeasurement?.promptText,
       },
@@ -2172,9 +2286,15 @@ function calculateWuyunLiuqiApi(input: JsonRecord) {
 
 function buildWuyunLiuqiPromptApi(input: JsonRecord) {
   const result = calculateWuyunLiuqiApi(input);
+  const schools = readPromptSchools(input, getPromptSchoolIds('wuyun-liuqi')) as
+    Array<'yunqi' | 'sitian' | 'kezhu'> | undefined;
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
-    prompt: result.prompt,
+    prompt: wuyunLiuqi.buildWuyunLiuqiPrompt(
+      result,
+      readString(input, 'question', '').trim() || undefined,
+      schools,
+    ),
     resultSummary: {
       yearGanZhi: result.input.yearGanZhi,
       annualMovement: result.annualMovement,
@@ -2223,9 +2343,15 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
 
 function buildHuangjiJingshiPromptApi(input: JsonRecord) {
   const result = calculateHuangjiJingshiApi(input);
+  const schools = readPromptSchools(input, getPromptSchoolIds('huangji-jingshi')) as
+    Array<'yuanhui' | 'guaqi'> | undefined;
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
-    prompt: result.prompt,
+    prompt: huangjiJingshi.buildHuangjiJingshiPrompt(
+      result,
+      readString(input, 'question', '').trim() || undefined,
+      schools,
+    ),
     resultSummary: {
       input: result.input,
       position: result.position,
@@ -2540,6 +2666,7 @@ function buildBaziPrompt(input: JsonRecord) {
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
       ? (schoolValue as BaziSchool)
       : undefined;
+  const schools = readPromptSchools(input, BAZI_MULTI_SCHOOLS) as BaziSchool[] | undefined;
   const basePrompt = buildBaziPromptForResult({
     result,
     question: readRequiredString(input, 'question'),
@@ -2548,6 +2675,7 @@ function buildBaziPrompt(input: JsonRecord) {
     fortuneSelectionContext,
     fortuneScope,
     school,
+    schools,
   });
   const prompt = basePrompt;
 
@@ -2605,7 +2733,19 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
       person2Name: readString(input, 'person2Name', ''),
     },
   );
-  const prompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
+  const basePrompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
+  const schools = readPromptSchools(input, BAZI_MULTI_SCHOOLS) as BaziSchool[] | undefined;
+  const normalizedSchools = schools
+    ? Array.from(new Set(schools.map((school) => (school === 'traditional' ? 'ziping' : school))))
+    : undefined;
+  const schoolText = formatPromptSchoolGuidance('bazi', normalizedSchools);
+  const prompt = schoolText
+    ? insertPromptSectionBeforeHeading(
+        basePrompt,
+        '【问题】',
+        `【${normalizedSchools && normalizedSchools.length > 1 ? '多派合参' : '解读流派'}】\n${schoolText}`,
+      )
+    : basePrompt;
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt,
@@ -2684,6 +2824,7 @@ async function buildZiweiPrompt(input: JsonRecord) {
     typeof schoolValue === 'string' && (ZIWEI_SCHOOLS as readonly string[]).includes(schoolValue)
       ? (schoolValue as ZiweiSchool)
       : undefined;
+  const schools = readPromptSchools(input, ZIWEI_SCHOOLS) as ZiweiSchool[] | undefined;
   const serializableResult = buildSerializableZiweiResult(result);
   const prompt = buildPublicZiweiPromptForRuntime({
     result,
@@ -2692,6 +2833,7 @@ async function buildZiweiPrompt(input: JsonRecord) {
     scope,
     mode,
     school,
+    schools,
   });
 
   return buildPromptApiResult({
@@ -2765,6 +2907,7 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
     topic,
     question: readString(input, 'question', ''),
     isCustomQuestion: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') === 'custom',
+    schools: readPromptSchools(input, ZIWEI_SCHOOLS) as ZiweiSchool[] | undefined,
   });
   const fullResult = {
     charts: {
@@ -2813,6 +2956,10 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     (ZIWEI_SCHOOLS as readonly string[]).includes(ziweiSchoolValue)
       ? (ziweiSchoolValue as ZiweiSchool)
       : undefined;
+  const baziSchools = readPromptSchools(input, BAZI_MULTI_SCHOOLS, 'baziSchools') as
+    BaziSchool[] | undefined;
+  const ziweiSchools = readPromptSchools(input, ZIWEI_SCHOOLS, 'ziweiSchools') as
+    ZiweiSchool[] | undefined;
   const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
   const prompt = buildBaziZiweiPromptForResults({
     baziResult,
@@ -2823,7 +2970,9 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     ziweiScope: scope,
     mode,
     baziSchool,
+    baziSchools,
     ziweiSchool,
+    ziweiSchools,
   });
   const fullResult = {
     bazi: baziResult,
@@ -3059,6 +3208,10 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
     synastry: result.synastry,
     question: readString(input, 'question', ''),
     promptMode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework'),
+    schools:
+      input.schools === undefined
+        ? undefined
+        : readPromptSchools(input, getPromptSchoolIds('astrolabe')),
   });
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
@@ -3160,6 +3313,13 @@ function buildDivinationPromptResult(
   method: Exclude<DivinationMethodId, 'random'>,
   input: JsonRecord,
 ) {
+  if (method === 'ssgw' && input.schools !== undefined) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '三山国王灵签不提供解读流派或断法选择，请移除 schools。',
+    );
+  }
   const question =
     method === 'almanac'
       ? readString(input, 'question', '')
@@ -3247,6 +3407,10 @@ function buildDivinationPromptText(
     ['general', 'ganqing', 'shiye', 'caifu'],
     'general',
   ) as LiurenTemplateType;
+  const schools =
+    method === 'ssgw' || input.schools === undefined
+      ? undefined
+      : readPromptSchools(input, getPromptSchoolIds(method as PromptSchoolMethod));
 
   return buildDivinationPrompt(method, question, data as DivinationData, supplementaryInfo, {
     isCustomQuestion:
@@ -3261,6 +3425,7 @@ function buildDivinationPromptText(
       method === 'astrolabe'
         ? buildAstrolabePromptScopeText(input, data as AstrolabeData)
         : undefined,
+    schools,
   });
 }
 
@@ -3790,6 +3955,32 @@ function readOptionalEnum<const T extends readonly string[]>(
     return value;
   }
   throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是以下值之一：${values.join('、')}。`);
+}
+
+function readPromptSchools(
+  input: JsonRecord,
+  allowedValues: readonly string[],
+  key = 'schools',
+): string[] | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length < 1 || value.length > 3) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须包含一至三个解读口径。`);
+  }
+  const selected = value.map((item, index) => {
+    if (typeof item !== 'string' || !allowedValues.includes(item)) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        `${key}[${index}] 必须是以下值之一：${allowedValues.join('、')}。`,
+      );
+    }
+    return item;
+  });
+  if (new Set(selected).size !== selected.length) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 不能包含重复解读口径。`);
+  }
+  return selected;
 }
 
 function readOptionalIntegerArray(

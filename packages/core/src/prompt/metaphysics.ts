@@ -1,6 +1,7 @@
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
 import { buildPromptGuidance } from './guidance';
+import { buildPromptSchoolSection } from './schools';
 import type { PromptBuildOptions, PromptDocument } from './types';
 
 export const METAPHYSICS_PROMPT_METHODS = [
@@ -17,6 +18,7 @@ export type MetaphysicsPromptMethod = (typeof METAPHYSICS_PROMPT_METHODS)[number
 export interface MetaphysicsPromptOptions extends PromptBuildOptions {
   method: MetaphysicsPromptMethod;
   measurement?: string;
+  schools?: readonly string[];
 }
 
 /**
@@ -33,6 +35,7 @@ export function buildMetaphysicsPromptDocument(
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('排盘资料', basePrompt),
     options.measurement ? buildPromptSection('测量换算', options.measurement) : '',
+    buildPromptSchoolSection(options.method, options.schools),
     question?.trim() ? buildPromptSection('问题', question) : '',
     buildPromptSection(
       '任务',

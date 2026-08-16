@@ -2156,6 +2156,7 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
           timezone: 8,
         },
         question: '我们的长期合作关系有哪些互补和张力？',
+        schools: ['modern', 'timing'],
       },
     });
 
@@ -2250,6 +2251,9 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
     assert.match(prompt, /【跨盘相位】/);
     assert.match(prompt, /【跨盘落宫】/);
     assert.match(prompt, /容许度/);
+    assert.match(prompt, /【多口径合参】/);
+    assert.match(prompt, /流派1：现代心理占星/);
+    assert.match(prompt, /断法2：时限触发法/);
     assert.match(prompt, /分析互动主轴、互补点与张力点/);
     assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
     assert.doesNotMatch(prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
@@ -2454,11 +2458,19 @@ test('MCP 塔罗应返回分层结构化证据并写入提示词', async () => {
 
     const tarotPromptResult = await client.callTool({
       name: 'tarot_prompt',
-      arguments: { spreadType: 'three', seed: 'MCP塔罗证据样例', question: '如何推进？' },
+      arguments: {
+        spreadType: 'three',
+        seed: 'MCP塔罗证据样例',
+        question: '如何推进？',
+        schools: ['rws', 'yuansu'],
+      },
     });
     const tarotPrompt = String(tarotPromptResult.structuredContent?.prompt);
     assert.match(tarotPrompt, /占法：塔罗/);
     assert.match(tarotPrompt, /核心结构：牌阵[\s\S]*牌位明细：/);
+    assert.match(tarotPrompt, /【多口径合参】/);
+    assert.match(tarotPrompt, /流派1：RWS 图像法/);
+    assert.match(tarotPrompt, /断法2：元素与数序法/);
     assert.doesNotMatch(tarotPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(tarotPrompt, /表示这些能量正在直接发挥作用|信息被隐藏/);
     assertPromptIsPortableTaskText(tarotPrompt);

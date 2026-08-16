@@ -9,6 +9,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
+import { createPromptSchoolsShape } from './school-options.js';
 
 const mountainSchema = z
   .string()
@@ -69,7 +70,7 @@ export function registerXuanKongTool(server: McpServer) {
     'xuankong_prompt',
     {
       description: '玄空飞星排盘并生成可直接复制给 AI 的结构化提示词',
-      inputSchema: xuanKongSchema.shape,
+      inputSchema: { ...xuanKongSchema.shape, ...createPromptSchoolsShape('xuankong') },
       outputSchema: promptOutputSchema,
     },
     async (args) => {
@@ -77,7 +78,10 @@ export function registerXuanKongTool(server: McpServer) {
         const result = calculateXuanKong(args);
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'xuankong' }),
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
+            method: 'xuankong',
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成玄空飞星提示词失败'));

@@ -7,12 +7,20 @@ import {
   createStructuredToolResult,
   getErrorMessage,
 } from '../tool-results.js';
-import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
+import { buildCommonDivinationPrompt } from './divination-common.js';
+import { PROMPT_MODES } from '../../../src/lib/public-api/prompt-builders.js';
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
 const ssgwSchema = z.object({ ...randomOptionShape });
 
-const ssgwPromptSchema = extendPromptSchema(ssgwSchema, '用户希望围绕灵签解读的问题');
+// 签谱提示词依项目最高规则只列本次签谱资料，不附加派系段落。
+const ssgwPromptSchema = ssgwSchema.extend({
+  question: z.string().describe('用户希望围绕灵签解读的问题'),
+  promptMode: z
+    .enum(PROMPT_MODES)
+    .optional()
+    .describe('提示词模式：framework=内置完整框架, custom=只围绕用户问题自由作答'),
+});
 
 export function registerSsgwTool(server: McpServer) {
   server.registerTool(

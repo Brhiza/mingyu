@@ -1,6 +1,7 @@
 import type { AstrolabeData, AstrolabeSynastryData } from '../types/divination';
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance } from './guidance';
+import { buildPromptSchoolSection } from './schools';
 import {
   buildPromptDocument,
   buildPromptSection,
@@ -110,6 +111,7 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
 
 export interface AstrolabePromptOptions extends PromptBuildOptions {
   chart: AstrolabeData;
+  schools?: readonly string[];
   topic?: AstrolabePromptTopic;
 }
 
@@ -120,6 +122,7 @@ export function buildAstrolabePromptDocument(options: AstrolabePromptOptions): P
     buildPromptGuidance('astrolabe'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('星盘资料', formatAstrolabeForPrompt(options.chart)),
+    buildPromptSchoolSection('astrolabe', options.schools),
     buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
@@ -153,6 +156,7 @@ export interface AstrolabeSynastryPromptOptions extends PromptBuildOptions {
   chart1: AstrolabeData;
   chart2: AstrolabeData;
   synastry: AstrolabeSynastryData;
+  schools?: readonly string[];
 }
 
 export function buildAstrolabeSynastryPromptDocument(
@@ -166,6 +170,7 @@ export function buildAstrolabeSynastryPromptDocument(
     buildPromptSection('第一人本命盘', formatAstrolabeForPrompt(options.chart1)),
     buildPromptSection('第二人本命盘', formatAstrolabeForPrompt(options.chart2)),
     buildPromptSection('跨盘资料', formatSynastryFacts(options.synastry)),
+    buildPromptSchoolSection('astrolabe', options.schools),
     buildPromptSection('问题', question),
     buildPromptSection(
       '任务',

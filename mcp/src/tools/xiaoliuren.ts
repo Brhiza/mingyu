@@ -20,6 +20,7 @@ const xiaoliurenSchema = z.object({
 
 const xiaoliurenPromptSchema = extendPromptSchema(
   xiaoliurenSchema,
+  'xiaoliuren',
   '用户希望围绕小六壬结果解读的问题',
 );
 
@@ -64,7 +65,15 @@ export function registerXiaoliurenTool(server: McpServer) {
         const result = generateXiaoliuren(buildXiaoliurenInput(args));
         return createStructuredToolResult({
           result,
-          prompt: buildCommonDivinationPrompt('xiaoliuren', args.question, result, args.promptMode),
+          prompt: buildCommonDivinationPrompt(
+            'xiaoliuren',
+            args.question,
+            result,
+            args.promptMode,
+            {
+              schools: args.schools,
+            },
+          ),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成小六壬提示词失败'));

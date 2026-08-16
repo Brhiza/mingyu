@@ -12,6 +12,8 @@ import {
   serialYearToCivil,
   type HuangjiStandardForecast,
 } from './standard';
+import { insertPromptSectionBeforeHeading } from '../prompt/guidance';
+import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
 
 export * from './standard';
 
@@ -232,6 +234,7 @@ function buildProgress(
 export function buildHuangjiJingshiPrompt(
   result: HuangjiJingshiCalculation,
   question?: string,
+  schools?: readonly PromptSchoolId<'huangji-jingshi'>[],
 ): string {
   const normalizedQuestion = normalizeQuestion(question);
   const { input, position } = result;
@@ -240,7 +243,7 @@ export function buildHuangjiJingshiPrompt(
     const { forecast } = result;
     const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
     const askedQuestion = normalizedQuestion || `请解读${input.year}年的整体趋势与主要变化。`;
-    return [
+    const prompt = [
       '【任务】',
       '以值年卦为主要取象，结合十年卦、六十年统卦、运卦和会内统卦的层级背景，解读所问事项。先给出清晰结论，再说明年度主线、当前阶段、变化过程与可观察的现实信号；个人事项结合问题中的现实背景作条件化分析。',
       '',
@@ -265,6 +268,11 @@ export function buildHuangjiJingshiPrompt(
       '【传统依据】',
       `${forecast.model.model}以${formatHuangjiCivilYear(forecast.model.yuanStartYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。`,
     ].join('\n');
+    return insertPromptSectionBeforeHeading(
+      prompt,
+      '【问题】',
+      buildPromptSchoolSection('huangji-jingshi', schools),
+    );
   }
 
   const lines = [
@@ -288,7 +296,11 @@ export function buildHuangjiJingshiPrompt(
     '【传统依据】',
     '按一元十二会、一会三十运、一运十二世、一世三十年的元会运世层级定位。',
   );
-  return lines.join('\n');
+  return insertPromptSectionBeforeHeading(
+    lines.join('\n'),
+    '【问题】',
+    buildPromptSchoolSection('huangji-jingshi', schools),
+  );
 }
 
 export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJingshiResult {

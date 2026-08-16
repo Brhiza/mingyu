@@ -7,6 +7,7 @@ import {
   createStructuredToolResult,
   getErrorMessage,
 } from '../tool-results.js';
+import { createPromptSchoolsShape } from './school-options.js';
 
 const safeInteger = z.number().int().refine(Number.isSafeInteger, '必须是安全范围内的整数');
 
@@ -57,13 +58,19 @@ export function registerHuangjiJingshiTool(server: McpServer) {
     'huangji_jingshi_prompt',
     {
       description: '皇极经世完整排盘并生成可直接交给 AI 解读的自包含任务书',
-      inputSchema: huangjiJingshiSchema.shape,
+      inputSchema: {
+        ...huangjiJingshiSchema.shape,
+        ...createPromptSchoolsShape('huangji-jingshi'),
+      },
       outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {
         const result = calculateHuangjiJingshi(args);
-        return createStructuredToolResult({ result, prompt: result.prompt });
+        return createStructuredToolResult({
+          result,
+          prompt: huangjiJingshi.buildHuangjiJingshiPrompt(result, args.question, args.schools),
+        });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成皇极经世提示词失败'));
       }

@@ -69,6 +69,7 @@ const astrolabePromptSchema = extendPromptSchema(
       .optional()
       .describe('星盘分析对象文本，例如本命、流年、流月或流日范围与行运证据；传入后优先使用'),
   }),
+  'astrolabe',
   '用户希望围绕星盘解读的问题',
 );
 
@@ -79,6 +80,7 @@ const astrolabeSynastrySchema = z.object({
 
 const astrolabeSynastryPromptSchema = extendOptionalQuestionPromptSchema(
   astrolabeSynastrySchema,
+  'astrolabe',
   '用户希望围绕双方关系解读的问题；省略时先做整体互动分析',
 );
 
@@ -227,6 +229,7 @@ export function registerAstrolabeTool(server: McpServer) {
           prompt: buildCommonDivinationPrompt('astrolabe', args.question, result, args.promptMode, {
             astrolabeTopic: args.astrolabeTopic,
             astrolabeScopeText: buildAstrolabePromptScopeText(args, result),
+            schools: args.schools,
           }),
         });
       } catch (error) {
@@ -276,6 +279,7 @@ export function registerAstrolabeTool(server: McpServer) {
             synastry: result.synastry,
             question: args.question,
             promptMode: args.promptMode,
+            schools: args.schools,
           }),
         });
       } catch (error) {

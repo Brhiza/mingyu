@@ -56,6 +56,7 @@ const almanacSchema = z.object({
 
 const almanacPromptSchema = extendOptionalQuestionPromptSchema(
   almanacSchema,
+  'almanac',
   '用户希望补充给择日任务的现实问题或约束，可不填',
 );
 
@@ -132,7 +133,9 @@ export function registerAlmanacTool(server: McpServer) {
         const question = args.question ?? '';
         return createStructuredToolResult({
           result,
-          prompt: buildCommonDivinationPrompt('almanac', question, result, args.promptMode),
+          prompt: buildCommonDivinationPrompt('almanac', question, result, args.promptMode, {
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成黄历择日提示词失败'));

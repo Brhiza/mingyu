@@ -9,6 +9,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
+import { createPromptSchoolsShape } from './school-options.js';
 
 const mountainSchema = z
   .string()
@@ -102,7 +103,7 @@ export function registerResidentialFengshuiTool(server: McpServer) {
     'residential_prompt',
     {
       description: '住宅风水排盘并生成可直接复制给 AI 的结构化提示词',
-      inputSchema: residentialSchema.shape,
+      inputSchema: { ...residentialSchema.shape, ...createPromptSchoolsShape('residential') },
       outputSchema: promptOutputSchema,
     },
     async (args) => {
@@ -110,7 +111,10 @@ export function registerResidentialFengshuiTool(server: McpServer) {
         const result = calculateResidential(args);
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'residential' }),
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
+            method: 'residential',
+            schools: args.schools,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成住宅风水提示词失败'));

@@ -9,6 +9,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
+import { createPromptSchoolsShape } from './school-options.js';
 
 const baZhaiSchema = z.object({
   birthYear: z.number().int().min(1900).max(2100).optional().describe('出生公历年份（用于推命卦）'),
@@ -95,7 +96,7 @@ export function registerBaZhaiTool(server: McpServer) {
     'bazhai_prompt',
     {
       description: '八宅风水排盘并生成结构化 AI 解读提示词',
-      inputSchema: baZhaiSchema.shape,
+      inputSchema: { ...baZhaiSchema.shape, ...createPromptSchoolsShape('bazhai') },
       outputSchema: promptOutputSchema,
     },
     async (args) => {
@@ -105,6 +106,7 @@ export function registerBaZhaiTool(server: McpServer) {
           result,
           prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
             method: 'bazhai',
+            schools: args.schools,
             measurement: (result as { directionMeasurement?: { promptText: string } })
               .directionMeasurement?.promptText,
           }),

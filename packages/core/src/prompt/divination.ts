@@ -29,6 +29,7 @@ import type {
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance } from './guidance';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
+import { buildPromptSchoolSection, type PromptSchoolMethod } from './schools';
 import type { AstrolabePromptTopic } from './astrolabe';
 import type { PromptBuildOptions, PromptDocument } from './types';
 import { formatEnhancedDivinationInfo } from './divination-enhanced';
@@ -535,6 +536,7 @@ export interface DivinationPromptOptions extends PromptBuildOptions {
   liurenTemplate?: LiurenTemplateType;
   astrolabeTopic?: AstrolabePromptTopic;
   astrolabeScopeText?: string;
+  schools?: readonly string[];
 }
 
 export function buildDivinationPromptDocument(options: DivinationPromptOptions): PromptDocument {
@@ -564,6 +566,9 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         liuyaoTemplate,
       }),
     ),
+    options.method === 'ssgw'
+      ? ''
+      : buildPromptSchoolSection(options.method as PromptSchoolMethod, options.schools),
     buildPromptSection('问题', question),
     templateText ? buildPromptSection('问题范围', templateText) : '',
     options.isCustomQuestion ? '' : buildPromptSection('任务', task),

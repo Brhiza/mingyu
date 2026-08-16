@@ -206,6 +206,7 @@ test('公开 API 八字双盘应返回交叉证据与完整提示词', async () 
       compatType: 'career',
       person1Name: '甲方',
       person2Name: '乙方',
+      schools: ['ziping', 'mangpai', 'xinpai'],
       responseMode: 'full',
     }),
   });
@@ -214,6 +215,10 @@ test('公开 API 八字双盘应返回交叉证据与完整提示词', async () 
   assert.match(prompted.body.data.prompt, /【双盘关系资料】/);
   assert.match(prompted.body.data.prompt, /请分析双方是否适合长期合作/);
   assert.match(prompted.body.data.prompt, /甲方.*乙方/);
+  assert.match(prompted.body.data.prompt, /【多派合参】/);
+  assert.match(prompted.body.data.prompt, /子平派/);
+  assert.match(prompted.body.data.prompt, /盲派/);
+  assert.match(prompted.body.data.prompt, /新派/);
   assert.doesNotMatch(
     prompted.body.data.prompt,
     /【角色与总则】|结构化证据|证据汇总|解释边界|计算链/,
@@ -270,7 +275,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.match(body.data.info.description, /星盘/);
   assert.equal(
     body.data.paths['/divination/{method}/prompt'].post.summary,
-    '起卦、抽牌或求签并生成 AI 解读提示词',
+    '起卦、抽牌或排盘并生成 AI 解读提示词',
   );
   assert.deepEqual(body.data.paths['/divination/{method}/prompt'].post.parameters, [
     {
@@ -286,7 +291,6 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
           'qimen',
           'liuren',
           'tarot',
-          'ssgw',
           'almanac',
           'lenormand',
           'astrolabe',
@@ -300,6 +304,12 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     /摘要/,
   );
   assert.ok(body.data.paths['/divination/almanac']);
+  assert.equal(
+    body.data.paths['/divination/ssgw/prompt'].post.requestBody.content['application/json'].schema
+      .$ref,
+    '#/components/schemas/SsgwPromptRequest',
+  );
+  assert.equal(body.data.components.schemas.SsgwPromptRequest.properties.schools, undefined);
   assert.ok(body.data.paths['/bazi-ziwei/prompt']);
   assert.ok(body.data.paths['/divination/astrolabe']);
   assert.ok(body.data.paths['/foundation/shensha']);
@@ -332,6 +342,19 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     { required: ['epochYear', 'elapsedYears'], not: { required: ['year'] } },
   ]);
   assert.equal(body.data.components.schemas.HuangjiJingshiRequest.required, undefined);
+  assert.equal(
+    body.data.components.schemas.BaziCompatibilityRequest.properties.schools.maxItems,
+    3,
+  );
+  assert.equal(
+    body.data.components.schemas.ZiweiCompatibilityRequest.properties.schools.uniqueItems,
+    true,
+  );
+  assert.deepEqual(
+    body.data.components.schemas.AstrolabeSynastryPromptRequest.allOf[1].properties.schools.items
+      .enum,
+    ['modern', 'traditional', 'timing'],
+  );
   assert.equal(body.data.paths['/metaphysics/qizheng/calculate'].post.responses['400'], undefined);
   assert.equal(
     body.data.paths['/foundation/shensha'].post.requestBody.content['application/json'].schema.$ref,
@@ -1612,9 +1635,29 @@ test('八字提示词按流派输出不同任务、依据与盘面证据', () =>
   });
   assert.match(mangpai, /八字流派：盲派/);
   assert.match(mangpai, /四柱宫位与十神/);
-  assert.match(mangpai, /四柱组合资料：/);
+  assert.match(mangpai, /四柱组合与做功线索：/);
+  assert.match(mangpai, /主宾定位：/);
+  assert.match(mangpai, /主位为日柱.+与时柱/);
+  assert.match(mangpai, /十神显隐：/);
+  assert.match(mangpai, /墓库与空亡：/);
+  assert.match(mangpai, /分柱年限：年柱约对应1至16岁/);
   assert.match(mangpai, /《渊海子平》/);
   assert.notEqual(ziping, mangpai);
+
+  const xinpai = buildBaziPromptForResult({
+    result,
+    question: '整体命局如何判断？',
+    school: 'xinpai',
+  });
+  assert.match(xinpai, /八字流派：新派/);
+  assert.match(xinpai, /旺衰判定：/);
+  assert.match(xinpai, /旺衰依据：/);
+  assert.match(xinpai, /十神流通：/);
+  assert.match(xinpai, /喜忌落位：/);
+  assert.match(xinpai, /动态岁运：/);
+  assert.doesNotMatch(xinpai, /不把旺相休囚死|限制事实|工程上下文/);
+  assert.notEqual(mangpai, xinpai);
+  assert.doesNotMatch(`${mangpai}\n${xinpai}`, /undefined|\[object Object\]/);
 
   const legacy = buildBaziPromptForResult({
     result,
@@ -1789,6 +1832,7 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
       person2,
       question: '双方长期合作关系应注意什么？',
       promptTopic: 'career-wealth',
+      schools: ['sanhe', 'feixing', 'sihua'],
       responseMode: 'summary',
     }),
   });
@@ -1803,6 +1847,10 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.match(prompted.body.data.prompt, /【双盘关系资料】/);
   assert.match(prompted.body.data.prompt, /宫位对应：/);
   assert.match(prompted.body.data.prompt, /双方长期合作关系应注意什么/);
+  assert.match(prompted.body.data.prompt, /【多派合参】/);
+  assert.match(prompted.body.data.prompt, /三合派/);
+  assert.match(prompted.body.data.prompt, /飞星派/);
+  assert.match(prompted.body.data.prompt, /四化派/);
   assert.doesNotMatch(
     prompted.body.data.prompt,
     /结构化证据|证据汇总|解释边界|计算链|边界：宫位叠盘/,
@@ -2648,12 +2696,16 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
       spreadType: 'single',
       seed: '公开接口塔罗证据链',
       question: '当前有哪些可核验线索？',
+      schools: ['rws', 'yuansu'],
     }),
   });
   assert.equal(tarotPromptResponse.response.status, 200);
   assert.match(tarotPromptResponse.body.data.prompt, /占法：塔罗/);
   assert.match(tarotPromptResponse.body.data.prompt, /核心结构：牌阵/);
   assert.match(tarotPromptResponse.body.data.prompt, /正位|逆位/);
+  assert.match(tarotPromptResponse.body.data.prompt, /【多口径合参】/);
+  assert.match(tarotPromptResponse.body.data.prompt, /流派1：RWS 图像法/);
+  assert.match(tarotPromptResponse.body.data.prompt, /断法2：元素与数序法/);
   assert.doesNotMatch(
     tarotPromptResponse.body.data.prompt,
     /结构化证据|计算链|证据汇总|解释限制|解释边界/,
@@ -2693,9 +2745,33 @@ test('公开 API 灵签应返回签号、签题与签诗', async () => {
   assert.match(prompt.body.data.prompt, /签诗：/);
   assert.doesNotMatch(
     prompt.body.data.prompt,
-    /掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】/,
+    /掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】|解读派系|多派合参/,
   );
   assertPromptIsPortableTaskText(prompt.body.data.prompt);
+
+  const unsupportedSchools = await callApi('divination/ssgw/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: '这件事接下来该怎么推进？',
+      schools: ['任意值'],
+    }),
+  });
+  assert.equal(unsupportedSchools.response.status, 400);
+  assert.equal(unsupportedSchools.body.error.code, 'BAD_REQUEST');
+  assert.match(unsupportedSchools.body.error.message, /不提供解读流派或断法选择/);
+});
+
+test('公开 API 应拒绝空、重复、超量和非法的派系数组', async () => {
+  for (const schools of [[], ['rws', 'rws'], ['rws', 'yuansu', 'narrative', 'rws'], ['unknown']]) {
+    const { response, body } = await callApi('divination/tarot/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: '近期重点是什么？', schools }),
+    });
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, 'BAD_REQUEST');
+  }
 });
 
 test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', async () => {
@@ -3737,6 +3813,7 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
         timezone: 8,
       },
       question: '我们在长期合作中最需要注意什么？',
+      schools: ['modern', 'timing'],
       responseMode: 'summary',
     }),
   });
@@ -3753,6 +3830,9 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
   assert.match(body.data.prompt, /【跨盘相位】/);
   assert.match(body.data.prompt, /实际夹角\d+\.\d{2}°，容许度\d+\.\d{2}°，(?:紧密|中等|宽松)/);
   assert.match(body.data.prompt, /【跨盘落宫】/);
+  assert.match(body.data.prompt, /【多口径合参】/);
+  assert.match(body.data.prompt, /流派1：现代心理占星/);
+  assert.match(body.data.prompt, /断法2：时限触发法/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%|匹配率\d+%/);
   assert.match(body.data.prompt, /分析互动主轴、互补点与张力点/);
   assert.doesNotMatch(body.data.prompt, /不得输出|不得编造|只依据/);
