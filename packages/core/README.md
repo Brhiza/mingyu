@@ -722,7 +722,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 ### 类型（`mingyu-core/types`）
 
-所有返回值类型均从 `mingyu-core/types` 导出，包括 `BaziChartResult`、`LiuyaoData`、`QimenData`、`LiurenData`、`MeihuaData` 等。详细字段说明见 [docs/API.md](docs/API.md)。
+所有返回值类型均从 `mingyu-core/types` 导出，包括 `BaziChartResult`、`LiuyaoData`、`QimenData`、`LiurenData`、`MeihuaData` 等。详细字段说明见 [API 参考文档](https://github.com/Brhiza/mingyu/blob/main/packages/core/docs/API.md)。
 
 ---
 
@@ -730,7 +730,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 各模块的详细参数、返回值字段、数据结构说明，请参阅：
 
-- 📖 **[API 参考文档](docs/API.md)** — 所有函数签名与主要类型字段
+- 📖 **[API 参考文档](https://github.com/Brhiza/mingyu/blob/main/packages/core/docs/API.md)** — 所有函数签名与主要类型字段
 
 ---
 
