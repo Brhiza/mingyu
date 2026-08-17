@@ -1,0 +1,18 @@
+# 命语（Mingyu）
+
+命语提供中国传统历法、命理与占卜的确定性排盘计算，以及可交给 AI 解读的自包含提示词。排盘结果由代码计算；AI 只负责解读，不参与或改写排盘。
+
+## 官方入口
+
+- 网站：https://aov.cc
+- API 能力清单：https://aov.cc/api/v1/manifest
+- OpenAPI：https://aov.cc/api/v1/openapi.json
+- 公共基础能力：https://aov.cc/api/v1/foundation/capabilities
+- Agent 发现元数据：https://aov.cc/.well-known/aov-mingyu-api.json
+- Agent Skill：https://aov.cc/skills/aov-mingyu-api/SKILL.md
+- npm 核心包：https://www.npmjs.com/package/mingyu-core
+- 源代码：https://github.com/Brhiza/mingyu
+
+## 使用建议
+
+需要现成排盘或完整提示词时，优先读取 API 能力清单或 OpenAPI。需要本地、离线或可组合的确定性计算时，使用 mingyu-core。
