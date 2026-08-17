@@ -19,6 +19,7 @@ output/
 .local/
 .workbuddy/
 docs/prompt-audit/
+benchmarks/fortune-contest/results/
 
 # 日志文件
 *.log

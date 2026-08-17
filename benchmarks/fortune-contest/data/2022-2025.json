@@ -1,0 +1,6404 @@
+{
+  "questions": [
+    {
+      "id": "ftb_0001",
+      "question_number": 1,
+      "original_number": 1,
+      "case_id": "case_1",
+      "birth_info": {
+        "raw": "男命：1974年4月28日下午4:40分 出生地点：usa",
+        "gender": "男",
+        "year": 1974,
+        "month": 4,
+        "day": 28,
+        "hour": 16,
+        "minute": 40,
+        "country": "usa",
+        "location": "usa",
+        "calendar_type": "solar"
+      },
+      "question": "此命1996年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "患上严重抑郁痴"
+        },
+        {
+          "letter": "B",
+          "text": "回港认识现任妻子"
+        },
+        {
+          "letter": "C",
+          "text": "交通意外，撞车，人平安"
+        },
+        {
+          "letter": "D",
+          "text": "得到一笔意外之财"
+        }
+      ],
+      "answer": "A",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0002",
+      "question_number": 2,
+      "original_number": 2,
+      "case_id": "case_1",
+      "birth_info": {
+        "raw": "男命：1974年4月28日下午4:40分 出生地点：usa",
+        "gender": "男",
+        "year": 1974,
+        "month": 4,
+        "day": 28,
+        "hour": 16,
+        "minute": 40,
+        "country": "usa",
+        "location": "usa",
+        "calendar_type": "solar"
+      },
+      "question": "此命何年结婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1999"
+        },
+        {
+          "letter": "B",
+          "text": "2002"
+        },
+        {
+          "letter": "C",
+          "text": "2006"
+        },
+        {
+          "letter": "D",
+          "text": "到2022年为止，单身"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0003",
+      "question_number": 3,
+      "original_number": 3,
+      "case_id": "case_1",
+      "birth_info": {
+        "raw": "男命：1974年4月28日下午4:40分 出生地点：usa",
+        "gender": "男",
+        "year": 1974,
+        "month": 4,
+        "day": 28,
+        "hour": 16,
+        "minute": 40,
+        "country": "usa",
+        "location": "usa",
+        "calendar_type": "solar"
+      },
+      "question": "此命2008年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "买卖股票，输了很多钱"
+        },
+        {
+          "letter": "B",
+          "text": "与朋友合作生意，赚了很多钱"
+        },
+        {
+          "letter": "C",
+          "text": "祖母过世，自己生病，要一段时间长期食药"
+        },
+        {
+          "letter": "D",
+          "text": "交通意外，发现有遗传病"
+        }
+      ],
+      "answer": "C",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0004",
+      "question_number": 4,
+      "original_number": 4,
+      "case_id": "case_1",
+      "birth_info": {
+        "raw": "男命：1974年4月28日下午4:40分 出生地点：usa",
+        "gender": "男",
+        "year": 1974,
+        "month": 4,
+        "day": 28,
+        "hour": 16,
+        "minute": 40,
+        "country": "usa",
+        "location": "usa",
+        "calendar_type": "solar"
+      },
+      "question": "此命父亲是那一年仙逝？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2009"
+        },
+        {
+          "letter": "B",
+          "text": "2013"
+        },
+        {
+          "letter": "C",
+          "text": "2018"
+        },
+        {
+          "letter": "D",
+          "text": "2020"
+        }
+      ],
+      "answer": "C",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0005",
+      "question_number": 5,
+      "original_number": 5,
+      "case_id": "case_1",
+      "birth_info": {
+        "raw": "男命：1974年4月28日下午4:40分 出生地点：usa",
+        "gender": "男",
+        "year": 1974,
+        "month": 4,
+        "day": 28,
+        "hour": 16,
+        "minute": 40,
+        "country": "usa",
+        "location": "usa",
+        "calendar_type": "solar"
+      },
+      "question": "此命2020年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "工作升职得财"
+        },
+        {
+          "letter": "B",
+          "text": "因长期食药，导致健康出问题"
+        },
+        {
+          "letter": "C",
+          "text": "此年太太怀孕，得子"
+        },
+        {
+          "letter": "D",
+          "text": "因病逝世"
+        }
+      ],
+      "answer": "B",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0006",
+      "question_number": 6,
+      "original_number": 6,
+      "case_id": "case_2",
+      "birth_info": {
+        "raw": "女命：阳历1981年5月26日凌晨02:17 出生地点：中国香港",
+        "gender": "女",
+        "year": 1981,
+        "month": 5,
+        "day": 26,
+        "hour": 2,
+        "minute": 17,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命的学历如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "中七毕业"
+        },
+        {
+          "letter": "B",
+          "text": "2002年升学内地，2006年大学毕业"
+        },
+        {
+          "letter": "C",
+          "text": "预科后升本地大学，2004年大学毕业"
+        },
+        {
+          "letter": "D",
+          "text": "中五后，1998年出国留学"
+        }
+      ],
+      "answer": "B",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0007",
+      "question_number": 7,
+      "original_number": 7,
+      "case_id": "case_2",
+      "birth_info": {
+        "raw": "女命：阳历1981年5月26日凌晨02:17 出生地点：中国香港",
+        "gender": "女",
+        "year": 1981,
+        "month": 5,
+        "day": 26,
+        "hour": 2,
+        "minute": 17,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "这命何时候结婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2005年结婚"
+        },
+        {
+          "letter": "B",
+          "text": "2006年先签纸结婚，2007年摆酒"
+        },
+        {
+          "letter": "C",
+          "text": "2012年结婚，旅行外地签纸"
+        },
+        {
+          "letter": "D",
+          "text": "2009年结婚"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0008",
+      "question_number": 8,
+      "original_number": 8,
+      "case_id": "case_2",
+      "birth_info": {
+        "raw": "女命：阳历1981年5月26日凌晨02:17 出生地点：中国香港",
+        "gender": "女",
+        "year": 1981,
+        "month": 5,
+        "day": 26,
+        "hour": 2,
+        "minute": 17,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命有一名女儿于何年出生？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2007年"
+        },
+        {
+          "letter": "B",
+          "text": "2009年"
+        },
+        {
+          "letter": "C",
+          "text": "2012年"
+        },
+        {
+          "letter": "D",
+          "text": "2015年"
+        }
+      ],
+      "answer": "A",
+      "category": "子女",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0009",
+      "question_number": 9,
+      "original_number": 9,
+      "case_id": "case_2",
+      "birth_info": {
+        "raw": "女命：阳历1981年5月26日凌晨02:17 出生地点：中国香港",
+        "gender": "女",
+        "year": 1981,
+        "month": 5,
+        "day": 26,
+        "hour": 2,
+        "minute": 17,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "身材？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "高挑，瘦削"
+        },
+        {
+          "letter": "B",
+          "text": "高挑，肥胖"
+        },
+        {
+          "letter": "C",
+          "text": "矮小，瘦削"
+        },
+        {
+          "letter": "D",
+          "text": "矮小，肥胖"
+        }
+      ],
+      "answer": "D",
+      "category": "外貌",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0010",
+      "question_number": 10,
+      "original_number": 10,
+      "case_id": "case_2",
+      "birth_info": {
+        "raw": "女命：阳历1981年5月26日凌晨02:17 出生地点：中国香港",
+        "gender": "女",
+        "year": 1981,
+        "month": 5,
+        "day": 26,
+        "hour": 2,
+        "minute": 17,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "父母情况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1988年父母离异，随母亲成长"
+        },
+        {
+          "letter": "B",
+          "text": "1999年父亲出现婚外情，直至2009年父亲离开母亲，但没有离婚"
+        },
+        {
+          "letter": "C",
+          "text": "2000年父亲出现婚外情，2021年父母离婚"
+        },
+        {
+          "letter": "D",
+          "text": "2003年父母离婚,父亲再婚同年生一子"
+        }
+      ],
+      "answer": "B",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0011",
+      "question_number": 11,
+      "original_number": 11,
+      "case_id": "case_3",
+      "birth_info": {
+        "raw": "女命（佩小姐）：1990年05月23日17：30 出生地点：中国大陆",
+        "gender": "女",
+        "year": 1990,
+        "month": 5,
+        "day": 23,
+        "hour": 17,
+        "minute": 30,
+        "country": "中国",
+        "location": "大陆",
+        "calendar_type": "solar"
+      },
+      "question": "女生和父母、兄弟姐妹的关系如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "从小父母疼爱呵护，兄弟姐妹关系融洽"
+        },
+        {
+          "letter": "B",
+          "text": "从小父母疼爱呵护，兄弟姐妹关系淡薄"
+        },
+        {
+          "letter": "C",
+          "text": "小时不在父母身边长大，吃百家饭，兄弟姐妹关系融洽"
+        },
+        {
+          "letter": "D",
+          "text": "小时不在父母身边长大，吃百家饭，兄弟姐妹关系淡薄"
+        }
+      ],
+      "answer": "D",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0012",
+      "question_number": 12,
+      "original_number": 12,
+      "case_id": "case_3",
+      "birth_info": {
+        "raw": "女命（佩小姐）：1990年05月23日17：30 出生地点：中国大陆",
+        "gender": "女",
+        "year": 1990,
+        "month": 5,
+        "day": 23,
+        "hour": 17,
+        "minute": 30,
+        "country": "中国",
+        "location": "大陆",
+        "calendar_type": "solar"
+      },
+      "question": "佩小姐目前的工作情况和生活情况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "在事业单位/国企上班，有几十万存款，生活稳定"
+        },
+        {
+          "letter": "B",
+          "text": "在家全职太太，老公赚钱养家"
+        },
+        {
+          "letter": "C",
+          "text": "自我经营做老板，有负债"
+        },
+        {
+          "letter": "D",
+          "text": "在普通公司里打工，月光族"
+        }
+      ],
+      "answer": "C",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0013",
+      "question_number": 13,
+      "original_number": 13,
+      "case_id": "case_3",
+      "birth_info": {
+        "raw": "女命（佩小姐）：1990年05月23日17：30 出生地点：中国大陆",
+        "gender": "女",
+        "year": 1990,
+        "month": 5,
+        "day": 23,
+        "hour": 17,
+        "minute": 30,
+        "country": "中国",
+        "location": "大陆",
+        "calendar_type": "solar"
+      },
+      "question": "这位女士佩的婚姻仔女如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "未婚，没孩子"
+        },
+        {
+          "letter": "B",
+          "text": "已婚，没孩子"
+        },
+        {
+          "letter": "C",
+          "text": "已婚，有孩子"
+        },
+        {
+          "letter": "D",
+          "text": "离异，有孩子"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0014",
+      "question_number": 14,
+      "original_number": 14,
+      "case_id": "case_3",
+      "birth_info": {
+        "raw": "女命（佩小姐）：1990年05月23日17：30 出生地点：中国大陆",
+        "gender": "女",
+        "year": 1990,
+        "month": 5,
+        "day": 23,
+        "hour": 17,
+        "minute": 30,
+        "country": "中国",
+        "location": "大陆",
+        "calendar_type": "solar"
+      },
+      "question": "佩小姐在下面哪一年的工作有新的突破发展？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2014年"
+        },
+        {
+          "letter": "B",
+          "text": "2016年"
+        },
+        {
+          "letter": "C",
+          "text": "2018年"
+        },
+        {
+          "letter": "D",
+          "text": "2021年"
+        }
+      ],
+      "answer": "C",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0015",
+      "question_number": 15,
+      "original_number": 15,
+      "case_id": "case_3",
+      "birth_info": {
+        "raw": "女命（佩小姐）：1990年05月23日17：30 出生地点：中国大陆",
+        "gender": "女",
+        "year": 1990,
+        "month": 5,
+        "day": 23,
+        "hour": 17,
+        "minute": 30,
+        "country": "中国",
+        "location": "大陆",
+        "calendar_type": "solar"
+      },
+      "question": "以下描述中比较符合佩小姐是什么？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "自私自利，喜欢向别人索取，易怒，蛮横无理"
+        },
+        {
+          "letter": "B",
+          "text": "外冷内热，习惯付出，耳根子软不善拒绝，被家人压榨欺负"
+        },
+        {
+          "letter": "C",
+          "text": "外柔内刚，很有主见，善于表面一套背地里一套，交际能手"
+        },
+        {
+          "letter": "D",
+          "text": "强势固执，猜忌多疑，不喜欢外出，孤僻没朋友"
+        }
+      ],
+      "answer": "B",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0016",
+      "question_number": 16,
+      "original_number": 16,
+      "case_id": "case_4",
+      "birth_info": {
+        "raw": "女命：公历1977年10月26日11时10分 出生地点：malaysia",
+        "gender": "女",
+        "year": 1977,
+        "month": 10,
+        "day": 26,
+        "hour": 11,
+        "minute": 10,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主现在的职业是什么？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "家庭主妇"
+        },
+        {
+          "letter": "B",
+          "text": "秘书"
+        },
+        {
+          "letter": "C",
+          "text": "自己做生意"
+        },
+        {
+          "letter": "D",
+          "text": "公关行业"
+        }
+      ],
+      "answer": "A",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0017",
+      "question_number": 17,
+      "original_number": 17,
+      "case_id": "case_4",
+      "birth_info": {
+        "raw": "女命：公历1977年10月26日11时10分 出生地点：malaysia",
+        "gender": "女",
+        "year": 1977,
+        "month": 10,
+        "day": 26,
+        "hour": 11,
+        "minute": 10,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主2008年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "签字结婚"
+        },
+        {
+          "letter": "B",
+          "text": "换工作"
+        },
+        {
+          "letter": "C",
+          "text": "开公司做生意"
+        },
+        {
+          "letter": "D",
+          "text": "车祸"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0018",
+      "question_number": 18,
+      "original_number": 18,
+      "case_id": "case_4",
+      "birth_info": {
+        "raw": "女命：公历1977年10月26日11时10分 出生地点：malaysia",
+        "gender": "女",
+        "year": 1977,
+        "month": 10,
+        "day": 26,
+        "hour": 11,
+        "minute": 10,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "离婚何时？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2010"
+        },
+        {
+          "letter": "B",
+          "text": "2013"
+        },
+        {
+          "letter": "C",
+          "text": "2016"
+        },
+        {
+          "letter": "D",
+          "text": "2018"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0019",
+      "question_number": 19,
+      "original_number": 19,
+      "case_id": "case_4",
+      "birth_info": {
+        "raw": "女命：公历1977年10月26日11时10分 出生地点：malaysia",
+        "gender": "女",
+        "year": 1977,
+        "month": 10,
+        "day": 26,
+        "hour": 11,
+        "minute": 10,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2016年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "堕胎"
+        },
+        {
+          "letter": "B",
+          "text": "得了一笔横财"
+        },
+        {
+          "letter": "C",
+          "text": "移民外国"
+        },
+        {
+          "letter": "D",
+          "text": "升职加薪"
+        }
+      ],
+      "answer": "A",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0020",
+      "question_number": 20,
+      "original_number": 20,
+      "case_id": "case_4",
+      "birth_info": {
+        "raw": "女命：公历1977年10月26日11时10分 出生地点：malaysia",
+        "gender": "女",
+        "year": 1977,
+        "month": 10,
+        "day": 26,
+        "hour": 11,
+        "minute": 10,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2009年发生什么？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "被打劫"
+        },
+        {
+          "letter": "B",
+          "text": "买产业"
+        },
+        {
+          "letter": "C",
+          "text": "生病住院"
+        },
+        {
+          "letter": "D",
+          "text": "父亲去世"
+        }
+      ],
+      "answer": "D",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0021",
+      "question_number": 21,
+      "original_number": 21,
+      "case_id": "case_5",
+      "birth_info": {
+        "raw": "男命：公历1985年6月29日18时32分（酉时）出生地点：malaysia",
+        "gender": "男",
+        "year": 1985,
+        "month": 6,
+        "day": 29,
+        "hour": 18,
+        "minute": 32,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "以下哪一段描述最符合命主个性？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "谨慎小心，从不冒险"
+        },
+        {
+          "letter": "B",
+          "text": "脾气暴躁， 自暴自弃"
+        },
+        {
+          "letter": "C",
+          "text": "先斩后奏，闯祸后就逃避"
+        },
+        {
+          "letter": "D",
+          "text": "苦口婆心， 啰啰嗦嗦"
+        }
+      ],
+      "answer": "A",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0022",
+      "question_number": 22,
+      "original_number": 22,
+      "case_id": "case_5",
+      "birth_info": {
+        "raw": "男命：公历1985年6月29日18时32分（酉时）出生地点：malaysia",
+        "gender": "男",
+        "year": 1985,
+        "month": 6,
+        "day": 29,
+        "hour": 18,
+        "minute": 32,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "问命主在几时结婚？（公历）",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2017年3月"
+        },
+        {
+          "letter": "B",
+          "text": "2019年11月"
+        },
+        {
+          "letter": "C",
+          "text": "至今未婚"
+        },
+        {
+          "letter": "D",
+          "text": "2018年6月"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0023",
+      "question_number": 23,
+      "original_number": 23,
+      "case_id": "case_5",
+      "birth_info": {
+        "raw": "男命：公历1985年6月29日18时32分（酉时）出生地点：malaysia",
+        "gender": "男",
+        "year": 1985,
+        "month": 6,
+        "day": 29,
+        "hour": 18,
+        "minute": 32,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "2009年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "和黑道人物的女人发生关系，被追杀"
+        },
+        {
+          "letter": "B",
+          "text": "和朋友创业，被股东诈骗"
+        },
+        {
+          "letter": "C",
+          "text": "中彩票，获得十数万现金"
+        },
+        {
+          "letter": "D",
+          "text": "发生车祸受重伤，在医院数月"
+        }
+      ],
+      "answer": "B",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0024",
+      "question_number": 24,
+      "original_number": 24,
+      "case_id": "case_5",
+      "birth_info": {
+        "raw": "男命：公历1985年6月29日18时32分（酉时）出生地点：malaysia",
+        "gender": "男",
+        "year": 1985,
+        "month": 6,
+        "day": 29,
+        "hour": 18,
+        "minute": 32,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "前半年的2022发生什么事情？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "创业并获得巨额融资"
+        },
+        {
+          "letter": "B",
+          "text": "犯下刑事罪被告上法庭"
+        },
+        {
+          "letter": "C",
+          "text": "父亲受伤进医院"
+        },
+        {
+          "letter": "D",
+          "text": "工作上立大功被提拔成管理层"
+        }
+      ],
+      "answer": "C",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0025",
+      "question_number": 25,
+      "original_number": 25,
+      "case_id": "case_5",
+      "birth_info": {
+        "raw": "男命：公历1985年6月29日18时32分（酉时）出生地点：malaysia",
+        "gender": "男",
+        "year": 1985,
+        "month": 6,
+        "day": 29,
+        "hour": 18,
+        "minute": 32,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "请命主的学历如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "大学/大专毕业"
+        },
+        {
+          "letter": "B",
+          "text": "中学/高中毕业"
+        },
+        {
+          "letter": "C",
+          "text": "专业技术学校毕业"
+        },
+        {
+          "letter": "D",
+          "text": "小学未读完就辍学"
+        }
+      ],
+      "answer": "B",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0026",
+      "question_number": 26,
+      "original_number": 26,
+      "case_id": "case_6",
+      "birth_info": {
+        "raw": "男命：公历1983年11月1日（亥时） 出生地点：中国台湾",
+        "gender": "男",
+        "year": 1983,
+        "month": 11,
+        "day": 1,
+        "hour": 21,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "这个人的爱情问题如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "单身，曾交往几任却都无疾而终"
+        },
+        {
+          "letter": "B",
+          "text": "有稳定交往多年对象，但仍未婚"
+        },
+        {
+          "letter": "C",
+          "text": "曾有一段婚姻，但于2021年离婚"
+        },
+        {
+          "letter": "D",
+          "text": "已婚，家庭幸福且育有一子"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0027",
+      "question_number": 27,
+      "original_number": 27,
+      "case_id": "case_6",
+      "birth_info": {
+        "raw": "男命：公历1983年11月1日（亥时） 出生地点：中国台湾",
+        "gender": "男",
+        "year": 1983,
+        "month": 11,
+        "day": 1,
+        "hour": 21,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主学历及工作为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "只有高职毕业，在市场摆摊赚钱"
+        },
+        {
+          "letter": "B",
+          "text": "大学毕业，目前在小公司当助理"
+        },
+        {
+          "letter": "C",
+          "text": "硕士毕业，大学担任高级研究员"
+        },
+        {
+          "letter": "D",
+          "text": "博士毕业，上市公司担任工程师"
+        }
+      ],
+      "answer": "D",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0028",
+      "question_number": 28,
+      "original_number": 28,
+      "case_id": "case_6",
+      "birth_info": {
+        "raw": "男命：公历1983年11月1日（亥时） 出生地点：中国台湾",
+        "gender": "男",
+        "year": 1983,
+        "month": 11,
+        "day": 1,
+        "hour": 21,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主曾被骗钱，请问在何时？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2014年"
+        },
+        {
+          "letter": "B",
+          "text": "2018年"
+        },
+        {
+          "letter": "C",
+          "text": "2019年"
+        },
+        {
+          "letter": "D",
+          "text": "2021年"
+        }
+      ],
+      "answer": "D",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0029",
+      "question_number": 29,
+      "original_number": 29,
+      "case_id": "case_6",
+      "birth_info": {
+        "raw": "男命：公历1983年11月1日（亥时） 出生地点：中国台湾",
+        "gender": "男",
+        "year": 1983,
+        "month": 11,
+        "day": 1,
+        "hour": 21,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主个性及特色原因？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "精神亢奋常坐不住，像个过动儿"
+        },
+        {
+          "letter": "B",
+          "text": "经常运动，体力好且有强健体魄"
+        },
+        {
+          "letter": "C",
+          "text": "喜好交友，但真心朋友寥寥无几"
+        },
+        {
+          "letter": "D",
+          "text": "待人和善且严以律己，寛以待人"
+        }
+      ],
+      "answer": "C",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0030",
+      "question_number": 30,
+      "original_number": 30,
+      "case_id": "case_6",
+      "birth_info": {
+        "raw": "男命：公历1983年11月1日（亥时） 出生地点：中国台湾",
+        "gender": "男",
+        "year": 1983,
+        "month": 11,
+        "day": 1,
+        "hour": 21,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主理财能力如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "虽赚的不多，但很会理财，已购置一栋房子"
+        },
+        {
+          "letter": "B",
+          "text": "很没理财观念，赚的钱皆由母亲代为管理"
+        },
+        {
+          "letter": "C",
+          "text": "家境优渥，是个很会乱花钱的富二代"
+        },
+        {
+          "letter": "D",
+          "text": "相当投机，赚的钱几乎都投入股市，但赚少赔多"
+        }
+      ],
+      "answer": "B",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0031",
+      "question_number": 31,
+      "original_number": 31,
+      "case_id": "case_7",
+      "birth_info": {
+        "raw": "女命公历1984年12月9日（酉时） 出生地点：中国香港",
+        "gender": "女",
+        "year": 1984,
+        "month": 12,
+        "day": 9,
+        "hour": 17,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命之性格？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "勤俭顾家，知书识礼，明辨是非"
+        },
+        {
+          "letter": "B",
+          "text": "好勇争胜，说话霸气，说胜才止"
+        },
+        {
+          "letter": "C",
+          "text": "心多贪权，急于求成，见困难挫折而离弃"
+        },
+        {
+          "letter": "D",
+          "text": "胆小怕事，心气压抑，欠缺当机立断心志"
+        }
+      ],
+      "answer": "D",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0032",
+      "question_number": 32,
+      "original_number": 32,
+      "case_id": "case_7",
+      "birth_info": {
+        "raw": "女命公历1984年12月9日（酉时） 出生地点：中国香港",
+        "gender": "女",
+        "year": 1984,
+        "month": 12,
+        "day": 9,
+        "hour": 17,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命祖上富，因父好赌，何年破产？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1995"
+        },
+        {
+          "letter": "B",
+          "text": "1997"
+        },
+        {
+          "letter": "C",
+          "text": "2003"
+        },
+        {
+          "letter": "D",
+          "text": "2007"
+        }
+      ],
+      "answer": "C",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0033",
+      "question_number": 33,
+      "original_number": 33,
+      "case_id": "case_7",
+      "birth_info": {
+        "raw": "女命公历1984年12月9日（酉时） 出生地点：中国香港",
+        "gender": "女",
+        "year": 1984,
+        "month": 12,
+        "day": 9,
+        "hour": 17,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "何年在牢狱几个月？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2003"
+        },
+        {
+          "letter": "B",
+          "text": "2007"
+        },
+        {
+          "letter": "C",
+          "text": "2010"
+        },
+        {
+          "letter": "D",
+          "text": "2016"
+        }
+      ],
+      "answer": "A",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0034",
+      "question_number": 34,
+      "original_number": 34,
+      "case_id": "case_7",
+      "birth_info": {
+        "raw": "女命公历1984年12月9日（酉时） 出生地点：中国香港",
+        "gender": "女",
+        "year": 1984,
+        "month": 12,
+        "day": 9,
+        "hour": 17,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命于2005年拍拖，于何年结婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2008"
+        },
+        {
+          "letter": "B",
+          "text": "2010"
+        },
+        {
+          "letter": "C",
+          "text": "2012"
+        },
+        {
+          "letter": "D",
+          "text": "2014"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0035",
+      "question_number": 35,
+      "original_number": 35,
+      "case_id": "case_7",
+      "birth_info": {
+        "raw": "女命公历1984年12月9日（酉时） 出生地点：中国香港",
+        "gender": "女",
+        "year": 1984,
+        "month": 12,
+        "day": 9,
+        "hour": 17,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命的感情生活情况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "夫妻恩爱，而且一心一意，夫妻同心照顾孩子"
+        },
+        {
+          "letter": "B",
+          "text": "丈夫外有情人，但家用充足，命主在家照顾孩子，后离婚"
+        },
+        {
+          "letter": "C",
+          "text": "丈夫不给家用更有情人，命主只好打工照顾孩子，后离婚"
+        },
+        {
+          "letter": "D",
+          "text": "丈夫生意失败而离家出走，只好打工帮丈夫还债及照顾孩子"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0036",
+      "question_number": 36,
+      "original_number": 36,
+      "case_id": "case_8",
+      "birth_info": {
+        "raw": "男命公历1981年6月17日（戌时）出生地点：中国香港",
+        "gender": "男",
+        "year": 1981,
+        "month": 6,
+        "day": 17,
+        "hour": 19,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主出生时的家庭环境如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "家境错误"
+        },
+        {
+          "letter": "B",
+          "text": "不过不失"
+        },
+        {
+          "letter": "C",
+          "text": "小康之家"
+        },
+        {
+          "letter": "D",
+          "text": "富裕家庭"
+        }
+      ],
+      "answer": "C",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0037",
+      "question_number": 37,
+      "original_number": 37,
+      "case_id": "case_8",
+      "birth_info": {
+        "raw": "男命公历1981年6月17日（戌时）出生地点：中国香港",
+        "gender": "男",
+        "year": 1981,
+        "month": 6,
+        "day": 17,
+        "hour": 19,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主的婚姻状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "仍然单身"
+        },
+        {
+          "letter": "B",
+          "text": "同居生活"
+        },
+        {
+          "letter": "C",
+          "text": "已婚"
+        },
+        {
+          "letter": "D",
+          "text": "已离婚"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0038",
+      "question_number": 38,
+      "original_number": 38,
+      "case_id": "case_8",
+      "birth_info": {
+        "raw": "男命公历1981年6月17日（戌时）出生地点：中国香港",
+        "gender": "男",
+        "year": 1981,
+        "month": 6,
+        "day": 17,
+        "hour": 19,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命在2014年曾接受手术，手术器官？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "心脏"
+        },
+        {
+          "letter": "B",
+          "text": "脑部"
+        },
+        {
+          "letter": "C",
+          "text": "双腿"
+        },
+        {
+          "letter": "D",
+          "text": "手肘"
+        }
+      ],
+      "answer": "B",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0039",
+      "question_number": 39,
+      "original_number": 39,
+      "case_id": "case_8",
+      "birth_info": {
+        "raw": "男命公历1981年6月17日（戌时）出生地点：中国香港",
+        "gender": "男",
+        "year": 1981,
+        "month": 6,
+        "day": 17,
+        "hour": 19,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主职业是？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "保险从业员"
+        },
+        {
+          "letter": "B",
+          "text": "零售业"
+        },
+        {
+          "letter": "C",
+          "text": "文员"
+        },
+        {
+          "letter": "D",
+          "text": "的士司机"
+        }
+      ],
+      "answer": "A",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0040",
+      "question_number": 40,
+      "original_number": 40,
+      "case_id": "case_8",
+      "birth_info": {
+        "raw": "男命公历1981年6月17日（戌时）出生地点：中国香港",
+        "gender": "男",
+        "year": 1981,
+        "month": 6,
+        "day": 17,
+        "hour": 19,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主2020/2021年的经济状况是？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "月光族"
+        },
+        {
+          "letter": "B",
+          "text": "欠下债务"
+        },
+        {
+          "letter": "C",
+          "text": "薄有积蓄"
+        },
+        {
+          "letter": "D",
+          "text": "财务自由"
+        }
+      ],
+      "answer": "B",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0041",
+      "question_number": 41,
+      "original_number": 1,
+      "case_id": "case_9",
+      "birth_info": {
+        "raw": "女命：西历1966年10月18日夜晚23:15香港出生",
+        "gender": "女",
+        "year": 1966,
+        "month": 10,
+        "day": 18,
+        "hour": 23,
+        "minute": 15,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命的性格特徵如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "急性子，容易被别人影响决定，表达能力差，对朋友豪爽"
+        },
+        {
+          "letter": "B",
+          "text": "喜欢投诉，常说自己苦，易发脾气，不易信人"
+        },
+        {
+          "letter": "C",
+          "text": "贪财好胜，权力欲重，固执己见，喜命令别人"
+        },
+        {
+          "letter": "D",
+          "text": "贪生怕死，不懂交际，少说法多做事，守财节俭"
+        }
+      ],
+      "answer": "B",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0042",
+      "question_number": 42,
+      "original_number": 2,
+      "case_id": "case_9",
+      "birth_info": {
+        "raw": "女命：西历1966年10月18日夜晚23:15香港出生",
+        "gender": "女",
+        "year": 1966,
+        "month": 10,
+        "day": 18,
+        "hour": 23,
+        "minute": 15,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "那个行业合乎此命情况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "律师"
+        },
+        {
+          "letter": "B",
+          "text": "销售员"
+        },
+        {
+          "letter": "C",
+          "text": "地产生意"
+        },
+        {
+          "letter": "D",
+          "text": "图书馆文员"
+        }
+      ],
+      "answer": "C",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0043",
+      "question_number": 43,
+      "original_number": 3,
+      "case_id": "case_9",
+      "birth_info": {
+        "raw": "女命：西历1966年10月18日夜晚23:15香港出生",
+        "gender": "女",
+        "year": 1966,
+        "month": 10,
+        "day": 18,
+        "hour": 23,
+        "minute": 15,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命叔叔是出家人，于那年跳楼亡？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1982"
+        },
+        {
+          "letter": "B",
+          "text": "1984"
+        },
+        {
+          "letter": "C",
+          "text": "1986"
+        },
+        {
+          "letter": "D",
+          "text": "1988"
+        }
+      ],
+      "answer": "B",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0044",
+      "question_number": 44,
+      "original_number": 4,
+      "case_id": "case_9",
+      "birth_info": {
+        "raw": "女命：西历1966年10月18日夜晚23:15香港出生",
+        "gender": "女",
+        "year": 1966,
+        "month": 10,
+        "day": 18,
+        "hour": 23,
+        "minute": 15,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命到现在的婚姻情况如何与及其学历？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "单身，从未结过婚，没有子女。大学毕业"
+        },
+        {
+          "letter": "B",
+          "text": "已婚，有子女，正常普通家庭。大学毕业"
+        },
+        {
+          "letter": "C",
+          "text": "已离婚，没有子女。没有大学毕业"
+        },
+        {
+          "letter": "D",
+          "text": "同性恋，有女朋友，有一养女，没有大学毕业"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0045",
+      "question_number": 45,
+      "original_number": 5,
+      "case_id": "case_9",
+      "birth_info": {
+        "raw": "女命：西历1966年10月18日夜晚23:15香港出生",
+        "gender": "女",
+        "year": 1966,
+        "month": 10,
+        "day": 18,
+        "hour": 23,
+        "minute": 15,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "2008年到现在，那个合乎其命运情况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "移民新加坡，半炒股半退休的休閒富裕生活"
+        },
+        {
+          "letter": "B",
+          "text": "叔叔死后多年的保险法律完结，得保险金而富裕在香港生活"
+        },
+        {
+          "letter": "C",
+          "text": "酒后开车，意外撞死人，坐过多年牢。虽有自己私楼，平民生活"
+        },
+        {
+          "letter": "D",
+          "text": "突然全身多病，四处求医而医不好，风光过一时的生活，转变为穷困疗倒，住公屋"
+        }
+      ],
+      "answer": "D",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0046",
+      "question_number": 46,
+      "original_number": 6,
+      "case_id": "case_10",
+      "birth_info": {
+        "raw": "男命：西历1962年8月6日已时-农历1962七月初七/巳时",
+        "gender": "男",
+        "year": 1962,
+        "month": 8,
+        "day": 6,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主16岁前家庭状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "跟随母亲生活"
+        },
+        {
+          "letter": "B",
+          "text": "在孤儿院长大"
+        },
+        {
+          "letter": "C",
+          "text": "跟随父亲生活"
+        },
+        {
+          "letter": "D",
+          "text": "跟随收养父母生活"
+        }
+      ],
+      "answer": "A",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0047",
+      "question_number": 47,
+      "original_number": 7,
+      "case_id": "case_10",
+      "birth_info": {
+        "raw": "男命：西历1962年8月6日已时-农历1962七月初七/巳时",
+        "gender": "男",
+        "year": 1962,
+        "month": 8,
+        "day": 6,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主父母状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "父母相继在儿时离世"
+        },
+        {
+          "letter": "B",
+          "text": "父亲短寿，母亲长寿"
+        },
+        {
+          "letter": "C",
+          "text": "家境贫穷，父母无法养育命主而分离"
+        },
+        {
+          "letter": "D",
+          "text": "父亲长寿，母亲短寿"
+        }
+      ],
+      "answer": "B",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0048",
+      "question_number": 48,
+      "original_number": 8,
+      "case_id": "case_10",
+      "birth_info": {
+        "raw": "男命：西历1962年8月6日已时-农历1962七月初七/巳时",
+        "gender": "男",
+        "year": 1962,
+        "month": 8,
+        "day": 6,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主婚姻状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "已婚，但已离异"
+        },
+        {
+          "letter": "B",
+          "text": "一直独身，清心寡欲"
+        },
+        {
+          "letter": "C",
+          "text": "独身，经常嫖妓"
+        },
+        {
+          "letter": "D",
+          "text": "已婚，婚姻生活稳定"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0049",
+      "question_number": 49,
+      "original_number": 9,
+      "case_id": "case_10",
+      "birth_info": {
+        "raw": "男命：西历1962年8月6日已时-农历1962七月初七/巳时",
+        "gender": "男",
+        "year": 1962,
+        "month": 8,
+        "day": 6,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "2014年，命主发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "命主伴侣患癌症"
+        },
+        {
+          "letter": "B",
+          "text": "命主兄弟姐妹中有人患癌症"
+        },
+        {
+          "letter": "C",
+          "text": "命主父亲或母亲患癌症"
+        },
+        {
+          "letter": "D",
+          "text": "命主自己患癌症"
+        }
+      ],
+      "answer": "D",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0050",
+      "question_number": 50,
+      "original_number": 10,
+      "case_id": "case_10",
+      "birth_info": {
+        "raw": "男命：西历1962年8月6日已时-农历1962七月初七/巳时",
+        "gender": "男",
+        "year": 1962,
+        "month": 8,
+        "day": 6,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "以下那一项，在命主中反映才属正确？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "独子，没有兄弟姐妹"
+        },
+        {
+          "letter": "B",
+          "text": "曾犯事，留有案底"
+        },
+        {
+          "letter": "C",
+          "text": "长期患病，需要人照顾"
+        },
+        {
+          "letter": "D",
+          "text": "工作稳定，毕业后一份工作做到退休"
+        }
+      ],
+      "answer": "D",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0051",
+      "question_number": 51,
+      "original_number": 11,
+      "case_id": "case_11",
+      "birth_info": {
+        "raw": "男命：西历1986年4月24日晚上9.30亥时",
+        "gender": "男",
+        "year": 1986,
+        "month": 4,
+        "day": 24,
+        "hour": 21,
+        "minute": 30,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在那一年结婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2012"
+        },
+        {
+          "letter": "B",
+          "text": "2013"
+        },
+        {
+          "letter": "C",
+          "text": "2015"
+        },
+        {
+          "letter": "D",
+          "text": "2016"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0052",
+      "question_number": 52,
+      "original_number": 12,
+      "case_id": "case_11",
+      "birth_info": {
+        "raw": "男命：西历1986年4月24日晚上9.30亥时",
+        "gender": "男",
+        "year": 1986,
+        "month": 4,
+        "day": 24,
+        "hour": 21,
+        "minute": 30,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主有两名男孩，分别在那年出生？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2013与2015"
+        },
+        {
+          "letter": "B",
+          "text": "2014与2016"
+        },
+        {
+          "letter": "C",
+          "text": "2016与2019"
+        },
+        {
+          "letter": "D",
+          "text": "2017与2022"
+        }
+      ],
+      "answer": "D",
+      "category": "子女",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0053",
+      "question_number": 53,
+      "original_number": 13,
+      "case_id": "case_11",
+      "birth_info": {
+        "raw": "男命：西历1986年4月24日晚上9.30亥时",
+        "gender": "男",
+        "year": 1986,
+        "month": 4,
+        "day": 24,
+        "hour": 21,
+        "minute": 30,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主目前的财运？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "身家超过千万身家（马币）"
+        },
+        {
+          "letter": "B",
+          "text": "收入平平，固定薪金4千薪水"
+        },
+        {
+          "letter": "C",
+          "text": "财运顺畅，每月收入都有增长"
+        },
+        {
+          "letter": "D",
+          "text": "欠债超过1千万的债务"
+        }
+      ],
+      "answer": "C",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0054",
+      "question_number": 54,
+      "original_number": 14,
+      "case_id": "case_11",
+      "birth_info": {
+        "raw": "男命：西历1986年4月24日晚上9.30亥时",
+        "gender": "男",
+        "year": 1986,
+        "month": 4,
+        "day": 24,
+        "hour": 21,
+        "minute": 30,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主目前婚姻感情状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "己离婚"
+        },
+        {
+          "letter": "B",
+          "text": "己婚，但是有婚外情"
+        },
+        {
+          "letter": "C",
+          "text": "婚姻美满"
+        },
+        {
+          "letter": "D",
+          "text": "未婚，但己有两名孩子"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0055",
+      "question_number": 55,
+      "original_number": 15,
+      "case_id": "case_11",
+      "birth_info": {
+        "raw": "男命：西历1986年4月24日晚上9.30亥时",
+        "gender": "男",
+        "year": 1986,
+        "month": 4,
+        "day": 24,
+        "hour": 21,
+        "minute": 30,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主目前职业？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "小吃店老板"
+        },
+        {
+          "letter": "B",
+          "text": "寿板店职员"
+        },
+        {
+          "letter": "C",
+          "text": "偏门老板"
+        },
+        {
+          "letter": "D",
+          "text": "命理风水顾问"
+        }
+      ],
+      "answer": "D",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0056",
+      "question_number": 56,
+      "original_number": 16,
+      "case_id": "case_12",
+      "birth_info": {
+        "raw": "男命，西历1956年3月11日巳时，malaysia出生",
+        "gender": "男",
+        "year": 1956,
+        "month": 3,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主性格如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "自私，贪心，好色"
+        },
+        {
+          "letter": "B",
+          "text": "胆小，怕事，没主见"
+        },
+        {
+          "letter": "C",
+          "text": "内向，沉默寡言"
+        },
+        {
+          "letter": "D",
+          "text": "外向胆大好胜，急性子"
+        }
+      ],
+      "answer": "C",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0057",
+      "question_number": 57,
+      "original_number": 17,
+      "case_id": "case_12",
+      "birth_info": {
+        "raw": "男命，西历1956年3月11日巳时，malaysia出生",
+        "gender": "男",
+        "year": 1956,
+        "month": 3,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主学历如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "小学毕业"
+        },
+        {
+          "letter": "B",
+          "text": "中学辍学"
+        },
+        {
+          "letter": "C",
+          "text": "大学毕业"
+        },
+        {
+          "letter": "D",
+          "text": "硕士毕业"
+        }
+      ],
+      "answer": "A",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0058",
+      "question_number": 58,
+      "original_number": 18,
+      "case_id": "case_12",
+      "birth_info": {
+        "raw": "男命，西历1956年3月11日巳时，malaysia出生",
+        "gender": "男",
+        "year": 1956,
+        "month": 3,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主婚姻状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "已婚，无儿女"
+        },
+        {
+          "letter": "B",
+          "text": "已婚，育2男1女"
+        },
+        {
+          "letter": "C",
+          "text": "早年结婚，晚年离婚"
+        },
+        {
+          "letter": "D",
+          "text": "未婚"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0059",
+      "question_number": 59,
+      "original_number": 19,
+      "case_id": "case_12",
+      "birth_info": {
+        "raw": "男命，西历1956年3月11日巳时，malaysia出生",
+        "gender": "男",
+        "year": 1956,
+        "month": 3,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在1997年发生何事?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "接获诈骗电话，骗走百万存款"
+        },
+        {
+          "letter": "B",
+          "text": "发生严重车祸，昏迷3个月"
+        },
+        {
+          "letter": "C",
+          "text": "与友人合伙投资，出国寻二战后宝藏"
+        },
+        {
+          "letter": "D",
+          "text": "自创业，开办大型港式酒家"
+        }
+      ],
+      "answer": "C",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0060",
+      "question_number": 60,
+      "original_number": 20,
+      "case_id": "case_12",
+      "birth_info": {
+        "raw": "男命，西历1956年3月11日巳时，malaysia出生",
+        "gender": "男",
+        "year": 1956,
+        "month": 3,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主身体健康状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2011年血管阻塞，轻微中风"
+        },
+        {
+          "letter": "B",
+          "text": "2013年心脏搭桥手术"
+        },
+        {
+          "letter": "C",
+          "text": "2016年确诊癌症，隔年与世长辞"
+        },
+        {
+          "letter": "D",
+          "text": "2020年确诊新冠，肺部感染死亡"
+        }
+      ],
+      "answer": "C",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0061",
+      "question_number": 61,
+      "original_number": 21,
+      "case_id": "case_13",
+      "birth_info": {
+        "raw": "女命：西历1978年04月05日17：00-19：00酉时  台湾生",
+        "gender": "女",
+        "year": 1978,
+        "month": 4,
+        "day": 5,
+        "hour": 18,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2011年发生什么事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "成立公司"
+        },
+        {
+          "letter": "B",
+          "text": "拿到usa永久绿卡"
+        },
+        {
+          "letter": "C",
+          "text": "投资获利千万"
+        },
+        {
+          "letter": "D",
+          "text": "什么事情都没有发生"
+        }
+      ],
+      "answer": "B",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0062",
+      "question_number": 62,
+      "original_number": 22,
+      "case_id": "case_13",
+      "birth_info": {
+        "raw": "女命：西历1978年04月05日17：00-19：00酉时  台湾生",
+        "gender": "女",
+        "year": 1978,
+        "month": 4,
+        "day": 5,
+        "hour": 18,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "以下事项，哪个在2009年没有发生？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "考上律师"
+        },
+        {
+          "letter": "B",
+          "text": "远距离旅行"
+        },
+        {
+          "letter": "C",
+          "text": "找到工作"
+        },
+        {
+          "letter": "D",
+          "text": "购置不动产"
+        }
+      ],
+      "answer": "C",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0063",
+      "question_number": 63,
+      "original_number": 23,
+      "case_id": "case_13",
+      "birth_info": {
+        "raw": "女命：西历1978年04月05日17：00-19：00酉时  台湾生",
+        "gender": "女",
+        "year": 1978,
+        "month": 4,
+        "day": 5,
+        "hour": 18,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主何时结婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2006"
+        },
+        {
+          "letter": "B",
+          "text": "2007"
+        },
+        {
+          "letter": "C",
+          "text": "2008"
+        },
+        {
+          "letter": "D",
+          "text": "2009"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0064",
+      "question_number": 64,
+      "original_number": 24,
+      "case_id": "case_13",
+      "birth_info": {
+        "raw": "女命：西历1978年04月05日17：00-19：00酉时  台湾生",
+        "gender": "女",
+        "year": 1978,
+        "month": 4,
+        "day": 5,
+        "hour": 18,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主在哪一年生孩子？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "生于阳历2012期间"
+        },
+        {
+          "letter": "B",
+          "text": "生于阳历2013期间"
+        },
+        {
+          "letter": "C",
+          "text": "生于阳历2015期间"
+        },
+        {
+          "letter": "D",
+          "text": "生于阳历2018期间"
+        }
+      ],
+      "answer": "B",
+      "category": "子女",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0065",
+      "question_number": 65,
+      "original_number": 25,
+      "case_id": "case_13",
+      "birth_info": {
+        "raw": "女命：西历1978年04月05日17：00-19：00酉时  台湾生",
+        "gender": "女",
+        "year": 1978,
+        "month": 4,
+        "day": 5,
+        "hour": 18,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "生产状况为？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "男婴"
+        },
+        {
+          "letter": "B",
+          "text": "女婴"
+        },
+        {
+          "letter": "C",
+          "text": "双胞胎"
+        },
+        {
+          "letter": "D",
+          "text": "难产"
+        }
+      ],
+      "answer": "B",
+      "category": "子女",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0066",
+      "question_number": 66,
+      "original_number": 26,
+      "case_id": "case_14",
+      "birth_info": {
+        "raw": "女命：西历1958-10-27辰时生  台湾人",
+        "gender": "女",
+        "year": 1958,
+        "month": 10,
+        "day": 27,
+        "hour": 7,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "请问以下哪年命主以女性服装设计师身份出名大旺，收到各路明星邀请设计衣服?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1983"
+        },
+        {
+          "letter": "B",
+          "text": "1984"
+        },
+        {
+          "letter": "C",
+          "text": "1985"
+        },
+        {
+          "letter": "D",
+          "text": "1986"
+        }
+      ],
+      "answer": "C",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0067",
+      "question_number": 67,
+      "original_number": 27,
+      "case_id": "case_14",
+      "birth_info": {
+        "raw": "女命：西历1958-10-27辰时生  台湾人",
+        "gender": "女",
+        "year": 1958,
+        "month": 10,
+        "day": 27,
+        "hour": 7,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "请问以下哪年命主通灵，晚上梦到各路神明来报六合彩号码(台湾早年的地下博弈)她跟她大姐说，她姐赚到上千万台币横发买房?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1987"
+        },
+        {
+          "letter": "B",
+          "text": "1989"
+        },
+        {
+          "letter": "C",
+          "text": "1990"
+        },
+        {
+          "letter": "D",
+          "text": "1992"
+        }
+      ],
+      "answer": "A",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0068",
+      "question_number": 68,
+      "original_number": 28,
+      "case_id": "case_14",
+      "birth_info": {
+        "raw": "女命：西历1958-10-27辰时生  台湾人",
+        "gender": "女",
+        "year": 1958,
+        "month": 10,
+        "day": 27,
+        "hour": 7,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "请问以下哪年命主因为老公上班不稳定决定自行创业开店，开店后发现小孩翘课说谎在店里打小孩？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1991"
+        },
+        {
+          "letter": "B",
+          "text": "1992"
+        },
+        {
+          "letter": "C",
+          "text": "1993"
+        },
+        {
+          "letter": "D",
+          "text": "1994"
+        }
+      ],
+      "answer": "C",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0069",
+      "question_number": 69,
+      "original_number": 29,
+      "case_id": "case_14",
+      "birth_info": {
+        "raw": "女命：西历1958-10-27辰时生  台湾人",
+        "gender": "女",
+        "year": 1958,
+        "month": 10,
+        "day": 27,
+        "hour": 7,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "请问以下哪年命主忽然赚到大钱，受不了孩子抱怨，决定买房解决孩子读书的通勤问题?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1996年"
+        },
+        {
+          "letter": "B",
+          "text": "2003年"
+        },
+        {
+          "letter": "C",
+          "text": "2005年"
+        },
+        {
+          "letter": "D",
+          "text": "2008年"
+        }
+      ],
+      "answer": "C",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0070",
+      "question_number": 70,
+      "original_number": 30,
+      "case_id": "case_14",
+      "birth_info": {
+        "raw": "女命：西历1958-10-27辰时生  台湾人",
+        "gender": "女",
+        "year": 1958,
+        "month": 10,
+        "day": 27,
+        "hour": 7,
+        "minute": 0,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "请问以下哪年命主发现长久的乳房硬块转变为乳癌，检查后开刀十分顺利，平安无事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2008年"
+        },
+        {
+          "letter": "B",
+          "text": "2010年"
+        },
+        {
+          "letter": "C",
+          "text": "2016年"
+        },
+        {
+          "letter": "D",
+          "text": "2022年"
+        }
+      ],
+      "answer": "D",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0071",
+      "question_number": 71,
+      "original_number": 31,
+      "case_id": "case_15",
+      "birth_info": {
+        "raw": "女命：西历2002年6月1日早上08:30辰时  出生于香港",
+        "gender": "女",
+        "year": 2002,
+        "month": 6,
+        "day": 1,
+        "hour": 8,
+        "minute": 30,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命出身的贫或富？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "孤儿院长大"
+        },
+        {
+          "letter": "B",
+          "text": "贫穷家庭出身"
+        },
+        {
+          "letter": "C",
+          "text": "小康之家出身"
+        },
+        {
+          "letter": "D",
+          "text": "大富贵家庭出身"
+        }
+      ],
+      "answer": "B",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0072",
+      "question_number": 72,
+      "original_number": 32,
+      "case_id": "case_15",
+      "birth_info": {
+        "raw": "女命：西历2002年6月1日早上08:30辰时  出生于香港",
+        "gender": "女",
+        "year": 2002,
+        "month": 6,
+        "day": 1,
+        "hour": 8,
+        "minute": 30,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "此命的学历/教育程度如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "大学毕业"
+        },
+        {
+          "letter": "B",
+          "text": "正在修读硕士/研究生"
+        },
+        {
+          "letter": "C",
+          "text": "小学毕业"
+        },
+        {
+          "letter": "D",
+          "text": "中六毕业"
+        }
+      ],
+      "answer": "D",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0073",
+      "question_number": 73,
+      "original_number": 33,
+      "case_id": "case_15",
+      "birth_info": {
+        "raw": "女命：西历2002年6月1日早上08:30辰时  出生于香港",
+        "gender": "女",
+        "year": 2002,
+        "month": 6,
+        "day": 1,
+        "hour": 8,
+        "minute": 30,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "以上那一年份有拍拖/恋爱？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2018年"
+        },
+        {
+          "letter": "B",
+          "text": "2019年"
+        },
+        {
+          "letter": "C",
+          "text": "2020年"
+        },
+        {
+          "letter": "D",
+          "text": "以上时间都有男朋友"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0074",
+      "question_number": 74,
+      "original_number": 34,
+      "case_id": "case_15",
+      "birth_info": {
+        "raw": "女命：西历2002年6月1日早上08:30辰时  出生于香港",
+        "gender": "女",
+        "year": 2002,
+        "month": 6,
+        "day": 1,
+        "hour": 8,
+        "minute": 30,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "2022年在姻缘方面如何?",
+      "options": [
+        {
+          "letter": "A",
+          "text": "结婚"
+        },
+        {
+          "letter": "B",
+          "text": "奉子成婚"
+        },
+        {
+          "letter": "C",
+          "text": "离婚"
+        },
+        {
+          "letter": "D",
+          "text": "分手"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0075",
+      "question_number": 75,
+      "original_number": 35,
+      "case_id": "case_15",
+      "birth_info": {
+        "raw": "女命：西历2002年6月1日早上08:30辰时  出生于香港",
+        "gender": "女",
+        "year": 2002,
+        "month": 6,
+        "day": 1,
+        "hour": 8,
+        "minute": 30,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "2022年命主发生什么大事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "事业上有好机遇，参加比赛得奖"
+        },
+        {
+          "letter": "B",
+          "text": "在日本成为一位名侦探"
+        },
+        {
+          "letter": "C",
+          "text": "母亲急病逝世"
+        },
+        {
+          "letter": "D",
+          "text": "有横财运，中六合彩头奖"
+        }
+      ],
+      "answer": "A",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0076",
+      "question_number": 76,
+      "original_number": 36,
+      "case_id": "case_16",
+      "birth_info": {
+        "raw": "男命：西历1980年7月11日已时  香港出生",
+        "gender": "男",
+        "year": 1980,
+        "month": 7,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主第一次结婚在那一年？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2000年"
+        },
+        {
+          "letter": "B",
+          "text": "2001年"
+        },
+        {
+          "letter": "C",
+          "text": "2005年"
+        },
+        {
+          "letter": "D",
+          "text": "2006年"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0077",
+      "question_number": 77,
+      "original_number": 37,
+      "case_id": "case_16",
+      "birth_info": {
+        "raw": "男命：西历1980年7月11日已时  香港出生",
+        "gender": "男",
+        "year": 1980,
+        "month": 7,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主第二次结婚在那一年？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2011年"
+        },
+        {
+          "letter": "B",
+          "text": "2012年"
+        },
+        {
+          "letter": "C",
+          "text": "2013年"
+        },
+        {
+          "letter": "D",
+          "text": "2015年"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0078",
+      "question_number": 78,
+      "original_number": 38,
+      "case_id": "case_16",
+      "birth_info": {
+        "raw": "男命：西历1980年7月11日已时  香港出生",
+        "gender": "男",
+        "year": 1980,
+        "month": 7,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主从事那个职业？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "秘书"
+        },
+        {
+          "letter": "B",
+          "text": "物流公司老闆"
+        },
+        {
+          "letter": "C",
+          "text": "翻译员"
+        },
+        {
+          "letter": "D",
+          "text": "游泳救生员"
+        }
+      ],
+      "answer": "B",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0079",
+      "question_number": 79,
+      "original_number": 39,
+      "case_id": "case_16",
+      "birth_info": {
+        "raw": "男命：西历1980年7月11日已时  香港出生",
+        "gender": "男",
+        "year": 1980,
+        "month": 7,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主性格特徵？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "被动，做事消极，但爱心和同情心重？"
+        },
+        {
+          "letter": "B",
+          "text": "鬼主意多，做事喜欢走捷径，耍小聪明"
+        },
+        {
+          "letter": "C",
+          "text": "保守，节俭，但承担力强"
+        },
+        {
+          "letter": "D",
+          "text": "脾气暴燥，好色，做事鲁莽"
+        }
+      ],
+      "answer": "B",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0080",
+      "question_number": 80,
+      "original_number": 40,
+      "case_id": "case_16",
+      "birth_info": {
+        "raw": "男命：西历1980年7月11日已时  香港出生",
+        "gender": "男",
+        "year": 1980,
+        "month": 7,
+        "day": 11,
+        "hour": 9,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主在丙戌大运的财政状况？(2009--2018)",
+      "options": [
+        {
+          "letter": "A",
+          "text": "丙戌大运一直财政稳定，有存款和房产，生活无忧"
+        },
+        {
+          "letter": "B",
+          "text": "丙戌大运一直财政很好，常常在投资物业或股票上屡见丰厚获利"
+        },
+        {
+          "letter": "C",
+          "text": "丙戌大运刚开始时财政丰盛，但后来因为赌钱而债台高筑"
+        },
+        {
+          "letter": "D",
+          "text": "丙戌大运刚开始时平稳渡过，但后来因为要为家人清还债务而负债累累"
+        }
+      ],
+      "answer": "D",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0081",
+      "question_number": 81,
+      "original_number": 1,
+      "case_id": "case_17",
+      "birth_info": {
+        "raw": "女命：1980年8月24日下午16:30 广东",
+        "gender": "女",
+        "year": 1980,
+        "month": 8,
+        "day": 24,
+        "hour": 16,
+        "minute": 30,
+        "country": "中国",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "下列哪一个描述符合命主的出身状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "出身贫穷，家庭借贷度日，导致经常欠债。"
+        },
+        {
+          "letter": "B",
+          "text": "出身普通，虽不捉襟见肘，可惜盈余不多。"
+        },
+        {
+          "letter": "C",
+          "text": "出身中产，父为专业人士，家庭颇有盈余。"
+        },
+        {
+          "letter": "D",
+          "text": "出身大富，父母经商有道，家族颇多地产。"
+        }
+      ],
+      "answer": "B",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0082",
+      "question_number": 82,
+      "original_number": 2,
+      "case_id": "case_17",
+      "birth_info": {
+        "raw": "女命：1980年8月24日下午16:30 广东",
+        "gender": "女",
+        "year": 1980,
+        "month": 8,
+        "day": 24,
+        "hour": 16,
+        "minute": 30,
+        "country": "中国",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "下列哪一项描述了合命主要的学业状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "只有小学程度学历。"
+        },
+        {
+          "letter": "B",
+          "text": "只有中学程度学历。"
+        },
+        {
+          "letter": "C",
+          "text": "拥有大学程度学历。"
+        },
+        {
+          "letter": "D",
+          "text": "拥有硕士程度学历。"
+        }
+      ],
+      "answer": "B",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0083",
+      "question_number": 83,
+      "original_number": 3,
+      "case_id": "case_17",
+      "birth_info": {
+        "raw": "女命：1980年8月24日下午16:30 广东",
+        "gender": "女",
+        "year": 1980,
+        "month": 8,
+        "day": 24,
+        "hour": 16,
+        "minute": 30,
+        "country": "中国",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "下列哪一项描述了主要的配偶工作状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "配偶是打工仔一名，普通职级收入，对家庭没有助力。"
+        },
+        {
+          "letter": "B",
+          "text": "配偶是打工仔一名，中高职级收入，对家庭很有助力。"
+        },
+        {
+          "letter": "C",
+          "text": "配偶经商，败多于成，颇多外债，对家庭没有助力。"
+        },
+        {
+          "letter": "D",
+          "text": "配偶经商，成多于败，颇有盈余，对家庭很有助力。"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0084",
+      "question_number": 84,
+      "original_number": 4,
+      "case_id": "case_17",
+      "birth_info": {
+        "raw": "女命：1980年8月24日下午16:30 广东",
+        "gender": "女",
+        "year": 1980,
+        "month": 8,
+        "day": 24,
+        "hour": 16,
+        "minute": 30,
+        "country": "中国",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "下列哪一项描述了合命主的子息状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "没有子女，因身体不能生育。"
+        },
+        {
+          "letter": "B",
+          "text": "有三女一子。"
+        },
+        {
+          "letter": "C",
+          "text": "只有一子，2004甲申年出生。"
+        },
+        {
+          "letter": "D",
+          "text": "只有一女，2010庚寅年出生。"
+        }
+      ],
+      "answer": "C",
+      "category": "子女",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0085",
+      "question_number": 85,
+      "original_number": 5,
+      "case_id": "case_17",
+      "birth_info": {
+        "raw": "女命：1980年8月24日下午16:30 广东",
+        "gender": "女",
+        "year": 1980,
+        "month": 8,
+        "day": 24,
+        "hour": 16,
+        "minute": 30,
+        "country": "中国",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "在2022年壬寅年，下列哪一项是命主的婚姻经历？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "命主之前已有外遇，2022年被丈夫发现，但得到丈夫原谅，至今未离婚。"
+        },
+        {
+          "letter": "B",
+          "text": "命主之前已有外遇，2022年被丈夫发现，得不到丈夫原谅，当年离婚。"
+        },
+        {
+          "letter": "C",
+          "text": "丈夫之前已有外遇，2022年被命主发现，但得到命主原谅，至今未离婚。"
+        },
+        {
+          "letter": "D",
+          "text": "丈夫之前已有外遇，2022年被命主发现，得不到命主原谅，当年离婚。"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0086",
+      "question_number": 86,
+      "original_number": 6,
+      "case_id": "case_18",
+      "birth_info": {
+        "raw": "男性：生于公元1972年1月8日午时，农历辛亥11月22日午时。于潮汕地区出生。",
+        "gender": "男",
+        "year": 1972,
+        "month": 1,
+        "day": 8,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "潮汕",
+        "calendar_type": "solar"
+      },
+      "question": "命主的性格和情绪？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "孤僻、不合群、忧郁。"
+        },
+        {
+          "letter": "B",
+          "text": "戇直、表里如一。有暴力倾向。"
+        },
+        {
+          "letter": "C",
+          "text": "为人儒雅，爱虫鱼书画之乐。"
+        },
+        {
+          "letter": "D",
+          "text": "乐于交际。独处之时，又自得其乐。"
+        }
+      ],
+      "answer": "D",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0087",
+      "question_number": 87,
+      "original_number": 7,
+      "case_id": "case_18",
+      "birth_info": {
+        "raw": "男性：生于公元1972年1月8日午时，农历辛亥11月22日午时。于潮汕地区出生。",
+        "gender": "男",
+        "year": 1972,
+        "month": 1,
+        "day": 8,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "潮汕",
+        "calendar_type": "solar"
+      },
+      "question": "命主的男女关系和婚姻状况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "一生未娶。"
+        },
+        {
+          "letter": "B",
+          "text": "已娶妻。关系良好，未见有异。"
+        },
+        {
+          "letter": "C",
+          "text": "于虚龄24至33期间娶妻。但因妻子过于情绪化，而影响了感情。"
+        },
+        {
+          "letter": "D",
+          "text": "于虚龄34至43娶妻。但婚后不久，妻即离世。"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0088",
+      "question_number": 88,
+      "original_number": 8,
+      "case_id": "case_18",
+      "birth_info": {
+        "raw": "男性：生于公元1972年1月8日午时，农历辛亥11月22日午时。于潮汕地区出生。",
+        "gender": "男",
+        "year": 1972,
+        "month": 1,
+        "day": 8,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "潮汕",
+        "calendar_type": "solar"
+      },
+      "question": "命主事业上的特色？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "承继了兄长的畜牧场。"
+        },
+        {
+          "letter": "B",
+          "text": "曾任公务员。但因涉嫌刑事案件，而要提早退休。"
+        },
+        {
+          "letter": "C",
+          "text": "建筑工人。"
+        },
+        {
+          "letter": "D",
+          "text": "成功商人，以零售起家。"
+        }
+      ],
+      "answer": "D",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0089",
+      "question_number": 89,
+      "original_number": 9,
+      "case_id": "case_18",
+      "birth_info": {
+        "raw": "男性：生于公元1972年1月8日午时，农历辛亥11月22日午时。于潮汕地区出生。",
+        "gender": "男",
+        "year": 1972,
+        "month": 1,
+        "day": 8,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "潮汕",
+        "calendar_type": "solar"
+      },
+      "question": "命主的母亲于哪年离世？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1989"
+        },
+        {
+          "letter": "B",
+          "text": "1990"
+        },
+        {
+          "letter": "C",
+          "text": "2011"
+        },
+        {
+          "letter": "D",
+          "text": "2021"
+        }
+      ],
+      "answer": "C",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0090",
+      "question_number": 90,
+      "original_number": 10,
+      "case_id": "case_18",
+      "birth_info": {
+        "raw": "男性：生于公元1972年1月8日午时，农历辛亥11月22日午时。于潮汕地区出生。",
+        "gender": "男",
+        "year": 1972,
+        "month": 1,
+        "day": 8,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "潮汕",
+        "calendar_type": "solar"
+      },
+      "question": "命主于虚龄34至43岁的田宅运？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "通过买卖房产而得厚利。"
+        },
+        {
+          "letter": "B",
+          "text": "获分配到公屋。"
+        },
+        {
+          "letter": "C",
+          "text": "落了订金购买自住物业后，因未能成功获得银行贷款，而被卖家没收订金。"
+        },
+        {
+          "letter": "D",
+          "text": "因投资失利，而要卖屋偿还债务。"
+        }
+      ],
+      "answer": "A",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0091",
+      "question_number": 91,
+      "original_number": 11,
+      "case_id": "case_19",
+      "birth_info": {
+        "raw": "男命：1961年12月30日 02:00丑",
+        "gender": "男",
+        "year": 1961,
+        "month": 12,
+        "day": 30,
+        "hour": 2,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "大约那段时间，运程最好？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "23---32岁"
+        },
+        {
+          "letter": "B",
+          "text": "33---42岁"
+        },
+        {
+          "letter": "C",
+          "text": "43---52岁"
+        },
+        {
+          "letter": "D",
+          "text": "53---62岁"
+        }
+      ],
+      "answer": "B",
+      "category": "运势",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0092",
+      "question_number": 92,
+      "original_number": 12,
+      "case_id": "case_19",
+      "birth_info": {
+        "raw": "男命：1961年12月30日 02:00丑",
+        "gender": "男",
+        "year": 1961,
+        "month": 12,
+        "day": 30,
+        "hour": 2,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "什么时候结婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "23—32岁"
+        },
+        {
+          "letter": "B",
+          "text": "33—42岁"
+        },
+        {
+          "letter": "C",
+          "text": "43—52岁"
+        },
+        {
+          "letter": "D",
+          "text": "没有结婚"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0093",
+      "question_number": 93,
+      "original_number": 13,
+      "case_id": "case_19",
+      "birth_info": {
+        "raw": "男命：1961年12月30日 02:00丑",
+        "gender": "男",
+        "year": 1961,
+        "month": 12,
+        "day": 30,
+        "hour": 2,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "有官非刑事出现的时间吗？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "13---22岁"
+        },
+        {
+          "letter": "B",
+          "text": "23---32岁"
+        },
+        {
+          "letter": "C",
+          "text": "33---42岁"
+        },
+        {
+          "letter": "D",
+          "text": "43---53岁"
+        }
+      ],
+      "answer": "B",
+      "category": "官非",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0094",
+      "question_number": 94,
+      "original_number": 14,
+      "case_id": "case_19",
+      "birth_info": {
+        "raw": "男命：1961年12月30日 02:00丑",
+        "gender": "男",
+        "year": 1961,
+        "month": 12,
+        "day": 30,
+        "hour": 2,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "有凶劫之灾出现的时间？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1965年4岁"
+        },
+        {
+          "letter": "B",
+          "text": "1968年7岁"
+        },
+        {
+          "letter": "C",
+          "text": "1971年10岁"
+        },
+        {
+          "letter": "D",
+          "text": "1974年13岁"
+        }
+      ],
+      "answer": "A",
+      "category": "灾劫",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0095",
+      "question_number": 95,
+      "original_number": 15,
+      "case_id": "case_19",
+      "birth_info": {
+        "raw": "男命：1961年12月30日 02:00丑",
+        "gender": "男",
+        "year": 1961,
+        "month": 12,
+        "day": 30,
+        "hour": 2,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "哪一个，破财最严重？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "23---32岁"
+        },
+        {
+          "letter": "B",
+          "text": "33---42岁"
+        },
+        {
+          "letter": "C",
+          "text": "43---52岁"
+        },
+        {
+          "letter": "D",
+          "text": "53---62岁"
+        }
+      ],
+      "answer": "C",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0096",
+      "question_number": 96,
+      "original_number": 16,
+      "case_id": "case_19",
+      "birth_info": {
+        "raw": "男命：1961年12月30日 02:00丑",
+        "gender": "男",
+        "year": 1961,
+        "month": 12,
+        "day": 30,
+        "hour": 2,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "命主有夫妻，目前是第几段婚姻？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "第1段"
+        },
+        {
+          "letter": "B",
+          "text": "第2段"
+        },
+        {
+          "letter": "C",
+          "text": "第3段"
+        },
+        {
+          "letter": "D",
+          "text": "失婚"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0097",
+      "question_number": 97,
+      "original_number": 17,
+      "case_id": "case_20",
+      "birth_info": {
+        "raw": "女命：1983年10月28日丑时农历：癸亥年九月二十三丑时。",
+        "gender": "女",
+        "year": 1983,
+        "month": 10,
+        "day": 28,
+        "hour": 1,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "第一段婚姻什么时候结婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2003"
+        },
+        {
+          "letter": "B",
+          "text": "2005"
+        },
+        {
+          "letter": "C",
+          "text": "2007"
+        },
+        {
+          "letter": "D",
+          "text": "2009"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0098",
+      "question_number": 98,
+      "original_number": 18,
+      "case_id": "case_20",
+      "birth_info": {
+        "raw": "女命：1983年10月28日丑时农历：癸亥年九月二十三丑时。",
+        "gender": "女",
+        "year": 1983,
+        "month": 10,
+        "day": 28,
+        "hour": 1,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "命主第一段婚姻的原因是？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "奉子成婚"
+        },
+        {
+          "letter": "B",
+          "text": "长辈逝世,为冲喜结婚"
+        },
+        {
+          "letter": "C",
+          "text": "商业利益,家族联婚"
+        },
+        {
+          "letter": "D",
+          "text": "缺家庭关怀,随便找人嫁"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0099",
+      "question_number": 99,
+      "original_number": 19,
+      "case_id": "case_20",
+      "birth_info": {
+        "raw": "女命：1983年10月28日丑时农历：癸亥年九月二十三丑时。",
+        "gender": "女",
+        "year": 1983,
+        "month": 10,
+        "day": 28,
+        "hour": 1,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "命主那一年结束了第一段婚姻？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2011搬离, 2012结束"
+        },
+        {
+          "letter": "B",
+          "text": "2013搬离,2014结束"
+        },
+        {
+          "letter": "C",
+          "text": "2015搬离,2016结束"
+        },
+        {
+          "letter": "D",
+          "text": "2017搬离,2018结束"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0100",
+      "question_number": 100,
+      "original_number": 20,
+      "case_id": "case_20",
+      "birth_info": {
+        "raw": "女命：1983年10月28日丑时农历：癸亥年九月二十三丑时。",
+        "gender": "女",
+        "year": 1983,
+        "month": 10,
+        "day": 28,
+        "hour": 1,
+        "minute": 0,
+        "country": "中国",
+        "location": "",
+        "calendar_type": "solar"
+      },
+      "question": "婚姻终止的原因。",
+      "options": [
+        {
+          "letter": "A",
+          "text": "受丈夫暴力对待"
+        },
+        {
+          "letter": "B",
+          "text": "命主暴力对待丈夫"
+        },
+        {
+          "letter": "C",
+          "text": "半斤八两,互殴"
+        },
+        {
+          "letter": "D",
+          "text": "丈夫逝世"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0101",
+      "question_number": 101,
+      "original_number": 21,
+      "case_id": "case_21",
+      "birth_info": {
+        "raw": "坤命：西元1971年4月12日申時生，出生地區：中國",
+        "gender": "女",
+        "year": 1971,
+        "month": 4,
+        "day": 12,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "中国",
+        "calendar_type": "solar"
+      },
+      "question": "命主在哪一年結婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1998"
+        },
+        {
+          "letter": "B",
+          "text": "1999"
+        },
+        {
+          "letter": "C",
+          "text": "2002"
+        },
+        {
+          "letter": "D",
+          "text": "2003"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0102",
+      "question_number": 102,
+      "original_number": 22,
+      "case_id": "case_21",
+      "birth_info": {
+        "raw": "坤命：西元1971年4月12日申時生，出生地區：中國",
+        "gender": "女",
+        "year": 1971,
+        "month": 4,
+        "day": 12,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "中国",
+        "calendar_type": "solar"
+      },
+      "question": "命主在哪一年结婚离婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2010"
+        },
+        {
+          "letter": "B",
+          "text": "2017"
+        },
+        {
+          "letter": "C",
+          "text": "2018"
+        },
+        {
+          "letter": "D",
+          "text": "没有离婚"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0103",
+      "question_number": 103,
+      "original_number": 23,
+      "case_id": "case_21",
+      "birth_info": {
+        "raw": "坤命：西元1971年4月12日申時生，出生地區：中國",
+        "gender": "女",
+        "year": 1971,
+        "month": 4,
+        "day": 12,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "中国",
+        "calendar_type": "solar"
+      },
+      "question": "命主工作收入大概如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "年薪不足50万新台币"
+        },
+        {
+          "letter": "B",
+          "text": "年薪过50万新台币"
+        },
+        {
+          "letter": "C",
+          "text": "年薪过100万新台币"
+        },
+        {
+          "letter": "D",
+          "text": "年薪过150万新台币"
+        }
+      ],
+      "answer": "C",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0104",
+      "question_number": 104,
+      "original_number": 24,
+      "case_id": "case_21",
+      "birth_info": {
+        "raw": "坤命：西元1971年4月12日申時生，出生地區：中國",
+        "gender": "女",
+        "year": 1971,
+        "month": 4,
+        "day": 12,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "中国",
+        "calendar_type": "solar"
+      },
+      "question": "命主名下拥有房产吗？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "有一间公寓"
+        },
+        {
+          "letter": "B",
+          "text": "有二间公寓"
+        },
+        {
+          "letter": "C",
+          "text": "有三间公寓"
+        },
+        {
+          "letter": "D",
+          "text": "没有房产"
+        }
+      ],
+      "answer": "B",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0105",
+      "question_number": 105,
+      "original_number": 25,
+      "case_id": "case_21",
+      "birth_info": {
+        "raw": "坤命：西元1971年4月12日申時生，出生地區：中國",
+        "gender": "女",
+        "year": 1971,
+        "month": 4,
+        "day": 12,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "中国",
+        "calendar_type": "solar"
+      },
+      "question": "命主在哪一年意外大腿骨折？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "1998年"
+        },
+        {
+          "letter": "B",
+          "text": "2010年"
+        },
+        {
+          "letter": "C",
+          "text": "2018年"
+        },
+        {
+          "letter": "D",
+          "text": "2022年"
+        }
+      ],
+      "answer": "B",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0106",
+      "question_number": 106,
+      "original_number": 26,
+      "case_id": "case_22",
+      "birth_info": {
+        "raw": "女命：公元1983年3月26日未时，农历1983癸亥年，二月十二日，未时生，北京出世。",
+        "gender": "女",
+        "year": 1983,
+        "month": 3,
+        "day": 26,
+        "hour": 13,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "1998年开始-1999年结束的感情对象类型，分手原因？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "高富帅，冷酷。分手原因-冷暴力，消失不见。"
+        },
+        {
+          "letter": "B",
+          "text": "矮帅，学渣。分手原因-花女人钱，爱PUA。"
+        },
+        {
+          "letter": "C",
+          "text": "书呆子，学霸。分手原因-太爱批评。"
+        },
+        {
+          "letter": "D",
+          "text": "痞子，学渣。分手原因-脚踏两船"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0107",
+      "question_number": 107,
+      "original_number": 27,
+      "case_id": "case_22",
+      "birth_info": {
+        "raw": "女命：公元1983年3月26日未时，农历1983癸亥年，二月十二日，未时生，北京出世。",
+        "gender": "女",
+        "year": 1983,
+        "month": 3,
+        "day": 26,
+        "hour": 13,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "1999年恋爱，2002年分手。",
+      "options": [
+        {
+          "letter": "A",
+          "text": "高富帅，热心体贴。分手原因，命主外遇。"
+        },
+        {
+          "letter": "B",
+          "text": "长相普通，善良。分手原因，家庭反对。"
+        },
+        {
+          "letter": "C",
+          "text": "肥壮，大男子主义。分手原因，控制欲过强。"
+        },
+        {
+          "letter": "D",
+          "text": "瘦高，胆小怕事。分手原因，毕业后异地发展而分手。"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0108",
+      "question_number": 108,
+      "original_number": 28,
+      "case_id": "case_22",
+      "birth_info": {
+        "raw": "女命：公元1983年3月26日未时，农历1983癸亥年，二月十二日，未时生，北京出世。",
+        "gender": "女",
+        "year": 1983,
+        "month": 3,
+        "day": 26,
+        "hour": 13,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "2002年认识，大學師兄。",
+      "options": [
+        {
+          "letter": "A",
+          "text": "富二代，玩世不恭。离婚原因，对方花心出轨。"
+        },
+        {
+          "letter": "B",
+          "text": "帅气，聪明有才。离婚原因，吵架多，命主离家修行。"
+        },
+        {
+          "letter": "C",
+          "text": "高大，大男人主义。离婚原因，婚后为钱吵架，家暴。"
+        },
+        {
+          "letter": "D",
+          "text": "矮帅，多金。离婚原因，命主出轨。"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0109",
+      "question_number": 109,
+      "original_number": 29,
+      "case_id": "case_22",
+      "birth_info": {
+        "raw": "女命：公元1983年3月26日未时，农历1983癸亥年，二月十二日，未时生，北京出世。",
+        "gender": "女",
+        "year": 1983,
+        "month": 3,
+        "day": 26,
+        "hour": 13,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "2012-2013之间，发生了一件严重的事，遇到一个桃花帮助了自己？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "误入歧途，被骗去外地工作，某暧昧同事把自己救出去。"
+        },
+        {
+          "letter": "B",
+          "text": "投资失误，欠了几百万，某暧昧富豪，借钱给自己渡过难关。"
+        },
+        {
+          "letter": "C",
+          "text": "严重意外导致无法工作，对自己有意思的大叔给自己生活费。"
+        },
+        {
+          "letter": "D",
+          "text": "遇到宗教老千，倾家荡产，某暧昧富豪提供了自己金钱帮助。"
+        }
+      ],
+      "answer": "D",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0110",
+      "question_number": 110,
+      "original_number": 30,
+      "case_id": "case_22",
+      "birth_info": {
+        "raw": "女命：公元1983年3月26日未时，农历1983癸亥年，二月十二日，未时生，北京出世。",
+        "gender": "女",
+        "year": 1983,
+        "month": 3,
+        "day": 26,
+        "hour": 13,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "2019年开始，2021年结束，桃花类型，分手原因？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "小鲜肉，甜言蜜语。分手原因，对方花心被抓。"
+        },
+        {
+          "letter": "B",
+          "text": "已婚男。分手原因，欺骗自己，没离婚。"
+        },
+        {
+          "letter": "C",
+          "text": "与前夫旧情复燃，分手原因，个性不合，吵架多。"
+        },
+        {
+          "letter": "D",
+          "text": "事业成功人士，分手原因，命主占有欲过强，对方提出分手。"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0111",
+      "question_number": 111,
+      "original_number": 31,
+      "case_id": "case_23",
+      "birth_info": {
+        "raw": "女命：1980年9月21日早上11：25午时，出生malaysia",
+        "gender": "女",
+        "year": 1980,
+        "month": 9,
+        "day": 21,
+        "hour": 11,
+        "minute": 25,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主的学业状况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "小学毕业"
+        },
+        {
+          "letter": "B",
+          "text": "初中辍学"
+        },
+        {
+          "letter": "C",
+          "text": "专科毕业"
+        },
+        {
+          "letter": "D",
+          "text": "博士学位"
+        }
+      ],
+      "answer": "C",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0112",
+      "question_number": 112,
+      "original_number": 32,
+      "case_id": "case_23",
+      "birth_info": {
+        "raw": "女命：1980年9月21日早上11：25午时，出生malaysia",
+        "gender": "女",
+        "year": 1980,
+        "month": 9,
+        "day": 21,
+        "hour": 11,
+        "minute": 25,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主的婚姻狀況如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "未婚，育有二女"
+        },
+        {
+          "letter": "B",
+          "text": "已婚，育有二子"
+        },
+        {
+          "letter": "C",
+          "text": "离婚，育有一子一女"
+        },
+        {
+          "letter": "D",
+          "text": "已婚，育有一子一女"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0113",
+      "question_number": 113,
+      "original_number": 33,
+      "case_id": "case_23",
+      "birth_info": {
+        "raw": "女命：1980年9月21日早上11：25午时，出生malaysia",
+        "gender": "女",
+        "year": 1980,
+        "month": 9,
+        "day": 21,
+        "hour": 11,
+        "minute": 25,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2017年和2019年發生了什麼事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "开刀生小孩"
+        },
+        {
+          "letter": "B",
+          "text": "交通意外"
+        },
+        {
+          "letter": "C",
+          "text": "考取文凭失利"
+        },
+        {
+          "letter": "D",
+          "text": "流产"
+        }
+      ],
+      "answer": "D",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0114",
+      "question_number": 114,
+      "original_number": 34,
+      "case_id": "case_23",
+      "birth_info": {
+        "raw": "女命：1980年9月21日早上11：25午时，出生malaysia",
+        "gender": "女",
+        "year": 1980,
+        "month": 9,
+        "day": 21,
+        "hour": 11,
+        "minute": 25,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主的兩個孩子是哪一年出生的？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2020年女孩，2021年男孩"
+        },
+        {
+          "letter": "B",
+          "text": "2013年，2015年两个女孩"
+        },
+        {
+          "letter": "C",
+          "text": "2017年，2019年两个男孩"
+        },
+        {
+          "letter": "D",
+          "text": "2013年男孩，2015年女孩"
+        }
+      ],
+      "answer": "D",
+      "category": "子女",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0115",
+      "question_number": 115,
+      "original_number": 35,
+      "case_id": "case_23",
+      "birth_info": {
+        "raw": "女命：1980年9月21日早上11：25午时，出生malaysia",
+        "gender": "女",
+        "year": 1980,
+        "month": 9,
+        "day": 21,
+        "hour": 11,
+        "minute": 25,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主毕业后从事什么行业？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "中学教师"
+        },
+        {
+          "letter": "B",
+          "text": "公司主管"
+        },
+        {
+          "letter": "C",
+          "text": "房屋经纪"
+        },
+        {
+          "letter": "D",
+          "text": "会计"
+        }
+      ],
+      "answer": "D",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0116",
+      "question_number": 116,
+      "original_number": 36,
+      "case_id": "case_24",
+      "birth_info": {
+        "raw": "男命：2007年1月31日0900巳时，malaysia出生。",
+        "gender": "男",
+        "year": 2007,
+        "month": 1,
+        "day": 31,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "请问命主在几前被诊断出哪一种疾病？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "弱视（斗鸡眼）"
+        },
+        {
+          "letter": "B",
+          "text": "心脏有孔"
+        },
+        {
+          "letter": "C",
+          "text": "肺炎"
+        },
+        {
+          "letter": "D",
+          "text": "地中海贫血症"
+        }
+      ],
+      "answer": "B",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0117",
+      "question_number": 117,
+      "original_number": 37,
+      "case_id": "case_24",
+      "birth_info": {
+        "raw": "男命：2007年1月31日0900巳时，malaysia出生。",
+        "gender": "男",
+        "year": 2007,
+        "month": 1,
+        "day": 31,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "此命主的出身贫或富？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "贫穷家庭长大"
+        },
+        {
+          "letter": "B",
+          "text": "小康之家出身"
+        },
+        {
+          "letter": "C",
+          "text": "富贵家庭出身"
+        },
+        {
+          "letter": "D",
+          "text": "虽有父母，童年却被养在孤儿院"
+        }
+      ],
+      "answer": "C",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0118",
+      "question_number": 118,
+      "original_number": 38,
+      "case_id": "case_24",
+      "birth_info": {
+        "raw": "男命：2007年1月31日0900巳时，malaysia出生。",
+        "gender": "男",
+        "year": 2007,
+        "month": 1,
+        "day": 31,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主的身材外貌如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "身材高瘦皮肤白皙，细眼薄唇，秀气温文。"
+        },
+        {
+          "letter": "B",
+          "text": "身材高大魁梧，浓眉大眼，外表威严。"
+        },
+        {
+          "letter": "C",
+          "text": "身材矮瘦皮肤蜡黄，五官扁平，其貌不扬。"
+        },
+        {
+          "letter": "D",
+          "text": "身材偏矮微胖，圆脸咪眼，外表和善。"
+        }
+      ],
+      "answer": "A",
+      "category": "外貌",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0119",
+      "question_number": 119,
+      "original_number": 39,
+      "case_id": "case_24",
+      "birth_info": {
+        "raw": "男命：2007年1月31日0900巳时，malaysia出生。",
+        "gender": "男",
+        "year": 2007,
+        "month": 1,
+        "day": 31,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2016年，家里发生了什么事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "父亲破产，被判入穷籍"
+        },
+        {
+          "letter": "B",
+          "text": "婆婆因急病去世"
+        },
+        {
+          "letter": "C",
+          "text": "父亲严重车祸，休养在家，无法工作。"
+        },
+        {
+          "letter": "D",
+          "text": "父母离异"
+        }
+      ],
+      "answer": "D",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0120",
+      "question_number": 120,
+      "original_number": 40,
+      "case_id": "case_24",
+      "birth_info": {
+        "raw": "男命：2007年1月31日0900巳时，malaysia出生。",
+        "gender": "男",
+        "year": 2007,
+        "month": 1,
+        "day": 31,
+        "hour": 9,
+        "minute": 0,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主父亲现在的身家？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "失业在家，入不敷出。"
+        },
+        {
+          "letter": "B",
+          "text": "小康家庭"
+        },
+        {
+          "letter": "C",
+          "text": "千万身家（马币）"
+        },
+        {
+          "letter": "D",
+          "text": "亿万身家（马币）"
+        }
+      ],
+      "answer": "C",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0121",
+      "question_number": 121,
+      "original_number": 1,
+      "case_id": "case_25",
+      "birth_info": {
+        "raw": "坤造：广东出生 西历1951年11月14日巳时",
+        "gender": "女",
+        "year": 1951,
+        "month": 11,
+        "day": 14,
+        "hour": 9,
+        "minute": 0,
+        "country": "china",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "此命出生家境如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "富裕"
+        },
+        {
+          "letter": "B",
+          "text": "贫穷"
+        },
+        {
+          "letter": "C",
+          "text": "父从商母是村干部"
+        },
+        {
+          "letter": "D",
+          "text": "父母当官"
+        }
+      ],
+      "answer": "B",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0122",
+      "question_number": 122,
+      "original_number": 2,
+      "case_id": "case_25",
+      "birth_info": {
+        "raw": "坤造：广东出生 西历1951年11月14日巳时",
+        "gender": "女",
+        "year": 1951,
+        "month": 11,
+        "day": 14,
+        "hour": 9,
+        "minute": 0,
+        "country": "china",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "婚姻如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "一婚"
+        },
+        {
+          "letter": "B",
+          "text": "二婚"
+        },
+        {
+          "letter": "C",
+          "text": "一生未嫁"
+        },
+        {
+          "letter": "D",
+          "text": "夫早亡"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0123",
+      "question_number": 123,
+      "original_number": 3,
+      "case_id": "case_25",
+      "birth_info": {
+        "raw": "坤造：广东出生 西历1951年11月14日巳时",
+        "gender": "女",
+        "year": 1951,
+        "month": 11,
+        "day": 14,
+        "hour": 9,
+        "minute": 0,
+        "country": "china",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "此人年轻时何种工作？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "父母有钱，不用工作"
+        },
+        {
+          "letter": "B",
+          "text": "家贫，十多岁卖艺为生"
+        },
+        {
+          "letter": "C",
+          "text": "父母帮助，自己创业"
+        },
+        {
+          "letter": "D",
+          "text": "生活困难做舞女"
+        }
+      ],
+      "answer": "B",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0124",
+      "question_number": 124,
+      "original_number": 4,
+      "case_id": "case_25",
+      "birth_info": {
+        "raw": "坤造：广东出生 西历1951年11月14日巳时",
+        "gender": "女",
+        "year": 1951,
+        "month": 11,
+        "day": 14,
+        "hour": 9,
+        "minute": 0,
+        "country": "china",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "1980年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "结婚"
+        },
+        {
+          "letter": "B",
+          "text": "交通意外"
+        },
+        {
+          "letter": "C",
+          "text": "被人打劫受伤"
+        },
+        {
+          "letter": "D",
+          "text": "得到意外偏财"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0125",
+      "question_number": 125,
+      "original_number": 5,
+      "case_id": "case_25",
+      "birth_info": {
+        "raw": "坤造：广东出生 西历1951年11月14日巳时",
+        "gender": "女",
+        "year": 1951,
+        "month": 11,
+        "day": 14,
+        "hour": 9,
+        "minute": 0,
+        "country": "china",
+        "location": "广东",
+        "calendar_type": "solar"
+      },
+      "question": "1993年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "贵人相扶得财"
+        },
+        {
+          "letter": "B",
+          "text": "丈夫病亡"
+        },
+        {
+          "letter": "C",
+          "text": "交通意外入院手术"
+        },
+        {
+          "letter": "D",
+          "text": "父亲病亡"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0126",
+      "question_number": 126,
+      "original_number": 6,
+      "case_id": "case_26",
+      "birth_info": {
+        "raw": "女命：西历1987年7月5日午时，香港出生",
+        "gender": "女",
+        "year": 1987,
+        "month": 7,
+        "day": 5,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "2022年至今，命主的健康状况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "健康少病痛，但有皮肤敏感问题，需要戒吃海鲜"
+        },
+        {
+          "letter": "B",
+          "text": "这数年間做过大型手术，曾有生命危险"
+        },
+        {
+          "letter": "C",
+          "text": "体弱多病，而且患有糖尿病，病情反复"
+        },
+        {
+          "letter": "D",
+          "text": "身材变得肥胖，肝、肠胃问题，以及有脚患困扰"
+        }
+      ],
+      "answer": "D",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0127",
+      "question_number": 127,
+      "original_number": 7,
+      "case_id": "case_26",
+      "birth_info": {
+        "raw": "女命：西历1987年7月5日午时，香港出生",
+        "gender": "女",
+        "year": 1987,
+        "month": 7,
+        "day": 5,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主的性格特质、学历水平和现时职业情况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "平庸懒惰，大学毕业，普通受薪阶层"
+        },
+        {
+          "letter": "B",
+          "text": "聪敏不爱读书，中学毕业，兼职为主"
+        },
+        {
+          "letter": "C",
+          "text": "不聪敏但勤奋，大学毕业，经营家族生意"
+        },
+        {
+          "letter": "D",
+          "text": "聪敏能读书，硕士博士，企业的管理层"
+        }
+      ],
+      "answer": "B",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0128",
+      "question_number": 128,
+      "original_number": 8,
+      "case_id": "case_26",
+      "birth_info": {
+        "raw": "女命：西历1987年7月5日午时，香港出生",
+        "gender": "女",
+        "year": 1987,
+        "month": 7,
+        "day": 5,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2018年至今的财政和事业运势怎样？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "感情诈骗导致积蓄至无，幸有固定工作收入稳定"
+        },
+        {
+          "letter": "B",
+          "text": "名成利就，工作顺利，个人能力得以发挥"
+        },
+        {
+          "letter": "C",
+          "text": "自己当老板，生意额一般，艰辛经营"
+        },
+        {
+          "letter": "D",
+          "text": "不停转工，财来财去，与家人同住，日常开支由伴侣负担"
+        }
+      ],
+      "answer": "D",
+      "category": "财运",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0129",
+      "question_number": 129,
+      "original_number": 9,
+      "case_id": "case_26",
+      "birth_info": {
+        "raw": "女命：西历1987年7月5日午时，香港出生",
+        "gender": "女",
+        "year": 1987,
+        "month": 7,
+        "day": 5,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "命主现时的婚姻状况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "婚姻美满，夫妻二人相敬如宾"
+        },
+        {
+          "letter": "B",
+          "text": "已婚，但常被配偶言语伤害、责备"
+        },
+        {
+          "letter": "C",
+          "text": "离婚后再婚，现时感情稳定"
+        },
+        {
+          "letter": "D",
+          "text": "同性恋者，得到伴侣爱护"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0130",
+      "question_number": 130,
+      "original_number": 10,
+      "case_id": "case_26",
+      "birth_info": {
+        "raw": "女命：西历1987年7月5日午时，香港出生",
+        "gender": "女",
+        "year": 1987,
+        "month": 7,
+        "day": 5,
+        "hour": 12,
+        "minute": 0,
+        "country": "中国",
+        "location": "香港",
+        "calendar_type": "solar"
+      },
+      "question": "现时命主与父母的关系及家庭背景如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "家境富有，不愁衣食，跟母亲感情好，相对父亲关系较疏离"
+        },
+        {
+          "letter": "B",
+          "text": "家境曾经小康，父随后生意失败，父母与命主关系正常"
+        },
+        {
+          "letter": "C",
+          "text": "从小贫穷，母亲去世，父亲养育命主，并与命主感情好"
+        },
+        {
+          "letter": "D",
+          "text": "父母离婚，各自提供基本生活费，并由外婆照顾"
+        }
+      ],
+      "answer": "B",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0131",
+      "question_number": 131,
+      "original_number": 11,
+      "case_id": "case_27",
+      "birth_info": {
+        "raw": "男命：西历1983年4月21日上午6-7时，日本宫崎县出生",
+        "gender": "男",
+        "year": 1983,
+        "month": 4,
+        "day": 21,
+        "hour": 6,
+        "minute": 0,
+        "country": "japan",
+        "location": "宫崎县",
+        "calendar_type": "solar"
+      },
+      "question": "命主出身及家庭情况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "出生后次年母亲去世，父亲为小型企业主，再婚后又生一弟一妹"
+        },
+        {
+          "letter": "B",
+          "text": "父亲为政府高级职员，2021年去世，命主有一兄一姐"
+        },
+        {
+          "letter": "C",
+          "text": "母亲是家庭主妇，父亲为小型企业主，命主有一弟"
+        },
+        {
+          "letter": "D",
+          "text": "1986年父亲去世，母亲继承产业守寡至今，命主有一姐一弟"
+        }
+      ],
+      "answer": "B",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0132",
+      "question_number": 132,
+      "original_number": 12,
+      "case_id": "case_27",
+      "birth_info": {
+        "raw": "男命：西历1983年4月21日上午6-7时，日本宫崎县出生",
+        "gender": "男",
+        "year": 1983,
+        "month": 4,
+        "day": 21,
+        "hour": 6,
+        "minute": 0,
+        "country": "japan",
+        "location": "宫崎县",
+        "calendar_type": "solar"
+      },
+      "question": "命主的样貌、性情、爱好及职业为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "腿脚残疾脾气怪，喜好文艺爵士与古典音乐，现为萨克斯手兼乐团老板"
+        },
+        {
+          "letter": "B",
+          "text": "身材高大魁梧，性情固执，喜好音乐，现为酒吧老板"
+        },
+        {
+          "letter": "C",
+          "text": "中等身材，勤奋叛逆，喜好拳击、橄榄球等运动，现为餐厅老板"
+        },
+        {
+          "letter": "D",
+          "text": "早产且身体不好，喜好园艺，现为小型地产经纪公司老板"
+        }
+      ],
+      "answer": "B",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0133",
+      "question_number": 133,
+      "original_number": 13,
+      "case_id": "case_27",
+      "birth_info": {
+        "raw": "男命：西历1983年4月21日上午6-7时，日本宫崎县出生",
+        "gender": "男",
+        "year": 1983,
+        "month": 4,
+        "day": 21,
+        "hour": 6,
+        "minute": 0,
+        "country": "japan",
+        "location": "宫崎县",
+        "calendar_type": "solar"
+      },
+      "question": "命主的学历和职业状况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "重点大学医学类专业，毕业后转行，2013年从事现在工作"
+        },
+        {
+          "letter": "B",
+          "text": "重点大学文科毕业，2011年进入现工作，2019年曾因事判监半年"
+        },
+        {
+          "letter": "C",
+          "text": "高中毕业，边打工边学习，2014年得贵人提携进入现在工作"
+        },
+        {
+          "letter": "D",
+          "text": "重点大学文科专业，中途退学，2021年进入现在工作"
+        }
+      ],
+      "answer": "D",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0134",
+      "question_number": 134,
+      "original_number": 14,
+      "case_id": "case_27",
+      "birth_info": {
+        "raw": "男命：西历1983年4月21日上午6-7时，日本宫崎县出生",
+        "gender": "男",
+        "year": 1983,
+        "month": 4,
+        "day": 21,
+        "hour": 6,
+        "minute": 0,
+        "country": "japan",
+        "location": "宫崎县",
+        "calendar_type": "solar"
+      },
+      "question": "命主的婚恋和子女情况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "婚恋不顺，经人介绍，2011年结婚，2014年生育一女"
+        },
+        {
+          "letter": "B",
+          "text": "2011年与中学同学奉子成婚，关系平淡，2012年生一子，2015年生次子"
+        },
+        {
+          "letter": "C",
+          "text": "多次恋爱，至今未婚，无子女"
+        },
+        {
+          "letter": "D",
+          "text": "2018年离婚后一直独身，无子女"
+        }
+      ],
+      "answer": "C",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0135",
+      "question_number": 135,
+      "original_number": 15,
+      "case_id": "case_27",
+      "birth_info": {
+        "raw": "男命：西历1983年4月21日上午6-7时，日本宫崎县出生",
+        "gender": "男",
+        "year": 1983,
+        "month": 4,
+        "day": 21,
+        "hour": 6,
+        "minute": 0,
+        "country": "japan",
+        "location": "宫崎县",
+        "calendar_type": "solar"
+      },
+      "question": "2022年命主发生了什么重要事件？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "母亲去世"
+        },
+        {
+          "letter": "B",
+          "text": "外出旅行时遭遇车祸受伤"
+        },
+        {
+          "letter": "C",
+          "text": "染患新冠并引发其他病症，住院治疗四个多月"
+        },
+        {
+          "letter": "D",
+          "text": "事业受阻欠债，只能卖房填补漏洞"
+        }
+      ],
+      "answer": "A",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0136",
+      "question_number": 136,
+      "original_number": 16,
+      "case_id": "case_28",
+      "birth_info": {
+        "raw": "男命：西元1993年4月8日23:34子时，新加坡出生",
+        "gender": "男",
+        "year": 1993,
+        "month": 4,
+        "day": 8,
+        "hour": 23,
+        "minute": 34,
+        "country": "singapore",
+        "location": "新加坡",
+        "calendar_type": "solar"
+      },
+      "question": "命主儿时家庭情况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "父亲出轨，母亲照顾生活"
+        },
+        {
+          "letter": "B",
+          "text": "父母外出工作，由外婆抚养"
+        },
+        {
+          "letter": "C",
+          "text": "父亲工作聚少离多，母亲患病"
+        },
+        {
+          "letter": "D",
+          "text": "父母离异，跟随母亲改嫁国外"
+        }
+      ],
+      "answer": "C",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0137",
+      "question_number": 137,
+      "original_number": 17,
+      "case_id": "case_28",
+      "birth_info": {
+        "raw": "男命：西元1993年4月8日23:34子时，新加坡出生",
+        "gender": "男",
+        "year": 1993,
+        "month": 4,
+        "day": 8,
+        "hour": 23,
+        "minute": 34,
+        "country": "singapore",
+        "location": "新加坡",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2001年发生了什么事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "遇校园霸凌，申请休学"
+        },
+        {
+          "letter": "B",
+          "text": "参与小语种演讲比赛获奖"
+        },
+        {
+          "letter": "C",
+          "text": "受伤后发现遗传病，需要长期用药"
+        },
+        {
+          "letter": "D",
+          "text": "交通意外，人平安"
+        }
+      ],
+      "answer": "D",
+      "category": "灾劫",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0138",
+      "question_number": 138,
+      "original_number": 18,
+      "case_id": "case_28",
+      "birth_info": {
+        "raw": "男命：西元1993年4月8日23:34子时，新加坡出生",
+        "gender": "男",
+        "year": 1993,
+        "month": 4,
+        "day": 8,
+        "hour": 23,
+        "minute": 34,
+        "country": "singapore",
+        "location": "新加坡",
+        "calendar_type": "solar"
+      },
+      "question": "命主2022年后的职业行业情况？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "牧师"
+        },
+        {
+          "letter": "B",
+          "text": "入殓师"
+        },
+        {
+          "letter": "C",
+          "text": "航运物流管理"
+        },
+        {
+          "letter": "D",
+          "text": "传媒业网红"
+        }
+      ],
+      "answer": "B",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0139",
+      "question_number": 139,
+      "original_number": 19,
+      "case_id": "case_28",
+      "birth_info": {
+        "raw": "男命：西元1993年4月8日23:34子时，新加坡出生",
+        "gender": "男",
+        "year": 1993,
+        "month": 4,
+        "day": 8,
+        "hour": 23,
+        "minute": 34,
+        "country": "singapore",
+        "location": "新加坡",
+        "calendar_type": "solar"
+      },
+      "question": "命主感情状况为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "未婚，单身，恋情多短暂"
+        },
+        {
+          "letter": "B",
+          "text": "未婚，有女友交往多年，脚踏两条船"
+        },
+        {
+          "letter": "C",
+          "text": "已婚，感情稳定"
+        },
+        {
+          "letter": "D",
+          "text": "已婚，矛盾不断，离婚手续中"
+        }
+      ],
+      "answer": "A",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0140",
+      "question_number": 140,
+      "original_number": 20,
+      "case_id": "case_28",
+      "birth_info": {
+        "raw": "男命：西元1993年4月8日23:34子时，新加坡出生",
+        "gender": "男",
+        "year": 1993,
+        "month": 4,
+        "day": 8,
+        "hour": 23,
+        "minute": 34,
+        "country": "singapore",
+        "location": "新加坡",
+        "calendar_type": "solar"
+      },
+      "question": "命主抑郁症状最严重的年份？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2002"
+        },
+        {
+          "letter": "B",
+          "text": "2016"
+        },
+        {
+          "letter": "C",
+          "text": "2018"
+        },
+        {
+          "letter": "D",
+          "text": "2024"
+        }
+      ],
+      "answer": "B",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0141",
+      "question_number": 141,
+      "original_number": 21,
+      "case_id": "case_29",
+      "birth_info": {
+        "raw": "乾造：西历1988年1月10日早上8时12分，马来西亚出生",
+        "gender": "男",
+        "year": 1988,
+        "month": 1,
+        "day": 10,
+        "hour": 8,
+        "minute": 12,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主目前的工作和生活情况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "在私人企业上班，超过十万存款，生活稳定"
+        },
+        {
+          "letter": "B",
+          "text": "自我经营做老板，有负债"
+        },
+        {
+          "letter": "C",
+          "text": "在普通公司里打工，月光族"
+        },
+        {
+          "letter": "D",
+          "text": "在私人企业做高管，收入稳定，自己也有开店经营买卖"
+        }
+      ],
+      "answer": "D",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0142",
+      "question_number": 142,
+      "original_number": 22,
+      "case_id": "case_29",
+      "birth_info": {
+        "raw": "乾造：西历1988年1月10日早上8时12分，马来西亚出生",
+        "gender": "男",
+        "year": 1988,
+        "month": 1,
+        "day": 10,
+        "hour": 8,
+        "minute": 12,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2004年发生了什么事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "读书时期，被人举报与女生有亲密行为，被赶出学校"
+        },
+        {
+          "letter": "B",
+          "text": "上学时发生车祸，伤了手脚"
+        },
+        {
+          "letter": "C",
+          "text": "参加制服团体举办的行走比赛，队伍拿到第一名"
+        },
+        {
+          "letter": "D",
+          "text": "离校去摩托车店做学徒"
+        }
+      ],
+      "answer": "A",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0143",
+      "question_number": 143,
+      "original_number": 23,
+      "case_id": "case_29",
+      "birth_info": {
+        "raw": "乾造：西历1988年1月10日早上8时12分，马来西亚出生",
+        "gender": "男",
+        "year": 1988,
+        "month": 1,
+        "day": 10,
+        "hour": 8,
+        "minute": 12,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在哪一年结婚？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2021"
+        },
+        {
+          "letter": "B",
+          "text": "2017"
+        },
+        {
+          "letter": "C",
+          "text": "2022"
+        },
+        {
+          "letter": "D",
+          "text": "2016"
+        }
+      ],
+      "answer": "D",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0144",
+      "question_number": 144,
+      "original_number": 24,
+      "case_id": "case_29",
+      "birth_info": {
+        "raw": "乾造：西历1988年1月10日早上8时12分，马来西亚出生",
+        "gender": "男",
+        "year": 1988,
+        "month": 1,
+        "day": 10,
+        "hour": 8,
+        "minute": 12,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主现在的婚姻与子女状况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "已婚，育有3个孩子，流产2个"
+        },
+        {
+          "letter": "B",
+          "text": "离婚，育有2个孩子，流产1个"
+        },
+        {
+          "letter": "C",
+          "text": "二婚，育有1个孩子"
+        },
+        {
+          "letter": "D",
+          "text": "已婚，没有子嗣"
+        }
+      ],
+      "answer": "A",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0145",
+      "question_number": 145,
+      "original_number": 25,
+      "case_id": "case_29",
+      "birth_info": {
+        "raw": "乾造：西历1988年1月10日早上8时12分，马来西亚出生",
+        "gender": "男",
+        "year": 1988,
+        "month": 1,
+        "day": 10,
+        "hour": 8,
+        "minute": 12,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主个性及特色如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "自私、贪心、好色"
+        },
+        {
+          "letter": "B",
+          "text": "可靠、慷慨、不怕事，风流，女人缘好"
+        },
+        {
+          "letter": "C",
+          "text": "内向，沉默寡言，情绪化"
+        },
+        {
+          "letter": "D",
+          "text": "外向胆大好出风头，急性子"
+        }
+      ],
+      "answer": "B",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0146",
+      "question_number": 146,
+      "original_number": 26,
+      "case_id": "case_30",
+      "birth_info": {
+        "raw": "男命：西历1973年8月24日00:35子时，马来西亚出生",
+        "gender": "男",
+        "year": 1973,
+        "month": 8,
+        "day": 24,
+        "hour": 0,
+        "minute": 35,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主的性格和出生背景如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "足智多谋，为人仗义但固执，出生在有钱家庭"
+        },
+        {
+          "letter": "B",
+          "text": "脾气暴躁冲动，容易得罪人，出生在贫穷家庭"
+        },
+        {
+          "letter": "C",
+          "text": "外表温柔文质彬彬，容易让人误会娘娘腔，出生在中等家庭"
+        },
+        {
+          "letter": "D",
+          "text": "为人懒惰不思进取，只顾享乐，出生在富有家庭"
+        }
+      ],
+      "answer": "A",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0147",
+      "question_number": 147,
+      "original_number": 27,
+      "case_id": "case_30",
+      "birth_info": {
+        "raw": "男命：西历1973年8月24日00:35子时，马来西亚出生",
+        "gender": "男",
+        "year": 1973,
+        "month": 8,
+        "day": 24,
+        "hour": 0,
+        "minute": 35,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主喜欢的居家装修风格是？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "炫酷风格，充满高科技设备"
+        },
+        {
+          "letter": "B",
+          "text": "欧式风格，高贵典雅，喜欢收藏古灵精怪摆设"
+        },
+        {
+          "letter": "C",
+          "text": "中式风格，复古，喜欢古董和摆设风水物品"
+        },
+        {
+          "letter": "D",
+          "text": "环保极简风格，不喜太多摆设"
+        }
+      ],
+      "answer": "B",
+      "category": "性格",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0148",
+      "question_number": 148,
+      "original_number": 28,
+      "case_id": "case_30",
+      "birth_info": {
+        "raw": "男命：西历1973年8月24日00:35子时，马来西亚出生",
+        "gender": "男",
+        "year": 1973,
+        "month": 8,
+        "day": 24,
+        "hour": 0,
+        "minute": 35,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "在丙辰大限（43-52岁），命主在哪一年出国创业，领域为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "2015年，饮食领域"
+        },
+        {
+          "letter": "B",
+          "text": "2017年，儿童培训领域"
+        },
+        {
+          "letter": "C",
+          "text": "2018年，房地产领域"
+        },
+        {
+          "letter": "D",
+          "text": "2019年，酒店住宿领域"
+        }
+      ],
+      "answer": "B",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0149",
+      "question_number": 149,
+      "original_number": 29,
+      "case_id": "case_30",
+      "birth_info": {
+        "raw": "男命：西历1973年8月24日00:35子时，马来西亚出生",
+        "gender": "男",
+        "year": 1973,
+        "month": 8,
+        "day": 24,
+        "hour": 0,
+        "minute": 35,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2021年发生何事？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "疫情过后生意不佳，资金周转困难导致倒闭"
+        },
+        {
+          "letter": "B",
+          "text": "回家途中遇到歹徒，被刺伤"
+        },
+        {
+          "letter": "C",
+          "text": "母亲染病去世"
+        },
+        {
+          "letter": "D",
+          "text": "疫情过后生意峰回路转，蒸蒸日上"
+        }
+      ],
+      "answer": "D",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0150",
+      "question_number": 150,
+      "original_number": 30,
+      "case_id": "case_30",
+      "birth_info": {
+        "raw": "男命：西历1973年8月24日00:35子时，马来西亚出生",
+        "gender": "男",
+        "year": 1973,
+        "month": 8,
+        "day": 24,
+        "hour": 0,
+        "minute": 35,
+        "country": "malaysia",
+        "location": "malaysia",
+        "calendar_type": "solar"
+      },
+      "question": "命主在2024年的健康状况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "健康无碍，只是饮食失调导致肥胖"
+        },
+        {
+          "letter": "B",
+          "text": "长期久坐导致脊椎侧弯"
+        },
+        {
+          "letter": "C",
+          "text": "经常无节制吸烟，引发鼻癌"
+        },
+        {
+          "letter": "D",
+          "text": "被车撞倒，左脚骨折"
+        }
+      ],
+      "answer": "C",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0151",
+      "question_number": 151,
+      "original_number": 31,
+      "case_id": "case_31",
+      "birth_info": {
+        "raw": "女命：西历1988年2月15日16:50申时，台湾出生",
+        "gender": "女",
+        "year": 1988,
+        "month": 2,
+        "day": 15,
+        "hour": 16,
+        "minute": 50,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主原生家庭父母亲状况如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "婚姻美满、家庭和谐"
+        },
+        {
+          "letter": "B",
+          "text": "婚姻健在但吵闹不休"
+        },
+        {
+          "letter": "C",
+          "text": "离异，跟随父亲"
+        },
+        {
+          "letter": "D",
+          "text": "离异，跟随母亲"
+        }
+      ],
+      "answer": "A",
+      "category": "家庭",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0152",
+      "question_number": 152,
+      "original_number": 32,
+      "case_id": "case_31",
+      "birth_info": {
+        "raw": "女命：西历1988年2月15日16:50申时，台湾出生",
+        "gender": "女",
+        "year": 1988,
+        "month": 2,
+        "day": 15,
+        "hour": 16,
+        "minute": 50,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主大学时期读什么科系？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "音乐"
+        },
+        {
+          "letter": "B",
+          "text": "金融"
+        },
+        {
+          "letter": "C",
+          "text": "美术"
+        },
+        {
+          "letter": "D",
+          "text": "理工"
+        }
+      ],
+      "answer": "C",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0153",
+      "question_number": 153,
+      "original_number": 33,
+      "case_id": "case_31",
+      "birth_info": {
+        "raw": "女命：西历1988年2月15日16:50申时，台湾出生",
+        "gender": "女",
+        "year": 1988,
+        "month": 2,
+        "day": 15,
+        "hour": 16,
+        "minute": 50,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主目前的婚姻状况为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "未婚单身"
+        },
+        {
+          "letter": "B",
+          "text": "已婚育有子女"
+        },
+        {
+          "letter": "C",
+          "text": "已婚未育"
+        },
+        {
+          "letter": "D",
+          "text": "离婚育有子女"
+        }
+      ],
+      "answer": "B",
+      "category": "婚姻",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0154",
+      "question_number": 154,
+      "original_number": 34,
+      "case_id": "case_31",
+      "birth_info": {
+        "raw": "女命：西历1988年2月15日16:50申时，台湾出生",
+        "gender": "女",
+        "year": 1988,
+        "month": 2,
+        "day": 15,
+        "hour": 16,
+        "minute": 50,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "命主现职行业为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "身心灵导师"
+        },
+        {
+          "letter": "B",
+          "text": "行政会计"
+        },
+        {
+          "letter": "C",
+          "text": "美术设计"
+        },
+        {
+          "letter": "D",
+          "text": "健身教练"
+        }
+      ],
+      "answer": "D",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0155",
+      "question_number": 155,
+      "original_number": 35,
+      "case_id": "case_31",
+      "birth_info": {
+        "raw": "女命：西历1988年2月15日16:50申时，台湾出生",
+        "gender": "女",
+        "year": 1988,
+        "month": 2,
+        "day": 15,
+        "hour": 16,
+        "minute": 50,
+        "country": "中国",
+        "location": "台湾",
+        "calendar_type": "solar"
+      },
+      "question": "对命主的身材描述为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "身材娇小"
+        },
+        {
+          "letter": "B",
+          "text": "身材健壮"
+        },
+        {
+          "letter": "C",
+          "text": "身材矮胖"
+        },
+        {
+          "letter": "D",
+          "text": "身材瘦长"
+        }
+      ],
+      "answer": "B",
+      "category": "外貌",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0156",
+      "question_number": 156,
+      "original_number": 36,
+      "case_id": "case_32",
+      "birth_info": {
+        "raw": "男命：西元1970年7月22日申时，北京出生",
+        "gender": "男",
+        "year": 1970,
+        "month": 7,
+        "day": 22,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "命主学历状况为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "文盲"
+        },
+        {
+          "letter": "B",
+          "text": "小学毕业"
+        },
+        {
+          "letter": "C",
+          "text": "高中或专科毕业"
+        },
+        {
+          "letter": "D",
+          "text": "博士"
+        }
+      ],
+      "answer": "C",
+      "category": "学业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0157",
+      "question_number": 157,
+      "original_number": 37,
+      "case_id": "case_32",
+      "birth_info": {
+        "raw": "男命：西元1970年7月22日申时，北京出生",
+        "gender": "男",
+        "year": 1970,
+        "month": 7,
+        "day": 22,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "命主出社会后的工作是什么？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "进入工厂，随后进入国企"
+        },
+        {
+          "letter": "B",
+          "text": "进入学校担任老师"
+        },
+        {
+          "letter": "C",
+          "text": "进入企业担任大企业高管"
+        },
+        {
+          "letter": "D",
+          "text": "做小生意，成为企业家"
+        }
+      ],
+      "answer": "A",
+      "category": "事业",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0158",
+      "question_number": 158,
+      "original_number": 38,
+      "case_id": "case_32",
+      "birth_info": {
+        "raw": "男命：西元1970年7月22日申时，北京出生",
+        "gender": "男",
+        "year": 1970,
+        "month": 7,
+        "day": 22,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "命主早年一直在北京生活，在哪个岁运搬迁到厦门工作？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "27-31岁"
+        },
+        {
+          "letter": "B",
+          "text": "32-36岁"
+        },
+        {
+          "letter": "C",
+          "text": "37-41岁"
+        },
+        {
+          "letter": "D",
+          "text": "42-46岁"
+        }
+      ],
+      "answer": "D",
+      "category": "运势",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0159",
+      "question_number": 159,
+      "original_number": 39,
+      "case_id": "case_32",
+      "birth_info": {
+        "raw": "男命：西元1970年7月22日申时，北京出生",
+        "gender": "男",
+        "year": 1970,
+        "month": 7,
+        "day": 22,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "命主身体状况为何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "从小患有暗疾，影响终身"
+        },
+        {
+          "letter": "B",
+          "text": "长期失眠，精神不济"
+        },
+        {
+          "letter": "C",
+          "text": "长年运动，身体素质好"
+        },
+        {
+          "letter": "D",
+          "text": "身体素质好，但遭遇重大意外导致残缺"
+        }
+      ],
+      "answer": "C",
+      "category": "健康",
+      "has_answer": true
+    },
+    {
+      "id": "ftb_0160",
+      "question_number": 160,
+      "original_number": 40,
+      "case_id": "case_32",
+      "birth_info": {
+        "raw": "男命：西元1970年7月22日申时，北京出生",
+        "gender": "男",
+        "year": 1970,
+        "month": 7,
+        "day": 22,
+        "hour": 15,
+        "minute": 0,
+        "country": "中国",
+        "location": "北京",
+        "calendar_type": "solar"
+      },
+      "question": "命主一生整体外界对其性格的评价如何？",
+      "options": [
+        {
+          "letter": "A",
+          "text": "重义气有原则，对外应对得体，深受朋友与长官尊敬"
+        },
+        {
+          "letter": "B",
+          "text": "喜欢独处少交际，重视家庭和金钱，家庭稳定"
+        },
+        {
+          "letter": "C",
+          "text": "放荡不羁朋友和桃花多，喜高谈阔论，评价褒贬不一"
+        },
+        {
+          "letter": "D",
+          "text": "脾气暴躁情绪不稳，家人朋友无法沟通"
+        }
+      ],
+      "answer": "A",
+      "category": "性格",
+      "has_answer": true
+    }
+  ]
+}

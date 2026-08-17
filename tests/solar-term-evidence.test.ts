@@ -88,6 +88,38 @@ test('全年二十四节气应保持名称、黄经和节气属性顺序', () =>
   assert.match(terms.at(-1)?.utcDateTime ?? '', /^2024-12/);
 });
 
+test('唯一采用的 tyme4ts 节气日期应通过香港天文台多历元基准核验', () => {
+  // 基准来源：https://www.hko.gov.hk/tc/gts/time/calendar/text/files/T{year}c.txt
+  const expectedDates = {
+    1901: { 立春: '02-04', 春分: '03-21', 夏至: '06-22', 秋分: '09-24', 冬至: '12-22' },
+    1950: { 立春: '02-04', 春分: '03-21', 夏至: '06-22', 秋分: '09-23', 冬至: '12-22' },
+    2000: { 立春: '02-04', 春分: '03-20', 夏至: '06-21', 秋分: '09-23', 冬至: '12-21' },
+    2026: { 立春: '02-04', 春分: '03-20', 夏至: '06-21', 秋分: '09-23', 冬至: '12-22' },
+    2100: { 立春: '02-04', 春分: '03-20', 夏至: '06-21', 秋分: '09-23', 冬至: '12-22' },
+  } as const;
+  const hongKongDate = (utcDateTime: string) => {
+    const parts = new Intl.DateTimeFormat('en', {
+      timeZone: 'Asia/Hong_Kong',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date(utcDateTime));
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  };
+
+  for (const [yearText, expectedTerms] of Object.entries(expectedDates)) {
+    const year = Number(yearText);
+    const terms = calculateSolarTermsForYear(year);
+
+    for (const [name, monthDay] of Object.entries(expectedTerms)) {
+      const term = terms.find((item) => item.name === name);
+      assert.ok(term, `${year} 年应包含${name}`);
+      assert.equal(hongKongDate(term.utcDateTime), `${year}-${monthDay}`, `${year} 年${name}`);
+    }
+  }
+});
+
 test('八字节令月应携带起止交节的结构化证据', () => {
   const firstMonth = getYearMonthsGanZhi(2024)[0];
 

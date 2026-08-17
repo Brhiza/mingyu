@@ -20,6 +20,7 @@
     <a href="https://aov.cc">在线体验</a> ·
     <a href="https://aov.cc/api/v1/manifest">公开 API</a> ·
     <a href="https://aov.cc/api/v1/openapi.json">OpenAPI</a> ·
+    <a href="https://aov.cc/llms.txt">llms.txt</a> ·
     <a href="https://www.npmjs.com/package/mingyu-core">mingyu-core</a> ·
     <a href="https://aov.cc/skills/aov-mingyu-api/SKILL.md">公开 skill</a>
 </p>
@@ -117,8 +118,8 @@
 <details>
 <summary>模型评测</summary>
 
-- 内置 `2025年第十六届全球算命师比赛` 评测资料，包含原题、8 份提示词和 40 题正确答案。
-- 提示词已补入题目涉及年份、年龄段对应的大运、流年、年龄、十神和小运信息，方便直接评测不同模型的命理选择题表现。
+- 内置 2022—2026 年全球算命师大赛评测资料，共 5 届、40 个命例、200 道四选一题。
+- 支持按年份和题目类别筛选；试题与选项保持固定顺序，同一筛选条件始终使用唯一试卷。
 - 提供快速评测脚本，支持 OpenAI Chat Completions、OpenAI Responses、Claude Messages、Gemini generateContent 四种接口格式。
 - 评测结果按 100 分制输出，并同时给出准确率和逐题明细。
 
@@ -140,6 +141,8 @@ https://aov.cc/api/v1
 详细文档：[docs/api.md](docs/api.md)
 
 OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
+
+AI 发现文件：[https://aov.cc/llms.txt](https://aov.cc/llms.txt)
 
 </details>
 
@@ -530,7 +533,7 @@ AI 代理会对上游临时错误自动重试 2 次。只重试网络异常、40
 
 ## 模型评测
 
-比赛资料位于：[docs/2025第十六届全球算命师比赛](docs/2025第十六届全球算命师比赛)
+比赛资料位于：[benchmarks/fortune-contest](benchmarks/fortune-contest)
 
 <details>
 <summary>展开评测命令和参数</summary>
@@ -541,7 +544,9 @@ AI 代理会对上游临时错误自动重试 2 次。只重试网络异常、40
 pnpm contest:evaluate
 ```
 
-脚本会依次询问接口 URL、API Key 和模型名称，自动读取 8 份提示词与 `正确答案.md`。每个命例只要求模型输出 5 个 A/B/C/D 答案字母，减少长理由导致的截断和解析错误；调用完成后输出 100 分制总分、准确率、分命例得分和逐题明细。
+脚本会依次询问接口 URL、API Key 和模型名称，默认读取最新的 2026 年 40 题。每个命例只要求模型按题目顺序输出 A/B/C/D 答案字母，减少长理由导致的截断和解析错误；调用完成后输出 100 分制总分、准确率、分命例得分和逐题明细。
+
+通过 `--year 2025` 指定单年，使用 `--years 2022,2026` 组合年份，或用 `--years all` 评测完整 200 题；`--categories 婚姻,事业` 可进一步按类别筛选。
 
 也可以直接传参：
 
@@ -555,7 +560,7 @@ pnpm contest:evaluate -- --format chat --url https://api.openai.com/v1 --key you
 pnpm contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key your-api-key --concurrency 3 --models "GPT-5.4=openai/gpt-5.4,Claude Sonnet 4.6=anthropic/claude-sonnet-4.6"
 ```
 
-`--concurrency` 控制同时评测的模型数量，默认批量为 3；`--caseConcurrency` 控制同一模型内命例并发数量，默认 1。批量模式会合并更新比赛目录下的 `模型评测排名报告.md` 和 `评测结果/本次排名原始结果.json`。
+`--concurrency` 控制同时评测的模型数量，默认批量为 3；`--caseConcurrency` 控制同一模型内命例并发数量，默认 1。批量模式会合并更新被忽略的 `benchmarks/fortune-contest/results/` 本地评测结果。
 
 使用 OpenRouter 测 reasoning 模型时，可以加 `--reasoningEffort none --excludeReasoning --maxTokens 256`，让模型尽量只返回最终答案。若某个命例没有解析满 5 个答案，脚本会把该模型标为失败，不会把 `?????` 当作 0 分答案计入排名。
 
@@ -568,7 +573,7 @@ pnpm contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key 
 | `claude`    | Claude Messages                    | `https://api.anthropic.com/v1`                     |
 | `gemini`    | Gemini generateContent             | `https://generativelanguage.googleapis.com/v1beta` |
 
-不传 `--format` 时会自动识别；评测报告会保存到比赛资料目录下的 `评测结果/`。
+不传 `--format` 时会自动识别；评测报告会保存到被 Git 忽略的本地结果目录。
 
 </details>
 

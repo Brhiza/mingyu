@@ -1,20 +1,13 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { pathToFileURL } from 'node:url';
 
 const repoRoot = process.cwd();
-const contestDir = path.join(repoRoot, 'docs', '2025第十六届全球算命师比赛');
-const answersFile = path.join(contestDir, '正确答案.md');
-
-const defaultPromptSuffix = [
-  '请参加这份命例选择题评测。',
-  '本命例共有 5 道选择题，请只输出 5 个大写字母，顺序对应本命例的 5 道题。',
-  '每题只能从 A/B/C/D 中选择一个，不要跳题。',
-  '输出示例：ABCDA',
-  '不要输出题号、理由、标点、Markdown、JSON 或任何解释文字。',
-].join('\n');
+const contestDir = path.join(repoRoot, 'benchmarks', 'fortune-contest');
+const contestDataDir = path.join(contestDir, 'data');
+const contestResultsDir = path.join(contestDir, 'results');
 
 const systemInstruction =
   '你是命理比赛选择题评测助手。请严格只输出 A/B/C/D 组成的答案字母，不要输出理由或解释。';
@@ -174,7 +167,8 @@ function formatNumber(value) {
 
 function summarizeNoTextResponse(data, format) {
   const choice = data?.choices?.[0];
-  const finishReason = choice?.finish_reason || choice?.native_finish_reason || data?.finish_reason || '未知';
+  const finishReason =
+    choice?.finish_reason || choice?.native_finish_reason || data?.finish_reason || '未知';
   const model = data?.model || '未知模型';
   const hasReasoning =
     Boolean(choice?.message?.reasoning) ||
@@ -276,22 +270,18 @@ async function askForConfig(args) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     const hasArg = (key) => Object.prototype.hasOwnProperty.call(args, key);
-    const url =
-      hasArg('url')
-        ? args.url
-        : process.env.MODEL_BASE_URL ||
-          (await rl.question('请输入 OpenAI 兼容接口 URL（例如 https://api.openai.com/v1）：'));
-    const key =
-      hasArg('key')
-        ? args.key
-        : process.env.MODEL_API_KEY ||
-          process.env.OPENAI_API_KEY ||
-          (await rl.question('请输入 API Key：'));
-    const model =
-      hasArg('model')
-        ? args.model
-        : process.env.MODEL_NAME ||
-          (await rl.question('请输入模型名称（例如 gpt-4.1-mini）：'));
+    const url = hasArg('url')
+      ? args.url
+      : process.env.MODEL_BASE_URL ||
+        (await rl.question('请输入 OpenAI 兼容接口 URL（例如 https://api.openai.com/v1）：'));
+    const key = hasArg('key')
+      ? args.key
+      : process.env.MODEL_API_KEY ||
+        process.env.OPENAI_API_KEY ||
+        (await rl.question('请输入 API Key：'));
+    const model = hasArg('model')
+      ? args.model
+      : process.env.MODEL_NAME || (await rl.question('请输入模型名称（例如 gpt-4.1-mini）：'));
     const rawFormat = hasArg('format') ? args.format : process.env.MODEL_FORMAT || 'auto';
     const format = inferFormat(url, model, rawFormat);
     const endpoint = normalizeEndpoint(url, format, model);
@@ -310,7 +300,10 @@ async function askForConfig(args) {
         Object.prototype.hasOwnProperty.call(args, 'excludeReasoning') ||
         process.env.MODEL_EXCLUDE_REASONING === '1',
       concurrency: Math.max(1, Number(args.concurrency ?? process.env.MODEL_CONCURRENCY ?? 1)),
-      caseConcurrency: Math.max(1, Number(args.caseConcurrency ?? process.env.MODEL_CASE_CONCURRENCY ?? 1)),
+      caseConcurrency: Math.max(
+        1,
+        Number(args.caseConcurrency ?? process.env.MODEL_CASE_CONCURRENCY ?? 1),
+      ),
     };
   } finally {
     rl.close();
@@ -321,17 +314,15 @@ async function askForBatchConfig(args, modelSpecs) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     const hasArg = (key) => Object.prototype.hasOwnProperty.call(args, key);
-    const url =
-      hasArg('url')
-        ? args.url
-        : process.env.MODEL_BASE_URL ||
-          (await rl.question('请输入接口 URL（例如 https://openrouter.ai/api/v1）：'));
-    const key =
-      hasArg('key')
-        ? args.key
-        : process.env.MODEL_API_KEY ||
-          process.env.OPENAI_API_KEY ||
-          (await rl.question('请输入 API Key：'));
+    const url = hasArg('url')
+      ? args.url
+      : process.env.MODEL_BASE_URL ||
+        (await rl.question('请输入接口 URL（例如 https://openrouter.ai/api/v1）：'));
+    const key = hasArg('key')
+      ? args.key
+      : process.env.MODEL_API_KEY ||
+        process.env.OPENAI_API_KEY ||
+        (await rl.question('请输入 API Key：'));
     const rawFormat = hasArg('format') ? args.format : process.env.MODEL_FORMAT || 'auto';
 
     return {
@@ -347,7 +338,10 @@ async function askForBatchConfig(args, modelSpecs) {
         Object.prototype.hasOwnProperty.call(args, 'excludeReasoning') ||
         process.env.MODEL_EXCLUDE_REASONING === '1',
       concurrency: Math.max(1, Number(args.concurrency ?? process.env.MODEL_CONCURRENCY ?? 3)),
-      caseConcurrency: Math.max(1, Number(args.caseConcurrency ?? process.env.MODEL_CASE_CONCURRENCY ?? 1)),
+      caseConcurrency: Math.max(
+        1,
+        Number(args.caseConcurrency ?? process.env.MODEL_CASE_CONCURRENCY ?? 1),
+      ),
     };
   } finally {
     rl.close();
@@ -374,7 +368,7 @@ function buildConfigForModel(batchConfig, model) {
 }
 
 function buildUserPrompt(prompt) {
-  return `${prompt}\n\n${defaultPromptSuffix}`;
+  return prompt;
 }
 
 function readTextFromContentParts(parts) {
@@ -571,45 +565,259 @@ async function runWithConcurrency(items, concurrency, worker) {
   return results;
 }
 
-function buildCaseScore(caseIndex, correctAnswers, modelAnswers) {
-  const startQuestion = (caseIndex - 1) * 5 + 1;
-  const endQuestion = startQuestion + 4;
-  const rows = [];
+function normalizeLegacyCases(dataset) {
+  const caseMap = new Map();
 
-  for (let q = startQuestion; q <= endQuestion; q += 1) {
-    const expected = correctAnswers.get(q) || '';
-    const actual = modelAnswers.get(q) || '';
-    rows.push({
-      question: q,
-      expected,
-      actual,
-      ok: actual === expected,
+  for (const question of dataset.questions || []) {
+    const globalNumber = Number(question.question_number);
+    const year = 2022 + Math.floor((globalNumber - 1) / 40);
+    const number = Number(question.original_number);
+    const caseNumber = Math.floor((number - 1) / 5) + 1;
+    const caseKey = String(year) + '-case-' + String(caseNumber);
+    const item = caseMap.get(caseKey) || {
+      id: caseKey,
+      year,
+      caseNumber,
+      birthInfo: String(question.birth_info?.raw || '').trim(),
+      questions: [],
+    };
+
+    item.questions.push({
+      key: String(year) + '-Q' + String(number),
+      number,
+      category: String(question.category || '未分类').trim(),
+      text: String(question.question || '').trim(),
+      options: (question.options || []).map((option) => String(option.text || '').trim()),
+      answer: String(question.answer || '')
+        .trim()
+        .toUpperCase(),
     });
+    caseMap.set(caseKey, item);
   }
 
-  return rows;
+  return [...caseMap.values()];
+}
+
+function normalizeCurrentCases(dataset) {
+  return (dataset.cases || []).map((item, index) => ({
+    id: String(item.id || String(dataset.year) + '-case-' + String(index + 1)),
+    year: Number(dataset.year),
+    caseNumber: index + 1,
+    birthInfo: String(item.birthInfo || '').trim(),
+    questions: (item.questions || []).map((question) => ({
+      key: String(dataset.year) + '-Q' + String(question.number),
+      number: Number(question.number),
+      category: String(question.category || '未分类').trim(),
+      text: String(question.text || '').trim(),
+      options: (question.options || []).map((option) => String(option).trim()),
+      answer: String(question.answer || '')
+        .trim()
+        .toUpperCase(),
+    })),
+  }));
+}
+
+function validateContestCases(cases) {
+  const questionKeys = new Set();
+  const yearCounts = new Map();
+
+  for (const item of cases) {
+    if (!item.birthInfo) throw new Error(item.id + ' 缺少出生资料。');
+    if (!item.questions.length) throw new Error(item.id + ' 没有题目。');
+
+    for (const question of item.questions) {
+      if (questionKeys.has(question.key)) throw new Error('题号重复：' + question.key + '。');
+      questionKeys.add(question.key);
+      yearCounts.set(item.year, (yearCounts.get(item.year) || 0) + 1);
+      if (!question.text) throw new Error(question.key + ' 缺少题干。');
+      if (question.options.length !== 4 || question.options.some((option) => !option)) {
+        throw new Error(question.key + ' 必须包含四个非空选项。');
+      }
+      if (!/^[ABCD]$/.test(question.answer)) {
+        throw new Error(question.key + ' 的正确答案无效。');
+      }
+    }
+  }
+
+  for (const [year, count] of yearCounts) {
+    if (count !== 40)
+      throw new Error(
+        String(year) + ' 年题目数量异常：预期 40 题，实际 ' + String(count) + ' 题。',
+      );
+  }
+}
+
+function parseSelectedYears(rawValue, availableYears) {
+  const value = String(rawValue || 'latest')
+    .trim()
+    .toLowerCase();
+  if (value === 'all') return availableYears;
+  if (value === 'latest') return [availableYears.at(-1)];
+
+  const years = [
+    ...new Set(
+      value
+        .split(',')
+        .map((item) => Number(item.trim()))
+        .filter(Number.isInteger),
+    ),
+  ].sort((a, b) => a - b);
+  if (!years.length) throw new Error('year/years 必须是年份、逗号分隔年份、latest 或 all。');
+
+  const unavailable = years.filter((year) => !availableYears.includes(year));
+  if (unavailable.length) {
+    throw new Error(
+      '暂不支持年份：' + unavailable.join('、') + '。可用年份：' + availableYears.join('、') + '。',
+    );
+  }
+  return years;
+}
+
+function formatYearLabel(years) {
+  const isContinuous = years.every((year, index) => index === 0 || year === years[index - 1] + 1);
+  if (years.length > 2 && isContinuous) return String(years[0]) + '—' + String(years.at(-1));
+  return years.join('、');
+}
+
+export async function loadContestData(args = {}) {
+  const legacy = JSON.parse(await readFile(path.join(contestDataDir, '2022-2025.json'), 'utf8'));
+  const current = JSON.parse(await readFile(path.join(contestDataDir, '2026.json'), 'utf8'));
+  const allCases = [...normalizeLegacyCases(legacy), ...normalizeCurrentCases(current)].sort(
+    (a, b) => a.year - b.year || a.caseNumber - b.caseNumber,
+  );
+  validateContestCases(allCases);
+
+  const availableYears = [...new Set(allCases.map((item) => item.year))].sort((a, b) => a - b);
+  const years = parseSelectedYears(args.years || args.year, availableYears);
+  const allCategories = [
+    ...new Set(allCases.flatMap((item) => item.questions.map((question) => question.category))),
+  ].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  const categoryValue = String(args.categories || args.category || '').trim();
+  const categories = categoryValue
+    ? [
+        ...new Set(
+          categoryValue
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        ),
+      ]
+    : [];
+  const unknownCategories = categories.filter((category) => !allCategories.includes(category));
+  if (unknownCategories.length) {
+    throw new Error(
+      '未知类别：' +
+        unknownCategories.join('、') +
+        '。可用类别：' +
+        allCategories.join('、') +
+        '。',
+    );
+  }
+
+  const yearSet = new Set(years);
+  const categorySet = new Set(categories);
+  const cases = allCases
+    .filter((item) => yearSet.has(item.year))
+    .map((item) => ({
+      ...item,
+      questions: item.questions.filter(
+        (question) => !categorySet.size || categorySet.has(question.category),
+      ),
+    }))
+    .filter((item) => item.questions.length);
+  const totalQuestions = cases.reduce((total, item) => total + item.questions.length, 0);
+  if (!totalQuestions) throw new Error('当前筛选条件没有可评测题目。');
+
+  const yearLabel = formatYearLabel(years);
+  const categoryLabel = categories.length ? categories.join('、') : '全部类别';
+  return {
+    availableYears,
+    allCategories,
+    years,
+    categories,
+    cases,
+    totalQuestions,
+    signature:
+      'years=' +
+      years.join(',') +
+      ';categories=' +
+      (categories.length ? categories.slice().sort().join(',') : 'all'),
+    title: yearLabel + ' 年全球算命师大赛模型评测',
+    description: yearLabel + ' 年，' + categoryLabel + '，共 ' + String(totalQuestions) + ' 题',
+  };
+}
+
+export function buildContestPrompt(item) {
+  const questionLines = item.questions.flatMap((question) => [
+    'Q' + String(question.number) + '：' + question.text,
+    ...question.options.map((option, index) => String.fromCharCode(65 + index) + '. ' + option),
+    '',
+  ]);
+  const answerCount = item.questions.length;
+  const example = 'ABCDA'.repeat(Math.ceil(answerCount / 5)).slice(0, answerCount);
+
+  return [
+    '【任务】',
+    '请根据命例资料回答以下选择题。',
+    '',
+    '【命例资料】',
+    item.birthInfo,
+    '',
+    '【题目】',
+    ...questionLines,
+    '【输出要求】',
+    '按题目出现顺序，只输出 ' +
+      String(answerCount) +
+      ' 个大写字母；每题只能从 A、B、C、D 中选择一个。',
+    '输出示例：' + example,
+  ].join('\n');
+}
+
+function buildCaseScore(item, modelAnswers) {
+  return item.questions.map((question, index) => {
+    const actual = modelAnswers.get(index + 1) || '';
+    return {
+      key: question.key,
+      year: item.year,
+      question: question.number,
+      category: question.category,
+      expected: question.answer,
+      actual,
+      ok: actual === question.answer,
+    };
+  });
 }
 
 function formatCaseAnswers(rows) {
   return rows.map((row) => row.actual || '?').join('');
 }
 
-function buildReport({ model, endpoint, format, startedAt, finishedAt, caseResults, rawOutputs }) {
+function buildReport({
+  model,
+  endpoint,
+  format,
+  startedAt,
+  finishedAt,
+  dataset,
+  caseResults,
+  rawOutputs,
+}) {
   const allRows = caseResults.flatMap((item) => item.rows);
   const correctCount = allRows.filter((row) => row.ok).length;
   const totalCount = allRows.length;
   const totalScore = Number(((correctCount / totalCount) * 100).toFixed(1));
-  const accuracy = `${totalScore}%`;
+  const accuracy = String(totalScore) + '%';
 
   const lines = [
-    `# 评测结果：${model}`,
+    '# 评测结果：' + model,
     '',
-    `- 接口格式：${format}`,
-    `- 接口：${endpoint}`,
-    `- 开始时间：${startedAt}`,
-    `- 完成时间：${finishedAt}`,
-    `- 总分：${totalScore}/100`,
-    `- 准确率：${accuracy}（${correctCount}/${totalCount}）`,
+    '- 数据范围：' + dataset.description,
+    '- 接口格式：' + format,
+    '- 接口：' + endpoint,
+    '- 开始时间：' + startedAt,
+    '- 完成时间：' + finishedAt,
+    '- 总分：' + String(totalScore) + '/100',
+    '- 准确率：' + accuracy + '（' + String(correctCount) + '/' + String(totalCount) + '）',
     '',
     '## 分命例得分',
     '',
@@ -618,82 +826,99 @@ function buildReport({ model, endpoint, format, startedAt, finishedAt, caseResul
     ...caseResults.map((item) => {
       const caseCorrectCount = item.rows.filter((row) => row.ok).length;
       const caseScore = Number(((caseCorrectCount / item.rows.length) * 100).toFixed(1));
-      return `| 命例${item.caseIndex} | ${formatCaseAnswers(item.rows)} | ${caseCorrectCount}/${item.rows.length} | ${caseScore}/100 | ${caseScore}% |`;
+      return (
+        '| ' +
+        item.label +
+        ' | ' +
+        formatCaseAnswers(item.rows) +
+        ' | ' +
+        String(caseCorrectCount) +
+        '/' +
+        String(item.rows.length) +
+        ' | ' +
+        String(caseScore) +
+        '/100 | ' +
+        String(caseScore) +
+        '% |'
+      );
     }),
     '',
     '## 逐题明细',
     '',
-    '| 题号 | 标准答案 | 模型答案 | 结果 |',
-    '| --- | --- | --- | --- |',
+    '| 题号 | 类别 | 标准答案 | 模型答案 | 结果 |',
+    '| --- | --- | --- | --- | --- |',
     ...allRows.map(
-      (row) => `| Q${row.question} | ${row.expected} | ${row.actual || '未解析'} | ${row.ok ? '正确' : '错误'} |`,
+      (row) =>
+        '| ' +
+        row.key +
+        ' | ' +
+        row.category +
+        ' | ' +
+        row.expected +
+        ' | ' +
+        (row.actual || '未解析') +
+        ' | ' +
+        (row.ok ? '正确' : '错误') +
+        ' |',
     ),
     '',
     '## 原始输出',
     '',
-    ...rawOutputs.flatMap((item) => [
-      `### 命例${item.caseIndex}`,
-      '',
-      '```text',
-      item.content,
-      '```',
-      '',
-    ]),
+    ...rawOutputs.flatMap((item) => ['### ' + item.label, '', '~~~text', item.content, '~~~', '']),
   ];
 
   return { totalScore, accuracy, correctCount, totalCount, markdown: lines.join('\n') };
 }
 
-async function loadContestData() {
-  const correctAnswers = parseCorrectAnswers(await readFile(answersFile, 'utf8'));
-  const promptFiles = (await readdir(contestDir))
-    .filter((name) => /^\d{2}_命例.+_提示词\.md$/.test(name))
-    .sort((a, b) => a.localeCompare(b, 'zh-CN'));
-
-  if (promptFiles.length !== 8) {
-    throw new Error(`提示词文件数量异常：预期 8 个，实际 ${promptFiles.length} 个。`);
-  }
-
-  return { correctAnswers, promptFiles };
-}
-
-async function evaluateModel(config, correctAnswers, promptFiles) {
+async function evaluateModel(config, dataset) {
   const startedAt = new Date().toLocaleString('zh-CN');
 
-  console.log(`开始评测：${config.model}`);
-  console.log(`接口格式：${config.format}`);
-  console.log(`接口：${config.displayEndpoint}`);
+  console.log('开始评测：' + config.model);
+  console.log('数据范围：' + dataset.description);
+  console.log('接口格式：' + config.format);
+  console.log('接口：' + config.displayEndpoint);
 
-  const caseItems = promptFiles.map((file) => {
-    const caseIndex = Number(file.slice(0, 2));
-    const startQuestion = (caseIndex - 1) * 5 + 1;
-    const endQuestion = startQuestion + 4;
-    return { file, caseIndex, startQuestion, endQuestion };
-  });
+  const evaluatedCases = await runWithConcurrency(
+    dataset.cases,
+    config.caseConcurrency,
+    async (item) => {
+      const label = String(item.year) + '-命例' + String(item.caseNumber);
+      const questionNumbers = item.questions.map((question) => question.number);
+      console.log(
+        '正在测试 ' + config.model + ' ' + label + '（Q' + questionNumbers.join('、Q') + '）...',
+      );
+      const content = await callModel(config, buildContestPrompt(item));
+      const modelAnswers = parseModelAnswers(content, 1, item.questions.length);
+      assertCompleteAnswers(modelAnswers, 1, item.questions.length, content);
+      const rows = buildCaseScore(item, modelAnswers);
+      const correctCount = rows.filter((row) => row.ok).length;
+      const caseScore = Number(((correctCount / rows.length) * 100).toFixed(1));
 
-  const evaluatedCases = await runWithConcurrency(caseItems, config.caseConcurrency, async (item) => {
-    const prompt = await readFile(path.join(contestDir, item.file), 'utf8');
-    console.log(`正在测试 ${config.model} 命例${item.caseIndex}（Q${item.startQuestion}-Q${item.endQuestion}）...`);
-    const content = await callModel(config, prompt);
-    const modelAnswers = parseModelAnswers(content, item.startQuestion, item.endQuestion);
-    assertCompleteAnswers(modelAnswers, item.startQuestion, item.endQuestion, content);
-    const rows = buildCaseScore(item.caseIndex, correctAnswers, modelAnswers);
-    const correctCount = rows.filter((row) => row.ok).length;
-    const caseScore = Number(((correctCount / rows.length) * 100).toFixed(1));
+      console.log(
+        config.model +
+          ' ' +
+          label +
+          '：' +
+          formatCaseAnswers(rows) +
+          '，得分 ' +
+          String(caseScore) +
+          '/100，准确率 ' +
+          String(caseScore) +
+          '%（' +
+          String(correctCount) +
+          '/' +
+          String(rows.length) +
+          '）',
+      );
+      return { year: item.year, caseNumber: item.caseNumber, label, rows, content };
+    },
+  );
 
-    console.log(
-      `${config.model} 命例${item.caseIndex}：${formatCaseAnswers(rows)}，得分 ${caseScore}/100，准确率 ${caseScore}%（${correctCount}/${rows.length}）`,
-    );
-    return { caseIndex: item.caseIndex, rows, content };
-  });
-
-  const caseResults = evaluatedCases
-    .map((item) => ({ caseIndex: item.caseIndex, rows: item.rows }))
-    .sort((a, b) => a.caseIndex - b.caseIndex);
-  const rawOutputs = evaluatedCases
-    .map((item) => ({ caseIndex: item.caseIndex, content: item.content }))
-    .sort((a, b) => a.caseIndex - b.caseIndex);
-
+  const orderedCases = evaluatedCases.sort(
+    (a, b) => a.year - b.year || a.caseNumber - b.caseNumber,
+  );
+  const caseResults = orderedCases.map((item) => ({ label: item.label, rows: item.rows }));
+  const rawOutputs = orderedCases.map((item) => ({ label: item.label, content: item.content }));
   const finishedAt = new Date().toLocaleString('zh-CN');
   const report = buildReport({
     model: config.model,
@@ -701,39 +926,42 @@ async function evaluateModel(config, correctAnswers, promptFiles) {
     format: config.format,
     startedAt,
     finishedAt,
+    dataset,
     caseResults,
     rawOutputs,
   });
 
-  const resultsDir = path.join(contestDir, '评测结果');
-  await mkdir(resultsDir, { recursive: true });
+  await mkdir(contestResultsDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const reportFile = path.join(resultsDir, `${timestamp}_${sanitizeFilename(config.model)}.md`);
+  const reportFile = path.join(
+    contestResultsDir,
+    timestamp + '_' + sanitizeFilename(config.model) + '.md',
+  );
   await writeFile(reportFile, report.markdown, 'utf8');
 
-  return {
-    report,
-    reportFile,
-  };
+  return { report, reportFile };
 }
 
-function buildRankingReport({ title, endpoint, startedAt, finishedAt, results }) {
+export function buildRankingReport({ endpoint, startedAt, finishedAt, dataset, results }) {
   const successful = results
     .filter((item) => item.Status === '成功')
-    .sort((a, b) => b.Score - a.Score || b.Correct - a.Correct || a.Label.localeCompare(b.Label, 'zh-CN'));
+    .sort(
+      (a, b) =>
+        b.Score - a.Score || b.Correct - a.Correct || a.Label.localeCompare(b.Label, 'zh-CN'),
+    );
   const failed = results
     .filter((item) => item.Status !== '成功')
     .sort((a, b) => a.Label.localeCompare(b.Label, 'zh-CN'));
 
   const lines = [
-    `# ${title}`,
+    '# ' + dataset.title,
     '',
-    '- 接口：OpenRouter Chat Completions 兼容接口',
-    `- 接口地址：${endpoint}`,
-    `- 开始时间：${startedAt}`,
-    `- 完成时间：${finishedAt}`,
-    '- 计分方式：40 题选择题，按正确率折算为 100 分制',
-    '- 输出约束：每个命例只要求模型输出 5 个 A/B/C/D 答案字母，不要求理由',
+    '- 数据范围：' + dataset.description,
+    '- 接口：' + endpoint,
+    '- 开始时间：' + startedAt,
+    '- 完成时间：' + finishedAt,
+    '- 计分方式：' + String(dataset.totalQuestions) + ' 题选择题，按正确率折算为 100 分制',
+    '- 输出约束：每个命例只要求模型按题目顺序输出 A/B/C/D 答案字母，不要求理由',
     '- 说明：失败模型不参与有效排名，错误信息保留在备注。',
     '',
     '## 排名',
@@ -744,17 +972,44 @@ function buildRankingReport({ title, endpoint, startedAt, finishedAt, results })
 
   successful.forEach((item, index) => {
     const reportLink = item.ReportFile
-      ? `[${path.basename(item.ReportFile)}](${path.relative(repoRoot, item.ReportFile).replace(/\\/g, '/')})`
+      ? '[' +
+        path.basename(item.ReportFile) +
+        '](' +
+        path.relative(repoRoot, item.ReportFile).replace(/\\/g, '/') +
+        ')'
       : '-';
     lines.push(
-      `| ${index + 1} | ${escapeMarkdownCell(item.Label)} | ${escapeMarkdownCell(item.Model)} | 成功 | ${formatNumber(item.Score)}/100 | ${formatNumber(item.Accuracy)}% | ${item.Correct}/${item.Total} | ${reportLink} |  |`,
+      '| ' +
+        String(index + 1) +
+        ' | ' +
+        escapeMarkdownCell(item.Label) +
+        ' | ' +
+        escapeMarkdownCell(item.Model) +
+        ' | 成功 | ' +
+        formatNumber(item.Score) +
+        '/100 | ' +
+        formatNumber(item.Accuracy) +
+        '% | ' +
+        String(item.Correct) +
+        '/' +
+        String(item.Total) +
+        ' | ' +
+        reportLink +
+        ' |  |',
     );
   });
 
   failed.forEach((item) => {
     const note = escapeMarkdownCell(item.Error || '评测失败').slice(0, 160);
     lines.push(
-      `| - | ${escapeMarkdownCell(item.Label)} | ${escapeMarkdownCell(item.Model)} | 失败 | - | - | - | - | ${note}${note.length >= 160 ? '...' : ''} |`,
+      '| - | ' +
+        escapeMarkdownCell(item.Label) +
+        ' | ' +
+        escapeMarkdownCell(item.Model) +
+        ' | 失败 | - | - | - | - | ' +
+        note +
+        (note.length >= 160 ? '...' : '') +
+        ' |',
     );
   });
 
@@ -763,35 +1018,34 @@ function buildRankingReport({ title, endpoint, startedAt, finishedAt, results })
     '## 快速结论',
     '',
     successful.length
-      ? `本轮有效排名第一名为 ${successful[0].Label}，总分 ${formatNumber(successful[0].Score)}/100，准确率 ${formatNumber(successful[0].Accuracy)}%。`
+      ? '本轮有效排名第一名为 ' +
+          successful[0].Label +
+          '，总分 ' +
+          formatNumber(successful[0].Score) +
+          '/100，准确率 ' +
+          formatNumber(successful[0].Accuracy) +
+          '%。'
       : '本轮没有成功完成的模型。',
-    failed.length ? `未完成模型：${failed.map((item) => item.Label).join('、')}。` : '所有模型均完成评测。',
+    failed.length
+      ? '未完成模型：' + failed.map((item) => item.Label).join('、') + '。'
+      : '所有模型均完成评测。',
     '',
   );
-
   return lines.join('\n');
 }
 
-async function readExistingRankingResults() {
-  const file = path.join(contestDir, '评测结果', '本次排名原始结果.json');
-  try {
-    const results = JSON.parse(await readFile(file, 'utf8'));
-    if (!Array.isArray(results)) return [];
-    return Promise.all(results.map(validateExistingRankingResult));
-  } catch {
-    return [];
-  }
-}
-
 function parseReportRows(markdown) {
-  return [...markdown.matchAll(/\|\s*Q(\d+)\s*\|\s*([ABCD])\s*\|\s*([^|]+?)\s*\|\s*(正确|错误)\s*\|/g)].map(
-    (match) => ({
-      question: Number(match[1]),
-      expected: match[2],
-      actual: match[3].trim(),
-      ok: match[4] === '正确',
-    }),
-  );
+  return [
+    ...markdown.matchAll(
+      /\|\s*(?:(\d{4})-)?Q(\d+)\s*\|(?:\s*[^|]+\s*\|)?\s*([ABCD])\s*\|\s*([^|]+?)\s*\|\s*(正确|错误)\s*\|/g,
+    ),
+  ].map((match) => ({
+    year: match[1] ? Number(match[1]) : undefined,
+    question: Number(match[2]),
+    expected: match[3],
+    actual: match[4].trim(),
+    ok: match[5] === '正确',
+  }));
 }
 
 function buildFailedExistingResult(item, error) {
@@ -803,30 +1057,36 @@ function buildFailedExistingResult(item, error) {
     Correct: null,
     Total: null,
     ReportFile: null,
-    Error: `历史评测结果自检失败：${error}`,
+    Error: '历史评测结果自检失败：' + error,
   };
 }
 
-export function validateExistingRankingResultFromMarkdown(item, markdown) {
+export function validateExistingRankingResultFromMarkdown(item, markdown, options = {}) {
   if (item?.Status !== '成功') return item;
-
   const rows = parseReportRows(markdown);
-  if (rows.length !== 40) {
-    return buildFailedExistingResult(item, `逐题明细应为 40 题，实际 ${rows.length} 题。`);
+  const expectedTotal = Number(options.expectedTotal || item.Total || 40);
+  if (rows.length !== expectedTotal) {
+    return buildFailedExistingResult(
+      item,
+      '逐题明细应为 ' + String(expectedTotal) + ' 题，实际 ' + String(rows.length) + ' 题。',
+    );
   }
 
   const invalidRows = rows.filter((row) => !/^[ABCD]$/.test(row.actual));
   if (invalidRows.length) {
     return buildFailedExistingResult(
       item,
-      `存在未解析或非法答案：${invalidRows.map((row) => `Q${row.question}=${row.actual || '空'}`).join('、')}。`,
+      '存在未解析或非法答案：' +
+        invalidRows
+          .map((row) => 'Q' + String(row.question) + '=' + (row.actual || '空'))
+          .join('、') +
+        '。',
     );
   }
 
   const correctCount = rows.filter((row) => row.actual === row.expected).length;
   const totalCount = rows.length;
   const totalScore = Number(((correctCount / totalCount) * 100).toFixed(1));
-
   return {
     ...item,
     Score: totalScore,
@@ -837,113 +1097,146 @@ export function validateExistingRankingResultFromMarkdown(item, markdown) {
   };
 }
 
-async function validateExistingRankingResult(item) {
+async function validateExistingRankingResult(item, expectedTotal) {
   if (item?.Status !== '成功') return item;
   const reportFile = String(item.ReportFile || '').trim();
   if (!reportFile) return buildFailedExistingResult(item, '缺少单模型报告文件。');
 
   try {
     const markdown = await readFile(reportFile, 'utf8');
-    return validateExistingRankingResultFromMarkdown(item, markdown);
+    return validateExistingRankingResultFromMarkdown(item, markdown, { expectedTotal });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return buildFailedExistingResult(item, `无法读取单模型报告：${message}`);
+    return buildFailedExistingResult(item, '无法读取单模型报告：' + message);
   }
 }
 
-async function writeRankingResults(results, startedAt, finishedAt, endpoint) {
-  const resultsDir = path.join(contestDir, '评测结果');
-  await mkdir(resultsDir, { recursive: true });
-  const rawResultsFile = path.join(resultsDir, '本次排名原始结果.json');
-  const rankingFile = path.join(contestDir, '模型评测排名报告.md');
-  await writeFile(rawResultsFile, `${JSON.stringify(results, null, 2)}\n`, 'utf8');
+async function readExistingRankingResults(dataset) {
+  const file = path.join(contestResultsDir, '本次排名原始结果.json');
+  try {
+    const results = JSON.parse(await readFile(file, 'utf8'));
+    if (!Array.isArray(results)) return [];
+    const matching = results.filter((item) => item.DatasetSignature === dataset.signature);
+    return Promise.all(
+      matching.map((item) => validateExistingRankingResult(item, dataset.totalQuestions)),
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function writeRankingResults(results, startedAt, finishedAt, endpoint, dataset) {
+  await mkdir(contestResultsDir, { recursive: true });
+  const rawResultsFile = path.join(contestResultsDir, '本次排名原始结果.json');
+  const rankingFile = path.join(contestResultsDir, '模型评测排名报告.md');
+  await writeFile(rawResultsFile, JSON.stringify(results, null, 2) + '\n', 'utf8');
   await writeFile(
     rankingFile,
-    buildRankingReport({
-      title: '2025年第十六届全球算命师比赛模型评测排名报告',
-      endpoint,
-      startedAt,
-      finishedAt,
-      results,
-    }),
+    buildRankingReport({ endpoint, startedAt, finishedAt, dataset, results }),
     'utf8',
   );
 }
 
 async function runSingle(args) {
+  const dataset = await loadContestData(args);
   const config = await askForConfig(args);
   if (!config.key) throw new Error('API Key 不能为空。');
   if (!config.model) throw new Error('model 不能为空。');
 
-  const { correctAnswers, promptFiles } = await loadContestData();
-  const { report, reportFile } = await evaluateModel(config, correctAnswers, promptFiles);
-
+  const { report, reportFile } = await evaluateModel(config, dataset);
   console.log('');
-  console.log(`总分：${report.totalScore}/100`);
-  console.log(`准确率：${report.accuracy}（${report.correctCount}/${report.totalCount}）`);
-  console.log(`评测报告已保存：${reportFile}`);
+  console.log('总分：' + String(report.totalScore) + '/100');
+  console.log(
+    '准确率：' +
+      report.accuracy +
+      '（' +
+      String(report.correctCount) +
+      '/' +
+      String(report.totalCount) +
+      '）',
+  );
+  console.log('评测报告已保存：' + reportFile);
 }
 
 async function runBatch(args, modelSpecs) {
+  const dataset = await loadContestData(args);
   const batchConfig = await askForBatchConfig(args, modelSpecs);
   if (!batchConfig.key) throw new Error('API Key 不能为空。');
   if (!batchConfig.modelSpecs.length) throw new Error('models 不能为空。');
 
-  const { correctAnswers, promptFiles } = await loadContestData();
   const startedAt = new Date().toLocaleString('zh-CN');
-  const existingResults = await readExistingRankingResults();
+  const existingResults = await readExistingRankingResults(dataset);
   const resultByModel = new Map(existingResults.map((item) => [item.Model, item]));
+  console.log(
+    '开始批量评测：' +
+      String(batchConfig.modelSpecs.length) +
+      ' 个模型，并发 ' +
+      String(batchConfig.concurrency),
+  );
+  console.log('数据范围：' + dataset.description);
+  console.log('每个模型命例并发：' + String(batchConfig.caseConcurrency));
 
-  console.log(`开始批量评测：${batchConfig.modelSpecs.length} 个模型，并发 ${batchConfig.concurrency}`);
-  console.log(`每个模型命例并发：${batchConfig.caseConcurrency}`);
+  const batchResults = await runWithConcurrency(
+    batchConfig.modelSpecs,
+    batchConfig.concurrency,
+    async (spec) => {
+      const config = buildConfigForModel(batchConfig, spec.model);
+      try {
+        const { report, reportFile } = await evaluateModel(config, dataset);
+        return {
+          Label: spec.label,
+          Model: spec.model,
+          DatasetSignature: dataset.signature,
+          Status: '成功',
+          Score: report.totalScore,
+          Accuracy: report.totalScore,
+          Correct: report.correctCount,
+          Total: report.totalCount,
+          ReportFile: reportFile,
+          Error: '',
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(spec.label + ' 评测失败：' + message);
+        return {
+          Label: spec.label,
+          Model: spec.model,
+          DatasetSignature: dataset.signature,
+          Status: '失败',
+          Score: null,
+          Accuracy: null,
+          Correct: null,
+          Total: dataset.totalQuestions,
+          ReportFile: null,
+          Error: message,
+        };
+      }
+    },
+  );
 
-  const batchResults = await runWithConcurrency(batchConfig.modelSpecs, batchConfig.concurrency, async (spec) => {
-    const config = buildConfigForModel(batchConfig, spec.model);
-    try {
-      const { report, reportFile } = await evaluateModel(config, correctAnswers, promptFiles);
-      return {
-        Label: spec.label,
-        Model: spec.model,
-        Status: '成功',
-        Score: report.totalScore,
-        Accuracy: report.totalScore,
-        Correct: report.correctCount,
-        Total: report.totalCount,
-        ReportFile: reportFile,
-        Error: '',
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`${spec.label} 评测失败：${message}`);
-      return {
-        Label: spec.label,
-        Model: spec.model,
-        Status: '失败',
-        Score: null,
-        Accuracy: null,
-        Correct: null,
-        Total: null,
-        ReportFile: null,
-        Error: message,
-      };
-    }
-  });
-
-  for (const result of batchResults) {
-    resultByModel.set(result.Model, result);
-  }
-
-  const modelOrder = [...existingResults.map((item) => item.Model), ...batchConfig.modelSpecs.map((item) => item.model)];
+  for (const result of batchResults) resultByModel.set(result.Model, result);
+  const modelOrder = [
+    ...existingResults.map((item) => item.Model),
+    ...batchConfig.modelSpecs.map((item) => item.model),
+  ];
   const uniqueOrder = [...new Set(modelOrder)];
   const mergedResults = uniqueOrder.map((model) => resultByModel.get(model)).filter(Boolean);
   const finishedAt = new Date().toLocaleString('zh-CN');
-  const displayEndpoint = stripSensitiveQuery(normalizeEndpoint(batchConfig.url, 'chat', batchConfig.modelSpecs[0].model));
-  await writeRankingResults(mergedResults, startedAt, finishedAt, displayEndpoint);
+  const firstConfig = buildConfigForModel(batchConfig, batchConfig.modelSpecs[0].model);
+  await writeRankingResults(
+    mergedResults,
+    startedAt,
+    finishedAt,
+    firstConfig.displayEndpoint,
+    dataset,
+  );
 
   const successful = batchResults.filter((item) => item.Status === '成功');
   console.log('');
-  console.log(`批量评测完成：成功 ${successful.length}/${batchResults.length}`);
-  console.log(`排名报告已更新：${path.join(contestDir, '模型评测排名报告.md')}`);
+  console.log(
+    '批量评测完成：成功 ' + String(successful.length) + '/' + String(batchResults.length),
+  );
+  console.log('排名报告已更新：' + path.join(contestResultsDir, '模型评测排名报告.md'));
 }
 
 async function main() {
