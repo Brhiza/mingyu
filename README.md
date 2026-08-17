@@ -596,6 +596,13 @@ pnpm contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key 
 
 我们希望这套签文能成为一本"人生操作手册"——迷茫时翻开，总有一支签、一句诗，能让人豁然开朗。
 
+## 开源许可
+
+- 除下列例外，本仓库中的应用、网站、公开 API、MCP 与服务端源码采用 [GNU Affero General Public License v3.0 only](LICENSE)。可以使用、修改和部署；如果通过网络向用户提供修改后的服务，需要按照该许可向这些用户提供对应源码。
+- [`packages/core`](packages/core) 中发布为 `mingyu-core` 的公共基础能力继续独立采用 [MIT License](packages/core/LICENSE)，方便其他项目直接引用和二次开发。
+- [`benchmarks/fortune-contest`](benchmarks/fortune-contest) 中的比赛资料不因本仓库的代码许可而改变权利归属，具体来源和许可边界见[第三方资料说明](benchmarks/fortune-contest/THIRD_PARTY_NOTICES.md)。
+- 第三方依赖、资料与资源继续遵循各自权利人声明的许可。
+
 ## 免责声明
 
 命语提供的是命理、占卜与 AI 提示词辅助工具，结果仅供参考和娱乐学习使用，不应替代医疗、法律、投资、心理咨询等专业建议。
