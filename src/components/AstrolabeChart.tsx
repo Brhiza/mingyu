@@ -142,7 +142,7 @@ export function AstrolabeChart({
         })}
       </svg>
       {fortunePoint ? (
-        <div className="astrolabe-point-highlights" aria-label="重要虚拟点">
+        <div className="astrolabe-point-highlights" role="group" aria-label="重要虚拟点">
           <span className="astrolabe-point-highlight">
             <strong>福点</strong>
             <span>
