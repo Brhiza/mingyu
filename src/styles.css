@@ -6148,6 +6148,39 @@ select {
   font-weight: 700;
 }
 
+.astrolabe-point-marker.is-fortune .astrolabe-planet-dot {
+  fill: var(--accent-soft);
+  stroke-width: 1.6;
+}
+
+.astrolabe-point-marker.is-fortune .astrolabe-planet-label {
+  fill: var(--accent-strong);
+}
+
+.astrolabe-point-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.astrolabe-point-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.astrolabe-point-highlight strong {
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+
 .divination-result-skeleton {
   display: grid;
   gap: 12px;
