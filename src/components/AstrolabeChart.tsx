@@ -1,5 +1,19 @@
 import type { AstrolabeData } from '@/types/divination';
 
+const VISIBLE_POINT_NAMES = new Set([
+  'Sun',
+  'Moon',
+  'Mercury',
+  'Venus',
+  'Mars',
+  'Jupiter',
+  'Saturn',
+  'Uranus',
+  'Neptune',
+  'Pluto',
+  'Part of Fortune',
+]);
+
 function toChartPoint(longitude: number, radius: number) {
   const angle = ((longitude - 90) * Math.PI) / 180;
   return {
@@ -15,19 +29,8 @@ export function AstrolabeChart({
   data: AstrolabeData;
   showHeader?: boolean;
 }) {
-  const majorPlanetNames = new Set([
-    'Sun',
-    'Moon',
-    'Mercury',
-    'Venus',
-    'Mars',
-    'Jupiter',
-    'Saturn',
-    'Uranus',
-    'Neptune',
-    'Pluto',
-  ]);
-  const visiblePlanets = data.planets.filter((planet) => majorPlanetNames.has(planet.name));
+  const visiblePlanets = data.planets.filter((planet) => VISIBLE_POINT_NAMES.has(planet.name));
+  const fortunePoint = data.planets.find((planet) => planet.name === 'Part of Fortune');
   const zodiacSigns = [
     '白羊',
     '金牛',
@@ -51,7 +54,16 @@ export function AstrolabeChart({
           <span>{data.birth.dateTime}</span>
         </div>
       ) : null}
-      <svg className="astrolabe-chart-svg" viewBox="0 0 300 300" role="img" aria-label="星盘图">
+      <svg
+        className="astrolabe-chart-svg"
+        viewBox="0 0 300 300"
+        role="img"
+        aria-label={
+          fortunePoint
+            ? `星盘图，福点位于${fortunePoint.formatted}，第${fortunePoint.house}宫`
+            : '星盘图'
+        }
+      >
         <circle cx="150" cy="150" r="132" className="astrolabe-ring-outer" />
         <circle cx="150" cy="150" r="104" className="astrolabe-ring-inner" />
         <circle cx="150" cy="150" r="58" className="astrolabe-ring-core" />
@@ -113,8 +125,14 @@ export function AstrolabeChart({
         })}
         {visiblePlanets.map((planet) => {
           const point = toChartPoint(planet.longitude, 78);
+          const isFortunePoint = planet.name === 'Part of Fortune';
           return (
-            <g key={planet.name}>
+            <g
+              key={planet.name}
+              className={`astrolabe-point-marker${isFortunePoint ? ' is-fortune' : ''}`}
+              data-point-name={planet.name}
+            >
+              <title>{`${planet.label}：${planet.formatted}，第${planet.house}宫`}</title>
               <circle cx={point.x} cy={point.y} r="8" className="astrolabe-planet-dot" />
               <text x={point.x} y={point.y + 3} className="astrolabe-planet-label">
                 {planet.label.slice(0, 1)}
@@ -123,6 +141,16 @@ export function AstrolabeChart({
           );
         })}
       </svg>
+      {fortunePoint ? (
+        <div className="astrolabe-point-highlights" aria-label="重要虚拟点">
+          <span className="astrolabe-point-highlight">
+            <strong>福点</strong>
+            <span>
+              {fortunePoint.formatted} · 第{fortunePoint.house}宫
+            </span>
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
