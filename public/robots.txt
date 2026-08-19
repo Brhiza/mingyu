@@ -1,0 +1,6 @@
+# robots.txt for 命语 (mingyu-core)
+# TODO: 将下方 Sitemap 的域名替换为真实上线域名
+User-agent: *
+Allow: /
+
+Sitemap: https://mingyu.example.com/sitemap.xml

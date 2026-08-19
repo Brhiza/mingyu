@@ -22,6 +22,11 @@ const TutorialPage = lazy(async () => {
   return { default: module.TutorialPage };
 });
 
+const PrivacyPage = lazy(async () => {
+  const module = await import('./pages/PrivacyPage');
+  return { default: module.PrivacyPage };
+});
+
 export default function App() {
   return (
     <Suspense
@@ -46,9 +51,29 @@ export default function App() {
           <Route path="/tutorial" element={<TutorialPage />} />
           <Route path="/records" element={<RecordsPage />} />
           <Route path="/result" element={<ResultPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ErrorBoundary>
+      <footer
+        className="global-disclaimer"
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          padding: '6px 12px',
+          fontSize: 11,
+          lineHeight: 1.4,
+          textAlign: 'center',
+          color: '#d8cfe0',
+          background: 'rgba(19, 16, 25, 0.92)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+        }}
+      >
+        For entertainment and self-reflection purposes only. Not a substitute for professional advice.
+      </footer>
     </Suspense>
   );
 }
