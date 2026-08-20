@@ -1,7 +1,7 @@
 {
   "name": "mingyu-core",
   "version": "0.1.29",
-  "description": "Mingyu core algorithms: traditional Chinese metaphysics (八字Bazi, 紫微斗数Ziwei, 奇门遁甲Qimen, 六爻Liuyao, 六壬Liuren, 梅花易数Meihua, and more)",
+  "description": "TypeScript 算命、占卜与玄学排盘算法：八字、紫微斗数、六爻、奇门遁甲、塔罗、择日等",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -311,6 +311,14 @@
     }
   },
   "keywords": [
+    "算命",
+    "在线算命",
+    "占卜",
+    "玄学",
+    "命理",
+    "看运势",
+    "fortune-telling",
+    "astrology",
     "bazi",
     "八字",
     "ziweidoushu",
@@ -329,7 +337,11 @@
     "location",
     "中国省市区",
     "chinese-metaphysics",
-    "divination"
+    "divination",
+    "tarot",
+    "塔罗",
+    "择日",
+    "黄道吉日"
   ],
   "author": "Brhiza",
   "license": "MIT",

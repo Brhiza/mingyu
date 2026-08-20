@@ -232,11 +232,21 @@ test('公开 API 元数据应跟随当前访问域名', async () => {
   const body = (await response.json()) as {
     ok: boolean;
     meta: { service: string };
-    data: { service: string; baseUrl: string; openapiUrl: string; skillUrl: string };
+    data: {
+      description: string;
+      keywords: string[];
+      service: string;
+      baseUrl: string;
+      openapiUrl: string;
+      skillUrl: string;
+    };
   };
 
   assert.equal(body.ok, true);
   assert.equal(body.meta.service, 'example.pages.dev');
+  assert.match(body.data.description, /算命/);
+  assert.ok(body.data.keywords.includes('占卜'));
+  assert.ok(body.data.keywords.includes('玄学'));
   assert.equal(body.data.service, 'example.pages.dev');
   assert.equal(body.data.baseUrl, 'https://example.pages.dev/api/v1');
   assert.equal(body.data.openapiUrl, 'https://example.pages.dev/api/v1/openapi.json');
@@ -273,6 +283,8 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.equal(body.ok, true);
   assert.match(body.data.info.description, /黄历择日/);
   assert.match(body.data.info.description, /星盘/);
+  assert.match(body.data.info.description, /算命/);
+  assert.match(body.data.info.description, /玄学/);
   assert.equal(
     body.data.paths['/divination/{method}/prompt'].post.summary,
     '起卦、抽牌或排盘并生成 AI 解读提示词',

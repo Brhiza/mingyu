@@ -2,6 +2,21 @@
   "name": "mingyu",
   "private": true,
   "version": "0.1.0",
+  "description": "免费开源的在线算命、占卜、玄学排盘与 AI 解读提示词工具",
+  "keywords": [
+    "算命",
+    "占卜",
+    "玄学",
+    "命理",
+    "看运势",
+    "八字",
+    "紫微斗数",
+    "塔罗",
+    "黄历择日",
+    "chinese-metaphysics",
+    "fortune-telling",
+    "divination"
+  ],
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
