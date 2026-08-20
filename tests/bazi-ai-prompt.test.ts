@@ -10,7 +10,7 @@ import { identifyClassicPattern as identifyClassicPatternCore } from '../package
 import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/bazi/baziEnhancement/classicPatterns';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
-import { assertPromptHasSingleRole } from './prompt-assertions';
+import { assertPromptHasAnswerFramework, assertPromptHasSingleRole } from './prompt-assertions';
 
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(
@@ -908,7 +908,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   assert.doesNotMatch(parentsPrompt.user, /【合盘分析思路】|【父母研判】/);
 });
 
-test('八字合盘自定义问题不应额外拼接框架任务书', () => {
+test('八字合盘自定义问题不拼接关系预设，只保留通用短框架', () => {
   const { result1, result2 } = createCompatibilityBaziResults();
 
   const prompt = getCompatibilityPrompt(
@@ -922,6 +922,7 @@ test('八字合盘自定义问题不应额外拼接框架任务书', () => {
   assertPromptHasSingleRole(prompt.user, PROMPT_ROLE_TEXT['bazi-compatibility']);
   assert.match(prompt.user, /【问题】\n我们现在更适合继续推进合作，还是先保持距离？/);
   assert.doesNotMatch(prompt.user, /【合盘分析思路】/);
-  assert.doesNotMatch(prompt.user, /【任务】/);
+  assert.match(prompt.user, /【任务】\n请依据双方盘面和双盘关系资料回答【问题】。/);
+  assertPromptHasAnswerFramework(prompt.user);
   assert.doesNotMatch(prompt.user, /【输出要求】/);
 });

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -19,7 +19,7 @@ const ssgwPromptSchema = ssgwSchema.extend({
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
-    .describe('提示词模式：framework=内置完整框架, custom=只围绕用户问题自由作答'),
+    .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
 });
 
 export function registerSsgwTool(server: McpServer) {
@@ -46,9 +46,7 @@ export function registerSsgwTool(server: McpServer) {
       description:
         '三山国王灵签求签并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要签号、签题与签诗原文时调用 divine_ssgw',
       inputSchema: ssgwPromptSchema.shape,
-      outputSchema: {
-        prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
-      },
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {

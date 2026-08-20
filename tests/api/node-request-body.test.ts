@@ -4,8 +4,8 @@ import { PassThrough } from 'node:stream';
 import {
   readLimitedNodeRequestBody,
   type NodeRequestBodySource,
-} from '../src/lib/http/node-request-body';
-import { RequestBodyTooLargeError } from '../src/lib/http/request-body';
+} from '../../src/lib/http/node-request-body';
+import { RequestBodyTooLargeError } from '../../src/lib/http/request-body';
 
 function createBodySource(chunks: string[], contentLength?: string): NodeRequestBodySource {
   const stream = new PassThrough();

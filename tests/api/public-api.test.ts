@@ -1,20 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handlePublicApiRequest, isPublicApiRequestPath } from '../src/lib/public-api/handler';
-import { onRequest as handleWellKnownApiRequest } from '../functions/.well-known/[[path]]';
-import { buildZiweiChartInput, calculateFullZiweiChart } from '../src/lib/full-chart-engine/ziwei';
+import { handlePublicApiRequest, isPublicApiRequestPath } from '../../src/lib/public-api/handler';
+import { onRequest as handleWellKnownApiRequest } from '../../functions/.well-known/[[path]]';
+import {
+  buildZiweiChartInput,
+  calculateFullZiweiChart,
+} from '../../src/lib/full-chart-engine/ziwei';
 import {
   buildBaziZiweiPromptForResults,
   buildBaziPromptForResult,
   buildZiweiPromptForRuntime,
   type BaziPromptTopic,
-} from '../src/lib/public-api/prompt-builders';
+} from '../../src/lib/public-api/prompt-builders';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';
-import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from './prompt-assertions';
-import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
+import {
+  assertPromptHasAnswerFramework,
+  assertPromptHasSingleRole,
+  assertPromptIsPortableTaskText,
+} from '../prompt-assertions';
+import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../../src/lib/prompt-guidance';
 
 async function callApi(path: string, init?: RequestInit) {
   const request = new Request(`https://aov.cc/api/v1/${path}`, init);
@@ -25,6 +32,42 @@ async function callApi(path: string, init?: RequestInit) {
     body: text ? JSON.parse(text) : null,
   };
 }
+
+function createZiweiRuntimeFixture(input: Parameters<typeof calculateFullZiweiChart>[0]) {
+  let runtimePromise: ReturnType<typeof calculateFullZiweiChart> | undefined;
+  return () => {
+    runtimePromise ??= calculateFullZiweiChart(input);
+    return runtimePromise;
+  };
+}
+
+const getMaleZiweiRuntime = createZiweiRuntimeFixture(
+  buildZiweiChartInput({
+    name: '测试',
+    gender: 'male',
+    dateType: 'solar',
+    year: '1990',
+    month: '5',
+    day: '15',
+    timeIndex: 1,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  }),
+);
+
+const getFemaleZiweiRuntime = createZiweiRuntimeFixture(
+  buildZiweiChartInput({
+    name: '测试',
+    gender: 'female',
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '21',
+    timeIndex: 4,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  }),
+);
 
 function assertEvidenceOwnerReferences(evidence: unknown) {
   const data = evidence as {
@@ -1467,7 +1510,7 @@ test('公开 API 应支持八字紫微合参提示词', async () => {
   assertPromptIsPortableTaskText(body.data.prompt);
 });
 
-test('八字紫微合参提示词自定义模式不额外拼接任务框架', async () => {
+test('八字紫微合参自定义模式不拼接预设主题，只保留通用短框架', async () => {
   const person = {
     gender: 'male' as const,
     year: 1990,
@@ -1479,19 +1522,7 @@ test('八字紫微合参提示词自定义模式不额外拼接任务框架', as
     useTrueSolarTime: false,
   };
   const baziResult = baziCalculator.calculateBazi(person);
-  const ziweiResult = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'male',
-      dateType: 'solar',
-      year: '1990',
-      month: '5',
-      day: '15',
-      timeIndex: 1,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
+  const ziweiResult = await getMaleZiweiRuntime();
 
   const prompt = buildBaziZiweiPromptForResults({
     baziResult,
@@ -1506,7 +1537,8 @@ test('八字紫微合参提示词自定义模式不额外拼接任务框架', as
   assert.match(prompt, /【八字排盘信息】/);
   assert.match(prompt, /【紫微盘面信息】/);
   assert.match(prompt, /【问题】\n只看今年是否适合跳槽。/);
-  assert.doesNotMatch(prompt, /【任务】/);
+  assert.match(prompt, /【任务】\n请依据八字和紫微盘面资料回答【问题】。/);
+  assertPromptHasAnswerFramework(prompt);
   assert.doesNotMatch(prompt, /【输出要求】/);
 });
 
@@ -1708,7 +1740,7 @@ test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据
   assert.doesNotMatch(body.data.prompt, /结构化证据|证据汇总|解释边界|计算链/);
 });
 
-test('公开 API 八字自定义提示词不强塞专项框架', async () => {
+test('公开 API 八字自定义提示词不强塞专项任务，只保留通用短框架', async () => {
   const { response, body } = await callApi('bazi/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1729,7 +1761,8 @@ test('公开 API 八字自定义提示词不强塞专项框架', async () => {
   assert.match(body.data.prompt, /【排盘信息】/);
   assert.match(body.data.prompt, /只看我问的这个具体问题/);
   assert.doesNotMatch(body.data.prompt, /【问题研判框架】/);
-  assert.doesNotMatch(body.data.prompt, /【任务】/);
+  assert.match(body.data.prompt, /【任务】\n请依据八字排盘资料回答【问题】。/);
+  assertPromptHasAnswerFramework(body.data.prompt);
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
 });
 
@@ -1967,19 +2000,7 @@ test('公开 API 紫微空问题应返回 400，保持 question 必填契约', a
 });
 
 test('紫微公开 API prompt builder 空问题走通用问题，主题只作为范围', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
+  const runtime = await getFemaleZiweiRuntime();
 
   const prompt = buildZiweiPromptForRuntime({
     result: runtime,
@@ -1995,19 +2016,7 @@ test('紫微公开 API prompt builder 空问题走通用问题，主题只作为
 });
 
 test('紫微公开 API 工作变动主题只切换范围，不补固定问题', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
+  const runtime = await getFemaleZiweiRuntime();
 
   const prompt = buildZiweiPromptForRuntime({
     result: runtime,
@@ -2024,19 +2033,7 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
 });
 
 test('紫微提示词按三合、飞星、四化流派输出对应任务与依据', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
+  const runtime = await getFemaleZiweiRuntime();
 
   const prompts = {
     sanhe: buildZiweiPromptForRuntime({
@@ -2549,7 +2546,8 @@ test('公开 API 紫微自定义提示词不强塞分析思路', async () => {
   assert.match(body.data.prompt, /只回答我这个具体问题/);
   assert.match(body.data.prompt, /分析主题：自由聊天/);
   assert.doesNotMatch(body.data.prompt, /【分析思路】/);
-  assert.doesNotMatch(body.data.prompt, /【任务】/);
+  assert.match(body.data.prompt, /【任务】\n请依据紫微盘面资料回答【问题】。/);
+  assertPromptHasAnswerFramework(body.data.prompt);
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
 });
 
@@ -4106,7 +4104,7 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   );
 });
 
-test('公开 API 占卜自定义提示词不强塞任务和输出要求', async () => {
+test('公开 API 占卜自定义提示词保留方法任务和通用短框架', async () => {
   const { response, body } = await callApi('divination/meihua/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -4122,7 +4120,8 @@ test('公开 API 占卜自定义提示词不强塞任务和输出要求', async 
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【占卜信息】/);
   assert.match(body.data.prompt, /只看这件具体事/);
-  assert.doesNotMatch(body.data.prompt, /【任务】/);
+  assert.match(body.data.prompt, /【任务】\n依据体用、互卦、变卦与四时旺衰回答【问题】。/);
+  assertPromptHasAnswerFramework(body.data.prompt);
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
 });
 

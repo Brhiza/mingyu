@@ -21,7 +21,7 @@ export function extendPromptSchema<T extends z.ZodRawShape>(
     promptMode: z
       .enum(PROMPT_MODES)
       .optional()
-      .describe('提示词模式：framework=内置完整框架, custom=只围绕用户问题自由作答'),
+      .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
   });
 }
 
@@ -36,7 +36,7 @@ export function extendOptionalQuestionPromptSchema<T extends z.ZodRawShape>(
     promptMode: z
       .enum(PROMPT_MODES)
       .optional()
-      .describe('提示词模式：framework=内置完整框架, custom=只围绕用户问题自由作答'),
+      .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
   });
 }
 

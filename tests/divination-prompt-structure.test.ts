@@ -853,6 +853,7 @@ test('自定义占卜问题不强塞应期判断方法', () => {
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.meihua);
   assert.match(prompt, /【占卜信息】/);
   assert.match(prompt, /【问题】/);
+  assert.match(prompt, /【任务】\n依据体用、互卦、变卦与四时旺衰回答【问题】。/);
   assert.doesNotMatch(prompt, /【应期判断方法】/);
 });
 

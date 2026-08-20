@@ -111,7 +111,7 @@ import {
   type ZiweiPromptTopic,
   type ZiweiSchool,
 } from './prompt-builders';
-import { handleAiAnalyze, handleAiModels, type AiEnv } from '../ai/proxy';
+import { handleAiAnalyze, handleAiModels, type AiEnv, type AiRuntime } from '../ai/proxy';
 import {
   API_VERSION,
   DEFAULT_PUBLIC_API_RUNTIME,
@@ -1655,7 +1655,12 @@ export function normalizeApiPath(pathname: string) {
   return path.replace(/^\/+/, '').split('/').filter(Boolean);
 }
 
-export async function handlePublicApiRequest(request: Request, segments?: string[], env?: AiEnv) {
+export async function handlePublicApiRequest(
+  request: Request,
+  segments?: string[],
+  env?: AiEnv,
+  aiRuntime?: AiRuntime,
+) {
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -1668,11 +1673,11 @@ export async function handlePublicApiRequest(request: Request, segments?: string
 
   // AI 解析走独立的 SSE 流式响应，不经过 JSON 包装
   if (routeSegments.join('/') === 'ai/analyze' && request.method === 'POST') {
-    return handleAiAnalyze(request, env);
+    return handleAiAnalyze(request, env, aiRuntime);
   }
 
   if (routeSegments.join('/') === 'ai/models' && request.method === 'POST') {
-    return handleAiModels(request, env);
+    return handleAiModels(request, env, aiRuntime);
   }
 
   try {

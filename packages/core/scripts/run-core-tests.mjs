@@ -8,7 +8,7 @@ const repoRoot = resolve(scriptDir, '../../..');
 const testsDir = join(repoRoot, 'tests');
 
 const CORE_IMPORT_PATTERNS = [/packages\/core\/src/, /mingyu-core/, /@core\//];
-const INTEGRATION_TEST_PATHS = [/^tests\/mcp\//, /^tests\/public-api(?:-docs)?\.test\.ts$/];
+const NON_UNIT_TEST_PATHS = [/^tests\/(?:api|exhaustive|integration|mcp)\//];
 
 function walkTests(dir) {
   const result = [];
@@ -33,7 +33,7 @@ if (!existsSync(testsDir)) {
 const files = walkTests(testsDir)
   .filter((filePath) => {
     const relativePath = relative(repoRoot, filePath).replace(/\\/g, '/');
-    if (INTEGRATION_TEST_PATHS.some((pattern) => pattern.test(relativePath))) {
+    if (NON_UNIT_TEST_PATHS.some((pattern) => pattern.test(relativePath))) {
       return false;
     }
     const content = readFileSync(filePath, 'utf8');
@@ -48,7 +48,7 @@ if (files.length === 0) {
 }
 
 console.log(`运行 ${files.length} 个 mingyu-core 单元与算法测试文件。`);
-console.log('公开 API 与 MCP 集成测试由根目录 test:api、test:mcp 分层执行。');
+console.log('集成、公开 API、MCP 与穷举测试由根目录对应脚本分层执行。');
 
 console.log('先构建 mingyu-core，确保包导出测试使用最新 dist 产物。');
 const buildResult = spawnSync('pnpm', ['--filter', 'mingyu-core', 'build'], {

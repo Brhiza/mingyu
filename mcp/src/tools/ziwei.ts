@@ -17,7 +17,12 @@ import {
   type ZiweiPromptTopic,
   type ZiweiSchool,
 } from '../../../src/lib/public-api/prompt-builders.js';
-import { calculationDetailShape, ziweiOutputSchema } from '../schemas.js';
+import {
+  calculationDetailShape,
+  promptOutputSchema,
+  withErrorOutputSchema,
+  ziweiOutputSchema,
+} from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -74,7 +79,7 @@ const ziweiPromptSchema = ziweiSchema.extend({
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
-    .describe('提示词模式：framework=内置完整框架, custom=只围绕用户问题自由作答'),
+    .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
   school: z
     .enum(ZIWEI_SCHOOLS)
     .optional()
@@ -101,7 +106,7 @@ const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
-    .describe('framework=内置关系框架，custom=只围绕用户问题作答'),
+    .describe('framework=内置关系任务，custom=用户问题加通用短答题框架'),
   schools: z
     .array(z.enum(ZIWEI_SCHOOLS))
     .min(1)
@@ -188,9 +193,7 @@ export function registerZiweiTool(server: McpServer) {
       description:
         '紫微斗数排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要命盘数据时调用 ziwei_calculate',
       inputSchema: ziweiPromptSchema.shape,
-      outputSchema: {
-        prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
-      },
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {
@@ -224,10 +227,10 @@ export function registerZiweiTool(server: McpServer) {
       description:
         '紫微双盘结构化证据计算：返回双方本命盘、关键宫位叠盘、跨盘生年四化落宫和解释边界，不输出匹配总分',
       inputSchema: { ...ziweiCompatibilitySchema.shape, ...calculationDetailShape },
-      outputSchema: {
+      outputSchema: withErrorOutputSchema({
         charts: z.unknown().describe('双方紫微本命盘'),
         compatibility: z.unknown().describe('宫位叠盘、四化交叉落宫与结构化证据'),
-      },
+      }),
     },
     async (args) => {
       try {
@@ -267,9 +270,7 @@ export function registerZiweiTool(server: McpServer) {
       description:
         '紫微双盘计算并生成结构化 AI 提示词：保留宫位叠盘、跨盘四化证据、方法说明和解释限制',
       inputSchema: ziweiCompatibilityPromptSchema.shape,
-      outputSchema: {
-        prompt: z.string().describe('可直接用于 AI 解读的完整证据提示词'),
-      },
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {

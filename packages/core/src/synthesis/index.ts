@@ -5,6 +5,7 @@ import { getShichenByIndex } from '../calendar/dateUtils';
 import type { BirthProfile } from '../profile';
 import type { EvidenceFact, PalaceFact, ScopeType } from '../types/analysis';
 import type { ZiweiRuntime, ZiweiRuntimeOptions } from '../ziwei/runtime';
+import { buildPromptTask } from '../prompt/guidance';
 
 export type BaziZiweiSynthesisThemeId =
   | 'overview'
@@ -479,7 +480,9 @@ export function formatBaziZiweiSynthesisForPrompt(
 
   return [
     '【任务】',
-    `请为${synthesis.subjectName || '命主'}完成八字与紫微斗数合参。逐主题先分别说明两套体系的判断依据，再归纳相互印证、彼此补充与口径差异，形成有条件、有层次的整体解读。${detailLabel}。`,
+    buildPromptTask(
+      `请为${synthesis.subjectName || '命主'}完成八字与紫微斗数合参。逐主题先分别说明两套体系的判断依据，再归纳相互印证、彼此补充与口径差异，形成有条件、有层次的整体解读。${detailLabel}。解读覆盖命局总纲、性情与能力、事业、财帛、感情、家庭、身心、迁移、内在状态与岁运，最后归纳当前阶段最值得关注的三条主线。`,
+    ),
     options.question ? `重点回应：${options.question}` : '',
     '',
     '【运限基准】',
@@ -487,9 +490,6 @@ export function formatBaziZiweiSynthesisForPrompt(
     '',
     '【合参资料】',
     themeText,
-    '',
-    '【输出结构】',
-    '依次输出命局总纲、性情与能力、事业、财帛、感情、家庭、身心、迁移、内在状态、大运与流年；每一部分写明八字依据、紫微依据和合参结论，最后归纳当前阶段最值得关注的三条主线。',
   ]
     .filter((line) => line !== '')
     .join('\n');

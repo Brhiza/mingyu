@@ -28,6 +28,13 @@ const ziwei = {
   },
 };
 
+let combinedReadingPromise: ReturnType<typeof calculateBaziZiweiCombinedReading> | undefined;
+
+function getCombinedReading() {
+  combinedReadingPromise ??= calculateBaziZiweiCombinedReading(profile, { ziwei });
+  return combinedReadingPromise;
+}
+
 test('八字紫微合参缺少明确运限基准时间时应拒绝计算', async () => {
   await assert.rejects(
     () => calculateBaziZiweiCombinedReading(profile),
@@ -42,7 +49,7 @@ test('八字紫微合参缺少明确运限基准时间时应拒绝计算', async
 });
 
 test('八字紫微合参应按主题保留两套结构化资料', async () => {
-  const reading = await calculateBaziZiweiCombinedReading(profile, { ziwei });
+  const reading = await getCombinedReading();
 
   assert.ok(reading.bundle.bazi);
   assert.ok(reading.bundle.ziwei);
@@ -71,7 +78,7 @@ test('八字紫微合参应按主题保留两套结构化资料', async () => {
 });
 
 test('合参提示词应支持不同解读层级并保持完整任务结构', async () => {
-  const reading = await calculateBaziZiweiCombinedReading(profile, { ziwei });
+  const reading = await getCombinedReading();
   const prompt = formatBaziZiweiSynthesisForPrompt(reading.synthesis, {
     detailLevel: 'professional',
     question: '重点分析未来十年的事业与迁移。',

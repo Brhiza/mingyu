@@ -27,7 +27,7 @@ import type {
   SupplementaryInfo,
 } from '../types/divination';
 import { formatPromptCurrentTime } from './current-time';
-import { buildPromptGuidance } from './guidance';
+import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
 import { buildPromptSchoolSection, type PromptSchoolMethod } from './schools';
 import type { AstrolabePromptTopic } from './astrolabe';
@@ -545,8 +545,10 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
   const liurenTemplate = options.liurenTemplate ?? 'general';
   const astrolabeTopic = options.astrolabeTopic ?? 'life';
   const task =
-    options.method === 'astrolabe'
-      ? `请依据星体、宫位、相位和盘面证据，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`
+    options.method === 'astrolabe' && !options.isCustomQuestion
+      ? buildPromptTask(
+          `请依据星体、宫位、相位和盘面证据，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`,
+        )
       : buildTaskText(options.method);
   const templateText =
     options.method === 'liuyao'
@@ -571,7 +573,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
       : buildPromptSchoolSection(options.method as PromptSchoolMethod, options.schools),
     buildPromptSection('问题', question),
     templateText ? buildPromptSection('问题范围', templateText) : '',
-    options.isCustomQuestion ? '' : buildPromptSection('任务', task),
+    buildPromptSection('任务', task),
   ]);
   return buildPromptDocument(user);
 }

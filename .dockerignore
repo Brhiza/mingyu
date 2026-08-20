@@ -1,6 +1,13 @@
 .git
+.local
+.claude
+.playwright-cli
+.workbuddy
 node_modules
 dist
+server-dist
+output
+tmp
 .wrangler
 .dev.vars
 .env

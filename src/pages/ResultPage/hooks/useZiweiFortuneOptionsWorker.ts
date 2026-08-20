@@ -82,6 +82,10 @@ export function useZiweiFortuneOptionsWorker(
     const timer = window.setTimeout(() => {
       if (settled) return;
       settled = true;
+      worker.terminate();
+      if (workerRef.current === worker) {
+        workerRef.current = null;
+      }
       setYearOptions([]);
       setMonthOptions([]);
       setDayOptions([]);
@@ -135,6 +139,12 @@ export function useZiweiFortuneOptionsWorker(
     });
 
     return () => {
+      if (!settled) {
+        worker.terminate();
+        if (workerRef.current === worker) {
+          workerRef.current = null;
+        }
+      }
       settled = true;
       window.clearTimeout(timer);
     };

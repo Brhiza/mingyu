@@ -126,6 +126,23 @@ export type DivinationPromptGuidanceMethod =
   | 'almanac'
   | 'astrolabe';
 
+export const PROMPT_ANSWER_FRAMEWORK =
+  '先给出清晰结论，再说明主要依据及其相互作用；如盘面呈现过程或时间层级，再说明阶段变化与可观察信号。';
+
+/** 在具体任务后追加一条跨体系共用的简短答题骨架。 */
+export function buildPromptTask(task: string) {
+  const normalizedTask = task.trim();
+  if (!normalizedTask) return PROMPT_ANSWER_FRAMEWORK;
+  if (normalizedTask.includes(PROMPT_ANSWER_FRAMEWORK)) return normalizedTask;
+  const separator = /[。！？]$/.test(normalizedTask) ? '' : '。';
+  return `${normalizedTask}${separator}${PROMPT_ANSWER_FRAMEWORK}`;
+}
+
+/** 自由提问只保留中性任务，不附加任何预设主题。 */
+export function buildCustomQuestionTask(subject = '以上资料') {
+  return buildPromptTask(`请依据${subject.trim() || '以上资料'}回答【问题】`);
+}
+
 export function buildPromptGuidanceSections(method: PromptGuidanceId) {
   // 签谱提示词只允许携带本次签谱资料；签文、典故和解签由盘面资料本身提供。
   if (method === 'ssgw') return '';

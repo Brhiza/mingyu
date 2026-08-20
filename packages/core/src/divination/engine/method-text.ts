@@ -1,6 +1,7 @@
 import type { DivinationMethodId } from '../config';
+import { buildPromptTask } from '../../prompt/guidance';
 
-export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
+function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>) {
   switch (method) {
     case 'liuyao':
       return '依据用神、世应、动变、伏神与月日资料回答【问题】。';
@@ -27,4 +28,8 @@ export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     default:
       return '请结合占卜信息回答【问题】。';
   }
+}
+
+export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
+  return buildPromptTask(buildMethodTaskText(method));
 }

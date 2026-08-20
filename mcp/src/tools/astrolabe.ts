@@ -10,7 +10,7 @@ import {
 } from '../../../src/lib/astrolabe-scope.js';
 import { buildAstrolabeSynastryPrompt } from '../../../src/lib/astrolabe-synastry-prompt.js';
 import type { AstrolabeData } from '../../../src/types/divination.js';
-import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -217,9 +217,7 @@ export function registerAstrolabeTool(server: McpServer) {
       description:
         '星盘生成并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要星盘和结构化证据时调用 divine_astrolabe',
       inputSchema: astrolabePromptSchema.shape,
-      outputSchema: {
-        prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
-      },
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {
@@ -264,9 +262,7 @@ export function registerAstrolabeTool(server: McpServer) {
       description:
         '西洋占星双盘计算并生成可直接使用的完整任务书，仅返回提示词；需要本命盘和跨盘证据时调用 astrolabe_synastry',
       inputSchema: astrolabeSynastryPromptSchema.shape,
-      outputSchema: {
-        prompt: z.string().describe('可直接用于 AI 解读的双盘证据提示词'),
-      },
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {

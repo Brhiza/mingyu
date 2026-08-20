@@ -364,7 +364,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 
 八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`baziSchools`、`ziweiSchools`、`responseMode`。默认只返回 `data.prompt`；需要轻量双盘摘要时传 `responseMode: "summary"`，需要完整双盘时传 `responseMode: "full"`。
 
-`promptMode` 支持：`framework`（内置完整框架，默认）、`custom`（只围绕用户问题自由作答，不塞框架）。
+`promptMode` 支持：`framework`（内置主题任务，默认）、`custom`（只围绕用户问题，并保留通用短答题框架）。
 
 八字 `school` 支持：`traditional`（传统兼容名，等同子平派）、`ziping`（子平派月令格局、调候行运）、`mangpai`（盲派宫位十神、主宾体用、通根墓库、组合取象与分柱年限）、`xinpai`（新派旺衰判定、十神流通、喜忌落位与动态岁运）。选择盲派或新派后，提示词会写入对应的逐项盘面资料；不传则不附加流派段落。
 

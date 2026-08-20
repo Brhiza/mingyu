@@ -8,6 +8,7 @@ import {
   isServerDefaultAiEnabled,
 } from '../src/lib/ai/settings';
 import { getAiRuntimeConfig, getAiRuntimeConfigScript } from '../src/lib/ai/runtime-config';
+import { AI_CLIENT_ADDRESS_HEADER } from '../src/lib/ai/rate-limit';
 import { onRequest as handleRuntimeConfigRequest } from '../functions/_middleware';
 
 type RuntimeConfigGlobal = typeof globalThis & {
@@ -368,14 +369,15 @@ test('自定义 AI 应拒绝非 HTTPS、本机和内网接口地址', async () =
   }
 });
 
-test('自定义 AI 应允许 HTTPS 公网接口地址', async (t) => {
+test('自定义 AI 应允许解析到公网 IP 的 HTTPS 接口地址', async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => {
     globalThis.fetch = originalFetch;
   });
 
-  globalThis.fetch = (async (url: string | URL | Request) => {
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     assert.equal(String(url), 'https://api.example.com/v1/models');
+    assert.equal(init?.redirect, 'error');
     return new Response(JSON.stringify({ data: [{ id: 'public-model' }] }), {
       status: 200,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -393,11 +395,91 @@ test('自定义 AI 应允许 HTTPS 公网接口地址', async (t) => {
         },
       }),
     }),
+    undefined,
+    {
+      resolveHostname: async (hostname) => {
+        assert.equal(hostname, 'api.example.com');
+        return ['93.184.216.34', '2606:2800:220:1:248:1893:25c8:1946'];
+      },
+    },
   );
 
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.deepEqual(body, { ok: true, models: ['public-model'] });
+});
+
+test('自定义 AI 域名解析到内网或特殊用途地址时应拒绝请求', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let upstreamCalled = false;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async () => {
+    upstreamCalled = true;
+    throw new Error('不应请求上游');
+  }) as typeof fetch;
+
+  for (const address of ['127.0.0.1', '10.0.0.8', '198.18.0.19', '2001:db8::1', 'fc00::1']) {
+    const response = await handleAiModels(
+      new Request('https://example.com/api/v1/ai/models', {
+        method: 'POST',
+        body: JSON.stringify({
+          aiConfig: {
+            mode: 'custom',
+            apiKey: 'test-key',
+            baseUrl: 'https://public-name.example/v1',
+          },
+        }),
+      }),
+      undefined,
+      { resolveHostname: async () => [address] },
+    );
+
+    const body = await response.json();
+    assert.equal(response.status, 400, address);
+    assert.equal(body.error.code, 'AI_CUSTOM_BASE_URL_UNSAFE', address);
+  }
+
+  assert.equal(upstreamCalled, false);
+});
+
+test('内置 AI 应按可信客户端地址限制请求频率', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ data: [{ id: 'free/cc' }] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    })) as typeof fetch;
+
+  const createRequest = () =>
+    new Request('https://example.com/api/v1/ai/models', {
+      method: 'POST',
+      headers: { [AI_CLIENT_ADDRESS_HEADER]: '203.0.113.88' },
+      body: JSON.stringify({ aiConfig: { mode: 'builtin' } }),
+    });
+  const env = {
+    AI_API_KEY: 'test-key',
+    AI_BASE_URL: 'https://example.com/v1',
+    AI_MODEL: 'free/cc',
+    AI_BUILTIN_ENABLED: 'true',
+    AI_RATE_LIMIT_MAX_REQUESTS: '1',
+    AI_RATE_LIMIT_WINDOW_SECONDS: '60',
+  };
+
+  const first = await handleAiModels(createRequest(), env);
+  assert.equal(first.status, 200);
+
+  const second = await handleAiModels(createRequest(), env);
+  const body = await second.json();
+  assert.equal(second.status, 429);
+  assert.equal(second.headers.get('retry-after'), '60');
+  assert.equal(body.error.code, 'AI_RATE_LIMITED');
 });
 
 test('AI 解析遇到上游临时错误时会自动重试', async (t) => {
@@ -593,4 +675,48 @@ test('AI 流式响应中断时返回明确错误码', async (t) => {
   assert.match(text, /"content":"开头"/);
   assert.match(text, /"code":"AI_UPSTREAM_STREAM_ERROR"/);
   assert.match(text, /"detail":"upstream stream aborted"/);
+});
+
+test('AI 流式响应长时间无新内容时主动中止上游', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async () =>
+    new Response(
+      new ReadableStream({
+        pull() {
+          return new Promise<void>(() => undefined);
+        },
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+      },
+    )) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: '测试超时' }],
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'free/cc',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+    {
+      streamIdleTimeoutMs: 10,
+      streamTotalTimeoutMs: 50,
+    },
+  );
+
+  const text = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(text, /"code":"AI_UPSTREAM_TIMEOUT"/);
 });

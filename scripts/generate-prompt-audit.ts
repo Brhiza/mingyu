@@ -30,6 +30,7 @@ import { calculateHuangjiJingshi } from '@core/huangji-jingshi';
 import { calculateZodiacYearFortune } from '@core/zodiac';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
+import { PROMPT_ANSWER_FRAMEWORK } from '../src/lib/prompt-guidance';
 
 type PromptSample = {
   name: string;
@@ -340,7 +341,7 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     {
       label: '提示词任务噪音',
       pattern:
-        /【输出要求】|使用简体中文|简体中文输出|行动建议|现实建议|风险提醒|掷筊|投筊|提示:|留意:|合参要点|宿界模型|证据汇总|解释限制|结构化证据|计算链/,
+        /【输出结构】|【输出要求】|使用简体中文|简体中文输出|行动建议|现实建议|风险提醒|掷筊|投筊|提示:|留意:|合参要点|宿界模型|证据汇总|解释限制|结构化证据|计算链/,
     },
     {
       label: '重复或低价值展开',
@@ -350,6 +351,11 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
   ];
 
   samples.forEach((sample) => {
+    const frameworkCount = sample.prompt.split(PROMPT_ANSWER_FRAMEWORK).length - 1;
+    if (frameworkCount !== 1) {
+      leakedMessages.push(`${sample.name} 通用答题骨架出现 ${frameworkCount} 次`);
+    }
+
     const duplicatedSections = duplicateSectionNames(sample.prompt);
     if (duplicatedSections.length > 0) {
       leakedMessages.push(`${sample.name} 出现重复 section：${duplicatedSections.join('、')}`);

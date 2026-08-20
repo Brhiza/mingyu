@@ -1,4 +1,4 @@
-import { calculateZiweiDisplayPayload } from '@/lib/full-chart-engine';
+import { calculateZiweiDisplayPayload } from '@/lib/full-chart-engine/ziwei';
 import type { ChartInput } from '@/types/chart';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 

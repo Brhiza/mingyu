@@ -4235,7 +4235,7 @@ test('自定起卦时间缺少日期或时间时应明确提示', async () => {
   );
 });
 
-test('占卜自定义问题保留基础信息、用户问题且不强塞任务框架', async () => {
+test('占卜自定义问题保留资料与用户问题，并使用方法任务加通用短框架', async () => {
   const session = await generateDivinationSession(
     buildDraft({
       method: 'meihua',
@@ -4247,7 +4247,7 @@ test('占卜自定义问题保留基础信息、用户问题且不强塞任务�
   assert.ok(session.prompt.includes('【占卜信息】'));
   assert.ok(session.prompt.includes('【问题】'));
   assert.ok(session.prompt.includes('我自己只想问这个具体情况。'));
-  assert.ok(!session.prompt.includes('【任务】'));
+  assert.match(session.prompt, /【任务】\n依据体用、互卦、变卦与四时旺衰回答【问题】。/);
   assert.ok(!session.prompt.includes('【输出要求】'));
 });
 

@@ -139,6 +139,8 @@ AI_MODEL=deepseek-chat
 AI_PROVIDER_NAME=DeepSeek
 AI_BUILTIN_ENABLED=true
 AI_DEFAULT_ENABLED=false
+AI_RATE_LIMIT_MAX_REQUESTS=12
+AI_RATE_LIMIT_WINDOW_SECONDS=600
 VITE_ENABLE_DONATION_BOX=false
 ```
 
@@ -155,14 +157,19 @@ VITE_ENABLE_DONATION_BOX=false
 
 服务端环境变量：
 
-| 变量                 | 说明                                                    |
-| -------------------- | ------------------------------------------------------- |
-| `AI_API_KEY`         | 服务端调用模型的密钥                                    |
-| `AI_BASE_URL`        | OpenAI 兼容接口地址                                     |
-| `AI_MODEL`           | 默认模型名称                                            |
-| `AI_PROVIDER_NAME`   | 前端显示的服务商名称                                    |
-| `AI_BUILTIN_ENABLED` | `true` 时显示并允许使用内置 AI                          |
-| `AI_DEFAULT_ENABLED` | `true` 时默认进入 AI 解读；`false` 时默认使用提示词模式 |
+| 变量                           | 说明                                                              |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `AI_API_KEY`                   | 服务端调用模型的密钥                                              |
+| `AI_BASE_URL`                  | OpenAI 兼容接口地址                                               |
+| `AI_MODEL`                     | 默认模型名称                                                      |
+| `AI_PROVIDER_NAME`             | 前端显示的服务商名称                                              |
+| `AI_BUILTIN_ENABLED`           | `true` 时显示并允许使用内置 AI                                    |
+| `AI_DEFAULT_ENABLED`           | `true` 时默认进入 AI 解读；`false` 时默认使用提示词模式           |
+| `AI_RATE_LIMIT_MAX_REQUESTS`   | 单个客户端在窗口内最多调用内置 AI 的次数，默认 `12`               |
+| `AI_RATE_LIMIT_WINDOW_SECONDS` | 内置 AI 限流窗口秒数，默认 `600`                                  |
+| `AI_STREAM_IDLE_TIMEOUT_MS`    | 流式响应连续无新内容的超时，默认 `30000`                          |
+| `AI_STREAM_TOTAL_TIMEOUT_MS`   | 单次流式响应总时长上限，默认 `95000`                              |
+| `AI_TRUST_PROXY`               | 仅 Docker 位于可信反向代理后时设为 `true`，用于读取真实客户端地址 |
 
 Cloudflare Pages 的 Production 环境可使用：
 
@@ -173,22 +180,25 @@ AI_API_KEY=你的模型密钥
 AI_BASE_URL=https://api.deepseek.com/v1
 AI_MODEL=deepseek-chat
 AI_PROVIDER_NAME=DeepSeek
+AI_RATE_LIMIT_MAX_REQUESTS=12
+AI_RATE_LIMIT_WINDOW_SECONDS=600
 ```
 
 只设置 `AI_API_KEY` 不会自动显示内置 AI，必须同时设置 `AI_BUILTIN_ENABLED=true`。如果想提供可选内置 AI，但仍让访客默认复制提示词，保持 `AI_DEFAULT_ENABLED=false`。
 
-服务端会对网络异常、408、429 和 5xx 临时错误自动重试 2 次；鉴权失败和模型名错误不会重试。
+服务端会按客户端地址限制内置 AI 调用频率，并对网络异常、408、429 和 5xx 临时错误自动重试 2 次；鉴权失败和模型名错误不会重试。Cloudflare Pages 会自动使用平台提供的客户端地址；Docker 直接暴露端口时使用连接地址，只有位于可信反向代理后才设置 `AI_TRUST_PROXY=true`。
 
-| 错误码                       | 含义                         |
-| ---------------------------- | ---------------------------- |
-| `AI_UPSTREAM_UNSTABLE`       | 上游 AI 服务返回 5xx         |
-| `AI_UPSTREAM_RATE_LIMIT`     | 上游限流或额度受限           |
-| `AI_UPSTREAM_TIMEOUT`        | 上游响应超时                 |
-| `AI_UPSTREAM_AUTH_ERROR`     | API Key 无效、过期或账号异常 |
-| `AI_UPSTREAM_CONFIG_ERROR`   | 接口地址或模型名称不受支持   |
-| `AI_UPSTREAM_NETWORK_ERROR`  | 服务器无法连接上游           |
-| `AI_UPSTREAM_EMPTY_RESPONSE` | 上游成功但没有返回可读内容   |
-| `AI_UPSTREAM_STREAM_ERROR`   | 上游流式响应中途断开         |
+| 错误码                       | 含义                           |
+| ---------------------------- | ------------------------------ |
+| `AI_UPSTREAM_UNSTABLE`       | 上游 AI 服务返回 5xx           |
+| `AI_UPSTREAM_RATE_LIMIT`     | 上游限流或额度受限             |
+| `AI_RATE_LIMITED`            | 当前客户端调用内置 AI 过于频繁 |
+| `AI_UPSTREAM_TIMEOUT`        | 上游响应超时                   |
+| `AI_UPSTREAM_AUTH_ERROR`     | API Key 无效、过期或账号异常   |
+| `AI_UPSTREAM_CONFIG_ERROR`   | 接口地址或模型名称不受支持     |
+| `AI_UPSTREAM_NETWORK_ERROR`  | 服务器无法连接上游             |
+| `AI_UPSTREAM_EMPTY_RESPONSE` | 上游成功但没有返回可读内容     |
+| `AI_UPSTREAM_STREAM_ERROR`   | 上游流式响应中途断开           |
 
 `.dev.vars.example` 提供本地和 Cloudflare 配置模板。公开站点启用内置 AI 会产生调用成本，也会受到上游模型额度、限流和稳定性的影响。
 

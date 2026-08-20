@@ -14,7 +14,11 @@ import type { AstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import type { PalaceFact } from '@/types/analysis';
 import { safeStorage } from '@/lib/safe-storage';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
-import { buildPromptGuidanceSections } from '@/lib/prompt-guidance';
+import {
+  buildCustomQuestionTask,
+  buildPromptGuidanceSections,
+  buildPromptTask,
+} from '@/lib/prompt-guidance';
 import {
   baziCompatibilityShortcutActions,
   baziSingleShortcutActions,
@@ -225,11 +229,13 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${params.ziweiText}`,
     ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
-    ...(isCustomQuestion
-      ? []
-      : [
-          '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点。',
-        ]),
+    `【任务】\n${
+      isCustomQuestion
+        ? buildCustomQuestionTask('八字和紫微盘面资料')
+        : buildPromptTask(
+            '先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点。',
+          )
+    }`,
   ]
     .filter(Boolean)
     .join('\n\n');

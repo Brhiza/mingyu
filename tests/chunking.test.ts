@@ -10,22 +10,34 @@ test('React 与路由依赖会进入基础 vendor 分块', () => {
   );
 });
 
-test('命理核心模块进入统一计算分块，避免八字与紫微互相引用时产生循环分块', () => {
+test('八字与紫微核心模块分别分块，避免单个计算包过大', () => {
   assert.equal(getManualChunk('D:/project/node_modules/iztro/lib/index.js'), 'iztro-vendor');
   assert.equal(getManualChunk('D:/project/node_modules/tyme4ts/dist/index.js'), 'tyme-vendor');
   assert.equal(
     getManualChunk('D:/project/packages/core/src/ziwei/iztro/runtime-helpers.ts'),
-    'chart-engine',
+    'ziwei-engine',
   );
-  assert.equal(getManualChunk('D:/project/src/lib/full-chart-engine/ziwei.ts'), 'chart-engine');
-  assert.equal(getManualChunk('D:/project/src/lib/full-chart-engine/bazi.ts'), 'chart-engine');
+  assert.equal(getManualChunk('D:/project/src/lib/full-chart-engine/ziwei.ts'), 'ziwei-engine');
+  assert.equal(getManualChunk('D:/project/src/lib/full-chart-engine/bazi.ts'), 'bazi-engine');
   assert.equal(
     getManualChunk('D:/project/packages/core/src/bazi/baziCalculator.ts'),
-    'chart-engine',
+    'bazi-engine',
   );
   assert.equal(
     getManualChunk('D:/project/packages/core/src/ziwei/iztro/pattern-detection.ts'),
     'ziwei-patterns',
+  );
+  assert.equal(
+    getManualChunk('D:/project/packages/core/dist/ziwei/iztro/pattern-detection.js'),
+    'ziwei-patterns',
+  );
+  assert.equal(
+    getManualChunk('D:/project/packages/core/dist/ziwei/iztro/runtime-helpers.js'),
+    'ziwei-engine',
+  );
+  assert.equal(
+    getManualChunk('D:/project/packages/core/dist/bazi/baziCalculator.js'),
+    'bazi-engine',
   );
 });
 
@@ -38,15 +50,25 @@ test('八字运势面板相关模块会进入独立异步分块', () => {
     getManualChunk('D:/project/src/components/BaziFortuneTools/BaziFortuneModal.tsx'),
     'bazi-fortune-ui',
   );
-  assert.equal(getManualChunk('D:/project/packages/core/src/bazi/calendarTool.ts'), 'chart-engine');
+  assert.equal(getManualChunk('D:/project/packages/core/src/bazi/calendarTool.ts'), 'bazi-engine');
   assert.equal(
     getManualChunk('D:/project/packages/core/src/bazi/fortuneSelection/index.ts'),
-    'chart-engine',
+    'bazi-engine',
   );
   assert.equal(
     getManualChunk('D:/project/packages/core/src/bazi/fortuneModalSelection.ts'),
-    'chart-engine',
+    'bazi-engine',
   );
+});
+
+test('八字与紫微共用的历法和干支模块进入共享分块', () => {
+  assert.equal(
+    getManualChunk('D:/project/packages/core/dist/calendar/true-solar-time.js'),
+    'core-shared',
+  );
+  assert.equal(getManualChunk('D:/project/packages/core/src/ganzhi/relations.ts'), 'core-shared');
+  assert.equal(getManualChunk('D:/project/packages/core/dist/shared/result.js'), 'core-shared');
+  assert.equal(getManualChunk('D:/project/src/lib/time-policy.ts'), 'chart-engine-shared');
 });
 
 test('提示词生成模块会进入 prompt-engine 分块', () => {

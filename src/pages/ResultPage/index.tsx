@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
-} from '@/lib/full-chart-engine';
+} from '@/lib/full-chart-engine/ziwei';
 import {
   buildResultSearch,
   buildInputSearch,
