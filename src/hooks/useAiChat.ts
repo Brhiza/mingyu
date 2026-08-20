@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamAiChat, type ChatMessage } from '@/lib/ai/stream-client';
-import type { AiRequestConfig } from '@/lib/ai/settings';
 
 export type AiChatStatus = 'idle' | 'loading' | 'streaming' | 'done' | 'error';
 
@@ -34,7 +33,7 @@ export interface UseAiChat {
   cancel: () => void;
 }
 
-export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
+export function useAiChat(): UseAiChat {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
   const [status, setStatus] = useState<AiChatStatus>('idle');
@@ -114,7 +113,6 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
 
       streamAiChat(messages, {
         signal: controller.signal,
-        aiConfig,
         onChunk: (text) => {
           // 校验回调归属当前活跃请求
           if (abortRef.current !== controller) return;
@@ -152,7 +150,7 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
         },
       });
     },
-    [aiConfig],
+    [],
   );
 
   const analyze = useCallback(

@@ -275,7 +275,7 @@ test('紫微双盘提示词应包含主证、限制且不输出匹配总分', ()
   assert.ok(result.promptText.length < 10000);
   assert.doesNotMatch(
     result.promptText,
-    /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
+    /analysis_payload_v1|寻卜|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
   );
   assertPromptIsPortableTaskText(result.promptText);
   assert.doesNotMatch(result.promptText, /匹配(?:分数|率|百分比)/);

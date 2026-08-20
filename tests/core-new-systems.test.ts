@@ -157,7 +157,7 @@ test('bazhai: 命宅配合', () => {
   assert.match(r.evidenceAnalysis.promptText, /北（坎宫，中心0°）.*逐方关系为同为吉方/);
   assert.doesNotMatch(
     r.evidenceAnalysis.promptText,
-    /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
+    /寻卜|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
   );
   assert.match(r.prompt, /命宅配合：相合/);
 });
@@ -508,7 +508,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   );
   assert.doesNotMatch(
     r.evidenceAnalysis.promptText,
-    /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/,
+    /寻卜|本项目|项目统一|当前结果|工程|接口|API|MCP/,
   );
   for (const scope of ['month', 'day', 'hour'] as const) {
     assert.throws(

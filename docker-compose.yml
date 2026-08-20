@@ -7,9 +7,9 @@ services:
     ports:
       - '3000:3000'
     environment:
-      AI_API_KEY: ${AI_API_KEY:-}
-      AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com/v1}
-      AI_MODEL: ${AI_MODEL:-deepseek-chat}
+      AI_API_KEY: ${AI_API_KEY:-sk-0a697b11d772475185671f3d8c50bd99}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
+      AI_MODEL: ${AI_MODEL:-deepseek-v4-pro}
       AI_PROVIDER_NAME: ${AI_PROVIDER_NAME:-DeepSeek}
       AI_BUILTIN_ENABLED: ${AI_BUILTIN_ENABLED:-false}
       AI_DEFAULT_ENABLED: ${AI_DEFAULT_ENABLED:-false}

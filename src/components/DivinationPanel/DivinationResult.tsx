@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
@@ -6,7 +6,6 @@ import type { LiurenData, LiurenPlateItem, LiurenTransmission } from '@/types/di
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { TraditionalDivinationBoard } from '@/components/DivinationPanel/TraditionalDivinationBoard';
 import { useAiSettings } from '@/hooks/useAiSettings';
-import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
 import { getCompactDivinationSummary } from './compact-evidence';
 
@@ -183,7 +182,6 @@ export function DivinationResult({
 }: DivinationResultProps) {
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
-  const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
   const [isEvidenceOpen, setIsEvidenceOpen] = useState(!isPhoneLayout);
 
   useEffect(() => {
@@ -314,7 +312,6 @@ export function DivinationResult({
           autoStart={session.prompt}
           autoStartKey={session.prompt}
           resetKey={session.prompt}
-          aiConfig={aiRequestConfig}
         />
       </div>
     );

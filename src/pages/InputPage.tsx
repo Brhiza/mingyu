@@ -23,8 +23,6 @@ import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
-import { AiSettingsModal } from '@/components/AiSettingsModal';
-import { useAiSettings } from '@/hooks/useAiSettings';
 import { resolveInputEntryMode, type InputEntryMode } from './input-entry-mode';
 
 const DONATION_URL = 'https://lk.sydf.cc/';
@@ -44,8 +42,6 @@ export function InputPage() {
     resolveInputEntryMode(searchParams),
   );
   const [error, setError] = useState('');
-  const [aiSettings, setAiSettings] = useAiSettings();
-  const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState(false);
   const mainContentRef = useRef<HTMLDivElement | null>(null);
   const tutorialEntryRef = useRef<HTMLDivElement | null>(null);
   const [tutorialEntryPinned, setTutorialEntryPinned] = useState(false);
@@ -398,21 +394,12 @@ export function InputPage() {
                 value={entryMode}
                 options={[
                   { label: '排盘', value: 'single' as const },
-                  { label: '合盘', value: 'compatibility' as const },
+                  // { label: '合盘', value: 'compatibility' as const },
                   { label: '占卜', value: 'divination' as const },
-                  { label: '择日', value: 'almanac' as const },
+                  // { label: '择日', value: 'almanac' as const },
                 ]}
                 onChange={updateEntryMode}
               />
-              <button
-                type="button"
-                className="top-ai-settings-icon-button"
-                onClick={() => setIsAiSettingsModalOpen(true)}
-                aria-label="AI 设置"
-                title="AI 设置"
-              >
-                <span aria-hidden="true">⚙</span>
-              </button>
             </div>
           </div>
 
@@ -436,7 +423,7 @@ export function InputPage() {
                     openBirthPlaceModal={birthPlace.openBirthPlaceModal}
                     historyHint={
                       form.analysisMode === 'single'
-                        ? '填写一份个人信息，自动生成八字、紫微和住宅风水入口；填写精准时间与出生地后，同时生成星盘和七政四余。'
+                        ? '填写一份个人信息，自动生成八字和紫微；填写精准时间与出生地后，同时生成星盘和七政四余。'
                         : undefined
                     }
                   />
@@ -524,13 +511,6 @@ export function InputPage() {
       </div>
 
       {birthPlace.isBirthPlaceModalOpen ? <BirthPlaceModal birthPlace={birthPlace} /> : null}
-      {isAiSettingsModalOpen ? (
-        <AiSettingsModal
-          settings={aiSettings}
-          onApply={setAiSettings}
-          onClose={() => setIsAiSettingsModalOpen(false)}
-        />
-      ) : null}
     </div>
   );
 }

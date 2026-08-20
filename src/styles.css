@@ -4042,7 +4042,9 @@ select {
 
 .divination-method-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* 自适应列数：当前仅六爻、奇门遁甲两项可见，按内容宽度自动排布，
+     桌面端两按钮平分整行，移动端由下方媒体查询强制两列。 */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 8px;
 }
 
@@ -7827,8 +7829,9 @@ div.form-actions.page-submit-actions {
     gap: 12px;
   }
 
+  /* 小屏不再隐藏占卜类型网格，强制两列平铺，保持六爻/奇门遁甲可见可点 */
   .divination-method-grid {
-    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .liuyao-reveal-row {
@@ -7899,12 +7902,10 @@ div.form-actions.page-submit-actions {
     white-space: nowrap;
   }
 
+  /* 占卜类型已由上方 .divination-method-grid 直接展示，
+     隐藏移动端重复的下拉选择器，保留次级选项与灵感按钮 */
   .divination-mobile-method-picker {
-    flex: 1 1 140px;
-    min-width: 0;
-    min-height: 44px;
-    overflow: hidden;
-    border-radius: 8px;
+    display: none;
   }
 
   .divination-mobile-secondary-picker {

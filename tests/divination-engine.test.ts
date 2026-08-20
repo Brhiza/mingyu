@@ -651,7 +651,7 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   );
   assert.doesNotMatch(
     analysis.promptText,
-    /项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/,
+    /项目以|项目规则|项目计算|寻卜|本项目|项目统一|工程|算法结果/,
   );
   const incomplete = analyzeQimenEvidence({
     ...data,

@@ -260,7 +260,7 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.match(evidence.promptText, /出生地点太阳光照背景/);
   assert.match(evidence.promptText, /证据汇总：[\s\S]*解释限制（方法限制）：/);
   assert.doesNotMatch(evidence.promptText, /成功率|吉凶总分|能量分数[：=]\d/);
-  assert.doesNotMatch(evidence.promptText, /命语|当前结果|工程|接口|API|MCP/);
+  assert.doesNotMatch(evidence.promptText, /寻卜|当前结果|工程|接口|API|MCP/);
 });
 
 test('旧星盘缺少相位几何量时不得反推伪精确字段', () => {

@@ -5,8 +5,6 @@
  * 逐 token 回调更新 UI。
  */
 
-import type { AiRequestConfig } from './settings';
-
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
   onDone: () => void;
@@ -16,7 +14,6 @@ export interface StreamCallbacks {
 export interface StreamOptions extends StreamCallbacks {
   /** AbortSignal 用于取消请求 */
   signal?: AbortSignal;
-  aiConfig?: AiRequestConfig;
 }
 
 export type ChatMessage = { role: 'user' | 'assistant'; content: string };
@@ -32,13 +29,13 @@ type AiErrorPayload = {
  * @param options 回调和可选的 AbortSignal
  */
 export async function streamAiChat(messages: ChatMessage[], options: StreamOptions) {
-  const { onChunk, onDone, onError, signal, aiConfig } = options;
+  const { onChunk, onDone, onError, signal } = options;
 
   try {
     const response = await fetch('/api/v1/ai/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, aiConfig }),
+      body: JSON.stringify({ messages }),
       signal,
     });
 
@@ -57,11 +54,11 @@ export async function streamAiChat(messages: ChatMessage[], options: StreamOptio
   }
 }
 
-export async function fetchAiModels(aiConfig: AiRequestConfig): Promise<string[]> {
+export async function fetchAiModels(): Promise<string[]> {
   const response = await fetch('/api/v1/ai/models', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ aiConfig }),
+    body: JSON.stringify({}),
   });
 
   if (!response.ok) {

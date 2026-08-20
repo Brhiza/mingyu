@@ -930,7 +930,7 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.match(capabilities.body.data.promptText, /不得把目录数量/);
   assert.doesNotMatch(
     capabilities.body.data.promptText,
-    /命语|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,
+    /寻卜|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,
   );
 
   const ganZhi = await callApi('foundation/ganzhi', {
@@ -1012,7 +1012,7 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.match(shensha.body.data.promptText, /通用神煞资料/);
   assert.doesNotMatch(
     shensha.body.data.promptText,
-    /命语|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,
+    /寻卜|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,
   );
 
   for (const payload of [{ ganZhi: '甲丑' }, { ganZhi: '' }]) {
@@ -1864,7 +1864,7 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.ok(compatibility.evidence.items.length > 0);
   assert.doesNotMatch(
     compatibility.promptText,
-    /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
+    /analysis_payload_v1|寻卜|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
   );
   assertPromptIsPortableTaskText(compatibility.promptText);
   assert.equal(calculation.body.data.charts.person1.scopeNames[0], 'origin');
@@ -3061,7 +3061,7 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   assert.match(defaultResult.body.data.evidenceAnalysis.promptText, /证据汇总：/);
   assert.doesNotMatch(
     defaultResult.body.data.evidenceAnalysis.promptText,
-    /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|成功率[：=]?\d|项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/,
+    /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|成功率[：=]?\d|项目以|项目规则|项目计算|寻卜|本项目|项目统一|工程|算法结果/,
   );
   assertPromptIsPortableTaskText(defaultResult.body.data.evidenceAnalysis.promptText);
   assert.deepEqual(
@@ -4914,7 +4914,7 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   );
   assert.doesNotMatch(
     body.data.result.evidenceAnalysis.promptText,
-    /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
+    /寻卜|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
   );
   assertPromptIsPortableTaskText(body.data.result.evidenceAnalysis.promptText);
   assert.match(body.data.prompt, /【八宅风水排盘】/);
@@ -5088,7 +5088,7 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.doesNotMatch(body.data.evidenceAnalysis.promptText, /宜先守后动|不宜轻进/);
   assert.doesNotMatch(
     body.data.evidenceAnalysis.promptText,
-    /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/,
+    /寻卜|本项目|项目统一|当前结果|工程|接口|API|MCP/,
   );
   assertPromptIsPortableTaskText(body.data.evidenceAnalysis.promptText);
 

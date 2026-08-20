@@ -69,7 +69,7 @@ test('八字本命应输出四柱、核心判断、反证、汇总与限制的�
   );
   assert.doesNotMatch(
     analysis.promptText,
-    /命语|本项目|当前项目|项目统一|工程|接口|API|MCP|内部权重|bazi:natal:/,
+    /寻卜|本项目|当前项目|项目统一|工程|接口|API|MCP|内部权重|bazi:natal:/,
   );
   assert.match(analysis.promptText, /只采用明确时辰或真太阳时校正后的唯一时刻/);
   assert.equal(analysis.evidence.title, '八字本命四柱与核心判断结构化证据');

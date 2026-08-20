@@ -159,7 +159,7 @@ test('紫微提示词快照不得重新接入未校勘的旧格局数据', () =>
   assert.doesNotMatch(snapshot, /紫府同宫/);
   assert.doesNotMatch(snapshot, /紫微与天府同坐命宫/);
   assert.doesNotMatch(snapshot, /证据状态|已检格局规则|未命中规则|解释边界|非事实结论/);
-  assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
+  assert.doesNotMatch(snapshot, /寻卜|iztro|本项目|项目统一|工程|接口|API|MCP/);
   assert.doesNotMatch(snapshot, /星座|金牛座/);
   assert.match(snapshot, /【十二宫资料】/);
 });
@@ -733,7 +733,7 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.match(analysis.promptText, /计算链：[\s\S]*反证核验：[\s\S]*证据汇总：[\s\S]*解释限制：/);
   assert.doesNotMatch(
     analysis.promptText,
-    /命语|iztro|本项目|项目统一|工程|接口|API|MCP|ziwei:evidence:/,
+    /寻卜|iztro|本项目|项目统一|工程|接口|API|MCP|ziwei:evidence:/,
   );
 
   const payload = createPayload();
@@ -757,7 +757,7 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.match(snapshot, /流年（丙午流年）天同化禄入本命财帛宫/);
   assert.match(snapshot, /流年（丙午流年）落入本命财帛宫/);
   assert.doesNotMatch(snapshot, /【证据汇总】|证据状态|资料缺口：|解释边界/);
-  assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
+  assert.doesNotMatch(snapshot, /寻卜|iztro|本项目|项目统一|工程|接口|API|MCP/);
 });
 
 test('紫微关键判断线索在原始资料缺少关联星曜与关联四化时应自动补全', () => {

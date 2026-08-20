@@ -112,6 +112,7 @@ const aiProviderName = readBuildEnv('AI_PROVIDER_NAME') ?? '';
 const isDonationBoxEnabled = readBuildEnv('VITE_ENABLE_DONATION_BOX') === 'true';
 
 export default defineConfig({
+  base: './',
   define: {
     'import.meta.env.VITE_AI_ENABLED': JSON.stringify(isAiDefaultEnabled ? 'true' : 'false'),
     'import.meta.env.VITE_AI_BUILTIN_ENABLED': JSON.stringify(
@@ -136,6 +137,7 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: 'dist/xunbu',
     chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {

@@ -15,13 +15,6 @@ export interface AiSettings {
   model: string;
 }
 
-export interface AiRequestConfig {
-  mode: AiProviderMode;
-  apiKey?: string;
-  baseUrl?: string;
-  model?: string;
-}
-
 export const AI_SETTINGS_STORAGE_KEY = 'mingyu:ai-settings:v1';
 export const AI_SETTINGS_EVENT = 'mingyu-ai-settings-change';
 
@@ -146,6 +139,19 @@ export function normalizeAiSettings(value: unknown): AiSettings {
 }
 
 export function readAiSettings(): AiSettings {
+  // 已隐藏 AI 设置入口：内置 AI 可用时直接使用服务端配置，忽略本机保存的自定义设置。
+  if (isServerBuiltinAiEnabled()) {
+    const preset = AI_PROVIDER_PRESETS[0];
+    return {
+      enabled: true,
+      mode: 'builtin',
+      providerId: preset.id,
+      baseUrl: preset.baseUrl,
+      apiKey: '',
+      model: '',
+    };
+  }
+
   if (typeof window === 'undefined') return getDefaultAiSettings();
 
   try {
@@ -160,18 +166,4 @@ export function saveAiSettings(settings: AiSettings): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(AI_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   window.dispatchEvent(new CustomEvent(AI_SETTINGS_EVENT, { detail: settings }));
-}
-
-export function buildAiRequestConfig(settings: AiSettings): AiRequestConfig | undefined {
-  if (!settings.enabled) return undefined;
-  if (settings.mode === 'builtin') {
-    return { mode: 'builtin' };
-  }
-
-  return {
-    mode: 'custom',
-    apiKey: settings.apiKey.trim(),
-    baseUrl: settings.baseUrl.trim(),
-    model: settings.model.trim(),
-  };
 }

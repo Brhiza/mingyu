@@ -71,7 +71,6 @@ import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { useAiSettings } from '@/hooks/useAiSettings';
-import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
 import {
   calculateResidentialChart,
@@ -208,7 +207,6 @@ export function ResultPage() {
   const viewportSize = useViewportSize({ width: 0, height: 0 });
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
-  const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
   const isMobileAi =
     isAiEnabled &&
     shouldUsePhoneLayout({
@@ -1293,15 +1291,6 @@ export function ResultPage() {
             七政四余
           </button>
         ) : null}
-        {inputState.analysisMode === 'single' ? (
-          <button
-            type="button"
-            className={`tab-chip ${promptState.tab === 'bazhai' ? 'is-active' : ''}`}
-            onClick={() => switchTab('bazhai')}
-          >
-            住宅风水
-          </button>
-        ) : null}
         <button
           type="button"
           className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
@@ -1533,9 +1522,6 @@ export function ResultPage() {
                           ) : null}
                           {hasAstrolabeChart ? <option value="astrolabe">星盘</option> : null}
                           {hasAstrolabeChart ? <option value="qizheng">七政四余</option> : null}
-                          {canUseResidentialFengshui && residentialResult ? (
-                            <option value="bazhai">住宅风水</option>
-                          ) : null}
                         </select>
 
                         {(promptState.promptSource === 'bazi' ||
@@ -1581,7 +1567,6 @@ export function ResultPage() {
                     onOpenInspiration={inspiration.open}
                     externalInput={inspirationText}
                     onExternalInputConsumed={() => setInspirationText('')}
-                    aiConfig={aiRequestConfig}
                   />
                 </div>
               ) : (
@@ -1617,9 +1602,6 @@ export function ResultPage() {
                             {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
                             {hasAstrolabeChart ? (
                               <option value="qizheng">基于七政四余</option>
-                            ) : null}
-                            {canUseResidentialFengshui && residentialResult ? (
-                              <option value="bazhai">基于住宅风水</option>
                             ) : null}
                           </select>
                         </label>
@@ -1733,7 +1715,6 @@ export function ResultPage() {
                     onOpenInspiration={inspiration.open}
                     externalInput={inspirationText}
                     onExternalInputConsumed={() => setInspirationText('')}
-                    aiConfig={aiRequestConfig}
                   />
                 </div>
               )
@@ -1770,9 +1751,6 @@ export function ResultPage() {
                             {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
                             {hasAstrolabeChart ? (
                               <option value="qizheng">基于七政四余</option>
-                            ) : null}
-                            {canUseResidentialFengshui && residentialResult ? (
-                              <option value="bazhai">基于住宅风水</option>
                             ) : null}
                           </select>
                         </label>

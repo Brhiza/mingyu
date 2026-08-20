@@ -12,7 +12,6 @@ import {
   upsertAiChatSession,
 } from '@/lib/ai/chat-history';
 import type { AiChatPromptMode, AiChatSession } from '@/lib/ai/chat-history';
-import type { AiRequestConfig } from '@/lib/ai/settings';
 
 interface AiChatPanelProps {
   /** AI 上下文提示（排盘数据 + 设置摘要，不含用户问题） */
@@ -33,7 +32,6 @@ interface AiChatPanelProps {
   autoStartKey?: string;
   /** AI 对话历史缓存 key；不传时根据 resetKey/contextPrompt 自动生成 */
   historyKey?: string;
-  aiConfig?: AiRequestConfig;
 }
 
 const PLACEHOLDER = '输入你想询问的问题…';
@@ -106,7 +104,6 @@ function AiChatPanelImpl({
   autoStart,
   autoStartKey,
   historyKey,
-  aiConfig,
 }: AiChatPanelProps) {
   const {
     turns,
@@ -120,7 +117,7 @@ function AiChatPanelImpl({
     retry,
     canRetry,
     reset,
-  } = useAiChat(aiConfig);
+  } = useAiChat();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);

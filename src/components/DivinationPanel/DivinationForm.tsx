@@ -23,6 +23,11 @@ import type { DivinationDraft } from '@/lib/divination/engine';
 import { createSecureId } from '@/lib/secure-id';
 import { DropdownSelect } from '@/components/DropdownSelect';
 
+// 占卜模块临时只开放六爻与奇门遁甲，其余类型暂隐藏
+const VISIBLE_DIVINATION_METHOD_OPTIONS = GENERAL_DIVINATION_METHOD_OPTIONS.filter(
+  (item) => item.value === 'liuyao' || item.value === 'qimen',
+);
+
 const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'current', label: '当前时间' },
   { value: 'custom', label: '自定时间' },
@@ -268,7 +273,7 @@ export function DivinationForm({
 
         {!isMethodLocked ? (
           <div className="divination-method-grid">
-            {GENERAL_DIVINATION_METHOD_OPTIONS.map((item) => (
+            {VISIBLE_DIVINATION_METHOD_OPTIONS.map((item) => (
               <button
                 key={item.value}
                 type="button"
@@ -525,7 +530,7 @@ export function DivinationForm({
                   <div className="divination-mobile-method-picker">
                     <DropdownSelect
                       value={draft.method}
-                      options={GENERAL_DIVINATION_METHOD_OPTIONS}
+                      options={VISIBLE_DIVINATION_METHOD_OPTIONS}
                       ariaLabel="占卜类型"
                       onChange={(value) =>
                         updateDraft('method', value as DivinationDraft['method'])

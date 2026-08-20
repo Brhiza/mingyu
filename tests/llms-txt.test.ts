@@ -7,7 +7,7 @@ const llmsTxt = readFileSync(llmsTxtPath, 'utf8');
 
 test('llms.txt 应作为站点根路径静态文件发布', () => {
   assert.ok(statSync(llmsTxtPath).isFile());
-  assert.match(llmsTxt, /^# 命语（Mingyu）/m);
+  assert.match(llmsTxt, /^# 寻卜（Mingyu）/m);
   assert.match(llmsTxt, /https:\/\/aov\.cc\/api\/v1\/manifest/);
   assert.match(llmsTxt, /https:\/\/aov\.cc\/api\/v1\/openapi\.json/);
   assert.match(llmsTxt, /https:\/\/aov\.cc\/skills\/aov-mingyu-api\/SKILL\.md/);

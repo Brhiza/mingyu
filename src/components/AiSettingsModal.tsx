@@ -37,19 +37,10 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
   }
 
   async function handleFetchModels() {
-    const config =
-      draft.mode === 'builtin'
-        ? ({ mode: 'builtin' } as const)
-        : ({
-            mode: 'custom',
-            apiKey: draft.apiKey.trim(),
-            baseUrl: draft.baseUrl.trim(),
-          } as const);
-
     setModelStatus('正在获取模型…');
     setModels([]);
     try {
-      const nextModels = await fetchAiModels(config);
+      const nextModels = await fetchAiModels();
       setModels(nextModels);
       setModelStatus(
         nextModels.length ? `已获取 ${nextModels.length} 个模型` : '服务商未返回模型列表',

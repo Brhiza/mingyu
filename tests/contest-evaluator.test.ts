@@ -94,7 +94,7 @@ test('比赛提示词应是自包含任务书且不泄露内部上下文', async
   assert.match(prompt, /A\. /);
   assert.doesNotMatch(
     prompt,
-    /mingyu|命语|仓库|\bAPI\b|\bMCP\b|question_number|birth_info|2026-case-1|provider|source/i,
+    /mingyu|寻卜|仓库|\bAPI\b|\bMCP\b|question_number|birth_info|2026-case-1|provider|source/i,
   );
 });
 

@@ -34,5 +34,5 @@ test('Node 请求体读取应在流式内容超限时拒绝', async () => {
 
 test('Node 请求体读取应返回限制内的完整 Buffer', async () => {
   const body = await readLimitedNodeRequestBody(createBodySource(['命', '语']), 16);
-  assert.equal(body.toString('utf8'), '命语');
+  assert.equal(body.toString('utf8'), '寻卜');
 });

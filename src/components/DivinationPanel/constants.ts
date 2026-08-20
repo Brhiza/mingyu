@@ -11,7 +11,7 @@ import {
 import type { DivinationDraft } from '@/lib/divination/engine';
 
 export const defaultDraft: DivinationDraft = {
-  method: 'random',
+  method: 'liuyao',
   question: '',
   questionSource: 'custom',
   currentSituation: '',

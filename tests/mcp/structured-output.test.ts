@@ -1029,7 +1029,7 @@ test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复�
         );
         assert.doesNotMatch(
           chart?.evidenceAnalysis?.promptText ?? '',
-          /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
+          /寻卜|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
         );
         assertPromptIsPortableTaskText(chart?.evidenceAnalysis?.promptText ?? '');
       }
@@ -1104,7 +1104,7 @@ test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复�
         assertEvidenceOwnerReferences(compatibility);
         assert.doesNotMatch(
           compatibility?.promptText ?? '',
-          /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
+          /analysis_payload_v1|寻卜|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
         );
         assertPromptIsPortableTaskText(compatibility?.promptText ?? '');
       }
@@ -4126,7 +4126,7 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
     assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);
-    assert.doesNotMatch(prompt, /项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/);
+    assert.doesNotMatch(prompt, /项目以|项目规则|项目计算|寻卜|本项目|项目统一|工程|算法结果/);
     assertPromptIsPortableTaskText(prompt);
   });
 });
@@ -4298,7 +4298,7 @@ test('MCP 太乙工具返回年计七十二局结构化证据', async () => {
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
     assert.doesNotMatch(prompt, /宜先守后动|不宜轻进/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
-    assert.doesNotMatch(prompt, /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/);
+    assert.doesNotMatch(prompt, /寻卜|本项目|项目统一|当前结果|工程|接口|API|MCP/);
     assertPromptIsPortableTaskText(prompt);
   });
 });
