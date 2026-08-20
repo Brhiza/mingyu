@@ -15,7 +15,11 @@ import {
   formatBaziFortuneSelection,
 } from 'mingyu-core/prompt';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
-import { buildPromptGuidanceSections } from '../../lib/prompt-guidance';
+import {
+  buildCustomQuestionTask,
+  buildPromptGuidanceSections,
+  buildPromptTask,
+} from '../../lib/prompt-guidance';
 
 export interface AIPromptOption {
   id: string;
@@ -162,7 +166,12 @@ export function buildPromptFromConfig(
         fortuneSection ? buildPromptSection('岁运重点', fortuneSection.focus) : '',
         fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
         normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
-        isCustomQuestion ? '' : buildPromptSection('任务', task || '请依据八字排盘资料完成解读。'),
+        buildPromptSection(
+          '任务',
+          isCustomQuestion
+            ? buildCustomQuestionTask('八字排盘资料')
+            : buildPromptTask(task || '请依据八字排盘资料完成解读。'),
+        ),
       ]),
     };
   }
@@ -188,7 +197,12 @@ export function buildPromptFromConfig(
         : '',
       fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
       normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
-      isCustomQuestion ? '' : buildPromptSection('任务', '请依据八字排盘资料完成解读。'),
+      buildPromptSection(
+        '任务',
+        isCustomQuestion
+          ? buildCustomQuestionTask('八字排盘资料')
+          : buildPromptTask('请依据八字排盘资料完成解读。'),
+      ),
     ]),
   };
 }
@@ -251,9 +265,12 @@ export function getCompatibilityPrompt(
         )
       : '';
 
-  const taskSection = options.isCustomQuestion
-    ? ''
-    : buildPromptSection('任务', getCompatibilityTask(compatType));
+  const taskSection = buildPromptSection(
+    '任务',
+    options.isCustomQuestion
+      ? buildCustomQuestionTask('双方盘面和双盘关系资料')
+      : buildPromptTask(getCompatibilityTask(compatType)),
+  );
 
   return {
     system: COMPATIBILITY_SYSTEM_PROMPT,

@@ -1,8 +1,10 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { lookup } from 'node:dns/promises';
 import path from 'node:path';
 import fs from 'node:fs';
 import { getManualChunk } from './build/chunking';
+import { AI_CLIENT_ADDRESS_HEADER } from './src/lib/ai/rate-limit';
 
 /**
  * 解析 .dev.vars 文件为 key-value 对象
@@ -56,15 +58,23 @@ function aiProxyDevPlugin(): Plugin {
           chunks.push(chunk as Buffer);
         }
         const body = Buffer.concat(chunks).toString('utf-8');
+        const headers = new Headers({ 'Content-Type': 'application/json' });
+        const clientAddress = req.socket.remoteAddress?.trim();
+        if (clientAddress) headers.set(AI_CLIENT_ADDRESS_HEADER, clientAddress);
         const request = new Request(`http://localhost${req.url}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body,
         });
 
+        const aiRuntime = {
+          resolveHostname: async (hostname: string) =>
+            (await lookup(hostname, { all: true, verbatim: true })).map((item) => item.address),
+        };
+
         const response = req.url.startsWith('/api/v1/ai/models')
-          ? await handleAiModels(request, devVars)
-          : await handleAiAnalyze(request, devVars);
+          ? await handleAiModels(request, devVars, aiRuntime)
+          : await handleAiAnalyze(request, devVars, aiRuntime);
 
         // 将 Web Response 写回 Node.js ServerResponse
         res.writeHead(response.status, Object.fromEntries(response.headers.entries()));

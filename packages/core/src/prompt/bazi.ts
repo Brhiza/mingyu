@@ -2,7 +2,7 @@ import { analyzeBaziCompatibility, formatBaziForPrompt, type BaziChartResult } f
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
 import { formatBaziFortuneSelection } from './bazi-fortune';
 import { formatPromptCurrentTime } from './current-time';
-import { buildPromptGuidance } from './guidance';
+import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
 import type { PromptBuildOptions, PromptDocument } from './types';
 import {
@@ -105,7 +105,12 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
   const topic = options.topic ?? 'general';
   const topicLabel = TOPIC_LABELS[topic];
   const question = options.question?.trim() || `请围绕${topicLabel}解读这份八字资料。`;
-  const task = `请依据八字排盘资料${topicLabel === '通用' ? '完成整体解读' : `重点分析${topicLabel}`}，结合问题给出有依据的分析。`;
+  const task =
+    options.mode === 'custom'
+      ? buildCustomQuestionTask('八字排盘资料')
+      : buildPromptTask(
+          `请依据八字排盘资料${topicLabel === '通用' ? '完成整体解读' : `重点分析${topicLabel}`}，结合问题给出有依据的分析。`,
+        );
   const chart = formatBaziForPrompt(
     options.result,
     null,
@@ -213,7 +218,9 @@ export function buildBaziCompatibilityPromptDocument(
     buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
-      '请依据双方盘面与双盘关系资料回答问题，分别列出共同证据、分歧证据和需要结合现实核对的部分。',
+      buildPromptTask(
+        '请依据双方盘面与双盘关系资料回答问题，分别列出共同证据、分歧证据和需要结合现实核对的部分。',
+      ),
     ),
   ]);
   return buildPromptDocument(user);

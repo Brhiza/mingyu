@@ -12,7 +12,7 @@ import {
   serialYearToCivil,
   type HuangjiStandardForecast,
 } from './standard';
-import { insertPromptSectionBeforeHeading } from '../prompt/guidance';
+import { buildPromptTask, insertPromptSectionBeforeHeading } from '../prompt/guidance';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
 
 export * from './standard';
@@ -245,7 +245,9 @@ export function buildHuangjiJingshiPrompt(
     const askedQuestion = normalizedQuestion || `请解读${input.year}年的整体趋势与主要变化。`;
     const prompt = [
       '【任务】',
-      '以值年卦为主要取象，结合十年卦、六十年统卦、运卦和会内统卦的层级背景，解读所问事项。先给出清晰结论，再说明年度主线、当前阶段、变化过程与可观察的现实信号；个人事项结合问题中的现实背景作条件化分析。',
+      buildPromptTask(
+        '以值年卦为主要取象，结合十年卦、六十年统卦、运卦和会内统卦的层级背景，解读所问事项；个人事项结合问题中的现实背景作条件化分析。',
+      ),
       '',
       '【问题】',
       askedQuestion,
@@ -277,7 +279,9 @@ export function buildHuangjiJingshiPrompt(
 
   const lines = [
     '【任务】',
-    normalizedQuestion ? '请结合周期资料回答【问题】。' : '请解读目标年所处的周期位置。',
+    buildPromptTask(
+      normalizedQuestion ? '请结合周期资料回答【问题】。' : '请解读目标年所处的周期位置。',
+    ),
   ];
   if (normalizedQuestion) lines.push('', '【问题】', normalizedQuestion);
   lines.push(

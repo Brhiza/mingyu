@@ -111,7 +111,7 @@ import {
   type ZiweiPromptTopic,
   type ZiweiSchool,
 } from './prompt-builders';
-import { handleAiAnalyze, handleAiModels, type AiEnv } from '../ai/proxy';
+import { handleAiAnalyze, handleAiModels, type AiEnv, type AiRuntime } from '../ai/proxy';
 import {
   API_VERSION,
   DEFAULT_PUBLIC_API_RUNTIME,
@@ -434,7 +434,7 @@ export function getPublicApiOpenApiDocument(
       title: 'AOV 命理与占卜公开 API',
       version: API_VERSION,
       description:
-        '提供真太阳时换算、六十甲子、五行等公共地基能力，以及八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、五运六气、皇极经世、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
+        '提供算命、看运势、占卜、玄学排盘、合婚、抽牌、求签、风水、黄历择日和完整 AI 解读提示词，也支持真太阳时、六十甲子、五行、八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、五运六气、皇极经世、塔罗、三山国王灵签、雷诺曼和星盘等专业能力。',
     },
     servers: [{ url: `${runtime.origin}/api/${API_VERSION}` }],
     paths: {
@@ -1655,7 +1655,12 @@ export function normalizeApiPath(pathname: string) {
   return path.replace(/^\/+/, '').split('/').filter(Boolean);
 }
 
-export async function handlePublicApiRequest(request: Request, segments?: string[], env?: AiEnv) {
+export async function handlePublicApiRequest(
+  request: Request,
+  segments?: string[],
+  env?: AiEnv,
+  aiRuntime?: AiRuntime,
+) {
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -1668,11 +1673,11 @@ export async function handlePublicApiRequest(request: Request, segments?: string
 
   // AI 解析走独立的 SSE 流式响应，不经过 JSON 包装
   if (routeSegments.join('/') === 'ai/analyze' && request.method === 'POST') {
-    return handleAiAnalyze(request, env);
+    return handleAiAnalyze(request, env, aiRuntime);
   }
 
   if (routeSegments.join('/') === 'ai/models' && request.method === 'POST') {
-    return handleAiModels(request, env);
+    return handleAiModels(request, env, aiRuntime);
   }
 
   try {

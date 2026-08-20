@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { astro } from 'iztro';
 import { SolarDay } from 'tyme4ts';

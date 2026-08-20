@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
-import { PROMPT_GUIDANCE_TEXT, type MetaphysicsPromptMethod } from '../src/lib/prompt-guidance';
+import {
+  PROMPT_ANSWER_FRAMEWORK,
+  PROMPT_GUIDANCE_TEXT,
+  buildCustomQuestionTask,
+  buildPromptTask,
+  type MetaphysicsPromptMethod,
+} from '../src/lib/prompt-guidance';
 import { assertPromptHasSingleRole } from './prompt-assertions';
 
 test('全部提示词指引不包含系统控制话术', () => {
@@ -16,6 +22,20 @@ test('全部提示词指引不包含系统控制话术', () => {
       `${method} 不应混入控制话术`,
     );
   });
+});
+
+test('通用答题骨架保持简短、中性且可重复调用', () => {
+  assert.ok(PROMPT_ANSWER_FRAMEWORK.length <= 70);
+  assert.doesNotMatch(
+    PROMPT_ANSWER_FRAMEWORK,
+    /【输出要求】|现实建议|风险提醒|行动清单|不得|禁止|只依据|只基于/,
+  );
+  assert.equal(
+    buildPromptTask(buildPromptTask('请依据盘面回答【问题】。')),
+    buildPromptTask('请依据盘面回答【问题】。'),
+  );
+  assert.match(buildCustomQuestionTask('盘面资料'), /^请依据盘面资料回答【问题】。/);
+  assert.match(buildCustomQuestionTask('盘面资料'), new RegExp(PROMPT_ANSWER_FRAMEWORK));
 });
 
 test('全部体系都提供传统判断规则与传统依据', () => {

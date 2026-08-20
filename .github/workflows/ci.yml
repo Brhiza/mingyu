@@ -43,9 +43,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter mingyu-core build
-      - run: pnpm test
-      - run: pnpm run test:e2e
+      - run: pnpm test:ci
       - run: pnpm run prompt:audit
 
   build:
@@ -60,3 +58,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter mingyu-core build
       - run: pnpm run build
+      - run: pnpm run build:server
+      - run: pnpm run test:docker-runtime

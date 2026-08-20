@@ -32,7 +32,7 @@ import {
 import { buildTaskText } from 'mingyu-core/divination/engine/method-text';
 import { buildLiurenTemplateText } from 'mingyu-core/divination/engine/liuren-template';
 import { buildLiuyaoTemplateText } from 'mingyu-core/divination/engine/liuyao-template';
-import { buildPromptGuidanceSections } from '../../prompt-guidance';
+import { buildPromptGuidanceSections, buildPromptTask } from '../../prompt-guidance';
 import { tarotSpreads } from 'mingyu-core/divination/tarot';
 import { LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
 import { secureRandomInt } from 'mingyu-core/random';
@@ -166,7 +166,7 @@ export function buildDivinationPrompt(
       : '';
   const taskText =
     method === 'astrolabe' && !isCustomQuestion
-      ? buildAstrolabeTopicTask(astrolabeTopic)
+      ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic))
       : buildTaskText(method);
   const selectedSchools =
     method !== 'ssgw' && options.schools?.length
@@ -192,7 +192,7 @@ export function buildDivinationPrompt(
       schoolSection,
       buildSection('【问题】', normalizedQuestion),
       liurenTemplateSection,
-      isCustomQuestion ? '' : buildSection('【任务】', taskText),
+      buildSection('【任务】', taskText),
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -206,7 +206,7 @@ export function buildDivinationPrompt(
     buildSection('【占卜信息】', infoText),
     schoolSection,
     buildSection('【问题】', normalizedQuestion),
-    isCustomQuestion ? '' : buildSection('【任务】', taskText),
+    buildSection('【任务】', taskText),
     isCustomQuestion ? '' : liuyaoTemplateSection,
     isCustomQuestion ? '' : liurenTemplateSection,
   ]

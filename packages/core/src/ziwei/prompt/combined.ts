@@ -1,4 +1,8 @@
-import { buildPromptGuidanceSections } from '../../prompt/guidance';
+import {
+  buildCustomQuestionTask,
+  buildPromptGuidanceSections,
+  buildPromptTask,
+} from '../../prompt/guidance';
 import { formatPromptCurrentTime } from '../../prompt/current-time';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../../prompt/schools';
 import type { AnalysisPayloadV1 } from '../../types/analysis';
@@ -236,7 +240,11 @@ export function buildCombinedZiweiPrompt(
     '',
     ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
     '',
-    ...(isCustomQuestion ? [] : ['【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】。']),
+    `【任务】\n${
+      isCustomQuestion
+        ? buildCustomQuestionTask('紫微盘面资料')
+        : buildPromptTask('请结合宫位、星曜、四化和三方四正直接回答【问题】。')
+    }`,
   ].join('\n');
 }
 
@@ -311,6 +319,10 @@ export function buildCombinedZiweiCompatibilityPrompt(
     '',
     ...(compatibilityQuestion ? [`【问题】\n${compatibilityQuestion}`] : []),
     '',
-    ...(isCustomQuestion ? [] : ['【任务】\n请依据双方紫微盘面和跨盘关系资料完成解读。']),
+    `【任务】\n${
+      isCustomQuestion
+        ? buildCustomQuestionTask('双方紫微盘面和跨盘关系资料')
+        : buildPromptTask('请依据双方紫微盘面和跨盘关系资料完成解读。')
+    }`,
   ].join('\n');
 }

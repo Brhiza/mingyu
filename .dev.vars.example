@@ -24,3 +24,13 @@ AI_MODEL=deepseek-chat
 
 # 页面是否默认打开 AI 解读（可选，默认 false）
 # AI_DEFAULT_ENABLED=false
+
+# 单个客户端在限流窗口内最多调用内置 AI 的次数（默认 12）
+# AI_RATE_LIMIT_MAX_REQUESTS=12
+
+# 内置 AI 限流窗口秒数（默认 600）
+# AI_RATE_LIMIT_WINDOW_SECONDS=600
+
+# 流式响应连续无内容和总时长上限，单位毫秒（默认 30000 / 95000）
+# AI_STREAM_IDLE_TIMEOUT_MS=30000
+# AI_STREAM_TOTAL_TIMEOUT_MS=95000

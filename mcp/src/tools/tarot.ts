@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -57,9 +57,7 @@ export function registerTarotTool(server: McpServer) {
       description:
         '塔罗抽牌并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要牌阵数据时调用 divine_tarot',
       inputSchema: tarotPromptSchema.shape,
-      outputSchema: {
-        prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
-      },
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {

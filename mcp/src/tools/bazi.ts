@@ -102,7 +102,7 @@ const baziCompatibilityPromptSchema = baziCompatibilitySchema.extend({
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
-    .describe('提示词模式：framework=完整框架，custom=只围绕自定义问题'),
+    .describe('提示词模式：framework=内置主题任务，custom=自定义问题加通用短答题框架'),
   schools: z
     .array(z.enum(BAZI_MULTI_SCHOOLS))
     .min(1)
@@ -123,7 +123,7 @@ const baziPromptSchema = baziSchema.extend({
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
-    .describe('提示词模式：framework=内置完整框架, custom=只围绕用户问题自由作答'),
+    .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
   school: z
     .enum(BAZI_SCHOOLS)
     .optional()

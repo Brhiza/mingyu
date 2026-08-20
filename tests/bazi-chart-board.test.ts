@@ -103,6 +103,8 @@ test('八字结果盘应展示排盘预警和稳定基础参考', () => {
   assert.match(html, /藏干十神/);
   assert.match(html, /自坐/);
   assert.match(html, /空亡/);
+  assert.ok(html.includes(`>${result.timeInfo.name}<`));
+  assert.ok(!html.includes(`${result.timeInfo.name}时`), '时辰名称不应重复追加“时”字');
 
   const allShenSha = [
     ...result.shensha.year,

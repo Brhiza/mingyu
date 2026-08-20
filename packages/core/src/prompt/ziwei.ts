@@ -3,7 +3,7 @@ import type { ZiweiRuntime } from '../ziwei/runtime';
 import { analyzeZiweiCompatibility } from '../ziwei/iztro/index';
 import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import { formatPromptCurrentTime } from './current-time';
-import { buildPromptGuidance } from './guidance';
+import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { formatPromptSchoolGuidance } from './schools';
 import { formatBaziSchoolsPrompt, normalizeBaziPromptSchools } from './bazi-school';
 import {
@@ -279,7 +279,9 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
     buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
-      `请依据${scope === 'full' ? '本命与所列完整运限' : SCOPE_LABELS[scopes[0] ?? 'origin']}资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
+      buildPromptTask(
+        `请依据${scope === 'full' ? '本命与所列完整运限' : SCOPE_LABELS[scopes[0] ?? 'origin']}资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
+      ),
     ),
   ]);
   return buildPromptDocument(user);
@@ -352,7 +354,9 @@ export function buildZiweiCompatibilityPromptDocument(
     buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
-      `请依据双方紫微盘面和双盘关系资料${topicLabel ? `重点分析${topicLabel}` : ''}，分别列出互动主轴、互补点、张力点及其对应宫位、星曜或四化证据，再回答问题。`,
+      buildPromptTask(
+        `请依据双方紫微盘面和双盘关系资料${topicLabel ? `重点分析${topicLabel}` : ''}，分别列出互动主轴、互补点、张力点及其对应宫位、星曜或四化证据，再回答问题。`,
+      ),
     ),
   ]);
   return buildPromptDocument(user);
@@ -417,7 +421,9 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
     buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
-      `请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
+      buildPromptTask(
+        `请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
+      ),
     ),
   ]);
   return buildPromptDocument(user);

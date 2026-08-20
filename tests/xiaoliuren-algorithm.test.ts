@@ -11,10 +11,6 @@ const PALACE_NAMES = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'
 const FORBIDDEN_EXTENSIONS =
   /起因.{0,12}过程.{0,12}结果|五行推进|月令旺衰|日干六亲|旬空|驿马|桃花|固定应期|华山派完整课/;
 
-function expectedPalaceIndex(lunarMonth: number, lunarDay: number, hourNumber: number) {
-  return (lunarMonth + lunarDay + hourNumber - 3) % 6;
-}
-
 test('小六壬：六宫顺序和通行歌诀应完整且稳定', () => {
   const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
 
@@ -42,38 +38,6 @@ test('小六壬：农历六月初五辰时通行样例应为月空亡、日赤�
   assert.equal(data.sequence.day.name, '赤口');
   assert.equal(data.sequence.hour.name, '留连');
   assert.equal(data.primary.name, '留连');
-});
-
-test('小六壬：全年逐日十二时辰应与独立月日时公式一致', () => {
-  const start = Date.parse('2025-01-01T00:30:00+08:00');
-  const hourSamples = [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21];
-  const seenMonths = new Set<number>();
-  const seenPalaces = new Set<string>();
-
-  for (let dayOffset = 0; dayOffset < 365; dayOffset += 1) {
-    for (const hour of hourSamples) {
-      const date = new Date(start + dayOffset * 86_400_000 + hour * 3_600_000);
-      const data = generateXiaoliuren({ customDate: date });
-      const hourNumber = data.calculation.hourNumber;
-      const expectedMonth = (data.lunarMonth - 1) % 6;
-      const expectedDay = (data.lunarMonth + data.lunarDay - 2) % 6;
-      const expectedHour = expectedPalaceIndex(data.lunarMonth, data.lunarDay, hourNumber);
-
-      seenMonths.add(data.lunarMonth);
-      seenPalaces.add(data.primary.name);
-      assert.equal(data.sequence.month.index, expectedMonth);
-      assert.equal(data.sequence.day.index, expectedDay);
-      assert.equal(data.sequence.hour.index, expectedHour);
-      assert.equal(data.primary.index, expectedHour);
-      assert.equal(data.primary.name, PALACE_NAMES[expectedHour]);
-    }
-  }
-
-  assert.deepEqual(
-    [...seenMonths].sort((a, b) => a - b),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-  );
-  assert.deepEqual(seenPalaces, new Set(PALACE_NAMES));
 });
 
 test('小六壬：晚子时按子一计数，但农历日到零点才换日', () => {

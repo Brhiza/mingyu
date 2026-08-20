@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
-import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -56,9 +56,7 @@ export function registerXiaoliurenTool(server: McpServer) {
       description:
         '小六壬起课并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要课盘结果时调用 divine_xiaoliuren',
       inputSchema: xiaoliurenPromptSchema.shape,
-      outputSchema: {
-        prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
-      },
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {

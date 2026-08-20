@@ -6,7 +6,7 @@ import {
   buildHoroscope,
   buildHoroscopeFromInput,
 } from '@core/ziwei/iztro';
-import type { ChartInput } from '../packages/core/src/types/chart';
+import type { ChartInput } from '../../packages/core/src/types/chart';
 
 const PALACE_NAMES = [
   '命宫',

@@ -178,7 +178,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
         <div className="result-chip-row">
           <span className="result-chip">{formatGender(result.gender)}</span>
           <span className="result-chip">{formatBaziDate(result)}</span>
-          <span className="result-chip">{result.timeInfo.name}时</span>
+          <span className="result-chip">{result.timeInfo.name}</span>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -6,7 +6,11 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { TIME_MAP } from '@core/bazi/baziDisplayData';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
-import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from '../prompt-assertions';
+import {
+  assertPromptHasAnswerFramework,
+  assertPromptHasSingleRole,
+  assertPromptIsPortableTaskText,
+} from '../prompt-assertions';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../../src/lib/prompt-guidance';
 
 function assertEvidenceOwnerReferences(evidence: unknown) {
@@ -382,7 +386,9 @@ const promptToolNames = [
   'zodiac_prompt',
 ];
 
-async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
+let mcpClientPromise: Promise<Client> | undefined;
+
+async function createMcpClient() {
   const client = new Client({ name: 'mcp-structured-output-test', version: '0.0.1' });
   const transport = new StdioClientTransport({
     command: 'npm',
@@ -392,7 +398,26 @@ async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
   });
 
   await client.connect(transport);
+  return client;
+}
 
+function getMcpClient() {
+  mcpClientPromise ??= createMcpClient();
+  return mcpClientPromise;
+}
+
+after(async () => {
+  if (!mcpClientPromise) return;
+  const client = await mcpClientPromise;
+  await client.close();
+});
+
+async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
+  return callback(await getMcpClient());
+}
+
+async function withIsolatedMcpClient<T>(callback: (client: Client) => Promise<T>) {
+  const client = await createMcpClient();
   try {
     return await callback(client);
   } finally {
@@ -401,7 +426,7 @@ async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
 }
 
 test('MCP 工具列表应声明输出结构', async () => {
-  await withMcpClient(async (client) => {
+  await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
     assert.equal(tools.length, 60);
@@ -2279,7 +2304,8 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     });
     assert.equal(baziResult.isError, undefined, 'bazi_prompt custom 不应返回错误');
     const baziPrompt = String(baziResult.structuredContent?.prompt);
-    assert.doesNotMatch(baziPrompt, /【任务】/);
+    assert.match(baziPrompt, /【任务】\n请依据八字排盘资料回答【问题】。/);
+    assertPromptHasAnswerFramework(baziPrompt);
     assert.doesNotMatch(baziPrompt, /【输出要求】/);
     assertPromptIsPortableTaskText(baziPrompt);
 
@@ -2293,7 +2319,8 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     });
     assert.equal(tarotResult.isError, undefined, 'tarot_prompt custom 不应返回错误');
     const tarotPrompt = String(tarotResult.structuredContent?.prompt);
-    assert.doesNotMatch(tarotPrompt, /【任务】/);
+    assert.match(tarotPrompt, /【任务】\n依据牌阵、牌位、正逆位与牌序组合回答【问题】。/);
+    assertPromptHasAnswerFramework(tarotPrompt);
     assert.doesNotMatch(tarotPrompt, /【输出要求】/);
     assertPromptIsPortableTaskText(tarotPrompt);
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import type { LenormandSpreadType } from 'mingyu-core/types';
-import { calculationDetailShape, resultOutputSchema } from '../schemas.js';
+import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -68,9 +68,7 @@ export function registerLenormandTool(server: McpServer) {
       description:
         '雷诺曼抽牌并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要牌阵结果时调用 divine_lenormand',
       inputSchema: lenormandPromptSchema.shape,
-      outputSchema: {
-        prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
-      },
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {

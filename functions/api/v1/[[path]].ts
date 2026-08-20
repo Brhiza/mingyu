@@ -1,5 +1,6 @@
 import { handlePublicApiRequest, normalizeApiPath } from '../../../src/lib/public-api/handler';
 import type { AiEnv } from '../../../src/lib/ai/proxy';
+import { AI_CLIENT_ADDRESS_HEADER } from '../../../src/lib/ai/rate-limit';
 
 type PagesContext = {
   request: Request;
@@ -17,5 +18,14 @@ export function onRequest(context: PagesContext) {
       ? paramPath.split('/').filter(Boolean)
       : normalizeApiPath(new URL(context.request.url).pathname);
 
-  return handlePublicApiRequest(context.request, segments, context.env);
+  const headers = new Headers(context.request.headers);
+  const clientAddress = context.request.headers.get('CF-Connecting-IP')?.trim();
+  if (clientAddress) {
+    headers.set(AI_CLIENT_ADDRESS_HEADER, clientAddress);
+  } else {
+    headers.delete(AI_CLIENT_ADDRESS_HEADER);
+  }
+  const trustedRequest = new Request(context.request, { headers });
+
+  return handlePublicApiRequest(trustedRequest, segments, context.env);
 }

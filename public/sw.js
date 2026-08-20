@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'mingyu-static-v2';
-const RUNTIME_CACHE = 'mingyu-runtime-v2';
+const STATIC_CACHE = 'mingyu-static-v3';
+const RUNTIME_CACHE = 'mingyu-runtime-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -63,8 +63,10 @@ self.addEventListener('fetch', (event) => {
 async function handleNavigationRequest(request) {
   try {
     const response = await fetch(request);
-    const cache = await caches.open(RUNTIME_CACHE);
-    cache.put(request, response.clone());
+    if (response.ok && response.headers.get('content-type')?.includes('text/html')) {
+      const cache = await caches.open(RUNTIME_CACHE);
+      await cache.put(request, response.clone());
+    }
     return response;
   } catch {
     return (
@@ -82,7 +84,10 @@ async function handleAssetRequest(request) {
   }
 
   const response = await fetch(request);
-  const cache = await caches.open(RUNTIME_CACHE);
-  cache.put(request, response.clone());
+  const contentType = response.headers.get('content-type') || '';
+  if (response.ok && !contentType.includes('text/html')) {
+    const cache = await caches.open(RUNTIME_CACHE);
+    await cache.put(request, response.clone());
+  }
   return response;
 }

@@ -89,6 +89,20 @@ export function getPublicApiManifest(runtime: PublicApiRuntime = DEFAULT_PUBLIC_
 
   return {
     name: 'AOV 命理与占卜公开 API',
+    description:
+      '提供算命、看运势、占卜、玄学排盘、合婚、抽牌、求签、风水、择日和完整 AI 解读提示词。',
+    keywords: [
+      '算命',
+      '看运势',
+      '占卜',
+      '玄学',
+      '命理',
+      '合婚',
+      '塔罗',
+      '黄历择日',
+      '八字',
+      '紫微斗数',
+    ],
     service: runtime.service,
     version: API_VERSION,
     baseUrl,

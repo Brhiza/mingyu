@@ -5,7 +5,7 @@
  */
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
-import { insertPromptSectionBeforeHeading } from '../prompt/guidance';
+import { buildPromptTask, insertPromptSectionBeforeHeading } from '../prompt/guidance';
 import { isKe, isSheng } from '../wuxing';
 
 export const WUYUN_LIUQI_SOURCES = [
@@ -605,7 +605,9 @@ export function buildWuyunLiuqiPrompt(
   const normalizedQuestion = normalizeQuestion(question);
   const lines = [
     '【任务】',
-    normalizedQuestion ? '请结合年度运气资料回答【问题】。' : '请解读年度运气节律。',
+    buildPromptTask(
+      normalizedQuestion ? '请结合年度运气资料回答【问题】。' : '请解读年度运气节律。',
+    ),
   ];
   if (normalizedQuestion) lines.push('', '【问题】', normalizedQuestion);
   lines.push(

@@ -1,6 +1,6 @@
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
-import { buildPromptGuidance } from './guidance';
+import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptSchoolSection } from './schools';
 import type { PromptBuildOptions, PromptDocument } from './types';
 
@@ -39,7 +39,9 @@ export function buildMetaphysicsPromptDocument(
     question?.trim() ? buildPromptSection('问题', question) : '',
     buildPromptSection(
       '任务',
-      question?.trim() ? '请结合以上资料回答【问题】。' : '请结合以上资料完成解读。',
+      buildPromptTask(
+        question?.trim() ? '请结合以上资料回答【问题】。' : '请结合以上资料完成解读。',
+      ),
     ),
   ];
 

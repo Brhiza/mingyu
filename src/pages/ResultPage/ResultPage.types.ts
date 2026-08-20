@@ -1,4 +1,4 @@
-import type { calculateFullZiweiChart } from '@/lib/full-chart-engine';
+import type { calculateFullZiweiChart } from '@/lib/full-chart-engine/ziwei';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 
 export type ZiweiRuntimeState = Awaited<ReturnType<typeof calculateFullZiweiChart>> | null;

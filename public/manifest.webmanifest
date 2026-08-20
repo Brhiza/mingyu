@@ -1,7 +1,7 @@
 {
   "name": "命语",
   "short_name": "命语",
-  "description": "一个可安装的提示词生成与分析工具。",
+  "description": "免费开源的在线算命、占卜、玄学排盘与 AI 解读提示词工具。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

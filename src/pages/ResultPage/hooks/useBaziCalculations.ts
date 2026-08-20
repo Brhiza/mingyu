@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { buildPersonFromInput, calculateFullBaziChart } from '@/lib/full-chart-engine';
+import { buildPersonFromInput, calculateFullBaziChart } from '@/lib/full-chart-engine/bazi';
 import type { BaziChartResult } from 'mingyu-core/bazi';
 import type { QueryInputState } from '@/lib/query-state';
 

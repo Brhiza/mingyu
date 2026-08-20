@@ -1,12 +1,14 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
+import { lookup } from 'node:dns/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { handlePublicApiRequest, isPublicApiRequestPath } from '../src/lib/public-api/handler';
 import { getPublicApiManifestForRequest } from '../src/lib/public-api/metadata';
 import type { AiEnv } from '../src/lib/ai/proxy';
+import { AI_CLIENT_ADDRESS_HEADER } from '../src/lib/ai/rate-limit';
 import { getAiRuntimeConfigScript } from '../src/lib/ai/runtime-config';
 import { readLimitedNodeRequestBody } from '../src/lib/http/node-request-body';
 import {
@@ -99,6 +101,12 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
       headers.set(key, value);
     }
   }
+  const clientAddress = getTrustedClientAddress(request);
+  if (clientAddress) {
+    headers.set(AI_CLIENT_ADDRESS_HEADER, clientAddress);
+  } else {
+    headers.delete(AI_CLIENT_ADDRESS_HEADER);
+  }
 
   const apiResponse = await handlePublicApiRequest(
     new Request(url, {
@@ -108,6 +116,10 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
     }),
     undefined,
     process.env as AiEnv,
+    {
+      resolveHostname: async (hostname) =>
+        (await lookup(hostname, { all: true, verbatim: true })).map((item) => item.address),
+    },
   );
 
   response.statusCode = apiResponse.status;
@@ -123,31 +135,72 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
   Readable.fromWeb(apiResponse.body).pipe(response);
 }
 
-async function resolveStaticFile(pathname: string) {
+function getTrustedClientAddress(request: IncomingMessage): string {
+  if (process.env.AI_TRUST_PROXY === 'true') {
+    const cloudflareAddress = readSingleHeader(request.headers['cf-connecting-ip']);
+    if (cloudflareAddress) return cloudflareAddress;
+
+    const forwardedFor = readSingleHeader(request.headers['x-forwarded-for']);
+    if (forwardedFor) return forwardedFor.split(',')[0]?.trim() ?? '';
+  }
+
+  return request.socket.remoteAddress?.trim() ?? '';
+}
+
+function readSingleHeader(value: string | string[] | undefined): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return '';
+  const normalized = raw.trim();
+  return normalized.length <= 128 ? normalized : '';
+}
+
+export type StaticFileResolution = {
+  filePath: string;
+  isSpaFallback: boolean;
+};
+
+export async function resolveStaticFile(
+  pathname: string,
+  staticRoot = distDir,
+): Promise<StaticFileResolution | null> {
   let decodedPath: string;
   try {
     decodedPath = decodeURIComponent(pathname);
   } catch {
-    decodedPath = '/';
+    return null;
   }
 
   const relativePath = decodedPath === '/' ? '/index.html' : decodedPath;
-  const absolutePath = path.resolve(distDir, `.${relativePath}`);
+  const absolutePath = path.resolve(staticRoot, `.${relativePath}`);
+  const relativeToRoot = path.relative(staticRoot, absolutePath);
 
-  if (!absolutePath.startsWith(`${distDir}${path.sep}`) && absolutePath !== distDir) {
-    return path.join(distDir, 'index.html');
+  if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+    return null;
   }
 
   try {
     const fileStat = await stat(absolutePath);
     if (fileStat.isFile()) {
-      return absolutePath;
+      return { filePath: absolutePath, isSpaFallback: false };
     }
   } catch {
-    // 前端路由交给 index.html 兜底。
+    // 继续判断是否属于前端路由。
   }
 
-  return path.join(distDir, 'index.html');
+  if (!shouldUseSpaFallback(decodedPath)) return null;
+
+  const indexPath = path.join(staticRoot, 'index.html');
+  try {
+    const indexStat = await stat(indexPath);
+    return indexStat.isFile() ? { filePath: indexPath, isSpaFallback: true } : null;
+  } catch {
+    return null;
+  }
+}
+
+function shouldUseSpaFallback(pathname: string): boolean {
+  if (pathname.startsWith('/assets/') || pathname.startsWith('/.')) return false;
+  return path.extname(pathname) === '';
 }
 
 async function handleStaticRequest(request: IncomingMessage, response: ServerResponse, url: URL) {
@@ -205,7 +258,24 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
     return;
   }
 
-  const filePath = await resolveStaticFile(url.pathname);
+  const method = (request.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    sendText(response, 405, '方法不支持。', 'text/plain; charset=utf-8', {
+      Allow: 'GET,HEAD',
+      'Cache-Control': 'no-store',
+    });
+    return;
+  }
+
+  const resolved = await resolveStaticFile(url.pathname);
+  if (!resolved) {
+    sendText(response, 404, '资源不存在。', 'text/plain; charset=utf-8', {
+      'Cache-Control': 'no-store',
+    });
+    return;
+  }
+
+  const { filePath, isSpaFallback } = resolved;
   const ext = path.extname(filePath);
   const contentType = mimeTypes[ext] || 'application/octet-stream';
   const headers: Record<string, string> = {
@@ -216,36 +286,49 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
     headers['Cache-Control'] = 'public, max-age=31536000, immutable';
   } else if (url.pathname === '/service-worker.js' || url.pathname === '/sw.js') {
     headers['Cache-Control'] = 'no-cache';
+  } else if (isSpaFallback || ext === '.html') {
+    headers['Cache-Control'] = 'no-cache';
   }
 
   response.writeHead(200, headers);
-  if (request.method === 'HEAD') {
+  if (method === 'HEAD') {
     response.end();
     return;
   }
   createReadStream(filePath).pipe(response);
 }
 
-const server = createServer((request, response) => {
-  void (async () => {
-    const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+export function createDockerServer() {
+  return createServer((request, response) => {
+    void (async () => {
+      const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
 
-    if (isPublicApiRequestPath(url.pathname)) {
-      await handleApiRequest(request, response, url);
-      return;
-    }
+      if (isPublicApiRequestPath(url.pathname)) {
+        await handleApiRequest(request, response, url);
+        return;
+      }
 
-    await handleStaticRequest(request, response, url);
-  })().catch((error) => {
-    console.error('Docker 服务未处理异常', error);
-    if (!response.headersSent) {
-      sendText(response, 500, '服务内部错误。');
-    } else {
-      response.end();
-    }
+      await handleStaticRequest(request, response, url);
+    })().catch((error) => {
+      console.error('Docker 服务未处理异常', error);
+      if (!response.headersSent) {
+        sendText(response, 500, '服务内部错误。');
+      } else {
+        response.end();
+      }
+    });
   });
-});
+}
 
-server.listen(port, host, () => {
-  console.log(`命语 Docker 服务已启动：http://${host}:${port}`);
-});
+export function startDockerServer() {
+  const server = createDockerServer();
+  server.listen(port, host, () => {
+    console.log(`命语 Docker 服务已启动：http://${host}:${port}`);
+  });
+  return server;
+}
+
+const entryPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (entryPath === import.meta.url) {
+  startDockerServer();
+}
