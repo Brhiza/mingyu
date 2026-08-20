@@ -1,6 +1,6 @@
 {
   "name": "mingyu-core",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "description": "TypeScript 算命、占卜与玄学排盘算法：八字、紫微斗数、六爻、奇门遁甲、塔罗、择日等",
   "type": "module",
   "main": "./dist/index.js",
