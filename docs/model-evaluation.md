@@ -1,6 +1,6 @@
 # 模型评测
 
-命语内置 2022—2026 年全球算命师大赛评测资料，共 5 届、40 个命例、200 道四选一题。比赛资料位于 [`benchmarks/fortune-contest`](../benchmarks/fortune-contest)。
+寻卜内置 2022—2026 年全球算命师大赛评测资料，共 5 届、40 个命例、200 道四选一题。比赛资料位于 [`benchmarks/fortune-contest`](../benchmarks/fortune-contest)。
 
 评测支持按年份和题目类别筛选。试题与选项保持固定顺序，同一筛选条件始终使用唯一试卷。结果按 100 分制输出，并同时给出准确率和逐题明细。
 

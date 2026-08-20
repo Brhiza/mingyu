@@ -31,7 +31,6 @@
     "../src/components/**/*",
     "../src/workers/**/*",
     "../src/main.tsx",
-    "../src/App.tsx",
-    "../src/registerServiceWorker.ts"
+    "../src/App.tsx"
   ]
 }

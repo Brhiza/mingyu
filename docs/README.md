@@ -1,4 +1,4 @@
-# 命语文档
+# 寻卜文档
 
 根目录的 [README](../README.md) 只保留项目简介、常用能力和快速入口。完整资料按用途分开放在这里。
 
@@ -11,7 +11,7 @@
 ## 开发者
 
 - [公开 API](api.md)：接口、参数和请求示例。
-- [MCP Server](../mcp/README.md)：让支持 MCP 的 AI 客户端调用命语。
+- [MCP Server](../mcp/README.md)：让支持 MCP 的 AI 客户端调用寻卜。
 - [Agent Skill](../public/skills/aov-mingyu-api/SKILL.md)：让 AI 代理自动选择排盘和提示词接口。
 - [`mingyu-core` 算法包](../packages/core/README.md)：在应用中复用核心算法。
 - [开发与部署](development-and-deployment.md)：本地开发、项目结构、Cloudflare Pages、Docker 和内置 AI 配置。

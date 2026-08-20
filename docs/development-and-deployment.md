@@ -1,6 +1,6 @@
 # 开发与部署
 
-命语使用 pnpm workspace 同时维护 React 应用和 `mingyu-core` 算法包，支持本地开发、Cloudflare Pages 和 Docker 部署。
+寻卜使用 pnpm workspace 同时维护 React 应用和 `mingyu-core` 算法包，支持本地开发、Cloudflare Pages 和 Docker 部署。
 
 ## 技术栈
 
@@ -118,6 +118,7 @@ Docker 镜像会构建网页，并启动同时提供网页、公开 API、流式
 构建并启动基础服务：
 
 ```bash
+open -a Docker
 docker build -t mingyu .
 docker run --rm -p 3000:3000 mingyu
 ```
@@ -150,7 +151,7 @@ VITE_ENABLE_DONATION_BOX=false
 
 ## 内置 AI
 
-命语支持两种 AI 使用方式：
+寻卜支持两种 AI 使用方式：
 
 - 用户在网页的 AI 设置中填写 OpenAI 兼容接口，API Key 只保存在用户自己的浏览器。
 - 部署者在服务端配置可选的内置 AI。

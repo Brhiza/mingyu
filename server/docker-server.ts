@@ -19,7 +19,8 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
-const distDir = path.resolve(projectRoot, 'dist');
+// Vite 构建产物输出到 dist/xunbu（见 vite.config.ts 的 outDir）
+const distDir = path.resolve(projectRoot, 'dist', 'xunbu');
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || '0.0.0.0';
 const RUNTIME_CONFIG_PATH = '/mingyu-runtime-config.js';
@@ -284,8 +285,6 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
 
   if (url.pathname.startsWith('/assets/')) {
     headers['Cache-Control'] = 'public, max-age=31536000, immutable';
-  } else if (url.pathname === '/service-worker.js' || url.pathname === '/sw.js') {
-    headers['Cache-Control'] = 'no-cache';
   } else if (isSpaFallback || ext === '.html') {
     headers['Cache-Control'] = 'no-cache';
   }
@@ -323,7 +322,7 @@ export function createDockerServer() {
 export function startDockerServer() {
   const server = createDockerServer();
   server.listen(port, host, () => {
-    console.log(`命语 Docker 服务已启动：http://${host}:${port}`);
+    console.log(`寻卜 Docker 服务已启动：http://${host}:${port}`);
   });
   return server;
 }
