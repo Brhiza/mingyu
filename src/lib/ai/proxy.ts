@@ -177,6 +177,9 @@ export async function handleAiAnalyze(
         stream: true,
         max_tokens: 4096,
         temperature: 0.7,
+        // deepseek-v4-pro/flash 默认开启思考模式，输出会走 reasoning_content 而非 content，
+        // 导致前端只收到 [DONE]。这里显式关闭思考，让模型直接输出 content。
+        thinking: { type: 'disabled' },
         messages: [
           {
             role: 'system',
