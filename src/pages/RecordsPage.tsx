@@ -180,7 +180,7 @@ export function RecordsPage() {
               value={activeTab}
               options={[
                 { label: '个人记录', value: 'personal' as const },
-                { label: '合盘记录', value: 'compatibility' as const },
+                // { label: '合盘记录', value: 'compatibility' as const },
                 { label: '占卜记录', value: 'divination' as const },
               ]}
               onChange={(value) => setActiveTab(value)}

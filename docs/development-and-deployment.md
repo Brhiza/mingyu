@@ -71,7 +71,7 @@ pnpm lint
 pnpm format:check
 ```
 
-单独构建 `mingyu-core`：
+单独构建 `mingyu-core`：第一步就要做的事情，非常重要
 
 ```bash
 pnpm --filter mingyu-core build

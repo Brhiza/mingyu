@@ -3,9 +3,9 @@
 .claude
 .playwright-cli
 .workbuddy
-node_modules
-dist
-server-dist
+**/node_modules
+**/dist
+**/server-dist
 output
 tmp
 .wrangler
