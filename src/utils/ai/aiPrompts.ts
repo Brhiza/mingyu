@@ -169,8 +169,8 @@ export function buildPromptFromConfig(
         buildPromptSection(
           '任务',
           isCustomQuestion
-            ? buildCustomQuestionTask('八字排盘资料')
-            : buildPromptTask(task || '请依据八字排盘资料完成解读。'),
+            ? buildCustomQuestionTask('八字排盘资料', 'bazi')
+            : buildPromptTask(task || '请依据八字排盘资料完成解读。', 'bazi'),
         ),
       ]),
     };
@@ -200,8 +200,8 @@ export function buildPromptFromConfig(
       buildPromptSection(
         '任务',
         isCustomQuestion
-          ? buildCustomQuestionTask('八字排盘资料')
-          : buildPromptTask('请依据八字排盘资料完成解读。'),
+          ? buildCustomQuestionTask('八字排盘资料', 'bazi')
+          : buildPromptTask('请依据八字排盘资料完成解读。', 'bazi'),
       ),
     ]),
   };
@@ -268,8 +268,8 @@ export function getCompatibilityPrompt(
   const taskSection = buildPromptSection(
     '任务',
     options.isCustomQuestion
-      ? buildCustomQuestionTask('双方盘面和双盘关系资料')
-      : buildPromptTask(getCompatibilityTask(compatType)),
+      ? buildCustomQuestionTask('双方盘面和双盘关系资料', 'bazi-compatibility')
+      : buildPromptTask(getCompatibilityTask(compatType), 'bazi-compatibility'),
   );
 
   return {

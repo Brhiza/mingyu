@@ -166,7 +166,7 @@ export function buildDivinationPrompt(
       : '';
   const taskText =
     method === 'astrolabe' && !isCustomQuestion
-      ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic))
+      ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic), 'astrolabe')
       : buildTaskText(method);
   const selectedSchools =
     method !== 'ssgw' && options.schools?.length
@@ -206,9 +206,9 @@ export function buildDivinationPrompt(
     buildSection('【占卜信息】', infoText),
     schoolSection,
     buildSection('【问题】', normalizedQuestion),
-    buildSection('【任务】', taskText),
     isCustomQuestion ? '' : liuyaoTemplateSection,
     isCustomQuestion ? '' : liurenTemplateSection,
+    buildSection('【任务】', taskText),
   ]
     .filter(Boolean)
     .join('\n\n');

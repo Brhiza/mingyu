@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { PROMPT_ANSWER_FRAMEWORK } from '../src/lib/prompt-guidance';
+import {
+  PROMPT_ANSWER_FRAMEWORK,
+  PROMPT_METHOD_ANSWER_FRAMEWORKS,
+} from '../src/lib/prompt-guidance';
+
+export const ALL_PROMPT_ANSWER_FRAMEWORKS = [
+  PROMPT_ANSWER_FRAMEWORK,
+  ...Object.values(PROMPT_METHOD_ANSWER_FRAMEWORKS),
+];
 
 function escapeRegExp(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -54,11 +62,11 @@ export function assertPromptHasSingleRole(
   assert.doesNotMatch(prompt, /^【输出结构】$/m, '输出结构不应作为独立 section');
   assert.doesNotMatch(prompt, /^【输出要求】$/m, '输出要求不应作为独立 section');
   assert.match(prompt, /^【任务】$/m, '任务书应包含【任务】');
-  assert.equal(
-    prompt.split(PROMPT_ANSWER_FRAMEWORK).length - 1,
-    1,
-    '任务书应且只应包含一次通用答题骨架',
+  const matchedFrameworkCount = ALL_PROMPT_ANSWER_FRAMEWORKS.reduce(
+    (count, fw) => count + (prompt.split(fw).length - 1),
+    0,
   );
+  assert.equal(matchedFrameworkCount, 1, '任务书应且只应包含一次答题骨架');
   assert.match(prompt, /^【当前时间】$/m, '任务书应包含【当前时间】');
   if (requireTraditionalGuidance) {
     assert.match(prompt, /^【传统依据】$/m, '任务书应包含【传统依据】');
@@ -96,7 +104,11 @@ export function assertPromptHasSingleRole(
 
 export function assertPromptHasAnswerFramework(prompt: string) {
   assert.match(prompt, /^【任务】$/m);
-  assert.equal(prompt.split(PROMPT_ANSWER_FRAMEWORK).length - 1, 1);
+  const matchedFrameworkCount = ALL_PROMPT_ANSWER_FRAMEWORKS.reduce(
+    (count, fw) => count + (prompt.split(fw).length - 1),
+    0,
+  );
+  assert.equal(matchedFrameworkCount, 1, '任务书应且只应包含一次答题骨架');
 }
 
 export function assertNoPromptPlaceholders(prompt: string) {

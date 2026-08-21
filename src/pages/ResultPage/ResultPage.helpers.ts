@@ -231,9 +231,10 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
     `【任务】\n${
       isCustomQuestion
-        ? buildCustomQuestionTask('八字和紫微盘面资料')
+        ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
         : buildPromptTask(
             '先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点。',
+            'bazi-ziwei',
           )
     }`,
   ]

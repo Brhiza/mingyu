@@ -244,32 +244,30 @@ export function buildHuangjiJingshiPrompt(
     const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
     const askedQuestion = normalizedQuestion || `请解读${input.year}年的整体趋势与主要变化。`;
     const prompt = [
-      '【任务】',
-      buildPromptTask(
+      `【传统依据】\n${forecast.model.model}以${formatHuangjiCivilYear(forecast.model.yuanStartYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。`,
+      [
+        '【排盘资料】',
+        `目标年份：${formatHuangjiCivilYear(input.year)}（${annual.ganzhi}）`,
+        `周期位置：本元第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会），${formatHuangjiCivilYear(forecast.hui.startYear)}至${formatHuangjiCivilYear(forecast.hui.endYear)}`,
+        `会内统卦：${governing.hexagram.name}，${formatHuangjiCivilYear(governing.startYear)}至${formatHuangjiCivilYear(governing.endYear)}`,
+        `运卦：${yun.hexagram.name}，${formatHuangjiCivilYear(yun.startYear)}至${formatHuangjiCivilYear(yun.endYear)}；由${yun.derivedFrom}卦第${yun.changedLine}爻变得`,
+        `六十年统卦：${sixtyYear.hexagram.name}，${formatHuangjiCivilYear(sixtyYear.startYear)}至${formatHuangjiCivilYear(sixtyYear.endYear)}；由${sixtyYear.derivedFrom}卦第${sixtyYear.changedLine}爻变得`,
+        `十年卦：${decade.hexagram.name}，${formatHuangjiCivilYear(decade.startYear)}至${formatHuangjiCivilYear(decade.endYear)}；由${decade.derivedFrom}卦第${decade.changedLine}爻变得`,
+        `值年卦：${annual.name}（${annual.symbol}，${annual.upper}上${annual.lower}下）`,
+        `值年卦辞：${annual.judgment}`,
+      ].join('\n'),
+      [
+        '【取象资料】',
+        `互卦：${forecast.relatedHexagrams.mutual.name}`,
+        `错卦：${forecast.relatedHexagrams.opposite.name}`,
+        `综卦：${forecast.relatedHexagrams.reversed.name}`,
+      ].join('\n'),
+      `【问题】\n${askedQuestion}`,
+      `【任务】\n${buildPromptTask(
         '以值年卦为主要取象，结合十年卦、六十年统卦、运卦和会内统卦的层级背景，解读所问事项；个人事项结合问题中的现实背景作条件化分析。',
-      ),
-      '',
-      '【问题】',
-      askedQuestion,
-      '',
-      '【排盘资料】',
-      `目标年份：${formatHuangjiCivilYear(input.year)}（${annual.ganzhi}）`,
-      `周期位置：本元第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会），${formatHuangjiCivilYear(forecast.hui.startYear)}至${formatHuangjiCivilYear(forecast.hui.endYear)}`,
-      `会内统卦：${governing.hexagram.name}，${formatHuangjiCivilYear(governing.startYear)}至${formatHuangjiCivilYear(governing.endYear)}`,
-      `运卦：${yun.hexagram.name}，${formatHuangjiCivilYear(yun.startYear)}至${formatHuangjiCivilYear(yun.endYear)}；由${yun.derivedFrom}卦第${yun.changedLine}爻变得`,
-      `六十年统卦：${sixtyYear.hexagram.name}，${formatHuangjiCivilYear(sixtyYear.startYear)}至${formatHuangjiCivilYear(sixtyYear.endYear)}；由${sixtyYear.derivedFrom}卦第${sixtyYear.changedLine}爻变得`,
-      `十年卦：${decade.hexagram.name}，${formatHuangjiCivilYear(decade.startYear)}至${formatHuangjiCivilYear(decade.endYear)}；由${decade.derivedFrom}卦第${decade.changedLine}爻变得`,
-      `值年卦：${annual.name}（${annual.symbol}，${annual.upper}上${annual.lower}下）`,
-      `值年卦辞：${annual.judgment}`,
-      '',
-      '【取象资料】',
-      `互卦：${forecast.relatedHexagrams.mutual.name}`,
-      `错卦：${forecast.relatedHexagrams.opposite.name}`,
-      `综卦：${forecast.relatedHexagrams.reversed.name}`,
-      '',
-      '【传统依据】',
-      `${forecast.model.model}以${formatHuangjiCivilYear(forecast.model.yuanStartYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。`,
-    ].join('\n');
+        'huangji-jingshi',
+      )}`,
+    ].join('\n\n');
     return insertPromptSectionBeforeHeading(
       prompt,
       '【问题】',
@@ -277,31 +275,30 @@ export function buildHuangjiJingshiPrompt(
     );
   }
 
-  const lines = [
-    '【任务】',
-    buildPromptTask(
-      normalizedQuestion ? '请结合周期资料回答【问题】。' : '请解读目标年所处的周期位置。',
-    ),
+  const sections: string[] = [
+    '【传统依据】\n按一元十二会、一会三十运、一运十二世、一世三十年的元会运世层级定位。',
+    [
+      '【周期资料】',
+      `纪元年坐标：${input.epochYear}（某一元第一年）`,
+      `目标年坐标：${input.year}`,
+      `距纪元已过：${input.elapsedYears} 年`,
+      `元：自纪元起第 ${position.yuan.indexFromEpoch} 元，${position.yuan.startYear} 至 ${position.yuan.endYear}`,
+      `会：本元第 ${position.hui.indexInYuan} 会，${position.hui.startYear} 至 ${position.hui.endYear}`,
+      `运：本元第 ${position.yun.indexInYuan} 运、本会第 ${position.yun.indexInHui} 运，${position.yun.startYear} 至 ${position.yun.endYear}`,
+      `世：本元第 ${position.shi.indexInYuan} 世、本运第 ${position.shi.indexInYun} 世，${position.shi.startYear} 至 ${position.shi.endYear}`,
+      `年：本世第 ${position.year.indexInShi} 年、本元第 ${position.year.indexInYuan} 年`,
+      `周期边界：本世当前为第 ${result.progress.shi.currentYearIndex} 年，尚余 ${result.progress.shi.remainingYearsAfterCurrent} 个完整年；下一世始于 ${result.progress.shi.nextCycleStartYear}，下一运始于 ${result.progress.yun.nextCycleStartYear}`,
+    ].join('\n'),
   ];
-  if (normalizedQuestion) lines.push('', '【问题】', normalizedQuestion);
-  lines.push(
-    '',
-    '【周期资料】',
-    `纪元年坐标：${input.epochYear}（某一元第一年）`,
-    `目标年坐标：${input.year}`,
-    `距纪元已过：${input.elapsedYears} 年`,
-    `元：自纪元起第 ${position.yuan.indexFromEpoch} 元，${position.yuan.startYear} 至 ${position.yuan.endYear}`,
-    `会：本元第 ${position.hui.indexInYuan} 会，${position.hui.startYear} 至 ${position.hui.endYear}`,
-    `运：本元第 ${position.yun.indexInYuan} 运、本会第 ${position.yun.indexInHui} 运，${position.yun.startYear} 至 ${position.yun.endYear}`,
-    `世：本元第 ${position.shi.indexInYuan} 世、本运第 ${position.shi.indexInYun} 世，${position.shi.startYear} 至 ${position.shi.endYear}`,
-    `年：本世第 ${position.year.indexInShi} 年、本元第 ${position.year.indexInYuan} 年`,
-    `周期边界：本世当前为第 ${result.progress.shi.currentYearIndex} 年，尚余 ${result.progress.shi.remainingYearsAfterCurrent} 个完整年；下一世始于 ${result.progress.shi.nextCycleStartYear}，下一运始于 ${result.progress.yun.nextCycleStartYear}`,
-    '',
-    '【传统依据】',
-    '按一元十二会、一会三十运、一运十二世、一世三十年的元会运世层级定位。',
+  if (normalizedQuestion) sections.push(`【问题】\n${normalizedQuestion}`);
+  sections.push(
+    `【任务】\n${buildPromptTask(
+      normalizedQuestion ? '请结合周期资料回答【问题】。' : '请解读目标年所处的周期位置。',
+      'huangji-jingshi',
+    )}`,
   );
   return insertPromptSectionBeforeHeading(
-    lines.join('\n'),
+    sections.join('\n\n'),
     '【问题】',
     buildPromptSchoolSection('huangji-jingshi', schools),
   );

@@ -261,10 +261,10 @@ export function buildBaziPromptForResult(params: {
   const label = BAZI_TOPIC_LABELS[topic];
   const task =
     params.mode === 'custom'
-      ? buildCustomQuestionTask('八字排盘资料')
+      ? buildCustomQuestionTask('八字排盘资料', 'bazi')
       : label === '通用'
-        ? buildPromptTask('请依据八字排盘资料完成解读。')
-        : buildPromptTask(`请重点分析${label}，并直接回答【问题】。`);
+        ? buildPromptTask('请依据八字排盘资料完成解读。', 'bazi')
+        : buildPromptTask(`请重点分析${label}，并直接回答【问题】。`, 'bazi');
   const chart = [
     formatBaziForPrompt(params.result, null, fortuneScope === 'natal' ? 'general' : 'fortune'),
   ]
@@ -514,8 +514,8 @@ export function buildPublicZiweiPromptForRuntime(params: {
     section(
       '任务',
       mode === 'custom'
-        ? buildCustomQuestionTask('紫微盘面资料')
-        : buildPromptTask('请依据紫微盘面完成解读。'),
+        ? buildCustomQuestionTask('紫微盘面资料', 'ziwei')
+        : buildPromptTask('请依据紫微盘面完成解读。', 'ziwei'),
     ),
   ]);
   const selectedSchools = params.schools?.length ? params.schools : [];
@@ -572,8 +572,8 @@ export function buildBaziZiweiPromptForResults(params: {
     section(
       '任务',
       params.mode === 'custom'
-        ? buildCustomQuestionTask('八字和紫微盘面资料')
-        : buildPromptTask('请依据八字和紫微盘面完成解读。'),
+        ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
+        : buildPromptTask('请依据八字和紫微盘面完成解读。', 'bazi-ziwei'),
     ),
   ]);
 }

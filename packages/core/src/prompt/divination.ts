@@ -548,6 +548,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
     options.method === 'astrolabe' && !options.isCustomQuestion
       ? buildPromptTask(
           `请依据星体、宫位、相位和盘面证据，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`,
+          'astrolabe',
         )
       : buildTaskText(options.method);
   const templateText =

@@ -129,18 +129,90 @@ export type DivinationPromptGuidanceMethod =
 export const PROMPT_ANSWER_FRAMEWORK =
   '先给出清晰结论，再说明主要依据及其相互作用；如盘面呈现过程或时间层级，再说明阶段变化与可观察信号。';
 
-/** 在具体任务后追加一条跨体系共用的简短答题骨架。 */
-export function buildPromptTask(task: string) {
+/** 各术数体系专属的传统推演骨架，针对不同底层象数理模型定制，保障沉浸与地道。 */
+export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
+  // 1. 命理时序体系
+  bazi: '先立足四柱原局判定旺衰调候、格局用神与性格根基，再结合岁运干支引动推演阶段吉凶与流年应事。',
+  'bazi-compatibility':
+    '先分别确立双方原局旺衰调候与性格基调，再交叉比较日主五行、十神配合与合冲刑害，结合共同岁运推演互动契合与阶段变化。',
+  ziwei:
+    '先以命身十二宫与三方四正定本命格局，再结合生年四化与运限落宫飞星，详述阶段起伏与吉凶应期。',
+  'ziwei-compatibility':
+    '先分别确立双方命身与关系宫位格局，再交叉比较跨盘星曜与四化落点，结合运限推演关系深化与关键阶段。',
+  'bazi-ziwei':
+    '八字先看原局岁运，紫微先看命身四化，两套体系各自成论后交叉印证，在共同岁运与运限层级推演阶段起伏。',
+  astrolabe:
+    '先以太阳、月亮、上升与主要相位格局定本命底色，再结合行运推进与时限推演阶段触发与运势起伏。',
+  'astrolabe-synastry':
+    '先分别确立双方本命结构与关系需求，再结合跨盘相位与重要落宫推演互动张力与长期承接。',
+  qizheng: '先以命身宫度与十一星落宿定本命根基，再依三方吊照与度数生克详析吉凶，推演阶段起伏。',
+
+  // 2. 卦象筮法与三式体系
+  liuyao:
+    '先以世应用神决断吉凶成败，再详析动变伏藏、六亲生克与月日冲合演变，并依据卦爻生克指明应期机先。',
+  meihua:
+    '先以体用生克与四时旺衰决断吉凶成败，再详析互卦过程与变卦归宿，并依据动爻卦数指明应期时序。',
+  qimen: '先以值符值使定大势局型，再依用神落宫门星神干与格局生克详析事态，指明主客攻守与破局机先。',
+  liuren:
+    '先以初传发用定事之发端，中传观移易转折，末传看归宿终局；结合天将乘克与课体详断吉凶演变。',
+  jinkoujue: '先以四位生克与阴阳发用定吉凶成败，再结合五动三动与神将旺衰详析事态演变与应期关窍。',
+  taiyi: '先以太乙落宫与主客算定大局攻守，再结合文昌始击将参乘克推演事态顺逆与时机取舍。',
+
+  // 3. 堪舆风水体系
+  bazhai:
+    '先断人宅相合与宅卦吉凶大局，再依大游年八方详析各宫气场生克，并给出传统方位宜忌与趋避要点。',
+  xuankong:
+    '先按三元九运与山向定当运旺衰局型，再依三盘九宫飞星详析各宫生克与反伏吉凶，并指明方位趋避要点。',
+  residential:
+    '先断玄空当运山向与八宅人宅相合大局，再结合飞星九宫与大游年吉凶详析各方位气场，并给出传统布局趋避要点。',
+
+  // 4. 择日体系
+  almanac:
+    '先明确给出首选吉日、备选吉日与慎用日期，再依建除二十八宿、神煞冲克与主事者年命详述取舍依据，并指明可用吉时。',
+
+  // 5. 灵签与直断体系
+  ssgw: '先依签文诗意与吉凶级别直断所问事项，再结合签诗典故与分项释义阐发事理，指明进退行止关窍。',
+  xiaoliuren:
+    '先依落宫吉凶直断所问吉凶，再结合掌诀歌诀、五行生克与落宫方位详述机理，指明事态向背。',
+  tarot:
+    '先依牌阵牌位与正逆位直断核心趋势，再结合元素能量、牌序互动与关键牌义详析发展脉络与应对关窍。',
+  lenormand: '先依核心主题牌与牌位布局直断走向，再结合相邻牌义与组合意象详析事态脉络与转折关窍。',
+
+  // 6. 年运与周期体系
+  zodiac: '先依生肖与流年干支判定太岁、五行与合冲刑害关系，再结合流年生克推演年运重点与四季节律。',
+  'wuyun-liuqi':
+    '先依年干支判定岁运太过不及与司天在泉，再结合五步主客运与六步主客气详述四时气候节律与变化节点。',
+  'huangji-jingshi':
+    '先定位元会运世周期层级与值年统卦，再结合卦爻变易与先后天象意推演时势走向与转折关窍。',
+};
+
+export function getPromptAnswerFramework(method?: string): string {
+  if (method && method in PROMPT_METHOD_ANSWER_FRAMEWORKS) {
+    return PROMPT_METHOD_ANSWER_FRAMEWORKS[method];
+  }
+  return PROMPT_ANSWER_FRAMEWORK;
+}
+
+/** 在具体任务后追加对应体系的简短答题骨架。 */
+export function buildPromptTask(task: string, method?: string) {
   const normalizedTask = task.trim();
-  if (!normalizedTask) return PROMPT_ANSWER_FRAMEWORK;
-  if (normalizedTask.includes(PROMPT_ANSWER_FRAMEWORK)) return normalizedTask;
+  const framework = getPromptAnswerFramework(method);
+  if (!normalizedTask) return framework;
+  const allFrameworks = [
+    framework,
+    PROMPT_ANSWER_FRAMEWORK,
+    ...Object.values(PROMPT_METHOD_ANSWER_FRAMEWORKS),
+  ];
+  if (allFrameworks.some((fw) => normalizedTask.includes(fw))) {
+    return normalizedTask;
+  }
   const separator = /[。！？]$/.test(normalizedTask) ? '' : '。';
-  return `${normalizedTask}${separator}${PROMPT_ANSWER_FRAMEWORK}`;
+  return `${normalizedTask}${separator}${framework}`;
 }
 
 /** 自由提问只保留中性任务，不附加任何预设主题。 */
-export function buildCustomQuestionTask(subject = '以上资料') {
-  return buildPromptTask(`请依据${subject.trim() || '以上资料'}回答【问题】`);
+export function buildCustomQuestionTask(subject = '以上资料', method?: string) {
+  return buildPromptTask(`请依据${subject.trim() || '以上资料'}回答【问题】`, method);
 }
 
 export function buildPromptGuidanceSections(method: PromptGuidanceId) {

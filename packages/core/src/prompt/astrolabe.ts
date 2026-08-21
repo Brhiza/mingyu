@@ -128,6 +128,7 @@ export function buildAstrolabePromptDocument(options: AstrolabePromptOptions): P
       '任务',
       buildPromptTask(
         `请依据星体、宫位、相位和盘面证据，重点分析${TOPIC_LABELS[topic]}并回答问题。`,
+        'astrolabe',
       ),
     ),
   ]);
@@ -178,6 +179,7 @@ export function buildAstrolabeSynastryPromptDocument(
       '任务',
       buildPromptTask(
         '请依据双方本命盘、跨盘相位和跨盘落宫，分析互动主轴、互补点与张力点，并列出各自对应证据，再回答问题。',
+        'astrolabe-synastry',
       ),
     ),
   ]);

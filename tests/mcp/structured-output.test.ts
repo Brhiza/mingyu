@@ -351,12 +351,12 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
   [
     'wuyun_liuqi_prompt',
     { yearGanZhi: '丙午', question: '请解释本年的气候节律。' },
-    /【问题】\n请解释本年的气候节律。[\s\S]*【盘面资料】[\s\S]*年干支：丙午/,
+    /【盘面资料】[\s\S]*年干支：丙午[\s\S]*【问题】\n请解释本年的气候节律。/,
   ],
   [
     'huangji_jingshi_prompt',
     { epochYear: 1000, year: 2026, question: '请解释目标年的周期位置。' },
-    /【问题】\n请解释目标年的周期位置。[\s\S]*【周期资料】[\s\S]*目标年坐标：2026/,
+    /【周期资料】[\s\S]*目标年坐标：2026[\s\S]*【问题】\n请解释目标年的周期位置。/,
   ],
 ];
 

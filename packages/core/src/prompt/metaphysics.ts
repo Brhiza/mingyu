@@ -30,10 +30,15 @@ export function buildMetaphysicsPromptDocument(
   question: string | undefined,
   options: MetaphysicsPromptOptions,
 ): PromptDocument {
+  const normalizedBase = basePrompt.trim();
+  const baseSection = normalizedBase.startsWith('【')
+    ? normalizedBase
+    : buildPromptSection('排盘资料', normalizedBase);
+
   const sections = [
     buildPromptGuidance(options.method),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
-    buildPromptSection('排盘资料', basePrompt),
+    baseSection,
     options.measurement ? buildPromptSection('测量换算', options.measurement) : '',
     buildPromptSchoolSection(options.method, options.schools),
     question?.trim() ? buildPromptSection('问题', question) : '',
@@ -41,6 +46,7 @@ export function buildMetaphysicsPromptDocument(
       '任务',
       buildPromptTask(
         question?.trim() ? '请结合以上资料回答【问题】。' : '请结合以上资料完成解读。',
+        options.method,
       ),
     ),
   ];
