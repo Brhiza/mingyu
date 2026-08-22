@@ -8,7 +8,6 @@ import {
   type CSSProperties,
 } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { SegmentedControl } from '@/components/SegmentedControl';
 import { PrivacyHint } from '@/components/PrivacyHint';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
 import {
@@ -28,8 +27,6 @@ import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
-import { AiSettingsModal } from '@/components/AiSettingsModal';
-import { useAiSettings } from '@/hooks/useAiSettings';
 import { resolveInputEntryMode, type InputEntryMode } from './input-entry-mode';
 
 const DONATION_URL = 'https://lk.sydf.cc/';
@@ -43,15 +40,13 @@ const LazyDivinationPanel = lazy(async () => {
 export function InputPage() {
   const navigate = useNavigate();
   const [, startSubmitTransition] = useTransition();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState<QueryInputState>(defaultInputState);
   const [entryMode, setEntryMode] = useState<InputEntryMode>(() =>
     resolveInputEntryMode(searchParams),
   );
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [aiSettings, setAiSettings] = useAiSettings();
-  const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState(false);
   const mainContentRef = useRef<HTMLDivElement | null>(null);
   const tutorialEntryRef = useRef<HTMLDivElement | null>(null);
   const loadedCaseIdRef = useRef<string | null>(null);
@@ -398,28 +393,6 @@ export function InputPage() {
     updatePersonField(role, 'birthMinute', minute);
   }
 
-  function updateEntryMode(value: InputEntryMode) {
-    setEntryMode(value);
-
-    if ((value === 'single' || value === 'compatibility') && value !== form.analysisMode) {
-      setActiveCaseId(null);
-      loadedCaseIdRef.current = null;
-    }
-
-    if (value === 'single' || value === 'compatibility') {
-      updateField('analysisMode', value);
-    }
-
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('mode', value);
-    nextSearchParams.delete('case');
-    nextSearchParams.delete('draft');
-    if (value !== 'single') {
-      nextSearchParams.delete('chart');
-    }
-    setSearchParams(nextSearchParams, { replace: true });
-  }
-
   const divinationPanelFallback = (
     <div className="divination-panel-shell input-mode-loading" aria-hidden="true">
       <section className="person-section divination-form-card input-mode-loading-card">
@@ -458,29 +431,6 @@ export function InputPage() {
       <div className="bazi-view-container">
         <div className="input-page-main-content" ref={mainContentRef}>
           <PrivacyHint />
-          <div className="analysis-mode-strip">
-            <div className="top-switch-control">
-              <SegmentedControl
-                value={entryMode}
-                options={[
-                  { label: '排盘', value: 'single' as const },
-                  { label: '合盘', value: 'compatibility' as const },
-                  { label: '占卜', value: 'divination' as const },
-                  { label: '择日', value: 'almanac' as const },
-                ]}
-                onChange={updateEntryMode}
-              />
-              <button
-                type="button"
-                className="top-ai-settings-icon-button"
-                onClick={() => setIsAiSettingsModalOpen(true)}
-                aria-label="AI 设置"
-                title="AI 设置"
-              >
-                <span aria-hidden="true">⚙</span>
-              </button>
-            </div>
-          </div>
 
           <div className="analysis-view">
             {entryMode === 'divination' || entryMode === 'almanac' ? (
@@ -600,13 +550,6 @@ export function InputPage() {
       </div>
 
       {birthPlace.isBirthPlaceModalOpen ? <BirthPlaceModal birthPlace={birthPlace} /> : null}
-      {isAiSettingsModalOpen ? (
-        <AiSettingsModal
-          settings={aiSettings}
-          onApply={setAiSettings}
-          onClose={() => setIsAiSettingsModalOpen(false)}
-        />
-      ) : null}
     </div>
   );
 }

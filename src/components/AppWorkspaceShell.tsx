@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AiSettingsModal } from '@/components/AiSettingsModal';
+import { useAiSettings } from '@/hooks/useAiSettings';
 import {
   HISTORY_RECORDS_CHANGED_EVENT,
   loadCompatibilityHistory,
@@ -41,6 +43,8 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [aiSettingsModalOpen, setAiSettingsModalOpen] = useState(false);
+  const [aiSettings, setAiSettings] = useAiSettings();
   const [, setHistoryVersion] = useState(0);
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
@@ -271,6 +275,19 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
           </span>
           <span>使用教程</span>
         </button>
+        <button
+          className="app-sidebar-tutorial"
+          type="button"
+          onClick={() => {
+            setMobileSidebarOpen(false);
+            setAiSettingsModalOpen(true);
+          }}
+        >
+          <span className="app-sidebar-nav-mark" aria-hidden="true">
+            设
+          </span>
+          <span>AI 设置</span>
+        </button>
       </aside>
 
       {mobileSidebarOpen ? (
@@ -306,6 +323,13 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
         </header>
         {children}
       </div>
+      {aiSettingsModalOpen ? (
+        <AiSettingsModal
+          settings={aiSettings}
+          onApply={setAiSettings}
+          onClose={() => setAiSettingsModalOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -2369,36 +2369,6 @@ select {
   }
 }
 
-.ai-settings-chip {
-  margin-left: auto;
-}
-
-.ai-settings-chip.is-ai-on {
-  border-color: var(--accent-strong);
-  color: var(--accent-strong);
-}
-
-.top-ai-settings-icon-button {
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--accent-soft-strong);
-  border-radius: var(--radius-control);
-  background: rgba(var(--surface-base-rgb), 0.86);
-  color: var(--accent-deep);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.top-ai-settings-icon-button:hover {
-  border-color: var(--accent-strong);
-  color: var(--accent-strong);
-}
-
 .panel {
   border-radius: var(--radius-page-card);
   padding: 24px;
@@ -3790,45 +3760,11 @@ select {
   opacity: 0.86;
 }
 
-.analysis-mode-strip {
-  margin-bottom: 2px;
-  display: flex;
-  justify-content: center;
-}
-
 .donation-entry-strip {
   width: min(220px, calc(100vw - 48px));
   margin: 0 auto;
   display: flex;
   justify-content: center;
-}
-
-.analysis-mode-card {
-  display: grid;
-  gap: 6px;
-  border: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
-  border-radius: var(--radius-control);
-  padding: 10px 12px;
-}
-
-.analysis-mode-card span {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.top-switch-control {
-  width: min(720px, 100%);
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.top-switch-control .segmented-control-react {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .input-page-bottom-tools {
@@ -7900,28 +7836,6 @@ div.form-actions.page-submit-actions {
     border-radius: var(--radius-control);
   }
 
-  .analysis-mode-card {
-    padding: 8px 10px;
-    border-radius: var(--radius-control);
-  }
-
-  .top-switch-control {
-    width: 100%;
-    gap: 8px;
-  }
-
-  .top-ai-settings-icon-button {
-    width: 44px;
-    height: 44px;
-    flex-basis: 44px;
-    font-size: 17px;
-  }
-
-  .top-switch-control .segmented-control-react,
-  .top-switch-control .segmented-control-item-react {
-    min-height: 44px;
-  }
-
   .input-page-shell.has-floating-tutorial-entry {
     padding-bottom: calc(
       var(--input-bottom-tools-height, 112px) + var(--input-bottom-tools-gap, 28px)
@@ -10141,7 +10055,6 @@ div.form-actions.page-submit-actions {
   background: linear-gradient(145deg, var(--accent-strong), var(--accent-deep));
   box-shadow: 0 9px 22px rgba(139, 63, 117, 0.2);
   color: #fff;
-  font-family: 'STKaiti', 'KaiTi', serif;
   font-size: 21px;
   font-weight: 700;
 }
@@ -10154,7 +10067,6 @@ div.form-actions.page-submit-actions {
 
 .app-sidebar-brand strong {
   color: var(--text-strong);
-  font-family: 'STKaiti', 'KaiTi', serif;
   font-size: 20px;
   line-height: 1.1;
 }
@@ -10229,7 +10141,6 @@ div.form-actions.page-submit-actions {
   border-radius: 9px;
   background: var(--surface-muted);
   color: var(--text-muted);
-  font-family: 'STKaiti', 'KaiTi', serif;
   font-size: 14px;
   font-weight: 700;
 }
@@ -10332,7 +10243,6 @@ div.form-actions.page-submit-actions {
   border-radius: 10px;
   background: var(--secondary-soft);
   color: var(--accent-deep);
-  font-family: 'STKaiti', 'KaiTi', serif;
   font-size: 15px;
   font-weight: 700;
 }
@@ -10448,7 +10358,6 @@ div.form-actions.page-submit-actions {
 .case-library-heading h2 {
   margin: 0;
   color: var(--text-strong);
-  font-family: 'STKaiti', 'KaiTi', serif;
   font-size: clamp(20px, 2.4vw, 28px);
 }
 
@@ -10677,7 +10586,6 @@ div.form-actions.page-submit-actions {
 
   .app-mobile-brand strong {
     color: var(--text-strong);
-    font-family: 'STKaiti', 'KaiTi', serif;
     font-size: 18px;
   }
 
