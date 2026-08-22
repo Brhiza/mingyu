@@ -607,6 +607,14 @@ export const TAROT_SPREAD_INSPIRATION_QUESTIONS: Partial<
     '出国还是留在国内发展？',
     '现在投资还是继续观望？',
   ],
+  holyTriangle: ['这件事的根源、现状和结果是什么？', '当前问题会如何发展？'],
+  universal: ['我应该如何处理当前最在意的问题？', '当前局面的突破口在哪里？'],
+  fourElements: ['我在行动、情感、思考和现实上需要如何平衡？'],
+  hexagram: ['这个复杂问题受哪些显性与隐性因素影响？'],
+  relationship: ['我们双方的需求和关系走向是什么？', '我们的互动模式需要如何调整？'],
+  wealth: ['我当前的财务状态和改善方向是什么？', '近期的收入机会与风险在哪里？'],
+  problemSolving: ['这个问题的根源和最可行的突破方向是什么？'],
+  twelveHouses: ['未来一个周期里，我在十二个生活领域的重点是什么？'],
 };
 
 export type DivinationSpecialInspiration = {
