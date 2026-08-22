@@ -107,9 +107,10 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
   const question = options.question?.trim() || `请围绕${topicLabel}解读这份八字资料。`;
   const task =
     options.mode === 'custom'
-      ? buildCustomQuestionTask('八字排盘资料')
+      ? buildCustomQuestionTask('八字排盘资料', 'bazi')
       : buildPromptTask(
           `请依据八字排盘资料${topicLabel === '通用' ? '完成整体解读' : `重点分析${topicLabel}`}，结合问题给出有依据的分析。`,
+          'bazi',
         );
   const chart = formatBaziForPrompt(
     options.result,
@@ -220,6 +221,7 @@ export function buildBaziCompatibilityPromptDocument(
       '任务',
       buildPromptTask(
         '请依据双方盘面与双盘关系资料回答问题，分别列出共同证据、分歧证据和需要结合现实核对的部分。',
+        'bazi-compatibility',
       ),
     ),
   ]);

@@ -31,5 +31,5 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>) {
 }
 
 export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
-  return buildPromptTask(buildMethodTaskText(method));
+  return buildPromptTask(buildMethodTaskText(method), method);
 }

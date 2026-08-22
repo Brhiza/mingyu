@@ -30,7 +30,10 @@ import { calculateHuangjiJingshi } from '@core/huangji-jingshi';
 import { calculateZodiacYearFortune } from '@core/zodiac';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
-import { PROMPT_ANSWER_FRAMEWORK } from '../src/lib/prompt-guidance';
+import {
+  PROMPT_ANSWER_FRAMEWORK,
+  PROMPT_METHOD_ANSWER_FRAMEWORKS,
+} from '../src/lib/prompt-guidance';
 
 type PromptSample = {
   name: string;
@@ -350,10 +353,18 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     },
   ];
 
+  const allFrameworks = [
+    PROMPT_ANSWER_FRAMEWORK,
+    ...Object.values(PROMPT_METHOD_ANSWER_FRAMEWORKS),
+  ];
+
   samples.forEach((sample) => {
-    const frameworkCount = sample.prompt.split(PROMPT_ANSWER_FRAMEWORK).length - 1;
+    const frameworkCount = allFrameworks.reduce(
+      (count, fw) => count + (sample.prompt.split(fw).length - 1),
+      0,
+    );
     if (frameworkCount !== 1) {
-      leakedMessages.push(`${sample.name} 通用答题骨架出现 ${frameworkCount} 次`);
+      leakedMessages.push(`${sample.name} 答题骨架出现 ${frameworkCount} 次`);
     }
 
     const duplicatedSections = duplicateSectionNames(sample.prompt);

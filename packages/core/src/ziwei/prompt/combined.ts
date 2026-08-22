@@ -242,8 +242,8 @@ export function buildCombinedZiweiPrompt(
     '',
     `【任务】\n${
       isCustomQuestion
-        ? buildCustomQuestionTask('紫微盘面资料')
-        : buildPromptTask('请结合宫位、星曜、四化和三方四正直接回答【问题】。')
+        ? buildCustomQuestionTask('紫微盘面资料', 'ziwei')
+        : buildPromptTask('请结合宫位、星曜、四化和三方四正直接回答【问题】。', 'ziwei')
     }`,
   ].join('\n');
 }
@@ -321,8 +321,8 @@ export function buildCombinedZiweiCompatibilityPrompt(
     '',
     `【任务】\n${
       isCustomQuestion
-        ? buildCustomQuestionTask('双方紫微盘面和跨盘关系资料')
-        : buildPromptTask('请依据双方紫微盘面和跨盘关系资料完成解读。')
+        ? buildCustomQuestionTask('双方紫微盘面和跨盘关系资料', 'ziwei-compatibility')
+        : buildPromptTask('请依据双方紫微盘面和跨盘关系资料完成解读。', 'ziwei-compatibility')
     }`,
   ].join('\n');
 }

@@ -26,6 +26,7 @@ export * from './metaphysics';
 export * from './presets';
 export * from './sections';
 export * from './schools';
+export * from './tarot-spread';
 export * from './types';
 export * from './ziwei';
 export {

@@ -11,7 +11,7 @@ import type { TarotData, TarotSpreadType } from 'mingyu-core/types';
 const spreadTypes = Object.keys(tarotSpreads) as TarotSpreadType[];
 
 test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对象', () => {
-  assert.equal(spreadTypes.length, 10);
+  assert.equal(spreadTypes.length, 18);
 
   spreadTypes.forEach((spreadType) => {
     const data = drawTarotSpread(spreadType, { seed: `塔罗结构化证据-${spreadType}` });

@@ -847,7 +847,15 @@ export type TarotSpreadType =
   | 'chakra'
   | 'year'
   | 'mindBodySpirit'
-  | 'horseshoe';
+  | 'horseshoe'
+  | 'holyTriangle'
+  | 'universal'
+  | 'fourElements'
+  | 'hexagram'
+  | 'relationship'
+  | 'wealth'
+  | 'problemSolving'
+  | 'twelveHouses';
 
 export type LiuyaoTemplateType = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
 

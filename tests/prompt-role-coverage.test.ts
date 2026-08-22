@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 import {
   PROMPT_ANSWER_FRAMEWORK,
+  PROMPT_METHOD_ANSWER_FRAMEWORKS,
   PROMPT_GUIDANCE_TEXT,
   buildCustomQuestionTask,
   buildPromptTask,
@@ -24,12 +25,20 @@ test('全部提示词指引不包含系统控制话术', () => {
   });
 });
 
-test('通用答题骨架保持简短、中性且可重复调用', () => {
+test('通用与分体系答题骨架保持简短、中性且可重复调用', () => {
   assert.ok(PROMPT_ANSWER_FRAMEWORK.length <= 70);
   assert.doesNotMatch(
     PROMPT_ANSWER_FRAMEWORK,
     /【输出要求】|现实建议|风险提醒|行动清单|不得|禁止|只依据|只基于/,
   );
+  Object.entries(PROMPT_METHOD_ANSWER_FRAMEWORKS).forEach(([method, framework]) => {
+    assert.ok(framework.length <= 80, `${method} 骨架长度应 <= 80`);
+    assert.doesNotMatch(
+      framework,
+      /【输出要求】|现实建议|风险提醒|行动清单|不得|禁止|只依据|只基于/,
+      `${method} 骨架不应包含限制性控制话术`,
+    );
+  });
   assert.equal(
     buildPromptTask(buildPromptTask('请依据盘面回答【问题】。')),
     buildPromptTask('请依据盘面回答【问题】。'),

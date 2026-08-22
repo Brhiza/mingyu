@@ -35,6 +35,7 @@ import type { PromptBuildOptions, PromptDocument } from './types';
 import { formatEnhancedDivinationInfo } from './divination-enhanced';
 import { resolveSsgwStoryContent } from '../divination/ssgw-content';
 import { buildSolarTimeInfoText, buildTimeInfoText } from './formatters';
+import { buildTarotSpreadTask } from './tarot-spread';
 
 export interface DivinationSummaryBlocks {
   title: string;
@@ -548,8 +549,11 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
     options.method === 'astrolabe' && !options.isCustomQuestion
       ? buildPromptTask(
           `请依据星体、宫位、相位和盘面证据，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`,
+          'astrolabe',
         )
-      : buildTaskText(options.method);
+      : options.method === 'tarot'
+        ? buildTarotSpreadTask(options.data as TarotData)
+        : buildTaskText(options.method);
   const templateText =
     options.method === 'liuyao'
       ? buildLiuyaoTemplateText(liuyaoTemplate)

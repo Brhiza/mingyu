@@ -9,6 +9,7 @@ import type {
   LiurenData,
   LiurenTemplateType,
   SupplementaryInfo,
+  TarotData,
   TarotSpreadType,
   TaiyiResult,
   TaiyiScope,
@@ -40,6 +41,7 @@ import {
   formatPromptSchoolGuidance,
   getPromptSchoolSectionTitle,
   normalizePromptSchoolIds,
+  buildTarotSpreadTask,
   type PromptSchoolMethod,
 } from 'mingyu-core/prompt';
 
@@ -166,8 +168,10 @@ export function buildDivinationPrompt(
       : '';
   const taskText =
     method === 'astrolabe' && !isCustomQuestion
-      ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic))
-      : buildTaskText(method);
+      ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic), 'astrolabe')
+      : method === 'tarot'
+        ? buildTarotSpreadTask(data as TarotData)
+        : buildTaskText(method);
   const selectedSchools =
     method !== 'ssgw' && options.schools?.length
       ? normalizePromptSchoolIds(method as PromptSchoolMethod, options.schools)
@@ -206,9 +210,9 @@ export function buildDivinationPrompt(
     buildSection('【占卜信息】', infoText),
     schoolSection,
     buildSection('【问题】', normalizedQuestion),
-    buildSection('【任务】', taskText),
     isCustomQuestion ? '' : liuyaoTemplateSection,
     isCustomQuestion ? '' : liurenTemplateSection,
+    buildSection('【任务】', taskText),
   ]
     .filter(Boolean)
     .join('\n\n');

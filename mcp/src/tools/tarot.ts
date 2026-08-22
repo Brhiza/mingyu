@@ -24,10 +24,18 @@ const tarotSchema = z.object({
       'year',
       'mindBodySpirit',
       'horseshoe',
+      'holyTriangle',
+      'universal',
+      'fourElements',
+      'hexagram',
+      'relationship',
+      'wealth',
+      'problemSolving',
+      'twelveHouses',
     ])
     .optional()
     .describe(
-      '牌阵类型：single=单牌指引, three=时间流, love=爱情, career=事业, decision=选择, celtic=凯尔特十字, chakra=七脉轮, year=年运, mindBodySpirit=身心灵, horseshoe=马蹄铁',
+      '牌阵类型：single=单牌指引, three=时间流, love=爱情, career=事业, decision=选择, celtic=凯尔特十字, chakra=七脉轮, year=年运, mindBodySpirit=身心灵, horseshoe=马蹄铁, holyTriangle=圣三角, universal=万能, fourElements=四元素, hexagram=六芒星, relationship=关系, wealth=财富, problemSolving=问题解决, twelveHouses=十二宫',
     ),
 });
 

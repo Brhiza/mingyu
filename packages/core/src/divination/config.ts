@@ -152,6 +152,14 @@ export const TAROT_SPREAD_OPTIONS: Array<{
   { value: 'year', label: '年运牌阵' },
   { value: 'mindBodySpirit', label: '身心灵牌阵' },
   { value: 'horseshoe', label: '马蹄铁牌阵' },
+  { value: 'holyTriangle', label: '圣三角牌阵' },
+  { value: 'universal', label: '万能牌阵' },
+  { value: 'fourElements', label: '四元素牌阵' },
+  { value: 'hexagram', label: '六芒星牌阵' },
+  { value: 'relationship', label: '关系牌阵' },
+  { value: 'wealth', label: '财富牌阵' },
+  { value: 'problemSolving', label: '问题解决牌阵' },
+  { value: 'twelveHouses', label: '十二宫牌阵' },
 ];
 
 export const LIUREN_TEMPLATE_OPTIONS: Array<{

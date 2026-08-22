@@ -603,38 +603,39 @@ export function buildWuyunLiuqiPrompt(
   schools?: readonly PromptSchoolId<'wuyun-liuqi'>[],
 ): string {
   const normalizedQuestion = normalizeQuestion(question);
-  const lines = [
-    '【任务】',
-    buildPromptTask(
-      normalizedQuestion ? '请结合年度运气资料回答【问题】。' : '请解读年度运气节律。',
-    ),
+  const sections: string[] = [
+    '【传统依据】\n以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
+    [
+      '【盘面资料】',
+      `年干支：${result.input.yearGanZhi}${result.input.year === undefined ? '' : `（公历 ${result.input.year} 年）`}`,
+      `岁运：${result.annualMovement.name}（${result.annualMovement.toneName}），${result.annualMovement.strength}（${result.annualMovement.yinYang}干）`,
+      `司天：${result.sitian.name}`,
+      `在泉：${result.zaiquan.name}`,
+      `司天与中运：${result.annualRelation.kind}；${result.annualRelation.basis}`,
+      `年度符会：${result.annualConformities.names.length ? result.annualConformities.names.join('、') : '未形成天符、岁会、太乙天符、同天符或同岁会'}`,
+      '五步主客运：',
+      ...result.movementSteps.map(
+        (step) =>
+          `${step.order}. ${step.label}（${step.periodRule}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`,
+      ),
+      '六步主客气：',
+      ...result.qiSteps.map(
+        (step) =>
+          `${step.order}. ${step.label}（${step.solarTerms.join('、')}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`,
+      ),
+    ].join('\n'),
   ];
-  if (normalizedQuestion) lines.push('', '【问题】', normalizedQuestion);
-  lines.push(
-    '',
-    '【盘面资料】',
-    `年干支：${result.input.yearGanZhi}${result.input.year === undefined ? '' : `（公历 ${result.input.year} 年）`}`,
-    `岁运：${result.annualMovement.name}（${result.annualMovement.toneName}），${result.annualMovement.strength}（${result.annualMovement.yinYang}干）`,
-    `司天：${result.sitian.name}`,
-    `在泉：${result.zaiquan.name}`,
-    `司天与中运：${result.annualRelation.kind}；${result.annualRelation.basis}`,
-    `年度符会：${result.annualConformities.names.length ? result.annualConformities.names.join('、') : '未形成天符、岁会、太乙天符、同天符或同岁会'}`,
-    '五步主客运：',
-    ...result.movementSteps.map(
-      (step) =>
-        `${step.order}. ${step.label}（${step.periodRule}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`,
-    ),
-    '六步主客气：',
-    ...result.qiSteps.map(
-      (step) =>
-        `${step.order}. ${step.label}（${step.solarTerms.join('、')}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`,
-    ),
-    '',
-    '【传统依据】',
-    '以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
+  if (normalizedQuestion) {
+    sections.push(`【问题】\n${normalizedQuestion}`);
+  }
+  sections.push(
+    `【任务】\n${buildPromptTask(
+      normalizedQuestion ? '请结合年度运气资料回答【问题】。' : '请解读年度运气节律。',
+      'wuyun-liuqi',
+    )}`,
   );
   return insertPromptSectionBeforeHeading(
-    lines.join('\n'),
+    sections.join('\n\n'),
     '【问题】',
     buildPromptSchoolSection('wuyun-liuqi', schools),
   );

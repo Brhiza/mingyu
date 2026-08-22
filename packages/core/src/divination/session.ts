@@ -25,6 +25,7 @@ import type { PromptDocument } from '../prompt/types';
 import { formatPromptCurrentTime } from '../prompt/current-time';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from '../prompt/sections';
 import { buildTaskText } from './engine/method-text';
+import { buildTarotSpreadTask } from '../prompt/tarot-spread';
 import {
   createUnifiedResultView,
   partitionResultForConsumption,
@@ -43,6 +44,7 @@ import type {
   MeihuaSettings,
   QimenData,
   SupplementaryInfo,
+  TarotData,
   TarotSpreadType,
   TaiyiResult,
   TaiyiScope,
@@ -145,6 +147,7 @@ function buildDivinationAiPrompt(options: {
   currentTime?: Date;
   supplementaryInfo?: SupplementaryInfo;
   chartText: string;
+  data: DivinationData;
 }) {
   const supplementary = formatSupplementaryInfo(options.supplementaryInfo, options.method);
   return buildPromptDocument(
@@ -153,7 +156,12 @@ function buildDivinationAiPrompt(options: {
       supplementary ? buildPromptSection('补充信息', supplementary) : '',
       buildPromptSection('占卜资料', options.chartText),
       buildPromptSection('问题', options.question || '请依据本次盘面资料完成解读。'),
-      buildPromptSection('任务', buildTaskText(options.method)),
+      buildPromptSection(
+        '任务',
+        options.method === 'tarot'
+          ? buildTarotSpreadTask(options.data as TarotData)
+          : buildTaskText(options.method),
+      ),
     ]),
   );
 }
@@ -395,6 +403,7 @@ export function generateDivinationSession(request: DivinationRequest): Divinatio
     currentTime,
     supplementaryInfo: request.supplementaryInfo,
     chartText: formatAiChart(method, data, summary),
+    data,
   });
   const aiPrompt = aiPromptDocument.text;
   const view = createUnifiedResultView({

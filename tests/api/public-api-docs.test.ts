@@ -26,6 +26,14 @@ test('公开 API 文档和 skill 应覆盖完整塔罗牌阵参数', () => {
     'year',
     'mindBodySpirit',
     'horseshoe',
+    'holyTriangle',
+    'universal',
+    'fourElements',
+    'hexagram',
+    'relationship',
+    'wealth',
+    'problemSolving',
+    'twelveHouses',
   ]) {
     assert.match(publicApiDocs, new RegExp(spreadType));
     assert.match(publicSkill, new RegExp(spreadType));
