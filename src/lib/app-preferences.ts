@@ -3,36 +3,33 @@ import {
   type DivinationMethodId,
 } from 'mingyu-core/divination/config';
 import { safeStorage } from '@/lib/safe-storage';
+import {
+  DEFAULT_WORKSPACE_NAVIGATION_ORDER,
+  isWorkspaceEntryId,
+  normalizeWorkspaceNavigationOrder,
+  type WorkspaceHomePreference,
+  type WorkspaceEntryId,
+} from '@/lib/workspace-navigation';
 
 const APP_PREFERENCES_STORAGE_KEY = 'mingyu_app_preferences_v1';
 
 export const APP_PREFERENCES_CHANGED_EVENT = 'mingyu:app-preferences-changed';
 
-export type HomePreference =
-  'unspecified' | 'dashboard' | 'single' | 'compatibility' | 'divination' | 'almanac';
-
 export type CaseEntryPreference = 'recent' | 'new';
 
 export type AppPreferences = {
-  home: HomePreference;
+  home: WorkspaceHomePreference;
   defaultDivinationMethod: DivinationMethodId;
   caseEntry: CaseEntryPreference;
+  navigationOrder: WorkspaceEntryId[];
 };
 
 export const defaultAppPreferences: AppPreferences = {
-  home: 'dashboard',
+  home: 'bazi',
   defaultDivinationMethod: 'random',
   caseEntry: 'recent',
+  navigationOrder: [...DEFAULT_WORKSPACE_NAVIGATION_ORDER],
 };
-
-const homePreferences = new Set<HomePreference>([
-  'unspecified',
-  'dashboard',
-  'single',
-  'compatibility',
-  'divination',
-  'almanac',
-]);
 
 const generalDivinationMethods = new Set<DivinationMethodId>(
   GENERAL_DIVINATION_METHOD_OPTIONS.map((item) => item.value),
@@ -48,9 +45,17 @@ export function readAppPreferences(): AppPreferences {
     return defaultAppPreferences;
   }
 
-  const home = homePreferences.has(stored.home as HomePreference)
-    ? (stored.home as HomePreference)
-    : defaultAppPreferences.home;
+  const storedHome = stored.home;
+  const home: WorkspaceHomePreference =
+    storedHome === 'unspecified'
+      ? 'unspecified'
+      : isWorkspaceEntryId(storedHome)
+        ? storedHome
+        : storedHome === 'compatibility' || storedHome === 'almanac'
+          ? storedHome
+          : storedHome === 'divination'
+            ? 'random'
+            : 'bazi';
   const defaultDivinationMethod = generalDivinationMethods.has(
     stored.defaultDivinationMethod as DivinationMethodId,
   )
@@ -65,6 +70,7 @@ export function readAppPreferences(): AppPreferences {
     home,
     defaultDivinationMethod,
     caseEntry,
+    navigationOrder: normalizeWorkspaceNavigationOrder(stored.navigationOrder),
   };
 }
 

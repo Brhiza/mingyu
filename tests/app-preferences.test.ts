@@ -38,7 +38,7 @@ function installMemoryStorage() {
   });
 }
 
-test('应用偏好默认进入首页，并可改为空白输入页和指定占卜算法', () => {
+test('应用偏好默认进入八字，并可保存空白入口、占卜算法和侧栏顺序', () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   installMemoryStorage();
 
@@ -49,12 +49,20 @@ test('应用偏好默认进入首页，并可改为空白输入页和指定占�
       home: 'unspecified',
       defaultDivinationMethod: 'meihua',
       caseEntry: 'new',
+      navigationOrder: [
+        'ziwei',
+        ...defaultAppPreferences.navigationOrder.filter((item) => item !== 'ziwei'),
+      ],
     });
 
     assert.deepEqual(readAppPreferences(), {
       home: 'unspecified',
       defaultDivinationMethod: 'meihua',
       caseEntry: 'new',
+      navigationOrder: [
+        'ziwei',
+        ...defaultAppPreferences.navigationOrder.filter((item) => item !== 'ziwei'),
+      ],
     });
   } finally {
     if (originalWindow) {

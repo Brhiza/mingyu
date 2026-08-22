@@ -8,11 +8,6 @@ const InputPage = lazy(async () => {
   return { default: module.InputPage };
 });
 
-const HomePage = lazy(async () => {
-  const module = await import('./pages/HomePage');
-  return { default: module.HomePage };
-});
-
 const RecordsPage = lazy(async () => {
   const module = await import('./pages/RecordsPage');
   return { default: module.RecordsPage };
@@ -26,6 +21,16 @@ const ResultPage = lazy(async () => {
 const TutorialPage = lazy(async () => {
   const module = await import('./pages/TutorialPage');
   return { default: module.TutorialPage };
+});
+
+const DivinationInputPage = lazy(async () => {
+  const module = await import('./pages/DivinationPage');
+  return { default: module.DivinationInputPage };
+});
+
+const DivinationResultPage = lazy(async () => {
+  const module = await import('./pages/DivinationPage');
+  return { default: module.DivinationResultPage };
 });
 
 export default function App() {
@@ -49,8 +54,10 @@ export default function App() {
       <ErrorBoundary>
         <AppWorkspaceShell>
           <Routes>
-            <Route path="/home" element={<HomePage />} />
+            <Route path="/home" element={<Navigate to="/" replace />} />
             <Route path="/" element={<InputPage />} />
+            <Route path="/divination" element={<DivinationInputPage />} />
+            <Route path="/divination/result" element={<DivinationResultPage />} />
             <Route path="/tutorial" element={<TutorialPage />} />
             <Route path="/records" element={<RecordsPage />} />
             <Route path="/result" element={<ResultPage />} />

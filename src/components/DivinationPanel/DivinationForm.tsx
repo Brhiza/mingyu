@@ -1,6 +1,7 @@
 import { useEffect, useState, type RefObject } from 'react';
 import {
   ALMANAC_TOPIC_OPTIONS,
+  DIVINATION_METHOD_OPTIONS,
   GENERAL_DIVINATION_METHOD_OPTIONS,
   LENORMAND_SPREAD_OPTIONS,
   LIUYAO_TEMPLATE_OPTIONS,
@@ -108,7 +109,7 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
 interface DivinationFormProps {
   draft: DivinationDraft;
   updateDraft: <K extends keyof DivinationDraft>(key: K, value: DivinationDraft[K]) => void;
-  lockedMethod?: Extract<DivinationDraft['method'], 'almanac' | 'astrolabe'>;
+  lockedMethod?: DivinationDraft['method'];
   isSubmitting: boolean;
   error: string;
   onSubmit: () => void | Promise<void>;
@@ -141,14 +142,9 @@ export function DivinationForm({
       setMoreMethodsOpen(true);
     }
   }, [selectedMoreMethod]);
-  const formHeading =
-    lockedMethod === 'astrolabe' ? '星盘' : lockedMethod === 'almanac' ? '择日' : '传统起卦';
-  const formDescription =
-    lockedMethod === 'astrolabe'
-      ? '生成星体、宫位与相位，并提供可视星盘作为解读依据。'
-      : lockedMethod === 'almanac'
-        ? '按事项、日期范围和参与人八字，筛选更合适的行动日。'
-        : '依托传统算法，提供准确卦象。';
+  const lockedMethodOption = DIVINATION_METHOD_OPTIONS.find((item) => item.value === lockedMethod);
+  const formHeading = lockedMethodOption?.label || '传统起卦';
+  const formDescription = lockedMethodOption?.description || '依托传统算法，提供准确卦象。';
   const isAlmanac = draft.method === 'almanac';
   const questionLabel = isAlmanac ? '补充信息（可选）' : '问题';
   const questionPlaceholder = isAlmanac

@@ -7,7 +7,16 @@ import {
   buildCompatibilityCaseResultPath,
   buildPersonalCaseResultPath,
 } from '@/lib/case-navigation';
+import { hasCompletePreciseBirthData, parsePromptState } from '@/lib/query-state';
 import {
+  buildWorkspaceEntryPath,
+  buildWorkspaceHomePath,
+  getWorkspaceNavigationItem,
+  isWorkspaceEntryId,
+  type WorkspaceEntryId,
+} from '@/lib/workspace-navigation';
+import {
+  getDivinationHistoryById,
   HISTORY_RECORDS_CHANGED_EVENT,
   loadCompatibilityHistory,
   loadDivinationHistory,
@@ -46,6 +55,43 @@ function formatCaseDate(record: SidebarCase) {
   return `${record.record.input.year}-${record.record.input.month}-${record.record.input.day}`;
 }
 
+function resolveActiveWorkspaceEntry(
+  pathname: string,
+  params: URLSearchParams,
+  defaultDivinationEntry: string,
+): WorkspaceEntryId | null {
+  const resolveDivinationEntry = (value: unknown): WorkspaceEntryId | null => {
+    if (!isWorkspaceEntryId(value)) return null;
+    return getWorkspaceNavigationItem(value).kind === 'divination' ? value : null;
+  };
+  const fallbackDivinationEntry = resolveDivinationEntry(defaultDivinationEntry) || 'random';
+  if (pathname === '/divination' || pathname === '/divination/result') {
+    const record = params.get('record')
+      ? getDivinationHistoryById(params.get('record')!)
+      : undefined;
+    const method = record?.draft.method || params.get('method') || fallbackDivinationEntry;
+    return resolveDivinationEntry(method) || fallbackDivinationEntry;
+  }
+
+  if (pathname === '/result') {
+    if (params.get('a') === 'compatibility') return 'compatibility';
+    const promptState = parsePromptState(params);
+    const source = promptState.tab === 'prompt' ? promptState.promptSource : promptState.tab;
+    return isWorkspaceEntryId(source) ? source : 'bazi';
+  }
+
+  if (pathname !== '/') return null;
+  const mode = getEntryMode(params);
+  if (mode === 'compatibility') return 'compatibility';
+  if (mode === 'almanac') return 'almanac';
+  if (mode === 'divination') {
+    const method = params.get('method') || fallbackDivinationEntry;
+    return resolveDivinationEntry(method) || fallbackDivinationEntry;
+  }
+  const source = params.get('source') || 'bazi';
+  return isWorkspaceEntryId(source) ? source : 'bazi';
+}
+
 export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,13 +114,13 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
   );
 
   const caseCount = personalCases.length + compatibilityCases.length;
-  const preferredEntryMode =
-    appPreferences.home === 'compatibility' ||
-    appPreferences.home === 'divination' ||
-    appPreferences.home === 'almanac'
-      ? appPreferences.home
-      : 'single';
-  const activeEntryMode = getEntryMode(params, preferredEntryMode);
+  const activeEntryMode = getEntryMode(params);
+  const activeWorkspaceEntry = resolveActiveWorkspaceEntry(
+    location.pathname,
+    params,
+    appPreferences.defaultDivinationMethod,
+  );
+  const orderedNavigationItems = appPreferences.navigationOrder.map(getWorkspaceNavigationItem);
   const requestedCaseId = params.get('case') || params.get('caseId');
   const requestedCaseKind =
     location.pathname === '/result' && params.get('a') === 'compatibility'
@@ -91,72 +137,41 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
       )
     : undefined;
 
-  function buildCaseEntry(mode: 'single' | 'compatibility') {
-    const kind = mode === 'compatibility' ? 'compatibility' : 'personal';
-    const recentCase = sidebarCases.find((item) => item.kind === kind);
-    if (appPreferences.caseEntry === 'recent' && recentCase) {
-      return recentCase.kind === 'compatibility'
-        ? buildCompatibilityCaseResultPath(recentCase.record)
-        : buildPersonalCaseResultPath(recentCase.record);
+  function buildNavigationEntry(id: WorkspaceEntryId) {
+    const item = getWorkspaceNavigationItem(id);
+    if (appPreferences.caseEntry === 'recent') {
+      if (item.kind === 'compatibility') {
+        const record = compatibilityCases[0];
+        if (record) return buildCompatibilityCaseResultPath(record);
+      }
+      if (item.kind === 'personal') {
+        const record = personalCases[0];
+        if (record && item.promptSource) {
+          if (
+            (item.promptSource === 'astrolabe' || item.promptSource === 'qizheng') &&
+            !hasCompletePreciseBirthData(record.input)
+          ) {
+            const nextParams = new URLSearchParams({
+              mode: 'single',
+              source: item.promptSource,
+              case: record.id,
+            });
+            return `/?${nextParams.toString()}`;
+          }
+          return buildPersonalCaseResultPath(record, item.promptSource);
+        }
+      }
     }
-    return `/?mode=${mode}&draft=${encodeURIComponent(location.key)}`;
+    return buildWorkspaceEntryPath(id, location.key);
   }
 
   function buildHomeEntry() {
-    if (appPreferences.home === 'dashboard') {
-      return '/home';
-    }
-    if (appPreferences.home === 'unspecified') {
-      return `/?draft=${encodeURIComponent(location.key)}`;
-    }
-    if (appPreferences.home === 'single' || appPreferences.home === 'compatibility') {
-      return buildCaseEntry(appPreferences.home);
-    }
-    return `/?mode=${appPreferences.home}`;
+    return appPreferences.home === 'unspecified'
+      ? buildWorkspaceHomePath('unspecified', location.key)
+      : buildNavigationEntry(appPreferences.home);
   }
 
   const destinations: SidebarDestination[] = [
-    {
-      key: 'home',
-      label: '首页',
-      mark: '首',
-      to: '/home',
-      matches: (pathname) => pathname === '/home',
-    },
-    {
-      key: 'single',
-      label: '个人排盘',
-      mark: '命',
-      to: buildCaseEntry('single'),
-      matches: (pathname, search) =>
-        (pathname === '/' && getEntryMode(search, preferredEntryMode) === 'single') ||
-        (pathname === '/result' && search.get('a') !== 'compatibility'),
-    },
-    {
-      key: 'compatibility',
-      label: '合盘',
-      mark: '合',
-      to: buildCaseEntry('compatibility'),
-      matches: (pathname, search) =>
-        (pathname === '/' && getEntryMode(search, preferredEntryMode) === 'compatibility') ||
-        (pathname === '/result' && search.get('a') === 'compatibility'),
-    },
-    {
-      key: 'divination',
-      label: '占卜',
-      mark: '卜',
-      to: '/?mode=divination',
-      matches: (pathname, search) =>
-        pathname === '/' && getEntryMode(search, preferredEntryMode) === 'divination',
-    },
-    {
-      key: 'almanac',
-      label: '择日',
-      mark: '日',
-      to: '/?mode=almanac',
-      matches: (pathname, search) =>
-        pathname === '/' && getEntryMode(search, preferredEntryMode) === 'almanac',
-    },
     {
       key: 'cases',
       label: '案例库',
@@ -232,8 +247,14 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
   }
 
   function createCase() {
-    const mode = activeEntryMode === 'compatibility' ? 'compatibility' : 'single';
-    go(`/?mode=${mode}&draft=${encodeURIComponent(location.key)}`);
+    if (activeWorkspaceEntry) {
+      const item = getWorkspaceNavigationItem(activeWorkspaceEntry);
+      if (item.kind === 'personal' || item.kind === 'compatibility') {
+        go(buildWorkspaceEntryPath(item.id, location.key));
+        return;
+      }
+    }
+    go(buildWorkspaceEntryPath('bazi', location.key));
   }
 
   function goHome() {
@@ -243,7 +264,14 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
   function editCurrentCase() {
     if (!currentCase) return;
     const mode = currentCase.kind === 'personal' ? 'single' : 'compatibility';
-    go(`/?mode=${mode}&case=${encodeURIComponent(currentCase.record.id)}`);
+    const nextParams = new URLSearchParams({ mode, case: currentCase.record.id });
+    if (currentCase.kind === 'personal' && activeWorkspaceEntry) {
+      const item = getWorkspaceNavigationItem(activeWorkspaceEntry);
+      if (item.kind === 'personal' && item.promptSource) {
+        nextParams.set('source', item.promptSource);
+      }
+    }
+    go(`/?${nextParams.toString()}`);
   }
 
   function switchCase(value: string) {
@@ -282,16 +310,16 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
           </button>
         </div>
 
-        <nav className="app-sidebar-nav" aria-label="主要功能">
-          {destinations.slice(0, 5).map((item) => {
-            const active = item.matches(location.pathname, params);
+        <nav className="app-sidebar-nav app-sidebar-nav-features" aria-label="全部功能">
+          {orderedNavigationItems.map((item) => {
+            const active = activeWorkspaceEntry === item.id;
             return (
               <button
-                key={item.key}
+                key={item.id}
                 type="button"
                 className={active ? 'is-active' : ''}
                 aria-current={active ? 'page' : undefined}
-                onClick={() => go(item.to)}
+                onClick={() => go(buildNavigationEntry(item.id))}
               >
                 <span className="app-sidebar-nav-mark" aria-hidden="true">
                   {item.mark}
@@ -305,7 +333,7 @@ export function AppWorkspaceShell({ children }: AppWorkspaceShellProps) {
         <div className="app-sidebar-divider" />
 
         <nav className="app-sidebar-nav app-sidebar-nav-library" aria-label="案例与记录">
-          {destinations.slice(5).map((item) => {
+          {destinations.map((item) => {
             const active = item.matches(location.pathname, params);
             return (
               <button

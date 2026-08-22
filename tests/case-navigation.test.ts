@@ -60,3 +60,30 @@ test('打开合盘案例时直接进入合盘结果', () => {
   assert.equal(parseInputState(params).analysisMode, 'compatibility');
   assert.equal(parsePromptState(params).baziPresetId, 'ai-compat-marriage');
 });
+
+test('从侧栏打开个人案例时切换到指定排盘类目', () => {
+  const path = buildPersonalCaseResultPath(
+    {
+      id: 'case-2',
+      type: 'single',
+      name: '星命案例',
+      gender: 'male',
+      chartType: 'bazi',
+      birthText: '2000-1-1',
+      input: {
+        ...defaultInputState,
+        name: '星命案例',
+        year: '2000',
+        month: '1',
+        day: '1',
+        timeIndex: '1',
+      },
+      updatedAt: '2026-08-23T00:00:00.000Z',
+    },
+    'qizheng',
+  );
+
+  const params = new URLSearchParams(path.slice(path.indexOf('?') + 1));
+  assert.equal(parsePromptState(params).promptSource, 'qizheng');
+  assert.equal(parseInputState(params).chartType, 'astrolabe');
+});

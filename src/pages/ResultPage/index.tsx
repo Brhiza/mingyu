@@ -1366,21 +1366,25 @@ export function ResultPage() {
     />
   ) : null;
 
+  function returnToInput() {
+    const nextParams = new URLSearchParams({
+      mode: inputState.analysisMode === 'compatibility' ? 'compatibility' : 'single',
+    });
+    const caseId = searchParams.get('caseId');
+    if (caseId) nextParams.set('case', caseId);
+    if (inputState.analysisMode === 'single') {
+      nextParams.set('source', promptState.promptSource);
+    }
+    navigate(`/?${nextParams.toString()}`);
+  }
+
   return (
     <div
       className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}${
         isDesktopAiWorkspace && expandedPromptChart ? ' page-shell-ai-workspace-with-chart' : ''
       }`}
     >
-      <PageTopbar
-        title="排盘结果"
-        wide
-        onBack={() =>
-          navigate(
-            `/?mode=${inputState.analysisMode === 'compatibility' ? 'compatibility' : 'single'}`,
-          )
-        }
-      />
+      <PageTopbar title="排盘结果" wide onBack={returnToInput} />
 
       <div className="tab-strip">
         <button

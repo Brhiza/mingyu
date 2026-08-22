@@ -32,7 +32,8 @@ import { DivinationResult } from './DivinationResult';
 
 type DivinationPanelProps = {
   initialMethod?: DivinationDraft['method'];
-  lockedMethod?: Extract<DivinationDraft['method'], 'almanac' | 'astrolabe'>;
+  lockedMethod?: DivinationDraft['method'];
+  displayMode?: 'workspace' | 'input' | 'result';
 };
 
 function createDefaultDraft(method?: DivinationPanelProps['initialMethod']): DivinationDraft {
@@ -42,7 +43,11 @@ function createDefaultDraft(method?: DivinationPanelProps['initialMethod']): Div
   };
 }
 
-export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanelProps) {
+export function DivinationPanel({
+  initialMethod,
+  lockedMethod,
+  displayMode = 'workspace',
+}: DivinationPanelProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [draft, setDraft] = useState<DivinationDraft>(() => createDefaultDraft(initialMethod));
@@ -71,6 +76,9 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
   useEffect(() => {
     const recordId = searchParams.get('record');
     if (!recordId) {
+      if (displayMode === 'result') {
+        setError('缺少占卜记录，请返回重新起卦');
+      }
       return;
     }
 
@@ -85,11 +93,13 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     setError('');
     setIsSubmitting(false);
 
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('mode', 'divination');
-    nextSearchParams.delete('record');
-    setSearchParams(nextSearchParams, { replace: true });
-  }, [searchParams, setSearchParams]);
+    if (displayMode === 'workspace') {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.set('mode', 'divination');
+      nextSearchParams.delete('record');
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  }, [displayMode, searchParams, setSearchParams]);
 
   const summary = useMemo(
     () => (session ? getDivinationSummaryBlocks(session.method, session.data) : null),
@@ -230,14 +240,20 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     try {
       const nextSession = await generateDivinationSession(draft);
       const savedRecord = addDivinationHistory(draft, nextSession);
+      if (displayMode === 'input' && savedRecord) {
+        navigate(`/divination/result?record=${encodeURIComponent(savedRecord.id)}`);
+        return;
+      }
       setSession(nextSession);
       if (!savedRecord) {
         return;
       }
-      const nextSearchParams = new URLSearchParams(searchParams);
-      nextSearchParams.set('mode', 'divination');
-      nextSearchParams.set('record', savedRecord.id);
-      setSearchParams(nextSearchParams, { replace: true });
+      if (displayMode === 'workspace') {
+        const nextSearchParams = new URLSearchParams(searchParams);
+        nextSearchParams.set('mode', 'divination');
+        nextSearchParams.set('record', savedRecord.id);
+        setSearchParams(nextSearchParams, { replace: true });
+      }
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : '占卜生成失败，请稍后重试');
     } finally {
@@ -247,32 +263,40 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
 
   return (
     <div className="divination-panel-shell">
-      <DivinationForm
-        draft={draft}
-        updateDraft={updateDraft}
-        lockedMethod={lockedMethod}
-        isSubmitting={isSubmitting}
-        error={error}
-        onSubmit={handleSubmit}
-        onOpenInspiration={openQuestionInspirationModal}
-        onNavigateToHistory={() => navigate('/records?tab=divination')}
-        questionInputRef={questionInputRef}
-      />
+      {displayMode !== 'result' ? (
+        <DivinationForm
+          draft={draft}
+          updateDraft={updateDraft}
+          lockedMethod={lockedMethod}
+          isSubmitting={isSubmitting}
+          error={error}
+          onSubmit={handleSubmit}
+          onOpenInspiration={openQuestionInspirationModal}
+          onNavigateToHistory={() => navigate('/records?tab=divination')}
+          questionInputRef={questionInputRef}
+        />
+      ) : error ? (
+        <div className="form-error-text global-form-error divination-result-error" role="alert">
+          {error}
+        </div>
+      ) : null}
 
-      <DivinationResult
-        isSubmitting={isSubmitting}
-        session={session}
-        summary={summary}
-        methodLabelMap={methodLabelMap}
-        copyState={copyState}
-        shareState={shareState}
-        showShareButton={showShareButton}
-        isPhoneLayout={isPhoneLayout}
-        onCopy={handleCopy}
-        onShare={handleShare}
-      />
+      {displayMode !== 'input' ? (
+        <DivinationResult
+          isSubmitting={isSubmitting}
+          session={session}
+          summary={summary}
+          methodLabelMap={methodLabelMap}
+          copyState={copyState}
+          shareState={shareState}
+          showShareButton={showShareButton}
+          isPhoneLayout={isPhoneLayout}
+          onCopy={handleCopy}
+          onShare={handleShare}
+        />
+      ) : null}
 
-      {isQuestionInspirationModalOpen ? (
+      {displayMode !== 'result' && isQuestionInspirationModalOpen ? (
         <QuestionInspirationModal
           filters={inspirationFilters}
           activeFilter={activeInspirationTab}

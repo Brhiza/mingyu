@@ -1,12 +1,4 @@
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-  type CSSProperties,
-} from 'react';
+import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PrivacyHint } from '@/components/PrivacyHint';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
@@ -26,11 +18,18 @@ import {
   buildResultSearch,
   defaultInputState,
   defaultPromptState,
+  hasCompletePreciseBirthData,
+  type PromptSourceKey,
   type QueryInputState,
 } from '@/lib/query-state';
 import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { useAppPreferences } from '@/hooks/useAppPreferences';
+import {
+  buildWorkspaceHomePath,
+  getWorkspaceNavigationItem,
+  isWorkspaceEntryId,
+} from '@/lib/workspace-navigation';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
@@ -39,22 +38,18 @@ import { resolveInputEntryMode, type InputEntryMode } from './input-entry-mode';
 const DONATION_URL = 'https://lk.sydf.cc/';
 const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
 
-const LazyDivinationPanel = lazy(async () => {
-  const module = await import('@/components/DivinationPanel');
-  return { default: module.DivinationPanel };
-});
+function chartTypeForPromptSource(source: PromptSourceKey): QueryInputState['chartType'] {
+  if (source === 'ziwei') return 'ziwei';
+  if (source === 'astrolabe' || source === 'qizheng') return 'astrolabe';
+  return 'bazi';
+}
 
 export function InputPage() {
   const navigate = useNavigate();
   const [, startSubmitTransition] = useTransition();
   const [searchParams] = useSearchParams();
   const [appPreferences] = useAppPreferences();
-  const preferredEntryMode =
-    appPreferences.home === 'compatibility' ||
-    appPreferences.home === 'divination' ||
-    appPreferences.home === 'almanac'
-      ? appPreferences.home
-      : 'single';
+  const preferredEntryMode = 'single';
   const [form, setForm] = useState<QueryInputState>(defaultInputState);
   const [entryMode, setEntryMode] = useState<InputEntryMode>(() =>
     resolveInputEntryMode(searchParams, preferredEntryMode),
@@ -69,17 +64,78 @@ export function InputPage() {
   const [bottomToolsHeight, setBottomToolsHeight] = useState(0);
 
   const birthPlace = useBirthPlace({ form, setForm });
+  const requestedWorkspaceEntry = searchParams.get('source');
+  const requestedWorkspaceItem = isWorkspaceEntryId(requestedWorkspaceEntry)
+    ? getWorkspaceNavigationItem(requestedWorkspaceEntry)
+    : null;
+  const selectedPromptSource: PromptSourceKey =
+    entryMode === 'compatibility'
+      ? 'bazi'
+      : requestedWorkspaceItem?.kind === 'personal' && requestedWorkspaceItem.promptSource
+        ? requestedWorkspaceItem.promptSource
+        : form.chartType;
+  const selectedEntryLabel =
+    requestedWorkspaceItem?.kind === 'personal'
+      ? requestedWorkspaceItem.label
+      : selectedPromptSource === 'ziwei'
+        ? '紫微斗数'
+        : selectedPromptSource === 'astrolabe'
+          ? '西洋星盘'
+          : '八字';
 
   useEffect(() => {
-    if (
-      appPreferences.home === 'dashboard' &&
+    const isBareEntry =
       searchParams.get('mode') === null &&
       searchParams.get('case') === null &&
-      searchParams.get('draft') === null
-    ) {
-      navigate('/home', { replace: true });
+      searchParams.get('draft') === null &&
+      searchParams.get('source') === null;
+    if (!isBareEntry || appPreferences.home === 'unspecified') return;
+
+    const homeItem = getWorkspaceNavigationItem(appPreferences.home);
+    if (appPreferences.caseEntry === 'recent') {
+      if (homeItem.kind === 'compatibility') {
+        const record = loadCompatibilityHistory()[0];
+        if (record) {
+          navigate(buildCompatibilityCaseResultPath(record), { replace: true });
+          return;
+        }
+      }
+      if (homeItem.kind === 'personal' && homeItem.promptSource) {
+        const record = loadPersonalHistory()[0];
+        if (record) {
+          if (
+            (homeItem.promptSource === 'astrolabe' || homeItem.promptSource === 'qizheng') &&
+            !hasCompletePreciseBirthData(record.input)
+          ) {
+            const nextParams = new URLSearchParams({
+              mode: 'single',
+              source: homeItem.promptSource,
+              case: record.id,
+            });
+            navigate(`/?${nextParams.toString()}`, { replace: true });
+            return;
+          }
+          navigate(buildPersonalCaseResultPath(record, homeItem.promptSource), { replace: true });
+          return;
+        }
+      }
     }
-  }, [appPreferences.home, navigate, searchParams]);
+
+    navigate(buildWorkspaceHomePath(appPreferences.home, 'default'), { replace: true });
+  }, [appPreferences.caseEntry, appPreferences.home, navigate, searchParams]);
+
+  useEffect(() => {
+    const nextEntryMode = resolveInputEntryMode(searchParams);
+    if (nextEntryMode !== 'divination' && nextEntryMode !== 'almanac') return;
+
+    const recordId = searchParams.get('record');
+    if (recordId) {
+      navigate(`/divination/result?record=${encodeURIComponent(recordId)}`, { replace: true });
+      return;
+    }
+    const method = nextEntryMode === 'almanac' ? 'almanac' : appPreferences.defaultDivinationMethod;
+    navigate(`/divination?method=${encodeURIComponent(method)}`, { replace: true });
+  }, [appPreferences.defaultDivinationMethod, navigate, searchParams]);
 
   useEffect(() => {
     const nextEntryMode = resolveInputEntryMode(searchParams, preferredEntryMode);
@@ -91,12 +147,24 @@ export function InputPage() {
 
     setForm((current) => {
       const nextAnalysisMode = nextEntryMode === 'compatibility' ? 'compatibility' : 'single';
-      return current.analysisMode === nextAnalysisMode
+      const requestedSource = searchParams.get('source');
+      const sourceItem = isWorkspaceEntryId(requestedSource)
+        ? getWorkspaceNavigationItem(requestedSource)
+        : null;
+      const nextChartType =
+        nextEntryMode === 'compatibility' || sourceItem?.kind !== 'personal'
+          ? current.chartType
+          : sourceItem.promptSource === 'ziwei'
+            ? 'ziwei'
+            : sourceItem.promptSource === 'astrolabe' || sourceItem.promptSource === 'qizheng'
+              ? 'astrolabe'
+              : 'bazi';
+      return current.analysisMode === nextAnalysisMode && current.chartType === nextChartType
         ? current
         : {
             ...current,
             analysisMode: nextAnalysisMode,
-            chartType: 'bazi',
+            chartType: nextChartType,
           };
     });
   }, [preferredEntryMode, searchParams]);
@@ -111,12 +179,7 @@ export function InputPage() {
     }
 
     const hasExplicitMode = searchParams.get('mode') !== null;
-    if (
-      !hasExplicitMode &&
-      (appPreferences.home === 'unspecified' || appPreferences.home === 'dashboard')
-    ) {
-      return;
-    }
+    if (!hasExplicitMode) return;
 
     const requestedMode = resolveInputEntryMode(searchParams, preferredEntryMode);
     if (requestedMode !== 'single' && requestedMode !== 'compatibility') {
@@ -149,7 +212,16 @@ export function InputPage() {
     const requestedMode = resolveInputEntryMode(searchParams, preferredEntryMode);
     const nextMode = requestedMode === 'compatibility' ? 'compatibility' : 'single';
     setEntryMode(nextMode);
-    setForm({ ...defaultInputState, analysisMode: nextMode });
+    const source = searchParams.get('source');
+    const sourceItem = isWorkspaceEntryId(source) ? getWorkspaceNavigationItem(source) : null;
+    const chartType =
+      sourceItem?.kind === 'personal' && sourceItem.promptSource === 'ziwei'
+        ? 'ziwei'
+        : sourceItem?.kind === 'personal' &&
+            (sourceItem.promptSource === 'astrolabe' || sourceItem.promptSource === 'qizheng')
+          ? 'astrolabe'
+          : 'bazi';
+    setForm({ ...defaultInputState, analysisMode: nextMode, chartType });
     setError('');
   }, [preferredEntryMode, searchParams]);
 
@@ -181,9 +253,20 @@ export function InputPage() {
     loadedDraftIdRef.current = null;
     setActiveCaseId(caseId);
     setEntryMode(requestedMode === 'compatibility' ? 'compatibility' : 'single');
+    const source = searchParams.get('source');
+    const sourceItem = isWorkspaceEntryId(source) ? getWorkspaceNavigationItem(source) : null;
+    const chartType =
+      sourceItem?.kind !== 'personal'
+        ? record.input.chartType
+        : sourceItem.promptSource === 'ziwei'
+          ? 'ziwei'
+          : sourceItem.promptSource === 'astrolabe' || sourceItem.promptSource === 'qizheng'
+            ? 'astrolabe'
+            : 'bazi';
     setForm({
       ...record.input,
       analysisMode: requestedMode === 'compatibility' ? 'compatibility' : 'single',
+      chartType,
     });
     setError('');
   }, [preferredEntryMode, searchParams]);
@@ -396,6 +479,15 @@ export function InputPage() {
       return;
     }
 
+    if (
+      form.analysisMode === 'single' &&
+      (selectedPromptSource === 'astrolabe' || selectedPromptSource === 'qizheng') &&
+      !form.useTrueSolarTime
+    ) {
+      setError(`${selectedEntryLabel}需要精准出生时间和出生地，请打开真太阳时并补全资料`);
+      return;
+    }
+
     const selfCheck = validateBirthInput(
       {
         year: form.year,
@@ -461,19 +553,36 @@ export function InputPage() {
     }
 
     startSubmitTransition(() => {
-      navigate({
-        pathname: '/result',
-        search: `?${buildResultSearch(form, {
+      const resultInput = {
+        ...form,
+        chartType: chartTypeForPromptSource(selectedPromptSource),
+      };
+      const savedRecords =
+        resultInput.analysisMode === 'compatibility'
+          ? upsertCompatibilityHistory(resultInput, activeCaseId)
+          : upsertPersonalHistory(resultInput, activeCaseId);
+      const savedCase =
+        (activeCaseId ? savedRecords.find((record) => record.id === activeCaseId) : undefined) ||
+        savedRecords[0];
+      const resultSearch = new URLSearchParams(
+        buildResultSearch(resultInput, {
           ...defaultPromptState,
           tab: 'prompt',
-          promptSource: 'bazi',
+          promptSource: selectedPromptSource,
           baziShortcutMode:
             form.analysisMode === 'compatibility' ? '合婚' : defaultPromptState.baziShortcutMode,
           baziPresetId:
             form.analysisMode === 'compatibility'
               ? 'ai-compat-marriage'
               : defaultPromptState.baziPresetId,
-        })}`,
+        }),
+      );
+      if (savedCase) {
+        resultSearch.set('caseId', savedCase.id);
+      }
+      navigate({
+        pathname: '/result',
+        search: `?${resultSearch.toString()}`,
       });
     });
   }
@@ -490,35 +599,9 @@ export function InputPage() {
     updatePersonField(role, 'birthMinute', minute);
   }
 
-  const divinationPanelFallback = (
-    <div className="divination-panel-shell input-mode-loading" aria-hidden="true">
-      <section className="person-section divination-form-card input-mode-loading-card">
-        <div className="person-section-head input-mode-loading-head">
-          <span className="skeleton-block input-mode-loading-title" />
-          <span className="skeleton-block input-mode-loading-line" />
-        </div>
-        <div className="input-mode-loading-methods">
-          {Array.from({ length: 8 }, (_, index) => (
-            <span className="skeleton-block input-mode-loading-method" key={`method-${index}`} />
-          ))}
-        </div>
-        <span className="skeleton-block input-mode-loading-textarea" />
-        <div className="input-mode-loading-controls">
-          <span className="skeleton-block input-mode-loading-control" />
-          <span className="skeleton-block input-mode-loading-control" />
-          <span className="skeleton-block input-mode-loading-chip" />
-        </div>
-        <div className="input-mode-loading-meta">
-          <span className="skeleton-block input-mode-loading-field" />
-          <span className="skeleton-block input-mode-loading-field" />
-        </div>
-      </section>
-      <div className="form-actions page-submit-actions" aria-hidden="true">
-        <span className="skeleton-block input-mode-loading-action" />
-        <span className="skeleton-block input-mode-loading-action" />
-      </div>
-    </div>
-  );
+  if (entryMode === 'divination' || entryMode === 'almanac') {
+    return null;
+  }
 
   return (
     <div
@@ -530,87 +613,82 @@ export function InputPage() {
           <PrivacyHint />
 
           <div className="analysis-view">
-            {entryMode === 'divination' || entryMode === 'almanac' ? (
-              <Suspense fallback={divinationPanelFallback}>
-                <LazyDivinationPanel
-                  key={`${entryMode}-${appPreferences.defaultDivinationMethod}`}
-                  initialMethod={
-                    entryMode === 'almanac' ? 'almanac' : appPreferences.defaultDivinationMethod
+            <div className="form-wrapper">
+              <>
+                {activeCaseId ? (
+                  <div className="active-case-strip" role="status">
+                    <span>
+                      正在编辑案例：<strong>{form.name || '未命名案例'}</strong>
+                    </span>
+                    <button type="button" onClick={() => navigate('/records')}>
+                      返回案例库
+                    </button>
+                  </div>
+                ) : null}
+                <PersonForm
+                  role="self"
+                  form={form}
+                  sectionTitle={
+                    entryMode === 'compatibility' ? undefined : `${selectedEntryLabel}资料`
                   }
-                  lockedMethod={entryMode === 'almanac' ? 'almanac' : undefined}
+                  updatePersonField={updatePersonField}
+                  updateNumericField={updateNumericField}
+                  updateBirthTime={updateBirthTime}
+                  openBirthPlaceModal={birthPlace.openBirthPlaceModal}
+                  historyHint={
+                    form.analysisMode !== 'single'
+                      ? undefined
+                      : selectedPromptSource === 'astrolabe' || selectedPromptSource === 'qizheng'
+                        ? '需要精准出生时间和出生地，系统会按真太阳时生成完整盘面。'
+                        : selectedPromptSource === 'bazhai'
+                          ? '先填写居住人的出生资料，进入结果页后继续填写住宅建造年份和朝向。'
+                          : `填写出生资料后生成${selectedEntryLabel}盘面与提示词。`
+                  }
                 />
-              </Suspense>
-            ) : (
-              <div className="form-wrapper">
-                <>
-                  {activeCaseId ? (
-                    <div className="active-case-strip" role="status">
-                      <span>
-                        正在编辑案例：<strong>{form.name || '未命名案例'}</strong>
-                      </span>
-                      <button type="button" onClick={() => navigate('/records')}>
-                        返回案例库
-                      </button>
-                    </div>
-                  ) : null}
+                {entryMode === 'compatibility' ? (
                   <PersonForm
-                    role="self"
+                    role="partner"
                     form={form}
                     updatePersonField={updatePersonField}
                     updateNumericField={updateNumericField}
                     updateBirthTime={updateBirthTime}
                     openBirthPlaceModal={birthPlace.openBirthPlaceModal}
-                    historyHint={
-                      form.analysisMode === 'single'
-                        ? '填写一份个人信息，自动生成八字、紫微和住宅风水入口；填写精准时间与出生地后，同时生成星盘和七政四余。'
-                        : undefined
-                    }
                   />
-                  {entryMode === 'compatibility' ? (
-                    <PersonForm
-                      role="partner"
-                      form={form}
-                      updatePersonField={updatePersonField}
-                      updateNumericField={updateNumericField}
-                      updateBirthTime={updateBirthTime}
-                      openBirthPlaceModal={birthPlace.openBirthPlaceModal}
-                    />
-                  ) : null}
+                ) : null}
 
-                  {error ? <div className="form-error-text global-form-error">{error}</div> : null}
+                {error ? <div className="form-error-text global-form-error">{error}</div> : null}
 
-                  <div
-                    className="form-actions page-submit-actions"
-                    style={{
-                      width: '100%',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      justifyItems: 'stretch',
-                    }}
+                <div
+                  className="form-actions page-submit-actions"
+                  style={{
+                    width: '100%',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    justifyItems: 'stretch',
+                  }}
+                >
+                  <button
+                    className="secondary-page-button"
+                    type="button"
+                    style={{ width: '100%' }}
+                    onClick={() =>
+                      navigate(
+                        `/records?tab=${entryMode === 'compatibility' ? 'compatibility' : 'personal'}`,
+                      )
+                    }
                   >
-                    <button
-                      className="secondary-page-button"
-                      type="button"
-                      style={{ width: '100%' }}
-                      onClick={() =>
-                        navigate(
-                          `/records?tab=${entryMode === 'compatibility' ? 'compatibility' : 'personal'}`,
-                        )
-                      }
-                    >
-                      案例库
-                    </button>
-                    <button
-                      className="primary-button start-submit-button"
-                      type="button"
-                      onClick={handleSubmit}
-                      style={{ width: '100%' }}
-                    >
-                      开始排盘
-                    </button>
-                  </div>
-                </>
-              </div>
-            )}
+                    案例库
+                  </button>
+                  <button
+                    className="primary-button start-submit-button"
+                    type="button"
+                    onClick={handleSubmit}
+                    style={{ width: '100%' }}
+                  >
+                    开始排盘
+                  </button>
+                </div>
+              </>
+            </div>
           </div>
         </div>
 

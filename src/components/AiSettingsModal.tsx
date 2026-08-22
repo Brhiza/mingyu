@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { GENERAL_DIVINATION_METHOD_OPTIONS } from 'mingyu-core/divination/config';
 import { useAppPreferences } from '@/hooks/useAppPreferences';
 import { fetchAiModels } from '@/lib/ai/stream-client';
+import { getWorkspaceNavigationItem, WORKSPACE_NAVIGATION_ITEMS } from '@/lib/workspace-navigation';
 import {
   AI_PROVIDER_PRESETS,
   getServerBuiltinAiLabel,
@@ -40,6 +41,25 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
     setModelStatus('');
   }
 
+  function moveNavigationItem(
+    id: (typeof preferencesDraft.navigationOrder)[number],
+    offset: -1 | 1,
+  ) {
+    setPreferencesDraft((current) => {
+      const currentIndex = current.navigationOrder.indexOf(id);
+      const nextIndex = currentIndex + offset;
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= current.navigationOrder.length) {
+        return current;
+      }
+      const navigationOrder = [...current.navigationOrder];
+      [navigationOrder[currentIndex], navigationOrder[nextIndex]] = [
+        navigationOrder[nextIndex],
+        navigationOrder[currentIndex],
+      ];
+      return { ...current, navigationOrder };
+    });
+  }
+
   async function handleFetchModels() {
     const config =
       draft.mode === 'builtin'
@@ -69,7 +89,7 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
         <div className="panel-head">
           <div>
             <h2>设置</h2>
-            <p>调整首页、案例和占卜偏好，也可以配置 AI 解读。</p>
+            <p>调整默认入口、侧栏顺序和案例偏好，也可以配置 AI 解读。</p>
           </div>
           <button className="modal-btn modal-btn-secondary" type="button" onClick={onClose}>
             关闭
@@ -80,13 +100,13 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
           <section className="ai-settings-section app-settings-preferences">
             <div className="app-settings-section-head">
               <strong>使用偏好</strong>
-              <small>未指定主页时，每次从空白排盘输入页开始。</small>
+              <small>选择打开命语时首先显示的功能。</small>
             </div>
 
             <div className="app-settings-preference-grid">
               <label className="field-card">
                 <div className="field-header">
-                  <span>默认主页</span>
+                  <span>默认入口</span>
                 </div>
                 <select
                   value={preferencesDraft.home}
@@ -98,11 +118,11 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
                   }
                 >
                   <option value="unspecified">未指定（空白输入页）</option>
-                  <option value="dashboard">首页</option>
-                  <option value="single">个人排盘</option>
-                  <option value="compatibility">合盘</option>
-                  <option value="divination">占卜</option>
-                  <option value="almanac">择日</option>
+                  {WORKSPACE_NAVIGATION_ITEMS.map((item) => (
+                    <option value={item.id} key={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -127,6 +147,44 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
                   ))}
                 </select>
               </label>
+            </div>
+
+            <div className="app-settings-navigation-order">
+              <div className="app-settings-section-head">
+                <strong>侧栏顺序</strong>
+                <small>使用上下按钮调整，保存后桌面端和手机端同时生效。</small>
+              </div>
+              <div className="app-settings-navigation-list">
+                {preferencesDraft.navigationOrder.map((id, index) => {
+                  const item = getWorkspaceNavigationItem(id);
+                  return (
+                    <div className="app-settings-navigation-row" key={id}>
+                      <span className="app-sidebar-nav-mark" aria-hidden="true">
+                        {item.mark}
+                      </span>
+                      <strong>{item.label}</strong>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => moveNavigationItem(id, -1)}
+                          disabled={index === 0}
+                          aria-label={`上移${item.label}`}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveNavigationItem(id, 1)}
+                          disabled={index === preferencesDraft.navigationOrder.length - 1}
+                          aria-label={`下移${item.label}`}
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="app-settings-case-preference">

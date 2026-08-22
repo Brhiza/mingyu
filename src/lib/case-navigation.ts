@@ -1,12 +1,32 @@
 import type { CompatibilityHistoryRecord, PersonalHistoryRecord } from '@/lib/history-records';
-import { buildResultSearch, defaultPromptState } from '@/lib/query-state';
+import {
+  buildResultSearch,
+  defaultPromptState,
+  type PromptSourceKey,
+  type QueryInputState,
+} from '@/lib/query-state';
 
-export function buildPersonalCaseResultPath(record: PersonalHistoryRecord) {
-  const search = buildResultSearch(record.input, {
-    ...defaultPromptState,
-    tab: 'prompt',
-    promptSource: record.input.chartType,
-  });
+function chartTypeForPromptSource(source: PromptSourceKey): QueryInputState['chartType'] {
+  if (source === 'ziwei') return 'ziwei';
+  if (source === 'astrolabe' || source === 'qizheng') return 'astrolabe';
+  return 'bazi';
+}
+
+export function buildPersonalCaseResultPath(
+  record: PersonalHistoryRecord,
+  source: PromptSourceKey = record.input.chartType,
+) {
+  const search = buildResultSearch(
+    {
+      ...record.input,
+      chartType: chartTypeForPromptSource(source),
+    },
+    {
+      ...defaultPromptState,
+      tab: 'prompt',
+      promptSource: source,
+    },
+  );
   return `/result?${search}&caseId=${encodeURIComponent(record.id)}`;
 }
 

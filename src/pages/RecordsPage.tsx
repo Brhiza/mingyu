@@ -146,7 +146,7 @@ export function RecordsPage() {
   }
 
   function openDivinationRecord(id: string) {
-    navigate(`/?mode=divination&record=${encodeURIComponent(id)}`);
+    navigate(`/divination/result?record=${encodeURIComponent(id)}`);
   }
 
   function refresh() {
