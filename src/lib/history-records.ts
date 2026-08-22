@@ -9,8 +9,9 @@ const COMPATIBILITY_HISTORY_STORAGE_KEY = 'prompt_studio_compatibility_history_v
 const DIVINATION_HISTORY_STORAGE_KEY = 'prompt_studio_divination_history_v1';
 const MAX_HISTORY_RECORDS = 20;
 const DEFAULT_CASE_NAME = '案例';
+export const HISTORY_RECORDS_CHANGED_EVENT = 'mingyu:history-records-changed';
 
-type PersonalHistoryRecord = {
+export type PersonalHistoryRecord = {
   id: string;
   type: 'single';
   name: string;
@@ -22,7 +23,7 @@ type PersonalHistoryRecord = {
   generatedName?: boolean;
 };
 
-type CompatibilityHistoryRecord = {
+export type CompatibilityHistoryRecord = {
   id: string;
   type: 'compatibility';
   name: string;
@@ -61,7 +62,11 @@ function readRecords<T>(
 }
 
 function writeRecords<T>(key: string, records: T[]): boolean {
-  return safeStorage.setJSON(key, records.slice(0, MAX_HISTORY_RECORDS));
+  const saved = safeStorage.setJSON(key, records.slice(0, MAX_HISTORY_RECORDS));
+  if (saved && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(HISTORY_RECORDS_CHANGED_EVENT));
+  }
+  return saved;
 }
 
 function normalizeText(value: string | undefined) {
@@ -216,22 +221,28 @@ export function loadDivinationHistory() {
   );
 }
 
-export function upsertPersonalHistory(input: QueryInputState) {
+export function upsertPersonalHistory(input: QueryInputState, existingId?: string | null) {
   if (!input.year || !input.month || !input.day) {
     return loadPersonalHistory();
   }
 
   const records = loadPersonalHistory();
-  const { name, generated } = resolvePersonalRecordName(input, records);
-  const id = [
-    normalizeText(name),
-    input.chartType,
-    input.gender,
-    input.dateType,
-    input.year,
-    input.month,
-    input.day,
-  ].join('|');
+  const existingRecord = existingId ? records.find((item) => item.id === existingId) : null;
+  const { name, generated } =
+    !input.name.trim() && existingRecord
+      ? { name: existingRecord.name, generated: existingRecord.generatedName ?? false }
+      : resolvePersonalRecordName(input, records);
+  const id =
+    existingId ||
+    [
+      normalizeText(name),
+      input.chartType,
+      input.gender,
+      input.dateType,
+      input.year,
+      input.month,
+      input.day,
+    ].join('|');
 
   const record: PersonalHistoryRecord = {
     id,
@@ -254,7 +265,7 @@ export function upsertPersonalHistory(input: QueryInputState) {
   return next.slice(0, MAX_HISTORY_RECORDS);
 }
 
-export function upsertCompatibilityHistory(input: QueryInputState) {
+export function upsertCompatibilityHistory(input: QueryInputState, existingId?: string | null) {
   if (
     input.analysisMode !== 'compatibility' ||
     !input.year ||
@@ -268,20 +279,34 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
   }
 
   const records = loadCompatibilityHistory();
-  const { primaryName, partnerName, primaryGenerated, partnerGenerated } =
-    resolveCompatibilityRecordNames(input, records);
-  const id = [
-    normalizeText(primaryName),
-    normalizeText(partnerName),
-    input.gender,
-    input.partnerGender,
-    input.year,
-    input.month,
-    input.day,
-    input.partnerYear,
-    input.partnerMonth,
-    input.partnerDay,
-  ].join('|');
+  const existingRecord = existingId ? records.find((item) => item.id === existingId) : null;
+  const resolvedNames = resolveCompatibilityRecordNames(input, records);
+  const primaryName =
+    input.name.trim() || !existingRecord ? resolvedNames.primaryName : existingRecord.primaryName;
+  const partnerName =
+    input.partnerName.trim() || !existingRecord
+      ? resolvedNames.partnerName
+      : existingRecord.partnerName;
+  const primaryGenerated = input.name.trim()
+    ? false
+    : (existingRecord?.primaryNameGenerated ?? resolvedNames.primaryGenerated);
+  const partnerGenerated = input.partnerName.trim()
+    ? false
+    : (existingRecord?.partnerNameGenerated ?? resolvedNames.partnerGenerated);
+  const id =
+    existingId ||
+    [
+      normalizeText(primaryName),
+      normalizeText(partnerName),
+      input.gender,
+      input.partnerGender,
+      input.year,
+      input.month,
+      input.day,
+      input.partnerYear,
+      input.partnerMonth,
+      input.partnerDay,
+    ].join('|');
 
   const record: CompatibilityHistoryRecord = {
     id,
@@ -314,6 +339,14 @@ export function removeCompatibilityHistory(id: string) {
   const next = loadCompatibilityHistory().filter((item) => item.id !== id);
   writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
   return next;
+}
+
+export function getPersonalHistoryById(id: string) {
+  return loadPersonalHistory().find((item) => item.id === id) ?? null;
+}
+
+export function getCompatibilityHistoryById(id: string) {
+  return loadCompatibilityHistory().find((item) => item.id === id) ?? null;
 }
 
 export function addDivinationHistory(draft: DivinationDraft, session: DivinationSession) {

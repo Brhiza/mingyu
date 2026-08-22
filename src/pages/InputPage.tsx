@@ -11,7 +11,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { PrivacyHint } from '@/components/PrivacyHint';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
-import { upsertCompatibilityHistory, upsertPersonalHistory } from '@/lib/history-records';
+import {
+  getCompatibilityHistoryById,
+  getPersonalHistoryById,
+  upsertCompatibilityHistory,
+  upsertPersonalHistory,
+} from '@/lib/history-records';
 import {
   buildResultSearch,
   defaultInputState,
@@ -43,11 +48,14 @@ export function InputPage() {
   const [entryMode, setEntryMode] = useState<InputEntryMode>(() =>
     resolveInputEntryMode(searchParams),
   );
+  const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [aiSettings, setAiSettings] = useAiSettings();
   const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState(false);
   const mainContentRef = useRef<HTMLDivElement | null>(null);
   const tutorialEntryRef = useRef<HTMLDivElement | null>(null);
+  const loadedCaseIdRef = useRef<string | null>(null);
+  const loadedDraftIdRef = useRef<string | null>(null);
   const [tutorialEntryPinned, setTutorialEntryPinned] = useState(false);
   const [bottomToolsHeight, setBottomToolsHeight] = useState(0);
 
@@ -74,8 +82,57 @@ export function InputPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    const draftId = searchParams.get('draft');
+    if (!draftId || loadedDraftIdRef.current === draftId) {
+      return;
+    }
+
+    loadedDraftIdRef.current = draftId;
+    loadedCaseIdRef.current = null;
+    setActiveCaseId(null);
+    setEntryMode('single');
+    setForm({ ...defaultInputState, analysisMode: 'single' });
+    setError('');
+  }, [searchParams]);
+
+  useEffect(() => {
+    const caseId = searchParams.get('case');
+    if (!caseId) {
+      loadedCaseIdRef.current = null;
+      setActiveCaseId(null);
+      return;
+    }
+    if (loadedCaseIdRef.current === caseId) {
+      return;
+    }
+
+    const requestedMode = resolveInputEntryMode(searchParams);
+    const record =
+      requestedMode === 'compatibility'
+        ? getCompatibilityHistoryById(caseId)
+        : getPersonalHistoryById(caseId);
+
+    if (!record) {
+      loadedCaseIdRef.current = caseId;
+      setActiveCaseId(null);
+      setError('没有找到这份案例，可能已被删除');
+      return;
+    }
+
+    loadedCaseIdRef.current = caseId;
+    loadedDraftIdRef.current = null;
+    setActiveCaseId(caseId);
+    setEntryMode(requestedMode === 'compatibility' ? 'compatibility' : 'single');
+    setForm({
+      ...record.input,
+      analysisMode: requestedMode === 'compatibility' ? 'compatibility' : 'single',
+    });
+    setError('');
+  }, [searchParams]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
-      upsertPersonalHistory(form);
+      upsertPersonalHistory(form, form.analysisMode === 'single' ? activeCaseId : null);
     }, 500);
 
     return () => window.clearTimeout(timer);
@@ -95,6 +152,7 @@ export function InputPage() {
     form.birthPlace,
     form.birthLongitude,
     form.birthLatitude,
+    activeCaseId,
   ]);
 
   useEffect(() => {
@@ -103,7 +161,7 @@ export function InputPage() {
     }
 
     const timer = window.setTimeout(() => {
-      upsertCompatibilityHistory(form);
+      upsertCompatibilityHistory(form, activeCaseId);
     }, 500);
 
     return () => window.clearTimeout(timer);
@@ -138,6 +196,7 @@ export function InputPage() {
     form.partnerBirthPlace,
     form.partnerBirthLongitude,
     form.partnerBirthLatitude,
+    activeCaseId,
   ]);
 
   useEffect(() => {
@@ -342,12 +401,19 @@ export function InputPage() {
   function updateEntryMode(value: InputEntryMode) {
     setEntryMode(value);
 
+    if ((value === 'single' || value === 'compatibility') && value !== form.analysisMode) {
+      setActiveCaseId(null);
+      loadedCaseIdRef.current = null;
+    }
+
     if (value === 'single' || value === 'compatibility') {
       updateField('analysisMode', value);
     }
 
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.set('mode', value);
+    nextSearchParams.delete('case');
+    nextSearchParams.delete('draft');
     if (value !== 'single') {
       nextSearchParams.delete('chart');
     }
@@ -427,6 +493,16 @@ export function InputPage() {
             ) : (
               <div className="form-wrapper">
                 <>
+                  {activeCaseId ? (
+                    <div className="active-case-strip" role="status">
+                      <span>
+                        正在编辑案例：<strong>{form.name || '未命名案例'}</strong>
+                      </span>
+                      <button type="button" onClick={() => navigate('/records')}>
+                        返回案例库
+                      </button>
+                    </div>
+                  ) : null}
                   <PersonForm
                     role="self"
                     form={form}
@@ -471,7 +547,7 @@ export function InputPage() {
                         )
                       }
                     >
-                      历史记录
+                      案例库
                     </button>
                     <button
                       className="primary-button start-submit-button"

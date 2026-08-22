@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { AppWorkspaceShell } from './components/AppWorkspaceShell';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const InputPage = lazy(async () => {
@@ -41,13 +42,15 @@ export default function App() {
       }
     >
       <ErrorBoundary>
-        <Routes>
-          <Route path="/" element={<InputPage />} />
-          <Route path="/tutorial" element={<TutorialPage />} />
-          <Route path="/records" element={<RecordsPage />} />
-          <Route path="/result" element={<ResultPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <AppWorkspaceShell>
+          <Routes>
+            <Route path="/" element={<InputPage />} />
+            <Route path="/tutorial" element={<TutorialPage />} />
+            <Route path="/records" element={<RecordsPage />} />
+            <Route path="/result" element={<ResultPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AppWorkspaceShell>
       </ErrorBoundary>
     </Suspense>
   );
