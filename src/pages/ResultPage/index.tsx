@@ -64,6 +64,11 @@ import { ZiweiBoard } from './components/ZiweiBoard';
 import { ZiweiScopeModal } from './components/ZiweiScopeModal';
 import { AstrolabeScopeModal } from './components/AstrolabeScopeModal';
 import { PromptShortcutPanel } from './components/PromptShortcutPanel';
+import {
+  PromptChartPreview,
+  PromptChartSourceCards,
+  type PromptChartSourceOption,
+} from './components/PromptChartWorkspace';
 import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useZiweiCalculations } from './hooks/useZiweiCalculations';
@@ -218,6 +223,7 @@ export function ResultPage() {
   const isDesktopAiWorkspace = isAiEnabled && !isMobileAi && promptState.tab === 'prompt';
   const [isAiShortcutPopoverOpen, setIsAiShortcutPopoverOpen] = useState(false);
   const [isAiMobileSettingsOpen, setIsAiMobileSettingsOpen] = useState(true);
+  const [expandedPromptChart, setExpandedPromptChart] = useState<PromptSourceKey | null>(null);
   const [promptEngine, setPromptEngine] = useState<PromptEngineModule | null>(null);
   const [baziFortuneSelectionModule, setBaziFortuneSelectionModule] =
     useState<BaziFortuneSelectionModule | null>(null);
@@ -294,6 +300,48 @@ export function ResultPage() {
     },
     [inputState, promptState, setSearchParams],
   );
+  const promptChartSources = useMemo<PromptChartSourceOption[]>(() => {
+    const sources: PromptChartSourceOption[] = [
+      { value: 'bazi', label: '八字', symbol: '八', description: '四柱与运势' },
+      { value: 'ziwei', label: '紫微', symbol: '紫', description: '十二宫与运限' },
+    ];
+
+    if (inputState.analysisMode === 'single') {
+      sources.push({
+        value: 'bazi-ziwei',
+        label: '八字＋紫微',
+        symbol: '合',
+        description: '两盘合参',
+      });
+    }
+    if (hasAstrolabeChart) {
+      sources.push(
+        { value: 'astrolabe', label: '星盘', symbol: '星', description: '本命与行运' },
+        { value: 'qizheng', label: '七政四余', symbol: '七', description: '传统星命盘' },
+      );
+    }
+    if (inputState.analysisMode === 'single' && canUseResidentialFengshui) {
+      sources.push({
+        value: 'bazhai',
+        label: '住宅风水',
+        symbol: '宅',
+        description: '人宅与宅运',
+      });
+    }
+
+    return sources;
+  }, [canUseResidentialFengshui, hasAstrolabeChart, inputState.analysisMode]);
+
+  const handlePromptChartSelect = useCallback(
+    (source: PromptSourceKey) => {
+      const shouldCollapse = source === promptState.promptSource && expandedPromptChart === source;
+      if (source !== promptState.promptSource) {
+        updatePromptState({ promptSource: source });
+      }
+      setExpandedPromptChart(shouldCollapse ? null : source);
+    },
+    [expandedPromptChart, promptState.promptSource, updatePromptState],
+  );
   const {
     activeBaziShortcutMode,
     activeZiweiShortcutMode,
@@ -334,6 +382,26 @@ export function ResultPage() {
       };
     });
   }, [promptState.tab]);
+
+  useEffect(() => {
+    if (!expandedPromptChart) return;
+
+    const tabsToMount: ResultTabKey[] =
+      expandedPromptChart === 'bazi-ziwei'
+        ? ['bazi', 'ziwei']
+        : expandedPromptChart === 'bazi' ||
+            expandedPromptChart === 'ziwei' ||
+            expandedPromptChart === 'astrolabe' ||
+            expandedPromptChart === 'qizheng' ||
+            expandedPromptChart === 'bazhai'
+          ? [expandedPromptChart]
+          : [];
+
+    setMountedTabs((current) => {
+      if (tabsToMount.every((tab) => current[tab])) return current;
+      return tabsToMount.reduce((next, tab) => ({ ...next, [tab]: true }), current);
+    });
+  }, [expandedPromptChart]);
 
   useEffect(() => {
     if (inputState.analysisMode === 'single' || promptState.promptSource !== 'bazi-ziwei') {
@@ -1248,8 +1316,62 @@ export function ResultPage() {
       </label>
     ) : null;
 
+  const activePromptChartLabel =
+    promptChartSources.find((source) => source.value === expandedPromptChart)?.label ?? '完整盘面';
+  const promptChartSourceCards = (
+    <PromptChartSourceCards
+      options={promptChartSources}
+      value={promptState.promptSource}
+      expandedValue={expandedPromptChart}
+      onSelect={handlePromptChartSelect}
+    />
+  );
+
+  const promptChartPreview = expandedPromptChart ? (
+    <PromptChartPreview
+      source={expandedPromptChart}
+      label={activePromptChartLabel}
+      inputState={inputState}
+      bazi={{ baziResult, partnerBaziResult, baziError }}
+      ziwei={{
+        ziweiRuntime,
+        partnerZiweiRuntime,
+        ziweiError,
+        primaryZiweiInput,
+        partnerZiweiInput,
+        currentZiweiPayload,
+        partnerZiweiPayload,
+      }}
+      astrolabeData={astrolabeCalculation.data}
+      astrolabeError={astrolabeCalculation.error}
+      qizhengData={qizhengCalculation.data}
+      qizhengError={qizhengCalculation.error}
+      residentialPanel={
+        inputState.analysisMode === 'single' ? (
+          <Suspense fallback={<InlineSkeleton />}>
+            <LazyMetaphysicsPanel
+              method="residential"
+              birthData={residentialBirthData}
+              embedded
+              initialFacingDegree={promptState.bazhaiFacingDegree}
+              initialHouseYear={promptState.residentialHouseYear}
+              onDirectionDegreeChange={handleBazhaiDirectionDegreeChange}
+              onHouseYearChange={handleResidentialHouseYearChange}
+              onResultChange={handleBazhaiResultChange}
+            />
+          </Suspense>
+        ) : null
+      }
+      onClose={() => setExpandedPromptChart(null)}
+    />
+  ) : null;
+
   return (
-    <div className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}`}>
+    <div
+      className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}${
+        isDesktopAiWorkspace && expandedPromptChart ? ' page-shell-ai-workspace-with-chart' : ''
+      }`}
+    >
       <PageTopbar
         title="排盘结果"
         wide
@@ -1307,7 +1429,7 @@ export function ResultPage() {
           className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
           onClick={() => switchTab('prompt')}
         >
-          {isAiEnabled ? 'AI 解析' : '复制提示词'}
+          {isAiEnabled ? 'AI 解读' : '复制提示词'}
         </button>
       </div>
 
@@ -1517,26 +1639,7 @@ export function ResultPage() {
 
                     {isAiMobileSettingsOpen ? (
                       <div className="ai-mobile-setting-bar">
-                        <select
-                          className="ai-mobile-source-select"
-                          value={promptState.promptSource}
-                          onChange={(event) =>
-                            updatePromptState({
-                              promptSource: event.target.value as PromptSourceKey,
-                            })
-                          }
-                        >
-                          <option value="bazi">八字</option>
-                          <option value="ziwei">紫微</option>
-                          {inputState.analysisMode === 'single' ? (
-                            <option value="bazi-ziwei">八字+紫微</option>
-                          ) : null}
-                          {hasAstrolabeChart ? <option value="astrolabe">星盘</option> : null}
-                          {hasAstrolabeChart ? <option value="qizheng">七政四余</option> : null}
-                          {canUseResidentialFengshui && residentialResult ? (
-                            <option value="bazhai">住宅风水</option>
-                          ) : null}
-                        </select>
+                        {promptChartSourceCards}
 
                         {(promptState.promptSource === 'bazi' ||
                           promptState.promptSource === 'bazi-ziwei') &&
@@ -1583,6 +1686,7 @@ export function ResultPage() {
                     onExternalInputConsumed={() => setInspirationText('')}
                     aiConfig={aiRequestConfig}
                   />
+                  {promptChartPreview}
                 </div>
               ) : (
                 /* ── AI 桌面端：左栏设置+快捷，右栏对话 ── */
@@ -1596,34 +1700,8 @@ export function ResultPage() {
                     </div>
                     <div className="field-list">
                       {metaphysicsPromptQuestionField}
+                      {promptChartSourceCards}
                       <div className="prompt-compact-grid">
-                        <label className="field-card">
-                          <div className="field-header">
-                            <span className="prompt-source-title">解析来源</span>
-                          </div>
-                          <select
-                            value={promptState.promptSource}
-                            onChange={(event) =>
-                              updatePromptState({
-                                promptSource: event.target.value as PromptSourceKey,
-                              })
-                            }
-                          >
-                            <option value="bazi">基于八字</option>
-                            <option value="ziwei">基于紫微</option>
-                            {inputState.analysisMode === 'single' ? (
-                              <option value="bazi-ziwei">基于八字+紫微</option>
-                            ) : null}
-                            {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
-                            {hasAstrolabeChart ? (
-                              <option value="qizheng">基于七政四余</option>
-                            ) : null}
-                            {canUseResidentialFengshui && residentialResult ? (
-                              <option value="bazhai">基于住宅风水</option>
-                            ) : null}
-                          </select>
-                        </label>
-
                         {(promptState.promptSource === 'bazi' ||
                           promptState.promptSource === 'bazi-ziwei') &&
                         inputState.analysisMode === 'single' ? (
@@ -1735,6 +1813,7 @@ export function ResultPage() {
                     onExternalInputConsumed={() => setInspirationText('')}
                     aiConfig={aiRequestConfig}
                   />
+                  {promptChartPreview}
                 </div>
               )
             ) : (
@@ -1749,34 +1828,8 @@ export function ResultPage() {
                   <div className="prompt-settings-content field-list">
                     {metaphysicsPromptQuestionField}
                     <>
+                      {promptChartSourceCards}
                       <div className="prompt-compact-grid">
-                        <label className="field-card">
-                          <div className="field-header">
-                            <span className="prompt-source-title">提示词来源</span>
-                          </div>
-                          <select
-                            value={promptState.promptSource}
-                            onChange={(event) =>
-                              updatePromptState({
-                                promptSource: event.target.value as PromptSourceKey,
-                              })
-                            }
-                          >
-                            <option value="bazi">基于八字</option>
-                            <option value="ziwei">基于紫微</option>
-                            {inputState.analysisMode === 'single' ? (
-                              <option value="bazi-ziwei">基于八字+紫微</option>
-                            ) : null}
-                            {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
-                            {hasAstrolabeChart ? (
-                              <option value="qizheng">基于七政四余</option>
-                            ) : null}
-                            {canUseResidentialFengshui && residentialResult ? (
-                              <option value="bazhai">基于住宅风水</option>
-                            ) : null}
-                          </select>
-                        </label>
-
                         {(promptState.promptSource === 'bazi' ||
                           promptState.promptSource === 'bazi-ziwei') &&
                         inputState.analysisMode === 'single' ? (
@@ -1917,6 +1970,7 @@ export function ResultPage() {
                     fallback={<PromptPreSkeleton />}
                   />
                 </section>
+                {promptChartPreview}
               </div>
             )
           ) : null}
