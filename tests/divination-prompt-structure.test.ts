@@ -4,6 +4,7 @@ import { taiyi } from 'mingyu-core';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
+import { drawTarotSpread, tarotSpreads } from '../packages/core/src/divination/tarot.ts';
 import {
   assertNoPromptPlaceholders,
   assertPromptHasSingleRole,
@@ -1142,6 +1143,41 @@ test('六爻鬼神怪异模板只写入问题范围，不附加控制话术', ()
     prompt,
     /断卦要点|断卦类型|专项抓手|证据不足|不得仅凭|取证顺序|回答口径|证据边界/,
   );
+});
+
+test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论重点', () => {
+  const expectedFocus: Record<keyof typeof tarotSpreads, RegExp> = {
+    single: /唯一牌位/,
+    three: /过去、现在、未来/,
+    love: /双方内心/,
+    career: /事业现状/,
+    decision: /选择A、选择B/,
+    celtic: /当前与阻碍/,
+    chakra: /海底轮到顶轮/,
+    year: /全年主题/,
+    mindBodySpirit: /思想、身体行动与精神状态/,
+    horseshoe: /过去、现在、未来展开/,
+    holyTriangle: /问题根源、当前状况、发展结果/,
+    universal: /阻力、资源、行动与发展趋势/,
+    fourElements: /火、\s水、风、土/,
+    hexagram: /隐藏因素/,
+    relationship: /双方状态与需求/,
+    wealth: /收入机会、支出风险/,
+    problemSolving: /问题表象深入根本原因/,
+    twelveHouses: /依十二宫逐一分析/,
+  };
+
+  for (const spreadType of Object.keys(tarotSpreads) as Array<keyof typeof tarotSpreads>) {
+    const prompt = buildDivinationPrompt(
+      'tarot',
+      '请解读当前问题。',
+      drawTarotSpread(spreadType, { seed: `牌阵框架-${spreadType}` }),
+    );
+    assert.match(prompt, expectedFocus[spreadType], `${spreadType} 应包含专属主线`);
+    assert.match(prompt, /解读主线：/);
+    assert.match(prompt, /牌位联动：/);
+    assert.match(prompt, /结论重点：/);
+  }
 });
 
 test('六爻未知专项模板应回落到通用断卦，避免输出 undefined', () => {
