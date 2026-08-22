@@ -7,6 +7,7 @@ import {
 import {
   buildResultSearch,
   buildInputSearch,
+  buildInputStateSearch,
   hasCompletePreciseBirthData,
   parseInputState,
   parsePromptState,
@@ -17,7 +18,6 @@ import {
 import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
 import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
-import { PageTopbar } from '@/components/PageTopbar';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
@@ -1250,15 +1250,23 @@ export function ResultPage() {
 
   return (
     <div className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}`}>
-      <PageTopbar
-        title="排盘结果"
-        wide
-        onBack={() =>
-          navigate(
-            `/?mode=${inputState.analysisMode === 'compatibility' ? 'compatibility' : 'single'}`,
-          )
-        }
-      />
+      <div className="workspace-result-toolbar">
+        <button
+          type="button"
+          onClick={() => {
+            const feature =
+              inputState.analysisMode === 'compatibility'
+                ? 'compatibility'
+                : promptState.promptSource;
+            navigate(`/chart/${feature}?${buildInputStateSearch(inputState)}`);
+          }}
+        >
+          修改资料
+        </button>
+        <button type="button" onClick={() => navigate('/records')}>
+          案例库
+        </button>
+      </div>
 
       <div className="tab-strip">
         <button

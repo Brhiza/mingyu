@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { PageTopbar } from '@/components/PageTopbar';
-import { PrivacyHint } from '@/components/PrivacyHint';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { DIVINATION_METHOD_OPTIONS } from 'mingyu-core/divination/config';
 import {
@@ -11,8 +9,18 @@ import {
   removeCompatibilityHistory,
   removeDivinationHistory,
   removePersonalHistory,
+  toggleCompatibilityHistoryPin,
+  togglePersonalHistoryPin,
 } from '@/lib/history-records';
-import { buildResultSearch, defaultPromptState } from '@/lib/query-state';
+import {
+  buildResultSearch,
+  buildInputStateSearch,
+  defaultPromptState,
+  hasCompletePreciseBirthData,
+  type PromptSourceKey,
+  type ResultTabKey,
+} from '@/lib/query-state';
+import { resolvePersonalWorkspaceSource } from '@/lib/workspace';
 
 type HistoryTab = 'personal' | 'compatibility' | 'divination';
 
@@ -25,6 +33,15 @@ const personalChartTypeLabelMap = {
   ziwei: '紫微',
   astrolabe: '星盘',
 } as const;
+
+const personalSourceLabelMap: Record<PromptSourceKey, string> = {
+  bazi: '八字',
+  ziwei: '紫微',
+  'bazi-ziwei': '八字紫微合参',
+  astrolabe: '星盘',
+  qizheng: '七政四余',
+  bazhai: '八宅',
+};
 
 function formatUpdatedAt(value: string) {
   try {
@@ -101,11 +118,32 @@ export function RecordsPage() {
 
   function handleOpenPersonal(index: number) {
     const record = filteredPersonal[index];
+    const source: PromptSourceKey = resolvePersonalWorkspaceSource(
+      record.input.chartType,
+      record.workspaceSource,
+    );
+    const tab: ResultTabKey =
+      source === 'qizheng'
+        ? 'qizheng'
+        : source === 'bazhai'
+          ? 'bazhai'
+          : source === 'ziwei'
+            ? 'ziwei'
+            : source === 'astrolabe'
+              ? 'astrolabe'
+              : 'bazi';
+    if (
+      (source === 'astrolabe' || source === 'qizheng') &&
+      !hasCompletePreciseBirthData(record.input)
+    ) {
+      navigate(`/chart/${source}?${buildInputStateSearch(record.input)}`);
+      return;
+    }
     navigate(
       `/result?${buildResultSearch(record.input, {
         ...defaultPromptState,
-        tab: 'bazi',
-        promptSource: 'bazi',
+        tab,
+        promptSource: source,
       })}`,
     );
   }
@@ -124,7 +162,9 @@ export function RecordsPage() {
 
   function handleOpenDivination(index: number) {
     const record = filteredDivination[index];
-    navigate(`/?mode=divination&record=${record.id}`);
+    navigate(
+      `/divination/${record.requestedMethod}/result?record=${encodeURIComponent(record.id)}`,
+    );
   }
 
   function refresh() {
@@ -146,6 +186,16 @@ export function RecordsPage() {
     refresh();
   }
 
+  function handleTogglePersonalPin(id: string) {
+    togglePersonalHistoryPin(id);
+    refresh();
+  }
+
+  function handleToggleCompatibilityPin(id: string) {
+    toggleCompatibilityHistoryPin(id);
+    refresh();
+  }
+
   const searchPlaceholder =
     activeTab === 'compatibility'
       ? '搜索双方姓名...'
@@ -154,25 +204,12 @@ export function RecordsPage() {
         : '搜索姓名...';
 
   return (
-    <div className="page-shell input-page-shell">
+    <div className="page-shell input-page-shell workspace-records-page">
       <div className="bazi-view-container">
-        <PrivacyHint />
         <section className="history-page-section">
-          <PageTopbar
-            title="历史记录"
-            onBack={() =>
-              navigate(
-                activeTab === 'compatibility'
-                  ? '/?mode=compatibility'
-                  : activeTab === 'divination'
-                    ? '/?mode=divination'
-                    : '/?mode=single',
-              )
-            }
-          />
-
           <div className="person-section-head history-section-head">
-            <p>支持搜索，点击记录可直接打开对应内容。</p>
+            <h2>案例与占问记录</h2>
+            <p>常用案例可置顶；点击任一记录直接打开结果。</p>
           </div>
 
           <div className="records-header-bar">
@@ -211,18 +248,33 @@ export function RecordsPage() {
                     >
                       <div className="record-info">
                         <div className="info-line-1">
-                          <span className="name">{record.name}</span>
+                          <span className="name">
+                            {record.pinned ? '★ ' : ''}
+                            {record.name}
+                          </span>
                           <span className="record-time">{formatUpdatedAt(record.updatedAt)}</span>
                         </div>
                         <div className="details-line">
                           <span className="gender">{record.gender === 'male' ? '男' : '女'}</span>
                           <span className="birthday">{record.birthText}</span>
                           <span className="record-tag">
-                            {personalChartTypeLabelMap[record.chartType] || '个人'}
+                            {record.workspaceSource
+                              ? personalSourceLabelMap[record.workspaceSource]
+                              : personalChartTypeLabelMap[record.input.chartType] || '个人'}
                           </span>
                         </div>
                       </div>
                       <div className="history-actions">
+                        <button
+                          type="button"
+                          className="history-action-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleTogglePersonalPin(record.id);
+                          }}
+                        >
+                          {record.pinned ? '取消置顶' : '置顶'}
+                        </button>
                         <button
                           type="button"
                           className="history-action-btn history-action-danger"
@@ -254,7 +306,10 @@ export function RecordsPage() {
                     >
                       <div className="record-info">
                         <div className="info-line-1">
-                          <span className="name">{record.name}</span>
+                          <span className="name">
+                            {record.pinned ? '★ ' : ''}
+                            {record.name}
+                          </span>
                           <span className="record-time">{formatUpdatedAt(record.updatedAt)}</span>
                         </div>
                         <div className="details-line">
@@ -269,6 +324,16 @@ export function RecordsPage() {
                         </div>
                       </div>
                       <div className="history-actions">
+                        <button
+                          type="button"
+                          className="history-action-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleToggleCompatibilityPin(record.id);
+                          }}
+                        >
+                          {record.pinned ? '取消置顶' : '置顶'}
+                        </button>
                         <button
                           type="button"
                           className="history-action-btn history-action-danger"

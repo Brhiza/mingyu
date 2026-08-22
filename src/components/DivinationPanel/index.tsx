@@ -31,8 +31,10 @@ import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
 
 type DivinationPanelProps = {
-  initialMethod?: Extract<DivinationDraft['method'], 'almanac' | 'astrolabe'>;
-  lockedMethod?: Extract<DivinationDraft['method'], 'almanac' | 'astrolabe'>;
+  initialMethod?: DivinationDraft['method'];
+  lockedMethod?: DivinationDraft['method'];
+  displayMode?: 'workspace' | 'input' | 'result';
+  onGenerated?: (recordId: string, requestedMethod: DivinationDraft['method']) => void;
 };
 
 function createDefaultDraft(method?: DivinationPanelProps['initialMethod']): DivinationDraft {
@@ -44,9 +46,14 @@ function createDefaultDraft(method?: DivinationPanelProps['initialMethod']): Div
     : defaultDraft;
 }
 
-export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanelProps) {
+export function DivinationPanel({
+  initialMethod,
+  lockedMethod,
+  displayMode = 'workspace',
+  onGenerated,
+}: DivinationPanelProps) {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [draft, setDraft] = useState<DivinationDraft>(() => createDefaultDraft(initialMethod));
   const [session, setSession] = useState<DivinationSession | null>(null);
   const [error, setError] = useState('');
@@ -73,6 +80,9 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
   useEffect(() => {
     const recordId = searchParams.get('record');
     if (!recordId) {
+      if (displayMode === 'result') {
+        setError('未指定要打开的占问记录');
+      }
       return;
     }
 
@@ -86,12 +96,7 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     setSession(record.session);
     setError('');
     setIsSubmitting(false);
-
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('mode', 'divination');
-    nextSearchParams.delete('record');
-    setSearchParams(nextSearchParams, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [displayMode, searchParams]);
 
   const summary = useMemo(
     () => (session ? getDivinationSummaryBlocks(session.method, session.data) : null),
@@ -236,10 +241,13 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
       if (!savedRecord) {
         return;
       }
-      const nextSearchParams = new URLSearchParams(searchParams);
-      nextSearchParams.set('mode', 'divination');
-      nextSearchParams.set('record', savedRecord.id);
-      setSearchParams(nextSearchParams, { replace: true });
+      if (onGenerated) {
+        onGenerated(savedRecord.id, savedRecord.requestedMethod);
+      } else {
+        navigate(
+          `/divination/${savedRecord.requestedMethod}/result?record=${encodeURIComponent(savedRecord.id)}`,
+        );
+      }
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : '占卜生成失败，请稍后重试');
     } finally {
@@ -249,32 +257,39 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
 
   return (
     <div className="divination-panel-shell">
-      <DivinationForm
-        draft={draft}
-        updateDraft={updateDraft}
-        lockedMethod={lockedMethod}
-        isSubmitting={isSubmitting}
-        error={error}
-        onSubmit={handleSubmit}
-        onOpenInspiration={openQuestionInspirationModal}
-        onNavigateToHistory={() => navigate('/records?tab=divination')}
-        questionInputRef={questionInputRef}
-      />
+      {displayMode !== 'result' ? (
+        <DivinationForm
+          draft={draft}
+          updateDraft={updateDraft}
+          lockedMethod={lockedMethod}
+          isSubmitting={isSubmitting}
+          error={error}
+          onSubmit={handleSubmit}
+          onOpenInspiration={openQuestionInspirationModal}
+          onNavigateToHistory={() => navigate('/records?tab=divination')}
+          questionInputRef={questionInputRef}
+        />
+      ) : null}
 
-      <DivinationResult
-        isSubmitting={isSubmitting}
-        session={session}
-        summary={summary}
-        methodLabelMap={methodLabelMap}
-        copyState={copyState}
-        shareState={shareState}
-        showShareButton={showShareButton}
-        isPhoneLayout={isPhoneLayout}
-        onCopy={handleCopy}
-        onShare={handleShare}
-      />
+      {displayMode !== 'input' ? (
+        <>
+          {error ? <p className="error-text workspace-divination-error">{error}</p> : null}
+          <DivinationResult
+            isSubmitting={isSubmitting}
+            session={session}
+            summary={summary}
+            methodLabelMap={methodLabelMap}
+            copyState={copyState}
+            shareState={shareState}
+            showShareButton={showShareButton}
+            isPhoneLayout={isPhoneLayout}
+            onCopy={handleCopy}
+            onShare={handleShare}
+          />
+        </>
+      ) : null}
 
-      {isQuestionInspirationModalOpen ? (
+      {displayMode !== 'result' && isQuestionInspirationModalOpen ? (
         <QuestionInspirationModal
           filters={inspirationFilters}
           activeFilter={activeInspirationTab}

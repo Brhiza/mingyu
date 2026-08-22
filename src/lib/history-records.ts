@@ -1,4 +1,4 @@
-import type { QueryInputState } from '@/lib/query-state';
+import type { PromptSourceKey, QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
 import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
 import { safeStorage } from '@/lib/safe-storage';
@@ -9,20 +9,23 @@ const COMPATIBILITY_HISTORY_STORAGE_KEY = 'prompt_studio_compatibility_history_v
 const DIVINATION_HISTORY_STORAGE_KEY = 'prompt_studio_divination_history_v1';
 const MAX_HISTORY_RECORDS = 20;
 const DEFAULT_CASE_NAME = '案例';
+export const HISTORY_RECORDS_EVENT = 'mingyu:history-records';
 
-type PersonalHistoryRecord = {
+export type PersonalHistoryRecord = {
   id: string;
   type: 'single';
   name: string;
   gender: 'male' | 'female';
   chartType: QueryInputState['chartType'];
+  workspaceSource?: PromptSourceKey;
   birthText: string;
   input: QueryInputState;
   updatedAt: string;
   generatedName?: boolean;
+  pinned?: boolean;
 };
 
-type CompatibilityHistoryRecord = {
+export type CompatibilityHistoryRecord = {
   id: string;
   type: 'compatibility';
   name: string;
@@ -32,6 +35,7 @@ type CompatibilityHistoryRecord = {
   updatedAt: string;
   primaryNameGenerated?: boolean;
   partnerNameGenerated?: boolean;
+  pinned?: boolean;
 };
 
 export type DivinationHistoryRecord = {
@@ -61,7 +65,11 @@ function readRecords<T>(
 }
 
 function writeRecords<T>(key: string, records: T[]): boolean {
-  return safeStorage.setJSON(key, records.slice(0, MAX_HISTORY_RECORDS));
+  const saved = safeStorage.setJSON(key, records.slice(0, MAX_HISTORY_RECORDS));
+  if (saved && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(HISTORY_RECORDS_EVENT));
+  }
+  return saved;
 }
 
 function normalizeText(value: string | undefined) {
@@ -216,7 +224,7 @@ export function loadDivinationHistory() {
   );
 }
 
-export function upsertPersonalHistory(input: QueryInputState) {
+export function upsertPersonalHistory(input: QueryInputState, workspaceSource?: PromptSourceKey) {
   if (!input.year || !input.month || !input.day) {
     return loadPersonalHistory();
   }
@@ -232,6 +240,7 @@ export function upsertPersonalHistory(input: QueryInputState) {
     input.month,
     input.day,
   ].join('|');
+  const existingRecord = records.find((item) => item.id === id);
 
   const record: PersonalHistoryRecord = {
     id,
@@ -239,6 +248,7 @@ export function upsertPersonalHistory(input: QueryInputState) {
     name,
     gender: input.gender,
     chartType: input.chartType,
+    workspaceSource,
     birthText: buildBirthText(input),
     input: cloneInput({
       ...input,
@@ -247,6 +257,7 @@ export function upsertPersonalHistory(input: QueryInputState) {
     }),
     updatedAt: new Date().toISOString(),
     generatedName: generated,
+    pinned: existingRecord?.pinned,
   };
 
   const next = [record, ...records.filter((item) => item.id !== id)];
@@ -282,6 +293,7 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
     input.partnerMonth,
     input.partnerDay,
   ].join('|');
+  const existingRecord = records.find((item) => item.id === id);
 
   const record: CompatibilityHistoryRecord = {
     id,
@@ -297,6 +309,7 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
     updatedAt: new Date().toISOString(),
     primaryNameGenerated: primaryGenerated,
     partnerNameGenerated: partnerGenerated,
+    pinned: existingRecord?.pinned,
   };
 
   const next = [record, ...records.filter((item) => item.id !== id)];
@@ -310,8 +323,24 @@ export function removePersonalHistory(id: string) {
   return next;
 }
 
+export function togglePersonalHistoryPin(id: string) {
+  const next = loadPersonalHistory().map((item) =>
+    item.id === id ? { ...item, pinned: !item.pinned } : item,
+  );
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next);
+  return next;
+}
+
 export function removeCompatibilityHistory(id: string) {
   const next = loadCompatibilityHistory().filter((item) => item.id !== id);
+  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
+  return next;
+}
+
+export function toggleCompatibilityHistoryPin(id: string) {
+  const next = loadCompatibilityHistory().map((item) =>
+    item.id === id ? { ...item, pinned: !item.pinned } : item,
+  );
   writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
   return next;
 }
