@@ -5,14 +5,19 @@ import { PrivacyHint } from '@/components/PrivacyHint';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { DIVINATION_METHOD_OPTIONS } from 'mingyu-core/divination/config';
 import {
+  buildCompatibilityCaseResultPath,
+  buildPersonalCaseResultPath,
+} from '@/lib/case-navigation';
+import {
   loadCompatibilityHistory,
   loadDivinationHistory,
   loadPersonalHistory,
+  markCompatibilityHistoryUsed,
+  markPersonalHistoryUsed,
   removeCompatibilityHistory,
   removeDivinationHistory,
   removePersonalHistory,
 } from '@/lib/history-records';
-import { buildResultSearch, defaultPromptState } from '@/lib/query-state';
 
 type HistoryTab = 'personal' | 'compatibility' | 'divination';
 
@@ -123,13 +128,8 @@ export function RecordsPage() {
     if (!record) {
       return;
     }
-    navigate(
-      `/result?${buildResultSearch(record.input, {
-        ...defaultPromptState,
-        tab: 'prompt',
-        promptSource: record.input.chartType,
-      })}`,
-    );
+    markPersonalHistoryUsed(record.id);
+    navigate(buildPersonalCaseResultPath(record));
   }
 
   function editCompatibilityCase(id: string) {
@@ -141,15 +141,8 @@ export function RecordsPage() {
     if (!record) {
       return;
     }
-    navigate(
-      `/result?${buildResultSearch(record.input, {
-        ...defaultPromptState,
-        tab: 'prompt',
-        promptSource: 'bazi',
-        baziShortcutMode: '合婚',
-        baziPresetId: 'ai-compat-marriage',
-      })}`,
-    );
+    markCompatibilityHistoryUsed(record.id);
+    navigate(buildCompatibilityCaseResultPath(record));
   }
 
   function openDivinationRecord(id: string) {
@@ -224,7 +217,7 @@ export function RecordsPage() {
             <button
               type="button"
               className="primary-button case-library-create"
-              onClick={() => navigate(`/?mode=single&draft=${Date.now()}`)}
+              onClick={() => navigate('/?mode=single&draft=records')}
             >
               新建案例
             </button>
@@ -280,7 +273,7 @@ export function RecordsPage() {
                   <button
                     type="button"
                     className="secondary-page-button compact-secondary-button"
-                    onClick={() => navigate(`/?mode=single&draft=${Date.now()}`)}
+                    onClick={() => navigate('/?mode=single&draft=records-empty')}
                   >
                     新建第一份案例
                   </button>

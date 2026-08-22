@@ -1,3 +1,4 @@
+import { useEffect, useState, type RefObject } from 'react';
 import {
   ALMANAC_TOPIC_OPTIONS,
   GENERAL_DIVINATION_METHOD_OPTIONS,
@@ -22,6 +23,22 @@ import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import { createSecureId } from '@/lib/secure-id';
 import { DropdownSelect } from '@/components/DropdownSelect';
+
+const COMMON_DIVINATION_METHOD_IDS = new Set<DivinationDraft['method']>([
+  'random',
+  'liuyao',
+  'meihua',
+  'qimen',
+  'tarot',
+]);
+
+const commonDivinationMethodOptions = GENERAL_DIVINATION_METHOD_OPTIONS.filter((item) =>
+  COMMON_DIVINATION_METHOD_IDS.has(item.value),
+);
+
+const moreDivinationMethodOptions = GENERAL_DIVINATION_METHOD_OPTIONS.filter(
+  (item) => !COMMON_DIVINATION_METHOD_IDS.has(item.value),
+);
 
 const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'current', label: '当前时间' },
@@ -97,7 +114,7 @@ interface DivinationFormProps {
   onSubmit: () => void | Promise<void>;
   onOpenInspiration: () => void;
   onNavigateToHistory: () => void;
-  questionInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  questionInputRef: RefObject<HTMLTextAreaElement | null>;
 }
 
 export function DivinationForm({
@@ -111,7 +128,19 @@ export function DivinationForm({
   onNavigateToHistory,
   questionInputRef,
 }: DivinationFormProps) {
+  const [moreMethodsOpen, setMoreMethodsOpen] = useState(() =>
+    moreDivinationMethodOptions.some((item) => item.value === draft.method),
+  );
   const isMethodLocked = Boolean(lockedMethod);
+  const selectedMoreMethod = moreDivinationMethodOptions.find(
+    (item) => item.value === draft.method,
+  );
+
+  useEffect(() => {
+    if (selectedMoreMethod) {
+      setMoreMethodsOpen(true);
+    }
+  }, [selectedMoreMethod]);
   const formHeading =
     lockedMethod === 'astrolabe' ? '星盘' : lockedMethod === 'almanac' ? '择日' : '传统起卦';
   const formDescription =
@@ -267,18 +296,53 @@ export function DivinationForm({
         </div>
 
         {!isMethodLocked ? (
-          <div className="divination-method-grid">
-            {GENERAL_DIVINATION_METHOD_OPTIONS.map((item) => (
+          <div className="divination-method-picker">
+            <div className="divination-method-section-head">
+              <strong>常用</strong>
               <button
-                key={item.value}
                 type="button"
-                className={`divination-method-btn ${draft.method === item.value ? 'is-active' : ''}`}
-                onClick={() => updateDraft('method', item.value)}
+                aria-expanded={moreMethodsOpen}
+                onClick={() => setMoreMethodsOpen((current) => !current)}
               >
-                <strong>{item.label}</strong>
-                <span>{item.description}</span>
+                {moreMethodsOpen
+                  ? '收起更多'
+                  : selectedMoreMethod
+                    ? `更多 · ${selectedMoreMethod.label}`
+                    : `更多 ${moreDivinationMethodOptions.length}`}
               </button>
-            ))}
+            </div>
+            <div className="divination-method-grid">
+              {commonDivinationMethodOptions.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={`divination-method-btn ${draft.method === item.value ? 'is-active' : ''}`}
+                  aria-pressed={draft.method === item.value}
+                  onClick={() => updateDraft('method', item.value)}
+                >
+                  <strong>{item.label}</strong>
+                  <span>{item.description}</span>
+                </button>
+              ))}
+            </div>
+            {moreMethodsOpen ? (
+              <div className="divination-method-more" aria-label="更多占卜算法">
+                <div className="divination-method-grid">
+                  {moreDivinationMethodOptions.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      className={`divination-method-btn ${draft.method === item.value ? 'is-active' : ''}`}
+                      aria-pressed={draft.method === item.value}
+                      onClick={() => updateDraft('method', item.value)}
+                    >
+                      <strong>{item.label}</strong>
+                      <span>{item.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

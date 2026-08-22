@@ -13,3 +13,9 @@ test('输入页遇到缺失或未知模式时应安全回到单盘', () => {
   assert.equal(resolveInputEntryMode(new URLSearchParams()), 'single');
   assert.equal(resolveInputEntryMode(new URLSearchParams('mode=unknown')), 'single');
 });
+
+test('未指定链接模式时可采用用户设置的默认主页', () => {
+  assert.equal(resolveInputEntryMode(new URLSearchParams(), 'divination'), 'divination');
+  assert.equal(resolveInputEntryMode(new URLSearchParams(), 'almanac'), 'almanac');
+  assert.equal(resolveInputEntryMode(new URLSearchParams('mode=unknown'), 'divination'), 'single');
+});

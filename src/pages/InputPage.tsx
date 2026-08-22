@@ -11,8 +11,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PrivacyHint } from '@/components/PrivacyHint';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
 import {
+  buildCompatibilityCaseResultPath,
+  buildPersonalCaseResultPath,
+} from '@/lib/case-navigation';
+import {
   getCompatibilityHistoryById,
   getPersonalHistoryById,
+  loadCompatibilityHistory,
+  loadPersonalHistory,
   upsertCompatibilityHistory,
   upsertPersonalHistory,
 } from '@/lib/history-records';
@@ -24,6 +30,7 @@ import {
 } from '@/lib/query-state';
 import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
+import { useAppPreferences } from '@/hooks/useAppPreferences';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
@@ -41,9 +48,16 @@ export function InputPage() {
   const navigate = useNavigate();
   const [, startSubmitTransition] = useTransition();
   const [searchParams] = useSearchParams();
+  const [appPreferences] = useAppPreferences();
+  const preferredEntryMode =
+    appPreferences.home === 'compatibility' ||
+    appPreferences.home === 'divination' ||
+    appPreferences.home === 'almanac'
+      ? appPreferences.home
+      : 'single';
   const [form, setForm] = useState<QueryInputState>(defaultInputState);
   const [entryMode, setEntryMode] = useState<InputEntryMode>(() =>
-    resolveInputEntryMode(searchParams),
+    resolveInputEntryMode(searchParams, preferredEntryMode),
   );
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -57,7 +71,18 @@ export function InputPage() {
   const birthPlace = useBirthPlace({ form, setForm });
 
   useEffect(() => {
-    const nextEntryMode = resolveInputEntryMode(searchParams);
+    if (
+      appPreferences.home === 'dashboard' &&
+      searchParams.get('mode') === null &&
+      searchParams.get('case') === null &&
+      searchParams.get('draft') === null
+    ) {
+      navigate('/home', { replace: true });
+    }
+  }, [appPreferences.home, navigate, searchParams]);
+
+  useEffect(() => {
+    const nextEntryMode = resolveInputEntryMode(searchParams, preferredEntryMode);
     setEntryMode(nextEntryMode);
 
     if (nextEntryMode === 'divination' || nextEntryMode === 'almanac') {
@@ -74,7 +99,43 @@ export function InputPage() {
             chartType: 'bazi',
           };
     });
-  }, [searchParams]);
+  }, [preferredEntryMode, searchParams]);
+
+  useEffect(() => {
+    if (
+      appPreferences.caseEntry !== 'recent' ||
+      searchParams.get('case') ||
+      searchParams.get('draft')
+    ) {
+      return;
+    }
+
+    const hasExplicitMode = searchParams.get('mode') !== null;
+    if (
+      !hasExplicitMode &&
+      (appPreferences.home === 'unspecified' || appPreferences.home === 'dashboard')
+    ) {
+      return;
+    }
+
+    const requestedMode = resolveInputEntryMode(searchParams, preferredEntryMode);
+    if (requestedMode !== 'single' && requestedMode !== 'compatibility') {
+      return;
+    }
+
+    if (requestedMode === 'compatibility') {
+      const recentRecord = loadCompatibilityHistory()[0];
+      if (recentRecord) {
+        navigate(buildCompatibilityCaseResultPath(recentRecord), { replace: true });
+      }
+      return;
+    }
+
+    const recentRecord = loadPersonalHistory()[0];
+    if (recentRecord) {
+      navigate(buildPersonalCaseResultPath(recentRecord), { replace: true });
+    }
+  }, [appPreferences.caseEntry, appPreferences.home, navigate, preferredEntryMode, searchParams]);
 
   useEffect(() => {
     const draftId = searchParams.get('draft');
@@ -85,10 +146,12 @@ export function InputPage() {
     loadedDraftIdRef.current = draftId;
     loadedCaseIdRef.current = null;
     setActiveCaseId(null);
-    setEntryMode('single');
-    setForm({ ...defaultInputState, analysisMode: 'single' });
+    const requestedMode = resolveInputEntryMode(searchParams, preferredEntryMode);
+    const nextMode = requestedMode === 'compatibility' ? 'compatibility' : 'single';
+    setEntryMode(nextMode);
+    setForm({ ...defaultInputState, analysisMode: nextMode });
     setError('');
-  }, [searchParams]);
+  }, [preferredEntryMode, searchParams]);
 
   useEffect(() => {
     const caseId = searchParams.get('case');
@@ -101,7 +164,7 @@ export function InputPage() {
       return;
     }
 
-    const requestedMode = resolveInputEntryMode(searchParams);
+    const requestedMode = resolveInputEntryMode(searchParams, preferredEntryMode);
     const record =
       requestedMode === 'compatibility'
         ? getCompatibilityHistoryById(caseId)
@@ -123,16 +186,31 @@ export function InputPage() {
       analysisMode: requestedMode === 'compatibility' ? 'compatibility' : 'single',
     });
     setError('');
-  }, [searchParams]);
+  }, [preferredEntryMode, searchParams]);
 
   useEffect(() => {
+    if (entryMode !== 'single' || form.analysisMode !== 'single') {
+      return;
+    }
+
     const timer = window.setTimeout(() => {
-      upsertPersonalHistory(form, form.analysisMode === 'single' ? activeCaseId : null);
+      const records = upsertPersonalHistory(form, activeCaseId);
+      if (!activeCaseId && form.year && form.month && form.day && records[0]) {
+        const savedCase = records[0];
+        setActiveCaseId(savedCase.id);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('mode', 'single');
+        nextParams.set('case', savedCase.id);
+        nextParams.delete('draft');
+        navigate(`/?${nextParams.toString()}`, { replace: true });
+      }
     }, 500);
 
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    entryMode,
+    form.analysisMode,
     form.name,
     form.gender,
     form.dateType,
@@ -151,17 +229,36 @@ export function InputPage() {
   ]);
 
   useEffect(() => {
-    if (form.analysisMode !== 'compatibility') {
+    if (entryMode !== 'compatibility' || form.analysisMode !== 'compatibility') {
       return;
     }
 
     const timer = window.setTimeout(() => {
-      upsertCompatibilityHistory(form, activeCaseId);
+      const records = upsertCompatibilityHistory(form, activeCaseId);
+      if (
+        !activeCaseId &&
+        form.year &&
+        form.month &&
+        form.day &&
+        form.partnerYear &&
+        form.partnerMonth &&
+        form.partnerDay &&
+        records[0]
+      ) {
+        const savedCase = records[0];
+        setActiveCaseId(savedCase.id);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('mode', 'compatibility');
+        nextParams.set('case', savedCase.id);
+        nextParams.delete('draft');
+        navigate(`/?${nextParams.toString()}`, { replace: true });
+      }
     }, 500);
 
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    entryMode,
     form.analysisMode,
     form.name,
     form.gender,
@@ -436,7 +533,10 @@ export function InputPage() {
             {entryMode === 'divination' || entryMode === 'almanac' ? (
               <Suspense fallback={divinationPanelFallback}>
                 <LazyDivinationPanel
-                  initialMethod={entryMode === 'almanac' ? 'almanac' : undefined}
+                  key={`${entryMode}-${appPreferences.defaultDivinationMethod}`}
+                  initialMethod={
+                    entryMode === 'almanac' ? 'almanac' : appPreferences.defaultDivinationMethod
+                  }
                   lockedMethod={entryMode === 'almanac' ? 'almanac' : undefined}
                 />
               </Suspense>

@@ -31,17 +31,15 @@ import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
 
 type DivinationPanelProps = {
-  initialMethod?: Extract<DivinationDraft['method'], 'almanac' | 'astrolabe'>;
+  initialMethod?: DivinationDraft['method'];
   lockedMethod?: Extract<DivinationDraft['method'], 'almanac' | 'astrolabe'>;
 };
 
 function createDefaultDraft(method?: DivinationPanelProps['initialMethod']): DivinationDraft {
-  return method
-    ? {
-        ...defaultDraft,
-        method,
-      }
-    : defaultDraft;
+  return {
+    ...defaultDraft,
+    method: method ?? defaultDraft.method,
+  };
 }
 
 export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanelProps) {

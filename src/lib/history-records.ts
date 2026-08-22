@@ -349,6 +349,30 @@ export function getCompatibilityHistoryById(id: string) {
   return loadCompatibilityHistory().find((item) => item.id === id) ?? null;
 }
 
+export function markPersonalHistoryUsed(id: string) {
+  const records = loadPersonalHistory();
+  const record = records.find((item) => item.id === id);
+  if (!record) return records;
+  const next = [
+    { ...record, updatedAt: new Date().toISOString() },
+    ...records.filter((item) => item.id !== id),
+  ];
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next);
+  return next;
+}
+
+export function markCompatibilityHistoryUsed(id: string) {
+  const records = loadCompatibilityHistory();
+  const record = records.find((item) => item.id === id);
+  if (!record) return records;
+  const next = [
+    { ...record, updatedAt: new Date().toISOString() },
+    ...records.filter((item) => item.id !== id),
+  ];
+  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
+  return next;
+}
+
 export function addDivinationHistory(draft: DivinationDraft, session: DivinationSession) {
   const question = resolveDivinationRecordTitle(draft, session);
   if (!question) {

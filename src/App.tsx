@@ -8,6 +8,11 @@ const InputPage = lazy(async () => {
   return { default: module.InputPage };
 });
 
+const HomePage = lazy(async () => {
+  const module = await import('./pages/HomePage');
+  return { default: module.HomePage };
+});
+
 const RecordsPage = lazy(async () => {
   const module = await import('./pages/RecordsPage');
   return { default: module.RecordsPage };
@@ -44,6 +49,7 @@ export default function App() {
       <ErrorBoundary>
         <AppWorkspaceShell>
           <Routes>
+            <Route path="/home" element={<HomePage />} />
             <Route path="/" element={<InputPage />} />
             <Route path="/tutorial" element={<TutorialPage />} />
             <Route path="/records" element={<RecordsPage />} />
