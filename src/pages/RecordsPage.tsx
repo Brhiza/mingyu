@@ -172,16 +172,19 @@ export function RecordsPage() {
   }
 
   function handleDeletePersonal(id: string) {
+    if (!window.confirm('确定删除这个个人案例吗？删除后无法恢复。')) return;
     removePersonalHistory(id);
     refresh();
   }
 
   function handleDeleteCompatibility(id: string) {
+    if (!window.confirm('确定删除这个合盘案例吗？删除后无法恢复。')) return;
     removeCompatibilityHistory(id);
     refresh();
   }
 
   function handleDeleteDivination(id: string) {
+    if (!window.confirm('确定删除这条占问记录吗？删除后无法恢复。')) return;
     removeDivinationHistory(id);
     refresh();
   }
@@ -207,36 +210,31 @@ export function RecordsPage() {
     <div className="page-shell input-page-shell workspace-records-page">
       <div className="bazi-view-container">
         <section className="history-page-section">
-          <div className="person-section-head history-section-head">
-            <h2>案例与占问记录</h2>
-            <p>常用案例可置顶；点击任一记录直接打开结果。</p>
-          </div>
-
-          <div className="records-header-bar">
-            <SegmentedControl
-              value={activeTab}
-              options={[
-                { label: '个人记录', value: 'personal' as const },
-                { label: '合盘记录', value: 'compatibility' as const },
-                { label: '占卜记录', value: 'divination' as const },
-              ]}
-              onChange={(value) => setActiveTab(value)}
-            />
-          </div>
-
-          <div className="records-controls">
+          <div className="records-toolbar">
+            <div className="records-header-bar">
+              <SegmentedControl
+                value={activeTab}
+                options={[
+                  { label: '个人案例', value: 'personal' as const },
+                  { label: '合盘案例', value: 'compatibility' as const },
+                  { label: '占问记录', value: 'divination' as const },
+                ]}
+                onChange={(value) => setActiveTab(value)}
+              />
+            </div>
             <input
               value={searchText}
               type="text"
-              className="form-input"
+              className="form-input records-search-input"
               placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder.replace('...', '')}
               onChange={(event) => setSearchText(event.target.value)}
             />
           </div>
 
           {activeTab === 'personal' ? (
             filteredPersonal.length === 0 ? (
-              <div className="records-empty-card">暂无匹配的个人记录</div>
+              <div className="records-empty-card">暂无匹配的个人案例</div>
             ) : (
               <>
                 <div className="records-list">
@@ -294,7 +292,7 @@ export function RecordsPage() {
             )
           ) : activeTab === 'compatibility' ? (
             filteredCompatibility.length === 0 ? (
-              <div className="records-empty-card">暂无匹配的合盘记录</div>
+              <div className="records-empty-card">暂无匹配的合盘案例</div>
             ) : (
               <>
                 <div className="records-list">
@@ -352,14 +350,14 @@ export function RecordsPage() {
               </>
             )
           ) : filteredDivination.length === 0 ? (
-            <div className="records-empty-card">暂无匹配的占卜记录</div>
+            <div className="records-empty-card">暂无匹配的占问记录</div>
           ) : (
             <>
               <div className="records-list">
                 {filteredDivination.map((record, index) => (
                   <div
                     key={record.id}
-                    className="record-item"
+                    className="record-item divination-record-item"
                     onClick={() => handleOpenDivination(index)}
                   >
                     <div className="record-info">

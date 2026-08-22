@@ -231,18 +231,13 @@ export function InputPage() {
   }
 
   return (
-    <div className="page-shell input-page-shell workspace-input-page">
+    <div
+      className={`page-shell input-page-shell workspace-input-page${
+        config.compatibility ? ' is-compatibility' : ''
+      }`}
+    >
       <div className="bazi-view-container">
         <PrivacyHint />
-        <div className="workspace-form-intro">
-          <div>
-            <span>新建{config.label}案例</span>
-          </div>
-          <button type="button" onClick={() => navigate('/records?tab=personal')}>
-            从案例库选择
-          </button>
-        </div>
-
         <div className={`form-wrapper${config.compatibility ? ' is-compatibility' : ''}`}>
           <PersonForm
             role="self"

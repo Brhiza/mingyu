@@ -1250,73 +1250,79 @@ export function ResultPage() {
 
   return (
     <div className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}`}>
-      <div className="workspace-result-toolbar">
-        <button
-          type="button"
-          onClick={() => {
-            const feature =
-              inputState.analysisMode === 'compatibility'
-                ? 'compatibility'
-                : promptState.promptSource;
-            navigate(`/chart/${feature}?${buildInputStateSearch(inputState)}`);
-          }}
-        >
-          修改资料
-        </button>
-        <button type="button" onClick={() => navigate('/records')}>
-          案例库
-        </button>
-      </div>
+      <div className="workspace-result-navigation">
+        <div className="tab-strip">
+          <button
+            type="button"
+            className={`tab-chip ${promptState.tab === 'bazi' ? 'is-active' : ''}`}
+            onClick={() => switchTab('bazi')}
+          >
+            八字
+          </button>
+          <button
+            type="button"
+            className={`tab-chip ${promptState.tab === 'ziwei' ? 'is-active' : ''}`}
+            onClick={() => switchTab('ziwei')}
+          >
+            紫微
+          </button>
+          {hasAstrolabeChart ? (
+            <button
+              type="button"
+              className={`tab-chip ${promptState.tab === 'astrolabe' ? 'is-active' : ''}`}
+              onClick={() => switchTab('astrolabe')}
+            >
+              星盘
+            </button>
+          ) : null}
+          {hasAstrolabeChart ? (
+            <button
+              type="button"
+              className={`tab-chip ${promptState.tab === 'qizheng' ? 'is-active' : ''}`}
+              onClick={() => switchTab('qizheng')}
+            >
+              七政四余
+            </button>
+          ) : null}
+          {inputState.analysisMode === 'single' ? (
+            <button
+              type="button"
+              className={`tab-chip ${promptState.tab === 'bazhai' ? 'is-active' : ''}`}
+              onClick={() => switchTab('bazhai')}
+            >
+              住宅风水
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
+            onClick={() => switchTab('prompt')}
+          >
+            {isAiEnabled ? 'AI 解析' : '复制提示词'}
+          </button>
+        </div>
 
-      <div className="tab-strip">
-        <button
-          type="button"
-          className={`tab-chip ${promptState.tab === 'bazi' ? 'is-active' : ''}`}
-          onClick={() => switchTab('bazi')}
-        >
-          八字
-        </button>
-        <button
-          type="button"
-          className={`tab-chip ${promptState.tab === 'ziwei' ? 'is-active' : ''}`}
-          onClick={() => switchTab('ziwei')}
-        >
-          紫微
-        </button>
-        {hasAstrolabeChart ? (
+        <div className="workspace-result-toolbar">
           <button
             type="button"
-            className={`tab-chip ${promptState.tab === 'astrolabe' ? 'is-active' : ''}`}
-            onClick={() => switchTab('astrolabe')}
+            onClick={() => {
+              const feature =
+                inputState.analysisMode === 'compatibility'
+                  ? 'compatibility'
+                  : promptState.promptSource;
+              navigate(`/chart/${feature}?${buildInputStateSearch(inputState)}`);
+            }}
           >
-            星盘
+            修改资料
           </button>
-        ) : null}
-        {hasAstrolabeChart ? (
           <button
             type="button"
-            className={`tab-chip ${promptState.tab === 'qizheng' ? 'is-active' : ''}`}
-            onClick={() => switchTab('qizheng')}
+            className="workspace-result-cases-button"
+            onClick={() => navigate('/records')}
           >
-            七政四余
+            案例库
           </button>
-        ) : null}
-        {inputState.analysisMode === 'single' ? (
-          <button
-            type="button"
-            className={`tab-chip ${promptState.tab === 'bazhai' ? 'is-active' : ''}`}
-            onClick={() => switchTab('bazhai')}
-          >
-            住宅风水
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
-          onClick={() => switchTab('prompt')}
-        >
-          {isAiEnabled ? 'AI 解析' : '复制提示词'}
-        </button>
+        </div>
       </div>
 
       <div className={`result-tab-stage${isDesktopAiWorkspace ? ' is-ai-wide' : ''}`}>

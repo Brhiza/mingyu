@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   WORKSPACE_FEATURES,
+  WORKSPACE_FEATURE_GROUPS,
   getWorkspaceFeature,
   type WorkspaceFeatureId,
   type WorkspacePreferences,
@@ -13,13 +14,22 @@ type WorkspaceSettingsModalProps = {
   onClose: () => void;
 };
 
-function moveItem(order: WorkspaceFeatureId[], index: number, direction: -1 | 1) {
-  const nextIndex = index + direction;
-  if (nextIndex < 0 || nextIndex >= order.length) {
+function moveItemWithinGroup(
+  order: WorkspaceFeatureId[],
+  id: WorkspaceFeatureId,
+  direction: -1 | 1,
+) {
+  const feature = getWorkspaceFeature(id);
+  const groupOrder = order.filter((item) => getWorkspaceFeature(item).group === feature.group);
+  const groupIndex = groupOrder.indexOf(id);
+  const siblingId = groupOrder[groupIndex + direction];
+  if (!siblingId) {
     return order;
   }
   const next = [...order];
-  [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+  const currentIndex = next.indexOf(id);
+  const siblingIndex = next.indexOf(siblingId);
+  [next[currentIndex], next[siblingIndex]] = [next[siblingIndex], next[currentIndex]];
   return next;
 }
 
@@ -61,10 +71,16 @@ export function WorkspaceSettingsModal({
                   }))
                 }
               >
-                {WORKSPACE_FEATURES.map((feature) => (
-                  <option value={feature.id} key={feature.id}>
-                    {feature.label}
-                  </option>
+                {WORKSPACE_FEATURE_GROUPS.map((group) => (
+                  <optgroup label={group.label} key={group.id}>
+                    {WORKSPACE_FEATURES.filter((feature) => feature.group === group.id).map(
+                      (feature) => (
+                        <option value={feature.id} key={feature.id}>
+                          {feature.label}
+                        </option>
+                      ),
+                    )}
+                  </optgroup>
                 ))}
               </select>
             </label>
@@ -104,7 +120,7 @@ export function WorkspaceSettingsModal({
             <div className="workspace-order-heading">
               <div>
                 <h3>侧栏顺序</h3>
-                <p>排在最前的工具会优先显示。</p>
+                <p>在各类工具内调整显示顺序。</p>
               </div>
               <button
                 type="button"
@@ -120,41 +136,59 @@ export function WorkspaceSettingsModal({
             </div>
 
             <div className="workspace-order-list">
-              {draft.navigationOrder.map((id, index) => {
-                const feature = getWorkspaceFeature(id);
+              {WORKSPACE_FEATURE_GROUPS.map((group) => {
+                const ids = draft.navigationOrder.filter(
+                  (id) => getWorkspaceFeature(id).group === group.id,
+                );
                 return (
-                  <div className="workspace-order-item" key={id}>
-                    <span className="workspace-order-mark">{feature.mark}</span>
-                    <span className="workspace-order-name">{feature.label}</span>
-                    <div className="workspace-order-actions">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        aria-label={`上移${feature.label}`}
-                        onClick={() =>
-                          setDraft((current) => ({
-                            ...current,
-                            navigationOrder: moveItem(current.navigationOrder, index, -1),
-                          }))
-                        }
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index === draft.navigationOrder.length - 1}
-                        aria-label={`下移${feature.label}`}
-                        onClick={() =>
-                          setDraft((current) => ({
-                            ...current,
-                            navigationOrder: moveItem(current.navigationOrder, index, 1),
-                          }))
-                        }
-                      >
-                        ↓
-                      </button>
-                    </div>
-                  </div>
+                  <section className="workspace-order-group" key={group.id}>
+                    <h4>{group.label}</h4>
+                    {ids.map((id, index) => {
+                      const feature = getWorkspaceFeature(id);
+                      return (
+                        <div className="workspace-order-item" key={id}>
+                          <span className="workspace-order-mark">{feature.mark}</span>
+                          <span className="workspace-order-name">{feature.label}</span>
+                          <div className="workspace-order-actions">
+                            <button
+                              type="button"
+                              disabled={index === 0}
+                              aria-label={`上移${feature.label}`}
+                              onClick={() =>
+                                setDraft((current) => ({
+                                  ...current,
+                                  navigationOrder: moveItemWithinGroup(
+                                    current.navigationOrder,
+                                    id,
+                                    -1,
+                                  ),
+                                }))
+                              }
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              disabled={index === ids.length - 1}
+                              aria-label={`下移${feature.label}`}
+                              onClick={() =>
+                                setDraft((current) => ({
+                                  ...current,
+                                  navigationOrder: moveItemWithinGroup(
+                                    current.navigationOrder,
+                                    id,
+                                    1,
+                                  ),
+                                }))
+                              }
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </section>
                 );
               })}
             </div>

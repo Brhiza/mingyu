@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="error-boundary-fallback">
           <div className="error-boundary-card">
             <h2>页面出现了一些问题</h2>
-            <p>请尝试刷新页面，或返回首页重新操作。</p>
+            <p>请尝试刷新页面，或返回默认工具重新操作。</p>
             <div className="error-boundary-actions">
               <button
                 type="button"
@@ -50,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   window.location.href = '/';
                 }}
               >
-                返回首页
+                返回默认工具
               </button>
             </div>
           </div>

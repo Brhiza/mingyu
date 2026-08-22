@@ -291,48 +291,6 @@ select {
   gap: 14px;
 }
 
-.divination-result-collapse {
-  border: 1px solid var(--border-soft);
-  border-radius: 16px;
-  background: var(--surface-panel);
-  overflow: hidden;
-}
-
-.divination-result-collapse > summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  user-select: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.divination-result-collapse > summary::-webkit-details-marker {
-  display: none;
-}
-
-.divination-result-collapse > summary::before {
-  content: '▶';
-  font-size: 10px;
-  transition: transform 0.15s;
-}
-
-.divination-result-collapse[open] > summary::before {
-  transform: rotate(90deg);
-}
-
-.divination-result-collapse > .panel {
-  border: none;
-  border-top: 1px solid var(--border-soft);
-  border-radius: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
 .single-panel-shell {
   max-width: 1200px;
   margin: 0 auto;
@@ -348,7 +306,6 @@ select {
   max-width: 1520px;
 }
 
-.page-shell-ai-workspace .page-topbar-wide,
 .page-shell-ai-workspace .tab-strip,
 .page-shell-ai-workspace .result-tab-stage.is-ai-wide,
 .page-shell-ai-workspace .workspace-grid-ai {
@@ -2200,70 +2157,7 @@ select {
 }
 
 .input-page-shell {
-  --input-bottom-tools-height: 0px;
-  --input-bottom-tools-gap: max(28px, env(safe-area-inset-bottom, 0px) + 20px);
   padding-top: 12px;
-}
-
-.input-page-shell.has-floating-tutorial-entry {
-  padding-bottom: calc(
-    var(--input-bottom-tools-height, 104px) + var(--input-bottom-tools-gap, 28px)
-  );
-}
-
-.input-page-main-content {
-  display: grid;
-  gap: 10px;
-}
-
-.input-panel {
-  max-width: 920px;
-  margin: 0 auto;
-}
-
-.page-topbar {
-  position: relative;
-  max-width: 760px;
-  margin: 0 auto 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  padding: 0 72px;
-}
-
-.page-topbar-wide {
-  max-width: 1200px;
-  margin-bottom: 16px;
-}
-
-.page-topbar-back {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  border: none;
-  background: transparent;
-  color: var(--accent-strong);
-  font-size: 14px;
-  font-weight: 600;
-  padding: 0;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  z-index: 2;
-  cursor: pointer;
-}
-
-.page-topbar-title {
-  margin: 0;
-  text-align: center;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--accent-deep);
-  line-height: 1.2;
-  pointer-events: none;
 }
 
 .tab-strip {
@@ -2295,21 +2189,6 @@ select {
     flex-direction: column;
     height: 100dvh;
     overflow: hidden;
-  }
-
-  .page-shell-ai-workspace .page-topbar {
-    flex-shrink: 0;
-    min-height: 44px;
-    margin-bottom: 18px;
-  }
-
-  .page-shell-ai-workspace .page-topbar-back {
-    height: 38px;
-    font-size: 16px;
-  }
-
-  .page-shell-ai-workspace .page-topbar-title {
-    font-size: 21px;
   }
 
   .page-shell-ai-workspace .tab-strip {
@@ -2350,36 +2229,6 @@ select {
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-}
-
-.ai-settings-chip {
-  margin-left: auto;
-}
-
-.ai-settings-chip.is-ai-on {
-  border-color: var(--accent-strong);
-  color: var(--accent-strong);
-}
-
-.top-ai-settings-icon-button {
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--accent-soft-strong);
-  border-radius: var(--radius-control);
-  background: rgba(var(--surface-base-rgb), 0.86);
-  color: var(--accent-deep);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.top-ai-settings-icon-button:hover {
-  border-color: var(--accent-strong);
-  color: var(--accent-strong);
 }
 
 .panel {
@@ -3615,227 +3464,8 @@ select {
   margin: 0 auto;
 }
 
-.tutorial-entry-button {
-  border: none;
-  background: transparent;
-  color: var(--accent-strong);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  min-height: 32px;
-  min-width: auto;
-  padding: 0;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-  transition:
-    color 0.2s ease,
-    opacity 0.2s ease;
-}
-
-.tutorial-entry-button:hover {
-  color: var(--accent-deep);
-  opacity: 0.86;
-}
-
-.analysis-mode-strip {
-  margin-bottom: 2px;
-  display: flex;
-  justify-content: center;
-}
-
-.donation-entry-strip {
-  width: min(220px, calc(100vw - 48px));
-  margin: 0 auto;
-  display: flex;
-  justify-content: center;
-}
-
-.analysis-mode-card {
-  display: grid;
-  gap: 6px;
-  border: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
-  border-radius: var(--radius-control);
-  padding: 10px 12px;
-}
-
-.analysis-mode-card span {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.top-switch-control {
-  width: min(720px, 100%);
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.top-switch-control .segmented-control-react {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.input-page-bottom-tools {
-  width: 100%;
-  position: fixed;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.input-page-bottom-tools.is-floating {
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(calc(100vw - 32px), 1180px);
-  bottom: max(14px, env(safe-area-inset-bottom, 0px) + 14px);
-  z-index: 20;
-  pointer-events: none;
-}
-
-.input-page-bottom-tools.is-inline {
-  position: static;
-  transform: none;
-}
-
-.donation-entry-button {
-  width: 100%;
-  min-height: 42px;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  border-radius: var(--radius-control);
-  border: 1px solid color-mix(in srgb, var(--accent-strong) 38%, #fff);
-  background: linear-gradient(135deg, #c64d98, #a681e0);
-  color: #fff;
-  box-shadow: 0 12px 28px rgba(124, 75, 133, 0.16);
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-  letter-spacing: 0;
-  padding: 6px 14px;
-  pointer-events: auto;
-  transition:
-    transform 0.2s ease,
-    opacity 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.donation-entry-button:hover {
-  opacity: 0.92;
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
-}
-
-.donation-entry-title,
-.donation-entry-note {
-  line-height: 1.25;
-}
-
-.donation-entry-title {
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.donation-entry-note {
-  font-size: 10px;
-  font-weight: 600;
-  opacity: 0.88;
-}
-
-.tutorial-entry-card {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 16px 20px;
-  border-radius: var(--radius-page-card);
-  border: 1px solid var(--border-soft);
-  background:
-    linear-gradient(
-      180deg,
-      rgba(var(--surface-base-rgb), 0.94),
-      rgba(var(--surface-base-rgb), 0.88)
-    ),
-    var(--surface-soft);
-  box-shadow: var(--shadow-md);
-  pointer-events: auto;
-}
-
-.tutorial-entry-copy {
-  display: grid;
-  gap: 4px;
-}
-
-.tutorial-entry-copy strong {
-  color: var(--text-strong);
-  font-size: 14px;
-}
-
-.tutorial-entry-copy p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.tutorial-entry-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-  flex: 0 0 auto;
-}
-
 .records-header-bar .segmented-control-react {
   width: min(220px, 100%);
-}
-
-.top-nav-group {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.top-nav-btn {
-  border: 1px solid var(--border-strong);
-  background: var(--surface-panel);
-  color: var(--accent-deep);
-  border-radius: 10px;
-  min-height: 38px;
-  padding: 8px 10px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.top-nav-btn.active {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
-  color: var(--surface-base);
-  box-shadow: 0 10px 20px var(--accent-soft);
-}
-
-.analysis-view {
-  display: block;
-  min-height: clamp(500px, 62vh, 720px);
-}
-
-.analysis-view > * {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
 }
 
 .form-wrapper {
@@ -6661,11 +6291,6 @@ div.form-actions.page-submit-actions {
   max-width: 860px;
 }
 
-.tutorial-topbar-shell {
-  max-width: 1200px;
-  margin: 0 auto 12px;
-}
-
 .tutorial-page-section {
   display: grid;
   gap: 12px;
@@ -6743,7 +6368,7 @@ div.form-actions.page-submit-actions {
 
 .tutorial-mode-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -6781,7 +6406,7 @@ div.form-actions.page-submit-actions {
 }
 
 .tutorial-faq-list {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .tutorial-faq-card {
@@ -7642,17 +7267,6 @@ div.form-actions.page-submit-actions {
     padding: 10px 6px 16px;
   }
 
-  .tutorial-entry-button {
-    min-height: 44px;
-    min-width: auto;
-    padding: 0;
-    font-size: 12px;
-  }
-
-  .analysis-view {
-    min-height: max(520px, calc(100dvh - 148px));
-  }
-
   .workspace-grid,
   .workspace-grid-ai {
     grid-template-columns: 1fr;
@@ -7697,116 +7311,6 @@ div.form-actions.page-submit-actions {
   .input-mode-loading-action {
     min-height: 40px;
     border-radius: var(--radius-control);
-  }
-
-  .analysis-mode-card {
-    padding: 8px 10px;
-    border-radius: var(--radius-control);
-  }
-
-  .top-switch-control {
-    width: 100%;
-    gap: 8px;
-  }
-
-  .top-ai-settings-icon-button {
-    width: 44px;
-    height: 44px;
-    flex-basis: 44px;
-    font-size: 17px;
-  }
-
-  .top-switch-control .segmented-control-react,
-  .top-switch-control .segmented-control-item-react {
-    min-height: 44px;
-  }
-
-  .input-page-shell.has-floating-tutorial-entry {
-    padding-bottom: calc(
-      var(--input-bottom-tools-height, 112px) + var(--input-bottom-tools-gap, 28px)
-    );
-  }
-
-  .input-page-bottom-tools.is-floating {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(calc(100vw - 12px), 1180px);
-    bottom: max(8px, env(safe-area-inset-bottom, 0px) + 8px);
-    z-index: 20;
-    pointer-events: none;
-  }
-
-  .input-page-bottom-tools.is-inline {
-    position: static;
-    transform: none;
-    width: 100%;
-    pointer-events: auto;
-  }
-
-  .donation-entry-button {
-    min-height: 38px;
-    border-radius: var(--radius-control);
-    padding: 5px 12px;
-  }
-
-  .donation-entry-title {
-    font-size: 14px;
-  }
-
-  .donation-entry-note {
-    font-size: 10px;
-  }
-
-  .tutorial-entry-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 12px;
-    border-radius: var(--radius-page-card);
-  }
-
-  .tutorial-entry-copy strong {
-    font-size: 13px;
-  }
-
-  .tutorial-entry-copy p {
-    font-size: 11px;
-  }
-
-  .tutorial-entry-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .page-topbar {
-    margin-bottom: 8px;
-    min-height: 34px;
-    padding: 0 64px;
-  }
-
-  .page-topbar-wide {
-    margin-bottom: 12px;
-  }
-
-  .page-topbar-back {
-    height: 28px;
-    font-size: 13px;
-  }
-
-  .page-topbar-title {
-    font-size: 17px;
-  }
-
-  .top-nav-group {
-    gap: 6px;
-  }
-
-  .top-nav-btn {
-    min-height: 36px;
-    padding: 7px 8px;
-    font-size: 12px;
-    border-radius: var(--radius-compact);
   }
 
   .person-section-head {
@@ -8075,10 +7579,6 @@ div.form-actions.page-submit-actions {
     gap: 10px;
   }
 
-  .tutorial-topbar-shell {
-    margin-bottom: 10px;
-  }
-
   .tutorial-intro-card,
   .tutorial-step-card,
   .tutorial-mode-card,
@@ -8156,99 +7656,6 @@ div.form-actions.page-submit-actions {
     padding: 30px 14px;
     border-radius: 12px;
     font-size: 13px;
-  }
-
-  .input-panel {
-    padding: 14px;
-    border-radius: 16px;
-  }
-
-  .input-panel .panel-head {
-    margin-bottom: 14px;
-    gap: 8px;
-  }
-
-  .input-panel .panel-head h2 {
-    font-size: 18px;
-    margin-bottom: 2px;
-  }
-
-  .input-panel .panel-head p {
-    font-size: 13px;
-    line-height: 1.4;
-  }
-
-  .input-panel .field-list {
-    gap: 12px;
-  }
-
-  .input-panel .form-section-panel {
-    padding: 10px;
-    border-radius: var(--radius-page-card);
-    gap: 8px;
-  }
-
-  .input-panel .field-card {
-    gap: 6px;
-  }
-
-  .input-panel .field-card input,
-  .input-panel .field-card textarea,
-  .input-panel .field-card select,
-  .input-panel .place-trigger {
-    padding: 10px 12px;
-    border-radius: var(--radius-control);
-    min-height: 42px;
-  }
-
-  .input-panel .field-header span,
-  .input-panel .section-caption {
-    font-size: 12px;
-  }
-
-  .input-panel .field-card small {
-    font-size: 11px;
-    line-height: 1.35;
-  }
-
-  .input-panel .segment-chip {
-    min-width: 0;
-    flex: 1 1 auto;
-    padding: 8px 10px;
-  }
-
-  .input-panel .segmented-group {
-    width: 100%;
-  }
-
-  .input-panel .compact-dual-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .input-panel .compact-triple-grid {
-    grid-template-columns: 1.2fr 0.9fr 0.9fr;
-    gap: 8px;
-  }
-
-  .input-panel .true-solar-inline {
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .input-panel .true-solar-inline .checkbox-card {
-    white-space: nowrap;
-  }
-
-  .input-panel .checkbox-card input[type='checkbox'] {
-    width: 13px;
-    height: 13px;
-  }
-
-  .input-panel .time-hint-card {
-    padding: 8px 10px;
-    border-radius: var(--radius-control);
-    font-size: 12px;
   }
 
   .dual-grid,
@@ -8472,18 +7879,8 @@ div.form-actions.page-submit-actions {
     width: 100%;
   }
 
-  .input-page-bottom-tools.is-floating {
-    width: min(calc(100vw - 12px), 1180px);
-  }
-
   .page-shell {
     padding: 10px 6px 16px;
-  }
-
-  .input-page-shell.has-floating-tutorial-entry {
-    padding-bottom: calc(
-      var(--input-bottom-tools-height, 112px) + var(--input-bottom-tools-gap, 28px)
-    );
   }
 
   .result-summary-grid,

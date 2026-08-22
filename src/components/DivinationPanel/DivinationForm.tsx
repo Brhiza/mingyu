@@ -99,6 +99,7 @@ interface DivinationFormProps {
   onOpenInspiration: () => void;
   onNavigateToHistory: () => void;
   questionInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  showHeading?: boolean;
 }
 
 export function DivinationForm({
@@ -111,6 +112,7 @@ export function DivinationForm({
   onOpenInspiration,
   onNavigateToHistory,
   questionInputRef,
+  showHeading = true,
 }: DivinationFormProps) {
   const isMethodLocked = Boolean(lockedMethod);
   const lockedMethodOption = DIVINATION_METHOD_OPTIONS.find((item) => item.value === lockedMethod);
@@ -257,10 +259,12 @@ export function DivinationForm({
   return (
     <>
       <section className="person-section divination-form-card">
-        <div className="person-section-head">
-          <h2>{formHeading}</h2>
-          <p>{formDescription}</p>
-        </div>
+        {showHeading ? (
+          <div className="person-section-head">
+            <h2>{formHeading}</h2>
+            <p>{formDescription}</p>
+          </div>
+        ) : null}
 
         {!isMethodLocked ? (
           <div className="divination-method-grid">
@@ -1290,7 +1294,7 @@ export function DivinationForm({
         }}
       >
         <button className="secondary-page-button" type="button" onClick={onNavigateToHistory}>
-          历史记录
+          占问记录
         </button>
         <button
           className="primary-button start-submit-button"

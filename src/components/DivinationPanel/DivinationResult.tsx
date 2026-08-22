@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
@@ -18,7 +18,7 @@ interface DivinationResultProps {
   copyState: string;
   shareState: string;
   showShareButton: boolean;
-  isPhoneLayout: boolean;
+  showHeading?: boolean;
   onCopy: () => void;
   onShare: () => void;
 }
@@ -177,18 +177,13 @@ export function DivinationResult({
   copyState,
   shareState,
   showShareButton,
-  isPhoneLayout,
+  showHeading = true,
   onCopy,
   onShare,
 }: DivinationResultProps) {
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
-  const [isEvidenceOpen, setIsEvidenceOpen] = useState(!isPhoneLayout);
-
-  useEffect(() => {
-    setIsEvidenceOpen(!isPhoneLayout);
-  }, [isPhoneLayout, session]);
 
   if (isSubmitting) {
     if (isAiEnabled) {
@@ -262,7 +257,7 @@ export function DivinationResult({
   // 前端只展示核对盘面所需的摘要；完整传统资料继续保留在提示词中。
   const resultBlock = (
     <section className="panel divination-result-panel">
-      {!isLiurenResult ? (
+      {!isLiurenResult && showHeading ? (
         <div className="panel-head">
           <h2>{summary.title}</h2>
         </div>
@@ -301,14 +296,7 @@ export function DivinationResult({
   if (isAiEnabled) {
     return (
       <div className="divination-ai-card">
-        <details
-          className="divination-result-collapse"
-          open={isEvidenceOpen}
-          onToggle={(event) => setIsEvidenceOpen(event.currentTarget.open)}
-        >
-          <summary>{isEvidenceOpen ? '收起排盘依据' : '查看排盘依据'}</summary>
-          {resultBlock}
-        </details>
+        {resultBlock}
         <AiChatPanel
           contextPrompt={session.prompt}
           autoStart={session.prompt}
@@ -322,10 +310,12 @@ export function DivinationResult({
 
   return (
     <div className="workspace-grid divination-output-grid">
+      {resultBlock}
+
       <section className="panel panel-output divination-result-panel">
         <div className="panel-head divination-prompt-head">
           <div>
-            <h2>复制占卜提示词</h2>
+            <h2>复制完整提示词</h2>
             <p>完整提示词已经生成，可以直接复制使用。</p>
           </div>
           <div className="action-row compact-actions divination-prompt-actions">
@@ -342,15 +332,6 @@ export function DivinationResult({
         <div className="prompt-send-tip">点击复制后，发送到你常用的在线 AI 软件继续提问。</div>
         <CollapsiblePromptPreview promptText={session.prompt} />
       </section>
-
-      <details
-        className="divination-result-collapse"
-        open={isEvidenceOpen}
-        onToggle={(event) => setIsEvidenceOpen(event.currentTarget.open)}
-      >
-        <summary>{isEvidenceOpen ? '收起排盘依据' : '查看排盘依据'}</summary>
-        {resultBlock}
-      </details>
     </div>
   );
 }

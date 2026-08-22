@@ -9,6 +9,15 @@ export type DivinationWorkspaceId = Exclude<DivinationMethodId, 'astrolabe'>;
 export type WorkspaceFeatureId = ChartWorkspaceId | DivinationWorkspaceId;
 export type WorkspaceFeatureGroup = 'chart' | 'divination' | 'timing';
 
+export const WORKSPACE_FEATURE_GROUPS: ReadonlyArray<{
+  id: WorkspaceFeatureGroup;
+  label: string;
+}> = [
+  { id: 'chart', label: '命盘' },
+  { id: 'divination', label: '占问' },
+  { id: 'timing', label: '择时' },
+];
+
 export type WorkspaceFeature = {
   id: WorkspaceFeatureId;
   label: string;

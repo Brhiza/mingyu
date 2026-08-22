@@ -18,7 +18,6 @@ import {
 } from '@/lib/divination/inspiration';
 import { addDivinationHistory, getDivinationHistoryById } from '@/lib/history-records';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
-import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import {
@@ -88,7 +87,7 @@ export function DivinationPanel({
 
     const record = getDivinationHistoryById(recordId);
     if (!record) {
-      setError('未找到对应的占卜历史记录');
+      setError('未找到对应的占问记录');
       return;
     }
 
@@ -179,11 +178,6 @@ export function DivinationPanel({
     viewportHeight: viewportSize.height,
     hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
   });
-  const isPhoneLayout = shouldUsePhoneLayout({
-    viewportWidth: viewportSize.width,
-    viewportHeight: viewportSize.height,
-  });
-
   useEffect(() => {
     if (!lockedMethod || draft.method === lockedMethod) {
       return;
@@ -268,6 +262,7 @@ export function DivinationPanel({
           onOpenInspiration={openQuestionInspirationModal}
           onNavigateToHistory={() => navigate('/records?tab=divination')}
           questionInputRef={questionInputRef}
+          showHeading={displayMode === 'workspace'}
         />
       ) : null}
 
@@ -282,7 +277,7 @@ export function DivinationPanel({
             copyState={copyState}
             shareState={shareState}
             showShareButton={showShareButton}
-            isPhoneLayout={isPhoneLayout}
+            showHeading={displayMode === 'workspace'}
             onCopy={handleCopy}
             onShare={handleShare}
           />

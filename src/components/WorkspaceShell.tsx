@@ -20,6 +20,7 @@ import {
 } from '@/lib/query-state';
 import {
   WORKSPACE_PREFERENCES_EVENT,
+  WORKSPACE_FEATURE_GROUPS,
   buildWorkspaceFeaturePath,
   getWorkspaceFeature,
   isChartWorkspaceId,
@@ -147,13 +148,14 @@ export function WorkspaceShell() {
       pinned: Boolean(record.pinned),
       updatedAt: record.updatedAt,
     }));
-    return [...personal, ...compatibility]
-      .sort(
-        (left, right) =>
-          Number(right.pinned) - Number(left.pinned) ||
-          right.updatedAt.localeCompare(left.updatedAt),
-      )
-      .slice(0, 5);
+    const cases = [...personal, ...compatibility].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
+    const pinnedCases = cases.filter((record) => record.pinned).slice(0, 3);
+    const recentCases = cases
+      .filter((record) => !record.pinned)
+      .slice(0, Math.max(0, 4 - pinnedCases.length));
+    return [...pinnedCases, ...recentCases];
   })();
 
   useEffect(() => {
@@ -226,40 +228,53 @@ export function WorkspaceShell() {
         </button>
       </div>
 
-      <div className="workspace-nav-label">全部工具</div>
-      <nav className="workspace-nav-list" aria-label="排盘与占问工具">
-        {orderedFeatures.map((feature) => (
-          <button
-            type="button"
-            key={feature.id}
-            className={activeFeature === feature.id ? 'is-active' : ''}
-            onClick={() => startNew(buildWorkspaceFeaturePath(feature.id))}
-            aria-current={activeFeature === feature.id ? 'page' : undefined}
-          >
-            <span
-              className={`workspace-nav-mark workspace-nav-mark-${feature.group}`}
-              aria-hidden="true"
-            >
-              {feature.mark}
-            </span>
-            <span className="workspace-nav-copy">
-              <strong>{feature.label}</strong>
-              {activeFeature === feature.id ? <small>{feature.description}</small> : null}
-            </span>
-          </button>
-        ))}
+      <nav className="workspace-tool-sections" aria-label="排盘与占问工具">
+        {WORKSPACE_FEATURE_GROUPS.map((group) => {
+          const features = orderedFeatures.filter((feature) => feature.group === group.id);
+          return (
+            <section className="workspace-tool-section" key={group.id}>
+              <div className="workspace-nav-label">{group.label}</div>
+              <div className="workspace-nav-list">
+                {features.map((feature) => (
+                  <button
+                    type="button"
+                    key={feature.id}
+                    title={`${feature.label}：${feature.description}`}
+                    className={activeFeature === feature.id ? 'is-active' : ''}
+                    onClick={() => startNew(buildWorkspaceFeaturePath(feature.id))}
+                    aria-label={feature.label}
+                    aria-current={activeFeature === feature.id ? 'page' : undefined}
+                  >
+                    <span
+                      className={`workspace-nav-mark workspace-nav-mark-${feature.group}`}
+                      aria-hidden="true"
+                    >
+                      {feature.mark}
+                    </span>
+                    <span className="workspace-nav-copy">
+                      <strong>{feature.shortLabel}</strong>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </nav>
 
       {quickCases.length ? (
         <section className="workspace-recent-cases">
-          <div className="workspace-nav-label">常用与最近</div>
+          <div className="workspace-case-heading">
+            <span className="workspace-nav-label">置顶与最近</span>
+            <button type="button" onClick={() => navigate('/records')}>
+              全部
+            </button>
+          </div>
           {quickCases.map((record) => (
             <button type="button" key={record.id} onClick={() => navigate(record.path)}>
-              <span>
-                {record.pinned ? '★ ' : ''}
-                {record.label}
-              </span>
+              <span>{record.label}</span>
               <small>{record.meta}</small>
+              {record.pinned ? <i aria-label="已置顶">★</i> : null}
             </button>
           ))}
         </section>
@@ -293,7 +308,7 @@ export function WorkspaceShell() {
         </button>
         <div>
           <strong>{pageCopy.title}</strong>
-          <small>{activeFeature ? getWorkspaceFeature(activeFeature).shortLabel : '命语'}</small>
+          <small>{pageKind}</small>
         </div>
         <button type="button" className="workspace-mobile-new" onClick={() => startNew(newPath)}>
           新建
@@ -316,12 +331,22 @@ export function WorkspaceShell() {
             <p>{pageCopy.description}</p>
           </div>
           <div className="workspace-context-actions">
-            <button type="button" onClick={() => navigate('/records')}>
-              案例库
-            </button>
-            <button type="button" className="is-primary" onClick={() => startNew(newPath)}>
-              新建
-            </button>
+            {location.pathname === '/tutorial' ? (
+              <button type="button" className="is-primary" onClick={() => navigate('/')}>
+                开始使用
+              </button>
+            ) : (
+              <>
+                {location.pathname === '/records' ? null : (
+                  <button type="button" onClick={() => navigate('/records')}>
+                    案例库
+                  </button>
+                )}
+                <button type="button" className="is-primary" onClick={() => startNew(newPath)}>
+                  新建
+                </button>
+              </>
+            )}
           </div>
         </header>
         <div className="workspace-page">
