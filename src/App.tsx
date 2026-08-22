@@ -8,7 +8,6 @@ import {
   loadPersonalHistory,
 } from './lib/history-records';
 import {
-  buildInputStateSearch,
   buildResultSearch,
   defaultPromptState,
   hasCompletePreciseBirthData,
@@ -123,7 +122,7 @@ function buildRecentFeaturePath(feature: WorkspaceFeatureId) {
     (feature === 'astrolabe' || feature === 'qizheng') &&
     !hasCompletePreciseBirthData(record.input)
   ) {
-    return `/chart/${feature}?${buildInputStateSearch(record.input)}`;
+    return buildWorkspaceFeaturePath(feature);
   }
   return record
     ? `/result?${buildResultSearch(record.input, getChartResultState(feature))}`

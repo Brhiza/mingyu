@@ -260,7 +260,6 @@ export function DivinationPanel({
           error={error}
           onSubmit={handleSubmit}
           onOpenInspiration={openQuestionInspirationModal}
-          onNavigateToHistory={() => navigate('/records?tab=divination')}
           questionInputRef={questionInputRef}
           showHeading={displayMode === 'workspace'}
         />

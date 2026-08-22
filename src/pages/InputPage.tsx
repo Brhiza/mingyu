@@ -247,7 +247,7 @@ export function InputPage() {
             updateBirthTime={updateBirthTime}
             openBirthPlaceModal={birthPlace.openBirthPlaceModal}
             sectionTitle={config.compatibility ? '本人资料' : '出生资料'}
-            historyHint="排盘完成后会保存到当前浏览器的案例库。"
+            historyHint="排盘完成后自动保存，不需要另行操作。"
             forcePreciseBirthPlace={config.preciseBirthData}
           />
           {config.compatibility ? (
@@ -259,7 +259,7 @@ export function InputPage() {
               updateBirthTime={updateBirthTime}
               openBirthPlaceModal={birthPlace.openBirthPlaceModal}
               sectionTitle="对方资料"
-              historyHint="双方资料会作为一个合盘案例保存。"
+              historyHint="排盘完成后自动保存为一个合盘案例。"
             />
           ) : null}
         </div>
@@ -267,13 +267,6 @@ export function InputPage() {
         {error ? <div className="form-error-text global-form-error">{error}</div> : null}
 
         <div className="workspace-form-actions">
-          <button
-            type="button"
-            className="secondary-page-button"
-            onClick={() => navigate('/records')}
-          >
-            案例库
-          </button>
           <button type="button" className="primary-button" onClick={handleSubmit}>
             查看完整{config.label}盘面
           </button>

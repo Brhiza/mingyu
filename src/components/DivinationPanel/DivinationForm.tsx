@@ -97,7 +97,6 @@ interface DivinationFormProps {
   error: string;
   onSubmit: () => void | Promise<void>;
   onOpenInspiration: () => void;
-  onNavigateToHistory: () => void;
   questionInputRef: React.RefObject<HTMLTextAreaElement | null>;
   showHeading?: boolean;
 }
@@ -110,7 +109,6 @@ export function DivinationForm({
   error,
   onSubmit,
   onOpenInspiration,
-  onNavigateToHistory,
   questionInputRef,
   showHeading = true,
 }: DivinationFormProps) {
@@ -1289,13 +1287,10 @@ export function DivinationForm({
         className="form-actions page-submit-actions"
         style={{
           width: '100%',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gridTemplateColumns: 'minmax(0, 1fr)',
           justifyItems: 'stretch',
         }}
       >
-        <button className="secondary-page-button" type="button" onClick={onNavigateToHistory}>
-          占问记录
-        </button>
         <button
           className="primary-button start-submit-button"
           type="button"

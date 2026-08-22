@@ -1298,7 +1298,7 @@ export function ResultPage() {
             className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
             onClick={() => switchTab('prompt')}
           >
-            {isAiEnabled ? 'AI 解析' : '复制提示词'}
+            {isAiEnabled ? 'AI 解读' : '提示词'}
           </button>
         </div>
 
@@ -1314,13 +1314,6 @@ export function ResultPage() {
             }}
           >
             修改资料
-          </button>
-          <button
-            type="button"
-            className="workspace-result-cases-button"
-            onClick={() => navigate('/records')}
-          >
-            案例库
           </button>
         </div>
       </div>

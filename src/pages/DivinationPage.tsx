@@ -41,10 +41,7 @@ export function DivinationResultPage() {
     <div className="workspace-focused-page workspace-divination-result-page">
       <div className="workspace-result-toolbar">
         <button type="button" onClick={() => navigate(buildWorkspaceFeaturePath(method))}>
-          再问一次
-        </button>
-        <button type="button" onClick={() => navigate('/records?tab=divination')}>
-          查看占问记录
+          重新占问
         </button>
       </div>
       <DivinationPanel initialMethod={method} lockedMethod={method} displayMode="result" />

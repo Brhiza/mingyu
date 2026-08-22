@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
@@ -184,6 +184,11 @@ export function DivinationResult({
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
+  const [activeView, setActiveView] = useState<'board' | 'interpretation'>('board');
+
+  useEffect(() => {
+    setActiveView('board');
+  }, [session?.prompt]);
 
   if (isSubmitting) {
     if (isAiEnabled) {
@@ -293,45 +298,64 @@ export function DivinationResult({
     </section>
   );
 
-  if (isAiEnabled) {
-    return (
-      <div className="divination-ai-card">
-        {resultBlock}
-        <AiChatPanel
-          contextPrompt={session.prompt}
-          autoStart={session.prompt}
-          autoStartKey={session.prompt}
-          resetKey={session.prompt}
-          aiConfig={aiRequestConfig}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="workspace-grid divination-output-grid">
-      {resultBlock}
+    <div className="divination-result-workspace">
+      <div className="divination-result-switch" role="tablist" aria-label="结果内容">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'board'}
+          className={activeView === 'board' ? 'is-active' : ''}
+          onClick={() => setActiveView('board')}
+        >
+          盘面
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeView === 'interpretation'}
+          className={activeView === 'interpretation' ? 'is-active' : ''}
+          onClick={() => setActiveView('interpretation')}
+        >
+          {isAiEnabled ? 'AI 解读' : '提示词'}
+        </button>
+      </div>
 
-      <section className="panel panel-output divination-result-panel">
-        <div className="panel-head divination-prompt-head">
-          <div>
-            <h2>复制完整提示词</h2>
-            <p>完整提示词已经生成，可以直接复制使用。</p>
-          </div>
-          <div className="action-row compact-actions divination-prompt-actions">
-            <button className="copy-button secondary-button" type="button" onClick={onCopy}>
-              {copyState}
-            </button>
-            {showShareButton ? (
-              <button className="copy-button" type="button" onClick={onShare}>
-                {shareState}
-              </button>
-            ) : null}
-          </div>
+      {activeView === 'board' ? resultBlock : null}
+
+      {activeView === 'interpretation' && isAiEnabled ? (
+        <div className="divination-ai-card">
+          <AiChatPanel
+            contextPrompt={session.prompt}
+            autoStart={session.prompt}
+            autoStartKey={session.prompt}
+            resetKey={session.prompt}
+            aiConfig={aiRequestConfig}
+          />
         </div>
-        <div className="prompt-send-tip">点击复制后，发送到你常用的在线 AI 软件继续提问。</div>
-        <CollapsiblePromptPreview promptText={session.prompt} />
-      </section>
+      ) : null}
+
+      {activeView === 'interpretation' && !isAiEnabled ? (
+        <section className="panel panel-output divination-result-panel">
+          <div className="panel-head divination-prompt-head">
+            <div>
+              <h2>完整提示词</h2>
+              <p>复制后可发送到常用的在线 AI 软件。</p>
+            </div>
+            <div className="action-row compact-actions divination-prompt-actions">
+              <button className="copy-button secondary-button" type="button" onClick={onCopy}>
+                {copyState}
+              </button>
+              {showShareButton ? (
+                <button className="copy-button" type="button" onClick={onShare}>
+                  {shareState}
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <CollapsiblePromptPreview promptText={session.prompt} />
+        </section>
+      ) : null}
     </div>
   );
 }
