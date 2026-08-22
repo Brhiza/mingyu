@@ -34,6 +34,7 @@ type DivinationPanelProps = {
   lockedMethod?: DivinationDraft['method'];
   displayMode?: 'workspace' | 'input' | 'result';
   onGenerated?: (recordId: string, requestedMethod: DivinationDraft['method']) => void;
+  onRestart?: () => void;
 };
 
 function createDefaultDraft(method?: DivinationPanelProps['initialMethod']): DivinationDraft {
@@ -50,6 +51,7 @@ export function DivinationPanel({
   lockedMethod,
   displayMode = 'workspace',
   onGenerated,
+  onRestart,
 }: DivinationPanelProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -261,7 +263,7 @@ export function DivinationPanel({
           onSubmit={handleSubmit}
           onOpenInspiration={openQuestionInspirationModal}
           questionInputRef={questionInputRef}
-          showHeading={displayMode === 'workspace'}
+          showHeading
         />
       ) : null}
 
@@ -279,6 +281,7 @@ export function DivinationPanel({
             showHeading={displayMode === 'workspace'}
             onCopy={handleCopy}
             onShare={handleShare}
+            onRestart={onRestart}
           />
         </>
       ) : null}

@@ -7,11 +7,12 @@ import {
   loadDivinationHistory,
   loadPersonalHistory,
 } from './lib/history-records';
+import { defaultPromptState } from './lib/query-state';
 import {
-  buildResultSearch,
-  defaultPromptState,
-  hasCompletePreciseBirthData,
-} from './lib/query-state';
+  buildChartRecordPath,
+  buildDivinationRecordPath,
+  findRecentPersonalRecordForSource,
+} from './lib/case-navigation';
 import {
   buildWorkspaceFeaturePath,
   isDivinationWorkspaceId,
@@ -91,41 +92,20 @@ function buildRecentFeaturePath(feature: WorkspaceFeatureId) {
     const record = loadDivinationHistory().find(
       (item) => item.requestedMethod === feature || item.method === feature,
     );
-    return record
-      ? `/divination/${feature}/result?record=${encodeURIComponent(record.id)}`
-      : buildWorkspaceFeaturePath(feature);
+    return record ? buildDivinationRecordPath(record) : buildWorkspaceFeaturePath(feature);
   }
 
   if (feature === 'compatibility') {
     const records = loadCompatibilityHistory();
     const record = records.find((item) => item.pinned) ?? records[0];
     return record
-      ? `/result?${buildResultSearch(record.input, getChartResultState(feature))}`
+      ? buildChartRecordPath(record.input, getChartResultState(feature), record.id)
       : buildWorkspaceFeaturePath(feature);
   }
 
-  const expectedChartType =
-    feature === 'ziwei'
-      ? 'ziwei'
-      : feature === 'astrolabe' || feature === 'qizheng'
-        ? 'astrolabe'
-        : 'bazi';
-  const records = loadPersonalHistory();
-  const matchingRecords = records.filter((item) => item.input.chartType === expectedChartType);
-  const record =
-    matchingRecords.find((item) => item.pinned) ??
-    matchingRecords[0] ??
-    records.find((item) => item.pinned) ??
-    records[0];
-  if (
-    record &&
-    (feature === 'astrolabe' || feature === 'qizheng') &&
-    !hasCompletePreciseBirthData(record.input)
-  ) {
-    return buildWorkspaceFeaturePath(feature);
-  }
+  const record = findRecentPersonalRecordForSource(loadPersonalHistory(), feature);
   return record
-    ? `/result?${buildResultSearch(record.input, getChartResultState(feature))}`
+    ? buildChartRecordPath(record.input, getChartResultState(feature), record.id)
     : buildWorkspaceFeaturePath(feature);
 }
 
@@ -144,12 +124,7 @@ function DefaultEntryRoute() {
     if (legacyRecord) {
       const record = loadDivinationHistory().find((item) => item.id === legacyRecord);
       if (record) {
-        return (
-          <Navigate
-            to={`/divination/${record.requestedMethod}/result?record=${encodeURIComponent(record.id)}`}
-            replace
-          />
-        );
+        return <Navigate to={buildDivinationRecordPath(record)} replace />;
       }
     }
     return <Navigate to="/divination/random" replace />;

@@ -120,7 +120,7 @@ export function WorkspaceSettingsModal({
             <div className="workspace-order-heading">
               <div>
                 <h3>侧栏顺序</h3>
-                <p>在各类工具内调整显示顺序。</p>
+                <p>在各类工具内调整顺序；前 5 个占问会直接显示。</p>
               </div>
               <button
                 type="button"

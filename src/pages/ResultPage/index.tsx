@@ -6,12 +6,10 @@ import {
 } from '@/lib/full-chart-engine/ziwei';
 import {
   buildResultSearch,
-  buildInputSearch,
   buildInputStateSearch,
   hasCompletePreciseBirthData,
   parseInputState,
   parsePromptState,
-  type PromptSourceKey,
   type QueryPromptState,
   type ResultTabKey,
 } from '@/lib/query-state';
@@ -81,6 +79,7 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
+import { normalizeChartInputForSource, preserveChartRecordId } from '@/lib/case-navigation';
 
 type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
 
@@ -155,12 +154,30 @@ export function ResultPage() {
   const [residentialMeasurement, setResidentialMeasurement] =
     useState<ResidentialMeasurement | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const inputSearch = useMemo(() => buildInputSearch(searchParams), [searchParams]);
-  const inputState = useMemo(
-    () => parseInputState(new URLSearchParams(inputSearch)),
-    [inputSearch],
-  );
   const promptState = useMemo(() => parsePromptState(searchParams), [searchParams]);
+  const inputState = useMemo(
+    () => normalizeChartInputForSource(parseInputState(searchParams), promptState.promptSource),
+    [promptState.promptSource, searchParams],
+  );
+  const inputSearch = useMemo(() => buildInputStateSearch(inputState), [inputState]);
+  const isCombinedResult =
+    inputState.analysisMode === 'compatibility' || promptState.promptSource === 'bazi-ziwei';
+  const resultTabs = useMemo<ResultTabKey[]>(() => {
+    if (isCombinedResult) {
+      return ['bazi', 'ziwei', 'prompt'];
+    }
+    const chartTab: ResultTabKey =
+      promptState.promptSource === 'ziwei'
+        ? 'ziwei'
+        : promptState.promptSource === 'astrolabe'
+          ? 'astrolabe'
+          : promptState.promptSource === 'qizheng'
+            ? 'qizheng'
+            : promptState.promptSource === 'bazhai'
+              ? 'bazhai'
+              : 'bazi';
+    return [chartTab, 'prompt'];
+  }, [isCombinedResult, promptState.promptSource]);
   const hasPreciseBirthData = hasCompletePreciseBirthData(inputState);
   const hasResidentialBirthData = useMemo(() => {
     const year = Number(inputState.year);
@@ -185,6 +202,11 @@ export function ResultPage() {
   const isAstrolabePromptSource = promptState.promptSource === 'astrolabe';
   const isQizhengPromptSource = promptState.promptSource === 'qizheng';
   const isBazhaiPromptSource = promptState.promptSource === 'bazhai';
+  const hasAdjustablePromptScope =
+    ((promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
+      inputState.analysisMode === 'single') ||
+    promptState.promptSource === 'ziwei' ||
+    promptState.promptSource === 'astrolabe';
 
   const baziDraftStorageKey = useMemo(
     () => `${PROMPT_DRAFT_STORAGE_PREFIX}:bazi:${inputSearch}`,
@@ -290,10 +312,17 @@ export function ResultPage() {
         ...next,
       };
 
-      setSearchParams(buildResultSearch(inputState, merged), { replace: true });
+      setSearchParams(preserveChartRecordId(buildResultSearch(inputState, merged), searchParams), {
+        replace: true,
+      });
     },
-    [inputState, promptState, setSearchParams],
+    [inputState, promptState, searchParams, setSearchParams],
   );
+
+  useEffect(() => {
+    if (resultTabs.includes(promptState.tab)) return;
+    updatePromptState({ tab: resultTabs[0] });
+  }, [promptState.tab, resultTabs, updatePromptState]);
   const {
     activeBaziShortcutMode,
     activeZiweiShortcutMode,
@@ -1251,55 +1280,29 @@ export function ResultPage() {
   return (
     <div className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}`}>
       <div className="workspace-result-navigation">
-        <div className="tab-strip">
-          <button
-            type="button"
-            className={`tab-chip ${promptState.tab === 'bazi' ? 'is-active' : ''}`}
-            onClick={() => switchTab('bazi')}
-          >
-            八字
-          </button>
-          <button
-            type="button"
-            className={`tab-chip ${promptState.tab === 'ziwei' ? 'is-active' : ''}`}
-            onClick={() => switchTab('ziwei')}
-          >
-            紫微
-          </button>
-          {hasAstrolabeChart ? (
-            <button
-              type="button"
-              className={`tab-chip ${promptState.tab === 'astrolabe' ? 'is-active' : ''}`}
-              onClick={() => switchTab('astrolabe')}
-            >
-              星盘
-            </button>
-          ) : null}
-          {hasAstrolabeChart ? (
-            <button
-              type="button"
-              className={`tab-chip ${promptState.tab === 'qizheng' ? 'is-active' : ''}`}
-              onClick={() => switchTab('qizheng')}
-            >
-              七政四余
-            </button>
-          ) : null}
-          {inputState.analysisMode === 'single' ? (
-            <button
-              type="button"
-              className={`tab-chip ${promptState.tab === 'bazhai' ? 'is-active' : ''}`}
-              onClick={() => switchTab('bazhai')}
-            >
-              住宅风水
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
-            onClick={() => switchTab('prompt')}
-          >
-            {isAiEnabled ? 'AI 解读' : '提示词'}
-          </button>
+        <div className="tab-strip" aria-label="结果内容">
+          {resultTabs.map((tab) => {
+            const label =
+              tab === 'prompt'
+                ? isAiEnabled
+                  ? 'AI 解读'
+                  : '提示词'
+                : isCombinedResult
+                  ? tab === 'bazi'
+                    ? '八字'
+                    : '紫微'
+                  : '盘面';
+            return (
+              <button
+                type="button"
+                key={tab}
+                className={`tab-chip ${promptState.tab === tab ? 'is-active' : ''}`}
+                onClick={() => switchTab(tab)}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="workspace-result-toolbar">
@@ -1483,13 +1486,15 @@ export function ResultPage() {
                 <div className="ai-mobile-chat">
                   <div className="ai-mobile-setting-shell">
                     <div className="ai-mobile-setting-top">
-                      <button
-                        type="button"
-                        className="ai-mobile-settings-toggle"
-                        onClick={() => setIsAiMobileSettingsOpen((value) => !value)}
-                      >
-                        {isAiMobileSettingsOpen ? '收起设置' : '展开设置'}
-                      </button>
+                      {hasAdjustablePromptScope ? (
+                        <button
+                          type="button"
+                          className="ai-mobile-settings-toggle"
+                          onClick={() => setIsAiMobileSettingsOpen((value) => !value)}
+                        >
+                          {isAiMobileSettingsOpen ? '收起范围' : '调整范围'}
+                        </button>
+                      ) : null}
 
                       {aiMobileShortcutActions.length > 0 ? (
                         <button
@@ -1522,29 +1527,8 @@ export function ResultPage() {
                       ) : null}
                     </div>
 
-                    {isAiMobileSettingsOpen ? (
+                    {hasAdjustablePromptScope && isAiMobileSettingsOpen ? (
                       <div className="ai-mobile-setting-bar">
-                        <select
-                          className="ai-mobile-source-select"
-                          value={promptState.promptSource}
-                          onChange={(event) =>
-                            updatePromptState({
-                              promptSource: event.target.value as PromptSourceKey,
-                            })
-                          }
-                        >
-                          <option value="bazi">八字</option>
-                          <option value="ziwei">紫微</option>
-                          {inputState.analysisMode === 'single' ? (
-                            <option value="bazi-ziwei">八字+紫微</option>
-                          ) : null}
-                          {hasAstrolabeChart ? <option value="astrolabe">星盘</option> : null}
-                          {hasAstrolabeChart ? <option value="qizheng">七政四余</option> : null}
-                          {canUseResidentialFengshui && residentialResult ? (
-                            <option value="bazhai">住宅风水</option>
-                          ) : null}
-                        </select>
-
                         {(promptState.promptSource === 'bazi' ||
                           promptState.promptSource === 'bazi-ziwei') &&
                         inputState.analysisMode === 'single' ? (
@@ -1598,79 +1582,54 @@ export function ResultPage() {
                     <div className="panel-head">
                       <div>
                         <h2 className="prompt-settings-title">解析设置</h2>
-                        <p>选择排盘来源和分析年限，在右侧输入问题即可开始 AI 解析。</p>
+                        <p>调整分析年限或选择常用问题，在右侧输入问题即可开始 AI 解析。</p>
                       </div>
                     </div>
                     <div className="field-list">
                       {metaphysicsPromptQuestionField}
-                      <div className="prompt-compact-grid">
-                        <label className="field-card">
-                          <div className="field-header">
-                            <span className="prompt-source-title">解析来源</span>
-                          </div>
-                          <select
-                            value={promptState.promptSource}
-                            onChange={(event) =>
-                              updatePromptState({
-                                promptSource: event.target.value as PromptSourceKey,
-                              })
-                            }
-                          >
-                            <option value="bazi">基于八字</option>
-                            <option value="ziwei">基于紫微</option>
-                            {inputState.analysisMode === 'single' ? (
-                              <option value="bazi-ziwei">基于八字+紫微</option>
-                            ) : null}
-                            {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
-                            {hasAstrolabeChart ? (
-                              <option value="qizheng">基于七政四余</option>
-                            ) : null}
-                            {canUseResidentialFengshui && residentialResult ? (
-                              <option value="bazhai">基于住宅风水</option>
-                            ) : null}
-                          </select>
-                        </label>
-
-                        {(promptState.promptSource === 'bazi' ||
-                          promptState.promptSource === 'bazi-ziwei') &&
-                        inputState.analysisMode === 'single' ? (
-                          <div className="field-card">
-                            <div className="field-header">
-                              <span>年限选择</span>
+                      {hasAdjustablePromptScope ? (
+                        <div className="prompt-compact-grid">
+                          {(promptState.promptSource === 'bazi' ||
+                            promptState.promptSource === 'bazi-ziwei') &&
+                          inputState.analysisMode === 'single' ? (
+                            <div className="field-card">
+                              <div className="field-header">
+                                <span>年限选择</span>
+                              </div>
+                              <FortuneScopePresetSelect
+                                value={baziFortunePreset}
+                                onChange={handleBaziFortunePresetChange}
+                              />
                             </div>
-                            <FortuneScopePresetSelect
-                              value={baziFortunePreset}
-                              onChange={handleBaziFortunePresetChange}
-                            />
-                          </div>
-                        ) : null}
+                          ) : null}
 
-                        {promptState.promptSource === 'ziwei' ? (
-                          <div className="field-card">
-                            <div className="field-header">
-                              <span>年限选择</span>
+                          {promptState.promptSource === 'ziwei' ? (
+                            <div className="field-card">
+                              <div className="field-header">
+                                <span>年限选择</span>
+                              </div>
+                              <FortuneScopePresetSelect
+                                value={ziweiScopePreset}
+                                onChange={handleZiweiScopePresetChange}
+                                disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
+                              />
                             </div>
-                            <FortuneScopePresetSelect
-                              value={ziweiScopePreset}
-                              onChange={handleZiweiScopePresetChange}
-                              disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-                            />
-                          </div>
-                        ) : null}
+                          ) : null}
 
-                        {promptState.promptSource === 'astrolabe' ? (
-                          <div className="field-card">
-                            <div className="field-header">
-                              <span>年限选择</span>
+                          {promptState.promptSource === 'astrolabe' ? (
+                            <div className="field-card">
+                              <div className="field-header">
+                                <span>年限选择</span>
+                              </div>
+                              <FortuneScopePresetSelect
+                                value={astrolabeScopePreset}
+                                onChange={handleAstrolabeScopePresetChange}
+                                disabled={!astrolabeCalculation.data}
+                              />
                             </div>
-                            <FortuneScopePresetSelect
-                              value={astrolabeScopePreset}
-                              onChange={handleAstrolabeScopePresetChange}
-                              disabled={!astrolabeCalculation.data}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       {promptState.promptSource === 'bazi' ||
                       promptState.promptSource === 'bazi-ziwei' ? (
@@ -1747,83 +1706,58 @@ export function ResultPage() {
             ) : (
               /* ── 非 AI 模式：先调整提示词，再复制最终内容 ── */
               <div className="workspace-grid prompt-output-grid">
-                <details className="panel prompt-settings-panel" open>
+                <details className="panel prompt-settings-panel">
                   <summary className="prompt-settings-summary">
-                    <span>调整提示词（可选）</span>
-                    <small>更换排盘来源、年限或问题</small>
+                    <span>调整解读范围（可选）</span>
+                    <small>调整年限或问题</small>
                   </summary>
 
                   <div className="prompt-settings-content field-list">
                     {metaphysicsPromptQuestionField}
                     <>
-                      <div className="prompt-compact-grid">
-                        <label className="field-card">
-                          <div className="field-header">
-                            <span className="prompt-source-title">提示词来源</span>
-                          </div>
-                          <select
-                            value={promptState.promptSource}
-                            onChange={(event) =>
-                              updatePromptState({
-                                promptSource: event.target.value as PromptSourceKey,
-                              })
-                            }
-                          >
-                            <option value="bazi">基于八字</option>
-                            <option value="ziwei">基于紫微</option>
-                            {inputState.analysisMode === 'single' ? (
-                              <option value="bazi-ziwei">基于八字+紫微</option>
-                            ) : null}
-                            {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
-                            {hasAstrolabeChart ? (
-                              <option value="qizheng">基于七政四余</option>
-                            ) : null}
-                            {canUseResidentialFengshui && residentialResult ? (
-                              <option value="bazhai">基于住宅风水</option>
-                            ) : null}
-                          </select>
-                        </label>
-
-                        {(promptState.promptSource === 'bazi' ||
-                          promptState.promptSource === 'bazi-ziwei') &&
-                        inputState.analysisMode === 'single' ? (
-                          <div className="field-card">
-                            <div className="field-header">
-                              <span>年限选择</span>
+                      {hasAdjustablePromptScope ? (
+                        <div className="prompt-compact-grid">
+                          {(promptState.promptSource === 'bazi' ||
+                            promptState.promptSource === 'bazi-ziwei') &&
+                          inputState.analysisMode === 'single' ? (
+                            <div className="field-card">
+                              <div className="field-header">
+                                <span>年限选择</span>
+                              </div>
+                              <FortuneScopePresetSelect
+                                value={baziFortunePreset}
+                                onChange={handleBaziFortunePresetChange}
+                              />
                             </div>
-                            <FortuneScopePresetSelect
-                              value={baziFortunePreset}
-                              onChange={handleBaziFortunePresetChange}
-                            />
-                          </div>
-                        ) : null}
+                          ) : null}
 
-                        {promptState.promptSource === 'ziwei' ? (
-                          <div className="field-card">
-                            <div className="field-header">
-                              <span>年限选择</span>
+                          {promptState.promptSource === 'ziwei' ? (
+                            <div className="field-card">
+                              <div className="field-header">
+                                <span>年限选择</span>
+                              </div>
+                              <FortuneScopePresetSelect
+                                value={ziweiScopePreset}
+                                onChange={handleZiweiScopePresetChange}
+                                disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
+                              />
                             </div>
-                            <FortuneScopePresetSelect
-                              value={ziweiScopePreset}
-                              onChange={handleZiweiScopePresetChange}
-                              disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-                            />
-                          </div>
-                        ) : null}
+                          ) : null}
 
-                        {promptState.promptSource === 'astrolabe' ? (
-                          <div className="field-card">
-                            <div className="field-header">
-                              <span>年限选择</span>
+                          {promptState.promptSource === 'astrolabe' ? (
+                            <div className="field-card">
+                              <div className="field-header">
+                                <span>年限选择</span>
+                              </div>
+                              <FortuneScopePresetSelect
+                                value={astrolabeScopePreset}
+                                onChange={handleAstrolabeScopePresetChange}
+                                disabled={!astrolabeCalculation.data}
+                              />
                             </div>
-                            <FortuneScopePresetSelect
-                              value={astrolabeScopePreset}
-                              onChange={handleAstrolabeScopePresetChange}
-                              disabled={!astrolabeCalculation.data}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       {promptState.promptSource === 'bazi' ||
                       promptState.promptSource === 'bazi-ziwei' ? (

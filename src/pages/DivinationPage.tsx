@@ -39,12 +39,12 @@ export function DivinationResultPage() {
 
   return (
     <div className="workspace-focused-page workspace-divination-result-page">
-      <div className="workspace-result-toolbar">
-        <button type="button" onClick={() => navigate(buildWorkspaceFeaturePath(method))}>
-          重新占问
-        </button>
-      </div>
-      <DivinationPanel initialMethod={method} lockedMethod={method} displayMode="result" />
+      <DivinationPanel
+        initialMethod={method}
+        lockedMethod={method}
+        displayMode="result"
+        onRestart={() => navigate(buildWorkspaceFeaturePath(method))}
+      />
     </div>
   );
 }

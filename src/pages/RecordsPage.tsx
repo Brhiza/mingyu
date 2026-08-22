@@ -12,15 +12,12 @@ import {
   toggleCompatibilityHistoryPin,
   togglePersonalHistoryPin,
 } from '@/lib/history-records';
+import { type PromptSourceKey } from '@/lib/query-state';
 import {
-  buildResultSearch,
-  buildInputStateSearch,
-  defaultPromptState,
-  hasCompletePreciseBirthData,
-  type PromptSourceKey,
-  type ResultTabKey,
-} from '@/lib/query-state';
-import { resolvePersonalWorkspaceSource } from '@/lib/workspace';
+  buildCompatibilityRecordPath,
+  buildDivinationRecordPath,
+  buildPersonalRecordPath,
+} from '@/lib/case-navigation';
 
 type HistoryTab = 'personal' | 'compatibility' | 'divination';
 
@@ -118,53 +115,17 @@ export function RecordsPage() {
 
   function handleOpenPersonal(index: number) {
     const record = filteredPersonal[index];
-    const source: PromptSourceKey = resolvePersonalWorkspaceSource(
-      record.input.chartType,
-      record.workspaceSource,
-    );
-    const tab: ResultTabKey =
-      source === 'qizheng'
-        ? 'qizheng'
-        : source === 'bazhai'
-          ? 'bazhai'
-          : source === 'ziwei'
-            ? 'ziwei'
-            : source === 'astrolabe'
-              ? 'astrolabe'
-              : 'bazi';
-    if (
-      (source === 'astrolabe' || source === 'qizheng') &&
-      !hasCompletePreciseBirthData(record.input)
-    ) {
-      navigate(`/chart/${source}?${buildInputStateSearch(record.input)}`);
-      return;
-    }
-    navigate(
-      `/result?${buildResultSearch(record.input, {
-        ...defaultPromptState,
-        tab,
-        promptSource: source,
-      })}`,
-    );
+    navigate(buildPersonalRecordPath(record));
   }
 
   function handleOpenCompatibility(index: number) {
     const record = filteredCompatibility[index];
-    navigate(
-      `/result?${buildResultSearch(record.input, {
-        ...defaultPromptState,
-        promptSource: 'bazi',
-        baziShortcutMode: '合婚',
-        baziPresetId: 'ai-compat-marriage',
-      })}`,
-    );
+    navigate(buildCompatibilityRecordPath(record));
   }
 
   function handleOpenDivination(index: number) {
     const record = filteredDivination[index];
-    navigate(
-      `/divination/${record.requestedMethod}/result?record=${encodeURIComponent(record.id)}`,
-    );
+    navigate(buildDivinationRecordPath(record));
   }
 
   function refresh() {
@@ -209,6 +170,13 @@ export function RecordsPage() {
   return (
     <div className="page-shell input-page-shell workspace-records-page">
       <div className="bazi-view-container">
+        <header className="workspace-task-header">
+          <div>
+            <span>案例</span>
+            <h1>管理案例</h1>
+          </div>
+          <p>这里仅用于整理、置顶和删除；日常切换直接使用侧栏。</p>
+        </header>
         <section className="history-page-section">
           <div className="records-toolbar">
             <div className="records-header-bar">

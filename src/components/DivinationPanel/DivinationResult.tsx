@@ -21,6 +21,7 @@ interface DivinationResultProps {
   showHeading?: boolean;
   onCopy: () => void;
   onShare: () => void;
+  onRestart?: () => void;
 }
 
 const LIUREN_BRANCH_POSITIONS: Record<string, { row: number; column: number }> = {
@@ -180,6 +181,7 @@ export function DivinationResult({
   showHeading = true,
   onCopy,
   onShare,
+  onRestart,
 }: DivinationResultProps) {
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
@@ -300,25 +302,32 @@ export function DivinationResult({
 
   return (
     <div className="divination-result-workspace">
-      <div className="divination-result-switch" role="tablist" aria-label="结果内容">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeView === 'board'}
-          className={activeView === 'board' ? 'is-active' : ''}
-          onClick={() => setActiveView('board')}
-        >
-          盘面
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeView === 'interpretation'}
-          className={activeView === 'interpretation' ? 'is-active' : ''}
-          onClick={() => setActiveView('interpretation')}
-        >
-          {isAiEnabled ? 'AI 解读' : '提示词'}
-        </button>
+      <div className="divination-result-navigation">
+        <div className="divination-result-switch" role="tablist" aria-label="结果内容">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeView === 'board'}
+            className={activeView === 'board' ? 'is-active' : ''}
+            onClick={() => setActiveView('board')}
+          >
+            盘面
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeView === 'interpretation'}
+            className={activeView === 'interpretation' ? 'is-active' : ''}
+            onClick={() => setActiveView('interpretation')}
+          >
+            {isAiEnabled ? 'AI 解读' : '提示词'}
+          </button>
+        </div>
+        {onRestart ? (
+          <button type="button" className="divination-restart-button" onClick={onRestart}>
+            重新占问
+          </button>
+        ) : null}
       </div>
 
       {activeView === 'board' ? resultBlock : null}

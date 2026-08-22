@@ -10,14 +10,13 @@ import {
   loadPersonalHistory,
 } from '@/lib/history-records';
 import {
-  buildResultSearch,
-  defaultPromptState,
-  hasCompletePreciseBirthData,
-  parseInputState,
-  parsePromptState,
-  type PromptSourceKey,
-  type ResultTabKey,
-} from '@/lib/query-state';
+  buildCompatibilityRecordPath,
+  buildDivinationRecordPath,
+  buildPersonalRecordPath,
+  CHART_RECORD_PARAM,
+  resolvePersonalRecordSource,
+} from '@/lib/case-navigation';
+import { parseInputState, parsePromptState } from '@/lib/query-state';
 import {
   WORKSPACE_FEATURE_GROUPS,
   WORKSPACE_PREFERENCES_EVENT,
@@ -26,7 +25,6 @@ import {
   isChartWorkspaceId,
   isDivinationWorkspaceId,
   readWorkspacePreferences,
-  resolvePersonalWorkspaceSource,
   saveWorkspacePreferences,
   type WorkspaceFeatureId,
 } from '@/lib/workspace';
@@ -40,6 +38,7 @@ type SidebarCase = {
   meta: string;
   searchText: string;
   path: string;
+  recordId: string;
   category: Exclude<CaseFilter, 'all'>;
   pinned: boolean;
   updatedAt: string;
@@ -87,39 +86,6 @@ function resolvePageCopy(pathname: string, activeFeature: WorkspaceFeatureId | n
   };
 }
 
-function resolvePersonalCaseSource(record: ReturnType<typeof loadPersonalHistory>[number]) {
-  const source: PromptSourceKey = resolvePersonalWorkspaceSource(
-    record.input.chartType,
-    record.workspaceSource,
-  );
-  if (
-    (source === 'astrolabe' || source === 'qizheng') &&
-    !hasCompletePreciseBirthData(record.input)
-  ) {
-    return 'bazi' as const;
-  }
-  return source;
-}
-
-function buildPersonalCasePath(record: ReturnType<typeof loadPersonalHistory>[number]) {
-  const source = resolvePersonalCaseSource(record);
-  const tab: ResultTabKey =
-    source === 'qizheng'
-      ? 'qizheng'
-      : source === 'bazhai'
-        ? 'bazhai'
-        : source === 'ziwei'
-          ? 'ziwei'
-          : source === 'astrolabe'
-            ? 'astrolabe'
-            : 'bazi';
-  return `/result?${buildResultSearch(record.input, {
-    ...defaultPromptState,
-    tab,
-    promptSource: source,
-  })}`;
-}
-
 function formatCaseDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -136,10 +102,14 @@ export function WorkspaceShell() {
   );
   const [caseFilter, setCaseFilter] = useState<CaseFilter>('all');
   const [caseSearch, setCaseSearch] = useState('');
+  const [isMoreDivinationOpen, setIsMoreDivinationOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [settingsModal, setSettingsModal] = useState<'workspace' | 'ai' | null>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
   const activeFeature = resolveActiveFeature(location.pathname, location.search);
+  const activeParams = new URLSearchParams(location.search);
+  const activeChartRecordId = activeParams.get(CHART_RECORD_PARAM);
+  const activeDivinationRecordId = activeParams.get('record');
   const pageCopy = resolvePageCopy(location.pathname, activeFeature);
   const pageKind =
     location.pathname === '/records'
@@ -156,13 +126,14 @@ export function WorkspaceShell() {
   const cases = useMemo<SidebarCase[]>(() => {
     void historyRevision;
     const personal = loadPersonalHistory().map((record) => {
-      const feature = getWorkspaceFeature(resolvePersonalCaseSource(record));
+      const feature = getWorkspaceFeature(resolvePersonalRecordSource(record));
       return {
         id: `personal-${record.id}`,
+        recordId: record.id,
         title: record.name,
         meta: `${feature.label} · ${record.birthText}`,
         searchText: `${record.name} ${feature.label} ${record.birthText}`,
-        path: buildPersonalCasePath(record),
+        path: buildPersonalRecordPath(record),
         category: 'chart' as const,
         pinned: Boolean(record.pinned),
         updatedAt: record.updatedAt,
@@ -170,16 +141,11 @@ export function WorkspaceShell() {
     });
     const compatibility = loadCompatibilityHistory().map((record) => ({
       id: `compatibility-${record.id}`,
+      recordId: record.id,
       title: record.name,
       meta: '双人合盘',
       searchText: `${record.name} 双人合盘 ${record.primaryName} ${record.partnerName}`,
-      path: `/result?${buildResultSearch(record.input, {
-        ...defaultPromptState,
-        tab: 'bazi',
-        promptSource: 'bazi',
-        baziShortcutMode: '合婚',
-        baziPresetId: 'ai-compat-marriage',
-      })}`,
+      path: buildCompatibilityRecordPath(record),
       category: 'chart' as const,
       pinned: Boolean(record.pinned),
       updatedAt: record.updatedAt,
@@ -188,10 +154,11 @@ export function WorkspaceShell() {
       const feature = getWorkspaceFeature(record.requestedMethod);
       return {
         id: `divination-${record.id}`,
+        recordId: record.id,
         title: record.question || feature.label,
         meta: `${feature.label} · ${formatCaseDate(record.updatedAt)}`,
         searchText: `${record.question} ${feature.label}`,
-        path: `/divination/${record.requestedMethod}/result?record=${encodeURIComponent(record.id)}`,
+        path: buildDivinationRecordPath(record),
         category: 'divination' as const,
         pinned: false,
         updatedAt: record.updatedAt,
@@ -297,11 +264,13 @@ export function WorkspaceShell() {
         <nav className="workspace-tool-sections" aria-label="排盘与占问工具">
           {WORKSPACE_FEATURE_GROUPS.map((group) => {
             const features = orderedFeatures.filter((feature) => feature.group === group.id);
+            const visibleFeatures =
+              group.id === 'divination' && !isMoreDivinationOpen ? features.slice(0, 5) : features;
             return (
               <section className="workspace-tool-section" key={group.id}>
                 <div className="workspace-nav-label">{group.label}</div>
                 <div className="workspace-nav-list">
-                  {features.map((feature) => (
+                  {visibleFeatures.map((feature) => (
                     <button
                       type="button"
                       key={feature.id}
@@ -320,10 +289,25 @@ export function WorkspaceShell() {
                       </span>
                       <span className="workspace-nav-copy">
                         <strong>{feature.label}</strong>
-                        <small>{feature.description}</small>
                       </span>
                     </button>
                   ))}
+                  {group.id === 'divination' && features.length > 5 ? (
+                    <button
+                      type="button"
+                      className="workspace-more-tools"
+                      onClick={() => setIsMoreDivinationOpen((value) => !value)}
+                    >
+                      <span className="workspace-more-tools-mark" aria-hidden="true">
+                        {isMoreDivinationOpen ? '−' : '＋'}
+                      </span>
+                      <span>
+                        {isMoreDivinationOpen
+                          ? '收起其他占问'
+                          : `更多占问（${features.length - 5}）`}
+                      </span>
+                    </button>
+                  ) : null}
                 </div>
               </section>
             );
@@ -360,7 +344,10 @@ export function WorkspaceShell() {
           <div className="workspace-case-list">
             {visibleCases.length ? (
               visibleCases.map((record) => {
-                const isActive = `${location.pathname}${location.search}` === record.path;
+                const isActive =
+                  record.category === 'chart'
+                    ? activeChartRecordId === record.recordId
+                    : activeDivinationRecordId === record.recordId;
                 return (
                   <button
                     type="button"
@@ -440,13 +427,6 @@ export function WorkspaceShell() {
       ) : null}
 
       <main className="workspace-main">
-        <header className="workspace-context-header">
-          <div>
-            <span className="workspace-eyebrow">{pageKind}</span>
-            <h1>{pageCopy.title}</h1>
-          </div>
-          <p>{pageCopy.description}</p>
-        </header>
         <div className="workspace-page">
           <Outlet />
         </div>

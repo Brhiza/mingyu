@@ -4,7 +4,6 @@ import { PrivacyHint } from '@/components/PrivacyHint';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
 import { upsertCompatibilityHistory, upsertPersonalHistory } from '@/lib/history-records';
 import {
-  buildResultSearch,
   defaultInputState,
   defaultPromptState,
   parseInputState,
@@ -12,9 +11,10 @@ import {
   type QueryInputState,
   type ResultTabKey,
 } from '@/lib/query-state';
+import { buildChartRecordPath, normalizeChartInputForSource } from '@/lib/case-navigation';
 import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
-import { isChartWorkspaceId, type ChartWorkspaceId } from '@/lib/workspace';
+import { getWorkspaceFeature, isChartWorkspaceId, type ChartWorkspaceId } from '@/lib/workspace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
@@ -96,6 +96,13 @@ function createFormForTool(config: ChartToolConfig): QueryInputState {
   };
 }
 
+function normalizeFormForTool(input: QueryInputState, config: ChartToolConfig): QueryInputState {
+  return {
+    ...normalizeChartInputForSource(input, config.promptSource),
+    analysisMode: config.compatibility ? 'compatibility' : 'single',
+  };
+}
+
 export function InputPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,9 +111,12 @@ export function InputPage() {
   const [, startSubmitTransition] = useTransition();
   const tool = isChartWorkspaceId(toolParam) ? toolParam : null;
   const config = tool ? CHART_TOOL_CONFIG[tool] : CHART_TOOL_CONFIG.bazi;
+  const feature = getWorkspaceFeature(tool ?? 'bazi');
   const [form, setForm] = useState<QueryInputState>(() => {
     const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
-    return hasInputSnapshot ? parseInputState(searchParams) : createFormForTool(config);
+    return hasInputSnapshot
+      ? normalizeFormForTool(parseInputState(searchParams), config)
+      : createFormForTool(config);
   });
   const [error, setError] = useState('');
   const birthPlace = useBirthPlace({ form, setForm });
@@ -116,7 +126,11 @@ export function InputPage() {
     const nextConfig = CHART_TOOL_CONFIG[tool];
     setError('');
     const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
-    setForm(hasInputSnapshot ? parseInputState(searchParams) : createFormForTool(nextConfig));
+    setForm(
+      hasInputSnapshot
+        ? normalizeFormForTool(parseInputState(searchParams), nextConfig)
+        : createFormForTool(nextConfig),
+    );
   }, [location.key, searchParams, tool]);
 
   if (!tool) {
@@ -203,30 +217,34 @@ export function InputPage() {
       setError(selfError);
       return;
     }
+    let recordId: string | undefined;
     if (config.compatibility) {
       const partnerError = validatePerson('partner');
       if (partnerError) {
         setError(partnerError);
         return;
       }
-      upsertCompatibilityHistory(form);
+      recordId = upsertCompatibilityHistory(form)[0]?.id;
     } else {
-      upsertPersonalHistory(form, config.promptSource);
+      recordId = upsertPersonalHistory(form, config.promptSource)[0]?.id;
     }
 
     startSubmitTransition(() => {
-      navigate({
-        pathname: '/result',
-        search: `?${buildResultSearch(form, {
-          ...defaultPromptState,
-          tab: config.resultTab,
-          promptSource: config.promptSource,
-          baziShortcutMode: config.compatibility ? '合婚' : defaultPromptState.baziShortcutMode,
-          baziPresetId: config.compatibility
-            ? 'ai-compat-marriage'
-            : defaultPromptState.baziPresetId,
-        })}`,
-      });
+      navigate(
+        buildChartRecordPath(
+          form,
+          {
+            ...defaultPromptState,
+            tab: config.resultTab,
+            promptSource: config.promptSource,
+            baziShortcutMode: config.compatibility ? '合婚' : defaultPromptState.baziShortcutMode,
+            baziPresetId: config.compatibility
+              ? 'ai-compat-marriage'
+              : defaultPromptState.baziPresetId,
+          },
+          recordId,
+        ),
+      );
     });
   }
 
@@ -237,6 +255,13 @@ export function InputPage() {
       }`}
     >
       <div className="bazi-view-container">
+        <header className="workspace-task-header">
+          <div>
+            <span>新建排盘</span>
+            <h1>{config.label}</h1>
+          </div>
+          <p>{feature.description}</p>
+        </header>
         <PrivacyHint />
         <div className={`form-wrapper${config.compatibility ? ' is-compatibility' : ''}`}>
           <PersonForm

@@ -66,6 +66,13 @@ export function TutorialPage() {
   return (
     <div className="page-shell input-page-shell workspace-tutorial-page">
       <div className="bazi-view-container tutorial-page-container">
+        <header className="workspace-task-header">
+          <div>
+            <span>帮助</span>
+            <h1>使用说明</h1>
+          </div>
+          <p>按实际使用流程了解工具、案例和解读。</p>
+        </header>
         <section className="history-page-section tutorial-page-section">
           <div className="tutorial-intro-card">
             <p>填写信息，进入结果页，复制提示词，发送到在线 AI 软件继续提问。</p>
