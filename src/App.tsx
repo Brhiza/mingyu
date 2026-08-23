@@ -115,10 +115,15 @@ export default function App() {
             <Route path="/chart/:tool" element={<InputPage />} />
             <Route path="/divination/:method" element={<DivinationPage />} />
             <Route path="/divination/:method/result" element={<DivinationResultPage />} />
+            <Route
+              path="/divination/:method/result/assistant"
+              element={<DivinationResultPage assistantOnly />}
+            />
             <Route path="/tutorial" element={<TutorialPage />} />
             <Route path="/cases" element={<CasePage />} />
             <Route path="/records" element={<RecordsPage />} />
             <Route path="/result" element={<ResultPage />} />
+            <Route path="/result/assistant" element={<ResultPage assistantOnly />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -42,7 +42,9 @@ function resolveActiveFeature(pathname: string, search: string): WorkspaceFeatur
   if (chartMatch && isChartWorkspaceId(chartMatch[1])) return chartMatch[1];
   const divinationMatch = /^\/divination\/([^/]+)/.exec(pathname);
   if (divinationMatch && isDivinationWorkspaceId(divinationMatch[1])) return divinationMatch[1];
-  return pathname === '/result' ? resolveResultFeature(search) : null;
+  return pathname === '/result' || pathname === '/result/assistant'
+    ? resolveResultFeature(search)
+    : null;
 }
 
 function resolvePageTitle(pathname: string, activeFeature: WorkspaceFeatureId | null) {
@@ -51,9 +53,28 @@ function resolvePageTitle(pathname: string, activeFeature: WorkspaceFeatureId | 
   if (pathname === '/tutorial') return '使用说明';
   if (!activeFeature) return '命语';
   const feature = getWorkspaceFeature(activeFeature);
+  if (pathname === '/result/assistant') return `${feature.shortLabel}解读`;
+  if (pathname.endsWith('/result/assistant')) return `${feature.shortLabel}解读`;
   return pathname === '/result' || pathname.endsWith('/result')
     ? `${feature.label}结果`
     : feature.label;
+}
+
+function buildResultPagePath(search: string) {
+  const params = new URLSearchParams(search);
+  const input = parseInputState(params);
+  const prompt = parsePromptState(params);
+  const returnTab = params.get('rt');
+  const chartTab =
+    returnTab && ['bazi', 'ziwei', 'astrolabe', 'qizheng', 'bazhai'].includes(returnTab)
+      ? returnTab
+      : input.analysisMode === 'compatibility' || prompt.promptSource === 'bazi-ziwei'
+        ? 'bazi'
+        : prompt.promptSource;
+  params.delete('tab');
+  params.delete('rt');
+  params.set('t', chartTab);
+  return `/result?${params.toString()}`;
 }
 
 function formatCaseDate(value: string) {
@@ -84,6 +105,15 @@ export function WorkspaceShell() {
   const chartRecordId = routeSearchParams.get(CHART_RECORD_PARAM);
   const homeSection = routeSearchParams.get('section');
   const isHomeRoute = location.pathname === '/' || location.pathname === '/home';
+  const isResultRoute =
+    location.pathname === '/result' || /^\/divination\/[^/]+\/result$/.test(location.pathname);
+  const isResultAssistant =
+    location.pathname === '/result/assistant' ||
+    /^\/divination\/[^/]+\/result\/assistant$/.test(location.pathname);
+  const assistantReturnPath =
+    location.pathname === '/result/assistant'
+      ? buildResultPagePath(location.search)
+      : `${location.pathname.replace(/\/assistant$/, '')}${location.search}`;
   const instantResultType = routeSearchParams.get('instant');
   const isInstantResult =
     location.pathname === '/result' &&
@@ -363,16 +393,29 @@ export function WorkspaceShell() {
     <div className="workspace-shell">
       <aside className="workspace-sidebar">{navigation}</aside>
       <header className="workspace-mobile-header">
-        <button
-          type="button"
-          className="workspace-mobile-menu"
-          onClick={() => setIsDrawerOpen(true)}
-          aria-label="打开侧栏"
-        >
-          <span />
-          <span />
-          <span />
-        </button>
+        {isResultAssistant ? (
+          <button
+            type="button"
+            className="workspace-mobile-back"
+            onClick={() => navigate(assistantReturnPath)}
+            aria-label="返回盘面"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="workspace-mobile-menu"
+            onClick={() => setIsDrawerOpen(true)}
+            aria-label="打开侧栏"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        )}
         <strong>{pageTitle}</strong>
         {location.pathname === '/cases' ? (
           <button
@@ -395,8 +438,15 @@ export function WorkspaceShell() {
         </div>
       ) : null}
 
-      <main className={`workspace-main${isHomeRoute ? ' is-home' : ''}`}>
-        {!isHomeRoute && !isInstantResult && location.pathname !== '/cases' ? (
+      <main
+        className={`workspace-main${isHomeRoute ? ' is-home' : ''}${
+          isResultRoute ? ' is-result' : ''
+        }${isResultAssistant ? ' is-result-assistant' : ''}`}
+      >
+        {!isHomeRoute &&
+        !isInstantResult &&
+        !isResultAssistant &&
+        location.pathname !== '/cases' ? (
           <nav className="workspace-case-tabbar" aria-label="案例档案">
             <div className="workspace-case-tabs" role="tablist" aria-label="快速切换案例">
               <button
@@ -475,32 +525,34 @@ export function WorkspaceShell() {
         </div>
       </main>
 
-      <MobileBottomNav
-        activeSection={
-          isHomeRoute
-            ? homeSection === 'chart'
-              ? 'chart'
-              : homeSection === 'divination'
-                ? 'divination'
-                : 'home'
-            : isInstantResult
-              ? 'home'
-              : location.pathname === '/cases'
-                ? 'cases'
-                : activeFeature && isChartWorkspaceId(activeFeature)
-                  ? 'chart'
-                  : activeFeature && isDivinationWorkspaceId(activeFeature)
-                    ? 'divination'
-                    : null
-        }
-        onSelect={(section) => {
-          setIsDrawerOpen(false);
-          if (section === 'home') navigate('/');
-          if (section === 'chart') navigate('/?section=chart');
-          if (section === 'divination') navigate('/?section=divination');
-          if (section === 'cases') navigate('/cases');
-        }}
-      />
+      {!isResultAssistant ? (
+        <MobileBottomNav
+          activeSection={
+            isHomeRoute
+              ? homeSection === 'chart'
+                ? 'chart'
+                : homeSection === 'divination'
+                  ? 'divination'
+                  : 'home'
+              : isInstantResult
+                ? 'home'
+                : location.pathname === '/cases'
+                  ? 'cases'
+                  : activeFeature && isChartWorkspaceId(activeFeature)
+                    ? 'chart'
+                    : activeFeature && isDivinationWorkspaceId(activeFeature)
+                      ? 'divination'
+                      : null
+          }
+          onSelect={(section) => {
+            setIsDrawerOpen(false);
+            if (section === 'home') navigate('/');
+            if (section === 'chart') navigate('/?section=chart');
+            if (section === 'divination') navigate('/?section=divination');
+            if (section === 'cases') navigate('/cases');
+          }}
+        />
+      ) : null}
 
       {settingsModal === 'workspace' ? (
         <WorkspaceSettingsModal

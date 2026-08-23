@@ -35,7 +35,10 @@ type DivinationPanelProps = {
   initialMethod?: DivinationDraft['method'];
   lockedMethod?: DivinationDraft['method'];
   displayMode?: 'workspace' | 'input' | 'result';
+  assistantOnly?: boolean;
   onGenerated?: (recordId: string, requestedMethod: DivinationDraft['method']) => void;
+  onOpenAssistant?: () => void;
+  onReturnToBoard?: () => void;
   onRestart?: () => void;
 };
 
@@ -52,7 +55,10 @@ export function DivinationPanel({
   initialMethod,
   lockedMethod,
   displayMode = 'workspace',
+  assistantOnly = false,
   onGenerated,
+  onOpenAssistant,
+  onReturnToBoard,
   onRestart,
 }: DivinationPanelProps) {
   const navigate = useNavigate();
@@ -293,9 +299,12 @@ export function DivinationPanel({
             shareState={shareState}
             showShareButton={showShareButton}
             showHeading={displayMode === 'workspace'}
+            assistantOnly={assistantOnly}
             caseName={historyCaseName}
             onCopy={handleCopy}
             onShare={handleShare}
+            onOpenAssistant={onOpenAssistant}
+            onReturnToBoard={onReturnToBoard}
             onRestart={onRestart}
           />
         </>

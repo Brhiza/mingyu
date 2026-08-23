@@ -1017,7 +1017,7 @@
 }
 
 .workspace-divination-result-page {
-  width: min(980px, 100%);
+  width: min(1200px, 100%);
 }
 
 .workspace-divination-page .divination-form-card {
@@ -1041,6 +1041,40 @@
   padding: 8px 0;
   background: color-mix(in srgb, var(--surface-page) 96%, transparent);
   backdrop-filter: blur(14px);
+}
+
+.workspace-result-assistant-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 auto 12px;
+}
+
+.workspace-result-assistant-head > div {
+  min-width: 0;
+}
+
+.workspace-result-assistant-head h1,
+.workspace-result-assistant-head p {
+  margin: 0;
+}
+
+.workspace-result-assistant-head h1 {
+  color: var(--text-strong);
+  font-size: 18px;
+}
+
+.workspace-result-assistant-head p {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-result-ai-fab {
+  display: none;
 }
 
 .workspace-result-toolbar {
@@ -1070,6 +1104,17 @@
 .divination-result-workspace {
   display: grid;
   gap: 12px;
+}
+
+.divination-result-stage {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.divination-result-board-pane,
+.divination-result-assistant-pane {
+  min-width: 0;
 }
 
 .divination-result-navigation {
@@ -1114,6 +1159,89 @@
 
 .divination-result-workspace .divination-ai-card {
   display: block;
+}
+
+@media (min-width: 980px) {
+  .workspace-main.is-result .workspace-page {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .workspace-result-page-shell,
+  .workspace-result-navigation {
+    width: 100%;
+    max-width: none;
+  }
+
+  .result-tab-stage.workspace-result-split {
+    width: 100%;
+    max-width: none;
+    grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+    align-items: start;
+    gap: 14px;
+  }
+
+  .workspace-result-split > .result-tab-pane {
+    grid-area: auto;
+  }
+
+  .workspace-result-split > .result-tab-pane.is-inactive {
+    display: none;
+  }
+
+  .workspace-result-split > .workspace-result-chart-pane {
+    grid-column: 1;
+  }
+
+  .workspace-result-split > .workspace-result-assistant-pane {
+    position: sticky;
+    top: calc(var(--workspace-case-tabbar-height) + 56px);
+    grid-column: 2;
+  }
+
+  .workspace-result-split .single-panel-shell,
+  .workspace-result-split .workspace-prompt-layout,
+  .workspace-result-split .workspace-ai-layout {
+    width: 100%;
+    max-width: none;
+  }
+
+  .workspace-result-split .workspace-ai-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-result-split .workspace-ai-layout > .workspace-ui-surface {
+    overflow: visible;
+  }
+
+  .workspace-result-split .panel-ai-chat {
+    min-height: min(660px, calc(100dvh - var(--workspace-case-tabbar-height) - 90px));
+  }
+
+  .workspace-result-assistant-stage {
+    width: min(920px, 100%);
+    max-width: 920px;
+  }
+
+  .divination-result-workspace.is-split .divination-result-stage {
+    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+    align-items: start;
+    gap: 14px;
+  }
+
+  .divination-result-workspace.is-split .divination-result-assistant-pane {
+    position: sticky;
+    top: calc(var(--workspace-case-tabbar-height) + 56px);
+  }
+
+  .divination-result-workspace.is-split .panel-ai-chat {
+    min-height: min(660px, calc(100dvh - var(--workspace-case-tabbar-height) - 90px));
+  }
+
+  .divination-result-workspace.is-assistant-page {
+    width: min(920px, 100%);
+    margin: 0 auto;
+  }
 }
 
 .records-toolbar {
@@ -1514,6 +1642,33 @@
     color: var(--text-secondary);
   }
 
+  .workspace-mobile-back {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    background: var(--surface-muted);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .workspace-mobile-back svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .workspace-mobile-back:focus-visible {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: -2px;
+  }
+
   .workspace-mobile-menu span {
     width: 18px;
     height: 2px;
@@ -1641,6 +1796,10 @@
 
   .workspace-main.is-home .workspace-page {
     padding-top: 8px;
+  }
+
+  .workspace-main.is-result-assistant .workspace-page {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   }
 
   .workspace-home-page {
@@ -1840,6 +1999,73 @@
     background: var(--surface-page);
   }
 
+  .workspace-result-assistant-head {
+    display: none;
+  }
+
+  .workspace-result-assistant-pane.is-inactive {
+    display: none;
+  }
+
+  .workspace-prompt-output .workspace-ui-panel-head {
+    align-items: center;
+    gap: 8px;
+  }
+
+  .workspace-prompt-output .workspace-ui-panel-head h2 {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .workspace-prompt-output .compact-actions {
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .workspace-result-ai-fab {
+    position: fixed;
+    z-index: 720;
+    right: 16px;
+    bottom: calc(
+      var(--workspace-mobile-bottom-nav-height) + 14px + env(safe-area-inset-bottom, 0px)
+    );
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    gap: 0;
+    padding: 5px 0 4px;
+    border: 1px solid color-mix(in srgb, var(--accent-strong) 58%, white);
+    border-radius: 19px;
+    background: var(--accent-strong);
+    color: #fff;
+    box-shadow: 0 14px 32px var(--accent-soft-strong);
+    cursor: pointer;
+  }
+
+  .workspace-result-ai-fab svg {
+    width: 25px;
+    height: 25px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .workspace-result-ai-fab span {
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .workspace-result-ai-fab:focus-visible {
+    outline: 3px solid var(--surface-base);
+    outline-offset: 2px;
+  }
+
   .workspace-result-toolbar {
     grid-column: 2;
     grid-row: 1;
@@ -1855,6 +2081,7 @@
 
   .divination-result-switch {
     width: 100%;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .divination-history-case {

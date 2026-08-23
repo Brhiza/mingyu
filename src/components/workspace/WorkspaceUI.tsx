@@ -78,6 +78,50 @@ export function WorkspaceSurface({
   return <Element {...props} className={joinClassNames('workspace-ui-surface', className)} />;
 }
 
+type ResultAssistantHeaderProps = {
+  aiEnabled: boolean;
+  subtitle: string;
+  onBack: () => void;
+};
+
+export function ResultAssistantHeader({ aiEnabled, subtitle, onBack }: ResultAssistantHeaderProps) {
+  return (
+    <div className="workspace-result-assistant-head">
+      <WorkspaceButton size="small" onClick={onBack}>
+        ← 返回盘面
+      </WorkspaceButton>
+      <div>
+        <h1>{aiEnabled ? 'AI 解读' : '提示词'}</h1>
+        <p>{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+type ResultAssistantFabProps = {
+  aiEnabled: boolean;
+  onOpen: () => void;
+};
+
+export function ResultAssistantFab({ aiEnabled, onOpen }: ResultAssistantFabProps) {
+  const label = aiEnabled ? '打开 AI 解读' : '打开提示词';
+  return (
+    <button
+      type="button"
+      className="workspace-result-ai-fab"
+      onClick={onOpen}
+      aria-label={label}
+      title={aiEnabled ? 'AI 解读' : '提示词'}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3l1.5 4.2L18 9l-4.5 1.8L12 15l-1.5-4.2L6 9l4.5-1.8L12 3Z" />
+        <path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z" />
+      </svg>
+      <span>AI</span>
+    </button>
+  );
+}
+
 type WorkspacePageProps = HTMLAttributes<HTMLDivElement> & {
   title?: string;
   action?: ReactNode;

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
@@ -15,7 +15,6 @@ import {
 } from '@/lib/query-state';
 import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
-import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
@@ -68,7 +67,11 @@ import { useZiweiCalculations } from './hooks/useZiweiCalculations';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
-import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
+import {
+  ResultAssistantFab,
+  ResultAssistantHeader,
+  WorkspaceButton,
+} from '@/components/workspace/WorkspaceUI';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
@@ -79,7 +82,7 @@ import {
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
-import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
+import { PromptPreview } from '@/components/PromptPreview';
 import {
   CHART_RECORD_PARAM,
   normalizeChartInputForSource,
@@ -150,8 +153,14 @@ const LazyMetaphysicsPanel = lazy(async () => {
   return { default: module.MetaphysicsPanel };
 });
 
-export function ResultPage() {
+type ResultPageProps = {
+  assistantOnly?: boolean;
+};
+
+export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAssistantPage = assistantOnly || location.pathname === '/result/assistant';
   const [metaphysicsQuestionDraft, setMetaphysicsQuestionDraft] = useState('');
   const [residentialResult, setResidentialResult] = useState<ResidentialFengshuiResult | null>(
     null,
@@ -185,6 +194,14 @@ export function ResultPage() {
               : 'bazi';
     return [chartTab, 'prompt'];
   }, [isCombinedResult, promptState.promptSource]);
+  const chartTabs = useMemo(
+    () => resultTabs.filter((tab): tab is Exclude<ResultTabKey, 'prompt'> => tab !== 'prompt'),
+    [resultTabs],
+  );
+  const defaultChartTab = chartTabs[0] ?? 'bazi';
+  const activeChartTab = chartTabs.some((tab) => tab === promptState.tab)
+    ? promptState.tab
+    : defaultChartTab;
   const hasPreciseBirthData = hasCompletePreciseBirthData(inputState);
   const hasResidentialBirthData = useMemo(() => {
     const year = Number(inputState.year);
@@ -214,6 +231,10 @@ export function ResultPage() {
       inputState.analysisMode === 'single') ||
     promptState.promptSource === 'ziwei' ||
     promptState.promptSource === 'astrolabe';
+  const viewportSize = useViewportSize({ width: 0, height: 0 });
+  const isCompactResultLayout = viewportSize.width > 0 && viewportSize.width < 980;
+  const showEmbeddedAssistant = !isAssistantPage && !isCompactResultLayout;
+  const showAssistantPane = isAssistantPage || showEmbeddedAssistant;
 
   const baziDraftStorageKey = useMemo(
     () => `${PROMPT_DRAFT_STORAGE_PREFIX}:bazi:${inputSearch}`,
@@ -228,23 +249,16 @@ export function ResultPage() {
     [inputSearch],
   );
   const shouldLoadBaziPromptModules =
-    promptState.tab === 'prompt' &&
+    showAssistantPane &&
     (promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei');
   const [isBaziFortuneModalOpen, setIsBaziFortuneModalOpen] = useState(false);
   const [isZiweiScopeModalOpen, setIsZiweiScopeModalOpen] = useState(false);
   const [isAstrolabeScopeModalOpen, setIsAstrolabeScopeModalOpen] = useState(false);
   const inspiration = useQuestionInspiration();
-  const viewportSize = useViewportSize({ width: 0, height: 0 });
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
-  const isMobileAi =
-    isAiEnabled &&
-    shouldUsePhoneLayout({
-      viewportWidth: viewportSize.width,
-      viewportHeight: viewportSize.height,
-    });
-  const isDesktopAiWorkspace = isAiEnabled && !isMobileAi && promptState.tab === 'prompt';
+  const isMobileAi = isAiEnabled && isAssistantPage && isCompactResultLayout;
   const [isAiShortcutPopoverOpen, setIsAiShortcutPopoverOpen] = useState(false);
   const [isAiMobileSettingsOpen, setIsAiMobileSettingsOpen] = useState(true);
   const [promptEngine, setPromptEngine] = useState<PromptEngineModule | null>(null);
@@ -256,7 +270,7 @@ export function ResultPage() {
     astrolabe: promptState.tab === 'astrolabe',
     qizheng: promptState.tab === 'qizheng',
     bazhai: canUseResidentialFengshui && promptState.tab === 'bazhai',
-    prompt: promptState.tab === 'prompt',
+    prompt: showAssistantPane,
   }));
   const { baziResult, partnerBaziResult, baziError } = useBaziCalculations(inputState);
   const sharedBirthData = useMemo(() => {
@@ -327,9 +341,13 @@ export function ResultPage() {
   );
 
   useEffect(() => {
-    if (resultTabs.includes(promptState.tab)) return;
-    updatePromptState({ tab: resultTabs[0] });
-  }, [promptState.tab, resultTabs, updatePromptState]);
+    if (isAssistantPage) {
+      if (promptState.tab !== 'prompt') updatePromptState({ tab: 'prompt' });
+      return;
+    }
+    if (chartTabs.some((tab) => tab === promptState.tab)) return;
+    updatePromptState({ tab: defaultChartTab });
+  }, [chartTabs, defaultChartTab, isAssistantPage, promptState.tab, updatePromptState]);
   const {
     activeBaziShortcutMode,
     activeZiweiShortcutMode,
@@ -370,6 +388,18 @@ export function ResultPage() {
       };
     });
   }, [promptState.tab]);
+
+  useEffect(() => {
+    if (!showAssistantPane) return;
+    setMountedTabs((current) =>
+      current.prompt
+        ? current
+        : {
+            ...current,
+            prompt: true,
+          },
+    );
+  }, [showAssistantPane]);
 
   useEffect(() => {
     if (inputState.analysisMode === 'single' || promptState.promptSource !== 'bazi-ziwei') {
@@ -649,7 +679,7 @@ export function ResultPage() {
   const shouldCalculateAstrolabe =
     hasAstrolabeChart &&
     (mountedTabs.astrolabe ||
-      (promptState.tab === 'prompt' && isAstrolabePromptSource) ||
+      (mountedTabs.prompt && isAstrolabePromptSource) ||
       isAstrolabeScopeModalOpen);
 
   const astrolabeCalculation = useMemo<{
@@ -706,8 +736,7 @@ export function ResultPage() {
     shouldCalculateAstrolabe,
   ]);
   const shouldCalculateQizheng =
-    hasAstrolabeChart &&
-    (mountedTabs.qizheng || (promptState.tab === 'prompt' && isQizhengPromptSource));
+    hasAstrolabeChart && (mountedTabs.qizheng || (mountedTabs.prompt && isQizhengPromptSource));
   const qizhengCalculation = useMemo<{ data: QizhengResult | null; error: string }>(() => {
     if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
     try {
@@ -749,7 +778,7 @@ export function ResultPage() {
   }, [activeBaziShortcutMode]);
 
   function computeBaziPromptText(question: string, finalQuestion: string): string {
-    if (promptState.tab !== 'prompt') return '';
+    if (!showAssistantPane) return '';
     if (inputState.analysisMode === 'compatibility') {
       if (!promptEngine || !baziResult || !partnerBaziResult) return '';
       const compatibilityPrompt = promptEngine.getCompatibilityPrompt(
@@ -786,7 +815,7 @@ export function ResultPage() {
     [activeBaziShortcutMode],
   );
   function computeZiweiPromptText(question: string): string {
-    if (promptState.tab !== 'prompt') return '';
+    if (!showAssistantPane) return '';
     if (inputState.analysisMode === 'compatibility') {
       if (!currentZiweiPayload || !partnerZiweiPayload || !ziweiRuntime || !partnerZiweiRuntime) {
         return '';
@@ -835,20 +864,16 @@ export function ResultPage() {
           );
 
   const enhancedZiweiPromptPack = useMemo(() => {
-    if (
-      promptState.tab !== 'prompt' ||
-      promptState.promptSource !== 'bazi-ziwei' ||
-      !currentZiweiPayload
-    ) {
+    if (!showAssistantPane || promptState.promptSource !== 'bazi-ziwei' || !currentZiweiPayload) {
       return '';
     }
 
     const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(activeBaziShortcutMode);
     return buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic);
-  }, [activeBaziShortcutMode, currentZiweiPayload, promptState.promptSource, promptState.tab]);
+  }, [activeBaziShortcutMode, currentZiweiPayload, promptState.promptSource, showAssistantPane]);
 
   const enhancedBaziPromptPack = useMemo(() => {
-    if (promptState.tab !== 'prompt' || promptState.promptSource !== 'bazi-ziwei' || !baziResult) {
+    if (!showAssistantPane || promptState.promptSource !== 'bazi-ziwei' || !baziResult) {
       return '';
     }
 
@@ -859,10 +884,10 @@ export function ResultPage() {
     return [baseText, fullFortuneText ? `【命限资料】\n${fullFortuneText}` : '']
       .filter(Boolean)
       .join('\n\n');
-  }, [baziResult, promptState.baziFortuneScope, promptState.promptSource, promptState.tab]);
+  }, [baziResult, promptState.baziFortuneScope, promptState.promptSource, showAssistantPane]);
 
   function computeEnhancedPromptText(question: string, finalQuestion: string): string {
-    if (promptState.tab !== 'prompt' || inputState.analysisMode !== 'single') return '';
+    if (!showAssistantPane || inputState.analysisMode !== 'single') return '';
     if (!baziResult || !enhancedZiweiPromptPack || !enhancedBaziPromptPack) return '';
 
     return buildBaziZiweiEnhancedPrompt({
@@ -927,7 +952,7 @@ export function ResultPage() {
       promptState.baziPresetId,
       promptState.baziFortuneScope,
       promptState.promptSource,
-      promptState.tab,
+      showAssistantPane,
       selectedBaziPreset,
     ],
   );
@@ -965,7 +990,7 @@ export function ResultPage() {
       promptState.baziPresetId,
       promptState.baziFortuneScope,
       promptState.promptSource,
-      promptState.tab,
+      showAssistantPane,
       selectedBaziPreset,
     ],
   );
@@ -985,7 +1010,7 @@ export function ResultPage() {
       partnerZiweiPayload,
       partnerZiweiRuntime,
       promptState.promptSource,
-      promptState.tab,
+      showAssistantPane,
       promptState.ziweiScope,
       promptState.ziweiTopic,
       ziweiRuntime,
@@ -1015,7 +1040,7 @@ export function ResultPage() {
       partnerZiweiPayload,
       partnerZiweiRuntime,
       promptState.promptSource,
-      promptState.tab,
+      showAssistantPane,
       promptState.ziweiScope,
       promptState.ziweiTopic,
       ziweiRuntime,
@@ -1025,7 +1050,7 @@ export function ResultPage() {
   const latestAstrolabePromptText = useMemo(() => {
     if (
       promptState.promptSource !== 'astrolabe' ||
-      promptState.tab !== 'prompt' ||
+      !showAssistantPane ||
       !astrolabeCalculation.data
     ) {
       return '';
@@ -1050,7 +1075,7 @@ export function ResultPage() {
     effectiveAstrolabeQuickQuestion,
     promptState.astrolabeTopic,
     promptState.promptSource,
-    promptState.tab,
+    showAssistantPane,
   ]);
   const previewAstrolabePromptText = useMemo(() => {
     if (promptState.promptSource !== 'astrolabe') {
@@ -1061,7 +1086,7 @@ export function ResultPage() {
       return latestAstrolabePromptText;
     }
 
-    if (promptState.tab !== 'prompt' || !astrolabeCalculation.data) {
+    if (!showAssistantPane || !astrolabeCalculation.data) {
       return '';
     }
 
@@ -1086,14 +1111,10 @@ export function ResultPage() {
     latestAstrolabePromptText,
     promptState.astrolabeTopic,
     promptState.promptSource,
-    promptState.tab,
+    showAssistantPane,
   ]);
   const qizhengPromptText = useMemo(() => {
-    if (
-      promptState.tab !== 'prompt' ||
-      promptState.promptSource !== 'qizheng' ||
-      !qizhengCalculation.data
-    ) {
+    if (!showAssistantPane || promptState.promptSource !== 'qizheng' || !qizhengCalculation.data) {
       return '';
     }
     return buildMetaphysicsPrompt(qizhengCalculation.data.prompt, metaphysicsQuestionDraft, {
@@ -1102,13 +1123,13 @@ export function ResultPage() {
   }, [
     metaphysicsQuestionDraft,
     promptState.promptSource,
-    promptState.tab,
+    showAssistantPane,
     qizhengCalculation.data,
   ]);
   const bazhaiPromptText = useMemo(() => {
     if (
       !canUseResidentialFengshui ||
-      promptState.tab !== 'prompt' ||
+      !showAssistantPane ||
       promptState.promptSource !== 'bazhai' ||
       !residentialResult
     ) {
@@ -1122,7 +1143,7 @@ export function ResultPage() {
     canUseResidentialFengshui,
     metaphysicsQuestionDraft,
     promptState.promptSource,
-    promptState.tab,
+    showAssistantPane,
     residentialMeasurement,
     residentialResult,
   ]);
@@ -1145,7 +1166,7 @@ export function ResultPage() {
       inputState.analysisMode,
       promptState.baziFortuneScope,
       promptState.promptSource,
-      promptState.tab,
+      showAssistantPane,
       promptState.ziweiScope,
       ziweiScopeSummaryText,
     ],
@@ -1182,7 +1203,7 @@ export function ResultPage() {
       latestEnhancedPromptText,
       promptState.baziFortuneScope,
       promptState.promptSource,
-      promptState.tab,
+      showAssistantPane,
       promptState.ziweiScope,
       ziweiScopeSummaryText,
     ],
@@ -1203,10 +1224,10 @@ export function ResultPage() {
   const previewActivePromptText = basePreviewActivePromptText;
 
   const aiContextPrompt = useMemo(() => {
-    if (promptState.tab !== 'prompt') return '';
+    if (!showAssistantPane) return '';
 
     return previewActivePromptText;
-  }, [previewActivePromptText, promptState.tab]);
+  }, [previewActivePromptText, showAssistantPane]);
 
   const [inspirationText, setInspirationText] = useState('');
   const baseLatestActivePromptText =
@@ -1232,6 +1253,28 @@ export function ResultPage() {
 
   function switchTab(tab: ResultTabKey) {
     updatePromptState({ tab });
+  }
+
+  function buildResultPath(pathname: '/result' | '/result/assistant', tab: ResultTabKey) {
+    const search = preserveChartRecordId(
+      buildResultSearch(inputState, {
+        ...promptState,
+        tab,
+      }),
+      searchParams,
+    );
+    return `${pathname}?${search}`;
+  }
+
+  function openAssistantPage() {
+    const path = buildResultPath('/result/assistant', 'prompt');
+    navigate(`${path}${path.includes('?') ? '&' : '?'}rt=${activeChartTab}`);
+  }
+
+  function returnToChart() {
+    const returnTab = searchParams.get('rt');
+    const targetTab = chartTabs.find((tab) => tab === returnTab) ?? defaultChartTab;
+    navigate(buildResultPath('/result', targetTab));
   }
 
   function handleInspirationSelect(question: string) {
@@ -1284,52 +1327,59 @@ export function ResultPage() {
     ) : null;
 
   return (
-    <div className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}`}>
-      <div className="workspace-result-navigation">
-        <div className="workspace-ui-tabs" aria-label="结果内容">
-          {resultTabs.map((tab) => {
-            const label =
-              tab === 'prompt'
-                ? isAiEnabled
-                  ? 'AI 解读'
-                  : '提示词'
-                : isCombinedResult
-                  ? tab === 'bazi'
-                    ? '八字'
-                    : '紫微'
-                  : '盘面';
-            return (
-              <button
-                type="button"
-                key={tab}
-                className={`workspace-ui-tab ${promptState.tab === tab ? 'is-active' : ''}`}
-                onClick={() => switchTab(tab)}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+    <div className="page-shell workspace-result-page-shell">
+      {isAssistantPage ? (
+        <ResultAssistantHeader
+          aiEnabled={isAiEnabled}
+          subtitle={inputState.name || '当前排盘'}
+          onBack={returnToChart}
+        />
+      ) : null}
 
-        <div className="workspace-result-toolbar">
-          <WorkspaceButton
-            size="small"
-            onClick={() => {
-              const params = new URLSearchParams(buildInputStateSearch(inputState));
-              const recordId = searchParams.get(CHART_RECORD_PARAM);
-              if (recordId) params.set(CHART_RECORD_PARAM, recordId);
-              navigate(`/chart/${activeChartFeature}?${params.toString()}`);
-            }}
-          >
-            修改资料
-          </WorkspaceButton>
-        </div>
-      </div>
+      {!isAssistantPage ? (
+        <div className="workspace-result-navigation">
+          <div className="workspace-ui-tabs" aria-label="结果内容">
+            {chartTabs.map((tab) => {
+              const label = isCombinedResult ? (tab === 'bazi' ? '八字' : '紫微') : '盘面';
+              return (
+                <button
+                  type="button"
+                  key={tab}
+                  className={`workspace-ui-tab ${activeChartTab === tab ? 'is-active' : ''}`}
+                  onClick={() => switchTab(tab)}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
 
-      <div className={`result-tab-stage${isDesktopAiWorkspace ? ' is-ai-wide' : ''}`}>
+          <div className="workspace-result-toolbar">
+            <WorkspaceButton
+              size="small"
+              onClick={() => {
+                const params = new URLSearchParams(buildInputStateSearch(inputState));
+                const recordId = searchParams.get(CHART_RECORD_PARAM);
+                if (recordId) params.set(CHART_RECORD_PARAM, recordId);
+                navigate(`/chart/${activeChartFeature}?${params.toString()}`);
+              }}
+            >
+              修改资料
+            </WorkspaceButton>
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        className={`result-tab-stage${showEmbeddedAssistant ? ' workspace-result-split' : ''}${
+          isAssistantPage ? ' workspace-result-assistant-stage' : ''
+        }`}
+      >
         <div
-          className={`result-tab-pane ${promptState.tab === 'bazi' ? 'is-active' : 'is-inactive'}`}
-          aria-hidden={promptState.tab !== 'bazi'}
+          className={`result-tab-pane workspace-result-chart-pane ${
+            !isAssistantPage && activeChartTab === 'bazi' ? 'is-active' : 'is-inactive'
+          }`}
+          aria-hidden={isAssistantPage || activeChartTab !== 'bazi'}
         >
           {mountedTabs.bazi ? (
             <div className="single-panel-shell">
@@ -1365,8 +1415,10 @@ export function ResultPage() {
         </div>
 
         <div
-          className={`result-tab-pane ${promptState.tab === 'qizheng' ? 'is-active' : 'is-inactive'}`}
-          aria-hidden={promptState.tab !== 'qizheng'}
+          className={`result-tab-pane workspace-result-chart-pane ${
+            !isAssistantPage && activeChartTab === 'qizheng' ? 'is-active' : 'is-inactive'
+          }`}
+          aria-hidden={isAssistantPage || activeChartTab !== 'qizheng'}
         >
           {hasAstrolabeChart && mountedTabs.qizheng ? (
             qizhengCalculation.error ? (
@@ -1384,8 +1436,10 @@ export function ResultPage() {
         </div>
 
         <div
-          className={`result-tab-pane ${promptState.tab === 'ziwei' ? 'is-active' : 'is-inactive'}`}
-          aria-hidden={promptState.tab !== 'ziwei'}
+          className={`result-tab-pane workspace-result-chart-pane ${
+            !isAssistantPage && activeChartTab === 'ziwei' ? 'is-active' : 'is-inactive'
+          }`}
+          aria-hidden={isAssistantPage || activeChartTab !== 'ziwei'}
         >
           {mountedTabs.ziwei ? (
             <div className="single-panel-shell">
@@ -1439,8 +1493,10 @@ export function ResultPage() {
         </div>
 
         <div
-          className={`result-tab-pane ${promptState.tab === 'astrolabe' ? 'is-active' : 'is-inactive'}`}
-          aria-hidden={promptState.tab !== 'astrolabe'}
+          className={`result-tab-pane workspace-result-chart-pane ${
+            !isAssistantPage && activeChartTab === 'astrolabe' ? 'is-active' : 'is-inactive'
+          }`}
+          aria-hidden={isAssistantPage || activeChartTab !== 'astrolabe'}
         >
           {mountedTabs.astrolabe ? (
             <div className="single-panel-shell">
@@ -1461,8 +1517,10 @@ export function ResultPage() {
         </div>
 
         <div
-          className={`result-tab-pane ${promptState.tab === 'bazhai' ? 'is-active' : 'is-inactive'}`}
-          aria-hidden={promptState.tab !== 'bazhai'}
+          className={`result-tab-pane workspace-result-chart-pane ${
+            !isAssistantPage && activeChartTab === 'bazhai' ? 'is-active' : 'is-inactive'
+          }`}
+          aria-hidden={isAssistantPage || activeChartTab !== 'bazhai'}
         >
           {inputState.analysisMode === 'single' && mountedTabs.bazhai ? (
             <Suspense fallback={<InlineSkeleton />}>
@@ -1481,8 +1539,10 @@ export function ResultPage() {
         </div>
 
         <div
-          className={`result-tab-pane ${promptState.tab === 'prompt' ? 'is-active' : 'is-inactive'}`}
-          aria-hidden={promptState.tab !== 'prompt'}
+          className={`result-tab-pane workspace-result-assistant-pane ${
+            showAssistantPane ? 'is-active' : 'is-inactive'
+          }`}
+          aria-hidden={!showAssistantPane}
         >
           {mountedTabs.prompt ? (
             isAiEnabled ? (
@@ -1824,10 +1884,7 @@ export function ResultPage() {
 
                 <section className="workspace-ui-surface workspace-prompt-output">
                   <div className="workspace-ui-panel-head">
-                    <div>
-                      <h2>复制提示词</h2>
-                      <p>完整提示词已经生成，可以直接复制使用。</p>
-                    </div>
+                    <h2>提示词</h2>
                     <div className="action-row compact-actions">
                       <WorkspaceButton size="small" onClick={handleCopy}>
                         {copyState}
@@ -1839,10 +1896,7 @@ export function ResultPage() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="prompt-send-tip">
-                    点击复制后，发送到你常用的在线 AI 软件继续提问。
-                  </div>
-                  <CollapsiblePromptPreview
+                  <PromptPreview
                     promptText={previewActivePromptText}
                     fallback={<PromptPreSkeleton />}
                   />
@@ -1852,6 +1906,10 @@ export function ResultPage() {
           ) : null}
         </div>
       </div>
+
+      {!isAssistantPage ? (
+        <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={openAssistantPage} />
+      ) : null}
 
       {isBaziFortuneModalOpen && baziResult && inputState.analysisMode === 'single' ? (
         <Suspense fallback={<BaziFortuneLoadingModal />}>

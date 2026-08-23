@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
@@ -7,8 +7,13 @@ import { AiChatPanel } from '@/components/AiChatPanel';
 import { TraditionalDivinationBoard } from '@/components/DivinationPanel/TraditionalDivinationBoard';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
-import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
-import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
+import { PromptPreview } from '@/components/PromptPreview';
+import {
+  ResultAssistantFab,
+  ResultAssistantHeader,
+  WorkspaceButton,
+} from '@/components/workspace/WorkspaceUI';
+import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getCompactDivinationSummary } from './compact-evidence';
 
 interface DivinationResultProps {
@@ -20,9 +25,12 @@ interface DivinationResultProps {
   shareState: string;
   showShareButton: boolean;
   showHeading?: boolean;
+  assistantOnly?: boolean;
   caseName?: string;
   onCopy: () => void;
   onShare: () => void;
+  onOpenAssistant?: () => void;
+  onReturnToBoard?: () => void;
   onRestart?: () => void;
 }
 
@@ -181,19 +189,22 @@ export function DivinationResult({
   shareState,
   showShareButton,
   showHeading = true,
+  assistantOnly = false,
   caseName,
   onCopy,
   onShare,
+  onOpenAssistant,
+  onReturnToBoard,
   onRestart,
 }: DivinationResultProps) {
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
-  const [activeView, setActiveView] = useState<'board' | 'interpretation'>('board');
-
-  useEffect(() => {
-    setActiveView('board');
-  }, [session?.prompt]);
+  const viewportSize = useViewportSize({ width: 0, height: 0 });
+  const isCompactResultLayout = viewportSize.width > 0 && viewportSize.width < 980;
+  const showEmbeddedAssistant = !assistantOnly && !isCompactResultLayout;
+  const showBoard = !assistantOnly;
+  const showInterpretation = assistantOnly || showEmbeddedAssistant;
 
   if (isSubmitting) {
     if (isAiEnabled) {
@@ -304,76 +315,78 @@ export function DivinationResult({
   );
 
   return (
-    <div className="divination-result-workspace">
-      <div className="divination-result-navigation">
-        <div
-          className="workspace-ui-tabs divination-result-switch"
-          role="tablist"
-          aria-label="结果内容"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeView === 'board'}
-            className={`workspace-ui-tab ${activeView === 'board' ? 'is-active' : ''}`}
-            onClick={() => setActiveView('board')}
-          >
-            盘面
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeView === 'interpretation'}
-            className={`workspace-ui-tab ${activeView === 'interpretation' ? 'is-active' : ''}`}
-            onClick={() => setActiveView('interpretation')}
-          >
-            {isAiEnabled ? 'AI 解读' : '提示词'}
-          </button>
-        </div>
-        <div className="divination-result-actions">
-          <span className="divination-history-case">案例：{caseName ?? '未指定'}</span>
-          {onRestart ? (
-            <WorkspaceButton size="small" onClick={onRestart}>
-              重新占问
-            </WorkspaceButton>
-          ) : null}
-        </div>
-      </div>
-
-      {activeView === 'board' ? resultBlock : null}
-
-      {activeView === 'interpretation' && isAiEnabled ? (
-        <div className="divination-ai-card">
-          <AiChatPanel
-            contextPrompt={session.prompt}
-            autoStart={session.prompt}
-            autoStartKey={session.prompt}
-            resetKey={session.prompt}
-            aiConfig={aiRequestConfig}
+    <div
+      className={`divination-result-workspace${
+        assistantOnly ? ' is-assistant-page' : ''
+      }${showEmbeddedAssistant ? ' is-split' : ''}`}
+    >
+      {assistantOnly ? (
+        onReturnToBoard ? (
+          <ResultAssistantHeader
+            aiEnabled={isAiEnabled}
+            subtitle={methodLabelMap[session.method]}
+            onBack={onReturnToBoard}
           />
+        ) : null
+      ) : null}
+
+      {!assistantOnly ? (
+        <div className="divination-result-navigation">
+          <div className="workspace-ui-tabs divination-result-switch" aria-label="结果内容">
+            <button type="button" className="workspace-ui-tab is-active">
+              盘面
+            </button>
+          </div>
+          <div className="divination-result-actions">
+            <span className="divination-history-case">案例：{caseName ?? '未指定'}</span>
+            {onRestart ? (
+              <WorkspaceButton size="small" onClick={onRestart}>
+                重新占问
+              </WorkspaceButton>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
-      {activeView === 'interpretation' && !isAiEnabled ? (
-        <section className="workspace-ui-surface workspace-prompt-output divination-result-panel">
-          <div className="workspace-ui-panel-head divination-prompt-head">
-            <div>
-              <h2>完整提示词</h2>
-              <p>复制后可发送到常用的在线 AI 软件。</p>
-            </div>
-            <div className="action-row compact-actions divination-prompt-actions">
-              <WorkspaceButton size="small" onClick={onCopy}>
-                {copyState}
-              </WorkspaceButton>
-              {showShareButton ? (
-                <WorkspaceButton variant="primary" size="small" onClick={onShare}>
-                  {shareState}
-                </WorkspaceButton>
-              ) : null}
-            </div>
+      <div className="divination-result-stage">
+        {showBoard ? <div className="divination-result-board-pane">{resultBlock}</div> : null}
+
+        {showInterpretation ? (
+          <div className="divination-result-assistant-pane">
+            {isAiEnabled ? (
+              <div className="divination-ai-card">
+                <AiChatPanel
+                  contextPrompt={session.prompt}
+                  autoStart={session.prompt}
+                  autoStartKey={session.prompt}
+                  resetKey={session.prompt}
+                  aiConfig={aiRequestConfig}
+                />
+              </div>
+            ) : (
+              <section className="workspace-ui-surface workspace-prompt-output divination-result-panel">
+                <div className="workspace-ui-panel-head divination-prompt-head">
+                  <h2>提示词</h2>
+                  <div className="action-row compact-actions divination-prompt-actions">
+                    <WorkspaceButton size="small" onClick={onCopy}>
+                      {copyState}
+                    </WorkspaceButton>
+                    {showShareButton ? (
+                      <WorkspaceButton variant="primary" size="small" onClick={onShare}>
+                        {shareState}
+                      </WorkspaceButton>
+                    ) : null}
+                  </div>
+                </div>
+                <PromptPreview promptText={session.prompt} />
+              </section>
+            )}
           </div>
-          <CollapsiblePromptPreview promptText={session.prompt} />
-        </section>
+        ) : null}
+      </div>
+
+      {!assistantOnly && onOpenAssistant ? (
+        <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={onOpenAssistant} />
       ) : null}
     </div>
   );

@@ -794,8 +794,7 @@ label.workspace-ui-field > span:first-child {
   overflow: hidden;
 }
 
-.workspace-prompt-settings-summary,
-.workspace-prompt-preview > summary {
+.workspace-prompt-settings-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -808,8 +807,7 @@ label.workspace-ui-field > span:first-child {
   cursor: pointer;
 }
 
-.workspace-prompt-settings-summary::-webkit-details-marker,
-.workspace-prompt-preview > summary::-webkit-details-marker {
+.workspace-prompt-settings-summary::-webkit-details-marker {
   display: none;
 }
 
@@ -820,21 +818,18 @@ label.workspace-ui-field > span:first-child {
   font-weight: 500;
 }
 
-.workspace-prompt-settings-summary::after,
-.workspace-prompt-preview > summary::after {
+.workspace-prompt-settings-summary::after {
   flex: 0 0 auto;
   color: var(--accent-strong);
   font-size: 10px;
   content: '展开';
 }
 
-.workspace-prompt-settings[open] > .workspace-prompt-settings-summary,
-.workspace-prompt-preview[open] > summary {
+.workspace-prompt-settings[open] > .workspace-prompt-settings-summary {
   border-bottom: 1px solid var(--border-soft);
 }
 
-.workspace-prompt-settings[open] > .workspace-prompt-settings-summary::after,
-.workspace-prompt-preview[open] > summary::after {
+.workspace-prompt-settings[open] > .workspace-prompt-settings-summary::after {
   content: '收起';
 }
 
@@ -889,6 +884,7 @@ label.workspace-ui-field > span:first-child {
 }
 
 .workspace-prompt-preview {
+  min-height: 220px;
   overflow: hidden;
   border: 1px solid var(--border-soft);
   border-radius: 11px;
@@ -906,6 +902,15 @@ label.workspace-ui-field > span:first-child {
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.workspace-prompt-preview-loading {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 /* 专用业务表单仍保留自身字段结构，但由新的表单边界统一控件观感。 */

@@ -30,8 +30,13 @@ export function DivinationPage() {
   );
 }
 
-export function DivinationResultPage() {
+type DivinationResultPageProps = {
+  assistantOnly?: boolean;
+};
+
+export function DivinationResultPage({ assistantOnly = false }: DivinationResultPageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const method = useDivinationMethod();
   if (!method) {
     return <Navigate to="/divination/random" replace />;
@@ -43,6 +48,9 @@ export function DivinationResultPage() {
         initialMethod={method}
         lockedMethod={method}
         displayMode="result"
+        assistantOnly={assistantOnly}
+        onOpenAssistant={() => navigate(`/divination/${method}/result/assistant${location.search}`)}
+        onReturnToBoard={() => navigate(`/divination/${method}/result${location.search}`)}
         onRestart={() => navigate(buildWorkspaceFeaturePath(method))}
       />
     </div>
