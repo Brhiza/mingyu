@@ -8,7 +8,6 @@ import { buildChartFeaturePathForCase, buildDivinationRecordPath } from './lib/c
 import {
   buildWorkspaceFeaturePath,
   isChartWorkspaceId,
-  readWorkspacePreferences,
   type WorkspaceFeatureId,
 } from './lib/workspace';
 
@@ -25,6 +24,11 @@ const RecordsPage = lazy(async () => {
 const CasePage = lazy(async () => {
   const module = await import('./pages/CasePage');
   return { default: module.CasePage };
+});
+
+const HomePage = lazy(async () => {
+  const module = await import('./pages/HomePage');
+  return { default: module.HomePage };
 });
 
 const ResultPage = lazy(async () => {
@@ -82,9 +86,7 @@ function DefaultEntryRoute() {
     return <Navigate to={buildDefaultFeaturePath('bazi')} replace />;
   }
 
-  const preferences = readWorkspacePreferences();
-  const path = buildDefaultFeaturePath(preferences.defaultFeature);
-  return <Navigate to={path} replace />;
+  return <HomePage />;
 }
 
 export default function App() {
@@ -109,7 +111,7 @@ export default function App() {
         <Routes>
           <Route element={<WorkspaceShell />}>
             <Route path="/" element={<DefaultEntryRoute />} />
-            <Route path="/home" element={<Navigate to="/" replace />} />
+            <Route path="/home" element={<DefaultEntryRoute />} />
             <Route path="/chart/:tool" element={<InputPage />} />
             <Route path="/divination/:method" element={<DivinationPage />} />
             <Route path="/divination/:method/result" element={<DivinationResultPage />} />

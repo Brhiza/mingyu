@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { WorkspaceSettingsModal } from '@/components/WorkspaceSettingsModal';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useAiSettings } from '@/hooks/useAiSettings';
@@ -81,7 +82,16 @@ export function WorkspaceShell() {
   const routeSearchParams = new URLSearchParams(location.search);
   const activeDivinationRecordId = routeSearchParams.get('record');
   const chartRecordId = routeSearchParams.get(CHART_RECORD_PARAM);
-  const pageTitle = resolvePageTitle(location.pathname, activeFeature);
+  const homeSection = routeSearchParams.get('section');
+  const isHomeRoute = location.pathname === '/' || location.pathname === '/home';
+  const instantResultType = routeSearchParams.get('instant');
+  const isInstantResult =
+    location.pathname === '/result' &&
+    (instantResultType === 'bazi' || instantResultType === 'ziwei');
+  const pageTitle =
+    isInstantResult && activeFeature
+      ? `${getWorkspaceFeature(activeFeature).shortLabel}即时盘`
+      : resolvePageTitle(location.pathname, activeFeature);
   const orderedFeatures = useMemo(
     () => preferences.navigationOrder.map(getWorkspaceFeature),
     [preferences.navigationOrder],
@@ -204,6 +214,21 @@ export function WorkspaceShell() {
 
       {sidebarView === 'tools' ? (
         <nav className="workspace-tool-sections" aria-label="排盘与占问工具">
+          <div className="workspace-nav-list workspace-home-nav-list">
+            <button
+              type="button"
+              className={isHomeRoute ? 'is-active' : ''}
+              onClick={() => navigate('/')}
+              aria-current={isHomeRoute ? 'page' : undefined}
+            >
+              <span className="workspace-nav-mark" aria-hidden="true">
+                首
+              </span>
+              <span className="workspace-nav-copy">
+                <strong>首页</strong>
+              </span>
+            </button>
+          </div>
           {WORKSPACE_FEATURE_GROUPS.map((group) => {
             const features = orderedFeatures.filter((feature) => feature.group === group.id);
             const visibleFeatures =
@@ -370,8 +395,8 @@ export function WorkspaceShell() {
         </div>
       ) : null}
 
-      <main className="workspace-main">
-        {location.pathname !== '/cases' ? (
+      <main className={`workspace-main${isHomeRoute ? ' is-home' : ''}`}>
+        {!isHomeRoute && !isInstantResult && location.pathname !== '/cases' ? (
           <nav className="workspace-case-tabbar" aria-label="案例档案">
             <div className="workspace-case-tabs" role="tablist" aria-label="快速切换案例">
               <button
@@ -449,6 +474,33 @@ export function WorkspaceShell() {
           <Outlet />
         </div>
       </main>
+
+      <MobileBottomNav
+        activeSection={
+          isHomeRoute
+            ? homeSection === 'chart'
+              ? 'chart'
+              : homeSection === 'divination'
+                ? 'divination'
+                : 'home'
+            : isInstantResult
+              ? 'home'
+              : location.pathname === '/cases'
+                ? 'cases'
+                : activeFeature && isChartWorkspaceId(activeFeature)
+                  ? 'chart'
+                  : activeFeature && isDivinationWorkspaceId(activeFeature)
+                    ? 'divination'
+                    : null
+        }
+        onSelect={(section) => {
+          setIsDrawerOpen(false);
+          if (section === 'home') navigate('/');
+          if (section === 'chart') navigate('/?section=chart');
+          if (section === 'divination') navigate('/?section=divination');
+          if (section === 'cases') navigate('/cases');
+        }}
+      />
 
       {settingsModal === 'workspace' ? (
         <WorkspaceSettingsModal

@@ -59,9 +59,9 @@ export function WorkspaceSettingsModal({
 
         <div className="workspace-settings-layout">
           <section className="workspace-settings-section">
-            <h3>默认入口</h3>
+            <h3>首页首选</h3>
             <label className="workspace-setting-field">
-              <span>默认工具</span>
+              <span>首选工具</span>
               <select
                 value={draft.defaultFeature}
                 onChange={(event) =>
@@ -86,7 +86,7 @@ export function WorkspaceSettingsModal({
             </label>
 
             <p className="workspace-setting-note">
-              打开命语时会进入默认工具。已选择全局案例时直接使用该案例；选择“不指定”时，排盘从空白资料开始。
+              首页会优先打开该工具所在的模式，并标出首选项。已选择全局案例时，排盘会直接使用该案例。
             </p>
 
             <button type="button" className="workspace-ai-setting-entry" onClick={onOpenAiSettings}>
