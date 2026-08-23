@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import {
+  WorkspaceButton,
+  WorkspacePage,
+  WorkspaceSurface,
+} from '@/components/workspace/WorkspaceUI';
 import { DIVINATION_METHOD_OPTIONS } from 'mingyu-core/divination/config';
 import {
   loadCompatibilityHistory,
@@ -94,14 +99,11 @@ export function RecordsPage() {
   const searchPlaceholder = activeTab === 'compatibility' ? '搜索双方姓名' : '搜索问题或卦种';
 
   return (
-    <div className="page-shell input-page-shell workspace-records-page">
-      <div className="bazi-view-container">
-        <header className="workspace-task-header">
-          <h1>历史记录</h1>
-        </header>
-        <section className="history-page-section">
+    <div className="workspace-records-page">
+      <WorkspacePage title="历史记录">
+        <WorkspaceSurface>
           <div className="records-toolbar">
-            <div className="records-header-bar">
+            <div className="workspace-records-tabs">
               <SegmentedControl
                 value={activeTab}
                 options={[
@@ -117,7 +119,7 @@ export function RecordsPage() {
             <input
               value={searchText}
               type="search"
-              className="form-input records-search-input"
+              className="workspace-ui-control records-search-input"
               placeholder={searchPlaceholder}
               aria-label={searchPlaceholder}
               onChange={(event) => setSearchText(event.target.value)}
@@ -126,103 +128,103 @@ export function RecordsPage() {
 
           {activeTab === 'compatibility' ? (
             filteredCompatibility.length ? (
-              <div className="records-list">
+              <div className="workspace-record-list">
                 {filteredCompatibility.map((record) => (
-                  <div
-                    key={record.id}
-                    className="record-item compatibility-item"
-                    onClick={() => navigate(buildCompatibilityRecordPath(record))}
-                  >
-                    <div className="record-info">
-                      <div className="info-line-1">
-                        <span className="name">
-                          {record.pinned ? '★ ' : ''}
-                          {record.name}
+                  <article key={record.id} className="workspace-record-card">
+                    <button
+                      type="button"
+                      className="workspace-record-open"
+                      onClick={() => navigate(buildCompatibilityRecordPath(record))}
+                    >
+                      <span className="workspace-record-info">
+                        <span className="workspace-record-title">
+                          <strong>
+                            {record.pinned ? '★ ' : ''}
+                            {record.name}
+                          </strong>
+                          <time>{formatUpdatedAt(record.updatedAt)}</time>
                         </span>
-                        <span className="record-time">{formatUpdatedAt(record.updatedAt)}</span>
-                      </div>
-                      <div className="details-line">
-                        <span className="birthday">
-                          {record.input.year}-{record.input.month}-{record.input.day}
+                        <span className="workspace-record-meta">
+                          <span>
+                            {record.input.year}-{record.input.month}-{record.input.day}
+                          </span>
+                          <span>
+                            {record.input.partnerYear}-{record.input.partnerMonth}-
+                            {record.input.partnerDay}
+                          </span>
+                          <span className="workspace-record-tag">合盘</span>
                         </span>
-                        <span className="birthday">
-                          {record.input.partnerYear}-{record.input.partnerMonth}-
-                          {record.input.partnerDay}
-                        </span>
-                        <span className="record-tag">合盘</span>
-                      </div>
-                    </div>
-                    <div className="history-actions">
-                      <button
-                        type="button"
-                        className="history-action-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
+                      </span>
+                    </button>
+                    <div className="workspace-record-actions">
+                      <WorkspaceButton
+                        size="small"
+                        onClick={() => {
                           toggleCompatibilityHistoryPin(record.id);
                           refresh();
                         }}
                       >
                         {record.pinned ? '取消置顶' : '置顶'}
-                      </button>
-                      <button
-                        type="button"
-                        className="history-action-btn history-action-danger"
-                        onClick={(event) => {
-                          event.stopPropagation();
+                      </WorkspaceButton>
+                      <WorkspaceButton
+                        variant="danger"
+                        size="small"
+                        onClick={() => {
                           deleteCompatibility(record.id);
                         }}
                       >
                         删除
-                      </button>
+                      </WorkspaceButton>
                     </div>
-                  </div>
+                  </article>
                 ))}
               </div>
             ) : (
-              <div className="records-empty-card">暂无匹配的合盘记录</div>
+              <div className="workspace-ui-empty">暂无匹配的合盘记录</div>
             )
           ) : filteredDivination.length ? (
-            <div className="records-list">
+            <div className="workspace-record-list">
               {filteredDivination.map((record) => (
-                <div
-                  key={record.id}
-                  className="record-item divination-record-item"
-                  onClick={() => navigate(buildDivinationRecordPath(record))}
-                >
-                  <div className="record-info">
-                    <div className="info-line-1">
-                      <span className="name">{record.question}</span>
-                      <span className="record-time">{formatUpdatedAt(record.updatedAt)}</span>
-                    </div>
-                    <div className="details-line">
-                      <span className="record-tag">
-                        {record.requestedMethod === 'random'
-                          ? `随机 · ${divinationMethodLabelMap[record.method]}`
-                          : divinationMethodLabelMap[record.method]}
+                <article key={record.id} className="workspace-record-card">
+                  <button
+                    type="button"
+                    className="workspace-record-open"
+                    onClick={() => navigate(buildDivinationRecordPath(record))}
+                  >
+                    <span className="workspace-record-info">
+                      <span className="workspace-record-title">
+                        <strong>{record.question}</strong>
+                        <time>{formatUpdatedAt(record.updatedAt)}</time>
                       </span>
-                      <span className="record-tag">案例：{record.caseName ?? '未指定'}</span>
-                    </div>
-                  </div>
-                  <div className="history-actions">
-                    <button
-                      type="button"
-                      className="history-action-btn history-action-danger"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        deleteDivination(record.id);
-                      }}
+                      <span className="workspace-record-meta">
+                        <span className="workspace-record-tag">
+                          {record.requestedMethod === 'random'
+                            ? `随机 · ${divinationMethodLabelMap[record.method]}`
+                            : divinationMethodLabelMap[record.method]}
+                        </span>
+                        <span className="workspace-record-tag">
+                          案例：{record.caseName ?? '未指定'}
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                  <div className="workspace-record-actions">
+                    <WorkspaceButton
+                      variant="danger"
+                      size="small"
+                      onClick={() => deleteDivination(record.id)}
                     >
                       删除
-                    </button>
+                    </WorkspaceButton>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           ) : (
-            <div className="records-empty-card">暂无匹配的占问记录</div>
+            <div className="workspace-ui-empty">暂无匹配的占问记录</div>
           )}
-        </section>
-      </div>
+        </WorkspaceSurface>
+      </WorkspacePage>
     </div>
   );
 }

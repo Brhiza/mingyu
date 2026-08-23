@@ -13,6 +13,7 @@ import {
 } from '@/lib/ai/chat-history';
 import type { AiChatPromptMode, AiChatSession } from '@/lib/ai/chat-history';
 import type { AiRequestConfig } from '@/lib/ai/settings';
+import { WorkspaceButton } from './workspace/WorkspaceUI';
 
 interface AiChatPanelProps {
   /** AI 上下文提示（排盘数据 + 设置摘要，不含用户问题） */
@@ -404,8 +405,8 @@ function AiChatPanelImpl({
   }
 
   return (
-    <section className="panel panel-ai-chat">
-      <div className="panel-head">
+    <section className="workspace-ui-surface panel-ai-chat">
+      <div className="workspace-ui-panel-head">
         <div>
           <h2>AI 解析</h2>
           <p>
@@ -420,15 +421,14 @@ function AiChatPanelImpl({
         </div>
         <div className="action-row compact-actions ai-chat-head-actions">
           <div className="ai-chat-history-anchor">
-            <button
-              className="copy-button secondary-button"
-              type="button"
+            <WorkspaceButton
+              size="small"
               onClick={() => setIsHistoryOpen((open) => !open)}
               aria-expanded={isHistoryOpen}
               disabled={isBusy}
             >
               历史{historySessions.length ? ` ${historySessions.length}` : ''}
-            </button>
+            </WorkspaceButton>
             {isHistoryOpen ? (
               <div className="ai-chat-history-shell">
                 <button
@@ -499,14 +499,9 @@ function AiChatPanelImpl({
             ) : null}
           </div>
           {hasStarted || activeSessionId ? (
-            <button
-              className="copy-button secondary-button"
-              type="button"
-              onClick={handleNewChat}
-              disabled={isBusy}
-            >
+            <WorkspaceButton size="small" onClick={handleNewChat} disabled={isBusy}>
               新对话
-            </button>
+            </WorkspaceButton>
           ) : null}
         </div>
       </div>

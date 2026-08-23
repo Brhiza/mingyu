@@ -95,38 +95,38 @@ export function PromptShortcutPanel({
   return (
     <>
       {hasSectionLayout ? (
-        <div className="prompt-shortcut-sections">
+        <div className="workspace-prompt-sections">
           {normalizedSections.map((section) => {
             const isExpanded = expandedKey === section.key;
 
             return (
               <section
                 key={section.key}
-                className={`prompt-shortcut-section ${isExpanded ? 'is-expanded' : ''}`}
+                className={`workspace-prompt-section ${isExpanded ? 'is-expanded' : ''}`}
               >
                 <button
                   type="button"
-                  className="prompt-shortcut-section-head"
+                  className="workspace-prompt-section-head"
                   onClick={() => setExpandedKey(section.key)}
                 >
-                  <span className="prompt-shortcut-section-copy">
+                  <span className="workspace-prompt-section-copy">
                     <strong>{section.title}</strong>
                     <small>{section.description}</small>
                   </span>
-                  <span className="prompt-shortcut-section-state">
+                  <span className="workspace-prompt-section-state">
                     {isExpanded ? '已展开' : `${section.items.length} 项`}
                   </span>
                 </button>
 
                 {isExpanded ? (
                   <div
-                    className={`quick-grid${quickGridClassName ? ` ${quickGridClassName}` : ''}`}
+                    className={`workspace-ui-choice-grid${quickGridClassName ? ` ${quickGridClassName}` : ''}`}
                   >
                     {section.items.map((item) => (
                       <button
                         key={item.label}
                         type="button"
-                        className={`quick-chip ${activeMode === item.label ? 'is-active' : ''}`}
+                        className={`workspace-ui-choice ${activeMode === item.label ? 'is-active' : ''}`}
                         onClick={() => onApplyMode(item.label)}
                       >
                         {item.label}
@@ -139,12 +139,14 @@ export function PromptShortcutPanel({
           })}
 
           {ungroupedActions.length > 0 ? (
-            <div className={`quick-grid${quickGridClassName ? ` ${quickGridClassName}` : ''}`}>
+            <div
+              className={`workspace-ui-choice-grid${quickGridClassName ? ` ${quickGridClassName}` : ''}`}
+            >
               {ungroupedActions.map((item) => (
                 <button
                   key={item.label}
                   type="button"
-                  className={`quick-chip ${activeMode === item.label ? 'is-active' : ''}`}
+                  className={`workspace-ui-choice ${activeMode === item.label ? 'is-active' : ''}`}
                   onClick={() => onApplyMode(item.label)}
                 >
                   {item.label}
@@ -155,28 +157,30 @@ export function PromptShortcutPanel({
 
           {hasCustomSection ? (
             <section
-              className={`prompt-shortcut-section ${isCustomSectionExpanded ? 'is-expanded' : ''}`}
+              className={`workspace-prompt-section ${isCustomSectionExpanded ? 'is-expanded' : ''}`}
             >
               <button
                 type="button"
-                className="prompt-shortcut-section-head"
+                className="workspace-prompt-section-head"
                 onClick={() => setExpandedKey('custom')}
               >
-                <span className="prompt-shortcut-section-copy">
+                <span className="workspace-prompt-section-copy">
                   <strong>自定义提问</strong>
                   <small>直接输入真实问题，不确定怎么问时可以先看问题灵感。</small>
                 </span>
-                <span className="prompt-shortcut-section-state">
+                <span className="workspace-prompt-section-state">
                   {isCustomSectionExpanded ? '已展开' : `${customActionCount} 项`}
                 </span>
               </button>
 
               {isCustomSectionExpanded ? (
-                <div className={`quick-grid${quickGridClassName ? ` ${quickGridClassName}` : ''}`}>
+                <div
+                  className={`workspace-ui-choice-grid${quickGridClassName ? ` ${quickGridClassName}` : ''}`}
+                >
                   {showInspirationAction ? (
                     <button
                       type="button"
-                      className={`quick-chip ${activeMode === '问题灵感' ? 'is-active' : ''}`}
+                      className={`workspace-ui-choice ${activeMode === '问题灵感' ? 'is-active' : ''}`}
                       onClick={onOpenInspiration}
                     >
                       问题灵感
@@ -185,7 +189,7 @@ export function PromptShortcutPanel({
                   {showCustomAction ? (
                     <button
                       type="button"
-                      className={`quick-chip ${activeMode === '自定义' ? 'is-active' : ''}`}
+                      className={`workspace-ui-choice ${activeMode === '自定义' ? 'is-active' : ''}`}
                       onClick={() => onApplyMode('自定义')}
                     >
                       直接输入问题
@@ -197,12 +201,14 @@ export function PromptShortcutPanel({
           ) : null}
         </div>
       ) : (
-        <div className={`quick-grid${quickGridClassName ? ` ${quickGridClassName}` : ''}`}>
+        <div
+          className={`workspace-ui-choice-grid${quickGridClassName ? ` ${quickGridClassName}` : ''}`}
+        >
           {actions.map((item) => (
             <button
               key={item.label}
               type="button"
-              className={`quick-chip ${activeMode === item.label ? 'is-active' : ''}`}
+              className={`workspace-ui-choice ${activeMode === item.label ? 'is-active' : ''}`}
               onClick={() => onApplyMode(item.label)}
             >
               {item.label}
@@ -212,11 +218,10 @@ export function PromptShortcutPanel({
       )}
 
       {shouldShowCustomField ? (
-        <label className="field-card">
-          <div className="field-header">
-            <span>{customFieldTitle}</span>
-          </div>
+        <label className="workspace-ui-field">
+          <span>{customFieldTitle}</span>
           <textarea
+            className="workspace-ui-control"
             rows={6}
             value={customDraft}
             placeholder={customPlaceholder}

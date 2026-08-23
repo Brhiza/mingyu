@@ -195,7 +195,7 @@ export function DropdownSelect<T extends string>({
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-activedescendant={isOpen ? `${menuId}-option-${activeIndex}` : undefined}
-        className={`dropdown-select-trigger ${variant === 'field' ? 'form-input dropdown-select-field' : ''}`}
+        className={`workspace-ui-dropdown-trigger ${variant === 'field' ? 'is-field' : ''}`}
         disabled={disabled}
         onClick={() => (isOpen ? closeMenu() : openMenu())}
         onKeyDown={handleKeyDown}
@@ -210,7 +210,7 @@ export function DropdownSelect<T extends string>({
               ref={menuRef}
               role="listbox"
               aria-label={ariaLabel}
-              className={`dropdown-select-menu is-${position.placement}`}
+              className={`workspace-ui-dropdown-menu is-${position.placement}`}
               style={{
                 left: position.left,
                 top: position.top,
@@ -225,7 +225,7 @@ export function DropdownSelect<T extends string>({
                   type="button"
                   role="option"
                   aria-selected={option.value === value}
-                  className={`dropdown-select-option ${index === activeIndex ? 'is-active' : ''}`}
+                  className={`workspace-ui-dropdown-option ${index === activeIndex ? 'is-active' : ''}`}
                   disabled={option.disabled}
                   onPointerDown={(event) => event.preventDefault()}
                   onMouseEnter={() => setActiveIndex(index)}

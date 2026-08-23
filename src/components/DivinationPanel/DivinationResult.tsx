@@ -8,6 +8,7 @@ import { TraditionalDivinationBoard } from '@/components/DivinationPanel/Traditi
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
+import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import { getCompactDivinationSummary } from './compact-evidence';
 
 interface DivinationResultProps {
@@ -198,7 +199,7 @@ export function DivinationResult({
     if (isAiEnabled) {
       return (
         <div className="divination-ai-card" aria-hidden="true">
-          <section className="panel divination-result-panel">
+          <section className="workspace-ui-surface divination-result-panel">
             <div className="divination-result-skeleton">
               <span className="skeleton-block divination-result-skeleton-title" />
               <div className="divination-result-skeleton-list">
@@ -216,8 +217,8 @@ export function DivinationResult({
     }
 
     return (
-      <div className="workspace-grid divination-output-grid" aria-hidden="true">
-        <section className="panel divination-result-panel">
+      <div className="divination-skeleton-layout" aria-hidden="true">
+        <section className="workspace-ui-surface divination-result-panel">
           <div className="divination-result-skeleton">
             <span className="skeleton-block divination-result-skeleton-title" />
             <div className="divination-result-skeleton-tags">
@@ -239,7 +240,7 @@ export function DivinationResult({
           </div>
         </section>
 
-        <section className="panel divination-result-panel">
+        <section className="workspace-ui-surface divination-result-panel">
           <div className="divination-result-skeleton">
             <span className="skeleton-block divination-result-skeleton-title" />
             <div className="divination-result-skeleton-list">
@@ -265,9 +266,9 @@ export function DivinationResult({
 
   // 前端只展示核对盘面所需的摘要；完整传统资料继续保留在提示词中。
   const resultBlock = (
-    <section className="panel divination-result-panel">
+    <section className="workspace-ui-surface divination-result-panel">
       {!isLiurenResult && showHeading ? (
-        <div className="panel-head">
+        <div className="workspace-ui-panel-head">
           <h2>{summary.title}</h2>
         </div>
       ) : null}
@@ -305,12 +306,16 @@ export function DivinationResult({
   return (
     <div className="divination-result-workspace">
       <div className="divination-result-navigation">
-        <div className="divination-result-switch" role="tablist" aria-label="结果内容">
+        <div
+          className="workspace-ui-tabs divination-result-switch"
+          role="tablist"
+          aria-label="结果内容"
+        >
           <button
             type="button"
             role="tab"
             aria-selected={activeView === 'board'}
-            className={activeView === 'board' ? 'is-active' : ''}
+            className={`workspace-ui-tab ${activeView === 'board' ? 'is-active' : ''}`}
             onClick={() => setActiveView('board')}
           >
             盘面
@@ -319,7 +324,7 @@ export function DivinationResult({
             type="button"
             role="tab"
             aria-selected={activeView === 'interpretation'}
-            className={activeView === 'interpretation' ? 'is-active' : ''}
+            className={`workspace-ui-tab ${activeView === 'interpretation' ? 'is-active' : ''}`}
             onClick={() => setActiveView('interpretation')}
           >
             {isAiEnabled ? 'AI 解读' : '提示词'}
@@ -328,9 +333,9 @@ export function DivinationResult({
         <div className="divination-result-actions">
           <span className="divination-history-case">案例：{caseName ?? '未指定'}</span>
           {onRestart ? (
-            <button type="button" className="divination-restart-button" onClick={onRestart}>
+            <WorkspaceButton size="small" onClick={onRestart}>
               重新占问
-            </button>
+            </WorkspaceButton>
           ) : null}
         </div>
       </div>
@@ -350,20 +355,20 @@ export function DivinationResult({
       ) : null}
 
       {activeView === 'interpretation' && !isAiEnabled ? (
-        <section className="panel panel-output divination-result-panel">
-          <div className="panel-head divination-prompt-head">
+        <section className="workspace-ui-surface workspace-prompt-output divination-result-panel">
+          <div className="workspace-ui-panel-head divination-prompt-head">
             <div>
               <h2>完整提示词</h2>
               <p>复制后可发送到常用的在线 AI 软件。</p>
             </div>
             <div className="action-row compact-actions divination-prompt-actions">
-              <button className="copy-button secondary-button" type="button" onClick={onCopy}>
+              <WorkspaceButton size="small" onClick={onCopy}>
                 {copyState}
-              </button>
+              </WorkspaceButton>
               {showShareButton ? (
-                <button className="copy-button" type="button" onClick={onShare}>
+                <WorkspaceButton variant="primary" size="small" onClick={onShare}>
                   {shareState}
-                </button>
+                </WorkspaceButton>
               ) : null}
             </div>
           </div>

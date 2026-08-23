@@ -68,6 +68,7 @@ import { useZiweiCalculations } from './hooks/useZiweiCalculations';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
+import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
@@ -1266,11 +1267,10 @@ export function ResultPage() {
         : activeAstrolabeShortcutMode;
   const metaphysicsPromptQuestionField =
     isQizhengPromptSource || isBazhaiPromptSource ? (
-      <label className="field-card metaphysics-prompt-question-field">
-        <div className="field-header">
-          <span>希望重点解读的问题（可选）</span>
-        </div>
+      <label className="workspace-ui-field metaphysics-prompt-question-field">
+        <span>希望重点解读的问题（可选）</span>
         <textarea
+          className="workspace-ui-control"
           rows={4}
           value={metaphysicsQuestionDraft}
           onChange={(event) => setMetaphysicsQuestionDraft(event.target.value)}
@@ -1286,7 +1286,7 @@ export function ResultPage() {
   return (
     <div className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}`}>
       <div className="workspace-result-navigation">
-        <div className="tab-strip" aria-label="结果内容">
+        <div className="workspace-ui-tabs" aria-label="结果内容">
           {resultTabs.map((tab) => {
             const label =
               tab === 'prompt'
@@ -1302,7 +1302,7 @@ export function ResultPage() {
               <button
                 type="button"
                 key={tab}
-                className={`tab-chip ${promptState.tab === tab ? 'is-active' : ''}`}
+                className={`workspace-ui-tab ${promptState.tab === tab ? 'is-active' : ''}`}
                 onClick={() => switchTab(tab)}
               >
                 {label}
@@ -1312,8 +1312,8 @@ export function ResultPage() {
         </div>
 
         <div className="workspace-result-toolbar">
-          <button
-            type="button"
+          <WorkspaceButton
+            size="small"
             onClick={() => {
               const params = new URLSearchParams(buildInputStateSearch(inputState));
               const recordId = searchParams.get(CHART_RECORD_PARAM);
@@ -1322,7 +1322,7 @@ export function ResultPage() {
             }}
           >
             修改资料
-          </button>
+          </WorkspaceButton>
         </div>
       </div>
 
@@ -1582,9 +1582,9 @@ export function ResultPage() {
                 </div>
               ) : (
                 /* ── AI 桌面端：左栏设置+快捷，右栏对话 ── */
-                <div className="workspace-grid-ai">
-                  <section className="panel">
-                    <div className="panel-head">
+                <div className="workspace-ai-layout">
+                  <section className="workspace-ui-surface">
+                    <div className="workspace-ui-panel-head">
                       <div>
                         <h2 className="prompt-settings-title">解析设置</h2>
                         <p>调整分析年限或选择常用问题，在右侧输入问题即可开始 AI 解析。</p>
@@ -1597,10 +1597,8 @@ export function ResultPage() {
                           {(promptState.promptSource === 'bazi' ||
                             promptState.promptSource === 'bazi-ziwei') &&
                           inputState.analysisMode === 'single' ? (
-                            <div className="field-card">
-                              <div className="field-header">
-                                <span>年限选择</span>
-                              </div>
+                            <div className="workspace-ui-field">
+                              <span>年限选择</span>
                               <FortuneScopePresetSelect
                                 value={baziFortunePreset}
                                 onChange={handleBaziFortunePresetChange}
@@ -1609,10 +1607,8 @@ export function ResultPage() {
                           ) : null}
 
                           {promptState.promptSource === 'ziwei' ? (
-                            <div className="field-card">
-                              <div className="field-header">
-                                <span>年限选择</span>
-                              </div>
+                            <div className="workspace-ui-field">
+                              <span>年限选择</span>
                               <FortuneScopePresetSelect
                                 value={ziweiScopePreset}
                                 onChange={handleZiweiScopePresetChange}
@@ -1622,10 +1618,8 @@ export function ResultPage() {
                           ) : null}
 
                           {promptState.promptSource === 'astrolabe' ? (
-                            <div className="field-card">
-                              <div className="field-header">
-                                <span>年限选择</span>
-                              </div>
+                            <div className="workspace-ui-field">
+                              <span>年限选择</span>
                               <FortuneScopePresetSelect
                                 value={astrolabeScopePreset}
                                 onChange={handleAstrolabeScopePresetChange}
@@ -1710,14 +1704,14 @@ export function ResultPage() {
               )
             ) : (
               /* ── 非 AI 模式：先调整提示词，再复制最终内容 ── */
-              <div className="workspace-grid prompt-output-grid">
-                <details className="panel prompt-settings-panel">
-                  <summary className="prompt-settings-summary">
+              <div className="workspace-prompt-layout">
+                <details className="workspace-ui-surface workspace-prompt-settings">
+                  <summary className="workspace-prompt-settings-summary">
                     <span>调整解读范围（可选）</span>
                     <small>调整年限或问题</small>
                   </summary>
 
-                  <div className="prompt-settings-content field-list">
+                  <div className="workspace-prompt-settings-content field-list">
                     {metaphysicsPromptQuestionField}
                     <>
                       {hasAdjustablePromptScope ? (
@@ -1725,10 +1719,8 @@ export function ResultPage() {
                           {(promptState.promptSource === 'bazi' ||
                             promptState.promptSource === 'bazi-ziwei') &&
                           inputState.analysisMode === 'single' ? (
-                            <div className="field-card">
-                              <div className="field-header">
-                                <span>年限选择</span>
-                              </div>
+                            <div className="workspace-ui-field">
+                              <span>年限选择</span>
                               <FortuneScopePresetSelect
                                 value={baziFortunePreset}
                                 onChange={handleBaziFortunePresetChange}
@@ -1737,10 +1729,8 @@ export function ResultPage() {
                           ) : null}
 
                           {promptState.promptSource === 'ziwei' ? (
-                            <div className="field-card">
-                              <div className="field-header">
-                                <span>年限选择</span>
-                              </div>
+                            <div className="workspace-ui-field">
+                              <span>年限选择</span>
                               <FortuneScopePresetSelect
                                 value={ziweiScopePreset}
                                 onChange={handleZiweiScopePresetChange}
@@ -1750,10 +1740,8 @@ export function ResultPage() {
                           ) : null}
 
                           {promptState.promptSource === 'astrolabe' ? (
-                            <div className="field-card">
-                              <div className="field-header">
-                                <span>年限选择</span>
-                              </div>
+                            <div className="workspace-ui-field">
+                              <span>年限选择</span>
                               <FortuneScopePresetSelect
                                 value={astrolabeScopePreset}
                                 onChange={handleAstrolabeScopePresetChange}
@@ -1834,24 +1822,20 @@ export function ResultPage() {
                   <p className="error-text">{astrolabeCalculation.error}</p>
                 ) : null}
 
-                <section className="panel panel-output">
-                  <div className="panel-head">
+                <section className="workspace-ui-surface workspace-prompt-output">
+                  <div className="workspace-ui-panel-head">
                     <div>
                       <h2>复制提示词</h2>
                       <p>完整提示词已经生成，可以直接复制使用。</p>
                     </div>
                     <div className="action-row compact-actions">
-                      <button
-                        className="copy-button secondary-button"
-                        type="button"
-                        onClick={handleCopy}
-                      >
+                      <WorkspaceButton size="small" onClick={handleCopy}>
                         {copyState}
-                      </button>
+                      </WorkspaceButton>
                       {showShareButton ? (
-                        <button className="copy-button" type="button" onClick={handleShare}>
+                        <WorkspaceButton variant="primary" size="small" onClick={handleShare}>
                           {shareState}
-                        </button>
+                        </WorkspaceButton>
                       ) : null}
                     </div>
                   </div>

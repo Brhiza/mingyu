@@ -16,6 +16,7 @@ import {
   buildCurrentBaziFortuneSelection,
   formatBaziCycleDisplay,
 } from './helpers';
+import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
 
 export function BaziFortuneModal(props: {
   result: BaziChartResult;
@@ -125,14 +126,16 @@ export function BaziFortuneModal(props: {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card bazi-fortune-modal" onClick={(event) => event.stopPropagation()}>
-        <div className="panel-head">
-          <div>
-            <h2>选择年限</h2>
-          </div>
-        </div>
+    <WorkspaceDialog
+      className="bazi-fortune-modal"
+      labelledBy="bazi-fortune-modal-title"
+      onClose={onClose}
+    >
+      <header className="workspace-ui-dialog-header">
+        <h2 id="bazi-fortune-modal-title">选择年限</h2>
+      </header>
 
+      <div className="workspace-ui-dialog-body fortune-dialog-body">
         <div className="draft-tip">
           <strong>当前将写入：</strong>
           {summaryText}
@@ -339,45 +342,43 @@ export function BaziFortuneModal(props: {
             </section>
           ) : null}
         </div>
-
-        <div className="modal-actions modal-actions-split">
-          <div className="modal-actions-left">
-            <button
-              type="button"
-              className="modal-btn modal-btn-secondary"
-              onClick={() => {
-                setDraftScope('natal');
-              }}
-            >
-              仅用本命
-            </button>
-            <button
-              type="button"
-              className="modal-btn modal-btn-secondary"
-              onClick={() => {
-                setDraftScope('full');
-              }}
-            >
-              完整输出版
-            </button>
-          </div>
-          <div className="modal-actions-right">
-            <button type="button" className="modal-btn modal-btn-secondary" onClick={onClose}>
-              取消
-            </button>
-            <button
-              type="button"
-              className="modal-btn modal-btn-primary"
-              onClick={() => {
-                onApply(draftSelection);
-                onClose();
-              }}
-            >
-              确定
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+
+      <footer className="workspace-ui-dialog-footer modal-actions-split">
+        <div className="modal-actions-left">
+          <WorkspaceButton
+            size="small"
+            onClick={() => {
+              setDraftScope('natal');
+            }}
+          >
+            仅用本命
+          </WorkspaceButton>
+          <WorkspaceButton
+            size="small"
+            onClick={() => {
+              setDraftScope('full');
+            }}
+          >
+            完整输出版
+          </WorkspaceButton>
+        </div>
+        <div className="modal-actions-right">
+          <WorkspaceButton size="small" onClick={onClose}>
+            取消
+          </WorkspaceButton>
+          <WorkspaceButton
+            variant="primary"
+            size="small"
+            onClick={() => {
+              onApply(draftSelection);
+              onClose();
+            }}
+          >
+            确定
+          </WorkspaceButton>
+        </div>
+      </footer>
+    </WorkspaceDialog>
   );
 }

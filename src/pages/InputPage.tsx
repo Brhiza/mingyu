@@ -22,6 +22,7 @@ import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { isChartWorkspaceId, type ChartWorkspaceId } from '@/lib/workspace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
+import { WorkspaceButton, WorkspacePage } from '@/components/workspace/WorkspaceUI';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 
 type ChartToolConfig = {
@@ -259,17 +260,10 @@ export function InputPage() {
   }
 
   return (
-    <div
-      className={`page-shell input-page-shell workspace-input-page${
-        config.compatibility ? ' is-compatibility' : ''
-      }`}
-    >
-      <div className="bazi-view-container">
-        <header className="workspace-task-header">
-          <h1>{config.label}</h1>
-        </header>
+    <div className={`workspace-input-page${config.compatibility ? ' is-compatibility' : ''}`}>
+      <WorkspacePage title={config.label} width={config.compatibility ? 'wide' : 'default'}>
         <PrivacyHint />
-        <div className={`form-wrapper${config.compatibility ? ' is-compatibility' : ''}`}>
+        <div className={`workspace-ui-form-layout${config.compatibility ? ' is-two-column' : ''}`}>
           <PersonForm
             role="self"
             form={form}
@@ -293,14 +287,14 @@ export function InputPage() {
           ) : null}
         </div>
 
-        {error ? <div className="form-error-text global-form-error">{error}</div> : null}
+        {error ? <div className="workspace-ui-form-error">{error}</div> : null}
 
-        <div className="workspace-form-actions">
-          <button type="button" className="primary-button" onClick={handleSubmit}>
+        <div className="workspace-ui-form-actions is-sticky-mobile">
+          <WorkspaceButton variant="primary" size="large" block onClick={handleSubmit}>
             查看完整{config.label}盘面
-          </button>
+          </WorkspaceButton>
         </div>
-      </div>
+      </WorkspacePage>
 
       {birthPlace.isBirthPlaceModalOpen ? <BirthPlaceModal birthPlace={birthPlace} /> : null}
     </div>

@@ -64,12 +64,9 @@ const commonQuestions = [
 
 export function TutorialPage() {
   return (
-    <div className="page-shell input-page-shell workspace-tutorial-page">
-      <div className="bazi-view-container tutorial-page-container">
-        <header className="workspace-task-header">
-          <h1>使用说明</h1>
-        </header>
-        <section className="history-page-section tutorial-page-section">
+    <div className="workspace-tutorial-page">
+      <WorkspacePage title="使用说明" width="narrow">
+        <WorkspaceSurface className="tutorial-page-section">
           <div className="tutorial-intro-card">
             <p>填写信息，进入结果页，复制提示词，发送到在线 AI 软件继续提问。</p>
           </div>
@@ -132,8 +129,9 @@ export function TutorialPage() {
               </article>
             ))}
           </div>
-        </section>
-      </div>
+        </WorkspaceSurface>
+      </WorkspacePage>
     </div>
   );
 }
+import { WorkspacePage, WorkspaceSurface } from '@/components/workspace/WorkspaceUI';

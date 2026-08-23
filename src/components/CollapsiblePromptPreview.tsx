@@ -10,9 +10,9 @@ export function CollapsiblePromptPreview({
   fallback = null,
 }: CollapsiblePromptPreviewProps) {
   return (
-    <details className="prompt-preview-details">
+    <details className="workspace-prompt-preview">
       <summary>{promptText ? '查看提示词内容' : '正在整理提示词'}</summary>
-      {promptText ? <pre className="result-pre">{promptText}</pre> : fallback}
+      {promptText ? <pre>{promptText}</pre> : fallback}
     </details>
   );
 }

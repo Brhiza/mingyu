@@ -23,6 +23,7 @@ import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import { createSecureId } from '@/lib/secure-id';
 import { DropdownSelect } from '@/components/DropdownSelect';
+import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 
 const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'current', label: '当前时间' },
@@ -255,9 +256,9 @@ export function DivinationForm({
 
   return (
     <>
-      <section className="person-section divination-form-card">
+      <section className="workspace-ui-form-surface divination-form-card">
         {showHeading ? (
-          <div className="person-section-head">
+          <div className="workspace-ui-form-heading">
             <h2>{formHeading}</h2>
           </div>
         ) : null}
@@ -495,7 +496,7 @@ export function DivinationForm({
                   {!isAlmanac ? (
                     <button
                       type="button"
-                      className="quick-chip divination-desktop-inspiration-btn"
+                      className="workspace-ui-choice divination-desktop-inspiration-btn"
                       onClick={onOpenInspiration}
                     >
                       问题灵感
@@ -656,7 +657,7 @@ export function DivinationForm({
                 {!isAlmanac ? (
                   <button
                     type="button"
-                    className="quick-chip divination-mobile-inspiration-btn"
+                    className="workspace-ui-choice divination-mobile-inspiration-btn"
                     onClick={onOpenInspiration}
                   >
                     问题灵感
@@ -769,18 +770,17 @@ export function DivinationForm({
               ) : null}
               <div className="manual-session-actions">
                 {visibleLiuyaoYaos.length < 6 && liuyaoMethod === 'coins' ? (
-                  <button
-                    type="button"
-                    className="primary-button liuyao-shake-button"
+                  <WorkspaceButton
+                    variant="primary"
+                    className="liuyao-shake-button"
                     onClick={shakeLiuyaoYao}
                   >
                     手摇一爻
-                  </button>
+                  </WorkspaceButton>
                 ) : null}
                 {visibleLiuyaoYaos.length > 0 ? (
-                  <button
-                    type="button"
-                    className="secondary-page-button compact-action-button manual-reset-button"
+                  <WorkspaceButton
+                    className="compact-action-button manual-reset-button"
                     onClick={() =>
                       liuyaoMethod === 'coins'
                         ? updateDraft('liuyaoCoinThrows', [])
@@ -788,7 +788,7 @@ export function DivinationForm({
                     }
                   >
                     重新起卦
-                  </button>
+                  </WorkspaceButton>
                 ) : null}
               </div>
             </div>
@@ -832,22 +832,21 @@ export function DivinationForm({
                   </div>
                   <div className="manual-session-actions">
                     {tarotInteractiveCards.length < tarotSpread.cardCount ? (
-                      <button
-                        type="button"
-                        className="primary-button interactive-draw-button"
+                      <WorkspaceButton
+                        variant="primary"
+                        className="interactive-draw-button"
                         onClick={drawTarotCard}
                       >
                         抽一张
-                      </button>
+                      </WorkspaceButton>
                     ) : null}
                     {tarotInteractiveCards.length > 0 ? (
-                      <button
-                        type="button"
-                        className="secondary-page-button compact-action-button manual-reset-button"
+                      <WorkspaceButton
+                        className="compact-action-button manual-reset-button"
                         onClick={resetTarotCards}
                       >
                         重新抽取
-                      </button>
+                      </WorkspaceButton>
                     ) : null}
                   </div>
                 </div>
@@ -891,22 +890,21 @@ export function DivinationForm({
                   </div>
                   <div className="manual-session-actions">
                     {lenormandInteractiveCards.length < lenormandSpread.positions.length ? (
-                      <button
-                        type="button"
-                        className="primary-button interactive-draw-button"
+                      <WorkspaceButton
+                        variant="primary"
+                        className="interactive-draw-button"
                         onClick={drawLenormandCard}
                       >
                         抽一张
-                      </button>
+                      </WorkspaceButton>
                     ) : null}
                     {lenormandInteractiveCards.length > 0 ? (
-                      <button
-                        type="button"
-                        className="secondary-page-button compact-action-button manual-reset-button"
+                      <WorkspaceButton
+                        className="compact-action-button manual-reset-button"
                         onClick={resetLenormandCards}
                       >
                         重新抽取
-                      </button>
+                      </WorkspaceButton>
                     ) : null}
                   </div>
                 </div>
@@ -1056,7 +1054,11 @@ export function DivinationForm({
 
               <div className="divination-extra-head">
                 <strong>参与人出生信息（可选）</strong>
-                <button type="button" className="quick-chip" onClick={addAlmanacParticipant}>
+                <button
+                  type="button"
+                  className="workspace-ui-choice"
+                  onClick={addAlmanacParticipant}
+                >
                   添加参与人
                 </button>
               </div>
@@ -1279,24 +1281,18 @@ export function DivinationForm({
         </div>
       </section>
 
-      {error ? <div className="form-error-text global-form-error">{error}</div> : null}
+      {error ? <div className="workspace-ui-form-error">{error}</div> : null}
 
-      <div
-        className="form-actions page-submit-actions"
-        style={{
-          width: '100%',
-          gridTemplateColumns: 'minmax(0, 1fr)',
-          justifyItems: 'stretch',
-        }}
-      >
-        <button
-          className="primary-button start-submit-button"
-          type="button"
+      <div className="workspace-ui-form-actions is-sticky-mobile">
+        <WorkspaceButton
+          variant="primary"
+          size="large"
+          block
           disabled={isSubmitting || isManualInputIncomplete}
           onClick={onSubmit}
         >
           {submitButtonText}
-        </button>
+        </WorkspaceButton>
       </div>
     </>
   );

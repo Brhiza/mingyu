@@ -22,8 +22,8 @@ export function BaziFortuneLoadingCard() {
 
 export function BaziFortuneLoadingModal() {
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card bazi-fortune-modal">
+    <div className="workspace-ui-dialog-backdrop">
+      <div className="workspace-ui-dialog bazi-fortune-modal">
         <div className="fortune-modal-skeleton" aria-hidden="true">
           <span className="skeleton-block fortune-modal-skeleton-title" />
           <span className="skeleton-block fortune-modal-skeleton-tip" />

@@ -5,6 +5,7 @@ import App from './App';
 import { registerServiceWorker } from './registerServiceWorker';
 import './styles.css';
 import './workspace.css';
+import './workspace-ui.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

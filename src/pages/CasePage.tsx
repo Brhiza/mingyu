@@ -14,6 +14,12 @@ import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { defaultInputState, type QueryInputState } from '@/lib/query-state';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
+import {
+  WorkspaceButton,
+  WorkspaceDialog,
+  WorkspacePage,
+  WorkspaceSurface,
+} from '@/components/workspace/WorkspaceUI';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from '@/lib/input-labels';
 
@@ -214,31 +220,28 @@ export function CasePage() {
   }
 
   return (
-    <div className="page-shell input-page-shell workspace-case-page">
-      <div className="bazi-view-container">
-        <header className="workspace-task-header case-page-header">
-          <h1>案例</h1>
-          <button
-            type="button"
-            className="primary-button case-create-button"
-            onClick={openNewCaseEditor}
-          >
+    <div className="workspace-case-page">
+      <WorkspacePage
+        title="案例"
+        width="wide"
+        action={
+          <WorkspaceButton variant="primary" onClick={openNewCaseEditor}>
             新建案例
-          </button>
-        </header>
-
-        <section className="history-page-section case-page-section">
+          </WorkspaceButton>
+        }
+      >
+        <WorkspaceSurface className="case-page-section">
           <div className="case-page-toolbar">
             <input
               type="search"
-              className="form-input"
+              className="workspace-ui-control"
               value={searchText}
               placeholder="搜索姓名、日期或出生地"
               aria-label="搜索案例"
               onChange={(event) => setSearchText(event.target.value)}
             />
             <select
-              className="form-input case-sort-select"
+              className="workspace-ui-control case-sort-select"
               value={sortMode}
               aria-label="案例排序"
               onChange={(event) => setSortMode(event.target.value as CaseSortMode)}
@@ -332,33 +335,37 @@ export function CasePage() {
               ))}
             </div>
           ) : (
-            <div className="records-empty-card">
+            <div className="workspace-ui-empty">
               {cases.length ? '没有匹配的案例' : '还没有案例'}
               {!cases.length ? (
-                <button type="button" className="primary-button" onClick={openNewCaseEditor}>
+                <WorkspaceButton variant="primary" onClick={openNewCaseEditor}>
                   新建案例
-                </button>
+                </WorkspaceButton>
               ) : null}
             </div>
           )}
-        </section>
-      </div>
+        </WorkspaceSurface>
+      </WorkspacePage>
 
       {isEditorOpen ? (
-        <div className="modal-backdrop case-editor-backdrop" onClick={closeEditor}>
-          <div
-            className="modal-card case-editor-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="case-editor-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="case-editor-head">
-              <h2 id="case-editor-title">{editingRecord ? '编辑案例' : '新建案例'}</h2>
-              <button type="button" aria-label="关闭案例编辑" onClick={closeEditor}>
-                ×
-              </button>
-            </header>
+        <WorkspaceDialog
+          className="case-editor-modal"
+          backdropClassName="case-editor-backdrop"
+          labelledBy="case-editor-title"
+          onClose={closeEditor}
+        >
+          <header className="workspace-ui-dialog-header case-editor-head">
+            <h2 id="case-editor-title">{editingRecord ? '编辑案例' : '新建案例'}</h2>
+            <WorkspaceButton
+              variant="ghost"
+              size="small"
+              aria-label="关闭案例编辑"
+              onClick={closeEditor}
+            >
+              关闭
+            </WorkspaceButton>
+          </header>
+          <div className="workspace-ui-dialog-body case-editor-body">
             <PersonForm
               role="self"
               form={form}
@@ -368,17 +375,15 @@ export function CasePage() {
               openBirthPlaceModal={birthPlace.openBirthPlaceModal}
               sectionTitle="出生资料"
             />
-            {error ? <div className="form-error-text global-form-error">{error}</div> : null}
-            <div className="case-editor-actions">
-              <button type="button" onClick={closeEditor}>
-                取消
-              </button>
-              <button type="button" className="primary-button" onClick={saveCase}>
-                保存案例
-              </button>
-            </div>
+            {error ? <div className="workspace-ui-form-error">{error}</div> : null}
           </div>
-        </div>
+          <footer className="workspace-ui-dialog-footer case-editor-actions">
+            <WorkspaceButton onClick={closeEditor}>取消</WorkspaceButton>
+            <WorkspaceButton variant="primary" onClick={saveCase}>
+              保存案例
+            </WorkspaceButton>
+          </footer>
+        </WorkspaceDialog>
       ) : null}
 
       <BirthPlaceModal birthPlace={birthPlace} backdropClassName="case-birth-place-backdrop" />

@@ -47,23 +47,24 @@ export function QuestionInspirationModal(props: QuestionInspirationModalProps) {
   const hasItems = sections.some((section) => section.items.length > 0);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal-card question-inspiration-modal"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="birth-place-modal-head question-inspiration-modal-head">
-          <h2>{title}</h2>
-          <button
-            type="button"
-            className="question-inspiration-close-btn"
-            onClick={onClose}
-            aria-label="关闭问题灵感面板"
-          >
-            关闭
-          </button>
-        </div>
+    <WorkspaceDialog
+      className="question-inspiration-modal"
+      labelledBy="question-inspiration-title"
+      onClose={onClose}
+    >
+      <header className="workspace-ui-dialog-header question-inspiration-modal-head">
+        <h2 id="question-inspiration-title">{title}</h2>
+        <WorkspaceButton
+          variant="ghost"
+          size="small"
+          onClick={onClose}
+          aria-label="关闭问题灵感面板"
+        >
+          关闭
+        </WorkspaceButton>
+      </header>
 
+      <div className="workspace-ui-dialog-body">
         <div className="question-inspiration-toolbar">
           <div className="question-inspiration-filters">
             {filters.map((filter) => (
@@ -81,7 +82,7 @@ export function QuestionInspirationModal(props: QuestionInspirationModalProps) {
           <div className="question-inspiration-search">
             <input
               type="text"
-              className="form-input"
+              className="workspace-ui-control"
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -117,9 +118,10 @@ export function QuestionInspirationModal(props: QuestionInspirationModalProps) {
             )}
           </div>
         ) : (
-          <div className="question-inspiration-empty">{emptyText}</div>
+          <div className="workspace-ui-empty">{emptyText}</div>
         )}
       </div>
-    </div>
+    </WorkspaceDialog>
   );
 }
+import { WorkspaceButton, WorkspaceDialog } from './workspace/WorkspaceUI';
