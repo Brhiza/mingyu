@@ -50,20 +50,13 @@
   box-shadow: 0 8px 22px var(--accent-soft-strong);
 }
 
-.workspace-brand strong,
-.workspace-brand small {
+.workspace-brand strong {
   display: block;
 }
 
 .workspace-brand strong {
   font-size: 17px;
   line-height: 1.2;
-}
-
-.workspace-brand small {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 11px;
 }
 
 .workspace-drawer-close {
@@ -80,7 +73,7 @@
 
 .workspace-sidebar-switch {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
@@ -146,18 +139,6 @@
 .divination-result-switch button:focus-visible {
   outline: 2px solid var(--accent-strong);
   outline-offset: 1px;
-}
-
-.workspace-sidebar-switch button span {
-  min-width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  font-size: 10px;
 }
 
 .workspace-nav-label {
@@ -562,20 +543,6 @@
 
 .workspace-divination-page .divination-method-grid {
   display: none;
-}
-
-.workspace-case-context-bar {
-  width: min(760px, 100%);
-  display: flex;
-  justify-content: flex-end;
-  margin: 0 auto 10px;
-}
-
-.workspace-case-context-bar .active-case-select {
-  width: min(320px, 100%);
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 9px;
 }
 
 .workspace-result-navigation {
@@ -1224,15 +1191,6 @@
 
   .divination-history-case {
     display: none;
-  }
-
-  .workspace-case-context-bar {
-    justify-content: stretch;
-    margin-bottom: 8px;
-  }
-
-  .workspace-case-context-bar .active-case-select {
-    width: 100%;
   }
 
   .workspace-records-page .history-page-section {

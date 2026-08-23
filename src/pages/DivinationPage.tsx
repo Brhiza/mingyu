@@ -1,6 +1,5 @@
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { DivinationPanel } from '@/components/DivinationPanel';
-import { ActiveCaseSelect } from '@/components/ActiveCaseSelect';
 import { buildWorkspaceFeaturePath, isDivinationWorkspaceId } from '@/lib/workspace';
 
 function useDivinationMethod() {
@@ -18,9 +17,6 @@ export function DivinationPage() {
 
   return (
     <div className="workspace-focused-page workspace-divination-page">
-      <div className="workspace-case-context-bar">
-        <ActiveCaseSelect label="关联案例" />
-      </div>
       <DivinationPanel
         key={location.key}
         initialMethod={method}

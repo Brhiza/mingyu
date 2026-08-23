@@ -54,7 +54,6 @@ export interface PersonFormProps {
   updateBirthTime: (role: PersonRole, value: string) => void;
   openBirthPlaceModal: (role: PersonRole) => void;
   sectionTitle?: string;
-  historyHint?: string;
   forcePreciseBirthPlace?: boolean;
 }
 
@@ -66,7 +65,6 @@ export const PersonForm = memo(function PersonForm({
   updateBirthTime,
   openBirthPlaceModal,
   sectionTitle,
-  historyHint: historyHintOverride,
   forcePreciseBirthPlace = false,
 }: PersonFormProps) {
   const birthTimeValue =
@@ -79,16 +77,12 @@ export const PersonForm = memo(function PersonForm({
   const isLunar = getPersonValue(form, role, 'dateType') === 'lunar';
   const useTrueSolarTime =
     forcePreciseBirthPlace || Boolean(getPersonValue(form, role, 'useTrueSolarTime'));
-  const historyHint =
-    historyHintOverride ||
-    (role === 'self' ? '录入姓名后会自动保存。' : '合盘模式下会自动生成合盘历史。');
   const trueSolarTimeLabel = getTrueSolarTimeLabel(form, role);
 
   return (
     <section className={`person-section ${role === 'partner' ? 'second-person' : ''}`}>
       <div className="person-section-head">
         <h2>{sectionTitle || getPersonSectionTitle(form.analysisMode, role)}</h2>
-        <p>{historyHint}</p>
       </div>
 
       <div className="person-info-form">
@@ -251,9 +245,6 @@ export const PersonForm = memo(function PersonForm({
                   updatePersonField(role, 'timeIndex', value === '' ? '' : Number(value))
                 }
               />
-              <div className="birth-time-hint">
-                普通排盘可直接按明确时辰生成完整时柱，无需精确到分钟。
-              </div>
             </div>
           </div>
         )}

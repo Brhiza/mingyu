@@ -164,11 +164,7 @@ export function RecordsPage() {
     <div className="page-shell input-page-shell workspace-records-page">
       <div className="bazi-view-container">
         <header className="workspace-task-header">
-          <div>
-            <span>资料管理</span>
-            <h1>案例与历史</h1>
-          </div>
-          <p>个人案例用于所有命盘，占问单独保留为历史记录。</p>
+          <h1>案例与历史</h1>
         </header>
         <section className="history-page-section">
           <div className="records-toolbar">

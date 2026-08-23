@@ -115,7 +115,6 @@ export function DivinationForm({
   const isMethodLocked = Boolean(lockedMethod);
   const lockedMethodOption = DIVINATION_METHOD_OPTIONS.find((item) => item.value === lockedMethod);
   const formHeading = lockedMethodOption?.label ?? '传统起卦';
-  const formDescription = lockedMethodOption?.description ?? '依托传统算法，提供准确卦象。';
   const isAlmanac = draft.method === 'almanac';
   const questionLabel = isAlmanac ? '补充信息（可选）' : '问题';
   const questionPlaceholder = isAlmanac
@@ -260,7 +259,6 @@ export function DivinationForm({
         {showHeading ? (
           <div className="person-section-head">
             <h2>{formHeading}</h2>
-            <p>{formDescription}</p>
           </div>
         ) : null}
 

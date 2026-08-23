@@ -17,7 +17,7 @@ const modeGuides = [
   {
     title: '命盘',
     description: '适合长期保存、反复查看的个人资料。',
-    bullets: ['同一个案例可切换八字、紫微、星盘等命盘', '排盘页和结果页都能快速切换案例'],
+    bullets: ['同一个案例可切换八字、紫微、星盘等命盘', '侧栏顶部或手机顶栏可快速切换案例'],
   },
   {
     title: '合盘',
@@ -55,7 +55,7 @@ const commonQuestions = [
   {
     question: '之前做过的内容能不能再看？',
     answer:
-      '可以。个人资料在侧栏“案例”中切换，占问结果在“历史”中打开，合盘记录可到“案例与历史”管理。',
+      '可以。个人资料用顶部案例选择器切换，占问结果在“历史”中打开，合盘记录可到“案例与历史”管理。',
   },
   {
     question: '怎样固定常用案例？',
@@ -69,11 +69,7 @@ export function TutorialPage() {
     <div className="page-shell input-page-shell workspace-tutorial-page">
       <div className="bazi-view-container tutorial-page-container">
         <header className="workspace-task-header">
-          <div>
-            <span>帮助</span>
-            <h1>使用说明</h1>
-          </div>
-          <p>按实际使用流程了解工具、案例和解读。</p>
+          <h1>使用说明</h1>
         </header>
         <section className="history-page-section tutorial-page-section">
           <div className="tutorial-intro-card">

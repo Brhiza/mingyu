@@ -8,13 +8,9 @@ import { useAiSettings } from '@/hooks/useAiSettings';
 import {
   HISTORY_RECORDS_EVENT,
   loadDivinationHistory,
-  loadPersonalHistory,
+  type PersonalHistoryRecord,
 } from '@/lib/history-records';
-import {
-  buildChartFeaturePathForCase,
-  buildDivinationRecordPath,
-  buildPersonalRecordPath,
-} from '@/lib/case-navigation';
+import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
 import { parseInputState, parsePromptState } from '@/lib/query-state';
 import {
   WORKSPACE_FEATURE_GROUPS,
@@ -28,7 +24,7 @@ import {
   type WorkspaceFeatureId,
 } from '@/lib/workspace';
 
-type SidebarView = 'tools' | 'cases' | 'history';
+type SidebarView = 'tools' | 'history';
 
 function resolveResultFeature(search: string): WorkspaceFeatureId {
   const params = new URLSearchParams(search);
@@ -67,18 +63,15 @@ export function WorkspaceShell() {
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [aiSettings, setAiSettings] = useAiSettings();
   const [sidebarView, setSidebarView] = useState<SidebarView>(() => {
-    if (location.pathname === '/records') {
-      return new URLSearchParams(location.search).get('tab') === 'divination' ? 'history' : 'cases';
-    }
+    if (new URLSearchParams(location.search).get('tab') === 'divination') return 'history';
     return 'tools';
   });
-  const [caseSearch, setCaseSearch] = useState('');
   const [historySearch, setHistorySearch] = useState('');
   const [isMoreDivinationOpen, setIsMoreDivinationOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [settingsModal, setSettingsModal] = useState<'workspace' | 'ai' | null>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
-  const { activeCase, activeCaseId, selectCase } = useActivePersonalCase();
+  const { activeCase } = useActivePersonalCase();
   const activeFeature = resolveActiveFeature(location.pathname, location.search);
   const activeDivinationRecordId = new URLSearchParams(location.search).get('record');
   const pageTitle = resolvePageTitle(location.pathname, activeFeature);
@@ -86,20 +79,10 @@ export function WorkspaceShell() {
     () => preferences.navigationOrder.map(getWorkspaceFeature),
     [preferences.navigationOrder],
   );
-  const cases = useMemo(() => {
-    void historyRevision;
-    return loadPersonalHistory();
-  }, [historyRevision]);
   const histories = useMemo(() => {
     void historyRevision;
     return loadDivinationHistory();
   }, [historyRevision]);
-  const visibleCases = useMemo(() => {
-    const keyword = caseSearch.trim().toLowerCase();
-    return cases.filter((record) =>
-      `${record.name} ${record.birthText}`.toLowerCase().includes(keyword),
-    );
-  }, [caseSearch, cases]);
   const visibleHistories = useMemo(() => {
     const keyword = historySearch.trim().toLowerCase();
     return histories.filter((record) => {
@@ -114,7 +97,7 @@ export function WorkspaceShell() {
     setIsDrawerOpen(false);
     if (location.pathname === '/records') {
       setSidebarView(
-        new URLSearchParams(location.search).get('tab') === 'divination' ? 'history' : 'cases',
+        new URLSearchParams(location.search).get('tab') === 'divination' ? 'history' : 'tools',
       );
     }
   }, [location.pathname, location.search]);
@@ -135,24 +118,13 @@ export function WorkspaceShell() {
     return () => window.removeEventListener(HISTORY_RECORDS_EVENT, syncHistory);
   }, []);
 
-  function navigateForSelectedCase(record: (typeof cases)[number] | null) {
+  function navigateForSelectedCase(record: PersonalHistoryRecord | null) {
     if (activeFeature && isChartWorkspaceId(activeFeature)) {
       navigate(
         record
           ? buildChartFeaturePathForCase(record, activeFeature)
           : buildWorkspaceFeaturePath(activeFeature),
       );
-    }
-    setIsDrawerOpen(false);
-  }
-
-  function openCase(record: (typeof cases)[number]) {
-    selectCase(record.id);
-    setSidebarView('cases');
-    if (activeFeature && isChartWorkspaceId(activeFeature)) {
-      navigate(buildChartFeaturePathForCase(record, activeFeature));
-    } else if (!activeFeature || location.pathname === '/records') {
-      navigate(buildPersonalRecordPath(record));
     }
     setIsDrawerOpen(false);
   }
@@ -166,7 +138,6 @@ export function WorkspaceShell() {
           </span>
           <span>
             <strong>命语</strong>
-            <small>排盘与占问</small>
           </span>
         </button>
         <button
@@ -181,7 +152,7 @@ export function WorkspaceShell() {
 
       <ActiveCaseSelect
         className="workspace-global-case-select"
-        label="全局案例"
+        label="案例"
         onSelect={navigateForSelectedCase}
       />
 
@@ -198,20 +169,11 @@ export function WorkspaceShell() {
         <button
           type="button"
           role="tab"
-          aria-selected={sidebarView === 'cases'}
-          className={sidebarView === 'cases' ? 'is-active' : ''}
-          onClick={() => setSidebarView('cases')}
-        >
-          案例{cases.length ? <span>{cases.length}</span> : null}
-        </button>
-        <button
-          type="button"
-          role="tab"
           aria-selected={sidebarView === 'history'}
           className={sidebarView === 'history' ? 'is-active' : ''}
           onClick={() => setSidebarView('history')}
         >
-          历史{histories.length ? <span>{histories.length}</span> : null}
+          历史
         </button>
       </div>
 
@@ -273,60 +235,13 @@ export function WorkspaceShell() {
             );
           })}
         </nav>
-      ) : sidebarView === 'cases' ? (
-        <section className="workspace-case-browser" aria-label="个人案例">
-          <div className="workspace-case-tools">
-            <input
-              type="search"
-              value={caseSearch}
-              placeholder="搜索姓名"
-              aria-label="搜索个人案例"
-              onChange={(event) => setCaseSearch(event.target.value)}
-            />
-          </div>
-          <div className="workspace-case-list">
-            {visibleCases.length ? (
-              visibleCases.map((record) => (
-                <button
-                  type="button"
-                  key={record.id}
-                  className={activeCaseId === record.id ? 'is-active' : ''}
-                  onClick={() => openCase(record)}
-                  aria-current={activeCaseId === record.id ? 'true' : undefined}
-                >
-                  <span className="workspace-case-mark" aria-hidden="true">
-                    {record.pinned ? '★' : '案'}
-                  </span>
-                  <span>
-                    <strong>{record.name}</strong>
-                    <small>
-                      {record.gender === 'male' ? '男' : '女'} · {record.birthText}
-                    </small>
-                  </span>
-                </button>
-              ))
-            ) : (
-              <div className="workspace-case-empty">
-                <strong>{cases.length ? '没有匹配的案例' : '还没有个人案例'}</strong>
-                <small>{cases.length ? '换个姓名试试' : '完成一次排盘后会自动保存'}</small>
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            className={`workspace-manage-cases${location.pathname === '/records' ? ' is-active' : ''}`}
-            onClick={() => navigate('/records?tab=personal')}
-          >
-            管理案例
-          </button>
-        </section>
       ) : (
         <section className="workspace-case-browser" aria-label="占问历史">
           <div className="workspace-case-tools">
             <input
               type="search"
               value={historySearch}
-              placeholder="搜索问题或案例"
+              placeholder="搜索历史"
               aria-label="搜索占问历史"
               onChange={(event) => setHistorySearch(event.target.value)}
             />
@@ -413,7 +328,6 @@ export function WorkspaceShell() {
           type="button"
           className="workspace-mobile-case"
           onClick={() => {
-            setSidebarView('cases');
             setIsDrawerOpen(true);
           }}
         >

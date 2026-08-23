@@ -11,7 +11,7 @@ type ActiveCaseSelectProps = {
 export function ActiveCaseSelect({
   className = '',
   label = '当前案例',
-  unspecifiedLabel = '不指定（每次新建）',
+  unspecifiedLabel = '不指定',
   onSelect,
 }: ActiveCaseSelectProps) {
   const { cases, activeCaseId, selectCase } = useActivePersonalCase();
