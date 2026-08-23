@@ -68,14 +68,25 @@ export function WorkspaceDialog({
 
 type WorkspaceSurfaceProps = HTMLAttributes<HTMLElement> & {
   as?: 'section' | 'article' | 'div';
+  variant?: 'surface' | 'plain';
 };
 
 export function WorkspaceSurface({
   as: Element = 'section',
+  variant = 'surface',
   className,
   ...props
 }: WorkspaceSurfaceProps) {
-  return <Element {...props} className={joinClassNames('workspace-ui-surface', className)} />;
+  return (
+    <Element
+      {...props}
+      className={joinClassNames(
+        'workspace-ui-surface',
+        variant === 'plain' && 'is-plain',
+        className,
+      )}
+    />
+  );
 }
 
 type ResultAssistantHeaderProps = {

@@ -649,11 +649,11 @@
 .workspace-home-mode-panel {
   display: grid;
   gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--border-soft);
-  border-radius: 20px;
-  background: var(--surface-base);
-  box-shadow: 0 16px 44px rgba(63, 41, 71, 0.06);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .workspace-home-case {
@@ -1257,7 +1257,7 @@
 }
 
 .case-page-section {
-  padding: 16px;
+  padding: 0;
 }
 
 .case-page-toolbar {
@@ -1857,9 +1857,6 @@
 
   .workspace-home-mode-panel {
     gap: 9px;
-    padding: 10px;
-    border-radius: 15px;
-    box-shadow: none;
   }
 
   .workspace-home-case {
@@ -2120,9 +2117,7 @@
 
 @media (max-width: 520px) {
   .case-page-section {
-    padding: 12px;
-    border-radius: 14px;
-    box-shadow: none;
+    padding: 0;
   }
 
   .case-page-toolbar {

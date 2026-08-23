@@ -277,7 +277,7 @@ export function DivinationResult({
 
   // 前端只展示核对盘面所需的摘要；完整传统资料继续保留在提示词中。
   const resultBlock = (
-    <section className="workspace-ui-surface divination-result-panel">
+    <section className="workspace-ui-surface is-plain divination-result-panel">
       {!isLiurenResult && showHeading ? (
         <div className="workspace-ui-panel-head">
           <h2>{summary.title}</h2>

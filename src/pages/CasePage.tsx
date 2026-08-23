@@ -230,7 +230,7 @@ export function CasePage() {
           </WorkspaceButton>
         }
       >
-        <WorkspaceSurface className="case-page-section">
+        <WorkspaceSurface variant="plain" className="case-page-section">
           <div className="case-page-toolbar">
             <input
               type="search"

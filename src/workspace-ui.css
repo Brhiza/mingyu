@@ -38,12 +38,20 @@
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--border-soft);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--surface-base);
-  box-shadow: 0 10px 30px rgba(63, 41, 71, 0.045);
+  box-shadow: none;
 }
 
 .workspace-ui-surface.is-flat {
+  box-shadow: none;
+}
+
+.workspace-ui-surface.is-plain {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -208,9 +216,9 @@ select.workspace-ui-control {
   gap: 14px;
   padding: 18px;
   border: 1px solid var(--border-soft);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--surface-base);
-  box-shadow: 0 10px 30px rgba(63, 41, 71, 0.045);
+  box-shadow: none;
 }
 
 .workspace-ui-form-heading {
@@ -630,7 +638,11 @@ label.workspace-ui-field > span:first-child {
 /* 案例与历史：统一为紧凑的档案列表，不再继承旧 history/record 组件。 */
 .workspace-record-list {
   display: grid;
-  gap: 6px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-base);
 }
 
 .workspace-record-card {
@@ -640,9 +652,13 @@ label.workspace-ui-field > span:first-child {
   align-items: center;
   gap: 6px;
   padding: 4px;
-  border: 1px solid var(--border-soft);
-  border-radius: 11px;
-  background: var(--surface-base);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.workspace-record-card + .workspace-record-card {
+  border-top: 1px solid var(--border-soft);
 }
 
 .workspace-record-open {
@@ -728,18 +744,25 @@ label.workspace-ui-field > span:first-child {
 /* 提示词与 AI：使用同一套面板、字段和选择状态。 */
 .workspace-prompt-sections {
   display: grid;
-  gap: 7px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface-soft);
 }
 
 .workspace-prompt-section {
   overflow: hidden;
-  border: 1px solid var(--border-soft);
-  border-radius: 11px;
-  background: var(--surface-soft);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.workspace-prompt-section + .workspace-prompt-section {
+  border-top: 1px solid var(--border-soft);
 }
 
 .workspace-prompt-section.is-expanded {
-  border-color: var(--border-contrast);
   background: var(--surface-base);
 }
 
@@ -913,6 +936,27 @@ label.workspace-ui-field > span:first-child {
   font-size: 12px;
 }
 
+.workspace-result-assistant-pane .workspace-prompt-output {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace-result-assistant-pane .workspace-prompt-preview {
+  border-radius: 12px;
+  background: var(--surface-base);
+}
+
+.workspace-result-assistant-pane .workspace-ai-layout > .workspace-ui-surface:not(.panel-ai-chat) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* 专用业务表单仍保留自身字段结构，但由新的表单边界统一控件观感。 */
 .workspace-ui-form-surface .person-info-form {
   display: grid;
@@ -1038,8 +1082,13 @@ label.workspace-ui-field > span:first-child {
   .workspace-ui-surface,
   .workspace-ui-form-surface {
     padding: 14px;
-    border-radius: 14px;
+    border-radius: 12px;
     box-shadow: none;
+  }
+
+  .workspace-ui-surface.is-plain {
+    padding: 0;
+    border-radius: 0;
   }
 
   .workspace-ui-form-layout.is-two-column {

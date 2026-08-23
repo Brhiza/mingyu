@@ -340,8 +340,13 @@ select {
   user-select: none;
 }
 
-.result-panel {
-  padding: 14px;
+.panel.result-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .result-dual-layout {
@@ -411,7 +416,11 @@ select {
 .result-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 1px;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--border-soft);
 }
 
 .result-summary-grid-bazi {
@@ -419,10 +428,10 @@ select {
 }
 
 .result-stat-card {
-  padding: 13px 14px;
-  border-radius: 18px;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 0;
   background: var(--surface-muted);
-  border: 1px solid var(--border-soft);
   display: grid;
   gap: 3px;
 }
@@ -543,11 +552,18 @@ select {
 .bazi-pillars-card,
 .result-side-card,
 .ziwei-focus-card {
-  border-radius: 20px;
+  border-radius: 12px;
   border: 1px solid var(--border-soft);
   background: var(--surface-panel);
   padding: 14px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
+}
+
+.bazi-pillars-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .bazi-pillars-header h3,
@@ -569,7 +585,7 @@ select {
   display: grid;
   grid-template-columns: 72px repeat(4, minmax(0, 1fr));
   border: 1px solid var(--border-soft);
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
 }
 
@@ -732,9 +748,31 @@ select {
 }
 
 .bazi-side-panel,
-.ziwei-side-panel {
+.ziwei-side-panel,
+.astrolabe-board-side {
   display: grid;
-  gap: 12px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-base);
+}
+
+.bazi-side-panel > *,
+.ziwei-side-panel > *,
+.astrolabe-board-side > * {
+  margin: 0;
+  padding: 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.bazi-side-panel > * + *,
+.ziwei-side-panel > * + *,
+.astrolabe-board-side > * + * {
+  border-top: 1px solid var(--border-soft);
 }
 
 .bazi-fortune-card,
@@ -813,14 +851,18 @@ select {
 .bazi-reference-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 8px;
+  gap: 1px;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--border-soft);
 }
 
 .bazi-reference-item {
   min-width: 0;
   padding: 10px 8px;
-  border-radius: 14px;
-  border: 1px solid var(--border-soft);
+  border: 0;
+  border-radius: 0;
   background: var(--surface-muted);
   display: grid;
   gap: 2px;
@@ -981,6 +1023,20 @@ select {
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
   padding: 12px;
   box-shadow: var(--shadow-sm);
+}
+
+.bazi-side-panel > .fortune-selector-card,
+.ziwei-side-panel > .fortune-selector-card {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.bazi-side-panel > .fortune-selector-card:not(:first-child),
+.ziwei-side-panel > .fortune-selector-card:not(:first-child) {
+  border-top: 1px solid var(--border-soft);
 }
 
 .fortune-selector-card-loading {
@@ -1242,15 +1298,19 @@ select {
 .result-meta-lines {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 1px;
   margin-top: 12px;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--border-soft);
 }
 
 .result-meta-lines div {
   padding: 10px 12px;
-  border-radius: 14px;
+  border: 0;
+  border-radius: 0;
   background: var(--surface-muted);
-  border: 1px solid var(--border-soft);
   display: grid;
   gap: 4px;
 }
@@ -1261,11 +1321,11 @@ select {
 }
 
 .ziwei-traditional-shell {
-  border-radius: 20px;
+  border-radius: 12px;
   border: 1px solid var(--border-soft);
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
   padding: 14px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .ziwei-traditional-head {
@@ -2043,14 +2103,18 @@ select {
 .ziwei-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 1px;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--border-soft);
 }
 
 .ziwei-detail-grid div {
   padding: 10px 11px;
-  border-radius: 14px;
+  border: 0;
+  border-radius: 0;
   background: var(--surface-soft);
-  border: 1px solid var(--border-soft);
   display: grid;
   gap: 4px;
 }
@@ -4268,7 +4332,11 @@ select {
 }
 
 .divination-result-panel {
-  padding: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .divination-prompt-head > :first-child {
@@ -4303,17 +4371,24 @@ select {
 
 .divination-summary-list {
   display: grid;
-  gap: 8px;
+  gap: 0;
   margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
 }
 
 .divination-summary-item {
   padding: 11px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border-soft);
+  border: 0;
+  border-radius: 0;
   background: var(--surface-muted);
   color: var(--text-secondary);
   line-height: 1.55;
+}
+
+.divination-summary-item + .divination-summary-item {
+  border-top: 1px solid var(--border-soft);
 }
 
 .divination-extra-panel {
@@ -4564,7 +4639,7 @@ select {
   margin-top: 16px;
   padding: 16px;
   border: 1px solid var(--border-contrast);
-  border-radius: 18px;
+  border-radius: 14px;
   background:
     radial-gradient(
       circle at 12% 0%,
@@ -4572,7 +4647,7 @@ select {
       transparent 38%
     ),
     linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .traditional-board-head {
@@ -5539,6 +5614,22 @@ select {
   gap: 12px;
 }
 
+.qizheng-detail-grid {
+  gap: 1px;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--border-soft);
+}
+
+.qizheng-detail-grid > .result-side-card {
+  padding: 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-base);
+  box-shadow: none;
+}
+
 .bazhai-board-layout {
   grid-template-columns: minmax(260px, 430px) minmax(0, 1fr);
   align-items: start;
@@ -5669,9 +5760,12 @@ select {
   min-width: 0;
 }
 
-.astrolabe-board-side {
-  display: grid;
-  gap: 12px;
+.astrolabe-board-main > .result-side-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .astrolabe-aspect-list {
@@ -6592,7 +6686,7 @@ div.form-actions.page-submit-actions {
   }
 
   .result-panel {
-    padding: 12px;
+    padding: 0;
   }
 
   .result-dual-layout,
@@ -6813,14 +6907,32 @@ div.form-actions.page-submit-actions {
 
   .result-summary-grid,
   .result-summary-grid-bazi,
+  .result-meta-lines,
+  .ziwei-detail-grid {
+    gap: 1px;
+  }
+
   .bazi-core-layout,
-  .ziwei-layout,
-  .bazi-side-panel {
+  .ziwei-layout {
     gap: 6px;
+  }
+
+  .bazi-side-panel,
+  .ziwei-side-panel,
+  .astrolabe-board-side {
+    gap: 0;
+  }
+
+  .bazi-side-panel > *,
+  .ziwei-side-panel > *,
+  .astrolabe-board-side > * {
+    padding: 10px;
+    border-radius: 0;
   }
 
   .result-stat-card {
     padding: 8px 9px;
+    border-radius: 0;
     gap: 1px;
   }
 
@@ -6933,12 +7045,16 @@ div.form-actions.page-submit-actions {
   .result-meta-lines div,
   .ziwei-detail-grid div {
     padding: 7px 8px;
-    border-radius: 10px;
+  }
+
+  .result-meta-lines > div,
+  .ziwei-detail-grid > div {
+    border-radius: 0;
   }
 
   .result-meta-lines {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 5px;
+    gap: 1px;
     margin-top: 5px;
   }
 
@@ -7191,7 +7307,7 @@ div.form-actions.page-submit-actions {
 
   .ziwei-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 5px;
+    gap: 1px;
   }
 
   .ziwei-star-block {
@@ -7205,7 +7321,11 @@ div.form-actions.page-submit-actions {
 
   .fortune-selector-card {
     padding: 8px;
-    border-radius: 10px;
+  }
+
+  .bazi-side-panel > .fortune-selector-card,
+  .ziwei-side-panel > .fortune-selector-card {
+    border-radius: 0;
   }
 
   .fortune-selector-card-ziwei {
@@ -7455,13 +7575,13 @@ div.form-actions.page-submit-actions {
   }
 
   .divination-summary-list {
-    gap: 6px;
+    gap: 0;
     margin-top: 10px;
   }
 
   .divination-summary-item {
     padding: 9px 10px;
-    border-radius: 10px;
+    border-radius: 0;
     font-size: 12px;
   }
 

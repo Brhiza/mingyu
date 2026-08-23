@@ -101,7 +101,7 @@ export function RecordsPage() {
   return (
     <div className="workspace-records-page">
       <WorkspacePage title="历史记录">
-        <WorkspaceSurface>
+        <WorkspaceSurface variant="plain" className="records-page-content">
           <div className="records-toolbar">
             <div className="workspace-records-tabs">
               <SegmentedControl
