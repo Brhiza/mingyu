@@ -1309,6 +1309,48 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         />
       </label>
     ) : null;
+  const promptScopeField = hasAdjustablePromptScope ? (
+    <div className="workspace-prompt-scope">
+      <div className="workspace-prompt-subheading">
+        <strong>解读范围</strong>
+        <small>需要看近期或指定时间时再调整。</small>
+      </div>
+      <div className="prompt-compact-grid">
+        {(promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
+        inputState.analysisMode === 'single' ? (
+          <div className="workspace-ui-field">
+            <span>年限选择</span>
+            <FortuneScopePresetSelect
+              value={baziFortunePreset}
+              onChange={handleBaziFortunePresetChange}
+            />
+          </div>
+        ) : null}
+
+        {promptState.promptSource === 'ziwei' ? (
+          <div className="workspace-ui-field">
+            <span>年限选择</span>
+            <FortuneScopePresetSelect
+              value={ziweiScopePreset}
+              onChange={handleZiweiScopePresetChange}
+              disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
+            />
+          </div>
+        ) : null}
+
+        {promptState.promptSource === 'astrolabe' ? (
+          <div className="workspace-ui-field">
+            <span>年限选择</span>
+            <FortuneScopePresetSelect
+              value={astrolabeScopePreset}
+              onChange={handleAstrolabeScopePresetChange}
+              disabled={!astrolabeCalculation.data}
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="page-shell workspace-result-page-shell">
@@ -1678,49 +1720,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                         />
                       ) : null}
 
-                      {hasAdjustablePromptScope ? (
-                        <div className="workspace-prompt-scope">
-                          <div className="workspace-prompt-subheading">
-                            <strong>解读范围</strong>
-                            <small>需要看近期或指定时间时再调整。</small>
-                          </div>
-                          <div className="prompt-compact-grid">
-                            {(promptState.promptSource === 'bazi' ||
-                              promptState.promptSource === 'bazi-ziwei') &&
-                            inputState.analysisMode === 'single' ? (
-                              <div className="workspace-ui-field">
-                                <span>年限选择</span>
-                                <FortuneScopePresetSelect
-                                  value={baziFortunePreset}
-                                  onChange={handleBaziFortunePresetChange}
-                                />
-                              </div>
-                            ) : null}
-
-                            {promptState.promptSource === 'ziwei' ? (
-                              <div className="workspace-ui-field">
-                                <span>年限选择</span>
-                                <FortuneScopePresetSelect
-                                  value={ziweiScopePreset}
-                                  onChange={handleZiweiScopePresetChange}
-                                  disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-                                />
-                              </div>
-                            ) : null}
-
-                            {promptState.promptSource === 'astrolabe' ? (
-                              <div className="workspace-ui-field">
-                                <span>年限选择</span>
-                                <FortuneScopePresetSelect
-                                  value={astrolabeScopePreset}
-                                  onChange={handleAstrolabeScopePresetChange}
-                                  disabled={!astrolabeCalculation.data}
-                                />
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      ) : null}
+                      {promptScopeField}
 
                       {isAstrolabePromptSource && astrolabeCalculation.error ? (
                         <p className="error-text">{astrolabeCalculation.error}</p>
@@ -1783,6 +1783,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                             ? singlePromptShortcutSections
                             : undefined
                         }
+                        afterShortcuts={promptScopeField}
                       />
                     ) : null}
 
@@ -1807,6 +1808,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                             ? singlePromptShortcutSections
                             : undefined
                         }
+                        afterShortcuts={promptScopeField}
                       />
                     ) : null}
 
@@ -1821,51 +1823,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                         onCustomDraftChange={setAstrolabeQuestionDraft}
                         customPlaceholder="例如：请重点分析我的事业天赋和长期发展方向。"
                         onOpenInspiration={inspiration.open}
+                        afterShortcuts={promptScopeField}
                       />
-                    ) : null}
-
-                    {hasAdjustablePromptScope ? (
-                      <div className="workspace-prompt-scope">
-                        <div className="workspace-prompt-subheading">
-                          <strong>解读范围</strong>
-                          <small>需要看近期或指定时间时再调整。</small>
-                        </div>
-                        <div className="prompt-compact-grid">
-                          {(promptState.promptSource === 'bazi' ||
-                            promptState.promptSource === 'bazi-ziwei') &&
-                          inputState.analysisMode === 'single' ? (
-                            <div className="workspace-ui-field">
-                              <span>年限选择</span>
-                              <FortuneScopePresetSelect
-                                value={baziFortunePreset}
-                                onChange={handleBaziFortunePresetChange}
-                              />
-                            </div>
-                          ) : null}
-
-                          {promptState.promptSource === 'ziwei' ? (
-                            <div className="workspace-ui-field">
-                              <span>年限选择</span>
-                              <FortuneScopePresetSelect
-                                value={ziweiScopePreset}
-                                onChange={handleZiweiScopePresetChange}
-                                disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-                              />
-                            </div>
-                          ) : null}
-
-                          {promptState.promptSource === 'astrolabe' ? (
-                            <div className="workspace-ui-field">
-                              <span>年限选择</span>
-                              <FortuneScopePresetSelect
-                                value={astrolabeScopePreset}
-                                onChange={handleAstrolabeScopePresetChange}
-                                disabled={!astrolabeCalculation.data}
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
                     ) : null}
                   </div>
                 </section>

@@ -1211,6 +1211,8 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-result-assistant-stage .workspace-prompt-builder {
     min-height: 0;
+    display: flex;
+    flex-direction: column;
     padding: 12px;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -1227,7 +1229,20 @@ label.workspace-ui-field > span:first-child {
   }
 
   .workspace-result-assistant-stage .workspace-prompt-builder .field-list {
+    min-height: 0;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
     gap: 8px;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-builder
+    .field-list
+    > .workspace-ui-field {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-soft);
   }
 
   .workspace-result-assistant-stage .workspace-prompt-subheading {

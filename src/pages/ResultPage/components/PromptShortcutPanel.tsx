@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
 type ShortcutAction = { label: string };
 
@@ -24,6 +25,7 @@ interface PromptShortcutPanelProps {
   alwaysShowCustomField?: boolean;
   customFieldTitle?: string;
   sections?: ReadonlyArray<PromptShortcutSection>;
+  afterShortcuts?: ReactNode;
 }
 
 export function PromptShortcutPanel({
@@ -41,6 +43,7 @@ export function PromptShortcutPanel({
   alwaysShowCustomField = false,
   customFieldTitle = '自定义问题',
   sections,
+  afterShortcuts,
 }: PromptShortcutPanelProps) {
   const actionMap = useMemo(() => new Map(actions.map((item) => [item.label, item])), [actions]);
   const normalizedSections = useMemo(() => {
@@ -218,6 +221,8 @@ export function PromptShortcutPanel({
           ))}
         </div>
       )}
+
+      {afterShortcuts}
 
       {shouldShowCustomField ? (
         <label className="workspace-ui-field">
