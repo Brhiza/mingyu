@@ -1034,6 +1034,130 @@ label.workspace-ui-field > span:first-child {
   background: var(--surface-base);
 }
 
+.workspace-prompt-layout.is-workbench {
+  height: 100%;
+  min-height: 0;
+}
+
+.workspace-prompt-workbench {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 56fr) minmax(0, 44fr);
+  gap: 12px;
+  overflow: hidden;
+}
+
+.workspace-prompt-workbench-preview {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.workspace-prompt-workbench-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workspace-prompt-workbench-head h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 17px;
+}
+
+.workspace-prompt-workbench-head small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.workspace-prompt-workbench-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-base);
+  scrollbar-gutter: stable;
+}
+
+.workspace-prompt-workbench-body > pre {
+  min-height: 100%;
+  margin: 0;
+  padding: 14px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.workspace-prompt-workbench-composer {
+  min-height: 0;
+  display: grid;
+  align-content: end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.workspace-prompt-composer-toolbar {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(170px, 0.72fr) minmax(0, 1.28fr);
+  gap: 8px;
+}
+
+.workspace-prompt-composer-toolbar.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-question-picker-trigger.workspace-ui-button {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+  border-color: var(--border-contrast);
+  background: var(--accent-surface);
+  color: var(--accent-deep);
+}
+
+.workspace-question-picker-trigger small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-prompt-composer-toolbar .workspace-prompt-scope {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+}
+
+.workspace-prompt-composer-toolbar .workspace-prompt-scope .prompt-compact-grid {
+  min-width: 0;
+}
+
+.workspace-prompt-composer-toolbar .workspace-prompt-scope .workspace-ui-field > span {
+  display: none;
+}
+
+.workspace-prompt-question-input > textarea.workspace-ui-control {
+  height: 94px;
+  min-height: 94px;
+  max-height: 150px;
+  resize: vertical;
+}
+
 .workspace-result-assistant-pane .workspace-ai-layout > .workspace-ui-surface:not(.panel-ai-chat) {
   padding: 0;
   border: 0;
@@ -1153,6 +1277,25 @@ label.workspace-ui-field > span:first-child {
 
 .birth-place-modal.workspace-ui-dialog-body {
   display: block;
+}
+
+@media (min-width: 980px) {
+  .workspace-main.is-result-assistant .workspace-result-page-shell {
+    min-height: 0;
+  }
+
+  .workspace-main.is-result-assistant .workspace-result-assistant-stage {
+    min-height: 0;
+    flex: 1 1 0;
+    overflow: hidden;
+  }
+
+  .workspace-main.is-result-assistant .workspace-result-assistant-pane,
+  .workspace-main.is-result-assistant .workspace-prompt-layout {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
 }
 
 @media (max-width: 979px) {
@@ -1401,6 +1544,77 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-result-assistant-stage .workspace-prompt-preview {
     display: none;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-layout.is-workbench {
+    display: block;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-workbench {
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-workbench-preview {
+    gap: 8px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-workbench-head h2 {
+    font-size: 15px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-workbench-head small {
+    display: none;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-workbench-body > pre {
+    padding: 10px 11px;
+    font-size: 11px;
+    line-height: 1.55;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-workbench-composer {
+    gap: 8px;
+    padding-top: 9px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-composer-toolbar {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 6px;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-composer-toolbar
+    .workspace-prompt-subheading {
+    display: none;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-composer-toolbar
+    .workspace-prompt-scope {
+    display: block;
+    padding: 0;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-composer-toolbar
+    .workspace-prompt-scope
+    .workspace-ui-control {
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-question-input > span {
+    display: none;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-question-input
+    > textarea.workspace-ui-control {
+    height: 76px;
+    min-height: 76px;
+    max-height: 104px;
+    resize: none;
   }
 
   .ai-mobile-shortcut-btn {

@@ -24,11 +24,7 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng, type QizhengResult } from 'mingyu-core/qizheng';
 import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
 import type { AstrolabeData } from '@/types/divination';
-import type {
-  BaziFortuneSelectionModule,
-  InspirationCategory,
-  PromptEngineModule,
-} from './ResultPage.types';
+import type { BaziFortuneSelectionModule, PromptEngineModule } from './ResultPage.types';
 import { PROMPT_DRAFT_STORAGE_PREFIX } from './ResultPage.constants';
 import {
   buildBaziZiweiEnhancedPrompt,
@@ -59,14 +55,17 @@ import { BaziChartBoard } from './components/BaziChartBoard';
 import { ZiweiBoard } from './components/ZiweiBoard';
 import { ZiweiScopeModal } from './components/ZiweiScopeModal';
 import { AstrolabeScopeModal } from './components/AstrolabeScopeModal';
-import { PromptShortcutPanel } from './components/PromptShortcutPanel';
 import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useZiweiCalculations } from './hooks/useZiweiCalculations';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
-import { ResultAssistantFab, ResultAssistantHeader } from '@/components/workspace/WorkspaceUI';
+import {
+  ResultAssistantFab,
+  ResultAssistantHeader,
+  WorkspaceButton,
+} from '@/components/workspace/WorkspaceUI';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
@@ -77,7 +76,7 @@ import {
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
-import { PromptDeliveryPanel } from '@/components/PromptPreview';
+import { PromptWorkbenchPanel } from '@/components/PromptPreview';
 import { normalizeChartInputForSource, preserveChartRecordId } from '@/lib/case-navigation';
 
 type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
@@ -248,7 +247,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
   const isMobileAi = isAiEnabled && isAssistantPage && isCompactResultLayout;
-  const [isAiShortcutPopoverOpen, setIsAiShortcutPopoverOpen] = useState(false);
   const [isAiMobileSettingsOpen, setIsAiMobileSettingsOpen] = useState(true);
   const [promptEngine, setPromptEngine] = useState<PromptEngineModule | null>(null);
   const [baziFortuneSelectionModule, setBaziFortuneSelectionModule] =
@@ -1266,7 +1264,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     setInspirationText(question);
   }
 
-  function handleAiShortcutClick(label: string) {
+  function applyActiveShortcutMode(label: string) {
     const source = promptState.promptSource;
     if (source === 'bazi' || source === 'bazi-ziwei') {
       applyBaziShortcutMode(label);
@@ -1275,40 +1273,130 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     } else if (source === 'astrolabe') {
       applyAstrolabeShortcutMode(label);
     }
-    setIsAiShortcutPopoverOpen(false);
   }
 
-  const aiMobileShortcutActions =
-    promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei'
-      ? getBaziShortcutActions(inputState.analysisMode)
-      : promptState.promptSource === 'ziwei'
-        ? getZiweiShortcutActions(inputState.analysisMode)
-        : promptState.promptSource === 'astrolabe'
-          ? ASTROLABE_SHORTCUT_ACTIONS
-          : [];
-  const aiMobileActiveShortcutMode =
+  const promptShortcutActions = useMemo(
+    () =>
+      promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei'
+        ? getBaziShortcutActions(inputState.analysisMode)
+        : promptState.promptSource === 'ziwei'
+          ? getZiweiShortcutActions(inputState.analysisMode)
+          : promptState.promptSource === 'astrolabe'
+            ? ASTROLABE_SHORTCUT_ACTIONS
+            : [],
+    [inputState.analysisMode, promptState.promptSource],
+  );
+  const activePromptShortcutMode =
     promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei'
       ? activeBaziShortcutMode
       : promptState.promptSource === 'ziwei'
         ? activeZiweiShortcutMode
-        : activeAstrolabeShortcutMode;
-  const metaphysicsPromptQuestionField =
-    isQizhengPromptSource || isBazhaiPromptSource ? (
-      <label className="workspace-ui-field metaphysics-prompt-question-field">
-        <span>希望重点解读的问题（可选）</span>
-        <textarea
-          className="workspace-ui-control"
-          rows={4}
-          value={metaphysicsQuestionDraft}
-          onChange={(event) => setMetaphysicsQuestionDraft(event.target.value)}
-          placeholder={
-            isBazhaiPromptSource
-              ? '例如：卧室、书房和大门分别怎样安排更合适？'
-              : '例如：请重点分析事业方向、关系模式和近期应注意的风险。'
-          }
-        />
-      </label>
-    ) : null;
+        : promptState.promptSource === 'astrolabe'
+          ? activeAstrolabeShortcutMode
+          : metaphysicsQuestionDraft.trim()
+            ? '自定义'
+            : '未指定';
+  const activePromptQuestionDraft =
+    promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei'
+      ? baziQuestionDraft
+      : promptState.promptSource === 'ziwei'
+        ? ziweiQuestionDraft
+        : promptState.promptSource === 'astrolabe'
+          ? astrolabeQuestionDraft
+          : metaphysicsQuestionDraft;
+  const activePromptQuestionPlaceholder = isBazhaiPromptSource
+    ? '例如：卧室、书房和大门分别怎样安排更合适？'
+    : isQizhengPromptSource
+      ? '例如：请重点分析事业方向、关系模式和近期应注意的风险。'
+      : inputState.analysisMode === 'compatibility'
+        ? '输入这段关系或合作最想了解的问题'
+        : '输入你真正想问的问题';
+  const natalPromptSections = useMemo(() => {
+    const keyword = inspiration.deferredSearch.trim().toLocaleLowerCase();
+    const actionMap = new Map(promptShortcutActions.map((item) => [item.label, item]));
+    const groupedLabels = new Set<string>();
+    const sourceSections =
+      inputState.analysisMode === 'single'
+        ? singlePromptShortcutSections
+        : [
+            {
+              key: 'compatibility',
+              title: '关系主题',
+              description: '选择合盘重点',
+              labels: promptShortcutActions.map((item) => item.label),
+            },
+          ];
+    const sections = sourceSections
+      .map((section) => {
+        const items = section.labels
+          .filter((label) => actionMap.has(label))
+          .filter((label) =>
+            keyword
+              ? `${section.title}${section.description}${label}`
+                  .toLocaleLowerCase()
+                  .includes(keyword)
+              : true,
+          )
+          .map((label) => {
+            groupedLabels.add(label);
+            return {
+              id: `natal-${section.key}-${label}`,
+              question: label,
+            };
+          });
+        return {
+          id: `natal-${section.key}`,
+          heading: section.title,
+          items,
+        };
+      })
+      .filter((section) => section.items.length > 0);
+    const ungroupedItems = promptShortcutActions
+      .filter((item) => !groupedLabels.has(item.label))
+      .filter((item) => (keyword ? item.label.toLocaleLowerCase().includes(keyword) : true))
+      .map((item) => ({
+        id: `natal-other-${item.label}`,
+        question: item.label,
+      }));
+
+    return ungroupedItems.length > 0
+      ? [...sections, { id: 'natal-other', heading: '其他主题', items: ungroupedItems }]
+      : sections;
+  }, [inputState.analysisMode, inspiration.deferredSearch, promptShortcutActions]);
+  const questionPickerSections =
+    inspiration.activeMode === 'matter' ? inspiration.filteredMatterSections : natalPromptSections;
+
+  function handlePromptQuestionDraftChange(value: string) {
+    const source = promptState.promptSource;
+    if (source === 'bazi' || source === 'bazi-ziwei') {
+      if (activeBaziShortcutMode !== '自定义' && activeBaziShortcutMode !== '问题灵感') {
+        applyBaziShortcutMode('自定义');
+      }
+      setBaziQuestionDraft(value);
+    } else if (source === 'ziwei') {
+      if (activeZiweiShortcutMode !== '自定义' && activeZiweiShortcutMode !== '问题灵感') {
+        applyZiweiShortcutMode('自定义');
+      }
+      setZiweiQuestionDraft(value);
+    } else if (source === 'astrolabe') {
+      if (activeAstrolabeShortcutMode !== '自定义' && activeAstrolabeShortcutMode !== '问题灵感') {
+        applyAstrolabeShortcutMode('自定义');
+      }
+      setAstrolabeQuestionDraft(value);
+    } else {
+      setMetaphysicsQuestionDraft(value);
+    }
+  }
+
+  function handleQuestionPickerSelect(value: string) {
+    if (inspiration.activeMode === 'matter') {
+      handleInspirationSelect(value);
+      return;
+    }
+
+    applyActiveShortcutMode(value);
+    inspiration.close();
+  }
   const promptScopeField = hasAdjustablePromptScope ? (
     <div className="workspace-prompt-scope">
       <div className="workspace-prompt-subheading">
@@ -1563,16 +1651,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 <div className="ai-mobile-chat">
                   <div className="ai-mobile-setting-shell">
                     <div className="ai-mobile-setting-top">
-                      {aiMobileShortcutActions.length > 0 ? (
-                        <button
-                          type="button"
-                          className={`ai-mobile-shortcut-btn ${isAiShortcutPopoverOpen ? 'is-active' : ''}`}
-                          onClick={() => setIsAiShortcutPopoverOpen((value) => !value)}
-                          title="选择问题"
-                        >
-                          ✨ 选择问题
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        className="ai-mobile-shortcut-btn"
+                        onClick={() => inspiration.open('matter')}
+                      >
+                        ✨ 选择问题
+                      </button>
 
                       {hasAdjustablePromptScope ? (
                         <button
@@ -1582,25 +1667,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                         >
                           {isAiMobileSettingsOpen ? '收起范围' : '调整范围'}
                         </button>
-                      ) : null}
-
-                      {isAiShortcutPopoverOpen && aiMobileShortcutActions.length > 0 ? (
-                        <div className="ai-mobile-shortcut-popover">
-                          <div className="ai-mobile-shortcut-popover-inner">
-                            <PromptShortcutPanel
-                              actions={aiMobileShortcutActions}
-                              activeMode={aiMobileActiveShortcutMode}
-                              onApplyMode={handleAiShortcutClick}
-                              showCustomAndInspiration={false}
-                              showCustomAction={false}
-                              showInspirationAction={false}
-                              customDraft=""
-                              onCustomDraftChange={() => {}}
-                              customPlaceholder=""
-                              onOpenInspiration={() => {}}
-                            />
-                          </div>
-                        </div>
                       ) : null}
                     </div>
 
@@ -1646,7 +1712,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   <AiChatPanel
                     contextPrompt={aiContextPrompt}
                     resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
-                    onOpenInspiration={inspiration.open}
                     externalInput={inspirationText}
                     onExternalInputConsumed={() => setInspirationText('')}
                     aiConfig={aiRequestConfig}
@@ -1658,67 +1723,17 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   <section className="workspace-ui-surface">
                     <div className="workspace-ui-panel-head">
                       <div>
-                        <h2 className="prompt-settings-title">选择问题</h2>
-                        <p>选择常用模板，或直接在右侧输入你真正想问的问题。</p>
+                        <h2 className="prompt-settings-title">问题与范围</h2>
                       </div>
                     </div>
                     <div className="field-list">
-                      {metaphysicsPromptQuestionField}
-                      {promptState.promptSource === 'bazi' ||
-                      promptState.promptSource === 'bazi-ziwei' ? (
-                        <PromptShortcutPanel
-                          actions={getBaziShortcutActions(inputState.analysisMode)}
-                          activeMode={activeBaziShortcutMode}
-                          onApplyMode={handleAiShortcutClick}
-                          showCustomAndInspiration={false}
-                          showCustomAction={false}
-                          showInspirationAction={false}
-                          customDraft=""
-                          onCustomDraftChange={() => {}}
-                          customPlaceholder=""
-                          onOpenInspiration={() => {}}
-                          sections={
-                            inputState.analysisMode === 'single'
-                              ? singlePromptShortcutSections
-                              : undefined
-                          }
-                        />
-                      ) : null}
-
-                      {promptState.promptSource === 'ziwei' ? (
-                        <PromptShortcutPanel
-                          actions={getZiweiShortcutActions(inputState.analysisMode)}
-                          activeMode={activeZiweiShortcutMode}
-                          onApplyMode={handleAiShortcutClick}
-                          showCustomAndInspiration={false}
-                          showCustomAction={false}
-                          showInspirationAction={false}
-                          customDraft=""
-                          onCustomDraftChange={() => {}}
-                          customPlaceholder=""
-                          onOpenInspiration={() => {}}
-                          sections={
-                            inputState.analysisMode === 'single'
-                              ? singlePromptShortcutSections
-                              : undefined
-                          }
-                        />
-                      ) : null}
-
-                      {promptState.promptSource === 'astrolabe' ? (
-                        <PromptShortcutPanel
-                          actions={ASTROLABE_SHORTCUT_ACTIONS}
-                          activeMode={activeAstrolabeShortcutMode}
-                          onApplyMode={handleAiShortcutClick}
-                          showCustomAndInspiration={false}
-                          showCustomAction={false}
-                          showInspirationAction={false}
-                          customDraft=""
-                          onCustomDraftChange={() => {}}
-                          customPlaceholder=""
-                          onOpenInspiration={() => {}}
-                        />
-                      ) : null}
+                      <WorkspaceButton
+                        className="workspace-question-picker-trigger"
+                        onClick={() => inspiration.open('matter')}
+                      >
+                        <span>选择问题</span>
+                        <small>{activePromptShortcutMode}</small>
+                      </WorkspaceButton>
 
                       {promptScopeField}
 
@@ -1731,7 +1746,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   <AiChatPanel
                     contextPrompt={aiContextPrompt}
                     resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
-                    onOpenInspiration={inspiration.open}
                     externalInput={inspirationText}
                     onExternalInputConsumed={() => setInspirationText('')}
                     aiConfig={aiRequestConfig}
@@ -1739,108 +1753,46 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 </div>
               )
             ) : (
-              /* ── 非 AI 模式：先选择问题，再复制或分享给常用 AI ── */
-              <div className="workspace-prompt-layout">
-                <section className="workspace-ui-surface workspace-prompt-builder">
-                  <div className="workspace-ui-panel-head">
-                    <div>
-                      <h2>想问什么</h2>
-                      <p>先选择问题模板，也可以直接输入自己的具体问题。</p>
-                    </div>
-                  </div>
-
-                  <div className="field-list">
-                    {metaphysicsPromptQuestionField}
-                    {promptState.promptSource === 'bazi' ||
-                    promptState.promptSource === 'bazi-ziwei' ||
-                    promptState.promptSource === 'ziwei' ||
-                    promptState.promptSource === 'astrolabe' ? (
-                      <div className="workspace-prompt-subheading">
-                        <strong>问题模板</strong>
-                        <small>选一个最接近的主题，再按需补充具体问题。</small>
-                      </div>
-                    ) : null}
-
-                    {promptState.promptSource === 'bazi' ||
-                    promptState.promptSource === 'bazi-ziwei' ? (
-                      <PromptShortcutPanel
-                        actions={getBaziShortcutActions(inputState.analysisMode)}
-                        activeMode={activeBaziShortcutMode}
-                        onApplyMode={applyBaziShortcutMode}
-                        showCustomAndInspiration={inputState.analysisMode === 'single'}
-                        showCustomAction
-                        showInspirationAction={inputState.analysisMode === 'single'}
-                        customDraft={baziQuestionDraft}
-                        onCustomDraftChange={setBaziQuestionDraft}
-                        customPlaceholder={
-                          inputState.analysisMode === 'compatibility'
-                            ? '例如：我们适合继续合作，还是更适合保持边界？'
-                            : '例如：我近期适合换工作还是稳住？'
-                        }
-                        onOpenInspiration={inspiration.open}
-                        sections={
-                          inputState.analysisMode === 'single'
-                            ? singlePromptShortcutSections
-                            : undefined
-                        }
-                        afterShortcuts={promptScopeField}
-                      />
-                    ) : null}
-
-                    {promptState.promptSource === 'ziwei' ? (
-                      <PromptShortcutPanel
-                        actions={getZiweiShortcutActions(inputState.analysisMode)}
-                        activeMode={activeZiweiShortcutMode}
-                        onApplyMode={applyZiweiShortcutMode}
-                        showCustomAndInspiration={inputState.analysisMode === 'single'}
-                        showCustomAction
-                        showInspirationAction={inputState.analysisMode === 'single'}
-                        customDraft={ziweiQuestionDraft}
-                        onCustomDraftChange={setZiweiQuestionDraft}
-                        customPlaceholder={
-                          inputState.analysisMode === 'compatibility'
-                            ? '例如：请直接分析我们这段关系更适合推进，还是先放慢节奏。'
-                            : '例如：请重点分析我这段时间该主动还是先稳住。'
-                        }
-                        onOpenInspiration={inspiration.open}
-                        sections={
-                          inputState.analysisMode === 'single'
-                            ? singlePromptShortcutSections
-                            : undefined
-                        }
-                        afterShortcuts={promptScopeField}
-                      />
-                    ) : null}
-
-                    {promptState.promptSource === 'astrolabe' ? (
-                      <PromptShortcutPanel
-                        actions={ASTROLABE_SHORTCUT_ACTIONS}
-                        activeMode={activeAstrolabeShortcutMode}
-                        onApplyMode={applyAstrolabeShortcutMode}
-                        showCustomAndInspiration
-                        quickGridClassName="astrolabe-quick-grid"
-                        customDraft={astrolabeQuestionDraft}
-                        onCustomDraftChange={setAstrolabeQuestionDraft}
-                        customPlaceholder="例如：请重点分析我的事业天赋和长期发展方向。"
-                        onOpenInspiration={inspiration.open}
-                        afterShortcuts={promptScopeField}
-                      />
-                    ) : null}
-                  </div>
-                </section>
-
-                {isAstrolabePromptSource && astrolabeCalculation.error ? (
-                  <p className="error-text">{astrolabeCalculation.error}</p>
-                ) : null}
-
-                <PromptDeliveryPanel
+              /* ── 非 AI 模式：提示词在上，选择与输入固定在底部 ── */
+              <div className="workspace-prompt-layout is-workbench">
+                <PromptWorkbenchPanel
                   promptText={previewActivePromptText}
                   fallback={<PromptPreSkeleton />}
                   copyState={copyState}
                   shareState={shareState}
                   onCopy={handleCopy}
                   onShare={handleShare}
-                />
+                >
+                  <div
+                    className={`workspace-prompt-composer-toolbar${
+                      hasAdjustablePromptScope ? '' : ' is-single'
+                    }`}
+                  >
+                    <WorkspaceButton
+                      className="workspace-question-picker-trigger"
+                      onClick={() => inspiration.open('matter')}
+                    >
+                      <span>选择问题</span>
+                      <small>{activePromptShortcutMode}</small>
+                    </WorkspaceButton>
+                    {promptScopeField}
+                  </div>
+
+                  <label className="workspace-ui-field workspace-prompt-question-input">
+                    <span>输入问题</span>
+                    <textarea
+                      className="workspace-ui-control"
+                      rows={4}
+                      value={activePromptQuestionDraft}
+                      onChange={(event) => handlePromptQuestionDraftChange(event.target.value)}
+                      placeholder={activePromptQuestionPlaceholder}
+                    />
+                  </label>
+
+                  {isAstrolabePromptSource && astrolabeCalculation.error ? (
+                    <p className="error-text">{astrolabeCalculation.error}</p>
+                  ) : null}
+                </PromptWorkbenchPanel>
               </div>
             )
           ) : null}
@@ -1894,17 +1846,33 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         />
       ) : null}
 
-      {inspiration.isOpen && inputState.analysisMode === 'single' ? (
+      {inspiration.isOpen ? (
         <QuestionInspirationModal
-          filters={inspiration.inspirationFilters}
-          activeFilter={inspiration.activeCategory}
-          onFilterChange={(value) => inspiration.setActiveCategory(value as InspirationCategory)}
+          title="选择问题"
+          filters={inspiration.modeFilters}
+          activeFilter={inspiration.activeMode}
+          onFilterChange={(value) =>
+            inspiration.setActiveMode(value === 'natal' ? 'natal' : 'matter')
+          }
           searchValue={inspiration.search}
           onSearchChange={inspiration.setSearch}
-          sections={inspiration.filteredSections}
-          emptyText="没有找到匹配的问题，请换个搜索词或主题。"
-          onSelect={handleInspirationSelect}
+          searchPlaceholder={
+            inspiration.activeMode === 'matter' ? '搜索想问的事情' : '搜索命书主题'
+          }
+          sections={questionPickerSections}
+          emptyText={
+            inspiration.activeMode === 'natal' && promptShortcutActions.length === 0
+              ? '当前排盘暂无命书模板，可直接输入问题。'
+              : '没有找到匹配的问题，请换个搜索词。'
+          }
+          onSelect={handleQuestionPickerSelect}
           onClose={inspiration.close}
+          filterVariant="segmented"
+          selectedQuestion={
+            inspiration.activeMode === 'matter'
+              ? activePromptQuestionDraft
+              : activePromptShortcutMode
+          }
         />
       ) : null}
     </div>

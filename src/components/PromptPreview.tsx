@@ -54,6 +54,38 @@ function ShareIcon() {
   );
 }
 
+function PromptActionButtons(props: {
+  promptText: string;
+  copyState: string;
+  shareState: string;
+  onCopy: () => void;
+  onShare: () => void;
+}) {
+  return (
+    <div className="workspace-prompt-delivery-actions">
+      <WorkspaceButton
+        className="workspace-prompt-delivery-button"
+        variant="primary"
+        size="large"
+        disabled={!props.promptText}
+        onClick={props.onCopy}
+      >
+        <CopyIcon />
+        <span>{props.copyState}</span>
+      </WorkspaceButton>
+      <WorkspaceButton
+        className="workspace-prompt-delivery-button"
+        size="large"
+        disabled={!props.promptText}
+        onClick={props.onShare}
+      >
+        <ShareIcon />
+        <span>{props.shareState}</span>
+      </WorkspaceButton>
+    </div>
+  );
+}
+
 export function PromptDeliveryPanel({
   promptText,
   fallback,
@@ -83,30 +115,61 @@ export function PromptDeliveryPanel({
           </div>
         </div>
 
-        <div className="workspace-prompt-delivery-actions">
-          <WorkspaceButton
-            className="workspace-prompt-delivery-button"
-            variant="primary"
-            size="large"
-            disabled={!promptText}
-            onClick={onCopy}
-          >
-            <CopyIcon />
-            <span>{copyState}</span>
-          </WorkspaceButton>
-          <WorkspaceButton
-            className="workspace-prompt-delivery-button"
-            size="large"
-            disabled={!promptText}
-            onClick={onShare}
-          >
-            <ShareIcon />
-            <span>{shareState}</span>
-          </WorkspaceButton>
-        </div>
+        <PromptActionButtons
+          promptText={promptText}
+          copyState={copyState}
+          shareState={shareState}
+          onCopy={onCopy}
+          onShare={onShare}
+        />
       </div>
 
       <PromptPreview promptText={promptText} fallback={fallback} />
+    </section>
+  );
+}
+
+interface PromptWorkbenchPanelProps extends PromptDeliveryPanelProps {
+  children: ReactNode;
+}
+
+export function PromptWorkbenchPanel({
+  promptText,
+  fallback,
+  copyState,
+  shareState,
+  onCopy,
+  onShare,
+  children,
+}: PromptWorkbenchPanelProps) {
+  return (
+    <section className="workspace-ui-surface workspace-prompt-workbench">
+      <div className="workspace-prompt-workbench-preview">
+        <header className="workspace-prompt-workbench-head">
+          <h2>提示词</h2>
+          <small>内容会随问题和解读范围自动更新</small>
+        </header>
+
+        <div className="workspace-prompt-workbench-body" aria-live="polite">
+          {promptText ? (
+            <pre>{promptText}</pre>
+          ) : (
+            <div className="workspace-prompt-preview-loading">
+              {fallback || <span>正在整理提问内容…</span>}
+            </div>
+          )}
+        </div>
+
+        <PromptActionButtons
+          promptText={promptText}
+          copyState={copyState}
+          shareState={shareState}
+          onCopy={onCopy}
+          onShare={onShare}
+        />
+      </div>
+
+      <div className="workspace-prompt-workbench-composer">{children}</div>
     </section>
   );
 }
