@@ -1540,8 +1540,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
         <div
           className={`result-tab-pane workspace-result-assistant-pane ${
-            showAssistantPane ? 'is-active' : 'is-inactive'
-          }`}
+            isAiEnabled ? 'is-ai-mode' : 'is-prompt-mode'
+          } ${showAssistantPane ? 'is-active' : 'is-inactive'}`}
           aria-hidden={!showAssistantPane}
         >
           {mountedTabs.prompt ? (

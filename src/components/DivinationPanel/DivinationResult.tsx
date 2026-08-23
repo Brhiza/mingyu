@@ -352,7 +352,11 @@ export function DivinationResult({
         {showBoard ? <div className="divination-result-board-pane">{resultBlock}</div> : null}
 
         {showInterpretation ? (
-          <div className="divination-result-assistant-pane">
+          <div
+            className={`divination-result-assistant-pane ${
+              isAiEnabled ? 'is-ai-mode' : 'is-prompt-mode'
+            }`}
+          >
             {isAiEnabled ? (
               <div className="divination-ai-card">
                 <AiChatPanel
