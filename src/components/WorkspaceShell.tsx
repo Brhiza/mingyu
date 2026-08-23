@@ -42,7 +42,8 @@ function resolveActiveFeature(pathname: string, search: string): WorkspaceFeatur
 }
 
 function resolvePageTitle(pathname: string, activeFeature: WorkspaceFeatureId | null) {
-  if (pathname === '/records') return '案例与历史';
+  if (pathname === '/cases') return '案例';
+  if (pathname === '/records') return '历史记录';
   if (pathname === '/tutorial') return '使用说明';
   if (!activeFeature) return '命语';
   const feature = getWorkspaceFeature(activeFeature);
@@ -95,6 +96,9 @@ export function WorkspaceShell() {
 
   useEffect(() => {
     setIsDrawerOpen(false);
+    if (location.pathname === '/cases') {
+      setSidebarView('tools');
+    }
     if (location.pathname === '/records') {
       setSidebarView(
         new URLSearchParams(location.search).get('tab') === 'divination' ? 'history' : 'tools',
@@ -154,6 +158,10 @@ export function WorkspaceShell() {
         className="workspace-global-case-select"
         label="案例"
         onSelect={navigateForSelectedCase}
+        onManage={() => {
+          navigate('/cases');
+          setIsDrawerOpen(false);
+        }}
       />
 
       <div className="workspace-sidebar-switch" role="tablist" aria-label="侧栏内容">

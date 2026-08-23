@@ -22,6 +22,11 @@ const RecordsPage = lazy(async () => {
   return { default: module.RecordsPage };
 });
 
+const CasePage = lazy(async () => {
+  const module = await import('./pages/CasePage');
+  return { default: module.CasePage };
+});
+
 const ResultPage = lazy(async () => {
   const module = await import('./pages/ResultPage');
   return { default: module.ResultPage };
@@ -109,6 +114,7 @@ export default function App() {
             <Route path="/divination/:method" element={<DivinationPage />} />
             <Route path="/divination/:method/result" element={<DivinationResultPage />} />
             <Route path="/tutorial" element={<TutorialPage />} />
+            <Route path="/cases" element={<CasePage />} />
             <Route path="/records" element={<RecordsPage />} />
             <Route path="/result" element={<ResultPage />} />
           </Route>

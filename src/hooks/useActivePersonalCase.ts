@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ACTIVE_CASE_EVENT, readActiveCaseId, saveActiveCaseId } from '@/lib/active-case';
-import { HISTORY_RECORDS_EVENT, loadPersonalHistory } from '@/lib/history-records';
+import {
+  HISTORY_RECORDS_EVENT,
+  loadPersonalHistory,
+  touchPersonalHistoryUsage,
+} from '@/lib/history-records';
 
 export function useActivePersonalCase() {
   const [revision, setRevision] = useState(0);
@@ -30,6 +34,9 @@ export function useActivePersonalCase() {
   }, [activeCase, storedCaseId]);
 
   const selectCase = useCallback((caseId: string | null) => {
+    if (caseId) {
+      touchPersonalHistoryUsage(caseId);
+    }
     saveActiveCaseId(caseId);
   }, []);
 

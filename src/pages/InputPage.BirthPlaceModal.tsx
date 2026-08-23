@@ -3,15 +3,19 @@ import type { useBirthPlace } from '@/hooks/useBirthPlace';
 
 export interface BirthPlaceModalProps {
   birthPlace: ReturnType<typeof useBirthPlace>;
+  backdropClassName?: string;
 }
 
-function BirthPlaceModalImpl({ birthPlace }: BirthPlaceModalProps) {
+function BirthPlaceModalImpl({ birthPlace, backdropClassName = '' }: BirthPlaceModalProps) {
   if (!birthPlace.isBirthPlaceModalOpen) {
     return null;
   }
 
   return (
-    <div className="modal-backdrop" onClick={birthPlace.closeBirthPlaceModal}>
+    <div
+      className={`modal-backdrop ${backdropClassName}`.trim()}
+      onClick={birthPlace.closeBirthPlaceModal}
+    >
       <div
         className="modal-card birth-place-modal-card"
         onClick={(event) => event.stopPropagation()}

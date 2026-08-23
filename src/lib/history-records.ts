@@ -22,6 +22,8 @@ export type PersonalHistoryRecord = {
   workspaceSource?: PromptSourceKey;
   birthText: string;
   input: QueryInputState;
+  createdAt?: string;
+  lastUsedAt?: string;
   updatedAt: string;
   generatedName?: boolean;
   pinned?: boolean;
@@ -52,6 +54,13 @@ export type DivinationHistoryRecord = {
   caseName?: string;
   updatedAt: string;
 };
+
+export function sortPersonalCasesForQuickSwitch(records: PersonalHistoryRecord[]) {
+  return [...records].sort((left, right) => {
+    if (Boolean(left.pinned) !== Boolean(right.pinned)) return left.pinned ? -1 : 1;
+    return (right.lastUsedAt ?? right.updatedAt).localeCompare(left.lastUsedAt ?? left.updatedAt);
+  });
+}
 
 function isObjectRecord(item: unknown): item is Record<string, unknown> {
   return typeof item === 'object' && item !== null;
@@ -240,31 +249,36 @@ export function loadPersonalHistory() {
     PERSONAL_HISTORY_STORAGE_KEY,
     (item) => item.type === 'single' && typeof item.name === 'string',
   );
-  return records
-    .reduce<PersonalHistoryRecord[]>((cases, record) => {
-      const duplicateIndex = cases.findIndex((candidate) =>
-        isSamePersonalCase(candidate, record.name, record.input),
-      );
-      if (duplicateIndex < 0) {
-        cases.push(record);
-        return cases;
-      }
-
-      const current = cases[duplicateIndex];
-      cases[duplicateIndex] = {
-        ...current,
-        pinned: Boolean(current.pinned || record.pinned),
-        input:
-          getPersonalInputCompleteness(record.input) > getPersonalInputCompleteness(current.input)
-            ? record.input
-            : current.input,
-      };
+  const uniqueRecords = records.reduce<PersonalHistoryRecord[]>((cases, record) => {
+    const duplicateIndex = cases.findIndex((candidate) =>
+      isSamePersonalCase(candidate, record.name, record.input),
+    );
+    if (duplicateIndex < 0) {
+      cases.push(record);
       return cases;
-    }, [])
-    .sort((left, right) => {
-      if (Boolean(left.pinned) !== Boolean(right.pinned)) return left.pinned ? -1 : 1;
-      return right.updatedAt.localeCompare(left.updatedAt);
-    });
+    }
+
+    const current = cases[duplicateIndex];
+    cases[duplicateIndex] = {
+      ...current,
+      pinned: Boolean(current.pinned || record.pinned),
+      createdAt:
+        [current.createdAt, record.createdAt, current.updatedAt, record.updatedAt]
+          .filter((value): value is string => Boolean(value))
+          .sort()[0] ?? current.updatedAt,
+      lastUsedAt:
+        [current.lastUsedAt, record.lastUsedAt, current.updatedAt, record.updatedAt]
+          .filter((value): value is string => Boolean(value))
+          .sort()
+          .at(-1) ?? current.updatedAt,
+      input:
+        getPersonalInputCompleteness(record.input) > getPersonalInputCompleteness(current.input)
+          ? record.input
+          : current.input,
+    };
+    return cases;
+  }, []);
+  return sortPersonalCasesForQuickSwitch(uniqueRecords);
 }
 
 export function loadCompatibilityHistory() {
@@ -302,6 +316,7 @@ export function upsertPersonalHistory(
     [normalizeText(name), input.gender, input.dateType, input.year, input.month, input.day].join(
       '|',
     );
+  const now = new Date().toISOString();
 
   const record: PersonalHistoryRecord = {
     id,
@@ -316,7 +331,9 @@ export function upsertPersonalHistory(
       analysisMode: 'single',
       name,
     }),
-    updatedAt: new Date().toISOString(),
+    createdAt: existingRecord?.createdAt ?? existingRecord?.updatedAt ?? now,
+    lastUsedAt: now,
+    updatedAt: now,
     generatedName: generated,
     pinned: existingRecord?.pinned,
   };
@@ -397,6 +414,21 @@ export function togglePersonalHistoryPin(id: string) {
   const next = records.map((item) =>
     selectedRecord && isSamePersonalCase(item, selectedRecord.name, selectedRecord.input)
       ? { ...item, pinned: !selectedRecord.pinned }
+      : item,
+  );
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
+  return next;
+}
+
+export function touchPersonalHistoryUsage(id: string) {
+  const records = loadPersonalHistory();
+  const selectedRecord = records.find((item) => item.id === id);
+  if (!selectedRecord) return records;
+
+  const now = new Date().toISOString();
+  const next = records.map((item) =>
+    isSamePersonalCase(item, selectedRecord.name, selectedRecord.input)
+      ? { ...item, lastUsedAt: now }
       : item,
   );
   writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);

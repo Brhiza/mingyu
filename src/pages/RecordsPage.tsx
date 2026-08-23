@@ -1,25 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { DIVINATION_METHOD_OPTIONS } from 'mingyu-core/divination/config';
 import {
   loadCompatibilityHistory,
   loadDivinationHistory,
-  loadPersonalHistory,
   removeCompatibilityHistory,
   removeDivinationHistory,
-  removePersonalHistory,
   toggleCompatibilityHistoryPin,
-  togglePersonalHistoryPin,
 } from '@/lib/history-records';
-import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
-import {
-  buildCompatibilityRecordPath,
-  buildDivinationRecordPath,
-  buildPersonalRecordPath,
-} from '@/lib/case-navigation';
+import { buildCompatibilityRecordPath, buildDivinationRecordPath } from '@/lib/case-navigation';
 
-type HistoryTab = 'personal' | 'compatibility' | 'divination';
+type HistoryTab = 'compatibility' | 'divination';
 
 const divinationMethodLabelMap = Object.fromEntries(
   DIVINATION_METHOD_OPTIONS.map((item) => [item.value, item.label]),
@@ -40,27 +32,17 @@ function formatUpdatedAt(value: string) {
 
 export function RecordsPage() {
   const navigate = useNavigate();
-  const { selectCase } = useActivePersonalCase();
   const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const defaultTab: HistoryTab = requestedTab === 'compatibility' ? 'compatibility' : 'divination';
+  const [activeTab, setActiveTab] = useState<HistoryTab>(defaultTab);
   const [searchText, setSearchText] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
-  const defaultTab: HistoryTab =
-    searchParams.get('tab') === 'compatibility'
-      ? 'compatibility'
-      : searchParams.get('tab') === 'divination'
-        ? 'divination'
-        : 'personal';
-  const [activeTab, setActiveTab] = useState<HistoryTab>(defaultTab);
 
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-  const personalRecords = useMemo(
-    () => loadPersonalHistory(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refreshKey],
-  );
   const compatibilityRecords = useMemo(
     () => loadCompatibilityHistory(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,31 +55,15 @@ export function RecordsPage() {
   );
   const query = searchText.trim().toLowerCase();
 
-  const filteredPersonal = useMemo(() => {
-    if (!query) {
-      return personalRecords;
-    }
-
-    return personalRecords.filter((item) =>
-      `${item.name} ${item.birthText}`.toLowerCase().includes(query),
-    );
-  }, [personalRecords, query]);
-
   const filteredCompatibility = useMemo(() => {
-    if (!query) {
-      return compatibilityRecords;
-    }
-
+    if (!query) return compatibilityRecords;
     return compatibilityRecords.filter((item) =>
       `${item.primaryName} ${item.partnerName} ${item.name}`.toLowerCase().includes(query),
     );
   }, [compatibilityRecords, query]);
 
   const filteredDivination = useMemo(() => {
-    if (!query) {
-      return divinationRecords;
-    }
-
+    if (!query) return divinationRecords;
     return divinationRecords.filter((item) =>
       `${item.question} ${item.method} ${item.requestedMethod} ${item.caseName ?? ''}`
         .toLowerCase()
@@ -105,66 +71,33 @@ export function RecordsPage() {
     );
   }, [divinationRecords, query]);
 
-  function handleOpenPersonal(index: number) {
-    const record = filteredPersonal[index];
-    selectCase(record.id);
-    navigate(buildPersonalRecordPath(record));
-  }
-
-  function handleOpenCompatibility(index: number) {
-    const record = filteredCompatibility[index];
-    navigate(buildCompatibilityRecordPath(record));
-  }
-
-  function handleOpenDivination(index: number) {
-    const record = filteredDivination[index];
-    navigate(buildDivinationRecordPath(record));
+  if (requestedTab === 'personal') {
+    return <Navigate to="/cases" replace />;
   }
 
   function refresh() {
     setRefreshKey((current) => current + 1);
   }
 
-  function handleDeletePersonal(id: string) {
-    if (!window.confirm('确定删除这个个人案例吗？删除后无法恢复。')) return;
-    removePersonalHistory(id);
-    refresh();
-  }
-
-  function handleDeleteCompatibility(id: string) {
-    if (!window.confirm('确定删除这个合盘案例吗？删除后无法恢复。')) return;
+  function deleteCompatibility(id: string) {
+    if (!window.confirm('确定删除这个合盘记录吗？删除后无法恢复。')) return;
     removeCompatibilityHistory(id);
     refresh();
   }
 
-  function handleDeleteDivination(id: string) {
+  function deleteDivination(id: string) {
     if (!window.confirm('确定删除这条占问记录吗？删除后无法恢复。')) return;
     removeDivinationHistory(id);
     refresh();
   }
 
-  function handleTogglePersonalPin(id: string) {
-    togglePersonalHistoryPin(id);
-    refresh();
-  }
-
-  function handleToggleCompatibilityPin(id: string) {
-    toggleCompatibilityHistoryPin(id);
-    refresh();
-  }
-
-  const searchPlaceholder =
-    activeTab === 'compatibility'
-      ? '搜索双方姓名...'
-      : activeTab === 'divination'
-        ? '搜索问题或卦种...'
-        : '搜索姓名...';
+  const searchPlaceholder = activeTab === 'compatibility' ? '搜索双方姓名' : '搜索问题或卦种';
 
   return (
     <div className="page-shell input-page-shell workspace-records-page">
       <div className="bazi-view-container">
         <header className="workspace-task-header">
-          <h1>案例与历史</h1>
+          <h1>历史记录</h1>
         </header>
         <section className="history-page-section">
           <div className="records-toolbar">
@@ -172,7 +105,6 @@ export function RecordsPage() {
               <SegmentedControl
                 value={activeTab}
                 options={[
-                  { label: '个人案例', value: 'personal' as const },
                   { label: '合盘记录', value: 'compatibility' as const },
                   { label: '占问历史', value: 'divination' as const },
                 ]}
@@ -184,159 +116,60 @@ export function RecordsPage() {
             </div>
             <input
               value={searchText}
-              type="text"
+              type="search"
               className="form-input records-search-input"
               placeholder={searchPlaceholder}
-              aria-label={searchPlaceholder.replace('...', '')}
+              aria-label={searchPlaceholder}
               onChange={(event) => setSearchText(event.target.value)}
             />
           </div>
 
-          {activeTab === 'personal' ? (
-            filteredPersonal.length === 0 ? (
-              <div className="records-empty-card">暂无匹配的个人案例</div>
-            ) : (
-              <>
-                <div className="records-list">
-                  {filteredPersonal.map((record, index) => (
-                    <div
-                      key={record.id}
-                      className="record-item"
-                      onClick={() => handleOpenPersonal(index)}
-                    >
-                      <div className="record-info">
-                        <div className="info-line-1">
-                          <span className="name">
-                            {record.pinned ? '★ ' : ''}
-                            {record.name}
-                          </span>
-                          <span className="record-time">{formatUpdatedAt(record.updatedAt)}</span>
-                        </div>
-                        <div className="details-line">
-                          <span className="gender">{record.gender === 'male' ? '男' : '女'}</span>
-                          <span className="birthday">{record.birthText}</span>
-                          <span className="record-tag">个人案例</span>
-                        </div>
-                      </div>
-                      <div className="history-actions">
-                        <button
-                          type="button"
-                          className="history-action-btn"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleTogglePersonalPin(record.id);
-                          }}
-                        >
-                          {record.pinned ? '取消置顶' : '置顶'}
-                        </button>
-                        <button
-                          type="button"
-                          className="history-action-btn history-action-danger"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleDeletePersonal(record.id);
-                          }}
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="records-summary">共 {filteredPersonal.length} 条记录</div>
-              </>
-            )
-          ) : activeTab === 'compatibility' ? (
-            filteredCompatibility.length === 0 ? (
-              <div className="records-empty-card">暂无匹配的合盘记录</div>
-            ) : (
-              <>
-                <div className="records-list">
-                  {filteredCompatibility.map((record, index) => (
-                    <div
-                      key={record.id}
-                      className="record-item compatibility-item"
-                      onClick={() => handleOpenCompatibility(index)}
-                    >
-                      <div className="record-info">
-                        <div className="info-line-1">
-                          <span className="name">
-                            {record.pinned ? '★ ' : ''}
-                            {record.name}
-                          </span>
-                          <span className="record-time">{formatUpdatedAt(record.updatedAt)}</span>
-                        </div>
-                        <div className="details-line">
-                          <span className="birthday">
-                            {record.input.year}-{record.input.month}-{record.input.day}
-                          </span>
-                          <span className="birthday">
-                            {record.input.partnerYear}-{record.input.partnerMonth}-
-                            {record.input.partnerDay}
-                          </span>
-                          <span className="record-tag">合盘</span>
-                        </div>
-                      </div>
-                      <div className="history-actions">
-                        <button
-                          type="button"
-                          className="history-action-btn"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleToggleCompatibilityPin(record.id);
-                          }}
-                        >
-                          {record.pinned ? '取消置顶' : '置顶'}
-                        </button>
-                        <button
-                          type="button"
-                          className="history-action-btn history-action-danger"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleDeleteCompatibility(record.id);
-                          }}
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="records-summary">共 {filteredCompatibility.length} 条记录</div>
-              </>
-            )
-          ) : filteredDivination.length === 0 ? (
-            <div className="records-empty-card">暂无匹配的占问记录</div>
-          ) : (
-            <>
+          {activeTab === 'compatibility' ? (
+            filteredCompatibility.length ? (
               <div className="records-list">
-                {filteredDivination.map((record, index) => (
+                {filteredCompatibility.map((record) => (
                   <div
                     key={record.id}
-                    className="record-item divination-record-item"
-                    onClick={() => handleOpenDivination(index)}
+                    className="record-item compatibility-item"
+                    onClick={() => navigate(buildCompatibilityRecordPath(record))}
                   >
                     <div className="record-info">
                       <div className="info-line-1">
-                        <span className="name">{record.question}</span>
+                        <span className="name">
+                          {record.pinned ? '★ ' : ''}
+                          {record.name}
+                        </span>
                         <span className="record-time">{formatUpdatedAt(record.updatedAt)}</span>
                       </div>
                       <div className="details-line">
-                        <span className="record-tag">
-                          {record.requestedMethod === 'random'
-                            ? `随机 · ${divinationMethodLabelMap[record.method]}`
-                            : divinationMethodLabelMap[record.method]}
+                        <span className="birthday">
+                          {record.input.year}-{record.input.month}-{record.input.day}
                         </span>
-                        <span className="record-tag">案例：{record.caseName ?? '未指定'}</span>
+                        <span className="birthday">
+                          {record.input.partnerYear}-{record.input.partnerMonth}-
+                          {record.input.partnerDay}
+                        </span>
+                        <span className="record-tag">合盘</span>
                       </div>
                     </div>
                     <div className="history-actions">
                       <button
                         type="button"
+                        className="history-action-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleCompatibilityHistoryPin(record.id);
+                          refresh();
+                        }}
+                      >
+                        {record.pinned ? '取消置顶' : '置顶'}
+                      </button>
+                      <button
+                        type="button"
                         className="history-action-btn history-action-danger"
                         onClick={(event) => {
                           event.stopPropagation();
-                          handleDeleteDivination(record.id);
+                          deleteCompatibility(record.id);
                         }}
                       >
                         删除
@@ -345,8 +178,48 @@ export function RecordsPage() {
                   </div>
                 ))}
               </div>
-              <div className="records-summary">共 {filteredDivination.length} 条记录</div>
-            </>
+            ) : (
+              <div className="records-empty-card">暂无匹配的合盘记录</div>
+            )
+          ) : filteredDivination.length ? (
+            <div className="records-list">
+              {filteredDivination.map((record) => (
+                <div
+                  key={record.id}
+                  className="record-item divination-record-item"
+                  onClick={() => navigate(buildDivinationRecordPath(record))}
+                >
+                  <div className="record-info">
+                    <div className="info-line-1">
+                      <span className="name">{record.question}</span>
+                      <span className="record-time">{formatUpdatedAt(record.updatedAt)}</span>
+                    </div>
+                    <div className="details-line">
+                      <span className="record-tag">
+                        {record.requestedMethod === 'random'
+                          ? `随机 · ${divinationMethodLabelMap[record.method]}`
+                          : divinationMethodLabelMap[record.method]}
+                      </span>
+                      <span className="record-tag">案例：{record.caseName ?? '未指定'}</span>
+                    </div>
+                  </div>
+                  <div className="history-actions">
+                    <button
+                      type="button"
+                      className="history-action-btn history-action-danger"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        deleteDivination(record.id);
+                      }}
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="records-empty-card">暂无匹配的占问记录</div>
           )}
         </section>
       </div>

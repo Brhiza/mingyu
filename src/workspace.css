@@ -89,6 +89,24 @@
   font-weight: 700;
 }
 
+.active-case-select-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.active-case-select-head button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
 .active-case-select select {
   min-width: 0;
   min-height: 38px;
@@ -745,6 +763,230 @@
   border-radius: 11px;
 }
 
+.workspace-case-page .bazi-view-container {
+  max-width: 1040px;
+}
+
+.case-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.case-create-button {
+  width: auto;
+  min-height: 42px;
+  padding-inline: 20px;
+}
+
+.case-page-section {
+  padding: 16px;
+}
+
+.case-page-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.case-page-toolbar .form-input {
+  min-height: 42px;
+}
+
+.case-sort-select {
+  cursor: pointer;
+}
+
+.case-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.case-card {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface-base);
+}
+
+.case-card.is-active {
+  border-color: var(--border-contrast);
+  box-shadow: inset 3px 0 0 var(--accent-strong);
+}
+
+.case-card-head,
+.case-card-head > div:first-child,
+.case-card-status,
+.case-card-meta {
+  display: flex;
+  align-items: center;
+}
+
+.case-card-head {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.case-card-head > div:first-child,
+.case-card-status,
+.case-card-meta {
+  gap: 7px;
+}
+
+.case-card-head h2 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-card-head > div:first-child > span,
+.case-card-last-used,
+.case-card-meta span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.case-card-status span {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.case-card-meta {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.case-card-meta strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.case-card-last-used {
+  padding-top: 9px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.case-card-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.case-card-actions button,
+.case-editor-actions button {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.case-card-actions .primary-button,
+.case-editor-actions .primary-button {
+  border: 0;
+  background: var(--accent-strong);
+  color: #fff;
+  box-shadow: none;
+}
+
+.case-card-actions .is-danger {
+  color: var(--danger-text);
+}
+
+.workspace-case-page .records-empty-card {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.workspace-case-page .records-empty-card .primary-button {
+  width: auto;
+}
+
+.case-editor-backdrop {
+  z-index: 1800;
+}
+
+.case-birth-place-backdrop {
+  z-index: 1900;
+}
+
+.case-editor-modal {
+  width: min(820px, 100%);
+  padding: 0;
+  overflow: auto;
+  border-radius: 18px;
+}
+
+.case-editor-head {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-elevated-strong);
+}
+
+.case-editor-head h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 20px;
+}
+
+.case-editor-head button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.case-editor-modal .person-section {
+  margin: 16px 18px 0;
+}
+
+.case-editor-modal .global-form-error {
+  margin: 10px 18px 0;
+}
+
+.case-editor-actions {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 120px minmax(180px, 1fr);
+  gap: 10px;
+  padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface-elevated-strong);
+}
+
 .workspace-settings-backdrop,
 .workspace-shell > .modal-backdrop {
   z-index: 2000;
@@ -1084,6 +1326,23 @@
     display: none;
   }
 
+  .workspace-case-page .case-page-header {
+    min-height: 0;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+  }
+
+  .workspace-case-page .case-page-header h1 {
+    display: none;
+  }
+
+  .workspace-case-page .case-create-button {
+    width: auto;
+    min-height: 38px;
+    padding: 8px 16px;
+  }
+
   .workspace-input-page .form-wrapper.is-compatibility {
     grid-template-columns: 1fr;
   }
@@ -1148,7 +1407,7 @@
     display: block;
   }
 
-  .workspace-result-toolbar .active-case-select > span {
+  .workspace-result-toolbar .active-case-select-head {
     display: none;
   }
 
@@ -1278,5 +1537,59 @@
   .workspace-shell .privacy-hint {
     align-items: flex-start;
     padding: 8px 10px;
+  }
+
+  .case-page-section {
+    padding: 12px;
+    border-radius: 14px;
+    box-shadow: none;
+  }
+
+  .case-page-toolbar,
+  .case-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .case-page-toolbar {
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+
+  .case-card {
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .case-card-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .case-card-actions button {
+    min-width: 0;
+    padding-inline: 4px;
+  }
+
+  .case-editor-modal {
+    width: 100%;
+    max-height: 94dvh;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .case-editor-head {
+    padding: 13px 14px;
+  }
+
+  .case-editor-modal .person-section {
+    margin: 12px 12px 0;
+  }
+
+  .case-editor-modal .global-form-error {
+    margin: 8px 12px 0;
+  }
+
+  .case-editor-actions {
+    grid-template-columns: 96px minmax(0, 1fr);
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
   }
 }
