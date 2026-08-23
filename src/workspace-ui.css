@@ -1191,6 +1191,203 @@ label.workspace-ui-field > span:first-child {
     height: 17px;
   }
 
+  .workspace-result-assistant-stage {
+    height: calc(100dvh - 66px - env(safe-area-inset-top, 0px));
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workspace-result-assistant-stage .workspace-result-assistant-pane,
+  .workspace-result-assistant-stage .workspace-prompt-layout {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-layout {
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-builder {
+    min-height: 0;
+    padding: 12px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-builder > .workspace-ui-panel-head {
+    margin-bottom: 8px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-builder > .workspace-ui-panel-head p,
+  .workspace-result-assistant-stage .workspace-prompt-subheading small {
+    display: none;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-builder .field-list {
+    gap: 8px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-subheading {
+    display: block;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-sections {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: 38px auto;
+    gap: 7px 5px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-section {
+    display: contents;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-section + .workspace-prompt-section {
+    border-top: 0;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-section-head {
+    width: auto;
+    min-width: 0;
+    min-height: 38px;
+    grid-row: 1;
+    justify-content: center;
+    gap: 0;
+    padding: 0 2px;
+    border: 1px solid var(--border-soft);
+    border-radius: 9px;
+    background: var(--surface-base);
+    text-align: center;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-section.is-expanded
+    .workspace-prompt-section-head {
+    border-color: var(--border-contrast);
+    background: var(--accent-surface);
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-section-copy {
+    display: block;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-section-copy strong {
+    display: block;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-section-copy small,
+  .workspace-result-assistant-stage .workspace-prompt-section-state {
+    display: none;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-section > .workspace-ui-choice-grid {
+    width: 100%;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 0 0 2px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-section
+    > .workspace-ui-choice-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-section
+    > .workspace-ui-choice-grid
+    .workspace-ui-choice {
+    min-height: 40px;
+    flex: 0 0 auto;
+    padding-inline: 12px;
+    white-space: nowrap;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-builder
+    .workspace-ui-field
+    > textarea.workspace-ui-control {
+    height: 88px;
+    min-height: 88px;
+    max-height: 120px;
+    padding: 10px 11px;
+    font-size: 15px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-scope {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-scope .prompt-compact-grid {
+    display: block;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-scope .workspace-ui-field > span {
+    display: none;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-scope
+    .workspace-ui-control {
+    height: 40px;
+    min-height: 40px;
+    padding-block: 7px;
+    font-size: 14px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-delivery {
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-delivery-main {
+    gap: 8px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-delivery-copy {
+    gap: 8px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-delivery-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    box-shadow: none;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-delivery-copy h2 {
+    font-size: 14px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-delivery-copy p {
+    margin-top: 1px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-preview {
+    display: none;
+  }
+
   .ai-mobile-shortcut-btn {
     border-color: var(--border-contrast);
     background: var(--accent-surface);

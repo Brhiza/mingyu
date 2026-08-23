@@ -107,6 +107,7 @@ export function PromptShortcutPanel({
                 <button
                   type="button"
                   className="workspace-prompt-section-head"
+                  aria-expanded={isExpanded}
                   onClick={() => setExpandedKey(section.key)}
                 >
                   <span className="workspace-prompt-section-copy">
@@ -162,6 +163,7 @@ export function PromptShortcutPanel({
               <button
                 type="button"
                 className="workspace-prompt-section-head"
+                aria-expanded={isCustomSectionExpanded}
                 onClick={() => setExpandedKey('custom')}
               >
                 <span className="workspace-prompt-section-copy">

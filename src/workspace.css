@@ -1914,7 +1914,7 @@
   }
 
   .workspace-main.is-result-assistant .workspace-page {
-    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
   }
 
   .workspace-home-page {
