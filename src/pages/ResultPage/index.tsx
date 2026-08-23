@@ -66,11 +66,7 @@ import { useZiweiCalculations } from './hooks/useZiweiCalculations';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
-import {
-  ResultAssistantFab,
-  ResultAssistantHeader,
-  WorkspaceButton,
-} from '@/components/workspace/WorkspaceUI';
+import { ResultAssistantFab, ResultAssistantHeader } from '@/components/workspace/WorkspaceUI';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
@@ -82,11 +78,7 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { PromptDeliveryPanel } from '@/components/PromptPreview';
-import {
-  CHART_RECORD_PARAM,
-  normalizeChartInputForSource,
-  preserveChartRecordId,
-} from '@/lib/case-navigation';
+import { normalizeChartInputForSource, preserveChartRecordId } from '@/lib/case-navigation';
 
 type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
 
@@ -173,8 +165,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     [promptState.promptSource, searchParams],
   );
   const inputSearch = useMemo(() => buildInputStateSearch(inputState), [inputState]);
-  const activeChartFeature =
-    inputState.analysisMode === 'compatibility' ? 'compatibility' : promptState.promptSource;
   const isCombinedResult =
     inputState.analysisMode === 'compatibility' || promptState.promptSource === 'bazi-ziwei';
   const resultTabs = useMemo<ResultTabKey[]>(() => {
@@ -1330,11 +1320,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         />
       ) : null}
 
-      {!isAssistantPage ? (
+      {!isAssistantPage && chartTabs.length > 1 ? (
         <div className="workspace-result-navigation">
           <div className="workspace-ui-tabs" aria-label="结果内容">
             {chartTabs.map((tab) => {
-              const label = isCombinedResult ? (tab === 'bazi' ? '八字' : '紫微') : '盘面';
+              const label = tab === 'bazi' ? '八字' : '紫微';
               return (
                 <button
                   type="button"
@@ -1346,20 +1336,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 </button>
               );
             })}
-          </div>
-
-          <div className="workspace-result-toolbar">
-            <WorkspaceButton
-              size="small"
-              onClick={() => {
-                const params = new URLSearchParams(buildInputStateSearch(inputState));
-                const recordId = searchParams.get(CHART_RECORD_PARAM);
-                if (recordId) params.set(CHART_RECORD_PARAM, recordId);
-                navigate(`/chart/${activeChartFeature}?${params.toString()}`);
-              }}
-            >
-              修改资料
-            </WorkspaceButton>
           </div>
         </div>
       ) : null}

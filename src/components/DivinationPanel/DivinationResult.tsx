@@ -25,7 +25,6 @@ interface DivinationResultProps {
   shareState: string;
   showHeading?: boolean;
   assistantOnly?: boolean;
-  caseName?: string;
   onCopy: () => void;
   onShare: () => void;
   onOpenAssistant?: () => void;
@@ -188,7 +187,6 @@ export function DivinationResult({
   shareState,
   showHeading = true,
   assistantOnly = false,
-  caseName,
   onCopy,
   onShare,
   onOpenAssistant,
@@ -328,20 +326,12 @@ export function DivinationResult({
         ) : null
       ) : null}
 
-      {!assistantOnly ? (
-        <div className="divination-result-navigation">
-          <div className="workspace-ui-tabs divination-result-switch" aria-label="结果内容">
-            <button type="button" className="workspace-ui-tab is-active">
-              盘面
-            </button>
-          </div>
+      {!assistantOnly && onRestart ? (
+        <div className="divination-result-navigation is-actions-only">
           <div className="divination-result-actions">
-            <span className="divination-history-case">案例：{caseName ?? '未指定'}</span>
-            {onRestart ? (
-              <WorkspaceButton size="small" onClick={onRestart}>
-                重新占问
-              </WorkspaceButton>
-            ) : null}
+            <WorkspaceButton size="small" onClick={onRestart}>
+              重新占问
+            </WorkspaceButton>
           </div>
         </div>
       ) : null}

@@ -1034,7 +1034,7 @@
   width: min(1200px, 100%);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 16px;
   margin: -8px auto 8px;
   padding: 8px 0;
@@ -1076,25 +1076,6 @@
   display: none;
 }
 
-.workspace-result-toolbar {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.workspace-result-toolbar button {
-  min-height: 36px;
-  padding: 0 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: 9px;
-  background: var(--surface-base);
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
 .workspace-divination-error {
   width: min(760px, 100%);
   margin: 16px auto;
@@ -1130,14 +1111,8 @@
   backdrop-filter: blur(14px);
 }
 
-.divination-result-switch {
-  width: fit-content;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 11px;
-  background: var(--surface-muted);
+.divination-result-navigation.is-actions-only {
+  justify-content: flex-end;
 }
 
 .divination-result-actions {
@@ -1145,15 +1120,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.divination-history-case {
-  max-width: 180px;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .divination-result-workspace .divination-ai-card {
@@ -2085,8 +2051,7 @@
     position: static;
     z-index: 25;
     top: auto;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
     align-items: center;
     gap: 5px;
     margin: -6px -12px 8px;
@@ -2142,26 +2107,11 @@
     outline-offset: 2px;
   }
 
-  .workspace-result-toolbar {
-    grid-column: 2;
-    grid-row: 1;
-    justify-content: flex-end;
-  }
-
   .divination-result-navigation {
     position: static;
     top: auto;
     margin: -6px -12px 0;
     padding: 6px 12px;
-  }
-
-  .divination-result-switch {
-    width: 100%;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .divination-history-case {
-    display: none;
   }
 
   .records-toolbar {

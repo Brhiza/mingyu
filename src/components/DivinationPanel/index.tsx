@@ -66,7 +66,6 @@ export function DivinationPanel({
     applyPersonalCaseToDivinationDraft(createDefaultDraft(initialMethod), activeCase),
   );
   const [session, setSession] = useState<DivinationSession | null>(null);
-  const [historyCaseName, setHistoryCaseName] = useState<string | undefined>();
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isQuestionInspirationModalOpen, setIsQuestionInspirationModalOpen] = useState(false);
@@ -111,7 +110,6 @@ export function DivinationPanel({
 
     setDraft(record.draft);
     setSession(record.session);
-    setHistoryCaseName(record.caseName);
     setError('');
     setIsSubmitting(false);
   }, [displayMode, searchParams]);
@@ -291,7 +289,6 @@ export function DivinationPanel({
             shareState={shareState}
             showHeading={displayMode === 'workspace'}
             assistantOnly={assistantOnly}
-            caseName={historyCaseName}
             onCopy={handleCopy}
             onShare={handleShare}
             onOpenAssistant={onOpenAssistant}
