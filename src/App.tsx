@@ -2,22 +2,13 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { WorkspaceShell } from './components/WorkspaceShell';
-import {
-  loadCompatibilityHistory,
-  loadDivinationHistory,
-  loadPersonalHistory,
-} from './lib/history-records';
-import { defaultPromptState } from './lib/query-state';
-import {
-  buildChartRecordPath,
-  buildDivinationRecordPath,
-  findRecentPersonalRecordForSource,
-} from './lib/case-navigation';
+import { loadDivinationHistory, loadPersonalHistory } from './lib/history-records';
+import { readActiveCaseId } from './lib/active-case';
+import { buildChartFeaturePathForCase, buildDivinationRecordPath } from './lib/case-navigation';
 import {
   buildWorkspaceFeaturePath,
-  isDivinationWorkspaceId,
+  isChartWorkspaceId,
   readWorkspacePreferences,
-  type ChartWorkspaceId,
   type WorkspaceFeatureId,
 } from './lib/workspace';
 
@@ -51,61 +42,14 @@ const DivinationResultPage = lazy(async () => {
   return { default: module.DivinationResultPage };
 });
 
-function getChartResultState(feature: ChartWorkspaceId) {
-  if (feature === 'compatibility') {
-    return {
-      ...defaultPromptState,
-      tab: 'bazi' as const,
-      promptSource: 'bazi' as const,
-      baziShortcutMode: '合婚',
-      baziPresetId: 'ai-compat-marriage',
-    };
-  }
-  if (feature === 'ziwei') {
-    return { ...defaultPromptState, tab: 'ziwei' as const, promptSource: 'ziwei' as const };
-  }
-  if (feature === 'astrolabe') {
-    return {
-      ...defaultPromptState,
-      tab: 'astrolabe' as const,
-      promptSource: 'astrolabe' as const,
-    };
-  }
-  if (feature === 'qizheng') {
-    return { ...defaultPromptState, tab: 'qizheng' as const, promptSource: 'qizheng' as const };
-  }
-  if (feature === 'bazhai') {
-    return { ...defaultPromptState, tab: 'bazhai' as const, promptSource: 'bazhai' as const };
-  }
-  if (feature === 'bazi-ziwei') {
-    return {
-      ...defaultPromptState,
-      tab: 'bazi' as const,
-      promptSource: 'bazi-ziwei' as const,
-    };
-  }
-  return { ...defaultPromptState, tab: 'bazi' as const, promptSource: 'bazi' as const };
-}
-
-function buildRecentFeaturePath(feature: WorkspaceFeatureId) {
-  if (isDivinationWorkspaceId(feature)) {
-    const record = loadDivinationHistory().find(
-      (item) => item.requestedMethod === feature || item.method === feature,
-    );
-    return record ? buildDivinationRecordPath(record) : buildWorkspaceFeaturePath(feature);
-  }
-
-  if (feature === 'compatibility') {
-    const records = loadCompatibilityHistory();
-    const record = records.find((item) => item.pinned) ?? records[0];
-    return record
-      ? buildChartRecordPath(record.input, getChartResultState(feature), record.id)
-      : buildWorkspaceFeaturePath(feature);
-  }
-
-  const record = findRecentPersonalRecordForSource(loadPersonalHistory(), feature);
-  return record
-    ? buildChartRecordPath(record.input, getChartResultState(feature), record.id)
+function buildDefaultFeaturePath(feature: WorkspaceFeatureId) {
+  if (!isChartWorkspaceId(feature)) return buildWorkspaceFeaturePath(feature);
+  const activeCaseId = readActiveCaseId();
+  const activeCase = activeCaseId
+    ? loadPersonalHistory().find((record) => record.id === activeCaseId)
+    : null;
+  return activeCase
+    ? buildChartFeaturePathForCase(activeCase, feature)
     : buildWorkspaceFeaturePath(feature);
 }
 
@@ -130,14 +74,11 @@ function DefaultEntryRoute() {
     return <Navigate to="/divination/random" replace />;
   }
   if (legacyMode === 'single') {
-    return <Navigate to="/chart/bazi" replace />;
+    return <Navigate to={buildDefaultFeaturePath('bazi')} replace />;
   }
 
   const preferences = readWorkspacePreferences();
-  const path =
-    preferences.startBehavior === 'recent'
-      ? buildRecentFeaturePath(preferences.defaultFeature)
-      : buildWorkspaceFeaturePath(preferences.defaultFeature);
+  const path = buildDefaultFeaturePath(preferences.defaultFeature);
   return <Navigate to={path} replace />;
 }
 

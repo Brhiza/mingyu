@@ -7,7 +7,9 @@ import { createSecureId } from '@/lib/secure-id';
 const PERSONAL_HISTORY_STORAGE_KEY = 'prompt_studio_personal_history_v1';
 const COMPATIBILITY_HISTORY_STORAGE_KEY = 'prompt_studio_compatibility_history_v1';
 const DIVINATION_HISTORY_STORAGE_KEY = 'prompt_studio_divination_history_v1';
-const MAX_HISTORY_RECORDS = 20;
+const MAX_PERSONAL_CASES = 200;
+const MAX_COMPATIBILITY_RECORDS = 100;
+const MAX_DIVINATION_HISTORY_RECORDS = 50;
 const DEFAULT_CASE_NAME = '案例';
 export const HISTORY_RECORDS_EVENT = 'mingyu:history-records';
 
@@ -46,6 +48,8 @@ export type DivinationHistoryRecord = {
   method: DivinationSession['method'];
   draft: DivinationDraft;
   session: DivinationSession;
+  caseId?: string;
+  caseName?: string;
   updatedAt: string;
 };
 
@@ -64,8 +68,8 @@ function readRecords<T>(
   return parsed.filter((item): item is T => isObjectRecord(item) && isValidRecord(item));
 }
 
-function writeRecords<T>(key: string, records: T[]): boolean {
-  const saved = safeStorage.setJSON(key, records.slice(0, MAX_HISTORY_RECORDS));
+function writeRecords<T>(key: string, records: T[], limit: number): boolean {
+  const saved = safeStorage.setJSON(key, records.slice(0, limit));
   if (saved && typeof window !== 'undefined') {
     window.dispatchEvent(new Event(HISTORY_RECORDS_EVENT));
   }
@@ -91,12 +95,18 @@ function resolveAvailableCaseName(existingNames: string[], reservedNames: string
 
 function isSamePersonalHistoryInput(left: QueryInputState, right: QueryInputState) {
   return (
-    left.chartType === right.chartType &&
     left.gender === right.gender &&
     left.dateType === right.dateType &&
     left.year === right.year &&
     left.month === right.month &&
     left.day === right.day
+  );
+}
+
+function isSamePersonalCase(record: PersonalHistoryRecord, name: string, input: QueryInputState) {
+  return (
+    normalizeText(record.name) === normalizeText(name) &&
+    isSamePersonalHistoryInput(record.input, input)
   );
 }
 
@@ -113,12 +123,23 @@ function isSameCompatibilityHistoryInput(left: QueryInputState, right: QueryInpu
   );
 }
 
-function resolvePersonalRecordName(input: QueryInputState, records: PersonalHistoryRecord[]) {
+function resolvePersonalRecordName(
+  input: QueryInputState,
+  records: PersonalHistoryRecord[],
+  selectedRecord?: PersonalHistoryRecord,
+) {
   const explicitName = input.name.trim();
   if (explicitName) {
     return {
       name: explicitName,
       generated: false,
+    };
+  }
+
+  if (selectedRecord) {
+    return {
+      name: selectedRecord.name,
+      generated: Boolean(selectedRecord.generatedName),
     };
   }
 
@@ -171,6 +192,17 @@ function cloneInput(input: QueryInputState): QueryInputState {
   return JSON.parse(JSON.stringify(input)) as QueryInputState;
 }
 
+function getPersonalInputCompleteness(input: QueryInputState) {
+  return [
+    input.timeIndex !== '',
+    input.birthHour !== '',
+    input.birthMinute !== '',
+    input.birthPlace.trim() !== '',
+    input.birthLongitude !== '',
+    input.birthLatitude !== '',
+  ].filter(Boolean).length;
+}
+
 function cloneDivinationDraft(draft: DivinationDraft): DivinationDraft {
   return JSON.parse(JSON.stringify(draft)) as DivinationDraft;
 }
@@ -204,10 +236,35 @@ function createDivinationHistoryId() {
 }
 
 export function loadPersonalHistory() {
-  return readRecords<PersonalHistoryRecord>(
+  const records = readRecords<PersonalHistoryRecord>(
     PERSONAL_HISTORY_STORAGE_KEY,
     (item) => item.type === 'single' && typeof item.name === 'string',
   );
+  return records
+    .reduce<PersonalHistoryRecord[]>((cases, record) => {
+      const duplicateIndex = cases.findIndex((candidate) =>
+        isSamePersonalCase(candidate, record.name, record.input),
+      );
+      if (duplicateIndex < 0) {
+        cases.push(record);
+        return cases;
+      }
+
+      const current = cases[duplicateIndex];
+      cases[duplicateIndex] = {
+        ...current,
+        pinned: Boolean(current.pinned || record.pinned),
+        input:
+          getPersonalInputCompleteness(record.input) > getPersonalInputCompleteness(current.input)
+            ? record.input
+            : current.input,
+      };
+      return cases;
+    }, [])
+    .sort((left, right) => {
+      if (Boolean(left.pinned) !== Boolean(right.pinned)) return left.pinned ? -1 : 1;
+      return right.updatedAt.localeCompare(left.updatedAt);
+    });
 }
 
 export function loadCompatibilityHistory() {
@@ -224,23 +281,27 @@ export function loadDivinationHistory() {
   );
 }
 
-export function upsertPersonalHistory(input: QueryInputState, workspaceSource?: PromptSourceKey) {
+export function upsertPersonalHistory(
+  input: QueryInputState,
+  workspaceSource?: PromptSourceKey,
+  selectedCaseId?: string,
+) {
   if (!input.year || !input.month || !input.day) {
     return loadPersonalHistory();
   }
 
   const records = loadPersonalHistory();
-  const { name, generated } = resolvePersonalRecordName(input, records);
-  const id = [
-    normalizeText(name),
-    input.chartType,
-    input.gender,
-    input.dateType,
-    input.year,
-    input.month,
-    input.day,
-  ].join('|');
-  const existingRecord = records.find((item) => item.id === id);
+  const selectedRecord = selectedCaseId
+    ? records.find((item) => item.id === selectedCaseId)
+    : undefined;
+  const { name, generated } = resolvePersonalRecordName(input, records, selectedRecord);
+  const existingRecord =
+    selectedRecord ?? records.find((item) => isSamePersonalCase(item, name, input));
+  const id =
+    existingRecord?.id ??
+    [normalizeText(name), input.gender, input.dateType, input.year, input.month, input.day].join(
+      '|',
+    );
 
   const record: PersonalHistoryRecord = {
     id,
@@ -260,9 +321,12 @@ export function upsertPersonalHistory(input: QueryInputState, workspaceSource?: 
     pinned: existingRecord?.pinned,
   };
 
-  const next = [record, ...records.filter((item) => item.id !== id)];
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next);
-  return next.slice(0, MAX_HISTORY_RECORDS);
+  const next = [
+    record,
+    ...records.filter((item) => item.id !== id && !isSamePersonalCase(item, name, input)),
+  ];
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
+  return next.slice(0, MAX_PERSONAL_CASES);
 }
 
 export function upsertCompatibilityHistory(input: QueryInputState) {
@@ -313,27 +377,35 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
   };
 
   const next = [record, ...records.filter((item) => item.id !== id)];
-  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
-  return next.slice(0, MAX_HISTORY_RECORDS);
+  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
+  return next.slice(0, MAX_COMPATIBILITY_RECORDS);
 }
 
 export function removePersonalHistory(id: string) {
-  const next = loadPersonalHistory().filter((item) => item.id !== id);
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next);
+  const records = loadPersonalHistory();
+  const selectedRecord = records.find((item) => item.id === id);
+  const next = selectedRecord
+    ? records.filter((item) => !isSamePersonalCase(item, selectedRecord.name, selectedRecord.input))
+    : records;
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
   return next;
 }
 
 export function togglePersonalHistoryPin(id: string) {
-  const next = loadPersonalHistory().map((item) =>
-    item.id === id ? { ...item, pinned: !item.pinned } : item,
+  const records = loadPersonalHistory();
+  const selectedRecord = records.find((item) => item.id === id);
+  const next = records.map((item) =>
+    selectedRecord && isSamePersonalCase(item, selectedRecord.name, selectedRecord.input)
+      ? { ...item, pinned: !selectedRecord.pinned }
+      : item,
   );
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next);
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
   return next;
 }
 
 export function removeCompatibilityHistory(id: string) {
   const next = loadCompatibilityHistory().filter((item) => item.id !== id);
-  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
+  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
   return next;
 }
 
@@ -341,11 +413,15 @@ export function toggleCompatibilityHistoryPin(id: string) {
   const next = loadCompatibilityHistory().map((item) =>
     item.id === id ? { ...item, pinned: !item.pinned } : item,
   );
-  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
+  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
   return next;
 }
 
-export function addDivinationHistory(draft: DivinationDraft, session: DivinationSession) {
+export function addDivinationHistory(
+  draft: DivinationDraft,
+  session: DivinationSession,
+  activeCase?: PersonalHistoryRecord | null,
+) {
   const question = resolveDivinationRecordTitle(draft, session);
   if (!question) {
     return null;
@@ -359,10 +435,15 @@ export function addDivinationHistory(draft: DivinationDraft, session: Divination
     method: session.method,
     draft: cloneDivinationDraft(draft),
     session: cloneDivinationSession(session),
+    ...(activeCase ? { caseId: activeCase.id, caseName: activeCase.name } : {}),
     updatedAt: new Date().toISOString(),
   };
 
-  writeRecords(DIVINATION_HISTORY_STORAGE_KEY, [record, ...loadDivinationHistory()]);
+  writeRecords(
+    DIVINATION_HISTORY_STORAGE_KEY,
+    [record, ...loadDivinationHistory()],
+    MAX_DIVINATION_HISTORY_RECORDS,
+  );
   return record;
 }
 
@@ -372,6 +453,6 @@ export function getDivinationHistoryById(id: string) {
 
 export function removeDivinationHistory(id: string) {
   const next = loadDivinationHistory().filter((item) => item.id !== id);
-  writeRecords(DIVINATION_HISTORY_STORAGE_KEY, next);
+  writeRecords(DIVINATION_HISTORY_STORAGE_KEY, next, MAX_DIVINATION_HISTORY_RECORDS);
   return next;
 }

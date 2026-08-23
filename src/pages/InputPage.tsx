@@ -1,6 +1,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PrivacyHint } from '@/components/PrivacyHint';
+import { ActiveCaseSelect } from '@/components/ActiveCaseSelect';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
 import { upsertCompatibilityHistory, upsertPersonalHistory } from '@/lib/history-records';
 import {
@@ -11,9 +12,15 @@ import {
   type QueryInputState,
   type ResultTabKey,
 } from '@/lib/query-state';
-import { buildChartRecordPath, normalizeChartInputForSource } from '@/lib/case-navigation';
+import {
+  buildChartFeaturePathForCase,
+  buildChartRecordPath,
+  CHART_RECORD_PARAM,
+  normalizeChartInputForSource,
+} from '@/lib/case-navigation';
 import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
+import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { getWorkspaceFeature, isChartWorkspaceId, type ChartWorkspaceId } from '@/lib/workspace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
@@ -112,6 +119,8 @@ export function InputPage() {
   const tool = isChartWorkspaceId(toolParam) ? toolParam : null;
   const config = tool ? CHART_TOOL_CONFIG[tool] : CHART_TOOL_CONFIG.bazi;
   const feature = getWorkspaceFeature(tool ?? 'bazi');
+  const { activeCaseId } = useActivePersonalCase();
+  const routeCaseId = searchParams.get(CHART_RECORD_PARAM);
   const [form, setForm] = useState<QueryInputState>(() => {
     const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
     return hasInputSnapshot
@@ -226,7 +235,11 @@ export function InputPage() {
       }
       recordId = upsertCompatibilityHistory(form)[0]?.id;
     } else {
-      recordId = upsertPersonalHistory(form, config.promptSource)[0]?.id;
+      recordId = upsertPersonalHistory(
+        form,
+        config.promptSource,
+        routeCaseId ?? activeCaseId ?? undefined,
+      )[0]?.id;
     }
 
     startSubmitTransition(() => {
@@ -255,6 +268,14 @@ export function InputPage() {
       }`}
     >
       <div className="bazi-view-container">
+        <div className="workspace-case-context-bar">
+          <ActiveCaseSelect
+            label="排盘案例"
+            onSelect={(record) =>
+              navigate(record ? buildChartFeaturePathForCase(record, tool) : `/chart/${tool}`)
+            }
+          />
+        </div>
         <header className="workspace-task-header">
           <div>
             <span>新建排盘</span>

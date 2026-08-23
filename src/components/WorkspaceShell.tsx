@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { ActiveCaseSelect } from '@/components/ActiveCaseSelect';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { WorkspaceSettingsModal } from '@/components/WorkspaceSettingsModal';
+import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import {
   HISTORY_RECORDS_EVENT,
-  loadCompatibilityHistory,
   loadDivinationHistory,
   loadPersonalHistory,
 } from '@/lib/history-records';
 import {
-  buildCompatibilityRecordPath,
+  buildChartFeaturePathForCase,
   buildDivinationRecordPath,
   buildPersonalRecordPath,
-  CHART_RECORD_PARAM,
-  resolvePersonalRecordSource,
 } from '@/lib/case-navigation';
 import { parseInputState, parsePromptState } from '@/lib/query-state';
 import {
@@ -29,61 +28,31 @@ import {
   type WorkspaceFeatureId,
 } from '@/lib/workspace';
 
-type SidebarView = 'tools' | 'cases';
-type CaseFilter = 'all' | 'chart' | 'divination';
-
-type SidebarCase = {
-  id: string;
-  title: string;
-  meta: string;
-  searchText: string;
-  path: string;
-  recordId: string;
-  category: Exclude<CaseFilter, 'all'>;
-  pinned: boolean;
-  updatedAt: string;
-};
+type SidebarView = 'tools' | 'cases' | 'history';
 
 function resolveResultFeature(search: string): WorkspaceFeatureId {
   const params = new URLSearchParams(search);
   const input = parseInputState(params);
   const prompt = parsePromptState(params);
-  if (input.analysisMode === 'compatibility') {
-    return 'compatibility';
-  }
-  return prompt.promptSource;
+  return input.analysisMode === 'compatibility' ? 'compatibility' : prompt.promptSource;
 }
 
 function resolveActiveFeature(pathname: string, search: string): WorkspaceFeatureId | null {
   const chartMatch = /^\/chart\/([^/]+)$/.exec(pathname);
-  if (chartMatch && isChartWorkspaceId(chartMatch[1])) {
-    return chartMatch[1];
-  }
-
+  if (chartMatch && isChartWorkspaceId(chartMatch[1])) return chartMatch[1];
   const divinationMatch = /^\/divination\/([^/]+)/.exec(pathname);
-  if (divinationMatch && isDivinationWorkspaceId(divinationMatch[1])) {
-    return divinationMatch[1];
-  }
-
+  if (divinationMatch && isDivinationWorkspaceId(divinationMatch[1])) return divinationMatch[1];
   return pathname === '/result' ? resolveResultFeature(search) : null;
 }
 
-function resolvePageCopy(pathname: string, activeFeature: WorkspaceFeatureId | null) {
-  if (pathname === '/records') {
-    return { title: '管理案例', description: '整理、置顶或删除保存在当前浏览器中的记录。' };
-  }
-  if (pathname === '/tutorial') {
-    return { title: '使用说明', description: '了解录入、排盘与解读的使用方式。' };
-  }
-  if (!activeFeature) {
-    return { title: '命语', description: '选择一个工具开始。' };
-  }
+function resolvePageTitle(pathname: string, activeFeature: WorkspaceFeatureId | null) {
+  if (pathname === '/records') return '案例与历史';
+  if (pathname === '/tutorial') return '使用说明';
+  if (!activeFeature) return '命语';
   const feature = getWorkspaceFeature(activeFeature);
-  const isResult = pathname === '/result' || pathname.endsWith('/result');
-  return {
-    title: isResult ? `${feature.label}结果` : feature.label,
-    description: isResult ? '完整盘面与解读分开查看。' : feature.description,
-  };
+  return pathname === '/result' || pathname.endsWith('/result')
+    ? `${feature.label}结果`
+    : feature.label;
 }
 
 function formatCaseDate(value: string) {
@@ -97,99 +66,61 @@ export function WorkspaceShell() {
   const location = useLocation();
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [aiSettings, setAiSettings] = useAiSettings();
-  const [sidebarView, setSidebarView] = useState<SidebarView>(() =>
-    location.pathname === '/records' ? 'cases' : 'tools',
-  );
-  const [caseFilter, setCaseFilter] = useState<CaseFilter>('all');
+  const [sidebarView, setSidebarView] = useState<SidebarView>(() => {
+    if (location.pathname === '/records') {
+      return new URLSearchParams(location.search).get('tab') === 'divination' ? 'history' : 'cases';
+    }
+    return 'tools';
+  });
   const [caseSearch, setCaseSearch] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
   const [isMoreDivinationOpen, setIsMoreDivinationOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [settingsModal, setSettingsModal] = useState<'workspace' | 'ai' | null>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
+  const { activeCase, activeCaseId, selectCase } = useActivePersonalCase();
   const activeFeature = resolveActiveFeature(location.pathname, location.search);
-  const activeParams = new URLSearchParams(location.search);
-  const activeChartRecordId = activeParams.get(CHART_RECORD_PARAM);
-  const activeDivinationRecordId = activeParams.get('record');
-  const pageCopy = resolvePageCopy(location.pathname, activeFeature);
-  const pageKind =
-    location.pathname === '/records'
-      ? '案例'
-      : location.pathname === '/tutorial'
-        ? '帮助'
-        : activeFeature && isDivinationWorkspaceId(activeFeature)
-          ? '占问'
-          : '排盘';
+  const activeDivinationRecordId = new URLSearchParams(location.search).get('record');
+  const pageTitle = resolvePageTitle(location.pathname, activeFeature);
   const orderedFeatures = useMemo(
     () => preferences.navigationOrder.map(getWorkspaceFeature),
     [preferences.navigationOrder],
   );
-  const cases = useMemo<SidebarCase[]>(() => {
+  const cases = useMemo(() => {
     void historyRevision;
-    const personal = loadPersonalHistory().map((record) => {
-      const feature = getWorkspaceFeature(resolvePersonalRecordSource(record));
-      return {
-        id: `personal-${record.id}`,
-        recordId: record.id,
-        title: record.name,
-        meta: `${feature.label} · ${record.birthText}`,
-        searchText: `${record.name} ${feature.label} ${record.birthText}`,
-        path: buildPersonalRecordPath(record),
-        category: 'chart' as const,
-        pinned: Boolean(record.pinned),
-        updatedAt: record.updatedAt,
-      };
-    });
-    const compatibility = loadCompatibilityHistory().map((record) => ({
-      id: `compatibility-${record.id}`,
-      recordId: record.id,
-      title: record.name,
-      meta: '双人合盘',
-      searchText: `${record.name} 双人合盘 ${record.primaryName} ${record.partnerName}`,
-      path: buildCompatibilityRecordPath(record),
-      category: 'chart' as const,
-      pinned: Boolean(record.pinned),
-      updatedAt: record.updatedAt,
-    }));
-    const divination = loadDivinationHistory().map((record) => {
-      const feature = getWorkspaceFeature(record.requestedMethod);
-      return {
-        id: `divination-${record.id}`,
-        recordId: record.id,
-        title: record.question || feature.label,
-        meta: `${feature.label} · ${formatCaseDate(record.updatedAt)}`,
-        searchText: `${record.question} ${feature.label}`,
-        path: buildDivinationRecordPath(record),
-        category: 'divination' as const,
-        pinned: false,
-        updatedAt: record.updatedAt,
-      };
-    });
-
-    return [...personal, ...compatibility, ...divination].sort((left, right) => {
-      if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
-      return right.updatedAt.localeCompare(left.updatedAt);
-    });
+    return loadPersonalHistory();
+  }, [historyRevision]);
+  const histories = useMemo(() => {
+    void historyRevision;
+    return loadDivinationHistory();
   }, [historyRevision]);
   const visibleCases = useMemo(() => {
     const keyword = caseSearch.trim().toLowerCase();
-    return cases.filter(
-      (record) =>
-        (caseFilter === 'all' || record.category === caseFilter) &&
-        (!keyword || record.searchText.toLowerCase().includes(keyword)),
+    return cases.filter((record) =>
+      `${record.name} ${record.birthText}`.toLowerCase().includes(keyword),
     );
-  }, [caseFilter, caseSearch, cases]);
+  }, [caseSearch, cases]);
+  const visibleHistories = useMemo(() => {
+    const keyword = historySearch.trim().toLowerCase();
+    return histories.filter((record) => {
+      const feature = getWorkspaceFeature(record.requestedMethod);
+      return `${record.question} ${feature.label} ${record.caseName ?? ''}`
+        .toLowerCase()
+        .includes(keyword);
+    });
+  }, [histories, historySearch]);
 
   useEffect(() => {
     setIsDrawerOpen(false);
     if (location.pathname === '/records') {
-      setSidebarView('cases');
+      setSidebarView(
+        new URLSearchParams(location.search).get('tab') === 'divination' ? 'history' : 'cases',
+      );
     }
   }, [location.pathname, location.search]);
 
   useEffect(() => {
-    function syncPreferences() {
-      setPreferences(readWorkspacePreferences());
-    }
+    const syncPreferences = () => setPreferences(readWorkspacePreferences());
     window.addEventListener('storage', syncPreferences);
     window.addEventListener(WORKSPACE_PREFERENCES_EVENT, syncPreferences);
     return () => {
@@ -199,22 +130,32 @@ export function WorkspaceShell() {
   }, []);
 
   useEffect(() => {
-    function syncHistory() {
-      setHistoryRevision((current) => current + 1);
-    }
+    const syncHistory = () => setHistoryRevision((current) => current + 1);
     window.addEventListener(HISTORY_RECORDS_EVENT, syncHistory);
     return () => window.removeEventListener(HISTORY_RECORDS_EVENT, syncHistory);
   }, []);
 
-  const startNew = (path: string) => navigate(path, { state: { workspaceNew: true } });
-  const openWorkspaceSettings = () => {
+  function navigateForSelectedCase(record: (typeof cases)[number] | null) {
+    if (activeFeature && isChartWorkspaceId(activeFeature)) {
+      navigate(
+        record
+          ? buildChartFeaturePathForCase(record, activeFeature)
+          : buildWorkspaceFeaturePath(activeFeature),
+      );
+    }
     setIsDrawerOpen(false);
-    setSettingsModal('workspace');
-  };
-  const openCase = (path: string) => {
+  }
+
+  function openCase(record: (typeof cases)[number]) {
+    selectCase(record.id);
     setSidebarView('cases');
-    navigate(path);
-  };
+    if (activeFeature && isChartWorkspaceId(activeFeature)) {
+      navigate(buildChartFeaturePathForCase(record, activeFeature));
+    } else if (!activeFeature || location.pathname === '/records') {
+      navigate(buildPersonalRecordPath(record));
+    }
+    setIsDrawerOpen(false);
+  }
 
   const navigation = (
     <>
@@ -238,6 +179,12 @@ export function WorkspaceShell() {
         </button>
       </div>
 
+      <ActiveCaseSelect
+        className="workspace-global-case-select"
+        label="全局案例"
+        onSelect={navigateForSelectedCase}
+      />
+
       <div className="workspace-sidebar-switch" role="tablist" aria-label="侧栏内容">
         <button
           type="button"
@@ -255,8 +202,16 @@ export function WorkspaceShell() {
           className={sidebarView === 'cases' ? 'is-active' : ''}
           onClick={() => setSidebarView('cases')}
         >
-          案例
-          {cases.length ? <span>{cases.length}</span> : null}
+          案例{cases.length ? <span>{cases.length}</span> : null}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={sidebarView === 'history'}
+          className={sidebarView === 'history' ? 'is-active' : ''}
+          onClick={() => setSidebarView('history')}
+        >
+          历史{histories.length ? <span>{histories.length}</span> : null}
         </button>
       </div>
 
@@ -277,7 +232,12 @@ export function WorkspaceShell() {
                       className={activeFeature === feature.id ? 'is-active' : ''}
                       onClick={() => {
                         setSidebarView('tools');
-                        startNew(buildWorkspaceFeaturePath(feature.id));
+                        navigate(
+                          isChartWorkspaceId(feature.id) && activeCase
+                            ? buildChartFeaturePathForCase(activeCase, feature.id)
+                            : buildWorkspaceFeaturePath(feature.id),
+                          { state: { workspaceNew: true } },
+                        );
                       }}
                       aria-current={activeFeature === feature.id ? 'page' : undefined}
                     >
@@ -313,73 +273,102 @@ export function WorkspaceShell() {
             );
           })}
         </nav>
-      ) : (
-        <section className="workspace-case-browser" aria-label="案例">
+      ) : sidebarView === 'cases' ? (
+        <section className="workspace-case-browser" aria-label="个人案例">
           <div className="workspace-case-tools">
             <input
               type="search"
               value={caseSearch}
-              placeholder="搜索姓名或问题"
-              aria-label="搜索案例"
+              placeholder="搜索姓名"
+              aria-label="搜索个人案例"
               onChange={(event) => setCaseSearch(event.target.value)}
             />
-            <div className="workspace-case-filters">
-              {[
-                { value: 'all' as const, label: '全部' },
-                { value: 'chart' as const, label: '排盘' },
-                { value: 'divination' as const, label: '占问' },
-              ].map((filter) => (
-                <button
-                  type="button"
-                  key={filter.value}
-                  className={caseFilter === filter.value ? 'is-active' : ''}
-                  onClick={() => setCaseFilter(filter.value)}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
           </div>
-
           <div className="workspace-case-list">
             {visibleCases.length ? (
-              visibleCases.map((record) => {
-                const isActive =
-                  record.category === 'chart'
-                    ? activeChartRecordId === record.recordId
-                    : activeDivinationRecordId === record.recordId;
+              visibleCases.map((record) => (
+                <button
+                  type="button"
+                  key={record.id}
+                  className={activeCaseId === record.id ? 'is-active' : ''}
+                  onClick={() => openCase(record)}
+                  aria-current={activeCaseId === record.id ? 'true' : undefined}
+                >
+                  <span className="workspace-case-mark" aria-hidden="true">
+                    {record.pinned ? '★' : '案'}
+                  </span>
+                  <span>
+                    <strong>{record.name}</strong>
+                    <small>
+                      {record.gender === 'male' ? '男' : '女'} · {record.birthText}
+                    </small>
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="workspace-case-empty">
+                <strong>{cases.length ? '没有匹配的案例' : '还没有个人案例'}</strong>
+                <small>{cases.length ? '换个姓名试试' : '完成一次排盘后会自动保存'}</small>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className={`workspace-manage-cases${location.pathname === '/records' ? ' is-active' : ''}`}
+            onClick={() => navigate('/records?tab=personal')}
+          >
+            管理案例
+          </button>
+        </section>
+      ) : (
+        <section className="workspace-case-browser" aria-label="占问历史">
+          <div className="workspace-case-tools">
+            <input
+              type="search"
+              value={historySearch}
+              placeholder="搜索问题或案例"
+              aria-label="搜索占问历史"
+              onChange={(event) => setHistorySearch(event.target.value)}
+            />
+          </div>
+          <div className="workspace-case-list">
+            {visibleHistories.length ? (
+              visibleHistories.map((record) => {
+                const feature = getWorkspaceFeature(record.requestedMethod);
                 return (
                   <button
                     type="button"
                     key={record.id}
-                    className={isActive ? 'is-active' : ''}
-                    onClick={() => openCase(record.path)}
-                    aria-current={isActive ? 'page' : undefined}
+                    className={activeDivinationRecordId === record.id ? 'is-active' : ''}
+                    onClick={() => navigate(buildDivinationRecordPath(record))}
+                    aria-current={activeDivinationRecordId === record.id ? 'page' : undefined}
                   >
                     <span className="workspace-case-mark" aria-hidden="true">
-                      {record.category === 'divination' ? '问' : record.pinned ? '★' : '案'}
+                      问
                     </span>
                     <span>
-                      <strong>{record.title}</strong>
-                      <small>{record.meta}</small>
+                      <strong>{record.question || feature.label}</strong>
+                      <small>
+                        {feature.label} · {record.caseName ?? '未指定'} ·{' '}
+                        {formatCaseDate(record.updatedAt)}
+                      </small>
                     </span>
                   </button>
                 );
               })
             ) : (
               <div className="workspace-case-empty">
-                <strong>{cases.length ? '没有匹配的案例' : '还没有案例'}</strong>
-                <small>{cases.length ? '换个关键词试试' : '从“工具”中完成一次排盘或占问'}</small>
+                <strong>{histories.length ? '没有匹配的历史' : '还没有占问历史'}</strong>
+                <small>{histories.length ? '换个关键词试试' : '完成占问后会自动记录'}</small>
               </div>
             )}
           </div>
-
           <button
             type="button"
             className={`workspace-manage-cases${location.pathname === '/records' ? ' is-active' : ''}`}
-            onClick={() => navigate('/records')}
+            onClick={() => navigate('/records?tab=divination')}
           >
-            管理案例
+            管理历史
           </button>
         </section>
       )}
@@ -392,7 +381,13 @@ export function WorkspaceShell() {
         >
           使用说明
         </button>
-        <button type="button" onClick={openWorkspaceSettings}>
+        <button
+          type="button"
+          onClick={() => {
+            setIsDrawerOpen(false);
+            setSettingsModal('workspace');
+          }}
+        >
           设置
         </button>
       </div>
@@ -402,7 +397,6 @@ export function WorkspaceShell() {
   return (
     <div className="workspace-shell">
       <aside className="workspace-sidebar">{navigation}</aside>
-
       <header className="workspace-mobile-header">
         <button
           type="button"
@@ -414,8 +408,17 @@ export function WorkspaceShell() {
           <span />
           <span />
         </button>
-        <strong>{pageCopy.title}</strong>
-        <span className="workspace-mobile-kind">{pageKind}</span>
+        <strong>{pageTitle}</strong>
+        <button
+          type="button"
+          className="workspace-mobile-case"
+          onClick={() => {
+            setSidebarView('cases');
+            setIsDrawerOpen(true);
+          }}
+        >
+          {activeCase?.name ?? '不指定'}
+        </button>
       </header>
 
       {isDrawerOpen ? (
@@ -440,7 +443,6 @@ export function WorkspaceShell() {
           onClose={() => setSettingsModal(null)}
         />
       ) : null}
-
       {settingsModal === 'ai' ? (
         <AiSettingsModal
           settings={aiSettings}

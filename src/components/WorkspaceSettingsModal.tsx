@@ -59,7 +59,7 @@ export function WorkspaceSettingsModal({
 
         <div className="workspace-settings-layout">
           <section className="workspace-settings-section">
-            <h3>启动方式</h3>
+            <h3>默认入口</h3>
             <label className="workspace-setting-field">
               <span>默认工具</span>
               <select
@@ -85,27 +85,9 @@ export function WorkspaceSettingsModal({
               </select>
             </label>
 
-            <div className="workspace-setting-field">
-              <span>打开命语时</span>
-              <div className="workspace-choice-grid">
-                <button
-                  type="button"
-                  className={draft.startBehavior === 'new' ? 'is-active' : ''}
-                  onClick={() => setDraft((current) => ({ ...current, startBehavior: 'new' }))}
-                >
-                  <strong>每次新建</strong>
-                  <small>进入空白录入页</small>
-                </button>
-                <button
-                  type="button"
-                  className={draft.startBehavior === 'recent' ? 'is-active' : ''}
-                  onClick={() => setDraft((current) => ({ ...current, startBehavior: 'recent' }))}
-                >
-                  <strong>继续最近</strong>
-                  <small>有记录时直接打开</small>
-                </button>
-              </div>
-            </div>
+            <p className="workspace-setting-note">
+              打开命语时会进入默认工具。已选择全局案例时直接使用该案例；选择“不指定”时，排盘从空白资料开始。
+            </p>
 
             <button type="button" className="workspace-ai-setting-entry" onClick={onOpenAiSettings}>
               <span>

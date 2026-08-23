@@ -19,6 +19,7 @@ interface DivinationResultProps {
   shareState: string;
   showShareButton: boolean;
   showHeading?: boolean;
+  caseName?: string;
   onCopy: () => void;
   onShare: () => void;
   onRestart?: () => void;
@@ -179,6 +180,7 @@ export function DivinationResult({
   shareState,
   showShareButton,
   showHeading = true,
+  caseName,
   onCopy,
   onShare,
   onRestart,
@@ -323,11 +325,14 @@ export function DivinationResult({
             {isAiEnabled ? 'AI 解读' : '提示词'}
           </button>
         </div>
-        {onRestart ? (
-          <button type="button" className="divination-restart-button" onClick={onRestart}>
-            重新占问
-          </button>
-        ) : null}
+        <div className="divination-result-actions">
+          <span className="divination-history-case">案例：{caseName ?? '未指定'}</span>
+          {onRestart ? (
+            <button type="button" className="divination-restart-button" onClick={onRestart}>
+              重新占问
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {activeView === 'board' ? resultBlock : null}

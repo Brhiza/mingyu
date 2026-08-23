@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildChartFeaturePathForCase,
   buildPersonalRecordPath,
   CHART_RECORD_PARAM,
-  findRecentPersonalRecordForSource,
   normalizeChartInputForSource,
   preserveChartRecordId,
   resolvePersonalRecordSource,
@@ -96,30 +96,27 @@ test('按实际工具归一化旧案例中的内部排盘类型', () => {
   );
 });
 
-test('继续最近只打开当前工具自己的案例', () => {
-  const baziRecord = createPersonalRecord({
-    id: 'bazi-case',
-    chartType: 'bazi',
-    workspaceSource: 'bazi',
-    input: {
-      ...createPersonalRecord().input,
-      chartType: 'bazi',
-    },
-  });
-  const ziweiRecord = createPersonalRecord({
-    id: 'ziwei-case',
-    chartType: 'ziwei',
-    workspaceSource: 'ziwei',
-    pinned: true,
-    input: {
-      ...createPersonalRecord().input,
-      chartType: 'ziwei',
-    },
-  });
-
-  assert.equal(
-    findRecentPersonalRecordForSource([ziweiRecord, baziRecord], 'bazi')?.id,
-    'bazi-case',
+test('全局案例应按所选命盘直接打开结果', () => {
+  const params = new URLSearchParams(
+    buildChartFeaturePathForCase(createPersonalRecord(), 'ziwei').split('?')[1],
   );
-  assert.equal(findRecentPersonalRecordForSource([baziRecord], 'ziwei'), undefined);
+  assert.equal(params.get(CHART_RECORD_PARAM), 'case-1');
+  assert.equal(parsePromptState(params).promptSource, 'ziwei');
+  assert.equal(parseInputState(params).chartType, 'ziwei');
+});
+
+test('资料不足的精准命盘应打开已预填的输入页', () => {
+  const path = buildChartFeaturePathForCase(createPersonalRecord(), 'astrolabe');
+  assert.equal(path.startsWith('/chart/astrolabe?'), true);
+  const params = new URLSearchParams(path.split('?')[1]);
+  assert.equal(params.get(CHART_RECORD_PARAM), 'case-1');
+  assert.equal(parseInputState(params).name, '测试');
+});
+
+test('合盘应把全局案例预填为第一人', () => {
+  const path = buildChartFeaturePathForCase(createPersonalRecord(), 'compatibility');
+  assert.equal(path.startsWith('/chart/compatibility?'), true);
+  const params = new URLSearchParams(path.split('?')[1]);
+  assert.equal(parseInputState(params).analysisMode, 'compatibility');
+  assert.equal(parseInputState(params).name, '测试');
 });

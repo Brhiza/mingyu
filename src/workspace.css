@@ -80,11 +80,45 @@
 
 .workspace-sidebar-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
   background: var(--surface-muted);
+}
+
+.active-case-select {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.active-case-select select {
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  outline: none;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+}
+
+.active-case-select select:focus {
+  border-color: var(--border-contrast);
+  box-shadow: 0 0 0 3px var(--accent-surface);
+}
+
+.workspace-global-case-select {
+  padding: 9px 10px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-soft);
 }
 
 .workspace-sidebar-switch button {
@@ -109,7 +143,6 @@
 }
 
 .workspace-sidebar-switch button:focus-visible,
-.workspace-case-filters button:focus-visible,
 .divination-result-switch button:focus-visible {
   outline: 2px solid var(--accent-strong);
   outline-offset: 1px;
@@ -270,28 +303,6 @@
 .workspace-case-tools input:focus {
   border-color: var(--border-contrast);
   box-shadow: 0 0 0 3px var(--accent-surface);
-}
-
-.workspace-case-filters {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-}
-
-.workspace-case-filters button {
-  min-height: 30px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.workspace-case-filters button.is-active {
-  background: var(--accent-surface);
-  color: var(--accent-deep);
-  font-weight: 750;
 }
 
 .workspace-case-list {
@@ -553,6 +564,20 @@
   display: none;
 }
 
+.workspace-case-context-bar {
+  width: min(760px, 100%);
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 auto 10px;
+}
+
+.workspace-case-context-bar .active-case-select {
+  width: min(320px, 100%);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
 .workspace-result-navigation {
   position: sticky;
   z-index: 25;
@@ -572,6 +597,12 @@
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+}
+
+.workspace-result-toolbar .active-case-select {
+  grid-template-columns: auto minmax(140px, 220px);
+  align-items: center;
   gap: 8px;
 }
 
@@ -688,6 +719,22 @@
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.divination-result-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.divination-history-case {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .divination-result-workspace .divination-ai-card {
@@ -812,39 +859,11 @@
   color: var(--text-primary);
 }
 
-.workspace-choice-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.workspace-choice-grid button {
-  min-height: 74px;
-  padding: 10px;
-  border: 1px solid var(--border-soft);
-  border-radius: 11px;
-  background: var(--surface-soft);
-  color: var(--text-secondary);
-  text-align: left;
-  cursor: pointer;
-}
-
-.workspace-choice-grid button.is-active {
-  border-color: var(--border-contrast);
-  background: var(--accent-surface);
-  color: var(--accent-deep);
-}
-
-.workspace-choice-grid strong,
-.workspace-choice-grid small {
-  display: block;
-}
-
-.workspace-choice-grid small {
-  margin-top: 4px;
+.workspace-setting-note {
+  margin: -4px 0 18px;
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  line-height: 1.65;
 }
 
 .workspace-ai-setting-entry {
@@ -1011,7 +1030,7 @@
     z-index: 900;
     height: calc(54px + env(safe-area-inset-top, 0px));
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    grid-template-columns: 40px minmax(0, 1fr) minmax(68px, auto);
     align-items: end;
     gap: 8px;
     padding: env(safe-area-inset-top, 0px) 10px 7px;
@@ -1049,11 +1068,21 @@
     white-space: nowrap;
   }
 
-  .workspace-mobile-kind {
+  .workspace-mobile-case {
+    min-width: 0;
+    min-height: 34px;
     align-self: center;
-    color: var(--text-muted);
-    font-size: 10px;
+    overflow: hidden;
+    padding: 0 9px;
+    border: 1px solid var(--border-soft);
+    border-radius: 9px;
+    background: var(--surface-base);
+    color: var(--accent-deep);
+    font-size: 11px;
+    font-weight: 700;
     text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .workspace-drawer-backdrop {
@@ -1148,6 +1177,20 @@
     padding: 0 12px;
   }
 
+  .workspace-result-toolbar .active-case-select {
+    display: block;
+  }
+
+  .workspace-result-toolbar .active-case-select > span {
+    display: none;
+  }
+
+  .workspace-result-toolbar .active-case-select select {
+    width: 112px;
+    min-height: 34px;
+    padding-inline: 8px 22px;
+  }
+
   .workspace-shell .tab-strip {
     grid-column: 1;
     grid-row: 1;
@@ -1177,6 +1220,19 @@
 
   .divination-restart-button {
     padding-inline: 10px;
+  }
+
+  .divination-history-case {
+    display: none;
+  }
+
+  .workspace-case-context-bar {
+    justify-content: stretch;
+    margin-bottom: 8px;
+  }
+
+  .workspace-case-context-bar .active-case-select {
+    width: 100%;
   }
 
   .workspace-records-page .history-page-section {
@@ -1264,9 +1320,5 @@
   .workspace-shell .privacy-hint {
     align-items: flex-start;
     padding: 8px 10px;
-  }
-
-  .workspace-choice-grid {
-    grid-template-columns: 1fr;
   }
 }

@@ -125,13 +125,11 @@ export const WORKSPACE_PREFERENCES_EVENT = 'mingyu:workspace-preferences';
 
 export type WorkspacePreferences = {
   defaultFeature: WorkspaceFeatureId;
-  startBehavior: 'new' | 'recent';
   navigationOrder: WorkspaceFeatureId[];
 };
 
 export const DEFAULT_WORKSPACE_PREFERENCES: WorkspacePreferences = {
   defaultFeature: DEFAULT_WORKSPACE_FEATURE_ID,
-  startBehavior: 'new',
   navigationOrder: [...WORKSPACE_FEATURE_IDS],
 };
 
@@ -163,7 +161,6 @@ export function readWorkspacePreferences(): WorkspacePreferences {
     defaultFeature: isWorkspaceFeatureId(stored.defaultFeature)
       ? stored.defaultFeature
       : DEFAULT_WORKSPACE_PREFERENCES.defaultFeature,
-    startBehavior: stored.startBehavior === 'recent' ? 'recent' : 'new',
     navigationOrder: normalizeNavigationOrder(stored.navigationOrder),
   };
 }
@@ -173,7 +170,6 @@ export function saveWorkspacePreferences(preferences: WorkspacePreferences) {
     defaultFeature: isWorkspaceFeatureId(preferences.defaultFeature)
       ? preferences.defaultFeature
       : DEFAULT_WORKSPACE_PREFERENCES.defaultFeature,
-    startBehavior: preferences.startBehavior === 'recent' ? 'recent' : 'new',
     navigationOrder: normalizeNavigationOrder(preferences.navigationOrder),
   };
   safeStorage.setJSON(WORKSPACE_PREFERENCES_KEY, normalized);

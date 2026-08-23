@@ -17,6 +17,7 @@ import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '@/l
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
 import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
+import { ActiveCaseSelect } from '@/components/ActiveCaseSelect';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
@@ -79,7 +80,12 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
-import { normalizeChartInputForSource, preserveChartRecordId } from '@/lib/case-navigation';
+import {
+  buildChartFeaturePathForCase,
+  CHART_RECORD_PARAM,
+  normalizeChartInputForSource,
+  preserveChartRecordId,
+} from '@/lib/case-navigation';
 
 type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
 
@@ -160,6 +166,8 @@ export function ResultPage() {
     [promptState.promptSource, searchParams],
   );
   const inputSearch = useMemo(() => buildInputStateSearch(inputState), [inputState]);
+  const activeChartFeature =
+    inputState.analysisMode === 'compatibility' ? 'compatibility' : promptState.promptSource;
   const isCombinedResult =
     inputState.analysisMode === 'compatibility' || promptState.promptSource === 'bazi-ziwei';
   const resultTabs = useMemo<ResultTabKey[]>(() => {
@@ -1306,14 +1314,24 @@ export function ResultPage() {
         </div>
 
         <div className="workspace-result-toolbar">
+          <ActiveCaseSelect
+            label="切换案例"
+            unspecifiedLabel="不指定"
+            onSelect={(record) =>
+              navigate(
+                record
+                  ? buildChartFeaturePathForCase(record, activeChartFeature)
+                  : `/chart/${activeChartFeature}`,
+              )
+            }
+          />
           <button
             type="button"
             onClick={() => {
-              const feature =
-                inputState.analysisMode === 'compatibility'
-                  ? 'compatibility'
-                  : promptState.promptSource;
-              navigate(`/chart/${feature}?${buildInputStateSearch(inputState)}`);
+              const params = new URLSearchParams(buildInputStateSearch(inputState));
+              const recordId = searchParams.get(CHART_RECORD_PARAM);
+              if (recordId) params.set(CHART_RECORD_PARAM, recordId);
+              navigate(`/chart/${activeChartFeature}?${params.toString()}`);
             }}
           >
             修改资料

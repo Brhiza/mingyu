@@ -17,9 +17,11 @@ import {
   type DivinationInspirationTabId,
 } from '@/lib/divination/inspiration';
 import { addDivinationHistory, getDivinationHistoryById } from '@/lib/history-records';
+import { applyPersonalCaseToDivinationDraft } from '@/lib/divination/case-context';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
+import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import {
   QuestionInspirationModal,
   type QuestionInspirationSection,
@@ -55,8 +57,12 @@ export function DivinationPanel({
 }: DivinationPanelProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [draft, setDraft] = useState<DivinationDraft>(() => createDefaultDraft(initialMethod));
+  const { activeCase } = useActivePersonalCase();
+  const [draft, setDraft] = useState<DivinationDraft>(() =>
+    applyPersonalCaseToDivinationDraft(createDefaultDraft(initialMethod), activeCase),
+  );
   const [session, setSession] = useState<DivinationSession | null>(null);
+  const [historyCaseName, setHistoryCaseName] = useState<string | undefined>();
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isQuestionInspirationModalOpen, setIsQuestionInspirationModalOpen] = useState(false);
@@ -69,6 +75,13 @@ export function DivinationPanel({
   const { copyState, shareState, handleCopy, handleShare } = usePromptCopyShare(
     session?.prompt ?? '',
   );
+
+  useEffect(() => {
+    if (displayMode === 'result') return;
+    setDraft((current) => applyPersonalCaseToDivinationDraft(current, activeCase));
+    setSession(null);
+    setError('');
+  }, [activeCase, displayMode]);
 
   useEffect(() => {
     if (isDivinationInspirationTabVisible(activeInspirationTab, draft)) {
@@ -95,6 +108,7 @@ export function DivinationPanel({
 
     setDraft(record.draft);
     setSession(record.session);
+    setHistoryCaseName(record.caseName);
     setError('');
     setIsSubmitting(false);
   }, [displayMode, searchParams]);
@@ -232,7 +246,7 @@ export function DivinationPanel({
 
     try {
       const nextSession = await generateDivinationSession(draft);
-      const savedRecord = addDivinationHistory(draft, nextSession);
+      const savedRecord = addDivinationHistory(draft, nextSession, activeCase);
       setSession(nextSession);
       if (!savedRecord) {
         return;
@@ -279,6 +293,7 @@ export function DivinationPanel({
             shareState={shareState}
             showShareButton={showShareButton}
             showHeading={displayMode === 'workspace'}
+            caseName={historyCaseName}
             onCopy={handleCopy}
             onShare={handleShare}
             onRestart={onRestart}

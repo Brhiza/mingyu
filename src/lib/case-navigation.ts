@@ -4,6 +4,7 @@ import type {
   PersonalHistoryRecord,
 } from '@/lib/history-records';
 import {
+  buildInputStateSearch,
   buildResultSearch,
   defaultPromptState,
   hasCompletePreciseBirthData,
@@ -12,7 +13,7 @@ import {
   type QueryPromptState,
   type ResultTabKey,
 } from '@/lib/query-state';
-import { resolvePersonalWorkspaceSource } from '@/lib/workspace';
+import { resolvePersonalWorkspaceSource, type ChartWorkspaceId } from '@/lib/workspace';
 
 export const CHART_RECORD_PARAM = 'rid';
 
@@ -72,22 +73,53 @@ export function resolvePersonalRecordSource(record: PersonalHistoryRecord): Prom
   return source;
 }
 
-export function findRecentPersonalRecordForSource(
-  records: PersonalHistoryRecord[],
-  source: PromptSourceKey,
-) {
-  const matchingRecords = records.filter(
-    (record) => resolvePersonalRecordSource(record) === source,
-  );
-  return matchingRecords.find((record) => record.pinned) ?? matchingRecords[0];
-}
-
 function resolveResultTab(source: PromptSourceKey): ResultTabKey {
   if (source === 'qizheng') return 'qizheng';
   if (source === 'bazhai') return 'bazhai';
   if (source === 'ziwei') return 'ziwei';
   if (source === 'astrolabe') return 'astrolabe';
   return 'bazi';
+}
+
+function resolveChartFeatureSource(feature: ChartWorkspaceId): PromptSourceKey {
+  if (feature === 'ziwei') return 'ziwei';
+  if (feature === 'bazi-ziwei') return 'bazi-ziwei';
+  if (feature === 'astrolabe') return 'astrolabe';
+  if (feature === 'qizheng') return 'qizheng';
+  if (feature === 'bazhai') return 'bazhai';
+  return 'bazi';
+}
+
+export function buildChartFeaturePathForCase(
+  record: PersonalHistoryRecord,
+  feature: ChartWorkspaceId,
+) {
+  const source = resolveChartFeatureSource(feature);
+  const input = normalizeChartInputForSource(record.input, source);
+
+  if (feature === 'compatibility') {
+    const params = new URLSearchParams(
+      buildInputStateSearch({ ...input, analysisMode: 'compatibility' }),
+    );
+    params.set(CHART_RECORD_PARAM, record.id);
+    return `/chart/compatibility?${params.toString()}`;
+  }
+
+  if ((feature === 'astrolabe' || feature === 'qizheng') && !hasCompletePreciseBirthData(input)) {
+    const params = new URLSearchParams(buildInputStateSearch(input));
+    params.set(CHART_RECORD_PARAM, record.id);
+    return `/chart/${feature}?${params.toString()}`;
+  }
+
+  return buildChartRecordPath(
+    input,
+    {
+      ...defaultPromptState,
+      tab: resolveResultTab(source),
+      promptSource: source,
+    },
+    record.id,
+  );
 }
 
 export function buildPersonalRecordPath(record: PersonalHistoryRecord) {

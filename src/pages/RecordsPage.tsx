@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { DIVINATION_METHOD_OPTIONS } from 'mingyu-core/divination/config';
@@ -12,7 +12,7 @@ import {
   toggleCompatibilityHistoryPin,
   togglePersonalHistoryPin,
 } from '@/lib/history-records';
-import { type PromptSourceKey } from '@/lib/query-state';
+import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import {
   buildCompatibilityRecordPath,
   buildDivinationRecordPath,
@@ -24,21 +24,6 @@ type HistoryTab = 'personal' | 'compatibility' | 'divination';
 const divinationMethodLabelMap = Object.fromEntries(
   DIVINATION_METHOD_OPTIONS.map((item) => [item.value, item.label]),
 ) as Record<(typeof DIVINATION_METHOD_OPTIONS)[number]['value'], string>;
-
-const personalChartTypeLabelMap = {
-  bazi: '八字',
-  ziwei: '紫微',
-  astrolabe: '星盘',
-} as const;
-
-const personalSourceLabelMap: Record<PromptSourceKey, string> = {
-  bazi: '八字',
-  ziwei: '紫微',
-  'bazi-ziwei': '八字紫微合参',
-  astrolabe: '星盘',
-  qizheng: '七政四余',
-  bazhai: '八宅',
-};
 
 function formatUpdatedAt(value: string) {
   try {
@@ -55,6 +40,7 @@ function formatUpdatedAt(value: string) {
 
 export function RecordsPage() {
   const navigate = useNavigate();
+  const { selectCase } = useActivePersonalCase();
   const [searchParams] = useSearchParams();
   const [searchText, setSearchText] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -65,6 +51,10 @@ export function RecordsPage() {
         ? 'divination'
         : 'personal';
   const [activeTab, setActiveTab] = useState<HistoryTab>(defaultTab);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   const personalRecords = useMemo(
     () => loadPersonalHistory(),
@@ -109,12 +99,15 @@ export function RecordsPage() {
     }
 
     return divinationRecords.filter((item) =>
-      `${item.question} ${item.method} ${item.requestedMethod}`.toLowerCase().includes(query),
+      `${item.question} ${item.method} ${item.requestedMethod} ${item.caseName ?? ''}`
+        .toLowerCase()
+        .includes(query),
     );
   }, [divinationRecords, query]);
 
   function handleOpenPersonal(index: number) {
     const record = filteredPersonal[index];
+    selectCase(record.id);
     navigate(buildPersonalRecordPath(record));
   }
 
@@ -172,10 +165,10 @@ export function RecordsPage() {
       <div className="bazi-view-container">
         <header className="workspace-task-header">
           <div>
-            <span>案例</span>
-            <h1>管理案例</h1>
+            <span>资料管理</span>
+            <h1>案例与历史</h1>
           </div>
-          <p>这里仅用于整理、置顶和删除；日常切换直接使用侧栏。</p>
+          <p>个人案例用于所有命盘，占问单独保留为历史记录。</p>
         </header>
         <section className="history-page-section">
           <div className="records-toolbar">
@@ -184,10 +177,13 @@ export function RecordsPage() {
                 value={activeTab}
                 options={[
                   { label: '个人案例', value: 'personal' as const },
-                  { label: '合盘案例', value: 'compatibility' as const },
-                  { label: '占问记录', value: 'divination' as const },
+                  { label: '合盘记录', value: 'compatibility' as const },
+                  { label: '占问历史', value: 'divination' as const },
                 ]}
-                onChange={(value) => setActiveTab(value)}
+                onChange={(value) => {
+                  setActiveTab(value);
+                  navigate(`/records?tab=${value}`, { replace: true });
+                }}
               />
             </div>
             <input
@@ -223,11 +219,7 @@ export function RecordsPage() {
                         <div className="details-line">
                           <span className="gender">{record.gender === 'male' ? '男' : '女'}</span>
                           <span className="birthday">{record.birthText}</span>
-                          <span className="record-tag">
-                            {record.workspaceSource
-                              ? personalSourceLabelMap[record.workspaceSource]
-                              : personalChartTypeLabelMap[record.input.chartType] || '个人'}
-                          </span>
+                          <span className="record-tag">个人案例</span>
                         </div>
                       </div>
                       <div className="history-actions">
@@ -260,7 +252,7 @@ export function RecordsPage() {
             )
           ) : activeTab === 'compatibility' ? (
             filteredCompatibility.length === 0 ? (
-              <div className="records-empty-card">暂无匹配的合盘案例</div>
+              <div className="records-empty-card">暂无匹配的合盘记录</div>
             ) : (
               <>
                 <div className="records-list">
@@ -339,6 +331,7 @@ export function RecordsPage() {
                             ? `随机 · ${divinationMethodLabelMap[record.method]}`
                             : divinationMethodLabelMap[record.method]}
                         </span>
+                        <span className="record-tag">案例：{record.caseName ?? '未指定'}</span>
                       </div>
                     </div>
                     <div className="history-actions">
