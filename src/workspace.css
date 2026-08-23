@@ -1843,7 +1843,7 @@
 
   .workspace-mobile-header-action {
     width: 44px;
-    min-height: 32px;
+    min-height: 40px;
     align-self: center;
     padding: 0;
     border: 0;
@@ -1870,13 +1870,13 @@
   .workspace-case-tab {
     min-width: 102px;
     max-width: 142px;
-    height: 34px;
+    height: 38px;
     gap: 6px;
     padding: 0 8px;
   }
 
   .workspace-case-tab.is-active {
-    height: 35px;
+    height: 39px;
   }
 
   .workspace-case-tab-icon {
@@ -1898,15 +1898,15 @@
   }
 
   .workspace-case-tab-actions button {
-    height: 32px;
+    height: 38px;
   }
 
   .workspace-case-tab-new {
-    width: 32px;
+    width: 38px;
   }
 
   .workspace-case-tab-manage {
-    width: 34px;
+    width: 38px;
     justify-content: center;
     padding: 0;
   }
@@ -2206,7 +2206,7 @@
   }
 
   .case-card {
-    grid-template-columns: minmax(0, 1fr) 34px;
+    grid-template-columns: minmax(0, 1fr) 42px;
     gap: 3px;
     padding: 3px 4px 3px 0;
   }
@@ -2215,6 +2215,11 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
     padding: 7px 6px 7px 10px;
+  }
+
+  .case-card-menu-trigger {
+    width: 40px;
+    min-height: 40px;
   }
 
   .case-card-head,

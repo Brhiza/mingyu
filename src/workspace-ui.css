@@ -1273,6 +1273,20 @@ label.workspace-ui-field > span:first-child {
     min-height: 48px;
   }
 
+  .workspace-ui-button.is-small,
+  .workspace-ui-choice,
+  .workspace-ui-dropdown-trigger:not(.is-field) {
+    min-height: 40px;
+  }
+
+  .workspace-ui-segmented {
+    min-height: 42px;
+  }
+
+  .workspace-ui-segmented-item {
+    min-height: 34px;
+  }
+
   .workspace-ui-dialog-header {
     padding: 14px 14px 12px;
   }

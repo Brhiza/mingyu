@@ -419,7 +419,7 @@ function AiChatPanelImpl({
                   : '在下方输入问题开始 AI 解析。'}
           </p>
         </div>
-        <div className="action-row compact-actions ai-chat-head-actions">
+        <div className="ai-chat-head-actions">
           <div className="ai-chat-history-anchor">
             <WorkspaceButton
               size="small"

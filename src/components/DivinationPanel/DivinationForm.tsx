@@ -780,7 +780,8 @@ export function DivinationForm({
                 ) : null}
                 {visibleLiuyaoYaos.length > 0 ? (
                   <WorkspaceButton
-                    className="compact-action-button manual-reset-button"
+                    size="small"
+                    className="manual-reset-button"
                     onClick={() =>
                       liuyaoMethod === 'coins'
                         ? updateDraft('liuyaoCoinThrows', [])
@@ -842,7 +843,8 @@ export function DivinationForm({
                     ) : null}
                     {tarotInteractiveCards.length > 0 ? (
                       <WorkspaceButton
-                        className="compact-action-button manual-reset-button"
+                        size="small"
+                        className="manual-reset-button"
                         onClick={resetTarotCards}
                       >
                         重新抽取
@@ -900,7 +902,8 @@ export function DivinationForm({
                     ) : null}
                     {lenormandInteractiveCards.length > 0 ? (
                       <WorkspaceButton
-                        className="compact-action-button manual-reset-button"
+                        size="small"
+                        className="manual-reset-button"
                         onClick={resetLenormandCards}
                       >
                         重新抽取
@@ -1054,13 +1057,9 @@ export function DivinationForm({
 
               <div className="divination-extra-head">
                 <strong>参与人出生信息（可选）</strong>
-                <button
-                  type="button"
-                  className="workspace-ui-choice"
-                  onClick={addAlmanacParticipant}
-                >
+                <WorkspaceButton size="small" onClick={addAlmanacParticipant}>
                   添加参与人
-                </button>
+                </WorkspaceButton>
               </div>
 
               <div className="almanac-participant-list">
@@ -1068,13 +1067,13 @@ export function DivinationForm({
                   <div className="almanac-participant-card" key={participant.id}>
                     <div className="almanac-participant-head">
                       <strong>参与人 {index + 1}</strong>
-                      <button
-                        type="button"
-                        className="history-action-btn"
+                      <WorkspaceButton
+                        variant="danger"
+                        size="small"
                         onClick={() => removeAlmanacParticipant(participant.id)}
                       >
                         删除
-                      </button>
+                      </WorkspaceButton>
                     </div>
                     <div className="form-row-flex">
                       <div className="form-item">

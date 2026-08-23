@@ -100,7 +100,7 @@ function FortuneScopePresetSelect(props: {
 
   return (
     <select
-      className={props.className}
+      className={['workspace-ui-control', props.className].filter(Boolean).join(' ')}
       value={displayValue}
       onChange={(event) => {
         if (event.target.value !== 'manual-current') {
