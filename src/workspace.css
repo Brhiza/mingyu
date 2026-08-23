@@ -1,4 +1,5 @@
 .workspace-shell {
+  --workspace-case-tabbar-height: 50px;
   min-height: 100dvh;
   background: var(--surface-page);
   color: var(--text-primary);
@@ -78,58 +79,6 @@
   padding: 4px;
   border-radius: 12px;
   background: var(--surface-muted);
-}
-
-.active-case-select {
-  min-width: 0;
-  display: grid;
-  gap: 5px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.active-case-select-head {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.active-case-select-head button {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--accent-strong);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.active-case-select select {
-  min-width: 0;
-  min-height: 38px;
-  padding: 0 30px 0 10px;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  outline: none;
-  background: var(--surface-base);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 12px;
-}
-
-.active-case-select select:focus {
-  border-color: var(--border-contrast);
-  box-shadow: 0 0 0 3px var(--accent-surface);
-}
-
-.workspace-global-case-select {
-  padding: 9px 10px 10px;
-  border: 1px solid var(--border-soft);
-  border-radius: 12px;
-  background: var(--surface-soft);
 }
 
 .workspace-sidebar-switch button {
@@ -423,6 +372,169 @@
   margin-left: 248px;
 }
 
+.workspace-case-tabbar {
+  position: sticky;
+  z-index: 80;
+  top: 0;
+  height: var(--workspace-case-tabbar-height);
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 7px 12px 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface-elevated-strong) 97%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.workspace-case-tabs {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.workspace-case-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.workspace-case-tab {
+  position: relative;
+  min-width: 122px;
+  max-width: 196px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  outline: none;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.workspace-case-tab:hover {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+}
+
+.workspace-case-tab.is-active {
+  z-index: 1;
+  height: 37px;
+  margin-bottom: -1px;
+  border-color: var(--border-soft);
+  background: var(--surface-page);
+  color: var(--accent-deep);
+  box-shadow: 0 -5px 16px rgba(63, 41, 71, 0.05);
+}
+
+.workspace-case-tab:focus-visible,
+.workspace-case-tab-actions button:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: -2px;
+}
+
+.workspace-case-tab-icon {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  background: var(--surface-base);
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.workspace-case-tab.is-active .workspace-case-tab-icon {
+  background: var(--accent-surface);
+  color: var(--accent-deep);
+}
+
+.workspace-case-tab-copy {
+  min-width: 0;
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  text-align: left;
+}
+
+.workspace-case-tab-copy strong,
+.workspace-case-tab-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-case-tab-copy strong {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.workspace-case-tab-copy small {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.15;
+}
+
+.workspace-case-tab-pin {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+  font-size: 9px;
+}
+
+.workspace-case-tab-temporary .workspace-case-tab-icon {
+  color: var(--text-muted);
+}
+
+.workspace-case-tab-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 7px;
+}
+
+.workspace-case-tab-actions button {
+  height: 34px;
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  background: var(--surface-base);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspace-case-tab-actions button:hover,
+.workspace-case-tab-actions button.is-active {
+  border-color: var(--border-contrast);
+  background: var(--accent-surface);
+  color: var(--accent-deep);
+}
+
+.workspace-case-tab-new {
+  width: 34px;
+  padding: 0;
+  font-size: 18px !important;
+}
+
+.workspace-case-tab-manage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  white-space: nowrap;
+}
+
 .workspace-eyebrow {
   display: block;
   margin-bottom: 3px;
@@ -566,7 +678,7 @@
 .workspace-result-navigation {
   position: sticky;
   z-index: 25;
-  top: 0;
+  top: var(--workspace-case-tabbar-height);
   width: min(1200px, 100%);
   display: flex;
   align-items: center;
@@ -582,12 +694,6 @@
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-}
-
-.workspace-result-toolbar .active-case-select {
-  grid-template-columns: auto minmax(140px, 220px);
-  align-items: center;
   gap: 8px;
 }
 
@@ -652,7 +758,7 @@
 .divination-result-navigation {
   position: sticky;
   z-index: 25;
-  top: 0;
+  top: var(--workspace-case-tabbar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -764,7 +870,7 @@
 }
 
 .workspace-case-page .bazi-view-container {
-  max-width: 1040px;
+  max-width: 1160px;
 }
 
 .case-page-header {
@@ -786,13 +892,13 @@
 
 .case-page-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 160px;
-  gap: 10px;
-  margin-bottom: 14px;
+  grid-template-columns: minmax(0, 1fr) 116px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .case-page-toolbar .form-input {
-  min-height: 42px;
+  min-height: 38px;
 }
 
 .case-sort-select {
@@ -801,23 +907,52 @@
 
 .case-card-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: 6px;
 }
 
 .case-card {
+  position: relative;
   min-width: 0;
   display: grid;
-  gap: 12px;
-  padding: 15px;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px 3px 0;
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
+  border-radius: 11px;
   background: var(--surface-base);
 }
 
 .case-card.is-active {
   border-color: var(--border-contrast);
   box-shadow: inset 3px 0 0 var(--accent-strong);
+}
+
+.case-card-open {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 2px;
+  padding: 7px 8px 7px 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.case-card-open:hover {
+  background: var(--surface-soft);
+}
+
+.case-card-open:focus-visible,
+.case-card-menu-trigger:focus-visible,
+.case-card-menu-popover button:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: -2px;
 }
 
 .case-card-head,
@@ -843,20 +978,19 @@
   margin: 0;
   overflow: hidden;
   color: var(--text-strong);
-  font-size: 17px;
+  font-size: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .case-card-head > div:first-child > span,
-.case-card-last-used,
 .case-card-meta span {
   color: var(--text-muted);
   font-size: 11px;
 }
 
 .case-card-status span {
-  min-height: 22px;
+  min-height: 20px;
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
@@ -877,23 +1011,72 @@
   font-size: 13px;
 }
 
-.case-card-last-used {
-  padding-top: 9px;
-  border-top: 1px solid var(--border-soft);
-}
-
-.case-card-actions {
+.case-card-menu {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  place-items: center;
 }
 
-.case-card-actions button,
-.case-editor-actions button {
-  min-height: 36px;
-  padding: 0 10px;
+.case-card-menu-trigger {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -2px;
+  cursor: pointer;
+}
+
+.case-card-menu-trigger:hover,
+.case-card-menu-trigger[aria-expanded='true'] {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.case-card-menu-popover {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 124px;
+  display: grid;
+  gap: 3px;
+  padding: 5px;
   border: 1px solid var(--border-soft);
-  border-radius: 9px;
+  border-radius: 10px;
+  background: var(--surface-elevated-strong);
+  box-shadow: 0 14px 36px rgba(45, 31, 51, 0.16);
+}
+
+.case-card-menu-popover button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.case-card-menu-popover button:hover {
+  background: var(--surface-muted);
+}
+
+.case-card-menu-popover .is-danger {
+  color: var(--danger-text);
+}
+
+.case-editor-actions button {
+  min-height: 32px;
+  padding: 0 7px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
   background: var(--surface-soft);
   color: var(--text-secondary);
   font-size: 12px;
@@ -901,16 +1084,11 @@
   cursor: pointer;
 }
 
-.case-card-actions .primary-button,
 .case-editor-actions .primary-button {
   border: 0;
   background: var(--accent-strong);
   color: #fff;
   box-shadow: none;
-}
-
-.case-card-actions .is-danger {
-  color: var(--danger-text);
 }
 
 .workspace-case-page .records-empty-card {
@@ -1224,6 +1402,10 @@
 }
 
 @media (max-width: 979px) {
+  .workspace-shell {
+    --workspace-case-tabbar-height: 44px;
+  }
+
   .workspace-sidebar {
     display: none;
   }
@@ -1239,7 +1421,7 @@
     z-index: 900;
     height: calc(54px + env(safe-area-inset-top, 0px));
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) minmax(68px, auto);
+    grid-template-columns: 40px minmax(0, 1fr) 44px;
     align-items: end;
     gap: 8px;
     padding: env(safe-area-inset-top, 0px) 10px 7px;
@@ -1277,21 +1459,83 @@
     white-space: nowrap;
   }
 
-  .workspace-mobile-case {
-    min-width: 0;
-    min-height: 34px;
+  .workspace-mobile-header-spacer {
+    width: 44px;
+    height: 40px;
+  }
+
+  .workspace-mobile-header-action {
+    width: 44px;
+    min-height: 32px;
     align-self: center;
-    overflow: hidden;
-    padding: 0 9px;
-    border: 1px solid var(--border-soft);
-    border-radius: 9px;
-    background: var(--surface-base);
-    color: var(--accent-deep);
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--accent-strong);
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .workspace-mobile-header-action:focus-visible {
+    outline: 2px solid var(--accent-strong);
+    outline-offset: -2px;
+  }
+
+  .workspace-case-tabbar {
+    z-index: 850;
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    gap: 6px;
+    padding: 5px 7px 0;
+  }
+
+  .workspace-case-tab {
+    min-width: 102px;
+    max-width: 142px;
+    height: 34px;
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .workspace-case-tab.is-active {
+    height: 35px;
+  }
+
+  .workspace-case-tab-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .workspace-case-tab-copy strong {
     font-size: 11px;
-    font-weight: 700;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+
+  .workspace-case-tab-copy small {
+    display: none;
+  }
+
+  .workspace-case-tab-actions {
+    gap: 4px;
+    padding-bottom: 5px;
+  }
+
+  .workspace-case-tab-actions button {
+    height: 32px;
+  }
+
+  .workspace-case-tab-new {
+    width: 32px;
+  }
+
+  .workspace-case-tab-manage {
+    width: 34px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .workspace-case-tab-manage-text {
+    display: none;
   }
 
   .workspace-drawer-backdrop {
@@ -1327,20 +1571,12 @@
   }
 
   .workspace-case-page .case-page-header {
-    min-height: 0;
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 10px;
-  }
-
-  .workspace-case-page .case-page-header h1 {
     display: none;
   }
 
-  .workspace-case-page .case-create-button {
-    width: auto;
-    min-height: 38px;
-    padding: 8px 16px;
+  .case-card {
+    grid-template-columns: minmax(0, 1fr) 36px;
+    gap: 4px;
   }
 
   .workspace-input-page .form-wrapper.is-compatibility {
@@ -1382,7 +1618,7 @@
   .workspace-result-navigation {
     position: sticky;
     z-index: 25;
-    top: calc(54px + env(safe-area-inset-top, 0px));
+    top: calc(54px + var(--workspace-case-tabbar-height) + env(safe-area-inset-top, 0px));
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
@@ -1403,20 +1639,6 @@
     padding: 0 12px;
   }
 
-  .workspace-result-toolbar .active-case-select {
-    display: block;
-  }
-
-  .workspace-result-toolbar .active-case-select-head {
-    display: none;
-  }
-
-  .workspace-result-toolbar .active-case-select select {
-    width: 112px;
-    min-height: 34px;
-    padding-inline: 8px 22px;
-  }
-
   .workspace-shell .tab-strip {
     grid-column: 1;
     grid-row: 1;
@@ -1431,7 +1653,7 @@
 
   .divination-result-navigation {
     position: sticky;
-    top: calc(54px + env(safe-area-inset-top, 0px));
+    top: calc(54px + var(--workspace-case-tabbar-height) + env(safe-area-inset-top, 0px));
     margin: -6px -12px 0;
     padding: 6px 12px;
   }
@@ -1545,29 +1767,28 @@
     box-shadow: none;
   }
 
-  .case-page-toolbar,
-  .case-card-grid {
-    grid-template-columns: 1fr;
-  }
-
   .case-page-toolbar {
-    gap: 7px;
+    grid-template-columns: minmax(0, 1fr) 108px;
+    gap: 6px;
     margin-bottom: 10px;
   }
 
   .case-card {
-    gap: 10px;
-    padding: 13px;
+    grid-template-columns: minmax(0, 1fr) 34px;
+    gap: 3px;
+    padding: 3px 4px 3px 0;
   }
 
-  .case-card-actions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 5px;
+  .case-card-open {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    padding: 7px 6px 7px 10px;
   }
 
-  .case-card-actions button {
-    min-width: 0;
-    padding-inline: 4px;
+  .case-card-head,
+  .case-card-meta {
+    grid-column: 1;
+    grid-row: auto;
   }
 
   .case-editor-modal {

@@ -17,7 +17,6 @@ import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '@/l
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
 import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
-import { ActiveCaseSelect } from '@/components/ActiveCaseSelect';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
@@ -81,7 +80,6 @@ import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/h
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
 import {
-  buildChartFeaturePathForCase,
   CHART_RECORD_PARAM,
   normalizeChartInputForSource,
   preserveChartRecordId,
@@ -1314,17 +1312,6 @@ export function ResultPage() {
         </div>
 
         <div className="workspace-result-toolbar">
-          <ActiveCaseSelect
-            label="切换案例"
-            unspecifiedLabel="不指定"
-            onSelect={(record) =>
-              navigate(
-                record
-                  ? buildChartFeaturePathForCase(record, activeChartFeature)
-                  : `/chart/${activeChartFeature}`,
-              )
-            }
-          />
           <button
             type="button"
             onClick={() => {

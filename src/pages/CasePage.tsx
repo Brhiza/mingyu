@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import {
   removePersonalHistory,
@@ -17,7 +17,7 @@ import { PersonForm } from './InputPage.PersonForm';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from '@/lib/input-labels';
 
-type CaseSortMode = 'recent' | 'birth';
+type CaseSortMode = 'recent' | 'name' | 'birth';
 
 function createNewCaseForm(): QueryInputState {
   return {
@@ -30,18 +30,6 @@ function createNewCaseForm(): QueryInputState {
 
 function getCaseActivityTime(record: PersonalHistoryRecord) {
   return record.lastUsedAt ?? record.updatedAt;
-}
-
-function formatActivityTime(record: PersonalHistoryRecord) {
-  const value = getCaseActivityTime(record);
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
 }
 
 function formatBirthTime(record: PersonalHistoryRecord) {
@@ -65,6 +53,7 @@ function compareBirthDate(left: PersonalHistoryRecord, right: PersonalHistoryRec
 
 export function CasePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { cases, activeCaseId, selectCase } = useActivePersonalCase();
   const [searchText, setSearchText] = useState('');
   const [sortMode, setSortMode] = useState<CaseSortMode>('recent');
@@ -72,7 +61,32 @@ export function CasePage() {
   const [editingRecord, setEditingRecord] = useState<PersonalHistoryRecord | null>(null);
   const [form, setForm] = useState<QueryInputState>(createNewCaseForm);
   const [error, setError] = useState('');
+  const [openMenuCaseId, setOpenMenuCaseId] = useState<string | null>(null);
   const birthPlace = useBirthPlace({ form, setForm });
+  const shouldOpenNewCase = searchParams.get('new') === '1';
+
+  useEffect(() => {
+    if (!shouldOpenNewCase) return;
+    setEditingRecord(null);
+    setForm(createNewCaseForm());
+    setError('');
+    setIsEditorOpen(true);
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams, shouldOpenNewCase]);
+
+  useEffect(() => {
+    if (!openMenuCaseId) return;
+    const closeMenu = () => setOpenMenuCaseId(null);
+    const closeMenuWithEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu();
+    };
+    window.addEventListener('click', closeMenu);
+    window.addEventListener('keydown', closeMenuWithEscape);
+    return () => {
+      window.removeEventListener('click', closeMenu);
+      window.removeEventListener('keydown', closeMenuWithEscape);
+    };
+  }, [openMenuCaseId]);
 
   const visibleCases = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
@@ -84,6 +98,12 @@ export function CasePage() {
       )
       .sort((left, right) => {
         if (Boolean(left.pinned) !== Boolean(right.pinned)) return left.pinned ? -1 : 1;
+        if (sortMode === 'name') {
+          return left.name.localeCompare(right.name, 'zh-CN', {
+            numeric: true,
+            sensitivity: 'base',
+          });
+        }
         if (sortMode === 'birth') return compareBirthDate(left, right);
         return getCaseActivityTime(right).localeCompare(getCaseActivityTime(left));
       });
@@ -224,6 +244,7 @@ export function CasePage() {
               onChange={(event) => setSortMode(event.target.value as CaseSortMode)}
             >
               <option value="recent">最近使用</option>
+              <option value="name">姓名顺序</option>
               <option value="birth">出生日期</option>
             </select>
           </div>
@@ -235,40 +256,77 @@ export function CasePage() {
                   className={`case-card${activeCaseId === record.id ? ' is-active' : ''}`}
                   key={record.id}
                 >
-                  <div className="case-card-head">
-                    <div>
-                      <h2>{record.name}</h2>
-                      <span>{record.gender === 'male' ? '男' : '女'}</span>
+                  <button
+                    type="button"
+                    className="case-card-open"
+                    onClick={() => openCase(record)}
+                    aria-label={`打开案例 ${record.name}，${record.birthText}`}
+                  >
+                    <div className="case-card-head">
+                      <div>
+                        <h2>{record.name}</h2>
+                        <span>{record.gender === 'male' ? '男' : '女'}</span>
+                      </div>
+                      <div className="case-card-status">
+                        {record.pinned ? <span>置顶</span> : null}
+                        {activeCaseId === record.id ? <span>当前</span> : null}
+                      </div>
                     </div>
-                    <div className="case-card-status">
-                      {record.pinned ? <span>置顶</span> : null}
-                      {activeCaseId === record.id ? <span>当前</span> : null}
+                    <div className="case-card-meta">
+                      <span>{record.input.dateType === 'lunar' ? '农历' : '公历'}</span>
+                      <strong>{record.birthText}</strong>
+                      <span>{formatBirthTime(record)}</span>
+                      {record.input.birthPlace ? <span>{record.input.birthPlace}</span> : null}
                     </div>
-                  </div>
-                  <div className="case-card-meta">
-                    <span>{record.input.dateType === 'lunar' ? '农历' : '公历'}</span>
-                    <strong>{record.birthText}</strong>
-                    <span>{formatBirthTime(record)}</span>
-                    {record.input.birthPlace ? <span>{record.input.birthPlace}</span> : null}
-                  </div>
-                  <div className="case-card-last-used">最近使用 {formatActivityTime(record)}</div>
-                  <div className="case-card-actions">
+                  </button>
+                  <div className="case-card-menu" onClick={(event) => event.stopPropagation()}>
                     <button
                       type="button"
-                      className="primary-button"
-                      onClick={() => openCase(record)}
+                      className="case-card-menu-trigger"
+                      aria-label={`管理案例 ${record.name}`}
+                      aria-haspopup="menu"
+                      aria-expanded={openMenuCaseId === record.id}
+                      onClick={() =>
+                        setOpenMenuCaseId((current) => (current === record.id ? null : record.id))
+                      }
                     >
-                      打开
+                      ···
                     </button>
-                    <button type="button" onClick={() => openCaseEditor(record)}>
-                      编辑
-                    </button>
-                    <button type="button" onClick={() => togglePersonalHistoryPin(record.id)}>
-                      {record.pinned ? '取消置顶' : '置顶'}
-                    </button>
-                    <button type="button" className="is-danger" onClick={() => deleteCase(record)}>
-                      删除
-                    </button>
+                    {openMenuCaseId === record.id ? (
+                      <div className="case-card-menu-popover" role="menu">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setOpenMenuCaseId(null);
+                            openCaseEditor(record);
+                          }}
+                        >
+                          编辑资料
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setOpenMenuCaseId(null);
+                            togglePersonalHistoryPin(record.id);
+                          }}
+                        >
+                          {record.pinned ? '取消置顶' : '置顶案例'}
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="is-danger"
+                          onClick={() => {
+                            setOpenMenuCaseId(null);
+                            deleteCase(record);
+                          }}
+                        >
+                          删除案例
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </article>
               ))}

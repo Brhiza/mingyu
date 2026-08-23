@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ActiveCaseSelect } from '@/components/ActiveCaseSelect';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { WorkspaceSettingsModal } from '@/components/WorkspaceSettingsModal';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
@@ -10,7 +9,11 @@ import {
   loadDivinationHistory,
   type PersonalHistoryRecord,
 } from '@/lib/history-records';
-import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
+import {
+  buildChartFeaturePathForCase,
+  buildDivinationRecordPath,
+  CHART_RECORD_PARAM,
+} from '@/lib/case-navigation';
 import { parseInputState, parsePromptState } from '@/lib/query-state';
 import {
   WORKSPACE_FEATURE_GROUPS,
@@ -72,9 +75,12 @@ export function WorkspaceShell() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [settingsModal, setSettingsModal] = useState<'workspace' | 'ai' | null>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
-  const { activeCase } = useActivePersonalCase();
+  const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
+  const activeCaseTabRef = useRef<HTMLButtonElement>(null);
   const activeFeature = resolveActiveFeature(location.pathname, location.search);
-  const activeDivinationRecordId = new URLSearchParams(location.search).get('record');
+  const routeSearchParams = new URLSearchParams(location.search);
+  const activeDivinationRecordId = routeSearchParams.get('record');
+  const chartRecordId = routeSearchParams.get(CHART_RECORD_PARAM);
   const pageTitle = resolvePageTitle(location.pathname, activeFeature);
   const orderedFeatures = useMemo(
     () => preferences.navigationOrder.map(getWorkspaceFeature),
@@ -122,7 +128,22 @@ export function WorkspaceShell() {
     return () => window.removeEventListener(HISTORY_RECORDS_EVENT, syncHistory);
   }, []);
 
-  function navigateForSelectedCase(record: PersonalHistoryRecord | null) {
+  useEffect(() => {
+    activeCaseTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeCaseId]);
+
+  useEffect(() => {
+    if (
+      chartRecordId &&
+      chartRecordId !== activeCaseId &&
+      cases.some((record) => record.id === chartRecordId)
+    ) {
+      selectCase(chartRecordId);
+    }
+  }, [activeCaseId, cases, chartRecordId, selectCase]);
+
+  function activateCase(record: PersonalHistoryRecord | null) {
+    selectCase(record?.id ?? null);
     if (activeFeature && isChartWorkspaceId(activeFeature)) {
       navigate(
         record
@@ -130,6 +151,12 @@ export function WorkspaceShell() {
           : buildWorkspaceFeaturePath(activeFeature),
       );
     }
+    setIsDrawerOpen(false);
+  }
+
+  function createCase() {
+    selectCase(null);
+    navigate('/cases?new=1');
     setIsDrawerOpen(false);
   }
 
@@ -153,16 +180,6 @@ export function WorkspaceShell() {
           ×
         </button>
       </div>
-
-      <ActiveCaseSelect
-        className="workspace-global-case-select"
-        label="案例"
-        onSelect={navigateForSelectedCase}
-        onManage={() => {
-          navigate('/cases');
-          setIsDrawerOpen(false);
-        }}
-      />
 
       <div className="workspace-sidebar-switch" role="tablist" aria-label="侧栏内容">
         <button
@@ -332,15 +349,17 @@ export function WorkspaceShell() {
           <span />
         </button>
         <strong>{pageTitle}</strong>
-        <button
-          type="button"
-          className="workspace-mobile-case"
-          onClick={() => {
-            setIsDrawerOpen(true);
-          }}
-        >
-          {activeCase?.name ?? '不指定'}
-        </button>
+        {location.pathname === '/cases' ? (
+          <button
+            type="button"
+            className="workspace-mobile-header-action"
+            onClick={() => navigate('/cases?new=1')}
+          >
+            新建
+          </button>
+        ) : (
+          <span className="workspace-mobile-header-spacer" aria-hidden="true" />
+        )}
       </header>
 
       {isDrawerOpen ? (
@@ -352,6 +371,80 @@ export function WorkspaceShell() {
       ) : null}
 
       <main className="workspace-main">
+        {location.pathname !== '/cases' ? (
+          <nav className="workspace-case-tabbar" aria-label="案例档案">
+            <div className="workspace-case-tabs" role="tablist" aria-label="快速切换案例">
+              <button
+                ref={activeCaseId === null ? activeCaseTabRef : undefined}
+                type="button"
+                role="tab"
+                className={`workspace-case-tab workspace-case-tab-temporary${
+                  activeCaseId === null ? ' is-active' : ''
+                }`}
+                aria-selected={activeCaseId === null}
+                onClick={() => activateCase(null)}
+              >
+                <span className="workspace-case-tab-icon" aria-hidden="true">
+                  临
+                </span>
+                <span className="workspace-case-tab-copy">
+                  <strong>临时档案</strong>
+                  <small>不指定案例</small>
+                </span>
+              </button>
+              {cases.map((record) => {
+                const isActive = activeCaseId === record.id;
+                return (
+                  <button
+                    ref={isActive ? activeCaseTabRef : undefined}
+                    type="button"
+                    role="tab"
+                    key={record.id}
+                    className={`workspace-case-tab${isActive ? ' is-active' : ''}`}
+                    aria-selected={isActive}
+                    aria-label={`${record.name}，${record.birthText}${record.pinned ? '，已置顶' : ''}`}
+                    title={`${record.name} · ${record.birthText}`}
+                    onClick={() => activateCase(record)}
+                  >
+                    <span className="workspace-case-tab-icon" aria-hidden="true">
+                      档
+                    </span>
+                    <span className="workspace-case-tab-copy">
+                      <strong>{record.name}</strong>
+                      <small>{record.birthText}</small>
+                    </span>
+                    {record.pinned ? (
+                      <span className="workspace-case-tab-pin" aria-hidden="true">
+                        ★
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="workspace-case-tab-actions">
+              <button
+                type="button"
+                className="workspace-case-tab-new"
+                onClick={createCase}
+                aria-label="新建案例"
+                title="新建案例"
+              >
+                ＋
+              </button>
+              <button
+                type="button"
+                className="workspace-case-tab-manage"
+                onClick={() => navigate('/cases')}
+                aria-label="全部案例"
+                title="全部案例"
+              >
+                <span aria-hidden="true">▤</span>
+                <span className="workspace-case-tab-manage-text">全部案例</span>
+              </button>
+            </div>
+          </nav>
+        ) : null}
         <div className="workspace-page">
           <Outlet />
         </div>
