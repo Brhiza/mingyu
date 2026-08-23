@@ -4339,19 +4339,6 @@ select {
   box-shadow: none;
 }
 
-.divination-prompt-head > :first-child {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.divination-prompt-actions {
-  flex: 0 0 auto;
-}
-
-.divination-prompt-actions .copy-button {
-  white-space: nowrap;
-}
-
 .divination-tag-cloud {
   display: flex;
   flex-wrap: wrap;
@@ -7552,14 +7539,6 @@ div.form-actions.page-submit-actions {
   .divination-result-panel {
     padding: 10px;
     border-radius: 12px;
-  }
-
-  .divination-prompt-actions {
-    width: 100%;
-  }
-
-  .divination-prompt-actions .copy-button {
-    min-height: 44px;
   }
 
   .dropdown-select-trigger.dropdown-select-field,

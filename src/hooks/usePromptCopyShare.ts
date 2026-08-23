@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { shareText } from '@/utils/share-text';
 
 export interface PromptCopyShare {
@@ -10,23 +10,26 @@ export interface PromptCopyShare {
 
 export function usePromptCopyShare(promptText: string): PromptCopyShare {
   const [copyResult, setCopyResult] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const [shareResult, setShareResult] = useState<'idle' | 'shared' | 'failed' | 'unsupported'>(
-    'idle',
-  );
+  const [shareResult, setShareResult] = useState<'idle' | 'shared' | 'copied' | 'failed'>('idle');
+
+  useEffect(() => {
+    setCopyResult('idle');
+    setShareResult('idle');
+  }, [promptText]);
 
   const copyState = useMemo(() => {
     if (!promptText) return '暂无内容';
     if (copyResult === 'copied') return '已复制';
     if (copyResult === 'failed') return '复制失败';
-    return '复制';
+    return '复制提问内容';
   }, [copyResult, promptText]);
 
   const shareState = useMemo(() => {
     if (!promptText) return '暂无内容';
     if (shareResult === 'shared') return '已调起系统分享';
-    if (shareResult === 'unsupported') return '当前设备不支持系统分享';
+    if (shareResult === 'copied') return '已复制，可粘贴分享';
     if (shareResult === 'failed') return '分享失败';
-    return '分享';
+    return '分享提问内容';
   }, [shareResult, promptText]);
 
   async function handleCopy() {
@@ -51,7 +54,13 @@ export function usePromptCopyShare(promptText: string): PromptCopyShare {
 
     try {
       const ok = await shareText(promptText);
-      setShareResult(ok ? 'shared' : 'unsupported');
+      if (ok) {
+        setShareResult('shared');
+        return;
+      }
+
+      await navigator.clipboard.writeText(promptText);
+      setShareResult('copied');
     } catch {
       setShareResult('failed');
     }

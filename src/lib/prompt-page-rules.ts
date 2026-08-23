@@ -1,13 +1,3 @@
-import { shouldUsePhoneLayout } from './responsive-layout';
-
-export function shouldShowPromptShareButton(options: {
-  viewportWidth: number;
-  viewportHeight?: number;
-  hasNavigatorShare: boolean;
-}) {
-  return shouldUsePhoneLayout(options) && options.hasNavigatorShare;
-}
-
 export function buildBaziCustomPromptPatch() {
   return {
     baziShortcutMode: '自定义',

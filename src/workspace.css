@@ -1254,9 +1254,7 @@
   }
 
   .workspace-result-split > .workspace-result-assistant-pane.is-prompt-mode {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
+    overflow: hidden;
   }
 
   .workspace-result-split > .workspace-result-assistant-pane.is-ai-mode {
@@ -1268,6 +1266,26 @@
   .workspace-result-split .workspace-ai-layout {
     width: 100%;
     max-width: none;
+  }
+
+  .workspace-result-split .workspace-prompt-layout {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .workspace-result-split .workspace-prompt-builder {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .workspace-result-split .workspace-prompt-delivery {
+    flex: 0 0 auto;
   }
 
   .workspace-result-split .workspace-ai-layout {
@@ -1285,12 +1303,6 @@
   .workspace-result-split .panel-ai-chat {
     height: 100%;
     min-height: 0;
-  }
-
-  .workspace-result-split .workspace-prompt-preview,
-  .workspace-result-split .workspace-prompt-preview > pre {
-    max-height: none;
-    overflow: visible;
   }
 
   .workspace-result-assistant-stage {
@@ -1343,10 +1355,12 @@
     overflow: hidden;
   }
 
-  .divination-result-workspace.is-split .divination-result-assistant-pane.is-prompt-mode
-    .workspace-prompt-preview,
-  .divination-result-workspace.is-split .divination-result-assistant-pane.is-prompt-mode
-    .workspace-prompt-preview
+  .divination-result-workspace.is-split
+    .divination-result-assistant-pane.is-prompt-mode
+    .workspace-prompt-preview-body,
+  .divination-result-workspace.is-split
+    .divination-result-assistant-pane.is-prompt-mode
+    .workspace-prompt-preview-body
     > pre {
     max-height: none;
     overflow: visible;
@@ -2086,23 +2100,6 @@
 
   .workspace-result-assistant-pane.is-inactive {
     display: none;
-  }
-
-  .workspace-prompt-output .workspace-ui-panel-head {
-    align-items: center;
-    gap: 8px;
-  }
-
-  .workspace-prompt-output .workspace-ui-panel-head h2 {
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-
-  .workspace-prompt-output .compact-actions {
-    width: auto;
-    flex: 0 0 auto;
-    flex-wrap: nowrap;
-    gap: 6px;
   }
 
   .workspace-result-ai-fab {

@@ -7,7 +7,7 @@ import { AiChatPanel } from '@/components/AiChatPanel';
 import { TraditionalDivinationBoard } from '@/components/DivinationPanel/TraditionalDivinationBoard';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
-import { PromptPreview } from '@/components/PromptPreview';
+import { PromptDeliveryPanel } from '@/components/PromptPreview';
 import {
   ResultAssistantFab,
   ResultAssistantHeader,
@@ -23,7 +23,6 @@ interface DivinationResultProps {
   methodLabelMap: Record<DivinationDraft['method'], string>;
   copyState: string;
   shareState: string;
-  showShareButton: boolean;
   showHeading?: boolean;
   assistantOnly?: boolean;
   caseName?: string;
@@ -187,7 +186,6 @@ export function DivinationResult({
   methodLabelMap,
   copyState,
   shareState,
-  showShareButton,
   showHeading = true,
   assistantOnly = false,
   caseName,
@@ -368,22 +366,14 @@ export function DivinationResult({
                 />
               </div>
             ) : (
-              <section className="workspace-ui-surface workspace-prompt-output divination-result-panel">
-                <div className="workspace-ui-panel-head divination-prompt-head">
-                  <h2>提示词</h2>
-                  <div className="action-row compact-actions divination-prompt-actions">
-                    <WorkspaceButton size="small" onClick={onCopy}>
-                      {copyState}
-                    </WorkspaceButton>
-                    {showShareButton ? (
-                      <WorkspaceButton variant="primary" size="small" onClick={onShare}>
-                        {shareState}
-                      </WorkspaceButton>
-                    ) : null}
-                  </div>
-                </div>
-                <PromptPreview promptText={session.prompt} />
-              </section>
+              <PromptDeliveryPanel
+                promptText={session.prompt}
+                copyState={copyState}
+                shareState={shareState}
+                onCopy={onCopy}
+                onShare={onShare}
+                question={session.question || methodLabelMap[session.method]}
+              />
             )}
           </div>
         ) : null}

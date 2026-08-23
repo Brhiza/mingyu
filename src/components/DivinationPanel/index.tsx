@@ -18,8 +18,6 @@ import {
 } from '@/lib/divination/inspiration';
 import { addDivinationHistory, getDivinationHistoryById } from '@/lib/history-records';
 import { applyPersonalCaseToDivinationDraft } from '@/lib/divination/case-context';
-import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
-import { useViewportSize } from '@/hooks/useViewportWidth';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import {
@@ -75,7 +73,6 @@ export function DivinationPanel({
   const [activeInspirationTab, setActiveInspirationTab] =
     useState<DivinationInspirationTabId>('ganqing');
   const [inspirationSearch, setInspirationSearch] = useState('');
-  const viewportSize = useViewportSize({ width: 1280, height: 800 });
   const questionInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const { copyState, shareState, handleCopy, handleShare } = usePromptCopyShare(
@@ -195,11 +192,6 @@ export function DivinationPanel({
       }))
       .filter((section) => section.items.length > 0);
   }, [activeInspirationTab, draft, inspirationSearch, specialInspiration]);
-  const showShareButton = shouldShowPromptShareButton({
-    viewportWidth: viewportSize.width,
-    viewportHeight: viewportSize.height,
-    hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
-  });
   useEffect(() => {
     if (!lockedMethod || draft.method === lockedMethod) {
       return;
@@ -297,7 +289,6 @@ export function DivinationPanel({
             methodLabelMap={methodLabelMap}
             copyState={copyState}
             shareState={shareState}
-            showShareButton={showShareButton}
             showHeading={displayMode === 'workspace'}
             assistantOnly={assistantOnly}
             caseName={historyCaseName}
