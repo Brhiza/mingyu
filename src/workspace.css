@@ -640,8 +640,7 @@
 }
 
 .workspace-home-mode-switch button:focus-visible,
-.workspace-home-mode-panel button:focus-visible,
-.workspace-mobile-bottom-nav button:focus-visible {
+.workspace-home-mode-panel button:focus-visible {
   outline: 2px solid var(--accent-strong);
   outline-offset: 2px;
 }
@@ -1734,15 +1733,13 @@
 }
 
 .workspace-mobile-header,
-.workspace-drawer-backdrop,
-.workspace-mobile-bottom-nav {
+.workspace-drawer-backdrop {
   display: none;
 }
 
 @media (max-width: 979px) {
   .workspace-shell {
     --workspace-case-tabbar-height: 44px;
-    --workspace-mobile-bottom-nav-height: 64px;
   }
 
   .workspace-sidebar {
@@ -1929,8 +1926,7 @@
   }
 
   .workspace-page {
-    padding: 12px 12px
-      calc(var(--workspace-mobile-bottom-nav-height) + 20px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 12px calc(20px + env(safe-area-inset-bottom, 0px));
   }
 
   .workspace-main.is-home .workspace-page {
@@ -2066,57 +2062,6 @@
     min-height: 70px;
   }
 
-  .workspace-mobile-bottom-nav {
-    position: fixed;
-    z-index: 700;
-    inset: auto 0 0;
-    height: calc(var(--workspace-mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: start;
-    padding: 5px max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px)
-      max(8px, env(safe-area-inset-left, 0px));
-    border-top: 1px solid var(--border-soft);
-    background: color-mix(in srgb, var(--surface-elevated-strong) 97%, transparent);
-    box-shadow: 0 -8px 28px rgba(45, 31, 52, 0.07);
-    backdrop-filter: blur(18px);
-  }
-
-  .workspace-mobile-bottom-nav button {
-    min-width: 0;
-    min-height: 52px;
-    display: grid;
-    place-items: center;
-    align-content: center;
-    gap: 2px;
-    padding: 2px 4px;
-    border: 0;
-    border-radius: 11px;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 10px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .workspace-mobile-bottom-nav button svg {
-    width: 22px;
-    height: 22px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .workspace-mobile-bottom-nav button.is-active {
-    color: var(--accent-deep);
-  }
-
-  .workspace-mobile-bottom-nav button.is-active svg {
-    filter: drop-shadow(0 3px 6px var(--accent-soft-strong));
-  }
-
   .case-card {
     grid-template-columns: minmax(0, 1fr) 36px;
     gap: 4px;
@@ -2164,9 +2109,7 @@
     position: fixed;
     z-index: 720;
     right: 16px;
-    bottom: calc(
-      var(--workspace-mobile-bottom-nav-height) + 14px + env(safe-area-inset-bottom, 0px)
-    );
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     width: 58px;
     height: 58px;
     display: grid;

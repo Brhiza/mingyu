@@ -1098,7 +1098,7 @@ label.workspace-ui-field > span:first-child {
   .workspace-ui-form-actions.is-sticky-mobile {
     position: sticky;
     z-index: 30;
-    bottom: calc(var(--workspace-mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+    bottom: env(safe-area-inset-bottom, 0px);
     margin: 2px -4px -4px;
     padding: 8px 4px;
     background: color-mix(in srgb, var(--surface-page) 94%, transparent);

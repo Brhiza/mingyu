@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
-import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { WorkspaceSettingsModal } from '@/components/WorkspaceSettingsModal';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useAiSettings } from '@/hooks/useAiSettings';
@@ -103,7 +102,6 @@ export function WorkspaceShell() {
   const routeSearchParams = new URLSearchParams(location.search);
   const activeDivinationRecordId = routeSearchParams.get('record');
   const chartRecordId = routeSearchParams.get(CHART_RECORD_PARAM);
-  const homeSection = routeSearchParams.get('section');
   const isHomeRoute = location.pathname === '/' || location.pathname === '/home';
   const isResultRoute =
     location.pathname === '/result' || /^\/divination\/[^/]+\/result$/.test(location.pathname);
@@ -524,35 +522,6 @@ export function WorkspaceShell() {
           <Outlet />
         </div>
       </main>
-
-      {!isResultAssistant ? (
-        <MobileBottomNav
-          activeSection={
-            isHomeRoute
-              ? homeSection === 'chart'
-                ? 'chart'
-                : homeSection === 'divination'
-                  ? 'divination'
-                  : 'home'
-              : isInstantResult
-                ? 'home'
-                : location.pathname === '/cases'
-                  ? 'cases'
-                  : activeFeature && isChartWorkspaceId(activeFeature)
-                    ? 'chart'
-                    : activeFeature && isDivinationWorkspaceId(activeFeature)
-                      ? 'divination'
-                      : null
-          }
-          onSelect={(section) => {
-            setIsDrawerOpen(false);
-            if (section === 'home') navigate('/');
-            if (section === 'chart') navigate('/?section=chart');
-            if (section === 'divination') navigate('/?section=divination');
-            if (section === 'cases') navigate('/cases');
-          }}
-        />
-      ) : null}
 
       {settingsModal === 'workspace' ? (
         <WorkspaceSettingsModal
