@@ -60,6 +60,10 @@ const instantTimeOptions: DropdownSelectOption<InstantTimeStandard>[] = [
 
 const TEMPORARY_CASE_VALUE = '__temporary_case__';
 
+function isHomeChartWorkspaceId(value: unknown): value is ChartWorkspaceId {
+  return isChartWorkspaceId(value) && value !== 'compatibility';
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,7 +71,7 @@ export function HomePage() {
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [questionDraft, setQuestionDraft] = useState('');
   const [selectedChartFeature, setSelectedChartFeature] = useState<ChartWorkspaceId>(() =>
-    isChartWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'bazi',
+    isHomeChartWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'bazi',
   );
   const [selectedDivinationFeature, setSelectedDivinationFeature] = useState<DivinationWorkspaceId>(
     () =>
@@ -95,7 +99,7 @@ export function HomePage() {
     [preferences.navigationOrder],
   );
   const chartFeatures = useMemo(
-    () => orderedFeatures.filter((feature) => isChartWorkspaceId(feature.id)),
+    () => orderedFeatures.filter((feature) => isHomeChartWorkspaceId(feature.id)),
     [orderedFeatures],
   );
   const divinationFeatures = useMemo(
@@ -179,7 +183,7 @@ export function HomePage() {
   }
 
   function selectAlgorithm(value: string) {
-    if (activeMode === 'chart' && isChartWorkspaceId(value)) {
+    if (activeMode === 'chart' && isHomeChartWorkspaceId(value)) {
       setSelectedChartFeature(value);
       return;
     }
