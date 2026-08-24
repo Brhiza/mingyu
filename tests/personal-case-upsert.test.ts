@@ -81,6 +81,35 @@ test('案例管理明确编辑资料时仍应更新原案例', () => {
   });
 });
 
+test('精准排盘补充时分和出生地时应完善原案例而不是新建分支', () => {
+  withMockStorage(() => {
+    const originalRecord = upsertPersonalHistory(
+      createInput('已有案例', '2000', '2', '2'),
+      'bazi',
+    )[0];
+    const records = upsertPersonalHistory(
+      {
+        ...originalRecord.input,
+        chartType: 'astrolabe',
+        birthHour: '01',
+        birthMinute: '35',
+        birthPlace: '北京市 北京市 东城区',
+        birthLongitude: '116.416357',
+        birthLatitude: '39.928353',
+      },
+      'astrolabe',
+      originalRecord.id,
+    );
+
+    assert.equal(records.length, 1);
+    assert.equal(records[0]?.id, originalRecord.id);
+    assert.equal(records[0]?.workspaceSource, 'astrolabe');
+    assert.equal(records[0]?.input.birthHour, '01');
+    assert.equal(records[0]?.input.birthPlace, '北京市 北京市 东城区');
+    assert.equal(records[0]?.input.birthLongitude, '116.416357');
+  });
+});
+
 test('历史覆盖造成编号占用时重新建立旧资料也必须保留现有案例', () => {
   withMockStorage(() => {
     const originalRecord = upsertPersonalHistory(createInput('1', '2000', '1', '1'), 'bazi')[0];

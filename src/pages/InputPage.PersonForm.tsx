@@ -55,6 +55,7 @@ export interface PersonFormProps {
   openBirthPlaceModal: (role: PersonRole) => void;
   sectionTitle?: string;
   headerAction?: ReactNode;
+  footerHint?: ReactNode;
   forcePreciseBirthPlace?: boolean;
 }
 
@@ -67,6 +68,7 @@ export const PersonForm = memo(function PersonForm({
   openBirthPlaceModal,
   sectionTitle,
   headerAction,
+  footerHint,
   forcePreciseBirthPlace = false,
 }: PersonFormProps) {
   const birthTimeValue =
@@ -253,6 +255,7 @@ export const PersonForm = memo(function PersonForm({
           </div>
         )}
       </div>
+      {footerHint ? <div className="workspace-ui-form-case-hint">{footerHint}</div> : null}
     </section>
   );
 });

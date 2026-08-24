@@ -11,6 +11,7 @@ import {
 import {
   defaultInputState,
   defaultPromptState,
+  hasCompletePreciseBirthData,
   parseInputState,
   type PromptSourceKey,
   type QueryInputState,
@@ -24,7 +25,10 @@ import {
 import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
-import { applyPersonalCaseToCompatibilityPerson } from '@/lib/compatibility-case-selection';
+import {
+  applyPersonalCaseToCompatibilityPerson,
+  hydratePersonalCaseInput,
+} from '@/lib/compatibility-case-selection';
 import { isChartWorkspaceId, type ChartWorkspaceId } from '@/lib/workspace';
 import type { InstantTimeStandard } from 'mingyu-core/instant';
 import {
@@ -127,6 +131,17 @@ function normalizeFormForTool(input: QueryInputState, config: ChartToolConfig): 
   };
 }
 
+function createFormFromLocation(
+  searchParams: URLSearchParams,
+  config: ChartToolConfig,
+  routeCase: PersonalHistoryRecord | null,
+) {
+  const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
+  const snapshot = hasInputSnapshot ? parseInputState(searchParams) : createFormForTool(config);
+  const input = routeCase ? hydratePersonalCaseInput(snapshot, routeCase) : snapshot;
+  return normalizeFormForTool(input, config);
+}
+
 export function InputPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -138,12 +153,13 @@ export function InputPage() {
   const config = tool ? CHART_TOOL_CONFIG[tool] : CHART_TOOL_CONFIG.bazi;
   const { cases, activeCaseId } = useActivePersonalCase();
   const routeCaseId = searchParams.get(CHART_RECORD_PARAM);
-  const [form, setForm] = useState<QueryInputState>(() => {
-    const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
-    return hasInputSnapshot
-      ? normalizeFormForTool(parseInputState(searchParams), config)
-      : createFormForTool(config);
-  });
+  const routeCase = useMemo(
+    () => cases.find((record) => record.id === routeCaseId) ?? null,
+    [cases, routeCaseId],
+  );
+  const [form, setForm] = useState<QueryInputState>(() =>
+    createFormFromLocation(searchParams, config, routeCase),
+  );
   const [error, setError] = useState('');
   const [isInstantDialogOpen, setIsInstantDialogOpen] = useState(false);
   const [casePickerRole, setCasePickerRole] = useState<PersonRole | null>(null);
@@ -166,13 +182,8 @@ export function InputPage() {
     if (!tool) return;
     const nextConfig = CHART_TOOL_CONFIG[tool];
     setError('');
-    const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
-    setForm(
-      hasInputSnapshot
-        ? normalizeFormForTool(parseInputState(searchParams), nextConfig)
-        : createFormForTool(nextConfig),
-    );
-  }, [location.key, searchParams, tool]);
+    setForm(createFormFromLocation(searchParams, nextConfig, routeCase));
+  }, [location.key, routeCase, searchParams, tool]);
 
   useEffect(() => {
     if (!resumeInstantDialogAfterPlace || birthPlace.isBirthPlaceModalOpen) return;
@@ -252,11 +263,13 @@ export function InputPage() {
     const dateType = isPartner ? form.partnerDateType : form.dateType;
 
     if (!year || !month || !day) return `请填写完整的${label}信息`;
-    if (!useTrueSolarTime && timeIndex === '') return `请选择${label}的出生时辰`;
-    if (useTrueSolarTime && (birthHour === '' || birthMinute === '')) {
+    const requiresPreciseBirthData = role === 'self' && config.preciseBirthData;
+    const validateAsPreciseBirthData = useTrueSolarTime || requiresPreciseBirthData;
+    if (!validateAsPreciseBirthData && timeIndex === '') return `请选择${label}的出生时辰`;
+    if (validateAsPreciseBirthData && (birthHour === '' || birthMinute === '')) {
       return `请填写${label}的精准出生时间`;
     }
-    if (useTrueSolarTime && (!birthPlaceText.trim() || !birthLongitude.trim())) {
+    if (validateAsPreciseBirthData && (!birthPlaceText.trim() || !birthLongitude.trim())) {
       return `请先为${label}选择出生地`;
     }
 
@@ -266,7 +279,7 @@ export function InputPage() {
         month,
         day,
         dateType,
-        useTrueSolarTime,
+        useTrueSolarTime: validateAsPreciseBirthData,
         birthHour,
         birthMinute,
         birthLongitude,
@@ -376,6 +389,13 @@ export function InputPage() {
                   从案例选择
                 </WorkspaceButton>
               ) : null
+            }
+            footerHint={
+              routeCase &&
+              (config.preciseBirthData || form.useTrueSolarTime) &&
+              !hasCompletePreciseBirthData(routeCase.input)
+                ? `填写后会补全“${routeCase.name}”，以后无需重复输入。`
+                : null
             }
             forcePreciseBirthPlace={config.preciseBirthData}
           />
