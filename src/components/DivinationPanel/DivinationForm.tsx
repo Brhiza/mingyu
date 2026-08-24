@@ -35,30 +35,6 @@ const DIVINATION_TIME_STANDARD_OPTIONS = [
   { value: 'true-solar', label: '真太阳时' },
 ] as const;
 
-const QIMEN_SCOPE_OPTIONS = [
-  { value: 'hour', label: '时家' },
-  { value: 'day', label: '日家' },
-  { value: 'month', label: '月家' },
-  { value: 'year', label: '年家' },
-] as const;
-
-const QIMEN_METHOD_OPTIONS = [
-  { value: 'zhuanpan', label: '转盘' },
-  { value: 'feipan', label: '飞盘' },
-] as const;
-
-const QIMEN_JU_METHOD_OPTIONS = [
-  { value: 'chaibu', label: '拆补' },
-  { value: 'zhirun', label: '置闰' },
-] as const;
-
-const TAIYI_SCOPE_OPTIONS = [
-  { value: 'year', label: '年计' },
-  { value: 'month', label: '月计' },
-  { value: 'day', label: '日计' },
-  { value: 'hour', label: '时计' },
-] as const;
-
 const JINKOUJUE_BRANCH_OPTIONS = [
   { value: '子', label: '子' },
   { value: '丑', label: '丑' },
@@ -403,84 +379,6 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
-                    {draft.method === 'qimen' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="qimen-scope-select">计式</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <DropdownSelect
-                            id="qimen-scope-select"
-                            value={draft.qimenScope ?? 'hour'}
-                            options={QIMEN_SCOPE_OPTIONS}
-                            onChange={(value) =>
-                              updateDraft(
-                                'qimenScope',
-                                value as NonNullable<DivinationDraft['qimenScope']>,
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {draft.method === 'qimen' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="qimen-method-select">排法</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <DropdownSelect
-                            id="qimen-method-select"
-                            value={draft.qimenMethod ?? 'zhuanpan'}
-                            options={QIMEN_METHOD_OPTIONS}
-                            onChange={(value) =>
-                              updateDraft(
-                                'qimenMethod',
-                                value as NonNullable<DivinationDraft['qimenMethod']>,
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {draft.method === 'qimen' &&
-                    (draft.qimenScope ?? 'hour') !== 'month' &&
-                    (draft.qimenScope ?? 'hour') !== 'year' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="qimen-ju-method-select">定局</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <DropdownSelect
-                            id="qimen-ju-method-select"
-                            value={draft.qimenJuMethod ?? 'chaibu'}
-                            options={QIMEN_JU_METHOD_OPTIONS}
-                            onChange={(value) =>
-                              updateDraft(
-                                'qimenJuMethod',
-                                value as NonNullable<DivinationDraft['qimenJuMethod']>,
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {draft.method === 'taiyi' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="taiyi-scope-select">计式</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <DropdownSelect
-                            id="taiyi-scope-select"
-                            value={draft.taiyiScope ?? 'year'}
-                            options={TAIYI_SCOPE_OPTIONS}
-                            onChange={(value) =>
-                              updateDraft(
-                                'taiyiScope',
-                                value as NonNullable<DivinationDraft['taiyiScope']>,
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-
                     {draft.method === 'meihua' && draft.meihuaMethod === 'number' ? (
                       <div className="form-item divination-inline-field divination-inline-number-field">
                         <label htmlFor="meihua-number-input">起卦数字</label>
@@ -735,72 +633,6 @@ export function DivinationForm({
                       ariaLabel="金口诀起课方式"
                       onChange={(value) =>
                         updateDraft('jinkoujueMethod', value as DivinationDraft['jinkoujueMethod'])
-                      }
-                    />
-                  </div>
-                ) : null}
-
-                {draft.method === 'qimen' ? (
-                  <div className="divination-mobile-secondary-picker">
-                    <DropdownSelect
-                      value={draft.qimenScope ?? 'hour'}
-                      options={QIMEN_SCOPE_OPTIONS}
-                      ariaLabel="奇门计式"
-                      onChange={(value) =>
-                        updateDraft(
-                          'qimenScope',
-                          value as NonNullable<DivinationDraft['qimenScope']>,
-                        )
-                      }
-                    />
-                  </div>
-                ) : null}
-
-                {draft.method === 'qimen' ? (
-                  <div className="divination-mobile-secondary-picker">
-                    <DropdownSelect
-                      value={draft.qimenMethod ?? 'zhuanpan'}
-                      options={QIMEN_METHOD_OPTIONS}
-                      ariaLabel="奇门排法"
-                      onChange={(value) =>
-                        updateDraft(
-                          'qimenMethod',
-                          value as NonNullable<DivinationDraft['qimenMethod']>,
-                        )
-                      }
-                    />
-                  </div>
-                ) : null}
-
-                {draft.method === 'qimen' &&
-                (draft.qimenScope ?? 'hour') !== 'month' &&
-                (draft.qimenScope ?? 'hour') !== 'year' ? (
-                  <div className="divination-mobile-secondary-picker">
-                    <DropdownSelect
-                      value={draft.qimenJuMethod ?? 'chaibu'}
-                      options={QIMEN_JU_METHOD_OPTIONS}
-                      ariaLabel="奇门定局方法"
-                      onChange={(value) =>
-                        updateDraft(
-                          'qimenJuMethod',
-                          value as NonNullable<DivinationDraft['qimenJuMethod']>,
-                        )
-                      }
-                    />
-                  </div>
-                ) : null}
-
-                {draft.method === 'taiyi' ? (
-                  <div className="divination-mobile-secondary-picker">
-                    <DropdownSelect
-                      value={draft.taiyiScope ?? 'year'}
-                      options={TAIYI_SCOPE_OPTIONS}
-                      ariaLabel="太乙计式"
-                      onChange={(value) =>
-                        updateDraft(
-                          'taiyiScope',
-                          value as NonNullable<DivinationDraft['taiyiScope']>,
-                        )
                       }
                     />
                   </div>

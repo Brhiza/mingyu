@@ -37,6 +37,7 @@ export const defaultDraft: DivinationDraft = {
   jinkoujueMethod: 'time',
   jinkoujueBranch: '子',
   jinkoujueNumber: '',
+  // 网页端固定采用推荐口径；完整计式与排法仍由 API、MCP、Skill 和核心包开放。
   qimenMethod: 'zhuanpan',
   qimenScope: 'hour',
   qimenJuMethod: 'chaibu',

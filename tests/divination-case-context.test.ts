@@ -26,6 +26,23 @@ const personalCase: PersonalHistoryRecord = {
   updatedAt: '2026-08-23T00:00:00.000Z',
 };
 
+test('网页端占问应采用推荐排盘口径', () => {
+  assert.deepEqual(
+    {
+      qimenMethod: defaultDraft.qimenMethod,
+      qimenScope: defaultDraft.qimenScope,
+      qimenJuMethod: defaultDraft.qimenJuMethod,
+      taiyiScope: defaultDraft.taiyiScope,
+    },
+    {
+      qimenMethod: 'zhuanpan',
+      qimenScope: 'hour',
+      qimenJuMethod: 'chaibu',
+      taiyiScope: 'year',
+    },
+  );
+});
+
 test('占问应复用全局案例中实际需要的补充资料', () => {
   const draft = applyPersonalCaseToDivinationDraft(defaultDraft, personalCase);
   assert.equal(draft.gender, '女');
