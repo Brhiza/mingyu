@@ -45,10 +45,12 @@ export function DivinationResultPage({ assistantOnly = false }: DivinationResult
   if (!method) {
     return <Navigate to="/divination/liuyao" replace />;
   }
+  const recordId = new URLSearchParams(location.search).get('record');
 
   return (
     <div className="workspace-focused-page workspace-divination-result-page">
       <DivinationPanel
+        key={`${method}:${recordId ?? location.key}`}
         initialMethod={method}
         lockedMethod={method}
         displayMode="result"

@@ -226,6 +226,9 @@ export function DivinationPanel({
       .filter((section) => section.items.length > 0);
   }, [activeInspirationTab, draft, inspirationSearch, specialInspiration]);
   useEffect(() => {
+    if (displayMode === 'result') {
+      return;
+    }
     if (!lockedMethod || draft.method === lockedMethod) {
       return;
     }
@@ -236,7 +239,7 @@ export function DivinationPanel({
     }));
     setSession(null);
     setError('');
-  }, [draft.method, lockedMethod]);
+  }, [displayMode, draft.method, lockedMethod]);
 
   function updateDraft<K extends keyof DivinationDraft>(key: K, value: DivinationDraft[K]) {
     if (lockedMethod && key === 'method' && value !== lockedMethod) {
