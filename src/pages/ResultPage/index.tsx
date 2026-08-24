@@ -1,4 +1,13 @@
-import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   buildCombinedZiweiCompatibilityPrompt,
@@ -41,6 +50,7 @@ import {
   mapBaziFortuneToZiweiScope,
   resolveCompatType,
   resolveZiweiTopicByBaziShortcutMode,
+  writePromptDraft,
 } from './ResultPage.helpers';
 import { singlePromptShortcutSections } from './ResultPage.constants';
 import {
@@ -88,6 +98,7 @@ import {
   buildInstantQizhengPrompt,
   buildInstantZiweiPrompt,
 } from '@/lib/instant-prompt';
+import { readWorkspaceLaunchState } from '@/lib/workspace-launch';
 
 type FortuneScopePreset = 'default' | 'dayun' | 'year' | 'month' | 'day' | 'all' | 'manual';
 type FortuneScopePresetKind = 'bazi' | 'ziwei' | 'astrolabe';
@@ -184,6 +195,8 @@ type ResultPageProps = {
 export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const launchState = useMemo(() => readWorkspaceLaunchState(location.state), [location.state]);
+  const appliedLaunchQuestionRef = useRef('');
   const isAssistantPage = assistantOnly || location.pathname === '/result/assistant';
   const [metaphysicsQuestionDraft, setMetaphysicsQuestionDraft] = useState('');
   const [residentialResult, setResidentialResult] = useState<ResidentialFengshuiResult | null>(
@@ -400,6 +413,46 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     updatePromptState,
     inspiration.close,
   );
+
+  useEffect(() => {
+    const question = launchState.initialQuestion.trim();
+    const marker = `${inputSearch}\u0000${promptState.promptSource}\u0000${question}`;
+    if (!question || appliedLaunchQuestionRef.current === marker) return;
+    appliedLaunchQuestionRef.current = marker;
+
+    if (promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') {
+      writePromptDraft(baziDraftStorageKey, question);
+      applyBaziShortcutMode('自定义');
+      setBaziQuestionDraft(question);
+      return;
+    }
+    if (promptState.promptSource === 'ziwei') {
+      writePromptDraft(ziweiDraftStorageKey, question);
+      applyZiweiShortcutMode('自定义');
+      setZiweiQuestionDraft(question);
+      return;
+    }
+    if (promptState.promptSource === 'astrolabe') {
+      writePromptDraft(astrolabeDraftStorageKey, question);
+      applyAstrolabeShortcutMode('自定义');
+      setAstrolabeQuestionDraft(question);
+      return;
+    }
+    setMetaphysicsQuestionDraft(question);
+  }, [
+    applyAstrolabeShortcutMode,
+    applyBaziShortcutMode,
+    applyZiweiShortcutMode,
+    astrolabeDraftStorageKey,
+    baziDraftStorageKey,
+    inputSearch,
+    launchState.initialQuestion,
+    promptState.promptSource,
+    setAstrolabeQuestionDraft,
+    setBaziQuestionDraft,
+    setZiweiQuestionDraft,
+    ziweiDraftStorageKey,
+  ]);
 
   useEffect(() => {
     setMountedTabs((current) => {

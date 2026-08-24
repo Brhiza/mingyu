@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { TAROT_SPREAD_OPTIONS } from 'mingyu-core/divination/config';
 import {
@@ -34,19 +34,25 @@ type DivinationPanelProps = {
   lockedMethod?: DivinationDraft['method'];
   displayMode?: 'workspace' | 'input' | 'result';
   assistantOnly?: boolean;
+  initialQuestion?: string;
+  autoSubmit?: boolean;
   onGenerated?: (recordId: string, requestedMethod: DivinationDraft['method']) => void;
   onOpenAssistant?: () => void;
   onReturnToBoard?: () => void;
   onRestart?: () => void;
 };
 
-function createDefaultDraft(method?: DivinationPanelProps['initialMethod']): DivinationDraft {
-  return method
-    ? {
-        ...defaultDraft,
-        method,
-      }
-    : defaultDraft;
+function createDefaultDraft(
+  method?: DivinationPanelProps['initialMethod'],
+  initialQuestion?: string,
+): DivinationDraft {
+  return {
+    ...defaultDraft,
+    ...(method ? { method } : {}),
+    ...(initialQuestion?.trim()
+      ? { question: initialQuestion.trim(), questionSource: 'custom' as const }
+      : {}),
+  };
 }
 
 export function DivinationPanel({
@@ -54,6 +60,8 @@ export function DivinationPanel({
   lockedMethod,
   displayMode = 'workspace',
   assistantOnly = false,
+  initialQuestion,
+  autoSubmit = false,
   onGenerated,
   onOpenAssistant,
   onReturnToBoard,
@@ -63,7 +71,10 @@ export function DivinationPanel({
   const [searchParams] = useSearchParams();
   const { activeCase } = useActivePersonalCase();
   const [draft, setDraft] = useState<DivinationDraft>(() =>
-    applyPersonalCaseToDivinationDraft(createDefaultDraft(initialMethod), activeCase),
+    applyPersonalCaseToDivinationDraft(
+      createDefaultDraft(initialMethod, initialQuestion),
+      activeCase,
+    ),
   );
   const [session, setSession] = useState<DivinationSession | null>(null);
   const [error, setError] = useState('');
@@ -73,6 +84,7 @@ export function DivinationPanel({
     useState<DivinationInspirationTabId>('ganqing');
   const [inspirationSearch, setInspirationSearch] = useState('');
   const questionInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const autoSubmitStartedRef = useRef(false);
 
   const { copyState, shareState, handleCopy, handleShare } = usePromptCopyShare(
     session?.prompt ?? '',
@@ -235,7 +247,7 @@ export function DivinationPanel({
     }, 0);
   }
 
-  async function handleSubmit() {
+  const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
     setError('');
     setSession(null);
@@ -259,7 +271,13 @@ export function DivinationPanel({
     } finally {
       setIsSubmitting(false);
     }
-  }
+  }, [activeCase, draft, navigate, onGenerated]);
+
+  useEffect(() => {
+    if (!autoSubmit || displayMode === 'result' || autoSubmitStartedRef.current) return;
+    autoSubmitStartedRef.current = true;
+    void handleSubmit();
+  }, [autoSubmit, displayMode, handleSubmit]);
 
   return (
     <div className="divination-panel-shell">

@@ -5,6 +5,7 @@ import {
   type InstantChartType,
   type InstantTimeStandard,
 } from 'mingyu-core/instant';
+import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
@@ -14,7 +15,9 @@ import {
   buildFrontendInstantObserver,
   buildInstantResultPath,
   instantChartNeedsObserver,
+  isInstantChartType,
 } from '@/lib/instant-chart';
+import { buildWorkspaceLaunchState } from '@/lib/workspace-launch';
 import {
   WORKSPACE_PREFERENCES_EVENT,
   buildWorkspaceFeaturePath,
@@ -22,7 +25,8 @@ import {
   isChartWorkspaceId,
   isDivinationWorkspaceId,
   readWorkspacePreferences,
-  type WorkspaceFeatureId,
+  type ChartWorkspaceId,
+  type DivinationWorkspaceId,
 } from '@/lib/workspace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 
@@ -33,6 +37,21 @@ const homeModes: Array<{ id: HomeMode; label: string; mark: string }> = [
   { id: 'divination', label: '占问', mark: '问' },
   { id: 'instant', label: '即时盘', mark: '时' },
 ];
+
+const modeCopy: Record<HomeMode, { heading: string; placeholder: string }> = {
+  chart: {
+    heading: '排盘并开始解读',
+    placeholder: '输入想了解的问题，也可以留空直接查看完整盘面',
+  },
+  divination: {
+    heading: '今天想问什么？',
+    placeholder: '写下具体问题，选择占问方式后即可开始',
+  },
+  instant: {
+    heading: '以此刻起盘',
+    placeholder: '输入想结合当前时刻了解的问题，也可以留空起盘',
+  },
+};
 
 function formatRecentDate(value: string) {
   const date = new Date(value);
@@ -46,10 +65,21 @@ export function HomePage() {
   const { cases, activeCase } = useActivePersonalCase();
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [historyRevision, setHistoryRevision] = useState(0);
-  const [isMoreDivinationOpen, setIsMoreDivinationOpen] = useState(false);
+  const [questionDraft, setQuestionDraft] = useState('');
+  const [selectedChartFeature, setSelectedChartFeature] = useState<ChartWorkspaceId>(() =>
+    isChartWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'bazi',
+  );
+  const [selectedDivinationFeature, setSelectedDivinationFeature] = useState<DivinationWorkspaceId>(
+    () =>
+      isDivinationWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'random',
+  );
+  const [selectedInstantType, setSelectedInstantType] = useState<InstantChartType>('bazi');
   const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
   const [instantPlaceForm, setInstantPlaceForm] = useState<QueryInputState>(defaultInputState);
-  const [pendingInstantType, setPendingInstantType] = useState<InstantChartType | null>(null);
+  const [pendingInstantLaunch, setPendingInstantLaunch] = useState<{
+    type: InstantChartType;
+    question: string;
+  } | null>(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const instantBirthPlace = useBirthPlace({ form: instantPlaceForm, setForm: setInstantPlaceForm });
   const requestedMode = searchParams.get('section');
@@ -64,13 +94,30 @@ export function HomePage() {
     () => preferences.navigationOrder.map(getWorkspaceFeature),
     [preferences.navigationOrder],
   );
-  const chartFeatures = orderedFeatures.filter((feature) => isChartWorkspaceId(feature.id));
-  const divinationFeatures = orderedFeatures.filter((feature) =>
-    isDivinationWorkspaceId(feature.id),
+  const chartFeatures = useMemo(
+    () => orderedFeatures.filter((feature) => isChartWorkspaceId(feature.id)),
+    [orderedFeatures],
   );
-  const visibleDivinationFeatures = isMoreDivinationOpen
-    ? divinationFeatures
-    : divinationFeatures.slice(0, 6);
+  const divinationFeatures = useMemo(
+    () => orderedFeatures.filter((feature) => isDivinationWorkspaceId(feature.id)),
+    [orderedFeatures],
+  );
+  const chartOptions = useMemo<DropdownSelectOption<string>[]>(
+    () => chartFeatures.map((feature) => ({ value: feature.id, label: feature.label })),
+    [chartFeatures],
+  );
+  const divinationOptions = useMemo<DropdownSelectOption<string>[]>(
+    () => divinationFeatures.map((feature) => ({ value: feature.id, label: feature.label })),
+    [divinationFeatures],
+  );
+  const instantOptions = useMemo<DropdownSelectOption<string>[]>(
+    () =>
+      INSTANT_CHART_DEFINITIONS.map((definition) => ({
+        value: definition.type,
+        label: definition.label,
+      })),
+    [],
+  );
   const recentHistories = useMemo(() => {
     void historyRevision;
     return loadDivinationHistory().slice(0, 3);
@@ -97,24 +144,25 @@ export function HomePage() {
   }, [activeMode]);
 
   useEffect(() => {
-    if (!pendingInstantType || instantBirthPlace.isBirthPlaceModalOpen) return;
+    if (!pendingInstantLaunch || instantBirthPlace.isBirthPlaceModalOpen) return;
     const observer = buildFrontendInstantObserver(instantPlaceForm);
     if (!observer) return;
-    const type = pendingInstantType;
-    setPendingInstantType(null);
+    const launch = pendingInstantLaunch;
+    setPendingInstantLaunch(null);
     navigate(
       buildInstantResultPath({
-        type,
+        type: launch.type,
         timeStandard: instantTimeStandard,
         observer,
       }),
+      { state: buildWorkspaceLaunchState(launch.question) },
     );
   }, [
     instantBirthPlace.isBirthPlaceModalOpen,
     instantPlaceForm,
     instantTimeStandard,
     navigate,
-    pendingInstantType,
+    pendingInstantLaunch,
   ]);
 
   function selectMode(mode: HomeMode) {
@@ -123,19 +171,24 @@ export function HomePage() {
     setSearchParams(next, { replace: true });
   }
 
-  function openFeature(featureId: WorkspaceFeatureId) {
-    navigate(
-      isChartWorkspaceId(featureId) && activeCase
-        ? buildChartFeaturePathForCase(activeCase, featureId)
-        : buildWorkspaceFeaturePath(featureId),
-      { state: { workspaceNew: true } },
-    );
+  function selectAlgorithm(value: string) {
+    if (activeMode === 'chart' && isChartWorkspaceId(value)) {
+      setSelectedChartFeature(value);
+      return;
+    }
+    if (activeMode === 'divination' && isDivinationWorkspaceId(value)) {
+      setSelectedDivinationFeature(value);
+      return;
+    }
+    if (activeMode === 'instant' && isInstantChartType(value)) {
+      setSelectedInstantType(value);
+    }
   }
 
-  function openInstantChart(type: InstantChartType) {
+  function openInstantChart(type: InstantChartType, question: string) {
     const observer = buildFrontendInstantObserver(instantPlaceForm);
     if (instantChartNeedsObserver(type, instantTimeStandard) && !observer) {
-      setPendingInstantType(type);
+      setPendingInstantLaunch({ type, question });
       instantBirthPlace.openBirthPlaceModal('self');
       return;
     }
@@ -145,23 +198,54 @@ export function HomePage() {
         timeStandard: instantTimeStandard,
         observer,
       }),
+      { state: buildWorkspaceLaunchState(question) },
     );
   }
 
-  const modeHeading =
+  function launchSelected() {
+    const question = questionDraft.trim();
+    if (activeMode === 'chart') {
+      navigate(
+        activeCase
+          ? buildChartFeaturePathForCase(activeCase, selectedChartFeature)
+          : buildWorkspaceFeaturePath(selectedChartFeature),
+        { state: buildWorkspaceLaunchState(question) },
+      );
+      return;
+    }
+    if (activeMode === 'divination') {
+      navigate(buildWorkspaceFeaturePath(selectedDivinationFeature), {
+        state: buildWorkspaceLaunchState(question, {
+          autoSubmit: Boolean(question) && selectedDivinationFeature !== 'almanac',
+        }),
+      });
+      return;
+    }
+    openInstantChart(selectedInstantType, question);
+  }
+
+  const selectedAlgorithm =
     activeMode === 'chart'
-      ? '选择命盘'
+      ? selectedChartFeature
       : activeMode === 'divination'
-        ? '选择占问方式'
-        : '使用当前时间起盘';
-  const modeDescription =
+        ? selectedDivinationFeature
+        : selectedInstantType;
+  const algorithmOptions =
+    activeMode === 'chart'
+      ? chartOptions
+      : activeMode === 'divination'
+        ? divinationOptions
+        : instantOptions;
+  const launchLabel =
     activeMode === 'chart'
       ? activeCase
-        ? `当前使用：${activeCase.name}`
-        : '未指定档案，进入后填写资料'
+        ? '查看盘面'
+        : '填写资料'
       : activeMode === 'divination'
-        ? '常用方式优先显示，其他方式可展开'
-        : '按设备当前日期和时辰生成盘面';
+        ? questionDraft.trim() && selectedDivinationFeature !== 'almanac'
+          ? '开始占问'
+          : '继续设置'
+        : '即时起盘';
 
   return (
     <div className="workspace-home-page">
@@ -171,8 +255,8 @@ export function HomePage() {
             命
           </span>
           <div>
-            <h1>{modeHeading}</h1>
-            <p>{modeDescription}</p>
+            <h1>{modeCopy[activeMode].heading}</h1>
+            <p>输入问题，选择算法，一步开始</p>
           </div>
         </header>
 
@@ -192,186 +276,150 @@ export function HomePage() {
           ))}
         </div>
 
-        {activeMode === 'chart' ? (
-          <div className="workspace-home-mode-panel" role="tabpanel">
+        <div className="workspace-home-mode-panel" role="tabpanel">
+          {activeMode !== 'instant' ? (
             <button
               type="button"
-              className="workspace-home-case"
+              className="workspace-home-context"
               onClick={() => navigate(cases.length ? '/cases' : '/cases?new=1')}
             >
-              <span className="workspace-home-case-mark" aria-hidden="true">
+              <span className="workspace-home-context-mark" aria-hidden="true">
                 {activeCase?.name.slice(0, 1) || '临'}
               </span>
-              <span className="workspace-home-case-copy">
+              <span className="workspace-home-context-copy">
                 <small>当前档案</small>
-                <strong>{activeCase?.name || '未指定'}</strong>
-                <span>{activeCase?.birthText || '每次从空白资料开始'}</span>
+                <strong>{activeCase?.name || '临时档案'}</strong>
+                <span>{activeCase?.birthText || '不关联案例'}</span>
               </span>
-              <span className="workspace-home-case-action">{activeCase ? '切换' : '选择'}</span>
+              <span className="workspace-home-context-action">切换</span>
             </button>
-            <div className="workspace-home-tool-grid is-chart">
-              {chartFeatures.map((feature) => (
-                <button
-                  type="button"
-                  key={feature.id}
-                  className={feature.id === preferences.defaultFeature ? 'is-preferred' : ''}
-                  onClick={() => openFeature(feature.id)}
-                >
-                  <span className="workspace-home-tool-mark" aria-hidden="true">
-                    {feature.mark}
-                  </span>
-                  <span>
-                    <strong>{feature.label}</strong>
-                    <small>{feature.description}</small>
-                  </span>
-                  {feature.id === preferences.defaultFeature ? <em>首选</em> : null}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {activeMode === 'divination' ? (
-          <div className="workspace-home-mode-panel" role="tabpanel">
-            <div className="workspace-home-tool-grid is-divination">
-              {visibleDivinationFeatures.map((feature) => (
-                <button
-                  type="button"
-                  key={feature.id}
-                  className={feature.id === preferences.defaultFeature ? 'is-preferred' : ''}
-                  onClick={() => openFeature(feature.id)}
-                >
-                  <span className="workspace-home-tool-mark" aria-hidden="true">
-                    {feature.mark}
-                  </span>
-                  <span>
-                    <strong>{feature.label}</strong>
-                    <small>{feature.description}</small>
-                  </span>
-                  {feature.id === preferences.defaultFeature ? <em>首选</em> : null}
-                </button>
-              ))}
-            </div>
-            {divinationFeatures.length > 6 ? (
-              <button
-                type="button"
-                className="workspace-home-more"
-                onClick={() => setIsMoreDivinationOpen((current) => !current)}
-              >
-                {isMoreDivinationOpen
-                  ? '收起其他占问'
-                  : `更多占问（${divinationFeatures.length - 6}）`}
-              </button>
-            ) : null}
-            {recentHistories.length ? (
-              <section className="workspace-home-history">
-                <header>
-                  <h2>最近占问</h2>
-                  <button type="button" onClick={() => navigate('/records?tab=divination')}>
-                    全部
-                  </button>
-                </header>
-                <div>
-                  {recentHistories.map((record) => {
-                    const feature = getWorkspaceFeature(record.requestedMethod);
-                    return (
-                      <button
-                        type="button"
-                        key={record.id}
-                        onClick={() => navigate(buildDivinationRecordPath(record))}
-                      >
-                        <span className="workspace-home-history-mark" aria-hidden="true">
-                          {feature.mark}
-                        </span>
-                        <span>
-                          <strong>{record.question || feature.label}</strong>
-                          <small>
-                            {feature.label} · {record.caseName || '未指定'} ·{' '}
-                            {formatRecentDate(record.updatedAt)}
-                          </small>
-                        </span>
-                        <span className="workspace-home-arrow" aria-hidden="true">
-                          ›
-                        </span>
-                      </button>
-                    );
+          ) : (
+            <div className="workspace-home-instant-context">
+              <div>
+                <time dateTime={currentTime.toISOString()}>
+                  {currentTime.toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
                   })}
-                </div>
-              </section>
-            ) : null}
-          </div>
-        ) : null}
-
-        {activeMode === 'instant' ? (
-          <div className="workspace-home-mode-panel workspace-instant-panel" role="tabpanel">
-            <div className="workspace-instant-time">
-              <time dateTime={currentTime.toISOString()}>
-                {currentTime.toLocaleTimeString('zh-CN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false,
-                })}
-              </time>
-              <span>
-                {currentTime.toLocaleDateString('zh-CN', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  weekday: 'short',
-                })}
-              </span>
-            </div>
-            <div className="workspace-instant-standard" role="group" aria-label="时间口径">
-              <span>时间口径</span>
-              <button
-                type="button"
-                className={instantTimeStandard === 'beijing' ? 'is-active' : ''}
-                aria-pressed={instantTimeStandard === 'beijing'}
-                onClick={() => setInstantTimeStandard('beijing')}
-              >
-                北京时间
-              </button>
-              <button
-                type="button"
-                className={instantTimeStandard === 'true-solar' ? 'is-active' : ''}
-                aria-pressed={instantTimeStandard === 'true-solar'}
-                onClick={() => setInstantTimeStandard('true-solar')}
-              >
-                真太阳时
-              </button>
-            </div>
-            {instantTimeStandard === 'true-solar' ? (
-              <button
-                type="button"
-                className="workspace-instant-place"
-                onClick={() => instantBirthPlace.openBirthPlaceModal('self')}
-              >
-                <span>观测地点</span>
-                <strong>{instantPlaceForm.birthPlace || '选择地点'}</strong>
-                <span aria-hidden="true">›</span>
-              </button>
-            ) : null}
-            <div className="workspace-instant-grid">
-              {INSTANT_CHART_DEFINITIONS.map((item) => (
-                <button type="button" key={item.type} onClick={() => openInstantChart(item.type)}>
-                  <span className="workspace-instant-mark" aria-hidden="true">
-                    {item.mark}
-                  </span>
-                  <span>
-                    <strong>{item.label}</strong>
-                    <small>{item.description}</small>
-                  </span>
-                  <span className="workspace-home-arrow" aria-hidden="true">
-                    ›
-                  </span>
+                </time>
+                <span>
+                  {currentTime.toLocaleDateString('zh-CN', {
+                    month: 'long',
+                    day: 'numeric',
+                    weekday: 'short',
+                  })}
+                </span>
+              </div>
+              <div className="workspace-instant-standard" role="group" aria-label="时间口径">
+                <button
+                  type="button"
+                  className={instantTimeStandard === 'beijing' ? 'is-active' : ''}
+                  aria-pressed={instantTimeStandard === 'beijing'}
+                  onClick={() => setInstantTimeStandard('beijing')}
+                >
+                  北京时间
                 </button>
-              ))}
+                <button
+                  type="button"
+                  className={instantTimeStandard === 'true-solar' ? 'is-active' : ''}
+                  aria-pressed={instantTimeStandard === 'true-solar'}
+                  onClick={() => setInstantTimeStandard('true-solar')}
+                >
+                  真太阳时
+                </button>
+              </div>
+              {instantTimeStandard === 'true-solar' ? (
+                <button
+                  type="button"
+                  className="workspace-instant-place"
+                  onClick={() => instantBirthPlace.openBirthPlaceModal('self')}
+                >
+                  <span>观测地点</span>
+                  <strong>{instantPlaceForm.birthPlace || '选择地点'}</strong>
+                  <span aria-hidden="true">›</span>
+                </button>
+              ) : null}
             </div>
-            <p className="workspace-instant-note">
-              即时盘只记录当前时刻，不加入案例；星盘与七政四余仍需观测地点。
-            </p>
-          </div>
-        ) : null}
+          )}
+
+          <form
+            className="workspace-home-composer"
+            onSubmit={(event) => {
+              event.preventDefault();
+              launchSelected();
+            }}
+          >
+            <textarea
+              className="workspace-home-question"
+              value={questionDraft}
+              placeholder={modeCopy[activeMode].placeholder}
+              aria-label="输入问题"
+              rows={4}
+              onChange={(event) => setQuestionDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  launchSelected();
+                }
+              }}
+            />
+            <div className="workspace-home-composer-footer">
+              <div className="workspace-home-algorithm">
+                <DropdownSelect<string>
+                  value={selectedAlgorithm}
+                  options={algorithmOptions}
+                  onChange={selectAlgorithm}
+                  ariaLabel="选择算法"
+                  prefix="算法"
+                  variant="field"
+                />
+              </div>
+              <button type="submit" className="workspace-home-launch" aria-label={launchLabel}>
+                <span className="workspace-home-launch-icon" aria-hidden="true">
+                  ↑
+                </span>
+              </button>
+            </div>
+          </form>
+
+          {activeMode === 'divination' && recentHistories.length ? (
+            <section className="workspace-home-history">
+              <header>
+                <h2>最近占问</h2>
+                <button type="button" onClick={() => navigate('/records?tab=divination')}>
+                  全部
+                </button>
+              </header>
+              <div>
+                {recentHistories.map((record) => {
+                  const feature = getWorkspaceFeature(record.requestedMethod);
+                  return (
+                    <button
+                      type="button"
+                      key={record.id}
+                      onClick={() => navigate(buildDivinationRecordPath(record))}
+                    >
+                      <span className="workspace-home-history-mark" aria-hidden="true">
+                        {feature.mark}
+                      </span>
+                      <span>
+                        <strong>{record.question || feature.label}</strong>
+                        <small>
+                          {feature.label} · {record.caseName || '未指定'} ·{' '}
+                          {formatRecentDate(record.updatedAt)}
+                        </small>
+                      </span>
+                      <span className="workspace-home-arrow" aria-hidden="true">
+                        ›
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+        </div>
       </div>
       {instantBirthPlace.isBirthPlaceModalOpen ? (
         <BirthPlaceModal birthPlace={instantBirthPlace} purpose="observer" />

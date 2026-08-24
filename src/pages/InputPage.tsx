@@ -33,6 +33,7 @@ import {
   getInstantChartTypeForWorkspace,
   instantChartNeedsObserver,
 } from '@/lib/instant-chart';
+import { buildWorkspaceLaunchState, readWorkspaceLaunchState } from '@/lib/workspace-launch';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import {
@@ -129,6 +130,7 @@ function normalizeFormForTool(input: QueryInputState, config: ChartToolConfig): 
 export function InputPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const launchState = useMemo(() => readWorkspaceLaunchState(location.state), [location.state]);
   const { tool: toolParam } = useParams();
   const [searchParams] = useSearchParams();
   const [, startSubmitTransition] = useTransition();
@@ -312,6 +314,7 @@ export function InputPage() {
           },
           recordId,
         ),
+        { state: buildWorkspaceLaunchState(launchState.initialQuestion) },
       );
     });
   }
@@ -339,6 +342,7 @@ export function InputPage() {
           timeStandard: instantTimeStandard,
           observer,
         }),
+        { state: buildWorkspaceLaunchState(launchState.initialQuestion) },
       );
     });
   }
