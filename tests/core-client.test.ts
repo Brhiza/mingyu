@@ -188,6 +188,8 @@ test('生肖流年便捷入口应支持生肖、地支、公历年和指定干�
   assert.deepEqual(fromName, fromBranch);
   assert.deepEqual(fromName, getZodiacYearFortune('子', '丙午'));
   assert.deepEqual(fromGanZhi, getZodiacYearFortune('子', '甲子'));
+  assert.match(fromName.prompt, /太岁关系：冲太岁（生肖年支子与流年年支午相冲）/);
+  assert.match(fromName.prompt, /信息范围：仅使用出生年支与流年干支进行关系分类/);
 
   for (const input of [
     { zodiac: '鼠' },

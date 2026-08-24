@@ -139,8 +139,11 @@ test('统一占法摘要应覆盖小六壬且不落回通用文案', () => {
 
   assert.equal(summary.title, '小六壬起课结果');
   assert.match(info, /占得宫/);
+  assert.match(info, /起课过程/);
+  assert.match(info, /取用层级/);
   assert.doesNotMatch(info, /顺数轨迹/);
-  assert.match(prompt, /依据占得宫与歌诀/);
+  assert.doesNotMatch(info, /mod\s*6|时序\d+/);
+  assert.match(prompt, /依据本次顺数结果、时宫与歌诀/);
   assert.match(prompt, /眼前事情如何推进/);
   assert.match(formatDetailedDivinationInfo('xiaoliuren', data), /顺数/);
   assert.match(formatDivinationTime(data), /节气：/);

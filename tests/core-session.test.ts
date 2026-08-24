@@ -20,7 +20,9 @@ test('统一占法会话应覆盖时间课、摘要、提示词和稳定序列�
   assert.equal(session.method, 'xiaoliuren');
   assert.equal(session.summary.title, '小六壬起课结果');
   assert.match(session.formattedResult, /占得宫/);
-  assert.doesNotMatch(session.formattedResult, /月宫|日宫|顺数/);
+  assert.match(session.formattedResult, /起课过程/);
+  assert.match(session.formattedResult, /取用层级：时宫.+为本次占得宫与主证/);
+  assert.doesNotMatch(session.formattedResult, /mod\s*6|时序\d+/);
   assert.match(session.prompt, /这件事接下来如何推进/);
   assert.match(session.serializedResult, /"primary"/);
   assert.equal(session.serializedResult, serializeDivinationResult(session.data));

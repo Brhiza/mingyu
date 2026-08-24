@@ -25,6 +25,7 @@ import {
 } from '../divination/algorithms/qimen/helpers/palace-utils';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
+import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
 
 function joinPromptSentences(items: Array<string | undefined>) {
   return items
@@ -287,7 +288,17 @@ function formatMeihuaInfo(data: MeihuaData) {
 }
 
 function formatXiaoliurenInfo(data: XiaoliurenData) {
-  return ['占法：小六壬', `占得宫：${data.primary.name}`, `歌诀原文：${data.primary.verse}`]
+  return [
+    '占法：小六壬',
+    `起课：农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
+    '起课过程：',
+    `- 定月宫：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月从大安顺数，落${data.sequence.month.name}`,
+    `- 定日宫：从月宫${data.sequence.month.name}起初一，顺数至${data.lunarDay}日，落${data.sequence.day.name}`,
+    `- 定时宫：从日宫${data.sequence.day.name}起子时，顺数至${data.hourLabel}，落${data.sequence.hour.name}`,
+    `取用层级：时宫${data.sequence.hour.name}为本次占得宫与主证；月宫${data.sequence.month.name}、日宫${data.sequence.day.name}为逐宫顺数位置`,
+    `占得宫：${data.primary.name}`,
+    `歌诀原文：${data.primary.verse}`,
+  ]
     .filter(Boolean)
     .join('\n');
 }
@@ -478,12 +489,15 @@ function formatLiurenInfo(data: LiurenData) {
 function formatTarotInfo(data: TarotData) {
   const cardLines = data.cards.map(
     (card) =>
-      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}${card.keywords.length ? `；关键词：${card.keywords.join('、')}` : ''}`,
+      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}${card.keywords.length ? `；关键词：${card.keywords.join('、')}` : ''}${card.element ? `；牌组属性：${card.element}` : ''}`,
   );
 
   return [
     '占法：塔罗',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
+    data.cards.some((card) => card.reversed)
+      ? '正逆位口径：逆位表示该牌主题可能受阻、过度、内化或方向偏离，结合所在牌位与整组牌序判断'
+      : '',
     '牌位明细：',
     ...cardLines,
   ]
@@ -628,18 +642,31 @@ function formatAlmanacInfo(data: AlmanacData) {
 }
 
 function formatLenormandInfo(data: LenormandData) {
-  const cardLines = data.cards.map(
-    (card) => `- ${card.position}：${card.name}；关键词：${card.keywords.join('、')}`,
-  );
+  const cardLines = data.cards.map((card) => {
+    const placement = [
+      card.house ? `落${card.house}宫` : '',
+      card.row && card.column ? `第${card.row}排第${card.column}列` : '',
+    ]
+      .filter(Boolean)
+      .join('，');
+    return `- ${card.position}：${card.name}；关键词：${card.keywords.join('、')}${card.meaning ? `；基础牌义：${card.meaning}` : ''}${placement ? `；${placement}` : ''}`;
+  });
   const combinationLines = (data.combinations ?? [])
-    .filter((item) => item.source && item.source !== '相邻牌义合读')
+    .filter((item) => item.source === '固定组合')
     .map((item) => `- ${item.card1}+${item.card2}：${item.meaning}`);
+  const evidenceAnalysis = data.evidenceAnalysis?.structuredLayoutFacts
+    ? data.evidenceAnalysis
+    : analyzeLenormandEvidence(data);
+  const layoutLines = evidenceAnalysis.structuredLayoutFacts
+    .filter((item) => item.kind !== '大桌宫位')
+    .map((item) => `- ${item.factText}`);
   return [
     '占法：雷诺曼',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
     '牌位明细：',
     ...cardLines,
-    ...(combinationLines.length ? ['组合明细：', ...combinationLines] : []),
+    ...(layoutLines.length ? ['布局关系：', ...layoutLines] : []),
+    ...(combinationLines.length ? ['固定组合：', ...combinationLines] : []),
   ]
     .filter(Boolean)
     .join('\n');

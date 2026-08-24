@@ -293,8 +293,9 @@ export function buildHuangjiJingshiPrompt(
   if (normalizedQuestion) sections.push(`【问题】\n${normalizedQuestion}`);
   sections.push(
     `【任务】\n${buildPromptTask(
-      normalizedQuestion ? '请结合周期资料回答【问题】。' : '请解读目标年所处的周期位置。',
-      'huangji-jingshi',
+      normalizedQuestion
+        ? '请依据周期资料回答【问题】，说明目标年在元、会、运、世中的位置、当前进度与下一周期边界。'
+        : '请依据周期资料说明目标年在元、会、运、世中的位置、当前进度与下一周期边界。',
     )}`,
   );
   return insertPromptSectionBeforeHeading(

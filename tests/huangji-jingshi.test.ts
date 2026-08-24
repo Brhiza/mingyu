@@ -251,6 +251,8 @@ test('皇极经世提示词应标明纪元依赖并保持自包含', () => {
   assert.match(prompt, /周期边界：本世当前为第 7 年/);
   assert.match(prompt, /下一世始于 2050/);
   assert.match(prompt, /一元十二会、一会三十运、一运十二世、一世三十年/);
+  assert.match(prompt, /下一周期边界/);
+  assert.doesNotMatch(prompt, /值年统卦|卦爻变易|先后天象意/);
   assert.doesNotMatch(prompt, /参考《|《皇极经世》/);
   assert.doesNotMatch(prompt, /mingyu|API|MCP|仓库|内部字段/i);
   assertPromptIsPortableTaskText(prompt);
