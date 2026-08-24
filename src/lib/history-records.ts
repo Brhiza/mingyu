@@ -2,6 +2,11 @@ import type { PromptSourceKey, QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
 import type { AlmanacData } from '@/types/divination';
 import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
+import {
+  INSTANT_CHART_DEFINITIONS,
+  type InstantChartType,
+  type InstantTimeStandard,
+} from 'mingyu-core/instant';
 import { safeStorage } from '@/lib/safe-storage';
 import { createSecureId } from '@/lib/secure-id';
 
@@ -55,6 +60,18 @@ export type DivinationHistoryRecord = {
   caseName?: string;
   updatedAt: string;
 };
+
+export type InstantHistoryRecord = {
+  id: string;
+  type: 'instant';
+  question: string;
+  instantType: InstantChartType;
+  timeStandard: InstantTimeStandard;
+  path: string;
+  updatedAt: string;
+};
+
+export type ConsultationHistoryRecord = DivinationHistoryRecord | InstantHistoryRecord;
 
 export function sortPersonalCasesForQuickSwitch(records: PersonalHistoryRecord[]) {
   return [...records].sort((left, right) => {
@@ -345,9 +362,16 @@ export function loadCompatibilityHistory() {
 }
 
 export function loadDivinationHistory() {
-  return readRecords<DivinationHistoryRecord>(
+  return readRecords<ConsultationHistoryRecord>(
     DIVINATION_HISTORY_STORAGE_KEY,
-    (item) => item.type === 'divination' && typeof item.question === 'string',
+    (item) =>
+      (item.type === 'divination' && typeof item.question === 'string') ||
+      (item.type === 'instant' &&
+        typeof item.question === 'string' &&
+        typeof item.path === 'string' &&
+        item.path.startsWith('/result?') &&
+        INSTANT_CHART_DEFINITIONS.some((definition) => definition.type === item.instantType) &&
+        (item.timeStandard === 'beijing' || item.timeStandard === 'true-solar')),
   );
 }
 
@@ -555,7 +579,48 @@ export function addDivinationHistory(
   return record;
 }
 
+export function addInstantHistory(options: {
+  question: string;
+  instantType: InstantChartType;
+  timeStandard: InstantTimeStandard;
+  path: string;
+}) {
+  const question = options.question.trim();
+  if (!question || !options.path.startsWith('/result?')) {
+    return null;
+  }
+
+  const id = createDivinationHistoryId();
+  const [pathname, search = ''] = options.path.split('?');
+  const params = new URLSearchParams(search);
+  params.set('record', id);
+  const record: InstantHistoryRecord = {
+    id,
+    type: 'instant',
+    question,
+    instantType: options.instantType,
+    timeStandard: options.timeStandard,
+    path: `${pathname}?${params.toString()}`,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const saved = writeRecords(
+    DIVINATION_HISTORY_STORAGE_KEY,
+    [record, ...loadDivinationHistory()],
+    MAX_DIVINATION_HISTORY_RECORDS,
+  );
+  if (!saved) {
+    throw new Error('当前即时盘记录无法保存，请清理部分历史记录后重试');
+  }
+  return record;
+}
+
 export function getDivinationHistoryById(id: string) {
+  const record = loadDivinationHistory().find((item) => item.id === id);
+  return record?.type === 'divination' ? record : null;
+}
+
+export function getConsultationHistoryById(id: string) {
   return loadDivinationHistory().find((item) => item.id === id) ?? null;
 }
 

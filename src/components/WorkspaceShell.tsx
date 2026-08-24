@@ -29,10 +29,14 @@ import {
   type WorkspaceFeatureId,
 } from '@/lib/workspace';
 import { isInstantChartType } from '@/lib/instant-chart';
+import { INSTANT_CHART_DEFINITIONS } from 'mingyu-core/instant';
 
 type SidebarView = 'tools' | 'history';
 
 const QUICK_SWITCH_CASE_LIMIT = 5;
+const instantChartLabelMap = Object.fromEntries(
+  INSTANT_CHART_DEFINITIONS.map((item) => [item.type, item.label]),
+);
 
 function resolveResultFeature(search: string): WorkspaceFeatureId {
   const params = new URLSearchParams(search);
@@ -148,6 +152,11 @@ export function WorkspaceShell() {
   const visibleHistories = useMemo(() => {
     const keyword = historySearch.trim().toLowerCase();
     return histories.filter((record) => {
+      if (record.type === 'instant') {
+        return `${record.question} ${instantChartLabelMap[record.instantType]}`
+          .toLowerCase()
+          .includes(keyword);
+      }
       const feature = getWorkspaceFeature(
         record.requestedMethod === 'random' ? record.method : record.requestedMethod,
       );
@@ -423,9 +432,18 @@ export function WorkspaceShell() {
           <div className="workspace-case-list">
             {visibleHistories.length ? (
               visibleHistories.map((record) => {
-                const feature = getWorkspaceFeature(
-                  record.requestedMethod === 'random' ? record.method : record.requestedMethod,
-                );
+                const feature =
+                  record.type === 'instant'
+                    ? null
+                    : getWorkspaceFeature(
+                        record.requestedMethod === 'random'
+                          ? record.method
+                          : record.requestedMethod,
+                      );
+                const historyLabel =
+                  record.type === 'instant'
+                    ? instantChartLabelMap[record.instantType]
+                    : feature!.label;
                 return (
                   <button
                     type="button"
@@ -435,13 +453,18 @@ export function WorkspaceShell() {
                     aria-current={activeDivinationRecordId === record.id ? 'page' : undefined}
                   >
                     <span className="workspace-case-mark" aria-hidden="true">
-                      问
+                      {record.type === 'instant' ? '时' : '问'}
                     </span>
                     <span>
-                      <strong>{record.question || feature.label}</strong>
+                      <strong>{record.question || historyLabel}</strong>
                       <small>
-                        {feature.label} · {record.caseName ?? '未指定'} ·{' '}
-                        {formatCaseDate(record.updatedAt)}
+                        {historyLabel} ·{' '}
+                        {record.type === 'instant'
+                          ? record.timeStandard === 'true-solar'
+                            ? '真太阳时'
+                            : '北京时间'
+                          : (record.caseName ?? '未指定')}{' '}
+                        · {formatCaseDate(record.updatedAt)}
                       </small>
                     </span>
                   </button>

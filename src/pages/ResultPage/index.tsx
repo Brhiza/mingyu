@@ -89,7 +89,7 @@ import { buildCurrentBaziFortuneSelection } from '@/components/BaziFortuneTools/
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { PromptWorkbenchPanel } from '@/components/PromptPreview';
 import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
-import { normalizeChartInputForSource, preserveChartRecordId } from '@/lib/case-navigation';
+import { normalizeChartInputForSource, preserveResultContextParams } from '@/lib/case-navigation';
 import { isInstantChartType, readInstantTimeStandard } from '@/lib/instant-chart';
 import {
   buildInstantAstrolabePrompt,
@@ -99,6 +99,7 @@ import {
   buildInstantZiweiPrompt,
 } from '@/lib/instant-prompt';
 import { readWorkspaceLaunchState } from '@/lib/workspace-launch';
+import { getConsultationHistoryById } from '@/lib/history-records';
 
 type FortuneScopePreset = 'default' | 'dayun' | 'year' | 'month' | 'day' | 'all' | 'manual';
 type FortuneScopePresetKind = 'bazi' | 'ziwei' | 'astrolabe';
@@ -211,6 +212,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const isInstantResult = isInstantChartType(instantChartType);
   const instantTimeStandard = readInstantTimeStandard(searchParams.get('its'));
   const instantTimeBasisLabel = instantTimeStandard === 'true-solar' ? '真太阳时' : '北京时间';
+  const instantHistoryQuestion = useMemo(() => {
+    if (!isInstantResult) return '';
+    const recordId = searchParams.get('record');
+    if (!recordId) return '';
+    const record = getConsultationHistoryById(recordId);
+    return record?.type === 'instant' ? record.question : '';
+  }, [isInstantResult, searchParams]);
+  const initialQuestion = launchState.initialQuestion || instantHistoryQuestion;
   const promptState = useMemo(() => parsePromptState(searchParams), [searchParams]);
   const inputState = useMemo(
     () => normalizeChartInputForSource(parseInputState(searchParams), promptState.promptSource),
@@ -373,9 +382,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         ...next,
       };
 
-      setSearchParams(preserveChartRecordId(buildResultSearch(inputState, merged), searchParams), {
-        replace: true,
-      });
+      setSearchParams(
+        preserveResultContextParams(buildResultSearch(inputState, merged), searchParams),
+        { replace: true },
+      );
     },
     [inputState, promptState, searchParams, setSearchParams],
   );
@@ -417,7 +427,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   );
 
   useEffect(() => {
-    const question = launchState.initialQuestion.trim();
+    const question = initialQuestion.trim();
     const marker = `${inputSearch}\u0000${promptState.promptSource}\u0000${question}`;
     if (!question || appliedLaunchQuestionRef.current === marker) return;
     appliedLaunchQuestionRef.current = marker;
@@ -448,7 +458,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     astrolabeDraftStorageKey,
     baziDraftStorageKey,
     inputSearch,
-    launchState.initialQuestion,
+    initialQuestion,
     promptState.promptSource,
     setAstrolabeQuestionDraft,
     setBaziQuestionDraft,
@@ -1472,7 +1482,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   }
 
   function buildResultPath(pathname: '/result' | '/result/assistant', tab: ResultTabKey) {
-    const search = preserveChartRecordId(
+    const search = preserveResultContextParams(
       buildResultSearch(inputState, {
         ...promptState,
         tab,

@@ -8,8 +8,8 @@ import {
 import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
-import { buildChartFeaturePathForCase } from '@/lib/case-navigation';
-import { sortPersonalCasesForQuickSwitch } from '@/lib/history-records';
+import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
+import { addInstantHistory, sortPersonalCasesForQuickSwitch } from '@/lib/history-records';
 import { defaultInputState, type QueryInputState } from '@/lib/query-state';
 import {
   buildFrontendInstantObserver,
@@ -36,7 +36,7 @@ import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 const modeCopy: Record<HomeModeId, { heading: string; placeholder: string }> = {
   chart: {
     heading: '排盘并开始解读',
-    placeholder: '输入想了解的问题，也可以留空直接查看完整盘面',
+    placeholder: '输入想了解的问题，选择排盘方式后继续',
   },
   divination: {
     heading: '今天想问什么？',
@@ -44,7 +44,7 @@ const modeCopy: Record<HomeModeId, { heading: string; placeholder: string }> = {
   },
   instant: {
     heading: '以此刻起盘',
-    placeholder: '输入想结合当前时刻了解的问题，也可以留空起盘',
+    placeholder: '输入想结合当前时刻了解的问题，选择即时盘后开始',
   },
 };
 
@@ -160,14 +160,21 @@ export function HomePage() {
     if (!observer) return;
     const launch = pendingInstantLaunch;
     setPendingInstantLaunch(null);
-    navigate(
-      buildInstantResultPath({
-        type: launch.type,
-        timeStandard: instantTimeStandard,
-        observer,
-      }),
-      { state: buildWorkspaceLaunchState(launch.question) },
-    );
+    const resultPath = buildInstantResultPath({
+      type: launch.type,
+      timeStandard: instantTimeStandard,
+      observer,
+    });
+    const record = addInstantHistory({
+      question: launch.question,
+      instantType: launch.type,
+      timeStandard: instantTimeStandard,
+      path: resultPath,
+    });
+    if (!record) return;
+    navigate(buildDivinationRecordPath(record), {
+      state: buildWorkspaceLaunchState(launch.question),
+    });
   }, [
     instantBirthPlace.isBirthPlaceModalOpen,
     instantPlaceForm,
@@ -216,18 +223,24 @@ export function HomePage() {
       instantBirthPlace.openBirthPlaceModal('self');
       return;
     }
-    navigate(
-      buildInstantResultPath({
-        type,
-        timeStandard: instantTimeStandard,
-        observer,
-      }),
-      { state: buildWorkspaceLaunchState(question) },
-    );
+    const resultPath = buildInstantResultPath({
+      type,
+      timeStandard: instantTimeStandard,
+      observer,
+    });
+    const record = addInstantHistory({
+      question,
+      instantType: type,
+      timeStandard: instantTimeStandard,
+      path: resultPath,
+    });
+    if (!record) return;
+    navigate(buildDivinationRecordPath(record), { state: buildWorkspaceLaunchState(question) });
   }
 
   function launchSelected() {
     const question = questionDraft.trim();
+    if (!question) return;
     if (activeMode === 'chart') {
       navigate(
         activeCase
@@ -337,12 +350,13 @@ export function HomePage() {
               value={questionDraft}
               placeholder={modeCopy[activeMode].placeholder}
               aria-label="输入问题"
+              required
               rows={4}
               onChange={(event) => setQuestionDraft(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault();
-                  launchSelected();
+                  event.currentTarget.form?.requestSubmit();
                 }
               }}
             />
@@ -406,7 +420,15 @@ export function HomePage() {
                   ) : null}
                 </div>
               )}
-              <button type="submit" className="workspace-home-launch" aria-label={launchLabel}>
+              <span className="workspace-home-keyboard-hint" aria-hidden="true">
+                Enter 发送 · Shift + Enter 换行
+              </span>
+              <button
+                type="submit"
+                className="workspace-home-launch"
+                aria-label={launchLabel}
+                disabled={!questionDraft.trim()}
+              >
                 <span className="workspace-home-launch-icon" aria-hidden="true">
                   ↑
                 </span>

@@ -1,6 +1,6 @@
 import type {
   CompatibilityHistoryRecord,
-  DivinationHistoryRecord,
+  ConsultationHistoryRecord,
   PersonalHistoryRecord,
 } from '@/lib/history-records';
 import {
@@ -53,11 +53,13 @@ export function buildChartRecordPath(
   return `/result?${params.toString()}`;
 }
 
-export function preserveChartRecordId(nextSearch: string, currentParams: URLSearchParams) {
+export function preserveResultContextParams(nextSearch: string, currentParams: URLSearchParams) {
   const params = new URLSearchParams(nextSearch);
-  const recordId = currentParams.get(CHART_RECORD_PARAM);
-  if (recordId) {
-    params.set(CHART_RECORD_PARAM, recordId);
+  for (const key of [CHART_RECORD_PARAM, 'instant', 'its', 'record'] as const) {
+    const value = currentParams.get(key);
+    if (value) {
+      params.set(key, value);
+    }
   }
   return params;
 }
@@ -149,6 +151,9 @@ export function buildCompatibilityRecordPath(record: CompatibilityHistoryRecord)
   );
 }
 
-export function buildDivinationRecordPath(record: DivinationHistoryRecord) {
+export function buildDivinationRecordPath(record: ConsultationHistoryRecord) {
+  if (record.type === 'instant') {
+    return record.path.startsWith('/result?') ? record.path : '/';
+  }
   return `/divination/${record.requestedMethod}/result?record=${encodeURIComponent(record.id)}`;
 }

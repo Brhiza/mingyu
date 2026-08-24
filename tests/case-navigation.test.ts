@@ -5,7 +5,7 @@ import {
   buildPersonalRecordPath,
   CHART_RECORD_PARAM,
   normalizeChartInputForSource,
-  preserveChartRecordId,
+  preserveResultContextParams,
   resolvePersonalRecordSource,
 } from '../src/lib/case-navigation';
 import type { PersonalHistoryRecord } from '../src/lib/history-records';
@@ -75,8 +75,17 @@ test('完整星盘案例应保留来源并携带稳定案例标识', () => {
 
 test('切换盘面或解读时应保留当前案例标识', () => {
   const current = new URLSearchParams('rid=case-1&t=bazi');
-  const next = preserveChartRecordId('t=prompt', current);
+  const next = preserveResultContextParams('t=prompt', current);
   assert.equal(next.get(CHART_RECORD_PARAM), 'case-1');
+  assert.equal(next.get('t'), 'prompt');
+});
+
+test('即时盘切换标签时应保留历史和时间口径', () => {
+  const current = new URLSearchParams('instant=bazi&its=true-solar&record=instant-1&t=bazi');
+  const next = preserveResultContextParams('t=prompt', current);
+  assert.equal(next.get('instant'), 'bazi');
+  assert.equal(next.get('its'), 'true-solar');
+  assert.equal(next.get('record'), 'instant-1');
   assert.equal(next.get('t'), 'prompt');
 });
 

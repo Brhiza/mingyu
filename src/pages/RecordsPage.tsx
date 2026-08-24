@@ -7,6 +7,7 @@ import {
   WorkspaceSurface,
 } from '@/components/workspace/WorkspaceUI';
 import { DIVINATION_METHOD_OPTIONS } from 'mingyu-core/divination/config';
+import { INSTANT_CHART_DEFINITIONS } from 'mingyu-core/instant';
 import {
   loadCompatibilityHistory,
   loadDivinationHistory,
@@ -21,6 +22,9 @@ type HistoryTab = 'compatibility' | 'divination';
 const divinationMethodLabelMap = Object.fromEntries(
   DIVINATION_METHOD_OPTIONS.map((item) => [item.value, item.label]),
 ) as Record<(typeof DIVINATION_METHOD_OPTIONS)[number]['value'], string>;
+const instantChartLabelMap = Object.fromEntries(
+  INSTANT_CHART_DEFINITIONS.map((item) => [item.type, item.label]),
+);
 
 function formatUpdatedAt(value: string) {
   try {
@@ -69,11 +73,13 @@ export function RecordsPage() {
 
   const filteredDivination = useMemo(() => {
     if (!query) return divinationRecords;
-    return divinationRecords.filter((item) =>
-      `${item.question} ${item.method} ${item.requestedMethod} ${item.caseName ?? ''}`
-        .toLowerCase()
-        .includes(query),
-    );
+    return divinationRecords.filter((item) => {
+      const text =
+        item.type === 'instant'
+          ? `${item.question} ${instantChartLabelMap[item.instantType]}`
+          : `${item.question} ${item.method} ${item.requestedMethod} ${item.caseName ?? ''}`;
+      return text.toLowerCase().includes(query);
+    });
   }, [divinationRecords, query]);
 
   if (requestedTab === 'personal') {
@@ -96,7 +102,7 @@ export function RecordsPage() {
     refresh();
   }
 
-  const searchPlaceholder = activeTab === 'compatibility' ? '搜索双方姓名' : '搜索问题或卦种';
+  const searchPlaceholder = activeTab === 'compatibility' ? '搜索双方姓名' : '搜索问题或算法';
 
   return (
     <div className="workspace-records-page">
@@ -197,14 +203,27 @@ export function RecordsPage() {
                         <time>{formatUpdatedAt(record.updatedAt)}</time>
                       </span>
                       <span className="workspace-record-meta">
-                        <span className="workspace-record-tag">
-                          {record.requestedMethod === 'random'
-                            ? `随机 · ${divinationMethodLabelMap[record.method]}`
-                            : divinationMethodLabelMap[record.method]}
-                        </span>
-                        <span className="workspace-record-tag">
-                          案例：{record.caseName ?? '未指定'}
-                        </span>
+                        {record.type === 'instant' ? (
+                          <>
+                            <span className="workspace-record-tag">
+                              {instantChartLabelMap[record.instantType]}
+                            </span>
+                            <span className="workspace-record-tag">
+                              {record.timeStandard === 'true-solar' ? '真太阳时' : '北京时间'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="workspace-record-tag">
+                              {record.requestedMethod === 'random'
+                                ? `随机 · ${divinationMethodLabelMap[record.method]}`
+                                : divinationMethodLabelMap[record.method]}
+                            </span>
+                            <span className="workspace-record-tag">
+                              案例：{record.caseName ?? '未指定'}
+                            </span>
+                          </>
+                        )}
                       </span>
                     </span>
                   </button>

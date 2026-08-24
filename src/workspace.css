@@ -2064,12 +2064,25 @@
   color: #fff;
   font-size: 12px;
   font-weight: 800;
-  margin-left: auto;
+  margin-left: 0;
   cursor: pointer;
 }
 
-.workspace-home-launch:hover {
+.workspace-home-launch:hover:not(:disabled) {
   background: var(--accent-deep);
+}
+
+.workspace-home-launch:disabled {
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  cursor: default;
+}
+
+.workspace-home-keyboard-hint {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .workspace-home-launch-icon {
@@ -2213,6 +2226,10 @@
     width: 40px;
     min-height: 40px;
     margin-left: auto;
+  }
+
+  .workspace-home-keyboard-hint {
+    display: none;
   }
 
   .workspace-home-case-select {
