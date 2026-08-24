@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChartInput } from '@/types/chart';
 import { createSecureId } from '@/lib/secure-id';
+import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
 import type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from '../ResultPage.types';
 
 interface SelectedDecadal {
@@ -8,6 +9,16 @@ interface SelectedDecadal {
   endAge: number;
   dateStr: string;
 }
+
+interface ZiweiFortuneOptionsData {
+  yearOptions: ZiweiYearOption[];
+  monthOptions: ZiweiMonthOption[];
+  dayOptions: ZiweiDayOption[];
+  effectiveYearDateStr?: string;
+  effectiveMonthDateStr?: string;
+}
+
+const fortuneOptionsCache = createBoundedMemoryCache<ZiweiFortuneOptionsData>(24);
 
 export interface ZiweiFortuneOptions {
   yearOptions: ZiweiYearOption[];
@@ -27,12 +38,32 @@ export function useZiweiFortuneOptionsWorker(
   draftMonthDateStr: string,
   draftDecadalIndex: number,
 ): ZiweiFortuneOptions {
-  const [yearOptions, setYearOptions] = useState<ZiweiYearOption[]>([]);
-  const [monthOptions, setMonthOptions] = useState<ZiweiMonthOption[]>([]);
-  const [dayOptions, setDayOptions] = useState<ZiweiDayOption[]>([]);
+  const requestKey = JSON.stringify({
+    chartInput,
+    birthSolarDate,
+    hourIndex,
+    selectedDecadal,
+    draftYearDateStr,
+    draftMonthDateStr,
+    draftDecadalIndex,
+  });
+  const initialCached = fortuneOptionsCache.get(requestKey);
+  const [yearOptions, setYearOptions] = useState<ZiweiYearOption[]>(
+    () => initialCached?.yearOptions ?? [],
+  );
+  const [monthOptions, setMonthOptions] = useState<ZiweiMonthOption[]>(
+    () => initialCached?.monthOptions ?? [],
+  );
+  const [dayOptions, setDayOptions] = useState<ZiweiDayOption[]>(
+    () => initialCached?.dayOptions ?? [],
+  );
   const [isLoading, setIsLoading] = useState(false);
-  const [effectiveYearDateStr, setEffectiveYearDateStr] = useState<string | undefined>(undefined);
-  const [effectiveMonthDateStr, setEffectiveMonthDateStr] = useState<string | undefined>(undefined);
+  const [effectiveYearDateStr, setEffectiveYearDateStr] = useState<string | undefined>(
+    initialCached?.effectiveYearDateStr,
+  );
+  const [effectiveMonthDateStr, setEffectiveMonthDateStr] = useState<string | undefined>(
+    initialCached?.effectiveMonthDateStr,
+  );
   const workerRef = useRef<Worker | null>(null);
 
   // 组件卸载时清理 worker
@@ -46,6 +77,17 @@ export function useZiweiFortuneOptionsWorker(
   }, []);
 
   useEffect(() => {
+    const cached = fortuneOptionsCache.get(requestKey);
+    if (cached) {
+      setYearOptions(cached.yearOptions);
+      setMonthOptions(cached.monthOptions);
+      setDayOptions(cached.dayOptions);
+      setEffectiveYearDateStr(cached.effectiveYearDateStr);
+      setEffectiveMonthDateStr(cached.effectiveMonthDateStr);
+      setIsLoading(false);
+      return;
+    }
+
     // 惰性创建：如果 workerRef 为空（初始或脚本加载失败后）则重新创建
     if (!workerRef.current) {
       const worker = new Worker(
@@ -112,11 +154,19 @@ export function useZiweiFortuneOptionsWorker(
       window.clearTimeout(timer);
 
       if (event.data.ok) {
-        setYearOptions(event.data.yearOptions ?? []);
-        setMonthOptions(event.data.monthOptions ?? []);
-        setDayOptions(event.data.dayOptions ?? []);
-        setEffectiveYearDateStr(event.data.effectiveYearDateStr);
-        setEffectiveMonthDateStr(event.data.effectiveMonthDateStr);
+        const next: ZiweiFortuneOptionsData = {
+          yearOptions: event.data.yearOptions ?? [],
+          monthOptions: event.data.monthOptions ?? [],
+          dayOptions: event.data.dayOptions ?? [],
+          effectiveYearDateStr: event.data.effectiveYearDateStr,
+          effectiveMonthDateStr: event.data.effectiveMonthDateStr,
+        };
+        fortuneOptionsCache.set(requestKey, next);
+        setYearOptions(next.yearOptions);
+        setMonthOptions(next.monthOptions);
+        setDayOptions(next.dayOptions);
+        setEffectiveYearDateStr(next.effectiveYearDateStr);
+        setEffectiveMonthDateStr(next.effectiveMonthDateStr);
       } else {
         setYearOptions([]);
         setMonthOptions([]);
@@ -156,6 +206,7 @@ export function useZiweiFortuneOptionsWorker(
     draftMonthDateStr,
     draftYearDateStr,
     selectedDecadal,
+    requestKey,
   ]);
 
   return {

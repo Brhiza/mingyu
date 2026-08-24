@@ -407,7 +407,9 @@ function JinkoujueTraditionalBoard({ data }: { data: JinkoujueData }) {
 
 function QimenTraditionalBoard({ data }: { data: QimenData }) {
   const palaceMap = new Map(data.jiuGongGe.map((item) => [item.gong, item]));
-  const scopeLabel = { hour: '时家', day: '日家', month: '月家', year: '年家' }[data.scope];
+  const scopeLabel = { hour: '时家', day: '日家', month: '月家', year: '年家' }[
+    data.scope ?? 'hour'
+  ];
   return (
     <TraditionalBoardShell
       title={`${scopeLabel}奇门九宫盘`}

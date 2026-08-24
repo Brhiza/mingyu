@@ -304,12 +304,13 @@ export function WorkspaceShell() {
                       className={activeFeature === feature.id ? 'is-active' : ''}
                       onClick={() => {
                         setSidebarView('tools');
-                        navigate(
+                        const targetPath =
                           isChartWorkspaceId(feature.id) && activeCase
                             ? buildChartFeaturePathForCase(activeCase, feature.id)
-                            : buildWorkspaceFeaturePath(feature.id),
-                          { state: { workspaceNew: true } },
-                        );
+                            : buildWorkspaceFeaturePath(feature.id);
+                        if (targetPath !== `${location.pathname}${location.search}`) {
+                          navigate(targetPath, { state: { workspaceNew: true } });
+                        }
                       }}
                       aria-current={activeFeature === feature.id ? 'page' : undefined}
                     >

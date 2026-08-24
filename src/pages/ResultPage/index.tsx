@@ -20,6 +20,7 @@ import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { formatBaziForPrompt } from 'mingyu-core/bazi';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
+import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng, type QizhengResult } from 'mingyu-core/qizheng';
 import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
@@ -150,6 +151,9 @@ const LazyMetaphysicsPanel = lazy(async () => {
   const module = await import('@/components/MetaphysicsPanel');
   return { default: module.MetaphysicsPanel };
 });
+
+const astrolabeResultCache = createBoundedMemoryCache<AstrolabeData>(8);
+const qizhengResultCache = createBoundedMemoryCache<QizhengResult>(8);
 
 type ResultPageProps = {
   assistantOnly?: boolean;
@@ -697,21 +701,29 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         throw new Error('星盘需要出生地，请返回输入页选择出生地。');
       }
 
+      const astrolabeInput: Parameters<typeof generateAstrolabe>[0] = {
+        name: inputState.name || '本人',
+        gender: isInstantResult ? '' : inputState.gender === 'female' ? '女' : '男',
+        year: inputState.year,
+        month: inputState.month,
+        day: inputState.day,
+        hour: inputState.birthHour,
+        minute: inputState.birthMinute,
+        latitude: inputState.birthLatitude,
+        longitude: inputState.birthLongitude,
+        timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+        locationName: inputState.birthPlace,
+        useTrueSolarTime: inputState.useTrueSolarTime,
+      };
+      const cacheKey = JSON.stringify(astrolabeInput);
+      let data = astrolabeResultCache.get(cacheKey);
+      if (!data) {
+        data = generateAstrolabe(astrolabeInput);
+        astrolabeResultCache.set(cacheKey, data);
+      }
+
       return {
-        data: generateAstrolabe({
-          name: inputState.name || '本人',
-          gender: isInstantResult ? '' : inputState.gender === 'female' ? '女' : '男',
-          year: inputState.year,
-          month: inputState.month,
-          day: inputState.day,
-          hour: inputState.birthHour,
-          minute: inputState.birthMinute,
-          latitude: inputState.birthLatitude,
-          longitude: inputState.birthLongitude,
-          timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
-          locationName: inputState.birthPlace,
-          useTrueSolarTime: inputState.useTrueSolarTime,
-        }),
+        data,
         error: '',
       };
     } catch (error) {
@@ -740,8 +752,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const qizhengCalculation = useMemo<{ data: QizhengResult | null; error: string }>(() => {
     if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
     try {
+      const cacheKey = JSON.stringify(sharedBirthData);
+      let data = qizhengResultCache.get(cacheKey);
+      if (!data) {
+        data = generateQizheng(sharedBirthData);
+        qizhengResultCache.set(cacheKey, data);
+      }
       return {
-        data: generateQizheng(sharedBirthData),
+        data,
         error: '',
       };
     } catch (error) {

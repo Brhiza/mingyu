@@ -1,12 +1,16 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
-import { createSecureId } from '@/lib/secure-id';
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { ZiweiRuntimeState } from '../ResultPage.types';
 import { getZiweiDisplaySurroundedPalaces, joinText } from '../ResultPage.helpers';
-import { createDisplayWorker } from '../utils/createDisplayWorker';
+import {
+  getCachedZiweiDisplayPayload,
+  getZiweiDisplayKey,
+  getZiweiInputKey,
+  loadZiweiDisplayPayload,
+} from '../utils/ziweiCalculationCache';
 import { ZiweiTraditionalBoard } from './ZiweiTraditionalBoard';
 import { ZiweiFortuneSelector } from './ZiweiFortuneSelector';
 
@@ -29,6 +33,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
   const [selectedPalaceIndex, setSelectedPalaceIndex] = useState(
     payload.active_scope.palace_index ?? payload.palaces[0]?.index ?? 0,
   );
+  const chartInputKey = useMemo(() => getZiweiInputKey(chartInput), [chartInput]);
   const selectedPalace =
     displayPayload.palaces.find((item) => item.index === selectedPalaceIndex) ??
     displayPayload.palaces[0];
@@ -63,26 +68,42 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
       return;
     }
 
-    const requestId = `${selectedScope}-${selectedDateStr}-${createSecureId()}`;
-    setIsDisplayPayloadLoading(true);
+    const displayKey = getZiweiDisplayKey(
+      chartInputKey,
+      selectedDateStr,
+      selectedHourIndex,
+      selectedScope,
+    );
+    const cached = getCachedZiweiDisplayPayload(displayKey);
+    if (cached) {
+      setDisplayPayload(cached);
+      setIsDisplayPayloadLoading(false);
+      return;
+    }
 
-    return createDisplayWorker(
-      {
-        id: requestId,
-        input: chartInput,
-        dateStr: selectedDateStr,
-        hourIndex: selectedHourIndex,
-        scope: selectedScope,
-      },
-      (nextPayload) => {
+    let active = true;
+    setIsDisplayPayloadLoading(true);
+    void loadZiweiDisplayPayload(
+      chartInput,
+      chartInputKey,
+      selectedDateStr,
+      selectedHourIndex,
+      selectedScope,
+    )
+      .then((nextPayload) => {
+        if (!active) return;
         setDisplayPayload(nextPayload);
         setIsDisplayPayloadLoading(false);
-      },
-      () => {
+      })
+      .catch(() => {
+        if (!active) return;
         setIsDisplayPayloadLoading(false);
-      },
-    );
-  }, [chartInput, payload, selectedDateStr, selectedHourIndex, selectedScope]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [chartInput, chartInputKey, payload, selectedDateStr, selectedHourIndex, selectedScope]);
 
   useEffect(() => {
     setSelectedPalaceIndex(
