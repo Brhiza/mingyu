@@ -75,7 +75,7 @@ function PromptActionButtons(props: {
       <WorkspaceButton
         className="workspace-prompt-delivery-button"
         variant="primary"
-        size="large"
+        size="medium"
         disabled={!props.promptText}
         onClick={props.onCopy}
       >
@@ -85,7 +85,7 @@ function PromptActionButtons(props: {
       {props.showShare === false ? null : (
         <WorkspaceButton
           className="workspace-prompt-delivery-button"
-          size="large"
+          size="medium"
           disabled={!props.promptText}
           onClick={props.onShare}
         >

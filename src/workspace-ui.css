@@ -1162,8 +1162,8 @@ label.workspace-ui-field > span:first-child {
 }
 
 .workspace-prompt-delivery-button svg {
-  width: 19px;
-  height: 19px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
@@ -1606,15 +1606,15 @@ label.workspace-ui-field > span:first-child {
     gap: 6px;
   }
 
-  .workspace-prompt-delivery-button.workspace-ui-button.is-large {
-    min-height: 46px;
+  .workspace-prompt-delivery-button.workspace-ui-button {
+    min-height: 42px;
     padding-inline: 9px;
     font-size: 12px;
   }
 
   .workspace-prompt-delivery-button svg {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
   }
 
   .workspace-result-assistant-stage {
