@@ -1256,7 +1256,7 @@
 
   .workspace-result-split .workspace-ai-layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 0.72fr) minmax(240px, 1.28fr);
+    grid-template-rows: minmax(0, 1fr);
     height: 100%;
     min-height: 0;
     overflow: hidden;
