@@ -3,6 +3,7 @@ import { AstrolabeChart } from '@/components/AstrolabeChart';
 import type { DivinationSession } from '@/lib/divination/engine';
 import {
   formatHuangjiCivilYear,
+  type HuangjiDerivedHexagram,
   type HuangjiJingshiResult,
   type HuangjiPeriodHexagram,
 } from 'mingyu-core/huangji-jingshi';
@@ -810,9 +811,43 @@ function HuangjiPeriodCell(props: {
   );
 }
 
+function HuangjiDateTimeCell(props: {
+  label: string;
+  hexagram: HuangjiDerivedHexagram;
+  note: string;
+  active?: boolean;
+}) {
+  const { label, hexagram, note, active = false } = props;
+  return (
+    <article className={`traditional-huangji-period${active ? ' is-active' : ''}`}>
+      <div className="traditional-huangji-period-head">
+        <span>{label}</span>
+        <small>{note}</small>
+      </div>
+      <div className="traditional-huangji-hexagram">
+        <strong>{hexagram.symbol}</strong>
+        <div>
+          <b>{hexagram.name}</b>
+          <span>
+            {hexagram.upper}上 · {hexagram.lower}下
+          </span>
+        </div>
+      </div>
+      {hexagram.changedLine ? (
+        <em>
+          {hexagram.derivedFrom}卦第{hexagram.changedLine}爻变
+        </em>
+      ) : (
+        <em>六十卦序第{(hexagram.sequenceOffset || 0) + 1}位</em>
+      )}
+    </article>
+  );
+}
+
 function HuangjiTraditionalBoard({ data }: { data: HuangjiJingshiResult }) {
   const forecast = data.forecast;
   if (!forecast) return null;
+  const dateTimeForecast = data.dateTimeForecast;
 
   const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
   const related = [
@@ -823,8 +858,12 @@ function HuangjiTraditionalBoard({ data }: { data: HuangjiJingshiResult }) {
 
   return (
     <TraditionalBoardShell
-      title="皇极经世值年盘"
-      subtitle={`${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`}
+      title="皇极经世盘"
+      subtitle={
+        dateTimeForecast
+          ? `${dateTimeForecast.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+          : `${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+      }
       className="traditional-huangji-board"
     >
       <TraditionalMeta
@@ -834,6 +873,13 @@ function HuangjiTraditionalBoard({ data }: { data: HuangjiJingshiResult }) {
           ['运', `会内第${data.position.yun.indexInHui}运`],
           ['世', `运内第${data.position.shi.indexInYun}世`],
           ['年位', `世内第${data.position.year.indexInShi}年`],
+          ['节气', dateTimeForecast?.calendar.activeSolarTerm],
+          [
+            '皇极日',
+            dateTimeForecast
+              ? `${dateTimeForecast.calendar.monthBranch}月${dateTimeForecast.calendar.dayOfMonth}日`
+              : undefined,
+          ],
         ]}
       />
 
@@ -859,6 +905,36 @@ function HuangjiTraditionalBoard({ data }: { data: HuangjiJingshiResult }) {
           <p>{formatHuangjiCivilYear(annual.year)}</p>
         </article>
       </div>
+
+      {dateTimeForecast ? (
+        <div
+          className="traditional-huangji-cycle is-datetime"
+          role="list"
+          aria-label="皇极经世年月日时卦序"
+        >
+          <HuangjiDateTimeCell
+            label="月经卦"
+            hexagram={dateTimeForecast.hexagrams.monthJing}
+            note={`第${dateTimeForecast.calendar.monthIndex}月`}
+          />
+          <HuangjiDateTimeCell
+            label="旬纬卦"
+            hexagram={dateTimeForecast.hexagrams.xunWei}
+            note={`月内${dateTimeForecast.calendar.dayOfMonth}日`}
+          />
+          <HuangjiDateTimeCell
+            label="日卦"
+            hexagram={dateTimeForecast.hexagrams.daily}
+            note={dateTimeForecast.calendar.activeSolarTerm}
+          />
+          <HuangjiDateTimeCell
+            label="时经卦"
+            hexagram={dateTimeForecast.hexagrams.hourJing}
+            note={dateTimeForecast.calendar.hourRange}
+            active
+          />
+        </div>
+      ) : null}
 
       <div className="traditional-huangji-focus">
         <div className="traditional-huangji-judgment">

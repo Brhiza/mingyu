@@ -129,6 +129,13 @@ const systems: SystemCapability[] = [
     category: 'calendar',
     inputs: [
       {
+        id: 'date',
+        label: '起盘时间',
+        type: 'date',
+        required: false,
+        description: '提供时生成年月日时完整排盘；不得与纪元年坐标、目标公元年同时使用。',
+      },
+      {
         id: 'dateType',
         label: '历法类型',
         type: 'select',
@@ -1052,6 +1059,9 @@ const systems: SystemCapability[] = [
       '六十年统卦与十年卦',
       '值年卦与干支',
       '值年卦互卦、错卦、综卦',
+      '月经卦与旬纬卦',
+      '日卦与时经卦',
+      '冬至换年与皇极节气日位',
       '面向普通用户的分层解读资料',
       '周期换算规则',
       '结构化计算链',

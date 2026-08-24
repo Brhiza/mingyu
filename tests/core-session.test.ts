@@ -8,6 +8,7 @@ import {
   validateDivinationRequest,
 } from 'mingyu-core/divination/session';
 import { createConsumptionView } from 'mingyu-core/consumption';
+import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 
 test('统一占法会话应覆盖时间课、摘要、提示词和稳定序列化', () => {
   const session = generateDivinationSession({
@@ -89,9 +90,24 @@ test('统一占法会话应支持皇极经世值年盘', () => {
   });
 
   assert.equal(session.method, 'huangji');
-  assert.equal(session.summary.title, '皇极经世值年结果');
+  assert.equal(session.summary.title, '皇极经世结果');
   assert.match(session.formattedResult, /会内统卦：泽风大过/);
   assert.match(session.prompt, /值年卦：天火同人/);
   assert.equal(session.aiPrompt, session.prompt);
   assert.match(session.serializedResult, /"forecast"/);
+});
+
+test('统一占法会话应支持皇极经世年月日时盘', () => {
+  const session = generateDivinationSession({
+    method: 'huangji',
+    question: '这个时点的时势主线是什么？',
+    divinationTime: '2025-12-25T12:30:00+08:00',
+  });
+
+  assert.equal((session.data as HuangjiJingshiResult).input.mode, '年月日时');
+  assert.match(
+    session.formattedResult,
+    /年月日时卦：月经天山遁；旬纬天火同人；日卦雷山小过；时经地山谦/,
+  );
+  assert.match(session.prompt, /时经卦：地山谦/);
 });

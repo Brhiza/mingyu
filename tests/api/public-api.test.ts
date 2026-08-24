@@ -446,8 +446,24 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     { required: ['yearGanZhi'] },
   ]);
   assert.deepEqual(body.data.components.schemas.HuangjiJingshiRequest.oneOf, [
-    { required: ['year'], not: { required: ['elapsedYears'] } },
-    { required: ['epochYear', 'elapsedYears'], not: { required: ['year'] } },
+    {
+      required: ['customDate'],
+      not: {
+        anyOf: [
+          { required: ['epochYear'] },
+          { required: ['year'] },
+          { required: ['elapsedYears'] },
+        ],
+      },
+    },
+    {
+      required: ['year'],
+      not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+    },
+    {
+      required: ['epochYear', 'elapsedYears'],
+      not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
+    },
   ]);
   assert.equal(body.data.components.schemas.HuangjiJingshiRequest.required, undefined);
   assert.equal(
@@ -5360,6 +5376,35 @@ test('公开 API 皇极经世应直接按公元年返回完整值年卦，并保
   assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });
 
+test('公开 API 皇极经世应支持年月日时完整排盘与提示词', async () => {
+  const calculation = await callApi('metaphysics/huangji-jingshi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: '2025-12-25T12:30:00+08:00' }),
+  });
+  assert.equal(calculation.response.status, 200);
+  assert.equal(calculation.body.data.input.mode, '年月日时');
+  assert.equal(calculation.body.data.dateTimeForecast.calendar.forecastYear, 2026);
+  assert.equal(calculation.body.data.dateTimeForecast.hexagrams.monthJing.name, '天山遁');
+  assert.equal(calculation.body.data.dateTimeForecast.hexagrams.daily.name, '雷山小过');
+  assert.equal(calculation.body.data.dateTimeForecast.hexagrams.hourJing.name, '地山谦');
+
+  const prompted = await callApi('metaphysics/huangji-jingshi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate: '2025-12-25T12:30:00+08:00',
+      question: '此时应把握什么主线？',
+      responseMode: 'summary',
+    }),
+  });
+  assert.equal(prompted.response.status, 200);
+  assert.equal(prompted.body.data.resultSummary.dateTimeForecast.hexagrams.hourJing.name, '地山谦');
+  assert.match(prompted.body.data.prompt, /月经卦：天山遁/);
+  assert.match(prompted.body.data.prompt, /时经卦：地山谦/);
+  assertPromptIsPortableTaskText(prompted.body.data.prompt);
+});
+
 test('公开 API 太乙应支持月日时四计', async () => {
   for (const path of ['metaphysics/taiyi/calculate', 'metaphysics/taiyi/prompt']) {
     for (const scope of ['month', 'day', 'hour']) {
@@ -5421,6 +5466,10 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000 }],
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000, year: 2026, elapsedYears: 1026 }],
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000, year: 999 }],
+    [
+      'metaphysics/huangji-jingshi/calculate',
+      { customDate: '2025-12-25T12:30:00+08:00', year: 2026 },
+    ],
     ['metaphysics/qizheng/calculate', { month: 1, day: 1, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, day: 1, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, hour: 12 }],

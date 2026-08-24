@@ -246,7 +246,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
     type: 'string',
     format: 'date-time',
     description:
-      '时间类占卜的自定义起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬；不传则使用当前时间。',
+      '时间类占卜的自定义起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬与皇极经世年月日时盘；皇极经世不传时可改用 year 获取年度盘。',
   },
   seed: {
     oneOf: [{ type: 'string' }, { type: 'number' }],
@@ -867,16 +867,16 @@ export function getPublicApiOpenApiDocument(
       },
       '/metaphysics/huangji-jingshi/calculate': {
         post: {
-          summary: '皇极经世元会运世周期换算',
+          summary: '皇极经世年月日时盘与元会运世周期换算',
           requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
-          responses: { '200': { description: '元会运世位置及各层起止年坐标' } },
+          responses: { '200': { description: '年月日时卦、值年卦与元会运世层级' } },
         },
       },
       '/metaphysics/huangji-jingshi/prompt': {
         post: {
-          summary: '皇极经世周期换算并生成完整解读提示词',
+          summary: '皇极经世年月日时盘并生成完整解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
-          responses: { '200': { description: '元会运世结果与自包含提示词' } },
+          responses: { '200': { description: '年月日时盘、元会运世结果与自包含提示词' } },
         },
       },
       '/metaphysics/qizheng/calculate': {
@@ -1376,15 +1376,33 @@ export function getPublicApiOpenApiDocument(
         HuangjiJingshiRequest: {
           type: 'object',
           description:
-            '普通用户只需提供公元 year，即可获得通行值年卦完整排盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
+            '提供 customDate 可获得年月日时完整排盘；只提供公元 year 可兼容获得值年盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
           oneOf: [
-            { required: ['year'], not: { required: ['elapsedYears'] } },
+            {
+              required: ['customDate'],
+              not: {
+                anyOf: [
+                  { required: ['epochYear'] },
+                  { required: ['year'] },
+                  { required: ['elapsedYears'] },
+                ],
+              },
+            },
+            {
+              required: ['year'],
+              not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+            },
             {
               required: ['epochYear', 'elapsedYears'],
-              not: { required: ['year'] },
+              not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
             },
           ],
           properties: {
+            customDate: {
+              ...DIVINATION_REQUEST_PROPERTIES.customDate,
+              description:
+                '年月日时起盘时间，ISO 8601 格式；建议明确提供 +08:00，北京时间示例：2026-08-24T15:30:00+08:00。',
+            },
             epochYear: {
               type: 'integer',
               description: '可选的自定义纪元第一年整数坐标；省略时采用通行公元值年卦排法。',
@@ -2446,8 +2464,17 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
   const epochYear = optInt(input, 'epochYear');
   const year = optInt(input, 'year');
   const elapsedYears = optInt(input, 'elapsedYears', 0);
+  const customDate = readCustomDate(input);
   const question = readString(input, 'question', '').trim();
-  if (epochYear === undefined) {
+  if (customDate) {
+    if (epochYear !== undefined || year !== undefined || elapsedYears !== undefined) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        '皇极经世年月日时起盘不得同时提供 epochYear、year 或 elapsedYears。',
+      );
+    }
+  } else if (epochYear === undefined) {
     if (year === undefined || elapsedYears !== undefined) {
       throw new ApiError(400, 'BAD_REQUEST', '通行公元值年卦模式必须只提供 year。');
     }
@@ -2460,6 +2487,7 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
   }
   try {
     return huangjiJingshi.calculateHuangjiJingshi({
+      ...(customDate ? { date: customDate } : {}),
       ...(epochYear !== undefined ? { epochYear } : {}),
       ...(year !== undefined ? { year } : {}),
       ...(elapsedYears !== undefined ? { elapsedYears } : {}),
@@ -2491,6 +2519,7 @@ function buildHuangjiJingshiPromptApi(input: JsonRecord) {
       progress: result.progress,
       conversion: result.conversion,
       forecast: result.forecast,
+      dateTimeForecast: result.dateTimeForecast,
     },
     fullResult: result,
   });

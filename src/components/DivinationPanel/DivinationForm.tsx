@@ -54,11 +54,6 @@ const TAIYI_SCOPE_OPTIONS = [
   { value: 'hour', label: '时计' },
 ] as const;
 
-const HUANGJI_ERA_OPTIONS = [
-  { value: 'ce', label: '公元' },
-  { value: 'bce', label: '公元前' },
-] as const;
-
 const LIUYAO_METHOD_OPTIONS = [
   { value: 'time', label: '时间起卦' },
   { value: 'coins', label: '手摇' },
@@ -120,6 +115,10 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
     return true;
   }
 
+  if (draft.method === 'huangji') {
+    return true;
+  }
+
   return false;
 }
 
@@ -154,7 +153,7 @@ export function DivinationForm({
   const questionPlaceholder = isAlmanac
     ? '例如：希望避开周末，优先上午办事，尽量兼顾家人时间。'
     : draft.method === 'huangji'
-      ? '例如：这个年份整体处于怎样的时势阶段，应该把握什么主线？'
+      ? '例如：这个时点整体处于怎样的时势阶段，接下来应把握什么主线？'
       : '例如：我现在该主动推进，还是先稳住等待更好的时机？';
   const submitButtonText =
     draft.method === 'almanac'
@@ -162,14 +161,16 @@ export function DivinationForm({
       : draft.method === 'astrolabe'
         ? '生成星盘'
         : draft.method === 'huangji'
-          ? '生成值年盘'
+          ? '生成皇极盘'
           : '开始占卜';
   const timeActionLabel =
-    draft.method === 'qimen' || draft.method === 'taiyi'
-      ? '起局'
-      : draft.method === 'liuren' || draft.method === 'xiaoliuren' || draft.method === 'jinkoujue'
-        ? '起课'
-        : '起卦';
+    draft.method === 'huangji'
+      ? '起盘'
+      : draft.method === 'qimen' || draft.method === 'taiyi'
+        ? '起局'
+        : draft.method === 'liuren' || draft.method === 'xiaoliuren' || draft.method === 'jinkoujue'
+          ? '起课'
+          : '起卦';
   const isTimeBasedDivination = isTimeBasedDivinationDraft(draft);
   const divinationTimeMode = draft.divinationTimeMode ?? 'current';
   const liuyaoMethod = draft.liuyaoMethod ?? 'time';
@@ -634,6 +635,7 @@ export function DivinationForm({
                   draft.method === 'liuren' ||
                   draft.method === 'qimen' ||
                   draft.method === 'taiyi' ||
+                  draft.method === 'huangji' ||
                   draft.method === 'tarot' ||
                   draft.method === 'almanac' ||
                   draft.method === 'lenormand'
@@ -1187,43 +1189,6 @@ export function DivinationForm({
                     value={draft.taiyiYear}
                     onChange={(event) =>
                       updateDraft('taiyiYear', event.target.value.replace(/[^\d]/g, ''))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {draft.method === 'huangji' ? (
-            <div className="divination-extra-panel">
-              <div className="form-row-flex">
-                <div className="form-item">
-                  <label htmlFor="huangji-era-select">纪年</label>
-                  <DropdownSelect
-                    id="huangji-era-select"
-                    value={draft.huangjiEra}
-                    options={HUANGJI_ERA_OPTIONS}
-                    variant="field"
-                    onChange={(value) =>
-                      updateDraft('huangjiEra', value as DivinationDraft['huangjiEra'])
-                    }
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="huangji-year-input">目标年份</label>
-                  <input
-                    id="huangji-year-input"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    className="form-input"
-                    placeholder="例如 2026"
-                    value={draft.huangjiYear}
-                    onChange={(event) =>
-                      updateDraft(
-                        'huangjiYear',
-                        event.target.value.replace(/[^\d]/g, '').slice(0, 5),
-                      )
                     }
                   />
                 </div>

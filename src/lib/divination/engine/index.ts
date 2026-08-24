@@ -117,8 +117,6 @@ export type DivinationDraft = {
   astrolabeTopic?: AstrolabePromptTopic;
   taiyiYear: string;
   taiyiScope?: TaiyiScope;
-  huangjiEra: 'ce' | 'bce';
-  huangjiYear: string;
 };
 
 export type DivinationSession = {
@@ -336,10 +334,6 @@ function validateDraft(draft: DivinationDraft) {
     }
   }
 
-  if (draft.method === 'huangji') {
-    resolveHuangjiYear(draft);
-  }
-
   if (draft.method === 'almanac') {
     if (!draft.almanacStartDate || !draft.almanacEndDate) {
       throw new Error('黄历择日需要选择开始日期和结束日期');
@@ -392,14 +386,6 @@ function readPositiveIntegerText(value: string, label: string) {
     throw new Error(`${label}需要填写正整数`);
   }
   return number;
-}
-
-function resolveHuangjiYear(draft: Pick<DivinationDraft, 'huangjiEra' | 'huangjiYear'>) {
-  const year = readPositiveIntegerText(draft.huangjiYear, '目标年份');
-  if (draft.huangjiEra === 'bce' && year > 67_017) {
-    throw new Error('公元前年份不能早于公元前67017年');
-  }
-  return draft.huangjiEra === 'bce' ? -year : year;
 }
 
 function readNumberText(value: string, label: string) {
@@ -458,7 +444,8 @@ function isTimeBasedDivinationMethod(method: Exclude<DivinationMethodId, 'random
     method === 'meihua' ||
     method === 'xiaoliuren' ||
     method === 'jinkoujue' ||
-    method === 'taiyi'
+    method === 'taiyi' ||
+    method === 'huangji'
   ) {
     return true;
   }
@@ -655,7 +642,7 @@ export async function generateDivinationSession(
     case 'huangji': {
       const module = await import('mingyu-core/huangji-jingshi');
       data = module.calculateHuangjiJingshi({
-        year: resolveHuangjiYear(draft),
+        date: customDate ?? new Date(),
         question: inputQuestion,
       });
       break;

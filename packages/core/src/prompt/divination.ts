@@ -473,13 +473,22 @@ export function getDivinationSummaryBlocks(
       }
       const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
       return {
-        title: '皇极经世值年结果',
-        tags: [formatHuangjiCivilYear(annual.year), annual.ganzhi, `值年${annual.name}`],
+        title: '皇极经世结果',
+        tags: [
+          item.dateTimeForecast?.civilTime.dateTime || formatHuangjiCivilYear(annual.year),
+          annual.ganzhi,
+          item.dateTimeForecast
+            ? `时经${item.dateTimeForecast.hexagrams.hourJing.name}`
+            : `值年${annual.name}`,
+        ],
         lines: [
           `周期：第${forecast.hui.indexInYuan}会${forecast.hui.branch}会，会内第${item.position.yun.indexInHui}运，运内第${item.position.shi.indexInYun}世`,
           `卦序：${governing.hexagram.name} → ${yun.hexagram.name} → ${sixtyYear.hexagram.name} → ${decade.hexagram.name} → ${annual.name}`,
+          item.dateTimeForecast
+            ? `年月日时：${item.dateTimeForecast.hexagrams.monthJing.name} → ${item.dateTimeForecast.hexagrams.xunWei.name} → ${item.dateTimeForecast.hexagrams.daily.name} → ${item.dateTimeForecast.hexagrams.hourJing.name}`
+            : '',
           `互错综：${forecast.relatedHexagrams.mutual.name}、${forecast.relatedHexagrams.opposite.name}、${forecast.relatedHexagrams.reversed.name}`,
-        ],
+        ].filter(Boolean),
       };
     }
     default:

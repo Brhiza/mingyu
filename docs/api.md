@@ -88,7 +88,7 @@
 | `POST /metaphysics/taiyi/prompt`              | 太乙神数排盘并生成 AI 解读提示词                               |
 | `POST /metaphysics/wuyun-liuqi/calculate`     | 五运六气五步主客运、符会及六步主客气                           |
 | `POST /metaphysics/wuyun-liuqi/prompt`        | 五运六气计算并生成自包含 AI 解读提示词                         |
-| `POST /metaphysics/huangji-jingshi/calculate` | 皇极经世元会运世、统卦、运卦、十年卦和值年卦完整排盘           |
+| `POST /metaphysics/huangji-jingshi/calculate` | 皇极经世元会运世、值年卦与年月日时完整排盘                   |
 | `POST /metaphysics/huangji-jingshi/prompt`    | 皇极经世完整排盘并生成自包含 AI 解读提示词                     |
 | `POST /metaphysics/qizheng/calculate`         | 七政四余十一星、真实距星宿界、命身十二宫、庙旺吊照与结构化证据 |
 | `POST /metaphysics/qizheng/prompt`            | 七政四余排盘并生成含分层天文证据的 AI 解读提示词               |
@@ -107,7 +107,7 @@
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
-7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世普通占断只需提供公元年，研究其他纪元时再额外提供 `epochYear`。
+7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世即时占断使用 `customDate`，年度研究使用 `year`，研究其他纪元时再额外提供 `epochYear`。
 
 常见问题到推荐接口：
 
@@ -139,7 +139,7 @@
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                                 |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | 当前只接受 `scope: "year"` 与 `year`                                                                                                                        | 年计按积年与阳遁七十二局立成；结果含 `evidenceAnalysis` 结构化证据 |
 | 五运六气年度结构                   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`；同时提供时会校验一致性，可选 `question`                                                                                             | 返回五步主客运、五类符会与六步主客气；不替代实际气象或医疗资料     |
-| 皇极经世年度占断                   | `POST /metaphysics/huangji-jingshi/prompt`   | 普通模式只传公元 `year`；自定义纪元传 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个                                                                   | 返回元会运世、统卦、运卦、六十年统卦、十年卦、值年卦及互错综卦     |
+| 皇极经世年月日时占断               | `POST /metaphysics/huangji-jingshi/prompt`   | 即时或指定时刻传 `customDate`；年度研究传 `year`；自定义纪元传 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个                                           | 返回元会运世、值年卦、月经卦、旬纬卦、日卦及时经卦                 |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`                                                                        | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照和分层天文证据       |
 | 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选测量误差                                                                                                 | 返回下卦的三元九运、三盘飞星、局型、到山到向与结构化证据           |
 
@@ -286,12 +286,12 @@ curl -X POST https://aov.cc/api/v1/metaphysics/wuyun-liuqi/prompt \
   -d '{"year":2026,"question":"请解释本年的运气结构和气候节律。","responseMode":"prompt-only"}'
 ```
 
-皇极经世完整值年卦提示词：
+皇极经世年月日时盘提示词：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/metaphysics/huangji-jingshi/prompt \
   -H "Content-Type: application/json" \
-  -d '{"year":2026,"question":"请解释这一年的事业环境与主要变化。","responseMode":"prompt-only"}'
+  -d '{"customDate":"2025-12-25T12:30:00+08:00","question":"请解释此刻所问事项的时势与变化。","responseMode":"prompt-only"}'
 ```
 
 塔罗抽牌并生成提示词：
@@ -388,7 +388,8 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 
 - 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算。结果包含固定木火土金水的五步主运、从中运起按相生轮转的五步客运、五音太少、传统交司日期、司天与中运的同气、顺化、天刑、小逆、不和关系，天符、岁会、太乙天符、同天符、同岁会逐项核验，以及从大寒起每四个节气一组的六步主客气。交司日期保留《运气要诀》的“节气后第几日”口径，不包装成精确到时分秒的现代时刻。
 - 吴谦《运气要诀》列出的五类符会逐年名单按六十甲子去重为 26 年，与原文“二十八年”汇总不一致；接口保留 `sourceReconciliation` 校勘说明，并以逐项定义和逐年名单为计算依据。
-- 皇极经世普通模式只需提供公元 `year`，默认采用公元前 67017 年为本元起点、1984 年鼎卦为甲子值年锚点的通行排法，返回会内统卦、运卦、六十年统卦、十年卦、值年卦及互卦、错卦、综卦。
+- 皇极经世提供 `customDate` 时，以北京时间和冬至换年定位皇极年，并在元会运世和值年卦之下继续推演月经卦、旬纬卦、日卦及时经卦。月日层按二十四节气分配的三百六十日历法坐标推演，结果会明确返回该传统历法口径，不把它包装为现代公历自然月日。
+- 只提供公元 `year` 时仍返回年度盘，默认采用公元前 67017 年为本元起点、1984 年鼎卦为甲子值年锚点的通行排法，包含会内统卦、运卦、六十年统卦、十年卦、值年卦及互卦、错卦、综卦。
 - 研究自定义纪元时提供 `epochYear`，并从 `year` 与 `elapsedYears` 中选择一项；该模式保留纯元会运世坐标换算，不附通行值年卦。
 - `progress` 分别给出当前元、会、运、世内已过年数、当前年之后剩余的完整年数，以及下一元、会、运、世开始年；所有层级序号均从 1 开始。
 
@@ -416,7 +417,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 只对规划内确有合理差异的提示词接口提供 `schools` 数组，一次选择一至三个流派、断法或解读侧重；两个或三个值会生成“分别判断—共识—分歧与盘面依据—综合判断”的合参任务。同属流派时称“多派合参”，同属断法时称“多法合参”，混合类型时称“多口径合参”。八字、紫微、住宅风水属于真实流派选择；塔罗、黄历择日、星盘和七政四余同时包含流派与断法；其余登记项属于不同断法，不称作不同派系。八字、紫微的 `school` 为单派兼容参数，同时传入时以 `schools` 为准；八字紫微合参分别使用 `baziSchools`、`ziweiSchools`。
 - 各术数允许值：八字 `ziping/mangpai/xinpai`；紫微 `sanhe/feixing/sihua`；六爻 `huozhulin/bushizhengzong/zengshanbuyi`；梅花 `tiyong/xiangshu/yaoci`；小六壬 `shunshu/gongjue`；金口诀 `siwei/fayong/wudong`；奇门 `gongwei/geju/zhuke`；大六壬 `keti/bifafu/leishen`；塔罗 `rws/yuansu/narrative`；雷诺曼 `combination/eventline/significator`；黄历择日 `xieji/jianchu/comprehensive`；星盘及西占双盘 `modern/traditional/timing`；太乙 `zhuke/gongwei`；八宅 `dayounian/mingzhai`；住宅风水 `bazhai/xuankong`；玄空 `sanYuan/shanxiang`；七政四余 `guolao/wuxingjingyi`；生肖 `ganzhi/sanhe`；五运六气 `yunqi/sitian/kezhu`；皇极经世 `yuanhui/guaqi`。
 - 奇门的转盘/飞盘、拆补/置闰以及时家/日家等参数改变实际盘面，不属于 `schools`；紫微 `algorithm` 也属于排盘口径。三山国王灵签提示词只列本次签谱资料，不附加派系段落，也不接受 `schools`。
-- `customDate` 用于指定时间类占卜的起卦或排盘时间，支持六爻、梅花易数、奇门遁甲、大六壬；不传时使用服务器当前时间。该字段必须使用带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00` 或 `2025-01-01T00:00:00Z`。
+- `customDate` 用于指定时间类占卜的起卦或排盘时间，支持六爻、梅花易数、奇门遁甲、大六壬和皇极经世；不传时使用服务器当前时间。该字段必须使用带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00` 或 `2025-01-01T00:00:00Z`。
 - Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用时请显式设置正常 `User-Agent`，例如 `curl/8.0.0` 或业务自己的客户端名称。
 - 梅花易数 `method` 支持 `time`、`number`、`random`、`timeTrigram`。数字起卦使用 `number`；`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。
 - 梅花排盘结果的 `evidenceAnalysis` 返回主卦起因、互卦过程、变卦结果三阶段体用关系、月建旺衰、推进变化、支持项、限制项和触发条件。动爻与卦数只保留为层位和取数旁证，不机械换算绝对日期，也不输出吉凶总分或成功率。

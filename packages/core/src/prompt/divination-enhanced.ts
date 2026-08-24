@@ -747,8 +747,12 @@ export function formatHuangjiInfo(data: HuangjiJingshiResult) {
     ].join('\n');
   }
   const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
+  const dateTime = data.dateTimeForecast;
   return [
     '占法：皇极经世',
+    dateTime
+      ? `起盘时间：${dateTime.civilTime.dateTime}（${dateTime.civilTime.timezone}）；皇极历${dateTime.calendar.monthBranch}月第${dateTime.calendar.dayOfMonth}日；节气${dateTime.calendar.activeSolarTerm}`
+      : '',
     `目标年份：${formatHuangjiCivilYear(annual.year)}（${annual.ganzhi}）`,
     `周期位置：第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会），会内第${data.position.yun.indexInHui}运，运内第${data.position.shi.indexInYun}世，世内第${data.position.year.indexInShi}年`,
     `会内统卦：${governing.hexagram.name}，${formatHuangjiCivilYear(governing.startYear)}至${formatHuangjiCivilYear(governing.endYear)}`,
@@ -757,7 +761,14 @@ export function formatHuangjiInfo(data: HuangjiJingshiResult) {
     `十年卦：${decade.hexagram.name}，${formatHuangjiCivilYear(decade.startYear)}至${formatHuangjiCivilYear(decade.endYear)}`,
     `值年卦：${annual.name}（${annual.upper}上、${annual.lower}下）；互卦${forecast.relatedHexagrams.mutual.name}；错卦${forecast.relatedHexagrams.opposite.name}；综卦${forecast.relatedHexagrams.reversed.name}`,
     `值年卦辞：${annual.judgment}`,
-  ].join('\n');
+    dateTime
+      ? `年月日时卦：月经${dateTime.hexagrams.monthJing.name}；旬纬${dateTime.hexagrams.xunWei.name}；日卦${dateTime.hexagrams.daily.name}；时经${dateTime.hexagrams.hourJing.name}（${dateTime.calendar.hourRange}）`
+      : '',
+    dateTime ? `日卦卦辞：${dateTime.hexagrams.daily.judgment}` : '',
+    dateTime ? `时经卦辞：${dateTime.hexagrams.hourJing.judgment}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function formatJinkoujueInfo(data: JinkoujueData) {

@@ -189,6 +189,7 @@ function formatTaiyiDetail(data: TaiyiResult) {
 function formatHuangjiDetail(data: HuangjiJingshiResult) {
   const forecast = data.forecast;
   if (!forecast) return data.calculationChain;
+  const dateTime = data.dateTimeForecast;
   const periods = [
     ['会内统卦', forecast.hexagrams.governing],
     ['运卦', forecast.hexagrams.yun],
@@ -203,6 +204,12 @@ function formatHuangjiDetail(data: HuangjiJingshiResult) {
       )
       .join('；')}`,
     `值年卦关系：本卦${forecast.hexagrams.annual.name}；互卦${forecast.relatedHexagrams.mutual.name}；错卦${forecast.relatedHexagrams.opposite.name}；综卦${forecast.relatedHexagrams.reversed.name}`,
+    ...(dateTime
+      ? [
+          `皇极历位：${dateTime.civilTime.dateTime}，${dateTime.calendar.activeSolarTerm}，${dateTime.calendar.monthBranch}月第${dateTime.calendar.dayOfMonth}日，时段${dateTime.calendar.hourRange}`,
+          `年月日时层级：月经卦${dateTime.hexagrams.monthJing.name}；旬纬卦${dateTime.hexagrams.xunWei.name}；日卦${dateTime.hexagrams.daily.name}；时经卦${dateTime.hexagrams.hourJing.name}`,
+        ]
+      : []),
   ];
 }
 

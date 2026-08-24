@@ -8,10 +8,15 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { createPromptSchoolsShape } from './school-options.js';
+import { readMcpCustomDate } from './input-helpers.js';
 
 const safeInteger = z.number().int().refine(Number.isSafeInteger, '必须是安全范围内的整数');
 
 const huangjiJingshiSchema = z.object({
+  customDate: z
+    .string()
+    .optional()
+    .describe('年月日时起盘时间（ISO 8601 格式）；必须带时区，北京时间建议明确提供 +08:00'),
   epochYear: safeInteger.optional().describe('可选的自定义纪元年坐标；省略时按通行公元值年卦排法'),
   year: safeInteger.optional().describe('目标公元年或自定义纪元下的目标整数年坐标'),
   elapsedYears: safeInteger
@@ -22,14 +27,28 @@ const huangjiJingshiSchema = z.object({
 });
 
 function calculateHuangjiJingshi(args: z.infer<typeof huangjiJingshiSchema>) {
-  if (args.epochYear === undefined) {
+  if (args.customDate !== undefined) {
+    if (
+      args.epochYear !== undefined ||
+      args.year !== undefined ||
+      args.elapsedYears !== undefined
+    ) {
+      throw new Error('皇极经世年月日时起盘不得同时提供 epochYear、year 或 elapsedYears。');
+    }
+  } else if (args.epochYear === undefined) {
     if (args.year === undefined || args.elapsedYears !== undefined) {
       throw new Error('皇极经世通行公元模式必须只提供 year。');
     }
   } else if ((args.year === undefined) === (args.elapsedYears === undefined)) {
     throw new Error('皇极经世自定义纪元模式的 year 与 elapsedYears 必须且只能提供一个。');
   }
-  return huangjiJingshi.calculateHuangjiJingshi(args);
+  return huangjiJingshi.calculateHuangjiJingshi({
+    ...(args.customDate ? { date: readMcpCustomDate(args.customDate) } : {}),
+    ...(args.epochYear !== undefined ? { epochYear: args.epochYear } : {}),
+    ...(args.year !== undefined ? { year: args.year } : {}),
+    ...(args.elapsedYears !== undefined ? { elapsedYears: args.elapsedYears } : {}),
+    ...(args.question ? { question: args.question } : {}),
+  });
 }
 
 export function registerHuangjiJingshiTool(server: McpServer) {
@@ -37,7 +56,7 @@ export function registerHuangjiJingshiTool(server: McpServer) {
     'metaphysics_huangji_jingshi',
     {
       description:
-        '皇极经世排盘：普通公元年直接返回元会运世、统卦、运卦、十年卦和值年卦；也支持自定义纪元换算',
+        '皇极经世排盘：customDate 返回元会运世至月经、旬纬、日卦、时经卦的年月日时盘；year 兼容值年盘，也支持自定义纪元换算',
       inputSchema: {
         ...huangjiJingshiSchema.omit({ question: true }).shape,
         ...calculationDetailShape,

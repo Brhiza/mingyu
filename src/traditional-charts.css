@@ -634,6 +634,10 @@
   background: var(--surface-base);
 }
 
+.traditional-huangji-cycle.is-datetime {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .traditional-huangji-period {
   min-width: 0;
   padding: 12px;
@@ -997,6 +1001,10 @@
     grid-column: 1 / -1;
     border-right: 0;
     border-bottom: 0;
+  }
+
+  .traditional-huangji-cycle.is-datetime .traditional-huangji-period:last-child {
+    grid-column: auto;
   }
 
   .traditional-huangji-focus {

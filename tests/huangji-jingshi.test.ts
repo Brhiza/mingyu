@@ -138,6 +138,58 @@ test('通行值年卦应完整返回会、统卦、运卦、六十年卦、十�
   assert.match(forecast.reading.headline, /2026.*丙午.*天火同人/);
 });
 
+test('皇极经世年月日时盘应由值年卦继续推至月经、旬纬、日卦和时经卦', () => {
+  const result = calculateHuangjiJingshi({
+    date: new Date('2025-12-25T12:30:00+08:00'),
+    question: '此时应把握什么主线？',
+  });
+  const dateTime = result.dateTimeForecast;
+  assert.ok(dateTime);
+  assert.equal(result.input.mode, '年月日时');
+  assert.equal(result.input.year, 2026);
+  assert.deepEqual(dateTime.calendar, {
+    forecastYear: 2026,
+    activeSolarTerm: '冬至',
+    actualDayInSolarTerm: 4,
+    mappedDayInSolarTerm: 4,
+    monthIndex: 1,
+    monthBranch: '子',
+    dayOfMonth: 4,
+    dayOfYear: 4,
+    hourSegment: 4,
+    hourRange: '12:00—16:00',
+  });
+  assert.equal(dateTime.hexagrams.annual.name, '天火同人');
+  assert.equal(dateTime.hexagrams.monthJing.name, '天山遁');
+  assert.equal(dateTime.hexagrams.xunWei.name, '天火同人');
+  assert.equal(dateTime.hexagrams.daily.name, '雷山小过');
+  assert.equal(dateTime.hexagrams.hourJing.name, '地山谦');
+  assert.match(result.prompt, /起盘时间：2025-12-25 12:30/);
+  assert.match(result.prompt, /月经卦：天山遁/);
+  assert.match(result.prompt, /旬纬卦：天火同人/);
+  assert.match(result.prompt, /日卦：雷山小过/);
+  assert.match(result.prompt, /时经卦：地山谦/);
+  assert.match(result.prompt, /以时经卦与日卦为当前时点的主要取象/);
+  assertPromptIsPortableTaskText(result.prompt);
+});
+
+test('皇极经世年月日时盘应以冬至换年，并拒绝与值年参数混用', () => {
+  const before = calculateHuangjiJingshi({ date: new Date('2025-12-20T12:00:00+08:00') });
+  const after = calculateHuangjiJingshi({ date: new Date('2025-12-22T12:00:00+08:00') });
+  assert.equal(before.input.year, 2025);
+  assert.equal(after.input.year, 2026);
+  assert.equal(after.dateTimeForecast?.calendar.monthBranch, '子');
+  assert.equal(after.dateTimeForecast?.calendar.dayOfYear, 1);
+  assert.throws(
+    () =>
+      calculateHuangjiJingshi({
+        year: 2026,
+        date: new Date('2025-12-25T12:30:00+08:00'),
+      }),
+    /不得同时提供/,
+  );
+});
+
 test('值年卦六十卦序应完整唯一并复现1984至2043通行表', () => {
   assert.equal(HUANGJI_CIRCLE_HEXAGRAMS.length, 60);
   assert.equal(new Set(HUANGJI_CIRCLE_HEXAGRAMS).size, 60);

@@ -1448,6 +1448,38 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
     assert.equal(huangjiStandardResult.forecast.hexagrams.annual.name, '天火同人');
     assert.equal(huangjiStandardResult.forecast.hexagrams.annual.ganzhi, '丙午');
 
+    const huangjiDateTime = await client.callTool({
+      name: 'metaphysics_huangji_jingshi',
+      arguments: { customDate: '2025-12-25T12:30:00+08:00' },
+    });
+    const huangjiDateTimeResult = huangjiDateTime.structuredContent?.result as {
+      input: { mode: string };
+      dateTimeForecast: {
+        calendar: {
+          forecastYear: number;
+          monthBranch: string;
+          dayOfMonth: number;
+          hourRange: string;
+        };
+        hexagrams: {
+          monthJing: { name: string };
+          xunWei: { name: string };
+          daily: { name: string };
+          hourJing: { name: string };
+        };
+      };
+    };
+    assert.equal(huangjiDateTime.isError, undefined);
+    assert.equal(huangjiDateTimeResult.input.mode, '年月日时');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.calendar.forecastYear, 2026);
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.calendar.monthBranch, '子');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.calendar.dayOfMonth, 4);
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.calendar.hourRange, '12:00—16:00');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.hexagrams.monthJing.name, '天山遁');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.hexagrams.xunWei.name, '天火同人');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.hexagrams.daily.name, '雷山小过');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.hexagrams.hourJing.name, '地山谦');
+
     const huangji = await client.callTool({
       name: 'metaphysics_huangji_jingshi',
       arguments: { epochYear: 1000, elapsedYears: 1026 },
@@ -1486,6 +1518,11 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
       ['metaphysics_wuyun_liuqi', { year: 2026, yearGanZhi: '乙巳' }, /year 与 yearGanZhi 不一致/],
       ['metaphysics_wuyun_liuqi', { yearGanZhi: '甲丑' }, null],
       ['metaphysics_huangji_jingshi', { elapsedYears: 1026 }, /必须只提供 year/],
+      [
+        'metaphysics_huangji_jingshi',
+        { customDate: '2025-12-25T12:30:00+08:00', year: 2026 },
+        /不得同时提供/,
+      ],
       ['metaphysics_huangji_jingshi', { year: 0 }, /非零安全整数/],
       ['metaphysics_huangji_jingshi', { epochYear: 1000 }, /必须且只能提供一个/],
       [

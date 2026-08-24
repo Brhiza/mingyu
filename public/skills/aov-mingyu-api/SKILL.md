@@ -74,7 +74,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 - 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
 - 用户提供一人的西方星盘资料：调用 `POST /divination/astrolabe/prompt`；提供双方完整资料并询问关系：调用 `POST /divination/astrolabe/synastry/prompt`。
 - 用户没有出生信息，只想要轻量启发、牌阵或签文：调用塔罗、雷诺曼或三山国王灵签提示词接口。
-- 用户明确要求八宅、生肖犯太岁、太乙、五运六气、皇极经世或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。五运六气至少给公历年或年干支；皇极经世普通占断只需给公元年。
+- 用户明确要求八宅、生肖犯太岁、太乙、五运六气、皇极经世或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。五运六气至少给公历年或年干支；皇极经世即时占断给 `customDate`，年度研究给公元年。
 
 问题到接口速查：
 
@@ -98,7 +98,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 | 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                    |
 | 生肖犯太岁、流年贵人           | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                            |
 | 年度五运六气、符会与六步节令   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`，可选 `question`                                     |
-| 皇极经世年度占断               | `POST /metaphysics/huangji-jingshi/prompt`   | 普通模式传公元 `year`；自定义纪元再传 `epochYear`                           |
+| 皇极经世年月日时占断           | `POST /metaphysics/huangji-jingshi/prompt`   | 即时或指定时刻传 `customDate`；年度研究传 `year`                            |
 | 太乙年、月、日、时计           | `POST /metaphysics/taiyi/prompt`             | 年计传 `scope: "year"` 与 `year`；其余计式再传月、日、时分                  |
 | 求签                           | `POST /divination/ssgw/prompt`               | `question`                                                                  |
 
@@ -151,7 +151,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
 - `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：太乙年、月、日、时四计七十二局排盘与提示词；月、日、时计采用现代历法定位，并在结果中保留口径边界。
 - `POST /metaphysics/wuyun-liuqi/calculate`、`POST /metaphysics/wuyun-liuqi/prompt`：岁运太过不及、司天在泉、气运相临、天符岁会等五类符会、六步节令主客气及完整提示词。
-- `POST /metaphysics/huangji-jingshi/calculate`、`POST /metaphysics/huangji-jingshi/prompt`：按公元年返回元会运世、会内统卦、运卦、六十年统卦、十年卦、值年卦及互错综卦；仍支持自定义纪元坐标换算。
+- `POST /metaphysics/huangji-jingshi/calculate`、`POST /metaphysics/huangji-jingshi/prompt`：按指定时刻返回元会运世、值年卦、月经卦、旬纬卦、日卦和时经卦；仍支持年度盘与自定义纪元坐标换算。
 - `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、分层天文证据与提示词。
 - `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。
@@ -330,12 +330,12 @@ curl -X POST https://aov.cc/api/v1/metaphysics/wuyun-liuqi/prompt \
   -d '{"year":2026,"question":"请解释本年的运气结构和气候节律。","responseMode":"prompt-only"}'
 ```
 
-皇极经世完整值年卦提示词：
+皇极经世年月日时盘提示词：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/metaphysics/huangji-jingshi/prompt \
   -H "Content-Type: application/json" \
-  -d '{"year":2026,"question":"请解释这一年的事业环境与主要变化。","responseMode":"prompt-only"}'
+  -d '{"customDate":"2025-12-25T12:30:00+08:00","question":"请解释此刻所问事项的时势与变化。","responseMode":"prompt-only"}'
 ```
 
 AI 流式解读：
@@ -368,7 +368,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `question` 和 `astrolabeScopeText` 最多 5000 个字符。
 - 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算，避免把元旦当作干支年界。结果会逐项给出同气、顺化、天刑、小逆、不和，天符、岁会、太乙天符、同天符、同岁会，以及六步节令和主客气五行关系。
 - 吴谦《运气要诀》的五类符会逐年名单去重为 26 年，与原文“二十八年”汇总不一致；返回值保留 `sourceReconciliation`，并按逐项定义计算。
-- 皇极经世普通模式只需公元 `year`，默认采用公元前 67017 年为本元起点、1984 年鼎卦为甲子值年锚点的通行排法；返回会内统卦、运卦、六十年统卦、十年卦、值年卦及互卦、错卦、综卦。
+- 皇极经世提供 `customDate` 时，以北京时间和冬至换年定位皇极年，并在值年卦之下继续推演月经卦、旬纬卦、日卦及时经卦；只提供公元 `year` 时仍返回完整年度盘。
 - 自定义纪元模式提供 `epochYear`，并从 `year` 与 `elapsedYears` 中选择一项；该模式只做元会运世坐标换算。
 - `progress` 会列出当前元、会、运、世内已过年数、当前年之后剩余的完整年数和下一层开始年；所有层级序号从 1 开始。
 

@@ -77,7 +77,7 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   {
     value: 'huangji',
     label: '皇极经世',
-    description: '以元会运世和值年卦观察目标年份所处的长期时势层级。',
+    description: '由元会运世逐层推至值年、月经、旬纬、日卦与时经卦。',
   },
   {
     value: 'ssgw',

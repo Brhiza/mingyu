@@ -99,7 +99,8 @@ export interface DivinationRequest {
   };
   astrolabe?: AstrolabeBirthInput;
   taiyi?: { year?: number; scope?: TaiyiScope };
-  huangji?: { year: number };
+  /** 皇极经世兼容值年输入；省略 year 时按 divinationTime（未填则当前时间）排年月日时卦。 */
+  huangji?: { year?: number };
   prompt?: Omit<DivinationPromptOptions, 'method' | 'data' | 'question' | 'currentTime'>;
 }
 
@@ -304,14 +305,18 @@ export function validateDivinationRequest(request: DivinationRequest): void {
     }
   }
   if (request.method === 'huangji') {
-    if (!request.huangji || !Number.isSafeInteger(request.huangji.year)) {
-      throw new Error('皇极经世需要提供非零整数年份。');
+    const year = request.huangji?.year;
+    if (year !== undefined && !Number.isSafeInteger(year)) {
+      throw new Error('皇极经世年份必须是非零整数。');
     }
-    if (request.huangji.year === 0) {
+    if (year === 0) {
       throw new Error('皇极经世采用无公元0年的公元纪年。');
     }
-    if (request.huangji.year < -67_017) {
+    if (year !== undefined && year < -67_017) {
       throw new Error('皇极经世目标年份不能早于公元前67017年。');
+    }
+    if (year !== undefined && request.divinationTime !== undefined) {
+      throw new Error('皇极经世年份与年月日时起盘时间不能同时提供。');
     }
   }
 }
@@ -398,11 +403,17 @@ function generateData(
         scope: request.taiyi.scope,
       }) as TaiyiResult;
     case 'huangji':
-      if (!request.huangji) throw new Error('皇极经世需要提供 huangji 参数。');
-      return calculateHuangjiJingshi({
-        year: request.huangji.year,
-        question: request.question?.trim(),
-      });
+      return calculateHuangjiJingshi(
+        request.huangji?.year !== undefined
+          ? {
+              year: request.huangji.year,
+              question: request.question?.trim(),
+            }
+          : {
+              date: customDate ?? new Date(),
+              question: request.question?.trim(),
+            },
+      );
   }
 }
 

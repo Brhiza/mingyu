@@ -63,8 +63,6 @@ export const defaultDraft: DivinationDraft = {
   astrolabeTimezone: '8',
   taiyiYear: String(new Date().getFullYear()),
   taiyiScope: 'year',
-  huangjiEra: 'ce',
-  huangjiYear: String(new Date().getFullYear()),
 };
 
 export const methodLabelMap = Object.fromEntries(
