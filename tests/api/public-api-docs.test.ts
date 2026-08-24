@@ -51,7 +51,8 @@ test('公开 API 文档和 skill 应覆盖五运六气与皇极经世的关键�
     assert.match(content, /二十八年/);
     assert.match(content, /POST \/metaphysics\/huangji-jingshi\/calculate/);
     assert.match(content, /POST \/metaphysics\/huangji-jingshi\/prompt/);
-    assert.match(content, /普通模式.*公元.*year|公元.*year.*普通模式/);
+    assert.match(content, /customDate.*年月日时|年月日时.*customDate/);
+    assert.match(content, /年度研究.*year|year.*年度盘|公元 `year`/);
     assert.match(content, /值年卦/);
     assert.match(content, /1984 年鼎卦|1984年鼎卦/);
     assert.match(content, /epochYear/);
