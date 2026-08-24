@@ -10,10 +10,18 @@ import {
 } from '../tool-results.js';
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 import { createPromptSchoolsShape } from './school-options.js';
+import { readMcpCustomDate } from './input-helpers.js';
 
 const taiyiSchema = z.object({
-  scope: z.literal('year').optional().describe('太乙计式；当前只开放已校勘的年计'),
+  scope: z
+    .enum(['year', 'month', 'day', 'hour'])
+    .optional()
+    .describe('太乙计式：year 年计（默认）、month 月计、day 日计、hour 时计'),
   year: z.number().int().min(1900).max(2200).optional().describe('公元年；年计必填'),
+  customDate: z
+    .string()
+    .optional()
+    .describe('月计、日计、时计的排盘时间（ISO 8601 格式）；不提供则使用当前时间'),
   ganZhi: z
     .string()
     .refine(isValidGanZhi, 'ganZhi 必须是有效的六十甲子')
@@ -22,24 +30,37 @@ const taiyiSchema = z.object({
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
+function calculateTaiyi(args: z.infer<typeof taiyiSchema>) {
+  const scope = args.scope ?? 'year';
+  if (scope === 'year') {
+    if (args.year === undefined) {
+      throw new Error('太乙年计必须提供公历年份。');
+    }
+    return taiyi.generateTaiyi({
+      scope,
+      year: args.year,
+      ...(args.ganZhi ? { ganZhi: args.ganZhi } : {}),
+    });
+  }
+
+  return taiyi.generateTaiyi({
+    scope,
+    date: readMcpCustomDate(args.customDate) ?? new Date(),
+    ...(args.ganZhi ? { ganZhi: args.ganZhi } : {}),
+  });
+}
+
 export function registerTaiyiTool(server: McpServer) {
   server.registerTool(
     'metaphysics_taiyi',
     {
-      description: '太乙神数年计：按积年与阳遁七十二局立成表生成式盘',
+      description: '太乙神数四计：按年、月、日、时生成七十二局式盘',
       inputSchema: { ...taiyiSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
-        if (args.year === undefined) {
-          throw new Error('太乙年计必须提供公历年份。');
-        }
-        const result = taiyi.generateTaiyi({
-          scope: 'year',
-          year: args.year,
-          ...(args.ganZhi ? { ganZhi: args.ganZhi } : {}),
-        });
+        const result = calculateTaiyi(args);
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '太乙排盘失败'));
@@ -56,14 +77,7 @@ export function registerTaiyiTool(server: McpServer) {
     },
     async (args) => {
       try {
-        if (args.year === undefined) {
-          throw new Error('太乙年计必须提供公历年份。');
-        }
-        const result = taiyi.generateTaiyi({
-          scope: 'year',
-          year: args.year,
-          ...(args.ganZhi ? { ganZhi: args.ganZhi } : {}),
-        });
+        const result = calculateTaiyi(args);
         return createStructuredToolResult({
           result,
           prompt: buildMetaphysicsPrompt(result.prompt, args.question, {

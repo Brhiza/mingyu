@@ -84,6 +84,9 @@ export type DivinationDraft = {
   xiaoliurenMethod: XiaoliurenDivinationMethod;
   jinkoujueMethod: JinkoujueDivinationMethod;
   jinkoujueNumber: string;
+  qimenMethod?: 'zhuanpan' | 'feipan';
+  qimenScope?: 'hour' | 'day' | 'month' | 'year';
+  qimenJuMethod?: 'chaibu' | 'zhirun';
   liuyaoTemplate: LiuyaoTemplateType;
   liurenTemplate: LiurenTemplateType;
   tarotSpread: TarotSpreadType;
@@ -321,11 +324,11 @@ function validateDraft(draft: DivinationDraft) {
   }
 
   if (draft.method === 'taiyi') {
-    if ((draft.taiyiScope ?? 'year') !== 'year') {
-      throw new Error('太乙月计、日计、时计尚未完成古籍历法链校勘，当前只开放年计。');
+    const scope = draft.taiyiScope ?? 'year';
+    if (scope === 'year') {
+      const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
+      assertNumberRange(year, '太乙年计年份', 1900, 2200);
     }
-    const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
-    assertNumberRange(year, '太乙年计年份', 1900, 2200);
   }
 
   if (draft.method === 'almanac') {
@@ -603,7 +606,12 @@ export async function generateDivinationSession(
     }
     case 'qimen': {
       const module = await import('mingyu-core/divination/qimen');
-      data = module.generateQimen(customDate);
+      data = module.generateQimen(
+        customDate,
+        draft.qimenMethod ?? 'zhuanpan',
+        draft.qimenScope ?? 'hour',
+        draft.qimenJuMethod ?? 'chaibu',
+      );
       break;
     }
     case 'liuren': {
@@ -613,10 +621,18 @@ export async function generateDivinationSession(
     }
     case 'taiyi': {
       const module = await import('mingyu-core/taiyi');
-      data = module.generateTaiyi({
-        scope: 'year',
-        year: readIntegerText(draft.taiyiYear, '太乙年计年份'),
-      }) as TaiyiResult;
+      const scope = draft.taiyiScope ?? 'year';
+      data = module.generateTaiyi(
+        scope === 'year'
+          ? {
+              scope,
+              year: readIntegerText(draft.taiyiYear, '太乙年计年份'),
+            }
+          : {
+              scope,
+              date: customDate ?? new Date(),
+            },
+      ) as TaiyiResult;
       break;
     }
     case 'tarot': {

@@ -154,7 +154,7 @@ export interface TaiyiLimitationFact {
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '限制事实用于约束太乙年计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据';
+  limitation: '限制事实用于约束太乙四计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据';
 }
 
 export interface TaiyiSummaryFact {
@@ -190,7 +190,7 @@ const COUNTER_FACT_LIMITATION =
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明传统条件覆盖情况；不得据命中数量生成吉凶总分、成功率、人物强弱或固定应期' as const;
 const LIMITATION_FACT_LIMITATION =
-  '限制事实用于约束太乙年计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据' as const;
+  '限制事实用于约束太乙四计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据' as const;
 const SUMMARY_FACT_LIMITATION =
   '太乙证据汇总只统计积数计算、核心定位、主客定算、十六神、条件、反证与限制覆盖；不得按数量生成吉凶总分、成功率、人物强弱、攻守胜负或固定应期' as const;
 
@@ -357,6 +357,7 @@ function buildCounterSummaryFact(
 }
 
 function buildLimitationFacts(
+  data: TaiyiEvidenceInput,
   calculationSteps: TaiyiCalculationStep[],
   positionFacts: TaiyiPositionFact[],
   forceFacts: TaiyiForceFact[],
@@ -375,9 +376,8 @@ function buildLimitationFacts(
       key: 'taiyi:limitation:time-scale',
       type: '时间尺度边界',
       ownerFactKeys: calculationSteps.map((item) => item.key),
-      promptText:
-        '年计只适用于年度时间尺度；月、日、时计尚未完成节气时刻、章月、月法、日法、气应与小余的古籍历法链校勘，当前不得据年计结果替代推断',
-      sources: ['《太乙金镜式经》卷一年计积年及月日时计历法条文'],
+      promptText: `${SCOPE_LABELS[data.scope]}只适用于对应时间尺度，年、月、日、时四计不得互相替代；月、日、时计采用现代历法定位复现通行排法，不等同于逐项复原古籍历法常数、小余和气应链`,
+      sources: ['《太乙金镜式经》卷一年、月、日、时四计历法条文', data.model.precision],
     },
     {
       key: 'taiyi:limitation:traditional-model',
@@ -564,6 +564,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     .filter((item) => item.status === '未命中')
     .map((item) => item.promptText);
   const limitationFacts = buildLimitationFacts(
+    data,
     calculationSteps,
     positionFacts,
     forceFacts,
@@ -635,18 +636,18 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     },
     {
       level: '限制',
-      title: '太乙年计解释边界',
+      title: '太乙四计解释边界',
       detail: `${limitations.join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
       source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
       tags: ['传统模型', '证据边界'],
     },
   ];
   const evidence: PromptEvidenceBundle = {
-    title: '太乙年计七十二局结构化证据',
+    title: '太乙四计七十二局结构化证据',
     items,
   };
   const promptText = [
-    '【太乙年计七十二局结构化证据】',
+    '【太乙四计七十二局结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
     `算式核验：${calculationSteps.map((step) => `${step.key} ${step.name}${step.operation}=${step.result}`).join('；')}。`,

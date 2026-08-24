@@ -273,6 +273,10 @@ const DIVINATION_REQUEST_PROPERTIES = {
     enum: ['zhuanpan', 'feipan'],
     description: '奇门遁甲排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法。',
   },
+  qimenScope: {
+    enum: ['hour', 'day', 'month', 'year'],
+    description: '奇门排盘层级：hour 时家（默认）、day 日家、month 月家、year 年家。',
+  },
   qimenJuMethod: {
     enum: ['chaibu', 'zhirun'],
     description: '奇门定局方法：chaibu 为拆补法（默认），zhirun 为置闰法；仅时家/日家生效。',
@@ -1314,8 +1318,8 @@ export function getPublicApiOpenApiDocument(
             },
             yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
             scope: {
-              enum: ['year'],
-              description: '太乙计式：当前仅开放完成古籍历法链校勘的年计',
+              enum: ['year', 'month', 'day', 'hour'],
+              description: '太乙计式：年计、月计、日计或时计',
             },
             month: { type: 'integer', minimum: 1, maximum: 12 },
             day: { type: 'integer', minimum: 1, maximum: 31 },
@@ -2346,16 +2350,28 @@ function buildZodiacPrompt(input: JsonRecord) {
 }
 
 function calculateTaiyiApi(input: JsonRecord) {
-  const scope = readEnum(input, 'scope', ['year'], 'year');
+  const scope = readEnum(input, 'scope', ['year', 'month', 'day', 'hour'], 'year');
   const year = readInteger(input, 'year', 1900, 2200);
   const ganZhi = readString(input, 'ganZhi', '');
   if (ganZhi && !isValidGanZhi(ganZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `ganZhi 不是有效的六十甲子：${ganZhi}。`);
   }
   try {
+    let date: Date | undefined;
+    if (scope !== 'year') {
+      const month = readInteger(input, 'month', 1, 12);
+      const day = readInteger(input, 'day', 1, 31);
+      const hour = scope === 'hour' ? readInteger(input, 'hour', 0, 23) : 12;
+      const minute = scope === 'hour' ? readInteger(input, 'minute', 0, 59, 0) : 0;
+      date = new Date(year, month - 1, day, hour, minute, 0);
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        throw new Error('太乙日期无效。');
+      }
+    }
     return taiyi.generateTaiyi({
       scope,
       year,
+      ...(date ? { date } : {}),
       ...(ganZhi ? { ganZhi } : {}),
     });
   } catch (error) {
@@ -3125,11 +3141,12 @@ function calculateLiuyao(input: JsonRecord) {
 function calculateQimen(input: JsonRecord) {
   assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
   const method = readEnum(input, 'qimenMethod', ['zhuanpan', 'feipan'], 'zhuanpan');
+  const scope = readEnum(input, 'qimenScope', ['hour', 'day', 'month', 'year'], 'hour');
   const juMethod = readEnum(input, 'qimenJuMethod', ['chaibu', 'zhirun'], 'chaibu');
   return generateQimen(
     readCustomDate(input),
     method as 'zhuanpan' | 'feipan',
-    'hour',
+    scope as 'hour' | 'day' | 'month' | 'year',
     juMethod as 'chaibu' | 'zhirun',
   );
 }

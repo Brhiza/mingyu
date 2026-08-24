@@ -97,7 +97,7 @@ export interface DivinationRequest {
     interactiveSamples?: readonly number[];
   };
   astrolabe?: AstrolabeBirthInput;
-  taiyi?: { year: number; scope?: TaiyiScope };
+  taiyi?: { year?: number; scope?: TaiyiScope };
   prompt?: Omit<DivinationPromptOptions, 'method' | 'data' | 'question' | 'currentTime'>;
 }
 
@@ -289,10 +289,16 @@ export function validateDivinationRequest(request: DivinationRequest): void {
     throw new Error('星盘需要提供 astrolabe 出生资料。');
   }
   if (request.method === 'taiyi') {
-    if (!request.taiyi || (request.taiyi.scope !== undefined && request.taiyi.scope !== 'year')) {
-      throw new Error('太乙当前只开放年计，请提供 taiyi.year，并将 scope 设为 year。');
+    if (!request.taiyi) {
+      throw new Error('太乙需要提供 taiyi 参数。');
     }
-    if (!Number.isSafeInteger(request.taiyi.year)) throw new Error('太乙年计年份必须是整数。');
+    const scope = request.taiyi.scope ?? 'year';
+    if (!['year', 'month', 'day', 'hour'].includes(scope)) {
+      throw new Error('太乙 scope 必须是 year、month、day 或 hour。');
+    }
+    if (scope === 'year' && !Number.isSafeInteger(request.taiyi.year)) {
+      throw new Error('太乙年计年份必须是整数。');
+    }
   }
 }
 
@@ -369,10 +375,13 @@ function generateData(
       if (!request.astrolabe) throw new Error('星盘需要提供 astrolabe 出生资料。');
       return generateAstrolabe(request.astrolabe);
     case 'taiyi':
-      if (!request.taiyi) throw new Error('太乙需要提供 taiyi.year。');
+      if (!request.taiyi) throw new Error('太乙需要提供 taiyi 参数。');
+      if ((request.taiyi.scope ?? 'year') === 'year') {
+        return generateTaiyi({ year: request.taiyi.year, scope: 'year' }) as TaiyiResult;
+      }
       return generateTaiyi({
-        year: request.taiyi.year,
-        scope: request.taiyi.scope ?? 'year',
+        date: customDate ?? new Date(),
+        scope: request.taiyi.scope,
       }) as TaiyiResult;
   }
 }

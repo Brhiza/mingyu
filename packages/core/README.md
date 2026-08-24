@@ -396,7 +396,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | **八字 Bazi**            | `mingyu-core/bazi`                                                                                                                            | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析 |
 | **紫微斗数 Ziwei**       | `mingyu-core/ziwei`（兼容 `mingyu-core/ziwei/iztro`）、`mingyu-core/ziwei/runtime`                                                            | 十二宫、星曜、四化、运限、证据池、固定快照运行时，以及双盘宫位叠盘与生年四化跨盘落点                 |
-| **即时排盘 Instant**     | `mingyu-core/instant`                                                                                                                        | 当前时刻八字、紫微、八字紫微、星盘与七政四余，区分北京时间与真太阳时且不需要性别                   |
+| **即时排盘 Instant**     | `mingyu-core/instant`                                                                                                                         | 当前时刻八字、紫微、八字紫微、星盘与七政四余，区分北京时间与真太阳时且不需要性别                     |
 | **六爻 Liuyao**          | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、用神作用链与逐爻证据                           |
 | **梅花易数 Meihua**      | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                   |
 | **奇门遁甲 Qimen**       | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据               |
@@ -630,6 +630,14 @@ const natalAstrolabe = generateAstrolabe({
 const yearlyAstrolabe = buildAstrolabeScopeContext(natalAstrolabe, 'yearly', '2028');
 console.log(yearlyAstrolabe.displayText, yearlyAstrolabe.promptText);
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
+const taiyiMonth = taiyi.generateTaiyi({
+  scope: 'month',
+  date: new Date('2026-07-11T14:35:00+08:00'),
+});
+const taiyiHour = taiyi.generateTaiyi({
+  scope: 'hour',
+  date: new Date('2026-07-11T14:35:00+08:00'),
+});
 const qizhengChart = qizheng.generateQizheng({
   year: 2024,
   month: 6,
@@ -726,7 +734,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeLiuyaoEvidence(data, options?)`                              | 六爻用神候选、原神忌神仇神和逐爻支持/反证结构化证据                     |
 | `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                            |
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                         |
-| `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置用神宫与宫间作用结构化证据                          |
+| `generateQimen(date?, method?, scope?, juMethod?)`                   | 年、月、日、时家奇门排盘，并内置用神宫与宫间作用结构化证据              |
 | `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件                        |
 | `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                    |
 | `generateLiuren(date?)`                                              | 大六壬排盘                                                              |

@@ -3182,6 +3182,26 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   );
 });
 
+test('公开 API 奇门应支持年、月、日、时四种计式', async () => {
+  for (const scope of ['hour', 'day', 'month', 'year'] as const) {
+    const { response, body } = await callApi('divination/qimen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customDate: '2026-07-11T14:35:00+08:00',
+        qimenScope: scope,
+        qimenMethod: 'feipan',
+        qimenJuMethod: 'zhirun',
+        detailMode: 'full',
+      }),
+    });
+    assert.equal(response.status, 200, scope);
+    assert.equal(body.data.scope, scope, scope);
+    assert.equal(body.data.method, 'feipan', scope);
+    assert.equal(body.data.jiuGongGe.length, 9, scope);
+  }
+});
+
 test('公开 API 八字年限范围缺少必要层级参数时应拒绝而非套用第一项', async () => {
   const base = {
     gender: 'male',
@@ -3333,6 +3353,21 @@ test('公开 API 奇门 qimenMethod 非法值应返回参数错误', async () =>
   assert.equal(body.ok, false);
   assert.equal(body.error.code, 'BAD_REQUEST');
   assert.match(body.error.message, /qimenMethod 必须是以下值之一/);
+});
+
+test('公开 API 奇门 qimenScope 非法值应返回参数错误', async () => {
+  const { response, body } = await callApi('divination/qimen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate: '2025-01-01T08:00:00+08:00',
+      qimenScope: 'minute',
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, 'BAD_REQUEST');
+  assert.match(body.error.message, /qimenScope 必须是以下值之一/);
 });
 
 test('公开 API 可选请求体接口无请求体时仍应使用默认参数', async () => {
@@ -5055,10 +5090,10 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.equal(body.data.lordCount, 24);
   assert.equal(body.data.guestCount, 3);
   assert.equal(body.data.sixteenGods.length, 16);
-  assert.equal(body.data.model.id, 'taiyi-year-calculation-72-table');
+  assert.equal(body.data.model.id, 'taiyi-four-calculations-72-table');
   assert.equal(body.data.evidenceAnalysis.key, 'taiyi:evidence');
   assert.equal(body.data.evidenceAnalysis.status, '已计算');
-  assert.equal(body.data.evidenceAnalysis.evidence.title, '太乙年计七十二局结构化证据');
+  assert.equal(body.data.evidenceAnalysis.evidence.title, '太乙四计七十二局结构化证据');
   assert.equal(body.data.evidenceAnalysis.calculationSteps.length, 4);
   assert.ok(
     body.data.evidenceAnalysis.calculationSteps.every(
@@ -5325,16 +5360,27 @@ test('公开 API 皇极经世应直接按公元年返回完整值年卦，并保
   assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });
 
-test('公开 API 太乙应拒绝尚未校勘的月日时计', async () => {
+test('公开 API 太乙应支持月日时四计', async () => {
   for (const path of ['metaphysics/taiyi/calculate', 'metaphysics/taiyi/prompt']) {
     for (const scope of ['month', 'day', 'hour']) {
       const { response, body } = await callApi(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope, year: 2026, month: 7, day: 11, hour: 14, minute: 35 }),
+        body: JSON.stringify({
+          scope,
+          year: 2026,
+          month: 7,
+          day: 11,
+          hour: 14,
+          minute: 35,
+          ...(path.endsWith('/prompt') ? { responseMode: 'full' } : {}),
+        }),
       });
-      assert.equal(response.status, 400, `${path}:${scope}`);
-      assert.equal(body.error.code, 'BAD_REQUEST', `${path}:${scope}`);
+      assert.equal(response.status, 200, `${path}:${scope}`);
+      assert.equal(body.ok, true, `${path}:${scope}`);
+      const result = path.endsWith('/prompt') ? body.data.result : body.data;
+      assert.equal(result.scope, scope, `${path}:${scope}`);
+      assert.ok(result.accumulatedValue > 0, `${path}:${scope}`);
     }
   }
 });

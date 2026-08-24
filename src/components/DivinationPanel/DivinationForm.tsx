@@ -30,6 +30,30 @@ const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'custom', label: '自定时间' },
 ] as const;
 
+const QIMEN_SCOPE_OPTIONS = [
+  { value: 'hour', label: '时家' },
+  { value: 'day', label: '日家' },
+  { value: 'month', label: '月家' },
+  { value: 'year', label: '年家' },
+] as const;
+
+const QIMEN_METHOD_OPTIONS = [
+  { value: 'zhuanpan', label: '转盘' },
+  { value: 'feipan', label: '飞盘' },
+] as const;
+
+const QIMEN_JU_METHOD_OPTIONS = [
+  { value: 'chaibu', label: '拆补' },
+  { value: 'zhirun', label: '置闰' },
+] as const;
+
+const TAIYI_SCOPE_OPTIONS = [
+  { value: 'year', label: '年计' },
+  { value: 'month', label: '月计' },
+  { value: 'day', label: '日计' },
+  { value: 'hour', label: '时计' },
+] as const;
+
 const LIUYAO_METHOD_OPTIONS = [
   { value: 'time', label: '时间起卦' },
   { value: 'coins', label: '手摇' },
@@ -83,6 +107,10 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
     return true;
   }
 
+  if (draft.method === 'taiyi') {
+    return (draft.taiyiScope ?? 'year') !== 'year';
+  }
+
   if (draft.method === 'meihua' || draft.method === 'xiaoliuren' || draft.method === 'jinkoujue') {
     return true;
   }
@@ -127,6 +155,12 @@ export function DivinationForm({
       : draft.method === 'astrolabe'
         ? '生成星盘'
         : '开始占卜';
+  const timeActionLabel =
+    draft.method === 'qimen' || draft.method === 'taiyi'
+      ? '起局'
+      : draft.method === 'liuren' || draft.method === 'xiaoliuren' || draft.method === 'jinkoujue'
+        ? '起课'
+        : '起卦';
   const isTimeBasedDivination = isTimeBasedDivinationDraft(draft);
   const divinationTimeMode = draft.divinationTimeMode ?? 'current';
   const liuyaoMethod = draft.liuyaoMethod ?? 'time';
@@ -334,6 +368,84 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
+                    {draft.method === 'qimen' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="qimen-scope-select">计式</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="qimen-scope-select"
+                            value={draft.qimenScope ?? 'hour'}
+                            options={QIMEN_SCOPE_OPTIONS}
+                            onChange={(value) =>
+                              updateDraft(
+                                'qimenScope',
+                                value as NonNullable<DivinationDraft['qimenScope']>,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft.method === 'qimen' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="qimen-method-select">排法</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="qimen-method-select"
+                            value={draft.qimenMethod ?? 'zhuanpan'}
+                            options={QIMEN_METHOD_OPTIONS}
+                            onChange={(value) =>
+                              updateDraft(
+                                'qimenMethod',
+                                value as NonNullable<DivinationDraft['qimenMethod']>,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft.method === 'qimen' &&
+                    (draft.qimenScope ?? 'hour') !== 'month' &&
+                    (draft.qimenScope ?? 'hour') !== 'year' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="qimen-ju-method-select">定局</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="qimen-ju-method-select"
+                            value={draft.qimenJuMethod ?? 'chaibu'}
+                            options={QIMEN_JU_METHOD_OPTIONS}
+                            onChange={(value) =>
+                              updateDraft(
+                                'qimenJuMethod',
+                                value as NonNullable<DivinationDraft['qimenJuMethod']>,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft.method === 'taiyi' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="taiyi-scope-select">计式</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="taiyi-scope-select"
+                            value={draft.taiyiScope ?? 'year'}
+                            options={TAIYI_SCOPE_OPTIONS}
+                            onChange={(value) =>
+                              updateDraft(
+                                'taiyiScope',
+                                value as NonNullable<DivinationDraft['taiyiScope']>,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
                     {draft.method === 'meihua' && draft.meihuaMethod === 'number' ? (
                       <div className="form-item divination-inline-field divination-inline-number-field">
                         <label htmlFor="meihua-number-input">起卦数字</label>
@@ -475,7 +587,7 @@ export function DivinationForm({
 
                     {isTimeBasedDivination ? (
                       <div className="form-item divination-inline-field">
-                        <label htmlFor="divination-time-mode-select">起卦时间</label>
+                        <label htmlFor="divination-time-mode-select">{timeActionLabel}时间</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
                           <DropdownSelect
                             id="divination-time-mode-select"
@@ -511,6 +623,8 @@ export function DivinationForm({
                   draft.method === 'liuyao' ||
                   draft.method === 'jinkoujue' ||
                   draft.method === 'liuren' ||
+                  draft.method === 'qimen' ||
+                  draft.method === 'taiyi' ||
                   draft.method === 'tarot' ||
                   draft.method === 'almanac' ||
                   draft.method === 'lenormand'
@@ -552,6 +666,72 @@ export function DivinationForm({
                       ariaLabel="金口诀起课方式"
                       onChange={(value) =>
                         updateDraft('jinkoujueMethod', value as DivinationDraft['jinkoujueMethod'])
+                      }
+                    />
+                  </div>
+                ) : null}
+
+                {draft.method === 'qimen' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <DropdownSelect
+                      value={draft.qimenScope ?? 'hour'}
+                      options={QIMEN_SCOPE_OPTIONS}
+                      ariaLabel="奇门计式"
+                      onChange={(value) =>
+                        updateDraft(
+                          'qimenScope',
+                          value as NonNullable<DivinationDraft['qimenScope']>,
+                        )
+                      }
+                    />
+                  </div>
+                ) : null}
+
+                {draft.method === 'qimen' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <DropdownSelect
+                      value={draft.qimenMethod ?? 'zhuanpan'}
+                      options={QIMEN_METHOD_OPTIONS}
+                      ariaLabel="奇门排法"
+                      onChange={(value) =>
+                        updateDraft(
+                          'qimenMethod',
+                          value as NonNullable<DivinationDraft['qimenMethod']>,
+                        )
+                      }
+                    />
+                  </div>
+                ) : null}
+
+                {draft.method === 'qimen' &&
+                (draft.qimenScope ?? 'hour') !== 'month' &&
+                (draft.qimenScope ?? 'hour') !== 'year' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <DropdownSelect
+                      value={draft.qimenJuMethod ?? 'chaibu'}
+                      options={QIMEN_JU_METHOD_OPTIONS}
+                      ariaLabel="奇门定局方法"
+                      onChange={(value) =>
+                        updateDraft(
+                          'qimenJuMethod',
+                          value as NonNullable<DivinationDraft['qimenJuMethod']>,
+                        )
+                      }
+                    />
+                  </div>
+                ) : null}
+
+                {draft.method === 'taiyi' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <DropdownSelect
+                      value={draft.taiyiScope ?? 'year'}
+                      options={TAIYI_SCOPE_OPTIONS}
+                      ariaLabel="太乙计式"
+                      onChange={(value) =>
+                        updateDraft(
+                          'taiyiScope',
+                          value as NonNullable<DivinationDraft['taiyiScope']>,
+                        )
                       }
                     />
                   </div>
@@ -643,7 +823,7 @@ export function DivinationForm({
                     <DropdownSelect
                       value={divinationTimeMode}
                       options={DIVINATION_TIME_MODE_OPTIONS}
-                      ariaLabel="起卦时间"
+                      ariaLabel={`${timeActionLabel}时间`}
                       onChange={(value) =>
                         updateDraft(
                           'divinationTimeMode',
@@ -959,7 +1139,7 @@ export function DivinationForm({
             <div className="divination-extra-panel divination-time-panel">
               <div className="form-row-flex">
                 <div className="form-item">
-                  <label htmlFor="custom-divination-date-input">起卦日期</label>
+                  <label htmlFor="custom-divination-date-input">{timeActionLabel}日期</label>
                   <input
                     id="custom-divination-date-input"
                     type="date"
@@ -969,7 +1149,9 @@ export function DivinationForm({
                   />
                 </div>
                 <div className="form-item">
-                  <label htmlFor="custom-divination-time-input">起卦时间（北京时间）</label>
+                  <label htmlFor="custom-divination-time-input">
+                    {timeActionLabel}时间（北京时间）
+                  </label>
                   <input
                     id="custom-divination-time-input"
                     type="time"
@@ -982,11 +1164,11 @@ export function DivinationForm({
             </div>
           ) : null}
 
-          {draft.method === 'taiyi' ? (
+          {draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year' ? (
             <div className="divination-extra-panel">
               <div className="form-row">
                 <div className="form-item">
-                  <label htmlFor="taiyi-year-input">年计年份</label>
+                  <label htmlFor="taiyi-year-input">公历年份</label>
                   <input
                     id="taiyi-year-input"
                     type="text"

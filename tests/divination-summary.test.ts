@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { generateQimen } from 'mingyu-core/divination/qimen';
+import { generateTaiyi } from 'mingyu-core/taiyi';
 import { getDivinationSummaryBlocks } from '../src/lib/divination/summary';
 
 test('黄历择日摘要应展示候选状态与限制，不暴露内部数字评分', () => {
@@ -26,4 +27,15 @@ test('奇门摘要应把复合格局分数转换为证据条件标签', () => {
   assert.match(text, /复合格局：/);
   assert.match(text, /支持条件较集中|限制条件较集中|支持与限制并存/);
   assert.doesNotMatch(text, /复合格局：[^\n]*（-?\d+）/);
+});
+
+test('太乙摘要应显示中文计式名称', () => {
+  const data = generateTaiyi({
+    scope: 'month',
+    date: new Date('2026-07-11T14:35:00+08:00'),
+  });
+  const summary = getDivinationSummaryBlocks('taiyi', data);
+
+  assert.equal(summary.title, '太乙神数月计结果');
+  assert.doesNotMatch(summary.title, /month|day|hour|year/);
 });

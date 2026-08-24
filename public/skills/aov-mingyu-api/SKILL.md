@@ -53,9 +53,9 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 1. 先读取 `GET /manifest` 或 `GET /openapi.json` 确认接口能力。
 2. 用户明确要求当前时刻排命盘时，调用 `POST /instant/calculate`；不要把占卜方法混进即时盘。
 3. 只需要结构化数据时，调用 `/calculate` 或 `/divination/{method}` 排盘接口。
-3. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口并传 `responseMode: "prompt-only"`，只读取 `data.prompt`。只有确实需要向用户展示结构化盘面时才改用 `summary`，需要完整原始排盘时才改用 `full`。
-4. 同一人需要“先八字定主线、再紫微校验”的深度解读时，优先调用 `/bazi-ziwei/prompt`，不要分别调用八字和紫微后自行拼接提示词。
-5. 向用户展示结果时，说明这是排盘和提示词数据，不替代医疗、法律、投资等专业建议。
+4. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口并传 `responseMode: "prompt-only"`，只读取 `data.prompt`。只有确实需要向用户展示结构化盘面时才改用 `summary`，需要完整原始排盘时才改用 `full`。
+5. 同一人需要“先八字定主线、再紫微校验”的深度解读时，优先调用 `/bazi-ziwei/prompt`，不要分别调用八字和紫微后自行拼接提示词。
+6. 向用户展示结果时，说明这是排盘和提示词数据，不替代医疗、法律、投资等专业建议。
 
 `/prompt` 默认采用 `prompt-only`，只返回可直接交给 AI 的完整提示词，避免响应和下游 AI 消息过大。需要轻量结构化展示时传 `responseMode: "summary"`；需要完整排盘时才传 `responseMode: "full"`。八字、紫微、奇门和黄历排盘可传 `detailMode: "compact"` 获取轻量结构。黄历大范围或多参与人应使用 `page/pageSize` 拆成多次请求。
 
@@ -87,7 +87,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 | 八字格局、用神、大运流年       | `POST /bazi/prompt`                          | `promptTopic`、`baziFortuneScope`                                           |
 | 紫微宫位、四化、运限           | `POST /ziwei/prompt`                         | `promptTopic`、`promptScope`                                                |
 | 一事一问、短期成败、应期       | `POST /divination/liuyao/prompt`             | `question`、可选 `customDate`                                               |
-| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`              | `question`、可选 `qimenMethod`、`customDate`                                |
+| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`              | `question`、可选 `qimenScope`、`qimenMethod`、`qimenJuMethod`、`customDate` |
 | 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber` |
 | 时间或数字象意判断             | `POST /divination/meihua/prompt`             | `question`、可选 `method`、`number`、`customDate`                           |
 | 传统复杂事项推演               | `POST /divination/liuren/prompt`             | `question`、可选 `liurenTemplate`、`customDate`                             |
@@ -99,6 +99,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 | 生肖犯太岁、流年贵人           | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                            |
 | 年度五运六气、符会与六步节令   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`，可选 `question`                                     |
 | 皇极经世年度占断               | `POST /metaphysics/huangji-jingshi/prompt`   | 普通模式传公元 `year`；自定义纪元再传 `epochYear`                           |
+| 太乙年、月、日、时计           | `POST /metaphysics/taiyi/prompt`             | 年计传 `scope: "year"` 与 `year`；其余计式再传月、日、时分                  |
 | 求签                           | `POST /divination/ssgw/prompt`               | `question`                                                                  |
 
 参数默认建议：
@@ -148,7 +149,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 - `POST /divination/astrolabe/synastry`：西占双盘相位、角距、容许度、落宫与证据计算。
 - `POST /divination/astrolabe/synastry/prompt`：西占双盘计算并生成结构化证据提示词。
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
-- `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：年家太乙七十二局排盘与提示词；当前不提供未完整复原的月、日、时家。
+- `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：太乙年、月、日、时四计七十二局排盘与提示词；月、日、时计采用现代历法定位，并在结果中保留口径边界。
 - `POST /metaphysics/wuyun-liuqi/calculate`、`POST /metaphysics/wuyun-liuqi/prompt`：岁运太过不及、司天在泉、气运相临、天符岁会等五类符会、六步节令主客气及完整提示词。
 - `POST /metaphysics/huangji-jingshi/calculate`、`POST /metaphysics/huangji-jingshi/prompt`：按公元年返回元会运世、会内统卦、运卦、六十年统卦、十年卦、值年卦及互错综卦；仍支持自定义纪元坐标换算。
 - `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、分层天文证据与提示词。

@@ -373,9 +373,10 @@ function JinkoujueTraditionalBoard({ data }: { data: JinkoujueData }) {
 
 function QimenTraditionalBoard({ data }: { data: QimenData }) {
   const palaceMap = new Map(data.jiuGongGe.map((item) => [item.gong, item]));
+  const scopeLabel = { hour: '时家', day: '日家', month: '月家', year: '年家' }[data.scope];
   return (
     <TraditionalBoardShell
-      title="奇门遁甲九宫盘"
+      title={`${scopeLabel}奇门九宫盘`}
       subtitle={`${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局 · ${data.method === 'feipan' ? '飞盘' : '转盘'}${data.juMethod === 'zhirun' ? ' · 置闰' : ' · 拆补'}`}
       className="traditional-qimen-board"
     >
@@ -586,6 +587,7 @@ function AlmanacTraditionalBoard({ data }: { data: AlmanacData }) {
 }
 
 function TaiyiTraditionalBoard({ data }: { data: TaiyiResult }) {
+  const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
   const markers = new Map<number, string[]>();
   const addMarker = (palace: number, label: string) => {
     const current = markers.get(palace) || [];
@@ -597,7 +599,7 @@ function TaiyiTraditionalBoard({ data }: { data: TaiyiResult }) {
   addMarker(data.jiShenPalace, '计神');
   return (
     <TraditionalBoardShell
-      title={`太乙神数${data.scope === 'year' ? '年计' : data.scope}`}
+      title={`太乙神数${scopeLabel}`}
       subtitle={`${data.ganZhi} · ${data.yinYang}第${data.bureau}局 · ${data.accumulatedLabel}${data.accumulatedValue}`}
       className="traditional-taiyi-board"
     >

@@ -71,7 +71,7 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   {
     value: 'taiyi',
     label: '太乙神数',
-    description: '以年家七十二局观察年度气运、动静、攻守与时宜。',
+    description: '按年、月、日、时四计观察不同时间尺度的动静、攻守与时宜。',
   },
   {
     value: 'ssgw',

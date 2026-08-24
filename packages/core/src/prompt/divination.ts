@@ -448,8 +448,9 @@ export function getDivinationSummaryBlocks(
     }
     case 'taiyi': {
       const item = data as TaiyiResult;
+      const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[item.scope];
       return {
-        title: `太乙神数${item.scope}计结果`,
+        title: `太乙神数${scopeLabel}结果`,
         tags: [`${item.ganZhi}`, `${item.yinYang}${item.bureau}局`, `太乙在${item.taiyiPosition}`],
         lines: [
           `主算${item.lordCount}；客算${item.guestCount}；定算${item.setCount}`,

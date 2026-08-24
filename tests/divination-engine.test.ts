@@ -4058,20 +4058,42 @@ test('太乙神数占卜入口应拒绝空年份和超出网页支持范围的�
   }
 });
 
-test('太乙神数占卜入口应拒绝尚未校勘的月日时计', async () => {
+test('太乙神数占卜入口应支持月日时四计并使用起局时间', async () => {
   for (const scope of ['month', 'day', 'hour'] as const) {
-    await assert.rejects(
-      () =>
-        generateDivinationSession(
-          buildDraft({
-            method: 'taiyi',
-            taiyiScope: scope,
-            taiyiYear: '2026',
-          }),
-        ),
-      /古籍历法链校勘.*只开放年计/,
+    const session = await generateDivinationSession(
+      buildDraft({
+        method: 'taiyi',
+        taiyiScope: scope,
+        divinationTimeMode: 'custom',
+        customDivinationDate: '2026-07-11',
+        customDivinationTime: '14:35',
+      }),
+    );
+    const data = session.data as TaiyiResult;
+    assert.equal(data.scope, scope);
+    assert.match(
+      session.prompt,
+      new RegExp(`太乙神数（${{ month: '月计', day: '日计', hour: '时计' }[scope]}）`),
     );
   }
+});
+
+test('奇门占卜入口应传递计式、排法与定局方法', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'qimen',
+      qimenScope: 'day',
+      qimenMethod: 'feipan',
+      qimenJuMethod: 'zhirun',
+      divinationTimeMode: 'custom',
+      customDivinationDate: '2026-07-11',
+      customDivinationTime: '14:35',
+    }),
+  );
+  const data = session.data as QimenData;
+  assert.equal(data.scope, 'day');
+  assert.equal(data.method, 'feipan');
+  assert.equal(data.juMethod, 'zhirun');
 });
 
 test('塔罗提示词应保留牌面资料且不混入工程证据话术', async () => {

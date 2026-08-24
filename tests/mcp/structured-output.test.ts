@@ -3131,12 +3131,6 @@ test('MCP 七政、太乙和玄空不得补造缺失必填参数', async () => {
       ['metaphysics_qizheng', { year: 2024, month: 6, hour: 12 }, null],
       ['metaphysics_qizheng', { year: 2024, month: 6, day: 15 }, null],
       ['metaphysics_taiyi', { scope: 'year' }, /年计必须提供公历年份/],
-      ['metaphysics_taiyi', { scope: 'month', year: 2026 }, null],
-      ['metaphysics_taiyi', { scope: 'day', year: 2026 }, null],
-      ['metaphysics_taiyi', { scope: 'hour', year: 2026 }, null],
-      ['taiyi_prompt', { scope: 'month', year: 2026 }, null],
-      ['taiyi_prompt', { scope: 'day', year: 2026 }, null],
-      ['taiyi_prompt', { scope: 'hour', year: 2026 }, null],
       ['metaphysics_xuankong', { sitMountain: '子' }, null],
     ];
 
@@ -4337,6 +4331,48 @@ test('MCP 太乙工具返回年计七十二局结构化证据', async () => {
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
     assert.doesNotMatch(prompt, /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/);
     assertPromptIsPortableTaskText(prompt);
+  });
+});
+
+test('MCP 太乙工具应支持月日时四计', async () => {
+  await withMcpClient(async (client) => {
+    for (const scope of ['month', 'day', 'hour'] as const) {
+      const response = await client.callTool({
+        name: 'metaphysics_taiyi',
+        arguments: {
+          scope,
+          customDate: '2026-07-11T14:35:00+08:00',
+          detailMode: 'compact',
+        },
+      });
+      assert.equal(response.isError, undefined, `${scope}计不应返回错误`);
+      const result = (response.structuredContent as { result: { scope: string } }).result;
+      assert.equal(result.scope, scope);
+    }
+  });
+});
+
+test('MCP 奇门工具应传递年、月、日、时计式', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'divine_qimen',
+      arguments: {
+        customDate: '2026-07-11T14:35:00+08:00',
+        qimenScope: 'day',
+        qimenMethod: 'feipan',
+        qimenJuMethod: 'zhirun',
+        detailMode: 'compact',
+      },
+    });
+    assert.equal(response.isError, undefined);
+    const result = (
+      response.structuredContent as {
+        result: { scope: string; method: string; juMethod: string };
+      }
+    ).result;
+    assert.equal(result.scope, 'day');
+    assert.equal(result.method, 'feipan');
+    assert.equal(result.juMethod, 'zhirun');
   });
 });
 
