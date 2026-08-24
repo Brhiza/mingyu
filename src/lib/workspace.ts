@@ -5,7 +5,7 @@ import type { PromptSourceKey, QueryInputState } from '@/lib/query-state';
 export type ChartWorkspaceId =
   'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe' | 'qizheng' | 'bazhai' | 'compatibility';
 
-export type DivinationWorkspaceId = Exclude<DivinationMethodId, 'astrolabe'>;
+export type DivinationWorkspaceId = Exclude<DivinationMethodId, 'astrolabe' | 'random'>;
 export type WorkspaceFeatureId = ChartWorkspaceId | DivinationWorkspaceId;
 export type WorkspaceFeatureGroup = 'chart' | 'divination' | 'timing';
 
@@ -87,7 +87,6 @@ const chartFeatures: WorkspaceFeature[] = [
 ];
 
 const divinationMarks: Record<DivinationWorkspaceId, string> = {
-  random: '问',
   liuyao: '爻',
   meihua: '梅',
   qimen: '奇',
@@ -107,10 +106,10 @@ const divinationFeatures: WorkspaceFeature[] = DIVINATION_METHOD_OPTIONS.filter(
     item,
   ): item is (typeof DIVINATION_METHOD_OPTIONS)[number] & {
     value: DivinationWorkspaceId;
-  } => item.value !== 'astrolabe',
+  } => item.value !== 'astrolabe' && item.value !== 'random',
 ).map((item) => ({
   id: item.value,
-  label: item.value === 'random' ? '随机问事' : item.label,
+  label: item.label,
   shortLabel: item.label,
   mark: divinationMarks[item.value],
   description: item.description,
@@ -121,7 +120,11 @@ export const WORKSPACE_FEATURES: WorkspaceFeature[] = [...chartFeatures, ...divi
 export const WORKSPACE_FEATURE_IDS = WORKSPACE_FEATURES.map((item) => item.id);
 export const DEFAULT_WORKSPACE_FEATURE_ID: WorkspaceFeatureId = 'bazi';
 
-const WORKSPACE_PREFERENCES_KEY = 'mingyu_workspace_preferences_v2';
+const WORKSPACE_PREFERENCES_KEY = 'mingyu_workspace_preferences_v4';
+const LEGACY_WORKSPACE_PREFERENCES_KEYS = [
+  'mingyu_workspace_preferences_v3',
+  'mingyu_workspace_preferences_v2',
+] as const;
 export const WORKSPACE_PREFERENCES_EVENT = 'mingyu:workspace-preferences';
 
 export type WorkspacePreferences = {
@@ -156,14 +159,44 @@ export function normalizeNavigationOrder(value: unknown): WorkspaceFeatureId[] {
   return [...unique, ...WORKSPACE_FEATURE_IDS.filter((id) => !unique.includes(id))];
 }
 
+function migrateLegacyNavigationOrder(value: unknown): WorkspaceFeatureId[] {
+  if (!Array.isArray(value)) {
+    return [...DEFAULT_WORKSPACE_PREFERENCES.navigationOrder];
+  }
+  const requested = value.filter(isWorkspaceFeatureId);
+  const divinationIds = divinationFeatures.map((item) => item.id);
+  const nonDivinationIds = requested.filter((id) => !divinationIds.includes(id));
+  return normalizeNavigationOrder([...nonDivinationIds, ...divinationIds]);
+}
+
 export function readWorkspacePreferences(): WorkspacePreferences {
-  const stored = safeStorage.getJSON<Partial<WorkspacePreferences>>(WORKSPACE_PREFERENCES_KEY, {});
-  return {
-    defaultFeature: isWorkspaceFeatureId(stored.defaultFeature)
-      ? stored.defaultFeature
-      : DEFAULT_WORKSPACE_PREFERENCES.defaultFeature,
-    navigationOrder: normalizeNavigationOrder(stored.navigationOrder),
+  const stored = safeStorage.getJSON<Partial<WorkspacePreferences> | null>(
+    WORKSPACE_PREFERENCES_KEY,
+    null,
+  );
+  if (stored) {
+    return {
+      defaultFeature: isWorkspaceFeatureId(stored.defaultFeature)
+        ? stored.defaultFeature
+        : DEFAULT_WORKSPACE_PREFERENCES.defaultFeature,
+      navigationOrder: normalizeNavigationOrder(stored.navigationOrder),
+    };
+  }
+
+  const legacy = LEGACY_WORKSPACE_PREFERENCES_KEYS.map((key) =>
+    safeStorage.getJSON<Partial<WorkspacePreferences> | null>(key, null),
+  ).find((value) => value !== null);
+  const migrated: WorkspacePreferences = {
+    defaultFeature: DEFAULT_WORKSPACE_PREFERENCES.defaultFeature,
+    navigationOrder: legacy
+      ? migrateLegacyNavigationOrder(legacy.navigationOrder)
+      : [...DEFAULT_WORKSPACE_PREFERENCES.navigationOrder],
   };
+  if (legacy && isWorkspaceFeatureId(legacy.defaultFeature)) {
+    migrated.defaultFeature = legacy.defaultFeature;
+  }
+  safeStorage.setJSON(WORKSPACE_PREFERENCES_KEY, migrated);
+  return migrated;
 }
 
 export function saveWorkspacePreferences(preferences: WorkspacePreferences) {

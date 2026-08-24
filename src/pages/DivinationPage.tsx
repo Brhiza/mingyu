@@ -14,7 +14,7 @@ export function DivinationPage() {
   const launchState = readWorkspaceLaunchState(location.state);
   const method = useDivinationMethod();
   if (!method) {
-    return <Navigate to="/divination/random" replace />;
+    return <Navigate to="/divination/liuyao" replace />;
   }
 
   return (
@@ -43,7 +43,7 @@ export function DivinationResultPage({ assistantOnly = false }: DivinationResult
   const location = useLocation();
   const method = useDivinationMethod();
   if (!method) {
-    return <Navigate to="/divination/random" replace />;
+    return <Navigate to="/divination/liuyao" replace />;
   }
 
   return (

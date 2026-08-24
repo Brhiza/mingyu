@@ -35,11 +35,6 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   description: string;
 }> = [
   {
-    value: 'random',
-    label: '随机',
-    description: '随机选择一种占卜类型，适合没有明确偏好时快速起卦。',
-  },
-  {
     value: 'liuyao',
     label: '六爻',
     description: '适合判断能不能、会不会、该不该，重在事态变化。',
@@ -50,16 +45,6 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     description: '适合快速起卦，兼顾体用、过程与结果。',
   },
   {
-    value: 'qimen',
-    label: '奇门遁甲',
-    description: '适合看时机、策略和局势走向。',
-  },
-  {
-    value: 'liuren',
-    label: '大六壬',
-    description: '适合看事情如何演变、卡点在哪以及该先处理什么。',
-  },
-  {
     value: 'xiaoliuren',
     label: '小六壬',
     description: '适合快速判断眼前事情的走势、阻力与行动节奏。',
@@ -68,6 +53,16 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     value: 'jinkoujue',
     label: '金口诀',
     description: '以地分、将神、贵神、人元四位一体判断事情主客、人情与落点。',
+  },
+  {
+    value: 'qimen',
+    label: '奇门遁甲',
+    description: '适合看时机、策略和局势走向。',
+  },
+  {
+    value: 'liuren',
+    label: '大六壬',
+    description: '适合看事情如何演变、卡点在哪以及该先处理什么。',
   },
   {
     value: 'taiyi',
@@ -84,6 +79,7 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     label: '三山国王灵签',
     description: '随机求签，适合快速获得方向提示。',
   },
+  // 牌卡类放在传统时间起局与签占之后，保持占问主入口的优先级稳定。
   {
     value: 'tarot',
     label: '塔罗',

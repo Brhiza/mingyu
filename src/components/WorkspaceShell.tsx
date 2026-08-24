@@ -147,7 +147,9 @@ export function WorkspaceShell() {
   const visibleHistories = useMemo(() => {
     const keyword = historySearch.trim().toLowerCase();
     return histories.filter((record) => {
-      const feature = getWorkspaceFeature(record.requestedMethod);
+      const feature = getWorkspaceFeature(
+        record.requestedMethod === 'random' ? record.method : record.requestedMethod,
+      );
       return `${record.question} ${feature.label} ${record.caseName ?? ''}`
         .toLowerCase()
         .includes(keyword);
@@ -416,7 +418,9 @@ export function WorkspaceShell() {
           <div className="workspace-case-list">
             {visibleHistories.length ? (
               visibleHistories.map((record) => {
-                const feature = getWorkspaceFeature(record.requestedMethod);
+                const feature = getWorkspaceFeature(
+                  record.requestedMethod === 'random' ? record.method : record.requestedMethod,
+                );
                 return (
                   <button
                     type="button"

@@ -20,6 +20,7 @@ import { addDivinationHistory, getDivinationHistoryById } from '@/lib/history-re
 import { applyPersonalCaseToDivinationDraft } from '@/lib/divination/case-context';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
+import { useBirthPlace } from '@/hooks/useBirthPlace';
 import {
   QuestionInspirationModal,
   type QuestionInspirationSection,
@@ -28,6 +29,7 @@ import { getDivinationSummaryBlocks } from '@/lib/divination/summary';
 import { defaultDraft, methodLabelMap } from './constants';
 import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
+import { BirthPlaceModal } from '@/pages/InputPage.BirthPlaceModal';
 
 type DivinationPanelProps = {
   initialMethod?: DivinationDraft['method'];
@@ -85,6 +87,7 @@ export function DivinationPanel({
   const [inspirationSearch, setInspirationSearch] = useState('');
   const questionInputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoSubmitStartedRef = useRef(false);
+  const divinationBirthPlace = useBirthPlace({ form: draft, setForm: setDraft });
 
   const { copyState, shareState, handleCopy, handleShare } = usePromptCopyShare(
     session?.prompt ?? '',
@@ -290,6 +293,7 @@ export function DivinationPanel({
           error={error}
           onSubmit={handleSubmit}
           onOpenInspiration={openQuestionInspirationModal}
+          onOpenBirthPlace={() => divinationBirthPlace.openBirthPlaceModal('self')}
           questionInputRef={questionInputRef}
           showHeading
         />
@@ -329,6 +333,10 @@ export function DivinationPanel({
           onSelect={applyInspiredQuestion}
           onClose={() => setIsQuestionInspirationModalOpen(false)}
         />
+      ) : null}
+
+      {displayMode !== 'result' && divinationBirthPlace.isBirthPlaceModalOpen ? (
+        <BirthPlaceModal birthPlace={divinationBirthPlace} purpose="observer" />
       ) : null}
     </div>
   );

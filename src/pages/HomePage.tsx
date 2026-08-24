@@ -71,7 +71,7 @@ export function HomePage() {
   );
   const [selectedDivinationFeature, setSelectedDivinationFeature] = useState<DivinationWorkspaceId>(
     () =>
-      isDivinationWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'random',
+      isDivinationWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'liuyao',
   );
   const [selectedInstantType, setSelectedInstantType] = useState<InstantChartType>('bazi');
   const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');

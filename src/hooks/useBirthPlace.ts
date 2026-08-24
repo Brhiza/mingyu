@@ -24,16 +24,36 @@ const PARTNER_PLACE_KEYS = {
   birthLatitude: 'partnerBirthLatitude',
 } as const;
 
-function getPlaceFieldKey(role: PersonRole, key: keyof typeof SELF_PLACE_KEYS) {
-  return role === 'self' ? SELF_PLACE_KEYS[key] : PARTNER_PLACE_KEYS[key];
+export type BirthPlaceFormState = {
+  birthPlace?: string;
+  birthLongitude?: string;
+  birthLatitude?: string;
+  partnerBirthPlace?: string;
+  partnerBirthLongitude?: string;
+  partnerBirthLatitude?: string;
+};
+
+function getPlaceFieldKey<T extends BirthPlaceFormState>(
+  form: T,
+  role: PersonRole,
+  key: keyof typeof SELF_PLACE_KEYS,
+): keyof T {
+  const requestedKey = role === 'self' ? SELF_PLACE_KEYS[key] : PARTNER_PLACE_KEYS[key];
+  if (requestedKey in form) {
+    return requestedKey as keyof T;
+  }
+  return SELF_PLACE_KEYS[key] as keyof T;
 }
 
-export interface UseBirthPlaceOptions {
-  form: QueryInputState;
-  setForm: Dispatch<SetStateAction<QueryInputState>>;
+export interface UseBirthPlaceOptions<T extends BirthPlaceFormState = QueryInputState> {
+  form: T;
+  setForm: Dispatch<SetStateAction<T>>;
 }
 
-export function useBirthPlace({ form, setForm }: UseBirthPlaceOptions) {
+export function useBirthPlace<T extends BirthPlaceFormState>({
+  form,
+  setForm,
+}: UseBirthPlaceOptions<T>) {
   const [isBirthPlaceModalOpen, setIsBirthPlaceModalOpen] = useState(false);
   const [activeBirthPlaceTarget, setActiveBirthPlaceTarget] = useState<PersonRole>('self');
   const [birthPlaceSearch, setBirthPlaceSearch] = useState('');
@@ -85,7 +105,7 @@ export function useBirthPlace({ form, setForm }: UseBirthPlaceOptions) {
       return;
     }
 
-    const placeKey = getPlaceFieldKey(activeBirthPlaceTarget, 'birthPlace');
+    const placeKey = getPlaceFieldKey(form, activeBirthPlaceTarget, 'birthPlace');
     const birthPlace = String(form[placeKey] || '');
     const matched = birthPlace
       ? birthPlaceCascadeModule.findBirthPlaceCascadeByDisplayName(birthPlace)
@@ -213,13 +233,15 @@ export function useBirthPlace({ form, setForm }: UseBirthPlaceOptions) {
 
     setForm((current) => {
       const next = { ...current };
-      const placeKey = getPlaceFieldKey(activeBirthPlaceTarget, 'birthPlace');
-      const longitudeKey = getPlaceFieldKey(activeBirthPlaceTarget, 'birthLongitude');
-      const latitudeKey = getPlaceFieldKey(activeBirthPlaceTarget, 'birthLatitude');
-      next[placeKey] = matched.district.displayName as never;
-      next[longitudeKey] = String(matched.district.longitude) as never;
-      next[latitudeKey] = String(resolveBirthPlaceLatitude(matched.district.id)) as never;
-      return next;
+      const placeKey = getPlaceFieldKey(current, activeBirthPlaceTarget, 'birthPlace');
+      const longitudeKey = getPlaceFieldKey(current, activeBirthPlaceTarget, 'birthLongitude');
+      const latitudeKey = getPlaceFieldKey(current, activeBirthPlaceTarget, 'birthLatitude');
+      return {
+        ...next,
+        [placeKey]: matched.district.displayName,
+        [longitudeKey]: String(matched.district.longitude),
+        [latitudeKey]: String(resolveBirthPlaceLatitude(matched.district.id)),
+      } as T;
     });
     closeBirthPlaceModal();
   }

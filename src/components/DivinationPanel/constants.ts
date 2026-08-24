@@ -11,7 +11,7 @@ import {
 import type { DivinationDraft } from '@/lib/divination/engine';
 
 export const defaultDraft: DivinationDraft = {
-  method: 'random',
+  method: 'liuyao',
   question: '',
   questionSource: 'custom',
   currentSituation: '',
@@ -24,6 +24,10 @@ export const defaultDraft: DivinationDraft = {
   divinationTimeMode: 'current',
   customDivinationDate: '',
   customDivinationTime: '',
+  divinationTimeStandard: 'beijing',
+  birthPlace: '',
+  birthLongitude: '',
+  birthLatitude: '',
   liuyaoMethod: 'time',
   liuyaoYaos: [],
   liuyaoCoinThrows: [],
@@ -66,9 +70,10 @@ export const defaultDraft: DivinationDraft = {
   taiyiScope: 'year',
 };
 
-export const methodLabelMap = Object.fromEntries(
-  DIVINATION_METHOD_OPTIONS.map((item) => [item.value, item.label]),
-) as Record<DivinationDraft['method'], string>;
+export const methodLabelMap = Object.fromEntries([
+  ['random', '随机'],
+  ...DIVINATION_METHOD_OPTIONS.map((item) => [item.value, item.label]),
+]) as Record<DivinationDraft['method'], string>;
 
 export const meihuaMethodLabelMap = Object.fromEntries(
   MEIHUA_METHOD_OPTIONS.map((item) => [item.value, item.label]),

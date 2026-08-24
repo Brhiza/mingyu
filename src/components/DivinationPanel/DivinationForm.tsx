@@ -30,6 +30,11 @@ const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'custom', label: '自定时间' },
 ] as const;
 
+const DIVINATION_TIME_STANDARD_OPTIONS = [
+  { value: 'beijing', label: '北京时间' },
+  { value: 'true-solar', label: '真太阳时' },
+] as const;
+
 const QIMEN_SCOPE_OPTIONS = [
   { value: 'hour', label: '时家' },
   { value: 'day', label: '日家' },
@@ -145,6 +150,7 @@ interface DivinationFormProps {
   error: string;
   onSubmit: () => void | Promise<void>;
   onOpenInspiration: () => void;
+  onOpenBirthPlace: () => void;
   questionInputRef: React.RefObject<HTMLTextAreaElement | null>;
   showHeading?: boolean;
 }
@@ -157,6 +163,7 @@ export function DivinationForm({
   error,
   onSubmit,
   onOpenInspiration,
+  onOpenBirthPlace,
   questionInputRef,
   showHeading = true,
 }: DivinationFormProps) {
@@ -187,7 +194,10 @@ export function DivinationForm({
           ? '起课'
           : '起卦';
   const isTimeBasedDivination = isTimeBasedDivinationDraft(draft);
+  const supportsTrueSolarTime =
+    isTimeBasedDivination && !(draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year');
   const divinationTimeMode = draft.divinationTimeMode ?? 'current';
+  const divinationTimeStandard = draft.divinationTimeStandard ?? 'beijing';
   const liuyaoMethod = draft.liuyaoMethod ?? 'time';
   const liuyaoYaos = draft.liuyaoYaos ?? [];
   const liuyaoCoinThrows = draft.liuyaoCoinThrows ?? [];
@@ -642,6 +652,25 @@ export function DivinationForm({
                         </div>
                       </div>
                     ) : null}
+
+                    {supportsTrueSolarTime ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="divination-time-standard-select">时间口径</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="divination-time-standard-select"
+                            value={divinationTimeStandard}
+                            options={DIVINATION_TIME_STANDARD_OPTIONS}
+                            onChange={(value) =>
+                              updateDraft(
+                                'divinationTimeStandard',
+                                value as NonNullable<DivinationDraft['divinationTimeStandard']>,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   {!isAlmanac ? (
@@ -868,6 +897,22 @@ export function DivinationForm({
                         updateDraft(
                           'divinationTimeMode',
                           value as NonNullable<DivinationDraft['divinationTimeMode']>,
+                        )
+                      }
+                    />
+                  </div>
+                ) : null}
+
+                {supportsTrueSolarTime ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <DropdownSelect
+                      value={divinationTimeStandard}
+                      options={DIVINATION_TIME_STANDARD_OPTIONS}
+                      ariaLabel="时间口径"
+                      onChange={(value) =>
+                        updateDraft(
+                          'divinationTimeStandard',
+                          value as NonNullable<DivinationDraft['divinationTimeStandard']>,
                         )
                       }
                     />
@@ -1238,6 +1283,28 @@ export function DivinationForm({
                 </div>
               </div>
             )
+          ) : null}
+
+          {supportsTrueSolarTime && divinationTimeStandard === 'true-solar' ? (
+            <div className="divination-extra-panel divination-time-panel divination-solar-place-panel">
+              <div className="form-row">
+                <div className="form-item">
+                  <label htmlFor="divination-birth-place-input">起局地点</label>
+                  <button
+                    id="divination-birth-place-input"
+                    type="button"
+                    className="form-input address-trigger"
+                    onClick={onOpenBirthPlace}
+                  >
+                    <span>{draft.birthPlace || '请选择起局地点'}</span>
+                    <span className="address-trigger-arrow">选择</span>
+                  </button>
+                  <small className="workspace-ui-field-hint">
+                    按地点经度校正当前时间或自定时间
+                  </small>
+                </div>
+              </div>
+            </div>
           ) : null}
 
           {draft.method !== 'almanac' &&

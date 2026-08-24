@@ -4340,6 +4340,29 @@ select {
   font-weight: 600;
 }
 
+.divination-result-time-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.divination-result-time-context span {
+  color: var(--accent-deep);
+  font-weight: 750;
+}
+
+.divination-result-time-context strong {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.divination-result-time-context small {
+  color: var(--text-muted);
+}
+
 .divination-summary-list {
   display: grid;
   gap: 0;

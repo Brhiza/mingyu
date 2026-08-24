@@ -80,7 +80,7 @@ function DefaultEntryRoute() {
         return <Navigate to={buildDivinationRecordPath(record)} replace />;
       }
     }
-    return <Navigate to="/divination/random" replace />;
+    return <Navigate to="/divination/liuyao" replace />;
   }
   if (legacyMode === 'single') {
     return <Navigate to={buildDefaultFeaturePath('bazi')} replace />;

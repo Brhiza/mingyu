@@ -299,6 +299,18 @@ export function DivinationResult({
         <div className="divination-random-note">本次随机到：{methodLabelMap[session.method]}</div>
       ) : null}
 
+      {session.timeContext?.standard === 'true-solar' ? (
+        <div className="divination-result-time-context" aria-label="本次起局时间口径">
+          <span>真太阳时</span>
+          <strong>
+            {session.timeContext.effectiveDateTime.replace('T', ' ').replace(/:00$/, '')}
+          </strong>
+          {session.timeContext.locationName ? (
+            <small>{session.timeContext.locationName}</small>
+          ) : null}
+        </div>
+      ) : null}
+
       <TraditionalDivinationBoard session={session} />
 
       {session.method === 'liuren' ? <LiurenBoard data={session.data as LiurenData} /> : null}

@@ -4004,6 +4004,48 @@ test('前端占卜草稿可把自定北京时间传给按时间起卦的方法',
   assert.match(session.prompt, /2025年1月1日 8时30分/);
 });
 
+test('按时间起局的占问应使用地点经度校正真太阳时并写入提示词', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'qimen',
+      divinationTimeMode: 'custom',
+      customDivinationDate: '2025-01-01',
+      customDivinationTime: '08:30',
+      divinationTimeStandard: 'true-solar',
+      birthPlace: '新疆维吾尔自治区 喀什地区 喀什市',
+      birthLongitude: '73.5',
+      birthLatitude: '39.47',
+    }),
+  );
+
+  assert.equal(session.timeContext?.standard, 'true-solar');
+  assert.equal(session.timeContext?.clockDateTime, '2025-01-01T08:30:00');
+  assert.notEqual(session.timeContext?.effectiveDateTime, session.timeContext?.clockDateTime);
+  assert.equal(
+    session.data.timestamp,
+    new Date(`${session.timeContext?.effectiveDateTime}+08:00`).getTime(),
+  );
+  assert.match(session.prompt, /【起局时间口径】/);
+  assert.match(session.prompt, /时间口径：真太阳时/);
+  assert.match(session.prompt, /起局地点：新疆维吾尔自治区 喀什地区 喀什市/);
+  assert.match(session.prompt, /校正明细：经度修正/);
+});
+
+test('占问启用真太阳时时必须先选择起局地点', async () => {
+  await assert.rejects(
+    () =>
+      generateDivinationSession(
+        buildDraft({
+          method: 'meihua',
+          divinationTimeStandard: 'true-solar',
+          birthPlace: '',
+          birthLongitude: '',
+        }),
+      ),
+    /使用真太阳时需要选择起局地点/,
+  );
+});
+
 test('前端把求测人基本资料用于解读，并避免与专用出生资料重复', async () => {
   const qimenSession = await generateDivinationSession(
     buildDraft({ method: 'qimen', gender: '男', birthYear: '1989' }),

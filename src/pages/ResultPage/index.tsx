@@ -111,9 +111,8 @@ function FortuneScopePresetSelect(props: {
   disabled?: boolean;
 }) {
   const currentAvailable = props.currentAvailable ?? true;
-  const options: DropdownSelectOption<FortuneScopePreset>[] = [
-    { value: 'default', label: '本命（默认）', triggerLabel: '本命' },
-    ...(props.kind === 'bazi'
+  const currentOptions: DropdownSelectOption<FortuneScopePreset>[] =
+    props.kind === 'bazi'
       ? [
           { value: 'dayun', label: '当前大运', disabled: !currentAvailable },
           { value: 'year', label: '当前流年', disabled: !currentAvailable },
@@ -131,7 +130,10 @@ function FortuneScopePresetSelect(props: {
             { value: 'year', label: '当前流年' },
             { value: 'month', label: '当前流月' },
             { value: 'day', label: '当前流日' },
-          ]),
+          ];
+  const options: DropdownSelectOption<FortuneScopePreset>[] = [
+    { value: 'default', label: '本命（默认）', triggerLabel: '本命' },
+    ...currentOptions,
     {
       value: 'all',
       label: props.kind === 'bazi' ? '全部大运' : props.kind === 'ziwei' ? '完整运限' : '完整行运',

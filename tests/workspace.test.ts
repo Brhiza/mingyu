@@ -35,6 +35,26 @@ test('侧栏分组应覆盖全部工具且不产生重复入口', () => {
   );
 });
 
+test('占问入口应移除随机问事并把牌卡工具放在末尾', () => {
+  const divinationIds = WORKSPACE_FEATURES.filter((item) => item.group === 'divination').map(
+    (item) => item.id,
+  );
+
+  assert.equal(
+    divinationIds.some((id) => String(id) === 'random'),
+    false,
+  );
+  assert.deepEqual(divinationIds.slice(0, 6), [
+    'liuyao',
+    'meihua',
+    'xiaoliuren',
+    'jinkoujue',
+    'qimen',
+    'liuren',
+  ]);
+  assert.deepEqual(divinationIds.slice(-2), ['tarot', 'lenormand']);
+});
+
 test('旧案例的盘面来源应以真实录入类型为准', () => {
   assert.equal(resolvePersonalWorkspaceSource('astrolabe', 'bazi'), 'astrolabe');
   assert.equal(resolvePersonalWorkspaceSource('astrolabe', 'qizheng'), 'qizheng');
