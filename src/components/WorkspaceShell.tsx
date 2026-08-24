@@ -31,6 +31,8 @@ import { isInstantChartType } from '@/lib/instant-chart';
 
 type SidebarView = 'tools' | 'history';
 
+const QUICK_SWITCH_CASE_LIMIT = 5;
+
 function resolveResultFeature(search: string): WorkspaceFeatureId {
   const params = new URLSearchParams(search);
   const input = parseInputState(params);
@@ -99,6 +101,11 @@ export function WorkspaceShell() {
   const [settingsModal, setSettingsModal] = useState<'workspace' | 'ai' | null>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
   const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
+  const [quickSwitchCaseIds, setQuickSwitchCaseIds] = useState<string[]>(() =>
+    selectPersonalCasesForQuickSwitch(cases, activeCaseId, QUICK_SWITCH_CASE_LIMIT).map(
+      (record) => record.id,
+    ),
+  );
   const activeCaseTabRef = useRef<HTMLButtonElement>(null);
   const syncedChartRecordIdRef = useRef<string | null>(null);
   const scrollHideTimersRef = useRef(new Map<HTMLElement, number>());
@@ -130,10 +137,13 @@ export function WorkspaceShell() {
     void historyRevision;
     return loadDivinationHistory();
   }, [historyRevision]);
-  const quickSwitchCases = useMemo(
-    () => selectPersonalCasesForQuickSwitch(cases, activeCaseId),
-    [activeCaseId, cases],
-  );
+  const quickSwitchCases = useMemo(() => {
+    const recordsById = new Map(cases.map((record) => [record.id, record]));
+    return quickSwitchCaseIds.flatMap((id) => {
+      const record = recordsById.get(id);
+      return record ? [record] : [];
+    });
+  }, [cases, quickSwitchCaseIds]);
   const visibleHistories = useMemo(() => {
     const keyword = historySearch.trim().toLowerCase();
     return histories.filter((record) => {
@@ -181,8 +191,41 @@ export function WorkspaceShell() {
   );
 
   useEffect(() => {
+    const availableIds = new Set(cases.map((record) => record.id));
+    const candidateIds = selectPersonalCasesForQuickSwitch(
+      cases,
+      activeCaseId,
+      QUICK_SWITCH_CASE_LIMIT,
+    ).map((record) => record.id);
+
+    setQuickSwitchCaseIds((currentIds) => {
+      let nextIds = currentIds.filter((id) => availableIds.has(id));
+
+      if (nextIds.length === 0) {
+        nextIds = candidateIds;
+      } else {
+        if (activeCaseId && !nextIds.includes(activeCaseId)) {
+          nextIds = [...nextIds.slice(0, Math.max(0, QUICK_SWITCH_CASE_LIMIT - 1)), activeCaseId];
+        }
+        for (const id of candidateIds) {
+          if (nextIds.length >= QUICK_SWITCH_CASE_LIMIT) break;
+          if (!nextIds.includes(id)) nextIds.push(id);
+        }
+      }
+
+      if (
+        nextIds.length === currentIds.length &&
+        nextIds.every((id, index) => id === currentIds[index])
+      ) {
+        return currentIds;
+      }
+      return nextIds;
+    });
+  }, [activeCaseId, cases]);
+
+  useEffect(() => {
     activeCaseTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [activeCaseId]);
+  }, [activeCaseId, quickSwitchCaseIds]);
 
   useEffect(() => {
     if (!chartRecordId) {
