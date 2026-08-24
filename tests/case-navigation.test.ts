@@ -87,7 +87,7 @@ test('按实际工具归一化旧案例中的内部排盘类型', () => {
   assert.deepEqual(normalizeChartInputForSource(legacyInput, 'qizheng'), {
     ...legacyInput,
     chartType: 'astrolabe',
-    useTrueSolarTime: true,
+    useTrueSolarTime: false,
   });
   assert.equal(
     normalizeChartInputForSource({ ...legacyInput, useTrueSolarTime: true }, 'bazi')

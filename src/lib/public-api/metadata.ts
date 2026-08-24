@@ -25,6 +25,7 @@ export const PUBLIC_API_ENDPOINTS = [
   'POST /api/v1/foundation/wuxing',
   'POST /api/v1/foundation/direction',
   'POST /api/v1/foundation/shensha',
+  'POST /api/v1/instant/calculate',
   'POST /api/v1/bazi/calculate',
   'POST /api/v1/bazi/prompt',
   'POST /api/v1/bazi/compatibility',

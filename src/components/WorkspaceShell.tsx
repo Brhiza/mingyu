@@ -27,6 +27,7 @@ import {
   saveWorkspacePreferences,
   type WorkspaceFeatureId,
 } from '@/lib/workspace';
+import { isInstantChartType } from '@/lib/instant-chart';
 
 type SidebarView = 'tools' | 'history';
 
@@ -116,9 +117,7 @@ export function WorkspaceShell() {
       ? buildResultPagePath(location.search)
       : `${location.pathname.replace(/\/assistant$/, '')}${location.search}`;
   const instantResultType = routeSearchParams.get('instant');
-  const isInstantResult =
-    location.pathname === '/result' &&
-    (instantResultType === 'bazi' || instantResultType === 'ziwei');
+  const isInstantResult = location.pathname === '/result' && isInstantChartType(instantResultType);
   const pageTitle =
     isInstantResult && activeFeature
       ? `${getWorkspaceFeature(activeFeature).shortLabel}即时盘`

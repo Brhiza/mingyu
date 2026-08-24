@@ -78,6 +78,14 @@ import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/h
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { PromptWorkbenchPanel } from '@/components/PromptPreview';
 import { normalizeChartInputForSource, preserveChartRecordId } from '@/lib/case-navigation';
+import { isInstantChartType, readInstantTimeStandard } from '@/lib/instant-chart';
+import {
+  buildInstantAstrolabePrompt,
+  buildInstantBaziPrompt,
+  buildInstantBaziZiweiPrompt,
+  buildInstantQizhengPrompt,
+  buildInstantZiweiPrompt,
+} from '@/lib/instant-prompt';
 
 type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
 
@@ -158,6 +166,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const [residentialMeasurement, setResidentialMeasurement] =
     useState<ResidentialMeasurement | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const instantChartType = searchParams.get('instant');
+  const isInstantResult = isInstantChartType(instantChartType);
+  const instantTimeStandard = readInstantTimeStandard(searchParams.get('its'));
+  const instantTimeBasisLabel = instantTimeStandard === 'true-solar' ? '真太阳时' : '北京时间';
   const promptState = useMemo(() => parsePromptState(searchParams), [searchParams]);
   const inputState = useMemo(
     () => normalizeChartInputForSource(parseInputState(searchParams), promptState.promptSource),
@@ -215,10 +227,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const isQizhengPromptSource = promptState.promptSource === 'qizheng';
   const isBazhaiPromptSource = promptState.promptSource === 'bazhai';
   const hasAdjustablePromptScope =
-    ((promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
+    !isInstantResult &&
+    (((promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
       inputState.analysisMode === 'single') ||
-    promptState.promptSource === 'ziwei' ||
-    promptState.promptSource === 'astrolabe';
+      promptState.promptSource === 'ziwei' ||
+      promptState.promptSource === 'astrolabe');
   const viewportSize = useViewportSize({ width: 0, height: 0 });
   const isCompactResultLayout = viewportSize.width > 0 && viewportSize.width < 980;
   const showEmbeddedAssistant = !isAssistantPage && !isCompactResultLayout;
@@ -238,6 +251,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   );
   const shouldLoadBaziPromptModules =
     showAssistantPane &&
+    !isInstantResult &&
     (promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei');
   const [isBaziFortuneModalOpen, setIsBaziFortuneModalOpen] = useState(false);
   const [isZiweiScopeModalOpen, setIsZiweiScopeModalOpen] = useState(false);
@@ -686,7 +700,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       return {
         data: generateAstrolabe({
           name: inputState.name || '本人',
-          gender: inputState.gender === 'female' ? '女' : '男',
+          gender: isInstantResult ? '' : inputState.gender === 'female' ? '女' : '男',
           year: inputState.year,
           month: inputState.month,
           day: inputState.day,
@@ -718,6 +732,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inputState.name,
     inputState.useTrueSolarTime,
     inputState.year,
+    isInstantResult,
     shouldCalculateAstrolabe,
   ]);
   const shouldCalculateQizheng =
@@ -764,6 +779,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
   function computeBaziPromptText(question: string, finalQuestion: string): string {
     if (!showAssistantPane) return '';
+    if (isInstantResult) {
+      return baziResult
+        ? buildInstantBaziPrompt(baziResult, finalQuestion || question, instantTimeBasisLabel)
+        : '';
+    }
     if (inputState.analysisMode === 'compatibility') {
       if (!promptEngine || !baziResult || !partnerBaziResult) return '';
       const compatibilityPrompt = promptEngine.getCompatibilityPrompt(
@@ -801,6 +821,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   );
   function computeZiweiPromptText(question: string): string {
     if (!showAssistantPane) return '';
+    if (isInstantResult) {
+      return currentZiweiPayload
+        ? buildInstantZiweiPrompt(currentZiweiPayload, question, instantTimeBasisLabel)
+        : '';
+    }
     if (inputState.analysisMode === 'compatibility') {
       if (!currentZiweiPayload || !partnerZiweiPayload || !ziweiRuntime || !partnerZiweiRuntime) {
         return '';
@@ -849,16 +874,32 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           );
 
   const enhancedZiweiPromptPack = useMemo(() => {
-    if (!showAssistantPane || promptState.promptSource !== 'bazi-ziwei' || !currentZiweiPayload) {
+    if (
+      isInstantResult ||
+      !showAssistantPane ||
+      promptState.promptSource !== 'bazi-ziwei' ||
+      !currentZiweiPayload
+    ) {
       return '';
     }
 
     const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(activeBaziShortcutMode);
     return buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic);
-  }, [activeBaziShortcutMode, currentZiweiPayload, promptState.promptSource, showAssistantPane]);
+  }, [
+    activeBaziShortcutMode,
+    currentZiweiPayload,
+    isInstantResult,
+    promptState.promptSource,
+    showAssistantPane,
+  ]);
 
   const enhancedBaziPromptPack = useMemo(() => {
-    if (!showAssistantPane || promptState.promptSource !== 'bazi-ziwei' || !baziResult) {
+    if (
+      isInstantResult ||
+      !showAssistantPane ||
+      promptState.promptSource !== 'bazi-ziwei' ||
+      !baziResult
+    ) {
       return '';
     }
 
@@ -869,10 +910,26 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     return [baseText, fullFortuneText ? `【命限资料】\n${fullFortuneText}` : '']
       .filter(Boolean)
       .join('\n\n');
-  }, [baziResult, promptState.baziFortuneScope, promptState.promptSource, showAssistantPane]);
+  }, [
+    baziResult,
+    isInstantResult,
+    promptState.baziFortuneScope,
+    promptState.promptSource,
+    showAssistantPane,
+  ]);
 
   function computeEnhancedPromptText(question: string, finalQuestion: string): string {
     if (!showAssistantPane || inputState.analysisMode !== 'single') return '';
+    if (isInstantResult) {
+      return baziResult && currentZiweiPayload
+        ? buildInstantBaziZiweiPrompt(
+            baziResult,
+            currentZiweiPayload,
+            finalQuestion || question,
+            instantTimeBasisLabel,
+          )
+        : '';
+    }
     if (!baziResult || !enhancedZiweiPromptPack || !enhancedBaziPromptPack) return '';
 
     return buildBaziZiweiEnhancedPrompt({
@@ -1041,6 +1098,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       return '';
     }
 
+    if (isInstantResult) {
+      return buildInstantAstrolabePrompt(
+        astrolabeCalculation.data,
+        effectiveAstrolabeQuickQuestion,
+        instantTimeBasisLabel,
+      );
+    }
+
     return buildDivinationPrompt(
       'astrolabe',
       effectiveAstrolabeQuickQuestion.trim(),
@@ -1058,6 +1123,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     astrolabeScopeContext.promptText,
     astrolabeCalculation.data,
     effectiveAstrolabeQuickQuestion,
+    instantTimeBasisLabel,
+    isInstantResult,
     promptState.astrolabeTopic,
     promptState.promptSource,
     showAssistantPane,
@@ -1073,6 +1140,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
     if (!showAssistantPane || !astrolabeCalculation.data) {
       return '';
+    }
+
+    if (isInstantResult) {
+      return buildInstantAstrolabePrompt(
+        astrolabeCalculation.data,
+        deferredAstrolabeQuestion,
+        instantTimeBasisLabel,
+      );
     }
 
     return buildDivinationPrompt(
@@ -1094,6 +1169,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     deferredAstrolabeQuestion,
     effectiveAstrolabeQuickQuestion,
     latestAstrolabePromptText,
+    instantTimeBasisLabel,
+    isInstantResult,
     promptState.astrolabeTopic,
     promptState.promptSource,
     showAssistantPane,
@@ -1102,10 +1179,18 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     if (!showAssistantPane || promptState.promptSource !== 'qizheng' || !qizhengCalculation.data) {
       return '';
     }
-    return buildMetaphysicsPrompt(qizhengCalculation.data.prompt, metaphysicsQuestionDraft, {
-      method: 'qizheng',
-    });
+    return isInstantResult
+      ? buildInstantQizhengPrompt(
+          qizhengCalculation.data,
+          metaphysicsQuestionDraft,
+          instantTimeBasisLabel,
+        )
+      : buildMetaphysicsPrompt(qizhengCalculation.data.prompt, metaphysicsQuestionDraft, {
+          method: 'qizheng',
+        });
   }, [
+    instantTimeBasisLabel,
+    isInstantResult,
     metaphysicsQuestionDraft,
     promptState.promptSource,
     showAssistantPane,
@@ -1518,6 +1603,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                         title="第一人八字"
                         name={inputState.name || '第一人'}
                         result={baziResult}
+                        isInstant={isInstantResult}
+                        timeBasisLabel={instantTimeBasisLabel}
                       />
                     ) : null}
                     {partnerBaziResult ? (
@@ -1530,9 +1617,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   </div>
                 ) : baziResult ? (
                   <BaziChartBoard
-                    title="八字总览"
-                    name={inputState.name || '当前命盘'}
+                    title={isInstantResult ? '八字即时盘' : '八字总览'}
+                    name={isInstantResult ? '当前时刻' : inputState.name || '当前命盘'}
                     result={baziResult}
+                    isInstant={isInstantResult}
+                    timeBasisLabel={instantTimeBasisLabel}
                   />
                 ) : null}
               </section>
@@ -1551,9 +1640,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               <p className="error-text">{qizhengCalculation.error}</p>
             ) : qizhengCalculation.data ? (
               <QizhengBoard
-                title="七政四余本命盘"
-                name={inputState.name || '本人'}
+                title={isInstantResult ? '七政四余即时盘' : '七政四余本命盘'}
+                name={isInstantResult ? '当前时刻' : inputState.name || '本人'}
                 data={qizhengCalculation.data}
+                isInstant={isInstantResult}
+                timeBasisLabel={instantTimeBasisLabel}
               />
             ) : (
               <InlineSkeleton />
@@ -1603,11 +1694,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 {inputState.analysisMode !== 'compatibility' && !ziweiError ? (
                   ziweiRuntime && primaryZiweiInput && currentZiweiPayload ? (
                     <ZiweiBoard
-                      title="紫微总览"
-                      name={inputState.name || '当前命盘'}
+                      title={isInstantResult ? '紫微即时盘' : '紫微总览'}
+                      name={isInstantResult ? '当前时刻' : inputState.name || '当前命盘'}
                       payload={currentZiweiPayload}
                       chartInput={primaryZiweiInput}
                       runtime={ziweiRuntime}
+                      isInstant={isInstantResult}
+                      timeBasisLabel={instantTimeBasisLabel}
                     />
                   ) : (
                     <ZiweiBoardSkeleton title="紫微总览" name={inputState.name || '当前命盘'} />
@@ -1632,9 +1725,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 ) : null}
                 {astrolabeCalculation.data ? (
                   <AstrolabeBoard
-                    title="星盘总览"
-                    name={astrolabeCalculation.data.birth.name || inputState.name || '当前命盘'}
+                    title={isInstantResult ? '星盘即时盘' : '星盘总览'}
+                    name={
+                      isInstantResult
+                        ? '当前时刻'
+                        : astrolabeCalculation.data.birth.name || inputState.name || '当前命盘'
+                    }
                     data={astrolabeCalculation.data}
+                    isInstant={isInstantResult}
+                    timeBasisLabel={instantTimeBasisLabel}
                   />
                 ) : null}
               </section>
@@ -1736,7 +1835,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={openAssistantPage} />
       ) : null}
 
-      {isBaziFortuneModalOpen && baziResult && inputState.analysisMode === 'single' ? (
+      {!isInstantResult &&
+      isBaziFortuneModalOpen &&
+      baziResult &&
+      inputState.analysisMode === 'single' ? (
         <Suspense fallback={<BaziFortuneLoadingModal />}>
           <LazyBaziFortuneModal
             result={baziResult}

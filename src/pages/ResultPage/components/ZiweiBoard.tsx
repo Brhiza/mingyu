@@ -16,8 +16,10 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
   payload: AnalysisPayloadV1;
   chartInput: ChartInput;
   runtime: NonNullable<ZiweiRuntimeState>;
+  isInstant?: boolean;
+  timeBasisLabel?: string;
 }) {
-  const { title, name, payload, chartInput, runtime } = props;
+  const { title, name, payload, chartInput, runtime, isInstant = false, timeBasisLabel } = props;
   const defaultContext = useMemo(() => getDefaultHoroscopeContext(), []);
   const [selectedScope, setSelectedScope] = useState<ScopeType>(payload.active_scope.scope);
   const [selectedDateStr, setSelectedDateStr] = useState(payload.active_scope.solar_date);
@@ -38,9 +40,12 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
     displayPayload.active_scope.mutagen_map.map((item) => `${item.mutagen} ${item.star}`),
   );
   const detailSummaryTags = selectedPalace
-    ? uniqueNonEmptyStrings(selectedPalace.summary_tags)
+    ? uniqueNonEmptyStrings(selectedPalace.summary_tags).filter(
+        (item) => !isInstant || !item.includes('童限'),
+      )
     : [];
-  const detailScopeHits = selectedPalace ? uniqueNonEmptyStrings(selectedPalace.scope_hits) : [];
+  const detailScopeHits =
+    selectedPalace && !isInstant ? uniqueNonEmptyStrings(selectedPalace.scope_hits) : [];
 
   useEffect(() => {
     setSelectedScope(payload.active_scope.scope);
@@ -95,7 +100,12 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
         <div className="result-chip-row">
           <span className="result-chip">{displayPayload.active_scope.label}</span>
           <span className="result-chip">{displayPayload.basic_info.birth_time_label}</span>
-          <span className="result-chip">{displayPayload.basic_info.gender}</span>
+          {!isInstant ? (
+            <span className="result-chip">{displayPayload.basic_info.gender}</span>
+          ) : null}
+          {isInstant && timeBasisLabel ? (
+            <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
+          ) : null}
         </div>
       </div>
 
@@ -115,11 +125,13 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
           <strong>{displayPayload.basic_info.five_elements_class}</strong>
           <small>{displayPayload.basic_info.zodiac}</small>
         </div>
-        <div className="result-stat-card">
-          <span>当前时限</span>
-          <strong>{displayPayload.active_scope.label}</strong>
-          <small>{displayPayload.active_scope.solar_date}</small>
-        </div>
+        {!isInstant ? (
+          <div className="result-stat-card">
+            <span>当前时限</span>
+            <strong>{displayPayload.active_scope.label}</strong>
+            <small>{displayPayload.active_scope.solar_date}</small>
+          </div>
+        ) : null}
       </div>
 
       <div className="ziwei-layout">
@@ -130,6 +142,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
             name={name}
             selectedPalaceIndex={selectedPalaceIndex}
             onSelectPalace={setSelectedPalaceIndex}
+            isInstant={isInstant}
           />
           {isDisplayPayloadLoading ? (
             <div className="ziwei-board-loading-mask" aria-hidden="true">
@@ -241,17 +254,19 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
             ) : null}
           </div>
 
-          <ZiweiFortuneSelector
-            chartInput={chartInput}
-            payloadByScope={runtime.payloadByScope}
-            decadalTimeline={runtime.decadalTimeline}
-            selectedScope={selectedScope}
-            selectedDateStr={selectedDateStr}
-            onSelectScopeDate={(scope, dateStr) => {
-              setSelectedScope(scope);
-              setSelectedDateStr(dateStr);
-            }}
-          />
+          {!isInstant ? (
+            <ZiweiFortuneSelector
+              chartInput={chartInput}
+              payloadByScope={runtime.payloadByScope}
+              decadalTimeline={runtime.decadalTimeline}
+              selectedScope={selectedScope}
+              selectedDateStr={selectedDateStr}
+              onSelectScopeDate={(scope, dateStr) => {
+                setSelectedScope(scope);
+                setSelectedDateStr(dateStr);
+              }}
+            />
+          ) : null}
         </div>
       </div>
     </section>

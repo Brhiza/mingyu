@@ -5,9 +5,14 @@ import type { useBirthPlace } from '@/hooks/useBirthPlace';
 export interface BirthPlaceModalProps {
   birthPlace: ReturnType<typeof useBirthPlace>;
   backdropClassName?: string;
+  purpose?: 'birth' | 'observer';
 }
 
-function BirthPlaceModalImpl({ birthPlace, backdropClassName = '' }: BirthPlaceModalProps) {
+function BirthPlaceModalImpl({
+  birthPlace,
+  backdropClassName = '',
+  purpose = 'birth',
+}: BirthPlaceModalProps) {
   if (!birthPlace.isBirthPlaceModalOpen) {
     return null;
   }
@@ -20,7 +25,9 @@ function BirthPlaceModalImpl({ birthPlace, backdropClassName = '' }: BirthPlaceM
       onClose={birthPlace.closeBirthPlaceModal}
     >
       <header className="workspace-ui-dialog-header">
-        <h2 id="birth-place-modal-title">选择出生地</h2>
+        <h2 id="birth-place-modal-title">
+          {purpose === 'observer' ? '选择观测地点' : '选择出生地'}
+        </h2>
       </header>
 
       <div className="birth-place-modal workspace-ui-dialog-body">

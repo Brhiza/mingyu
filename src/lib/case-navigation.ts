@@ -35,7 +35,7 @@ export function normalizeChartInputForSource(
     ...input,
     chartType,
     useTrueSolarTime: requiresPreciseBirthData
-      ? true
+      ? input.useTrueSolarTime
       : input.useTrueSolarTime && canKeepTrueSolarTime,
   };
 }

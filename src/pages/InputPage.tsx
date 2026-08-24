@@ -20,9 +20,20 @@ import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { isChartWorkspaceId, type ChartWorkspaceId } from '@/lib/workspace';
+import type { InstantTimeStandard } from 'mingyu-core/instant';
+import {
+  buildFrontendInstantObserver,
+  buildInstantResultPath,
+  getInstantChartTypeForWorkspace,
+  instantChartNeedsObserver,
+} from '@/lib/instant-chart';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
-import { WorkspaceButton, WorkspacePage } from '@/components/workspace/WorkspaceUI';
+import {
+  WorkspaceButton,
+  WorkspaceDialog,
+  WorkspacePage,
+} from '@/components/workspace/WorkspaceUI';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 
 type ChartToolConfig = {
@@ -98,7 +109,7 @@ function createFormForTool(config: ChartToolConfig): QueryInputState {
     ...defaultInputState,
     analysisMode: config.compatibility ? 'compatibility' : 'single',
     chartType: config.chartType,
-    useTrueSolarTime: config.preciseBirthData,
+    useTrueSolarTime: false,
   };
 }
 
@@ -126,7 +137,11 @@ export function InputPage() {
       : createFormForTool(config);
   });
   const [error, setError] = useState('');
+  const [isInstantDialogOpen, setIsInstantDialogOpen] = useState(false);
+  const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
+  const [resumeInstantDialogAfterPlace, setResumeInstantDialogAfterPlace] = useState(false);
   const birthPlace = useBirthPlace({ form, setForm });
+  const instantType = getInstantChartTypeForWorkspace(tool ?? '');
 
   useEffect(() => {
     if (!tool) return;
@@ -139,6 +154,14 @@ export function InputPage() {
         : createFormForTool(nextConfig),
     );
   }, [location.key, searchParams, tool]);
+
+  useEffect(() => {
+    if (!resumeInstantDialogAfterPlace || birthPlace.isBirthPlaceModalOpen) return;
+    if (buildFrontendInstantObserver(form)) {
+      setIsInstantDialogOpen(true);
+    }
+    setResumeInstantDialogAfterPlace(false);
+  }, [birthPlace.isBirthPlaceModalOpen, form, resumeInstantDialogAfterPlace]);
 
   if (!tool) {
     return <Navigate to="/chart/bazi" replace />;
@@ -259,9 +282,46 @@ export function InputPage() {
     });
   }
 
+  function openInstantLocationPicker() {
+    setIsInstantDialogOpen(false);
+    setResumeInstantDialogAfterPlace(true);
+    birthPlace.openBirthPlaceModal('self');
+  }
+
+  function handleInstantSubmit() {
+    if (!instantType) return;
+    setError('');
+    const observer = buildFrontendInstantObserver(form);
+    if (instantChartNeedsObserver(instantType, instantTimeStandard) && !observer) {
+      setError('请先选择观测地点，再使用这一时间口径即时起盘。');
+      openInstantLocationPicker();
+      return;
+    }
+    setIsInstantDialogOpen(false);
+    startSubmitTransition(() => {
+      navigate(
+        buildInstantResultPath({
+          type: instantType,
+          timeStandard: instantTimeStandard,
+          observer,
+        }),
+      );
+    });
+  }
+
   return (
     <div className={`workspace-input-page${config.compatibility ? ' is-compatibility' : ''}`}>
-      <WorkspacePage title={config.label} width={config.compatibility ? 'wide' : 'default'}>
+      <WorkspacePage
+        title={config.label}
+        width={config.compatibility ? 'wide' : 'default'}
+        action={
+          instantType ? (
+            <WorkspaceButton size="small" onClick={() => setIsInstantDialogOpen(true)}>
+              即时起盘
+            </WorkspaceButton>
+          ) : null
+        }
+      >
         <PrivacyHint />
         <div className={`workspace-ui-form-layout${config.compatibility ? ' is-two-column' : ''}`}>
           <PersonForm
@@ -296,7 +356,69 @@ export function InputPage() {
         </div>
       </WorkspacePage>
 
-      {birthPlace.isBirthPlaceModalOpen ? <BirthPlaceModal birthPlace={birthPlace} /> : null}
+      {birthPlace.isBirthPlaceModalOpen ? (
+        <BirthPlaceModal
+          birthPlace={birthPlace}
+          purpose={resumeInstantDialogAfterPlace ? 'observer' : 'birth'}
+        />
+      ) : null}
+      {isInstantDialogOpen && instantType ? (
+        <WorkspaceDialog
+          className="workspace-instant-dialog"
+          labelledBy="workspace-instant-dialog-title"
+          onClose={() => setIsInstantDialogOpen(false)}
+        >
+          <header className="workspace-ui-dialog-header">
+            <div>
+              <h2 id="workspace-instant-dialog-title">即时起盘</h2>
+              <p>以点击起盘时的当前时刻生成，不加入案例。</p>
+            </div>
+          </header>
+          <div className="workspace-ui-dialog-body workspace-instant-dialog-body">
+            <div
+              className="workspace-instant-standard is-dialog"
+              role="group"
+              aria-label="时间口径"
+            >
+              <button
+                type="button"
+                className={instantTimeStandard === 'beijing' ? 'is-active' : ''}
+                aria-pressed={instantTimeStandard === 'beijing'}
+                onClick={() => setInstantTimeStandard('beijing')}
+              >
+                <strong>北京时间</strong>
+                <small>按东八区当前时刻</small>
+              </button>
+              <button
+                type="button"
+                className={instantTimeStandard === 'true-solar' ? 'is-active' : ''}
+                aria-pressed={instantTimeStandard === 'true-solar'}
+                onClick={() => setInstantTimeStandard('true-solar')}
+              >
+                <strong>真太阳时</strong>
+                <small>按地点经度校正</small>
+              </button>
+            </div>
+            {instantChartNeedsObserver(instantType, instantTimeStandard) ? (
+              <button
+                type="button"
+                className="workspace-instant-place is-dialog"
+                onClick={openInstantLocationPicker}
+              >
+                <span>观测地点</span>
+                <strong>{form.birthPlace || '选择地点'}</strong>
+                <span aria-hidden="true">›</span>
+              </button>
+            ) : null}
+          </div>
+          <footer className="workspace-ui-dialog-footer">
+            <WorkspaceButton onClick={() => setIsInstantDialogOpen(false)}>取消</WorkspaceButton>
+            <WorkspaceButton variant="primary" onClick={handleInstantSubmit}>
+              立即起盘
+            </WorkspaceButton>
+          </footer>
+        </WorkspaceDialog>
+      ) : null}
     </div>
   );
 }

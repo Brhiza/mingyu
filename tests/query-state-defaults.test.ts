@@ -10,7 +10,7 @@ import {
   parsePromptState,
 } from '../src/lib/query-state';
 
-test('精准出生资料必须包含真太阳时、时分、地点和经纬度', () => {
+test('精准排盘资料必须包含时分、地点和经纬度，并允许北京时间或真太阳时', () => {
   const complete = {
     ...defaultInputState,
     analysisMode: 'single' as const,
@@ -24,7 +24,8 @@ test('精准出生资料必须包含真太阳时、时分、地点和经纬度',
 
   assert.equal(hasCompletePreciseBirthData(complete), true);
   assert.equal(hasCompletePreciseBirthData({ ...complete, birthMinute: '' }), false);
-  assert.equal(hasCompletePreciseBirthData({ ...complete, useTrueSolarTime: false }), false);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, useTrueSolarTime: false }), true);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, birthPlace: '' }), false);
   assert.equal(hasCompletePreciseBirthData({ ...complete, analysisMode: 'compatibility' }), false);
 });
 

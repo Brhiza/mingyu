@@ -71,13 +71,15 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   title: string;
   name: string;
   result: BaziChartResult;
+  isInstant?: boolean;
+  timeBasisLabel?: string;
 }) {
-  const { title, name, result } = props;
+  const { title, name, result, isInstant = false, timeBasisLabel } = props;
   const missingElements = uniqueNonEmptyStrings(result.wuxingStrength.missing);
   const warnings = uniqueNonEmptyStrings(result.warnings);
   const referenceItems: Array<{ label: string; value: string; detail: string }> = [];
 
-  if (result.mingGua) {
+  if (!isInstant && result.mingGua) {
     referenceItems.push({
       label: '命卦',
       value: `${result.mingGua.gua}${result.mingGua.number}`,
@@ -85,15 +87,20 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
     });
   }
 
-  if (result.mingGong) {
+  if (!isInstant && result.mingGong) {
     referenceItems.push({ label: '命宫', value: result.mingGong, detail: '本命根基' });
   }
 
-  if (result.shenGong) {
+  if (!isInstant && result.shenGong) {
     referenceItems.push({ label: '身宫', value: result.shenGong, detail: '后天着力' });
   }
-  const dayOwnerLabel =
-    result.gender === 'male' ? '元男' : result.gender === 'female' ? '元女' : '';
+  const dayOwnerLabel = isInstant
+    ? '日元'
+    : result.gender === 'male'
+      ? '元男'
+      : result.gender === 'female'
+        ? '元女'
+        : '';
   const pillarRows: Array<{
     label: string;
     values: ReactNode[];
@@ -166,7 +173,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
       )),
       className: 'is-shensha',
     },
-  ];
+  ].filter((row) => !isInstant || row.label !== '神煞');
 
   return (
     <section className="result-showcase-card bazi-showcase-card traditional-chart-layout">
@@ -176,7 +183,10 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           <h2>{name}</h2>
         </div>
         <div className="result-chip-row">
-          <span className="result-chip">{formatGender(result.gender)}</span>
+          {!isInstant ? <span className="result-chip">{formatGender(result.gender)}</span> : null}
+          {isInstant && timeBasisLabel ? (
+            <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
+          ) : null}
           <span className="result-chip">{formatBaziDate(result)}</span>
           <span className="result-chip">{result.timeInfo.name}</span>
         </div>
@@ -193,34 +203,38 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
         </div>
       ) : null}
 
-      <div className="result-summary-grid result-summary-grid-bazi">
-        <div className="result-stat-card result-stat-card-accent">
-          <span>日主</span>
-          <strong>{result.dayMaster.gan}</strong>
-          <small>
-            {result.dayMaster.element} · {result.dayMaster.yinYang}
-          </small>
+      {!isInstant ? (
+        <div className="result-summary-grid result-summary-grid-bazi">
+          <div className="result-stat-card result-stat-card-accent">
+            <span>日主</span>
+            <strong>{result.dayMaster.gan}</strong>
+            <small>
+              {result.dayMaster.element} · {result.dayMaster.yinYang}
+            </small>
+          </div>
+          <div className="result-stat-card">
+            <span>命格</span>
+            <strong>{result.analysis.mingGe.pattern}</strong>
+            <small>{result.analysis.dayMasterStrength.status}</small>
+          </div>
+          <div className="result-stat-card">
+            <span>核心用神</span>
+            <strong>
+              {result.analysis.usefulGod.primaryUseful ||
+                result.analysis.usefulGod.useful ||
+                '待定'}
+            </strong>
+            <small>{formatUsefulGodPrioritySummary(result)}</small>
+          </div>
+          <div className="result-stat-card">
+            <span>核心忌神</span>
+            <strong>
+              {result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '待定'}
+            </strong>
+            <small>{formatAvoidGodPrioritySummary(result)}</small>
+          </div>
         </div>
-        <div className="result-stat-card">
-          <span>命格</span>
-          <strong>{result.analysis.mingGe.pattern}</strong>
-          <small>{result.analysis.dayMasterStrength.status}</small>
-        </div>
-        <div className="result-stat-card">
-          <span>核心用神</span>
-          <strong>
-            {result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '待定'}
-          </strong>
-          <small>{formatUsefulGodPrioritySummary(result)}</small>
-        </div>
-        <div className="result-stat-card">
-          <span>核心忌神</span>
-          <strong>
-            {result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '待定'}
-          </strong>
-          <small>{formatAvoidGodPrioritySummary(result)}</small>
-        </div>
-      </div>
+      ) : null}
 
       <div className="bazi-core-layout">
         <div className="bazi-pillars-card">
@@ -288,9 +302,11 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             </div>
           ) : null}
 
-          <Suspense fallback={<BaziFortuneLoadingCard />}>
-            <LazyBaziFortuneSelector result={result} />
-          </Suspense>
+          {!isInstant ? (
+            <Suspense fallback={<BaziFortuneLoadingCard />}>
+              <LazyBaziFortuneSelector result={result} />
+            </Suspense>
+          ) : null}
         </div>
       </div>
     </section>

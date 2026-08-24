@@ -25,6 +25,7 @@ import { registerXuanKongTool } from './tools/xuan_kong.js';
 import { registerResidentialFengshuiTool } from './tools/residential_fengshui.js';
 import { registerFoundationTools } from './tools/foundation.js';
 import { registerCalendarTools } from './tools/calendar.js';
+import { registerInstantTool } from './tools/instant.js';
 
 const server = new McpServer(
   {
@@ -64,6 +65,7 @@ registerXuanKongTool(server);
 registerResidentialFengshuiTool(server);
 registerFoundationTools(server);
 registerCalendarTools(server);
+registerInstantTool(server);
 
 const transport = new StdioServerTransport();
 

@@ -151,7 +151,7 @@ export function WorkspacePage({
   return (
     <div {...props} className={joinClassNames('workspace-ui-screen', `is-${width}`, className)}>
       {title || action ? (
-        <header className="workspace-ui-page-header">
+        <header className={`workspace-ui-page-header${action ? ' has-action' : ''}`}>
           {title ? <h1>{title}</h1> : <span />}
           {action}
         </header>

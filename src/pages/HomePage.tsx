@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
-import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import {
-  buildChartFeaturePathForCase,
-  buildChartRecordPath,
-  buildDivinationRecordPath,
-} from '@/lib/case-navigation';
+  INSTANT_CHART_DEFINITIONS,
+  type InstantChartType,
+  type InstantTimeStandard,
+} from 'mingyu-core/instant';
+import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
+import { useBirthPlace } from '@/hooks/useBirthPlace';
+import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
 import { HISTORY_RECORDS_EVENT, loadDivinationHistory } from '@/lib/history-records';
-import { defaultInputState, defaultPromptState, type QueryInputState } from '@/lib/query-state';
+import { defaultInputState, type QueryInputState } from '@/lib/query-state';
+import {
+  buildFrontendInstantObserver,
+  buildInstantResultPath,
+  instantChartNeedsObserver,
+} from '@/lib/instant-chart';
 import {
   WORKSPACE_PREFERENCES_EVENT,
   buildWorkspaceFeaturePath,
@@ -18,9 +24,9 @@ import {
   readWorkspacePreferences,
   type WorkspaceFeatureId,
 } from '@/lib/workspace';
+import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 
 type HomeMode = 'chart' | 'divination' | 'instant';
-type InstantGender = QueryInputState['gender'];
 
 const homeModes: Array<{ id: HomeMode; label: string; mark: string }> = [
   { id: 'chart', label: '排盘', mark: '盘' },
@@ -34,26 +40,6 @@ function formatRecentDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date);
 }
 
-function formatLocalDate(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate(),
-  ).padStart(2, '0')}`;
-}
-
-function buildInstantInput(now: Date, gender: InstantGender, chartType: 'bazi' | 'ziwei') {
-  return {
-    ...defaultInputState,
-    name: chartType === 'bazi' ? '八字即时盘' : '紫微即时盘',
-    gender,
-    chartType,
-    dateType: 'solar' as const,
-    year: String(now.getFullYear()),
-    month: String(now.getMonth() + 1),
-    day: String(now.getDate()),
-    timeIndex: getTimeIndexFromClock(now.getHours(), now.getMinutes()),
-  };
-}
-
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -61,8 +47,11 @@ export function HomePage() {
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [historyRevision, setHistoryRevision] = useState(0);
   const [isMoreDivinationOpen, setIsMoreDivinationOpen] = useState(false);
-  const [instantGender, setInstantGender] = useState<InstantGender>('male');
+  const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
+  const [instantPlaceForm, setInstantPlaceForm] = useState<QueryInputState>(defaultInputState);
+  const [pendingInstantType, setPendingInstantType] = useState<InstantChartType | null>(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  const instantBirthPlace = useBirthPlace({ form: instantPlaceForm, setForm: setInstantPlaceForm });
   const requestedMode = searchParams.get('section');
   const defaultMode: HomeMode = isDivinationWorkspaceId(preferences.defaultFeature)
     ? 'divination'
@@ -107,6 +96,27 @@ export function HomePage() {
     return () => window.clearInterval(timer);
   }, [activeMode]);
 
+  useEffect(() => {
+    if (!pendingInstantType || instantBirthPlace.isBirthPlaceModalOpen) return;
+    const observer = buildFrontendInstantObserver(instantPlaceForm);
+    if (!observer) return;
+    const type = pendingInstantType;
+    setPendingInstantType(null);
+    navigate(
+      buildInstantResultPath({
+        type,
+        timeStandard: instantTimeStandard,
+        observer,
+      }),
+    );
+  }, [
+    instantBirthPlace.isBirthPlaceModalOpen,
+    instantPlaceForm,
+    instantTimeStandard,
+    navigate,
+    pendingInstantType,
+  ]);
+
   function selectMode(mode: HomeMode) {
     const next = new URLSearchParams(searchParams);
     next.set('section', mode);
@@ -122,20 +132,20 @@ export function HomePage() {
     );
   }
 
-  function openInstantChart(chartType: 'bazi' | 'ziwei') {
-    const now = new Date();
-    const input = buildInstantInput(now, instantGender, chartType);
-    const path = buildChartRecordPath(input, {
-      ...defaultPromptState,
-      tab: chartType,
-      promptSource: chartType,
-      ziweiScope: chartType === 'ziwei' ? 'hourly' : defaultPromptState.ziweiScope,
-      ziweiScopeDate: chartType === 'ziwei' ? formatLocalDate(now) : '',
-    });
-    const [pathname, search = ''] = path.split('?');
-    const params = new URLSearchParams(search);
-    params.set('instant', chartType);
-    navigate(`${pathname}?${params.toString()}`);
+  function openInstantChart(type: InstantChartType) {
+    const observer = buildFrontendInstantObserver(instantPlaceForm);
+    if (instantChartNeedsObserver(type, instantTimeStandard) && !observer) {
+      setPendingInstantType(type);
+      instantBirthPlace.openBirthPlaceModal('self');
+      return;
+    }
+    navigate(
+      buildInstantResultPath({
+        type,
+        timeStandard: instantTimeStandard,
+        observer,
+      }),
+    );
   }
 
   const modeHeading =
@@ -311,57 +321,61 @@ export function HomePage() {
                 })}
               </span>
             </div>
-            <div className="workspace-instant-gender" role="group" aria-label="起盘性别">
-              <span>性别</span>
+            <div className="workspace-instant-standard" role="group" aria-label="时间口径">
+              <span>时间口径</span>
               <button
                 type="button"
-                className={instantGender === 'male' ? 'is-active' : ''}
-                aria-pressed={instantGender === 'male'}
-                onClick={() => setInstantGender('male')}
+                className={instantTimeStandard === 'beijing' ? 'is-active' : ''}
+                aria-pressed={instantTimeStandard === 'beijing'}
+                onClick={() => setInstantTimeStandard('beijing')}
               >
-                男
+                北京时间
               </button>
               <button
                 type="button"
-                className={instantGender === 'female' ? 'is-active' : ''}
-                aria-pressed={instantGender === 'female'}
-                onClick={() => setInstantGender('female')}
+                className={instantTimeStandard === 'true-solar' ? 'is-active' : ''}
+                aria-pressed={instantTimeStandard === 'true-solar'}
+                onClick={() => setInstantTimeStandard('true-solar')}
               >
-                女
+                真太阳时
               </button>
             </div>
+            {instantTimeStandard === 'true-solar' ? (
+              <button
+                type="button"
+                className="workspace-instant-place"
+                onClick={() => instantBirthPlace.openBirthPlaceModal('self')}
+              >
+                <span>观测地点</span>
+                <strong>{instantPlaceForm.birthPlace || '选择地点'}</strong>
+                <span aria-hidden="true">›</span>
+              </button>
+            ) : null}
             <div className="workspace-instant-grid">
-              <button type="button" onClick={() => openInstantChart('bazi')}>
-                <span className="workspace-instant-mark" aria-hidden="true">
-                  八
-                </span>
-                <span>
-                  <strong>八字即时盘</strong>
-                  <small>以当前时刻排四柱盘</small>
-                </span>
-                <span className="workspace-home-arrow" aria-hidden="true">
-                  ›
-                </span>
-              </button>
-              <button type="button" onClick={() => openInstantChart('ziwei')}>
-                <span className="workspace-instant-mark" aria-hidden="true">
-                  紫
-                </span>
-                <span>
-                  <strong>紫微即时盘</strong>
-                  <small>紫占 · 以当前时刻起盘</small>
-                </span>
-                <span className="workspace-home-arrow" aria-hidden="true">
-                  ›
-                </span>
-              </button>
+              {INSTANT_CHART_DEFINITIONS.map((item) => (
+                <button type="button" key={item.type} onClick={() => openInstantChart(item.type)}>
+                  <span className="workspace-instant-mark" aria-hidden="true">
+                    {item.mark}
+                  </span>
+                  <span>
+                    <strong>{item.label}</strong>
+                    <small>{item.description}</small>
+                  </span>
+                  <span className="workspace-home-arrow" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+              ))}
             </div>
             <p className="workspace-instant-note">
-              即时盘不会加入案例，重新起盘会读取新的当前时间。
+              即时盘只记录当前时刻，不加入案例；星盘与七政四余仍需观测地点。
             </p>
           </div>
         ) : null}
       </div>
+      {instantBirthPlace.isBirthPlaceModalOpen ? (
+        <BirthPlaceModal birthPlace={instantBirthPlace} purpose="observer" />
+      ) : null}
     </div>
   );
 }

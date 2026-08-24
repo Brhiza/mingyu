@@ -25,8 +25,16 @@ export function ZiweiTraditionalBoard(props: {
   name: string;
   selectedPalaceIndex: number;
   onSelectPalace: (index: number) => void;
+  isInstant?: boolean;
 }) {
-  const { payload, boardTitle, name, selectedPalaceIndex, onSelectPalace } = props;
+  const {
+    payload,
+    boardTitle,
+    name,
+    selectedPalaceIndex,
+    onSelectPalace,
+    isInstant = false,
+  } = props;
   const selectedPalace =
     payload.palaces.find((item) => item.index === selectedPalaceIndex) ?? payload.palaces[0];
   const palaceMap = new Map(payload.palaces.map((item) => [item.index, item]));
@@ -41,10 +49,14 @@ export function ZiweiTraditionalBoard(props: {
     .map((palace) => ZIWEI_PALACE_CENTER[palace.index])
     .filter((point): point is readonly [number, number] => Boolean(point));
   const trianglePoints = selectedPoint ? [selectedPoint, ...trinePoints].slice(0, 3) : [];
-  const centerFocusTags = uniqueNonEmptyStrings(selectedPalace.scope_hits).slice(0, 2);
+  const centerFocusTags = isInstant
+    ? []
+    : uniqueNonEmptyStrings(selectedPalace.scope_hits).slice(0, 2);
   const centerSummaryTags =
     centerFocusTags.length === 0
-      ? uniqueNonEmptyStrings(selectedPalace.summary_tags).slice(0, 2)
+      ? uniqueNonEmptyStrings(selectedPalace.summary_tags)
+          .filter((item) => !isInstant || !item.includes('童限'))
+          .slice(0, 2)
       : [];
   const fourPillars = payload.basic_info.four_pillars
     ? [
@@ -118,17 +130,17 @@ export function ZiweiTraditionalBoard(props: {
                   <div className="ziwei-board-center-head chart-center-head">
                     <div className="chart-center-scope">{payload.active_scope.label}</div>
                     <div className="chart-center-age">
-                      {payload.active_scope.nominal_age > 0
+                      {!isInstant && payload.active_scope.nominal_age > 0
                         ? `${payload.active_scope.nominal_age} 岁`
-                        : '本命盘'}
+                        : isInstant
+                          ? '即时盘'
+                          : '本命盘'}
                     </div>
                   </div>
                   <div className="chart-center-info">
                     <div className="chart-center-info-row chart-center-info-wide">
                       <span>命盘</span>
-                      <strong>
-                        {name} · {payload.basic_info.gender}
-                      </strong>
+                      <strong>{isInstant ? name : `${name} · ${payload.basic_info.gender}`}</strong>
                     </div>
                     <div className="chart-center-info-row">
                       <span>生肖</span>
@@ -231,8 +243,8 @@ export function ZiweiTraditionalBoard(props: {
             const isSurrounded = surroundedIndexSet.has(palace.index);
             const footerBadges = uniqueNonEmptyStrings([
               palace.dynamic_scope_name,
-              palace.changsheng12 ? `长生 ${palace.changsheng12}` : '',
-              palace.boshi12 ? `博士 ${palace.boshi12}` : '',
+              !isInstant && palace.changsheng12 ? `长生 ${palace.changsheng12}` : '',
+              !isInstant && palace.boshi12 ? `博士 ${palace.boshi12}` : '',
               palace.base_jiangqian12 ? `将前 ${palace.base_jiangqian12}` : '',
               palace.base_suiqian12 ? `岁前 ${palace.base_suiqian12}` : '',
               payload.active_scope.scope === 'origin' || !palace.yearly_jiangqian12

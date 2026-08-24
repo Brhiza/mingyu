@@ -69,6 +69,12 @@ import {
   serializeCoreResult,
   type CoreExecutionResult,
 } from '../shared/result';
+import {
+  calculateInstantChart,
+  type InstantChartRequest,
+  type InstantChartResponse,
+  type InstantChartType,
+} from '../instant';
 
 export interface MingyuClientDefaults {
   birth?: BirthChartBundleOptions;
@@ -82,6 +88,9 @@ export interface MingyuClientOptions {
 }
 
 export interface MingyuSafeClient {
+  instant<T extends InstantChartType>(
+    request: InstantChartRequest<T>,
+  ): Promise<CoreExecutionResult<InstantChartResponse<T>>>;
   birth(
     profile: BirthProfile,
     options?: BirthChartBundleOptions,
@@ -118,6 +127,10 @@ export interface MingyuSafeClient {
 }
 
 export interface MingyuClient {
+  /** 按调用当刻生成不绑定个人性别的即时盘。 */
+  instant<T extends InstantChartType>(
+    request: InstantChartRequest<T>,
+  ): Promise<InstantChartResponse<T>>;
   birth(profile: BirthProfile, options?: BirthChartBundleOptions): Promise<BirthChartBundle>;
   compatibility(
     primary: BirthProfile,
@@ -208,6 +221,8 @@ function mergeSynthesisOptions(
  * API、表单、工作流和跨进程调用，返回值可以直接序列化。
  */
 export function createMingyuClient(options: MingyuClientOptions = {}): MingyuClient {
+  const instant = <T extends InstantChartType>(request: InstantChartRequest<T>) =>
+    calculateInstantChart(request);
   const birth = (profile: BirthProfile, callOptions?: BirthChartBundleOptions) =>
     calculateBirthChartBundle(profile, mergeBirthOptions(options.defaults?.birth, callOptions));
   const compatibility = (
@@ -248,6 +263,7 @@ export function createMingyuClient(options: MingyuClientOptions = {}): MingyuCli
   const serialize = (value: unknown) => serializeCoreResult(value);
 
   return {
+    instant,
     birth,
     compatibility,
     baziZiwei,
@@ -270,6 +286,7 @@ export function createMingyuClient(options: MingyuClientOptions = {}): MingyuCli
     capability,
     serialize,
     safe: {
+      instant: (request) => executeSafely(() => instant(request)),
       birth: (profile, callOptions) => executeSafely(() => birth(profile, callOptions)),
       compatibility: (primary, partner, callOptions) =>
         executeSafely(() => compatibility(primary, partner, callOptions)),

@@ -169,6 +169,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/wuxing'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/direction'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/shensha'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/instant/calculate'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/astrolabe/prompt'));
@@ -179,6 +180,58 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/ai/analyze'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/ai/models'));
   assert.ok(body.data.endpoints.includes('GET /.well-known/aov-mingyu-api.json'));
+});
+
+test('公开 API 即时盘应按固定时刻返回无性别的北京时间八字盘', async () => {
+  const { response, body } = await callApi('instant/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'bazi',
+      timeStandard: 'beijing',
+      customDate: '2026-08-24T12:30:00+08:00',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.type, 'bazi');
+  assert.deepEqual(body.data.wallClock, {
+    year: 2026,
+    month: 8,
+    day: 24,
+    hour: 12,
+    minute: 30,
+  });
+  assert.equal('gender' in body.data.result, false);
+  assert.equal('luckInfo' in body.data.result, false);
+});
+
+test('公开 API 真太阳时即时盘缺少地点时应明确拒绝', async () => {
+  const { response, body } = await callApi('instant/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'ziwei', timeStandard: 'true-solar' }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.match(body.error.message, /观测地点/);
+});
+
+test('公开 API OpenAPI 应公开即时盘类型与两种时间口径', async () => {
+  const { body } = await callApi('openapi.json');
+  const schema = body.data.components.schemas.InstantChartRequest;
+
+  assert.deepEqual(schema.properties.type.enum, [
+    'bazi',
+    'ziwei',
+    'bazi-ziwei',
+    'astrolabe',
+    'qizheng',
+  ]);
+  assert.deepEqual(schema.properties.timeStandard.enum, ['beijing', 'true-solar']);
+  assert.ok(body.data.paths['/instant/calculate']);
 });
 
 test('公开 API 八字双盘应返回交叉证据与完整提示词', async () => {

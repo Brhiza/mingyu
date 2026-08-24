@@ -198,7 +198,6 @@ export function hasCompletePreciseBirthData(
 ) {
   return (
     input.analysisMode === 'single' &&
-    input.useTrueSolarTime &&
     input.birthHour !== '' &&
     input.birthMinute !== '' &&
     input.birthPlace.trim() !== '' &&

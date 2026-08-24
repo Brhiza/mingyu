@@ -1,6 +1,6 @@
 ---
 name: aov-mingyu-api
-description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学排盘、合婚、抽牌、求签、风水、择日、真太阳时换算和一站式提示词任务。适用于用户用日常说法提出的“帮我算命”“看看今年运势”“占卜这件事能不能成”“用玄学分析”“帮我们合婚”“抽塔罗牌”“选个好日子”，也支持八字、紫微斗数、六爻、梅花易数、奇门遁甲、大六壬、星盘、七政四余等专业名称。
+description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、占卜、玄学排盘、合婚、抽牌、求签、风水、择日、真太阳时换算和一站式提示词任务。适用于用户用日常说法提出的“帮我算命”“现在起盘”“看看今年运势”“占卜这件事能不能成”“用玄学分析”“帮我们合婚”“抽塔罗牌”“选个好日子”，也支持八字、紫微斗数、紫占、六爻、梅花易数、奇门遁甲、大六壬、星盘、七政四余等专业名称。
 ---
 
 # AOV 命理与占卜 API
@@ -46,11 +46,13 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 - “抽牌、求签、给点启发”：使用塔罗、雷诺曼或三山国王灵签。
 - “选好日子、黄道吉日”：使用黄历择日。
 - “看家里风水、住宅方位”：使用住宅风水合参。
+- “现在起盘、即时盘、紫占”：使用即时排盘；它不需要性别，也不等同于六爻、梅花等占卜。
 
 ## 工作流
 
 1. 先读取 `GET /manifest` 或 `GET /openapi.json` 确认接口能力。
-2. 只需要结构化数据时，调用 `/calculate` 或 `/divination/{method}` 排盘接口。
+2. 用户明确要求当前时刻排命盘时，调用 `POST /instant/calculate`；不要把占卜方法混进即时盘。
+3. 只需要结构化数据时，调用 `/calculate` 或 `/divination/{method}` 排盘接口。
 3. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口并传 `responseMode: "prompt-only"`，只读取 `data.prompt`。只有确实需要向用户展示结构化盘面时才改用 `summary`，需要完整原始排盘时才改用 `full`。
 4. 同一人需要“先八字定主线、再紫微校验”的深度解读时，优先调用 `/bazi-ziwei/prompt`，不要分别调用八字和紫微后自行拼接提示词。
 5. 向用户展示结果时，说明这是排盘和提示词数据，不替代医疗、法律、投资等专业建议。
@@ -63,6 +65,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 
 默认决策：
 
+- 用户明确说“现在起盘”“即时盘”“八字即时盘”或“紫占”：调用 `POST /instant/calculate`。无需性别；不传 `customDate` 即读取调用当刻。默认 `timeStandard: "beijing"`，用户明确要求真太阳时时改为 `true-solar` 并补齐观测地点。
 - 有完整出生信息，且用户问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势、某年某阶段走势：优先调用 `POST /bazi-ziwei/prompt`。这是深度解读的首选方案，用八字定主线，用紫微校验宫位、四化和运限。
 - 用户明确只要八字：调用 `POST /bazi/prompt`。长期或完整阶段分析用 `baziFortuneScope: "full"`；指定年份、月份、日期时用对应范围。
 - 用户明确只要紫微：调用 `POST /ziwei/prompt`。长期或完整阶段分析用 `promptScope: "full"`；指定年份、月份、日期时用 `yearly`、`monthly`、`daily` 或 `hourly`。
@@ -77,6 +80,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 
 | 问题类型                       | 首选接口                                     | 关键参数                                                                    |
 | ------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------- |
+| 现在起盘、即时盘、紫占         | `POST /instant/calculate`                    | `type`、`timeStandard`、真太阳时或星盘类再传 `observer`                     |
 | 整体人生、长期事业、财运、婚恋 | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `"origin"`  |
 | 今年运势、当前阶段、某年趋势   | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题按事业、财运、感情等选择                       |
 | 换工作、创业、合伙、投资       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`               |
@@ -115,6 +119,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 - `POST /foundation/wuxing`：统计天干地支五行分布，可选计入藏干权重。
 - `POST /foundation/direction`：把罗盘度数换算为二十四山坐向、后天八卦与分界状态。
 - `POST /foundation/shensha`：严格核验完整四柱，返回空亡、驿马、桃花的起法、目标地支、命中柱位、来源声明与解释限制。
+- `POST /instant/calculate`：按调用当刻生成八字、紫微、八字紫微合参、星盘或七政四余即时盘，不需要性别。
 - `POST /bazi/calculate`：八字排盘。
 - `POST /bazi/prompt`：八字排盘并生成结构化 AI 解读提示词。
 - `POST /bazi/compatibility`：八字双盘日主、日支、四柱交叉关系、双向十神、喜忌覆盖与证据计算。
@@ -151,6 +156,24 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。
 
 ## 请求示例
+
+北京时间八字即时盘：
+
+```bash
+curl -X POST https://aov.cc/api/v1/instant/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"type":"bazi","timeStandard":"beijing"}'
+```
+
+真太阳时紫微即时盘：
+
+```bash
+curl -X POST https://aov.cc/api/v1/instant/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"type":"ziwei","timeStandard":"true-solar","observer":{"locationName":"北京市东城区","longitude":116.416,"latitude":39.929,"timezone":8,"timeZoneId":"Asia/Shanghai"}}'
+```
+
+即时排盘的 `type` 只支持 `bazi`、`ziwei`、`bazi-ziwei`、`astrolabe`、`qizheng`。星盘和七政四余无论采用哪种时间口径都需要 `observer`；真太阳时模式至少需要经度及 `timezone` 或 `timeZoneId`。需要复盘时可传带时区的 `customDate`，不传时读取请求到达的当前时刻。
 
 八字排盘：
 

@@ -1438,6 +1438,16 @@ label.workspace-ui-field > span:first-child {
     display: none;
   }
 
+  .workspace-input-page .workspace-ui-page-header.has-action {
+    min-height: 34px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .workspace-input-page .workspace-ui-page-header.has-action h1 {
+    display: none;
+  }
+
   .workspace-ui-surface,
   .workspace-ui-form-surface {
     padding: 14px;

@@ -925,21 +925,21 @@
   font-size: 12px;
 }
 
-.workspace-instant-gender {
+.workspace-instant-standard {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
 }
 
-.workspace-instant-gender > span {
+.workspace-instant-standard > span {
   margin-right: 5px;
   color: var(--text-muted);
   font-size: 11px;
 }
 
-.workspace-instant-gender button {
-  min-width: 54px;
+.workspace-instant-standard button {
+  min-width: 82px;
   min-height: 32px;
   border: 0;
   border-radius: 9px;
@@ -950,15 +950,93 @@
   cursor: pointer;
 }
 
-.workspace-instant-gender button.is-active {
+.workspace-instant-standard button.is-active {
   background: var(--accent-surface);
   color: var(--accent-deep);
+}
+
+.workspace-instant-place {
+  width: min(360px, 100%);
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-self: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.workspace-instant-place strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-instant-dialog {
+  width: min(430px, calc(100vw - 28px));
+}
+
+.workspace-instant-dialog .workspace-ui-dialog-header p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.workspace-instant-dialog-body {
+  display: grid;
+  gap: 12px;
+}
+
+.workspace-instant-standard.is-dialog {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workspace-instant-standard.is-dialog button {
+  min-height: 66px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid var(--border-soft);
+}
+
+.workspace-instant-standard.is-dialog button.is-active {
+  border-color: var(--accent-border);
+}
+
+.workspace-instant-standard.is-dialog strong,
+.workspace-instant-standard.is-dialog small {
+  display: block;
+}
+
+.workspace-instant-standard.is-dialog small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.workspace-instant-place.is-dialog {
+  width: 100%;
 }
 
 .workspace-instant-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
+}
+
+.workspace-instant-grid > button:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .workspace-instant-grid > button {

@@ -90,6 +90,14 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['calendar_astronomical_time', { year: 2000, month: 1, day: 1, hour: 12, timezone: 0 }],
   ['calendar_moon_phase', { utcDateTime: '2024-06-21T12:00:00Z' }],
   ['calendar_solar_term', { year: 2024, index: 12 }],
+  [
+    'instant_chart',
+    {
+      type: 'bazi',
+      timeStandard: 'beijing',
+      customDate: '2026-08-24T12:30:00+08:00',
+    },
+  ],
   ['divine_qimen', {}],
   [
     'divine_almanac',
@@ -429,7 +437,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 60);
+    assert.equal(tools.length, 61);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -448,6 +456,7 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
+    assert.ok(tools.find((tool) => tool.name === 'instant_chart'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_residential'));
     assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));
@@ -472,6 +481,34 @@ test('MCP 工具列表应声明输出结构', async () => {
       );
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.prompt);
     }
+  });
+});
+
+test('MCP 即时盘不需要性别并应区分北京时间与真太阳时', async () => {
+  await withMcpClient(async (client) => {
+    const beijing = await client.callTool({
+      name: 'instant_chart',
+      arguments: {
+        type: 'bazi',
+        timeStandard: 'beijing',
+        customDate: '2026-08-24T12:30:00+08:00',
+        detailMode: 'full',
+      },
+    });
+    assert.equal(beijing.isError, undefined);
+    const response = beijing.structuredContent?.result as {
+      timeStandard: string;
+      result: Record<string, unknown>;
+    };
+    assert.equal(response.timeStandard, 'beijing');
+    assert.equal('gender' in response.result, false);
+    assert.equal('luckInfo' in response.result, false);
+
+    const missingObserver = await client.callTool({
+      name: 'instant_chart',
+      arguments: { type: 'ziwei', timeStandard: 'true-solar' },
+    });
+    assert.equal(missingObserver.isError, true);
   });
 });
 

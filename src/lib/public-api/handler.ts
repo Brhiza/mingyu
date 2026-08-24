@@ -20,6 +20,11 @@ import {
 import { buildZiweiChartInput, calculatePublicZiweiChartForScopes } from 'mingyu-core/ziwei';
 import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import {
+  INSTANT_CHART_TYPES,
+  calculateInstantChart,
+  type InstantObserver,
+} from 'mingyu-core/instant';
+import {
   daysInSolarMonth,
   getBirthDateValidationMessage,
   isValidIsoDateTime,
@@ -591,6 +596,19 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/instant/calculate': {
+        post: {
+          summary: '按当前时刻生成即时盘',
+          description:
+            '即时盘只面向排盘，不包含占卜。支持八字、紫微、八字紫微合参、星盘和七政四余；不传 customDate 时使用请求到达时刻。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/InstantChartRequest'),
+          responses: {
+            '200': {
+              description: '无个人性别字段的即时盘、实际起盘时刻、时间口径与观测地点。',
+            },
+          },
+        },
+      },
       '/bazi/calculate': {
         post: {
           summary: '八字排盘',
@@ -978,6 +996,42 @@ export function getPublicApiOpenApiDocument(
     },
     components: {
       schemas: {
+        InstantChartRequest: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              enum: [...INSTANT_CHART_TYPES],
+              description: '即时排盘类型；不接受六爻、梅花等占卜方法。',
+            },
+            timeStandard: {
+              enum: ['beijing', 'true-solar'],
+              default: 'beijing',
+              description: 'beijing=北京时间；true-solar=按观测地点换算真太阳时。',
+            },
+            customDate: {
+              type: 'string',
+              format: 'date-time',
+              description: '可选的可重放时刻，必须带 Z 或时区偏移；不传即使用当前时刻。',
+              example: '2026-08-24T12:30:00+08:00',
+            },
+            observer: {
+              type: 'object',
+              description:
+                '真太阳时必须提供；星盘与七政四余在两种时间口径下都必须提供经纬度和时区。',
+              required: ['longitude'],
+              properties: {
+                locationName: { type: 'string', example: '北京市东城区' },
+                longitude: { type: 'number', minimum: -180, maximum: 180 },
+                latitude: { type: 'number', minimum: -90, maximum: 90 },
+                timezone: { type: 'number', minimum: -12, maximum: 14 },
+                timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
+              },
+            },
+            ziweiAlgorithm: { enum: ['default', 'zhongzhou'], default: 'default' },
+            detailMode: { enum: [...DETAIL_MODES], default: 'full' },
+          },
+        },
         TrueSolarTimeRequest: {
           type: 'object',
           required: ['localDateTime', 'longitude'],
@@ -1743,6 +1797,8 @@ async function route(context: RouteContext) {
       return calculateFoundationDirection(await readJson(context.request));
     case 'foundation/shensha':
       return calculateFoundationShensha(await readJson(context.request));
+    case 'instant/calculate':
+      return calculateApiResult(context.request, calculateInstantChartApi);
     case 'bazi/calculate':
       return calculateApiResult(context.request, calculateBaziApi);
     case 'bazi/prompt':
@@ -1855,6 +1911,55 @@ async function calculateApiResult(
   const input = await readJson(request, optionalBody);
   const result = await calculate(input);
   return shapeCalculationResult(result, readDetailMode(input));
+}
+
+async function calculateInstantChartApi(input: JsonRecord) {
+  const type = readEnum(input, 'type', INSTANT_CHART_TYPES);
+  const timeStandard = readEnum(
+    input,
+    'timeStandard',
+    ['beijing', 'true-solar'] as const,
+    'beijing',
+  );
+  const ziweiAlgorithm = readOptionalEnum(input, 'ziweiAlgorithm', [
+    'default',
+    'zhongzhou',
+  ] as const);
+  let observer: InstantObserver | undefined;
+  if (input.observer !== undefined) {
+    if (!isRecord(input.observer)) {
+      throw new ApiError(400, 'BAD_REQUEST', 'observer 必须是 JSON 对象。');
+    }
+    const value = input.observer;
+    const latitude = optNumber(value, 'latitude', -90, 90);
+    const timezone = optNumber(value, 'timezone', -12, 14);
+    const timeZoneId = readString(value, 'timeZoneId', '').trim();
+    const locationName = readString(value, 'locationName', '').trim();
+    observer = {
+      longitude: readNumberLike(value, 'longitude', -180, 180),
+      ...(latitude !== undefined ? { latitude } : {}),
+      ...(timezone !== undefined ? { timezone } : {}),
+      ...(timeZoneId ? { timeZoneId } : {}),
+      ...(locationName ? { locationName } : {}),
+    };
+  }
+
+  try {
+    return await calculateInstantChart({
+      type,
+      customDate: readCustomDate(input),
+      timeStandard,
+      observer,
+      ziweiAlgorithm,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '即时排盘参数无效。',
+    );
+  }
 }
 
 function calculateTrueSolarTimeApi(input: JsonRecord) {
