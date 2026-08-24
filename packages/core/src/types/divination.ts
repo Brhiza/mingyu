@@ -77,7 +77,7 @@ export interface XiaoliurenData {
   evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
 }
 
-export type JinkoujueDivinationMethod = 'time' | 'number' | 'random';
+export type JinkoujueDivinationMethod = 'time' | 'branch' | 'number' | 'random';
 
 export type JinkoujuePositionName = '地分' | '将神' | '贵神' | '人元';
 
@@ -149,7 +149,7 @@ export interface JinkoujueData {
     method: JinkoujueDivinationMethod;
     methodLabel: string;
     inputBase: number;
-    inputBaseSource: '占时地支序数' | '用户数字' | '随机数';
+    inputBaseSource: '占时地支序数' | '指定地分' | '用户数字' | '随机数';
     diFenNote: string;
     monthLeaderRule: string;
     yuanDunRule: string;

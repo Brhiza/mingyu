@@ -54,6 +54,21 @@ const TAIYI_SCOPE_OPTIONS = [
   { value: 'hour', label: '时计' },
 ] as const;
 
+const JINKOUJUE_BRANCH_OPTIONS = [
+  { value: '子', label: '子' },
+  { value: '丑', label: '丑' },
+  { value: '寅', label: '寅' },
+  { value: '卯', label: '卯' },
+  { value: '辰', label: '辰' },
+  { value: '巳', label: '巳' },
+  { value: '午', label: '午' },
+  { value: '未', label: '未' },
+  { value: '申', label: '申' },
+  { value: '酉', label: '酉' },
+  { value: '戌', label: '戌' },
+  { value: '亥', label: '亥' },
+] as const;
+
 const LIUYAO_METHOD_OPTIONS = [
   { value: 'time', label: '时间起卦' },
   { value: 'coins', label: '手摇' },
@@ -490,6 +505,20 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
+                    {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'branch' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="jinkoujue-branch-select">地分</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="jinkoujue-branch-select"
+                            value={draft.jinkoujueBranch}
+                            options={JINKOUJUE_BRANCH_OPTIONS}
+                            onChange={(value) => updateDraft('jinkoujueBranch', value)}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
                     {draft.method === 'liuyao' ? (
                       <div className="form-item divination-inline-field">
                         <label htmlFor="liuyao-template-select">问题范围</label>
@@ -891,6 +920,21 @@ export function DivinationForm({
                   onChange={(event) =>
                     updateDraft('jinkoujueNumber', event.target.value.replace(/[^\d]/g, ''))
                   }
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'branch' ? (
+            <div className="form-row divination-mobile-only">
+              <div className="form-item">
+                <label htmlFor="jinkoujue-branch-select-mobile">地分</label>
+                <DropdownSelect
+                  id="jinkoujue-branch-select-mobile"
+                  value={draft.jinkoujueBranch}
+                  options={JINKOUJUE_BRANCH_OPTIONS}
+                  variant="field"
+                  onChange={(value) => updateDraft('jinkoujueBranch', value)}
                 />
               </div>
             </div>

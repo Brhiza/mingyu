@@ -41,6 +41,8 @@ export const PUBLIC_API_ENDPOINTS = [
   'POST /api/v1/divination/meihua/prompt',
   'POST /api/v1/divination/xiaoliuren',
   'POST /api/v1/divination/xiaoliuren/prompt',
+  'POST /api/v1/divination/jinkoujue',
+  'POST /api/v1/divination/jinkoujue/prompt',
   'POST /api/v1/divination/qimen',
   'POST /api/v1/divination/qimen/prompt',
   'POST /api/v1/divination/liuren',

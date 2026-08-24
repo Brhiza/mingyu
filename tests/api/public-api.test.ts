@@ -173,6 +173,8 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/astrolabe/prompt'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/divination/jinkoujue'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/divination/jinkoujue/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/wuyun-liuqi/calculate'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/wuyun-liuqi/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/huangji-jingshi/calculate'));
@@ -497,11 +499,14 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   for (const path of [
     '/divination/liuyao',
     '/divination/meihua',
+    '/divination/xiaoliuren',
+    '/divination/jinkoujue',
     '/divination/qimen',
     '/divination/liuren',
     '/divination/tarot',
     '/divination/ssgw',
     '/divination/almanac',
+    '/divination/lenormand',
     '/divination/astrolabe',
   ]) {
     assert.ok(body.data.paths[path].post.requestBody, `${path} 应声明请求体`);
@@ -556,6 +561,26 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     /guaishen/,
   );
   const divinationRequestProperties = body.data.components.schemas.DivinationRequest.properties;
+  assert.deepEqual(divinationRequestProperties.jinkoujueMethod.enum, [
+    'time',
+    'branch',
+    'number',
+    'random',
+  ]);
+  assert.deepEqual(divinationRequestProperties.jinkoujueBranch.enum, [
+    '子',
+    '丑',
+    '寅',
+    '卯',
+    '辰',
+    '巳',
+    '午',
+    '未',
+    '申',
+    '酉',
+    '戌',
+    '亥',
+  ]);
   assert.equal(divinationRequestProperties.customDate.format, 'date-time');
   assert.deepEqual(divinationRequestProperties.year, {
     type: 'integer',
@@ -2990,6 +3015,31 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   });
   assert.equal(conflict.response.status, 400);
   assert.match(conflict.body.error.message, /seed 与 replay 只能提供一个/);
+});
+
+test('公开 API 金口诀应支持直接指定地分', async () => {
+  const result = await callApi('divination/jinkoujue', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jinkoujueMethod: 'branch',
+      jinkoujueBranch: '戌',
+      customDate: '2026-07-11T14:35:00+08:00',
+      detailMode: 'full',
+    }),
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.method, 'branch');
+  assert.equal(result.body.data.diFenBranch, '戌');
+  assert.equal(result.body.data.calculation.inputBaseSource, '指定地分');
+
+  const missingBranch = await callApi('divination/jinkoujue', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jinkoujueMethod: 'branch' }),
+  });
+  assert.equal(missingBranch.response.status, 400);
+  assert.match(missingBranch.body.error.message, /jinkoujueBranch/);
 });
 
 test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async () => {

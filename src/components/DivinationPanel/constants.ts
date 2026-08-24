@@ -31,6 +31,7 @@ export const defaultDraft: DivinationDraft = {
   meihuaNumber: '',
   xiaoliurenMethod: 'time',
   jinkoujueMethod: 'time',
+  jinkoujueBranch: '子',
   jinkoujueNumber: '',
   qimenMethod: 'zhuanpan',
   qimenScope: 'hour',

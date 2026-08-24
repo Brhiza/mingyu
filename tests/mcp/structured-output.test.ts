@@ -100,6 +100,14 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ],
   ['divine_qimen', {}],
   [
+    'divine_jinkoujue',
+    {
+      jinkoujueMethod: 'branch',
+      jinkoujueBranch: '申',
+      customDate: '2026-07-11T14:35:00+08:00',
+    },
+  ],
+  [
     'divine_almanac',
     {
       topic: 'move',
@@ -4410,6 +4418,41 @@ test('MCP 奇门工具应传递年、月、日、时计式', async () => {
     assert.equal(result.scope, 'day');
     assert.equal(result.method, 'feipan');
     assert.equal(result.juMethod, 'zhirun');
+  });
+});
+
+test('MCP 金口诀工具与提示词应支持直接指定地分', async () => {
+  await withMcpClient(async (client) => {
+    const chartResponse = await client.callTool({
+      name: 'divine_jinkoujue',
+      arguments: {
+        jinkoujueMethod: 'branch',
+        jinkoujueBranch: '酉',
+        customDate: '2026-07-11T14:35:00+08:00',
+        detailMode: 'full',
+      },
+    });
+    assert.equal(chartResponse.isError, undefined);
+    const chart = (
+      chartResponse.structuredContent as {
+        result: { method: string; diFenBranch: string; calculation: { inputBaseSource: string } };
+      }
+    ).result;
+    assert.equal(chart.method, 'branch');
+    assert.equal(chart.diFenBranch, '酉');
+    assert.equal(chart.calculation.inputBaseSource, '指定地分');
+
+    const promptResponse = await client.callTool({
+      name: 'jinkoujue_prompt',
+      arguments: {
+        question: '这件事接下来如何推进？',
+        jinkoujueMethod: 'branch',
+        jinkoujueBranch: '酉',
+        customDate: '2026-07-11T14:35:00+08:00',
+      },
+    });
+    assert.equal(promptResponse.isError, undefined);
+    assert.match(String(promptResponse.structuredContent?.prompt), /地分酉/);
   });
 });
 

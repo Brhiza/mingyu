@@ -351,8 +351,20 @@ test('能力清单可序列化且返回副本', () => {
 
   const lenormand = getSystemCapability('lenormand');
   assert.equal(lenormand?.methods, undefined);
+  assert.deepEqual(
+    findInput('lenormand', 'spread')?.options?.map((item) => item.value),
+    ['single', 'three', 'five', 'relationship', 'decision', 'nine', 'element', 'grandTableau'],
+  );
   assert.ok(findInput('lenormand', 'manualCardIds'));
   assert.ok(findInput('lenormand', 'interactiveSamples'));
+
+  const jinkoujue = getSystemCapability('jinkoujue');
+  assert.ok(jinkoujue?.methods?.some((item) => item.value === 'branch'));
+  assert.deepEqual(findInput('jinkoujue', 'branch')?.requiredWhen, { method: 'branch' });
+  assert.deepEqual(
+    findInput('jinkoujue', 'branch')?.options?.map((item) => item.value),
+    ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+  );
 
   const ssgw = getSystemCapability('ssgw');
   assert.ok(ssgw?.methods?.some((item) => item.value === 'manual'));

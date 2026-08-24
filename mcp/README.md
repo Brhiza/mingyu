@@ -30,6 +30,10 @@
 | `liuyao_prompt`              | 六爻提示词   | 六爻起卦并返回用神作用链、逐爻证据及可直接用于 AI 解读的结构化提示词       |
 | `divine_meihua`              | 梅花易数起卦 | 支持时间/数字/随机三种起卦方式，兼容旧 timeTrigram 参数                    |
 | `meihua_prompt`              | 梅花提示词   | 梅花起卦并返回主互变体用推进证据及可直接用于 AI 解读的结构化提示词         |
+| `divine_xiaoliuren`          | 小六壬起课   | 按当前时间或自定义时间生成月、日、时三宫顺数课                             |
+| `xiaoliuren_prompt`          | 小六壬提示词 | 小六壬时间课并返回可直接用于 AI 解读的结构化提示词                         |
+| `divine_jinkoujue`           | 金口诀起课   | 支持指定地分、时间、数字或随机起课，返回地分、将神、贵神、人元四位课盘     |
+| `jinkoujue_prompt`           | 金口诀提示词 | 金口诀四位起课并返回可直接用于 AI 解读的结构化提示词                       |
 | `divine_qimen`               | 奇门遁甲排盘 | 返回年、月、日、时家九宫盘及值符值使、宫间作用、反证与触发条件             |
 | `qimen_prompt`               | 奇门提示词   | 返回不含数字评分的用神宫证据及可直接用于 AI 解读的结构化提示词             |
 | `divine_liuren`              | 大六壬排盘   | 基于当前时间或自定义时间排大六壬课盘                                       |
@@ -40,6 +44,8 @@
 | `ssgw_prompt`                | 灵签提示词   | 三山国王灵签求签并返回可直接用于 AI 解读的提示词                           |
 | `divine_almanac`             | 黄历择日     | 按事项、参与人冲突、时辰和现实限制返回可用、条件与慎用候选                 |
 | `almanac_prompt`             | 择日提示词   | 返回不含数字评分的透明约束证据及可直接用于 AI 解读的结构化提示词           |
+| `divine_lenormand`           | 雷诺曼抽牌   | 支持单牌至大桌的八种牌阵，并保留牌序、位置与组合关系                       |
+| `lenormand_prompt`           | 雷诺曼提示词 | 雷诺曼抽牌并返回可直接用于 AI 解读的结构化提示词                           |
 | `divine_astrolabe`           | 星盘生成     | 根据出生时间、经纬度和时区生成星体、宫位与相位数据                         |
 | `astrolabe_prompt`           | 星盘提示词   | 星盘生成并返回可直接用于 AI 解读的结构化提示词                             |
 | `astrolabe_synastry`         | 西占双盘     | 返回双方本命盘、跨盘相位、精确角距、容许度、跨盘落宫与证据包               |
@@ -73,26 +79,27 @@
 
 常见问题到工具：
 
-| 用户问题类型                     | 首选工具                    | 推荐参数                                                                    |
-| -------------------------------- | --------------------------- | --------------------------------------------------------------------------- |
-| 现在起盘、即时盘、紫占           | `instant_chart`             | `type`、`timeStandard`、真太阳时或星盘类再传 `observer`                     |
-| 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt`         | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin`    |
-| 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt`         | `promptScope: "yearly"`，主题按事业、财运、感情等选择                       |
-| 换工作、创业、合伙、投资         | `bazi_ziwei_prompt`         | `job-change`、`startup-partnership`、`investment-partnership`               |
-| 八字格局、用神、大运流年         | `bazi_prompt`               | `promptTopic`、`baziFortuneScope`                                           |
-| 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、`promptScope`                                                |
-| 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                               |
-| 项目推进、方向、方位、谈判       | `qimen_prompt`              | `question`、可选 `qimenMethod`、`customDate`                                |
-| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber` |
-| 生肖犯太岁、流年贵人             | `zodiac_prompt`             | `zodiac`、`year` 或 `yearGanZhi`                                            |
-| 时间或数字象意判断               | `meihua_prompt`             | `question`、可选 `method`、`number`、`customDate`                           |
-| 传统复杂事项推演                 | `liuren_prompt`             | `question`、可选 `liurenTemplate`、`customDate`                             |
-| 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`    |
-| 星盘本命和行运                   | `astrolabe_prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                    |
-| 西占双方关系、合作或婚恋互动     | `astrolabe_synastry_prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                     |
-| 牌阵启发                         | `tarot_prompt`              | `spreadType`、`question`                                                    |
-| 雷诺曼关系或选择牌阵             | `lenormand_prompt`          | `spreadType`、`question`                                                    |
-| 求签                             | `ssgw_prompt`               | `question`                                                                  |
+| 用户问题类型                     | 首选工具                    | 推荐参数                                                                 |
+| -------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
+| 现在起盘、即时盘、紫占           | `instant_chart`             | `type`、`timeStandard`、真太阳时或星盘类再传 `observer`                  |
+| 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt`         | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin` |
+| 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt`         | `promptScope: "yearly"`，主题按事业、财运、感情等选择                    |
+| 换工作、创业、合伙、投资         | `bazi_ziwei_prompt`         | `job-change`、`startup-partnership`、`investment-partnership`            |
+| 八字格局、用神、大运流年         | `bazi_prompt`               | `promptTopic`、`baziFortuneScope`                                        |
+| 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、`promptScope`                                             |
+| 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                            |
+| 项目推进、方向、方位、谈判       | `qimen_prompt`              | `question`、可选 `qimenMethod`、`customDate`                             |
+| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `customDate`                                            |
+| 金口诀四位课                     | `jinkoujue_prompt`          | `question`、可选 `jinkoujueMethod`、`jinkoujueBranch`、`customDate`      |
+| 生肖犯太岁、流年贵人             | `zodiac_prompt`             | `zodiac`、`year` 或 `yearGanZhi`                                         |
+| 时间或数字象意判断               | `meihua_prompt`             | `question`、可选 `method`、`number`、`customDate`                        |
+| 传统复杂事项推演                 | `liuren_prompt`             | `question`、可选 `liurenTemplate`、`customDate`                          |
+| 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
+| 星盘本命和行运                   | `astrolabe_prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                 |
+| 西占双方关系、合作或婚恋互动     | `astrolabe_synastry_prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                  |
+| 牌阵启发                         | `tarot_prompt`              | `spreadType`、`question`                                                 |
+| 雷诺曼关系或选择牌阵             | `lenormand_prompt`          | `spreadType`、`question`                                                 |
+| 求签                             | `ssgw_prompt`               | `question`                                                               |
 
 出生时辰未知时，不要自行补时辰。八字可以保守分析；紫微和八字紫微合参需要时辰，优先请用户补足后再调用。
 
@@ -175,9 +182,9 @@ npm run mcp
 
 ### 起卦与排盘时间参数
 
-六爻、梅花易数、奇门遁甲、大六壬以及太乙月、日、时计默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。
+六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬以及太乙月、日、时计默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。金口诀还可用 `jinkoujueMethod: "branch"` 与 `jinkoujueBranch` 直接指定地分。
 
-`customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`、`metaphysics_taiyi` 和 `taiyi_prompt`（后三计）。
+`customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_xiaoliuren`、`xiaoliuren_prompt`、`divine_jinkoujue`、`jinkoujue_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`、`metaphysics_taiyi` 和 `taiyi_prompt`（后三计）。
 
 ### 黄历择日参数
 

@@ -84,6 +84,7 @@ export type DivinationDraft = {
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
   jinkoujueMethod: JinkoujueDivinationMethod;
+  jinkoujueBranch: string;
   jinkoujueNumber: string;
   qimenMethod?: 'zhuanpan' | 'feipan';
   qimenScope?: 'hour' | 'day' | 'month' | 'year';
@@ -324,6 +325,16 @@ function validateDraft(draft: DivinationDraft) {
 
   if (draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number') {
     readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课');
+  }
+
+  if (
+    draft.method === 'jinkoujue' &&
+    draft.jinkoujueMethod === 'branch' &&
+    !['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'].includes(
+      draft.jinkoujueBranch,
+    )
+  ) {
+    throw new Error('请选择金口诀地分');
   }
 
   if (draft.method === 'taiyi') {
@@ -602,6 +613,7 @@ export async function generateDivinationSession(
       data = module.generateJinkoujue({
         method: draft.jinkoujueMethod,
         customDate,
+        ...(draft.jinkoujueMethod === 'branch' ? { branch: draft.jinkoujueBranch } : {}),
         ...(draft.jinkoujueMethod === 'number' && draft.jinkoujueNumber.trim()
           ? { number: readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课') }
           : {}),

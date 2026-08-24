@@ -156,6 +156,25 @@ test('金口诀：时间起课应形成四位、阴阳发用与动爻', () => {
   assert.match(data.evidenceAnalysis?.promptText || '', /【金口诀阴阳发用结构化证据】/);
 });
 
+test('金口诀：指定地分应直接采用所选地支并保留起课时间规则', () => {
+  const data = generateJinkoujue({
+    method: 'branch',
+    branch: '申',
+    customDate: SAMPLE_DATE,
+  });
+
+  assert.equal(data.method, 'branch');
+  assert.equal(data.diFenBranch, '申');
+  assert.equal(data.positions.diFen.branch, '申');
+  assert.equal(data.calculation.inputBaseSource, '指定地分');
+  assert.match(data.calculation.diFenNote, /指定地分申/);
+  assert.equal(data.divinationBranch, data.ganzhi.hour.charAt(1));
+  assert.throws(
+    () => generateJinkoujue({ method: 'branch', branch: '甲', customDate: SAMPLE_DATE }),
+    /指定地分必须是/,
+  );
+});
+
 test('金口诀：古本二月戌将丙寅日午时申地原例应得子将、玄武与丙人元', () => {
   const data = generateJinkoujue({
     method: 'number',

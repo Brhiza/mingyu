@@ -313,7 +313,7 @@ console.log(session.view); // kind/input/chart/timing/summary/evidence/warnings/
 console.log(session.serializedResult); // 稳定 JSON，可用于缓存或历史记录
 ```
 
-`generateDivinationSession` 覆盖六爻、梅花、小六壬、金口诀、奇门、大六壬、太乙、塔罗、灵签、黄历、雷诺曼和星盘；`validateDivinationRequest` 可单独用于提交前校验。旧版 `summary`、`prompt`、`data` 字段继续保留，新接入优先使用严格分层后的三个字段。手工牌面、三钱记录、逐张随机样本、灵签选号、种子和 replay 均保留在对应请求字段中。
+`generateDivinationSession` 覆盖六爻、梅花、小六壬、金口诀、奇门、大六壬、太乙、塔罗、灵签、黄历、雷诺曼和星盘；`validateDivinationRequest` 可单独用于提交前校验。金口诀可传 `jinkoujue: { method: 'branch', branch: '申' }` 直接指定地分，也支持时间、数字和随机取地分；雷诺曼 `spread` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`。旧版 `summary`、`prompt`、`data` 字段继续保留，新接入优先使用严格分层后的三个字段。手工牌面、三钱记录、逐张随机样本、灵签选号、种子和 replay 均保留在对应请求字段中。
 
 如果需要一次得到本命盘、运限盘、结构化分析资料和大限时间线，可以直接使用紫微运行时入口。它支持数字或文本表单输入；服务端、缓存和测试建议显式传入 `horoscopeContext`，让同一出生盘在不同运行时保持相同快照：
 

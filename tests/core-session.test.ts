@@ -82,6 +82,28 @@ test('统一占法会话应在计算前拒绝缺少占法问题', () => {
   assert.throws(() => validateDivinationRequest({ method: 'meihua' }), /需要提供问题/);
 });
 
+test('统一占法会话应支持金口诀指定地分并在计算前校验输入', () => {
+  const session = generateDivinationSession({
+    method: 'jinkoujue',
+    question: '这件事接下来如何推进？',
+    divinationTime: '2026-07-11T14:35:00+08:00',
+    jinkoujue: { method: 'branch', branch: '申' },
+  });
+  assert.equal(session.data.method, 'branch');
+  assert.equal(session.data.diFenBranch, '申');
+  assert.match(session.aiPrompt, /地分申/);
+
+  assert.throws(
+    () =>
+      validateDivinationRequest({
+        method: 'jinkoujue',
+        question: '测试',
+        jinkoujue: { method: 'branch' },
+      }),
+    /指定地分必须是/,
+  );
+});
+
 test('统一占法会话应支持皇极经世值年盘', () => {
   const session = generateDivinationSession({
     method: 'huangji',

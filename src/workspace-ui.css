@@ -1390,6 +1390,10 @@ label.workspace-ui-field > span:first-child {
   gap: 10px;
 }
 
+.workspace-ui-form-surface .form-row.divination-mobile-only {
+  display: none;
+}
+
 .workspace-ui-form-surface .form-row-flex {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1942,5 +1946,11 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-record-actions {
     align-self: center;
+  }
+}
+
+@media (max-width: 640px), (max-width: 900px) and (max-height: 520px) {
+  .workspace-ui-form-surface .form-row.divination-mobile-only {
+    display: flex;
   }
 }

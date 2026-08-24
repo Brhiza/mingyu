@@ -40,6 +40,27 @@ test('公开 API 文档和 skill 应覆盖完整塔罗牌阵参数', () => {
   }
 });
 
+test('公开 API 文档和 skill 应覆盖完整雷诺曼牌阵与金口诀指定地分', () => {
+  for (const content of [publicApiDocs, publicSkill]) {
+    for (const spreadType of [
+      'single',
+      'three',
+      'five',
+      'relationship',
+      'decision',
+      'nine',
+      'element',
+      'grandTableau',
+    ]) {
+      assert.match(content, new RegExp(spreadType));
+    }
+    assert.match(content, /POST \/divination\/jinkoujue/);
+    assert.match(content, /jinkoujueMethod.*branch/);
+    assert.match(content, /jinkoujueBranch/);
+    assert.match(content, /指定地分/);
+  }
+});
+
 test('公开 API 文档和 skill 应覆盖五运六气与皇极经世的关键输入口径', () => {
   for (const content of [publicApiDocs, publicSkill]) {
     assert.match(content, /POST \/metaphysics\/wuyun-liuqi\/calculate/);

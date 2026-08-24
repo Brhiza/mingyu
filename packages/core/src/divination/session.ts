@@ -12,6 +12,7 @@ import { generateXiaoliuren } from './algorithms/xiaoliuren';
 import { generateTaiyi } from '../taiyi/index';
 import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
 import { drawTarotSpread, type TarotDrawOptions, type TarotManualCardInput } from './tarot';
+import { isEarthlyBranch } from '../ganzhi';
 import type { RandomOptions } from '../shared/random';
 import { createRandomContext, randomInt } from '../shared/random';
 import { serializeCoreResult } from '../shared/result';
@@ -73,6 +74,7 @@ export interface DivinationRequest {
   xiaoliuren?: { method?: XiaoliurenDivinationMethod };
   jinkoujue?: {
     method?: JinkoujueDivinationMethod;
+    branch?: string;
     number?: number;
   };
   qimen?: {
@@ -291,6 +293,21 @@ export function validateDivinationRequest(request: DivinationRequest): void {
   }
   if (request.method === 'astrolabe' && !request.astrolabe) {
     throw new Error('星盘需要提供 astrolabe 出生资料。');
+  }
+  if (request.method === 'jinkoujue') {
+    const method = request.jinkoujue?.method ?? 'time';
+    if (!['time', 'branch', 'number', 'random'].includes(method)) {
+      throw new Error('金口诀起课方式必须是 time、branch、number 或 random。');
+    }
+    if (method === 'branch' && !isEarthlyBranch(request.jinkoujue?.branch)) {
+      throw new Error('金口诀指定地分必须是子、丑、寅、卯、辰、巳、午、未、申、酉、戌、亥之一。');
+    }
+    if (
+      method === 'number' &&
+      (!Number.isSafeInteger(request.jinkoujue?.number) || (request.jinkoujue?.number ?? 0) < 1)
+    ) {
+      throw new Error('金口诀数字起课必须提供不小于 1 的整数。');
+    }
   }
   if (request.method === 'taiyi') {
     if (!request.taiyi) {

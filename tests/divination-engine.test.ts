@@ -76,6 +76,9 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     birthYear: '',
     meihuaMethod: 'time',
     meihuaNumber: '',
+    jinkoujueMethod: 'time',
+    jinkoujueBranch: '子',
+    jinkoujueNumber: '',
     liuyaoTemplate: 'general',
     liurenTemplate: 'general',
     tarotSpread: 'single',
@@ -4122,6 +4125,23 @@ test('奇门占卜入口应传递计式、排法与定局方法', async () => {
   assert.equal(data.scope, 'day');
   assert.equal(data.method, 'feipan');
   assert.equal(data.juMethod, 'zhirun');
+});
+
+test('金口诀占卜入口应把指定地分传入核心算法', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'jinkoujue',
+      jinkoujueMethod: 'branch',
+      jinkoujueBranch: '酉',
+      divinationTimeMode: 'custom',
+      customDivinationDate: '2026-07-11',
+      customDivinationTime: '14:35',
+    }),
+  );
+  const data = session.data as { method: string; diFenBranch: string };
+  assert.equal(data.method, 'branch');
+  assert.equal(data.diFenBranch, '酉');
+  assert.match(session.prompt, /地分酉/);
 });
 
 test('塔罗提示词应保留牌面资料且不混入工程证据话术', async () => {

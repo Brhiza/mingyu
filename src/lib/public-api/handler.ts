@@ -287,7 +287,10 @@ const DIVINATION_REQUEST_PROPERTIES = {
     enum: ['time'],
     description: '小六壬当前仅保留可核验的通行时间起课。',
   },
-  jinkoujueMethod: { enum: ['time', 'number', 'random'] },
+  jinkoujueMethod: { enum: ['time', 'branch', 'number', 'random'] },
+  jinkoujueBranch: {
+    enum: ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+  },
   jinkoujueNumber: { type: 'integer', minimum: 1 },
   spreadType: {
     enum: [
@@ -3233,14 +3236,36 @@ function calculateXiaoliuren(input: JsonRecord) {
 }
 
 function calculateJinkoujue(input: JsonRecord) {
-  const method = readEnum(input, 'jinkoujueMethod', ['time', 'number', 'random'], 'time') as
-    'time' | 'number' | 'random';
+  const method = readEnum(
+    input,
+    'jinkoujueMethod',
+    ['time', 'branch', 'number', 'random'],
+    'time',
+  ) as 'time' | 'branch' | 'number' | 'random';
   if (method !== 'random') {
     assertNoRandomOptions(input, '金口诀仅随机起课接受 seed 或 replay。');
   }
   return generateJinkoujue({
     method,
     customDate: readCustomDate(input),
+    ...(method === 'branch'
+      ? {
+          branch: readEnum(input, 'jinkoujueBranch', [
+            '子',
+            '丑',
+            '寅',
+            '卯',
+            '辰',
+            '巳',
+            '午',
+            '未',
+            '申',
+            '酉',
+            '戌',
+            '亥',
+          ]),
+        }
+      : {}),
     ...(method === 'number' ? { number: readInteger(input, 'jinkoujueNumber', 1) } : {}),
     ...(method === 'random' ? readRandomOptions(input) : {}),
   });

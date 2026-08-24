@@ -621,6 +621,28 @@ const systems: SystemCapability[] = [
     defaultMethod: 'time',
     inputs: [
       {
+        id: 'branch',
+        label: '地分地支',
+        type: 'select',
+        required: false,
+        requiredWhen: { method: 'branch' },
+        options: options([
+          { value: '子', label: '子' },
+          { value: '丑', label: '丑' },
+          { value: '寅', label: '寅' },
+          { value: '卯', label: '卯' },
+          { value: '辰', label: '辰' },
+          { value: '巳', label: '巳' },
+          { value: '午', label: '午' },
+          { value: '未', label: '未' },
+          { value: '申', label: '申' },
+          { value: '酉', label: '酉' },
+          { value: '戌', label: '戌' },
+          { value: '亥', label: '亥' },
+        ]),
+        description: '按所测方位或来意直接指定地分。',
+      },
+      {
         id: 'number',
         label: '起课数字',
         type: 'number',

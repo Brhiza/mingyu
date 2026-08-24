@@ -88,8 +88,9 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 | 紫微宫位、四化、运限           | `POST /ziwei/prompt`                         | `promptTopic`、`promptScope`                                                |
 | 一事一问、短期成败、应期       | `POST /divination/liuyao/prompt`             | `question`、可选 `customDate`                                               |
 | 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`              | `question`、可选 `qimenScope`、`qimenMethod`、`qimenJuMethod`、`customDate` |
-| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber` |
+| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`         | `question`、可选 `customDate`                                               |
 | 时间或数字象意判断             | `POST /divination/meihua/prompt`             | `question`、可选 `method`、`number`、`customDate`                           |
+| 金口诀四位课                   | `POST /divination/jinkoujue/prompt`          | `question`、可选 `jinkoujueMethod`、`jinkoujueBranch`、`customDate`         |
 | 传统复杂事项推演               | `POST /divination/liuren/prompt`             | `question`、可选 `liurenTemplate`、`customDate`                             |
 | 结婚、搬家、开业、签约、安葬   | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`    |
 | 星盘本命和行运                 | `POST /divination/astrolabe/prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                    |
@@ -134,6 +135,10 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 - `POST /divination/liuyao/prompt`：六爻起卦并生成结构化 AI 解读提示词。
 - `POST /divination/meihua`：梅花易数起卦。
 - `POST /divination/meihua/prompt`：梅花易数起卦并生成结构化 AI 解读提示词。
+- `POST /divination/xiaoliuren`：小六壬通行时间课。
+- `POST /divination/xiaoliuren/prompt`：小六壬时间课并生成结构化 AI 解读提示词。
+- `POST /divination/jinkoujue`：金口诀按地分、将神、贵神、人元四位起课。
+- `POST /divination/jinkoujue/prompt`：金口诀四位起课并生成结构化 AI 解读提示词。
 - `POST /divination/qimen`：奇门遁甲排盘。
 - `POST /divination/qimen/prompt`：奇门遁甲排盘并生成结构化 AI 解读提示词。
 - `POST /divination/liuren`：大六壬排盘。
@@ -144,6 +149,8 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、
 - `POST /divination/ssgw/prompt`：三山国王灵签求签并生成 AI 解读提示词。
 - `POST /divination/almanac`：黄历择日。
 - `POST /divination/almanac/prompt`：黄历择日并生成结构化 AI 解读提示词。
+- `POST /divination/lenormand`：雷诺曼抽牌。
+- `POST /divination/lenormand/prompt`：雷诺曼抽牌并生成结构化 AI 解读提示词。
 - `POST /divination/astrolabe`：星盘生成。
 - `POST /divination/astrolabe/prompt`：星盘生成并生成结构化 AI 解读提示词。
 - `POST /divination/astrolabe/synastry`：西占双盘相位、角距、容许度、落宫与证据计算。
@@ -404,7 +411,7 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 
 占卜时间参数：
 
-- `customDate`：六爻、梅花易数、奇门遁甲、大六壬可用该字段指定起卦或排盘时间；不提供则使用当前时间。必须传带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00`。
+- `customDate`：六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬、太乙月日时计和皇极经世可用该字段指定起卦或排盘时间；不提供则使用当前时间。必须传带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00`。
 
 占卜通用参数：
 
@@ -414,10 +421,11 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 各占卜方法特有参数：
 
 - 梅花易数 `method`：`time`（时间起卦）、`number`（数字起卦）、`random`（随机起卦）、`timeTrigram`（兼容旧参数，按年月日时起卦法计算）。`method` 为 `number` 时需提供 `number`（正整数）。
+- 金口诀 `jinkoujueMethod`：`time`（时间取地分）、`branch`（直接指定地分）、`number`（数字取地分）、`random`（随机取地分）。`branch` 方式必须传 `jinkoujueBranch`，取子至亥之一；指定地分后仍按起课时间计算月将、昼夜贵人和遁干。
 - 塔罗 `spreadType`：`single`（单牌指引）、`three`（时间流）、`love`（爱情）、`career`（事业）、`decision`（选择）、`celtic`（凯尔特十字）、`chakra`（七脉轮）、`year`（年运）、`mindBodySpirit`（身心灵）、`horseshoe`（马蹄铁）、`holyTriangle`（圣三角）、`universal`（万能）、`fourElements`（四元素）、`hexagram`（六芒星）、`relationship`（关系）、`wealth`（财富）、`problemSolving`（问题解决）、`twelveHouses`（十二宫）。
 - 六爻 `liuyaoTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财运）、`guaishen`（鬼神怪异）。
 - 大六壬 `liurenTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财富）。
-- 奇门遁甲 `qimenMethod`：`zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。返回中可读取 `seasonality` 和 `patternCombos` 作为时令与复合格局证据。
+- 奇门遁甲 `qimenScope`：`hour`（时家，默认）、`day`（日家）、`month`（月家）、`year`（年家）；`qimenMethod`：`zhuanpan`（转盘法，默认）、`feipan`（飞盘法）；`qimenJuMethod`：`chaibu`（拆补法，默认）、`zhirun`（置闰法，仅时家/日家）。返回中可读取 `seasonality` 和 `patternCombos` 作为时令与复合格局证据。
 - 黄历择日 `topic`：`marriage`（嫁娶）、`move`（搬家）、`opening`（开业）、`contract`（签约）、`travel`（出行）、`medical`（求医）、`study`（求学）、`burial`（安葬修坟）、`renovation`（修造动土）、`custom`（自定义）。
 - 黄历择日 `startDate`、`endDate`：日期范围字符串，一次最多 31 天。`participants`：参与者数组，每人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`，一次最多 30 位；更多日期或参与人请拆成多次请求。
 - 黄历择日 `page`、`pageSize`：分页参数，`pageSize` 最大 31。不传分页时返回全部日期；传分页后只返回当前页并带 `pagination`。`page` 超过总页数会返回 400，请按 `pagination.totalPages` 继续请求。

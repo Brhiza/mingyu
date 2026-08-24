@@ -129,6 +129,7 @@ export const JINKOUJUE_METHOD_OPTIONS: Array<{
   label: string;
 }> = [
   { value: 'time', label: '时间起课' },
+  { value: 'branch', label: '指定地分' },
   { value: 'number', label: '数字起课' },
   { value: 'random', label: '随机起课' },
 ];
@@ -200,7 +201,10 @@ export const LENORMAND_SPREAD_OPTIONS: Array<{
 }> = [
   { value: 'single', label: '单牌线索' },
   { value: 'three', label: '三牌事件线' },
+  { value: 'five', label: '五牌十字阵' },
   { value: 'relationship', label: '关系牌阵' },
   { value: 'decision', label: '选择牌阵' },
   { value: 'nine', label: '九宫牌阵' },
+  { value: 'element', label: '元素牌阵' },
+  { value: 'grandTableau', label: '大桌牌阵' },
 ];
