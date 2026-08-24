@@ -5000,8 +5000,7 @@ select {
   color: var(--text-muted);
 }
 
-.traditional-qimen-grid,
-.traditional-taiyi-grid {
+.traditional-qimen-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 5px;
@@ -5010,8 +5009,7 @@ select {
   aspect-ratio: 1;
 }
 
-.traditional-qimen-cell,
-.traditional-taiyi-cell {
+.traditional-qimen-cell {
   position: relative;
   display: grid;
   align-content: center;
@@ -5027,8 +5025,7 @@ select {
   text-align: center;
 }
 
-.traditional-qimen-cell.is-center,
-.traditional-taiyi-cell.is-center {
+.traditional-qimen-cell.is-center {
   background: color-mix(in srgb, var(--accent-soft) 28%, var(--surface-base));
 }
 
@@ -5357,43 +5354,6 @@ select {
 .traditional-almanac-goodbad b {
   display: inline-block;
   width: 20px;
-  color: var(--accent-deep);
-}
-
-.traditional-taiyi-cell > span {
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.traditional-taiyi-cell > strong {
-  color: var(--accent-deep);
-  font-size: 14px;
-  line-height: 1.3;
-}
-
-.traditional-taiyi-cell > small {
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.traditional-sixteen-gods {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 5px;
-}
-
-.traditional-sixteen-gods span {
-  padding: 4px 7px;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  background: var(--surface-base);
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-
-.traditional-sixteen-gods b {
-  margin-right: 3px;
   color: var(--accent-deep);
 }
 

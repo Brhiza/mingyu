@@ -6,6 +6,7 @@ import {
   type HuangjiJingshiResult,
   type HuangjiPeriodHexagram,
 } from 'mingyu-core/huangji-jingshi';
+import { TAIYI_PALACES } from 'mingyu-core/taiyi';
 import type {
   AlmanacData,
   AstrolabeData,
@@ -21,7 +22,35 @@ import type {
 } from '@/types/divination';
 
 const QIMEN_LO_SHU_ORDER = [4, 9, 2, 3, 5, 7, 8, 1, 6];
-const TAIYI_LO_SHU_ORDER = QIMEN_LO_SHU_ORDER;
+const TAIYI_PALACE_LAYOUT = [
+  { palace: 9, row: 2, column: 2 },
+  { palace: 2, row: 2, column: 3 },
+  { palace: 7, row: 2, column: 4 },
+  { palace: 4, row: 3, column: 2 },
+  { palace: 5, row: 3, column: 3 },
+  { palace: 6, row: 3, column: 4 },
+  { palace: 3, row: 4, column: 2 },
+  { palace: 8, row: 4, column: 3 },
+  { palace: 1, row: 4, column: 4 },
+] as const;
+const TAIYI_POINT_LAYOUT = [
+  { point: '巽', row: 1, column: 1 },
+  { point: '巳', row: 1, column: 2 },
+  { point: '午', row: 1, column: 3 },
+  { point: '未', row: 1, column: 4 },
+  { point: '坤', row: 1, column: 5 },
+  { point: '辰', row: 2, column: 1 },
+  { point: '申', row: 2, column: 5 },
+  { point: '卯', row: 3, column: 1 },
+  { point: '酉', row: 3, column: 5 },
+  { point: '寅', row: 4, column: 1 },
+  { point: '戌', row: 4, column: 5 },
+  { point: '艮', row: 5, column: 1 },
+  { point: '丑', row: 5, column: 2 },
+  { point: '子', row: 5, column: 3 },
+  { point: '亥', row: 5, column: 4 },
+  { point: '乾', row: 5, column: 5 },
+] as const;
 
 function formatYaoPosition(position: number) {
   return ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][position - 1] ?? `${position}爻`;
@@ -593,15 +622,53 @@ function AlmanacTraditionalBoard({ data }: { data: AlmanacData }) {
 
 function TaiyiTraditionalBoard({ data }: { data: TaiyiResult }) {
   const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
-  const markers = new Map<number, string[]>();
-  const addMarker = (palace: number, label: string) => {
-    const current = markers.get(palace) || [];
-    markers.set(palace, [...current, label]);
+  const pointMarkers = new Map<string, string[]>();
+  const palaceRoles = new Map<number, string[]>();
+  const addPointMarker = (point: string, label: string) => {
+    pointMarkers.set(point, [...(pointMarkers.get(point) ?? []), label]);
   };
-  addMarker(data.taiyiPalace, '太乙');
-  addMarker(data.wenChangPalace, '文昌');
-  addMarker(data.shiJiPalace, '始击');
-  addMarker(data.jiShenPalace, '计神');
+  const addPalaceRole = (palace: number, label: string) => {
+    palaceRoles.set(palace, [...(palaceRoles.get(palace) ?? []), label]);
+  };
+  addPointMarker(data.taiyiPosition, '太乙');
+  addPointMarker(data.wenChangPosition, '文昌');
+  addPointMarker(data.shiJiPosition, '始击');
+  addPointMarker(data.jiShenPosition, '计神');
+  addPalaceRole(data.lordGeneral, '主大');
+  addPalaceRole(data.lordAssistant, '主参');
+  addPalaceRole(data.guestGeneral, '客大');
+  addPalaceRole(data.guestAssistant, '客参');
+  addPalaceRole(data.setGeneral, '定大');
+  addPalaceRole(data.setAssistant, '定参');
+
+  const godByPoint = new Map(data.sixteenGods.map((item) => [item.branch, item.god]));
+  const natureBySide = new Map(
+    data.evidenceAnalysis?.forceFacts?.map((item) => [item.side, item.nature]) ?? [],
+  );
+  const forceRows = [
+    {
+      side: '主',
+      count: data.lordCount,
+      general: data.lordGeneral,
+      assistant: data.lordAssistant,
+    },
+    {
+      side: '客',
+      count: data.guestCount,
+      general: data.guestGeneral,
+      assistant: data.guestAssistant,
+    },
+    {
+      side: '定',
+      count: data.setCount,
+      general: data.setGeneral,
+      assistant: data.setAssistant,
+    },
+  ] as const;
+  const conditionJudgments = data.judgments.filter(
+    (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item),
+  );
+
   return (
     <TraditionalBoardShell
       title={`太乙神数${scopeLabel}`}
@@ -610,35 +677,100 @@ function TaiyiTraditionalBoard({ data }: { data: TaiyiResult }) {
     >
       <TraditionalMeta
         items={[
-          ['太乙', data.taiyiPosition],
-          ['文昌', data.wenChangPosition],
-          ['始击', data.shiJiPosition],
-          ['主算', data.lordCount],
-          ['客算', data.guestCount],
-          ['定算', data.setCount],
+          ['太乙', `${data.taiyiPosition} · 第${data.taiyiPalace}宫`],
+          ['文昌', `${data.wenChangPosition} · 第${data.wenChangPalace}宫`],
+          ['始击', `${data.shiJiPosition} · 第${data.shiJiPalace}宫`],
+          ['计神', `${data.jiShenPosition} · 第${data.jiShenPalace}宫`],
         ]}
       />
-      <div className="traditional-taiyi-grid" role="img" aria-label="太乙神数九宫盘">
-        {TAIYI_LO_SHU_ORDER.map((palace) => (
-          <div className={`traditional-taiyi-cell${palace === 5 ? ' is-center' : ''}`} key={palace}>
-            <span>{palace}宫</span>
-            <strong>{markers.get(palace)?.join(' · ') || '—'}</strong>
-            {palace === data.taiyiPalace ? (
-              <small>
-                {data.taiyiGua} · {data.taiyiDir}
-              </small>
-            ) : null}
+      <div className="traditional-taiyi-plate" role="group" aria-label="太乙十六神与八宫局式">
+        {TAIYI_POINT_LAYOUT.map(({ point, row, column }) => {
+          const markers = pointMarkers.get(point) ?? [];
+          return (
+            <div
+              className={`traditional-taiyi-point${markers.length ? ' is-occupied' : ''}`}
+              key={point}
+              style={{ gridRow: row, gridColumn: column }}
+            >
+              <div className="traditional-taiyi-point-head">
+                <strong>{point}</strong>
+                <span>{godByPoint.get(point)}</span>
+              </div>
+              {markers.length ? (
+                <div className="traditional-taiyi-point-markers">
+                  {markers.map((marker) => (
+                    <b key={marker}>{marker}</b>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+        {TAIYI_PALACE_LAYOUT.map(({ palace, row, column }) => {
+          const profile = TAIYI_PALACES[palace];
+          const roles = palaceRoles.get(palace) ?? [];
+          return (
+            <div
+              className={`traditional-taiyi-palace${palace === 5 ? ' is-center' : ''}`}
+              key={palace}
+              style={{ gridRow: row, gridColumn: column }}
+            >
+              {palace === 5 ? (
+                <>
+                  <span>中五宫</span>
+                  <strong>
+                    {data.yinYang} {data.bureau}局
+                  </strong>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {profile.gua}
+                    {palace}宫
+                  </span>
+                  <small>
+                    {profile.dir} · {profile.wu}
+                  </small>
+                </>
+              )}
+              {roles.length ? (
+                <div className="traditional-taiyi-palace-roles">
+                  {roles.map((role) => (
+                    <b key={role}>{role}</b>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="traditional-taiyi-forces" role="table" aria-label="太乙主客定算将参">
+        <div className="traditional-taiyi-force-head" role="row">
+          <span role="columnheader">三算</span>
+          <span role="columnheader">算数</span>
+          <span role="columnheader">大将</span>
+          <span role="columnheader">参将</span>
+        </div>
+        {forceRows.map((row) => (
+          <div className="traditional-taiyi-force-row" role="row" key={row.side}>
+            <strong role="cell">{row.side}</strong>
+            <span role="cell">
+              {row.count}
+              {natureBySide.get(row.side) ? <small>{natureBySide.get(row.side)}</small> : null}
+            </span>
+            <span role="cell">第{row.general}宫</span>
+            <span role="cell">第{row.assistant}宫</span>
           </div>
         ))}
       </div>
-      <div className="traditional-sixteen-gods">
-        {data.sixteenGods.map((item) => (
-          <span key={`${item.branch}-${item.god}`}>
-            <b>{item.branch}</b>
-            {item.god}
-          </span>
-        ))}
-      </div>
+      {conditionJudgments.length ? (
+        <div className="traditional-taiyi-conditions">
+          {conditionJudgments.map((item) => (
+            <p key={item}>{item}</p>
+          ))}
+        </div>
+      ) : null}
     </TraditionalBoardShell>
   );
 }

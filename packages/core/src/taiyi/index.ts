@@ -34,8 +34,14 @@ export type {
 /** 太乙统宗年家积年基数。 */
 export const TAIYI_BASE_YEARS = 10153917;
 
+export interface TaiyiPalaceProfile {
+  gua: string;
+  dir: string;
+  wu: string;
+}
+
 /** 太乙八宫编号不是洛书九宫编号：1乾、2午、3艮、4卯、6酉、7坤、8子、9巽。 */
-const TAIYI_PALACES: Record<number, { gua: string; dir: string; wu: string }> = {
+export const TAIYI_PALACES: Readonly<Record<number, Readonly<TaiyiPalaceProfile>>> = {
   1: { gua: '乾', dir: '西北', wu: '金' },
   2: { gua: '离', dir: '南', wu: '火' },
   3: { gua: '艮', dir: '东北', wu: '土' },
@@ -676,6 +682,7 @@ export const taiyi = {
   generateTaiyi,
   TAIYI_16_GODS,
   TAIYI_BASE_YEARS,
+  TAIYI_PALACES,
   TAIYI_MODEL_INFO,
   buildTaiyiEvidence,
 };

@@ -414,7 +414,6 @@
 .traditional-six-palace-center,
 .traditional-jinkoujue-row,
 .traditional-qimen-cell,
-.traditional-taiyi-cell,
 .traditional-lenormand-card,
 .traditional-almanac-day,
 .traditional-sign-card,
@@ -427,17 +426,203 @@
 .traditional-mini-hexagram.is-active,
 .traditional-meihua-yaos > div.is-moving,
 .traditional-six-palace-cell.is-primary,
-.traditional-qimen-cell.is-center,
-.traditional-taiyi-cell.is-center {
+.traditional-qimen-cell.is-center {
   border-color: color-mix(in srgb, var(--chart-accent) 42%, var(--chart-border));
   background: var(--chart-accent-soft);
   box-shadow: none;
 }
 
 .traditional-qimen-grid,
-.traditional-taiyi-grid,
 .traditional-six-palace {
   gap: 5px;
+}
+
+/* 太乙：外列十六神位，内列太乙八宫与中五宫；宫序不复用洛书宫号。 */
+.traditional-taiyi-plate {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  width: min(100%, 620px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 2px;
+  overflow: hidden;
+  border: 1px solid var(--chart-border-strong);
+  border-radius: 12px;
+  background: var(--chart-border);
+}
+
+.traditional-taiyi-point,
+.traditional-taiyi-palace {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-base);
+}
+
+.traditional-taiyi-point {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 7px;
+}
+
+.traditional-taiyi-point.is-occupied {
+  background: color-mix(in srgb, var(--chart-accent-soft) 72%, var(--surface-base));
+}
+
+.traditional-taiyi-point-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+}
+
+.traditional-taiyi-point-head strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.traditional-taiyi-point-head span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traditional-taiyi-point-markers,
+.traditional-taiyi-palace-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.traditional-taiyi-point-markers b,
+.traditional-taiyi-palace-roles b {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--chart-accent) 24%, var(--chart-border));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--chart-accent-soft) 76%, var(--surface-base));
+  color: color-mix(in srgb, var(--chart-accent) 58%, var(--text-strong));
+  font-size: 9px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.traditional-taiyi-palace {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 3px;
+  padding: 8px;
+  color: var(--text-secondary);
+}
+
+.traditional-taiyi-palace.is-center {
+  border: 1px solid color-mix(in srgb, var(--chart-accent) 36%, var(--chart-border));
+  background: var(--chart-accent-soft);
+}
+
+.traditional-taiyi-palace > span {
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.traditional-taiyi-palace > strong {
+  color: color-mix(in srgb, var(--chart-accent) 62%, var(--text-strong));
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.traditional-taiyi-palace > small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.traditional-taiyi-palace-roles {
+  align-content: end;
+  align-self: stretch;
+  margin-top: 2px;
+}
+
+.traditional-taiyi-forces {
+  overflow: hidden;
+  border: 1px solid var(--chart-border);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.traditional-taiyi-force-head,
+.traditional-taiyi-force-row {
+  display: grid;
+  grid-template-columns: 64px minmax(100px, 1.3fr) repeat(2, minmax(88px, 1fr));
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 11px;
+}
+
+.traditional-taiyi-force-head {
+  border-bottom: 1px solid var(--chart-border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.traditional-taiyi-force-row {
+  border-bottom: 1px solid var(--chart-border);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.traditional-taiyi-force-row:last-child {
+  border-bottom: 0;
+}
+
+.traditional-taiyi-force-row strong {
+  color: var(--text-strong);
+}
+
+.traditional-taiyi-force-row > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.traditional-taiyi-force-row small {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.traditional-taiyi-conditions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px;
+}
+
+.traditional-taiyi-conditions p {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid color-mix(in srgb, var(--chart-accent) 46%, var(--chart-border));
+  border-radius: 0 7px 7px 0;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .traditional-huangji-cycle {
@@ -715,6 +900,84 @@
 
   .traditional-meta-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traditional-taiyi-plate {
+    gap: 1px;
+    width: 100%;
+    padding: 1px;
+    border-radius: 9px;
+  }
+
+  .traditional-taiyi-point {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .traditional-taiyi-point-head {
+    display: grid;
+    justify-items: start;
+    gap: 1px;
+  }
+
+  .traditional-taiyi-point-head strong {
+    font-size: 12px;
+  }
+
+  .traditional-taiyi-point-head span {
+    max-width: 100%;
+    font-size: 8px;
+  }
+
+  .traditional-taiyi-point-markers,
+  .traditional-taiyi-palace-roles {
+    gap: 1px;
+  }
+
+  .traditional-taiyi-point-markers b,
+  .traditional-taiyi-palace-roles b {
+    min-height: 14px;
+    padding: 1px 3px;
+    border-radius: 4px;
+    font-size: 8px;
+  }
+
+  .traditional-taiyi-palace {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .traditional-taiyi-palace > span,
+  .traditional-taiyi-palace > strong {
+    font-size: 10px;
+  }
+
+  .traditional-taiyi-palace > small {
+    font-size: 8px;
+  }
+
+  .traditional-taiyi-force-head,
+  .traditional-taiyi-force-row {
+    grid-template-columns: 34px minmax(64px, 1.2fr) repeat(2, minmax(58px, 1fr));
+    gap: 4px;
+    padding: 7px 6px;
+  }
+
+  .traditional-taiyi-force-row {
+    font-size: 10px;
+  }
+
+  .traditional-taiyi-force-row > span {
+    gap: 3px;
+  }
+
+  .traditional-taiyi-force-row small {
+    padding: 1px 3px;
+    font-size: 8px;
+  }
+
+  .traditional-taiyi-conditions {
+    grid-template-columns: 1fr;
   }
 
   .traditional-huangji-cycle {
