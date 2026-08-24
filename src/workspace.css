@@ -1676,68 +1676,15 @@
   }
 
   .workspace-main.is-home .workspace-page {
-    padding-top: 8px;
+    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px));
+    min-height: 0;
+    display: flex;
+    padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
   }
 
   .workspace-main.is-result-assistant .workspace-page {
     padding-bottom: 0;
-  }
-
-  .workspace-home-page {
-    min-height: auto;
-  }
-
-  .workspace-home-stage {
-    gap: 12px;
-    padding-top: 5px;
-  }
-
-  .workspace-home-heading {
-    flex-direction: row;
-    justify-content: center;
-    gap: 10px;
-    padding: 4px 0 2px;
-    text-align: left;
-  }
-
-  .workspace-home-seal {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    font-size: 15px;
-    box-shadow: 0 8px 22px var(--accent-soft-strong);
-  }
-
-  .workspace-home-heading h1 {
-    font-size: 20px;
-  }
-
-  .workspace-home-heading p {
-    margin-top: 3px;
-    font-size: 11px;
-  }
-
-  .workspace-home-mode-switch {
-    width: 100%;
-    border-radius: 14px;
-  }
-
-  .workspace-home-mode-switch button {
-    min-height: 41px;
-    gap: 5px;
-    border-radius: 10px;
-    font-size: 12px;
-  }
-
-  .workspace-home-mode-switch button span {
-    width: 21px;
-    height: 21px;
-    border-radius: 7px;
-    font-size: 9px;
-  }
-
-  .workspace-home-mode-panel {
-    gap: 9px;
   }
 
   .case-card {
@@ -2043,38 +1990,94 @@
 }
 
 @media (max-width: 979px) {
+  .workspace-home-page {
+    min-height: 0;
+    height: 100%;
+    flex: 1;
+    display: flex;
+  }
+
   .workspace-home-stage {
-    gap: 11px;
-    padding-top: 4px;
+    min-height: 100%;
+    height: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 6px;
   }
 
   .workspace-home-heading {
-    justify-content: flex-start;
-    padding-inline: 2px;
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    margin-top: auto;
+    padding: 3px 0 1px;
+    text-align: left;
+  }
+
+  .workspace-home-seal {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    font-size: 14px;
+    box-shadow: 0 8px 22px var(--accent-soft-strong);
+  }
+
+  .workspace-home-heading h1 {
+    font-size: 20px;
+  }
+
+  .workspace-home-heading p {
+    margin-top: 3px;
+    font-size: 11px;
+  }
+
+  .workspace-home-mode-switch {
+    width: 100%;
+    border-radius: 14px;
+  }
+
+  .workspace-home-mode-switch button {
+    min-height: 41px;
+    gap: 5px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+
+  .workspace-home-mode-switch button span {
+    width: 21px;
+    height: 21px;
+    border-radius: 7px;
+    font-size: 9px;
   }
 
   .workspace-home-mode-panel {
-    gap: 9px;
+    width: 100%;
+    margin-top: auto;
+    gap: 0;
   }
 
   .workspace-home-question {
-    min-height: 118px;
-    padding: 16px 15px 10px;
+    height: clamp(92px, 16dvh, 126px);
+    min-height: 92px;
+    padding: 15px 14px 9px;
     font-size: 16px;
   }
 
   .workspace-home-composer {
-    border-radius: 16px;
+    border-radius: 18px;
+    box-shadow: 0 12px 34px rgba(63, 41, 71, 0.1);
   }
 
   .workspace-home-composer-footer {
     gap: 5px;
-    padding: 7px;
+    padding: 6px;
   }
 
   .workspace-home-algorithm {
-    flex-basis: 128px;
-    width: 128px;
+    flex-basis: 112px;
+    width: 112px;
   }
 
   .workspace-home-launch {
@@ -2089,7 +2092,42 @@
     max-width: none;
   }
 
+  .workspace-home-time-context {
+    flex: 1 1 auto;
+  }
+
   .workspace-home-time-context time {
     padding-inline: 6px;
+  }
+}
+
+@media (max-width: 979px) and (max-height: 640px) {
+  .workspace-home-stage {
+    gap: 8px;
+    padding-top: 2px;
+  }
+
+  .workspace-home-heading p {
+    display: none;
+  }
+
+  .workspace-home-seal {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+
+  .workspace-home-heading h1 {
+    font-size: 18px;
+  }
+
+  .workspace-home-mode-switch button {
+    min-height: 38px;
+  }
+
+  .workspace-home-question {
+    height: 84px;
+    min-height: 84px;
   }
 }
