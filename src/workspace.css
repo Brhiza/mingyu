@@ -580,6 +580,13 @@
   text-align: center;
 }
 
+.workspace-home-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
 .workspace-home-seal {
   width: 48px;
   height: 48px;
@@ -591,6 +598,19 @@
   font-size: 18px;
   font-weight: 850;
   box-shadow: 0 12px 30px var(--accent-soft-strong);
+}
+
+.workspace-home-donation {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.workspace-home-donation:hover {
+  color: var(--accent-strong);
 }
 
 .workspace-home-heading h1 {

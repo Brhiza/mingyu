@@ -54,6 +54,8 @@ const instantTimeOptions: DropdownSelectOption<InstantTimeStandard>[] = [
 ];
 
 const TEMPORARY_CASE_VALUE = '__temporary_case__';
+const DONATION_URL = 'https://lk.sydf.cc/';
+const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -285,9 +287,21 @@ export function HomePage() {
     <div className="workspace-home-page">
       <div className="workspace-home-stage">
         <header className="workspace-home-heading">
-          <span className="workspace-home-seal" aria-hidden="true">
-            命
-          </span>
+          <div className="workspace-home-brand">
+            <span className="workspace-home-seal" aria-hidden="true">
+              命
+            </span>
+            {isDonationBoxEnabled ? (
+              <a
+                className="workspace-home-donation"
+                href={DONATION_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                功德箱
+              </a>
+            ) : null}
+          </div>
           <div>
             <h1>{modeCopy[activeMode].heading}</h1>
             <p>输入问题，选择算法，一步开始</p>
