@@ -5,6 +5,7 @@ import type { MoonPhaseEvidence } from '../calendar/moon-phase-evidence';
 import type { SolarIlluminationEvidence } from '../calendar/solar-illumination-evidence';
 import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
+import type { HuangjiJingshiResult } from '../huangji-jingshi';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -24,7 +25,8 @@ export type DivinationType =
   | 'almanac'
   | 'lenormand'
   | 'astrolabe'
-  | 'taiyi';
+  | 'taiyi'
+  | 'huangji';
 
 export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
 
@@ -1382,7 +1384,8 @@ export type DivinationData =
   | AlmanacData
   | LenormandData
   | AstrolabeData
-  | TaiyiResult;
+  | TaiyiResult
+  | HuangjiJingshiResult;
 
 export interface SupplementaryInfo {
   /** 求测人性别，用于补充解读背景，不参与起盘算法。 */

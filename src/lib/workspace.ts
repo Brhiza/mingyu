@@ -95,6 +95,7 @@ const divinationMarks: Record<DivinationWorkspaceId, string> = {
   xiaoliuren: '小',
   jinkoujue: '金',
   taiyi: '太',
+  huangji: '皇',
   ssgw: '签',
   tarot: '塔',
   lenormand: '雷',

@@ -17,6 +17,7 @@ import type {
   JinkoujueDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
+import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 import { daysInSolarMonth } from '../../date-validation';
 import {
   buildAstrolabeTopicTask,
@@ -116,6 +117,8 @@ export type DivinationDraft = {
   astrolabeTopic?: AstrolabePromptTopic;
   taiyiYear: string;
   taiyiScope?: TaiyiScope;
+  huangjiEra: 'ce' | 'bce';
+  huangjiYear: string;
 };
 
 export type DivinationSession = {
@@ -176,16 +179,17 @@ export function buildDivinationPrompt(
       : method === 'tarot'
         ? buildTarotSpreadTask(data as TarotData)
         : buildTaskText(method);
+  const promptSchoolMethod = method === 'huangji' ? 'huangji-jingshi' : method;
   const selectedSchools =
     method !== 'ssgw' && options.schools?.length
-      ? normalizePromptSchoolIds(method as PromptSchoolMethod, options.schools)
+      ? normalizePromptSchoolIds(promptSchoolMethod as PromptSchoolMethod, options.schools)
       : [];
   const schoolText = selectedSchools.length
-    ? formatPromptSchoolGuidance(method as PromptSchoolMethod, selectedSchools)
+    ? formatPromptSchoolGuidance(promptSchoolMethod as PromptSchoolMethod, selectedSchools)
     : '';
   const schoolSection = schoolText
     ? buildSection(
-        `【${getPromptSchoolSectionTitle(method as PromptSchoolMethod, selectedSchools)}】`,
+        `【${getPromptSchoolSectionTitle(promptSchoolMethod as PromptSchoolMethod, selectedSchools)}】`,
         schoolText,
       )
     : '';
@@ -225,7 +229,8 @@ export function buildDivinationPrompt(
 function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | undefined {
   const info: SupplementaryInfo = {};
 
-  const usesDedicatedBirthInfo = draft.method === 'almanac' || draft.method === 'astrolabe';
+  const usesDedicatedBirthInfo =
+    draft.method === 'almanac' || draft.method === 'astrolabe' || draft.method === 'huangji';
   if (!usesDedicatedBirthInfo && draft.gender) {
     info.gender = draft.gender;
   }
@@ -331,6 +336,10 @@ function validateDraft(draft: DivinationDraft) {
     }
   }
 
+  if (draft.method === 'huangji') {
+    resolveHuangjiYear(draft);
+  }
+
   if (draft.method === 'almanac') {
     if (!draft.almanacStartDate || !draft.almanacEndDate) {
       throw new Error('黄历择日需要选择开始日期和结束日期');
@@ -383,6 +392,14 @@ function readPositiveIntegerText(value: string, label: string) {
     throw new Error(`${label}需要填写正整数`);
   }
   return number;
+}
+
+function resolveHuangjiYear(draft: Pick<DivinationDraft, 'huangjiEra' | 'huangjiYear'>) {
+  const year = readPositiveIntegerText(draft.huangjiYear, '目标年份');
+  if (draft.huangjiEra === 'bce' && year > 67_017) {
+    throw new Error('公元前年份不能早于公元前67017年');
+  }
+  return draft.huangjiEra === 'bce' ? -year : year;
 }
 
 function readNumberText(value: string, label: string) {
@@ -635,6 +652,14 @@ export async function generateDivinationSession(
       ) as TaiyiResult;
       break;
     }
+    case 'huangji': {
+      const module = await import('mingyu-core/huangji-jingshi');
+      data = module.calculateHuangjiJingshi({
+        year: resolveHuangjiYear(draft),
+        question: inputQuestion,
+      });
+      break;
+    }
     case 'tarot': {
       const module = await import('mingyu-core/divination/tarot');
       data = module.drawTarotSpread(
@@ -702,12 +727,15 @@ export async function generateDivinationSession(
     method === 'almanac' && !inputQuestion
       ? buildAlmanacSessionTitle(data as AlmanacData)
       : inputQuestion;
-  const prompt = buildDivinationPrompt(method, inputQuestion, data, supplementaryInfo, {
-    isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
-    liuyaoTemplate: draft.liuyaoTemplate,
-    liurenTemplate: draft.liurenTemplate,
-    astrolabeTopic: draft.astrolabeTopic,
-  });
+  const prompt =
+    method === 'huangji'
+      ? (data as HuangjiJingshiResult).prompt
+      : buildDivinationPrompt(method, inputQuestion, data, supplementaryInfo, {
+          isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
+          liuyaoTemplate: draft.liuyaoTemplate,
+          liurenTemplate: draft.liurenTemplate,
+          astrolabeTopic: draft.astrolabeTopic,
+        });
   return {
     method,
     requestedMethod: draft.method,

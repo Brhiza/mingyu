@@ -440,6 +440,148 @@
   gap: 5px;
 }
 
+.traditional-huangji-cycle {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--chart-border);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.traditional-huangji-period {
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid var(--chart-border);
+  background: var(--surface-base);
+}
+
+.traditional-huangji-period:last-child {
+  border-right: 0;
+}
+
+.traditional-huangji-period.is-active {
+  background: var(--chart-accent-soft);
+}
+
+.traditional-huangji-period-head,
+.traditional-huangji-hexagram {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.traditional-huangji-period-head > span,
+.traditional-huangji-judgment > span,
+.traditional-huangji-related span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.traditional-huangji-period-head small,
+.traditional-huangji-period p,
+.traditional-huangji-period em,
+.traditional-huangji-hexagram span,
+.traditional-huangji-related small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.traditional-huangji-hexagram {
+  display: grid;
+  justify-content: stretch;
+  justify-items: start;
+  margin-top: 11px;
+}
+
+.traditional-huangji-hexagram > strong {
+  color: color-mix(in srgb, var(--chart-accent) 72%, var(--text-strong));
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.traditional-huangji-hexagram > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.traditional-huangji-hexagram b {
+  color: var(--text-strong);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.traditional-huangji-period p {
+  margin: 10px 0 0;
+  line-height: 1.45;
+}
+
+.traditional-huangji-period em {
+  display: block;
+  margin-top: 4px;
+}
+
+.traditional-huangji-focus {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  overflow: hidden;
+  border: 1px solid var(--chart-border);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.traditional-huangji-judgment {
+  padding: 12px 14px;
+  border-right: 1px solid var(--chart-border);
+}
+
+.traditional-huangji-judgment p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.traditional-huangji-related {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.traditional-huangji-related > div {
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 6px;
+  border-right: 1px solid var(--chart-border);
+  text-align: center;
+}
+
+.traditional-huangji-related > div:last-child {
+  border-right: 0;
+}
+
+.traditional-huangji-related strong {
+  color: color-mix(in srgb, var(--chart-accent) 68%, var(--text-strong));
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.traditional-huangji-related b {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--text-strong);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .traditional-chart-layout .qizheng-chart-svg,
 .traditional-chart-layout .astrolabe-chart-svg {
   border-color: var(--chart-border);
@@ -573,6 +715,34 @@
 
   .traditional-meta-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traditional-huangji-cycle {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traditional-huangji-period {
+    border-right: 1px solid var(--chart-border);
+    border-bottom: 1px solid var(--chart-border);
+  }
+
+  .traditional-huangji-period:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .traditional-huangji-period:last-child {
+    grid-column: 1 / -1;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  .traditional-huangji-focus {
+    grid-template-columns: 1fr;
+  }
+
+  .traditional-huangji-judgment {
+    border-right: 0;
+    border-bottom: 1px solid var(--chart-border);
   }
 
   .traditional-liuyao-head,

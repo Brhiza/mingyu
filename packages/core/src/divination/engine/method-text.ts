@@ -25,6 +25,8 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>) {
       return '依据星体、宫位和相位回答【问题】。';
     case 'taiyi':
       return '依据年家局数、太乙、文昌、始击、计神与主客算回答【问题】。';
+    case 'huangji':
+      return '依据元会运世位置、会内统卦、运卦、六十年统卦、十年卦和值年卦回答【问题】。';
     default:
       return '请结合占卜信息回答【问题】。';
   }

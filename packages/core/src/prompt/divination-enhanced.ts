@@ -26,6 +26,8 @@ import {
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
 import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
+import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 
 function joinPromptSentences(items: Array<string | undefined>) {
   return items
@@ -735,6 +737,29 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     .join('\n');
 }
 
+export function formatHuangjiInfo(data: HuangjiJingshiResult) {
+  const forecast = data.forecast;
+  if (!forecast) {
+    return [
+      '占法：皇极经世',
+      `目标年坐标：${data.input.year}`,
+      `元会运世：第${data.position.yuan.indexFromEpoch + 1}元，第${data.position.hui.indexInYuan}会，第${data.position.yun.indexInHui}运，第${data.position.shi.indexInYun}世`,
+    ].join('\n');
+  }
+  const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
+  return [
+    '占法：皇极经世',
+    `目标年份：${formatHuangjiCivilYear(annual.year)}（${annual.ganzhi}）`,
+    `周期位置：第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会），会内第${data.position.yun.indexInHui}运，运内第${data.position.shi.indexInYun}世，世内第${data.position.year.indexInShi}年`,
+    `会内统卦：${governing.hexagram.name}，${formatHuangjiCivilYear(governing.startYear)}至${formatHuangjiCivilYear(governing.endYear)}`,
+    `运卦：${yun.hexagram.name}，${formatHuangjiCivilYear(yun.startYear)}至${formatHuangjiCivilYear(yun.endYear)}`,
+    `六十年统卦：${sixtyYear.hexagram.name}，${formatHuangjiCivilYear(sixtyYear.startYear)}至${formatHuangjiCivilYear(sixtyYear.endYear)}`,
+    `十年卦：${decade.hexagram.name}，${formatHuangjiCivilYear(decade.startYear)}至${formatHuangjiCivilYear(decade.endYear)}`,
+    `值年卦：${annual.name}（${annual.upper}上、${annual.lower}下）；互卦${forecast.relatedHexagrams.mutual.name}；错卦${forecast.relatedHexagrams.opposite.name}；综卦${forecast.relatedHexagrams.reversed.name}`,
+    `值年卦辞：${annual.judgment}`,
+  ].join('\n');
+}
+
 function formatJinkoujueInfo(data: JinkoujueData) {
   const p = data.positions;
   return [
@@ -781,6 +806,8 @@ export function formatEnhancedDivinationInfo(
       return formatAstrolabeInfo(data as AstrolabeData);
     case 'taiyi':
       return formatTaiyiInfo(data as TaiyiResult);
+    case 'huangji':
+      return formatHuangjiInfo(data as HuangjiJingshiResult);
     default:
       return '占卜信息暂不可用';
   }

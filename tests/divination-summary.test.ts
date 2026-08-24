@@ -3,6 +3,7 @@ import test from 'node:test';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateTaiyi } from 'mingyu-core/taiyi';
+import { calculateHuangjiJingshi } from 'mingyu-core/huangji-jingshi';
 import { getDivinationSummaryBlocks } from '../src/lib/divination/summary';
 
 test('黄历择日摘要应展示候选状态与限制，不暴露内部数字评分', () => {
@@ -38,4 +39,16 @@ test('太乙摘要应显示中文计式名称', () => {
 
   assert.equal(summary.title, '太乙神数月计结果');
   assert.doesNotMatch(summary.title, /month|day|hour|year/);
+});
+
+test('皇极经世摘要应显示周期层级与值年卦关系', () => {
+  const data = calculateHuangjiJingshi({ year: 2026 });
+  const summary = getDivinationSummaryBlocks('huangji', data);
+  const text = [...summary.tags, ...summary.lines].join('\n');
+
+  assert.equal(summary.title, '皇极经世值年结果');
+  assert.match(text, /公元2026年/);
+  assert.match(text, /天火同人/);
+  assert.match(text, /泽风大过.*火风鼎/);
+  assert.match(text, /互错综/);
 });

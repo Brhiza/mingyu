@@ -59,6 +59,11 @@ export const PROMPT_GUIDANCE_TEXT = {
       '积年、阳遁与七十二局构成年计基础；太乙、文昌、始击、计神落宫及主客定算构成盘面主线。',
     sources: '参考《太乙金镜式经》年计积年、阳遁七十二局及相关主客定算立成。',
   },
+  huangji: {
+    tradition:
+      '以元、会、运、世定位目标年份的周期层级，再依会内统卦、运卦、六十年统卦、十年卦和值年卦逐层推演。',
+    sources: '参考《皇极经世》、蔡元定《皇极经世指要》及先天圆图值年卦通行排法。',
+  },
   tarot: {
     tradition: '先按牌阵与牌位职能确定结构，再结合正逆位、牌组层次、元素和牌序推进解读。',
     sources:
@@ -121,6 +126,7 @@ export type DivinationPromptGuidanceMethod =
   | 'qimen'
   | 'liuren'
   | 'taiyi'
+  | 'huangji'
   | 'tarot'
   | 'lenormand'
   | 'ssgw'
@@ -158,6 +164,8 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
     '先以初传发用定事之发端，中传观移易转折，末传看归宿终局；结合天将乘克与课体详断吉凶演变。',
   jinkoujue: '先以四位生克与阴阳发用定吉凶成败，再结合五动三动与神将旺衰详析事态演变与应期关窍。',
   taiyi: '先以太乙落宫与主客算定大局攻守，再结合文昌始击将参乘克推演事态顺逆与时机取舍。',
+  huangji:
+    '先定位元会运世周期层级与会内统卦，再按运卦、六十年统卦、十年卦和值年卦逐层收束目标年份的时势主线。',
 
   // 3. 堪舆风水体系
   bazhai:

@@ -51,6 +51,7 @@ import {
   generateQimen,
   resolveZhiShiLandingPalace,
 } from 'mingyu-core/divination/qimen';
+import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
 
@@ -93,6 +94,8 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     astrolabeLongitude: '116.4074',
     astrolabeTimezone: '8',
     taiyiYear: '2004',
+    huangjiEra: 'ce',
+    huangjiYear: '2026',
     ...overrides,
   };
 }
@@ -4074,6 +4077,45 @@ test('太乙神数占卜入口应支持月日时四计并使用起局时间', as
     assert.match(
       session.prompt,
       new RegExp(`太乙神数（${{ month: '月计', day: '日计', hour: '时计' }[scope]}）`),
+    );
+  }
+});
+
+test('皇极经世占问入口应生成公元值年盘和自包含提示词', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'huangji',
+      huangjiEra: 'ce',
+      huangjiYear: '2026',
+      question: '这一年的整体时势主线是什么？',
+    }),
+  );
+
+  const data = session.data as HuangjiJingshiResult;
+  assert.equal(session.method, 'huangji');
+  assert.equal(data.input.year, 2026);
+  assert.equal(data.forecast?.hexagrams.annual.name, '天火同人');
+  assert.match(session.prompt, /目标年份：公元2026年（丙午）/);
+  assert.match(session.prompt, /会内统卦：泽风大过/);
+  assert.match(session.prompt, /六十年统卦：火风鼎/);
+  assert.match(session.prompt, /值年卦：天火同人/);
+  assert.match(session.prompt, /互卦：天风姤/);
+  assert.doesNotMatch(session.prompt, /项目|仓库|API|MCP|内部字段/);
+});
+
+test('皇极经世占问入口应支持公元前纪年并拒绝无效年份', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({ method: 'huangji', huangjiEra: 'bce', huangjiYear: '1' }),
+  );
+  assert.equal((session.data as HuangjiJingshiResult).input.year, -1);
+
+  for (const huangjiYear of ['', '0', '67018']) {
+    await assert.rejects(
+      () =>
+        generateDivinationSession(
+          buildDraft({ method: 'huangji', huangjiEra: 'bce', huangjiYear }),
+        ),
+      /目标年份|公元前年份/,
     );
   }
 });

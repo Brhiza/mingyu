@@ -26,6 +26,7 @@ export type DivinationMethodId =
       | 'lenormand'
       | 'astrolabe'
       | 'taiyi'
+      | 'huangji'
     >;
 
 export const DIVINATION_METHOD_OPTIONS: Array<{
@@ -72,6 +73,11 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     value: 'taiyi',
     label: '太乙神数',
     description: '按年、月、日、时四计观察不同时间尺度的动静、攻守与时宜。',
+  },
+  {
+    value: 'huangji',
+    label: '皇极经世',
+    description: '以元会运世和值年卦观察目标年份所处的长期时势层级。',
   },
   {
     value: 'ssgw',

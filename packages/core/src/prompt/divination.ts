@@ -36,6 +36,8 @@ import { formatEnhancedDivinationInfo } from './divination-enhanced';
 import { resolveSsgwStoryContent } from '../divination/ssgw-content';
 import { buildSolarTimeInfoText, buildTimeInfoText } from './formatters';
 import { buildTarotSpreadTask } from './tarot-spread';
+import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 
 export interface DivinationSummaryBlocks {
   title: string;
@@ -459,6 +461,27 @@ export function getDivinationSummaryBlocks(
         ].filter(Boolean),
       };
     }
+    case 'huangji': {
+      const item = data as HuangjiJingshiResult;
+      const forecast = item.forecast;
+      if (!forecast) {
+        return {
+          title: '皇极经世结果',
+          tags: [`目标年：${item.input.year}`],
+          lines: item.calculationChain.slice(0, 5),
+        };
+      }
+      const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
+      return {
+        title: '皇极经世值年结果',
+        tags: [formatHuangjiCivilYear(annual.year), annual.ganzhi, `值年${annual.name}`],
+        lines: [
+          `周期：第${forecast.hui.indexInYuan}会${forecast.hui.branch}会，会内第${item.position.yun.indexInHui}运，运内第${item.position.shi.indexInYun}世`,
+          `卦序：${governing.hexagram.name} → ${yun.hexagram.name} → ${sixtyYear.hexagram.name} → ${decade.hexagram.name} → ${annual.name}`,
+          `互错综：${forecast.relatedHexagrams.mutual.name}、${forecast.relatedHexagrams.opposite.name}、${forecast.relatedHexagrams.reversed.name}`,
+        ],
+      };
+    }
     default:
       return { title: '占卜结果', tags: [], lines: [] };
   }
@@ -567,6 +590,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         ? buildLiurenTemplateText(liurenTemplate, options.data as LiurenData)
         : '';
   const supplementaryText = formatSupplementaryInfo(options.supplementaryInfo, options.method);
+  const promptSchoolMethod = options.method === 'huangji' ? 'huangji-jingshi' : options.method;
   const user = joinPromptSections([
     buildPromptGuidance(options.method),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
@@ -580,7 +604,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
     ),
     options.method === 'ssgw'
       ? ''
-      : buildPromptSchoolSection(options.method as PromptSchoolMethod, options.schools),
+      : buildPromptSchoolSection(promptSchoolMethod as PromptSchoolMethod, options.schools),
     buildPromptSection('问题', question),
     templateText ? buildPromptSection('问题范围', templateText) : '',
     buildPromptSection('任务', task),

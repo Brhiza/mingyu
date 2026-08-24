@@ -10,6 +10,7 @@ import { generateQimen, type QimenMethod, type QimenScope } from './algorithms/q
 import { drawRandomSign, resolveSignByNumber } from './algorithms/ssgw';
 import { generateXiaoliuren } from './algorithms/xiaoliuren';
 import { generateTaiyi } from '../taiyi/index';
+import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
 import { drawTarotSpread, type TarotDrawOptions, type TarotManualCardInput } from './tarot';
 import type { RandomOptions } from '../shared/random';
 import { createRandomContext, randomInt } from '../shared/random';
@@ -98,6 +99,7 @@ export interface DivinationRequest {
   };
   astrolabe?: AstrolabeBirthInput;
   taiyi?: { year?: number; scope?: TaiyiScope };
+  huangji?: { year: number };
   prompt?: Omit<DivinationPromptOptions, 'method' | 'data' | 'question' | 'currentTime'>;
 }
 
@@ -223,7 +225,8 @@ function assertRequestRecord(request: DivinationRequest): void {
   if (
     !RANDOM_METHODS.includes(request.method as DivinationSessionMethod) &&
     request.method !== 'astrolabe' &&
-    request.method !== 'almanac'
+    request.method !== 'almanac' &&
+    request.method !== 'huangji'
   ) {
     if (request.method !== 'random') throw new Error(`未知的占法：${String(request.method)}`);
   }
@@ -298,6 +301,17 @@ export function validateDivinationRequest(request: DivinationRequest): void {
     }
     if (scope === 'year' && !Number.isSafeInteger(request.taiyi.year)) {
       throw new Error('太乙年计年份必须是整数。');
+    }
+  }
+  if (request.method === 'huangji') {
+    if (!request.huangji || !Number.isSafeInteger(request.huangji.year)) {
+      throw new Error('皇极经世需要提供非零整数年份。');
+    }
+    if (request.huangji.year === 0) {
+      throw new Error('皇极经世采用无公元0年的公元纪年。');
+    }
+    if (request.huangji.year < -67_017) {
+      throw new Error('皇极经世目标年份不能早于公元前67017年。');
     }
   }
 }
@@ -383,6 +397,12 @@ function generateData(
         date: customDate ?? new Date(),
         scope: request.taiyi.scope,
       }) as TaiyiResult;
+    case 'huangji':
+      if (!request.huangji) throw new Error('皇极经世需要提供 huangji 参数。');
+      return calculateHuangjiJingshi({
+        year: request.huangji.year,
+        question: request.question?.trim(),
+      });
   }
 }
 
@@ -403,17 +423,23 @@ export function generateDivinationSession(request: DivinationRequest): Divinatio
     supplementaryInfo: request.supplementaryInfo,
     isCustomQuestion: request.questionSource === 'custom',
   };
-  const promptDocument = buildDivinationPromptDocument(promptOptions);
+  const promptDocument =
+    method === 'huangji'
+      ? buildPromptDocument((data as HuangjiJingshiResult).prompt)
+      : buildDivinationPromptDocument(promptOptions);
   const summary = summarizeDivinationResult(method, data);
   const { chart, auditEvidence } = partitionResultForConsumption(data);
-  const aiPromptDocument = buildDivinationAiPrompt({
-    method,
-    question,
-    currentTime,
-    supplementaryInfo: request.supplementaryInfo,
-    chartText: formatAiChart(method, data, summary),
-    data,
-  });
+  const aiPromptDocument =
+    method === 'huangji'
+      ? buildPromptDocument((data as HuangjiJingshiResult).prompt)
+      : buildDivinationAiPrompt({
+          method,
+          question,
+          currentTime,
+          supplementaryInfo: request.supplementaryInfo,
+          chartText: formatAiChart(method, data, summary),
+          data,
+        });
   const aiPrompt = aiPromptDocument.text;
   const view = createUnifiedResultView({
     kind: method,

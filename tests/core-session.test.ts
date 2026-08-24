@@ -80,3 +80,18 @@ test('统一占法会话应保留手工六爻输入并支持随机牌阵种子',
 test('统一占法会话应在计算前拒绝缺少占法问题', () => {
   assert.throws(() => validateDivinationRequest({ method: 'meihua' }), /需要提供问题/);
 });
+
+test('统一占法会话应支持皇极经世值年盘', () => {
+  const session = generateDivinationSession({
+    method: 'huangji',
+    question: '这一年的时势主线是什么？',
+    huangji: { year: 2026 },
+  });
+
+  assert.equal(session.method, 'huangji');
+  assert.equal(session.summary.title, '皇极经世值年结果');
+  assert.match(session.formattedResult, /会内统卦：泽风大过/);
+  assert.match(session.prompt, /值年卦：天火同人/);
+  assert.equal(session.aiPrompt, session.prompt);
+  assert.match(session.serializedResult, /"forecast"/);
+});

@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import type { DivinationSession } from '@/lib/divination/engine';
+import {
+  formatHuangjiCivilYear,
+  type HuangjiJingshiResult,
+  type HuangjiPeriodHexagram,
+} from 'mingyu-core/huangji-jingshi';
 import type {
   AlmanacData,
   AstrolabeData,
@@ -638,6 +643,111 @@ function TaiyiTraditionalBoard({ data }: { data: TaiyiResult }) {
   );
 }
 
+function HuangjiPeriodCell(props: {
+  label: string;
+  period: HuangjiPeriodHexagram;
+  active?: boolean;
+}) {
+  const { label, period, active = false } = props;
+  return (
+    <article className={`traditional-huangji-period${active ? ' is-active' : ''}`}>
+      <div className="traditional-huangji-period-head">
+        <span>{label}</span>
+        <small>{period.durationYears}年</small>
+      </div>
+      <div className="traditional-huangji-hexagram">
+        <strong>{period.hexagram.symbol}</strong>
+        <div>
+          <b>{period.hexagram.name}</b>
+          <span>
+            {period.hexagram.upper}上 · {period.hexagram.lower}下
+          </span>
+        </div>
+      </div>
+      <p>
+        {formatHuangjiCivilYear(period.startYear)}—{formatHuangjiCivilYear(period.endYear)}
+      </p>
+      {period.derivedFrom && period.changedLine ? (
+        <em>
+          {period.derivedFrom}卦第{period.changedLine}爻变
+        </em>
+      ) : null}
+    </article>
+  );
+}
+
+function HuangjiTraditionalBoard({ data }: { data: HuangjiJingshiResult }) {
+  const forecast = data.forecast;
+  if (!forecast) return null;
+
+  const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
+  const related = [
+    ['互卦', forecast.relatedHexagrams.mutual],
+    ['错卦', forecast.relatedHexagrams.opposite],
+    ['综卦', forecast.relatedHexagrams.reversed],
+  ] as const;
+
+  return (
+    <TraditionalBoardShell
+      title="皇极经世值年盘"
+      subtitle={`${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`}
+      className="traditional-huangji-board"
+    >
+      <TraditionalMeta
+        items={[
+          ['元', `第${data.position.yuan.indexFromEpoch + 1}元`],
+          ['会', `第${forecast.hui.indexInYuan}会 · ${forecast.hui.branch}`],
+          ['运', `会内第${data.position.yun.indexInHui}运`],
+          ['世', `运内第${data.position.shi.indexInYun}世`],
+          ['年位', `世内第${data.position.year.indexInShi}年`],
+        ]}
+      />
+
+      <div className="traditional-huangji-cycle" role="list" aria-label="皇极经世卦序层级">
+        <HuangjiPeriodCell label="会内统卦" period={governing} />
+        <HuangjiPeriodCell label="运卦" period={yun} />
+        <HuangjiPeriodCell label="六十年统卦" period={sixtyYear} />
+        <HuangjiPeriodCell label="十年卦" period={decade} />
+        <article className="traditional-huangji-period is-active">
+          <div className="traditional-huangji-period-head">
+            <span>值年卦</span>
+            <small>{annual.ganzhi}</small>
+          </div>
+          <div className="traditional-huangji-hexagram">
+            <strong>{annual.symbol}</strong>
+            <div>
+              <b>{annual.name}</b>
+              <span>
+                {annual.upper}上 · {annual.lower}下
+              </span>
+            </div>
+          </div>
+          <p>{formatHuangjiCivilYear(annual.year)}</p>
+        </article>
+      </div>
+
+      <div className="traditional-huangji-focus">
+        <div className="traditional-huangji-judgment">
+          <span>值年卦辞</span>
+          <p>{annual.judgment}</p>
+        </div>
+        <div className="traditional-huangji-related" aria-label="值年卦互错综">
+          {related.map(([label, hexagram]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <strong>{hexagram.symbol}</strong>
+              <b>{hexagram.name}</b>
+              <small>
+                {hexagram.upper}上 · {hexagram.lower}下
+              </small>
+            </div>
+          ))}
+        </div>
+      </div>
+    </TraditionalBoardShell>
+  );
+}
+
 export function TraditionalDivinationBoard({ session }: { session: DivinationSession }) {
   switch (session.method) {
     case 'liuyao':
@@ -670,6 +780,8 @@ export function TraditionalDivinationBoard({ session }: { session: DivinationSes
       );
     case 'taiyi':
       return <TaiyiTraditionalBoard data={session.data as TaiyiResult} />;
+    case 'huangji':
+      return <HuangjiTraditionalBoard data={session.data as HuangjiJingshiResult} />;
     case 'liuren':
       return null;
     default:
