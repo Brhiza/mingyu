@@ -353,7 +353,7 @@ export function DivinationResult({
                 onShare={onShare}
                 question={session.question || methodLabelMap[session.method]}
                 showShare={isCompactResultLayout}
-                expandedByDefault={!isCompactResultLayout}
+                expandedByDefault
               />
             )}
           </div>
