@@ -242,10 +242,10 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     if (hiddenStr) result += `  藏干: ${hiddenStr}\n`;
     if (includeNatalDetails) {
       const referenceParts = [
-        nayin ? `纳音:${nayin}` : '',
-        ziZuo ? `自坐:${ziZuo}` : '',
-        dayMasterLifeStage ? `十二运:${dayMasterLifeStage}` : '',
-        pillarKongWang ? `旬空:${pillarKongWang}` : '',
+        nayin ? `纳音: ${nayin}` : '',
+        ziZuo ? `自坐: ${ziZuo}` : '',
+        dayMasterLifeStage ? `十二运: ${dayMasterLifeStage}` : '',
+        pillarKongWang ? `旬空: ${pillarKongWang}` : '',
       ].filter(Boolean);
       if (referenceParts.length) result += `  ${referenceParts.join(' | ')}\n`;
     } else if (dayMasterLifeStage) {
