@@ -26,6 +26,9 @@ type DropdownSelectProps<T extends string> = {
   prefix?: string;
   disabled?: boolean;
   variant?: 'compact' | 'field';
+  favoriteValue?: T;
+  favoriteLabel?: string;
+  onFavoriteChange?: (value: T) => void;
 };
 
 function findEnabledOption<T extends string>(
@@ -52,6 +55,9 @@ export function DropdownSelect<T extends string>({
   prefix,
   disabled = false,
   variant = 'compact',
+  favoriteValue,
+  favoriteLabel = '默认项',
+  onFavoriteChange,
 }: DropdownSelectProps<T>) {
   const generatedId = useId();
   const triggerId = id ?? `dropdown-select-${generatedId}`;
@@ -80,8 +86,8 @@ export function DropdownSelect<T extends string>({
     const viewportHeight = window.innerHeight;
     const maxViewportWidth = Math.max(160, viewportWidth - 16);
     const width = Math.min(
-      Math.max(rect.width, 160, longestLabelLength * 14 + 48),
-      Math.min(280, maxViewportWidth),
+      Math.max(rect.width, 160, longestLabelLength * 14 + (onFavoriteChange ? 82 : 48)),
+      Math.min(onFavoriteChange ? 320 : 280, maxViewportWidth),
     );
     const maxHeight = Math.min(320, Math.max(160, Math.floor(viewportHeight * 0.5)));
     const estimatedHeight = Math.min(maxHeight, options.length * 40 + 12);
@@ -98,7 +104,7 @@ export function DropdownSelect<T extends string>({
       maxHeight: Math.min(maxHeight, placement === 'above' ? spaceAbove : spaceBelow),
       placement,
     });
-  }, [longestLabelLength, options.length]);
+  }, [longestLabelLength, onFavoriteChange, options.length]);
 
   const openMenu = useCallback(() => {
     if (disabled || options.length === 0) return;
@@ -224,7 +230,10 @@ export function DropdownSelect<T extends string>({
               }}
             >
               {options.map((option, index) => (
-                <div className="workspace-ui-dropdown-entry" key={option.value}>
+                <div
+                  className={`workspace-ui-dropdown-entry ${onFavoriteChange ? 'has-favorite' : ''}`}
+                  key={option.value}
+                >
                   {option.group && option.group !== options[index - 1]?.group ? (
                     <div className="workspace-ui-dropdown-group" role="presentation">
                       {option.group}
@@ -244,6 +253,27 @@ export function DropdownSelect<T extends string>({
                     <span>{option.label}</span>
                     {option.value === value ? <span aria-hidden="true">✓</span> : null}
                   </button>
+                  {onFavoriteChange ? (
+                    <button
+                      type="button"
+                      className={`workspace-ui-dropdown-favorite ${option.value === favoriteValue ? 'is-favorite' : ''}`}
+                      aria-label={`${option.label}设为${favoriteLabel}`}
+                      aria-pressed={option.value === favoriteValue}
+                      title={
+                        option.value === favoriteValue
+                          ? `当前${favoriteLabel}`
+                          : `设为${favoriteLabel}`
+                      }
+                      disabled={option.disabled}
+                      onPointerDown={(event) => event.preventDefault()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onFavoriteChange(option.value);
+                      }}
+                    >
+                      <span aria-hidden="true">{option.value === favoriteValue ? '★' : '☆'}</span>
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </div>,

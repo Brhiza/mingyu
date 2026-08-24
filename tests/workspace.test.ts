@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  DEFAULT_WORKSPACE_PREFERENCES,
+  HOME_MODE_IDS,
   WORKSPACE_FEATURE_GROUPS,
   WORKSPACE_FEATURE_IDS,
   WORKSPACE_FEATURES,
   buildWorkspaceFeaturePath,
+  isHomeChartWorkspaceId,
+  normalizeHomeModeOrder,
   normalizeNavigationOrder,
   resolvePersonalWorkspaceSource,
 } from '../src/lib/workspace';
@@ -24,6 +28,20 @@ test('侧栏顺序应去重、忽略无效项并补齐新增工具', () => {
   assert.deepEqual(order.slice(0, 2), ['tarot', 'bazi']);
   assert.equal(order.length, WORKSPACE_FEATURE_IDS.length);
   assert.equal(new Set(order).size, WORKSPACE_FEATURE_IDS.length);
+});
+
+test('首页应分别保存三种模式的默认算法并默认先显示占问', () => {
+  assert.deepEqual(HOME_MODE_IDS, ['divination', 'chart', 'instant']);
+  assert.deepEqual(DEFAULT_WORKSPACE_PREFERENCES.homeModeOrder, ['divination', 'chart', 'instant']);
+  assert.equal(DEFAULT_WORKSPACE_PREFERENCES.defaultChartFeature, 'bazi');
+  assert.equal(DEFAULT_WORKSPACE_PREFERENCES.defaultDivinationFeature, 'liuyao');
+  assert.equal(DEFAULT_WORKSPACE_PREFERENCES.defaultInstantType, 'bazi');
+  assert.equal(isHomeChartWorkspaceId('compatibility'), false);
+  assert.deepEqual(normalizeHomeModeOrder(['instant', 'instant', 'invalid']), [
+    'instant',
+    'divination',
+    'chart',
+  ]);
 });
 
 test('侧栏分组应覆盖全部工具且不产生重复入口', () => {

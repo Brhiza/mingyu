@@ -496,6 +496,14 @@ label.workspace-ui-field > span:first-child {
   gap: 2px;
 }
 
+.workspace-ui-dropdown-entry.has-favorite {
+  grid-template-columns: minmax(0, 1fr) 34px;
+}
+
+.workspace-ui-dropdown-entry.has-favorite .workspace-ui-dropdown-group {
+  grid-column: 1 / -1;
+}
+
 .workspace-ui-dropdown-group {
   padding: 9px 10px 4px;
   color: var(--text-muted);
@@ -535,6 +543,37 @@ label.workspace-ui-field > span:first-child {
 .workspace-ui-dropdown-option[aria-selected='true'] {
   color: var(--accent-deep);
   font-weight: 750;
+}
+
+.workspace-ui-dropdown-favorite {
+  width: 34px;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.workspace-ui-dropdown-favorite:hover,
+.workspace-ui-dropdown-favorite:focus-visible {
+  outline: none;
+  background: var(--surface-muted);
+  color: var(--accent-deep);
+}
+
+.workspace-ui-dropdown-favorite.is-favorite {
+  color: var(--accent-strong);
+}
+
+.workspace-ui-dropdown-favorite:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .workspace-ui-dialog-backdrop {

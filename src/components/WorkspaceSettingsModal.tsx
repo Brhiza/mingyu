@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from './workspace/WorkspaceUI';
-import { DropdownSelect } from './DropdownSelect';
 import {
+  DEFAULT_WORKSPACE_PREFERENCES,
+  HOME_MODE_DEFINITIONS,
   WORKSPACE_FEATURES,
   WORKSPACE_FEATURE_GROUPS,
   getWorkspaceFeature,
+  type HomeModeId,
   type WorkspaceFeatureId,
   type WorkspacePreferences,
 } from '@/lib/workspace';
@@ -35,6 +37,17 @@ function moveItemWithinGroup(
   return next;
 }
 
+function moveHomeMode(order: HomeModeId[], id: HomeModeId, direction: -1 | 1) {
+  const currentIndex = order.indexOf(id);
+  const siblingIndex = currentIndex + direction;
+  if (currentIndex < 0 || siblingIndex < 0 || siblingIndex >= order.length) {
+    return order;
+  }
+  const next = [...order];
+  [next[currentIndex], next[siblingIndex]] = [next[siblingIndex], next[currentIndex]];
+  return next;
+}
+
 export function WorkspaceSettingsModal({
   preferences,
   onApply,
@@ -59,30 +72,67 @@ export function WorkspaceSettingsModal({
 
       <div className="workspace-settings-layout">
         <section className="workspace-settings-section">
-          <h3>首页首选</h3>
-          <div className="workspace-setting-field">
-            <span>首选工具</span>
-            <DropdownSelect
-              value={draft.defaultFeature}
-              ariaLabel="首选工具"
-              variant="field"
-              options={WORKSPACE_FEATURES.map((feature) => ({
-                value: feature.id,
-                label: feature.label,
-                group: WORKSPACE_FEATURE_GROUPS.find((group) => group.id === feature.group)?.label,
-              }))}
-              onChange={(defaultFeature) =>
+          <div className="workspace-order-heading">
+            <div>
+              <h3>首页模式顺序</h3>
+              <p>第一项会作为首页默认模式。</p>
+            </div>
+            <WorkspaceButton
+              variant="ghost"
+              size="small"
+              onClick={() =>
                 setDraft((current) => ({
                   ...current,
-                  defaultFeature,
+                  homeModeOrder: [...DEFAULT_WORKSPACE_PREFERENCES.homeModeOrder],
                 }))
               }
-            />
+            >
+              恢复默认
+            </WorkspaceButton>
           </div>
 
-          <p className="workspace-setting-note">
-            首页会优先打开该工具所在的模式，并标出首选项。已选择全局案例时，排盘会直接使用该案例。
-          </p>
+          <div className="workspace-home-mode-order-list">
+            {draft.homeModeOrder.map((id, index) => {
+              const mode = HOME_MODE_DEFINITIONS.find((item) => item.id === id);
+              if (!mode) return null;
+              return (
+                <div className="workspace-order-item" key={id}>
+                  <span className="workspace-order-mark">{mode.mark}</span>
+                  <span className="workspace-order-name">{mode.label}</span>
+                  <div className="workspace-order-actions">
+                    <WorkspaceButton
+                      variant="ghost"
+                      size="small"
+                      disabled={index === 0}
+                      aria-label={`上移${mode.label}`}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          homeModeOrder: moveHomeMode(current.homeModeOrder, id, -1),
+                        }))
+                      }
+                    >
+                      ↑
+                    </WorkspaceButton>
+                    <WorkspaceButton
+                      variant="ghost"
+                      size="small"
+                      disabled={index === draft.homeModeOrder.length - 1}
+                      aria-label={`下移${mode.label}`}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          homeModeOrder: moveHomeMode(current.homeModeOrder, id, 1),
+                        }))
+                      }
+                    >
+                      ↓
+                    </WorkspaceButton>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           <button type="button" className="workspace-ai-setting-entry" onClick={onOpenAiSettings}>
             <span>

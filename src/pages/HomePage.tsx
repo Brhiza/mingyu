@@ -19,26 +19,21 @@ import {
 } from '@/lib/instant-chart';
 import { buildWorkspaceLaunchState } from '@/lib/workspace-launch';
 import {
+  HOME_MODE_DEFINITIONS,
   WORKSPACE_PREFERENCES_EVENT,
   buildWorkspaceFeaturePath,
   getWorkspaceFeature,
-  isChartWorkspaceId,
+  isHomeChartWorkspaceId,
   isDivinationWorkspaceId,
   readWorkspacePreferences,
+  saveWorkspacePreferences,
   type ChartWorkspaceId,
   type DivinationWorkspaceId,
+  type HomeModeId,
 } from '@/lib/workspace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 
-type HomeMode = 'chart' | 'divination' | 'instant';
-
-const homeModes: Array<{ id: HomeMode; label: string; mark: string }> = [
-  { id: 'chart', label: '排盘', mark: '盘' },
-  { id: 'divination', label: '占问', mark: '问' },
-  { id: 'instant', label: '即时盘', mark: '时' },
-];
-
-const modeCopy: Record<HomeMode, { heading: string; placeholder: string }> = {
+const modeCopy: Record<HomeModeId, { heading: string; placeholder: string }> = {
   chart: {
     heading: '排盘并开始解读',
     placeholder: '输入想了解的问题，也可以留空直接查看完整盘面',
@@ -60,24 +55,21 @@ const instantTimeOptions: DropdownSelectOption<InstantTimeStandard>[] = [
 
 const TEMPORARY_CASE_VALUE = '__temporary_case__';
 
-function isHomeChartWorkspaceId(value: unknown): value is ChartWorkspaceId {
-  return isChartWorkspaceId(value) && value !== 'compatibility';
-}
-
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [questionDraft, setQuestionDraft] = useState('');
-  const [selectedChartFeature, setSelectedChartFeature] = useState<ChartWorkspaceId>(() =>
-    isHomeChartWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'bazi',
+  const [selectedChartFeature, setSelectedChartFeature] = useState<ChartWorkspaceId>(
+    preferences.defaultChartFeature,
   );
   const [selectedDivinationFeature, setSelectedDivinationFeature] = useState<DivinationWorkspaceId>(
-    () =>
-      isDivinationWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'liuyao',
+    preferences.defaultDivinationFeature,
   );
-  const [selectedInstantType, setSelectedInstantType] = useState<InstantChartType>('bazi');
+  const [selectedInstantType, setSelectedInstantType] = useState<InstantChartType>(
+    preferences.defaultInstantType,
+  );
   const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
   const [instantPlaceForm, setInstantPlaceForm] = useState<QueryInputState>(defaultInputState);
   const [pendingInstantLaunch, setPendingInstantLaunch] = useState<{
@@ -87,13 +79,19 @@ export function HomePage() {
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const instantBirthPlace = useBirthPlace({ form: instantPlaceForm, setForm: setInstantPlaceForm });
   const requestedMode = searchParams.get('section');
-  const defaultMode: HomeMode = isDivinationWorkspaceId(preferences.defaultFeature)
-    ? 'divination'
-    : 'chart';
-  const activeMode: HomeMode =
+  const defaultMode = preferences.homeModeOrder[0] ?? 'divination';
+  const activeMode: HomeModeId =
     requestedMode === 'chart' || requestedMode === 'divination' || requestedMode === 'instant'
       ? requestedMode
       : defaultMode;
+  const homeModes = useMemo(
+    () =>
+      preferences.homeModeOrder.flatMap((id) => {
+        const mode = HOME_MODE_DEFINITIONS.find((item) => item.id === id);
+        return mode ? [mode] : [];
+      }),
+    [preferences.homeModeOrder],
+  );
   const orderedFeatures = useMemo(
     () => preferences.navigationOrder.map(getWorkspaceFeature),
     [preferences.navigationOrder],
@@ -176,7 +174,7 @@ export function HomePage() {
     pendingInstantLaunch,
   ]);
 
-  function selectMode(mode: HomeMode) {
+  function selectMode(mode: HomeModeId) {
     const next = new URLSearchParams(searchParams);
     next.set('section', mode);
     setSearchParams(next, { replace: true });
@@ -194,6 +192,19 @@ export function HomePage() {
     if (activeMode === 'instant' && isInstantChartType(value)) {
       setSelectedInstantType(value);
     }
+  }
+
+  function favoriteAlgorithm(value: string) {
+    const nextPreferences =
+      activeMode === 'chart' && isHomeChartWorkspaceId(value)
+        ? { ...preferences, defaultChartFeature: value }
+        : activeMode === 'divination' && isDivinationWorkspaceId(value)
+          ? { ...preferences, defaultDivinationFeature: value }
+          : activeMode === 'instant' && isInstantChartType(value)
+            ? { ...preferences, defaultInstantType: value }
+            : null;
+    if (!nextPreferences) return;
+    setPreferences(saveWorkspacePreferences(nextPreferences));
   }
 
   function openInstantChart(type: InstantChartType, question: string) {
@@ -247,6 +258,18 @@ export function HomePage() {
       : activeMode === 'divination'
         ? divinationOptions
         : instantOptions;
+  const favoriteAlgorithmValue =
+    activeMode === 'chart'
+      ? preferences.defaultChartFeature
+      : activeMode === 'divination'
+        ? preferences.defaultDivinationFeature
+        : preferences.defaultInstantType;
+  const favoriteAlgorithmLabel =
+    activeMode === 'chart'
+      ? '排盘默认算法'
+      : activeMode === 'divination'
+        ? '占问默认算法'
+        : '即时盘默认算法';
   const launchLabel =
     activeMode === 'chart'
       ? activeCase
@@ -318,6 +341,9 @@ export function HomePage() {
                   ariaLabel="选择算法"
                   prefix="算法"
                   variant="field"
+                  favoriteValue={favoriteAlgorithmValue}
+                  favoriteLabel={favoriteAlgorithmLabel}
+                  onFavoriteChange={favoriteAlgorithm}
                 />
               </div>
               {activeMode !== 'instant' ? (

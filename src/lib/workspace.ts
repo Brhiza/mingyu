@@ -1,4 +1,5 @@
 import { DIVINATION_METHOD_OPTIONS, type DivinationMethodId } from 'mingyu-core/divination/config';
+import { INSTANT_CHART_TYPES, type InstantChartType } from 'mingyu-core/instant';
 import { safeStorage } from '@/lib/safe-storage';
 import type { PromptSourceKey, QueryInputState } from '@/lib/query-state';
 
@@ -8,6 +9,18 @@ export type ChartWorkspaceId =
 export type DivinationWorkspaceId = Exclude<DivinationMethodId, 'astrolabe' | 'random'>;
 export type WorkspaceFeatureId = ChartWorkspaceId | DivinationWorkspaceId;
 export type WorkspaceFeatureGroup = 'chart' | 'divination' | 'timing';
+export type HomeModeId = 'chart' | 'divination' | 'instant';
+
+export const HOME_MODE_DEFINITIONS: ReadonlyArray<{
+  id: HomeModeId;
+  label: string;
+  mark: string;
+}> = [
+  { id: 'divination', label: '占问', mark: '问' },
+  { id: 'chart', label: '排盘', mark: '盘' },
+  { id: 'instant', label: '即时盘', mark: '时' },
+];
+export const HOME_MODE_IDS = HOME_MODE_DEFINITIONS.map((item) => item.id);
 
 export const WORKSPACE_FEATURE_GROUPS: ReadonlyArray<{
   id: WorkspaceFeatureGroup;
@@ -120,20 +133,27 @@ export const WORKSPACE_FEATURES: WorkspaceFeature[] = [...chartFeatures, ...divi
 export const WORKSPACE_FEATURE_IDS = WORKSPACE_FEATURES.map((item) => item.id);
 export const DEFAULT_WORKSPACE_FEATURE_ID: WorkspaceFeatureId = 'bazi';
 
-const WORKSPACE_PREFERENCES_KEY = 'mingyu_workspace_preferences_v4';
+const WORKSPACE_PREFERENCES_KEY = 'mingyu_workspace_preferences_v5';
 const LEGACY_WORKSPACE_PREFERENCES_KEYS = [
+  'mingyu_workspace_preferences_v4',
   'mingyu_workspace_preferences_v3',
   'mingyu_workspace_preferences_v2',
 ] as const;
 export const WORKSPACE_PREFERENCES_EVENT = 'mingyu:workspace-preferences';
 
 export type WorkspacePreferences = {
-  defaultFeature: WorkspaceFeatureId;
+  defaultChartFeature: ChartWorkspaceId;
+  defaultDivinationFeature: DivinationWorkspaceId;
+  defaultInstantType: InstantChartType;
+  homeModeOrder: HomeModeId[];
   navigationOrder: WorkspaceFeatureId[];
 };
 
 export const DEFAULT_WORKSPACE_PREFERENCES: WorkspacePreferences = {
-  defaultFeature: DEFAULT_WORKSPACE_FEATURE_ID,
+  defaultChartFeature: 'bazi',
+  defaultDivinationFeature: 'liuyao',
+  defaultInstantType: 'bazi',
+  homeModeOrder: [...HOME_MODE_IDS],
   navigationOrder: [...WORKSPACE_FEATURE_IDS],
 };
 
@@ -145,8 +165,20 @@ export function isChartWorkspaceId(value: unknown): value is ChartWorkspaceId {
   return chartFeatures.some((item) => item.id === value);
 }
 
+export function isHomeChartWorkspaceId(value: unknown): value is ChartWorkspaceId {
+  return isChartWorkspaceId(value) && value !== 'compatibility';
+}
+
 export function isDivinationWorkspaceId(value: unknown): value is DivinationWorkspaceId {
   return divinationFeatures.some((item) => item.id === value);
+}
+
+export function isHomeModeId(value: unknown): value is HomeModeId {
+  return typeof value === 'string' && HOME_MODE_IDS.includes(value as HomeModeId);
+}
+
+function isInstantChartType(value: unknown): value is InstantChartType {
+  return typeof value === 'string' && INSTANT_CHART_TYPES.includes(value as InstantChartType);
 }
 
 export function getWorkspaceFeature(id: WorkspaceFeatureId) {
@@ -159,6 +191,12 @@ export function normalizeNavigationOrder(value: unknown): WorkspaceFeatureId[] {
   return [...unique, ...WORKSPACE_FEATURE_IDS.filter((id) => !unique.includes(id))];
 }
 
+export function normalizeHomeModeOrder(value: unknown): HomeModeId[] {
+  const requested = Array.isArray(value) ? value.filter(isHomeModeId) : [];
+  const unique = [...new Set(requested)];
+  return [...unique, ...HOME_MODE_IDS.filter((id) => !unique.includes(id))];
+}
+
 function migrateLegacyNavigationOrder(value: unknown): WorkspaceFeatureId[] {
   if (!Array.isArray(value)) {
     return [...DEFAULT_WORKSPACE_PREFERENCES.navigationOrder];
@@ -169,43 +207,65 @@ function migrateLegacyNavigationOrder(value: unknown): WorkspaceFeatureId[] {
   return normalizeNavigationOrder([...nonDivinationIds, ...divinationIds]);
 }
 
+type StoredWorkspacePreferences = Partial<WorkspacePreferences> & {
+  defaultFeature?: unknown;
+};
+
+function normalizeWorkspacePreferences(
+  preferences: StoredWorkspacePreferences,
+): WorkspacePreferences {
+  const legacyDefaultFeature = preferences.defaultFeature;
+  return {
+    defaultChartFeature: isHomeChartWorkspaceId(preferences.defaultChartFeature)
+      ? preferences.defaultChartFeature
+      : isHomeChartWorkspaceId(legacyDefaultFeature)
+        ? legacyDefaultFeature
+        : DEFAULT_WORKSPACE_PREFERENCES.defaultChartFeature,
+    defaultDivinationFeature: isDivinationWorkspaceId(preferences.defaultDivinationFeature)
+      ? preferences.defaultDivinationFeature
+      : isDivinationWorkspaceId(legacyDefaultFeature)
+        ? legacyDefaultFeature
+        : DEFAULT_WORKSPACE_PREFERENCES.defaultDivinationFeature,
+    defaultInstantType: isInstantChartType(preferences.defaultInstantType)
+      ? preferences.defaultInstantType
+      : DEFAULT_WORKSPACE_PREFERENCES.defaultInstantType,
+    homeModeOrder: normalizeHomeModeOrder(preferences.homeModeOrder),
+    navigationOrder: normalizeNavigationOrder(preferences.navigationOrder),
+  };
+}
+
 export function readWorkspacePreferences(): WorkspacePreferences {
-  const stored = safeStorage.getJSON<Partial<WorkspacePreferences> | null>(
+  const stored = safeStorage.getJSON<StoredWorkspacePreferences | null>(
     WORKSPACE_PREFERENCES_KEY,
     null,
   );
   if (stored) {
-    return {
-      defaultFeature: isWorkspaceFeatureId(stored.defaultFeature)
-        ? stored.defaultFeature
-        : DEFAULT_WORKSPACE_PREFERENCES.defaultFeature,
-      navigationOrder: normalizeNavigationOrder(stored.navigationOrder),
-    };
+    return normalizeWorkspacePreferences(stored);
   }
 
-  const legacy = LEGACY_WORKSPACE_PREFERENCES_KEYS.map((key) =>
-    safeStorage.getJSON<Partial<WorkspacePreferences> | null>(key, null),
-  ).find((value) => value !== null);
-  const migrated: WorkspacePreferences = {
-    defaultFeature: DEFAULT_WORKSPACE_PREFERENCES.defaultFeature,
-    navigationOrder: legacy
-      ? migrateLegacyNavigationOrder(legacy.navigationOrder)
-      : [...DEFAULT_WORKSPACE_PREFERENCES.navigationOrder],
-  };
-  if (legacy && isWorkspaceFeatureId(legacy.defaultFeature)) {
-    migrated.defaultFeature = legacy.defaultFeature;
-  }
+  const legacy = LEGACY_WORKSPACE_PREFERENCES_KEYS.map((key) => ({
+    key,
+    value: safeStorage.getJSON<StoredWorkspacePreferences | null>(key, null),
+  })).find((item) => item.value !== null);
+  const migrated = legacy
+    ? normalizeWorkspacePreferences({
+        ...legacy.value,
+        navigationOrder:
+          legacy.key === 'mingyu_workspace_preferences_v4'
+            ? legacy.value?.navigationOrder
+            : migrateLegacyNavigationOrder(legacy.value?.navigationOrder),
+      })
+    : {
+        ...DEFAULT_WORKSPACE_PREFERENCES,
+        homeModeOrder: [...DEFAULT_WORKSPACE_PREFERENCES.homeModeOrder],
+        navigationOrder: [...DEFAULT_WORKSPACE_PREFERENCES.navigationOrder],
+      };
   safeStorage.setJSON(WORKSPACE_PREFERENCES_KEY, migrated);
   return migrated;
 }
 
 export function saveWorkspacePreferences(preferences: WorkspacePreferences) {
-  const normalized: WorkspacePreferences = {
-    defaultFeature: isWorkspaceFeatureId(preferences.defaultFeature)
-      ? preferences.defaultFeature
-      : DEFAULT_WORKSPACE_PREFERENCES.defaultFeature,
-    navigationOrder: normalizeNavigationOrder(preferences.navigationOrder),
-  };
+  const normalized = normalizeWorkspacePreferences(preferences);
   safeStorage.setJSON(WORKSPACE_PREFERENCES_KEY, normalized);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(WORKSPACE_PREFERENCES_EVENT));

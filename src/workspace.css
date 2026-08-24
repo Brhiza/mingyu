@@ -1387,6 +1387,12 @@
   line-height: 1.65;
 }
 
+.workspace-home-mode-order-list {
+  display: grid;
+  gap: 5px;
+  margin: 14px 0 18px;
+}
+
 .workspace-ai-setting-entry {
   width: 100%;
   display: flex;
@@ -1954,6 +1960,7 @@
   color: #fff;
   font-size: 12px;
   font-weight: 800;
+  margin-left: auto;
   cursor: pointer;
 }
 
