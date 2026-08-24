@@ -8269,6 +8269,62 @@ select {
   flex-shrink: 0;
 }
 
+.panel-ai-chat.is-workspace-chat {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-ai-chat.is-workspace-chat > .workspace-ui-panel-head {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.panel-ai-chat.is-workspace-chat > .workspace-ui-panel-head p {
+  display: none;
+}
+
+.panel-ai-chat.is-workspace-chat .ai-chat-input-area {
+  padding-top: 12px;
+}
+
+.ai-chat-composer-tools {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.panel-ai-chat.is-workspace-chat .ai-chat-input-row {
+  gap: 8px;
+}
+
+.panel-ai-chat.is-workspace-chat .ai-chat-input {
+  min-height: 106px;
+  max-height: 180px;
+  padding: 13px 14px;
+  border-color: var(--border-contrast);
+  background: var(--surface-base);
+  font-size: 15px;
+}
+
+.panel-ai-chat.is-workspace-chat .ai-chat-send-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+}
+
+.panel-ai-chat.is-workspace-chat .ai-chat-empty-icon {
+  display: none;
+}
+
+.panel-ai-chat.is-workspace-chat .ai-chat-empty-inner p {
+  border: 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .ai-chat-error-notice {
   display: flex;
   align-items: center;
@@ -8716,143 +8772,6 @@ select {
     min-height: min(calc(100dvh - 280px), 560px);
   }
 
-  /* 排盘页移动端全屏聊天 */
-  .ai-mobile-chat {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-height: calc(100dvh - 120px);
-  }
-
-  .ai-mobile-chat .panel-ai-chat {
-    flex: 1;
-    min-height: calc(100dvh - 185px);
-  }
-
-  .ai-mobile-setting-shell {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .ai-mobile-setting-top {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .ai-mobile-settings-toggle {
-    height: 34px;
-    padding: 0 12px;
-    border: 1px solid var(--border-soft);
-    border-radius: 10px;
-    background: var(--surface-soft);
-    color: var(--text-primary);
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  /* 顶部紧凑设置栏 */
-  .ai-mobile-setting-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .ai-mobile-source-select {
-    flex: 1 1 90px;
-    min-width: 90px;
-    height: 34px;
-    padding: 0 8px;
-    border: 1px solid var(--border-soft);
-    border-radius: 10px;
-    background: var(--surface-soft);
-    color: var(--text-primary);
-    font-size: 13px;
-  }
-
-  .ai-mobile-scope-btn {
-    flex: 1 1 90px;
-    min-width: 90px;
-    height: 34px;
-    padding: 0 10px;
-    border: 1px solid var(--border-soft);
-    border-radius: 10px;
-    background: var(--surface-soft);
-    color: var(--text-primary);
-    font-size: 12px;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .ai-mobile-scope-btn:disabled {
-    opacity: 0.5;
-  }
-
-  .ai-mobile-shortcut-btn {
-    flex: 0 0 auto;
-    height: 34px;
-    padding: 0 12px;
-    border: 1px solid var(--border-soft);
-    border-radius: 10px;
-    background: var(--surface-soft);
-    color: var(--text-secondary);
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  .ai-mobile-shortcut-btn.is-active {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-    color: var(--accent-strong);
-  }
-
-  .ai-mobile-shortcut-popover {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 20;
-    width: min(320px, calc(100vw - 24px));
-    max-height: 280px;
-    overflow-y: auto;
-    padding: 10px;
-    border: 1px solid var(--border-soft);
-    border-radius: 14px;
-    background: var(--surface-panel);
-    box-shadow: var(--shadow-lg);
-  }
-
-  .ai-mobile-shortcut-popover-inner {
-    display: block;
-  }
-
-  .ai-mobile-shortcut-popover-inner .quick-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .ai-mobile-shortcut-popover-inner .quick-chip {
-    font-size: 12px;
-    padding: 6px 10px;
-  }
-
-  .ai-mobile-hint {
-    font-size: 12px;
-    color: var(--text-secondary);
-    padding: 4px 2px;
-  }
-
-  .ai-mobile-hint-error {
-    color: #c44;
-  }
-
   .ai-chat-messages {
     max-height: none;
     min-height: 150px;
@@ -8875,6 +8794,12 @@ select {
   .ai-chat-input {
     font-size: 13px;
     padding: 8px 10px;
+  }
+
+  .panel-ai-chat.is-workspace-chat .ai-chat-input {
+    min-height: 92px;
+    padding: 11px 12px;
+    font-size: 14px;
   }
 
   .ai-chat-send-btn,

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { marked } from '@/lib/marked-init';
 import { useAiChat } from '@/hooks/useAiChat';
 import type { ChatTurn } from '@/hooks/useAiChat';
@@ -35,6 +35,12 @@ interface AiChatPanelProps {
   /** AI 对话历史缓存 key；不传时根据 resetKey/contextPrompt 自动生成 */
   historyKey?: string;
   aiConfig?: AiRequestConfig;
+  /** 排盘解读工作台：上方只显示解答，工具与大输入框固定在底部 */
+  workspaceMode?: boolean;
+  /** 工作台输入框上方的业务工具，如问题灵感和解读年限 */
+  composerTools?: ReactNode;
+  /** 只在真正切换案例或命盘时清空未发送的输入 */
+  inputResetKey?: string;
 }
 
 const PLACEHOLDER = '输入你想询问的问题…';
@@ -108,6 +114,9 @@ function AiChatPanelImpl({
   autoStartKey,
   historyKey,
   aiConfig,
+  workspaceMode = false,
+  composerTools,
+  inputResetKey,
 }: AiChatPanelProps) {
   const {
     turns,
@@ -144,6 +153,7 @@ function AiChatPanelImpl({
   const autoStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historySessionsRef = useRef<AiChatSession[]>([]);
   const activeSessionIdRef = useRef('');
+  const inputResetKeyRef = useRef(inputResetKey);
 
   const applyHistoryState = useCallback(
     (sessions: AiChatSession[], nextActiveSessionId: string, persist = true) => {
@@ -214,8 +224,14 @@ function AiChatPanelImpl({
     }
 
     directSendIdRef.current = '';
+    if (!workspaceMode) setInputValue('');
+  }, [storageKey, contextPrompt, autoStart, autoStartKey, restore, reset, workspaceMode]);
+
+  useEffect(() => {
+    if (inputResetKeyRef.current === inputResetKey) return;
+    inputResetKeyRef.current = inputResetKey;
     setInputValue('');
-  }, [storageKey, contextPrompt, autoStart, autoStartKey, restore, reset]);
+  }, [inputResetKey]);
 
   // AI 回复完成或出错后，更新当前会话，不覆盖其他历史。
   useEffect(() => {
@@ -305,9 +321,9 @@ function AiChatPanelImpl({
     const el = inputRef.current;
     if (el) {
       el.style.height = 'auto';
-      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+      el.style.height = Math.min(el.scrollHeight, workspaceMode ? 180 : 120) + 'px';
     }
-  }, [inputValue]);
+  }, [inputValue, workspaceMode]);
 
   useEffect(() => {
     if (!isHistoryOpen) return;
@@ -405,10 +421,12 @@ function AiChatPanelImpl({
   }
 
   return (
-    <section className="workspace-ui-surface panel-ai-chat">
+    <section
+      className={`workspace-ui-surface panel-ai-chat${workspaceMode ? ' is-workspace-chat' : ''}`}
+    >
       <div className="workspace-ui-panel-head">
         <div>
-          <h2>AI 解析</h2>
+          <h2>{workspaceMode ? '解答' : 'AI 解析'}</h2>
           <p>
             {!isContextReady
               ? '正在生成排盘数据，请稍候…'
@@ -571,6 +589,7 @@ function AiChatPanelImpl({
                 ) : null}
               </div>
             ) : null}
+            {composerTools ? <div className="ai-chat-composer-tools">{composerTools}</div> : null}
             <div className="ai-chat-input-row">
               <textarea
                 ref={inputRef}
@@ -579,7 +598,7 @@ function AiChatPanelImpl({
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={PLACEHOLDER}
-                rows={1}
+                rows={workspaceMode ? 4 : 1}
                 disabled={!isContextReady}
               />
               {onOpenInspiration ? (

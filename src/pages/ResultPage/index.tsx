@@ -246,8 +246,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
-  const isMobileAi = isAiEnabled && isAssistantPage && isCompactResultLayout;
-  const [isAiMobileSettingsOpen, setIsAiMobileSettingsOpen] = useState(true);
   const [promptEngine, setPromptEngine] = useState<PromptEngineModule | null>(null);
   const [baziFortuneSelectionModule, setBaziFortuneSelectionModule] =
     useState<BaziFortuneSelectionModule | null>(null);
@@ -1390,6 +1388,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
   function handleQuestionPickerSelect(value: string) {
     if (inspiration.activeMode === 'matter') {
+      if (isAiEnabled) {
+        inspiration.close();
+        setInspirationText(value);
+        return;
+      }
       handleInspirationSelect(value);
       return;
     }
@@ -1439,9 +1442,32 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       </div>
     </div>
   ) : null;
+  const aiComposerTools = (
+    <>
+      <div
+        className={`workspace-ai-composer-toolbar${hasAdjustablePromptScope ? '' : ' is-single'}`}
+      >
+        <WorkspaceButton
+          className="workspace-question-picker-trigger"
+          onClick={() => inspiration.open('matter')}
+        >
+          <span>问题灵感</span>
+        </WorkspaceButton>
+        {promptScopeField}
+      </div>
+
+      {isAstrolabePromptSource && astrolabeCalculation.error ? (
+        <p className="error-text">{astrolabeCalculation.error}</p>
+      ) : null}
+    </>
+  );
 
   return (
-    <div className="page-shell workspace-result-page-shell">
+    <div
+      className={`page-shell workspace-result-page-shell${
+        isAssistantPage && isAiEnabled ? ' is-mobile-ai-immersive' : ''
+      }`}
+    >
       {isAssistantPage ? (
         <ResultAssistantHeader
           aiEnabled={isAiEnabled}
@@ -1646,112 +1672,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         >
           {mountedTabs.prompt ? (
             isAiEnabled ? (
-              isMobileAi ? (
-                /* ── AI 移动端：全屏聊天，顶部紧凑设置栏 + 快捷按钮收进弹层 ── */
-                <div className="ai-mobile-chat">
-                  <div className="ai-mobile-setting-shell">
-                    <div className="ai-mobile-setting-top">
-                      <button
-                        type="button"
-                        className="ai-mobile-shortcut-btn"
-                        onClick={() => inspiration.open('matter')}
-                      >
-                        ✨ 选择问题
-                      </button>
-
-                      {hasAdjustablePromptScope ? (
-                        <button
-                          type="button"
-                          className="ai-mobile-settings-toggle"
-                          onClick={() => setIsAiMobileSettingsOpen((value) => !value)}
-                        >
-                          {isAiMobileSettingsOpen ? '收起范围' : '调整范围'}
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {hasAdjustablePromptScope && isAiMobileSettingsOpen ? (
-                      <div className="ai-mobile-setting-bar">
-                        {(promptState.promptSource === 'bazi' ||
-                          promptState.promptSource === 'bazi-ziwei') &&
-                        inputState.analysisMode === 'single' ? (
-                          <FortuneScopePresetSelect
-                            className="ai-mobile-source-select"
-                            value={baziFortunePreset}
-                            onChange={handleBaziFortunePresetChange}
-                          />
-                        ) : null}
-
-                        {promptState.promptSource === 'ziwei' ? (
-                          <FortuneScopePresetSelect
-                            className="ai-mobile-source-select"
-                            value={ziweiScopePreset}
-                            onChange={handleZiweiScopePresetChange}
-                            disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-                          />
-                        ) : null}
-
-                        {promptState.promptSource === 'astrolabe' ? (
-                          <FortuneScopePresetSelect
-                            className="ai-mobile-source-select"
-                            value={astrolabeScopePreset}
-                            onChange={handleAstrolabeScopePresetChange}
-                            disabled={!astrolabeCalculation.data}
-                          />
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {isAstrolabePromptSource && astrolabeCalculation.error ? (
-                    <div className="ai-mobile-hint ai-mobile-hint-error">
-                      {astrolabeCalculation.error}
-                    </div>
-                  ) : null}
-
-                  <AiChatPanel
-                    contextPrompt={aiContextPrompt}
-                    resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
-                    externalInput={inspirationText}
-                    onExternalInputConsumed={() => setInspirationText('')}
-                    aiConfig={aiRequestConfig}
-                  />
-                </div>
-              ) : (
-                /* ── AI 桌面端：左栏设置+快捷，右栏对话 ── */
-                <div className="workspace-ai-layout">
-                  <section className="workspace-ui-surface">
-                    <div className="workspace-ui-panel-head">
-                      <div>
-                        <h2 className="prompt-settings-title">问题与范围</h2>
-                      </div>
-                    </div>
-                    <div className="field-list">
-                      <WorkspaceButton
-                        className="workspace-question-picker-trigger"
-                        onClick={() => inspiration.open('matter')}
-                      >
-                        <span>选择问题</span>
-                        <small>{activePromptShortcutMode}</small>
-                      </WorkspaceButton>
-
-                      {promptScopeField}
-
-                      {isAstrolabePromptSource && astrolabeCalculation.error ? (
-                        <p className="error-text">{astrolabeCalculation.error}</p>
-                      ) : null}
-                    </div>
-                  </section>
-
-                  <AiChatPanel
-                    contextPrompt={aiContextPrompt}
-                    resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
-                    externalInput={inspirationText}
-                    onExternalInputConsumed={() => setInspirationText('')}
-                    aiConfig={aiRequestConfig}
-                  />
-                </div>
-              )
+              /* ── AI 模式：上方纯解答，工具和大输入框固定在底部 ── */
+              <div className="workspace-ai-layout is-answer-workbench">
+                <AiChatPanel
+                  contextPrompt={aiContextPrompt}
+                  resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
+                  externalInput={inspirationText}
+                  onExternalInputConsumed={() => setInspirationText('')}
+                  aiConfig={aiRequestConfig}
+                  workspaceMode
+                  composerTools={aiComposerTools}
+                  inputResetKey={`${inputSearch}:${promptState.promptSource}`}
+                />
+              </div>
             ) : (
               /* ── 非 AI 模式：提示词在上，选择与输入固定在底部 ── */
               <div className="workspace-prompt-layout is-workbench">
