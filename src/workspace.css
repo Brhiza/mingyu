@@ -439,21 +439,10 @@
   z-index: 1;
   height: 37px;
   margin-bottom: -1px;
-  border-color: color-mix(in srgb, var(--accent-strong) 24%, var(--border-soft));
-  background: var(--surface-page);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent-surface) 52%, var(--surface-page));
   color: var(--accent-deep);
-  box-shadow: 0 -6px 18px rgba(111, 62, 103, 0.11);
-}
-
-.workspace-case-tab.is-active::before {
-  position: absolute;
-  top: 0;
-  right: 11px;
-  left: 11px;
-  height: 3px;
-  border-radius: 0 0 999px 999px;
-  background: var(--accent-strong);
-  content: '';
+  box-shadow: 0 -6px 20px rgba(111, 62, 103, 0.1);
 }
 
 .workspace-case-tab:focus-visible,
