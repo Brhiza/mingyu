@@ -580,7 +580,7 @@ export function WorkspaceShell() {
                     onClick={() => activateCase(record)}
                   >
                     <span className="workspace-case-tab-icon" aria-hidden="true">
-                      档
+                      {record.name.trim().slice(0, 1) || '案'}
                     </span>
                     <span className="workspace-case-tab-copy">
                       <strong>{record.name}</strong>
