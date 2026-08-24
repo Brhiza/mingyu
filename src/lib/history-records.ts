@@ -62,6 +62,23 @@ export function sortPersonalCasesForQuickSwitch(records: PersonalHistoryRecord[]
   });
 }
 
+export function selectPersonalCasesForQuickSwitch(
+  records: PersonalHistoryRecord[],
+  activeCaseId: string | null,
+  limit = 5,
+) {
+  if (limit <= 0) return [];
+  const sortedRecords = sortPersonalCasesForQuickSwitch(records);
+  const visibleRecords = sortedRecords.slice(0, limit);
+  if (!activeCaseId || visibleRecords.some((record) => record.id === activeCaseId)) {
+    return visibleRecords;
+  }
+
+  const activeRecord = sortedRecords.find((record) => record.id === activeCaseId);
+  if (!activeRecord) return visibleRecords;
+  return [...visibleRecords.slice(0, Math.max(0, limit - 1)), activeRecord];
+}
+
 function isObjectRecord(item: unknown): item is Record<string, unknown> {
   return typeof item === 'object' && item !== null;
 }

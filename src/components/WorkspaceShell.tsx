@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type UIEvent as ReactUIEvent } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { WorkspaceSettingsModal } from '@/components/WorkspaceSettingsModal';
@@ -7,6 +7,7 @@ import { useAiSettings } from '@/hooks/useAiSettings';
 import {
   HISTORY_RECORDS_EVENT,
   loadDivinationHistory,
+  selectPersonalCasesForQuickSwitch,
   type PersonalHistoryRecord,
 } from '@/lib/history-records';
 import {
@@ -99,6 +100,7 @@ export function WorkspaceShell() {
   const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
   const activeCaseTabRef = useRef<HTMLButtonElement>(null);
   const syncedChartRecordIdRef = useRef<string | null>(null);
+  const scrollHideTimersRef = useRef(new Map<HTMLElement, number>());
   const activeFeature = resolveActiveFeature(location.pathname, location.search);
   const routeSearchParams = new URLSearchParams(location.search);
   const activeDivinationRecordId = routeSearchParams.get('record');
@@ -129,6 +131,10 @@ export function WorkspaceShell() {
     void historyRevision;
     return loadDivinationHistory();
   }, [historyRevision]);
+  const quickSwitchCases = useMemo(
+    () => selectPersonalCasesForQuickSwitch(cases, activeCaseId),
+    [activeCaseId, cases],
+  );
   const visibleHistories = useMemo(() => {
     const keyword = historySearch.trim().toLowerCase();
     return histories.filter((record) => {
@@ -167,6 +173,14 @@ export function WorkspaceShell() {
     return () => window.removeEventListener(HISTORY_RECORDS_EVENT, syncHistory);
   }, []);
 
+  useEffect(
+    () => () => {
+      scrollHideTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      scrollHideTimersRef.current.clear();
+    },
+    [],
+  );
+
   useEffect(() => {
     activeCaseTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [activeCaseId]);
@@ -201,6 +215,20 @@ export function WorkspaceShell() {
     selectCase(null);
     navigate('/cases?new=1');
     setIsDrawerOpen(false);
+  }
+
+  function handleWorkspaceScroll(event: ReactUIEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    target.classList.add('is-workspace-scrolling');
+    const currentTimer = scrollHideTimersRef.current.get(target);
+    if (currentTimer !== undefined) window.clearTimeout(currentTimer);
+    const nextTimer = window.setTimeout(() => {
+      target.classList.remove('is-workspace-scrolling');
+      scrollHideTimersRef.current.delete(target);
+    }, 700);
+    scrollHideTimersRef.current.set(target, nextTimer);
   }
 
   const navigation = (
@@ -393,7 +421,7 @@ export function WorkspaceShell() {
   );
 
   return (
-    <div className="workspace-shell">
+    <div className="workspace-shell" onScrollCapture={handleWorkspaceScroll}>
       <aside className="workspace-sidebar">{navigation}</aside>
       <header className="workspace-mobile-header">
         {isResultAssistant ? (
@@ -470,7 +498,7 @@ export function WorkspaceShell() {
                   <small>不指定案例</small>
                 </span>
               </button>
-              {cases.map((record) => {
+              {quickSwitchCases.map((record) => {
                 const isActive = activeCaseId === record.id;
                 return (
                   <button

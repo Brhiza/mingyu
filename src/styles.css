@@ -8303,16 +8303,16 @@ select {
 .panel-ai-chat.is-workspace-chat .ai-chat-input {
   min-height: 106px;
   max-height: 180px;
-  padding: 13px 14px;
+  padding: 13px 56px 13px 14px;
   border-color: var(--border-contrast);
   background: var(--surface-base);
   font-size: 15px;
 }
 
 .panel-ai-chat.is-workspace-chat .ai-chat-send-btn {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
 }
 
 .panel-ai-chat.is-workspace-chat .ai-chat-empty-icon {
@@ -8382,13 +8382,21 @@ select {
   align-items: flex-end;
 }
 
+.ai-chat-input-shell {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex: 1;
+}
+
 .ai-chat-input {
   flex: 1;
   min-width: 0;
   resize: none;
   border: 1px solid var(--border-soft);
   border-radius: 12px;
-  padding: 10px 14px;
+  width: 100%;
+  padding: 10px 52px 10px 14px;
   font-size: 14px;
   line-height: 1.5;
   font-family: inherit;
@@ -8437,6 +8445,9 @@ select {
 }
 
 .ai-chat-send-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
   flex-shrink: 0;
   width: 38px;
   height: 38px;
@@ -8798,7 +8809,7 @@ select {
 
   .panel-ai-chat.is-workspace-chat .ai-chat-input {
     min-height: 92px;
-    padding: 11px 12px;
+    padding: 11px 50px 11px 12px;
     font-size: 14px;
   }
 

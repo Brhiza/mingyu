@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  selectPersonalCasesForQuickSwitch,
   sortPersonalCasesForQuickSwitch,
   type PersonalHistoryRecord,
 } from '../src/lib/history-records';
@@ -48,5 +49,31 @@ test('旧案例没有最近使用时间时应回退到更新时间排序', () =>
   assert.deepEqual(
     sortPersonalCasesForQuickSwitch([older, newer]).map((record) => record.id),
     ['新案例', '旧案例'],
+  );
+});
+
+test('案例条只保留有限的置顶和最近案例', () => {
+  const records = Array.from({ length: 8 }, (_, index) =>
+    createCase(
+      `案例${index + 1}`,
+      new Date(Date.UTC(2026, 7, index + 1)).toISOString(),
+      index === 0,
+    ),
+  );
+
+  assert.deepEqual(
+    selectPersonalCasesForQuickSwitch(records, null, 5).map((record) => record.id),
+    ['案例1', '案例8', '案例7', '案例6', '案例5'],
+  );
+});
+
+test('当前案例超出快速切换数量时仍应保留在案例条', () => {
+  const records = Array.from({ length: 8 }, (_, index) =>
+    createCase(`案例${index + 1}`, new Date(Date.UTC(2026, 7, index + 1)).toISOString()),
+  );
+
+  assert.deepEqual(
+    selectPersonalCasesForQuickSwitch(records, '案例1', 5).map((record) => record.id),
+    ['案例8', '案例7', '案例6', '案例5', '案例1'],
   );
 });
