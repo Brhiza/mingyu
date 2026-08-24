@@ -52,6 +52,11 @@ const modeCopy: Record<HomeMode, { heading: string; placeholder: string }> = {
   },
 };
 
+const instantTimeOptions: DropdownSelectOption<InstantTimeStandard>[] = [
+  { value: 'beijing', label: '北京时间', triggerLabel: '北京' },
+  { value: 'true-solar', label: '真太阳时', triggerLabel: '真太阳' },
+];
+
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -261,72 +266,6 @@ export function HomePage() {
         </div>
 
         <div className="workspace-home-mode-panel" role="tabpanel">
-          {activeMode !== 'instant' ? (
-            <button
-              type="button"
-              className="workspace-home-context"
-              onClick={() => navigate(cases.length ? '/cases' : '/cases?new=1')}
-            >
-              <span className="workspace-home-context-mark" aria-hidden="true">
-                {activeCase?.name.slice(0, 1) || '临'}
-              </span>
-              <span className="workspace-home-context-copy">
-                <small>当前档案</small>
-                <strong>{activeCase?.name || '临时档案'}</strong>
-                <span>{activeCase?.birthText || '不关联案例'}</span>
-              </span>
-              <span className="workspace-home-context-action">切换</span>
-            </button>
-          ) : (
-            <div className="workspace-home-instant-context">
-              <div>
-                <time dateTime={currentTime.toISOString()}>
-                  {currentTime.toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  })}
-                </time>
-                <span>
-                  {currentTime.toLocaleDateString('zh-CN', {
-                    month: 'long',
-                    day: 'numeric',
-                    weekday: 'short',
-                  })}
-                </span>
-              </div>
-              <div className="workspace-instant-standard" role="group" aria-label="时间口径">
-                <button
-                  type="button"
-                  className={instantTimeStandard === 'beijing' ? 'is-active' : ''}
-                  aria-pressed={instantTimeStandard === 'beijing'}
-                  onClick={() => setInstantTimeStandard('beijing')}
-                >
-                  北京时间
-                </button>
-                <button
-                  type="button"
-                  className={instantTimeStandard === 'true-solar' ? 'is-active' : ''}
-                  aria-pressed={instantTimeStandard === 'true-solar'}
-                  onClick={() => setInstantTimeStandard('true-solar')}
-                >
-                  真太阳时
-                </button>
-              </div>
-              {instantTimeStandard === 'true-solar' ? (
-                <button
-                  type="button"
-                  className="workspace-instant-place"
-                  onClick={() => instantBirthPlace.openBirthPlaceModal('self')}
-                >
-                  <span>观测地点</span>
-                  <strong>{instantPlaceForm.birthPlace || '选择地点'}</strong>
-                  <span aria-hidden="true">›</span>
-                </button>
-              ) : null}
-            </div>
-          )}
-
           <form
             className="workspace-home-composer"
             onSubmit={(event) => {
@@ -359,6 +298,56 @@ export function HomePage() {
                   variant="field"
                 />
               </div>
+              {activeMode !== 'instant' ? (
+                <button
+                  type="button"
+                  className="workspace-home-context"
+                  title={activeCase?.birthText || '不关联案例'}
+                  onClick={() => navigate(cases.length ? '/cases' : '/cases?new=1')}
+                >
+                  <span className="workspace-home-context-mark" aria-hidden="true">
+                    {activeCase?.name.slice(0, 1) || '临'}
+                  </span>
+                  <strong>{activeCase?.name || '临时档案'}</strong>
+                  <span className="workspace-home-context-action" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+              ) : (
+                <div className="workspace-home-time-context">
+                  <time
+                    dateTime={currentTime.toISOString()}
+                    title={currentTime.toLocaleDateString('zh-CN', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      weekday: 'short',
+                    })}
+                  >
+                    {currentTime.toLocaleTimeString('zh-CN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    })}
+                  </time>
+                  <DropdownSelect<InstantTimeStandard>
+                    value={instantTimeStandard}
+                    options={instantTimeOptions}
+                    onChange={setInstantTimeStandard}
+                    ariaLabel="选择时间口径"
+                  />
+                  {instantTimeStandard === 'true-solar' ? (
+                    <button
+                      type="button"
+                      className="workspace-home-place"
+                      title={instantPlaceForm.birthPlace || '选择观测地点'}
+                      onClick={() => instantBirthPlace.openBirthPlaceModal('self')}
+                    >
+                      地点
+                    </button>
+                  ) : null}
+                </div>
+              )}
               <button type="submit" className="workspace-home-launch" aria-label={launchLabel}>
                 <span className="workspace-home-launch-icon" aria-hidden="true">
                   ↑
