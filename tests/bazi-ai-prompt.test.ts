@@ -235,8 +235,8 @@ test('八字提示词未选择年限时输出本命资料且不输出岁运重�
 
   assert.match(prompt.user, /【分析对象】/);
   assert.match(prompt.user, /分析对象：本命盘/);
-  assert.match(prompt.user, /旺衰依据:/);
-  assert.match(prompt.user, /格局依据:/);
+  assert.match(prompt.user, /旺衰: [^\n]+（[^\n]+）/);
+  assert.match(prompt.user, /格局: [^\n]+（[^\n]+）/);
   assert.match(prompt.user, /取用依据:/);
   assert.match(prompt.user, /【本命辅助】/);
   assert.match(prompt.user, /命宫:.+\| 身宫:.+\| 胎元:.+\| 胎息:/);

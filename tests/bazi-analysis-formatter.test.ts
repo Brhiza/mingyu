@@ -41,8 +41,8 @@ test('核心判断应保留旺衰、格局和取用的可靠依据', () => {
   assert.match(text, /格局: /);
   assert.match(text, /取用: 主用/);
   assert.match(text, /；忌/);
-  assert.match(text, /旺衰依据:/);
-  assert.match(text, /格局依据:/);
+  assert.match(text, /旺衰: [^\n]+（[^\n]+）/);
+  assert.match(text, /格局: [^\n]+（[^\n]+）/);
   assert.match(text, /取用依据:/);
   assert.match(text, /【五行】/);
   assert.doesNotMatch(text, /旺衰[^\n]*得分|旺衰拆分:[^\n]*[+-]?\d/);

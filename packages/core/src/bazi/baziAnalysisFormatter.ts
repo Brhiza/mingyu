@@ -164,14 +164,16 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
 
   result += '\n【核心判断】\n';
   const analysis = baziResult.analysis;
-  result += `旺衰: ${analysis.dayMasterStrength.status}\n`;
+  result += `旺衰: ${analysis.dayMasterStrength.status}`;
   if (includeRules && analysis.dayMasterStrength.details?.ruleBasis?.[0]) {
-    result += `旺衰依据: ${analysis.dayMasterStrength.details.ruleBasis[0]}\n`;
+    result += `（${analysis.dayMasterStrength.details.ruleBasis[0]}）`;
   }
-  result += `格局: ${analysis.mingGe.pattern}\n`;
+  result += '\n';
+  result += `格局: ${analysis.mingGe.pattern}`;
   if (includeRules && analysis.mingGe.basis) {
-    result += `格局依据: ${analysis.mingGe.basis}\n`;
+    result += `（${analysis.mingGe.basis}）`;
   }
+  result += '\n';
   if (analysis.usefulGod) {
     const primaryFavorableWuxing =
       analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.[0] || '无';
