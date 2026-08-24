@@ -585,6 +585,102 @@ label.workspace-ui-field > span:first-child {
   background: var(--surface-elevated-strong);
 }
 
+.workspace-ui-dialog.compatibility-case-picker {
+  width: min(540px, 100%);
+}
+
+.compatibility-case-picker-body {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.compatibility-case-search {
+  flex: 0 0 auto;
+}
+
+.compatibility-case-options {
+  min-height: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.compatibility-case-option {
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.compatibility-case-option:hover,
+.compatibility-case-option:focus-visible {
+  outline: none;
+  background: var(--surface-muted);
+}
+
+.compatibility-case-option:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--border-contrast);
+}
+
+.compatibility-case-option-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--accent-surface);
+  color: var(--accent-deep);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.compatibility-case-option-copy {
+  min-width: 0;
+}
+
+.compatibility-case-option-copy strong,
+.compatibility-case-option-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compatibility-case-option-copy strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.compatibility-case-option-copy small {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.compatibility-case-pinned {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.compatibility-case-option-arrow {
+  color: var(--text-soft);
+  font-size: 18px;
+}
+
 .workspace-ui-tabs {
   min-width: 0;
   display: flex;

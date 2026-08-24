@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { DropdownSelect } from '@/components/DropdownSelect';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
@@ -54,6 +54,7 @@ export interface PersonFormProps {
   updateBirthTime: (role: PersonRole, value: string) => void;
   openBirthPlaceModal: (role: PersonRole) => void;
   sectionTitle?: string;
+  headerAction?: ReactNode;
   forcePreciseBirthPlace?: boolean;
 }
 
@@ -65,6 +66,7 @@ export const PersonForm = memo(function PersonForm({
   updateBirthTime,
   openBirthPlaceModal,
   sectionTitle,
+  headerAction,
   forcePreciseBirthPlace = false,
 }: PersonFormProps) {
   const birthTimeValue =
@@ -85,6 +87,7 @@ export const PersonForm = memo(function PersonForm({
     >
       <div className="workspace-ui-form-heading">
         <h2>{sectionTitle || getPersonSectionTitle(form.analysisMode, role)}</h2>
+        {headerAction}
       </div>
 
       <div className="workspace-ui-form-body">

@@ -1,8 +1,13 @@
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PrivacyHint } from '@/components/PrivacyHint';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
-import { upsertCompatibilityHistory, upsertPersonalHistory } from '@/lib/history-records';
+import {
+  sortPersonalCasesForQuickSwitch,
+  upsertCompatibilityHistory,
+  upsertPersonalHistory,
+  type PersonalHistoryRecord,
+} from '@/lib/history-records';
 import {
   defaultInputState,
   defaultPromptState,
@@ -19,6 +24,7 @@ import {
 import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
+import { applyPersonalCaseToCompatibilityPerson } from '@/lib/compatibility-case-selection';
 import { isChartWorkspaceId, type ChartWorkspaceId } from '@/lib/workspace';
 import type { InstantTimeStandard } from 'mingyu-core/instant';
 import {
@@ -128,7 +134,7 @@ export function InputPage() {
   const [, startSubmitTransition] = useTransition();
   const tool = isChartWorkspaceId(toolParam) ? toolParam : null;
   const config = tool ? CHART_TOOL_CONFIG[tool] : CHART_TOOL_CONFIG.bazi;
-  const { activeCaseId } = useActivePersonalCase();
+  const { cases, activeCaseId } = useActivePersonalCase();
   const routeCaseId = searchParams.get(CHART_RECORD_PARAM);
   const [form, setForm] = useState<QueryInputState>(() => {
     const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
@@ -138,10 +144,21 @@ export function InputPage() {
   });
   const [error, setError] = useState('');
   const [isInstantDialogOpen, setIsInstantDialogOpen] = useState(false);
+  const [casePickerRole, setCasePickerRole] = useState<PersonRole | null>(null);
+  const [caseSearchText, setCaseSearchText] = useState('');
   const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
   const [resumeInstantDialogAfterPlace, setResumeInstantDialogAfterPlace] = useState(false);
   const birthPlace = useBirthPlace({ form, setForm });
   const instantType = getInstantChartTypeForWorkspace(tool ?? '');
+  const visibleCases = useMemo(() => {
+    const query = caseSearchText.trim().toLowerCase();
+    return sortPersonalCasesForQuickSwitch(cases).filter((record) => {
+      if (!query) return true;
+      return `${record.name} ${record.birthText} ${record.input.birthPlace}`
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [caseSearchText, cases]);
 
   useEffect(() => {
     if (!tool) return;
@@ -199,6 +216,23 @@ export function InputPage() {
     const [hour, minute] = value.split(':');
     updatePersonField(role, 'birthHour', hour);
     updatePersonField(role, 'birthMinute', minute);
+  }
+
+  function openCasePicker(role: PersonRole) {
+    setCaseSearchText('');
+    setCasePickerRole(role);
+  }
+
+  function closeCasePicker() {
+    setCasePickerRole(null);
+    setCaseSearchText('');
+  }
+
+  function chooseCase(record: PersonalHistoryRecord) {
+    if (!casePickerRole) return;
+    setForm((current) => applyPersonalCaseToCompatibilityPerson(current, record, casePickerRole));
+    setError('');
+    closeCasePicker();
   }
 
   function validatePerson(role: PersonRole) {
@@ -332,6 +366,13 @@ export function InputPage() {
             updateBirthTime={updateBirthTime}
             openBirthPlaceModal={birthPlace.openBirthPlaceModal}
             sectionTitle={config.compatibility ? '本人资料' : '出生资料'}
+            headerAction={
+              config.compatibility ? (
+                <WorkspaceButton size="small" onClick={() => openCasePicker('self')}>
+                  从案例选择
+                </WorkspaceButton>
+              ) : null
+            }
             forcePreciseBirthPlace={config.preciseBirthData}
           />
           {config.compatibility ? (
@@ -343,6 +384,11 @@ export function InputPage() {
               updateBirthTime={updateBirthTime}
               openBirthPlaceModal={birthPlace.openBirthPlaceModal}
               sectionTitle="对方资料"
+              headerAction={
+                <WorkspaceButton size="small" onClick={() => openCasePicker('partner')}>
+                  从案例选择
+                </WorkspaceButton>
+              }
             />
           ) : null}
         </div>
@@ -361,6 +407,71 @@ export function InputPage() {
           birthPlace={birthPlace}
           purpose={resumeInstantDialogAfterPlace ? 'observer' : 'birth'}
         />
+      ) : null}
+      {casePickerRole ? (
+        <WorkspaceDialog
+          className="compatibility-case-picker"
+          labelledBy="compatibility-case-picker-title"
+          onClose={closeCasePicker}
+        >
+          <header className="workspace-ui-dialog-header">
+            <div>
+              <h2 id="compatibility-case-picker-title">
+                选择{casePickerRole === 'self' ? '本人' : '对方'}案例
+              </h2>
+              <p>选中后只替换这一方的出生资料。</p>
+            </div>
+            <WorkspaceButton
+              variant="ghost"
+              size="small"
+              aria-label="关闭案例选择"
+              onClick={closeCasePicker}
+            >
+              关闭
+            </WorkspaceButton>
+          </header>
+          <div className="workspace-ui-dialog-body compatibility-case-picker-body">
+            <input
+              type="search"
+              className="workspace-ui-control compatibility-case-search"
+              value={caseSearchText}
+              placeholder="搜索姓名、日期或出生地"
+              aria-label="搜索案例"
+              onChange={(event) => setCaseSearchText(event.target.value)}
+            />
+            {visibleCases.length ? (
+              <div className="compatibility-case-options">
+                {visibleCases.map((record) => (
+                  <button
+                    type="button"
+                    key={record.id}
+                    className="compatibility-case-option"
+                    onClick={() => chooseCase(record)}
+                  >
+                    <span className="compatibility-case-option-mark" aria-hidden="true">
+                      {record.name.trim().slice(0, 1) || '案'}
+                    </span>
+                    <span className="compatibility-case-option-copy">
+                      <strong>{record.name}</strong>
+                      <small>
+                        {record.gender === 'male' ? '男' : '女'} · {record.birthText}
+                        {record.input.birthPlace ? ` · ${record.input.birthPlace}` : ''}
+                      </small>
+                    </span>
+                    {record.pinned ? <span className="compatibility-case-pinned">置顶</span> : null}
+                    <span className="compatibility-case-option-arrow" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="workspace-ui-empty">
+                {cases.length ? '没有匹配的案例' : '还没有可选择的案例'}
+              </div>
+            )}
+          </div>
+        </WorkspaceDialog>
       ) : null}
       {isInstantDialogOpen && instantType ? (
         <WorkspaceDialog
