@@ -299,23 +299,40 @@ export function upsertPersonalHistory(
   input: QueryInputState,
   workspaceSource?: PromptSourceKey,
   selectedCaseId?: string,
+  options: { allowIdentityChange?: boolean } = {},
 ) {
   if (!input.year || !input.month || !input.day) {
     return loadPersonalHistory();
   }
 
   const records = loadPersonalHistory();
-  const selectedRecord = selectedCaseId
+  const selectedRecordCandidate = selectedCaseId
     ? records.find((item) => item.id === selectedCaseId)
     : undefined;
-  const { name, generated } = resolvePersonalRecordName(input, records, selectedRecord);
+  let resolvedName = resolvePersonalRecordName(input, records, selectedRecordCandidate);
+  const selectedRecord =
+    selectedRecordCandidate &&
+    (options.allowIdentityChange ||
+      isSamePersonalCase(selectedRecordCandidate, resolvedName.name, input))
+      ? selectedRecordCandidate
+      : undefined;
+  if (selectedRecordCandidate && !selectedRecord) {
+    resolvedName = resolvePersonalRecordName(input, records);
+  }
+  const { name, generated } = resolvedName;
   const existingRecord =
     selectedRecord ?? records.find((item) => isSamePersonalCase(item, name, input));
+  const generatedId = [
+    normalizeText(name),
+    input.gender,
+    input.dateType,
+    input.year,
+    input.month,
+    input.day,
+  ].join('|');
   const id =
     existingRecord?.id ??
-    [normalizeText(name), input.gender, input.dateType, input.year, input.month, input.day].join(
-      '|',
-    );
+    (records.some((item) => item.id === generatedId) ? createSecureId() : generatedId);
   const now = new Date().toISOString();
 
   const record: PersonalHistoryRecord = {

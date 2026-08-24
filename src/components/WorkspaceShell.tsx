@@ -98,6 +98,7 @@ export function WorkspaceShell() {
   const [historyRevision, setHistoryRevision] = useState(0);
   const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
   const activeCaseTabRef = useRef<HTMLButtonElement>(null);
+  const syncedChartRecordIdRef = useRef<string | null>(null);
   const activeFeature = resolveActiveFeature(location.pathname, location.search);
   const routeSearchParams = new URLSearchParams(location.search);
   const activeDivinationRecordId = routeSearchParams.get('record');
@@ -171,13 +172,17 @@ export function WorkspaceShell() {
   }, [activeCaseId]);
 
   useEffect(() => {
-    if (
-      chartRecordId &&
-      chartRecordId !== activeCaseId &&
-      cases.some((record) => record.id === chartRecordId)
-    ) {
-      selectCase(chartRecordId);
+    if (!chartRecordId) {
+      syncedChartRecordIdRef.current = null;
+      return;
     }
+    if (syncedChartRecordIdRef.current === chartRecordId) return;
+    if (chartRecordId !== activeCaseId && cases.some((record) => record.id === chartRecordId)) {
+      syncedChartRecordIdRef.current = chartRecordId;
+      selectCase(chartRecordId);
+      return;
+    }
+    if (chartRecordId === activeCaseId) syncedChartRecordIdRef.current = chartRecordId;
   }, [activeCaseId, cases, chartRecordId, selectCase]);
 
   function activateCase(record: PersonalHistoryRecord | null) {

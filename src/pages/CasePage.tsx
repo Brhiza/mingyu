@@ -201,6 +201,7 @@ export function CasePage() {
       form,
       editingRecord?.workspaceSource ?? 'bazi',
       editingRecord?.id,
+      { allowIdentityChange: true },
     );
     const savedRecord = editingRecord
       ? records.find((record) => record.id === editingRecord.id)
