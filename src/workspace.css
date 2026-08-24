@@ -742,7 +742,7 @@
 }
 
 .workspace-instant-standard.is-dialog button.is-active {
-  border-color: var(--accent-border);
+  border-color: var(--border-contrast);
 }
 
 .workspace-instant-standard.is-dialog strong,
@@ -1921,7 +1921,7 @@
 }
 
 .workspace-home-composer:focus-within {
-  border-color: var(--accent-border);
+  border-color: var(--border-contrast);
   box-shadow:
     0 0 0 3px var(--accent-surface),
     0 16px 44px rgba(63, 41, 71, 0.08);
