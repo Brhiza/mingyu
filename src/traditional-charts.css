@@ -148,7 +148,7 @@
 }
 
 .bazi-showcase-card .bazi-pillars-table.has-fortune {
-  min-width: 700px;
+  min-width: max(100%, var(--bazi-table-min-width, 670px));
 }
 
 .bazi-showcase-card .bazi-pillars-cell {
@@ -195,12 +195,8 @@
   box-shadow: none;
 }
 
-.bazi-showcase-card .bazi-pillars-cell.is-fortune {
-  background: color-mix(in srgb, var(--secondary-soft) 34%, var(--surface-elevated));
-}
-
 .bazi-showcase-card .bazi-pillars-cell.is-fortune-start {
-  border-left: 2px solid color-mix(in srgb, var(--accent-strong) 24%, transparent);
+  border-left: 1px solid var(--chart-border-strong);
 }
 
 .bazi-showcase-card .bazi-pillars-cell.is-pillar {
@@ -256,7 +252,7 @@
 
 .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='金'],
 .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='金'] {
-  color: #5c6872;
+  color: #b07d00;
 }
 
 .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='水'],
@@ -526,7 +522,7 @@
 }
 
 .bazi-showcase-card .bazi-fortune-board .wuxing-jin {
-  color: #5c6872;
+  color: #b07d00;
 }
 
 .bazi-showcase-card .bazi-fortune-board .wuxing-shui {
@@ -551,7 +547,7 @@
 
   .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='金'],
   .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='金'] {
-    color: #9aa5ae;
+    color: #f2c94c;
   }
 
   .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='水'],
@@ -572,7 +568,7 @@
   }
 
   .bazi-showcase-card .bazi-fortune-board .wuxing-jin {
-    color: #9aa5ae;
+    color: #f2c94c;
   }
 
   .bazi-showcase-card .bazi-fortune-board .wuxing-shui {
@@ -1587,7 +1583,7 @@
 
 @media (max-width: 720px) {
   .traditional-chart-layout {
-    gap: 12px;
+    gap: 8px;
   }
 
   .traditional-chart-layout .result-showcase-head {
@@ -1617,8 +1613,8 @@
   }
 
   .bazi-showcase-card .result-stat-card {
-    min-height: 58px;
-    padding: 7px 6px;
+    min-height: 52px;
+    padding: 6px 5px;
   }
 
   .bazi-showcase-card .result-stat-card:nth-child(2) {
@@ -1652,16 +1648,17 @@
   }
 
   .bazi-showcase-card .bazi-pillars-table {
-    grid-template-columns: 44px repeat(var(--bazi-display-column-count, 4), minmax(64px, 1fr));
+    grid-template-columns: 38px repeat(var(--bazi-display-column-count, 4), minmax(48px, 1fr));
+    margin-top: 4px;
   }
 
   .bazi-showcase-card .bazi-pillars-table.has-fortune {
-    min-width: 620px;
+    min-width: max(100%, var(--bazi-mobile-table-min-width, 470px));
   }
 
   .bazi-showcase-card .bazi-pillars-cell {
-    min-height: 31px;
-    padding: 5px 3px;
+    min-height: 28px;
+    padding: 4px 2px;
     font-size: 10px;
   }
 
@@ -1671,15 +1668,24 @@
   }
 
   .bazi-showcase-card .bazi-pillars-cell.is-pillar {
-    min-height: 94px;
+    min-height: 82px;
+    padding-block: 5px;
+  }
+
+  .bazi-showcase-card .bazi-pillar-value {
+    gap: 3px;
+  }
+
+  .bazi-showcase-card .bazi-pillar-ganzhi {
+    gap: 4px;
   }
 
   .bazi-showcase-card .bazi-ganzhi-symbol {
-    font-size: 22px;
+    font-size: 21px;
   }
 
   .bazi-showcase-card .bazi-pillars-cell.is-hidden-stems {
-    min-height: 50px;
+    min-height: 44px;
   }
 
   .bazi-showcase-card .bazi-hidden-stem-list > span {
@@ -1697,7 +1703,12 @@
   }
 
   .bazi-showcase-card .bazi-shensha-tag {
-    font-size: 8px;
+    font-size: 7.5px;
+    line-height: 1.12;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-shensha {
+    min-height: 46px;
   }
 
   .bazi-showcase-card .bazi-context-grid {
@@ -1716,7 +1727,7 @@
   }
 
   .bazi-showcase-card .bazi-fortune-board .fortune-row {
-    grid-template-columns: 29px minmax(0, 1fr);
+    grid-template-columns: 26px minmax(0, 1fr);
   }
 
   .bazi-showcase-card .bazi-fortune-board .fortune-selector-head {
@@ -1726,13 +1737,14 @@
   }
 
   .bazi-showcase-card .bazi-fortune-board .row-title {
-    padding-right: 5px;
+    padding-right: 4px;
     font-size: 9px;
   }
 
   .bazi-showcase-card .bazi-fortune-board .fortune-item {
-    flex-basis: 54px;
-    min-width: 54px;
+    flex-basis: 48px;
+    min-width: 48px;
+    padding: 3px 2px;
   }
 
   .ziwei-showcase-card .ziwei-traditional-shell {
@@ -1985,5 +1997,26 @@
 @media (max-width: 420px) {
   .traditional-chart-layout .result-stat-card {
     padding: 8px 9px;
+  }
+
+  .bazi-showcase-card .result-stat-card {
+    padding: 5px 4px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-table {
+    grid-template-columns: 34px repeat(var(--bazi-display-column-count, 4), minmax(44px, 1fr));
+  }
+
+  .bazi-showcase-card .bazi-pillars-table.has-fortune {
+    min-width: max(100%, var(--bazi-small-mobile-table-min-width, 430px));
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-label {
+    padding-left: 3px;
+    font-size: 8px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-head {
+    font-size: 9px;
   }
 }

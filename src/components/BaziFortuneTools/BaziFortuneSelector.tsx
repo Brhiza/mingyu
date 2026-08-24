@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import type { BaziChartResult } from 'mingyu-core/bazi';
 import {
   getBaziDayIndexByDate,
@@ -67,50 +67,38 @@ export function BaziFortuneSelector(props: {
     Math.floor(((now.getHours() + 1) % 24) / 2),
   );
 
-  const selectedCycle = result.luckInfo.cycles[selectedCycleIndex] ?? result.luckInfo.cycles[0];
+  const resolvedCycleIndex = result.luckInfo.cycles[selectedCycleIndex]
+    ? selectedCycleIndex
+    : currentCycleIndex;
+  const selectedCycle = result.luckInfo.cycles[resolvedCycleIndex] ?? result.luckInfo.cycles[0];
   const yearOptions = useMemo(() => selectedCycle?.years ?? [], [selectedCycle]);
+  const selectedYearOption =
+    yearOptions.find((item) => item.year === selectedYear) ?? yearOptions[0];
+  const resolvedYear = selectedYearOption?.year ?? 0;
   const monthOptions = useMemo(
-    () => (selectedYear ? getYearInfo(selectedYear).months : []),
-    [selectedYear],
+    () => (resolvedYear ? getYearInfo(resolvedYear).months : []),
+    [resolvedYear],
   );
+  const resolvedMonth =
+    selectedMonth >= 1 && selectedMonth <= monthOptions.length ? selectedMonth : 1;
+  const selectedMonthOption = monthOptions[resolvedMonth - 1];
   const dayOptions = useMemo(
-    () => (selectedYear && selectedMonth ? getMonthDaysInfo(selectedYear, selectedMonth) : []),
-    [selectedMonth, selectedYear],
+    () => (resolvedYear && resolvedMonth ? getMonthDaysInfo(resolvedYear, resolvedMonth) : []),
+    [resolvedMonth, resolvedYear],
   );
-  const selectedDayOption = dayOptions.find((item) => item.day === selectedDay);
+  const selectedDayOption = dayOptions.find((item) => item.day === selectedDay) ?? dayOptions[0];
+  const resolvedDay = selectedDayOption?.day ?? 1;
   const hourOptions = useMemo(() => {
     const solarDate = selectedDayOption?.solarDate;
     if (!solarDate) return [];
     const [year, month, day] = solarDate.split('-').map(Number);
     return getDayHourBreakdown(year, month, day);
   }, [selectedDayOption]);
-  const selectedMonthOption = monthOptions[selectedMonth - 1];
-  const selectedHourOption = hourOptions[selectedHourIndex];
-
-  useEffect(() => {
-    if (!yearOptions.length) return;
-    if (!yearOptions.some((item) => item.year === selectedYear)) {
-      setSelectedYear(yearOptions[0].year);
-    }
-  }, [selectedYear, yearOptions]);
-
-  useEffect(() => {
-    if (!monthOptions.length) return;
-    if (selectedMonth < 1 || selectedMonth > monthOptions.length) {
-      setSelectedMonth(1);
-    }
-  }, [selectedMonth, monthOptions]);
-
-  useEffect(() => {
-    const maxDay = dayOptions.length;
-    if (!maxDay) return;
-    if (selectedDay > maxDay) {
-      setSelectedDay(1);
-    }
-  }, [dayOptions.length, selectedDay]);
-
-  useEffect(() => {
-    if (!onSelectionChange) return;
+  const resolvedHourIndex = hourOptions.length
+    ? Math.min(Math.max(selectedHourIndex, 0), hourOptions.length - 1)
+    : 0;
+  const selectedHourOption = hourOptions[resolvedHourIndex];
+  const displayColumns = useMemo(() => {
     const columns: BaziFortuneDisplayColumn[] = [];
     if (selectedCycle && isGanZhiPair(selectedCycle.ganZhi[0], selectedCycle.ganZhi[1])) {
       columns.push({
@@ -120,7 +108,6 @@ export function BaziFortuneSelector(props: {
         ganZhi: selectedCycle.ganZhi,
       });
     }
-    const selectedYearOption = yearOptions.find((item) => item.year === selectedYear);
     if (selectedYearOption) {
       columns.push({
         key: 'year',
@@ -153,16 +140,18 @@ export function BaziFortuneSelector(props: {
         ganZhi: selectedHourOption.ganZhi,
       });
     }
-    onSelectionChange(columns);
+    return columns;
   }, [
-    onSelectionChange,
     selectedCycle,
     selectedDayOption,
     selectedHourOption,
     selectedMonthOption,
-    selectedYear,
-    yearOptions,
+    selectedYearOption,
   ]);
+
+  useLayoutEffect(() => {
+    onSelectionChange?.(displayColumns);
+  }, [displayColumns, onSelectionChange]);
 
   function selectToday() {
     const today = new Date();
@@ -199,7 +188,7 @@ export function BaziFortuneSelector(props: {
                 <button
                   type="button"
                   key={`${cycle.age}-${cycle.ganZhi}`}
-                  className={`fortune-item ${index === selectedCycleIndex ? 'active' : ''}`}
+                  className={`fortune-item ${index === resolvedCycleIndex ? 'active' : ''}`}
                   onClick={() => setSelectedCycleIndex(index)}
                 >
                   <div className="fortune-year">{cycle.year}</div>
@@ -219,7 +208,7 @@ export function BaziFortuneSelector(props: {
                 <button
                   type="button"
                   key={item.year}
-                  className={`fortune-item ${item.year === selectedYear ? 'active' : ''}`}
+                  className={`fortune-item ${item.year === resolvedYear ? 'active' : ''}`}
                   onClick={() => setSelectedYear(item.year)}
                 >
                   <div className="fortune-year">{item.year}</div>
@@ -239,8 +228,8 @@ export function BaziFortuneSelector(props: {
               return (
                 <button
                   type="button"
-                  key={`${selectedYear}-${item.month}-${item.ganZhi}`}
-                  className={`fortune-item ${monthNumber === selectedMonth ? 'active' : ''}`}
+                  key={`${resolvedYear}-${item.month}-${item.ganZhi}`}
+                  className={`fortune-item ${monthNumber === resolvedMonth ? 'active' : ''}`}
                   onClick={() => setSelectedMonth(monthNumber)}
                 >
                   <div className="fortune-year">{item.month}</div>
@@ -260,7 +249,7 @@ export function BaziFortuneSelector(props: {
                 <button
                   type="button"
                   key={item.solarDate}
-                  className={`fortune-item ${item.day === selectedDay ? 'active' : ''}`}
+                  className={`fortune-item ${item.day === resolvedDay ? 'active' : ''}`}
                   onClick={() => setSelectedDay(item.day)}
                 >
                   <div className="fortune-year">{item.solarLabel}</div>
@@ -279,7 +268,7 @@ export function BaziFortuneSelector(props: {
               <button
                 type="button"
                 key={`${selectedDayOption?.solarDate}-${item.label}`}
-                className={`fortune-item ${index === selectedHourIndex ? 'active' : ''}`}
+                className={`fortune-item ${index === resolvedHourIndex ? 'active' : ''}`}
                 onClick={() => setSelectedHourIndex(index)}
                 title={item.timeRange}
               >

@@ -666,7 +666,7 @@ select {
 }
 
 .bazi-wuxing-label[data-wuxing='金'] {
-  color: #64748b;
+  color: #b07d00;
 }
 
 .bazi-wuxing-label[data-wuxing='水'] {
@@ -1292,11 +1292,18 @@ select {
 }
 
 .wuxing-jin {
-  color: var(--text-secondary);
+  color: #b07d00;
 }
 
 .wuxing-shui {
   color: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bazi-wuxing-label[data-wuxing='金'],
+  .wuxing-jin {
+    color: #f2c94c;
+  }
 }
 
 .result-meta-lines {

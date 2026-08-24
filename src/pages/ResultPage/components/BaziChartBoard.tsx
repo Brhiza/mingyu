@@ -1,4 +1,4 @@
-import { Suspense, lazy, memo, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   filterCommonBaziShenSha,
   getShenShaType,
@@ -6,13 +6,17 @@ import {
   getTenGodForBranch,
   getWuxing,
   isGanZhiPair,
+  ShenShaCalculator,
   type BaziChartResult,
 } from 'mingyu-core/bazi';
 import { HIDDEN_STEMS, NAYIN_MAP } from '@core/bazi/baziMappingsData';
 import { getLifeStage } from '@core/bazi/baziValues';
 import { calculateKongWangBranches } from '@core/bazi/kongWang';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
-import type { BaziFortuneDisplayColumn } from '@/components/BaziFortuneTools/BaziFortuneSelector';
+import {
+  BaziFortuneSelector,
+  type BaziFortuneDisplayColumn,
+} from '@/components/BaziFortuneTools/BaziFortuneSelector';
 import {
   formatAvoidGodPrioritySummary,
   formatBaziDate,
@@ -20,15 +24,9 @@ import {
   formatUsefulGodPrioritySummary,
   joinMultilineText,
 } from '../ResultPage.helpers';
-import { BaziFortuneLoadingCard } from './skeletons';
-
-const LazyBaziFortuneSelector = lazy(async () => {
-  const module = await import('@/components/BaziFortuneTools/BaziFortuneSelector');
-  return { default: module.BaziFortuneSelector };
-});
-
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
 const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'] as const;
+const fortuneShenShaCalculator = new ShenShaCalculator();
 
 type BaziBoardColumn = {
   key: string;
@@ -46,11 +44,24 @@ type BaziBoardColumn = {
   kongWang: string[];
   shensha: string[];
   isDayMaster?: boolean;
-  isFortune?: boolean;
 };
 
 function filterBaziBoardShensha(items: string[]) {
   return filterCommonBaziShenSha(uniqueNonEmptyStrings(items));
+}
+
+function calculateBaziFortuneShensha(result: BaziChartResult, gan: string, zhi: string) {
+  const comparisonPillars: Parameters<ShenShaCalculator['calculateAllShenSha']>[0] = [
+    [result.pillars.year.gan, result.pillars.year.zhi],
+    [result.pillars.month.gan, result.pillars.month.zhi],
+    [result.pillars.day.gan, result.pillars.day.zhi],
+    [gan, zhi],
+  ];
+  const shensha = fortuneShenShaCalculator.calculateAllShenSha(
+    comparisonPillars,
+    result.gender,
+  ).hour;
+  return filterBaziBoardShensha(shensha);
 }
 
 function BaziGanZhiValue(props: { value: string }) {
@@ -207,14 +218,16 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
         ziZuo: getLifeStage(gan, zhi),
         lifeStage: getLifeStage(result.dayMaster.gan, zhi),
         kongWang: calculateKongWangBranches(gan, zhi),
-        shensha: [],
-        isFortune: true,
+        shensha: calculateBaziFortuneShensha(result, gan, zhi),
       },
     ];
   });
   const boardColumns = [...natalColumns, ...activeFortuneColumns];
   const boardStyle = {
     '--bazi-display-column-count': boardColumns.length,
+    '--bazi-table-min-width': `${58 + boardColumns.length * 68}px`,
+    '--bazi-mobile-table-min-width': `${38 + boardColumns.length * 48}px`,
+    '--bazi-small-mobile-table-min-width': `${34 + boardColumns.length * 44}px`,
   } as CSSProperties;
   const pillarRows: Array<{
     label: string;
@@ -264,15 +277,9 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
     },
     {
       label: '神煞',
-      values: boardColumns.map((column) =>
-        column.isFortune ? (
-          <span className="bazi-shensha-empty" key={column.key}>
-            —
-          </span>
-        ) : (
-          <BaziShenShaList items={column.shensha} key={column.key} />
-        ),
-      ),
+      values: boardColumns.map((column) => (
+        <BaziShenShaList items={column.shensha} key={column.key} />
+      )),
       className: 'is-shensha',
     },
   ].filter((row) => !isInstant || row.label !== '神煞');
@@ -354,9 +361,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
                 <div
                   className={`bazi-pillars-cell is-head ${
                     column.isDayMaster ? 'is-day-master' : ''
-                  } ${column.isFortune ? 'is-fortune' : ''} ${
-                    index === natalColumns.length ? 'is-fortune-start' : ''
-                  }`}
+                  } ${index === natalColumns.length ? 'is-fortune-start' : ''}`}
                   key={column.key}
                 >
                   <span>{column.label}</span>
@@ -372,9 +377,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
                     key={`${row.label}-${index}`}
                     className={`bazi-pillars-cell ${row.className ?? ''} ${
                       boardColumns[index]?.isDayMaster ? 'is-day-master' : ''
-                    } ${boardColumns[index]?.isFortune ? 'is-fortune' : ''} ${
-                      index === natalColumns.length ? 'is-fortune-start' : ''
-                    }`}
+                    } ${index === natalColumns.length ? 'is-fortune-start' : ''}`}
                   >
                     {value}
                   </div>
@@ -425,9 +428,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
 
       {!isInstant ? (
         <div className="bazi-fortune-board">
-          <Suspense fallback={<BaziFortuneLoadingCard />}>
-            <LazyBaziFortuneSelector result={result} onSelectionChange={setFortuneColumns} />
-          </Suspense>
+          <BaziFortuneSelector result={result} onSelectionChange={setFortuneColumns} />
         </div>
       ) : null}
     </section>
