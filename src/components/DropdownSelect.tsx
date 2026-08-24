@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 export type DropdownSelectOption<T extends string = string> = {
   value: T;
   label: string;
+  triggerLabel?: string;
   group?: string;
   disabled?: boolean;
 };
@@ -22,6 +23,7 @@ type DropdownSelectProps<T extends string> = {
   options: readonly DropdownSelectOption<T>[];
   onChange: (value: T) => void;
   ariaLabel?: string;
+  prefix?: string;
   disabled?: boolean;
   variant?: 'compact' | 'field';
 };
@@ -47,6 +49,7 @@ export function DropdownSelect<T extends string>({
   options,
   onChange,
   ariaLabel,
+  prefix,
   disabled = false,
   variant = 'compact',
 }: DropdownSelectProps<T>) {
@@ -201,7 +204,8 @@ export function DropdownSelect<T extends string>({
         onClick={() => (isOpen ? closeMenu() : openMenu())}
         onKeyDown={handleKeyDown}
       >
-        {selectedOption?.label ?? ''}
+        {prefix ? <span className="workspace-ui-dropdown-prefix">{prefix}</span> : null}
+        <span>{selectedOption?.triggerLabel ?? selectedOption?.label ?? ''}</span>
       </button>
 
       {isOpen && position

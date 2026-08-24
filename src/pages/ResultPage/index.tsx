@@ -75,10 +75,10 @@ import {
   type ResidentialMeasurement,
 } from '@/lib/residential-fengshui-chart';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
-import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
+import { buildCurrentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { PromptWorkbenchPanel } from '@/components/PromptPreview';
-import { DropdownSelect } from '@/components/DropdownSelect';
+import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
 import { normalizeChartInputForSource, preserveChartRecordId } from '@/lib/case-navigation';
 import { isInstantChartType, readInstantTimeStandard } from '@/lib/instant-chart';
 import {
@@ -89,25 +89,53 @@ import {
   buildInstantZiweiPrompt,
 } from '@/lib/instant-prompt';
 
-type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
+type FortuneScopePreset = 'default' | 'dayun' | 'year' | 'month' | 'day' | 'all' | 'manual';
+type FortuneScopePresetKind = 'bazi' | 'ziwei' | 'astrolabe';
 
 function FortuneScopePresetSelect(props: {
   value: FortuneScopePreset;
   onChange: (value: FortuneScopePreset) => void;
+  kind: FortuneScopePresetKind;
+  currentAvailable?: boolean;
   disabled?: boolean;
 }) {
+  const currentAvailable = props.currentAvailable ?? true;
+  const options: DropdownSelectOption<FortuneScopePreset>[] = [
+    { value: 'default', label: '本命（默认）', triggerLabel: '本命' },
+    ...(props.kind === 'bazi'
+      ? [
+          { value: 'dayun', label: '当前大运', disabled: !currentAvailable },
+          { value: 'year', label: '当前流年', disabled: !currentAvailable },
+          { value: 'month', label: '当前流月', disabled: !currentAvailable },
+          { value: 'day', label: '当前流日', disabled: !currentAvailable },
+        ]
+      : props.kind === 'ziwei'
+        ? [
+            { value: 'dayun', label: '当前大限' },
+            { value: 'year', label: '当前流年' },
+            { value: 'month', label: '当前流月' },
+            { value: 'day', label: '当前流日' },
+          ]
+        : [
+            { value: 'year', label: '当前流年' },
+            { value: 'month', label: '当前流月' },
+            { value: 'day', label: '当前流日' },
+          ]),
+    {
+      value: 'all',
+      label: props.kind === 'bazi' ? '全部大运' : props.kind === 'ziwei' ? '完整运限' : '完整行运',
+    },
+    { value: 'manual', label: '自选年限' },
+  ];
+
   return (
     <DropdownSelect
       value={props.value}
-      options={[
-        { value: 'default', label: '本命（默认）' },
-        { value: 'recent', label: '近期' },
-        { value: 'all', label: '全部' },
-        { value: 'manual', label: '手动选择' },
-      ]}
+      options={options}
       onChange={props.onChange}
       disabled={props.disabled}
-      ariaLabel="年限选择"
+      ariaLabel="解读范围"
+      prefix="范围"
       variant="field"
     />
   );
@@ -125,13 +153,15 @@ function isSameBaziFortuneSelection(
   first: BaziFortuneSelectionValue,
   second: BaziFortuneSelectionValue,
 ) {
-  return (
-    first.scope === second.scope &&
-    first.cycleIndex === second.cycleIndex &&
-    first.year === second.year &&
-    first.month === second.month &&
-    first.day === second.day
-  );
+  if (first.scope !== second.scope) return false;
+  if (first.scope === 'natal' || first.scope === 'full') return true;
+  if (first.cycleIndex !== second.cycleIndex) return false;
+  if (first.scope === 'dayun') return true;
+  if (first.year !== second.year) return false;
+  if (first.scope === 'year') return true;
+  if (first.month !== second.month) return false;
+  if (first.scope === 'month') return true;
+  return first.day === second.day;
 }
 
 const LazyBaziFortuneModal = lazy(async () => {
@@ -580,8 +610,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   }, [baziFortuneSelectionModule, baziResult, normalizedBaziFortuneSelection]);
   const currentScopeDate = useMemo(() => new Date(), []);
   const currentDateStr = useMemo(() => formatLocalDate(currentScopeDate), [currentScopeDate]);
-  const recentBaziFortuneSelection = useMemo(
-    () => (baziResult ? buildRecentBaziFortuneSelection(baziResult, currentScopeDate) : null),
+  const currentBaziFortuneSelection = useMemo(
+    () => (baziResult ? buildCurrentBaziFortuneSelection(baziResult, currentScopeDate) : null),
     [baziResult, currentScopeDate],
   );
   const baziFortunePreset: FortuneScopePreset =
@@ -589,26 +619,48 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ? 'default'
       : normalizedBaziFortuneSelection.scope === 'full'
         ? 'all'
-        : recentBaziFortuneSelection &&
-            isSameBaziFortuneSelection(normalizedBaziFortuneSelection, recentBaziFortuneSelection)
-          ? 'recent'
+        : currentBaziFortuneSelection &&
+            isSameBaziFortuneSelection(normalizedBaziFortuneSelection, {
+              ...currentBaziFortuneSelection,
+              scope: normalizedBaziFortuneSelection.scope,
+            })
+          ? normalizedBaziFortuneSelection.scope
           : 'manual';
   const ziweiScopePreset: FortuneScopePreset =
     promptState.ziweiScope === 'origin'
       ? 'default'
       : promptState.ziweiScope === 'full'
         ? 'all'
-        : promptState.ziweiScope === 'monthly' && promptState.ziweiScopeDate === currentDateStr
-          ? 'recent'
+        : promptState.ziweiScopeDate === currentDateStr
+          ? promptState.ziweiScope === 'decadal'
+            ? 'dayun'
+            : promptState.ziweiScope === 'yearly'
+              ? 'year'
+              : promptState.ziweiScope === 'monthly'
+                ? 'month'
+                : promptState.ziweiScope === 'daily'
+                  ? 'day'
+                  : 'manual'
           : 'manual';
+  const currentAstrolabeScopeDate =
+    promptState.astrolabeScope === 'yearly'
+      ? currentDateStr.slice(0, 4)
+      : promptState.astrolabeScope === 'monthly'
+        ? currentDateStr.slice(0, 7)
+        : currentDateStr;
   const astrolabeScopePreset: FortuneScopePreset =
     promptState.astrolabeScope === 'natal'
       ? 'default'
       : promptState.astrolabeScope === 'full'
         ? 'all'
-        : promptState.astrolabeScope === 'monthly' &&
-            promptState.astrolabeScopeDate === currentDateStr
-          ? 'recent'
+        : promptState.astrolabeScopeDate === currentAstrolabeScopeDate
+          ? promptState.astrolabeScope === 'yearly'
+            ? 'year'
+            : promptState.astrolabeScope === 'monthly'
+              ? 'month'
+              : promptState.astrolabeScope === 'daily'
+                ? 'day'
+                : 'manual'
           : 'manual';
 
   const applyBaziFortuneSelection = useCallback(
@@ -639,8 +691,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       setIsBaziFortuneModalOpen(true);
       return;
     }
-    if (value === 'recent' && recentBaziFortuneSelection) {
-      applyBaziFortuneSelection(recentBaziFortuneSelection);
+    if (
+      (value === 'dayun' || value === 'year' || value === 'month' || value === 'day') &&
+      currentBaziFortuneSelection
+    ) {
+      applyBaziFortuneSelection({ ...currentBaziFortuneSelection, scope: value });
       return;
     }
     applyBaziFortuneSelection({ scope: value === 'all' ? 'full' : 'natal' });
@@ -652,8 +707,22 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       return;
     }
     updatePromptState({
-      ziweiScope: value === 'all' ? 'full' : value === 'recent' ? 'monthly' : 'origin',
-      ziweiScopeDate: value === 'recent' ? currentDateStr : '',
+      ziweiScope:
+        value === 'all'
+          ? 'full'
+          : value === 'dayun'
+            ? 'decadal'
+            : value === 'year'
+              ? 'yearly'
+              : value === 'month'
+                ? 'monthly'
+                : value === 'day'
+                  ? 'daily'
+                  : 'origin',
+      ziweiScopeDate:
+        value === 'dayun' || value === 'year' || value === 'month' || value === 'day'
+          ? currentDateStr
+          : '',
     });
   }
 
@@ -662,9 +731,26 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       setIsAstrolabeScopeModalOpen(true);
       return;
     }
+    const astrolabeScope =
+      value === 'all'
+        ? 'full'
+        : value === 'year'
+          ? 'yearly'
+          : value === 'month'
+            ? 'monthly'
+            : value === 'day'
+              ? 'daily'
+              : 'natal';
     updatePromptState({
-      astrolabeScope: value === 'all' ? 'full' : value === 'recent' ? 'monthly' : 'natal',
-      astrolabeScopeDate: value === 'recent' || value === 'all' ? currentDateStr : '',
+      astrolabeScope,
+      astrolabeScopeDate:
+        astrolabeScope === 'yearly'
+          ? currentDateStr.slice(0, 4)
+          : astrolabeScope === 'monthly'
+            ? currentDateStr.slice(0, 7)
+            : astrolabeScope === 'daily' || astrolabeScope === 'full'
+              ? currentDateStr
+              : '',
     });
   }
 
@@ -1496,45 +1582,34 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inspiration.close();
   }
   const promptScopeField = hasAdjustablePromptScope ? (
-    <div className="workspace-prompt-scope">
-      <div className="workspace-prompt-subheading">
-        <strong>解读范围</strong>
-        <small>默认含完整本命资料，选择其他范围会追加相应岁运。</small>
-      </div>
-      <div className="prompt-compact-grid">
-        {(promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
-        inputState.analysisMode === 'single' ? (
-          <div className="workspace-ui-field">
-            <span>年限选择</span>
-            <FortuneScopePresetSelect
-              value={baziFortunePreset}
-              onChange={handleBaziFortunePresetChange}
-            />
-          </div>
-        ) : null}
+    <div className="workspace-prompt-scope" title="本命包含完整本命资料；其他范围会追加相应岁运">
+      {(promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
+      inputState.analysisMode === 'single' ? (
+        <FortuneScopePresetSelect
+          value={baziFortunePreset}
+          onChange={handleBaziFortunePresetChange}
+          kind="bazi"
+          currentAvailable={Boolean(currentBaziFortuneSelection)}
+        />
+      ) : null}
 
-        {promptState.promptSource === 'ziwei' ? (
-          <div className="workspace-ui-field">
-            <span>年限选择</span>
-            <FortuneScopePresetSelect
-              value={ziweiScopePreset}
-              onChange={handleZiweiScopePresetChange}
-              disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-            />
-          </div>
-        ) : null}
+      {promptState.promptSource === 'ziwei' ? (
+        <FortuneScopePresetSelect
+          value={ziweiScopePreset}
+          onChange={handleZiweiScopePresetChange}
+          kind="ziwei"
+          disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
+        />
+      ) : null}
 
-        {promptState.promptSource === 'astrolabe' ? (
-          <div className="workspace-ui-field">
-            <span>年限选择</span>
-            <FortuneScopePresetSelect
-              value={astrolabeScopePreset}
-              onChange={handleAstrolabeScopePresetChange}
-              disabled={!astrolabeCalculation.data}
-            />
-          </div>
-        ) : null}
-      </div>
+      {promptState.promptSource === 'astrolabe' ? (
+        <FortuneScopePresetSelect
+          value={astrolabeScopePreset}
+          onChange={handleAstrolabeScopePresetChange}
+          kind="astrolabe"
+          disabled={!astrolabeCalculation.data}
+        />
+      ) : null}
     </div>
   ) : null;
   const aiComposerTools = (
