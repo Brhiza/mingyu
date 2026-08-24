@@ -10,7 +10,12 @@ import {
   isGanZhiPair,
 } from 'mingyu-core/bazi';
 import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
-import { getCurrentLuckCycle, getWuxingClass, splitGanZhi } from './helpers';
+import {
+  formatBaziTenGodAbbreviation,
+  getCurrentLuckCycle,
+  getWuxingClass,
+  splitGanZhi,
+} from './helpers';
 
 export type BaziFortuneDisplayColumn = {
   key: 'dayun' | 'year' | 'month' | 'day' | 'hour';
@@ -24,16 +29,22 @@ function FortuneGanZhi(props: { ganZhi: string; dayMaster: string }) {
     return <div className="fortune-text-value">{props.ganZhi === '小运' ? '童运' : '—'}</div>;
   }
   const [gan, zhi] = splitGanZhi(props.ganZhi);
+  const ganTenGod = getTenGod(gan, props.dayMaster);
+  const zhiTenGod = getTenGodForBranch(zhi, props.dayMaster);
 
   return (
     <div className="fortune-vertical-group">
       <div className="char-pair">
         <span className={`main-char ${getWuxingClass(gan)}`}>{gan}</span>
-        <small className="sub-char">{getTenGod(gan, props.dayMaster)}</small>
+        <small className="sub-char" title={ganTenGod}>
+          {formatBaziTenGodAbbreviation(ganTenGod)}
+        </small>
       </div>
       <div className="char-pair">
         <span className={`main-char ${getWuxingClass(zhi)}`}>{zhi}</span>
-        <small className="sub-char">{getTenGodForBranch(zhi, props.dayMaster)}</small>
+        <small className="sub-char" title={zhiTenGod}>
+          {formatBaziTenGodAbbreviation(zhiTenGod)}
+        </small>
       </div>
     </div>
   );

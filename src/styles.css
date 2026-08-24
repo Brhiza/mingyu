@@ -34,6 +34,15 @@
   --border-soft: rgba(196, 182, 211, 0.22);
   --border-strong: rgba(180, 161, 199, 0.3);
   --border-contrast: rgba(203, 79, 151, 0.26);
+  --state-idle-surface: color-mix(in srgb, var(--surface-muted) 42%, var(--surface-base));
+  --state-hover-surface: color-mix(in srgb, var(--text-muted) 7%, var(--surface-base));
+  --state-selected-surface: color-mix(in srgb, var(--accent-strong) 14%, var(--surface-base));
+  --state-selected-surface-strong: color-mix(
+    in srgb,
+    var(--accent-strong) 20%,
+    var(--surface-base)
+  );
+  --state-selected-text: var(--accent-deep);
   --shadow-lg: 0 24px 70px rgba(75, 46, 88, 0.1);
   --shadow-md: 0 16px 38px rgba(75, 46, 88, 0.07);
   --shadow-card: 0 18px 50px rgba(75, 46, 88, 0.07);
@@ -940,9 +949,9 @@ select {
 }
 
 .fortune-timeline-item.is-active .fortune-timeline-body {
-  border-color: var(--accent-soft-strong);
-  background: linear-gradient(180deg, var(--accent-surface), var(--surface-elevated));
-  box-shadow: 0 10px 20px var(--accent-soft);
+  border-color: transparent;
+  background: var(--state-selected-surface);
+  box-shadow: none;
 }
 
 .fortune-timeline-marker {
@@ -957,7 +966,7 @@ select {
 }
 
 .fortune-timeline-item.is-active .fortune-timeline-marker {
-  border-color: var(--accent-soft-strong);
+  border-color: transparent;
   background: var(--accent-strong);
 }
 
@@ -1011,9 +1020,9 @@ select {
 }
 
 .fortune-year-chip.is-active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-weight: 700;
+  background: var(--state-selected-surface);
+  color: var(--state-selected-text);
+  font-weight: 750;
 }
 
 .ziwei-scope-timeline-card {
@@ -1212,8 +1221,8 @@ select {
 }
 
 .fortune-item.active {
-  border-color: var(--border-contrast);
-  background: var(--accent-soft-strong);
+  border-color: transparent;
+  background: var(--state-selected-surface-strong);
   box-shadow: none;
   transform: none;
 }
@@ -1444,14 +1453,14 @@ select {
 }
 
 .ziwei-grid-cell.is-active {
-  border-color: var(--border-contrast);
-  background: linear-gradient(180deg, var(--highlight-soft), var(--surface-elevated));
-  box-shadow: 0 10px 20px var(--accent-soft);
+  border-color: transparent;
+  background: var(--state-selected-surface);
+  box-shadow: none;
 }
 
 .ziwei-grid-cell.is-opposite {
-  border-color: var(--accent-soft-strong);
-  background: linear-gradient(180deg, var(--accent-surface), var(--surface-elevated));
+  border-color: transparent;
+  background: var(--state-hover-surface);
 }
 
 .ziwei-grid-cell.is-surrounded {
@@ -1647,29 +1656,29 @@ select {
 }
 
 .chart-cell.is-active {
-  background: linear-gradient(180deg, var(--accent-surface) 0%, var(--accent-surface) 100%);
-  border-color: var(--accent-strong);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  background: var(--state-selected-surface);
+  border-color: transparent;
+  box-shadow: none;
   color: var(--text-strong);
 }
 
 .chart-cell.is-relation-surrounded {
-  background: color-mix(in srgb, var(--accent-strong) 5%, transparent);
-  border-color: color-mix(in srgb, var(--accent-strong) 32%, var(--border-soft));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-strong) 8%, transparent);
+  background: var(--state-hover-surface);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .chart-cell.is-relation-opposite {
-  background: color-mix(in srgb, var(--secondary-strong) 5%, transparent);
-  border-color: color-mix(in srgb, var(--secondary-strong) 38%, var(--border-soft));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--secondary-strong) 9%, transparent);
+  background: color-mix(in srgb, var(--secondary-soft) 48%, var(--surface-base));
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .chart-cell.is-active.is-relation-surrounded,
 .chart-cell.is-active.is-relation-opposite {
-  background: var(--surface-elevated-strong);
-  border-color: var(--accent-strong);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  background: var(--state-selected-surface);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .chart-cell-corner {
@@ -2189,14 +2198,18 @@ select {
 }
 
 .ziwei-palace-card.is-active {
-  border-color: var(--accent-soft-strong);
-  box-shadow: 0 10px 22px var(--accent-soft);
-  background: linear-gradient(180deg, var(--accent-surface), var(--surface-elevated));
+  border-color: transparent;
+  box-shadow: none;
+  background: var(--state-selected-surface);
 }
 
 .ziwei-palace-card.is-linked-active {
-  border-color: var(--accent-soft-strong);
-  box-shadow: 0 12px 24px var(--accent-soft);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.ziwei-palace-card.is-linked-active:not(.is-active) {
+  background: var(--state-hover-surface);
 }
 
 .ziwei-palace-card.is-body-palace {
@@ -2244,18 +2257,17 @@ select {
 }
 
 .tab-chip {
-  border: 1px solid var(--accent-soft-strong);
-  background: var(--surface-panel);
-  color: var(--accent-deep);
+  border: 1px solid transparent;
+  background: var(--state-idle-surface);
+  color: var(--text-muted);
   border-radius: 999px;
   padding: 10px 18px;
   cursor: pointer;
 }
 
 .tab-chip.is-active {
-  background: var(--accent-strong);
-  color: var(--surface-base);
-  box-shadow: 0 10px 20px var(--accent-soft-strong);
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
 }
 
 @media (min-width: 901px) and (min-height: 521px) {
@@ -2459,13 +2471,9 @@ select {
 }
 
 .segment-chip {
-  border: 1px solid var(--border-strong);
-  background: linear-gradient(
-    180deg,
-    var(--surface-elevated-strong),
-    var(--surface-elevated-strong)
-  );
-  color: var(--accent-deep);
+  border: 1px solid transparent;
+  background: var(--state-idle-surface);
+  color: var(--text-muted);
   border-radius: var(--radius-control);
   padding: 10px 16px;
   cursor: pointer;
@@ -2473,10 +2481,9 @@ select {
 }
 
 .segment-chip.is-active {
-  background: var(--accent-strong);
-  color: var(--surface-base);
-  border-color: var(--accent-strong);
-  box-shadow: 0 8px 20px var(--accent-soft-strong);
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
+  border-color: transparent;
 }
 
 .true-solar-card small {
@@ -2830,12 +2837,12 @@ select {
 }
 
 .quick-chip {
-  border: 1px solid var(--accent-soft-strong);
-  background: var(--surface-soft);
+  border: 1px solid transparent;
+  background: var(--state-idle-surface);
   border-radius: 999px;
   padding: 8px 14px;
   cursor: pointer;
-  color: var(--text-strong);
+  color: var(--text-muted);
   transition:
     border-color 0.2s ease,
     background 0.2s ease,
@@ -2844,17 +2851,15 @@ select {
 }
 
 .quick-chip.is-active {
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
-  color: var(--surface-base);
-  box-shadow: 0 10px 24px var(--accent-soft-strong);
+  border-color: transparent;
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
 }
 
 .quick-chip.active {
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
-  color: var(--surface-base);
-  box-shadow: 0 10px 24px var(--accent-soft-strong);
+  border-color: transparent;
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
 }
 
 .reverse-topic-grid .quick-chip {
@@ -2994,9 +2999,9 @@ select {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3px;
   padding: 3px;
-  border: 1px solid var(--border-soft);
+  border: 0;
   border-radius: 11px;
-  background: var(--surface-muted);
+  background: var(--state-idle-surface);
 }
 
 .question-inspiration-filters.is-segmented .question-filter-chip {
@@ -3008,16 +3013,15 @@ select {
 }
 
 .question-inspiration-filters.is-segmented .question-filter-chip.is-active {
-  border-color: var(--border-strong);
-  background: var(--surface-base);
-  color: var(--accent-deep);
-  box-shadow: var(--shadow-sm);
+  border-color: transparent;
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
 }
 
 .question-filter-chip {
-  border: 1px solid var(--border-strong);
-  background: var(--surface-elevated);
-  color: var(--text-primary);
+  border: 1px solid transparent;
+  background: var(--state-idle-surface);
+  color: var(--text-muted);
   border-radius: 999px;
   padding: 5px 10px;
   cursor: pointer;
@@ -3026,9 +3030,9 @@ select {
 }
 
 .question-filter-chip.is-active {
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
-  color: var(--surface-base);
+  border-color: transparent;
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
 }
 
 .question-inspiration-list {
@@ -3060,8 +3064,8 @@ select {
 }
 
 .question-inspiration-item.is-selected {
-  border-color: var(--border-contrast);
-  background: var(--accent-surface);
+  border-color: transparent;
+  background: var(--state-selected-surface);
 }
 
 .question-inspiration-tag {
@@ -3231,9 +3235,9 @@ select {
 }
 
 .ai-settings-mode-btn.is-active {
-  border-color: var(--accent-strong);
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  border-color: transparent;
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
 }
 
 .ai-settings-mode-btn:disabled {
@@ -3300,7 +3304,8 @@ select {
 }
 
 .fortune-modal-quick-btn.is-active {
-  color: var(--accent-strong);
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
 }
 
 .fortune-modal-quick-btn:disabled {
@@ -3372,13 +3377,13 @@ select {
 }
 
 .fortune-modal-item.is-active {
-  border-color: var(--accent-soft-strong);
-  background: linear-gradient(180deg, var(--accent-surface), var(--surface-elevated-strong));
+  border-color: transparent;
+  background: var(--state-selected-surface);
 }
 
 .fortune-modal-item.is-selected {
-  border-color: var(--border-contrast);
-  box-shadow: 0 10px 20px var(--accent-soft);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .fortune-modal-item strong {
@@ -3520,9 +3525,9 @@ select {
 }
 
 .cascade-item.active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-weight: 700;
+  background: var(--state-selected-surface);
+  color: var(--state-selected-text);
+  font-weight: 750;
 }
 
 .modal-actions-split {
@@ -3754,10 +3759,10 @@ select {
   display: grid;
   gap: 4px;
   padding: 12px 10px;
-  border: 1px solid var(--border-soft);
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  background: var(--surface-elevated);
-  color: var(--text-primary);
+  background: var(--state-idle-surface);
+  color: var(--text-muted);
   text-align: left;
   cursor: pointer;
   transition:
@@ -3779,14 +3784,15 @@ select {
 }
 
 .divination-method-btn:hover {
-  border-color: var(--border-contrast);
+  border-color: transparent;
+  background: var(--state-hover-surface);
   transform: translateY(-1px);
 }
 
 .divination-method-btn.is-active {
-  border-color: var(--border-contrast);
-  background: linear-gradient(180deg, var(--accent-surface), var(--surface-elevated));
-  box-shadow: 0 10px 20px var(--accent-soft);
+  border-color: transparent;
+  background: var(--state-selected-surface);
+  box-shadow: none;
 }
 
 .divination-question-field {
@@ -3877,9 +3883,9 @@ select {
 
 .manual-mode-switch button.is-active,
 .manual-orientation-switch button.is-active {
-  background: color-mix(in srgb, var(--surface-elevated-strong) 76%, transparent);
-  color: var(--text-strong);
-  box-shadow: 0 0 0 1px var(--border-strong);
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
+  box-shadow: none;
 }
 
 .manual-entry-head {
@@ -4151,8 +4157,7 @@ select {
 }
 
 .dropdown-select-trigger:focus-visible {
-  outline: 2px solid var(--accent-strong);
-  outline-offset: -2px;
+  outline: none;
   border-radius: 7px;
 }
 
@@ -4217,18 +4222,19 @@ select {
 
 .dropdown-select-option:hover,
 .dropdown-select-option.is-active {
-  background: var(--accent-soft);
+  background: var(--state-hover-surface);
   color: var(--text-strong);
 }
 
 .dropdown-select-option[aria-selected='true'] {
-  color: var(--accent-strong);
-  font-weight: 700;
+  background: var(--state-selected-surface);
+  color: var(--state-selected-text);
+  font-weight: 750;
 }
 
 .dropdown-select-option:focus-visible {
-  outline: 2px solid var(--accent-strong);
-  outline-offset: -2px;
+  outline: none;
+  background: var(--state-hover-surface);
 }
 
 .dropdown-select-option:disabled {
@@ -4274,7 +4280,8 @@ select {
 }
 
 .divination-context-fields > summary:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent-strong);
+  box-shadow: none;
+  background: var(--state-hover-surface);
 }
 
 .divination-context-fields > summary::-webkit-details-marker {
@@ -4657,18 +4664,21 @@ select {
   min-height: 40px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: var(--surface-muted);
+  background: var(--state-idle-surface);
   font-size: 13px;
 }
 
 .almanac-topic-grid button:hover,
-.almanac-topic-grid button.is-active {
-  background: var(--accent-surface);
-  color: var(--accent-deep);
+.almanac-common-options button:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
 }
 
-.almanac-topic-grid button.is-active {
-  font-weight: 700;
+.almanac-topic-grid button.is-active,
+.almanac-common-options button.is-active {
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
+  font-weight: 750;
 }
 
 .almanac-quick-ranges {
@@ -4728,16 +4738,10 @@ select {
   padding: 4px 10px;
   border: 0;
   border-radius: 8px;
-  background: var(--surface-muted);
-  color: var(--text-secondary);
+  background: var(--state-idle-surface);
+  color: var(--text-muted);
   font-size: 11px;
   cursor: pointer;
-}
-
-.almanac-common-options button:hover,
-.almanac-common-options button.is-active {
-  background: var(--accent-surface);
-  color: var(--accent-deep);
 }
 
 .almanac-participant-actions {
@@ -5083,8 +5087,9 @@ select {
 }
 
 .traditional-mini-hexagram.is-active {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: transparent;
+  background: var(--state-selected-surface);
+  box-shadow: none;
 }
 
 .traditional-mini-hexagram > span,
@@ -6147,8 +6152,8 @@ select {
   display: inline-flex;
   width: 100%;
   border-radius: var(--radius-control);
-  background: rgba(var(--surface-base-rgb), 0.44);
-  border: 1px solid var(--border-soft);
+  background: var(--state-idle-surface);
+  border: 0;
   padding: 3px;
   min-height: 42px;
 }
@@ -6158,8 +6163,8 @@ select {
   top: 3px;
   bottom: 3px;
   border-radius: var(--radius-compact);
-  background: var(--surface-base);
-  box-shadow: var(--shadow-sm);
+  background: var(--state-selected-surface-strong);
+  box-shadow: none;
   transition:
     left 0.2s ease,
     width 0.2s ease;
@@ -6179,7 +6184,7 @@ select {
 }
 
 .segmented-control-item-react.active {
-  color: var(--accent-deep);
+  color: var(--state-selected-text);
 }
 
 .compact-segmented-field .segmented-control-react {
@@ -8332,8 +8337,8 @@ select {
 }
 
 .ai-chat-history-item.is-active {
-  border-color: var(--accent-soft-strong);
-  background: var(--accent-soft);
+  border-color: transparent;
+  background: var(--state-selected-surface);
 }
 
 .ai-chat-history-main {

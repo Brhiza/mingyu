@@ -170,12 +170,12 @@
   flex-direction: column;
   gap: 2px;
   min-height: 34px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .bazi-showcase-card .bazi-pillars-cell.is-head > small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 500;
   line-height: 1;
 }
@@ -187,7 +187,7 @@
   justify-content: flex-start;
   padding-left: 9px;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .bazi-showcase-card .bazi-pillars-cell.is-day-master {
@@ -214,7 +214,7 @@
 .bazi-showcase-card .bazi-pillar-value > small,
 .bazi-showcase-card .bazi-pillar-value > em {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 550;
   line-height: 1;
@@ -286,7 +286,7 @@
 
 .bazi-showcase-card .bazi-hidden-stem-list small {
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .bazi-showcase-card .bazi-pillars-cell.is-shensha {
@@ -303,7 +303,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .bazi-showcase-card .bazi-shensha-tag.is-lucky {
@@ -352,7 +352,7 @@
   min-height: 21px;
   padding-inline: 7px;
   border: 0;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .bazi-showcase-card .bazi-reference-grid {
@@ -485,15 +485,17 @@
 
 .bazi-showcase-card .bazi-fortune-board .fortune-item.active {
   border: 0;
-  background: var(--chart-accent-soft);
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
+  box-shadow: none;
 }
 
 .bazi-showcase-card .bazi-fortune-board .fortune-year {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .bazi-showcase-card .bazi-fortune-board .fortune-age {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .bazi-showcase-card .bazi-fortune-board .main-char {
@@ -504,7 +506,7 @@
   max-width: 22px;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -631,15 +633,15 @@
 .ziwei-showcase-card .chart-cell.is-active,
 .ziwei-showcase-card .chart-cell.is-active.is-relation-surrounded,
 .ziwei-showcase-card .chart-cell.is-active.is-relation-opposite {
-  border-color: color-mix(in srgb, var(--chart-accent) 55%, var(--chart-border));
-  background: var(--chart-accent-soft);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--chart-accent) 64%, transparent);
+  border-color: transparent;
+  background: var(--state-selected-surface);
+  box-shadow: none;
 }
 
 .ziwei-showcase-card .chart-cell.is-relation-surrounded,
 .ziwei-showcase-card .chart-cell.is-relation-opposite {
-  border-color: var(--chart-border-strong);
-  background: var(--surface-soft);
+  border-color: transparent;
+  background: var(--state-hover-surface);
   box-shadow: none;
 }
 
@@ -850,8 +852,8 @@
 .traditional-meihua-yaos > div.is-moving,
 .traditional-six-palace-cell.is-primary,
 .traditional-qimen-cell.is-center {
-  border-color: color-mix(in srgb, var(--chart-accent) 42%, var(--chart-border));
-  background: var(--chart-accent-soft);
+  border-color: transparent;
+  background: var(--state-selected-surface);
   box-shadow: none;
 }
 
@@ -891,10 +893,15 @@
   font-size: 10px;
 }
 
-.traditional-almanac-toolbar button:hover,
+.traditional-almanac-toolbar button:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
+}
+
 .traditional-almanac-toolbar button.is-active {
-  background: var(--chart-accent-soft);
-  color: color-mix(in srgb, var(--chart-accent) 70%, var(--text-strong));
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
+  font-weight: 750;
 }
 
 .traditional-almanac-workspace {
@@ -956,13 +963,13 @@
   border-bottom: 0;
 }
 
-.traditional-almanac-candidates > button:hover,
-.traditional-almanac-candidates > button.is-active {
+.traditional-almanac-candidates > button:hover {
   background: var(--surface-base);
 }
 
 .traditional-almanac-candidates > button.is-active {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--chart-accent) 55%, transparent);
+  background: var(--state-selected-surface);
+  box-shadow: none;
 }
 
 .traditional-almanac-candidate-date,
@@ -1426,7 +1433,7 @@
 }
 
 .traditional-huangji-period.is-active {
-  background: var(--chart-accent-soft);
+  background: var(--state-selected-surface);
 }
 
 .traditional-huangji-period-head,
@@ -1631,7 +1638,7 @@
 
   .bazi-showcase-card .result-stat-card span,
   .bazi-showcase-card .result-stat-card small {
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .traditional-chart-layout .bazi-side-panel,
@@ -1659,12 +1666,12 @@
   .bazi-showcase-card .bazi-pillars-cell {
     min-height: 28px;
     padding: 4px 2px;
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .bazi-showcase-card .bazi-pillars-cell.is-label {
     padding-left: 5px;
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .bazi-showcase-card .bazi-pillars-cell.is-pillar {
@@ -1699,11 +1706,11 @@
   .bazi-showcase-card .bazi-hidden-stem-list small,
   .bazi-showcase-card .bazi-pillar-value > small,
   .bazi-showcase-card .bazi-pillar-value > em {
-    font-size: 8px;
+    font-size: 9px;
   }
 
   .bazi-showcase-card .bazi-shensha-tag {
-    font-size: 7.5px;
+    font-size: 9px;
     line-height: 1.12;
   }
 
@@ -1960,7 +1967,7 @@
   }
 
   .traditional-almanac-candidates > button.is-active {
-    background: var(--chart-accent-soft);
+    background: var(--state-selected-surface-strong);
     box-shadow: none;
   }
 
