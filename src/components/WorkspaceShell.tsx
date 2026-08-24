@@ -495,7 +495,10 @@ export function WorkspaceShell() {
           <button
             type="button"
             className="workspace-mobile-menu"
-            onClick={() => setIsDrawerOpen(true)}
+            onClick={() => {
+              setSidebarView('tools');
+              setIsDrawerOpen(true);
+            }}
             aria-label="打开侧栏"
           >
             <span />
@@ -511,6 +514,14 @@ export function WorkspaceShell() {
             onClick={() => navigate('/cases?new=1')}
           >
             新建
+          </button>
+        ) : location.pathname !== '/records' ? (
+          <button
+            type="button"
+            className="workspace-mobile-header-action"
+            onClick={() => navigate('/records?tab=divination')}
+          >
+            历史
           </button>
         ) : (
           <span className="workspace-mobile-header-spacer" aria-hidden="true" />

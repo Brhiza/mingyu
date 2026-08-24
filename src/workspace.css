@@ -1671,6 +1671,10 @@
     display: block;
   }
 
+  .workspace-mobile-drawer .workspace-sidebar-switch {
+    display: none;
+  }
+
   .workspace-page {
     padding: 12px 12px calc(20px + env(safe-area-inset-bottom, 0px));
   }
