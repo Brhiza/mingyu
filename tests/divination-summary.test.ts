@@ -46,7 +46,7 @@ test('皇极经世摘要应显示周期层级与值年卦关系', () => {
   const summary = getDivinationSummaryBlocks('huangji', data);
   const text = [...summary.tags, ...summary.lines].join('\n');
 
-  assert.equal(summary.title, '皇极经世值年结果');
+  assert.equal(summary.title, '皇极经世结果');
   assert.match(text, /公元2026年/);
   assert.match(text, /天火同人/);
   assert.match(text, /泽风大过.*火风鼎/);
