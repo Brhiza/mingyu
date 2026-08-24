@@ -1,5 +1,6 @@
 import type { PromptSourceKey, QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
+import type { AlmanacData } from '@/types/divination';
 import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
 import { safeStorage } from '@/lib/safe-storage';
 import { createSecureId } from '@/lib/secure-id';
@@ -95,11 +96,18 @@ function readRecords<T>(
 }
 
 function writeRecords<T>(key: string, records: T[], limit: number): boolean {
-  const saved = safeStorage.setJSON(key, records.slice(0, limit));
-  if (saved && typeof window !== 'undefined') {
-    window.dispatchEvent(new Event(HISTORY_RECORDS_EVENT));
+  const pending = records.slice(0, limit);
+  while (true) {
+    if (safeStorage.setJSON(key, pending)) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(HISTORY_RECORDS_EVENT));
+      }
+      return true;
+    }
+    if (pending.length === 0) break;
+    pending.pop();
   }
-  return saved;
+  return false;
 }
 
 function normalizeText(value: string | undefined) {
@@ -234,7 +242,38 @@ function cloneDivinationDraft(draft: DivinationDraft): DivinationDraft {
 }
 
 function cloneDivinationSession(session: DivinationSession): DivinationSession {
-  return JSON.parse(JSON.stringify(session)) as DivinationSession;
+  const cloned = JSON.parse(JSON.stringify(session)) as DivinationSession;
+  if (cloned.method !== 'almanac') return cloned;
+
+  const data = cloned.data as AlmanacData;
+  const { evidenceAnalysis: _evidenceAnalysis, days, ...summary } = data;
+  return {
+    ...cloned,
+    data: {
+      ...summary,
+      days: days.map((day) => {
+        const {
+          moonPhaseEvidence: _moonPhaseEvidence,
+          twentyEightStarDetail: _twentyEightStarDetail,
+          nineStarDetail: _nineStarDetail,
+          annualDirectionGods: _annualDirectionGods,
+          topicMatchFacts: _topicMatchFacts,
+          godFacts: _godFacts,
+          participantRelationFacts: _participantRelationFacts,
+          hours,
+          ...daySummary
+        } = day;
+        return {
+          ...daySummary,
+          ...(hours
+            ? {
+                hours: hours.map(({ participantRelationFacts: _relations, ...hour }) => hour),
+              }
+            : {}),
+        };
+      }),
+    },
+  } as DivinationSession;
 }
 
 const almanacTopicLabelMap = Object.fromEntries(
@@ -505,11 +544,14 @@ export function addDivinationHistory(
     updatedAt: new Date().toISOString(),
   };
 
-  writeRecords(
+  const saved = writeRecords(
     DIVINATION_HISTORY_STORAGE_KEY,
     [record, ...loadDivinationHistory()],
     MAX_DIVINATION_HISTORY_RECORDS,
   );
+  if (!saved) {
+    throw new Error('当前占问记录过大，浏览器无法保存，请缩小内容范围后重试');
+  }
   return record;
 }
 

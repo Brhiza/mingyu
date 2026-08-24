@@ -20,7 +20,7 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     case 'ssgw':
       return '依据签诗原文和签题回答【问题】。';
     case 'almanac':
-      return '请依据候选日期、宜忌、建除、神煞与参与人资料，给出首选日期、备选日期和慎用日期。';
+      return '';
     case 'astrolabe':
       return '依据星体、宫位和相位回答【问题】。';
     case 'taiyi':

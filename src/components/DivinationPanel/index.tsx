@@ -44,6 +44,25 @@ type DivinationPanelProps = {
   onRestart?: () => void;
 };
 
+function getDefaultAlmanacDateRange() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((item) => [item.type, item.value]));
+  const start = new Date(
+    Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)),
+  );
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 20);
+  return {
+    almanacStartDate: start.toISOString().slice(0, 10),
+    almanacEndDate: end.toISOString().slice(0, 10),
+  };
+}
+
 function createDefaultDraft(
   method?: DivinationPanelProps['initialMethod'],
   initialQuestion?: string,
@@ -51,6 +70,7 @@ function createDefaultDraft(
   return {
     ...defaultDraft,
     ...(method ? { method } : {}),
+    ...(method === 'almanac' ? getDefaultAlmanacDateRange() : {}),
     ...(initialQuestion?.trim()
       ? { question: initialQuestion.trim(), questionSource: 'custom' as const }
       : {}),
@@ -71,7 +91,7 @@ export function DivinationPanel({
 }: DivinationPanelProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { activeCase } = useActivePersonalCase();
+  const { activeCase, cases } = useActivePersonalCase();
   const [draft, setDraft] = useState<DivinationDraft>(() =>
     applyPersonalCaseToDivinationDraft(
       createDefaultDraft(initialMethod, initialQuestion),
@@ -295,6 +315,7 @@ export function DivinationPanel({
           onOpenInspiration={openQuestionInspirationModal}
           onOpenBirthPlace={() => divinationBirthPlace.openBirthPlaceModal('self')}
           questionInputRef={questionInputRef}
+          cases={cases}
           showHeading
         />
       ) : null}

@@ -557,86 +557,76 @@ function formatSsgwInfo(data: SsgwData) {
 
 function formatAlmanacInfo(data: AlmanacData) {
   const evidenceAnalysis = analyzeAlmanacEvidence(data);
-  const candidateByDate = new Map(
-    evidenceAnalysis.candidates.map((candidate) => [candidate.date, candidate]),
-  );
-  const preferredDays = data.days
-    .filter((day) => !candidateByDate.get(day.date)?.status.includes('慎用'))
-    .slice(0, 2);
-  const cautiousDay = data.days.find((day) =>
-    candidateByDate.get(day.date)?.status.includes('慎用'),
-  );
-  const topDays = [...preferredDays, ...(cautiousDay ? [cautiousDay] : [])].filter(
-    (day, index, items) => items.findIndex((item) => item.date === day.date) === index,
-  );
   const participantLines = data.participants.map((item) => {
     const usefulEvidenceAvailable =
       item.usefulGods.length > 0 && item.usefulGods.length <= 3 && item.avoidGods.length > 0;
     const useful = usefulEvidenceAvailable
       ? `喜用资料${item.usefulGods.join('、')}，忌神资料${item.avoidGods.join('、')}`
       : '';
-    return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year} ${item.pillars.month} ${item.pillars.day} ${item.pillars.hour}${useful ? `；${useful}` : ''}`;
+    return `- ${item.name}：${item.gender || '性别未填'}；四柱${item.pillars.year} ${item.pillars.month} ${item.pillars.day} ${item.pillars.hour}${useful ? `；${useful}` : ''}`;
   });
-  const dayLines = topDays.flatMap((item, index) => {
+  const promptDays = [...data.days].sort((left, right) => left.date.localeCompare(right.date));
+  const dayLines = promptDays.flatMap((item, index) => {
     const candidate = evidenceAnalysis.candidates.find(
       (candidateItem) => candidateItem.date === item.date,
     );
-    const supportedFacts =
-      candidate?.topicMatchFacts.filter((fact) => fact.status === '支持') ?? [];
-    const limitedFacts = candidate?.topicMatchFacts.filter((fact) => fact.status === '限制') ?? [];
-    const topicRecommendations = [
-      ...new Set(
-        supportedFacts
-          .flatMap((fact) => fact.matchedItems)
-          .filter((value) => !/宜项命中|事项命中/u.test(value)),
-      ),
-    ];
-    const topicAvoids = [
-      ...new Set(
-        limitedFacts
-          .flatMap((fact) => fact.matchedItems)
-          .filter((value) => !/忌项触及|事项命中/u.test(value)),
-      ),
-    ];
-    if (!topicRecommendations.length && supportedFacts.length) {
-      topicRecommendations.push(...item.recommends);
-    }
-    if (!topicAvoids.length && limitedFacts.length) {
-      topicAvoids.push(...item.avoids);
-    }
-    const starFact = candidate?.traditionalFacts.find((fact) => fact.kind === '二十八宿');
-    const starDetail = starFact
-      ? `（${starFact.promptText}）`
-      : item.twentyEightStarDetail
-        ? `（${item.twentyEightStarDetail.fullName}，${item.twentyEightStarDetail.zone}方七宿，原生属性${item.twentyEightStarDetail.fortune}）`
+    const unique = (values: string[]) => [...new Set(values.filter(Boolean))];
+    const topicFacts = item.topicMatchFacts ?? [];
+    const topicRecommendations = unique(
+      topicFacts.filter((fact) => fact.status === '支持').flatMap((fact) => fact.matchedItems),
+    );
+    const topicAvoids = unique(
+      topicFacts.filter((fact) => fact.status === '限制').flatMap((fact) => fact.matchedItems),
+    );
+    const needsLegacyFallback = data.topic === 'custom' || topicFacts.length === 0;
+    const recommendationText = topicRecommendations.length
+      ? `事项宜${topicRecommendations.join('、')}`
+      : needsLegacyFallback
+        ? `宜节选${item.recommends.slice(0, 6).join('、') || '未列'}`
         : '';
-    const evidence = [
-      topicRecommendations.length ? `宜${topicRecommendations.join('、')}` : '',
-      topicAvoids.length ? `忌${topicAvoids.join('、')}` : '',
-      item.participantNotes.some((note) => !/未见.*直接刑冲破害/u.test(note))
-        ? `参与人${item.participantNotes
-            .filter((note) => !/未见.*直接刑冲破害/u.test(note))
-            .join('；')}`
-        : '',
-      candidate?.usableHours.length
-        ? `可用时辰${candidate.usableHours
-            .slice(0, 2)
-            .map((hour) => `${hour.name}${hour.range}（${hour.twelveStar}）`)
-            .join('、')}`
-        : '',
+    const avoidText = topicAvoids.length
+      ? `事项忌${topicAvoids.join('、')}`
+      : needsLegacyFallback
+        ? `忌节选${item.avoids.slice(0, 6).join('、') || '未列'}`
+        : '';
+    const participantNotes = unique(item.participantNotes).filter(
+      (note) => !/未见.*直接|未命中|未采用/u.test(note),
+    );
+    const hourText =
+      data.timePreferences?.length && candidate?.usableHours.length
+        ? candidate.usableHours.map((hour) => hour.name).join('、')
+        : '';
+    const conciseFacts = [
+      recommendationText,
+      avoidText,
+      participantNotes.length ? `参与人${participantNotes.join('；')}` : '',
+      hourText ? `备选时辰${hourText}` : '',
     ].filter(Boolean);
     return [
-      `- 第${index + 1}候选：${item.date} ${item.weekday}，${item.ganzhi.day}日`,
-      `  - 日课：${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，${item.clash}`,
-      ...evidence.map((fact) => `  - ${fact}`),
-    ];
+      `- 第${index + 1}日：${item.date} ${item.weekday}；${item.ganzhi.day}日；建除${item.dayOfficer}；十二神${item.twelveStar}；二十八宿${item.twentyEightStarDetail?.fullName ?? item.twentyEightStar}${item.twentyEightStarDetail?.fortune ? `（${item.twentyEightStarDetail.fortune}）` : ''}；${item.clash}`,
+      conciseFacts.length ? `  ${conciseFacts.join('；')}` : '',
+    ].filter(Boolean);
   });
   return [
     '占法：黄历择日',
     `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}`,
+    data.weekendPreference === 'prefer'
+      ? '日期偏好：优先周末'
+      : data.weekendPreference === 'avoid'
+        ? '日期偏好：避开周末'
+        : '',
+    data.timePreferences?.length
+      ? `时段条件：${[
+          data.timePreferences.includes('work-hours') ? '工作日常规办事时段' : '',
+          data.timePreferences.includes('morning') ? '优先上午' : '',
+          data.timePreferences.includes('afternoon') ? '优先下午' : '',
+        ]
+          .filter(Boolean)
+          .join('、')}`
+      : '',
     participantLines.length ? '参与人资料：' : '',
     ...participantLines,
-    '候选日期明细：',
+    `候选日期明细：共${data.days.length}日`,
     ...dayLines,
   ]
     .filter(Boolean)

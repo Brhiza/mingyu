@@ -52,6 +52,8 @@ export const defaultDraft: DivinationDraft = {
   almanacTopic: 'custom',
   almanacStartDate: '',
   almanacEndDate: '',
+  almanacWeekendPreference: 'any',
+  almanacTimePreferences: [],
   almanacParticipants: [],
   lenormandSpread: 'single',
   lenormandMethod: 'random',

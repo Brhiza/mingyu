@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import type { DivinationSession } from '@/lib/divination/engine';
 import {
@@ -8,6 +8,7 @@ import {
   type HuangjiPeriodHexagram,
 } from 'mingyu-core/huangji-jingshi';
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
+import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import type {
   AlmanacData,
   AstrolabeData,
@@ -577,48 +578,255 @@ function SsgwTraditionalBoard({ data }: { data: SsgwData }) {
   );
 }
 
+type AlmanacDisplayStatus = '可用候选' | '条件候选' | '慎用候选';
+type AlmanacStatusFilter = 'all' | AlmanacDisplayStatus;
+
+const ALMANAC_STATUS_OPTIONS: Array<{ value: AlmanacDisplayStatus; label: string }> = [
+  { value: '可用候选', label: '初筛可用' },
+  { value: '条件候选', label: '需核对' },
+  { value: '慎用候选', label: '初筛慎用' },
+];
+
+const ALMANAC_STATUS_LABELS: Record<AlmanacDisplayStatus, string> = {
+  可用候选: '初筛可用',
+  条件候选: '需核对',
+  慎用候选: '初筛慎用',
+};
+
+function uniqueAlmanacTexts(values: Array<string | undefined>) {
+  return Array.from(new Set(values.filter((item): item is string => Boolean(item?.trim()))));
+}
+
+function getAlmanacStatusClass(status: AlmanacDisplayStatus) {
+  return status === '可用候选'
+    ? 'is-usable'
+    : status === '慎用候选'
+      ? 'is-caution'
+      : 'is-conditional';
+}
+
 function AlmanacTraditionalBoard({ data }: { data: AlmanacData }) {
+  const evidenceAnalysis = useMemo(
+    () => data.evidenceAnalysis ?? analyzeAlmanacEvidence(data),
+    [data],
+  );
+  const candidateByDate = useMemo(
+    () => new Map(evidenceAnalysis.candidates.map((item) => [item.date, item])),
+    [evidenceAnalysis],
+  );
+  const [statusFilter, setStatusFilter] = useState<AlmanacStatusFilter>('all');
+  const [selectedDate, setSelectedDate] = useState(data.days[0]?.date ?? '');
+  const statusForDate = (date: string): AlmanacDisplayStatus =>
+    candidateByDate.get(date)?.status ?? '条件候选';
+  const counts = data.days.reduce<Record<AlmanacDisplayStatus, number>>(
+    (result, day) => {
+      result[statusForDate(day.date)] += 1;
+      return result;
+    },
+    { 可用候选: 0, 条件候选: 0, 慎用候选: 0 },
+  );
+  const visibleDays =
+    statusFilter === 'all'
+      ? data.days
+      : data.days.filter((day) => statusForDate(day.date) === statusFilter);
+  const selectedDay =
+    visibleDays.find((day) => day.date === selectedDate) ?? visibleDays[0] ?? data.days[0];
+  const selectedEvidence = selectedDay ? candidateByDate.get(selectedDay.date) : undefined;
+  const selectedStatus = selectedDay ? statusForDate(selectedDay.date) : '条件候选';
+  const supportTexts = selectedDay
+    ? uniqueAlmanacTexts([
+        ...(selectedEvidence?.topicMatches ?? []),
+        ...(selectedEvidence?.traditionalSupport ?? []),
+        ...(selectedEvidence?.participantSupport ?? []),
+        ...selectedDay.highlights,
+      ]).slice(0, 6)
+    : [];
+  const constraintTexts = selectedDay
+    ? uniqueAlmanacTexts([
+        ...(selectedEvidence?.traditionalConstraints ?? []),
+        ...(selectedEvidence?.participantConflicts ?? []),
+        ...(selectedEvidence?.directionConstraints ?? []),
+        ...selectedDay.cautions,
+      ]).slice(0, 6)
+    : [];
+  const preferenceLabel =
+    data.weekendPreference === 'prefer'
+      ? ' · 优先周末'
+      : data.weekendPreference === 'avoid'
+        ? ' · 避开周末'
+        : '';
+  const timePreferenceLabel = data.timePreferences?.length
+    ? ` · ${[
+        data.timePreferences.includes('work-hours') ? '工作时间' : '',
+        data.timePreferences.includes('morning') ? '上午优先' : '',
+        data.timePreferences.includes('afternoon') ? '下午优先' : '',
+      ]
+        .filter(Boolean)
+        .join('、')}`
+    : '';
+
+  function applyStatusFilter(nextFilter: AlmanacStatusFilter) {
+    setStatusFilter(nextFilter);
+    if (nextFilter === 'all') {
+      setSelectedDate(data.days[0]?.date ?? '');
+      return;
+    }
+    setSelectedDate(data.days.find((day) => statusForDate(day.date) === nextFilter)?.date ?? '');
+  }
+
   return (
     <TraditionalBoardShell
-      title={`${data.topicLabel}择日盘`}
-      subtitle={`${data.startDate} 至 ${data.endDate}`}
+      title={`${data.topicLabel}择日`}
+      subtitle={`${data.startDate} 至 ${data.endDate}${preferenceLabel}${timePreferenceLabel}`}
       className="traditional-almanac-board"
     >
-      <div className="traditional-almanac-grid" role="table" aria-label="黄历择日盘">
-        {data.days.map((day) => (
-          <article className="traditional-almanac-day" key={day.date}>
-            <div className="traditional-almanac-day-head">
-              <strong>{day.date.slice(5)}</strong>
-              <span>{day.weekday}</span>
-            </div>
-            <b>
-              {day.ganzhi.day}日 · {day.dayOfficer}
-            </b>
-            <span>
-              {day.lunarDate} · {day.zodiac}年
-            </span>
-            <span>
-              {day.twelveStar} · {day.twentyEightStar}
-            </span>
-            <div className="traditional-almanac-gods">
-              {day.gods.slice(0, 3).map((god) => (
-                <em key={god}>{god}</em>
-              ))}
-            </div>
-            <div className="traditional-almanac-goodbad">
-              <p>
-                <b>宜</b>
-                {day.recommends.slice(0, 3).join('、') || '未标注'}
-              </p>
-              <p>
-                <b>忌</b>
-                {day.avoids.slice(0, 3).join('、') || '未标注'}
-              </p>
-            </div>
-            <small>{day.clash}</small>
-          </article>
+      <div className="traditional-almanac-toolbar">
+        <button
+          type="button"
+          className={statusFilter === 'all' ? 'is-active' : ''}
+          onClick={() => applyStatusFilter('all')}
+        >
+          全部 <span>{data.days.length}</span>
+        </button>
+        {ALMANAC_STATUS_OPTIONS.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            className={`${getAlmanacStatusClass(item.value)} ${statusFilter === item.value ? 'is-active' : ''}`}
+            onClick={() => applyStatusFilter(item.value)}
+          >
+            {item.label} <span>{counts[item.value]}</span>
+          </button>
         ))}
       </div>
+
+      {selectedDay ? (
+        <div className="traditional-almanac-workspace">
+          <nav className="traditional-almanac-candidates" aria-label="候选日期">
+            {visibleDays.map((day) => {
+              const evidence = candidateByDate.get(day.date);
+              const status = statusForDate(day.date);
+              const preview =
+                evidence?.topicMatches[0] ??
+                evidence?.traditionalSupport[0] ??
+                day.highlights[0] ??
+                '查看当日资料';
+              return (
+                <button
+                  key={day.date}
+                  type="button"
+                  className={`${getAlmanacStatusClass(status)} ${day.date === selectedDay.date ? 'is-active' : ''}`}
+                  aria-current={day.date === selectedDay.date ? 'date' : undefined}
+                  onClick={() => setSelectedDate(day.date)}
+                >
+                  <span className="traditional-almanac-candidate-date">
+                    <strong>{day.date.slice(5)}</strong>
+                    <small>{day.weekday.replace('星期', '周')}</small>
+                  </span>
+                  <span className="traditional-almanac-candidate-main">
+                    <b>
+                      {day.ganzhi.day}日 · {day.dayOfficer}
+                    </b>
+                    <small>{preview}</small>
+                  </span>
+                  <em>{ALMANAC_STATUS_LABELS[status]}</em>
+                </button>
+              );
+            })}
+          </nav>
+
+          <article className="traditional-almanac-detail">
+            <header className="traditional-almanac-detail-head">
+              <div>
+                <span>{selectedDay.weekday}</span>
+                <h4>{selectedDay.date}</h4>
+                <p>
+                  {selectedDay.lunarDate} · {selectedDay.ganzhi.day}日
+                </p>
+              </div>
+              <b className={getAlmanacStatusClass(selectedStatus)}>
+                {ALMANAC_STATUS_LABELS[selectedStatus]}
+              </b>
+            </header>
+
+            <div className="traditional-almanac-facts">
+              <span>
+                <small>建除</small>
+                <b>{selectedDay.dayOfficer}</b>
+              </span>
+              <span>
+                <small>十二神</small>
+                <b>{selectedDay.twelveStar}</b>
+              </span>
+              <span>
+                <small>二十八宿</small>
+                <b>{selectedDay.twentyEightStar}</b>
+              </span>
+              <span>
+                <small>冲煞</small>
+                <b>{selectedDay.clash}</b>
+              </span>
+            </div>
+
+            <div className="traditional-almanac-yi-ji">
+              <section>
+                <b>宜</b>
+                <p>{selectedDay.recommends.slice(0, 8).join('、') || '未列明确宜项'}</p>
+              </section>
+              <section>
+                <b>忌</b>
+                <p>{selectedDay.avoids.slice(0, 8).join('、') || '未列明确忌项'}</p>
+              </section>
+            </div>
+
+            <div className="traditional-almanac-evidence-grid">
+              <section>
+                <h5>择日依据</h5>
+                {supportTexts.length ? (
+                  <ul>
+                    {supportTexts.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>未见直接支持项，需结合限制条件比较。</p>
+                )}
+              </section>
+              <section>
+                <h5>限制条件</h5>
+                {constraintTexts.length ? (
+                  <ul>
+                    {constraintTexts.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>当前规则下未见明确限制。</p>
+                )}
+              </section>
+            </div>
+
+            <section className="traditional-almanac-hours">
+              <h5>可用时辰</h5>
+              {selectedEvidence?.usableHours.length ? (
+                <div>
+                  {selectedEvidence.usableHours.map((hour) => (
+                    <span key={hour.key}>
+                      <b>{hour.name}</b>
+                      <small>{hour.range}</small>
+                      <em>{hour.ganzhi}</em>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p>当前规则下未筛出无明显冲突的时辰。</p>
+              )}
+            </section>
+          </article>
+        </div>
+      ) : (
+        <p className="traditional-almanac-empty">当前筛选下没有候选日期。</p>
+      )}
     </TraditionalBoardShell>
   );
 }

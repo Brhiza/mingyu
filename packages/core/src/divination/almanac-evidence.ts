@@ -4,6 +4,7 @@ import type {
   AlmanacGodFact,
   AlmanacHourCandidate,
   AlmanacParticipantRelationFact,
+  AlmanacTimePreference,
   AlmanacTopic,
   AlmanacTopicMatchFact,
 } from '../types/divination';
@@ -867,6 +868,7 @@ function buildCandidateEvidence(
   day: AlmanacDayCandidate,
   topic: AlmanacTopic,
   topicLabel: string,
+  timePreferences: AlmanacTimePreference[] = [],
 ): AlmanacCandidateEvidence {
   const moonPhaseEvidence =
     day.moonPhaseEvidence ?? calculateMoonPhaseEvidence(Date.parse(`${day.date}T04:00:00Z`));
@@ -915,9 +917,20 @@ function buildCandidateEvidence(
   const directionFacts = traditionalFacts
     .filter((item) => item.kind === '全年方位神')
     .map((item) => item.promptText);
-  const usableHours = (day.hours ?? [])
+  const workHourBranches = new Set(['巳', '午', '未', '申']);
+  const morningBranches = new Set(['辰', '巳', '午']);
+  const afternoonBranches = new Set(['未', '申', '酉']);
+  const usableHourPool = (day.hours ?? [])
     .map((hour) => buildHourEvidence(day.date, hour))
-    .filter((item) => item.status !== '慎用候选')
+    .filter((item) => item.status !== '慎用候选');
+  const usableHours = usableHourPool
+    .filter((item) => !timePreferences.includes('work-hours') || workHourBranches.has(item.branch))
+    .sort((left, right) => {
+      const preferenceScore = (branch: string) =>
+        (timePreferences.includes('morning') && morningBranches.has(branch) ? 1 : 0) +
+        (timePreferences.includes('afternoon') && afternoonBranches.has(branch) ? 1 : 0);
+      return preferenceScore(right.branch) - preferenceScore(left.branch);
+    })
     .slice(0, 4);
   const classification = classifyAlmanacCandidate({
     ...day,
@@ -1408,7 +1421,7 @@ function buildLimitationFacts(params: {
 
 export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalysis {
   const candidates = data.days.map((day) =>
-    buildCandidateEvidence(day, data.topic, data.topicLabel),
+    buildCandidateEvidence(day, data.topic, data.topicLabel, data.timePreferences),
   );
   const traditionalFacts = candidates.flatMap((item) => item.traditionalFacts);
   const preferredDates = candidates
@@ -1427,6 +1440,18 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     '没有参与人资料时不得编造个人适配结论',
   ]);
   const realityConstraints = [
+    ...(data.weekendPreference === 'prefer'
+      ? ['同一候选等级内优先排列周六、周日']
+      : data.weekendPreference === 'avoid'
+        ? ['同一候选等级内将周六、周日后排']
+        : []),
+    ...(data.timePreferences?.includes('work-hours')
+      ? [
+          '候选日期默认避开周末，可用时辰限定在工作日常规办事时段；法定节假日及具体机构窗口时间仍需另行核验',
+        ]
+      : []),
+    ...(data.timePreferences?.includes('morning') ? ['可用时辰中优先排列上午时段'] : []),
+    ...(data.timePreferences?.includes('afternoon') ? ['可用时辰中优先排列下午时段'] : []),
     '场地、证件、人员到场、交通、预算、天气、办理窗口与安全要求优先于传统排序',
     '现实条件未提供时只列待核验项，不假设其已经满足',
     '传统规则互相冲突时并列展示支持与限制，不合成为成功率或吉凶总分',

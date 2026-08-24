@@ -4583,18 +4583,261 @@ select {
   line-height: 1;
 }
 
-.almanac-participant-list {
+.almanac-form-flow {
   display: grid;
+  min-width: 0;
+}
+
+.almanac-form-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.almanac-form-section:first-child {
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.almanac-form-section:last-child {
+  padding-bottom: 2px;
+}
+
+.almanac-form-section-head,
+.almanac-participant-actions,
+.almanac-quick-ranges {
+  display: flex;
+  align-items: center;
+}
+
+.almanac-form-section-head {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.almanac-form-section-head > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.almanac-form-section-head strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.almanac-form-section-head span,
+.almanac-participant-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.almanac-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.almanac-topic-grid button,
+.almanac-quick-ranges button {
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.almanac-topic-grid button {
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  font-size: 13px;
+}
+
+.almanac-topic-grid button:hover,
+.almanac-topic-grid button.is-active {
+  background: var(--accent-surface);
+  color: var(--accent-deep);
+}
+
+.almanac-topic-grid button.is-active {
+  font-weight: 700;
+}
+
+.almanac-quick-ranges {
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--surface-muted);
+}
+
+.almanac-quick-ranges button {
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 11px;
+}
+
+.almanac-quick-ranges button:hover {
+  background: var(--surface-elevated);
+  color: var(--text-strong);
+}
+
+.almanac-date-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+  align-items: end;
+  gap: 12px;
+  width: min(100%, 640px);
+}
+
+.almanac-date-fields > span {
+  padding-bottom: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.almanac-common-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.almanac-participant-card {
+.almanac-common-options > span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.almanac-common-options > div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.almanac-common-options button {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.almanac-common-options button:hover,
+.almanac-common-options button.is-active {
+  background: var(--accent-surface);
+  color: var(--accent-deep);
+}
+
+.almanac-participant-actions {
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.almanac-participant-list {
   display: grid;
-  gap: 10px;
-  padding: 10px;
+  overflow: hidden;
   border: 1px solid var(--border-soft);
   border-radius: 12px;
   background: var(--surface-elevated);
+}
+
+.almanac-participant-item + .almanac-participant-item {
+  border-top: 1px solid var(--border-soft);
+}
+
+.almanac-participant-item > summary {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 7px 11px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.almanac-participant-item > summary::-webkit-details-marker {
+  display: none;
+}
+
+.almanac-participant-item[open] > summary {
+  background: var(--surface-muted);
+}
+
+.almanac-participant-index {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--accent-surface);
+  color: var(--accent-deep);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.almanac-participant-summary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.almanac-participant-summary strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.almanac-participant-summary small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.almanac-participant-edit {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.almanac-participant-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface-muted);
+}
+
+.almanac-participant-remove {
+  justify-self: end;
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.almanac-participant-remove:hover {
+  color: var(--danger-text);
+}
+
+.almanac-participant-empty {
+  margin: 0;
+  padding: 8px 0 2px;
+}
+
+.almanac-notes-section .divination-textarea {
+  min-height: 76px;
 }
 
 .astrolabe-chart-panel {
@@ -5302,82 +5545,6 @@ select {
   border: 1px solid var(--border-soft);
   border-radius: 9px;
   background: var(--surface-base);
-}
-
-.traditional-almanac-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 7px;
-}
-
-.traditional-almanac-day {
-  display: grid;
-  gap: 4px;
-  min-height: 168px;
-  padding: 10px;
-  border: 1px solid var(--border-soft);
-  border-radius: 11px;
-  background: var(--surface-base);
-  color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.traditional-almanac-day-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border-soft);
-  padding-bottom: 5px;
-}
-
-.traditional-almanac-day-head strong {
-  color: var(--text-strong);
-  font-size: 17px;
-}
-
-.traditional-almanac-day-head span,
-.traditional-almanac-day > span,
-.traditional-almanac-day > small {
-  color: var(--text-muted);
-}
-
-.traditional-almanac-day > b {
-  color: var(--accent-deep);
-}
-
-.traditional-almanac-gods {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.traditional-almanac-gods em {
-  padding: 2px 5px;
-  border-radius: 999px;
-  background: var(--accent-surface);
-  color: var(--accent-deep);
-  font-size: 10px;
-  font-style: normal;
-}
-
-.traditional-almanac-goodbad {
-  display: grid;
-  gap: 2px;
-  margin-top: auto;
-}
-
-.traditional-almanac-goodbad p {
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.traditional-almanac-goodbad b {
-  display: inline-block;
-  width: 20px;
-  color: var(--accent-deep);
 }
 
 .traditional-astrolabe-board .astrolabe-chart-panel {
@@ -8811,5 +8978,104 @@ select {
     padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
     border: 0;
     border-radius: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .almanac-form-section {
+    gap: 10px;
+    padding: 14px 0;
+  }
+
+  .almanac-form-section-head {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .almanac-topic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .almanac-topic-grid button {
+    min-height: 42px;
+    text-align: left;
+  }
+
+  .almanac-date-section .almanac-form-section-head {
+    align-items: center;
+  }
+
+  .almanac-quick-ranges button {
+    min-height: 30px;
+    padding-inline: 6px;
+  }
+
+  .almanac-date-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .almanac-date-fields > span {
+    display: none;
+  }
+
+  .almanac-participant-actions {
+    align-items: stretch;
+    flex-direction: column;
+    min-width: 118px;
+  }
+
+  .almanac-participant-actions .workspace-ui-button {
+    width: 100%;
+  }
+
+  .almanac-participant-item > summary {
+    min-height: 58px;
+  }
+
+  .almanac-participant-editor .form-row-flex {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .almanac-participant-editor .form-row-flex.has-third-item {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .almanac-notes-section .divination-textarea {
+    min-height: 82px;
+  }
+
+  .almanac-common-options {
+    align-items: flex-start;
+  }
+
+  .almanac-common-options > div {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .almanac-date-section .almanac-form-section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .almanac-quick-ranges {
+    align-self: stretch;
+  }
+
+  .almanac-quick-ranges button {
+    flex: 1 1 0;
+  }
+
+  .almanac-form-section-head:has(.almanac-participant-actions) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .almanac-participant-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

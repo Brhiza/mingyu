@@ -874,9 +874,9 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.doesNotMatch(prompt, /事项范围：|日期结论：|可用候选|慎用候选/);
   assert.doesNotMatch(prompt, /事项未限定|按通用.*口径|当前首列候选/);
   assert.doesNotMatch(prompt, /岁支十二神方位|全年方位神|岁支方位避|可参考太阳|可参考福德/);
-  assert.match(prompt, /第1候选：2026-06-01/);
-  assert.match(prompt, /第2候选：2026-06-02/);
-  assert.match(prompt, /忌入宅、移徙/);
+  assert.match(prompt, /第1日：2026-06-01/);
+  assert.match(prompt, /第2日：2026-06-02/);
+  assert.match(prompt, /忌节选入宅、移徙/);
   assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
 });

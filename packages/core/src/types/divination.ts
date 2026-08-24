@@ -877,6 +877,9 @@ export type AlmanacTopic =
 
 export type AlmanacParticipantGender = '男' | '女' | '';
 
+export type AlmanacWeekendPreference = 'any' | 'prefer' | 'avoid';
+export type AlmanacTimePreference = 'work-hours' | 'morning' | 'afternoon';
+
 export interface AlmanacParticipantInput {
   id: string;
   name: string;
@@ -1021,6 +1024,8 @@ export interface AlmanacData {
   topicLabel: string;
   startDate: string;
   endDate: string;
+  weekendPreference?: AlmanacWeekendPreference;
+  timePreferences?: AlmanacTimePreference[];
   days: AlmanacDayCandidate[];
   participants: AlmanacParticipantProfile[];
   timestamp: number;

@@ -105,6 +105,8 @@ export type DivinationDraft = {
   almanacTopic: AlmanacTopic;
   almanacStartDate: string;
   almanacEndDate: string;
+  almanacWeekendPreference?: 'any' | 'prefer' | 'avoid';
+  almanacTimePreferences?: Array<'work-hours' | 'morning' | 'afternoon'>;
   almanacParticipants: AlmanacParticipantInput[];
   lenormandSpread: LenormandSpreadType;
   lenormandMethod?: 'random' | 'manual' | 'interactive';
@@ -660,8 +662,8 @@ function validateDateRange(startDate: string, endDate: string) {
   if (diffDays < 0) {
     throw new Error('endDate 不能早于 startDate');
   }
-  if (diffDays > 30) {
-    throw new Error('黄历择日一次最多比较 31 天，请缩小日期范围');
+  if (diffDays > 179) {
+    throw new Error('黄历择日一次最多比较 180 天，请缩小日期范围');
   }
 }
 
@@ -819,6 +821,8 @@ export async function generateDivinationSession(
         topic: draft.almanacTopic,
         startDate: draft.almanacStartDate,
         endDate: draft.almanacEndDate,
+        weekendPreference: draft.almanacWeekendPreference,
+        timePreferences: draft.almanacTimePreferences,
         participants: draft.almanacParticipants,
       });
       break;

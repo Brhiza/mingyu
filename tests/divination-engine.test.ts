@@ -4420,10 +4420,13 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.doesNotMatch(session.prompt, /事项范围：|日期结论：|可用候选|慎用候选/);
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
   assert.match(session.prompt, /【问题】\n我们准备搬家，想选一个兼顾两个人的日子。/);
-  assert.match(session.prompt, /候选日期明细：/);
+  assert.match(session.prompt, /候选日期明细：共5日/);
+  assert.equal(session.prompt.match(/- 第\d+日：2026-06-0[1-5]/g)?.length, 5);
+  assert.doesNotMatch(session.prompt, /原始宜项：|支持依据：|限制依据：|可用时辰：/);
+  assert.doesNotMatch(session.prompt, /请依据候选日期.*给出首选日期/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制|传统硬限制/);
   assert.match(session.prompt, /参与人资料：/);
-  assert.match(session.prompt, /本人：男，公历1990-01-01/);
+  assert.match(session.prompt, /本人：男；四柱/);
   assert.ok('days' in session.data && session.data.days.length === 5);
 });
 
@@ -4446,6 +4449,27 @@ test('黄历择日不强制填写问题，空补充时仍生成完整择日提�
   assert.doesNotMatch(session.prompt, /【问题】/);
 });
 
+test('黄历择日长区间提示词应携带全部 180 个候选日', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'almanac',
+      question: '',
+      almanacTopic: 'contract',
+      almanacStartDate: '2026-01-01',
+      almanacEndDate: '2026-06-29',
+      almanacWeekendPreference: 'avoid',
+      almanacTimePreferences: ['work-hours', 'morning'],
+    }),
+  );
+
+  assert.ok('days' in session.data && session.data.days.length === 180);
+  assert.match(session.prompt, /候选日期明细：共180日/);
+  assert.equal(session.prompt.match(/- 第\d+日：2026-/g)?.length, 180);
+  assert.ok(session.prompt.length < 50_000);
+  assert.match(session.prompt, /日期偏好：避开周末/);
+  assert.match(session.prompt, /时段条件：工作日常规办事时段、优先上午/);
+});
+
 test('占卜引擎黄历择日应在本地拒绝无效日期范围', async () => {
   const invalidCases: Array<[Partial<DivinationDraftInput>, RegExp]> = [
     [{ almanacStartDate: '2026/06/01', almanacEndDate: '2026-06-05' }, /startDate 需要使用/],
@@ -4462,7 +4486,7 @@ test('占卜引擎黄历择日应在本地拒绝无效日期范围', async () =>
       { almanacStartDate: '2026-06-05', almanacEndDate: '2026-06-01' },
       /endDate 不能早于 startDate/,
     ],
-    [{ almanacStartDate: '2026-06-01', almanacEndDate: '2026-07-10' }, /最多比较 31 天/],
+    [{ almanacStartDate: '2026-06-01', almanacEndDate: '2026-12-01' }, /最多比较 180 天/],
   ];
 
   for (const [overrides, messagePattern] of invalidCases) {

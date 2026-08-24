@@ -1,5 +1,4 @@
 import {
-  ALMANAC_TOPIC_OPTIONS,
   DIVINATION_METHOD_OPTIONS,
   GENERAL_DIVINATION_METHOD_OPTIONS,
   LENORMAND_SPREAD_OPTIONS,
@@ -21,9 +20,10 @@ import {
 } from 'mingyu-core/divination/lenormand';
 import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
 import type { DivinationDraft } from '@/lib/divination/engine';
-import { createSecureId } from '@/lib/secure-id';
+import type { PersonalHistoryRecord } from '@/lib/history-records';
 import { DropdownSelect } from '@/components/DropdownSelect';
 import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
+import { AlmanacForm } from './AlmanacForm';
 
 const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'current', label: '当前时间' },
@@ -76,28 +76,6 @@ const OPTIONAL_GENDER_OPTIONS = [
   { value: '女', label: '女' },
 ] as const;
 
-const CALENDAR_TYPE_OPTIONS = [
-  { value: 'solar', label: '公历' },
-  { value: 'lunar', label: '农历' },
-] as const;
-
-const BIRTH_TIME_OPTIONS = [
-  { value: '', label: '请选择' },
-  { value: '0', label: '早子时' },
-  { value: '1', label: '丑时' },
-  { value: '2', label: '寅时' },
-  { value: '3', label: '卯时' },
-  { value: '4', label: '辰时' },
-  { value: '5', label: '巳时' },
-  { value: '6', label: '午时' },
-  { value: '7', label: '未时' },
-  { value: '8', label: '申时' },
-  { value: '9', label: '酉时' },
-  { value: '10', label: '戌时' },
-  { value: '11', label: '亥时' },
-  { value: '12', label: '晚子时' },
-] as const;
-
 function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   if (draft.method === 'liuyao' || draft.method === 'qimen' || draft.method === 'liuren') {
     return true;
@@ -128,6 +106,7 @@ interface DivinationFormProps {
   onOpenInspiration: () => void;
   onOpenBirthPlace: () => void;
   questionInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  cases?: PersonalHistoryRecord[];
   showHeading?: boolean;
 }
 
@@ -141,16 +120,16 @@ export function DivinationForm({
   onOpenInspiration,
   onOpenBirthPlace,
   questionInputRef,
+  cases = [],
   showHeading = true,
 }: DivinationFormProps) {
   const isMethodLocked = Boolean(lockedMethod);
   const lockedMethodOption = DIVINATION_METHOD_OPTIONS.find((item) => item.value === lockedMethod);
   const formHeading = lockedMethodOption?.label ?? '传统起卦';
   const isAlmanac = draft.method === 'almanac';
-  const questionLabel = isAlmanac ? '补充信息（可选）' : '问题';
-  const questionPlaceholder = isAlmanac
-    ? '例如：希望避开周末，优先上午办事，尽量兼顾家人时间。'
-    : draft.method === 'huangji'
+  const questionLabel = '问题';
+  const questionPlaceholder =
+    draft.method === 'huangji'
       ? '例如：这个时点整体处于怎样的时势阶段，接下来应把握什么主线？'
       : '例如：我现在该主动推进，还是先稳住等待更好的时机？';
   const submitButtonText =
@@ -257,45 +236,54 @@ export function DivinationForm({
     updateDraft('lenormandInteractiveSamples', []);
   }
 
-  function updateAlmanacParticipant(
-    id: string,
-    key: keyof DivinationDraft['almanacParticipants'][number],
-    value: string | boolean,
-  ) {
-    updateDraft(
-      'almanacParticipants',
-      draft.almanacParticipants.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              [key]: value,
-            }
-          : item,
-      ),
-    );
-  }
+  if (isAlmanac) {
+    return (
+      <>
+        <section className="workspace-ui-form-surface divination-form-card">
+          {showHeading ? (
+            <div className="workspace-ui-form-heading">
+              <h2>{formHeading}</h2>
+            </div>
+          ) : null}
 
-  function addAlmanacParticipant() {
-    updateDraft('almanacParticipants', [
-      ...draft.almanacParticipants,
-      {
-        id: `participant-${createSecureId()}`,
-        name: '',
-        gender: '',
-        year: '',
-        month: '',
-        day: '',
-        timeIndex: '',
-        dateType: 'solar',
-        isLeapMonth: false,
-      },
-    ]);
-  }
+          {!isMethodLocked ? (
+            <div className="divination-method-grid">
+              {GENERAL_DIVINATION_METHOD_OPTIONS.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={`divination-method-btn ${draft.method === item.value ? 'is-active' : ''}`}
+                  onClick={() => updateDraft('method', item.value)}
+                >
+                  <strong>{item.label}</strong>
+                  <span>{item.description}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
 
-  function removeAlmanacParticipant(id: string) {
-    updateDraft(
-      'almanacParticipants',
-      draft.almanacParticipants.filter((item) => item.id !== id),
+          <AlmanacForm
+            draft={draft}
+            cases={cases}
+            updateDraft={updateDraft}
+            questionInputRef={questionInputRef}
+          />
+        </section>
+
+        {error ? <div className="workspace-ui-form-error">{error}</div> : null}
+
+        <div className="workspace-ui-form-actions is-sticky-mobile">
+          <WorkspaceButton
+            variant="primary"
+            size="large"
+            block
+            disabled={isSubmitting}
+            onClick={onSubmit}
+          >
+            {submitButtonText}
+          </WorkspaceButton>
+        </div>
+      </>
     );
   }
 
@@ -500,22 +488,6 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
-                    {draft.method === 'almanac' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="almanac-topic-select">择日事项</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <DropdownSelect
-                            id="almanac-topic-select"
-                            value={draft.almanacTopic}
-                            options={ALMANAC_TOPIC_OPTIONS}
-                            onChange={(value) =>
-                              updateDraft('almanacTopic', value as DivinationDraft['almanacTopic'])
-                            }
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-
                     {draft.method === 'lenormand' ? (
                       <div className="form-item divination-inline-field">
                         <label htmlFor="lenormand-spread-select">牌阵</label>
@@ -593,7 +565,6 @@ export function DivinationForm({
                   draft.method === 'taiyi' ||
                   draft.method === 'huangji' ||
                   draft.method === 'tarot' ||
-                  draft.method === 'almanac' ||
                   draft.method === 'lenormand'
                     ? 'has-secondary'
                     : ''
@@ -688,19 +659,6 @@ export function DivinationForm({
                       ariaLabel="大六壬问题范围"
                       onChange={(value) =>
                         updateDraft('liurenTemplate', value as DivinationDraft['liurenTemplate'])
-                      }
-                    />
-                  </div>
-                ) : null}
-
-                {draft.method === 'almanac' ? (
-                  <div className="divination-mobile-secondary-picker">
-                    <DropdownSelect
-                      value={draft.almanacTopic}
-                      options={ALMANAC_TOPIC_OPTIONS}
-                      ariaLabel="择日事项"
-                      onChange={(value) =>
-                        updateDraft('almanacTopic', value as DivinationDraft['almanacTopic'])
                       }
                     />
                   </div>
@@ -1197,131 +1155,6 @@ export function DivinationForm({
               ))}
             </div>
           </details>
-
-          {draft.method === 'almanac' ? (
-            <div className="divination-extra-panel">
-              <div className="form-row-flex">
-                <div className="form-item">
-                  <label htmlFor="almanac-start-date-input">开始日期</label>
-                  <input
-                    id="almanac-start-date-input"
-                    type="date"
-                    className="form-input"
-                    value={draft.almanacStartDate}
-                    onChange={(event) => updateDraft('almanacStartDate', event.target.value)}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="almanac-end-date-input">结束日期</label>
-                  <input
-                    id="almanac-end-date-input"
-                    type="date"
-                    className="form-input"
-                    value={draft.almanacEndDate}
-                    onChange={(event) => updateDraft('almanacEndDate', event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="divination-extra-head">
-                <strong>参与人出生信息（可选）</strong>
-                <WorkspaceButton size="small" onClick={addAlmanacParticipant}>
-                  添加参与人
-                </WorkspaceButton>
-              </div>
-
-              <div className="almanac-participant-list">
-                {draft.almanacParticipants.map((participant, index) => (
-                  <div className="almanac-participant-card" key={participant.id}>
-                    <div className="almanac-participant-head">
-                      <strong>参与人 {index + 1}</strong>
-                      <WorkspaceButton
-                        variant="danger"
-                        size="small"
-                        onClick={() => removeAlmanacParticipant(participant.id)}
-                      >
-                        删除
-                      </WorkspaceButton>
-                    </div>
-                    <div className="form-row-flex">
-                      <div className="form-item">
-                        <label htmlFor={`${participant.id}-name-input`}>称呼</label>
-                        <input
-                          id={`${participant.id}-name-input`}
-                          className="form-input"
-                          value={participant.name}
-                          placeholder="例如 本人"
-                          onChange={(event) =>
-                            updateAlmanacParticipant(participant.id, 'name', event.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="form-item">
-                        <label htmlFor={`${participant.id}-gender-select`}>性别</label>
-                        <DropdownSelect
-                          id={`${participant.id}-gender-select`}
-                          value={participant.gender}
-                          options={OPTIONAL_GENDER_OPTIONS}
-                          variant="field"
-                          onChange={(value) =>
-                            updateAlmanacParticipant(participant.id, 'gender', value)
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="form-row-flex has-third-item">
-                      {(['year', 'month', 'day'] as const).map((key) => (
-                        <div className="form-item" key={key}>
-                          <label htmlFor={`${participant.id}-${key}-input`}>
-                            {key === 'year' ? '年' : key === 'month' ? '月' : '日'}
-                          </label>
-                          <input
-                            id={`${participant.id}-${key}-input`}
-                            className="form-input"
-                            inputMode="numeric"
-                            value={participant[key]}
-                            onChange={(event) =>
-                              updateAlmanacParticipant(
-                                participant.id,
-                                key,
-                                event.target.value.replace(/[^\d]/g, ''),
-                              )
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="form-row-flex">
-                      <div className="form-item">
-                        <label htmlFor={`${participant.id}-calendar-select`}>日历</label>
-                        <DropdownSelect
-                          id={`${participant.id}-calendar-select`}
-                          value={participant.dateType}
-                          options={CALENDAR_TYPE_OPTIONS}
-                          variant="field"
-                          onChange={(value) =>
-                            updateAlmanacParticipant(participant.id, 'dateType', value)
-                          }
-                        />
-                      </div>
-                      <div className="form-item">
-                        <label htmlFor={`${participant.id}-time-select`}>时辰</label>
-                        <DropdownSelect
-                          id={`${participant.id}-time-select`}
-                          value={participant.timeIndex}
-                          options={BIRTH_TIME_OPTIONS}
-                          variant="field"
-                          onChange={(value) =>
-                            updateAlmanacParticipant(participant.id, 'timeIndex', value)
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           {draft.method === 'astrolabe' ? (
             <div className="divination-extra-panel">

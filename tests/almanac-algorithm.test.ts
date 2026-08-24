@@ -410,3 +410,49 @@ test('黄历择日：跨世纪与交节日期应符合独立历法真值', () =>
     assert.match(candidate.pengZuZhi || '', new RegExp(`^${day[1]}`));
   }
 });
+
+test('黄历择日：网页长区间应支持一次比较 180 天', () => {
+  const result = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-01-01',
+    endDate: '2026-06-29',
+  });
+
+  assert.equal(result.days.length, 180);
+  assert.equal(new Set(result.days.map((day) => day.date)).size, 180);
+});
+
+test('黄历择日：工作时间应同时避开周末并限定常规办事时段', () => {
+  const result = generateAlmanacSelection({
+    topic: 'contract',
+    startDate: '2026-06-01',
+    endDate: '2026-06-14',
+    weekendPreference: 'prefer',
+    timePreferences: ['work-hours', 'morning'],
+  });
+  const candidates = result.evidenceAnalysis?.candidates ?? [];
+  const workHourBranches = new Set(['巳', '午', '未', '申']);
+
+  assert.equal(result.weekendPreference, 'avoid');
+  assert.ok(candidates.length > 0);
+  assert.ok(
+    candidates.every((candidate) =>
+      candidate.usableHours.every((hour) => workHourBranches.has(hour.branch)),
+    ),
+  );
+  for (const status of ['可用候选', '条件候选', '慎用候选'] as const) {
+    const sameStatusDays = result.days.filter(
+      (day) => candidates.find((candidate) => candidate.date === day.date)?.status === status,
+    );
+    const firstWeekend = sameStatusDays.findIndex(
+      (day) => day.weekday === '星期六' || day.weekday === '星期日',
+    );
+    if (firstWeekend >= 0) {
+      assert.ok(
+        sameStatusDays
+          .slice(firstWeekend)
+          .every((day) => day.weekday === '星期六' || day.weekday === '星期日'),
+      );
+    }
+  }
+});

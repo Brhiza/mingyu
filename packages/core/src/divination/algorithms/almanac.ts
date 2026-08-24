@@ -902,7 +902,7 @@ function buildDayCandidate(
  * @param params 择日参数：
  *   - topic: 事项类型（marriage/move/opening/…）
  *   - startDate: 开始日期 (YYYY-MM-DD)
- *   - endDate: 结束日期 (YYYY-MM-DD)，最多比较 31 天
+ *   - endDate: 结束日期 (YYYY-MM-DD)，最多比较 180 天
  *   - participants: 参与人信息（可选），含八字用于刑冲破害校验
  * @returns 黄历择日数据对象 AlmanacData。
  *
@@ -921,6 +921,8 @@ export function generateAlmanacSelection(params: {
   startDate: string;
   endDate: string;
   participants?: AlmanacParticipantInput[];
+  weekendPreference?: 'any' | 'prefer' | 'avoid';
+  timePreferences?: Array<'work-hours' | 'morning' | 'afternoon'>;
 }): AlmanacData {
   assertAlmanacTopic(params.topic);
   const start = parseDateText(params.startDate, '开始日期');
@@ -930,11 +932,14 @@ export function generateAlmanacSelection(params: {
   if (diffDays < 0) {
     throw new Error('结束日期不能早于开始日期');
   }
-  if (diffDays > 30) {
-    throw new Error('黄历择日一次最多比较 31 天，请缩小日期范围');
+  if (diffDays > 179) {
+    throw new Error('黄历择日一次最多比较 180 天，请缩小日期范围');
   }
 
   const participants = createParticipantProfiles(params.participants ?? []);
+  const weekendPreference = params.timePreferences?.includes('work-hours')
+    ? 'avoid'
+    : (params.weekendPreference ?? 'any');
   const statusPriority = { 可用候选: 0, 条件候选: 1, 慎用候选: 2 } as const;
   const days = Array.from({ length: diffDays + 1 }, (_, index) => {
     const current = new Date(start.date);
@@ -944,10 +949,20 @@ export function generateAlmanacSelection(params: {
     const statusDifference =
       statusPriority[classifyAlmanacCandidate(a).status] -
       statusPriority[classifyAlmanacCandidate(b).status];
+    const aWeekend = a.weekday === '星期六' || a.weekday === '星期日' ? 1 : 0;
+    const bWeekend = b.weekday === '星期六' || b.weekday === '星期日' ? 1 : 0;
+    const weekendDifference =
+      weekendPreference === 'prefer'
+        ? bWeekend - aWeekend
+        : weekendPreference === 'avoid'
+          ? aWeekend - bWeekend
+          : 0;
     const supportDifference =
       (b.topicMatchFacts ?? []).filter((fact) => fact.status === '支持').length -
       (a.topicMatchFacts ?? []).filter((fact) => fact.status === '支持').length;
-    return statusDifference || supportDifference || a.date.localeCompare(b.date);
+    return (
+      statusDifference || weekendDifference || supportDifference || a.date.localeCompare(b.date)
+    );
   });
 
   const result: AlmanacData = {
@@ -955,6 +970,8 @@ export function generateAlmanacSelection(params: {
     topicLabel: ALMANAC_TOPIC_LABELS[params.topic],
     startDate: params.startDate,
     endDate: params.endDate,
+    weekendPreference,
+    timePreferences: [...(params.timePreferences ?? [])],
     days,
     participants,
     timestamp: Date.now(),
