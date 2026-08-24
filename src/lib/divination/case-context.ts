@@ -14,6 +14,7 @@ export function applyPersonalCaseToDivinationDraft(
   if (!activeCase) {
     return {
       ...draft,
+      gender: '',
       birthYear: '',
       almanacParticipants: remainingParticipants,
     };
@@ -22,6 +23,7 @@ export function applyPersonalCaseToDivinationDraft(
   const input = activeCase.input;
   return {
     ...draft,
+    gender: input.gender === 'male' ? '男' : '女',
     birthYear: input.year,
     almanacParticipants: [
       {

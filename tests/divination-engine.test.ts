@@ -71,6 +71,7 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     method: 'liuyao',
     question: '这件事接下来该怎么推进？',
     questionSource: 'inspiration',
+    gender: '',
     birthYear: '',
     meihuaMethod: 'time',
     meihuaNumber: '',
@@ -3999,20 +4000,21 @@ test('前端占卜草稿可把自定北京时间传给按时间起卦的方法',
   assert.match(session.prompt, /2025年1月1日 8时30分/);
 });
 
-test('前端只把出生年份用于奇门年命，不污染其他占法资料', async () => {
+test('前端把求测人基本资料用于解读，并避免与专用出生资料重复', async () => {
   const qimenSession = await generateDivinationSession(
-    buildDraft({ method: 'qimen', birthYear: '1989' }),
+    buildDraft({ method: 'qimen', gender: '男', birthYear: '1989' }),
   );
   const liurenSession = await generateDivinationSession(
-    buildDraft({ method: 'liuren', birthYear: '1888' }),
+    buildDraft({ method: 'liuren', gender: '女', birthYear: '1888' }),
   );
   const astrolabeSession = await generateDivinationSession(
     buildDraft({ method: 'astrolabe', birthYear: '1888' }),
   );
 
   assert.match(qimenSession.prompt, /年命资料：公历1989年/);
+  assert.match(qimenSession.prompt, /【补充信息】\n求测人：男/);
   assert.doesNotMatch(qimenSession.prompt, /【补充信息】[\s\S]*出生年份/);
-  assert.doesNotMatch(liurenSession.prompt, /出生年份|1888/);
+  assert.match(liurenSession.prompt, /【补充信息】\n求测人：女；出生年份：1888/);
   assert.match(astrolabeSession.prompt, /出生信息：本人，女，1995-05-20 12:30/);
   assert.doesNotMatch(astrolabeSession.prompt, /出生年份|1888/);
 });

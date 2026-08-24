@@ -28,6 +28,7 @@ const personalCase: PersonalHistoryRecord = {
 
 test('占问应复用全局案例中实际需要的补充资料', () => {
   const draft = applyPersonalCaseToDivinationDraft(defaultDraft, personalCase);
+  assert.equal(draft.gender, '女');
   assert.equal(draft.birthYear, '2000');
   assert.deepEqual(draft.almanacParticipants[0], {
     id: 'active-case:case-1',
@@ -62,6 +63,7 @@ test('切换为不指定应只移除案例自动带入的资料', () => {
     personalCase,
   );
   const withoutCase = applyPersonalCaseToDivinationDraft(withCase, null);
+  assert.equal(withoutCase.gender, '');
   assert.equal(withoutCase.birthYear, '');
   assert.deepEqual(
     withoutCase.almanacParticipants.map((item) => item.id),

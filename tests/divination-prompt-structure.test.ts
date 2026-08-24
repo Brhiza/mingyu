@@ -906,7 +906,7 @@ test('占卜提示词不写入输出要求或行动建议', async () => {
   assert.match(session, /【任务】/);
 });
 
-test('非对应占法不混入梅花设置或通用出生资料', () => {
+test('通用占法保留求测人基本资料但不混入梅花设置', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -915,8 +915,7 @@ test('非对应占法不混入梅花设置或通用出生资料', () => {
   );
 
   assert.match(prompt, /【占卜信息】/);
-  assert.doesNotMatch(prompt, /【补充信息】/);
-  assert.doesNotMatch(prompt, /性别：男|出生年份：1995/);
+  assert.match(prompt, /【补充信息】\n求测人：男；出生年份：1995/);
   assert.doesNotMatch(prompt, /起卦方式：数字起卦|起卦数字：123/);
 });
 
@@ -933,7 +932,7 @@ test('大六壬提示词保留用户补充的现实信息', () => {
   });
 
   assert.match(prompt, /【补充信息】/);
-  assert.doesNotMatch(prompt, /性别：男|出生年份：1990/);
+  assert.match(prompt, /求测人：男；出生年份：1990/);
   assert.match(prompt, /现实背景：正在考虑换工作，已经拿到一个新机会。/);
   assert.match(prompt, /当前情况：正在考虑换工作，已经拿到一个新机会。/);
   assert.match(prompt, /当前状态：时间紧、压力较大，但仍有一定选择空间。/);

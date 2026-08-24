@@ -513,10 +513,15 @@ const ASTROLABE_TOPIC_LABELS: Record<AstrolabePromptTopic, string> = {
 
 export function formatSupplementaryInfo(
   info?: SupplementaryInfo,
-  _method?: SupportedDivinationMethod,
+  method?: SupportedDivinationMethod,
 ) {
   if (!info) return '';
+  const subjectParts = [
+    info.gender ? info.gender : '',
+    method !== 'qimen' && info.birthYear ? `出生年份：${info.birthYear}` : '',
+  ].filter(Boolean);
   return [
+    subjectParts.length ? `求测人：${subjectParts.join('；')}` : '',
     info.currentSituation ? `当前情境：${info.currentSituation}` : '',
     info.currentState ? `当前状态：${info.currentState}` : '',
     info.knownFacts ? `已知事实：${info.knownFacts}` : '',

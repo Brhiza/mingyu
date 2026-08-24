@@ -1003,6 +1003,36 @@ export function DivinationForm({
             </div>
           ) : null}
 
+          {draft.method !== 'almanac' && draft.method !== 'astrolabe' ? (
+            <div className="form-row-flex divination-subject-fields">
+              <div className="form-item">
+                <label htmlFor="divination-gender-select">性别（可选）</label>
+                <DropdownSelect
+                  id="divination-gender-select"
+                  value={draft.gender ?? ''}
+                  options={OPTIONAL_GENDER_OPTIONS}
+                  variant="field"
+                  onChange={(value) => updateDraft('gender', value as DivinationDraft['gender'])}
+                />
+              </div>
+              <div className="form-item">
+                <label htmlFor="divination-birth-year-input">出生年份（可选）</label>
+                <input
+                  id="divination-birth-year-input"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  className="form-input"
+                  placeholder="例如 1998"
+                  value={draft.birthYear}
+                  onChange={(event) =>
+                    updateDraft('birthYear', event.target.value.replace(/[^\d]/g, '').slice(0, 4))
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+
           <details className="divination-context-fields">
             <summary>补充信息（可选）</summary>
             <div className="form-row">
@@ -1258,23 +1288,6 @@ export function DivinationForm({
                   />
                 </div>
               </div>
-            </div>
-          ) : null}
-
-          {draft.method === 'qimen' ? (
-            <div className="form-item divination-birth-year-field">
-              <label htmlFor="divination-birth-year-input">出生年份（年命，可选）</label>
-              <input
-                id="divination-birth-year-input"
-                type="text"
-                inputMode="numeric"
-                className="form-input"
-                placeholder="例如 1998"
-                value={draft.birthYear}
-                onChange={(event) =>
-                  updateDraft('birthYear', event.target.value.replace(/[^\d]/g, ''))
-                }
-              />
             </div>
           ) : null}
         </div>

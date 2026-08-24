@@ -177,7 +177,7 @@ test('npm 奇门提示词应统一定局三元并输出年命落宫', () => {
   assert.doesNotMatch(prompt, /【补充信息】[\s\S]*出生年份/);
 });
 
-test('npm 通用占法提示词不混入未参与排盘的个人字段和梅花设置', () => {
+test('npm 通用占法提示词保留求测人基本资料但不混入梅花设置', () => {
   const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
   const prompt = buildDivinationPrompt({
     method: 'xiaoliuren',
@@ -190,7 +190,8 @@ test('npm 通用占法提示词不混入未参与排盘的个人字段和梅花�
     },
   });
 
-  assert.doesNotMatch(prompt, /【补充信息】|性别：女|出生年份：1990|梅花起卦/);
+  assert.match(prompt, /【补充信息】\n求测人：女；出生年份：1990/);
+  assert.doesNotMatch(prompt, /梅花起卦/);
 });
 
 test('npm 元学提示词入口应覆盖住宅类排盘', () => {
@@ -222,9 +223,8 @@ test('npm 提示词格式化适配器应覆盖时间、补充资料和通用分�
     meihuaSettings: { method: 'number', number: 123 },
     currentSituation: '正在考虑换工作',
   });
-  assert.equal(supplementaryText, '当前情况：正在考虑换工作');
+  assert.equal(supplementaryText, '求测人：女；出生年份：1990\n当前情况：正在考虑换工作');
   assert.doesNotMatch(supplementaryText, /起卦方式|起卦数字/);
-  assert.doesNotMatch(supplementaryText, /性别|出生年份/);
   assert.equal(buildSection('标题', '内容'), '标题\n内容');
   assert.equal(buildSection('标题', '  '), '');
 });

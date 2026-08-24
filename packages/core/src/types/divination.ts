@@ -1385,9 +1385,9 @@ export type DivinationData =
   | TaiyiResult;
 
 export interface SupplementaryInfo {
-  /** @deprecated 通用占卜不再使用性别；命盘与择日请通过各自的完整出生资料传入。 */
+  /** 求测人性别，用于补充解读背景，不参与起盘算法。 */
   gender?: '男' | '女';
-  /** 仅用于奇门年命换算；其他占法不会把出生年份写入提示词。 */
+  /** 求测人出生年份；奇门同时用于年命换算。 */
   birthYear?: number;
   userSupplement?: string;
   currentSituation?: string;

@@ -71,6 +71,7 @@ export type DivinationDraft = {
   knownFacts?: string;
   desiredOutcome?: string;
   constraints?: string;
+  gender: '' | '男' | '女';
   birthYear: string;
   divinationTimeMode?: 'current' | 'custom';
   customDivinationDate?: string;
@@ -221,7 +222,11 @@ export function buildDivinationPrompt(
 function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | undefined {
   const info: SupplementaryInfo = {};
 
-  if (draft.method === 'qimen' && draft.birthYear.trim()) {
+  const usesDedicatedBirthInfo = draft.method === 'almanac' || draft.method === 'astrolabe';
+  if (!usesDedicatedBirthInfo && draft.gender) {
+    info.gender = draft.gender;
+  }
+  if (!usesDedicatedBirthInfo && draft.birthYear.trim()) {
     const birthYear = readOptionalPositiveIntegerText(draft.birthYear);
     if (typeof birthYear === 'number' && Number.isFinite(birthYear)) {
       info.birthYear = birthYear;
