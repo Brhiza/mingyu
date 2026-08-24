@@ -421,8 +421,13 @@
   border-radius: 10px 10px 0 0;
   outline: none;
   background: var(--surface-muted);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .workspace-case-tab:hover {
@@ -434,10 +439,21 @@
   z-index: 1;
   height: 37px;
   margin-bottom: -1px;
-  border-color: var(--border-soft);
+  border-color: color-mix(in srgb, var(--accent-strong) 24%, var(--border-soft));
   background: var(--surface-page);
   color: var(--accent-deep);
-  box-shadow: 0 -5px 16px rgba(63, 41, 71, 0.05);
+  box-shadow: 0 -6px 18px rgba(111, 62, 103, 0.11);
+}
+
+.workspace-case-tab.is-active::before {
+  position: absolute;
+  top: 0;
+  right: 11px;
+  left: 11px;
+  height: 3px;
+  border-radius: 0 0 999px 999px;
+  background: var(--accent-strong);
+  content: '';
 }
 
 .workspace-case-tab:focus-visible,
@@ -460,7 +476,7 @@
 }
 
 .workspace-case-tab.is-active .workspace-case-tab-icon {
-  background: var(--accent-surface);
+  background: color-mix(in srgb, var(--accent-surface) 82%, var(--surface-page));
   color: var(--accent-deep);
 }
 
@@ -481,6 +497,7 @@
 
 .workspace-case-tab-copy strong {
   font-size: 12px;
+  font-weight: 650;
   line-height: 1.15;
 }
 
@@ -488,6 +505,14 @@
   color: var(--text-muted);
   font-size: 9px;
   line-height: 1.15;
+}
+
+.workspace-case-tab.is-active .workspace-case-tab-copy strong {
+  font-weight: 800;
+}
+
+.workspace-case-tab.is-active .workspace-case-tab-copy small {
+  color: var(--text-secondary);
 }
 
 .workspace-case-tab-pin {
