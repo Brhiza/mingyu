@@ -1,12 +1,18 @@
-import { Suspense, lazy, memo, type ReactNode } from 'react';
+import { Suspense, lazy, memo, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   filterCommonBaziShenSha,
   getShenShaType,
+  getTenGod,
   getTenGodForBranch,
   getWuxing,
+  isGanZhiPair,
   type BaziChartResult,
 } from 'mingyu-core/bazi';
+import { HIDDEN_STEMS, NAYIN_MAP } from '@core/bazi/baziMappingsData';
+import { getLifeStage } from '@core/bazi/baziValues';
+import { calculateKongWangBranches } from '@core/bazi/kongWang';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
+import type { BaziFortuneDisplayColumn } from '@/components/BaziFortuneTools/BaziFortuneSelector';
 import {
   formatAvoidGodPrioritySummary,
   formatBaziDate,
@@ -22,6 +28,27 @@ const LazyBaziFortuneSelector = lazy(async () => {
 });
 
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
+const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'] as const;
+
+type BaziBoardColumn = {
+  key: string;
+  label: string;
+  caption?: string;
+  gan: string;
+  zhi: string;
+  ganTenGod: string;
+  zhiTenGod: string;
+  hiddenStems: string[];
+  hiddenTenGods: string[];
+  nayin: string;
+  ziZuo: string;
+  lifeStage: string;
+  kongWang: string[];
+  shensha: string[];
+  isDayMaster?: boolean;
+  isFortune?: boolean;
+};
+
 function filterBaziBoardShensha(items: string[]) {
   return filterCommonBaziShenSha(uniqueNonEmptyStrings(items));
 }
@@ -31,10 +58,51 @@ function BaziGanZhiValue(props: { value: string }) {
 
   return (
     <span className="bazi-ganzhi-value">
-      <strong className="bazi-ganzhi-symbol">{props.value}</strong>
-      <small className="bazi-wuxing-label" data-wuxing={wuxing}>
-        {wuxing}
-      </small>
+      <strong
+        className="bazi-ganzhi-symbol"
+        data-wuxing={wuxing}
+        aria-label={`${props.value}，五行属${wuxing}`}
+      >
+        {props.value}
+      </strong>
+    </span>
+  );
+}
+
+function BaziPillarValue(props: {
+  gan: string;
+  zhi: string;
+  ganTenGod: string;
+  zhiTenGod: string;
+}) {
+  return (
+    <span className="bazi-pillar-value">
+      <small>{props.ganTenGod}</small>
+      <span className="bazi-pillar-ganzhi">
+        <BaziGanZhiValue value={props.gan} />
+        <BaziGanZhiValue value={props.zhi} />
+      </span>
+      <em>{props.zhiTenGod}</em>
+    </span>
+  );
+}
+
+function BaziHiddenStemList(props: { stems: string[]; tenGods: string[] }) {
+  if (props.stems.length === 0) {
+    return <span className="bazi-shensha-empty">无</span>;
+  }
+
+  return (
+    <span className="bazi-hidden-stem-list">
+      {props.stems.map((stem, index) => {
+        const wuxing = getWuxing(stem);
+        return (
+          <span key={`${stem}-${index}`}>
+            <strong data-wuxing={wuxing}>{stem}</strong>
+            <small>{props.tenGods[index] ?? ''}</small>
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -75,6 +143,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   timeBasisLabel?: string;
 }) {
   const { title, name, result, isInstant = false, timeBasisLabel } = props;
+  const [fortuneColumns, setFortuneColumns] = useState<BaziFortuneDisplayColumn[]>([]);
   const missingElements = uniqueNonEmptyStrings(result.wuxingStrength.missing);
   const warnings = uniqueNonEmptyStrings(result.warnings);
   const referenceItems: Array<{ label: string; value: string; detail: string }> = [];
@@ -101,76 +170,109 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
       : result.gender === 'female'
         ? '元女'
         : '';
+  const natalColumns: BaziBoardColumn[] = PILLAR_KEYS.map((key, index) => ({
+    key,
+    label: PILLAR_LABELS[index],
+    gan: result.pillars[key].gan,
+    zhi: result.pillars[key].zhi,
+    ganTenGod: key === 'day' && dayOwnerLabel ? dayOwnerLabel : result.tenGods[key],
+    zhiTenGod: getTenGodForBranch(result.pillars[key].zhi, result.dayMaster.gan),
+    hiddenStems: result.hiddenStems[key],
+    hiddenTenGods: result.hiddenTenGods[key],
+    nayin: result.nayin[key],
+    ziZuo: result.ziZuo[key],
+    lifeStage: result.lifeStages[key],
+    kongWang: result.kongWang[key],
+    shensha:
+      key === 'year'
+        ? [...(result.shensha.global ?? []), ...result.shensha[key]]
+        : result.shensha[key],
+    isDayMaster: key === 'day',
+  }));
+  const activeFortuneColumns: BaziBoardColumn[] = fortuneColumns.flatMap((column) => {
+    if (!isGanZhiPair(column.ganZhi[0], column.ganZhi[1])) return [];
+    const [gan, zhi] = column.ganZhi.split('');
+    const hiddenStems = HIDDEN_STEMS[zhi] ?? [];
+    return [
+      {
+        ...column,
+        key: `fortune-${column.key}`,
+        gan,
+        zhi,
+        ganTenGod: getTenGod(gan, result.dayMaster.gan),
+        zhiTenGod: getTenGodForBranch(zhi, result.dayMaster.gan),
+        hiddenStems,
+        hiddenTenGods: hiddenStems.map((stem) => getTenGod(stem, result.dayMaster.gan)),
+        nayin: NAYIN_MAP[column.ganZhi] ?? '—',
+        ziZuo: getLifeStage(gan, zhi),
+        lifeStage: getLifeStage(result.dayMaster.gan, zhi),
+        kongWang: calculateKongWangBranches(gan, zhi),
+        shensha: [],
+        isFortune: true,
+      },
+    ];
+  });
+  const boardColumns = [...natalColumns, ...activeFortuneColumns];
+  const boardStyle = {
+    '--bazi-display-column-count': boardColumns.length,
+  } as CSSProperties;
   const pillarRows: Array<{
     label: string;
     values: ReactNode[];
     className?: string;
   }> = [
     {
-      label: '天干十神',
-      values: PILLAR_KEYS.map((key) =>
-        key === 'day' && dayOwnerLabel ? dayOwnerLabel : result.tenGods[key],
-      ),
-    },
-    {
-      label: '天干',
-      values: PILLAR_KEYS.map((key) => (
-        <BaziGanZhiValue key={key} value={result.pillars[key].gan} />
+      label: '命式',
+      values: boardColumns.map((column) => (
+        <BaziPillarValue
+          key={column.key}
+          gan={column.gan}
+          zhi={column.zhi}
+          ganTenGod={column.ganTenGod}
+          zhiTenGod={column.zhiTenGod}
+        />
       )),
-      className: 'is-stem',
-    },
-    {
-      label: '地支',
-      values: PILLAR_KEYS.map((key) => (
-        <BaziGanZhiValue key={key} value={result.pillars[key].zhi} />
-      )),
-      className: 'is-branch',
-    },
-    {
-      label: '地支十神',
-      values: PILLAR_KEYS.map((key) =>
-        getTenGodForBranch(result.pillars[key].zhi, result.dayMaster.gan),
-      ),
+      className: 'is-pillar',
     },
     {
       label: '藏干',
-      values: PILLAR_KEYS.map((key) => joinMultilineText(result.hiddenStems[key], '无')),
-      className: 'is-multiline',
-    },
-    {
-      label: '藏干十神',
-      values: PILLAR_KEYS.map((key) => joinMultilineText(result.hiddenTenGods[key], '无')),
-      className: 'is-multiline',
+      values: boardColumns.map((column) => (
+        <BaziHiddenStemList
+          key={column.key}
+          stems={column.hiddenStems}
+          tenGods={column.hiddenTenGods}
+        />
+      )),
+      className: 'is-hidden-stems',
     },
     {
       label: '纳音',
-      values: PILLAR_KEYS.map((key) => result.nayin[key]),
+      values: boardColumns.map((column) => column.nayin),
     },
     {
       label: '自坐',
-      values: PILLAR_KEYS.map((key) => result.ziZuo[key]),
+      values: boardColumns.map((column) => column.ziZuo),
     },
     {
       label: '长生',
-      values: PILLAR_KEYS.map((key) => result.pillarLifeStages[key]),
+      values: boardColumns.map((column) => column.lifeStage),
     },
     {
       label: '空亡',
-      values: PILLAR_KEYS.map((key) => joinMultilineText(result.kongWang[key], '无')),
+      values: boardColumns.map((column) => joinMultilineText(column.kongWang, '无')),
       className: 'is-multiline',
     },
     {
       label: '神煞',
-      values: PILLAR_KEYS.map((key) => (
-        <BaziShenShaList
-          items={
-            key === 'year'
-              ? [...(result.shensha.global ?? []), ...result.shensha[key]]
-              : result.shensha[key]
-          }
-          key={key}
-        />
-      )),
+      values: boardColumns.map((column) =>
+        column.isFortune ? (
+          <span className="bazi-shensha-empty" key={column.key}>
+            —
+          </span>
+        ) : (
+          <BaziShenShaList items={column.shensha} key={column.key} />
+        ),
+      ),
       className: 'is-shensha',
     },
   ].filter((row) => !isInstant || row.label !== '神煞');
@@ -206,16 +308,17 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
       {!isInstant ? (
         <div className="result-summary-grid result-summary-grid-bazi">
           <div className="result-stat-card result-stat-card-accent">
-            <span>日主</span>
-            <strong>{result.dayMaster.gan}</strong>
+            <span>旺衰</span>
+            <strong>{result.analysis.dayMasterStrength.status}</strong>
             <small>
-              {result.dayMaster.element} · {result.dayMaster.yinYang}
+              月令{result.analysis.dayMasterStrength.details.seasonalEffect} ·{' '}
+              {result.analysis.dayMasterStrength.details.hasRoot ? '有根' : '无根'}
             </small>
           </div>
           <div className="result-stat-card">
             <span>命格</span>
             <strong>{result.analysis.mingGe.pattern}</strong>
-            <small>{result.analysis.dayMasterStrength.status}</small>
+            <small>{result.analysis.mingGe.isSpecial ? '特殊格局' : '月令取格'}</small>
           </div>
           <div className="result-stat-card">
             <span>核心用神</span>
@@ -241,74 +344,92 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           <div className="bazi-pillars-header">
             <h3>四柱盘</h3>
           </div>
-          <div className="bazi-pillars-table">
-            <div className="bazi-pillars-cell is-label is-head">信息</div>
-            <div className="bazi-pillars-cell is-head">年柱</div>
-            <div className="bazi-pillars-cell is-head">月柱</div>
-            <div className="bazi-pillars-cell is-head is-day-master">日柱</div>
-            <div className="bazi-pillars-cell is-head">时柱</div>
-            {pillarRows.flatMap((row) => [
-              <div key={`${row.label}-label`} className="bazi-pillars-cell is-label">
-                {row.label}
-              </div>,
-              ...row.values.map((value, index) => (
+          <div className="bazi-pillars-scroll">
+            <div
+              className={`bazi-pillars-table ${activeFortuneColumns.length ? 'has-fortune' : ''}`}
+              style={boardStyle}
+            >
+              <div className="bazi-pillars-cell is-label is-head">信息</div>
+              {boardColumns.map((column, index) => (
                 <div
-                  key={`${row.label}-${index}`}
-                  className={`bazi-pillars-cell ${row.className ?? ''} ${
-                    index === 2 ? 'is-day-master' : ''
+                  className={`bazi-pillars-cell is-head ${
+                    column.isDayMaster ? 'is-day-master' : ''
+                  } ${column.isFortune ? 'is-fortune' : ''} ${
+                    index === natalColumns.length ? 'is-fortune-start' : ''
                   }`}
+                  key={column.key}
                 >
-                  {value}
+                  <span>{column.label}</span>
+                  {column.caption ? <small>{column.caption}</small> : null}
                 </div>
-              )),
-            ])}
-          </div>
-        </div>
-
-        <div className="bazi-side-panel">
-          <div className="result-side-card bazi-fortune-card">
-            <div className="result-side-head">
-              <h3>五行分布</h3>
-            </div>
-            <div className="result-tag-cloud">
-              {result.wuxingStrength.present.map((item) => (
-                <span className="result-soft-tag" key={item}>
-                  见 {item}
-                  {result.wuxingStrength.dominantByRule.includes(item) ? '（结构比较优先）' : ''}
-                </span>
               ))}
-              {missingElements.map((item) => (
-                <span className="result-soft-tag" key={item}>
-                  缺 {item}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {referenceItems.length > 0 ? (
-            <div className="result-side-card bazi-reference-card">
-              <div className="result-side-head">
-                <h3>基础参考</h3>
-              </div>
-              <div className="bazi-reference-grid">
-                {referenceItems.map((item) => (
-                  <div className="bazi-reference-item" key={item.label}>
-                    <span>{item.label}</span>
-                    <strong>{item.value}</strong>
-                    <small>{item.detail}</small>
+              {pillarRows.flatMap((row) => [
+                <div key={`${row.label}-label`} className="bazi-pillars-cell is-label">
+                  {row.label}
+                </div>,
+                ...row.values.map((value, index) => (
+                  <div
+                    key={`${row.label}-${index}`}
+                    className={`bazi-pillars-cell ${row.className ?? ''} ${
+                      boardColumns[index]?.isDayMaster ? 'is-day-master' : ''
+                    } ${boardColumns[index]?.isFortune ? 'is-fortune' : ''} ${
+                      index === natalColumns.length ? 'is-fortune-start' : ''
+                    }`}
+                  >
+                    {value}
                   </div>
-                ))}
-              </div>
+                )),
+              ])}
             </div>
-          ) : null}
-
-          {!isInstant ? (
-            <Suspense fallback={<BaziFortuneLoadingCard />}>
-              <LazyBaziFortuneSelector result={result} />
-            </Suspense>
-          ) : null}
+          </div>
         </div>
       </div>
+
+      <div className="bazi-context-grid">
+        <div className="result-side-card bazi-fortune-card">
+          <div className="result-side-head">
+            <h3>五行分布</h3>
+          </div>
+          <div className="result-tag-cloud">
+            {result.wuxingStrength.present.map((item) => (
+              <span className="result-soft-tag" key={item}>
+                见 {item}
+                {result.wuxingStrength.dominantByRule.includes(item) ? '（结构比较优先）' : ''}
+              </span>
+            ))}
+            {missingElements.map((item) => (
+              <span className="result-soft-tag" key={item}>
+                缺 {item}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {referenceItems.length > 0 ? (
+          <div className="result-side-card bazi-reference-card">
+            <div className="result-side-head">
+              <h3>基础参考</h3>
+            </div>
+            <div className="bazi-reference-grid">
+              {referenceItems.map((item) => (
+                <div className="bazi-reference-item" key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {!isInstant ? (
+        <div className="bazi-fortune-board">
+          <Suspense fallback={<BaziFortuneLoadingCard />}>
+            <LazyBaziFortuneSelector result={result} onSelectionChange={setFortuneColumns} />
+          </Suspense>
+        </div>
+      ) : null}
     </section>
   );
 });

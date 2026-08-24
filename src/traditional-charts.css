@@ -60,20 +60,104 @@
   background: var(--surface-muted);
 }
 
-/* 八字：强化四柱纵向关系，保留现有柔和界面。 */
+/* 八字：同柱信息连续阅读，摘要与岁运保持横向展开。 */
+.bazi-showcase-card {
+  gap: 12px;
+}
+
+.bazi-showcase-card .result-summary-grid-bazi {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--chart-border);
+  background: var(--surface-muted);
+}
+
+.bazi-showcase-card .result-stat-card {
+  min-height: 64px;
+  padding: 8px 11px;
+  border-right: 1px solid var(--chart-border);
+  background: transparent;
+}
+
+.bazi-showcase-card .result-stat-card:last-child {
+  border-right: 0;
+}
+
+.bazi-showcase-card .result-stat-card-accent {
+  background: var(--chart-accent-soft);
+}
+
+.bazi-showcase-card .result-stat-card strong {
+  font-size: 15px;
+}
+
+.bazi-showcase-card .result-stat-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bazi-showcase-card .bazi-core-layout {
+  display: block;
+}
+
+.bazi-showcase-card .bazi-pillars-header {
+  display: flex;
+  align-items: center;
+  min-height: 26px;
+}
+
+.bazi-showcase-card .bazi-pillars-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: transparent transparent;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll:hover {
+  scrollbar-color: var(--chart-border-strong) transparent;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar-track,
+.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll:hover::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--chart-border-strong);
+}
+
 .bazi-showcase-card .bazi-pillars-table {
-  margin-top: 11px;
+  grid-template-columns: 58px repeat(var(--bazi-display-column-count, 4), minmax(68px, 1fr));
+  margin-top: 7px;
   border-color: var(--chart-border-strong);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--chart-border);
 }
 
+.bazi-showcase-card .bazi-pillars-table.has-fortune {
+  min-width: 700px;
+}
+
 .bazi-showcase-card .bazi-pillars-cell {
-  min-height: 44px;
+  min-height: 36px;
+  padding: 6px 5px;
   border-color: var(--chart-border);
   background: var(--surface-elevated);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .bazi-showcase-card .bazi-pillars-cell.is-head,
@@ -83,60 +167,146 @@
 }
 
 .bazi-showcase-card .bazi-pillars-cell.is-head {
-  min-height: 38px;
-  font-size: 12px;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 34px;
+  font-size: 11px;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-head > small {
+  color: var(--text-muted);
+  font-size: 8px;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .bazi-showcase-card .bazi-pillars-cell.is-label {
+  position: sticky;
+  z-index: 2;
+  left: 0;
   justify-content: flex-start;
-  padding-left: 10px;
-  color: var(--text-secondary);
-  font-size: 11px;
+  padding-left: 9px;
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
 .bazi-showcase-card .bazi-pillars-cell.is-day-master {
   background: var(--chart-accent-soft);
-  box-shadow:
-    inset 1px 0 0 var(--chart-border-strong),
-    inset -1px 0 0 var(--chart-border-strong);
+  box-shadow: none;
 }
 
-.bazi-showcase-card .bazi-pillars-cell.is-stem .bazi-ganzhi-symbol {
-  font-size: 27px;
+.bazi-showcase-card .bazi-pillars-cell.is-fortune {
+  background: color-mix(in srgb, var(--secondary-soft) 34%, var(--surface-elevated));
 }
 
-.bazi-showcase-card .bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
+.bazi-showcase-card .bazi-pillars-cell.is-fortune-start {
+  border-left: 2px solid color-mix(in srgb, var(--accent-strong) 24%, transparent);
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-pillar {
+  min-height: 104px;
+  padding-block: 7px;
+}
+
+.bazi-showcase-card .bazi-pillar-value {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+  gap: 5px;
+}
+
+.bazi-showcase-card .bazi-pillar-value > small,
+.bazi-showcase-card .bazi-pillar-value > em {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 550;
+  line-height: 1;
+}
+
+.bazi-showcase-card .bazi-pillar-ganzhi {
+  display: grid;
+  gap: 6px;
+}
+
+.bazi-showcase-card .bazi-ganzhi-value {
+  display: block;
+}
+
+.bazi-showcase-card .bazi-ganzhi-symbol {
   font-size: 25px;
+  font-weight: 720;
+  line-height: 1;
 }
 
-.bazi-showcase-card .bazi-wuxing-label[data-wuxing='木'] {
-  color: #4f765d;
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='木'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='木'] {
+  color: #2f7d46;
 }
 
-.bazi-showcase-card .bazi-wuxing-label[data-wuxing='火'] {
-  color: #9a5b54;
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='火'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='火'] {
+  color: #c64c4c;
 }
 
-.bazi-showcase-card .bazi-wuxing-label[data-wuxing='土'] {
-  color: #8a7048;
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='土'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='土'] {
+  color: #9b6d16;
 }
 
-.bazi-showcase-card .bazi-wuxing-label[data-wuxing='金'] {
-  color: #6f7477;
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='金'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='金'] {
+  color: #5c6872;
 }
 
-.bazi-showcase-card .bazi-wuxing-label[data-wuxing='水'] {
-  color: #536f87;
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='水'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='水'] {
+  color: #2f6f9f;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-hidden-stems {
+  min-height: 58px;
+  align-items: flex-start;
+}
+
+.bazi-showcase-card .bazi-hidden-stem-list {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.bazi-showcase-card .bazi-hidden-stem-list > span {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.1;
+}
+
+.bazi-showcase-card .bazi-hidden-stem-list strong {
+  font-size: 12px;
+}
+
+.bazi-showcase-card .bazi-hidden-stem-list small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-shensha {
+  min-height: 52px;
 }
 
 .bazi-showcase-card .bazi-shensha-list {
-  gap: 3px;
+  gap: 2px;
 }
 
 .bazi-showcase-card .bazi-shensha-tag {
-  min-height: 18px;
-  padding: 1px 5px;
-  border-radius: 5px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   font-size: 9px;
 }
 
@@ -150,6 +320,264 @@
 
 .bazi-showcase-card .bazi-shensha-tag.is-neutral {
   --bazi-shensha-tone: #7f704e;
+}
+
+.bazi-showcase-card .bazi-context-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 18px;
+  padding-block: 9px;
+  border-block: 1px solid var(--chart-border);
+}
+
+.bazi-showcase-card .bazi-context-grid > .result-side-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-context-grid .result-side-head h3 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.bazi-showcase-card .bazi-context-grid .result-tag-cloud {
+  gap: 4px;
+}
+
+.bazi-showcase-card .bazi-context-grid .result-soft-tag {
+  min-height: 21px;
+  padding-inline: 7px;
+  border: 0;
+  font-size: 9px;
+}
+
+.bazi-showcase-card .bazi-reference-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-reference-item {
+  padding: 0 7px;
+  border-left: 1px solid var(--chart-border);
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-reference-item strong {
+  font-size: 13px;
+}
+
+.bazi-showcase-card .bazi-reference-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bazi-showcase-card .bazi-fortune-board {
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-selector-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-grid {
+  gap: 7px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-selector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 26px;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+}
+
+.bazi-showcase-card .bazi-fortune-board .row-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: auto;
+  margin: 0;
+  padding: 0 8px 0 0;
+  border: 0;
+  writing-mode: horizontal-tb;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-today-button {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--chart-accent-soft);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-today-button:hover,
+.bazi-showcase-card .bazi-fortune-board .fortune-today-button:focus-visible {
+  outline: none;
+  background: var(--accent-soft-strong);
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container {
+  gap: 2px;
+  padding: 0 0 5px;
+  scrollbar-color: transparent transparent;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container:hover {
+  scrollbar-color: var(--chart-border-strong) transparent;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container:hover::-webkit-scrollbar-thumb {
+  background: var(--chart-border-strong);
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-item {
+  flex: 0 0 62px;
+  min-width: 62px;
+  padding: 4px 3px;
+  border: 0;
+  border-radius: 6px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-item.active {
+  border: 0;
+  background: var(--chart-accent-soft);
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-year {
+  font-size: 10px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-age {
+  font-size: 9px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .main-char {
+  font-size: 16px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .sub-char {
+  max-width: 22px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-mu {
+  color: #2f7d46;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-huo {
+  color: #c64c4c;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-tu {
+  color: #9b6d16;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-jin {
+  color: #5c6872;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-shui {
+  color: #2f6f9f;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='木'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='木'] {
+    color: #62a878;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='火'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='火'] {
+    color: #d87373;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='土'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='土'] {
+    color: #c09a4e;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='金'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='金'] {
+    color: #9aa5ae;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='水'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='水'] {
+    color: #6f9fca;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-mu {
+    color: #62a878;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-huo {
+    color: #d87373;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-tu {
+    color: #c09a4e;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-jin {
+    color: #9aa5ae;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-shui {
+    color: #6f9fca;
+  }
 }
 
 /* 紫微：宫位保持连续盘格，重点宫位只用低饱和描边与底色。 */
@@ -832,6 +1260,32 @@
     border-bottom: 1px solid var(--chart-border);
   }
 
+  .bazi-showcase-card .result-summary-grid-bazi {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .bazi-showcase-card .result-stat-card {
+    min-height: 58px;
+    padding: 7px 6px;
+  }
+
+  .bazi-showcase-card .result-stat-card:nth-child(2) {
+    border-right: 1px solid var(--chart-border);
+  }
+
+  .bazi-showcase-card .result-stat-card:nth-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .bazi-showcase-card .result-stat-card strong {
+    font-size: 13px;
+  }
+
+  .bazi-showcase-card .result-stat-card span,
+  .bazi-showcase-card .result-stat-card small {
+    font-size: 9px;
+  }
+
   .traditional-chart-layout .bazi-side-panel,
   .traditional-chart-layout .ziwei-side-panel,
   .traditional-chart-layout .astrolabe-board-side {
@@ -846,22 +1300,87 @@
   }
 
   .bazi-showcase-card .bazi-pillars-table {
-    grid-template-columns: 58px repeat(4, minmax(62px, 1fr));
+    grid-template-columns: 44px repeat(var(--bazi-display-column-count, 4), minmax(64px, 1fr));
+  }
+
+  .bazi-showcase-card .bazi-pillars-table.has-fortune {
+    min-width: 620px;
   }
 
   .bazi-showcase-card .bazi-pillars-cell {
-    padding: 7px 4px;
-    font-size: 12px;
-  }
-
-  .bazi-showcase-card .bazi-pillars-cell.is-label {
-    padding-left: 6px;
+    min-height: 31px;
+    padding: 5px 3px;
     font-size: 10px;
   }
 
-  .bazi-showcase-card .bazi-pillars-cell.is-stem .bazi-ganzhi-symbol,
-  .bazi-showcase-card .bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
+  .bazi-showcase-card .bazi-pillars-cell.is-label {
+    padding-left: 5px;
+    font-size: 9px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-pillar {
+    min-height: 94px;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol {
     font-size: 22px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-hidden-stems {
+    min-height: 50px;
+  }
+
+  .bazi-showcase-card .bazi-hidden-stem-list > span {
+    gap: 2px;
+  }
+
+  .bazi-showcase-card .bazi-hidden-stem-list strong {
+    font-size: 11px;
+  }
+
+  .bazi-showcase-card .bazi-hidden-stem-list small,
+  .bazi-showcase-card .bazi-pillar-value > small,
+  .bazi-showcase-card .bazi-pillar-value > em {
+    font-size: 8px;
+  }
+
+  .bazi-showcase-card .bazi-shensha-tag {
+    font-size: 8px;
+  }
+
+  .bazi-showcase-card .bazi-context-grid {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding-block: 8px;
+  }
+
+  .bazi-showcase-card .bazi-context-grid > .result-side-card {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .bazi-showcase-card .bazi-reference-item {
+    padding-inline: 5px;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .fortune-row {
+    grid-template-columns: 29px minmax(0, 1fr);
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .fortune-selector-head {
+    min-height: 24px;
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .row-title {
+    padding-right: 5px;
+    font-size: 9px;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .fortune-item {
+    flex-basis: 54px;
+    min-width: 54px;
   }
 
   .ziwei-showcase-card .ziwei-traditional-shell {

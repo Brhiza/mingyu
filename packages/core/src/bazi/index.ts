@@ -14,6 +14,7 @@ export {
   getCurrentBaziLuckCycle,
   normalizeFortuneSelection,
 } from './fortuneSelection/index';
+export { getDayHourBreakdown } from './fortuneSelection/helpers/breakdown';
 export type {
   BaziFortuneSelectionValue,
   FortuneHourMode,
@@ -52,7 +53,16 @@ export {
   getYearMonthsGanZhi,
 } from './calendarTool';
 export type { BaziMonthDayInfo, BaziMonthInfo, CalendarInfo } from './calendarTool';
-export { BASIC_MAPPINGS, EARTHLY_BRANCHES, HEAVENLY_STEMS, SIXTY_CYCLE } from './baziMappingsData';
+export {
+  BASIC_MAPPINGS,
+  EARTHLY_BRANCHES,
+  HEAVENLY_STEMS,
+  HIDDEN_STEMS,
+  NAYIN_MAP,
+  SIXTY_CYCLE,
+} from './baziMappingsData';
+export { getLifeStage } from './baziValues';
+export { calculateKongWangBranches } from './kongWang';
 export {
   assertBaziGender,
   assertEarthlyBranch,
@@ -141,7 +151,6 @@ export {
   formatHarmonyTransformProfile,
 } from './harmonyTransform';
 export type { HarmonyPillarInput } from './harmonyTransform';
-export { getLifeStage } from './baziValues';
 export { analyzeBaziCompatibility } from './compatibilityEvidence';
 export { analyzeFortuneTriggers } from './fortuneTriggerEvidence';
 export { analyzeBaziNatalEvidence } from './natalEvidence';
