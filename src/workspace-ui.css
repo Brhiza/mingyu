@@ -4,6 +4,47 @@
  * 所有选择器使用 workspace-ui 前缀，避免再与历史全局类互相覆盖。
  */
 
+.workspace-shell {
+  --workspace-scrollbar-thumb: color-mix(in srgb, var(--accent-strong) 34%, transparent);
+  --workspace-scrollbar-thumb-hover: color-mix(in srgb, var(--accent-strong) 56%, transparent);
+  scrollbar-color: var(--workspace-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+.workspace-shell * {
+  scrollbar-color: var(--workspace-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+.workspace-shell::-webkit-scrollbar,
+.workspace-shell *::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.workspace-shell::-webkit-scrollbar-track,
+.workspace-shell *::-webkit-scrollbar-track,
+.workspace-shell::-webkit-scrollbar-corner,
+.workspace-shell *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.workspace-shell::-webkit-scrollbar-thumb,
+.workspace-shell *::-webkit-scrollbar-thumb {
+  min-width: 34px;
+  min-height: 34px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--workspace-scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+.workspace-shell::-webkit-scrollbar-thumb:hover,
+.workspace-shell *::-webkit-scrollbar-thumb:hover {
+  background: var(--workspace-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
 .workspace-ui-screen {
   width: min(1040px, 100%);
   display: grid;
@@ -958,6 +999,11 @@ label.workspace-ui-field > span:first-child {
   overflow: hidden;
 }
 
+.panel-ai-chat.is-workspace-chat .ai-chat-msg-assistant .ai-chat-msg-bubble {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
 .workspace-ai-composer-toolbar {
   min-width: 0;
   display: grid;
@@ -1751,6 +1797,18 @@ label.workspace-ui-field > span:first-child {
 }
 
 @media (max-width: 520px) {
+  .workspace-shell,
+  .workspace-shell * {
+    scrollbar-width: none;
+  }
+
+  .workspace-shell::-webkit-scrollbar,
+  .workspace-shell *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
   .workspace-result-assistant-stage
     .workspace-ai-composer-toolbar
     .workspace-question-picker-trigger,

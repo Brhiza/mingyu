@@ -1189,7 +1189,7 @@
     max-width: none;
     min-height: 0;
     flex: 1;
-    grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
     align-items: stretch;
     gap: 14px;
     overflow: hidden;
@@ -1279,7 +1279,7 @@
   .divination-result-workspace.is-split .divination-result-stage {
     min-height: 0;
     flex: 1;
-    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
     align-items: stretch;
     gap: 14px;
     overflow: hidden;
