@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">命语单色品牌标志</title>
+  <desc id="desc">由对话气泡、命盘轨道与中心指引星组成的单色标志</desc>
+  <g fill="currentColor" stroke="currentColor">
+    <path d="M145 407 88 438l18-66C74 338 56 294 56 246 56 139 145 52 256 52s200 87 200 194-89 194-200 194c-40 0-78-11-111-33Z"
+          fill="none" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="256" cy="246" r="104" fill="none" stroke-width="16"/>
+    <path d="M256 122v30M256 340v30M132 246h30M350 246h30" fill="none" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="256" cy="122" r="12" stroke="none"/>
+    <circle cx="256" cy="370" r="12" stroke="none"/>
+    <circle cx="132" cy="246" r="12" stroke="none"/>
+    <circle cx="380" cy="246" r="12" stroke="none"/>
+    <path d="M256 174c8 42 30 64 72 72-42 8-64 30-72 72-8-42-30-64-72-72 42-8 64-30 72-72Z" stroke="none"/>
+  </g>
+</svg>
