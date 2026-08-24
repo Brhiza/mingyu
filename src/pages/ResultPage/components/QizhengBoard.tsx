@@ -142,7 +142,7 @@ export const QizhengBoard = memo(function QizhengBoard({
   const strongestAspects = data.aspects.slice(0, 8);
   const ziqiStar = data.stars.find((star) => star.name.startsWith('紫炁'));
   return (
-    <section className="result-showcase-card qizheng-showcase-card">
+    <section className="result-showcase-card qizheng-showcase-card traditional-chart-layout">
       <div className="result-showcase-head">
         <div>
           <p className="result-section-kicker">{title}</p>

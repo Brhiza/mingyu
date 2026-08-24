@@ -6,6 +6,7 @@ import { registerServiceWorker } from './registerServiceWorker';
 import './styles.css';
 import './workspace.css';
 import './workspace-ui.css';
+import './traditional-charts.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

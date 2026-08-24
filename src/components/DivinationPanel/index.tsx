@@ -281,6 +281,7 @@ export function DivinationPanel({
         <>
           {error ? <p className="error-text workspace-divination-error">{error}</p> : null}
           <DivinationResult
+            key={searchParams.get('record') ?? session?.prompt ?? 'divination-result'}
             isSubmitting={isSubmitting}
             session={session}
             summary={summary}

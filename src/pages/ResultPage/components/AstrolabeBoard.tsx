@@ -21,7 +21,7 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
     data.summary.retrograde.length > 0 ? data.summary.retrograde.join('、') : '无';
 
   return (
-    <section className="result-showcase-card astrolabe-showcase-card">
+    <section className="result-showcase-card astrolabe-showcase-card traditional-chart-layout">
       <div className="result-showcase-head">
         <div>
           <p className="result-section-kicker">{title}</p>

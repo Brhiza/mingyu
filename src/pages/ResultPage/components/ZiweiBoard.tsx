@@ -86,7 +86,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
   }, [displayPayload]);
 
   return (
-    <section className="result-showcase-card ziwei-showcase-card">
+    <section className="result-showcase-card ziwei-showcase-card traditional-chart-layout">
       <div className="result-showcase-head">
         <div>
           <p className="result-section-kicker">{title}</p>
@@ -126,7 +126,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
         <div className="ziwei-board-stack">
           <ZiweiTraditionalBoard
             payload={displayPayload}
-            boardTitle="传统盘"
+            boardTitle="紫微斗数命盘"
             name={name}
             selectedPalaceIndex={selectedPalaceIndex}
             onSelectPalace={setSelectedPalaceIndex}

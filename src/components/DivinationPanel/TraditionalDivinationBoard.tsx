@@ -18,6 +18,10 @@ import type {
 const QIMEN_LO_SHU_ORDER = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 const TAIYI_LO_SHU_ORDER = QIMEN_LO_SHU_ORDER;
 
+function formatYaoPosition(position: number) {
+  return ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][position - 1] ?? `${position}爻`;
+}
+
 function TraditionalBoardShell(props: {
   title: string;
   subtitle?: string;
@@ -29,7 +33,6 @@ function TraditionalBoardShell(props: {
     <section className={`traditional-board ${className}`.trim()}>
       <div className="traditional-board-head">
         <div>
-          <span className="traditional-board-kicker">传统盘</span>
           <h3>{title}</h3>
         </div>
         {subtitle ? <p>{subtitle}</p> : null}
@@ -81,19 +84,23 @@ function LiuyaoTraditionalBoard({ data }: { data: LiuyaoData }) {
   const changing = data.changingYaos
     ?.filter((item) => item.isChanging)
     .map((item) => item.position);
-
+  const changedTitle =
+    changing?.length && data.changedName && data.changedName !== data.originalName
+      ? ` · 之${data.changedName}`
+      : '';
   return (
     <TraditionalBoardShell
-      title={`${data.originalName}${data.changedName ? ` · 变${data.changedName}` : ''}`}
-      subtitle="纳甲六爻盘 · 上爻在上，初爻在下"
+      title={`${data.originalName}${changedTitle}`}
+      subtitle="纳甲六爻"
       className="traditional-liuyao-board"
     >
       <TraditionalMeta
         items={[
           ['卦宫', data.palace?.name ? `${data.palace.name}宫` : undefined],
-          ['卦序', data.palaceStage],
-          ['互卦', data.interName || '无'],
-          ['动爻', changing?.length ? changing.join('、') : '无'],
+          ['月建', data.ganzhi.month],
+          ['日辰', data.ganzhi.day],
+          ['世序', data.palaceStage],
+          ['动爻', changing?.length ? changing.map(formatYaoPosition).join('、') : '静卦'],
           ['旬空', data.voidBranches?.join('、') || '无'],
         ]}
       />
@@ -104,28 +111,23 @@ function LiuyaoTraditionalBoard({ data }: { data: LiuyaoData }) {
           <span>六亲</span>
           <span>爻象</span>
           <span>纳甲</span>
+          <span>化爻</span>
           <span>状态</span>
         </div>
         {rows.map((yao) => {
           const state = [
-            yao.isWorld ? '世' : '',
-            yao.isResponse ? '应' : '',
-            yao.isVoid ? '空' : '',
-            yao.isMonthBreak ? '月破' : '',
-            yao.isHiddenMove
-              ? '暗动'
-              : yao.isDayBreak
-                ? '日破'
-                : yao.isChanging && yao.isDayClash
-                  ? '日辰冲动'
-                  : '',
-          ].filter(Boolean);
+            [yao.isWorld, '世', 'is-primary'],
+            [yao.isResponse, '应', 'is-primary'],
+            [yao.isVoid, '空', 'is-muted'],
+            [yao.isMonthBreak, '月破', 'is-warning'],
+            [yao.isHiddenMove, '暗动', 'is-changing'],
+            [yao.isDayBreak, '日破', 'is-warning'],
+            [yao.isChanging && yao.isDayClash, '日辰冲动', 'is-changing'],
+          ].filter(([visible]) => visible) as Array<[boolean, string, string]>;
           const relation = yao.changeRelations?.join('、') || yao.changeRelation || '';
           return (
             <div className="traditional-liuyao-row" role="row" key={yao.position}>
-              <span className="traditional-yao-position">
-                {yao.position === 1 ? '初爻' : `${yao.position}爻`}
-              </span>
+              <span className="traditional-yao-position">{formatYaoPosition(yao.position)}</span>
               <span>{yao.sixGod || '—'}</span>
               <span>{yao.sixRelative || '—'}</span>
               <YaoLine yaoType={yao.yaoType} changing={yao.isChanging} />
@@ -133,15 +135,31 @@ function LiuyaoTraditionalBoard({ data }: { data: LiuyaoData }) {
                 {yao.najiaDizhi || '—'}
                 <small>{yao.wuxing || ''}</small>
               </span>
-              <span className="traditional-yao-status">
-                {state.length ? state.join(' · ') : '—'}
-                {relation ? <small>{relation}</small> : null}
+              <span className="traditional-changed-yao">
                 {yao.changedYao ? (
-                  <small>
+                  <>
                     化{yao.changedYao.dizhi}
-                    {yao.changedYao.wuxing}
-                  </small>
-                ) : null}
+                    <small>
+                      {yao.changedYao.wuxing}
+                      {relation ? ` · ${relation}` : ''}
+                    </small>
+                  </>
+                ) : (
+                  '—'
+                )}
+              </span>
+              <span className="traditional-yao-status">
+                {state.length ? (
+                  <span className="traditional-yao-status-tags">
+                    {state.map(([, label, tone]) => (
+                      <span className={tone} key={label}>
+                        {label}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  '—'
+                )}
               </span>
             </div>
           );
@@ -153,7 +171,8 @@ function LiuyaoTraditionalBoard({ data }: { data: LiuyaoData }) {
           <span>
             {data.hiddenSpirits
               .map(
-                (item) => `${item.sixRelative}伏${item.position}爻${item.najiaDizhi}${item.wuxing}`,
+                (item) =>
+                  `${item.sixRelative}伏${formatYaoPosition(item.position)}${item.najiaDizhi}${item.wuxing}`,
               )
               .join('；')}
           </span>
@@ -199,7 +218,7 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
   return (
     <TraditionalBoardShell
       title={data.mainHexagram.name}
-      subtitle="梅花易数三卦体用盘 · 主卦为本，互卦为过程，变卦为结果"
+      subtitle="梅花易数 · 体用、互卦与变卦"
       className="traditional-meihua-board"
     >
       <TraditionalMeta
@@ -421,7 +440,7 @@ function TarotTraditionalBoard({ data }: { data: TarotData }) {
   return (
     <TraditionalBoardShell
       title={data.spreadName}
-      subtitle={`塔罗牌阵 · ${data.cards.length}张 · 牌位按传统顺序展开`}
+      subtitle={`塔罗牌阵 · ${data.cards.length}张`}
       className="traditional-tarot-board"
     >
       <div className={`traditional-tarot-spread ${getTarotSpreadClass(data.spreadType)}`}>
@@ -489,7 +508,7 @@ function SsgwTraditionalBoard({ data }: { data: SsgwData }) {
   return (
     <TraditionalBoardShell
       title={`第${data.number}签 · ${data.title}`}
-      subtitle={`${data.ganzhi.day}日签 · 传统签谱盘面`}
+      subtitle={`${data.ganzhi.day}日签`}
       className="traditional-ssgw-board"
     >
       <div className="traditional-sign-card">
@@ -524,7 +543,7 @@ function AlmanacTraditionalBoard({ data }: { data: AlmanacData }) {
   return (
     <TraditionalBoardShell
       title={`${data.topicLabel}择日盘`}
-      subtitle={`${data.startDate} 至 ${data.endDate} · 以候选日干支、建除、星宿和宜忌并列展示`}
+      subtitle={`${data.startDate} 至 ${data.endDate}`}
       className="traditional-almanac-board"
     >
       <div className="traditional-almanac-grid" role="table" aria-label="黄历择日盘">
@@ -641,7 +660,7 @@ export function TraditionalDivinationBoard({ session }: { session: DivinationSes
       return (
         <TraditionalBoardShell
           title="本命星盘"
-          subtitle="黄道十二宫与主要相位盘面"
+          subtitle="黄道十二宫 · 主要相位"
           className="traditional-astrolabe-board"
         >
           <AstrolabeChart data={session.data as AstrolabeData} />

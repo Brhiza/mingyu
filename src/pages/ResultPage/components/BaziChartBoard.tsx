@@ -169,7 +169,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   ];
 
   return (
-    <section className="result-showcase-card bazi-showcase-card">
+    <section className="result-showcase-card bazi-showcase-card traditional-chart-layout">
       <div className="result-showcase-head">
         <div>
           <p className="result-section-kicker">{title}</p>

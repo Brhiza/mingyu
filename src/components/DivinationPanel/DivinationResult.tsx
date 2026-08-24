@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
@@ -14,7 +14,6 @@ import {
   WorkspaceButton,
 } from '@/components/workspace/WorkspaceUI';
 import { useViewportSize } from '@/hooks/useViewportWidth';
-import { getCompactDivinationSummary } from './compact-evidence';
 
 interface DivinationResultProps {
   isSubmitting: boolean;
@@ -197,10 +196,18 @@ export function DivinationResult({
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
   const viewportSize = useViewportSize({ width: 0, height: 0 });
+  const boardPaneRef = useRef<HTMLDivElement>(null);
   const isCompactResultLayout = viewportSize.width > 0 && viewportSize.width < 980;
   const showEmbeddedAssistant = !assistantOnly && !isCompactResultLayout;
   const showBoard = !assistantOnly;
   const showInterpretation = assistantOnly || showEmbeddedAssistant;
+
+  useEffect(() => {
+    const boardPane = boardPaneRef.current;
+    if (!boardPane) return;
+    boardPane.scrollTop = 0;
+    boardPane.scrollLeft = 0;
+  }, [assistantOnly, session?.prompt]);
 
   if (isSubmitting) {
     if (isAiEnabled) {
@@ -269,11 +276,19 @@ export function DivinationResult({
   }
 
   const isLiurenResult = session.method === 'liuren';
-  const compactSummary = getCompactDivinationSummary(summary);
-
-  // 前端只展示核对盘面所需的摘要；完整传统资料继续保留在提示词中。
   const resultBlock = (
     <section className="workspace-ui-surface is-plain divination-result-panel">
+      {onRestart ? (
+        <WorkspaceButton
+          className="divination-inline-restart"
+          size="small"
+          variant="ghost"
+          onClick={onRestart}
+        >
+          重新占问
+        </WorkspaceButton>
+      ) : null}
+
       {!isLiurenResult && showHeading ? (
         <div className="workspace-ui-panel-head">
           <h2>{summary.title}</h2>
@@ -285,26 +300,6 @@ export function DivinationResult({
       ) : null}
 
       <TraditionalDivinationBoard session={session} />
-
-      {!isLiurenResult ? (
-        <>
-          <div className="divination-tag-cloud">
-            {compactSummary.tags.map((item) => (
-              <span className="result-soft-tag" key={item}>
-                {item}
-              </span>
-            ))}
-          </div>
-
-          <div className="divination-summary-list">
-            {compactSummary.lines.map((item) => (
-              <div className="divination-summary-item" key={item}>
-                {item}
-              </div>
-            ))}
-          </div>
-        </>
-      ) : null}
 
       {session.method === 'liuren' ? <LiurenBoard data={session.data as LiurenData} /> : null}
     </section>
@@ -326,18 +321,12 @@ export function DivinationResult({
         ) : null
       ) : null}
 
-      {!assistantOnly && onRestart ? (
-        <div className="divination-result-navigation is-actions-only">
-          <div className="divination-result-actions">
-            <WorkspaceButton size="small" onClick={onRestart}>
-              重新占问
-            </WorkspaceButton>
-          </div>
-        </div>
-      ) : null}
-
       <div className="divination-result-stage">
-        {showBoard ? <div className="divination-result-board-pane">{resultBlock}</div> : null}
+        {showBoard ? (
+          <div className="divination-result-board-pane" ref={boardPaneRef}>
+            {resultBlock}
+          </div>
+        ) : null}
 
         {showInterpretation ? (
           <div
