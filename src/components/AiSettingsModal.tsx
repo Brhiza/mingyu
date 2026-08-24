@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from './workspace/WorkspaceUI';
+import { DropdownSelect } from './DropdownSelect';
 import { fetchAiModels } from '@/lib/ai/stream-client';
 import {
   AI_PROVIDER_PRESETS,
@@ -114,20 +115,19 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
 
         {draft.mode === 'custom' ? (
           <section className="ai-settings-section">
-            <label className="workspace-ui-field">
+            <div className="workspace-ui-field">
               <span>服务商</span>
-              <select
-                className="workspace-ui-control"
+              <DropdownSelect
                 value={draft.providerId}
-                onChange={(event) => applyProvider(event.target.value)}
-              >
-                {AI_PROVIDER_PRESETS.map((preset) => (
-                  <option value={preset.id} key={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                ariaLabel="服务商"
+                variant="field"
+                options={AI_PROVIDER_PRESETS.map((preset) => ({
+                  value: preset.id,
+                  label: preset.label,
+                }))}
+                onChange={applyProvider}
+              />
+            </div>
 
             <label className="workspace-ui-field">
               <span>接口地址</span>

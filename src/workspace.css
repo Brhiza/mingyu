@@ -1468,10 +1468,6 @@
   min-height: 38px;
 }
 
-.case-sort-select {
-  cursor: pointer;
-}
-
 .case-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));

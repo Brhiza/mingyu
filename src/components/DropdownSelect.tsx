@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 export type DropdownSelectOption<T extends string = string> = {
   value: T;
   label: string;
+  group?: string;
   disabled?: boolean;
 };
 
@@ -219,21 +220,27 @@ export function DropdownSelect<T extends string>({
               }}
             >
               {options.map((option, index) => (
-                <button
-                  id={`${menuId}-option-${index}`}
-                  key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={option.value === value}
-                  className={`workspace-ui-dropdown-option ${index === activeIndex ? 'is-active' : ''}`}
-                  disabled={option.disabled}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => selectOption(index)}
-                >
-                  <span>{option.label}</span>
-                  {option.value === value ? <span aria-hidden="true">✓</span> : null}
-                </button>
+                <div className="workspace-ui-dropdown-entry" key={option.value}>
+                  {option.group && option.group !== options[index - 1]?.group ? (
+                    <div className="workspace-ui-dropdown-group" role="presentation">
+                      {option.group}
+                    </div>
+                  ) : null}
+                  <button
+                    id={`${menuId}-option-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === value}
+                    className={`workspace-ui-dropdown-option ${index === activeIndex ? 'is-active' : ''}`}
+                    disabled={option.disabled}
+                    onPointerDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => selectOption(index)}
+                  >
+                    <span>{option.label}</span>
+                    {option.value === value ? <span aria-hidden="true">✓</span> : null}
+                  </button>
+                </div>
               ))}
             </div>,
             document.body,

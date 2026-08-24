@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from './workspace/WorkspaceUI';
+import { DropdownSelect } from './DropdownSelect';
 import {
   WORKSPACE_FEATURES,
   WORKSPACE_FEATURE_GROUPS,
@@ -59,31 +60,25 @@ export function WorkspaceSettingsModal({
       <div className="workspace-settings-layout">
         <section className="workspace-settings-section">
           <h3>首页首选</h3>
-          <label className="workspace-setting-field">
+          <div className="workspace-setting-field">
             <span>首选工具</span>
-            <select
-              className="workspace-ui-control"
+            <DropdownSelect
               value={draft.defaultFeature}
-              onChange={(event) =>
+              ariaLabel="首选工具"
+              variant="field"
+              options={WORKSPACE_FEATURES.map((feature) => ({
+                value: feature.id,
+                label: feature.label,
+                group: WORKSPACE_FEATURE_GROUPS.find((group) => group.id === feature.group)?.label,
+              }))}
+              onChange={(defaultFeature) =>
                 setDraft((current) => ({
                   ...current,
-                  defaultFeature: event.target.value as WorkspaceFeatureId,
+                  defaultFeature,
                 }))
               }
-            >
-              {WORKSPACE_FEATURE_GROUPS.map((group) => (
-                <optgroup label={group.label} key={group.id}>
-                  {WORKSPACE_FEATURES.filter((feature) => feature.group === group.id).map(
-                    (feature) => (
-                      <option value={feature.id} key={feature.id}>
-                        {feature.label}
-                      </option>
-                    ),
-                  )}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
 
           <p className="workspace-setting-note">
             首页会优先打开该工具所在的模式，并标出首选项。已选择全局案例时，排盘会直接使用该案例。

@@ -22,6 +22,7 @@ import {
 } from '@/components/workspace/WorkspaceUI';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from '@/lib/input-labels';
+import { DropdownSelect } from '@/components/DropdownSelect';
 
 type CaseSortMode = 'recent' | 'name' | 'birth';
 
@@ -241,16 +242,17 @@ export function CasePage() {
               aria-label="搜索案例"
               onChange={(event) => setSearchText(event.target.value)}
             />
-            <select
-              className="workspace-ui-control case-sort-select"
+            <DropdownSelect
               value={sortMode}
-              aria-label="案例排序"
-              onChange={(event) => setSortMode(event.target.value as CaseSortMode)}
-            >
-              <option value="recent">最近使用</option>
-              <option value="name">姓名顺序</option>
-              <option value="birth">出生日期</option>
-            </select>
+              ariaLabel="案例排序"
+              variant="field"
+              options={[
+                { value: 'recent', label: '最近使用' },
+                { value: 'name', label: '姓名顺序' },
+                { value: 'birth', label: '出生日期' },
+              ]}
+              onChange={setSortMode}
+            />
           </div>
 
           {visibleCases.length ? (

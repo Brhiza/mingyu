@@ -78,6 +78,7 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { PromptWorkbenchPanel } from '@/components/PromptPreview';
+import { DropdownSelect } from '@/components/DropdownSelect';
 import { normalizeChartInputForSource, preserveChartRecordId } from '@/lib/case-navigation';
 import { isInstantChartType, readInstantTimeStandard } from '@/lib/instant-chart';
 import {
@@ -93,31 +94,22 @@ type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
 function FortuneScopePresetSelect(props: {
   value: FortuneScopePreset;
   onChange: (value: FortuneScopePreset) => void;
-  className?: string;
   disabled?: boolean;
 }) {
-  const displayValue = props.value === 'manual' ? 'manual-current' : props.value;
-
   return (
-    <select
-      className={['workspace-ui-control', props.className].filter(Boolean).join(' ')}
-      value={displayValue}
-      onChange={(event) => {
-        if (event.target.value !== 'manual-current') {
-          props.onChange(event.target.value as FortuneScopePreset);
-        }
-      }}
+    <DropdownSelect
+      value={props.value}
+      options={[
+        { value: 'default', label: '本命（默认）' },
+        { value: 'recent', label: '近期' },
+        { value: 'all', label: '全部' },
+        { value: 'manual', label: '手动选择' },
+      ]}
+      onChange={props.onChange}
       disabled={props.disabled}
-      aria-label="年限选择"
-    >
-      <option value="default">默认</option>
-      <option value="recent">近期</option>
-      <option value="all">全部</option>
-      <option value="manual">手动</option>
-      <option value="manual-current" hidden>
-        手动
-      </option>
-    </select>
+      ariaLabel="年限选择"
+      variant="field"
+    />
   );
 }
 
@@ -1507,7 +1499,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     <div className="workspace-prompt-scope">
       <div className="workspace-prompt-subheading">
         <strong>解读范围</strong>
-        <small>需要看近期或指定时间时再调整。</small>
+        <small>默认含完整本命资料，选择其他范围会追加相应岁运。</small>
       </div>
       <div className="prompt-compact-grid">
         {(promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
