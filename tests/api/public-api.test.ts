@@ -4035,7 +4035,7 @@ test('公开 API 黄历择日提示词不强制填写问题', async () => {
     /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|毒气入肠|大凶|辅助加分/,
   );
   assert.doesNotMatch(body.data.prompt, /【问题】/);
-  assert.match(body.data.prompt, /给出首选日期、备选日期和慎用日期/);
+  assert.match(body.data.prompt, /给出首选、备选与慎用日期/);
   assert.doesNotMatch(body.data.prompt, /先直接回答【问题】/);
 });
 
@@ -4069,7 +4069,7 @@ test('公开 API 黄历择日支持分页和轻量模式', async () => {
   }
 });
 
-test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范围请求', async () => {
+test('公开 API 黄历提示词显式分页时应包含当前页全部候选日期', async () => {
   const { response, body } = await callApi('divination/almanac/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -4254,15 +4254,12 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   );
   assert.match(body.data.prompt, /候选日期：2026-06-01 至 2026-06-30/);
   const promptCandidateDates = Array.from(
-    body.data.prompt.matchAll(/第\d+候选：(\d{4}-\d{2}-\d{2})/g),
+    body.data.prompt.matchAll(/第\d+日：(\d{4}-\d{2}-\d{2})/g),
     (match) => match[1],
   );
-  assert.ok(promptCandidateDates.length >= 1 && promptCandidateDates.length <= 3);
-  assert.ok(
-    promptCandidateDates.every((date) =>
-      body.data.result.days.some((day: { date: string }) => day.date === date),
-    ),
-  );
+  const resultDates = body.data.result.days.map((day: { date: string }) => day.date);
+  assert.equal(promptCandidateDates.length, 5);
+  assert.deepEqual(promptCandidateDates, resultDates);
 });
 
 test('公开 API 占卜自定义提示词保留方法任务和通用短框架', async () => {

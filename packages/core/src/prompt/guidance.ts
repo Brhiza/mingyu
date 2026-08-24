@@ -79,7 +79,7 @@ export const PROMPT_GUIDANCE_TEXT = {
     sources: '参考潮汕三山国王庙宇签文化及当前签诗资料。',
   },
   almanac: {
-    tradition: '择日以事项宜忌与直接冲犯为先，建除、十二神、宿曜及参与人刑冲破害互参。',
+    tradition: '择日以原始宜忌与直接冲犯为先，建除、十二神、宿曜及参与人刑冲破害互参。',
     sources: '参考《钦定协纪辨方书》《选择要略》等择日资料。',
   },
   astrolabe: {
