@@ -1890,54 +1890,26 @@
   gap: 12px;
 }
 
-.workspace-home-context {
+.workspace-home-case-select {
   flex: 0 1 190px;
+  width: 190px;
   min-width: 0;
   max-width: 220px;
+}
+
+.workspace-home-case-select .workspace-ui-dropdown-trigger.is-field {
   min-height: 36px;
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 4px;
-  border: 0;
+  padding: 6px 28px 6px 9px;
+  border-color: transparent;
   border-radius: 9px;
-  background: var(--surface-base);
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-}
-
-.workspace-home-context:hover {
-  border-color: var(--border-contrast);
-  background: var(--accent-surface);
-}
-
-.workspace-home-context-mark {
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--accent-surface);
-  color: var(--accent-deep);
-  font-size: 10px;
-  font-weight: 850;
-}
-
-.workspace-home-context strong {
-  overflow: hidden;
-  color: var(--text-secondary);
+  background-color: var(--surface-base);
   font-size: 11px;
-  font-weight: 700;
+}
+
+.workspace-home-case-select .workspace-ui-dropdown-trigger > span:last-child {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.workspace-home-context-action {
-  color: var(--accent-strong);
-  font-size: 11px;
-  font-weight: 750;
 }
 
 .workspace-home-composer {
@@ -2111,8 +2083,9 @@
     margin-left: auto;
   }
 
-  .workspace-home-context {
+  .workspace-home-case-select {
     flex: 1 1 auto;
+    width: auto;
     max-width: none;
   }
 

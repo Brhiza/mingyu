@@ -288,6 +288,19 @@ export function WorkspaceShell() {
                 <strong>首页</strong>
               </span>
             </button>
+            <button
+              type="button"
+              className={location.pathname === '/cases' ? 'is-active' : ''}
+              onClick={() => navigate('/cases')}
+              aria-current={location.pathname === '/cases' ? 'page' : undefined}
+            >
+              <span className="workspace-nav-mark" aria-hidden="true">
+                案
+              </span>
+              <span className="workspace-nav-copy">
+                <strong>案例</strong>
+              </span>
+            </button>
           </div>
           {WORKSPACE_FEATURE_GROUPS.map((group) => {
             const features = orderedFeatures.filter((feature) => feature.group === group.id);

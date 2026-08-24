@@ -9,6 +9,7 @@ import { DropdownSelect, type DropdownSelectOption } from '@/components/Dropdown
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { buildChartFeaturePathForCase } from '@/lib/case-navigation';
+import { sortPersonalCasesForQuickSwitch } from '@/lib/history-records';
 import { defaultInputState, type QueryInputState } from '@/lib/query-state';
 import {
   buildFrontendInstantObserver,
@@ -57,10 +58,12 @@ const instantTimeOptions: DropdownSelectOption<InstantTimeStandard>[] = [
   { value: 'true-solar', label: '真太阳时', triggerLabel: '真太阳' },
 ];
 
+const TEMPORARY_CASE_VALUE = '__temporary_case__';
+
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { cases, activeCase } = useActivePersonalCase();
+  const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [questionDraft, setQuestionDraft] = useState('');
   const [selectedChartFeature, setSelectedChartFeature] = useState<ChartWorkspaceId>(() =>
@@ -114,6 +117,21 @@ export function HomePage() {
         label: definition.label,
       })),
     [],
+  );
+  const caseOptions = useMemo<DropdownSelectOption<string>[]>(
+    () => [
+      {
+        value: TEMPORARY_CASE_VALUE,
+        label: '不指定案例',
+        triggerLabel: '临时档案',
+      },
+      ...sortPersonalCasesForQuickSwitch(cases).map((record) => ({
+        value: record.id,
+        label: `${record.name} · ${record.birthText}`,
+        triggerLabel: record.name,
+      })),
+    ],
+    [cases],
   );
   useEffect(() => {
     const syncPreferences = () => setPreferences(readWorkspacePreferences());
@@ -299,20 +317,16 @@ export function HomePage() {
                 />
               </div>
               {activeMode !== 'instant' ? (
-                <button
-                  type="button"
-                  className="workspace-home-context"
-                  title={activeCase?.birthText || '不关联案例'}
-                  onClick={() => navigate(cases.length ? '/cases' : '/cases?new=1')}
-                >
-                  <span className="workspace-home-context-mark" aria-hidden="true">
-                    {activeCase?.name.slice(0, 1) || '临'}
-                  </span>
-                  <strong>{activeCase?.name || '临时档案'}</strong>
-                  <span className="workspace-home-context-action" aria-hidden="true">
-                    ›
-                  </span>
-                </button>
+                <div className="workspace-home-case-select">
+                  <DropdownSelect<string>
+                    value={activeCaseId ?? TEMPORARY_CASE_VALUE}
+                    options={caseOptions}
+                    onChange={(value) => selectCase(value === TEMPORARY_CASE_VALUE ? null : value)}
+                    ariaLabel="切换案例"
+                    prefix="案例"
+                    variant="field"
+                  />
+                </div>
               ) : (
                 <div className="workspace-home-time-context">
                   <time
