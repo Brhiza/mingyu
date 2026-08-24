@@ -4027,6 +4027,7 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   const session = await generateDivinationSession(
     buildDraft({
       method: 'taiyi',
+      divinationTimeMode: 'custom',
       taiyiYear: '2004',
       question: '这一年更适合主动推进还是稳守？',
     }),
@@ -4053,13 +4054,30 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.doesNotMatch(session.prompt, /【输出要求】/);
 });
 
-test('太乙神数占卜入口应拒绝空年份和超出网页支持范围的年份', async () => {
+test('太乙神数年计自定时间应拒绝空年份和超出网页支持范围的年份', async () => {
   for (const value of ['', '1899', '2201']) {
     await assert.rejects(
-      () => generateDivinationSession(buildDraft({ method: 'taiyi', taiyiYear: value })),
+      () =>
+        generateDivinationSession(
+          buildDraft({ method: 'taiyi', divinationTimeMode: 'custom', taiyiYear: value }),
+        ),
       /太乙年计年份/,
     );
   }
+});
+
+test('太乙神数年计与其他计式应统一支持当前时间', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({ method: 'taiyi', taiyiYear: '', divinationTimeMode: 'current' }),
+  );
+  const currentBeijingYear = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+  }).format(new Date());
+  const data = session.data as TaiyiResult;
+
+  assert.equal(data.scope, 'year');
+  assert.match(data.dateTime, new RegExp(`^${currentBeijingYear}-`));
 });
 
 test('太乙神数占卜入口应支持月日时四计并使用起局时间', async () => {

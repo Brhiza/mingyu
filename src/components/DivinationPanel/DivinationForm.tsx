@@ -123,7 +123,7 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   }
 
   if (draft.method === 'taiyi') {
-    return (draft.taiyiScope ?? 'year') !== 'year';
+    return true;
   }
 
   if (draft.method === 'meihua' || draft.method === 'xiaoliuren' || draft.method === 'jinkoujue') {
@@ -1191,53 +1191,53 @@ export function DivinationForm({
           ) : null}
 
           {isTimeBasedDivination && divinationTimeMode === 'custom' ? (
-            <div className="divination-extra-panel divination-time-panel">
-              <div className="form-row-flex">
-                <div className="form-item">
-                  <label htmlFor="custom-divination-date-input">{timeActionLabel}日期</label>
-                  <input
-                    id="custom-divination-date-input"
-                    type="date"
-                    className="form-input"
-                    value={draft.customDivinationDate ?? ''}
-                    onChange={(event) => updateDraft('customDivinationDate', event.target.value)}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="custom-divination-time-input">
-                    {timeActionLabel}时间（北京时间）
-                  </label>
-                  <input
-                    id="custom-divination-time-input"
-                    type="time"
-                    className="form-input"
-                    value={draft.customDivinationTime ?? ''}
-                    onChange={(event) => updateDraft('customDivinationTime', event.target.value)}
-                  />
+            draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year' ? (
+              <div className="divination-extra-panel divination-time-panel">
+                <div className="form-row">
+                  <div className="form-item">
+                    <label htmlFor="taiyi-year-input">{timeActionLabel}年份</label>
+                    <input
+                      id="taiyi-year-input"
+                      type="text"
+                      inputMode="numeric"
+                      className="form-input"
+                      placeholder="例如 2026"
+                      value={draft.taiyiYear}
+                      onChange={(event) =>
+                        updateDraft('taiyiYear', event.target.value.replace(/[^\d]/g, ''))
+                      }
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : null}
-
-          {draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year' ? (
-            <div className="divination-extra-panel">
-              <div className="form-row">
-                <div className="form-item">
-                  <label htmlFor="taiyi-year-input">公历年份</label>
-                  <input
-                    id="taiyi-year-input"
-                    type="text"
-                    inputMode="numeric"
-                    className="form-input"
-                    placeholder="例如 2026"
-                    value={draft.taiyiYear}
-                    onChange={(event) =>
-                      updateDraft('taiyiYear', event.target.value.replace(/[^\d]/g, ''))
-                    }
-                  />
+            ) : (
+              <div className="divination-extra-panel divination-time-panel">
+                <div className="form-row-flex">
+                  <div className="form-item">
+                    <label htmlFor="custom-divination-date-input">{timeActionLabel}日期</label>
+                    <input
+                      id="custom-divination-date-input"
+                      type="date"
+                      className="form-input"
+                      value={draft.customDivinationDate ?? ''}
+                      onChange={(event) => updateDraft('customDivinationDate', event.target.value)}
+                    />
+                  </div>
+                  <div className="form-item">
+                    <label htmlFor="custom-divination-time-input">
+                      {timeActionLabel}时间（北京时间）
+                    </label>
+                    <input
+                      id="custom-divination-time-input"
+                      type="time"
+                      className="form-input"
+                      value={draft.customDivinationTime ?? ''}
+                      onChange={(event) => updateDraft('customDivinationTime', event.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           ) : null}
 
           {draft.method !== 'almanac' &&

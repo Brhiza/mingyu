@@ -337,12 +337,13 @@ function validateDraft(draft: DivinationDraft) {
     throw new Error('请选择金口诀地分');
   }
 
-  if (draft.method === 'taiyi') {
-    const scope = draft.taiyiScope ?? 'year';
-    if (scope === 'year') {
-      const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
-      assertNumberRange(year, '太乙年计年份', 1900, 2200);
-    }
+  if (
+    draft.method === 'taiyi' &&
+    (draft.taiyiScope ?? 'year') === 'year' &&
+    draft.divinationTimeMode === 'custom'
+  ) {
+    const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
+    assertNumberRange(year, '太乙年计年份', 1900, 2200);
   }
 
   if (draft.method === 'almanac') {
@@ -519,7 +520,24 @@ function resolveCustomDivinationDate(
     return undefined;
   }
 
+  if (method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year') {
+    return undefined;
+  }
+
   return readCustomDivinationDate(draft);
+}
+
+function resolveTaiyiYear(draft: DivinationDraft): number {
+  if (draft.divinationTimeMode === 'custom') {
+    return readIntegerText(draft.taiyiYear, '太乙年计年份');
+  }
+
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+    }).format(new Date()),
+  );
 }
 
 function validateDateRange(startDate: string, endDate: string) {
@@ -642,7 +660,7 @@ export async function generateDivinationSession(
         scope === 'year'
           ? {
               scope,
-              year: readIntegerText(draft.taiyiYear, '太乙年计年份'),
+              year: resolveTaiyiYear(draft),
             }
           : {
               scope,
