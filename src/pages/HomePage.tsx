@@ -6,6 +6,10 @@ import {
   type InstantTimeStandard,
 } from 'mingyu-core/instant';
 import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
+import {
+  QuestionInspirationModal,
+  type QuestionInspirationSection,
+} from '@/components/QuestionInspirationModal';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
@@ -18,6 +22,10 @@ import {
   isInstantChartType,
 } from '@/lib/instant-chart';
 import { buildWorkspaceLaunchState } from '@/lib/workspace-launch';
+import {
+  commonQuestionInspirations,
+  inspirationCategories,
+} from '@/pages/ResultPage/ResultPage.constants';
 import {
   HOME_MODE_DEFINITIONS,
   WORKSPACE_PREFERENCES_EVENT,
@@ -55,7 +63,8 @@ const instantTimeOptions: DropdownSelectOption<InstantTimeStandard>[] = [
 
 const TEMPORARY_CASE_VALUE = '__temporary_case__';
 const DONATION_URL = 'https://lk.sydf.cc/';
-const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
+const isDonationBoxEnabled =
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -63,6 +72,11 @@ export function HomePage() {
   const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [questionDraft, setQuestionDraft] = useState('');
+  const [supplementaryInfoDraft, setSupplementaryInfoDraft] = useState('');
+  const [isSupplementaryInfoOpen, setIsSupplementaryInfoOpen] = useState(false);
+  const [isQuestionInspirationOpen, setIsQuestionInspirationOpen] = useState(false);
+  const [inspirationCategory, setInspirationCategory] = useState('近期');
+  const [inspirationSearch, setInspirationSearch] = useState('');
   const [selectedChartFeature, setSelectedChartFeature] = useState<ChartWorkspaceId>(
     preferences.defaultChartFeature,
   );
@@ -77,6 +91,7 @@ export function HomePage() {
   const [pendingInstantLaunch, setPendingInstantLaunch] = useState<{
     type: InstantChartType;
     question: string;
+    supplementaryInfo: string;
   } | null>(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const instantBirthPlace = useBirthPlace({ form: instantPlaceForm, setForm: setInstantPlaceForm });
@@ -137,6 +152,25 @@ export function HomePage() {
     ],
     [cases],
   );
+  const inspirationSections = useMemo<QuestionInspirationSection[]>(() => {
+    const keyword = inspirationSearch.trim();
+    return inspirationCategories
+      .filter((category) => category !== '全部')
+      .filter((category) => inspirationCategory === '全部' || category === inspirationCategory)
+      .map((category) => ({
+        id: category,
+        heading: category,
+        items: commonQuestionInspirations
+          .filter(
+            (item) => item.category === category && (!keyword || item.question.includes(keyword)),
+          )
+          .map((item, index) => ({
+            id: `${category}-${index}`,
+            question: item.question,
+          })),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [inspirationCategory, inspirationSearch]);
   useEffect(() => {
     const syncPreferences = () => setPreferences(readWorkspacePreferences());
     window.addEventListener('storage', syncPreferences);
@@ -167,13 +201,16 @@ export function HomePage() {
     });
     const record = addInstantHistory({
       question: launch.question,
+      supplementaryInfo: launch.supplementaryInfo,
       instantType: launch.type,
       timeStandard: instantTimeStandard,
       path: resultPath,
     });
     if (!record) return;
     navigate(buildDivinationRecordPath(record), {
-      state: buildWorkspaceLaunchState(launch.question),
+      state: buildWorkspaceLaunchState(launch.question, {
+        supplementaryInfo: launch.supplementaryInfo,
+      }),
     });
   }, [
     instantBirthPlace.isBirthPlaceModalOpen,
@@ -216,10 +253,10 @@ export function HomePage() {
     setPreferences(saveWorkspacePreferences(nextPreferences));
   }
 
-  function openInstantChart(type: InstantChartType, question: string) {
+  function openInstantChart(type: InstantChartType, question: string, supplementaryInfo: string) {
     const observer = buildFrontendInstantObserver(instantPlaceForm);
     if (instantChartNeedsObserver(type, instantTimeStandard) && !observer) {
-      setPendingInstantLaunch({ type, question });
+      setPendingInstantLaunch({ type, question, supplementaryInfo });
       instantBirthPlace.openBirthPlaceModal('self');
       return;
     }
@@ -230,23 +267,27 @@ export function HomePage() {
     });
     const record = addInstantHistory({
       question,
+      supplementaryInfo,
       instantType: type,
       timeStandard: instantTimeStandard,
       path: resultPath,
     });
     if (!record) return;
-    navigate(buildDivinationRecordPath(record), { state: buildWorkspaceLaunchState(question) });
+    navigate(buildDivinationRecordPath(record), {
+      state: buildWorkspaceLaunchState(question, { supplementaryInfo }),
+    });
   }
 
   function launchSelected() {
     const question = questionDraft.trim();
+    const supplementaryInfo = supplementaryInfoDraft.trim();
     if (!question) return;
     if (activeMode === 'chart') {
       navigate(
         activeCase
           ? buildChartFeaturePathForCase(activeCase, selectedChartFeature)
           : buildWorkspaceFeaturePath(selectedChartFeature),
-        { state: buildWorkspaceLaunchState(question) },
+        { state: buildWorkspaceLaunchState(question, { supplementaryInfo }) },
       );
       return;
     }
@@ -254,11 +295,12 @@ export function HomePage() {
       navigate(buildWorkspaceFeaturePath(selectedDivinationFeature), {
         state: buildWorkspaceLaunchState(question, {
           autoSubmit: Boolean(question) && selectedDivinationFeature !== 'almanac',
+          supplementaryInfo,
         }),
       });
       return;
     }
-    openInstantChart(selectedInstantType, question);
+    openInstantChart(selectedInstantType, question, supplementaryInfo);
   }
 
   const selectedAlgorithm =
@@ -360,6 +402,36 @@ export function HomePage() {
                 }
               }}
             />
+            <div className="workspace-home-question-tools" aria-label="问题辅助工具">
+              <button type="button" onClick={() => setIsQuestionInspirationOpen(true)}>
+                问题灵感
+              </button>
+              <button
+                type="button"
+                className={
+                  isSupplementaryInfoOpen || supplementaryInfoDraft.trim() ? 'is-active' : ''
+                }
+                aria-expanded={isSupplementaryInfoOpen}
+                aria-controls="workspace-home-supplementary-info"
+                onClick={() => setIsSupplementaryInfoOpen((current) => !current)}
+              >
+                补充信息{supplementaryInfoDraft.trim() ? ' · 已填写' : ''}
+              </button>
+            </div>
+            {isSupplementaryInfoOpen ? (
+              <div
+                id="workspace-home-supplementary-info"
+                className="workspace-home-supplementary-info"
+              >
+                <textarea
+                  rows={2}
+                  value={supplementaryInfoDraft}
+                  aria-label="补充信息"
+                  placeholder="补充背景、已知情况、限制或期待结果（可选）"
+                  onChange={(event) => setSupplementaryInfoDraft(event.target.value)}
+                />
+              </div>
+            ) : null}
             <div className="workspace-home-composer-footer">
               <div className="workspace-home-algorithm">
                 <DropdownSelect<string>
@@ -439,6 +511,26 @@ export function HomePage() {
       </div>
       {instantBirthPlace.isBirthPlaceModalOpen ? (
         <BirthPlaceModal birthPlace={instantBirthPlace} purpose="observer" />
+      ) : null}
+      {isQuestionInspirationOpen ? (
+        <QuestionInspirationModal
+          filters={inspirationCategories.map((category) => ({
+            label: category,
+            value: category,
+          }))}
+          activeFilter={inspirationCategory}
+          onFilterChange={setInspirationCategory}
+          searchValue={inspirationSearch}
+          onSearchChange={setInspirationSearch}
+          sections={inspirationSections}
+          emptyText="没有找到匹配的问题"
+          selectedQuestion={questionDraft.trim()}
+          onSelect={(question) => {
+            setQuestionDraft(question);
+            setIsQuestionInspirationOpen(false);
+          }}
+          onClose={() => setIsQuestionInspirationOpen(false)}
+        />
       ) : null}
     </div>
   );

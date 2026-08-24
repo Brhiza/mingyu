@@ -65,6 +65,7 @@ export type InstantHistoryRecord = {
   id: string;
   type: 'instant';
   question: string;
+  supplementaryInfo?: string;
   instantType: InstantChartType;
   timeStandard: InstantTimeStandard;
   path: string;
@@ -581,6 +582,7 @@ export function addDivinationHistory(
 
 export function addInstantHistory(options: {
   question: string;
+  supplementaryInfo?: string;
   instantType: InstantChartType;
   timeStandard: InstantTimeStandard;
   path: string;
@@ -598,6 +600,9 @@ export function addInstantHistory(options: {
     id,
     type: 'instant',
     question,
+    ...(options.supplementaryInfo?.trim()
+      ? { supplementaryInfo: options.supplementaryInfo.trim() }
+      : {}),
     instantType: options.instantType,
     timeStandard: options.timeStandard,
     path: `${pathname}?${params.toString()}`,

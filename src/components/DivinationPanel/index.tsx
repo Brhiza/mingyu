@@ -37,6 +37,7 @@ type DivinationPanelProps = {
   displayMode?: 'workspace' | 'input' | 'result';
   assistantOnly?: boolean;
   initialQuestion?: string;
+  initialSupplementaryInfo?: string;
   autoSubmit?: boolean;
   onGenerated?: (recordId: string, requestedMethod: DivinationDraft['method']) => void;
   onOpenAssistant?: () => void;
@@ -66,6 +67,7 @@ function getDefaultAlmanacDateRange() {
 function createDefaultDraft(
   method?: DivinationPanelProps['initialMethod'],
   initialQuestion?: string,
+  initialSupplementaryInfo?: string,
 ): DivinationDraft {
   return {
     ...defaultDraft,
@@ -73,6 +75,9 @@ function createDefaultDraft(
     ...(method === 'almanac' ? getDefaultAlmanacDateRange() : {}),
     ...(initialQuestion?.trim()
       ? { question: initialQuestion.trim(), questionSource: 'custom' as const }
+      : {}),
+    ...(initialSupplementaryInfo?.trim()
+      ? { userSupplement: initialSupplementaryInfo.trim() }
       : {}),
   };
 }
@@ -83,6 +88,7 @@ export function DivinationPanel({
   displayMode = 'workspace',
   assistantOnly = false,
   initialQuestion,
+  initialSupplementaryInfo,
   autoSubmit = false,
   onGenerated,
   onOpenAssistant,
@@ -94,7 +100,7 @@ export function DivinationPanel({
   const { activeCase, cases } = useActivePersonalCase();
   const [draft, setDraft] = useState<DivinationDraft>(() =>
     applyPersonalCaseToDivinationDraft(
-      createDefaultDraft(initialMethod, initialQuestion),
+      createDefaultDraft(initialMethod, initialQuestion, initialSupplementaryInfo),
       activeCase,
     ),
   );

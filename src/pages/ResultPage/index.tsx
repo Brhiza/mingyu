@@ -98,7 +98,7 @@ import {
   buildInstantQizhengPrompt,
   buildInstantZiweiPrompt,
 } from '@/lib/instant-prompt';
-import { readWorkspaceLaunchState } from '@/lib/workspace-launch';
+import { buildWorkspaceLaunchQuestion, readWorkspaceLaunchState } from '@/lib/workspace-launch';
 import { getConsultationHistoryById } from '@/lib/history-records';
 
 type FortuneScopePreset = 'default' | 'dayun' | 'year' | 'month' | 'day' | 'all' | 'manual';
@@ -212,14 +212,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const isInstantResult = isInstantChartType(instantChartType);
   const instantTimeStandard = readInstantTimeStandard(searchParams.get('its'));
   const instantTimeBasisLabel = instantTimeStandard === 'true-solar' ? '真太阳时' : '北京时间';
-  const instantHistoryQuestion = useMemo(() => {
-    if (!isInstantResult) return '';
+  const instantHistoryContext = useMemo(() => {
+    if (!isInstantResult) return { question: '', supplementaryInfo: '' };
     const recordId = searchParams.get('record');
-    if (!recordId) return '';
+    if (!recordId) return { question: '', supplementaryInfo: '' };
     const record = getConsultationHistoryById(recordId);
-    return record?.type === 'instant' ? record.question : '';
+    return record?.type === 'instant'
+      ? { question: record.question, supplementaryInfo: record.supplementaryInfo ?? '' }
+      : { question: '', supplementaryInfo: '' };
   }, [isInstantResult, searchParams]);
-  const initialQuestion = launchState.initialQuestion || instantHistoryQuestion;
+  const initialQuestion = buildWorkspaceLaunchQuestion(
+    launchState.initialQuestion || instantHistoryContext.question,
+    launchState.initialSupplementaryInfo || instantHistoryContext.supplementaryInfo,
+  );
   const promptState = useMemo(() => parsePromptState(searchParams), [searchParams]);
   const inputState = useMemo(
     () => normalizeChartInputForSource(parseInputState(searchParams), promptState.promptSource),

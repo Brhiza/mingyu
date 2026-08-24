@@ -327,7 +327,11 @@ export function InputPage() {
           },
           recordId,
         ),
-        { state: buildWorkspaceLaunchState(launchState.initialQuestion) },
+        {
+          state: buildWorkspaceLaunchState(launchState.initialQuestion, {
+            supplementaryInfo: launchState.initialSupplementaryInfo,
+          }),
+        },
       );
     });
   }
@@ -355,7 +359,11 @@ export function InputPage() {
           timeStandard: instantTimeStandard,
           observer,
         }),
-        { state: buildWorkspaceLaunchState(launchState.initialQuestion) },
+        {
+          state: buildWorkspaceLaunchState(launchState.initialQuestion, {
+            supplementaryInfo: launchState.initialSupplementaryInfo,
+          }),
+        },
       );
     });
   }

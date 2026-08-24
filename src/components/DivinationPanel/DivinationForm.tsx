@@ -1133,6 +1133,7 @@ export function DivinationForm({
             <summary>补充信息（可选）</summary>
             <div className="form-row">
               {[
+                ['userSupplement', '补充说明', '补充与问题直接相关的背景或细节。'],
                 ['currentSituation', '当前情况', '例如：正在考虑换工作，已经拿到一个新机会。'],
                 ['currentState', '当前状态', '例如：时间紧、压力较大，但仍有一定选择空间。'],
                 ['knownFacts', '已知事实', '例如：对方已明确报价，合同尚未签署。'],

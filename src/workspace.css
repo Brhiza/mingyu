@@ -1966,10 +1966,10 @@
 }
 
 .workspace-home-case-select {
-  flex: 0 1 190px;
-  width: 190px;
+  flex: 0 1 128px;
+  width: 128px;
   min-width: 0;
-  max-width: 220px;
+  max-width: 148px;
 }
 
 .workspace-home-case-select .workspace-ui-dropdown-trigger.is-field {
@@ -2022,6 +2022,56 @@
   opacity: 0.78;
 }
 
+.workspace-home-question-tools {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 14px 9px;
+}
+
+.workspace-home-question-tools button {
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspace-home-question-tools button:hover,
+.workspace-home-question-tools button.is-active {
+  background: var(--accent-surface);
+  color: var(--accent-deep);
+}
+
+.workspace-home-supplementary-info {
+  padding: 0 14px 10px;
+}
+
+.workspace-home-supplementary-info textarea {
+  width: 100%;
+  min-height: 66px;
+  display: block;
+  resize: vertical;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 10px;
+  outline: 0;
+  background: var(--surface-soft);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.workspace-home-supplementary-info textarea::placeholder {
+  color: var(--text-muted);
+}
+
 .workspace-home-composer-footer {
   display: flex;
   align-items: center;
@@ -2032,8 +2082,8 @@
 }
 
 .workspace-home-algorithm {
-  flex: 0 1 160px;
-  width: 160px;
+  flex: 0 1 132px;
+  width: 132px;
   min-width: 0;
 }
 
@@ -2217,9 +2267,28 @@
     padding: 6px;
   }
 
+  .workspace-home-question-tools {
+    padding: 0 11px 7px;
+  }
+
+  .workspace-home-question-tools button {
+    min-height: 27px;
+    padding-inline: 8px;
+  }
+
+  .workspace-home-supplementary-info {
+    padding: 0 11px 8px;
+  }
+
+  .workspace-home-supplementary-info textarea {
+    min-height: 58px;
+    resize: none;
+    font-size: 14px;
+  }
+
   .workspace-home-algorithm {
-    flex-basis: 112px;
-    width: 112px;
+    flex: 0 1 104px;
+    width: 104px;
   }
 
   .workspace-home-launch {
@@ -2233,9 +2302,9 @@
   }
 
   .workspace-home-case-select {
-    flex: 1 1 auto;
-    width: auto;
-    max-width: none;
+    flex: 0 1 112px;
+    width: 112px;
+    max-width: 124px;
   }
 
   .workspace-home-time-context {

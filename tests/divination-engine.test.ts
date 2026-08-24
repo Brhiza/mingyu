@@ -4065,6 +4065,18 @@ test('前端把求测人基本资料用于解读，并避免与专用出生资�
   assert.doesNotMatch(astrolabeSession.prompt, /出生年份|1888/);
 });
 
+test('首页填写的补充信息会进入占问提示词', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'liuyao',
+      userSupplement: '已经拿到新工作的书面邀约，但需要在两周内答复。',
+    }),
+  );
+
+  assert.match(session.prompt, /【补充信息】/);
+  assert.match(session.prompt, /现实背景：已经拿到新工作的书面邀约，但需要在两周内答复。/);
+});
+
 test('太乙神数作为占卜方法应生成完整年计盘与时间层级提示', async () => {
   const session = await generateDivinationSession(
     buildDraft({

@@ -73,6 +73,7 @@ export type DivinationDraft = {
   knownFacts?: string;
   desiredOutcome?: string;
   constraints?: string;
+  userSupplement?: string;
   gender: '' | '男' | '女';
   birthYear: string;
   divinationTimeMode?: 'current' | 'custom';
@@ -271,8 +272,11 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
         : {}),
     };
   }
+  const userSupplement = draft.userSupplement?.trim();
   if (draft.method === 'almanac' && draft.question.trim()) {
-    info.userSupplement = draft.question.trim();
+    info.userSupplement = [draft.question.trim(), userSupplement].filter(Boolean).join('\n');
+  } else if (userSupplement) {
+    info.userSupplement = userSupplement;
   }
   const contextFields = [
     ['currentSituation', draft.currentSituation],

@@ -25,6 +25,7 @@ export function DivinationPage() {
         lockedMethod={method}
         displayMode="input"
         initialQuestion={launchState.initialQuestion}
+        initialSupplementaryInfo={launchState.initialSupplementaryInfo}
         autoSubmit={launchState.autoSubmit}
         onGenerated={(recordId, requestedMethod) =>
           navigate(`/divination/${requestedMethod}/result?record=${encodeURIComponent(recordId)}`)
