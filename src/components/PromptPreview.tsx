@@ -4,11 +4,16 @@ import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 interface PromptPreviewProps {
   promptText: string;
   fallback?: ReactNode;
+  expandedByDefault?: boolean;
 }
 
-export function PromptPreview({ promptText, fallback = null }: PromptPreviewProps) {
+export function PromptPreview({
+  promptText,
+  fallback = null,
+  expandedByDefault = false,
+}: PromptPreviewProps) {
   return (
-    <details className="workspace-prompt-preview">
+    <details className="workspace-prompt-preview" open={expandedByDefault}>
       <summary className="workspace-prompt-preview-summary">
         <span>{promptText ? '查看完整提问内容' : '正在整理提问内容'}</span>
         <small>通常无需查看</small>
@@ -32,6 +37,7 @@ interface PromptDeliveryPanelProps extends PromptPreviewProps {
   onCopy: () => void;
   onShare: () => void;
   question?: string;
+  showShare?: boolean;
 }
 
 function CopyIcon() {
@@ -60,9 +66,12 @@ function PromptActionButtons(props: {
   shareState: string;
   onCopy: () => void;
   onShare: () => void;
+  showShare?: boolean;
 }) {
   return (
-    <div className="workspace-prompt-delivery-actions">
+    <div
+      className={`workspace-prompt-delivery-actions${props.showShare === false ? ' is-single' : ''}`}
+    >
       <WorkspaceButton
         className="workspace-prompt-delivery-button"
         variant="primary"
@@ -73,15 +82,17 @@ function PromptActionButtons(props: {
         <CopyIcon />
         <span>{props.copyState}</span>
       </WorkspaceButton>
-      <WorkspaceButton
-        className="workspace-prompt-delivery-button"
-        size="large"
-        disabled={!props.promptText}
-        onClick={props.onShare}
-      >
-        <ShareIcon />
-        <span>{props.shareState}</span>
-      </WorkspaceButton>
+      {props.showShare === false ? null : (
+        <WorkspaceButton
+          className="workspace-prompt-delivery-button"
+          size="large"
+          disabled={!props.promptText}
+          onClick={props.onShare}
+        >
+          <ShareIcon />
+          <span>{props.shareState}</span>
+        </WorkspaceButton>
+      )}
     </div>
   );
 }
@@ -94,6 +105,8 @@ export function PromptDeliveryPanel({
   onCopy,
   onShare,
   question,
+  showShare = true,
+  expandedByDefault = false,
 }: PromptDeliveryPanelProps) {
   return (
     <section className="workspace-ui-surface workspace-prompt-delivery">
@@ -111,7 +124,11 @@ export function PromptDeliveryPanel({
           </span>
           <div>
             <h2>发送给 AI 解读</h2>
-            <p>选好问题后，复制并粘贴到常用 AI 对话中发送，也可以直接分享。</p>
+            <p>
+              {showShare
+                ? '选好问题后，复制并粘贴到常用 AI 对话中发送，也可以直接分享。'
+                : '复制后粘贴到常用 AI 对话中发送。'}
+            </p>
           </div>
         </div>
 
@@ -121,10 +138,15 @@ export function PromptDeliveryPanel({
           shareState={shareState}
           onCopy={onCopy}
           onShare={onShare}
+          showShare={showShare}
         />
       </div>
 
-      <PromptPreview promptText={promptText} fallback={fallback} />
+      <PromptPreview
+        promptText={promptText}
+        fallback={fallback}
+        expandedByDefault={expandedByDefault}
+      />
     </section>
   );
 }

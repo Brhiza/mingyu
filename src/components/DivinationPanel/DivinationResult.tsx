@@ -352,6 +352,8 @@ export function DivinationResult({
                 onCopy={onCopy}
                 onShare={onShare}
                 question={session.question || methodLabelMap[session.method]}
+                showShare={isCompactResultLayout}
+                expandedByDefault={!isCompactResultLayout}
               />
             )}
           </div>

@@ -998,6 +998,10 @@ label.workspace-ui-field > span:first-child {
   gap: 8px;
 }
 
+.workspace-prompt-delivery-actions.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .workspace-prompt-delivery-button {
   width: 100%;
 }
