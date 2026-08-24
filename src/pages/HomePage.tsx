@@ -8,8 +8,7 @@ import {
 import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
-import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
-import { HISTORY_RECORDS_EVENT, loadDivinationHistory } from '@/lib/history-records';
+import { buildChartFeaturePathForCase } from '@/lib/case-navigation';
 import { defaultInputState, type QueryInputState } from '@/lib/query-state';
 import {
   buildFrontendInstantObserver,
@@ -53,18 +52,11 @@ const modeCopy: Record<HomeMode, { heading: string; placeholder: string }> = {
   },
 };
 
-function formatRecentDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date);
-}
-
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { cases, activeCase } = useActivePersonalCase();
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
-  const [historyRevision, setHistoryRevision] = useState(0);
   const [questionDraft, setQuestionDraft] = useState('');
   const [selectedChartFeature, setSelectedChartFeature] = useState<ChartWorkspaceId>(() =>
     isChartWorkspaceId(preferences.defaultFeature) ? preferences.defaultFeature : 'bazi',
@@ -118,21 +110,13 @@ export function HomePage() {
       })),
     [],
   );
-  const recentHistories = useMemo(() => {
-    void historyRevision;
-    return loadDivinationHistory().slice(0, 3);
-  }, [historyRevision]);
-
   useEffect(() => {
     const syncPreferences = () => setPreferences(readWorkspacePreferences());
-    const syncHistory = () => setHistoryRevision((current) => current + 1);
     window.addEventListener('storage', syncPreferences);
     window.addEventListener(WORKSPACE_PREFERENCES_EVENT, syncPreferences);
-    window.addEventListener(HISTORY_RECORDS_EVENT, syncHistory);
     return () => {
       window.removeEventListener('storage', syncPreferences);
       window.removeEventListener(WORKSPACE_PREFERENCES_EVENT, syncPreferences);
-      window.removeEventListener(HISTORY_RECORDS_EVENT, syncHistory);
     };
   }, []);
 
@@ -382,43 +366,6 @@ export function HomePage() {
               </button>
             </div>
           </form>
-
-          {activeMode === 'divination' && recentHistories.length ? (
-            <section className="workspace-home-history">
-              <header>
-                <h2>最近占问</h2>
-                <button type="button" onClick={() => navigate('/records?tab=divination')}>
-                  全部
-                </button>
-              </header>
-              <div>
-                {recentHistories.map((record) => {
-                  const feature = getWorkspaceFeature(record.requestedMethod);
-                  return (
-                    <button
-                      type="button"
-                      key={record.id}
-                      onClick={() => navigate(buildDivinationRecordPath(record))}
-                    >
-                      <span className="workspace-home-history-mark" aria-hidden="true">
-                        {feature.mark}
-                      </span>
-                      <span>
-                        <strong>{record.question || feature.label}</strong>
-                        <small>
-                          {feature.label} · {record.caseName || '未指定'} ·{' '}
-                          {formatRecentDate(record.updatedAt)}
-                        </small>
-                      </span>
-                      <span className="workspace-home-arrow" aria-hidden="true">
-                        ›
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
         </div>
       </div>
       {instantBirthPlace.isBirthPlaceModalOpen ? (
