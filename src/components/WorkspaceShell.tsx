@@ -19,6 +19,7 @@ import { parseInputState, parsePromptState } from '@/lib/query-state';
 import {
   WORKSPACE_FEATURE_GROUPS,
   WORKSPACE_PREFERENCES_EVENT,
+  applyWorkspaceTheme,
   buildWorkspaceFeaturePath,
   getWorkspaceFeature,
   isChartWorkspaceId,
@@ -169,7 +170,11 @@ export function WorkspaceShell() {
   }, [location.pathname, location.search]);
 
   useEffect(() => {
-    const syncPreferences = () => setPreferences(readWorkspacePreferences());
+    const syncPreferences = () => {
+      const nextPreferences = readWorkspacePreferences();
+      applyWorkspaceTheme(nextPreferences.theme);
+      setPreferences(nextPreferences);
+    };
     window.addEventListener('storage', syncPreferences);
     window.addEventListener(WORKSPACE_PREFERENCES_EVENT, syncPreferences);
     return () => {

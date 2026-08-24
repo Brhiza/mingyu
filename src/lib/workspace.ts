@@ -10,6 +10,20 @@ export type DivinationWorkspaceId = Exclude<DivinationMethodId, 'astrolabe' | 'r
 export type WorkspaceFeatureId = ChartWorkspaceId | DivinationWorkspaceId;
 export type WorkspaceFeatureGroup = 'chart' | 'divination' | 'timing';
 export type HomeModeId = 'chart' | 'divination' | 'instant';
+export type WorkspaceThemeId = 'blossom' | 'violet' | 'indigo' | 'jade' | 'amber';
+
+export const WORKSPACE_THEME_DEFINITIONS: ReadonlyArray<{
+  id: WorkspaceThemeId;
+  label: string;
+  swatches: readonly [string, string, string];
+}> = [
+  { id: 'blossom', label: '海棠', swatches: ['#cb4f97', '#b8a7ea', '#f7e7f1'] },
+  { id: 'violet', label: '紫藤', swatches: ['#715aa2', '#a88bc2', '#eee9f5'] },
+  { id: 'indigo', label: '青黛', swatches: ['#3e6d91', '#7e9db7', '#e7eff5'] },
+  { id: 'jade', label: '松青', swatches: ['#347969', '#80a994', '#e6f1ed'] },
+  { id: 'amber', label: '琥珀', swatches: ['#9b6628', '#c09a61', '#f5ecdf'] },
+];
+export const WORKSPACE_THEME_IDS = WORKSPACE_THEME_DEFINITIONS.map((item) => item.id);
 
 export const HOME_MODE_DEFINITIONS: ReadonlyArray<{
   id: HomeModeId;
@@ -142,6 +156,7 @@ const LEGACY_WORKSPACE_PREFERENCES_KEYS = [
 export const WORKSPACE_PREFERENCES_EVENT = 'mingyu:workspace-preferences';
 
 export type WorkspacePreferences = {
+  theme: WorkspaceThemeId;
   defaultChartFeature: ChartWorkspaceId;
   defaultDivinationFeature: DivinationWorkspaceId;
   defaultInstantType: InstantChartType;
@@ -150,6 +165,7 @@ export type WorkspacePreferences = {
 };
 
 export const DEFAULT_WORKSPACE_PREFERENCES: WorkspacePreferences = {
+  theme: 'blossom',
   defaultChartFeature: 'bazi',
   defaultDivinationFeature: 'liuyao',
   defaultInstantType: 'bazi',
@@ -175,6 +191,16 @@ export function isDivinationWorkspaceId(value: unknown): value is DivinationWork
 
 export function isHomeModeId(value: unknown): value is HomeModeId {
   return typeof value === 'string' && HOME_MODE_IDS.includes(value as HomeModeId);
+}
+
+export function isWorkspaceThemeId(value: unknown): value is WorkspaceThemeId {
+  return typeof value === 'string' && WORKSPACE_THEME_IDS.includes(value as WorkspaceThemeId);
+}
+
+export function applyWorkspaceTheme(theme: WorkspaceThemeId) {
+  if (typeof document !== 'undefined') {
+    document.documentElement.dataset.accentTheme = theme;
+  }
 }
 
 function isInstantChartType(value: unknown): value is InstantChartType {
@@ -216,6 +242,9 @@ function normalizeWorkspacePreferences(
 ): WorkspacePreferences {
   const legacyDefaultFeature = preferences.defaultFeature;
   return {
+    theme: isWorkspaceThemeId(preferences.theme)
+      ? preferences.theme
+      : DEFAULT_WORKSPACE_PREFERENCES.theme,
     defaultChartFeature: isHomeChartWorkspaceId(preferences.defaultChartFeature)
       ? preferences.defaultChartFeature
       : isHomeChartWorkspaceId(legacyDefaultFeature)
@@ -267,6 +296,7 @@ export function readWorkspacePreferences(): WorkspacePreferences {
 export function saveWorkspacePreferences(preferences: WorkspacePreferences) {
   const normalized = normalizeWorkspacePreferences(preferences);
   safeStorage.setJSON(WORKSPACE_PREFERENCES_KEY, normalized);
+  applyWorkspaceTheme(normalized.theme);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(WORKSPACE_PREFERENCES_EVENT));
   }
