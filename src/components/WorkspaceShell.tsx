@@ -641,11 +641,14 @@ export function WorkspaceShell() {
                 type="button"
                 className="workspace-case-tab-manage"
                 onClick={() => navigate('/cases')}
-                aria-label="全部案例"
-                title="全部案例"
+                aria-label="打开案例管理"
+                title="案例管理"
               >
-                <span aria-hidden="true">▤</span>
-                <span className="workspace-case-tab-manage-text">全部案例</span>
+                <span className="workspace-case-tab-manage-icon" aria-hidden="true">
+                  ▤
+                </span>
+                <span className="workspace-case-tab-manage-text">案例管理</span>
+                <span className="workspace-case-tab-manage-mobile-text">案例</span>
               </button>
             </div>
           </nav>

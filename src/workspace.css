@@ -570,6 +570,10 @@
   white-space: nowrap;
 }
 
+.workspace-case-tab-manage-mobile-text {
+  display: none;
+}
+
 .workspace-page {
   min-width: 0;
   padding: 22px clamp(22px, 4vw, 52px) 52px;
@@ -1754,13 +1758,20 @@
   }
 
   .workspace-case-tab-manage {
-    width: 38px;
+    width: 46px;
     justify-content: center;
     padding: 0;
   }
 
+  .workspace-case-tab-manage-icon,
   .workspace-case-tab-manage-text {
     display: none;
+  }
+
+  .workspace-case-tab-manage-mobile-text {
+    display: inline;
+    font-size: 11px;
+    font-weight: 700;
   }
 
   .workspace-drawer-backdrop {
@@ -1837,32 +1848,21 @@
     z-index: 720;
     right: 16px;
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-    width: 58px;
-    height: 58px;
+    width: 48px;
+    height: 48px;
     display: grid;
     place-items: center;
-    gap: 0;
-    padding: 5px 0 4px;
+    padding: 0;
     border: 1px solid color-mix(in srgb, var(--accent-strong) 58%, white);
-    border-radius: 19px;
+    border-radius: 16px;
     background: var(--accent-strong);
     color: #fff;
     box-shadow: 0 14px 32px var(--accent-soft-strong);
     cursor: pointer;
   }
 
-  .workspace-result-ai-fab svg {
-    width: 25px;
-    height: 25px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
   .workspace-result-ai-fab span {
-    font-size: 9px;
+    font-size: 14px;
     font-weight: 800;
     line-height: 1;
   }

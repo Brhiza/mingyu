@@ -124,10 +124,6 @@ export function ResultAssistantFab({ aiEnabled, onOpen }: ResultAssistantFabProp
       aria-label={label}
       title={aiEnabled ? 'AI 解读' : '提示词'}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3l1.5 4.2L18 9l-4.5 1.8L12 15l-1.5-4.2L6 9l4.5-1.8L12 3Z" />
-        <path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z" />
-      </svg>
       <span>AI</span>
     </button>
   );
