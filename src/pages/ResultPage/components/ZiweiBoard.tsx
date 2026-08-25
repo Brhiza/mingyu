@@ -42,8 +42,34 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
     null;
   const surroundedPalaces = getZiweiDisplaySurroundedPalaces(displayPayload, selectedPalace);
   const activeScopeMutagens = uniqueNonEmptyStrings(
-    displayPayload.active_scope.mutagen_map.map((item) => `${item.mutagen} ${item.star}`),
+    displayPayload.active_scope.mutagen_map.map((item) => {
+      const palaceName = item.dynamic_palace_name || item.palace_name;
+      return `${item.star}化${item.mutagen}${palaceName ? `入${palaceName}` : ''}`;
+    }),
   );
+  const selectedPalaceStars = selectedPalace
+    ? [
+        ...selectedPalace.major_stars,
+        ...selectedPalace.minor_stars,
+        ...selectedPalace.other_stars,
+        ...selectedPalace.scope_stars,
+      ]
+    : [];
+  const selectedPalaceMutagens = uniqueNonEmptyStrings(
+    selectedPalaceStars.flatMap((star) => [
+      star.birth_mutagen ? `${star.name}生年化${star.birth_mutagen}` : '',
+      star.horoscope_mutagen ? `${star.name}运限化${star.horoscope_mutagen}` : '',
+      star.active_scope_mutagen ? `${star.name}当前化${star.active_scope_mutagen}` : '',
+    ]),
+  );
+  const selectedPalaceFlyMutagens = selectedPalace
+    ? uniqueNonEmptyStrings([
+        ...(selectedPalace.self_mutagens?.map((item) => `自化${item}`) ?? []),
+        ...(selectedPalace.mutaged_palaces?.map(
+          (item) => `化${item.mutagen}入${item.palace_name || '未定宫'}`,
+        ) ?? []),
+      ])
+    : [];
   const detailSummaryTags = selectedPalace
     ? uniqueNonEmptyStrings(selectedPalace.summary_tags).filter(
         (item) => !isInstant || !item.includes('童限'),
@@ -254,6 +280,14 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
                         '暂无',
                       )}
                     </strong>
+                  </div>
+                  <div>
+                    <span>宫内四化</span>
+                    <strong>{joinText(selectedPalaceMutagens, '无')}</strong>
+                  </div>
+                  <div>
+                    <span>自化飞化</span>
+                    <strong>{joinText(selectedPalaceFlyMutagens, '无')}</strong>
                   </div>
                 </div>
                 <div className="result-tag-cloud">

@@ -66,6 +66,12 @@ export function ZiweiTraditionalBoard(props: {
         payload.basic_info.four_pillars.hour_pillar,
       ].join(' ')
     : '';
+  const activeScopeMutagens = uniqueNonEmptyStrings(
+    payload.active_scope.mutagen_map.map((item) => {
+      const palaceName = item.dynamic_palace_name || item.palace_name;
+      return `${item.star}化${item.mutagen}${palaceName ? `入${palaceName}` : ''}`;
+    }),
+  );
 
   return (
     <section className="ziwei-traditional-shell">
@@ -186,6 +192,13 @@ export function ZiweiTraditionalBoard(props: {
                       身宫 {payload.basic_info.body_palace_branch}
                     </div>
                   </div>
+                  {activeScopeMutagens.length ? (
+                    <div className="chart-center-mutagens" aria-label="当前四化落宫">
+                      {activeScopeMutagens.map((item) => (
+                        <span key={item}>{item}</span>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className="ziwei-board-center-relation chart-center-focus">
                     <div className="chart-center-focus-label">当前宫位</div>
                     <div className="ziwei-board-center-name chart-center-focus-name">

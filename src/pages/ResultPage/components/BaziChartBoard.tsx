@@ -174,6 +174,24 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   if (!isInstant && result.shenGong) {
     referenceItems.push({ label: '身宫', value: result.shenGong, detail: '后天着力' });
   }
+  if (!isInstant && result.taiYuan) {
+    referenceItems.push({ label: '胎元', value: result.taiYuan, detail: '月柱顺推' });
+  }
+  if (!isInstant && result.taiXi) {
+    referenceItems.push({ label: '胎息', value: result.taiXi, detail: '日柱干支合取' });
+  }
+  if (result.monthCommander) {
+    referenceItems.push({
+      label: '月令司权',
+      value: result.monthCommander,
+      detail: result.seasonInfo.currentJieqi || result.seasonInfo.currentSeason,
+    });
+  }
+  const pillarRelationGroups = [
+    { label: '伏吟', items: result.pillarRelations.fuxin },
+    { label: '反吟', items: result.pillarRelations.fanyin },
+    { label: '刑冲合会', items: result.pillarRelations.xingChong },
+  ].filter((item) => item.items.length > 0);
   const dayOwnerLabel = isInstant
     ? '日元'
     : result.gender === 'male'
@@ -387,6 +405,17 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           </div>
         </div>
       </div>
+
+      {pillarRelationGroups.length ? (
+        <div className="bazi-structure-strip" aria-label="原局干支关系">
+          {pillarRelationGroups.map((group) => (
+            <div key={group.label}>
+              <span>{group.label}</span>
+              <strong>{group.items.join('；')}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="bazi-context-grid">
         <div className="result-side-card bazi-fortune-card">

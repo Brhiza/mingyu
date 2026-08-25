@@ -123,6 +123,9 @@ function LiurenCompactMatrix({ data }: { data: LiurenData }) {
               <strong>{lesson.upper}</strong>
               <b>{lesson.lower}</b>
               <small>{lesson.name}</small>
+              <small className="liuren-matrix-detail">
+                {[lesson.relation, lesson.note].filter(Boolean).join(' · ')}
+              </small>
             </div>
           ))}
         </div>
@@ -136,6 +139,17 @@ function LiurenCompactMatrix({ data }: { data: LiurenData }) {
               <span>{item.god}</span>
               <strong>{item.branch}</strong>
               <small>{item.stage}</small>
+              <small className="liuren-matrix-detail">
+                {[
+                  item.relation,
+                  item.wuxing,
+                  item.seasonState,
+                  item.dayRelation,
+                  item.isVoid ? '空' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </small>
             </div>
           ))}
         </div>
@@ -148,6 +162,27 @@ function LiurenBoard({ data }: { data: LiurenData }) {
   const transmissionText = data.threeTransmissions
     .map((item) => `${item.stage.replace('传', '')}${item.branch}`)
     .join(' → ');
+  const transmissionMethod = [data.transmissionRule, data.transmissionPattern]
+    .filter(Boolean)
+    .join(' · ');
+  const lessonPatterns = Array.from(new Set([...(data.guaTi ?? []), ...(data.patternTags ?? [])]))
+    .filter(Boolean)
+    .join('、');
+  const shenSha = data.shenShaSummary?.filter(Boolean).join('、');
+  const liurenFacts = [
+    ['日干寄宫', data.dayStemResidence],
+    [
+      '贵人',
+      data.noblemanBranch
+        ? `${data.dayNight ? `${data.dayNight} · ` : ''}${data.noblemanBranch}${
+            data.noblemanGroundBranch ? `临${data.noblemanGroundBranch}` : ''
+          }`
+        : undefined,
+    ],
+    ['取传', transmissionMethod],
+    ['课体', lessonPatterns],
+    ['神煞', shenSha],
+  ].filter((item): item is [string, string] => Boolean(item[1]));
 
   return (
     <div className="divination-extra-panel traditional-board liuren-board">
@@ -168,6 +203,17 @@ function LiurenBoard({ data }: { data: LiurenData }) {
           {data.xunKong?.length ? ` · 空${data.xunKong.join('、')}` : ''}
         </span>
       </div>
+
+      {liurenFacts.length ? (
+        <div className="liuren-fact-grid">
+          {liurenFacts.map(([label, value]) => (
+            <div className={label === '神煞' ? 'is-wide' : undefined} key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="liuren-script-panel">
         <LiurenPlateGrid data={data} />

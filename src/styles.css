@@ -2154,6 +2154,23 @@ select {
   color: var(--accent-deep);
 }
 
+.chart-center-mutagens {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.chart-center-mutagens span {
+  min-width: 0;
+  padding: 3px 4px;
+  border-radius: 5px;
+  background: var(--surface-overlay);
+  color: var(--text-secondary);
+  font-size: 0.52rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .chart-center-focus {
   margin-top: auto;
   border-radius: 6px;
@@ -4534,6 +4551,51 @@ select {
   line-height: 1.35;
 }
 
+.liuren-fact-grid,
+.bazi-structure-strip,
+.traditional-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+  gap: 1px;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--border-soft);
+}
+
+.liuren-fact-grid > div,
+.bazi-structure-strip > div,
+.traditional-fact-grid > div {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 10px;
+  background: var(--surface-soft);
+}
+
+.liuren-fact-grid > .is-wide {
+  grid-column: 1 / -1;
+}
+
+.liuren-fact-grid span,
+.bazi-structure-strip span,
+.traditional-fact-grid span {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.liuren-fact-grid strong,
+.bazi-structure-strip strong,
+.traditional-fact-grid strong {
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .liuren-script-panel {
   width: min(100%, 360px);
   margin: 0 auto;
@@ -4680,6 +4742,15 @@ select {
   color: var(--text-strong);
   font-size: 24px;
   line-height: 1;
+}
+
+.liuren-matrix-column .liuren-matrix-detail {
+  max-width: 72px;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.3;
+  text-align: center;
 }
 
 .almanac-form-flow {
@@ -5080,9 +5151,9 @@ select {
 .traditional-liuyao-head,
 .traditional-liuyao-row {
   display: grid;
-  grid-template-columns: 48px 52px 58px 74px 84px minmax(125px, 1fr);
+  grid-template-columns: 44px 46px 52px 70px 62px minmax(116px, 1fr) minmax(112px, 1fr);
   align-items: center;
-  min-width: 500px;
+  min-width: 650px;
   gap: 8px;
   padding: 9px 10px;
 }
@@ -5453,6 +5524,14 @@ select {
   gap: 1px;
   color: var(--text-muted);
   font-size: 10px;
+}
+
+.traditional-qimen-relation {
+  max-width: 100%;
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .traditional-qimen-cell em {
