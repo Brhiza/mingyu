@@ -596,15 +596,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
   text-align: center;
 }
 
 .workspace-home-brand {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
+  margin-bottom: 12px;
 }
 
 .workspace-home-seal {
@@ -634,6 +633,7 @@
   font-size: 12px;
   font-weight: 750;
   line-height: 1;
+  margin-top: 12px;
   text-decoration: none;
   transition:
     background-color 0.18s ease,
@@ -2204,12 +2204,10 @@
   }
 
   .workspace-home-heading {
-    flex-direction: row;
     justify-content: center;
-    gap: 10px;
     margin-top: auto;
     padding: 3px 0 1px;
-    text-align: left;
+    text-align: center;
   }
 
   .workspace-home-seal {
@@ -2221,13 +2219,14 @@
   }
 
   .workspace-home-brand {
-    gap: 6px;
+    margin-bottom: 8px;
   }
 
   .workspace-home-donation {
     min-height: 27px;
     gap: 5px;
     padding: 0 10px;
+    margin-top: 8px;
     font-size: 11px;
   }
 
