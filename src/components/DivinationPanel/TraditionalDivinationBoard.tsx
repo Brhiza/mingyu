@@ -347,10 +347,16 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
         </div>
       </div>
       <div className="traditional-meihua-yaos" role="table" aria-label="梅花六爻体用标记">
+        <div className="traditional-meihua-yaos-head" role="row">
+          <span>爻位</span>
+          <strong>主卦六爻</strong>
+          <span>体用</span>
+        </div>
         {rows.map((yao) => (
           <div
             key={yao.position}
             className={yao.position === data.movingYao.position ? 'is-moving' : ''}
+            role="row"
           >
             <span>{yao.position}爻</span>
             <YaoLine yaoType={yao.yaoType} changing={yao.isChanging} />
@@ -363,59 +369,44 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
 }
 
 function XiaoliurenTraditionalBoard({ data }: { data: XiaoliurenData }) {
+  const sequence = [
+    { label: '月宫', palace: data.sequence.month },
+    { label: '日宫', palace: data.sequence.day },
+    { label: '时宫', palace: data.sequence.hour },
+  ];
   return (
     <TraditionalBoardShell
-      title="小六壬六宫盘"
+      title="小六壬三宫课"
       subtitle={`农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日 · ${data.hourLabel}`}
       className="traditional-xiaoliuren-board"
     >
       <TraditionalMeta
         items={[
           ['起课法', data.methodLabel],
-          ['月宫', data.sequence.month.name],
-          ['日宫', data.sequence.day.name],
-          ['时宫', data.sequence.hour.name],
-          ['占得', data.primary.name],
-        ]}
-      />
-      <TraditionalFacts
-        items={[
           [
             '四柱',
             `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
           ],
-          [
-            '传宫',
-            `${data.sequence.month.name} → ${data.sequence.day.name} → ${data.sequence.hour.name}`,
-          ],
         ]}
       />
-      <div className="traditional-six-palace" role="img" aria-label="小六壬六宫盘">
-        {data.palaceOrder.map((palace) => {
-          const sequenceMarkers = [
-            data.sequence.month.name === palace.name ? '月' : '',
-            data.sequence.day.name === palace.name ? '日' : '',
-            data.sequence.hour.name === palace.name ? '时' : '',
-          ].filter(Boolean);
-          return (
-            <div
-              className={`traditional-six-palace-cell${palace.name === data.primary.name ? ' is-primary' : ''}`}
-              key={palace.name}
-            >
-              <div className="traditional-six-palace-cell-head">
-                <span>{palace.index + 1}</span>
-                <strong>{palace.name}</strong>
-                {sequenceMarkers.length ? <em>{sequenceMarkers.join(' · ')}</em> : null}
-              </div>
-              <small>{palace.verse}</small>
-            </div>
-          );
-        })}
-        <div className="traditional-six-palace-center">
-          <span>
-            月{data.sequence.month.name} → 日{data.sequence.day.name} → 时{data.sequence.hour.name}
-          </span>
-          <strong>占得 {data.primary.name}</strong>
+      <div className="traditional-xiaoliuren-sequence" aria-label="小六壬月日时三宫">
+        {sequence.map(({ label, palace }, index) => (
+          <article className={index === sequence.length - 1 ? 'is-result' : ''} key={label}>
+            <span>{label}</span>
+            <strong>{palace.name}</strong>
+            <small>{palace.verse}</small>
+          </article>
+        ))}
+      </div>
+      <div className="traditional-xiaoliuren-reference" aria-label="小六壬六神定位">
+        <span>六神定位</span>
+        <div>
+          {data.palaceOrder.map((palace) => (
+            <small key={palace.name}>
+              <i>{palace.index + 1}</i>
+              {palace.name}
+            </small>
+          ))}
         </div>
       </div>
     </TraditionalBoardShell>

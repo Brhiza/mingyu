@@ -5331,22 +5331,29 @@ select {
 
 .traditional-meihua-yaos {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  background: var(--surface-base);
 }
 
 .traditional-meihua-yaos > div {
   display: grid;
-  justify-items: center;
-  gap: 5px;
-  padding: 8px 4px;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  background: var(--surface-base);
+  grid-template-columns: 38px minmax(96px, 1fr) 38px;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.traditional-meihua-yaos > .traditional-meihua-yaos-head {
+  min-height: 32px;
+  border-top: 0;
+  background: var(--surface-subtle);
 }
 
 .traditional-meihua-yaos > div.is-moving {
-  border-color: var(--accent);
   background: var(--accent-surface);
 }
 
@@ -5358,77 +5365,111 @@ select {
 
 .traditional-meihua-yaos > div > b {
   color: var(--accent-deep);
+  text-align: right;
 }
 
-.traditional-six-palace {
+.traditional-meihua-yaos > .traditional-meihua-yaos-head > strong {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: center;
+}
+
+.traditional-meihua-yaos > .traditional-meihua-yaos-head > span:last-child {
+  text-align: right;
+}
+
+.traditional-xiaoliuren-sequence {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  width: 100%;
+  gap: 14px;
 }
 
-.traditional-six-palace-cell,
-.traditional-six-palace-center {
+.traditional-xiaoliuren-sequence article {
+  position: relative;
   display: grid;
-  align-content: start;
-  gap: 7px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  gap: 5px 10px;
   min-width: 0;
-  padding: 10px;
+  min-height: 116px;
+  padding: 14px;
   border: 1px solid var(--border-soft);
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--surface-base);
 }
 
-.traditional-six-palace-cell.is-primary {
-  background: var(--accent-surface);
+.traditional-xiaoliuren-sequence article:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  z-index: 1;
+  color: var(--text-muted);
+  font-size: 11px;
+  transform: translateY(-50%);
 }
 
-.traditional-six-palace-cell-head {
-  display: flex;
-  align-items: baseline;
+.traditional-xiaoliuren-sequence article.is-result {
+  background: var(--state-selected-surface);
+}
+
+.traditional-xiaoliuren-sequence article > span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.traditional-xiaoliuren-sequence article > strong {
+  color: var(--text-strong);
+  font-size: 20px;
+}
+
+.traditional-xiaoliuren-sequence article.is-result > strong {
+  color: var(--accent-deep);
+}
+
+.traditional-xiaoliuren-sequence article > small {
+  grid-column: 1 / -1;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.traditional-xiaoliuren-reference {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+
+.traditional-xiaoliuren-reference > span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.traditional-xiaoliuren-reference > div {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: center;
   gap: 6px;
 }
 
-.traditional-six-palace-cell-head > span {
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.traditional-six-palace-cell-head > strong {
-  color: var(--text-strong);
-  font-size: 15px;
-}
-
-.traditional-six-palace-cell-head > em {
-  margin-left: auto;
-  color: var(--accent-deep);
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 700;
-}
-
-.traditional-six-palace-cell > small {
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.traditional-six-palace-center {
-  grid-column: 1 / -1;
-  grid-template-columns: minmax(0, 1fr) auto;
+.traditional-xiaoliuren-reference small {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface-base));
-}
-
-.traditional-six-palace-center span {
-  color: var(--text-muted);
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--text-secondary);
   font-size: 11px;
 }
 
-.traditional-six-palace-center strong {
-  color: var(--accent-deep);
-  font-size: 15px;
+.traditional-xiaoliuren-reference i {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-style: normal;
 }
 
 .traditional-jinkoujue-table {
@@ -5807,12 +5848,30 @@ select {
     font-size: 10px;
   }
 
-  .traditional-meihua-yaos {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .traditional-xiaoliuren-sequence {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
-  .traditional-six-palace {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .traditional-xiaoliuren-sequence article {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .traditional-xiaoliuren-sequence article:not(:last-child)::after {
+    top: auto;
+    right: 50%;
+    bottom: -14px;
+    transform: translateX(50%) rotate(90deg);
+  }
+
+  .traditional-xiaoliuren-reference {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .traditional-xiaoliuren-reference > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .traditional-qimen-grid {
