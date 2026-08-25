@@ -50,7 +50,8 @@ type AlmanacFormProps = {
   draft: DivinationDraft;
   cases: PersonalHistoryRecord[];
   updateDraft: <K extends keyof DivinationDraft>(key: K, value: DivinationDraft[K]) => void;
-  questionInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  supplementaryInfoCount: number;
+  onOpenSupplementaryInfo: () => void;
 };
 
 function formatDate(date: Date) {
@@ -108,7 +109,13 @@ function getParticipantSummary(participant: AlmanacParticipantInput) {
     .join(' · ');
 }
 
-export function AlmanacForm({ draft, cases, updateDraft, questionInputRef }: AlmanacFormProps) {
+export function AlmanacForm({
+  draft,
+  cases,
+  updateDraft,
+  supplementaryInfoCount,
+  onOpenSupplementaryInfo,
+}: AlmanacFormProps) {
   const participantCaseIds = new Set(
     draft.almanacParticipants.map(getParticipantCaseId).filter(Boolean),
   );
@@ -205,6 +212,14 @@ export function AlmanacForm({ draft, cases, updateDraft, questionInputRef }: Alm
       <section className="almanac-form-section">
         <div className="almanac-form-section-head">
           <strong>择日事项</strong>
+          <button
+            type="button"
+            className={supplementaryInfoCount ? 'is-active' : ''}
+            aria-haspopup="dialog"
+            onClick={onOpenSupplementaryInfo}
+          >
+            补充要求{supplementaryInfoCount ? ' · 已填写' : ''}
+          </button>
         </div>
         <div className="almanac-topic-grid" role="group" aria-label="择日事项">
           {ALMANAC_TOPIC_OPTIONS.map((item) => (
@@ -416,24 +431,6 @@ export function AlmanacForm({ draft, cases, updateDraft, questionInputRef }: Alm
         ) : (
           <p className="almanac-participant-empty">不指定参与人时，将只按事项和日期比较。</p>
         )}
-      </section>
-
-      <section className="almanac-form-section almanac-notes-section">
-        <div className="form-item">
-          <label htmlFor="divination-question-input">补充要求（可选）</label>
-          <textarea
-            ref={questionInputRef}
-            id="divination-question-input"
-            rows={3}
-            value={draft.question}
-            className="form-input divination-textarea"
-            placeholder="例如：避开周末，优先上午，兼顾家人时间"
-            onChange={(event) => {
-              updateDraft('questionSource', 'custom');
-              updateDraft('question', event.target.value);
-            }}
-          />
-        </div>
       </section>
     </div>
   );

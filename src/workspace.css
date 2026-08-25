@@ -2048,30 +2048,6 @@
   color: var(--accent-deep);
 }
 
-.workspace-home-supplementary-info {
-  padding: 0 14px 10px;
-}
-
-.workspace-home-supplementary-info textarea {
-  width: 100%;
-  min-height: 66px;
-  display: block;
-  resize: vertical;
-  padding: 10px 11px;
-  border: 0;
-  border-radius: 10px;
-  outline: 0;
-  background: var(--surface-soft);
-  color: var(--text-strong);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.workspace-home-supplementary-info textarea::placeholder {
-  color: var(--text-muted);
-}
-
 .workspace-home-composer-footer {
   display: flex;
   align-items: center;
@@ -2274,16 +2250,6 @@
   .workspace-home-question-tools button {
     min-height: 27px;
     padding-inline: 8px;
-  }
-
-  .workspace-home-supplementary-info {
-    padding: 0 11px 8px;
-  }
-
-  .workspace-home-supplementary-info textarea {
-    min-height: 58px;
-    resize: none;
-    font-size: 14px;
   }
 
   .workspace-home-algorithm {

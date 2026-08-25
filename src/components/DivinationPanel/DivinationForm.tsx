@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   DIVINATION_METHOD_OPTIONS,
   GENERAL_DIVINATION_METHOD_OPTIONS,
@@ -22,6 +23,10 @@ import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { PersonalHistoryRecord } from '@/lib/history-records';
 import { DropdownSelect } from '@/components/DropdownSelect';
+import {
+  SupplementaryInfoModal,
+  type SupplementaryInfoModalField,
+} from '@/components/SupplementaryInfoModal';
 import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import { AlmanacForm } from './AlmanacForm';
 
@@ -76,6 +81,48 @@ const OPTIONAL_GENDER_OPTIONS = [
   { value: '女', label: '女' },
 ] as const;
 
+const DIVINATION_SUPPLEMENTARY_INFO_FIELDS = [
+  {
+    key: 'userSupplement',
+    label: '补充说明',
+    placeholder: '补充与问题直接相关的背景或细节。',
+  },
+  {
+    key: 'currentSituation',
+    label: '当前情况',
+    placeholder: '例如：正在考虑换工作，已经拿到一个新机会。',
+  },
+  {
+    key: 'currentState',
+    label: '当前状态',
+    placeholder: '例如：时间紧、压力较大，但仍有一定选择空间。',
+  },
+  {
+    key: 'knownFacts',
+    label: '已知事实',
+    placeholder: '例如：对方已明确报价，合同尚未签署。',
+  },
+  {
+    key: 'desiredOutcome',
+    label: '期望结果',
+    placeholder: '例如：希望兼顾收入提升与长期稳定。',
+  },
+  {
+    key: 'constraints',
+    label: '现实限制',
+    placeholder: '例如：三个月内不能搬家，预算上限为两万元。',
+  },
+] as const satisfies readonly SupplementaryInfoModalField[];
+
+const ALMANAC_SUPPLEMENTARY_INFO_FIELDS = [
+  {
+    key: 'question',
+    label: '补充要求',
+    placeholder: '例如：避开周末，优先上午，兼顾家人时间。',
+    rows: 5,
+  },
+] as const satisfies readonly SupplementaryInfoModalField[];
+
 function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   if (draft.method === 'liuyao' || draft.method === 'qimen' || draft.method === 'liuren') {
     return true;
@@ -123,6 +170,7 @@ export function DivinationForm({
   cases = [],
   showHeading = true,
 }: DivinationFormProps) {
+  const [isSupplementaryInfoModalOpen, setIsSupplementaryInfoModalOpen] = useState(false);
   const isMethodLocked = Boolean(lockedMethod);
   const lockedMethodOption = DIVINATION_METHOD_OPTIONS.find((item) => item.value === lockedMethod);
   const formHeading = lockedMethodOption?.label ?? '传统起卦';
@@ -187,6 +235,43 @@ export function DivinationForm({
     (draft.method === 'ssgw' &&
       ssgwMethod === 'manual' &&
       (!/^\d+$/.test(ssgwNumber) || Number(ssgwNumber) < 1 || Number(ssgwNumber) > 92));
+  const supplementaryInfoCount = isAlmanac
+    ? Number(Boolean(draft.question.trim()))
+    : DIVINATION_SUPPLEMENTARY_INFO_FIELDS.reduce(
+        (count, field) => count + Number(Boolean(draft[field.key]?.trim())),
+        0,
+      );
+  const supplementaryInfoModal = isSupplementaryInfoModalOpen ? (
+    <SupplementaryInfoModal
+      fields={isAlmanac ? ALMANAC_SUPPLEMENTARY_INFO_FIELDS : DIVINATION_SUPPLEMENTARY_INFO_FIELDS}
+      values={
+        isAlmanac
+          ? { question: draft.question }
+          : Object.fromEntries(
+              DIVINATION_SUPPLEMENTARY_INFO_FIELDS.map((field) => [
+                field.key,
+                draft[field.key] ?? '',
+              ]),
+            )
+      }
+      description={
+        isAlmanac
+          ? '填写日期、时段或其他个性化要求。'
+          : '填写与问题直接相关的背景或限制，未填写的项目不会进入解读。'
+      }
+      onSave={(values) => {
+        if (isAlmanac) {
+          updateDraft('questionSource', 'custom');
+          updateDraft('question', values.question ?? '');
+          return;
+        }
+        DIVINATION_SUPPLEMENTARY_INFO_FIELDS.forEach((field) => {
+          updateDraft(field.key, values[field.key] ?? '');
+        });
+      }}
+      onClose={() => setIsSupplementaryInfoModalOpen(false)}
+    />
+  ) : null;
 
   function appendLiuyaoYao(value: 6 | 7 | 8 | 9) {
     if (liuyaoYaos.length < 6) {
@@ -266,7 +351,8 @@ export function DivinationForm({
             draft={draft}
             cases={cases}
             updateDraft={updateDraft}
-            questionInputRef={questionInputRef}
+            supplementaryInfoCount={supplementaryInfoCount}
+            onOpenSupplementaryInfo={() => setIsSupplementaryInfoModalOpen(true)}
           />
         </section>
 
@@ -283,6 +369,7 @@ export function DivinationForm({
             {submitButtonText}
           </WorkspaceButton>
         </div>
+        {supplementaryInfoModal}
       </>
     );
   }
@@ -543,15 +630,24 @@ export function DivinationForm({
                     ) : null}
                   </div>
 
-                  {!isAlmanac ? (
+                  <div className="divination-desktop-question-actions">
                     <button
                       type="button"
-                      className="workspace-ui-choice divination-desktop-inspiration-btn"
+                      className="workspace-ui-choice"
                       onClick={onOpenInspiration}
                     >
                       问题灵感
                     </button>
-                  ) : null}
+                    <button
+                      type="button"
+                      className={`workspace-ui-choice ${supplementaryInfoCount ? 'is-active' : ''}`}
+                      aria-haspopup="dialog"
+                      aria-expanded={isSupplementaryInfoModalOpen}
+                      onClick={() => setIsSupplementaryInfoModalOpen(true)}
+                    >
+                      补充信息{supplementaryInfoCount ? ` · ${supplementaryInfoCount}项` : ''}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -709,15 +805,20 @@ export function DivinationForm({
                   </div>
                 ) : null}
 
-                {!isAlmanac ? (
-                  <button
-                    type="button"
-                    className="workspace-ui-choice divination-mobile-inspiration-btn"
-                    onClick={onOpenInspiration}
-                  >
+                <div className="divination-mobile-aux-actions">
+                  <button type="button" className="workspace-ui-choice" onClick={onOpenInspiration}>
                     问题灵感
                   </button>
-                ) : null}
+                  <button
+                    type="button"
+                    className={`workspace-ui-choice ${supplementaryInfoCount ? 'is-active' : ''}`}
+                    aria-haspopup="dialog"
+                    aria-expanded={isSupplementaryInfoModalOpen}
+                    onClick={() => setIsSupplementaryInfoModalOpen(true)}
+                  >
+                    补充信息{supplementaryInfoCount ? ` · ${supplementaryInfoCount}` : ''}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1129,34 +1230,6 @@ export function DivinationForm({
             </div>
           ) : null}
 
-          <details className="divination-context-fields">
-            <summary>补充信息（可选）</summary>
-            <div className="form-row">
-              {[
-                ['userSupplement', '补充说明', '补充与问题直接相关的背景或细节。'],
-                ['currentSituation', '当前情况', '例如：正在考虑换工作，已经拿到一个新机会。'],
-                ['currentState', '当前状态', '例如：时间紧、压力较大，但仍有一定选择空间。'],
-                ['knownFacts', '已知事实', '例如：对方已明确报价，合同尚未签署。'],
-                ['desiredOutcome', '期望结果', '例如：希望兼顾收入提升与长期稳定。'],
-                ['constraints', '现实限制', '例如：三个月内不能搬家，预算上限为两万元。'],
-              ].map(([key, label, placeholder]) => (
-                <div className="form-item" key={key}>
-                  <label htmlFor={`divination-${key}`}>{label}</label>
-                  <textarea
-                    id={`divination-${key}`}
-                    rows={2}
-                    value={(draft[key as keyof DivinationDraft] as string | undefined) ?? ''}
-                    className="form-input divination-textarea"
-                    placeholder={placeholder}
-                    onChange={(event) =>
-                      updateDraft(key as keyof DivinationDraft, event.target.value as never)
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          </details>
-
           {draft.method === 'astrolabe' ? (
             <div className="divination-extra-panel">
               <div className="form-row-flex">
@@ -1278,6 +1351,7 @@ export function DivinationForm({
           {submitButtonText}
         </WorkspaceButton>
       </div>
+      {supplementaryInfoModal}
     </>
   );
 }

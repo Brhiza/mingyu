@@ -3940,7 +3940,7 @@ select {
   display: none;
 }
 
-.divination-mobile-inspiration-btn {
+.divination-mobile-aux-actions {
   display: none;
 }
 
@@ -4382,70 +4382,25 @@ select {
   }
 }
 
-.divination-context-fields {
-  display: block;
-  overflow: hidden;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-control);
-  background: var(--surface-muted);
-}
-
-.divination-context-fields > summary {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  list-style: none;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.35;
-  cursor: pointer;
-  user-select: none;
-  touch-action: manipulation;
-  outline: none;
-}
-
-.divination-context-fields > summary:focus-visible {
-  box-shadow: none;
-  background: var(--state-hover-surface);
-}
-
-.divination-context-fields > summary::-webkit-details-marker {
-  display: none;
-}
-
-.divination-context-fields > summary::before {
-  content: '▶';
-  flex: 0 0 auto;
-  font-size: 10px;
-  transition: transform 0.15s ease;
-}
-
-.divination-context-fields[open] > summary::before {
-  transform: rotate(90deg);
-}
-
-.divination-context-fields > .form-row {
-  padding: 12px;
-  border-top: 1px solid var(--border-soft);
-  background: var(--surface-panel);
-}
-
 .divination-subject-fields {
   padding-top: 2px;
 }
 
-.divination-desktop-inspiration-btn {
-  width: auto;
-  min-width: 112px;
-  min-height: 46px;
-  justify-content: center;
-  border-radius: var(--radius-control);
+.divination-desktop-question-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
   margin-left: auto;
+}
+
+.divination-desktop-question-actions .workspace-ui-choice {
+  width: auto;
+  min-width: max-content;
+  min-height: 40px;
+  justify-content: center;
+  padding-inline: 11px;
+  border-radius: var(--radius-control);
 }
 
 .divination-output-grid {
@@ -4771,6 +4726,29 @@ select {
   font-size: 14px;
 }
 
+.almanac-form-section-head > button {
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--state-idle-surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.almanac-form-section-head > button:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
+}
+
+.almanac-form-section-head > button.is-active {
+  background: var(--state-selected-surface);
+  color: var(--state-selected-text);
+}
+
 .almanac-form-section-head span,
 .almanac-participant-empty {
   color: var(--text-muted);
@@ -4975,10 +4953,6 @@ select {
 .almanac-participant-empty {
   margin: 0;
   padding: 8px 0 2px;
-}
-
-.almanac-notes-section .divination-textarea {
-  min-height: 76px;
 }
 
 .astrolabe-chart-panel {
@@ -7425,16 +7399,18 @@ select {
     display: flex;
   }
 
-  .divination-mobile-inspiration-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .divination-mobile-aux-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 5px;
+    margin-left: auto;
+  }
+
+  .divination-mobile-aux-actions .workspace-ui-choice {
     width: auto;
     min-width: max-content;
-    padding: 7px 12px;
     min-height: 44px;
-    flex: 0 0 auto;
-    margin-left: auto;
+    padding: 7px 10px;
     white-space: nowrap;
   }
 
@@ -9182,10 +9158,6 @@ select {
 
   .almanac-participant-editor .form-row-flex.has-third-item {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .almanac-notes-section .divination-textarea {
-    min-height: 82px;
   }
 
   .almanac-common-options {

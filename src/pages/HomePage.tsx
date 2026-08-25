@@ -10,6 +10,7 @@ import {
   QuestionInspirationModal,
   type QuestionInspirationSection,
 } from '@/components/QuestionInspirationModal';
+import { SupplementaryInfoModal } from '@/components/SupplementaryInfoModal';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
@@ -73,7 +74,7 @@ export function HomePage() {
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [questionDraft, setQuestionDraft] = useState('');
   const [supplementaryInfoDraft, setSupplementaryInfoDraft] = useState('');
-  const [isSupplementaryInfoOpen, setIsSupplementaryInfoOpen] = useState(false);
+  const [isSupplementaryInfoModalOpen, setIsSupplementaryInfoModalOpen] = useState(false);
   const [isQuestionInspirationOpen, setIsQuestionInspirationOpen] = useState(false);
   const [inspirationCategory, setInspirationCategory] = useState('近期');
   const [inspirationSearch, setInspirationSearch] = useState('');
@@ -408,30 +409,14 @@ export function HomePage() {
               </button>
               <button
                 type="button"
-                className={
-                  isSupplementaryInfoOpen || supplementaryInfoDraft.trim() ? 'is-active' : ''
-                }
-                aria-expanded={isSupplementaryInfoOpen}
-                aria-controls="workspace-home-supplementary-info"
-                onClick={() => setIsSupplementaryInfoOpen((current) => !current)}
+                className={supplementaryInfoDraft.trim() ? 'is-active' : ''}
+                aria-haspopup="dialog"
+                aria-expanded={isSupplementaryInfoModalOpen}
+                onClick={() => setIsSupplementaryInfoModalOpen(true)}
               >
                 补充信息{supplementaryInfoDraft.trim() ? ' · 已填写' : ''}
               </button>
             </div>
-            {isSupplementaryInfoOpen ? (
-              <div
-                id="workspace-home-supplementary-info"
-                className="workspace-home-supplementary-info"
-              >
-                <textarea
-                  rows={2}
-                  value={supplementaryInfoDraft}
-                  aria-label="补充信息"
-                  placeholder="补充背景、已知情况、限制或期待结果（可选）"
-                  onChange={(event) => setSupplementaryInfoDraft(event.target.value)}
-                />
-              </div>
-            ) : null}
             <div className="workspace-home-composer-footer">
               <div className="workspace-home-algorithm">
                 <DropdownSelect<string>
@@ -530,6 +515,21 @@ export function HomePage() {
             setIsQuestionInspirationOpen(false);
           }}
           onClose={() => setIsQuestionInspirationOpen(false)}
+        />
+      ) : null}
+      {isSupplementaryInfoModalOpen ? (
+        <SupplementaryInfoModal
+          fields={[
+            {
+              key: 'supplementaryInfo',
+              label: '背景与细节',
+              placeholder: '补充已知情况、现实限制或期待结果（可选）',
+              rows: 5,
+            },
+          ]}
+          values={{ supplementaryInfo: supplementaryInfoDraft }}
+          onSave={(values) => setSupplementaryInfoDraft(values.supplementaryInfo ?? '')}
+          onClose={() => setIsSupplementaryInfoModalOpen(false)}
         />
       ) : null}
     </div>

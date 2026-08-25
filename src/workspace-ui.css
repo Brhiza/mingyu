@@ -653,6 +653,65 @@ label.workspace-ui-field > span:first-child {
   background: var(--surface-elevated-strong);
 }
 
+.workspace-ui-dialog.supplementary-info-modal {
+  width: min(680px, 100%);
+}
+
+.supplementary-info-form {
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.supplementary-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 12px;
+}
+
+.supplementary-info-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.supplementary-info-field {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.supplementary-info-field > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.supplementary-info-field textarea {
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 10px;
+  outline: 0;
+  background: var(--surface-soft);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.supplementary-info-grid.is-single .supplementary-info-field textarea {
+  min-height: 150px;
+}
+
+.supplementary-info-field textarea::placeholder {
+  color: var(--text-muted);
+}
+
 .workspace-ui-dialog.compatibility-case-picker {
   width: min(540px, 100%);
 }
@@ -1996,6 +2055,21 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-ui-dialog-footer {
     padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .supplementary-info-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .supplementary-info-field textarea {
+    min-height: 82px;
+    resize: none;
+    font-size: 16px;
+  }
+
+  .supplementary-info-grid.is-single .supplementary-info-field textarea {
+    min-height: 168px;
   }
 
   .workspace-ui-notice {
