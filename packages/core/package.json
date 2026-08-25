@@ -291,7 +291,6 @@
     "dist",
     "data/chinaBirthPlaceTree.sources.md",
     "README.md",
-    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {

@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import {
   WorkspaceButton,
+  WorkspaceConfirmDialog,
   WorkspacePage,
   WorkspaceSurface,
 } from '@/components/workspace/WorkspaceUI';
@@ -47,6 +48,10 @@ export function RecordsPage() {
   const [activeTab, setActiveTab] = useState<HistoryTab>(defaultTab);
   const [searchText, setSearchText] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pendingDeletion, setPendingDeletion] = useState<{
+    type: HistoryTab;
+    id: string;
+  } | null>(null);
 
   useEffect(() => {
     setActiveTab(defaultTab);
@@ -91,14 +96,21 @@ export function RecordsPage() {
   }
 
   function deleteCompatibility(id: string) {
-    if (!window.confirm('确定删除这个合盘记录吗？删除后无法恢复。')) return;
-    removeCompatibilityHistory(id);
-    refresh();
+    setPendingDeletion({ type: 'compatibility', id });
   }
 
   function deleteDivination(id: string) {
-    if (!window.confirm('确定删除这条占问记录吗？删除后无法恢复。')) return;
-    removeDivinationHistory(id);
+    setPendingDeletion({ type: 'divination', id });
+  }
+
+  function confirmDeletion() {
+    if (!pendingDeletion) return;
+    if (pendingDeletion.type === 'compatibility') {
+      removeCompatibilityHistory(pendingDeletion.id);
+    } else {
+      removeDivinationHistory(pendingDeletion.id);
+    }
+    setPendingDeletion(null);
     refresh();
   }
 
@@ -244,6 +256,14 @@ export function RecordsPage() {
           )}
         </WorkspaceSurface>
       </WorkspacePage>
+      {pendingDeletion ? (
+        <WorkspaceConfirmDialog
+          title={pendingDeletion.type === 'compatibility' ? '删除合盘记录' : '删除占问记录'}
+          message="删除后无法恢复，确定继续吗？"
+          onClose={() => setPendingDeletion(null)}
+          onConfirm={confirmDeletion}
+        />
+      ) : null}
     </div>
   );
 }

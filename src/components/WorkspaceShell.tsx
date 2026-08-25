@@ -246,6 +246,9 @@ export function WorkspaceShell() {
   useEffect(() => {
     if (!chartRecordId) {
       syncedChartRecordIdRef.current = null;
+      if (activeFeature && isChartWorkspaceId(activeFeature) && activeCaseId !== null) {
+        selectCase(null);
+      }
       return;
     }
     if (syncedChartRecordIdRef.current === chartRecordId) return;
@@ -255,7 +258,7 @@ export function WorkspaceShell() {
       return;
     }
     if (chartRecordId === activeCaseId) syncedChartRecordIdRef.current = chartRecordId;
-  }, [activeCaseId, cases, chartRecordId, selectCase]);
+  }, [activeCaseId, activeFeature, cases, chartRecordId, selectCase]);
 
   function activateCase(record: PersonalHistoryRecord | null) {
     selectCase(record?.id ?? null);
@@ -573,10 +576,7 @@ export function WorkspaceShell() {
           isResultRoute ? ' is-result' : ''
         }${isResultAssistant ? ' is-result-assistant' : ''}`}
       >
-        {!isHomeRoute &&
-        !isInstantResult &&
-        !isResultAssistant &&
-        location.pathname !== '/cases' ? (
+        {activeFeature && !isInstantResult && !isResultAssistant ? (
           <nav className="workspace-case-tabbar" aria-label="案例档案">
             <div className="workspace-case-tabs" role="tablist" aria-label="快速切换案例">
               <button

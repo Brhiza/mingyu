@@ -66,6 +66,43 @@ export function WorkspaceDialog({
   );
 }
 
+type WorkspaceConfirmDialogProps = {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onClose: () => void;
+};
+
+export function WorkspaceConfirmDialog({
+  title,
+  message,
+  confirmLabel = '确认删除',
+  onConfirm,
+  onClose,
+}: WorkspaceConfirmDialogProps) {
+  return (
+    <WorkspaceDialog
+      className="workspace-confirm-dialog"
+      labelledBy="workspace-confirm-dialog-title"
+      onClose={onClose}
+    >
+      <header className="workspace-ui-dialog-header">
+        <h2 id="workspace-confirm-dialog-title">{title}</h2>
+      </header>
+      <div className="workspace-ui-dialog-body workspace-confirm-dialog-body">
+        <p>{message}</p>
+      </div>
+      <footer className="workspace-ui-dialog-footer">
+        <WorkspaceButton onClick={onClose}>取消</WorkspaceButton>
+        <WorkspaceButton variant="danger" onClick={onConfirm}>
+          {confirmLabel}
+        </WorkspaceButton>
+      </footer>
+    </WorkspaceDialog>
+  );
+}
+
 type WorkspaceSurfaceProps = HTMLAttributes<HTMLElement> & {
   as?: 'section' | 'article' | 'div';
   variant?: 'surface' | 'plain';

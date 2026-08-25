@@ -7745,16 +7745,21 @@ select {
   }
 
   .tutorial-page-section {
-    gap: 10px;
+    gap: 8px;
   }
 
   .tutorial-intro-card,
   .tutorial-step-card,
   .tutorial-mode-card,
   .tutorial-tip-card,
-  .tutorial-ai-card {
-    padding: 10px;
-    border-radius: 12px;
+  .tutorial-ai-card,
+  .tutorial-faq-card {
+    padding: 10px 0;
+    border: 0;
+    border-bottom: 1px solid var(--border-soft);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .tutorial-step-card {
@@ -7770,12 +7775,12 @@ select {
 
   .tutorial-mode-grid {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 0;
   }
 
   .tutorial-faq-list {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 0;
   }
 
   .tutorial-bullet-list {

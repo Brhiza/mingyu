@@ -1633,7 +1633,7 @@
 
 @media (max-width: 979px) {
   .workspace-shell {
-    --workspace-case-tabbar-height: 44px;
+    --workspace-case-tabbar-height: 40px;
   }
 
   .workspace-sidebar {
@@ -1642,43 +1642,43 @@
 
   .workspace-main {
     margin-left: 0;
-    padding-top: calc(54px + env(safe-area-inset-top, 0px));
+    padding-top: calc(50px + env(safe-area-inset-top, 0px));
   }
 
   .workspace-mobile-header {
     position: fixed;
     inset: 0 0 auto;
     z-index: 900;
-    height: calc(54px + env(safe-area-inset-top, 0px));
+    height: calc(50px + env(safe-area-inset-top, 0px));
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 44px;
+    grid-template-columns: 36px minmax(0, 1fr) 40px;
     align-items: end;
     gap: 8px;
-    padding: env(safe-area-inset-top, 0px) 10px 7px;
+    padding: env(safe-area-inset-top, 0px) 10px 6px;
     border-bottom: 1px solid var(--border-soft);
     background: color-mix(in srgb, var(--surface-elevated-strong) 96%, transparent);
     backdrop-filter: blur(16px);
   }
 
   .workspace-mobile-menu {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: grid;
     place-content: center;
     gap: 4px;
     border: 0;
-    border-radius: 10px;
+    border-radius: 9px;
     background: var(--surface-muted);
     color: var(--text-secondary);
   }
 
   .workspace-mobile-back {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: grid;
     place-items: center;
     border: 0;
-    border-radius: 10px;
+    border-radius: 9px;
     background: var(--surface-muted);
     color: var(--text-secondary);
     cursor: pointer;
@@ -1717,13 +1717,13 @@
   }
 
   .workspace-mobile-header-spacer {
-    width: 44px;
-    height: 40px;
+    width: 40px;
+    height: 36px;
   }
 
   .workspace-mobile-header-action {
-    width: 44px;
-    min-height: 40px;
+    width: 40px;
+    min-height: 36px;
     align-self: center;
     padding: 0;
     border: 0;
@@ -1742,21 +1742,21 @@
 
   .workspace-case-tabbar {
     z-index: 850;
-    top: calc(54px + env(safe-area-inset-top, 0px));
-    gap: 6px;
-    padding: 5px 7px 0;
+    top: calc(50px + env(safe-area-inset-top, 0px));
+    gap: 5px;
+    padding: 4px 6px 0;
   }
 
   .workspace-case-tab {
-    min-width: 102px;
-    max-width: 142px;
-    height: 38px;
-    gap: 6px;
-    padding: 0 8px;
+    min-width: 92px;
+    max-width: 132px;
+    height: 35px;
+    gap: 5px;
+    padding: 0 7px;
   }
 
   .workspace-case-tab.is-active {
-    height: 39px;
+    height: 36px;
   }
 
   .workspace-case-tab-icon {
@@ -1774,19 +1774,19 @@
 
   .workspace-case-tab-actions {
     gap: 4px;
-    padding-bottom: 5px;
+    padding-bottom: 4px;
   }
 
   .workspace-case-tab-actions button {
-    height: 38px;
+    height: 35px;
   }
 
   .workspace-case-tab-new {
-    width: 38px;
+    width: 35px;
   }
 
   .workspace-case-tab-manage {
-    width: 46px;
+    width: 42px;
     justify-content: center;
     padding: 0;
   }
@@ -1835,7 +1835,7 @@
   }
 
   .workspace-main.is-home .workspace-page {
-    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 50px - env(safe-area-inset-top, 0px));
     min-height: 0;
     display: flex;
     padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
@@ -1849,6 +1849,22 @@
   .case-card {
     grid-template-columns: minmax(0, 1fr) 36px;
     gap: 4px;
+  }
+
+  .case-card-grid {
+    gap: 0;
+  }
+
+  .case-card {
+    padding-block: 3px;
+    border: 0;
+    border-bottom: 1px solid var(--border-soft);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .case-card:last-child {
+    border-bottom: 0;
   }
 
   .workspace-result-navigation {
@@ -1874,18 +1890,18 @@
   .workspace-result-ai-fab {
     position: fixed;
     z-index: 720;
-    right: 16px;
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-    width: 48px;
-    height: 48px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    width: 44px;
+    height: 44px;
     display: grid;
     place-items: center;
     padding: 0;
-    border: 1px solid color-mix(in srgb, var(--accent-strong) 58%, white);
-    border-radius: 16px;
+    border: 0;
+    border-radius: 13px;
     background: var(--accent-strong);
     color: #fff;
-    box-shadow: 0 14px 32px var(--accent-soft-strong);
+    box-shadow: 0 10px 24px var(--accent-soft-strong);
     cursor: pointer;
   }
 
@@ -1919,7 +1935,7 @@
   }
 
   .workspace-settings-section {
-    padding: 16px;
+    padding: 12px;
   }
 
   .workspace-settings-primary-section {
@@ -1957,7 +1973,7 @@
   }
 
   .case-card {
-    grid-template-columns: minmax(0, 1fr) 42px;
+    grid-template-columns: minmax(0, 1fr) 38px;
     gap: 3px;
     padding: 3px 4px 3px 0;
   }
@@ -1969,8 +1985,8 @@
   }
 
   .case-card-menu-trigger {
-    width: 40px;
-    min-height: 40px;
+    width: 36px;
+    min-height: 36px;
   }
 
   .case-card-head,

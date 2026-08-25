@@ -16,6 +16,7 @@ import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import {
   WorkspaceButton,
+  WorkspaceConfirmDialog,
   WorkspaceDialog,
   WorkspacePage,
   WorkspaceSurface,
@@ -69,6 +70,7 @@ export function CasePage() {
   const [form, setForm] = useState<QueryInputState>(createNewCaseForm);
   const [error, setError] = useState('');
   const [openMenuCaseId, setOpenMenuCaseId] = useState<string | null>(null);
+  const [caseToDelete, setCaseToDelete] = useState<PersonalHistoryRecord | null>(null);
   const birthPlace = useBirthPlace({ form, setForm });
   const shouldOpenNewCase = searchParams.get('new') === '1';
 
@@ -217,8 +219,13 @@ export function CasePage() {
   }
 
   function deleteCase(record: PersonalHistoryRecord) {
-    if (!window.confirm(`确定删除“${record.name}”吗？删除后无法恢复。`)) return;
-    removePersonalHistory(record.id);
+    setCaseToDelete(record);
+  }
+
+  function confirmDeleteCase() {
+    if (!caseToDelete) return;
+    removePersonalHistory(caseToDelete.id);
+    setCaseToDelete(null);
   }
 
   return (
@@ -340,11 +347,6 @@ export function CasePage() {
           ) : (
             <div className="workspace-ui-empty">
               {cases.length ? '没有匹配的案例' : '还没有案例'}
-              {!cases.length ? (
-                <WorkspaceButton variant="primary" onClick={openNewCaseEditor}>
-                  新建案例
-                </WorkspaceButton>
-              ) : null}
             </div>
           )}
         </WorkspaceSurface>
@@ -387,6 +389,15 @@ export function CasePage() {
             </WorkspaceButton>
           </footer>
         </WorkspaceDialog>
+      ) : null}
+
+      {caseToDelete ? (
+        <WorkspaceConfirmDialog
+          title="删除案例"
+          message={`确定删除“${caseToDelete.name}”吗？删除后无法恢复。`}
+          onClose={() => setCaseToDelete(null)}
+          onConfirm={confirmDeleteCase}
+        />
       ) : null}
 
       <BirthPlaceModal birthPlace={birthPlace} backdropClassName="case-birth-place-backdrop" />

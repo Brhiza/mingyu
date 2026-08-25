@@ -64,7 +64,11 @@ try {
 
   runPnpm(['pack', '--out', coreTarball], coreDirectory);
 
-  assert.ok(statSync(coreTarball).size <= 1_210_000, 'mingyu-core 压缩包不应超过 1.21 MB');
+  const coreTarballBytes = statSync(coreTarball).size;
+  assert.ok(
+    coreTarballBytes <= 1_210_000,
+    `mingyu-core 压缩包不应超过 1.21 MB：${coreTarballBytes} 字节`,
+  );
 
   writeFileSync(
     join(consumerDirectory, 'package.json'),

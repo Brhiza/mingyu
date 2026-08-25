@@ -1788,12 +1788,15 @@
 
   .divination-result-panel > .traditional-board,
   .liuren-board {
-    padding: 11px;
+    padding: 8px 0 12px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .divination-inline-restart {
-    top: 11px;
-    right: 11px;
+    top: 8px;
+    right: 0;
   }
 
   .traditional-board-head {
@@ -1955,7 +1958,10 @@
 
   .traditional-almanac-workspace {
     display: block;
+    width: 100%;
+    max-width: 100%;
     min-height: 0;
+    min-width: 0;
     overflow: visible;
     border: 0;
     border-radius: 0;
@@ -1964,7 +1970,10 @@
   .traditional-almanac-candidates {
     display: flex;
     gap: 6px;
+    width: 100%;
+    max-width: 100%;
     max-height: none;
+    min-width: 0;
     padding: 0 0 8px;
     overflow-x: auto;
     overflow-y: hidden;

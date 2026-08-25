@@ -1592,6 +1592,17 @@ label.workspace-ui-field > span:first-child {
   width: min(1120px, 100%);
 }
 
+.workspace-ui-dialog.workspace-confirm-dialog {
+  width: min(420px, 100%);
+}
+
+.workspace-confirm-dialog-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .fortune-dialog-body {
   display: grid;
   gap: 10px;
@@ -1651,7 +1662,7 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-ui-surface,
   .workspace-ui-form-surface {
-    padding: 14px;
+    padding: 12px;
     border-radius: 12px;
     box-shadow: none;
   }
@@ -1661,12 +1672,69 @@ label.workspace-ui-field > span:first-child {
     border-radius: 0;
   }
 
+  .workspace-input-page .workspace-ui-form-surface,
+  .workspace-divination-page .workspace-ui-form-surface {
+    padding: 2px 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .workspace-divination-page .workspace-ui-form-heading {
+    display: none;
+  }
+
+  .workspace-input-page.is-compatibility .workspace-ui-form-surface + .workspace-ui-form-surface {
+    margin-top: 4px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .workspace-input-page .workspace-ui-notice {
+    padding: 4px 0 9px;
+    border: 0;
+    border-bottom: 1px solid var(--border-soft);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .workspace-input-page .workspace-ui-form-actions.is-sticky-mobile,
+  .workspace-divination-page .workspace-ui-form-actions.is-sticky-mobile {
+    position: static;
+    justify-content: flex-end;
+    margin: 0;
+    padding: 7px 0 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .workspace-input-page .workspace-ui-form-actions .workspace-ui-button.is-block,
+  .workspace-divination-page .workspace-ui-form-actions .workspace-ui-button.is-block {
+    width: auto;
+    min-width: 142px;
+    padding-inline: 18px;
+  }
+
+  .workspace-case-page .workspace-ui-empty,
+  .workspace-records-page .workspace-ui-empty {
+    min-height: 104px;
+    padding: 16px 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .workspace-record-list {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
   .workspace-prompt-delivery-actions {
     gap: 6px;
   }
 
   .workspace-prompt-delivery-button.workspace-ui-button {
-    min-height: 42px;
+    min-height: 38px;
     padding-inline: 9px;
     font-size: 12px;
   }
@@ -1677,7 +1745,7 @@ label.workspace-ui-field > span:first-child {
   }
 
   .workspace-result-assistant-stage {
-    height: calc(100dvh - 66px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 62px - env(safe-area-inset-top, 0px));
     min-height: 0;
     grid-template-rows: minmax(0, 1fr);
     overflow: hidden;
@@ -1745,7 +1813,7 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-result-assistant-stage .workspace-prompt-sections {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    grid-template-rows: 38px auto;
+    grid-template-rows: 34px auto;
     gap: 7px 5px;
     overflow: visible;
     border: 0;
@@ -1764,22 +1832,21 @@ label.workspace-ui-field > span:first-child {
   .workspace-result-assistant-stage .workspace-prompt-section-head {
     width: auto;
     min-width: 0;
-    min-height: 38px;
+    min-height: 34px;
     grid-row: 1;
     justify-content: center;
     gap: 0;
     padding: 0 2px;
-    border: 1px solid var(--border-soft);
-    border-radius: 9px;
-    background: var(--surface-base);
+    border: 0;
+    border-radius: 8px;
+    background: var(--state-idle-surface);
     text-align: center;
   }
 
   .workspace-result-assistant-stage
     .workspace-prompt-section.is-expanded
     .workspace-prompt-section-head {
-    border-color: var(--border-contrast);
-    background: var(--accent-surface);
+    background: var(--state-selected-surface-strong);
   }
 
   .workspace-result-assistant-stage .workspace-prompt-section-copy {
@@ -1822,7 +1889,7 @@ label.workspace-ui-field > span:first-child {
     .workspace-prompt-section
     > .workspace-ui-choice-grid
     .workspace-ui-choice {
-    min-height: 40px;
+    min-height: 36px;
     flex: 0 0 auto;
     padding-inline: 12px;
     white-space: nowrap;
@@ -1879,7 +1946,17 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-result-assistant-stage .workspace-prompt-workbench {
     gap: 9px;
-    padding: 12px;
+    padding: 10px 12px max(8px, env(safe-area-inset-bottom, 0px));
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-workbench-body {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    scrollbar-gutter: auto;
   }
 
   .workspace-result-assistant-stage .workspace-prompt-workbench-preview {
@@ -1895,7 +1972,7 @@ label.workspace-ui-field > span:first-child {
   }
 
   .workspace-result-assistant-stage .workspace-prompt-workbench-body > pre {
-    padding: 10px 11px;
+    padding: 4px 0 8px;
     font-size: 11px;
     line-height: 1.55;
   }
@@ -2005,8 +2082,8 @@ label.workspace-ui-field > span:first-child {
     .workspace-ai-composer-toolbar
     .workspace-question-picker-trigger,
   .workspace-result-assistant-stage .workspace-ai-composer-toolbar .workspace-ui-control {
-    height: 44px;
-    min-height: 44px;
+    height: 40px;
+    min-height: 40px;
   }
 
   .workspace-ui-form-row.is-two-column {
@@ -2022,39 +2099,39 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-ui-control,
   .workspace-ui-dropdown-trigger.is-field {
-    min-height: 44px;
-    padding-block: 9px;
+    min-height: 40px;
+    padding-block: 7px;
     font-size: 16px;
   }
 
   .workspace-ui-button.is-large {
-    min-height: 48px;
+    min-height: 44px;
   }
 
   .workspace-ui-button.is-small,
   .workspace-ui-choice,
   .workspace-ui-dropdown-trigger:not(.is-field) {
-    min-height: 40px;
+    min-height: 36px;
   }
 
   .workspace-ui-segmented {
-    min-height: 42px;
+    min-height: 38px;
   }
 
   .workspace-ui-segmented-item {
-    min-height: 34px;
+    min-height: 32px;
   }
 
   .workspace-ui-dialog-header {
-    padding: 14px 14px 12px;
+    padding: 12px 12px 10px;
   }
 
   .workspace-ui-dialog-body {
-    padding: 13px 14px;
+    padding: 11px 12px;
   }
 
   .workspace-ui-dialog-footer {
-    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom, 0px));
   }
 
   .supplementary-info-grid {
