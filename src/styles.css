@@ -5368,6 +5368,20 @@ select {
   text-align: right;
 }
 
+.traditional-meihua-yaos .traditional-yao-line {
+  position: relative;
+  justify-self: center;
+  width: 64px;
+}
+
+.traditional-meihua-yaos .traditional-yao-line > em {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 3px);
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
 .traditional-meihua-yaos > .traditional-meihua-yaos-head > strong {
   color: var(--text-secondary);
   font-size: 11px;
