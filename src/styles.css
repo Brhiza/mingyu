@@ -5196,16 +5196,22 @@ select {
 }
 
 .traditional-yao-line {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  justify-self: center;
   gap: 4px;
+  width: 64px;
   min-width: 64px;
 }
 
 .traditional-yao-label {
+  position: absolute;
+  right: calc(100% + 4px);
   color: var(--text-muted);
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .traditional-yao-symbol {
@@ -5242,6 +5248,14 @@ select {
   font-size: 10px;
   font-style: normal;
   font-weight: 700;
+}
+
+.traditional-yao-line > em {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 3px);
+  white-space: nowrap;
+  transform: translateY(-50%);
 }
 
 .traditional-yao-status {
@@ -5366,20 +5380,6 @@ select {
 .traditional-meihua-yaos > div > b {
   color: var(--accent-deep);
   text-align: right;
-}
-
-.traditional-meihua-yaos .traditional-yao-line {
-  position: relative;
-  justify-self: center;
-  width: 64px;
-}
-
-.traditional-meihua-yaos .traditional-yao-line > em {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + 3px);
-  white-space: nowrap;
-  transform: translateY(-50%);
 }
 
 .traditional-meihua-yaos > .traditional-meihua-yaos-head > strong {

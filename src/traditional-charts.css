@@ -1935,6 +1935,7 @@
   }
 
   .traditional-yao-line {
+    width: 48px;
     min-width: 0;
     gap: 3px;
   }
