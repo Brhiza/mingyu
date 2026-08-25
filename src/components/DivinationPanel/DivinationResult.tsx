@@ -168,7 +168,10 @@ function LiurenBoard({ data }: { data: LiurenData }) {
   const lessonPatterns = Array.from(new Set([...(data.guaTi ?? []), ...(data.patternTags ?? [])]))
     .filter(Boolean)
     .join('、');
-  const shenSha = data.shenShaSummary?.filter(Boolean).join('、');
+  const shenShaItems = Array.from(new Set(data.shenShaSummary?.filter(Boolean) ?? []));
+  const shenSha = shenShaItems.length
+    ? `${shenShaItems.slice(0, 8).join('、')}${shenShaItems.length > 8 ? ` · 另${shenShaItems.length - 8}项` : ''}`
+    : undefined;
   const liurenFacts = [
     ['日干寄宫', data.dayStemResidence],
     [

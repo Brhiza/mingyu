@@ -93,14 +93,17 @@ function TraditionalMeta(props: { items: Array<[string, string | number | undefi
   );
 }
 
-function TraditionalFacts(props: { items: Array<[string, string | number | undefined | null]> }) {
+function TraditionalFacts(props: {
+  items: Array<[string, string | number | undefined | null]>;
+  className?: string;
+}) {
   const visibleItems = props.items.filter(
     ([, value]) => value !== undefined && value !== null && value !== '',
   );
   if (!visibleItems.length) return null;
 
   return (
-    <div className="traditional-fact-grid">
+    <div className={`traditional-fact-grid${props.className ? ` ${props.className}` : ''}`}>
       {visibleItems.map(([label, value]) => (
         <div key={label}>
           <span>{label}</span>
@@ -320,7 +323,6 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
         items={[
           ['动爻', `${data.movingYao.yaoName} · ${data.movingYao.description}`],
           ['变后体用', data.analysis.changedTiYongRelation],
-          ['应期线索', data.analysis.yingQi?.join('、')],
         ]}
       />
       <div className="traditional-hexagram-triad">
@@ -361,14 +363,6 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
 }
 
 function XiaoliurenTraditionalBoard({ data }: { data: XiaoliurenData }) {
-  const positions = [
-    { row: 1, column: 2 },
-    { row: 1, column: 3 },
-    { row: 2, column: 3 },
-    { row: 3, column: 3 },
-    { row: 3, column: 2 },
-    { row: 3, column: 1 },
-  ];
   return (
     <TraditionalBoardShell
       title="小六壬六宫盘"
@@ -397,8 +391,7 @@ function XiaoliurenTraditionalBoard({ data }: { data: XiaoliurenData }) {
         ]}
       />
       <div className="traditional-six-palace" role="img" aria-label="小六壬六宫盘">
-        {data.palaceOrder.map((palace, index) => {
-          const position = positions[index] || positions[0];
+        {data.palaceOrder.map((palace) => {
           const sequenceMarkers = [
             data.sequence.month.name === palace.name ? '月' : '',
             data.sequence.day.name === palace.name ? '日' : '',
@@ -407,18 +400,22 @@ function XiaoliurenTraditionalBoard({ data }: { data: XiaoliurenData }) {
           return (
             <div
               className={`traditional-six-palace-cell${palace.name === data.primary.name ? ' is-primary' : ''}`}
-              style={{ gridColumn: position.column, gridRow: position.row }}
               key={palace.name}
             >
-              <span>{palace.index + 1}</span>
-              <strong>{palace.name}</strong>
-              <small>{sequenceMarkers.length ? sequenceMarkers.join(' · ') : palace.verse}</small>
+              <div className="traditional-six-palace-cell-head">
+                <span>{palace.index + 1}</span>
+                <strong>{palace.name}</strong>
+                {sequenceMarkers.length ? <em>{sequenceMarkers.join(' · ')}</em> : null}
+              </div>
+              <small>{palace.verse}</small>
             </div>
           );
         })}
         <div className="traditional-six-palace-center">
-          <span>月 → 日 → 时</span>
-          <strong>{data.primary.name}</strong>
+          <span>
+            月{data.sequence.month.name} → 日{data.sequence.day.name} → 时{data.sequence.hour.name}
+          </span>
+          <strong>占得 {data.primary.name}</strong>
         </div>
       </div>
     </TraditionalBoardShell>
@@ -494,7 +491,11 @@ function JinkoujueTraditionalBoard({ data }: { data: JinkoujueData }) {
 
 function QimenTraditionalBoard({ data }: { data: QimenData }) {
   const palaceMap = new Map(data.jiuGongGe.map((item) => [item.gong, item]));
-  const stemRelationMap = new Map(data.stemRelations?.map((item) => [item.gong, item]) ?? []);
+  const stemRelationMap = new Map<number, string[]>();
+  data.stemRelations?.forEach((item) => {
+    const label = item.pattern?.split(/[：:]/u)[0] || item.relation;
+    stemRelationMap.set(item.gong, [...(stemRelationMap.get(item.gong) ?? []), label]);
+  });
   const scopeLabel = { hour: '时家', day: '日家', month: '月家', year: '年家' }[
     data.scope ?? 'hour'
   ];
@@ -506,16 +507,26 @@ function QimenTraditionalBoard({ data }: { data: QimenData }) {
   ]
     .filter(Boolean)
     .join('、');
-  const patternNames = Array.from(
-    new Set([
-      ...(data.patternTags ?? []),
-      ...(data.classicPatterns?.map((item) => item.name) ?? []),
-      ...(data.patternCombos?.map((item) => item.name) ?? []),
-    ]),
-  ).join('、');
-  const ganzhiInteractions = data.seasonality?.ganzhiInteractions
-    .map((item) => item.description)
-    .join('；');
+  const patternCounts = new Map<string, number>();
+  data.patternTags?.forEach((item) => {
+    const label = item.split(/[（(]/u)[0]?.trim();
+    if (label) patternCounts.set(label, (patternCounts.get(label) ?? 0) + 1);
+  });
+  const patternNames = Array.from(patternCounts.entries())
+    .map(([label, count]) => `${label}${count > 1 ? `×${count}` : ''}`)
+    .join(' · ');
+  const ganzhiInteractionCounts = new Map<string, number>();
+  data.seasonality?.ganzhiInteractions.forEach((item) => {
+    const [first, second] = item.values;
+    const label =
+      first === second && item.type === '相刑'
+        ? `${first}自刑`
+        : `${item.values.join('')}${item.type}`;
+    ganzhiInteractionCounts.set(label, (ganzhiInteractionCounts.get(label) ?? 0) + 1);
+  });
+  const ganzhiInteractions = Array.from(ganzhiInteractionCounts.entries())
+    .map(([label, count]) => `${label}${count > 1 ? `×${count}` : ''}`)
+    .join(' · ');
   return (
     <TraditionalBoardShell
       title={`${scopeLabel}奇门九宫盘`}
@@ -536,17 +547,17 @@ function QimenTraditionalBoard({ data }: { data: QimenData }) {
         ]}
       />
       <TraditionalFacts
+        className="is-qimen-summary"
         items={[
-          ['定局三元', data.timeInfo.epoch],
+          ['定局三元', [data.timeInfo.epoch, specialConditions].filter(Boolean).join(' · ')],
           [
             '节令背景',
             data.seasonality
               ? `${data.seasonality.currentJieQi} · ${data.seasonality.dayOfficer}${data.seasonality.dayOfficerFortuneLabel} · ${data.seasonality.lunarPhase} · 日干${data.seasonality.seasonRelation}`
               : undefined,
           ],
-          ['特殊时', specialConditions],
-          ['格局', patternNames],
-          ['干支作用', ganzhiInteractions],
+          ['格局摘要', patternNames],
+          ['四柱作用', ganzhiInteractions],
         ]}
       />
       <div className="traditional-qimen-grid" role="img" aria-label="奇门遁甲九宫盘">
@@ -558,7 +569,7 @@ function QimenTraditionalBoard({ data }: { data: QimenData }) {
           const isZhiFu =
             palace.tianPan.star === data.zhiFu || palace.tianPan.companionStar === data.zhiFu;
           const isZhiShi = palace.renPan.door === data.zhiShi;
-          const stemRelation = stemRelationMap.get(gong);
+          const stemRelations = stemRelationMap.get(gong) ?? [];
           return (
             <div
               className={`traditional-qimen-cell${gong === 5 ? ' is-center' : ''}${isVoid ? ' is-void' : ''}${isHorse ? ' is-horse' : ''}`}
@@ -584,13 +595,17 @@ function QimenTraditionalBoard({ data }: { data: QimenData }) {
                 </span>
                 <span>地 {palace.diPan.stem}</span>
               </div>
-              {stemRelation ? (
-                <small className="traditional-qimen-relation">
-                  {stemRelation.pattern || stemRelation.relation}
+              {stemRelations.length ? (
+                <small className="traditional-qimen-relation" title={stemRelations.join('、')}>
+                  {stemRelations.join(' · ')}
                 </small>
               ) : null}
-              {isVoid ? <em>空</em> : null}
-              {isHorse ? <em>马</em> : null}
+              {isVoid || isHorse ? (
+                <div className="traditional-qimen-status" aria-label="宫位状态">
+                  {isVoid ? <span>空</span> : null}
+                  {isHorse ? <span>马</span> : null}
+                </div>
+              ) : null}
             </div>
           );
         })}

@@ -100,6 +100,15 @@
 
 .bazi-showcase-card .bazi-core-layout {
   display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bazi-showcase-card .bazi-pillars-card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .bazi-showcase-card .bazi-pillars-header {
@@ -114,7 +123,9 @@
 }
 
 .bazi-showcase-card .bazi-pillars-scroll {
+  width: 100%;
   min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
@@ -579,6 +590,14 @@
 }
 
 /* 紫微：宫位保持连续盘格，重点宫位只用低饱和描边与底色。 */
+.ziwei-showcase-card .ziwei-layout,
+.ziwei-showcase-card .ziwei-board-stack,
+.ziwei-showcase-card .ziwei-traditional-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .ziwei-showcase-card .ziwei-traditional-shell {
   padding: 12px;
   border-color: var(--chart-border);
