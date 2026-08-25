@@ -354,7 +354,10 @@ export function HomePage() {
                 target="_blank"
                 rel="noreferrer"
               >
-                功德箱
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 20.4 10.6 19.2C5.7 14.9 2.5 12 2.5 8.4A4.9 4.9 0 0 1 7.5 3.5c1.8 0 3.5.9 4.5 2.3a5.6 5.6 0 0 1 4.5-2.3 4.9 4.9 0 0 1 5 4.9c0 3.6-3.2 6.5-8.1 10.8L12 20.4Z" />
+                </svg>
+                <span>功德箱</span>
               </a>
             ) : null}
           </div>

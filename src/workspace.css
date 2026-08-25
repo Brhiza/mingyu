@@ -604,7 +604,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 9px;
 }
 
 .workspace-home-seal {
@@ -621,16 +621,44 @@
 }
 
 .workspace-home-donation {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  box-shadow: 0 7px 18px var(--accent-soft-strong);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
   line-height: 1;
   text-decoration: none;
-  transition: color 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
-.workspace-home-donation:hover {
-  color: var(--accent-strong);
+.workspace-home-donation svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.workspace-home-donation:hover,
+.workspace-home-donation:focus-visible {
+  background: color-mix(in srgb, var(--accent-strong) 88%, #1f1427);
+  box-shadow: 0 9px 22px var(--accent-soft-strong);
+  color: #fff;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.workspace-home-donation:active {
+  box-shadow: 0 5px 13px var(--accent-soft-strong);
+  transform: translateY(0) scale(0.98);
 }
 
 .workspace-home-heading h1 {
@@ -2190,6 +2218,22 @@
     border-radius: 11px;
     font-size: 14px;
     box-shadow: 0 8px 22px var(--accent-soft-strong);
+  }
+
+  .workspace-home-brand {
+    gap: 6px;
+  }
+
+  .workspace-home-donation {
+    min-height: 27px;
+    gap: 5px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .workspace-home-donation svg {
+    width: 12px;
+    height: 12px;
   }
 
   .workspace-home-heading h1 {
