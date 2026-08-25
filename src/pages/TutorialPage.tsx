@@ -1,48 +1,45 @@
-import { useNavigate } from 'react-router-dom';
-import { PageTopbar } from '@/components/PageTopbar';
-
 const workflowSteps = [
   {
-    title: '选模式并填写',
-    description: '排盘看个人命盘或住宅，合盘看两人，占卜看问题，择日选时间。',
+    title: '从侧栏选工具',
+    description: '命盘、占问和择时工具均有独立入口，手机端点左上角打开侧栏。',
   },
   {
-    title: '先看提示词',
-    description: '结果页默认打开“提示词”页；想看盘面时再切到八字或紫微。',
+    title: '选择是否使用案例',
+    description: '固定使用一个人时选择全局案例；临时排盘时选择“不指定”，每次从空白资料开始。',
   },
   {
-    title: '复制后发送',
-    description: '发到 DeepSeek、千问、豆包等在线 AI 软件，优先打开专家模式、深度思考、深度推理。',
+    title: '按需使用提示词',
+    description: '结果页可复制完整提示词到常用 AI，也可以启用内置 AI 解读作为辅助。',
   },
 ] as const;
 
 const modeGuides = [
   {
-    title: '排盘模式',
-    description: '查看个人命盘或住宅风水。',
-    bullets: ['八字 / 紫微填写出生信息', '住宅风水填写出生年份、性别和房屋朝向资料'],
+    title: '命盘',
+    description: '适合长期保存、反复查看的个人资料。',
+    bullets: ['同一个案例可切换八字、紫微、星盘等命盘', '侧栏顶部或手机顶栏可快速切换案例'],
   },
   {
-    title: '合盘模式',
+    title: '合盘',
     description: '看两个人的关系和匹配度。',
-    bullets: ['需要填写双方出生信息', '会展示两人的盘面', '常用于感情、合作、磨合'],
+    bullets: ['当前案例自动作为第一人', '完成后保存为独立合盘记录'],
   },
   {
-    title: '占卜模式',
+    title: '占问',
     description: '围绕一个问题快速起卦。',
-    bullets: ['先把问题写具体', '可选六爻、梅花、太乙、塔罗等方式', '结果页也能一键复制提示词'],
+    bullets: ['先从侧栏选择算法', '可关联当前案例补充出生资料', '结果只进入占问历史'],
   },
   {
-    title: '择日模式',
+    title: '择时',
     description: '从日期范围内筛选更合适的行动日。',
-    bullets: ['选择要办的事项', '填写候选日期范围', '可补充参与人的出生信息'],
+    bullets: ['选择要办的事项', '填写候选日期范围', '按需要补充参与人资料'],
   },
 ] as const;
 
 const promptUsageTips = [
   '不要只发一句“帮我看看”，直接把整段提示词完整发出。',
   '如果软件支持联网、附件或思考增强功能，先开启再发送。',
-  '项目主要负责生成完整提示词，后续追问可直接交给在线 AI 自带的对话能力。',
+  '后续追问可以直接在同一个 AI 对话中继续，不必重新复制盘面。',
 ] as const;
 
 const commonQuestions = [
@@ -57,21 +54,19 @@ const commonQuestions = [
   },
   {
     question: '之前做过的内容能不能再看？',
-    answer: '可以，首页和占卜页都能进入历史记录。',
+    answer: '可以。个人资料在案例页管理，占问和合盘结果在“历史记录”中打开。',
+  },
+  {
+    question: '怎样固定常用案例？',
+    answer: '进入案例页置顶常用案例。快速切换会先显示置顶案例，其余案例按最近使用时间排列。',
   },
 ] as const;
 
 export function TutorialPage() {
-  const navigate = useNavigate();
-
   return (
-    <div className="page-shell input-page-shell">
-      <div className="tutorial-topbar-shell">
-        <PageTopbar title="使用教程" wide onBack={() => navigate('/')} />
-      </div>
-
-      <div className="bazi-view-container tutorial-page-container">
-        <section className="history-page-section tutorial-page-section">
+    <div className="workspace-tutorial-page">
+      <WorkspacePage title="使用说明" width="narrow">
+        <WorkspaceSurface className="tutorial-page-section">
           <div className="tutorial-intro-card">
             <p>填写信息，进入结果页，复制提示词，发送到在线 AI 软件继续提问。</p>
           </div>
@@ -93,7 +88,7 @@ export function TutorialPage() {
           </div>
 
           <div className="tutorial-section-heading">
-            <h3>四种模式怎么选</h3>
+            <h3>工具类型怎么选</h3>
           </div>
 
           <div className="tutorial-mode-grid">
@@ -134,8 +129,9 @@ export function TutorialPage() {
               </article>
             ))}
           </div>
-        </section>
-      </div>
+        </WorkspaceSurface>
+      </WorkspacePage>
     </div>
   );
 }
+import { WorkspacePage, WorkspaceSurface } from '@/components/workspace/WorkspaceUI';

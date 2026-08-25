@@ -5,6 +5,8 @@ import { taiyi } from 'mingyu-core';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
 import { drawTarotSpread, tarotSpreads } from '../packages/core/src/divination/tarot.ts';
+import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand.ts';
+import { generateXiaoliuren } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
 import {
   assertNoPromptPlaceholders,
   assertPromptHasSingleRole,
@@ -872,9 +874,9 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.doesNotMatch(prompt, /事项范围：|日期结论：|可用候选|慎用候选/);
   assert.doesNotMatch(prompt, /事项未限定|按通用.*口径|当前首列候选/);
   assert.doesNotMatch(prompt, /岁支十二神方位|全年方位神|岁支方位避|可参考太阳|可参考福德/);
-  assert.match(prompt, /第1候选：2026-06-01/);
-  assert.match(prompt, /第2候选：2026-06-02/);
-  assert.match(prompt, /忌入宅、移徙/);
+  assert.match(prompt, /第1日：2026-06-01/);
+  assert.match(prompt, /第2日：2026-06-02/);
+  assert.match(prompt, /忌节选入宅、移徙/);
   assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
 });
@@ -906,7 +908,7 @@ test('占卜提示词不写入输出要求或行动建议', async () => {
   assert.match(session, /【任务】/);
 });
 
-test('非对应占法不混入梅花设置或通用出生资料', () => {
+test('通用占法保留求测人基本资料但不混入梅花设置', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -915,8 +917,7 @@ test('非对应占法不混入梅花设置或通用出生资料', () => {
   );
 
   assert.match(prompt, /【占卜信息】/);
-  assert.doesNotMatch(prompt, /【补充信息】/);
-  assert.doesNotMatch(prompt, /性别：男|出生年份：1995/);
+  assert.match(prompt, /【补充信息】\n求测人：男；出生年份：1995/);
   assert.doesNotMatch(prompt, /起卦方式：数字起卦|起卦数字：123/);
 });
 
@@ -933,7 +934,7 @@ test('大六壬提示词保留用户补充的现实信息', () => {
   });
 
   assert.match(prompt, /【补充信息】/);
-  assert.doesNotMatch(prompt, /性别：男|出生年份：1990/);
+  assert.match(prompt, /求测人：男；出生年份：1990/);
   assert.match(prompt, /现实背景：正在考虑换工作，已经拿到一个新机会。/);
   assert.match(prompt, /当前情况：正在考虑换工作，已经拿到一个新机会。/);
   assert.match(prompt, /当前状态：时间紧、压力较大，但仍有一定选择空间。/);
@@ -1351,7 +1352,7 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 
-test('塔罗提示词保留牌阵、牌位、正逆位与关键词', () => {
+test('塔罗提示词保留牌阵、牌位、正逆位、关键词与可靠牌组属性', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -1364,13 +1365,53 @@ test('塔罗提示词保留牌阵、牌位、正逆位与关键词', () => {
   assert.doesNotMatch(prompt, /牌位顺序：/);
   assert.match(prompt, /- 现状：恋人（正位）；关键词：/);
   assert.match(prompt, /- 建议：战车（逆位）；关键词：/);
+  assert.match(prompt, /牌组属性：/);
+  assert.match(prompt, /正逆位口径：逆位表示该牌主题可能受阻、过度、内化或方向偏离/);
   assert.doesNotMatch(prompt, /元素主题：|牌阶主题：/);
   assert.doesNotMatch(prompt, /牌义：/);
   assert.doesNotMatch(prompt, /断牌口径|现实边界|结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(
     prompt,
-    /牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏|受阻、过度、内化/,
+    /牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏/,
   );
+});
+
+test('小六壬提示词保留可复核顺数，并明确只有时宫承担主证', () => {
+  const data = generateXiaoliuren({ customDate: new Date('2026-05-19T10:30:00+08:00') });
+  const prompt = buildDivinationPrompt(
+    'xiaoliuren',
+    '这件事接下来如何发展？',
+    data,
+    createSupplementaryInfo(),
+  );
+
+  assert.match(prompt, /起课：农历.+，巳时/);
+  assert.match(prompt, /起课过程：/);
+  assert.match(prompt, /定月宫：.+月从大安顺数，落/);
+  assert.match(prompt, /定日宫：从月宫.+起初一，顺数至.+日，落/);
+  assert.match(prompt, /定时宫：从日宫.+起子时，顺数至巳时，落/);
+  assert.match(prompt, /取用层级：时宫.+为本次占得宫与主证；月宫.+、日宫.+为逐宫顺数位置/);
+  assert.doesNotMatch(prompt, /mod\s*6|时序\d+|东八区民用日零点换日/);
+  assert.doesNotMatch(prompt, /五行生克与落宫方位/);
+});
+
+test('雷诺曼提示词保留逐牌基础牌义与真实布局，不扩写普通牌序为固定组合', () => {
+  const fivePrompt = buildDivinationPrompt(
+    'lenormand',
+    '这件事接下来如何发展？',
+    drawLenormandSpread('five', { seed: '提示词完整性-五牌' }),
+  );
+  assert.match(fivePrompt, /基础牌义：/);
+  assert.doesNotMatch(fivePrompt, /固定组合：[\s\S]*牌序相邻|相邻牌义合读/);
+
+  const ninePrompt = buildDivinationPrompt(
+    'lenormand',
+    '这件事的核心和路径是什么？',
+    drawLenormandSpread('nine', { manualCardIds: [1, 2, 3, 4, 5, 6, 7, 8, 9] }),
+  );
+  assert.match(ninePrompt, /布局关系：/);
+  assert.match(ninePrompt, /九宫第2排第2列的中心位置为/);
+  assert.match(ninePrompt, /左上至右下对角线依次为/);
 });
 
 test('灵签提示词保留完整签谱资料', () => {

@@ -18,9 +18,13 @@ import {
 const jinkoujueSchema = z.object({
   ...randomOptionShape,
   jinkoujueMethod: z
-    .enum(['time', 'number', 'random'])
+    .enum(['time', 'branch', 'number', 'random'])
     .optional()
-    .describe('起课方式：time=时间起课, number=数字起课, random=随机起课'),
+    .describe('起课方式：time=时间起课, branch=指定地分, number=数字起课, random=随机起课'),
+  jinkoujueBranch: z
+    .enum(['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'])
+    .optional()
+    .describe('指定地分时使用的地支'),
   jinkoujueNumber: z.number().optional().describe('数字起课时使用的正整数'),
   customDate: z
     .string()
@@ -41,6 +45,7 @@ function buildJinkoujueInput(args: z.infer<typeof jinkoujueSchema>) {
   }
   return {
     method,
+    ...(method === 'branch' ? { branch: args.jinkoujueBranch } : {}),
     ...(method === 'number'
       ? { number: readMcpPositiveInteger(args.jinkoujueNumber, 'jinkoujueNumber') }
       : {}),

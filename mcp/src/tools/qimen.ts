@@ -19,6 +19,10 @@ const qimenSchema = z.object({
     .enum(['zhuanpan', 'feipan'])
     .optional()
     .describe('排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法'),
+  qimenScope: z
+    .enum(['hour', 'day', 'month', 'year'])
+    .optional()
+    .describe('排盘层级：hour 时家（默认）、day 日家、month 月家、year 年家'),
   qimenJuMethod: z
     .enum(['chaibu', 'zhirun'])
     .optional()
@@ -32,18 +36,19 @@ export function registerQimenTool(server: McpServer) {
     'divine_qimen',
     {
       description:
-        '奇门遁甲排盘：基于当前时间或自定义时间生成时家奇门盘，包含天地人神四盘、值符值使、格局标签、节令背景、复合格局与宫位洞察',
+        '奇门遁甲排盘：基于当前时间或自定义时间生成时家、日家、月家或年家奇门盘，包含天地人神四盘、值符值使、格局标签、节令背景、复合格局与宫位洞察',
       inputSchema: { ...qimenSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
     async (args) => {
       try {
         const method = args.qimenMethod ?? 'zhuanpan';
+        const scope = args.qimenScope ?? 'hour';
         const juMethod = args.qimenJuMethod ?? 'chaibu';
         const result = generateQimen(
           readMcpCustomDate(args.customDate),
           method as 'zhuanpan' | 'feipan',
-          'hour',
+          scope,
           juMethod as 'chaibu' | 'zhirun',
         );
         return createStructuredToolResult({ result }, args.detailMode);
@@ -64,11 +69,12 @@ export function registerQimenTool(server: McpServer) {
     async (args) => {
       try {
         const method = args.qimenMethod ?? 'zhuanpan';
+        const scope = args.qimenScope ?? 'hour';
         const juMethod = args.qimenJuMethod ?? 'chaibu';
         const result = generateQimen(
           readMcpCustomDate(args.customDate),
           method as 'zhuanpan' | 'feipan',
-          'hour',
+          scope,
           juMethod as 'chaibu' | 'zhirun',
         );
         return createStructuredToolResult({

@@ -169,9 +169,12 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/wuxing'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/direction'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/shensha'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/instant/calculate'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/astrolabe/prompt'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/divination/jinkoujue'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/divination/jinkoujue/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/wuyun-liuqi/calculate'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/wuyun-liuqi/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/metaphysics/huangji-jingshi/calculate'));
@@ -179,6 +182,58 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/ai/analyze'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/ai/models'));
   assert.ok(body.data.endpoints.includes('GET /.well-known/aov-mingyu-api.json'));
+});
+
+test('公开 API 即时盘应按固定时刻返回无性别的北京时间八字盘', async () => {
+  const { response, body } = await callApi('instant/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'bazi',
+      timeStandard: 'beijing',
+      customDate: '2026-08-24T12:30:00+08:00',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.type, 'bazi');
+  assert.deepEqual(body.data.wallClock, {
+    year: 2026,
+    month: 8,
+    day: 24,
+    hour: 12,
+    minute: 30,
+  });
+  assert.equal('gender' in body.data.result, false);
+  assert.equal('luckInfo' in body.data.result, false);
+});
+
+test('公开 API 真太阳时即时盘缺少地点时应明确拒绝', async () => {
+  const { response, body } = await callApi('instant/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'ziwei', timeStandard: 'true-solar' }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.match(body.error.message, /观测地点/);
+});
+
+test('公开 API OpenAPI 应公开即时盘类型与两种时间口径', async () => {
+  const { body } = await callApi('openapi.json');
+  const schema = body.data.components.schemas.InstantChartRequest;
+
+  assert.deepEqual(schema.properties.type.enum, [
+    'bazi',
+    'ziwei',
+    'bazi-ziwei',
+    'astrolabe',
+    'qizheng',
+  ]);
+  assert.deepEqual(schema.properties.timeStandard.enum, ['beijing', 'true-solar']);
+  assert.ok(body.data.paths['/instant/calculate']);
 });
 
 test('公开 API 八字双盘应返回交叉证据与完整提示词', async () => {
@@ -393,8 +448,24 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     { required: ['yearGanZhi'] },
   ]);
   assert.deepEqual(body.data.components.schemas.HuangjiJingshiRequest.oneOf, [
-    { required: ['year'], not: { required: ['elapsedYears'] } },
-    { required: ['epochYear', 'elapsedYears'], not: { required: ['year'] } },
+    {
+      required: ['customDate'],
+      not: {
+        anyOf: [
+          { required: ['epochYear'] },
+          { required: ['year'] },
+          { required: ['elapsedYears'] },
+        ],
+      },
+    },
+    {
+      required: ['year'],
+      not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+    },
+    {
+      required: ['epochYear', 'elapsedYears'],
+      not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
+    },
   ]);
   assert.equal(body.data.components.schemas.HuangjiJingshiRequest.required, undefined);
   assert.equal(
@@ -428,11 +499,14 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   for (const path of [
     '/divination/liuyao',
     '/divination/meihua',
+    '/divination/xiaoliuren',
+    '/divination/jinkoujue',
     '/divination/qimen',
     '/divination/liuren',
     '/divination/tarot',
     '/divination/ssgw',
     '/divination/almanac',
+    '/divination/lenormand',
     '/divination/astrolabe',
   ]) {
     assert.ok(body.data.paths[path].post.requestBody, `${path} 应声明请求体`);
@@ -487,6 +561,26 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     /guaishen/,
   );
   const divinationRequestProperties = body.data.components.schemas.DivinationRequest.properties;
+  assert.deepEqual(divinationRequestProperties.jinkoujueMethod.enum, [
+    'time',
+    'branch',
+    'number',
+    'random',
+  ]);
+  assert.deepEqual(divinationRequestProperties.jinkoujueBranch.enum, [
+    '子',
+    '丑',
+    '寅',
+    '卯',
+    '辰',
+    '巳',
+    '午',
+    '未',
+    '申',
+    '酉',
+    '戌',
+    '亥',
+  ]);
   assert.equal(divinationRequestProperties.customDate.format, 'date-time');
   assert.deepEqual(divinationRequestProperties.year, {
     type: 'integer',
@@ -2923,6 +3017,31 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   assert.match(conflict.body.error.message, /seed 与 replay 只能提供一个/);
 });
 
+test('公开 API 金口诀应支持直接指定地分', async () => {
+  const result = await callApi('divination/jinkoujue', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jinkoujueMethod: 'branch',
+      jinkoujueBranch: '戌',
+      customDate: '2026-07-11T14:35:00+08:00',
+      detailMode: 'full',
+    }),
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.method, 'branch');
+  assert.equal(result.body.data.diFenBranch, '戌');
+  assert.equal(result.body.data.calculation.inputBaseSource, '指定地分');
+
+  const missingBranch = await callApi('divination/jinkoujue', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jinkoujueMethod: 'branch' }),
+  });
+  assert.equal(missingBranch.response.status, 400);
+  assert.match(missingBranch.body.error.message, /jinkoujueBranch/);
+});
+
 test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async () => {
   const customDate = '2025-01-01T08:00:00+08:00';
   const zhuanpanStars = generateQimen(new Date(customDate), 'zhuanpan').jiuGongGe.map(
@@ -3129,6 +3248,26 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   );
 });
 
+test('公开 API 奇门应支持年、月、日、时四种计式', async () => {
+  for (const scope of ['hour', 'day', 'month', 'year'] as const) {
+    const { response, body } = await callApi('divination/qimen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customDate: '2026-07-11T14:35:00+08:00',
+        qimenScope: scope,
+        qimenMethod: 'feipan',
+        qimenJuMethod: 'zhirun',
+        detailMode: 'full',
+      }),
+    });
+    assert.equal(response.status, 200, scope);
+    assert.equal(body.data.scope, scope, scope);
+    assert.equal(body.data.method, 'feipan', scope);
+    assert.equal(body.data.jiuGongGe.length, 9, scope);
+  }
+});
+
 test('公开 API 八字年限范围缺少必要层级参数时应拒绝而非套用第一项', async () => {
   const base = {
     gender: 'male',
@@ -3280,6 +3419,21 @@ test('公开 API 奇门 qimenMethod 非法值应返回参数错误', async () =>
   assert.equal(body.ok, false);
   assert.equal(body.error.code, 'BAD_REQUEST');
   assert.match(body.error.message, /qimenMethod 必须是以下值之一/);
+});
+
+test('公开 API 奇门 qimenScope 非法值应返回参数错误', async () => {
+  const { response, body } = await callApi('divination/qimen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate: '2025-01-01T08:00:00+08:00',
+      qimenScope: 'minute',
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, 'BAD_REQUEST');
+  assert.match(body.error.message, /qimenScope 必须是以下值之一/);
 });
 
 test('公开 API 可选请求体接口无请求体时仍应使用默认参数', async () => {
@@ -3881,7 +4035,7 @@ test('公开 API 黄历择日提示词不强制填写问题', async () => {
     /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|毒气入肠|大凶|辅助加分/,
   );
   assert.doesNotMatch(body.data.prompt, /【问题】/);
-  assert.match(body.data.prompt, /给出首选日期、备选日期和慎用日期/);
+  assert.match(body.data.prompt, /给出首选、备选与慎用日期/);
   assert.doesNotMatch(body.data.prompt, /先直接回答【问题】/);
 });
 
@@ -3915,7 +4069,7 @@ test('公开 API 黄历择日支持分页和轻量模式', async () => {
   }
 });
 
-test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范围请求', async () => {
+test('公开 API 黄历提示词显式分页时应包含当前页全部候选日期', async () => {
   const { response, body } = await callApi('divination/almanac/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -4100,15 +4254,12 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   );
   assert.match(body.data.prompt, /候选日期：2026-06-01 至 2026-06-30/);
   const promptCandidateDates = Array.from(
-    body.data.prompt.matchAll(/第\d+候选：(\d{4}-\d{2}-\d{2})/g),
+    body.data.prompt.matchAll(/第\d+日：(\d{4}-\d{2}-\d{2})/g),
     (match) => match[1],
   );
-  assert.ok(promptCandidateDates.length >= 1 && promptCandidateDates.length <= 3);
-  assert.ok(
-    promptCandidateDates.every((date) =>
-      body.data.result.days.some((day: { date: string }) => day.date === date),
-    ),
-  );
+  const resultDates = body.data.result.days.map((day: { date: string }) => day.date);
+  assert.equal(promptCandidateDates.length, 5);
+  assert.deepEqual(promptCandidateDates, resultDates);
 });
 
 test('公开 API 占卜自定义提示词保留方法任务和通用短框架', async () => {
@@ -4516,7 +4667,7 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.doesNotMatch(liuren.body.data.prompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
 });
 
-test('公开 API supplementaryInfo 应校验嵌套字段并只保留当前占法会使用的资料', async () => {
+test('公开 API supplementaryInfo 应校验嵌套字段并保留求测人基本资料', async () => {
   const baseRequest = {
     customDate: '2025-01-01T08:00:00+08:00',
     question: '我现在要不要换工作？',
@@ -4536,7 +4687,7 @@ test('公开 API supplementaryInfo 应校验嵌套字段并只保留当前占法
 
   assert.equal(valid.response.status, 200);
   assert.match(valid.body.data.prompt, /【补充信息】/);
-  assert.doesNotMatch(valid.body.data.prompt, /性别：男|出生年份：1990/);
+  assert.match(valid.body.data.prompt, /求测人：男；出生年份：1990/);
   assert.match(valid.body.data.prompt, /当前情况：已经拿到一个新机会。/);
 
   const qimen = await callApi('divination/qimen/prompt', {
@@ -5002,10 +5153,10 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.equal(body.data.lordCount, 24);
   assert.equal(body.data.guestCount, 3);
   assert.equal(body.data.sixteenGods.length, 16);
-  assert.equal(body.data.model.id, 'taiyi-year-calculation-72-table');
+  assert.equal(body.data.model.id, 'taiyi-four-calculations-72-table');
   assert.equal(body.data.evidenceAnalysis.key, 'taiyi:evidence');
   assert.equal(body.data.evidenceAnalysis.status, '已计算');
-  assert.equal(body.data.evidenceAnalysis.evidence.title, '太乙年计七十二局结构化证据');
+  assert.equal(body.data.evidenceAnalysis.evidence.title, '太乙四计七十二局结构化证据');
   assert.equal(body.data.evidenceAnalysis.calculationSteps.length, 4);
   assert.ok(
     body.data.evidenceAnalysis.calculationSteps.every(
@@ -5272,16 +5423,56 @@ test('公开 API 皇极经世应直接按公元年返回完整值年卦，并保
   assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });
 
-test('公开 API 太乙应拒绝尚未校勘的月日时计', async () => {
+test('公开 API 皇极经世应支持年月日时完整排盘与提示词', async () => {
+  const calculation = await callApi('metaphysics/huangji-jingshi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: '2025-12-25T12:30:00+08:00' }),
+  });
+  assert.equal(calculation.response.status, 200);
+  assert.equal(calculation.body.data.input.mode, '年月日时');
+  assert.equal(calculation.body.data.dateTimeForecast.calendar.forecastYear, 2026);
+  assert.equal(calculation.body.data.dateTimeForecast.hexagrams.monthJing.name, '天山遁');
+  assert.equal(calculation.body.data.dateTimeForecast.hexagrams.daily.name, '雷山小过');
+  assert.equal(calculation.body.data.dateTimeForecast.hexagrams.hourJing.name, '地山谦');
+
+  const prompted = await callApi('metaphysics/huangji-jingshi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate: '2025-12-25T12:30:00+08:00',
+      question: '此时应把握什么主线？',
+      responseMode: 'summary',
+    }),
+  });
+  assert.equal(prompted.response.status, 200);
+  assert.equal(prompted.body.data.resultSummary.dateTimeForecast.hexagrams.hourJing.name, '地山谦');
+  assert.match(prompted.body.data.prompt, /月经卦：天山遁/);
+  assert.match(prompted.body.data.prompt, /时经卦：地山谦/);
+  assertPromptIsPortableTaskText(prompted.body.data.prompt);
+});
+
+test('公开 API 太乙应支持月日时四计', async () => {
   for (const path of ['metaphysics/taiyi/calculate', 'metaphysics/taiyi/prompt']) {
     for (const scope of ['month', 'day', 'hour']) {
       const { response, body } = await callApi(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope, year: 2026, month: 7, day: 11, hour: 14, minute: 35 }),
+        body: JSON.stringify({
+          scope,
+          year: 2026,
+          month: 7,
+          day: 11,
+          hour: 14,
+          minute: 35,
+          ...(path.endsWith('/prompt') ? { responseMode: 'full' } : {}),
+        }),
       });
-      assert.equal(response.status, 400, `${path}:${scope}`);
-      assert.equal(body.error.code, 'BAD_REQUEST', `${path}:${scope}`);
+      assert.equal(response.status, 200, `${path}:${scope}`);
+      assert.equal(body.ok, true, `${path}:${scope}`);
+      const result = path.endsWith('/prompt') ? body.data.result : body.data;
+      assert.equal(result.scope, scope, `${path}:${scope}`);
+      assert.ok(result.accumulatedValue > 0, `${path}:${scope}`);
     }
   }
 });
@@ -5322,6 +5513,10 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000 }],
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000, year: 2026, elapsedYears: 1026 }],
     ['metaphysics/huangji-jingshi/calculate', { epochYear: 1000, year: 999 }],
+    [
+      'metaphysics/huangji-jingshi/calculate',
+      { customDate: '2025-12-25T12:30:00+08:00', year: 2026 },
+    ],
     ['metaphysics/qizheng/calculate', { month: 1, day: 1, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, day: 1, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, hour: 12 }],

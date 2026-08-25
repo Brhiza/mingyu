@@ -21,6 +21,7 @@
 export * as bazi from './bazi/index';
 export * as calendar from './calendar/index';
 export * as divination from './divination/index';
+export * as instant from './instant/index';
 
 // 底层能力（可复用、可继续拓展）
 export * as ganzhi from './ganzhi/index';
@@ -65,6 +66,7 @@ export * from './compatibility/index';
 export * from './synthesis/index';
 export * from './client/index';
 export * from './consumption/index';
+export * from './instant/index';
 export type * from './capabilities/index';
 export * from './shared/result';
 

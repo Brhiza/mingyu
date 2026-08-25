@@ -1,0 +1,2058 @@
+/*
+ * 盘面增强层：沿用工作区现有色板、圆角和字体，只提升信息层级与盘格可读性。
+ */
+
+.traditional-chart-layout,
+.traditional-board,
+.liuren-board {
+  --chart-surface: var(--surface-base);
+  --chart-surface-muted: var(--surface-muted);
+  --chart-border: var(--border-soft);
+  --chart-border-strong: var(--border-contrast);
+  --chart-accent: var(--accent-strong);
+  --chart-accent-soft: color-mix(in srgb, var(--accent-soft) 58%, var(--surface-base));
+  font-family: inherit;
+}
+
+/* 命盘页共用层级 */
+.traditional-chart-layout .result-showcase-head {
+  align-items: end;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--chart-border);
+}
+
+.traditional-chart-layout .result-showcase-head h2 {
+  color: var(--text-strong);
+  font-size: 24px;
+}
+
+.traditional-chart-layout .result-chip {
+  border: 1px solid var(--chart-border);
+  background: var(--surface-base);
+  color: var(--text-secondary);
+}
+
+.traditional-chart-layout .result-summary-grid {
+  border: 1px solid var(--chart-border);
+  background: var(--chart-border);
+}
+
+.traditional-chart-layout .result-stat-card {
+  min-width: 0;
+  background: var(--surface-muted);
+}
+
+.traditional-chart-layout .result-stat-card-accent {
+  background: linear-gradient(135deg, var(--accent-soft), var(--secondary-soft));
+}
+
+.traditional-chart-layout .result-side-card,
+.traditional-chart-layout .ziwei-focus-card,
+.traditional-chart-layout .bazi-side-panel,
+.traditional-chart-layout .ziwei-side-panel,
+.traditional-chart-layout .astrolabe-board-side {
+  border-color: var(--chart-border);
+  background: var(--surface-base);
+}
+
+.traditional-chart-layout .result-soft-tag {
+  border: 1px solid var(--chart-border);
+  background: var(--surface-muted);
+}
+
+/* 八字：同柱信息连续阅读，摘要与岁运保持横向展开。 */
+.bazi-showcase-card {
+  gap: 12px;
+}
+
+.bazi-showcase-card .result-summary-grid-bazi {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--chart-border);
+  background: var(--surface-muted);
+}
+
+.bazi-showcase-card .result-stat-card {
+  min-height: 64px;
+  padding: 8px 11px;
+  border-right: 1px solid var(--chart-border);
+  background: transparent;
+}
+
+.bazi-showcase-card .result-stat-card:last-child {
+  border-right: 0;
+}
+
+.bazi-showcase-card .result-stat-card-accent {
+  background: var(--chart-accent-soft);
+}
+
+.bazi-showcase-card .result-stat-card strong {
+  font-size: 15px;
+}
+
+.bazi-showcase-card .result-stat-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bazi-showcase-card .bazi-core-layout {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bazi-showcase-card .bazi-pillars-card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bazi-showcase-card .bazi-pillars-header {
+  display: flex;
+  align-items: center;
+  min-height: 26px;
+}
+
+.bazi-showcase-card .bazi-pillars-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: transparent transparent;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll:hover {
+  scrollbar-color: var(--chart-border-strong) transparent;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar-track,
+.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-pillars-scroll:hover::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--chart-border-strong);
+}
+
+.bazi-showcase-card .bazi-pillars-table {
+  grid-template-columns: 58px repeat(var(--bazi-display-column-count, 4), minmax(68px, 1fr));
+  margin-top: 7px;
+  border-color: var(--chart-border-strong);
+  border-radius: 10px;
+  background: var(--chart-border);
+}
+
+.bazi-showcase-card .bazi-pillars-table.has-fortune {
+  min-width: max(100%, var(--bazi-table-min-width, 670px));
+}
+
+.bazi-showcase-card .bazi-pillars-cell {
+  min-height: 36px;
+  padding: 6px 5px;
+  border-color: var(--chart-border);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-head,
+.bazi-showcase-card .bazi-pillars-cell.is-label {
+  background: var(--surface-soft);
+  color: var(--text-strong);
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-head {
+  flex-direction: column;
+  gap: 2px;
+  min-height: 34px;
+  font-size: 12px;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-head > small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-label {
+  position: sticky;
+  z-index: 2;
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 9px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-day-master {
+  background: var(--chart-accent-soft);
+  box-shadow: none;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-fortune-start {
+  border-left: 1px solid var(--chart-border-strong);
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-pillar {
+  min-height: 104px;
+  padding-block: 7px;
+}
+
+.bazi-showcase-card .bazi-pillar-value {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+  gap: 5px;
+}
+
+.bazi-showcase-card .bazi-pillar-value > small,
+.bazi-showcase-card .bazi-pillar-value > em {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 550;
+  line-height: 1;
+}
+
+.bazi-showcase-card .bazi-pillar-ganzhi {
+  display: grid;
+  gap: 6px;
+}
+
+.bazi-showcase-card .bazi-ganzhi-value {
+  display: block;
+}
+
+.bazi-showcase-card .bazi-ganzhi-symbol {
+  font-size: 25px;
+  font-weight: 720;
+  line-height: 1;
+}
+
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='木'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='木'] {
+  color: #2f7d46;
+}
+
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='火'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='火'] {
+  color: #c64c4c;
+}
+
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='土'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='土'] {
+  color: #9b6d16;
+}
+
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='金'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='金'] {
+  color: #b07d00;
+}
+
+.bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='水'],
+.bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='水'] {
+  color: #2f6f9f;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-hidden-stems {
+  min-height: 58px;
+  align-items: flex-start;
+}
+
+.bazi-showcase-card .bazi-hidden-stem-list {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.bazi-showcase-card .bazi-hidden-stem-list > span {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.1;
+}
+
+.bazi-showcase-card .bazi-hidden-stem-list strong {
+  font-size: 12px;
+}
+
+.bazi-showcase-card .bazi-hidden-stem-list small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.bazi-showcase-card .bazi-pillars-cell.is-shensha {
+  min-height: 52px;
+}
+
+.bazi-showcase-card .bazi-shensha-list {
+  gap: 2px;
+}
+
+.bazi-showcase-card .bazi-shensha-tag {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 10px;
+}
+
+.bazi-showcase-card .bazi-shensha-tag.is-lucky {
+  --bazi-shensha-tone: #557663;
+}
+
+.bazi-showcase-card .bazi-shensha-tag.is-unlucky {
+  --bazi-shensha-tone: #8f5c58;
+}
+
+.bazi-showcase-card .bazi-shensha-tag.is-neutral {
+  --bazi-shensha-tone: #7f704e;
+}
+
+.bazi-showcase-card .bazi-context-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 18px;
+  padding-block: 9px;
+  border-block: 1px solid var(--chart-border);
+}
+
+.bazi-showcase-card .bazi-context-grid > .result-side-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-context-grid .result-side-head h3 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.bazi-showcase-card .bazi-context-grid .result-tag-cloud {
+  gap: 4px;
+}
+
+.bazi-showcase-card .bazi-context-grid .result-soft-tag {
+  min-height: 21px;
+  padding-inline: 7px;
+  border: 0;
+  font-size: 10px;
+}
+
+.bazi-showcase-card .bazi-reference-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-reference-item {
+  padding: 0 7px;
+  border-left: 1px solid var(--chart-border);
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-reference-item strong {
+  font-size: 13px;
+}
+
+.bazi-showcase-card .bazi-reference-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bazi-showcase-card .bazi-fortune-board {
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-selector-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-grid {
+  gap: 7px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-selector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 26px;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+}
+
+.bazi-showcase-card .bazi-fortune-board .row-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: auto;
+  margin: 0;
+  padding: 0 8px 0 0;
+  border: 0;
+  writing-mode: horizontal-tb;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-today-button {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--chart-accent-soft);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-today-button:hover,
+.bazi-showcase-card .bazi-fortune-board .fortune-today-button:focus-visible {
+  outline: none;
+  background: var(--accent-soft-strong);
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container {
+  gap: 2px;
+  padding: 0 0 5px;
+  scrollbar-color: transparent transparent;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container:hover {
+  scrollbar-color: var(--chart-border-strong) transparent;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-container:hover::-webkit-scrollbar-thumb {
+  background: var(--chart-border-strong);
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-item {
+  flex: 0 0 62px;
+  min-width: 62px;
+  padding: 4px 3px;
+  border: 0;
+  border-radius: 6px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-item.active {
+  border: 0;
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
+  box-shadow: none;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-year {
+  font-size: 11px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .fortune-age {
+  font-size: 10px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .main-char {
+  font-size: 16px;
+}
+
+.bazi-showcase-card .bazi-fortune-board .sub-char {
+  max-width: 22px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-mu {
+  color: #2f7d46;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-huo {
+  color: #c64c4c;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-tu {
+  color: #9b6d16;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-jin {
+  color: #b07d00;
+}
+
+.bazi-showcase-card .bazi-fortune-board .wuxing-shui {
+  color: #2f6f9f;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='木'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='木'] {
+    color: #62a878;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='火'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='火'] {
+    color: #d87373;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='土'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='土'] {
+    color: #c09a4e;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='金'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='金'] {
+    color: #f2c94c;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol[data-wuxing='水'],
+  .bazi-showcase-card .bazi-hidden-stem-list strong[data-wuxing='水'] {
+    color: #6f9fca;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-mu {
+    color: #62a878;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-huo {
+    color: #d87373;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-tu {
+    color: #c09a4e;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-jin {
+    color: #f2c94c;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .wuxing-shui {
+    color: #6f9fca;
+  }
+}
+
+/* 紫微：宫位保持连续盘格，重点宫位只用低饱和描边与底色。 */
+.ziwei-showcase-card .ziwei-layout,
+.ziwei-showcase-card .ziwei-board-stack,
+.ziwei-showcase-card .ziwei-traditional-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ziwei-showcase-card .ziwei-traditional-shell {
+  padding: 12px;
+  border-color: var(--chart-border);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+}
+
+.ziwei-showcase-card .ziwei-traditional-head {
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--chart-border);
+}
+
+.ziwei-showcase-card .ziwei-traditional-head h3 {
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.ziwei-showcase-card .ziwei-traditional-board {
+  padding: 23px 8px;
+  border-color: var(--chart-border);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top left, var(--secondary-soft), transparent 28%),
+    linear-gradient(180deg, var(--surface-elevated-strong), var(--surface-elevated));
+}
+
+.ziwei-showcase-card .ziwei-traditional-grid {
+  grid-template-rows: repeat(4, minmax(166px, 1fr));
+  gap: 5px;
+}
+
+.ziwei-showcase-card .chart-cell,
+.ziwei-showcase-card .chart-center {
+  border-color: var(--chart-border);
+  border-radius: 8px;
+  background: var(--surface-elevated);
+}
+
+.ziwei-showcase-card .chart-cell {
+  min-height: 166px;
+  padding: 18px 5px 5px;
+  gap: 3px;
+}
+
+.ziwei-showcase-card .chart-cell:hover {
+  border-color: var(--chart-border-strong);
+  background: var(--surface-elevated-strong);
+}
+
+.ziwei-showcase-card .chart-cell.is-active,
+.ziwei-showcase-card .chart-cell.is-active.is-relation-surrounded,
+.ziwei-showcase-card .chart-cell.is-active.is-relation-opposite {
+  border-color: transparent;
+  background: var(--state-selected-surface);
+  box-shadow: none;
+}
+
+.ziwei-showcase-card .chart-cell.is-relation-surrounded,
+.ziwei-showcase-card .chart-cell.is-relation-opposite {
+  border-color: transparent;
+  background: var(--state-hover-surface);
+  box-shadow: none;
+}
+
+.ziwei-showcase-card .chart-cell-title {
+  font-size: 0.62rem;
+}
+
+.ziwei-showcase-card .chart-cell-star-layers {
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.ziwei-showcase-card .chart-star-major .chart-star-name {
+  color: color-mix(in srgb, var(--chart-accent) 72%, var(--text-strong));
+  font-size: 0.68rem;
+}
+
+.ziwei-showcase-card .chart-star-minor .chart-star-name {
+  font-size: 0.52rem;
+}
+
+.ziwei-showcase-card .chart-star-other .chart-star-name,
+.ziwei-showcase-card .chart-star-scope .chart-star-name {
+  font-size: 0.49rem;
+}
+
+.ziwei-showcase-card .chart-star-mark {
+  border-radius: 4px;
+}
+
+.ziwei-showcase-card .chart-center {
+  padding: 9px;
+  gap: 7px;
+  background: var(--surface-elevated-strong);
+}
+
+.ziwei-showcase-card .chart-center-chip,
+.ziwei-showcase-card .chart-center-focus {
+  border: 1px solid var(--chart-border);
+  border-radius: 7px;
+  background: var(--surface-overlay);
+}
+
+/* 占问盘：取消泛化说明，维持现有工作区卡片语言。 */
+.divination-result-panel {
+  position: relative;
+}
+
+.divination-inline-restart {
+  position: absolute;
+  z-index: 6;
+  top: 14px;
+  right: 14px;
+  min-height: 28px;
+  padding-inline: 9px;
+  background: var(--surface-base);
+}
+
+.divination-result-panel > .traditional-board,
+.liuren-board {
+  gap: 12px;
+  margin-top: 0;
+  padding: 14px;
+  border-color: var(--chart-border);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+  box-shadow: none;
+}
+
+.traditional-board-head {
+  align-items: end;
+  padding: 0 92px 10px 1px;
+  border-bottom-color: var(--chart-border);
+}
+
+.liuren-board .divination-extra-head {
+  padding-right: 92px;
+}
+
+.traditional-board-head h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 20px;
+}
+
+.traditional-board-head p {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.traditional-meta-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 6px;
+}
+
+.traditional-meta-row span {
+  min-height: 34px;
+  padding: 6px 8px;
+  border-color: var(--chart-border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.traditional-meta-row b,
+.traditional-note-row b {
+  color: color-mix(in srgb, var(--chart-accent) 70%, var(--text-strong));
+}
+
+.traditional-liuyao-table {
+  border-color: var(--chart-border-strong);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.traditional-liuyao-head,
+.traditional-liuyao-row {
+  grid-template-columns: 46px 48px 54px 72px 64px 82px minmax(88px, 1fr);
+  gap: 7px;
+  padding: 8px 9px;
+}
+
+.traditional-liuyao-head {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.traditional-liuyao-row {
+  min-height: 58px;
+  border-color: var(--chart-border);
+}
+
+.traditional-liuyao-row:nth-child(odd) {
+  background: color-mix(in srgb, var(--surface-muted) 46%, var(--surface-base));
+}
+
+.traditional-yao-symbol i {
+  height: 4px;
+  border-radius: 2px;
+}
+
+.traditional-yao-symbol.is-changing i {
+  background: color-mix(in srgb, var(--chart-accent) 70%, var(--text-strong));
+}
+
+.traditional-yao-status-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.traditional-yao-status-tags > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 1px 5px;
+  border: 1px solid var(--chart-border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.traditional-yao-status-tags > .is-primary,
+.traditional-yao-status-tags > .is-changing {
+  border-color: color-mix(in srgb, var(--chart-accent) 34%, var(--chart-border));
+  background: var(--chart-accent-soft);
+  color: color-mix(in srgb, var(--chart-accent) 70%, var(--text-strong));
+}
+
+.traditional-changed-yao {
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.traditional-changed-yao small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.traditional-note-row {
+  border-left-width: 2px;
+  border-left-color: color-mix(in srgb, var(--chart-accent) 65%, transparent);
+  background: var(--surface-muted);
+}
+
+.traditional-mini-hexagram,
+.traditional-meihua-relation,
+.traditional-meihua-yaos > div,
+.traditional-six-palace-cell,
+.traditional-six-palace-center,
+.traditional-jinkoujue-row,
+.traditional-qimen-cell,
+.traditional-lenormand-card,
+.traditional-sign-card,
+.traditional-sign-details > div {
+  border-color: var(--chart-border);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.traditional-mini-hexagram.is-active,
+.traditional-meihua-yaos > div.is-moving,
+.traditional-six-palace-cell.is-primary,
+.traditional-qimen-cell.is-center {
+  border-color: transparent;
+  background: var(--state-selected-surface);
+  box-shadow: none;
+}
+
+.traditional-qimen-grid,
+.traditional-six-palace {
+  gap: 5px;
+}
+
+/* 择日：左侧快速比较候选，右侧聚焦单日依据和可用时辰。 */
+.traditional-almanac-board {
+  min-width: 0;
+}
+
+.traditional-almanac-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.traditional-almanac-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.traditional-almanac-toolbar button span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.traditional-almanac-toolbar button:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
+}
+
+.traditional-almanac-toolbar button.is-active {
+  background: var(--state-selected-surface-strong);
+  color: var(--state-selected-text);
+  font-weight: 750;
+}
+
+.traditional-almanac-workspace {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.34fr) minmax(0, 1fr);
+  min-height: 480px;
+  overflow: hidden;
+  border: 1px solid var(--chart-border);
+  border-radius: 12px;
+  background: var(--surface-base);
+}
+
+.traditional-almanac-candidates {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  max-height: min(66vh, 720px);
+  overflow-y: auto;
+  border-right: 1px solid var(--chart-border);
+  background: var(--surface-muted);
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.traditional-almanac-candidates:hover {
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 26%, transparent) transparent;
+}
+
+.traditional-almanac-candidates::-webkit-scrollbar {
+  width: 5px;
+}
+
+.traditional-almanac-candidates::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+}
+
+.traditional-almanac-candidates:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 26%, transparent);
+}
+
+.traditional-almanac-candidates > button {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 62px;
+  padding: 8px 9px;
+  border: 0;
+  border-bottom: 1px solid var(--chart-border);
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.traditional-almanac-candidates > button:last-child {
+  border-bottom: 0;
+}
+
+.traditional-almanac-candidates > button:hover {
+  background: var(--surface-base);
+}
+
+.traditional-almanac-candidates > button.is-active {
+  background: var(--state-selected-surface);
+  box-shadow: none;
+}
+
+.traditional-almanac-candidate-date,
+.traditional-almanac-candidate-main {
+  display: grid;
+  min-width: 0;
+}
+
+.traditional-almanac-candidate-date {
+  gap: 1px;
+  text-align: center;
+}
+
+.traditional-almanac-candidate-date strong {
+  color: var(--text-strong);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.traditional-almanac-candidate-date small,
+.traditional-almanac-candidate-main small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.traditional-almanac-candidate-main {
+  gap: 3px;
+}
+
+.traditional-almanac-candidate-main b,
+.traditional-almanac-candidate-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traditional-almanac-candidate-main b {
+  color: var(--text-strong);
+  font-size: 11px;
+}
+
+.traditional-almanac-candidates > button > em,
+.traditional-almanac-detail-head > b {
+  border-radius: 999px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.traditional-almanac-candidates > button > em {
+  padding: 2px 5px;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.traditional-almanac-candidates > button.is-usable > em,
+.traditional-almanac-detail-head > b.is-usable {
+  background: var(--chart-accent-soft);
+  color: color-mix(in srgb, var(--chart-accent) 70%, var(--text-strong));
+}
+
+.traditional-almanac-candidates > button.is-caution > em,
+.traditional-almanac-detail-head > b.is-caution {
+  background: color-mix(in srgb, var(--danger-text) 7%, var(--surface-base));
+  color: color-mix(in srgb, var(--danger-text) 72%, var(--text-secondary));
+}
+
+.traditional-almanac-detail {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.traditional-almanac-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.traditional-almanac-detail-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.traditional-almanac-detail-head span,
+.traditional-almanac-detail-head p {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.traditional-almanac-detail-head h4,
+.traditional-almanac-detail-head p {
+  margin: 0;
+}
+
+.traditional-almanac-detail-head h4 {
+  color: var(--text-strong);
+  font-size: 21px;
+}
+
+.traditional-almanac-detail-head > b {
+  padding: 4px 8px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.traditional-almanac-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--chart-border);
+  gap: 1px;
+}
+
+.traditional-almanac-facts > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  background: var(--surface-muted);
+}
+
+.traditional-almanac-facts small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.traditional-almanac-facts b {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traditional-almanac-yi-ji {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.traditional-almanac-yi-ji section {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+}
+
+.traditional-almanac-yi-ji b {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--chart-accent-soft);
+  color: color-mix(in srgb, var(--chart-accent) 70%, var(--text-strong));
+  font-size: 11px;
+}
+
+.traditional-almanac-yi-ji section:last-child b {
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+}
+
+.traditional-almanac-yi-ji p,
+.traditional-almanac-evidence-grid p,
+.traditional-almanac-hours p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.traditional-almanac-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--chart-border);
+  border-bottom: 1px solid var(--chart-border);
+}
+
+.traditional-almanac-evidence-grid > section {
+  min-width: 0;
+  padding: 12px 12px 12px 0;
+}
+
+.traditional-almanac-evidence-grid > section + section {
+  padding-right: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--chart-border);
+}
+
+.traditional-almanac-evidence-grid h5,
+.traditional-almanac-hours h5 {
+  margin: 0 0 7px;
+  color: var(--text-strong);
+  font-size: 11px;
+}
+
+.traditional-almanac-evidence-grid ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.traditional-almanac-evidence-grid li {
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.traditional-almanac-hours > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.traditional-almanac-hours > div > span {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 9px;
+  background: var(--surface-muted);
+}
+
+.traditional-almanac-hours b {
+  color: var(--text-strong);
+  font-size: 11px;
+}
+
+.traditional-almanac-hours small,
+.traditional-almanac-hours em {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.traditional-almanac-empty {
+  margin: 0;
+  padding: 28px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* 太乙：外列十六神位，内列太乙八宫与中五宫；宫序不复用洛书宫号。 */
+.traditional-taiyi-plate {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  width: min(100%, 620px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 2px;
+  overflow: hidden;
+  border: 1px solid var(--chart-border-strong);
+  border-radius: 12px;
+  background: var(--chart-border);
+}
+
+.traditional-taiyi-point,
+.traditional-taiyi-palace {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-base);
+}
+
+.traditional-taiyi-point {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 7px;
+}
+
+.traditional-taiyi-point.is-occupied {
+  background: color-mix(in srgb, var(--chart-accent-soft) 72%, var(--surface-base));
+}
+
+.traditional-taiyi-point-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+}
+
+.traditional-taiyi-point-head strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.traditional-taiyi-point-head span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traditional-taiyi-point-markers,
+.traditional-taiyi-palace-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.traditional-taiyi-point-markers b,
+.traditional-taiyi-palace-roles b {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--chart-accent) 24%, var(--chart-border));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--chart-accent-soft) 76%, var(--surface-base));
+  color: color-mix(in srgb, var(--chart-accent) 58%, var(--text-strong));
+  font-size: 9px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.traditional-taiyi-palace {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 3px;
+  padding: 8px;
+  color: var(--text-secondary);
+}
+
+.traditional-taiyi-palace.is-center {
+  border: 1px solid color-mix(in srgb, var(--chart-accent) 36%, var(--chart-border));
+  background: var(--chart-accent-soft);
+}
+
+.traditional-taiyi-palace > span {
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.traditional-taiyi-palace > strong {
+  color: color-mix(in srgb, var(--chart-accent) 62%, var(--text-strong));
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.traditional-taiyi-palace > small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.traditional-taiyi-palace-roles {
+  align-content: end;
+  align-self: stretch;
+  margin-top: 2px;
+}
+
+.traditional-taiyi-forces {
+  overflow: hidden;
+  border: 1px solid var(--chart-border);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.traditional-taiyi-force-head,
+.traditional-taiyi-force-row {
+  display: grid;
+  grid-template-columns: 64px minmax(100px, 1.3fr) repeat(2, minmax(88px, 1fr));
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 11px;
+}
+
+.traditional-taiyi-force-head {
+  border-bottom: 1px solid var(--chart-border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.traditional-taiyi-force-row {
+  border-bottom: 1px solid var(--chart-border);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.traditional-taiyi-force-row:last-child {
+  border-bottom: 0;
+}
+
+.traditional-taiyi-force-row strong {
+  color: var(--text-strong);
+}
+
+.traditional-taiyi-force-row > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.traditional-taiyi-force-row small {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.traditional-taiyi-conditions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px;
+}
+
+.traditional-taiyi-conditions p {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid color-mix(in srgb, var(--chart-accent) 46%, var(--chart-border));
+  border-radius: 0 7px 7px 0;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.traditional-huangji-cycle {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--chart-border);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.traditional-huangji-cycle.is-datetime {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.traditional-huangji-period {
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid var(--chart-border);
+  background: var(--surface-base);
+}
+
+.traditional-huangji-period:last-child {
+  border-right: 0;
+}
+
+.traditional-huangji-period.is-active {
+  background: var(--state-selected-surface);
+}
+
+.traditional-huangji-period-head,
+.traditional-huangji-hexagram {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.traditional-huangji-period-head > span,
+.traditional-huangji-judgment > span,
+.traditional-huangji-related span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.traditional-huangji-period-head small,
+.traditional-huangji-period p,
+.traditional-huangji-period em,
+.traditional-huangji-hexagram span,
+.traditional-huangji-related small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.traditional-huangji-hexagram {
+  display: grid;
+  justify-content: stretch;
+  justify-items: start;
+  margin-top: 11px;
+}
+
+.traditional-huangji-hexagram > strong {
+  color: color-mix(in srgb, var(--chart-accent) 72%, var(--text-strong));
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.traditional-huangji-hexagram > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.traditional-huangji-hexagram b {
+  color: var(--text-strong);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.traditional-huangji-period p {
+  margin: 10px 0 0;
+  line-height: 1.45;
+}
+
+.traditional-huangji-period em {
+  display: block;
+  margin-top: 4px;
+}
+
+.traditional-huangji-focus {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  overflow: hidden;
+  border: 1px solid var(--chart-border);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.traditional-huangji-judgment {
+  padding: 12px 14px;
+  border-right: 1px solid var(--chart-border);
+}
+
+.traditional-huangji-judgment p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.traditional-huangji-related {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.traditional-huangji-related > div {
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 6px;
+  border-right: 1px solid var(--chart-border);
+  text-align: center;
+}
+
+.traditional-huangji-related > div:last-child {
+  border-right: 0;
+}
+
+.traditional-huangji-related strong {
+  color: color-mix(in srgb, var(--chart-accent) 68%, var(--text-strong));
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.traditional-huangji-related b {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--text-strong);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traditional-chart-layout .qizheng-chart-svg,
+.traditional-chart-layout .astrolabe-chart-svg {
+  border-color: var(--chart-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--surface-base), var(--surface-soft));
+}
+
+.traditional-chart-layout .qizheng-star-item,
+.traditional-chart-layout .astrolabe-aspect-item {
+  border-color: var(--chart-border);
+  background: var(--surface-muted);
+}
+
+@media (max-width: 980px) {
+  .traditional-chart-layout .bazi-core-layout,
+  .traditional-chart-layout .ziwei-layout,
+  .traditional-chart-layout .astrolabe-board-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .traditional-chart-layout .bazi-side-panel,
+  .traditional-chart-layout .ziwei-side-panel,
+  .traditional-chart-layout .astrolabe-board-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traditional-chart-layout .bazi-side-panel > * + *,
+  .traditional-chart-layout .ziwei-side-panel > * + *,
+  .traditional-chart-layout .astrolabe-board-side > * + * {
+    border-top: 0;
+    border-left: 1px solid var(--chart-border);
+  }
+}
+
+@media (max-width: 720px) {
+  .traditional-chart-layout {
+    gap: 8px;
+  }
+
+  .traditional-chart-layout .result-showcase-head {
+    display: grid;
+    align-items: start;
+    gap: 8px;
+  }
+
+  .traditional-chart-layout .result-showcase-head h2 {
+    font-size: 21px;
+  }
+
+  .traditional-chart-layout .result-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traditional-chart-layout .result-stat-card:nth-child(2) {
+    border-right: 0;
+  }
+
+  .traditional-chart-layout .result-stat-card:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--chart-border);
+  }
+
+  .bazi-showcase-card .result-summary-grid-bazi {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .bazi-showcase-card .result-stat-card {
+    min-height: 52px;
+    padding: 6px 5px;
+  }
+
+  .bazi-showcase-card .result-stat-card:nth-child(2) {
+    border-right: 1px solid var(--chart-border);
+  }
+
+  .bazi-showcase-card .result-stat-card:nth-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .bazi-showcase-card .result-stat-card strong {
+    font-size: 13px;
+  }
+
+  .bazi-showcase-card .result-stat-card span,
+  .bazi-showcase-card .result-stat-card small {
+    font-size: 10px;
+  }
+
+  .traditional-chart-layout .bazi-side-panel,
+  .traditional-chart-layout .ziwei-side-panel,
+  .traditional-chart-layout .astrolabe-board-side {
+    grid-template-columns: 1fr;
+  }
+
+  .traditional-chart-layout .bazi-side-panel > * + *,
+  .traditional-chart-layout .ziwei-side-panel > * + *,
+  .traditional-chart-layout .astrolabe-board-side > * + * {
+    border-top: 1px solid var(--chart-border);
+    border-left: 0;
+  }
+
+  .bazi-showcase-card .bazi-pillars-table {
+    grid-template-columns: 38px repeat(var(--bazi-display-column-count, 4), minmax(48px, 1fr));
+    margin-top: 4px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-table.has-fortune {
+    min-width: max(100%, var(--bazi-mobile-table-min-width, 470px));
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell {
+    min-height: 28px;
+    padding: 4px 2px;
+    font-size: 11px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-label {
+    padding-left: 5px;
+    font-size: 10px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-pillar {
+    min-height: 82px;
+    padding-block: 5px;
+  }
+
+  .bazi-showcase-card .bazi-pillar-value {
+    gap: 3px;
+  }
+
+  .bazi-showcase-card .bazi-pillar-ganzhi {
+    gap: 4px;
+  }
+
+  .bazi-showcase-card .bazi-ganzhi-symbol {
+    font-size: 21px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-hidden-stems {
+    min-height: 44px;
+  }
+
+  .bazi-showcase-card .bazi-hidden-stem-list > span {
+    gap: 2px;
+  }
+
+  .bazi-showcase-card .bazi-hidden-stem-list strong {
+    font-size: 11px;
+  }
+
+  .bazi-showcase-card .bazi-hidden-stem-list small,
+  .bazi-showcase-card .bazi-pillar-value > small,
+  .bazi-showcase-card .bazi-pillar-value > em {
+    font-size: 9px;
+  }
+
+  .bazi-showcase-card .bazi-shensha-tag {
+    font-size: 9px;
+    line-height: 1.12;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-shensha {
+    min-height: 46px;
+  }
+
+  .bazi-showcase-card .bazi-context-grid {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding-block: 8px;
+  }
+
+  .bazi-showcase-card .bazi-context-grid > .result-side-card {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .bazi-showcase-card .bazi-reference-item {
+    padding-inline: 5px;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .fortune-row {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .fortune-selector-head {
+    min-height: 24px;
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .row-title {
+    padding-right: 4px;
+    font-size: 9px;
+  }
+
+  .bazi-showcase-card .bazi-fortune-board .fortune-item {
+    flex-basis: 48px;
+    min-width: 48px;
+    padding: 3px 2px;
+  }
+
+  .ziwei-showcase-card .ziwei-traditional-shell {
+    padding: 8px;
+  }
+
+  .ziwei-showcase-card .ziwei-traditional-board {
+    padding: 20px 5px;
+    overflow-x: auto;
+  }
+
+  .ziwei-showcase-card .ziwei-traditional-grid {
+    min-width: 620px;
+  }
+
+  .divination-result-panel > .traditional-board,
+  .liuren-board {
+    padding: 8px 0 12px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .divination-inline-restart {
+    top: 8px;
+    right: 0;
+  }
+
+  .traditional-board-head {
+    display: grid;
+    align-items: start;
+    gap: 5px;
+  }
+
+  .traditional-board-head h3 {
+    font-size: 18px;
+  }
+
+  .traditional-board-head p {
+    max-width: none;
+    text-align: left;
+  }
+
+  .traditional-meta-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traditional-taiyi-plate {
+    gap: 1px;
+    width: 100%;
+    padding: 1px;
+    border-radius: 9px;
+  }
+
+  .traditional-taiyi-point {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .traditional-taiyi-point-head {
+    display: grid;
+    justify-items: start;
+    gap: 1px;
+  }
+
+  .traditional-taiyi-point-head strong {
+    font-size: 12px;
+  }
+
+  .traditional-taiyi-point-head span {
+    max-width: 100%;
+    font-size: 8px;
+  }
+
+  .traditional-taiyi-point-markers,
+  .traditional-taiyi-palace-roles {
+    gap: 1px;
+  }
+
+  .traditional-taiyi-point-markers b,
+  .traditional-taiyi-palace-roles b {
+    min-height: 14px;
+    padding: 1px 3px;
+    border-radius: 4px;
+    font-size: 8px;
+  }
+
+  .traditional-taiyi-palace {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .traditional-taiyi-palace > span,
+  .traditional-taiyi-palace > strong {
+    font-size: 10px;
+  }
+
+  .traditional-taiyi-palace > small {
+    font-size: 8px;
+  }
+
+  .traditional-taiyi-force-head,
+  .traditional-taiyi-force-row {
+    grid-template-columns: 34px minmax(64px, 1.2fr) repeat(2, minmax(58px, 1fr));
+    gap: 4px;
+    padding: 7px 6px;
+  }
+
+  .traditional-taiyi-force-row {
+    font-size: 10px;
+  }
+
+  .traditional-taiyi-force-row > span {
+    gap: 3px;
+  }
+
+  .traditional-taiyi-force-row small {
+    padding: 1px 3px;
+    font-size: 8px;
+  }
+
+  .traditional-taiyi-conditions {
+    grid-template-columns: 1fr;
+  }
+
+  .traditional-huangji-cycle {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traditional-huangji-period {
+    border-right: 1px solid var(--chart-border);
+    border-bottom: 1px solid var(--chart-border);
+  }
+
+  .traditional-huangji-period:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .traditional-huangji-period:last-child {
+    grid-column: 1 / -1;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  .traditional-huangji-cycle.is-datetime .traditional-huangji-period:last-child {
+    grid-column: auto;
+  }
+
+  .traditional-huangji-focus {
+    grid-template-columns: 1fr;
+  }
+
+  .traditional-huangji-judgment {
+    border-right: 0;
+    border-bottom: 1px solid var(--chart-border);
+  }
+
+  .traditional-liuyao-head,
+  .traditional-liuyao-row {
+    min-width: 0;
+    grid-template-columns: 34px 34px 38px 48px 34px 50px minmax(48px, 1fr);
+    gap: 3px;
+    padding: 7px 4px;
+    font-size: 10px;
+  }
+
+  .traditional-yao-line {
+    width: 48px;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .traditional-yao-symbol {
+    width: 42px;
+    gap: 5px;
+  }
+
+  .traditional-yao-symbol.is-yang i:first-child {
+    width: 42px;
+  }
+
+  .traditional-yao-symbol.is-yin i {
+    width: 18px;
+  }
+
+  .traditional-almanac-workspace {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    min-width: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .traditional-almanac-candidates {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    min-width: 0;
+    padding: 0 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    background: transparent;
+    scrollbar-width: none;
+  }
+
+  .traditional-almanac-candidates::-webkit-scrollbar {
+    display: none;
+  }
+
+  .traditional-almanac-candidates > button {
+    flex: 0 0 166px;
+    min-height: 58px;
+    padding: 7px 8px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--surface-muted);
+  }
+
+  .traditional-almanac-candidates > button.is-active {
+    background: var(--state-selected-surface-strong);
+    box-shadow: none;
+  }
+
+  .traditional-almanac-detail {
+    gap: 12px;
+    padding: 12px 0 0;
+  }
+
+  .traditional-almanac-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .traditional-almanac-yi-ji,
+  .traditional-almanac-evidence-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .traditional-almanac-evidence-grid > section {
+    padding: 10px 0;
+  }
+
+  .traditional-almanac-evidence-grid > section + section {
+    padding: 10px 0;
+    border-top: 1px solid var(--chart-border);
+    border-left: 0;
+  }
+
+  .traditional-almanac-hours > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .traditional-chart-layout .result-stat-card {
+    padding: 8px 9px;
+  }
+
+  .bazi-showcase-card .result-stat-card {
+    padding: 5px 4px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-table {
+    grid-template-columns: 34px repeat(var(--bazi-display-column-count, 4), minmax(44px, 1fr));
+  }
+
+  .bazi-showcase-card .bazi-pillars-table.has-fortune {
+    min-width: max(100%, var(--bazi-small-mobile-table-min-width, 430px));
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-label {
+    padding-left: 3px;
+    font-size: 8px;
+  }
+
+  .bazi-showcase-card .bazi-pillars-cell.is-head {
+    font-size: 9px;
+  }
+}

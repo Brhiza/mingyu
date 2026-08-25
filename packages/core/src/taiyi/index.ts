@@ -1,19 +1,21 @@
 /**
- * @file 太乙神数年计
- * @description 依《太乙金镜式经》与固定版本 Kintaiyi 交叉校核年计七十二局基础盘。
+ * @file 太乙神数四计
+ * @description 依《太乙金镜式经》卷一与固定版本 Kintaiyi 交叉校核年、月、日、时四计七十二局基础盘。
  *
- * 当前只开放已完成来源校勘的年计：
+ * 四计使用各自时间尺度，不能用年计结果替代月、日、时计：
  *   - 年计：太乙积年 10153917 起算。
+ *   - 月计：按农历年、月累计，闰月沿用所属月序，不额外增加一局。
+ *   - 日计：按固定现代历元累计，并校正六十日干支序。
+ *   - 时计：按固定现代历元累计十二时辰，冬至后阳遁、夏至后阴遁。
  *   - 局数：积年除 72，余 0 作第 72 局。
  *   - 太乙、文昌（主目）、始击（客目）按七十二局逐局表定位。
  *   - 主算、客算按七十二局立成表取值，不再用洛书宫简单累加代替。
- *   - 年计采用阳遁立成。
  *
- * 《太乙金镜式经》虽载年、月、日、时四计，但月计须按逐月节气时刻，日时计还涉及
- * 章月、月法、日法、气应与小余。旧实现采用现代固定历元近似，未复现完整古籍历法链，
- * 因此月、日、时计在完成校勘前失败关闭，不输出近似盘冒充传统精确结果。
+ * 月、日、时计采用现代历法定位来复现通行实用排法；结果元数据会明确这一口径，不把它
+ * 冒充为古籍历法常数、小余和气应链的逐项复原。
  */
-import { getGanZhiFromDate, isValidGanZhi } from '../ganzhi';
+import { SolarTime } from 'tyme4ts';
+import { getGanZhiFromDate, getSixtyCycle, isValidGanZhi } from '../ganzhi';
 import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
 import { buildTaiyiEvidence } from './evidence';
 
@@ -32,8 +34,14 @@ export type {
 /** 太乙统宗年家积年基数。 */
 export const TAIYI_BASE_YEARS = 10153917;
 
+export interface TaiyiPalaceProfile {
+  gua: string;
+  dir: string;
+  wu: string;
+}
+
 /** 太乙八宫编号不是洛书九宫编号：1乾、2午、3艮、4卯、6酉、7坤、8子、9巽。 */
-const TAIYI_PALACES: Record<number, { gua: string; dir: string; wu: string }> = {
+export const TAIYI_PALACES: Readonly<Record<number, Readonly<TaiyiPalaceProfile>>> = {
   1: { gua: '乾', dir: '西北', wu: '金' },
   2: { gua: '离', dir: '南', wu: '火' },
   3: { gua: '艮', dir: '东北', wu: '土' },
@@ -66,9 +74,6 @@ const POINT_TO_PALACE: Record<string, number> = {
 /** 七十二局太乙、文昌、始击位置，按第 1 局至第 72 局顺序。 */
 const TAIYI_POINTS = Array.from(
   '乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽',
-);
-const YIN_TAIYI_POINTS = Array.from(
-  '巽巽巽子子子坤坤坤酉酉酉卯卯卯艮艮艮午午午乾乾乾巽巽巽子子子坤坤坤酉酉酉卯卯卯艮艮艮午午午乾乾乾巽巽巽子子子坤坤坤酉酉酉卯卯卯艮艮艮午午午乾乾乾',
 );
 const WENCHANG_POINTS = Array.from(
   '申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤',
@@ -289,21 +294,20 @@ export interface TaiyiInput {
 }
 
 export const TAIYI_MODEL_INFO: TaiyiModelInfo = {
-  id: 'taiyi-year-calculation-72-table',
-  name: '太乙年计七十二局基础盘',
-  supportedScopes: ['year'],
-  precision: '年计按积年与阳遁七十二局立成起局',
+  id: 'taiyi-four-calculations-72-table',
+  name: '太乙四计七十二局基础盘',
+  supportedScopes: ['year', 'month', 'day', 'hour'],
+  precision: '年计按积年起局；月、日、时计采用现代历法定位复现通行四计，时计按冬夏至分阴阳遁',
   sources: [
     {
       title: '《太乙金镜式经》',
       url: 'https://zh.wikisource.org/wiki/太乙金鏡式經_(四庫全書本)',
-      evidence: '年计积年及太乙行宫、文昌、始击、主客算；月日时计历法条文仅用于确认当前缺口',
+      evidence: '年、月、日、时四计积数规则及太乙行宫、文昌、始击、计神与主客算',
     },
     {
       title: 'Kintaiyi',
       url: 'https://github.com/kentang2017/kintaiyi/tree/9842d8f35e895ea6f09e9787edf6da5c16fab91b',
-      evidence:
-        '用于交叉核对年计积数、阳遁七十二局位置表与主客定算立成；其月日时简式和分计未作为古籍真值',
+      evidence: '用于交叉核对四计积数、阴阳遁、七十二局位置表与主客定算立成',
     },
   ],
 };
@@ -379,6 +383,53 @@ function createYearProbeDate(year: number): Date {
   return date;
 }
 
+function daysSince(date: Date, year: number, month: number, day: number): number {
+  const current = Date.UTC(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    0,
+  );
+  const base = Date.UTC(year, month - 1, day, 0, 0, 0);
+  return Math.floor((current - base) / 86400000);
+}
+
+function getSeasonHalf(date: Date): 'winter' | 'summer' {
+  const term = SolarTime.fromYmdHms(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    0,
+  )
+    .getTerm()
+    .getName();
+  return [
+    '夏至',
+    '小暑',
+    '大暑',
+    '立秋',
+    '处暑',
+    '白露',
+    '秋分',
+    '寒露',
+    '霜降',
+    '立冬',
+    '小雪',
+    '大雪',
+  ].includes(term)
+    ? 'summer'
+    : 'winter';
+}
+
+function resolveYinYang(scope: TaiyiScope, date: Date): '阳遁' | '阴遁' {
+  if (scope !== 'hour') return '阳遁';
+  return getSeasonHalf(date) === 'winter' ? '阳遁' : '阴遁';
+}
+
 const SCOPE_LABELS: Record<
   TaiyiScope,
   { title: string; accumulated: TaiyiResult['accumulatedLabel'] }
@@ -400,22 +451,26 @@ function validateInput(input: TaiyiInput): {
   }
   const scope = input.scope ?? 'year';
   if (!SCOPE_LABELS[scope]) throw new Error(`太乙计式无效：${String(scope)}`);
-  if (scope !== 'year') {
-    throw new Error(
-      '太乙月计、日计、时计尚未完成章月、月法、日法、节气时刻、气应与小余的古籍历法链校勘，当前停止输出近似盘。',
-    );
-  }
   if (
     input.date !== undefined &&
     (typeof input.date.getTime !== 'function' || Number.isNaN(input.date.getTime()))
   ) {
     throw new Error('太乙日期无效。');
   }
-  if (input.year === undefined) {
+  if (scope === 'year' && input.year === undefined) {
     throw new Error('太乙年计必须提供公历年份。');
   }
-  if (input.date !== undefined) throw new Error('太乙年计只接受 year，不接受日期时间。');
-  const year = input.year;
+  if (scope === 'year' && input.date !== undefined) {
+    throw new Error('太乙年计只接受 year；月计、日计和时计使用 date。');
+  }
+  if (scope !== 'year' && input.date === undefined) {
+    throw new Error(`太乙${SCOPE_LABELS[scope].title}需要提供有效日期和时间。`);
+  }
+  const dateYear = input.date?.getFullYear();
+  if (input.year !== undefined && dateYear !== undefined && input.year !== dateYear) {
+    throw new Error('太乙 year 与 date 的公历年份不一致。');
+  }
+  const year = input.year ?? dateYear;
   if (typeof year !== 'number' || !Number.isSafeInteger(year) || year < 1 || year > 9999) {
     throw new Error('太乙年份必须是 1-9999 之间的整数。');
   }
@@ -433,19 +488,57 @@ function validateInput(input: TaiyiInput): {
   return { scope, year, date, ganZhi: input.ganZhi ?? calculatedGanZhi };
 }
 
-function calculateAccumulatedValue(year: number): number {
-  return TAIYI_BASE_YEARS + year;
+function alignToGanZhi(value: number, ganZhi: string): number {
+  const ganZhiIndex = getSixtyCycle().indexOf(ganZhi);
+  if (ganZhiIndex < 0) throw new Error(`太乙干支序缺失：${ganZhi}`);
+  const expectedRemainder = ganZhiIndex + 1;
+  const currentRemainder = positiveOneBased(value, 60);
+  return value + ((expectedRemainder - currentRemainder + 60) % 60);
 }
 
-/** 生成太乙年计七十二局基础盘。 */
+function calculateAccumulatedValue(
+  scope: TaiyiScope,
+  date: Date,
+  year: number,
+  ganZhi: string,
+): number {
+  if (scope === 'year') return TAIYI_BASE_YEARS + year;
+
+  const lunarDay = SolarTime.fromYmdHms(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    0,
+  )
+    .getLunarHour()
+    .getLunarDay();
+  const lunarYear = lunarDay.getLunarMonth().getLunarYear().getYear();
+  const lunarMonth = Math.abs(lunarDay.getLunarMonth().getMonth());
+  if (scope === 'month') {
+    return (TAIYI_BASE_YEARS + lunarYear - 1) * 12 + 2 + lunarMonth;
+  }
+
+  if (scope === 'day') {
+    const rawValue = 708011105 - 185 + daysSince(date, 1900, 6, 19);
+    return alignToGanZhi(rawValue, ganZhi);
+  }
+
+  const accumulatedDays = 708011105 + daysSince(date, 1900, 12, 21);
+  const timeIndex = Math.floor((date.getHours() + 1) / 2);
+  return (accumulatedDays - 1) * 12 + timeIndex + 1;
+}
+
+/** 生成太乙年、月、日、时四计七十二局基础盘。 */
 export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const { scope, year, date, ganZhi } = validateInput(input);
-  const accumulatedValue = calculateAccumulatedValue(year);
+  const accumulatedValue = calculateAccumulatedValue(scope, date, year, ganZhi);
   const entryYears = positiveOneBased(accumulatedValue, 360);
   const bureau = positiveOneBased(accumulatedValue, 72);
   const index = bureau - 1;
-  const yinYang = '阳遁' as const;
-  const taiyiPosition = (yinYang === '阳遁' ? TAIYI_POINTS : YIN_TAIYI_POINTS)[index];
+  const yinYang = resolveYinYang(scope, date);
+  const taiyiPosition = TAIYI_POINTS[index];
   const wenChangPosition = (yinYang === '阳遁' ? WENCHANG_POINTS : YIN_WENCHANG_POINTS)[index];
   const shiJiPosition = SHIJI_POINTS[index];
   const taiyiPalace = pointToPalace(taiyiPosition);
@@ -589,6 +682,7 @@ export const taiyi = {
   generateTaiyi,
   TAIYI_16_GODS,
   TAIYI_BASE_YEARS,
+  TAIYI_PALACES,
   TAIYI_MODEL_INFO,
   buildTaiyiEvidence,
 };

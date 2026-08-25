@@ -4,7 +4,7 @@
  * @流派 大六壬金口诀
  * @古籍依据 《六壬神课金口诀古本》入式歌解、贵神起例、五子元遁、阴阳次第五用与五动三动
  * @核心算法
- * 1. 地分：时间起课取占时地支；数字起课 1-12 映射子至亥，大于 12 按 12 归一；随机起课在十二支中可复现抽取。
+ * 1. 地分：可直接指定方位地支；时间起课取占时地支；数字起课 1-12 映射子至亥，大于 12 按 12 归一；随机起课在十二支中可复现抽取。
  * 2. 将神：按已交中气定月将，月将加占时顺布天盘，取地分上所临天盘地支。
  * 3. 贵神：按本门昼夜贵人起例，将贵神直接顺逆排至地分，贵神五行取十二贵神本属。
  * 4. 遁干：按日干五子元遁分别求地分人元、贵神神干与月将将干。
@@ -39,6 +39,7 @@ import { analyzeJinkoujueEvidence } from '../jinkoujue-evidence';
 
 const METHOD_LABELS: Record<JinkoujueDivinationMethod, string> = {
   time: '时间起课',
+  branch: '指定地分',
   number: '数字起课',
   random: '随机起课',
 };
@@ -386,6 +387,7 @@ function buildMovements(positions: Record<string, JinkoujueFourPosition>) {
 
 function resolveDiFenBranch(params: {
   method: JinkoujueDivinationMethod;
+  branch?: string;
   number?: number;
   hourBranch: string;
   random?: () => number;
@@ -396,6 +398,20 @@ function resolveDiFenBranch(params: {
       inputBase: getBranchIndex(params.hourBranch) + 1,
       inputBaseSource: '占时地支序数' as const,
       note: `时间起课以占时${params.hourBranch}为地分`,
+    };
+  }
+
+  if (params.method === 'branch') {
+    const branch = params.branch?.trim();
+    if (!branch || !(EARTHLY_BRANCHES as readonly string[]).includes(branch)) {
+      throw new Error('金口诀指定地分必须是子、丑、寅、卯、辰、巳、午、未、申、酉、戌、亥之一。');
+    }
+    const branchIndex = getBranchIndex(branch);
+    return {
+      branch,
+      inputBase: branchIndex + 1,
+      inputBaseSource: '指定地分' as const,
+      note: `按所测方位或来意指定地分${branch}`,
     };
   }
 
@@ -433,6 +449,7 @@ function resolveDiFenBranch(params: {
 export function generateJinkoujue(
   params?: {
     method?: JinkoujueDivinationMethod;
+    branch?: string;
     number?: number;
     customDate?: Date;
   } & RandomOptions,
@@ -458,7 +475,7 @@ export function generateJinkoujue(
   let diFenResolved: {
     branch: string;
     inputBase: number;
-    inputBaseSource: '占时地支序数' | '用户数字' | '随机数';
+    inputBaseSource: '占时地支序数' | '指定地分' | '用户数字' | '随机数';
     note: string;
   };
 
@@ -466,6 +483,7 @@ export function generateJinkoujue(
     const context = createRandomContext(params);
     diFenResolved = resolveDiFenBranch({
       method,
+      branch: params?.branch,
       hourBranch,
       random: context.random,
     });
@@ -473,6 +491,7 @@ export function generateJinkoujue(
   } else {
     diFenResolved = resolveDiFenBranch({
       method,
+      branch: params?.branch,
       number: params?.number,
       hourBranch,
     });
@@ -611,6 +630,7 @@ export function generateJinkoujue(
     algorithm: 'jinkoujue',
     input: {
       method,
+      branch: params?.branch ?? null,
       number: params?.number ?? null,
       timestamp,
       diFenBranch: diFen.branch,

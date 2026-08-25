@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { WorkspaceButton } from './workspace/WorkspaceUI';
 
 interface Props {
   children: ReactNode;
@@ -34,24 +35,18 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="error-boundary-fallback">
           <div className="error-boundary-card">
             <h2>页面出现了一些问题</h2>
-            <p>请尝试刷新页面，或返回首页重新操作。</p>
+            <p>请尝试刷新页面，或返回默认工具重新操作。</p>
             <div className="error-boundary-actions">
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() => window.location.reload()}
-              >
+              <WorkspaceButton variant="primary" onClick={() => window.location.reload()}>
                 刷新页面
-              </button>
-              <button
-                type="button"
-                className="secondary-page-button"
+              </WorkspaceButton>
+              <WorkspaceButton
                 onClick={() => {
                   window.location.href = '/';
                 }}
               >
-                返回首页
-              </button>
+                返回默认工具
+              </WorkspaceButton>
             </div>
           </div>
         </div>

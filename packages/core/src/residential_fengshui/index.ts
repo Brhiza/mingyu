@@ -376,6 +376,12 @@ function buildPrompt(result: {
   xuankong: XuanKongResult | null;
   xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'];
 }) {
+  const stripHeading = (prompt: string) =>
+    prompt
+      .split('\n')
+      .filter((line) => !/^【.+】$/.test(line.trim()))
+      .join('\n')
+      .trim();
   const lines = [
     '【住宅风水排盘】',
     `山向：${result.orientationText}`,
@@ -390,6 +396,8 @@ function buildPrompt(result: {
     result.bazhai
       ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}）${result.bazhai.houseGua ? `，宅卦${result.bazhai.houseGua}，命宅关系${result.bazhai.match}` : ''}`
       : '',
+    result.xuankong ? `玄空完整盘面：\n${stripHeading(result.xuankong.prompt)}` : '',
+    result.bazhai ? `八宅完整盘面：\n${stripHeading(result.bazhai.prompt)}` : '',
   ];
   return lines.filter(Boolean).join('\n');
 }

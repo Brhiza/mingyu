@@ -134,21 +134,28 @@ export const QizhengBoard = memo(function QizhengBoard({
   title,
   name,
   data,
+  isInstant = false,
+  timeBasisLabel,
 }: {
   title: string;
   name: string;
   data: QizhengResult;
+  isInstant?: boolean;
+  timeBasisLabel?: string;
 }) {
   const strongestAspects = data.aspects.slice(0, 8);
   const ziqiStar = data.stars.find((star) => star.name.startsWith('紫炁'));
   return (
-    <section className="result-showcase-card qizheng-showcase-card">
+    <section className="result-showcase-card qizheng-showcase-card traditional-chart-layout">
       <div className="result-showcase-head">
         <div>
           <p className="result-section-kicker">{title}</p>
           <h2>{name}</h2>
         </div>
         <div className="result-chip-row">
+          {isInstant && timeBasisLabel ? (
+            <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
+          ) : null}
           <span className="result-chip">七政四余 {data.stars.length} 星</span>
           <span className="result-chip">吊照 {data.aspects.length} 组</span>
         </div>

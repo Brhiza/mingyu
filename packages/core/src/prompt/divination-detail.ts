@@ -16,6 +16,8 @@ import type {
 } from '../types/divination';
 import { formatAstrolabeForPrompt } from './astrolabe';
 import { formatDivinationInfo } from './divination';
+import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 
 type SupportedMethod = Exclude<DivinationMethodId, 'random'>;
 
@@ -184,6 +186,33 @@ function formatTaiyiDetail(data: TaiyiResult) {
   ];
 }
 
+function formatHuangjiDetail(data: HuangjiJingshiResult) {
+  const forecast = data.forecast;
+  if (!forecast) return data.calculationChain;
+  const dateTime = data.dateTimeForecast;
+  const periods = [
+    ['会内统卦', forecast.hexagrams.governing],
+    ['运卦', forecast.hexagrams.yun],
+    ['六十年统卦', forecast.hexagrams.sixtyYear],
+    ['十年卦', forecast.hexagrams.decade],
+  ] as const;
+  return [
+    `卦序层级：${periods
+      .map(
+        ([label, period]) =>
+          `${label}${period.hexagram.name}（${formatHuangjiCivilYear(period.startYear)}至${formatHuangjiCivilYear(period.endYear)}${period.derivedFrom && period.changedLine ? `，由${period.derivedFrom}卦第${period.changedLine}爻变得` : ''}）`,
+      )
+      .join('；')}`,
+    `值年卦关系：本卦${forecast.hexagrams.annual.name}；互卦${forecast.relatedHexagrams.mutual.name}；错卦${forecast.relatedHexagrams.opposite.name}；综卦${forecast.relatedHexagrams.reversed.name}`,
+    ...(dateTime
+      ? [
+          `皇极历位：${dateTime.civilTime.dateTime}，${dateTime.calendar.activeSolarTerm}，${dateTime.calendar.monthBranch}月第${dateTime.calendar.dayOfMonth}日，时段${dateTime.calendar.hourRange}`,
+          `年月日时层级：月经卦${dateTime.hexagrams.monthJing.name}；旬纬卦${dateTime.hexagrams.xunWei.name}；日卦${dateTime.hexagrams.daily.name}；时经卦${dateTime.hexagrams.hourJing.name}`,
+        ]
+      : []),
+  ];
+}
+
 /** 输出比摘要更完整的、可直接拼入任务书的占法资料。 */
 export function formatDetailedDivinationInfo(method: SupportedMethod, data: DivinationData) {
   const detail = (() => {
@@ -212,6 +241,8 @@ export function formatDetailedDivinationInfo(method: SupportedMethod, data: Divi
         return formatAstrolabeDetail(data as AstrolabeData);
       case 'taiyi':
         return formatTaiyiDetail(data as TaiyiResult);
+      case 'huangji':
+        return formatHuangjiDetail(data as HuangjiJingshiResult);
       default:
         return [];
     }

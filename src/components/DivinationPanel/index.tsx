@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { TAROT_SPREAD_OPTIONS } from 'mingyu-core/divination/config';
 import {
@@ -17,10 +17,10 @@ import {
   type DivinationInspirationTabId,
 } from '@/lib/divination/inspiration';
 import { addDivinationHistory, getDivinationHistoryById } from '@/lib/history-records';
-import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
-import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
-import { useViewportSize } from '@/hooks/useViewportWidth';
+import { applyPersonalCaseToDivinationDraft } from '@/lib/divination/case-context';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
+import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
+import { useBirthPlace } from '@/hooks/useBirthPlace';
 import {
   QuestionInspirationModal,
   type QuestionInspirationSection,
@@ -29,25 +29,81 @@ import { getDivinationSummaryBlocks } from '@/lib/divination/summary';
 import { defaultDraft, methodLabelMap } from './constants';
 import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
+import { BirthPlaceModal } from '@/pages/InputPage.BirthPlaceModal';
 
 type DivinationPanelProps = {
-  initialMethod?: Extract<DivinationDraft['method'], 'almanac' | 'astrolabe'>;
-  lockedMethod?: Extract<DivinationDraft['method'], 'almanac' | 'astrolabe'>;
+  initialMethod?: DivinationDraft['method'];
+  lockedMethod?: DivinationDraft['method'];
+  displayMode?: 'workspace' | 'input' | 'result';
+  assistantOnly?: boolean;
+  initialQuestion?: string;
+  initialSupplementaryInfo?: string;
+  autoSubmit?: boolean;
+  onGenerated?: (recordId: string, requestedMethod: DivinationDraft['method']) => void;
+  onOpenAssistant?: () => void;
+  onReturnToBoard?: () => void;
+  onRestart?: () => void;
 };
 
-function createDefaultDraft(method?: DivinationPanelProps['initialMethod']): DivinationDraft {
-  return method
-    ? {
-        ...defaultDraft,
-        method,
-      }
-    : defaultDraft;
+function getDefaultAlmanacDateRange() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((item) => [item.type, item.value]));
+  const start = new Date(
+    Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)),
+  );
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 20);
+  return {
+    almanacStartDate: start.toISOString().slice(0, 10),
+    almanacEndDate: end.toISOString().slice(0, 10),
+  };
 }
 
-export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanelProps) {
+function createDefaultDraft(
+  method?: DivinationPanelProps['initialMethod'],
+  initialQuestion?: string,
+  initialSupplementaryInfo?: string,
+): DivinationDraft {
+  return {
+    ...defaultDraft,
+    ...(method ? { method } : {}),
+    ...(method === 'almanac' ? getDefaultAlmanacDateRange() : {}),
+    ...(initialQuestion?.trim()
+      ? { question: initialQuestion.trim(), questionSource: 'custom' as const }
+      : {}),
+    ...(initialSupplementaryInfo?.trim()
+      ? { userSupplement: initialSupplementaryInfo.trim() }
+      : {}),
+  };
+}
+
+export function DivinationPanel({
+  initialMethod,
+  lockedMethod,
+  displayMode = 'workspace',
+  assistantOnly = false,
+  initialQuestion,
+  initialSupplementaryInfo,
+  autoSubmit = false,
+  onGenerated,
+  onOpenAssistant,
+  onReturnToBoard,
+  onRestart,
+}: DivinationPanelProps) {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [draft, setDraft] = useState<DivinationDraft>(() => createDefaultDraft(initialMethod));
+  const [searchParams] = useSearchParams();
+  const { activeCase, cases } = useActivePersonalCase();
+  const [draft, setDraft] = useState<DivinationDraft>(() =>
+    applyPersonalCaseToDivinationDraft(
+      createDefaultDraft(initialMethod, initialQuestion, initialSupplementaryInfo),
+      activeCase,
+    ),
+  );
   const [session, setSession] = useState<DivinationSession | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,12 +111,20 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
   const [activeInspirationTab, setActiveInspirationTab] =
     useState<DivinationInspirationTabId>('ganqing');
   const [inspirationSearch, setInspirationSearch] = useState('');
-  const viewportSize = useViewportSize({ width: 1280, height: 800 });
   const questionInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const autoSubmitStartedRef = useRef(false);
+  const divinationBirthPlace = useBirthPlace({ form: draft, setForm: setDraft });
 
   const { copyState, shareState, handleCopy, handleShare } = usePromptCopyShare(
     session?.prompt ?? '',
   );
+
+  useEffect(() => {
+    if (displayMode === 'result') return;
+    setDraft((current) => applyPersonalCaseToDivinationDraft(current, activeCase));
+    setSession(null);
+    setError('');
+  }, [activeCase, displayMode]);
 
   useEffect(() => {
     if (isDivinationInspirationTabVisible(activeInspirationTab, draft)) {
@@ -73,12 +137,15 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
   useEffect(() => {
     const recordId = searchParams.get('record');
     if (!recordId) {
+      if (displayMode === 'result') {
+        setError('未指定要打开的占问记录');
+      }
       return;
     }
 
     const record = getDivinationHistoryById(recordId);
     if (!record) {
-      setError('未找到对应的占卜历史记录');
+      setError('未找到对应的占问记录');
       return;
     }
 
@@ -86,12 +153,7 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     setSession(record.session);
     setError('');
     setIsSubmitting(false);
-
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('mode', 'divination');
-    nextSearchParams.delete('record');
-    setSearchParams(nextSearchParams, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [displayMode, searchParams]);
 
   const summary = useMemo(
     () => (session ? getDivinationSummaryBlocks(session.method, session.data) : null),
@@ -169,17 +231,10 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
       }))
       .filter((section) => section.items.length > 0);
   }, [activeInspirationTab, draft, inspirationSearch, specialInspiration]);
-  const showShareButton = shouldShowPromptShareButton({
-    viewportWidth: viewportSize.width,
-    viewportHeight: viewportSize.height,
-    hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
-  });
-  const isPhoneLayout = shouldUsePhoneLayout({
-    viewportWidth: viewportSize.width,
-    viewportHeight: viewportSize.height,
-  });
-
   useEffect(() => {
+    if (displayMode === 'result') {
+      return;
+    }
     if (!lockedMethod || draft.method === lockedMethod) {
       return;
     }
@@ -190,7 +245,7 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     }));
     setSession(null);
     setError('');
-  }, [draft.method, lockedMethod]);
+  }, [displayMode, draft.method, lockedMethod]);
 
   function updateDraft<K extends keyof DivinationDraft>(key: K, value: DivinationDraft[K]) {
     if (lockedMethod && key === 'method' && value !== lockedMethod) {
@@ -224,57 +279,79 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     }, 0);
   }
 
-  async function handleSubmit() {
+  const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
     setError('');
     setSession(null);
 
     try {
       const nextSession = await generateDivinationSession(draft);
-      const savedRecord = addDivinationHistory(draft, nextSession);
+      const savedRecord = addDivinationHistory(draft, nextSession, activeCase);
       setSession(nextSession);
       if (!savedRecord) {
         return;
       }
-      const nextSearchParams = new URLSearchParams(searchParams);
-      nextSearchParams.set('mode', 'divination');
-      nextSearchParams.set('record', savedRecord.id);
-      setSearchParams(nextSearchParams, { replace: true });
+      if (onGenerated) {
+        onGenerated(savedRecord.id, savedRecord.requestedMethod);
+      } else {
+        navigate(
+          `/divination/${savedRecord.requestedMethod}/result?record=${encodeURIComponent(savedRecord.id)}`,
+        );
+      }
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : '占卜生成失败，请稍后重试');
     } finally {
       setIsSubmitting(false);
     }
-  }
+  }, [activeCase, draft, navigate, onGenerated]);
+
+  useEffect(() => {
+    if (!autoSubmit || displayMode === 'result' || autoSubmitStartedRef.current) return;
+    autoSubmitStartedRef.current = true;
+    void handleSubmit();
+  }, [autoSubmit, displayMode, handleSubmit]);
 
   return (
     <div className="divination-panel-shell">
-      <DivinationForm
-        draft={draft}
-        updateDraft={updateDraft}
-        lockedMethod={lockedMethod}
-        isSubmitting={isSubmitting}
-        error={error}
-        onSubmit={handleSubmit}
-        onOpenInspiration={openQuestionInspirationModal}
-        onNavigateToHistory={() => navigate('/records?tab=divination')}
-        questionInputRef={questionInputRef}
-      />
+      {displayMode !== 'result' ? (
+        <DivinationForm
+          draft={draft}
+          updateDraft={updateDraft}
+          lockedMethod={lockedMethod}
+          isSubmitting={isSubmitting}
+          error={error}
+          onSubmit={handleSubmit}
+          onOpenInspiration={openQuestionInspirationModal}
+          onOpenBirthPlace={() => divinationBirthPlace.openBirthPlaceModal('self')}
+          questionInputRef={questionInputRef}
+          cases={cases}
+          showHeading
+        />
+      ) : null}
 
-      <DivinationResult
-        isSubmitting={isSubmitting}
-        session={session}
-        summary={summary}
-        methodLabelMap={methodLabelMap}
-        copyState={copyState}
-        shareState={shareState}
-        showShareButton={showShareButton}
-        isPhoneLayout={isPhoneLayout}
-        onCopy={handleCopy}
-        onShare={handleShare}
-      />
+      {displayMode !== 'input' ? (
+        <>
+          {error ? <p className="error-text workspace-divination-error">{error}</p> : null}
+          <DivinationResult
+            key={searchParams.get('record') ?? session?.prompt ?? 'divination-result'}
+            isSubmitting={isSubmitting}
+            session={session}
+            summary={summary}
+            methodLabelMap={methodLabelMap}
+            copyState={copyState}
+            shareState={shareState}
+            showHeading={displayMode === 'workspace'}
+            assistantOnly={assistantOnly}
+            onCopy={handleCopy}
+            onShare={handleShare}
+            onOpenAssistant={onOpenAssistant}
+            onReturnToBoard={onReturnToBoard}
+            onRestart={onRestart}
+          />
+        </>
+      ) : null}
 
-      {isQuestionInspirationModalOpen ? (
+      {displayMode !== 'result' && isQuestionInspirationModalOpen ? (
         <QuestionInspirationModal
           filters={inspirationFilters}
           activeFilter={activeInspirationTab}
@@ -286,6 +363,10 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
           onSelect={applyInspiredQuestion}
           onClose={() => setIsQuestionInspirationModalOpen(false)}
         />
+      ) : null}
+
+      {displayMode !== 'result' && divinationBirthPlace.isBirthPlaceModalOpen ? (
+        <BirthPlaceModal birthPlace={divinationBirthPlace} purpose="observer" />
       ) : null}
     </div>
   );

@@ -235,6 +235,16 @@ test('八字提示词未选择年限时输出本命资料且不输出岁运重�
 
   assert.match(prompt.user, /【分析对象】/);
   assert.match(prompt.user, /分析对象：本命盘/);
+  assert.match(prompt.user, /旺衰: [^\n]+（[^\n]+）/);
+  assert.match(prompt.user, /格局: [^\n]+（[^\n]+）/);
+  assert.match(prompt.user, /取用依据:/);
+  assert.match(prompt.user, /【本命辅助】/);
+  assert.match(prompt.user, /命宫:.+\| 身宫:.+\| 胎元:.+\| 胎息:/);
+  assert.match(prompt.user, /十神构成（天干与藏干）:/);
+  assert.match(prompt.user, /纳音:.+\| 自坐:.+\| 十二运:.+\| 旬空:/);
+  assert.match(prompt.user, /神煞:/);
+  assert.match(prompt.user, /【五行】/);
+  assert.match(prompt.user, /司令五行:/);
   assert.doesNotMatch(prompt.user, /大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
   assert.doesNotMatch(prompt.user, /【岁运重点】/);
   assert.doesNotMatch(prompt.user, /【解读方法】/);

@@ -192,13 +192,14 @@
 
 导入：`import { generateQimen, createQimenPriorityPalaces } from 'mingyu-core/divination/qimen'`
 
-### `generateQimen(customDate?, method?, scope?)`
+### `generateQimen(customDate?, method?, scope?, juMethod?)`
 
 **参数：**
 
 - `customDate?: Date` — 排盘时间
 - `method?: QimenMethod` — 排盘方法，`zhuanpan` 为转盘法（默认主流口径），`feipan` 为飞盘法
 - `scope?: QimenScope` — 排盘级别，`hour`（默认）、`day`、`month`、`year`
+- `juMethod?: QimenJuMethod` — 定局方法，`chaibu`（默认）或 `zhirun`；仅时家、日家生效
 
 **返回 `QimenData`：** 含完整排盘：定局数（拆补法）、值符值使、九宫格（天地人神四盘）、基础格局标签、经典格局（九遁/三奇得使等）、节令背景、复合格局、宫位洞察、方位吉凶、应期估算（庚格法）、马星落宫、旬空。
 
@@ -338,7 +339,7 @@
 | `bazhai(input)`                             | 按出生年与性别或直接命卦生成八宅盘                        |
 | `bazhaiByDoorDegree(input)`                 | 从大门面向屋内读数换算山向并生成八宅盘                    |
 | `zodiac(input)`                             | 按生肖/年支与公历年或指定干支生成生肖流年关系             |
-| `taiyi(input)` / `qizheng(input)`           | 生成太乙年计或七政四余盘                                  |
+| `taiyi(input)` / `qizheng(input)`           | 生成太乙年、月、日、时四计或七政四余盘                    |
 | `xuankong(input)`                           | 生成玄空下卦三盘                                          |
 | `residentialFengshui(input)`                | 按实际资料组合八宅与玄空住宅结果                          |
 | `capabilities()` / `capability(id)`         | 查询全部或单项能力声明；未知 ID 明确失败                  |
@@ -496,8 +497,8 @@ const result = generateDivinationSession({
 | `buildAstrolabeSynastryPrompt(options)`                        | 生成星盘合盘任务书，包含跨盘相位和落宫                                                         |
 | `buildDivinationPrompt(options)`                               | 将六爻、梅花、奇门、六壬、小六壬、金口诀、塔罗、灵签、择日、雷诺曼、星盘和太乙结果组装为任务书 |
 | `buildMetaphysicsPrompt(basePrompt, question, options)`        | 将八宅、住宅综合、生肖、七政四余或玄空排盘包装为完整任务书                                     |
-| `getPromptSchoolIds(method)`                                  | 返回指定术数允许的一组派系、断法或解读侧重                                                     |
-| `formatPromptSchoolGuidance(method, schools)`                 | 生成单派或最多三派的解读任务、传统依据和合参要求                                               |
+| `getPromptSchoolIds(method)`                                   | 返回指定术数允许的一组派系、断法或解读侧重                                                     |
+| `formatPromptSchoolGuidance(method, schools)`                  | 生成单派或最多三派的解读任务、传统依据和合参要求                                               |
 | `getDivinationSummaryBlocks(method, data)`                     | 返回标题、标签和明细行，适合自定义 UI 展示                                                     |
 | `formatDivinationInfo(method, data)`                           | 返回统一的增强占法资料文本；包含前端原有的用神、应期、宫位、节令、参与人和牌面证据             |
 | `formatEnhancedDivinationInfo(method, data)`                   | 增强格式化的明确入口；`formatDivinationInfo` 已兼容转发到此入口                                |

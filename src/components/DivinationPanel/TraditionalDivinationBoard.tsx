@@ -1,6 +1,14 @@
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import type { DivinationSession } from '@/lib/divination/engine';
+import {
+  formatHuangjiCivilYear,
+  type HuangjiDerivedHexagram,
+  type HuangjiJingshiResult,
+  type HuangjiPeriodHexagram,
+} from 'mingyu-core/huangji-jingshi';
+import { TAIYI_PALACES } from 'mingyu-core/taiyi';
+import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import type {
   AlmanacData,
   AstrolabeData,
@@ -16,7 +24,39 @@ import type {
 } from '@/types/divination';
 
 const QIMEN_LO_SHU_ORDER = [4, 9, 2, 3, 5, 7, 8, 1, 6];
-const TAIYI_LO_SHU_ORDER = QIMEN_LO_SHU_ORDER;
+const TAIYI_PALACE_LAYOUT = [
+  { palace: 9, row: 2, column: 2 },
+  { palace: 2, row: 2, column: 3 },
+  { palace: 7, row: 2, column: 4 },
+  { palace: 4, row: 3, column: 2 },
+  { palace: 5, row: 3, column: 3 },
+  { palace: 6, row: 3, column: 4 },
+  { palace: 3, row: 4, column: 2 },
+  { palace: 8, row: 4, column: 3 },
+  { palace: 1, row: 4, column: 4 },
+] as const;
+const TAIYI_POINT_LAYOUT = [
+  { point: '巽', row: 1, column: 1 },
+  { point: '巳', row: 1, column: 2 },
+  { point: '午', row: 1, column: 3 },
+  { point: '未', row: 1, column: 4 },
+  { point: '坤', row: 1, column: 5 },
+  { point: '辰', row: 2, column: 1 },
+  { point: '申', row: 2, column: 5 },
+  { point: '卯', row: 3, column: 1 },
+  { point: '酉', row: 3, column: 5 },
+  { point: '寅', row: 4, column: 1 },
+  { point: '戌', row: 4, column: 5 },
+  { point: '艮', row: 5, column: 1 },
+  { point: '丑', row: 5, column: 2 },
+  { point: '子', row: 5, column: 3 },
+  { point: '亥', row: 5, column: 4 },
+  { point: '乾', row: 5, column: 5 },
+] as const;
+
+function formatYaoPosition(position: number) {
+  return ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][position - 1] ?? `${position}爻`;
+}
 
 function TraditionalBoardShell(props: {
   title: string;
@@ -29,7 +69,6 @@ function TraditionalBoardShell(props: {
     <section className={`traditional-board ${className}`.trim()}>
       <div className="traditional-board-head">
         <div>
-          <span className="traditional-board-kicker">传统盘</span>
           <h3>{title}</h3>
         </div>
         {subtitle ? <p>{subtitle}</p> : null}
@@ -50,6 +89,27 @@ function TraditionalMeta(props: { items: Array<[string, string | number | undefi
             {value}
           </span>
         ))}
+    </div>
+  );
+}
+
+function TraditionalFacts(props: {
+  items: Array<[string, string | number | undefined | null]>;
+  className?: string;
+}) {
+  const visibleItems = props.items.filter(
+    ([, value]) => value !== undefined && value !== null && value !== '',
+  );
+  if (!visibleItems.length) return null;
+
+  return (
+    <div className={`traditional-fact-grid${props.className ? ` ${props.className}` : ''}`}>
+      {visibleItems.map(([label, value]) => (
+        <div key={label}>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </div>
+      ))}
     </div>
   );
 }
@@ -81,20 +141,47 @@ function LiuyaoTraditionalBoard({ data }: { data: LiuyaoData }) {
   const changing = data.changingYaos
     ?.filter((item) => item.isChanging)
     .map((item) => item.position);
-
+  const changedTitle =
+    changing?.length && data.changedName && data.changedName !== data.originalName
+      ? ` · 之${data.changedName}`
+      : '';
+  const hexagramRelation =
+    data.hexagramRelations?.transition ||
+    [data.hexagramRelations?.original, data.hexagramRelations?.changed].filter(Boolean).join(' · ');
+  const fanFuRelation = data.fanfuRelations?.labels.join('、');
+  const guaShen = data.guaShen
+    ? `${data.guaShen.branch}${data.guaShen.sixRelative} · ${formatYaoPosition(data.guaShen.position)}`
+    : '';
+  const formationFacts = [
+    data.sanheWithDay?.description,
+    data.sanheWithMonth?.description,
+    ...(data.sanxingInYaos?.map((item) => `${item.branches.join('、')}·${item.type}`) ?? []),
+  ]
+    .filter(Boolean)
+    .join('；');
   return (
     <TraditionalBoardShell
-      title={`${data.originalName}${data.changedName ? ` · 变${data.changedName}` : ''}`}
-      subtitle="纳甲六爻盘 · 上爻在上，初爻在下"
+      title={`${data.originalName}${changedTitle}`}
+      subtitle="纳甲六爻"
       className="traditional-liuyao-board"
     >
       <TraditionalMeta
         items={[
           ['卦宫', data.palace?.name ? `${data.palace.name}宫` : undefined],
-          ['卦序', data.palaceStage],
-          ['互卦', data.interName || '无'],
-          ['动爻', changing?.length ? changing.join('、') : '无'],
+          ['月建', data.ganzhi.month],
+          ['日辰', data.ganzhi.day],
+          ['世序', data.palaceStage],
+          ['动爻', changing?.length ? changing.map(formatYaoPosition).join('、') : '静卦'],
           ['旬空', data.voidBranches?.join('、') || '无'],
+        ]}
+      />
+      <TraditionalFacts
+        items={[
+          ['卦式', data.specialPattern],
+          ['卦变关系', hexagramRelation],
+          ['反伏吟', fanFuRelation],
+          ['卦身', guaShen],
+          ['合刑结构', formationFacts],
         ]}
       />
       <div className="traditional-liuyao-table" role="table" aria-label="六爻纳甲盘">
@@ -104,44 +191,61 @@ function LiuyaoTraditionalBoard({ data }: { data: LiuyaoData }) {
           <span>六亲</span>
           <span>爻象</span>
           <span>纳甲</span>
+          <span>化爻</span>
           <span>状态</span>
         </div>
         {rows.map((yao) => {
           const state = [
-            yao.isWorld ? '世' : '',
-            yao.isResponse ? '应' : '',
-            yao.isVoid ? '空' : '',
-            yao.isMonthBreak ? '月破' : '',
-            yao.isHiddenMove
-              ? '暗动'
-              : yao.isDayBreak
-                ? '日破'
-                : yao.isChanging && yao.isDayClash
-                  ? '日辰冲动'
-                  : '',
-          ].filter(Boolean);
+            [yao.isWorld, '世', 'is-primary'],
+            [yao.isResponse, '应', 'is-primary'],
+            [yao.isVoid, '空', 'is-muted'],
+            [yao.isMonthBreak, '月破', 'is-warning'],
+            [yao.isHiddenMove, '暗动', 'is-changing'],
+            [yao.isDayBreak, '日破', 'is-warning'],
+            [yao.isChanging && yao.isDayClash, '日辰冲动', 'is-changing'],
+            [Boolean(yao.changeDirection), yao.changeDirection || '', 'is-changing'],
+            [yao.isSanxing, yao.sanxingType || '刑', 'is-warning'],
+            [yao.isLiuhe, '合', 'is-primary'],
+            [yao.isLiuhai, '害', 'is-warning'],
+            [yao.isRuMu, '入墓', 'is-muted'],
+          ].filter(([visible]) => visible) as Array<[boolean, string, string]>;
           const relation = yao.changeRelations?.join('、') || yao.changeRelation || '';
           return (
             <div className="traditional-liuyao-row" role="row" key={yao.position}>
-              <span className="traditional-yao-position">
-                {yao.position === 1 ? '初爻' : `${yao.position}爻`}
-              </span>
+              <span className="traditional-yao-position">{formatYaoPosition(yao.position)}</span>
               <span>{yao.sixGod || '—'}</span>
               <span>{yao.sixRelative || '—'}</span>
               <YaoLine yaoType={yao.yaoType} changing={yao.isChanging} />
               <span>
                 {yao.najiaDizhi || '—'}
-                <small>{yao.wuxing || ''}</small>
+                <small>{[yao.wuxing, yao.seasonState].filter(Boolean).join(' · ')}</small>
+              </span>
+              <span className="traditional-changed-yao">
+                {yao.changedYao ? (
+                  <>
+                    化{yao.changedYao.dizhi}
+                    <small>
+                      {[yao.changedYao.liuqin, yao.changedYao.wuxing, relation]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </small>
+                  </>
+                ) : (
+                  '—'
+                )}
               </span>
               <span className="traditional-yao-status">
-                {state.length ? state.join(' · ') : '—'}
-                {relation ? <small>{relation}</small> : null}
-                {yao.changedYao ? (
-                  <small>
-                    化{yao.changedYao.dizhi}
-                    {yao.changedYao.wuxing}
-                  </small>
-                ) : null}
+                {state.length ? (
+                  <span className="traditional-yao-status-tags">
+                    {state.map(([, label, tone]) => (
+                      <span className={tone} key={label}>
+                        {label}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  '—'
+                )}
               </span>
             </div>
           );
@@ -153,7 +257,8 @@ function LiuyaoTraditionalBoard({ data }: { data: LiuyaoData }) {
           <span>
             {data.hiddenSpirits
               .map(
-                (item) => `${item.sixRelative}伏${item.position}爻${item.najiaDizhi}${item.wuxing}`,
+                (item) =>
+                  `${item.sixRelative}伏${formatYaoPosition(item.position)}${item.najiaDizhi}${item.wuxing}`,
               )
               .join('；')}
           </span>
@@ -199,7 +304,7 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
   return (
     <TraditionalBoardShell
       title={data.mainHexagram.name}
-      subtitle="梅花易数三卦体用盘 · 主卦为本，互卦为过程，变卦为结果"
+      subtitle="梅花易数 · 体用、互卦与变卦"
       className="traditional-meihua-board"
     >
       <TraditionalMeta
@@ -212,6 +317,12 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
             '月令',
             data.analysis.monthBranch ? `${data.analysis.monthBranch}月` : data.analysis.season,
           ],
+        ]}
+      />
+      <TraditionalFacts
+        items={[
+          ['动爻', `${data.movingYao.yaoName} · ${data.movingYao.description}`],
+          ['变后体用', data.analysis.changedTiYongRelation],
         ]}
       />
       <div className="traditional-hexagram-triad">
@@ -236,10 +347,16 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
         </div>
       </div>
       <div className="traditional-meihua-yaos" role="table" aria-label="梅花六爻体用标记">
+        <div className="traditional-meihua-yaos-head" role="row">
+          <span>爻位</span>
+          <strong>主卦六爻</strong>
+          <span>体用</span>
+        </div>
         {rows.map((yao) => (
           <div
             key={yao.position}
             className={yao.position === data.movingYao.position ? 'is-moving' : ''}
+            role="row"
           >
             <span>{yao.position}爻</span>
             <YaoLine yaoType={yao.yaoType} changing={yao.isChanging} />
@@ -252,52 +369,44 @@ function MeihuaTraditionalBoard({ data }: { data: MeihuaData }) {
 }
 
 function XiaoliurenTraditionalBoard({ data }: { data: XiaoliurenData }) {
-  const positions = [
-    { row: 1, column: 2 },
-    { row: 1, column: 3 },
-    { row: 2, column: 3 },
-    { row: 3, column: 3 },
-    { row: 3, column: 2 },
-    { row: 3, column: 1 },
+  const sequence = [
+    { label: '月宫', palace: data.sequence.month },
+    { label: '日宫', palace: data.sequence.day },
+    { label: '时宫', palace: data.sequence.hour },
   ];
   return (
     <TraditionalBoardShell
-      title="小六壬六宫盘"
+      title="小六壬三宫课"
       subtitle={`农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日 · ${data.hourLabel}`}
       className="traditional-xiaoliuren-board"
     >
       <TraditionalMeta
         items={[
-          ['月宫', data.sequence.month.name],
-          ['日宫', data.sequence.day.name],
-          ['时宫', data.sequence.hour.name],
-          ['占得', data.primary.name],
+          ['起课法', data.methodLabel],
+          [
+            '四柱',
+            `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
+          ],
         ]}
       />
-      <div className="traditional-six-palace" role="img" aria-label="小六壬六宫盘">
-        {data.palaceOrder.map((palace, index) => {
-          const position = positions[index] || positions[0];
-          const sequenceLabels = [
-            data.sequence.month.name,
-            data.sequence.day.name,
-            data.sequence.hour.name,
-          ];
-          const sequenceCount = sequenceLabels.filter((item) => item === palace.name).length;
-          return (
-            <div
-              className={`traditional-six-palace-cell${palace.name === data.primary.name ? ' is-primary' : ''}`}
-              style={{ gridColumn: position.column, gridRow: position.row }}
-              key={palace.name}
-            >
-              <span>{palace.index + 1}</span>
-              <strong>{palace.name}</strong>
-              <small>{sequenceCount ? `月日时${sequenceCount}中` : palace.verse}</small>
-            </div>
-          );
-        })}
-        <div className="traditional-six-palace-center">
-          <span>月 → 日 → 时</span>
-          <strong>{data.primary.name}</strong>
+      <div className="traditional-xiaoliuren-sequence" aria-label="小六壬月日时三宫">
+        {sequence.map(({ label, palace }, index) => (
+          <article className={index === sequence.length - 1 ? 'is-result' : ''} key={label}>
+            <span>{label}</span>
+            <strong>{palace.name}</strong>
+            <small>{palace.verse}</small>
+          </article>
+        ))}
+      </div>
+      <div className="traditional-xiaoliuren-reference" aria-label="小六壬六神定位">
+        <span>六神定位</span>
+        <div>
+          {data.palaceOrder.map((palace) => (
+            <small key={palace.name}>
+              <i>{palace.index + 1}</i>
+              {palace.name}
+            </small>
+          ))}
         </div>
       </div>
     </TraditionalBoardShell>
@@ -311,6 +420,15 @@ function JinkoujueTraditionalBoard({ data }: { data: JinkoujueData }) {
     ['将神', data.positions.jiangShen],
     ['地分', data.positions.diFen],
   ] as const;
+  const positionRelations = [
+    `贵→将 ${data.relations.guiToJiang}`,
+    `贵→人 ${data.relations.guiToRen}`,
+    `将→地 ${data.relations.jiangToDi}`,
+    `人→地 ${data.relations.renToDi}`,
+  ].join('；');
+  const movementText = data.movements
+    .map((item) => `${item.category}·${item.name}（${item.from}${item.relation}${item.to}）`)
+    .join('；');
   return (
     <TraditionalBoardShell
       title="金口诀四位盘"
@@ -323,6 +441,16 @@ function JinkoujueTraditionalBoard({ data }: { data: JinkoujueData }) {
           ['贵人', data.noblemanBranch],
           ['旬空', data.xunKong.join('、') || '无'],
           ['发用', data.yinYangUse.usePosition],
+        ]}
+      />
+      <TraditionalFacts
+        items={[
+          [
+            '阴阳取用',
+            `${data.yinYangUse.pattern} · 用${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '（空）' : ''}`,
+          ],
+          ['四位关系', positionRelations],
+          ['五动三动', movementText || '未见发动'],
         ]}
       />
       <div className="traditional-jinkoujue-table" role="table" aria-label="金口诀四位盘">
@@ -354,9 +482,45 @@ function JinkoujueTraditionalBoard({ data }: { data: JinkoujueData }) {
 
 function QimenTraditionalBoard({ data }: { data: QimenData }) {
   const palaceMap = new Map(data.jiuGongGe.map((item) => [item.gong, item]));
+  const stemRelationMap = new Map<number, string[]>();
+  data.stemRelations?.forEach((item) => {
+    const label = item.pattern?.split(/[：:]/u)[0] || item.relation;
+    stemRelationMap.set(item.gong, [...(stemRelationMap.get(item.gong) ?? []), label]);
+  });
+  const scopeLabel = { hour: '时家', day: '日家', month: '月家', year: '年家' }[
+    data.scope ?? 'hour'
+  ];
+  const specialConditions = [
+    data.specialConditions?.isLiuJiaHour ? '六甲时' : '',
+    data.specialConditions?.isLiuGuiHour ? '六癸时' : '',
+    data.specialConditions?.isShiGanRuMu ? '时干入墓' : '',
+    data.specialConditions?.isWuBuYuShi ? '五不遇时' : '',
+  ]
+    .filter(Boolean)
+    .join('、');
+  const patternCounts = new Map<string, number>();
+  data.patternTags?.forEach((item) => {
+    const label = item.split(/[（(]/u)[0]?.trim();
+    if (label) patternCounts.set(label, (patternCounts.get(label) ?? 0) + 1);
+  });
+  const patternNames = Array.from(patternCounts.entries())
+    .map(([label, count]) => `${label}${count > 1 ? `×${count}` : ''}`)
+    .join(' · ');
+  const ganzhiInteractionCounts = new Map<string, number>();
+  data.seasonality?.ganzhiInteractions.forEach((item) => {
+    const [first, second] = item.values;
+    const label =
+      first === second && item.type === '相刑'
+        ? `${first}自刑`
+        : `${item.values.join('')}${item.type}`;
+    ganzhiInteractionCounts.set(label, (ganzhiInteractionCounts.get(label) ?? 0) + 1);
+  });
+  const ganzhiInteractions = Array.from(ganzhiInteractionCounts.entries())
+    .map(([label, count]) => `${label}${count > 1 ? `×${count}` : ''}`)
+    .join(' · ');
   return (
     <TraditionalBoardShell
-      title="奇门遁甲九宫盘"
+      title={`${scopeLabel}奇门九宫盘`}
       subtitle={`${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局 · ${data.method === 'feipan' ? '飞盘' : '转盘'}${data.juMethod === 'zhirun' ? ' · 置闰' : ' · 拆补'}`}
       className="traditional-qimen-board"
     >
@@ -365,8 +529,26 @@ function QimenTraditionalBoard({ data }: { data: QimenData }) {
           ['值符', data.zhiFu],
           ['值使', data.zhiShi],
           ['节气', data.timeInfo.solarTerm],
+          [
+            '四柱',
+            `${data.ganzhi.year} ${data.ganzhi.month} ${data.ganzhi.day} ${data.ganzhi.hour}`,
+          ],
           ['旬空', data.voidBranches?.join('、') || '无'],
           ['驿马', data.horseStar ? `${data.horseStar.branch}·${data.horseStar.name}` : '无'],
+        ]}
+      />
+      <TraditionalFacts
+        className="is-qimen-summary"
+        items={[
+          ['定局三元', [data.timeInfo.epoch, specialConditions].filter(Boolean).join(' · ')],
+          [
+            '节令背景',
+            data.seasonality
+              ? `${data.seasonality.currentJieQi} · ${data.seasonality.dayOfficer}${data.seasonality.dayOfficerFortuneLabel} · ${data.seasonality.lunarPhase} · 日干${data.seasonality.seasonRelation}`
+              : undefined,
+          ],
+          ['格局摘要', patternNames],
+          ['四柱作用', ganzhiInteractions],
         ]}
       />
       <div className="traditional-qimen-grid" role="img" aria-label="奇门遁甲九宫盘">
@@ -378,6 +560,7 @@ function QimenTraditionalBoard({ data }: { data: QimenData }) {
           const isZhiFu =
             palace.tianPan.star === data.zhiFu || palace.tianPan.companionStar === data.zhiFu;
           const isZhiShi = palace.renPan.door === data.zhiShi;
+          const stemRelations = stemRelationMap.get(gong) ?? [];
           return (
             <div
               className={`traditional-qimen-cell${gong === 5 ? ' is-center' : ''}${isVoid ? ' is-void' : ''}${isHorse ? ' is-horse' : ''}`}
@@ -403,8 +586,17 @@ function QimenTraditionalBoard({ data }: { data: QimenData }) {
                 </span>
                 <span>地 {palace.diPan.stem}</span>
               </div>
-              {isVoid ? <em>空</em> : null}
-              {isHorse ? <em>马</em> : null}
+              {stemRelations.length ? (
+                <small className="traditional-qimen-relation" title={stemRelations.join('、')}>
+                  {stemRelations.join(' · ')}
+                </small>
+              ) : null}
+              {isVoid || isHorse ? (
+                <div className="traditional-qimen-status" aria-label="宫位状态">
+                  {isVoid ? <span>空</span> : null}
+                  {isHorse ? <span>马</span> : null}
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -421,7 +613,7 @@ function TarotTraditionalBoard({ data }: { data: TarotData }) {
   return (
     <TraditionalBoardShell
       title={data.spreadName}
-      subtitle={`塔罗牌阵 · ${data.cards.length}张 · 牌位按传统顺序展开`}
+      subtitle={`塔罗牌阵 · ${data.cards.length}张`}
       className="traditional-tarot-board"
     >
       <div className={`traditional-tarot-spread ${getTarotSpreadClass(data.spreadType)}`}>
@@ -489,7 +681,7 @@ function SsgwTraditionalBoard({ data }: { data: SsgwData }) {
   return (
     <TraditionalBoardShell
       title={`第${data.number}签 · ${data.title}`}
-      subtitle={`${data.ganzhi.day}日签 · 传统签谱盘面`}
+      subtitle={`${data.ganzhi.day}日签`}
       className="traditional-ssgw-board"
     >
       <div className="traditional-sign-card">
@@ -520,98 +712,591 @@ function SsgwTraditionalBoard({ data }: { data: SsgwData }) {
   );
 }
 
+type AlmanacDisplayStatus = '可用候选' | '条件候选' | '慎用候选';
+type AlmanacStatusFilter = 'all' | AlmanacDisplayStatus;
+
+const ALMANAC_STATUS_OPTIONS: Array<{ value: AlmanacDisplayStatus; label: string }> = [
+  { value: '可用候选', label: '初筛可用' },
+  { value: '条件候选', label: '需核对' },
+  { value: '慎用候选', label: '初筛慎用' },
+];
+
+const ALMANAC_STATUS_LABELS: Record<AlmanacDisplayStatus, string> = {
+  可用候选: '初筛可用',
+  条件候选: '需核对',
+  慎用候选: '初筛慎用',
+};
+
+function uniqueAlmanacTexts(values: Array<string | undefined>) {
+  return Array.from(new Set(values.filter((item): item is string => Boolean(item?.trim()))));
+}
+
+function getAlmanacStatusClass(status: AlmanacDisplayStatus) {
+  return status === '可用候选'
+    ? 'is-usable'
+    : status === '慎用候选'
+      ? 'is-caution'
+      : 'is-conditional';
+}
+
 function AlmanacTraditionalBoard({ data }: { data: AlmanacData }) {
+  const evidenceAnalysis = useMemo(
+    () => data.evidenceAnalysis ?? analyzeAlmanacEvidence(data),
+    [data],
+  );
+  const candidateByDate = useMemo(
+    () => new Map(evidenceAnalysis.candidates.map((item) => [item.date, item])),
+    [evidenceAnalysis],
+  );
+  const [statusFilter, setStatusFilter] = useState<AlmanacStatusFilter>('all');
+  const [selectedDate, setSelectedDate] = useState(data.days[0]?.date ?? '');
+  const statusForDate = (date: string): AlmanacDisplayStatus =>
+    candidateByDate.get(date)?.status ?? '条件候选';
+  const counts = data.days.reduce<Record<AlmanacDisplayStatus, number>>(
+    (result, day) => {
+      result[statusForDate(day.date)] += 1;
+      return result;
+    },
+    { 可用候选: 0, 条件候选: 0, 慎用候选: 0 },
+  );
+  const visibleDays =
+    statusFilter === 'all'
+      ? data.days
+      : data.days.filter((day) => statusForDate(day.date) === statusFilter);
+  const selectedDay =
+    visibleDays.find((day) => day.date === selectedDate) ?? visibleDays[0] ?? data.days[0];
+  const selectedEvidence = selectedDay ? candidateByDate.get(selectedDay.date) : undefined;
+  const selectedStatus = selectedDay ? statusForDate(selectedDay.date) : '条件候选';
+  const supportTexts = selectedDay
+    ? uniqueAlmanacTexts([
+        ...(selectedEvidence?.topicMatches ?? []),
+        ...(selectedEvidence?.traditionalSupport ?? []),
+        ...(selectedEvidence?.participantSupport ?? []),
+        ...selectedDay.highlights,
+      ]).slice(0, 6)
+    : [];
+  const constraintTexts = selectedDay
+    ? uniqueAlmanacTexts([
+        ...(selectedEvidence?.traditionalConstraints ?? []),
+        ...(selectedEvidence?.participantConflicts ?? []),
+        ...(selectedEvidence?.directionConstraints ?? []),
+        ...selectedDay.cautions,
+      ]).slice(0, 6)
+    : [];
+  const preferenceLabel =
+    data.weekendPreference === 'prefer'
+      ? ' · 优先周末'
+      : data.weekendPreference === 'avoid'
+        ? ' · 避开周末'
+        : '';
+  const timePreferenceLabel = data.timePreferences?.length
+    ? ` · ${[
+        data.timePreferences.includes('work-hours') ? '工作时间' : '',
+        data.timePreferences.includes('morning') ? '上午优先' : '',
+        data.timePreferences.includes('afternoon') ? '下午优先' : '',
+      ]
+        .filter(Boolean)
+        .join('、')}`
+    : '';
+
+  function applyStatusFilter(nextFilter: AlmanacStatusFilter) {
+    setStatusFilter(nextFilter);
+    if (nextFilter === 'all') {
+      setSelectedDate(data.days[0]?.date ?? '');
+      return;
+    }
+    setSelectedDate(data.days.find((day) => statusForDate(day.date) === nextFilter)?.date ?? '');
+  }
+
   return (
     <TraditionalBoardShell
-      title={`${data.topicLabel}择日盘`}
-      subtitle={`${data.startDate} 至 ${data.endDate} · 以候选日干支、建除、星宿和宜忌并列展示`}
+      title={`${data.topicLabel}择日`}
+      subtitle={`${data.startDate} 至 ${data.endDate}${preferenceLabel}${timePreferenceLabel}`}
       className="traditional-almanac-board"
     >
-      <div className="traditional-almanac-grid" role="table" aria-label="黄历择日盘">
-        {data.days.map((day) => (
-          <article className="traditional-almanac-day" key={day.date}>
-            <div className="traditional-almanac-day-head">
-              <strong>{day.date.slice(5)}</strong>
-              <span>{day.weekday}</span>
-            </div>
-            <b>
-              {day.ganzhi.day}日 · {day.dayOfficer}
-            </b>
-            <span>
-              {day.lunarDate} · {day.zodiac}年
-            </span>
-            <span>
-              {day.twelveStar} · {day.twentyEightStar}
-            </span>
-            <div className="traditional-almanac-gods">
-              {day.gods.slice(0, 3).map((god) => (
-                <em key={god}>{god}</em>
-              ))}
-            </div>
-            <div className="traditional-almanac-goodbad">
-              <p>
-                <b>宜</b>
-                {day.recommends.slice(0, 3).join('、') || '未标注'}
-              </p>
-              <p>
-                <b>忌</b>
-                {day.avoids.slice(0, 3).join('、') || '未标注'}
-              </p>
-            </div>
-            <small>{day.clash}</small>
-          </article>
+      <div className="traditional-almanac-toolbar">
+        <button
+          type="button"
+          className={statusFilter === 'all' ? 'is-active' : ''}
+          onClick={() => applyStatusFilter('all')}
+        >
+          全部 <span>{data.days.length}</span>
+        </button>
+        {ALMANAC_STATUS_OPTIONS.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            className={`${getAlmanacStatusClass(item.value)} ${statusFilter === item.value ? 'is-active' : ''}`}
+            onClick={() => applyStatusFilter(item.value)}
+          >
+            {item.label} <span>{counts[item.value]}</span>
+          </button>
         ))}
       </div>
+
+      {selectedDay ? (
+        <div className="traditional-almanac-workspace">
+          <nav className="traditional-almanac-candidates" aria-label="候选日期">
+            {visibleDays.map((day) => {
+              const evidence = candidateByDate.get(day.date);
+              const status = statusForDate(day.date);
+              const preview =
+                evidence?.topicMatches[0] ??
+                evidence?.traditionalSupport[0] ??
+                day.highlights[0] ??
+                '查看当日资料';
+              return (
+                <button
+                  key={day.date}
+                  type="button"
+                  className={`${getAlmanacStatusClass(status)} ${day.date === selectedDay.date ? 'is-active' : ''}`}
+                  aria-current={day.date === selectedDay.date ? 'date' : undefined}
+                  onClick={() => setSelectedDate(day.date)}
+                >
+                  <span className="traditional-almanac-candidate-date">
+                    <strong>{day.date.slice(5)}</strong>
+                    <small>{day.weekday.replace('星期', '周')}</small>
+                  </span>
+                  <span className="traditional-almanac-candidate-main">
+                    <b>
+                      {day.ganzhi.day}日 · {day.dayOfficer}
+                    </b>
+                    <small>{preview}</small>
+                  </span>
+                  <em>{ALMANAC_STATUS_LABELS[status]}</em>
+                </button>
+              );
+            })}
+          </nav>
+
+          <article className="traditional-almanac-detail">
+            <header className="traditional-almanac-detail-head">
+              <div>
+                <span>{selectedDay.weekday}</span>
+                <h4>{selectedDay.date}</h4>
+                <p>
+                  {selectedDay.lunarDate} · {selectedDay.ganzhi.day}日
+                </p>
+              </div>
+              <b className={getAlmanacStatusClass(selectedStatus)}>
+                {ALMANAC_STATUS_LABELS[selectedStatus]}
+              </b>
+            </header>
+
+            <div className="traditional-almanac-facts">
+              <span>
+                <small>建除</small>
+                <b>{selectedDay.dayOfficer}</b>
+              </span>
+              <span>
+                <small>十二神</small>
+                <b>{selectedDay.twelveStar}</b>
+              </span>
+              <span>
+                <small>二十八宿</small>
+                <b>{selectedDay.twentyEightStar}</b>
+              </span>
+              <span>
+                <small>冲煞</small>
+                <b>{selectedDay.clash}</b>
+              </span>
+            </div>
+
+            <div className="traditional-almanac-yi-ji">
+              <section>
+                <b>宜</b>
+                <p>{selectedDay.recommends.slice(0, 8).join('、') || '未列明确宜项'}</p>
+              </section>
+              <section>
+                <b>忌</b>
+                <p>{selectedDay.avoids.slice(0, 8).join('、') || '未列明确忌项'}</p>
+              </section>
+            </div>
+
+            <div className="traditional-almanac-evidence-grid">
+              <section>
+                <h5>择日依据</h5>
+                {supportTexts.length ? (
+                  <ul>
+                    {supportTexts.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>未见直接支持项，需结合限制条件比较。</p>
+                )}
+              </section>
+              <section>
+                <h5>限制条件</h5>
+                {constraintTexts.length ? (
+                  <ul>
+                    {constraintTexts.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>当前规则下未见明确限制。</p>
+                )}
+              </section>
+            </div>
+
+            <section className="traditional-almanac-hours">
+              <h5>可用时辰</h5>
+              {selectedEvidence?.usableHours.length ? (
+                <div>
+                  {selectedEvidence.usableHours.map((hour) => (
+                    <span key={hour.key}>
+                      <b>{hour.name}</b>
+                      <small>{hour.range}</small>
+                      <em>{hour.ganzhi}</em>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p>当前规则下未筛出无明显冲突的时辰。</p>
+              )}
+            </section>
+          </article>
+        </div>
+      ) : (
+        <p className="traditional-almanac-empty">当前筛选下没有候选日期。</p>
+      )}
     </TraditionalBoardShell>
   );
 }
 
 function TaiyiTraditionalBoard({ data }: { data: TaiyiResult }) {
-  const markers = new Map<number, string[]>();
-  const addMarker = (palace: number, label: string) => {
-    const current = markers.get(palace) || [];
-    markers.set(palace, [...current, label]);
+  const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
+  const pointMarkers = new Map<string, string[]>();
+  const palaceRoles = new Map<number, string[]>();
+  const addPointMarker = (point: string, label: string) => {
+    pointMarkers.set(point, [...(pointMarkers.get(point) ?? []), label]);
   };
-  addMarker(data.taiyiPalace, '太乙');
-  addMarker(data.wenChangPalace, '文昌');
-  addMarker(data.shiJiPalace, '始击');
-  addMarker(data.jiShenPalace, '计神');
+  const addPalaceRole = (palace: number, label: string) => {
+    palaceRoles.set(palace, [...(palaceRoles.get(palace) ?? []), label]);
+  };
+  addPointMarker(data.taiyiPosition, '太乙');
+  addPointMarker(data.wenChangPosition, '文昌');
+  addPointMarker(data.shiJiPosition, '始击');
+  addPointMarker(data.jiShenPosition, '计神');
+  addPalaceRole(data.lordGeneral, '主大');
+  addPalaceRole(data.lordAssistant, '主参');
+  addPalaceRole(data.guestGeneral, '客大');
+  addPalaceRole(data.guestAssistant, '客参');
+  addPalaceRole(data.setGeneral, '定大');
+  addPalaceRole(data.setAssistant, '定参');
+
+  const godByPoint = new Map(data.sixteenGods.map((item) => [item.branch, item.god]));
+  const natureBySide = new Map(
+    data.evidenceAnalysis?.forceFacts?.map((item) => [item.side, item.nature]) ?? [],
+  );
+  const forceRows = [
+    {
+      side: '主',
+      count: data.lordCount,
+      general: data.lordGeneral,
+      assistant: data.lordAssistant,
+    },
+    {
+      side: '客',
+      count: data.guestCount,
+      general: data.guestGeneral,
+      assistant: data.guestAssistant,
+    },
+    {
+      side: '定',
+      count: data.setCount,
+      general: data.setGeneral,
+      assistant: data.setAssistant,
+    },
+  ] as const;
+  const conditionJudgments = data.judgments.filter(
+    (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item),
+  );
+
   return (
     <TraditionalBoardShell
-      title={`太乙神数${data.scope === 'year' ? '年计' : data.scope}`}
+      title={`太乙神数${scopeLabel}`}
       subtitle={`${data.ganZhi} · ${data.yinYang}第${data.bureau}局 · ${data.accumulatedLabel}${data.accumulatedValue}`}
       className="traditional-taiyi-board"
     >
       <TraditionalMeta
         items={[
-          ['太乙', data.taiyiPosition],
-          ['文昌', data.wenChangPosition],
-          ['始击', data.shiJiPosition],
-          ['主算', data.lordCount],
-          ['客算', data.guestCount],
-          ['定算', data.setCount],
+          ['时间', data.dateTime],
+          ['模型', data.model.name],
+          ['太乙', `${data.taiyiPosition} · 第${data.taiyiPalace}宫`],
+          ['文昌', `${data.wenChangPosition} · 第${data.wenChangPalace}宫`],
+          ['始击', `${data.shiJiPosition} · 第${data.shiJiPalace}宫`],
+          ['计神', `${data.jiShenPosition} · 第${data.jiShenPalace}宫`],
         ]}
       />
-      <div className="traditional-taiyi-grid" role="img" aria-label="太乙神数九宫盘">
-        {TAIYI_LO_SHU_ORDER.map((palace) => (
-          <div className={`traditional-taiyi-cell${palace === 5 ? ' is-center' : ''}`} key={palace}>
-            <span>{palace}宫</span>
-            <strong>{markers.get(palace)?.join(' · ') || '—'}</strong>
-            {palace === data.taiyiPalace ? (
-              <small>
-                {data.taiyiGua} · {data.taiyiDir}
-              </small>
-            ) : null}
+      <div className="traditional-taiyi-plate" role="group" aria-label="太乙十六神与八宫局式">
+        {TAIYI_POINT_LAYOUT.map(({ point, row, column }) => {
+          const markers = pointMarkers.get(point) ?? [];
+          return (
+            <div
+              className={`traditional-taiyi-point${markers.length ? ' is-occupied' : ''}`}
+              key={point}
+              style={{ gridRow: row, gridColumn: column }}
+            >
+              <div className="traditional-taiyi-point-head">
+                <strong>{point}</strong>
+                <span>{godByPoint.get(point)}</span>
+              </div>
+              {markers.length ? (
+                <div className="traditional-taiyi-point-markers">
+                  {markers.map((marker) => (
+                    <b key={marker}>{marker}</b>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+        {TAIYI_PALACE_LAYOUT.map(({ palace, row, column }) => {
+          const profile = TAIYI_PALACES[palace];
+          const roles = palaceRoles.get(palace) ?? [];
+          return (
+            <div
+              className={`traditional-taiyi-palace${palace === 5 ? ' is-center' : ''}`}
+              key={palace}
+              style={{ gridRow: row, gridColumn: column }}
+            >
+              {palace === 5 ? (
+                <>
+                  <span>中五宫</span>
+                  <strong>
+                    {data.yinYang} {data.bureau}局
+                  </strong>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {profile.gua}
+                    {palace}宫
+                  </span>
+                  <small>
+                    {profile.dir} · {profile.wu}
+                  </small>
+                </>
+              )}
+              {roles.length ? (
+                <div className="traditional-taiyi-palace-roles">
+                  {roles.map((role) => (
+                    <b key={role}>{role}</b>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="traditional-taiyi-forces" role="table" aria-label="太乙主客定算将参">
+        <div className="traditional-taiyi-force-head" role="row">
+          <span role="columnheader">三算</span>
+          <span role="columnheader">算数</span>
+          <span role="columnheader">大将</span>
+          <span role="columnheader">参将</span>
+        </div>
+        {forceRows.map((row) => (
+          <div className="traditional-taiyi-force-row" role="row" key={row.side}>
+            <strong role="cell">{row.side}</strong>
+            <span role="cell">
+              {row.count}
+              {natureBySide.get(row.side) ? <small>{natureBySide.get(row.side)}</small> : null}
+            </span>
+            <span role="cell">第{row.general}宫</span>
+            <span role="cell">第{row.assistant}宫</span>
           </div>
         ))}
       </div>
-      <div className="traditional-sixteen-gods">
-        {data.sixteenGods.map((item) => (
-          <span key={`${item.branch}-${item.god}`}>
-            <b>{item.branch}</b>
-            {item.god}
+      {conditionJudgments.length ? (
+        <div className="traditional-taiyi-conditions">
+          {conditionJudgments.map((item) => (
+            <p key={item}>{item}</p>
+          ))}
+        </div>
+      ) : null}
+    </TraditionalBoardShell>
+  );
+}
+
+function HuangjiPeriodCell(props: {
+  label: string;
+  period: HuangjiPeriodHexagram;
+  active?: boolean;
+}) {
+  const { label, period, active = false } = props;
+  return (
+    <article className={`traditional-huangji-period${active ? ' is-active' : ''}`}>
+      <div className="traditional-huangji-period-head">
+        <span>{label}</span>
+        <small>{period.durationYears}年</small>
+      </div>
+      <div className="traditional-huangji-hexagram">
+        <strong>{period.hexagram.symbol}</strong>
+        <div>
+          <b>{period.hexagram.name}</b>
+          <span>
+            {period.hexagram.upper}上 · {period.hexagram.lower}下
           </span>
-        ))}
+        </div>
+      </div>
+      <p>
+        {formatHuangjiCivilYear(period.startYear)}—{formatHuangjiCivilYear(period.endYear)}
+      </p>
+      {period.derivedFrom && period.changedLine ? (
+        <em>
+          {period.derivedFrom}卦第{period.changedLine}爻变
+        </em>
+      ) : null}
+    </article>
+  );
+}
+
+function HuangjiDateTimeCell(props: {
+  label: string;
+  hexagram: HuangjiDerivedHexagram;
+  note: string;
+  active?: boolean;
+}) {
+  const { label, hexagram, note, active = false } = props;
+  return (
+    <article className={`traditional-huangji-period${active ? ' is-active' : ''}`}>
+      <div className="traditional-huangji-period-head">
+        <span>{label}</span>
+        <small>{note}</small>
+      </div>
+      <div className="traditional-huangji-hexagram">
+        <strong>{hexagram.symbol}</strong>
+        <div>
+          <b>{hexagram.name}</b>
+          <span>
+            {hexagram.upper}上 · {hexagram.lower}下
+          </span>
+        </div>
+      </div>
+      {hexagram.changedLine ? (
+        <em>
+          {hexagram.derivedFrom}卦第{hexagram.changedLine}爻变
+        </em>
+      ) : (
+        <em>六十卦序第{(hexagram.sequenceOffset || 0) + 1}位</em>
+      )}
+    </article>
+  );
+}
+
+function HuangjiTraditionalBoard({ data }: { data: HuangjiJingshiResult }) {
+  const forecast = data.forecast;
+  if (!forecast) return null;
+  const dateTimeForecast = data.dateTimeForecast;
+
+  const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
+  const related = [
+    ['互卦', forecast.relatedHexagrams.mutual],
+    ['错卦', forecast.relatedHexagrams.opposite],
+    ['综卦', forecast.relatedHexagrams.reversed],
+  ] as const;
+
+  return (
+    <TraditionalBoardShell
+      title="皇极经世盘"
+      subtitle={
+        dateTimeForecast
+          ? `${dateTimeForecast.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+          : `${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+      }
+      className="traditional-huangji-board"
+    >
+      <TraditionalMeta
+        items={[
+          ['元', `第${data.position.yuan.indexFromEpoch + 1}元`],
+          ['会', `第${forecast.hui.indexInYuan}会 · ${forecast.hui.branch}`],
+          ['运', `会内第${data.position.yun.indexInHui}运`],
+          ['世', `运内第${data.position.shi.indexInYun}世`],
+          ['年位', `世内第${data.position.year.indexInShi}年`],
+          ['节气', dateTimeForecast?.calendar.activeSolarTerm],
+          [
+            '皇极日',
+            dateTimeForecast
+              ? `${dateTimeForecast.calendar.monthBranch}月${dateTimeForecast.calendar.dayOfMonth}日`
+              : undefined,
+          ],
+        ]}
+      />
+
+      <div className="traditional-huangji-cycle" role="list" aria-label="皇极经世卦序层级">
+        <HuangjiPeriodCell label="会内统卦" period={governing} />
+        <HuangjiPeriodCell label="运卦" period={yun} />
+        <HuangjiPeriodCell label="六十年统卦" period={sixtyYear} />
+        <HuangjiPeriodCell label="十年卦" period={decade} />
+        <article className="traditional-huangji-period is-active">
+          <div className="traditional-huangji-period-head">
+            <span>值年卦</span>
+            <small>{annual.ganzhi}</small>
+          </div>
+          <div className="traditional-huangji-hexagram">
+            <strong>{annual.symbol}</strong>
+            <div>
+              <b>{annual.name}</b>
+              <span>
+                {annual.upper}上 · {annual.lower}下
+              </span>
+            </div>
+          </div>
+          <p>{formatHuangjiCivilYear(annual.year)}</p>
+        </article>
+      </div>
+
+      {dateTimeForecast ? (
+        <div
+          className="traditional-huangji-cycle is-datetime"
+          role="list"
+          aria-label="皇极经世年月日时卦序"
+        >
+          <HuangjiDateTimeCell
+            label="月经卦"
+            hexagram={dateTimeForecast.hexagrams.monthJing}
+            note={`第${dateTimeForecast.calendar.monthIndex}月`}
+          />
+          <HuangjiDateTimeCell
+            label="旬纬卦"
+            hexagram={dateTimeForecast.hexagrams.xunWei}
+            note={`月内${dateTimeForecast.calendar.dayOfMonth}日`}
+          />
+          <HuangjiDateTimeCell
+            label="日卦"
+            hexagram={dateTimeForecast.hexagrams.daily}
+            note={dateTimeForecast.calendar.activeSolarTerm}
+          />
+          <HuangjiDateTimeCell
+            label="时经卦"
+            hexagram={dateTimeForecast.hexagrams.hourJing}
+            note={dateTimeForecast.calendar.hourRange}
+            active
+          />
+        </div>
+      ) : null}
+
+      <div className="traditional-huangji-focus">
+        <div className="traditional-huangji-judgment">
+          <span>值年卦辞</span>
+          <p>{annual.judgment}</p>
+        </div>
+        <div className="traditional-huangji-related" aria-label="值年卦互错综">
+          {related.map(([label, hexagram]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <strong>{hexagram.symbol}</strong>
+              <b>{hexagram.name}</b>
+              <small>
+                {hexagram.upper}上 · {hexagram.lower}下
+              </small>
+            </div>
+          ))}
+        </div>
       </div>
     </TraditionalBoardShell>
   );
@@ -641,7 +1326,7 @@ export function TraditionalDivinationBoard({ session }: { session: DivinationSes
       return (
         <TraditionalBoardShell
           title="本命星盘"
-          subtitle="黄道十二宫与主要相位盘面"
+          subtitle="黄道十二宫 · 主要相位"
           className="traditional-astrolabe-board"
         >
           <AstrolabeChart data={session.data as AstrolabeData} />
@@ -649,6 +1334,8 @@ export function TraditionalDivinationBoard({ session }: { session: DivinationSes
       );
     case 'taiyi':
       return <TaiyiTraditionalBoard data={session.data as TaiyiResult} />;
+    case 'huangji':
+      return <HuangjiTraditionalBoard data={session.data as HuangjiJingshiResult} />;
     case 'liuren':
       return null;
     default:

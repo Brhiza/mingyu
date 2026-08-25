@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
 import { buildPersonFromInput, calculateFullBaziChart } from '@/lib/full-chart-engine/bazi';
+import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
 import type { BaziChartResult } from 'mingyu-core/bazi';
 import type { QueryInputState } from '@/lib/query-state';
 
@@ -9,46 +9,61 @@ export interface BaziCalculations {
   baziError: string;
 }
 
+const baziResultCache = createBoundedMemoryCache<BaziChartResult>(8);
+
+function calculateCachedBaziChart(input: Parameters<typeof buildPersonFromInput>[0]) {
+  const person = buildPersonFromInput(input);
+  const cacheKey = JSON.stringify(person);
+  const cached = baziResultCache.get(cacheKey);
+  if (cached) return cached;
+
+  const result = calculateFullBaziChart(person);
+  baziResultCache.set(cacheKey, result);
+  return result;
+}
+
 export function useBaziCalculations(inputState: QueryInputState): BaziCalculations {
-  const primaryBazi = useMemo(() => {
+  let primaryBazi: { result: BaziChartResult | null; error: string };
+  try {
+    primaryBazi = { result: calculateCachedBaziChart(inputState), error: '' };
+  } catch (error) {
+    primaryBazi = {
+      result: null,
+      error: error instanceof Error ? error.message : '八字排盘失败。',
+    };
+  }
+
+  let partnerBazi: {
+    result: BaziChartResult | null;
+    error: string | undefined;
+  } = { result: null, error: undefined };
+
+  if (inputState.analysisMode === 'compatibility') {
     try {
-      return { result: calculateFullBaziChart(buildPersonFromInput(inputState)), error: '' };
-    } catch (error) {
-      return {
-        result: null as BaziChartResult | null,
-        error: error instanceof Error ? error.message : '八字排盘失败。',
+      partnerBazi = {
+        result: calculateCachedBaziChart({
+          gender: inputState.partnerGender,
+          year: inputState.partnerYear,
+          month: inputState.partnerMonth,
+          day: inputState.partnerDay,
+          timeIndex: inputState.partnerTimeIndex,
+          dateType: inputState.partnerDateType,
+          isLeapMonth: inputState.partnerIsLeapMonth,
+          useTrueSolarTime: inputState.partnerUseTrueSolarTime,
+          birthHour: inputState.partnerBirthHour,
+          birthMinute: inputState.partnerBirthMinute,
+          birthPlace: inputState.partnerBirthPlace,
+          birthLongitude: inputState.partnerBirthLongitude,
+        }),
+        error: '',
       };
-    }
-  }, [inputState]);
-
-  const partnerBazi = useMemo(() => {
-    if (inputState.analysisMode !== 'compatibility') {
-      return { result: null as BaziChartResult | null, error: undefined as string | undefined };
-    }
-
-    try {
-      const partner = buildPersonFromInput({
-        gender: inputState.partnerGender,
-        year: inputState.partnerYear,
-        month: inputState.partnerMonth,
-        day: inputState.partnerDay,
-        timeIndex: inputState.partnerTimeIndex,
-        dateType: inputState.partnerDateType,
-        isLeapMonth: inputState.partnerIsLeapMonth,
-        useTrueSolarTime: inputState.partnerUseTrueSolarTime,
-        birthHour: inputState.partnerBirthHour,
-        birthMinute: inputState.partnerBirthMinute,
-        birthPlace: inputState.partnerBirthPlace,
-        birthLongitude: inputState.partnerBirthLongitude,
-      });
-      return { result: calculateFullBaziChart(partner), error: '' };
     } catch (error) {
-      return {
-        result: null as BaziChartResult | null,
+      partnerBazi = {
+        result: null,
         error: error instanceof Error ? error.message : '第二人八字排盘失败。',
       };
     }
-  }, [inputState]);
+  }
 
   return {
     baziResult: primaryBazi.result,

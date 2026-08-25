@@ -26,6 +26,7 @@ export type DivinationMethodId =
       | 'lenormand'
       | 'astrolabe'
       | 'taiyi'
+      | 'huangji'
     >;
 
 export const DIVINATION_METHOD_OPTIONS: Array<{
@@ -33,11 +34,6 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  {
-    value: 'random',
-    label: '随机',
-    description: '随机选择一种占卜类型，适合没有明确偏好时快速起卦。',
-  },
   {
     value: 'liuyao',
     label: '六爻',
@@ -47,16 +43,6 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     value: 'meihua',
     label: '梅花易数',
     description: '适合快速起卦，兼顾体用、过程与结果。',
-  },
-  {
-    value: 'qimen',
-    label: '奇门遁甲',
-    description: '适合看时机、策略和局势走向。',
-  },
-  {
-    value: 'liuren',
-    label: '大六壬',
-    description: '适合看事情如何演变、卡点在哪以及该先处理什么。',
   },
   {
     value: 'xiaoliuren',
@@ -69,15 +55,31 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     description: '以地分、将神、贵神、人元四位一体判断事情主客、人情与落点。',
   },
   {
+    value: 'qimen',
+    label: '奇门遁甲',
+    description: '适合看时机、策略和局势走向。',
+  },
+  {
+    value: 'liuren',
+    label: '大六壬',
+    description: '适合看事情如何演变、卡点在哪以及该先处理什么。',
+  },
+  {
     value: 'taiyi',
     label: '太乙神数',
-    description: '以年家七十二局观察年度气运、动静、攻守与时宜。',
+    description: '按年、月、日、时四计观察不同时间尺度的动静、攻守与时宜。',
+  },
+  {
+    value: 'huangji',
+    label: '皇极经世',
+    description: '由元会运世逐层推至值年、月经、旬纬、日卦与时经卦。',
   },
   {
     value: 'ssgw',
     label: '三山国王灵签',
     description: '随机求签，适合快速获得方向提示。',
   },
+  // 牌卡类放在传统时间起局与签占之后，保持占问主入口的优先级稳定。
   {
     value: 'tarot',
     label: '塔罗',
@@ -123,6 +125,7 @@ export const JINKOUJUE_METHOD_OPTIONS: Array<{
   label: string;
 }> = [
   { value: 'time', label: '时间起课' },
+  { value: 'branch', label: '指定地分' },
   { value: 'number', label: '数字起课' },
   { value: 'random', label: '随机起课' },
 ];
@@ -194,7 +197,10 @@ export const LENORMAND_SPREAD_OPTIONS: Array<{
 }> = [
   { value: 'single', label: '单牌线索' },
   { value: 'three', label: '三牌事件线' },
+  { value: 'five', label: '五牌十字阵' },
   { value: 'relationship', label: '关系牌阵' },
   { value: 'decision', label: '选择牌阵' },
   { value: 'nine', label: '九宫牌阵' },
+  { value: 'element', label: '元素牌阵' },
+  { value: 'grandTableau', label: '大桌牌阵' },
 ];

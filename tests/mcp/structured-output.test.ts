@@ -90,7 +90,23 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['calendar_astronomical_time', { year: 2000, month: 1, day: 1, hour: 12, timezone: 0 }],
   ['calendar_moon_phase', { utcDateTime: '2024-06-21T12:00:00Z' }],
   ['calendar_solar_term', { year: 2024, index: 12 }],
+  [
+    'instant_chart',
+    {
+      type: 'bazi',
+      timeStandard: 'beijing',
+      customDate: '2026-08-24T12:30:00+08:00',
+    },
+  ],
   ['divine_qimen', {}],
+  [
+    'divine_jinkoujue',
+    {
+      jinkoujueMethod: 'branch',
+      jinkoujueBranch: '申',
+      customDate: '2026-07-11T14:35:00+08:00',
+    },
+  ],
   [
     'divine_almanac',
     {
@@ -429,7 +445,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 60);
+    assert.equal(tools.length, 61);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -448,6 +464,7 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
+    assert.ok(tools.find((tool) => tool.name === 'instant_chart'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_residential'));
     assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));
@@ -472,6 +489,34 @@ test('MCP 工具列表应声明输出结构', async () => {
       );
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.prompt);
     }
+  });
+});
+
+test('MCP 即时盘不需要性别并应区分北京时间与真太阳时', async () => {
+  await withMcpClient(async (client) => {
+    const beijing = await client.callTool({
+      name: 'instant_chart',
+      arguments: {
+        type: 'bazi',
+        timeStandard: 'beijing',
+        customDate: '2026-08-24T12:30:00+08:00',
+        detailMode: 'full',
+      },
+    });
+    assert.equal(beijing.isError, undefined);
+    const response = beijing.structuredContent?.result as {
+      timeStandard: string;
+      result: Record<string, unknown>;
+    };
+    assert.equal(response.timeStandard, 'beijing');
+    assert.equal('gender' in response.result, false);
+    assert.equal('luckInfo' in response.result, false);
+
+    const missingObserver = await client.callTool({
+      name: 'instant_chart',
+      arguments: { type: 'ziwei', timeStandard: 'true-solar' },
+    });
+    assert.equal(missingObserver.isError, true);
   });
 });
 
@@ -1411,6 +1456,38 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
     assert.equal(huangjiStandardResult.forecast.hexagrams.annual.name, '天火同人');
     assert.equal(huangjiStandardResult.forecast.hexagrams.annual.ganzhi, '丙午');
 
+    const huangjiDateTime = await client.callTool({
+      name: 'metaphysics_huangji_jingshi',
+      arguments: { customDate: '2025-12-25T12:30:00+08:00' },
+    });
+    const huangjiDateTimeResult = huangjiDateTime.structuredContent?.result as {
+      input: { mode: string };
+      dateTimeForecast: {
+        calendar: {
+          forecastYear: number;
+          monthBranch: string;
+          dayOfMonth: number;
+          hourRange: string;
+        };
+        hexagrams: {
+          monthJing: { name: string };
+          xunWei: { name: string };
+          daily: { name: string };
+          hourJing: { name: string };
+        };
+      };
+    };
+    assert.equal(huangjiDateTime.isError, undefined);
+    assert.equal(huangjiDateTimeResult.input.mode, '年月日时');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.calendar.forecastYear, 2026);
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.calendar.monthBranch, '子');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.calendar.dayOfMonth, 4);
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.calendar.hourRange, '12:00—16:00');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.hexagrams.monthJing.name, '天山遁');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.hexagrams.xunWei.name, '天火同人');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.hexagrams.daily.name, '雷山小过');
+    assert.equal(huangjiDateTimeResult.dateTimeForecast.hexagrams.hourJing.name, '地山谦');
+
     const huangji = await client.callTool({
       name: 'metaphysics_huangji_jingshi',
       arguments: { epochYear: 1000, elapsedYears: 1026 },
@@ -1449,6 +1526,11 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
       ['metaphysics_wuyun_liuqi', { year: 2026, yearGanZhi: '乙巳' }, /year 与 yearGanZhi 不一致/],
       ['metaphysics_wuyun_liuqi', { yearGanZhi: '甲丑' }, null],
       ['metaphysics_huangji_jingshi', { elapsedYears: 1026 }, /必须只提供 year/],
+      [
+        'metaphysics_huangji_jingshi',
+        { customDate: '2025-12-25T12:30:00+08:00', year: 2026 },
+        /不得同时提供/,
+      ],
       ['metaphysics_huangji_jingshi', { year: 0 }, /非零安全整数/],
       ['metaphysics_huangji_jingshi', { epochYear: 1000 }, /必须且只能提供一个/],
       [
@@ -3094,12 +3176,6 @@ test('MCP 七政、太乙和玄空不得补造缺失必填参数', async () => {
       ['metaphysics_qizheng', { year: 2024, month: 6, hour: 12 }, null],
       ['metaphysics_qizheng', { year: 2024, month: 6, day: 15 }, null],
       ['metaphysics_taiyi', { scope: 'year' }, /年计必须提供公历年份/],
-      ['metaphysics_taiyi', { scope: 'month', year: 2026 }, null],
-      ['metaphysics_taiyi', { scope: 'day', year: 2026 }, null],
-      ['metaphysics_taiyi', { scope: 'hour', year: 2026 }, null],
-      ['taiyi_prompt', { scope: 'month', year: 2026 }, null],
-      ['taiyi_prompt', { scope: 'day', year: 2026 }, null],
-      ['taiyi_prompt', { scope: 'hour', year: 2026 }, null],
       ['metaphysics_xuankong', { sitMountain: '子' }, null],
     ];
 
@@ -4300,6 +4376,83 @@ test('MCP 太乙工具返回年计七十二局结构化证据', async () => {
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
     assert.doesNotMatch(prompt, /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/);
     assertPromptIsPortableTaskText(prompt);
+  });
+});
+
+test('MCP 太乙工具应支持月日时四计', async () => {
+  await withMcpClient(async (client) => {
+    for (const scope of ['month', 'day', 'hour'] as const) {
+      const response = await client.callTool({
+        name: 'metaphysics_taiyi',
+        arguments: {
+          scope,
+          customDate: '2026-07-11T14:35:00+08:00',
+          detailMode: 'compact',
+        },
+      });
+      assert.equal(response.isError, undefined, `${scope}计不应返回错误`);
+      const result = (response.structuredContent as { result: { scope: string } }).result;
+      assert.equal(result.scope, scope);
+    }
+  });
+});
+
+test('MCP 奇门工具应传递年、月、日、时计式', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'divine_qimen',
+      arguments: {
+        customDate: '2026-07-11T14:35:00+08:00',
+        qimenScope: 'day',
+        qimenMethod: 'feipan',
+        qimenJuMethod: 'zhirun',
+        detailMode: 'compact',
+      },
+    });
+    assert.equal(response.isError, undefined);
+    const result = (
+      response.structuredContent as {
+        result: { scope: string; method: string; juMethod: string };
+      }
+    ).result;
+    assert.equal(result.scope, 'day');
+    assert.equal(result.method, 'feipan');
+    assert.equal(result.juMethod, 'zhirun');
+  });
+});
+
+test('MCP 金口诀工具与提示词应支持直接指定地分', async () => {
+  await withMcpClient(async (client) => {
+    const chartResponse = await client.callTool({
+      name: 'divine_jinkoujue',
+      arguments: {
+        jinkoujueMethod: 'branch',
+        jinkoujueBranch: '酉',
+        customDate: '2026-07-11T14:35:00+08:00',
+        detailMode: 'full',
+      },
+    });
+    assert.equal(chartResponse.isError, undefined);
+    const chart = (
+      chartResponse.structuredContent as {
+        result: { method: string; diFenBranch: string; calculation: { inputBaseSource: string } };
+      }
+    ).result;
+    assert.equal(chart.method, 'branch');
+    assert.equal(chart.diFenBranch, '酉');
+    assert.equal(chart.calculation.inputBaseSource, '指定地分');
+
+    const promptResponse = await client.callTool({
+      name: 'jinkoujue_prompt',
+      arguments: {
+        question: '这件事接下来如何推进？',
+        jinkoujueMethod: 'branch',
+        jinkoujueBranch: '酉',
+        customDate: '2026-07-11T14:35:00+08:00',
+      },
+    });
+    assert.equal(promptResponse.isError, undefined);
+    assert.match(String(promptResponse.structuredContent?.prompt), /地分酉/);
   });
 });
 

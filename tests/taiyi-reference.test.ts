@@ -130,3 +130,70 @@ test('太乙独立真值表应覆盖完整七十二局', () => {
     assert.ok(bureaus.has(bureau), `真值表缺少第 ${bureau} 局`);
   }
 });
+
+test('太乙月日时计应与固定版本独立实现的四计样例一致', () => {
+  const fixtures = [
+    {
+      scope: 'month' as const,
+      date: new Date(2026, 0, 15, 0, 0),
+      expected: [121871305, '阳遁', 1, '乾', '申', '坤', '丑', 7, 13, 13],
+    },
+    {
+      scope: 'day' as const,
+      date: new Date(2026, 0, 15, 0, 0),
+      expected: [708056786, '阳遁', 2, '乾', '酉', '戌', '丑', 6, 1, 1],
+    },
+    {
+      scope: 'hour' as const,
+      date: new Date(2026, 0, 15, 0, 0),
+      expected: [8496681421, '阳遁', 13, '酉', '巽', '辰', '寅', 18, 19, 19],
+    },
+    {
+      scope: 'month' as const,
+      date: new Date(2026, 6, 11, 14, 35),
+      expected: [121871311, '阳遁', 7, '艮', '子', '巳', '未', 8, 25, 9],
+    },
+    {
+      scope: 'day' as const,
+      date: new Date(2026, 6, 11, 14, 35),
+      expected: [708056963, '阳遁', 35, '卯', '坤', '巳', '辰', 25, 28, 1],
+    },
+    {
+      scope: 'hour' as const,
+      date: new Date(2026, 6, 11, 14, 35),
+      expected: [8496683552, '阴遁', 56, '艮', '卯', '辰', '丑', 15, 12, 12],
+    },
+  ];
+
+  for (const fixture of fixtures) {
+    const result = generateTaiyi({ scope: fixture.scope, date: fixture.date });
+    assert.deepEqual(
+      [
+        result.accumulatedValue,
+        result.yinYang,
+        result.bureau,
+        result.taiyiPosition,
+        result.wenChangPosition,
+        result.shiJiPosition,
+        result.jiShenPosition,
+        result.lordCount,
+        result.guestCount,
+        result.setCount,
+      ],
+      fixture.expected,
+      `${fixture.scope}:${fixture.date.toISOString()}`,
+    );
+  }
+});
+
+test('太乙四计应严格区分年参数和日期参数', () => {
+  assert.throws(
+    () => generateTaiyi({ scope: 'year', year: 2026, date: new Date(2026, 0, 1) }),
+    /只接受 year/,
+  );
+  assert.throws(() => generateTaiyi({ scope: 'month' }), /需要提供有效日期和时间/);
+  assert.throws(
+    () => generateTaiyi({ scope: 'day', year: 2025, date: new Date(2026, 0, 1) }),
+    /year 与 date 的公历年份不一致/,
+  );
+});

@@ -14,20 +14,25 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   title: string;
   name: string;
   data: AstrolabeData;
+  isInstant?: boolean;
+  timeBasisLabel?: string;
 }) {
-  const { title, name, data } = props;
+  const { title, name, data, isInstant = false, timeBasisLabel } = props;
   const highlightAspects = data.aspects.slice(0, 4);
   const retrogradeText =
     data.summary.retrograde.length > 0 ? data.summary.retrograde.join('、') : '无';
 
   return (
-    <section className="result-showcase-card astrolabe-showcase-card">
+    <section className="result-showcase-card astrolabe-showcase-card traditional-chart-layout">
       <div className="result-showcase-head">
         <div>
           <p className="result-section-kicker">{title}</p>
           <h2>{name}</h2>
         </div>
         <div className="result-chip-row">
+          {isInstant && timeBasisLabel ? (
+            <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
+          ) : null}
           <span className="result-chip">{data.birth.dateTime}</span>
           <span className="result-chip">{data.birth.location}</span>
         </div>
@@ -76,11 +81,11 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
             </div>
             <div className="result-meta-lines">
               <div>
-                <span>出生信息</span>
+                <span>{isInstant ? '起盘时间' : '出生信息'}</span>
                 <strong>{data.birth.dateTime}</strong>
               </div>
               <div>
-                <span>出生地</span>
+                <span>{isInstant ? '观测地点' : '出生地'}</span>
                 <strong>{data.birth.location}</strong>
               </div>
               <div>

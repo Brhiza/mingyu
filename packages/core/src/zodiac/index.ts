@@ -368,7 +368,21 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     `五行关系：流年年干${yearGanZhi[0]}属${yearStemWuxing}，生肖地支${zodiacBranch}属${zodiacWuxing}，${relation}。`,
     noble ? `贵人：${noble}。` : '',
     meeting ? `三会关系：${meeting}` : '',
-    conflicts.length ? `太岁关系：${conflicts.map((conflict) => conflict.type).join('；')}` : '',
+    conflicts.length
+      ? `太岁关系：${conflicts
+          .map((conflict) => {
+            const relationLabel: Record<TaiSuiConflict['type'], string> = {
+              值太岁: '同支',
+              冲太岁: '相冲',
+              刑太岁: '相刑',
+              害太岁: '相害',
+              破太岁: '相破',
+            };
+            return `${conflict.type}（生肖年支${zodiacBranch}与流年年支${conflict.with}${relationLabel[conflict.type]}）`;
+          })
+          .join('；')}`
+      : '太岁关系：未命中值、冲、刑、害、破关系。',
+    '信息范围：仅使用出生年支与流年干支进行关系分类。',
   ]
     .filter(Boolean)
     .join('\n');

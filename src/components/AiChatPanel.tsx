@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { marked } from '@/lib/marked-init';
 import { useAiChat } from '@/hooks/useAiChat';
 import type { ChatTurn } from '@/hooks/useAiChat';
@@ -13,6 +13,7 @@ import {
 } from '@/lib/ai/chat-history';
 import type { AiChatPromptMode, AiChatSession } from '@/lib/ai/chat-history';
 import type { AiRequestConfig } from '@/lib/ai/settings';
+import { WorkspaceButton } from './workspace/WorkspaceUI';
 
 interface AiChatPanelProps {
   /** AI 上下文提示（排盘数据 + 设置摘要，不含用户问题） */
@@ -34,6 +35,12 @@ interface AiChatPanelProps {
   /** AI 对话历史缓存 key；不传时根据 resetKey/contextPrompt 自动生成 */
   historyKey?: string;
   aiConfig?: AiRequestConfig;
+  /** 排盘解读工作台：上方只显示解答，工具与大输入框固定在底部 */
+  workspaceMode?: boolean;
+  /** 工作台输入框上方的业务工具，如问题灵感和解读年限 */
+  composerTools?: ReactNode;
+  /** 只在真正切换案例或命盘时清空未发送的输入 */
+  inputResetKey?: string;
 }
 
 const PLACEHOLDER = '输入你想询问的问题…';
@@ -107,6 +114,9 @@ function AiChatPanelImpl({
   autoStartKey,
   historyKey,
   aiConfig,
+  workspaceMode = false,
+  composerTools,
+  inputResetKey,
 }: AiChatPanelProps) {
   const {
     turns,
@@ -143,6 +153,7 @@ function AiChatPanelImpl({
   const autoStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historySessionsRef = useRef<AiChatSession[]>([]);
   const activeSessionIdRef = useRef('');
+  const inputResetKeyRef = useRef(inputResetKey);
 
   const applyHistoryState = useCallback(
     (sessions: AiChatSession[], nextActiveSessionId: string, persist = true) => {
@@ -213,8 +224,14 @@ function AiChatPanelImpl({
     }
 
     directSendIdRef.current = '';
+    if (!workspaceMode) setInputValue('');
+  }, [storageKey, contextPrompt, autoStart, autoStartKey, restore, reset, workspaceMode]);
+
+  useEffect(() => {
+    if (inputResetKeyRef.current === inputResetKey) return;
+    inputResetKeyRef.current = inputResetKey;
     setInputValue('');
-  }, [storageKey, contextPrompt, autoStart, autoStartKey, restore, reset]);
+  }, [inputResetKey]);
 
   // AI 回复完成或出错后，更新当前会话，不覆盖其他历史。
   useEffect(() => {
@@ -304,9 +321,9 @@ function AiChatPanelImpl({
     const el = inputRef.current;
     if (el) {
       el.style.height = 'auto';
-      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+      el.style.height = Math.min(el.scrollHeight, workspaceMode ? 180 : 120) + 'px';
     }
-  }, [inputValue]);
+  }, [inputValue, workspaceMode]);
 
   useEffect(() => {
     if (!isHistoryOpen) return;
@@ -404,10 +421,12 @@ function AiChatPanelImpl({
   }
 
   return (
-    <section className="panel panel-ai-chat">
-      <div className="panel-head">
+    <section
+      className={`workspace-ui-surface panel-ai-chat${workspaceMode ? ' is-workspace-chat' : ''}`}
+    >
+      <div className="workspace-ui-panel-head">
         <div>
-          <h2>AI 解析</h2>
+          <h2>{workspaceMode ? '解答' : 'AI 解析'}</h2>
           <p>
             {!isContextReady
               ? '正在生成排盘数据，请稍候…'
@@ -418,17 +437,16 @@ function AiChatPanelImpl({
                   : '在下方输入问题开始 AI 解析。'}
           </p>
         </div>
-        <div className="action-row compact-actions ai-chat-head-actions">
+        <div className="ai-chat-head-actions">
           <div className="ai-chat-history-anchor">
-            <button
-              className="copy-button secondary-button"
-              type="button"
+            <WorkspaceButton
+              size="small"
               onClick={() => setIsHistoryOpen((open) => !open)}
               aria-expanded={isHistoryOpen}
               disabled={isBusy}
             >
               历史{historySessions.length ? ` ${historySessions.length}` : ''}
-            </button>
+            </WorkspaceButton>
             {isHistoryOpen ? (
               <div className="ai-chat-history-shell">
                 <button
@@ -499,14 +517,9 @@ function AiChatPanelImpl({
             ) : null}
           </div>
           {hasStarted || activeSessionId ? (
-            <button
-              className="copy-button secondary-button"
-              type="button"
-              onClick={handleNewChat}
-              disabled={isBusy}
-            >
+            <WorkspaceButton size="small" onClick={handleNewChat} disabled={isBusy}>
               新对话
-            </button>
+            </WorkspaceButton>
           ) : null}
         </div>
       </div>
@@ -576,17 +589,49 @@ function AiChatPanelImpl({
                 ) : null}
               </div>
             ) : null}
+            {composerTools ? <div className="ai-chat-composer-tools">{composerTools}</div> : null}
             <div className="ai-chat-input-row">
-              <textarea
-                ref={inputRef}
-                className="ai-chat-input"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={PLACEHOLDER}
-                rows={1}
-                disabled={!isContextReady}
-              />
+              <div className="ai-chat-input-shell">
+                <textarea
+                  ref={inputRef}
+                  className="ai-chat-input"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={PLACEHOLDER}
+                  rows={workspaceMode ? 4 : 1}
+                  disabled={!isContextReady}
+                />
+                <button
+                  className="ai-chat-send-btn"
+                  type="button"
+                  onClick={handleSend}
+                  disabled={isBusy || !inputValue.trim() || !isContextReady}
+                  aria-label="发送问题"
+                  title="发送"
+                >
+                  {isBusy ? (
+                    <span className="ai-analysis-spinner-wrap">
+                      <span className="ai-analysis-spinner" />
+                    </span>
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 19V5" />
+                      <path d="m5 12 7-7 7 7" />
+                    </svg>
+                  )}
+                </button>
+              </div>
               {onOpenInspiration ? (
                 <button
                   className="ai-chat-inspire-btn"
@@ -597,32 +642,6 @@ function AiChatPanelImpl({
                   ✨
                 </button>
               ) : null}
-              <button
-                className="ai-chat-send-btn"
-                type="button"
-                onClick={handleSend}
-                disabled={isBusy || !inputValue.trim() || !isContextReady}
-              >
-                {isBusy ? (
-                  <span className="ai-analysis-spinner-wrap">
-                    <span className="ai-analysis-spinner" />
-                  </span>
-                ) : (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="22" y1="2" x2="11" y2="13" />
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                  </svg>
-                )}
-              </button>
             </div>
           </div>
         </div>

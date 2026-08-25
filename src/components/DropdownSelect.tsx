@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 export type DropdownSelectOption<T extends string = string> = {
   value: T;
   label: string;
+  triggerLabel?: string;
+  group?: string;
   disabled?: boolean;
 };
 
@@ -21,8 +23,12 @@ type DropdownSelectProps<T extends string> = {
   options: readonly DropdownSelectOption<T>[];
   onChange: (value: T) => void;
   ariaLabel?: string;
+  prefix?: string;
   disabled?: boolean;
   variant?: 'compact' | 'field';
+  favoriteValue?: T;
+  favoriteLabel?: string;
+  onFavoriteChange?: (value: T) => void;
 };
 
 function findEnabledOption<T extends string>(
@@ -46,8 +52,12 @@ export function DropdownSelect<T extends string>({
   options,
   onChange,
   ariaLabel,
+  prefix,
   disabled = false,
   variant = 'compact',
+  favoriteValue,
+  favoriteLabel = '默认项',
+  onFavoriteChange,
 }: DropdownSelectProps<T>) {
   const generatedId = useId();
   const triggerId = id ?? `dropdown-select-${generatedId}`;
@@ -76,8 +86,8 @@ export function DropdownSelect<T extends string>({
     const viewportHeight = window.innerHeight;
     const maxViewportWidth = Math.max(160, viewportWidth - 16);
     const width = Math.min(
-      Math.max(rect.width, 160, longestLabelLength * 14 + 48),
-      Math.min(280, maxViewportWidth),
+      Math.max(rect.width, 160, longestLabelLength * 14 + (onFavoriteChange ? 82 : 48)),
+      Math.min(onFavoriteChange ? 320 : 280, maxViewportWidth),
     );
     const maxHeight = Math.min(320, Math.max(160, Math.floor(viewportHeight * 0.5)));
     const estimatedHeight = Math.min(maxHeight, options.length * 40 + 12);
@@ -94,7 +104,7 @@ export function DropdownSelect<T extends string>({
       maxHeight: Math.min(maxHeight, placement === 'above' ? spaceAbove : spaceBelow),
       placement,
     });
-  }, [longestLabelLength, options.length]);
+  }, [longestLabelLength, onFavoriteChange, options.length]);
 
   const openMenu = useCallback(() => {
     if (disabled || options.length === 0) return;
@@ -195,12 +205,13 @@ export function DropdownSelect<T extends string>({
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-activedescendant={isOpen ? `${menuId}-option-${activeIndex}` : undefined}
-        className={`dropdown-select-trigger ${variant === 'field' ? 'form-input dropdown-select-field' : ''}`}
+        className={`workspace-ui-dropdown-trigger ${variant === 'field' ? 'is-field' : ''}`}
         disabled={disabled}
         onClick={() => (isOpen ? closeMenu() : openMenu())}
         onKeyDown={handleKeyDown}
       >
-        {selectedOption?.label ?? ''}
+        {prefix ? <span className="workspace-ui-dropdown-prefix">{prefix}</span> : null}
+        <span>{selectedOption?.triggerLabel ?? selectedOption?.label ?? ''}</span>
       </button>
 
       {isOpen && position
@@ -210,7 +221,7 @@ export function DropdownSelect<T extends string>({
               ref={menuRef}
               role="listbox"
               aria-label={ariaLabel}
-              className={`dropdown-select-menu is-${position.placement}`}
+              className={`workspace-ui-dropdown-menu is-${position.placement}`}
               style={{
                 left: position.left,
                 top: position.top,
@@ -219,21 +230,51 @@ export function DropdownSelect<T extends string>({
               }}
             >
               {options.map((option, index) => (
-                <button
-                  id={`${menuId}-option-${index}`}
+                <div
+                  className={`workspace-ui-dropdown-entry ${onFavoriteChange ? 'has-favorite' : ''}`}
                   key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={option.value === value}
-                  className={`dropdown-select-option ${index === activeIndex ? 'is-active' : ''}`}
-                  disabled={option.disabled}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => selectOption(index)}
                 >
-                  <span>{option.label}</span>
-                  {option.value === value ? <span aria-hidden="true">✓</span> : null}
-                </button>
+                  {option.group && option.group !== options[index - 1]?.group ? (
+                    <div className="workspace-ui-dropdown-group" role="presentation">
+                      {option.group}
+                    </div>
+                  ) : null}
+                  <button
+                    id={`${menuId}-option-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === value}
+                    className={`workspace-ui-dropdown-option ${index === activeIndex ? 'is-active' : ''}`}
+                    disabled={option.disabled}
+                    onPointerDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => selectOption(index)}
+                  >
+                    <span>{option.label}</span>
+                    {option.value === value ? <span aria-hidden="true">✓</span> : null}
+                  </button>
+                  {onFavoriteChange ? (
+                    <button
+                      type="button"
+                      className={`workspace-ui-dropdown-favorite ${option.value === favoriteValue ? 'is-favorite' : ''}`}
+                      aria-label={`${option.label}设为${favoriteLabel}`}
+                      aria-pressed={option.value === favoriteValue}
+                      title={
+                        option.value === favoriteValue
+                          ? `当前${favoriteLabel}`
+                          : `设为${favoriteLabel}`
+                      }
+                      disabled={option.disabled}
+                      onPointerDown={(event) => event.preventDefault()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onFavoriteChange(option.value);
+                      }}
+                    >
+                      <span aria-hidden="true">{option.value === favoriteValue ? '★' : '☆'}</span>
+                    </button>
+                  ) : null}
+                </div>
               ))}
             </div>,
             document.body,

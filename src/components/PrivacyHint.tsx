@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { safeStorage } from '@/lib/safe-storage';
+import { WorkspaceButton } from './workspace/WorkspaceUI';
 
 const STORAGE_KEY = 'prompt_studio_privacy_hint_dismissed_v1';
 
@@ -16,18 +17,13 @@ export function PrivacyHint() {
   }
 
   return (
-    <div className="privacy-hint" role="note" aria-label="本地数据提示">
+    <div className="workspace-ui-notice" role="note" aria-label="本地数据提示">
       <span>
         提示：姓名、出生日期等信息仅保存在本地浏览器，不会上传服务器。请勿在公共/共享设备上保留个人记录。
       </span>
-      <button
-        type="button"
-        className="privacy-hint-close"
-        onClick={handleDismiss}
-        aria-label="不再显示"
-      >
+      <WorkspaceButton variant="ghost" size="small" onClick={handleDismiss} aria-label="不再显示">
         知道了
-      </button>
+      </WorkspaceButton>
     </div>
   );
 }

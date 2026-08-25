@@ -5,6 +5,7 @@ import type { MoonPhaseEvidence } from '../calendar/moon-phase-evidence';
 import type { SolarIlluminationEvidence } from '../calendar/solar-illumination-evidence';
 import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
+import type { HuangjiJingshiResult } from '../huangji-jingshi';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -24,7 +25,8 @@ export type DivinationType =
   | 'almanac'
   | 'lenormand'
   | 'astrolabe'
-  | 'taiyi';
+  | 'taiyi'
+  | 'huangji';
 
 export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
 
@@ -75,7 +77,7 @@ export interface XiaoliurenData {
   evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
 }
 
-export type JinkoujueDivinationMethod = 'time' | 'number' | 'random';
+export type JinkoujueDivinationMethod = 'time' | 'branch' | 'number' | 'random';
 
 export type JinkoujuePositionName = '地分' | '将神' | '贵神' | '人元';
 
@@ -147,7 +149,7 @@ export interface JinkoujueData {
     method: JinkoujueDivinationMethod;
     methodLabel: string;
     inputBase: number;
-    inputBaseSource: '占时地支序数' | '用户数字' | '随机数';
+    inputBaseSource: '占时地支序数' | '指定地分' | '用户数字' | '随机数';
     diFenNote: string;
     monthLeaderRule: string;
     yuanDunRule: string;
@@ -875,6 +877,9 @@ export type AlmanacTopic =
 
 export type AlmanacParticipantGender = '男' | '女' | '';
 
+export type AlmanacWeekendPreference = 'any' | 'prefer' | 'avoid';
+export type AlmanacTimePreference = 'work-hours' | 'morning' | 'afternoon';
+
 export interface AlmanacParticipantInput {
   id: string;
   name: string;
@@ -1019,6 +1024,8 @@ export interface AlmanacData {
   topicLabel: string;
   startDate: string;
   endDate: string;
+  weekendPreference?: AlmanacWeekendPreference;
+  timePreferences?: AlmanacTimePreference[];
   days: AlmanacDayCandidate[];
   participants: AlmanacParticipantProfile[];
   timestamp: number;
@@ -1382,12 +1389,13 @@ export type DivinationData =
   | AlmanacData
   | LenormandData
   | AstrolabeData
-  | TaiyiResult;
+  | TaiyiResult
+  | HuangjiJingshiResult;
 
 export interface SupplementaryInfo {
-  /** @deprecated 通用占卜不再使用性别；命盘与择日请通过各自的完整出生资料传入。 */
+  /** 求测人性别，用于补充解读背景，不参与起盘算法。 */
   gender?: '男' | '女';
-  /** 仅用于奇门年命换算；其他占法不会把出生年份写入提示词。 */
+  /** 求测人出生年份；奇门同时用于年命换算。 */
   birthYear?: number;
   userSupplement?: string;
   currentSituation?: string;

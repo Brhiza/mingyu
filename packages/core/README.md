@@ -75,7 +75,7 @@ if (result.ok) {
 
 客户端直接提供以下高层能力：
 
-- 综合能力：`birth()`、`compatibility()`、`divination()`。
+- 综合能力：`instant()`、`birth()`、`compatibility()`、`divination()`。
 - 出生与时间：`normalizeBirth()`、`trueSolarBirth()`、`astronomicalTime()`、`moonPhase()`、`solarTerm()`、`solarTerms()`、`solarIllumination()`。
 - 传统与环境：`bazhai()`、`bazhaiByDoorDegree()`、`zodiac()`、`taiyi()`、`qizheng()`、`xuankong()`、`residentialFengshui()`。
 - 基础设施：`capabilities()`、`capability()`、`serialize()`。
@@ -83,6 +83,35 @@ if (result.ok) {
 除异步的 `birth()`、`compatibility()` 及其 `safe` 版本外，其余方法都同步返回。默认出生盘只计算八字，不会因未安装 `iztro` 影响核心包或客户端导入；明确请求紫微时，`safe` 方法会返回 `IZTRO_DEPENDENCY_REQUIRED`。常见表单错误会区分为 `validation`、`boundary`、`unsupported` 或 `dependency`，调用方不必解析笼统的计算失败文本。`capability(id)` 接受带自动补全的 `SystemCapabilityId`；未知 ID 会抛出 `CAPABILITY_NOT_FOUND`，对应的 `safe.capability(id)` 返回结构化失败结果。
 
 `mingyu-core/client` 会静态聚合全部高层能力，适合 Node.js、服务端或同一应用需要多种排盘的场景。浏览器页面只使用一两项能力时，优先从 `mingyu-core/zodiac`、`mingyu-core/calendar` 等具体子路径导入，可以显著减小前端产物；包已声明 `sideEffects: false`，并通过独立 Vite 消费构建验证子路径 tree-shaking。
+
+---
+
+## 即时排盘
+
+`mingyu-core/instant` 按调用当刻生成不绑定个人性别的事件盘。它只包含排盘能力，不把六爻、梅花等本来就以当前时间起卦的占卜混入。支持 `bazi`、`ziwei`、`bazi-ziwei`、`astrolabe` 和 `qizheng`：
+
+```ts
+import { calculateInstantChart } from 'mingyu-core/instant';
+
+const bazi = await calculateInstantChart({
+  type: 'bazi',
+  timeStandard: 'beijing',
+});
+
+const ziweiTrueSolar = await calculateInstantChart({
+  type: 'ziwei',
+  timeStandard: 'true-solar',
+  observer: {
+    locationName: '北京市东城区',
+    longitude: 116.416,
+    latitude: 39.929,
+    timezone: 8,
+    timeZoneId: 'Asia/Shanghai',
+  },
+});
+```
+
+`timeStandard` 默认为 `beijing`。真太阳时必须提供经度以及 `timezone` 或 `timeZoneId`；星盘和七政四余无论采用哪种时间口径，都还需要纬度。调用方可传 `customDate` 重放历史时刻，不传时读取调用当刻。八字结果会剔除大运、命卦等个人字段；紫微结果只保留男女共通的宫位、星曜与四化。
 
 ---
 
@@ -284,7 +313,7 @@ console.log(session.view); // kind/input/chart/timing/summary/evidence/warnings/
 console.log(session.serializedResult); // 稳定 JSON，可用于缓存或历史记录
 ```
 
-`generateDivinationSession` 覆盖六爻、梅花、小六壬、金口诀、奇门、大六壬、太乙、塔罗、灵签、黄历、雷诺曼和星盘；`validateDivinationRequest` 可单独用于提交前校验。旧版 `summary`、`prompt`、`data` 字段继续保留，新接入优先使用严格分层后的三个字段。手工牌面、三钱记录、逐张随机样本、灵签选号、种子和 replay 均保留在对应请求字段中。
+`generateDivinationSession` 覆盖六爻、梅花、小六壬、金口诀、奇门、大六壬、太乙、塔罗、灵签、黄历、雷诺曼和星盘；`validateDivinationRequest` 可单独用于提交前校验。金口诀可传 `jinkoujue: { method: 'branch', branch: '申' }` 直接指定地分，也支持时间、数字和随机取地分；雷诺曼 `spread` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`。旧版 `summary`、`prompt`、`data` 字段继续保留，新接入优先使用严格分层后的三个字段。手工牌面、三钱记录、逐张随机样本、灵签选号、种子和 replay 均保留在对应请求字段中。
 
 如果需要一次得到本命盘、运限盘、结构化分析资料和大限时间线，可以直接使用紫微运行时入口。它支持数字或文本表单输入；服务端、缓存和测试建议显式传入 `horoscopeContext`，让同一出生盘在不同运行时保持相同快照：
 
@@ -367,6 +396,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | **八字 Bazi**            | `mingyu-core/bazi`                                                                                                                            | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析 |
 | **紫微斗数 Ziwei**       | `mingyu-core/ziwei`（兼容 `mingyu-core/ziwei/iztro`）、`mingyu-core/ziwei/runtime`                                                            | 十二宫、星曜、四化、运限、证据池、固定快照运行时，以及双盘宫位叠盘与生年四化跨盘落点                 |
+| **即时排盘 Instant**     | `mingyu-core/instant`                                                                                                                         | 当前时刻八字、紫微、八字紫微、星盘与七政四余，区分北京时间与真太阳时且不需要性别                     |
 | **六爻 Liuyao**          | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、用神作用链与逐爻证据                           |
 | **梅花易数 Meihua**      | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                   |
 | **奇门遁甲 Qimen**       | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据               |
@@ -600,6 +630,14 @@ const natalAstrolabe = generateAstrolabe({
 const yearlyAstrolabe = buildAstrolabeScopeContext(natalAstrolabe, 'yearly', '2028');
 console.log(yearlyAstrolabe.displayText, yearlyAstrolabe.promptText);
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
+const taiyiMonth = taiyi.generateTaiyi({
+  scope: 'month',
+  date: new Date('2026-07-11T14:35:00+08:00'),
+});
+const taiyiHour = taiyi.generateTaiyi({
+  scope: 'hour',
+  date: new Date('2026-07-11T14:35:00+08:00'),
+});
 const qizhengChart = qizheng.generateQizheng({
   year: 2024,
   month: 6,
@@ -696,7 +734,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeLiuyaoEvidence(data, options?)`                              | 六爻用神候选、原神忌神仇神和逐爻支持/反证结构化证据                     |
 | `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                            |
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                         |
-| `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置用神宫与宫间作用结构化证据                          |
+| `generateQimen(date?, method?, scope?, juMethod?)`                   | 年、月、日、时家奇门排盘，并内置用神宫与宫间作用结构化证据              |
 | `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件                        |
 | `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                    |
 | `generateLiuren(date?)`                                              | 大六壬排盘                                                              |

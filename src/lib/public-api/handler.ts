@@ -20,6 +20,11 @@ import {
 import { buildZiweiChartInput, calculatePublicZiweiChartForScopes } from 'mingyu-core/ziwei';
 import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import {
+  INSTANT_CHART_TYPES,
+  calculateInstantChart,
+  type InstantObserver,
+} from 'mingyu-core/instant';
+import {
   daysInSolarMonth,
   getBirthDateValidationMessage,
   isValidIsoDateTime,
@@ -241,7 +246,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
     type: 'string',
     format: 'date-time',
     description:
-      '时间类占卜的自定义起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬；不传则使用当前时间。',
+      '时间类占卜的自定义起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬与皇极经世年月日时盘；皇极经世不传时可改用 year 获取年度盘。',
   },
   seed: {
     oneOf: [{ type: 'string' }, { type: 'number' }],
@@ -268,6 +273,10 @@ const DIVINATION_REQUEST_PROPERTIES = {
     enum: ['zhuanpan', 'feipan'],
     description: '奇门遁甲排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法。',
   },
+  qimenScope: {
+    enum: ['hour', 'day', 'month', 'year'],
+    description: '奇门排盘层级：hour 时家（默认）、day 日家、month 月家、year 年家。',
+  },
   qimenJuMethod: {
     enum: ['chaibu', 'zhirun'],
     description: '奇门定局方法：chaibu 为拆补法（默认），zhirun 为置闰法；仅时家/日家生效。',
@@ -278,7 +287,10 @@ const DIVINATION_REQUEST_PROPERTIES = {
     enum: ['time'],
     description: '小六壬当前仅保留可核验的通行时间起课。',
   },
-  jinkoujueMethod: { enum: ['time', 'number', 'random'] },
+  jinkoujueMethod: { enum: ['time', 'branch', 'number', 'random'] },
+  jinkoujueBranch: {
+    enum: ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+  },
   jinkoujueNumber: { type: 'integer', minimum: 1 },
   spreadType: {
     enum: [
@@ -591,6 +603,19 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/instant/calculate': {
+        post: {
+          summary: '按当前时刻生成即时盘',
+          description:
+            '即时盘只面向排盘，不包含占卜。支持八字、紫微、八字紫微合参、星盘和七政四余；不传 customDate 时使用请求到达时刻。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/InstantChartRequest'),
+          responses: {
+            '200': {
+              description: '无个人性别字段的即时盘、实际起盘时刻、时间口径与观测地点。',
+            },
+          },
+        },
+      },
       '/bazi/calculate': {
         post: {
           summary: '八字排盘',
@@ -845,16 +870,16 @@ export function getPublicApiOpenApiDocument(
       },
       '/metaphysics/huangji-jingshi/calculate': {
         post: {
-          summary: '皇极经世元会运世周期换算',
+          summary: '皇极经世年月日时盘与元会运世周期换算',
           requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
-          responses: { '200': { description: '元会运世位置及各层起止年坐标' } },
+          responses: { '200': { description: '年月日时卦、值年卦与元会运世层级' } },
         },
       },
       '/metaphysics/huangji-jingshi/prompt': {
         post: {
-          summary: '皇极经世周期换算并生成完整解读提示词',
+          summary: '皇极经世年月日时盘并生成完整解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
-          responses: { '200': { description: '元会运世结果与自包含提示词' } },
+          responses: { '200': { description: '年月日时盘、元会运世结果与自包含提示词' } },
         },
       },
       '/metaphysics/qizheng/calculate': {
@@ -978,6 +1003,42 @@ export function getPublicApiOpenApiDocument(
     },
     components: {
       schemas: {
+        InstantChartRequest: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              enum: [...INSTANT_CHART_TYPES],
+              description: '即时排盘类型；不接受六爻、梅花等占卜方法。',
+            },
+            timeStandard: {
+              enum: ['beijing', 'true-solar'],
+              default: 'beijing',
+              description: 'beijing=北京时间；true-solar=按观测地点换算真太阳时。',
+            },
+            customDate: {
+              type: 'string',
+              format: 'date-time',
+              description: '可选的可重放时刻，必须带 Z 或时区偏移；不传即使用当前时刻。',
+              example: '2026-08-24T12:30:00+08:00',
+            },
+            observer: {
+              type: 'object',
+              description:
+                '真太阳时必须提供；星盘与七政四余在两种时间口径下都必须提供经纬度和时区。',
+              required: ['longitude'],
+              properties: {
+                locationName: { type: 'string', example: '北京市东城区' },
+                longitude: { type: 'number', minimum: -180, maximum: 180 },
+                latitude: { type: 'number', minimum: -90, maximum: 90 },
+                timezone: { type: 'number', minimum: -12, maximum: 14 },
+                timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
+              },
+            },
+            ziweiAlgorithm: { enum: ['default', 'zhongzhou'], default: 'default' },
+            detailMode: { enum: [...DETAIL_MODES], default: 'full' },
+          },
+        },
         TrueSolarTimeRequest: {
           type: 'object',
           required: ['localDateTime', 'longitude'],
@@ -1260,8 +1321,8 @@ export function getPublicApiOpenApiDocument(
             },
             yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
             scope: {
-              enum: ['year'],
-              description: '太乙计式：当前仅开放完成古籍历法链校勘的年计',
+              enum: ['year', 'month', 'day', 'hour'],
+              description: '太乙计式：年计、月计、日计或时计',
             },
             month: { type: 'integer', minimum: 1, maximum: 12 },
             day: { type: 'integer', minimum: 1, maximum: 31 },
@@ -1318,15 +1379,33 @@ export function getPublicApiOpenApiDocument(
         HuangjiJingshiRequest: {
           type: 'object',
           description:
-            '普通用户只需提供公元 year，即可获得通行值年卦完整排盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
+            '提供 customDate 可获得年月日时完整排盘；只提供公元 year 可兼容获得值年盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
           oneOf: [
-            { required: ['year'], not: { required: ['elapsedYears'] } },
+            {
+              required: ['customDate'],
+              not: {
+                anyOf: [
+                  { required: ['epochYear'] },
+                  { required: ['year'] },
+                  { required: ['elapsedYears'] },
+                ],
+              },
+            },
+            {
+              required: ['year'],
+              not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+            },
             {
               required: ['epochYear', 'elapsedYears'],
-              not: { required: ['year'] },
+              not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
             },
           ],
           properties: {
+            customDate: {
+              ...DIVINATION_REQUEST_PROPERTIES.customDate,
+              description:
+                '年月日时起盘时间，ISO 8601 格式；建议明确提供 +08:00，北京时间示例：2026-08-24T15:30:00+08:00。',
+            },
             epochYear: {
               type: 'integer',
               description: '可选的自定义纪元第一年整数坐标；省略时采用通行公元值年卦排法。',
@@ -1743,6 +1822,8 @@ async function route(context: RouteContext) {
       return calculateFoundationDirection(await readJson(context.request));
     case 'foundation/shensha':
       return calculateFoundationShensha(await readJson(context.request));
+    case 'instant/calculate':
+      return calculateApiResult(context.request, calculateInstantChartApi);
     case 'bazi/calculate':
       return calculateApiResult(context.request, calculateBaziApi);
     case 'bazi/prompt':
@@ -1855,6 +1936,55 @@ async function calculateApiResult(
   const input = await readJson(request, optionalBody);
   const result = await calculate(input);
   return shapeCalculationResult(result, readDetailMode(input));
+}
+
+async function calculateInstantChartApi(input: JsonRecord) {
+  const type = readEnum(input, 'type', INSTANT_CHART_TYPES);
+  const timeStandard = readEnum(
+    input,
+    'timeStandard',
+    ['beijing', 'true-solar'] as const,
+    'beijing',
+  );
+  const ziweiAlgorithm = readOptionalEnum(input, 'ziweiAlgorithm', [
+    'default',
+    'zhongzhou',
+  ] as const);
+  let observer: InstantObserver | undefined;
+  if (input.observer !== undefined) {
+    if (!isRecord(input.observer)) {
+      throw new ApiError(400, 'BAD_REQUEST', 'observer 必须是 JSON 对象。');
+    }
+    const value = input.observer;
+    const latitude = optNumber(value, 'latitude', -90, 90);
+    const timezone = optNumber(value, 'timezone', -12, 14);
+    const timeZoneId = readString(value, 'timeZoneId', '').trim();
+    const locationName = readString(value, 'locationName', '').trim();
+    observer = {
+      longitude: readNumberLike(value, 'longitude', -180, 180),
+      ...(latitude !== undefined ? { latitude } : {}),
+      ...(timezone !== undefined ? { timezone } : {}),
+      ...(timeZoneId ? { timeZoneId } : {}),
+      ...(locationName ? { locationName } : {}),
+    };
+  }
+
+  try {
+    return await calculateInstantChart({
+      type,
+      customDate: readCustomDate(input),
+      timeStandard,
+      observer,
+      ziweiAlgorithm,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '即时排盘参数无效。',
+    );
+  }
 }
 
 function calculateTrueSolarTimeApi(input: JsonRecord) {
@@ -2241,16 +2371,28 @@ function buildZodiacPrompt(input: JsonRecord) {
 }
 
 function calculateTaiyiApi(input: JsonRecord) {
-  const scope = readEnum(input, 'scope', ['year'], 'year');
+  const scope = readEnum(input, 'scope', ['year', 'month', 'day', 'hour'], 'year');
   const year = readInteger(input, 'year', 1900, 2200);
   const ganZhi = readString(input, 'ganZhi', '');
   if (ganZhi && !isValidGanZhi(ganZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `ganZhi 不是有效的六十甲子：${ganZhi}。`);
   }
   try {
+    let date: Date | undefined;
+    if (scope !== 'year') {
+      const month = readInteger(input, 'month', 1, 12);
+      const day = readInteger(input, 'day', 1, 31);
+      const hour = scope === 'hour' ? readInteger(input, 'hour', 0, 23) : 12;
+      const minute = scope === 'hour' ? readInteger(input, 'minute', 0, 59, 0) : 0;
+      date = new Date(year, month - 1, day, hour, minute, 0);
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        throw new Error('太乙日期无效。');
+      }
+    }
     return taiyi.generateTaiyi({
       scope,
       year,
+      ...(date ? { date } : {}),
       ...(ganZhi ? { ganZhi } : {}),
     });
   } catch (error) {
@@ -2325,8 +2467,17 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
   const epochYear = optInt(input, 'epochYear');
   const year = optInt(input, 'year');
   const elapsedYears = optInt(input, 'elapsedYears', 0);
+  const customDate = readCustomDate(input);
   const question = readString(input, 'question', '').trim();
-  if (epochYear === undefined) {
+  if (customDate) {
+    if (epochYear !== undefined || year !== undefined || elapsedYears !== undefined) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        '皇极经世年月日时起盘不得同时提供 epochYear、year 或 elapsedYears。',
+      );
+    }
+  } else if (epochYear === undefined) {
     if (year === undefined || elapsedYears !== undefined) {
       throw new ApiError(400, 'BAD_REQUEST', '通行公元值年卦模式必须只提供 year。');
     }
@@ -2339,6 +2490,7 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
   }
   try {
     return huangjiJingshi.calculateHuangjiJingshi({
+      ...(customDate ? { date: customDate } : {}),
       ...(epochYear !== undefined ? { epochYear } : {}),
       ...(year !== undefined ? { year } : {}),
       ...(elapsedYears !== undefined ? { elapsedYears } : {}),
@@ -2370,6 +2522,7 @@ function buildHuangjiJingshiPromptApi(input: JsonRecord) {
       progress: result.progress,
       conversion: result.conversion,
       forecast: result.forecast,
+      dateTimeForecast: result.dateTimeForecast,
     },
     fullResult: result,
   });
@@ -3020,11 +3173,12 @@ function calculateLiuyao(input: JsonRecord) {
 function calculateQimen(input: JsonRecord) {
   assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
   const method = readEnum(input, 'qimenMethod', ['zhuanpan', 'feipan'], 'zhuanpan');
+  const scope = readEnum(input, 'qimenScope', ['hour', 'day', 'month', 'year'], 'hour');
   const juMethod = readEnum(input, 'qimenJuMethod', ['chaibu', 'zhirun'], 'chaibu');
   return generateQimen(
     readCustomDate(input),
     method as 'zhuanpan' | 'feipan',
-    'hour',
+    scope as 'hour' | 'day' | 'month' | 'year',
     juMethod as 'chaibu' | 'zhirun',
   );
 }
@@ -3082,14 +3236,36 @@ function calculateXiaoliuren(input: JsonRecord) {
 }
 
 function calculateJinkoujue(input: JsonRecord) {
-  const method = readEnum(input, 'jinkoujueMethod', ['time', 'number', 'random'], 'time') as
-    'time' | 'number' | 'random';
+  const method = readEnum(
+    input,
+    'jinkoujueMethod',
+    ['time', 'branch', 'number', 'random'],
+    'time',
+  ) as 'time' | 'branch' | 'number' | 'random';
   if (method !== 'random') {
     assertNoRandomOptions(input, '金口诀仅随机起课接受 seed 或 replay。');
   }
   return generateJinkoujue({
     method,
     customDate: readCustomDate(input),
+    ...(method === 'branch'
+      ? {
+          branch: readEnum(input, 'jinkoujueBranch', [
+            '子',
+            '丑',
+            '寅',
+            '卯',
+            '辰',
+            '巳',
+            '午',
+            '未',
+            '申',
+            '酉',
+            '戌',
+            '亥',
+          ]),
+        }
+      : {}),
     ...(method === 'number' ? { number: readInteger(input, 'jinkoujueNumber', 1) } : {}),
     ...(method === 'random' ? readRandomOptions(input) : {}),
   });

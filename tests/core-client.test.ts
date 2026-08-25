@@ -32,6 +32,22 @@ test('统一客户端应提供出生盘、占法、能力发现和稳定序列�
   assert.equal(client.serialize({ b: 2, a: 1 }), '{"a":1,"b":2}');
 });
 
+test('统一客户端应提供无性别的即时排盘与安全调用', async () => {
+  const client = createMingyuClient();
+  const request = {
+    type: 'bazi' as const,
+    customDate: new Date('2026-08-24T12:30:00+08:00'),
+    timeStandard: 'beijing' as const,
+  };
+  const instant = await client.instant(request);
+  assert.equal(instant.type, 'bazi');
+  assert.equal('gender' in instant.result, false);
+
+  const safe = await client.safe.instant(request);
+  assert.equal(safe.ok, true);
+  if (safe.ok) assert.equal(safe.data.timeStandard, 'beijing');
+});
+
 test('safe 客户端应返回可判别、可序列化的成功和失败结果', async () => {
   const client = createMingyuClient();
   const success = await client.safe.birth(profile);
@@ -188,6 +204,8 @@ test('生肖流年便捷入口应支持生肖、地支、公历年和指定干�
   assert.deepEqual(fromName, fromBranch);
   assert.deepEqual(fromName, getZodiacYearFortune('子', '丙午'));
   assert.deepEqual(fromGanZhi, getZodiacYearFortune('子', '甲子'));
+  assert.match(fromName.prompt, /太岁关系：冲太岁（生肖年支子与流年年支午相冲）/);
+  assert.match(fromName.prompt, /信息范围：仅使用出生年支与流年干支进行关系分类/);
 
   for (const input of [
     { zodiac: '鼠' },

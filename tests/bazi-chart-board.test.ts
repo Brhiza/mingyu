@@ -4,6 +4,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import { BaziFortuneSelector } from '../src/components/BaziFortuneTools/BaziFortuneSelector';
 import { BaziChartBoard } from '../src/pages/ResultPage/components/BaziChartBoard';
 
 const COMMON_SHENSHA = [
@@ -94,13 +95,15 @@ test('八字结果盘应展示排盘预警和稳定基础参考', () => {
   assert.match(html, /命卦/);
   assert.match(html, /命宫/);
   assert.match(html, /身宫/);
-  assert.match(html, /天干十神/);
-  assert.match(html, /地支十神/);
+  assert.match(html, /旺衰/);
+  assert.match(html, /命式/);
   assert.match(html, /元男/);
-  assert.ok(html.indexOf('天干十神') < html.indexOf('元男'));
-  assert.ok(html.indexOf('元男') < html.indexOf('>天干<'));
+  assert.match(html, /bazi-pillar-value/);
+  assert.ok(html.indexOf('命式') < html.indexOf('元男'));
   assert.match(html, /data-wuxing="[木火土金水]"/);
-  assert.match(html, /藏干十神/);
+  assert.doesNotMatch(html, /bazi-wuxing-label/);
+  assert.match(html, /bazi-hidden-stem-list/);
+  assert.ok(html.includes(`>${result.hiddenTenGods.year[0]}<`));
   assert.match(html, /自坐/);
   assert.match(html, /空亡/);
   assert.ok(html.includes(`>${result.timeInfo.name}<`));
@@ -140,8 +143,7 @@ test('八字女命日柱应标注元女', () => {
 
   assert.match(html, /元女/);
   assert.doesNotMatch(html, /元男/);
-  assert.ok(html.indexOf('天干十神') < html.indexOf('元女'));
-  assert.ok(html.indexOf('元女') < html.indexOf('>天干<'));
+  assert.ok(html.indexOf('命式') < html.indexOf('元女'));
 });
 
 test('八字结果盘默认只展示 55 个常用神煞，并保留全局神煞', () => {
@@ -214,4 +216,24 @@ test('八字结果盘应将神煞简称还原为完整名称并去重', () => {
   assert.ok(!html.includes('>天乙<'));
   assert.ok(!html.includes('>勾绞<'));
   assert.equal(html.match(/>天罗地网</g)?.length, 1);
+});
+
+test('八字岁运区应提供流时并把回到今天放在顶部', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1992,
+    month: 7,
+    day: 15,
+    timeIndex: 3,
+    gender: 'female',
+  });
+
+  const html = renderToStaticMarkup(createElement(BaziFortuneSelector, { result }));
+
+  assert.match(html, /fortune-selector-head/);
+  assert.match(html, /aria-label="回到今天"/);
+  assert.ok(html.indexOf('>岁运<') < html.indexOf('>今<'));
+  assert.ok(html.indexOf('>今<') < html.indexOf('>大运<'));
+  assert.match(html, />流时</);
+  assert.equal(html.match(/class="fortune-row"/g)?.length, 5);
+  assert.doesNotMatch(html, /class="row-title"><button/);
 });

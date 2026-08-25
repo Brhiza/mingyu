@@ -22,6 +22,10 @@
       "types": "./dist/bazi/index.d.ts",
       "import": "./dist/bazi/index.js"
     },
+    "./instant": {
+      "types": "./dist/instant/index.d.ts",
+      "import": "./dist/instant/index.js"
+    },
     "./divination/liuyao": {
       "types": "./dist/divination/algorithms/liuyao.d.ts",
       "import": "./dist/divination/algorithms/liuyao.js"
@@ -287,7 +291,6 @@
     "dist",
     "data/chinaBirthPlaceTree.sources.md",
     "README.md",
-    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {

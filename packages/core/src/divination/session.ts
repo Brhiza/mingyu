@@ -10,7 +10,9 @@ import { generateQimen, type QimenMethod, type QimenScope } from './algorithms/q
 import { drawRandomSign, resolveSignByNumber } from './algorithms/ssgw';
 import { generateXiaoliuren } from './algorithms/xiaoliuren';
 import { generateTaiyi } from '../taiyi/index';
+import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
 import { drawTarotSpread, type TarotDrawOptions, type TarotManualCardInput } from './tarot';
+import { isEarthlyBranch } from '../ganzhi';
 import type { RandomOptions } from '../shared/random';
 import { createRandomContext, randomInt } from '../shared/random';
 import { serializeCoreResult } from '../shared/result';
@@ -72,6 +74,7 @@ export interface DivinationRequest {
   xiaoliuren?: { method?: XiaoliurenDivinationMethod };
   jinkoujue?: {
     method?: JinkoujueDivinationMethod;
+    branch?: string;
     number?: number;
   };
   qimen?: {
@@ -97,7 +100,9 @@ export interface DivinationRequest {
     interactiveSamples?: readonly number[];
   };
   astrolabe?: AstrolabeBirthInput;
-  taiyi?: { year: number; scope?: TaiyiScope };
+  taiyi?: { year?: number; scope?: TaiyiScope };
+  /** 皇极经世兼容值年输入；省略 year 时按 divinationTime（未填则当前时间）排年月日时卦。 */
+  huangji?: { year?: number };
   prompt?: Omit<DivinationPromptOptions, 'method' | 'data' | 'question' | 'currentTime'>;
 }
 
@@ -223,7 +228,8 @@ function assertRequestRecord(request: DivinationRequest): void {
   if (
     !RANDOM_METHODS.includes(request.method as DivinationSessionMethod) &&
     request.method !== 'astrolabe' &&
-    request.method !== 'almanac'
+    request.method !== 'almanac' &&
+    request.method !== 'huangji'
   ) {
     if (request.method !== 'random') throw new Error(`未知的占法：${String(request.method)}`);
   }
@@ -288,11 +294,47 @@ export function validateDivinationRequest(request: DivinationRequest): void {
   if (request.method === 'astrolabe' && !request.astrolabe) {
     throw new Error('星盘需要提供 astrolabe 出生资料。');
   }
-  if (request.method === 'taiyi') {
-    if (!request.taiyi || (request.taiyi.scope !== undefined && request.taiyi.scope !== 'year')) {
-      throw new Error('太乙当前只开放年计，请提供 taiyi.year，并将 scope 设为 year。');
+  if (request.method === 'jinkoujue') {
+    const method = request.jinkoujue?.method ?? 'time';
+    if (!['time', 'branch', 'number', 'random'].includes(method)) {
+      throw new Error('金口诀起课方式必须是 time、branch、number 或 random。');
     }
-    if (!Number.isSafeInteger(request.taiyi.year)) throw new Error('太乙年计年份必须是整数。');
+    if (method === 'branch' && !isEarthlyBranch(request.jinkoujue?.branch)) {
+      throw new Error('金口诀指定地分必须是子、丑、寅、卯、辰、巳、午、未、申、酉、戌、亥之一。');
+    }
+    if (
+      method === 'number' &&
+      (!Number.isSafeInteger(request.jinkoujue?.number) || (request.jinkoujue?.number ?? 0) < 1)
+    ) {
+      throw new Error('金口诀数字起课必须提供不小于 1 的整数。');
+    }
+  }
+  if (request.method === 'taiyi') {
+    if (!request.taiyi) {
+      throw new Error('太乙需要提供 taiyi 参数。');
+    }
+    const scope = request.taiyi.scope ?? 'year';
+    if (!['year', 'month', 'day', 'hour'].includes(scope)) {
+      throw new Error('太乙 scope 必须是 year、month、day 或 hour。');
+    }
+    if (scope === 'year' && !Number.isSafeInteger(request.taiyi.year)) {
+      throw new Error('太乙年计年份必须是整数。');
+    }
+  }
+  if (request.method === 'huangji') {
+    const year = request.huangji?.year;
+    if (year !== undefined && !Number.isSafeInteger(year)) {
+      throw new Error('皇极经世年份必须是非零整数。');
+    }
+    if (year === 0) {
+      throw new Error('皇极经世采用无公元0年的公元纪年。');
+    }
+    if (year !== undefined && year < -67_017) {
+      throw new Error('皇极经世目标年份不能早于公元前67017年。');
+    }
+    if (year !== undefined && request.divinationTime !== undefined) {
+      throw new Error('皇极经世年份与年月日时起盘时间不能同时提供。');
+    }
   }
 }
 
@@ -369,11 +411,26 @@ function generateData(
       if (!request.astrolabe) throw new Error('星盘需要提供 astrolabe 出生资料。');
       return generateAstrolabe(request.astrolabe);
     case 'taiyi':
-      if (!request.taiyi) throw new Error('太乙需要提供 taiyi.year。');
+      if (!request.taiyi) throw new Error('太乙需要提供 taiyi 参数。');
+      if ((request.taiyi.scope ?? 'year') === 'year') {
+        return generateTaiyi({ year: request.taiyi.year, scope: 'year' }) as TaiyiResult;
+      }
       return generateTaiyi({
-        year: request.taiyi.year,
-        scope: request.taiyi.scope ?? 'year',
+        date: customDate ?? new Date(),
+        scope: request.taiyi.scope,
       }) as TaiyiResult;
+    case 'huangji':
+      return calculateHuangjiJingshi(
+        request.huangji?.year !== undefined
+          ? {
+              year: request.huangji.year,
+              question: request.question?.trim(),
+            }
+          : {
+              date: customDate ?? new Date(),
+              question: request.question?.trim(),
+            },
+      );
   }
 }
 
@@ -394,17 +451,23 @@ export function generateDivinationSession(request: DivinationRequest): Divinatio
     supplementaryInfo: request.supplementaryInfo,
     isCustomQuestion: request.questionSource === 'custom',
   };
-  const promptDocument = buildDivinationPromptDocument(promptOptions);
+  const promptDocument =
+    method === 'huangji'
+      ? buildPromptDocument((data as HuangjiJingshiResult).prompt)
+      : buildDivinationPromptDocument(promptOptions);
   const summary = summarizeDivinationResult(method, data);
   const { chart, auditEvidence } = partitionResultForConsumption(data);
-  const aiPromptDocument = buildDivinationAiPrompt({
-    method,
-    question,
-    currentTime,
-    supplementaryInfo: request.supplementaryInfo,
-    chartText: formatAiChart(method, data, summary),
-    data,
-  });
+  const aiPromptDocument =
+    method === 'huangji'
+      ? buildPromptDocument((data as HuangjiJingshiResult).prompt)
+      : buildDivinationAiPrompt({
+          method,
+          question,
+          currentTime,
+          supplementaryInfo: request.supplementaryInfo,
+          chartText: formatAiChart(method, data, summary),
+          data,
+        });
   const aiPrompt = aiPromptDocument.text;
   const view = createUnifiedResultView({
     kind: method,

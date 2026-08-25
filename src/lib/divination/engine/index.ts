@@ -17,6 +17,8 @@ import type {
   JinkoujueDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
+import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
+import { convertTrueSolarTime, formatSolarDateTimeParts, TimeManager } from 'mingyu-core/calendar';
 import { daysInSolarMonth } from '../../date-validation';
 import {
   buildAstrolabeTopicTask,
@@ -71,10 +73,16 @@ export type DivinationDraft = {
   knownFacts?: string;
   desiredOutcome?: string;
   constraints?: string;
+  userSupplement?: string;
+  gender: '' | '男' | '女';
   birthYear: string;
   divinationTimeMode?: 'current' | 'custom';
   customDivinationDate?: string;
   customDivinationTime?: string;
+  divinationTimeStandard?: 'beijing' | 'true-solar';
+  birthPlace?: string;
+  birthLongitude?: string;
+  birthLatitude?: string;
   liuyaoMethod?: 'time' | 'coins' | 'manual';
   liuyaoYaos?: Array<6 | 7 | 8 | 9>;
   liuyaoCoinThrows?: Array<{ coins: [2 | 3, 2 | 3, 2 | 3]; total: 6 | 7 | 8 | 9 }>;
@@ -82,7 +90,11 @@ export type DivinationDraft = {
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
   jinkoujueMethod: JinkoujueDivinationMethod;
+  jinkoujueBranch: string;
   jinkoujueNumber: string;
+  qimenMethod?: 'zhuanpan' | 'feipan';
+  qimenScope?: 'hour' | 'day' | 'month' | 'year';
+  qimenJuMethod?: 'chaibu' | 'zhirun';
   liuyaoTemplate: LiuyaoTemplateType;
   liurenTemplate: LiurenTemplateType;
   tarotSpread: TarotSpreadType;
@@ -94,6 +106,8 @@ export type DivinationDraft = {
   almanacTopic: AlmanacTopic;
   almanacStartDate: string;
   almanacEndDate: string;
+  almanacWeekendPreference?: 'any' | 'prefer' | 'avoid';
+  almanacTimePreferences?: Array<'work-hours' | 'morning' | 'afternoon'>;
   almanacParticipants: AlmanacParticipantInput[];
   lenormandSpread: LenormandSpreadType;
   lenormandMethod?: 'random' | 'manual' | 'interactive';
@@ -120,6 +134,20 @@ export type DivinationSession = {
   question: string;
   prompt: string;
   data: DivinationData;
+  timeContext?: DivinationTimeContext;
+};
+
+export type DivinationTimeContext = {
+  standard: 'beijing' | 'true-solar';
+  clockDateTime: string;
+  effectiveDateTime: string;
+  locationName?: string;
+  longitude?: number;
+  longitudeCorrectionMinutes?: number;
+  equationOfTimeMinutes?: number;
+  totalCorrectionMinutes?: number;
+  crossesDate?: boolean;
+  promptText: string;
 };
 
 export type BuildDivinationPromptOptions = {
@@ -129,6 +157,7 @@ export type BuildDivinationPromptOptions = {
   astrolabeTopic?: AstrolabePromptTopic;
   astrolabeScopeText?: string;
   schools?: readonly string[];
+  timeContextText?: string;
 };
 
 export function buildDivinationPrompt(
@@ -172,16 +201,17 @@ export function buildDivinationPrompt(
       : method === 'tarot'
         ? buildTarotSpreadTask(data as TarotData)
         : buildTaskText(method);
+  const promptSchoolMethod = method === 'huangji' ? 'huangji-jingshi' : method;
   const selectedSchools =
     method !== 'ssgw' && options.schools?.length
-      ? normalizePromptSchoolIds(method as PromptSchoolMethod, options.schools)
+      ? normalizePromptSchoolIds(promptSchoolMethod as PromptSchoolMethod, options.schools)
       : [];
   const schoolText = selectedSchools.length
-    ? formatPromptSchoolGuidance(method as PromptSchoolMethod, selectedSchools)
+    ? formatPromptSchoolGuidance(promptSchoolMethod as PromptSchoolMethod, selectedSchools)
     : '';
   const schoolSection = schoolText
     ? buildSection(
-        `【${getPromptSchoolSectionTitle(method as PromptSchoolMethod, selectedSchools)}】`,
+        `【${getPromptSchoolSectionTitle(promptSchoolMethod as PromptSchoolMethod, selectedSchools)}】`,
         schoolText,
       )
     : '';
@@ -190,6 +220,7 @@ export function buildDivinationPrompt(
     return [
       buildPromptGuidanceSections(method),
       buildSection('【当前时间】', timeInfo),
+      options.timeContextText ? buildSection('【起局时间口径】', options.timeContextText) : '',
       supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
       buildSection('【排盘信息】', infoText),
       buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
@@ -205,6 +236,7 @@ export function buildDivinationPrompt(
   return [
     buildPromptGuidanceSections(method),
     buildSection('【当前时间】', timeInfo),
+    options.timeContextText ? buildSection('【起局时间口径】', options.timeContextText) : '',
     supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
     astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
     buildSection('【占卜信息】', infoText),
@@ -221,7 +253,12 @@ export function buildDivinationPrompt(
 function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | undefined {
   const info: SupplementaryInfo = {};
 
-  if (draft.method === 'qimen' && draft.birthYear.trim()) {
+  const usesDedicatedBirthInfo =
+    draft.method === 'almanac' || draft.method === 'astrolabe' || draft.method === 'huangji';
+  if (!usesDedicatedBirthInfo && draft.gender) {
+    info.gender = draft.gender;
+  }
+  if (!usesDedicatedBirthInfo && draft.birthYear.trim()) {
     const birthYear = readOptionalPositiveIntegerText(draft.birthYear);
     if (typeof birthYear === 'number' && Number.isFinite(birthYear)) {
       info.birthYear = birthYear;
@@ -235,8 +272,11 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
         : {}),
     };
   }
+  const userSupplement = draft.userSupplement?.trim();
   if (draft.method === 'almanac' && draft.question.trim()) {
-    info.userSupplement = draft.question.trim();
+    info.userSupplement = [draft.question.trim(), userSupplement].filter(Boolean).join('\n');
+  } else if (userSupplement) {
+    info.userSupplement = userSupplement;
   }
   const contextFields = [
     ['currentSituation', draft.currentSituation],
@@ -315,10 +355,21 @@ function validateDraft(draft: DivinationDraft) {
     readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课');
   }
 
-  if (draft.method === 'taiyi') {
-    if ((draft.taiyiScope ?? 'year') !== 'year') {
-      throw new Error('太乙月计、日计、时计尚未完成古籍历法链校勘，当前只开放年计。');
-    }
+  if (
+    draft.method === 'jinkoujue' &&
+    draft.jinkoujueMethod === 'branch' &&
+    !['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'].includes(
+      draft.jinkoujueBranch,
+    )
+  ) {
+    throw new Error('请选择金口诀地分');
+  }
+
+  if (
+    draft.method === 'taiyi' &&
+    (draft.taiyiScope ?? 'year') === 'year' &&
+    draft.divinationTimeMode === 'custom'
+  ) {
     const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
     assertNumberRange(year, '太乙年计年份', 1900, 2200);
   }
@@ -433,12 +484,103 @@ function isTimeBasedDivinationMethod(method: Exclude<DivinationMethodId, 'random
     method === 'meihua' ||
     method === 'xiaoliuren' ||
     method === 'jinkoujue' ||
-    method === 'taiyi'
+    method === 'taiyi' ||
+    method === 'huangji'
   ) {
     return true;
   }
 
   return false;
+}
+
+function formatReadableDateTime(value: string) {
+  return value.replace('T', ' ').replace(/:00$/, '');
+}
+
+function formatCorrectionMinutes(value: number) {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)} 分钟`;
+}
+
+function buildBeijingWallClockDateTime(date: Date) {
+  const parts = TimeManager.getWallClockParts(date);
+  return formatSolarDateTimeParts({ ...parts, second: 0 });
+}
+
+function supportsTrueSolarTime(
+  method: Exclude<DivinationMethodId, 'random'>,
+  draft: DivinationDraft,
+) {
+  return !(method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year');
+}
+
+function resolveDivinationTimeContext(
+  method: Exclude<DivinationMethodId, 'random'>,
+  draft: DivinationDraft,
+  baseDate: Date,
+): { date: Date; context: DivinationTimeContext } {
+  const clockDateTime = buildBeijingWallClockDateTime(baseDate);
+  if (draft.divinationTimeStandard !== 'true-solar' || !supportsTrueSolarTime(method, draft)) {
+    return {
+      date: baseDate,
+      context: {
+        standard: 'beijing',
+        clockDateTime,
+        effectiveDateTime: clockDateTime,
+        promptText: `时间口径：北京时间\n采用时间：${formatReadableDateTime(clockDateTime)}`,
+      },
+    };
+  }
+
+  const locationName = draft.birthPlace?.trim() ?? '';
+  if (!locationName) {
+    throw new Error('使用真太阳时需要选择起局地点');
+  }
+  const longitude = readNumberText(draft.birthLongitude ?? '', '起局地点经度');
+  assertNumberRange(longitude, '起局地点经度', -180, 180);
+  const conversion = convertTrueSolarTime({
+    localDateTime: clockDateTime,
+    longitude,
+    timezone: 8,
+    timeZoneId: 'Asia/Shanghai',
+  });
+  const effectiveDateTime = conversion.correctedDateTime;
+  const date = new Date(`${effectiveDateTime}+08:00`);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('真太阳时校正结果不是有效时间');
+  }
+  const promptText = [
+    '时间口径：真太阳时',
+    `起局地点：${locationName}（经度 ${longitude}°）`,
+    `当地钟表时间：${formatReadableDateTime(conversion.clockDateTime)}`,
+    `采用真太阳时：${formatReadableDateTime(effectiveDateTime)}`,
+    `校正明细：经度修正 ${formatCorrectionMinutes(conversion.longitudeCorrectionMinutes)}，均时差 ${formatCorrectionMinutes(conversion.equationOfTimeMinutes)}，合计 ${formatCorrectionMinutes(conversion.totalCorrectionMinutes)}${conversion.crossesDate ? '，校正后跨日' : ''}`,
+  ].join('\n');
+
+  return {
+    date,
+    context: {
+      standard: 'true-solar',
+      clockDateTime: conversion.clockDateTime,
+      effectiveDateTime,
+      locationName,
+      longitude,
+      longitudeCorrectionMinutes: conversion.longitudeCorrectionMinutes,
+      equationOfTimeMinutes: conversion.equationOfTimeMinutes,
+      totalCorrectionMinutes: conversion.totalCorrectionMinutes,
+      crossesDate: conversion.crossesDate,
+      promptText,
+    },
+  };
+}
+
+function insertTimeContextIntoPrompt(prompt: string, timeContextText: string) {
+  const section = buildSection('【起局时间口径】', timeContextText);
+  const taskMarker = '\n\n【任务】';
+  const taskIndex = prompt.indexOf(taskMarker);
+  if (taskIndex < 0) {
+    return `${prompt}\n\n${section}`;
+  }
+  return `${prompt.slice(0, taskIndex)}\n\n${section}${prompt.slice(taskIndex)}`;
 }
 
 function readCustomDivinationDate(draft: DivinationDraft): Date {
@@ -496,7 +638,24 @@ function resolveCustomDivinationDate(
     return undefined;
   }
 
+  if (method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year') {
+    return undefined;
+  }
+
   return readCustomDivinationDate(draft);
+}
+
+function resolveTaiyiYear(draft: DivinationDraft): number {
+  if (draft.divinationTimeMode === 'custom') {
+    return readIntegerText(draft.taiyiYear, '太乙年计年份');
+  }
+
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+    }).format(new Date()),
+  );
 }
 
 function validateDateRange(startDate: string, endDate: string) {
@@ -507,8 +666,8 @@ function validateDateRange(startDate: string, endDate: string) {
   if (diffDays < 0) {
     throw new Error('endDate 不能早于 startDate');
   }
-  if (diffDays > 30) {
-    throw new Error('黄历择日一次最多比较 31 天，请缩小日期范围');
+  if (diffDays > 179) {
+    throw new Error('黄历择日一次最多比较 180 天，请缩小日期范围');
   }
 }
 
@@ -554,6 +713,10 @@ export async function generateDivinationSession(
   validateDraft(draft);
   const method = resolveMethod(draft.method);
   const customDate = resolveCustomDivinationDate(method, draft);
+  const timing = isTimeBasedDivinationMethod(method)
+    ? resolveDivinationTimeContext(method, draft, customDate ?? new Date())
+    : undefined;
+  const calculationDate = timing?.date;
   const supplementaryInfo = buildSupplementaryInfo({
     ...draft,
     method,
@@ -565,7 +728,7 @@ export async function generateDivinationSession(
     case 'liuyao': {
       const module = await import('mingyu-core/divination/liuyao');
       const liuyaoMethod = draft.liuyaoMethod ?? 'time';
-      data = module.generateLiuyao(customDate, {
+      data = module.generateLiuyao(calculationDate, {
         method: liuyaoMethod,
         ...(liuyaoMethod === 'manual' ? { yaos: draft.liuyaoYaos } : {}),
         ...(liuyaoMethod === 'coins' ? { coinThrows: draft.liuyaoCoinThrows } : {}),
@@ -574,14 +737,14 @@ export async function generateDivinationSession(
     }
     case 'meihua': {
       const module = await import('mingyu-core/divination/meihua');
-      data = module.generateMeihua(customDate, supplementaryInfo?.meihuaSettings);
+      data = module.generateMeihua(calculationDate, supplementaryInfo?.meihuaSettings);
       break;
     }
     case 'xiaoliuren': {
       const module = await import('mingyu-core/divination/xiaoliuren');
       data = module.generateXiaoliuren({
         method: draft.xiaoliurenMethod,
-        customDate,
+        customDate: calculationDate,
       });
       break;
     }
@@ -589,7 +752,8 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/jinkoujue');
       data = module.generateJinkoujue({
         method: draft.jinkoujueMethod,
-        customDate,
+        customDate: calculationDate,
+        ...(draft.jinkoujueMethod === 'branch' ? { branch: draft.jinkoujueBranch } : {}),
         ...(draft.jinkoujueMethod === 'number' && draft.jinkoujueNumber.trim()
           ? { number: readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课') }
           : {}),
@@ -598,20 +762,41 @@ export async function generateDivinationSession(
     }
     case 'qimen': {
       const module = await import('mingyu-core/divination/qimen');
-      data = module.generateQimen(customDate);
+      data = module.generateQimen(
+        calculationDate,
+        draft.qimenMethod ?? 'zhuanpan',
+        draft.qimenScope ?? 'hour',
+        draft.qimenJuMethod ?? 'chaibu',
+      );
       break;
     }
     case 'liuren': {
       const module = await import('mingyu-core/divination/liuren');
-      data = module.generateLiuren(customDate);
+      data = module.generateLiuren(calculationDate);
       break;
     }
     case 'taiyi': {
       const module = await import('mingyu-core/taiyi');
-      data = module.generateTaiyi({
-        scope: 'year',
-        year: readIntegerText(draft.taiyiYear, '太乙年计年份'),
-      }) as TaiyiResult;
+      const scope = draft.taiyiScope ?? 'year';
+      data = module.generateTaiyi(
+        scope === 'year'
+          ? {
+              scope,
+              year: resolveTaiyiYear(draft),
+            }
+          : {
+              scope,
+              date: calculationDate ?? new Date(),
+            },
+      ) as TaiyiResult;
+      break;
+    }
+    case 'huangji': {
+      const module = await import('mingyu-core/huangji-jingshi');
+      data = module.calculateHuangjiJingshi({
+        date: calculationDate ?? new Date(),
+        question: inputQuestion,
+      });
       break;
     }
     case 'tarot': {
@@ -640,6 +825,8 @@ export async function generateDivinationSession(
         topic: draft.almanacTopic,
         startDate: draft.almanacStartDate,
         endDate: draft.almanacEndDate,
+        weekendPreference: draft.almanacWeekendPreference,
+        timePreferences: draft.almanacTimePreferences,
         participants: draft.almanacParticipants,
       });
       break;
@@ -681,17 +868,27 @@ export async function generateDivinationSession(
     method === 'almanac' && !inputQuestion
       ? buildAlmanacSessionTitle(data as AlmanacData)
       : inputQuestion;
-  const prompt = buildDivinationPrompt(method, inputQuestion, data, supplementaryInfo, {
-    isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
-    liuyaoTemplate: draft.liuyaoTemplate,
-    liurenTemplate: draft.liurenTemplate,
-    astrolabeTopic: draft.astrolabeTopic,
-  });
+  const prompt =
+    method === 'huangji'
+      ? timing
+        ? insertTimeContextIntoPrompt(
+            (data as HuangjiJingshiResult).prompt,
+            timing.context.promptText,
+          )
+        : (data as HuangjiJingshiResult).prompt
+      : buildDivinationPrompt(method, inputQuestion, data, supplementaryInfo, {
+          isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
+          liuyaoTemplate: draft.liuyaoTemplate,
+          liurenTemplate: draft.liurenTemplate,
+          astrolabeTopic: draft.astrolabeTopic,
+          timeContextText: timing?.context.promptText,
+        });
   return {
     method,
     requestedMethod: draft.method,
     question,
     prompt,
     data,
+    ...(timing ? { timeContext: timing.context } : {}),
   };
 }

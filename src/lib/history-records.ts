@@ -1,28 +1,41 @@
-import type { QueryInputState } from '@/lib/query-state';
+import type { PromptSourceKey, QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
+import type { AlmanacData } from '@/types/divination';
 import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
+import {
+  INSTANT_CHART_DEFINITIONS,
+  type InstantChartType,
+  type InstantTimeStandard,
+} from 'mingyu-core/instant';
 import { safeStorage } from '@/lib/safe-storage';
 import { createSecureId } from '@/lib/secure-id';
 
 const PERSONAL_HISTORY_STORAGE_KEY = 'prompt_studio_personal_history_v1';
 const COMPATIBILITY_HISTORY_STORAGE_KEY = 'prompt_studio_compatibility_history_v1';
 const DIVINATION_HISTORY_STORAGE_KEY = 'prompt_studio_divination_history_v1';
-const MAX_HISTORY_RECORDS = 20;
+const MAX_PERSONAL_CASES = 200;
+const MAX_COMPATIBILITY_RECORDS = 100;
+const MAX_DIVINATION_HISTORY_RECORDS = 50;
 const DEFAULT_CASE_NAME = '案例';
+export const HISTORY_RECORDS_EVENT = 'mingyu:history-records';
 
-type PersonalHistoryRecord = {
+export type PersonalHistoryRecord = {
   id: string;
   type: 'single';
   name: string;
   gender: 'male' | 'female';
   chartType: QueryInputState['chartType'];
+  workspaceSource?: PromptSourceKey;
   birthText: string;
   input: QueryInputState;
+  createdAt?: string;
+  lastUsedAt?: string;
   updatedAt: string;
   generatedName?: boolean;
+  pinned?: boolean;
 };
 
-type CompatibilityHistoryRecord = {
+export type CompatibilityHistoryRecord = {
   id: string;
   type: 'compatibility';
   name: string;
@@ -32,6 +45,7 @@ type CompatibilityHistoryRecord = {
   updatedAt: string;
   primaryNameGenerated?: boolean;
   partnerNameGenerated?: boolean;
+  pinned?: boolean;
 };
 
 export type DivinationHistoryRecord = {
@@ -42,8 +56,47 @@ export type DivinationHistoryRecord = {
   method: DivinationSession['method'];
   draft: DivinationDraft;
   session: DivinationSession;
+  caseId?: string;
+  caseName?: string;
   updatedAt: string;
 };
+
+export type InstantHistoryRecord = {
+  id: string;
+  type: 'instant';
+  question: string;
+  supplementaryInfo?: string;
+  instantType: InstantChartType;
+  timeStandard: InstantTimeStandard;
+  path: string;
+  updatedAt: string;
+};
+
+export type ConsultationHistoryRecord = DivinationHistoryRecord | InstantHistoryRecord;
+
+export function sortPersonalCasesForQuickSwitch(records: PersonalHistoryRecord[]) {
+  return [...records].sort((left, right) => {
+    if (Boolean(left.pinned) !== Boolean(right.pinned)) return left.pinned ? -1 : 1;
+    return (right.lastUsedAt ?? right.updatedAt).localeCompare(left.lastUsedAt ?? left.updatedAt);
+  });
+}
+
+export function selectPersonalCasesForQuickSwitch(
+  records: PersonalHistoryRecord[],
+  activeCaseId: string | null,
+  limit = 5,
+) {
+  if (limit <= 0) return [];
+  const sortedRecords = sortPersonalCasesForQuickSwitch(records);
+  const visibleRecords = sortedRecords.slice(0, limit);
+  if (!activeCaseId || visibleRecords.some((record) => record.id === activeCaseId)) {
+    return visibleRecords;
+  }
+
+  const activeRecord = sortedRecords.find((record) => record.id === activeCaseId);
+  if (!activeRecord) return visibleRecords;
+  return [...visibleRecords.slice(0, Math.max(0, limit - 1)), activeRecord];
+}
 
 function isObjectRecord(item: unknown): item is Record<string, unknown> {
   return typeof item === 'object' && item !== null;
@@ -60,8 +113,19 @@ function readRecords<T>(
   return parsed.filter((item): item is T => isObjectRecord(item) && isValidRecord(item));
 }
 
-function writeRecords<T>(key: string, records: T[]): boolean {
-  return safeStorage.setJSON(key, records.slice(0, MAX_HISTORY_RECORDS));
+function writeRecords<T>(key: string, records: T[], limit: number): boolean {
+  const pending = records.slice(0, limit);
+  while (true) {
+    if (safeStorage.setJSON(key, pending)) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(HISTORY_RECORDS_EVENT));
+      }
+      return true;
+    }
+    if (pending.length === 0) break;
+    pending.pop();
+  }
+  return false;
 }
 
 function normalizeText(value: string | undefined) {
@@ -83,12 +147,18 @@ function resolveAvailableCaseName(existingNames: string[], reservedNames: string
 
 function isSamePersonalHistoryInput(left: QueryInputState, right: QueryInputState) {
   return (
-    left.chartType === right.chartType &&
     left.gender === right.gender &&
     left.dateType === right.dateType &&
     left.year === right.year &&
     left.month === right.month &&
     left.day === right.day
+  );
+}
+
+function isSamePersonalCase(record: PersonalHistoryRecord, name: string, input: QueryInputState) {
+  return (
+    normalizeText(record.name) === normalizeText(name) &&
+    isSamePersonalHistoryInput(record.input, input)
   );
 }
 
@@ -105,12 +175,23 @@ function isSameCompatibilityHistoryInput(left: QueryInputState, right: QueryInpu
   );
 }
 
-function resolvePersonalRecordName(input: QueryInputState, records: PersonalHistoryRecord[]) {
+function resolvePersonalRecordName(
+  input: QueryInputState,
+  records: PersonalHistoryRecord[],
+  selectedRecord?: PersonalHistoryRecord,
+) {
   const explicitName = input.name.trim();
   if (explicitName) {
     return {
       name: explicitName,
       generated: false,
+    };
+  }
+
+  if (selectedRecord) {
+    return {
+      name: selectedRecord.name,
+      generated: Boolean(selectedRecord.generatedName),
     };
   }
 
@@ -163,12 +244,54 @@ function cloneInput(input: QueryInputState): QueryInputState {
   return JSON.parse(JSON.stringify(input)) as QueryInputState;
 }
 
+function getPersonalInputCompleteness(input: QueryInputState) {
+  return [
+    input.timeIndex !== '',
+    input.birthHour !== '',
+    input.birthMinute !== '',
+    input.birthPlace.trim() !== '',
+    input.birthLongitude !== '',
+    input.birthLatitude !== '',
+  ].filter(Boolean).length;
+}
+
 function cloneDivinationDraft(draft: DivinationDraft): DivinationDraft {
   return JSON.parse(JSON.stringify(draft)) as DivinationDraft;
 }
 
 function cloneDivinationSession(session: DivinationSession): DivinationSession {
-  return JSON.parse(JSON.stringify(session)) as DivinationSession;
+  const cloned = JSON.parse(JSON.stringify(session)) as DivinationSession;
+  if (cloned.method !== 'almanac') return cloned;
+
+  const data = cloned.data as AlmanacData;
+  const { evidenceAnalysis: _evidenceAnalysis, days, ...summary } = data;
+  return {
+    ...cloned,
+    data: {
+      ...summary,
+      days: days.map((day) => {
+        const {
+          moonPhaseEvidence: _moonPhaseEvidence,
+          twentyEightStarDetail: _twentyEightStarDetail,
+          nineStarDetail: _nineStarDetail,
+          annualDirectionGods: _annualDirectionGods,
+          topicMatchFacts: _topicMatchFacts,
+          godFacts: _godFacts,
+          participantRelationFacts: _participantRelationFacts,
+          hours,
+          ...daySummary
+        } = day;
+        return {
+          ...daySummary,
+          ...(hours
+            ? {
+                hours: hours.map(({ participantRelationFacts: _relations, ...hour }) => hour),
+              }
+            : {}),
+        };
+      }),
+    },
+  } as DivinationSession;
 }
 
 const almanacTopicLabelMap = Object.fromEntries(
@@ -196,10 +319,40 @@ function createDivinationHistoryId() {
 }
 
 export function loadPersonalHistory() {
-  return readRecords<PersonalHistoryRecord>(
+  const records = readRecords<PersonalHistoryRecord>(
     PERSONAL_HISTORY_STORAGE_KEY,
     (item) => item.type === 'single' && typeof item.name === 'string',
   );
+  const uniqueRecords = records.reduce<PersonalHistoryRecord[]>((cases, record) => {
+    const duplicateIndex = cases.findIndex((candidate) =>
+      isSamePersonalCase(candidate, record.name, record.input),
+    );
+    if (duplicateIndex < 0) {
+      cases.push(record);
+      return cases;
+    }
+
+    const current = cases[duplicateIndex];
+    cases[duplicateIndex] = {
+      ...current,
+      pinned: Boolean(current.pinned || record.pinned),
+      createdAt:
+        [current.createdAt, record.createdAt, current.updatedAt, record.updatedAt]
+          .filter((value): value is string => Boolean(value))
+          .sort()[0] ?? current.updatedAt,
+      lastUsedAt:
+        [current.lastUsedAt, record.lastUsedAt, current.updatedAt, record.updatedAt]
+          .filter((value): value is string => Boolean(value))
+          .sort()
+          .at(-1) ?? current.updatedAt,
+      input:
+        getPersonalInputCompleteness(record.input) > getPersonalInputCompleteness(current.input)
+          ? record.input
+          : current.input,
+    };
+    return cases;
+  }, []);
+  return sortPersonalCasesForQuickSwitch(uniqueRecords);
 }
 
 export function loadCompatibilityHistory() {
@@ -210,28 +363,58 @@ export function loadCompatibilityHistory() {
 }
 
 export function loadDivinationHistory() {
-  return readRecords<DivinationHistoryRecord>(
+  return readRecords<ConsultationHistoryRecord>(
     DIVINATION_HISTORY_STORAGE_KEY,
-    (item) => item.type === 'divination' && typeof item.question === 'string',
+    (item) =>
+      (item.type === 'divination' && typeof item.question === 'string') ||
+      (item.type === 'instant' &&
+        typeof item.question === 'string' &&
+        typeof item.path === 'string' &&
+        item.path.startsWith('/result?') &&
+        INSTANT_CHART_DEFINITIONS.some((definition) => definition.type === item.instantType) &&
+        (item.timeStandard === 'beijing' || item.timeStandard === 'true-solar')),
   );
 }
 
-export function upsertPersonalHistory(input: QueryInputState) {
+export function upsertPersonalHistory(
+  input: QueryInputState,
+  workspaceSource?: PromptSourceKey,
+  selectedCaseId?: string,
+  options: { allowIdentityChange?: boolean } = {},
+) {
   if (!input.year || !input.month || !input.day) {
     return loadPersonalHistory();
   }
 
   const records = loadPersonalHistory();
-  const { name, generated } = resolvePersonalRecordName(input, records);
-  const id = [
+  const selectedRecordCandidate = selectedCaseId
+    ? records.find((item) => item.id === selectedCaseId)
+    : undefined;
+  let resolvedName = resolvePersonalRecordName(input, records, selectedRecordCandidate);
+  const selectedRecord =
+    selectedRecordCandidate &&
+    (options.allowIdentityChange ||
+      isSamePersonalCase(selectedRecordCandidate, resolvedName.name, input))
+      ? selectedRecordCandidate
+      : undefined;
+  if (selectedRecordCandidate && !selectedRecord) {
+    resolvedName = resolvePersonalRecordName(input, records);
+  }
+  const { name, generated } = resolvedName;
+  const existingRecord =
+    selectedRecord ?? records.find((item) => isSamePersonalCase(item, name, input));
+  const generatedId = [
     normalizeText(name),
-    input.chartType,
     input.gender,
     input.dateType,
     input.year,
     input.month,
     input.day,
   ].join('|');
+  const id =
+    existingRecord?.id ??
+    (records.some((item) => item.id === generatedId) ? createSecureId() : generatedId);
+  const now = new Date().toISOString();
 
   const record: PersonalHistoryRecord = {
     id,
@@ -239,19 +422,26 @@ export function upsertPersonalHistory(input: QueryInputState) {
     name,
     gender: input.gender,
     chartType: input.chartType,
+    workspaceSource,
     birthText: buildBirthText(input),
     input: cloneInput({
       ...input,
       analysisMode: 'single',
       name,
     }),
-    updatedAt: new Date().toISOString(),
+    createdAt: existingRecord?.createdAt ?? existingRecord?.updatedAt ?? now,
+    lastUsedAt: now,
+    updatedAt: now,
     generatedName: generated,
+    pinned: existingRecord?.pinned,
   };
 
-  const next = [record, ...records.filter((item) => item.id !== id)];
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next);
-  return next.slice(0, MAX_HISTORY_RECORDS);
+  const next = [
+    record,
+    ...records.filter((item) => item.id !== id && !isSamePersonalCase(item, name, input)),
+  ];
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
+  return next.slice(0, MAX_PERSONAL_CASES);
 }
 
 export function upsertCompatibilityHistory(input: QueryInputState) {
@@ -282,6 +472,7 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
     input.partnerMonth,
     input.partnerDay,
   ].join('|');
+  const existingRecord = records.find((item) => item.id === id);
 
   const record: CompatibilityHistoryRecord = {
     id,
@@ -297,26 +488,70 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
     updatedAt: new Date().toISOString(),
     primaryNameGenerated: primaryGenerated,
     partnerNameGenerated: partnerGenerated,
+    pinned: existingRecord?.pinned,
   };
 
   const next = [record, ...records.filter((item) => item.id !== id)];
-  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
-  return next.slice(0, MAX_HISTORY_RECORDS);
+  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
+  return next.slice(0, MAX_COMPATIBILITY_RECORDS);
 }
 
 export function removePersonalHistory(id: string) {
-  const next = loadPersonalHistory().filter((item) => item.id !== id);
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next);
+  const records = loadPersonalHistory();
+  const selectedRecord = records.find((item) => item.id === id);
+  const next = selectedRecord
+    ? records.filter((item) => !isSamePersonalCase(item, selectedRecord.name, selectedRecord.input))
+    : records;
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
+  return next;
+}
+
+export function togglePersonalHistoryPin(id: string) {
+  const records = loadPersonalHistory();
+  const selectedRecord = records.find((item) => item.id === id);
+  const next = records.map((item) =>
+    selectedRecord && isSamePersonalCase(item, selectedRecord.name, selectedRecord.input)
+      ? { ...item, pinned: !selectedRecord.pinned }
+      : item,
+  );
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
+  return next;
+}
+
+export function touchPersonalHistoryUsage(id: string) {
+  const records = loadPersonalHistory();
+  const selectedRecord = records.find((item) => item.id === id);
+  if (!selectedRecord) return records;
+
+  const now = new Date().toISOString();
+  const next = records.map((item) =>
+    isSamePersonalCase(item, selectedRecord.name, selectedRecord.input)
+      ? { ...item, lastUsedAt: now }
+      : item,
+  );
+  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
   return next;
 }
 
 export function removeCompatibilityHistory(id: string) {
   const next = loadCompatibilityHistory().filter((item) => item.id !== id);
-  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
+  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
   return next;
 }
 
-export function addDivinationHistory(draft: DivinationDraft, session: DivinationSession) {
+export function toggleCompatibilityHistoryPin(id: string) {
+  const next = loadCompatibilityHistory().map((item) =>
+    item.id === id ? { ...item, pinned: !item.pinned } : item,
+  );
+  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
+  return next;
+}
+
+export function addDivinationHistory(
+  draft: DivinationDraft,
+  session: DivinationSession,
+  activeCase?: PersonalHistoryRecord | null,
+) {
   const question = resolveDivinationRecordTitle(draft, session);
   if (!question) {
     return null;
@@ -330,19 +565,72 @@ export function addDivinationHistory(draft: DivinationDraft, session: Divination
     method: session.method,
     draft: cloneDivinationDraft(draft),
     session: cloneDivinationSession(session),
+    ...(activeCase ? { caseId: activeCase.id, caseName: activeCase.name } : {}),
     updatedAt: new Date().toISOString(),
   };
 
-  writeRecords(DIVINATION_HISTORY_STORAGE_KEY, [record, ...loadDivinationHistory()]);
+  const saved = writeRecords(
+    DIVINATION_HISTORY_STORAGE_KEY,
+    [record, ...loadDivinationHistory()],
+    MAX_DIVINATION_HISTORY_RECORDS,
+  );
+  if (!saved) {
+    throw new Error('当前占问记录过大，浏览器无法保存，请缩小内容范围后重试');
+  }
+  return record;
+}
+
+export function addInstantHistory(options: {
+  question: string;
+  supplementaryInfo?: string;
+  instantType: InstantChartType;
+  timeStandard: InstantTimeStandard;
+  path: string;
+}) {
+  const question = options.question.trim();
+  if (!question || !options.path.startsWith('/result?')) {
+    return null;
+  }
+
+  const id = createDivinationHistoryId();
+  const [pathname, search = ''] = options.path.split('?');
+  const params = new URLSearchParams(search);
+  params.set('record', id);
+  const record: InstantHistoryRecord = {
+    id,
+    type: 'instant',
+    question,
+    ...(options.supplementaryInfo?.trim()
+      ? { supplementaryInfo: options.supplementaryInfo.trim() }
+      : {}),
+    instantType: options.instantType,
+    timeStandard: options.timeStandard,
+    path: `${pathname}?${params.toString()}`,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const saved = writeRecords(
+    DIVINATION_HISTORY_STORAGE_KEY,
+    [record, ...loadDivinationHistory()],
+    MAX_DIVINATION_HISTORY_RECORDS,
+  );
+  if (!saved) {
+    throw new Error('当前即时盘记录无法保存，请清理部分历史记录后重试');
+  }
   return record;
 }
 
 export function getDivinationHistoryById(id: string) {
+  const record = loadDivinationHistory().find((item) => item.id === id);
+  return record?.type === 'divination' ? record : null;
+}
+
+export function getConsultationHistoryById(id: string) {
   return loadDivinationHistory().find((item) => item.id === id) ?? null;
 }
 
 export function removeDivinationHistory(id: string) {
   const next = loadDivinationHistory().filter((item) => item.id !== id);
-  writeRecords(DIVINATION_HISTORY_STORAGE_KEY, next);
+  writeRecords(DIVINATION_HISTORY_STORAGE_KEY, next, MAX_DIVINATION_HISTORY_RECORDS);
   return next;
 }

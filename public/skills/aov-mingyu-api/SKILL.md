@@ -1,6 +1,6 @@
 ---
 name: aov-mingyu-api
-description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学排盘、合婚、抽牌、求签、风水、择日、真太阳时换算和一站式提示词任务。适用于用户用日常说法提出的“帮我算命”“看看今年运势”“占卜这件事能不能成”“用玄学分析”“帮我们合婚”“抽塔罗牌”“选个好日子”，也支持八字、紫微斗数、六爻、梅花易数、奇门遁甲、大六壬、星盘、七政四余等专业名称。
+description: 通过 aov.cc 公开 API 完成算命、看运势、即时排盘、占卜、玄学排盘、合婚、抽牌、求签、风水、择日、真太阳时换算和一站式提示词任务。适用于用户用日常说法提出的“帮我算命”“现在起盘”“看看今年运势”“占卜这件事能不能成”“用玄学分析”“帮我们合婚”“抽塔罗牌”“选个好日子”，也支持八字、紫微斗数、紫占、六爻、梅花易数、奇门遁甲、大六壬、星盘、七政四余等专业名称。
 ---
 
 # AOV 命理与占卜 API
@@ -46,14 +46,16 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 - “抽牌、求签、给点启发”：使用塔罗、雷诺曼或三山国王灵签。
 - “选好日子、黄道吉日”：使用黄历择日。
 - “看家里风水、住宅方位”：使用住宅风水合参。
+- “现在起盘、即时盘、紫占”：使用即时排盘；它不需要性别，也不等同于六爻、梅花等占卜。
 
 ## 工作流
 
 1. 先读取 `GET /manifest` 或 `GET /openapi.json` 确认接口能力。
-2. 只需要结构化数据时，调用 `/calculate` 或 `/divination/{method}` 排盘接口。
-3. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口并传 `responseMode: "prompt-only"`，只读取 `data.prompt`。只有确实需要向用户展示结构化盘面时才改用 `summary`，需要完整原始排盘时才改用 `full`。
-4. 同一人需要“先八字定主线、再紫微校验”的深度解读时，优先调用 `/bazi-ziwei/prompt`，不要分别调用八字和紫微后自行拼接提示词。
-5. 向用户展示结果时，说明这是排盘和提示词数据，不替代医疗、法律、投资等专业建议。
+2. 用户明确要求当前时刻排命盘时，调用 `POST /instant/calculate`；不要把占卜方法混进即时盘。
+3. 只需要结构化数据时，调用 `/calculate` 或 `/divination/{method}` 排盘接口。
+4. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口并传 `responseMode: "prompt-only"`，只读取 `data.prompt`。只有确实需要向用户展示结构化盘面时才改用 `summary`，需要完整原始排盘时才改用 `full`。
+5. 同一人需要“先八字定主线、再紫微校验”的深度解读时，优先调用 `/bazi-ziwei/prompt`，不要分别调用八字和紫微后自行拼接提示词。
+6. 向用户展示结果时，说明这是排盘和提示词数据，不替代医疗、法律、投资等专业建议。
 
 `/prompt` 默认采用 `prompt-only`，只返回可直接交给 AI 的完整提示词，避免响应和下游 AI 消息过大。需要轻量结构化展示时传 `responseMode: "summary"`；需要完整排盘时才传 `responseMode: "full"`。八字、紫微、奇门和黄历排盘可传 `detailMode: "compact"` 获取轻量结构。黄历大范围或多参与人应使用 `page/pageSize` 拆成多次请求。
 
@@ -63,6 +65,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 
 默认决策：
 
+- 用户明确说“现在起盘”“即时盘”“八字即时盘”或“紫占”：调用 `POST /instant/calculate`。无需性别；不传 `customDate` 即读取调用当刻。默认 `timeStandard: "beijing"`，用户明确要求真太阳时时改为 `true-solar` 并补齐观测地点。
 - 有完整出生信息，且用户问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势、某年某阶段走势：优先调用 `POST /bazi-ziwei/prompt`。这是深度解读的首选方案，用八字定主线，用紫微校验宫位、四化和运限。
 - 用户明确只要八字：调用 `POST /bazi/prompt`。长期或完整阶段分析用 `baziFortuneScope: "full"`；指定年份、月份、日期时用对应范围。
 - 用户明确只要紫微：调用 `POST /ziwei/prompt`。长期或完整阶段分析用 `promptScope: "full"`；指定年份、月份、日期时用 `yearly`、`monthly`、`daily` 或 `hourly`。
@@ -71,21 +74,23 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 - 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
 - 用户提供一人的西方星盘资料：调用 `POST /divination/astrolabe/prompt`；提供双方完整资料并询问关系：调用 `POST /divination/astrolabe/synastry/prompt`。
 - 用户没有出生信息，只想要轻量启发、牌阵或签文：调用塔罗、雷诺曼或三山国王灵签提示词接口。
-- 用户明确要求八宅、生肖犯太岁、太乙、五运六气、皇极经世或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。五运六气至少给公历年或年干支；皇极经世普通占断只需给公元年。
+- 用户明确要求八宅、生肖犯太岁、太乙、五运六气、皇极经世或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。五运六气至少给公历年或年干支；皇极经世即时占断给 `customDate`，年度研究给公元年。
 
 问题到接口速查：
 
 | 问题类型                       | 首选接口                                     | 关键参数                                                                    |
 | ------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------- |
+| 现在起盘、即时盘、紫占         | `POST /instant/calculate`                    | `type`、`timeStandard`、真太阳时或星盘类再传 `observer`                     |
 | 整体人生、长期事业、财运、婚恋 | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `"origin"`  |
 | 今年运势、当前阶段、某年趋势   | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题按事业、财运、感情等选择                       |
 | 换工作、创业、合伙、投资       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`               |
 | 八字格局、用神、大运流年       | `POST /bazi/prompt`                          | `promptTopic`、`baziFortuneScope`                                           |
 | 紫微宫位、四化、运限           | `POST /ziwei/prompt`                         | `promptTopic`、`promptScope`                                                |
 | 一事一问、短期成败、应期       | `POST /divination/liuyao/prompt`             | `question`、可选 `customDate`                                               |
-| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`              | `question`、可选 `qimenMethod`、`customDate`                                |
-| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber` |
+| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`              | `question`、可选 `qimenScope`、`qimenMethod`、`qimenJuMethod`、`customDate` |
+| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`         | `question`、可选 `customDate`                                               |
 | 时间或数字象意判断             | `POST /divination/meihua/prompt`             | `question`、可选 `method`、`number`、`customDate`                           |
+| 金口诀四位课                   | `POST /divination/jinkoujue/prompt`          | `question`、可选 `jinkoujueMethod`、`jinkoujueBranch`、`customDate`         |
 | 传统复杂事项推演               | `POST /divination/liuren/prompt`             | `question`、可选 `liurenTemplate`、`customDate`                             |
 | 结婚、搬家、开业、签约、安葬   | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`    |
 | 星盘本命和行运                 | `POST /divination/astrolabe/prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                    |
@@ -94,7 +99,8 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 | 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                    |
 | 生肖犯太岁、流年贵人           | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                            |
 | 年度五运六气、符会与六步节令   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`，可选 `question`                                     |
-| 皇极经世年度占断               | `POST /metaphysics/huangji-jingshi/prompt`   | 普通模式传公元 `year`；自定义纪元再传 `epochYear`                           |
+| 皇极经世年月日时占断           | `POST /metaphysics/huangji-jingshi/prompt`   | 即时或指定时刻传 `customDate`；年度研究传 `year`                            |
+| 太乙年、月、日、时计           | `POST /metaphysics/taiyi/prompt`             | 年计传 `scope: "year"` 与 `year`；其余计式再传月、日、时分                  |
 | 求签                           | `POST /divination/ssgw/prompt`               | `question`                                                                  |
 
 参数默认建议：
@@ -115,6 +121,7 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 - `POST /foundation/wuxing`：统计天干地支五行分布，可选计入藏干权重。
 - `POST /foundation/direction`：把罗盘度数换算为二十四山坐向、后天八卦与分界状态。
 - `POST /foundation/shensha`：严格核验完整四柱，返回空亡、驿马、桃花的起法、目标地支、命中柱位、来源声明与解释限制。
+- `POST /instant/calculate`：按调用当刻生成八字、紫微、八字紫微合参、星盘或七政四余即时盘，不需要性别。
 - `POST /bazi/calculate`：八字排盘。
 - `POST /bazi/prompt`：八字排盘并生成结构化 AI 解读提示词。
 - `POST /bazi/compatibility`：八字双盘日主、日支、四柱交叉关系、双向十神、喜忌覆盖与证据计算。
@@ -128,6 +135,10 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 - `POST /divination/liuyao/prompt`：六爻起卦并生成结构化 AI 解读提示词。
 - `POST /divination/meihua`：梅花易数起卦。
 - `POST /divination/meihua/prompt`：梅花易数起卦并生成结构化 AI 解读提示词。
+- `POST /divination/xiaoliuren`：小六壬通行时间课。
+- `POST /divination/xiaoliuren/prompt`：小六壬时间课并生成结构化 AI 解读提示词。
+- `POST /divination/jinkoujue`：金口诀按地分、将神、贵神、人元四位起课。
+- `POST /divination/jinkoujue/prompt`：金口诀四位起课并生成结构化 AI 解读提示词。
 - `POST /divination/qimen`：奇门遁甲排盘。
 - `POST /divination/qimen/prompt`：奇门遁甲排盘并生成结构化 AI 解读提示词。
 - `POST /divination/liuren`：大六壬排盘。
@@ -138,19 +149,39 @@ description: 通过 aov.cc 公开 API 完成算命、看运势、占卜、玄学
 - `POST /divination/ssgw/prompt`：三山国王灵签求签并生成 AI 解读提示词。
 - `POST /divination/almanac`：黄历择日。
 - `POST /divination/almanac/prompt`：黄历择日并生成结构化 AI 解读提示词。
+- `POST /divination/lenormand`：雷诺曼抽牌。
+- `POST /divination/lenormand/prompt`：雷诺曼抽牌并生成结构化 AI 解读提示词。
 - `POST /divination/astrolabe`：星盘生成。
 - `POST /divination/astrolabe/prompt`：星盘生成并生成结构化 AI 解读提示词。
 - `POST /divination/astrolabe/synastry`：西占双盘相位、角距、容许度、落宫与证据计算。
 - `POST /divination/astrolabe/synastry/prompt`：西占双盘计算并生成结构化证据提示词。
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
-- `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：年家太乙七十二局排盘与提示词；当前不提供未完整复原的月、日、时家。
+- `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：太乙年、月、日、时四计七十二局排盘与提示词；月、日、时计采用现代历法定位，并在结果中保留口径边界。
 - `POST /metaphysics/wuyun-liuqi/calculate`、`POST /metaphysics/wuyun-liuqi/prompt`：岁运太过不及、司天在泉、气运相临、天符岁会等五类符会、六步节令主客气及完整提示词。
-- `POST /metaphysics/huangji-jingshi/calculate`、`POST /metaphysics/huangji-jingshi/prompt`：按公元年返回元会运世、会内统卦、运卦、六十年统卦、十年卦、值年卦及互错综卦；仍支持自定义纪元坐标换算。
+- `POST /metaphysics/huangji-jingshi/calculate`、`POST /metaphysics/huangji-jingshi/prompt`：按指定时刻返回元会运世、值年卦、月经卦、旬纬卦、日卦和时经卦；仍支持年度盘与自定义纪元坐标换算。
 - `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、分层天文证据与提示词。
 - `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。
 
 ## 请求示例
+
+北京时间八字即时盘：
+
+```bash
+curl -X POST https://aov.cc/api/v1/instant/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"type":"bazi","timeStandard":"beijing"}'
+```
+
+真太阳时紫微即时盘：
+
+```bash
+curl -X POST https://aov.cc/api/v1/instant/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"type":"ziwei","timeStandard":"true-solar","observer":{"locationName":"北京市东城区","longitude":116.416,"latitude":39.929,"timezone":8,"timeZoneId":"Asia/Shanghai"}}'
+```
+
+即时排盘的 `type` 只支持 `bazi`、`ziwei`、`bazi-ziwei`、`astrolabe`、`qizheng`。星盘和七政四余无论采用哪种时间口径都需要 `observer`；真太阳时模式至少需要经度及 `timezone` 或 `timeZoneId`。需要复盘时可传带时区的 `customDate`，不传时读取请求到达的当前时刻。
 
 八字排盘：
 
@@ -306,12 +337,12 @@ curl -X POST https://aov.cc/api/v1/metaphysics/wuyun-liuqi/prompt \
   -d '{"year":2026,"question":"请解释本年的运气结构和气候节律。","responseMode":"prompt-only"}'
 ```
 
-皇极经世完整值年卦提示词：
+皇极经世年月日时盘提示词：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/metaphysics/huangji-jingshi/prompt \
   -H "Content-Type: application/json" \
-  -d '{"year":2026,"question":"请解释这一年的事业环境与主要变化。","responseMode":"prompt-only"}'
+  -d '{"customDate":"2025-12-25T12:30:00+08:00","question":"请解释此刻所问事项的时势与变化。","responseMode":"prompt-only"}'
 ```
 
 AI 流式解读：
@@ -344,7 +375,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `question` 和 `astrolabeScopeText` 最多 5000 个字符。
 - 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算，避免把元旦当作干支年界。结果会逐项给出同气、顺化、天刑、小逆、不和，天符、岁会、太乙天符、同天符、同岁会，以及六步节令和主客气五行关系。
 - 吴谦《运气要诀》的五类符会逐年名单去重为 26 年，与原文“二十八年”汇总不一致；返回值保留 `sourceReconciliation`，并按逐项定义计算。
-- 皇极经世普通模式只需公元 `year`，默认采用公元前 67017 年为本元起点、1984 年鼎卦为甲子值年锚点的通行排法；返回会内统卦、运卦、六十年统卦、十年卦、值年卦及互卦、错卦、综卦。
+- 皇极经世提供 `customDate` 时，以北京时间和冬至换年定位皇极年，并在值年卦之下继续推演月经卦、旬纬卦、日卦及时经卦；值年层采用公元前 67017 年为本元起点、1984 年鼎卦为甲子值年锚点的通行排法。只提供公元 `year` 时仍返回完整年度盘。
 - 自定义纪元模式提供 `epochYear`，并从 `year` 与 `elapsedYears` 中选择一项；该模式只做元会运世坐标换算。
 - `progress` 会列出当前元、会、运、世内已过年数、当前年之后剩余的完整年数和下一层开始年；所有层级序号从 1 开始。
 
@@ -380,7 +411,7 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 
 占卜时间参数：
 
-- `customDate`：六爻、梅花易数、奇门遁甲、大六壬可用该字段指定起卦或排盘时间；不提供则使用当前时间。必须传带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00`。
+- `customDate`：六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬、太乙月日时计和皇极经世可用该字段指定起卦或排盘时间；不提供则使用当前时间。必须传带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00`。
 
 占卜通用参数：
 
@@ -390,10 +421,11 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 各占卜方法特有参数：
 
 - 梅花易数 `method`：`time`（时间起卦）、`number`（数字起卦）、`random`（随机起卦）、`timeTrigram`（兼容旧参数，按年月日时起卦法计算）。`method` 为 `number` 时需提供 `number`（正整数）。
+- 金口诀 `jinkoujueMethod`：`time`（时间取地分）、`branch`（直接指定地分）、`number`（数字取地分）、`random`（随机取地分）。`branch` 方式必须传 `jinkoujueBranch`，取子至亥之一；指定地分后仍按起课时间计算月将、昼夜贵人和遁干。
 - 塔罗 `spreadType`：`single`（单牌指引）、`three`（时间流）、`love`（爱情）、`career`（事业）、`decision`（选择）、`celtic`（凯尔特十字）、`chakra`（七脉轮）、`year`（年运）、`mindBodySpirit`（身心灵）、`horseshoe`（马蹄铁）、`holyTriangle`（圣三角）、`universal`（万能）、`fourElements`（四元素）、`hexagram`（六芒星）、`relationship`（关系）、`wealth`（财富）、`problemSolving`（问题解决）、`twelveHouses`（十二宫）。
 - 六爻 `liuyaoTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财运）、`guaishen`（鬼神怪异）。
 - 大六壬 `liurenTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财富）。
-- 奇门遁甲 `qimenMethod`：`zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。返回中可读取 `seasonality` 和 `patternCombos` 作为时令与复合格局证据。
+- 奇门遁甲 `qimenScope`：`hour`（时家，默认）、`day`（日家）、`month`（月家）、`year`（年家）；`qimenMethod`：`zhuanpan`（转盘法，默认）、`feipan`（飞盘法）；`qimenJuMethod`：`chaibu`（拆补法，默认）、`zhirun`（置闰法，仅时家/日家）。返回中可读取 `seasonality` 和 `patternCombos` 作为时令与复合格局证据。
 - 黄历择日 `topic`：`marriage`（嫁娶）、`move`（搬家）、`opening`（开业）、`contract`（签约）、`travel`（出行）、`medical`（求医）、`study`（求学）、`burial`（安葬修坟）、`renovation`（修造动土）、`custom`（自定义）。
 - 黄历择日 `startDate`、`endDate`：日期范围字符串，一次最多 31 天。`participants`：参与者数组，每人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`，一次最多 30 位；更多日期或参与人请拆成多次请求。
 - 黄历择日 `page`、`pageSize`：分页参数，`pageSize` 最大 31。不传分页时返回全部日期；传分页后只返回当前页并带 `pagination`。`page` 超过总页数会返回 400，请按 `pagination.totalPages` 继续请求。

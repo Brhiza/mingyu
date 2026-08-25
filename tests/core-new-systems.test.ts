@@ -366,7 +366,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.setAssistant, 5);
   assert.ok(r.judgments.some((item) => item.startsWith('掩：')));
   assert.equal(r.sixteenGods.length, 16);
-  assert.equal(r.model.id, 'taiyi-year-calculation-72-table');
+  assert.equal(r.model.id, 'taiyi-four-calculations-72-table');
   assert.ok(r.prompt.includes('太乙神数'));
   assert.doesNotMatch(r.prompt, /十六神/);
   assert.ok(r.prompt.includes('主客定算'));
@@ -375,7 +375,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.doesNotMatch(r.prompt, /结构化证据|观察层级|证据汇总|计算链|解释限制/);
   assert.equal(r.evidenceAnalysis.key, 'taiyi:evidence');
   assert.equal(r.evidenceAnalysis.status, '已计算');
-  assert.match(r.evidenceAnalysis.promptText, /【太乙年计七十二局结构化证据】/);
+  assert.match(r.evidenceAnalysis.promptText, /【太乙四计七十二局结构化证据】/);
   assert.deepEqual(
     r.evidenceAnalysis.calculationSteps.map((step) => step.name),
     ['360周期余数', '72数段', '60数段', '局数'],
@@ -511,10 +511,12 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
     /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/,
   );
   for (const scope of ['month', 'day', 'hour'] as const) {
-    assert.throws(
-      () => core.taiyi.generateTaiyi({ year: 2004, scope }),
-      /古籍历法链校勘.*停止输出近似盘/,
-    );
+    const scoped = core.taiyi.generateTaiyi({
+      scope,
+      date: new Date(2026, 6, 11, 14, 35),
+    });
+    assert.equal(scoped.scope, scope);
+    assert.ok(scoped.accumulatedValue > 0);
   }
   assert.throws(
     () => core.taiyi.generateTaiyi({} as Parameters<typeof core.taiyi.generateTaiyi>[0]),

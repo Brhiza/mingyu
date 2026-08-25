@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
@@ -7,8 +7,13 @@ import { AiChatPanel } from '@/components/AiChatPanel';
 import { TraditionalDivinationBoard } from '@/components/DivinationPanel/TraditionalDivinationBoard';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
-import { CollapsiblePromptPreview } from '@/components/CollapsiblePromptPreview';
-import { getCompactDivinationSummary } from './compact-evidence';
+import { PromptDeliveryPanel } from '@/components/PromptPreview';
+import {
+  ResultAssistantFab,
+  ResultAssistantHeader,
+  WorkspaceButton,
+} from '@/components/workspace/WorkspaceUI';
+import { useViewportSize } from '@/hooks/useViewportWidth';
 
 interface DivinationResultProps {
   isSubmitting: boolean;
@@ -17,10 +22,13 @@ interface DivinationResultProps {
   methodLabelMap: Record<DivinationDraft['method'], string>;
   copyState: string;
   shareState: string;
-  showShareButton: boolean;
-  isPhoneLayout: boolean;
+  showHeading?: boolean;
+  assistantOnly?: boolean;
   onCopy: () => void;
   onShare: () => void;
+  onOpenAssistant?: () => void;
+  onReturnToBoard?: () => void;
+  onRestart?: () => void;
 }
 
 const LIUREN_BRANCH_POSITIONS: Record<string, { row: number; column: number }> = {
@@ -115,6 +123,9 @@ function LiurenCompactMatrix({ data }: { data: LiurenData }) {
               <strong>{lesson.upper}</strong>
               <b>{lesson.lower}</b>
               <small>{lesson.name}</small>
+              <small className="liuren-matrix-detail">
+                {[lesson.relation, lesson.note].filter(Boolean).join(' · ')}
+              </small>
             </div>
           ))}
         </div>
@@ -128,6 +139,17 @@ function LiurenCompactMatrix({ data }: { data: LiurenData }) {
               <span>{item.god}</span>
               <strong>{item.branch}</strong>
               <small>{item.stage}</small>
+              <small className="liuren-matrix-detail">
+                {[
+                  item.relation,
+                  item.wuxing,
+                  item.seasonState,
+                  item.dayRelation,
+                  item.isVoid ? '空' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </small>
             </div>
           ))}
         </div>
@@ -140,6 +162,30 @@ function LiurenBoard({ data }: { data: LiurenData }) {
   const transmissionText = data.threeTransmissions
     .map((item) => `${item.stage.replace('传', '')}${item.branch}`)
     .join(' → ');
+  const transmissionMethod = [data.transmissionRule, data.transmissionPattern]
+    .filter(Boolean)
+    .join(' · ');
+  const lessonPatterns = Array.from(new Set([...(data.guaTi ?? []), ...(data.patternTags ?? [])]))
+    .filter(Boolean)
+    .join('、');
+  const shenShaItems = Array.from(new Set(data.shenShaSummary?.filter(Boolean) ?? []));
+  const shenSha = shenShaItems.length
+    ? `${shenShaItems.slice(0, 8).join('、')}${shenShaItems.length > 8 ? ` · 另${shenShaItems.length - 8}项` : ''}`
+    : undefined;
+  const liurenFacts = [
+    ['日干寄宫', data.dayStemResidence],
+    [
+      '贵人',
+      data.noblemanBranch
+        ? `${data.dayNight ? `${data.dayNight} · ` : ''}${data.noblemanBranch}${
+            data.noblemanGroundBranch ? `临${data.noblemanGroundBranch}` : ''
+          }`
+        : undefined,
+    ],
+    ['取传', transmissionMethod],
+    ['课体', lessonPatterns],
+    ['神煞', shenSha],
+  ].filter((item): item is [string, string] => Boolean(item[1]));
 
   return (
     <div className="divination-extra-panel traditional-board liuren-board">
@@ -161,6 +207,17 @@ function LiurenBoard({ data }: { data: LiurenData }) {
         </span>
       </div>
 
+      {liurenFacts.length ? (
+        <div className="liuren-fact-grid">
+          {liurenFacts.map(([label, value]) => (
+            <div className={label === '神煞' ? 'is-wide' : undefined} key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="liuren-script-panel">
         <LiurenPlateGrid data={data} />
         <LiurenCompactMatrix data={data} />
@@ -176,25 +233,36 @@ export function DivinationResult({
   methodLabelMap,
   copyState,
   shareState,
-  showShareButton,
-  isPhoneLayout,
+  showHeading = true,
+  assistantOnly = false,
   onCopy,
   onShare,
+  onOpenAssistant,
+  onReturnToBoard,
+  onRestart,
 }: DivinationResultProps) {
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
-  const [isEvidenceOpen, setIsEvidenceOpen] = useState(!isPhoneLayout);
+  const viewportSize = useViewportSize({ width: 0, height: 0 });
+  const boardPaneRef = useRef<HTMLDivElement>(null);
+  const isCompactResultLayout = viewportSize.width > 0 && viewportSize.width < 980;
+  const showEmbeddedAssistant = !assistantOnly && !isCompactResultLayout;
+  const showBoard = !assistantOnly;
+  const showInterpretation = assistantOnly || showEmbeddedAssistant;
 
   useEffect(() => {
-    setIsEvidenceOpen(!isPhoneLayout);
-  }, [isPhoneLayout, session]);
+    const boardPane = boardPaneRef.current;
+    if (!boardPane) return;
+    boardPane.scrollTop = 0;
+    boardPane.scrollLeft = 0;
+  }, [assistantOnly, session?.prompt]);
 
   if (isSubmitting) {
     if (isAiEnabled) {
       return (
         <div className="divination-ai-card" aria-hidden="true">
-          <section className="panel divination-result-panel">
+          <section className="workspace-ui-surface divination-result-panel">
             <div className="divination-result-skeleton">
               <span className="skeleton-block divination-result-skeleton-title" />
               <div className="divination-result-skeleton-list">
@@ -212,8 +280,8 @@ export function DivinationResult({
     }
 
     return (
-      <div className="workspace-grid divination-output-grid" aria-hidden="true">
-        <section className="panel divination-result-panel">
+      <div className="divination-skeleton-layout" aria-hidden="true">
+        <section className="workspace-ui-surface divination-result-panel">
           <div className="divination-result-skeleton">
             <span className="skeleton-block divination-result-skeleton-title" />
             <div className="divination-result-skeleton-tags">
@@ -235,7 +303,7 @@ export function DivinationResult({
           </div>
         </section>
 
-        <section className="panel divination-result-panel">
+        <section className="workspace-ui-surface divination-result-panel">
           <div className="divination-result-skeleton">
             <span className="skeleton-block divination-result-skeleton-title" />
             <div className="divination-result-skeleton-list">
@@ -257,13 +325,21 @@ export function DivinationResult({
   }
 
   const isLiurenResult = session.method === 'liuren';
-  const compactSummary = getCompactDivinationSummary(summary);
-
-  // 前端只展示核对盘面所需的摘要；完整传统资料继续保留在提示词中。
   const resultBlock = (
-    <section className="panel divination-result-panel">
-      {!isLiurenResult ? (
-        <div className="panel-head">
+    <section className="workspace-ui-surface is-plain divination-result-panel">
+      {onRestart ? (
+        <WorkspaceButton
+          className="divination-inline-restart"
+          size="small"
+          variant="ghost"
+          onClick={onRestart}
+        >
+          重新占问
+        </WorkspaceButton>
+      ) : null}
+
+      {!isLiurenResult && showHeading ? (
+        <div className="workspace-ui-panel-head">
           <h2>{summary.title}</h2>
         </div>
       ) : null}
@@ -272,85 +348,82 @@ export function DivinationResult({
         <div className="divination-random-note">本次随机到：{methodLabelMap[session.method]}</div>
       ) : null}
 
-      <TraditionalDivinationBoard session={session} />
-
-      {!isLiurenResult ? (
-        <>
-          <div className="divination-tag-cloud">
-            {compactSummary.tags.map((item) => (
-              <span className="result-soft-tag" key={item}>
-                {item}
-              </span>
-            ))}
-          </div>
-
-          <div className="divination-summary-list">
-            {compactSummary.lines.map((item) => (
-              <div className="divination-summary-item" key={item}>
-                {item}
-              </div>
-            ))}
-          </div>
-        </>
+      {session.timeContext?.standard === 'true-solar' ? (
+        <div className="divination-result-time-context" aria-label="本次起局时间口径">
+          <span>真太阳时</span>
+          <strong>
+            {session.timeContext.effectiveDateTime.replace('T', ' ').replace(/:00$/, '')}
+          </strong>
+          {session.timeContext.locationName ? (
+            <small>{session.timeContext.locationName}</small>
+          ) : null}
+        </div>
       ) : null}
+
+      <TraditionalDivinationBoard session={session} />
 
       {session.method === 'liuren' ? <LiurenBoard data={session.data as LiurenData} /> : null}
     </section>
   );
 
-  if (isAiEnabled) {
-    return (
-      <div className="divination-ai-card">
-        <details
-          className="divination-result-collapse"
-          open={isEvidenceOpen}
-          onToggle={(event) => setIsEvidenceOpen(event.currentTarget.open)}
-        >
-          <summary>{isEvidenceOpen ? '收起排盘依据' : '查看排盘依据'}</summary>
-          {resultBlock}
-        </details>
-        <AiChatPanel
-          contextPrompt={session.prompt}
-          autoStart={session.prompt}
-          autoStartKey={session.prompt}
-          resetKey={session.prompt}
-          aiConfig={aiRequestConfig}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="workspace-grid divination-output-grid">
-      <section className="panel panel-output divination-result-panel">
-        <div className="panel-head divination-prompt-head">
-          <div>
-            <h2>复制占卜提示词</h2>
-            <p>完整提示词已经生成，可以直接复制使用。</p>
-          </div>
-          <div className="action-row compact-actions divination-prompt-actions">
-            <button className="copy-button secondary-button" type="button" onClick={onCopy}>
-              {copyState}
-            </button>
-            {showShareButton ? (
-              <button className="copy-button" type="button" onClick={onShare}>
-                {shareState}
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <div className="prompt-send-tip">点击复制后，发送到你常用的在线 AI 软件继续提问。</div>
-        <CollapsiblePromptPreview promptText={session.prompt} />
-      </section>
+    <div
+      className={`divination-result-workspace${
+        assistantOnly ? ' is-assistant-page' : ''
+      }${showEmbeddedAssistant ? ' is-split' : ''}`}
+    >
+      {assistantOnly ? (
+        onReturnToBoard ? (
+          <ResultAssistantHeader
+            aiEnabled={isAiEnabled}
+            subtitle={methodLabelMap[session.method]}
+            onBack={onReturnToBoard}
+          />
+        ) : null
+      ) : null}
 
-      <details
-        className="divination-result-collapse"
-        open={isEvidenceOpen}
-        onToggle={(event) => setIsEvidenceOpen(event.currentTarget.open)}
-      >
-        <summary>{isEvidenceOpen ? '收起排盘依据' : '查看排盘依据'}</summary>
-        {resultBlock}
-      </details>
+      <div className="divination-result-stage">
+        {showBoard ? (
+          <div className="divination-result-board-pane" ref={boardPaneRef}>
+            {resultBlock}
+          </div>
+        ) : null}
+
+        {showInterpretation ? (
+          <div
+            className={`divination-result-assistant-pane ${
+              isAiEnabled ? 'is-ai-mode' : 'is-prompt-mode'
+            }`}
+          >
+            {isAiEnabled ? (
+              <div className="divination-ai-card">
+                <AiChatPanel
+                  contextPrompt={session.prompt}
+                  autoStart={session.prompt}
+                  autoStartKey={session.prompt}
+                  resetKey={session.prompt}
+                  aiConfig={aiRequestConfig}
+                />
+              </div>
+            ) : (
+              <PromptDeliveryPanel
+                promptText={session.prompt}
+                copyState={copyState}
+                shareState={shareState}
+                onCopy={onCopy}
+                onShare={onShare}
+                question={session.question || methodLabelMap[session.method]}
+                showShare={isCompactResultLayout}
+                expandedByDefault
+              />
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {!assistantOnly && onOpenAssistant ? (
+        <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={onOpenAssistant} />
+      ) : null}
     </div>
   );
 }

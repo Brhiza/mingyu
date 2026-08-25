@@ -14,6 +14,23 @@ export const baziFortuneScopeLabelMap: Record<BaziFortuneScope, string> = {
   day: '流日',
 };
 
+const baziTenGodAbbreviationMap: Record<string, string> = {
+  比肩: '比',
+  劫财: '劫',
+  食神: '食',
+  伤官: '伤',
+  正财: '财',
+  偏财: '才',
+  正官: '官',
+  七杀: '杀',
+  正印: '印',
+  偏印: '枭',
+};
+
+export function formatBaziTenGodAbbreviation(value: string) {
+  return baziTenGodAbbreviationMap[value] ?? value;
+}
+
 export function splitGanZhi(value: string) {
   return [value.charAt(0), value.charAt(1)];
 }

@@ -1,205 +1,204 @@
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-  type CSSProperties,
-} from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { SegmentedControl } from '@/components/SegmentedControl';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PrivacyHint } from '@/components/PrivacyHint';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
-import { upsertCompatibilityHistory, upsertPersonalHistory } from '@/lib/history-records';
 import {
-  buildResultSearch,
+  sortPersonalCasesForQuickSwitch,
+  upsertCompatibilityHistory,
+  upsertPersonalHistory,
+  type PersonalHistoryRecord,
+} from '@/lib/history-records';
+import {
   defaultInputState,
   defaultPromptState,
+  hasCompletePreciseBirthData,
+  parseInputState,
+  type PromptSourceKey,
   type QueryInputState,
+  type ResultTabKey,
 } from '@/lib/query-state';
+import {
+  buildChartRecordPath,
+  CHART_RECORD_PARAM,
+  normalizeChartInputForSource,
+} from '@/lib/case-navigation';
 import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
+import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
+import {
+  applyPersonalCaseToCompatibilityPerson,
+  hydratePersonalCaseInput,
+} from '@/lib/compatibility-case-selection';
+import { isChartWorkspaceId, type ChartWorkspaceId } from '@/lib/workspace';
+import type { InstantTimeStandard } from 'mingyu-core/instant';
+import {
+  buildFrontendInstantObserver,
+  buildInstantResultPath,
+  getInstantChartTypeForWorkspace,
+  instantChartNeedsObserver,
+} from '@/lib/instant-chart';
+import { buildWorkspaceLaunchState, readWorkspaceLaunchState } from '@/lib/workspace-launch';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
+import {
+  WorkspaceButton,
+  WorkspaceDialog,
+  WorkspacePage,
+} from '@/components/workspace/WorkspaceUI';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
-import { AiSettingsModal } from '@/components/AiSettingsModal';
-import { useAiSettings } from '@/hooks/useAiSettings';
-import { resolveInputEntryMode, type InputEntryMode } from './input-entry-mode';
 
-const DONATION_URL = 'https://lk.sydf.cc/';
-const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
+type ChartToolConfig = {
+  label: string;
+  chartType: QueryInputState['chartType'];
+  promptSource: PromptSourceKey;
+  resultTab: ResultTabKey;
+  preciseBirthData: boolean;
+  compatibility: boolean;
+};
 
-const LazyDivinationPanel = lazy(async () => {
-  const module = await import('@/components/DivinationPanel');
-  return { default: module.DivinationPanel };
-});
+const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
+  bazi: {
+    label: '八字',
+    chartType: 'bazi',
+    promptSource: 'bazi',
+    resultTab: 'bazi',
+    preciseBirthData: false,
+    compatibility: false,
+  },
+  ziwei: {
+    label: '紫微斗数',
+    chartType: 'ziwei',
+    promptSource: 'ziwei',
+    resultTab: 'ziwei',
+    preciseBirthData: false,
+    compatibility: false,
+  },
+  'bazi-ziwei': {
+    label: '八字紫微合参',
+    chartType: 'bazi',
+    promptSource: 'bazi-ziwei',
+    resultTab: 'bazi',
+    preciseBirthData: false,
+    compatibility: false,
+  },
+  astrolabe: {
+    label: '西洋星盘',
+    chartType: 'astrolabe',
+    promptSource: 'astrolabe',
+    resultTab: 'astrolabe',
+    preciseBirthData: true,
+    compatibility: false,
+  },
+  qizheng: {
+    label: '七政四余',
+    chartType: 'astrolabe',
+    promptSource: 'qizheng',
+    resultTab: 'qizheng',
+    preciseBirthData: true,
+    compatibility: false,
+  },
+  bazhai: {
+    label: '八宅风水',
+    chartType: 'bazi',
+    promptSource: 'bazhai',
+    resultTab: 'bazhai',
+    preciseBirthData: false,
+    compatibility: false,
+  },
+  compatibility: {
+    label: '双人合盘',
+    chartType: 'bazi',
+    promptSource: 'bazi',
+    resultTab: 'bazi',
+    preciseBirthData: false,
+    compatibility: true,
+  },
+};
+
+function createFormForTool(config: ChartToolConfig): QueryInputState {
+  return {
+    ...defaultInputState,
+    analysisMode: config.compatibility ? 'compatibility' : 'single',
+    chartType: config.chartType,
+    useTrueSolarTime: false,
+  };
+}
+
+function normalizeFormForTool(input: QueryInputState, config: ChartToolConfig): QueryInputState {
+  return {
+    ...normalizeChartInputForSource(input, config.promptSource),
+    analysisMode: config.compatibility ? 'compatibility' : 'single',
+  };
+}
+
+function createFormFromLocation(
+  searchParams: URLSearchParams,
+  config: ChartToolConfig,
+  routeCase: PersonalHistoryRecord | null,
+) {
+  const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
+  const snapshot = hasInputSnapshot ? parseInputState(searchParams) : createFormForTool(config);
+  const input = routeCase ? hydratePersonalCaseInput(snapshot, routeCase) : snapshot;
+  return normalizeFormForTool(input, config);
+}
 
 export function InputPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const launchState = useMemo(() => readWorkspaceLaunchState(location.state), [location.state]);
+  const { tool: toolParam } = useParams();
+  const [searchParams] = useSearchParams();
   const [, startSubmitTransition] = useTransition();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [form, setForm] = useState<QueryInputState>(defaultInputState);
-  const [entryMode, setEntryMode] = useState<InputEntryMode>(() =>
-    resolveInputEntryMode(searchParams),
+  const tool = isChartWorkspaceId(toolParam) ? toolParam : null;
+  const config = tool ? CHART_TOOL_CONFIG[tool] : CHART_TOOL_CONFIG.bazi;
+  const { cases, activeCaseId } = useActivePersonalCase();
+  const routeCaseId = searchParams.get(CHART_RECORD_PARAM);
+  const routeCase = useMemo(
+    () => cases.find((record) => record.id === routeCaseId) ?? null,
+    [cases, routeCaseId],
+  );
+  const [form, setForm] = useState<QueryInputState>(() =>
+    createFormFromLocation(searchParams, config, routeCase),
   );
   const [error, setError] = useState('');
-  const [aiSettings, setAiSettings] = useAiSettings();
-  const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState(false);
-  const mainContentRef = useRef<HTMLDivElement | null>(null);
-  const tutorialEntryRef = useRef<HTMLDivElement | null>(null);
-  const [tutorialEntryPinned, setTutorialEntryPinned] = useState(false);
-  const [bottomToolsHeight, setBottomToolsHeight] = useState(0);
-
+  const [isInstantDialogOpen, setIsInstantDialogOpen] = useState(false);
+  const [casePickerRole, setCasePickerRole] = useState<PersonRole | null>(null);
+  const [caseSearchText, setCaseSearchText] = useState('');
+  const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
+  const [resumeInstantDialogAfterPlace, setResumeInstantDialogAfterPlace] = useState(false);
   const birthPlace = useBirthPlace({ form, setForm });
-
-  useEffect(() => {
-    const nextEntryMode = resolveInputEntryMode(searchParams);
-    setEntryMode(nextEntryMode);
-
-    if (nextEntryMode === 'divination' || nextEntryMode === 'almanac') {
-      return;
-    }
-
-    setForm((current) => {
-      const nextAnalysisMode = nextEntryMode === 'compatibility' ? 'compatibility' : 'single';
-      return current.analysisMode === nextAnalysisMode
-        ? current
-        : {
-            ...current,
-            analysisMode: nextAnalysisMode,
-            chartType: 'bazi',
-          };
+  const instantType = getInstantChartTypeForWorkspace(tool ?? '');
+  const visibleCases = useMemo(() => {
+    const query = caseSearchText.trim().toLowerCase();
+    return sortPersonalCasesForQuickSwitch(cases).filter((record) => {
+      if (!query) return true;
+      return `${record.name} ${record.birthText} ${record.input.birthPlace}`
+        .toLowerCase()
+        .includes(query);
     });
-  }, [searchParams]);
+  }, [caseSearchText, cases]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      upsertPersonalHistory(form);
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    form.name,
-    form.gender,
-    form.dateType,
-    form.year,
-    form.month,
-    form.day,
-    form.timeIndex,
-    form.isLeapMonth,
-    form.useTrueSolarTime,
-    form.birthHour,
-    form.birthMinute,
-    form.birthPlace,
-    form.birthLongitude,
-    form.birthLatitude,
-  ]);
+    if (!tool) return;
+    const nextConfig = CHART_TOOL_CONFIG[tool];
+    setError('');
+    setForm(createFormFromLocation(searchParams, nextConfig, routeCase));
+  }, [location.key, routeCase, searchParams, tool]);
 
   useEffect(() => {
-    if (form.analysisMode !== 'compatibility') {
-      return;
+    if (!resumeInstantDialogAfterPlace || birthPlace.isBirthPlaceModalOpen) return;
+    if (buildFrontendInstantObserver(form)) {
+      setIsInstantDialogOpen(true);
     }
+    setResumeInstantDialogAfterPlace(false);
+  }, [birthPlace.isBirthPlaceModalOpen, form, resumeInstantDialogAfterPlace]);
 
-    const timer = window.setTimeout(() => {
-      upsertCompatibilityHistory(form);
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    form.analysisMode,
-    form.name,
-    form.gender,
-    form.dateType,
-    form.year,
-    form.month,
-    form.day,
-    form.timeIndex,
-    form.isLeapMonth,
-    form.useTrueSolarTime,
-    form.birthHour,
-    form.birthMinute,
-    form.birthPlace,
-    form.birthLongitude,
-    form.birthLatitude,
-    form.partnerName,
-    form.partnerGender,
-    form.partnerDateType,
-    form.partnerYear,
-    form.partnerMonth,
-    form.partnerDay,
-    form.partnerTimeIndex,
-    form.partnerIsLeapMonth,
-    form.partnerUseTrueSolarTime,
-    form.partnerBirthHour,
-    form.partnerBirthMinute,
-    form.partnerBirthPlace,
-    form.partnerBirthLongitude,
-    form.partnerBirthLatitude,
-  ]);
-
-  useEffect(() => {
-    const mainContentNode = mainContentRef.current;
-    const tutorialEntryNode = tutorialEntryRef.current;
-    if (!mainContentNode || !tutorialEntryNode) {
-      return;
-    }
-
-    let frameId = 0;
-
-    function updateTutorialEntryMode() {
-      frameId = 0;
-      if (!mainContentNode || !tutorialEntryNode) {
-        return;
-      }
-      const mainContentHeight = mainContentNode.getBoundingClientRect().height;
-      const tutorialEntryHeight = tutorialEntryNode.getBoundingClientRect().height;
-      setBottomToolsHeight((current) =>
-        current === Math.ceil(tutorialEntryHeight) ? current : Math.ceil(tutorialEntryHeight),
-      );
-      const shouldPin = mainContentHeight + tutorialEntryHeight + 56 <= window.innerHeight;
-      setTutorialEntryPinned((current) => (current === shouldPin ? current : shouldPin));
-    }
-
-    function scheduleUpdate() {
-      if (frameId) {
-        window.cancelAnimationFrame(frameId);
-      }
-      frameId = window.requestAnimationFrame(updateTutorialEntryMode);
-    }
-
-    scheduleUpdate();
-    window.addEventListener('resize', scheduleUpdate);
-
-    if (typeof ResizeObserver === 'undefined') {
-      return () => {
-        window.removeEventListener('resize', scheduleUpdate);
-        if (frameId) {
-          window.cancelAnimationFrame(frameId);
-        }
-      };
-    }
-
-    const resizeObserver = new ResizeObserver(scheduleUpdate);
-    resizeObserver.observe(mainContentNode);
-    resizeObserver.observe(tutorialEntryNode);
-
-    return () => {
-      window.removeEventListener('resize', scheduleUpdate);
-      resizeObserver.disconnect();
-      if (frameId) {
-        window.cancelAnimationFrame(frameId);
-      }
-    };
-  }, [entryMode]);
+  if (!tool) {
+    return <Navigate to="/chart/bazi" replace />;
+  }
 
   function updateField<K extends keyof QueryInputState>(key: K, value: QueryInputState[K]) {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
+    setForm((current) => ({ ...current, [key]: value }));
   }
 
   function updatePersonField(
@@ -221,315 +220,347 @@ export function InputPage() {
     }
   }
 
-  function handleSubmit() {
-    setError('');
-    const selfLabel = getPersonReferenceLabel(form.analysisMode, 'self');
-
-    if (!form.year || !form.month || !form.day) {
-      setError(`请填写完整的${selfLabel}信息`);
-      return;
-    }
-
-    if (!form.useTrueSolarTime && form.timeIndex === '') {
-      setError(`请选择${selfLabel}的出生时辰`);
-      return;
-    }
-
-    if (form.useTrueSolarTime && (form.birthHour === '' || form.birthMinute === '')) {
-      setError(`请填写${selfLabel}的精准出生时间`);
-      return;
-    }
-
-    if (form.useTrueSolarTime && (!form.birthPlace.trim() || !form.birthLongitude.trim())) {
-      setError(`请先为${selfLabel}选择出生地`);
-      return;
-    }
-
-    const selfCheck = validateBirthInput(
-      {
-        year: form.year,
-        month: form.month,
-        day: form.day,
-        dateType: form.dateType,
-        useTrueSolarTime: form.useTrueSolarTime,
-        birthHour: form.birthHour,
-        birthMinute: form.birthMinute,
-        birthLongitude: form.birthLongitude,
-      },
-      selfLabel,
-    );
-    if (!selfCheck.ok) {
-      setError(selfCheck.message);
-      return;
-    }
-
-    if (form.analysisMode === 'compatibility') {
-      if (!form.partnerYear || !form.partnerMonth || !form.partnerDay) {
-        setError('请填写完整的第二人信息');
-        return;
-      }
-
-      if (!form.partnerUseTrueSolarTime && form.partnerTimeIndex === '') {
-        setError('请选择第二人的出生时辰');
-        return;
-      }
-
-      if (
-        form.partnerUseTrueSolarTime &&
-        (form.partnerBirthHour === '' || form.partnerBirthMinute === '')
-      ) {
-        setError('请填写第二人的精准出生时间');
-        return;
-      }
-
-      if (
-        form.partnerUseTrueSolarTime &&
-        (!form.partnerBirthPlace.trim() || !form.partnerBirthLongitude.trim())
-      ) {
-        setError('请先为第二人选择出生地');
-        return;
-      }
-
-      const partnerCheck = validateBirthInput(
-        {
-          year: form.partnerYear,
-          month: form.partnerMonth,
-          day: form.partnerDay,
-          dateType: form.partnerDateType,
-          useTrueSolarTime: form.partnerUseTrueSolarTime,
-          birthHour: form.partnerBirthHour,
-          birthMinute: form.partnerBirthMinute,
-          birthLongitude: form.partnerBirthLongitude,
-        },
-        '第二人',
-      );
-      if (!partnerCheck.ok) {
-        setError(partnerCheck.message);
-        return;
-      }
-    }
-
-    startSubmitTransition(() => {
-      navigate({
-        pathname: '/result',
-        search: `?${buildResultSearch(form, {
-          ...defaultPromptState,
-          tab: 'prompt',
-          promptSource: 'bazi',
-          baziShortcutMode:
-            form.analysisMode === 'compatibility' ? '合婚' : defaultPromptState.baziShortcutMode,
-          baziPresetId:
-            form.analysisMode === 'compatibility'
-              ? 'ai-compat-marriage'
-              : defaultPromptState.baziPresetId,
-        })}`,
-      });
-    });
-  }
-
   function updateBirthTime(role: PersonRole, value: string) {
     if (!value) {
       updatePersonField(role, 'birthHour', '');
       updatePersonField(role, 'birthMinute', '');
       return;
     }
-
     const [hour, minute] = value.split(':');
     updatePersonField(role, 'birthHour', hour);
     updatePersonField(role, 'birthMinute', minute);
   }
 
-  function updateEntryMode(value: InputEntryMode) {
-    setEntryMode(value);
-
-    if (value === 'single' || value === 'compatibility') {
-      updateField('analysisMode', value);
-    }
-
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('mode', value);
-    if (value !== 'single') {
-      nextSearchParams.delete('chart');
-    }
-    setSearchParams(nextSearchParams, { replace: true });
+  function openCasePicker(role: PersonRole) {
+    setCaseSearchText('');
+    setCasePickerRole(role);
   }
 
-  const divinationPanelFallback = (
-    <div className="divination-panel-shell input-mode-loading" aria-hidden="true">
-      <section className="person-section divination-form-card input-mode-loading-card">
-        <div className="person-section-head input-mode-loading-head">
-          <span className="skeleton-block input-mode-loading-title" />
-          <span className="skeleton-block input-mode-loading-line" />
-        </div>
-        <div className="input-mode-loading-methods">
-          {Array.from({ length: 8 }, (_, index) => (
-            <span className="skeleton-block input-mode-loading-method" key={`method-${index}`} />
-          ))}
-        </div>
-        <span className="skeleton-block input-mode-loading-textarea" />
-        <div className="input-mode-loading-controls">
-          <span className="skeleton-block input-mode-loading-control" />
-          <span className="skeleton-block input-mode-loading-control" />
-          <span className="skeleton-block input-mode-loading-chip" />
-        </div>
-        <div className="input-mode-loading-meta">
-          <span className="skeleton-block input-mode-loading-field" />
-          <span className="skeleton-block input-mode-loading-field" />
-        </div>
-      </section>
-      <div className="form-actions page-submit-actions" aria-hidden="true">
-        <span className="skeleton-block input-mode-loading-action" />
-        <span className="skeleton-block input-mode-loading-action" />
-      </div>
-    </div>
-  );
+  function closeCasePicker() {
+    setCasePickerRole(null);
+    setCaseSearchText('');
+  }
+
+  function chooseCase(record: PersonalHistoryRecord) {
+    if (!casePickerRole) return;
+    setForm((current) => applyPersonalCaseToCompatibilityPerson(current, record, casePickerRole));
+    setError('');
+    closeCasePicker();
+  }
+
+  function validatePerson(role: PersonRole) {
+    const isPartner = role === 'partner';
+    const label = getPersonReferenceLabel(form.analysisMode, role);
+    const year = isPartner ? form.partnerYear : form.year;
+    const month = isPartner ? form.partnerMonth : form.month;
+    const day = isPartner ? form.partnerDay : form.day;
+    const timeIndex = isPartner ? form.partnerTimeIndex : form.timeIndex;
+    const useTrueSolarTime = isPartner ? form.partnerUseTrueSolarTime : form.useTrueSolarTime;
+    const birthHour = isPartner ? form.partnerBirthHour : form.birthHour;
+    const birthMinute = isPartner ? form.partnerBirthMinute : form.birthMinute;
+    const birthPlaceText = isPartner ? form.partnerBirthPlace : form.birthPlace;
+    const birthLongitude = isPartner ? form.partnerBirthLongitude : form.birthLongitude;
+    const dateType = isPartner ? form.partnerDateType : form.dateType;
+
+    if (!year || !month || !day) return `请填写完整的${label}信息`;
+    const requiresPreciseBirthData = role === 'self' && config.preciseBirthData;
+    const validateAsPreciseBirthData = useTrueSolarTime || requiresPreciseBirthData;
+    if (!validateAsPreciseBirthData && timeIndex === '') return `请选择${label}的出生时辰`;
+    if (validateAsPreciseBirthData && (birthHour === '' || birthMinute === '')) {
+      return `请填写${label}的精准出生时间`;
+    }
+    if (validateAsPreciseBirthData && (!birthPlaceText.trim() || !birthLongitude.trim())) {
+      return `请先为${label}选择出生地`;
+    }
+
+    const result = validateBirthInput(
+      {
+        year,
+        month,
+        day,
+        dateType,
+        useTrueSolarTime: validateAsPreciseBirthData,
+        birthHour,
+        birthMinute,
+        birthLongitude,
+      },
+      label,
+    );
+    return result.ok ? '' : result.message;
+  }
+
+  function handleSubmit() {
+    setError('');
+    const selfError = validatePerson('self');
+    if (selfError) {
+      setError(selfError);
+      return;
+    }
+    let recordId: string | undefined;
+    if (config.compatibility) {
+      const partnerError = validatePerson('partner');
+      if (partnerError) {
+        setError(partnerError);
+        return;
+      }
+      recordId = upsertCompatibilityHistory(form)[0]?.id;
+    } else {
+      recordId = upsertPersonalHistory(
+        form,
+        config.promptSource,
+        routeCaseId ?? activeCaseId ?? undefined,
+      )[0]?.id;
+    }
+
+    startSubmitTransition(() => {
+      navigate(
+        buildChartRecordPath(
+          form,
+          {
+            ...defaultPromptState,
+            tab: config.resultTab,
+            promptSource: config.promptSource,
+            baziShortcutMode: config.compatibility ? '合婚' : defaultPromptState.baziShortcutMode,
+            baziPresetId: config.compatibility
+              ? 'ai-compat-marriage'
+              : defaultPromptState.baziPresetId,
+          },
+          recordId,
+        ),
+        {
+          state: buildWorkspaceLaunchState(launchState.initialQuestion, {
+            supplementaryInfo: launchState.initialSupplementaryInfo,
+          }),
+        },
+      );
+    });
+  }
+
+  function openInstantLocationPicker() {
+    setIsInstantDialogOpen(false);
+    setResumeInstantDialogAfterPlace(true);
+    birthPlace.openBirthPlaceModal('self');
+  }
+
+  function handleInstantSubmit() {
+    if (!instantType) return;
+    setError('');
+    const observer = buildFrontendInstantObserver(form);
+    if (instantChartNeedsObserver(instantType, instantTimeStandard) && !observer) {
+      setError('请先选择观测地点，再使用这一时间口径即时起盘。');
+      openInstantLocationPicker();
+      return;
+    }
+    setIsInstantDialogOpen(false);
+    startSubmitTransition(() => {
+      navigate(
+        buildInstantResultPath({
+          type: instantType,
+          timeStandard: instantTimeStandard,
+          observer,
+        }),
+        {
+          state: buildWorkspaceLaunchState(launchState.initialQuestion, {
+            supplementaryInfo: launchState.initialSupplementaryInfo,
+          }),
+        },
+      );
+    });
+  }
 
   return (
-    <div
-      className={`page-shell input-page-shell ${tutorialEntryPinned ? 'has-floating-tutorial-entry' : ''}`}
-      style={{ '--input-bottom-tools-height': `${bottomToolsHeight}px` } as CSSProperties}
-    >
-      <div className="bazi-view-container">
-        <div className="input-page-main-content" ref={mainContentRef}>
-          <PrivacyHint />
-          <div className="analysis-mode-strip">
-            <div className="top-switch-control">
-              <SegmentedControl
-                value={entryMode}
-                options={[
-                  { label: '排盘', value: 'single' as const },
-                  { label: '合盘', value: 'compatibility' as const },
-                  { label: '占卜', value: 'divination' as const },
-                  { label: '择日', value: 'almanac' as const },
-                ]}
-                onChange={updateEntryMode}
-              />
-              <button
-                type="button"
-                className="top-ai-settings-icon-button"
-                onClick={() => setIsAiSettingsModalOpen(true)}
-                aria-label="AI 设置"
-                title="AI 设置"
-              >
-                <span aria-hidden="true">⚙</span>
-              </button>
+    <div className={`workspace-input-page${config.compatibility ? ' is-compatibility' : ''}`}>
+      <WorkspacePage
+        title={config.label}
+        width={config.compatibility ? 'wide' : 'default'}
+        action={
+          instantType ? (
+            <WorkspaceButton size="small" onClick={() => setIsInstantDialogOpen(true)}>
+              即时起盘
+            </WorkspaceButton>
+          ) : null
+        }
+      >
+        <PrivacyHint />
+        <div className={`workspace-ui-form-layout${config.compatibility ? ' is-two-column' : ''}`}>
+          <PersonForm
+            role="self"
+            form={form}
+            updatePersonField={updatePersonField}
+            updateNumericField={updateNumericField}
+            updateBirthTime={updateBirthTime}
+            openBirthPlaceModal={birthPlace.openBirthPlaceModal}
+            sectionTitle={config.compatibility ? '本人资料' : '出生资料'}
+            headerAction={
+              config.compatibility ? (
+                <WorkspaceButton size="small" onClick={() => openCasePicker('self')}>
+                  从案例选择
+                </WorkspaceButton>
+              ) : null
+            }
+            footerHint={
+              routeCase &&
+              (config.preciseBirthData || form.useTrueSolarTime) &&
+              !hasCompletePreciseBirthData(routeCase.input)
+                ? `填写后会补全“${routeCase.name}”，以后无需重复输入。`
+                : null
+            }
+            forcePreciseBirthPlace={config.preciseBirthData}
+          />
+          {config.compatibility ? (
+            <PersonForm
+              role="partner"
+              form={form}
+              updatePersonField={updatePersonField}
+              updateNumericField={updateNumericField}
+              updateBirthTime={updateBirthTime}
+              openBirthPlaceModal={birthPlace.openBirthPlaceModal}
+              sectionTitle="对方资料"
+              headerAction={
+                <WorkspaceButton size="small" onClick={() => openCasePicker('partner')}>
+                  从案例选择
+                </WorkspaceButton>
+              }
+            />
+          ) : null}
+        </div>
+
+        {error ? <div className="workspace-ui-form-error">{error}</div> : null}
+
+        <div className="workspace-ui-form-actions is-sticky-mobile">
+          <WorkspaceButton variant="primary" size="large" block onClick={handleSubmit}>
+            查看完整{config.label}盘面
+          </WorkspaceButton>
+        </div>
+      </WorkspacePage>
+
+      {birthPlace.isBirthPlaceModalOpen ? (
+        <BirthPlaceModal
+          birthPlace={birthPlace}
+          purpose={resumeInstantDialogAfterPlace ? 'observer' : 'birth'}
+        />
+      ) : null}
+      {casePickerRole ? (
+        <WorkspaceDialog
+          className="compatibility-case-picker"
+          labelledBy="compatibility-case-picker-title"
+          onClose={closeCasePicker}
+        >
+          <header className="workspace-ui-dialog-header">
+            <div>
+              <h2 id="compatibility-case-picker-title">
+                选择{casePickerRole === 'self' ? '本人' : '对方'}案例
+              </h2>
+              <p>选中后只替换这一方的出生资料。</p>
             </div>
-          </div>
-
-          <div className="analysis-view">
-            {entryMode === 'divination' || entryMode === 'almanac' ? (
-              <Suspense fallback={divinationPanelFallback}>
-                <LazyDivinationPanel
-                  initialMethod={entryMode === 'almanac' ? 'almanac' : undefined}
-                  lockedMethod={entryMode === 'almanac' ? 'almanac' : undefined}
-                />
-              </Suspense>
-            ) : (
-              <div className="form-wrapper">
-                <>
-                  <PersonForm
-                    role="self"
-                    form={form}
-                    updatePersonField={updatePersonField}
-                    updateNumericField={updateNumericField}
-                    updateBirthTime={updateBirthTime}
-                    openBirthPlaceModal={birthPlace.openBirthPlaceModal}
-                    historyHint={
-                      form.analysisMode === 'single'
-                        ? '填写一份个人信息，自动生成八字、紫微和住宅风水入口；填写精准时间与出生地后，同时生成星盘和七政四余。'
-                        : undefined
-                    }
-                  />
-                  {entryMode === 'compatibility' ? (
-                    <PersonForm
-                      role="partner"
-                      form={form}
-                      updatePersonField={updatePersonField}
-                      updateNumericField={updateNumericField}
-                      updateBirthTime={updateBirthTime}
-                      openBirthPlaceModal={birthPlace.openBirthPlaceModal}
-                    />
-                  ) : null}
-
-                  {error ? <div className="form-error-text global-form-error">{error}</div> : null}
-
-                  <div
-                    className="form-actions page-submit-actions"
-                    style={{
-                      width: '100%',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      justifyItems: 'stretch',
-                    }}
+            <WorkspaceButton
+              variant="ghost"
+              size="small"
+              aria-label="关闭案例选择"
+              onClick={closeCasePicker}
+            >
+              关闭
+            </WorkspaceButton>
+          </header>
+          <div className="workspace-ui-dialog-body compatibility-case-picker-body">
+            <input
+              type="search"
+              className="workspace-ui-control compatibility-case-search"
+              value={caseSearchText}
+              placeholder="搜索姓名、日期或出生地"
+              aria-label="搜索案例"
+              onChange={(event) => setCaseSearchText(event.target.value)}
+            />
+            {visibleCases.length ? (
+              <div className="compatibility-case-options">
+                {visibleCases.map((record) => (
+                  <button
+                    type="button"
+                    key={record.id}
+                    className="compatibility-case-option"
+                    onClick={() => chooseCase(record)}
                   >
-                    <button
-                      className="secondary-page-button"
-                      type="button"
-                      style={{ width: '100%' }}
-                      onClick={() =>
-                        navigate(
-                          `/records?tab=${entryMode === 'compatibility' ? 'compatibility' : 'personal'}`,
-                        )
-                      }
-                    >
-                      历史记录
-                    </button>
-                    <button
-                      className="primary-button start-submit-button"
-                      type="button"
-                      onClick={handleSubmit}
-                      style={{ width: '100%' }}
-                    >
-                      开始排盘
-                    </button>
-                  </div>
-                </>
+                    <span className="compatibility-case-option-mark" aria-hidden="true">
+                      {record.name.trim().slice(0, 1) || '案'}
+                    </span>
+                    <span className="compatibility-case-option-copy">
+                      <strong>{record.name}</strong>
+                      <small>
+                        {record.gender === 'male' ? '男' : '女'} · {record.birthText}
+                        {record.input.birthPlace ? ` · ${record.input.birthPlace}` : ''}
+                      </small>
+                    </span>
+                    {record.pinned ? <span className="compatibility-case-pinned">置顶</span> : null}
+                    <span className="compatibility-case-option-arrow" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="workspace-ui-empty">
+                {cases.length ? '没有匹配的案例' : '还没有可选择的案例'}
               </div>
             )}
           </div>
-        </div>
-
-        <div
-          className={`input-page-bottom-tools ${tutorialEntryPinned ? 'is-floating' : 'is-inline'}`}
-          ref={tutorialEntryRef}
+        </WorkspaceDialog>
+      ) : null}
+      {isInstantDialogOpen && instantType ? (
+        <WorkspaceDialog
+          className="workspace-instant-dialog"
+          labelledBy="workspace-instant-dialog-title"
+          onClose={() => setIsInstantDialogOpen(false)}
         >
-          {isDonationBoxEnabled ? (
-            <div className="donation-entry-strip">
-              <a
-                className="donation-entry-button"
-                href={DONATION_URL}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span className="donation-entry-title">功德箱</span>
-                <span className="donation-entry-note">支持项目继续维护</span>
-              </a>
+          <header className="workspace-ui-dialog-header">
+            <div>
+              <h2 id="workspace-instant-dialog-title">即时起盘</h2>
+              <p>以点击起盘时的当前时刻生成，不加入案例。</p>
             </div>
-          ) : null}
-          <div className="tutorial-entry-card">
-            <div className="tutorial-entry-copy">
-              <strong>第一次使用？先看教程</strong>
-              <p>里面会说明不同模式分别怎么用，以及从录入到查看结果的完整步骤。</p>
-            </div>
-            <div className="tutorial-entry-actions">
+          </header>
+          <div className="workspace-ui-dialog-body workspace-instant-dialog-body">
+            <div
+              className="workspace-instant-standard is-dialog"
+              role="group"
+              aria-label="时间口径"
+            >
               <button
                 type="button"
-                className="tutorial-entry-button"
-                onClick={() => navigate('/tutorial')}
+                className={instantTimeStandard === 'beijing' ? 'is-active' : ''}
+                aria-pressed={instantTimeStandard === 'beijing'}
+                onClick={() => setInstantTimeStandard('beijing')}
               >
-                查看教程
+                <strong>北京时间</strong>
+                <small>按东八区当前时刻</small>
+              </button>
+              <button
+                type="button"
+                className={instantTimeStandard === 'true-solar' ? 'is-active' : ''}
+                aria-pressed={instantTimeStandard === 'true-solar'}
+                onClick={() => setInstantTimeStandard('true-solar')}
+              >
+                <strong>真太阳时</strong>
+                <small>按地点经度校正</small>
               </button>
             </div>
+            {instantChartNeedsObserver(instantType, instantTimeStandard) ? (
+              <button
+                type="button"
+                className="workspace-instant-place is-dialog"
+                onClick={openInstantLocationPicker}
+              >
+                <span>观测地点</span>
+                <strong>{form.birthPlace || '选择地点'}</strong>
+                <span aria-hidden="true">›</span>
+              </button>
+            ) : null}
           </div>
-        </div>
-      </div>
-
-      {birthPlace.isBirthPlaceModalOpen ? <BirthPlaceModal birthPlace={birthPlace} /> : null}
-      {isAiSettingsModalOpen ? (
-        <AiSettingsModal
-          settings={aiSettings}
-          onApply={setAiSettings}
-          onClose={() => setIsAiSettingsModalOpen(false)}
-        />
+          <footer className="workspace-ui-dialog-footer">
+            <WorkspaceButton onClick={() => setIsInstantDialogOpen(false)}>取消</WorkspaceButton>
+            <WorkspaceButton variant="primary" onClick={handleInstantSubmit}>
+              立即起盘
+            </WorkspaceButton>
+          </footer>
+        </WorkspaceDialog>
       ) : null}
     </div>
   );

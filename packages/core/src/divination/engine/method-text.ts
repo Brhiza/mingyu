@@ -8,7 +8,7 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     case 'meihua':
       return '依据体用、互卦、变卦与四时旺衰回答【问题】。';
     case 'xiaoliuren':
-      return '依据占得宫与歌诀回答【问题】。';
+      return '依据本次顺数结果、时宫与歌诀回答【问题】。';
     case 'jinkoujue':
       return '依据地分、将神、贵神、人元四位、阴阳发用与五动三动回答【问题】。';
     case 'qimen':
@@ -20,11 +20,13 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     case 'ssgw':
       return '依据签诗原文和签题回答【问题】。';
     case 'almanac':
-      return '请依据候选日期、宜忌、建除、神煞与参与人资料，给出首选日期、备选日期和慎用日期。';
+      return '';
     case 'astrolabe':
       return '依据星体、宫位和相位回答【问题】。';
     case 'taiyi':
       return '依据年家局数、太乙、文昌、始击、计神与主客算回答【问题】。';
+    case 'huangji':
+      return '依据元会运世位置、会内统卦、运卦、六十年统卦、十年卦、值年卦以及月经、旬纬、日卦和时经卦回答【问题】。';
     default:
       return '请结合占卜信息回答【问题】。';
   }

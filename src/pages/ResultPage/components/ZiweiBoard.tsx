@@ -1,12 +1,16 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
-import { createSecureId } from '@/lib/secure-id';
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { ZiweiRuntimeState } from '../ResultPage.types';
 import { getZiweiDisplaySurroundedPalaces, joinText } from '../ResultPage.helpers';
-import { createDisplayWorker } from '../utils/createDisplayWorker';
+import {
+  getCachedZiweiDisplayPayload,
+  getZiweiDisplayKey,
+  getZiweiInputKey,
+  loadZiweiDisplayPayload,
+} from '../utils/ziweiCalculationCache';
 import { ZiweiTraditionalBoard } from './ZiweiTraditionalBoard';
 import { ZiweiFortuneSelector } from './ZiweiFortuneSelector';
 
@@ -16,8 +20,10 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
   payload: AnalysisPayloadV1;
   chartInput: ChartInput;
   runtime: NonNullable<ZiweiRuntimeState>;
+  isInstant?: boolean;
+  timeBasisLabel?: string;
 }) {
-  const { title, name, payload, chartInput, runtime } = props;
+  const { title, name, payload, chartInput, runtime, isInstant = false, timeBasisLabel } = props;
   const defaultContext = useMemo(() => getDefaultHoroscopeContext(), []);
   const [selectedScope, setSelectedScope] = useState<ScopeType>(payload.active_scope.scope);
   const [selectedDateStr, setSelectedDateStr] = useState(payload.active_scope.solar_date);
@@ -27,6 +33,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
   const [selectedPalaceIndex, setSelectedPalaceIndex] = useState(
     payload.active_scope.palace_index ?? payload.palaces[0]?.index ?? 0,
   );
+  const chartInputKey = useMemo(() => getZiweiInputKey(chartInput), [chartInput]);
   const selectedPalace =
     displayPayload.palaces.find((item) => item.index === selectedPalaceIndex) ??
     displayPayload.palaces[0];
@@ -35,12 +42,41 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
     null;
   const surroundedPalaces = getZiweiDisplaySurroundedPalaces(displayPayload, selectedPalace);
   const activeScopeMutagens = uniqueNonEmptyStrings(
-    displayPayload.active_scope.mutagen_map.map((item) => `${item.mutagen} ${item.star}`),
+    displayPayload.active_scope.mutagen_map.map((item) => {
+      const palaceName = item.dynamic_palace_name || item.palace_name;
+      return `${item.star}化${item.mutagen}${palaceName ? `入${palaceName}` : ''}`;
+    }),
   );
-  const detailSummaryTags = selectedPalace
-    ? uniqueNonEmptyStrings(selectedPalace.summary_tags)
+  const selectedPalaceStars = selectedPalace
+    ? [
+        ...selectedPalace.major_stars,
+        ...selectedPalace.minor_stars,
+        ...selectedPalace.other_stars,
+        ...selectedPalace.scope_stars,
+      ]
     : [];
-  const detailScopeHits = selectedPalace ? uniqueNonEmptyStrings(selectedPalace.scope_hits) : [];
+  const selectedPalaceMutagens = uniqueNonEmptyStrings(
+    selectedPalaceStars.flatMap((star) => [
+      star.birth_mutagen ? `${star.name}生年化${star.birth_mutagen}` : '',
+      star.horoscope_mutagen ? `${star.name}运限化${star.horoscope_mutagen}` : '',
+      star.active_scope_mutagen ? `${star.name}当前化${star.active_scope_mutagen}` : '',
+    ]),
+  );
+  const selectedPalaceFlyMutagens = selectedPalace
+    ? uniqueNonEmptyStrings([
+        ...(selectedPalace.self_mutagens?.map((item) => `自化${item}`) ?? []),
+        ...(selectedPalace.mutaged_palaces?.map(
+          (item) => `化${item.mutagen}入${item.palace_name || '未定宫'}`,
+        ) ?? []),
+      ])
+    : [];
+  const detailSummaryTags = selectedPalace
+    ? uniqueNonEmptyStrings(selectedPalace.summary_tags).filter(
+        (item) => !isInstant || !item.includes('童限'),
+      )
+    : [];
+  const detailScopeHits =
+    selectedPalace && !isInstant ? uniqueNonEmptyStrings(selectedPalace.scope_hits) : [];
 
   useEffect(() => {
     setSelectedScope(payload.active_scope.scope);
@@ -58,26 +94,42 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
       return;
     }
 
-    const requestId = `${selectedScope}-${selectedDateStr}-${createSecureId()}`;
-    setIsDisplayPayloadLoading(true);
+    const displayKey = getZiweiDisplayKey(
+      chartInputKey,
+      selectedDateStr,
+      selectedHourIndex,
+      selectedScope,
+    );
+    const cached = getCachedZiweiDisplayPayload(displayKey);
+    if (cached) {
+      setDisplayPayload(cached);
+      setIsDisplayPayloadLoading(false);
+      return;
+    }
 
-    return createDisplayWorker(
-      {
-        id: requestId,
-        input: chartInput,
-        dateStr: selectedDateStr,
-        hourIndex: selectedHourIndex,
-        scope: selectedScope,
-      },
-      (nextPayload) => {
+    let active = true;
+    setIsDisplayPayloadLoading(true);
+    void loadZiweiDisplayPayload(
+      chartInput,
+      chartInputKey,
+      selectedDateStr,
+      selectedHourIndex,
+      selectedScope,
+    )
+      .then((nextPayload) => {
+        if (!active) return;
         setDisplayPayload(nextPayload);
         setIsDisplayPayloadLoading(false);
-      },
-      () => {
+      })
+      .catch(() => {
+        if (!active) return;
         setIsDisplayPayloadLoading(false);
-      },
-    );
-  }, [chartInput, payload, selectedDateStr, selectedHourIndex, selectedScope]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [chartInput, chartInputKey, payload, selectedDateStr, selectedHourIndex, selectedScope]);
 
   useEffect(() => {
     setSelectedPalaceIndex(
@@ -86,7 +138,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
   }, [displayPayload]);
 
   return (
-    <section className="result-showcase-card ziwei-showcase-card">
+    <section className="result-showcase-card ziwei-showcase-card traditional-chart-layout">
       <div className="result-showcase-head">
         <div>
           <p className="result-section-kicker">{title}</p>
@@ -95,7 +147,12 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
         <div className="result-chip-row">
           <span className="result-chip">{displayPayload.active_scope.label}</span>
           <span className="result-chip">{displayPayload.basic_info.birth_time_label}</span>
-          <span className="result-chip">{displayPayload.basic_info.gender}</span>
+          {!isInstant ? (
+            <span className="result-chip">{displayPayload.basic_info.gender}</span>
+          ) : null}
+          {isInstant && timeBasisLabel ? (
+            <span className="result-chip result-chip-highlight">{timeBasisLabel}</span>
+          ) : null}
         </div>
       </div>
 
@@ -115,21 +172,24 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
           <strong>{displayPayload.basic_info.five_elements_class}</strong>
           <small>{displayPayload.basic_info.zodiac}</small>
         </div>
-        <div className="result-stat-card">
-          <span>当前时限</span>
-          <strong>{displayPayload.active_scope.label}</strong>
-          <small>{displayPayload.active_scope.solar_date}</small>
-        </div>
+        {!isInstant ? (
+          <div className="result-stat-card">
+            <span>当前时限</span>
+            <strong>{displayPayload.active_scope.label}</strong>
+            <small>{displayPayload.active_scope.solar_date}</small>
+          </div>
+        ) : null}
       </div>
 
       <div className="ziwei-layout">
         <div className="ziwei-board-stack">
           <ZiweiTraditionalBoard
             payload={displayPayload}
-            boardTitle="传统盘"
+            boardTitle="紫微斗数命盘"
             name={name}
             selectedPalaceIndex={selectedPalaceIndex}
             onSelectPalace={setSelectedPalaceIndex}
+            isInstant={isInstant}
           />
           {isDisplayPayloadLoading ? (
             <div className="ziwei-board-loading-mask" aria-hidden="true">
@@ -221,6 +281,14 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
                       )}
                     </strong>
                   </div>
+                  <div>
+                    <span>宫内四化</span>
+                    <strong>{joinText(selectedPalaceMutagens, '无')}</strong>
+                  </div>
+                  <div>
+                    <span>自化飞化</span>
+                    <strong>{joinText(selectedPalaceFlyMutagens, '无')}</strong>
+                  </div>
                 </div>
                 <div className="result-tag-cloud">
                   {detailSummaryTags.map((tag) => (
@@ -241,17 +309,19 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
             ) : null}
           </div>
 
-          <ZiweiFortuneSelector
-            chartInput={chartInput}
-            payloadByScope={runtime.payloadByScope}
-            decadalTimeline={runtime.decadalTimeline}
-            selectedScope={selectedScope}
-            selectedDateStr={selectedDateStr}
-            onSelectScopeDate={(scope, dateStr) => {
-              setSelectedScope(scope);
-              setSelectedDateStr(dateStr);
-            }}
-          />
+          {!isInstant ? (
+            <ZiweiFortuneSelector
+              chartInput={chartInput}
+              payloadByScope={runtime.payloadByScope}
+              decadalTimeline={runtime.decadalTimeline}
+              selectedScope={selectedScope}
+              selectedDateStr={selectedDateStr}
+              onSelectScopeDate={(scope, dateStr) => {
+                setSelectedScope(scope);
+                setSelectedDateStr(dateStr);
+              }}
+            />
+          ) : null}
         </div>
       </div>
     </section>

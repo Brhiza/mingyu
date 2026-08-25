@@ -21,9 +21,9 @@ export function SegmentedControl<T extends string | number | boolean>(
   const left = `${(100 / options.length) * activeIndex}%`;
 
   return (
-    <div className="segmented-control-react">
+    <div className="workspace-ui-segmented">
       <div
-        className="segmented-control-indicator"
+        className="workspace-ui-segmented-indicator"
         style={{
           width,
           left,
@@ -33,7 +33,7 @@ export function SegmentedControl<T extends string | number | boolean>(
         <button
           key={String(option.value)}
           type="button"
-          className={`segmented-control-item-react ${value === option.value ? 'active' : ''}`}
+          className={`workspace-ui-segmented-item ${value === option.value ? 'is-active' : ''}`}
           onClick={() => onChange(option.value)}
         >
           {option.label}

@@ -11,7 +11,7 @@ import {
 import type { DivinationDraft } from '@/lib/divination/engine';
 
 export const defaultDraft: DivinationDraft = {
-  method: 'random',
+  method: 'liuyao',
   question: '',
   questionSource: 'custom',
   currentSituation: '',
@@ -19,10 +19,16 @@ export const defaultDraft: DivinationDraft = {
   knownFacts: '',
   desiredOutcome: '',
   constraints: '',
+  userSupplement: '',
+  gender: '',
   birthYear: '',
   divinationTimeMode: 'current',
   customDivinationDate: '',
   customDivinationTime: '',
+  divinationTimeStandard: 'beijing',
+  birthPlace: '',
+  birthLongitude: '',
+  birthLatitude: '',
   liuyaoMethod: 'time',
   liuyaoYaos: [],
   liuyaoCoinThrows: [],
@@ -30,7 +36,12 @@ export const defaultDraft: DivinationDraft = {
   meihuaNumber: '',
   xiaoliurenMethod: 'time',
   jinkoujueMethod: 'time',
+  jinkoujueBranch: '子',
   jinkoujueNumber: '',
+  // 网页端固定采用推荐口径；完整计式与排法仍由 API、MCP、Skill 和核心包开放。
+  qimenMethod: 'zhuanpan',
+  qimenScope: 'hour',
+  qimenJuMethod: 'chaibu',
   liuyaoTemplate: 'general',
   liurenTemplate: 'general',
   tarotSpread: 'single',
@@ -42,6 +53,8 @@ export const defaultDraft: DivinationDraft = {
   almanacTopic: 'custom',
   almanacStartDate: '',
   almanacEndDate: '',
+  almanacWeekendPreference: 'any',
+  almanacTimePreferences: [],
   almanacParticipants: [],
   lenormandSpread: 'single',
   lenormandMethod: 'random',
@@ -61,9 +74,10 @@ export const defaultDraft: DivinationDraft = {
   taiyiScope: 'year',
 };
 
-export const methodLabelMap = Object.fromEntries(
-  DIVINATION_METHOD_OPTIONS.map((item) => [item.value, item.label]),
-) as Record<DivinationDraft['method'], string>;
+export const methodLabelMap = Object.fromEntries([
+  ['random', '随机'],
+  ...DIVINATION_METHOD_OPTIONS.map((item) => [item.value, item.label]),
+]) as Record<DivinationDraft['method'], string>;
 
 export const meihuaMethodLabelMap = Object.fromEntries(
   MEIHUA_METHOD_OPTIONS.map((item) => [item.value, item.label]),

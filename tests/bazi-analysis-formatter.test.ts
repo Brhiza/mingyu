@@ -22,7 +22,7 @@ test('命盘基础提示词默认不展开完整大运流年', () => {
   assert.doesNotMatch(text, /【大运】|大运总览:|含\d{4}-\d{4}年流年|当前大运:|近年流年:/);
 });
 
-test('核心判断只保留旺衰、格局和一条取用结论', () => {
+test('核心判断应保留旺衰、格局和取用的可靠依据', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,
     month: 8,
@@ -41,8 +41,12 @@ test('核心判断只保留旺衰、格局和一条取用结论', () => {
   assert.match(text, /格局: /);
   assert.match(text, /取用: 主用/);
   assert.match(text, /；忌/);
+  assert.match(text, /旺衰: [^\n]+（[^\n]+）/);
+  assert.match(text, /格局: [^\n]+（[^\n]+）/);
+  assert.match(text, /取用依据:/);
+  assert.match(text, /【五行】/);
   assert.doesNotMatch(text, /旺衰[^\n]*得分|旺衰拆分:[^\n]*[+-]?\d/);
-  assert.doesNotMatch(text, /旺衰依据:|格局依据:|喜忌五行:|喜忌十神:|十神归类:|取用脉络:|【五行】/);
+  assert.doesNotMatch(text, /喜忌五行:|喜忌十神:|十神归类:|取用脉络:/);
 });
 
 test('八字提示词资料包应输出已计算出的传统节令与柱位证据', () => {
@@ -67,8 +71,11 @@ test('八字提示词资料包应输出已计算出的传统节令与柱位证�
   assert.match(text, /月柱: 甲申[\s\S]*十二运: 病/);
   assert.match(text, /日柱: 戊寅[\s\S]*十二运: 长生/);
   assert.match(text, /时柱: 庚申[\s\S]*十二运: 病/);
-  assert.doesNotMatch(text, /特殊宫位:|纳音|日主十二运:|旬空:/);
-  assert.doesNotMatch(text, /自坐:/);
+  assert.match(text, /【本命辅助】/);
+  assert.match(text, /纳音: 山头火/);
+  assert.match(text, /自坐: 绝/);
+  assert.match(text, /旬空: 申、酉/);
+  assert.doesNotMatch(text, /特殊宫位:|日主十二运:/);
 });
 
 test('神煞互参文案应改为传统辅助提示，避免直接断语', () => {

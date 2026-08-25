@@ -108,7 +108,15 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '塔罗牌',
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '牌位明细'],
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '牌位明细',
+      '牌组属性',
+      '正逆位口径',
+    ],
   },
   {
     sampleName: '三山国王灵签',
@@ -133,6 +141,11 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '住宅风水排盘',
       '玄空',
       '八宅',
+      '玄空完整盘面',
+      '三盘九宫',
+      '八宅完整盘面',
+      '四吉方',
+      '四凶方',
     ],
   },
   {
@@ -162,7 +175,16 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '小六壬',
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '占得宫'],
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '起课',
+      '起课过程',
+      '取用层级',
+      '歌诀原文',
+    ],
   },
   {
     sampleName: '金口诀',
@@ -170,7 +192,14 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '雷诺曼',
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '牌位明细'],
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '牌位明细',
+      '基础牌义',
+    ],
   },
   {
     sampleName: '五运六气',
@@ -178,11 +207,26 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '皇极经世',
-    requiredFields: ['【问题】', '【任务】', '【传统依据】', '【周期资料】', '本元第'],
+    requiredFields: [
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '【周期资料】',
+      '本元第',
+      '周期边界',
+      '下一周期边界',
+    ],
   },
   {
     sampleName: '生肖流年',
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '生肖与流年关系'],
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '生肖与流年关系',
+      '信息范围',
+    ],
   },
 ];
 
@@ -318,6 +362,46 @@ function assertRequiredSampleFields(samples: PromptSample[]) {
 
   if (missingMessages.length > 0) {
     throw new Error(`提示词真实样本字段检查失败：\n${missingMessages.join('\n')}`);
+  }
+}
+
+function assertSamplePromptScopesAreSupported(samples: PromptSample[]) {
+  const unsupportedPatterns: Array<{
+    sampleName: string;
+    patterns: Array<{ label: string; pattern: RegExp }>;
+  }> = [
+    {
+      sampleName: '小六壬',
+      patterns: [
+        { label: '未提供的五行生克', pattern: /五行生克与落宫方位/ },
+        { label: '把月日宫扩写为三段现实过程', pattern: /起因、过程、结果/ },
+        { label: '内部取模公式', pattern: /mod\s*6|\([^\n]+\)\s*mod/u },
+      ],
+    },
+    {
+      sampleName: '皇极经世',
+      patterns: [
+        { label: '自定义纪元没有值年统卦', pattern: /值年统卦/ },
+        { label: '自定义纪元没有卦爻取象', pattern: /卦爻变易|先后天象意/ },
+      ],
+    },
+    {
+      sampleName: '生肖流年',
+      patterns: [{ label: '出生年支不能推出四季节律', pattern: /四季节律/ }],
+    },
+  ];
+  const messages: string[] = [];
+
+  for (const { sampleName, patterns } of unsupportedPatterns) {
+    const sample = samples.find((item) => item.name === sampleName);
+    if (!sample) continue;
+    for (const { label, pattern } of patterns) {
+      if (pattern.test(sample.prompt)) messages.push(`${sampleName} 出现越界内容：${label}`);
+    }
+  }
+
+  if (messages.length) {
+    throw new Error(`提示词资料与任务范围检查失败：\n${messages.join('\n')}`);
   }
 }
 
@@ -823,6 +907,7 @@ async function buildSamples(): Promise<PromptSample[]> {
 async function main() {
   const samples = await buildSamples();
   assertRequiredSampleFields(samples);
+  assertSamplePromptScopesAreSupported(samples);
   assertSamplePromptsAreClean(samples);
   const outputDir = resolve('.local', 'reports', 'prompt-audit');
   mkdirSync(outputDir, { recursive: true });

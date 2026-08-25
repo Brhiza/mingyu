@@ -25,6 +25,9 @@ import {
 } from '../divination/algorithms/qimen/helpers/palace-utils';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
+import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
+import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 
 function joinPromptSentences(items: Array<string | undefined>) {
   return items
@@ -287,7 +290,17 @@ function formatMeihuaInfo(data: MeihuaData) {
 }
 
 function formatXiaoliurenInfo(data: XiaoliurenData) {
-  return ['占法：小六壬', `占得宫：${data.primary.name}`, `歌诀原文：${data.primary.verse}`]
+  return [
+    '占法：小六壬',
+    `起课：农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
+    '起课过程：',
+    `- 定月宫：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月从大安顺数，落${data.sequence.month.name}`,
+    `- 定日宫：从月宫${data.sequence.month.name}起初一，顺数至${data.lunarDay}日，落${data.sequence.day.name}`,
+    `- 定时宫：从日宫${data.sequence.day.name}起子时，顺数至${data.hourLabel}，落${data.sequence.hour.name}`,
+    `取用层级：时宫${data.sequence.hour.name}为本次占得宫与主证；月宫${data.sequence.month.name}、日宫${data.sequence.day.name}为逐宫顺数位置`,
+    `占得宫：${data.primary.name}`,
+    `歌诀原文：${data.primary.verse}`,
+  ]
     .filter(Boolean)
     .join('\n');
 }
@@ -478,12 +491,15 @@ function formatLiurenInfo(data: LiurenData) {
 function formatTarotInfo(data: TarotData) {
   const cardLines = data.cards.map(
     (card) =>
-      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}${card.keywords.length ? `；关键词：${card.keywords.join('、')}` : ''}`,
+      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}${card.keywords.length ? `；关键词：${card.keywords.join('、')}` : ''}${card.element ? `；牌组属性：${card.element}` : ''}`,
   );
 
   return [
     '占法：塔罗',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
+    data.cards.some((card) => card.reversed)
+      ? '正逆位口径：逆位表示该牌主题可能受阻、过度、内化或方向偏离，结合所在牌位与整组牌序判断'
+      : '',
     '牌位明细：',
     ...cardLines,
   ]
@@ -541,86 +557,76 @@ function formatSsgwInfo(data: SsgwData) {
 
 function formatAlmanacInfo(data: AlmanacData) {
   const evidenceAnalysis = analyzeAlmanacEvidence(data);
-  const candidateByDate = new Map(
-    evidenceAnalysis.candidates.map((candidate) => [candidate.date, candidate]),
-  );
-  const preferredDays = data.days
-    .filter((day) => !candidateByDate.get(day.date)?.status.includes('慎用'))
-    .slice(0, 2);
-  const cautiousDay = data.days.find((day) =>
-    candidateByDate.get(day.date)?.status.includes('慎用'),
-  );
-  const topDays = [...preferredDays, ...(cautiousDay ? [cautiousDay] : [])].filter(
-    (day, index, items) => items.findIndex((item) => item.date === day.date) === index,
-  );
   const participantLines = data.participants.map((item) => {
     const usefulEvidenceAvailable =
       item.usefulGods.length > 0 && item.usefulGods.length <= 3 && item.avoidGods.length > 0;
     const useful = usefulEvidenceAvailable
       ? `喜用资料${item.usefulGods.join('、')}，忌神资料${item.avoidGods.join('、')}`
       : '';
-    return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year} ${item.pillars.month} ${item.pillars.day} ${item.pillars.hour}${useful ? `；${useful}` : ''}`;
+    return `- ${item.name}：${item.gender || '性别未填'}；四柱${item.pillars.year} ${item.pillars.month} ${item.pillars.day} ${item.pillars.hour}${useful ? `；${useful}` : ''}`;
   });
-  const dayLines = topDays.flatMap((item, index) => {
+  const promptDays = [...data.days].sort((left, right) => left.date.localeCompare(right.date));
+  const dayLines = promptDays.flatMap((item, index) => {
     const candidate = evidenceAnalysis.candidates.find(
       (candidateItem) => candidateItem.date === item.date,
     );
-    const supportedFacts =
-      candidate?.topicMatchFacts.filter((fact) => fact.status === '支持') ?? [];
-    const limitedFacts = candidate?.topicMatchFacts.filter((fact) => fact.status === '限制') ?? [];
-    const topicRecommendations = [
-      ...new Set(
-        supportedFacts
-          .flatMap((fact) => fact.matchedItems)
-          .filter((value) => !/宜项命中|事项命中/u.test(value)),
-      ),
-    ];
-    const topicAvoids = [
-      ...new Set(
-        limitedFacts
-          .flatMap((fact) => fact.matchedItems)
-          .filter((value) => !/忌项触及|事项命中/u.test(value)),
-      ),
-    ];
-    if (!topicRecommendations.length && supportedFacts.length) {
-      topicRecommendations.push(...item.recommends);
-    }
-    if (!topicAvoids.length && limitedFacts.length) {
-      topicAvoids.push(...item.avoids);
-    }
-    const starFact = candidate?.traditionalFacts.find((fact) => fact.kind === '二十八宿');
-    const starDetail = starFact
-      ? `（${starFact.promptText}）`
-      : item.twentyEightStarDetail
-        ? `（${item.twentyEightStarDetail.fullName}，${item.twentyEightStarDetail.zone}方七宿，原生属性${item.twentyEightStarDetail.fortune}）`
+    const unique = (values: string[]) => [...new Set(values.filter(Boolean))];
+    const topicFacts = item.topicMatchFacts ?? [];
+    const topicRecommendations = unique(
+      topicFacts.filter((fact) => fact.status === '支持').flatMap((fact) => fact.matchedItems),
+    );
+    const topicAvoids = unique(
+      topicFacts.filter((fact) => fact.status === '限制').flatMap((fact) => fact.matchedItems),
+    );
+    const needsLegacyFallback = data.topic === 'custom' || topicFacts.length === 0;
+    const recommendationText = topicRecommendations.length
+      ? `事项宜${topicRecommendations.join('、')}`
+      : needsLegacyFallback
+        ? `宜节选${item.recommends.slice(0, 6).join('、') || '未列'}`
         : '';
-    const evidence = [
-      topicRecommendations.length ? `宜${topicRecommendations.join('、')}` : '',
-      topicAvoids.length ? `忌${topicAvoids.join('、')}` : '',
-      item.participantNotes.some((note) => !/未见.*直接刑冲破害/u.test(note))
-        ? `参与人${item.participantNotes
-            .filter((note) => !/未见.*直接刑冲破害/u.test(note))
-            .join('；')}`
-        : '',
-      candidate?.usableHours.length
-        ? `可用时辰${candidate.usableHours
-            .slice(0, 2)
-            .map((hour) => `${hour.name}${hour.range}（${hour.twelveStar}）`)
-            .join('、')}`
-        : '',
+    const avoidText = topicAvoids.length
+      ? `事项忌${topicAvoids.join('、')}`
+      : needsLegacyFallback
+        ? `忌节选${item.avoids.slice(0, 6).join('、') || '未列'}`
+        : '';
+    const participantNotes = unique(item.participantNotes).filter(
+      (note) => !/未见.*直接|未命中|未采用/u.test(note),
+    );
+    const hourText =
+      data.timePreferences?.length && candidate?.usableHours.length
+        ? candidate.usableHours.map((hour) => hour.name).join('、')
+        : '';
+    const conciseFacts = [
+      recommendationText,
+      avoidText,
+      participantNotes.length ? `参与人${participantNotes.join('；')}` : '',
+      hourText ? `备选时辰${hourText}` : '',
     ].filter(Boolean);
     return [
-      `- 第${index + 1}候选：${item.date} ${item.weekday}，${item.ganzhi.day}日`,
-      `  - 日课：${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，${item.clash}`,
-      ...evidence.map((fact) => `  - ${fact}`),
-    ];
+      `- 第${index + 1}日：${item.date} ${item.weekday}；${item.ganzhi.day}日；建除${item.dayOfficer}；十二神${item.twelveStar}；二十八宿${item.twentyEightStarDetail?.fullName ?? item.twentyEightStar}${item.twentyEightStarDetail?.fortune ? `（${item.twentyEightStarDetail.fortune}）` : ''}；${item.clash}`,
+      conciseFacts.length ? `  ${conciseFacts.join('；')}` : '',
+    ].filter(Boolean);
   });
   return [
     '占法：黄历择日',
     `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}`,
+    data.weekendPreference === 'prefer'
+      ? '日期偏好：优先周末'
+      : data.weekendPreference === 'avoid'
+        ? '日期偏好：避开周末'
+        : '',
+    data.timePreferences?.length
+      ? `时段条件：${[
+          data.timePreferences.includes('work-hours') ? '工作日常规办事时段' : '',
+          data.timePreferences.includes('morning') ? '优先上午' : '',
+          data.timePreferences.includes('afternoon') ? '优先下午' : '',
+        ]
+          .filter(Boolean)
+          .join('、')}`
+      : '',
     participantLines.length ? '参与人资料：' : '',
     ...participantLines,
-    '候选日期明细：',
+    `候选日期明细：共${data.days.length}日`,
     ...dayLines,
   ]
     .filter(Boolean)
@@ -628,18 +634,31 @@ function formatAlmanacInfo(data: AlmanacData) {
 }
 
 function formatLenormandInfo(data: LenormandData) {
-  const cardLines = data.cards.map(
-    (card) => `- ${card.position}：${card.name}；关键词：${card.keywords.join('、')}`,
-  );
+  const cardLines = data.cards.map((card) => {
+    const placement = [
+      card.house ? `落${card.house}宫` : '',
+      card.row && card.column ? `第${card.row}排第${card.column}列` : '',
+    ]
+      .filter(Boolean)
+      .join('，');
+    return `- ${card.position}：${card.name}；关键词：${card.keywords.join('、')}${card.meaning ? `；基础牌义：${card.meaning}` : ''}${placement ? `；${placement}` : ''}`;
+  });
   const combinationLines = (data.combinations ?? [])
-    .filter((item) => item.source && item.source !== '相邻牌义合读')
+    .filter((item) => item.source === '固定组合')
     .map((item) => `- ${item.card1}+${item.card2}：${item.meaning}`);
+  const evidenceAnalysis = data.evidenceAnalysis?.structuredLayoutFacts
+    ? data.evidenceAnalysis
+    : analyzeLenormandEvidence(data);
+  const layoutLines = evidenceAnalysis.structuredLayoutFacts
+    .filter((item) => item.kind !== '大桌宫位')
+    .map((item) => `- ${item.factText}`);
   return [
     '占法：雷诺曼',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
     '牌位明细：',
     ...cardLines,
-    ...(combinationLines.length ? ['组合明细：', ...combinationLines] : []),
+    ...(layoutLines.length ? ['布局关系：', ...layoutLines] : []),
+    ...(combinationLines.length ? ['固定组合：', ...combinationLines] : []),
   ]
     .filter(Boolean)
     .join('\n');
@@ -708,6 +727,40 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     .join('\n');
 }
 
+export function formatHuangjiInfo(data: HuangjiJingshiResult) {
+  const forecast = data.forecast;
+  if (!forecast) {
+    return [
+      '占法：皇极经世',
+      `目标年坐标：${data.input.year}`,
+      `元会运世：第${data.position.yuan.indexFromEpoch + 1}元，第${data.position.hui.indexInYuan}会，第${data.position.yun.indexInHui}运，第${data.position.shi.indexInYun}世`,
+    ].join('\n');
+  }
+  const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
+  const dateTime = data.dateTimeForecast;
+  return [
+    '占法：皇极经世',
+    dateTime
+      ? `起盘时间：${dateTime.civilTime.dateTime}（${dateTime.civilTime.timezone}）；皇极历${dateTime.calendar.monthBranch}月第${dateTime.calendar.dayOfMonth}日；节气${dateTime.calendar.activeSolarTerm}`
+      : '',
+    `目标年份：${formatHuangjiCivilYear(annual.year)}（${annual.ganzhi}）`,
+    `周期位置：第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会），会内第${data.position.yun.indexInHui}运，运内第${data.position.shi.indexInYun}世，世内第${data.position.year.indexInShi}年`,
+    `会内统卦：${governing.hexagram.name}，${formatHuangjiCivilYear(governing.startYear)}至${formatHuangjiCivilYear(governing.endYear)}`,
+    `运卦：${yun.hexagram.name}，${formatHuangjiCivilYear(yun.startYear)}至${formatHuangjiCivilYear(yun.endYear)}`,
+    `六十年统卦：${sixtyYear.hexagram.name}，${formatHuangjiCivilYear(sixtyYear.startYear)}至${formatHuangjiCivilYear(sixtyYear.endYear)}`,
+    `十年卦：${decade.hexagram.name}，${formatHuangjiCivilYear(decade.startYear)}至${formatHuangjiCivilYear(decade.endYear)}`,
+    `值年卦：${annual.name}（${annual.upper}上、${annual.lower}下）；互卦${forecast.relatedHexagrams.mutual.name}；错卦${forecast.relatedHexagrams.opposite.name}；综卦${forecast.relatedHexagrams.reversed.name}`,
+    `值年卦辞：${annual.judgment}`,
+    dateTime
+      ? `年月日时卦：月经${dateTime.hexagrams.monthJing.name}；旬纬${dateTime.hexagrams.xunWei.name}；日卦${dateTime.hexagrams.daily.name}；时经${dateTime.hexagrams.hourJing.name}（${dateTime.calendar.hourRange}）`
+      : '',
+    dateTime ? `日卦卦辞：${dateTime.hexagrams.daily.judgment}` : '',
+    dateTime ? `时经卦辞：${dateTime.hexagrams.hourJing.judgment}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 function formatJinkoujueInfo(data: JinkoujueData) {
   const p = data.positions;
   return [
@@ -754,6 +807,8 @@ export function formatEnhancedDivinationInfo(
       return formatAstrolabeInfo(data as AstrolabeData);
     case 'taiyi':
       return formatTaiyiInfo(data as TaiyiResult);
+    case 'huangji':
+      return formatHuangjiInfo(data as HuangjiJingshiResult);
     default:
       return '占卜信息暂不可用';
   }

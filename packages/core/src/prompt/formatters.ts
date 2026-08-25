@@ -47,6 +47,15 @@ export function formatSupplementaryInfoSection(
   if (!supplementaryInfo) return '';
 
   const lines: string[] = [];
+  const subjectParts = [
+    supplementaryInfo.gender ? supplementaryInfo.gender : '',
+    method !== 'qimen' && supplementaryInfo.birthYear
+      ? `出生年份：${supplementaryInfo.birthYear}`
+      : '',
+  ].filter(Boolean);
+  if (subjectParts.length) {
+    lines.push(`求测人：${subjectParts.join('；')}`);
+  }
   if (supplementaryInfo.userSupplement?.trim()) {
     lines.push(
       method === 'almanac'

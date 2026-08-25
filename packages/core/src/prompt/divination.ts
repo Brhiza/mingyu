@@ -36,6 +36,8 @@ import { formatEnhancedDivinationInfo } from './divination-enhanced';
 import { resolveSsgwStoryContent } from '../divination/ssgw-content';
 import { buildSolarTimeInfoText, buildTimeInfoText } from './formatters';
 import { buildTarotSpreadTask } from './tarot-spread';
+import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 
 export interface DivinationSummaryBlocks {
   title: string;
@@ -448,13 +450,44 @@ export function getDivinationSummaryBlocks(
     }
     case 'taiyi': {
       const item = data as TaiyiResult;
+      const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[item.scope];
       return {
-        title: `太乙神数${item.scope}计结果`,
+        title: `太乙神数${scopeLabel}结果`,
         tags: [`${item.ganZhi}`, `${item.yinYang}${item.bureau}局`, `太乙在${item.taiyiPosition}`],
         lines: [
           `主算${item.lordCount}；客算${item.guestCount}；定算${item.setCount}`,
           `文昌${item.wenChangPosition}；始击${item.shiJiPosition}；计神${item.jiShenPosition}`,
           `判断：${item.judgments.join('；')}`,
+        ].filter(Boolean),
+      };
+    }
+    case 'huangji': {
+      const item = data as HuangjiJingshiResult;
+      const forecast = item.forecast;
+      if (!forecast) {
+        return {
+          title: '皇极经世结果',
+          tags: [`目标年：${item.input.year}`],
+          lines: item.calculationChain.slice(0, 5),
+        };
+      }
+      const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
+      return {
+        title: '皇极经世结果',
+        tags: [
+          item.dateTimeForecast?.civilTime.dateTime || formatHuangjiCivilYear(annual.year),
+          annual.ganzhi,
+          item.dateTimeForecast
+            ? `时经${item.dateTimeForecast.hexagrams.hourJing.name}`
+            : `值年${annual.name}`,
+        ],
+        lines: [
+          `周期：第${forecast.hui.indexInYuan}会${forecast.hui.branch}会，会内第${item.position.yun.indexInHui}运，运内第${item.position.shi.indexInYun}世`,
+          `卦序：${governing.hexagram.name} → ${yun.hexagram.name} → ${sixtyYear.hexagram.name} → ${decade.hexagram.name} → ${annual.name}`,
+          item.dateTimeForecast
+            ? `年月日时：${item.dateTimeForecast.hexagrams.monthJing.name} → ${item.dateTimeForecast.hexagrams.xunWei.name} → ${item.dateTimeForecast.hexagrams.daily.name} → ${item.dateTimeForecast.hexagrams.hourJing.name}`
+            : '',
+          `互错综：${forecast.relatedHexagrams.mutual.name}、${forecast.relatedHexagrams.opposite.name}、${forecast.relatedHexagrams.reversed.name}`,
         ].filter(Boolean),
       };
     }
@@ -513,10 +546,15 @@ const ASTROLABE_TOPIC_LABELS: Record<AstrolabePromptTopic, string> = {
 
 export function formatSupplementaryInfo(
   info?: SupplementaryInfo,
-  _method?: SupportedDivinationMethod,
+  method?: SupportedDivinationMethod,
 ) {
   if (!info) return '';
+  const subjectParts = [
+    info.gender ? info.gender : '',
+    method !== 'qimen' && info.birthYear ? `出生年份：${info.birthYear}` : '',
+  ].filter(Boolean);
   return [
+    subjectParts.length ? `求测人：${subjectParts.join('；')}` : '',
     info.currentSituation ? `当前情境：${info.currentSituation}` : '',
     info.currentState ? `当前状态：${info.currentState}` : '',
     info.knownFacts ? `已知事实：${info.knownFacts}` : '',
@@ -561,6 +599,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         ? buildLiurenTemplateText(liurenTemplate, options.data as LiurenData)
         : '';
   const supplementaryText = formatSupplementaryInfo(options.supplementaryInfo, options.method);
+  const promptSchoolMethod = options.method === 'huangji' ? 'huangji-jingshi' : options.method;
   const user = joinPromptSections([
     buildPromptGuidance(options.method),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
@@ -574,7 +613,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
     ),
     options.method === 'ssgw'
       ? ''
-      : buildPromptSchoolSection(options.method as PromptSchoolMethod, options.schools),
+      : buildPromptSchoolSection(promptSchoolMethod as PromptSchoolMethod, options.schools),
     buildPromptSection('问题', question),
     templateText ? buildPromptSection('问题范围', templateText) : '',
     buildPromptSection('任务', task),

@@ -51,6 +51,7 @@ import {
   generateQimen,
   resolveZhiShiLandingPalace,
 } from 'mingyu-core/divination/qimen';
+import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
 
@@ -71,9 +72,13 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     method: 'liuyao',
     question: '这件事接下来该怎么推进？',
     questionSource: 'inspiration',
+    gender: '',
     birthYear: '',
     meihuaMethod: 'time',
     meihuaNumber: '',
+    jinkoujueMethod: 'time',
+    jinkoujueBranch: '子',
+    jinkoujueNumber: '',
     liuyaoTemplate: 'general',
     liurenTemplate: 'general',
     tarotSpread: 'single',
@@ -3999,28 +4004,84 @@ test('前端占卜草稿可把自定北京时间传给按时间起卦的方法',
   assert.match(session.prompt, /2025年1月1日 8时30分/);
 });
 
-test('前端只把出生年份用于奇门年命，不污染其他占法资料', async () => {
+test('按时间起局的占问应使用地点经度校正真太阳时并写入提示词', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'qimen',
+      divinationTimeMode: 'custom',
+      customDivinationDate: '2025-01-01',
+      customDivinationTime: '08:30',
+      divinationTimeStandard: 'true-solar',
+      birthPlace: '新疆维吾尔自治区 喀什地区 喀什市',
+      birthLongitude: '73.5',
+      birthLatitude: '39.47',
+    }),
+  );
+
+  assert.equal(session.timeContext?.standard, 'true-solar');
+  assert.equal(session.timeContext?.clockDateTime, '2025-01-01T08:30:00');
+  assert.notEqual(session.timeContext?.effectiveDateTime, session.timeContext?.clockDateTime);
+  assert.equal(
+    session.data.timestamp,
+    new Date(`${session.timeContext?.effectiveDateTime}+08:00`).getTime(),
+  );
+  assert.match(session.prompt, /【起局时间口径】/);
+  assert.match(session.prompt, /时间口径：真太阳时/);
+  assert.match(session.prompt, /起局地点：新疆维吾尔自治区 喀什地区 喀什市/);
+  assert.match(session.prompt, /校正明细：经度修正/);
+});
+
+test('占问启用真太阳时时必须先选择起局地点', async () => {
+  await assert.rejects(
+    () =>
+      generateDivinationSession(
+        buildDraft({
+          method: 'meihua',
+          divinationTimeStandard: 'true-solar',
+          birthPlace: '',
+          birthLongitude: '',
+        }),
+      ),
+    /使用真太阳时需要选择起局地点/,
+  );
+});
+
+test('前端把求测人基本资料用于解读，并避免与专用出生资料重复', async () => {
   const qimenSession = await generateDivinationSession(
-    buildDraft({ method: 'qimen', birthYear: '1989' }),
+    buildDraft({ method: 'qimen', gender: '男', birthYear: '1989' }),
   );
   const liurenSession = await generateDivinationSession(
-    buildDraft({ method: 'liuren', birthYear: '1888' }),
+    buildDraft({ method: 'liuren', gender: '女', birthYear: '1888' }),
   );
   const astrolabeSession = await generateDivinationSession(
     buildDraft({ method: 'astrolabe', birthYear: '1888' }),
   );
 
   assert.match(qimenSession.prompt, /年命资料：公历1989年/);
+  assert.match(qimenSession.prompt, /【补充信息】\n求测人：男/);
   assert.doesNotMatch(qimenSession.prompt, /【补充信息】[\s\S]*出生年份/);
-  assert.doesNotMatch(liurenSession.prompt, /出生年份|1888/);
+  assert.match(liurenSession.prompt, /【补充信息】\n求测人：女；出生年份：1888/);
   assert.match(astrolabeSession.prompt, /出生信息：本人，女，1995-05-20 12:30/);
   assert.doesNotMatch(astrolabeSession.prompt, /出生年份|1888/);
+});
+
+test('首页填写的补充信息会进入占问提示词', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'liuyao',
+      userSupplement: '已经拿到新工作的书面邀约，但需要在两周内答复。',
+    }),
+  );
+
+  assert.match(session.prompt, /【补充信息】/);
+  assert.match(session.prompt, /现实背景：已经拿到新工作的书面邀约，但需要在两周内答复。/);
 });
 
 test('太乙神数作为占卜方法应生成完整年计盘与时间层级提示', async () => {
   const session = await generateDivinationSession(
     buildDraft({
       method: 'taiyi',
+      divinationTimeMode: 'custom',
       taiyiYear: '2004',
       question: '这一年更适合主动推进还是稳守？',
     }),
@@ -4047,29 +4108,112 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.doesNotMatch(session.prompt, /【输出要求】/);
 });
 
-test('太乙神数占卜入口应拒绝空年份和超出网页支持范围的年份', async () => {
+test('太乙神数年计自定时间应拒绝空年份和超出网页支持范围的年份', async () => {
   for (const value of ['', '1899', '2201']) {
     await assert.rejects(
-      () => generateDivinationSession(buildDraft({ method: 'taiyi', taiyiYear: value })),
+      () =>
+        generateDivinationSession(
+          buildDraft({ method: 'taiyi', divinationTimeMode: 'custom', taiyiYear: value }),
+        ),
       /太乙年计年份/,
     );
   }
 });
 
-test('太乙神数占卜入口应拒绝尚未校勘的月日时计', async () => {
+test('太乙神数年计与其他计式应统一支持当前时间', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({ method: 'taiyi', taiyiYear: '', divinationTimeMode: 'current' }),
+  );
+  const currentBeijingYear = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+  }).format(new Date());
+  const data = session.data as TaiyiResult;
+
+  assert.equal(data.scope, 'year');
+  assert.match(data.dateTime, new RegExp(`^${currentBeijingYear}-`));
+});
+
+test('太乙神数占卜入口应支持月日时四计并使用起局时间', async () => {
   for (const scope of ['month', 'day', 'hour'] as const) {
-    await assert.rejects(
-      () =>
-        generateDivinationSession(
-          buildDraft({
-            method: 'taiyi',
-            taiyiScope: scope,
-            taiyiYear: '2026',
-          }),
-        ),
-      /古籍历法链校勘.*只开放年计/,
+    const session = await generateDivinationSession(
+      buildDraft({
+        method: 'taiyi',
+        taiyiScope: scope,
+        divinationTimeMode: 'custom',
+        customDivinationDate: '2026-07-11',
+        customDivinationTime: '14:35',
+      }),
+    );
+    const data = session.data as TaiyiResult;
+    assert.equal(data.scope, scope);
+    assert.match(
+      session.prompt,
+      new RegExp(`太乙神数（${{ month: '月计', day: '日计', hour: '时计' }[scope]}）`),
     );
   }
+});
+
+test('皇极经世占问入口应按年月日时生成完整排盘和自包含提示词', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'huangji',
+      divinationTimeMode: 'custom',
+      customDivinationDate: '2025-12-25',
+      customDivinationTime: '12:30',
+      question: '这个时点的整体时势主线是什么？',
+    }),
+  );
+
+  const data = session.data as HuangjiJingshiResult;
+  assert.equal(session.method, 'huangji');
+  assert.equal(data.input.year, 2026);
+  assert.equal(data.input.mode, '年月日时');
+  assert.equal(data.forecast?.hexagrams.annual.name, '天火同人');
+  assert.equal(data.dateTimeForecast?.hexagrams.daily.name, '雷山小过');
+  assert.equal(data.dateTimeForecast?.hexagrams.hourJing.name, '地山谦');
+  assert.match(session.prompt, /起盘时间：2025-12-25 12:30/);
+  assert.match(session.prompt, /目标年份：公元2026年（丙午）/);
+  assert.match(session.prompt, /会内统卦：泽风大过/);
+  assert.match(session.prompt, /六十年统卦：火风鼎/);
+  assert.match(session.prompt, /值年卦：天火同人/);
+  assert.match(session.prompt, /互卦：天风姤/);
+  assert.doesNotMatch(session.prompt, /项目|仓库|API|MCP|内部字段/);
+});
+
+test('奇门占卜入口应传递计式、排法与定局方法', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'qimen',
+      qimenScope: 'day',
+      qimenMethod: 'feipan',
+      qimenJuMethod: 'zhirun',
+      divinationTimeMode: 'custom',
+      customDivinationDate: '2026-07-11',
+      customDivinationTime: '14:35',
+    }),
+  );
+  const data = session.data as QimenData;
+  assert.equal(data.scope, 'day');
+  assert.equal(data.method, 'feipan');
+  assert.equal(data.juMethod, 'zhirun');
+});
+
+test('金口诀占卜入口应把指定地分传入核心算法', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'jinkoujue',
+      jinkoujueMethod: 'branch',
+      jinkoujueBranch: '酉',
+      divinationTimeMode: 'custom',
+      customDivinationDate: '2026-07-11',
+      customDivinationTime: '14:35',
+    }),
+  );
+  const data = session.data as { method: string; diFenBranch: string };
+  assert.equal(data.method, 'branch');
+  assert.equal(data.diFenBranch, '酉');
+  assert.match(session.prompt, /地分酉/);
 });
 
 test('塔罗提示词应保留牌面资料且不混入工程证据话术', async () => {
@@ -4288,10 +4432,13 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.doesNotMatch(session.prompt, /事项范围：|日期结论：|可用候选|慎用候选/);
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
   assert.match(session.prompt, /【问题】\n我们准备搬家，想选一个兼顾两个人的日子。/);
-  assert.match(session.prompt, /候选日期明细：/);
+  assert.match(session.prompt, /候选日期明细：共5日/);
+  assert.equal(session.prompt.match(/- 第\d+日：2026-06-0[1-5]/g)?.length, 5);
+  assert.doesNotMatch(session.prompt, /原始宜项：|支持依据：|限制依据：|可用时辰：/);
+  assert.doesNotMatch(session.prompt, /请依据候选日期.*给出首选日期/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制|传统硬限制/);
   assert.match(session.prompt, /参与人资料：/);
-  assert.match(session.prompt, /本人：男，公历1990-01-01/);
+  assert.match(session.prompt, /本人：男；四柱/);
   assert.ok('days' in session.data && session.data.days.length === 5);
 });
 
@@ -4314,6 +4461,27 @@ test('黄历择日不强制填写问题，空补充时仍生成完整择日提�
   assert.doesNotMatch(session.prompt, /【问题】/);
 });
 
+test('黄历择日长区间提示词应携带全部 180 个候选日', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'almanac',
+      question: '',
+      almanacTopic: 'contract',
+      almanacStartDate: '2026-01-01',
+      almanacEndDate: '2026-06-29',
+      almanacWeekendPreference: 'avoid',
+      almanacTimePreferences: ['work-hours', 'morning'],
+    }),
+  );
+
+  assert.ok('days' in session.data && session.data.days.length === 180);
+  assert.match(session.prompt, /候选日期明细：共180日/);
+  assert.equal(session.prompt.match(/- 第\d+日：2026-/g)?.length, 180);
+  assert.ok(session.prompt.length < 50_000);
+  assert.match(session.prompt, /日期偏好：避开周末/);
+  assert.match(session.prompt, /时段条件：工作日常规办事时段、优先上午/);
+});
+
 test('占卜引擎黄历择日应在本地拒绝无效日期范围', async () => {
   const invalidCases: Array<[Partial<DivinationDraftInput>, RegExp]> = [
     [{ almanacStartDate: '2026/06/01', almanacEndDate: '2026-06-05' }, /startDate 需要使用/],
@@ -4330,7 +4498,7 @@ test('占卜引擎黄历择日应在本地拒绝无效日期范围', async () =>
       { almanacStartDate: '2026-06-05', almanacEndDate: '2026-06-01' },
       /endDate 不能早于 startDate/,
     ],
-    [{ almanacStartDate: '2026-06-01', almanacEndDate: '2026-07-10' }, /最多比较 31 天/],
+    [{ almanacStartDate: '2026-06-01', almanacEndDate: '2026-12-01' }, /最多比较 180 天/],
   ];
 
   for (const [overrides, messagePattern] of invalidCases) {
