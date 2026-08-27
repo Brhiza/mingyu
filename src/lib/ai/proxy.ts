@@ -668,9 +668,24 @@ async function fetchUpstreamWithRetry(
     try {
       const response = await fetch(url, {
         ...fetchInit,
-        redirect: 'error',
+        // Cloudflare Workers 不支持 redirect: 'error'。使用 manual 后由这里显式拒绝
+        // 跳转，既兼容边缘运行时，也避免自定义接口借 3xx 绕过地址校验。
+        redirect: 'manual',
         signal: controller.signal,
       });
+      if (response.status >= 300 && response.status < 400) {
+        await response.body?.cancel().catch(() => undefined);
+        cleanup();
+        return {
+          ok: false,
+          error: aiJsonError(
+            400,
+            'AI_UPSTREAM_REDIRECT_NOT_ALLOWED',
+            'AI 接口地址发生跳转，请填写最终的 HTTPS 接口地址。',
+            { attempts: attemptIndex + 1, retryable: false },
+          ),
+        };
+      }
       if (isRetryableUpstreamStatus(response.status) && attemptIndex < maxAttempts - 1) {
         await response.body?.cancel().catch(() => undefined);
         cleanup();

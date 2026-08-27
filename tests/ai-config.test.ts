@@ -377,7 +377,7 @@ test('自定义 AI 应直接请求合法的 HTTPS 公网域名', async (t) => {
 
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     assert.equal(String(url), 'https://api.example.com/v1/models');
-    assert.equal(init?.redirect, 'error');
+    assert.equal(init?.redirect, 'manual');
     return new Response(JSON.stringify({ data: [{ id: 'public-model' }] }), {
       status: 200,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -401,6 +401,36 @@ test('自定义 AI 应直接请求合法的 HTTPS 公网域名', async (t) => {
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.deepEqual(body, { ok: true, models: ['public-model'] });
+});
+
+test('自定义 AI 应拒绝上游地址跳转', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async () =>
+    new Response(null, {
+      status: 302,
+      headers: { Location: 'https://other.example.com/v1/models' },
+    })) as typeof fetch;
+
+  const response = await handleAiModels(
+    new Request('https://example.com/api/v1/ai/models', {
+      method: 'POST',
+      body: JSON.stringify({
+        aiConfig: {
+          mode: 'custom',
+          apiKey: 'test-key',
+          baseUrl: 'https://api.example.com/v1',
+        },
+      }),
+    }),
+  );
+
+  const body = await response.json();
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, 'AI_UPSTREAM_REDIRECT_NOT_ALLOWED');
 });
 
 test('内置 AI 应按可信客户端地址限制请求频率', async (t) => {
