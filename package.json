@@ -50,9 +50,12 @@
     "contest:evaluate": "node scripts/evaluate-fortune-contest-model.js",
     "mcp": "tsx --tsconfig mcp/tsconfig.json mcp/src/server.ts",
     "core:build": "pnpm --filter mingyu-core build",
-    "core:test": "pnpm test:core"
+    "core:test": "pnpm test:core",
+    "android:sync": "pnpm build && cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.0",
+    "@capacitor/core": "8.5.0",
     "celestine": "^0.2.1",
     "iztro": "^2.5.8",
     "marked": "^16.4.2",
@@ -63,6 +66,7 @@
     "tyme4ts": "^1.3.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.0",
     "@eslint/js": "^10.0.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/node": "^24.6.0",

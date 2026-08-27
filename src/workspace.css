@@ -1547,6 +1547,18 @@
   font-size: 11px;
 }
 
+.workspace-ai-app-setting {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.workspace-ai-app-setting .workspace-setting-note {
+  margin: 0;
+}
+
 .workspace-order-section {
   min-height: 0;
   display: flex;

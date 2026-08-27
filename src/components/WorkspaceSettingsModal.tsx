@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from './workspace/WorkspaceUI';
+import { DropdownSelect } from './DropdownSelect';
+import {
+  getAndroidAiAppTargetKey,
+  isAndroidApp,
+  listAndroidAiApps,
+  readPreferredAndroidAiApp,
+  savePreferredAndroidAiApp,
+  type AndroidAiAppTarget,
+} from '@/lib/android-ai-app';
 import {
   DEFAULT_WORKSPACE_PREFERENCES,
   HOME_MODE_DEFINITIONS,
@@ -58,6 +67,31 @@ export function WorkspaceSettingsModal({
 }: WorkspaceSettingsModalProps) {
   const [draft, setDraft] = useState(preferences);
   const didApplyRef = useRef(false);
+  const androidApp = isAndroidApp();
+  const [aiAppTargets, setAiAppTargets] = useState<AndroidAiAppTarget[]>([]);
+  const [selectedAiAppKey, setSelectedAiAppKey] = useState(() => {
+    const target = readPreferredAndroidAiApp();
+    return target ? getAndroidAiAppTargetKey(target) : '';
+  });
+  const [aiAppStatus, setAiAppStatus] = useState('');
+
+  const refreshAiAppTargets = useCallback(async () => {
+    if (!androidApp) return;
+    setAiAppStatus('正在读取已安装应用…');
+    try {
+      const targets = await listAndroidAiApps();
+      setAiAppTargets(targets);
+      setAiAppStatus(
+        targets.length ? `已找到 ${targets.length} 个可接收文本的应用` : '未找到可接收文本的应用',
+      );
+    } catch {
+      setAiAppStatus('读取应用列表失败，请稍后重试');
+    }
+  }, [androidApp]);
+
+  useEffect(() => {
+    void refreshAiAppTargets();
+  }, [refreshAiAppTargets]);
 
   useEffect(() => {
     applyWorkspaceTheme(draft.theme);
@@ -193,6 +227,34 @@ export function WorkspaceSettingsModal({
             </span>
             <span aria-hidden="true">›</span>
           </button>
+
+          {androidApp ? (
+            <div className="workspace-ai-app-setting">
+              <div className="workspace-order-heading">
+                <div>
+                  <h3>默认 AI App</h3>
+                  <p>发送提示词时直接打开所选应用，不经过系统分享面板。</p>
+                </div>
+                <WorkspaceButton variant="ghost" size="small" onClick={refreshAiAppTargets}>
+                  刷新
+                </WorkspaceButton>
+              </div>
+              <DropdownSelect
+                value={selectedAiAppKey}
+                ariaLabel="默认 AI App"
+                variant="field"
+                options={[
+                  { value: '', label: '使用系统分享' },
+                  ...aiAppTargets.map((target) => ({
+                    value: getAndroidAiAppTargetKey(target),
+                    label: target.label,
+                  })),
+                ]}
+                onChange={setSelectedAiAppKey}
+              />
+              {aiAppStatus ? <small className="workspace-setting-note">{aiAppStatus}</small> : null}
+            </div>
+          ) : null}
         </section>
 
         <section className="workspace-settings-section workspace-order-section">
@@ -283,6 +345,15 @@ export function WorkspaceSettingsModal({
           variant="primary"
           onClick={() => {
             didApplyRef.current = true;
+            const savedAiApp = readPreferredAndroidAiApp();
+            savePreferredAndroidAiApp(
+              aiAppTargets.find(
+                (target) => getAndroidAiAppTargetKey(target) === selectedAiAppKey,
+              ) ??
+                (savedAiApp && getAndroidAiAppTargetKey(savedAiApp) === selectedAiAppKey
+                  ? savedAiApp
+                  : null),
+            );
             onApply(draft);
             onClose();
           }}

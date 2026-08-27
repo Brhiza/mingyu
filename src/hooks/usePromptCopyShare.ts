@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { shareText } from '@/utils/share-text';
+import { ANDROID_AI_APP_EVENT, readPreferredAndroidAiApp } from '@/lib/android-ai-app';
 
 export interface PromptCopyShare {
   copyState: string;
@@ -10,12 +11,30 @@ export interface PromptCopyShare {
 
 export function usePromptCopyShare(promptText: string): PromptCopyShare {
   const [copyResult, setCopyResult] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const [shareResult, setShareResult] = useState<'idle' | 'shared' | 'copied' | 'failed'>('idle');
+  const [shareResult, setShareResult] = useState<
+    | { type: 'idle' }
+    | { type: 'app'; label: string }
+    | { type: 'system' }
+    | { type: 'copied' }
+    | { type: 'failed'; message: string }
+  >({ type: 'idle' });
+  const [preferredAppLabel, setPreferredAppLabel] = useState(
+    () => readPreferredAndroidAiApp()?.label ?? '',
+  );
 
   useEffect(() => {
     setCopyResult('idle');
-    setShareResult('idle');
+    setShareResult({ type: 'idle' });
   }, [promptText]);
+
+  useEffect(() => {
+    const refreshPreferredApp = () => {
+      setPreferredAppLabel(readPreferredAndroidAiApp()?.label ?? '');
+      setShareResult({ type: 'idle' });
+    };
+    window.addEventListener(ANDROID_AI_APP_EVENT, refreshPreferredApp);
+    return () => window.removeEventListener(ANDROID_AI_APP_EVENT, refreshPreferredApp);
+  }, []);
 
   const copyState = useMemo(() => {
     if (!promptText) return '暂无内容';
@@ -26,11 +45,12 @@ export function usePromptCopyShare(promptText: string): PromptCopyShare {
 
   const shareState = useMemo(() => {
     if (!promptText) return '暂无内容';
-    if (shareResult === 'shared') return '已调起系统分享';
-    if (shareResult === 'copied') return '已复制，可粘贴分享';
-    if (shareResult === 'failed') return '分享失败';
-    return '分享提问内容';
-  }, [shareResult, promptText]);
+    if (shareResult.type === 'app') return `已发送到${shareResult.label}`;
+    if (shareResult.type === 'system') return '已调起系统分享';
+    if (shareResult.type === 'copied') return '已复制，可粘贴分享';
+    if (shareResult.type === 'failed') return shareResult.message;
+    return preferredAppLabel ? `发送到${preferredAppLabel}` : '分享提问内容';
+  }, [preferredAppLabel, shareResult, promptText]);
 
   async function handleCopy() {
     if (!promptText) {
@@ -48,21 +68,24 @@ export function usePromptCopyShare(promptText: string): PromptCopyShare {
 
   async function handleShare() {
     if (!promptText) {
-      setShareResult('failed');
+      setShareResult({ type: 'failed', message: '分享失败' });
       return;
     }
 
     try {
-      const ok = await shareText(promptText);
-      if (ok) {
-        setShareResult('shared');
+      const result = await shareText(promptText);
+      if (result.type === 'app' || result.type === 'system') {
+        setShareResult(result);
         return;
       }
 
       await navigator.clipboard.writeText(promptText);
-      setShareResult('copied');
-    } catch {
-      setShareResult('failed');
+      setShareResult({ type: 'copied' });
+    } catch (error) {
+      setShareResult({
+        type: 'failed',
+        message: error instanceof Error ? error.message : '分享失败',
+      });
     }
   }
 

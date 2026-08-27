@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">命语</string>
+    <string name="title_activity_main">命语</string>
+    <string name="package_name">cc.aov.mingyu</string>
+    <string name="custom_url_scheme">cc.aov.mingyu</string>
+</resources>

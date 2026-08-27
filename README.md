@@ -104,6 +104,15 @@ pnpm test
 pnpm build
 ```
 
+生成 Android 工程中的最新网页资源：
+
+```bash
+pnpm android:sync
+```
+
+随后可用 Android Studio 打开 `android/`，或在该目录运行 Gradle Wrapper 生成 APK。Android
+版设置中可以选择手机上支持接收文本的 AI App；发送提示词时会直接打开所选 App，未设置时仍使用系统分享。
+
 Cloudflare Pages、Docker、内置 AI 配置、项目结构与全部命令见[开发与部署](docs/development-and-deployment.md)。
 
 ## 文档
