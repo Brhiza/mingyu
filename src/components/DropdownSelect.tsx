@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { registerDismissLayer } from '@/lib/dismiss-layer';
 
 export type DropdownSelectOption<T extends string = string> = {
   value: T;
@@ -82,8 +83,13 @@ export function DropdownSelect<T extends string>({
     if (!trigger) return;
 
     const rect = trigger.getBoundingClientRect();
-    const viewportWidth = document.documentElement.clientWidth;
-    const viewportHeight = window.innerHeight;
+    const visualViewport = window.visualViewport;
+    const viewportLeft = visualViewport?.offsetLeft ?? 0;
+    const viewportTop = visualViewport?.offsetTop ?? 0;
+    const viewportWidth = visualViewport?.width ?? document.documentElement.clientWidth;
+    const viewportHeight = visualViewport?.height ?? window.innerHeight;
+    const viewportRight = viewportLeft + viewportWidth;
+    const viewportBottom = viewportTop + viewportHeight;
     const maxViewportWidth = Math.max(160, viewportWidth - 16);
     const width = Math.min(
       Math.max(rect.width, 160, longestLabelLength * 14 + (onFavoriteChange ? 82 : 48)),
@@ -91,17 +97,21 @@ export function DropdownSelect<T extends string>({
     );
     const maxHeight = Math.min(320, Math.max(160, Math.floor(viewportHeight * 0.5)));
     const estimatedHeight = Math.min(maxHeight, options.length * 40 + 12);
-    const spaceBelow = viewportHeight - rect.bottom - 8;
-    const spaceAbove = rect.top - 8;
+    const spaceBelow = viewportBottom - rect.bottom - 8;
+    const spaceAbove = rect.top - viewportTop - 8;
     const placement =
       spaceBelow < Math.min(estimatedHeight, 160) && spaceAbove > spaceBelow ? 'above' : 'below';
-    const left = Math.min(Math.max(8, rect.left), Math.max(8, viewportWidth - width - 8));
+    const left = Math.min(
+      Math.max(viewportLeft + 8, rect.left),
+      Math.max(viewportLeft + 8, viewportRight - width - 8),
+    );
+    const availableHeight = placement === 'above' ? spaceAbove : spaceBelow;
 
     setPosition({
       left,
       top: placement === 'above' ? rect.top - 6 : rect.bottom + 6,
       width,
-      maxHeight: Math.min(maxHeight, placement === 'above' ? spaceAbove : spaceBelow),
+      maxHeight: Math.max(48, Math.min(maxHeight, availableHeight)),
       placement,
     });
   }, [longestLabelLength, onFavoriteChange, options.length]);
@@ -138,16 +148,28 @@ export function DropdownSelect<T extends string>({
       closeMenu();
     };
     const handleViewportChange = () => updatePosition();
+    const visualViewport = window.visualViewport;
 
     document.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('resize', handleViewportChange);
     window.addEventListener('scroll', handleViewportChange, true);
+    visualViewport?.addEventListener('resize', handleViewportChange);
+    visualViewport?.addEventListener('scroll', handleViewportChange);
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('resize', handleViewportChange);
       window.removeEventListener('scroll', handleViewportChange, true);
+      visualViewport?.removeEventListener('resize', handleViewportChange);
+      visualViewport?.removeEventListener('scroll', handleViewportChange);
     };
   }, [closeMenu, isOpen, updatePosition]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    return registerDismissLayer(() => {
+      closeMenu();
+    });
+  }, [closeMenu, isOpen]);
 
   useEffect(() => {
     if (isOpen) setActiveIndex(selectedIndex);

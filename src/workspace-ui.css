@@ -612,6 +612,10 @@ label.workspace-ui-field > span:first-child {
   box-shadow: 0 28px 80px rgba(30, 20, 35, 0.22);
 }
 
+.workspace-ui-dialog:focus {
+  outline: none;
+}
+
 .workspace-ui-dialog-header {
   flex: 0 0 auto;
   display: flex;

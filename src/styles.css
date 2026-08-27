@@ -273,6 +273,11 @@ body {
     box-shadow 0.25s ease;
 }
 
+body.has-workspace-dialog {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .route-loading {
   min-height: 100vh;
   display: grid;

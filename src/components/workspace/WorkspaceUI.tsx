@@ -1,4 +1,23 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react';
+import { registerDismissLayer } from '@/lib/dismiss-layer';
+
+let dialogScrollLockCount = 0;
+
+function lockDocumentScroll() {
+  dialogScrollLockCount += 1;
+  document.body.classList.add('has-workspace-dialog');
+
+  return () => {
+    dialogScrollLockCount = Math.max(0, dialogScrollLockCount - 1);
+    if (dialogScrollLockCount === 0) document.body.classList.remove('has-workspace-dialog');
+  };
+}
 
 function joinClassNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
@@ -48,16 +67,45 @@ export function WorkspaceDialog({
   backdropClassName,
   labelledBy,
 }: WorkspaceDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement;
+    const unlockDocumentScroll = lockDocumentScroll();
+    const unregisterDismissLayer = onCloseRef.current
+      ? registerDismissLayer(() => {
+          onCloseRef.current?.();
+        })
+      : undefined;
+
+    dialogRef.current?.focus({ preventScroll: true });
+
+    return () => {
+      unregisterDismissLayer?.();
+      unlockDocumentScroll();
+      if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
+        previouslyFocused.focus({ preventScroll: true });
+      }
+    };
+  }, []);
+
   return (
     <div
       className={joinClassNames('workspace-ui-dialog-backdrop', backdropClassName)}
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         className={joinClassNames('workspace-ui-dialog', className)}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
+        tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
         {children}

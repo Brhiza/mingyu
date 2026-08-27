@@ -29,6 +29,7 @@ import {
   type WorkspaceFeatureId,
 } from '@/lib/workspace';
 import { isInstantChartType } from '@/lib/instant-chart';
+import { registerDismissLayer } from '@/lib/dismiss-layer';
 import { INSTANT_CHART_DEFINITIONS } from 'mingyu-core/instant';
 
 type SidebarView = 'tools' | 'history';
@@ -177,6 +178,13 @@ export function WorkspaceShell() {
       );
     }
   }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!isDrawerOpen) return undefined;
+    return registerDismissLayer(() => {
+      setIsDrawerOpen(false);
+    });
+  }, [isDrawerOpen]);
 
   useEffect(() => {
     const syncPreferences = () => {

@@ -13,6 +13,7 @@ import {
 } from '@/lib/ai/chat-history';
 import type { AiChatPromptMode, AiChatSession } from '@/lib/ai/chat-history';
 import type { AiRequestConfig } from '@/lib/ai/settings';
+import { registerDismissLayer } from '@/lib/dismiss-layer';
 import { WorkspaceButton } from './workspace/WorkspaceUI';
 
 interface AiChatPanelProps {
@@ -332,12 +333,9 @@ function AiChatPanelImpl({
     ).matches;
     const previousBodyOverflow = document.body.style.overflow;
     if (shouldLockPageScroll) document.body.style.overflow = 'hidden';
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsHistoryOpen(false);
-    };
-    window.addEventListener('keydown', handleKeyDown);
+    const unregisterDismissLayer = registerDismissLayer(() => setIsHistoryOpen(false));
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      unregisterDismissLayer();
       if (shouldLockPageScroll) document.body.style.overflow = previousBodyOverflow;
     };
   }, [isHistoryOpen]);

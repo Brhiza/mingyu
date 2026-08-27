@@ -24,6 +24,7 @@ import {
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from '@/lib/input-labels';
 import { DropdownSelect } from '@/components/DropdownSelect';
+import { registerDismissLayer } from '@/lib/dismiss-layer';
 
 type CaseSortMode = 'recent' | 'name' | 'birth';
 
@@ -86,14 +87,11 @@ export function CasePage() {
   useEffect(() => {
     if (!openMenuCaseId) return;
     const closeMenu = () => setOpenMenuCaseId(null);
-    const closeMenuWithEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeMenu();
-    };
+    const unregisterDismissLayer = registerDismissLayer(closeMenu);
     window.addEventListener('click', closeMenu);
-    window.addEventListener('keydown', closeMenuWithEscape);
     return () => {
+      unregisterDismissLayer();
       window.removeEventListener('click', closeMenu);
-      window.removeEventListener('keydown', closeMenuWithEscape);
     };
   }, [openMenuCaseId]);
 
