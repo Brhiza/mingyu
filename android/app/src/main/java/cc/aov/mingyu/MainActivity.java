@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AndroidAiAppLauncherPlugin.class);
+        registerPlugin(AndroidDirectAiPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
