@@ -111,7 +111,7 @@ pnpm android:sync
 ```
 
 随后可用 Android Studio 打开 `android/`，或在该目录运行 Gradle Wrapper 生成 APK。Android
-版设置中可以选择手机上支持接收文本的 AI App；发送提示词时会直接打开所选 App，未设置时仍使用系统分享。
+版设置中会优先列出已安装且支持接收文本的常见 AI App，不展示短信、蓝牙等普通文本应用；发送提示词时会直接打开所选 App，未设置时仍使用系统分享。
 安卓版使用自定义 AI 时会从当前设备直接连接所填的 HTTPS 接口，API Key 不经过命语服务器；内置 AI 仍由服务端提供。
 
 Cloudflare Pages、Docker、内置 AI 配置、项目结构与全部命令见[开发与部署](docs/development-and-deployment.md)。

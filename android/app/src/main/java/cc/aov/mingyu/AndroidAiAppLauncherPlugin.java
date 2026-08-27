@@ -13,11 +13,9 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import java.text.Collator;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 @CapacitorPlugin(name = "AndroidAiAppLauncher")
@@ -28,11 +26,13 @@ public class AndroidAiAppLauncherPlugin extends Plugin {
         final String packageName;
         final String activityName;
         final String label;
+        final int priority;
 
-        TargetInfo(String packageName, String activityName, String label) {
+        TargetInfo(String packageName, String activityName, String label, int priority) {
             this.packageName = packageName;
             this.activityName = activityName;
             this.label = label;
+            this.priority = priority;
         }
     }
 
@@ -50,10 +50,14 @@ public class AndroidAiAppLauncherPlugin extends Plugin {
 
         for (ResolveInfo item : resolved) {
             ActivityInfo activity = item.activityInfo;
+            int priority = activity == null
+                ? -1
+                : AndroidAiAppCatalog.priorityOf(activity.packageName);
             if (
                 activity == null ||
                 !activity.enabled ||
                 !activity.exported ||
+                priority < 0 ||
                 ownPackage.equals(activity.packageName) ||
                 !seenPackages.add(activity.packageName)
             ) {
@@ -62,11 +66,10 @@ public class AndroidAiAppLauncherPlugin extends Plugin {
             CharSequence appLabel = activity.applicationInfo.loadLabel(packageManager);
             String label = appLabel == null ? activity.packageName : appLabel.toString().trim();
             if (label.isEmpty()) label = activity.packageName;
-            targets.add(new TargetInfo(activity.packageName, activity.name, label));
+            targets.add(new TargetInfo(activity.packageName, activity.name, label, priority));
         }
 
-        Collator collator = Collator.getInstance(Locale.getDefault());
-        targets.sort((left, right) -> collator.compare(left.label, right.label));
+        targets.sort((left, right) -> Integer.compare(left.priority, right.priority));
 
         JSArray targetArray = new JSArray();
         for (TargetInfo target : targets) {
@@ -89,6 +92,10 @@ public class AndroidAiAppLauncherPlugin extends Plugin {
         String text = call.getString("text");
         if (packageName.isEmpty() || activityName.isEmpty() || text == null || text.trim().isEmpty()) {
             call.reject("发送目标或提示词为空。");
+            return;
+        }
+        if (!AndroidAiAppCatalog.contains(packageName)) {
+            call.reject("所选应用不是受支持的 AI 应用，请重新选择。");
             return;
         }
 

@@ -69,6 +69,7 @@ export function WorkspaceSettingsModal({
   const didApplyRef = useRef(false);
   const androidApp = isAndroidApp();
   const [aiAppTargets, setAiAppTargets] = useState<AndroidAiAppTarget[]>([]);
+  const [aiAppTargetsReady, setAiAppTargetsReady] = useState(false);
   const [selectedAiAppKey, setSelectedAiAppKey] = useState(() => {
     const target = readPreferredAndroidAiApp();
     return target ? getAndroidAiAppTargetKey(target) : '';
@@ -81,10 +82,19 @@ export function WorkspaceSettingsModal({
     try {
       const targets = await listAndroidAiApps();
       setAiAppTargets(targets);
+      setAiAppTargetsReady(true);
+      setSelectedAiAppKey((current) =>
+        current && !targets.some((target) => getAndroidAiAppTargetKey(target) === current)
+          ? ''
+          : current,
+      );
       setAiAppStatus(
-        targets.length ? `已找到 ${targets.length} 个可接收文本的应用` : '未找到可接收文本的应用',
+        targets.length
+          ? `已找到 ${targets.length} 个常见 AI 应用`
+          : '未找到已安装且支持接收文本的常见 AI 应用',
       );
     } catch {
+      setAiAppTargetsReady(false);
       setAiAppStatus('读取应用列表失败，请稍后重试');
     }
   }, [androidApp]);
@@ -233,7 +243,7 @@ export function WorkspaceSettingsModal({
               <div className="workspace-order-heading">
                 <div>
                   <h3>默认 AI App</h3>
-                  <p>发送提示词时直接打开所选应用，不经过系统分享面板。</p>
+                  <p>常见 AI 应用优先显示，其他文本应用不列出。</p>
                 </div>
                 <WorkspaceButton variant="ghost" size="small" onClick={refreshAiAppTargets}>
                   刷新
@@ -244,11 +254,12 @@ export function WorkspaceSettingsModal({
                 ariaLabel="默认 AI App"
                 variant="field"
                 options={[
-                  { value: '', label: '使用系统分享' },
-                  ...aiAppTargets.map((target) => ({
+                  ...aiAppTargets.map((target, index) => ({
                     value: getAndroidAiAppTargetKey(target),
                     label: target.label,
+                    group: index === 0 ? '常见 AI App' : undefined,
                   })),
+                  { value: '', label: '使用系统分享', group: '其他' },
                 ]}
                 onChange={setSelectedAiAppKey}
               />
@@ -350,7 +361,9 @@ export function WorkspaceSettingsModal({
               aiAppTargets.find(
                 (target) => getAndroidAiAppTargetKey(target) === selectedAiAppKey,
               ) ??
-                (savedAiApp && getAndroidAiAppTargetKey(savedAiApp) === selectedAiAppKey
+                (!aiAppTargetsReady &&
+                savedAiApp &&
+                getAndroidAiAppTargetKey(savedAiApp) === selectedAiAppKey
                   ? savedAiApp
                   : null),
             );
