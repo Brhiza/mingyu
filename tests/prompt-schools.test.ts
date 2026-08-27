@@ -126,6 +126,7 @@ test('三山国王灵签应保持签谱提示词，不附加派系段落', () =>
     schools: ['任意值'],
   });
 
-  assert.match(prompt, /占法：三山国王灵签/);
-  assert.doesNotMatch(prompt, /解读派系|多派合参|任意值/);
+  assert.match(prompt, /^签号：第\d+签/m);
+  assert.match(prompt, /^签题：/m);
+  assert.doesNotMatch(prompt, /占法：|【当前时间】|【问题】|【任务】|解读派系|多派合参|任意值/);
 });

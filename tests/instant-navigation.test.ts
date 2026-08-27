@@ -51,6 +51,8 @@ test('网页八字即时盘提示词只描述当前时刻事件盘', () => {
   });
   const prompt = buildInstantBaziPrompt(result, '现在适合推进这件事吗？', '北京时间');
 
+  assert.match(prompt, /^【传统依据】\n/m);
+  assert.ok(prompt.indexOf('【传统依据】') < prompt.indexOf('【时间口径】'));
   assert.match(prompt, /当前时刻的事件盘/);
   assert.match(prompt, /现在适合推进这件事吗/);
   assert.match(

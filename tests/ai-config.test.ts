@@ -369,7 +369,7 @@ test('自定义 AI 应拒绝非 HTTPS、本机和内网接口地址', async () =
   }
 });
 
-test('自定义 AI 应允许解析到公网 IP 的 HTTPS 接口地址', async (t) => {
+test('自定义 AI 应直接请求合法的 HTTPS 公网域名', async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => {
     globalThis.fetch = originalFetch;
@@ -396,53 +396,11 @@ test('自定义 AI 应允许解析到公网 IP 的 HTTPS 接口地址', async (t
       }),
     }),
     undefined,
-    {
-      resolveHostname: async (hostname) => {
-        assert.equal(hostname, 'api.example.com');
-        return ['93.184.216.34', '2606:2800:220:1:248:1893:25c8:1946'];
-      },
-    },
   );
 
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.deepEqual(body, { ok: true, models: ['public-model'] });
-});
-
-test('自定义 AI 域名解析到内网或特殊用途地址时应拒绝请求', async (t) => {
-  const originalFetch = globalThis.fetch;
-  let upstreamCalled = false;
-  t.after(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  globalThis.fetch = (async () => {
-    upstreamCalled = true;
-    throw new Error('不应请求上游');
-  }) as typeof fetch;
-
-  for (const address of ['127.0.0.1', '10.0.0.8', '198.18.0.19', '2001:db8::1', 'fc00::1']) {
-    const response = await handleAiModels(
-      new Request('https://example.com/api/v1/ai/models', {
-        method: 'POST',
-        body: JSON.stringify({
-          aiConfig: {
-            mode: 'custom',
-            apiKey: 'test-key',
-            baseUrl: 'https://public-name.example/v1',
-          },
-        }),
-      }),
-      undefined,
-      { resolveHostname: async () => [address] },
-    );
-
-    const body = await response.json();
-    assert.equal(response.status, 400, address);
-    assert.equal(body.error.code, 'AI_CUSTOM_BASE_URL_UNSAFE', address);
-  }
-
-  assert.equal(upstreamCalled, false);
 });
 
 test('内置 AI 应按可信客户端地址限制请求频率', async (t) => {

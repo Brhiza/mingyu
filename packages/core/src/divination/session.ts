@@ -28,6 +28,7 @@ import { formatPromptCurrentTime } from '../prompt/current-time';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from '../prompt/sections';
 import { buildTaskText } from './engine/method-text';
 import { buildTarotSpreadTask } from '../prompt/tarot-spread';
+import { buildPromptTask } from '../prompt/guidance';
 import {
   createUnifiedResultView,
   partitionResultForConsumption,
@@ -41,6 +42,7 @@ import type {
   AstrolabeData,
   DivinationData,
   JinkoujueDivinationMethod,
+  LenormandData,
   LenormandSpreadType,
   LiuyaoData,
   MeihuaSettings,
@@ -154,6 +156,14 @@ function buildDivinationAiPrompt(options: {
   chartText: string;
   data: DivinationData;
 }) {
+  if (options.method === 'ssgw') {
+    return buildDivinationPromptDocument({
+      method: options.method,
+      data: options.data,
+      question: options.question,
+      currentTime: options.currentTime,
+    });
+  }
   const supplementary = formatSupplementaryInfo(options.supplementaryInfo, options.method);
   return buildPromptDocument(
     joinPromptSections([
@@ -165,7 +175,9 @@ function buildDivinationAiPrompt(options: {
         '任务',
         options.method === 'tarot'
           ? buildTarotSpreadTask(options.data as TarotData)
-          : buildTaskText(options.method),
+          : options.method === 'lenormand' && (options.data as LenormandData).cards.length === 1
+            ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
+            : buildTaskText(options.method),
       ),
     ]),
   );
@@ -176,7 +188,9 @@ function formatAiChart(
   data: DivinationData,
   summary: ReturnType<typeof getDivinationSummaryBlocks>,
 ) {
-  const base = [summary.title, summary.tags.join('；'), ...summary.lines].filter(Boolean);
+  const base = [summary.title, summary.tags.filter(Boolean).join('；'), ...summary.lines].filter(
+    Boolean,
+  );
   if (method === 'liuyao') {
     const item = data as LiuyaoData;
     base.push(

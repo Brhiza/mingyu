@@ -55,14 +55,7 @@ function assertStandardPromptStructure(prompt: string) {
 }
 
 function assertSsgwPromptStructure(prompt: string) {
-  const expectedSections = ['【当前时间】', '【占卜信息】', '【问题】', '【任务】'];
-
-  assertPromptSectionsInOrder(prompt, expectedSections, {
-    requireUnique: true,
-    requireBodyAfterHeading: true,
-  });
-  assert.doesNotMatch(prompt, /^【传统依据】$/m);
-  assert.match(prompt, /占法：三山国王灵签/);
+  assert.doesNotMatch(prompt, /【当前时间】|【占卜信息】|【问题】|【任务】|【传统依据】|占法：/);
   assert.match(prompt, /签号：第\d+签/);
   assert.match(prompt, /签题：/);
   assert.match(prompt, /签诗：/);
@@ -70,7 +63,7 @@ function assertSsgwPromptStructure(prompt: string) {
   assert.match(prompt, /典故：/);
   assert.match(prompt, /基础解签：/);
   assert.match(prompt, /补充解释：/);
-  assertPromptIsPortableTaskText(prompt);
+  assert.doesNotMatch(prompt, /项目|仓库|API|MCP|工程|实现状态|来源状态|内部字段|项目规则/);
 }
 
 function assertLiurenPromptStructure(prompt: string) {
@@ -780,7 +773,6 @@ test('各类占卜提示词都使用统一的角色加信息加问题结构', as
     );
     const role = item.method as DivinationPromptGuidanceMethod;
     if (item.method === 'ssgw') {
-      assertPromptHasSingleRole(prompt, undefined, { requireTraditionalGuidance: false });
       assertSsgwPromptStructure(prompt);
     } else if (item.structure === 'liuren') {
       assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT[role]);
@@ -1175,9 +1167,13 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
       drawTarotSpread(spreadType, { seed: `牌阵框架-${spreadType}` }),
     );
     assert.match(prompt, expectedFocus[spreadType], `${spreadType} 应包含专属主线`);
-    assert.match(prompt, /解读主线：/);
-    assert.match(prompt, /牌位联动：/);
-    assert.match(prompt, /结论重点：/);
+    if (spreadType === 'single') {
+      assert.doesNotMatch(prompt, /牌序组合|牌序互动|相邻牌|牌位联动/);
+    } else {
+      assert.match(prompt, /解读主线：/);
+      assert.match(prompt, /牌位联动：/);
+      assert.match(prompt, /结论重点：/);
+    }
   }
 });
 
@@ -1396,6 +1392,14 @@ test('小六壬提示词保留可复核顺数，并明确只有时宫承担主�
 });
 
 test('雷诺曼提示词保留逐牌基础牌义与真实布局，不扩写普通牌序为固定组合', () => {
+  const singlePrompt = buildDivinationPrompt(
+    'lenormand',
+    '这件事接下来如何发展？',
+    drawLenormandSpread('single', { seed: '提示词完整性-单牌' }),
+  );
+  assert.match(singlePrompt, /唯一牌位与基础牌义/);
+  assert.doesNotMatch(singlePrompt, /相邻牌|组合意象|牌序互动|牌序组合/);
+
   const fivePrompt = buildDivinationPrompt(
     'lenormand',
     '这件事接下来如何发展？',
@@ -1429,7 +1433,10 @@ test('灵签提示词保留完整签谱资料', () => {
   assert.match(prompt, /典故：刘备向东吴借取荆州。/);
   assert.match(prompt, /基础解签：事情仍有转圜空间，宜结合现况审慎研判。/);
   assert.match(prompt, /补充解释：\n- 事业：先核对资源与时机。/);
-  assert.doesNotMatch(prompt, /行动建议|风险提醒|掷筊|签谱状态|来源状态|证据汇总/);
+  assert.doesNotMatch(
+    prompt,
+    /【当前时间】|【问题】|【任务】|占法：|行动建议|风险提醒|掷筊|签谱状态|来源状态|证据汇总/,
+  );
 });
 
 test('灵签提示词合并重复典故并保留基础解签', () => {

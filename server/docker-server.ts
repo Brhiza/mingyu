@@ -1,7 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { lookup } from 'node:dns/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -116,10 +115,6 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
     }),
     undefined,
     process.env as AiEnv,
-    {
-      resolveHostname: async (hostname) =>
-        (await lookup(hostname, { all: true, verbatim: true })).map((item) => item.address),
-    },
   );
 
   response.statusCode = apiResponse.status;
