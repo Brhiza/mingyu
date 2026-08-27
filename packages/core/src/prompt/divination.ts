@@ -218,7 +218,6 @@ export function getDivinationSummaryBlocks(
         lines: [
           wrapMainEvidence(formatLiuyaoFocusSummary(item)),
           `卦宫：${item.palace.name}${item.palaceStage ? `；${item.palaceStage}` : ''}`,
-          `世应：${item.worldAndResponse.join('、') || '未记录'}`,
           `空亡：${item.voidBranches.join('、') || '无'}`,
           `特殊卦式：${item.specialPattern || '常规卦'}`,
           formatLiuyaoHiddenSpiritSummary(item),
@@ -578,7 +577,50 @@ export interface DivinationPromptOptions extends PromptBuildOptions {
   schools?: readonly string[];
 }
 
+function formatSsgwPrompt(data: SsgwData) {
+  const storyContent = resolveSsgwStoryContent(data);
+  const details = data.details ?? {};
+  const baseExplanation = details['核心寓意'] || details['解签'] || details['签意'] || '';
+  const excludedKeys = new Set([
+    '吉凶',
+    '典故',
+    '核心寓意',
+    '解签',
+    '签意',
+    '解签总论',
+    '此签核心',
+    '行动建议',
+    '风险提醒',
+    '提醒',
+    '来源状态',
+    '签谱状态',
+    '掷筊状态',
+  ]);
+  const supplementary = Object.entries(details)
+    .filter(([key, value]) => !excludedKeys.has(key) && value.trim())
+    .map(([key, value]) => `${key}：${value.trim()}`);
+  if (storyContent.extraStory) supplementary.unshift(`典故补充：${storyContent.extraStory}`);
+
+  return [
+    `签号：第${data.number}签`,
+    `签题：${data.title}`,
+    `签诗：${data.poem}`,
+    details['吉凶'] ? `吉凶级别：${details['吉凶']}` : '',
+    storyContent.canonicalStory ? `典故：${storyContent.canonicalStory}` : '',
+    baseExplanation ? `基础解签：${baseExplanation}` : '',
+    supplementary.length
+      ? `补充解释：\n${supplementary.map((line) => `- ${line}`).join('\n')}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export function buildDivinationPromptDocument(options: DivinationPromptOptions): PromptDocument {
+  if (options.method === 'ssgw') {
+    return buildPromptDocument(formatSsgwPrompt(options.data as SsgwData));
+  }
+
   const question = options.question?.trim() || '请依据占卜资料分析当前问题。';
   const liuyaoTemplate = options.liuyaoTemplate ?? 'general';
   const liurenTemplate = options.liurenTemplate ?? 'general';
@@ -591,7 +633,9 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         )
       : options.method === 'tarot'
         ? buildTarotSpreadTask(options.data as TarotData)
-        : buildTaskText(options.method);
+        : options.method === 'lenormand' && (options.data as LenormandData).cards.length === 1
+          ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
+          : buildTaskText(options.method);
   const templateText =
     options.method === 'liuyao'
       ? buildLiuyaoTemplateText(liuyaoTemplate)
@@ -600,8 +644,14 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         : '';
   const supplementaryText = formatSupplementaryInfo(options.supplementaryInfo, options.method);
   const promptSchoolMethod = options.method === 'huangji' ? 'huangji-jingshi' : options.method;
+  const singleCardGuidance =
+    options.method === 'tarot' && (options.data as TarotData).cards.length === 1
+      ? buildPromptSection('传统依据', '塔罗单牌以牌位职能、正逆位、牌组属性与单牌牌义为主要资料。')
+      : options.method === 'lenormand' && (options.data as LenormandData).cards.length === 1
+        ? buildPromptSection('传统依据', '雷诺曼单牌以当前牌位、基础牌义和问题语境为主要资料。')
+        : '';
   const user = joinPromptSections([
-    buildPromptGuidance(options.method),
+    singleCardGuidance || buildPromptGuidance(options.method),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     supplementaryText ? buildPromptSection('补充信息', supplementaryText) : '',
     options.astrolabeScopeText ? buildPromptSection('分析对象', options.astrolabeScopeText) : '',
@@ -611,9 +661,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         liuyaoTemplate,
       }),
     ),
-    options.method === 'ssgw'
-      ? ''
-      : buildPromptSchoolSection(promptSchoolMethod as PromptSchoolMethod, options.schools),
+    buildPromptSchoolSection(promptSchoolMethod as PromptSchoolMethod, options.schools),
     buildPromptSection('问题', question),
     templateText ? buildPromptSection('问题范围', templateText) : '',
     buildPromptSection('任务', task),

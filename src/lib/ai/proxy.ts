@@ -45,7 +45,6 @@ export type AiEnv = AiRateLimitEnv & {
 };
 
 export type AiRuntime = {
-  resolveHostname?: (hostname: string) => Promise<string[]>;
   streamIdleTimeoutMs?: number;
   streamTotalTimeoutMs?: number;
   now?: () => number;
@@ -154,9 +153,6 @@ export async function handleAiAnalyze(
   if (totalLength > MAX_PROMPT_LENGTH) {
     return aiJsonError(400, 'PROMPT_TOO_LONG', `提示词不能超过 ${MAX_PROMPT_LENGTH} 字符。`);
   }
-
-  const providerSafetyError = await validateCustomAiProvider(provider, runtime, request.signal);
-  if (providerSafetyError) return providerSafetyError;
 
   const rateLimitError = enforceBuiltinAiRateLimit(request, provider, env, runtime);
   if (rateLimitError) return rateLimitError;
@@ -346,9 +342,6 @@ export async function handleAiModels(
     return provider.error;
   }
 
-  const providerSafetyError = await validateCustomAiProvider(provider, runtime, request.signal);
-  if (providerSafetyError) return providerSafetyError;
-
   const rateLimitError = enforceBuiltinAiRateLimit(request, provider, env, runtime);
   if (rateLimitError) return rateLimitError;
 
@@ -487,73 +480,6 @@ function enforceBuiltinAiRateLimit(
       'X-RateLimit-Reset': String(Math.ceil(result.resetAt / 1000)),
     },
   );
-}
-
-async function validateCustomAiProvider(
-  provider: ResolvedAiProvider,
-  runtime: AiRuntime,
-  signal?: AbortSignal,
-): Promise<Response | null> {
-  if (provider.mode !== 'custom') return null;
-
-  const hostname = new URL(provider.baseUrl).hostname.replace(/^\[(.*)\]$/, '$1');
-  if (parseIpv4Address(hostname) || hostname.includes(':')) return null;
-
-  try {
-    const addresses = runtime.resolveHostname
-      ? await runtime.resolveHostname(hostname)
-      : await resolveHostnameWithDnsOverHttps(hostname, signal);
-    if (!addresses.length || addresses.some((address) => isUnsafeCustomAiHost(address))) {
-      return aiJsonError(
-        400,
-        'AI_CUSTOM_BASE_URL_UNSAFE',
-        '自定义 AI 接口地址必须解析到公开互联网地址，不能指向本机、内网或特殊用途地址。',
-      );
-    }
-  } catch {
-    return aiJsonError(
-      400,
-      'AI_CUSTOM_BASE_URL_DNS_FAILED',
-      '无法确认自定义 AI 接口的公网地址，请检查域名是否可以正常解析。',
-    );
-  }
-
-  return null;
-}
-
-async function resolveHostnameWithDnsOverHttps(
-  hostname: string,
-  signal?: AbortSignal,
-): Promise<string[]> {
-  const query = async (type: 'A' | 'AAAA') => {
-    const url = new URL('https://cloudflare-dns.com/dns-query');
-    url.searchParams.set('name', hostname);
-    url.searchParams.set('type', type);
-    const response = await fetch(url, {
-      headers: { Accept: 'application/dns-json' },
-      redirect: 'error',
-      signal,
-    });
-    if (!response.ok) throw new Error(`DNS 查询失败：${response.status}`);
-    const data = (await response.json()) as {
-      Status?: number;
-      Answer?: Array<{ type?: number; data?: string }>;
-    };
-    if (data.Status !== 0) return [];
-    return (data.Answer ?? [])
-      .filter((answer) => answer.type === 1 || answer.type === 28)
-      .map((answer) => answer.data?.trim() ?? '')
-      .filter(Boolean);
-  };
-
-  const results = await Promise.allSettled([query('A'), query('AAAA')]);
-  const addresses = results.flatMap((result) =>
-    result.status === 'fulfilled' ? result.value : [],
-  );
-  if (!addresses.length && results.every((result) => result.status === 'rejected')) {
-    throw new Error('DNS 查询失败');
-  }
-  return [...new Set(addresses)];
 }
 
 function normalizeCustomAiBaseUrl(value: string): { baseUrl: string } | { error: Response } {

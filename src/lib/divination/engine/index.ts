@@ -4,6 +4,7 @@ import type {
   AlmanacTopic,
   AstrolabeBirthInput,
   DivinationData,
+  LenormandData,
   LenormandSpreadType,
   LiuyaoTemplateType,
   LiurenData,
@@ -181,6 +182,9 @@ export function buildDivinationPrompt(
   const infoText = formatDivinationInfo(method, data, normalizedQuestion, supplementaryInfo, {
     liuyaoTemplate,
   });
+  if (method === 'ssgw') {
+    return infoText.replace(/^占法：三山国王灵签\n/u, '');
+  }
   const supplementarySection = formatSupplementaryInfoSection(
     method,
     method === 'almanac' && supplementaryInfo?.userSupplement
@@ -200,7 +204,9 @@ export function buildDivinationPrompt(
       ? buildPromptTask(buildAstrolabeTopicTask(astrolabeTopic), 'astrolabe')
       : method === 'tarot'
         ? buildTarotSpreadTask(data as TarotData)
-        : buildTaskText(method);
+        : method === 'lenormand' && (data as LenormandData).cards.length === 1
+          ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
+          : buildTaskText(method);
   const promptSchoolMethod = method === 'huangji' ? 'huangji-jingshi' : method;
   const selectedSchools =
     method !== 'ssgw' && options.schools?.length
@@ -215,6 +221,12 @@ export function buildDivinationPrompt(
         schoolText,
       )
     : '';
+  const singleCardGuidance =
+    method === 'tarot' && (data as TarotData).cards.length === 1
+      ? buildSection('【传统依据】', '塔罗单牌以牌位职能、正逆位、牌组属性与单牌牌义为主要资料。')
+      : method === 'lenormand' && (data as LenormandData).cards.length === 1
+        ? buildSection('【传统依据】', '雷诺曼单牌以当前牌位、基础牌义和问题语境为主要资料。')
+        : '';
 
   if (method === 'liuren') {
     return [
@@ -234,7 +246,7 @@ export function buildDivinationPrompt(
   }
 
   return [
-    buildPromptGuidanceSections(method),
+    singleCardGuidance || buildPromptGuidanceSections(method),
     buildSection('【当前时间】', timeInfo),
     options.timeContextText ? buildSection('【起局时间口径】', options.timeContextText) : '',
     supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',

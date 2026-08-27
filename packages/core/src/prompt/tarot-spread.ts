@@ -107,7 +107,11 @@ const GENERIC_TAROT_SPREAD_PROMPT_FRAMEWORK: TarotSpreadPromptFramework = {
   conclusion: '归纳核心趋势、主要阻力、可用条件与当前应对重点。',
 };
 
-export function buildTarotSpreadTask(data: Pick<TarotData, 'spreadType'>) {
+export function buildTarotSpreadTask(data: Pick<TarotData, 'spreadType' | 'cards'>) {
+  const isSingleCard = data.cards.length === 1;
+  if (isSingleCard) {
+    return buildPromptTask('依据唯一牌位、正逆位与单牌牌义回答【问题】。', 'tarot-single');
+  }
   const framework =
     TAROT_SPREAD_PROMPT_FRAMEWORKS[data.spreadType as TarotSpreadType] ??
     GENERIC_TAROT_SPREAD_PROMPT_FRAMEWORK;

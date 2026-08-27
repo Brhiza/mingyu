@@ -121,7 +121,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   {
     sampleName: '三山国王灵签',
     // 签谱提示词按签谱最高约束只保留本次签号、签题、签诗和解签资料。
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '签号', '签诗', '基础解签'],
+    requiredFields: ['签号', '签题', '签诗', '吉凶级别', '典故', '基础解签'],
   },
   {
     sampleName: '择日',
@@ -447,7 +447,8 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
       (count, fw) => count + (sample.prompt.split(fw).length - 1),
       0,
     );
-    if (frameworkCount !== 1) {
+    const expectedFrameworkCount = sample.name === '三山国王灵签' ? 0 : 1;
+    if (frameworkCount !== expectedFrameworkCount) {
       leakedMessages.push(`${sample.name} 答题骨架出现 ${frameworkCount} 次`);
     }
 
@@ -502,22 +503,16 @@ async function buildSamples(): Promise<PromptSample[]> {
       useTrueSolarTime: false,
       birthPlace: '广东（原题未给具体城市）',
     });
-    const baziFortuneContext =
-      buildFortuneSelectionContext(baziResult, {
-        scope: 'year',
-        year: 1993,
-      }) ??
-      buildFortuneSelectionContext(baziResult, {
-        scope: 'year',
-        year: 1980,
-      });
+    const baziFortuneContext = buildFortuneSelectionContext(baziResult, {
+      scope: 'year',
+      year: 1993,
+    });
     const baziPrompt = buildBaziPromptForResult({
       result: baziResult,
       topic: 'general',
       mode: 'framework',
       fortuneSelectionContext: baziFortuneContext,
-      question:
-        '请根据命例一作答：Q1 出生家境如何？Q2 婚姻如何？Q3 年轻时何种工作？Q4 1980年发生何事？Q5 1993年发生何事？每题从 A/B/C/D 中给出最可能选项，并说明依据。',
+      question: '请判断命主在1993年的主要变化，并说明原局、所处大运与流年之间的依据。',
     });
 
     const ziweiRuntime = await calculateFullZiweiChart(
@@ -542,7 +537,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       scope: 'origin',
       mode: 'framework',
       question:
-        '请根据命例四作答：Q16 儿时家庭情况？Q17 2001年发生何事？Q18 2022年后的职业行业情况？Q19 感情状况为何？Q20 抑郁症状最严重的年份？每题从 A/B/C/D 中给出最可能选项，并说明依据。',
+        '请依据本命盘分析命主的儿时家庭、职业倾向、感情结构与情绪压力来源，并说明宫位和星曜依据。',
     });
 
     const contestAstrolabe = generateAstrolabe({
@@ -740,7 +735,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       {
         name: '八字排盘',
         source: CONTEST_SOURCE,
-        inputSummary: `命例一：坤造，广东出生，西历 1951年11月14日巳时；问题为 Q1-Q5 多项选择；已选择 ${baziFortuneContext?.displayText ?? '本命范围'}。`,
+        inputSummary: `命例一：坤造，广东出生，西历 1951年11月14日巳时；问题聚焦1993年；已选择 ${baziFortuneContext?.displayText ?? '本命范围'}。`,
         prompt: baziPrompt,
         notes: [
           '原题未给广东具体城市，因此本次八字样本未启用真太阳时。',
@@ -753,9 +748,9 @@ async function buildSamples(): Promise<PromptSample[]> {
         name: '紫微斗数',
         source: CONTEST_SOURCE,
         inputSummary:
-          '命例四：男命，西元 1993年4月8日 23:34，新加坡出生；按经度 103.8198 启用紫微真太阳时；问题为 Q16-Q20 多项选择。',
+          '命例四：男命，西元 1993年4月8日 23:34，新加坡出生；按经度 103.8198 启用紫微真太阳时；问题聚焦本命结构。',
         prompt: ziweiPrompt,
-        notes: ['使用本命范围生成，未读取正确答案，也未额外按 2001、2022、2024 生成流年盘。'],
+        notes: ['使用本命范围生成，问题与当前分析对象一致。'],
       },
       {
         name: '星盘',

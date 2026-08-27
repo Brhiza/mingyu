@@ -10,6 +10,7 @@ const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'] as const;
 
 function buildInstantTaskBook(options: {
   chartLabel: string;
+  traditionalBasis: string;
   timeBasisLabel: string;
   chartText: string;
   question: string;
@@ -17,6 +18,7 @@ function buildInstantTaskBook(options: {
 }) {
   const question = options.question.trim() || `请整体解读这张${options.chartLabel}。`;
   return [
+    `【传统依据】\n${options.traditionalBasis}`,
     `【时间口径】\n${options.timeBasisLabel}`,
     `【盘面资料】\n${options.chartText}`,
     `【问题】\n${question}`,
@@ -131,6 +133,7 @@ export function buildInstantBaziPrompt(
 ) {
   return buildInstantTaskBook({
     chartLabel: '八字即时盘',
+    traditionalBasis: '以当前时刻四柱为事件盘，结合日元、月令、十神、藏干、空亡与五行结构判断。',
     timeBasisLabel,
     chartText: formatInstantBaziData(result),
     question,
@@ -145,6 +148,7 @@ export function buildInstantZiweiPrompt(
 ) {
   return buildInstantTaskBook({
     chartLabel: '紫微即时盘',
+    traditionalBasis: '以当前时刻命身十二宫为事件盘，结合星曜、三方四正与四化判断。',
     timeBasisLabel,
     chartText: formatInstantZiweiData(payload),
     question,
@@ -160,6 +164,8 @@ export function buildInstantBaziZiweiPrompt(
 ) {
   return buildInstantTaskBook({
     chartLabel: '八字紫微即时盘',
+    traditionalBasis:
+      '八字以当前时刻四柱、十神与五行结构判断，紫微以当前时刻命身十二宫、星曜、三方四正与四化判断，再交叉印证。',
     timeBasisLabel,
     chartText: `【八字盘】\n${formatInstantBaziData(bazi)}\n\n【紫微盘】\n${formatInstantZiweiData(ziwei)}`,
     question,
@@ -174,6 +180,7 @@ export function buildInstantAstrolabePrompt(
 ) {
   return buildInstantTaskBook({
     chartLabel: '星盘即时盘',
+    traditionalBasis: '以当前时刻星盘为事件盘，结合四轴、行星落座落宫与主要相位判断。',
     timeBasisLabel,
     chartText: formatInstantAstrolabeData(data),
     question,
@@ -188,6 +195,8 @@ export function buildInstantQizhengPrompt(
 ) {
   return buildInstantTaskBook({
     chartLabel: '七政四余即时盘',
+    traditionalBasis:
+      '以当前时刻七政四余盘为事件盘，结合星体位置、二十八宿、十二宫与吊照关系判断。',
     timeBasisLabel,
     chartText: formatInstantQizhengData(result),
     question,
