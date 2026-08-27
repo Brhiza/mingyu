@@ -208,10 +208,9 @@ export function buildDivinationPrompt(
           ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
           : buildTaskText(method);
   const promptSchoolMethod = method === 'huangji' ? 'huangji-jingshi' : method;
-  const selectedSchools =
-    method !== 'ssgw' && options.schools?.length
-      ? normalizePromptSchoolIds(promptSchoolMethod as PromptSchoolMethod, options.schools)
-      : [];
+  const selectedSchools = options.schools?.length
+    ? normalizePromptSchoolIds(promptSchoolMethod as PromptSchoolMethod, options.schools)
+    : [];
   const schoolText = selectedSchools.length
     ? formatPromptSchoolGuidance(promptSchoolMethod as PromptSchoolMethod, selectedSchools)
     : '';

@@ -2850,13 +2850,15 @@ test('公开 API 灵签应返回签号、签题与签诗', async () => {
     }),
   });
   assert.equal(prompt.response.status, 200);
-  assert.match(prompt.body.data.prompt, /占法：三山国王灵签/);
   assert.match(prompt.body.data.prompt, /签号：第\d+签/);
   assert.match(prompt.body.data.prompt, /签题：《.+》/);
   assert.match(prompt.body.data.prompt, /签诗：/);
+  assert.match(prompt.body.data.prompt, /吉凶级别：/);
+  assert.match(prompt.body.data.prompt, /典故：/);
+  assert.match(prompt.body.data.prompt, /基础解签：/);
   assert.doesNotMatch(
     prompt.body.data.prompt,
-    /掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】|解读派系|多派合参/,
+    /占法：|【当前时间】|【问题】|【任务】|掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】|解读派系|多派合参/,
   );
   assertPromptIsPortableTaskText(prompt.body.data.prompt);
 

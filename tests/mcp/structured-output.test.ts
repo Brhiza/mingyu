@@ -2401,7 +2401,8 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     });
     assert.equal(tarotResult.isError, undefined, 'tarot_prompt custom 不应返回错误');
     const tarotPrompt = String(tarotResult.structuredContent?.prompt);
-    assert.match(tarotPrompt, /【任务】\n依据牌阵、牌位、正逆位与牌序组合回答【问题】。/);
+    assert.match(tarotPrompt, /【任务】\n依据唯一牌位、正逆位与单牌牌义回答【问题】。/);
+    assert.doesNotMatch(tarotPrompt, /牌序组合|牌序互动|相邻牌/);
     assertPromptHasAnswerFramework(tarotPrompt);
     assert.doesNotMatch(tarotPrompt, /【输出要求】/);
     assertPromptIsPortableTaskText(tarotPrompt);
@@ -2611,13 +2612,15 @@ test('MCP 灵签应返回签号、签题与签诗', async () => {
     assert.equal(prompted.isError, undefined);
     assert.equal(prompted.structuredContent?.result, undefined);
     const prompt = String(prompted.structuredContent?.prompt);
-    assert.match(prompt, /占法：三山国王灵签/);
     assert.match(prompt, /签号：第\d+签/);
     assert.match(prompt, /签题：《.+》/);
     assert.match(prompt, /签诗：/);
+    assert.match(prompt, /吉凶级别：/);
+    assert.match(prompt, /典故：/);
+    assert.match(prompt, /基础解签：/);
     assert.doesNotMatch(
       prompt,
-      /掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】/,
+      /占法：|【当前时间】|【问题】|【任务】|掷筊|仪式|证据|限制|阴杯|rejected|使用简体中文|中文输出|【输出要求】/,
     );
     assertPromptIsPortableTaskText(prompt);
   });
