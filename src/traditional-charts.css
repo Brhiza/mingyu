@@ -1930,17 +1930,32 @@
 
   .traditional-liuyao-head,
   .traditional-liuyao-row {
-    min-width: 0;
-    grid-template-columns: 34px 34px 38px 48px 34px 50px minmax(48px, 1fr);
-    gap: 3px;
-    padding: 7px 4px;
+    min-width: 540px;
+    grid-template-columns: 38px 38px 42px 52px 46px 112px minmax(150px, 1fr);
+    gap: 4px;
+    padding: 7px 6px;
     font-size: 10px;
   }
 
+  .traditional-liuyao-row > span,
+  .traditional-liuyao-row > .traditional-yao-line {
+    min-width: 0;
+  }
+
+  .traditional-liuyao-row small {
+    overflow-wrap: anywhere;
+  }
+
   .traditional-yao-line {
-    width: 48px;
+    width: 52px;
     min-width: 0;
     gap: 3px;
+    justify-content: flex-start;
+  }
+
+  .traditional-yao-line > em {
+    right: 0;
+    left: auto;
   }
 
   .traditional-yao-symbol {
