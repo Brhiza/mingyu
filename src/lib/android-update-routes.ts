@@ -14,6 +14,28 @@ export type AndroidRouteProbe = AndroidDownloadRoute & {
 
 const PROBE_TIMEOUT_MS = 8_000;
 
+async function fetchRouteProbe(
+  route: AndroidDownloadRoute,
+  fetcher: typeof fetch,
+  signal: AbortSignal,
+): Promise<Response> {
+  const headResponse = await fetcher(route.url, {
+    method: 'HEAD',
+    cache: 'no-store',
+    redirect: 'follow',
+    signal,
+  });
+  if (headResponse.ok || route.id !== 'gh-proxy') return headResponse;
+  await headResponse.body?.cancel().catch(() => undefined);
+  return fetcher(route.url, {
+    method: 'GET',
+    headers: { Range: 'bytes=0-0' },
+    cache: 'no-store',
+    redirect: 'follow',
+    signal,
+  });
+}
+
 export function buildAndroidDownloadRoutes(
   version: string,
   githubUrl: string,
@@ -71,12 +93,8 @@ export async function probeAndroidDownloadRoutes(
       const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
       const startedAt = Date.now();
       try {
-        const response = await fetcher(route.url, {
-          method: 'HEAD',
-          cache: 'no-store',
-          redirect: 'follow',
-          signal: controller.signal,
-        });
+        const response = await fetchRouteProbe(route, fetcher, controller.signal);
+        await response.body?.cancel().catch(() => undefined);
         return {
           ...route,
           status: response.ok ? ('available' as const) : ('unavailable' as const),

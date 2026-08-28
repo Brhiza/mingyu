@@ -96,6 +96,20 @@ test('线路测速会跳过失败线路并自动选择最低延迟', async () =>
   );
 });
 
+test('GitHub 加速线路拒绝 HEAD 时改用单字节 Range 测速', async () => {
+  const route = buildAndroidDownloadRoutes('1.2.3', 'https://github.com/example.apk')[2]!;
+  const methods: string[] = [];
+  const probes = await probeAndroidDownloadRoutes([route], (async (
+    _url: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
+    methods.push(init?.method || 'GET');
+    return new Response(null, { status: init?.method === 'GET' ? 206 : 500 });
+  }) as typeof fetch);
+  assert.deepEqual(methods, ['HEAD', 'GET']);
+  assert.equal(probes[0]?.status, 'available');
+});
+
 test('APK 工作流覆盖调试构建、正式签名、校验文件和 Release', async () => {
   const workflow = await readFile('.github/workflows/android-apk.yml', 'utf8');
   assert.match(workflow, /pull_request:/);
