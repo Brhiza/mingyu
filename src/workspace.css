@@ -924,7 +924,8 @@
   white-space: nowrap;
 }
 
-.workspace-result-ai-fab {
+.workspace-result-ai-fab,
+.workspace-result-share-fab {
   display: none;
 }
 
@@ -1899,11 +1900,11 @@
     display: none;
   }
 
-  .workspace-result-ai-fab {
+  .workspace-result-ai-fab,
+  .workspace-result-share-fab {
     position: fixed;
     z-index: 720;
     right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     width: 44px;
     height: 44px;
     display: grid;
@@ -1917,13 +1918,41 @@
     cursor: pointer;
   }
 
+  .workspace-result-ai-fab {
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .workspace-result-share-fab {
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    border: 1px solid var(--border-soft);
+    background: var(--surface-base);
+    color: var(--accent-strong);
+    box-shadow: 0 8px 20px rgb(31 22 35 / 14%);
+  }
+
+  .workspace-result-share-fab svg {
+    width: 21px;
+    height: 21px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+
+  .workspace-result-share-fab:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
   .workspace-result-ai-fab span {
     font-size: 14px;
     font-weight: 800;
     line-height: 1;
   }
 
-  .workspace-result-ai-fab:focus-visible {
+  .workspace-result-ai-fab:focus-visible,
+  .workspace-result-share-fab:focus-visible {
     outline: 3px solid var(--surface-base);
     outline-offset: 2px;
   }

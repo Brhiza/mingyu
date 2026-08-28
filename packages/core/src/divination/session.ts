@@ -170,7 +170,6 @@ function buildDivinationAiPrompt(options: {
       buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
       supplementary ? buildPromptSection('补充信息', supplementary) : '',
       buildPromptSection('占卜资料', options.chartText),
-      buildPromptSection('问题', options.question || '请依据本次盘面资料完成解读。'),
       buildPromptSection(
         '任务',
         options.method === 'tarot'
@@ -179,6 +178,7 @@ function buildDivinationAiPrompt(options: {
             ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
             : buildTaskText(options.method),
       ),
+      buildPromptSection('问题', options.question || '请依据本次盘面资料完成解读。'),
     ]),
   );
 }

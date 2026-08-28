@@ -214,6 +214,31 @@ export function ResultAssistantFab({ aiEnabled, onOpen }: ResultAssistantFabProp
   );
 }
 
+type ResultShareFabProps = {
+  disabled?: boolean;
+  onShare: () => void;
+};
+
+export function ResultShareFab({ disabled = false, onShare }: ResultShareFabProps) {
+  return (
+    <button
+      type="button"
+      className="workspace-result-share-fab"
+      disabled={disabled}
+      onClick={onShare}
+      aria-label="分享完整提问内容"
+      title="分享"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="18" cy="5" r="2.5" />
+        <circle cx="6" cy="12" r="2.5" />
+        <circle cx="18" cy="19" r="2.5" />
+        <path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5" />
+      </svg>
+    </button>
+  );
+}
+
 type WorkspacePageProps = HTMLAttributes<HTMLDivElement> & {
   title?: string;
   action?: ReactNode;

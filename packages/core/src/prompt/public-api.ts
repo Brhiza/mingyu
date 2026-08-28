@@ -277,8 +277,8 @@ export function buildBaziPromptForResult(params: {
     section('分析对象', scopeText),
     fortuneScope === 'full' ? section('命限资料', formatFullFortune(params.result)) : '',
     fortuneSelection ? section('岁运重点', fortuneSelection.focus) : '',
-    section('问题', question),
     task ? section('任务', task) : '',
+    section('问题', question),
   ]);
   const schoolSection = params.schools?.length
     ? buildBaziSchoolsPromptSection(params.result, params.schools)
@@ -510,13 +510,13 @@ export function buildPublicZiweiPromptForRuntime(params: {
       payload.active_scope.scope === 'origin',
     ),
     scope === 'full' ? section('完整运限资料', formatPublicZiweiFullScopeText(params.result)) : '',
-    section('问题', question),
     section(
       '任务',
       mode === 'custom'
         ? buildCustomQuestionTask('紫微盘面资料', 'ziwei')
         : buildPromptTask('请依据紫微盘面完成解读。', 'ziwei'),
     ),
+    section('问题', question),
   ]);
   const selectedSchools = params.schools?.length ? params.schools : [];
   const schoolsText = formatPromptSchoolGuidance('ziwei', selectedSchools);
@@ -568,13 +568,13 @@ export function buildBaziZiweiPromptForResults(params: {
     section('当前时间', formatPromptCurrentTime()),
     section('八字排盘信息', baziText),
     section('紫微盘面信息', ziweiText),
-    params.question.trim() ? section('问题', params.question.trim()) : '',
     section(
       '任务',
       params.mode === 'custom'
         ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
         : buildPromptTask('请依据八字和紫微盘面完成解读。', 'bazi-ziwei'),
     ),
+    params.question.trim() ? section('问题', params.question.trim()) : '',
   ]);
 }
 

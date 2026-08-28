@@ -143,8 +143,8 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     options.fortuneScope === 'full'
       ? buildPromptSection('命限资料', formatFullFortune(options.result))
       : '',
-    buildPromptSection('问题', question),
     buildPromptSection('任务', task),
+    buildPromptSection('问题', question),
   ]);
 
   return buildPromptDocument(user);
@@ -216,7 +216,6 @@ export function buildBaziCompatibilityPromptDocument(
       : '',
     buildPromptSection('双盘关系资料', evidence),
     relationLabel ? buildPromptSection('关系范围', relationLabel) : '',
-    buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
       buildPromptTask(
@@ -224,6 +223,7 @@ export function buildBaziCompatibilityPromptDocument(
         'bazi-compatibility',
       ),
     ),
+    buildPromptSection('问题', question),
   ]);
   return buildPromptDocument(user);
 }

@@ -21,8 +21,8 @@ function buildInstantTaskBook(options: {
     `【传统依据】\n${options.traditionalBasis}`,
     `【时间口径】\n${options.timeBasisLabel}`,
     `【盘面资料】\n${options.chartText}`,
-    `【问题】\n${question}`,
     `【任务】\n${options.task}`,
+    `【问题】\n${question}`,
   ].join('\n\n');
 }
 
