@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+
 export type AiProviderMode = 'builtin' | 'custom';
 
 export interface AiProviderPreset {
@@ -70,6 +72,9 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
 ];
 
 export function isServerBuiltinAiEnabled(): boolean {
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+    return true;
+  }
   const runtimeConfig = (
     globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig }
   ).__MINGYU_RUNTIME_CONFIG__;

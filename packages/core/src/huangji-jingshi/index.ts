@@ -289,13 +289,13 @@ export function buildHuangjiJingshiPrompt(
         `错卦：${forecast.relatedHexagrams.opposite.name}`,
         `综卦：${forecast.relatedHexagrams.reversed.name}`,
       ].join('\n'),
-      `【问题】\n${askedQuestion}`,
       `【任务】\n${buildPromptTask(
         dateTimeForecast
           ? '以时经卦与日卦为当前时点的主要取象，以旬纬卦、月经卦和值年卦说明近远层级，再结合十年卦、六十年统卦、运卦和会内统卦交代长期背景，回答所问事项。'
           : '以值年卦为主要取象，结合十年卦、六十年统卦、运卦和会内统卦的层级背景，解读所问事项；个人事项结合问题中的现实背景作条件化分析。',
         'huangji-jingshi',
       )}`,
+      `【问题】\n${askedQuestion}`,
     ].join('\n\n');
     return insertPromptSectionBeforeHeading(
       prompt,
@@ -319,7 +319,6 @@ export function buildHuangjiJingshiPrompt(
       `周期边界：本世当前为第 ${result.progress.shi.currentYearIndex} 年，尚余 ${result.progress.shi.remainingYearsAfterCurrent} 个完整年；下一世始于 ${result.progress.shi.nextCycleStartYear}，下一运始于 ${result.progress.yun.nextCycleStartYear}`,
     ].join('\n'),
   ];
-  if (normalizedQuestion) sections.push(`【问题】\n${normalizedQuestion}`);
   sections.push(
     `【任务】\n${buildPromptTask(
       normalizedQuestion
@@ -327,6 +326,7 @@ export function buildHuangjiJingshiPrompt(
         : '请依据周期资料说明目标年在元、会、运、世中的位置、当前进度与下一周期边界。',
     )}`,
   );
+  if (normalizedQuestion) sections.push(`【问题】\n${normalizedQuestion}`);
   return insertPromptSectionBeforeHeading(
     sections.join('\n\n'),
     '【问题】',

@@ -41,7 +41,6 @@ export function buildMetaphysicsPromptDocument(
     baseSection,
     options.measurement ? buildPromptSection('测量换算', options.measurement) : '',
     buildPromptSchoolSection(options.method, options.schools),
-    question?.trim() ? buildPromptSection('问题', question) : '',
     buildPromptSection(
       '任务',
       buildPromptTask(
@@ -49,6 +48,7 @@ export function buildMetaphysicsPromptDocument(
         options.method,
       ),
     ),
+    question?.trim() ? buildPromptSection('问题', question) : '',
   ];
 
   return buildPromptDocument(joinPromptSections(sections));

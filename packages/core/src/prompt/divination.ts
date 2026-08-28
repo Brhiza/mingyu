@@ -662,9 +662,9 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
       }),
     ),
     buildPromptSchoolSection(promptSchoolMethod as PromptSchoolMethod, options.schools),
-    buildPromptSection('问题', question),
     templateText ? buildPromptSection('问题范围', templateText) : '',
     buildPromptSection('任务', task),
+    buildPromptSection('问题', question),
   ]);
   return buildPromptDocument(user);
 }

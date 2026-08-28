@@ -123,7 +123,6 @@ export function buildAstrolabePromptDocument(options: AstrolabePromptOptions): P
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('星盘资料', formatAstrolabeForPrompt(options.chart)),
     buildPromptSchoolSection('astrolabe', options.schools),
-    buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
       buildPromptTask(
@@ -131,6 +130,7 @@ export function buildAstrolabePromptDocument(options: AstrolabePromptOptions): P
         'astrolabe',
       ),
     ),
+    buildPromptSection('问题', question),
   ]);
   return buildPromptDocument(user);
 }
@@ -174,7 +174,6 @@ export function buildAstrolabeSynastryPromptDocument(
     buildPromptSection('第二人本命盘', formatAstrolabeForPrompt(options.chart2)),
     buildPromptSection('跨盘资料', formatSynastryFacts(options.synastry)),
     buildPromptSchoolSection('astrolabe', options.schools),
-    buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
       buildPromptTask(
@@ -182,6 +181,7 @@ export function buildAstrolabeSynastryPromptDocument(
         'astrolabe-synastry',
       ),
     ),
+    buildPromptSection('问题', question),
   ]);
   return buildPromptDocument(user);
 }

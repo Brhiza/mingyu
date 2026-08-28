@@ -11,6 +11,7 @@ import { PromptDeliveryPanel } from '@/components/PromptPreview';
 import {
   ResultAssistantFab,
   ResultAssistantHeader,
+  ResultShareFab,
   WorkspaceButton,
 } from '@/components/workspace/WorkspaceUI';
 import { useViewportSize } from '@/hooks/useViewportWidth';
@@ -422,7 +423,10 @@ export function DivinationResult({
       </div>
 
       {!assistantOnly && onOpenAssistant ? (
-        <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={onOpenAssistant} />
+        <>
+          <ResultShareFab disabled={!session.prompt} onShare={onShare} />
+          <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={onOpenAssistant} />
+        </>
       ) : null}
     </div>
   );

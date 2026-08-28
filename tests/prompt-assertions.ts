@@ -80,9 +80,14 @@ export function assertPromptHasSingleRole(
     findPromptSectionHeadingIndex(prompt, '【任务】') !== -1
   ) {
     assert.ok(
-      findPromptSectionHeadingIndex(prompt, '【问题】') <
+      findPromptSectionHeadingIndex(prompt, '【问题】') >
         findPromptSectionHeadingIndex(prompt, '【任务】'),
-      '【问题】应位于【任务】之前',
+      '【问题】应位于【任务】之后',
+    );
+    assert.doesNotMatch(
+      prompt.slice(findPromptSectionHeadingIndex(prompt, '【问题】') + '【问题】'.length),
+      /^【[^】\n]+】$/m,
+      '【问题】应是任务书的最后一段',
     );
   }
   assert.doesNotMatch(

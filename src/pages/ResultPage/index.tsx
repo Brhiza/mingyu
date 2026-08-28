@@ -75,6 +75,7 @@ import { AiChatPanel } from '@/components/AiChatPanel';
 import {
   ResultAssistantFab,
   ResultAssistantHeader,
+  ResultShareFab,
   WorkspaceButton,
 } from '@/components/workspace/WorkspaceUI';
 import { useAiSettings } from '@/hooks/useAiSettings';
@@ -1987,7 +1988,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       </div>
 
       {!isAssistantPage ? (
-        <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={openAssistantPage} />
+        <>
+          <ResultShareFab disabled={!latestActivePromptText} onShare={handleShare} />
+          <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={openAssistantPage} />
+        </>
       ) : null}
 
       {!isInstantResult &&

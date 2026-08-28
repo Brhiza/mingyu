@@ -612,6 +612,10 @@ label.workspace-ui-field > span:first-child {
   box-shadow: 0 28px 80px rgba(30, 20, 35, 0.22);
 }
 
+.workspace-ui-dialog:focus {
+  outline: none;
+}
+
 .workspace-ui-dialog-header {
   flex: 0 0 auto;
   display: flex;
@@ -1594,6 +1598,31 @@ label.workspace-ui-field > span:first-child {
 
 .workspace-ui-dialog.workspace-confirm-dialog {
   width: min(420px, 100%);
+}
+
+.workspace-ui-dialog.android-app-update-dialog {
+  width: min(460px, 100%);
+}
+
+.android-app-update-body {
+  display: grid;
+  gap: 8px;
+}
+
+.android-app-update-body p,
+.android-app-update-body small {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.android-app-update-body p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.android-app-update-body small {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .workspace-confirm-dialog-body p {

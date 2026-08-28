@@ -236,9 +236,9 @@ export function buildDivinationPrompt(
       buildSection('【排盘信息】', infoText),
       buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
       schoolSection,
-      buildSection('【问题】', normalizedQuestion),
       liurenTemplateSection,
       buildSection('【任务】', taskText),
+      buildSection('【问题】', normalizedQuestion),
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -252,10 +252,10 @@ export function buildDivinationPrompt(
     astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
     buildSection('【占卜信息】', infoText),
     schoolSection,
-    buildSection('【问题】', normalizedQuestion),
     isCustomQuestion ? '' : liuyaoTemplateSection,
     isCustomQuestion ? '' : liurenTemplateSection,
     buildSection('【任务】', taskText),
+    buildSection('【问题】', normalizedQuestion),
   ]
     .filter(Boolean)
     .join('\n\n');

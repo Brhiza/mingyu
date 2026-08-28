@@ -1,5 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from './workspace/WorkspaceUI';
+import { DropdownSelect } from './DropdownSelect';
+import type { AndroidAppUpdateController } from '@/hooks/useAndroidAppUpdate';
+import {
+  getAndroidAiAppTargetKey,
+  isAndroidApp,
+  listAndroidAiApps,
+  readPreferredAndroidAiApp,
+  savePreferredAndroidAiApp,
+  type AndroidAiAppTarget,
+} from '@/lib/android-ai-app';
 import {
   DEFAULT_WORKSPACE_PREFERENCES,
   HOME_MODE_DEFINITIONS,
@@ -15,6 +25,7 @@ import {
 
 type WorkspaceSettingsModalProps = {
   preferences: WorkspacePreferences;
+  androidUpdater: AndroidAppUpdateController;
   onApply: (preferences: WorkspacePreferences) => void;
   onOpenAiSettings: () => void;
   onClose: () => void;
@@ -52,12 +63,48 @@ function moveHomeMode(order: HomeModeId[], id: HomeModeId, direction: -1 | 1) {
 
 export function WorkspaceSettingsModal({
   preferences,
+  androidUpdater,
   onApply,
   onOpenAiSettings,
   onClose,
 }: WorkspaceSettingsModalProps) {
   const [draft, setDraft] = useState(preferences);
   const didApplyRef = useRef(false);
+  const androidApp = isAndroidApp();
+  const [aiAppTargets, setAiAppTargets] = useState<AndroidAiAppTarget[]>([]);
+  const [aiAppTargetsReady, setAiAppTargetsReady] = useState(false);
+  const [selectedAiAppKey, setSelectedAiAppKey] = useState(() => {
+    const target = readPreferredAndroidAiApp();
+    return target ? getAndroidAiAppTargetKey(target) : '';
+  });
+  const [aiAppStatus, setAiAppStatus] = useState('');
+
+  const refreshAiAppTargets = useCallback(async () => {
+    if (!androidApp) return;
+    setAiAppStatus('正在读取已安装应用…');
+    try {
+      const targets = await listAndroidAiApps();
+      setAiAppTargets(targets);
+      setAiAppTargetsReady(true);
+      setSelectedAiAppKey((current) =>
+        current && !targets.some((target) => getAndroidAiAppTargetKey(target) === current)
+          ? ''
+          : current,
+      );
+      setAiAppStatus(
+        targets.length
+          ? `已找到 ${targets.length} 个常见 AI 应用`
+          : '未找到已安装且支持接收文本的常见 AI 应用',
+      );
+    } catch {
+      setAiAppTargetsReady(false);
+      setAiAppStatus('读取应用列表失败，请稍后重试');
+    }
+  }, [androidApp]);
+
+  useEffect(() => {
+    void refreshAiAppTargets();
+  }, [refreshAiAppTargets]);
 
   useEffect(() => {
     applyWorkspaceTheme(draft.theme);
@@ -193,6 +240,65 @@ export function WorkspaceSettingsModal({
             </span>
             <span aria-hidden="true">›</span>
           </button>
+
+          {androidApp ? (
+            <>
+              <div className="workspace-ai-app-setting">
+                <div className="workspace-order-heading">
+                  <div>
+                    <h3>默认 AI App</h3>
+                    <p>常见 AI 应用优先显示，其他文本应用不列出。</p>
+                  </div>
+                  <WorkspaceButton variant="ghost" size="small" onClick={refreshAiAppTargets}>
+                    刷新
+                  </WorkspaceButton>
+                </div>
+                <DropdownSelect
+                  value={selectedAiAppKey}
+                  ariaLabel="默认 AI App"
+                  variant="field"
+                  options={[
+                    ...aiAppTargets.map((target, index) => ({
+                      value: getAndroidAiAppTargetKey(target),
+                      label: target.label,
+                      group: index === 0 ? '常见 AI App' : undefined,
+                    })),
+                    { value: '', label: '使用系统分享', group: '其他' },
+                  ]}
+                  onChange={setSelectedAiAppKey}
+                />
+                {aiAppStatus ? (
+                  <small className="workspace-setting-note">{aiAppStatus}</small>
+                ) : null}
+              </div>
+
+              <div className="workspace-android-update-setting">
+                <div className="workspace-order-heading">
+                  <div>
+                    <h3>应用更新</h3>
+                    <p>
+                      当前版本 {androidUpdater.appInfo?.versionName || '正在读取'}
+                      {androidUpdater.release ? `，最新 ${androidUpdater.release.version}` : ''}
+                    </p>
+                  </div>
+                  <WorkspaceButton
+                    variant="ghost"
+                    size="small"
+                    disabled={
+                      androidUpdater.status === 'checking' ||
+                      androidUpdater.status === 'downloading'
+                    }
+                    onClick={() => void androidUpdater.checkForUpdates(true)}
+                  >
+                    {androidUpdater.status === 'checking' ? '检查中…' : '检查更新'}
+                  </WorkspaceButton>
+                </div>
+                {androidUpdater.message ? (
+                  <small className="workspace-setting-note">{androidUpdater.message}</small>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </section>
 
         <section className="workspace-settings-section workspace-order-section">
@@ -283,6 +389,17 @@ export function WorkspaceSettingsModal({
           variant="primary"
           onClick={() => {
             didApplyRef.current = true;
+            const savedAiApp = readPreferredAndroidAiApp();
+            savePreferredAndroidAiApp(
+              aiAppTargets.find(
+                (target) => getAndroidAiAppTargetKey(target) === selectedAiAppKey,
+              ) ??
+                (!aiAppTargetsReady &&
+                savedAiApp &&
+                getAndroidAiAppTargetKey(savedAiApp) === selectedAiAppKey
+                  ? savedAiApp
+                  : null),
+            );
             onApply(draft);
             onClose();
           }}

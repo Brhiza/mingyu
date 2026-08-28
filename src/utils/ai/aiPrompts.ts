@@ -165,13 +165,13 @@ export function buildPromptFromConfig(
         fortuneSection ? buildPromptSection('分析对象', fortuneSection.analysisObject) : '',
         fortuneSection ? buildPromptSection('岁运重点', fortuneSection.focus) : '',
         fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
-        normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
         buildPromptSection(
           '任务',
           isCustomQuestion
             ? buildCustomQuestionTask('八字排盘资料', 'bazi')
             : buildPromptTask(task || '请依据八字排盘资料完成解读。', 'bazi'),
         ),
+        normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
       ]),
     };
   }
@@ -196,13 +196,13 @@ export function buildPromptFromConfig(
         ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
         : '',
       fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
-      normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
       buildPromptSection(
         '任务',
         isCustomQuestion
           ? buildCustomQuestionTask('八字排盘资料', 'bazi')
           : buildPromptTask('请依据八字排盘资料完成解读。', 'bazi'),
       ),
+      normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
     ]),
   };
 }
@@ -280,13 +280,13 @@ export function getCompatibilityPrompt(
       buildPromptSection('第一人排盘信息', data1),
       buildPromptSection('第二人排盘信息', data2),
       buildPromptSection('双盘关系资料', compatibilityEvidence),
+      taskSection,
       questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType)
         ? buildPromptSection(
             '问题',
             questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),
           )
         : '',
-      taskSection,
     ]),
   };
 }

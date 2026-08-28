@@ -4103,7 +4103,7 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.doesNotMatch(session.prompt, /尚未计算|月计、日计或时计/);
   assert.match(
     session.prompt,
-    /【传统依据】[\s\S]*【当前时间】[\s\S]*【占卜信息】[\s\S]*【问题】[\s\S]*【任务】/,
+    /【传统依据】[\s\S]*【当前时间】[\s\S]*【占卜信息】[\s\S]*【任务】[\s\S]*【问题】/,
   );
   assert.doesNotMatch(session.prompt, /【输出要求】/);
 });

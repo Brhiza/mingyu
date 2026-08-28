@@ -276,7 +276,6 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
     schoolText
       ? buildPromptSection(selectedSchools.length > 1 ? '多派合参' : '流派', schoolText)
       : '',
-    buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
       buildPromptTask(
@@ -284,6 +283,7 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
         'ziwei',
       ),
     ),
+    buildPromptSection('问题', question),
   ]);
   return buildPromptDocument(user);
 }
@@ -352,7 +352,6 @@ export function buildZiweiCompatibilityPromptDocument(
         )
       : '',
     buildPromptSection('双盘关系资料', formatZiweiCompatibilityFacts(compatibility)),
-    buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
       buildPromptTask(
@@ -360,6 +359,7 @@ export function buildZiweiCompatibilityPromptDocument(
         'ziwei-compatibility',
       ),
     ),
+    buildPromptSection('问题', question),
   ]);
   return buildPromptDocument(user);
 }
@@ -420,7 +420,6 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
         )
       : '',
     buildPromptSection('分析对象', topic),
-    buildPromptSection('问题', question),
     buildPromptSection(
       '任务',
       buildPromptTask(
@@ -428,6 +427,7 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
         'bazi-ziwei',
       ),
     ),
+    buildPromptSection('问题', question),
   ]);
   return buildPromptDocument(user);
 }

@@ -228,7 +228,6 @@ export function buildBaziZiweiEnhancedPrompt(params: {
       : '',
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${params.ziweiText}`,
-    ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
     `【任务】\n${
       isCustomQuestion
         ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
@@ -237,6 +236,7 @@ export function buildBaziZiweiEnhancedPrompt(params: {
             'bazi-ziwei',
           )
     }`,
+    ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
   ]
     .filter(Boolean)
     .join('\n\n');

@@ -238,13 +238,13 @@ export function buildCombinedZiweiPrompt(
     '',
     pack,
     '',
-    ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
-    '',
     `【任务】\n${
       isCustomQuestion
         ? buildCustomQuestionTask('紫微盘面资料', 'ziwei')
         : buildPromptTask('请结合宫位、星曜、四化和三方四正直接回答【问题】。', 'ziwei')
     }`,
+    '',
+    ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
   ].join('\n');
 }
 
@@ -317,12 +317,12 @@ export function buildCombinedZiweiCompatibilityPrompt(
     compatibilityInfoText ? ['', `【双盘关系资料】\n${compatibilityInfoText}`] : '',
     buildPromptSchoolSection('ziwei', params.schools),
     '',
-    ...(compatibilityQuestion ? [`【问题】\n${compatibilityQuestion}`] : []),
-    '',
     `【任务】\n${
       isCustomQuestion
         ? buildCustomQuestionTask('双方紫微盘面和跨盘关系资料', 'ziwei-compatibility')
         : buildPromptTask('请依据双方紫微盘面和跨盘关系资料完成解读。', 'ziwei-compatibility')
     }`,
+    '',
+    ...(compatibilityQuestion ? [`【问题】\n${compatibilityQuestion}`] : []),
   ].join('\n');
 }

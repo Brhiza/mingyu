@@ -625,15 +625,15 @@ export function buildWuyunLiuqiPrompt(
       ),
     ].join('\n'),
   ];
-  if (normalizedQuestion) {
-    sections.push(`【问题】\n${normalizedQuestion}`);
-  }
   sections.push(
     `【任务】\n${buildPromptTask(
       normalizedQuestion ? '请结合年度运气资料回答【问题】。' : '请解读年度运气节律。',
       'wuyun-liuqi',
     )}`,
   );
+  if (normalizedQuestion) {
+    sections.push(`【问题】\n${normalizedQuestion}`);
+  }
   return insertPromptSectionBeforeHeading(
     sections.join('\n\n'),
     '【问题】',

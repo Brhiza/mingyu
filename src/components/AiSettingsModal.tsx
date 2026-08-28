@@ -8,6 +8,7 @@ import {
   isServerBuiltinAiEnabled,
   type AiSettings,
 } from '@/lib/ai/settings';
+import { isAndroidApp } from '@/lib/android-ai-app';
 
 interface AiSettingsModalProps {
   settings: AiSettings;
@@ -21,6 +22,7 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
   const [models, setModels] = useState<string[]>([]);
   const builtinEnabled = isServerBuiltinAiEnabled();
   const builtinLabel = getServerBuiltinAiLabel();
+  const androidApp = isAndroidApp();
   const canFetchModels =
     draft.mode === 'builtin' || Boolean(draft.apiKey.trim() && draft.baseUrl.trim());
 
@@ -146,12 +148,18 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
                 className="workspace-ui-control"
                 type="password"
                 value={draft.apiKey}
-                placeholder="仅自行配置时填写，保存在本机浏览器"
+                placeholder="仅自行配置时填写，保存在当前设备"
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, apiKey: event.target.value }))
                 }
               />
             </label>
+
+            {androidApp ? (
+              <p className="workspace-setting-note">
+                安卓版会从当前设备直连该接口，API Key 不经过命语服务器。
+              </p>
+            ) : null}
 
             <label className="workspace-ui-field">
               <span>模型</span>

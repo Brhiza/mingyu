@@ -42,7 +42,7 @@ function createSupplementaryInfo(): SupplementaryInfo {
 }
 
 function assertStandardPromptStructure(prompt: string) {
-  const expectedSections = ['【传统依据】', '【当前时间】', '【占卜信息】', '【问题】', '【任务】'];
+  const expectedSections = ['【传统依据】', '【当前时间】', '【占卜信息】', '【任务】', '【问题】'];
 
   assertPromptSectionsInOrder(prompt, expectedSections, {
     requireUnique: true,
@@ -72,9 +72,9 @@ function assertLiurenPromptStructure(prompt: string) {
     '【当前时间】',
     '【排盘信息】',
     '【分析对象】',
-    '【问题】',
     '【问题范围】',
     '【任务】',
+    '【问题】',
   ];
 
   assertPromptSectionsInOrder(prompt, expectedSections, {
@@ -883,7 +883,7 @@ test('择日提示词在有补充诉求时输出问题，空时不强制输出�
   assert.match(prompt, /【问题】\n计划六月上旬签合作合同，希望兼顾资金安全和双方合作稳定。/);
   assert.doesNotMatch(prompt, /【补充信息】/);
   assert.ok(
-    findPromptSectionHeadingIndex(prompt, '【问题】') <
+    findPromptSectionHeadingIndex(prompt, '【问题】') >
       findPromptSectionHeadingIndex(prompt, '【任务】'),
   );
 });

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type UIEvent as ReactUIEvent } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
+import { AndroidAppUpdateDialog } from '@/components/AndroidAppUpdateDialog';
 import { WorkspaceSettingsModal } from '@/components/WorkspaceSettingsModal';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
+import { useAndroidAppUpdate } from '@/hooks/useAndroidAppUpdate';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import {
   HISTORY_RECORDS_EVENT,
@@ -29,6 +31,7 @@ import {
   type WorkspaceFeatureId,
 } from '@/lib/workspace';
 import { isInstantChartType } from '@/lib/instant-chart';
+import { registerDismissLayer } from '@/lib/dismiss-layer';
 import { INSTANT_CHART_DEFINITIONS } from 'mingyu-core/instant';
 
 type SidebarView = 'tools' | 'history';
@@ -96,6 +99,7 @@ export function WorkspaceShell() {
   const location = useLocation();
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [aiSettings, setAiSettings] = useAiSettings();
+  const androidUpdater = useAndroidAppUpdate();
   const [sidebarView, setSidebarView] = useState<SidebarView>(() => {
     if (new URLSearchParams(location.search).get('tab') === 'divination') return 'history';
     return 'tools';
@@ -177,6 +181,13 @@ export function WorkspaceShell() {
       );
     }
   }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!isDrawerOpen) return undefined;
+    return registerDismissLayer(() => {
+      setIsDrawerOpen(false);
+    });
+  }, [isDrawerOpen]);
 
   useEffect(() => {
     const syncPreferences = () => {
@@ -661,6 +672,7 @@ export function WorkspaceShell() {
       {settingsModal === 'workspace' ? (
         <WorkspaceSettingsModal
           preferences={preferences}
+          androidUpdater={androidUpdater}
           onApply={(next) => setPreferences(saveWorkspacePreferences(next))}
           onOpenAiSettings={() => setSettingsModal('ai')}
           onClose={() => setSettingsModal(null)}
@@ -673,6 +685,7 @@ export function WorkspaceShell() {
           onClose={() => setSettingsModal(null)}
         />
       ) : null}
+      <AndroidAppUpdateDialog updater={androidUpdater} />
     </div>
   );
 }

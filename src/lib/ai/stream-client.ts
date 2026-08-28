@@ -6,6 +6,21 @@
  */
 
 import type { AiRequestConfig } from './settings';
+import { Capacitor } from '@capacitor/core';
+import {
+  fetchAndroidDirectAiModels,
+  isAndroidDirectCustomAi,
+  streamAndroidDirectAi,
+} from './android-custom-ai';
+
+const ANDROID_API_ORIGIN = 'https://aov.cc';
+
+export function getAiApiEndpoint(path: string): string {
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+    return new URL(path, ANDROID_API_ORIGIN).toString();
+  }
+  return path;
+}
 
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
@@ -34,8 +49,17 @@ type AiErrorPayload = {
 export async function streamAiChat(messages: ChatMessage[], options: StreamOptions) {
   const { onChunk, onDone, onError, signal, aiConfig } = options;
 
+  if (isAndroidDirectCustomAi(aiConfig)) {
+    try {
+      await streamAndroidDirectAi(messages, aiConfig, { onChunk, onDone, onError }, signal);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : '无法从当前设备直连自定义 AI。');
+    }
+    return;
+  }
+
   try {
-    const response = await fetch('/api/v1/ai/analyze', {
+    const response = await fetch(getAiApiEndpoint('/api/v1/ai/analyze'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages, aiConfig }),
@@ -58,7 +82,11 @@ export async function streamAiChat(messages: ChatMessage[], options: StreamOptio
 }
 
 export async function fetchAiModels(aiConfig: AiRequestConfig): Promise<string[]> {
-  const response = await fetch('/api/v1/ai/models', {
+  if (isAndroidDirectCustomAi(aiConfig)) {
+    return fetchAndroidDirectAiModels(aiConfig);
+  }
+
+  const response = await fetch(getAiApiEndpoint('/api/v1/ai/models'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ aiConfig }),
