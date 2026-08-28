@@ -35,7 +35,7 @@ jobs:
       - run: pnpm android:sync
       - name: 测试并构建调试 APK
         working-directory: android
-        run: ./gradlew testDebugUnitTest assembleDebug
+        run: bash ./gradlew testDebugUnitTest assembleDebug
       - name: 上传调试 APK
         uses: actions/upload-artifact@v7
         with:
@@ -93,7 +93,7 @@ jobs:
           MINGYU_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
           MINGYU_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
           MINGYU_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
-        run: ./gradlew testReleaseUnitTest assembleRelease
+        run: bash ./gradlew testReleaseUnitTest assembleRelease
       - name: 验证 APK 正式签名
         shell: bash
         run: |
