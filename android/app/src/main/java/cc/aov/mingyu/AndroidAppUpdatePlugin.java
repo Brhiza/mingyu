@@ -85,12 +85,11 @@ public class AndroidAppUpdatePlugin extends Plugin {
         final URL apkUrl;
         final URL checksumUrl;
         try {
-            apkUrl = AndroidAppUpdateVerifier.requireReleaseAssetUrl(call.getString("apkUrl"), ".apk");
             checksumUrl = AndroidAppUpdateVerifier.requireReleaseAssetUrl(
                 call.getString("checksumUrl"),
                 ".sha256"
             );
-            AndroidAppUpdateVerifier.requireMatchingReleaseAssets(apkUrl, checksumUrl);
+            apkUrl = AndroidAppUpdateVerifier.requireOfficialApkUrl(call.getString("apkUrl"), checksumUrl);
         } catch (IllegalArgumentException error) {
             call.reject(error.getMessage(), error);
             return;
@@ -199,17 +198,17 @@ public class AndroidAppUpdatePlugin extends Plugin {
             if (status >= 200 && status < 300) return connection;
             if (status < 300 || status >= 400 || redirectCount == MAX_REDIRECTS) {
                 connection.disconnect();
-                throw new IOException("GitHub 更新下载失败（" + status + "）。");
+                throw new IOException("更新线路下载失败（" + status + "）。");
             }
             String location = connection.getHeaderField("Location");
             URL nextUrl = location == null ? null : new URL(currentUrl, location);
             connection.disconnect();
             if (!AndroidAppUpdateVerifier.isAllowedRedirectUrl(nextUrl)) {
-                throw new IOException("GitHub 返回了不受信任的更新地址。");
+                throw new IOException("更新线路返回了不受信任的地址。");
             }
             currentUrl = nextUrl;
         }
-        throw new IOException("GitHub 更新重定向次数过多。");
+        throw new IOException("更新线路重定向次数过多。");
     }
 
     private void copyWithLimit(InputStream input, java.io.OutputStream output, long limit) throws IOException {

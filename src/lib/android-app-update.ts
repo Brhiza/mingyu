@@ -1,5 +1,6 @@
 import { registerPlugin } from '@capacitor/core';
 import { isAndroidApp } from '@/lib/android-ai-app';
+import { buildAndroidDownloadRoutes, type AndroidDownloadRoute } from '@/lib/android-update-routes';
 
 const RELEASE_API_URL = 'https://api.github.com/repos/Brhiza/mingyu/releases?per_page=100';
 const RELEASE_DOWNLOAD_PREFIX = 'https://github.com/Brhiza/mingyu/releases/download/';
@@ -17,6 +18,7 @@ export interface AndroidReleaseInfo {
   apkUrl: string;
   checksumUrl: string;
   releaseUrl: string;
+  downloadRoutes: AndroidDownloadRoute[];
 }
 
 interface AndroidAppUpdatePlugin {
@@ -88,7 +90,14 @@ export function normalizeAndroidRelease(value: unknown): AndroidReleaseInfo | nu
     release.html_url === `https://github.com/Brhiza/mingyu/releases/tag/${tagName}`
       ? release.html_url
       : `https://github.com/Brhiza/mingyu/releases/tag/${tagName}`;
-  return { version, tagName, apkUrl, checksumUrl, releaseUrl };
+  return {
+    version,
+    tagName,
+    apkUrl,
+    checksumUrl,
+    releaseUrl,
+    downloadRoutes: buildAndroidDownloadRoutes(version, apkUrl),
+  };
 }
 
 export async function getAndroidAppInfo(): Promise<AndroidAppInfo | null> {
@@ -123,9 +132,12 @@ export async function openAndroidInstallPermission(): Promise<void> {
   await AndroidAppUpdate.openInstallPermission();
 }
 
-export async function downloadAndInstallAndroidUpdate(release: AndroidReleaseInfo): Promise<void> {
+export async function downloadAndInstallAndroidUpdate(
+  release: AndroidReleaseInfo,
+  apkUrl = release.apkUrl,
+): Promise<void> {
   await AndroidAppUpdate.downloadAndInstall({
-    apkUrl: release.apkUrl,
+    apkUrl,
     checksumUrl: release.checksumUrl,
   });
 }

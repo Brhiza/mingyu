@@ -1615,6 +1615,33 @@ label.workspace-ui-field > span:first-child {
   line-height: 1.65;
 }
 
+.android-update-routes {
+  display: grid;
+  gap: 6px;
+}
+
+.android-update-routes button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+
+.android-update-routes button.is-selected {
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+.android-update-routes button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
 .android-app-update-body p {
   color: var(--text-secondary);
   font-size: 14px;

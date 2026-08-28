@@ -26,7 +26,32 @@ export function AndroidAppUpdateDialog({ updater }: AndroidAppUpdateDialogProps)
       </header>
       <div className="workspace-ui-dialog-body android-app-update-body">
         <p>{updater.message || '新版本已经可以安装。'}</p>
-        <small>更新包来自命语 GitHub Release，下载后会校验文件，再由系统安装器确认安装。</small>
+        <div className="android-update-routes" role="radiogroup" aria-label="下载线路">
+          {updater.routeProbes.map((route) => (
+            <button
+              key={route.id}
+              type="button"
+              className={updater.selectedRouteId === route.id ? 'is-selected' : ''}
+              disabled={busy || route.status === 'unavailable'}
+              onClick={() => updater.selectRoute(route.id)}
+              role="radio"
+              aria-checked={updater.selectedRouteId === route.id}
+            >
+              <span>{route.name}</span>
+              <span>
+                {route.status === 'testing'
+                  ? '测速中…'
+                  : route.status === 'available'
+                    ? `${route.latencyMs} ms`
+                    : '不可用'}
+              </span>
+            </button>
+          ))}
+        </div>
+        <WorkspaceButton disabled={busy} onClick={() => void updater.testRoutes()}>
+          重新测速
+        </WorkspaceButton>
+        <small>会自动选择响应最快的可用线路；下载后仍使用 GitHub 官方校验值验证安装包。</small>
       </div>
       <footer className="workspace-ui-dialog-footer">
         <WorkspaceButton disabled={busy} onClick={updater.dismissDialog}>
