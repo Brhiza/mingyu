@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from './workspace/WorkspaceUI';
 import { DropdownSelect } from './DropdownSelect';
+import type { AndroidAppUpdateController } from '@/hooks/useAndroidAppUpdate';
 import {
   getAndroidAiAppTargetKey,
   isAndroidApp,
@@ -24,6 +25,7 @@ import {
 
 type WorkspaceSettingsModalProps = {
   preferences: WorkspacePreferences;
+  androidUpdater: AndroidAppUpdateController;
   onApply: (preferences: WorkspacePreferences) => void;
   onOpenAiSettings: () => void;
   onClose: () => void;
@@ -61,6 +63,7 @@ function moveHomeMode(order: HomeModeId[], id: HomeModeId, direction: -1 | 1) {
 
 export function WorkspaceSettingsModal({
   preferences,
+  androidUpdater,
   onApply,
   onOpenAiSettings,
   onClose,
@@ -239,32 +242,62 @@ export function WorkspaceSettingsModal({
           </button>
 
           {androidApp ? (
-            <div className="workspace-ai-app-setting">
-              <div className="workspace-order-heading">
-                <div>
-                  <h3>默认 AI App</h3>
-                  <p>常见 AI 应用优先显示，其他文本应用不列出。</p>
+            <>
+              <div className="workspace-ai-app-setting">
+                <div className="workspace-order-heading">
+                  <div>
+                    <h3>默认 AI App</h3>
+                    <p>常见 AI 应用优先显示，其他文本应用不列出。</p>
+                  </div>
+                  <WorkspaceButton variant="ghost" size="small" onClick={refreshAiAppTargets}>
+                    刷新
+                  </WorkspaceButton>
                 </div>
-                <WorkspaceButton variant="ghost" size="small" onClick={refreshAiAppTargets}>
-                  刷新
-                </WorkspaceButton>
+                <DropdownSelect
+                  value={selectedAiAppKey}
+                  ariaLabel="默认 AI App"
+                  variant="field"
+                  options={[
+                    ...aiAppTargets.map((target, index) => ({
+                      value: getAndroidAiAppTargetKey(target),
+                      label: target.label,
+                      group: index === 0 ? '常见 AI App' : undefined,
+                    })),
+                    { value: '', label: '使用系统分享', group: '其他' },
+                  ]}
+                  onChange={setSelectedAiAppKey}
+                />
+                {aiAppStatus ? (
+                  <small className="workspace-setting-note">{aiAppStatus}</small>
+                ) : null}
               </div>
-              <DropdownSelect
-                value={selectedAiAppKey}
-                ariaLabel="默认 AI App"
-                variant="field"
-                options={[
-                  ...aiAppTargets.map((target, index) => ({
-                    value: getAndroidAiAppTargetKey(target),
-                    label: target.label,
-                    group: index === 0 ? '常见 AI App' : undefined,
-                  })),
-                  { value: '', label: '使用系统分享', group: '其他' },
-                ]}
-                onChange={setSelectedAiAppKey}
-              />
-              {aiAppStatus ? <small className="workspace-setting-note">{aiAppStatus}</small> : null}
-            </div>
+
+              <div className="workspace-android-update-setting">
+                <div className="workspace-order-heading">
+                  <div>
+                    <h3>应用更新</h3>
+                    <p>
+                      当前版本 {androidUpdater.appInfo?.versionName || '正在读取'}
+                      {androidUpdater.release ? `，最新 ${androidUpdater.release.version}` : ''}
+                    </p>
+                  </div>
+                  <WorkspaceButton
+                    variant="ghost"
+                    size="small"
+                    disabled={
+                      androidUpdater.status === 'checking' ||
+                      androidUpdater.status === 'downloading'
+                    }
+                    onClick={() => void androidUpdater.checkForUpdates(true)}
+                  >
+                    {androidUpdater.status === 'checking' ? '检查中…' : '检查更新'}
+                  </WorkspaceButton>
+                </div>
+                {androidUpdater.message ? (
+                  <small className="workspace-setting-note">{androidUpdater.message}</small>
+                ) : null}
+              </div>
+            </>
           ) : null}
         </section>
 

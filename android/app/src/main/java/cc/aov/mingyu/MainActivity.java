@@ -19,6 +19,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AndroidAiAppLauncherPlugin.class);
         registerPlugin(AndroidDirectAiPlugin.class);
+        registerPlugin(AndroidAppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
         getOnBackPressedDispatcher().addCallback(
             this,

@@ -1,0 +1,123 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    tags: ['android-v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/android-v') }}
+
+jobs:
+  debug-apk:
+    if: ${{ !startsWith(github.ref, 'refs/tags/android-v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm android:sync
+      - name: 测试并构建调试 APK
+        working-directory: android
+        run: ./gradlew testDebugUnitTest assembleDebug
+      - name: 上传调试 APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: mingyu-android-debug-${{ github.run_number }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  release-apk:
+    if: ${{ startsWith(github.ref, 'refs/tags/android-v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: pnpm install --frozen-lockfile
+      - name: 读取 Android 版本
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^android-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "标签必须使用 android-v1.2.3 格式。" >&2
+            exit 1
+          fi
+          echo "ANDROID_VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          echo "MINGYU_VERSION_NAME=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          echo "MINGYU_VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - name: 准备正式签名
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          MINGYU_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          MINGYU_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          MINGYU_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$KEYSTORE_BASE64" || -z "$MINGYU_SIGNING_STORE_PASSWORD" || -z "$MINGYU_SIGNING_KEY_ALIAS" || -z "$MINGYU_SIGNING_KEY_PASSWORD" ]]; then
+            echo "缺少 Android 正式签名 Secrets，已停止发布。" >&2
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mingyu-release.jks"
+      - run: pnpm android:sync
+      - name: 测试并构建正式 APK
+        working-directory: android
+        env:
+          MINGYU_SIGNING_STORE_FILE: ${{ runner.temp }}/mingyu-release.jks
+          MINGYU_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          MINGYU_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          MINGYU_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+        run: ./gradlew testReleaseUnitTest assembleRelease
+      - name: 验证 APK 正式签名
+        shell: bash
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          if [[ -z "$APKSIGNER" ]]; then
+            echo "找不到 Android apksigner。" >&2
+            exit 1
+          fi
+          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
+      - name: 生成发布文件与校验值
+        shell: bash
+        run: |
+          mkdir -p release
+          cp android/app/build/outputs/apk/release/app-release.apk "release/mingyu-${ANDROID_VERSION}.apk"
+          cd release
+          sha256sum "mingyu-${ANDROID_VERSION}.apk" > "mingyu-${ANDROID_VERSION}.apk.sha256"
+      - name: 发布到 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "release/mingyu-${ANDROID_VERSION}.apk" \
+            "release/mingyu-${ANDROID_VERSION}.apk.sha256" \
+            --verify-tag \
+            --title "命语 Android ${ANDROID_VERSION}" \
+            --generate-notes

@@ -1560,6 +1560,18 @@
   margin: 0;
 }
 
+.workspace-android-update-setting {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.workspace-android-update-setting .workspace-setting-note {
+  margin: 0;
+}
+
 .workspace-order-section {
   min-height: 0;
   display: flex;
