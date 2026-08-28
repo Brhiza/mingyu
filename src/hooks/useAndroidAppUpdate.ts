@@ -123,10 +123,11 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
       }
       setStatus('downloading');
       setMessage('正在下载并校验更新包…');
-      const selectedUrl = release.downloadRoutes.find((route) => route.id === selectedRouteId)?.url
-        ?? selectBestAndroidRoute(routeProbes)?.url
-        ?? release.downloadRoutes[0]?.url
-        ?? release.apkUrl;
+      const selectedUrl =
+        release.downloadRoutes.find((route) => route.id === selectedRouteId)?.url ??
+        selectBestAndroidRoute(routeProbes)?.url ??
+        release.downloadRoutes[0]?.url ??
+        release.apkUrl;
       await downloadAndInstallAndroidUpdate(release, selectedUrl);
       setStatus('installer-opened');
       setMessage('已打开系统安装页面');
