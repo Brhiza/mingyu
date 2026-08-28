@@ -15,6 +15,9 @@ import java.util.regex.Pattern;
 final class AndroidAppUpdateVerifier {
     private static final Set<String> REDIRECT_HOSTS = Set.of(
         "github.com",
+        "gh-proxy.com",
+        "ghfast.top",
+        "lanzou-cloudflare-api.brhiza.workers.dev",
         "objects.githubusercontent.com",
         "release-assets.githubusercontent.com"
     );
@@ -27,6 +30,42 @@ final class AndroidAppUpdateVerifier {
     );
 
     private AndroidAppUpdateVerifier() {}
+
+    static URL requireOfficialApkUrl(String rawUrl, URL checksumUrl) {
+        Matcher checksumMatcher = RELEASE_ASSET_PATH_PATTERN.matcher(checksumUrl.getPath());
+        if (!checksumMatcher.matches() || !checksumMatcher.group(2).toLowerCase(Locale.ROOT).endsWith(".apk.sha256")) {
+            throw new IllegalArgumentException("更新校验地址无效。");
+        }
+        String tagName = checksumMatcher.group(1);
+        String apkName = checksumMatcher.group(2).substring(0, checksumMatcher.group(2).length() - ".sha256".length());
+        String version = tagName.substring("android-v".length());
+        String githubPath = "/Brhiza/mingyu/releases/download/" + tagName + "/" + apkName;
+        String acceleratedPath = "/https://github.com" + githubPath;
+        final URL url;
+        try {
+            url = new URL(rawUrl == null ? "" : rawUrl.trim());
+        } catch (MalformedURLException error) {
+            throw new IllegalArgumentException("更新地址无效。", error);
+        }
+        String host = url.getHost().toLowerCase(Locale.ROOT);
+        String path = url.getPath();
+        boolean matches = "github.com".equals(host) && githubPath.equals(path)
+            || "gh-proxy.com".equals(host) && acceleratedPath.equals(path)
+            || "ghfast.top".equals(host) && acceleratedPath.equals(path)
+            || "lanzou-cloudflare-api.brhiza.workers.dev".equals(host)
+                && ("/v1/public/mingyu/" + version).equals(path);
+        if (
+            !"https".equalsIgnoreCase(url.getProtocol())
+                || url.getUserInfo() != null
+                || url.getPort() != -1
+                || url.getQuery() != null
+                || url.getRef() != null
+                || !matches
+        ) {
+            throw new IllegalArgumentException("更新地址不是命语官方发布线路。");
+        }
+        return url;
+    }
 
     static URL requireReleaseAssetUrl(String rawUrl, String expectedSuffix) {
         final URL url;
@@ -76,8 +115,14 @@ final class AndroidAppUpdateVerifier {
         ) {
             return false;
         }
-        return !"github.com".equalsIgnoreCase(url.getHost()) ||
-            (url.getQuery() == null && RELEASE_ASSET_PATH_PATTERN.matcher(url.getPath()).matches());
+        String host = url.getHost().toLowerCase(Locale.ROOT);
+        if ("github.com".equals(host)) {
+            return url.getQuery() == null && RELEASE_ASSET_PATH_PATTERN.matcher(url.getPath()).matches();
+        }
+        if ("lanzou-cloudflare-api.brhiza.workers.dev".equals(host)) {
+            return url.getQuery() == null && url.getPath().matches("^/v1/public/mingyu/\\d+\\.\\d+\\.\\d+$");
+        }
+        return true;
     }
 
     static String parseSha256(String content) {

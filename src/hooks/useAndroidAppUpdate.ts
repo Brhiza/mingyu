@@ -10,6 +10,13 @@ import {
 } from '@/lib/android-app-update';
 import { isAndroidApp } from '@/lib/android-ai-app';
 import { safeStorage } from '@/lib/safe-storage';
+import {
+  createTestingRouteProbes,
+  probeAndroidDownloadRoutes,
+  selectBestAndroidRoute,
+  type AndroidDownloadRouteId,
+  type AndroidRouteProbe,
+} from '@/lib/android-update-routes';
 
 const LAST_CHECK_STORAGE_KEY = 'mingyu:android-update-last-check:v1';
 const AUTO_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -31,7 +38,11 @@ export type AndroidAppUpdateController = {
   status: AndroidUpdateStatus;
   message: string;
   dialogOpen: boolean;
+  routeProbes: AndroidRouteProbe[];
+  selectedRouteId: AndroidDownloadRouteId | null;
   checkForUpdates: (manual?: boolean) => Promise<void>;
+  testRoutes: () => Promise<void>;
+  selectRoute: (routeId: AndroidDownloadRouteId) => void;
   installUpdate: () => Promise<void>;
   dismissDialog: () => void;
 };
@@ -52,7 +63,17 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
   const [status, setStatus] = useState<AndroidUpdateStatus>('idle');
   const [message, setMessage] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [routeProbes, setRouteProbes] = useState<AndroidRouteProbe[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState<AndroidDownloadRouteId | null>(null);
   const automaticCheckStartedRef = useRef(false);
+
+  const testReleaseRoutes = useCallback(async (targetRelease: AndroidReleaseInfo) => {
+    setRouteProbes(createTestingRouteProbes(targetRelease.downloadRoutes));
+    const probes = await probeAndroidDownloadRoutes(targetRelease.downloadRoutes);
+    setRouteProbes(probes);
+    const best = selectBestAndroidRoute(probes);
+    setSelectedRouteId(best?.id ?? targetRelease.downloadRoutes[0]?.id ?? null);
+  }, []);
 
   const checkForUpdates = useCallback(
     async (manual = false) => {
@@ -71,6 +92,7 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
           setStatus('available');
           setMessage(`发现新版本 ${latest.version}`);
           setDialogOpen(true);
+          void testReleaseRoutes(latest);
           return;
         }
         setStatus('up-to-date');
@@ -81,8 +103,12 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
         setMessage(getErrorMessage(error, '检查更新失败，请稍后重试'));
       }
     },
-    [supported],
+    [supported, testReleaseRoutes],
   );
+
+  const testRoutes = useCallback(async () => {
+    if (release) await testReleaseRoutes(release);
+  }, [release, testReleaseRoutes]);
 
   const installUpdate = useCallback(async () => {
     if (!supported || !release) return;
@@ -97,14 +123,19 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
       }
       setStatus('downloading');
       setMessage('正在下载并校验更新包…');
-      await downloadAndInstallAndroidUpdate(release);
+      const selectedUrl =
+        release.downloadRoutes.find((route) => route.id === selectedRouteId)?.url ??
+        selectBestAndroidRoute(routeProbes)?.url ??
+        release.downloadRoutes[0]?.url ??
+        release.apkUrl;
+      await downloadAndInstallAndroidUpdate(release, selectedUrl);
       setStatus('installer-opened');
       setMessage('已打开系统安装页面');
     } catch (error) {
       setStatus('error');
       setMessage(getErrorMessage(error, '下载更新失败，请稍后重试'));
     }
-  }, [release, supported]);
+  }, [release, routeProbes, selectedRouteId, supported]);
 
   useEffect(() => {
     if (!supported) return;
@@ -124,7 +155,11 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
     status,
     message,
     dialogOpen,
+    routeProbes,
+    selectedRouteId,
     checkForUpdates,
+    testRoutes,
+    selectRoute: setSelectedRouteId,
     installUpdate,
     dismissDialog: () => setDialogOpen(false),
   };

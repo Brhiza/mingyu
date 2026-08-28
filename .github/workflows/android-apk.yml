@@ -115,9 +115,34 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "release/mingyu-${ANDROID_VERSION}.apk" \
-            "release/mingyu-${ANDROID_VERSION}.apk.sha256" \
-            --verify-tag \
-            --title "命语 Android ${ANDROID_VERSION}" \
-            --generate-notes
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "release/mingyu-${ANDROID_VERSION}.apk" \
+              "release/mingyu-${ANDROID_VERSION}.apk.sha256" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "release/mingyu-${ANDROID_VERSION}.apk" \
+              "release/mingyu-${ANDROID_VERSION}.apk.sha256" \
+              --verify-tag \
+              --title "命语 Android ${ANDROID_VERSION}" \
+              --generate-notes
+          fi
+      - name: 上传到蓝奏云线路
+        env:
+          LANZOU_API_TOKEN: ${{ secrets.LANZOU_API_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$LANZOU_API_TOKEN" ]]; then
+            echo "缺少 LANZOU_API_TOKEN，已停止发布。" >&2
+            exit 1
+          fi
+          APK_PATH="release/mingyu-${ANDROID_VERSION}.apk"
+          APK_NAME="mingyu-${ANDROID_VERSION}.apk"
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            --request POST \
+            --header "Authorization: Bearer ${LANZOU_API_TOKEN}" \
+            --header "Content-Type: application/octet-stream" \
+            --header "Content-Length: $(stat -c%s "$APK_PATH")" \
+            --data-binary "@${APK_PATH}" \
+            "https://lanzou-cloudflare-api.brhiza.workers.dev/v1/files?filename=${APK_NAME}&folder_id=13903360"
