@@ -53,6 +53,7 @@ export * as synthesis from './synthesis/index';
 export * as client from './client/index';
 export * as consumption from './consumption/index';
 export * as minglu from './minglu/index';
+export * as terms from './terms/index';
 
 // 全局配置
 export { configure } from './calendar/timeManager';
@@ -70,6 +71,7 @@ export * from './client/index';
 export * from './consumption/index';
 export * from './instant/index';
 export * from './minglu/index';
+export * from './terms/index';
 export type * from './capabilities/index';
 export * from './shared/result';
 

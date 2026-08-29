@@ -26,6 +26,10 @@
       "types": "./dist/minglu/index.d.ts",
       "import": "./dist/minglu/index.js"
     },
+    "./terms": {
+      "types": "./dist/terms/index.d.ts",
+      "import": "./dist/terms/index.js"
+    },
     "./ziwei/prompt": {
       "types": "./dist/ziwei/prompt/index.d.ts",
       "import": "./dist/ziwei/prompt/index.js"
