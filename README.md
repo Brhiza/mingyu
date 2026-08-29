@@ -120,6 +120,17 @@ pnpm build
 
 ---
 
+## 🌟 基于命语构建
+
+### 时月东方
+
+时月东方是一款基于命语核心能力构建的东方术数工具，使用 Vue 3 与 Vite 实现，也可以作为 `mingyu-core` 在独立产品中接入和使用的实际参考。
+
+- 在线体验：[https://sydf.cc](https://sydf.cc)
+- 项目源码：[https://github.com/Brhiza/sydf](https://github.com/Brhiza/sydf)
+
+---
+
 ## 📚 文档目录
 
 - [文档总览](docs/README.md)
