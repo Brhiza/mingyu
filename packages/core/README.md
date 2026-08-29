@@ -758,6 +758,26 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)` | 将入户实测度数换算成传统坐山、朝向与二十四山                     |
 | `resolveZiweiTrueSolarBirth(input)`               | 紫微出生资料真太阳时日期与时辰索引适配                           |
 
+### 术语百科与情境分析（`mingyu-core/terms`）
+
+内置 250+ 条中华传统术数专业名词百科词典及辩证两面性解析（八字、六爻、紫微、奇门、塔罗、雷诺曼等），并提供基于盘面旺衰与世应动变的角色推断：
+
+```ts
+import { lookupMetaphysicsTerm, getBaziTermContext, getLiuyaoTermContext } from 'mingyu-core/terms';
+
+// 术语字典精准/模糊查询
+const term = lookupMetaphysicsTerm('甲木');
+console.log(term?.summary, term?.positive, term?.negative, term?.advice);
+
+// 结合八字盘面推断十神在格局中的动态角色与处事指引
+const context = getBaziTermContext('正官', baziChart, { pillarLabel: '月柱' });
+```
+
+### 全息命录与历代古籍（`mingyu-core/minglu` / `mingyu-core/classics`）
+
+- `mingyu-core/minglu`：提供全息多维命理画像生成引擎与维基档案数据组织能力。
+- `mingyu-core/classics`：提供历代正统命理典籍经文原文与各术数门类原典依据索引。
+
 ### 类型（`mingyu-core/types`）
 
 所有返回值类型均从 `mingyu-core/types` 导出，包括 `BaziChartResult`、`LiuyaoData`、`QimenData`、`LiurenData`、`MeihuaData` 等。详细字段说明见 [API 参考文档](https://github.com/Brhiza/mingyu/blob/main/packages/core/docs/API.md)。

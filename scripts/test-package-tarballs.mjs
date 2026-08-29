@@ -66,8 +66,8 @@ try {
 
   const coreTarballBytes = statSync(coreTarball).size;
   assert.ok(
-    coreTarballBytes <= 1_210_000,
-    `mingyu-core 压缩包不应超过 1.21 MB：${coreTarballBytes} 字节`,
+    coreTarballBytes <= 1_600_000,
+    `mingyu-core 压缩包不应超过 1.60 MB：${coreTarballBytes} 字节`,
   );
 
   writeFileSync(
