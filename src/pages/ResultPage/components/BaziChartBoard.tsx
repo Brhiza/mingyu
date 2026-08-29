@@ -1,4 +1,11 @@
-import React, { memo, useCallback, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import {
   filterCommonBaziShenSha,
   getShenShaType,
@@ -22,8 +29,7 @@ import {
   BaziFortuneSelector,
   type BaziFortuneDisplayColumn,
 } from '@/components/BaziFortuneTools/BaziFortuneSelector';
-import { lookupMetaphysicsTerm, type MetaphysicsTerm } from '@/lib/metaphysics-terms';
-import { useMetaphysicsTermModal, type TermContextData } from '@/components/TermExplanationModal';
+import { useMetaphysicsTermModal } from '@/components/TermExplanationModal';
 import { getBaziTermContext } from '@/lib/chart-term-context';
 import { ChartShareModal } from '@/components/ChartShareModal';
 import {
@@ -780,11 +786,11 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           key={column.key}
           className={column.nayin && column.nayin !== '—' ? 'is-clickable-term' : ''}
           onClick={() =>
-            column.nayin &&
-            column.nayin !== '—' &&
-            handleOpenBaziTerm(column.nayin, column)
+            column.nayin && column.nayin !== '—' && handleOpenBaziTerm(column.nayin, column)
           }
-          title={column.nayin && column.nayin !== '—' ? `点击查看【${column.nayin}】释义` : undefined}
+          title={
+            column.nayin && column.nayin !== '—' ? `点击查看【${column.nayin}】释义` : undefined
+          }
         >
           {column.nayin}
         </span>
@@ -801,7 +807,9 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             column.ziZuo !== '—' &&
             handleOpenBaziTerm(column.ziZuo || '十二长生', column)
           }
-          title={column.ziZuo && column.ziZuo !== '—' ? `点击查看【${column.ziZuo}】释义` : undefined}
+          title={
+            column.ziZuo && column.ziZuo !== '—' ? `点击查看【${column.ziZuo}】释义` : undefined
+          }
         >
           {column.ziZuo}
         </span>
@@ -901,7 +909,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
               openTerm(
                 result.analysis.usefulGod.primaryUseful ||
                   result.analysis.usefulGod.useful ||
-                '调候用神',
+                  '调候用神',
               )
             }
           >
@@ -917,9 +925,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             className="result-stat-card is-clickable-term"
             onClick={() =>
               openTerm(
-                result.analysis.usefulGod.primaryAvoid ||
-                  result.analysis.usefulGod.avoid ||
-                '忌神',
+                result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '忌神',
               )
             }
           >
@@ -1251,9 +1257,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             {
               label: '核心用神',
               value:
-                result.analysis.usefulGod.primaryUseful ||
-                result.analysis.usefulGod.useful ||
-                '无',
+                result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '无',
             },
           ]}
           onClose={() => setIsShareModalOpen(false)}

@@ -11,7 +11,6 @@ import {
   ResultAssistantFab,
   ResultAssistantHeader,
   ResultShareFab,
-  WorkspaceButton,
 } from '@/components/workspace/WorkspaceUI';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 

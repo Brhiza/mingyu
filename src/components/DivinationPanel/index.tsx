@@ -117,9 +117,7 @@ export function DivinationPanel({
   const autoSubmitStartedRef = useRef(false);
   const divinationBirthPlace = useBirthPlace({ form: draft, setForm: setDraft });
 
-  const { copyState, shareState, handleCopy, handleShare } = usePromptCopyShare(
-    session?.prompt ?? '',
-  );
+  const { copyState, shareState, handleCopy } = usePromptCopyShare(session?.prompt ?? '');
 
   useEffect(() => {
     if (displayMode === 'result') return;

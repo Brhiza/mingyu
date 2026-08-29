@@ -79,9 +79,7 @@ export function ChartShareModal({
       <header className="workspace-ui-dialog-header chart-share-header">
         <div>
           <h2 id="chart-share-dialog-title">排盘分享卡片</h2>
-          <p className="chart-share-subtitle">
-            {chartTitle} · 完整排盘与干支盘面信息
-          </p>
+          <p className="chart-share-subtitle">{chartTitle} · 完整排盘与干支盘面信息</p>
         </div>
         <button
           type="button"

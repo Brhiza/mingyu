@@ -539,169 +539,169 @@ export function WorkspaceShell() {
   return (
     <TermExplanationProvider>
       <div className="workspace-shell" onScrollCapture={handleWorkspaceScroll}>
-      <aside className="workspace-sidebar">{navigation}</aside>
-      <header className="workspace-mobile-header">
-        {isResultAssistant ? (
-          <button
-            type="button"
-            className="workspace-mobile-back"
-            onClick={() => navigate(assistantReturnPath)}
-            aria-label="返回盘面"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="workspace-mobile-menu"
-            onClick={() => {
-              setSidebarView('tools');
-              setIsDrawerOpen(true);
-            }}
-            aria-label="打开侧栏"
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-        )}
-        <strong>{pageTitle}</strong>
-        {location.pathname === '/cases' ? (
-          <button
-            type="button"
-            className="workspace-mobile-header-action"
-            onClick={() => navigate('/cases?new=1')}
-          >
-            新建
-          </button>
-        ) : location.pathname !== '/records' ? (
-          <button
-            type="button"
-            className="workspace-mobile-header-action"
-            onClick={() => navigate('/records?tab=divination')}
-          >
-            历史
-          </button>
-        ) : (
-          <span className="workspace-mobile-header-spacer" aria-hidden="true" />
-        )}
-      </header>
+        <aside className="workspace-sidebar">{navigation}</aside>
+        <header className="workspace-mobile-header">
+          {isResultAssistant ? (
+            <button
+              type="button"
+              className="workspace-mobile-back"
+              onClick={() => navigate(assistantReturnPath)}
+              aria-label="返回盘面"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="workspace-mobile-menu"
+              onClick={() => {
+                setSidebarView('tools');
+                setIsDrawerOpen(true);
+              }}
+              aria-label="打开侧栏"
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          )}
+          <strong>{pageTitle}</strong>
+          {location.pathname === '/cases' ? (
+            <button
+              type="button"
+              className="workspace-mobile-header-action"
+              onClick={() => navigate('/cases?new=1')}
+            >
+              新建
+            </button>
+          ) : location.pathname !== '/records' ? (
+            <button
+              type="button"
+              className="workspace-mobile-header-action"
+              onClick={() => navigate('/records?tab=divination')}
+            >
+              历史
+            </button>
+          ) : (
+            <span className="workspace-mobile-header-spacer" aria-hidden="true" />
+          )}
+        </header>
 
-      {isDrawerOpen ? (
-        <div className="workspace-drawer-backdrop" onClick={() => setIsDrawerOpen(false)}>
-          <aside className="workspace-mobile-drawer" onClick={(event) => event.stopPropagation()}>
-            {navigation}
-          </aside>
-        </div>
-      ) : null}
-
-      <main
-        className={`workspace-main${isHomeRoute ? ' is-home' : ''}${
-          isResultRoute ? ' is-result' : ''
-        }${isResultAssistant ? ' is-result-assistant' : ''}`}
-      >
-        {activeFeature && !isInstantResult && !isResultAssistant ? (
-          <nav className="workspace-case-tabbar" aria-label="案例档案">
-            <div className="workspace-case-tabs" role="tablist" aria-label="快速切换案例">
-              <button
-                ref={activeCaseId === null ? activeCaseTabRef : undefined}
-                type="button"
-                role="tab"
-                className={`workspace-case-tab workspace-case-tab-temporary${
-                  activeCaseId === null ? ' is-active' : ''
-                }`}
-                aria-selected={activeCaseId === null}
-                onClick={() => activateCase(null)}
-              >
-                <span className="workspace-case-tab-icon" aria-hidden="true">
-                  临
-                </span>
-                <span className="workspace-case-tab-copy">
-                  <strong>临时档案</strong>
-                  <small>不指定案例</small>
-                </span>
-              </button>
-              {quickSwitchCases.map((record) => {
-                const isActive = activeCaseId === record.id;
-                return (
-                  <button
-                    ref={isActive ? activeCaseTabRef : undefined}
-                    type="button"
-                    role="tab"
-                    key={record.id}
-                    className={`workspace-case-tab${isActive ? ' is-active' : ''}`}
-                    aria-selected={isActive}
-                    aria-label={`${record.name}，${record.birthText}${record.pinned ? '，已置顶' : ''}`}
-                    title={`${record.name} · ${record.birthText}`}
-                    onClick={() => activateCase(record)}
-                  >
-                    <span className="workspace-case-tab-icon" aria-hidden="true">
-                      {record.name.trim().slice(0, 1) || '案'}
-                    </span>
-                    <span className="workspace-case-tab-copy">
-                      <strong>{record.name}</strong>
-                      <small>{record.birthText}</small>
-                    </span>
-                    {record.pinned ? (
-                      <span className="workspace-case-tab-pin" aria-hidden="true">
-                        ★
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="workspace-case-tab-actions">
-              <button
-                type="button"
-                className="workspace-case-tab-new"
-                onClick={createCase}
-                aria-label="新建案例"
-                title="新建案例"
-              >
-                ＋
-              </button>
-              <button
-                type="button"
-                className="workspace-case-tab-manage"
-                onClick={() => navigate('/cases')}
-                aria-label="打开案例管理"
-                title="案例管理"
-              >
-                <span className="workspace-case-tab-manage-icon" aria-hidden="true">
-                  ▤
-                </span>
-                <span className="workspace-case-tab-manage-text">案例管理</span>
-                <span className="workspace-case-tab-manage-mobile-text">案例</span>
-              </button>
-            </div>
-          </nav>
+        {isDrawerOpen ? (
+          <div className="workspace-drawer-backdrop" onClick={() => setIsDrawerOpen(false)}>
+            <aside className="workspace-mobile-drawer" onClick={(event) => event.stopPropagation()}>
+              {navigation}
+            </aside>
+          </div>
         ) : null}
-        <div className="workspace-page">
-          <Outlet />
-        </div>
-      </main>
 
-      {settingsModal === 'workspace' ? (
-        <WorkspaceSettingsModal
-          preferences={preferences}
-          androidUpdater={androidUpdater}
-          onApply={(next) => setPreferences(saveWorkspacePreferences(next))}
-          onOpenAiSettings={() => setSettingsModal('ai')}
-          onClose={() => setSettingsModal(null)}
-        />
-      ) : null}
-      {settingsModal === 'ai' ? (
-        <AiSettingsModal
-          settings={aiSettings}
-          onApply={setAiSettings}
-          onClose={() => setSettingsModal(null)}
-        />
-      ) : null}
-      <AndroidAppUpdateDialog updater={androidUpdater} />
-    </div>
+        <main
+          className={`workspace-main${isHomeRoute ? ' is-home' : ''}${
+            isResultRoute ? ' is-result' : ''
+          }${isResultAssistant ? ' is-result-assistant' : ''}`}
+        >
+          {activeFeature && !isInstantResult && !isResultAssistant ? (
+            <nav className="workspace-case-tabbar" aria-label="案例档案">
+              <div className="workspace-case-tabs" role="tablist" aria-label="快速切换案例">
+                <button
+                  ref={activeCaseId === null ? activeCaseTabRef : undefined}
+                  type="button"
+                  role="tab"
+                  className={`workspace-case-tab workspace-case-tab-temporary${
+                    activeCaseId === null ? ' is-active' : ''
+                  }`}
+                  aria-selected={activeCaseId === null}
+                  onClick={() => activateCase(null)}
+                >
+                  <span className="workspace-case-tab-icon" aria-hidden="true">
+                    临
+                  </span>
+                  <span className="workspace-case-tab-copy">
+                    <strong>临时档案</strong>
+                    <small>不指定案例</small>
+                  </span>
+                </button>
+                {quickSwitchCases.map((record) => {
+                  const isActive = activeCaseId === record.id;
+                  return (
+                    <button
+                      ref={isActive ? activeCaseTabRef : undefined}
+                      type="button"
+                      role="tab"
+                      key={record.id}
+                      className={`workspace-case-tab${isActive ? ' is-active' : ''}`}
+                      aria-selected={isActive}
+                      aria-label={`${record.name}，${record.birthText}${record.pinned ? '，已置顶' : ''}`}
+                      title={`${record.name} · ${record.birthText}`}
+                      onClick={() => activateCase(record)}
+                    >
+                      <span className="workspace-case-tab-icon" aria-hidden="true">
+                        {record.name.trim().slice(0, 1) || '案'}
+                      </span>
+                      <span className="workspace-case-tab-copy">
+                        <strong>{record.name}</strong>
+                        <small>{record.birthText}</small>
+                      </span>
+                      {record.pinned ? (
+                        <span className="workspace-case-tab-pin" aria-hidden="true">
+                          ★
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="workspace-case-tab-actions">
+                <button
+                  type="button"
+                  className="workspace-case-tab-new"
+                  onClick={createCase}
+                  aria-label="新建案例"
+                  title="新建案例"
+                >
+                  ＋
+                </button>
+                <button
+                  type="button"
+                  className="workspace-case-tab-manage"
+                  onClick={() => navigate('/cases')}
+                  aria-label="打开案例管理"
+                  title="案例管理"
+                >
+                  <span className="workspace-case-tab-manage-icon" aria-hidden="true">
+                    ▤
+                  </span>
+                  <span className="workspace-case-tab-manage-text">案例管理</span>
+                  <span className="workspace-case-tab-manage-mobile-text">案例</span>
+                </button>
+              </div>
+            </nav>
+          ) : null}
+          <div className="workspace-page">
+            <Outlet />
+          </div>
+        </main>
+
+        {settingsModal === 'workspace' ? (
+          <WorkspaceSettingsModal
+            preferences={preferences}
+            androidUpdater={androidUpdater}
+            onApply={(next) => setPreferences(saveWorkspacePreferences(next))}
+            onOpenAiSettings={() => setSettingsModal('ai')}
+            onClose={() => setSettingsModal(null)}
+          />
+        ) : null}
+        {settingsModal === 'ai' ? (
+          <AiSettingsModal
+            settings={aiSettings}
+            onApply={setAiSettings}
+            onClose={() => setSettingsModal(null)}
+          />
+        ) : null}
+        <AndroidAppUpdateDialog updater={androidUpdater} />
+      </div>
     </TermExplanationProvider>
   );
 }

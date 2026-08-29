@@ -760,8 +760,16 @@ export function buildEnhancedFiveElementsSection(
     const tcm = tcmMap[el.wuxing];
     const isOver = el.score >= 30;
     const isUnder = el.score <= 10 || el.isMissing;
-    const status = isOver ? ('过旺耗伤' as const) : isUnder ? ('虚弱不足' as const) : ('平衡中和' as const);
-    const manifestations = isOver ? tcm.over : isUnder ? tcm.under : '五行生克平顺，脏腑功能相对协调稳健。';
+    const status = isOver
+      ? ('过旺耗伤' as const)
+      : isUnder
+        ? ('虚弱不足' as const)
+        : ('平衡中和' as const);
+    const manifestations = isOver
+      ? tcm.over
+      : isUnder
+        ? tcm.under
+        : '五行生克平顺，脏腑功能相对协调稳健。';
 
     return {
       wuxing: el.wuxing,
@@ -1489,7 +1497,7 @@ function getFirstMonthStem(yearStem: string): string {
 function calculateYearlyMonths(yearGanZhi: string, dayMasterGan: string): MingluMonthlyData[] {
   const yGan = yearGanZhi.slice(0, 1);
   const firstStem = getFirstMonthStem(yGan);
-  const startStemIndex = HEAVENLY_STEMS.indexOf(firstStem as any);
+  const startStemIndex = HEAVENLY_STEMS.indexOf(firstStem as (typeof HEAVENLY_STEMS)[number]);
 
   return MONTH_BRANCHES.map((branch, idx) => {
     const stem = HEAVENLY_STEMS[(startStemIndex + idx) % 10]!;
@@ -1511,7 +1519,12 @@ function detectSpecialEvents(
   baziResult: BaziChartResult,
   luckGanZhi: string,
   yearGanZhi: string,
-): { specialEvents: string[]; natalInteractions: string[]; luckInteractions: string[]; yearTheme: string } {
+): {
+  specialEvents: string[];
+  natalInteractions: string[];
+  luckInteractions: string[];
+  yearTheme: string;
+} {
   const specialEvents: string[] = [];
   const natalInteractions: string[] = [];
   const luckInteractions: string[] = [];
@@ -1526,52 +1539,78 @@ function detectSpecialEvents(
 
   // 1. 岁运并临
   if (yearGanZhi === luckGanZhi) {
-    specialEvents.push('【岁运并临】：流年干支与大运干支完全一致，五行能量高度汇聚，为人生关键转折与蜕变契机。');
+    specialEvents.push(
+      '【岁运并临】：流年干支与大运干支完全一致，五行能量高度汇聚，为人生关键转折与蜕变契机。',
+    );
   }
 
   // 2. 岁运天合地合
   const isLuckStemHe = STEM_COMBOS.some((c) => c.pair.includes(yGan) && c.pair.includes(lGan));
   const isLuckBranchHe = BRANCH_LIUHE.some((c) => c.pair.includes(yZhi) && c.pair.includes(lZhi));
   if (isLuckStemHe && isLuckBranchHe) {
-    specialEvents.push('【岁运天地合】：流年与大运天干相合、地支相合，岁运有情，主贵人引路、协同发力、诸事和顺。');
+    specialEvents.push(
+      '【岁运天地合】：流年与大运天干相合、地支相合，岁运有情，主贵人引路、协同发力、诸事和顺。',
+    );
   }
 
   // 3. 岁运天克地冲
   const isLuckStemChong = STEM_CHONGS.some((c) => c.pair.includes(yGan) && c.pair.includes(lGan));
-  const isLuckBranchChong = BRANCH_CHONGS.some((c) => c.pair.includes(yZhi) && c.pair.includes(lZhi));
+  const isLuckBranchChong = BRANCH_CHONGS.some(
+    (c) => c.pair.includes(yZhi) && c.pair.includes(lZhi),
+  );
   if (isLuckStemChong && isLuckBranchChong) {
-    specialEvents.push('【岁运天克地冲】：流年与大运天干相克、地支六冲，激荡震荡，主外部环境刷新、跨界开拓或奔波历练。');
+    specialEvents.push(
+      '【岁运天克地冲】：流年与大运天干相克、地支六冲，激荡震荡，主外部环境刷新、跨界开拓或奔波历练。',
+    );
   }
 
   // 4. 岁命日柱天地合
-  const isDayStemHe = STEM_COMBOS.some((c) => c.pair.includes(yGan) && c.pair.includes(pillars.day.gan));
-  const isDayBranchHe = BRANCH_LIUHE.some((c) => c.pair.includes(yZhi) && c.pair.includes(pillars.day.zhi));
+  const isDayStemHe = STEM_COMBOS.some(
+    (c) => c.pair.includes(yGan) && c.pair.includes(pillars.day.gan),
+  );
+  const isDayBranchHe = BRANCH_LIUHE.some(
+    (c) => c.pair.includes(yZhi) && c.pair.includes(pillars.day.zhi),
+  );
   if (isDayStemHe && isDayBranchHe) {
-    specialEvents.push('【岁命天地合】：流年与日柱干合支合，主情意深浓、良缘相聚、重要合作与生活喜庆。');
+    specialEvents.push(
+      '【岁命天地合】：流年与日柱干合支合，主情意深浓、良缘相聚、重要合作与生活喜庆。',
+    );
   }
 
   // 5. 冲日支（配偶宫动）
   if (BRANCH_CHONGS.some((c) => c.pair.includes(yZhi) && c.pair.includes(pillars.day.zhi))) {
-    specialEvents.push(`【太岁冲日支】：流年${yZhi}与日支${pillars.day.zhi}相冲，主家庭生活环境变迁、居所修葺或出行，宜多沟通互谅。`);
+    specialEvents.push(
+      `【太岁冲日支】：流年${yZhi}与日支${pillars.day.zhi}相冲，主家庭生活环境变迁、居所修葺或出行，宜多沟通互谅。`,
+    );
     natalInteractions.push(`流年地支${yZhi}冲动日支${pillars.day.zhi}`);
   }
 
   // 6. 冲月令（冲提纲）
   if (BRANCH_CHONGS.some((c) => c.pair.includes(yZhi) && c.pair.includes(pillars.month.zhi))) {
-    specialEvents.push(`【太岁冲提纲】：流年${yZhi}与月令提纲${pillars.month.zhi}相冲，主事业赛道拓展、岗位转型、出外开拓新空间。`);
+    specialEvents.push(
+      `【太岁冲提纲】：流年${yZhi}与月令提纲${pillars.month.zhi}相冲，主事业赛道拓展、岗位转型、出外开拓新空间。`,
+    );
     natalInteractions.push(`流年地支${yZhi}冲动月令${pillars.month.zhi}`);
   }
 
   // 7. 伤官见官
-  const hasZhengGuan = Object.values(baziResult.tenGods).includes('正官') || (isHeavenlyStem(lGan) && getTenGod(lGan, dayMasterGan) === '正官');
+  const hasZhengGuan =
+    Object.values(baziResult.tenGods).includes('正官') ||
+    (isHeavenlyStem(lGan) && getTenGod(lGan, dayMasterGan) === '正官');
   if (yTenGod === '伤官' && hasZhengGuan) {
-    specialEvents.push('【伤官见官】：流年伤官透出与原局/大运官星相见，主突破常规思维、创新攻坚，宜遵规守信、防口舌是非。');
+    specialEvents.push(
+      '【伤官见官】：流年伤官透出与原局/大运官星相见，主突破常规思维、创新攻坚，宜遵规守信、防口舌是非。',
+    );
   }
 
   // 8. 枭神夺食
-  const hasShiShen = Object.values(baziResult.tenGods).includes('食神') || (isHeavenlyStem(lGan) && getTenGod(lGan, dayMasterGan) === '食神');
+  const hasShiShen =
+    Object.values(baziResult.tenGods).includes('食神') ||
+    (isHeavenlyStem(lGan) && getTenGod(lGan, dayMasterGan) === '食神');
   if (yTenGod === '偏印' && hasShiShen) {
-    specialEvents.push('【枭神夺食】：流年偏印与食神交汇，主深层思虑沉淀，宜调控压力、保障充沛睡眠与精神休养。');
+    specialEvents.push(
+      '【枭神夺食】：流年偏印与食神交汇，主深层思虑沉淀，宜调控压力、保障充沛睡眠与精神休养。',
+    );
   }
 
   // 9. 常态感应记录
@@ -1592,9 +1631,9 @@ function getLuckThemeAndAdvice(
   zhiTenGod: string,
   ganZhi: string,
 ): { lifeTheme: string; careerAdvice: string; healthAdvice: string } {
-  let lifeTheme = '';
-  let careerAdvice = '';
-  let healthAdvice = '';
+  let lifeTheme: string;
+  let careerAdvice: string;
+  let healthAdvice: string;
 
   if (startAge < 20) {
     lifeTheme = `学业启智与品格奠基期（${ganZhi} · 逢${tenGod}运）`;
@@ -1661,16 +1700,18 @@ export function buildEnhancedLuckChronicleSection(
       const isYZhiValid = isEarthlyBranch(yZhi);
 
       const months = calculateYearlyMonths(y.ganZhi, dayMasterGan);
-      const { specialEvents, natalInteractions, luckInteractions, yearTheme } =
-        detectSpecialEvents(baziResult, cycle.ganZhi, y.ganZhi);
+      const { specialEvents, natalInteractions, luckInteractions, yearTheme } = detectSpecialEvents(
+        baziResult,
+        cycle.ganZhi,
+        y.ganZhi,
+      );
 
       return {
         year: y.year,
         ganZhi: y.ganZhi,
         age: y.age,
         tenGod: y.tenGod || (isYGanValid ? getTenGod(yGan, dayMasterGan) : '—'),
-        zhiTenGod:
-          y.tenGodZhi || (isYZhiValid ? getTenGodForBranch(yZhi, dayMasterGan) : '—'),
+        zhiTenGod: y.tenGodZhi || (isYZhiValid ? getTenGodForBranch(yZhi, dayMasterGan) : '—'),
         nayin: NAYIN_MAP[y.ganZhi] || '—',
         taiSuiShensha: isYZhiValid ? [`太岁值${yZhi}`, `本命${y.ganZhi}`] : [],
         interactionWithNatal: natalInteractions,
@@ -1818,4 +1859,3 @@ export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerG
     fourPillarsMetaphor,
   };
 }
-

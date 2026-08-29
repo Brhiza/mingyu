@@ -61,13 +61,7 @@ export const MingluFiveElementsSection: React.FC<Props> = ({ data }) => {
               <div className="text-xs text-slate-500 mt-2 flex justify-between">
                 <span>显露个数: {el.count}</span>
                 <span>
-                  {el.isDominant
-                    ? '最旺'
-                    : el.isMissing
-                      ? '缺此行'
-                      : el.isWeakest
-                        ? '最弱'
-                        : '平'}
+                  {el.isDominant ? '最旺' : el.isMissing ? '缺此行' : el.isWeakest ? '最弱' : '平'}
                 </span>
               </div>
             </div>
@@ -208,7 +202,9 @@ export const MingluFiveElementsSection: React.FC<Props> = ({ data }) => {
                 </div>
                 <div className="minglu-tcm-body">
                   <div className="text-xs text-slate-700 dark:text-slate-300 mb-2">
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">气机感应：</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      气机感应：
+                    </span>
                     {item.manifestations}
                   </div>
                   <div className="text-xs text-amber-800 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40 p-2.5 rounded border border-amber-200/50 dark:border-amber-800/40">

@@ -1,14 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
-import { lookupMetaphysicsTerm, type MetaphysicsTerm } from '@/lib/metaphysics-terms';
+import {
+  lookupMetaphysicsTerm,
+  type MetaphysicsTerm,
+  type TermContextData,
+} from '@/lib/metaphysics-terms';
 
-export interface TermContextData {
-  chartTitle?: string;
-  roleInChart: string;
-  dynamicTone?: 'lucky' | 'unlucky' | 'neutral';
-  pillarOrPalace?: string;
-  relationshipSummary?: string;
-}
+export type { TermContextData };
 
 export interface MetaphysicsTermWithContext extends MetaphysicsTerm {
   context?: TermContextData;
@@ -157,7 +155,7 @@ export function TermExplanationProvider({ children }: { children: ReactNode }) {
 
   const openTerm = useCallback((term: string, context?: TermContextData) => {
     if (!term || typeof term !== 'string') return;
-    const cleanTerm = term.replace(/[\[\]【】()（）:：\s]/g, '').trim();
+    const cleanTerm = term.replace(/[[\]【】()（）:：\s]/g, '').trim();
     if (!cleanTerm) return;
 
     const found = lookupMetaphysicsTerm(cleanTerm);

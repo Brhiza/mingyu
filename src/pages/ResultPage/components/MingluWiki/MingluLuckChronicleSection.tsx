@@ -104,18 +104,22 @@ export const MingluLuckChronicleSection: React.FC<Props> = ({ data }) => {
           <div className="minglu-card minglu-active-luck-card mb-6">
             <div className="flex flex-wrap justify-between items-start gap-4 mb-4 pb-4 border-b border-amber-200/50 dark:border-amber-800/40">
               <div>
-                <span className="minglu-card-badge">第 {activeCycle.cycleIndex} 步大运 · 十年总领</span>
+                <span className="minglu-card-badge">
+                  第 {activeCycle.cycleIndex} 步大运 · 十年总领
+                </span>
                 <h4 className="text-3xl font-black text-amber-800 dark:text-amber-300 mt-1">
                   【{activeCycle.ganZhi}运】
                   <span className="text-base font-normal text-slate-600 dark:text-slate-400 ml-2">
-                    ({activeCycle.startAge} - {activeCycle.endAge} 岁 · 公历 {activeCycle.startYear} -{' '}
-                    {activeCycle.endYear} 年)
+                    ({activeCycle.startAge} - {activeCycle.endAge} 岁 · 公历 {activeCycle.startYear}{' '}
+                    - {activeCycle.endYear} 年)
                   </span>
                 </h4>
               </div>
               <div className="flex flex-wrap gap-2 text-sm">
                 <span className="minglu-pill is-primary font-bold">运干: {activeCycle.tenGod}</span>
-                <span className="minglu-pill is-primary font-bold">运支: {activeCycle.zhiTenGod}</span>
+                <span className="minglu-pill is-primary font-bold">
+                  运支: {activeCycle.zhiTenGod}
+                </span>
                 <span className="minglu-pill is-secondary">纳音: {activeCycle.nayin}</span>
                 <span className="minglu-pill is-secondary">运势: {activeCycle.lifeStage}</span>
               </div>
@@ -155,11 +159,7 @@ export const MingluLuckChronicleSection: React.FC<Props> = ({ data }) => {
             <h4 className="text-lg font-black text-slate-800 dark:text-slate-200">
               【{activeCycle.ganZhi}运】下十个流年全息展开
             </h4>
-            <button
-              type="button"
-              className="minglu-btn-toggle-all"
-              onClick={expandAllYearsInCycle}
-            >
+            <button type="button" className="minglu-btn-toggle-all" onClick={expandAllYearsInCycle}>
               {activeCycle.annualYears.every((y) => expandedYearSet.has(y.year))
                 ? '收起全部流月明细'
                 : '展开全部流月明细'}
@@ -273,4 +273,3 @@ export const MingluLuckChronicleSection: React.FC<Props> = ({ data }) => {
     </section>
   );
 };
-

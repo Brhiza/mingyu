@@ -40,7 +40,6 @@ export function ZiweiTraditionalBoard(props: {
     isInstant = false,
   } = props;
   const { openTerm } = useMetaphysicsTermModal();
-  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const selectedPalace =
     payload.palaces.find((item) => item.index === selectedPalaceIndex) ?? payload.palaces[0];
@@ -86,17 +85,6 @@ export function ZiweiTraditionalBoard(props: {
     return lines.filter(Boolean).join('\n');
   };
 
-  const handleCopyChart = async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(formatZiweiChartText());
-      }
-      setCopyState('copied');
-      setTimeout(() => setCopyState('idle'), 2500);
-    } catch {
-      // ignore
-    }
-  };
   const activeScopeMutagens = uniqueNonEmptyStrings(
     payload.active_scope.mutagen_map.map((item) => {
       const palaceName = item.dynamic_palace_name || item.palace_name;

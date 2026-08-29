@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useCallback, useMemo, useState, type ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useCallback,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
 import { lookupMetaphysicsTerm, type MetaphysicsTerm } from '@/lib/metaphysics-terms';
 import {
@@ -19,7 +26,6 @@ import { TAIYI_PALACES } from 'mingyu-core/taiyi';
 import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import {
   getAllLiuyaoCategoryChapters,
-  getAlmanacOfficerClassic,
   getHuangjiCycleClassic,
   getJinkoujueMovementClassic,
   getLiurenGeneralClassic,
@@ -114,19 +120,11 @@ function TraditionalBoardShell(props: {
         </div>
         <div className="traditional-board-head-actions">
           {actions}
-          <button
-            type="button"
-            className="traditional-action-btn"
-            onClick={onShare}
-          >
+          <button type="button" className="traditional-action-btn" onClick={onShare}>
             分享排盘
           </button>
           {onRestart ? (
-            <button
-              type="button"
-              className="traditional-action-btn"
-              onClick={onRestart}
-            >
+            <button type="button" className="traditional-action-btn" onClick={onRestart}>
               重新占问
             </button>
           ) : null}
@@ -252,156 +250,23 @@ const LIUYAO_WORLD_HOLD_RULES: Record<string, string> = {
   兄弟: '兄弟持世：预测交友、合伙谋划、防灾避祸等为吉；预测求财、经商投资、妻子健康等则不吉。以为吉，则是同道相助、人气聚集之象；以为不吉，则是破耗资财、小人争夺之象。',
 };
 
-function YaoBarVisual({ isYang, isMoving }: { isYang: boolean; isMoving?: boolean }) {
-  return (
-    <div
-      className={`traditional-yao-bar-visual ${isYang ? 'is-yang' : 'is-yin'} ${isMoving ? 'is-moving' : ''}`}
-    >
-      {isYang ? (
-        <span className="yao-solid-line" />
-      ) : (
-        <>
-          <span className="yao-broken-line" />
-          <span className="yao-broken-line" />
-        </>
-      )}
-    </div>
-  );
-}
-
-const LIUYAO_DIZHI_OPPOSITE: Record<string, string> = {
-  子: '午',
-  丑: '未',
-  寅: '申',
-  卯: '酉',
-  辰: '戌',
-  巳: '亥',
-  午: '子',
-  未: '丑',
-  申: '寅',
-  酉: '卯',
-  戌: '辰',
-  亥: '巳',
-};
-
-const LIUYAO_DIZHI_WUXING: Record<string, string> = {
-  子: '水',
-  丑: '土',
-  寅: '木',
-  卯: '木',
-  辰: '土',
-  巳: '火',
-  午: '火',
-  未: '土',
-  申: '金',
-  酉: '金',
-  戌: '土',
-  亥: '水',
-};
-
-const LIUYAO_WUXING_GENERATE: Record<string, string> = {
-  木: '火',
-  火: '土',
-  土: '金',
-  金: '水',
-  水: '木',
-};
-
-const LIUYAO_WUXING_CONTROL: Record<string, string> = {
-  木: '土',
-  土: '水',
-  水: '火',
-  火: '金',
-  金: '木',
-};
-
-function getLiuyaoMonthState(
-  yaoWuxing: string,
-  yaoDizhi: string,
-  monthBranch: string,
-  monthWuxing: string,
-): { label: string; tone: 'lucky' | 'unlucky' | 'neutral' } {
-  if (!monthBranch) return { label: '', tone: 'neutral' };
-  if (LIUYAO_DIZHI_OPPOSITE[monthBranch] === yaoDizhi) {
-    return { label: '月破', tone: 'unlucky' };
-  }
-  if (yaoWuxing === monthWuxing) {
-    return { label: '月旺', tone: 'lucky' };
-  }
-  if (LIUYAO_WUXING_GENERATE[monthWuxing] === yaoWuxing) {
-    return { label: '月相', tone: 'lucky' };
-  }
-  if (LIUYAO_WUXING_GENERATE[yaoWuxing] === monthWuxing) {
-    return { label: '月休', tone: 'neutral' };
-  }
-  if (LIUYAO_WUXING_CONTROL[yaoWuxing] === monthWuxing) {
-    return { label: '月囚', tone: 'neutral' };
-  }
-  return { label: '月死', tone: 'unlucky' };
-}
-
-function getLiuyaoDayState(
-  yaoDizhi: string,
-  yaoWuxing: string,
-  isMoving: boolean,
-  dayBranch: string,
-  dayWuxing: string,
-  voidBranches: string[],
-): { label: string; tone: 'lucky' | 'unlucky' | 'neutral' } {
-  if (!dayBranch) return { label: '', tone: 'neutral' };
-  if (voidBranches.includes(yaoDizhi)) {
-    return { label: '旬空', tone: 'unlucky' };
-  }
-  if (yaoDizhi === dayBranch) {
-    return { label: '日建', tone: 'lucky' };
-  }
-  if (LIUYAO_DIZHI_OPPOSITE[dayBranch] === yaoDizhi) {
-    if (isMoving) {
-      return { label: '冲动', tone: 'neutral' };
-    }
-    return { label: '暗动', tone: 'lucky' };
-  }
-  if (LIUYAO_WUXING_GENERATE[dayWuxing] === yaoWuxing) {
-    return { label: '日生', tone: 'lucky' };
-  }
-  if (LIUYAO_WUXING_CONTROL[dayWuxing] === yaoWuxing) {
-    return { label: '日克', tone: 'unlucky' };
-  }
-  return { label: '', tone: 'neutral' };
-}
-
-function getFeiFuRelation(
-  feiWuxing: string,
-  fuWuxing: string,
-): { label: string; text: string; tone: 'lucky' | 'unlucky' | 'neutral' } {
-  if (!feiWuxing || !fuWuxing) return { label: '', text: '', tone: 'neutral' };
-  if (feiWuxing === fuWuxing) {
-    return { label: '比和', text: '飞伏同气，得同道支持', tone: 'lucky' };
-  }
-  if (LIUYAO_WUXING_GENERATE[feiWuxing] === fuWuxing) {
-    return { label: '长生', text: '飞来生伏得长生，得贵人长辈暗中提携', tone: 'lucky' };
-  }
-  if (LIUYAO_WUXING_GENERATE[fuWuxing] === feiWuxing) {
-    return { label: '泄气', text: '伏去生飞名泄气，自身耗力为他人作嫁衣', tone: 'neutral' };
-  }
-  if (LIUYAO_WUXING_CONTROL[feiWuxing] === fuWuxing) {
-    return { label: '伤身', text: '飞来克伏为伤身，受环境上层压制掣肘', tone: 'unlucky' };
-  }
-  if (LIUYAO_WUXING_CONTROL[fuWuxing] === feiWuxing) {
-    return { label: '出暴', text: '伏去克飞名出暴，能冲破困局脱颖而出', tone: 'lucky' };
-  }
-  return { label: '', text: '', tone: 'neutral' };
-}
-
 const SYMBOL_TO_TRIGRAM: Record<string, string> = {
-  天: '乾', 乾: '乾',
-  地: '坤', 坤: '坤',
-  雷: '震', 震: '震',
-  风: '巽', 巽: '巽',
-  水: '坎', 坎: '坎',
-  火: '离', 离: '离',
-  山: '艮', 艮: '艮',
-  泽: '兑', 兑: '兑',
+  天: '乾',
+  乾: '乾',
+  地: '坤',
+  坤: '坤',
+  雷: '震',
+  震: '震',
+  风: '巽',
+  巽: '巽',
+  水: '坎',
+  坎: '坎',
+  火: '离',
+  离: '离',
+  山: '艮',
+  艮: '艮',
+  泽: '兑',
+  兑: '兑',
 };
 
 const TRIGRAM_STEMS: Record<string, { inner: string; outer: string }> = {
@@ -435,10 +300,6 @@ function getHexagramYaoStems(hexName: string): string[] {
   const outerStem = TRIGRAM_STEMS[upper]?.outer || '';
   return [innerStem, innerStem, innerStem, outerStem, outerStem, outerStem];
 }
-
-
-
-
 
 function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
   const { openTerm } = useMetaphysicsTermModal();
@@ -484,9 +345,7 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
               >
                 {data.changedName}
               </span>
-              <span className="liuyao-hexagram-palace">
-                ({data.palace?.name || ''})
-              </span>
+              <span className="liuyao-hexagram-palace">({data.palace?.name || ''})</span>
             </>
           ) : (
             <span className="liuyao-muted-title">静卦无变</span>
@@ -542,11 +401,10 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
                     {shortRelative(yao.sixRelative)}
                   </span>
                   <span className="liuyao-dizhi-wuxing">
-                    {yao.najiaDizhi}{yao.wuxing}
+                    {yao.najiaDizhi}
+                    {yao.wuxing}
                   </span>
-                  <span className="liuyao-najia-stem">
-                    {mainStems[yao.position - 1] || ''}
-                  </span>
+                  <span className="liuyao-najia-stem">{mainStems[yao.position - 1] || ''}</span>
                   <div className="liuyao-bar-container">
                     {yao.yaoType === '阳' ? (
                       <div className="liuyao-bar-yang" />
@@ -584,7 +442,9 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
                       </div>
                       <span
                         className="liuyao-relative is-clickable-term"
-                        onClick={() => handleYaoTerm(yao.changedYao?.liuqin ?? yao.sixRelative ?? '六亲')}
+                        onClick={() =>
+                          handleYaoTerm(yao.changedYao?.liuqin ?? yao.sixRelative ?? '六亲')
+                        }
                       >
                         {shortRelative(yao.changedYao?.liuqin ?? yao.sixRelative)}
                       </span>
@@ -612,7 +472,8 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
                       onClick={() => handleYaoTerm('伏神')}
                       title={`伏神：${hidden.sixRelative} ${hidden.najiaDizhi}${hidden.wuxing}`}
                     >
-                      伏神: {shortRelative(hidden.sixRelative)} {hidden.najiaDizhi}{hidden.wuxing}
+                      伏神: {shortRelative(hidden.sixRelative)} {hidden.najiaDizhi}
+                      {hidden.wuxing}
                     </span>
                   ) : null}
                   {isGuaShen ? (
@@ -632,14 +493,8 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
       </div>
 
       <div className="liuyao-hexagram-footer">
-        <span>
-          本卦：{data.hexagramRelations?.original || '本卦定局'}
-        </span>
-        <span>
-          {hasChanged
-            ? `变卦：${data.hexagramRelations?.changed || '变卦定局'}`
-            : ''}
-        </span>
+        <span>本卦：{data.hexagramRelations?.original || '本卦定局'}</span>
+        <span>{hasChanged ? `变卦：${data.hexagramRelations?.changed || '变卦定局'}` : ''}</span>
       </div>
     </div>
   );
@@ -904,17 +759,31 @@ function LiuyaoTraditionalBoard({
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined],
-          ['四柱', `${data.ganzhi.year} ${data.ganzhi.month} ${data.ganzhi.day} ${data.ganzhi.hour}`],
+          [
+            '日期',
+            session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined,
+          ],
+          [
+            '四柱',
+            `${data.ganzhi.year} ${data.ganzhi.month} ${data.ganzhi.day} ${data.ganzhi.hour}`,
+          ],
           ['旬空', data.voidBranches?.join('、') || '无'],
-          ['卦身', data.guaShen?.branch ? `${data.guaShen.branch}（第${data.guaShen.position}爻）` : undefined],
-          ['世序', data.palaceStage ? `${data.palace?.name || ''} · ${data.palaceStage}` : undefined],
+          [
+            '卦身',
+            data.guaShen?.branch
+              ? `${data.guaShen.branch}（第${data.guaShen.position}爻）`
+              : undefined,
+          ],
+          [
+            '世序',
+            data.palaceStage ? `${data.palace?.name || ''} · ${data.palaceStage}` : undefined,
+          ],
         ]}
       />
       <TraditionalFacts
         items={[
           ['本卦定局', data.hexagramRelations?.original || '本卦'],
-          ['变卦定局', data.changedName ? (data.hexagramRelations?.changed || '之卦') : '静卦无变'],
+          ['变卦定局', data.changedName ? data.hexagramRelations?.changed || '之卦' : '静卦无变'],
           ['卦式特征', data.specialPattern || (data.changedName ? '动变卦' : '六爻静卦')],
         ]}
       />
@@ -1005,14 +874,7 @@ function getHexagramSixLines(upper?: string, lower?: string): number[] {
   if (!upper || !lower) return [];
   const lowerLines = TRIGRAM_YAO_LINES[lower] || [1, 1, 1];
   const upperLines = TRIGRAM_YAO_LINES[upper] || [1, 1, 1];
-  return [
-    upperLines[2],
-    upperLines[1],
-    upperLines[0],
-    lowerLines[2],
-    lowerLines[1],
-    lowerLines[0],
-  ];
+  return [upperLines[2], upperLines[1], upperLines[0], lowerLines[2], lowerLines[1], lowerLines[0]];
 }
 
 function MiniHexagram(props: {
@@ -1044,10 +906,7 @@ function MiniHexagram(props: {
               const pos = 6 - idx;
               const isMoving = pos === movingPosition;
               return (
-                <div
-                  key={pos}
-                  className={`mini-bar-row${isMoving ? ' is-moving-line' : ''}`}
-                >
+                <div key={pos} className={`mini-bar-row${isMoving ? ' is-moving-line' : ''}`}>
                   {isYang === 1 ? (
                     <div className="mini-bar-yang" />
                   ) : (
@@ -1109,10 +968,6 @@ function MeihuaTraditionalBoard({
     return data.tiGua?.name ? getMeihuaTrigramClassic(data.tiGua.name) : undefined;
   }, [data.tiGua]);
 
-  const yongTrigramClassic = useMemo(() => {
-    return data.yongGua?.name ? getMeihuaTrigramClassic(data.yongGua.name) : undefined;
-  }, [data.yongGua]);
-
   return (
     <TraditionalBoardShell
       title={data.mainHexagram.name}
@@ -1122,8 +977,14 @@ function MeihuaTraditionalBoard({
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined],
-          ['四柱', `${data.ganzhi.year} ${data.ganzhi.month} ${data.ganzhi.day} ${data.ganzhi.hour}`],
+          [
+            '日期',
+            session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined,
+          ],
+          [
+            '四柱',
+            `${data.ganzhi.year} ${data.ganzhi.month} ${data.ganzhi.day} ${data.ganzhi.hour}`,
+          ],
           ['起卦法', data.calculation?.method || '梅花易数'],
           ['体卦', `${data.tiGua.name}（${data.tiGua.element}）`],
           ['用卦', `${data.yongGua.name}（${data.yongGua.element}）`],
@@ -1272,7 +1133,10 @@ function XiaoliurenTraditionalBoard({
         items={[
           ['月宫', `${data.sequence.month.name}（${data.sequence.month.element}）`],
           ['日宫', `${data.sequence.day.name}（${data.sequence.day.element}）`],
-          ['时宫（主断）', `${data.sequence.hour.name}（${data.sequence.hour.auspicious} · ${data.sequence.hour.element}）`],
+          [
+            '时宫（主断）',
+            `${data.sequence.hour.name}（${data.sequence.hour.auspicious} · ${data.sequence.hour.element}）`,
+          ],
         ]}
       />
       <div className="traditional-xiaoliuren-sequence" aria-label="小六壬月日时三宫">
@@ -1359,8 +1223,14 @@ function JinkoujueTraditionalBoard({
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined],
-          ['干支', `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`],
+          [
+            '日期',
+            session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined,
+          ],
+          [
+            '干支',
+            `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
+          ],
           ['旬空', data.xunKong?.join('、') || '无'],
           ['月将', `${data.monthLeader}加${data.divinationBranch}`],
           ['贵人', `${data.dayNight}贵人 · ${data.noblemanBranch}`],
@@ -1368,7 +1238,10 @@ function JinkoujueTraditionalBoard({
       />
       <TraditionalFacts
         items={[
-          ['阴阳取用', `${data.yinYangUse.pattern}（用${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '·空' : ''}）`],
+          [
+            '阴阳取用',
+            `${data.yinYangUse.pattern}（用${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '·空' : ''}）`,
+          ],
           ['四位生克', positionRelations],
           ['动变格局', movementText || '未见发动'],
         ]}
@@ -1725,7 +1598,7 @@ function gongName(gong: number) {
 function getQimenYongShenSummary(
   yongShenId: QimenYongShenId,
   data: QimenData,
-  palaceMap: Map<number, QimenJiuGongGe>,
+  _palaceMap: Map<number, QimenJiuGongGe>,
 ) {
   const dayStem = data.ganzhi?.day?.slice(0, 1) || '戊';
   const dayPalace = data.jiuGongGe.find(
@@ -1892,7 +1765,7 @@ function getQimenYongShenSummary(
     const isYiKeRui = yiEl && ruiEl && checkQimenKe(yiEl, ruiEl);
     const isXinKeRui = xinEl && ruiEl && checkQimenKe(xinEl, ruiEl);
 
-    let leadText = '天芮病星有制，得良医良方调理，身体趋吉。';
+    let leadText: string;
     if (isYiKeRui || isXinKeRui)
       leadText = '医药（乙奇/天心）落宫克制病星天芮落宫，药到病除，遵医嘱调养大吉。';
     else leadText = '病星天芮旺相，需重视身心调理，及早就医检查，防病灶反复。';
@@ -1974,32 +1847,12 @@ function QimenTraditionalBoard({
   const scopeLabel = { hour: '时家', day: '日家', month: '月家', year: '年家' }[
     data.scope ?? 'hour'
   ];
-  const specialConditions = [
-    data.specialConditions?.isLiuJiaHour ? '六甲时' : '',
-    data.specialConditions?.isLiuGuiHour ? '六癸时' : '',
-    data.specialConditions?.isShiGanRuMu ? '时干入墓' : '',
-    data.specialConditions?.isWuBuYuShi ? '五不遇时' : '',
-  ]
-    .filter(Boolean)
-    .join('、');
   const patternCounts = new Map<string, number>();
-  data.patternTags?.forEach((item) => {
+  data.patterns.forEach((item) => {
     const label = item.split(/[（(]/u)[0]?.trim();
     if (label) patternCounts.set(label, (patternCounts.get(label) ?? 0) + 1);
   });
   const patternNames = Array.from(patternCounts.entries())
-    .map(([label, count]) => `${label}${count > 1 ? `×${count}` : ''}`)
-    .join(' · ');
-  const ganzhiInteractionCounts = new Map<string, number>();
-  data.seasonality?.ganzhiInteractions.forEach((item) => {
-    const [first, second] = item.values;
-    const label =
-      first === second && item.type === '相刑'
-        ? `${first}自刑`
-        : `${item.values.join('')}${item.type}`;
-    ganzhiInteractionCounts.set(label, (ganzhiInteractionCounts.get(label) ?? 0) + 1);
-  });
-  const ganzhiInteractions = Array.from(ganzhiInteractionCounts.entries())
     .map(([label, count]) => `${label}${count > 1 ? `×${count}` : ''}`)
     .join(' · ');
 
@@ -2077,8 +1930,14 @@ function QimenTraditionalBoard({
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined],
-          ['干支', `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`],
+          [
+            '日期',
+            session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined,
+          ],
+          [
+            '干支',
+            `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
+          ],
           ['旬空', data.voidBranches?.join('、') || '无'],
           ['值符', data.zhiFu],
           ['值使', data.zhiShi],
@@ -2088,7 +1947,10 @@ function QimenTraditionalBoard({
       />
       <TraditionalFacts
         items={[
-          ['定局', `${scopeLabel} · ${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局（${data.method === 'feipan' ? '飞盘' : '转盘'}·${data.juMethod === 'zhirun' ? '置闰' : '拆补'}）`],
+          [
+            '定局',
+            `${scopeLabel} · ${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局（${data.method === 'feipan' ? '飞盘' : '转盘'}·${data.juMethod === 'zhirun' ? '置闰' : '拆补'}）`,
+          ],
           ['特殊时格', specialConditions || '常局'],
           ['盘局特征', patternNames || '平局'],
         ]}
@@ -2511,7 +2373,10 @@ function TarotTraditionalBoard({
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined],
+          [
+            '日期',
+            session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined,
+          ],
           ['牌阵', data.spreadName],
           ['张数', `${data.cards.length}张`],
           ['位态', `正位${uprightCount}张 · 逆位${reversedCount}张`],
@@ -2544,7 +2409,9 @@ function TarotTraditionalBoard({
               {card.name}
             </button>
             <div className="traditional-card-tags">
-              <span className={`traditional-card-orientation${card.reversed ? ' is-reversed' : ' is-upright'}`}>
+              <span
+                className={`traditional-card-orientation${card.reversed ? ' is-reversed' : ' is-upright'}`}
+              >
                 {card.reversed ? '逆位' : '正位'}
               </span>
               {card.element ? (
@@ -2552,7 +2419,9 @@ function TarotTraditionalBoard({
               ) : null}
             </div>
             {card.keywords?.length ? (
-              <small className="traditional-card-keywords">{card.keywords.slice(0, 3).join(' · ')}</small>
+              <small className="traditional-card-keywords">
+                {card.keywords.slice(0, 3).join(' · ')}
+              </small>
             ) : null}
           </article>
         ))}
@@ -2580,7 +2449,10 @@ function LenormandTraditionalBoard({
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined],
+          [
+            '日期',
+            session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined,
+          ],
           ['牌阵', data.spreadName],
           ['张数', `${data.cards.length}张`],
         ]}
@@ -2624,7 +2496,9 @@ function LenormandTraditionalBoard({
               <span className="traditional-lenormand-house">落第{card.house}宫</span>
             ) : null}
             {card.keywords?.length ? (
-              <p className="traditional-lenormand-keywords">{card.keywords.slice(0, 2).join(' · ')}</p>
+              <p className="traditional-lenormand-keywords">
+                {card.keywords.slice(0, 2).join(' · ')}
+              </p>
             ) : null}
             {card.meaning ? (
               <small className="traditional-lenormand-meaning">{card.meaning}</small>
@@ -2636,13 +2510,7 @@ function LenormandTraditionalBoard({
   );
 }
 
-function SsgwTraditionalBoard({
-  data,
-  session,
-}: {
-  data: SsgwData;
-  session?: DivinationSession;
-}) {
+function SsgwTraditionalBoard({ data, session }: { data: SsgwData; session?: DivinationSession }) {
   const poemLines = data.poem.split(/\s*[|\n]\s*/).filter(Boolean);
   return (
     <TraditionalBoardShell
@@ -2653,8 +2521,14 @@ function SsgwTraditionalBoard({
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined],
-          ['干支', `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`],
+          [
+            '日期',
+            session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : undefined,
+          ],
+          [
+            '干支',
+            `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`,
+          ],
           ['签号', `第${data.number}签`],
           ['签题', data.title],
           ['吉凶', data.auspice],
@@ -2717,7 +2591,7 @@ function getAlmanacStatusClass(status: AlmanacDisplayStatus) {
 
 function AlmanacTraditionalBoard({
   data,
-  session,
+  session: _session,
 }: {
   data: AlmanacData;
   session?: DivinationSession;
@@ -3011,8 +2885,6 @@ function TaiyiTraditionalBoard({
 
   const wenChangClassic = useMemo(() => getTaiyiGeneralClassic('文昌'), []);
   const shiJiClassic = useMemo(() => getTaiyiGeneralClassic('始击'), []);
-  const zhuJiangClassic = useMemo(() => getTaiyiGeneralClassic('主将'), []);
-  const keJiangClassic = useMemo(() => getTaiyiGeneralClassic('客将'), []);
 
   return (
     <TraditionalBoardShell
@@ -3023,7 +2895,12 @@ function TaiyiTraditionalBoard({
       <TraditionalMeta
         items={[
           ['占事', session?.question],
-          ['日期', session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : (data.dateTime || undefined)],
+          [
+            '日期',
+            session?.createdAt
+              ? new Date(session.createdAt).toLocaleString('zh-CN')
+              : data.dateTime || undefined,
+          ],
           ['干支', data.ganZhi],
           ['计式', `太乙${scopeLabel}`],
           ['定局', `${data.yinYang}第${data.bureau}局`],
@@ -3032,8 +2909,14 @@ function TaiyiTraditionalBoard({
       />
       <TraditionalFacts
         items={[
-          ['三宫定位', `太乙居${data.taiyiPalace}宫 · 文昌居${data.wenChangPalace}宫 · 始击居${data.shiJiPalace}宫`],
-          ['主客大将', `主大将居${data.lordGeneral}宫 · 客大将居${data.guestGeneral}宫 · 定大将居${data.setGeneral}宫`],
+          [
+            '三宫定位',
+            `太乙居${data.taiyiPalace}宫 · 文昌居${data.wenChangPalace}宫 · 始击居${data.shiJiPalace}宫`,
+          ],
+          [
+            '主客大将',
+            `主大将居${data.lordGeneral}宫 · 客大将居${data.guestGeneral}宫 · 定大将居${data.setGeneral}宫`,
+          ],
         ]}
       />
 
@@ -3220,6 +3103,9 @@ function HuangjiTraditionalBoard({
   data: HuangjiJingshiResult;
   session?: DivinationSession;
 }) {
+  const annualCycleClassic = useMemo(() => getHuangjiCycleClassic('年'), []);
+  const shiCycleClassic = useMemo(() => getHuangjiCycleClassic('世'), []);
+
   const forecast = data.forecast;
   if (!forecast) return null;
   const dateTimeForecast = data.dateTimeForecast;
@@ -3230,9 +3116,6 @@ function HuangjiTraditionalBoard({
     ['错卦', forecast.relatedHexagrams.opposite],
     ['综卦', forecast.relatedHexagrams.reversed],
   ] as const;
-
-  const annualCycleClassic = useMemo(() => getHuangjiCycleClassic('年'), []);
-  const shiCycleClassic = useMemo(() => getHuangjiCycleClassic('世'), []);
 
   return (
     <TraditionalBoardShell
@@ -3253,7 +3136,10 @@ function HuangjiTraditionalBoard({
               ? new Date(session.createdAt).toLocaleString('zh-CN')
               : dateTimeForecast?.civilTime.dateTime || `${formatHuangjiCivilYear(annual.year)}`,
           ],
-          ['元会运世', `第${data.position.yuan.indexFromEpoch + 1}元 · 第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会） · 第${data.position.yun.indexInHui}运 · 第${data.position.shi.indexInYun}世（第${data.position.year.indexInShi}年）`],
+          [
+            '元会运世',
+            `第${data.position.yuan.indexFromEpoch + 1}元 · 第${forecast.hui.indexInYuan}会（${forecast.hui.branch}会） · 第${data.position.yun.indexInHui}运 · 第${data.position.shi.indexInYun}世（第${data.position.year.indexInShi}年）`,
+          ],
         ]}
       />
       <TraditionalFacts
@@ -3540,7 +3426,9 @@ export function LiurenTraditionalBoard({
     >
       <DivinationMetaTable
         question={session?.question}
-        dateStr={session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : '起课时间'}
+        dateStr={
+          session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : '起课时间'
+        }
         methodLabel="大六壬正时起课"
         ganzhi={data.ganzhi}
         voidBranches={data.xunKong}
@@ -3549,13 +3437,19 @@ export function LiurenTraditionalBoard({
             label: '课体',
             value: (
               <div className="is-shensha-line">
-                <span>月将：<strong>{data.monthLeader}</strong>（加{data.divinationBranch}）</span>
+                <span>
+                  月将：<strong>{data.monthLeader}</strong>（加{data.divinationBranch}）
+                </span>
                 <span>
                   {data.dayNight}贵人：<strong>{data.noblemanBranch}</strong>
                   {data.noblemanGroundBranch ? `临${data.noblemanGroundBranch}` : ''}
                 </span>
-                <span>日干寄宫：<strong>{data.dayStemResidence}</strong></span>
-                <span>课体：<strong>{lessonPatterns || '正象'}</strong></span>
+                <span>
+                  日干寄宫：<strong>{data.dayStemResidence}</strong>
+                </span>
+                <span>
+                  课体：<strong>{lessonPatterns || '正象'}</strong>
+                </span>
               </div>
             ),
           },
@@ -3563,8 +3457,12 @@ export function LiurenTraditionalBoard({
             label: '三传',
             value: (
               <div className="is-shensha-line">
-                <span>取传：<strong>{transmissionMethod}</strong></span>
-                <span>三传：<strong>{transmissionText}</strong></span>
+                <span>
+                  取传：<strong>{transmissionMethod}</strong>
+                </span>
+                <span>
+                  三传：<strong>{transmissionText}</strong>
+                </span>
                 {shenSha ? <span>神煞：{shenSha}</span> : null}
               </div>
             ),
@@ -3629,14 +3527,18 @@ function formatDivinationSessionShareText(session: DivinationSession): string {
   const label = DIVINATION_METHOD_LABELS[session.method] || session.method.toUpperCase();
   lines.push(`【${label} 排盘】`);
   if (session.question) lines.push(`所问之事：${session.question}`);
-  if (session.createdAt) lines.push(`起卦时间：${new Date(session.createdAt).toLocaleString('zh-CN')}`);
+  if (session.createdAt)
+    lines.push(`起卦时间：${new Date(session.createdAt).toLocaleString('zh-CN')}`);
 
   if (session.method === 'liuyao') {
     const d = session.data as LiuyaoData;
     lines.push(`本卦：${d.hexagramRelations?.original || d.hexagramName || ''}`);
     if (d.hexagramRelations?.changed) lines.push(`变卦：${d.hexagramRelations.changed}`);
     if (d.worldHolding) lines.push(`世爻：${d.worldHolding}`);
-    if (d.monthZhi && d.dayZhi) lines.push(`日月建：${d.monthZhi}月 ${d.dayZhi}日 (空亡:${d.voidBranches?.join('') || '无'})`);
+    if (d.monthZhi && d.dayZhi)
+      lines.push(
+        `日月建：${d.monthZhi}月 ${d.dayZhi}日 (空亡:${d.voidBranches?.join('') || '无'})`,
+      );
   } else if (session.method === 'meihua') {
     const d = session.data as MeihuaData;
     lines.push(`本卦：${d.originalGua}  互卦：${d.mutualGua}  变卦：${d.transformedGua}`);
@@ -3647,13 +3549,19 @@ function formatDivinationSessionShareText(session: DivinationSession): string {
     if (d.dutyStar) lines.push(`值符：${d.dutyStar}  值使：${d.dutyDoor || ''}`);
   } else if (session.method === 'liuren') {
     const d = session.data as LiurenData;
-    lines.push(`三传：初传【${d.threeTransmissions?.initial?.branch || ''}】 中传【${d.threeTransmissions?.middle?.branch || ''}】 末传【${d.threeTransmissions?.final?.branch || ''}】`);
+    lines.push(
+      `三传：初传【${d.threeTransmissions?.initial?.branch || ''}】 中传【${d.threeTransmissions?.middle?.branch || ''}】 末传【${d.threeTransmissions?.final?.branch || ''}】`,
+    );
   } else if (session.method === 'xiaoliuren') {
     const d = session.data as XiaoliurenData;
-    lines.push(`三宫：月宫【${d.monthGong?.name || ''}】 日宫【${d.dayGong?.name || ''}】 时宫【${d.hourGong?.name || ''}】`);
+    lines.push(
+      `三宫：月宫【${d.monthGong?.name || ''}】 日宫【${d.dayGong?.name || ''}】 时宫【${d.hourGong?.name || ''}】`,
+    );
   } else if (session.method === 'jinkoujue') {
     const d = session.data as JinkoujueData;
-    lines.push(`四位：人元【${d.renYuan}】 贵神【${d.guiShen}】 将神【${d.jiangShen}】 地分【${d.diFen}】`);
+    lines.push(
+      `四位：人元【${d.renYuan}】 贵神【${d.guiShen}】 将神【${d.jiangShen}】 地分【${d.diFen}】`,
+    );
   }
 
   return lines.join('\n');
@@ -3668,7 +3576,6 @@ export function TraditionalDivinationBoard({
 }) {
   const [activeTerm, setActiveTerm] = useState<MetaphysicsTerm | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 
   const handleOpenTerm = useCallback((term: string, context?: TermContextData) => {
     const found = lookupMetaphysicsTerm(term);
@@ -3681,19 +3588,7 @@ export function TraditionalDivinationBoard({
     return formatDivinationSessionShareText(session);
   }, [session]);
 
-  const handleCopyChart = async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(chartSummaryText);
-      }
-      setCopyState('copied');
-      setTimeout(() => setCopyState('idle'), 2500);
-    } catch {
-      // ignore
-    }
-  };
-
-  let boardContent: ReactNode = null;
+  let boardContent: ReactNode;
   switch (session.method) {
     case 'liuyao':
       boardContent = <LiuyaoTraditionalBoard data={session.data as LiuyaoData} session={session} />;
@@ -3702,10 +3597,14 @@ export function TraditionalDivinationBoard({
       boardContent = <MeihuaTraditionalBoard data={session.data as MeihuaData} session={session} />;
       break;
     case 'xiaoliuren':
-      boardContent = <XiaoliurenTraditionalBoard data={session.data as XiaoliurenData} session={session} />;
+      boardContent = (
+        <XiaoliurenTraditionalBoard data={session.data as XiaoliurenData} session={session} />
+      );
       break;
     case 'jinkoujue':
-      boardContent = <JinkoujueTraditionalBoard data={session.data as JinkoujueData} session={session} />;
+      boardContent = (
+        <JinkoujueTraditionalBoard data={session.data as JinkoujueData} session={session} />
+      );
       break;
     case 'qimen':
       boardContent = <QimenTraditionalBoard data={session.data as QimenData} session={session} />;
@@ -3717,10 +3616,14 @@ export function TraditionalDivinationBoard({
       boardContent = <SsgwTraditionalBoard data={session.data as SsgwData} session={session} />;
       break;
     case 'almanac':
-      boardContent = <AlmanacTraditionalBoard data={session.data as AlmanacData} session={session} />;
+      boardContent = (
+        <AlmanacTraditionalBoard data={session.data as AlmanacData} session={session} />
+      );
       break;
     case 'lenormand':
-      boardContent = <LenormandTraditionalBoard data={session.data as LenormandData} session={session} />;
+      boardContent = (
+        <LenormandTraditionalBoard data={session.data as LenormandData} session={session} />
+      );
       break;
     case 'astrolabe':
       boardContent = (
@@ -3737,7 +3640,9 @@ export function TraditionalDivinationBoard({
       boardContent = <TaiyiTraditionalBoard data={session.data as TaiyiResult} session={session} />;
       break;
     case 'huangji':
-      boardContent = <HuangjiTraditionalBoard data={session.data as HuangjiJingshiResult} session={session} />;
+      boardContent = (
+        <HuangjiTraditionalBoard data={session.data as HuangjiJingshiResult} session={session} />
+      );
       break;
     case 'liuren':
       boardContent = <LiurenTraditionalBoard data={session.data as LiurenData} session={session} />;

@@ -1,6 +1,5 @@
-import { memo, useMemo, useState } from 'react';
+import { memo } from 'react';
 import type { QizhengAspect, QizhengResult, QizhengStar } from 'mingyu-core/qizheng';
-import { getQizhengStarClassic } from 'mingyu-core/classics';
 
 const SIGN_INDEXES = Array.from({ length: 12 }, (_, index) => index);
 const STAR_STYLES: Array<{ match: string; symbol: string; color: string }> = [

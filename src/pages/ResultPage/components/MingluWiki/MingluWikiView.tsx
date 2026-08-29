@@ -162,7 +162,9 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
               <div className="minglu-section-header">
                 <span className="minglu-section-num">导读</span>
                 <div className="minglu-section-title-wrap">
-                  <h2 className="minglu-section-title">小白入门导读 · 一分钟极速读懂你的命理全景</h2>
+                  <h2 className="minglu-section-title">
+                    小白入门导读 · 一分钟极速读懂你的命理全景
+                  </h2>
                   <p className="minglu-section-subtitle">
                     跳过繁复术语，用自然万物比喻与大白话直观透视你的核心能量原型与人生四部曲
                   </p>

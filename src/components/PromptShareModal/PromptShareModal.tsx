@@ -145,8 +145,7 @@ export function PromptShareModal({
 
           <div className="share-card-footer">
             <span className="footer-tip">
-              复制后可发送给 <b>ChatGPT / Claude / DeepSeek / Gemini / 豆包 / Kimi</b>{' '}
-              等任意大模型
+              复制后可发送给 <b>ChatGPT / Claude / DeepSeek / Gemini / 豆包 / Kimi</b> 等任意大模型
             </span>
           </div>
         </div>

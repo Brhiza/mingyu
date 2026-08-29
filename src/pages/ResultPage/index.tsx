@@ -1536,8 +1536,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               ? latestBaziPromptText
               : latestZiweiPromptText;
   const latestActivePromptText = baseLatestActivePromptText;
-  const { copyState, shareState, handleCopy } =
-    usePromptCopyShare(latestActivePromptText);
+  const { copyState, shareState, handleCopy } = usePromptCopyShare(latestActivePromptText);
 
   function switchTab(tab: ResultTabKey) {
     updatePromptState({ tab });

@@ -320,5 +320,3 @@ test('奇门遁甲《烟波钓叟歌》精义查询正确', () => {
   assert.ok(yanbo);
   assert.ok(yanbo.verse.includes('阴阳顺逆妙难穷'));
 });
-
-

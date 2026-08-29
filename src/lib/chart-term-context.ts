@@ -1,5 +1,5 @@
 import type { BaziChartResult } from 'mingyu-core/bazi';
-import type { TermContextData } from '@/components/TermExplanationModal/TermExplanationModal';
+import type { TermContextData } from '@/lib/metaphysics-terms';
 
 const STEMS = new Set(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
 const BRANCHES = new Set(['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']);
@@ -28,9 +28,10 @@ export function getBaziTermContext(
   },
 ): TermContextData | undefined {
   if (!term || !result) return undefined;
-  const clean = term.replace(/[\[\]【】()（）:：\s]/g, '').trim();
+  const clean = term.replace(/[[\]【】()（）:：\s]/g, '').trim();
   const dayMaster = result.dayMaster?.gan || result.pillars?.day?.gan || '';
-  const useful = result.analysis?.usefulGod?.primaryUseful || result.analysis?.usefulGod?.useful || '';
+  const useful =
+    result.analysis?.usefulGod?.primaryUseful || result.analysis?.usefulGod?.useful || '';
   const avoid = result.analysis?.usefulGod?.primaryAvoid || result.analysis?.usefulGod?.avoid || '';
   const dmStrength = result.analysis?.dayMasterStrength?.status || '';
   const pattern = result.analysis?.mingGe?.pattern || '';
@@ -48,11 +49,32 @@ export function getBaziTermContext(
   }
 
   // 2. 十神
-  if (['正官', '七杀', '偏官', '正印', '偏印', '枭神', '正财', '偏财', '食神', '伤官', '比肩', '劫财'].includes(clean)) {
-    const isUseful = useful.includes(clean) || (clean === '正印' && dmStrength.includes('弱')) || (clean === '七杀' && dmStrength.includes('旺'));
-    const isAvoid = avoid.includes(clean) || (clean === '七杀' && dmStrength.includes('弱')) || (clean === '正官' && dmStrength.includes('弱'));
+  if (
+    [
+      '正官',
+      '七杀',
+      '偏官',
+      '正印',
+      '偏印',
+      '枭神',
+      '正财',
+      '偏财',
+      '食神',
+      '伤官',
+      '比肩',
+      '劫财',
+    ].includes(clean)
+  ) {
+    const isUseful =
+      useful.includes(clean) ||
+      (clean === '正印' && dmStrength.includes('弱')) ||
+      (clean === '七杀' && dmStrength.includes('旺'));
+    const isAvoid =
+      avoid.includes(clean) ||
+      (clean === '七杀' && dmStrength.includes('弱')) ||
+      (clean === '正官' && dmStrength.includes('弱'));
 
-    let roleInChart = '';
+    let roleInChart: string;
     let dynamicTone: 'lucky' | 'unlucky' | 'neutral' = 'neutral';
 
     if (isUseful) {
@@ -75,7 +97,12 @@ export function getBaziTermContext(
   }
 
   // 3. 旺衰与格局
-  if (clean.includes('身旺') || clean.includes('身弱') || clean.includes('从') || clean.includes('专旺')) {
+  if (
+    clean.includes('身旺') ||
+    clean.includes('身弱') ||
+    clean.includes('从') ||
+    clean.includes('专旺')
+  ) {
     return {
       chartTitle: `日主旺衰格局`,
       roleInChart: `日干${dayMaster}经月令考量与通根比照判定为【${dmStrength}】，确立“${dmStrength.includes('旺') ? '身强任财官、喜泄克耗' : '身弱喜印比扶身生助'}”的取用原则。`,
@@ -86,7 +113,15 @@ export function getBaziTermContext(
   }
 
   // 4. 纳音五行（海中金、炉中火等）
-  if (options?.pillarLabel && clean.length === 3 && (clean.endsWith('金') || clean.endsWith('木') || clean.endsWith('水') || clean.endsWith('火') || clean.endsWith('土'))) {
+  if (
+    options?.pillarLabel &&
+    clean.length === 3 &&
+    (clean.endsWith('金') ||
+      clean.endsWith('木') ||
+      clean.endsWith('水') ||
+      clean.endsWith('火') ||
+      clean.endsWith('土'))
+  ) {
     return {
       chartTitle: `柱位纳音气象`,
       roleInChart: `${options.pillarLabel}（${options.ganZhi || ''}）纳音为【${clean}】，主导${stageDesc || '该阶段'}之气象品格与环境基调。`,
@@ -117,7 +152,14 @@ export function getBaziTermContext(
     };
   }
 
-  if (clean.includes('天乙') || clean.includes('太极') || clean.includes('天德') || clean.includes('月德') || clean.includes('天赦') || clean.includes('福星')) {
+  if (
+    clean.includes('天乙') ||
+    clean.includes('太极') ||
+    clean.includes('天德') ||
+    clean.includes('月德') ||
+    clean.includes('天赦') ||
+    clean.includes('福星')
+  ) {
     return {
       chartTitle: `神煞实盘作用`,
       roleInChart: `${clean}临${options?.pillarLabel || '柱位'}。主遇困逢凶化吉，在${stageDesc || '该阶段'}多得外力相助与庇佑。`,
@@ -137,7 +179,12 @@ export function getBaziTermContext(
     };
   }
 
-  if (clean.includes('将星') || clean.includes('金舆') || clean.includes('国印') || clean.includes('拱禄')) {
+  if (
+    clean.includes('将星') ||
+    clean.includes('金舆') ||
+    clean.includes('国印') ||
+    clean.includes('拱禄')
+  ) {
     return {
       chartTitle: `神煞实盘作用`,
       roleInChart: `${clean}临${options?.pillarLabel || '柱位'}。主具备统御组织才能或福禄资产，利于职场晋升与掌管关键事务。`,
@@ -167,7 +214,15 @@ export function getBaziTermContext(
     };
   }
 
-  if (clean.includes('劫煞') || clean.includes('亡神') || clean.includes('灾煞') || clean.includes('元辰') || clean.includes('罗网') || clean.includes('天罗') || clean.includes('地网')) {
+  if (
+    clean.includes('劫煞') ||
+    clean.includes('亡神') ||
+    clean.includes('灾煞') ||
+    clean.includes('元辰') ||
+    clean.includes('罗网') ||
+    clean.includes('天罗') ||
+    clean.includes('地网')
+  ) {
     return {
       chartTitle: `神煞实盘作用`,
       roleInChart: `${clean}临${options?.pillarLabel || '柱位'}。主${clean.includes('亡神') ? '谋略深沉机敏，防思虑内耗' : clean.includes('劫煞') ? '行事果断刚决，遇事需防冲动争端' : '行事需守规蹈矩，防羁绊阻滞'}。`,
@@ -189,7 +244,13 @@ export function getBaziTermContext(
     };
   }
 
-  const isSingleStem = STEMS.has(clean) || (clean.length === 2 && clean.endsWith('木') || clean.endsWith('火') || clean.endsWith('土') || clean.endsWith('金') || clean.endsWith('水') && STEMS.has(clean[0]));
+  const isSingleStem =
+    STEMS.has(clean) ||
+    (clean.length === 2 && clean.endsWith('木')) ||
+    clean.endsWith('火') ||
+    clean.endsWith('土') ||
+    clean.endsWith('金') ||
+    (clean.endsWith('水') && STEMS.has(clean[0]));
   if (isSingleStem) {
     const stemChar = clean[0];
     const isUseful = useful.includes(stemChar);
@@ -203,7 +264,15 @@ export function getBaziTermContext(
     };
   }
 
-  const isSingleBranch = BRANCHES.has(clean) || (clean.length === 2 && (clean.endsWith('水') || clean.endsWith('土') || clean.endsWith('木') || clean.endsWith('火') || clean.endsWith('金')) && BRANCHES.has(clean[0]));
+  const isSingleBranch =
+    BRANCHES.has(clean) ||
+    (clean.length === 2 &&
+      (clean.endsWith('水') ||
+        clean.endsWith('土') ||
+        clean.endsWith('木') ||
+        clean.endsWith('火') ||
+        clean.endsWith('金')) &&
+      BRANCHES.has(clean[0]));
   if (isSingleBranch) {
     const branchChar = clean[0];
     const isUseful = useful.includes(branchChar);
@@ -245,7 +314,7 @@ export function getLiuyaoTermContext(
   },
 ): TermContextData | undefined {
   if (!term || !data) return undefined;
-  const clean = term.replace(/[\[\]【】()（）:：\s]/g, '').trim();
+  const clean = term.replace(/[[\]【】()（）:：\s]/g, '').trim();
   const hexTitle = `${data.originalName}${data.changedName && data.changedName !== data.originalName ? ` 之 ${data.changedName}` : '（静卦）'}`;
 
   if (clean === '世爻' || (yaoInfo?.isWorld && clean === yaoInfo.sixRelative)) {
@@ -343,7 +412,12 @@ export function getZiweiTermContext(
   if (options?.palaceName && options?.starName) {
     const mutagenText = options.mutagen ? `化${options.mutagen.replace('化', '')}` : '';
     const brightnessText = options.brightness ? `${options.brightness}地` : '';
-    const isLucky = options.mutagen === '化禄' || options.mutagen === '化权' || options.mutagen === '化科' || options.brightness === '庙' || options.brightness === '旺';
+    const isLucky =
+      options.mutagen === '化禄' ||
+      options.mutagen === '化权' ||
+      options.mutagen === '化科' ||
+      options.brightness === '庙' ||
+      options.brightness === '旺';
 
     return {
       chartTitle: `紫微命盘星曜配置`,
