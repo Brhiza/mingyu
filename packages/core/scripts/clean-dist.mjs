@@ -7,5 +7,9 @@ const generatedPaths = [
 ];
 
 for (const generatedPath of generatedPaths) {
-  rmSync(generatedPath, { recursive: true, force: true });
+  try {
+    rmSync(generatedPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch {
+    // Ignore lock errors on busy windows filesystem
+  }
 }

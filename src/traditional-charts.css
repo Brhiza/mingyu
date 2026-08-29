@@ -126,40 +126,25 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-inline: contain;
-  scrollbar-color: transparent transparent;
-}
-
-.bazi-showcase-card .bazi-pillars-scroll:hover {
-  scrollbar-color: var(--chart-border-strong) transparent;
-}
-
-.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar {
-  height: 4px;
-}
-
-.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar-track,
-.bazi-showcase-card .bazi-pillars-scroll::-webkit-scrollbar-thumb {
-  background: transparent;
-}
-
-.bazi-showcase-card .bazi-pillars-scroll:hover::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--chart-border-strong);
+  overflow: visible;
 }
 
 .bazi-showcase-card .bazi-pillars-table {
-  grid-template-columns: 58px repeat(var(--bazi-display-column-count, 4), minmax(68px, 1fr));
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(36px, 50px) repeat(var(--bazi-display-column-count, 4), minmax(0, 1fr));
   margin-top: 7px;
-  border-color: var(--chart-border-strong);
+  border: 1px solid var(--chart-border-strong);
   border-radius: 10px;
   background: var(--chart-border);
+  overflow: hidden;
 }
 
 .bazi-showcase-card .bazi-pillars-table.has-fortune {
-  min-width: max(100%, var(--bazi-table-min-width, 670px));
+  width: 100%;
+  min-width: 0;
 }
 
 .bazi-showcase-card .bazi-pillars-cell {
@@ -705,18 +690,33 @@
 }
 
 /* 占问盘：取消泛化说明，维持现有工作区卡片语言。 */
-.divination-result-panel {
-  position: relative;
+.traditional-board-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
-.divination-inline-restart {
-  position: absolute;
-  z-index: 6;
-  top: 14px;
-  right: 14px;
-  min-height: 28px;
-  padding-inline: 9px;
-  background: var(--surface-base);
+.traditional-action-btn {
+  background: var(--surface-soft, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border-soft, #ddd);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.traditional-action-btn:hover {
+  background: var(--surface-muted, rgba(0, 0, 0, 0.08));
+  color: var(--text-primary);
+  border-color: var(--border-strong, #bbb);
 }
 
 .divination-result-panel > .traditional-board,
@@ -731,9 +731,46 @@
 }
 
 .traditional-board-head {
-  align-items: end;
-  padding: 0 92px 10px 1px;
-  border-bottom-color: var(--chart-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 0 10px 1px;
+  border-bottom: 1px solid var(--chart-border);
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.traditional-board-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.traditional-board-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.traditional-action-btn {
+  background: var(--surface-soft, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border-soft, #ddd);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.traditional-action-btn:hover {
+  background: var(--surface-muted, rgba(0, 0, 0, 0.08));
+  color: var(--text-strong);
 }
 
 .liuren-board .divination-extra-head {
@@ -743,12 +780,13 @@
 .traditional-board-head h3 {
   margin: 0;
   color: var(--text-strong);
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .traditional-board-head p {
   color: var(--text-muted);
   font-size: 11px;
+  margin: 0;
 }
 
 .traditional-meta-row {
@@ -1619,11 +1657,13 @@
   }
 
   .traditional-chart-layout .result-showcase-head h2 {
-    font-size: 21px;
+    font-size: 20px;
+    font-weight: 750;
   }
 
   .traditional-chart-layout .result-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .traditional-chart-layout .result-stat-card:nth-child(2) {
@@ -1635,35 +1675,45 @@
   }
 
   .bazi-showcase-card .result-summary-grid-bazi {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .bazi-showcase-card .result-stat-card {
-    min-height: 52px;
-    padding: 6px 5px;
+    min-height: 54px;
+    padding: 8px 10px;
+    border-radius: 8px;
   }
 
   .bazi-showcase-card .result-stat-card:nth-child(2) {
-    border-right: 1px solid var(--chart-border);
+    border-right: 0;
   }
 
   .bazi-showcase-card .result-stat-card:nth-child(-n + 2) {
-    border-bottom: 0;
+    border-bottom: 1px solid var(--chart-border);
   }
 
   .bazi-showcase-card .result-stat-card strong {
-    font-size: 13px;
+    font-size: 15px;
+    font-weight: 750;
   }
 
-  .bazi-showcase-card .result-stat-card span,
+  .bazi-showcase-card .result-stat-card span {
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
   .bazi-showcase-card .result-stat-card small {
-    font-size: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
   }
 
   .traditional-chart-layout .bazi-side-panel,
   .traditional-chart-layout .ziwei-side-panel,
   .traditional-chart-layout .astrolabe-board-side {
     grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .traditional-chart-layout .bazi-side-panel > * + *,
@@ -1674,12 +1724,15 @@
   }
 
   .bazi-showcase-card .bazi-pillars-table {
-    grid-template-columns: 38px repeat(var(--bazi-display-column-count, 4), minmax(48px, 1fr));
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(32px, 42px) repeat(var(--bazi-display-column-count, 4), minmax(0, 1fr));
     margin-top: 4px;
   }
 
   .bazi-showcase-card .bazi-pillars-table.has-fortune {
-    min-width: max(100%, var(--bazi-mobile-table-min-width, 470px));
+    width: 100%;
+    min-width: 0;
   }
 
   .bazi-showcase-card .bazi-pillars-cell {
@@ -1792,11 +1845,6 @@
     border: 0;
     border-radius: 0;
     background: transparent;
-  }
-
-  .divination-inline-restart {
-    top: 8px;
-    right: 0;
   }
 
   .traditional-board-head {
@@ -1930,11 +1978,12 @@
 
   .traditional-liuyao-head,
   .traditional-liuyao-row {
-    min-width: 540px;
-    grid-template-columns: 38px 38px 42px 52px 46px 112px minmax(150px, 1fr);
-    gap: 4px;
-    padding: 7px 6px;
+    min-width: 100%;
+    grid-template-columns: 28px 30px 32px 42px 38px 62px minmax(44px, 1fr);
+    gap: 3px;
+    padding: 4px 4px;
     font-size: 10px;
+    min-height: 32px;
   }
 
   .traditional-liuyao-row > span,
@@ -1944,31 +1993,34 @@
 
   .traditional-liuyao-row small {
     overflow-wrap: anywhere;
+    font-size: 8px;
+    line-height: 1.1;
   }
 
   .traditional-yao-line {
-    width: 52px;
+    width: 42px;
     min-width: 0;
-    gap: 3px;
+    gap: 2px;
     justify-content: flex-start;
   }
 
   .traditional-yao-line > em {
     right: 0;
     left: auto;
+    font-size: 8px;
   }
 
   .traditional-yao-symbol {
-    width: 42px;
-    gap: 5px;
+    width: 32px;
+    gap: 3px;
   }
 
   .traditional-yao-symbol.is-yang i:first-child {
-    width: 42px;
+    width: 32px;
   }
 
   .traditional-yao-symbol.is-yin i {
-    width: 18px;
+    width: 14px;
   }
 
   .traditional-almanac-workspace {
@@ -2047,27 +2099,2916 @@
 
 @media (max-width: 420px) {
   .traditional-chart-layout .result-stat-card {
-    padding: 8px 9px;
+    padding: 8px 10px;
   }
 
   .bazi-showcase-card .result-stat-card {
-    padding: 5px 4px;
+    padding: 8px 8px;
   }
 
   .bazi-showcase-card .bazi-pillars-table {
-    grid-template-columns: 34px repeat(var(--bazi-display-column-count, 4), minmax(44px, 1fr));
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(26px, 34px) repeat(var(--bazi-display-column-count, 4), minmax(0, 1fr));
   }
 
   .bazi-showcase-card .bazi-pillars-table.has-fortune {
-    min-width: max(100%, var(--bazi-small-mobile-table-min-width, 430px));
+    width: 100%;
+    min-width: 0;
   }
 
   .bazi-showcase-card .bazi-pillars-cell.is-label {
-    padding-left: 3px;
-    font-size: 8px;
+    padding-left: 4px;
+    font-size: 11px;
+    font-weight: 700;
   }
 
   .bazi-showcase-card .bazi-pillars-cell.is-head {
-    font-size: 9px;
+    font-size: 11.5px;
+    font-weight: 700;
   }
 }
+
+@media (max-width: 640px) {
+  .traditional-board {
+    padding: 12px 10px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+  }
+
+  .traditional-board-head {
+    margin-bottom: 8px;
+    padding-right: 0;
+  }
+
+  .traditional-board-head h3 {
+    font-size: 16.5px;
+    font-weight: 750;
+  }
+
+  .traditional-board-head p {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+  }
+
+  .traditional-meta-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .traditional-meta-row span {
+    min-height: 26px;
+    padding: 3px 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  .traditional-facts-row,
+  .traditional-note-row {
+    padding: 6px 8px;
+    font-size: 11.5px;
+    gap: 4px;
+    margin-bottom: 8px;
+    line-height: 1.45;
+  }
+
+  .traditional-liuyao-table {
+    border-radius: 8px;
+  }
+
+  .traditional-liuyao-head,
+  .traditional-liuyao-row {
+    min-width: 100% !important;
+    grid-template-columns: 24px 28px 30px 38px 36px 52px minmax(40px, 1fr) !important;
+    gap: 3px !important;
+    padding: 4px 3px !important;
+    font-size: 11px !important;
+    min-height: 32px !important;
+  }
+
+  .traditional-yao-status-tags > span {
+    min-height: 16px;
+    padding: 1px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 3px;
+  }
+
+  .traditional-mini-hexagram {
+    padding: 8px 6px;
+  }
+
+  .traditional-mini-hexagram strong {
+    font-size: 17px;
+  }
+
+  .traditional-mini-hexagram b {
+    font-size: 13px;
+  }
+
+  .traditional-mini-hexagram p {
+    font-size: 11.5px;
+    line-height: 1.45;
+    -webkit-line-clamp: 2;
+  }
+
+  .traditional-meihua-detail {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .traditional-meihua-relation {
+    padding: 8px;
+  }
+
+  .traditional-meihua-relation strong {
+    font-size: 13px;
+  }
+
+  .traditional-meihua-yaos-head,
+  .traditional-meihua-yaos > div {
+    padding: 5px 8px;
+    font-size: 11.5px;
+  }
+
+  .traditional-qimen-grid {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .traditional-qimen-cell {
+    min-height: 60px;
+    padding: 4px;
+    font-size: 11px;
+  }
+
+  .traditional-qimen-cell-head {
+    font-size: 11px;
+    margin-bottom: 2px;
+    font-weight: 700;
+  }
+
+  .traditional-qimen-god,
+  .traditional-qimen-star,
+  .traditional-qimen-door {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .traditional-qimen-stems {
+    font-size: 11.5px;
+    font-weight: 750;
+  }
+
+  .traditional-classic-card {
+    margin-top: 8px;
+    border-radius: 8px;
+  }
+
+  .traditional-classic-head {
+    padding: 7px 10px;
+  }
+
+  .traditional-classic-badge {
+    font-size: 11px;
+    padding: 1.5px 5px;
+  }
+
+  .traditional-classic-head strong {
+    font-size: 13px;
+  }
+
+  .traditional-classic-toggle {
+    font-size: 11.5px;
+  }
+
+  .traditional-classic-body {
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .traditional-classic-verse {
+    padding: 5px 8px;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .traditional-classic-advice {
+    font-size: 11.5px;
+    line-height: 1.55;
+  }
+}
+
+
+/* 典籍释卦与先贤断语卡片 */
+.traditional-classic-card {
+  margin-top: 10px;
+  border: 1px solid var(--chart-border);
+  border-radius: 8px;
+  background: var(--chart-surface);
+  overflow: hidden;
+}
+
+.traditional-classic-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--chart-surface-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.traditional-classic-head > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.traditional-classic-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--chart-accent-soft);
+  color: var(--chart-accent);
+  font-weight: 600;
+}
+
+.traditional-classic-head strong {
+  font-size: 13px;
+  color: var(--text-strong);
+}
+
+.traditional-classic-toggle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.traditional-classic-body {
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  border-top: 1px solid var(--chart-border);
+}
+
+.traditional-classic-verse {
+  margin: 0 0 6px 0;
+  color: var(--text-strong);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--chart-accent-soft) 30%, transparent);
+  padding: 6px 8px;
+  border-left: 3px solid var(--chart-accent);
+  border-radius: 0 4px 4px 0;
+}
+
+.traditional-classic-advice {
+  margin: 0;
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+/* 起卦基本信息表 (Top Meta Table) */
+.liuyao-meta-table {
+  width: 100%;
+  border: 1px solid var(--chart-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--surface-base, #ffffff);
+  overflow: hidden;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.liuyao-meta-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--chart-border, #e5e7eb);
+}
+
+.liuyao-meta-row:last-child {
+  border-bottom: none;
+}
+
+.liuyao-meta-cell.is-label {
+  width: 64px;
+  flex-shrink: 0;
+  background: var(--surface-muted, #f9fafb);
+  color: var(--text-secondary, #4b5563);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  border-right: 1px solid var(--chart-border, #e5e7eb);
+  text-align: center;
+}
+
+.liuyao-meta-cell.is-value {
+  flex: 1;
+  padding: 8px 12px;
+  color: var(--text-strong, #111827);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.liuyao-meta-cell.is-value.is-question {
+  font-weight: 600;
+  color: var(--text-strong, #111827);
+}
+
+.liuyao-meta-row.is-quad-row .is-quad-values {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+}
+
+.quad-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px;
+  background: var(--surface-muted, #f9fafb);
+  border-radius: 4px;
+  border: 1px solid var(--chart-border, #e5e7eb);
+}
+
+.quad-item.is-highlight {
+  background: color-mix(in srgb, var(--chart-accent, #b91c1c) 8%, var(--surface-base, #ffffff));
+  border-color: color-mix(in srgb, var(--chart-accent, #b91c1c) 30%, var(--chart-border, #e5e7eb));
+}
+
+.quad-item.is-highlight .quad-val {
+  color: var(--chart-accent, #b91c1c);
+  font-weight: 750;
+}
+
+.quad-label {
+  font-size: 10.5px;
+  color: var(--text-muted, #6b7280);
+}
+
+.quad-val {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-strong, #111827);
+}
+
+.is-shensha-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12.5px;
+}
+
+.shensha-item {
+  color: var(--text-secondary, #374151);
+  font-weight: 550;
+}
+
+/* 直观双卦象对照盘 (Standardized Dual-Hexagram Layout) */
+.traditional-liuyao-dual-view {
+  margin: 10px 0;
+  border: 1px solid var(--chart-border);
+  border-radius: 8px;
+  background: var(--surface-base);
+  padding: 14px 12px;
+}
+
+.liuyao-hexagram-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  text-align: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--chart-border);
+}
+
+.liuyao-hexagram-title-col {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+
+.liuyao-hexagram-title {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--text-strong);
+}
+
+.liuyao-hexagram-palace {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.liuyao-muted-title {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.liuyao-rows-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.liuyao-row-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.liuyao-main-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.liuyao-main-row:hover {
+  background: var(--surface-muted, rgba(0, 0, 0, 0.02));
+}
+
+.liuyao-left-half {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.liuyao-right-half {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.liuyao-six-god {
+  font-weight: 750;
+  font-size: 13px;
+  color: #b91c1c; /* 朱砂红 */
+  min-width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.liuyao-relative {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-strong);
+  min-width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.liuyao-dizhi-wuxing {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  min-width: 28px;
+  text-align: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.liuyao-najia-stem {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.liuyao-bar-container {
+  width: 52px;
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.liuyao-bar-yang {
+  width: 100%;
+  height: 8px;
+  background: var(--text-strong, #1f2937);
+  border-radius: 2px;
+}
+
+.liuyao-bar-yin {
+  width: 100%;
+  height: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.liuyao-bar-yin-part {
+  width: 23px;
+  height: 8px;
+  background: var(--text-strong, #1f2937);
+  border-radius: 2px;
+}
+
+.liuyao-marker-col {
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11.5px;
+  font-weight: 750;
+  flex-shrink: 0;
+}
+
+.liuyao-shi-tag {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.liuyao-ying-tag {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.liuyao-moving-tag {
+  color: #b91c1c;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.liuyao-empty-placeholder {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding-left: 16px;
+}
+
+.liuyao-subrow-notes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 16px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.liuyao-fushen-note {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.liuyao-guashen-note {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.liuyao-hexagram-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  text-align: center;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--chart-border);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--chart-accent);
+}
+
+/* 梅花易数与三卦并列显示 */
+.traditional-mini-hexagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 10px;
+  background: var(--surface-base);
+  border: 1px solid var(--chart-border);
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.traditional-mini-hexagram.is-active {
+  border-color: var(--chart-accent);
+  background: color-mix(in srgb, var(--chart-accent) 4%, var(--surface-base));
+}
+
+.mini-hexagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--chart-border);
+  margin-bottom: 6px;
+}
+
+.mini-hexagram-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.mini-hexagram-name {
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--text-strong);
+}
+
+.mini-hexagram-bars-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  align-items: center;
+  margin: 6px 0;
+}
+
+.mini-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 48px;
+  height: 6px;
+}
+
+.mini-bar-yang {
+  width: 100%;
+  height: 5px;
+  background: var(--text-strong, #1f2937);
+  border-radius: 1px;
+}
+
+.mini-bar-yin {
+  width: 100%;
+  height: 5px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.mini-bar-yin-part {
+  width: 21px;
+  height: 5px;
+  background: var(--text-strong, #1f2937);
+  border-radius: 1px;
+}
+
+.mini-bar-row.is-moving-line .mini-bar-yang,
+.mini-bar-row.is-moving-line .mini-bar-yin-part {
+  background: #b91c1c !important;
+}
+
+.mini-moving-dot {
+  position: absolute;
+  right: -16px;
+  font-size: 9.5px;
+  color: #b91c1c;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mini-hexagram-trigram-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.mini-hexagram-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+  line-height: 1.35;
+}
+
+/* 持世与卦象特性速查卡 */
+.liuyao-quick-insights-box {
+  margin: 12px 0;
+  border: 1px solid var(--chart-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--surface-muted, #f9fafb);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.liuyao-insight-item {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary, #374151);
+}
+
+.liuyao-insight-title {
+  color: var(--text-strong, #111827);
+  font-weight: 700;
+}
+
+.liuyao-insight-desc {
+  color: var(--text-secondary, #4b5563);
+}
+
+.is-clickable-term {
+  cursor: pointer !important;
+  transition: all 0.15s ease;
+  text-decoration: underline dotted transparent;
+}
+
+.is-clickable-term:hover {
+  color: var(--chart-accent) !important;
+  text-decoration-color: var(--chart-accent);
+  opacity: 0.9;
+}
+
+/* 术数名词释义弹窗 */
+.term-explanation-dialog {
+  max-width: 500px;
+  width: 92vw;
+  border-radius: 12px;
+  border: 1px solid var(--chart-border-strong);
+  background: var(--surface-elevated, #ffffff);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+
+.term-explanation-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--chart-border);
+}
+
+.term-explanation-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.term-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.term-category-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--chart-accent, #9333ea);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.term-pinyin {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: serif;
+}
+
+.term-name {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-strong);
+  letter-spacing: 0.5px;
+}
+
+.term-explanation-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.term-explanation-close-btn:hover {
+  color: var(--text-strong);
+  background: var(--surface-muted);
+}
+
+.term-explanation-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.term-chart-context-box {
+  background: color-mix(in srgb, var(--chart-accent) 10%, var(--surface-soft));
+  border: 1px solid color-mix(in srgb, var(--chart-accent) 25%, transparent);
+  border-left: 4px solid var(--chart-accent);
+  padding: 12px 14px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.term-chart-context-box.is-lucky {
+  background: color-mix(in srgb, #2f7d46 10%, var(--surface-soft));
+  border-color: color-mix(in srgb, #2f7d46 30%, transparent);
+  border-left-color: #2f7d46;
+}
+
+.term-chart-context-box.is-unlucky {
+  background: color-mix(in srgb, #c64c4c 10%, var(--surface-soft));
+  border-color: color-mix(in srgb, #c64c4c 30%, transparent);
+  border-left-color: #c64c4c;
+}
+
+.term-chart-context-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.term-chart-context-badge {
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--text-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.is-lucky .term-chart-context-badge {
+  color: #2f7d46;
+}
+
+.is-unlucky .term-chart-context-badge {
+  color: #c64c4c;
+}
+
+.term-chart-context-pillar {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  background: var(--surface-muted);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
+}
+
+.term-chart-context-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-strong);
+  font-weight: 500;
+}
+
+.term-chart-context-rel {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed color-mix(in srgb, var(--border-soft) 80%, transparent);
+}
+
+.term-chart-context-rel strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.term-summary-box {
+  background: color-mix(in srgb, var(--chart-accent) 8%, var(--surface-soft));
+  border-left: 3px solid var(--chart-accent);
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+}
+
+.term-summary-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--chart-accent);
+  margin-bottom: 4px;
+}
+
+.term-summary-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-strong);
+  font-weight: 500;
+}
+
+.term-dialectic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.term-dialectic-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.term-dialectic-card.is-positive {
+  background: color-mix(in srgb, #2f7d46 8%, var(--surface-soft));
+  border-color: color-mix(in srgb, #2f7d46 30%, transparent);
+}
+
+.term-dialectic-card.is-negative {
+  background: color-mix(in srgb, #c64c4c 8%, var(--surface-soft));
+  border-color: color-mix(in srgb, #c64c4c 30%, transparent);
+}
+
+.term-dialectic-head {
+  display: flex;
+  align-items: center;
+}
+
+.term-dialectic-badge {
+  font-size: 11.5px;
+  font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.term-dialectic-badge.is-positive {
+  color: #2f7d46;
+}
+
+.term-dialectic-badge.is-negative {
+  color: #c64c4c;
+}
+
+.term-dialectic-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.term-advice-box {
+  background: color-mix(in srgb, var(--chart-accent) 6%, var(--surface-muted));
+  border: 1px dashed var(--chart-accent);
+  padding: 10px 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.term-advice-label {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: var(--chart-accent);
+}
+
+.term-advice-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.term-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.term-section-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.term-detail-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+
+.term-classic-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.term-classic-quote {
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--surface-muted);
+  border-left: 3px solid var(--chart-border-strong);
+  border-radius: 0 6px 6px 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  font-family: serif;
+  font-style: normal;
+}
+
+.term-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.term-tags-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.term-tag-chip {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: var(--surface-muted);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  border: 1px solid var(--chart-border);
+}
+
+.term-explanation-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--chart-border);
+}
+
+/* 排盘分享卡片弹窗 */
+.chart-share-dialog {
+  max-width: 560px;
+  width: 92vw;
+  border-radius: 12px;
+  border: 1px solid var(--chart-border-strong);
+  background: var(--surface-elevated, #ffffff);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.24);
+}
+
+.chart-share-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--chart-border);
+}
+
+.chart-share-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.chart-share-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chart-share-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.chart-share-body {
+  padding: 16px 20px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.chart-share-card {
+  border: 1px solid var(--chart-border-strong);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chart-share-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--chart-border);
+  padding-bottom: 8px;
+}
+
+.chart-share-card-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-share-card-logo {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--chart-accent);
+  background: color-mix(in srgb, var(--chart-accent) 15%, transparent);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.chart-share-card-tag {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.chart-share-card-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chart-share-meta-row.is-question-row {
+  display: flex;
+  gap: 6px;
+  font-size: 12.5px;
+  background: color-mix(in srgb, var(--chart-accent) 6%, transparent);
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.chart-share-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+  font-size: 12px;
+}
+
+.chart-share-meta-item {
+  display: flex;
+  gap: 4px;
+}
+
+.chart-share-content-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.chart-share-content-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.chart-quick-copy {
+  background: transparent;
+  border: 1px solid var(--chart-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.chart-share-content-text {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--chart-border);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.chart-share-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--chart-border);
+}
+
+@media (max-width: 640px) {
+  .traditional-liuyao-dual-view {
+    padding: 8px 4px;
+  }
+
+  .traditional-dual-row {
+    grid-template-columns: minmax(0, 1fr) 34px 44px 34px minmax(0, 1fr);
+    gap: 3px;
+    padding: 2px 2px;
+  }
+
+  .traditional-dual-left-info,
+  .traditional-dual-right-info {
+    gap: 2px;
+  }
+
+  .traditional-dual-left-bar,
+  .traditional-dual-right-bar {
+    width: 34px;
+  }
+
+  .traditional-dual-mid {
+    width: 44px;
+  }
+
+  .traditional-relative-label,
+  .traditional-najia-label {
+    font-size: 10px;
+  }
+
+  .traditional-yao-bar-visual {
+    width: 32px;
+  }
+
+  .traditional-yao-bar-visual .yao-solid-line,
+  .traditional-yao-bar-visual .yao-broken-line {
+    height: 5px;
+  }
+}
+
+/* 分类古籍专章选项卡 (Category Classics Tabs) */
+.traditional-classics-category-box {
+  margin-top: 10px;
+  border: 1px solid var(--chart-border);
+  border-radius: 8px;
+  background: var(--chart-surface);
+  overflow: hidden;
+}
+
+.traditional-classics-category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--chart-surface-muted);
+  border-bottom: 1px solid var(--chart-border);
+}
+
+.traditional-classics-category-head strong {
+  font-size: 13px;
+  color: var(--text-strong);
+}
+
+.traditional-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--surface-muted) 30%, transparent);
+  border-bottom: 1px solid var(--chart-border);
+}
+
+.traditional-category-tab-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--chart-border);
+  background: var(--surface-base);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.traditional-category-tab-btn:hover {
+  border-color: var(--chart-accent);
+  color: var(--chart-accent);
+}
+
+.traditional-category-tab-btn.is-active {
+  background: var(--chart-accent);
+  color: #ffffff;
+  border-color: var(--chart-accent);
+  font-weight: 600;
+}
+
+.traditional-category-content {
+  padding: 10px 12px;
+}
+
+/* 移动端排盘结果与典籍卡片可见性/可读性全面优化 (Mobile Responsive Optimization) */
+@media (max-width: 768px) {
+  .traditional-classic-card {
+    margin-top: 8px;
+    border-radius: 8px;
+  }
+
+  .traditional-classic-head {
+    padding: 7px 10px;
+    min-height: 40px;
+    gap: 6px;
+  }
+
+  .traditional-classic-head > div {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .traditional-classic-badge {
+    font-size: 10px;
+    padding: 1.5px 5px;
+  }
+
+  .traditional-classic-head strong {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .traditional-classic-toggle {
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .traditional-classic-body {
+    padding: 8px 10px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .traditional-classic-verse {
+    font-size: 11.5px;
+    line-height: 1.45;
+    padding: 5px 8px;
+    margin-bottom: 6px;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .traditional-classic-advice {
+    font-size: 11px;
+    line-height: 1.45;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .traditional-category-tabs {
+    padding: 6px 8px;
+    gap: 3px;
+  }
+
+  .traditional-category-tab-btn {
+    padding: 3px 6px;
+    font-size: 10.5px;
+  }
+
+  .traditional-category-content {
+    padding: 8px 10px;
+  }
+
+  /* 八字四柱与大运在移动端优化 */
+  .bazi-pillars-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 奇门九宫与太乙盘在小屏自适应 */
+  .traditional-qimen-grid,
+  .traditional-taiyi-plate,
+  .liuren-script-plate {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  .traditional-classic-card {
+    margin-top: 6px;
+    border-radius: 6px;
+  }
+
+  .traditional-classic-head {
+    padding: 6px 8px;
+    min-height: 38px;
+  }
+
+  .traditional-classic-badge {
+    font-size: 9.5px;
+    padding: 1px 4px;
+  }
+
+  .traditional-classic-head strong {
+    font-size: 11.5px;
+  }
+
+  .traditional-classic-toggle {
+    font-size: 10.5px;
+  }
+
+  .traditional-classic-body {
+    padding: 6px 8px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .traditional-classic-verse {
+    font-size: 11px;
+    padding: 4px 6px;
+    margin-bottom: 4px;
+  }
+
+  .traditional-classic-advice {
+    font-size: 10.5px;
+  }
+
+  .traditional-category-tab-btn {
+    padding: 2px 5px;
+    font-size: 10px;
+  }
+}
+
+/* ============================================================================
+   奇门遁甲高阶实战排盘样式（四害高亮、暗干、长生、合参抽屉、图例）
+   ============================================================================ */
+
+.traditional-qimen-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.traditional-qimen-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.traditional-qimen-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.traditional-qimen-btn:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
+}
+
+.traditional-qimen-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.traditional-qimen-tip {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.traditional-qimen-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 86px;
+  padding: 6px 7px 4px;
+  border: 1px solid var(--chart-border);
+  border-radius: 8px;
+  background: var(--surface-base);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  user-select: none;
+}
+
+.traditional-qimen-cell:hover {
+  border-color: var(--accent);
+}
+
+.traditional-qimen-cell.is-selected {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface-base)) !important;
+}
+
+.traditional-qimen-cell-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.traditional-qimen-gong-name {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.traditional-qimen-god-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-muted);
+}
+
+.traditional-qimen-symbol-void {
+  color: #d97706;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.traditional-qimen-symbol-horse {
+  font-size: 10.5px;
+}
+
+.traditional-qimen-angan-badge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 0 2px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+  margin-right: 3px;
+  font-weight: normal;
+}
+
+.traditional-qimen-star {
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.2;
+}
+
+.traditional-qimen-star.is-zhifu {
+  color: #059669 !important;
+  font-weight: 700;
+}
+
+.traditional-qimen-stems-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 100%;
+  margin: 1px 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.traditional-qimen-tian-stem {
+  color: var(--text-strong);
+}
+
+.traditional-qimen-tian-stem.is-jixing {
+  color: #9333ea !important;
+}
+
+.traditional-qimen-tian-stem.is-rumu {
+  color: #ea580c !important;
+}
+
+.traditional-qimen-tian-stem.is-xingmu {
+  color: #0284c7 !important;
+}
+
+.traditional-qimen-tian-stem em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.traditional-qimen-tian-stem em.is-jixing {
+  color: #9333ea !important;
+}
+
+.traditional-qimen-tian-stem em.is-rumu {
+  color: #ea580c !important;
+}
+
+.traditional-qimen-tian-stem em.is-xingmu {
+  color: #0284c7 !important;
+}
+
+.traditional-qimen-di-stem {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.traditional-qimen-door {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  line-height: 1.2;
+}
+
+.traditional-qimen-door.is-zhishi {
+  color: #059669 !important;
+  font-weight: 700;
+}
+
+.traditional-qimen-door.is-menpo {
+  color: #dc2626 !important;
+  font-weight: 700;
+}
+
+.traditional-qimen-changsheng-tag {
+  font-size: 9.5px;
+  color: var(--text-muted);
+  line-height: 1.1;
+  text-align: left;
+}
+
+.traditional-qimen-harm-badges {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  display: flex;
+  gap: 2px;
+}
+
+.harm-badge {
+  display: inline-block;
+  font-size: 8.5px;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.harm-badge.is-menpo {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.harm-badge.is-jixing {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.harm-badge.is-rumu {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.harm-badge.is-xingmu {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+/* 颜色图例说明 */
+.traditional-qimen-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-item .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.legend-item .dot.is-zhifu-shi {
+  background: #059669;
+}
+
+.legend-item .dot.is-rumu {
+  background: #ea580c;
+}
+
+.legend-item .dot.is-jixing {
+  background: #9333ea;
+}
+
+.legend-item .dot.is-menpo {
+  background: #dc2626;
+}
+
+.legend-item .dot.is-xingmu {
+  background: #0284c7;
+}
+
+.legend-item .dot.is-void {
+  border: 1px solid #d97706;
+  background: transparent;
+}
+
+.legend-item .dot.is-horse {
+  background: #059669;
+}
+
+/* 宫位深度合参面板 */
+.traditional-qimen-palace-inspector {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-base);
+}
+
+.inspector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.inspector-title strong {
+  font-size: 13.5px;
+  color: var(--text-strong);
+}
+
+.inspector-title small {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.inspector-close-btn {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.inspector-close-btn:hover {
+  background: var(--state-hover-surface);
+  color: var(--text-strong);
+}
+
+.inspector-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.inspector-chip {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+}
+
+.inspector-chip.is-accent {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-muted));
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.inspector-gua-meaning {
+  margin: 6px 0 10px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.inspector-pattern-box {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  border-left: 3px solid var(--accent);
+}
+
+.inspector-pattern-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.pattern-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.pattern-auspice {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.pattern-auspice.auspice-大吉,
+.pattern-auspice.auspice-吉 {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.pattern-auspice.auspice-凶,
+.pattern-auspice.auspice-大凶 {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.pattern-auspice.auspice-平 {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.companion-tag {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.pattern-verse {
+  margin: 0 0 2px;
+  font-size: 11.5px;
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+}
+
+.pattern-advice {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.inspector-elements-details {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.inspector-element-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  font-size: 11px;
+}
+
+.inspector-element-item strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-strong);
+}
+
+.inspector-element-item p {
+  margin: 0 0 2px;
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+}
+
+.inspector-element-item small {
+  display: block;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* ==========================================================================
+   六爻：日月建状态标签与飞伏神互动样式
+   ========================================================================== */
+.traditional-liuyao-status-tag {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+  margin-left: 2px;
+}
+
+.traditional-liuyao-status-tag.is-lucky {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+.traditional-liuyao-status-tag.is-unlucky {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.traditional-liuyao-status-tag.is-neutral {
+  background: rgba(107, 114, 128, 0.12);
+  color: var(--text-secondary);
+}
+
+.traditional-fushen-tag.is-lucky {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #065f46;
+}
+
+.traditional-fushen-tag.is-unlucky {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #991b1b;
+}
+
+/* ==========================================================================
+   奇门遁甲：事类用神快速定位与专项合参
+   ========================================================================== */
+.traditional-qimen-yongshen-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.yongshen-bar-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.yongshen-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.yongshen-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--surface-bg, #ffffff);
+  font-size: 11.5px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.yongshen-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.yongshen-chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(186, 38, 73, 0.25);
+}
+
+.traditional-qimen-cell.is-yongshen-focus {
+  border: 2px solid var(--accent) !important;
+  box-shadow: inset 0 0 10px rgba(186, 38, 73, 0.15), 0 0 8px rgba(186, 38, 73, 0.25);
+  animation: yongshenPulse 2s infinite ease-in-out;
+}
+
+@keyframes yongshenPulse {
+  0%, 100% {
+    box-shadow: inset 0 0 6px rgba(186, 38, 73, 0.1), 0 0 6px rgba(186, 38, 73, 0.2);
+  }
+  50% {
+    box-shadow: inset 0 0 14px rgba(186, 38, 73, 0.25), 0 0 12px rgba(186, 38, 73, 0.4);
+  }
+}
+
+.traditional-qimen-yongshen-tag {
+  font-size: 9.5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traditional-qimen-yongshen-inspector {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.yongshen-lead-box {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  border-left: 3px solid var(--accent);
+  margin-bottom: 10px;
+}
+
+.yongshen-lead-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
+.yongshen-lead-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.yongshen-points-list {
+  display: grid;
+  gap: 8px;
+}
+
+.yongshen-point-card {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+}
+
+.yongshen-point-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.yongshen-point-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.yongshen-point-gong {
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.yongshen-point-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.yongshen-point-advice {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* ==========================================================================
+   八字：原局与岁运干支作用全景矩阵
+   ========================================================================== */
+.bazi-interactions-card {
+  margin-top: 14px;
+}
+
+.bazi-interactions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+.bazi-interaction-card {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
+}
+
+.bazi-interaction-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+
+.bazi-interaction-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+.bazi-interaction-badge.is-lucky {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.bazi-interaction-badge.is-unlucky {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.bazi-interaction-badge.is-neutral {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.bazi-interaction-pillars {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bazi-interaction-summary {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   AI 结构化大师提示词交付卡片
+   ========================================================================== */
+.workspace-prompt-master-card {
+  position: relative;
+}
+
+.prompt-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.workspace-prompt-meta-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+  padding: 8px 10px;
+  background: var(--surface-muted, #f9fafb);
+  border-radius: 6px;
+}
+
+.prompt-meta-chip {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   AI 大师提示词专属分享卡片弹窗 (PromptShareModal)
+   ========================================================================== */
+.prompt-share-dialog {
+  max-width: 580px;
+  width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.prompt-share-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.prompt-share-header h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.prompt-share-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.prompt-share-close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.prompt-share-close-btn:hover {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.prompt-share-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.prompt-share-card {
+  background: #ffffff;
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 4px 20px rgba(186, 38, 73, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.prompt-share-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent), #d97706, var(--accent));
+}
+
+.share-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border-color, #e5e7eb);
+}
+
+.share-card-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-card-logo {
+  display: inline-block;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+
+.share-card-tag {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.share-card-method {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(186, 38, 73, 0.08);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.share-card-meta {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  background: #fafaf9;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #f3f4f6;
+}
+
+.share-card-meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.share-card-meta-row .meta-label {
+  color: var(--text-secondary);
+  min-width: 52px;
+}
+
+.share-card-meta-row .meta-value {
+  color: var(--text-primary);
+}
+
+.share-card-meta-row .meta-value.is-question {
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.share-card-features {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.feature-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.share-card-prompt-container {
+  background: var(--surface-muted);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.prompt-container-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background: var(--surface-elevated);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-weight: 650;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.prompt-quick-copy {
+  background: var(--surface-base);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.prompt-quick-copy:hover {
+  border-color: var(--accent-strong);
+  color: var(--accent-strong);
+}
+
+.share-card-prompt-text {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.share-card-footer {
+  text-align: center;
+}
+
+.footer-tip {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.footer-tip b {
+  color: var(--accent-strong);
+}
+
+.prompt-share-status-toast {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-size: 12px;
+  text-align: center;
+  font-weight: 600;
+  border: 1px solid var(--border-soft);
+}
+
+.prompt-share-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.prompt-share-primary-btn {
+  flex: 1;
+}
+
+.prompt-share-secondary-btn {
+  flex: 1;
+}
+
+/* Clickable terms & glossary chips */
+.is-clickable-term,
+.clickable-term-tag {
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.is-clickable-term:hover,
+.clickable-term-tag:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.92);
+}
+
+.is-clickable-term:active,
+.clickable-term-tag:active {
+  transform: translateY(0);
+}
+
+/* Term Explanation Modal */
+.term-explanation-dialog {
+  width: min(520px, 92vw);
+  border-radius: 16px;
+  background: var(--surface-base);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+
+.term-explanation-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--surface-base)) 0%, var(--surface-base) 100%);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.term-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.term-category-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.term-pinyin {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: Georgia, serif;
+  letter-spacing: 0.5px;
+}
+
+.term-name {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-strong);
+  letter-spacing: 0.5px;
+}
+
+.term-explanation-close-btn {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.term-explanation-close-btn:hover {
+  background: var(--surface-muted);
+  color: var(--text-strong);
+}
+
+.term-explanation-body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 68vh;
+  overflow-y: auto;
+}
+
+.term-summary-box {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-base));
+  border-left: 4px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+}
+
+.term-summary-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.term-summary-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.5;
+}
+
+.term-section-title {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.term-detail-text {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-base);
+  line-height: 1.65;
+}
+
+.term-classic-quote {
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--surface-muted);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  font-family: 'Songti SC', 'SimSun', STSong, Georgia, serif;
+  color: var(--text-strong);
+  line-height: 1.6;
+}
+
+.term-tags-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-soft);
+}
+
+.term-tags-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.term-tag-chip {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-soft);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.term-explanation-footer {
+  padding: 12px 20px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface-base);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   移动端沉浸式排盘布局优化（摒弃卡片嵌套，消除留白浪费，全屏沉浸展开）
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* 1. 页面与主要外层容器：消除层层嵌套留白与卡片盒外壳 */
+  .workspace-page {
+    padding: 6px 6px calc(36px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .workspace-result-page-shell,
+  .workspace-result-chart-pane,
+  .workspace-divination-result-page,
+  .divination-result-workspace,
+  .divination-panel-shell,
+  .single-panel-shell,
+  .result-panel,
+  .result-showcase-card,
+  .traditional-chart-layout,
+  .traditional-board-shell,
+  .bazi-board-wrapper,
+  .divination-result-panel {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* 2. 主排盘容器扁平沉浸化：消除外框与厚重背景 */
+  .traditional-board,
+  .liuren-board,
+  .bazi-showcase-card,
+  .ziwei-showcase-card,
+  .astrolabe-showcase-card,
+  .qizheng-showcase-card,
+  .bazhai-showcase-card {
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  /* 3. 头部信息区：紧凑流式展示 */
+  .result-showcase-head,
+  .traditional-board-head {
+    padding: 2px 0 6px !important;
+    margin-bottom: 6px !important;
+    border-bottom: 1px solid var(--border-soft) !important;
+    gap: 6px !important;
+  }
+
+  .traditional-board-top-actions {
+    margin-bottom: 6px !important;
+    gap: 6px !important;
+  }
+
+  .traditional-action-btn {
+    padding: 3px 8px !important;
+    font-size: 11px !important;
+    border-radius: 4px !important;
+  }
+
+  /* 4. 八字四柱盘：占满屏幕宽度，紧凑无缝排列 */
+  .bazi-core-layout {
+    gap: 6px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .bazi-pillars-card {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    margin: 0 !important;
+  }
+
+  .bazi-pillars-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-top: 2px !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+  }
+
+  /* 5. 统计概览条：细线分格紧凑带，取消多层浮动卡片 */
+  .result-summary-grid,
+  .result-summary-grid-bazi {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1px !important;
+    padding: 0 !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 6px !important;
+    background: var(--border-soft) !important;
+    overflow: hidden !important;
+    margin-bottom: 6px !important;
+  }
+
+  .result-stat-card,
+  .bazi-showcase-card .result-stat-card {
+    padding: 6px 8px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: var(--surface-muted) !important;
+    min-height: auto !important;
+  }
+
+  /* 6. 辅助分析与侧栏板块：沉浸流式排列，细线分隔 */
+  .bazi-side-panel,
+  .ziwei-side-panel,
+  .astrolabe-board-side,
+  .bazi-context-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    padding: 0 !important;
+    margin-top: 6px !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .bazi-side-panel > *,
+  .ziwei-side-panel > *,
+  .astrolabe-board-side > *,
+  .result-side-card,
+  .ziwei-focus-card,
+  .ziwei-detail-card,
+  .ziwei-palace-card {
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 6px !important;
+    background: var(--surface-base) !important;
+    padding: 8px 10px !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+
+  .bazi-context-grid > .result-side-card {
+    grid-template-columns: 50px minmax(0, 1fr) !important;
+    gap: 6px !important;
+    padding: 6px 8px !important;
+  }
+
+  /* 7. 大运岁运盘与紫微传统盘沉浸化 */
+  .bazi-fortune-board {
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 6px !important;
+    background: var(--surface-base) !important;
+    padding: 6px !important;
+    margin-top: 6px !important;
+    box-shadow: none !important;
+  }
+
+  .ziwei-traditional-shell {
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+
+  .ziwei-traditional-board {
+    padding: 6px 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+
+  /* 8. 典籍断语卡片沉浸化折叠 */
+  .traditional-classic-card {
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 6px !important;
+    background: var(--surface-base) !important;
+    margin-top: 6px !important;
+    box-shadow: none !important;
+  }
+
+  .traditional-classic-head {
+    padding: 6px 8px !important;
+    min-height: 36px !important;
+  }
+
+  .traditional-classic-body {
+    padding: 6px 8px !important;
+  }
+
+  /* 9. 六爻纳甲盘移动端紧凑对齐优化 */
+  .traditional-liuyao-dual-view {
+    padding: 10px 4px !important;
+    border-radius: 6px !important;
+  }
+
+  .liuyao-main-row {
+    gap: 4px !important;
+    padding: 2px 0 !important;
+  }
+
+  .liuyao-left-half,
+  .liuyao-right-half {
+    gap: 4px !important;
+  }
+
+  .liuyao-bar-container {
+    width: 44px !important;
+  }
+
+  .liuyao-bar-yin-part {
+    width: 19px !important;
+  }
+
+  .liuyao-marker-col {
+    min-width: 36px !important;
+    gap: 2px !important;
+  }
+
+  .liuyao-six-god,
+  .liuyao-relative,
+  .liuyao-dizhi-wuxing {
+    font-size: 12px !important;
+  }
+
+  .liuyao-subrow-notes {
+    padding-left: 4px !important;
+    font-size: 10.5px !important;
+    gap: 8px !important;
+  }
+
+  .liuyao-meta-table {
+    border-radius: 6px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .liuyao-meta-cell.is-label {
+    width: 50px !important;
+    padding: 6px 4px !important;
+    font-size: 12px !important;
+  }
+
+  .liuyao-meta-cell.is-value {
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+  }
+
+  .liuyao-quick-insights-box {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* 10. 底部安全避让区 */
+  .traditional-board-shell,
+  .bazi-board-wrapper,
+  .divination-result-board-pane {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+
+
+
+
+
+
+

@@ -548,6 +548,24 @@ export function MetaphysicsPanel({
             <p className="bazhai-boundary-note">{bazhai.birthYearBoundaryNote}</p>
           ) : null}
         </div>
+
+        <div className="traditional-classic-card fengshui-classic-card">
+          <div className="traditional-classic-head">
+            <div>
+              <span className="traditional-classic-badge">八宅明镜 · 紫白诀</span>
+              <strong>堪舆风水 · 先贤经典要诀</strong>
+            </div>
+          </div>
+          <div className="traditional-classic-body">
+            <p className="traditional-classic-verse">
+              生气贪狼木第一，延年武曲次相宜。天医巨门消除病，伏位辅弼保安宁。
+              一白二黑三碧巡，四绿五黄六白明。七赤八白九紫位，当令生旺百事成。
+            </p>
+            <p className="traditional-classic-advice">
+              【八宅与玄空要义】八宅定八方吉凶之本底，玄空论三元九运之飞星气运。吉方逢当运生旺之星（如九运九紫、一白、八白）为大发之象；凶方宜静不宜动，施以五行生克调和。
+            </p>
+          </div>
+        </div>
       </section>
     </div>
   );

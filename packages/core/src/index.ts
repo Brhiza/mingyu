@@ -22,6 +22,7 @@ export * as bazi from './bazi/index';
 export * as calendar from './calendar/index';
 export * as divination from './divination/index';
 export * as instant from './instant/index';
+export * as classics from './classics/index';
 
 // 底层能力（可复用、可继续拓展）
 export * as ganzhi from './ganzhi/index';
@@ -51,6 +52,7 @@ export * as compatibility from './compatibility/index';
 export * as synthesis from './synthesis/index';
 export * as client from './client/index';
 export * as consumption from './consumption/index';
+export * as minglu from './minglu/index';
 
 // 全局配置
 export { configure } from './calendar/timeManager';
@@ -67,6 +69,7 @@ export * from './synthesis/index';
 export * from './client/index';
 export * from './consumption/index';
 export * from './instant/index';
+export * from './minglu/index';
 export type * from './capabilities/index';
 export * from './shared/result';
 

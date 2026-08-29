@@ -1,7 +1,7 @@
 {
   "name": "mingyu",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "免费开源的在线算命、占卜、玄学排盘与 AI 解读提示词工具",
   "keywords": [
     "算命",
@@ -21,11 +21,11 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm --filter mingyu-core build && vite build",
-    "build:server": "pnpm --filter mingyu-core build && vite build --config vite.server.config.ts",
+    "build": "pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs",
+    "build:server": "pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs --server",
     "preview": "vite preview",
     "test": "pnpm --filter mingyu-core build && pnpm test:unit:run",
-    "test:unit:run": "tsx --tsconfig tsconfig.app.json --test \"tests/*.test.ts\"",
+    "test:unit:run": "tsx --tsconfig tsconfig.app.json --test --test-concurrency=1 \"tests/*.test.ts\"",
     "test:core": "pnpm --filter mingyu-core test",
     "test:integration": "pnpm --filter mingyu-core build && pnpm test:integration:run",
     "test:integration:run": "tsx --tsconfig tsconfig.app.json --test \"tests/integration/*.test.ts\"",

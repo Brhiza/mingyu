@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { AndroidAppUpdateDialog } from '@/components/AndroidAppUpdateDialog';
 import { WorkspaceSettingsModal } from '@/components/WorkspaceSettingsModal';
+import { TermExplanationProvider } from '@/components/TermExplanationModal';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useAndroidAppUpdate } from '@/hooks/useAndroidAppUpdate';
 import { useAiSettings } from '@/hooks/useAiSettings';
@@ -351,7 +352,10 @@ export function WorkspaceShell() {
             <button
               type="button"
               className={isHomeRoute ? 'is-active' : ''}
-              onClick={() => navigate('/')}
+              onClick={() => {
+                navigate('/');
+                setIsDrawerOpen(false);
+              }}
               aria-current={isHomeRoute ? 'page' : undefined}
             >
               <span className="workspace-nav-mark" aria-hidden="true">
@@ -364,7 +368,10 @@ export function WorkspaceShell() {
             <button
               type="button"
               className={location.pathname === '/cases' ? 'is-active' : ''}
-              onClick={() => navigate('/cases')}
+              onClick={() => {
+                navigate('/cases');
+                setIsDrawerOpen(false);
+              }}
               aria-current={location.pathname === '/cases' ? 'page' : undefined}
             >
               <span className="workspace-nav-mark" aria-hidden="true">
@@ -390,6 +397,7 @@ export function WorkspaceShell() {
                       className={activeFeature === feature.id ? 'is-active' : ''}
                       onClick={() => {
                         setSidebarView('tools');
+                        setIsDrawerOpen(false);
                         const targetPath =
                           isChartWorkspaceId(feature.id) && activeCase
                             ? buildChartFeaturePathForCase(activeCase, feature.id)
@@ -494,7 +502,10 @@ export function WorkspaceShell() {
           <button
             type="button"
             className={`workspace-manage-cases${location.pathname === '/records' ? ' is-active' : ''}`}
-            onClick={() => navigate('/records?tab=divination')}
+            onClick={() => {
+              navigate('/records?tab=divination');
+              setIsDrawerOpen(false);
+            }}
           >
             管理历史
           </button>
@@ -505,7 +516,10 @@ export function WorkspaceShell() {
         <button
           type="button"
           className={location.pathname === '/tutorial' ? 'is-active' : ''}
-          onClick={() => navigate('/tutorial')}
+          onClick={() => {
+            navigate('/tutorial');
+            setIsDrawerOpen(false);
+          }}
         >
           使用说明
         </button>
@@ -523,7 +537,8 @@ export function WorkspaceShell() {
   );
 
   return (
-    <div className="workspace-shell" onScrollCapture={handleWorkspaceScroll}>
+    <TermExplanationProvider>
+      <div className="workspace-shell" onScrollCapture={handleWorkspaceScroll}>
       <aside className="workspace-sidebar">{navigation}</aside>
       <header className="workspace-mobile-header">
         {isResultAssistant ? (
@@ -687,5 +702,6 @@ export function WorkspaceShell() {
       ) : null}
       <AndroidAppUpdateDialog updater={androidUpdater} />
     </div>
+    </TermExplanationProvider>
   );
 }

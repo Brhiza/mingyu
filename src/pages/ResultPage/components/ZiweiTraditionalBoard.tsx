@@ -1,5 +1,9 @@
+import React, { useMemo, useState } from 'react';
 import type { AnalysisPayloadV1 } from '@/types/analysis';
+import { getZiweiStarClassic } from 'mingyu-core/classics';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
+import { useMetaphysicsTermModal } from '@/components/TermExplanationModal';
+import { ChartShareModal } from '@/components/ChartShareModal';
 import { ZIWEI_GRID_ORDER } from '../ResultPage.constants';
 import { getZiweiDisplaySurroundedPalaces, joinStarNames } from '../ResultPage.helpers';
 import { ChartStarLine } from './ChartStar';
@@ -35,6 +39,9 @@ export function ZiweiTraditionalBoard(props: {
     onSelectPalace,
     isInstant = false,
   } = props;
+  const { openTerm } = useMetaphysicsTermModal();
+  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const selectedPalace =
     payload.palaces.find((item) => item.index === selectedPalaceIndex) ?? payload.palaces[0];
   const palaceMap = new Map(payload.palaces.map((item) => [item.index, item]));
@@ -66,6 +73,30 @@ export function ZiweiTraditionalBoard(props: {
         payload.basic_info.four_pillars.hour_pillar,
       ].join(' ')
     : '';
+
+  const formatZiweiChartText = () => {
+    const lines = [
+      `【紫微斗数命盘 · ${name}】`,
+      `局数：${payload.basic_info.five_elements_class}  命主：${payload.basic_info.soul}  身主：${payload.basic_info.body}`,
+      `阳历：${payload.basic_info.solar_date}  农历：${payload.basic_info.lunar_date}`,
+      fourPillars ? `四柱：${fourPillars}` : '',
+      `命宫：${payload.basic_info.soul_palace_branch}  身宫：${payload.basic_info.body_palace_branch}`,
+      `当前焦点：【${selectedPalace.name}】（主星：${joinStarNames(selectedPalace.major_stars, '无主星')}） 对宫：【${oppositePalace}】 三方：【${surrounded}】`,
+    ];
+    return lines.filter(Boolean).join('\n');
+  };
+
+  const handleCopyChart = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(formatZiweiChartText());
+      }
+      setCopyState('copied');
+      setTimeout(() => setCopyState('idle'), 2500);
+    } catch {
+      // ignore
+    }
+  };
   const activeScopeMutagens = uniqueNonEmptyStrings(
     payload.active_scope.mutagen_map.map((item) => {
       const palaceName = item.dynamic_palace_name || item.palace_name;
@@ -73,13 +104,37 @@ export function ZiweiTraditionalBoard(props: {
     }),
   );
 
+  const [classicExpanded, setClassicExpanded] = useState(true);
+  const majorStarClassic = useMemo(() => {
+    const star = selectedPalace.major_stars[0]?.name;
+    return star ? getZiweiStarClassic(star) : undefined;
+  }, [selectedPalace.major_stars]);
+
   return (
     <section className="ziwei-traditional-shell">
       <div className="ziwei-traditional-head">
         <div>
           <h3>{boardTitle}</h3>
         </div>
-        <span className="result-chip result-chip-highlight">{payload.active_scope.label}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            type="button"
+            className="bazi-share-chart-btn"
+            onClick={() => setIsShareModalOpen(true)}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-soft)',
+              borderRadius: '6px',
+              padding: '3px 8px',
+              fontSize: '11px',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            分享排盘
+          </button>
+          <span className="result-chip result-chip-highlight">{payload.active_scope.label}</span>
+        </div>
       </div>
 
       <div className="ziwei-traditional-board">
@@ -179,23 +234,45 @@ export function ZiweiTraditionalBoard(props: {
                       </div>
                     ) : null}
                   </div>
-                  <div className="ziwei-board-center-meta chart-center-grid">
-                    <div className="chart-center-chip">命主 {payload.basic_info.soul}</div>
-                    <div className="chart-center-chip">身主 {payload.basic_info.body}</div>
+                  <div className="chart-center-meta chart-center-grid">
+                    <div
+                      className="chart-center-chip is-clickable-term"
+                      onClick={() => openTerm('命宫')}
+                    >
+                      命主 {payload.basic_info.soul}
+                    </div>
+                    <div
+                      className="chart-center-chip is-clickable-term"
+                      onClick={() => openTerm('身宫')}
+                    >
+                      身主 {payload.basic_info.body}
+                    </div>
                     <div className="chart-center-chip">
                       {payload.basic_info.five_elements_class}
                     </div>
-                    <div className="chart-center-chip">
+                    <div
+                      className="chart-center-chip is-clickable-term"
+                      onClick={() => openTerm('命宫')}
+                    >
                       命宫 {payload.basic_info.soul_palace_branch}
                     </div>
-                    <div className="chart-center-chip">
+                    <div
+                      className="chart-center-chip is-clickable-term"
+                      onClick={() => openTerm('身宫')}
+                    >
                       身宫 {payload.basic_info.body_palace_branch}
                     </div>
                   </div>
                   {activeScopeMutagens.length ? (
                     <div className="chart-center-mutagens" aria-label="当前四化落宫">
                       {activeScopeMutagens.map((item) => (
-                        <span key={item}>{item}</span>
+                        <span
+                          key={item}
+                          className="is-clickable-term"
+                          onClick={() => openTerm('四化')}
+                        >
+                          {item}
+                        </span>
                       ))}
                     </div>
                   ) : null}
@@ -208,11 +285,17 @@ export function ZiweiTraditionalBoard(props: {
                       {joinStarNames(selectedPalace.major_stars, '无主星')}
                     </div>
                     <div className="chart-center-relations">
-                      <div className="chart-center-relation-row">
+                      <div
+                        className="chart-center-relation-row is-clickable-term"
+                        onClick={() => openTerm('对宫')}
+                      >
                         <span className="chart-center-relation-label">对宫</span>
                         <span className="chart-center-relation-value">{oppositePalace}</span>
                       </div>
-                      <div className="chart-center-relation-row">
+                      <div
+                        className="chart-center-relation-row is-clickable-term"
+                        onClick={() => openTerm('三方四正')}
+                      >
                         <span className="chart-center-relation-label">三方四正</span>
                         <span className="chart-center-relation-value">{surrounded}</span>
                       </div>
@@ -271,12 +354,12 @@ export function ZiweiTraditionalBoard(props: {
             return (
               <button
                 type="button"
-                key={palace.index}
-                className={`ziwei-grid-cell chart-cell ${isActive ? 'is-active' : ''} ${
+                className={`ziwei-grid-cell chart-cell ${isActive ? 'is-active is-selected' : ''} ${
                   palace.is_body_palace ? 'is-body-palace' : ''
                 } ${isOpposite ? 'is-opposite is-relation-opposite' : ''} ${
                   isSurrounded ? 'is-surrounded is-relation-surrounded' : ''
                 }`}
+                key={palace.index}
                 onClick={() => onSelectPalace(palace.index)}
               >
                 <div className="ziwei-grid-cell-corner chart-cell-corner chart-cell-corner-left">
@@ -326,6 +409,54 @@ export function ZiweiTraditionalBoard(props: {
           })}
         </div>
       </div>
+
+      {majorStarClassic ? (
+        <div className="traditional-classic-card ziwei-classic-card">
+          <div
+            className="traditional-classic-head"
+            onClick={() => setClassicExpanded(!classicExpanded)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') setClassicExpanded(!classicExpanded);
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <div>
+              <span className="traditional-classic-badge">诸星问答论</span>
+              <strong>
+                {selectedPalace.name} · {majorStarClassic.star}星精解
+              </strong>
+            </div>
+            <span className="traditional-classic-toggle">
+              {classicExpanded ? '收起典籍 ▴' : '展开典籍 ▾'}
+            </span>
+          </div>
+          {classicExpanded ? (
+            <div className="traditional-classic-body">
+              <p className="traditional-classic-verse">{majorStarClassic.verse}</p>
+              <p className="traditional-classic-advice">
+                {`【星性象意】${majorStarClassic.nature}\n【行事运途】${majorStarClassic.careerAdvice}`}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {isShareModalOpen ? (
+        <ChartShareModal
+          chartTitle={`紫微斗数 · ${name}`}
+          chartMethodName="紫微斗数"
+          chartText={formatZiweiChartText()}
+          timeLabel={payload.basic_info.solar_date}
+          extraMeta={[
+            { label: '局数', value: payload.basic_info.five_elements_class },
+            { label: '命主', value: payload.basic_info.soul },
+            { label: '身主', value: payload.basic_info.body },
+            { label: '焦点宫位', value: selectedPalace.name },
+          ]}
+          onClose={() => setIsShareModalOpen(false)}
+        />
+      ) : null}
     </section>
   );
 }

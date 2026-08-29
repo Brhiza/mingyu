@@ -31,6 +31,11 @@ function formatLiuyaoDetail(data: LiuyaoData) {
           `第${item.position}爻${item.sixGod}${item.sixRelative}${item.najiaDizhi}${item.wuxing}${item.isWorld ? '（世）' : ''}${item.isResponse ? '（应）' : ''}${item.isChanging ? '（动）' : ''}${item.isVoid ? '（空）' : ''}`,
       )
       .join('；')}`,
+    data.guaShen?.branch
+      ? `卦身与世序：卦身居第${data.guaShen.position}爻（${data.guaShen.branch}）；世序为${data.palace?.name || ''}宫${data.palaceStage || ''}`
+      : data.palaceStage
+        ? `八宫世序：${data.palace?.name || ''}宫${data.palaceStage}`
+        : '',
     data.hiddenSpirits?.length
       ? `伏神：${data.hiddenSpirits
           .map(
@@ -58,7 +63,7 @@ function formatLiuyaoDetail(data: LiuyaoData) {
     data.sanxingInYaos?.length
       ? `三刑：${data.sanxingInYaos.map((item) => `${item.branches.join('、')}为${item.type}`).join('；')}`
       : '',
-  ];
+  ].filter(Boolean);
 }
 
 function formatMeihuaDetail(data: MeihuaData) {
@@ -79,10 +84,13 @@ function formatMeihuaDetail(data: MeihuaData) {
           `第${item.position}爻${item.yaoType}（${item.tiYong}）${item.isChanging ? '，动' : ''}`,
       )
       .join('；')}`,
+    data.analysis
+      ? `体用分析：体卦${data.tiGua.name}（${data.tiGua.element}），用卦${data.yongGua.name}（${data.yongGua.element}），体用关系为【${data.analysis.tiYongRelation}】，体卦月令${data.analysis.tiSeasonState}，变后体用为【${data.analysis.changedTiYongRelation}】`
+      : '',
     data.calculation
       ? `起卦计算：${data.calculation.method}${data.calculation.numbers?.length ? `；数字${data.calculation.numbers.join('、')}` : ''}${data.calculation.time ? `；时间${data.calculation.time}` : ''}`
       : '',
-  ];
+  ].filter(Boolean);
 }
 
 function formatXiaoliurenDetail(data: XiaoliurenData) {
@@ -101,9 +109,12 @@ function formatJinkoujueDetail(data: JinkoujueData) {
   ];
   return [
     `四位：${positions.map((item) => `${item.name}${item.stem ?? ''}${item.branch}（${item.element}，${item.yinYang}，月令${item.seasonState}${item.isVoid ? '，空' : ''}）`).join('；')}`,
+    data.yinYangUse
+      ? `阴阳取用：${data.yinYangUse.pattern}（用${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '，落空' : ''}）`
+      : '',
     `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '未记录'}`,
     `四位关系：贵将${data.relations.guiToJiang}；贵人${data.relations.guiToRen}；将地${data.relations.jiangToDi}；人地${data.relations.renToDi}；贵地${data.relations.guiToDi}`,
-  ];
+  ].filter(Boolean);
 }
 
 function formatQimenDetail(data: QimenData) {

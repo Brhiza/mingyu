@@ -4,150 +4,139 @@
   <a href="https://github.com/Brhiza/mingyu/actions/workflows/ci.yml" alt="CI"><img src="https://github.com/Brhiza/mingyu/actions/workflows/ci.yml/badge.svg" /></a>
 </p>
 
-# 命语
+# 命语 (Mingyu)
 
-命语是一套免费开源的在线算命、占卜与玄学排盘工具。不会八字、紫微或六爻等术语也没关系：填写出生资料或想问的事情，命语会完成排盘，并生成一份可以直接交给 AI 解读的完整提示词。
+命语是一套免费开源的在线算命、占卜排盘与 AI 解读提示词工具。输入出生时间或所问之事，即可完成高精度排盘，并生成可直接交给任意大模型解读的完整提示词。
 
-它既适合普通用户查看运势、感情、事业、财运、合婚、风水和黄道吉日，也为开发者提供公开 API、MCP Server、Agent Skill 与独立 npm 算法包 `mingyu-core`。
+---
+
+## 📿 功德箱
+
+命语与时月东方均为个人业余维护的免费开源项目。
+
+**为什么叫“功德箱”？**  
+本项目收到的全部赞助款项均定期**全额捐赠给社会正规慈善与公益事业**（用于爱心助学、困境老人救助与乡村公益）。感谢每一位支持者的善意！
 
 <p align="center">
-  <a href="https://aov.cc"><strong>在线使用</strong></a> ·
-  <a href="https://aov.cc/tutorial">新手教程</a> ·
-  <a href="docs/README.md">完整文档</a> ·
-  <a href="https://aov.cc/api/v1/openapi.json">OpenAPI</a> ·
-  <a href="https://www.npmjs.com/package/mingyu-core">mingyu-core</a>
+  <a href="https://lk.sydf.cc/"><strong>👉 前往功德箱（赞助与爱心支持）</strong></a>
 </p>
 
-## 项目能力
+---
 
-| 你想做的事                 | 可以使用                                         |
-| -------------------------- | ------------------------------------------------ |
-| 算命、看一生或近期运势     | 八字、紫微斗数、八字紫微合参、星盘、七政四余     |
-| 看事业、财运、感情或健康   | 选择对应主题，生成针对性的排盘与 AI 提示词       |
-| 合婚、看两个人是否合适     | 八字合盘、紫微合盘、西方占星双盘                 |
-| 占卜一件事能不能成         | 六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬 |
-| 抽牌、求签或找一点启发     | 塔罗牌、雷诺曼、三山国王灵签                     |
-| 选结婚、搬家、开业等好日子 | 黄历择日                                         |
-| 看住宅方位和风水           | 八宅、玄空飞星、住宅风水合参                     |
-| 研究传统玄学与历法         | 太乙神数、皇极经世、五运六气、真太阳时、干支五行 |
-| 生成完整 AI 解读提示词     | 所有主要排盘、合盘、占卜、择日与风水入口         |
-| 接入自己的应用或 AI        | 公开 API、MCP Server、Agent Skill、`mingyu-core` |
+<p align="center">
+  <a href="https://aov.cc"><strong>🌐 在线使用</strong></a> ·
+  <a href="https://aov.cc/tutorial">📖 新手教程</a> ·
+  <a href="docs/README.md">📚 完整文档</a> ·
+  <a href="https://aov.cc/api/v1/openapi.json">🔌 OpenAPI</a> ·
+  <a href="https://www.npmjs.com/package/mingyu-core">📦 mingyu-core (npm)</a>
+</p>
 
-完整术式、计算资料和适用边界见[能力说明](docs/capabilities.md)。
+---
 
-## 不懂术语也能问
+## 🔮 支持功能
 
-你可以直接用日常说法描述目标，命语会引导你选择合适的方式。例如：
+| 分类 | 术数方法 | 主要功能 |
+| :--- | :--- | :--- |
+| **命理运势** | 八字命理、紫微斗数、八字紫微合参、西方星盘、七政四余 | 支持真太阳时换算、大运流年流月流日细盘、三方四正、庙旺四化、神煞与合盘分析 |
+| **周易占卜** | 六爻纳甲、梅花易数 | 支持手摇/指定卦象、京房八宫纳甲、六亲六神、世应动变、体用生克与四时旺衰 |
+| **三式绝学** | 奇门遁甲、大六壬、金口诀、太乙神数、皇极经世 | 支持时家转盘/飞盘奇门、月将天地盘四课三传、阴阳五用、年计七十二局与元会运世 |
+| **牌卡灵签** | 西方塔罗牌、雷诺曼牌、三山国王灵签、小六壬 | 包含 78 张塔罗全牌阵、36 张雷诺曼及大 Tableau、揭西祖庙 92 签全篇签谱 |
+| **择日风水** | 黄历择吉、八宅明镜、玄空飞星、五运六气 | 建除十二神与宜忌排查、东四西四命卦、三元九运飞星排盘与客主加临 |
 
-- “帮我算命，想看看整体运势、事业、财运和感情。”
-- “看看我今年的工作运和财运，有哪些机会需要把握？”
-- “帮我们合婚，看看两个人适不适合长期发展。”
-- “我想占卜这件事能不能成，什么时候推进更合适？”
-- “用玄学角度帮我分析当前困惑，应该选哪种方法？”
-- “帮我抽一组塔罗牌，看看这段关系接下来怎么发展。”
-- “帮我选一个适合结婚、搬家或开业的好日子。”
+---
 
-在网页里选择“排盘、合盘、占卜、择日”，按提示填写信息即可。涉及出生资料的算命或合盘会使用你填写的时间、地点和性别；一事一问的占卜则应尽量写清人物、事情和时间范围。
+## 🛠️ 开发者接入
 
-## 开发者接入
-
-命语的排盘由确定性代码完成，AI 只负责解读结果。根据使用场景选择一种入口：
-
-| 入口          | 适合场景                                             | 文档                                                |
-| ------------- | ---------------------------------------------------- | --------------------------------------------------- |
-| 公开 API      | 无需安装，直接获得排盘或完整提示词                   | [API 文档](docs/api.md)                             |
-| MCP Server    | 让支持 MCP 的 AI 客户端直接调用本地能力              | [MCP 文档](mcp/README.md)                           |
-| Agent Skill   | 让 AI 代理理解“算命、占卜、玄学”等日常请求并选择接口 | [Skill 文档](public/skills/aov-mingyu-api/SKILL.md) |
-| `mingyu-core` | 在自己的 TypeScript/JavaScript 应用中复用算法        | [算法包文档](packages/core/README.md)               |
-
-公开 API 基础地址：
-
-```text
-https://aov.cc/api/v1
-```
-
-更多入口：[API 能力清单](https://aov.cc/api/v1/manifest) · [OpenAPI](https://aov.cc/api/v1/openapi.json) · [llms.txt](https://aov.cc/llms.txt) · [在线 Skill](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
-
-## 快速安装
-
-运行网页和 MCP Server（需要 Node.js 22 与 pnpm；未安装 pnpm 时先运行 `npm install -g pnpm`）：
-
+### 1. 核心算法包 `mingyu-core`
 ```bash
-git clone https://github.com/Brhiza/mingyu.git
-cd mingyu
-pnpm install
-pnpm dev
+npm install mingyu-core
 ```
+```typescript
+import { generateBazi, generateLiuyao, drawTarotSpread } from 'mingyu-core';
 
-另开终端启动 MCP Server：
+// 八字排盘
+const bazi = generateBazi({ solarDate: '1995-08-18', solarTime: '09:30', gender: '男' });
 
+// 六爻起卦
+const liuyao = generateLiuyao(new Date());
+
+// 抽塔罗牌
+const tarot = drawTarotSpread('celtic');
+```
+详见 [mingyu-core 文档](packages/core/README.md)。
+
+### 2. 公开 REST API
+基础地址：`https://aov.cc/api/v1`
+* [API 接口文档](docs/api.md) · [OpenAPI 规范](https://aov.cc/api/v1/openapi.json) · [LLMs.txt](https://aov.cc/llms.txt)
+
+### 3. MCP Server
+支持 Claude Desktop、Cursor 等 MCP 客户端直接调用：
 ```bash
 pnpm mcp
 ```
+详见 [MCP 服务文档](mcp/README.md)。
 
-为 AI 代理安装公开 Skill：
-
+### 4. Agent Skill
 ```bash
 npx skills add Brhiza/mingyu --skill aov-mingyu-api -g -y
 ```
 
-只使用核心算法包：
+---
+
+## 📱 Android 原生应用
+
+提供适配移动端的 Android 原生 APK，支持在生成排盘后**一键唤起已安装的 AI 应用**（如 ChatGPT、Claude、Kimi 等）直接对话，API Key 仅保存在本地设备。
 
 ```bash
-npm install mingyu-core
-```
-
-常用开发检查：
-
-```bash
-pnpm test
-pnpm build
-```
-
-生成 Android 工程中的最新网页资源：
-
-```bash
+# 同步 Web 资源到 Android 工程
 pnpm android:sync
 ```
 
-随后可用 Android Studio 打开 `android/`，或在该目录运行 Gradle Wrapper 生成 APK。Android
-版设置中会优先列出已安装且支持接收文本的常见 AI App，不展示短信、蓝牙等普通文本应用；发送提示词时会直接打开所选 App，未设置时仍使用系统分享。
-安卓版使用自定义 AI 时会从当前设备直接连接所填的 HTTPS 接口，API Key 不经过命语服务器；内置 AI 仍由服务端提供。
+---
 
-Cloudflare Pages、Docker、内置 AI 配置、项目结构与全部命令见[开发与部署](docs/development-and-deployment.md)。
+## 🚀 本地开发与构建
 
-## 文档
+```bash
+# 克隆仓库并安装依赖
+git clone https://github.com/Brhiza/mingyu.git
+cd mingyu
+pnpm install
 
-- [文档目录](docs/README.md)
-- [完整能力与算法边界](docs/capabilities.md)
-- [公开 API](docs/api.md)
-- [MCP Server](mcp/README.md)
-- [`mingyu-core` 算法包](packages/core/README.md)
-- [开发与部署](docs/development-and-deployment.md)
-- [模型评测](docs/model-evaluation.md)
-- [算法依据索引](docs/2026-07-10-算法依据索引.md)
+# 启动开发服务器
+pnpm dev
 
-## 基于命语构建
+# 运行测试
+pnpm test
 
-### 时月东方
+# 打包构建
+pnpm build
+```
 
-时月东方是一款基于命语核心能力构建的东方术数工具，使用 Vue 3 与 Vite 实现，也可以作为 `mingyu-core` 在独立产品中接入和使用的实际参考。
+---
 
-- 在线体验：[https://sydf.cc](https://sydf.cc)
-- 项目源码：[https://github.com/Brhiza/sydf](https://github.com/Brhiza/sydf)
+## ⛩️ 关于三山国王灵签
 
-欢迎补充术式依据、测试样例、API 文档、MCP/Skill 客户端示例和移动端体验。功德箱：[支持项目继续维护](https://lk.sydf.cc/)。
+三山国王是潮汕与客家地区重要的民间信仰，祖庙位于广东省揭西县河婆街道。作者整理并保留了祖庙传承的 92 签灵签体系，每签保留签号、签题、签诗原文与典故。
 
-## 关于三山国王灵签
+---
 
-三山国王是粤东潮汕与客家地区重要的民间信仰，祖庙位于广东揭西县河婆街道。项目作者来自揭西，自幼接触三山国王信仰，因此在命语中整理并保留了祖庙传承的 92 签灵签体系。
+## 📚 文档目录
 
-每签保留签号、签题和签诗原文。不同庙本可能存在签序、题名或字句差异，解读以本次抽到的签文为准。我们也希望这套签文能在迷茫时给人一点启发，让这份地方传统继续被看见和使用。
+- [文档总览](docs/README.md)
+- [术数能力与适用范围](docs/capabilities.md)
+- [公开 API 文档](docs/api.md)
+- [MCP Server 配置指南](mcp/README.md)
+- [mingyu-core 算法包说明](packages/core/README.md)
+- [开发、部署与环境配置](docs/development-and-deployment.md)
 
-## 免责声明
+---
 
-命语提供命理、占卜、玄学排盘与 AI 提示词辅助，结果仅供参考和娱乐学习，不应替代医疗、法律、投资、心理咨询等专业建议。
+## ⚖️ 免责声明
 
-## 相关关键词
+本工具提供的排盘结果与 AI 解读提示词仅供传统文化研究与休闲娱乐参考，不构成且不可替代医疗、心理、法律、投资等专业建议。
 
-算命、在线算命、免费算命、AI 算命、占卜、在线占卜、玄学、命理、看运势、八字算命、八字排盘、紫微斗数、合婚、星盘、塔罗占卜、六爻、梅花易数、奇门遁甲、抽签、灵签、黄道吉日、择日、住宅风水。
+---
+
+## 📄 开源协议
+
+本项目基于 MIT License 协议开源。

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useState } from 'react';
 import type { BaziChartResult } from 'mingyu-core/bazi';
 import {
   getBaziDayIndexByDate,

@@ -233,6 +233,7 @@ function formatLiuyaoInfo(
     '占法：六爻',
     `核心结构：主卦${data.originalName}${data.palace?.name ? `（${data.palace.name}宫）` : ''}；变卦${data.changedName || '无'}；互卦${data.interName || '无'}${data.specialPattern ? `；卦式${data.specialPattern}` : ''}`,
     data.palaceStage ? `八宫卦位：${data.palaceStage}` : '',
+    data.guaShen?.branch ? `卦身：在【${data.guaShen.branch}】，居第${data.guaShen.position}爻` : '',
     hexagramRelationText ? `整卦关系：${hexagramRelationText}` : '',
     fanfuRelationText ? `反伏关系：${fanfuRelationText}` : '',
     worldYao || responseYao

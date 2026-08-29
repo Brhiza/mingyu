@@ -5633,7 +5633,7 @@ select {
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 6px;
+  gap: 5px;
   min-height: 154px;
   padding: 18px 9px 10px;
   border: 1px solid var(--border-contrast);
@@ -5642,6 +5642,12 @@ select {
   color: var(--text-secondary);
   text-align: center;
   box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.traditional-tarot-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .traditional-tarot-card.is-reversed {
@@ -5658,6 +5664,7 @@ select {
   left: 9px;
   color: var(--text-muted);
   font-size: 10px;
+  font-weight: 600;
 }
 
 .traditional-card-position {
@@ -5666,17 +5673,58 @@ select {
   font-weight: 700;
 }
 
-.traditional-tarot-card strong {
+.traditional-tarot-card .traditional-card-name {
   color: var(--text-strong);
   font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
 }
 
-.traditional-tarot-card b {
+.traditional-tarot-card .traditional-card-name:hover {
   color: var(--accent-deep);
-  font-size: 11px;
+  text-decoration: underline;
 }
 
-.traditional-tarot-card small {
+.traditional-card-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.traditional-card-orientation {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.traditional-card-orientation.is-upright {
+  background: color-mix(in srgb, #3d8b68 15%, transparent);
+  color: #2b7352;
+}
+
+.traditional-card-orientation.is-reversed {
+  background: color-mix(in srgb, #c45448 15%, transparent);
+  color: #b03a2e;
+}
+
+.traditional-card-element {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  border: 1px solid var(--border-soft);
+}
+
+.traditional-card-keywords {
   color: var(--text-muted);
   font-size: 10px;
   line-height: 1.35;
@@ -5712,12 +5760,12 @@ select {
 
 .traditional-lenormand-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
 }
 
 .traditional-lenormand-grid.has-coordinates {
-  grid-auto-rows: minmax(100px, auto);
+  grid-auto-rows: minmax(110px, auto);
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
@@ -5725,37 +5773,83 @@ select {
 
 .traditional-lenormand-card {
   display: grid;
-  align-content: center;
+  align-content: start;
   justify-items: center;
-  gap: 3px;
-  min-height: 100px;
-  padding: 8px 5px;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  gap: 4px;
+  min-height: 110px;
+  padding: 8px 6px;
+  border: 1px solid var(--border-contrast);
+  border-radius: 11px;
   background: var(--surface-base);
   text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.traditional-lenormand-card > span,
-.traditional-lenormand-card > small {
-  color: var(--text-muted);
+.traditional-lenormand-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.traditional-lenormand-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 4px;
+}
+
+.traditional-lenormand-id {
   font-size: 10px;
-}
-
-.traditional-lenormand-card > strong {
+  font-weight: 700;
   color: var(--accent-deep);
-  font-size: 13px;
+  background: var(--surface-soft);
+  padding: 0 4px;
+  border-radius: 3px;
 }
 
-.traditional-lenormand-card > b {
-  color: var(--text-strong);
-  font-size: 14px;
-}
-
-.traditional-lenormand-card > p {
-  margin: 0;
-  color: var(--text-muted);
+.traditional-lenormand-pos {
   font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.traditional-lenormand-card .traditional-lenormand-name {
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.traditional-lenormand-card .traditional-lenormand-name:hover {
+  color: var(--accent-deep);
+  text-decoration: underline;
+}
+
+.traditional-lenormand-house {
+  font-size: 10px;
+  color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent-soft) 12%, transparent);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.traditional-lenormand-keywords {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.traditional-lenormand-meaning {
+  color: var(--text-muted);
+  font-size: 9.5px;
+  line-height: 1.3;
 }
 
 .traditional-sign-card {
@@ -6838,7 +6932,7 @@ select {
   }
 
   .page-shell {
-    padding: 12px 8px 20px;
+    padding: 10px 10px 24px;
     overflow-x: hidden;
   }
 
@@ -6859,20 +6953,30 @@ select {
   .ziwei-layout,
   .astrolabe-board-layout {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .result-summary-grid,
   .result-summary-grid-bazi,
-  .result-meta-lines,
   .ziwei-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 2px;
+    border-radius: 12px;
+    background: var(--border-soft);
+  }
+
+  .result-meta-lines {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .ziwei-traditional-board {
-    padding: 4px;
+    padding: 6px;
     overflow: hidden;
-    border-radius: 10px;
-    background: transparent;
+    border-radius: 12px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
   }
 
   .ziwei-traditional-grid {
@@ -6890,8 +6994,9 @@ select {
   }
 
   .ziwei-grid-cell {
-    min-height: 0;
-    padding: 14px 4px 4px;
+    min-height: 120px;
+    padding: 16px 4px 5px;
+    border-radius: 8px;
   }
 
   .ziwei-detail-head,
@@ -6913,98 +7018,111 @@ select {
   }
 
   .chart-cell {
-    border-radius: 7px;
-    padding: 15px 3px 3px;
+    border-radius: 8px;
+    padding: 16px 4px 5px;
     min-height: 120px;
   }
 
   .chart-cell-body {
-    grid-template-columns: 12px minmax(0, 1fr);
-    gap: 2px;
-  }
-
-  .chart-center {
-    border-radius: 7px;
-    padding: 4px;
-    gap: 4px;
-  }
-
-  .chart-center-grid {
+    grid-template-columns: 14px minmax(0, 1fr);
     gap: 3px;
   }
 
+  .chart-center {
+    border-radius: 8px;
+    padding: 6px;
+    gap: 5px;
+  }
+
+  .chart-center-grid {
+    gap: 4px;
+  }
+
   .chart-cell-title {
-    font-size: 0.6rem;
+    font-size: 12px;
+    font-weight: 750;
+    color: var(--text-strong);
   }
 
   .chart-cell-stars {
-    font-size: 0.58rem;
+    font-size: 11px;
+    line-height: 1.35;
   }
 
   .chart-star-major .chart-star-name {
-    font-size: 0.62rem;
+    font-size: 12px;
+    font-weight: 750;
   }
 
   .chart-star-minor .chart-star-name,
   .chart-star-other .chart-star-name,
   .chart-star-scope .chart-star-name {
-    font-size: 0.48rem;
+    font-size: 11px;
+    font-weight: 550;
   }
 
   .chart-star-mark {
-    min-width: 9px;
-    height: 9px;
-    font-size: 0.46rem;
+    min-width: 12px;
+    height: 12px;
+    font-size: 9.5px;
+    font-weight: 750;
+    border-radius: 3px;
   }
 
   .chart-cell-badge,
   .chart-cell-corner {
-    font-size: 0.5rem;
+    font-size: 11px;
+    font-weight: 600;
   }
 
   .chart-cell-foot {
-    gap: 1px;
+    gap: 2px;
   }
 
   .chart-cell-badge {
     max-width: 100%;
-    padding: 1px 3px;
-    font-size: 0.46rem;
+    padding: 1.5px 4px;
+    font-size: 10.5px;
+    border-radius: 3px;
   }
 
   .result-showcase-card {
-    padding: 6px 0;
+    padding: 8px 0;
     border-radius: 0;
     border: none;
     background: transparent;
     box-shadow: none;
-    gap: 8px;
+    gap: 12px;
   }
 
   .result-showcase-head {
     flex-wrap: wrap;
-    gap: 6px 8px;
+    gap: 6px 10px;
   }
 
   .result-showcase-head h2 {
-    font-size: 18px;
+    font-size: 20px;
+    font-weight: 750;
+    color: var(--text-strong);
   }
 
   .result-section-kicker {
-    font-size: 10px;
+    font-size: 11.5px;
+    font-weight: 700;
   }
 
   .result-chip-row,
   .result-chip-stack,
   .result-tag-cloud {
-    gap: 4px;
+    gap: 5px;
   }
 
   .result-chip,
   .result-soft-tag {
-    min-height: 22px;
-    padding: 0 7px;
-    font-size: 10px;
+    min-height: 25px;
+    padding: 2px 8px;
+    font-size: 11.5px;
+    font-weight: 650;
   }
 
   .result-stat-card,
@@ -7013,47 +7131,42 @@ select {
   .ziwei-detail-card,
   .ziwei-traditional-shell,
   .ziwei-palace-card {
-    padding: 8px;
+    padding: 10px 12px;
     border-radius: 10px;
     box-shadow: none;
   }
 
-  .result-summary-grid,
-  .result-summary-grid-bazi,
-  .result-meta-lines,
-  .ziwei-detail-grid {
-    gap: 1px;
-  }
-
   .bazi-core-layout,
   .ziwei-layout {
-    gap: 6px;
+    gap: 10px;
   }
 
   .bazi-side-panel,
   .ziwei-side-panel,
   .astrolabe-board-side {
-    gap: 0;
+    gap: 8px;
   }
 
   .bazi-side-panel > *,
   .ziwei-side-panel > *,
   .astrolabe-board-side > * {
-    padding: 10px;
-    border-radius: 0;
+    padding: 12px;
+    border-radius: 10px;
   }
 
   .result-stat-card {
-    padding: 8px 9px;
-    border-radius: 0;
-    gap: 1px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    gap: 3px;
   }
 
   .result-stat-card strong,
   .fortune-focus-card strong,
   .fortune-item strong,
   .ziwei-star-block strong {
-    font-size: 13px;
+    font-size: 16px;
+    font-weight: 750;
+    color: var(--text-strong);
     line-height: 1.25;
   }
 
@@ -7063,12 +7176,19 @@ select {
   .wuxing-bar-label,
   .fortune-focus-card span,
   .fortune-item span,
-  .ziwei-star-block span,
+  .ziwei-star-block span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1.3;
+  }
+
   .result-stat-card small,
   .fortune-focus-card small,
   .fortune-item small {
-    font-size: 10px;
-    line-height: 1.25;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--text-muted);
   }
 
   .bazi-pillars-card {
@@ -7085,43 +7205,76 @@ select {
 
   .bazi-pillars-table {
     margin-top: 6px;
-    grid-template-columns: 54px repeat(4, minmax(0, 1fr));
+    grid-template-columns: minmax(28px, 44px) repeat(var(--bazi-display-column-count, 4), minmax(0, 1fr));
     border-radius: 10px;
+    width: 100%;
+    min-width: 0;
   }
 
   .bazi-pillars-cell {
-    min-height: 34px;
-    padding: 4px 3px;
-    font-size: 11px;
+    min-height: 38px;
+    padding: 5px 4px;
+    font-size: 12px;
+  }
+
+  .bazi-pillars-cell.is-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+  .bazi-pillars-cell.is-head {
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .bazi-pillars-cell.is-multiline {
-    line-height: 1.3;
+    line-height: 1.35;
   }
 
   .bazi-pillars-cell.is-stem .bazi-ganzhi-symbol {
-    font-size: 16px;
+    font-size: 17px;
+    font-weight: 750;
   }
 
   .bazi-pillars-cell.is-branch .bazi-ganzhi-symbol {
-    font-size: 15px;
+    font-size: 16px;
+    font-weight: 750;
+  }
+
+  .bazi-pillar-value small,
+  .bazi-pillar-value em {
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  .bazi-hidden-stem-list strong {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .bazi-hidden-stem-list small {
+    font-size: 11px;
+    color: var(--text-muted);
   }
 
   .bazi-shensha-tag {
-    min-height: 18px;
-    padding: 2px 4px;
-    font-size: 9px;
+    min-height: 20px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
   }
 
   .wuxing-bar-row {
-    grid-template-columns: 24px 1fr 30px;
+    grid-template-columns: 26px 1fr 32px;
     gap: 6px;
   }
 
   .wuxing-bars,
   .fortune-list {
-    gap: 5px;
-    margin-top: 5px;
+    gap: 6px;
+    margin-top: 6px;
   }
 
   .fortune-timeline {
@@ -7135,7 +7288,7 @@ select {
   }
 
   .fortune-timeline-body {
-    padding: 9px 10px;
+    padding: 10px 12px;
     border-radius: 12px;
     gap: 6px;
   }
@@ -7148,36 +7301,32 @@ select {
 
   .fortune-year-chip,
   .fortune-timeline-detail span {
-    min-height: 20px;
-    padding: 0 6px;
-    font-size: 10px;
+    min-height: 22px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 600;
   }
 
   .fortune-focus-card,
   .fortune-item,
   .result-meta-lines div,
   .ziwei-detail-grid div {
-    padding: 7px 8px;
+    padding: 8px 10px;
   }
 
   .result-meta-lines > div,
   .ziwei-detail-grid > div {
-    border-radius: 0;
-  }
-
-  .result-meta-lines {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1px;
-    margin-top: 5px;
+    border-radius: 8px;
   }
 
   .ziwei-palace-card {
-    padding: 8px;
+    padding: 10px 12px;
     gap: 6px;
   }
 
   .ziwei-palace-head h3 {
-    font-size: 14px;
+    font-size: 15px;
+    font-weight: 750;
     margin-bottom: 2px;
   }
 
@@ -7185,27 +7334,29 @@ select {
   .ziwei-star-lines p,
   .ziwei-grid-cell-stars,
   .ziwei-grid-cell-foot {
-    font-size: 9px;
-    line-height: 1.3;
+    font-size: 11px;
+    line-height: 1.4;
   }
 
   .timeline-head-note {
     margin-top: 6px;
-    font-size: 10px;
+    font-size: 11.5px;
   }
 
   .ziwei-grid-cell-title strong {
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 750;
   }
 
   .ziwei-grid-cell-flags {
-    gap: 2px;
+    gap: 3px;
   }
 
   .ziwei-grid-cell-flags span {
     min-width: 16px;
     height: 16px;
-    font-size: 9px;
+    font-size: 10.5px;
+    font-weight: 700;
   }
 
   .tab-strip {
@@ -8021,7 +8172,9 @@ select {
   }
 
   .bazi-pillars-table {
-    grid-template-columns: 48px repeat(4, minmax(0, 1fr));
+    grid-template-columns: minmax(26px, 36px) repeat(var(--bazi-display-column-count, 4), minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
   }
 
   .bazi-pillars-cell {

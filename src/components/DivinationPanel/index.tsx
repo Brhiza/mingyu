@@ -30,6 +30,7 @@ import { defaultDraft, methodLabelMap } from './constants';
 import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
 import { BirthPlaceModal } from '@/pages/InputPage.BirthPlaceModal';
+import { PromptShareModal } from '@/components/PromptShareModal/PromptShareModal';
 
 type DivinationPanelProps = {
   initialMethod?: DivinationDraft['method'];
@@ -108,6 +109,7 @@ export function DivinationPanel({
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isQuestionInspirationModalOpen, setIsQuestionInspirationModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [activeInspirationTab, setActiveInspirationTab] =
     useState<DivinationInspirationTabId>('ganqing');
   const [inspirationSearch, setInspirationSearch] = useState('');
@@ -343,12 +345,22 @@ export function DivinationPanel({
             showHeading={displayMode === 'workspace'}
             assistantOnly={assistantOnly}
             onCopy={handleCopy}
-            onShare={handleShare}
+            onShare={() => setIsShareModalOpen(true)}
             onOpenAssistant={onOpenAssistant}
             onReturnToBoard={onReturnToBoard}
             onRestart={onRestart}
           />
         </>
+      ) : null}
+
+      {isShareModalOpen && session?.prompt ? (
+        <PromptShareModal
+          promptText={session.prompt}
+          question={session.question || draft.question}
+          methodName={methodLabelMap[session.method] || methodLabelMap[draft.method]}
+          timeLabel={session.timeContext?.clockDateTime}
+          onClose={() => setIsShareModalOpen(false)}
+        />
       ) : null}
 
       {displayMode !== 'result' && isQuestionInspirationModalOpen ? (

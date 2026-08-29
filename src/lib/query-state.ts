@@ -2,7 +2,8 @@ import { ASTROLABE_PROMPT_TOPICS, type AstrolabePromptTopic } from '@/lib/astrol
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
 
-export type ResultTabKey = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt';
+export type ResultTabKey =
+  'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt' | 'minglu';
 export type PromptSourceKey = 'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe' | 'qizheng' | 'bazhai';
 export type BaziFortuneScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 export type { AstrolabePromptTopic };
@@ -812,7 +813,8 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
     rawTab === 'qizheng' ||
     rawTab === 'bazhai' ||
     rawTab === 'residential' ||
-    rawTab === 'prompt'
+    rawTab === 'prompt' ||
+    rawTab === 'minglu'
       ? rawTab === 'residential'
         ? 'bazhai'
         : rawTab

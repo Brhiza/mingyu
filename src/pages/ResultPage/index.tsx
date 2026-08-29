@@ -66,6 +66,9 @@ import { BaziChartBoard } from './components/BaziChartBoard';
 import { ZiweiBoard } from './components/ZiweiBoard';
 import { ZiweiScopeModal } from './components/ZiweiScopeModal';
 import { AstrolabeScopeModal } from './components/AstrolabeScopeModal';
+import { MingluWikiView } from './components/MingluWiki';
+import { buildMingluArticle } from 'mingyu-core/minglu';
+import { PromptShareModal } from '@/components/PromptShareModal/PromptShareModal';
 import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useZiweiCalculations } from './hooks/useZiweiCalculations';
@@ -236,7 +239,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inputState.analysisMode === 'compatibility' || promptState.promptSource === 'bazi-ziwei';
   const resultTabs = useMemo<ResultTabKey[]>(() => {
     if (isCombinedResult) {
-      return ['bazi', 'ziwei', 'prompt'];
+      return ['bazi', 'ziwei', 'minglu', 'prompt'];
     }
     const chartTab: ResultTabKey =
       promptState.promptSource === 'ziwei'
@@ -248,7 +251,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
             : promptState.promptSource === 'bazhai'
               ? 'bazhai'
               : 'bazi';
-    return [chartTab, 'prompt'];
+    return [chartTab, 'minglu', 'prompt'];
   }, [isCombinedResult, promptState.promptSource]);
   const chartTabs = useMemo(
     () => resultTabs.filter((tab): tab is Exclude<ResultTabKey, 'prompt'> => tab !== 'prompt'),
@@ -325,6 +328,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     astrolabe: promptState.tab === 'astrolabe',
     qizheng: promptState.tab === 'qizheng',
     bazhai: canUseResidentialFengshui && promptState.tab === 'bazhai',
+    minglu: promptState.tab === 'minglu',
     prompt: showAssistantPane,
   }));
   const { baziResult, partnerBaziResult, baziError } = useBaziCalculations(inputState);
@@ -1446,6 +1450,57 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     ],
   );
 
+  const mingluArticle = useMemo(() => {
+    if (!baziResult) return null;
+    const birthTime =
+      inputState.birthHour !== ''
+        ? {
+            hour: Number(inputState.birthHour),
+            minute: inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute),
+          }
+        : inputState.timeIndex !== ''
+          ? BIRTH_TIME_OPTIONS[Number(inputState.timeIndex)]
+          : undefined;
+
+    const person = {
+      name: inputState.name || '命主',
+      gender: inputState.gender,
+      birthYear: baziResult.solarDate.year,
+      birthMonth: baziResult.solarDate.month,
+      birthDay: baziResult.solarDate.day,
+      birthHour: birthTime?.hour,
+      birthMinute: birthTime?.minute,
+      birthPlace: inputState.birthPlace,
+      birthLongitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
+      birthLatitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
+      timezone: 8,
+      timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+      useTrueSolarTime: inputState.useTrueSolarTime,
+    };
+
+    return buildMingluArticle({
+      person,
+      baziResult,
+      ziweiRuntime,
+      astrolabeData: astrolabeCalculation.data,
+      qizhengResult: qizhengCalculation.data,
+    });
+  }, [
+    astrolabeCalculation.data,
+    baziResult,
+    inputState.birthHour,
+    inputState.birthLatitude,
+    inputState.birthLongitude,
+    inputState.birthMinute,
+    inputState.birthPlace,
+    inputState.gender,
+    inputState.name,
+    inputState.timeIndex,
+    inputState.useTrueSolarTime,
+    qizhengCalculation.data,
+    ziweiRuntime,
+  ]);
+
   const basePreviewActivePromptText =
     promptState.promptSource === 'qizheng'
       ? qizhengPromptText
@@ -1467,6 +1522,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   }, [previewActivePromptText, showAssistantPane]);
 
   const [inspirationText, setInspirationText] = useState('');
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const baseLatestActivePromptText =
     promptState.promptSource === 'qizheng'
       ? qizhengPromptText
@@ -1480,7 +1536,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               ? latestBaziPromptText
               : latestZiweiPromptText;
   const latestActivePromptText = baseLatestActivePromptText;
-  const { copyState, shareState, handleCopy, handleShare } =
+  const { copyState, shareState, handleCopy } =
     usePromptCopyShare(latestActivePromptText);
 
   function switchTab(tab: ResultTabKey) {
@@ -1721,7 +1777,20 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         <div className="workspace-result-navigation">
           <div className="workspace-ui-tabs" aria-label="结果内容">
             {chartTabs.map((tab) => {
-              const label = tab === 'bazi' ? '八字' : '紫微';
+              const label =
+                tab === 'bazi'
+                  ? '八字'
+                  : tab === 'ziwei'
+                    ? '紫微'
+                    : tab === 'astrolabe'
+                      ? '星盘'
+                      : tab === 'qizheng'
+                        ? '七政'
+                        : tab === 'bazhai'
+                          ? '八宅'
+                          : tab === 'minglu'
+                            ? '命录'
+                            : '排盘';
               return (
                 <button
                   type="button"
@@ -1920,6 +1989,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         </div>
 
         <div
+          className={`result-tab-pane workspace-result-chart-pane ${
+            !isAssistantPage && activeChartTab === 'minglu' ? 'is-active' : 'is-inactive'
+          }`}
+          aria-hidden={isAssistantPage || activeChartTab !== 'minglu'}
+        >
+          {mountedTabs.minglu && mingluArticle ? (
+            <MingluWikiView article={mingluArticle} />
+          ) : mountedTabs.minglu ? (
+            <InlineSkeleton />
+          ) : null}
+        </div>
+
+        <div
           className={`result-tab-pane workspace-result-assistant-pane ${
             isAiEnabled ? 'is-ai-mode' : 'is-prompt-mode'
           } ${showAssistantPane ? 'is-active' : 'is-inactive'}`}
@@ -1949,7 +2031,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   copyState={copyState}
                   shareState={shareState}
                   onCopy={handleCopy}
-                  onShare={handleShare}
+                  onShare={() => setIsShareModalOpen(true)}
                 >
                   <div
                     className={`workspace-prompt-composer-toolbar${
@@ -1989,7 +2071,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
       {!isAssistantPage ? (
         <>
-          <ResultShareFab disabled={!latestActivePromptText} onShare={handleShare} />
+          <ResultShareFab
+            disabled={!latestActivePromptText}
+            onShare={() => setIsShareModalOpen(true)}
+          />
           <ResultAssistantFab aiEnabled={isAiEnabled} onOpen={openAssistantPage} />
         </>
       ) : null}
@@ -2067,6 +2152,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               ? activePromptQuestionDraft
               : activePromptShortcutMode
           }
+        />
+      ) : null}
+
+      {isShareModalOpen && latestActivePromptText ? (
+        <PromptShareModal
+          promptText={latestActivePromptText}
+          question={activePromptQuestionDraft || inputState.name}
+          timeLabel={
+            inputState.year
+              ? `${inputState.year}年${inputState.month}月${inputState.day}日`
+              : undefined
+          }
+          onClose={() => setIsShareModalOpen(false)}
         />
       ) : null}
     </div>

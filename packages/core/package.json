@@ -1,6 +1,6 @@
 {
   "name": "mingyu-core",
-  "version": "0.1.32",
+  "version": "0.2.0",
   "description": "TypeScript 算命、占卜与玄学排盘算法：八字、紫微斗数、六爻、奇门遁甲、塔罗、择日等",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,9 +22,25 @@
       "types": "./dist/bazi/index.d.ts",
       "import": "./dist/bazi/index.js"
     },
+    "./minglu": {
+      "types": "./dist/minglu/index.d.ts",
+      "import": "./dist/minglu/index.js"
+    },
+    "./ziwei/prompt": {
+      "types": "./dist/ziwei/prompt/index.d.ts",
+      "import": "./dist/ziwei/prompt/index.js"
+    },
+    "./ziwei/iztro": {
+      "types": "./dist/ziwei/iztro/index.d.ts",
+      "import": "./dist/ziwei/iztro/index.js"
+    },
     "./instant": {
       "types": "./dist/instant/index.d.ts",
       "import": "./dist/instant/index.js"
+    },
+    "./classics": {
+      "types": "./dist/classics/index.d.ts",
+      "import": "./dist/classics/index.js"
     },
     "./divination/liuyao": {
       "types": "./dist/divination/algorithms/liuyao.d.ts",
@@ -281,6 +297,10 @@
     "./location": {
       "types": "./dist/location/index.d.ts",
       "import": "./dist/location/index.js"
+    },
+    "./minglu": {
+      "types": "./dist/minglu/index.d.ts",
+      "import": "./dist/minglu/index.js"
     },
     "./types": {
       "types": "./dist/types/index.d.ts",

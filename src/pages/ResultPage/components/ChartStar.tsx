@@ -1,4 +1,6 @@
+import React from 'react';
 import type { PalaceFact } from '@/types/analysis';
+import { useMetaphysicsTermModal } from '@/components/TermExplanationModal';
 
 type ChartStarTone = 'major' | 'minor' | 'other' | 'scope';
 
@@ -11,12 +13,18 @@ function getMutagenToneClass(mutagen: string): string {
 
 export function ChartStar(props: { star: PalaceFact['major_stars'][number]; tone: ChartStarTone }) {
   const { star, tone } = props;
+  const { openTerm } = useMetaphysicsTermModal();
 
   return (
     <span
       className={`chart-star chart-star-${tone} ${
         star.birth_mutagen ? 'has-birth-mutagen' : ''
-      } ${star.active_scope_mutagen ? 'has-active-mutagen' : ''}`}
+      } ${star.active_scope_mutagen ? 'has-active-mutagen' : ''} is-clickable-term`}
+      onClick={(e) => {
+        e.stopPropagation();
+        openTerm(star.name);
+      }}
+      title={`点击查看【${star.name}】释义`}
     >
       <span className="chart-star-name">{star.name}</span>
       {star.brightness ? (
@@ -26,24 +34,36 @@ export function ChartStar(props: { star: PalaceFact['major_stars'][number]; tone
       ) : null}
       {star.birth_mutagen ? (
         <span
-          className={`chart-star-mark chart-star-mark-birth ${getMutagenToneClass(star.birth_mutagen)}`}
+          className={`chart-star-mark chart-star-mark-birth ${getMutagenToneClass(star.birth_mutagen)} is-clickable-term`}
           aria-label={`生年四化${star.birth_mutagen}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            openTerm(`化${star.birth_mutagen}`);
+          }}
         >
           {star.birth_mutagen}
         </span>
       ) : null}
       {star.horoscope_mutagen ? (
         <span
-          className={`chart-star-mark chart-star-mark-horoscope ${getMutagenToneClass(star.horoscope_mutagen)}`}
+          className={`chart-star-mark chart-star-mark-horoscope ${getMutagenToneClass(star.horoscope_mutagen)} is-clickable-term`}
           aria-label={`运限星曜四化${star.horoscope_mutagen}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            openTerm(`化${star.horoscope_mutagen}`);
+          }}
         >
           {star.horoscope_mutagen}
         </span>
       ) : null}
       {star.active_scope_mutagen ? (
         <span
-          className={`chart-star-mark chart-star-mark-active ${getMutagenToneClass(star.active_scope_mutagen)}`}
+          className={`chart-star-mark chart-star-mark-active ${getMutagenToneClass(star.active_scope_mutagen)} is-clickable-term`}
           aria-label={`当前时限四化${star.active_scope_mutagen}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            openTerm(`化${star.active_scope_mutagen}`);
+          }}
         >
           {star.active_scope_mutagen}
         </span>

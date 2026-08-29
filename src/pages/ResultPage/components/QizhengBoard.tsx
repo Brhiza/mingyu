@@ -1,5 +1,6 @@
-import { memo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import type { QizhengAspect, QizhengResult, QizhengStar } from 'mingyu-core/qizheng';
+import { getQizhengStarClassic } from 'mingyu-core/classics';
 
 const SIGN_INDEXES = Array.from({ length: 12 }, (_, index) => index);
 const STAR_STYLES: Array<{ match: string; symbol: string; color: string }> = [
@@ -286,6 +287,37 @@ export const QizhengBoard = memo(function QizhengBoard({
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="traditional-classic-card qizheng-classic-card">
+        <div
+          className="traditional-classic-head"
+          onClick={() => setClassicsExpanded(!classicsExpanded)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setClassicsExpanded(!classicsExpanded);
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <div>
+            <span className="traditional-classic-badge">果老星宗</span>
+            <strong>七政四余十一曜 · 典籍要义</strong>
+          </div>
+          <span className="traditional-classic-toggle">
+            {classicsExpanded ? '收起典籍 ▴' : '展开典籍 ▾'}
+          </span>
+        </div>
+        {classicsExpanded ? (
+          <div className="traditional-classic-body">
+            <p className="traditional-classic-verse">
+              日丽中天为至尊，月为夜明富贵温。岁星木德延年寿，荧惑刚烈威武存。
+              镇星持重基业稳，太白文章锦绣春。辰星机变通文史，四余紫炁道根深。
+            </p>
+            <p className="traditional-classic-advice">
+              【十一曜原典】日月为天地之精，五星为经世之曜，紫炁、月孛、罗睺、计都四余为神煞枢机。凡看七政四余，首重心性落度与主客吊照。
+            </p>
+          </div>
+        ) : null}
       </div>
     </section>
   );
