@@ -156,6 +156,97 @@ function TraditionalMeta(props: { items: Array<[string, string | number | undefi
   );
 }
 
+type DivinationMetaTableProps = {
+  question?: string;
+  dateStr?: string;
+  methodLabel?: string;
+  ganzhi?: {
+    year: string;
+    month: string;
+    day: string;
+    hour: string;
+  };
+  voidBranches?: readonly string[];
+  extraRows?: Array<{
+    label: string;
+    value: ReactNode;
+  }>;
+};
+
+function DivinationMetaTable({
+  question,
+  dateStr,
+  methodLabel,
+  ganzhi,
+  voidBranches,
+  extraRows = [],
+}: DivinationMetaTableProps) {
+  const scalarRows = [
+    { label: '占事', value: question, valueClassName: 'is-question' },
+    { label: '日期', value: dateStr },
+    { label: '起课法', value: methodLabel },
+    {
+      label: '旬空',
+      value: voidBranches?.filter(Boolean).join('、'),
+    },
+  ].filter((row) => row.value !== undefined && row.value !== '');
+  const visibleExtraRows = extraRows.filter(
+    (row) => row.value !== undefined && row.value !== null && row.value !== '',
+  );
+
+  return (
+    <div className="liuyao-meta-table" role="table" aria-label="起课基本信息">
+      {scalarRows.map((row) => (
+        <div className="liuyao-meta-row" role="row" key={row.label}>
+          <div className="liuyao-meta-cell is-label" role="rowheader">
+            {row.label}
+          </div>
+          <div
+            className={`liuyao-meta-cell is-value${row.valueClassName ? ` ${row.valueClassName}` : ''}`}
+            role="cell"
+          >
+            {row.value}
+          </div>
+        </div>
+      ))}
+
+      {ganzhi ? (
+        <div className="liuyao-meta-row is-quad-row" role="row">
+          <div className="liuyao-meta-cell is-label" role="rowheader">
+            四柱
+          </div>
+          <div className="liuyao-meta-cell is-value is-quad-values" role="cell">
+            {(
+              [
+                ['年柱', ganzhi.year],
+                ['月柱', ganzhi.month],
+                ['日柱', ganzhi.day],
+                ['时柱', ganzhi.hour],
+              ] as const
+            ).map(([label, value]) => (
+              <span className="quad-item" key={label}>
+                <small className="quad-label">{label}</small>
+                <strong className="quad-val">{value}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {visibleExtraRows.map((row) => (
+        <div className="liuyao-meta-row" role="row" key={row.label}>
+          <div className="liuyao-meta-cell is-label" role="rowheader">
+            {row.label}
+          </div>
+          <div className="liuyao-meta-cell is-value" role="cell">
+            {row.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TraditionalFacts(props: {
   items: Array<[string, string | number | undefined | null]>;
   className?: string;
@@ -3427,7 +3518,9 @@ export function LiurenTraditionalBoard({
       <DivinationMetaTable
         question={session?.question}
         dateStr={
-          session?.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : '起课时间'
+          Number.isFinite(data.timestamp)
+            ? new Date(data.timestamp).toLocaleString('zh-CN')
+            : undefined
         }
         methodLabel="大六壬正时起课"
         ganzhi={data.ganzhi}
