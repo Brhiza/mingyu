@@ -3,8 +3,23 @@ import test from 'node:test';
 
 import { AspectType, calculateChart } from 'celestine';
 
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { generateAstrolabe, computeOsculatingLunarPoints } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeAspect, AstrolabeBirthInput, AstrolabePoint } from 'mingyu-core/types';
+
+const SIGN_NAME_ORDER = [
+  'Aries',
+  'Taurus',
+  'Gemini',
+  'Cancer',
+  'Leo',
+  'Virgo',
+  'Libra',
+  'Scorpio',
+  'Sagittarius',
+  'Capricorn',
+  'Aquarius',
+  'Pisces',
+] as const;
 
 const PLANET_LABELS: Record<string, string> = {
   Sun: '太阳',
@@ -74,6 +89,23 @@ function chineseSign(name: string): string {
 
 function chineseAspect(type: string): string {
   return ASPECT_LABELS[type] ?? type;
+}
+
+function houseForLongitude(
+  cusps: readonly { house: number; longitude: number }[],
+  longitude: number,
+): number {
+  const sorted = [...cusps].sort((a, b) => a.house - b.house);
+  for (let index = 0; index < sorted.length; index += 1) {
+    const current = sorted[index];
+    const next = sorted[(index + 1) % sorted.length];
+    const span = (((next.longitude - current.longitude) % 360) + 360) % 360 || 360;
+    const offset = (((longitude - current.longitude) % 360) + 360) % 360;
+    if (offset < span) {
+      return current.house;
+    }
+  }
+  return sorted[0]?.house ?? 0;
 }
 
 function assertSamePoint(
@@ -365,9 +397,47 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现 celestine 原生�
       })),
     ];
 
-    assert.equal(result.planets.length, expectedPoints.length, `${sample.scope}星体数量`);
-    for (let index = 0; index < expectedPoints.length; index += 1) {
-      assertSamePoint(result.planets[index], expectedPoints[index], `${sample.scope}星体${index}`);
+    // 真莉莉丝与真交点不再复现 celestine 原生值（其级数误差过大），
+    // 改以月球交切轨道重算值为金标，与 generateAstrolabe 的修正保持一致。
+    const oscUtc = chart.calculated.utcDateTime;
+    const osculating = computeOsculatingLunarPoints(
+      new Date(
+        Date.UTC(
+          oscUtc.year,
+          oscUtc.month - 1,
+          oscUtc.day,
+          oscUtc.hour,
+          oscUtc.minute,
+          oscUtc.second ?? 0,
+        ),
+      ),
+    );
+    const correctedLongitudes: Record<string, number> = {
+      'True Lilith': osculating.trueLilithLongitude,
+      'North Node': osculating.trueNorthNodeLongitude,
+      'South Node': (osculating.trueNorthNodeLongitude + 180) % 360,
+    };
+    const correctedPoints = expectedPoints.map((point) => {
+      const correctedLongitude = correctedLongitudes[point.name];
+      if (correctedLongitude === undefined) {
+        return point;
+      }
+      const normalized = ((correctedLongitude % 360) + 360) % 360;
+      const signIndex = Math.floor(normalized / 30);
+      const degreeInSign = normalized - signIndex * 30;
+      return {
+        ...point,
+        longitude: normalized,
+        signName: SIGN_NAME_ORDER[signIndex],
+        degree: Math.floor(degreeInSign),
+        minute: Math.floor((degreeInSign - Math.floor(degreeInSign)) * 60),
+        house: houseForLongitude(chart.houses.cusps, normalized),
+      };
+    });
+
+    assert.equal(result.planets.length, correctedPoints.length, `${sample.scope}星体数量`);
+    for (let index = 0; index < correctedPoints.length; index += 1) {
+      assertSamePoint(result.planets[index], correctedPoints[index], `${sample.scope}星体${index}`);
       pointChecked += 1;
     }
 

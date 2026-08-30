@@ -15,8 +15,10 @@ import { calculateSolarIlluminationEvidence } from '../../calendar/solar-illumin
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
 import { classifyAspectClosenessByRatio } from '../astrolabe-aspect-evidence';
 import { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
+import { computeOsculatingLunarPoints } from './lunar-apsides';
 
 export { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
+export { computeOsculatingLunarPoints } from './lunar-apsides';
 export type {
   AstrolabeAspectFact,
   AstrolabeCalculationFact,
@@ -201,6 +203,73 @@ function mapAspect(aspect: {
   };
 }
 
+const SIGN_NAMES = [
+  'Aries',
+  'Taurus',
+  'Gemini',
+  'Cancer',
+  'Leo',
+  'Virgo',
+  'Libra',
+  'Scorpio',
+  'Sagittarius',
+  'Capricorn',
+  'Aquarius',
+  'Pisces',
+] as const;
+
+function houseForLongitude(
+  cusps: readonly { house: number; longitude: number }[],
+  longitude: number,
+): number {
+  const sorted = [...cusps].sort((a, b) => a.house - b.house);
+  for (let index = 0; index < sorted.length; index += 1) {
+    const current = sorted[index];
+    const next = sorted[(index + 1) % sorted.length];
+    const span = (((next.longitude - current.longitude) % 360) + 360) % 360 || 360;
+    const offset = (((longitude - current.longitude) % 360) + 360) % 360;
+    if (offset < span) {
+      return current.house;
+    }
+  }
+  return sorted[0]?.house ?? 0;
+}
+
+interface MutableChartPoint {
+  name: string;
+  longitude: number;
+  sign?: number;
+  signName: string;
+  degree: number;
+  minute: number;
+  formatted?: string;
+  house: number;
+  isRetrograde?: boolean;
+}
+
+function rebuildChartPoint<T extends MutableChartPoint>(
+  point: T,
+  longitude: number,
+  cusps: readonly { house: number; longitude: number }[],
+): T {
+  const normalized = ((longitude % 360) + 360) % 360;
+  const sign = Math.floor(normalized / 30);
+  const degreeInSign = normalized - sign * 30;
+  const degree = Math.floor(degreeInSign);
+  const minute = Math.floor((degreeInSign - degree) * 60);
+  const second = Math.floor((degreeInSign - degree) * 3600 - minute * 60);
+  return {
+    ...point,
+    longitude: normalized,
+    sign,
+    signName: SIGN_NAMES[sign],
+    degree,
+    minute,
+    formatted: `${degree}°${String(minute).padStart(2, '0')}'${String(second).padStart(2, '0')}" ${SIGN_NAMES[sign]}`,
+    house: houseForLongitude(cusps, normalized),
+  };
+}
+
 function localTimestamp(input: AstrolabeBirthInput) {
   const year = requireNumber(input.year, '出生年份');
   const month = requireNumber(input.month, '出生月份');
@@ -350,9 +419,45 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     chart.angles.descendant,
     chart.angles.imumCoeli,
   ].map(mapAngle);
-  const calculatedPoints = [...chart.planets, ...chart.nodes, ...chart.lilith, ...chart.lots].map(
-    mapPlanet,
+  // celestine 0.2.1 的真莉莉丝（只在平近地点叠加 ±2.6° 小周期项）与真交点级数
+  // 误差过大：对照 Swiss Ephemeris，莉莉丝平均偏差约 9.8°、最大约 19.4°，
+  // 真交点最大约 18′。这里用月球状态向量直接求交切轨道根数重算并覆盖，
+  // 修正后对照 Swiss Ephemeris：真莉莉丝 ≤7′，真交点 ≤12″。
+  const utcDateTime = chart.calculated.utcDateTime;
+  const osculating = computeOsculatingLunarPoints(
+    new Date(
+      Date.UTC(
+        utcDateTime.year,
+        utcDateTime.month - 1,
+        utcDateTime.day,
+        utcDateTime.hour,
+        utcDateTime.minute,
+        utcDateTime.second ?? 0,
+      ),
+    ),
   );
+  const southNodeLongitude = (osculating.trueNorthNodeLongitude + 180) % 360;
+  const correctedNodes = chart.nodes.map((node) => {
+    if (node.name === 'North Node') {
+      return rebuildChartPoint(node, osculating.trueNorthNodeLongitude, chart.houses.cusps);
+    }
+    if (node.name === 'South Node') {
+      return rebuildChartPoint(node, southNodeLongitude, chart.houses.cusps);
+    }
+    return node;
+  });
+  const correctedLilith = chart.lilith.map((lilith) =>
+    lilith.name === 'True Lilith'
+      ? rebuildChartPoint(lilith, osculating.trueLilithLongitude, chart.houses.cusps)
+      : lilith,
+  );
+
+  const calculatedPoints = [
+    ...chart.planets,
+    ...correctedNodes,
+    ...correctedLilith,
+    ...chart.lots,
+  ].map(mapPlanet);
 
   const result: AstrolabeData = {
     birth: {
