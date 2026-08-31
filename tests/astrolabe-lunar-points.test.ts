@@ -109,3 +109,40 @@ test('真莉莉丝修正后不应再出现整星座级别的错位', () => {
   const diff = angularDifferenceDeg(lilith.longitude, 359.9288);
   assert.ok(diff <= LILITH_TOLERANCE_DEG, `真莉莉丝偏差 ${diff.toFixed(4)}° 超出容差`);
 });
+
+test('相位与格局证据应使用修正后的真莉莉丝和真交点黄经', () => {
+  const astrolabe = generateAstrolabe({
+    ...baseInput,
+    year: '1949',
+    month: '10',
+    day: '1',
+    hour: '15',
+    minute: '0',
+  });
+  const pointsByLabel = new Map(astrolabe.planets.map((point) => [point.label, point]));
+
+  for (const aspect of astrolabe.aspects) {
+    const point1 = pointsByLabel.get(aspect.body1);
+    const point2 = pointsByLabel.get(aspect.body2);
+    assert.ok(point1, `相位主体 ${aspect.body1} 应存在于最终星体列表`);
+    assert.ok(point2, `相位主体 ${aspect.body2} 应存在于最终星体列表`);
+    assert.notEqual(aspect.actualAngle, undefined, '相位应保留实际夹角');
+    assert.notEqual(aspect.exactAngle, undefined, '相位应保留精确角');
+
+    const actualAngle = angularDifferenceDeg(point1.longitude, point2.longitude);
+    assert.ok(
+      Math.abs((aspect.actualAngle as number) - actualAngle) <= 0.0001,
+      `${aspect.body1}${aspect.symbol}${aspect.body2} 的实际夹角必须由最终黄经计算`,
+    );
+    const expectedOrb = Number(Math.abs(actualAngle - (aspect.exactAngle as number)).toFixed(2));
+    assert.equal(aspect.orb, expectedOrb, '相位容许度必须与最终黄经和精确角一致');
+  }
+
+  const falseConjunction = astrolabe.aspects.find(
+    (aspect) =>
+      aspect.type === '合相' &&
+      new Set([aspect.body1, aspect.body2]).has('北交点') &&
+      new Set([aspect.body1, aspect.body2]).has('莉莉丝'),
+  );
+  assert.equal(falseConjunction, undefined, '相差约 16.85° 的北交点与莉莉丝不得沿用旧黄经误报合相');
+});

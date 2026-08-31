@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { AspectType, calculateChart } from 'celestine';
+import { AspectType, calculateAspects, calculateChart } from 'celestine';
 
 import { generateAstrolabe, computeOsculatingLunarPoints } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeAspect, AstrolabeBirthInput, AstrolabePoint } from 'mingyu-core/types';
@@ -434,6 +434,27 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现 celestine 原生�
         house: houseForLongitude(chart.houses.cusps, normalized),
       };
     });
+    const correctedAspectBodies = chart.planets.map((planet) => ({
+      name: planet.name,
+      longitude: planet.longitude,
+      longitudeSpeed: planet.longitudeSpeed,
+    }));
+    correctedAspectBodies.push(
+      {
+        name: 'True North Node',
+        longitude: osculating.trueNorthNodeLongitude,
+        longitudeSpeed: 0,
+      },
+      {
+        name: 'True Lilith',
+        longitude: osculating.trueLilithLongitude,
+        longitudeSpeed: 0,
+      },
+    );
+    const correctedAspects = calculateAspects(correctedAspectBodies, {
+      orbs: chart.options.aspectOrbs,
+      minimumStrength: chart.options.minimumAspectStrength,
+    }).aspects.filter((aspect) => chart.options.aspectTypes.includes(aspect.type));
 
     assert.equal(result.planets.length, correctedPoints.length, `${sample.scope}星体数量`);
     for (let index = 0; index < correctedPoints.length; index += 1) {
@@ -480,12 +501,12 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现 celestine 原生�
       ]),
     );
     const expectedAspectsByKey = new Map(
-      chart.aspects.all.map((aspect) => [
+      correctedAspects.map((aspect) => [
         `${chineseBody(aspect.body1)}\u0000${chineseBody(aspect.body2)}\u0000${chineseAspect(aspect.type)}`,
         aspect,
       ]),
     );
-    assert.equal(result.aspects.length, chart.aspects.all.length, `${sample.scope}相位数量`);
+    assert.equal(result.aspects.length, correctedAspects.length, `${sample.scope}相位数量`);
     for (const [key, expected] of expectedAspectsByKey) {
       const actual = actualAspectsByKey.get(key);
       assert.ok(actual, `${sample.scope}相位 ${expected.body1} ${expected.type} ${expected.body2}`);
@@ -503,5 +524,5 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现 celestine 原生�
   assert.equal(checked, 18);
   assert.equal(pointChecked, 432);
   assert.equal(houseChecked, 216);
-  assert.equal(aspectChecked, 551);
+  assert.equal(aspectChecked, 539);
 });

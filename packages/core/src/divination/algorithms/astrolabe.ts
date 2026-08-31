@@ -2,7 +2,7 @@
  * @file 西洋星盘算法
  * @传统依据 现代西方占星通行的本命、宫位、相位与行运定义；星体位置采用现代天文星历计算资料。
  */
-import { AspectType, calculateChart } from 'celestine';
+import { AspectType, calculateAspects, calculateChart, findPatterns } from 'celestine';
 import type {
   AstrolabeAspect,
   AstrolabeBirthInput,
@@ -452,6 +452,37 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       : lilith,
   );
 
+  // 相位必须以最终输出的黄经为准。celestine 在 calculateChart 内部先用其原始
+  // 真交点/真莉莉丝计算相位；若只覆盖点位，相位角、容许度、格局与证据会继续
+  // 引用旧黄经，导致同一份结果自相矛盾。这里沿用 celestine 原有星体范围、
+  // 容许度、强度门槛和节点/莉莉丝零速度口径，基于修正后点位完整重算。
+  const correctedAspectBodies = chart.planets.map((planet) => ({
+    name: planet.name,
+    longitude: planet.longitude,
+    longitudeSpeed: planet.longitudeSpeed,
+  }));
+  correctedNodes.forEach((node) => {
+    if (node.name.includes('North')) {
+      correctedAspectBodies.push({
+        name: `${node.type} ${node.name}`,
+        longitude: node.longitude,
+        longitudeSpeed: 0,
+      });
+    }
+  });
+  correctedLilith.forEach((lilith) => {
+    correctedAspectBodies.push({
+      name: lilith.name,
+      longitude: lilith.longitude,
+      longitudeSpeed: 0,
+    });
+  });
+  const correctedAspects = calculateAspects(correctedAspectBodies, {
+    orbs: chart.options.aspectOrbs,
+    minimumStrength: chart.options.minimumAspectStrength,
+  }).aspects.filter((aspect) => chart.options.aspectTypes.includes(aspect.type));
+  const correctedPatterns = chart.options.includePatterns ? findPatterns(correctedAspects) : [];
+
   const calculatedPoints = [
     ...chart.planets,
     ...correctedNodes,
@@ -507,7 +538,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       house: cusp.house,
       formatted: formatPosition(cusp.signName, cusp.degree, cusp.minute),
     })),
-    aspects: [...chart.aspects.all].sort((a, b) => b.strength - a.strength).map(mapAspect),
+    aspects: correctedAspects.map(mapAspect),
     solarIllumination,
     summary: {
       elements: {
@@ -522,7 +553,9 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         变动: chart.summary.modalities.mutable.map((item) => PLANET_LABELS[item] ?? item),
       },
       retrograde: chart.summary.retrograde.map((item) => PLANET_LABELS[item] ?? item),
-      patterns: [...new Set(chart.summary.patterns.map((item) => item.trim()).filter(Boolean))],
+      patterns: [
+        ...new Set(correctedPatterns.map((pattern) => pattern.type.trim()).filter(Boolean)),
+      ],
     },
     timestamp: Date.now(),
   };
