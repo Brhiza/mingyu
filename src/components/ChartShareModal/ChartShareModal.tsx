@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
 import { shareText } from '@/utils/share-text';
 import { readPreferredAndroidAiApp } from '@/lib/android-ai-app';
@@ -55,7 +55,7 @@ export function ChartShareModal({
     try {
       const result = await shareText(chartText);
       if (result.type === 'app') {
-        setShareMsg(`已发送至 ${result.targetApp.label}`);
+        setShareMsg(`已发送至 ${result.label}`);
       } else if (result.type === 'system') {
         setShareMsg('已调起系统分享');
       } else {
