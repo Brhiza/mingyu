@@ -1,11 +1,4 @@
-import React, {
-  memo,
-  useCallback,
-  useMemo,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
+import { memo, useCallback, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   filterCommonBaziShenSha,
   getShenShaType,
@@ -621,10 +614,10 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   }, [dayMasterGan]);
 
   const zipingAdvice = useMemo(() => {
-    const pattern = result.pattern?.name || result.pattern?.type;
+    const pattern = result.analysis.mingGe.pattern;
     if (!pattern) return undefined;
     return getBaziZipingPatternAdvice(pattern);
-  }, [result.pattern]);
+  }, [result.analysis.mingGe.pattern]);
 
   const missingElements = uniqueNonEmptyStrings(result.wuxingStrength.missing);
   const warnings = uniqueNonEmptyStrings(result.warnings);
@@ -865,9 +858,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           {isInstant && timeBasisLabel ? (
             <span className="result-chip is-accent">{timeBasisLabel}</span>
           ) : null}
-          {result.timeInfo.isTrueSolarTime ? (
-            <span className="result-chip">真太阳时校正</span>
-          ) : null}
+          {result.timing?.enabled ? <span className="result-chip">真太阳时校正</span> : null}
         </div>
       </div>
 
@@ -1029,7 +1020,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
                 className="traditional-classic-badge is-clickable-term"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleOpenTerm('天干五合');
+                  handleOpenBaziTerm('天干五合');
                 }}
               >
                 命理枢机
@@ -1047,7 +1038,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
                   <div
                     className={`bazi-interaction-card is-${item.tone} is-clickable-term`}
                     key={item.id}
-                    onClick={() => handleOpenTerm(item.category || item.name)}
+                    onClick={() => handleOpenBaziTerm(item.category || item.name)}
                     title={`点击查看【${item.name}】释义`}
                   >
                     <div className="bazi-interaction-head">

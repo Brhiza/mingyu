@@ -1,4 +1,3 @@
-import React from 'react';
 import type { PalaceFact } from '@/types/analysis';
 import { useMetaphysicsTermModal } from '@/components/TermExplanationModal';
 
