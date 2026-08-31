@@ -2,7 +2,7 @@
  * @file 西洋星盘算法
  * @传统依据 现代西方占星通行的本命、宫位、相位与行运定义；星体位置采用现代天文星历计算资料。
  */
-import { AspectType, calculateChart } from 'celestine';
+import { AspectType, calculateChart } from '../../astrology/engine';
 import type {
   AstrolabeAspect,
   AstrolabeBirthInput,
@@ -196,7 +196,7 @@ function mapAspect(aspect: {
     closeness: classifyAspectClosenessByRatio(normalizedOrbRatio),
     normalizedOrbRatio,
     isOutOfSign: aspect.isOutOfSign,
-    source: 'celestine 本命相位计算；紧密等级按偏差占本次允许容许度的比例换算',
+    source: 'Caelus 星体位置与明御相位计算；紧密等级按偏差占本次允许容许度的比例换算',
     applying: aspect.isApplying,
   };
 }
@@ -338,7 +338,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         AspectType.Sesquiquadrate,
         AspectType.Biquintile,
       ],
-      // 相位强度过滤阈值（celestine 0-100 strength，基于容许度偏离）；
+      // 相位强度过滤阈值（0-100，基于容许度偏离）；
       // 调整需结合占星容许度口径评估，调低会纳入更多弱相位、调高会丢失有效相位。
       minimumAspectStrength: 30,
     },

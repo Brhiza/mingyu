@@ -7,7 +7,7 @@ import {
   type ChartPlanet,
   type NatalPoint,
   type Transit,
-} from 'celestine';
+} from '../astrology/engine';
 export type AstrolabeScopeMode = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
 import type { AstrolabeData, AstrolabePoint } from '../types/divination';
 import {
@@ -546,7 +546,7 @@ function buildAdvancedAspectFacts(
             ownerFactKeys: [ownerStepKey],
             ownerStepKeys: [ownerStepKey],
             promptText: `${movingLabel}${aspect.name}${natalLabel}（实际夹角${aspect.actualAngle.toFixed(2)}°，精确角${aspect.angle}°，偏差${aspect.deviation.toFixed(2)}°，允许容许度${aspect.orb}°，${closeness}）`,
-            sources: ['celestine 推进或返照位置', '主要相位精确角与容许度表'],
+            sources: ['Caelus 推进或返照位置', '主要相位精确角与容许度表'],
             limitation: ADVANCED_ASPECT_LIMITATION,
           },
         ];
@@ -606,7 +606,7 @@ function buildAdvancedLimitationFacts(
             : types[index] === '数值精度边界'
               ? '数值搜索与取样精度说明'
               : types[index] === '星历模型边界'
-                ? 'celestine 星历模型'
+                ? 'Caelus 星历模型'
                 : '高级时限几何解释边界',
       ],
       limitation: ADVANCED_LIMITATION_FACT_LIMITATION,
@@ -668,7 +668,7 @@ export function calculateSecondaryProgressionEvidence(
   const technique: AstrolabeAdvancedTechnique = '次限推进';
   const techniqueKey = advancedTechniqueKey(technique);
   const birth = parseBirthDateTime(data);
-  const source = '次限一岁一日时间映射；celestine 推进位置与主要相位容许度表';
+  const source = '次限一岁一日时间映射；Caelus 推进位置与主要相位容许度表';
   const baseLimitations = ['出生时间或本命点资料不足时不生成次限相位。'];
   if (!birth) {
     const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
@@ -816,7 +816,7 @@ export function calculateSecondaryProgressionEvidence(
         inputs: { progressedDateTime: progressedDate.toISOString() },
         result: { selectedPlanetCount: progressed.length },
         promptText: `计算次限日期的太阳、月亮、水星、金星与火星位置，共${progressed.length}个点`,
-        sources: ['celestine 推进位置计算'],
+        sources: ['Caelus 推进位置计算'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
       {
@@ -937,7 +937,7 @@ export function calculateSolarArcEvidence(
   const techniqueKey = advancedTechniqueKey(technique);
   const birth = parseBirthDateTime(data);
   const natalSun = data.planets.find((planet) => planet.name === 'Sun');
-  const source = '太阳弧按推进太阳与本命太阳差值平移；celestine 位置与主要相位容许度表';
+  const source = '太阳弧按推进太阳与本命太阳差值平移；Caelus 位置与主要相位容许度表';
   if (!birth || !natalSun) {
     const limitations = ['出生时间或本命太阳资料不足，无法计算太阳弧。'];
     const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
@@ -1095,7 +1095,7 @@ export function calculateSolarArcEvidence(
         inputs: { progressedDateTime: progressedDate.toISOString() },
         result: { arcDegrees: Number(arc.toFixed(6)) },
         promptText: `由推进太阳与本命太阳经度差取得太阳弧${arc.toFixed(2)}°`,
-        sources: ['celestine 推进太阳位置', '本命太阳黄经'],
+        sources: ['Caelus 推进太阳位置', '本命太阳黄经'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
       {
@@ -1262,7 +1262,7 @@ export function calculateSolarReturnEvidence(
     coarseStepHours: 2,
     refinementToleranceMinutes: 1,
     refinementIterations: 0,
-    source: 'celestine 太阳黄经；先以 2 小时步长定位过零区间，再以二分法细化返照时刻',
+    source: 'Caelus 太阳黄经；先以 2 小时步长定位过零区间，再以二分法细化返照时刻',
   };
   const unavailableEvidence = (
     message: string,
@@ -1373,7 +1373,7 @@ export function calculateSolarReturnEvidence(
     }
     if (!best) {
       return unavailableEvidence('搜索窗口内未取得可用太阳位置。', '粗略搜索', [
-        'celestine 太阳位置搜索',
+        'Caelus 太阳位置搜索',
       ]);
     }
 
@@ -1439,7 +1439,7 @@ export function calculateSolarReturnEvidence(
         promptText: bracket
           ? '在生日附近前后48小时按2小时步长找到太阳黄经过零区间'
           : '前后48小时粗搜未找到过零区间，保留最接近的2小时取样点',
-        sources: ['celestine 太阳黄经粗略搜索'],
+        sources: ['Caelus 太阳黄经粗略搜索'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
       {
@@ -1471,7 +1471,7 @@ export function calculateSolarReturnEvidence(
           residualDegrees: Number(residualDegrees.toFixed(6)),
         },
         promptText: `计算返照时刻七颗主要星体位置，太阳黄经残差${residualDegrees.toFixed(6)}°`,
-        sources: ['celestine 返照星体位置'],
+        sources: ['Caelus 返照星体位置'],
         limitation: ADVANCED_STEP_LIMITATION,
       },
       {

@@ -56,7 +56,7 @@
   "dependencies": {
     "@capacitor/android": "8.5.0",
     "@capacitor/core": "8.5.0",
-    "celestine": "^0.2.1",
+    "caelus": "0.24.1",
     "iztro": "^2.5.8",
     "marked": "^16.4.2",
     "mingyu-core": "workspace:*",
