@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import type { QizhengAspect, QizhengResult, QizhengStar } from 'mingyu-core/qizheng';
 
 const SIGN_INDEXES = Array.from({ length: 12 }, (_, index) => index);
@@ -143,6 +143,7 @@ export const QizhengBoard = memo(function QizhengBoard({
   isInstant?: boolean;
   timeBasisLabel?: string;
 }) {
+  const [classicsExpanded, setClassicsExpanded] = useState(false);
   const strongestAspects = data.aspects.slice(0, 8);
   const ziqiStar = data.stars.find((star) => star.name.startsWith('紫炁'));
   return (

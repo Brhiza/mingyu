@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
   calculateQizhengMansionBoundaries,
@@ -10,6 +12,26 @@ import {
   longitudeToQizhengMansion,
   QIZHENG_SIGN_BRANCHES,
 } from '@core/qi_zheng';
+import { QizhengBoard } from '../src/pages/ResultPage/components/QizhengBoard';
+
+test('七政四余页面应能直接渲染并显示典籍折叠区', () => {
+  const data = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+
+  const html = renderToStaticMarkup(
+    createElement(QizhengBoard, { title: '七政四余', name: '测试命盘', data }),
+  );
+  assert.match(html, /七政四余十一曜/);
+  assert.match(html, /果老星宗/);
+});
 
 test('现代黄经宫序必须先换成传统宫支再查命主', () => {
   assert.deepEqual(QIZHENG_SIGN_BRANCHES, [

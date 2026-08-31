@@ -30,7 +30,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter mingyu-core build
-      - run: npx tsc --noEmit
+      - run: npx tsc --project tsconfig.app.json --noEmit
       - run: npx tsc --project mcp/tsconfig.json --noEmit
 
   test:

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { AnalysisPayloadV1 } from '@/types/analysis';
 import { getZiweiStarClassic } from 'mingyu-core/classics';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
