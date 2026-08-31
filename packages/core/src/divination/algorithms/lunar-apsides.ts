@@ -12,6 +12,13 @@
  */
 import * as AstronomyEngine from 'astronomy-engine';
 
+// astronomy-engine 在 Node 22 的 tsx 环境中可能以 default 暴露，浏览器和 Rollup
+// 则通常直接暴露具名导出；同时兼容两种模块形态。
+const astronomyNamespace = AstronomyEngine as unknown as Record<string, unknown>;
+const Astronomy = (Reflect.get(astronomyNamespace, 'default') ??
+  AstronomyEngine) as typeof AstronomyEngine;
+const { GeoMoonState, RotateState, Rotation_EQJ_ECT } = Astronomy;
+
 // 地月系引力常数 μ = G(M地球+M月球)，换算为 AU³/day²。
 // 两体交切轨道必须用地月总质量（与 Swiss Ephemeris 的 GEOGCONST*(1+1/81.300569) 一致）；
 // 只用地球质量会使远地点方向产生数度级偏差。
@@ -31,10 +38,10 @@ function normalize(lon: number): number {
 
 function moonOrbitVectors(utc: Date): { e: [number, number, number]; h: [number, number, number] } {
   // GeoMoonState 返回 J2000 平赤道系（EQJ）的月心地心状态向量（AU、AU/day）
-  const state = AstronomyEngine.GeoMoonState(utc);
+  const state = GeoMoonState(utc);
   // 旋转到当日真黄道系（ECT），与占星黄经口径一致
-  const rotation = AstronomyEngine.Rotation_EQJ_ECT(utc);
-  const s = AstronomyEngine.RotateState(rotation, state);
+  const rotation = Rotation_EQJ_ECT(utc);
+  const s = RotateState(rotation, state);
   const r = [s.x, s.y, s.z];
   const v = [s.vx, s.vy, s.vz];
 
