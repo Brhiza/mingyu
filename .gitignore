@@ -9,6 +9,7 @@ dist/
 server-dist/
 packages/core/src/location/china-data.js
 packages/core/src/astrology/vendor/caelus/*_cheb.js
+packages/core/src/astrology/vendor/caelus/embedded-data.js
 
 # TypeScript 增量编译缓存
 *.tsbuildinfo

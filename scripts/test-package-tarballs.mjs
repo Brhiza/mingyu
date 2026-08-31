@@ -17,9 +17,9 @@ import { spawnSync } from 'node:child_process';
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const coreDirectory = join(repositoryRoot, 'packages', 'core');
 const pnpmEntry = process.env.npm_execpath;
-// 四小行星的固定 JPL Chebyshev 数据约增加 0.3 MB 压缩体积；仍保留明确上限，
+// 四小行星与兼容边缘运行时的固定星历数据约增加 0.45 MB 压缩体积；仍保留明确上限，
 // 防止后续依赖或构建产物无意混入发布包。
-const CORE_TARBALL_MAX_BYTES = 2_000_000;
+const CORE_TARBALL_MAX_BYTES = 2_100_000;
 const FULL_BROWSER_BUNDLE_MAX_BYTES = 4_000_000;
 
 if (!pnpmEntry) {

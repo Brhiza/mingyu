@@ -16,7 +16,7 @@ import {
   type ChartBody as CaelusChartBody,
   type EngineData,
 } from 'caelus';
-import { embeddedData } from 'caelus/data-embedded';
+import { embeddedData } from './vendor/caelus/embedded-data.js';
 import ceresPack from './vendor/caelus/ceres_cheb.js';
 import junoPack from './vendor/caelus/juno_cheb.js';
 import pallasPack from './vendor/caelus/pallas_cheb.js';
