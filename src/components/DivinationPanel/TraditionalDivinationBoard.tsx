@@ -1848,7 +1848,7 @@ function QimenTraditionalBoard({
     data.scope ?? 'hour'
   ];
   const patternCounts = new Map<string, number>();
-  data.patterns.forEach((item) => {
+  data.patternTags?.forEach((item) => {
     const label = item.split(/[（(]/u)[0]?.trim();
     if (label) patternCounts.set(label, (patternCounts.get(label) ?? 0) + 1);
   });
