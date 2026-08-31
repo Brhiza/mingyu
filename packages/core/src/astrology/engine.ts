@@ -17,10 +17,10 @@ import {
   type EngineData,
 } from 'caelus';
 import { embeddedData } from 'caelus/data-embedded';
-import ceresPack from './vendor/caelus/ceres_cheb.json' with { type: 'json' };
-import junoPack from './vendor/caelus/juno_cheb.json' with { type: 'json' };
-import pallasPack from './vendor/caelus/pallas_cheb.json' with { type: 'json' };
-import vestaPack from './vendor/caelus/vesta_cheb.json' with { type: 'json' };
+import ceresPack from './vendor/caelus/ceres_cheb.js';
+import junoPack from './vendor/caelus/juno_cheb.js';
+import pallasPack from './vendor/caelus/pallas_cheb.js';
+import vestaPack from './vendor/caelus/vesta_cheb.js';
 
 export const ASTROLOGY_ENGINE_MODEL = {
   provider: 'caelus',

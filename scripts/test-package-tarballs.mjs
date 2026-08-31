@@ -99,7 +99,7 @@ try {
   assert.equal(existsSync(join(consumerDirectory, 'node_modules', 'mingyu-location-china')), false);
   assert.equal(existsSync(join(consumerDirectory, 'node_modules', 'iztro')), false);
   assert.equal(installedCoreManifest.sideEffects, false);
-  assert.equal(installedCoreManifest.engines.node, '>=18.20.0');
+  assert.equal(installedCoreManifest.engines.node, '>=18');
   for (const [subpath, target] of Object.entries(installedCoreManifest.exports)) {
     assert.deepEqual(
       Object.keys(target).slice(0, 2),

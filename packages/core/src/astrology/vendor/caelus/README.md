@@ -1,7 +1,8 @@
 # Caelus 小行星数据
 
-本目录固定保存 `caelus` 为谷神星、智神星、婚神星与灶神星生成的 JPL Horizons
-Chebyshev 数据包，使 `mingyu-core` 在浏览器、Node 和边缘运行时使用相同星历。
+本目录提供 `caelus` 为谷神星、智神星、婚神星与灶神星生成的 JPL Horizons
+Chebyshev 数据模块；构建时由 `data/astrology/caelus` 的固定源数据生成，使
+`mingyu-core` 在浏览器、Node 和边缘运行时使用相同星历。
 
 - 上游：`https://github.com/heavyblotto/caelus`
 - 固定提交：`dd3461d209b674b1f9b5b3e7a43be86aa6cfaed5`

@@ -46,7 +46,7 @@ yarn add mingyu-core
 依赖说明：
 
 - `tyme4ts`、`astronomy-engine`、`Caelus` 与 `@soul-atelier/xuankong` 是正式依赖，安装 `mingyu-core` 时会自动安装。星盘通过包内适配层调用 Caelus，并固定附带四小行星星历数据。
-- Node.js 最低版本为 18.20.0；浏览器项目继续支持 Vite、Webpack 等现代构建工具。
+- Node.js 最低版本为 18；浏览器项目继续支持 Vite、Webpack 等现代构建工具。
 - `iztro` 是可选的 peer dependency；只有使用紫微斗数能力时才需要另行安装：`pnpm add iztro`。
 - 中国省市区地点树和经度数据已内置，可直接用于出生地级联选择和真太阳时校正。
 
