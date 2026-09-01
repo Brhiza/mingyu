@@ -1,7 +1,7 @@
 {
   "name": "mingyu",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "免费开源的在线算命、占卜、玄学排盘与 AI 解读提示词工具",
   "keywords": [
     "算命",
