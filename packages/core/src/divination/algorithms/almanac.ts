@@ -45,6 +45,7 @@ interface AlmanacGodSource {
   getLuck(): { getName(): string };
 }
 import { analyzeAlmanacEvidence, classifyAlmanacCandidate } from '../almanac-evidence';
+import { buildAlmanacEvidenceTrail } from '../almanacEvidence';
 
 export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   move: '搬家入宅',
@@ -960,7 +961,7 @@ export function generateAlmanacSelection(params: {
     timestamp: Date.now(),
   };
   const evidenceAnalysis = analyzeAlmanacEvidence(result);
-  return { ...result, evidenceAnalysis };
+  return { ...result, evidenceAnalysis, evidenceTrail: buildAlmanacEvidenceTrail(result) };
 }
 
 export { analyzeAlmanacEvidence, conditionAlmanacTraditionalText } from '../almanac-evidence';

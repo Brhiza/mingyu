@@ -1014,6 +1014,8 @@ export interface AlmanacHourCandidate {
 export interface AlmanacData {
   /** 日期约束、传统宜忌、参与人冲突、时辰条件与现实限制。 */
   evidenceAnalysis?: import('../divination/almanac-evidence').AlmanacEvidenceAnalysis;
+  /** 择日排盘四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
   topic: AlmanacTopic;
   topicLabel: string;
   startDate: string;
@@ -1125,6 +1127,8 @@ export interface AstrolabeAspect {
 export interface AstrolabeData {
   /** 星体、四轴、相位、反证、计算链与解释限制。 */
   evidenceAnalysis?: import('../divination/astrolabe-evidence').AstrolabeEvidenceAnalysis;
+  /** 排盘四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
   birth: {
     name: string;
     gender: AlmanacParticipantGender;

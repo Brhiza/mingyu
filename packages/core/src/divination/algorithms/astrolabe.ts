@@ -15,6 +15,7 @@ import { calculateSolarIlluminationEvidence } from '../../calendar/solar-illumin
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
 import { classifyAspectClosenessByRatio } from '../astrolabe-aspect-evidence';
 import { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
+import { buildAstrolabeEvidenceTrail } from '../astrolabeEvidence';
 
 export { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
 export type {
@@ -422,5 +423,6 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     timestamp: Date.now(),
   };
   result.evidenceAnalysis = analyzeAstrolabeEvidence(result);
+  result.evidenceTrail = buildAstrolabeEvidenceTrail(result);
   return result;
 }
