@@ -11,7 +11,7 @@
 | 路由       | React Router 7                            |
 | 包管理     | pnpm workspace                            |
 | 部署       | Cloudflare Pages、Pages Functions、Docker |
-| 历法与星盘 | `tyme4ts`、`iztro`、`celestine`           |
+| 历法与星盘 | `tyme4ts`、`iztro`、`Caelus`              |
 | 数据校验   | `zod`                                     |
 | 测试       | Node.js 原生测试运行器                    |
 | AI 集成    | MCP Server、OpenAPI、Agent Skill          |

@@ -2,7 +2,7 @@
  * @file 月相与朔望时刻证据
  * @description 由日月地心黄经差计算月相角、照明比例，并求取前后四正月相时刻。
  */
-import { getMoonPosition, getSunPosition } from 'celestine';
+import { getMoonPosition, getSunPosition } from '../astrology/engine';
 
 const SYNODIC_MONTH_DAYS = 29.530588861;
 const MEAN_PHASE_SPEED_DEGREES_PER_DAY = 360 / SYNODIC_MONTH_DAYS;
@@ -46,7 +46,7 @@ export interface PrincipalMoonPhaseEvent {
 }
 
 const PRINCIPAL_PHASE_SOURCES = [
-  'celestine 日月地心黄经',
+  'Caelus 日月地心黄经',
   '平均朔望月29.530588861日初值与二分求根',
 ] as const;
 
@@ -258,7 +258,7 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
   const events = nearestPrincipalEvents(utcTimestamp, phaseAngleDegrees);
   const method =
     '以日月地心黄经差计算 0-360° 月相角；照明比例采用 (1-cos相位角)/2；前后朔弦望按平均朔望月估计初值后二分求根至 1 秒区间';
-  const source = '日月黄经由 celestine 星历计算；朔望月均值采用 29.530588861 日';
+  const source = '日月黄经由 Caelus 星历计算；朔望月均值采用 29.530588861 日';
   const limitations = [
     '月龄由相位角按平均朔望月线性换算，只是便于理解的近似值，不等于从真实朔时刻起算的严格月龄。',
     '照明比例采用几何近似，未加入地形、视差、大气和观测地点条件；不得用于月食可见性判断。',
@@ -279,8 +279,8 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
         sunLongitudeDegrees: Number(positions.sunLongitude.toFixed(8)),
         moonLongitudeDegrees: Number(positions.moonLongitude.toFixed(8)),
       },
-      promptText: `按 celestine 计算 UTC ${utcDateTime} 的日月地心黄经：太阳${positions.sunLongitude.toFixed(6)}°、月亮${positions.moonLongitude.toFixed(6)}°`,
-      sources: ['celestine 日月地心黄经'],
+      promptText: `按 Caelus 计算 UTC ${utcDateTime} 的日月地心黄经：太阳${positions.sunLongitude.toFixed(6)}°、月亮${positions.moonLongitude.toFixed(6)}°`,
+      sources: ['Caelus 日月地心黄经'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -383,7 +383,7 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
         'moon-phase:calculation:next-principal',
       ],
       promptText: limitations[2],
-      sources: ['celestine 日月星历模型', '二分求根区间说明'],
+      sources: ['Caelus 日月星历模型', '二分求根区间说明'],
       limitation: LIMITATION_FACT_LIMITATION,
     },
   ];

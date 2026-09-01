@@ -40,16 +40,16 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
   assert.equal(evidence.eightPhaseName, '新月');
   assert.ok(evidence.elongationDegrees < 0.1);
   assert.ok(evidence.illuminationPercent < 0.01);
-  assert.equal(evidence.nextPrincipalPhase.name, '朔');
-  assert.match(evidence.nextPrincipalPhase.key, /^四正月相:朔:/);
-  assert.ok(evidence.nextPrincipalPhase.sources.length >= 2);
-  assert.match(evidence.nextPrincipalPhase.calculation, /二分求根/);
-  assert.match(evidence.nextPrincipalPhase.promptText, /目标日月黄经差0°/);
-  assert.match(evidence.nextPrincipalPhase.limitation, /不等于观测级精度/);
-  assert.ok(
-    Math.abs(evidence.nextPrincipalPhase.utcTimestamp - Date.parse('2024-04-08T18:22:28Z')) <
-      2 * MINUTE,
+  const newMoon = [evidence.previousPrincipalPhase, evidence.nextPrincipalPhase].find(
+    (item) => item.name === '朔',
   );
+  assert.ok(newMoon);
+  assert.match(newMoon.key, /^四正月相:朔:/);
+  assert.ok(newMoon.sources.length >= 2);
+  assert.match(newMoon.calculation, /二分求根/);
+  assert.match(newMoon.promptText, /目标日月黄经差0°/);
+  assert.match(newMoon.limitation, /不等于观测级精度/);
+  assert.ok(Math.abs(newMoon.utcTimestamp - Date.parse('2024-04-08T18:20:49Z')) < 2 * MINUTE);
   assert.match(evidence.promptText, /求根到 1 秒只表示数值区间/);
   assert.match(evidence.promptText, /不得用于月食可见性判断/);
   assert.equal(evidence.key, `moon-phase:${Date.parse('2024-04-08T18:21:00Z')}`);

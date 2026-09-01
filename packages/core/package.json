@@ -319,7 +319,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node scripts/clean-dist.mjs && node scripts/generate-china-location-data.mjs && tsc --build tsconfig.json --force && node scripts/add-esm-extensions.mjs",
+    "build": "node scripts/clean-dist.mjs && node scripts/generate-china-location-data.mjs && node scripts/generate-astrology-vendor-data.mjs && tsc --build tsconfig.json --force && node scripts/add-esm-extensions.mjs",
     "clean": "node scripts/clean-dist.mjs",
     "prepublishOnly": "pnpm build",
     "test": "node scripts/run-core-tests.mjs"
@@ -328,7 +328,7 @@
     "@soul-atelier/xuankong": "0.2.1",
     "astronomy-engine": "2.1.19",
     "tyme4ts": "^1.3.3",
-    "celestine": "^0.2.1"
+    "caelus": "0.24.1"
   },
   "peerDependencies": {
     "iztro": "^2.5.8"
@@ -382,7 +382,6 @@
     "url": "git+https://github.com/Brhiza/mingyu.git"
   },
   "devDependencies": {
-    "celestine": "^0.2.1",
     "iztro": "^2.5.8"
   }
 }

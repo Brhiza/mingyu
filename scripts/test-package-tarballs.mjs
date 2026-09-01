@@ -17,6 +17,10 @@ import { spawnSync } from 'node:child_process';
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const coreDirectory = join(repositoryRoot, 'packages', 'core');
 const pnpmEntry = process.env.npm_execpath;
+// 四小行星与兼容边缘运行时的固定星历数据约增加 0.45 MB 压缩体积；仍保留明确上限，
+// 防止后续依赖或构建产物无意混入发布包。
+const CORE_TARBALL_MAX_BYTES = 2_100_000;
+const FULL_BROWSER_BUNDLE_MAX_BYTES = 4_000_000;
 
 if (!pnpmEntry) {
   throw new Error('请通过 pnpm package:check 运行 npm 包契约检查。');
@@ -66,8 +70,8 @@ try {
 
   const coreTarballBytes = statSync(coreTarball).size;
   assert.ok(
-    coreTarballBytes <= 1_600_000,
-    `mingyu-core 压缩包不应超过 1.60 MB：${coreTarballBytes} 字节`,
+    coreTarballBytes <= CORE_TARBALL_MAX_BYTES,
+    `mingyu-core 压缩包不应超过 2.00 MB：${coreTarballBytes} 字节`,
   );
 
   writeFileSync(
@@ -345,7 +349,10 @@ target.textContent = result.data.yearGanZhi;
   const browserBytes = listFiles(browserOutput)
     .filter((path) => path.endsWith('.js'))
     .reduce((total, path) => total + statSync(join(browserOutput, path)).size, 0);
-  assert.ok(browserBytes <= 2_500_000, `完整客户端浏览器产物不应超过 2.5 MB：${browserBytes} 字节`);
+  assert.ok(
+    browserBytes <= FULL_BROWSER_BUNDLE_MAX_BYTES,
+    `含固定小行星星历的完整客户端浏览器产物不应超过 4.0 MB：${browserBytes} 字节`,
+  );
 
   const zodiacBrowserDirectory = join(consumerDirectory, 'zodiac-browser');
   mkdirSync(zodiacBrowserDirectory, { recursive: true });

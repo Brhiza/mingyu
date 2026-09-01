@@ -96,7 +96,7 @@ export interface AstrolabeCalculationFact {
     trueSolarDateTime?: string;
   };
   models: {
-    ephemeris: 'celestine';
+    ephemeris: 'caelus';
     houseSystem: 'Placidus';
     aspectSelection: '主要相位按相位角与容许度筛选';
   };
@@ -283,7 +283,7 @@ function buildPositionFact(
     formatted: item.formatted,
     promptText,
     sources: [
-      kind === '宫头' ? 'celestine Placidus 十二宫宫头计算' : 'celestine 黄道位置计算',
+      kind === '宫头' ? 'Caelus Placidus 十二宫宫头计算' : 'Caelus 黄道位置计算',
       kind === '四轴' ? '出生地点、时间与地平子午圈四轴计算' : '出生时间、地点与黄经落宫计算',
     ],
     limitation: POSITION_FACT_LIMITATION,
@@ -340,8 +340,11 @@ function buildAspectFact(
     phase,
     isOutOfSign: item.isOutOfSign,
     promptText: `${item.body1}${item.symbol}${item.body2}（${item.type}）：${geometry}，${closeness}等级，归一化容许度位置${normalizedOrbRatio.toFixed(2)}，${phase}${item.isOutOfSign ? '，跨星座相位' : ''}`,
-    source: item.source ?? 'celestine 本命相位计算',
-    sources: [item.source ?? 'celestine 本命相位计算', '两计算点位置事实与相位几何量核验'],
+    source: item.source ?? 'Caelus 星体位置与明御本命相位计算',
+    sources: [
+      item.source ?? 'Caelus 星体位置与明御本命相位计算',
+      '两计算点位置事实与相位几何量核验',
+    ],
     limitation: ASPECT_FACT_LIMITATION,
   };
 }
@@ -428,8 +431,8 @@ function buildCalculationFact(
         houseCuspCount: data.houses.length,
       },
       dependsOnStepKeys: ['astrolabe:calculation:time'],
-      promptText: `由 celestine 计算${data.planets.length}个星体与计算点、${data.angles.length}个四轴点和${data.houses.length}个 Placidus 宫头`,
-      sources: ['celestine 黄道位置计算', 'celestine Placidus 宫位与四轴计算'],
+      promptText: `由 Caelus 计算${data.planets.length}个星体与计算点、${data.angles.length}个四轴点和${data.houses.length}个 Placidus 宫头`,
+      sources: ['Caelus 黄道位置计算', 'Caelus Placidus 宫位与四轴计算'],
       limitation: STEP_FACT_LIMITATION,
     },
     {
@@ -446,7 +449,7 @@ function buildCalculationFact(
       },
       dependsOnStepKeys: ['astrolabe:calculation:chart'],
       promptText: `按相位角与容许度筛选${data.aspects.length}组主要相位，并保留可用的角度偏差、紧密等级和入相出相状态`,
-      sources: ['celestine 本命相位计算', '相位几何量与容许度核验'],
+      sources: ['Caelus 星体位置与明御本命相位计算', '相位几何量与容许度核验'],
       limitation: STEP_FACT_LIMITATION,
     },
     {
@@ -465,7 +468,7 @@ function buildCalculationFact(
       },
       dependsOnStepKeys: ['astrolabe:calculation:chart'],
       promptText: '汇总元素、模式、逆行与依赖库盘面格局，作为盘面构成辅证',
-      sources: ['celestine 盘面元素、模式、逆行与格局汇总'],
+      sources: ['Caelus 星体位置与明御盘面元素、模式、逆行及格局汇总'],
       limitation: STEP_FACT_LIMITATION,
     },
   ];
@@ -483,7 +486,7 @@ function buildCalculationFact(
       trueSolarDateTime: data.birth.trueSolarDateTime,
     },
     models: {
-      ephemeris: 'celestine',
+      ephemeris: 'caelus',
       houseSystem: 'Placidus',
       aspectSelection: '主要相位按相位角与容许度筛选',
     },
@@ -493,7 +496,7 @@ function buildCalculationFact(
     sources: [
       '出生时间、地点与时区输入记录',
       '历史时区与真太阳时换算资料',
-      'celestine 黄道位置、Placidus 宫位、四轴与相位计算',
+      'Caelus 黄道位置、Placidus 宫位、四轴与明御相位计算',
     ],
     limitation: CALCULATION_FACT_LIMITATION,
   };
@@ -533,7 +536,7 @@ function buildDistributionFacts(
         '元素',
         `${element}元素`,
         members,
-        'celestine 盘面元素归类',
+        '明御盘面元素归类',
       ),
     ),
     ...Object.entries(data.summary.modalities).map(([modality, members]) =>
@@ -542,7 +545,7 @@ function buildDistributionFacts(
         '模式',
         `${modality}模式`,
         members,
-        'celestine 盘面模式归类',
+        '明御盘面模式归类',
       ),
     ),
     build(
@@ -550,14 +553,14 @@ function buildDistributionFacts(
       '逆行',
       '逆行点',
       data.summary.retrograde,
-      'celestine 星体视运动状态汇总',
+      'Caelus 星体视运动状态汇总',
     ),
     build(
       'distribution:patterns',
       '盘面格局',
       '依赖库盘面格局',
       data.summary.patterns,
-      'celestine 盘面格局汇总',
+      'Caelus 星体位置与明御盘面格局汇总',
     ),
   ];
 }
@@ -1018,21 +1021,21 @@ export function analyzeAstrolabeEvidence(
       level: '辅证',
       title: '完整星体与计算点位置',
       detail: planetFacts.join('；'),
-      source: 'celestine 星体、交点、小行星、莉莉丝与阿拉伯点黄经及落宫计算',
+      source: 'Caelus 星体、交点、小行星、莉莉丝与阿拉伯点黄经及落宫计算',
       tags: ['完整位置', '黄经', '落宫', '逆行'],
     },
     {
       level: '辅证',
       title: '四轴位置',
       detail: angleFacts.join('；'),
-      source: 'celestine 地平与子午圈四轴计算',
+      source: 'Caelus 地平与子午圈四轴计算',
       tags: ['上升', '天顶', '下降', '天底'],
     },
     {
       level: '辅证',
       title: '十二宫宫头',
       detail: houseFacts.join('；'),
-      source: 'celestine Placidus 十二宫宫头计算',
+      source: 'Caelus Placidus 十二宫宫头计算',
       tags: ['Placidus', '十二宫', '宫头'],
     },
     ...aspectFacts.map((item): PromptEvidenceItem => ({

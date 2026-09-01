@@ -1517,7 +1517,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
             : '辅证',
       title: `${item.date}${item.status}`,
       detail: formatCandidate(item),
-      source: `${item.calendarFact.sources.join('、')}；二十八宿、九星、彭祖百忌、全年方位神、事项宜忌、参与人刑冲破害；${item.usableHours[0]?.sources.join('、') ?? '逐时时课'}；月相取中国标准时间正午的celestine日月黄经`,
+      source: `${item.calendarFact.sources.join('、')}；二十八宿、九星、彭祖百忌、全年方位神、事项宜忌、参与人刑冲破害；${item.usableHours[0]?.sources.join('、') ?? '逐时时课'}；月相取中国标准时间正午的Caelus日月黄经`,
       tags: [item.status, data.topicLabel],
     })),
     {

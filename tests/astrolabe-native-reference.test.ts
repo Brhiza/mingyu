@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { AspectType, calculateChart } from 'celestine';
+import { AspectType, calculateChart } from '../packages/core/src/astrology/engine.ts';
 
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeAspect, AstrolabeBirthInput, AstrolabePoint } from 'mingyu-core/types';
@@ -279,7 +279,7 @@ for (let year = 1900; year <= 2100; year += 20) {
   });
 }
 
-test('西方星盘18张边界与跨世纪盘面应逐项复现 celestine 原生金标', () => {
+test('西方星盘18张边界与跨世纪盘面应逐项复现统一星历适配层', () => {
   let checked = 0;
   let pointChecked = 0;
   let houseChecked = 0;
@@ -433,5 +433,5 @@ test('西方星盘18张边界与跨世纪盘面应逐项复现 celestine 原生�
   assert.equal(checked, 18);
   assert.equal(pointChecked, 432);
   assert.equal(houseChecked, 216);
-  assert.equal(aspectChecked, 551);
+  assert.equal(aspectChecked, 731);
 });

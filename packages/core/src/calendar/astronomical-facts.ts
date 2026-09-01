@@ -1,11 +1,11 @@
-import { calculatePlanets } from 'celestine';
+import { ASTROLOGY_ENGINE_MODEL, calculatePlanets } from '../astrology/engine';
 
 import { formatFixedTimezoneOffset, resolveCivilTime } from './civil-time';
 import type { HistoricalTimezoneEvidence } from './historical-timezone';
 
 export const ASTRONOMY_FACT_MODEL = {
-  provider: 'celestine',
-  version: '0.2.1',
+  provider: ASTROLOGY_ENGINE_MODEL.provider,
+  version: ASTROLOGY_ENGINE_MODEL.version,
   coordinate: '地心回归黄道日期坐标',
   recommendedYearRange: [1800, 2200] as const,
   validation: {
