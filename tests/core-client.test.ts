@@ -14,6 +14,23 @@ const profile: BirthProfile = {
   day: 18,
   timeIndex: 6,
 };
+/** evidenceTrail.generatedAt 为审计时间戳，比较便捷入口等价性时需归一化。 */
+function withDeterministicEvidence<T extends object>(v: T): T {
+  if (
+    v &&
+    typeof v === 'object' &&
+    'evidenceTrail' in v &&
+    v.evidenceTrail &&
+    typeof v.evidenceTrail === 'object'
+  ) {
+    return {
+      ...v,
+      evidenceTrail: { ...(v.evidenceTrail as object), generatedAt: 'deterministic' },
+    };
+  }
+  return v;
+}
+
 
 test('统一客户端应提供出生盘、占法、能力发现和稳定序列化', async () => {
   const client = createMingyuClient();
@@ -124,7 +141,7 @@ test('统一客户端应直接提供前端常用的时间、环境与轻量排�
   assert.equal(solarIllumination.localDate, '2026-08-06');
   assert.equal(bazhai.houseGua, '坎');
   assert.equal(bazhaiByDoorDegree.directionMeasurement.sitMountain, '子');
-  assert.deepEqual(zodiac, getZodiacYearFortune('子', '丙午'));
+  assert.deepEqual(withDeterministicEvidence(zodiac), withDeterministicEvidence(getZodiacYearFortune('子', '丙午')));
   assert.equal(taiyi.scope, 'year');
   assert.equal(qizheng.stars.length, 11);
   assert.equal(xuankong.sitMountain, '子');
@@ -185,9 +202,9 @@ test('生肖流年便捷入口应支持生肖、地支、公历年和指定干�
   const fromBranch = client.zodiac({ zodiac: '子', year: 2026 });
   const fromGanZhi = client.zodiac({ zodiac: '鼠', yearGanZhi: ' 甲子 ' });
 
-  assert.deepEqual(fromName, fromBranch);
-  assert.deepEqual(fromName, getZodiacYearFortune('子', '丙午'));
-  assert.deepEqual(fromGanZhi, getZodiacYearFortune('子', '甲子'));
+  assert.deepEqual(withDeterministicEvidence(fromName), withDeterministicEvidence(fromBranch));
+  assert.deepEqual(withDeterministicEvidence(fromName), withDeterministicEvidence(getZodiacYearFortune('子', '丙午')));
+  assert.deepEqual(withDeterministicEvidence(fromGanZhi), withDeterministicEvidence(getZodiacYearFortune('子', '甲子')));
 
   for (const input of [
     { zodiac: '鼠' },
