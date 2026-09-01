@@ -14,6 +14,7 @@ import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
+import { buildXiaoliurenEvidenceTrail } from '../xiaoliurenEvidence';
 
 export { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
 export type {
@@ -158,5 +159,9 @@ export function generateXiaoliuren(params?: {
     input: { method, timestamp },
     calculatedAt: timestamp,
   });
-  return { ...result, evidenceAnalysis: analyzeXiaoliurenEvidence(result) };
+  return {
+    ...result,
+    evidenceAnalysis: analyzeXiaoliurenEvidence(result),
+    evidenceTrail: buildXiaoliurenEvidenceTrail(result),
+  };
 }

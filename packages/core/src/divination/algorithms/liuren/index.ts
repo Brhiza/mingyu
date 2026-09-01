@@ -25,6 +25,7 @@ import {
   getTransmissionPattern,
 } from './helpers/transmission';
 import { analyzeLiurenEvidence } from '../../liuren-evidence';
+import { buildLiurenEvidenceTrail } from '../../liurenEvidence';
 
 const MONTH_LEADER_BY_ZHONGQI: Record<string, string> = {
   雨水: '亥',
@@ -618,6 +619,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     timingEvidence,
   };
   result.evidenceAnalysis = analyzeLiurenEvidence(result);
+  result.evidenceTrail = buildLiurenEvidenceTrail(result);
   return result;
 }
 

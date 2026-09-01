@@ -73,6 +73,8 @@ export interface XiaoliurenData {
   palaceOrder: XiaoliurenPalaceDetail[];
   primary: XiaoliurenPalaceDetail;
   evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
+  /** 占卜排盘四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }
 
 export type JinkoujueDivinationMethod = 'time' | 'number' | 'random';
@@ -738,6 +740,8 @@ export interface LiurenShenShaFact {
 export interface LiurenData {
   /** 四课取传、三传推进、旺衰空亡及反证限制。 */
   evidenceAnalysis?: import('../divination/liuren-evidence').LiurenEvidenceAnalysis;
+  /** 起课排盘四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
   /** 四柱干支（年/月/日/时） */
   ganzhi: BaseGanZhi;
   /** Unix 时间戳（毫秒） */
