@@ -343,10 +343,14 @@ function buildPromptMarkdown(samples: PromptSample[]) {
   return lines.join('\n');
 }
 
-function assertRequiredSampleFields(samples: PromptSample[]) {
+function assertRequiredSampleFields(
+  samples: PromptSample[],
+  excludedSampleNames = new Set<string>(),
+) {
   const missingMessages: string[] = [];
 
   REQUIRED_SAMPLE_FIELDS.forEach(({ sampleName, requiredFields }) => {
+    if (excludedSampleNames.has(sampleName)) return;
     const sample = samples.find((item) => item.name === sampleName);
     if (!sample) {
       missingMessages.push(`缺少样本：${sampleName}`);
@@ -690,6 +694,27 @@ async function buildSamples(): Promise<PromptSample[]> {
       '请分析 2026 年更适合主动推进还是稳守，以及应观察什么信号。',
       { method: 'taiyi', currentTime: fixedNow },
     );
+    const taiyiDate = new Date('2026-07-11T14:35:00+08:00');
+    const taiyiVariantSamples: PromptSample[] = (
+      [
+        ['月计', 'month'],
+        ['日计', 'day'],
+        ['时计', 'hour'],
+      ] as const
+    ).map(([label, scope]) => {
+      const result = generateTaiyi({ scope, date: taiyiDate });
+      return {
+        name: `太乙神数（${label}）`,
+        source: `项目太乙${label}算法真实生成；起局时间 2026-07-11T14:35:00+08:00。`,
+        inputSummary: `太乙${label}；问题为当前时间层级的攻守与行动时宜。`,
+        prompt: buildMetaphysicsPrompt(
+          result.prompt,
+          `请分析当前${label}更适合主动推进还是稳守，以及应观察什么信号。`,
+          { method: 'taiyi', currentTime: fixedNow },
+        ),
+        notes: [],
+      };
+    });
 
     const wuyunLiuqiData = calculateWuyunLiuqi({
       year: 2026,
@@ -699,6 +724,14 @@ async function buildSamples(): Promise<PromptSample[]> {
       epochYear: 1,
       year: 2026,
       question: '请解读目标年所处的周期位置。',
+    });
+    const huangjiStandardData = calculateHuangjiJingshi({
+      year: 2026,
+      question: '请解读 2026 年的通行值年卦与周期位置。',
+    });
+    const huangjiDateTimeData = calculateHuangjiJingshi({
+      date: new Date('2026-07-11T14:35:00+08:00'),
+      question: '请解读当前年月日时盘的层级关系。',
     });
     const zodiacData = calculateZodiacYearFortune({ zodiac: '午', year: 2026 });
     const zodiacPrompt = buildMetaphysicsPrompt(
@@ -866,14 +899,12 @@ async function buildSamples(): Promise<PromptSample[]> {
       },
       {
         name: '太乙神数',
-        source: '项目太乙年计七十二局立成真实生成；展示 2026 年年计。',
+        source: '项目太乙年计七十二局立成真实生成；展示 2026 年年计，并另审月、日、时三种计式。',
         inputSummary: '2026年太乙年计；问题为本年度的攻守与行动时宜。',
         prompt: taiyiPrompt,
-        notes: [
-          '当前只开放完成积年与七十二局立成校勘的年计。',
-          '月、日、时计等待完整古籍历法链校勘，不生成近似盘审查样本。',
-        ],
+        notes: ['年、月、日、时四计分别生成真实样本。'],
       },
+      ...taiyiVariantSamples,
       {
         name: '五运六气',
         source: '项目五运六气算法真实生成；公历 2026 年。',
@@ -886,6 +917,20 @@ async function buildSamples(): Promise<PromptSample[]> {
         source: '项目皇极经世元会运世周期算法真实生成；纪元坐标 1，目标年坐标 2026。',
         inputSummary: '纪元第一年坐标为1，目标年坐标为2026；问题为周期位置。',
         prompt: huangjiJingshiData.prompt,
+        notes: [],
+      },
+      {
+        name: '皇极经世（通行值年卦）',
+        source: '项目皇极经世通行公元值年卦真实生成；目标年 2026。',
+        inputSummary: '公元2026年；问题为通行值年卦与周期位置。',
+        prompt: huangjiStandardData.prompt,
+        notes: [],
+      },
+      {
+        name: '皇极经世（年月日时）',
+        source: '项目皇极经世年月日时盘真实生成；起局时间 2026-07-11T14:35:00+08:00。',
+        inputSummary: '2026年7月11日14:35；问题为年月日时盘层级关系。',
+        prompt: huangjiDateTimeData.prompt,
         notes: [],
       },
       {

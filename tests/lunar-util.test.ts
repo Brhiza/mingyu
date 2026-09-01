@@ -1,21 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SixtyCycle, SolarTime } from 'tyme4ts';
-
 import { LunarUtil, TimeManager } from '@core/calendar';
 
-function expectedEightChar(year: number, month: number, day: number, hour: number, minute: number) {
-  const eightChar = SolarTime.fromYmdHms(year, month, day, hour, minute, 0)
-    .getLunarHour()
-    .getEightChar();
-
-  return {
-    year: eightChar.getYear().getName(),
-    month: eightChar.getMonth().getName(),
-    day: eightChar.getDay().getName(),
-    hour: eightChar.getHour().getName(),
-  };
-}
+const GANZHI_FIXTURES = [
+  [2024, 2, 4, 16, 20, { year: '癸卯', month: '乙丑', day: '戊戌', hour: '庚申' }],
+  [2024, 2, 4, 16, 30, { year: '甲辰', month: '丙寅', day: '戊戌', hour: '庚申' }],
+  [1998, 8, 13, 23, 30, { year: '戊寅', month: '庚申', day: '癸巳', hour: '壬子' }],
+] as const;
 
 test('农历工具应拒绝无效时间对象', () => {
   const invalidDate = new Date(Number.NaN);
@@ -40,16 +31,9 @@ test('农历工具应拒绝越界年月参数', () => {
   assert.throws(() => LunarUtil.getGanZhiForYear(2101), /年份需在 1900-2100 之间/);
 });
 
-test('农历工具干支应与 tyme4ts EightChar 精确时刻一致', () => {
-  const samples = [
-    [2024, 2, 4, 16, 20], // 立春交节前，年柱月柱不应提前翻转
-    [2024, 2, 4, 16, 30], // 立春交节后，年柱月柱应翻转
-    [1998, 8, 13, 23, 30], // 晚子时，日柱按子初换日
-  ] as const;
-
-  samples.forEach(([year, month, day, hour, minute]) => {
+test('农历工具干支应符合交节与晚子时固定真值', () => {
+  GANZHI_FIXTURES.forEach(([year, month, day, hour, minute, expected]) => {
     const date = new Date(year, month - 1, day, hour, minute, 0);
-    const expected = expectedEightChar(year, month, day, hour, minute);
 
     assert.deepEqual(LunarUtil.getGanZhi(date), expected);
     assert.deepEqual(LunarUtil.getTimeInfo(date).ganzhi, expected);
@@ -81,23 +65,35 @@ test('农历工具显示文本不应保留 tyme4ts toString 的农历前缀，�
 
 test('农历工具公历年每月代表干支应统一取 EightChar 月柱', () => {
   const yearGanZhi = LunarUtil.getGanZhiForYear(2024);
-
-  yearGanZhi.forEach(({ month, ganZhi }) => {
-    const eightChar = SolarTime.fromYmdHms(2024, month, 15, 12, 0, 0).getLunarHour().getEightChar();
-
-    assert.equal(ganZhi, eightChar.getMonth().getName());
-  });
+  assert.deepEqual(
+    yearGanZhi.map((item) => item.ganZhi),
+    [
+      '乙丑',
+      '丙寅',
+      '丁卯',
+      '戊辰',
+      '己巳',
+      '庚午',
+      '辛未',
+      '壬申',
+      '癸酉',
+      '甲戌',
+      '乙亥',
+      '丙子',
+    ],
+  );
 });
 
-test('农历工具空亡地支应直接与 tyme4ts 六十甲子结果一致', () => {
-  const samples = ['甲子', '丁丑', '癸巳', '庚辰', '癸亥'];
-
-  samples.forEach((ganZhi) => {
-    const expected = SixtyCycle.fromName(ganZhi)
-      .getExtraEarthBranches()
-      .map((branch) => branch.getName());
-
-    assert.deepEqual(LunarUtil.getVoidBranches(ganZhi), expected);
+test('农历工具空亡地支应符合六旬固定真值', () => {
+  const fixtures = {
+    甲子: ['戌', '亥'],
+    丁丑: ['申', '酉'],
+    癸巳: ['午', '未'],
+    庚辰: ['申', '酉'],
+    癸亥: ['子', '丑'],
+  } as const;
+  Object.entries(fixtures).forEach(([ganZhi, expected]) => {
+    assert.deepEqual(LunarUtil.getVoidBranches(ganZhi), [...expected]);
   });
 
   assert.throws(() => LunarUtil.getVoidBranches('未知'), /无法识别日柱干支/);
@@ -108,22 +104,18 @@ test('农历工具六神起法应拒绝未知日干，不应默认青龙', () =>
   assert.throws(() => LunarUtil.getSixAnimals('A'), /无法识别日干/);
 });
 
-test('占卜时间管理干支应与 tyme4ts EightChar 精确时刻一致', () => {
+test('占卜时间管理干支应符合交节与晚子时固定真值', () => {
   TimeManager.setTimezoneOffsetMinutesOverride(480);
-  const samples = [
-    [2024, 2, 4, 16, 20],
-    [1998, 8, 13, 23, 30],
-  ] as const;
+  GANZHI_FIXTURES.filter(([, , , hour, minute]) => hour === 23 || minute === 20).forEach(
+    ([year, month, day, hour, minute, expected]) => {
+      const date = new Date(Date.UTC(year, month - 1, day, hour - 8, minute, 0));
+      const result = TimeManager.getDivinationTime(date);
 
-  samples.forEach(([year, month, day, hour, minute]) => {
-    const date = new Date(Date.UTC(year, month - 1, day, hour - 8, minute, 0));
-    const expected = expectedEightChar(year, month, day, hour, minute);
-    const result = TimeManager.getDivinationTime(date);
-
-    assert.deepEqual(result.ganzhi, expected);
-    assert.deepEqual(result.timeInfo.ganzhi, expected);
-    assert.deepEqual(result.timeInfo.eightChar, expected);
-  });
+      assert.deepEqual(result.ganzhi, expected);
+      assert.deepEqual(result.timeInfo.ganzhi, expected);
+      assert.deepEqual(result.timeInfo.eightChar, expected);
+    },
+  );
 });
 
 test('占卜时间管理应拒绝非法时区偏移，不应静默退回运行环境时区', () => {

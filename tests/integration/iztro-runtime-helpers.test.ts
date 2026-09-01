@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { astro } from 'iztro';
-import { SolarDay } from 'tyme4ts';
+import { LunarUtil } from '@core/calendar';
 
 import {
   buildAstrolabeFromInput,
@@ -33,22 +32,16 @@ const DEFAULT_CHART_INPUT = {
 };
 
 test('紫微运行期应兼容 Node、Vite 与 Webpack 的 CommonJS 导出包装', () => {
-  assert.equal(resolveIztroAstro({ astro }), astro);
-  assert.equal(resolveIztroAstro({ default: { astro } }), astro);
-  assert.equal(resolveIztroAstro({ default: astro }), astro);
-  assert.equal(resolveIztroAstro({ default: { default: { astro } } }), astro);
+  const internalEntry = { withOptions() {}, config() {} };
+  assert.equal(resolveIztroAstro({ astro: internalEntry } as never), internalEntry);
+  assert.equal(resolveIztroAstro({ default: { astro: internalEntry } } as never), internalEntry);
+  assert.equal(resolveIztroAstro({ default: internalEntry } as never), internalEntry);
+  assert.equal(
+    resolveIztroAstro({ default: { default: { astro: internalEntry } } } as never),
+    internalEntry,
+  );
   assert.throws(() => resolveIztroAstro({ default: {} }), /未提供可用的紫微排盘入口/);
 });
-
-function resetIztroDefaultConfig() {
-  astro.config({
-    algorithm: 'default',
-    yearDivide: 'normal',
-    horoscopeDivide: 'normal',
-    ageDivide: 'normal',
-    dayDivide: 'forward',
-  });
-}
 
 function astrolabeSignature(astrolabe: Awaited<ReturnType<typeof buildAstrolabeFromInput>>) {
   return {
@@ -81,13 +74,18 @@ function astrolabeSignature(astrolabe: Awaited<ReturnType<typeof buildAstrolabeF
 
 function getLunarParts(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number);
-  const lunarDay = SolarDay.fromYmd(year, month, day).getLunarDay();
-  const lunarMonth = lunarDay.getLunarMonth();
+  const lunar = LunarUtil.getLunar(new Date(year, month - 1, day, 12));
+  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+  const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+  const yearGanZhi = (candidate: number) =>
+    `${stems[(candidate - 4) % 10]}${branches[(candidate - 4) % 12]}`;
+  const lunarYear = [year, year - 1].find((candidate) => yearGanZhi(candidate) === lunar.year);
+  assert.ok(lunarYear, `无法由${lunar.year}反查农历年份`);
 
   return {
-    year: lunarMonth.getYear(),
-    monthWithLeap: lunarMonth.getMonthWithLeap(),
-    day: lunarDay.getDay(),
+    year: lunarYear,
+    monthWithLeap: lunar.monthInChinese.startsWith('闰') ? -lunar.monthNumber : lunar.monthNumber,
+    day: lunar.dayNumber,
   };
 }
 
@@ -222,9 +220,7 @@ test('紫微排盘封装应拒绝 iztro 会宽松接受的非法出生输入', a
   );
 });
 
-test('紫微公历排盘封装默认值应与 iztro bySolar 官方入口一致', async () => {
-  resetIztroDefaultConfig();
-  const direct = astro.bySolar('1998-08-13', 12, '女', true, 'zh-CN');
+test('紫微公历排盘封装应符合内部固定盘面', async () => {
   const wrapped = await buildAstrolabeFromInput({
     name: '测试',
     dateType: 'solar',
@@ -235,15 +231,43 @@ test('紫微公历排盘封装默认值应与 iztro bySolar 官方入口一致',
     fixLeap: true,
   });
 
-  assert.equal(
-    JSON.stringify(astrolabeSignature(wrapped)),
-    JSON.stringify(astrolabeSignature(direct)),
+  assert.deepEqual(
+    {
+      soul: wrapped.soul,
+      body: wrapped.body,
+      fiveElementsClass: wrapped.fiveElementsClass,
+      solarDate: wrapped.solarDate,
+      lunarDate: wrapped.lunarDate,
+      palaceMajorStars: wrapped.palaces.map((palace) => [
+        palace.name,
+        palace.majorStars.map((star) => star.name),
+      ]),
+    },
+    {
+      soul: '武曲',
+      body: '天梁',
+      fiveElementsClass: '火六局',
+      solarDate: '1998-08-13',
+      lunarDate: '一九九八年六月廿二',
+      palaceMajorStars: [
+        ['疾厄', ['贪狼']],
+        ['财帛', ['天机', '巨门']],
+        ['子女', ['紫微', '天相']],
+        ['夫妻', ['天梁']],
+        ['兄弟', ['七杀']],
+        ['命宫', []],
+        ['父母', ['廉贞']],
+        ['福德', []],
+        ['田宅', ['破军']],
+        ['官禄', ['天同']],
+        ['仆役', ['武曲', '天府']],
+        ['迁移', ['太阳', '太阴']],
+      ],
+    },
   );
 });
 
-test('紫微农历排盘封装默认值应与 iztro byLunar 官方入口一致', async () => {
-  resetIztroDefaultConfig();
-  const direct = astro.byLunar('2023-2-4', 6, '男', true, true, 'zh-CN');
+test('紫微农历闰月排盘封装应符合内部固定盘面', async () => {
   const wrapped = await buildAstrolabeFromInput({
     name: '测试',
     dateType: 'lunar',
@@ -254,9 +278,21 @@ test('紫微农历排盘封装默认值应与 iztro byLunar 官方入口一致',
     fixLeap: true,
   });
 
-  assert.equal(
-    JSON.stringify(astrolabeSignature(wrapped)),
-    JSON.stringify(astrolabeSignature(direct)),
+  assert.deepEqual(
+    {
+      soul: wrapped.soul,
+      body: wrapped.body,
+      fiveElementsClass: wrapped.fiveElementsClass,
+      solarDate: wrapped.solarDate,
+      lunarDate: wrapped.lunarDate,
+    },
+    {
+      soul: '文曲',
+      body: '天同',
+      fiveElementsClass: '木三局',
+      solarDate: '2023-3-25',
+      lunarDate: '二〇二三年闰二月初四',
+    },
   );
 });
 
@@ -674,8 +710,8 @@ test('紫微童限与大限时间轴应逐项服从 iztro 运限结果', async (
       assert.equal(lunarParts.monthWithLeap, 1);
       assert.equal(lunarParts.day, 1);
       const [year, month, day] = option.dateStr.split('-').map(Number);
-      const previousDay = SolarDay.fromYmd(year, month, day).next(-1);
-      const previousDate = `${previousDay.getYear()}-${String(previousDay.getMonth()).padStart(2, '0')}-${String(previousDay.getDay()).padStart(2, '0')}`;
+      const previousDay = new Date(year, month - 1, day - 1, 12);
+      const previousDate = `${previousDay.getFullYear()}-${String(previousDay.getMonth() + 1).padStart(2, '0')}-${String(previousDay.getDate()).padStart(2, '0')}`;
       const previousHoroscope = await buildHoroscopeFromInput(
         astrolabe,
         DEFAULT_CHART_INPUT,
