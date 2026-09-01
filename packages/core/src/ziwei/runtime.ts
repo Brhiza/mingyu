@@ -11,6 +11,8 @@ import {
 } from './iztro/runtime-helpers';
 import { buildAnalysisPayloadV1 } from './iztro/build-analysis-payload/index';
 import { buildVerifiedDecadalTimelineOptions } from './iztro/decadal';
+import { buildZiweiEvidenceTrail } from './ziweiEvidence';
+import type { EvidenceTrail } from '../shared/evidence';
 
 /** npm 用户可直接消费的紫微完整运行结果。 */
 export type ZiweiRuntime = {
@@ -21,6 +23,8 @@ export type ZiweiRuntime = {
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
   decadalTimeline: Awaited<ReturnType<typeof buildVerifiedDecadalTimelineOptions>>;
   trueSolarEvidence?: ChartInput['trueSolarEvidence'];
+  /** 排盘四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: EvidenceTrail;
 };
 
 export const DEFAULT_ZIWEI_RUNTIME_SCOPES: ScopeType[] = [
@@ -115,13 +119,17 @@ export async function calculateZiweiChart(
   });
   const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
 
-  return {
+  const base: Omit<ZiweiRuntime, 'evidenceTrail'> = {
     astrolabe,
     horoscope,
     horoscopeContext: { ...horoscopeContext },
     payloadByScope,
     decadalTimeline,
     trueSolarEvidence: input.trueSolarEvidence,
+  };
+  return {
+    ...base,
+    evidenceTrail: buildZiweiEvidenceTrail(input, base as ZiweiRuntime),
   };
 }
 
