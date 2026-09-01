@@ -44,6 +44,7 @@ import { estimateYingQi } from './helpers/ying-qi';
 import { buildSeasonality } from './helpers/seasonality';
 import { detectQimenPatternCombos } from './helpers/pattern-combos';
 import { analyzeQimenEvidence } from '../../qimen-evidence';
+import { buildQimenEvidenceTrail } from '../../qimenEvidence';
 import { hasTianPanStar, hasTianPanStem } from './helpers/palace-utils';
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
@@ -471,6 +472,7 @@ export function generateQimen(
     timestamp,
   };
   result.evidenceAnalysis = analyzeQimenEvidence(result);
+  result.evidenceTrail = buildQimenEvidenceTrail(result);
   return result;
 }
 
