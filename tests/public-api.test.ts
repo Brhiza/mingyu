@@ -832,7 +832,7 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.match(capabilities.body.data.promptText, /不得把目录数量/);
   assert.doesNotMatch(
     capabilities.body.data.promptText,
-    /命语|@temposoul/core|本项目|当前项目|工程|接口|API|MCP/,
+    /命语|@temposoul\/core|本项目|当前项目|工程|接口|API|MCP/,
   );
 
   const ganZhi = await callApi('foundation/ganzhi', {
@@ -914,7 +914,7 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.match(shensha.body.data.promptText, /通用神煞资料/);
   assert.doesNotMatch(
     shensha.body.data.promptText,
-    /命语|@temposoul/core|本项目|当前项目|工程|接口|API|MCP/,
+    /命语|@temposoul\/core|本项目|当前项目|工程|接口|API|MCP/,
   );
 
   for (const payload of [{ ganZhi: '甲丑' }, { ganZhi: '' }]) {

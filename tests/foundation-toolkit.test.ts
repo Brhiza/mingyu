@@ -71,7 +71,7 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.ok(profile.sourceFacts.every((fact) => fact.ownerStepKeys.length > 0));
   assert.match(profile.promptText, /六十甲子中的零基序号为0/);
   assert.doesNotMatch(profile.promptText, /吉凶评分|成功率[：=]?\d|事件概率[：=]?\d/);
-  assert.doesNotMatch(profile.promptText, /@temposoul/core|命语|本项目|工程|接口|API|MCP/);
+  assert.doesNotMatch(profile.promptText, /@temposoul\/core|命语|本项目|工程|接口|API|MCP/);
   assert.deepEqual(core.foundation.getBranchRelations('寅').punishments, ['巳', '申']);
   assert.equal(core.foundation.getBranchRelations('寅').hiddenCombine, '丑');
   assert.equal(core.foundation.getFoundationCapabilities().constants.changshengOrder.length, 12);
@@ -129,7 +129,7 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.match(capabilities.promptText, /各体系特有神煞仍须结合对应排盘资料/);
   assert.doesNotMatch(
     capabilities.promptText,
-    /命语|@temposoul/core|本项目|当前项目|工程|接口|API|MCP/,
+    /命语|@temposoul\/core|本项目|当前项目|工程|接口|API|MCP/,
   );
   assert.doesNotMatch(
     capabilities.promptText,
@@ -161,7 +161,7 @@ test('统一五行分析应严格校验输入并支持藏干权重', () => {
   assert.equal(result.summaryFact.limitationFactCount, result.limitationFacts.length);
   assert.match(result.promptText, /本气1、中气0.5、余气0.3/);
   assert.doesNotMatch(result.promptText, /命局旺衰已确定|用神为|吉凶评分[：=]?\d/);
-  assert.doesNotMatch(result.promptText, /@temposoul/core|命语|本项目|工程|接口|API|MCP/);
+  assert.doesNotMatch(result.promptText, /@temposoul\/core|命语|本项目|工程|接口|API|MCP/);
 
   const tied = core.foundation.analyzeWuxing(['甲'], { weightHidden: false });
   assert.deepEqual(tied.dominantElements, ['木']);
