@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { getTimeIndexFromClock } from '@temposoul/core/calendar';
 import { buildPersonFromInput, calculateFullBaziChart } from '../src/lib/full-chart-engine/bazi';
 import { buildZiweiChartInput } from '../src/lib/full-chart-engine/ziwei';
 import {

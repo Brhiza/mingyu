@@ -1,7 +1,7 @@
 /**
  * 公开 HTTP API、MCP 与旧前端调用共同使用的紧凑提示词兼容层。
  *
- * 新的通用集成优先使用 `mingyu-core/prompt` 中返回完整任务书的构建器；本文件
+ * 新的通用集成优先使用 `@temposoul/core/prompt` 中返回完整任务书的构建器；本文件
  * 保留既有参数和输出结构，避免现有公开接口在迁移时改变提示词契约。
  */
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';

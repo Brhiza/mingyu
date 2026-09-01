@@ -8,4 +8,4 @@ export {
   getPalaceByIndex,
   getPalaceByName,
   getSurroundedPalaces,
-} from 'mingyu-core/ziwei';
+} from '@temposoul/core/ziwei';

@@ -4,7 +4,7 @@ import test from 'node:test';
 import { getYearMonthsGanZhi } from '@core/bazi/calendarTool';
 import { calculateSeasonInfo } from '@core/bazi/baziCalculatorTime';
 import { getJieQiPhaseByDate } from '@core/divination/algorithms/qimen/helpers/seasonality';
-import { calculateSolarTermEvidence, calculateSolarTermsForYear } from 'mingyu-core/calendar';
+import { calculateSolarTermEvidence, calculateSolarTermsForYear } from '@temposoul/core/calendar';
 import { SolarTime } from 'tyme4ts';
 
 test('节气证据应采用历表边界并保留太阳视黄经独立核验', () => {

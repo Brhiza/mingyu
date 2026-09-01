@@ -15,7 +15,7 @@ import type {
   XiaoliurenDivinationMethod,
   JinkoujueDivinationMethod,
 } from '../../../types/divination';
-import type { DivinationMethodId } from 'mingyu-core/divination/config';
+import type { DivinationMethodId } from '@temposoul/core/divination/config';
 import { daysInSolarMonth } from '../../date-validation';
 import {
   buildAstrolabeTopicTask,
@@ -29,13 +29,13 @@ import {
   formatDivinationInfo,
   formatSupplementaryInfoSection,
 } from './formatters';
-import { buildTaskText } from 'mingyu-core/divination/engine/method-text';
-import { buildLiurenTemplateText } from 'mingyu-core/divination/engine/liuren-template';
-import { buildLiuyaoTemplateText } from 'mingyu-core/divination/engine/liuyao-template';
+import { buildTaskText } from '@temposoul/core/divination/engine/method-text';
+import { buildLiurenTemplateText } from '@temposoul/core/divination/engine/liuren-template';
+import { buildLiuyaoTemplateText } from '@temposoul/core/divination/engine/liuyao-template';
 import { buildPromptGuidanceSections } from '../../prompt-guidance';
-import { tarotSpreads } from 'mingyu-core/divination/tarot';
-import { LENORMAND_SPREADS } from 'mingyu-core/divination/lenormand';
-import { secureRandomInt } from 'mingyu-core/random';
+import { tarotSpreads } from '@temposoul/core/divination/tarot';
+import { LENORMAND_SPREADS } from '@temposoul/core/divination/lenormand';
+import { secureRandomInt } from '@temposoul/core/random';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [
   'liuyao',
@@ -548,7 +548,7 @@ export async function generateDivinationSession(
   let data: DivinationData;
   switch (method) {
     case 'liuyao': {
-      const module = await import('mingyu-core/divination/liuyao');
+      const module = await import('@temposoul/core/divination/liuyao');
       const liuyaoMethod = draft.liuyaoMethod ?? 'time';
       data = module.generateLiuyao(customDate, {
         method: liuyaoMethod,
@@ -558,12 +558,12 @@ export async function generateDivinationSession(
       break;
     }
     case 'meihua': {
-      const module = await import('mingyu-core/divination/meihua');
+      const module = await import('@temposoul/core/divination/meihua');
       data = module.generateMeihua(customDate, supplementaryInfo?.meihuaSettings);
       break;
     }
     case 'xiaoliuren': {
-      const module = await import('mingyu-core/divination/xiaoliuren');
+      const module = await import('@temposoul/core/divination/xiaoliuren');
       data = module.generateXiaoliuren({
         method: draft.xiaoliurenMethod,
         customDate,
@@ -571,7 +571,7 @@ export async function generateDivinationSession(
       break;
     }
     case 'jinkoujue': {
-      const module = await import('mingyu-core/divination/jinkoujue');
+      const module = await import('@temposoul/core/divination/jinkoujue');
       data = module.generateJinkoujue({
         method: draft.jinkoujueMethod,
         customDate,
@@ -582,17 +582,17 @@ export async function generateDivinationSession(
       break;
     }
     case 'qimen': {
-      const module = await import('mingyu-core/divination/qimen');
+      const module = await import('@temposoul/core/divination/qimen');
       data = module.generateQimen(customDate);
       break;
     }
     case 'liuren': {
-      const module = await import('mingyu-core/divination/liuren');
+      const module = await import('@temposoul/core/divination/liuren');
       data = module.generateLiuren(customDate);
       break;
     }
     case 'taiyi': {
-      const module = await import('mingyu-core/taiyi');
+      const module = await import('@temposoul/core/taiyi');
       data = module.generateTaiyi({
         scope: 'year',
         year: readIntegerText(draft.taiyiYear, '太乙年计年份'),
@@ -600,7 +600,7 @@ export async function generateDivinationSession(
       break;
     }
     case 'tarot': {
-      const module = await import('mingyu-core/divination/tarot');
+      const module = await import('@temposoul/core/divination/tarot');
       data = module.drawTarotSpread(
         draft.tarotSpread,
         draft.tarotMethod === 'interactive'
@@ -612,7 +612,7 @@ export async function generateDivinationSession(
       break;
     }
     case 'ssgw': {
-      const module = await import('mingyu-core/divination/ssgw');
+      const module = await import('@temposoul/core/divination/ssgw');
       data =
         (draft.ssgwMethod ?? 'random') === 'manual'
           ? module.resolveSignByNumber(Number(draft.ssgwNumber), customDate)
@@ -620,7 +620,7 @@ export async function generateDivinationSession(
       break;
     }
     case 'almanac': {
-      const module = await import('mingyu-core/divination/almanac');
+      const module = await import('@temposoul/core/divination/almanac');
       data = module.generateAlmanacSelection({
         topic: draft.almanacTopic,
         startDate: draft.almanacStartDate,
@@ -630,7 +630,7 @@ export async function generateDivinationSession(
       break;
     }
     case 'lenormand': {
-      const module = await import('mingyu-core/divination/lenormand');
+      const module = await import('@temposoul/core/divination/lenormand');
       data = module.drawLenormandSpread(
         draft.lenormandSpread,
         draft.lenormandMethod === 'interactive'
@@ -642,7 +642,7 @@ export async function generateDivinationSession(
       break;
     }
     case 'astrolabe': {
-      const module = await import('mingyu-core/divination/astrolabe');
+      const module = await import('@temposoul/core/divination/astrolabe');
       const input: AstrolabeBirthInput = {
         name: draft.astrolabeName,
         gender: draft.astrolabeGender,

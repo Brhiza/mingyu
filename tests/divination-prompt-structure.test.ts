@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { taiyi } from 'mingyu-core';
+import { taiyi } from '@temposoul/core';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';

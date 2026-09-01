@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
-import type { AstrolabeBirthInput } from 'mingyu-core/types';
+import { generateAstrolabe } from '@temposoul/core/divination/astrolabe';
+import { analyzeAstrolabeSynastry } from '@temposoul/core/divination/astrolabe-synastry';
+import type { AstrolabeBirthInput } from '@temposoul/core/types';
 import { ASTROLABE_PROMPT_TOPICS } from '../../../src/lib/astrolabe-prompts.js';
 import {
   buildAstrolabeFullScopeContexts,

@@ -1,4 +1,4 @@
-import { secureRandomUint32 } from 'mingyu-core/random';
+import { secureRandomUint32 } from '@temposoul/core/random';
 
 /** 生成不依赖时间戳或 Math.random 的本地唯一标识。 */
 export function createSecureId() {

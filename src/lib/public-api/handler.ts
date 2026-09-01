@@ -3,10 +3,10 @@ import {
   type BaziChartResult,
   type Person,
   type ShenShaVariantConfig,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
-import { buildFortuneSelectionContext, type BaziFortuneSelectionValue } from 'mingyu-core/bazi';
+import { analyzeZiweiCompatibility } from '@temposoul/core/ziwei';
+import { buildFortuneSelectionContext, type BaziFortuneSelectionValue } from '@temposoul/core/bazi';
 import {
   buildAstronomicalTimeEvidence,
   calculateMoonPhaseEvidence,
@@ -15,25 +15,25 @@ import {
   convertTrueSolarTime,
   getTimeIndexFromClock,
   resolveTrueSolarBirthTime,
-} from 'mingyu-core/calendar';
-import { buildZiweiChartInput, calculatePublicZiweiChartForScopes } from 'mingyu-core/ziwei';
-import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
+} from '@temposoul/core/calendar';
+import { buildZiweiChartInput, calculatePublicZiweiChartForScopes } from '@temposoul/core/ziwei';
+import { buildCombinedZiweiCompatibilityPrompt } from '@temposoul/core/ziwei/prompt';
 import {
   daysInSolarMonth,
   getBirthDateValidationMessage,
   isValidIsoDateTime,
 } from '../date-validation';
-import { generateLiuyao, type LiuyaoGenerationOptions } from 'mingyu-core/divination/liuyao';
-import { generateMeihua } from 'mingyu-core/divination/meihua';
-import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
-import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
-import { generateQimen } from 'mingyu-core/divination/qimen';
-import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
-import { drawRandomSign } from 'mingyu-core/divination/ssgw';
+import { generateLiuyao, type LiuyaoGenerationOptions } from '@temposoul/core/divination/liuyao';
+import { generateMeihua } from '@temposoul/core/divination/meihua';
+import { generateXiaoliuren } from '@temposoul/core/divination/xiaoliuren';
+import { generateJinkoujue } from '@temposoul/core/divination/jinkoujue';
+import { generateQimen } from '@temposoul/core/divination/qimen';
+import { generateLiuren } from '@temposoul/core/divination/liuren';
+import { analyzeAlmanacEvidence, generateAlmanacSelection } from '@temposoul/core/divination/almanac';
+import { drawLenormandSpread } from '@temposoul/core/divination/lenormand';
+import { generateAstrolabe } from '@temposoul/core/divination/astrolabe';
+import { analyzeAstrolabeSynastry } from '@temposoul/core/divination/astrolabe-synastry';
+import { drawRandomSign } from '@temposoul/core/divination/ssgw';
 import {
   bazhai,
   zodiac,
@@ -44,16 +44,16 @@ import {
   xuankong,
   residentialFengshui,
   MingyuCoreError,
-} from 'mingyu-core';
-import { isValidGanZhi } from 'mingyu-core/ganzhi';
-import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
+} from '@temposoul/core';
+import { isValidGanZhi } from '@temposoul/core/ganzhi';
+import { BAGUA, TWENTY_FOUR_MOUNTAINS } from '@temposoul/core/direction';
 import {
   analyzeCompassDirection,
   analyzeShenshaEvidence,
   analyzeWuxing,
   describeGanZhi,
   getFoundationCapabilities,
-} from 'mingyu-core/foundation';
+} from '@temposoul/core/foundation';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '../astrolabe-scope';
@@ -81,8 +81,8 @@ import type {
   SupplementaryInfo,
   XiaoliurenDivinationMethod,
 } from '../../types/divination';
-import { drawTarotSpread } from 'mingyu-core/divination/tarot';
-import type { DivinationMethodId } from 'mingyu-core/divination/config';
+import { drawTarotSpread } from '@temposoul/core/divination/tarot';
+import type { DivinationMethodId } from '@temposoul/core/divination/config';
 import type { ScopeType } from '../../types/analysis';
 import {
   BAZI_PROMPT_TOPICS,

@@ -5,9 +5,9 @@ import {
   buildZiweiChartInput,
   calculateZiweiChart,
   calculateZiweiPayloadByScope,
-} from 'mingyu-core/ziwei/runtime';
-import { buildSerializableZiweiResult } from 'mingyu-core/ziwei';
-import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune';
+} from '@temposoul/core/ziwei/runtime';
+import { buildSerializableZiweiResult } from '@temposoul/core/ziwei';
+import { buildZiweiFortuneOptions } from '@temposoul/core/ziwei/fortune';
 
 const baseDraft = {
   name: '核心包紫微运行时样例',

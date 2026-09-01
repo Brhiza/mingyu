@@ -3,7 +3,7 @@ export {
   buildCurrentBaziFortuneSelection,
   buildRecentBaziFortuneSelection,
   getCurrentBaziLuckCycle as getCurrentLuckCycle,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 
 export const baziFortuneScopeLabelMap: Record<BaziFortuneScope, string> = {
   natal: '本命',

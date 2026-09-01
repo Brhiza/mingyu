@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { RandomOptions } from 'mingyu-core/types';
+import type { RandomOptions } from '@temposoul/core/types';
 
 export const randomOptionShape = {
   seed: z

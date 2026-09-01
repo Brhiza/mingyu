@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMingyuClient } from 'mingyu-core/client';
-import type { BirthProfile } from 'mingyu-core/profile';
-import { getZodiacYearFortune } from 'mingyu-core/zodiac';
+import { createMingyuClient } from '@temposoul/core/client';
+import type { BirthProfile } from '@temposoul/core/profile';
+import { getZodiacYearFortune } from '@temposoul/core/zodiac';
 
 const profile: BirthProfile = {
   name: '客户端样例',

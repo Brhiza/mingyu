@@ -4,7 +4,7 @@ import {
   getTenGodForBranch,
   getWuxing,
   type BaziChartResult,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
 import {
   formatAvoidGodPrioritySummary,

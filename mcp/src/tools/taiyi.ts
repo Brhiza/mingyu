@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { taiyi } from 'mingyu-core';
-import { isValidGanZhi } from 'mingyu-core/ganzhi';
+import { taiyi } from '@temposoul/core';
+import { isValidGanZhi } from '@temposoul/core/ganzhi';
 import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

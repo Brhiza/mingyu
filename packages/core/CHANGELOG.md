@@ -21,38 +21,38 @@
 
 ### 修复
 
-- 将中国省市区地点树、级联查询、反查和经度解析重新内置到 `mingyu-core/location`，真太阳时所需地点能力不再要求安装额外 npm 包。
-- 更新隔离安装契约检查，确认单独安装 `mingyu-core` 即可读取 34 个省级地点数据、解析区县经度并完成真太阳时换算。
+- 将中国省市区地点树、级联查询、反查和经度解析重新内置到 `@temposoul/core/location`，真太阳时所需地点能力不再要求安装额外 npm 包。
+- 更新隔离安装契约检查，确认单独安装 `@temposoul/core` 即可读取 34 个省级地点数据、解析区县经度并完成真太阳时换算。
 
 ## 0.1.24 (2026-08-06)
 
 ### 新增与修复
 
-- 新增 `mingyu-core/client` 统一高层客户端，提供出生盘、双人合盘、占法、能力发现和稳定序列化；同步提供不抛异常的 `safe` 调用及可判别错误协议。
+- 新增 `@temposoul/core/client` 统一高层客户端，提供出生盘、双人合盘、占法、能力发现和稳定序列化；同步提供不抛异常的 `safe` 调用及可判别错误协议。
 - 统一客户端新增出生资料标准化、出生真太阳时、天文时间尺度、月相、单项/全年节气、太阳高度与曙暮光、八宅、生肖流年、太乙、七政四余、玄空和住宅风水方法；同步算法及其 `safe` 版本保持同步返回。
 - 能力发现新增稳定的 `SystemCapabilityId` 与太阳光照声明；未知单项能力改为 `CAPABILITY_NOT_FOUND` 结构化校验错误，节气能力明确声明支持全年批量查询。
 - 新增 `calculateZodiacYearFortune({ zodiac, year, yearGanZhi })`，支持生肖名称或地支、公历年自动换算流年干支，并由前端公开 API 与 MCP 统一复用。
 - `safe` 普通异常新增校验、不支持、输入边界与依赖缺失分类，避免把可修正的表单错误统一标记为计算失败。
 - 校正能力发现清单：按真实函数签名声明真太阳时、天文时间、八宅与住宅输入，补充塔罗/雷诺曼手工录牌、灵签指定签号，移除玄空替卦、灵签掷筊、择日必需出生时刻及正式依赖被误列为可选依赖等过期声明。
-- 新增八字当前/近期运限选择便捷入口与 `mingyu-core/ziwei/fortune`，直接生成大运、流年、流月、流日选择数据和干支。
+- 新增八字当前/近期运限选择便捷入口与 `@temposoul/core/ziwei/fortune`，直接生成大运、流年、流月、流日选择数据和干支。
 - 新增独立可选包 `mingyu-location-china`，承载中国省市区地点树、级联查询、反查和经度解析；核心包仅保留通用地点索引，避免所有使用者承担数据体积。
 - 紫微依赖改为按调用动态加载；未安装可选 `iztro` 时，核心包、客户端和八字仍可正常使用，请求紫微会返回 `IZTRO_DEPENDENCY_REQUIRED`。
 - 完善 npm 包元数据和跨平台构建，关闭源码映射、移除未使用的 `tsup`，并新增 tarball 隔离安装、全部公开子路径导入、TypeScript 类型和可选依赖契约检查。
-- 新增 `mingyu-core/birth` 出生盘 Bundle：从一份 `BirthProfile` 按需生成八字、紫微、星盘和七政四余结果；新增七政四余出生档案适配器，明确真太阳时只由七政四余引擎校正一次。
-- 新增 `mingyu-core/compatibility` 双人合盘 Bundle：从两份 `BirthProfile` 直接生成八字合盘、紫微双盘证据和西占双盘相位。
+- 新增 `@temposoul/core/birth` 出生盘 Bundle：从一份 `BirthProfile` 按需生成八字、紫微、星盘和七政四余结果；新增七政四余出生档案适配器，明确真太阳时只由七政四余引擎校正一次。
+- 新增 `@temposoul/core/compatibility` 双人合盘 Bundle：从两份 `BirthProfile` 直接生成八字合盘、紫微双盘证据和西占双盘相位。
 - 核心包公开出生盘与合盘稳定子路径，并补充 API 文档和可复现回归测试。
-- 新增 `mingyu-core/divination/session` 统一占法会话入口，覆盖前端已有的纯数据请求校验、占法分发、手工/随机输入、摘要、提示词和稳定序列化。
+- 新增 `@temposoul/core/divination/session` 统一占法会话入口，覆盖前端已有的纯数据请求校验、占法分发、手工/随机输入、摘要、提示词和稳定序列化。
 - 补齐提示词公共能力：紫微主题任务书、紫微合盘、八字+紫微联合任务书，以及补充信息、六爻/大六壬问题范围和星盘主题任务。
-- 新增 `mingyu-core/ziwei/prompt` 紫微结构化快照、重点宫位、证据摘要与格式化入口，并将前端重复实现收敛为字段兼容层；传统依据文本和分段工具也统一由 `mingyu-core/prompt` 提供。
-- 将前端、公开接口与 MCP 共用的紫微完整盘面及双人合盘任务书下沉到 `mingyu-core/ziwei/prompt`；双盘提示词补充双方各自的真太阳时校正资料。
+- 新增 `@temposoul/core/ziwei/prompt` 紫微结构化快照、重点宫位、证据摘要与格式化入口，并将前端重复实现收敛为字段兼容层；传统依据文本和分段工具也统一由 `@temposoul/core/prompt` 提供。
+- 将前端、公开接口与 MCP 共用的紫微完整盘面及双人合盘任务书下沉到 `@temposoul/core/ziwei/prompt`；双盘提示词补充双方各自的真太阳时校正资料。
 - 结果协议新增 `serializeResult` 别名，统一会话新增 `formatDivinationResult`、`summarizeDivinationResult` 和 `serializeDivinationResult`。
-- 新增 `mingyu-core/prompt`，提供八字、八字合盘、紫微、星盘、星盘合盘的完整提示词任务书，以及各占法统一摘要和格式化入口；补齐小六壬、金口诀专用任务文本。
+- 新增 `@temposoul/core/prompt`，提供八字、八字合盘、紫微、星盘、星盘合盘的完整提示词任务书，以及各占法统一摘要和格式化入口；补齐小六壬、金口诀专用任务文本。
 - npm 包内容纳入 `docs/` 与 `CHANGELOG.md`，安装后 README 中的 API 文档链接可正常使用。
-- 新增 `mingyu-core/ziwei/runtime`，提供表单输入校验、真太阳时适配、指定范围结构化资料、固定运限时刻和大限时间线；前端紫微排盘改为复用该公共运行时。
+- 新增 `@temposoul/core/ziwei/runtime`，提供表单输入校验、真太阳时适配、指定范围结构化资料、固定运限时刻和大限时间线；前端紫微排盘改为复用该公共运行时。
 - 补齐大六壬、梅花、六爻、黄历、塔罗、灵签、雷诺曼、星盘与住宅风水等算法的传统依据和提示词来源边界。
 - 将前端占法增强资料格式化下沉至 `formatEnhancedDivinationInfo`，统一提供六爻用神/月日触发/应期、奇门值符值使与节令、大六壬课传、黄历候选证据、塔罗与雷诺曼明细；旧 `formatDivinationInfo` 入口保持兼容转发。
 - 新增元学任务书入口 `buildMetaphysicsPrompt`，覆盖八宅、住宅综合风水、生肖、七政四余和玄空；新增 `formatDetailedDivinationInfo`、占课时间及补充信息格式化入口，向 npm 用户提供前端原有的结构化资料整理能力。
-- 补充 `mingyu-core/bazi` 的 `PromptChartScene` 类型导出，并将前端可复用算法调用统一迁移到 npm 公开子路径。
+- 补充 `@temposoul/core/bazi` 的 `PromptChartScene` 类型导出，并将前端可复用算法调用统一迁移到 npm 公开子路径。
 - 新增 `formatBaziFortuneSelection`，统一前端、公开 API 与 MCP 的岁运分析对象、上下层资料和“主要触发”提示词格式。
 - 收紧八字、紫微和星盘运限输入，补齐星盘行运范围、真太阳时参考与跨运行时兼容性。
 - 修正七政四余的天文模块加载兼容性，并同步核心能力发现与结果版本号。
@@ -108,9 +108,9 @@
 - **随机输入统一**：随机选项新增推荐字段 `random`，兼容保留原 `rng`；小六壬随机起课支持 `seed` 与自定义随机源。
 - **八宅入户度数便捷接口**：新增 `analyzeBaZhaiByDoorDegree` 与 `getBaZhaiSitFacingFromDoorDegree`，统一按“站在大门处面向屋内”的指南针读数自动换算传统坐山、朝向、二十四山、宅卦及完整八宅结果。
 - **前端复用核心换算**：八宅页面改为直接调用核心包便捷接口，避免应用层重复维护相反方向与二十四山换算。
-- **紫微真太阳时便捷接口**：新增 `mingyu-core/ziwei/true-solar-input`，统一处理公历、农历、闰月、经度校正、跨日日期与紫微时辰索引，前端改为直接复用。
+- **紫微真太阳时便捷接口**：新增 `@temposoul/core/ziwei/true-solar-input`，统一处理公历、农历、闰月、经度校正、跨日日期与紫微时辰索引，前端改为直接复用。
 - **统一出生真太阳时能力**：公共 `calendar.resolveTrueSolarBirthTime` 集中处理公历/农历、闰月、时区、中国历史夏令时、跨日和早晚子时索引；八字、紫微、星盘统一复用，公开 API 与 MCP 同步增加出生资料入口。
-- **星盘行运能力进入核心包**：原前端星盘流年、流月、流日、行运落宫、返照与相位证据算法迁移至 `mingyu-core/divination/astrolabe-scope`，页面和公开 API 改为复用核心实现。
+- **星盘行运能力进入核心包**：原前端星盘流年、流月、流日、行运落宫、返照与相位证据算法迁移至 `@temposoul/core/divination/astrolabe-scope`，页面和公开 API 改为复用核心实现。
 
 ## 0.1.13 (2026-07-05)
 
@@ -122,7 +122,7 @@
 - **空壳事项分析移除**：删除已不产出内容的事项分析导出、类型和旧提取脚本模板，避免继续维护无效分析器。
 - **断盘提示标题收敛**：八字、紫微、星盘提示词不再使用“分析思路”标题，改为“断盘要点”或“星盘要点”。
 - **奇门重点宫位收敛**：奇门优先宫位改由核心包按结构化宫位、经典格局、干关系和方位数据生成，前端不再维护文字匹配算法。
-- **大六壬模板去重**：公开 `mingyu-core/divination/engine/liuren-template`，前端不再维护重复的大六壬问题范围模板。
+- **大六壬模板去重**：公开 `@temposoul/core/divination/engine/liuren-template`，前端不再维护重复的大六壬问题范围模板。
 - **紫微分析类型去重**：前端 `src/types/analysis.ts` 改为转导核心包类型，避免紫微分析载荷类型维护两份。
 - **前端完全重复副本收敛**：反推时辰字段、日期校验、紫微输入类型和 iztro 类型改为复用核心包；删除核心包未编译的分享文本死副本。
 - **旧提示词标题残留清理**：交叉校验和出生时间校验提示统一使用“断盘要点”，六爻、大六壬范围说明不再使用“固定专项框架”旧说法。
@@ -148,7 +148,7 @@
 
 ### 新增与修复
 
-- **占法共享入口**：新增 `mingyu-core/divination/config`、`mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template` 导出，前端与 MCP 共用核心包内容，不再维护重复副本。
+- **占法共享入口**：新增 `@temposoul/core/divination/config`、`@temposoul/core/divination/engine/method-text`、`@temposoul/core/divination/engine/liuyao-template` 导出，前端与 MCP 共用核心包内容，不再维护重复副本。
 - **星盘扩展点补齐**：西洋星盘结构化数据保留凯龙、四小行星、南北交、莉莉丝、福点/精神点与小相位中文标签。
 - **本地提示词收敛**：八字、紫微与合盘快捷分类只作为用户选择的范围，空问题走通用问题；保留“问题灵感”，不再把本地固定问题或专项框架塞进提示词。
 - **事项分析降级**：旧事项分析入口兼容保留但返回空列表，避免输出无依据事项分析。
@@ -192,7 +192,7 @@
 
 ### 🔧 修复
 
-- 修复 CI 构建顺序问题（build 脚本改为先构建 mingyu-core 再 vite build）
+- 修复 CI 构建顺序问题（build 脚本改为先构建 @temposoul/core 再 vite build）
 
 ## 0.1.5 (2026-07-01)
 
@@ -212,13 +212,13 @@
 ### 🧹 清理与修复
 
 - **SSGW 统一**：从 `package.json exports` 中移除 `./divination/ssgw-data`
-- **删除 17,893 行重复代码**：移除 `src/` 下与 `mingyu-core` 重复的算法副本
-- **类型统一**：`src/types/divination.ts` 改为 re-export `mingyu-core/types`
+- **删除 17,893 行重复代码**：移除 `src/` 下与 `@temposoul/core` 重复的算法副本
+- **类型统一**：`src/types/divination.ts` 改为 re-export `@temposoul/core/types`
 - 排除死代码（`config.ts`、`share-text.ts`、`engine/*` 不再编译）
 
 ### 🐛 修复
 
-- 修复 `pnpm --filter mingyu-core test` 测试脚本路径问题
+- 修复 `pnpm --filter @temposoul/core test` 测试脚本路径问题
 
 ### 📦 打包
 

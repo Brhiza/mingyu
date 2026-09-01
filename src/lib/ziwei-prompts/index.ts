@@ -1,5 +1,5 @@
 import type { AnalysisPayloadV1 } from '../../types/analysis';
-import { buildPortablePromptPack as buildCorePortablePromptPack } from 'mingyu-core/ziwei/prompt';
+import { buildPortablePromptPack as buildCorePortablePromptPack } from '@temposoul/core/ziwei/prompt';
 import { toZiweiPromptContext, type PromptContext } from './types';
 
 export type { PromptContext } from './types';

@@ -4,8 +4,8 @@ import {
   getBaZhaiSitFacingFromDoorDegree,
   type BaZhaiDoorMeasurement,
   type BaZhaiResult,
-} from 'mingyu-core/bazhai';
-import type { SitFacingPosition } from 'mingyu-core/direction';
+} from '@temposoul/core/bazhai';
+import type { SitFacingPosition } from '@temposoul/core/direction';
 
 export type BazhaiMeasurement = BaZhaiDoorMeasurement;
 

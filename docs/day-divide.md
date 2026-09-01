@@ -1,7 +1,7 @@
 # ADR：日柱分界口径 `dayDivide`
 
 状态：已采纳（§16 收敛结论）
-影响范围：`mingyu-core` 八字（`Person.dayDivide`）、紫微（`ChartInput.dayDivide`）、统一档案（`BirthProfile.dayDivide`）
+影响范围：`@temposoul/core` 八字（`Person.dayDivide`）、紫微（`ChartInput.dayDivide`）、统一档案（`BirthProfile.dayDivide`）
 
 ---
 
@@ -202,15 +202,15 @@
 | 导入写法 | 实际解析到 | 何时更新 |
 | --- | --- | --- |
 | `@core/*` | `packages/core/src/*` | 改完源码立即生效 |
-| `mingyu-core/*` | `packages/core/dist/*` | **必须先 build** |
+| `@temposoul/core/*` | `packages/core/dist/*` | **必须先 build** |
 
 两个后果：
 
 - **本地跳过 build 直接跑单个测试文件时，只有 `@core/*` 来源的断言能抓到 core 回归**；
-  `mingyu-core/*` 来源的断言读的是旧 dist，改动没生效它也照样绿。
+  `@temposoul/core/*` 来源的断言读的是旧 dist，改动没生效它也照样绿。
   验证 core 改动务必先 build，或直接跑 `pnpm test`（CI 会先 build 再测，三层都会红）。
 - **`instanceof` 会跨来源失效。** src 与 dist 是两个不同的 class 对象。
   实例：`tests/unsupported-501.test.ts` 第一版从 `@core/shared/result` 导入 `MingyuCoreError`，
-  而 `handler.ts` 从 `'mingyu-core'` 导入，导致 handler 里的
+  而 `handler.ts` 从 `'@temposoul/core'` 导入，导致 handler 里的
   `error instanceof MingyuCoreError` 判假，501 被降级成 500 兜底。
   **抛错方与捕获方必须同源**——测试里构造 core 错误对象时，要跟被测代码用同一个导入路径。

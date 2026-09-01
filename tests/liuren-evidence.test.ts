@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
+import { analyzeLiurenEvidence, generateLiuren } from '@temposoul/core/divination/liuren';
 import { TIANJIANG_ATTRIBUTES } from '../packages/core/src/divination/algorithms/liuren/helpers/plate';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');

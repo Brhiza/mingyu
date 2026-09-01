@@ -22,11 +22,11 @@ import { QuestionInspirationModal } from '@/components/QuestionInspirationModal'
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
-import { formatBaziForPrompt } from 'mingyu-core/bazi';
+import { formatBaziForPrompt } from '@temposoul/core/bazi';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import { generateQizheng, type QizhengResult } from 'mingyu-core/qizheng';
-import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
+import { generateAstrolabe } from '@temposoul/core/divination/astrolabe';
+import { generateQizheng, type QizhengResult } from '@temposoul/core/qizheng';
+import type { ResidentialFengshuiResult } from '@temposoul/core/residential-fengshui';
 import type { AstrolabeData } from '@/types/divination';
 import type {
   BaziFortuneSelectionModule,
@@ -79,7 +79,7 @@ import {
 } from '@/lib/residential-fengshui-chart';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
-import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
+import type { BaziFortuneSelectionValue } from '@temposoul/core/bazi';
 
 type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
 
@@ -455,7 +455,7 @@ export function ResultPage() {
 
       if ((shouldLoadBaziPromptModules || isBaziFortuneModalOpen) && !baziFortuneSelectionModule) {
         loaders.push(
-          import('mingyu-core/bazi').then((module) => {
+          import('@temposoul/core/bazi').then((module) => {
             if (!cancelled) {
               setBaziFortuneSelectionModule(module);
             }

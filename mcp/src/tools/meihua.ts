@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { generateMeihua } from 'mingyu-core/divination/meihua';
-import type { MeihuaSettings } from 'mingyu-core/types';
+import { generateMeihua } from '@temposoul/core/divination/meihua';
+import type { MeihuaSettings } from '@temposoul/core/types';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

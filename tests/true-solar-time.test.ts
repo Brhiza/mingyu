@@ -7,7 +7,7 @@ import {
   convertTrueSolarTime,
   parseLocalDateTime,
   resolveTrueSolarBirthTime,
-} from 'mingyu-core/calendar';
+} from '@temposoul/core/calendar';
 import { calculateTrueSolarTime as legacyCalculateTrueSolarTime } from '../packages/core/src/bazi/trueSolarTime.ts';
 import { checkChinaDst as legacyCheckChinaDst } from '../packages/core/src/bazi/chinaDst.ts';
 

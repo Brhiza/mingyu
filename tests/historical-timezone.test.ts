@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildAstronomicalTimeEvidence, resolveHistoricalTimezone } from 'mingyu-core/calendar';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import { generateQizheng } from 'mingyu-core/qizheng';
+import { buildAstronomicalTimeEvidence, resolveHistoricalTimezone } from '@temposoul/core/calendar';
+import { generateAstrolabe } from '@temposoul/core/divination/astrolabe';
+import { generateQizheng } from '@temposoul/core/qizheng';
 
 function assertEvidenceReferences(evidence: ReturnType<typeof resolveHistoricalTimezone>) {
   const factKeys = new Set([

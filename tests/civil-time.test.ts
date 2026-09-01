@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatFixedTimezoneOffset, resolveCivilTime } from 'mingyu-core/calendar';
+import { formatFixedTimezoneOffset, resolveCivilTime } from '@temposoul/core/calendar';
 
 test('民用时间统一入口应正确处理固定偏移与边界', () => {
   const fixed = resolveCivilTime({

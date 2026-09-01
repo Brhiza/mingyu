@@ -1,1 +1,1 @@
-export type * from 'mingyu-core/types';
+export type * from '@temposoul/core/types';

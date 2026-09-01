@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { xuankong } from 'mingyu-core';
-import { TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
+import { xuankong } from '@temposoul/core';
+import { TWENTY_FOUR_MOUNTAINS } from '@temposoul/core/direction';
 import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

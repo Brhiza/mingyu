@@ -8,9 +8,9 @@ import {
   hashStableValue,
   serializeCoreResult,
   stableStringify,
-} from 'mingyu-core/result';
-import { buildRandomTraceFact, createRandomContext } from 'mingyu-core/random';
-import { normalizeBirthProfile, BirthProfileError } from 'mingyu-core/profile';
+} from '@temposoul/core/result';
+import { buildRandomTraceFact, createRandomContext } from '@temposoul/core/random';
+import { normalizeBirthProfile, BirthProfileError } from '@temposoul/core/profile';
 import { drawSpreadCards } from '../packages/core/src/divination/tarot';
 import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index';

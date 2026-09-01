@@ -5,7 +5,7 @@ import {
   type BaziChartResult,
   type FortuneSelectionContext,
   type PromptChartScene,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 import {
   getBaziCompatibilityDefaultQuestion,
   getBaziDefaultQuestion,
@@ -14,7 +14,7 @@ import {
   BAZI_COMPATIBILITY_PROMPT_PRESETS,
   BAZI_PROMPT_PRESETS,
   formatBaziFortuneSelection,
-} from 'mingyu-core/prompt';
+} from '@temposoul/core/prompt';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import { buildPromptGuidanceSections } from '../../lib/prompt-guidance';
 

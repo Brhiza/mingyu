@@ -1,6 +1,6 @@
 import type { QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
-import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
+import { ALMANAC_TOPIC_OPTIONS } from '@temposoul/core/divination/config';
 import { safeStorage } from '@/lib/safe-storage';
 import { createSecureId } from '@/lib/secure-id';
 

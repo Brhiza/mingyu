@@ -1,4 +1,4 @@
-import { DEFAULT_CHINA_TIME_ZONE_ID } from 'mingyu-core/calendar';
+import { DEFAULT_CHINA_TIME_ZONE_ID } from '@temposoul/core/calendar';
 
 export const FRONTEND_DEFAULT_TIME_ZONE_ID = DEFAULT_CHINA_TIME_ZONE_ID;
 

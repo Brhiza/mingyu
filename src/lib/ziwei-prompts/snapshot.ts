@@ -3,7 +3,7 @@ import {
   buildPromptContextSnapshot as buildCorePromptContextSnapshot,
   buildZiweiReadableSnapshot as buildCoreZiweiReadableSnapshot,
   buildZiweiTaskBookSnapshot as buildCoreZiweiTaskBookSnapshot,
-} from 'mingyu-core/ziwei/prompt';
+} from '@temposoul/core/ziwei/prompt';
 import { toZiweiPromptContext, type PromptContext } from './types';
 
 type SnapshotParams = {

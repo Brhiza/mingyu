@@ -8,7 +8,7 @@ import {
   getShichenByIndex,
   getShichenFromClock,
   getTimeIndexFromClock,
-} from 'mingyu-core/calendar';
+} from '@temposoul/core/calendar';
 
 test('时辰索引工具应拒绝非法小时或分钟', () => {
   assert.equal(getTimeIndexFromClock(1, 30), 1);

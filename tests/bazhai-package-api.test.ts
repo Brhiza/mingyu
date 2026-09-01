@@ -5,7 +5,7 @@ import {
   analyzeBaZhai,
   analyzeBaZhaiByDoorDegree,
   getBaZhaiSitFacingFromDoorDegree,
-} from 'mingyu-core/bazhai';
+} from '@temposoul/core/bazhai';
 import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
 
 const TRIGRAMS = ['坎', '坤', '震', '巽', '乾', '兑', '艮', '离'];
@@ -102,7 +102,7 @@ test('八宅大游年应符合八宅逐宫传统真值', () => {
   }
 });
 
-test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果', () => {
+test('@temposoul/core/bazhai 应公开入户度数便捷接口和完整类型结果', () => {
   const position = getBaZhaiSitFacingFromDoorDegree(90);
   assert.equal(position.sit.degree, 90);
   assert.equal(position.facing.degree, 270);

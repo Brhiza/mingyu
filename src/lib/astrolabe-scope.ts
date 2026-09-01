@@ -1,1 +1,1 @@
-export * from 'mingyu-core/divination/astrolabe-scope';
+export * from '@temposoul/core/divination/astrolabe-scope';

@@ -1,5 +1,5 @@
 import type { AnalysisPayloadV1, PalaceFact } from '../../types/analysis';
-import { buildEvidenceSummary as buildCoreEvidenceSummary } from 'mingyu-core/ziwei/prompt';
+import { buildEvidenceSummary as buildCoreEvidenceSummary } from '@temposoul/core/ziwei/prompt';
 import { toZiweiPromptContext, type PromptContext } from './types';
 
 export {
@@ -7,7 +7,7 @@ export {
   buildScopeStructureSummary,
   buildScopeHitSummary,
   buildPalaceIndex,
-} from 'mingyu-core/ziwei/prompt';
+} from '@temposoul/core/ziwei/prompt';
 
 export function buildEvidenceSummary(
   payload: AnalysisPayloadV1,

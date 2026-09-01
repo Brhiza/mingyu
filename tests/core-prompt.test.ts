@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { baziCalculator, buildFortuneSelectionContext } from 'mingyu-core/bazi';
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
-import { generateQimen } from 'mingyu-core/divination/qimen';
-import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { baziCalculator, buildFortuneSelectionContext } from '@temposoul/core/bazi';
+import { generateLiuyao } from '@temposoul/core/divination/liuyao';
+import { generateQimen } from '@temposoul/core/divination/qimen';
+import { generateXiaoliuren } from '@temposoul/core/divination/xiaoliuren';
 import {
   buildBaziZiweiPrompt,
   buildBaziCompatibilityPrompt,
@@ -23,8 +23,8 @@ import {
   buildTimeInfoText,
   formatSupplementaryInfoSection,
   getDivinationSummaryBlocks,
-} from 'mingyu-core/prompt';
-import { buildZiweiChartInput, calculateZiweiChart } from 'mingyu-core/ziwei/runtime';
+} from '@temposoul/core/prompt';
+import { buildZiweiChartInput, calculateZiweiChart } from '@temposoul/core/ziwei/runtime';
 
 function createChart(gender: 'male' | 'female', day: number) {
   return baziCalculator.calculateBazi({

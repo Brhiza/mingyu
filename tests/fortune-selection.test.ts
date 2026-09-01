@@ -8,7 +8,7 @@ import {
   buildRecentBaziFortuneSelection,
   getCurrentBaziLuckCycle,
   normalizeFortuneSelection,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
 

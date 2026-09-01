@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateLiuyao, analyzeLiuyaoEvidence } from 'mingyu-core/divination/liuyao';
-import { isKe, isSheng } from 'mingyu-core/ganzhi';
+import { generateLiuyao, analyzeLiuyaoEvidence } from '@temposoul/core/divination/liuyao';
+import { isKe, isSheng } from '@temposoul/core/ganzhi';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 const fixedYaos = [7, 8, 9, 6, 7, 8] as const;

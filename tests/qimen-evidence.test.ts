@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeQimenEvidence, generateQimen } from 'mingyu-core/divination/qimen';
+import { analyzeQimenEvidence, generateQimen } from '@temposoul/core/divination/qimen';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');

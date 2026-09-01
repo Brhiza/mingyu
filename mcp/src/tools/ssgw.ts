@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { drawRandomSign } from 'mingyu-core/divination/ssgw';
+import { drawRandomSign } from '@temposoul/core/divination/ssgw';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

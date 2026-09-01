@@ -7,9 +7,9 @@ import {
   calculateSecondaryProgressionEvidence,
   calculateSolarArcEvidence,
   calculateSolarReturnEvidence,
-} from 'mingyu-core/divination/astrolabe-scope';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import type { AstrolabeData } from 'mingyu-core/types';
+} from '@temposoul/core/divination/astrolabe-scope';
+import { generateAstrolabe } from '@temposoul/core/divination/astrolabe';
+import type { AstrolabeData } from '@temposoul/core/types';
 
 const astrolabeData = generateAstrolabe({
   name: '本人',

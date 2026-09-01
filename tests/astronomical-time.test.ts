@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildAstronomicalTimeEvidence, estimateDeltaTSeconds } from 'mingyu-core/calendar';
+import { buildAstronomicalTimeEvidence, estimateDeltaTSeconds } from '@temposoul/core/calendar';
 
 function assertEvidenceReferences(evidence: ReturnType<typeof buildAstronomicalTimeEvidence>) {
   const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveZiweiTrueSolarBirth } from 'mingyu-core/ziwei/true-solar-input';
+import { resolveZiweiTrueSolarBirth } from '@temposoul/core/ziwei/true-solar-input';
 import { buildZiweiChartInput } from '../src/lib/full-chart-engine/ziwei';
 import { calculateEquationOfTimeMinutes, calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { getTimeIndexFromClock } from '@temposoul/core/calendar';
 
 test('紫微真太阳时排盘应改用修正后的公历日期与时辰', () => {
   const corrected = calculateTrueSolarTime(

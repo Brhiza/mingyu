@@ -4,9 +4,9 @@ import test from 'node:test';
 import {
   calculateBaziZiweiCombinedReading,
   formatBaziZiweiSynthesisForPrompt,
-} from 'mingyu-core/synthesis';
-import { createMingyuClient } from 'mingyu-core/client';
-import type { BirthProfile } from 'mingyu-core/profile';
+} from '@temposoul/core/synthesis';
+import { createMingyuClient } from '@temposoul/core/client';
+import type { BirthProfile } from '@temposoul/core/profile';
 
 const profile: BirthProfile = {
   name: '时月',

@@ -28,7 +28,7 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 
 - [核心能力](#核心能力)
 - [集成方式](#集成方式)
-- [核心算法包](#核心算法包-mingyu-core)
+- [核心算法包](#核心算法包-@temposoul/core)
 - [运行与部署方式](#运行与部署方式)
 - [模型评测](#模型评测)
 
@@ -54,9 +54,9 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 - 干支：十天干、十二地支、六十甲子、六旬旬首、纳音、藏干、阴阳五行、合冲刑害破、三合三会统一真相源。
 - 五行：统一生克、月令旺相休囚死和天干地支结构出现统计，可选计入藏干。
 - 八字、六爻、奇门、六壬等旧模块统一复用公共地基，旧导入路径仅保留兼容转发。
-- 核心包提供 `mingyu-core/foundation`，线上提供 `/foundation/capabilities`、`/foundation/ganzhi`、`/foundation/wuxing`、`/foundation/direction`、`/foundation/shensha`；通用神煞入口会严格核验完整四柱，逐项返回空亡、驿马、桃花的起法、目标地支、命中柱位、来源声明和解释限制，能力目录本身也返回稳定事实、来源、证据汇总与解释限制。
-- 真太阳时统一提升到 `mingyu-core/calendar`，线上提供 `/calendar/true-solar-time` 便捷换算接口。
-- `mingyu-core/calendar` 还提供统一天文时间尺度证据，可把当地钟表时间换算为 UTC、`JD(UTC)`、近似 `JD(UT)` 与 `JD(TT)`，同时返回 ΔT 模型、估算等级和精度限制；支持用 IANA 时区解析历史夏令时、回拨歧义和跳时缺口，太阳返照已接入该证据。
+- 核心包提供 `@temposoul/core/foundation`，线上提供 `/foundation/capabilities`、`/foundation/ganzhi`、`/foundation/wuxing`、`/foundation/direction`、`/foundation/shensha`；通用神煞入口会严格核验完整四柱，逐项返回空亡、驿马、桃花的起法、目标地支、命中柱位、来源声明和解释限制，能力目录本身也返回稳定事实、来源、证据汇总与解释限制。
+- 真太阳时统一提升到 `@temposoul/core/calendar`，线上提供 `/calendar/true-solar-time` 便捷换算接口。
+- `@temposoul/core/calendar` 还提供统一天文时间尺度证据，可把当地钟表时间换算为 UTC、`JD(UTC)`、近似 `JD(UT)` 与 `JD(TT)`，同时返回 ΔT 模型、估算等级和精度限制；支持用 IANA 时区解析历史夏令时、回拨歧义和跳时缺口，太阳返照已接入该证据。
 - 历法层可由日月地心黄经差输出月相角、最小距角、照明近似、盈亏、八相、近似月龄及前后朔弦望时刻；奇门和黄历候选日已接入，并明确不把月相自动解释为吉凶或观测级精度。
 - 历法层还可按日期、经纬度和历史时区输出太阳高度、真北方位角、视太阳正午、日出日落及民用/航海/天文曙暮光；西占已接入，并保留极昼极夜、地平遮挡和大气折射限制。
 - 二十四节气边界继续采用 `tyme4ts` 历表，同时按节气每隔 15° 太阳视黄经的定义，用 Meeus/NOAA 低阶公式独立求根核验；输出采用时刻、模型求根时刻、黄经残差、两者差值和精度限制。八字节令月与奇门节令提示词已接入该证据，临界时间不因显示到秒而宣称观测级精度。
@@ -177,9 +177,9 @@ Invoke-WebRequest "https://aov.cc/skills/aov-mingyu-api/SKILL.md" `
 
 </details>
 
-## 核心算法包 `mingyu-core`
+## 核心算法包 `@temposoul/core`
 
-命语的所有命理排盘与占卜算法已抽取为独立 npm 包 [`mingyu-core`](https://www.npmjs.com/package/mingyu-core)，本仓库以 pnpm workspace 形式同时维护应用与算法包。
+命语的所有命理排盘与占卜算法已抽取为独立 npm 包 [`@temposoul/core`](https://www.npmjs.com/package/@temposoul/core)，本仓库以 pnpm workspace 形式同时维护应用与算法包。
 
 <details>
 <summary>安装和使用示例</summary>
@@ -187,21 +187,21 @@ Invoke-WebRequest "https://aov.cc/skills/aov-mingyu-api/SKILL.md" `
 ```text
 mingyu/
 ├── packages/
-│   └── core/                  # mingyu-core 算法包（独立发布到 npm）
+│   └── core/                  # @temposoul/core 算法包（独立发布到 npm）
 └── src/                       # 应用层（React + Vite + MCP）
 ```
 
 安装：
 
 ```bash
-npm install mingyu-core
+npm install @temposoul/core
 ```
 
 使用示例：
 
 ```ts
 // 八字排盘
-import { baziCalculator } from 'mingyu-core/bazi';
+import { baziCalculator } from '@temposoul/core/bazi';
 
 const result = baziCalculator.calculateBazi({
   year: 1990,
@@ -212,20 +212,20 @@ const result = baziCalculator.calculateBazi({
 });
 
 // 占卜算法
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
-import { generateQimen } from 'mingyu-core/divination/qimen';
-import { generateLiuren } from 'mingyu-core/divination/liuren';
+import { generateLiuyao } from '@temposoul/core/divination/liuyao';
+import { generateQimen } from '@temposoul/core/divination/qimen';
+import { generateLiuren } from '@temposoul/core/divination/liuren';
 
 // 历法工具
-import { getDivinationTime, getVoidBranches } from 'mingyu-core/calendar';
+import { getDivinationTime, getVoidBranches } from '@temposoul/core/calendar';
 
 // 类型
-import type { BaziChartResult, QimenData, LiurenData } from 'mingyu-core/types';
+import type { BaziChartResult, QimenData, LiurenData } from '@temposoul/core/types';
 ```
 
 包覆盖能力：八字（含调候用神、格局、神煞、大运、命卦、小运、排盘边界预警、中国夏令时校正及透干根气、十神结构、合化评估等增强分析）、奇门遁甲（含节令背景、复合格局、方位应期）、六爻、大六壬、梅花易数、紫微斗数、西洋占星、七政四余、择日、塔罗、三山国王灵签，以及住宅风水（八宅+玄空合参）、八宅、玄空飞星、太乙和干支、五行、方位、神煞公共模块。
 
-真太阳时及其所需的中国省市区、经度数据随 `mingyu-core` 一同提供，可直接从 `mingyu-core/location` 查询，无需安装额外地点包。
+真太阳时及其所需的中国省市区、经度数据随 `@temposoul/core` 一同提供，可直接从 `@temposoul/core/location` 查询，无需安装额外地点包。
 
 **⚠️ 免责：** 该包仅提供算法实现，所有结果仅供参考与学习娱乐，不构成任何命理预测或专业建议。
 
@@ -240,7 +240,7 @@ import type { BaziChartResult, QimenData, LiurenData } from 'mingyu-core/types';
 | 前端       | React 19、TypeScript 5.9                        |
 | 构建       | Vite 7                                          |
 | 路由       | React Router 7                                  |
-| 包管理     | pnpm workspace（应用层 + `mingyu-core` 算法包） |
+| 包管理     | pnpm workspace（应用层 + `@temposoul/core` 算法包） |
 | 部署       | Cloudflare Pages、Pages Functions、Docker       |
 | 历法与星盘 | `tyme4ts`、`iztro`、`celestine`                 |
 | 数据校验   | `zod`                                           |
@@ -257,7 +257,7 @@ mingyu/
 ├── functions/                 # Cloudflare Pages Functions 公开 API 和公开发现元数据
 ├── mcp/                       # MCP Server
 ├── packages/
-│   └── core/                  # mingyu-core 独立算法包（发布到 npm）
+│   └── core/                  # @temposoul/core 独立算法包（发布到 npm）
 │       ├── src/bazi/          # 八字引擎与增强分析
 │       ├── src/divination/    # 占卜算法（六爻/奇门/六壬/梅花等）
 │       ├── src/calendar/      # 历法工具
@@ -275,7 +275,7 @@ mingyu/
 │   │   └── ziwei-prompts/     # 紫微提示词模块
 │   ├── pages/                 # 输入页、结果页、历史页、教程页
 │   ├── types/                 # 领域类型定义
-│   ├── utils/                 # 页面层工具，核心算法统一来自 mingyu-core
+│   ├── utils/                 # 页面层工具，核心算法统一来自 @temposoul/core
 │   └── workers/               # 紫微相关 Web Worker
 └── tests/                     # 单元测试与集成测试
 ```
@@ -289,7 +289,7 @@ mingyu/
 <details>
 <summary>本地开发</summary>
 
-本项目使用 pnpm workspace 管理应用层与 `mingyu-core` 算法包，需先安装 [pnpm](https://pnpm.io)：
+本项目使用 pnpm workspace 管理应用层与 `@temposoul/core` 算法包，需先安装 [pnpm](https://pnpm.io)：
 
 ```bash
 npm install -g pnpm
@@ -325,10 +325,10 @@ pnpm build
 pnpm test
 ```
 
-单独构建 `mingyu-core` 算法包：
+单独构建 `@temposoul/core` 算法包：
 
 ```bash
-pnpm --filter mingyu-core build
+pnpm --filter @temposoul/core build
 ```
 
 类型检查 MCP 与共享源码：

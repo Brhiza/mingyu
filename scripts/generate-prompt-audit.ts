@@ -7,15 +7,15 @@ import {
   buildZiweiPromptForRuntime,
 } from '../src/lib/public-api/prompt-builders';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
-import { generateMeihua } from 'mingyu-core/divination/meihua';
-import { generateQimen } from 'mingyu-core/divination/qimen';
-import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { generateLiuyao } from '@temposoul/core/divination/liuyao';
+import { generateMeihua } from '@temposoul/core/divination/meihua';
+import { generateQimen } from '@temposoul/core/divination/qimen';
+import { generateLiuren } from '@temposoul/core/divination/liuren';
+import { generateAlmanacSelection } from '@temposoul/core/divination/almanac';
+import { generateAstrolabe } from '@temposoul/core/divination/astrolabe';
 import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
-import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { drawSpreadCards, getCardEvidence } from 'mingyu-core/divination/tarot';
+import { drawRandomSign } from '@temposoul/core/divination/ssgw';
+import { drawSpreadCards, getCardEvidence } from '@temposoul/core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaZhai } from '@core/ba_zhai';
 import { generateResidentialFengshui } from '@core/residential_fengshui';

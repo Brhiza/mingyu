@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import { generateQimen } from 'mingyu-core/divination/qimen';
+import { generateAlmanacSelection } from '@temposoul/core/divination/almanac';
+import { generateQimen } from '@temposoul/core/divination/qimen';
 import { getDivinationSummaryBlocks } from '../src/lib/divination/summary';
 
 test('黄历择日摘要应展示候选状态与限制，不暴露内部数字评分', () => {

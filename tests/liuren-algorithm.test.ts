@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
-import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
+import type { LiurenLesson, LiurenPlateItem } from '@temposoul/core/types';
+import { analyzeLiurenEvidence, generateLiuren } from '@temposoul/core/divination/liuren';
 import {
   getLiurenGuaTiFacts,
   getLiurenTransmissionGuaTi,

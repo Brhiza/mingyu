@@ -1,7 +1,7 @@
 /**
  * 公开 API 提示词的前端兼容入口。
  *
- * 提示词编排属于可复用的核心能力，实际实现统一放在 mingyu-core；这里仅
+ * 提示词编排属于可复用的核心能力，实际实现统一放在 @temposoul/core；这里仅
  * 保留历史导入路径，避免页面和服务端调用方一次性迁移。
  */
 export {
@@ -23,7 +23,7 @@ export {
   getBaziSchoolGuidance,
   getZiweiPromptCalculationScopes,
   getZiweiSchoolGuidance,
-} from 'mingyu-core/prompt/public-api';
+} from '@temposoul/core/prompt/public-api';
 
 export type {
   BaziPromptTopic,
@@ -33,4 +33,4 @@ export type {
   ZiweiPromptScope,
   ZiweiPromptTopic,
   ZiweiSchool,
-} from 'mingyu-core/prompt/public-api';
+} from '@temposoul/core/prompt/public-api';

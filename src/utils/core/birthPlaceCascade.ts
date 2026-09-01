@@ -9,7 +9,7 @@ import {
   type BirthPlaceCityOption,
   type BirthPlaceDistrictOption,
   type BirthPlaceProvinceOption,
-} from 'mingyu-core/location';
+} from '@temposoul/core/location';
 
 export type { BirthPlaceCityOption, BirthPlaceDistrictOption, BirthPlaceProvinceOption };
 

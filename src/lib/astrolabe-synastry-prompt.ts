@@ -1,9 +1,9 @@
-import type { AstrolabeData, AstrolabeSynastryData } from 'mingyu-core/types';
-import { buildAstrolabeSynastryPrompt as buildCoreAstrolabeSynastryPrompt } from 'mingyu-core/prompt';
+import type { AstrolabeData, AstrolabeSynastryData } from '@temposoul/core/types';
+import { buildAstrolabeSynastryPrompt as buildCoreAstrolabeSynastryPrompt } from '@temposoul/core/prompt';
 
 export type AstrolabeSynastryPromptMode = 'framework' | 'custom';
 
-/** 页面兼容入口；实际提示词编排统一由 mingyu-core 提供。 */
+/** 页面兼容入口；实际提示词编排统一由 @temposoul/core 提供。 */
 export function buildAstrolabeSynastryPrompt(params: {
   chart1: AstrolabeData;
   chart2: AstrolabeData;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { qizheng } from 'mingyu-core';
+import { qizheng } from '@temposoul/core';
 import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

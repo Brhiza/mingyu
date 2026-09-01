@@ -1,1 +1,1 @@
-export { formatPromptCurrentTime } from 'mingyu-core/prompt';
+export { formatPromptCurrentTime } from '@temposoul/core/prompt';

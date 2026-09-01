@@ -1,1 +1,1 @@
-export { getDivinationSummaryBlocks, type DivinationSummaryBlocks } from 'mingyu-core/prompt';
+export { getDivinationSummaryBlocks, type DivinationSummaryBlocks } from '@temposoul/core/prompt';

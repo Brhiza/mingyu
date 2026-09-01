@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
-import type { AstrolabeData, AstrolabePoint } from 'mingyu-core/types';
+import { analyzeAstrolabeSynastry } from '@temposoul/core/divination/astrolabe-synastry';
+import type { AstrolabeData, AstrolabePoint } from '@temposoul/core/types';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 function point(name: string, label: string, longitude: number, house = 1): AstrolabePoint {

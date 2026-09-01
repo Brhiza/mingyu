@@ -1,6 +1,6 @@
-# mingyu-core API 参考文档
+# @temposoul/core API 参考文档
 
-本文档列出 `mingyu-core` 所有公开模块的函数签名与主要类型字段。
+本文档列出 `@temposoul/core` 所有公开模块的函数签名与主要类型字段。
 
 > ⚠️ **免责声明**：本库仅提供算法实现，结果仅供参考与娱乐，不构成任何命理预测或专业建议。
 
@@ -30,7 +30,7 @@
 
 ## 八字 Bazi
 
-导入：`import { ... } from 'mingyu-core/bazi'`
+导入：`import { ... } from '@temposoul/core/bazi'`
 
 ### `baziCalculator.calculateBazi(person)`
 
@@ -131,7 +131,7 @@
 
 ## 六爻 Liuyao
 
-导入：`import { generateLiuyao } from 'mingyu-core/divination/liuyao'`
+导入：`import { generateLiuyao } from '@temposoul/core/divination/liuyao'`
 
 ### `generateLiuyao(customDate?)`
 
@@ -168,7 +168,7 @@
 
 ## 梅花易数 Meihua
 
-导入：`import { generateMeihua } from 'mingyu-core/divination/meihua'`
+导入：`import { generateMeihua } from '@temposoul/core/divination/meihua'`
 
 ### `generateMeihua(customDate?, settings?)`
 
@@ -187,7 +187,7 @@
 
 ## 奇门遁甲 Qimen
 
-导入：`import { generateQimen, createQimenPriorityPalaces } from 'mingyu-core/divination/qimen'`
+导入：`import { generateQimen, createQimenPriorityPalaces } from '@temposoul/core/divination/qimen'`
 
 ### `generateQimen(customDate?, method?, scope?)`
 
@@ -214,7 +214,7 @@
 
 ## 大六壬 Liuren
 
-导入：`import { generateLiuren } from 'mingyu-core/divination/liuren'`
+导入：`import { generateLiuren } from '@temposoul/core/divination/liuren'`
 
 ### `generateLiuren(customDate?)`
 
@@ -224,7 +224,7 @@
 
 ## 择日 Almanac
 
-导入：`import { generateAlmanacSelection } from 'mingyu-core/divination/almanac'`
+导入：`import { generateAlmanacSelection } from '@temposoul/core/divination/almanac'`
 
 ### `generateAlmanacSelection(params)`
 
@@ -236,7 +236,7 @@
 
 ## 灵签 SSGW
 
-导入：`import { drawRandomSign } from 'mingyu-core/divination/ssgw'`
+导入：`import { drawRandomSign } from '@temposoul/core/divination/ssgw'`
 
 ### `drawRandomSign(customDate?, options?)`
 
@@ -251,7 +251,7 @@
 
 ## 塔罗 Tarot
 
-导入：`import { drawSingleCard, drawSpreadCards } from 'mingyu-core/divination/tarot'`
+导入：`import { drawSingleCard, drawSpreadCards } from '@temposoul/core/divination/tarot'`
 
 ### `drawSingleCard(options?)`
 
@@ -268,7 +268,7 @@
 
 ## 西洋占星 Astrolabe
 
-导入：`import { generateAstrolabe } from 'mingyu-core/divination/astrolabe'`
+导入：`import { generateAstrolabe } from '@temposoul/core/divination/astrolabe'`
 
 ### `generateAstrolabe(input)`
 
@@ -278,7 +278,7 @@
 
 ### `analyzeAstrolabeSynastry(chart1, chart2, options?)`
 
-导入：`import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry'`
+导入：`import { analyzeAstrolabeSynastry } from '@temposoul/core/divination/astrolabe-synastry'`
 
 接收两份 `AstrolabeData`，返回双方主要跨盘相位、实际夹角、可配置容许度、相对强度、双方星体落入对方宫位、结构化证据包与明确计算口径。静态本命双盘不推断入相或出相，也不生成缺乏统一依据的关系匹配总分。
 
@@ -286,7 +286,7 @@
 
 ## 紫微斗数 Ziwei
 
-导入：`import { ... } from 'mingyu-core/ziwei/iztro'`
+导入：`import { ... } from '@temposoul/core/ziwei/iztro'`
 
 ### 主要导出
 
@@ -298,7 +298,7 @@
 | `detectPatterns({palaces})`                                        | 评估当前 55 条可复算格局；每项返回固定古籍版本、卷次、原文、命中条件与解释边界 |
 | `buildEvidencePool({astrolabe, horoscope, currentScope, palaces})` | 构建证据池                                                                     |
 
-运行时便捷入口：`import { ... } from 'mingyu-core/ziwei/runtime'`
+运行时便捷入口：`import { ... } from '@temposoul/core/ziwei/runtime'`
 
 | 函数                                                               | 说明                                                                    |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------------- |
@@ -310,15 +310,15 @@
 
 `calculateZiweiChart` 默认使用当前时间生成运限资料；需要可复现结果时应显式传入 `horoscopeContext`。`skipAnalysis` 只跳过证据与格局分析，不影响盘面计算。
 
-运限选择便捷入口：`import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune'`。传入一个童限或大限年龄范围后，可一次得到流年、流月、流日选项及各自干支。八字对应提供 `getCurrentBaziLuckCycle()`、`buildCurrentBaziFortuneSelection()` 和 `buildRecentBaziFortuneSelection()`，可直接生成 `buildFortuneSelectionContext()` 所需选择值；目标年份不在命盘已计算的童限或大运范围内时，这三个入口返回 `null`，不会回退到第一步大运。
+运限选择便捷入口：`import { buildZiweiFortuneOptions } from '@temposoul/core/ziwei/fortune'`。传入一个童限或大限年龄范围后，可一次得到流年、流月、流日选项及各自干支。八字对应提供 `getCurrentBaziLuckCycle()`、`buildCurrentBaziFortuneSelection()` 和 `buildRecentBaziFortuneSelection()`，可直接生成 `buildFortuneSelectionContext()` 所需选择值；目标年份不在命盘已计算的童限或大运范围内时，这三个入口返回 `null`，不会回退到第一步大运。
 
-依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前固定版本传统目录登记 87 项，其中 55 条具备卷次、原文和可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中。空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
+依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前固定版本传统目录登记 87 项，其中 55 条具备卷次、原文和可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中。空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。返回类型见 `@temposoul/core/types` 的 `analysis.ts`。
 
 ---
 
 ## 统一客户端 Client
 
-导入：`import { createMingyuClient } from 'mingyu-core/client'`
+导入：`import { createMingyuClient } from '@temposoul/core/client'`
 
 | 方法                                        | 说明                                                      |
 | ------------------------------------------- | --------------------------------------------------------- |
@@ -348,7 +348,7 @@
 
 ## 统一出生档案 Profile
 
-导入：`import { ... } from 'mingyu-core/profile'`
+导入：`import { ... } from '@temposoul/core/profile'`
 
 统一出生档案同时支持公历、农历、闰月、传统时辰、精确时分、地点和真太阳时。它只负责客观输入与时间口径，不包含页面状态或报告内容。
 
@@ -356,7 +356,7 @@
 | ------------------------------------------- | -------------------------------------------------------------- |
 | `normalizeBirthProfile(profile)`            | 校验并统一出生时间，返回时辰索引、精度、真太阳时证据和诊断     |
 | `calculateBaziFromBirthProfile(profile)`    | 直接生成八字传统盘；农历真太阳时只做一次历法换算               |
-| `birthProfileToZiweiChartInput(profile)`    | 生成 `mingyu-core/ziwei` 可直接使用的 `ChartInput`             |
+| `birthProfileToZiweiChartInput(profile)`    | 生成 `@temposoul/core/ziwei` 可直接使用的 `ChartInput`             |
 | `birthProfileToAstrolabeInput(profile)`     | 生成星盘输入；星盘仍需纬度与精确到分钟的时间                   |
 | `birthProfileToQizhengInput(profile)`       | 生成七政四余输入；真太阳时保留原始民用时间交给七政四余引擎校正 |
 | `birthProfileToAlmanacParticipant(profile)` | 生成择日参与人输入                                             |
@@ -367,7 +367,7 @@
 
 ## 出生盘 Bundle
 
-导入：`import { calculateBirthChartBundle } from 'mingyu-core/birth'`
+导入：`import { calculateBirthChartBundle } from '@temposoul/core/birth'`
 
 ### `calculateBirthChartBundle(profile, options?)`
 
@@ -384,7 +384,7 @@ const bundle = await calculateBirthChartBundle(profile, {
 
 ## 八字紫微合参 Synthesis
 
-导入：`import { calculateBaziZiweiCombinedReading } from 'mingyu-core/synthesis'`
+导入：`import { calculateBaziZiweiCombinedReading } from '@temposoul/core/synthesis'`
 
 ### `calculateBaziZiweiCombinedReading(profile, options)`
 
@@ -406,7 +406,7 @@ console.log(reading.promptText);
 
 ## 双人合盘 Bundle
 
-导入：`import { calculateCompatibilityBundle } from 'mingyu-core/compatibility'`
+导入：`import { calculateCompatibilityBundle } from '@temposoul/core/compatibility'`
 
 ### `calculateCompatibilityBundle(primary, partner, options?)`
 
@@ -416,7 +416,7 @@ console.log(reading.promptText);
 
 ## 历法 Calendar
 
-导入：`import { ... } from 'mingyu-core/calendar'`
+导入：`import { ... } from '@temposoul/core/calendar'`
 
 | 函数                                        | 说明                                                               |
 | ------------------------------------------- | ------------------------------------------------------------------ |
@@ -444,7 +444,7 @@ console.log(reading.promptText);
 
 ## 统一占法会话 Session
 
-导入：`import { ... } from 'mingyu-core/divination/session'`
+导入：`import { ... } from '@temposoul/core/divination/session'`
 
 统一会话入口将前端原本的占法选择、输入校验、算法分发、结果摘要和提示词组装收敛为框架无关的纯数据接口。它不负责 HTTP、分页、存储或界面状态。
 
@@ -472,7 +472,7 @@ const result = generateDivinationSession({
 
 ## 提示词与摘要 Prompt
 
-导入：`import { ... } from 'mingyu-core/prompt'`
+导入：`import { ... } from '@temposoul/core/prompt'`
 
 所有 `build*Prompt` 函数返回可直接复制给在线 AI 的完整任务书；对应的 `build*PromptDocument` 同时返回 `system`、`user` 和合并后的 `text`。提示词构建器不发起网络请求，也不依赖 React。
 
@@ -505,7 +505,7 @@ const result = generateDivinationSession({
 示例：
 
 ```typescript
-import { buildBaziPrompt } from 'mingyu-core/prompt';
+import { buildBaziPrompt } from '@temposoul/core/prompt';
 
 const text = buildBaziPrompt({
   result: chart,
@@ -515,17 +515,17 @@ const text = buildBaziPrompt({
 });
 ```
 
-公开 HTTP 接口和旧调用方需要保持既有紧凑输出时，可使用 `mingyu-core/prompt/public-api`。新的通用集成应优先使用 `mingyu-core/prompt`；紫微完整快照链路也可从 `mingyu-core/ziwei/prompt` 导入。两者都只负责生成任务书，不发起 AI 请求。
+公开 HTTP 接口和旧调用方需要保持既有紧凑输出时，可使用 `@temposoul/core/prompt/public-api`。新的通用集成应优先使用 `@temposoul/core/prompt`；紫微完整快照链路也可从 `@temposoul/core/ziwei/prompt` 导入。两者都只负责生成任务书，不发起 AI 请求。
 
 提示词只包含任务、盘面资料、当前时间和传统依据；页面状态、路由、请求过程和内部工程信息不属于该公共入口。
 
-紫微结构化提示词也可从 `mingyu-core/ziwei/prompt` 单独导入：`buildPortablePromptPack`、`buildZiweiReadableSnapshot`、`buildZiweiTaskBookSnapshot`、`buildPromptContextSnapshot`、`buildFocusTaskBundle`、`buildEvidenceSummary` 和宫位格式化工具。它们接受 `ZiweiPromptContext`，适合在非 React 应用中按专题、宫位和运限组织紫微盘面资料。
+紫微结构化提示词也可从 `@temposoul/core/ziwei/prompt` 单独导入：`buildPortablePromptPack`、`buildZiweiReadableSnapshot`、`buildZiweiTaskBookSnapshot`、`buildPromptContextSnapshot`、`buildFocusTaskBundle`、`buildEvidenceSummary` 和宫位格式化工具。它们接受 `ZiweiPromptContext`，适合在非 React 应用中按专题、宫位和运限组织紫微盘面资料。
 
 ---
 
 ## 地点索引 Location
 
-`mingyu-core/location` 内置中国省市区数据、真太阳时所需经度及行政中心纬度，同时提供 `createBirthPlaceIndex(tree)`，可对调用方自己的地点树执行级联查询、搜索、反查和坐标解析。
+`@temposoul/core/location` 内置中国省市区数据、真太阳时所需经度及行政中心纬度，同时提供 `createBirthPlaceIndex(tree)`，可对调用方自己的地点树执行级联查询、搜索、反查和坐标解析。
 
 | 导出                                                  | 说明                                                |
 | ----------------------------------------------------- | --------------------------------------------------- |
@@ -546,7 +546,7 @@ const text = buildBaziPrompt({
 
 ## 类型定义
 
-所有类型从 `mingyu-core/types` 导出，包括：
+所有类型从 `@temposoul/core/types` 导出，包括：
 
 - 八字：`Person`、`Pillar`、`Pillars`、`BaziChartResult`、`BaziAnalysisResult`、`UsefulGodAnalysis`、`LuckInfo`、`ShenShaResult` 等
 - 占卜：`LiuyaoData`、`MeihuaData`、`QimenData`、`QimenSeasonalityInfo`、`QimenPatternCombo`、`LiurenData`、`XiaoliurenData`、`AlmanacData`、`LenormandData`、`AstrolabeData`、`SsgwData`、`TarotData`
@@ -562,7 +562,7 @@ import type {
   LiuyaoData,
   LiurenData,
   BaziChartResult,
-} from 'mingyu-core/types';
+} from '@temposoul/core/types';
 ```
 
 各类型的字段说明可在 IDE 中直接查看（.d.ts 文件已附带 JSDoc 注释）。

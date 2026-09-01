@@ -41,16 +41,16 @@ import {
   analyzeLiuyaoEvidence,
   conditionLiuyaoTraditionalText,
   generateLiuyao,
-} from 'mingyu-core/divination/liuyao';
-import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { generateMeihua } from 'mingyu-core/divination/meihua';
-import { drawRandomSign } from 'mingyu-core/divination/ssgw';
+} from '@temposoul/core/divination/liuyao';
+import { generateLiuren } from '@temposoul/core/divination/liuren';
+import { generateMeihua } from '@temposoul/core/divination/meihua';
+import { drawRandomSign } from '@temposoul/core/divination/ssgw';
 import { SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import {
   analyzeQimenEvidence,
   generateQimen,
   resolveZhiShiLandingPalace,
-} from 'mingyu-core/divination/qimen';
+} from '@temposoul/core/divination/qimen';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
 

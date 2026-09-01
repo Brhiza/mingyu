@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { generateXiaoliuren } from '@temposoul/core/divination/xiaoliuren';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

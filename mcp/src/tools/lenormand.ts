@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
-import type { LenormandSpreadType } from 'mingyu-core/types';
+import { drawLenormandSpread } from '@temposoul/core/divination/lenormand';
+import type { LenormandSpreadType } from '@temposoul/core/types';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

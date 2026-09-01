@@ -294,7 +294,7 @@ export interface MingyuCoreConfig {
  *
  * @example
  * ```ts
- * import { configure } from 'mingyu-core/calendar';
+ * import { configure } from '@temposoul/core/calendar';
  *
  * // 设置东八区（北京时间）
  * configure({ timezoneOffset: 480 });

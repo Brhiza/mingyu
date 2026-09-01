@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { drawTarotSpread } from 'mingyu-core/divination/tarot';
-import type { RandomOptions } from 'mingyu-core/types';
-import type { tarotSpreads } from 'mingyu-core/divination/tarot';
+import { drawTarotSpread } from '@temposoul/core/divination/tarot';
+import type { RandomOptions } from '@temposoul/core/types';
+import type { tarotSpreads } from '@temposoul/core/divination/tarot';
 import { PROMPT_MODES } from '../../../src/lib/public-api/prompt-builders.js';
 import type { PromptMode } from '../../../src/lib/public-api/prompt-builders.js';
 import { buildDivinationPromptText } from './prompt-helpers.js';

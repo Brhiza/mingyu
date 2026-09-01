@@ -6,7 +6,7 @@ import {
   analyzeWuxing,
   describeGanZhi,
   getFoundationCapabilities,
-} from 'mingyu-core/foundation';
+} from '@temposoul/core/foundation';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

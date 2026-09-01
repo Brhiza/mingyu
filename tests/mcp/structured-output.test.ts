@@ -5,7 +5,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { TIME_MAP } from '@core/bazi/baziDisplayData';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { getTimeIndexFromClock } from '@temposoul/core/calendar';
 import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from '../prompt-assertions';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../../src/lib/prompt-guidance';
 

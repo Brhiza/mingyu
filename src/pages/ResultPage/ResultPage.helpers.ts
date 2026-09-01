@@ -1,4 +1,4 @@
-import type { DecadalTimelineOption } from 'mingyu-core/ziwei';
+import type { DecadalTimelineOption } from '@temposoul/core/ziwei';
 import { formatPromptCurrentTime } from '@/lib/prompt-time';
 import type { AstrolabeScopeMode, QueryPromptState, ZiweiScopeMode } from '@/lib/query-state';
 import type { AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
@@ -8,7 +8,7 @@ import {
   formatBaziForPrompt,
   type BaziChartResult,
   type BaziFortuneSelectionValue,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { AstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import type { PalaceFact } from '@/types/analysis';

@@ -282,7 +282,7 @@ test('择日适配器保持真太阳时跨日后的日期与时辰一致', () =>
 test('能力清单可序列化且返回副本', () => {
   const first = getCapabilities();
   const second = getCapabilities();
-  assert.equal(first.package, 'mingyu-core');
+  assert.equal(first.package, '@temposoul/core');
   assert.deepEqual(
     first.systems.map((item) => item.id),
     SYSTEM_CAPABILITY_IDS,

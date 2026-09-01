@@ -17,7 +17,7 @@ import type {
 import { analyzeQimenEvidence } from '../divination/algorithms/qimen';
 import { analyzeAlmanacEvidence } from '../divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '../ganzhi';
-import type { DivinationMethodId } from 'mingyu-core/divination/config';
+import type { DivinationMethodId } from '@temposoul/core/divination/config';
 import {
   analyzeLiuyaoEvidence,
   conditionLiuyaoTraditionalText,

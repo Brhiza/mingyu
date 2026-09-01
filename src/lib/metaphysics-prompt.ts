@@ -1,7 +1,7 @@
 import {
   buildMetaphysicsPrompt as buildCoreMetaphysicsPrompt,
   type MetaphysicsPromptMethod,
-} from 'mingyu-core/prompt';
+} from '@temposoul/core/prompt';
 
 export type { MetaphysicsPromptMethod };
 
@@ -11,7 +11,7 @@ export interface MetaphysicsPromptOptions {
   currentTime?: Date;
 }
 
-/** 页面兼容入口；元学提示词包装统一由 mingyu-core 提供。 */
+/** 页面兼容入口；元学提示词包装统一由 @temposoul/core 提供。 */
 export function buildMetaphysicsPrompt(
   basePrompt: string,
   question: string | undefined,

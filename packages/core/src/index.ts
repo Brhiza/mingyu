@@ -1,5 +1,5 @@
 ﻿/**
- * mingyu-core
+ * @temposoul/core
  * Mingyu core algorithms for traditional Chinese metaphysics.
  *
  * This package provides algorithmic implementations of:

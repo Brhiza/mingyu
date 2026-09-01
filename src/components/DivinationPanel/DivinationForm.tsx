@@ -7,18 +7,18 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
-} from 'mingyu-core/divination/config';
+} from '@temposoul/core/divination/config';
 import {
   resolveInteractiveTarotCards,
   tarotCards,
   tarotSpreads,
-} from 'mingyu-core/divination/tarot';
+} from '@temposoul/core/divination/tarot';
 import {
   LENORMAND_CARDS,
   LENORMAND_SPREADS,
   resolveInteractiveLenormandCards,
-} from 'mingyu-core/divination/lenormand';
-import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
+} from '@temposoul/core/divination/lenormand';
+import { secureRandomIndexSample, secureRandomInt } from '@temposoul/core/random';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import { createSecureId } from '@/lib/secure-id';
 import {

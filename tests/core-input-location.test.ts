@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildBaziPersonInput, calculateBaziChartFromInput } from 'mingyu-core/bazi';
-import { createBirthPlaceIndex } from 'mingyu-core/location';
-import { clampNumericField, validateBirthInput } from 'mingyu-core/profile';
+import { buildBaziPersonInput, calculateBaziChartFromInput } from '@temposoul/core/bazi';
+import { createBirthPlaceIndex } from '@temposoul/core/location';
+import { clampNumericField, validateBirthInput } from '@temposoul/core/profile';
 
 test('npm 八字输入适配器应接受普通 JSON 和表单文本', () => {
   const input = buildBaziPersonInput({

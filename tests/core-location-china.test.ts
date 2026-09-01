@@ -13,7 +13,7 @@ import {
   resolveBirthPlaceApproximateLatitude,
   resolveBirthPlaceLongitude,
   searchBirthPlaces,
-} from 'mingyu-core/location';
+} from '@temposoul/core/location';
 
 test('核心包应内置完整的中国省市区树和级联查询', () => {
   const provinces = getBirthPlaceProvinceOptions();

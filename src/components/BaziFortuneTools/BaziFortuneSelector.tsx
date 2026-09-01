@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { BaziChartResult } from 'mingyu-core/bazi';
+import type { BaziChartResult } from '@temposoul/core/bazi';
 import {
   getBaziDayIndexByDate,
   getBaziMonthIndexByDate,
   getMonthDaysInfo,
   getYearInfo,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 import { getCurrentLuckCycle, getWuxingClass, splitGanZhi } from './helpers';
 
 export function BaziFortuneSelector(props: { result: BaziChartResult }) {

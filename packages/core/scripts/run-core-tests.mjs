@@ -7,7 +7,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, '../../..');
 const testsDir = join(repoRoot, 'tests');
 
-const CORE_IMPORT_PATTERNS = [/packages\/core\/src/, /mingyu-core/, /@core\//];
+const CORE_IMPORT_PATTERNS = [/packages\/core\/src/, /@temposoul/core/, /@core\//];
 const INTEGRATION_TEST_PATHS = [/^tests\/mcp\//, /^tests\/public-api(?:-docs)?\.test\.ts$/];
 
 function walkTests(dir) {
@@ -26,7 +26,7 @@ function walkTests(dir) {
 }
 
 if (!existsSync(testsDir)) {
-  console.error('未找到 tests 目录，无法运行 mingyu-core 回归测试。');
+  console.error('未找到 tests 目录，无法运行 @temposoul/core 回归测试。');
   process.exit(1);
 }
 
@@ -43,15 +43,15 @@ const files = walkTests(testsDir)
   .sort();
 
 if (files.length === 0) {
-  console.error('未发现引用 mingyu-core 的测试文件，请检查测试发现规则。');
+  console.error('未发现引用 @temposoul/core 的测试文件，请检查测试发现规则。');
   process.exit(1);
 }
 
-console.log(`运行 ${files.length} 个 mingyu-core 单元与算法测试文件。`);
+console.log(`运行 ${files.length} 个 @temposoul/core 单元与算法测试文件。`);
 console.log('公开 API 与 MCP 集成测试由根目录 test:api、test:mcp 分层执行。');
 
-console.log('先构建 mingyu-core，确保包导出测试使用最新 dist 产物。');
-const buildResult = spawnSync('pnpm', ['--filter', 'mingyu-core', 'build'], {
+console.log('先构建 @temposoul/core，确保包导出测试使用最新 dist 产物。');
+const buildResult = spawnSync('pnpm', ['--filter', '@temposoul/core', 'build'], {
   cwd: repoRoot,
   stdio: 'inherit',
   shell: process.platform === 'win32',

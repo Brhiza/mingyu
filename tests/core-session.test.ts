@@ -6,7 +6,7 @@ import {
   generateDivinationSession,
   serializeDivinationResult,
   validateDivinationRequest,
-} from 'mingyu-core/divination/session';
+} from '@temposoul/core/divination/session';
 
 test('统一占法会话应覆盖时间课、摘要、提示词和稳定序列化', () => {
   const session = generateDivinationSession({

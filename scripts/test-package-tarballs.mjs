@@ -64,7 +64,7 @@ try {
 
   runPnpm(['pack', '--out', coreTarball], coreDirectory);
 
-  assert.ok(statSync(coreTarball).size <= 1_200_000, 'mingyu-core 压缩包不应超过 1.2 MB');
+  assert.ok(statSync(coreTarball).size <= 1_200_000, '@temposoul/core 压缩包不应超过 1.2 MB');
 
   writeFileSync(
     join(consumerDirectory, 'package.json'),
@@ -74,7 +74,7 @@ try {
         private: true,
         type: 'module',
         dependencies: {
-          'mingyu-core': `file:${coreTarball}`,
+          '@temposoul/core': `file:${coreTarball}`,
         },
       },
       null,
@@ -86,7 +86,7 @@ try {
     npm_config_auto_install_peers: 'false',
   });
 
-  const installedCoreDirectory = join(consumerDirectory, 'node_modules', 'mingyu-core');
+  const installedCoreDirectory = join(consumerDirectory, 'node_modules', '@temposoul/core');
   const installedCoreManifest = readJson(join(installedCoreDirectory, 'package.json'));
   assert.equal(existsSync(join(consumerDirectory, 'node_modules', 'mingyu-location-china')), false);
   assert.equal(existsSync(join(consumerDirectory, 'node_modules', 'iztro')), false);
@@ -120,13 +120,13 @@ try {
   );
 
   const coreSpecifiers = Object.keys(installedCoreManifest.exports).map((subpath) =>
-    subpath === '.' ? 'mingyu-core' : `mingyu-core${subpath.slice(1)}`,
+    subpath === '.' ? '@temposoul/core' : `@temposoul/core${subpath.slice(1)}`,
   );
   const runtimeFixture = `
 const specifiers = ${JSON.stringify(coreSpecifiers)};
 for (const specifier of specifiers) await import(specifier);
 
-const { createMingyuClient } = await import('mingyu-core/client');
+const { createMingyuClient } = await import('@temposoul/core/client');
 const client = createMingyuClient();
 const profile = {
   gender: 'female',
@@ -194,7 +194,7 @@ if (ziwei.ok || ziwei.error.code !== 'IZTRO_DEPENDENCY_REQUIRED') {
   throw new Error('缺少 iztro 时未返回明确的依赖错误。');
 }
 
-const location = await import('mingyu-core/location');
+const location = await import('@temposoul/core/location');
 const dongcheng = location.resolveBirthPlace('110101');
 const duplicatedGulou = location.searchBirthPlaces('鼓楼区', {
   levels: ['district'],
@@ -230,18 +230,18 @@ import {
   createMingyuClient,
   type BirthProfile,
   type SystemCapabilityId,
-} from 'mingyu-core';
+} from '@temposoul/core';
 import {
   findBirthPlaceByRegionId,
   type BirthPlaceCascadePath,
-} from 'mingyu-core/location';
+} from '@temposoul/core/location';
 import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
   formatZiweiTrueSolarEvidence,
   type CombinedZiweiCompatibilityPromptOptions,
   type CombinedZiweiPromptOptions,
-} from 'mingyu-core/ziwei/prompt';
+} from '@temposoul/core/ziwei/prompt';
 
 const profile: BirthProfile = {
   gender: 'female',
@@ -316,7 +316,7 @@ void [
   );
 
   const browserFixture = `
-import { createMingyuClient } from 'mingyu-core/client';
+import { createMingyuClient } from '@temposoul/core/client';
 
 const client = createMingyuClient();
 const result = client.safe.zodiac({ zodiac: '鼠', year: 2026 });
@@ -347,7 +347,7 @@ target.textContent = result.data.yearGanZhi;
   mkdirSync(zodiacBrowserDirectory, { recursive: true });
   writeFileSync(
     join(zodiacBrowserDirectory, 'entry.ts'),
-    "import { calculateZodiacYearFortune } from 'mingyu-core/zodiac';\ndocument.body.textContent = calculateZodiacYearFortune({ zodiac: '鼠', year: 2026 }).yearGanZhi;\n",
+    "import { calculateZodiacYearFortune } from '@temposoul/core/zodiac';\ndocument.body.textContent = calculateZodiacYearFortune({ zodiac: '鼠', year: 2026 }).yearGanZhi;\n",
     'utf8',
   );
   writeFileSync(

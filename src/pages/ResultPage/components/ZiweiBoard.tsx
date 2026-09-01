@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
 import { createSecureId } from '@/lib/secure-id';
-import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei';
+import { getDefaultHoroscopeContext } from '@temposoul/core/ziwei';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { ZiweiRuntimeState } from '../ResultPage.types';

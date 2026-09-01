@@ -1,1 +1,1 @@
-export * from 'mingyu-core/calendar';
+export * from '@temposoul/core/calendar';

@@ -7,7 +7,7 @@ import {
   calculateSolarTermEvidence,
   convertTrueSolarTime,
   resolveTrueSolarBirthTime,
-} from 'mingyu-core/calendar';
+} from '@temposoul/core/calendar';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

@@ -5,8 +5,8 @@ import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
   formatZiweiTrueSolarEvidence,
-} from 'mingyu-core/ziwei/prompt';
-import { resolveZiweiTrueSolarBirth } from 'mingyu-core/ziwei/true-solar-input';
+} from '@temposoul/core/ziwei/prompt';
+import { resolveZiweiTrueSolarBirth } from '@temposoul/core/ziwei/true-solar-input';
 import {
   buildEvidenceAnalysis,
   buildEvidencePool,

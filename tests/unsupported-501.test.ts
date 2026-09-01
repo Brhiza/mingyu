@@ -20,11 +20,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { handlePublicApiRequest, handleError } from '../src/lib/public-api/handler';
-// 🔴 必须与 handler.ts 同源（'mingyu-core' = dist）。
+// 🔴 必须与 handler.ts 同源（'@temposoul/core' = dist）。
 // 若这里改成 '@core/shared/result'（src），拿到的是另一个 class 对象，
 // handler 里的 `error instanceof MingyuCoreError` 会判假，501 会被降级成 500 兜底。
 // 这不是假设——本条测试第一版就是这么写的，实测拿到 500。
-import { MingyuCoreError } from 'mingyu-core';
+import { MingyuCoreError } from '@temposoul/core';
 
 async function callApi(path: string, payload: unknown) {
   const response = await handlePublicApiRequest(

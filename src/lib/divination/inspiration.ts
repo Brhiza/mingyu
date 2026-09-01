@@ -14,7 +14,7 @@ export {
   isDivinationInspirationTabVisible,
   getDivinationInspirationSections,
   resolveDivinationInspiredDraftPatch,
-} from 'mingyu-core/prompt/inspiration';
+} from '@temposoul/core/prompt/inspiration';
 
 export type {
   DivinationInspirationTabId,
@@ -23,4 +23,4 @@ export type {
   DivinationSpecialInspiration,
   DivinationInspirationSelection,
   DivinationInspirationDraft,
-} from 'mingyu-core/prompt/inspiration';
+} from '@temposoul/core/prompt/inspiration';

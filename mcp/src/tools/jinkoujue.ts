@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
+import { generateJinkoujue } from '@temposoul/core/divination/jinkoujue';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

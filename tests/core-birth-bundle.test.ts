@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { calculateBirthChartBundle, type BirthProfile } from 'mingyu-core/birth';
-import { generateQizheng } from 'mingyu-core/qizheng';
-import { birthProfileToQizhengInput, normalizeBirthProfile } from 'mingyu-core/profile';
+import { calculateBirthChartBundle, type BirthProfile } from '@temposoul/core/birth';
+import { generateQizheng } from '@temposoul/core/qizheng';
+import { birthProfileToQizhengInput, normalizeBirthProfile } from '@temposoul/core/profile';
 
 const profile: BirthProfile = {
   name: '统一档案样例',

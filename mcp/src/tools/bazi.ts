@@ -4,7 +4,7 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { Person } from '@core/bazi/baziTypes';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { getTimeIndexFromClock } from '@temposoul/core/calendar';
 import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
 import {
   BAZI_PROMPT_TOPICS,

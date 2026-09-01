@@ -1,4 +1,4 @@
-import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei';
+import { buildZiweiFortuneOptions } from '@temposoul/core/ziwei';
 import type { ChartInput } from '@/types/chart';
 
 type DecadalOptionInput = {

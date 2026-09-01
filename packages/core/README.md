@@ -1,8 +1,8 @@
-# mingyu-core · 命理核心算法库
+# @temposoul/core · 命理核心算法库
 
 > 中国传统命理与占卜算法的 TypeScript 实现，覆盖八字、紫微斗数、奇门遁甲、六爻、六壬、梅花易数等主流术数。
 
-[![npm version](https://img.shields.io/npm/v/mingyu-core.svg)](https://www.npmjs.com/package/mingyu-core)
+[![npm version](https://img.shields.io/npm/v/@temposoul/core.svg)](https://www.npmjs.com/package/@temposoul/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -17,7 +17,7 @@
 
 ## 简介
 
-`mingyu-core` 是开源命理项目 [mingyu](https://github.com/Brhiza/mingyu) 抽取的核心算法包，将排盘、起卦、抽牌、结构化数据计算等纯算法逻辑独立封装，供其他项目以 npm 依赖形式复用，避免各项目各自维护一份命理代码。
+`@temposoul/core` 是开源命理项目 [mingyu](https://github.com/Brhiza/mingyu) 抽取的核心算法包，将排盘、起卦、抽牌、结构化数据计算等纯算法逻辑独立封装，供其他项目以 npm 依赖形式复用，避免各项目各自维护一份命理代码。
 
 所有算法均对照传统古籍实现，并在源码中标注法理依据：
 
@@ -36,25 +36,25 @@
 ## 安装
 
 ```bash
-npm install mingyu-core
+npm install @temposoul/core
 # 或
-pnpm add mingyu-core
+pnpm add @temposoul/core
 # 或
-yarn add mingyu-core
+yarn add @temposoul/core
 ```
 
 依赖说明：
 
-- `tyme4ts`、`astronomy-engine`、`celestine` 与 `@soul-atelier/xuankong` 是正式依赖，安装 `mingyu-core` 时会自动安装。
+- `tyme4ts`、`astronomy-engine`、`celestine` 与 `@soul-atelier/xuankong` 是正式依赖，安装 `@temposoul/core` 时会自动安装。
 - `iztro` 是可选的 peer dependency；只有使用紫微斗数能力时才需要另行安装：`pnpm add iztro`。
 - 中国省市区地点树和经度数据已内置，可直接用于出生地级联选择和真太阳时校正。
 
 ## 统一客户端
 
-多数应用可从 `mingyu-core/client` 开始，不必自行拼接底层模块。普通方法沿用异常流程；`safe` 方法会把异常统一为可判别、可直接序列化的 `{ ok, data | error }`：
+多数应用可从 `@temposoul/core/client` 开始，不必自行拼接底层模块。普通方法沿用异常流程；`safe` 方法会把异常统一为可判别、可直接序列化的 `{ ok, data | error }`：
 
 ```ts
-import { createMingyuClient } from 'mingyu-core/client';
+import { createMingyuClient } from '@temposoul/core/client';
 
 const client = createMingyuClient();
 const result = await client.safe.birth({
@@ -82,7 +82,7 @@ if (result.ok) {
 
 除异步的 `birth()`、`compatibility()` 及其 `safe` 版本外，其余方法都同步返回。默认出生盘只计算八字，不会因未安装 `iztro` 影响核心包或客户端导入；明确请求紫微时，`safe` 方法会返回 `IZTRO_DEPENDENCY_REQUIRED`。常见表单错误会区分为 `validation`、`boundary`、`unsupported` 或 `dependency`，调用方不必解析笼统的计算失败文本。`capability(id)` 接受带自动补全的 `SystemCapabilityId`；未知 ID 会抛出 `CAPABILITY_NOT_FOUND`，对应的 `safe.capability(id)` 返回结构化失败结果。
 
-`mingyu-core/client` 会静态聚合全部高层能力，适合 Node.js、服务端或同一应用需要多种排盘的场景。浏览器页面只使用一两项能力时，优先从 `mingyu-core/zodiac`、`mingyu-core/calendar` 等具体子路径导入，可以显著减小前端产物；包已声明 `sideEffects: false`，并通过独立 Vite 消费构建验证子路径 tree-shaking。
+`@temposoul/core/client` 会静态聚合全部高层能力，适合 Node.js、服务端或同一应用需要多种排盘的场景。浏览器页面只使用一两项能力时，优先从 `@temposoul/core/zodiac`、`@temposoul/core/calendar` 等具体子路径导入，可以显著减小前端产物；包已声明 `sideEffects: false`，并通过独立 Vite 消费构建验证子路径 tree-shaking。
 
 ---
 
@@ -91,7 +91,7 @@ if (result.ok) {
 应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。八字、紫微等时辰级算法可直接提供明确的 `timeIndex`；需要真太阳时、星盘或七政四余时，必须提供完整 `hour`、`minute` 和所需地点资料：
 
 ```ts
-import { normalizeBirthProfile, getCapabilities } from 'mingyu-core';
+import { normalizeBirthProfile, getCapabilities } from '@temposoul/core';
 
 const profile = {
   gender: 'female',
@@ -113,20 +113,20 @@ const capabilities = getCapabilities();
 也可按子路径引入：
 
 ```ts
-import { normalizeBirthProfile } from 'mingyu-core/profile';
-import { getCapabilities } from 'mingyu-core/capabilities';
+import { normalizeBirthProfile } from '@temposoul/core/profile';
+import { getCapabilities } from '@temposoul/core/capabilities';
 ```
 
 `getCapabilities()` 返回可序列化副本，包含各系统支持的起法、真实输入、输出、随机种子、随机轨迹重放、真太阳时、是否要求完整出生时间、批量计算和可选依赖状态。塔罗和雷诺曼会声明手工录牌与交互抽牌输入，灵签会声明随机求签与指定签号；择日参与人可省略，不会错误标记为必须提供出生时刻。能力清单只描述核心包真实提供的能力，不把页面、本地报告或历史记录算作核心能力。
 
 八字、紫微若不启用真太阳时，可以直接使用明确的时辰索引排盘；这属于有效的确定输入，不属于出生时间缺失。仅有时辰精度时，统一采用各时段中点作为完成历法日期换算的代表时刻（如午时按 12:00、早子时按 00:30）。统一档案会明确记录输入精度、代表时刻边界、时辰映射、真太阳时状态、证据汇总和解释限制。启用真太阳时，或转换为星盘等分钟级算法输入时，才需要具体小时、分钟和出生地资料；时辰代表值不会被冒充为精确分钟。
 
-统一档案也提供传统盘便捷入口：`calculateBaziFromBirthProfile(profile)` 直接生成八字结果，`birthProfileToZiweiChartInput(profile)` 生成可交给 `mingyu-core/ziwei` 的紫微输入。农历真太阳时会先转换为公历钟表时间，再由八字引擎统一校正一次；出生地可用 `timezone` 提供固定偏移，或用 `timeZoneId` 按出生日期解析 IANA 历史时区，两者都未提供时默认 UTC+8。
+统一档案也提供传统盘便捷入口：`calculateBaziFromBirthProfile(profile)` 直接生成八字结果，`birthProfileToZiweiChartInput(profile)` 生成可交给 `@temposoul/core/ziwei` 的紫微输入。农历真太阳时会先转换为公历钟表时间，再由八字引擎统一校正一次；出生地可用 `timezone` 提供固定偏移，或用 `timeZoneId` 按出生日期解析 IANA 历史时区，两者都未提供时默认 UTC+8。
 
-如果应用需要一次取得多种盘面，可使用 `mingyu-core/birth` 的 `calculateBirthChartBundle`。默认只计算八字；需要紫微时请安装可选的 `iztro`，并通过 `systems` 明确选择系统：
+如果应用需要一次取得多种盘面，可使用 `@temposoul/core/birth` 的 `calculateBirthChartBundle`。默认只计算八字；需要紫微时请安装可选的 `iztro`，并通过 `systems` 明确选择系统：
 
 ```ts
-import { calculateBirthChartBundle } from 'mingyu-core/birth';
+import { calculateBirthChartBundle } from '@temposoul/core/birth';
 
 const bundle = await calculateBirthChartBundle(profile, {
   systems: ['bazi', 'ziwei', 'astrolabe', 'qizheng'],
@@ -146,14 +146,14 @@ console.log(bundle.qizheng);
 
 ### 中国地点与真太阳时经度
 
-中国省、市、区级联和真太阳时所需经度随 `mingyu-core` 一同安装，无需额外地点包：
+中国省、市、区级联和真太阳时所需经度随 `@temposoul/core` 一同安装，无需额外地点包：
 
 ```ts
 import {
   findBirthPlaceByRegionId,
   resolveBirthPlaceLongitude,
   searchBirthPlaces,
-} from 'mingyu-core/location';
+} from '@temposoul/core/location';
 
 const place = findBirthPlaceByRegionId('110101');
 const longitude = resolveBirthPlaceLongitude('北京市 东城区');
@@ -165,7 +165,7 @@ const gulouDistricts = searchBirthPlaces('鼓楼区', { levels: ['district'] });
 双人合盘也可直接使用两份 `BirthProfile`：
 
 ```ts
-import { calculateCompatibilityBundle } from 'mingyu-core/compatibility';
+import { calculateCompatibilityBundle } from '@temposoul/core/compatibility';
 
 const compatibility = await calculateCompatibilityBundle(primaryProfile, partnerProfile, {
   systems: ['bazi', 'ziwei', 'astrolabe'],
@@ -177,8 +177,8 @@ console.log(compatibility.astrolabe);
 ```
 
 ```ts
-import { birthProfileToZiweiChartInput, calculateBaziFromBirthProfile } from 'mingyu-core/profile';
-import { buildAstrolabeFromInput } from 'mingyu-core/ziwei';
+import { birthProfileToZiweiChartInput, calculateBaziFromBirthProfile } from '@temposoul/core/profile';
+import { buildAstrolabeFromInput } from '@temposoul/core/ziwei';
 
 const profile = {
   name: '示例',
@@ -201,7 +201,7 @@ const ziwei = await buildAstrolabeFromInput(ziweiInput);
 需要把同一命主的八字与紫微资料放在统一主题下核对时，可直接使用合参入口。它保留两套体系各自的证据，不把结果压成综合分数。合参必须在 `ziwei.horoscopeContext` 中显式传入运限日期与时辰，或通过 `ziwei.now` 传入明确日期对象，避免运行时间改变结果：
 
 ```ts
-import { calculateBaziZiweiCombinedReading } from 'mingyu-core/synthesis';
+import { calculateBaziZiweiCombinedReading } from '@temposoul/core/synthesis';
 
 const reading = await calculateBaziZiweiCombinedReading(profile, {
   ziwei: {
@@ -222,13 +222,13 @@ console.log(reading.promptText);
 
 ### 可直接复用的提示词与摘要
 
-前端之外的应用也可以直接使用 `mingyu-core/prompt` 生成完整、可复制给在线 AI 的任务书。该模块只依赖核心算法和纯 TypeScript，不依赖 React、路由、浏览器存储或 AI 请求：
+前端之外的应用也可以直接使用 `@temposoul/core/prompt` 生成完整、可复制给在线 AI 的任务书。该模块只依赖核心算法和纯 TypeScript，不依赖 React、路由、浏览器存储或 AI 请求：
 
-`mingyu-core/prompt/public-api` 是公开 HTTP 接口与旧调用方使用的紧凑兼容层；新集成优先使用 `mingyu-core/prompt`。紫微结构化快照以及现有前端、公开接口和 MCP 共用的 `buildCombinedZiweiPrompt()`、`buildCombinedZiweiCompatibilityPrompt()` 也可从 `mingyu-core/ziwei/prompt` 直接导入。
+`@temposoul/core/prompt/public-api` 是公开 HTTP 接口与旧调用方使用的紧凑兼容层；新集成优先使用 `@temposoul/core/prompt`。紫微结构化快照以及现有前端、公开接口和 MCP 共用的 `buildCombinedZiweiPrompt()`、`buildCombinedZiweiCompatibilityPrompt()` 也可从 `@temposoul/core/ziwei/prompt` 直接导入。
 
 ```ts
-import { baziCalculator } from 'mingyu-core/bazi';
-import { buildBaziPrompt, buildBaziCompatibilityPrompt } from 'mingyu-core/prompt';
+import { baziCalculator } from '@temposoul/core/bazi';
+import { buildBaziPrompt, buildBaziCompatibilityPrompt } from '@temposoul/core/prompt';
 
 const chart = baziCalculator.calculateBazi({
   year: 1990,
@@ -249,12 +249,12 @@ console.log(prompt);
 
 公共入口还包括 `buildBaziCompatibilityPrompt`、`buildZiweiPrompt`、`buildZiweiCompatibilityPrompt`、`buildBaziZiweiPrompt`、`buildAstrolabePrompt`、`buildAstrolabeSynastryPrompt`、`buildDivinationPrompt`，以及 `buildMetaphysicsPrompt`（八宅、住宅综合、生肖、七政四余、玄空）、`getDivinationSummaryBlocks`、`formatDivinationInfo`、`formatEnhancedDivinationInfo` 和 `formatDetailedDivinationInfo`。占法格式化已包含前端原有的用神、应期、宫位、节令、候选日与牌面证据。需要 system/user 分层时使用对应的 `build*PromptDocument`，需要单段便携文本时使用 `build*Prompt`。
 
-需要自行组织紫微报告时，可从 `mingyu-core/ziwei/prompt` 使用 `buildPortablePromptPack`、`buildZiweiReadableSnapshot`、`buildZiweiTaskBookSnapshot`、`buildFocusTaskBundle` 和 `buildEvidenceSummary`。这些入口只接收结构化紫微资料和驼峰命名的 `ZiweiPromptContext`，不依赖页面状态。`mingyu-core/prompt` 同时公开 `PROMPT_GUIDANCE_TEXT`、`buildPromptGuidanceSections` 和 `insertPromptSectionBeforeHeading`，便于其他应用复用同一套传统依据与分段规则。
+需要自行组织紫微报告时，可从 `@temposoul/core/ziwei/prompt` 使用 `buildPortablePromptPack`、`buildZiweiReadableSnapshot`、`buildZiweiTaskBookSnapshot`、`buildFocusTaskBundle` 和 `buildEvidenceSummary`。这些入口只接收结构化紫微资料和驼峰命名的 `ZiweiPromptContext`，不依赖页面状态。`@temposoul/core/prompt` 同时公开 `PROMPT_GUIDANCE_TEXT`、`buildPromptGuidanceSections` 和 `insertPromptSectionBeforeHeading`，便于其他应用复用同一套传统依据与分段规则。
 
 占法结果还可单独使用 `formatDivinationTime`、`formatDivinationSolarTime` 和 `formatSupplementaryInfo`，避免应用层重复维护时间与补充资料格式：
 
 ```ts
-import { buildMetaphysicsPrompt, formatDetailedDivinationInfo } from 'mingyu-core/prompt';
+import { buildMetaphysicsPrompt, formatDetailedDivinationInfo } from '@temposoul/core/prompt';
 
 const detail = formatDetailedDivinationInfo('liuyao', divinationData);
 const residentialPrompt = buildMetaphysicsPrompt(
@@ -267,7 +267,7 @@ const residentialPrompt = buildMetaphysicsPrompt(
 如果应用需要复用前端原本的“选择占法→校验输入→生成结果→生成提示词”流程，可使用统一占法会话入口。它只接受纯数据，不依赖 React、路由或浏览器存储：
 
 ```ts
-import { generateDivinationSession } from 'mingyu-core/divination/session';
+import { generateDivinationSession } from '@temposoul/core/divination/session';
 
 const session = generateDivinationSession({
   method: 'liuyao',
@@ -287,7 +287,7 @@ console.log(session.serializedResult); // 稳定 JSON，可用于缓存或历史
 如果需要一次得到本命盘、运限盘、结构化分析资料和大限时间线，可以直接使用紫微运行时入口。它支持数字或文本表单输入；服务端、缓存和测试建议显式传入 `horoscopeContext`，让同一出生盘在不同运行时保持相同快照：
 
 ```ts
-import { buildZiweiChartInput, calculateZiweiChart } from 'mingyu-core/ziwei/runtime';
+import { buildZiweiChartInput, calculateZiweiChart } from '@temposoul/core/ziwei/runtime';
 
 const input = buildZiweiChartInput({
   name: '示例',
@@ -319,8 +319,8 @@ import {
   buildCurrentBaziFortuneSelection,
   buildRecentBaziFortuneSelection,
   getCurrentBaziLuckCycle,
-} from 'mingyu-core/bazi';
-import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune';
+} from '@temposoul/core/bazi';
+import { buildZiweiFortuneOptions } from '@temposoul/core/ziwei/fortune';
 
 const currentCycle = getCurrentBaziLuckCycle(baziResult, 2026);
 const currentDay = buildCurrentBaziFortuneSelection(baziResult, new Date('2026-08-06'));
@@ -341,7 +341,7 @@ const ziweiOptions = await buildZiweiFortuneOptions(ziweiInput, selectedDecadal,
 未传 `seed`、`replay` 或自定义随机源时，核心包使用运行环境的 Web Crypto；随机整数采用拒绝采样消除取模偏差。环境缺少安全随机能力时会明确报错，不会静默降级为时间戳或 `Math.random`。
 
 ```ts
-import { drawSpreadCards } from 'mingyu-core/divination/tarot';
+import { drawSpreadCards } from '@temposoul/core/divination/tarot';
 
 const first = drawSpreadCards('three', { seed: '用户记录号' });
 const replay = drawSpreadCards('three', {
@@ -353,7 +353,7 @@ console.log(first.meta.engineVersion); // 计算代码版本
 console.log(first.meta.schemaVersion); // 公共结果结构版本
 ```
 
-`mingyu-core/result` 还提供协议版本常量、`stableStringify`、`hashStableValue`、`createResultMeta`、`serializeCoreResult` 和结构化 `MingyuCoreError`。稳定序列化只接受普通对象、数组、日期和 JSON 基础类型，避免 `Map`、类实例等被静默转换成错误缓存键。结果协议当前是可选增强，不要求旧调用方立刻迁移。
+`@temposoul/core/result` 还提供协议版本常量、`stableStringify`、`hashStableValue`、`createResultMeta`、`serializeCoreResult` 和结构化 `MingyuCoreError`。稳定序列化只接受普通对象、数组、日期和 JSON 基础类型，避免 `Map`、类实例等被静默转换成错误缓存键。结果协议当前是可选增强，不要求旧调用方立刻迁移。
 
 ---
 
@@ -361,35 +361,35 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 
 | 模块                     | 子路径                                                                                                                                        | 说明                                                                                                 |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **八字 Bazi**            | `mingyu-core/bazi`                                                                                                                            | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析 |
-| **紫微斗数 Ziwei**       | `mingyu-core/ziwei`（兼容 `mingyu-core/ziwei/iztro`）、`mingyu-core/ziwei/runtime`                                                            | 十二宫、星曜、四化、运限、证据池、固定快照运行时，以及双盘宫位叠盘与生年四化跨盘落点                 |
-| **六爻 Liuyao**          | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、用神作用链与逐爻证据                           |
-| **梅花易数 Meihua**      | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                   |
-| **奇门遁甲 Qimen**       | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据               |
-| **大六壬 Liuren**        | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞及四课取传与三传推进证据                                     |
-| **择日 Almanac**         | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                     |
-| **灵签 SSGW**            | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签，返回签号、签题与签诗原文，支持 `seed` 和 `replay`                                    |
-| **西洋占星 Astrolabe**   | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、扩展点、相位偏差、容许度分层、行运与太阳返照求根证据                    |
-| **西占双盘 Synastry**    | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 双方主要跨盘相位、实际夹角、精确角、可配置容许度、紧密等级、跨盘落宫与结构化证据                     |
-| **历法 Calendar**        | `mingyu-core/calendar`、`mingyu-core/calendar/true-solar-time`                                                                                | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据            |
-| **出生档案 Profile**     | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，直接生成八字传统盘并提供紫微、星盘、择日适配器           |
-| **出生盘 Bundle**        | `mingyu-core/birth`                                                                                                                           | 从一份 `BirthProfile` 按需生成八字、紫微、星盘和七政四余结果                                         |
-| **双人合盘 Bundle**      | `mingyu-core/compatibility`                                                                                                                   | 从两份 `BirthProfile` 生成八字合盘、紫微双盘证据和西占双盘相位                                       |
-| **统一客户端 Client**    | `mingyu-core/client`                                                                                                                          | 高层出生盘、合盘、占法、能力发现、稳定序列化与安全返回协议                                           |
-| **能力发现**             | `mingyu-core/capabilities`                                                                                                                    | 查询算法输入、输出、起法、依赖、随机复现和出生时间要求                                               |
-| **提示词与摘要 Prompt**  | `mingyu-core/prompt`                                                                                                                          | 八字、紫微、星盘、元学和占法完整任务书；提供八字岁运、占法摘要、详细结果格式化与统一时间格式         |
-| **统一占法会话 Session** | `mingyu-core/divination/session`                                                                                                              | 纯数据请求校验、占法分发、统一摘要、提示词和稳定序列化                                               |
-| **结果协议 Result**      | `mingyu-core/result`                                                                                                                          | 稳定序列化、结果身份、结构版本与统一诊断                                                             |
-| **随机能力 Random**      | `mingyu-core/random`                                                                                                                          | 系统级安全随机、无模偏差整数、种子、自定义随机源、原始样本记录与完整重放                             |
-| **类型 Types**           | `mingyu-core/types`                                                                                                                           | 所有共享类型定义                                                                                     |
-| **占法配置 Config**      | `mingyu-core/divination/config`                                                                                                               | 占法列表、起盘方式和前端共享配置                                                                     |
-| **占法提示文本**         | `mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template`、`mingyu-core/divination/engine/liuren-template` | 占法方法说明与六爻、大六壬问题范围提示                                                               |
-| **原始数据 Data**        | `mingyu-core/divination/divination-data`                                                                                                      | 五行、六亲、纳甲、星曜等配置数据                                                                     |
-| **六十四卦数据**         | `mingyu-core/divination/hexagram-data`                                                                                                        | 六爻卦象数据、梅花八卦索引                                                                           |
-| **塔罗 Tarot**           | `mingyu-core/divination/tarot`                                                                                                                | 塔罗抽牌、牌阵、关键字                                                                               |
-| **塔罗牌数据**           | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                 |
-| **占卜辅助工具**         | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                               |
-| **七政四余 Qizheng**     | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、天文事实与分层精度证据                             |
+| **八字 Bazi**            | `@temposoul/core/bazi`                                                                                                                            | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析 |
+| **紫微斗数 Ziwei**       | `@temposoul/core/ziwei`（兼容 `@temposoul/core/ziwei/iztro`）、`@temposoul/core/ziwei/runtime`                                                            | 十二宫、星曜、四化、运限、证据池、固定快照运行时，以及双盘宫位叠盘与生年四化跨盘落点                 |
+| **六爻 Liuyao**          | `@temposoul/core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、用神作用链与逐爻证据                           |
+| **梅花易数 Meihua**      | `@temposoul/core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                   |
+| **奇门遁甲 Qimen**       | `@temposoul/core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据               |
+| **大六壬 Liuren**        | `@temposoul/core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞及四课取传与三传推进证据                                     |
+| **择日 Almanac**         | `@temposoul/core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                     |
+| **灵签 SSGW**            | `@temposoul/core/divination/ssgw`                                                                                                                 | 三山国王 92 签，返回签号、签题与签诗原文，支持 `seed` 和 `replay`                                    |
+| **西洋占星 Astrolabe**   | `@temposoul/core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、扩展点、相位偏差、容许度分层、行运与太阳返照求根证据                    |
+| **西占双盘 Synastry**    | `@temposoul/core/divination/astrolabe-synastry`                                                                                                   | 双方主要跨盘相位、实际夹角、精确角、可配置容许度、紧密等级、跨盘落宫与结构化证据                     |
+| **历法 Calendar**        | `@temposoul/core/calendar`、`@temposoul/core/calendar/true-solar-time`                                                                                | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据            |
+| **出生档案 Profile**     | `@temposoul/core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，直接生成八字传统盘并提供紫微、星盘、择日适配器           |
+| **出生盘 Bundle**        | `@temposoul/core/birth`                                                                                                                           | 从一份 `BirthProfile` 按需生成八字、紫微、星盘和七政四余结果                                         |
+| **双人合盘 Bundle**      | `@temposoul/core/compatibility`                                                                                                                   | 从两份 `BirthProfile` 生成八字合盘、紫微双盘证据和西占双盘相位                                       |
+| **统一客户端 Client**    | `@temposoul/core/client`                                                                                                                          | 高层出生盘、合盘、占法、能力发现、稳定序列化与安全返回协议                                           |
+| **能力发现**             | `@temposoul/core/capabilities`                                                                                                                    | 查询算法输入、输出、起法、依赖、随机复现和出生时间要求                                               |
+| **提示词与摘要 Prompt**  | `@temposoul/core/prompt`                                                                                                                          | 八字、紫微、星盘、元学和占法完整任务书；提供八字岁运、占法摘要、详细结果格式化与统一时间格式         |
+| **统一占法会话 Session** | `@temposoul/core/divination/session`                                                                                                              | 纯数据请求校验、占法分发、统一摘要、提示词和稳定序列化                                               |
+| **结果协议 Result**      | `@temposoul/core/result`                                                                                                                          | 稳定序列化、结果身份、结构版本与统一诊断                                                             |
+| **随机能力 Random**      | `@temposoul/core/random`                                                                                                                          | 系统级安全随机、无模偏差整数、种子、自定义随机源、原始样本记录与完整重放                             |
+| **类型 Types**           | `@temposoul/core/types`                                                                                                                           | 所有共享类型定义                                                                                     |
+| **占法配置 Config**      | `@temposoul/core/divination/config`                                                                                                               | 占法列表、起盘方式和前端共享配置                                                                     |
+| **占法提示文本**         | `@temposoul/core/divination/engine/method-text`、`@temposoul/core/divination/engine/liuyao-template`、`@temposoul/core/divination/engine/liuren-template` | 占法方法说明与六爻、大六壬问题范围提示                                                               |
+| **原始数据 Data**        | `@temposoul/core/divination/divination-data`                                                                                                      | 五行、六亲、纳甲、星曜等配置数据                                                                     |
+| **六十四卦数据**         | `@temposoul/core/divination/hexagram-data`                                                                                                        | 六爻卦象数据、梅花八卦索引                                                                           |
+| **塔罗 Tarot**           | `@temposoul/core/divination/tarot`                                                                                                                | 塔罗抽牌、牌阵、关键字                                                                               |
+| **塔罗牌数据**           | `@temposoul/core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                 |
+| **占卜辅助工具**         | `@temposoul/core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                               |
+| **七政四余 Qizheng**     | `@temposoul/core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、天文事实与分层精度证据                             |
 
 ---
 
@@ -397,15 +397,15 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 
 ### 八字排盘
 
-除单盘排盘与分析外，`mingyu-core/bazi` 提供 `analyzeBaziCompatibility(chart1, chart2)`，用于生成可复核的八字双盘交叉证据，包括双方日主五行与十神、日支关系、四柱天干地支关系、跨盘三合三会组合、双向十神映射和喜忌五行覆盖。结果同时提供通用证据包与可直接嵌入任务书的 `promptText`，不生成匹配总分，也不把五合、三合或三会候选直接视为成化。
+除单盘排盘与分析外，`@temposoul/core/bazi` 提供 `analyzeBaziCompatibility(chart1, chart2)`，用于生成可复核的八字双盘交叉证据，包括双方日主五行与十神、日支关系、四柱天干地支关系、跨盘三合三会组合、双向十神映射和喜忌五行覆盖。结果同时提供通用证据包与可直接嵌入任务书的 `promptText`，不生成匹配总分，也不把五合、三合或三会候选直接视为成化。
 
 `analyzeFortuneTriggers(chart, activeLayers)` 提供统一岁运触发证据：逐层比较原局四柱、大运、流年、流月、流日或流时的同干、五合、相冲、同支、六合、六冲、刑、害、破，并单列岁运并临与天克地冲。返回值保留双方层级、时间范围、规则来源、解释限制和 `promptText`，不从单条关系直接推断吉凶事件。
 
 八字排盘只接受满足精度要求的出生时间。真太阳时、历史夏令时和节气边界校正属于确定性计算链；输入不满足要求时应在进入排盘前拒绝，不基于模糊范围继续计算。
 
 ```typescript
-import { baziCalculator } from 'mingyu-core/bazi';
-import type { BaziChartResult } from 'mingyu-core/types';
+import { baziCalculator } from '@temposoul/core/bazi';
+import type { BaziChartResult } from '@temposoul/core/types';
 
 // timeIndex: 0=早子时, 1=丑时, ..., 11=亥时, 12=晚子时
 const result: BaziChartResult = baziCalculator.calculateBazi({
@@ -497,18 +497,18 @@ const result = baziCalculator.calculateBazi({
 
 ```typescript
 // 六爻（默认当前时间起卦）
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateLiuyao } from '@temposoul/core/divination/liuyao';
 const liuyao = generateLiuyao();
 // 也可指定时间: generateLiuyao(new Date('2025-01-01T10:00:00'))
 const coinLiuyao = generateLiuyao(undefined, { method: 'coins', seed: '本次投掷' });
 console.log(coinLiuyao.generation.coinThrows); // 六爻逐爻、每爻三枚铜钱的完整轨迹
 
 // 梅花易数（数字起卦）
-import { generateMeihua } from 'mingyu-core/divination/meihua';
+import { generateMeihua } from '@temposoul/core/divination/meihua';
 const meihua = generateMeihua(undefined, { method: 'number', number: 123 });
 
 // 奇门遁甲
-import { generateQimen, createQimenPriorityPalaces } from 'mingyu-core/divination/qimen';
+import { generateQimen, createQimenPriorityPalaces } from '@temposoul/core/divination/qimen';
 const qimen = generateQimen(); // 当前时间，默认转盘法
 const qimenFeipan = generateQimen(undefined, 'feipan'); // 可选飞盘法
 const qimenYear = generateQimen(new Date('2026-07-02T08:00:00+08:00'), 'zhuanpan', 'year'); // 年家奇门
@@ -517,7 +517,7 @@ console.log(qimen.patternCombos); // 复合格局，如吉格逢空、伏吟叠�
 console.log(createQimenPriorityPalaces(qimen)); // 结构化重点宫位候选
 
 // 大六壬
-import { generateLiuren } from 'mingyu-core/divination/liuren';
+import { generateLiuren } from '@temposoul/core/divination/liuren';
 const liuren = generateLiuren();
 ```
 
@@ -534,7 +534,7 @@ import {
   bazhai,
   taiyi,
   qizheng,
-} from 'mingyu-core';
+} from '@temposoul/core';
 
 const house = bazhai.analyzeBaZhai({ birthYear: 1990, gender: 'male', sitMountain: '子' });
 const foundationCapabilities = foundation.getFoundationCapabilities();
@@ -553,7 +553,7 @@ const houseByDoorDegree = bazhai.analyzeBaZhaiByDoorDegree({
 });
 console.log(houseByDoorDegree.directionMeasurement.stability); // 稳定 / 山向边界敏感 / 宅卦不稳定
 console.log(houseByDoorDegree.directionMeasurement); // 子山午向、坐向度数与测量说明
-import { resolveZiweiTrueSolarBirth } from 'mingyu-core/ziwei/true-solar-input';
+import { resolveZiweiTrueSolarBirth } from '@temposoul/core/ziwei/true-solar-input';
 const ziweiTrueSolarBirth = resolveZiweiTrueSolarBirth({
   dateType: 'solar',
   year: '1990',
@@ -577,8 +577,8 @@ const sharedTrueSolarBirth = calendar.resolveTrueSolarBirthTime({
   applyChinaDst: true,
 });
 console.log(sharedTrueSolarBirth.correctedDateTime, sharedTrueSolarBirth.timeIndex);
-import { buildAstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { buildAstrolabeScopeContext } from '@temposoul/core/divination/astrolabe-scope';
+import { generateAstrolabe } from '@temposoul/core/divination/astrolabe';
 const natalAstrolabe = generateAstrolabe({
   name: '本人',
   gender: '男',
@@ -634,7 +634,7 @@ import {
   assessAllHarmonyTransforms, // 天干成化条件与地支六合关系
   calculateMingGua, // 命卦（东四命/西四命）
   buildLuckDirectionProfile, // 大运顺逆方向
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 
 const pillars = [/* 四柱 */];
 const tenGod = analyzeTenGodStructure(pillars, '乙', getTenGod);
@@ -648,7 +648,7 @@ const luckDir = buildLuckDirectionProfile('male', '庚'); // { direction:'顺行
 ### 历法工具
 
 ```typescript
-import { getDivinationTime, getVoidBranches } from 'mingyu-core/calendar';
+import { getDivinationTime, getVoidBranches } from '@temposoul/core/calendar';
 
 const { ganzhi, timeInfo } = getDivinationTime(); // 当前时间干支
 const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
@@ -658,7 +658,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 ## 主要 API 一览
 
-### 八字（`mingyu-core/bazi`）
+### 八字（`@temposoul/core/bazi`）
 
 | 导出                            | 类型 | 说明                                   |
 | ------------------------------- | ---- | -------------------------------------- |
@@ -682,7 +682,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `calculateXiaoYunProfile`       | 函数 | 小运（童限逐年）                       |
 | `buildLuckDirectionProfile`     | 函数 | 大运顺逆方向                           |
 
-### 占卜（`mingyu-core/divination/*`）
+### 占卜（`@temposoul/core/divination/*`）
 
 | 导出                                                                 | 说明                                                                    |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -714,9 +714,9 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)` | 将入户实测度数换算成传统坐山、朝向与二十四山                     |
 | `resolveZiweiTrueSolarBirth(input)`               | 紫微出生资料真太阳时日期与时辰索引适配                           |
 
-### 类型（`mingyu-core/types`）
+### 类型（`@temposoul/core/types`）
 
-所有返回值类型均从 `mingyu-core/types` 导出，包括 `BaziChartResult`、`LiuyaoData`、`QimenData`、`LiurenData`、`MeihuaData` 等。详细字段说明见 [docs/API.md](docs/API.md)。
+所有返回值类型均从 `@temposoul/core/types` 导出，包括 `BaziChartResult`、`LiuyaoData`、`QimenData`、`LiurenData`、`MeihuaData` 等。详细字段说明见 [docs/API.md](docs/API.md)。
 
 ---
 
@@ -737,13 +737,13 @@ npm install -g pnpm
 pnpm install
 
 # 构建 core 包
-pnpm --filter mingyu-core build
+pnpm --filter @temposoul/core build
 
 # 运行测试
 pnpm test
 
 # 仅运行 core 包测试
-pnpm --filter mingyu-core test
+pnpm --filter @temposoul/core test
 ```
 
 项目以 pnpm workspace 形式维护，`packages/core/` 为本包源码，`src/` 为应用层。

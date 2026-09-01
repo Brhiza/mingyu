@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { buildPersonFromInput, calculateFullBaziChart } from '@/lib/full-chart-engine';
-import type { BaziChartResult } from 'mingyu-core/bazi';
+import type { BaziChartResult } from '@temposoul/core/bazi';
 import type { QueryInputState } from '@/lib/query-state';
 
 export interface BaziCalculations {

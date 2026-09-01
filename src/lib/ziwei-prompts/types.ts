@@ -1,5 +1,5 @@
 import type { ScopeType } from '../../types/analysis';
-import type { ZiweiPromptContext } from 'mingyu-core/ziwei/prompt';
+import type { ZiweiPromptContext } from '@temposoul/core/ziwei/prompt';
 
 export type PromptContext = {
   report_key: string;

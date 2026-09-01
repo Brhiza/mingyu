@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analyzeAstrolabeEvidence, generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import type { AstrolabeBirthInput, AstrolabeData } from 'mingyu-core/types';
+import { analyzeAstrolabeEvidence, generateAstrolabe } from '@temposoul/core/divination/astrolabe';
+import type { AstrolabeBirthInput, AstrolabeData } from '@temposoul/core/types';
 
 const validInput: AstrolabeBirthInput = {
   name: '本人',

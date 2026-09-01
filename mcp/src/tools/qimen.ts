@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { generateQimen } from 'mingyu-core/divination/qimen';
+import { generateQimen } from '@temposoul/core/divination/qimen';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

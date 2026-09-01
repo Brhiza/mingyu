@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import type { AlmanacParticipantInput, AlmanacTopic } from 'mingyu-core/types';
+import { generateAlmanacSelection } from '@temposoul/core/divination/almanac';
+import type { AlmanacParticipantInput, AlmanacTopic } from '@temposoul/core/types';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,

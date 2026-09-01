@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateLiuyao } from '@temposoul/core/divination/liuyao';
 
 const YAO_VALUES = [6, 7, 8, 9] as const;
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');

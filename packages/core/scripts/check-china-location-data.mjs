@@ -53,7 +53,7 @@ function checkGeneratedTargets() {
     const relativeTarget = toRelative(targetPath);
 
     if (!existsSync(targetPath)) {
-      problems.push(`${relativeTarget} 不存在，请先执行 pnpm --filter mingyu-core build。`);
+      problems.push(`${relativeTarget} 不存在，请先执行 pnpm --filter @temposoul/core build。`);
       console.error(`  ✗ ${relativeTarget} 缺失`);
       continue;
     }

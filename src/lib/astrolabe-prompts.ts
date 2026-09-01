@@ -1,5 +1,5 @@
-export { ASTROLABE_PROMPT_TOPICS, type AstrolabePromptTopic } from 'mingyu-core/prompt';
-export { ASTROLABE_PROMPT_SHORTCUTS as ASTROLABE_SHORTCUT_ACTIONS } from 'mingyu-core/prompt';
+export { ASTROLABE_PROMPT_TOPICS, type AstrolabePromptTopic } from '@temposoul/core/prompt';
+export { ASTROLABE_PROMPT_SHORTCUTS as ASTROLABE_SHORTCUT_ACTIONS } from '@temposoul/core/prompt';
 
 export function getAstrolabeDefaultQuestion(
   _topic?: string,

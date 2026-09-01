@@ -4,7 +4,7 @@ import {
   analyzeAlmanacEvidence,
   conditionAlmanacTraditionalText,
   generateAlmanacSelection,
-} from 'mingyu-core/divination/almanac';
+} from '@temposoul/core/divination/almanac';
 
 test('黄历择日应内置透明约束与候选证据', () => {
   const data = generateAlmanacSelection({

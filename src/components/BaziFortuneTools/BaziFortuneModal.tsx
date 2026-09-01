@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { BaziFortuneScope } from '@/lib/query-state';
-import type { BaziChartResult } from 'mingyu-core/bazi';
-import { getMonthDaysInfo, getYearInfo } from 'mingyu-core/bazi';
+import type { BaziChartResult } from '@temposoul/core/bazi';
+import { getMonthDaysInfo, getYearInfo } from '@temposoul/core/bazi';
 import {
   buildFortuneSelectionContext,
   normalizeFortuneSelection,
   type BaziFortuneSelectionValue,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 import {
   isFortuneModalDetailOptionActive,
   isFortuneModalParentOptionActive,
-} from 'mingyu-core/bazi';
+} from '@temposoul/core/bazi';
 import {
   baziFortuneScopeLabelMap,
   buildCurrentBaziFortuneSelection,

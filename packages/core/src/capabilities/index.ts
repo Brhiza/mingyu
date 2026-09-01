@@ -87,7 +87,7 @@ export interface SystemCapability {
 }
 
 export interface MingyuCapabilities {
-  package: 'mingyu-core';
+  package: '@temposoul/core';
   version: string;
   schemaVersion: string;
   systems: SystemCapability[];
@@ -1241,7 +1241,7 @@ const systems: SystemCapability[] = [
 /** 返回可安全序列化的能力清单，供网站、App、API 或 MCP 自动生成入口。 */
 export function getCapabilities(): MingyuCapabilities {
   return {
-    package: 'mingyu-core',
+    package: '@temposoul/core',
     version: MINGYU_CORE_VERSION,
     schemaVersion: MINGYU_SCHEMA_VERSION,
     systems: structuredClone(systems),

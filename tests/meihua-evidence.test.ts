@@ -4,7 +4,7 @@ import {
   analyzeMeihuaEvidence,
   conditionMeihuaTraditionalText,
   generateMeihua,
-} from 'mingyu-core/divination/meihua';
+} from '@temposoul/core/divination/meihua';
 import { hexagramsData } from '../packages/core/src/divination/hexagram-data.ts';
 
 const fixedDate = new Date('2025-01-01T08:00:00+08:00');

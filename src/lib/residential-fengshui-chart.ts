@@ -2,14 +2,14 @@ import {
   generateResidentialFengshui,
   type ResidentialFengshuiInput,
   type ResidentialFengshuiResult,
-} from 'mingyu-core/residential-fengshui';
+} from '@temposoul/core/residential-fengshui';
 import {
   getBaZhaiSitFacingFromDoorDegree,
   type BaZhaiDoorMeasurement,
   type BaZhaiResult,
-} from 'mingyu-core/bazhai';
-import type { SitFacingPosition } from 'mingyu-core/direction';
-import type { XuanKongResult } from 'mingyu-core/xuankong';
+} from '@temposoul/core/bazhai';
+import type { SitFacingPosition } from '@temposoul/core/direction';
+import type { XuanKongResult } from '@temposoul/core/xuankong';
 
 export type ResidentialMeasurement = BaZhaiDoorMeasurement;
 export type ResidentialChartResult = ResidentialFengshuiResult;

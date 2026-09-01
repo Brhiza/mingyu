@@ -3,8 +3,8 @@ import test from 'node:test';
 
 import { AspectType, calculateChart } from 'celestine';
 
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import type { AstrolabeAspect, AstrolabeBirthInput, AstrolabePoint } from 'mingyu-core/types';
+import { generateAstrolabe } from '@temposoul/core/divination/astrolabe';
+import type { AstrolabeAspect, AstrolabeBirthInput, AstrolabePoint } from '@temposoul/core/types';
 
 const PLANET_LABELS: Record<string, string> = {
   Sun: '太阳',

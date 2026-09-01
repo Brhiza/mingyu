@@ -5,8 +5,8 @@ import {
   drawTarotSpread,
   resolveInteractiveTarotCards,
   tarotSpreads,
-} from 'mingyu-core/divination/tarot';
-import type { TarotData, TarotSpreadType } from 'mingyu-core/types';
+} from '@temposoul/core/divination/tarot';
+import type { TarotData, TarotSpreadType } from '@temposoul/core/types';
 
 const spreadTypes = Object.keys(tarotSpreads) as TarotSpreadType[];
 

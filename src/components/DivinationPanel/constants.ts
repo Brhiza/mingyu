@@ -7,7 +7,7 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
-} from 'mingyu-core/divination/config';
+} from '@temposoul/core/divination/config';
 import type { DivinationDraft } from '@/lib/divination/engine';
 
 export const defaultDraft: DivinationDraft = {

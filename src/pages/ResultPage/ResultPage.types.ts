@@ -4,7 +4,7 @@ import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 export type ZiweiRuntimeState = Awaited<ReturnType<typeof calculateFullZiweiChart>> | null;
 export type ZiweiPayloadByScopeState = Record<ScopeType, AnalysisPayloadV1> | null;
 export type PromptEngineModule = typeof import('@/lib/prompt-engine');
-export type BaziFortuneSelectionModule = typeof import('mingyu-core/bazi');
+export type BaziFortuneSelectionModule = typeof import('@temposoul/core/bazi');
 export type PromptShortcutMode = string;
 export type InspirationCategory =
   | '全部'
@@ -22,4 +22,4 @@ export type InspirationCategory =
   | '成长'
   | '天赋';
 
-export type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from 'mingyu-core/ziwei';
+export type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from '@temposoul/core/ziwei';

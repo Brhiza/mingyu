@@ -4,4 +4,4 @@ export {
   mapZiweiTopicLabel as mapTopicLabel,
   mapZiweiReportTypeLabel as mapReportTypeLabel,
   mapZiweiScopeLabel as mapScopeLabel,
-} from 'mingyu-core/ziwei/prompt';
+} from '@temposoul/core/ziwei/prompt';

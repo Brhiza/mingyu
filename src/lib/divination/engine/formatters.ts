@@ -1,5 +1,5 @@
 import type { DivinationData, SupplementaryInfo } from '../../../types/divination';
-import type { DivinationMethodId } from 'mingyu-core/divination/config';
+import type { DivinationMethodId } from '@temposoul/core/divination/config';
 import {
   formatEnhancedDivinationInfo,
   formatAstrolabeInfo,
@@ -9,7 +9,7 @@ import {
   buildSection,
   buildSolarTimeInfoText,
   buildTimeInfoText,
-} from 'mingyu-core/prompt';
+} from '@temposoul/core/prompt';
 
 export {
   formatAstrolabeInfo,
@@ -24,7 +24,7 @@ export {
 /**
  * 前端历史入口的兼容适配层。
  *
- * 占法资料格式化属于核心能力，实际实现统一由 mingyu-core 提供；这里保留旧参数
+ * 占法资料格式化属于核心能力，实际实现统一由 @temposoul/core 提供；这里保留旧参数
  * 形状，避免页面和已有调用方必须同步迁移。
  */
 export function formatDivinationInfo(

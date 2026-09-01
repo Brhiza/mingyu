@@ -10,8 +10,8 @@ import {
   getLiuyaoHexagramRelation,
   getLiuyaoHexagramRelations,
   getLiuyaoPalaceStage,
-} from 'mingyu-core/divination/liuyao';
-import type { LiuyaoYaoDetail } from 'mingyu-core/types';
+} from '@temposoul/core/divination/liuyao';
+import type { LiuyaoYaoDetail } from '@temposoul/core/types';
 
 // 2025-01-01 农历为丙子月（子月：水旺木相金休土囚火死）、丙寅日（日支寅）
 // 该日期的卦象固定，用于回归月令旺衰、暗动、回头生克冲的字段输出。
