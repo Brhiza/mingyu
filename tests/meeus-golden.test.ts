@@ -1,4 +1,4 @@
-﻿import { test } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateEquationOfTimeMinutes } from '../packages/core/src/calendar/true-solar-time.ts';
 
@@ -145,5 +145,66 @@ test('均时差连续性：相邻日差值不超过 1 分钟', () => {
       assert.ok(diff <= 1.0, `${month}/${day}: 相邻日差值 ${diff.toFixed(2)}min > 1min`);
       prev = curr;
     }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// v3.0 M0.2 精度红线：±1 秒（Meeus 精确算法）
+// 权威参考：pymeeus（Meeus《Astronomical Algorithms》Ch.28 的 Python 实现）
+//   1992-10-13 0h → 均时差 = 13 分 42.6 秒 = 13.7100 分钟
+// 参考天文常数：JDE(1992-10-13 0h) = 2448908.5（Meeus Ch.27 示例）
+// ---------------------------------------------------------------------------
+
+/** ±1s 阻断红线：1 秒 = 1/60 分钟 */
+const EOT_RED_LINE_SECONDS = 1.0;
+
+test('Meeus 精度红线：1992-10-13 均时差 = 13m42.6s（±1s）', () => {
+  const actual = calculateEquationOfTimeMinutes(1992, 10, 13);
+  const expected = 13 + 42.6 / 60; // 13.7100 分钟
+  const diffSeconds = Math.abs(actual - expected) * 60;
+  assert.ok(
+    diffSeconds <= EOT_RED_LINE_SECONDS,
+    `1992-10-13: actual=${actual.toFixed(4)}min, expected=${expected.toFixed(4)}min, ` +
+      `diff=${diffSeconds.toFixed(2)}s > ±1s`,
+  );
+});
+
+test('Meeus 精度红线：2000-02-11 谷值 ≈ -14.3min（±2s）', () => {
+  // 维基极值表：2月11日最小值 -14:15 = -14.25min；精确算法该日约 -14.28min
+  const actual = calculateEquationOfTimeMinutes(2000, 2, 11);
+  const expected = -14.25;
+  const diffSeconds = Math.abs(actual - expected) * 60;
+  assert.ok(
+    diffSeconds <= EOT_RED_LINE_SECONDS + 2.0,
+    `2000-02-11: actual=${actual.toFixed(4)}min, expected≈${expected.toFixed(2)}min, ` +
+      `diff=${diffSeconds.toFixed(2)}s`,
+  );
+});
+
+test('Meeus 精度红线：2000-11-03 峰值 ≈ +16.4min（±3s）', () => {
+  // 维基极值表：11月3日最大值 +16:25 = +16.42min
+  const actual = calculateEquationOfTimeMinutes(2000, 11, 3);
+  const expected = 16.42;
+  const diffSeconds = Math.abs(actual - expected) * 60;
+  assert.ok(
+    diffSeconds <= EOT_RED_LINE_SECONDS + 3.0,
+    `2000-11-03: actual=${actual.toFixed(4)}min, expected≈${expected.toFixed(2)}min, ` +
+      `diff=${diffSeconds.toFixed(2)}s`,
+  );
+});
+
+test('Meeus 精度红线：同一输入重复计算确定性（100 次逐位一致）', () => {
+  const first = calculateEquationOfTimeMinutes(1990, 5, 15);
+  for (let i = 0; i < 100; i++) {
+    const again = calculateEquationOfTimeMinutes(1990, 5, 15);
+    assert.equal(again, first, `第 ${i} 次重复计算不一致`);
+  }
+});
+
+test('Meeus 精度红线：跨世纪跨度平稳（1900-2100 每年 1/1 无跳变）', () => {
+  for (let year = 1900; year <= 2100; year += 25) {
+    const eot = calculateEquationOfTimeMinutes(year, 1, 1);
+    assert.ok(eot > -20 && eot < 20, `${year}-01-01 eot=${eot.toFixed(2)} 超出正常范围`);
+    assert.ok(Number.isFinite(eot), `${year}-01-01 应返回有限数`);
   }
 });

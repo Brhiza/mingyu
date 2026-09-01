@@ -51,6 +51,7 @@ import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
 import { analyzeBaziNatalEvidence } from './natalEvidence';
+import { buildBaziEvidenceTrail } from './baziEvidence';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
@@ -500,6 +501,9 @@ export class BaziCalculator {
       pillarRelations: analyzePillarRelations(coreResult),
     };
     finalResult.evidenceAnalysis = analyzeBaziNatalEvidence(finalResult);
+
+    // v3.0 证据契约：附加排盘全流程四字段证据链（baziEvidence.ts）
+    finalResult.evidenceTrail = buildBaziEvidenceTrail(person, finalResult);
 
     delete finalResult.solarTime;
     delete finalResult.eightChar;

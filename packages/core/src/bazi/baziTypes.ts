@@ -416,4 +416,6 @@ export interface BaziChartResult {
   warningSummaryFact: BaziWarningSummaryFact;
   /** 八字本命四柱、旺衰、格局、取用、关系、反证与限制的统一证据链。 */
   evidenceAnalysis?: import('./natalEvidence').BaziNatalEvidenceAnalysis;
+  /** v3.0 证据契约：排盘全流程四字段证据链（计算链/出处/边界/反证）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }

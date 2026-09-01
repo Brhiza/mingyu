@@ -238,6 +238,10 @@
       "types": "./dist/shared/random.d.ts",
       "import": "./dist/shared/random.js"
     },
+    "./evidence": {
+      "types": "./dist/shared/evidence.d.ts",
+      "import": "./dist/shared/evidence.js"
+    },
     "./bazhai": {
       "types": "./dist/ba_zhai/index.d.ts",
       "import": "./dist/ba_zhai/index.js"

@@ -2,6 +2,7 @@
  * @file Bazi algorithms barrel
  */
 export { baziCalculator, BaziCalculator } from './baziCalculator';
+export { buildBaziEvidenceTrail } from './baziEvidence';
 export { buildBaziPersonInput, calculateBaziChartFromInput } from './input';
 export type { BaziChartInputDraft, BaziInputText } from './input';
 export { formatBaziForPrompt } from './baziAnalysisFormatter';
