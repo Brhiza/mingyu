@@ -31,6 +31,7 @@ import {
 import { attachResultMeta } from '../../../shared/result';
 import { hasRandomOptions } from '../../../shared/random';
 import { analyzeMeihuaEvidence } from '../../meihua-evidence';
+import { buildMeihuaEvidenceTrail } from '../../meihuaEvidence';
 
 const trigrams = trigramsByIndex;
 const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
@@ -384,7 +385,11 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     calculatedAt: timestamp,
     random: randomTrace,
   });
-  return { ...resultWithMeta, evidenceAnalysis: analyzeMeihuaEvidence(resultWithMeta) };
+  return {
+    ...resultWithMeta,
+    evidenceAnalysis: analyzeMeihuaEvidence(resultWithMeta),
+    evidenceTrail: buildMeihuaEvidenceTrail(resultWithMeta),
+  };
 }
 
 export { analyzeMeihuaEvidence, conditionMeihuaTraditionalText } from '../../meihua-evidence';
