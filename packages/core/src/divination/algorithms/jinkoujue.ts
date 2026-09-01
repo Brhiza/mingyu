@@ -36,6 +36,7 @@ import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeJinkoujueEvidence } from '../jinkoujue-evidence';
+import { buildJinkoujueEvidenceTrail } from '../jinkoujueEvidence';
 
 const METHOD_LABELS: Record<JinkoujueDivinationMethod, string> = {
   time: '时间起课',
@@ -621,6 +622,7 @@ export function generateJinkoujue(
   return {
     ...resultWithMeta,
     evidenceAnalysis: analyzeJinkoujueEvidence(resultWithMeta),
+    evidenceTrail: buildJinkoujueEvidenceTrail(resultWithMeta),
   };
 }
 

@@ -168,6 +168,8 @@ export interface JinkoujueData {
   summary: string;
   randomTrace?: import('../shared/random').RandomTrace;
   evidenceAnalysis?: import('../divination/jinkoujue-evidence').JinkoujueEvidenceAnalysis;
+  /** 起课四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }
 
 export interface BaseGanZhi {
@@ -1373,6 +1375,8 @@ export interface SsgwData {
     selectedIndex: number | null;
     selectedNumber: number;
   };
+  /** 抽签四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }
 
 export type DivinationData =

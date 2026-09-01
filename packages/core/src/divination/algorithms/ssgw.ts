@@ -4,6 +4,7 @@ import { getDivinationTime } from '../../calendar/timeManager';
 import type { RandomOptions } from '../../shared/random';
 import { createRandomContext, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
+import { buildSsgwEvidenceTrail } from '../ssgwEvidence';
 
 /**
  * @file 灵签抽签算法（神算鬼谋）
@@ -54,7 +55,7 @@ export function drawRandomSign(
   const context = createRandomContext(randomOptions);
   const randomIndex = randomInt(ssgwSigns.length, context.random);
   const sign = ssgwSigns[randomIndex];
-  return attachResultMeta(
+  const data = attachResultMeta(
     {
       ...sign,
       timestamp,
@@ -73,6 +74,7 @@ export function drawRandomSign(
       random: context.getTrace(),
     },
   );
+  return { ...data, evidenceTrail: buildSsgwEvidenceTrail(data) };
 }
 
 /** 按用户已取得的签号查出签文，不模拟抽签或掷筊。 */
@@ -85,7 +87,7 @@ export function resolveSignByNumber(number: number, customDate?: Date): SsgwData
     throw new Error(`未找到第${number}签`);
   }
   const { ganzhi, timestamp } = getDivinationTime(customDate);
-  return attachResultMeta(
+  const data = attachResultMeta(
     {
       ...sign,
       timestamp,
@@ -103,4 +105,5 @@ export function resolveSignByNumber(number: number, customDate?: Date): SsgwData
       calculatedAt: timestamp,
     },
   );
+  return { ...data, evidenceTrail: buildSsgwEvidenceTrail(data) };
 }
