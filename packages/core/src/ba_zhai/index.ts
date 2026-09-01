@@ -17,6 +17,7 @@ import {
   type SitFacingPosition,
 } from '../direction';
 import { analyzeBaZhaiEvidence } from './evidence';
+import { buildBaZhaiEvidenceTrail } from './baZhaiEvidence';
 
 export { analyzeBaZhaiEvidence } from './evidence';
 export type {
@@ -72,6 +73,8 @@ export interface BaZhaiResult {
   luckyDirections: BaZhaiPalace[];
   unluckyDirections: BaZhaiPalace[];
   evidenceAnalysis: import('./evidence').BaZhaiEvidenceAnalysis;
+  /** 八宅四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
   prompt: string;
 }
 
@@ -373,7 +376,7 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
   };
   const evidenceAnalysis = analyzeBaZhaiEvidence(resultBase);
   const result: Omit<BaZhaiResult, 'prompt'> = { ...resultBase, evidenceAnalysis };
-  return { ...result, prompt: buildPrompt(result) };
+  return { ...result, prompt: buildPrompt(result), evidenceTrail: buildBaZhaiEvidenceTrail(result) };
 }
 
 /**

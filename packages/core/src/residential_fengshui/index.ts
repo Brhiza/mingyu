@@ -15,6 +15,7 @@ import {
 } from '../ba_zhai';
 import { generateXuanKong, type XuanKongInput, type XuanKongResult } from '../xuan_kong';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
+import { buildResidentialFengshuiEvidenceTrail } from './residentialFengshuiEvidence';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
 export interface ResidentialFengshuiInput {
@@ -59,6 +60,8 @@ export interface ResidentialFengshuiResult {
   advice: string[];
   prompt: string;
   evidencePromptText: string;
+  /** 住宅风水综合四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }
 
 function normalizeDegree(value: number) {
@@ -438,7 +441,7 @@ export function generateResidentialFengshui(
     xuankongStatus,
   });
 
-  return {
+  const fengshuiResult: ResidentialFengshuiResult = {
     key: 'residential-fengshui',
     label: '住宅风水',
     inputSummary: {
@@ -454,6 +457,10 @@ export function generateResidentialFengshui(
     advice,
     prompt,
     evidencePromptText,
+  };
+  return {
+    ...fengshuiResult,
+    evidenceTrail: buildResidentialFengshuiEvidenceTrail(fengshuiResult),
   };
 }
 

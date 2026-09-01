@@ -13,6 +13,7 @@ import {
   type CompassMountainPosition,
 } from '../direction';
 import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './evidence';
+import { buildXuanKongEvidenceTrail } from './xuanKongEvidence';
 
 export type XuanKongFormation = Formation;
 
@@ -84,6 +85,8 @@ export interface XuanKongResult {
   };
   measurement?: XuanKongMeasurement;
   evidenceAnalysis: XuanKongEvidenceAnalysis;
+  /** 玄空四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
   prompt: string;
 }
 
@@ -431,6 +434,11 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
     ...partial,
     evidenceAnalysis,
     prompt,
+    evidenceTrail: buildXuanKongEvidenceTrail({
+      ...partial,
+      evidenceAnalysis,
+      prompt,
+    }),
   };
 }
 
