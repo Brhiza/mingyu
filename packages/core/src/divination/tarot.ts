@@ -14,6 +14,7 @@ import {
 import { attachResultMeta } from '../shared/result';
 import type { TarotData, TarotSpreadType } from '../types/divination';
 import { analyzeTarotEvidence } from './tarot-evidence';
+import { buildTarotEvidenceTrail } from './tarotEvidence';
 
 export { tarotCards, tarotSpreads } from './tarot-data';
 export { analyzeTarotEvidence } from './tarot-evidence';
@@ -340,7 +341,11 @@ export function drawTarotSpread(
         random: { mode: 'system', samples: [...options.interactiveSamples] },
       },
     );
-    return { ...data, evidenceAnalysis: analyzeTarotEvidence(data) };
+    return {
+      ...data,
+      evidenceAnalysis: analyzeTarotEvidence(data),
+      evidenceTrail: buildTarotEvidenceTrail(data),
+    };
   }
 
   if (options?.manualCards) {
@@ -382,7 +387,11 @@ export function drawTarotSpread(
         calculatedAt: timestamp,
       },
     );
-    return { ...data, evidenceAnalysis: analyzeTarotEvidence(data) };
+    return {
+      ...data,
+      evidenceAnalysis: analyzeTarotEvidence(data),
+      evidenceTrail: buildTarotEvidenceTrail(data),
+    };
   }
 
   if (spreadType === 'single') {
@@ -404,6 +413,7 @@ export function drawTarotSpread(
     };
     data.draw = buildDrawFacts(data.cards);
     data.evidenceAnalysis = analyzeTarotEvidence(data);
+    data.evidenceTrail = buildTarotEvidenceTrail(data);
     return data;
   }
 
@@ -423,5 +433,6 @@ export function drawTarotSpread(
   };
   data.draw = buildDrawFacts(data.cards);
   data.evidenceAnalysis = analyzeTarotEvidence(data);
+  data.evidenceTrail = buildTarotEvidenceTrail(data);
   return data;
 }

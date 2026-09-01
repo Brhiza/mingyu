@@ -7,6 +7,7 @@ import type { RandomOptions, RandomSource } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeLenormandEvidence } from '../lenormand-evidence';
+import { buildLenormandEvidenceTrail } from '../lenormandEvidence';
 
 export { analyzeLenormandEvidence, conditionLenormandTraditionalText } from '../lenormand-evidence';
 export type {
@@ -589,5 +590,9 @@ export function drawLenormandSpread(
           : {}),
     },
   );
-  return { ...result, evidenceAnalysis: analyzeLenormandEvidence(result) };
+  return {
+    ...result,
+    evidenceAnalysis: analyzeLenormandEvidence(result),
+    evidenceTrail: buildLenormandEvidenceTrail(result),
+  };
 }

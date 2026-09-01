@@ -840,6 +840,8 @@ export interface TarotData {
   };
   timestamp: number;
   evidenceAnalysis?: import('../divination/tarot-evidence').TarotEvidenceAnalysis;
+  /** 抽牌排盘四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }
 
 export type TarotSpreadType =
@@ -1068,6 +1070,8 @@ export interface LenormandData {
   layoutEvidence?: string[];
   timestamp: number;
   evidenceAnalysis?: import('../divination/lenormand-evidence').LenormandEvidenceAnalysis;
+  /** 抽牌排盘四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }
 
 export interface AstrolabeBirthInput {
