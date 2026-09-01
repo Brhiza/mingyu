@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { SolarDay, SolarTerm } from 'tyme4ts';
-
 import { getQimenJuShu } from '../../packages/core/src/divination/algorithms/qimen/helpers/jushu.ts';
+import { LunarUtil, calculateSolarTermsForYear } from '../../packages/core/src/calendar/index.ts';
 
 test('奇门置闰法在1900至2100年应保持十五日三元连续且只在芒种大雪置闰', () => {
   const terms = [
@@ -33,36 +32,44 @@ test('奇门置闰法在1900至2100年应保持十五日三元连续且只在芒
   ];
   const upperFuTou = new Set(['甲子', '己卯', '甲午', '己酉']);
   const zhirunTerms = new Set(['芒种', '大雪']);
-  const getResult = (solarDay: ReturnType<typeof SolarDay.fromYmd>) =>
-    getQimenJuShu(
-      {
-        solar: {
-          year: solarDay.getYear(),
-          month: solarDay.getMonth(),
-          day: solarDay.getDay(),
-          hour: 12,
+  const getResult = (solarDay: Date) => {
+    const info = LunarUtil.getTimeInfo(solarDay);
+    return {
+      dayGanZhi: info.ganzhi.day,
+      result: getQimenJuShu(
+        {
+          solar: info.solar,
+          jieQi: info.jieQi,
+          ganzhi: { day: info.ganzhi.day },
         },
-        jieQi: solarDay.getTermDay().getSolarTerm().getName(),
-        ganzhi: { day: solarDay.getLunarDay().getSixtyCycle().getName() },
-      },
-      'zhirun',
-    );
+        'zhirun',
+      ),
+    };
+  };
+  const addDays = (date: Date, days: number) => {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  };
+  const describeDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-  let segmentDay = SolarDay.fromYmd(1900, 1, 1);
-  while (!upperFuTou.has(segmentDay.getLunarDay().getSixtyCycle().getName())) {
-    segmentDay = segmentDay.next(1);
+  let segmentDay = new Date(1900, 0, 1, 12, 0, 0);
+  while (!upperFuTou.has(getResult(segmentDay).dayGanZhi)) {
+    segmentDay = addDays(segmentDay, 1);
   }
 
-  let previous: ReturnType<typeof getResult> | undefined;
+  let previous: ReturnType<typeof getResult>['result'] | undefined;
   const insertedTerms = new Set<string>();
-  const endDay = SolarDay.fromYmd(2100, 12, 31);
-  while (!segmentDay.isAfter(endDay)) {
-    const current = getResult(segmentDay);
-    assert.equal(current.yuan, '上元', segmentDay.toString());
-    assert.equal(current.fuTou, segmentDay.getLunarDay().getSixtyCycle().getName());
+  const endDay = new Date(2100, 11, 31, 12, 0, 0);
+  while (segmentDay <= endDay) {
+    const { result: current, dayGanZhi } = getResult(segmentDay);
+    const dateText = describeDate(segmentDay);
+    assert.equal(current.yuan, '上元', dateText);
+    assert.equal(current.fuTou, dayGanZhi);
 
     if (current.isZhiRun) {
-      assert.ok(zhirunTerms.has(current.jieQi), `${segmentDay}不得在${current.jieQi}置闰`);
+      assert.ok(zhirunTerms.has(current.jieQi), `${dateText}不得在${current.jieQi}置闰`);
       insertedTerms.add(current.jieQi);
     }
 
@@ -71,33 +78,36 @@ test('奇门置闰法在1900至2100年应保持十五日三元连续且只在芒
       const currentIndex = terms.indexOf(current.jieQi);
       const advance = (currentIndex - previousIndex + terms.length) % terms.length;
       if (advance === 0) {
-        assert.equal(current.isZhiRun, true, `${segmentDay}重复节气必须是闰奇`);
-        assert.equal(previous.isZhiRun, false, `${segmentDay}不得连续重复两次`);
+        assert.equal(current.isZhiRun, true, `${dateText}重复节气必须是闰奇`);
+        assert.equal(previous.isZhiRun, false, `${dateText}不得连续重复两次`);
       } else {
-        assert.equal(advance, 1, `${segmentDay}定局节气不得跳跃`);
-        assert.equal(current.isZhiRun, false, `${segmentDay}换节后不得仍标闰奇`);
+        assert.equal(advance, 1, `${dateText}定局节气不得跳跃`);
+        assert.equal(current.isZhiRun, false, `${dateText}换节后不得仍标闰奇`);
       }
     }
 
     previous = current;
-    segmentDay = segmentDay.next(15);
+    segmentDay = addDays(segmentDay, 15);
   }
   assert.deepEqual([...insertedTerms].sort(), ['大雪', '芒种']);
 
   for (let year = 1900; year <= 2100; year += 1) {
-    for (let termIndex = 0; termIndex < terms.length; termIndex += 1) {
-      const term = SolarTerm.fromIndex(year, termIndex);
-      const termTime = term.getJulianDay().getSolarTime();
-      const solarDay =
-        termTime.getHour() >= 23 ? termTime.getSolarDay().next(1) : termTime.getSolarDay();
-      const dayGanZhi = solarDay.getLunarDay().getSixtyCycle().getName();
+    for (const term of calculateSolarTermsForYear(year)) {
+      const chinaTime = new Date(new Date(term.utcDateTime).getTime() + 8 * 60 * 60 * 1000);
+      const termDay = new Date(
+        chinaTime.getUTCFullYear(),
+        chinaTime.getUTCMonth(),
+        chinaTime.getUTCDate() + (chinaTime.getUTCHours() >= 23 ? 1 : 0),
+        12,
+      );
+      const { result, dayGanZhi } = getResult(termDay);
       if (!upperFuTou.has(dayGanZhi)) continue;
 
-      const result = getResult(solarDay);
-      assert.equal(result.jieQi, term.getName(), `${solarDay}天然正授节气`);
-      assert.equal(result.yuan, '上元', `${solarDay}天然正授三元`);
-      assert.equal(result.chaoShenOrJieQi, '正授', `${solarDay}天然正授状态`);
-      assert.equal(result.isZhiRun, false, `${solarDay}天然正授不得标为置闰`);
+      const dateText = describeDate(termDay);
+      assert.equal(result.jieQi, term.name, `${dateText}天然正授节气`);
+      assert.equal(result.yuan, '上元', `${dateText}天然正授三元`);
+      assert.equal(result.chaoShenOrJieQi, '正授', `${dateText}天然正授状态`);
+      assert.equal(result.isZhiRun, false, `${dateText}天然正授不得标为置闰`);
     }
   }
 });

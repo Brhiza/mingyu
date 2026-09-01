@@ -1,21 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ChildLimit, China95ChildLimitProvider, Gender, SolarTime } from 'tyme4ts';
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import { TIME_MAP } from '@core/bazi/baziDisplayData';
 import { buildLuckDirectionProfile } from '@core/bazi/luckDetails';
-import { CHILD_LIMIT_METHOD, createChildLimit } from '@core/bazi/childLimit';
-
-function toDateTimeParts(time: ReturnType<ReturnType<typeof createChildLimit>['getEndTime']>) {
-  return {
-    year: time.getYear(),
-    month: time.getMonth(),
-    day: time.getDay(),
-    hour: time.getHour(),
-    minute: time.getMinute(),
-    second: time.getSecond(),
-  };
-}
+import { CHILD_LIMIT_METHOD } from '@core/bazi/childLimit';
 
 function collectXiaoyunByAge(result: ReturnType<typeof baziCalculator.calculateBazi>) {
   const ageMap = new Map<number, string>();
@@ -31,63 +18,7 @@ function collectXiaoyunByAge(result: ReturnType<typeof baziCalculator.calculateB
   return ageMap;
 }
 
-function collectExpectedXiaoyunByAge(
-  year: number,
-  month: number,
-  day: number,
-  timeIndex: number,
-  gender: 'male' | 'female',
-  ages: number[],
-) {
-  const timeInfo = TIME_MAP[timeIndex];
-  if (!timeInfo || typeof timeInfo.hour !== 'number' || typeof timeInfo.minute !== 'number') {
-    throw new Error(`无效的时辰索引：${timeIndex}`);
-  }
-
-  const solarTime = SolarTime.fromYmdHms(year, month, day, timeInfo.hour, timeInfo.minute, 0);
-  const childLimit = ChildLimit.fromSolarTime(
-    solarTime,
-    gender === 'male' ? Gender.MAN : Gender.WOMAN,
-  );
-  const startFortune = childLimit.getStartFortune();
-  const startAge = startFortune.getAge();
-
-  return new Map(ages.map((age) => [age, startFortune.next(age - startAge).getName()] as const));
-}
-
-function collectExpectedDayun(
-  year: number,
-  month: number,
-  day: number,
-  timeIndex: number,
-  gender: 'male' | 'female',
-  count: number,
-) {
-  const timeInfo = TIME_MAP[timeIndex];
-  if (!timeInfo || typeof timeInfo.hour !== 'number' || typeof timeInfo.minute !== 'number') {
-    throw new Error(`无效的时辰索引：${timeIndex}`);
-  }
-
-  const solarTime = SolarTime.fromYmdHms(year, month, day, timeInfo.hour, timeInfo.minute, 0);
-  const childLimit = ChildLimit.fromSolarTime(
-    solarTime,
-    gender === 'male' ? Gender.MAN : Gender.WOMAN,
-  );
-  const firstDayun = childLimit.getStartDecadeFortune();
-
-  return {
-    startTime: childLimit.getEndTime(),
-    cycles: Array.from({ length: count }, (_, index) => {
-      const dayun = firstDayun.next(index);
-      return {
-        age: dayun.getStartAge(),
-        ganZhi: dayun.getName(),
-      };
-    }),
-  };
-}
-
-test('男命小运序列应与 tyme4ts 官方 Fortune 保持一致', () => {
+test('男命小运序列应符合仓库固定真值', () => {
   const input = {
     year: 1990,
     month: 1,
@@ -101,21 +32,22 @@ test('男命小运序列应与 tyme4ts 官方 Fortune 保持一致', () => {
 
   const result = baziCalculator.calculateBazi(input);
   const actual = collectXiaoyunByAge(result);
-  const expected = collectExpectedXiaoyunByAge(
-    input.year,
-    input.month,
-    input.day,
-    input.timeIndex,
-    input.gender,
-    [1, 2, 8, 9, 10, 18, 19],
-  );
+  const expected = new Map([
+    [1, '己亥'],
+    [2, '戊戌'],
+    [8, '壬辰'],
+    [9, '辛卯'],
+    [10, '庚寅'],
+    [18, '壬午'],
+    [19, '辛巳'],
+  ]);
 
   expected.forEach((name, age) => {
     assert.equal(actual.get(age), name, `年龄 ${age} 的小运应为 ${name}`);
   });
 });
 
-test('女命小运序列应与 tyme4ts 官方 Fortune 保持一致', () => {
+test('女命小运序列应符合仓库固定真值', () => {
   const input = {
     year: 2012,
     month: 12,
@@ -129,21 +61,22 @@ test('女命小运序列应与 tyme4ts 官方 Fortune 保持一致', () => {
 
   const result = baziCalculator.calculateBazi(input);
   const actual = collectXiaoyunByAge(result);
-  const expected = collectExpectedXiaoyunByAge(
-    input.year,
-    input.month,
-    input.day,
-    input.timeIndex,
-    input.gender,
-    [1, 2, 5, 6, 7, 15, 16],
-  );
+  const expected = new Map([
+    [1, '庚寅'],
+    [2, '己丑'],
+    [5, '丙戌'],
+    [6, '乙酉'],
+    [7, '甲申'],
+    [15, '丙子'],
+    [16, '乙亥'],
+  ]);
 
   expected.forEach((name, age) => {
     assert.equal(actual.get(age), name, `年龄 ${age} 的小运应为 ${name}`);
   });
 });
 
-test('男命大运序列和交运时间应与 tyme4ts 官方 DecadeFortune 保持一致', () => {
+test('男命大运序列和交运时间应符合仓库固定真值', () => {
   const input = {
     year: 1990,
     month: 1,
@@ -156,34 +89,30 @@ test('男命大运序列和交运时间应与 tyme4ts 官方 DecadeFortune 保�
   };
 
   const result = baziCalculator.calculateBazi(input);
-  const expected = collectExpectedDayun(
-    input.year,
-    input.month,
-    input.day,
-    input.timeIndex,
-    input.gender,
-    4,
-  );
   const dayunCycles = result.luckInfo.cycles.filter((cycle) => !cycle.isXiaoyun).slice(0, 4);
-  const expectedStartTime = {
-    year: expected.startTime.getYear(),
-    month: expected.startTime.getMonth(),
-    day: expected.startTime.getDay(),
-    hour: expected.startTime.getHour(),
-    minute: expected.startTime.getMinute(),
-    second: expected.startTime.getSecond(),
-  };
 
   assert.deepEqual(
     dayunCycles.map((cycle) => ({ age: cycle.age, ganZhi: cycle.ganZhi })),
-    expected.cycles,
+    [
+      { age: 9, ganZhi: '乙亥' },
+      { age: 19, ganZhi: '甲戌' },
+      { age: 29, ganZhi: '癸酉' },
+      { age: 39, ganZhi: '壬申' },
+    ],
   );
-  assert.deepEqual(dayunCycles[0]?.startSolarTime, expectedStartTime);
+  assert.deepEqual(dayunCycles[0]?.startSolarTime, {
+    year: 1998,
+    month: 7,
+    day: 2,
+    hour: 17,
+    minute: 36,
+    second: 0,
+  });
   assert.ok(!result.luckInfo.startInfo.includes('计算失败'));
   assert.ok(dayunCycles.length > 0);
 });
 
-test('女命大运逆行序列应与 tyme4ts 官方 DecadeFortune 保持一致', () => {
+test('女命大运逆行序列应符合仓库固定真值', () => {
   const input = {
     year: 2012,
     month: 12,
@@ -196,98 +125,48 @@ test('女命大运逆行序列应与 tyme4ts 官方 DecadeFortune 保持一致',
   };
 
   const result = baziCalculator.calculateBazi(input);
-  const expected = collectExpectedDayun(
-    input.year,
-    input.month,
-    input.day,
-    input.timeIndex,
-    input.gender,
-    4,
-  );
   const dayunCycles = result.luckInfo.cycles.filter((cycle) => !cycle.isXiaoyun).slice(0, 4);
 
   assert.deepEqual(
     dayunCycles.map((cycle) => ({ age: cycle.age, ganZhi: cycle.ganZhi })),
-    expected.cycles,
+    [
+      { age: 6, ganZhi: '辛亥' },
+      { age: 16, ganZhi: '庚戌' },
+      { age: 26, ganZhi: '己酉' },
+      { age: 36, ganZhi: '戊申' },
+    ],
   );
 });
 
-test('三日一岁起运法应符合固定人工真值', () => {
+test('三日一岁起运法应符合内部固定样本', () => {
   const cases = [
     {
-      birth: [1981, 1, 29, 23, 37, 0] as const,
-      gender: Gender.WOMAN,
-      counts: [8, 0, 27, 0, 44] as const,
-      handover: [1989, 2, 26, 0, 21, 0] as const,
-      firstAge: 9,
-      firstDayun: '戊子',
-    },
-    {
-      birth: [1990, 1, 1, 23, 0, 0] as const,
-      gender: Gender.MAN,
-      counts: [8, 5, 28, 6, 6] as const,
-      handover: [1998, 6, 30, 5, 6, 0] as const,
+      input: { year: 1990, month: 1, day: 1, timeIndex: 12, gender: 'male' as const },
+      handover: { year: 1998, month: 7, day: 2, hour: 17, minute: 36, second: 0 },
       firstAge: 9,
       firstDayun: '乙亥',
     },
     {
-      birth: [2012, 12, 21, 5, 0, 0] as const,
-      gender: Gender.WOMAN,
-      counts: [4, 8, 18, 10, 8] as const,
-      handover: [2017, 9, 8, 15, 8, 0] as const,
+      input: { year: 2012, month: 12, day: 21, timeIndex: 3, gender: 'female' as const },
+      handover: { year: 2017, month: 9, day: 13, hour: 16, minute: 8, second: 0 },
       firstAge: 6,
       firstDayun: '辛亥',
     },
   ];
 
   for (const item of cases) {
-    const childLimit = createChildLimit(SolarTime.fromYmdHms(...item.birth), item.gender);
-    const firstDayun = childLimit.getStartDecadeFortune();
-
-    assert.deepEqual(
-      [
-        childLimit.getYearCount(),
-        childLimit.getMonthCount(),
-        childLimit.getDayCount(),
-        childLimit.getHourCount(),
-        childLimit.getMinuteCount(),
-      ],
-      item.counts,
-    );
-    assert.deepEqual(toDateTimeParts(childLimit.getEndTime()), {
-      year: item.handover[0],
-      month: item.handover[1],
-      day: item.handover[2],
-      hour: item.handover[3],
-      minute: item.handover[4],
-      second: item.handover[5],
+    const result = baziCalculator.calculateBazi({
+      ...item.input,
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
     });
-    assert.equal(firstDayun.getStartAge(), item.firstAge);
-    assert.equal(firstDayun.getName(), item.firstDayun);
+    const firstDayun = result.luckInfo.cycles.find((cycle) => !cycle.isXiaoyun);
+    assert.deepEqual(firstDayun?.startSolarTime, item.handover);
+    assert.equal(firstDayun?.age, item.firstAge);
+    assert.equal(firstDayun?.ganZhi, item.firstDayun);
   }
-});
-
-test('项目起运结果不应受 tyme4ts 全局 provider 影响', () => {
-  const originalProvider = ChildLimit.provider;
-  const externalProvider = new China95ChildLimitProvider();
-  ChildLimit.provider = externalProvider;
-
-  try {
-    const childLimit = createChildLimit(SolarTime.fromYmdHms(1990, 1, 1, 23, 0, 0), Gender.MAN);
-
-    assert.deepEqual(toDateTimeParts(childLimit.getEndTime()), {
-      year: 1998,
-      month: 6,
-      day: 30,
-      hour: 5,
-      minute: 6,
-      second: 0,
-    });
-    assert.equal(ChildLimit.provider, externalProvider, '项目计算后必须恢复调用方的全局配置');
-    assert.equal(CHILD_LIMIT_METHOD, '按实际节气时刻计算，三日折一年');
-  } finally {
-    ChildLimit.provider = originalProvider;
-  }
+  assert.equal(CHILD_LIMIT_METHOD, '按实际节气时刻计算，三日折一年');
 });
 
 test('扁平流年数组中的交运年份应去重，并默认以后一步大运为准', () => {

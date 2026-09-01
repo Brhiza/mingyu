@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SolarTerm } from 'tyme4ts';
-
 import {
   getBaziDayIndexByDate,
   getBaziMonthIndexByDate,
@@ -49,23 +47,8 @@ test('节令月应保留交节当天的末日部分时段，而不是整天提�
 });
 
 test('交节当天应按具体时刻切换节令月，不应整天一起切换', () => {
-  const jingzhe = SolarTerm.fromIndex(2024, 5).getJulianDay().getSolarTime();
-  const before = new Date(
-    jingzhe.getYear(),
-    jingzhe.getMonth() - 1,
-    jingzhe.getDay(),
-    jingzhe.getHour(),
-    Math.max(jingzhe.getMinute() - 1, 0),
-    0,
-  );
-  const after = new Date(
-    jingzhe.getYear(),
-    jingzhe.getMonth() - 1,
-    jingzhe.getDay(),
-    jingzhe.getHour(),
-    jingzhe.getMinute() + 1,
-    0,
-  );
+  const before = new Date(2024, 2, 5, 10, 21, 0);
+  const after = new Date(2024, 2, 5, 10, 23, 0);
 
   assert.equal(getBaziMonthIndexByDate(2024, before), 1);
   assert.equal(getBaziMonthIndexByDate(2024, after), 2);

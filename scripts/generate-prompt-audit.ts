@@ -15,6 +15,8 @@ import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { drawSpreadCards, getCardEvidence } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
@@ -490,7 +492,7 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
   }
 }
 
-async function buildSamples(includeAstrolabe = true): Promise<PromptSample[]> {
+async function buildSamples(): Promise<PromptSample[]> {
   const fixedNow = AUDIT_DATE;
 
   return withFixedNow(fixedNow, async () => {
@@ -542,44 +544,28 @@ async function buildSamples(includeAstrolabe = true): Promise<PromptSample[]> {
         '请依据本命盘分析命主的儿时家庭、职业倾向、感情结构与情绪压力来源，并说明宫位和星曜依据。',
     });
 
-    const astrolabeSamples: PromptSample[] = [];
-    if (includeAstrolabe) {
-      const [{ generateAstrolabe }, { buildAstrolabeScopeContext }] = await Promise.all([
-        import('mingyu-core/divination/astrolabe'),
-        import('../src/lib/astrolabe-scope'),
-      ]);
-      const contestAstrolabe = generateAstrolabe({
-        name: '命例四',
-        gender: '男',
-        year: '1993',
-        month: '4',
-        day: '8',
-        hour: '23',
-        minute: '34',
-        latitude: '1.3521',
-        longitude: '103.8198',
-        timezone: '8',
-        locationName: '新加坡',
-        useTrueSolarTime: false,
-      });
-      const astrolabeScope = buildAstrolabeScopeContext(contestAstrolabe, 'yearly', '2022');
-      astrolabeSamples.push({
-        name: '星盘',
-        source: CONTEST_SOURCE,
-        inputSummary: `命例四：男命，西元 1993年4月8日 23:34，新加坡出生；纬度 1.3521，经度 103.8198，UTC+8；已选择 ${astrolabeScope.displayText}。`,
-        prompt: buildDivinationPrompt(
-          'astrolabe',
-          '请围绕命例四在 2022 年后的职业方向、行业变化和情绪压力做判断，以已选择的流年分析对象为准，说明本命底色与流年触发分别是什么。',
-          contestAstrolabe,
-          undefined,
-          { astrolabeTopic: 'career', astrolabeScopeText: astrolabeScope.promptText },
-        ),
-        notes: [
-          '星盘样本通过项目年限选择逻辑写入流年分析对象和行运相位证据。',
-          '当前已生成行运到本命相位、太阳返照近似时刻、次限推进与太阳弧证据。',
-        ],
-      });
-    }
+    const contestAstrolabe = generateAstrolabe({
+      name: '命例四',
+      gender: '男',
+      year: '1993',
+      month: '4',
+      day: '8',
+      hour: '23',
+      minute: '34',
+      latitude: '1.3521',
+      longitude: '103.8198',
+      timezone: '8',
+      locationName: '新加坡',
+      useTrueSolarTime: false,
+    });
+    const astrolabeScope = buildAstrolabeScopeContext(contestAstrolabe, 'yearly', '2022');
+    const astrolabePrompt = buildDivinationPrompt(
+      'astrolabe',
+      '请围绕命例四在 2022 年后的职业方向、行业变化和情绪压力做判断，以已选择的流年分析对象为准，说明本命底色与流年触发分别是什么。',
+      contestAstrolabe,
+      undefined,
+      { astrolabeTopic: 'career', astrolabeScopeText: astrolabeScope.promptText },
+    );
 
     const qizhengData = qizheng.generateQizheng({
       year: 1993,
@@ -799,7 +785,16 @@ async function buildSamples(includeAstrolabe = true): Promise<PromptSample[]> {
         prompt: ziweiPrompt,
         notes: ['使用本命范围生成，问题与当前分析对象一致。'],
       },
-      ...astrolabeSamples,
+      {
+        name: '星盘',
+        source: CONTEST_SOURCE,
+        inputSummary: `命例四：男命，西元 1993年4月8日 23:34，新加坡出生；纬度 1.3521，经度 103.8198，UTC+8；已选择 ${astrolabeScope.displayText}。`,
+        prompt: astrolabePrompt,
+        notes: [
+          '星盘样本通过项目年限选择逻辑写入流年分析对象和行运相位证据。',
+          '当前已生成行运到本命相位、太阳返照近似时刻、次限推进与太阳弧证据。',
+        ],
+      },
       {
         name: '七政四余',
         source:
@@ -950,20 +945,14 @@ async function buildSamples(includeAstrolabe = true): Promise<PromptSample[]> {
 }
 
 async function main() {
-  const metaphysicsOnly = process.argv.includes('--metaphysics');
-  const samples = await buildSamples(!metaphysicsOnly);
-  assertRequiredSampleFields(samples, metaphysicsOnly ? new Set(['星盘']) : undefined);
+  const samples = await buildSamples();
+  assertRequiredSampleFields(samples);
   assertSamplePromptScopesAreSupported(samples);
   assertSamplePromptsAreClean(samples);
   const outputDir = resolve('.local', 'reports', 'prompt-audit');
   mkdirSync(outputDir, { recursive: true });
 
-  const samplePath = resolve(
-    outputDir,
-    metaphysicsOnly
-      ? '2026-05-19-术数提示词真实生成样本.md'
-      : '2026-05-19-全部提示词真实生成样本.md',
-  );
+  const samplePath = resolve(outputDir, '2026-05-19-全部提示词真实生成样本.md');
 
   writeFileSync(samplePath, buildPromptMarkdown(samples), 'utf8');
 

@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EarthBranch, HeavenStem, SixtyCycle } from 'tyme4ts';
 import { BASIC_MAPPINGS as appBaziMappings } from '@core/bazi/baziMappingsData';
 import {
   BASIC_MAPPINGS as coreBaziMappings,
@@ -42,6 +41,106 @@ import { evaluateChangSheng } from '../packages/core/src/divination/algorithms/q
 import { LIU_HE_BRANCH as ziweiLiuHeBranch } from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/palace-lookup';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
+
+const STEM_COMBINE = {
+  甲: ['己', '土'],
+  乙: ['庚', '金'],
+  丙: ['辛', '水'],
+  丁: ['壬', '木'],
+  戊: ['癸', '火'],
+  己: ['甲', '土'],
+  庚: ['乙', '金'],
+  辛: ['丙', '水'],
+  壬: ['丁', '木'],
+  癸: ['戊', '火'],
+} as const;
+const BRANCH_RELATIONS = {
+  子: ['丑', '午', '未'],
+  丑: ['子', '未', '午'],
+  寅: ['亥', '申', '巳'],
+  卯: ['戌', '酉', '辰'],
+  辰: ['酉', '戌', '卯'],
+  巳: ['申', '亥', '寅'],
+  午: ['未', '子', '丑'],
+  未: ['午', '丑', '子'],
+  申: ['巳', '寅', '亥'],
+  酉: ['辰', '卯', '戌'],
+  戌: ['卯', '辰', '酉'],
+  亥: ['寅', '巳', '申'],
+} as const;
+const HIDDEN_STEM_TRUTH = {
+  子: ['癸'],
+  丑: ['己', '癸', '辛'],
+  寅: ['甲', '丙', '戊'],
+  卯: ['乙'],
+  辰: ['戊', '乙', '癸'],
+  巳: ['丙', '庚', '戊'],
+  午: ['丁', '己'],
+  未: ['己', '丁', '乙'],
+  申: ['庚', '壬', '戊'],
+  酉: ['辛'],
+  戌: ['戊', '辛', '丁'],
+  亥: ['壬', '甲'],
+} as const;
+const STAGE_ORDER = [
+  '长生',
+  '沐浴',
+  '冠带',
+  '临官',
+  '帝旺',
+  '衰',
+  '病',
+  '死',
+  '墓',
+  '绝',
+  '胎',
+  '养',
+] as const;
+const LONGEVITY_START = {
+  甲: '亥',
+  乙: '午',
+  丙: '寅',
+  丁: '酉',
+  戊: '寅',
+  己: '酉',
+  庚: '巳',
+  辛: '子',
+  壬: '申',
+  癸: '卯',
+} as const;
+const STEM_ELEMENT = {
+  甲: '木',
+  乙: '木',
+  丙: '火',
+  丁: '火',
+  戊: '土',
+  己: '土',
+  庚: '金',
+  辛: '金',
+  壬: '水',
+  癸: '水',
+} as const;
+const YANG_STEMS = new Set(['甲', '丙', '戊', '庚', '壬']);
+const GENERATES = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' } as const;
+const CONTROLS = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' } as const;
+
+function expectedLifeStage(stem: string, branch: string) {
+  const start = EARTHLY_BRANCHES.indexOf(LONGEVITY_START[stem as keyof typeof LONGEVITY_START]);
+  const target = EARTHLY_BRANCHES.indexOf(branch);
+  const offset = YANG_STEMS.has(stem) ? target - start : start - target;
+  return STAGE_ORDER[(offset + 12) % 12];
+}
+
+function expectedTenGod(dayMaster: string, target: string) {
+  const dayElement = STEM_ELEMENT[dayMaster as keyof typeof STEM_ELEMENT];
+  const targetElement = STEM_ELEMENT[target as keyof typeof STEM_ELEMENT];
+  const samePolarity = YANG_STEMS.has(dayMaster) === YANG_STEMS.has(target);
+  if (dayElement === targetElement) return samePolarity ? '比肩' : '劫财';
+  if (GENERATES[dayElement] === targetElement) return samePolarity ? '食神' : '伤官';
+  if (GENERATES[targetElement] === dayElement) return samePolarity ? '偏印' : '正印';
+  if (CONTROLS[dayElement] === targetElement) return samePolarity ? '偏财' : '正财';
+  return samePolarity ? '七杀' : '正官';
+}
 
 function createFortuneMockResult(): BaziChartResult {
   return {
@@ -179,11 +278,9 @@ test('申月司令初气应为戊土而不是己土', () => {
   }
 });
 
-test('天干五合表应与 tyme4ts 合干合化保持一致', () => {
+test('天干五合表应符合固定合干合化真值', () => {
   for (const stem of HEAVENLY_STEMS) {
-    const currentStem = HeavenStem.fromName(stem);
-    const expectedPartner = currentStem.getCombine().getName();
-    const expectedElement = currentStem.combine(HeavenStem.fromName(expectedPartner))?.getName();
+    const [expectedPartner, expectedElement] = STEM_COMBINE[stem];
 
     assert.equal(appBaziMappings.TIAN_GAN_WU_HE[stem], expectedPartner, stem);
     assert.equal(coreBaziMappings.TIAN_GAN_WU_HE[stem], expectedPartner, stem);
@@ -192,29 +289,58 @@ test('天干五合表应与 tyme4ts 合干合化保持一致', () => {
   }
 });
 
-test('六十甲子纳音表应与 tyme4ts 纳音保持一致', () => {
-  for (const ganZhi of SIXTY_CYCLE) {
-    const expected = SixtyCycle.fromName(ganZhi).getSound().getName();
-
-    assert.equal(NAYIN_MAP[ganZhi], expected, ganZhi);
-  }
+test('六十甲子纳音表应符合三十组固定真值', () => {
+  const pairTruth = [
+    '海中金',
+    '炉中火',
+    '大林木',
+    '路旁土',
+    '剑锋金',
+    '山头火',
+    '涧下水',
+    '城头土',
+    '白蜡金',
+    '杨柳木',
+    '泉中水',
+    '屋上土',
+    '霹雳火',
+    '松柏木',
+    '长流水',
+    '沙中金',
+    '山下火',
+    '平地木',
+    '壁上土',
+    '金箔金',
+    '覆灯火',
+    '天河水',
+    '大驿土',
+    '钗钏金',
+    '桑柘木',
+    '大溪水',
+    '沙中土',
+    '天上火',
+    '石榴木',
+    '大海水',
+  ];
+  assert.deepEqual(
+    SIXTY_CYCLE.map((ganZhi) => NAYIN_MAP[ganZhi]),
+    pairTruth.flatMap((name) => [name, name]),
+  );
 });
 
-test('地支藏干表应与 tyme4ts 本气中气余气顺序保持一致', () => {
+test('地支藏干表应符合固定本气中气余气顺序', () => {
   for (const branch of EARTHLY_BRANCHES) {
-    const expected = EarthBranch.fromName(branch)
-      .getHideHeavenStems()
-      .map((stem) => stem.getName());
+    const expected = HIDDEN_STEM_TRUTH[branch];
 
-    assert.deepEqual(HIDDEN_STEMS[branch], expected, branch);
-    assert.deepEqual(BRANCH_HIDDEN_STEMS[branch], expected, branch);
+    assert.deepEqual(HIDDEN_STEMS[branch], [...expected], branch);
+    assert.deepEqual(BRANCH_HIDDEN_STEMS[branch], [...expected], branch);
   }
 });
 
-test('八字十二长生表应与 tyme4ts 十干十二运保持一致', () => {
+test('八字十二长生表应符合阴阳顺逆独立公式', () => {
   for (const stem of HEAVENLY_STEMS) {
     for (const branch of EARTHLY_BRANCHES) {
-      const expected = HeavenStem.fromName(stem).getTerrain(EarthBranch.fromName(branch)).getName();
+      const expected = expectedLifeStage(stem, branch);
 
       assert.equal(TWELVE_STAGES_MAP[stem]?.[branch], expected, `${stem}${branch}`);
       assert.equal(getBaziValueLifeStage(stem, branch), expected, `${stem}${branch}`);
@@ -225,12 +351,10 @@ test('八字十二长生表应与 tyme4ts 十干十二运保持一致', () => {
   assert.throws(() => getBaziValueLifeStage('不存在', '子'), /天干无效/);
 });
 
-test('十神算法应与 tyme4ts 十神关系保持一致', () => {
+test('十神算法应符合五行生克与阴阳异同独立公式', () => {
   for (const dayMaster of HEAVENLY_STEMS) {
     for (const targetStem of HEAVENLY_STEMS) {
-      const expected = HeavenStem.fromName(dayMaster)
-        .getTenStar(HeavenStem.fromName(targetStem))
-        .getName();
+      const expected = expectedTenGod(dayMaster, targetStem);
 
       assert.equal(getTenGod(targetStem, dayMaster), expected, `${dayMaster}见${targetStem}`);
     }
@@ -240,13 +364,11 @@ test('十神算法应与 tyme4ts 十神关系保持一致', () => {
   assert.equal(getTenGod('甲', '不存在'), '未知');
 });
 
-test('地支十神应按 tyme4ts 藏干主气取十神', () => {
+test('地支十神应按固定藏干主气取十神', () => {
   for (const dayMaster of HEAVENLY_STEMS) {
     for (const branch of EARTHLY_BRANCHES) {
-      const mainHiddenStem = EarthBranch.fromName(branch).getHideHeavenStems()[0].getName();
-      const expected = HeavenStem.fromName(dayMaster)
-        .getTenStar(HeavenStem.fromName(mainHiddenStem))
-        .getName();
+      const mainHiddenStem = HIDDEN_STEM_TRUTH[branch][0];
+      const expected = expectedTenGod(dayMaster, mainHiddenStem);
 
       assert.equal(getTenGodForBranch(branch, dayMaster), expected, `${dayMaster}见${branch}`);
     }
@@ -256,12 +378,9 @@ test('地支十神应按 tyme4ts 藏干主气取十神', () => {
   assert.equal(getTenGodForBranch('子', '不存在'), '未知');
 });
 
-test('地支六合六冲六害表应与 tyme4ts 地支关系保持一致', () => {
+test('地支六合六冲六害表应符合固定十二支关系', () => {
   for (const branch of EARTHLY_BRANCHES) {
-    const currentBranch = EarthBranch.fromName(branch);
-    const expectedLiuhe = currentBranch.getCombine().getName();
-    const expectedLiuchong = currentBranch.getOpposite().getName();
-    const expectedLiuhai = currentBranch.getHarm().getName();
+    const [expectedLiuhe, expectedLiuchong, expectedLiuhai] = BRANCH_RELATIONS[branch];
 
     assert.equal(appBaziMappings.DI_ZHI_LIU_HE[branch], expectedLiuhe, branch);
     assert.equal(coreBaziMappings.DI_ZHI_LIU_HE[branch], expectedLiuhe, branch);
@@ -490,11 +609,11 @@ test('八字墓库分析应按日主天干十二长生取墓位', () => {
   );
 });
 
-test('占法共享五行长生统一土长生在寅（与八字/奇门/tyme4ts 一致）', () => {
+test('占法共享五行长生统一土长生在寅', () => {
   // 木长生在亥、火长生在寅、金长生在巳、水长生在申（不变）
   assert.equal(getWuxingChangSheng('木'), '亥');
   assert.equal(getWuxingChangSheng('火'), '寅');
-  // 土统一为「土长生在寅」流派（火土同宫），与八字/奇门所用 tyme4ts 一致
+  // 土统一为「土长生在寅」流派（火土同宫）。
   assert.equal(getWuxingChangSheng('土'), '寅');
   assert.equal(getWuxingChangSheng('金'), '巳');
   assert.equal(getWuxingChangSheng('水'), '申');
@@ -502,7 +621,7 @@ test('占法共享五行长生统一土长生在寅（与八字/奇门/tyme4ts �
   // 注：六爻(liuyao)为独立占法体系，其土长生在申不在本共享表范围内，不受影响
 });
 
-test('奇门十二长生应与 tyme4ts 十干十二运保持一致', () => {
+test('奇门十二长生应符合阴阳顺逆独立公式', () => {
   const palaceBranches: Record<number, string> = {
     1: '子',
     2: '未',
@@ -516,7 +635,7 @@ test('奇门十二长生应与 tyme4ts 十干十二运保持一致', () => {
 
   for (const stem of ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']) {
     for (const [palace, branch] of Object.entries(palaceBranches)) {
-      const expected = HeavenStem.fromName(stem).getTerrain(EarthBranch.fromName(branch)).getName();
+      const expected = expectedLifeStage(stem, branch);
 
       assert.equal(evaluateChangSheng(stem, Number(palace)).stage, expected);
     }

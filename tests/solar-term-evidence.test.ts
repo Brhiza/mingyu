@@ -2,10 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { getYearMonthsGanZhi } from '@core/bazi/calendarTool';
-import { calculateSeasonInfo } from '@core/bazi/baziCalculatorTime';
+import { calculateSeasonInfoFromDate } from '@core/bazi/baziCalculatorTime';
 import { getJieQiPhaseByDate } from '@core/divination/algorithms/qimen/helpers/seasonality';
 import { calculateSolarTermEvidence, calculateSolarTermsForYear } from 'mingyu-core/calendar';
-import { SolarTime } from 'tyme4ts';
 
 test('节气证据应采用历表边界并保留太阳视黄经独立核验', () => {
   const evidence = calculateSolarTermEvidence(2024, 3);
@@ -131,7 +130,7 @@ test('八字节令月应携带起止交节的结构化证据', () => {
 });
 
 test('八字本命节令与奇门节令阶段应复用同一节气证据', () => {
-  const baziSeason = calculateSeasonInfo(SolarTime.fromYmdHms(2024, 2, 10, 12, 0, 0));
+  const baziSeason = calculateSeasonInfoFromDate(new Date(2024, 1, 10, 12, 0, 0));
   const qimenPhase = getJieQiPhaseByDate(new Date(2024, 1, 10, 12, 0, 0));
 
   assert.equal(baziSeason.currentJieqi, '立春');

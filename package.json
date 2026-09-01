@@ -48,7 +48,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"packages/core/src/**/*.ts\" \"packages/core/scripts/**/*.mjs\" \"tests/**/*.ts\" \"build/**/*.ts\"",
     "prompt:check": "pnpm test:prompt && pnpm prompt:audit",
     "prompt:audit": "tsx --tsconfig tsconfig.app.json scripts/generate-prompt-audit.ts",
-    "prompt:audit:metaphysics": "tsx --tsconfig tsconfig.app.json scripts/generate-prompt-audit.ts --metaphysics",
+    "prompt:audit:all": "pnpm prompt:audit",
     "contest:evaluate": "node scripts/evaluate-fortune-contest-model.js",
     "mcp": "tsx --tsconfig mcp/tsconfig.json mcp/src/server.ts",
     "core:build": "pnpm --filter mingyu-core build",

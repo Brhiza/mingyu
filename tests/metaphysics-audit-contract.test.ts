@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   SYSTEM_CAPABILITY_IDS,
   getCapabilities,
@@ -14,6 +16,7 @@ const AUDITED_SYSTEM_IDS = [
   'bazi',
   'ziwei',
   'bazi-ziwei-synthesis',
+  'astrolabe',
   'qimen',
   'liuyao',
   'meihua',
@@ -45,10 +48,8 @@ async function callApi(path: string, body: Record<string, unknown>) {
   return { response, body: await response.json() } as const;
 }
 
-test('术数抽查清单应覆盖能力表中的全部非星盘体系', () => {
-  const expected = SYSTEM_CAPABILITY_IDS.filter(
-    (id) => id !== 'astrolabe' && !id.startsWith('calendar.'),
-  );
+test('术数抽查清单应覆盖能力表中的全部体系', () => {
+  const expected = SYSTEM_CAPABILITY_IDS.filter((id) => !id.startsWith('calendar.'));
   assert.deepEqual([...AUDITED_SYSTEM_IDS].sort(), [...expected].sort());
 
   const capabilities = getCapabilities().systems.filter((item) =>
@@ -66,6 +67,31 @@ test('术数抽查清单应覆盖能力表中的全部非星盘体系', () => {
       );
     }
   });
+});
+
+test('测试代码不得直接导入外部排盘引擎', () => {
+  const enginePackages = [
+    'tyme' + '4ts',
+    'iz' + 'tro',
+    'cae' + 'lus',
+    '@soul-atelier/' + 'xuankong',
+  ];
+  const testFiles = readdirSync(resolve('tests'), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.test.ts'))
+    .map((entry) => resolve(entry.parentPath, entry.name));
+  const violations: string[] = [];
+
+  for (const file of testFiles) {
+    const source = readFileSync(file, 'utf8');
+    for (const packageName of enginePackages) {
+      const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp(`(?:from\\s+|import\\()\\s*['\"]${escaped}['\"]`).test(source)) {
+        violations.push(`${file} 直接导入 ${packageName}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
 });
 
 test('三山国王九十二签应逐签具备完整原始签谱并能按号无损取回', () => {

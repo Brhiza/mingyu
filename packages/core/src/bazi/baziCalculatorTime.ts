@@ -384,6 +384,22 @@ export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
   };
 }
 
+export function calculateSeasonInfoFromDate(date: Date): SeasonInfo {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    throw new Error('时间不是有效日期。');
+  }
+  return calculateSeasonInfo(
+    SolarTime.fromYmdHms(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds(),
+    ),
+  );
+}
+
 export function getCategorizedYearShenSha(
   yearData: { ganZhi?: string },
   baziResult: BaziChartResult,
