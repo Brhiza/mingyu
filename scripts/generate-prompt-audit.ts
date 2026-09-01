@@ -15,8 +15,6 @@ import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { drawSpreadCards, getCardEvidence } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
@@ -343,10 +341,14 @@ function buildPromptMarkdown(samples: PromptSample[]) {
   return lines.join('\n');
 }
 
-function assertRequiredSampleFields(samples: PromptSample[]) {
+function assertRequiredSampleFields(
+  samples: PromptSample[],
+  excludedSampleNames = new Set<string>(),
+) {
   const missingMessages: string[] = [];
 
   REQUIRED_SAMPLE_FIELDS.forEach(({ sampleName, requiredFields }) => {
+    if (excludedSampleNames.has(sampleName)) return;
     const sample = samples.find((item) => item.name === sampleName);
     if (!sample) {
       missingMessages.push(`缺少样本：${sampleName}`);
@@ -488,7 +490,7 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
   }
 }
 
-async function buildSamples(): Promise<PromptSample[]> {
+async function buildSamples(includeAstrolabe = true): Promise<PromptSample[]> {
   const fixedNow = AUDIT_DATE;
 
   return withFixedNow(fixedNow, async () => {
@@ -540,28 +542,44 @@ async function buildSamples(): Promise<PromptSample[]> {
         '请依据本命盘分析命主的儿时家庭、职业倾向、感情结构与情绪压力来源，并说明宫位和星曜依据。',
     });
 
-    const contestAstrolabe = generateAstrolabe({
-      name: '命例四',
-      gender: '男',
-      year: '1993',
-      month: '4',
-      day: '8',
-      hour: '23',
-      minute: '34',
-      latitude: '1.3521',
-      longitude: '103.8198',
-      timezone: '8',
-      locationName: '新加坡',
-      useTrueSolarTime: false,
-    });
-    const astrolabeScope = buildAstrolabeScopeContext(contestAstrolabe, 'yearly', '2022');
-    const astrolabePrompt = buildDivinationPrompt(
-      'astrolabe',
-      '请围绕命例四在 2022 年后的职业方向、行业变化和情绪压力做判断，以已选择的流年分析对象为准，说明本命底色与流年触发分别是什么。',
-      contestAstrolabe,
-      undefined,
-      { astrolabeTopic: 'career', astrolabeScopeText: astrolabeScope.promptText },
-    );
+    const astrolabeSamples: PromptSample[] = [];
+    if (includeAstrolabe) {
+      const [{ generateAstrolabe }, { buildAstrolabeScopeContext }] = await Promise.all([
+        import('mingyu-core/divination/astrolabe'),
+        import('../src/lib/astrolabe-scope'),
+      ]);
+      const contestAstrolabe = generateAstrolabe({
+        name: '命例四',
+        gender: '男',
+        year: '1993',
+        month: '4',
+        day: '8',
+        hour: '23',
+        minute: '34',
+        latitude: '1.3521',
+        longitude: '103.8198',
+        timezone: '8',
+        locationName: '新加坡',
+        useTrueSolarTime: false,
+      });
+      const astrolabeScope = buildAstrolabeScopeContext(contestAstrolabe, 'yearly', '2022');
+      astrolabeSamples.push({
+        name: '星盘',
+        source: CONTEST_SOURCE,
+        inputSummary: `命例四：男命，西元 1993年4月8日 23:34，新加坡出生；纬度 1.3521，经度 103.8198，UTC+8；已选择 ${astrolabeScope.displayText}。`,
+        prompt: buildDivinationPrompt(
+          'astrolabe',
+          '请围绕命例四在 2022 年后的职业方向、行业变化和情绪压力做判断，以已选择的流年分析对象为准，说明本命底色与流年触发分别是什么。',
+          contestAstrolabe,
+          undefined,
+          { astrolabeTopic: 'career', astrolabeScopeText: astrolabeScope.promptText },
+        ),
+        notes: [
+          '星盘样本通过项目年限选择逻辑写入流年分析对象和行运相位证据。',
+          '当前已生成行运到本命相位、太阳返照近似时刻、次限推进与太阳弧证据。',
+        ],
+      });
+    }
 
     const qizhengData = qizheng.generateQizheng({
       year: 1993,
@@ -690,6 +708,27 @@ async function buildSamples(): Promise<PromptSample[]> {
       '请分析 2026 年更适合主动推进还是稳守，以及应观察什么信号。',
       { method: 'taiyi', currentTime: fixedNow },
     );
+    const taiyiDate = new Date('2026-07-11T14:35:00+08:00');
+    const taiyiVariantSamples: PromptSample[] = (
+      [
+        ['月计', 'month'],
+        ['日计', 'day'],
+        ['时计', 'hour'],
+      ] as const
+    ).map(([label, scope]) => {
+      const result = generateTaiyi({ scope, date: taiyiDate });
+      return {
+        name: `太乙神数（${label}）`,
+        source: `项目太乙${label}算法真实生成；起局时间 2026-07-11T14:35:00+08:00。`,
+        inputSummary: `太乙${label}；问题为当前时间层级的攻守与行动时宜。`,
+        prompt: buildMetaphysicsPrompt(
+          result.prompt,
+          `请分析当前${label}更适合主动推进还是稳守，以及应观察什么信号。`,
+          { method: 'taiyi', currentTime: fixedNow },
+        ),
+        notes: [],
+      };
+    });
 
     const wuyunLiuqiData = calculateWuyunLiuqi({
       year: 2026,
@@ -699,6 +738,14 @@ async function buildSamples(): Promise<PromptSample[]> {
       epochYear: 1,
       year: 2026,
       question: '请解读目标年所处的周期位置。',
+    });
+    const huangjiStandardData = calculateHuangjiJingshi({
+      year: 2026,
+      question: '请解读 2026 年的通行值年卦与周期位置。',
+    });
+    const huangjiDateTimeData = calculateHuangjiJingshi({
+      date: new Date('2026-07-11T14:35:00+08:00'),
+      question: '请解读当前年月日时盘的层级关系。',
     });
     const zodiacData = calculateZodiacYearFortune({ zodiac: '午', year: 2026 });
     const zodiacPrompt = buildMetaphysicsPrompt(
@@ -752,16 +799,7 @@ async function buildSamples(): Promise<PromptSample[]> {
         prompt: ziweiPrompt,
         notes: ['使用本命范围生成，问题与当前分析对象一致。'],
       },
-      {
-        name: '星盘',
-        source: CONTEST_SOURCE,
-        inputSummary: `命例四：男命，西元 1993年4月8日 23:34，新加坡出生；纬度 1.3521，经度 103.8198，UTC+8；已选择 ${astrolabeScope.displayText}。`,
-        prompt: astrolabePrompt,
-        notes: [
-          '星盘样本通过项目年限选择逻辑写入流年分析对象和行运相位证据。',
-          '当前已生成行运到本命相位、太阳返照近似时刻、次限推进与太阳弧证据。',
-        ],
-      },
+      ...astrolabeSamples,
       {
         name: '七政四余',
         source:
@@ -866,14 +904,12 @@ async function buildSamples(): Promise<PromptSample[]> {
       },
       {
         name: '太乙神数',
-        source: '项目太乙年计七十二局立成真实生成；展示 2026 年年计。',
+        source: '项目太乙年计七十二局立成真实生成；展示 2026 年年计，并另审月、日、时三种计式。',
         inputSummary: '2026年太乙年计；问题为本年度的攻守与行动时宜。',
         prompt: taiyiPrompt,
-        notes: [
-          '当前只开放完成积年与七十二局立成校勘的年计。',
-          '月、日、时计等待完整古籍历法链校勘，不生成近似盘审查样本。',
-        ],
+        notes: ['年、月、日、时四计分别生成真实样本。'],
       },
+      ...taiyiVariantSamples,
       {
         name: '五运六气',
         source: '项目五运六气算法真实生成；公历 2026 年。',
@@ -889,6 +925,20 @@ async function buildSamples(): Promise<PromptSample[]> {
         notes: [],
       },
       {
+        name: '皇极经世（通行值年卦）',
+        source: '项目皇极经世通行公元值年卦真实生成；目标年 2026。',
+        inputSummary: '公元2026年；问题为通行值年卦与周期位置。',
+        prompt: huangjiStandardData.prompt,
+        notes: [],
+      },
+      {
+        name: '皇极经世（年月日时）',
+        source: '项目皇极经世年月日时盘真实生成；起局时间 2026-07-11T14:35:00+08:00。',
+        inputSummary: '2026年7月11日14:35；问题为年月日时盘层级关系。',
+        prompt: huangjiDateTimeData.prompt,
+        notes: [],
+      },
+      {
         name: '生肖流年',
         source: '项目生肖流年算法真实生成；午生肖，2026丙午年。',
         inputSummary: '生肖午（马）；流年2026；问题为重点流年关系。',
@@ -900,14 +950,20 @@ async function buildSamples(): Promise<PromptSample[]> {
 }
 
 async function main() {
-  const samples = await buildSamples();
-  assertRequiredSampleFields(samples);
+  const metaphysicsOnly = process.argv.includes('--metaphysics');
+  const samples = await buildSamples(!metaphysicsOnly);
+  assertRequiredSampleFields(samples, metaphysicsOnly ? new Set(['星盘']) : undefined);
   assertSamplePromptScopesAreSupported(samples);
   assertSamplePromptsAreClean(samples);
   const outputDir = resolve('.local', 'reports', 'prompt-audit');
   mkdirSync(outputDir, { recursive: true });
 
-  const samplePath = resolve(outputDir, '2026-05-19-全部提示词真实生成样本.md');
+  const samplePath = resolve(
+    outputDir,
+    metaphysicsOnly
+      ? '2026-05-19-术数提示词真实生成样本.md'
+      : '2026-05-19-全部提示词真实生成样本.md',
+  );
 
   writeFileSync(samplePath, buildPromptMarkdown(samples), 'utf8');
 
