@@ -24,6 +24,7 @@ import {
   getGanZhiFromDate,
 } from '../ganzhi';
 import { analyzeZodiacEvidence } from './evidence';
+import { buildZodiacEvidenceTrail } from './zodiacEvidence';
 
 export { analyzeZodiacEvidence } from './evidence';
 export type {
@@ -202,6 +203,8 @@ export interface ZodiacYearFortune {
   riskRelations: string[];
   actionSignals: string[];
   evidenceAnalysis: import('./evidence').ZodiacEvidenceAnalysis;
+  /** 生肖流年四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
   prompt: string;
 }
 
@@ -384,6 +387,7 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     ...resultBase,
     evidenceAnalysis,
     prompt,
+    evidenceTrail: buildZodiacEvidenceTrail({ ...resultBase, evidenceAnalysis, prompt }),
   };
 }
 

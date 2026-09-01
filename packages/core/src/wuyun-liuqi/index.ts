@@ -5,6 +5,7 @@
  */
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
 import { isKe, isSheng } from '../wuxing';
+import { buildWuyunLiuqiEvidenceTrail } from './wuyunLiuqiEvidence';
 
 export const WUYUN_LIUQI_SOURCES = [
   {
@@ -153,6 +154,8 @@ export interface WuyunLiuqiCalculation {
 
 export interface WuyunLiuqiResult extends WuyunLiuqiCalculation {
   prompt: string;
+  /** 五运六气四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }
 
 const STEM_MOVEMENT: Record<
@@ -694,7 +697,11 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     ],
   };
 
-  return { ...calculation, prompt: buildWuyunLiuqiPrompt(calculation, input.question) };
+  return {
+    ...calculation,
+    prompt: buildWuyunLiuqiPrompt(calculation, input.question),
+    evidenceTrail: buildWuyunLiuqiEvidenceTrail(calculation),
+  };
 }
 
 export const wuyunLiuqi = {

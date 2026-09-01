@@ -1357,6 +1357,8 @@ export interface TaiyiResult {
   judgments: string[];
   model: TaiyiModelInfo;
   evidenceAnalysis: import('../taiyi/evidence').TaiyiEvidenceAnalysis;
+  /** 太乙四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
   prompt: string;
 }
 

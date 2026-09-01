@@ -4,6 +4,8 @@
  * @传统依据 《皇极经世》与蔡元定《皇极经世指要》所传一元消长之数。
  */
 
+import { buildHuangjiJingshiEvidenceTrail } from './huangjiJingshiEvidence';
+
 export const HUANGJI_CYCLE_YEARS = Object.freeze({
   shi: 30,
   yun: 360,
@@ -90,6 +92,8 @@ export interface HuangjiJingshiCalculation {
 
 export interface HuangjiJingshiResult extends HuangjiJingshiCalculation {
   prompt: string;
+  /** 皇极经世四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
 }
 
 function assertSafeInteger(value: number, label: string): void {
@@ -291,7 +295,11 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
     ],
   };
 
-  return { ...calculation, prompt: buildHuangjiJingshiPrompt(calculation, input.question) };
+  return {
+    ...calculation,
+    prompt: buildHuangjiJingshiPrompt(calculation, input.question),
+    evidenceTrail: buildHuangjiJingshiEvidenceTrail(calculation),
+  };
 }
 
 export const huangjiJingshi = {

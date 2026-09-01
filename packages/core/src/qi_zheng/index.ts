@@ -36,6 +36,7 @@ import {
 } from '../calendar/solar-illumination-evidence';
 import { getBranchIndex, getGanZhiFromDate, getStemIndex } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
+import { buildQizhengEvidenceTrail } from './qiZhengEvidence';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
   calculateQizhengMansionBoundaries,
@@ -397,6 +398,8 @@ export interface QizhengResult {
   mansionBoundaries: QizhengMansionBoundary[];
   mansionModel: typeof QIZHENG_MANSION_MODEL;
   evidenceAnalysis: QizhengEvidenceAnalysis;
+  /** 七政四余四字段证据链（v3.0 证据契约）。 */
+  evidenceTrail?: import('../shared/evidence').EvidenceTrail;
   prompt: string;
 }
 
@@ -1786,6 +1789,23 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     mansionModel: QIZHENG_MANSION_MODEL,
     evidenceAnalysis,
     prompt,
+    evidenceTrail: buildQizhengEvidenceTrail({
+      stars,
+      aspects,
+      mingGong,
+      shenGong,
+      mingZhu,
+      twelvePalaces,
+      shensha,
+      ziqiModel: ZIQI_MODEL_INFO,
+      ziqi,
+      calculationContext,
+      positionSources: QIZHENG_POSITION_SOURCES,
+      mansionBoundaries,
+      mansionModel: QIZHENG_MANSION_MODEL,
+      evidenceAnalysis,
+      prompt,
+    }),
   };
 }
 

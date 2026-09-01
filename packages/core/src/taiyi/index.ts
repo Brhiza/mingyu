@@ -16,6 +16,7 @@
 import { getGanZhiFromDate, isValidGanZhi } from '../ganzhi';
 import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
 import { buildTaiyiEvidence } from './evidence';
+import { buildTaiyiEvidenceTrail } from './taiyiEvidence';
 
 export type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
 export type {
@@ -543,7 +544,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     `十六神：${sixteenGodsText}。`,
   ].join('\n');
 
-  return {
+  const taiyiResult: TaiyiResult = {
     scope,
     ganZhi,
     dateTime,
@@ -580,6 +581,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     evidenceAnalysis,
     prompt,
   };
+  return { ...taiyiResult, evidenceTrail: buildTaiyiEvidenceTrail(taiyiResult) };
 }
 
 export const taiyi = {
