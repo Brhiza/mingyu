@@ -29,6 +29,7 @@ import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
+import { buildLiuyaoEvidenceTrail } from '../liuyaoEvidence';
 import type { LiuyaoChangeRelation, LiuyaoData } from '../../types/divination';
 import {
   isSheng,
@@ -1147,7 +1148,11 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     calculatedAt: timestamp,
     random: resolvedGeneration.randomTrace,
   });
-  return { ...resultWithMeta, evidenceAnalysis: analyzeLiuyaoEvidence(resultWithMeta) };
+  return {
+    ...resultWithMeta,
+    evidenceAnalysis: analyzeLiuyaoEvidence(resultWithMeta),
+    evidenceTrail: buildLiuyaoEvidenceTrail(resultWithMeta),
+  };
 }
 
 export { buildHiddenSpirits };
