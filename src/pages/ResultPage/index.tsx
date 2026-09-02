@@ -25,7 +25,7 @@ import {
 import {
   buildAstrolabeFullScopeContexts,
   buildAstrolabeScopeContext,
-  mergeAstrolabePeriodEvents,
+  mergeAstrolabePeriodCollections,
 } from '@/lib/astrolabe-scope';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
@@ -952,21 +952,22 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         : null,
     [astrolabeFullScopeContexts],
   );
-  const astrolabePeriodEvents = useMemo(() => {
+  const astrolabePeriodCollection = useMemo(() => {
     if (astrolabeFullScopeContexts) {
-      return mergeAstrolabePeriodEvents([
-        astrolabeFullScopeContexts.yearly.periodEvents?.events ?? [],
-        astrolabeFullScopeContexts.monthly.periodEvents?.events ?? [],
-        astrolabeFullScopeContexts.daily.periodEvents?.events ?? [],
-      ]);
+      return mergeAstrolabePeriodCollections(
+        [
+          astrolabeFullScopeContexts.yearly.periodEvents,
+          astrolabeFullScopeContexts.monthly.periodEvents,
+          astrolabeFullScopeContexts.daily.periodEvents,
+        ].filter((item): item is NonNullable<typeof item> => Boolean(item)),
+      );
     }
-    return astrolabeScopeContext.periodEvents?.events ?? [];
+    return astrolabeScopeContext.periodEvents;
   }, [astrolabeFullScopeContexts, astrolabeScopeContext.periodEvents]);
-  const astrolabePeriodRangeLabel = astrolabeFullScopeContexts?.yearly.periodEvents
-    ? `${astrolabeFullScopeContexts.yearly.periodEvents.startDateTime}至${astrolabeFullScopeContexts.yearly.periodEvents.endDateTime}`
-    : astrolabeScopeContext.periodEvents
-      ? `${astrolabeScopeContext.periodEvents.startDateTime}至${astrolabeScopeContext.periodEvents.endDateTime}`
-      : undefined;
+  const astrolabePeriodEvents = astrolabePeriodCollection?.events ?? [];
+  const astrolabePeriodRangeLabel = astrolabePeriodCollection
+    ? `${astrolabePeriodCollection.startDateTime}至${astrolabePeriodCollection.endDateTime}`
+    : undefined;
 
   const activeBaziQuestionScopeLabel = useMemo(() => {
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
@@ -1987,6 +1988,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                     timeBasisLabel={instantTimeBasisLabel}
                     periodEvents={astrolabePeriodEvents}
                     periodRangeLabel={astrolabePeriodRangeLabel}
+                    periodAxis={astrolabePeriodCollection?.axis}
+                    periodWindows={astrolabePeriodCollection?.windows}
+                    periodGroups={astrolabePeriodCollection?.groups}
                   />
                 ) : null}
               </section>

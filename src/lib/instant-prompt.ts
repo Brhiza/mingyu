@@ -2,6 +2,7 @@ import { getTenGodForBranch, type BaziChartResult } from 'mingyu-core/bazi';
 import type { QizhengResult } from 'mingyu-core/qizheng';
 import type { ZiweiRuntime } from 'mingyu-core/ziwei';
 import type { AstrolabeData } from '@/types/divination';
+import { formatAstrolabeAspectSections } from 'mingyu-core/divination/astrolabe-scope';
 
 type ZiweiPayload = ZiweiRuntime['payloadByScope']['origin'];
 
@@ -97,12 +98,7 @@ function formatInstantAstrolabeData(data: AstrolabeData) {
   const planets = data.planets.map(
     (item) => `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`,
   );
-  const aspects = data.aspects
-    .slice(0, 12)
-    .map(
-      (item) =>
-        `${item.body1}${item.symbol}${item.body2}（${item.type}，容许度${item.orb.toFixed(2)}°）`,
-    );
+  const aspectSections = formatAstrolabeAspectSections(data.aspects);
   return [
     `起盘时刻：${data.birth.dateTime}；观测地点：${data.birth.location}；时区：UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
     data.birth.isTrueSolarTime
@@ -112,8 +108,7 @@ function formatInstantAstrolabeData(data: AstrolabeData) {
     `主要格局：${data.summary.patterns.join('、') || '未见明显格局'}`,
     '星体位置：',
     ...planets,
-    '主要相位：',
-    ...(aspects.length ? aspects : ['未见容许度内的主要相位']),
+    ...(aspectSections.length ? aspectSections : ['相位明细：未见容许度内的主要相位']),
   ]
     .filter(Boolean)
     .join('\n');

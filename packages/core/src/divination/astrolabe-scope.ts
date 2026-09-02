@@ -15,15 +15,26 @@ import {
   type AstrolabePeriodEventCollection,
 } from './astrolabe-period-events';
 export {
+  formatAstrolabeAspectLine,
+  formatAstrolabeAspectSections,
+  rankAstrolabeAspects,
+} from './astrolabe-chart-facts';
+export {
+  buildAstrolabePeriodEventLayers,
   buildAstrolabePeriodEvents,
+  mergeAstrolabePeriodCollections,
   mergeAstrolabePeriodEvents,
   resolveAstrolabePeriodWindow,
+  scoreAstrolabePeriodEvent,
 } from './astrolabe-period-events';
 export type {
+  AstrolabePeriodAxisItem,
   AstrolabePeriodEvent,
   AstrolabePeriodEventCollection,
   AstrolabePeriodEventKind,
   AstrolabePeriodScopeMode,
+  AstrolabePeriodTransitGroup,
+  AstrolabePeriodWindow,
 } from './astrolabe-period-events';
 import {
   buildAstronomicalTimeEvidence,
@@ -1708,16 +1719,31 @@ function buildTransitEvidence(
     minimumStrength: 35,
     includeOutOfSign: true,
   });
-  const transitLines = result.transits
-    .sort((first, second) => second.strength - first.strength || first.deviation - second.deviation)
-    .slice(0, 4)
-    .map(formatTransitLine);
+  const ranked = result.transits.sort(
+    (first, second) => second.strength - first.strength || first.deviation - second.deviation,
+  );
+  const transitLines = ranked.map(formatTransitLine);
 
   if (transitLines.length === 0) {
     return '主要行运相位：所选日期未见当前容许度内的主要相位。';
   }
 
-  return `主要行运相位：${transitLines.join('；')}。`;
+  const headline = ranked
+    .filter(
+      (item) =>
+        item.deviation <= 1 ||
+        item.natalPoint === 'Sun' ||
+        item.natalPoint === 'Moon' ||
+        item.natalPoint === 'Ascendant' ||
+        item.natalPoint === 'Midheaven' ||
+        item.natalPoint === 'North Node',
+    )
+    .slice(0, 6)
+    .map(formatTransitLine);
+  const lead = headline.length ? headline : transitLines.slice(0, 6);
+  return [`主要行运相位：${lead.join('；')}。`, `取样相位明细：${transitLines.join('；')}。`].join(
+    '\n',
+  );
 }
 
 function formatAdvancedScopeFacts(params: {

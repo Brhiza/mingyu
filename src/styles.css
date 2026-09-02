@@ -6342,6 +6342,20 @@ select {
   justify-content: center;
 }
 
+.astrolabe-period-axis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.astrolabe-period-window-list,
+.astrolabe-period-group-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .astrolabe-period-event-list {
   display: grid;
   gap: 8px;

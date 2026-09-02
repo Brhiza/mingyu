@@ -109,7 +109,9 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.match(context.promptText, /行运取样：2028-07-01 12:00（UTC\+8）/);
   assert.match(context.promptText, /主要行运相位：/);
   assert.match(context.promptText, /行运落宫：/);
-  assert.match(context.promptText, /周期关键星象（2028-01-01 00:00至2029-01-01 00:00，共\d+项）：/);
+  assert.match(context.promptText, /周期关键星象（2028-01-01 00:00至2029-01-01 00:00，共\d+项）。/);
+  assert.match(context.promptText, /周期主轴：/);
+  assert.match(context.promptText, /完整明细：/);
   assert.match(context.promptText, /太阳返照（.+）：/);
   assert.match(context.promptText, /次限相位：/);
   assert.match(context.promptText, /太阳弧相位：/);
@@ -241,11 +243,11 @@ test('星盘流月与流日沿用同一选择器语义并写入对应行运资�
   assert.match(dayContext.promptText, /行运落宫：/);
   assert.match(
     monthContext.promptText,
-    /周期关键星象（2028-06-01 00:00至2028-07-01 00:00，共\d+项）：/,
+    /周期关键星象（2028-06-01 00:00至2028-07-01 00:00，共\d+项）。/,
   );
   assert.match(
     dayContext.promptText,
-    /周期关键星象（2028-06-12 00:00至2028-06-13 00:00，共\d+项）：/,
+    /周期关键星象（2028-06-12 00:00至2028-06-13 00:00，共\d+项）。/,
   );
   assert.doesNotMatch(`${monthContext.promptText}\n${dayContext.promptText}`, /不得|时间边界|证据/);
 });

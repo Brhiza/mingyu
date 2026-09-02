@@ -163,6 +163,21 @@ const SIGN_NAMES = [
   'Pisces',
 ] as const;
 
+const SIGN_LABELS = [
+  '白羊座',
+  '金牛座',
+  '双子座',
+  '巨蟹座',
+  '狮子座',
+  '处女座',
+  '天秤座',
+  '天蝎座',
+  '射手座',
+  '摩羯座',
+  '水瓶座',
+  '双鱼座',
+] as const;
+
 export interface BirthData {
   year: number;
   month: number;
@@ -364,16 +379,54 @@ export function calculateAspects(
   return { aspects };
 }
 
+const PATTERN_KIND_LABELS: Record<string, string> = {
+  t_square: 'T字刑',
+  grand_trine: '大三角',
+  grand_cross: '大十字',
+  yod: '上帝之指',
+  kite: '风筝',
+  mystic_rectangle: '神秘矩形',
+  stellium: '星群',
+  stellium_sign: '同星座星群',
+  stellium_house: '同宫星群',
+};
+
+const PATTERN_BODY_LABELS: Record<string, string> = {
+  Sun: '太阳',
+  Moon: '月亮',
+  Mercury: '水星',
+  Venus: '金星',
+  Mars: '火星',
+  Jupiter: '木星',
+  Saturn: '土星',
+  Uranus: '天王星',
+  Neptune: '海王星',
+  Pluto: '冥王星',
+};
+
 function findPatternsFromBodies(bodies: AspectBody[]): AspectPattern[] {
   const detected = detectPatternsIn(
     Object.fromEntries(bodies.map((body) => [body.name, { lon: body.longitude }])),
     { bodies: bodies.map((body) => body.name) },
   );
-  return detected.map((pattern) => ({
-    type: pattern.kind,
-    bodies: pattern.bodies,
-    name: `${pattern.kind}: ${pattern.bodies.join(', ')}`,
-  }));
+  return detected.map((pattern) => {
+    const kind = PATTERN_KIND_LABELS[pattern.kind] ?? pattern.kind;
+    const members = pattern.bodies.map((item) => PATTERN_BODY_LABELS[item] ?? item).join('、');
+    const apex = pattern.apex ? (PATTERN_BODY_LABELS[pattern.apex] ?? pattern.apex) : '';
+    const signIndex = SIGN_NAMES.indexOf(pattern.sign as (typeof SIGN_NAMES)[number]);
+    const extra = pattern.sign
+      ? `，${signIndex >= 0 ? SIGN_LABELS[signIndex] : pattern.sign}`
+      : pattern.house
+        ? `，第${pattern.house}宫`
+        : apex
+          ? `，焦点${apex}`
+          : '';
+    return {
+      type: pattern.kind,
+      bodies: pattern.bodies,
+      name: members ? `${kind}（${members}${extra}）` : kind,
+    };
+  });
 }
 
 function calculateDistributions(planets: ChartPlanet[]) {

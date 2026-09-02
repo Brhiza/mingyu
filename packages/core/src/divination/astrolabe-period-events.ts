@@ -33,11 +33,35 @@ export interface AstrolabePeriodEvent {
   eclipseName?: string;
 }
 
+export interface AstrolabePeriodTransitGroup {
+  key: string;
+  movingPoint: string;
+  targetPoint: string;
+  aspectName: string;
+  events: AstrolabePeriodEvent[];
+  promptText: string;
+}
+
+export interface AstrolabePeriodWindow {
+  startDateTime: string;
+  endDateTime: string;
+  eventKeys: string[];
+  promptText: string;
+}
+
+export interface AstrolabePeriodAxisItem {
+  key: string;
+  promptText: string;
+}
+
 export interface AstrolabePeriodEventCollection {
   startDateTime: string;
   endDateTime: string;
   timezoneLabel: string;
   events: AstrolabePeriodEvent[];
+  groups: AstrolabePeriodTransitGroup[];
+  windows: AstrolabePeriodWindow[];
+  axis: AstrolabePeriodAxisItem[];
   promptText: string;
 }
 
@@ -431,17 +455,234 @@ export function mergeAstrolabePeriodEvents(groups: AstrolabePeriodEvent[][]) {
     );
 }
 
+const CORE_POINT_LABELS = new Set([
+  '太阳',
+  '月亮',
+  '上升',
+  '天顶',
+  '本命太阳',
+  '本命月亮',
+  '本命上升',
+  '本命天顶',
+]);
+const SLOW_POINT_LABELS = new Set(['木星', '土星', '天王星', '海王星', '冥王星', '北交点']);
+const HARD_ASPECTS = new Set(['合相', '刑相', '冲相']);
+
+function isCorePoint(value: string | undefined) {
+  if (!value) return false;
+  return (
+    CORE_POINT_LABELS.has(value) || [...CORE_POINT_LABELS].some((item) => value.includes(item))
+  );
+}
+
+function isSlowPoint(value: string | undefined) {
+  return Boolean(value && SLOW_POINT_LABELS.has(value));
+}
+
+export function scoreAstrolabePeriodEvent(event: AstrolabePeriodEvent) {
+  let score = 10;
+  if (event.kind === '交食') score += 100;
+  if (event.kind === '停逆' && isSlowPoint(event.movingPoint)) score += 80;
+  if (event.kind === '行运相位') {
+    score += isSlowPoint(event.movingPoint) ? 55 : 25;
+    if (isCorePoint(event.targetPoint)) score += 25;
+    if (event.aspectName && HARD_ASPECTS.has(event.aspectName)) score += 12;
+  }
+  if (event.kind === '换座' && isSlowPoint(event.movingPoint)) score += 45;
+  if (
+    event.kind === '换宫' &&
+    isSlowPoint(event.movingPoint) &&
+    (event.house === 1 || event.house === 10)
+  ) {
+    score += 35;
+  }
+  if (event.kind === '朔望') score += event.promptText.includes('本命') ? 50 : 15;
+  if (
+    event.kind === '天象相位' &&
+    isSlowPoint(event.movingPoint) &&
+    isSlowPoint(event.targetPoint)
+  ) {
+    score += 40;
+  }
+  return score;
+}
+
+function transitGroupKey(event: AstrolabePeriodEvent) {
+  if (event.kind !== '行运相位' || !event.targetPoint || !event.aspectName) return null;
+  return `${event.movingPoint}|${event.aspectName}|${event.targetPoint}`;
+}
+
+function formatDateRange(startDateTime: string, endDateTime: string) {
+  const startDay = startDateTime.slice(0, 10);
+  const endDay = endDateTime.slice(0, 10);
+  return startDay === endDay ? startDay : `${startDateTime}至${endDateTime}`;
+}
+
+function buildTransitGroups(events: AstrolabePeriodEvent[]): AstrolabePeriodTransitGroup[] {
+  const grouped = new Map<string, AstrolabePeriodEvent[]>();
+  for (const event of events) {
+    const key = transitGroupKey(event);
+    if (!key) continue;
+    const list = grouped.get(key) ?? [];
+    list.push(event);
+    grouped.set(key, list);
+  }
+  return [...grouped.entries()]
+    .map(([key, list]) => {
+      const sorted = [...list].sort((first, second) => first.julianDate - second.julianDate);
+      const sample = sorted[0];
+      const times = sorted.map((item) => item.dateTime).join('、');
+      const countLabel = sorted.length >= 3 ? `${sorted.length}次过境` : `${sorted.length}次触发`;
+      return {
+        key,
+        movingPoint: sample.movingPoint,
+        targetPoint: sample.targetPoint ?? '',
+        aspectName: sample.aspectName ?? '',
+        events: sorted,
+        promptText: `${sample.movingPoint}${sample.aspectName === '合相' ? '合' : sample.aspectName === '刑相' ? '刑' : sample.aspectName === '冲相' ? '冲' : sample.aspectName === '拱相' ? '拱' : sample.aspectName === '六合' ? '六合' : ''}${sample.targetPoint} ${countLabel}（${times}）`,
+      };
+    })
+    .filter((item) => item.events.length >= 2)
+    .sort(
+      (first, second) =>
+        second.events.length - first.events.length || first.key.localeCompare(second.key),
+    );
+}
+
+function windowGapDays(scope: AstrolabePeriodScopeMode) {
+  if (scope === 'daily') return 0.25;
+  if (scope === 'monthly') return 3;
+  return 14;
+}
+
+function buildKeyWindows(
+  events: AstrolabePeriodEvent[],
+  scope: AstrolabePeriodScopeMode,
+): AstrolabePeriodWindow[] {
+  if (events.length === 0) return [];
+  const gap = windowGapDays(scope);
+  const clusters: AstrolabePeriodEvent[][] = [];
+  let current: AstrolabePeriodEvent[] = [events[0]];
+  for (let index = 1; index < events.length; index += 1) {
+    const event = events[index];
+    const previous = current[current.length - 1];
+    if (event.julianDate - previous.julianDate <= gap) {
+      current.push(event);
+    } else {
+      clusters.push(current);
+      current = [event];
+    }
+  }
+  clusters.push(current);
+  return clusters
+    .filter((cluster) => {
+      const scores = cluster.map(scoreAstrolabePeriodEvent);
+      return (
+        scores.some((score) => score >= 70) ||
+        (cluster.length >= 3 && scores.some((score) => score >= 50))
+      );
+    })
+    .map((cluster) => {
+      const highlights = [...cluster]
+        .sort(
+          (first, second) => scoreAstrolabePeriodEvent(second) - scoreAstrolabePeriodEvent(first),
+        )
+        .slice(0, 3)
+        .map((item) => item.promptText);
+      const startDateTime = cluster[0].dateTime;
+      const endDateTime = cluster[cluster.length - 1].dateTime;
+      return {
+        startDateTime,
+        endDateTime,
+        eventKeys: cluster.map((item) => item.key),
+        promptText: `${formatDateRange(startDateTime, endDateTime)} ${highlights.join('，')}`,
+      };
+    });
+}
+
+function buildAxis(
+  events: AstrolabePeriodEvent[],
+  groups: AstrolabePeriodTransitGroup[],
+): AstrolabePeriodAxisItem[] {
+  const groupedKeys = new Set(groups.flatMap((item) => item.events.map((event) => event.key)));
+  const groupItems = groups.map((group) => ({
+    key: group.key,
+    promptText: group.promptText,
+    score: Math.max(...group.events.map(scoreAstrolabePeriodEvent)) + group.events.length * 8,
+  }));
+  const singles = events
+    .filter((event) => !groupedKeys.has(event.key) && scoreAstrolabePeriodEvent(event) >= 70)
+    .map((event) => ({
+      key: event.key,
+      promptText: `${event.dateTime} ${event.promptText}`,
+      score: scoreAstrolabePeriodEvent(event),
+    }));
+  return [...groupItems, ...singles]
+    .sort((first, second) => second.score - first.score || first.key.localeCompare(second.key))
+    .slice(0, 8)
+    .map(({ key, promptText }) => ({ key, promptText }));
+}
+
+export function buildAstrolabePeriodEventLayers(
+  events: AstrolabePeriodEvent[],
+  startDateTime: string,
+  endDateTime: string,
+  scope: AstrolabePeriodScopeMode,
+) {
+  const groups = buildTransitGroups(events);
+  const windows = buildKeyWindows(events, scope);
+  const axis = buildAxis(events, groups);
+  const lines = [
+    events.length
+      ? `周期关键星象（${startDateTime}至${endDateTime}，共${events.length}项）。`
+      : `周期关键星象（${startDateTime}至${endDateTime}）：所选周期内未见当前筛选范围内的精准相位、停逆、换座、换宫、朔望或交食。`,
+  ];
+  if (axis.length) lines.push(`周期主轴：${axis.map((item) => item.promptText).join('；')}。`);
+  if (windows.length)
+    lines.push(`关键窗口：${windows.map((item) => item.promptText).join('；')}。`);
+  if (groups.length) lines.push(`过境归组：${groups.map((item) => item.promptText).join('；')}。`);
+  if (events.length) {
+    lines.push(
+      `完整明细：${events.map((item) => `${item.dateTime} ${item.promptText}`).join('；')}。`,
+    );
+  }
+  return {
+    groups,
+    windows,
+    axis,
+    promptText: lines.join('\n'),
+  };
+}
+
+export function mergeAstrolabePeriodCollections(
+  collections: AstrolabePeriodEventCollection[],
+  scope: AstrolabePeriodScopeMode = 'yearly',
+): AstrolabePeriodEventCollection | undefined {
+  const available = collections.filter(Boolean);
+  if (available.length === 0) return undefined;
+  const events = mergeAstrolabePeriodEvents(available.map((item) => item.events));
+  const startDateTime = available.map((item) => item.startDateTime).sort()[0];
+  const endDateTime = available
+    .map((item) => item.endDateTime)
+    .sort()
+    .at(-1)!;
+  const layers = buildAstrolabePeriodEventLayers(events, startDateTime, endDateTime, scope);
+  return {
+    startDateTime,
+    endDateTime,
+    timezoneLabel: available[0].timezoneLabel,
+    events,
+    ...layers,
+  };
+}
+
 function formatCollectionPrompt(
   startDateTime: string,
   endDateTime: string,
   events: AstrolabePeriodEvent[],
+  scope: AstrolabePeriodScopeMode,
 ) {
-  if (events.length === 0) {
-    return `周期关键星象（${startDateTime}至${endDateTime}）：所选周期内未见当前筛选范围内的精准相位、停逆、换座、换宫、朔望或交食。`;
-  }
-  return `周期关键星象（${startDateTime}至${endDateTime}，共${events.length}项）：${events
-    .map((item) => `${item.dateTime} ${item.promptText}`)
-    .join('；')}。`;
+  return buildAstrolabePeriodEventLayers(events, startDateTime, endDateTime, scope);
 }
 
 export function buildAstrolabePeriodEvents(
@@ -663,11 +904,12 @@ export function buildAstrolabePeriodEvents(
   }
 
   const unique = mergeAstrolabePeriodEvents([events]);
+  const layers = formatCollectionPrompt(window.startDateTime, window.endDateTime, unique, scope);
   return {
     startDateTime: window.startDateTime,
     endDateTime: window.endDateTime,
     timezoneLabel: window.timezoneLabel,
     events: unique,
-    promptText: formatCollectionPrompt(window.startDateTime, window.endDateTime, unique),
+    ...layers,
   };
 }

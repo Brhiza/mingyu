@@ -26,6 +26,7 @@ import {
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
 import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
+import { formatAstrolabeAspectSections } from '../divination/astrolabe-chart-facts';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 
@@ -687,12 +688,6 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
       (item) =>
         `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`,
     );
-  const aspectLines = data.aspects
-    .slice(0, 5)
-    .map(
-      (item) =>
-        `${item.body1}${item.symbol}${item.body2}（${item.type}，容许度${item.orb.toFixed(2)}°）`,
-    );
 
   return [
     '占法：星盘',
@@ -704,11 +699,9 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     `主要格局：${data.summary.patterns.join('、') || '未见明显格局'}`,
     planetLines.length ? '星体位置：' : '',
     ...planetLines.map((item) => `- ${item}`),
-    aspectLines.length ? '相位明细：' : '',
-    ...aspectLines.map((item) => `- ${item}`),
+    ...formatAstrolabeAspectSections(data.aspects),
   ]
     .filter(Boolean)
-
     .join('\n');
 }
 

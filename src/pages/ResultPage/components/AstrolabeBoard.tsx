@@ -1,6 +1,11 @@
 import { memo } from 'react';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
-import type { AstrolabePeriodEvent } from '@/lib/astrolabe-scope';
+import type {
+  AstrolabePeriodAxisItem,
+  AstrolabePeriodEvent,
+  AstrolabePeriodTransitGroup,
+  AstrolabePeriodWindow,
+} from '@/lib/astrolabe-scope';
 import type { AstrolabeData } from '@/types/divination';
 
 function findPlanet(data: AstrolabeData, name: string) {
@@ -19,6 +24,9 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   timeBasisLabel?: string;
   periodEvents?: AstrolabePeriodEvent[];
   periodRangeLabel?: string;
+  periodAxis?: AstrolabePeriodAxisItem[];
+  periodWindows?: AstrolabePeriodWindow[];
+  periodGroups?: AstrolabePeriodTransitGroup[];
 }) {
   const {
     title,
@@ -28,6 +36,9 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
     timeBasisLabel,
     periodEvents = [],
     periodRangeLabel,
+    periodAxis = [],
+    periodWindows = [],
+    periodGroups = [],
   } = props;
   const highlightAspects = data.aspects.slice(0, 4);
   const retrogradeText =
@@ -164,10 +175,46 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
                 <h3>周期关键星象</h3>
                 <p>
                   {periodRangeLabel
-                    ? `${periodRangeLabel}，共 ${periodEvents.length} 项精准相位、停逆、换座、换宫、朔望与交食。`
-                    : `共 ${periodEvents.length} 项精准相位、停逆、换座、换宫、朔望与交食。`}
+                    ? `${periodRangeLabel}，共 ${periodEvents.length} 项。先看主轴和窗口，完整时刻在下方明细。`
+                    : `共 ${periodEvents.length} 项。先看主轴和窗口，完整时刻在下方明细。`}
                 </p>
               </div>
+              {periodAxis.length > 0 ? (
+                <div className="astrolabe-period-axis">
+                  {periodAxis.map((item) => (
+                    <span className="result-soft-tag result-soft-tag-strong" key={item.key}>
+                      {item.promptText}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {periodWindows.length > 0 ? (
+                <div className="astrolabe-period-window-list">
+                  {periodWindows.map((item) => (
+                    <div
+                      className="astrolabe-period-event-item"
+                      key={`${item.startDateTime}-${item.endDateTime}`}
+                    >
+                      <div>
+                        <strong>{item.promptText}</strong>
+                        <span>关键窗口</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {periodGroups.length > 0 ? (
+                <div className="astrolabe-period-group-list">
+                  {periodGroups.map((item) => (
+                    <div className="astrolabe-period-event-item" key={item.key}>
+                      <div>
+                        <strong>{item.promptText}</strong>
+                        <span>过境归组</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <div className="astrolabe-period-event-list">
                 {periodEvents.map((event) => (
                   <div className="astrolabe-period-event-item" key={event.key}>
