@@ -4429,7 +4429,7 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.equal(session.method, 'almanac');
   assert.match(session.prompt, /占法：黄历择日/);
   assert.match(session.prompt, /核心结构：择日事项：搬家入宅/);
-  assert.doesNotMatch(session.prompt, /事项范围：|日期结论：|可用候选|慎用候选/);
+  assert.doesNotMatch(session.prompt, /事项范围：|日期结论：/);
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
   assert.match(session.prompt, /【问题】\n我们准备搬家，想选一个兼顾两个人的日子。/);
   assert.match(session.prompt, /候选日期明细：共5日/);

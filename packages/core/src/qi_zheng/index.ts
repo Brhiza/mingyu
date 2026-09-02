@@ -1817,6 +1817,8 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     }。`,
     `命宫在${TWELVE_PALACES[0]}（${getQizhengSignBranch(mingGong)}宫），命主${mingZhu}；身宫在${getQizhengSignBranch(shenGong)}宫。`,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
+    '星历口径：七政、罗睺、计都、月孛按星历位置；紫炁按古法均速。',
+    '本盘为出生时点静态结构，只解读根基、落宿、落宫和吊照。',
   ].join('\n');
 
   return {

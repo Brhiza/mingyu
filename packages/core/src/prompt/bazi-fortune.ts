@@ -66,11 +66,14 @@ export function formatBaziFortuneSelection(
     lines.push(`主要触发：${triggerLine.split('：').slice(1).join('：')}`);
   }
 
-  const detailGroups = (promptPayload.detailGroups ?? []).filter(
-    (group) =>
-      group.lines.length &&
-      (scope === 'dayun' || (scope === 'day' && group.title === '该流日包含的流时')),
-  );
+  const detailGroups = (promptPayload.detailGroups ?? []).filter((group) => {
+    if (!group.lines.length) return false;
+    if (scope === 'dayun') return group.title === '该大运包含的流年';
+    if (scope === 'year') return group.title === '该流年包含的流月';
+    if (scope === 'month') return group.title === '该流月包含的流日';
+    if (scope === 'day') return group.title === '该流日包含的流时';
+    return false;
+  });
   if (detailGroups.length) lines.push(detailGroups.map((group) => group.title).join('、'));
   for (const group of detailGroups) {
     lines.push(`${group.title}\n${group.lines.map((line) => `  - ${line}`).join('\n')}`);

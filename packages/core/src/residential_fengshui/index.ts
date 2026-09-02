@@ -398,6 +398,19 @@ function buildPrompt(result: {
       : '',
     result.xuankong ? `玄空完整盘面：\n${stripHeading(result.xuankong.prompt)}` : '',
     result.bazhai ? `八宅完整盘面：\n${stripHeading(result.bazhai.prompt)}` : '',
+    result.bazhai?.mingPalace?.length && result.xuankong?.palaces?.length
+      ? [
+          '方位合参：',
+          ...result.xuankong.palaces.map((palace) => {
+            const mansion = result.bazhai?.mingPalace.find(
+              (item) =>
+                palace.direction.includes(item.direction.replace(/方$/u, '')) ||
+                item.direction.includes(palace.direction.replace(/宫$/u, '')),
+            );
+            return `- ${palace.name}${palace.direction}：飞星运${palace.yunStar}山${palace.shanStar}向${palace.xiangStar}${mansion ? `；命卦${mansion.direction}${mansion.label}` : ''}`;
+          }),
+        ].join('\n')
+      : '',
   ];
   return lines.filter(Boolean).join('\n');
 }

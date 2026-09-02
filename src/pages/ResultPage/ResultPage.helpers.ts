@@ -232,7 +232,9 @@ export function buildBaziZiweiEnhancedPrompt(params: {
       isCustomQuestion
         ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
         : buildPromptTask(
-            '先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点。',
+            sourceLabels.length > 1
+              ? '请先分别给出同一时间范围内的八字岁运依据和紫微运限依据，再交叉印证后回答问题。'
+              : '请依据双方已列出的本命结构交叉印证后回答问题。',
             'bazi-ziwei',
           )
     }`,

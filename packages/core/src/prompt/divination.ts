@@ -32,7 +32,7 @@ import { buildPromptDocument, buildPromptSection, joinPromptSections } from './s
 import { buildPromptSchoolSection, type PromptSchoolMethod } from './schools';
 import type { AstrolabePromptTopic } from './astrolabe';
 import type { PromptBuildOptions, PromptDocument } from './types';
-import { formatEnhancedDivinationInfo } from './divination-enhanced';
+import { formatEnhancedDivinationInfo, formatTaiyiTradition } from './divination-enhanced';
 import { resolveSsgwStoryContent } from '../divination/ssgw-content';
 import { buildSolarTimeInfoText, buildTimeInfoText } from './formatters';
 import { buildTarotSpreadTask } from './tarot-spread';
@@ -625,11 +625,15 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
   const liuyaoTemplate = options.liuyaoTemplate ?? 'general';
   const liurenTemplate = options.liurenTemplate ?? 'general';
   const astrolabeTopic = options.astrolabeTopic ?? 'life';
+  const hasAstrolabePeriod = Boolean(
+    options.astrolabeScopeText &&
+    /周期关键星象|行运取样|主要行运相位/.test(options.astrolabeScopeText),
+  );
   const task =
     options.method === 'astrolabe' && !options.isCustomQuestion
       ? buildPromptTask(
           `请依据星体、宫位、相位和盘面证据，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`,
-          'astrolabe',
+          hasAstrolabePeriod ? 'astrolabe' : 'astrolabe-natal',
         )
       : options.method === 'tarot'
         ? buildTarotSpreadTask(options.data as TarotData)
@@ -651,7 +655,10 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         ? buildPromptSection('传统依据', '雷诺曼单牌以当前牌位、基础牌义和问题语境为主要资料。')
         : '';
   const user = joinPromptSections([
-    singleCardGuidance || buildPromptGuidance(options.method),
+    singleCardGuidance ||
+      (options.method === 'taiyi'
+        ? buildPromptSection('传统依据', formatTaiyiTradition(options.data as TaiyiResult))
+        : buildPromptGuidance(options.method)),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     supplementaryText ? buildPromptSection('补充信息', supplementaryText) : '',
     options.astrolabeScopeText ? buildPromptSection('分析对象', options.astrolabeScopeText) : '',

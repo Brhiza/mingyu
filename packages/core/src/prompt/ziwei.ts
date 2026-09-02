@@ -121,49 +121,57 @@ const SCHOOL_TEXT: Record<ZiweiPromptSchool, { label: string; task: string; basi
   },
 };
 
-function formatStar(star: StarFact) {
+function formatStar(star: StarFact, isOriginScope: boolean) {
   return [
     star.name,
     star.brightness ? `庙旺${star.brightness}` : '',
     star.birth_mutagen ? `生年化${star.birth_mutagen}` : '',
-    star.horoscope_mutagen ? `运限化${star.horoscope_mutagen}` : '',
-    star.active_scope_mutagen ? `当前化${star.active_scope_mutagen}` : '',
+    !isOriginScope && star.horoscope_mutagen ? `运限化${star.horoscope_mutagen}` : '',
+    !isOriginScope && star.active_scope_mutagen ? `当前化${star.active_scope_mutagen}` : '',
   ]
     .filter(Boolean)
     .join('，');
 }
 
-function formatPalace(palace: PalaceFact) {
+function natalTags(tags: string[]) {
+  return tags.filter((tag) => !/大限|流年|流月|流日|流时|运限/.test(tag));
+}
+
+function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
   const stars = [
     ...palace.major_stars,
     ...palace.minor_stars,
     ...palace.other_stars,
-    ...palace.scope_stars,
-  ].map(formatStar);
+    ...(isOriginScope ? [] : palace.scope_stars),
+  ].map((star) => formatStar(star, isOriginScope));
   const ranges =
-    palace.decadal_range?.length === 2
+    !isOriginScope && palace.decadal_range?.length === 2
       ? `大限${palace.decadal_range[0]}-${palace.decadal_range[1]}岁`
       : '';
+  const tags = isOriginScope ? natalTags(palace.summary_tags) : palace.summary_tags;
   return [
     `${palace.name}宫${palace.is_body_palace ? '（身宫）' : ''}${palace.is_original_palace ? '（命宫）' : ''}`,
     `宫干支${palace.heavenly_stem}${palace.earthly_branch}`,
     ranges,
     `星曜：${formatStringList(stars)}`,
-    palace.scope_hits.length ? `运限命中：${palace.scope_hits.join('、')}` : '',
-    palace.dynamic_scope_name ? `动态宫名：${palace.dynamic_scope_name}` : '',
-    palace.summary_tags.length ? `标签：${palace.summary_tags.join('、')}` : '',
+    !isOriginScope && palace.scope_hits.length ? `运限命中：${palace.scope_hits.join('、')}` : '',
+    !isOriginScope && palace.dynamic_scope_name ? `动态宫名：${palace.dynamic_scope_name}` : '',
+    tags.length ? `标签：${tags.join('、')}` : '',
   ]
     .filter(Boolean)
     .join('；');
 }
 
-function formatMutagenMap(payload: AnalysisPayloadV1) {
-  const values = payload.active_scope.mutagen_map.map((item) => {
-    const palace = item.palace_name ? `入${item.palace_name}宫` : '';
-    const dynamic = item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : '';
-    return `${item.star || ''}化${item.mutagen}${palace}${dynamic}`;
-  });
-  return values.length ? values.join('；') : '未记录当前四化';
+function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
+  const values = payload.active_scope.mutagen_map
+    .filter((item) => !isOriginScope || !item.dynamic_palace_name)
+    .map((item) => {
+      const palace = item.palace_name ? `入${item.palace_name}宫` : '';
+      const dynamic =
+        !isOriginScope && item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : '';
+      return `${item.star || ''}化${item.mutagen}${palace}${dynamic}`;
+    });
+  return values.length ? values.join('；') : isOriginScope ? '未记录生年四化' : '未记录当前四化';
 }
 
 export function formatZiweiPayloadForPrompt(
@@ -183,6 +191,7 @@ export function formatZiweiPayloadForPrompt(
     ? payload.palaces.filter((palace) => focusNames.has(palace.name))
     : payload.palaces;
   const selectedPalaces = palaces.length ? palaces : payload.palaces;
+  const isOriginScope = active.scope === 'origin';
 
   return [
     `分析范围：${active.label || SCOPE_LABELS[active.scope]}`,
@@ -191,16 +200,14 @@ export function formatZiweiPayloadForPrompt(
     basic.four_pillars
       ? `四柱：年${basic.four_pillars.year_pillar}、月${basic.four_pillars.month_pillar}、日${basic.four_pillars.day_pillar}、时${basic.four_pillars.hour_pillar}`
       : '',
-    `当前运限：${active.label || SCOPE_LABELS[active.scope]}；${active.solar_date}；${active.lunar_date}；名义年龄${active.nominal_age}；${active.palace_name ? `落${active.palace_name}宫` : '落宫未记录'}`,
-    `当前四化：${formatMutagenMap(payload)}`,
+    isOriginScope
+      ? '本命盘：只列生年四化与十二宫本命星曜，不混入运限落宫。'
+      : `当前运限：${active.label || SCOPE_LABELS[active.scope]}；${active.solar_date}；${active.lunar_date}；名义年龄${active.nominal_age}；${active.palace_name ? `落${active.palace_name}宫` : '落宫未记录'}`,
+    `${isOriginScope ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, isOriginScope)}`,
     '十二宫资料：',
-    ...selectedPalaces.map((palace) => `- ${formatPalace(palace)}`),
+    ...selectedPalaces.map((palace) => `- ${formatPalace(palace, isOriginScope)}`),
     evidence.length ? '证据资料：' : '',
     ...evidence.map((item) => `- ${item}`),
-    payload.evidence_analysis?.promptText
-      ? `证据汇总：${payload.evidence_analysis.promptText}`
-      : '',
-    payload.pattern_analysis?.promptText ? `格局资料：${payload.pattern_analysis.promptText}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -279,8 +286,10 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
     buildPromptSection(
       '任务',
       buildPromptTask(
-        `请依据${scope === 'full' ? '本命与所列完整运限' : SCOPE_LABELS[scopes[0] ?? 'origin']}资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
-        'ziwei',
+        scope === 'origin'
+          ? `请依据命身十二宫、星曜庙旺和生年四化解读本命结构${topicLabel ? `，重点分析${topicLabel}` : ''}，再回答问题。`
+          : `请依据${scope === 'full' ? '本命与所列完整运限' : SCOPE_LABELS[scopes[0] ?? 'origin']}资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
+        scope === 'origin' ? 'ziwei-natal' : 'ziwei',
       ),
     ),
     buildPromptSection('问题', question),
@@ -304,7 +313,7 @@ function formatZiweiCompatibilityFacts(result: ReturnType<typeof analyzeZiweiCom
   const overlays = result.palaceOverlays.slice(0, 24).map((item) => `- ${item.promptText}`);
   const mutagens = result.crossMutagenPlacements.slice(0, 24).map((item) => `- ${item.promptText}`);
   return [
-    `证据汇总：${result.summaryFact.promptText}`,
+    `交叉资料：${result.summaryFact.promptText.replace(/^证据汇总：/, '')}`,
     overlays.length ? '宫位叠盘：' : '',
     ...overlays,
     mutagens.length ? '跨盘四化：' : '',

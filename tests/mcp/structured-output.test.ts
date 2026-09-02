@@ -2423,7 +2423,7 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     assert.equal(ziweiFrameworkResult.isError, undefined, 'ziwei_prompt framework 不应返回错误');
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
-    assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
+    assert.match(ziweiFrameworkPrompt, /【十二宫资料】/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /iztro|排盘资料提供/);
     assert.match(ziweiFrameworkPrompt, /【当前时间】/);
     assert.match(ziweiFrameworkPrompt, /【本命资料】/);

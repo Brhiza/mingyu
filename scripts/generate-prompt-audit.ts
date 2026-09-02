@@ -4,8 +4,22 @@ import { resolve } from 'node:path';
 import { calculateFullZiweiChart, buildZiweiChartInput } from '../src/lib/full-chart-engine/ziwei';
 import {
   buildBaziPromptForResult,
+  buildBaziZiweiPromptForResults,
   buildZiweiPromptForRuntime,
 } from '../src/lib/public-api/prompt-builders';
+import {
+  buildAstrolabeSynastryPrompt,
+  buildBaziCompatibilityPrompt,
+  buildZiweiCompatibilityPrompt,
+} from 'mingyu-core/prompt';
+import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
+import {
+  buildInstantAstrolabePrompt,
+  buildInstantBaziPrompt,
+  buildInstantBaziZiweiPrompt,
+  buildInstantQizhengPrompt,
+  buildInstantZiweiPrompt,
+} from '../src/lib/instant-prompt';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
@@ -61,7 +75,14 @@ function buildCommonProjectInputSummary(extra: string) {
 const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   {
     sampleName: '八字排盘',
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '【排盘信息】'],
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '【排盘信息】',
+      '该流年包含的流月',
+    ],
   },
   {
     sampleName: '紫微斗数',
@@ -71,7 +92,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '【任务】',
       '【传统依据】',
       '【本命资料】',
-      '【重点宫位资料】',
+      '【十二宫资料】',
     ],
   },
   {
@@ -100,7 +121,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '奇门遁甲',
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '值符'],
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '值符', '九宫简表'],
   },
   {
     sampleName: '大六壬',
@@ -125,11 +146,19 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '择日',
-    requiredFields: ['【当前时间】', '【任务】', '【传统依据】', '参与人', '候选日期'],
+    requiredFields: ['【当前时间】', '【任务】', '【传统依据】', '参与人', '候选日期', '候选分类'],
   },
   {
     sampleName: '八宅风水',
-    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '四吉方', '四凶方'],
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '四吉方',
+      '四凶方',
+      '命卦八方',
+    ],
   },
   {
     sampleName: '住宅风水',
@@ -171,6 +200,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '核心宫位',
       '主客定算',
       '将参',
+      '十六神',
     ],
   },
   {
@@ -227,6 +257,42 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '生肖与流年关系',
       '信息范围',
     ],
+  },
+  {
+    sampleName: '八字双盘',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】'],
+  },
+  {
+    sampleName: '紫微双盘',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】'],
+  },
+  {
+    sampleName: '西占双盘',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】'],
+  },
+  {
+    sampleName: '八字紫微合参',
+    requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '【八字排盘信息】'],
+  },
+  {
+    sampleName: '八字即时盘',
+    requiredFields: ['【传统依据】', '【任务】', '【问题】'],
+  },
+  {
+    sampleName: '紫微即时盘',
+    requiredFields: ['【传统依据】', '【任务】', '【问题】'],
+  },
+  {
+    sampleName: '八字紫微即时盘',
+    requiredFields: ['【传统依据】', '【任务】', '【问题】'],
+  },
+  {
+    sampleName: '星盘即时盘',
+    requiredFields: ['【传统依据】', '【任务】', '【问题】'],
+  },
+  {
+    sampleName: '七政四余即时盘',
+    requiredFields: ['【传统依据】', '【任务】', '【问题】'],
   },
 ];
 
@@ -437,7 +503,7 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     {
       label: '重复或低价值展开',
       pattern:
-        /时间干支：|关键提示：|补充提示：|牌位顺序：|宫主星落宫：|宫头位置：|十二宫映射：|命卦八宫明细：|宅卦八宫明细：|十六神：|取传依据：|卦辞分类：|顺数轨迹：|元素主题：|牌阶主题：|旺衰依据:|格局依据:|喜忌五行:|喜忌十神:|十神归类:|取用脉络:|特殊宫位:|盘面数量：|应期资料：|组合时机：|起课方式：|月将贵人：|类神主线：|日期结论：|行运基准：|次限推进：/,
+        /时间干支：|关键提示：|补充提示：|牌位顺序：|宫主星落宫：|宫头位置：|十二宫映射：|命卦八宫明细：|宅卦八宫明细：|取传依据：|卦辞分类：|顺数轨迹：|元素主题：|牌阶主题：|旺衰依据:|格局依据:|喜忌五行:|喜忌十神:|十神归类:|取用脉络:|特殊宫位:|盘面数量：|应期资料：|组合时机：|起课方式：|月将贵人：|类神主线：|日期结论：|行运基准：|次限推进：/,
     },
   ];
 
@@ -451,13 +517,14 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
       (count, fw) => count + (sample.prompt.split(fw).length - 1),
       0,
     );
-    const expectedFrameworkCount = sample.name === '三山国王灵签' ? 0 : 1;
+    const expectedFrameworkCount =
+      sample.name === '三山国王灵签' || sample.name.includes('即时') ? 0 : 1;
     if (frameworkCount !== expectedFrameworkCount) {
       leakedMessages.push(`${sample.name} 答题骨架出现 ${frameworkCount} 次`);
     }
 
     const duplicatedSections = duplicateSectionNames(sample.prompt);
-    if (duplicatedSections.length > 0) {
+    if (duplicatedSections.length > 0 && !sample.name.includes('双盘')) {
       leakedMessages.push(`${sample.name} 出现重复 section：${duplicatedSections.join('、')}`);
     }
 
@@ -740,6 +807,102 @@ async function buildSamples(): Promise<PromptSample[]> {
       { method: 'zodiac', currentTime: fixedNow },
     );
 
+    const partnerBazi = baziCalculator.calculateBazi({
+      gender: 'male',
+      year: 1988,
+      month: 3,
+      day: 12,
+      timeIndex: 4,
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    });
+    const partnerZiwei = await calculateFullZiweiChart(
+      buildZiweiChartInput({
+        name: '对方',
+        gender: 'female',
+        dateType: 'solar',
+        year: '1995',
+        month: '5',
+        day: '20',
+        timeIndex: '4',
+        isLeapMonth: false,
+        useTrueSolarTime: false,
+      }),
+    );
+    const partnerAstrolabe = generateAstrolabe({
+      name: '对方',
+      gender: '女',
+      year: '1995',
+      month: '5',
+      day: '20',
+      hour: '12',
+      minute: '30',
+      latitude: '39.9042',
+      longitude: '116.4074',
+      timezone: '8',
+      locationName: '北京',
+    });
+    const extraSamples = {
+      baziCompatibility: buildBaziCompatibilityPrompt({
+        result1: baziResult,
+        result2: partnerBazi,
+        question: '我们长期合作时最需要注意什么？',
+        compatibilityType: 'partnership',
+        currentTime: fixedNow,
+      }),
+      ziweiCompatibility: buildZiweiCompatibilityPrompt({
+        payload1: ziweiRuntime.payloadByScope.origin,
+        payload2: partnerZiwei.payloadByScope.origin,
+        question: '双方关系的互动主轴是什么？',
+        currentTime: fixedNow,
+      }),
+      astrolabeSynastry: buildAstrolabeSynastryPrompt({
+        chart1: contestAstrolabe,
+        chart2: partnerAstrolabe,
+        synastry: analyzeAstrolabeSynastry(contestAstrolabe, partnerAstrolabe),
+        question: '双方合作时最需要注意什么？',
+        currentTime: fixedNow,
+      }),
+      baziZiwei: buildBaziZiweiPromptForResults({
+        baziResult,
+        ziweiResult: ziweiRuntime,
+        question: '请交叉印证命局主线。',
+        ziweiScope: 'origin',
+      }),
+      instantBazi: buildInstantBaziPrompt(baziResult, COMMON_PROJECT_QUESTION, AUDIT_DATE_TEXT),
+      instantZiwei: buildInstantZiweiPrompt(
+        ziweiRuntime.payloadByScope.origin,
+        COMMON_PROJECT_QUESTION,
+        AUDIT_DATE_TEXT,
+      ),
+      instantCombined: buildInstantBaziZiweiPrompt(
+        baziResult,
+        ziweiRuntime.payloadByScope.origin,
+        COMMON_PROJECT_QUESTION,
+        AUDIT_DATE_TEXT,
+      ),
+      instantAstrolabe: buildInstantAstrolabePrompt(
+        contestAstrolabe,
+        COMMON_PROJECT_QUESTION,
+        AUDIT_DATE_TEXT,
+      ),
+      instantQizheng: buildInstantQizhengPrompt(
+        qizheng.generateQizheng({
+          year: 2026,
+          month: 5,
+          day: 19,
+          hour: 10,
+          minute: 30,
+          latitude: 39.9,
+          longitude: 116.4,
+          timezone: 8,
+        }),
+        COMMON_PROJECT_QUESTION,
+        AUDIT_DATE_TEXT,
+      ),
+    };
+
     const residentialData = generateResidentialFengshui({
       birthYear: 1990,
       birthMonth: 6,
@@ -938,6 +1101,69 @@ async function buildSamples(): Promise<PromptSample[]> {
         source: '项目生肖流年算法真实生成；午生肖，2026丙午年。',
         inputSummary: '生肖午（马）；流年2026；问题为重点流年关系。',
         prompt: zodiacPrompt,
+        notes: [],
+      },
+      {
+        name: '八字双盘',
+        source: '项目八字合盘算法真实生成。',
+        inputSummary: '双方公历出生资料；问题为长期合作需要注意什么。',
+        prompt: extraSamples.baziCompatibility,
+        notes: [],
+      },
+      {
+        name: '紫微双盘',
+        source: '项目紫微合盘算法真实生成。',
+        inputSummary: '双方紫微本命盘；问题为关系互动主轴。',
+        prompt: extraSamples.ziweiCompatibility,
+        notes: [],
+      },
+      {
+        name: '西占双盘',
+        source: '项目西洋占星合盘算法真实生成。',
+        inputSummary: '双方星盘；问题为合作互动。',
+        prompt: extraSamples.astrolabeSynastry,
+        notes: [],
+      },
+      {
+        name: '八字紫微合参',
+        source: '项目八字紫微合参提示词真实生成。',
+        inputSummary: '同一出生资料的八字与紫微本命。',
+        prompt: extraSamples.baziZiwei,
+        notes: [],
+      },
+      {
+        name: '八字即时盘',
+        source: '即时盘提示词真实生成。',
+        inputSummary: '当前时刻八字事件盘。',
+        prompt: extraSamples.instantBazi,
+        notes: [],
+      },
+      {
+        name: '紫微即时盘',
+        source: '即时盘提示词真实生成。',
+        inputSummary: '当前时刻紫微事件盘。',
+        prompt: extraSamples.instantZiwei,
+        notes: [],
+      },
+      {
+        name: '八字紫微即时盘',
+        source: '即时盘提示词真实生成。',
+        inputSummary: '当前时刻八字与紫微事件盘。',
+        prompt: extraSamples.instantCombined,
+        notes: [],
+      },
+      {
+        name: '星盘即时盘',
+        source: '即时盘提示词真实生成。',
+        inputSummary: '当前时刻星盘事件盘。',
+        prompt: extraSamples.instantAstrolabe,
+        notes: [],
+      },
+      {
+        name: '七政四余即时盘',
+        source: '即时盘提示词真实生成。',
+        inputSummary: '当前时刻七政四余事件盘。',
+        prompt: extraSamples.instantQizheng,
         notes: [],
       },
     ];

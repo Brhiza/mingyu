@@ -245,6 +245,15 @@ function formatLiuyaoInfo(
     usefulGodMainLine,
     godChainText,
     `动变：${changingLines.length ? changingLines.join('、') : '无'}`,
+    data.yaosDetail?.length
+      ? [
+          '六爻全表：',
+          ...data.yaosDetail.map((item) => {
+            const god = data.sixGods?.[item.position - 1] || '';
+            return `- ${formatLiuyaoYaoBrief(item)}${god ? `，六神${god}` : ''}${item.isWorld ? '，世' : ''}${item.isResponse ? '，应' : ''}${item.isChanging ? '，动' : ''}${item.isVoid ? '，空' : ''}`;
+          }),
+        ].join('\n')
+      : '',
     `旬空${data.voidBranches?.length ? data.voidBranches.join('、') : '未列'}${voidYaoText.length ? `；命中${voidYaoText.join('、')}` : ''}${hiddenSpiritText ? `；伏神${hiddenSpiritText}` : ''}`,
     `月日触发：${monthDayEvidence}`,
     sanheDetail ? sanheDetail : '',
@@ -280,13 +289,12 @@ function formatMeihuaInfo(data: MeihuaData) {
     `互卦：${processHexagram}${interRoleText}；${data.analysis.inter1Relation}；${data.analysis.inter2Relation}`,
     `变卦：${resultHexagram}${changedTiYongText}；结果关系${data.analysis.changedRelation}`,
     `月令与起卦：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
-    timingEvidence
-      ? `应期线索：${timingEvidence
-          .split('；')
-          .map((item) => item.trim())
-          .filter(Boolean)
-          .slice(0, 2)
-          .join('；')}`
+    timingEvidence ? `应期线索：${timingEvidence}` : '',
+    data.mainHexagram?.description
+      ? `主卦卦辞：${data.mainHexagram.name}，${data.mainHexagram.description}`
+      : '',
+    data.movingYao?.position && data.mainHexagram?.yaoCi?.[data.movingYao.position - 1]
+      ? `动爻爻辞：第${data.movingYao.position}爻，${data.mainHexagram.yaoCi[data.movingYao.position - 1]}`
       : '',
   ]
     .filter(Boolean)
@@ -369,12 +377,10 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
     ? formatUsefulPalaceFactLines(primaryUsefulPalace.support, '盘面平稳')
         .filter((item) => item !== '值符同宫')
         .filter((item) => !/适合|有利|宜|可用|可作为/u.test(item))
-        .slice(0, 2)
     : [];
   const focusConstraints = primaryUsefulPalace
     ? formatUsefulPalaceFactLines(primaryUsefulPalace.constraints, '未见明显空亡入墓')
         .filter((item) => item !== `${primaryUsefulPalace.palace.renPan.door}同宫`)
-        .slice(0, 2)
         .map((item) => item.replace(/^该宫带有/u, ''))
     : [];
   const focusLines = primaryUsefulPalace
@@ -403,14 +409,15 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const horseText = data.horseStar
     ? `${data.horseStar.sourceBranch}时驿马在${data.horseStar.branch}，落${data.horseStar.name}`
     : '无';
-  const focusText = focusLines.join('；');
   const classicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '经典格局',
   );
-  const classicPatternLines = classicPatternFacts
-    .filter((item) => !focusText.includes(item.name))
-    .slice(0, 1)
-    .map((item) => item.name);
+  const classicPatternLines = classicPatternFacts.map((item) => item.name);
+  const palaceLines = data.jiuGongGe.map((palace) => {
+    const voidMark = data.voidPalaces?.some((item) => item.palace === palace.gong) ? '，逢空' : '';
+    const horseMark = data.horseStar?.palace === palace.gong ? '，马星' : '';
+    return `- ${palace.name}（${palace.direction}，${palace.element}）：门${palace.renPan.door || '无'}，星${formatTianPanStars(palace) || '无'}，神${palace.shenPan.god || '无'}，天盘${formatTianPanStems(palace) || '无'}，地盘${palace.diPan.stem || '无'}${voidMark}${horseMark}`;
+  });
   const seasonalitySummary = data.seasonality
     ? [
         `节气五行${data.seasonality.seasonalElement || '未列'}`,
@@ -431,7 +438,9 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
     `值符值使与时干：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '未见落宫'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '未见落宫'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '未见落宫'}`,
     `旬空与马星：旬空${voidText}；马星${horseText}`,
     specialConditionsText ? `特殊时辰：${specialConditionsText}` : '',
-    classicPatternLines.length ? `其他关键格局：${classicPatternLines.join('、')}` : '',
+    palaceLines.length ? '九宫简表：' : '',
+    ...palaceLines,
+    classicPatternLines.length ? `格局索引：${classicPatternLines.join('、')}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -483,6 +492,10 @@ function formatLiurenInfo(data: LiurenData) {
     mainLineText.length ? `课传主线：${mainLineText.join('；')}` : '',
     guaTiSection,
     shenShaText ? `神煞：${shenShaText}` : '',
+    data.earthlyPlate?.length ? `地盘：${data.earthlyPlate.join('、')}` : '',
+    data.heavenlyPlate?.length
+      ? `天盘：${data.heavenlyPlate.map((item) => `${item.branch}${item.god ? `乘${item.god}` : ''}`).join('、')}`
+      : '',
     lessonLines.length ? '四课：' : '',
     ...lessonLines.map((item) => `- ${item}`),
     transmissionLines.length ? '三传：' : '',
@@ -495,7 +508,7 @@ function formatLiurenInfo(data: LiurenData) {
 function formatTarotInfo(data: TarotData) {
   const cardLines = data.cards.map(
     (card) =>
-      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}${card.keywords.length ? `；关键词：${card.keywords.join('、')}` : ''}${card.element ? `；牌组属性：${card.element}` : ''}`,
+      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}${card.keywords.length ? `；关键词：${card.keywords.join('、')}` : ''}${card.element ? `；牌组属性：${card.element}` : ''}${card.archetype ? `；基础牌义：${card.archetype}` : ''}`,
   );
 
   return [
@@ -601,6 +614,7 @@ function formatAlmanacInfo(data: AlmanacData) {
         ? candidate.usableHours.map((hour) => hour.name).join('、')
         : '';
     const conciseFacts = [
+      candidate?.status ? `分类${candidate.status}` : '',
       recommendationText,
       avoidText,
       participantNotes.length ? `参与人${participantNotes.join('；')}` : '',
@@ -611,6 +625,17 @@ function formatAlmanacInfo(data: AlmanacData) {
       conciseFacts.length ? `  ${conciseFacts.join('；')}` : '',
     ].filter(Boolean);
   });
+  const statusGroups = new Map<string, string[]>();
+  for (const item of promptDays) {
+    const candidate = evidenceAnalysis.candidates.find((entry) => entry.date === item.date);
+    const status = candidate?.status || '待核验候选';
+    const dates = statusGroups.get(status) ?? [];
+    dates.push(item.date);
+    statusGroups.set(status, dates);
+  }
+  const classificationLine = [...statusGroups.entries()]
+    .map(([status, dates]) => `${status}${dates.length}日（${dates.join('、')}）`)
+    .join('；');
   return [
     '占法：黄历择日',
     `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}`,
@@ -630,6 +655,7 @@ function formatAlmanacInfo(data: AlmanacData) {
       : '',
     participantLines.length ? '参与人资料：' : '',
     ...participantLines,
+    classificationLine ? `候选分类：${classificationLine}` : '',
     `候选日期明细：共${data.days.length}日`,
     ...dayLines,
   ]
@@ -705,11 +731,19 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     .join('\n');
 }
 
+export function formatTaiyiTradition(data: TaiyiResult) {
+  const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
+  return `积年与${data.yinYang}${scopeLabel}构成盘面基础；太乙、文昌、始击、计神落宫及主客定算构成主线，十六神为辅助定位。`;
+}
+
 export function formatTaiyiInfo(data: TaiyiResult) {
   const scopeLabel = { year: '年计', month: '月计', day: '日计', hour: '时计' }[data.scope];
   const specialJudgments = data.judgments.filter(
     (item) => !/^(主算|客算|定算)\s*\d+\s*为/u.test(item),
   );
+  const sixteenGods = data.sixteenGods?.length
+    ? `十六神：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`
+    : '';
   return [
     `占法：太乙神数（${scopeLabel}）`,
     `起局时间：${data.dateTime}；本计干支：${data.ganZhi}；${data.yinYang}第${data.bureau}局`,
@@ -717,6 +751,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     `文昌（主目）：${data.wenChangPosition}；始击（客目）：${data.shiJiPosition}；计神：${data.jiShenPosition}`,
     `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
     `将参：主大${data.lordGeneral}、主参${data.lordAssistant}；客大${data.guestGeneral}、客参${data.guestAssistant}；定大${data.setGeneral}、定参${data.setAssistant}`,
+    sixteenGods,
     specialJudgments.length ? `判断：${specialJudgments.join('；')}` : '',
   ]
     .filter(Boolean)
@@ -766,6 +801,7 @@ function formatJinkoujueInfo(data: JinkoujueData) {
     `五动三动：${data.movements.map((item) => `${item.category}${item.name}`).join('；') || '无'}`,
     `四位关系：贵将${data.relations.guiToJiang}；贵人${data.relations.guiToRen}；将地${data.relations.jiangToDi}；人地${data.relations.renToDi}；贵地${data.relations.guiToDi}`,
     data.xunKong?.length ? `旬空：${data.xunKong.join('、')}` : '',
+    '时间口径：当前盘面给出四位生克、旺衰和空亡，可说明相对节奏；未见独立交节或日辰触发时，只论结构不指定具体日期。',
   ]
     .filter(Boolean)
     .join('\n');

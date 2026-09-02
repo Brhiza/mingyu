@@ -317,10 +317,12 @@ function buildPalaces(yun: number[], shan: number[], xiang: number[]): XuanKongP
 
 function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>) {
   const palaceLines = result.palaces
-    .map(
-      (item) =>
-        `${item.name}（${item.direction}）：运${item.yunStar} 山${item.shanStar} 向${item.xiangStar}`,
-    )
+    .map((item) => {
+      const combos = result.combinations
+        .filter((combo) => combo.palaces?.includes(item.gong))
+        .map((combo) => combo.name);
+      return `${item.name}（${item.direction}）：运${item.yunStar} 山${item.shanStar} 向${item.xiangStar}${combos.length ? `，组合${combos.join('、')}` : ''}`;
+    })
     .join('\n');
   return [
     '【玄空飞星排盘】',

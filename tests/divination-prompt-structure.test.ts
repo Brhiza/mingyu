@@ -863,7 +863,7 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.match(prompt, /占法：黄历择日/);
   assert.match(prompt, /候选日期：2026-06-01 至 2026-06-03/);
   assert.match(prompt, /核心结构：择日事项：搬家入宅/);
-  assert.doesNotMatch(prompt, /事项范围：|日期结论：|可用候选|慎用候选/);
+  assert.doesNotMatch(prompt, /事项范围：|日期结论：/);
   assert.doesNotMatch(prompt, /事项未限定|按通用.*口径|当前首列候选/);
   assert.doesNotMatch(prompt, /岁支十二神方位|全年方位神|岁支方位避|可参考太阳|可参考福德/);
   assert.match(prompt, /第1日：2026-06-01/);
@@ -1203,26 +1203,14 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /互卦：泽风大过；体互兑（金）；用互巽（木）；原体克体互；用互生原体/);
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /应期线索：动爻第3爻；春季体卦相、用卦旺/);
+  assert.match(prompt, /应期线索：动爻第3爻/);
+  assert.match(prompt, /主卦卦辞：雷火丰，先盛后谨/);
+  assert.match(prompt, /动爻爻辞：第3爻，三爻发动取象/);
   assert.doesNotMatch(prompt, /卦辞分类：|动爻传统资料：/);
   assert.doesNotMatch(prompt, /未发动，不展开爻辞解释/);
   assert.doesNotMatch(prompt, /第1爻（静，属体）：阳爻|结构明细：/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
-  const meihua = createData('meihua') as MeihuaData;
-  assert.doesNotMatch(
-    prompt,
-    new RegExp(
-      [
-        meihua.mainHexagram.description,
-        meihua.interHexagram?.description,
-        meihua.changedHexagram?.description,
-        ...(meihua.mainHexagram.yaoCi ?? []),
-      ]
-        .filter(Boolean)
-        .join('|'),
-    ),
-  );
 });
 
 test('梅花、奇门不再输出隐藏专项分析思路', () => {
@@ -1272,7 +1260,7 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);
   assert.doesNotMatch(prompt, /发用主线：/);
-  assert.doesNotMatch(prompt, /地盘：|天盘：|天将属性：|取传规则全文/);
+  assert.doesNotMatch(prompt, /天将属性：|取传规则全文/);
 });
 
 test('大六壬提示词使用简短任务', () => {
@@ -1364,7 +1352,7 @@ test('塔罗提示词保留牌阵、牌位、正逆位、关键词与可靠牌�
   assert.match(prompt, /牌组属性：/);
   assert.match(prompt, /正逆位口径：逆位表示该牌主题可能受阻、过度、内化或方向偏离/);
   assert.doesNotMatch(prompt, /元素主题：|牌阶主题：/);
-  assert.doesNotMatch(prompt, /牌义：/);
+  assert.match(prompt, /基础牌义：/);
   assert.doesNotMatch(prompt, /断牌口径|现实边界|结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(
     prompt,
