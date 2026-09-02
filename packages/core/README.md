@@ -745,7 +745,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；支持 `seed` 和 `replay` 完整复现                              |
 | `drawRandomSign(date?, options?)`                                    | 三山国王灵签；随机取一签并返回签号、签题与签诗，支持 `seed` 和 `replay` |
 | `generateAstrolabe(input)`                                           | 西洋星盘                                                                |
-| `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运与证据资料                                |
+| `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运、周期动态点星象与证据资料                |
 
 ### 历法与术数便捷入口
 

@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
+import type { AstrolabePeriodEvent } from '@/lib/astrolabe-scope';
 import type { AstrolabeData } from '@/types/divination';
 
 function findPlanet(data: AstrolabeData, name: string) {
@@ -16,8 +17,18 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
   data: AstrolabeData;
   isInstant?: boolean;
   timeBasisLabel?: string;
+  periodEvents?: AstrolabePeriodEvent[];
+  periodRangeLabel?: string;
 }) {
-  const { title, name, data, isInstant = false, timeBasisLabel } = props;
+  const {
+    title,
+    name,
+    data,
+    isInstant = false,
+    timeBasisLabel,
+    periodEvents = [],
+    periodRangeLabel,
+  } = props;
   const highlightAspects = data.aspects.slice(0, 4);
   const retrogradeText =
     data.summary.retrograde.length > 0 ? data.summary.retrograde.join('、') : '无';
@@ -146,6 +157,30 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
               ) : null}
             </div>
           </div>
+
+          {periodEvents.length > 0 ? (
+            <div className="result-side-card">
+              <div className="result-side-head">
+                <h3>周期关键星象</h3>
+                <p>
+                  {periodRangeLabel
+                    ? `${periodRangeLabel}，共 ${periodEvents.length} 项精准相位、停逆、换座、换宫、朔望与交食。`
+                    : `共 ${periodEvents.length} 项精准相位、停逆、换座、换宫、朔望与交食。`}
+                </p>
+              </div>
+              <div className="astrolabe-period-event-list">
+                {periodEvents.map((event) => (
+                  <div className="astrolabe-period-event-item" key={event.key}>
+                    <div>
+                      <strong>{event.promptText}</strong>
+                      <span>{event.dateTime}</span>
+                    </div>
+                    <em>{event.kind}</em>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

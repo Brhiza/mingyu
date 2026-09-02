@@ -5642,7 +5642,9 @@ select {
   color: var(--text-secondary);
   text-align: center;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .traditional-tarot-card:hover {
@@ -5783,7 +5785,9 @@ select {
   background: var(--surface-base);
   text-align: center;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .traditional-lenormand-card:hover {
@@ -6336,6 +6340,50 @@ select {
 
 .astrolabe-aspect-item.is-empty {
   justify-content: center;
+}
+
+.astrolabe-period-event-list {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.astrolabe-period-event-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.astrolabe-period-event-item div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.astrolabe-period-event-item strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.astrolabe-period-event-item span,
+.astrolabe-period-event-item em {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.astrolabe-period-event-item em {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
 }
 
 .astrolabe-quick-grid {
@@ -7205,7 +7253,10 @@ select {
 
   .bazi-pillars-table {
     margin-top: 6px;
-    grid-template-columns: minmax(28px, 44px) repeat(var(--bazi-display-column-count, 4), minmax(0, 1fr));
+    grid-template-columns: minmax(28px, 44px) repeat(
+        var(--bazi-display-column-count, 4),
+        minmax(0, 1fr)
+      );
     border-radius: 10px;
     width: 100%;
     min-width: 0;
@@ -8172,7 +8223,10 @@ select {
   }
 
   .bazi-pillars-table {
-    grid-template-columns: minmax(26px, 36px) repeat(var(--bazi-display-column-count, 4), minmax(0, 1fr));
+    grid-template-columns: minmax(26px, 36px) repeat(
+        var(--bazi-display-column-count, 4),
+        minmax(0, 1fr)
+      );
     width: 100%;
     min-width: 0;
   }

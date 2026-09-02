@@ -22,7 +22,11 @@ import {
   type QueryPromptState,
   type ResultTabKey,
 } from '@/lib/query-state';
-import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
+import {
+  buildAstrolabeFullScopeContexts,
+  buildAstrolabeScopeContext,
+  mergeAstrolabePeriodEvents,
+} from '@/lib/astrolabe-scope';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
@@ -931,15 +935,38 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ),
     [astrolabeCalculation.data, promptState.astrolabeScope, promptState.astrolabeScopeDate],
   );
-  const astrolabeFullScopeContext = useMemo(() => {
+  const astrolabeFullScopeContexts = useMemo(() => {
     if (!astrolabeCalculation.data || promptState.astrolabeScope !== 'full') {
       return null;
     }
 
-    return buildAstrolabeFullScopePromptText(
-      buildAstrolabeFullScopeContexts(astrolabeCalculation.data, promptState.astrolabeScopeDate),
+    return buildAstrolabeFullScopeContexts(
+      astrolabeCalculation.data,
+      promptState.astrolabeScopeDate,
     );
   }, [astrolabeCalculation.data, promptState.astrolabeScope, promptState.astrolabeScopeDate]);
+  const astrolabeFullScopeContext = useMemo(
+    () =>
+      astrolabeFullScopeContexts
+        ? buildAstrolabeFullScopePromptText(astrolabeFullScopeContexts)
+        : null,
+    [astrolabeFullScopeContexts],
+  );
+  const astrolabePeriodEvents = useMemo(() => {
+    if (astrolabeFullScopeContexts) {
+      return mergeAstrolabePeriodEvents([
+        astrolabeFullScopeContexts.yearly.periodEvents?.events ?? [],
+        astrolabeFullScopeContexts.monthly.periodEvents?.events ?? [],
+        astrolabeFullScopeContexts.daily.periodEvents?.events ?? [],
+      ]);
+    }
+    return astrolabeScopeContext.periodEvents?.events ?? [];
+  }, [astrolabeFullScopeContexts, astrolabeScopeContext.periodEvents]);
+  const astrolabePeriodRangeLabel = astrolabeFullScopeContexts?.yearly.periodEvents
+    ? `${astrolabeFullScopeContexts.yearly.periodEvents.startDateTime}至${astrolabeFullScopeContexts.yearly.periodEvents.endDateTime}`
+    : astrolabeScopeContext.periodEvents
+      ? `${astrolabeScopeContext.periodEvents.startDateTime}至${astrolabeScopeContext.periodEvents.endDateTime}`
+      : undefined;
 
   const activeBaziQuestionScopeLabel = useMemo(() => {
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
@@ -1958,6 +1985,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                     data={astrolabeCalculation.data}
                     isInstant={isInstantResult}
                     timeBasisLabel={instantTimeBasisLabel}
+                    periodEvents={astrolabePeriodEvents}
+                    periodRangeLabel={astrolabePeriodRangeLabel}
                   />
                 ) : null}
               </section>

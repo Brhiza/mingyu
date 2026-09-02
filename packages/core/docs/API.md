@@ -280,6 +280,12 @@
 
 **返回 `AstrolabeData`：** 十大行星、四轴（上升/天顶/下降/天底）、Placidus 十二宫、凯龙、四小行星、南北交、莉莉丝、福点/精神点、全部达到阈值的主要与次要相位（合/六合/刑/拱/冲/半六合/半刑/五分相等）、四元素三形态总结、逆行星。天文位置由包内适配层调用 `Caelus`，四小行星使用随包固定发布的 JPL Chebyshev 数据。
 
+### `buildAstrolabeScopeContext(data, scope, date?)`
+
+导入：`import { buildAstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope'`
+
+按本命、完整输出、流年、流月或流日生成分析对象文本。流年、流月、流日除单日取样行运外，还会扫描该周期内动态点的精准行运相位、天象互相位、停逆、换座、换宫、朔望与交食；流年同时附带太阳返照、次限和太阳弧。
+
 ### `analyzeAstrolabeSynastry(chart1, chart2, options?)`
 
 导入：`import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry'`

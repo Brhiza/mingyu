@@ -11,6 +11,21 @@ import {
 export type AstrolabeScopeMode = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
 import type { AstrolabeData, AstrolabePoint } from '../types/divination';
 import {
+  buildAstrolabePeriodEvents,
+  type AstrolabePeriodEventCollection,
+} from './astrolabe-period-events';
+export {
+  buildAstrolabePeriodEvents,
+  mergeAstrolabePeriodEvents,
+  resolveAstrolabePeriodWindow,
+} from './astrolabe-period-events';
+export type {
+  AstrolabePeriodEvent,
+  AstrolabePeriodEventCollection,
+  AstrolabePeriodEventKind,
+  AstrolabePeriodScopeMode,
+} from './astrolabe-period-events';
+import {
   buildAstronomicalTimeEvidence,
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
@@ -25,6 +40,7 @@ export type AstrolabeScopeContext = {
   solarReturnEvidence?: SolarReturnEvidence;
   secondaryProgressionEvidence?: SecondaryProgressionEvidence;
   solarArcEvidence?: SolarArcEvidence;
+  periodEvents?: AstrolabePeriodEventCollection;
 };
 
 export type AstrolabeFullScopeContexts = {
@@ -194,6 +210,8 @@ const CELESTIAL_BODY_LABELS: Record<string, string> = {
   Uranus: '天王星',
   Neptune: '海王星',
   Pluto: '冥王星',
+  'North Node': '北交点',
+  'South Node': '南交点',
 };
 
 const NATAL_POINT_NAME_MAP: Record<string, string> = {
@@ -207,6 +225,8 @@ const NATAL_POINT_NAME_MAP: Record<string, string> = {
   Uranus: '天王星',
   Neptune: '海王星',
   Pluto: '冥王星',
+  'North Node': '北交点',
+  'South Node': '南交点',
   Ascendant: '上升',
   Midheaven: '天顶',
   Descendant: '下降',
@@ -253,6 +273,7 @@ const TRANSITING_BODIES = [
   CelestialBody.Mercury,
   CelestialBody.Sun,
   CelestialBody.Moon,
+  CelestialBody.NorthNode,
 ];
 
 function parseDateParts(dateStr: string) {
@@ -381,6 +402,8 @@ function buildNatalPoints(data: AstrolabeData): NatalPoint[] {
     'Uranus',
     'Neptune',
     'Pluto',
+    'North Node',
+    'South Node',
   ]);
   const angleNames = new Set(['Ascendant', 'Midheaven']);
 
@@ -497,7 +520,7 @@ function calculateScopePlanets(
       includeAsteroids: false,
       includeChiron: false,
       includeLilith: false,
-      includeNodes: false,
+      includeNodes: true,
       includeLots: false,
     },
   );
@@ -1611,12 +1634,12 @@ function parseBirthCoordinates(data: AstrolabeData) {
 
 function getTransitBodiesForScope(scope: AstrolabeScopeMode) {
   if (scope === 'yearly') {
-    return new Set(['Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']);
+    return new Set(['Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'North Node']);
   }
   if (scope === 'monthly') {
-    return new Set(['Jupiter', 'Saturn', 'Mars', 'Venus', 'Mercury', 'Sun']);
+    return new Set(['Jupiter', 'Saturn', 'Mars', 'Venus', 'Mercury', 'Sun', 'North Node']);
   }
-  return new Set(['Jupiter', 'Saturn', 'Mars', 'Venus', 'Mercury', 'Sun', 'Moon']);
+  return new Set(['Jupiter', 'Saturn', 'Mars', 'Venus', 'Mercury', 'Sun', 'Moon', 'North Node']);
 }
 
 function buildTransitHouseEvidence(
@@ -1801,6 +1824,10 @@ export function buildAstrolabeScopeContext(
     secondaryProgressionEvidence,
     solarArcEvidence,
   });
+  const periodEvents =
+    scope === 'yearly' || scope === 'monthly' || scope === 'daily'
+      ? buildAstrolabePeriodEvents(data, scope, target)
+      : undefined;
 
   return {
     scope,
@@ -1812,11 +1839,13 @@ export function buildAstrolabeScopeContext(
       `行运取样：${anchorDate}（${timezoneLabel}）。`,
       transitEvidence,
       transitHouseEvidence,
+      periodEvents?.promptText,
       ...advancedYearlyFacts,
     ].join('\n'),
     solarReturnEvidence,
     secondaryProgressionEvidence,
     solarArcEvidence,
+    periodEvents,
   };
 }
 

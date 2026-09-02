@@ -156,7 +156,7 @@ export function AstrolabeScopeModal(props: {
       ? '本命盘与完整流年流月流日行运。'
       : draftScope === 'natal'
         ? '仅使用本命信息，不附加任何流年、流月或流日行运。'
-        : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位证据。`;
+        : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位，以及周期内动态点的精准相位、停逆、换座、换宫、朔望与交食。`;
   const quickActions: Array<{
     scope: Exclude<AstrolabeScopeMode, 'natal'>;
     label: string;

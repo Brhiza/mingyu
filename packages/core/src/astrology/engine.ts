@@ -12,6 +12,8 @@ import {
   julianDay,
   lotFortune,
   lotSpirit,
+  lunarEclipses,
+  solarEclipses,
   type BodyId,
   type ChartBody as CaelusChartBody,
   type EngineData,
@@ -69,6 +71,7 @@ export enum CelestialBody {
   Uranus = 'Uranus',
   Neptune = 'Neptune',
   Pluto = 'Pluto',
+  NorthNode = 'North Node',
 }
 
 const ASPECT_ANGLES: Record<AspectType, number> = {
@@ -133,6 +136,7 @@ const BODY_IDS: Record<string, BodyId> = {
   Uranus: 'uranus',
   Neptune: 'neptune',
   Pluto: 'pluto',
+  'North Node': 'true_node',
   Chiron: 'chiron',
   Ceres: 'ceres',
   Pallas: 'pallas',
@@ -609,4 +613,48 @@ export function calculateTransits(
 
 export function bodyName(body: BodyId): string {
   return BODY_NAMES[body] ?? body;
+}
+
+export const JULIAN_DATE_UNIX_EPOCH = 2_440_587.5;
+
+export function julianDateToUnix(jd: number) {
+  return (jd - JULIAN_DATE_UNIX_EPOCH) * 86_400_000;
+}
+
+export function unixToJulianDate(timestamp: number) {
+  return timestamp / 86_400_000 + JULIAN_DATE_UNIX_EPOCH;
+}
+
+export function getApparentPosition(bodyId: string, jd: number) {
+  const position = astrologyEngine.position(bodyId, jd);
+  return {
+    longitude: position.lon,
+    latitude: position.lat,
+    speed: position.speed,
+    retrograde: position.retrograde,
+  };
+}
+
+export type SolarEclipseEvent = {
+  julianDate: number;
+  type: 'total' | 'annular' | 'hybrid' | 'partial';
+};
+
+export type LunarEclipseEvent = {
+  julianDate: number;
+  type: 'total' | 'partial' | 'penumbral';
+};
+
+export function findSolarEclipses(jdStart: number, jdEnd: number): SolarEclipseEvent[] {
+  return solarEclipses(astrologyEngine, jdStart, jdEnd).map((item) => ({
+    julianDate: item.tMax,
+    type: item.type,
+  }));
+}
+
+export function findLunarEclipses(jdStart: number, jdEnd: number): LunarEclipseEvent[] {
+  return lunarEclipses(astrologyEngine, jdStart, jdEnd).map((item) => ({
+    julianDate: item.tMax,
+    type: item.type,
+  }));
 }
