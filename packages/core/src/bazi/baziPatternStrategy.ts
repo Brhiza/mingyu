@@ -5,6 +5,7 @@ import {
 } from './baziFormationUtils';
 import type { PatternAnalysis, Pillars } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
+import { evaluatePatternFulfillment } from './baziPatternFulfillment';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 type PillarPosition = 'year' | 'month' | 'hour';
@@ -369,10 +370,14 @@ export function determinePattern(
     }
   }
 
+  const finalPatternName = patternName || '杂气格';
+  const fulfillment = evaluatePatternFulfillment(pillars, dayMaster, finalPatternName, getTenGod);
+
   return {
-    pattern: patternName || '杂气格',
+    pattern: finalPatternName,
     isSpecial: false,
     basis,
+    fulfillment,
     // 魁罡日（庚辰/壬辰/戊戌/庚戌）为重要外格，日柱判定后即标出，供 AI 参照《三命通会》
     isKuiGang: ['庚辰', '壬辰', '戊戌', '庚戌'].includes(pillars.day.gan + pillars.day.zhi),
   };

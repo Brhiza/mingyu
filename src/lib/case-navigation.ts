@@ -76,6 +76,7 @@ export function resolvePersonalRecordSource(record: PersonalHistoryRecord): Prom
 }
 
 function resolveResultTab(source: PromptSourceKey): ResultTabKey {
+  if (source === 'qimen-lifetime') return 'qimen-lifetime';
   if (source === 'qizheng') return 'qizheng';
   if (source === 'bazhai') return 'bazhai';
   if (source === 'ziwei') return 'ziwei';
@@ -84,6 +85,7 @@ function resolveResultTab(source: PromptSourceKey): ResultTabKey {
 }
 
 function resolveChartFeatureSource(feature: ChartWorkspaceId): PromptSourceKey {
+  if (feature === 'qimen-lifetime') return 'qimen-lifetime';
   if (feature === 'ziwei') return 'ziwei';
   if (feature === 'bazi-ziwei') return 'bazi-ziwei';
   if (feature === 'astrolabe') return 'astrolabe';

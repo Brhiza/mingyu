@@ -208,11 +208,11 @@ export function formatZiweiPayloadForPrompt(
       : `当前运限：${active.label || SCOPE_LABELS[active.scope]}；${active.solar_date}；${active.lunar_date}；名义年龄${active.nominal_age}；${active.palace_name ? `落${active.palace_name}宫` : '落宫未记录'}`,
     `${isOriginScope ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, isOriginScope)}`,
     '十二宫资料：',
-    ...selectedPalaces.map((palace) => `- ${formatPalace(palace, isOriginScope)}`),
+    ...selectedPalaces.map((palace) => `  ${formatPalace(palace, isOriginScope)}`),
     evidencePrimary.length ? '证据资料：' : '',
-    ...evidencePrimary.map((item) => `- ${item}`),
+    ...evidencePrimary.map((item) => `  ${item}`),
     evidenceAppendix.length ? '证据附录：' : '',
-    ...evidenceAppendix.map((item) => `- ${item}`),
+    ...evidenceAppendix.map((item) => `  ${item}`),
   ]
     .filter(Boolean)
     .join('\n');
@@ -315,8 +315,8 @@ export function buildZiweiTaskBookPrompt(options: ZiweiPromptOptions) {
 }
 
 function formatZiweiCompatibilityFacts(result: ReturnType<typeof analyzeZiweiCompatibility>) {
-  const overlays = result.palaceOverlays.slice(0, 24).map((item) => `- ${item.promptText}`);
-  const mutagens = result.crossMutagenPlacements.slice(0, 24).map((item) => `- ${item.promptText}`);
+  const overlays = result.palaceOverlays.slice(0, 24).map((item) => `  ${item.promptText}`);
+  const mutagens = result.crossMutagenPlacements.slice(0, 24).map((item) => `  ${item.promptText}`);
   return [
     `交叉资料：${result.summaryFact.promptText.replace(/^证据汇总：/, '')}`,
     overlays.length ? '宫位叠盘：' : '',

@@ -178,13 +178,13 @@ function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompa
       const targetStars = item.targetMajorStars.length
         ? `；对方该宫主星${item.targetMajorStars.join('、')}`
         : '';
-      return `- ${result.people[item.sourcePerson]}${item.sourcePalace}与${result.people[item.targetPerson]}${item.targetPalace}同在${item.earthlyBranch}轴${sourceStars}${targetStars}`;
+      return `  ${result.people[item.sourcePerson]}${item.sourcePalace}与${result.people[item.targetPerson]}${item.targetPalace}同在${item.earthlyBranch}轴${sourceStars}${targetStars}`;
     });
   const mutagenLines = result.crossMutagenPlacements
     .slice(0, 12)
     .map(
       (item) =>
-        `- ${result.people[item.sourcePerson]}${item.sourcePalace}的${item.star}生年化${item.mutagen}，对应${result.people[item.targetPerson]}${item.targetPalace}`,
+        `  ${result.people[item.sourcePerson]}${item.sourcePalace}的${item.star}生年化${item.mutagen}，对应${result.people[item.targetPerson]}${item.targetPalace}`,
     );
 
   return [

@@ -12,7 +12,7 @@
 
 - [公开 API](api.md)：接口、参数和请求示例。
 - [MCP Server](../mcp/README.md)：让支持 MCP 的 AI 客户端调用命语。
-- [Agent Skill](../public/skills/aov-mingyu-api/SKILL.md)：让 AI 代理自动选择排盘和提示词接口。
+- [Agent Skill](../public/skills/aov-mingyu-api/SKILL.md)：通用算命与周易玄学工作流 Skill，让 AI 代理准确选择术数并调用排盘。
 - [`mingyu-core` 算法包](../packages/core/README.md)：在应用中复用核心算法。
 - [开发与部署](development-and-deployment.md)：本地开发、项目结构、Cloudflare Pages、Docker 和内置 AI 配置。
 - [模型评测](model-evaluation.md)：算命师大赛数据集和评测脚本。

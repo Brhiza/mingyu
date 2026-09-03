@@ -168,8 +168,8 @@ test('八字完整输出版会附加完整大运流年资料', () => {
   assert.match(prompt.user, /【分析对象】\n分析对象：本命盘与完整大运流年/);
   assert.match(prompt.user, /【命限资料】/);
   assert.match(prompt.user, /完整大运流年：/);
-  assert.match(prompt.user, /\d+\. .+：\d{4}年起，约\d+岁交运/);
-  assert.match(prompt.user, /  - \d{4}年（\d+岁）.+/);
+  assert.match(prompt.user, /.+（\d{4}年起，约\d+岁交运）：/);
+  assert.match(prompt.user, /\d{4}年（\d+岁）.+/);
   assert.doesNotMatch(prompt.user, /详细命限资料|资料量|聚焦当前分析对象/);
 });
 

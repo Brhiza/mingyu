@@ -5005,10 +5005,256 @@
   }
 }
 
+/* 奇门终身局：个人标记、四柱分限阶段卡与流年动态引动 */
+.qimen-lifetime-showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
+.qimen-lifetime-marker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
 
+@media (max-width: 640px) {
+  .qimen-lifetime-marker-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 
+.qimen-lifetime-marker-item {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--chart-border);
+  background: var(--surface-muted);
+}
 
+.qimen-lifetime-marker-item.is-highlight {
+  border-color: var(--chart-accent);
+  background: var(--chart-accent-soft);
+}
 
+.qimen-lifetime-marker-item .marker-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
 
+.qimen-lifetime-marker-item strong {
+  font-size: 16px;
+  margin: 4px 0 2px;
+  color: var(--text-primary);
+}
+
+.qimen-lifetime-marker-item small {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.qimen-lifetime-toolbar-card {
+  padding: 10px 14px;
+}
+
+.toolbar-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.stages-header,
+.events-header {
+  margin-bottom: 12px;
+}
+
+.stages-header h3,
+.events-header h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.stages-subtitle,
+.events-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.qimen-lifetime-stages-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .qimen-lifetime-stages-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.qimen-lifetime-stage-card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--chart-border);
+  background: var(--surface-base);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qimen-lifetime-stage-card:hover {
+  border-color: var(--chart-accent);
+  transform: translateY(-1px);
+}
+
+.qimen-lifetime-stage-card.is-active {
+  border-color: var(--chart-accent);
+  box-shadow: 0 0 0 1px var(--chart-accent);
+  background: var(--chart-accent-soft);
+}
+
+.stage-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stage-index-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--chart-border);
+  color: var(--text-secondary);
+}
+
+.stage-card-head h4 {
+  margin: 0;
+  font-size: 15px;
+  flex: 1;
+}
+
+.stage-age {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chart-accent);
+}
+
+.stage-palaces {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.stage-theme {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+
+.stage-facts {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+
+.stage-facts.is-support {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.stage-facts.is-constraint {
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+}
+
+.stage-facts strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.stage-facts ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.stage-facts li {
+  margin-bottom: 2px;
+}
+
+.qimen-lifetime-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qimen-lifetime-event-item {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--chart-border);
+  background: var(--surface-base);
+}
+
+.event-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.event-time {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--chart-accent);
+}
+
+.event-trigger {
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--surface-muted);
+}
+
+.event-rhythm {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.event-interaction {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 4px 0 8px;
+}
+
+.event-evidence {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.event-evidence.is-good {
+  color: #15803d;
+}
+
+.event-evidence.is-risk {
+  color: #b45309;
+}
+
+.event-questions {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-top: 6px;
+}
 

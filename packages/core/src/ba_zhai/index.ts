@@ -303,13 +303,13 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
   if (r.mingPalace?.length) {
     lines.push('命卦八方：');
     for (const palace of r.mingPalace) {
-      lines.push(`- ${palace.direction}${palace.label}（${palace.luck}，约${palace.degree}°）`);
+      lines.push(`  ${palace.direction}${palace.label}（${palace.luck}，约${palace.degree}°）`);
     }
   }
   if (r.housePalace?.length) {
     lines.push('宅卦八方：');
     for (const palace of r.housePalace) {
-      lines.push(`- ${palace.direction}${palace.label}（${palace.luck}，约${palace.degree}°）`);
+      lines.push(`  ${palace.direction}${palace.label}（${palace.luck}，约${palace.degree}°）`);
     }
   }
   return lines.join('\n');
@@ -442,7 +442,7 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
       ...(measurement.stability === '宅卦不稳定'
         ? candidateDirections.map(
             (item) =>
-              `- 候选${item.label}：${item.houseGua}宅八宫为${item.housePalace.map((palace) => `${palace.direction}${palace.label}`).join('、')}`,
+              `  候选${item.label}：${item.houseGua}宅八宫为${item.housePalace.map((palace) => `${palace.direction}${palace.label}`).join('、')}`,
           )
         : []),
     ]

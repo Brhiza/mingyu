@@ -4077,6 +4077,21 @@ test('首页填写的补充信息会进入占问提示词', async () => {
   assert.match(session.prompt, /现实背景：已经拿到新工作的书面邀约，但需要在两周内答复。/);
 });
 
+test('首页临时档案补充的求测人性别与出生年份会进入占问提示词', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'liuyao',
+      gender: '女',
+      birthYear: '1998',
+      userSupplement: '已经拿到新工作的书面邀约，但需要在两周内答复。',
+    }),
+  );
+
+  assert.match(session.prompt, /【补充信息】/);
+  assert.match(session.prompt, /求测人：女；出生年份：1998/);
+  assert.match(session.prompt, /现实背景：已经拿到新工作的书面邀约，但需要在两周内答复。/);
+});
+
 test('太乙神数作为占卜方法应生成完整年计盘与时间层级提示', async () => {
   const session = await generateDivinationSession(
     buildDraft({
@@ -4433,7 +4448,7 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
   assert.match(session.prompt, /【问题】\n我们准备搬家，想选一个兼顾两个人的日子。/);
   assert.match(session.prompt, /候选日期明细：共5日/);
-  assert.equal(session.prompt.match(/- 第\d+日：2026-06-0[1-5]/g)?.length, 5);
+  assert.equal(session.prompt.match(/第\d+日：2026-06-0[1-5]/g)?.length, 5);
   assert.doesNotMatch(session.prompt, /原始宜项：|支持依据：|限制依据：|可用时辰：/);
   assert.doesNotMatch(session.prompt, /请依据候选日期.*给出首选日期/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制|传统硬限制/);
@@ -4476,7 +4491,7 @@ test('黄历择日长区间提示词应携带全部 180 个候选日', async () 
 
   assert.ok('days' in session.data && session.data.days.length === 180);
   assert.match(session.prompt, /候选日期明细：共180日/);
-  assert.equal(session.prompt.match(/- 第\d+日：2026-/g)?.length, 180);
+  assert.equal(session.prompt.match(/第\d+日：2026-/g)?.length, 180);
   assert.ok(session.prompt.length < 50_000);
   assert.match(session.prompt, /日期偏好：避开周末/);
   assert.match(session.prompt, /时段条件：工作日常规办事时段、优先上午/);

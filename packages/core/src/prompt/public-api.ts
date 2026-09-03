@@ -333,7 +333,7 @@ function formatPalaceBrief(palace: PalaceFact, isOriginScope: boolean) {
     palace.boshi12 ? `博士：${palace.boshi12}` : '',
     !isOriginScope && palace.scope_hits.length ? `运限命中：${palace.scope_hits.join('、')}` : '',
   ].filter(Boolean);
-  return `- ${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：${details.join('；')}${tags ? `；标记：${tags}` : ''}`;
+  return `  ${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：${details.join('；')}${tags ? `；标记：${tags}` : ''}`;
 }
 
 function buildKeyPalaces(palaces: PalaceFact[], isOriginScope: boolean) {

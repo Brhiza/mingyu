@@ -96,7 +96,7 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
     `逆行：${formatStringList(data.summary.retrograde, '无')}`,
     `格局：${formatStringList(data.summary.patterns, '未列明显格局')}`,
     '星体位置：',
-    ...data.planets.map((item) => `- ${formatPoint(item)}`),
+    ...data.planets.map((item) => `  ${formatPoint(item)}`),
     ...formatAstrolabeAspectSections(data.aspects),
   ]
     .filter(Boolean)
@@ -136,10 +136,10 @@ export function buildAstrolabePrompt(options: AstrolabePromptOptions) {
 function formatSynastryFacts(data: AstrolabeSynastryData) {
   const aspects = data.aspects.map(
     (item) =>
-      `- ${item.person1}${item.point1Name}与${item.person2}${item.point2Name}：${item.type}，实际夹角${item.actualAngle.toFixed(2)}°，容许度${item.orb.toFixed(2)}°，${item.closeness}。`,
+      `  ${item.person1}${item.point1Name}与${item.person2}${item.point2Name}：${item.type}，实际夹角${item.actualAngle.toFixed(2)}°，容许度${item.orb.toFixed(2)}°，${item.closeness}。`,
   );
   const overlays = data.houseOverlays.map(
-    (item) => `- ${item.visitor}${item.pointName}落入${item.owner}本命盘第${item.house}宫。`,
+    (item) => `  ${item.visitor}${item.pointName}落入${item.owner}本命盘第${item.house}宫。`,
   );
   return [
     aspects.length ? `【跨盘相位】\n${aspects.join('\n')}` : '',

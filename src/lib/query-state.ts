@@ -3,8 +3,9 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
 
 export type ResultTabKey =
-  'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt' | 'minglu';
-export type PromptSourceKey = 'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe' | 'qizheng' | 'bazhai';
+  'bazi' | 'ziwei' | 'qimen-lifetime' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt' | 'minglu';
+export type PromptSourceKey =
+  'bazi' | 'ziwei' | 'bazi-ziwei' | 'qimen-lifetime' | 'astrolabe' | 'qizheng' | 'bazhai';
 export type BaziFortuneScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 export type { AstrolabePromptTopic };
 export type ZiweiScopeMode =
@@ -809,6 +810,8 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
   const tab: ResultTabKey =
     rawTab === 'bazi' ||
     rawTab === 'ziwei' ||
+    rawTab === 'qimen-lifetime' ||
+    rawTab === 'qimen' ||
     rawTab === 'astrolabe' ||
     rawTab === 'qizheng' ||
     rawTab === 'bazhai' ||
@@ -817,19 +820,25 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
     rawTab === 'minglu'
       ? rawTab === 'residential'
         ? 'bazhai'
-        : rawTab
+        : rawTab === 'qimen'
+          ? 'qimen-lifetime'
+          : rawTab
       : defaultPromptState.tab;
   const rawPromptSource = getString(params, 'promptSource', defaultPromptState.promptSource);
   const promptSource: PromptSourceKey =
     rawPromptSource === 'ziwei' ||
     rawPromptSource === 'bazi-ziwei' ||
+    rawPromptSource === 'qimen-lifetime' ||
+    rawPromptSource === 'qimen' ||
     rawPromptSource === 'astrolabe' ||
     rawPromptSource === 'qizheng' ||
     rawPromptSource === 'bazhai' ||
     rawPromptSource === 'residential'
       ? rawPromptSource === 'residential'
         ? 'bazhai'
-        : rawPromptSource
+        : rawPromptSource === 'qimen'
+          ? 'qimen-lifetime'
+          : rawPromptSource
       : 'bazi';
 
   return normalizePromptState({

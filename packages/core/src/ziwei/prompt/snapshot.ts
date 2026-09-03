@@ -10,7 +10,7 @@ import {
 } from './builders';
 import { formatKeyValueBlock, formatObjectList } from './formatters';
 import { formatPalaceName, mapZiweiScopeLabel, mapZiweiTopicLabel } from './labels';
-import { getPalaceByIndex } from '../iztro/palace-helpers';
+import { getOppositePalace, getPalaceByIndex, getPalaceByName } from '../iztro/palace-helpers';
 import type { ZiweiPromptContext } from './types';
 
 function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
@@ -30,6 +30,16 @@ function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
             : `${item.star}化${item.mutagen}`,
         )
       : undefined,
+    对宫冲照: (() => {
+      const jiItem = currentMutagens.find((item) => item.mutagen === '忌');
+      if (!jiItem || !jiItem.palace_name) return undefined;
+      const targetPalace = getPalaceByName(payload, jiItem.palace_name);
+      if (!targetPalace) return undefined;
+      const opposite = getOppositePalace(payload, targetPalace);
+      return opposite
+        ? `${jiItem.star}化忌入${formatPalaceName(targetPalace.name)}，直冲对宫${formatPalaceName(opposite.name)}`
+        : undefined;
+    })(),
   };
 }
 
@@ -138,8 +148,8 @@ export function buildZiweiReadableSnapshot(params: {
     '【分析对象】',
     formatKeyValueBlock(snapshot.当前运限信息),
     ...patternSection,
-    ['', '【运限资料】', yunxianBody || '- 无'],
-    ['', '【运限重点】', yunxianFocus.length ? yunxianFocus.join('\n') : '- 无'],
+    ['', '【运限资料】', yunxianBody || '无'],
+    ['', '【运限重点】', yunxianFocus.length ? yunxianFocus.join('\n') : '无'],
     evidenceBody ? ['', '【关键判断线索】', evidenceBody] : '',
     focusBody ? ['', '【重点宫位资料】', focusBody] : '',
     palaceBody ? ['', '【十二宫资料】', palaceBody] : '',
@@ -172,9 +182,7 @@ export function buildZiweiTaskBookSnapshot(params: {
     '',
     '【分析对象】',
     formatKeyValueBlock(buildTaskBookAnalysisObject(payload)),
-    ...(isOrigin
-      ? []
-      : ['', '【运限重点】', yunxianFocus.length ? yunxianFocus.join('\n') : '- 无']),
+    ...(isOrigin ? [] : ['', '【运限重点】', yunxianFocus.length ? yunxianFocus.join('\n') : '无']),
     ...(patternSummary.length ? ['', '【命盘格局】', formatObjectList(patternSummary)] : []),
     ...(evidenceBody ? ['', '【关键判断线索】', evidenceBody] : []),
     ...(formatObjectList(focusBody) ? ['', '【重点宫位资料】', formatObjectList(focusBody)] : []),

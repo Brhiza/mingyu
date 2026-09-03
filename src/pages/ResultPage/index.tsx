@@ -65,6 +65,8 @@ import {
 } from './components/skeletons';
 import { AstrolabeBoard } from './components/AstrolabeBoard';
 import { QizhengBoard } from './components/QizhengBoard';
+import { QimenLifetimeBoard } from './components/QimenLifetimeBoard';
+import { calculateQimenLifetime, buildLifetimePrompt } from 'mingyu-core/divination/qimen';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
 import { ZiweiBoard } from './components/ZiweiBoard';
@@ -248,13 +250,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     const chartTab: ResultTabKey =
       promptState.promptSource === 'ziwei'
         ? 'ziwei'
-        : promptState.promptSource === 'astrolabe'
-          ? 'astrolabe'
-          : promptState.promptSource === 'qizheng'
-            ? 'qizheng'
-            : promptState.promptSource === 'bazhai'
-              ? 'bazhai'
-              : 'bazi';
+        : promptState.promptSource === 'qimen-lifetime'
+          ? 'qimen-lifetime'
+          : promptState.promptSource === 'astrolabe'
+            ? 'astrolabe'
+            : promptState.promptSource === 'qizheng'
+              ? 'qizheng'
+              : promptState.promptSource === 'bazhai'
+                ? 'bazhai'
+                : 'bazi';
     return [chartTab, 'minglu', 'prompt'];
   }, [isCombinedResult, promptState.promptSource]);
   const chartTabs = useMemo(
@@ -289,6 +293,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const isAstrolabePromptSource = promptState.promptSource === 'astrolabe';
   const isQizhengPromptSource = promptState.promptSource === 'qizheng';
   const isBazhaiPromptSource = promptState.promptSource === 'bazhai';
+  const isQimenLifetimePromptSource = promptState.promptSource === 'qimen-lifetime';
   const hasAdjustablePromptScope =
     !isInstantResult &&
     (((promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
@@ -329,6 +334,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const [mountedTabs, setMountedTabs] = useState<Record<ResultTabKey, boolean>>(() => ({
     bazi: promptState.tab === 'bazi',
     ziwei: promptState.tab === 'ziwei',
+    'qimen-lifetime': promptState.tab === 'qimen-lifetime',
     astrolabe: promptState.tab === 'astrolabe',
     qizheng: promptState.tab === 'qizheng',
     bazhai: canUseResidentialFengshui && promptState.tab === 'bazhai',
@@ -929,6 +935,85 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       };
     }
   }, [sharedBirthData, shouldCalculateQizheng]);
+
+  const shouldCalculateQimenLifetime =
+    inputState.analysisMode === 'single' &&
+    (mountedTabs['qimen-lifetime'] || (mountedTabs.prompt && isQimenLifetimePromptSource));
+
+  const qimenLifetimeCalculation = useMemo<{
+    data: import('@/types/divination').QimenLifetimeData | null;
+    error: string;
+  }>(() => {
+    if (!shouldCalculateQimenLifetime) return { data: null, error: '' };
+    const year = Number(inputState.year);
+    const month = Number(inputState.month);
+    const day = Number(inputState.day);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+      return { data: null, error: '请填写完整出生年月日' };
+    }
+
+    let hour = 12;
+    let minute = 0;
+    if (inputState.useTrueSolarTime && inputState.birthHour !== '') {
+      hour = Number(inputState.birthHour);
+      minute = inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute);
+    } else if (inputState.timeIndex !== '' && Number(inputState.timeIndex) >= 0) {
+      const opt = BIRTH_TIME_OPTIONS[Number(inputState.timeIndex)];
+      if (opt) {
+        hour = opt.hour;
+        minute = opt.minute;
+      }
+    }
+
+    const birthDateTime = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+    const currentYear = new Date().getFullYear();
+    const periodRange = {
+      startDate: `${currentYear - 1}-01-01`,
+      endDate: `${currentYear + 2}-12-31`,
+    };
+
+    try {
+      const data = calculateQimenLifetime({
+        birthDateTime,
+        calendarType: inputState.dateType === 'lunar' ? 'lunar' : 'solar',
+        isLeapMonth: inputState.isLeapMonth,
+        timeStandard: inputState.useTrueSolarTime ? 'trueSolar' : 'civil',
+        location:
+          inputState.useTrueSolarTime && inputState.birthLongitude
+            ? {
+                longitude: Number(inputState.birthLongitude),
+                latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
+                locationName: inputState.birthPlace,
+              }
+            : undefined,
+        gender: inputState.gender,
+        name: inputState.name,
+        periodRange,
+      });
+      return { data, error: '' };
+    } catch (err) {
+      return {
+        data: null,
+        error: err instanceof Error ? err.message : '奇门终身局排盘失败。',
+      };
+    }
+  }, [
+    inputState.birthHour,
+    inputState.birthLatitude,
+    inputState.birthLongitude,
+    inputState.birthMinute,
+    inputState.birthPlace,
+    inputState.dateType,
+    inputState.day,
+    inputState.gender,
+    inputState.isLeapMonth,
+    inputState.month,
+    inputState.name,
+    inputState.timeIndex,
+    inputState.useTrueSolarTime,
+    inputState.year,
+    shouldCalculateQimenLifetime,
+  ]);
   const astrolabeScopeContext = useMemo(
     () =>
       buildAstrolabeScopeContext(
@@ -1419,6 +1504,24 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     residentialMeasurement,
     residentialResult,
   ]);
+  const qimenLifetimePromptText = useMemo(() => {
+    if (
+      !showAssistantPane ||
+      promptState.promptSource !== 'qimen-lifetime' ||
+      !qimenLifetimeCalculation.data
+    ) {
+      return '';
+    }
+    return buildLifetimePrompt(
+      qimenLifetimeCalculation.data,
+      metaphysicsQuestionDraft.trim() || undefined,
+    );
+  }, [
+    metaphysicsQuestionDraft,
+    promptState.promptSource,
+    qimenLifetimeCalculation.data,
+    showAssistantPane,
+  ]);
   const latestEnhancedPromptText = useMemo(
     () =>
       promptState.promptSource === 'bazi-ziwei'
@@ -1533,17 +1636,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
 
   const basePreviewActivePromptText =
-    promptState.promptSource === 'qizheng'
-      ? qizhengPromptText
-      : promptState.promptSource === 'bazhai'
-        ? bazhaiPromptText
-        : promptState.promptSource === 'astrolabe'
-          ? previewAstrolabePromptText
-          : promptState.promptSource === 'bazi-ziwei'
-            ? previewEnhancedPromptText
-            : promptState.promptSource === 'bazi'
-              ? previewBaziPromptText
-              : previewZiweiPromptText;
+    promptState.promptSource === 'qimen-lifetime'
+      ? qimenLifetimePromptText
+      : promptState.promptSource === 'qizheng'
+        ? qizhengPromptText
+        : promptState.promptSource === 'bazhai'
+          ? bazhaiPromptText
+          : promptState.promptSource === 'astrolabe'
+            ? previewAstrolabePromptText
+            : promptState.promptSource === 'bazi-ziwei'
+              ? previewEnhancedPromptText
+              : promptState.promptSource === 'bazi'
+                ? previewBaziPromptText
+                : previewZiweiPromptText;
   const previewActivePromptText = basePreviewActivePromptText;
 
   const aiContextPrompt = useMemo(() => {
@@ -1555,17 +1660,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const [inspirationText, setInspirationText] = useState('');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const baseLatestActivePromptText =
-    promptState.promptSource === 'qizheng'
-      ? qizhengPromptText
-      : promptState.promptSource === 'bazhai'
-        ? bazhaiPromptText
-        : promptState.promptSource === 'astrolabe'
-          ? latestAstrolabePromptText
-          : promptState.promptSource === 'bazi-ziwei'
-            ? latestEnhancedPromptText
-            : promptState.promptSource === 'bazi'
-              ? latestBaziPromptText
-              : latestZiweiPromptText;
+    promptState.promptSource === 'qimen-lifetime'
+      ? qimenLifetimePromptText
+      : promptState.promptSource === 'qizheng'
+        ? qizhengPromptText
+        : promptState.promptSource === 'bazhai'
+          ? bazhaiPromptText
+          : promptState.promptSource === 'astrolabe'
+            ? latestAstrolabePromptText
+            : promptState.promptSource === 'bazi-ziwei'
+              ? latestEnhancedPromptText
+              : promptState.promptSource === 'bazi'
+                ? latestBaziPromptText
+                : latestZiweiPromptText;
   const latestActivePromptText = baseLatestActivePromptText;
   const { copyState, shareState, handleCopy } = usePromptCopyShare(latestActivePromptText);
 
@@ -1644,9 +1751,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     ? '例如：卧室、书房和大门分别怎样安排更合适？'
     : isQizhengPromptSource
       ? '例如：请重点分析事业方向、关系模式和近期应注意的风险。'
-      : inputState.analysisMode === 'compatibility'
-        ? '输入这段关系或合作最想了解的问题'
-        : '输入你真正想问的问题';
+      : isQimenLifetimePromptSource
+        ? '例如：请重点分析一生事业发展格局、财运起伏与关键转折阶段。'
+        : inputState.analysisMode === 'compatibility'
+          ? '输入这段关系或合作最想了解的问题'
+          : '输入你真正想问的问题';
   const natalPromptSections = useMemo(() => {
     const keyword = inspiration.deferredSearch.trim().toLocaleLowerCase();
     const actionMap = new Map(promptShortcutActions.map((item) => [item.label, item]));
@@ -1812,15 +1921,17 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   ? '八字'
                   : tab === 'ziwei'
                     ? '紫微'
-                    : tab === 'astrolabe'
-                      ? '星盘'
-                      : tab === 'qizheng'
-                        ? '七政'
-                        : tab === 'bazhai'
-                          ? '八宅'
-                          : tab === 'minglu'
-                            ? '命录'
-                            : '排盘';
+                    : tab === 'qimen-lifetime'
+                      ? '奇门'
+                      : tab === 'astrolabe'
+                        ? '星盘'
+                        : tab === 'qizheng'
+                          ? '七政'
+                          : tab === 'bazhai'
+                            ? '八宅'
+                            : tab === 'minglu'
+                              ? '命录'
+                              : '排盘';
               return (
                 <button
                   type="button"
@@ -1900,6 +2011,27 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 data={qizhengCalculation.data}
                 isInstant={isInstantResult}
                 timeBasisLabel={instantTimeBasisLabel}
+              />
+            ) : (
+              <InlineSkeleton />
+            )
+          ) : null}
+        </div>
+
+        <div
+          className={`result-tab-pane workspace-result-chart-pane ${
+            !isAssistantPage && activeChartTab === 'qimen-lifetime' ? 'is-active' : 'is-inactive'
+          }`}
+          aria-hidden={isAssistantPage || activeChartTab !== 'qimen-lifetime'}
+        >
+          {mountedTabs['qimen-lifetime'] ? (
+            qimenLifetimeCalculation.error ? (
+              <p className="error-text">{qimenLifetimeCalculation.error}</p>
+            ) : qimenLifetimeCalculation.data ? (
+              <QimenLifetimeBoard
+                title={isInstantResult ? '奇门终身即时盘' : '奇门终身局'}
+                name={isInstantResult ? '当前时刻' : inputState.name || '本人'}
+                data={qimenLifetimeCalculation.data}
               />
             ) : (
               <InlineSkeleton />

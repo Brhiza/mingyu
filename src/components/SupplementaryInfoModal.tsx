@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from './workspace/WorkspaceUI';
+import { DropdownSelect, type DropdownSelectOption } from './DropdownSelect';
 
 export type SupplementaryInfoModalField = {
   key: string;
   label: string;
-  placeholder: string;
+  placeholder?: string;
   rows?: number;
+  type?: 'textarea' | 'select' | 'text';
+  options?: readonly DropdownSelectOption<string>[];
+  inputMode?: 'text' | 'numeric';
+  maxLength?: number;
+  fullWidth?: boolean;
 };
 
 type SupplementaryInfoModalProps = {
@@ -57,19 +63,57 @@ export function SupplementaryInfoModal({
           }`}
         >
           {fields.map((field) => (
-            <label className="supplementary-info-field" key={field.key}>
+            <label
+              className={`supplementary-info-field${
+                field.fullWidth || (field.rows && field.rows > 3) ? ' is-full-width' : ''
+              }`}
+              key={field.key}
+            >
               <span>{field.label}</span>
-              <textarea
-                rows={field.rows ?? 3}
-                value={draftValues[field.key] ?? ''}
-                placeholder={field.placeholder}
-                onChange={(event) =>
-                  setDraftValues((current) => ({
-                    ...current,
-                    [field.key]: event.target.value,
-                  }))
-                }
-              />
+              {field.type === 'select' ? (
+                <DropdownSelect
+                  value={draftValues[field.key] ?? ''}
+                  options={field.options ?? []}
+                  variant="field"
+                  ariaLabel={field.label}
+                  onChange={(value) =>
+                    setDraftValues((current) => ({
+                      ...current,
+                      [field.key]: value,
+                    }))
+                  }
+                />
+              ) : field.type === 'text' ? (
+                <input
+                  type="text"
+                  className="supplementary-info-input"
+                  inputMode={field.inputMode}
+                  maxLength={field.maxLength}
+                  placeholder={field.placeholder}
+                  value={draftValues[field.key] ?? ''}
+                  onChange={(event) =>
+                    setDraftValues((current) => ({
+                      ...current,
+                      [field.key]:
+                        field.inputMode === 'numeric'
+                          ? event.target.value.replace(/[^\d]/g, '').slice(0, field.maxLength ?? 4)
+                          : event.target.value,
+                    }))
+                  }
+                />
+              ) : (
+                <textarea
+                  rows={field.rows ?? 3}
+                  value={draftValues[field.key] ?? ''}
+                  placeholder={field.placeholder}
+                  onChange={(event) =>
+                    setDraftValues((current) => ({
+                      ...current,
+                      [field.key]: event.target.value,
+                    }))
+                  }
+                />
+              )}
             </label>
           ))}
         </div>

@@ -78,7 +78,8 @@ function buildResultPagePath(search: string) {
   const prompt = parsePromptState(params);
   const returnTab = params.get('rt');
   const chartTab =
-    returnTab && ['bazi', 'ziwei', 'astrolabe', 'qizheng', 'bazhai'].includes(returnTab)
+    returnTab &&
+    ['bazi', 'ziwei', 'qimen-lifetime', 'astrolabe', 'qizheng', 'bazhai'].includes(returnTab)
       ? returnTab
       : input.analysisMode === 'compatibility' || prompt.promptSource === 'bazi-ziwei'
         ? 'bazi'

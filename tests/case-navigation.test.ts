@@ -129,3 +129,14 @@ test('合盘应把全局案例预填为第一人', () => {
   assert.equal(parseInputState(params).analysisMode, 'compatibility');
   assert.equal(parseInputState(params).name, '测试');
 });
+
+test('全局案例应能直接打开奇门终身局结果并保留案例标识', () => {
+  const record = createPersonalRecord();
+  const path = buildChartFeaturePathForCase(record, 'qimen-lifetime');
+  assert.equal(path.startsWith('/result?'), true);
+  const params = new URLSearchParams(path.split('?')[1]);
+  assert.equal(params.get(CHART_RECORD_PARAM), record.id);
+  assert.equal(parsePromptState(params).promptSource, 'qimen-lifetime');
+  assert.equal(parsePromptState(params).tab, 'qimen-lifetime');
+  assert.equal(parseInputState(params).name, '测试');
+});

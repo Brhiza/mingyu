@@ -12,6 +12,7 @@ export default tseslint.config(
       '.claude',
       'build',
       'packages/core/src/location/china-data.js',
+      'packages/core/src/astrology/vendor/**',
     ],
   },
   js.configs.recommended,

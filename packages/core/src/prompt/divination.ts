@@ -85,13 +85,41 @@ function formatLiuyaoFocusSummary(data: LiuyaoData) {
   const worldYao = data.yaosDetail?.find((item) => item.isWorld);
   const responseYao = data.yaosDetail?.find((item) => item.isResponse);
   const changing = data.yaosDetail?.filter((item) => item.isChanging) ?? [];
+  const monthBreakYaos = data.yaosDetail?.filter((item) => item.isMonthBreak) ?? [];
+  const hiddenMoveYaos = data.yaosDetail?.filter((item) => item.isHiddenMove) ?? [];
+  const dayBreakYaos = data.yaosDetail?.filter((item) => item.isDayBreak) ?? [];
+
   const parts = [
     worldYao ? `世爻第${worldYao.position}爻` : '',
     responseYao ? `应爻第${responseYao.position}爻` : '',
   ].filter(Boolean);
+
+  const changingDesc = changing.map((item) => {
+    const dir = item.changeDirection ? `（${item.changeDirection}）` : '';
+    return `第${item.position}爻${dir}`;
+  });
+
+  const specialYaos: string[] = [];
+  if (monthBreakYaos.length) {
+    specialYaos.push(
+      `月破：${monthBreakYaos.map((y) => `第${y.position}爻${y.najiaDizhi}`).join('、')}`,
+    );
+  }
+  if (hiddenMoveYaos.length) {
+    specialYaos.push(
+      `暗动：${hiddenMoveYaos.map((y) => `第${y.position}爻${y.najiaDizhi}`).join('、')}`,
+    );
+  }
+  if (dayBreakYaos.length) {
+    specialYaos.push(
+      `日破：${dayBreakYaos.map((y) => `第${y.position}爻${y.najiaDizhi}`).join('、')}`,
+    );
+  }
+
   return [
     parts.length ? `世应：${parts.join('，')}` : '',
-    `动变：${changing.map((item) => `第${item.position}爻`).join('、') || '无动爻'}`,
+    `动变：${changingDesc.join('、') || '无动爻'}`,
+    specialYaos.join('；'),
   ]
     .filter(Boolean)
     .join('；');
@@ -608,9 +636,7 @@ function formatSsgwPrompt(data: SsgwData) {
     details['吉凶'] ? `吉凶级别：${details['吉凶']}` : '',
     storyContent.canonicalStory ? `典故：${storyContent.canonicalStory}` : '',
     baseExplanation ? `基础解签：${baseExplanation}` : '',
-    supplementary.length
-      ? `补充解释：\n${supplementary.map((line) => `- ${line}`).join('\n')}`
-      : '',
+    supplementary.length ? `补充解释：\n${supplementary.join('\n')}` : '',
   ]
     .filter(Boolean)
     .join('\n');

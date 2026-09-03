@@ -693,6 +693,27 @@ label.workspace-ui-field > span:first-child {
   font-weight: 700;
 }
 
+.supplementary-info-field.is-full-width {
+  grid-column: 1 / -1;
+}
+
+.supplementary-info-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 10px;
+  outline: 0;
+  background: var(--surface-soft);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 14px;
+}
+
+.supplementary-info-input::placeholder {
+  color: var(--text-muted);
+}
+
 .supplementary-info-field textarea {
   width: 100%;
   min-height: 92px;

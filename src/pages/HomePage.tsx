@@ -10,7 +10,10 @@ import {
   QuestionInspirationModal,
   type QuestionInspirationSection,
 } from '@/components/QuestionInspirationModal';
-import { SupplementaryInfoModal } from '@/components/SupplementaryInfoModal';
+import {
+  SupplementaryInfoModal,
+  type SupplementaryInfoModalField,
+} from '@/components/SupplementaryInfoModal';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { buildChartFeaturePathForCase, buildDivinationRecordPath } from '@/lib/case-navigation';
@@ -74,6 +77,8 @@ export function HomePage() {
   const [preferences, setPreferences] = useState(readWorkspacePreferences);
   const [questionDraft, setQuestionDraft] = useState('');
   const [supplementaryInfoDraft, setSupplementaryInfoDraft] = useState('');
+  const [temporaryGender, setTemporaryGender] = useState<'' | '男' | '女'>('');
+  const [temporaryBirthYear, setTemporaryBirthYear] = useState('');
   const [isSupplementaryInfoModalOpen, setIsSupplementaryInfoModalOpen] = useState(false);
   const [isQuestionInspirationOpen, setIsQuestionInspirationOpen] = useState(false);
   const [inspirationCategory, setInspirationCategory] = useState('近期');
@@ -153,6 +158,55 @@ export function HomePage() {
     ],
     [cases],
   );
+  const effectiveGender = activeCase
+    ? activeCase.input.gender === 'male'
+      ? '男'
+      : '女'
+    : temporaryGender;
+  const effectiveBirthYear = activeCase ? activeCase.input.year : temporaryBirthYear;
+  const hasSupplementaryInfo = Boolean(
+    supplementaryInfoDraft.trim() ||
+    (activeCaseId === null && (temporaryGender || temporaryBirthYear)),
+  );
+  const homeSupplementaryFields = useMemo<readonly SupplementaryInfoModalField[]>(() => {
+    if (activeCaseId !== null) {
+      return [
+        {
+          key: 'supplementaryInfo',
+          label: '背景与细节',
+          placeholder: '补充已知情况、现实限制或期待结果（可选）',
+          rows: 5,
+        },
+      ];
+    }
+    return [
+      {
+        key: 'gender',
+        label: '求测人性别（可选）',
+        type: 'select',
+        options: [
+          { value: '', label: '不填（未指定）' },
+          { value: '男', label: '男' },
+          { value: '女', label: '女' },
+        ],
+      },
+      {
+        key: 'birthYear',
+        label: '出生年份（可选）',
+        type: 'text',
+        placeholder: '例如 1998',
+        inputMode: 'numeric',
+        maxLength: 4,
+      },
+      {
+        key: 'supplementaryInfo',
+        label: '背景与细节',
+        placeholder: '补充已知情况、现实限制或期待结果（可选）',
+        rows: 4,
+        fullWidth: true,
+      },
+    ];
+  }, [activeCaseId]);
   const inspirationSections = useMemo<QuestionInspirationSection[]>(() => {
     const keyword = inspirationSearch.trim();
     return inspirationCategories
@@ -288,7 +342,13 @@ export function HomePage() {
         activeCase
           ? buildChartFeaturePathForCase(activeCase, selectedChartFeature)
           : buildWorkspaceFeaturePath(selectedChartFeature),
-        { state: buildWorkspaceLaunchState(question, { supplementaryInfo }) },
+        {
+          state: buildWorkspaceLaunchState(question, {
+            supplementaryInfo,
+            gender: effectiveGender,
+            birthYear: effectiveBirthYear,
+          }),
+        },
       );
       return;
     }
@@ -297,6 +357,8 @@ export function HomePage() {
         state: buildWorkspaceLaunchState(question, {
           autoSubmit: Boolean(question) && selectedDivinationFeature !== 'almanac',
           supplementaryInfo,
+          gender: effectiveGender,
+          birthYear: effectiveBirthYear,
         }),
       });
       return;
@@ -412,12 +474,12 @@ export function HomePage() {
               </button>
               <button
                 type="button"
-                className={supplementaryInfoDraft.trim() ? 'is-active' : ''}
+                className={hasSupplementaryInfo ? 'is-active' : ''}
                 aria-haspopup="dialog"
                 aria-expanded={isSupplementaryInfoModalOpen}
                 onClick={() => setIsSupplementaryInfoModalOpen(true)}
               >
-                补充信息{supplementaryInfoDraft.trim() ? ' · 已填写' : ''}
+                补充信息{hasSupplementaryInfo ? ' · 已填写' : ''}
               </button>
             </div>
             <div className="workspace-home-composer-footer">
@@ -522,16 +584,24 @@ export function HomePage() {
       ) : null}
       {isSupplementaryInfoModalOpen ? (
         <SupplementaryInfoModal
-          fields={[
-            {
-              key: 'supplementaryInfo',
-              label: '背景与细节',
-              placeholder: '补充已知情况、现实限制或期待结果（可选）',
-              rows: 5,
-            },
-          ]}
-          values={{ supplementaryInfo: supplementaryInfoDraft }}
-          onSave={(values) => setSupplementaryInfoDraft(values.supplementaryInfo ?? '')}
+          fields={homeSupplementaryFields}
+          values={{
+            supplementaryInfo: supplementaryInfoDraft,
+            gender: temporaryGender,
+            birthYear: temporaryBirthYear,
+          }}
+          description={
+            activeCaseId !== null
+              ? '当前已指定案例，可补充与问题直接相关的背景与细节。'
+              : '临时档案不指定案例。可填写求测人性别、出生年份或背景细节，未填写的项目不会进入解读。'
+          }
+          onSave={(values) => {
+            setSupplementaryInfoDraft(values.supplementaryInfo ?? '');
+            if (activeCaseId === null) {
+              setTemporaryGender((values.gender as '' | '男' | '女') || '');
+              setTemporaryBirthYear(values.birthYear?.replace(/[^\d]/g, '').slice(0, 4) ?? '');
+            }
+          }}
           onClose={() => setIsSupplementaryInfoModalOpen(false)}
         />
       ) : null}

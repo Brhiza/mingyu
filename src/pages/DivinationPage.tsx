@@ -26,6 +26,8 @@ export function DivinationPage() {
         displayMode="input"
         initialQuestion={launchState.initialQuestion}
         initialSupplementaryInfo={launchState.initialSupplementaryInfo}
+        initialGender={launchState.initialGender}
+        initialBirthYear={launchState.initialBirthYear}
         autoSubmit={launchState.autoSubmit}
         onGenerated={(recordId, requestedMethod) =>
           navigate(`/divination/${requestedMethod}/result?record=${encodeURIComponent(recordId)}`)

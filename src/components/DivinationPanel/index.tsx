@@ -39,6 +39,8 @@ type DivinationPanelProps = {
   assistantOnly?: boolean;
   initialQuestion?: string;
   initialSupplementaryInfo?: string;
+  initialGender?: '男' | '女' | '';
+  initialBirthYear?: string;
   autoSubmit?: boolean;
   onGenerated?: (recordId: string, requestedMethod: DivinationDraft['method']) => void;
   onOpenAssistant?: () => void;
@@ -69,6 +71,8 @@ function createDefaultDraft(
   method?: DivinationPanelProps['initialMethod'],
   initialQuestion?: string,
   initialSupplementaryInfo?: string,
+  initialGender?: '男' | '女' | '',
+  initialBirthYear?: string,
 ): DivinationDraft {
   return {
     ...defaultDraft,
@@ -80,6 +84,8 @@ function createDefaultDraft(
     ...(initialSupplementaryInfo?.trim()
       ? { userSupplement: initialSupplementaryInfo.trim() }
       : {}),
+    ...(initialGender ? { gender: initialGender } : {}),
+    ...(initialBirthYear ? { birthYear: initialBirthYear } : {}),
   };
 }
 
@@ -90,6 +96,8 @@ export function DivinationPanel({
   assistantOnly = false,
   initialQuestion,
   initialSupplementaryInfo,
+  initialGender,
+  initialBirthYear,
   autoSubmit = false,
   onGenerated,
   onOpenAssistant,
@@ -99,12 +107,16 @@ export function DivinationPanel({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { activeCase, cases } = useActivePersonalCase();
-  const [draft, setDraft] = useState<DivinationDraft>(() =>
-    applyPersonalCaseToDivinationDraft(
-      createDefaultDraft(initialMethod, initialQuestion, initialSupplementaryInfo),
-      activeCase,
-    ),
-  );
+  const [draft, setDraft] = useState<DivinationDraft>(() => {
+    const initial = createDefaultDraft(
+      initialMethod,
+      initialQuestion,
+      initialSupplementaryInfo,
+      initialGender,
+      initialBirthYear,
+    );
+    return activeCase ? applyPersonalCaseToDivinationDraft(initial, activeCase) : initial;
+  });
   const [session, setSession] = useState<DivinationSession | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

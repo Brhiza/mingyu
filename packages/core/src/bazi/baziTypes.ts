@@ -279,6 +279,20 @@ export interface PatternAnalysis {
   basis?: string;
   /** 魁罡日（日柱庚辰/壬辰/戊戌/庚戌为外格，《三命通会》） */
   isKuiGang?: boolean;
+  /** 《子平真诠》格局成败、病因与救应药神推导 */
+  fulfillment?: {
+    patternName: string;
+    status: '成格' | '破格' | '破而复成' | '平常';
+    basis: string;
+    contradiction: string;
+    remedies: Array<{
+      stem: string;
+      pillar: 'year' | 'month' | 'day' | 'hour';
+      tenGod: string;
+      effect: string;
+    }>;
+    summary: string;
+  };
 }
 
 export interface UsefulGodAnalysis {

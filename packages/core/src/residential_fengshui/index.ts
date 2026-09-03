@@ -413,7 +413,7 @@ function buildPrompt(result: {
                 palace.direction.includes(item.direction.replace(/方$/u, '')) ||
                 item.direction.includes(palace.direction.replace(/宫$/u, '')),
             );
-            return `- ${palace.name}${palace.direction}：飞星运${palace.yunStar}山${palace.shanStar}向${palace.xiangStar}${palace.yearStar !== undefined ? `年${palace.yearStar}` : ''}${palace.monthStar !== undefined ? `月${palace.monthStar}` : ''}${mansion ? `；命卦${mansion.direction}${mansion.label}` : ''}`;
+            return `  ${palace.name}${palace.direction}：飞星运${palace.yunStar}山${palace.shanStar}向${palace.xiangStar}${palace.yearStar !== undefined ? `年${palace.yearStar}` : ''}${palace.monthStar !== undefined ? `月${palace.monthStar}` : ''}${mansion ? `；命卦${mansion.direction}${mansion.label}` : ''}`;
           }),
         ].join('\n')
       : '',

@@ -78,4 +78,5 @@ test('旧案例的盘面来源应以真实录入类型为准', () => {
   assert.equal(resolvePersonalWorkspaceSource('astrolabe', 'qizheng'), 'qizheng');
   assert.equal(resolvePersonalWorkspaceSource('ziwei', 'bazi'), 'ziwei');
   assert.equal(resolvePersonalWorkspaceSource('bazi', 'bazhai'), 'bazhai');
+  assert.equal(resolvePersonalWorkspaceSource('bazi', 'qimen-lifetime'), 'qimen-lifetime');
 });

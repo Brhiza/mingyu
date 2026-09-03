@@ -445,7 +445,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 61);
+    assert.equal(tools.length, 63);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -454,6 +454,8 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(ziweiTool?.outputSchema?.properties?.payloadByScope);
     assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility'));
     assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility_prompt'));
+    assert.ok(tools.find((tool) => tool.name === 'divine_qimen_lifetime'));
+    assert.ok(tools.find((tool) => tool.name === 'qimen_lifetime_prompt'));
     assert.equal(
       tools.find((tool) => tool.name === 'bazi_time_sensitivity'),
       undefined,

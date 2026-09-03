@@ -16,7 +16,7 @@ export function formatKeyValueBlock(record: Record<string, unknown>) {
   return Object.entries(record)
     .map(([key, value]) => {
       const body = formatScalarValue(value);
-      return body ? `- ${key}：${body}` : '';
+      return body ? `${key}：${body}` : '';
     })
     .filter(Boolean)
     .join('\n');
@@ -25,10 +25,5 @@ export function formatKeyValueBlock(record: Record<string, unknown>) {
 export function formatObjectList(items: Array<Record<string, unknown>>) {
   if (items.length === 0) return '';
 
-  return items
-    .map((item, index) => {
-      const body = formatKeyValueBlock(item);
-      return [`${index + 1}.`, body].join('\n');
-    })
-    .join('\n\n');
+  return items.map((item) => formatKeyValueBlock(item)).join('\n\n');
 }

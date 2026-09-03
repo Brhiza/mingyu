@@ -58,7 +58,7 @@ function getInterRelationToOriginalTi(
 ): string {
   if (!VALID_WUXING.has(sourceElement) || !VALID_WUXING.has(originalTiElement)) {
     throw new Error(
-      `梅花易数互卦五行无效：${sourceLabel}${sourceElement || '空'}、原体${originalTiElement || '空'}。`,
+      `梅花易数${sourceLabel}五行无效：${sourceLabel}${sourceElement || '空'}、原体${originalTiElement || '空'}。`,
     );
   }
   if (sourceElement === originalTiElement) return `${sourceLabel}与原体比和`;
@@ -69,6 +69,42 @@ function getInterRelationToOriginalTi(
   throw new Error(
     `梅花易数无法判断${sourceLabel}${sourceElement}与原体${originalTiElement}的关系。`,
   );
+}
+
+function getMeihuaTiYongSeasonEvaluation(
+  relation: string,
+  tiSeason: string,
+  yongSeason: string,
+): string {
+  const isTiStrong = tiSeason === '旺' || tiSeason === '相';
+  const isYongStrong = yongSeason === '旺' || yongSeason === '相';
+
+  switch (relation) {
+    case '用克体':
+      if (isTiStrong && !isYongStrong) {
+        return '体旺用衰，受克有惊无险，难伤大体';
+      }
+      if (!isTiStrong && isYongStrong) {
+        return '用旺体衰，克势严峻，事多受制受损，大宜慎重';
+      }
+      return '用卦克体，诸事受阻阻隔，防外力施压';
+    case '体克用':
+      if (isTiStrong) {
+        return '体旺克用，胜任其事，主导局势，操之在我';
+      }
+      return '体虽克用但自身气衰，勉力支撑，防劳而少功';
+    case '用生体':
+      if (isYongStrong) {
+        return '用旺生体，外力生扶充沛，贵人相助，大吉之象';
+      }
+      return '用生体，略得外力照拂，助力虽浅亦可受益';
+    case '体生用':
+      return '体生于用，泄我元气，防过度付出或破耗消耗';
+    case '比和':
+      return '体用比和，同声相应，百事顺遂无逆';
+    default:
+      return '体用各安其位，顺时而动';
+  }
 }
 
 /**
@@ -363,6 +399,11 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
         changedTiYong.tiGua.element,
       ),
       tiYongRaw: getTiYongRelation(yongGua.element, tiGua.element),
+      tiYongSeasonEvaluation: getMeihuaTiYongSeasonEvaluation(
+        getTiYongRelation(yongGua.element, tiGua.element),
+        tiSeasonState,
+        yongSeasonState,
+      ),
       yingQi: estimateYingQi({
         movingYaoIndex,
         upperTrigramIndex,

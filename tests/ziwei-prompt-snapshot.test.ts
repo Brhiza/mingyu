@@ -862,8 +862,8 @@ test('紫微本命提示词不应混入大限流年流月流日运限结构', ()
     }),
   });
 
-  assert.match(snapshot, /【运限资料】\n- 无/);
-  assert.match(snapshot, /【运限重点】\n- 无/);
+  assert.match(snapshot, /【运限资料】\n无/);
+  assert.match(snapshot, /【运限重点】\n无/);
   assert.doesNotMatch(snapshot, /类型：当前四化飞入/);
   assert.doesNotMatch(snapshot, /【主证】运限命中宫位/);
   assert.doesNotMatch(snapshot, /当前动态宫名：流年命宫/);

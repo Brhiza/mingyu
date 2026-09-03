@@ -63,6 +63,6 @@ export function formatAstrolabeAspectSections(aspects: AstrolabeAspect[]) {
   return [
     `相位主线：${lead.map(formatAstrolabeAspectLine).join('；')}。`,
     '相位明细：',
-    ...ranked.map((item) => `- ${formatAstrolabeAspectLine(item)}`),
+    ...ranked.map((item) => `  ${formatAstrolabeAspectLine(item)}`),
   ];
 }

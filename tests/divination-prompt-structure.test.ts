@@ -1254,8 +1254,8 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   assert.match(prompt, /核心结构：月将亥；占时卯；昼占；贵人亥临卯；旬空戌、亥（命中初传亥）/);
   assert.match(prompt, /课传主线：取传比用法；传态递传/);
   assert.doesNotMatch(prompt, /取传依据：/);
-  assert.match(prompt, /四课：\n- 一课亥临卯乘贵人，水生木/);
-  assert.match(prompt, /三传：\n- 初传亥乘贵人，生扶/);
+  assert.match(prompt, /四课：\n  一课亥临卯乘贵人，水生木/);
+  assert.match(prompt, /三传：\n  初传亥乘贵人，生扶/);
   assert.doesNotMatch(prompt, /课传主线：.*发用|课传主线：.*末传/);
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);
@@ -1347,8 +1347,8 @@ test('塔罗提示词保留牌阵、牌位、正逆位、关键词与可靠牌�
   assert.match(prompt, /核心结构：牌阵/);
   assert.match(prompt, /牌位明细：/);
   assert.doesNotMatch(prompt, /牌位顺序：/);
-  assert.match(prompt, /- 现状：恋人（正位）；关键词：/);
-  assert.match(prompt, /- 建议：战车（逆位）；关键词：/);
+  assert.match(prompt, /现状：恋人（正位）；关键词：/);
+  assert.match(prompt, /建议：战车（逆位）；关键词：/);
   assert.match(prompt, /牌组属性：/);
   assert.match(prompt, /正逆位口径：逆位表示该牌主题可能受阻、过度、内化或方向偏离/);
   assert.doesNotMatch(prompt, /元素主题：|牌阶主题：/);
@@ -1420,7 +1420,7 @@ test('灵签提示词保留完整签谱资料', () => {
   assert.match(prompt, /吉凶级别：中平签/);
   assert.match(prompt, /典故：刘备向东吴借取荆州。/);
   assert.match(prompt, /基础解签：事情仍有转圜空间，宜结合现况审慎研判。/);
-  assert.match(prompt, /补充解释：\n- 事业：先核对资源与时机。/);
+  assert.match(prompt, /补充解释：\n  事业：先核对资源与时机。/);
   assert.doesNotMatch(
     prompt,
     /【当前时间】|【问题】|【任务】|占法：|行动建议|风险提醒|掷筊|签谱状态|来源状态|证据汇总/,

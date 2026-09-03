@@ -362,6 +362,12 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
       ? `组合：${result.combinations.map((item) => item.name).join('、')}`
       : '组合：未检出特殊组合',
     `到山到向：${result.daoShanXiang.summary}`,
+    (() => {
+      const wuHuang = result.palaces?.find((p) => p.xiangStar === 5 || p.shanStar === 5);
+      return wuHuang
+        ? `气场避煞：五黄大煞见于${wuHuang.name}（${wuHuang.direction}），该方位动静宜慎、以静安为吉`
+        : '';
+    })(),
     ...(result.measurement?.stability === '山向边界敏感' &&
     result.measurement.candidateMountains?.length
       ? [

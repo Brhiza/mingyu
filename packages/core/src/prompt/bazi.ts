@@ -101,6 +101,32 @@ export interface BaziPromptOptions extends PromptBuildOptions {
   fortuneSelectionContext?: FortuneSelectionContext | null;
 }
 
+function getBaziTopicTask(topic: BaziPromptTopic, topicLabel: string): string {
+  switch (topic) {
+    case 'job-change':
+    case 'career':
+      return `请依据八字排盘资料重点分析${topicLabel}，按正统子平法推演：一辨原局格局成破与官印喜忌，二析大运当前十年气机是助身还是克身，三察岁运冲合是否引动官杀职位、印星单位或驿马提纲，四权衡动静利弊给出宜动或宜守之应期时序，五给出契合喜用的行业五行与发展方位建议。`;
+    case 'marriage':
+    case 'relationship':
+    case 'relationship-push':
+    case 'relationship-decision':
+    case 'reconciliation-decision':
+      return `请依据八字排盘资料重点分析${topicLabel}，按正统子平法推演：一辨配偶星与夫妻宫日支之生克安宁，二察原局是否存在刑冲破害或比劫争夺，三审岁运引动逢合逢冲之转折契机，四推断感情转机或关键节点时序，五给出相处磨合之趋避建议。`;
+    case 'wealth':
+    case 'investment-partnership':
+    case 'startup-partnership':
+      return `请依据八字排盘资料重点分析${topicLabel}，按正统子平法推演：一辨身强身弱与财星真伪（身旺任财还是身弱财多），二察局中财库开闭与比劫争夺之病药，三审岁运是否引动财星或冲开财库，四指出财帛丰盈与谨防破耗借贷风险之关键节点，五给出求财合伙之趋避策略。`;
+    case 'study':
+    case 'study-advance':
+    case 'exam-landing':
+      return `请依据八字排盘资料重点分析${topicLabel}，按正统子平法推演：一辨印星与食伤之清纯得力程度，二察文星气象，三推演岁运是否官印相生吐秀或逢财破印阻滞，四指出发挥最佳之应考时段与调节要点。`;
+    case 'health':
+      return `请依据八字排盘资料重点分析${topicLabel}，依五行生克与藏象学说推演：一辨原局五行偏枯与强弱，二察地支刑冲对相应脏腑经络之冲击，三结合岁运引动指出需要防范之时段，四给出五行调候与生活起居之趋避建议。`;
+    default:
+      return `请依据八字排盘资料${topicLabel === '通用' ? '完成整体解读' : `重点分析${topicLabel}`}，结合问题给出有依据的分析。`;
+  }
+}
+
 export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocument {
   const topic = options.topic ?? 'general';
   const topicLabel = TOPIC_LABELS[topic];
@@ -108,10 +134,7 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
   const task =
     options.mode === 'custom'
       ? buildCustomQuestionTask('八字排盘资料', 'bazi')
-      : buildPromptTask(
-          `请依据八字排盘资料${topicLabel === '通用' ? '完成整体解读' : `重点分析${topicLabel}`}，结合问题给出有依据的分析。`,
-          'bazi',
-        );
+      : buildPromptTask(getBaziTopicTask(topic, topicLabel), 'bazi');
   const chart = formatBaziForPrompt(
     options.result,
     null,
@@ -125,10 +148,26 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
       : '分析对象：本命盘';
   const selectedSchools = normalizeBaziPromptSchools(options.schools);
 
+  const fulfillment = options.result.analysis?.mingGe?.fulfillment;
+  const focusSection = fulfillment
+    ? buildPromptSection(
+        '盘面焦点',
+        [
+          `格局理法：《子平真诠》定为【${fulfillment.patternName}】（${fulfillment.status}）。${fulfillment.summary}`,
+          fulfillment.remedies.length > 0
+            ? `救应药神：${fulfillment.remedies.map((r: { effect: string }) => r.effect).join('；')}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      )
+    : '';
+
   const user = joinPromptSections([
     buildPromptGuidance('bazi'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('排盘信息', chart),
+    focusSection,
     selectedSchools.length
       ? buildPromptSection(
           selectedSchools.length > 1 ? '多派合参' : '解读流派',

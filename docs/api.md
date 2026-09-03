@@ -68,6 +68,8 @@
 | `POST /divination/jinkoujue/prompt`           | 金口诀四位起课并生成 AI 解读提示词                             |
 | `POST /divination/qimen`                      | 奇门遁甲排盘                                                   |
 | `POST /divination/qimen/prompt`               | 奇门遁甲排盘并生成 AI 解读提示词                               |
+| `POST /divination/qimen/lifetime`             | 奇门终身局排盘：输入出生信息返回本命局、个人标记、阶段卡与事件簇 |
+| `POST /divination/qimen/lifetime/prompt`      | 奇门终身局排盘并生成自包含 AI 解读提示词                       |
 | `POST /divination/liuren`                     | 大六壬排盘                                                     |
 | `POST /divination/liuren/prompt`              | 大六壬排盘并生成 AI 解读提示词                                 |
 | `POST /divination/tarot`                      | 塔罗抽牌，返回牌位、正逆位、牌序与结构化证据                   |
@@ -129,6 +131,7 @@
 | 只看紫微宫位、四化、某年某月运限   | `POST /ziwei/prompt`                         | `promptTopic`，`promptScope: "full"`、`"yearly"`、`"monthly"`、`"daily"` 或 `"hourly"`                                                                      | 明确要求紫微时使用                                               |
 | 当前事项能否推进、短期成败         | `POST /divination/liuyao/prompt`             | `question`，必要时传 `customDate`                                                                                                                           | 六爻适合一事一问、取用和应期                                     |
 | 项目推进、方向选择、谈判出行、方位 | `POST /divination/qimen/prompt`              | `question`，可选 `qimenMethod: "zhuanpan"` 或 `"feipan"`，必要时传 `customDate`                                                                             | 奇门适合时空局势、路径、方位和行动窗口                           |
+| 奇门终身格局、大限走向与阶段运限   | `POST /divination/qimen/lifetime/prompt`     | `birthDateTime`、经纬度、可选 `stagePolicy`、`periodRange`、`topics`、`schools`、`question`                                                                   | 结合本命盘、个人标记、阶段运限卡与周期事件簇生成自包含提示词     |
 | 临时小事、快速判断                 | `POST /divination/xiaoliuren/prompt`         | `question`，可选 `customDate`                                                                                                                               | 返回月、日、时三宫顺数轨迹与通行六宫歌诀；不用于长期命运         |
 | 以数字或时间起卦的象意判断         | `POST /divination/meihua/prompt`             | `question`，可选 `method`、`number` 或 `customDate`                                                                                                         | 梅花适合象意、触发点和过程结果                                   |
 | 金口诀四位课                       | `POST /divination/jinkoujue/prompt`          | `question`；可用 `jinkoujueMethod: "branch"` 配合 `jinkoujueBranch` 指定地分，也可选时间、数字或随机起课                                                    | 地分、将神、贵神、人元四位一体，指定地分仍以起课时间定月将和日干 |

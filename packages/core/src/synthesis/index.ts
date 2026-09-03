@@ -465,15 +465,15 @@ export function formatBaziZiweiSynthesisForPrompt(
         : '兼顾传统术语与白话解释，完整交代判断依据';
   const themeText = synthesis.themes
     .map((theme) => {
-      const bazi = theme.baziEvidence.map((item) => `- ${item.title}：${item.detail}`).join('\n');
-      const ziwei = theme.ziweiEvidence.map((item) => `- ${item.title}：${item.detail}`).join('\n');
+      const bazi = theme.baziEvidence.map((item) => `  ${item.title}：${item.detail}`).join('\n');
+      const ziwei = theme.ziweiEvidence.map((item) => `  ${item.title}：${item.detail}`).join('\n');
       return [
-        `### ${theme.label}`,
+        `【${theme.label}】`,
         `分析主线：${theme.focus}`,
         '八字资料：',
-        bazi || '- 本主题资料未提供',
+        bazi || '  本主题资料未提供',
         '紫微资料：',
-        ziwei || '- 本主题资料未提供',
+        ziwei || '  本主题资料未提供',
       ].join('\n');
     })
     .join('\n\n');
@@ -487,6 +487,9 @@ export function formatBaziZiweiSynthesisForPrompt(
     '',
     '【运限基准】',
     `${synthesis.timingReference.dateStr} ${synthesis.timingReference.shichen}（时辰索引${synthesis.timingReference.hourIndex}）`,
+    '',
+    '【合参导引】',
+    '两盘印证：八字重原局五行气数与岁运引动，紫微重星曜气象与四化落宫；同向结论为主干断点，口径差异为内外张力。',
     '',
     '【合参资料】',
     themeText,

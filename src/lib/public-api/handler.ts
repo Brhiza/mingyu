@@ -33,8 +33,13 @@ import { generateLiuyao, type LiuyaoGenerationOptions } from 'mingyu-core/divina
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
-import { generateQimen } from 'mingyu-core/divination/qimen';
+import {
+  generateQimen,
+  calculateQimenLifetime,
+  generateQimenLifetimePrompt,
+} from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
+import type { QimenLifetimeInput, QimenLifetimeData } from 'mingyu-core/types';
 import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
@@ -725,6 +730,22 @@ export function getPublicApiOpenApiDocument(
           summary: '奇门遁甲排盘',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
           responses: { '200': { description: '奇门盘，含节令背景与复合格局' } },
+        },
+      },
+      '/divination/qimen/lifetime': {
+        post: {
+          summary: '奇门遁甲终身局排盘',
+          description: '生成奇门终身局基础盘、个人标记、阶段卡与动态事件簇。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
+          responses: { '200': { description: '奇门终身局结构化盘面数据' } },
+        },
+      },
+      '/divination/qimen/lifetime/prompt': {
+        post: {
+          summary: '奇门遁甲终身局提示词',
+          description: '生成奇门终身局结构化数据并输出自包含提示词任务书。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationPromptRequest'),
+          responses: { '200': { description: '奇门终身局盘面与自包含提示词' } },
         },
       },
       '/divination/liuren': {
@@ -1862,6 +1883,10 @@ async function route(context: RouteContext) {
       return calculateApiResult(context.request, calculateQimenApi, true);
     case 'divination/qimen/prompt':
       return buildDivinationPromptResult('qimen', await readJson(context.request));
+    case 'divination/qimen/lifetime':
+      return calculateApiResult(context.request, calculateQimenLifetimeApi, true);
+    case 'divination/qimen/lifetime/prompt':
+      return buildQimenLifetimePromptResult(await readJson(context.request));
     case 'divination/liuren':
       return calculateApiResult(context.request, calculateLiuren, true);
     case 'divination/liuren/prompt':
@@ -3218,6 +3243,126 @@ function calculateQimen(input: JsonRecord) {
 function calculateQimenApi(input: JsonRecord) {
   const result = calculateQimen(input);
   return input.detailMode === 'compact' ? buildCompactQimenResult(result) : result;
+}
+
+function calculateQimenLifetimeApi(input: JsonRecord) {
+  assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
+  const birthDateTime = readString(input, 'birthDateTime', '');
+  if (!birthDateTime) {
+    throw new ApiError(400, 'BAD_REQUEST', '奇门终身局排盘必须提供出生时间 birthDateTime。');
+  }
+  const lifetimeInput: QimenLifetimeInput = {
+    birthDateTime,
+    timeZoneId: typeof input.timeZoneId === 'string' ? input.timeZoneId : undefined,
+    timezone: typeof input.timezone === 'number' ? input.timezone : undefined,
+    location: isRecord(input.location)
+      ? (input.location as QimenLifetimeInput['location'])
+      : undefined,
+    calendarType: readEnum(input, 'calendarType', ['solar', 'lunar'], 'solar') as 'solar' | 'lunar',
+    isLeapMonth: Boolean(input.isLeapMonth),
+    timeStandard: readEnum(input, 'timeStandard', ['civil', 'trueSolar'], 'civil') as
+      'civil' | 'trueSolar',
+    applyChinaDst: Boolean(input.applyChinaDst),
+    method: readEnum(input, 'method', ['zhuanpan', 'feipan'], 'zhuanpan') as 'zhuanpan' | 'feipan',
+    juMethod: readEnum(input, 'juMethod', ['chaibu', 'zhirun'], 'chaibu') as 'chaibu' | 'zhirun',
+    stagePolicy: isRecord(input.stagePolicy)
+      ? (input.stagePolicy as unknown as QimenLifetimeInput['stagePolicy'])
+      : undefined,
+    periodRange: isRecord(input.periodRange)
+      ? (input.periodRange as unknown as QimenLifetimeInput['periodRange'])
+      : undefined,
+    topics: Array.isArray(input.topics)
+      ? (input.topics as QimenLifetimeInput['topics'])
+      : undefined,
+    name: typeof input.name === 'string' ? input.name : undefined,
+    gender: readEnum(input, 'gender', ['male', 'female', ''], '') as 'male' | 'female' | undefined,
+    schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
+    detailMode: readDetailMode(input),
+  };
+  const result = calculateQimenLifetime(lifetimeInput);
+  if (lifetimeInput.detailMode === 'compact') {
+    return buildCompactQimenLifetimeResult(result);
+  }
+  return result;
+}
+
+function buildCompactQimenLifetimeResult(result: QimenLifetimeData) {
+  return {
+    schemaVersion: result.schemaVersion,
+    basis: result.basis,
+    baseChart: buildCompactQimenResult(result.baseChart),
+    personalMarkers: result.personalMarkers,
+    topicCandidates: result.topicCandidates,
+    stages: result.stages.map((st) => ({
+      stageIndex: st.stageIndex,
+      title: st.title,
+      ageStart: st.ageStart,
+      ageEnd: st.ageEnd,
+      calendarStart: st.calendarStart,
+      calendarEnd: st.calendarEnd,
+      dominantPalaces: st.dominantPalaces,
+      stageTheme: st.stageTheme,
+      supportFacts: st.supportFacts,
+      constraintFacts: st.constraintFacts,
+    })),
+    eventClusters: result.eventClusters,
+  };
+}
+
+function buildQimenLifetimePromptResult(input: JsonRecord) {
+  assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
+  const question = readString(input, 'question', '').trim();
+  if (!question) {
+    throw new ApiError(400, 'BAD_REQUEST', '缺少必填字段：question。');
+  }
+  const birthDateTime = readString(input, 'birthDateTime', '');
+  if (!birthDateTime) {
+    throw new ApiError(400, 'BAD_REQUEST', '奇门终身局排盘必须提供出生时间 birthDateTime。');
+  }
+  const lifetimeInput: QimenLifetimeInput = {
+    birthDateTime,
+    timeZoneId: typeof input.timeZoneId === 'string' ? input.timeZoneId : undefined,
+    timezone: typeof input.timezone === 'number' ? input.timezone : undefined,
+    location: isRecord(input.location)
+      ? (input.location as QimenLifetimeInput['location'])
+      : undefined,
+    calendarType: readEnum(input, 'calendarType', ['solar', 'lunar'], 'solar') as 'solar' | 'lunar',
+    isLeapMonth: Boolean(input.isLeapMonth),
+    timeStandard: readEnum(input, 'timeStandard', ['civil', 'trueSolar'], 'civil') as
+      'civil' | 'trueSolar',
+    applyChinaDst: Boolean(input.applyChinaDst),
+    method: readEnum(input, 'method', ['zhuanpan', 'feipan'], 'zhuanpan') as 'zhuanpan' | 'feipan',
+    juMethod: readEnum(input, 'juMethod', ['chaibu', 'zhirun'], 'chaibu') as 'chaibu' | 'zhirun',
+    stagePolicy: isRecord(input.stagePolicy)
+      ? (input.stagePolicy as unknown as QimenLifetimeInput['stagePolicy'])
+      : undefined,
+    periodRange: isRecord(input.periodRange)
+      ? (input.periodRange as unknown as QimenLifetimeInput['periodRange'])
+      : undefined,
+    topics: Array.isArray(input.topics)
+      ? (input.topics as QimenLifetimeInput['topics'])
+      : undefined,
+    name: typeof input.name === 'string' ? input.name : undefined,
+    gender: readEnum(input, 'gender', ['male', 'female', ''], '') as 'male' | 'female' | undefined,
+    schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
+  };
+  const { data, prompt } = generateQimenLifetimePrompt(lifetimeInput, question);
+  const responseMode = readPromptResponseMode(input);
+  return buildPromptApiResult({
+    responseMode,
+    prompt,
+    fullResult: data,
+    summary: {
+      birthDateTime: data.input.birthDateTime,
+      calendar: data.basis.calendar,
+      solarTerm: data.basis.solarTerm,
+      ganzhi: data.baseChart.ganzhi,
+      zhiFu: data.baseChart.zhiFu,
+      zhiShi: data.baseChart.zhiShi,
+      stagesCount: data.stages.length,
+      eventClustersCount: data.eventClusters?.length ?? 0,
+    },
+  });
 }
 
 function calculateMeihua(input: JsonRecord) {

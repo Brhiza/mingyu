@@ -37,7 +37,11 @@ import {
   getInstantChartTypeForWorkspace,
   instantChartNeedsObserver,
 } from '@/lib/instant-chart';
-import { buildWorkspaceLaunchState, readWorkspaceLaunchState } from '@/lib/workspace-launch';
+import {
+  buildWorkspaceLaunchState,
+  readWorkspaceLaunchState,
+  type WorkspaceLaunchState,
+} from '@/lib/workspace-launch';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import {
@@ -78,6 +82,14 @@ const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
     chartType: 'bazi',
     promptSource: 'bazi-ziwei',
     resultTab: 'bazi',
+    preciseBirthData: false,
+    compatibility: false,
+  },
+  'qimen-lifetime': {
+    label: '奇门终身局',
+    chartType: 'bazi',
+    promptSource: 'qimen-lifetime',
+    resultTab: 'qimen-lifetime',
     preciseBirthData: false,
     compatibility: false,
   },
@@ -135,9 +147,18 @@ function createFormFromLocation(
   searchParams: URLSearchParams,
   config: ChartToolConfig,
   routeCase: PersonalHistoryRecord | null,
+  launchState?: WorkspaceLaunchState,
 ) {
   const hasInputSnapshot = searchParams.has('y') || searchParams.has('year');
   const snapshot = hasInputSnapshot ? parseInputState(searchParams) : createFormForTool(config);
+  if (!routeCase && !hasInputSnapshot && launchState) {
+    if (launchState.initialGender) {
+      snapshot.gender = launchState.initialGender === '女' ? 'female' : 'male';
+    }
+    if (launchState.initialBirthYear) {
+      snapshot.year = launchState.initialBirthYear;
+    }
+  }
   const input = routeCase ? hydratePersonalCaseInput(snapshot, routeCase) : snapshot;
   return normalizeFormForTool(input, config);
 }
@@ -158,7 +179,7 @@ export function InputPage() {
     [cases, routeCaseId],
   );
   const [form, setForm] = useState<QueryInputState>(() =>
-    createFormFromLocation(searchParams, config, routeCase),
+    createFormFromLocation(searchParams, config, routeCase, launchState),
   );
   const [error, setError] = useState('');
   const [isInstantDialogOpen, setIsInstantDialogOpen] = useState(false);

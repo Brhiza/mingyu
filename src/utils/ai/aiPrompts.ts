@@ -60,12 +60,12 @@ function formatFullFortuneOutputSection(result: BaziChartResult | null): string 
 
   const lines = [
     '完整大运流年：',
-    ...result.luckInfo.cycles.flatMap((cycle, cycleIndex) => {
+    ...result.luckInfo.cycles.map((cycle) => {
       const cycleType = cycle.isXiaoyun ? '童运' : cycle.type;
-      return [
-        `${cycleIndex + 1}. ${cycle.ganZhi}${cycleType}：${cycle.year}年起，约${cycle.age}岁交运`,
-        ...cycle.years.map((year) => `  - ${year.year}年（${year.age}岁）${year.ganZhi}`),
-      ];
+      const yearsText = cycle.years
+        .map((year) => `${year.year}年（${year.age}岁）${year.ganZhi}`)
+        .join('、');
+      return `  ${cycle.ganZhi}${cycleType}（${cycle.year}年起，约${cycle.age}岁交运）：${yearsText}`;
     }),
   ];
 

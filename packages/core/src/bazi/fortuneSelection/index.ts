@@ -107,6 +107,7 @@ function buildGanZhiTriggerSummary(
   const parts = splitGanZhi(ganZhi);
   if (!parts || !result.pillars) return `${scopeLabel}触发：原局资料不足，暂无法判断合冲刑害。`;
 
+  const majorEvents: string[] = [];
   const triggers: string[] = [];
 
   PILLAR_KEYS.forEach((key) => {
@@ -114,25 +115,39 @@ function buildGanZhiTriggerSummary(
     if (!pillar) return;
     const pillarLabel = PILLAR_LABELS[key];
 
-    if (parts.gan === pillar.gan) {
-      triggers.push(`天干${parts.gan}与${pillarLabel}${pillar.gan}伏吟`);
-    }
-    if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[parts.gan] === pillar.gan) {
-      triggers.push(`天干${parts.gan}合${pillarLabel}${pillar.gan}`);
-    }
-    if (BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === pillar.gan) {
-      triggers.push(`天干${parts.gan}冲${pillarLabel}${pillar.gan}`);
+    const isStemClash = BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === pillar.gan;
+    const isBranchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === pillar.zhi;
+
+    if (isStemClash && isBranchClash) {
+      majorEvents.push(`与${pillarLabel}天克地冲`);
+    } else {
+      if (parts.gan === pillar.gan) {
+        triggers.push(`天干${parts.gan}与${pillarLabel}${pillar.gan}伏吟`);
+      }
+      if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[parts.gan] === pillar.gan) {
+        triggers.push(`天干${parts.gan}合${pillarLabel}${pillar.gan}`);
+      }
+      if (isStemClash) {
+        triggers.push(`天干${parts.gan}冲${pillarLabel}${pillar.gan}`);
+      }
+
+      if (parts.zhi === pillar.zhi) {
+        triggers.push(`地支${parts.zhi}与${pillarLabel}${pillar.zhi}伏吟`);
+      }
+      if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === pillar.zhi) {
+        triggers.push(`地支${parts.zhi}合${pillarLabel}${pillar.zhi}`);
+      }
+      if (isBranchClash) {
+        if (key === 'month') {
+          majorEvents.push(`冲提纲（月柱${pillar.zhi}受冲，主事业环境与家宅动荡）`);
+        } else if (key === 'day') {
+          majorEvents.push(`冲夫妻宫（日支${pillar.zhi}受冲，主感情关系与生活节奏受冲击）`);
+        } else {
+          triggers.push(`地支${parts.zhi}冲${pillarLabel}${pillar.zhi}`);
+        }
+      }
     }
 
-    if (parts.zhi === pillar.zhi) {
-      triggers.push(`地支${parts.zhi}与${pillarLabel}${pillar.zhi}伏吟`);
-    }
-    if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === pillar.zhi) {
-      triggers.push(`地支${parts.zhi}合${pillarLabel}${pillar.zhi}`);
-    }
-    if (BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === pillar.zhi) {
-      triggers.push(`地支${parts.zhi}冲${pillarLabel}${pillar.zhi}`);
-    }
     if (BASIC_MAPPINGS.DI_ZHI_XING[parts.zhi]?.includes(pillar.zhi)) {
       triggers.push(`地支${parts.zhi}刑${pillarLabel}${pillar.zhi}`);
     }
@@ -144,7 +159,38 @@ function buildGanZhiTriggerSummary(
     }
   });
 
-  return `${scopeLabel}触发：${triggers.length ? triggers.join('；') : '未见明显合冲刑害破。'}`;
+  // 全局三刑齐备检测
+  const natalZhis = PILLAR_KEYS.map((k) => result.pillars[k]?.zhi).filter(Boolean) as string[];
+  const combinedZhis = new Set([parts.zhi, ...natalZhis]);
+  if (combinedZhis.has('寅') && combinedZhis.has('巳') && combinedZhis.has('申')) {
+    if (parts.zhi === '寅' || parts.zhi === '巳' || parts.zhi === '申') {
+      majorEvents.push('引动【寅巳申】恃势之三刑齐备');
+    }
+  }
+  if (combinedZhis.has('丑') && combinedZhis.has('戌') && combinedZhis.has('未')) {
+    if (parts.zhi === '丑' || parts.zhi === '戌' || parts.zhi === '未') {
+      majorEvents.push('引动【丑戌未】无恩之三刑齐备');
+    }
+  }
+
+  // 全局三合局齐备检测
+  const sanheList: Array<{ name: string; branches: string[] }> = [
+    { name: '申子辰三合水局', branches: ['申', '子', '辰'] },
+    { name: '亥卯未三合木局', branches: ['亥', '卯', '未'] },
+    { name: '寅午戌三合火局', branches: ['寅', '午', '戌'] },
+    { name: '巳酉丑三合金局', branches: ['巳', '酉', '丑'] },
+  ];
+  for (const group of sanheList) {
+    if (group.branches.includes(parts.zhi) && group.branches.every((b) => combinedZhis.has(b))) {
+      const natalCount = group.branches.filter((b) => natalZhis.includes(b)).length;
+      if (natalCount >= 2) {
+        majorEvents.push(`与原局会合成【${group.name}】`);
+      }
+    }
+  }
+
+  const allItems = [...majorEvents, ...triggers];
+  return `${scopeLabel}触发：${allItems.length ? allItems.join('；') : '未见明显合冲刑害破。'}`;
 }
 
 function buildFortuneEvidenceLines(params: {
