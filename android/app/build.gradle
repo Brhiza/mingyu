@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
-def mingyuVersionCode = (System.getenv('MINGYU_VERSION_CODE') ?: '3') as Integer
-def mingyuVersionName = System.getenv('MINGYU_VERSION_NAME') ?: '1.1.1'
+def mingyuVersionCode = (System.getenv('MINGYU_VERSION_CODE') ?: '4') as Integer
+def mingyuVersionName = System.getenv('MINGYU_VERSION_NAME') ?: '1.1.2'
 def mingyuSigningStoreFile = System.getenv('MINGYU_SIGNING_STORE_FILE')
 def hasMingyuReleaseSigning = [
     mingyuSigningStoreFile,

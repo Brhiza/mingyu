@@ -1636,6 +1636,68 @@ label.workspace-ui-field > span:first-child {
   line-height: 1.65;
 }
 
+.android-update-lanzou-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-color, #3b82f6);
+  border-radius: 12px;
+  background: var(--surface-soft, rgba(59, 130, 246, 0.05));
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.android-update-lanzou-card:hover {
+  background: var(--surface-hover, rgba(59, 130, 246, 0.1));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.android-update-lanzou-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.android-update-lanzou-title strong {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.android-update-pwd-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--accent-color, #3b82f6);
+  color: #fff;
+  font-family: monospace;
+  font-weight: bold;
+}
+
+.android-update-lanzou-tip {
+  font-size: 13px !important;
+  color: var(--accent-color, #3b82f6) !important;
+}
+
+.android-update-fallback-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.android-update-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-color, #3b82f6);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+}
+
 .android-update-routes {
   display: grid;
   gap: 6px;

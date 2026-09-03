@@ -121,3 +121,12 @@ test('APK 工作流覆盖调试构建、正式签名、校验文件和 Release',
   assert.match(workflow, /gh release create/);
   assert.match(workflow, /LANZOU_API_TOKEN/);
 });
+
+test('更新面板应使用蓝奏云直达链接与自动复制密码契约，且移除测速按钮', async () => {
+  const dialogContent = await readFile('src/components/AndroidAppUpdateDialog.tsx', 'utf8');
+  assert.match(dialogContent, /https:\/\/cooldy\.lanzout\.com\/b0w9zwqza/);
+  assert.match(dialogContent, /9yw7/);
+  assert.match(dialogContent, /navigator\.clipboard/);
+  assert.doesNotMatch(dialogContent, /重新测速/);
+  assert.doesNotMatch(dialogContent, /测速中/);
+});

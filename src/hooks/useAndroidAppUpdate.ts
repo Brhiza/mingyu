@@ -92,7 +92,7 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
           setStatus('available');
           setMessage(`发现新版本 ${latest.version}`);
           setDialogOpen(true);
-          void testReleaseRoutes(latest);
+          setSelectedRouteId(latest.downloadRoutes[0]?.id ?? null);
           return;
         }
         setStatus('up-to-date');
@@ -103,7 +103,7 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
         setMessage(getErrorMessage(error, '检查更新失败，请稍后重试'));
       }
     },
-    [supported, testReleaseRoutes],
+    [supported],
   );
 
   const testRoutes = useCallback(async () => {
