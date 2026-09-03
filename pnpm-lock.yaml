@@ -122,6 +122,8 @@ importers:
         specifier: ^2.5.8
         version: 2.5.8
 
+  packages/mcp: {}
+
 packages:
 
   '@babel/code-frame@7.29.7':

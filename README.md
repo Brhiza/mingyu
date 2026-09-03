@@ -70,11 +70,11 @@ const tarot = drawTarotSpread('celtic');
 * [API 接口文档](docs/api.md) · [OpenAPI 规范](https://aov.cc/api/v1/openapi.json) · [LLMs.txt](https://aov.cc/llms.txt)
 
 ### 3. MCP Server
-支持 Claude Desktop、Cursor 等 MCP 客户端直接调用：
+支持 Claude Desktop、Cursor、Cline 等 MCP 客户端通过 `npx` 零门槛直接调用：
 ```bash
-pnpm mcp
+npx -y mingyu-mcp
 ```
-详见 [MCP 服务文档](mcp/README.md)。
+（本地源码开发也可通过 `pnpm mcp` 启动，详见 [MCP 服务文档](mcp/README.md)）
 
 ### 4. Agent Skill
 ```bash

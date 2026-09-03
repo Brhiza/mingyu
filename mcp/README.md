@@ -107,41 +107,63 @@
 
 ## 快速开始
 
-### 1. 安装项目
+### 方式一：使用 npx 开箱即用（推荐，最主流、无需克隆仓库）
+
+无需克隆代码、无需配置任何工程依赖，在终端中直接运行：
 
 ```bash
-git clone https://github.com/Brhiza/mingyu.git
-cd mingyu
-npm install
+npx -y mingyu-mcp
 ```
 
-### 2. 本地启动测试
-
-```bash
-npm run mcp
-```
-
-### 3. 在 Claude Desktop 中配置
-
-打开 Claude Desktop 设置 -> Developer -> Edit Config，编辑 `claude_desktop_config.json`：
+在 Claude Desktop 的配置文件（`claude_desktop_config.json`）中直接添加：
 
 ```json
 {
   "mcpServers": {
     "mingyu": {
-      "command": "npm",
-      "args": ["run", "mcp"],
-      "cwd": "C:\\Users\\Administrator\\Documents\\GitHub\\mingyu"
+      "command": "npx",
+      "args": ["-y", "mingyu-mcp"]
     }
   }
 }
 ```
 
-> 请将 `cwd` 替换为你本地项目的实际路径。
+> **Windows 提示**：若某些系统环境无法直接解析 `npx`，可将 `"command"` 设为 `"npx.cmd"`。
 
-### 4. 重启 Claude Desktop
+---
 
-配置完成后重启 Claude Desktop，在对话中即可看到命语的工具图标。你可以直接让 Claude 调用排盘工具。
+### 方式二：从源码仓库运行（面向开发者与贡献者）
+
+如果你克隆了源码仓库进行二次开发或调试：
+
+```bash
+git clone https://github.com/Brhiza/mingyu.git
+cd mingyu
+corepack enable
+pnpm install --frozen-lockfile
+pnpm --filter mingyu-core build
+pnpm mcp
+```
+
+在 Claude Desktop 中配置源码运行：
+
+```json
+{
+  "mcpServers": {
+    "mingyu": {
+      "command": "pnpm.cmd",
+      "args": ["mcp"],
+      "cwd": "C:\\path\\to\\mingyu"
+    }
+  }
+}
+```
+
+> **说明**：macOS / Linux 用户请将 `"command"` 设为 `"pnpm"`；`cwd` 填入你本地克隆目录的绝对路径。
+
+### 重启 Claude Desktop
+
+配置完成后重启客户端，在对话中即可看到命语提供的 25+ 门命理排盘与提示词工具图标。
 
 ## 使用示例
 
@@ -244,13 +266,14 @@ npm run mcp
 
 任何支持 MCP 协议的客户端都可以使用，如 Cursor、Cline、Windsurf 等。
 
-配置方式类似：指定启动命令为 `npm run mcp`，工作目录为项目根目录即可。
+- **推荐方式（npx）**：指定命令为 `npx`，参数为 `["-y", "mingyu-mcp"]` 即可，无需指定工作目录。
+- **源码开发方式**：Windows 指定 `pnpm.cmd`，macOS/Linux 指定 `pnpm`，参数为 `["mcp"]`，工作目录填入仓库根目录。
 
 ## 工作原理
 
 MCP Server 通过 stdio transport 与 AI 客户端通信：
 
-1. AI 客户端启动 `npm run mcp`
+1. AI 客户端启动 `npx -y mingyu-mcp`（或本地 `pnpm mcp`）
 2. MCP Server 注册排盘 tool 和一站式提示词 tool
 3. AI 根据对话内容决定调用哪个 tool
 4. MCP Server 执行排盘引擎，返回结构化 JSON 数据

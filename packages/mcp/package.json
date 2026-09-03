@@ -1,0 +1,33 @@
+{
+  "name": "mingyu-mcp",
+  "version": "0.1.0",
+  "description": "命语 (Mingyu) 官方 Model Context Protocol (MCP) 服务端 CLI，通过 npx 开箱即用",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mingyu",
+    "算命",
+    "占卜",
+    "八字",
+    "紫微斗数",
+    "奇门遁甲",
+    "六爻",
+    "星盘"
+  ],
+  "author": "Brhiza",
+  "license": "AGPL-3.0",
+  "homepage": "https://github.com/Brhiza/mingyu#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Brhiza/mingyu.git",
+    "directory": "packages/mcp"
+  },
+  "type": "module",
+  "bin": {
+    "mingyu-mcp": "./dist/server.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

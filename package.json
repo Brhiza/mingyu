@@ -22,6 +22,7 @@
   "scripts": {
     "dev": "vite",
     "build": "pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs",
+    "build:mcp": "pnpm --filter mingyu-core build && vite build --config vite.mcp.config.ts",
     "build:server": "pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs --server",
     "preview": "vite preview",
     "test": "pnpm --filter mingyu-core build && pnpm test:unit:run",
