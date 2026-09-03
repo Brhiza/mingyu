@@ -1,4 +1,4 @@
-name: Publish mingyu-core to npm
+name: Publish mingyu packages to npm
 
 on:
   release:
@@ -21,9 +21,22 @@ jobs:
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
       - run: pnpm install --frozen-lockfile
+      - name: 构建 MCP 发布包
+        run: pnpm run build:mcp
       - run: pnpm run package:check
       - run: pnpm test:ci
-      - name: 发布至 npm
+      - name: 发布 mingyu-core 至 npm
         run: pnpm --filter mingyu-core publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: 检查并发布 mingyu-mcp 至 npm
+        shell: bash
+        run: |
+          mcp_version="$(node -p "require('./packages/mcp/package.json').version")"
+          if npm view "mingyu-mcp@${mcp_version}" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
+            echo "mingyu-mcp@${mcp_version} 已存在，跳过重复发布"
+          else
+            pnpm --filter mingyu-mcp publish --no-git-checks --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
