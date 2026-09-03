@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import { memo, useState } from 'react';
 import type { QizhengAspect, QizhengResult, QizhengStar } from 'mingyu-core/qizheng';
 
 const SIGN_INDEXES = Array.from({ length: 12 }, (_, index) => index);

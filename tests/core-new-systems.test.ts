@@ -368,7 +368,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.sixteenGods.length, 16);
   assert.equal(r.model.id, 'taiyi-four-calculations-72-table');
   assert.ok(r.prompt.includes('太乙神数'));
-  assert.doesNotMatch(r.prompt, /十六神/);
+  assert.match(r.prompt, /十六神：/);
   assert.ok(r.prompt.includes('主客定算'));
   assert.ok(r.prompt.includes('将参'));
   assert.ok(r.prompt.includes('核心宫位'));

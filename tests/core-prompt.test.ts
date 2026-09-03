@@ -101,7 +101,7 @@ test('npm 八字提示词应保留指定岁运的上下层资料', () => {
   assert.match(prompt, new RegExp(String(year.year)));
   assert.match(prompt, new RegExp(context.cycleLabel));
   assert.match(prompt, /上层岁运/);
-  assert.doesNotMatch(prompt, /该流年包含的流月/);
+  assert.match(prompt, /该流年包含的流月/);
   assert.doesNotMatch(prompt, /交节时刻/);
 
   const sections = formatBaziFortuneSelection(context);
