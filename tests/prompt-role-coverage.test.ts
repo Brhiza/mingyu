@@ -47,6 +47,13 @@ test('通用与分体系答题骨架保持简短、中性且可重复调用', ()
   assert.match(buildCustomQuestionTask('盘面资料'), new RegExp(PROMPT_ANSWER_FRAMEWORK));
 });
 
+test('合参答题骨架不要求未列出的岁运或运限', () => {
+  assert.doesNotMatch(PROMPT_METHOD_ANSWER_FRAMEWORKS['bazi-compatibility'], /共同岁运/);
+  assert.doesNotMatch(PROMPT_METHOD_ANSWER_FRAMEWORKS['ziwei-compatibility'], /运限/);
+  assert.doesNotMatch(PROMPT_METHOD_ANSWER_FRAMEWORKS['bazi-ziwei'], /共同岁运|运限层级/);
+  assert.match(PROMPT_METHOD_ANSWER_FRAMEWORKS['bazi-ziwei-mismatch'], /分开陈述/);
+});
+
 test('全部体系都提供传统判断规则与传统依据', () => {
   Object.entries(PROMPT_GUIDANCE_TEXT).forEach(([method, guidance]) => {
     assert.ok('tradition' in guidance, `${method} 应提供传统判断规则`);

@@ -478,13 +478,11 @@ function formatLiurenInfo(data: LiurenData) {
   ].filter(Boolean);
   const guaTiText = data.guaTi?.length ? data.guaTi.join('、') : '';
   const guaTiSection = guaTiText ? `课体：${guaTiText}` : '';
-  const shenShaText = (
-    data.shenShaFacts?.length
-      ? data.shenShaFacts.map((item) => `${item.name}在${item.target}`)
-      : data.shenShaSummary || []
-  )
-    .slice(0, 6)
-    .join('、');
+  const shenShaAll = data.shenShaFacts?.length
+    ? data.shenShaFacts.map((item) => `${item.name}在${item.target}`)
+    : data.shenShaSummary || [];
+  const shenShaText = shenShaAll.slice(0, 6).join('、');
+  const shenShaAppendix = shenShaAll.slice(6).join('、');
   return [
     '占法：大六壬',
     `核心结构：${plateSummaryText.join('；')}`,
@@ -492,6 +490,7 @@ function formatLiurenInfo(data: LiurenData) {
     mainLineText.length ? `课传主线：${mainLineText.join('；')}` : '',
     guaTiSection,
     shenShaText ? `神煞：${shenShaText}` : '',
+    shenShaAppendix ? `神煞附录：${shenShaAppendix}` : '',
     data.earthlyPlate?.length ? `地盘：${data.earthlyPlate.join('、')}` : '',
     data.heavenlyPlate?.length
       ? `天盘：${data.heavenlyPlate.map((item) => `${item.branch}${item.god ? `乘${item.god}` : ''}`).join('、')}`

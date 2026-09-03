@@ -8,7 +8,7 @@ import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../type
 import { formatBaziForPrompt, type BaziChartResult, type FortuneSelectionContext } from '../bazi';
 import type { ZiweiRuntime } from '../ziwei/runtime';
 import { formatBaziFortuneSelection } from './bazi-fortune';
-import { buildSerializableZiweiResult } from './ziwei';
+import { buildSerializableZiweiResult, formatZiweiPayloadForPrompt } from './ziwei';
 import { formatPromptCurrentTime } from './current-time';
 import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
 import {
@@ -307,36 +307,13 @@ function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
   return items.length ? items.join('；') : isOriginScope ? '未标出生年四化' : '未标出当前四化';
 }
 
-function formatScopeHits(payload: AnalysisPayloadV1) {
-  const hits = payload.palaces.flatMap((palace) =>
-    palace.scope_hits.map(
-      (hit) =>
-        `${hit}，本命${palace.name}宫${palace.major_stars.length ? `，主星${palace.major_stars.map((star) => star.name).join('、')}` : ''}`,
-    ),
-  );
-  if (!hits.length) return '未标出明显运限落宫';
-  const lead = hits.slice(0, 8);
-  return lead.length === hits.length
-    ? hits.join('；')
-    : `${lead.join('；')}。运限命中明细：${hits.join('；')}`;
-}
-
 export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
   const lines = FULL_ZIWEI_SCOPE_ORDER.map((scope) => {
     const payload = result.payloadByScope[scope];
     if (!payload) return '';
-    const activePalace = payload.palaces.find(
-      (palace) => palace.index === payload.active_scope.palace_index,
-    );
-    const details =
-      scope === 'origin'
-        ? ''
-        : `当前四化：${formatMutagenMap(payload)}。运限命中：${formatScopeHits(payload)}。`;
-    return `${SCOPE_LABELS[scope]}：分析对象：${payload.active_scope.label || SCOPE_LABELS[scope]}。${activePalace ? `当前落宫：本命${activePalace.name}宫。` : ''}${details}`;
+    return `${SCOPE_LABELS[scope]}：分析对象：${payload.active_scope.label || SCOPE_LABELS[scope]}。\n${formatZiweiPayloadForPrompt(payload)}`;
   }).filter(Boolean);
-  return lines.length
-    ? ['完整紫微运限资料：', ...lines.map((line, index) => `${index + 1}. ${line}`)].join('\n')
-    : '';
+  return lines.length ? `完整紫微运限资料：\n${lines.join('\n\n')}` : '';
 }
 
 function formatStar(star: StarFact) {
@@ -560,14 +537,20 @@ export function buildBaziZiweiPromptForResults(params: {
   const mismatched = ziweiScope !== 'origin' && !fortuneSelection;
   const task =
     params.mode === 'custom'
-      ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
+      ? buildCustomQuestionTask(
+          '八字和紫微盘面资料',
+          aligned ? 'bazi-ziwei-aligned' : mismatched ? 'bazi-ziwei-mismatch' : 'bazi-ziwei',
+        )
       : aligned
         ? buildPromptTask(
             '请先分别给出同一时间范围内的八字岁运依据和紫微运限依据，再交叉印证后回答问题。',
-            'bazi-ziwei',
+            'bazi-ziwei-aligned',
           )
         : mismatched
-          ? buildPromptTask('八字按本命结构、紫微按所列运限分别成论后交叉印证。', 'bazi-ziwei')
+          ? buildPromptTask(
+              '八字按本命结构、紫微按所列运限分别成论后交叉印证，时间层未对齐时分开陈述。',
+              'bazi-ziwei-mismatch',
+            )
           : buildPromptTask('请依据双方本命结构交叉印证后回答问题。', 'bazi-ziwei');
   return joinSections([
     buildPromptGuidance('bazi-ziwei'),

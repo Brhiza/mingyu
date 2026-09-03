@@ -112,6 +112,20 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
     ],
   },
   {
+    sampleName: '七政四余行限流曜',
+    requiredFields: [
+      '【当前时间】',
+      '【问题】',
+      '【任务】',
+      '【传统依据】',
+      '【七政四余 · 果老星宗】',
+      '【行限】',
+      '【流曜】',
+      '【流曜周期】',
+      '周期主轴',
+    ],
+  },
+  {
     sampleName: '六爻',
     requiredFields: ['【当前时间】', '【问题】', '【任务】', '【传统依据】', '用神'],
   },
@@ -459,6 +473,33 @@ function assertSamplePromptScopesAreSupported(samples: PromptSample[]) {
       sampleName: '生肖流年',
       patterns: [{ label: '出生年支不能推出四季节律', pattern: /四季节律/ }],
     },
+    {
+      sampleName: '八字双盘',
+      patterns: [
+        {
+          label: '无共同岁运资料却要求共同岁运推演',
+          pattern: /结合共同岁运推演/,
+        },
+      ],
+    },
+    {
+      sampleName: '紫微双盘',
+      patterns: [
+        {
+          label: '无运限资料却要求结合运限推演',
+          pattern: /结合运限推演/,
+        },
+      ],
+    },
+    {
+      sampleName: '八字紫微合参',
+      patterns: [
+        {
+          label: '时间层未对齐却要求共同岁运与运限层级',
+          pattern: /在共同岁运与运限层级推演/,
+        },
+      ],
+    },
   ];
   const messages: string[] = [];
 
@@ -467,6 +508,33 @@ function assertSamplePromptScopesAreSupported(samples: PromptSample[]) {
     if (!sample) continue;
     for (const { label, pattern } of patterns) {
       if (pattern.test(sample.prompt)) messages.push(`${sampleName} 出现越界内容：${label}`);
+    }
+  }
+
+  const taskSupportRules: Array<{
+    sampleName: string;
+    ifPrompt: RegExp;
+    require: RegExp;
+    label: string;
+  }> = [
+    {
+      sampleName: '七政四余行限流曜',
+      ifPrompt: /【任务】/,
+      require: /【行限】[\s\S]*【流曜周期】/,
+      label: '任务要求阶段判断但缺少行限或流曜周期',
+    },
+    {
+      sampleName: '八字紫微合参',
+      ifPrompt: /尚未对齐到同一日期/,
+      require: /时间层未对齐时分开陈述|按各自已列资料成论/,
+      label: '已声明未对齐却未改任务口径',
+    },
+  ];
+  for (const { sampleName, ifPrompt, require, label } of taskSupportRules) {
+    const sample = samples.find((item) => item.name === sampleName);
+    if (!sample) continue;
+    if (ifPrompt.test(sample.prompt) && !require.test(sample.prompt)) {
+      messages.push(`${sampleName} 资料不能支撑任务：${label}`);
     }
   }
 
@@ -649,6 +717,28 @@ async function buildSamples(): Promise<PromptSample[]> {
       method: 'qizheng',
       currentTime: fixedNow,
     });
+    const qizhengPeriodData = qizheng.generateQizheng({
+      year: 1993,
+      month: 4,
+      day: 8,
+      hour: 23,
+      minute: 34,
+      latitude: 1.3521,
+      longitude: 103.8198,
+      timezone: 8,
+      useTrueSolarTime: false,
+      gender: 'male',
+      flowYear: 2022,
+      flowMonth: 6,
+    });
+    const qizhengPeriodPrompt = buildMetaphysicsPrompt(
+      qizhengPeriodData.prompt,
+      '请结合行限与流曜周期看2022年6月的阶段变化。',
+      {
+        method: 'qizheng',
+        currentTime: fixedNow,
+      },
+    );
 
     const auditDate = new Date(CUSTOM_DATE);
     const commonQuestion = COMMON_PROJECT_QUESTION;
@@ -968,6 +1058,13 @@ async function buildSamples(): Promise<PromptSample[]> {
           '七政、罗计、月孛采用现代天文位置，紫炁采用《七政算内篇》均速模型。',
           '二十八宿采用目标日期真实距星黄经边界。',
         ],
+      },
+      {
+        name: '七政四余行限流曜',
+        source: '项目七政四余算法真实生成；西历 1993年4月8日 23:34，新加坡；流年 2022 年 6 月。',
+        inputSummary: '本命西历 1993年4月8日 23:34；男命；流年 2022 年 6 月。',
+        prompt: qizhengPeriodPrompt,
+        notes: ['行限按命宫起大限小限；流曜周期扫描该月换宫、停逆与精确吊照。'],
       },
       {
         name: '六爻',

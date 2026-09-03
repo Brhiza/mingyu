@@ -47,7 +47,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"packages/core/src/**/*.ts\" \"packages/core/scripts/**/*.mjs\" \"tests/**/*.ts\" \"build/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"packages/core/src/**/*.ts\" \"packages/core/scripts/**/*.mjs\" \"tests/**/*.ts\" \"build/**/*.ts\"",
     "prompt:check": "pnpm test:prompt && pnpm prompt:audit",
-    "prompt:audit": "tsx --tsconfig tsconfig.app.json scripts/generate-prompt-audit.ts",
+    "prompt:audit": "pnpm --filter mingyu-core build && tsx --tsconfig tsconfig.app.json scripts/generate-prompt-audit.ts",
     "prompt:audit:all": "pnpm prompt:audit",
     "contest:evaluate": "node scripts/evaluate-fortune-contest-model.js",
     "mcp": "tsx --tsconfig mcp/tsconfig.json mcp/src/server.ts",

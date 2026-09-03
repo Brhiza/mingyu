@@ -180,11 +180,14 @@ export function formatZiweiPayloadForPrompt(
 ) {
   const basic = payload.basic_info;
   const active = payload.active_scope;
-  const evidence = payload.evidence_pool.slice(0, options.maxEvidence ?? 30).map((item) => {
+  const evidenceItems = payload.evidence_pool.map((item) => {
     const level = item.level ? `【${item.level}】` : '';
     const detail = item.promptText || item.description;
     return `${level}${item.title}：${detail}`;
   });
+  const evidenceLimit = options.maxEvidence ?? 30;
+  const evidencePrimary = evidenceItems.slice(0, evidenceLimit);
+  const evidenceAppendix = evidenceItems.slice(evidenceLimit);
 
   const focusNames = new Set(options.focusPalaceNames ?? []);
   const palaces = focusNames.size
@@ -206,8 +209,10 @@ export function formatZiweiPayloadForPrompt(
     `${isOriginScope ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, isOriginScope)}`,
     '十二宫资料：',
     ...selectedPalaces.map((palace) => `- ${formatPalace(palace, isOriginScope)}`),
-    evidence.length ? '证据资料：' : '',
-    ...evidence.map((item) => `- ${item}`),
+    evidencePrimary.length ? '证据资料：' : '',
+    ...evidencePrimary.map((item) => `- ${item}`),
+    evidenceAppendix.length ? '证据附录：' : '',
+    ...evidenceAppendix.map((item) => `- ${item}`),
   ]
     .filter(Boolean)
     .join('\n');

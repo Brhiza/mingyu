@@ -3,6 +3,7 @@
  * @description 依据年干支推导岁运太过不及、五步主客运、司天在泉以及六步主气与客气。
  * @传统依据 《素问·天元纪大论》《素问·五运行大论》《素问·六微旨大论》及运气七篇大论。
  */
+import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
 import { buildPromptTask, insertPromptSectionBeforeHeading } from '../prompt/guidance';
@@ -76,6 +77,8 @@ export interface WuyunMovementStep {
     description: string;
     precision: '传统日期序号';
   };
+  gregorianStart?: string;
+  gregorianEnd?: string;
   periodRule: string;
   hostMovement: WuyunMovementProfile;
   guestMovement: WuyunMovementProfile;
@@ -97,6 +100,8 @@ export interface LiuqiStep {
   order: number;
   label: '初之气' | '二之气' | '三之气' | '四之气' | '五之气' | '终之气';
   solarTerms: string[];
+  gregorianStart?: string;
+  gregorianEnd?: string;
   hostQi: LiuqiProfile;
   guestQi: LiuqiProfile;
   hostGuestRelation: {
@@ -287,6 +292,83 @@ const QI_STEP_LABELS: LiuqiStep['label'][] = [
   '终之气',
 ];
 
+const SOLAR_TERM_INDEX: Record<string, number> = {
+  冬至: 0,
+  小寒: 1,
+  大寒: 2,
+  立春: 3,
+  雨水: 4,
+  惊蛰: 5,
+  春分: 6,
+  清明: 7,
+  谷雨: 8,
+  立夏: 9,
+  小满: 10,
+  芒种: 11,
+  夏至: 12,
+  小暑: 13,
+  大暑: 14,
+  立秋: 15,
+  处暑: 16,
+  白露: 17,
+  秋分: 18,
+  寒露: 19,
+  霜降: 20,
+  立冬: 21,
+  小雪: 22,
+  大雪: 23,
+};
+
+function padDatePart(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function solarTermCivilDate(year: number, name: string) {
+  const index = SOLAR_TERM_INDEX[name];
+  if (index === undefined) throw new Error(`五运六气缺少节气序号：${name}`);
+  const evidence = calculateSolarTermEvidence(year, index);
+  const shifted = new Date(evidence.utcTimestamp + 8 * 3_600_000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
+}
+
+function addCivilDays(date: { year: number; month: number; day: number }, days: number) {
+  const utc = Date.UTC(date.year, date.month - 1, date.day) + days * 86_400_000;
+  const next = new Date(utc);
+  return {
+    year: next.getUTCFullYear(),
+    month: next.getUTCMonth() + 1,
+    day: next.getUTCDate(),
+  };
+}
+
+function formatCivilDate(date: { year: number; month: number; day: number }) {
+  return `${date.year}-${padDatePart(date.month)}-${padDatePart(date.day)}`;
+}
+
+function parseCivilDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  return { year, month, day };
+}
+
+function compareCivilDate(
+  left: { year: number; month: number; day: number },
+  right: { year: number; month: number; day: number },
+) {
+  return left.year - right.year || left.month - right.month || left.day - right.day;
+}
+
+function isDateInRange(
+  date: { year: number; month: number; day: number },
+  start: { year: number; month: number; day: number },
+  end: { year: number; month: number; day: number },
+) {
+  return compareCivilDate(date, start) >= 0 && compareCivilDate(date, end) <= 0;
+}
+
 /** 一年二十四节气按六步分主，每步四个节气。 */
 export const QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, string])[] = [
   ['大寒', '立春', '雨水', '惊蛰'],
@@ -460,7 +542,7 @@ function movementProfile(
  * 主运木火土金水年年不变；各音太少由本年中运所在五音向前后相生推定。
  * 客运以中运为初运，按五行相生轮转，并沿五音太少相生次序逐步交替。
  */
-function buildMovementSteps(annualMovement: AnnualMovement): WuyunMovementStep[] {
+function buildMovementSteps(annualMovement: AnnualMovement, year?: number): WuyunMovementStep[] {
   const annualIndex = HOST_MOVEMENT_ORDER.indexOf(annualMovement.element);
   if (annualIndex < 0) throw new Error(`中运五行数据缺失：${annualMovement.element}`);
 
@@ -472,7 +554,7 @@ function buildMovementSteps(annualMovement: AnnualMovement): WuyunMovementStep[]
       mod(index - annualIndex, 2) === 0 ? annualToneStrength : oppositeToneStrength,
     ),
   );
-  const steps = MOVEMENT_STEP_LABELS.map((label, index) => {
+  const steps: WuyunMovementStep[] = MOVEMENT_STEP_LABELS.map((label, index) => {
     const boundary = MOVEMENT_STEP_BOUNDARIES[index];
     const guestElement = HOST_MOVEMENT_ORDER[mod(annualIndex + index, 5)];
     const hostMovement = hostMovements[index];
@@ -498,8 +580,24 @@ function buildMovementSteps(annualMovement: AnnualMovement): WuyunMovementStep[]
         guestMovement.element,
       ),
       guestRole: index === 0 ? ('中运起点' as const) : undefined,
-    };
+    } satisfies WuyunMovementStep;
   });
+
+  if (year !== undefined) {
+    const starts = steps.map((step) =>
+      addCivilDays(
+        solarTermCivilDate(year, step.startBoundary.solarTerm),
+        step.startBoundary.offsetDays,
+      ),
+    );
+    const nextYearStart = addCivilDays(solarTermCivilDate(year + 1, '大寒'), 0);
+    for (let index = 0; index < steps.length; index += 1) {
+      const start = starts[index];
+      const end = addCivilDays(index + 1 < starts.length ? starts[index + 1] : nextYearStart, -1);
+      steps[index].gregorianStart = formatCivilDate(start);
+      steps[index].gregorianEnd = formatCivilDate(end);
+    }
+  }
 
   const firstGuest = steps[0]?.guestMovement;
   if (
@@ -569,11 +667,11 @@ function buildAnnualConformities(
   };
 }
 
-function buildQiSteps(sitianName: LiuqiName): LiuqiStep[] {
+function buildQiSteps(sitianName: LiuqiName, year?: number): LiuqiStep[] {
   const sitianIndex = GUEST_QI_ORDER.indexOf(sitianName);
   if (sitianIndex < 0) throw new Error(`司天气序数据缺失：${sitianName}`);
 
-  return QI_STEP_LABELS.map((label, index) => {
+  const steps: LiuqiStep[] = QI_STEP_LABELS.map((label, index) => {
     const guestName = GUEST_QI_ORDER[mod(sitianIndex + index - 2, 6)];
     const hostQi = profile(HOST_QI_ORDER[index]);
     const guestQi = profile(guestName);
@@ -584,9 +682,20 @@ function buildQiSteps(sitianName: LiuqiName): LiuqiStep[] {
       hostQi,
       guestQi,
       hostGuestRelation: buildHostGuestRelation(hostQi.element, guestQi.element),
-      guestRole: index === 2 ? '司天' : index === 5 ? '在泉' : undefined,
-    };
+      guestRole: index === 2 ? ('司天' as const) : index === 5 ? ('在泉' as const) : undefined,
+    } satisfies LiuqiStep;
   });
+  if (year !== undefined) {
+    const starts = steps.map((step) => solarTermCivilDate(year, step.solarTerms[0]));
+    const nextYearStart = solarTermCivilDate(year + 1, '大寒');
+    for (let index = 0; index < steps.length; index += 1) {
+      const start = starts[index];
+      const end = addCivilDays(index + 1 < starts.length ? starts[index + 1] : nextYearStart, -1);
+      steps[index].gregorianStart = formatCivilDate(start);
+      steps[index].gregorianEnd = formatCivilDate(end);
+    }
+  }
+  return steps;
 }
 
 function normalizeQuestion(question?: string): string | undefined {
@@ -614,15 +723,41 @@ export function buildWuyunLiuqiPrompt(
       `司天与中运：${result.annualRelation.kind}；${result.annualRelation.basis}`,
       `年度符会：${result.annualConformities.names.length ? result.annualConformities.names.join('、') : '未形成天符、岁会、太乙天符、同天符或同岁会'}`,
       '五步主客运：',
-      ...result.movementSteps.map(
-        (step) =>
-          `${step.order}. ${step.label}（${step.periodRule}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`,
-      ),
+      ...result.movementSteps.map((step) => {
+        const dates =
+          step.gregorianStart && step.gregorianEnd
+            ? `；公历${step.gregorianStart}至${step.gregorianEnd}`
+            : '';
+        const current =
+          result.input.year && step.gregorianStart && step.gregorianEnd
+            ? isDateInRange(
+                { year: result.input.year, month: 6, day: 30 },
+                parseCivilDate(step.gregorianStart),
+                parseCivilDate(step.gregorianEnd),
+              )
+              ? '；年中落在此步'
+              : ''
+            : '';
+        return `${step.order}. ${step.label}（${step.periodRule}${dates}${current}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`;
+      }),
       '六步主客气：',
-      ...result.qiSteps.map(
-        (step) =>
-          `${step.order}. ${step.label}（${step.solarTerms.join('、')}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`,
-      ),
+      ...result.qiSteps.map((step) => {
+        const dates =
+          step.gregorianStart && step.gregorianEnd
+            ? `；公历${step.gregorianStart}至${step.gregorianEnd}`
+            : '';
+        const current =
+          result.input.year && step.gregorianStart && step.gregorianEnd
+            ? isDateInRange(
+                { year: result.input.year, month: 6, day: 30 },
+                parseCivilDate(step.gregorianStart),
+                parseCivilDate(step.gregorianEnd),
+              )
+              ? '；年中落在此步'
+              : ''
+            : '';
+        return `${step.order}. ${step.label}（${step.solarTerms.join('、')}${dates}${current}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`;
+      }),
     ].join('\n'),
   ];
   sections.push(
@@ -663,8 +798,8 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
   };
   const sitian = profile(pair[0]);
   const zaiquan = profile(pair[1]);
-  const movementSteps = buildMovementSteps(annualMovement);
-  const qiSteps = buildQiSteps(pair[0]);
+  const movementSteps = buildMovementSteps(annualMovement, resolved.year);
+  const qiSteps = buildQiSteps(pair[0], resolved.year);
   if (qiSteps[2].guestQi.name !== sitian.name || qiSteps[5].guestQi.name !== zaiquan.name) {
     throw new Error(`客气轮转与司天在泉不一致：${resolved.yearGanZhi}`);
   }

@@ -48,6 +48,11 @@ import {
   type QizhengMansionBoundary,
 } from './mansion-boundaries';
 import {
+  scanQizhengPeriodEvents,
+  type QizhengPeriodEventCollection,
+  type QizhengPeriodMode,
+} from './period-events';
+import {
   buildQizhengTimeLords,
   formatQizhengTimeLordPrompt,
   type QizhengTimeLordResult,
@@ -474,6 +479,7 @@ export interface QizhengFlowingStarsResult {
   localDateTime: string;
   stars: QizhengFlowingStar[];
   transits: QizhengAspect[];
+  periodEvents?: QizhengPeriodEventCollection;
 }
 
 const QIZHENG_ASPECTS: ReadonlyArray<{
@@ -991,6 +997,31 @@ function astronomyEclipticLongitude(body: Body, utcMs: number): number {
     return EclipticGeoMoon(time).lon;
   }
   return Ecliptic(GeoVector(body, time, true)).elon;
+}
+
+function sampleQizhengLongitudes(utcMs: number): Array<{ name: string; longitude: number }> {
+  const north = trueNodeLongitude(utcMs);
+  const samples: Array<{ name: string; longitude: number }> = [];
+  for (const [celestialName, meta] of Object.entries(PLANET_NAMES)) {
+    const body = PLANET_BODIES[celestialName];
+    if (!body) continue;
+    samples.push({
+      name: meta.label,
+      longitude: normalizeLongitude(astronomyEclipticLongitude(body, utcMs)),
+    });
+  }
+  samples.push({ name: '罗睺(火余)', longitude: normalizeLongitude(north) });
+  samples.push({ name: '计都(土余)', longitude: normalizeLongitude(north + 180) });
+  samples.push({
+    name: '月孛(水余)',
+    longitude: normalizeLongitude(moshierMeanLilithLongitude(utcMs)),
+  });
+  const elapsedDays = (utcMs - ZIQI_MODERN_EPOCH_UTC_MS) / 86_400_000;
+  samples.push({
+    name: '紫炁(木余)',
+    longitude: normalizeLongitude(ZIQI_MODERN_EPOCH_LONGITUDE + elapsedDays * ZIQI_DAILY_MOTION),
+  });
+  return samples;
 }
 
 function astronomyRetrograde(body: Body, utcMs: number): boolean {
@@ -1716,8 +1747,8 @@ function resolveQizhengFlowCivilInput(natal: QizhengInput):
       },
       timestampNote:
         natal.flowHour === undefined
-          ? `未指定钟点时，流曜按${natal.flowYear}年${natal.flowMonth}月${natal.flowDay}日 12:00`
-          : `流曜按${natal.flowYear}年${natal.flowMonth}月${natal.flowDay}日 ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+          ? `流曜周期按${natal.flowYear}年${natal.flowMonth}月${natal.flowDay}日扫描；落宫取当日 12:00`
+          : `流曜周期按${natal.flowYear}年${natal.flowMonth}月${natal.flowDay}日扫描；落宫取 ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
     };
   }
   if (natal.flowMonth !== undefined) {
@@ -1730,7 +1761,7 @@ function resolveQizhengFlowCivilInput(natal: QizhengInput):
         hour: 12,
         minute: 0,
       },
-      timestampNote: `未指定流日时，流曜按${natal.flowYear}年${natal.flowMonth}月15日 12:00`,
+      timestampNote: `未指定流日时，流曜周期按${natal.flowYear}年${natal.flowMonth}月整月扫描；落宫取月中 15日 12:00，不代替整月`,
     };
   }
   const lichun = calculateSolarTermEvidence(natal.flowYear, 3);
@@ -1744,7 +1775,7 @@ function resolveQizhengFlowCivilInput(natal: QizhengInput):
       hour: parts.hour,
       minute: parts.minute,
     },
-    timestampNote: `未指定流月时，流曜按${natal.flowYear}年立春交节时刻`,
+    timestampNote: `未指定流月时，流曜周期自立春扫描至次年立春；落宫取立春交节，不代替全年`,
   };
 }
 
@@ -1848,9 +1879,60 @@ function collectQizhengStars(input: QizhengInput): {
   return { stars, mansionBoundaries, ziqi, calculationContext };
 }
 
+function localPartsToUtcMs(
+  parts: { year: number; month: number; day: number; hour: number; minute: number },
+  timezone: number,
+) {
+  return (
+    Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute) -
+    timezone * 3_600_000
+  );
+}
+
+function resolveQizhengPeriodWindow(natal: QizhengInput): {
+  startUtcMs: number;
+  endUtcMs: number;
+  mode: QizhengPeriodMode;
+} {
+  const timezone = natal.timezone ?? 8;
+  if (natal.flowMonth !== undefined && natal.flowDay !== undefined) {
+    const start = localPartsToUtcMs(
+      {
+        year: natal.flowYear as number,
+        month: natal.flowMonth,
+        day: natal.flowDay,
+        hour: 0,
+        minute: 0,
+      },
+      timezone,
+    );
+    return { startUtcMs: start, endUtcMs: start + 24 * 60 * 60 * 1000, mode: 'daily' };
+  }
+  if (natal.flowMonth !== undefined) {
+    const year = natal.flowYear as number;
+    const month = natal.flowMonth;
+    const start = localPartsToUtcMs({ year, month, day: 1, hour: 0, minute: 0 }, timezone);
+    const end = localPartsToUtcMs(
+      {
+        year: month === 12 ? year + 1 : year,
+        month: month === 12 ? 1 : month + 1,
+        day: 1,
+        hour: 0,
+        minute: 0,
+      },
+      timezone,
+    );
+    return { startUtcMs: start, endUtcMs: end, mode: 'monthly' };
+  }
+  const start = calculateSolarTermEvidence(natal.flowYear as number, 3).utcTimestamp;
+  const end = calculateSolarTermEvidence((natal.flowYear as number) + 1, 3).utcTimestamp;
+  return { startUtcMs: start, endUtcMs: end, mode: 'yearly' };
+}
+
 function overlayQizhengFlowingStars(
   natalStars: QizhengStar[],
   twelvePalaces: QizhengResult['twelvePalaces'],
+  natal: QizhengInput,
   flow: { flowInput: QizhengInput; timestampNote: string },
 ): QizhengFlowingStarsResult {
   const collected = collectQizhengStars(flow.flowInput);
@@ -1906,6 +1988,16 @@ function overlayQizhengFlowingStars(
     }
   }
   transits.sort((a, b) => a.orbRatio - b.orbRatio || a.orb - b.orb);
+  const window = resolveQizhengPeriodWindow(natal);
+  const periodEvents = scanQizhengPeriodEvents({
+    natalStars: natalStars.map((star) => ({ name: star.name, longitude: star.longitude })),
+    twelvePalaces,
+    startUtcMs: window.startUtcMs,
+    endUtcMs: window.endUtcMs,
+    timezone: natal.timezone ?? 8,
+    mode: window.mode,
+    sampleLongitudes: sampleQizhengLongitudes,
+  });
   return {
     year: flow.flowInput.year,
     month: flow.flowInput.month,
@@ -1916,28 +2008,38 @@ function overlayQizhengFlowingStars(
     localDateTime: collected.calculationContext.localDateTime,
     stars,
     transits,
+    periodEvents,
   };
 }
 
 function formatQizhengFlowingPrompt(flowing: QizhengFlowingStarsResult): string[] {
+  const ranked = splitPrimaryAppendix(
+    flowing.transits.map(
+      (aspect) =>
+        `${aspect.star1}与${aspect.star2}${aspect.type}（${aspect.actualAngle.toFixed(2)}°，${aspect.closeness}）`,
+    ),
+    16,
+  );
   const transitText = flowing.transits.length
-    ? flowing.transits
-        .slice(0, 16)
-        .map(
-          (aspect) =>
-            `${aspect.star1}与${aspect.star2}${aspect.type}（${aspect.actualAngle.toFixed(2)}°，${aspect.closeness}）`,
-        )
-        .join('；')
+    ? `主证：${ranked.primary.join('；')}${ranked.appendix.length ? `。附录：${ranked.appendix.join('；')}` : ''}`
     : '未见容许度内的流曜与本命吊照';
   return [
     '【流曜】',
-    `${flowing.timestampNote}；计算时刻 ${flowing.localDateTime}。`,
+    `${flowing.timestampNote}；落宫时刻 ${flowing.localDateTime}。`,
     ...flowing.stars.map(
       (star) =>
         `流曜${star.name}：在${star.xiu}宿${star.xiuDegree.toFixed(2)}度，入本命${star.signBranch}宫${star.palace}${star.dignity && star.dignity !== '—' ? `（${star.dignity}）` : ''}${star.retrograde ? '（逆）' : ''}`,
     ),
     `流曜与本命吊照：${transitText}。`,
+    ...(flowing.periodEvents ? ['【流曜周期】', flowing.periodEvents.promptText] : []),
   ];
+}
+
+function splitPrimaryAppendix(items: string[], primaryLimit: number) {
+  return {
+    primary: items.slice(0, primaryLimit),
+    appendix: items.slice(primaryLimit),
+  };
 }
 
 /** 生成七政四余盘 */
@@ -2043,7 +2145,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
 
   const flowCivil = resolveQizhengFlowCivilInput(input);
   const flowingStars = flowCivil
-    ? overlayQizhengFlowingStars(stars, twelvePalaces, flowCivil)
+    ? overlayQizhengFlowingStars(stars, twelvePalaces, input, flowCivil)
     : undefined;
   let timeLords: QizhengTimeLordResult | undefined;
   if (input.gender && flowCivil) {

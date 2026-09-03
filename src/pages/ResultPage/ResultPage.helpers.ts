@@ -200,6 +200,55 @@ export function buildEnhancedZiweiPromptPack(payload: AnalysisPayloadV1, selecte
   });
 }
 
+function hasBaziTimeLayer(text?: string) {
+  return /大运|流年|流月|流日|岁运/.test(text?.trim() || '');
+}
+
+function hasZiweiTimeLayer(text?: string) {
+  return /大限|流年|流月|流日|流时|运限/.test(text?.trim() || '');
+}
+
+function sameBaziZiweiTimeLayer(baziText?: string, ziweiText?: string) {
+  const bazi = baziText || '';
+  const ziwei = ziweiText || '';
+  if (/流年/.test(bazi) && /流年/.test(ziwei)) return true;
+  if (/流月/.test(bazi) && /流月/.test(ziwei)) return true;
+  if (/流日/.test(bazi) && /流日/.test(ziwei)) return true;
+  if (/大运/.test(bazi) && /大限/.test(ziwei)) return true;
+  return false;
+}
+
+function resolveBaziZiweiTaskMethod(params: {
+  baziFortuneSummary?: string;
+  ziweiScopeSummary?: string;
+}) {
+  const baziTime = hasBaziTimeLayer(params.baziFortuneSummary);
+  const ziweiTime = hasZiweiTimeLayer(params.ziweiScopeSummary);
+  if (
+    baziTime &&
+    ziweiTime &&
+    sameBaziZiweiTimeLayer(params.baziFortuneSummary, params.ziweiScopeSummary)
+  ) {
+    return 'bazi-ziwei-aligned';
+  }
+  if (baziTime || ziweiTime) return 'bazi-ziwei-mismatch';
+  return 'bazi-ziwei';
+}
+
+function resolveBaziZiweiTaskText(params: {
+  baziFortuneSummary?: string;
+  ziweiScopeSummary?: string;
+}) {
+  const method = resolveBaziZiweiTaskMethod(params);
+  if (method === 'bazi-ziwei-aligned') {
+    return '请先分别给出同一时间范围内的八字岁运依据和紫微运限依据，再交叉印证后回答问题。';
+  }
+  if (method === 'bazi-ziwei-mismatch') {
+    return '请先分别给出八字已列岁运依据和紫微已列运限依据，再交叉印证；时间层未对齐时分开陈述。';
+  }
+  return '请依据双方已列出的本命结构交叉印证后回答问题。';
+}
+
 export function buildBaziZiweiEnhancedPrompt(params: {
   baziResult: BaziChartResult;
   baziText?: string;
@@ -230,13 +279,8 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     `【紫微盘面信息】\n${params.ziweiText}`,
     `【任务】\n${
       isCustomQuestion
-        ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
-        : buildPromptTask(
-            sourceLabels.length > 1
-              ? '请先分别给出同一时间范围内的八字岁运依据和紫微运限依据，再交叉印证后回答问题。'
-              : '请依据双方已列出的本命结构交叉印证后回答问题。',
-            'bazi-ziwei',
-          )
+        ? buildCustomQuestionTask('八字和紫微盘面资料', resolveBaziZiweiTaskMethod(params))
+        : buildPromptTask(resolveBaziZiweiTaskText(params), resolveBaziZiweiTaskMethod(params))
     }`,
     ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
   ]

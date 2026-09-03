@@ -62,6 +62,8 @@ test('给出性别与流年后应同时生成行限和流曜，并叠到本命�
   }
   assert.match(result.prompt, /【行限】/);
   assert.match(result.prompt, /【流曜】/);
+  assert.match(result.prompt, /【流曜周期】/);
+  assert.equal(result.flowingStars?.periodEvents?.mode, 'daily');
   assert.match(result.prompt, /阶段判断只使用上面的行限与流曜资料/);
   assert.doesNotMatch(result.prompt, /只解读根基、落宿、落宫和吊照/);
 });
@@ -75,5 +77,8 @@ test('只有流年没有性别时只排流曜，不编造行限', () => {
   assert.ok(result.flowingStars);
   assert.match(result.flowingStars?.timestampNote ?? '', /立春/);
   assert.match(result.prompt, /【流曜】/);
+  assert.match(result.prompt, /【流曜周期】/);
+  assert.equal(result.flowingStars?.periodEvents?.mode, 'yearly');
+  assert.ok((result.flowingStars?.periodEvents?.events.length ?? 0) > 0);
   assert.doesNotMatch(result.prompt, /【行限】/);
 });
