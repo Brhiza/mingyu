@@ -361,6 +361,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
       timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
       useTrueSolarTime: inputState.useTrueSolarTime,
+      ...(inputState.gender === 'male' || inputState.gender === 'female'
+        ? { gender: inputState.gender }
+        : {}),
     };
   }, [baziResult, hasPreciseBirthData, inputState]);
   const residentialBirthData = useMemo(() => {

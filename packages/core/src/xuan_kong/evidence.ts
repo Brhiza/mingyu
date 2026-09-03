@@ -14,7 +14,22 @@ export interface XuanKongEvidenceSourceResult {
   };
   sitMountain: string;
   facingMountain: string;
-  plates: { yun: number[]; shan: number[]; xiang: number[] };
+  plates: { yun: number[]; shan: number[]; xiang: number[]; year?: number[]; month?: number[] };
+  palaces?: Array<{
+    gong: number;
+    name: string;
+    yunStar: number;
+    shanStar: number;
+    xiangStar: number;
+    yearStar?: number;
+    monthStar?: number;
+    shanXiangRelation: string;
+    yunStarState: string;
+  }>;
+  flowStars?: {
+    yearPlate: { year: number; starName: string; centerStar: number; calendarNote: string };
+    monthPlate?: { starName: string; centerStar: number; calendarNote: string };
+  };
   formation: string;
   combinations: Array<{ name: string; kind: string; palaces?: number[]; note: string }>;
   engine: { name: string; version: string; mode: string };
@@ -120,7 +135,34 @@ export function analyzeXuanKongEvidence(
       sources: ['三盘中宫飞星'],
       limitation: FACT_LIMIT,
     },
+    ...(result.palaces ?? []).map((palace) => ({
+      key: `xuankong:fact:palace:${palace.gong}`,
+      type: '宫位组合',
+      promptText: `${palace.name}运${palace.yunStar}山${palace.shanStar}向${palace.xiangStar}${
+        palace.yearStar !== undefined ? `年${palace.yearStar}` : ''
+      }${palace.monthStar !== undefined ? `月${palace.monthStar}` : ''}，山向${palace.shanXiangRelation}，运星${palace.yunStarState}`,
+      sources: ['三盘飞星与九星五行生克'],
+      limitation: FACT_LIMIT,
+    })),
   ];
+  if (result.flowStars) {
+    facts.push({
+      key: 'xuankong:fact:year-star',
+      type: '流年飞星',
+      promptText: `${result.flowStars.yearPlate.year}年${result.flowStars.yearPlate.starName}入中；${result.flowStars.yearPlate.calendarNote}`,
+      sources: ['三元紫白年星', 'tyme4ts 干支年九星'],
+      limitation: FACT_LIMIT,
+    });
+    if (result.flowStars.monthPlate) {
+      facts.push({
+        key: 'xuankong:fact:month-star',
+        type: '流月飞星',
+        promptText: `${result.flowStars.monthPlate.starName}入中；${result.flowStars.monthPlate.calendarNote}`,
+        sources: ['节气月紫白', 'tyme4ts 节气月九星'],
+        limitation: FACT_LIMIT,
+      });
+    }
+  }
   for (const combination of result.combinations) {
     facts.push({
       key: `xuankong:fact:combination:${combination.name}`,
@@ -146,7 +188,9 @@ export function analyzeXuanKongEvidence(
     {
       key: 'xuankong:limitation:scope',
       type: '体系边界',
-      promptText: '当前输出下卦运盘、山盘、向盘、局型与已登记组合',
+      promptText: result.flowStars
+        ? '当前输出下卦运盘、山盘、向盘、流年流月飞星、局型与已登记组合'
+        : '当前输出下卦运盘、山盘、向盘、局型与已登记组合',
       sources: ['项目玄空飞星范围声明'],
       limitation: LIMIT_LIMIT,
     },

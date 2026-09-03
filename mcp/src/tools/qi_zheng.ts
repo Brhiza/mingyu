@@ -24,6 +24,18 @@ const qiZhengSchema = z.object({
     .string()
     .optional()
     .describe('IANA 历史时区，例如 Asia/Shanghai；提供后会自动解析当年的夏令时'),
+  gender: z.enum(['male', 'female']).optional().describe('性别；排行限时需要'),
+  flowYear: z
+    .number()
+    .int()
+    .min(1900)
+    .max(2200)
+    .optional()
+    .describe('流年公元年；不传则只排本命静态盘'),
+  flowMonth: z.number().int().min(1).max(12).optional().describe('流月公历月'),
+  flowDay: z.number().int().min(1).max(31).optional().describe('流日；不传流月时按立春'),
+  flowHour: z.number().int().min(0).max(23).optional().describe('流时'),
+  flowMinute: z.number().int().min(0).max(59).optional().describe('流分'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -32,7 +44,7 @@ export function registerQizhengTool(server: McpServer) {
     'metaphysics_qizheng',
     {
       description:
-        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、庙旺、吊照及分层天文证据',
+        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、庙旺、吊照；可传性别与流年生成行限、流曜',
       inputSchema: { ...qiZhengSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
@@ -51,6 +63,12 @@ export function registerQizhengTool(server: McpServer) {
           ...(args.useTrueSolarTime !== undefined
             ? { useTrueSolarTime: args.useTrueSolarTime }
             : {}),
+          ...(args.gender ? { gender: args.gender } : {}),
+          ...(args.flowYear !== undefined ? { flowYear: args.flowYear } : {}),
+          ...(args.flowMonth !== undefined ? { flowMonth: args.flowMonth } : {}),
+          ...(args.flowDay !== undefined ? { flowDay: args.flowDay } : {}),
+          ...(args.flowHour !== undefined ? { flowHour: args.flowHour } : {}),
+          ...(args.flowMinute !== undefined ? { flowMinute: args.flowMinute } : {}),
         });
         return createStructuredToolResult({ result }, args.detailMode);
       } catch (error) {
@@ -81,6 +99,12 @@ export function registerQizhengTool(server: McpServer) {
           ...(args.useTrueSolarTime !== undefined
             ? { useTrueSolarTime: args.useTrueSolarTime }
             : {}),
+          ...(args.gender ? { gender: args.gender } : {}),
+          ...(args.flowYear !== undefined ? { flowYear: args.flowYear } : {}),
+          ...(args.flowMonth !== undefined ? { flowMonth: args.flowMonth } : {}),
+          ...(args.flowDay !== undefined ? { flowDay: args.flowDay } : {}),
+          ...(args.flowHour !== undefined ? { flowHour: args.flowHour } : {}),
+          ...(args.flowMinute !== undefined ? { flowMinute: args.flowMinute } : {}),
         });
         return createStructuredToolResult({
           result,

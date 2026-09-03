@@ -49,6 +49,9 @@ const residentialSchema = z.object({
     .describe('指南针读数的北向基准'),
   magneticDeclinationDegrees: z.number().min(-30).max(30).optional().describe('当地磁偏角'),
   measurementUncertaintyDegrees: z.number().min(0).max(45).optional().describe('测量可能误差'),
+  flowYear: z.number().int().min(1).max(9999).optional().describe('流年公元年'),
+  flowMonth: z.number().int().min(1).max(12).optional().describe('流月公历月'),
+  flowDay: z.number().int().min(1).max(31).optional().describe('流月日期'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -74,6 +77,9 @@ function calculateResidential(args: z.infer<typeof residentialSchema>) {
     ...(args.measurementUncertaintyDegrees !== undefined
       ? { measurementUncertaintyDegrees: args.measurementUncertaintyDegrees }
       : {}),
+    ...(args.flowYear !== undefined ? { flowYear: args.flowYear } : {}),
+    ...(args.flowMonth !== undefined ? { flowMonth: args.flowMonth } : {}),
+    ...(args.flowDay !== undefined ? { flowDay: args.flowDay } : {}),
   });
 }
 

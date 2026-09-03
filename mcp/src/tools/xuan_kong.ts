@@ -28,6 +28,15 @@ const xuanKongSchema = z.object({
     .max(45)
     .optional()
     .describe('测量误差，用于边界敏感判断'),
+  flowYear: z.number().int().min(1).max(9999).optional().describe('流年公元年；不传则只排宅盘'),
+  flowMonth: z.number().int().min(1).max(12).optional().describe('流月公历月；须同时提供 flowYear'),
+  flowDay: z
+    .number()
+    .int()
+    .min(1)
+    .max(31)
+    .optional()
+    .describe('流月日期；不传时按该月15日所属节气月'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -41,6 +50,9 @@ function calculateXuanKong(args: z.infer<typeof xuanKongSchema>) {
     ...(args.measurementUncertaintyDegrees !== undefined
       ? { measurementUncertaintyDegrees: args.measurementUncertaintyDegrees }
       : {}),
+    ...(args.flowYear !== undefined ? { flowYear: args.flowYear } : {}),
+    ...(args.flowMonth !== undefined ? { flowMonth: args.flowMonth } : {}),
+    ...(args.flowDay !== undefined ? { flowDay: args.flowDay } : {}),
   });
 }
 
@@ -49,7 +61,7 @@ export function registerXuanKongTool(server: McpServer) {
     'metaphysics_xuankong',
     {
       description:
-        '玄空飞星 v1：按建造/起运年与山向生成运盘、山盘、向盘、到山到向及结构化证据；不做形峦或吉凶总分',
+        '玄空飞星：按建造/起运年与山向生成运盘、山盘、向盘；可传流年流月叠紫白飞星；不做形峦或吉凶总分',
       inputSchema: {
         ...xuanKongSchema.omit({ question: true }).shape,
         ...calculationDetailShape,

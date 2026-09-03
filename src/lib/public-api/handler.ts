@@ -2541,6 +2541,16 @@ function calculateQizhengApi(input: JsonRecord) {
   const timeZoneId =
     input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
+  const gender =
+    input.gender === undefined ? undefined : readEnum(input, 'gender', ['male', 'female'] as const);
+  const flowYear =
+    input.flowYear === undefined ? undefined : readInteger(input, 'flowYear', 1900, 2200);
+  const flowMonth =
+    input.flowMonth === undefined ? undefined : readInteger(input, 'flowMonth', 1, 12);
+  const flowDay = input.flowDay === undefined ? undefined : readInteger(input, 'flowDay', 1, 31);
+  const flowHour = input.flowHour === undefined ? undefined : readInteger(input, 'flowHour', 0, 23);
+  const flowMinute =
+    input.flowMinute === undefined ? undefined : readInteger(input, 'flowMinute', 0, 59);
   try {
     return qizheng.generateQizheng({
       year,
@@ -2553,6 +2563,12 @@ function calculateQizhengApi(input: JsonRecord) {
       ...(timezone !== undefined ? { timezone } : {}),
       ...(timeZoneId ? { timeZoneId } : {}),
       ...(useTrueSolarTime ? { useTrueSolarTime: true } : {}),
+      ...(gender ? { gender } : {}),
+      ...(flowYear !== undefined ? { flowYear } : {}),
+      ...(flowMonth !== undefined ? { flowMonth } : {}),
+      ...(flowDay !== undefined ? { flowDay } : {}),
+      ...(flowHour !== undefined ? { flowHour } : {}),
+      ...(flowMinute !== undefined ? { flowMinute } : {}),
     });
   } catch (error) {
     throw new ApiError(
@@ -2581,6 +2597,11 @@ function calculateXuanKongApi(input: JsonRecord) {
     input.guaType === undefined
       ? undefined
       : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
+  const flowYear =
+    input.flowYear === undefined ? undefined : readInteger(input, 'flowYear', 1, 9999);
+  const flowMonth =
+    input.flowMonth === undefined ? undefined : readInteger(input, 'flowMonth', 1, 12);
+  const flowDay = input.flowDay === undefined ? undefined : readInteger(input, 'flowDay', 1, 31);
   try {
     return xuankong.generateXuanKong({
       year,
@@ -2590,6 +2611,9 @@ function calculateXuanKongApi(input: JsonRecord) {
       ...(sitDegree !== undefined ? { sitDegree } : {}),
       ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
       ...(guaType ? { guaType } : {}),
+      ...(flowYear !== undefined ? { flowYear } : {}),
+      ...(flowMonth !== undefined ? { flowMonth } : {}),
+      ...(flowDay !== undefined ? { flowDay } : {}),
     });
   } catch (error) {
     throw new ApiError(
@@ -2621,6 +2645,11 @@ function calculateResidentialApi(input: JsonRecord) {
     input.northReference === undefined ? undefined : readString(input, 'northReference', '');
   const magneticDeclinationDegrees = optNumber(input, 'magneticDeclinationDegrees', -30, 30);
   const measurementUncertaintyDegrees = optNumber(input, 'measurementUncertaintyDegrees', 0, 45);
+  const flowYear =
+    input.flowYear === undefined ? undefined : readInteger(input, 'flowYear', 1, 9999);
+  const flowMonth =
+    input.flowMonth === undefined ? undefined : readInteger(input, 'flowMonth', 1, 12);
+  const flowDay = input.flowDay === undefined ? undefined : readInteger(input, 'flowDay', 1, 31);
   const guaType =
     input.guaType === undefined
       ? undefined
@@ -2665,6 +2694,9 @@ function calculateResidentialApi(input: JsonRecord) {
       ...(magneticDeclinationDegrees !== undefined ? { magneticDeclinationDegrees } : {}),
       ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
       ...(guaType ? { guaType } : {}),
+      ...(flowYear !== undefined ? { flowYear } : {}),
+      ...(flowMonth !== undefined ? { flowMonth } : {}),
+      ...(flowDay !== undefined ? { flowDay } : {}),
     });
   } catch (error) {
     throw new ApiError(

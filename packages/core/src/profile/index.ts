@@ -599,6 +599,7 @@ export function birthProfileToQizhengInput(profile: BirthProfile): QizhengInput 
     ...(location?.timezone !== undefined ? { timezone: location.timezone } : {}),
     ...(location?.timeZoneId ? { timeZoneId: location.timeZoneId } : {}),
     useTrueSolarTime: profile.useTrueSolarTime === true,
+    ...(profile.gender === 'male' || profile.gender === 'female' ? { gender: profile.gender } : {}),
   };
 }
 

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import React, { memo, useState } from 'react';
 import type { QizhengAspect, QizhengResult, QizhengStar } from 'mingyu-core/qizheng';
 
 const SIGN_INDEXES = Array.from({ length: 12 }, (_, index) => index);
@@ -159,6 +159,14 @@ export const QizhengBoard = memo(function QizhengBoard({
           ) : null}
           <span className="result-chip">七政四余 {data.stars.length} 星</span>
           <span className="result-chip">吊照 {data.aspects.length} 组</span>
+          {data.timeLords ? (
+            <span className="result-chip result-chip-highlight">
+              大限 {data.timeLords.currentMajorLimit.palace}
+            </span>
+          ) : null}
+          {data.flowingStars ? (
+            <span className="result-chip">流曜 {data.flowingStars.year}年</span>
+          ) : null}
         </div>
       </div>
       <div className="result-summary-grid">
@@ -251,6 +259,62 @@ export const QizhengBoard = memo(function QizhengBoard({
           </div>
         </div>
       </div>
+      {data.timeLords || data.flowingStars ? (
+        <div className="qizheng-detail-grid">
+          {data.timeLords ? (
+            <div className="result-side-card">
+              <div className="result-side-head">
+                <h3>行限</h3>
+                <p>{data.timeLords.ageNote}</p>
+              </div>
+              <div className="result-meta-lines">
+                <div>
+                  <span>大限</span>
+                  <strong>
+                    虚岁{data.timeLords.currentMajorLimit.startNominalAge}-
+                    {data.timeLords.currentMajorLimit.endNominalAge} ·{' '}
+                    {data.timeLords.currentMajorLimit.signBranch}宫
+                    {data.timeLords.currentMajorLimit.palace}
+                  </strong>
+                </div>
+                <div>
+                  <span>小限</span>
+                  <strong>
+                    {data.timeLords.currentMinorLimit.signBranch}宫
+                    {data.timeLords.currentMinorLimit.palace}
+                  </strong>
+                </div>
+                <div>
+                  <span>太岁</span>
+                  <strong>
+                    {data.timeLords.annualBranch}入{data.timeLords.annualPalace.signBranch}宫
+                    {data.timeLords.annualPalace.palace}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {data.flowingStars ? (
+            <div className="result-side-card">
+              <div className="result-side-head">
+                <h3>流曜</h3>
+                <p>{data.flowingStars.timestampNote}</p>
+              </div>
+              <div className="qizheng-star-list">
+                {data.flowingStars.stars.map((star) => (
+                  <div className="qizheng-star-item" key={`flow-${star.name}`}>
+                    <span className="qizheng-star-name">{star.name}</span>
+                    <strong>
+                      入{star.signBranch}宫{star.palace} · {star.xiu}
+                      {star.xiuDegree.toFixed(2)}°
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="qizheng-detail-grid">
         <div className="result-side-card">
           <div className="result-side-head">

@@ -138,8 +138,22 @@ function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
                 <span className="xuankong-star xuankong-star-xiang" title="向星">
                   {palace.xiangStar}
                 </span>
+                {palace.yearStar !== undefined ? (
+                  <span className="xuankong-star" title="流年飞星">
+                    {palace.yearStar}
+                  </span>
+                ) : null}
+                {palace.monthStar !== undefined ? (
+                  <span className="xuankong-star" title="流月飞星">
+                    {palace.monthStar}
+                  </span>
+                ) : null}
               </div>
-              <div className="xuankong-cell-caption">运·山·向</div>
+              <div className="xuankong-cell-caption">
+                {palace.yearStar !== undefined || palace.monthStar !== undefined
+                  ? '运·山·向·年·月'
+                  : '运·山·向'}
+              </div>
             </div>
           );
         })}

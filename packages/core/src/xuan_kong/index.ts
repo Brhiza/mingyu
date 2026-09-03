@@ -1,7 +1,7 @@
 /**
  * @file 玄空飞星
- * @description 三元九运、下卦山向飞星、局型组合与结构化证据。
- * @传统依据 玄空飞星通行的三元九运、运盘顺飞、元龙阴阳定山向盘顺逆与下卦口径。
+ * @description 三元九运、下卦山向飞星、流年流月紫白叠宫、局型组合与结构化证据。
+ * @传统依据 玄空飞星通行的三元九运、运盘顺飞、元龙阴阳定山向盘顺逆与下卦口径；流年流月取三元紫白入中后顺飞。
  * 不做形峦、玄空大卦或吉凶总分。
  */
 
@@ -13,6 +13,32 @@ import {
   type CompassMountainPosition,
 } from '../direction';
 import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './evidence';
+import {
+  flyStars,
+  resolveFlyingStarYunState,
+  resolveShanXiangRelation,
+  resolveMonthFlyingStar,
+  resolveXuanKongFlowStars,
+  resolveYearFlyingStar,
+  type FlyingStarYunState,
+  type ShanXiangRelation,
+  type XuanKongFlowStars,
+} from './period-stars';
+
+export {
+  flyStars,
+  resolveFlyingStarYunState,
+  resolveMonthFlyingStar,
+  resolveShanXiangRelation,
+  resolveXuanKongFlowStars,
+  resolveYearFlyingStar,
+};
+export type {
+  FlyDirection,
+  FlyingStarYunState,
+  ShanXiangRelation,
+  XuanKongFlowStars,
+} from './period-stars';
 
 export type XuanKongFormation = Formation;
 
@@ -42,6 +68,12 @@ export interface XuanKongInput {
   facingDegree?: number;
   sitDegree?: number;
   measurementUncertaintyDegrees?: number;
+  /** 流年公元年；不传则只排宅盘，不排流年飞星 */
+  flowYear?: number;
+  /** 流月公历月 1-12；须同时提供 flowYear */
+  flowMonth?: number;
+  /** 流月日期；不传时按该月 15 日所属节气月 */
+  flowDay?: number;
 }
 
 export interface XuanKongPalace {
@@ -51,6 +83,10 @@ export interface XuanKongPalace {
   yunStar: number;
   shanStar: number;
   xiangStar: number;
+  yearStar?: number;
+  monthStar?: number;
+  shanXiangRelation: ShanXiangRelation;
+  yunStarState: FlyingStarYunState;
 }
 
 export interface XuanKongCombination {
@@ -68,7 +104,10 @@ export interface XuanKongResult {
     yun: number[];
     shan: number[];
     xiang: number[];
+    year?: number[];
+    month?: number[];
   };
+  flowStars?: XuanKongFlowStars;
   palaces: XuanKongPalace[];
   formation: XuanKongFormation;
   combinations: XuanKongCombination[];
@@ -140,8 +179,6 @@ const MOUNTAIN_TO_GONG: Record<string, number> = {
 
 const PERIOD_BASE_YEAR = 1864;
 
-export type FlyDirection = '顺飞' | '逆飞';
-
 const PALACE_KEY_TO_GONG: Record<string, number> = {
   kan: 1,
   kun: 2,
@@ -185,27 +222,6 @@ export function resolveXuanKongPeriod(year: number): XuanKongPeriod {
     endYear,
     label: `${yuan}${yun}运（${startYear}-${endYear}）`,
   };
-}
-
-/**
- * 九星入中后按显式方向飞布。
- * 返回长度 9 的数组，下标 0..8 对应宫 1..9。
- */
-export function flyStars(centerStar: number, direction: FlyDirection): number[] {
-  if (!Number.isInteger(centerStar) || centerStar < 1 || centerStar > 9) {
-    throw new Error(`飞星入中值必须是 1-9，当前为 ${centerStar}。`);
-  }
-  if (direction !== '顺飞' && direction !== '逆飞') {
-    throw new Error(`飞星方向必须是顺飞或逆飞，当前为 ${String(direction)}。`);
-  }
-  const order = [5, 6, 7, 8, 9, 1, 2, 3, 4];
-  const stars = Array.from({ length: 9 }, () => 0);
-  for (let i = 0; i < 9; i += 1) {
-    const gong = order[i];
-    const offset = direction === '顺飞' ? i : -i;
-    stars[gong - 1] = ((centerStar - 1 + offset + 18) % 9) + 1;
-  }
-  return stars;
 }
 
 function oppositeMountain(mountain: string): string {
@@ -304,7 +320,14 @@ function resolveMountains(input: XuanKongInput): {
   throw new Error('需提供 sitMountain/facingMountain，或 sitDegree/facingDegree。');
 }
 
-function buildPalaces(yun: number[], shan: number[], xiang: number[]): XuanKongPalace[] {
+function buildPalaces(
+  yun: number[],
+  shan: number[],
+  xiang: number[],
+  yunNumber: number,
+  yearPlate?: number[],
+  monthPlate?: number[],
+): XuanKongPalace[] {
   return GONG_ORDER.map((gong, index) => ({
     gong,
     name: GONG_NAMES[gong],
@@ -312,6 +335,10 @@ function buildPalaces(yun: number[], shan: number[], xiang: number[]): XuanKongP
     yunStar: yun[index],
     shanStar: shan[index],
     xiangStar: xiang[index],
+    ...(yearPlate ? { yearStar: yearPlate[index] } : {}),
+    ...(monthPlate ? { monthStar: monthPlate[index] } : {}),
+    shanXiangRelation: resolveShanXiangRelation(shan[index], xiang[index]),
+    yunStarState: resolveFlyingStarYunState(yun[index], yunNumber),
   }));
 }
 
@@ -321,7 +348,9 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
       const combos = result.combinations
         .filter((combo) => combo.palaces?.includes(item.gong))
         .map((combo) => combo.name);
-      return `${item.name}（${item.direction}）：运${item.yunStar} 山${item.shanStar} 向${item.xiangStar}${combos.length ? `，组合${combos.join('、')}` : ''}`;
+      const yearText = item.yearStar !== undefined ? ` 年${item.yearStar}` : '';
+      const monthText = item.monthStar !== undefined ? ` 月${item.monthStar}` : '';
+      return `${item.name}（${item.direction}）：运${item.yunStar} 山${item.shanStar} 向${item.xiangStar}${yearText}${monthText}，山向${item.shanXiangRelation}，运星${item.yunStarState}${combos.length ? `，组合${combos.join('、')}` : ''}`;
     })
     .join('\n');
   return [
@@ -341,6 +370,13 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
             .join('、')}`,
         ]
       : []),
+    result.flowStars
+      ? `流年飞星：${result.flowStars.yearPlate.year}年${result.flowStars.yearPlate.starName}入中；${result.flowStars.yearPlate.calendarNote}`
+      : '',
+    result.flowStars?.monthPlate
+      ? `流月飞星：${result.flowStars.monthPlate.starName}入中；${result.flowStars.monthPlate.calendarNote}`
+      : '',
+    result.flowStars ? '宅盘与流年流月逐宫叠加：' : '',
     '三盘九宫：',
     palaceLines,
   ]
@@ -407,14 +443,33 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
             : '当运星未同时形成到山到向',
   };
 
-  const palaces = buildPalaces(yunPlate, shanPlate, xiangPlate);
+  const flowStars = resolveXuanKongFlowStars({
+    flowYear: input.flowYear,
+    flowMonth: input.flowMonth,
+    flowDay: input.flowDay,
+  });
+  const palaces = buildPalaces(
+    yunPlate,
+    shanPlate,
+    xiangPlate,
+    period.yun,
+    flowStars?.yearPlate.plate,
+    flowStars?.monthPlate?.plate,
+  );
   const formation = chart.formation;
   const combinations = chart.combinations.map(mapCombination);
   const partial = {
     period,
     sitMountain,
     facingMountain,
-    plates: { yun: yunPlate, shan: shanPlate, xiang: xiangPlate },
+    plates: {
+      yun: yunPlate,
+      shan: shanPlate,
+      xiang: xiangPlate,
+      ...(flowStars ? { year: flowStars.yearPlate.plate } : {}),
+      ...(flowStars?.monthPlate ? { month: flowStars.monthPlate.plate } : {}),
+    },
+    ...(flowStars ? { flowStars } : {}),
     palaces,
     formation,
     combinations,
