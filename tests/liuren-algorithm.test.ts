@@ -275,8 +275,8 @@ test('大六壬三传成局应按六壬指南输出课体标签', () => {
   assert.deepEqual(getLiurenTransmissionGuaTi(['子', '子', '卯']), []);
 });
 
-test('大六壬课体登记表应固定十三条来源、稳定键和结构条件', () => {
-  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 13);
+test('大六壬课体登记表应固定十六条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 16);
   const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
   const fact = facts.find((item) => item.name === '曲直卦');
 
@@ -287,6 +287,39 @@ test('大六壬课体登记表应固定十三条来源、稳定键和结构条�
   assert.match(fact.sourceTitle, /《六壬指南》卷一/);
   assert.match(fact.sourceUrl, /oldid=854504/);
   assert.equal(fact.sourceQuote, '三传亥卯未曰曲直卦。');
+});
+
+test('大六壬《毕法赋》核心课体应准确识别初末相冲、传归生处与闭口发用', () => {
+  // 1. 初末相冲课
+  const chongFacts = getLiurenGuaTiFacts({ transmissionBranches: ['子', '辰', '午'] });
+  const chongFact = chongFacts.find((item) => item.name === '初末相冲课');
+  assert.ok(chongFact, '初末相冲课应命中');
+  assert.equal(chongFact.stableKey, 'liuren:verified-guati:chu-mo-xiang-chong');
+  assert.match(chongFact.sourceTitle, /毕法赋/);
+  assert.match(chongFact.sourceQuote, /初末相冲多反覆/);
+
+  // 2. 传归生处课 (日干甲木，末传亥水生木)
+  const shengFacts = getLiurenGuaTiFacts({
+    transmissionBranches: ['申', '午', '亥'],
+    dayStem: '甲',
+  });
+  const shengFact = shengFacts.find((item) => item.name === '传归生处课');
+  assert.ok(shengFact, '传归生处课应命中');
+  assert.equal(shengFact.stableKey, 'liuren:verified-guati:chuan-gui-sheng-chu');
+  assert.match(shengFact.sourceTitle, /毕法赋/);
+  assert.match(shengFact.sourceQuote, /传归生处真生旺/);
+
+  // 3. 闭口课 (甲子旬，旬尾为酉，初传酉发用)
+  const bikouFacts = getLiurenGuaTiFacts({
+    transmissionBranches: ['酉', '亥', '丑'],
+    dayStem: '甲',
+    dayBranch: '子',
+  });
+  const bikouFact = bikouFacts.find((item) => item.name === '闭口课');
+  assert.ok(bikouFact, '闭口课应命中');
+  assert.equal(bikouFact.stableKey, 'liuren:verified-guati:bi-kou');
+  assert.match(bikouFact.sourceTitle, /毕法赋/);
+  assert.match(bikouFact.sourceQuote, /闭口/);
 });
 
 test('大六壬新增六类课体应按完整起课条件命中', () => {

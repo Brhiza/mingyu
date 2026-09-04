@@ -934,7 +934,16 @@ export interface LiurenGuaTiFact {
   id: string;
   stableKey: string;
   name: string;
-  category: '三传支类' | '三合成局' | '发用临地' | '岁将贵人' | '四课关系' | '贵人临地';
+  category:
+    | '三传支类'
+    | '三合成局'
+    | '发用临地'
+    | '岁将贵人'
+    | '四课关系'
+    | '贵人临地'
+    | '三传冲合'
+    | '传干生克'
+    | '旬尾发用';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;
