@@ -8,6 +8,13 @@ import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
 import { buildPromptTask, insertPromptSectionBeforeHeading } from '../prompt/guidance';
 import { isKe, isSheng } from '../wuxing';
+import {
+  evaluateWuyunLiuqiPathomechanism,
+  type WuyunLiuqiPathomechanismResult,
+} from './pathomechanism';
+
+export { evaluateWuyunLiuqiPathomechanism };
+export type { WuyunLiuqiPathomechanismResult };
 
 export const WUYUN_LIUQI_SOURCES = [
   {
@@ -156,6 +163,7 @@ export interface WuyunLiuqiCalculation {
   calculationChain: string[];
   sources: Array<{ title: string; scope: string }>;
   limitations: string[];
+  pathomechanism?: WuyunLiuqiPathomechanismResult;
 }
 
 export interface WuyunLiuqiResult extends WuyunLiuqiCalculation {
@@ -722,6 +730,13 @@ export function buildWuyunLiuqiPrompt(
       `在泉：${result.zaiquan.name}`,
       `司天与中运：${result.annualRelation.kind}；${result.annualRelation.basis}`,
       `年度符会：${result.annualConformities.names.length ? result.annualConformities.names.join('、') : '未形成天符、岁会、太乙天符、同天符或同岁会'}`,
+      result.pathomechanism
+        ? result.pathomechanism.summary
+        : evaluateWuyunLiuqiPathomechanism({
+            annualMovement: result.annualMovement,
+            sitian: result.sitian,
+            yearGanZhi: result.input.yearGanZhi,
+          }).summary,
       '五步主客运：',
       ...result.movementSteps.map((step) => {
         const dates =
@@ -811,6 +826,12 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     zaiquan,
   );
 
+  const pathomechanism = evaluateWuyunLiuqiPathomechanism({
+    annualMovement,
+    sitian,
+    yearGanZhi: resolved.yearGanZhi,
+  });
+
   const calculation: WuyunLiuqiCalculation = {
     input: resolved,
     annualMovement,
@@ -820,6 +841,7 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     annualConformities,
     movementSteps,
     qiSteps,
+    pathomechanism,
     calculationChain: [
       `${resolved.yearGanZhi}取年干${stem}、年支${branch}`,
       annualMovement.basis,

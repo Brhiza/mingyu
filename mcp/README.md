@@ -26,6 +26,7 @@
 | `ziwei_compatibility`        | 紫微双盘     | 返回双方本命盘、关键宫位叠盘、生年四化跨盘落宫与证据包                     |
 | `ziwei_compatibility_prompt` | 双盘提示词   | 紫微双盘计算并返回可直接用于 AI 解读的完整证据任务书                       |
 | `bazi_ziwei_prompt`          | 八字紫微合参 | 同一出生信息同时返回八字、紫微数据和合参解读提示词                         |
+| `thematic_consultation_prompt` | 大类主题咨询 | 按通用、感情、事业、财运、健康、家庭、学业、时机等大类自动提取八字与紫微核心要素生成自包含任务书 |
 | `divine_liuyao`              | 六爻起卦     | 基于当前时间或自定义时间生成完整六爻卦象                                   |
 | `liuyao_prompt`              | 六爻提示词   | 六爻起卦并返回用神作用链、逐爻证据及可直接用于 AI 解读的结构化提示词       |
 | `divine_meihua`              | 梅花易数起卦 | 支持时间/数字/随机三种起卦方式，兼容旧 timeTrigram 参数                    |
@@ -85,6 +86,7 @@
 | -------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
 | 现在起盘、即时盘、紫占           | `instant_chart`             | `type`、`timeStandard`、真太阳时或星盘类再传 `observer`                  |
 | 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt`         | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin` |
+| 大类主题咨询（感情/事业/财运等） | `thematic_consultation_prompt` | `topic`（默认 general）、`system`（默认 bazi_ziwei）、`question`        |
 | 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt`         | `promptScope: "yearly"`，主题按事业、财运、感情等选择                    |
 | 换工作、创业、合伙、投资         | `bazi_ziwei_prompt`         | `job-change`、`startup-partnership`、`investment-partnership`            |
 | 八字格局、用神、大运流年         | `bazi_prompt`               | `promptTopic`、`baziFortuneScope`                                        |

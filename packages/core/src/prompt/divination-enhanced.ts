@@ -23,6 +23,7 @@ import {
   getDunJiaStem,
   hasTianPanStem,
 } from '../divination/algorithms/qimen/helpers/palace-utils';
+import { evaluateQimenPatternFulfillment } from '../divination/algorithms/qimen/helpers/guidance';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
 import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
@@ -65,7 +66,8 @@ function formatLiuyaoYaoBrief(item: LiuyaoData['yaosDetail'][number]) {
 }
 
 function formatHiddenSpirit(item: NonNullable<LiuyaoData['hiddenSpirits']>[number]) {
-  return `${item.sixRelative}伏第${item.position}爻${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaDizhi}${item.underYao.wuxing}下`;
+  const effectText = item.interactionEffect ? `（${item.interactionEffect}）` : '';
+  return `${item.sixRelative}伏第${item.position}爻${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaDizhi}${item.underYao.wuxing}下${effectText}`;
 }
 
 function createLiuyaoTimingEvidence(data: LiuyaoData): string {
@@ -366,6 +368,9 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.analysis.tiYongSeasonEvaluation
       ? `体用吉凶实效：${data.analysis.tiYongSeasonEvaluation}`
       : '',
+    data.analysis.timelineTrend?.summary
+      ? `事态演进轨迹：${data.analysis.timelineTrend.summary}`
+      : '',
     timingEvidence ? `应期线索：${timingEvidence}` : '',
     data.mainHexagram?.description
       ? `主卦卦辞：${data.mainHexagram.name}，${data.mainHexagram.description}`
@@ -540,6 +545,8 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const juTerm = data.timeInfo?.juTerm || data.timeInfo?.solarTerm || '未列';
   const birthInfo = formatQimenBirthInfo(data, supplementaryInfo);
 
+  const patternFulfillments = evaluateQimenPatternFulfillment(data);
+
   return [
     '占法：奇门遁甲',
     `起局方法：${data.method === 'feipan' ? '飞盘法' : '转盘法'}；${data.juMethod === 'zhirun' ? '置闰法定局' : '拆补法定局'}；${data.scope ? ({ hour: '时家', day: '日家', month: '月家', year: '年家' } as const)[data.scope] : '时家'}`,
@@ -553,6 +560,7 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
     palaceLines.length ? '九宫简表：' : '',
     ...palaceLines,
     classicPatternLines.length ? `格局索引：${classicPatternLines.join('、')}` : '',
+    patternFulfillments.length ? `格局实效：${patternFulfillments.slice(0, 3).join('；')}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -826,7 +834,7 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     .filter((item) => coreBodies.has(item.name))
     .map(
       (item) =>
-        `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`,
+        `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}${item.dignityLabel ? `，${item.dignityLabel}` : ''}`,
     );
 
   return [
@@ -867,7 +875,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     `太乙：${data.taiyiPosition}（第${data.taiyiPalace}宫，${data.taiyiGua}卦，${data.taiyiDir}）`,
     `文昌（主目）：${data.wenChangPosition}；始击（客目）：${data.shiJiPosition}；计神：${data.jiShenPosition}`,
     `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
-    `大局攻守：${data.lordCount > data.guestCount ? '主算多于客算，利主不利客，守静固本为宜' : data.guestCount > data.lordCount ? '客算多于主算，利客不利主，动谋求变有利' : '主客均势，相持待机'}`,
+    `大局攻守：${data.tacticGuidance || (data.lordCount > data.guestCount ? '主算多于客算，利主不利客，守静固本为宜' : data.guestCount > data.lordCount ? '客算多于主算，利客不利主，动谋求变有利' : '主客均势，相持待机')}`,
     `将参：主大${data.lordGeneral}、主参${data.lordAssistant}；客大${data.guestGeneral}、客参${data.guestAssistant}；定大${data.setGeneral}、定参${data.setAssistant}`,
     sixteenGods,
     specialJudgments.length ? `判断：${specialJudgments.join('；')}` : '',
@@ -922,6 +930,7 @@ function formatJinkoujueInfo(data: JinkoujueData) {
     data.movements.length
       ? `事态主轴：见【${data.movements[0].name}】，${data.movements[0].name.includes('财') || data.movements[0].name.includes('妻') ? '利求财交涉婚眷' : data.movements[0].name.includes('鬼') ? '防口舌是非阻隔' : data.movements[0].name.includes('贼') ? '防内耗失和' : '顺应常理而行'}`
       : '',
+    data.bihePoem ? `四位比合：${data.bihePoem}` : '',
     `四位关系：贵将${data.relations.guiToJiang}；贵人${data.relations.guiToRen}；将地${data.relations.jiangToDi}；人地${data.relations.renToDi}；贵地${data.relations.guiToDi}`,
     data.xunKong?.length ? `旬空：${data.xunKong.join('、')}` : '',
     '时间口径：当前盘面给出四位生克、旺衰和空亡，可说明相对节奏；未见独立交节或日辰触发时，只论结构不指定具体日期。',

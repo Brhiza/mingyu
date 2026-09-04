@@ -159,6 +159,28 @@ function buildGanZhiTriggerSummary(
     }
   });
 
+  // 三垣（命宫、胎元）引动检测
+  const sanYuanList: Array<{ label: string; gz?: string; effect: string }> = [
+    { label: '命宫', gz: result.mingGong, effect: '立足根基动荡，主变迁变动' },
+    { label: '胎元', gz: result.taiYuan, effect: '元气受动，防长辈与身心耗损' },
+  ];
+  sanYuanList.forEach(({ label, gz, effect }) => {
+    if (!gz) return;
+    const syParts = splitGanZhi(gz);
+    if (!syParts) return;
+
+    const isStemClash = BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === syParts.gan;
+    const isBranchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === syParts.zhi;
+
+    if (isStemClash && isBranchClash) {
+      majorEvents.push(`天克地冲${label}（${effect}）`);
+    } else if (isBranchClash) {
+      majorEvents.push(`地支冲${label}（${label}${syParts.zhi}受冲，${effect}）`);
+    } else if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === syParts.zhi) {
+      triggers.push(`地支合${label}`);
+    }
+  });
+
   // 全局三刑齐备检测
   const natalZhis = PILLAR_KEYS.map((k) => result.pillars[k]?.zhi).filter(Boolean) as string[];
   const combinedZhis = new Set([parts.zhi, ...natalZhis]);

@@ -114,6 +114,9 @@ import {
   buildPublicZiweiPromptForRuntime,
   buildSerializableZiweiResult,
   getZiweiPromptCalculationScopes,
+  THEMATIC_TOPICS,
+  normalizeThematicTopic,
+  buildThematicConsultationPrompt,
   type BaziPromptTopic,
   type BaziSchool,
   type PromptMode,
@@ -686,6 +689,17 @@ export function getPublicApiOpenApiDocument(
             '同一份出生信息同时计算八字和紫微斗数，并生成合参提示词。适合需要先用八字定主线、再用紫微校验宫位与运限的深度分析。',
           requestBody: openApiJsonRequestBody('#/components/schemas/BaziZiweiPromptRequest'),
           responses: { '200': { description: '八字、紫微轻量摘要和合参结构化提示词' } },
+        },
+      },
+      '/consultation/thematic/prompt': {
+        post: {
+          summary: '大类主题命理咨询并生成 AI 解读提示词',
+          description:
+            '支持指定大类主题（默认 general 通用，可选 relationship 感情、career 事业、wealth 财运、health 健康、family 家庭、academic 学业、timing 岁运时机）与术式体系（默认 bazi_ziwei 双盘合参，可选 bazi 或 ziwei）。自动为 AI 提取针对性盘面核心要素并生成正统严谨的自包含任务书。',
+          requestBody: openApiJsonRequestBody(
+            '#/components/schemas/ThematicConsultationPromptRequest',
+          ),
+          responses: { '200': { description: '咨询主题、结构化盘面焦点与自包含 AI 解读提示词' } },
         },
       },
       '/divination/liuyao': {
@@ -1679,6 +1693,61 @@ export function getPublicApiOpenApiDocument(
             },
           ],
         },
+        ThematicConsultationPromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/BaziRequest' },
+            {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                system: {
+                  enum: ['bazi_ziwei', 'bazi', 'ziwei'],
+                  default: 'bazi_ziwei',
+                  description:
+                    '咨询术式体系：bazi_ziwei=八字紫微双盘合参（默认最完整）；bazi=专注八字子平；ziwei=专注紫微斗数。',
+                },
+                topic: {
+                  enum: [...THEMATIC_TOPICS],
+                  default: 'general',
+                  description:
+                    '大类主题：general=综合全景（默认）；relationship=婚恋感情；career=事业职场；wealth=求财财富；health=身体健康；family=家庭六亲；academic=学业考试；timing=岁运应期时机。',
+                },
+                question: {
+                  type: 'string',
+                  maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
+                  description:
+                    '用户具体咨询问题；可选，未提供时依据大类主题自动生成传统理法任务问题。',
+                },
+                promptScope: {
+                  enum: [...ZIWEI_PROMPT_SCOPES],
+                  description: '紫微运限范围：origin=本命盘（默认），full=完整输出版等。',
+                },
+                promptMode: { enum: [...PROMPT_MODES] },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+                baziSchool: { enum: [...BAZI_SCHOOLS] },
+                baziSchools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...BAZI_MULTI_SCHOOLS] },
+                },
+                ziweiSchool: { enum: [...ZIWEI_SCHOOLS] },
+                ziweiSchools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...ZIWEI_SCHOOLS] },
+                },
+                algorithm: {
+                  enum: ['default', 'zhongzhou'],
+                  description: '紫微底层安星口径：default=传统通行安星法；zhongzhou=中州派。',
+                },
+              },
+            },
+          ],
+        },
         DivinationRequest: {
           type: 'object',
           properties: DIVINATION_REQUEST_PROPERTIES,
@@ -1863,6 +1932,8 @@ async function route(context: RouteContext) {
       return buildZiweiCompatibilityPromptApi(await readJson(context.request));
     case 'bazi-ziwei/prompt':
       return buildBaziZiweiPrompt(await readJson(context.request));
+    case 'consultation/thematic/prompt':
+      return buildThematicConsultationPromptApi(await readJson(context.request));
     case 'divination/liuyao':
       return calculateApiResult(context.request, calculateLiuyao, true);
     case 'divination/liuyao/prompt':
@@ -3209,6 +3280,101 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
       bazi: buildCompactBaziResult(baziResult),
       ziwei: buildCompactZiweiResult(serializableZiweiResult),
     },
+  });
+}
+
+async function buildThematicConsultationPromptApi(input: JsonRecord) {
+  const system =
+    readOptionalEnum(input, 'system', ['bazi_ziwei', 'bazi', 'ziwei'] as const) ?? 'bazi_ziwei';
+  const rawTopic =
+    typeof input.topic === 'string'
+      ? input.topic
+      : typeof input.thematicTopic === 'string'
+        ? input.thematicTopic
+        : undefined;
+  const topic = normalizeThematicTopic(rawTopic);
+  const question = typeof input.question === 'string' ? input.question.trim() : undefined;
+  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
+  const mode = readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode;
+
+  const baziSchoolValue = input.baziSchool;
+  const baziSchool =
+    typeof baziSchoolValue === 'string' &&
+    (BAZI_SCHOOLS as readonly string[]).includes(baziSchoolValue)
+      ? (baziSchoolValue as BaziSchool)
+      : undefined;
+  const ziweiSchoolValue = input.ziweiSchool;
+  const ziweiSchool =
+    typeof ziweiSchoolValue === 'string' &&
+    (ZIWEI_SCHOOLS as readonly string[]).includes(ziweiSchoolValue)
+      ? (ziweiSchoolValue as ZiweiSchool)
+      : undefined;
+  const baziSchools = readPromptSchools(input, BAZI_MULTI_SCHOOLS, 'baziSchools') as
+    BaziSchool[] | undefined;
+  const ziweiSchools = readPromptSchools(input, ZIWEI_SCHOOLS, 'ziweiSchools') as
+    ZiweiSchool[] | undefined;
+
+  let baziResult: BaziChartResult | undefined;
+  let ziweiResult: Awaited<ReturnType<typeof calculateZiweiRuntime>> | undefined;
+  let serializableZiweiResult: ReturnType<typeof buildSerializableZiweiResult> | undefined;
+
+  if (system === 'bazi_ziwei' || system === 'bazi') {
+    baziResult = calculateBazi(input);
+  }
+
+  if (system === 'bazi_ziwei' || system === 'ziwei') {
+    ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+    serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
+  }
+
+  const promptResult = buildThematicConsultationPrompt({
+    system,
+    topic,
+    question,
+    mode,
+    baziResult,
+    ziweiResult,
+    ziweiScope: scope,
+    baziSchool,
+    baziSchools,
+    ziweiSchool,
+    ziweiSchools,
+  });
+
+  const fullResult = {
+    system: promptResult.system,
+    topic: promptResult.topic,
+    topicLabel: promptResult.topicLabel,
+    topicTitle: promptResult.topicTitle,
+    focusPalaces: promptResult.focusPalaces,
+    focusElements: promptResult.focusElements,
+    scope: promptResult.scope,
+    bazi: baziResult,
+    ziwei: serializableZiweiResult,
+  };
+
+  const resultSummary: Record<string, unknown> = {
+    system: promptResult.system,
+    topic: promptResult.topic,
+    topicLabel: promptResult.topicLabel,
+    topicTitle: promptResult.topicTitle,
+    focusPalaces: promptResult.focusPalaces,
+    focusElements: promptResult.focusElements,
+    scope: promptResult.scope,
+  };
+  if (baziResult) {
+    resultSummary.bazi = buildCompactBaziResult(baziResult);
+  }
+  if (serializableZiweiResult) {
+    resultSummary.ziwei = buildCompactZiweiResult(serializableZiweiResult);
+  }
+
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: promptResult.prompt,
+    fullResult,
+    resultSummary,
+    summary: resultSummary,
   });
 }
 

@@ -189,3 +189,14 @@ export type {
   BaziUsefulGodCoverage,
   BaziUsefulGodCoverageItem,
 } from './compatibilityEvidence';
+export { evaluateBaziClimateBalance, type BaziClimateBalanceResult } from './climateBalance';
+export {
+  evaluateBaziMarriageDeep,
+  evaluateNayinCompatibility,
+  evaluateSpousePalaceDeepRelation,
+  evaluateUsefulGodComplementarity,
+  type BaziMarriageDeepEvaluation,
+  type NayinCompatibilityResult,
+  type SpousePalaceDeepRelationResult,
+  type UsefulGodComplementarityResult,
+} from './compatibility-marriage';

@@ -16,6 +16,10 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { BaziChartResult, Pillar, Wuxing } from './baziTypes';
 import { assertPillars, getTenGod, getTenGodForBranch, getWuxing } from './baziUtils';
+import {
+  evaluateBaziMarriageDeep,
+  type BaziMarriageDeepEvaluation,
+} from './compatibility-marriage';
 
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
 const PILLAR_LABELS: Record<PillarKey, string> = {
@@ -210,7 +214,9 @@ export interface BaziCompatibilityEvidenceResult {
   crossBranchCombinations: BaziCrossBranchCombination[];
   tenGodMappings: BaziTenGodMapping[];
   usefulGodCoverage: BaziUsefulGodCoverage[];
+  marriageDeep?: BaziMarriageDeepEvaluation;
   counterEvidence: string[];
+
   counterEvidenceFacts: BaziCompatibilityCounterEvidenceFact[];
   summaryFact: BaziCompatibilitySummaryFact;
   limitations: string[];
@@ -975,6 +981,7 @@ export function analyzeBaziCompatibility(
     calculateUsefulGodCoverage('person1', 'person2', chart1, chart2),
     calculateUsefulGodCoverage('person2', 'person1', chart2, chart1),
   ];
+  const marriageDeep = evaluateBaziMarriageDeep(chart1, chart2);
   const calculationSteps = buildBaseCalculationSteps({
     people,
     dayMasterRelation,
@@ -1056,6 +1063,7 @@ export function analyzeBaziCompatibility(
     crossBranchCombinations,
     tenGodMappings,
     usefulGodCoverage,
+    marriageDeep,
     counterEvidence,
     counterEvidenceFacts,
     summaryFact,
@@ -1065,11 +1073,13 @@ export function analyzeBaziCompatibility(
     promptText: [
       '【八字双盘结构化证据】',
       ...formatPromptEvidenceBundle(evidence),
+      marriageDeep.summary,
       `计算链概览：${calculationSteps.map((item) => item.promptText).join(' → ')}。`,
       `证据汇总：${summaryFact.promptText}。`,
       `反证与缺口：${counterEvidence.length ? counterEvidence.join('；') : '当前未见需要单列的资料缺口；仍不得据命中数量生成匹配结论'}。`,
       `解释限制：${limitations.join('；')}。`,
     ].join('\n'),
+
     methodology: {
       notes: [
         '逐项比较双方年、月、日、时四柱，记录天干五合与冲、地支同支及合冲刑害破。',

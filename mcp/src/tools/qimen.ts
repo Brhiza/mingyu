@@ -48,15 +48,31 @@ const qimenLifetimeSchema = z.object({
     })
     .optional()
     .describe('出生地点与经纬度（启用真太阳时必须提供经度）'),
-  calendarType: z.enum(['solar', 'lunar']).optional().describe('历法类型：solar 为公历（默认），lunar 为农历'),
+  calendarType: z
+    .enum(['solar', 'lunar'])
+    .optional()
+    .describe('历法类型：solar 为公历（默认），lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('农历是否闰月'),
-  timeStandard: z.enum(['civil', 'trueSolar']).optional().describe('时间标准：civil 为法定民用时（默认），trueSolar 为真太阳时'),
+  timeStandard: z
+    .enum(['civil', 'trueSolar'])
+    .optional()
+    .describe('时间标准：civil 为法定民用时（默认），trueSolar 为真太阳时'),
   applyChinaDst: z.boolean().optional().describe('是否按中国 1986-1991 规则自动还原夏令时'),
-  method: z.enum(['zhuanpan', 'feipan']).optional().describe('排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法'),
-  juMethod: z.enum(['chaibu', 'zhirun']).optional().describe('定局方法：chaibu 为拆补法（默认），zhirun 为置闰法'),
+  method: z
+    .enum(['zhuanpan', 'feipan'])
+    .optional()
+    .describe('排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法'),
+  juMethod: z
+    .enum(['chaibu', 'zhirun'])
+    .optional()
+    .describe('定局方法：chaibu 为拆补法（默认），zhirun 为置闰法'),
   stagePolicy: z
     .object({
-      model: z.enum(['pillarFourLimits', 'palaceWalk', 'fuShiHexagramOrbit']).describe('阶段模型：pillarFourLimits(四柱分限法，默认) | palaceWalk(洛书九宫巡行法) | fuShiHexagramOrbit(符使卦轨法)'),
+      model: z
+        .enum(['pillarFourLimits', 'palaceWalk', 'fuShiHexagramOrbit'])
+        .describe(
+          '阶段模型：pillarFourLimits(四柱分限法，默认) | palaceWalk(洛书九宫巡行法) | fuShiHexagramOrbit(符使卦轨法)',
+        ),
       anchorRule: z.enum(['birthInstant', 'solarTermBoundary', 'lunarNewYear']).optional(),
       ageSystem: z.enum(['fullYears', 'nominalAge']).optional(),
       yearsPerStage: z.number().optional(),

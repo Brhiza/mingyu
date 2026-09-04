@@ -108,6 +108,73 @@ function getMeihuaTiYongSeasonEvaluation(
 }
 
 /**
+ * 依据《梅花易数》“用为始，互为中，变为终”的事态三阶段演化趋势机
+ */
+export function evaluateMeihuaTimelineTrend(params: {
+  tiElement: string;
+  originalYongElement: string;
+  interTiElement: string;
+  interYongElement: string;
+  changedYongElement: string;
+}): {
+  trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '平稳演进';
+  summary: string;
+} {
+  const { tiElement, originalYongElement, interTiElement, interYongElement, changedYongElement } =
+    params;
+
+  // 1. 初阶段（主卦用对体）
+  const startFavorable =
+    isSheng(originalYongElement, tiElement) || originalYongElement === tiElement;
+  const startDifficult =
+    isKe(originalYongElement, tiElement) || isSheng(tiElement, originalYongElement);
+
+  // 2. 中阶段（互卦对原体）
+  const midDifficult = isKe(interTiElement, tiElement) || isKe(interYongElement, tiElement);
+
+  // 3. 终阶段（变卦用对原体）
+  const endFavorable = isSheng(changedYongElement, tiElement) || changedYongElement === tiElement;
+  const endDifficult =
+    isKe(changedYongElement, tiElement) || isSheng(tiElement, changedYongElement);
+
+  if (startDifficult && endFavorable) {
+    return {
+      trend: '先难后易',
+      summary: '初始受制或多周折，中后程得生助转顺，终成吉局',
+    };
+  }
+  if (startFavorable && endDifficult) {
+    return {
+      trend: '先顺后阻',
+      summary: '起步顺遂得利，中后程克泄交加阻力渐显，防后继乏力',
+    };
+  }
+  if (startFavorable && endFavorable && !midDifficult) {
+    return {
+      trend: '始末顺畅',
+      summary: '事之初中终三阶段皆得生扶比和，全盘通畅无大碍',
+    };
+  }
+  if (startDifficult && endDifficult && midDifficult) {
+    return {
+      trend: '始终受制',
+      summary: '初中终重重受克泄制约，阻力严峻，大宜退守蓄力',
+    };
+  }
+  if (midDifficult) {
+    return {
+      trend: '中途多阻',
+      summary: '起步与结局尚可，惟中途互卦见克制，过程中须防突发变故',
+    };
+  }
+
+  return {
+    trend: '平稳演进',
+    summary: '体用互变各有所制，局势循序渐进，随事态应时权变',
+  };
+}
+
+/**
  * 应期判断（按《梅花易数》动静应期法）：
  * 根据动爻数、卦数、体用旺衰综合判断应期范围
  */
@@ -404,6 +471,13 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
         tiSeasonState,
         yongSeasonState,
       ),
+      timelineTrend: evaluateMeihuaTimelineTrend({
+        tiElement: tiGua.element,
+        originalYongElement: yongGua.element,
+        interTiElement: interTiGua.element,
+        interYongElement: interYongGua.element,
+        changedYongElement: changedTiYong.yongGua.element,
+      }),
       yingQi: estimateYingQi({
         movingYaoIndex,
         upperTrigramIndex,

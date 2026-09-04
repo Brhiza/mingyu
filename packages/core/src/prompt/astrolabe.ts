@@ -70,7 +70,8 @@ const TOPIC_LABELS: Record<AstrolabePromptTopic, string> = {
 };
 
 function formatPoint(point: AstrolabeData['planets'][number]) {
-  return `${point.label}${point.formatted}，第${point.house}宫${point.retrograde ? '，逆行' : ''}`;
+  const dignity = point.dignityLabel ? `，${point.dignityLabel}` : '';
+  return `${point.label}${point.formatted}，第${point.house}宫${point.retrograde ? '，逆行' : ''}${dignity}`;
 }
 
 export function formatAstrolabeForPrompt(data: AstrolabeData) {
@@ -142,6 +143,7 @@ function formatSynastryFacts(data: AstrolabeSynastryData) {
     (item) => `  ${item.visitor}${item.pointName}落入${item.owner}本命盘第${item.house}宫。`,
   );
   return [
+    data.receptionSummary ?? '',
     aspects.length ? `【跨盘相位】\n${aspects.join('\n')}` : '',
     overlays.length ? `【跨盘落宫】\n${overlays.join('\n')}` : '',
   ]

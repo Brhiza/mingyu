@@ -162,3 +162,15 @@ test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完
     }
   }
 });
+
+test('玄空飞星城门诀：八运午向判定巽方城门得位与提示词输出', () => {
+  const result = generateXuanKong({ year: 2008, sitMountain: '子' }); // 子山午向，八运
+  assert.ok(result.castleGate);
+  assert.equal(result.castleGate.hasUsableGate, true);
+  const xunGate = result.castleGate.candidates.find((c) => c.mountain === '巽');
+  assert.ok(xunGate);
+  assert.equal(xunGate.status, '得旺可用');
+  assert.equal(xunGate.arrivalStar, 8);
+  assert.match(result.castleGate.summary, /城门诀/);
+  assert.ok(result.prompt.includes('城门诀：'));
+});

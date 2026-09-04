@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 
 import {
   analyzeJinkoujueEvidence,
+  evaluateJinkoujueBihePoems,
   generateJinkoujue,
 } from '../packages/core/src/divination/algorithms/jinkoujue.ts';
 
@@ -387,4 +388,76 @@ test('金口诀：六十日柱乘昼夜与十二地分的 1440 课应逐项符�
     ['妻动', '官动', '贼动', '财动', '鬼动', '父母动', '子孙动', '兄弟动'].sort(),
   );
   assert.equal(hasDifferentGuiAndJiang, true, '贵神本属支不得继续复制将神支');
+});
+
+test('金口诀四位比合歌诀应准确识别二木为爻、二火为灾、二土为滞、二金为刑与二水为盗', () => {
+  const dummyPos = (el: string) => ({
+    name: '地分' as const,
+    role: '地分',
+    branch: '子',
+    element: el,
+    yinYang: '阳' as const,
+    seasonState: '旺',
+    isVoid: false,
+    promptText: `地分子（${el}）`,
+  });
+
+  // 二木为爻
+  assert.equal(
+    evaluateJinkoujueBihePoems({
+      renYuan: dummyPos('木'),
+      guiShen: dummyPos('木'),
+      jiangShen: dummyPos('火'),
+      diFen: dummyPos('土'),
+    }),
+    '二木为爻，事多牵连分争',
+  );
+
+  // 二火为灾
+  assert.equal(
+    evaluateJinkoujueBihePoems({
+      renYuan: dummyPos('火'),
+      guiShen: dummyPos('火'),
+      jiangShen: dummyPos('金'),
+      diFen: dummyPos('水'),
+    }),
+    '二火为灾，多生口舌焦躁是非',
+  );
+
+  // 二土为滞 + 二金为刑 (复合)
+  assert.equal(
+    evaluateJinkoujueBihePoems({
+      renYuan: dummyPos('土'),
+      guiShen: dummyPos('土'),
+      jiangShen: dummyPos('金'),
+      diFen: dummyPos('金'),
+    }),
+    '二土为滞，事多迟疑阻滞不通；二金为刑，互见争斗刑伤折损',
+  );
+
+  // 三水为盗
+  assert.equal(
+    evaluateJinkoujueBihePoems({
+      renYuan: dummyPos('水'),
+      guiShen: dummyPos('水'),
+      jiangShen: dummyPos('水'),
+      diFen: dummyPos('木'),
+    }),
+    '三水为盗，暗流损耗漂流难聚',
+  );
+
+  // 全不同
+  assert.equal(
+    evaluateJinkoujueBihePoems({
+      renYuan: dummyPos('金'),
+      guiShen: dummyPos('木'),
+      jiangShen: dummyPos('水'),
+      diFen: dummyPos('火'),
+    }),
+    '四位五行周流，无极偏比合之患',
+  );
+
+  // generateJinkoujue 应输出 bihePoem
+  const result = generateJinkoujue({ date: SAMPLE_DATE });
+  assert.ok(result.bihePoem, '金口诀结果中应包含四位比合断语');
 });

@@ -334,3 +334,15 @@ test('八宅 0 至 360 度应首尾一致，二十四山分界前后连续且严
     assert.deepEqual(exact.sit.boundaryMountains, [below.sit.mountain, above.sit.mountain]);
   }
 });
+
+test('八宅明镜气口制化：门主同元相生与九星制化断诀', () => {
+  const matchResult = analyzeBaZhai({ mingGua: '坎', sitMountain: '子' }); // 坎命坎宅（子山），东四配东四
+  assert.ok(matchResult.gasRegulation);
+  assert.match(matchResult.gasRegulation.doorMasterSummary, /门主同元相生相和/);
+  assert.ok(matchResult.prompt.includes('气口制化：'));
+  assert.ok(matchResult.gasRegulation.suppressionLaws.length >= 3);
+
+  const clashResult = analyzeBaZhai({ mingGua: '坎', sitMountain: '乾' }); // 坎命乾宅（乾山），东四配西四
+  assert.ok(clashResult.gasRegulation);
+  assert.match(clashResult.gasRegulation.doorMasterSummary, /命宅相悖/);
+});

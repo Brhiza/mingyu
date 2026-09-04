@@ -17,9 +17,9 @@ import { spawnSync } from 'node:child_process';
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const coreDirectory = join(repositoryRoot, 'packages', 'core');
 const pnpmEntry = process.env.npm_execpath;
-// 四小行星与兼容边缘运行时的固定星历数据约增加 0.45 MB 压缩体积；仍保留明确上限，
-// 防止后续依赖或构建产物无意混入发布包。
-const CORE_TARBALL_MAX_BYTES = 2_100_000;
+// 四小行星与兼容边缘运行时的固定星历数据约增加 0.45 MB 压缩体积，且包含全术数深层算法与大类主题提取；
+// 仍保留明确上限（2.25 MB），防止后续依赖或构建产物无意混入发布包。
+const CORE_TARBALL_MAX_BYTES = 2_250_000;
 const FULL_BROWSER_BUNDLE_MAX_BYTES = 4_000_000;
 
 if (!pnpmEntry) {
@@ -71,7 +71,7 @@ try {
   const coreTarballBytes = statSync(coreTarball).size;
   assert.ok(
     coreTarballBytes <= CORE_TARBALL_MAX_BYTES,
-    `mingyu-core 压缩包不应超过 2.00 MB：${coreTarballBytes} 字节`,
+    `mingyu-core 压缩包不应超过 2.25 MB：${coreTarballBytes} 字节`,
   );
 
   writeFileSync(

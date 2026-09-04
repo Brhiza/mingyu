@@ -382,3 +382,18 @@ test('明确流年可定位所属大运，但冲突的大运序号必须拒绝',
     /必须提供有效的大运序号/,
   );
 });
+
+test('大运流年引动应识别与命宫、胎元的冲克刑害', () => {
+  const mockResult: BaziChartResult = {
+    ...createMockResult(),
+    mingGong: '庚午',
+    taiYuan: '壬申',
+  };
+  const context = buildFortuneSelectionContext(mockResult, {
+    scope: 'year',
+    cycleIndex: 0,
+    year: 2008, // 戊子年，子冲午（命宫）
+  });
+  const triggerLine = context.promptPayload.summaryLines.find((line) => line.includes('流年触发'));
+  assert.match(triggerLine ?? '', /冲命宫/);
+});

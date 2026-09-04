@@ -21,6 +21,9 @@ export * from './astrolabe-scope';
 export * from './astrolabe-synastry';
 export * from './session';
 export * from './ssgw-content';
+export * from './xiaoliuren-flow';
+export * from './lenormand-grid';
+export * from './tarot-archetype';
 
 // 结果摘要与提示词编排属于框架无关的核心能力，供已有结果直接复用。
 export {

@@ -263,3 +263,26 @@ test('八字双盘证据应拒绝无效四柱', () => {
   chart2.pillars.day.gan = 'A';
   assert.throws(() => analyzeBaziCompatibility(chart1, chart2), /day柱天干无效/);
 });
+
+test('八字合婚古典深层理法应准确判定纳音配对、夫妻宫天地德合与喜用互补', () => {
+  const { chart1, chart2 } = createPair();
+  // chart1: year 甲子 (海中金), day 丙寅 (火/木)
+  // chart2: year 己丑 (霹雳火), day 辛亥 (金/水)
+  const result = analyzeBaziCompatibility(chart1, chart2);
+
+  assert.ok(result.marriageDeep);
+  assert.equal(result.marriageDeep.nayin.person1Nayin, '海中金');
+  assert.equal(result.marriageDeep.nayin.person2Nayin, '霹雳火');
+  assert.equal(result.marriageDeep.nayin.relation, '受对方克');
+  assert.match(result.marriageDeep.nayin.judgment, /调适理解/);
+
+  // 日柱天干丙辛五合，地支寅亥六合 -> 天地德合！
+  assert.equal(result.marriageDeep.spousePalace.isTianDeHe, true);
+  assert.equal(result.marriageDeep.spousePalace.isTianKeDiChong, false);
+  assert.match(result.marriageDeep.spousePalace.judgment, /天地德合/);
+
+  // 喜用互补检验
+  assert.ok(result.marriageDeep.usefulGodComplementarity);
+  assert.match(result.marriageDeep.summary, /八字合婚理法：/);
+  assert.match(result.promptText, /八字合婚理法：/);
+});

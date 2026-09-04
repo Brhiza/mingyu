@@ -57,6 +57,7 @@ import {
   formatQizhengTimeLordPrompt,
   type QizhengTimeLordResult,
 } from './time-lords';
+import { evaluateQizhengEnNan, type QizhengEnNanProfile } from './en-nan';
 
 // astronomy-engine 在 Node 22 的 tsx 环境中可能以 default 暴露，浏览器和 Rollup
 // 则通常直接暴露具名导出。动态读取只用于选择运行时模块形态，避免静态读取
@@ -448,6 +449,7 @@ export interface QizhengResult {
   mansionBoundaries: QizhengMansionBoundary[];
   mansionModel: typeof QIZHENG_MANSION_MODEL;
   evidenceAnalysis: QizhengEvidenceAnalysis;
+  enNan?: QizhengEnNanProfile;
   timeLords?: QizhengTimeLordResult;
   flowingStars?: QizhengFlowingStarsResult;
   prompt: string;
@@ -2172,6 +2174,12 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     });
   }
 
+  const enNan = evaluateQizhengEnNan({
+    hour: input.hour,
+    mingZhu,
+    aspects,
+  });
+
   const prompt = [
     `【七政四余 · 果老星宗】`,
     `出生时间：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}。`,
@@ -2191,6 +2199,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
         : '未见容许度内的主要同宫、六合、四正、三方或对照'
     }。`,
     `命宫在${TWELVE_PALACES[0]}（${getQizhengSignBranch(mingGong)}宫），命主${mingZhu}；身宫在${getQizhengSignBranch(shenGong)}宫。`,
+    enNan.summary,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
     '星历口径：七政、罗睺、计都、月孛按星历位置；紫炁按古法均速。',
     ...(timeLords ? formatQizhengTimeLordPrompt(timeLords) : []),
@@ -2215,11 +2224,15 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     mansionBoundaries,
     mansionModel: QIZHENG_MANSION_MODEL,
     evidenceAnalysis,
+    enNan,
     ...(timeLords ? { timeLords } : {}),
     ...(flowingStars ? { flowingStars } : {}),
     prompt,
   };
 }
+
+export { evaluateQizhengEnNan } from './en-nan';
+export type { QizhengEnNanProfile } from './en-nan';
 
 export {
   buildQizhengTimeLords,

@@ -34,6 +34,7 @@ export interface XuanKongEvidenceSourceResult {
   combinations: Array<{ name: string; kind: string; palaces?: number[]; note: string }>;
   engine: { name: string; version: string; mode: string };
   daoShanXiang: { summary: string };
+  castleGate?: { summary: string };
   measurement?: { stability: string };
 }
 
@@ -169,6 +170,15 @@ export function analyzeXuanKongEvidence(
       type: '组合互参',
       promptText: `${combination.name}${combination.palaces?.length ? `（宫位 ${combination.palaces.join('、')}）` : ''}：${combination.note}`,
       sources: [`${result.engine.name}@${result.engine.version} 组合检测`],
+      limitation: FACT_LIMIT,
+    });
+  }
+  if (result.castleGate) {
+    facts.push({
+      key: 'xuankong:fact:castle-gate',
+      type: '城门诀',
+      promptText: result.castleGate.summary,
+      sources: ['《沈氏玄空学》城门诀规则'],
       limitation: FACT_LIMIT,
     });
   }

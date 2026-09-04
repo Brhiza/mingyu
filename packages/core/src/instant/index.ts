@@ -417,7 +417,7 @@ function formatInstantQizhengPrompt(result: QizhengResult) {
   return result.prompt
     .replace('【七政四余 · 果老星宗】', '【七政四余即时盘 · 果老星宗】')
     .replace('出生时间：', '起盘时间：')
-    .replace(/命主([^；\n]+)；/u, '命宫主星$1；');
+    .replace(/命主/g, '命宫主星');
 }
 
 export async function calculateInstantChart<T extends InstantChartType>(

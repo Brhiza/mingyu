@@ -678,3 +678,4 @@ export type { QimenScope, QimenMethod }; // re-export for consumer convenience
 // ============================================================================
 
 export { getHorseBranch, resolveQimenBranchPalace, resolveZhiShiLandingPalace };
+export { evaluateQimenPatternFulfillment } from './helpers/guidance';

@@ -6,21 +6,27 @@
 
 ## 一、基础服务地址与响应格式
 
-- **官方基础地址**：`https://aov.cc/api/v1`
-- **统一成功响应**：
+- **官方公开 API**：`https://aov.cc/api/v1`
+- **Remote MCP 服务地址（支持 CORS）**：
+  - **Streamable HTTP 端点**：`https://aov.cc/mcp`（或本地 `http://localhost:3000/mcp`）
+  - **SSE 通信端点**：`https://aov.cc/sse`（消息投递：`/message`）
+  - **本地 STDIO 启动**：`npx mingyu-mcp` 或 `pnpm mcp`
+- **统一成功响应与 Envelope 契约**：
   ```json
   {
-    "ok": true,
-    "data": {},
-    "meta": { "service": "aov.cc", "version": "v1" }
+    "result": {},
+    "meta": { "tool": "bazi_calculate", "durationMs": 12, "system": "mingyu-mcp" },
+    "warnings": ["缺时辰已安全启用三柱降级分析"]
   }
   ```
-- **统一错误响应**：
+- **统一结构化业务错误响应**：
   ```json
   {
-    "ok": false,
-    "error": { "code": "BAD_REQUEST", "message": "错误说明" },
-    "meta": { "service": "aov.cc", "version": "v1" }
+    "error": "缺少必要出生时辰",
+    "code": "MISSING_BIRTH_TIME",
+    "missingFields": ["timeIndex"],
+    "retryable": true,
+    "fallback": "可选择三柱降级模式仅排年月日三柱"
   }
   ```
 
@@ -47,6 +53,7 @@
 | **紫微双盘** | `/ziwei/compatibility` | `ziwei_compatibility` | 关键宫位叠盘、生年四化跨盘落宫 |
 | **紫微双盘提示词**| `/ziwei/compatibility/prompt` | `ziwei_compatibility_prompt`| 紫微双盘自包含结构化证据提示词 |
 | **八字紫微合参** | `/bazi-ziwei/prompt` | `bazi_ziwei_prompt` | 同一出生资料，八字定主线，紫微校验运限 |
+| **大类主题咨询** | `/consultation/thematic/prompt` | `thematic_consultation_prompt` | 8大类主题（感情、事业、财运等）自动提取盘面焦点要素生成自包含任务书 |
 | **六爻起卦** | `/divination/liuyao` | `divine_liuyao` | 六爻排卦、世应动变、月日生克 |
 | **六爻提示词** | `/divination/liuyao/prompt` | `liuyao_prompt` | 六爻自包含提示词，支持 `liuyaoTemplate` |
 | **梅花易数** | `/divination/meihua` | `divine_meihua` | 体用互变卦象，支持时间/数字/随机起卦 |
@@ -107,6 +114,7 @@
 - `POST /ziwei/compatibility`：紫微双盘计算。
 - `POST /ziwei/compatibility/prompt`：紫微双盘提示词生成。
 - `POST /bazi-ziwei/prompt`：八字紫微合参提示词生成。
+- `POST /consultation/thematic/prompt`：大类主题咨询提示词（感情、事业、财运等大类自动提取焦点要素）。
 - `POST /divination/liuyao`：六爻起卦。
 - `POST /divination/liuyao/prompt`：六爻提示词生成。
 - `POST /divination/meihua`：梅花易数起卦。

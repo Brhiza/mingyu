@@ -270,9 +270,28 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
 
 export function buildPalaceIndex(payload: AnalysisPayloadV1) {
   const includeScope = !isOriginScope(payload);
-  return payload.palaces.map((item) => ({
-    宫位: formatPalaceName(item.name),
-    主星: item.major_stars.map(formatStarFact),
-    当前动态宫名: includeScope ? item.dynamic_scope_name || undefined : undefined,
-  }));
+  return payload.palaces.map((item) => {
+    const majorStars = item.major_stars.map(formatStarFact);
+    const minorStars = item.minor_stars.map(formatStarFact);
+    const opposite = getOppositePalace(payload, item);
+    const emptyText = item.empty_state
+      ? opposite
+        ? `空宫（借对宫${formatPalaceName(opposite.name)}）`
+        : '空宫'
+      : undefined;
+    const selfMutagens = (item.self_mutagens ?? []).map((m) => `自化${m}`);
+    const flyMutagens = (item.mutaged_palaces ?? [])
+      .filter((m) => m.palace_name)
+      .map((m) => `化${m.mutagen}入${formatPalaceName(m.palace_name!)}`);
+
+    return {
+      宫位: formatPalaceName(item.name),
+      宫干支: `${item.heavenly_stem}${item.earthly_branch}`,
+      主星: majorStars.length ? majorStars : emptyText ? [emptyText] : ['无十四主星'],
+      辅曜: minorStars.length ? minorStars : undefined,
+      当前动态宫名: includeScope ? item.dynamic_scope_name || undefined : undefined,
+      自化: selfMutagens.length ? selfMutagens.join('、') : undefined,
+      宫干飞化: flyMutagens.length ? flyMutagens.join('、') : undefined,
+    };
+  });
 }

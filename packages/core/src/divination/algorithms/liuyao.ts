@@ -621,6 +621,47 @@ function getNaJiaAndLiuQin(mainHexagramName: string, palace: { name: string; wux
   return yaosWithInfo;
 }
 
+/**
+ * 飞伏生克与出伏难易判定（依据《增删卜易·伏神章》与《卜筮正宗》）
+ */
+export function evaluateLiuyaoHiddenSpiritInteraction(params: {
+  hiddenWuxing: string;
+  hiddenVoid: boolean;
+  flyingWuxing: string;
+  flyingDizhi: string;
+  flyingVoid: boolean;
+  monthBranch?: string;
+}): string {
+  const { hiddenWuxing, flyingWuxing, flyingDizhi, flyingVoid, monthBranch } = params;
+
+  // 1. 检查飞神是否空破（《增删卜易·伏神章》：飞神逢空逢破，无力压伏，伏神易得出）
+  const isFlyingMonthBroken = monthBranch ? isLiuchong(flyingDizhi, monthBranch) : false;
+  if (flyingVoid || isFlyingMonthBroken) {
+    const reason =
+      flyingVoid && isFlyingMonthBroken ? '飞神旬空且月破' : flyingVoid ? '飞神旬空' : '飞神月破';
+    return `${reason}，压制瓦解，伏神易脱颖而出`;
+  }
+
+  // 2. 飞伏生克五行判定
+  if (isSheng(flyingWuxing, hiddenWuxing)) {
+    return '飞来生伏得长生，得飞神生扶，伏神最易得出，多得暗中助力';
+  }
+  if (isKe(hiddenWuxing, flyingWuxing)) {
+    return '伏克飞神为出暴，伏神有力可破制而出，虽费周折终能成事';
+  }
+  if (isKe(flyingWuxing, hiddenWuxing)) {
+    return '飞来克伏受制，伏神被死压难出，求谋阻滞不易成';
+  }
+  if (isSheng(hiddenWuxing, flyingWuxing)) {
+    return '伏生飞神泄气，生助飞神而自身耗损，多劳少功';
+  }
+  if (hiddenWuxing === flyingWuxing) {
+    return '飞伏比和同气，得平辈同侪暗助';
+  }
+
+  return '飞伏平';
+}
+
 function buildHiddenSpirits(params: {
   originalName: string;
   palace: { name: string; wuxing: string };
@@ -631,8 +672,9 @@ function buildHiddenSpirits(params: {
     wuxing: string;
   }>;
   voidBranches: string[];
+  monthBranch?: string;
 }) {
-  const { originalName, palace, yaosDetail, voidBranches } = params;
+  const { originalName, palace, yaosDetail, voidBranches, monthBranch } = params;
   const homeHexagramName = palaceHexagrams[palace.name as keyof typeof palaceHexagrams]?.[0];
 
   if (!homeHexagramName || homeHexagramName === originalName) {
@@ -643,19 +685,32 @@ function buildHiddenSpirits(params: {
   const homeYaos = getNaJiaAndLiuQin(homeHexagramName, palace);
 
   return homeYaos
-    .map((homeYao, index) => ({
-      sixRelative: homeYao.liuqin,
-      position: index + 1,
-      najiaDizhi: homeYao.dizhi,
-      wuxing: homeYao.wuxing,
-      isVoid: voidBranches.includes(homeYao.dizhi),
-      underYao: {
+    .map((homeYao, index) => {
+      const underYao = {
         position: yaosDetail[index].position,
         sixRelative: yaosDetail[index].sixRelative,
         najiaDizhi: yaosDetail[index].najiaDizhi,
         wuxing: yaosDetail[index].wuxing,
-      },
-    }))
+      };
+      const isHiddenVoid = voidBranches.includes(homeYao.dizhi);
+      const isFlyingVoid = voidBranches.includes(underYao.najiaDizhi);
+      return {
+        sixRelative: homeYao.liuqin,
+        position: index + 1,
+        najiaDizhi: homeYao.dizhi,
+        wuxing: homeYao.wuxing,
+        isVoid: isHiddenVoid,
+        underYao,
+        interactionEffect: evaluateLiuyaoHiddenSpiritInteraction({
+          hiddenWuxing: homeYao.wuxing,
+          hiddenVoid: isHiddenVoid,
+          flyingWuxing: underYao.wuxing,
+          flyingDizhi: underYao.najiaDizhi,
+          flyingVoid: isFlyingVoid,
+          monthBranch,
+        }),
+      };
+    })
     .filter((item) => !appearedRelatives.has(item.sixRelative));
 }
 
@@ -1064,6 +1119,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     palace,
     yaosDetail,
     voidBranches: voids,
+    monthBranch,
   });
 
   // 三合局只取明动、暗动及其变爻；静态纳甲支不能自行凑局。

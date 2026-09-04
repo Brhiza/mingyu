@@ -266,3 +266,28 @@ test('宿界查询应接受乱序资料，并拒绝重复宿名、无效宿宽�
     /宿界不连续/,
   );
 });
+
+test('七政四余恩难仇用与昼夜分金定性：根据生时判定昼夜并输出恩难定性', () => {
+  const dayChart = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+  });
+  assert.ok(dayChart.enNan);
+  assert.equal(dayChart.enNan.sect, '昼生');
+  assert.match(dayChart.enNan.sectSummary, /昼生以日为尊/);
+  assert.ok(dayChart.prompt.includes('【七政恩难】'));
+
+  const nightChart = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 22,
+    minute: 30,
+  });
+  assert.ok(nightChart.enNan);
+  assert.equal(nightChart.enNan.sect, '夜生');
+  assert.match(nightChart.enNan.sectSummary, /夜生以月为重/);
+});

@@ -145,6 +145,8 @@ export interface JinkoujueData {
   };
   movements: JinkoujueMovement[];
   mainLine: string;
+  /** 四位比合歌诀定性（二木为爻、二火为灾、二土为滞、二金为刑、二水为盗） */
+  bihePoem?: string;
   calculation: {
     method: JinkoujueDivinationMethod;
     methodLabel: string;
@@ -238,6 +240,8 @@ export interface LiuyaoHiddenSpirit {
     najiaDizhi: string;
     wuxing: string;
   };
+  /** 飞伏生克实效断语（依据《增删卜易·伏神章》与《卜筮正宗》） */
+  interactionEffect?: string;
 }
 
 export type LiuyaoHexagramRelation = '六合卦' | '六冲卦';
@@ -448,6 +452,11 @@ export interface MeihuaData extends BaseHexagramData {
     tiYongRaw?: string;
     /** 体用旺衰与生克综合断诀（《梅花易数·体用生克篇》） */
     tiYongSeasonEvaluation?: string;
+    /** 事态初中终三阶段推进演化趋势（依据《梅花易数·观梅数诀》） */
+    timelineTrend?: {
+      trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '平稳演进';
+      summary: string;
+    };
     yingQi?: string[];
   };
   /** 主卦信息 */
@@ -927,7 +936,16 @@ export interface LiurenGuaTiFact {
   id: string;
   stableKey: string;
   name: string;
-  category: '三传支类' | '三合成局' | '发用临地' | '岁将贵人' | '四课关系' | '贵人临地';
+  category:
+    | '三传支类'
+    | '三合成局'
+    | '发用临地'
+    | '岁将贵人'
+    | '四课关系'
+    | '贵人临地'
+    | '三传冲合'
+    | '传干生克'
+    | '旬尾发用';
   branches: string[];
   matchedConditions: string[];
   sourceTitle: string;
@@ -1317,6 +1335,10 @@ export interface AstrolabePoint {
   house: number;
   formatted: string;
   retrograde?: boolean;
+  /** 行星本征尊贵力量（入庙、曜升、落陷、坠落） */
+  dignity?: 'domicile' | 'exaltation' | 'detriment' | 'fall';
+  /** 行星本征尊贵力量中文标签（入庙、曜升、落陷、坠落） */
+  dignityLabel?: string;
 }
 
 export interface AstrolabeAspect {
@@ -1497,6 +1519,17 @@ export interface AstrolabeSynastryData {
   calculationChain: string[];
   aspects: AstrolabeSynastryAspect[];
   houseOverlays: AstrolabeHouseOverlay[];
+  receptions?: Array<{
+    type: '互溶' | '接纳';
+    person1Planet: string;
+    person2Planet: string;
+    person1PlanetLabel: string;
+    person2PlanetLabel: string;
+    sign1: string;
+    sign2: string;
+    summary: string;
+  }>;
+  receptionSummary?: string;
   summary: {
     totalAspects: number;
     harmonious: number;
@@ -1558,6 +1591,14 @@ export interface TaiyiResult {
   lordCount: number;
   guestCount: number;
   setCount: number;
+  /** 主客定算策数定性（和数、纯阴、纯阳、杂阴阳等） */
+  countNatures?: {
+    lord?: string;
+    guest?: string;
+    set?: string;
+  };
+  /** 大局攻守与策数博弈定性 */
+  tacticGuidance?: string;
   lordGeneral: number;
   lordAssistant: number;
   guestGeneral: number;

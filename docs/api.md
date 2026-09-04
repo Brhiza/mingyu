@@ -56,8 +56,8 @@
 | `POST /ziwei/calculate`                       | 紫微斗数排盘                                                   |
 | `POST /ziwei/prompt`                          | 紫微斗数排盘并生成 AI 解读提示词                               |
 | `POST /ziwei/compatibility`                   | 紫微双盘宫位叠盘、生年四化跨盘落宫与证据计算                   |
-| `POST /ziwei/compatibility/prompt`            | 紫微双盘计算并生成结构化证据提示词                             |
 | `POST /bazi-ziwei/prompt`                     | 八字紫微合参并生成 AI 解读提示词                               |
+| `POST /consultation/thematic/prompt`          | 大类主题命理咨询提示词（默认通用，支持感情、事业、财运、健康、家庭、学业、时机等） |
 | `POST /divination/liuyao`                     | 六爻起卦                                                       |
 | `POST /divination/liuyao/prompt`              | 六爻起卦并生成 AI 解读提示词                                   |
 | `POST /divination/meihua`                     | 梅花易数起卦                                                   |
@@ -259,6 +259,17 @@ curl -X POST https://aov.cc/api/v1/ziwei/prompt \
 curl -X POST https://aov.cc/api/v1/bazi-ziwei/prompt \
   -H "Content-Type: application/json" \
   -d '{"name":"测试","gender":"female","dateType":"solar","year":1992,"month":8,"day":21,"timeIndex":4,"question":"我现在适合换工作还是继续等待？","baziPromptTopic":"job-change","ziweiPromptTopic":"job-change","promptScope":"yearly"}'
+```
+
+大类主题命理咨询提示词接口（`POST /consultation/thematic/prompt`）支持显式指定大类分析主题，避免依赖前端猜测或关键词正则：
+- `topic` 可选大类：`general`（默认综合全景）、`relationship`（婚恋情感）、`career`（事业职涯）、`wealth`（财富求财）、`health`（健康疾厄）、`family`（家庭六亲）、`academic`（学业考运）、`timing`（时机抉择）。
+- `system` 可选体系：`bazi_ziwei`（默认双盘合参）、`bazi`（专注八字子平）、`ziwei`（专注紫微斗数）。
+- 原生支持三柱缺时辰降级（八字子平三柱分析，紫微提示需完整生辰）。
+
+```bash
+curl -X POST https://aov.cc/api/v1/consultation/thematic/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"name":"测试","gender":"male","dateType":"solar","year":1990,"month":5,"day":15,"timeIndex":1,"system":"bazi_ziwei","topic":"career","question":"未来三年事业晋升与转型契机如何？"}'
 ```
 
 星盘提示词可用 `astrolabeScope` 指定范围。`yearly`、`monthly`、`daily` 分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`；`full` 要求 `YYYY-MM-DD` 基准日，并写入该日所属流年、流月和流日资料。服务端不会用当前日期补齐缺参：

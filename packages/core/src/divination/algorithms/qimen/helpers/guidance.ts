@@ -77,3 +77,50 @@ export function createQimenPriorityPalaces(data: QimenData): QimenPriorityPalace
 
   return Array.from(palaceMap.values());
 }
+
+/**
+ * 依据《烟波钓叟歌》“吉格逢迫吉不就，凶格逢制灾不侵”的格局成破与空迫制化实效判定
+ */
+export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
+  const results: string[] = [];
+  const voidGongs = new Set(data.voidPalaces?.map((p) => p.palace) ?? []);
+  const patterns = data.classicPatterns ?? [];
+  const tags = data.patternTags ?? [];
+
+  // 获取门迫宫位
+  const menPoGongs = new Set<number>();
+  tags.forEach((tag) => {
+    if (tag.startsWith('门迫')) {
+      const match = tag.match(/（(.*)）/);
+      if (match) {
+        const palace = data.jiuGongGe.find((p) => match[1].includes(p.name));
+        if (palace) menPoGongs.add(palace.gong);
+      }
+    }
+  });
+
+  patterns.forEach((p) => {
+    p.palaces.forEach((gong) => {
+      const palace = data.jiuGongGe.find((item) => item.gong === gong);
+      if (!palace) return;
+      const isVoid = voidGongs.has(gong);
+      const isMenPo = menPoGongs.has(gong);
+
+      if (p.type === 'good' || p.type === 'neutral') {
+        if (isMenPo && isVoid) {
+          results.push(`【${p.name}】落${palace.name}逢门迫兼空亡，吉力大损虚化，反招尤烦`);
+        } else if (isMenPo) {
+          results.push(`【${p.name}】落${palace.name}逢门迫受制，吉力难畅`);
+        } else if (isVoid) {
+          results.push(`【${p.name}】落${palace.name}逢空亡，吉景虚浮`);
+        }
+      } else if (p.type === 'bad') {
+        if (isVoid) {
+          results.push(`【${p.name}】落${palace.name}逢空亡，凶势落空，灾咎减半`);
+        }
+      }
+    });
+  });
+
+  return results;
+}

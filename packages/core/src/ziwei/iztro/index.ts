@@ -40,6 +40,7 @@ export {
   dedupePalaces,
   getAllStars,
   getBodyPalace,
+  getBodyPalaceAxisSummary,
   getOppositePalace,
   getPalaceByIndex,
   getPalaceByName,

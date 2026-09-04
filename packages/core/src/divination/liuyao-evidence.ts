@@ -670,7 +670,7 @@ function buildHiddenSpiritFacts(data: LiuyaoData): LiuyaoHiddenSpiritFact[] {
       coveringLine: spirit.underYao,
       support: reference.support,
       constraints: reference.constraints,
-      promptText: `第${spirit.position}爻伏神${spirit.sixRelative}${spirit.najiaDizhi}${spirit.wuxing}，飞神${spirit.underYao.sixRelative}${spirit.underYao.najiaDizhi}${spirit.underYao.wuxing}覆盖${spirit.isVoid ? '，伏神空亡' : ''}`,
+      promptText: `第${spirit.position}爻伏神${spirit.sixRelative}${spirit.najiaDizhi}${spirit.wuxing}，飞神${spirit.underYao.sixRelative}${spirit.underYao.najiaDizhi}${spirit.underYao.wuxing}覆盖${spirit.isVoid ? '，伏神空亡' : ''}${spirit.interactionEffect ? `，${spirit.interactionEffect}` : ''}`,
       sources: ['本宫首卦六亲全集与当前本卦六亲差集', '当前爻位飞伏配对与旬空计算'],
       limitation: HIDDEN_SPIRIT_FACT_LIMITATION,
     };

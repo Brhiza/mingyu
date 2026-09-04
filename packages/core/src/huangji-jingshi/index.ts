@@ -15,9 +15,11 @@ import {
 import { buildPromptTask, insertPromptSectionBeforeHeading } from '../prompt/guidance';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
 import { calculateHuangjiDateTimeForecast, type HuangjiDateTimeForecast } from './datetime';
+import { evaluateHuangjiEraTrend, type HuangjiEraTrendResult } from './trend';
 
 export * from './standard';
 export * from './datetime';
+export * from './trend';
 
 export const HUANGJI_CYCLE_YEARS = Object.freeze({
   shi: 30,
@@ -114,6 +116,7 @@ export interface HuangjiJingshiCalculation {
   limitations: string[];
   forecast?: HuangjiStandardForecast;
   dateTimeForecast?: HuangjiDateTimeForecast;
+  eraTrend?: HuangjiEraTrendResult;
 }
 
 export interface HuangjiJingshiResult extends HuangjiJingshiCalculation {
@@ -288,6 +291,7 @@ export function buildHuangjiJingshiPrompt(
         `十年卦辞：${decade.hexagram.judgment}`,
         `值年卦：${annual.name}（${annual.symbol}，${annual.upper}上${annual.lower}下）`,
         `值年卦辞：${annual.judgment}`,
+        evaluateHuangjiEraTrend(forecast).summary,
       ].join('\n'),
       [
         '【取象资料】',
@@ -485,7 +489,7 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
           '纪元由调用方明确提供；更换纪元会改变全部元会运世位置。',
           '自定义纪元模式只计算元会运世位置，不附通行值年卦。',
         ],
-    ...(forecast ? { forecast } : {}),
+    ...(forecast ? { forecast, eraTrend: evaluateHuangjiEraTrend(forecast) } : {}),
     ...(dateTimeForecast ? { dateTimeForecast } : {}),
   };
 

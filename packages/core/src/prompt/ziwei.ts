@@ -1,6 +1,6 @@
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';
 import type { ZiweiRuntime } from '../ziwei/runtime';
-import { analyzeZiweiCompatibility } from '../ziwei/iztro/index';
+import { analyzeZiweiCompatibility, getBodyPalaceAxisSummary } from '../ziwei/iztro/index';
 import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance, buildPromptTask } from './guidance';
@@ -138,12 +138,34 @@ function natalTags(tags: string[]) {
 }
 
 function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
-  const stars = [
-    ...palace.major_stars,
-    ...palace.minor_stars,
-    ...palace.other_stars,
-    ...(isOriginScope ? [] : palace.scope_stars),
-  ].map((star) => formatStar(star, isOriginScope));
+  const majorStars = palace.major_stars.map((star) => formatStar(star, isOriginScope));
+  const minorStars = palace.minor_stars.map((star) => formatStar(star, isOriginScope));
+  const otherStars = palace.other_stars.map((star) => formatStar(star, isOriginScope));
+  const scopeStars = (!isOriginScope ? palace.scope_stars : []).map((star) =>
+    formatStar(star, isOriginScope),
+  );
+
+  let majorText: string;
+  if (majorStars.length > 0) {
+    majorText = `主星：${formatStringList(majorStars)}`;
+  } else if (palace.empty_state) {
+    majorText = '主星：无十四主星（空宫）';
+  } else {
+    majorText = '主星：无';
+  }
+
+  const allSecondary = [...minorStars, ...otherStars, ...scopeStars];
+  const secondaryText = allSecondary.length > 0 ? `辅曜：${formatStringList(allSecondary)}` : '';
+
+  const selfMutagens = (palace.self_mutagens ?? []).map((m) => `自化${m}`).join('、');
+  const selfText = selfMutagens ? `自化：${selfMutagens}` : '';
+
+  const flyMutagens = (palace.mutaged_palaces ?? [])
+    .filter((item) => item.palace_name)
+    .map((item) => `化${item.mutagen}入${item.palace_name}`)
+    .join('、');
+  const flyText = flyMutagens ? `宫干飞化：${flyMutagens}` : '';
+
   const ranges =
     !isOriginScope && palace.decadal_range?.length === 2
       ? `大限${palace.decadal_range[0]}-${palace.decadal_range[1]}岁`
@@ -153,7 +175,10 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
     `${palace.name}宫${palace.is_body_palace ? '（身宫）' : ''}${palace.is_original_palace ? '（命宫）' : ''}`,
     `宫干支${palace.heavenly_stem}${palace.earthly_branch}`,
     ranges,
-    `星曜：${formatStringList(stars)}`,
+    majorText,
+    secondaryText,
+    selfText,
+    flyText,
     !isOriginScope && palace.scope_hits.length ? `运限命中：${palace.scope_hits.join('、')}` : '',
     !isOriginScope && palace.dynamic_scope_name ? `动态宫名：${palace.dynamic_scope_name}` : '',
     tags.length ? `标签：${tags.join('、')}` : '',
@@ -195,11 +220,14 @@ export function formatZiweiPayloadForPrompt(
     : payload.palaces;
   const selectedPalaces = palaces.length ? palaces : payload.palaces;
   const isOriginScope = active.scope === 'origin';
+  const bodyPalace = payload.palaces.find((p) => p.is_body_palace);
+  const bodyPalaceName = payload.basic_info.hidden_palaces?.body_palace_name || bodyPalace?.name;
+  const bodyAxis = getBodyPalaceAxisSummary(bodyPalaceName);
 
   return [
     `分析范围：${active.label || SCOPE_LABELS[active.scope]}`,
     `基本资料：${basic.gender}；公历${basic.solar_date}；农历${basic.lunar_date}；${basic.birth_time_label}；生肖${basic.zodiac}`,
-    `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}`,
+    `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}${bodyAxis ? `；命身主轴：${bodyAxis}` : ''}`,
     basic.four_pillars
       ? `四柱：年${basic.four_pillars.year_pillar}、月${basic.four_pillars.month_pillar}、日${basic.four_pillars.day_pillar}、时${basic.four_pillars.hour_pillar}`
       : '',

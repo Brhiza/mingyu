@@ -5648,3 +5648,82 @@ test('公开 API 住宅风水缺建造或起运年时不得静默生成玄空盘
   assert.equal(orientationOnly.body.ok, false);
   assert.match(orientationOnly.body.error.message, /必须提供住宅建造年或起运年/);
 });
+
+test('POST /consultation/thematic/prompt 支持大类主题选择与默认通用合参', async () => {
+  const birthInput = {
+    year: 1990,
+    month: 5,
+    day: 15,
+    gender: 'male',
+    dateType: 'solar',
+    timeIndex: 6,
+  };
+
+  // 1. 默认通用全景 (general) - 默认 responseMode: prompt-only
+  const defaultRes = await callApi('consultation/thematic/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(birthInput),
+  });
+  assert.equal(defaultRes.response.status, 200);
+  assert.equal(defaultRes.body.ok, true);
+  assert.ok(typeof defaultRes.body.data.prompt === 'string');
+  assert.ok(defaultRes.body.data.prompt.includes('咨询主题：通用（综合大局与命身全景）'));
+  assert.ok(defaultRes.body.data.prompt.includes('【八字排盘信息】'));
+  assert.ok(defaultRes.body.data.prompt.includes('【紫微盘面信息】'));
+
+  // 2. 手动指定感情主题 (relationship) 并在 summary 模式获取结构化 summary
+  const relationshipRes = await callApi('consultation/thematic/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...birthInput,
+      topic: 'relationship',
+      question: '想问一下近几年的婚恋与正缘特征',
+      responseMode: 'summary',
+    }),
+  });
+  assert.equal(relationshipRes.response.status, 200);
+  assert.equal(relationshipRes.body.ok, true);
+  assert.equal(relationshipRes.body.data.summary.topic, 'relationship');
+  assert.equal(relationshipRes.body.data.summary.topicLabel, '感情');
+  assert.ok(relationshipRes.body.data.summary.focusPalaces.includes('夫妻'));
+  assert.ok(relationshipRes.body.data.summary.focusElements.includes('配偶星'));
+  assert.ok(relationshipRes.body.data.prompt.includes('咨询主题：感情（婚恋情感与配偶桃花）'));
+  assert.ok(relationshipRes.body.data.prompt.includes('想问一下近几年的婚恋与正缘特征'));
+
+  // 3. 专注八字子平体系 (system: bazi)
+  const baziOnlyRes = await callApi('consultation/thematic/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...birthInput,
+      system: 'bazi',
+      topic: 'career',
+      responseMode: 'summary',
+    }),
+  });
+  assert.equal(baziOnlyRes.response.status, 200);
+  assert.equal(baziOnlyRes.body.ok, true);
+  assert.equal(baziOnlyRes.body.data.summary.system, 'bazi');
+  assert.equal(baziOnlyRes.body.data.summary.topic, 'career');
+  assert.ok(baziOnlyRes.body.data.prompt.includes('【排盘信息】'));
+  assert.ok(!baziOnlyRes.body.data.prompt.includes('【紫微盘面信息】'));
+
+  // 4. full 模式响应
+  const fullRes = await callApi('consultation/thematic/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...birthInput,
+      topic: 'wealth',
+      responseMode: 'full',
+    }),
+  });
+  assert.equal(fullRes.response.status, 200);
+  assert.equal(fullRes.body.ok, true);
+  assert.ok(typeof fullRes.body.data.prompt === 'string');
+  assert.ok(fullRes.body.data.prompt.includes('财运'));
+  assert.ok(fullRes.body.data.result.bazi);
+  assert.ok(fullRes.body.data.result.ziwei);
+});

@@ -359,6 +359,53 @@ function countNature(value: number): string | undefined {
   return map[value];
 }
 
+/**
+ * 依据《太乙金镜式经》卷二“五和、长短、纯阳纯阴”推导大局攻守与策数博弈定性：
+ * - 逢“和算”（上和、下和、次和等）：和解调停，宜息争修好、不战屈人；
+ * - 纯阳纯阴：纯阳过刚易躁进，纯阴退伏多沉潜；
+ * - 主客多寡：主多利主，客多利客。
+ */
+export function evaluateTaiyiTacticGuidance(params: {
+  lordCount: number;
+  guestCount: number;
+  lordNature?: string;
+  guestNature?: string;
+}): string {
+  const { lordCount, guestCount, lordNature, guestNature } = params;
+  const isLordHe = lordNature?.includes('和');
+  const isGuestHe = guestNature?.includes('和');
+
+  if (isLordHe && isGuestHe) {
+    return `主客皆得和数算（主${lordNature}、客${guestNature}），主和解调停，宜息争修好、不战屈人`;
+  }
+  if (isLordHe) {
+    return `主得和数算（${lordNature}），主方宜调和固本、守正求安；客算${guestCount > lordCount ? '占强宜严加防备' : '不及难以妄动'}`;
+  }
+  if (isGuestHe) {
+    return `客得和数算（${guestNature}），客方重调停求和；主方${lordCount > guestCount ? '势强宜以德服人' : '势平可顺水推舟'}`;
+  }
+  if (lordNature === '纯阳' && guestNature === '纯阴') {
+    return '主算纯阳刚烈亢进，客算纯阴退伏沉潜，宜戒骄躁、静候其变';
+  }
+  if (lordNature === '纯阴' && guestNature === '纯阳') {
+    return '主算纯阴柔顺退守，客算纯阳锋芒正盛，宜避其锐气、以柔制刚';
+  }
+  if (lordNature === '纯阳' && guestNature === '纯阳') {
+    return '主客皆纯阳两刚相搏，势均力敌必生震荡，动则两伤';
+  }
+  if (lordNature === '纯阴' && guestNature === '纯阴') {
+    return '主客皆纯阴柔滞伏匿，行事迟延暗阻，宜以明断破晦';
+  }
+
+  if (lordCount > guestCount) {
+    return '主算多于客算，利主不利客，守静固本为宜';
+  }
+  if (guestCount > lordCount) {
+    return '客算多于主算，利客不利主，动谋求变有利';
+  }
+  return '主客算均势，相持待机';
+}
+
 function generalPalaceFromCount(value: number, side: 'lord' | 'guest' | 'set'): number {
   if (side === 'lord' && value % 10 === 0) return 1;
   const remainder = value % 10;
@@ -624,12 +671,24 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     sixteenGods,
     model: TAIYI_MODEL_INFO,
   });
+  const countNatures = {
+    lord: lordNature,
+    guest: guestNature,
+    set: setNature,
+  };
+  const tacticGuidance = evaluateTaiyiTacticGuidance({
+    lordCount,
+    guestCount,
+    lordNature,
+    guestNature,
+  });
   const prompt = [
     `【太乙神数 · ${scopeInfo.title}】`,
     `本计干支：${ganZhi}。`,
     `${yinYang}第 ${bureau} 局。`,
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
     `主客定算：主算 ${lordCount}${lordNature ? `（${lordNature}）` : ''}；客算 ${guestCount}${guestNature ? `（${guestNature}）` : ''}；定算 ${setCount}${setNature ? `（${setNature}）` : ''}。`,
+    `大局攻守：${tacticGuidance}。`,
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
     `十六神：${sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}。`,
     ...(() => {
@@ -665,6 +724,8 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     lordCount,
     guestCount,
     setCount,
+    countNatures,
+    tacticGuidance,
     lordGeneral,
     lordAssistant,
     guestGeneral,
@@ -681,6 +742,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
 
 export const taiyi = {
   generateTaiyi,
+  evaluateTaiyiTacticGuidance,
   TAIYI_16_GODS,
   TAIYI_BASE_YEARS,
   TAIYI_PALACES,

@@ -6,6 +6,23 @@ import type { BirthProfile } from '../profile';
 import type { EvidenceFact, PalaceFact, ScopeType } from '../types/analysis';
 import type { ZiweiRuntime, ZiweiRuntimeOptions } from '../ziwei/runtime';
 import { buildPromptTask } from '../prompt/guidance';
+import {
+  evaluateBaziZiweiCorroboration,
+  evaluateShaYaoCorroboration,
+  evaluateGuiRenCorroboration,
+  type BaziZiweiCorroborationResult,
+  type ShaYaoCorroborationResult,
+  type GuiRenCorroborationResult,
+} from './corroboration';
+
+export {
+  evaluateBaziZiweiCorroboration,
+  evaluateShaYaoCorroboration,
+  evaluateGuiRenCorroboration,
+  type BaziZiweiCorroborationResult,
+  type ShaYaoCorroborationResult,
+  type GuiRenCorroborationResult,
+};
 
 export type BaziZiweiSynthesisThemeId =
   | 'overview'
@@ -48,7 +65,9 @@ export interface BaziZiweiSynthesis {
     ziwei: number;
   };
   timingReference: BaziZiweiTimingReference;
+  corroboration?: BaziZiweiCorroborationResult;
   missingFacts: string[];
+
   methodology: string[];
 }
 
@@ -428,6 +447,8 @@ export function buildBaziZiweiSynthesis(params: {
   if (!baziFacts.luck.length) missingFacts.push('运限基准日期缺少对应八字大运或童限');
   if (!baziFacts.annual.length) missingFacts.push('运限基准年份缺少对应八字流年');
 
+  const corroboration = evaluateBaziZiweiCorroboration(params.bazi, params.ziwei);
+
   return {
     key: 'bazi-ziwei:synthesis',
     status: missingFacts.length ? '资料有缺口' : '资料完整',
@@ -438,6 +459,7 @@ export function buildBaziZiweiSynthesis(params: {
       ziwei: new Set(themes.flatMap((theme) => theme.ziweiEvidence.map((item) => item.key))).size,
     },
     timingReference: timingReference.fact,
+    corroboration,
     missingFacts,
     methodology: [
       '八字与紫微各自保留原有排盘口径和事实链。',
@@ -490,6 +512,7 @@ export function formatBaziZiweiSynthesisForPrompt(
     '',
     '【合参导引】',
     '两盘印证：八字重原局五行气数与岁运引动，紫微重星曜气象与四化落宫；同向结论为主干断点，口径差异为内外张力。',
+    synthesis.corroboration ? synthesis.corroboration.summary : '',
     '',
     '【合参资料】',
     themeText,

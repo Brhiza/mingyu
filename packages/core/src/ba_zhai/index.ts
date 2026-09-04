@@ -17,8 +17,11 @@ import {
   type SitFacingPosition,
 } from '../direction';
 import { analyzeBaZhaiEvidence } from './evidence';
+import { evaluateBaZhaiRegulation, type BaZhaiGasRegulationResult } from './suppression';
 
 export { analyzeBaZhaiEvidence } from './evidence';
+export { evaluateBaZhaiRegulation } from './suppression';
+export type { BaZhaiGasRegulationResult, BaZhaiSuppressionFact } from './suppression';
 export type {
   BaZhaiCalculationFact,
   BaZhaiCalculationStep,
@@ -71,6 +74,7 @@ export interface BaZhaiResult {
   matchAdvice: string;
   luckyDirections: BaZhaiPalace[];
   unluckyDirections: BaZhaiPalace[];
+  gasRegulation?: BaZhaiGasRegulationResult;
   evidenceAnalysis: import('./evidence').BaZhaiEvidenceAnalysis;
   prompt: string;
 }
@@ -312,6 +316,9 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
       lines.push(`  ${palace.direction}${palace.label}（${palace.luck}，约${palace.degree}°）`);
     }
   }
+  if (r.gasRegulation?.promptSummary) {
+    lines.push(r.gasRegulation.promptSummary);
+  }
   return lines.join('\n');
 }
 
@@ -366,6 +373,12 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
     matchAdvice,
     luckyDirections: mingMansion.lucky,
     unluckyDirections: mingMansion.unlucky,
+    gasRegulation: evaluateBaZhaiRegulation({
+      mingGua,
+      houseGua,
+      mingGroup,
+      houseGroup,
+    }),
   };
   const evidenceAnalysis = analyzeBaZhaiEvidence(resultBase);
   const result: Omit<BaZhaiResult, 'prompt'> = { ...resultBase, evidenceAnalysis };

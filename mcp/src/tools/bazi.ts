@@ -61,7 +61,8 @@ export const baziSchema = z.object({
   timeIndex: z
     .number()
     .optional()
-    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；未启用真太阳时时必填'),
+    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；若不传则自动按前三柱（年月日）降级排盘'),
+
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
@@ -205,11 +206,10 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     };
   }
 
-  if (typeof args.timeIndex !== 'number') {
-    throw new Error('请选择出生时辰。');
-  }
-
-  const timeIndex = readMcpIntegerLikeInRange(args.timeIndex, 'timeIndex', 0, 12);
+  const isUnknownTime = typeof args.timeIndex !== 'number' || args.timeIndex < 0;
+  const timeIndex = isUnknownTime
+    ? 6
+    : readMcpIntegerLikeInRange(args.timeIndex, 'timeIndex', 0, 12);
 
   return {
     gender: args.gender,
@@ -220,6 +220,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     isLunar: args.dateType === 'lunar',
     isLeapMonth: args.isLeapMonth ?? false,
     useTrueSolarTime,
+    isThreePillars: isUnknownTime,
     shenShaScope: args.shenShaScope,
     shenShaVariants: args.shenShaVariants,
   };

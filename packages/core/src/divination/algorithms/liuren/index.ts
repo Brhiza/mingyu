@@ -513,6 +513,8 @@ export function generateLiuren(customDate?: Date): LiurenData {
     noblemanBranch,
     noblemanGroundBranch,
     fourLessons,
+    dayStem,
+    dayBranch,
   });
   const guaTi = guaTiFacts.map((fact) => fact.name);
   patternTags.push(...guaTi);

@@ -203,6 +203,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
       result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
       result += `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;
     }
+    if (includeRules && baziResult.climate && baziResult.climate.nature !== '中和') {
+      result += `调候特征: ${baziResult.climate.summary}\n`;
+    }
   }
 
   if (includeNatalDetails) {

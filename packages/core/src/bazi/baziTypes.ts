@@ -20,12 +20,14 @@ export interface Person {
   year: number;
   month: number;
   day: number;
-  timeIndex: number;
+  timeIndex?: number;
   gender: 'male' | 'female' | '';
   isLunar?: boolean;
   isLeapMonth?: boolean;
   useTrueSolarTime?: boolean;
+  isThreePillars?: boolean;
   birthHour?: number;
+
   birthMinute?: number;
   birthPlace?: string;
   birthLongitude?: number;
@@ -367,7 +369,10 @@ export interface BaziChartResult {
   timeInfo: TimeInfo;
   /** 四柱（年柱/月柱/日柱/时柱） */
   pillars: Pillars;
+  /** 是否为时辰未知的“前三柱降级”模式 */
+  isThreePillars?: boolean;
   /** 四柱之间可直接复核的伏吟、反吟、合冲刑害破、三合三会关系 */
+
   pillarRelations: import('./baziPromptEnhancement').BaziPillarRelations;
   /** 日主（出生日的天干，代表命主自身） */
   dayMaster: DayMaster;
@@ -407,6 +412,12 @@ export interface BaziChartResult {
   shenShaAnalysis: ShenShaResult;
   /** 自坐信息 */
   ziZuo: ZiZuoResult;
+  /** 调候寒暖燥湿定性（依据《穷通宝鉴》《滴天髓》） */
+  climate?: {
+    nature: '寒局' | '燥局' | '中和' | '微偏寒' | '微偏燥';
+    medicine: string;
+    summary: string;
+  };
   /** 空亡结果 */
   kongWang: KongWangResult;
   /** 各天干的四时旺相休囚死 */

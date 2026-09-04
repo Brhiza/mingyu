@@ -260,3 +260,13 @@ test('鬼神怪异主题必须保留现实解释限制', () => {
   assert.match(evidence.promptText, /不能据此证明超自然原因/);
   assert.match(evidence.promptText, /不得仅凭官鬼、白虎、螣蛇/);
 });
+
+test('六爻伏神应推导飞伏生克实效断诀', () => {
+  // 水雷屯（坎宫二世卦），六亲缺妻财
+  const data = generateLiuyao(fixedDate, { method: 'manual', yaos: [7, 8, 8, 8, 7, 8] });
+  assert.ok(data.hiddenSpirits && data.hiddenSpirits.length > 0);
+  for (const spirit of data.hiddenSpirits) {
+    assert.ok(spirit.interactionEffect);
+    assert.match(spirit.interactionEffect, /飞|伏/);
+  }
+});

@@ -309,3 +309,16 @@ test('皇极经世提示词应标明纪元依赖并保持自包含', () => {
   assert.doesNotMatch(prompt, /mingyu|API|MCP|仓库|内部字段/i);
   assertPromptIsPortableTaskText(prompt);
 });
+
+test('皇极经世世运消息与阳息阴消算法应准确判定圆图阶段与世运断诀', () => {
+  const result2026 = calculateHuangjiJingshi({ year: 2026 });
+  assert.ok(result2026.eraTrend);
+  assert.equal(result2026.eraTrend.phase, '阳息进取');
+  assert.match(result2026.eraTrend.trendNature, /阳气升腾/);
+  assert.match(result2026.prompt, /世运消息：处于阳息进取期/);
+
+  // 乾之极或坤之极测试
+  const epochTest = calculateHuangjiJingshi({ year: 1984 });
+  assert.ok(epochTest.eraTrend);
+  assert.equal(typeof epochTest.eraTrend.summary, 'string');
+});

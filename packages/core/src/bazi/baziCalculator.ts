@@ -7,6 +7,7 @@ import { ShenShaCalculator } from './baziShenSha';
 import { BaziAnalyzer } from './baziAnalysis';
 import { LuckCalculator } from './LuckCalculator';
 import { WuxingCalculator } from './WuxingCalculator';
+import { evaluateBaziClimateBalance } from './climateBalance';
 import {
   getWuxing as getWuxingUtil,
   getGanYinYang,
@@ -152,13 +153,19 @@ export class BaziCalculator {
     const useTrueSolarTimeEnabled = useTrueSolarTime === true;
     const isLunarEnabled = isLunar === true;
     const isLeapMonthEnabled = isLeapMonth === true;
-    const selectedTimeInfo = this.timeMap[timeIndex];
-    if (!useTrueSolarTimeEnabled && !Number.isInteger(timeIndex)) {
+    const isThreePillars = Boolean(
+      person.isThreePillars ||
+      (!useTrueSolarTimeEnabled && (typeof timeIndex !== 'number' || timeIndex < 0)),
+    );
+    const effectiveTimeIndex = isThreePillars ? 6 : timeIndex!;
+    const selectedTimeInfo = this.timeMap[effectiveTimeIndex];
+    if (!useTrueSolarTimeEnabled && !isThreePillars && !Number.isInteger(timeIndex)) {
       throw new Error('无效的时辰索引');
     }
     if (!useTrueSolarTimeEnabled && !selectedTimeInfo) {
       throw new Error('无效的时辰索引');
     }
+
     if (
       useTrueSolarTimeEnabled &&
       (typeof birthHour !== 'number' ||
@@ -393,9 +400,16 @@ export class BaziCalculator {
       },
       timeInfo: finalTimeInfo,
       pillars,
+      isThreePillars,
       pillarRelations: { fuxin: [], fanyin: [], xingChong: [] },
-      warnings,
+      warnings: isThreePillars
+        ? [
+            ...warnings,
+            '出生时辰未知，已采用年月日三柱保守排盘。时柱、晚运及精确时神仅供参考，不作必然结论。',
+          ]
+        : warnings,
       warningFacts,
+
       warningSummaryFact,
       dayMaster: {
         gan: dayMasterGan,
@@ -516,6 +530,7 @@ export class BaziCalculator {
     | 'wuxingSeasonStatus'
     | 'monthCommander'
     | 'seasonInfo'
+    | 'climate'
   > {
     const { gender } = person;
     const { pillars, dayMaster, solarTime, eightChar } = coreResult;
@@ -583,6 +598,7 @@ export class BaziCalculator {
       wuxingSeasonStatus: getSeasonStatus(pillars.month.zhi),
       monthCommander,
       seasonInfo,
+      climate: evaluateBaziClimateBalance(pillars),
       analysis: this.analyzer.analyzeBaziChart(pillars, hiddenStems, monthCommander, {
         currentJieqi: seasonInfo.currentJieqi,
       }),
