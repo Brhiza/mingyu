@@ -26,6 +26,7 @@ import {
 import { evaluateQimenPatternFulfillment } from '../divination/algorithms/qimen/helpers/guidance';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
+import { analyzeLiurenEvidence } from '../divination/liuren-evidence';
 import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
 import { formatAstrolabeAspectSections } from '../divination/astrolabe-chart-facts';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
@@ -607,6 +608,9 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
 }
 
 function formatLiurenInfo(data: LiurenData) {
+  const ridingFacts = analyzeLiurenEvidence(data).traditionalFacts.filter(
+    (item) => item.kind === '天将乘神',
+  );
   const lessonLines = data.fourLessons.map(
     (item) => `${item.name}${item.upper}临${item.lower}乘${item.god}，${item.relation}`,
   );
@@ -662,6 +666,7 @@ function formatLiurenInfo(data: LiurenData) {
     ...lessonLines.map((item) => `  ${item}`),
     transmissionLines.length ? '三传：' : '',
     ...transmissionLines.map((item) => `  ${item}`),
+    ...ridingFacts.map((item) => `乘神生克：${item.promptText}`),
   ]
     .filter(Boolean)
     .join('\n');

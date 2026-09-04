@@ -3694,6 +3694,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.equal(liurenResult.isError, undefined, 'liuren_prompt 不应返回错误');
     const liurenPrompt = String(liurenResult.structuredContent?.prompt);
     assert.match(liurenPrompt, /占法：大六壬/);
+    assert.match(liurenPrompt, /乘神生克：初传.+乘天盘.+与日干/);
     assert.match(liurenPrompt, /课传主线：[\s\S]*四课：[\s\S]*三传：/);
     assert.match(liurenPrompt, /【问题范围】\n事业工作/);
     assert.doesNotMatch(liurenPrompt, /结构化证据|计算链|证据汇总|解释限制|断课要点/);
@@ -3959,7 +3960,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     );
     assert.deepEqual(
       new Set(liurenData.evidenceAnalysis.traditionalFacts.map((item) => item.kind)),
-      new Set(['经典取传规则', '课体', '天将属性', '神煞']),
+      new Set(['经典取传规则', '课体', '天将属性', '天将乘神', '神煞']),
     );
     assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
     assert.doesNotMatch(liurenPrompt, /取传依据：/);
