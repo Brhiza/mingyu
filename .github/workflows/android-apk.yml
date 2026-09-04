@@ -128,6 +128,37 @@ jobs:
               --title "命语 Android ${ANDROID_VERSION}" \
               --generate-notes
           fi
+      - name: 同步到统一 APK 分发
+        env:
+          APP_RELEASE_PUBLISH_TOKEN: ${{ secrets.APP_RELEASE_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if [[ -z "$APP_RELEASE_PUBLISH_TOKEN" ]]; then
+            echo "缺少 APP_RELEASE_PUBLISH_TOKEN，已停止发布。" >&2
+            exit 1
+          fi
+          apk_name="mingyu-${ANDROID_VERSION}.apk"
+          apk_path="release/${apk_name}"
+          asset_url="https://github.com/Brhiza/mingyu/releases/download/${GITHUB_REF_NAME}/${apk_name}"
+          release_url="https://github.com/Brhiza/mingyu/releases/tag/${GITHUB_REF_NAME}"
+          release_notes="$(gh release view "$GITHUB_REF_NAME" --json body --jq '.body // ""')"
+          jq -n \
+            --arg version "$ANDROID_VERSION" \
+            --argjson versionCode "$MINGYU_VERSION_CODE" \
+            --arg fileName "$apk_name" \
+            --arg sha256 "$(sha256sum "$apk_path" | cut -d' ' -f1)" \
+            --arg assetUrl "$asset_url" \
+            --arg releaseUrl "$release_url" \
+            --arg releaseNotes "$release_notes" \
+            '{version: $version, versionCode: $versionCode, channel: "latest", fileName: $fileName, sha256: $sha256, assetUrl: $assetUrl, releaseUrl: $releaseUrl, releaseNotes: $releaseNotes}' \
+            > release/app-release-payload.json
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            --request POST \
+            --header "Authorization: Bearer ${APP_RELEASE_PUBLISH_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data-binary @release/app-release-payload.json \
+            https://download.aov.cc/v1/publish/mingyu
       - name: 上传到蓝奏云线路
         env:
           LANZOU_API_TOKEN: ${{ secrets.LANZOU_API_TOKEN }}

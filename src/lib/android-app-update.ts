@@ -4,6 +4,8 @@ import { buildAndroidDownloadRoutes, type AndroidDownloadRoute } from '@/lib/and
 
 const RELEASE_API_URL = 'https://api.github.com/repos/Brhiza/mingyu/releases?per_page=100';
 const RELEASE_DOWNLOAD_PREFIX = 'https://github.com/Brhiza/mingyu/releases/download/';
+const RELEASE_MANIFEST_URL = 'https://download.aov.cc/apps/mingyu/android/latest.json';
+const RELEASE_CDN_PREFIX = 'https://download.aov.cc/apps/mingyu/android/';
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
 
 export interface AndroidAppInfo {
@@ -33,6 +35,17 @@ type GitHubRelease = {
   tag_name?: unknown;
   html_url?: unknown;
   assets?: unknown;
+};
+
+type AndroidReleaseManifest = {
+  appId?: unknown;
+  packageName?: unknown;
+  channel?: unknown;
+  version?: unknown;
+  fileName?: unknown;
+  apkUrl?: unknown;
+  checksumUrl?: unknown;
+  releaseUrl?: unknown;
 };
 
 const AndroidAppUpdate = registerPlugin<AndroidAppUpdatePlugin>('AndroidAppUpdate');
@@ -96,6 +109,39 @@ export function normalizeAndroidRelease(value: unknown): AndroidReleaseInfo | nu
     apkUrl,
     checksumUrl,
     releaseUrl,
+    downloadRoutes: buildAndroidDownloadRoutes(
+      version,
+      `${RELEASE_CDN_PREFIX}${version}/mingyu-${version}.apk`,
+    ),
+  };
+}
+
+export function normalizeAndroidManifest(value: unknown): AndroidReleaseInfo | null {
+  if (!value || typeof value !== 'object') return null;
+  const manifest = value as AndroidReleaseManifest;
+  const version = typeof manifest.version === 'string' ? manifest.version.trim() : '';
+  if (!parseVersion(version)) return null;
+  const fileName = `mingyu-${version}.apk`;
+  const apkUrl = `${RELEASE_CDN_PREFIX}${version}/${fileName}`;
+  const checksumUrl = `${apkUrl}.sha256`;
+  if (
+    manifest.appId !== 'mingyu' ||
+    manifest.packageName !== 'cc.aov.mingyu' ||
+    manifest.channel !== 'latest' ||
+    manifest.fileName !== fileName ||
+    manifest.apkUrl !== apkUrl ||
+    manifest.checksumUrl !== checksumUrl
+  ) {
+    return null;
+  }
+  const tagName = `android-v${version}`;
+  const expectedReleaseUrl = `https://github.com/Brhiza/mingyu/releases/tag/${tagName}`;
+  return {
+    version,
+    tagName,
+    apkUrl,
+    checksumUrl,
+    releaseUrl: manifest.releaseUrl === expectedReleaseUrl ? expectedReleaseUrl : '',
     downloadRoutes: buildAndroidDownloadRoutes(version, apkUrl),
   };
 }
@@ -113,6 +159,18 @@ export async function getAndroidAppInfo(): Promise<AndroidAppInfo | null> {
 export async function fetchLatestAndroidRelease(
   fetcher: typeof fetch = fetch,
 ): Promise<AndroidReleaseInfo | null> {
+  try {
+    const manifestResponse = await fetcher(RELEASE_MANIFEST_URL, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (manifestResponse.ok) {
+      const manifest = normalizeAndroidManifest(await manifestResponse.json());
+      if (manifest) return manifest;
+    }
+  } catch {
+    // Continue with the existing GitHub Release source.
+  }
   const response = await fetcher(RELEASE_API_URL, {
     headers: { Accept: 'application/vnd.github+json' },
     cache: 'no-store',
