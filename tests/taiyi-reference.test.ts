@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { generateTaiyi } from '../packages/core/src/taiyi/index.ts';
+import { evaluateTaiyiTacticGuidance, generateTaiyi } from '../packages/core/src/taiyi/index.ts';
 
 type TaiyiTruthRow = readonly [
   year: number,
@@ -197,3 +197,56 @@ test('太乙四计应严格区分年参数和日期参数', () => {
     /year 与 date 的公历年份不一致/,
   );
 });
+
+test('太乙大局攻守应根据和数算与纯阴纯阳策数定性', () => {
+  // 和数算测试
+  assert.equal(
+    evaluateTaiyiTacticGuidance({
+      lordCount: 12,
+      guestCount: 16,
+      lordNature: '下和',
+      guestNature: '下和',
+    }),
+    '主客皆得和数算（主下和、客下和），主和解调停，宜息争修好、不战屈人',
+  );
+
+  // 主得和算
+  assert.equal(
+    evaluateTaiyiTacticGuidance({
+      lordCount: 18,
+      guestCount: 25,
+      lordNature: '上和',
+      guestNature: '杂重阳',
+    }),
+    '主得和数算（上和），主方宜调和固本、守正求安；客算占强宜严加防备',
+  );
+
+  // 纯阳对纯阴
+  assert.equal(
+    evaluateTaiyiTacticGuidance({
+      lordCount: 33,
+      guestCount: 22,
+      lordNature: '纯阳',
+      guestNature: '纯阴',
+    }),
+    '主算纯阳刚烈亢进，客算纯阴退伏沉潜，宜戒骄躁、静候其变',
+  );
+
+  // 纯阴对纯阳
+  assert.equal(
+    evaluateTaiyiTacticGuidance({
+      lordCount: 26,
+      guestCount: 39,
+      lordNature: '纯阴',
+      guestNature: '纯阳',
+    }),
+    '主算纯阴柔顺退守，客算纯阳锋芒正盛，宜避其锐气、以柔制刚',
+  );
+
+  // 验证 generateTaiyi 返回结果中包含 tacticGuidance 与 countNatures
+  const result = generateTaiyi({ year: 2026 });
+  assert.ok(result.tacticGuidance, '太乙盘应包含大局攻守定性');
+  assert.ok(result.countNatures, '太乙盘应包含算数性质');
+  assert.match(result.prompt, /大局攻守/);
+});
+

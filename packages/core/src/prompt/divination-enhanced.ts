@@ -875,7 +875,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     `太乙：${data.taiyiPosition}（第${data.taiyiPalace}宫，${data.taiyiGua}卦，${data.taiyiDir}）`,
     `文昌（主目）：${data.wenChangPosition}；始击（客目）：${data.shiJiPosition}；计神：${data.jiShenPosition}`,
     `主客定算：主算${data.lordCount}；客算${data.guestCount}；定算${data.setCount}`,
-    `大局攻守：${data.lordCount > data.guestCount ? '主算多于客算，利主不利客，守静固本为宜' : data.guestCount > data.lordCount ? '客算多于主算，利客不利主，动谋求变有利' : '主客均势，相持待机'}`,
+    `大局攻守：${data.tacticGuidance || (data.lordCount > data.guestCount ? '主算多于客算，利主不利客，守静固本为宜' : data.guestCount > data.lordCount ? '客算多于主算，利客不利主，动谋求变有利' : '主客均势，相持待机')}`,
     `将参：主大${data.lordGeneral}、主参${data.lordAssistant}；客大${data.guestGeneral}、客参${data.guestAssistant}；定大${data.setGeneral}、定参${data.setAssistant}`,
     sixteenGods,
     specialJudgments.length ? `判断：${specialJudgments.join('；')}` : '',

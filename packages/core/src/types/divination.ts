@@ -1580,6 +1580,14 @@ export interface TaiyiResult {
   lordCount: number;
   guestCount: number;
   setCount: number;
+  /** 主客定算策数定性（和数、纯阴、纯阳、杂阴阳等） */
+  countNatures?: {
+    lord?: string;
+    guest?: string;
+    set?: string;
+  };
+  /** 大局攻守与策数博弈定性 */
+  tacticGuidance?: string;
   lordGeneral: number;
   lordAssistant: number;
   guestGeneral: number;
