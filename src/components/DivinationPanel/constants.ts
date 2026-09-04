@@ -73,7 +73,7 @@ export const defaultDraft: DivinationDraft = {
   taiyiYear: String(new Date().getFullYear()),
   zhugeText: '',
   kongmingMethod: 'random',
-  kongmingPattern: '●○●○○',
+  kongmingPattern: '',
   taiyiScope: 'year',
 };
 

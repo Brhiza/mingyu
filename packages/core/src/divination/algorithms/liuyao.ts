@@ -40,7 +40,6 @@ import {
   getSeasonState,
   isLiuchong,
   BRANCH_ORDER,
-  BRANCH_WUXING,
   CHANGSHENG_ORDER,
   SANHE_GROUPS,
 } from '../../ganzhi';
@@ -49,17 +48,8 @@ import {
  * 五行入墓支（《卜筮正宗》卷三《墓库章》、《增删卜易·入墓》定例）：
  * 金墓在丑、木墓在未、火墓在戌、水土墓在辰。
  * 《增删卜易》所列三墓为入日墓、入动墓、动而化墓；月建仅用于旺衰，
- * 不因月支恰为某五行墓库就直接判为“入月墓”。当前结构先准确提供日墓，
- * 动墓与化墓待结合动变关系另行结构化，避免把未实现的口径混入结果。
+ * 不因月支恰为某五行墓库就直接判为“入月墓”。
  */
-const WUXING_RUMU: Record<string, string> = {
-  金: '丑',
-  木: '未',
-  火: '戌',
-  水: '辰',
-  土: '辰',
-};
-
 /**
  * 五行十二宫（《三命通会》卷三论五行旺相、《卜筮正宗》卷四十二宫）：
  * 长生（气之始）、沐浴（败地）、冠带（渐成）、临官（禄地）、帝旺（极盛）、
@@ -96,12 +86,6 @@ function getShiErGong(wuxing: string, branch: string): string {
     throw new Error(`六爻十二长生无法定位 ${wuxing} 在 ${branch} 支的状态。`);
   }
   return stage;
-}
-
-/** 判断爻之地支是否入日墓 */
-function isRiMu(branch: string, dayBranch: string): boolean {
-  const wuxing = BRANCH_WUXING[branch];
-  return WUXING_RUMU[wuxing] === dayBranch;
 }
 
 /**
@@ -1032,6 +1016,11 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     changedHexagram.name,
     changingYaosResult.length > 0,
   );
+  const movingBranches = yaosInfo.flatMap((info, index) =>
+    rawYaos[index] === 6 || rawYaos[index] === 9
+      ? [{ position: index + 1, branch: info.dizhi }]
+      : [],
+  );
   const yaosDetail = yaosInfo.map((info, index) => {
     const isChanging = rawYaos[index] === 6 || rawYaos[index] === 9;
     const changedInfo = isChanging ? changedYaosInfo[index] : null;
@@ -1067,6 +1056,16 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
           voids.includes(changedInfo.dizhi),
         )
       : [];
+    const dayLifeStage = getShiErGong(info.wuxing, dayBranch);
+    const movingLifeStages = movingBranches.map(({ position, branch }) => ({
+      position,
+      branch,
+      stage: getShiErGong(info.wuxing, branch),
+    }));
+    const changedLifeStage = changedInfo ? getShiErGong(info.wuxing, changedInfo.dizhi) : undefined;
+    const isDongMu = movingLifeStages.some(({ stage }) => stage === '墓');
+    const isHuaMu = changedLifeStage === '墓';
+    const isRiMuFlag = dayLifeStage === '墓';
 
     return {
       position: index + 1,
@@ -1099,11 +1098,16 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
           ? monthBranch
           : undefined,
       isLiuhai: isLiuhai(info.dizhi, dayBranch) || isLiuhai(info.dizhi, monthBranch),
-      isRuMu: isRiMu(info.dizhi, dayBranch),
+      isRuMu: isRiMuFlag || isDongMu || isHuaMu,
+      dayLifeStage,
+      movingLifeStages,
+      changedLifeStage,
+      isDongMu,
+      isHuaMu,
       shiErGong: getShiErGong(info.wuxing, info.dizhi),
       // 兼容旧字段：古籍三墓不含“月墓”，因此固定为 false。
       isYueMu: false,
-      isRiMu: isRiMu(info.dizhi, dayBranch),
+      isRiMu: isRiMuFlag,
       changedYao: changedInfo
         ? {
             dizhi: changedInfo.dizhi,

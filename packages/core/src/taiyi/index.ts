@@ -4,15 +4,15 @@
  *
  * 四计使用各自时间尺度，不能用年计结果替代月、日、时计：
  *   - 年计：太乙积年 10153917 起算。
- *   - 月计：按农历年、月累计，闰月沿用所属月序，不额外增加一局。
+ *   - 月计：以逐月节气换月，闰月不另起一局。
  *   - 日计：按固定现代历元累计，并校正六十日干支序。
  *   - 时计：按固定现代历元累计十二时辰，冬至后阳遁、夏至后阴遁。
  *   - 局数：积年除 72，余 0 作第 72 局。
  *   - 太乙、文昌（主目）、始击（客目）按七十二局逐局表定位。
  *   - 主算、客算按七十二局立成表取值，不再用洛书宫简单累加代替。
  *
- * 月、日、时计采用现代历法定位来复现通行实用排法；结果元数据会明确这一口径，不把它
- * 冒充为古籍历法常数、小余和气应链的逐项复原。
+ * 日、时计采用现代历法定位来复现通行实用排法；结果元数据会明确这一口径，不把它冒充为
+ * 古籍历法常数、小余和气应链的逐项复原。
  */
 import { SolarTime } from 'tyme4ts';
 import { getGanZhiFromDate, getSixtyCycle, isValidGanZhi } from '../ganzhi';
@@ -33,6 +33,7 @@ export type {
 
 /** 太乙统宗年家积年基数。 */
 export const TAIYI_BASE_YEARS = 10153917;
+const TAIYI_MONTH_BRANCHES = '寅卯辰巳午未申酉戌亥子丑';
 
 export interface TaiyiPalaceProfile {
   gua: string;
@@ -297,11 +298,11 @@ export const TAIYI_MODEL_INFO: TaiyiModelInfo = {
   id: 'taiyi-four-calculations-72-table',
   name: '太乙四计七十二局基础盘',
   supportedScopes: ['year', 'month', 'day', 'hour'],
-  precision: '年计按积年起局；月、日、时计采用现代历法定位复现通行四计，时计按冬夏至分阴阳遁',
+  precision: '年计按积年起局；月计按逐月节气换局；日、时计采用现代历法定位，时计按冬夏至分阴阳遁',
   sources: [
     {
       title: '《太乙金镜式经》',
-      url: 'https://zh.wikisource.org/wiki/太乙金鏡式經_(四庫全書本)',
+      url: 'https://www.shidianguji.com/book/SK1615/chapter/1l9lir71oidda',
       evidence: '年、月、日、时四计积数规则及太乙行宫、文昌、始击、计神与主客算',
     },
     {
@@ -550,21 +551,14 @@ function calculateAccumulatedValue(
   ganZhi: string,
 ): number {
   if (scope === 'year') return TAIYI_BASE_YEARS + year;
-
-  const lunarDay = SolarTime.fromYmdHms(
-    date.getFullYear(),
-    date.getMonth() + 1,
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    0,
-  )
-    .getLunarHour()
-    .getLunarDay();
-  const lunarYear = lunarDay.getLunarMonth().getLunarYear().getYear();
-  const lunarMonth = Math.abs(lunarDay.getLunarMonth().getMonth());
   if (scope === 'month') {
-    return (TAIYI_BASE_YEARS + lunarYear - 1) * 12 + 2 + lunarMonth;
+    const monthOrder = TAIYI_MONTH_BRANCHES.indexOf(ganZhi[1]) + 1;
+    if (monthOrder === 0) throw new Error(`太乙月建地支无效：${ganZhi}`);
+    const solarYear =
+      getGanZhiFromDate(date).year === getGanZhiFromDate(createYearProbeDate(year)).year
+        ? year
+        : year - 1;
+    return (TAIYI_BASE_YEARS + solarYear - 1) * 12 + 2 + monthOrder;
   }
 
   if (scope === 'day') {

@@ -5804,6 +5804,10 @@ test('公开 API 提供起名、姓名、汉字与号码完整工具链', async 
   });
   assert.equal(character.response.status, 200);
   assert.equal(character.body.data.totalKangxiStrokes, 31);
+  assert.equal(character.body.data.characters[1].detail.simplifiedStrokes, 8);
+  assert.equal(character.body.data.characters[1].detail.traditionalStrokes, 16);
+  assert.match(character.body.data.characters[1].detail.kangxiText, /【說文】/);
+  assert.match(character.body.data.characters[1].detail.definition, /博学多才/);
 
   const selected = await callApi('character/select', {
     method: 'POST',
@@ -5823,6 +5827,10 @@ test('公开 API 提供起名、姓名、汉字与号码完整工具链', async 
   assert.equal(number.response.status, 200);
   assert.equal(number.body.data.primaryIndex, 17);
   assert.equal(number.body.data.energySequence, '212345');
+  assert.equal(number.body.data.energyPairs[0].trigramEvidence.starName, '破军');
+  assert.equal(number.body.data.energyPairs[0].trigramEvidence.from.name, '坤');
+  assert.equal(number.body.data.energyPairs[0].trigramEvidence.to.name, '坎');
+  assert.deepEqual(number.body.data.energyPairs[0].trigramEvidence.changedLines, [2]);
   assert.deepEqual(number.body.data.letterConversions, [{ letter: 'B', value: 2, digits: '2' }]);
   assert.deepEqual(
     number.body.data.energyPairs.map((item: { name: string }) => item.name),
@@ -5841,7 +5849,30 @@ test('公开 API 提供起名、姓名、汉字与号码完整工具链', async 
   assert.equal(numberPrompt.response.status, 200);
   assert.equal(numberPrompt.body.data.analysis.energySequence, '212345');
   assert.match(numberPrompt.body.data.prompt, /【磁场组合】/);
+  assert.match(numberPrompt.body.data.prompt, /大游年原为宅卦相配之法/);
+  assert.match(numberPrompt.body.data.prompt, /卦变：2为坤☷，1为坎☵/);
   assert.match(numberPrompt.body.data.prompt, /适合长期使用吗？/);
+});
+
+test('公开 API 的诸葛神数释义与完整提示词保持一致', async () => {
+  const result = await callApi('divination/zhuge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '夏夏一' }),
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.number, 1);
+  assert.equal(result.body.data.sign.summary, result.body.data.interpretation.interpretation);
+  const prompt = await callApi('divination/zhuge/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '夏夏一', question: '如何准备评选？' }),
+  });
+  assert.equal(prompt.response.status, 200);
+  for (const text of Object.values(result.body.data.interpretation)) {
+    assert.ok(prompt.body.data.prompt.includes(text));
+  }
+  assert.doesNotMatch(prompt.body.data.prompt, /健康、婚姻均顺遂/);
 });
 
 test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', async () => {
@@ -5881,6 +5912,18 @@ test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', 
     body: JSON.stringify({ replay: random.body.data.random.samples }),
   });
   assert.equal(replay.body.data.symbol, random.body.data.symbol);
+  assert.deepEqual(replay.body.data.interpretation, random.body.data.interpretation);
+  assert.deepEqual(replay.body.data.draws, random.body.data.draws);
+
+  const kongmingPrompt = await callApi('divination/kongming/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pattern: '10000', question: '这次转变如何准备？' }),
+  });
+  assert.equal(kongmingPrompt.response.status, 200);
+  assert.match(kongmingPrompt.body.data.prompt, /诗句取象：龙门鱼跃过/);
+  assert.match(kongmingPrompt.body.data.prompt, /《尚书·洪范》“金曰从革”/);
+  assert.match(kongmingPrompt.body.data.prompt, /这次转变如何准备/);
 
   const invalid = await callApi('divination/zhuge', {
     method: 'POST',

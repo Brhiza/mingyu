@@ -514,6 +514,7 @@ export function birthProfileToZiweiChartInput(profile: BirthProfile): ChartInput
       ? formatBirthDate(date.year, date.month, date.day)
       : formatBirthDate(profile.year, profile.month, profile.day),
     birthTimeIndex: normalized.timeIndex,
+    ...(date ? { birthTime: { hour: date.hour, minute: date.minute } } : {}),
     trueSolarEvidence: normalized.trueSolarEvidence,
     isLeapMonth: useTrueSolarTime ? false : profile.isLeapMonth,
     fixLeap: true,

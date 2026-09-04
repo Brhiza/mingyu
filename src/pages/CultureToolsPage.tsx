@@ -1,49 +1,47 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import {
   analyzeChineseCharacters,
+  analyzeChineseCharactersWithReferences,
   analyzeChineseName,
   analyzeNumber,
   buildChineseNameAnalysisPrompt,
+  buildChineseCharacterPrompt,
   buildChineseNamingPrompt,
   buildNumberEnergyPrompt,
   generateChineseNames,
   selectChineseCharacters,
   selectNamingCharacters,
   type GenerationCharacterPosition,
-  type NamingBirthInput,
   type NamingGender,
   type Wuxing,
 } from 'mingyu-core/name-number';
 import { PromptDeliveryPanel } from '@/components/PromptPreview';
 import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
-import { SegmentedControl } from '@/components/SegmentedControl';
 import { WorkspacePage } from '@/components/workspace/WorkspaceUI';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
-import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { sortPersonalCasesForQuickSwitch, type PersonalHistoryRecord } from '@/lib/history-records';
+import { useBirthPlace } from '@/hooks/useBirthPlace';
+import { createNamingBirthDraft, createNamingBirthInput } from '@/lib/naming-birth-input';
+import { clampNumericField } from '@/lib/input-validation';
+import type { QueryInputState } from '@/lib/query-state';
+import { PersonForm } from './InputPage.PersonForm';
+import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
+import { getFieldKey } from './InputPage.field-helpers';
 
 type ToolId = 'naming' | 'name' | 'hanzi' | 'number';
-type BirthDraft = {
-  gender: 'male' | 'female';
-  dateType: 'solar' | 'lunar';
-  year: string;
-  month: string;
-  day: string;
-  timeIndex: number | '';
-  isLeapMonth: boolean;
-};
+type BirthDraft = QueryInputState;
 
 const TEMPORARY_CASE_VALUE = '__temporary_case__';
-const emptyBirthDraft: BirthDraft = {
-  gender: 'male',
-  dateType: 'solar',
-  year: '',
-  month: '',
-  day: '',
-  timeIndex: '',
-  isLeapMonth: false,
-};
 
 const tools: Array<{ id: ToolId; label: string; description: string; mark: string }> = [
   { id: 'naming', label: '起名', description: '结合出生取用筛选姓名', mark: '名' },
@@ -52,13 +50,6 @@ const tools: Array<{ id: ToolId; label: string; description: string; mark: strin
   { id: 'number', label: '数字能量', description: '数字、字母与八星磁场', mark: '数' },
 ];
 const wuxingOptions: Array<'' | Wuxing> = ['', '金', '木', '水', '火', '土'];
-const birthTimeOptions: DropdownSelectOption<string>[] = [
-  { value: '', label: '请选择时辰' },
-  ...BIRTH_TIME_OPTIONS.map((item) => ({
-    value: String(item.index),
-    label: `${item.label}（${item.range}）`,
-  })),
-];
 const gridLabels: Record<string, string> = {
   tian: '天格',
   ren: '人格',
@@ -67,39 +58,30 @@ const gridLabels: Record<string, string> = {
   zong: '总格',
 };
 
-function createBirthInput(birth: BirthDraft): NamingBirthInput | undefined {
-  if (!birth.year || !birth.month || !birth.day || birth.timeIndex === '') {
-    throw new Error('请填写完整的出生日期、性别和时辰');
-  }
-  return {
-    gender: birth.gender,
-    year: Number(birth.year),
-    month: Number(birth.month),
-    day: Number(birth.day),
-    timeIndex: birth.timeIndex,
-    dateType: birth.dateType,
-    ...(birth.dateType === 'lunar' ? { isLeapMonth: birth.isLeapMonth } : {}),
-  };
+function getCaseBirthDraft(activeCase: PersonalHistoryRecord | null): BirthDraft {
+  return createNamingBirthDraft(activeCase?.input);
 }
 
-function getCaseBirthDraft(activeCase: PersonalHistoryRecord | null): BirthDraft {
-  if (!activeCase) return { ...emptyBirthDraft };
-  const { input } = activeCase;
-  return {
-    gender: input.gender,
-    dateType: input.dateType,
-    year: input.year,
-    month: input.month,
-    day: input.day,
-    timeIndex: input.timeIndex,
-    isLeapMonth: input.isLeapMonth,
-  };
+function useCultureResult<T>(input: unknown) {
+  const inputKey = JSON.stringify(input);
+  const [snapshot, setSnapshot] = useState<{ key: string; result: T } | null>(null);
+  const result = snapshot?.key === inputKey ? snapshot.result : null;
+  function saveResult(value: T | null, submittedInput: unknown = input) {
+    setSnapshot(value === null ? null : { key: JSON.stringify(submittedInput), result: value });
+  }
+  return [result, saveResult] as const;
 }
 
 export function CultureToolsPage() {
   const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
   const [activeTool, setActiveTool] = useState<ToolId>('naming');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<{ message: string } | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.focus({ preventScroll: true });
+    errorRef.current?.scrollIntoView({ block: 'center' });
+  }, [error]);
   const [surname, setSurname] = useState('李');
   const [gender, setGender] = useState<NamingGender>('通用');
   const [preferredCharacters, setPreferredCharacters] = useState('');
@@ -108,29 +90,55 @@ export function CultureToolsPage() {
   const [generationPosition, setGenerationPosition] =
     useState<GenerationCharacterPosition>('first');
   const [birth, setBirth] = useState<BirthDraft>(() => getCaseBirthDraft(activeCase));
-  const [nameCandidates, setNameCandidates] = useState<ReturnType<typeof generateChineseNames>>([]);
-  const [namingCharacterPool, setNamingCharacterPool] = useState<
-    ReturnType<typeof selectNamingCharacters>
-  >([]);
   const [selectedCandidate, setSelectedCandidate] = useState(0);
   const [fullName, setFullName] = useState('李清和');
   const [surnameLength, setSurnameLength] = useState<1 | 2>(1);
   const [nameQuestion, setNameQuestion] = useState('');
-  const [nameResult, setNameResult] = useState<ReturnType<typeof analyzeChineseName> | null>(null);
   const [hanziText, setHanziText] = useState('清和');
-  const [hanziResult, setHanziResult] = useState<ReturnType<
-    typeof analyzeChineseCharacters
-  > | null>(null);
+  const [hanziLoading, setHanziLoading] = useState(false);
+  const hanziRequest = useRef(0);
   const [selectStrokes, setSelectStrokes] = useState('');
+  const [selectCommonOnly, setSelectCommonOnly] = useState(true);
   const [selectElement, setSelectElement] = useState<'' | Wuxing>('');
   const [selectPinyin, setSelectPinyin] = useState('');
-  const [selectedChars, setSelectedChars] = useState<ReturnType<typeof selectChineseCharacters>>(
-    [],
-  );
   const [numberText, setNumberText] = useState('13800138000');
   const [numberPurpose, setNumberPurpose] = useState<'phone' | 'plate' | 'general'>('phone');
   const [numberQuestion, setNumberQuestion] = useState('');
-  const [numberResult, setNumberResult] = useState<ReturnType<typeof analyzeNumber> | null>(null);
+  const caseInput = activeCase?.input ?? null;
+  const [namingResult, setNamingResult] = useCultureResult<{
+    candidates: ReturnType<typeof generateChineseNames>;
+    characters: ReturnType<typeof selectNamingCharacters>;
+  }>({
+    surname,
+    gender,
+    preferredCharacters,
+    forbiddenCharacters,
+    generationCharacter,
+    generationPosition,
+    birth,
+    activeCaseId,
+    caseInput,
+  });
+  const nameCandidates = useMemo(() => namingResult?.candidates ?? [], [namingResult]);
+  const namingCharacterPool = useMemo(() => namingResult?.characters ?? [], [namingResult]);
+  const [nameResult, setNameResult] = useCultureResult<ReturnType<typeof analyzeChineseName>>({
+    fullName,
+    surnameLength,
+    birth,
+    activeCaseId,
+    caseInput,
+  });
+  const [hanziResult, setHanziResult] =
+    useCultureResult<ReturnType<typeof analyzeChineseCharacters>>(hanziText);
+  const [characterSelection, setSelectedChars] = useCultureResult<
+    ReturnType<typeof selectChineseCharacters>
+  >({ selectStrokes, selectElement, selectPinyin, selectCommonOnly });
+  const selectedChars = characterSelection ?? [];
+  const [numberResult, setNumberResult] = useCultureResult<ReturnType<typeof analyzeNumber>>({
+    numberText,
+    numberPurpose,
+  });
+  const appliedCaseKey = useRef<string | null>(null);
 
   const caseOptions = useMemo<DropdownSelectOption<string>[]>(
     () => [
@@ -149,10 +157,14 @@ export function CultureToolsPage() {
   );
 
   useEffect(() => {
+    const key = JSON.stringify([activeCaseId, activeCase?.input ?? null]);
+    if (appliedCaseKey.current === key) return;
+    appliedCaseKey.current = key;
     setBirth(getCaseBirthDraft(activeCase));
     const caseName = activeCase?.input.name.trim();
-    if (caseName) setFullName(caseName);
-  }, [activeCase]);
+    setFullName(caseName || '');
+    setError(null);
+  }, [activeCase, activeCaseId]);
 
   const namingPrompt = useMemo(
     () =>
@@ -194,22 +206,44 @@ export function CultureToolsPage() {
     [numberQuestion, numberResult],
   );
   const namingDelivery = usePromptCopyShare(namingPrompt);
+  const characterPrompt = useMemo(
+    () => (hanziResult ? buildChineseCharacterPrompt({ analysis: hanziResult }) : ''),
+    [hanziResult],
+  );
+  const characterDelivery = usePromptCopyShare(characterPrompt);
   const nameDelivery = usePromptCopyShare(namePrompt);
   const numberDelivery = usePromptCopyShare(numberPrompt);
 
+  async function lookupCharacter(text: string) {
+    const request = ++hanziRequest.current;
+    setHanziLoading(true);
+    setHanziResult(null);
+    setError(null);
+    try {
+      const result = await analyzeChineseCharactersWithReferences(text);
+      if (request === hanziRequest.current) setHanziResult(result, text);
+    } catch (cause) {
+      if (request === hanziRequest.current) {
+        setError({ message: cause instanceof Error ? cause.message : '字典资料加载失败，请重试' });
+      }
+    } finally {
+      if (request === hanziRequest.current) setHanziLoading(false);
+    }
+  }
+
   function run(event: FormEvent, action: () => void) {
     event.preventDefault();
-    setError('');
+    setError(null);
     try {
       action();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '暂时无法完成，请检查输入');
+      setError({ message: cause instanceof Error ? cause.message : '暂时无法完成，请检查输入' });
     }
   }
 
   function changeTool(tool: ToolId) {
     setActiveTool(tool);
-    setError('');
+    setError(null);
   }
 
   return (
@@ -229,7 +263,11 @@ export function CultureToolsPage() {
         ))}
       </nav>
 
-      {error ? <div className="culture-tools-error">{error}</div> : null}
+      {error ? (
+        <div ref={errorRef} className="culture-tools-error" role="alert" tabIndex={-1}>
+          {error.message}
+        </div>
+      ) : null}
 
       {activeTool === 'naming' ? (
         <section className="culture-tools-workspace">
@@ -237,7 +275,7 @@ export function CultureToolsPage() {
             className="culture-tools-input-panel"
             onSubmit={(event) =>
               run(event, () => {
-                const birthInput = createBirthInput(birth);
+                const birthInput = createNamingBirthInput(birth);
                 const options = {
                   surname,
                   gender,
@@ -250,8 +288,8 @@ export function CultureToolsPage() {
                   limit: 12,
                 } as const;
                 const candidates = generateChineseNames(options);
-                setNameCandidates(candidates);
-                setNamingCharacterPool(selectNamingCharacters({ ...options, limit: 24 }));
+                const characters = selectNamingCharacters({ ...options, limit: 24 });
+                setNamingResult({ candidates, characters });
                 setSelectedCandidate(0);
               })
             }
@@ -338,11 +376,10 @@ export function CultureToolsPage() {
                       type="button"
                       className={selectedCandidate === index ? 'is-selected' : ''}
                       onClick={() => setSelectedCandidate(index)}
+                      aria-label={`${item.fullName}，${formatCandidateSelection(item)}`}
                     >
                       <strong>{item.fullName}</strong>
-                      <small>
-                        {item.analysis.sancai.combo} · {item.analysis.sancai.level}
-                      </small>
+                      <small>{formatCandidateSelection(item)}</small>
                     </button>
                   ))}
                 </div>
@@ -383,7 +420,7 @@ export function CultureToolsPage() {
                   analyzeChineseName({
                     fullName,
                     surnameLength,
-                    birth: createBirthInput(birth),
+                    birth: createNamingBirthInput(birth),
                   }),
                 ),
               )
@@ -456,16 +493,25 @@ export function CultureToolsPage() {
         <section className="culture-tools-workspace">
           <div className="culture-tools-input-panel">
             <form
-              onSubmit={(event) =>
-                run(event, () => setHanziResult(analyzeChineseCharacters(hanziText)))
-              }
+              onSubmit={(event) => {
+                event.preventDefault();
+                void lookupCharacter(hanziText);
+              }}
             >
               <SectionHeading step="01" title="查字" hint="一次可解析 1 至 20 个汉字" />
               <Field label="汉字">
-                <input value={hanziText} onChange={(event) => setHanziText(event.target.value)} />
+                <input
+                  value={hanziText}
+                  onChange={(event) => {
+                    ++hanziRequest.current;
+                    setHanziLoading(false);
+                    setHanziText(event.target.value);
+                    setError(null);
+                  }}
+                />
               </Field>
-              <button className="culture-tools-primary" type="submit">
-                解析汉字
+              <button className="culture-tools-primary" type="submit" disabled={hanziLoading}>
+                {hanziLoading ? '正在查字…' : '解析汉字'}
               </button>
             </form>
             <div className="culture-tools-divider" />
@@ -477,6 +523,7 @@ export function CultureToolsPage() {
                       strokes: selectStrokes ? Number(selectStrokes) : undefined,
                       wuxing: selectElement || undefined,
                       pinyin: selectPinyin || undefined,
+                      commonOnly: selectCommonOnly,
                       limit: 80,
                     }),
                   ),
@@ -484,6 +531,15 @@ export function CultureToolsPage() {
               }
             >
               <SectionHeading step="02" title="按条件选字" hint="条件可以组合使用" />
+              <Field label="用字范围">
+                <select
+                  value={selectCommonOnly ? 'common' : 'all'}
+                  onChange={(event) => setSelectCommonOnly(event.target.value === 'common')}
+                >
+                  <option value="common">常用范围（GB2312一级字）</option>
+                  <option value="all">全部字库（含补充用字）</option>
+                </select>
+              </Field>
               <div className="culture-tools-fields is-three">
                 <Field label="康熙笔画">
                   <input
@@ -521,9 +577,22 @@ export function CultureToolsPage() {
           </div>
 
           <section className="culture-tools-result-panel">
-            <SectionHeading step="03" title="字典结果" hint="简繁体统一按康熙笔画展示" />
-            {hanziResult ? (
-              <CharacterCards items={hanziResult.characters} />
+            <SectionHeading step="03" title="字典结果" hint="读音、字义与字书原文" />
+            {hanziLoading ? (
+              <p role="status">正在查阅字典…</p>
+            ) : hanziResult ? (
+              <>
+                <CharacterCards items={hanziResult.characters} />
+                <div className="culture-tools-prompt">
+                  <PromptDeliveryPanel
+                    promptText={characterPrompt}
+                    copyState={characterDelivery.copyState}
+                    shareState={characterDelivery.shareState}
+                    onCopy={characterDelivery.handleCopy}
+                    onShare={characterDelivery.handleShare}
+                  />
+                </div>
+              </>
             ) : (
               <Empty
                 mark="字"
@@ -542,7 +611,7 @@ export function CultureToolsPage() {
                       title={item.definition ?? undefined}
                       onClick={() => {
                         setHanziText(item.char);
-                        setHanziResult(analyzeChineseCharacters(item.char));
+                        void lookupCharacter(item.char);
                       }}
                     >
                       <strong>{item.char}</strong>
@@ -665,125 +734,51 @@ function BirthSection({
   onCaseChange,
 }: {
   value: BirthDraft;
-  onChange: (next: BirthDraft) => void;
+  onChange: Dispatch<SetStateAction<BirthDraft>>;
   caseId: string | null;
   caseOptions: readonly DropdownSelectOption<string>[];
   onCaseChange: (caseId: string | null) => void;
 }) {
-  const isLunar = value.dateType === 'lunar';
-
+  const birthPlace = useBirthPlace({ form: value, setForm: onChange });
   return (
-    <section className="workspace-ui-form-surface culture-birth-section">
-      <div className="workspace-ui-form-heading">
-        <h3>出生资料</h3>
-        <DropdownSelect<string>
-          value={caseId ?? TEMPORARY_CASE_VALUE}
-          options={caseOptions}
-          onChange={(next) => onCaseChange(next === TEMPORARY_CASE_VALUE ? null : next)}
-          ariaLabel="切换案例"
-          prefix="案例"
-        />
-      </div>
-      <div className="workspace-ui-form-body">
-        <div className={`workspace-ui-form-row ${isLunar ? 'is-three-column' : 'is-two-column'}`}>
-          <div className="workspace-ui-field">
-            <label>性别</label>
-            <SegmentedControl
-              value={value.gender}
-              options={[
-                { label: '男', value: 'male' as const },
-                { label: '女', value: 'female' as const },
-              ]}
-              onChange={(gender) => onChange({ ...value, gender })}
-            />
-          </div>
-          <div className="workspace-ui-field">
-            <label>日历</label>
-            <SegmentedControl
-              value={isLunar}
-              options={[
-                { label: '公历', value: false },
-                { label: '农历', value: true },
-              ]}
-              onChange={(next) =>
-                onChange({ ...value, dateType: next ? 'lunar' : 'solar', isLeapMonth: false })
-              }
-            />
-          </div>
-          {isLunar ? (
-            <div className="workspace-ui-field">
-              <label>月别</label>
-              <SegmentedControl
-                value={value.isLeapMonth}
-                options={[
-                  { label: '平月', value: false },
-                  { label: '闰月', value: true },
-                ]}
-                onChange={(isLeapMonth) => onChange({ ...value, isLeapMonth })}
-              />
-            </div>
-          ) : null}
-        </div>
-        <div className="workspace-ui-form-row workspace-ui-date-row">
-          <div className="workspace-ui-field">
-            <label htmlFor="culture-birth-year">年</label>
-            <input
-              id="culture-birth-year"
-              className="workspace-ui-control"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              required
-              value={value.year}
-              placeholder="2000"
-              onChange={(event) => onChange({ ...value, year: event.target.value })}
-            />
-          </div>
-          <div className="workspace-ui-field">
-            <label htmlFor="culture-birth-month">月</label>
-            <input
-              id="culture-birth-month"
-              className="workspace-ui-control"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              required
-              value={value.month}
-              placeholder="1-12"
-              onChange={(event) => onChange({ ...value, month: event.target.value })}
-            />
-          </div>
-          <div className="workspace-ui-field">
-            <label htmlFor="culture-birth-day">日</label>
-            <input
-              id="culture-birth-day"
-              className="workspace-ui-control"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              required
-              value={value.day}
-              placeholder="1-31"
-              onChange={(event) => onChange({ ...value, day: event.target.value })}
-            />
-          </div>
-        </div>
-        <div className="workspace-ui-form-row">
-          <div className="workspace-ui-field">
-            <label htmlFor="culture-birth-time">时辰</label>
-            <DropdownSelect<string>
-              id="culture-birth-time"
-              value={String(value.timeIndex)}
-              options={birthTimeOptions}
-              variant="field"
-              onChange={(next) =>
-                onChange({ ...value, timeIndex: next === '' ? '' : Number(next) })
-              }
-            />
-          </div>
-        </div>
-      </div>
-    </section>
+    <div className="culture-birth-section">
+      <PersonForm
+        role="self"
+        form={value}
+        sectionTitle="出生资料"
+        showNameField={false}
+        headerAction={
+          <DropdownSelect<string>
+            value={caseId ?? TEMPORARY_CASE_VALUE}
+            options={caseOptions}
+            onChange={(next) => onCaseChange(next === TEMPORARY_CASE_VALUE ? null : next)}
+            ariaLabel="切换案例"
+            prefix="案例"
+          />
+        }
+        updatePersonField={(role, key, next) =>
+          onChange((current) => ({
+            ...current,
+            [getFieldKey(role, key)]: next,
+            ...(key === 'dateType' ? { isLeapMonth: false } : {}),
+          }))
+        }
+        updateNumericField={(role, key, next) => {
+          if (next === '' || /^\d*$/.test(next)) {
+            onChange((current) => ({
+              ...current,
+              [getFieldKey(role, key)]: clampNumericField(key, next),
+            }));
+          }
+        }}
+        updateBirthTime={(_, next) => {
+          const [birthHour = '', birthMinute = ''] = next.split(':');
+          onChange((current) => ({ ...current, birthHour, birthMinute }));
+        }}
+        openBirthPlaceModal={birthPlace.openBirthPlaceModal}
+      />
+      <BirthPlaceModal birthPlace={birthPlace} />
+    </div>
   );
 }
 
@@ -798,6 +793,7 @@ function Empty({ mark, title, text }: { mark: string; title: string; text: strin
 }
 
 function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> }) {
+  const givenDetails = result.chars.filter((item) => !item.isSurname);
   return (
     <article className="culture-name-report">
       <header>
@@ -806,9 +802,7 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
             {result.surname}
             {result.given}
           </h3>
-          <p>
-            {result.sancai.combo} · {result.sancai.level}
-          </p>
+          <p>{givenDetails.map((item) => item.pinyin ?? '读音待补').join(' · ')}</p>
         </div>
       </header>
       {result.birthContext ? (
@@ -819,6 +813,48 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
             日主 {result.birthContext.dayMaster} · 喜用{' '}
             {result.birthContext.favorableElements.join('、') || '需综合复核'}
           </p>
+          <details className="culture-character-classic">
+            <summary>出生取用依据</summary>
+            <p>
+              出生记录：{result.birthContext.timeBasis.inputDate}{' '}
+              {result.birthContext.timeBasis.inputTime}
+            </p>
+            <p>
+              {result.birthContext.timeBasis.mode} · 排盘时间 {result.birthContext.solarDate}{' '}
+              {result.birthContext.timeBasis.calculatedTime}
+              {result.birthContext.timeBasis.longitude !== null
+                ? ` · ${result.birthContext.timeBasis.place}（经度 ${result.birthContext.timeBasis.longitude}°）`
+                : ''}
+            </p>
+            <p>
+              月令 {result.birthContext.monthContext.branch} · 司令{' '}
+              {result.birthContext.monthContext.commander}
+              {' · '}
+              {result.birthContext.monthContext.season} · {result.birthContext.monthContext.term}
+            </p>
+            {result.birthContext.pillarDetails.map((pillar) => (
+              <p key={pillar.label}>
+                {pillar.label} {pillar.ganZhi} · 藏干{' '}
+                {pillar.hiddenStems
+                  .map((item) => `${item.stem}${item.tenGod ? `（${item.tenGod}）` : ''}`)
+                  .join('、')}
+              </p>
+            ))}
+            <p>
+              {result.birthContext.strength.status} ·{' '}
+              {result.birthContext.strength.basis.join('；')}
+            </p>
+            {result.birthContext.climate ? (
+              <p>
+                调候：{result.birthContext.climate.nature} · {result.birthContext.climate.summary} ·{' '}
+                {result.birthContext.climate.medicine}
+              </p>
+            ) : null}
+            <p>{result.birthContext.usefulGodReason}</p>
+            {result.birthContext.warnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </details>
         </div>
       ) : null}
       <div className="culture-character-list">
@@ -826,21 +862,42 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
           <div key={item.char + '-' + item.isSurname}>
             <strong>{item.char}</strong>
             <span>{item.pinyin ?? '读音待补充'}</span>
+            {item.surnameReading ? <small>姓氏读音参考：{item.surnameReading}</small> : null}
             <small>
               康熙 {item.kangxiStrokes} 画 · {item.wuxing ?? '五行待定'}
             </small>
-            <p>{item.definition}</p>
+            {item.readingNote ? (
+              <details className="culture-character-classic">
+                <summary>读音用法</summary>
+                <p>{item.readingNote}</p>
+                {item.surnameReading ? <p>实际读音以本人及家族用法为准。</p> : null}
+              </details>
+            ) : null}
+            {item.definition ? (
+              <details className="culture-character-classic">
+                <summary>字义</summary>
+                <p>{item.definition}</p>
+              </details>
+            ) : null}
+            {item.strokeNote ? (
+              <details className="culture-character-classic">
+                <summary>笔画用法</summary>
+                <p>{item.strokeNote}</p>
+              </details>
+            ) : null}
           </div>
         ))}
+      </div>
+      <div className="culture-tradition-heading">
+        <strong>五格与三才</strong>
+        <small>按康熙笔画列示，作为传统数理资料参考</small>
       </div>
       <div className="culture-grid-list">
         {Object.entries(result.grids).map(([key, item]) => (
           <div key={key}>
             <span>{gridLabels[key] ?? key}</span>
             <strong>{item.num}</strong>
-            <small>
-              {item.wuxing} · {item.level}
-            </small>
+            <small>{item.wuxing}</small>
             <p>{item.keywords}</p>
           </div>
         ))}
@@ -851,6 +908,22 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
       </div>
     </article>
   );
+}
+
+function formatCandidateSelection(candidate: ReturnType<typeof generateChineseNames>[number]) {
+  const evidence = candidate.selectionEvidence;
+  const parts = [
+    evidence.preferredCharacters.length ? `偏好 ${evidence.preferredCharacters.join('、')}` : '',
+    evidence.generationCharacter ? `辈分 ${evidence.generationCharacter}` : '',
+    evidence.favorableElementCharacters.length
+      ? `取用 ${evidence.favorableElementCharacters.join('、')}`
+      : '',
+  ].filter(Boolean);
+  if (parts.length) return parts.join(' · ');
+  return candidate.analysis.chars
+    .filter((item) => !item.isSurname)
+    .map((item) => `${item.pinyin ?? '读音待补'}${item.wuxing ? ` · ${item.wuxing}` : ''}`)
+    .join(' / ');
 }
 
 function NamingCharacterPool({ items }: { items: ReturnType<typeof selectNamingCharacters> }) {
@@ -888,10 +961,32 @@ function CharacterCards({
             <>
               <span>{item.detail.pinyin ?? '读音待补充'}</span>
               <small>
-                繁体 {item.detail.traditional} · 康熙 {item.detail.kangxiStrokes} 画 ·{' '}
+                简体 {item.detail.simplified} {item.detail.simplifiedStrokes ?? '待考'} 画 · 繁体{' '}
+                {item.detail.traditional} {item.detail.traditionalStrokes ?? '待考'} 画
+              </small>
+              <small>
+                姓名学康熙 {item.detail.kangxiStrokes} 画 · {item.detail.structure} ·{' '}
                 {item.detail.wuxing ?? '五行待定'}
               </small>
               <p>{item.detail.definition}</p>
+              {item.detail.readingNote ? (
+                <details className="culture-character-classic">
+                  <summary>读音用法</summary>
+                  <p>{item.detail.readingNote}</p>
+                </details>
+              ) : null}
+              {item.detail.strokeNote ? (
+                <details className="culture-character-classic">
+                  <summary>笔画用法</summary>
+                  <p>{item.detail.strokeNote}</p>
+                </details>
+              ) : null}
+              {item.detail.kangxiText ? (
+                <details className="culture-character-classic">
+                  <summary>康熙字典原文</summary>
+                  <p>{item.detail.kangxiText}</p>
+                </details>
+              ) : null}
             </>
           ) : (
             <p>字典暂未收录这个字。</p>
@@ -908,9 +1003,10 @@ function NumberReport({ result }: { result: ReturnType<typeof analyzeNumber> }) 
       <div className="culture-number-main">
         <span>能量序列</span>
         <strong>{result.energySequence}</strong>
+        <p>数字字母：{result.alphanumeric}</p>
         <h3>
           {result.dominantFields.length
-            ? `主要磁场 · ${result.dominantFields.join('、')}`
+            ? `高频磁场 · ${result.dominantFields.join('、')}`
             : '暂无可归类磁场'}
         </h3>
         {result.letterConversions.length ? (
@@ -918,6 +1014,9 @@ function NumberReport({ result }: { result: ReturnType<typeof analyzeNumber> }) 
             字母换算：
             {result.letterConversions.map((item) => `${item.letter}=${item.value}`).join('、')}
           </p>
+        ) : null}
+        {result.excludedCharacters.length ? (
+          <p>未参与换算：{result.excludedCharacters.join('、')}</p>
         ) : null}
       </div>
       <div className="culture-number-stats">
@@ -951,20 +1050,40 @@ function NumberReport({ result }: { result: ReturnType<typeof analyzeNumber> }) 
 
       {result.modifiers.length ? (
         <section className="culture-number-modifiers">
-          <h3>0 与 5 的作用</h3>
+          <h3>0 与 5 的位置</h3>
           <div>
             {result.modifiers.map((modifier) => (
               <article key={`${modifier.position}-${modifier.digit}`}>
                 <strong>{modifier.digit}</strong>
                 <div>
                   <span>
-                    第 {modifier.position + 1} 位 · {modifier.effect}
+                    第 {modifier.position + 1} 位 · {modifier.placement}
+                    {modifier.relatedPair ? ` · ${modifier.effect}` : ''}
                   </span>
                   <small>{modifier.meaning}</small>
                 </div>
               </article>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      {result.magneticSegments.length ? (
+        <section className="culture-number-distribution">
+          <h3>磁场顺序</h3>
+          <ol className="culture-number-sequence">
+            {result.magneticSegments.map((item) => (
+              <li key={item.start}>
+                <strong>{item.name}</strong>
+                <span>
+                  {item.span} · {item.pairCount} 组
+                </span>
+                <small>
+                  能量序列第 {item.start + 1}—{item.end + 1} 位
+                </small>
+              </li>
+            ))}
+          </ol>
         </section>
       ) : null}
 
@@ -980,15 +1099,31 @@ function NumberReport({ result }: { result: ReturnType<typeof analyzeNumber> }) 
                 <div className="culture-number-pair-code">
                   <strong>{item.span}</strong>
                   {item.span !== item.pair ? <small>取 {item.pair}</small> : null}
+                  <small>
+                    第 {item.start + 1}—{item.end + 1} 位
+                  </small>
                 </div>
                 <div className="culture-number-pair-copy">
                   <header>
                     <strong>{item.name}</strong>
-                    <span>{item.group ? `第 ${item.group} 组` : '延续组合'}</span>
+                    <span>{item.trigramEvidence.starName}</span>
                     <span>{item.nature}</span>
                   </header>
                   <p>{item.keywords.join('、')}</p>
+                  <p>
+                    对应「{item.sourceText}」· 数字字母第 {item.sourceStart + 1}—
+                    {item.sourceEnd + 1} 位
+                  </p>
                   <small>{item.meaning}</small>
+                  <p className="culture-number-pair-trigram">
+                    {item.trigramEvidence.from.name}
+                    {item.trigramEvidence.from.symbol}
+                    {' → '}
+                    {item.trigramEvidence.to.name}
+                    {item.trigramEvidence.to.symbol}
+                    {' · '}
+                    {item.trigramEvidence.changedLineText}
+                  </p>
                   {item.modifiers.length ? (
                     <div className="culture-number-pair-modifiers">
                       {item.modifiers.map((modifier, modifierIndex) => (
@@ -1011,6 +1146,14 @@ function NumberReport({ result }: { result: ReturnType<typeof analyzeNumber> }) 
         <strong>换算规则</strong>
         <span>{result.energyFormula}</span>
       </div>
+      <details className="culture-number-tradition">
+        <summary>卦变依据</summary>
+        <p>{result.tradition.title}</p>
+        <blockquote>{result.tradition.passage}</blockquote>
+        <p>{result.tradition.scope}</p>
+        <p>{result.tradition.numberMapping}</p>
+        <p>{result.tradition.conversion}</p>
+      </details>
     </article>
   );
 }

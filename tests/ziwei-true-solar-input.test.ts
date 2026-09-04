@@ -139,13 +139,13 @@ test('紫微真太阳时应先拒绝无效出生日期和时空参数', () => {
     birthLongitude: '73.5',
   };
   const invalidCases: Array<[Partial<typeof baseInput>, RegExp]> = [
-    [{ year: '0000' }, /出生年份需在 1900-2100 之间/],
-    [{ year: '9999' }, /出生年份需在 1900-2100 之间/],
-    [{ month: '13' }, /出生月份需在 1-12 之间/],
+    [{ year: '0000' }, /^Error: 年份需在 1900-2100 之间。$/],
+    [{ year: '9999' }, /^Error: 年份需在 1900-2100 之间。$/],
+    [{ month: '13' }, /^Error: 月份需在 1-12 之间。$/],
     [{ day: '31', month: '02' }, /日期需在 1-28 之间/],
-    [{ birthHour: '24' }, /出生小时需在 0-23 之间/],
-    [{ birthMinute: '60' }, /出生分钟需在 0-59 之间/],
-    [{ birthLongitude: '181' }, /出生经度需在 -180 到 180 之间/],
+    [{ birthHour: '24' }, /^Error: 小时需在 0-23 之间。$/],
+    [{ birthMinute: '60' }, /^Error: 分钟需在 0-59 之间。$/],
+    [{ birthLongitude: '181' }, /^Error: 经度需在 -180 到 180 之间。$/],
   ];
 
   for (const [overrides, messagePattern] of invalidCases) {

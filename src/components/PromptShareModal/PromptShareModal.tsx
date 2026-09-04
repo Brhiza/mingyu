@@ -46,9 +46,12 @@ export function PromptShareModal({
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
+        try {
+          textarea.select();
+          if (!document.execCommand('copy')) throw new Error('复制失败');
+        } finally {
+          textarea.remove();
+        }
       }
       setCopyState('copied');
       setTimeout(() => setCopyState('idle'), 2500);
@@ -86,10 +89,8 @@ export function PromptShareModal({
     >
       <header className="workspace-ui-dialog-header prompt-share-header">
         <div>
-          <h2 id="prompt-share-dialog-title">AI 大师提示词 · 分享卡片</h2>
-          <p className="prompt-share-subtitle">
-            全量事实证据池与古典断诀已结构化封装，支持主流大语言模型
-          </p>
+          <h2 id="prompt-share-dialog-title">AI 解读提示词</h2>
+          <p className="prompt-share-subtitle">查看、复制或分享本次占问的完整内容</p>
         </div>
         <button
           type="button"
@@ -102,12 +103,11 @@ export function PromptShareModal({
       </header>
 
       <div className="workspace-ui-dialog-body prompt-share-body">
-        {/* 典雅的卡片视觉预览容器 */}
         <div className="prompt-share-card">
           <div className="share-card-header">
             <div className="share-card-brand">
               <span className="share-card-logo">命语</span>
-              <span className="share-card-tag">AI 命理大师提示词</span>
+              <span className="share-card-tag">完整解读提示词</span>
             </div>
             {methodName ? <span className="share-card-method">{methodName}</span> : null}
           </div>
@@ -127,26 +127,22 @@ export function PromptShareModal({
             ) : null}
           </div>
 
-          <div className="share-card-features">
-            <span className="feature-chip">盘面证据全量注入</span>
-            <span className="feature-chip">古籍断诀原典佐证</span>
-            <span className="feature-chip">多步严密推演逻辑</span>
-          </div>
-
           <div className="share-card-prompt-container">
             <div className="prompt-container-head">
-              <span>完整提示词结构（可滚动预览）</span>
+              <span>完整内容</span>
               <button type="button" className="prompt-quick-copy" onClick={handleCopy}>
-                {copyState === 'copied' ? '已复制' : '复制全文'}
+                {copyState === 'copied'
+                  ? '已复制'
+                  : copyState === 'failed'
+                    ? '复制失败，请重试'
+                    : '复制全文'}
               </button>
             </div>
             <pre className="share-card-prompt-text">{promptText}</pre>
           </div>
 
           <div className="share-card-footer">
-            <span className="footer-tip">
-              复制后可发送给 <b>ChatGPT / Claude / DeepSeek / Gemini / 豆包 / Kimi</b> 等任意大模型
-            </span>
+            <span className="footer-tip">复制后可粘贴到常用 AI 对话中继续解读</span>
           </div>
         </div>
 
@@ -160,7 +156,11 @@ export function PromptShareModal({
           onClick={handleCopy}
           className="prompt-share-primary-btn"
         >
-          {copyState === 'copied' ? '提示词已复制' : '复制大师提示词'}
+          {copyState === 'copied'
+            ? '提示词已复制'
+            : copyState === 'failed'
+              ? '复制失败，请重试'
+              : '复制提示词'}
         </WorkspaceButton>
         {typeof navigator !== 'undefined' &&
         /android|iphone|ipad|ipod/i.test(navigator.userAgent || '') ? (

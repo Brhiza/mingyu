@@ -19,6 +19,7 @@ import {
 } from 'mingyu-core/huangji-jingshi';
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from 'mingyu-core/name-number';
+import { getKongmingInterpretation, getZhugeInterpretation } from 'mingyu-core/name-number';
 import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import {
   getAllLiuyaoCategoryChapters,
@@ -376,6 +377,11 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
           const hidden = data.hiddenSpirits?.find((h) => h.position === yao.position);
           const isGuaShen = data.guaShen?.position === yao.position;
           const changedIsYang = yao.changedYao ? yao.yaoType === '阴' : yao.yaoType === '阳';
+          const graveNotes = [
+            yao.isRiMu ? '入日墓' : '',
+            yao.isDongMu ? '入动墓' : '',
+            yao.isHuaMu ? '动而化墓' : '',
+          ].filter(Boolean);
 
           const handleYaoTerm = (t: string) => {
             const ctx = getLiuyaoTermContext(
@@ -482,7 +488,7 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
               </div>
 
               {/* 3. 附注子行（伏神 / 卦身） */}
-              {hidden || isGuaShen ? (
+              {hidden || isGuaShen || graveNotes.length ? (
                 <div className="liuyao-subrow-notes">
                   {hidden ? (
                     <span
@@ -502,6 +508,9 @@ function LiuyaoDualHexagramView({ data }: { data: LiuyaoData }) {
                     >
                       卦身为{data.guaShen?.branch}
                     </span>
+                  ) : null}
+                  {graveNotes.length ? (
+                    <span className="liuyao-guashen-note">{graveNotes.join(' · ')}</span>
                   ) : null}
                 </div>
               ) : null}
@@ -718,18 +727,6 @@ function LiuyaoTraditionalBoard({
             });
           }
         }
-        if (yao.isRuMu) {
-          const rule = getLiuyaoMovementRule('change_grave');
-          if (rule && !rules.some((r) => r.key === rule.key)) {
-            rules.push({
-              key: rule.key,
-              trigger: rule.trigger,
-              source: rule.sourceBook,
-              verse: rule.originalVerse,
-              advice: rule.generalMeaning,
-            });
-          }
-        }
         if (yao.changeRelation === '化空' || yao.changeRelations?.includes('化空')) {
           const rule = getLiuyaoMovementRule('change_void');
           if (rule && !rules.some((r) => r.key === rule.key)) {
@@ -741,6 +738,18 @@ function LiuyaoTraditionalBoard({
               advice: rule.generalMeaning,
             });
           }
+        }
+      }
+      if (yao.isRuMu) {
+        const rule = getLiuyaoMovementRule('change_grave');
+        if (rule && !rules.some((r) => r.key === rule.key)) {
+          rules.push({
+            key: rule.key,
+            trigger: rule.trigger,
+            source: rule.sourceBook,
+            verse: rule.originalVerse,
+            advice: rule.generalMeaning,
+          });
         }
       }
     });
@@ -3464,6 +3473,7 @@ export function LiurenTraditionalBoard({
 }
 
 function ZhugeTraditionalBoard({ data }: { data: ZhugeNumberResult }) {
+  const interpretation = data.interpretation ?? getZhugeInterpretation(data.number);
   return (
     <TraditionalBoardShell
       title="诸葛神数"
@@ -3480,24 +3490,41 @@ function ZhugeTraditionalBoard({ data }: { data: ZhugeNumberResult }) {
       <div className="traditional-poem-card">
         <strong>第{data.number}签</strong>
         <p>{data.sign.poem}</p>
-        <small>{data.sign.summary}</small>
+        {!interpretation && <small>{data.sign.summary}</small>}
       </div>
+      {interpretation && (
+        <section className="traditional-sign-interpretation">
+          <h3>诗意与解签</h3>
+          <blockquote>{interpretation.quote}</blockquote>
+          <p>{interpretation.imageMeaning}</p>
+          <p>{interpretation.interpretation}</p>
+          <p>{interpretation.condition}</p>
+          {interpretation.classicalImage && <p>{interpretation.classicalImage}</p>}
+        </section>
+      )}
     </TraditionalBoardShell>
   );
 }
 
 function KongmingTraditionalBoard({ data }: { data: KongmingHexagramResult }) {
+  const interpretation = data.interpretation ?? getKongmingInterpretation(data.symbol);
   return (
     <TraditionalBoardShell
       title="孔明神卦"
       subtitle={`第${data.number}卦 · ${data.grade}`}
       className="traditional-symbol-board"
     >
-      <div className="traditional-symbol-sequence" aria-label="五次阴阳结果">
+      <div
+        className="traditional-symbol-sequence"
+        aria-label="从左到右依次为第一至第五枚硬币的阴阳结果"
+      >
         {[...data.symbol].map((symbol, index) => (
-          <span key={index}>
+          <span
+            key={index}
+            aria-label={`第${index + 1}枚，${symbol === '●' ? '正面，阳' : '反面，阴'}`}
+          >
             <strong>{symbol}</strong>
-            <small>第{index + 1}次</small>
+            <small>第{index + 1}枚</small>
           </span>
         ))}
       </div>
@@ -3505,6 +3532,19 @@ function KongmingTraditionalBoard({ data }: { data: KongmingHexagramResult }) {
         <strong>{data.name}</strong>
         <p>{data.poem}</p>
       </div>
+      <section className="traditional-sign-interpretation">
+        <h3>诗意与解卦</h3>
+        <blockquote>{interpretation.quote}</blockquote>
+        <p>{interpretation.imageMeaning}</p>
+        <p>{interpretation.interpretation}</p>
+        <p>{interpretation.condition}</p>
+        {interpretation.classicalImage ? (
+          <p>
+            {interpretation.classicalImage.title}“{interpretation.classicalImage.quote}”。
+            {interpretation.classicalImage.meaning}
+          </p>
+        ) : null}
+      </section>
     </TraditionalBoardShell>
   );
 }

@@ -11,7 +11,7 @@ import { drawRandomSign, resolveSignByNumber } from './algorithms/ssgw';
 import { generateXiaoliuren } from './algorithms/xiaoliuren';
 import { generateTaiyi } from '../taiyi/index';
 import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
-import { calculateZhugeNumber, castKongmingHexagram } from '../name-number';
+import { calculateZhugeNumber, castKongmingHexagram } from '../name-number/oracles';
 import { drawTarotSpread, type TarotDrawOptions, type TarotManualCardInput } from './tarot';
 import { isEarthlyBranch } from '../ganzhi';
 import type { RandomOptions } from '../shared/random';
@@ -321,7 +321,7 @@ export function validateDivinationRequest(request: DivinationRequest): void {
     request.kongming?.pattern !== undefined &&
     !/^[●○阳阴正反公字10]{5}$/.test(request.kongming.pattern.trim())
   ) {
-    throw new Error('孔明神卦需提供五次阴阳结果。');
+    throw new Error('孔明神卦需提供五枚硬币的阴阳结果。');
   }
   if (request.method === 'jinkoujue') {
     const method = request.jinkoujue?.method ?? 'time';

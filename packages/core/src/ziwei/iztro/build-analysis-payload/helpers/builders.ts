@@ -17,25 +17,30 @@ import type {
 } from '../../../../types/analysis';
 import { resolveScopeLabel, type HoroscopeScopeItem } from './scope';
 import { MUTAGEN_ORDER, mapScopeMutagenMap, mapStarFact } from './mappers';
+import { SHICHEN_PERIODS, getTimeIndexFromClock } from '../../../../calendar/dateUtils';
+import { getGanZhiFromDate } from '../../../../ganzhi';
+import type { ChartInput } from '../../../../types/chart';
 
-function buildFourPillars(astrolabe: IztroAstrolabe): FourPillars | undefined {
-  const chineseDate = astrolabe.rawDates?.chineseDate;
-  if (!chineseDate) return undefined;
-
-  const join = (pair?: readonly [string, string]) => (pair ? `${pair[0]}${pair[1]}` : '');
-
-  const yearly = join(chineseDate.yearly);
-  const monthly = join(chineseDate.monthly);
-  const daily = join(chineseDate.daily);
-  const hourly = join(chineseDate.hourly);
-
-  if (!yearly && !monthly && !daily && !hourly) return undefined;
-
+function buildFourPillars(
+  astrolabe: IztroAstrolabe,
+  birthTime?: ChartInput['birthTime'],
+): FourPillars | undefined {
+  const parts = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(astrolabe.solarDate);
+  const period = SHICHEN_PERIODS.find((item) => item.name === astrolabe.time);
+  if (!parts || !period) return undefined;
+  const time = birthTime ?? period;
+  if (time.hour > 23 || getTimeIndexFromClock(time.hour, time.minute) !== period.index) {
+    throw new Error('紫微四柱展示时分与出生时辰不一致。');
+  }
+  const date = new Date(0);
+  date.setFullYear(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+  date.setHours(time.hour, time.minute, 0, 0);
+  const pillars = getGanZhiFromDate(date);
   return {
-    year_pillar: yearly,
-    month_pillar: monthly,
-    day_pillar: daily,
-    hour_pillar: hourly,
+    year_pillar: pillars.year,
+    month_pillar: pillars.month,
+    day_pillar: pillars.day,
+    hour_pillar: pillars.hour,
   };
 }
 
@@ -121,7 +126,10 @@ function assertValidAstrolabePalaces(
   }
 }
 
-export function buildBasicInfo(astrolabe: IztroAstrolabe): BasicInfo {
+export function buildBasicInfo(
+  astrolabe: IztroAstrolabe,
+  birthTime?: ChartInput['birthTime'],
+): BasicInfo {
   assertValidAstrolabePalaces(astrolabe.palaces);
 
   return {
@@ -138,7 +146,7 @@ export function buildBasicInfo(astrolabe: IztroAstrolabe): BasicInfo {
     body: astrolabe.body,
     soul_palace_branch: astrolabe.earthlyBranchOfSoulPalace,
     body_palace_branch: astrolabe.earthlyBranchOfBodyPalace,
-    four_pillars: buildFourPillars(astrolabe),
+    four_pillars: buildFourPillars(astrolabe, birthTime),
     hidden_palaces: buildHiddenPalaces(astrolabe),
   };
 }

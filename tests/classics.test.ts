@@ -119,12 +119,12 @@ test('六爻《卜筮正宗》六亲持世歌诀查询正确', () => {
   assert.ok(ziSun.verse.includes('世持子孙万事平'));
 });
 
-test('六爻《黄金策》与《增删卜易》动变生克断语查询正确', () => {
+test('六爻《卜筮正宗》与《增删卜易》动变生克断语查询正确', () => {
   const childActive = getLiuyaoMovementRule('child_active');
   assert.ok(childActive);
   assert.equal(childActive.trigger, '子孙爻发动');
   assert.ok(childActive.originalVerse.includes('子孙发动伤官鬼'));
-  assert.ok(childActive.topicSpecificAdvice.wealth?.includes('求财第一吉神'));
+  assert.ok(childActive.topicSpecificAdvice.wealth?.includes('财源支持'));
 
   const advance = getLiuyaoMovementRule('change_advance');
   assert.ok(advance);
@@ -241,12 +241,12 @@ test('大六壬《大六壬大全》《六壬指南》九宗门与十二天将�
 test('太乙神数《太乙金镜式经》八将主客算经文查询正确', () => {
   const wenChang = getTaiyiGeneralClassic('文昌');
   assert.ok(wenChang);
-  assert.equal(wenChang.wuxing, '火');
-  assert.ok(wenChang.verse.includes('文昌主将发机先'));
+  assert.equal(wenChang.wuxing, '土');
+  assert.ok(wenChang.verse.includes('受土德之正气'));
 
   const shiJi = getTaiyiGeneralClassic('始击');
   assert.ok(shiJi);
-  assert.ok(shiJi.verse.includes('始击如雷震万山'));
+  assert.ok(shiJi.verse.includes('受火德之正气'));
 });
 
 test('皇极经世邵雍《皇极经世书》元会运世卦气查询正确', () => {

@@ -89,7 +89,7 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
   {
     value: 'kongming',
     label: '孔明神卦',
-    description: '以五次阴阳结果成卦，适合判断当前处境与行动方向。',
+    description: '以五枚硬币的阴阳结果成卦，适合判断当前处境与行动方向。',
   },
   // 牌卡类放在传统时间起局与签占之后，保持占问主入口的优先级稳定。
   {

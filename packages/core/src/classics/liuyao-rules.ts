@@ -17,66 +17,71 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   parent_active: {
     key: 'parent_active',
     trigger: '父母爻发动',
-    sourceBook: '黄金策',
-    originalVerse: '父母发动伤子孙，求名求官大吉昌；占病见伤防小口，买卖文书利万箱。',
+    sourceBook: '卜筮正宗·六亲发动诀',
+    originalVerse:
+      '父动当头克子孙，病人无药主昏沉。姻亲子息应难得，买卖劳心利不存。观望行人书信动，论官下状理先分。士人科举登金榜，失物逃亡要诉论。',
     generalMeaning: '父母爻生兄弟、克子孙、泄官鬼。主文书契约、长辈房屋、劳碌辛苦。',
     topicSpecificAdvice: {
-      career: '利求名、文书、考试、论文答辩、签约盖章，大吉之兆。',
-      wealth: '不利投资生财，劳心劳力，适合固定资产或版权文书收益。',
-      relationship: '多得长辈撮合，但易因现实琐事或家庭观念产生波折。',
-      health: '问长辈病吉，问晚辈小儿病重危，需防劳累过度。',
+      career: '关注考试、文书与资质，仍须看是否为用及有无生扶。',
+      wealth: '关注文书、房产与投入，再合看妻财、子孙。',
+      relationship: '关注长辈、家庭意见与手续，不凭发动独断。',
+      health: '先定用神，再看父母爻的旺衰与克应。',
     },
   },
   child_active: {
     key: 'child_active',
     trigger: '子孙爻发动',
-    sourceBook: '黄金策',
-    originalVerse: '子孙发动伤官鬼，占病求医得安康；买卖求财千倍利，求官求名反遭殃。',
+    sourceBook: '卜筮正宗·六亲发动诀',
+    originalVerse:
+      '子孙发动伤官鬼，占病求医身便痊。行人买卖身康泰，婚姻喜美是前缘。产妇当生子易养，词讼私和不到官。谒贵求名休进用，劝君守分听乎天。',
     generalMeaning: '子孙爻生妻财、克官鬼、泄兄弟。为福德之神，主快乐、解灾、生财、医药。',
     topicSpecificAdvice: {
-      career: '不利求官晋升、考公面试或见上级，容易有违规或辞职变动。',
-      wealth: '求财第一吉神！源远流长，商机大发，投资回报丰厚。',
-      relationship: '利男性占感情，温馨浪漫；女性占婚主挑剔不满或克夫。',
-      health: '大吉之兆！良医有救，药到病除，忧患尽消。',
+      career: '求官时看其是否制官，其他事项依用神取义。',
+      wealth: '可作财源支持，仍须看妻财旺衰与空破生克。',
+      relationship: '可指子女、愉悦或表达，须按用神关系取义。',
+      health: '可作解忧、医药候选，代占不可越过用神断愈。',
     },
   },
   officer_active: {
     key: 'officer_active',
     trigger: '官鬼爻发动',
-    sourceBook: '黄金策',
-    originalVerse: '官鬼发动克兄弟，求名求官上云霄；占病多凶忧患重，买卖防盗祸难逃。',
+    sourceBook: '卜筮正宗·六亲发动诀',
+    originalVerse:
+      '官鬼从来克兄弟，婚姻未就生疑滞。病困门庭祸祟来，耕种蚕桑皆不利。出外逃亡定见灾，词讼官非有囚系。买卖财轻赌博输，失脱难寻多暗昧。',
     generalMeaning: '官鬼爻生父母、克兄弟、泄妻财。为主管、名望、疾病、是非、压力。',
     topicSpecificAdvice: {
-      career: '大吉之兆！权柄在握，名望提升，升职在即。',
-      wealth: '容易被官府、机构或盗贼抽成破财，不宜投机。',
-      relationship: '女性占婚大吉，夫星得位；男性占防情敌与烦恼。',
-      health: '病势沉重，惊恐不安，需防旧疾复发或外部感染。',
+      career: '求官可取为用，仍核验旺衰、世应与空破。',
+      wealth: '可指制度、债务或压力，须合看妻财作用链。',
+      relationship: '可指伴侣、约束或忧虑，须合看世应财官。',
+      health: '可作疾病候选，须同看用神、子孙与现实资料。',
     },
   },
   wealth_active: {
     key: 'wealth_active',
     trigger: '妻财爻发动',
-    sourceBook: '黄金策',
-    originalVerse: '妻财发动克父母，求财经商得万全；占文不利防破印，占婚和顺福连绵。',
+    sourceBook: '卜筮正宗·六亲发动诀',
+    originalVerse:
+      '财爻发动克文书，应举求名总是虚。将本经营为大吉，亲姻如意乐无虞。行人在外身将动，产妇求神易脱除。失物静安家未出，病人伤胃更伤脾。',
     generalMeaning: '妻财爻生官鬼、克父母、泄子孙。主资财、商业、妻子、饮食、现实利益。',
     topicSpecificAdvice: {
-      career: '不利文书考试、职称评审，但利于商业管理与职场创收。',
-      wealth: '财源广进，现钱到手，大吉大利。',
-      relationship: '男性占婚极其吉美，情深意浓；家庭和睦。',
-      health: '父母长辈身体欠安，自身防因饮食不节生病。',
+      career: '可指收入、资源与经营，也可能克父母文书。',
+      wealth: '求财可取为用，仍看旺衰、世应、空破与回头。',
+      relationship: '可指伴侣或现实资源，不凭发动独断结果。',
+      health: '关注饮食、消耗及父母爻，不直接对应疾病。',
     },
   },
   brother_active: {
     key: 'brother_active',
     trigger: '兄弟爻发动',
-    sourceBook: '黄金策',
-    originalVerse: '兄弟发动克妻财，求谋万事阻多灾；占财破耗防侵夺，同伴同心事可猜。',
+    sourceBook: '卜筮正宗·六亲发动诀',
+    originalVerse:
+      '兄弟交重克了财，病人难愈未离灾。应举夺标为忌客，官非阴贼耗钱财。若带吉神为有助，出路行人便未来。货物经商消折本，买婢求妻事不谐。',
     generalMeaning: '兄弟爻生子孙、克妻财、泄父母。主同伴、竞争、分流、破耗、争夺。',
     topicSpecificAdvice: {
-      career: '竞争对手激烈，易遭同僚分功或抢夺成果。',
-      wealth: '大忌求财！必有破耗、被骗、合伙散伙或高额垫资。',
-      relationship: '婚恋受阻，多有竞争者插足或经济纠纷。',
-      health: '问自身吉，问妻子、财物与下属欠安。',
+      career: '可指同辈、合作或竞争，须看生子孙或克妻财。',
+      wealth: '可指分财、竞争或成本，仍须合参财源。',
+      relationship: '提示同辈或资源分配，不直接推定关系结果。',
+      health: '先定用神，不把兄弟发动直接等同健康吉凶。',
     },
   },
 
@@ -84,8 +89,8 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   dragon_active: {
     key: 'dragon_active',
     trigger: '青龙发动',
-    sourceBook: '卜筮正宗',
-    originalVerse: '青龙发动喜气生，求谋万事得亨通；买卖添财人益寿，求官进爵福重重。',
+    sourceBook: '卜筮正宗·六兽歌断',
+    originalVerse: '发动青龙附用通，进财进禄福无穷。临仇遇忌都无益，酒色成灾在此中。',
     generalMeaning: '青龙为吉庆之神，主喜事、宴饮、升迁、财喜、贵人相助。',
     topicSpecificAdvice: {
       career: '得贵人提拔，名利双收，喜气盈门。',
@@ -97,8 +102,8 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   bird_active: {
     key: 'bird_active',
     trigger: '朱雀发动',
-    sourceBook: '卜筮正宗',
-    originalVerse: '朱雀发动文书动，是非口舌也相从；求官问信皆有望，占病防生热闷烘。',
+    sourceBook: '卜筮正宗·六兽歌断',
+    originalVerse: '朱雀交重文印旺，煞神相并漫劳功。是非口舌皆因此，动出生身却利公。',
     generalMeaning: '朱雀为主管文书、信息、言语之神，动则主口舌官非、文书信息、争辩喧哗。',
     topicSpecificAdvice: {
       career: '利考试签约、宣发演讲，防同行言语非议。',
@@ -110,8 +115,8 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   gouchen_active: {
     key: 'gouchen_active',
     trigger: '勾陈发动',
-    sourceBook: '卜筮正宗',
-    originalVerse: '勾陈发动主迟延，谋事牵连难向前；争田夺地争家业，占病沉沉伏枕边。',
+    sourceBook: '卜筮正宗·六兽歌断',
+    originalVerse: '勾陈发动忧田土，累岁迍邅为忌逢。生用有情方是吉，若然安静不迷蒙。',
     generalMeaning: '勾陈为田土羁绊之神，动则主迟缓、拖延、田土房产、旧事牵连。',
     topicSpecificAdvice: {
       career: '进度拖延，受体制或旧规则羁绊，难以速决。',
@@ -123,8 +128,8 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   snake_active: {
     key: 'snake_active',
     trigger: '螣蛇发动',
-    sourceBook: '卜筮正宗',
-    originalVerse: '螣蛇怪异虚惊多，占梦占病鬼魅扰；惊恐怪异防盗贼，出门行路遇风波。',
+    sourceBook: '卜筮正宗·六兽歌断',
+    originalVerse: '螣蛇鬼克忧萦绊，怪梦阴魔暗里攻。持木落空休道吉，逢冲之日莫逃凶。',
     generalMeaning: '螣蛇为惊恐虚妄之神，动则主虚惊、噩梦、怪异、疑心暗鬼。',
     topicSpecificAdvice: {
       career: '心神不定，疑虑重重，防小人背后捣鬼。',
@@ -136,8 +141,8 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   tiger_active: {
     key: 'tiger_active',
     trigger: '白虎发动',
-    sourceBook: '卜筮正宗',
-    originalVerse: '白虎发动主凶丧，横祸伤残血光殃；官事临身灾难免，占病沉重命难防。',
+    sourceBook: '卜筮正宗·六兽歌断',
+    originalVerse: '白虎交重丧恶事，官司病患必成凶。持金动克妨人口，遇火生身便不同。',
     generalMeaning: '白虎为肃杀威严之神，动则主血光、刑伤、争斗、疾病、威权。',
     topicSpecificAdvice: {
       career: '利军警执法、外科医药、强势竞争，防官非硬碰硬。',
@@ -149,8 +154,8 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   turtle_active: {
     key: 'turtle_active',
     trigger: '玄武发动',
-    sourceBook: '卜筮正宗',
-    originalVerse: '玄武发动主阴私，盗贼潜形暗昧期；防骗破财生暧昧，求谋诡诈要防持。',
+    sourceBook: '卜筮正宗·六兽歌断',
+    originalVerse: '玄武动摇多暗昧，若临官鬼贼交攻。有情生世邪无犯，仇忌临之奸盗凶。',
     generalMeaning: '玄武为暗昧隐私之神，动则主盗贼、隐瞒、欺瞒、暧昧、暗财。',
     topicSpecificAdvice: {
       career: '宜低调暗中谋划，严防商业泄密或暗箱操作。',
@@ -216,16 +221,17 @@ export const LIUYAO_MOVEMENT_RULES: Record<string, LiuyaoMovementRule> = {
   },
   change_grave: {
     key: 'change_grave',
-    trigger: '动化入墓',
-    sourceBook: '增删卜易',
-    originalVerse: '动而入墓，如人入地，神昏志乱；吉凶虽有，暂难施展。',
+    trigger: '日墓、动墓与化墓',
+    sourceBook: '增删卜易·生旺墓绝章',
+    originalVerse: '三墓者，用爻入日墓、入动墓、动而化墓，此三墓也。',
     generalMeaning:
-      '爻动变出自身五行之墓库（如木化未、金化丑、火化戌、水土化辰）。主受困、迷茫、休眠。',
+      '金墓丑、木墓未、火墓戌、水土墓辰。入墓只记录事情受藏、受束的一层条件，须与月令旺衰、日月动爻生扶及冲墓条件合看；旺而有扶不能仅凭入墓断凶。',
     topicSpecificAdvice: {
-      career: '受环境限制或被雪藏，才能无法发挥。',
-      wealth: '资金被套牢，周转不灵。',
-      relationship: '被家庭或对方死死管束，透不过气。',
-      health: '神识昏迷，卧床不起，需冲开墓库之日方醒。',
+      career:
+        '先核实项目是否只是暂时受流程、权限或资源约束，再结合爻的旺衰与生扶判断能否恢复推进。',
+      wealth: '先核实资金是否处于冻结、账期或周转受限状态；有根有扶与休囚无援不可作同一结论。',
+      relationship: '可视为关系表达或推进受限的候选信号，仍需结合双方现实状态与其他爻证。',
+      health: '只作为传统条件记录，必须结合旺衰、生扶与现实医疗资料，不单凭入墓判断病情。',
     },
   },
   change_extinct: {

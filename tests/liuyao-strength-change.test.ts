@@ -61,9 +61,44 @@ test('六爻：月建为墓库支时不得直接判作入月墓', () => {
   assert.ok(waterYaos.length > 0, '样本卦应包含水爻');
   for (const yao of waterYaos) {
     assert.equal(yao.isYueMu, false, `第${yao.position}爻不得因辰月直接判作入月墓`);
-    assert.equal(yao.isRuMu, false, `第${yao.position}爻未逢日墓时不得汇总为入墓`);
+    assert.equal(yao.isRiMu, false, `第${yao.position}爻未逢日墓时不得判作入日墓`);
   }
   assert.doesNotMatch(data.evidenceAnalysis?.promptText ?? '', /入月墓/);
+});
+
+test('六爻：生旺墓绝应分别核验日辰、明动爻与自身变爻', () => {
+  const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+    yaos: [7, 6, 7, 7, 7, 6],
+  });
+
+  const woodYao = data.yaosDetail.find((yao) => yao.wuxing === '木');
+  assert.ok(woodYao, '样本卦应包含木爻');
+  assert.equal(woodYao.dayLifeStage, '死');
+  assert.ok(
+    woodYao.movingLifeStages?.some(
+      (item) => item.position === 6 && item.branch === '未' && item.stage === '墓',
+    ),
+  );
+  assert.equal(woodYao.isDongMu, true);
+  assert.equal(woodYao.isRuMu, true);
+
+  const changingYaos = data.yaosDetail.filter((yao) => yao.isChanging);
+  assert.ok(changingYaos.every((yao) => yao.changedLifeStage));
+  assert.ok(
+    data.evidenceAnalysis?.promptText.includes('入动墓'),
+    '提示词证据应明确输出入动墓，供后续结合旺衰与生扶判断',
+  );
+
+  const huaMuData = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+    yaos: [7, 7, 6, 6, 6, 6],
+  });
+  const huaMuYao = huaMuData.yaosDetail[2];
+  assert.equal(huaMuData.originalName, '地泽临');
+  assert.equal(huaMuYao.najiaDizhi, '丑');
+  assert.equal(huaMuYao.changedYao?.dizhi, '辰');
+  assert.equal(huaMuYao.changedLifeStage, '墓');
+  assert.equal(huaMuYao.isHuaMu, true);
+  assert.match(huaMuData.evidenceAnalysis?.promptText ?? '', /动而化墓|化墓/);
 });
 
 test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', () => {

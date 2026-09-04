@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
-  analyzeChineseCharacters,
+  analyzeChineseCharactersWithReferences,
   selectChineseCharacters,
   selectNamingCharacters,
   analyzeChineseName,
@@ -184,13 +184,16 @@ export function registerNameNumberTools(server: McpServer) {
   server.registerTool(
     'character_analyze',
     {
-      description: '解析一至二十个汉字的康熙笔画、现代笔画、五行、部首、拼音与繁简对应',
+      description:
+        '解析一至二十个汉字的繁简笔画、姓名学康熙笔画、五行、部首、拼音、完整释义与康熙字典原文',
       inputSchema: { text: z.string().min(1).max(20).describe('待解析汉字') },
       outputSchema: resultOutputSchema,
     },
     async ({ text }) => {
       try {
-        return createStructuredToolResult({ result: analyzeChineseCharacters(text) });
+        return createStructuredToolResult({
+          result: await analyzeChineseCharactersWithReferences(text),
+        });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '汉字解析失败'));
       }
@@ -205,7 +208,7 @@ export function registerNameNumberTools(server: McpServer) {
         kangxiStrokes: z.number().int().min(1).max(64).optional().describe('康熙笔画数'),
         wuxing: wuxing.optional().describe('字的五行'),
         pinyin: z.string().max(32).optional().describe('拼音或拼音片段'),
-        commonOnly: z.boolean().optional().describe('只返回常用字，默认true'),
+        commonOnly: z.boolean().optional().describe('仅GB2312一级字，默认true；false包含补充用字'),
         limit: z.number().int().min(1).max(100).optional().describe('返回数量，默认50'),
       },
       outputSchema: resultOutputSchema,
@@ -285,7 +288,8 @@ export function registerNameNumberTools(server: McpServer) {
   server.registerTool(
     'divine_kongming',
     {
-      description: '按五次阴阳结果起孔明神卦；可传入五位卦象，也可用随机种子起卦并保留重放样本',
+      description:
+        '按五枚硬币的阴阳结果起孔明神卦；可传入五位卦象，也可用随机种子起卦并保留重放样本',
       inputSchema: {
         pattern: z.string().min(5).max(5).optional().describe('五位卦象，可用●○、10或阴阳字样'),
         ...randomOptionShape,

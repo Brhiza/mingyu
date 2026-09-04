@@ -1,4 +1,3 @@
-import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import {
   resolveTrueSolarBirthTime,
   type TrueSolarTimeEvidenceFields,
@@ -23,6 +22,7 @@ export interface ZiweiTrueSolarBirth {
   birthDate: string;
   /** 紫微排盘使用的时辰索引，范围 0-12。 */
   birthTimeIndex: number;
+  birthTime: { hour: number; minute: number };
   /** 历法换算、夏令时、经度时差、均时差、跨日与时辰映射的统一证据。 */
   trueSolarEvidence: TrueSolarTimeEvidenceFields;
 }
@@ -59,22 +59,6 @@ export function resolveZiweiTrueSolarBirth(input: ZiweiTrueSolarInput): ZiweiTru
   const birthHour = readIntegerText(input.birthHour, '出生小时');
   const birthMinute = readIntegerText(input.birthMinute, '出生分钟');
   const birthLongitude = readNumberText(input.birthLongitude, '出生经度');
-  if (year < 1900 || year > 2100) throw new Error('出生年份需在 1900-2100 之间。');
-  if (month < 1 || month > 12) throw new Error('出生月份需在 1-12 之间。');
-  const validationMessage = getBirthDateValidationMessage({
-    year,
-    month,
-    day,
-    dateType: input.dateType,
-    isLeapMonth: input.isLeapMonth,
-  });
-  if (validationMessage) throw new Error(validationMessage);
-  if (birthHour < 0 || birthHour > 23) throw new Error('出生小时需在 0-23 之间。');
-  if (birthMinute < 0 || birthMinute > 59) throw new Error('出生分钟需在 0-59 之间。');
-  if (birthLongitude < -180 || birthLongitude > 180) {
-    throw new Error('出生经度需在 -180 到 180 之间。');
-  }
-
   const resolved = resolveTrueSolarBirthTime({
     dateType: input.dateType,
     year,
@@ -92,6 +76,7 @@ export function resolveZiweiTrueSolarBirth(input: ZiweiTrueSolarInput): ZiweiTru
   return {
     birthDate: `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,
     birthTimeIndex: resolved.timeIndex,
+    birthTime: { hour: corrected.hour, minute: corrected.minute },
     trueSolarEvidence: {
       key: resolved.key,
       status: resolved.status,

@@ -374,7 +374,7 @@ function validateDraft(draft: DivinationDraft) {
     (draft.kongmingMethod ?? 'random') === 'manual' &&
     !/^[●○]{5}$/.test(draft.kongmingPattern ?? '')
   ) {
-    throw new Error('请完成五次阴阳取象');
+    throw new Error('请完成五枚硬币的阴阳取象');
   }
 
   if (draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number') {

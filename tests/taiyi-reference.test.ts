@@ -131,12 +131,12 @@ test('太乙独立真值表应覆盖完整七十二局', () => {
   }
 });
 
-test('太乙月日时计应与固定版本独立实现的四计样例一致', () => {
+test('太乙月计按节气、日时计按固定版本样例生成完整基础盘', () => {
   const fixtures = [
     {
       scope: 'month' as const,
       date: new Date(2026, 0, 15, 0, 0),
-      expected: [121871305, '阳遁', 1, '乾', '申', '坤', '丑', 7, 13, 13],
+      expected: [121871306, '阳遁', 2, '乾', '酉', '戌', '丑', 6, 1, 1],
     },
     {
       scope: 'day' as const,
@@ -151,7 +151,7 @@ test('太乙月日时计应与固定版本独立实现的四计样例一致', ()
     {
       scope: 'month' as const,
       date: new Date(2026, 6, 11, 14, 35),
-      expected: [121871311, '阳遁', 7, '艮', '子', '巳', '未', 8, 25, 9],
+      expected: [121871312, '阳遁', 8, '艮', '丑', '坤', '未', 1, 22, 3],
     },
     {
       scope: 'day' as const,
@@ -196,6 +196,62 @@ test('太乙四计应严格区分年参数和日期参数', () => {
     () => generateTaiyi({ scope: 'day', year: 2025, date: new Date(2026, 0, 1) }),
     /year 与 date 的公历年份不一致/,
   );
+});
+
+test('太乙月计应按逐月节气换局，不能跟随农历朔日提前或延后', () => {
+  const beforeLichun = generateTaiyi({
+    scope: 'month',
+    date: new Date(2024, 1, 4, 16, 26),
+  });
+  const afterLichun = generateTaiyi({
+    scope: 'month',
+    date: new Date(2024, 1, 4, 16, 28),
+  });
+  assert.equal(afterLichun.accumulatedValue, beforeLichun.accumulatedValue + 1);
+  assert.equal(beforeLichun.ganZhi, '乙丑');
+  assert.equal(afterLichun.ganZhi, '丙寅');
+
+  const beforeJingzhe = generateTaiyi({
+    scope: 'month',
+    date: new Date(2024, 2, 5, 10, 22),
+  });
+  const afterJingzhe = generateTaiyi({
+    scope: 'month',
+    date: new Date(2024, 2, 5, 10, 24),
+  });
+  assert.equal(afterJingzhe.accumulatedValue, beforeJingzhe.accumulatedValue + 1);
+  assert.equal(beforeJingzhe.ganZhi, '丙寅');
+  assert.equal(afterJingzhe.ganZhi, '丁卯');
+
+  const beforeLeapMonth = generateTaiyi({
+    scope: 'month',
+    date: new Date(2025, 6, 24, 12),
+  });
+  const leapMonthStart = generateTaiyi({
+    scope: 'month',
+    date: new Date(2025, 6, 25, 12),
+  });
+  const leapMonthBeforeLiqiu = generateTaiyi({
+    scope: 'month',
+    date: new Date(2025, 7, 7, 0),
+  });
+  const leapMonthAfterLiqiu = generateTaiyi({
+    scope: 'month',
+    date: new Date(2025, 7, 8, 0),
+  });
+  const nextLunarMonth = generateTaiyi({
+    scope: 'month',
+    date: new Date(2025, 7, 23, 12),
+  });
+  assert.equal(leapMonthStart.accumulatedValue, beforeLeapMonth.accumulatedValue);
+  assert.equal(leapMonthAfterLiqiu.accumulatedValue, leapMonthBeforeLiqiu.accumulatedValue + 1);
+  assert.equal(nextLunarMonth.accumulatedValue, leapMonthAfterLiqiu.accumulatedValue);
+  assert.match(afterLichun.model.precision, /月计按逐月节气换局/);
+  assert.equal(
+    afterLichun.model.sources[0]?.url,
+    'https://www.shidianguji.com/book/SK1615/chapter/1l9lir71oidda',
+  );
+  assert.match(afterLichun.evidenceAnalysis.promptText, /月计按逐月节气换局/);
 });
 
 test('太乙大局攻守应根据和数算与纯阴纯阳策数定性', () => {

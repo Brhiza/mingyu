@@ -16,6 +16,8 @@ import {
 export type LiuyaoEvidenceTopic = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
 export type LiuyaoGodRole = '用神' | '原神' | '忌神' | '仇神';
 
+const LIUYAO_EFFECTIVE_LIFE_STAGES = new Set(['长生', '帝旺', '墓', '绝']);
+
 export interface LiuyaoEvidenceOptions {
   topic?: LiuyaoEvidenceTopic;
   /** 用户或上层明确指定的用神六亲；优先于主题默认候选。 */
@@ -116,6 +118,9 @@ export interface LiuyaoLineFact {
   };
   traditionalRelations: {
     twelveStage?: string;
+    dayLifeStage?: string;
+    movingLifeStages?: LiuyaoYaoDetail['movingLifeStages'];
+    changedLifeStage?: string;
     sanxingType?: string;
     liuhePartner?: string;
     isLiuhai: boolean;
@@ -468,6 +473,14 @@ function buildVisibleReference(
   dayBranch: string,
 ): LiuyaoYaoReference {
   const changeRelations = getChangeRelations(yao);
+  const movingStageSupport =
+    yao.movingLifeStages
+      ?.filter((item) => item.stage === '长生' || item.stage === '帝旺')
+      .map((item) => `第${item.position}爻${item.branch}${item.stage}`) ?? [];
+  const movingStageConstraints =
+    yao.movingLifeStages
+      ?.filter((item) => item.stage === '墓' || item.stage === '绝')
+      .map((item) => `第${item.position}爻${item.branch}${item.stage}`) ?? [];
   const support = [
     yao.isWorld ? '临世' : '',
     yao.isResponse ? '临应' : '',
@@ -480,6 +493,11 @@ function buildVisibleReference(
     isLiuhe(yao.najiaDizhi, dayBranch) ? '合日辰' : '',
     changeRelations.includes('回头生') ? '回头生' : '',
     yao.changeDirection === '化进神' ? '化进神' : '',
+    yao.dayLifeStage === '长生' || yao.dayLifeStage === '帝旺' ? `日辰${yao.dayLifeStage}` : '',
+    ...movingStageSupport,
+    yao.changedLifeStage === '长生' || yao.changedLifeStage === '帝旺'
+      ? `化${yao.changedLifeStage}`
+      : '',
   ].filter(Boolean);
   const constraints = [
     yao.isVoid ? '本爻空亡' : '',
@@ -489,6 +507,11 @@ function buildVisibleReference(
       ? `月令${yao.seasonState}`
       : '',
     yao.isRiMu ? '入日墓' : '',
+    yao.isDongMu ? '入动墓' : '',
+    yao.isHuaMu ? '动而化墓' : '',
+    yao.dayLifeStage === '绝' ? '日辰逢绝' : '',
+    ...movingStageConstraints.filter((item) => item.endsWith('绝')),
+    yao.changedLifeStage === '绝' ? '动而化绝' : '',
     changeRelations.includes('回头克') ? '回头克' : '',
     changeRelations.includes('回头冲') ? '回头冲' : '',
     changeRelations.includes('化空') || yao.changedYao?.isVoid ? '变爻空亡' : '',
@@ -581,6 +604,8 @@ function buildLineFacts(
             ? '日辰冲动'
             : '',
       yao.isRiMu ? '入日墓' : '',
+      yao.isDongMu ? '入动墓' : '',
+      yao.isHuaMu ? '动而化墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
       isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',
     ].filter(Boolean);
@@ -590,6 +615,9 @@ function buildLineFacts(
         ? '暗动'
         : '静爻';
     const changeRelations = getChangeRelations(yao);
+    const effectiveMovingLifeStages = yao.movingLifeStages?.filter((item) =>
+      ['长生', '帝旺', '墓', '绝'].includes(item.stage),
+    );
     const changedYao = yao.changedYao
       ? {
           sixRelative: yao.changedYao.liuqin,
@@ -610,9 +638,14 @@ function buildLineFacts(
       monthRelations.join('、'),
       dayRelations.join('、'),
       yao.isVoid ? '本爻空亡' : '',
-      yao.shiErGong ? `十二宫${yao.shiErGong}` : '',
+      yao.dayLifeStage && ['长生', '帝旺', '墓', '绝'].includes(yao.dayLifeStage)
+        ? `日辰生旺墓绝${yao.dayLifeStage}`
+        : '',
+      effectiveMovingLifeStages?.length
+        ? `动爻生旺墓绝${effectiveMovingLifeStages.map((item) => `第${item.position}爻${item.branch}${item.stage}`).join('、')}`
+        : '',
       changedYao
-        ? `化${changedYao.sixRelative}${changedYao.branch}${changedYao.wuxing}${changedYao.direction ? `、${changedYao.direction}` : ''}${changedYao.relations.length ? `、${changedYao.relations.join('、')}` : changedYao.isVoid ? '、变爻空亡' : ''}`
+        ? `化${changedYao.sixRelative}${changedYao.branch}${changedYao.wuxing}${yao.changedLifeStage && LIUYAO_EFFECTIVE_LIFE_STAGES.has(yao.changedLifeStage) ? `、化${yao.changedLifeStage}` : ''}${changedYao.direction ? `、${changedYao.direction}` : ''}${changedYao.relations.length ? `、${changedYao.relations.join('、')}` : changedYao.isVoid ? '、变爻空亡' : ''}`
         : '',
     ]
       .filter(Boolean)
@@ -637,6 +670,9 @@ function buildLineFacts(
       dayState: { branch: dayBranch, relations: dayRelations },
       traditionalRelations: {
         twelveStage: yao.shiErGong,
+        dayLifeStage: yao.dayLifeStage,
+        movingLifeStages: yao.movingLifeStages,
+        changedLifeStage: yao.changedLifeStage,
         sanxingType: yao.isSanxing ? yao.sanxingType : undefined,
         liuhePartner: yao.isLiuhe ? yao.liuhePartner : undefined,
         isLiuhai: Boolean(yao.isLiuhai),

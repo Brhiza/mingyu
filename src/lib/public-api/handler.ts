@@ -57,7 +57,7 @@ import {
 } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import {
-  analyzeChineseCharacters,
+  analyzeChineseCharactersWithReferences,
   selectChineseCharacters,
   selectNamingCharacters,
   analyzeChineseName,
@@ -669,7 +669,7 @@ export function getPublicApiOpenApiDocument(
       },
       '/character/analyze': {
         post: {
-          summary: '解析汉字的康熙笔画、五行、部首和读音',
+          summary: '解析汉字的繁简笔画、五行、读音、完整释义与康熙字典原文',
           requestBody: openApiJsonRequestBody('#/components/schemas/CharacterAnalyzeRequest'),
           responses: { '200': { description: '逐字资料与合计笔画' } },
         },
@@ -682,7 +682,7 @@ export function getPublicApiOpenApiDocument(
       },
       '/divination/kongming/prompt': {
         post: {
-          summary: '取得五次阴阳卦象并生成孔明神卦完整解读提示词',
+          summary: '取得五枚硬币的阴阳卦象并生成孔明神卦完整解读提示词',
           responses: { '200': { description: '卦象结果与可直接交给 AI 的完整提示词' } },
         },
       },
@@ -716,7 +716,7 @@ export function getPublicApiOpenApiDocument(
       },
       '/divination/kongming': {
         post: {
-          summary: '按五次阴阳结果起孔明神卦',
+          summary: '按五枚硬币的阴阳结果起孔明神卦',
           requestBody: openApiJsonRequestBody('#/components/schemas/KongmingRequest', false),
           responses: { '200': { description: '五钱卦象、卦名、吉凶与卦诗' } },
         },
@@ -1193,7 +1193,11 @@ export function getPublicApiOpenApiDocument(
             kangxiStrokes: { type: 'integer', minimum: 1, maximum: 64 },
             wuxing: { enum: ['金', '木', '水', '火', '土'] },
             pinyin: { type: 'string', maxLength: 32 },
-            commonOnly: { type: 'boolean', default: true },
+            commonOnly: {
+              type: 'boolean',
+              default: true,
+              description: '仅GB2312一级字；false包含补充用字',
+            },
             limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
           },
         },
@@ -2114,7 +2118,9 @@ async function route(context: RouteContext) {
       );
     case 'character/analyze':
       return calculateCultureTool(async () =>
-        analyzeChineseCharacters(readString(await readJson(context.request), 'text', '')),
+        analyzeChineseCharactersWithReferences(
+          readString(await readJson(context.request), 'text', ''),
+        ),
       );
     case 'character/select':
       return calculateCultureTool(async () => selectCharactersApi(await readJson(context.request)));

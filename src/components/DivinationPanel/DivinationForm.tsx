@@ -1166,35 +1166,57 @@ export function DivinationForm({
                 <button
                   type="button"
                   className={kongmingMethod === 'manual' ? 'is-active' : ''}
-                  onClick={() => updateDraft('kongmingMethod', 'manual')}
+                  onClick={() => {
+                    updateDraft('kongmingMethod', 'manual');
+                    if (kongmingMethod !== 'manual') updateDraft('kongmingPattern', '-----');
+                  }}
                 >
                   手动取象
                 </button>
               </div>
               {kongmingMethod === 'manual' ? (
-                <div className="culture-coins" aria-label="五次阴阳结果">
-                  {[0, 1, 2, 3, 4].map((index) => {
-                    const symbol = kongmingPattern[index] === '●' ? '●' : '○';
-                    return (
-                      <button
-                        key={index}
-                        type="button"
-                        className={symbol === '●' ? 'is-yang' : ''}
-                        onClick={() => {
-                          const next = [...kongmingPattern.padEnd(5, '○')];
-                          next[index] = symbol === '●' ? '○' : '●';
-                          updateDraft('kongmingPattern', next.join(''));
-                        }}
-                      >
-                        <strong>{symbol}</strong>
-                        <small>第{index + 1}次</small>
-                      </button>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="culture-coins" aria-label="五枚硬币的正反面">
+                    {[0, 1, 2, 3, 4].map((index) => {
+                      const selected = kongmingPattern[index];
+                      return (
+                        <fieldset key={index} className="culture-coin-entry">
+                          <legend>第{index + 1}枚</legend>
+                          <div className="culture-coin-options">
+                            {(
+                              [
+                                ['●', '正面', '阳'],
+                                ['○', '反面', '阴'],
+                              ] as const
+                            ).map(([symbol, face, polarity]) => (
+                              <button
+                                key={symbol}
+                                type="button"
+                                className={selected === symbol ? 'is-active' : ''}
+                                aria-pressed={selected === symbol}
+                                aria-label={`第${index + 1}枚，${face}，${polarity}`}
+                                onClick={() => {
+                                  const next = [...kongmingPattern.padEnd(5, '-').slice(0, 5)];
+                                  next[index] = symbol;
+                                  updateDraft('kongmingPattern', next.join(''));
+                                }}
+                              >
+                                <strong>{face}</strong>
+                                <small>{polarity}</small>
+                              </button>
+                            ))}
+                          </div>
+                        </fieldset>
+                      );
+                    })}
+                  </div>
+                  <small className="workspace-ui-field-hint">
+                    摇出五枚硬币后，按摆放顺序逐枚记录；正面为阳，反面为阴。
+                  </small>
+                </>
               ) : (
                 <small className="workspace-ui-field-hint">
-                  系统独立取得五次阴阳结果并组成卦象。
+                  系统独立取得五枚硬币的阴阳结果并组成卦象。
                 </small>
               )}
             </div>

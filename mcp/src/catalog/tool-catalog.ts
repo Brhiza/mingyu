@@ -256,7 +256,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '孔明神卦',
     category: 'number',
     type: 'calculate',
-    description: '按五次阴阳结果生成三十二种孔明神卦之一',
+    description: '按五枚硬币的阴阳结果生成三十二种孔明神卦之一',
     annotations: READONLY_NON_IDEMPOTENT,
     endpoint: '/divination/kongming',
   },

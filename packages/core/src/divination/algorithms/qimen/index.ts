@@ -433,6 +433,7 @@ export function generateQimen(
     dayBranch,
     monthBranch,
     solarTerm: jushuResult.jieQi || jieQi,
+    actualSolarTerm: jushuResult.actualJieQi || jieQi,
     epoch: yuan,
     hourGanZhi: ganzhi.hour,
     hourStem,

@@ -2315,6 +2315,7 @@ button:focus-visible,
 }
 .culture-tools-page {
   width: min(1180px, 100%);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .culture-tools-footnote {
@@ -2387,6 +2388,7 @@ button:focus-visible,
 
 .culture-tools-input-panel,
 .culture-tools-result-panel {
+  min-width: 0;
   padding: 18px;
   border: 1px solid var(--border-soft);
   border-radius: 14px;
@@ -2594,6 +2596,24 @@ button:focus-visible,
   white-space: nowrap;
 }
 
+.culture-tradition-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 10px;
+}
+
+.culture-tradition-heading strong {
+  font-size: 14px;
+}
+
+.culture-tradition-heading small {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: right;
+}
+
 .culture-name-report > header {
   padding-bottom: 18px;
   border-bottom: 1px solid var(--border-soft);
@@ -2672,12 +2692,14 @@ button:focus-visible,
 .culture-character-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
   gap: 9px;
   margin-top: 16px;
 }
 
 .culture-character-list.is-analysis {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .culture-character-list > div {
@@ -2712,6 +2734,25 @@ button:focus-visible,
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.culture-character-classic {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.culture-character-classic summary {
+  cursor: pointer;
+  color: var(--accent-strong);
+}
+
+.culture-character-classic p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .culture-grid-list {
@@ -2803,11 +2844,15 @@ button:focus-visible,
 
 .culture-number-report {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
   gap: 16px;
 }
 
 .culture-number-main {
   display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: start;
   padding: 20px;
   border-radius: 14px;
@@ -2894,6 +2939,22 @@ button:focus-visible,
 
 .culture-number-distribution > div > span[data-nature='考验'] {
   border-color: color-mix(in srgb, #a76a4b 25%, var(--border-soft));
+}
+
+.culture-number-sequence {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 12px;
+  padding-left: 24px;
+}
+
+.culture-number-sequence li {
+  padding: 8px;
+  overflow-wrap: anywhere;
+}
+
+.culture-number-sequence li > * {
+  display: block;
 }
 
 .culture-number-distribution small {
@@ -3046,6 +3107,28 @@ button:focus-visible,
   font-size: 12px;
 }
 
+.culture-number-tradition {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.culture-number-tradition summary {
+  cursor: pointer;
+  color: var(--accent-strong);
+}
+
+.culture-number-tradition blockquote {
+  margin: 12px 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-soft);
+}
+
+.culture-number-pair-copy .culture-number-pair-trigram {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .culture-tools-prompt {
   grid-column: 1 / -1;
 }
@@ -3057,7 +3140,7 @@ button:focus-visible,
 
 @media (max-width: 900px) {
   .culture-tools-workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .culture-tools-result-panel {
@@ -3100,6 +3183,16 @@ button:focus-visible,
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .culture-tradition-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .culture-tradition-heading small {
+    text-align: left;
+  }
+
   .culture-naming-pool > div {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -3116,6 +3209,14 @@ button:focus-visible,
   .culture-character-pool > div {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  .culture-number-pairs article {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+
+  .culture-number-pair-copy {
+    grid-column: 2;
+  }
 }
 
 .culture-coins,
@@ -3125,7 +3226,6 @@ button:focus-visible,
   gap: 9px;
 }
 
-.culture-coins button,
 .traditional-symbol-sequence > span {
   display: grid;
   justify-items: center;
@@ -3137,25 +3237,64 @@ button:focus-visible,
   color: inherit;
 }
 
-.culture-coins button {
+.culture-coin-entry {
+  min-width: 0;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 13px;
+  background: var(--surface-soft);
+}
+
+.culture-coin-entry legend {
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.culture-coin-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.culture-coin-options button {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 3px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
 }
 
-.culture-coins button.is-yang {
+.culture-coin-options button.is-active {
   border-color: var(--border-contrast);
   background: var(--state-selected-surface);
   color: var(--accent-strong);
 }
 
-.culture-coins strong,
 .traditional-symbol-sequence strong {
   font-size: 24px;
 }
 
-.culture-coins small,
+.culture-coin-options strong {
+  font-size: 12px;
+}
+
+.culture-coin-options small,
 .traditional-symbol-sequence small {
   color: var(--text-muted);
   font-size: 10px;
+}
+
+@media (max-width: 700px) {
+  .culture-coins {
+    grid-template-columns: 1fr;
+  }
 }
 
 .traditional-symbol-sequence {
@@ -3187,4 +3326,24 @@ button:focus-visible,
 .traditional-poem-card > small {
   color: var(--text-muted);
   line-height: 1.7;
+}
+
+.traditional-sign-interpretation {
+  padding: 16px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.traditional-sign-interpretation h3 {
+  margin: 0 0 12px;
+  color: var(--text-main);
+  font-size: 15px;
+}
+
+.traditional-sign-interpretation blockquote {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-soft);
+  color: var(--accent-strong);
 }

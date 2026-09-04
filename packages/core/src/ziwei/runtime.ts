@@ -8,6 +8,7 @@ import {
   buildHoroscopeFromInput,
   buildZiweiCalculationConfig,
   getDefaultHoroscopeContext,
+  normalizeChartInput,
 } from './iztro/runtime-helpers';
 import { buildAnalysisPayloadV1 } from './iztro/build-analysis-payload/index';
 import { buildVerifiedDecadalTimelineOptions } from './iztro/decadal';
@@ -71,6 +72,7 @@ export function buildZiweiPayloadByScope(params: {
   horoscope: IztroHoroscope;
   scopes?: ScopeType[];
   calculationConfig: AnalysisPayloadV1['calculation_config'];
+  birthTime?: ChartInput['birthTime'];
   skipAnalysis?: boolean;
 }): Record<ScopeType, AnalysisPayloadV1> {
   const scopes = normalizeScopes(params.scopes);
@@ -82,6 +84,7 @@ export function buildZiweiPayloadByScope(params: {
         horoscope: params.horoscope,
         currentScope: scope,
         calculationConfig: params.calculationConfig,
+        birthTime: params.birthTime,
         skipAnalysis: params.skipAnalysis,
       }),
     ]),
@@ -111,6 +114,7 @@ export async function calculateZiweiChart(
     horoscope,
     scopes: options.scopes,
     calculationConfig: buildZiweiCalculationConfig(input),
+    birthTime: input.birthTime,
     skipAnalysis: options.skipAnalysis,
   });
   const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
@@ -180,6 +184,7 @@ export async function calculateZiweiDisplayPayload(params: {
     horoscope,
     currentScope: params.scope,
     calculationConfig: buildZiweiCalculationConfig(params.input),
+    birthTime: params.input.birthTime,
   });
 }
 
@@ -261,7 +266,7 @@ export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
       })
     : null;
 
-  return {
+  return normalizeChartInput({
     name: input.name,
     gender,
     dateType: input.useTrueSolarTime ? 'solar' : input.dateType,
@@ -269,15 +274,10 @@ export function buildZiweiChartInput(input: ZiweiChartInputDraft): ChartInput {
       trueSolarBirth?.birthDate ??
       formatBirthDate(birthDateParts.year, birthDateParts.month, birthDateParts.day),
     birthTimeIndex: trueSolarBirth?.birthTimeIndex ?? birthTimeIndex,
-    ...(trueSolarBirth?.trueSolarEvidence
-      ? { trueSolarEvidence: trueSolarBirth.trueSolarEvidence }
+    ...(trueSolarBirth
+      ? { birthTime: trueSolarBirth.birthTime, trueSolarEvidence: trueSolarBirth.trueSolarEvidence }
       : {}),
     isLeapMonth: input.useTrueSolarTime ? false : input.isLeapMonth,
-    fixLeap: true,
     algorithm: input.algorithm ?? 'default',
-    yearDivide: 'normal',
-    horoscopeDivide: 'normal',
-    ageDivide: 'normal',
-    dayDivide: 'forward',
-  };
+  });
 }

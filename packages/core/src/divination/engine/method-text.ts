@@ -22,7 +22,7 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     case 'zhuge':
       return '依据三个汉字的康熙笔画、取数过程、签序与签文回答【问题】。';
     case 'kongming':
-      return '依据五次阴阳所得卦象、卦名、等第与卦诗回答【问题】。';
+      return '依据五枚硬币所得阴阳卦象、卦名、等第与卦诗回答【问题】。';
     case 'almanac':
       return '';
     case 'astrolabe':
