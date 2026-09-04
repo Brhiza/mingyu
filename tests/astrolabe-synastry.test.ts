@@ -191,3 +191,34 @@ test('西占双盘应保留截断数量和关闭落宫的反证', () => {
   assertEvidenceReferences(noFacts);
   assert.match(noFacts.promptText, /明确关闭跨盘落宫计算/);
 });
+
+test('西占合盘互溶与接纳判定：识别金火互溶与接纳断诀', () => {
+  const chart1: AstrolabeData = {
+    ...chart('甲', 0, 120),
+    planets: [
+      point('Sun', '太阳', 0),
+      point('Moon', '月亮', 120),
+      point('Venus', '金星', 15), // 白羊座 15度（火星守护）
+    ],
+  };
+  const chart2: AstrolabeData = {
+    ...chart('乙', 30, 150),
+    planets: [
+      point('Sun', '太阳', 30),
+      point('Moon', '月亮', 150),
+      point('Mars', '火星', 45), // 金牛座 15度（金星守护）
+    ],
+  };
+
+  const result = analyzeAstrolabeSynastry(chart1, chart2, {
+    pointNames: ['Sun', 'Moon', 'Venus', 'Mars'],
+  });
+
+  assert.ok(result.receptions);
+  assert.ok(result.receptions.length >= 1);
+  const mutual = result.receptions.find((r) => r.type === '互溶');
+  assert.ok(mutual);
+  assert.match(mutual.summary, /庙旺互溶/);
+  assert.match(result.promptText, /【古典接纳互溶】/);
+});
+

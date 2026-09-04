@@ -143,6 +143,7 @@ function formatSynastryFacts(data: AstrolabeSynastryData) {
     (item) => `  ${item.visitor}${item.pointName}落入${item.owner}本命盘第${item.house}宫。`,
   );
   return [
+    data.receptionSummary ?? '',
     aspects.length ? `【跨盘相位】\n${aspects.join('\n')}` : '',
     overlays.length ? `【跨盘落宫】\n${overlays.join('\n')}` : '',
   ]

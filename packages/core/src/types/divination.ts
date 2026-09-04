@@ -1519,6 +1519,17 @@ export interface AstrolabeSynastryData {
   calculationChain: string[];
   aspects: AstrolabeSynastryAspect[];
   houseOverlays: AstrolabeHouseOverlay[];
+  receptions?: Array<{
+    type: '互溶' | '接纳';
+    person1Planet: string;
+    person2Planet: string;
+    person1PlanetLabel: string;
+    person2PlanetLabel: string;
+    sign1: string;
+    sign2: string;
+    summary: string;
+  }>;
+  receptionSummary?: string;
   summary: {
     totalAspects: number;
     harmonious: number;
