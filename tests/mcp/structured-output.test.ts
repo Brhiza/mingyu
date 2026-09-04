@@ -105,6 +105,7 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['character_analyze', { text: '万学' }],
   ['character_select', { kangxiStrokes: 8, wuxing: '木', limit: 5 }],
   ['number_analyze', { value: '粤B12345', purpose: 'plate' }],
+  ['number_energy_prompt', { value: '粤B12345', purpose: 'plate' }],
   ['divine_zhuge', { text: '顺其然' }],
   ['divine_kongming', { pattern: '10101' }],
   ['divine_qimen', {}],
@@ -454,7 +455,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 73);
+    assert.equal(tools.length, 74);
     assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
@@ -485,6 +486,7 @@ test('MCP 工具列表应声明输出结构', async () => {
       'character_analyze',
       'character_select',
       'number_analyze',
+      'number_energy_prompt',
       'divine_zhuge',
       'divine_kongming',
     ]) {

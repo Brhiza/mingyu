@@ -5,6 +5,7 @@ import {
   analyzeNumber,
   buildChineseNameAnalysisPrompt,
   buildChineseNamingPrompt,
+  buildNumberEnergyPrompt,
   generateChineseNames,
   selectChineseCharacters,
   selectNamingCharacters,
@@ -48,7 +49,7 @@ const tools: Array<{ id: ToolId; label: string; description: string; mark: strin
   { id: 'naming', label: '起名', description: '结合出生取用筛选姓名', mark: '名' },
   { id: 'name', label: '姓名解析', description: '从命局到音形义完整比较', mark: '姓' },
   { id: 'hanzi', label: '汉字与选字', description: '查笔画、五行、读音与释义', mark: '字' },
-  { id: 'number', label: '数字解析', description: '手机号、车牌号与一般号码', mark: '数' },
+  { id: 'number', label: '数字能量', description: '数字、字母与八星磁场', mark: '数' },
 ];
 const wuxingOptions: Array<'' | Wuxing> = ['', '金', '木', '水', '火', '土'];
 const birthTimeOptions: DropdownSelectOption<string>[] = [
@@ -128,6 +129,7 @@ export function CultureToolsPage() {
   );
   const [numberText, setNumberText] = useState('13800138000');
   const [numberPurpose, setNumberPurpose] = useState<'phone' | 'plate' | 'general'>('phone');
+  const [numberQuestion, setNumberQuestion] = useState('');
   const [numberResult, setNumberResult] = useState<ReturnType<typeof analyzeNumber> | null>(null);
 
   const caseOptions = useMemo<DropdownSelectOption<string>[]>(
@@ -184,8 +186,16 @@ export function CultureToolsPage() {
         : '',
     [nameQuestion, nameResult],
   );
+  const numberPrompt = useMemo(
+    () =>
+      numberResult
+        ? buildNumberEnergyPrompt({ analysis: numberResult, question: numberQuestion })
+        : '',
+    [numberQuestion, numberResult],
+  );
   const namingDelivery = usePromptCopyShare(namingPrompt);
   const nameDelivery = usePromptCopyShare(namePrompt);
+  const numberDelivery = usePromptCopyShare(numberPrompt);
 
   function run(event: FormEvent, action: () => void) {
     event.preventDefault();
@@ -556,11 +566,15 @@ export function CultureToolsPage() {
               run(event, () => setNumberResult(analyzeNumber(numberText, numberPurpose)))
             }
           >
-            <SectionHeading step="01" title="输入号码" hint="空格和短横线会自动忽略" />
-            <Field label="号码">
-              <input value={numberText} onChange={(event) => setNumberText(event.target.value)} />
+            <SectionHeading step="01" title="输入内容" hint="支持数字、英文字母和常见分隔符" />
+            <Field label="数字或字母">
+              <input
+                value={numberText}
+                onChange={(event) => setNumberText(event.target.value)}
+                placeholder="例如：13800138000 或 粤B·A1235"
+              />
             </Field>
-            <Field label="号码类型">
+            <Field label="使用类型">
               <select
                 value={numberPurpose}
                 onChange={(event) =>
@@ -569,29 +583,50 @@ export function CultureToolsPage() {
               >
                 <option value="phone">手机号</option>
                 <option value="plate">车牌号</option>
-                <option value="general">一般号码</option>
+                <option value="general">其他编号</option>
               </select>
             </Field>
+            <Field label="想重点了解什么">
+              <textarea
+                value={numberQuestion}
+                onChange={(event) => setNumberQuestion(event.target.value)}
+                placeholder="例如：这个号码在工作沟通和长期使用上有什么特点？"
+                rows={3}
+              />
+            </Field>
             <button className="culture-tools-primary" type="submit">
-              解析号码
+              解析数字能量
             </button>
             <p className="culture-tools-footnote">
-              数理只适合作为文化参考，不替代号码价格、安全性或实际使用体验。
+              数字能量属于传统文化参考，实际选择仍以资费、安全性和使用便利为先。
             </p>
           </form>
 
           <section className="culture-tools-result-panel">
-            <SectionHeading step="02" title="数理结果" hint="同时展示主数理与数字结构" />
+            <SectionHeading step="02" title="磁场结果" hint="按号码顺序查看相邻组合" />
             {numberResult ? (
               <NumberReport result={numberResult} />
             ) : (
               <Empty
                 mark="数"
-                title="号码结构会在这里清晰展开"
-                text="手机号按完整数字取数，车牌号会同时计算字母序号。"
+                title="八星磁场会在这里展开"
+                text="字母会先换算为数字，再与号码一起分析相邻磁场。"
               />
             )}
           </section>
+
+          {numberResult ? (
+            <div className="culture-tools-prompt">
+              <PromptDeliveryPanel
+                promptText={numberPrompt}
+                copyState={numberDelivery.copyState}
+                shareState={numberDelivery.shareState}
+                onCopy={numberDelivery.handleCopy}
+                onShare={numberDelivery.handleShare}
+                question={numberQuestion.trim() || undefined}
+              />
+            </div>
+          ) : null}
         </section>
       ) : null}
     </WorkspacePage>
@@ -871,36 +906,111 @@ function NumberReport({ result }: { result: ReturnType<typeof analyzeNumber> }) 
   return (
     <article className="culture-number-report">
       <div className="culture-number-main">
-        <span>主数理</span>
-        <strong>{result.primaryIndex}</strong>
+        <span>能量序列</span>
+        <strong>{result.energySequence}</strong>
         <h3>
-          {result.primaryNumerology.level} · {result.primaryNumerology.keywords}
+          {result.dominantFields.length
+            ? `主要磁场 · ${result.dominantFields.join('、')}`
+            : '暂无可归类磁场'}
         </h3>
-        <p>{result.primaryNumerology.text}</p>
+        {result.letterConversions.length ? (
+          <p>
+            字母换算：
+            {result.letterConversions.map((item) => `${item.letter}=${item.value}`).join('、')}
+          </p>
+        ) : null}
       </div>
       <div className="culture-number-stats">
         <div>
-          <span>数字和</span>
-          <strong>{result.digitSum}</strong>
+          <span>磁场组合</span>
+          <strong>{result.magneticSummary.pairCount}</strong>
         </div>
         <div>
-          <span>奇数 / 偶数</span>
-          <strong>
-            {result.oddCount} / {result.evenCount}
-          </strong>
+          <span>助益 / 守成</span>
+          <strong>{`${result.magneticSummary.supportiveCount} / ${result.magneticSummary.steadyCount}`}</strong>
         </div>
         <div>
-          <span>和数理</span>
-          <strong>{result.sumIndex}</strong>
+          <span>考验组合</span>
+          <strong>{result.magneticSummary.challengingCount}</strong>
         </div>
       </div>
-      <div className="culture-sancai">
-        <strong>计算方式</strong>
-        <span>{result.formula}</span>
-      </div>
-      {result.repeatedGroups.length ? (
-        <p className="culture-number-repeats">重复组合：{result.repeatedGroups.join('、')}</p>
+
+      {result.magneticDistribution.length ? (
+        <section className="culture-number-distribution">
+          <h3>磁场分布</h3>
+          <div>
+            {result.magneticDistribution.map((item) => (
+              <span key={item.name} data-nature={item.nature}>
+                <strong>{item.name}</strong>
+                <small>{item.count} 组</small>
+              </span>
+            ))}
+          </div>
+        </section>
       ) : null}
+
+      {result.modifiers.length ? (
+        <section className="culture-number-modifiers">
+          <h3>0 与 5 的作用</h3>
+          <div>
+            {result.modifiers.map((modifier) => (
+              <article key={`${modifier.position}-${modifier.digit}`}>
+                <strong>{modifier.digit}</strong>
+                <div>
+                  <span>
+                    第 {modifier.position + 1} 位 · {modifier.effect}
+                  </span>
+                  <small>{modifier.meaning}</small>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {result.energyPairs.length ? (
+        <section className="culture-number-pairs">
+          <h3>逐组磁场</h3>
+          <div>
+            {result.energyPairs.map((item, index) => (
+              <article key={`${item.start}-${item.end}-${item.pair}`}>
+                <div className="culture-number-pair-index">
+                  {String(index + 1).padStart(2, '0')}
+                </div>
+                <div className="culture-number-pair-code">
+                  <strong>{item.span}</strong>
+                  {item.span !== item.pair ? <small>取 {item.pair}</small> : null}
+                </div>
+                <div className="culture-number-pair-copy">
+                  <header>
+                    <strong>{item.name}</strong>
+                    <span>{item.group ? `第 ${item.group} 组` : '延续组合'}</span>
+                    <span>{item.nature}</span>
+                  </header>
+                  <p>{item.keywords.join('、')}</p>
+                  <small>{item.meaning}</small>
+                  {item.modifiers.length ? (
+                    <div className="culture-number-pair-modifiers">
+                      {item.modifiers.map((modifier, modifierIndex) => (
+                        <span key={`${modifier.digit}-${modifierIndex}`}>
+                          {modifier.digit} · {modifier.effect}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <div className="culture-number-empty-pairs">当前内容不足以组成八星磁场。</div>
+      )}
+
+      <div className="culture-number-rule">
+        <strong>换算规则</strong>
+        <span>{result.energyFormula}</span>
+      </div>
     </article>
   );
 }

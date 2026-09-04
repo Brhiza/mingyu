@@ -498,12 +498,205 @@ function reduceBy80(value: bigint) {
   return remainder === 0 ? 80 : remainder;
 }
 
-export function analyzeNumber(input: string, purpose: 'phone' | 'plate' | 'general' = 'general') {
+export type NumberPurpose = 'phone' | 'plate' | 'general';
+export type NumberEnergyName =
+  '天医' | '生气' | '延年' | '伏位' | '绝命' | '五鬼' | '六煞' | '祸害';
+export type NumberEnergyNature = '助益' | '守成' | '考验';
+
+const NUMBER_ENERGY_DEFINITIONS: Array<{
+  name: NumberEnergyName;
+  nature: NumberEnergyNature;
+  keywords: string[];
+  meaning: string;
+  pairs: string[];
+}> = [
+  {
+    name: '天医',
+    nature: '助益',
+    keywords: ['资源', '成果', '正向关系'],
+    meaning: '重视资源积累、成果兑现与稳定关系，也需要把机会落实为长期安排。',
+    pairs: ['13', '68', '49', '27'],
+  },
+  {
+    name: '生气',
+    nature: '助益',
+    keywords: ['贵人', '机会', '适应'],
+    meaning: '象征开放、乐观与外部助力，适合通过协作和变化打开局面。',
+    pairs: ['14', '67', '39', '28'],
+  },
+  {
+    name: '延年',
+    nature: '助益',
+    keywords: ['专业', '执行', '责任'],
+    meaning: '强调能力、承担与持续推进，容易把注意力放在工作标准和掌控感上。',
+    pairs: ['19', '78', '34', '26'],
+  },
+  {
+    name: '伏位',
+    nature: '守成',
+    keywords: ['延续', '蓄势', '谨慎'],
+    meaning: '延续前一状态并积蓄力量，适合稳定推进，也要留意迟疑和停滞。',
+    pairs: ['11', '22', '33', '44', '66', '77', '88', '99'],
+  },
+  {
+    name: '绝命',
+    nature: '考验',
+    keywords: ['决断', '投入', '起伏'],
+    meaning: '行动直接、敢于投入并追求突破，重要决定更需要衡量承受范围。',
+    pairs: ['12', '69', '48', '37'],
+  },
+  {
+    name: '五鬼',
+    nature: '考验',
+    keywords: ['灵感', '变化', '敏感'],
+    meaning: '思路活跃、反应快速且不拘常规，变化较多时需要保持节奏和可执行性。',
+    pairs: ['18', '79', '36', '24'],
+  },
+  {
+    name: '六煞',
+    nature: '考验',
+    keywords: ['情绪', '人际', '审美'],
+    meaning: '感受细腻并重视关系氛围，面对牵绊时需要清晰表达边界和需求。',
+    pairs: ['16', '47', '38', '29'],
+  },
+  {
+    name: '祸害',
+    nature: '考验',
+    keywords: ['表达', '争执', '压力'],
+    meaning: '语言和立场容易成为焦点，适合把表达能力用于协商并减少无谓消耗。',
+    pairs: ['17', '89', '46', '23'],
+  },
+];
+
+const numberEnergyPairMap = new Map<
+  string,
+  (typeof NUMBER_ENERGY_DEFINITIONS)[number] & { group: number }
+>();
+for (const definition of NUMBER_ENERGY_DEFINITIONS) {
+  definition.pairs.forEach((pair, index) => {
+    const entry = { ...definition, group: definition.name === '伏位' ? 0 : index + 1 };
+    numberEnergyPairMap.set(pair, entry);
+    numberEnergyPairMap.set([...pair].reverse().join(''), entry);
+  });
+}
+
+function analyzeNumberEnergySequence(alphanumeric: string) {
+  const letterConversions: Array<{ letter: string; value: number; digits: string }> = [];
+  const energyDigits: Array<{
+    digit: number;
+    source: string;
+    sourceIndex: number;
+    energyIndex: number;
+  }> = [];
+
+  for (const [sourceIndex, char] of [...alphanumeric].entries()) {
+    const converted = /[A-Z]/.test(char) ? String(char.charCodeAt(0) - 64) : char;
+    if (/[A-Z]/.test(char)) {
+      letterConversions.push({ letter: char, value: Number(converted), digits: converted });
+    }
+    for (const digit of converted) {
+      energyDigits.push({
+        digit: Number(digit),
+        source: char,
+        sourceIndex,
+        energyIndex: energyDigits.length,
+      });
+    }
+  }
+
+  const modifiers = energyDigits
+    .filter((item) => item.digit === 0 || item.digit === 5)
+    .map((item) => ({
+      digit: item.digit as 0 | 5,
+      position: item.energyIndex,
+      effect: item.digit === 0 ? ('隐藏' as const) : ('增强' as const),
+      meaning:
+        item.digit === 0
+          ? '使相邻磁场的表现更内隐或延后，需要结合前后数字观察。'
+          : '使相邻磁场更容易被强调或显现，需要结合前后数字观察。',
+    }));
+
+  const energyPairs: Array<{
+    pair: string;
+    span: string;
+    start: number;
+    end: number;
+    name: NumberEnergyName;
+    nature: NumberEnergyNature;
+    group: number;
+    keywords: string[];
+    meaning: string;
+    modifiers: Array<{ digit: 0 | 5; effect: '隐藏' | '增强' }>;
+  }> = [];
+  let previous: (typeof energyDigits)[number] | undefined;
+  let pendingModifiers: Array<{ digit: 0 | 5; effect: '隐藏' | '增强' }> = [];
+
+  for (const item of energyDigits) {
+    if (item.digit === 0 || item.digit === 5) {
+      if (previous) {
+        pendingModifiers.push({
+          digit: item.digit,
+          effect: item.digit === 0 ? '隐藏' : '增强',
+        });
+      }
+      continue;
+    }
+    if (previous) {
+      const pair = `${previous.digit}${item.digit}`;
+      const definition = numberEnergyPairMap.get(pair)!;
+      energyPairs.push({
+        pair,
+        span: energyDigits
+          .slice(previous.energyIndex, item.energyIndex + 1)
+          .map((entry) => entry.digit)
+          .join(''),
+        start: previous.energyIndex,
+        end: item.energyIndex,
+        name: definition.name,
+        nature: definition.nature,
+        group: definition.group,
+        keywords: definition.keywords,
+        meaning: definition.meaning,
+        modifiers: pendingModifiers,
+      });
+    }
+    previous = item;
+    pendingModifiers = [];
+  }
+
+  const magneticDistribution = NUMBER_ENERGY_DEFINITIONS.map((definition) => ({
+    name: definition.name,
+    nature: definition.nature,
+    count: energyPairs.filter((pair) => pair.name === definition.name).length,
+    keywords: definition.keywords,
+  })).filter((item) => item.count > 0);
+  const maxCount = Math.max(0, ...magneticDistribution.map((item) => item.count));
+
+  return {
+    letterConversions,
+    energySequence: energyDigits.map((item) => item.digit).join(''),
+    energyPairs,
+    modifiers,
+    magneticDistribution,
+    dominantFields: magneticDistribution
+      .filter((item) => item.count === maxCount)
+      .map((item) => item.name),
+    magneticSummary: {
+      pairCount: energyPairs.length,
+      supportiveCount: energyPairs.filter((item) => item.nature === '助益').length,
+      steadyCount: energyPairs.filter((item) => item.nature === '守成').length,
+      challengingCount: energyPairs.filter((item) => item.nature === '考验').length,
+    },
+  };
+}
+
+export function analyzeNumber(input: string, purpose: NumberPurpose = 'general') {
   const normalized = input.trim().toUpperCase().replace(/[\s-]/g, '');
   if (!normalized || normalized.length > 64) throw new Error('请输入 1 至 64 位号码');
   const digits = [...normalized].filter((char) => /\d/.test(char));
   const letters = [...normalized].filter((char) => /[A-Z]/.test(char));
   if (!digits.length && !letters.length) throw new Error('号码中需包含数字或英文字母');
+  const alphanumeric = [...normalized].filter((char) => /[0-9A-Z]/.test(char)).join('');
   const digitValue = digits.length ? BigInt(digits.join('')) : 0n;
   const digitSum = digits.reduce((total, digit) => total + Number(digit), 0);
   const alphanumericSum =
@@ -513,9 +706,11 @@ export function analyzeNumber(input: string, purpose: 'phone' | 'plate' | 'gener
       ? reduceBy80(BigInt(alphanumericSum))
       : reduceBy80(digitValue || BigInt(alphanumericSum));
   const sumIndex = reduceBy80(BigInt(alphanumericSum));
+  const energy = analyzeNumberEnergySequence(alphanumeric);
   return {
     input,
     normalized,
+    alphanumeric,
     purpose,
     digitCount: digits.length,
     letterCount: letters.length,
@@ -523,7 +718,7 @@ export function analyzeNumber(input: string, purpose: 'phone' | 'plate' | 'gener
     alphanumericSum,
     oddCount: digits.filter((digit) => Number(digit) % 2 === 1).length,
     evenCount: digits.filter((digit) => Number(digit) % 2 === 0).length,
-    repeatedGroups: normalized.match(/(.)\1+/g) ?? [],
+    repeatedGroups: alphanumeric.match(/(.)\1+/g) ?? [],
     primaryIndex,
     primaryNumerology: shuliEntry(primaryIndex),
     sumIndex,
@@ -532,7 +727,66 @@ export function analyzeNumber(input: string, purpose: 'phone' | 'plate' | 'gener
       purpose === 'plate'
         ? '数字按原值、字母按 A=1 至 Z=26 相加，再按 80 循环取数。'
         : '提取全部数字组成整数，再按 80 循环取数；整除时取 80。',
+    energyFormula:
+      '数字按原值排列，字母按 A=1 至 Z=26 展开；相邻有效数字组成八星磁场，0 表示隐藏作用，5 表示增强作用。',
+    ...energy,
   };
+}
+
+export function buildNumberEnergyPrompt(input: {
+  analysis: ReturnType<typeof analyzeNumber>;
+  question?: string;
+}) {
+  const { analysis } = input;
+  const purposeLabel =
+    analysis.purpose === 'phone'
+      ? '手机号'
+      : analysis.purpose === 'plate'
+        ? '车牌号'
+        : '数字字母编号';
+  const conversion = analysis.letterConversions.length
+    ? analysis.letterConversions.map((item) => `${item.letter}=${item.value}`).join('、')
+    : '没有字母换算';
+  const pairs = analysis.energyPairs.length
+    ? analysis.energyPairs
+        .map((item, index) => {
+          const group = item.group ? `第${item.group}组` : '延续组合';
+          const modifier = item.modifiers.length
+            ? `，中间含${item.modifiers.map((entry) => `${entry.digit}（${entry.effect}）`).join('、')}`
+            : '';
+          return `${index + 1}. ${item.span} → ${item.pair}：${item.name}（${group}、${item.nature}）${modifier}；${item.keywords.join('、')}；${item.meaning}`;
+        })
+        .join('\n')
+    : '当前序列不足以形成八星磁场组合。';
+  const distribution = analysis.magneticDistribution.length
+    ? analysis.magneticDistribution.map((item) => `${item.name}${item.count}组`).join('、')
+    : '暂无可归类组合';
+
+  return [
+    '【任务】',
+    '依据八星数字能量的相邻数组体系，综合解读号码中的主要磁场、连续组合、前后作用和现实使用侧重点。',
+    '',
+    '【号码资料】',
+    `类型：${purposeLabel}`,
+    `原始内容：${analysis.input}`,
+    `数字字母：${analysis.alphanumeric}`,
+    `字母换算：${conversion}`,
+    `能量序列：${analysis.energySequence}`,
+    `磁场分布：${distribution}`,
+    `主要磁场：${analysis.dominantFields.join('、') || '暂无'}`,
+    '',
+    '【磁场组合】',
+    pairs,
+    '',
+    '【传统依据】',
+    '以1、2、3、4、6、7、8、9对应的后天八卦关系划分天医、生气、延年、伏位、绝命、五鬼、六煞、祸害；0取隐藏作用，5取增强作用；字母按A=1至Z=26展开。',
+    '',
+    '【问题】',
+    input.question?.trim() || `请完整解读这个${purposeLabel}的数字能量。`,
+    '',
+    '【输出要求】',
+    '先概括主要磁场，再按号码顺序解释每组磁场及其衔接，结合号码类型说明资源、行动、关系、表达与稳定性等现实倾向，最后给出平衡使用这些倾向的建议。',
+  ].join('\n');
 }
 
 export function calculateZhugeNumber(text: string) {

@@ -1,7 +1,7 @@
 {
   "name": "mingyu-core",
   "version": "0.2.2",
-  "description": "TypeScript 算命、占卜与玄学算法：八字、紫微斗数、起名、姓名汉字与号码解析、诸葛神数等",
+  "description": "TypeScript 算命、占卜与玄学算法：八字、紫微斗数、起名、姓名汉字与数字能量、诸葛神数等",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

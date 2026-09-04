@@ -2810,7 +2810,7 @@ button:focus-visible,
   display: grid;
   justify-items: start;
   padding: 20px;
-  border-radius: 18px;
+  border-radius: 14px;
   background: var(--state-selected-surface);
 }
 
@@ -2820,9 +2820,12 @@ button:focus-visible,
 }
 
 .culture-number-main > strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   color: var(--accent-strong);
-  font-size: 52px;
-  line-height: 1.15;
+  font-size: clamp(24px, 4vw, 38px);
+  line-height: 1.25;
+  letter-spacing: 0.05em;
 }
 
 .culture-number-main h3 {
@@ -2850,13 +2853,197 @@ button:focus-visible,
 }
 
 .culture-number-stats span,
-.culture-number-repeats {
+.culture-number-pair-code small {
   color: var(--text-muted);
   font-size: 11px;
 }
 
-.culture-number-repeats {
+.culture-number-distribution,
+.culture-number-modifiers,
+.culture-number-pairs {
+  display: grid;
+  gap: 10px;
+}
+
+.culture-number-distribution > h3,
+.culture-number-modifiers > h3,
+.culture-number-pairs > h3 {
   margin: 0;
+  font-size: 15px;
+}
+
+.culture-number-distribution > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.culture-number-distribution > div > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.culture-number-distribution > div > span[data-nature='助益'] {
+  border-color: color-mix(in srgb, #4c8f68 28%, var(--border-soft));
+}
+
+.culture-number-distribution > div > span[data-nature='考验'] {
+  border-color: color-mix(in srgb, #a76a4b 25%, var(--border-soft));
+}
+
+.culture-number-distribution small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.culture-number-modifiers > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 7px;
+}
+
+.culture-number-modifiers article {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: var(--surface-soft);
+}
+
+.culture-number-modifiers article > strong {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--surface-base);
+  color: var(--accent-strong);
+}
+
+.culture-number-modifiers article > div {
+  display: grid;
+  gap: 3px;
+}
+
+.culture-number-modifiers span {
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.culture-number-modifiers small {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.culture-number-pairs > div {
+  display: grid;
+  gap: 8px;
+}
+
+.culture-number-pairs article {
+  display: grid;
+  grid-template-columns: 26px 72px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-base);
+}
+
+.culture-number-pair-index {
+  padding-top: 4px;
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.culture-number-pair-code {
+  display: grid;
+  gap: 2px;
+}
+
+.culture-number-pair-code strong {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+}
+
+.culture-number-pair-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.culture-number-pair-copy header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.culture-number-pair-copy header > strong {
+  font-size: 14px;
+}
+
+.culture-number-pair-copy header > span,
+.culture-number-pair-modifiers span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 9px;
+}
+
+.culture-number-pair-copy p,
+.culture-number-pair-copy > small {
+  margin: 0;
+}
+
+.culture-number-pair-copy p {
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.culture-number-pair-copy > small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.culture-number-pair-modifiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.culture-number-rule,
+.culture-number-empty-pairs {
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.culture-number-rule {
+  display: grid;
+  gap: 3px;
+}
+
+.culture-number-rule strong {
+  color: var(--text-main);
+  font-size: 12px;
 }
 
 .culture-tools-prompt {

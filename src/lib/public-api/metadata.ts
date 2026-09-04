@@ -34,6 +34,7 @@ export const PUBLIC_API_ENDPOINTS = [
   'POST /api/v1/character/analyze',
   'POST /api/v1/character/select',
   'POST /api/v1/number/analyze',
+  'POST /api/v1/number/analyze/prompt',
   'POST /api/v1/divination/zhuge',
   'POST /api/v1/divination/kongming',
   'POST /api/v1/divination/zhuge/prompt',
@@ -110,7 +111,7 @@ export function getPublicApiManifest(runtime: PublicApiRuntime = DEFAULT_PUBLIC_
   return {
     name: 'AOV 命理与占卜公开 API',
     description:
-      '提供算命、看运势、占卜、玄学排盘、起名、姓名汉字与号码解析、合婚、抽牌、求签、风水、择日和完整 AI 解读提示词。',
+      '提供算命、看运势、占卜、玄学排盘、起名、姓名汉字与数字能量、合婚、抽牌、求签、风水、择日和完整 AI 解读提示词。',
     keywords: [
       '算命',
       '看运势',

@@ -11,6 +11,7 @@ import {
   castKongmingHexagram,
   buildChineseNameAnalysisPrompt,
   buildChineseNamingPrompt,
+  buildNumberEnergyPrompt,
 } from 'mingyu-core/name-number';
 import { resultOutputSchema } from '../schemas.js';
 import {
@@ -223,7 +224,7 @@ export function registerNameNumberTools(server: McpServer) {
   server.registerTool(
     'number_analyze',
     {
-      description: '解析手机号、车牌号及一般数字字母编号的八十一数理、数字和、奇偶与重复结构',
+      description: '解析手机号、车牌号及一般数字字母编号的八星磁场、相邻组合以及0和5作用',
       inputSchema: {
         value: z.string().min(1).max(64).describe('待解析号码'),
         purpose: z.enum(['phone', 'plate', 'general']).optional().describe('号码类型，默认general'),
@@ -234,7 +235,33 @@ export function registerNameNumberTools(server: McpServer) {
       try {
         return createStructuredToolResult({ result: analyzeNumber(value, purpose) });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '数字解析失败'));
+        return createErrorToolResult(getErrorMessage(error, '数字能量解析失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'number_energy_prompt',
+    {
+      description: '解析数字与字母编号的八星磁场并生成可直接交给 AI 的完整解读提示词',
+      inputSchema: {
+        value: z.string().min(1).max(64).describe('待解析的数字或字母编号'),
+        purpose: z.enum(['phone', 'plate', 'general']).optional().describe('使用类型，默认general'),
+        question: z.string().max(1000).optional().describe('希望重点了解的问题'),
+      },
+      outputSchema: resultOutputSchema,
+    },
+    async ({ value, purpose, question }) => {
+      try {
+        const analysis = analyzeNumber(value, purpose);
+        return createStructuredToolResult({
+          result: {
+            analysis,
+            prompt: buildNumberEnergyPrompt({ analysis, question }),
+          },
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '数字能量提示词生成失败'));
       }
     },
   );

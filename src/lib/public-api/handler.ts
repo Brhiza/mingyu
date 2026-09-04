@@ -67,6 +67,7 @@ import {
   castKongmingHexagram,
   buildChineseNameAnalysisPrompt,
   buildChineseNamingPrompt,
+  buildNumberEnergyPrompt,
   type NamingBirthInput,
   type Wuxing,
 } from 'mingyu-core/name-number';
@@ -694,9 +695,16 @@ export function getPublicApiOpenApiDocument(
       },
       '/number/analyze': {
         post: {
-          summary: '解析手机号、车牌号及一般数字字母编号',
+          summary: '解析手机号、车牌号及一般编号的数字能量',
           requestBody: openApiJsonRequestBody('#/components/schemas/NumberAnalyzeRequest'),
-          responses: { '200': { description: '号码数理、奇偶、重复与计算过程' } },
+          responses: { '200': { description: '字母换算、八星磁场、0和5作用与组合分布' } },
+        },
+      },
+      '/number/analyze/prompt': {
+        post: {
+          summary: '解析数字能量并生成完整解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NumberAnalyzeRequest'),
+          responses: { '200': { description: '数字能量结果与可直接交给 AI 的完整提示词' } },
         },
       },
       '/divination/zhuge': {
@@ -1195,6 +1203,7 @@ export function getPublicApiOpenApiDocument(
           properties: {
             value: { type: 'string', minLength: 1, maxLength: 64 },
             purpose: { enum: ['phone', 'plate', 'general'], default: 'general' },
+            question: { type: 'string', maxLength: 1000 },
           },
         },
         ZhugeRequest: {
@@ -2111,6 +2120,10 @@ async function route(context: RouteContext) {
       return calculateCultureTool(async () => selectCharactersApi(await readJson(context.request)));
     case 'number/analyze':
       return calculateCultureTool(async () => analyzeNumberApi(await readJson(context.request)));
+    case 'number/analyze/prompt':
+      return calculateCultureTool(async () =>
+        buildNumberEnergyPromptApi(await readJson(context.request)),
+      );
     case 'divination/zhuge':
       return calculateCultureTool(async () =>
         calculateZhugeNumber(readString(await readJson(context.request), 'text', '')),
@@ -2370,6 +2383,17 @@ function analyzeNumberApi(input: JsonRecord) {
     readString(input, 'value', ''),
     readEnum(input, 'purpose', ['phone', 'plate', 'general'] as const, 'general'),
   );
+}
+
+function buildNumberEnergyPromptApi(input: JsonRecord) {
+  const analysis = analyzeNumberApi(input);
+  return {
+    analysis,
+    prompt: buildNumberEnergyPrompt({
+      analysis,
+      question: readString(input, 'question', '').trim() || undefined,
+    }),
+  };
 }
 
 function calculateKongmingApi(input: JsonRecord) {

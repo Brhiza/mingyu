@@ -135,6 +135,7 @@ test('createMingyuMcpServer 应自动为所有工具注入 annotations 元数据
     'character_analyze',
     'character_select',
     'number_analyze',
+    'number_energy_prompt',
     'divine_zhuge',
     'divine_kongming',
   ]) {

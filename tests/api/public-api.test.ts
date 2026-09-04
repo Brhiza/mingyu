@@ -5822,6 +5822,26 @@ test('公开 API 提供起名、姓名、汉字与号码完整工具链', async 
   });
   assert.equal(number.response.status, 200);
   assert.equal(number.body.data.primaryIndex, 17);
+  assert.equal(number.body.data.energySequence, '212345');
+  assert.deepEqual(number.body.data.letterConversions, [{ letter: 'B', value: 2, digits: '2' }]);
+  assert.deepEqual(
+    number.body.data.energyPairs.map((item: { name: string }) => item.name),
+    ['绝命', '绝命', '祸害', '延年'],
+  );
+
+  const numberPrompt = await callApi('number/analyze/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      value: '粤B12345',
+      purpose: 'plate',
+      question: '适合长期使用吗？',
+    }),
+  });
+  assert.equal(numberPrompt.response.status, 200);
+  assert.equal(numberPrompt.body.data.analysis.energySequence, '212345');
+  assert.match(numberPrompt.body.data.prompt, /【磁场组合】/);
+  assert.match(numberPrompt.body.data.prompt, /适合长期使用吗？/);
 });
 
 test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', async () => {

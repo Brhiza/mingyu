@@ -6,6 +6,7 @@ import {
   analyzeChineseName,
   generateChineseNames,
   analyzeNumber,
+  buildNumberEnergyPrompt,
   calculateZhugeNumber,
   castKongmingHexagram,
   buildChineseNameAnalysisPrompt,
@@ -101,17 +102,72 @@ test('姓名解析不返回数值评分，起名规则实际约束候选用字',
   assert.ok(names.every((item) => !('scores' in item.analysis)));
 });
 
-test('号码解析覆盖手机号、车牌字母换算与一般编号', () => {
+test('数字能量覆盖手机号、车牌字母换算、八星磁场与0和5作用', () => {
   const phone = analyzeNumber('138-0013-8000', 'phone');
   assert.equal(phone.normalized, '13800138000');
   assert.equal(phone.primaryIndex, Number(13800138000n % 80n) || 80);
   assert.ok(phone.repeatedGroups.includes('00'));
+  assert.equal(phone.energySequence, '13800138000');
+  assert.deepEqual(
+    phone.energyPairs.slice(0, 3).map((item) => [item.span, item.pair, item.name]),
+    [
+      ['13', '13', '天医'],
+      ['38', '38', '六煞'],
+      ['8001', '81', '五鬼'],
+    ],
+  );
+  assert.deepEqual(phone.energyPairs[2]?.modifiers, [
+    { digit: 0, effect: '隐藏' },
+    { digit: 0, effect: '隐藏' },
+  ]);
 
   const plate = analyzeNumber('粤B·12345', 'plate');
   assert.equal(plate.normalized, '粤B·12345');
   assert.equal(plate.letterCount, 1);
   assert.equal(plate.alphanumericSum, 17);
   assert.equal(plate.primaryIndex, 17);
+  assert.equal(plate.alphanumeric, 'B12345');
+  assert.equal(plate.energySequence, '212345');
+  assert.deepEqual(plate.letterConversions, [{ letter: 'B', value: 2, digits: '2' }]);
+  assert.deepEqual(
+    plate.energyPairs.map((item) => item.name),
+    ['绝命', '绝命', '祸害', '延年'],
+  );
+
+  const mixed = analyzeNumber('Z5A', 'general');
+  assert.equal(mixed.energySequence, '2651');
+  assert.equal(mixed.energyPairs[0]?.name, '延年');
+  assert.deepEqual(mixed.energyPairs[1]?.modifiers, [{ digit: 5, effect: '增强' }]);
+  assert.equal(mixed.energyPairs[1]?.pair, '61');
+
+  const prompt = buildNumberEnergyPrompt({ analysis: mixed, question: '适合工作使用吗？' });
+  assert.match(prompt, /【磁场组合】/);
+  assert.match(prompt, /Z=26/);
+  assert.match(prompt, /2651/);
+  assert.match(prompt, /延年/);
+  assert.match(prompt, /5（增强）/);
+  assert.match(prompt, /适合工作使用吗？/);
+});
+
+test('八星磁场完整覆盖八卦数字的全部相邻组合', () => {
+  const baguaDigits = ['1', '2', '3', '4', '6', '7', '8', '9'];
+  const names = new Set<string>();
+  for (const left of baguaDigits) {
+    for (const right of baguaDigits) {
+      const result = analyzeNumber(`${left}${right}`);
+      assert.equal(result.energyPairs.length, 1);
+      names.add(result.energyPairs[0]!.name);
+    }
+  }
+  assert.deepEqual(
+    [...names].sort(),
+    ['天医', '生气', '延年', '伏位', '绝命', '五鬼', '六煞', '祸害'].sort(),
+  );
+
+  const modifiersOnly = analyzeNumber('050');
+  assert.equal(modifiersOnly.energyPairs.length, 0);
+  assert.deepEqual(modifiersOnly.dominantFields, []);
+  assert.equal(modifiersOnly.modifiers.length, 3);
 });
 
 test('诸葛神数按三个康熙笔画尾数组合并落入完整384签', () => {

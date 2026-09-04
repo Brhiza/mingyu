@@ -226,12 +226,21 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
   },
   {
     id: 'number_analyze',
-    title: '号码解析',
+    title: '数字能量',
     category: 'number',
     type: 'utility',
-    description: '解析手机号、车牌号及一般编号的数理、数字和、奇偶与重复结构',
+    description: '解析数字与字母编号的八星磁场、相邻组合以及0和5的作用',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/number/analyze',
+  },
+  {
+    id: 'number_energy_prompt',
+    title: '数字能量提示词',
+    category: 'number',
+    type: 'prompt',
+    description: '解析八星数字能量并生成可直接交给 AI 的完整提示词',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/number/analyze/prompt',
   },
   {
     id: 'divine_zhuge',
