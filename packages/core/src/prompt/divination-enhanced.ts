@@ -930,6 +930,7 @@ function formatJinkoujueInfo(data: JinkoujueData) {
     data.movements.length
       ? `事态主轴：见【${data.movements[0].name}】，${data.movements[0].name.includes('财') || data.movements[0].name.includes('妻') ? '利求财交涉婚眷' : data.movements[0].name.includes('鬼') ? '防口舌是非阻隔' : data.movements[0].name.includes('贼') ? '防内耗失和' : '顺应常理而行'}`
       : '',
+    data.bihePoem ? `四位比合：${data.bihePoem}` : '',
     `四位关系：贵将${data.relations.guiToJiang}；贵人${data.relations.guiToRen}；将地${data.relations.jiangToDi}；人地${data.relations.renToDi}；贵地${data.relations.guiToDi}`,
     data.xunKong?.length ? `旬空：${data.xunKong.join('、')}` : '',
     '时间口径：当前盘面给出四位生克、旺衰和空亡，可说明相对节奏；未见独立交节或日辰触发时，只论结构不指定具体日期。',

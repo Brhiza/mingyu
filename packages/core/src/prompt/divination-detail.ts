@@ -113,6 +113,7 @@ function formatJinkoujueDetail(data: JinkoujueData) {
       ? `阴阳取用：${data.yinYangUse.pattern}（用${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '，落空' : ''}）`
       : '',
     `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '未记录'}`,
+    data.bihePoem ? `四位比合：${data.bihePoem}` : '',
     `四位关系：贵将${data.relations.guiToJiang}；贵人${data.relations.guiToRen}；将地${data.relations.jiangToDi}；人地${data.relations.renToDi}；贵地${data.relations.guiToDi}`,
   ].filter(Boolean);
 }
