@@ -100,6 +100,8 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ],
   ['name_generate', { surname: '李', gender: '通用', limit: 3 }],
   ['name_analyze', { fullName: '李清和' }],
+  ['name_generate_prompt', { surname: '李', limit: 3 }],
+  ['name_analyze_prompt', { fullName: '李清和' }],
   ['character_analyze', { text: '万学' }],
   ['character_select', { kangxiStrokes: 8, wuxing: '木', limit: 5 }],
   ['number_analyze', { value: '粤B12345', purpose: 'plate' }],
@@ -452,7 +454,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 71);
+    assert.equal(tools.length, 73);
     assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
@@ -478,6 +480,8 @@ test('MCP 工具列表应声明输出结构', async () => {
     for (const name of [
       'name_generate',
       'name_analyze',
+      'name_generate_prompt',
+      'name_analyze_prompt',
       'character_analyze',
       'character_select',
       'number_analyze',

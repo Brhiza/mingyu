@@ -127,6 +127,9 @@ export type DivinationDraft = {
   astrolabeTopic?: AstrolabePromptTopic;
   taiyiYear: string;
   taiyiScope?: TaiyiScope;
+  zhugeText: string;
+  kongmingMethod?: 'random' | 'manual';
+  kongmingPattern?: string;
 };
 
 export type DivinationSession = {
@@ -360,6 +363,18 @@ function validateDraft(draft: DivinationDraft) {
     if (!/^\d+$/.test(draft.ssgwNumber?.trim() ?? '') || number < 1 || number > 92) {
       throw new Error('签号需为1至92的整数');
     }
+  }
+
+  if (draft.method === 'zhuge' && [...draft.zhugeText.trim()].length !== 3) {
+    throw new Error('请随念写下三个汉字');
+  }
+
+  if (
+    draft.method === 'kongming' &&
+    (draft.kongmingMethod ?? 'random') === 'manual' &&
+    !/^[●○]{5}$/.test(draft.kongmingPattern ?? '')
+  ) {
+    throw new Error('请完成五次阴阳取象');
   }
 
   if (draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number') {
@@ -828,6 +843,18 @@ export async function generateDivinationSession(
         (draft.ssgwMethod ?? 'random') === 'manual'
           ? module.resolveSignByNumber(Number(draft.ssgwNumber), customDate)
           : module.drawRandomSign(customDate);
+      break;
+    }
+    case 'zhuge': {
+      const module = await import('mingyu-core/name-number');
+      data = module.calculateZhugeNumber(draft.zhugeText);
+      break;
+    }
+    case 'kongming': {
+      const module = await import('mingyu-core/name-number');
+      data = module.castKongmingHexagram(
+        (draft.kongmingMethod ?? 'random') === 'manual' ? draft.kongmingPattern : undefined,
+      );
       break;
     }
     case 'almanac': {

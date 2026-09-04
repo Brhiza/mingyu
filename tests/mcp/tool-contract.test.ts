@@ -130,6 +130,8 @@ test('createMingyuMcpServer 应自动为所有工具注入 annotations 元数据
   for (const name of [
     'name_generate',
     'name_analyze',
+    'name_generate_prompt',
+    'name_analyze_prompt',
     'character_analyze',
     'character_select',
     'number_analyze',

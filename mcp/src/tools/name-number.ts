@@ -3,11 +3,14 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   analyzeChineseCharacters,
   selectChineseCharacters,
+  selectNamingCharacters,
   analyzeChineseName,
   generateChineseNames,
   analyzeNumber,
   calculateZhugeNumber,
   castKongmingHexagram,
+  buildChineseNameAnalysisPrompt,
+  buildChineseNamingPrompt,
 } from 'mingyu-core/name-number';
 import { resultOutputSchema } from '../schemas.js';
 import {
@@ -18,13 +21,33 @@ import {
 import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
 const wuxing = z.enum(['金', '木', '水', '火', '土']);
+const namingBirth = z
+  .object({
+    gender: z.enum(['male', 'female']),
+    year: z.number().int().min(1900).max(2100),
+    month: z.number().int().min(1).max(12),
+    day: z.number().int().min(1).max(31),
+    timeIndex: z.number().int().min(0).max(12),
+    dateType: z.enum(['solar', 'lunar']).optional(),
+    isLeapMonth: z.boolean().optional(),
+  })
+  .describe('出生资料，用于结合四柱喜用筛选名字');
+
+const namingPreferenceShape = {
+  preferredCharacters: z.string().max(100).optional().describe('希望优先考虑的汉字'),
+  forbiddenCharacters: z.string().max(100).optional().describe('候选姓名中需要回避的汉字'),
+  generationCharacter: z.string().max(1).optional().describe('固定使用的辈分字'),
+  generationPosition: z
+    .enum(['first', 'second'])
+    .optional()
+    .describe('辈分字位于名字首字或末字，默认首字'),
+};
 
 export function registerNameNumberTools(server: McpServer) {
   server.registerTool(
     'name_generate',
     {
-      description:
-        '按姓氏、性别、名字字数和偏好五行生成中文姓名候选，并返回康熙笔画、五格、三才与综合评分',
+      description: '结合出生资料与明确的用字条件生成中文姓名候选，并返回逐字、五格和三才资料',
       inputSchema: {
         surname: z.string().min(1).max(2).describe('一字或二字姓氏'),
         gender: z.enum(['男', '女', '通用']).optional().describe('名字用字倾向，默认通用'),
@@ -33,7 +56,9 @@ export function registerNameNumberTools(server: McpServer) {
           .optional()
           .describe('名字字数，默认2'),
         preferredElements: z.array(wuxing).max(5).optional().describe('偏好五行，可多选'),
+        ...namingPreferenceShape,
         limit: z.number().int().min(1).max(50).optional().describe('候选数量，默认20'),
+        birth: namingBirth.optional(),
       },
       outputSchema: resultOutputSchema,
     },
@@ -49,7 +74,7 @@ export function registerNameNumberTools(server: McpServer) {
   server.registerTool(
     'name_analyze',
     {
-      description: '解析中文姓名的逐字资料、康熙笔画、五格数理、三才配置、五行分布与综合评分',
+      description: '解析中文姓名的逐字资料、康熙笔画、五格数理、三才配置与五行分布',
       inputSchema: {
         fullName: z.string().min(2).max(4).describe('完整中文姓名'),
         surnameLength: z
@@ -57,6 +82,7 @@ export function registerNameNumberTools(server: McpServer) {
           .optional()
           .describe('姓氏字数，默认1'),
         preferredElements: z.array(wuxing).max(5).optional().describe('偏好五行，用于评估用字匹配'),
+        birth: namingBirth.optional(),
       },
       outputSchema: resultOutputSchema,
     },
@@ -67,10 +93,89 @@ export function registerNameNumberTools(server: McpServer) {
             fullName: args.fullName,
             surnameLength: args.surnameLength,
             xiYong: args.preferredElements,
+            birth: args.birth,
           }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '姓名解析失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'name_generate_prompt',
+    {
+      description: '结合出生资料、用字条件、适配字池与候选样本生成完整起名提示词',
+      inputSchema: {
+        surname: z.string().min(1).max(2).describe('一字或二字姓氏'),
+        gender: z.enum(['男', '女', '通用']).optional().describe('名字用字倾向，默认通用'),
+        givenNameLength: z
+          .union([z.literal(1), z.literal(2)])
+          .optional()
+          .describe('名字字数，默认2'),
+        preferredElements: z.array(wuxing).max(5).optional().describe('偏好五行，可多选'),
+        ...namingPreferenceShape,
+        limit: z.number().int().min(1).max(20).optional().describe('进入提示词的候选数量，默认10'),
+        birth: namingBirth.optional(),
+      },
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        const candidates = generateChineseNames({ ...args, limit: args.limit ?? 10 });
+        return createStructuredToolResult({
+          result: {
+            candidates,
+            prompt: buildChineseNamingPrompt({
+              surname: args.surname,
+              gender: args.gender,
+              candidates,
+              suitableCharacters: selectNamingCharacters({ ...args, limit: 24 }),
+              preferredCharacters: args.preferredCharacters,
+              forbiddenCharacters: args.forbiddenCharacters,
+              generationCharacter: args.generationCharacter,
+              generationPosition: args.generationPosition,
+            }),
+          },
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '起名提示词生成失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'name_analyze_prompt',
+    {
+      description: '结合出生资料与姓名算法底稿生成可直接交给 AI 的完整姓名解析提示词',
+      inputSchema: {
+        fullName: z.string().min(2).max(4).describe('完整中文姓名'),
+        surnameLength: z
+          .union([z.literal(1), z.literal(2)])
+          .optional()
+          .describe('姓氏字数，默认1'),
+        preferredElements: z.array(wuxing).max(5).optional().describe('偏好五行，用于评估用字匹配'),
+        birth: namingBirth.optional(),
+        question: z.string().max(1000).optional().describe('希望重点了解的问题'),
+      },
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        const analysis = analyzeChineseName({
+          fullName: args.fullName,
+          surnameLength: args.surnameLength,
+          xiYong: args.preferredElements,
+          birth: args.birth,
+        });
+        return createStructuredToolResult({
+          result: {
+            analysis,
+            prompt: buildChineseNameAnalysisPrompt({ analysis, question: args.question }),
+          },
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '姓名解析提示词生成失败'));
       }
     },
   );

@@ -29,6 +29,7 @@ import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
 import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
 import { formatAstrolabeAspectSections } from '../divination/astrolabe-chart-facts';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 
 function joinPromptSentences(items: Array<string | undefined>) {
@@ -36,6 +37,30 @@ function joinPromptSentences(items: Array<string | undefined>) {
     .filter((item): item is string => Boolean(item?.trim()))
     .map((item) => item.trim().replace(/[。、；，]+$/u, ''))
     .join('；');
+}
+
+function formatZhugeInfo(data: ZhugeNumberResult) {
+  return [
+    '占法：诸葛神数',
+    `所写三字：${data.text}`,
+    `康熙笔画：${data.chars.map((char, index) => `${char}${data.strokes[index]}画`).join('、')}`,
+    `取数：${data.digits.join('')}，归入第${data.number}签`,
+    `签诗：${data.sign.poem}`,
+    data.sign.summary ? `基础解意：${data.sign.summary}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function formatKongmingInfo(data: KongmingHexagramResult) {
+  return [
+    '占法：孔明神卦',
+    `五次阴阳：${data.symbol}`,
+    `卦序：第${data.number}卦`,
+    `卦名：${data.name}`,
+    `等第：${data.grade}`,
+    `卦诗：${data.poem}`,
+  ].join('\n');
 }
 
 function getMeihuaMethodLabel(
@@ -963,6 +988,10 @@ export function formatEnhancedDivinationInfo(
       return formatTarotInfo(data as TarotData);
     case 'ssgw':
       return formatSsgwInfo(data as SsgwData);
+    case 'zhuge':
+      return formatZhugeInfo(data as ZhugeNumberResult);
+    case 'kongming':
+      return formatKongmingInfo(data as KongmingHexagramResult);
     case 'almanac':
       return formatAlmanacInfo(data as AlmanacData);
     case 'lenormand':

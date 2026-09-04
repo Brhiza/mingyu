@@ -11,6 +11,7 @@ import { drawRandomSign, resolveSignByNumber } from './algorithms/ssgw';
 import { generateXiaoliuren } from './algorithms/xiaoliuren';
 import { generateTaiyi } from '../taiyi/index';
 import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
+import { calculateZhugeNumber, castKongmingHexagram } from '../name-number';
 import { drawTarotSpread, type TarotDrawOptions, type TarotManualCardInput } from './tarot';
 import { isEarthlyBranch } from '../ganzhi';
 import type { RandomOptions } from '../shared/random';
@@ -90,6 +91,8 @@ export interface DivinationRequest {
     interactiveSamples?: readonly number[];
   };
   ssgw?: { method?: 'random' | 'manual'; number?: number };
+  zhuge?: { text: string };
+  kongming?: { pattern?: string };
   almanac?: {
     topic: AlmanacTopic;
     startDate: string;
@@ -243,7 +246,9 @@ function assertRequestRecord(request: DivinationRequest): void {
     !RANDOM_METHODS.includes(request.method as DivinationSessionMethod) &&
     request.method !== 'astrolabe' &&
     request.method !== 'almanac' &&
-    request.method !== 'huangji'
+    request.method !== 'huangji' &&
+    request.method !== 'zhuge' &&
+    request.method !== 'kongming'
   ) {
     if (request.method !== 'random') throw new Error(`未知的占法：${String(request.method)}`);
   }
@@ -307,6 +312,16 @@ export function validateDivinationRequest(request: DivinationRequest): void {
   }
   if (request.method === 'astrolabe' && !request.astrolabe) {
     throw new Error('星盘需要提供 astrolabe 出生资料。');
+  }
+  if (request.method === 'zhuge' && [...(request.zhuge?.text.trim() ?? '')].length !== 3) {
+    throw new Error('诸葛神数需要提供恰好三个汉字。');
+  }
+  if (
+    request.method === 'kongming' &&
+    request.kongming?.pattern !== undefined &&
+    !/^[●○阳阴正反公字10]{5}$/.test(request.kongming.pattern.trim())
+  ) {
+    throw new Error('孔明神卦需提供五次阴阳结果。');
   }
   if (request.method === 'jinkoujue') {
     const method = request.jinkoujue?.method ?? 'time';
@@ -404,6 +419,10 @@ function generateData(
       return request.ssgw?.method === 'manual'
         ? resolveSignByNumber(request.ssgw.number ?? 0, customDate)
         : drawRandomSign(customDate, randomOptions);
+    case 'zhuge':
+      return calculateZhugeNumber(request.zhuge?.text ?? '');
+    case 'kongming':
+      return castKongmingHexagram(request.kongming?.pattern, randomOptions);
     case 'almanac':
       if (!request.almanac) throw new Error('黄历择日需要提供 almanac 参数。');
       return generateAlmanacSelection(request.almanac);

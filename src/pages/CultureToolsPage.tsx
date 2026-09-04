@@ -1,24 +1,36 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import {
   analyzeChineseCharacters,
   analyzeChineseName,
   analyzeNumber,
-  calculateZhugeNumber,
-  castKongmingHexagram,
+  buildChineseNameAnalysisPrompt,
+  buildChineseNamingPrompt,
   generateChineseNames,
   selectChineseCharacters,
+  selectNamingCharacters,
+  type GenerationCharacterPosition,
+  type NamingBirthInput,
   type NamingGender,
   type Wuxing,
 } from 'mingyu-core/name-number';
+import { PromptDeliveryPanel } from '@/components/PromptPreview';
+import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
+import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 
-type ToolId = 'naming' | 'name' | 'hanzi' | 'number' | 'zhuge' | 'kongming';
-const tools: Array<{ id: ToolId; label: string; mark: string }> = [
-  { id: 'naming', label: '起名', mark: '名' },
-  { id: 'name', label: '姓名解析', mark: '姓' },
-  { id: 'hanzi', label: '汉字与选字', mark: '字' },
-  { id: 'number', label: '数字解析', mark: '数' },
-  { id: 'zhuge', label: '诸葛神数', mark: '诸' },
-  { id: 'kongming', label: '孔明神卦', mark: '孔' },
+type ToolId = 'naming' | 'name' | 'hanzi' | 'number';
+type BirthDraft = {
+  enabled: boolean;
+  date: string;
+  gender: '' | 'male' | 'female';
+  timeIndex: number | '';
+};
+
+const tools: Array<{ id: ToolId; label: string; description: string; mark: string }> = [
+  { id: 'naming', label: '起名', description: '结合出生取用筛选姓名', mark: '名' },
+  { id: 'name', label: '姓名解析', description: '从命局到音形义完整比较', mark: '姓' },
+  { id: 'hanzi', label: '汉字与选字', description: '查笔画、五行、读音与释义', mark: '字' },
+  { id: 'number', label: '数字解析', description: '手机号、车牌号与一般号码', mark: '数' },
 ];
 const wuxingOptions: Array<'' | Wuxing> = ['', '金', '木', '水', '火', '土'];
 const gridLabels: Record<string, string> = {
@@ -29,15 +41,52 @@ const gridLabels: Record<string, string> = {
   zong: '总格',
 };
 
+function createBirthInput(birth: BirthDraft): NamingBirthInput | undefined {
+  if (!birth.enabled) return undefined;
+  if (!birth.date || !birth.gender || birth.timeIndex === '') {
+    throw new Error('请填写完整的出生日期、性别和时辰');
+  }
+  const [year, month, day] = birth.date.split('-').map(Number);
+  return {
+    gender: birth.gender,
+    year,
+    month,
+    day,
+    timeIndex: birth.timeIndex,
+    dateType: 'solar',
+  };
+}
+
 export function CultureToolsPage() {
   const [activeTool, setActiveTool] = useState<ToolId>('naming');
   const [error, setError] = useState('');
   const [surname, setSurname] = useState('李');
   const [gender, setGender] = useState<NamingGender>('通用');
-  const [preferredElement, setPreferredElement] = useState<'' | Wuxing>('');
+  const [preferredCharacters, setPreferredCharacters] = useState('');
+  const [forbiddenCharacters, setForbiddenCharacters] = useState('');
+  const [generationCharacter, setGenerationCharacter] = useState('');
+  const [generationPosition, setGenerationPosition] =
+    useState<GenerationCharacterPosition>('first');
+  const [namingBirth, setNamingBirth] = useState<BirthDraft>({
+    enabled: true,
+    date: '',
+    gender: '',
+    timeIndex: '',
+  });
   const [nameCandidates, setNameCandidates] = useState<ReturnType<typeof generateChineseNames>>([]);
+  const [namingCharacterPool, setNamingCharacterPool] = useState<
+    ReturnType<typeof selectNamingCharacters>
+  >([]);
+  const [selectedCandidate, setSelectedCandidate] = useState(0);
   const [fullName, setFullName] = useState('李清和');
   const [surnameLength, setSurnameLength] = useState<1 | 2>(1);
+  const [nameQuestion, setNameQuestion] = useState('');
+  const [analysisBirth, setAnalysisBirth] = useState<BirthDraft>({
+    enabled: true,
+    date: '',
+    gender: '',
+    timeIndex: '',
+  });
   const [nameResult, setNameResult] = useState<ReturnType<typeof analyzeChineseName> | null>(null);
   const [hanziText, setHanziText] = useState('清和');
   const [hanziResult, setHanziResult] = useState<ReturnType<
@@ -45,20 +94,48 @@ export function CultureToolsPage() {
   > | null>(null);
   const [selectStrokes, setSelectStrokes] = useState('');
   const [selectElement, setSelectElement] = useState<'' | Wuxing>('');
+  const [selectPinyin, setSelectPinyin] = useState('');
   const [selectedChars, setSelectedChars] = useState<ReturnType<typeof selectChineseCharacters>>(
     [],
   );
   const [numberText, setNumberText] = useState('13800138000');
   const [numberPurpose, setNumberPurpose] = useState<'phone' | 'plate' | 'general'>('phone');
   const [numberResult, setNumberResult] = useState<ReturnType<typeof analyzeNumber> | null>(null);
-  const [zhugeText, setZhugeText] = useState('顺其然');
-  const [zhugeResult, setZhugeResult] = useState<ReturnType<typeof calculateZhugeNumber> | null>(
-    null,
+
+  const namingPrompt = useMemo(
+    () =>
+      nameCandidates.length
+        ? buildChineseNamingPrompt({
+            surname,
+            gender,
+            candidates: nameCandidates,
+            suitableCharacters: namingCharacterPool,
+            preferredCharacters,
+            forbiddenCharacters,
+            generationCharacter,
+            generationPosition,
+          })
+        : '',
+    [
+      forbiddenCharacters,
+      gender,
+      generationCharacter,
+      generationPosition,
+      nameCandidates,
+      namingCharacterPool,
+      preferredCharacters,
+      surname,
+    ],
   );
-  const [coins, setCoins] = useState<Array<'●' | '○'>>(['●', '○', '●', '○', '○']);
-  const [kongmingResult, setKongmingResult] = useState<ReturnType<
-    typeof castKongmingHexagram
-  > | null>(null);
+  const namePrompt = useMemo(
+    () =>
+      nameResult
+        ? buildChineseNameAnalysisPrompt({ analysis: nameResult, question: nameQuestion })
+        : '',
+    [nameQuestion, nameResult],
+  );
+  const namingDelivery = usePromptCopyShare(namingPrompt);
+  const nameDelivery = usePromptCopyShare(namePrompt);
 
   function run(event: FormEvent, action: () => void) {
     event.preventDefault();
@@ -70,14 +147,24 @@ export function CultureToolsPage() {
     }
   }
 
+  function changeTool(tool: ToolId) {
+    setActiveTool(tool);
+    setError('');
+  }
+
   return (
-    <div className="culture-tools-page">
-      <header className="culture-tools-heading">
+    <main className="culture-tools-page">
+      <header className="culture-tools-hero">
         <div>
           <span className="culture-tools-eyebrow">文字与数理</span>
-          <h1>{tools.find((item) => item.id === activeTool)?.label}</h1>
-          <p>按明确的字典与数理口径计算，结果适合用来筛选和比较。</p>
+          <h1>从资料出发，得到可以比较的结果</h1>
+          <p>先看清字、名与数字本身，再把完整资料交给 AI 做综合解读。</p>
         </div>
+        <nav className="culture-divination-links" aria-label="相关占问">
+          <span>想问一件具体的事？</span>
+          <Link to="/divination/zhuge">诸葛神数</Link>
+          <Link to="/divination/kongming">孔明神卦</Link>
+        </nav>
       </header>
 
       <nav className="culture-tools-tabs" aria-label="文字与数理工具">
@@ -86,13 +173,11 @@ export function CultureToolsPage() {
             key={tool.id}
             type="button"
             className={activeTool === tool.id ? 'is-active' : ''}
-            onClick={() => {
-              setActiveTool(tool.id);
-              setError('');
-            }}
+            onClick={() => changeTool(tool.id)}
           >
             <span>{tool.mark}</span>
-            {tool.label}
+            <strong>{tool.label}</strong>
+            <small>{tool.description}</small>
           </button>
         ))}
       </nav>
@@ -100,171 +185,231 @@ export function CultureToolsPage() {
       {error ? <div className="culture-tools-error">{error}</div> : null}
 
       {activeTool === 'naming' ? (
-        <section className="culture-tools-panel">
+        <section className="culture-tools-workspace">
           <form
+            className="culture-tools-input-panel"
             onSubmit={(event) =>
-              run(event, () =>
-                setNameCandidates(
-                  generateChineseNames({
-                    surname,
-                    gender,
-                    preferredElements: preferredElement ? [preferredElement] : undefined,
-                    limit: 24,
-                  }),
-                ),
-              )
+              run(event, () => {
+                const birth = createBirthInput(namingBirth);
+                const options = {
+                  surname,
+                  gender,
+                  givenNameLength: 2,
+                  preferredCharacters,
+                  forbiddenCharacters,
+                  generationCharacter,
+                  generationPosition,
+                  birth,
+                  limit: 12,
+                } as const;
+                const candidates = generateChineseNames(options);
+                setNameCandidates(candidates);
+                setNamingCharacterPool(selectNamingCharacters({ ...options, limit: 24 }));
+                setSelectedCandidate(0);
+              })
             }
           >
-            <div className="culture-tools-fields">
-              <label>
-                姓氏
-                <input
-                  value={surname}
-                  maxLength={2}
-                  onChange={(event) => setSurname(event.target.value)}
-                />
-              </label>
-              <label>
-                取向
+            <SectionHeading step="01" title="基础偏好" hint="姓氏和名字气质" />
+            <div className="culture-tools-fields is-two">
+              <Field label="姓氏">
+                <input value={surname} onChange={(event) => setSurname(event.target.value)} />
+              </Field>
+              <Field label="名字气质">
                 <select
                   value={gender}
                   onChange={(event) => setGender(event.target.value as NamingGender)}
                 >
-                  <option>通用</option>
-                  <option>男</option>
-                  <option>女</option>
+                  <option value="通用">自然通用</option>
+                  <option value="男">偏阳刚</option>
+                  <option value="女">偏柔和</option>
                 </select>
-              </label>
-              <label>
-                偏好五行
-                <select
-                  value={preferredElement}
-                  onChange={(event) => setPreferredElement(event.target.value as '' | Wuxing)}
-                >
-                  {wuxingOptions.map((item) => (
-                    <option key={item || 'all'} value={item}>
-                      {item || '不限'}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              </Field>
             </div>
+            <div className="culture-tools-fields is-two">
+              <Field label="偏好字" hint="优先进入候选与适配字池">
+                <input
+                  value={preferredCharacters}
+                  onChange={(event) => setPreferredCharacters(event.target.value)}
+                  placeholder="例如：清 宁 和"
+                />
+              </Field>
+              <Field label="忌用字" hint="本地候选会直接排除">
+                <input
+                  value={forbiddenCharacters}
+                  onChange={(event) => setForbiddenCharacters(event.target.value)}
+                  placeholder="例如：乐"
+                />
+              </Field>
+              <Field label="辈分字" hint="填写一个固定用字">
+                <input
+                  value={generationCharacter}
+                  onChange={(event) => setGenerationCharacter(event.target.value)}
+                  placeholder="例如：承"
+                />
+              </Field>
+              <Field label="辈分字位置">
+                <select
+                  value={generationPosition}
+                  onChange={(event) =>
+                    setGenerationPosition(event.target.value as GenerationCharacterPosition)
+                  }
+                >
+                  <option value="first">名字首字</option>
+                  <option value="second">名字末字</option>
+                </select>
+              </Field>
+            </div>
+            <BirthSection value={namingBirth} onChange={setNamingBirth} />
             <button className="culture-tools-primary" type="submit">
-              生成候选名
+              生成姓名候选
             </button>
           </form>
+
+          <section className="culture-tools-result-panel">
+            <SectionHeading
+              step="02"
+              title="候选比较"
+              hint={
+                nameCandidates.length
+                  ? '已生成 ' + nameCandidates.length + ' 个可继续推敲的名字'
+                  : '生成后可逐个查看'
+              }
+            />
+            {nameCandidates.length ? (
+              <>
+                <NamingCharacterPool items={namingCharacterPool} />
+                <div className="culture-name-grid">
+                  {nameCandidates.map((item, index) => (
+                    <button
+                      key={item.fullName}
+                      type="button"
+                      className={selectedCandidate === index ? 'is-selected' : ''}
+                      onClick={() => setSelectedCandidate(index)}
+                    >
+                      <strong>{item.fullName}</strong>
+                      <small>
+                        {item.analysis.sancai.combo} · {item.analysis.sancai.level}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+                {nameCandidates[selectedCandidate] ? (
+                  <NameReport result={nameCandidates[selectedCandidate]!.analysis} />
+                ) : null}
+              </>
+            ) : (
+              <Empty
+                mark="名"
+                title="候选会在这里集中比较"
+                text="出生取用会形成适配字池，偏好、忌用与辈分规则会直接作用于候选。"
+              />
+            )}
+          </section>
+
           {nameCandidates.length ? (
-            <div className="culture-name-grid">
-              {nameCandidates.map((candidate) => (
-                <button
-                  key={candidate.fullName}
-                  type="button"
-                  onClick={() => {
-                    setFullName(candidate.fullName);
-                    setSurnameLength([...surname].length as 1 | 2);
-                    setNameResult(candidate.score);
-                    setActiveTool('name');
-                  }}
-                >
-                  <strong>{candidate.fullName}</strong>
-                  <span>综合 {candidate.score.scores.total}</span>
-                  <small>
-                    {candidate.score.sancai.combo} · {candidate.score.sancai.level}
-                  </small>
-                </button>
-              ))}
+            <div className="culture-tools-prompt">
+              <PromptDeliveryPanel
+                promptText={namingPrompt}
+                copyState={namingDelivery.copyState}
+                shareState={namingDelivery.shareState}
+                onCopy={namingDelivery.handleCopy}
+                onShare={namingDelivery.handleShare}
+              />
             </div>
-          ) : (
-            <Empty text="填写姓氏后生成候选名，可点开任一名字查看完整结构。" />
-          )}
+          ) : null}
         </section>
       ) : null}
 
       {activeTool === 'name' ? (
-        <section className="culture-tools-panel">
+        <section className="culture-tools-workspace">
           <form
+            className="culture-tools-input-panel"
             onSubmit={(event) =>
               run(event, () =>
                 setNameResult(
                   analyzeChineseName({
                     fullName,
                     surnameLength,
-                    xiYong: preferredElement ? [preferredElement] : undefined,
+                    birth: createBirthInput(analysisBirth),
                   }),
                 ),
               )
             }
           >
-            <div className="culture-tools-fields">
-              <label>
-                完整姓名
-                <input
-                  value={fullName}
-                  maxLength={4}
-                  onChange={(event) => setFullName(event.target.value)}
-                />
-              </label>
-              <label>
-                姓氏字数
+            <SectionHeading step="01" title="姓名资料" hint="复姓请选择两个姓氏字" />
+            <div className="culture-tools-fields is-two">
+              <Field label="完整姓名">
+                <input value={fullName} onChange={(event) => setFullName(event.target.value)} />
+              </Field>
+              <Field label="姓氏长度">
                 <select
                   value={surnameLength}
                   onChange={(event) => setSurnameLength(Number(event.target.value) as 1 | 2)}
                 >
-                  <option value="1">单姓</option>
-                  <option value="2">复姓</option>
+                  <option value={1}>单姓</option>
+                  <option value={2}>复姓</option>
                 </select>
-              </label>
-              <label>
-                喜用五行
-                <select
-                  value={preferredElement}
-                  onChange={(event) => setPreferredElement(event.target.value as '' | Wuxing)}
-                >
-                  {wuxingOptions.map((item) => (
-                    <option key={item || 'all'} value={item}>
-                      {item || '暂不指定'}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              </Field>
             </div>
+            <BirthSection value={analysisBirth} onChange={setAnalysisBirth} />
+            <Field label="想重点了解什么" hint="会写入完整提示词">
+              <textarea
+                value={nameQuestion}
+                onChange={(event) => setNameQuestion(event.target.value)}
+                placeholder="例如：这个名字适合长期用于职场和公开表达吗？"
+                rows={3}
+              />
+            </Field>
             <button className="culture-tools-primary" type="submit">
-              解析姓名
+              开始综合解析
             </button>
           </form>
+
+          <section className="culture-tools-result-panel">
+            <SectionHeading step="02" title="综合结果" hint="算法结果用于建立可核对的分析底稿" />
+            {nameResult ? (
+              <NameReport result={nameResult} />
+            ) : (
+              <Empty
+                mark="姓"
+                title="姓名与出生信息会一起计算"
+                text="结果包含逐字资料、五格三才和出生喜用方向。"
+              />
+            )}
+          </section>
+
           {nameResult ? (
-            <NameReport result={nameResult} />
-          ) : (
-            <Empty text="解析康熙笔画、五格、三才、字义与五行。" />
-          )}
+            <div className="culture-tools-prompt">
+              <PromptDeliveryPanel
+                promptText={namePrompt}
+                copyState={nameDelivery.copyState}
+                shareState={nameDelivery.shareState}
+                onCopy={nameDelivery.handleCopy}
+                onShare={nameDelivery.handleShare}
+                question={nameQuestion.trim() || undefined}
+              />
+            </div>
+          ) : null}
         </section>
       ) : null}
 
       {activeTool === 'hanzi' ? (
-        <section className="culture-tools-panel culture-tools-split">
-          <div>
-            <h2>汉字解析</h2>
+        <section className="culture-tools-workspace">
+          <div className="culture-tools-input-panel">
             <form
               onSubmit={(event) =>
                 run(event, () => setHanziResult(analyzeChineseCharacters(hanziText)))
               }
             >
-              <label>
-                汉字
-                <input
-                  value={hanziText}
-                  maxLength={20}
-                  onChange={(event) => setHanziText(event.target.value)}
-                />
-              </label>
+              <SectionHeading step="01" title="查字" hint="一次可解析 1 至 20 个汉字" />
+              <Field label="汉字">
+                <input value={hanziText} onChange={(event) => setHanziText(event.target.value)} />
+              </Field>
               <button className="culture-tools-primary" type="submit">
-                查字
+                解析汉字
               </button>
             </form>
-            {hanziResult ? <CharacterCards items={hanziResult.characters} /> : null}
-          </div>
-          <div>
-            <h2>选字</h2>
+            <div className="culture-tools-divider" />
             <form
               onSubmit={(event) =>
                 run(event, () =>
@@ -272,25 +417,25 @@ export function CultureToolsPage() {
                     selectChineseCharacters({
                       strokes: selectStrokes ? Number(selectStrokes) : undefined,
                       wuxing: selectElement || undefined,
-                      limit: 60,
+                      pinyin: selectPinyin || undefined,
+                      limit: 80,
                     }),
                   ),
                 )
               }
             >
-              <div className="culture-tools-fields">
-                <label>
-                  康熙笔画
+              <SectionHeading step="02" title="按条件选字" hint="条件可以组合使用" />
+              <div className="culture-tools-fields is-three">
+                <Field label="康熙笔画">
                   <input
                     type="number"
-                    min="1"
-                    max="64"
+                    min={1}
                     value={selectStrokes}
                     onChange={(event) => setSelectStrokes(event.target.value)}
+                    placeholder="不限"
                   />
-                </label>
-                <label>
-                  五行
+                </Field>
+                <Field label="五行">
                   <select
                     value={selectElement}
                     onChange={(event) => setSelectElement(event.target.value as '' | Wuxing)}
@@ -301,248 +446,292 @@ export function CultureToolsPage() {
                       </option>
                     ))}
                   </select>
-                </label>
+                </Field>
+                <Field label="拼音">
+                  <input
+                    value={selectPinyin}
+                    onChange={(event) => setSelectPinyin(event.target.value)}
+                    placeholder="如 qing"
+                  />
+                </Field>
               </div>
-              <button className="culture-tools-primary" type="submit">
-                筛选汉字
+              <button className="culture-tools-primary is-secondary" type="submit">
+                筛选可用字
               </button>
             </form>
-            <div className="culture-char-pool">
-              {selectedChars.map((item) => (
-                <button
-                  key={item.char}
-                  type="button"
-                  title={`${item.pinyin ?? '读音未录'} · ${item.definition ?? '暂无释义'}`}
-                  onClick={() => {
-                    setHanziText(item.char);
-                    setHanziResult(analyzeChineseCharacters(item.char));
-                  }}
-                >
-                  {item.char}
-                  <small>
-                    {item.kangxiStrokes}画 · {item.wuxing ?? '未定'}
-                  </small>
-                </button>
-              ))}
-            </div>
           </div>
+
+          <section className="culture-tools-result-panel">
+            <SectionHeading step="03" title="字典结果" hint="简繁体统一按康熙笔画展示" />
+            {hanziResult ? (
+              <CharacterCards items={hanziResult.characters} />
+            ) : (
+              <Empty
+                mark="字"
+                title="字义和数理资料会在这里展开"
+                text="也可以直接按笔画、五行或拼音筛选常用字。"
+              />
+            )}
+            {selectedChars.length ? (
+              <div className="culture-character-pool">
+                <h3>符合条件的字</h3>
+                <div>
+                  {selectedChars.map((item) => (
+                    <button
+                      key={item.char}
+                      type="button"
+                      title={item.definition}
+                      onClick={() => {
+                        setHanziText(item.char);
+                        setHanziResult(analyzeChineseCharacters(item.char));
+                      }}
+                    >
+                      <strong>{item.char}</strong>
+                      <small>
+                        {item.kangxiStrokes}画 · {item.wuxing ?? '待定'}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
         </section>
       ) : null}
 
       {activeTool === 'number' ? (
-        <section className="culture-tools-panel">
+        <section className="culture-tools-workspace">
           <form
+            className="culture-tools-input-panel"
             onSubmit={(event) =>
               run(event, () => setNumberResult(analyzeNumber(numberText, numberPurpose)))
             }
           >
-            <div className="culture-tools-fields">
-              <label>
-                号码
-                <input
-                  value={numberText}
-                  maxLength={64}
-                  onChange={(event) => setNumberText(event.target.value)}
-                />
-              </label>
-              <label>
-                用途
-                <select
-                  value={numberPurpose}
-                  onChange={(event) => setNumberPurpose(event.target.value as typeof numberPurpose)}
-                >
-                  <option value="phone">手机号</option>
-                  <option value="plate">车牌号</option>
-                  <option value="general">其他号码</option>
-                </select>
-              </label>
-            </div>
+            <SectionHeading step="01" title="输入号码" hint="空格和短横线会自动忽略" />
+            <Field label="号码">
+              <input value={numberText} onChange={(event) => setNumberText(event.target.value)} />
+            </Field>
+            <Field label="号码类型">
+              <select
+                value={numberPurpose}
+                onChange={(event) =>
+                  setNumberPurpose(event.target.value as 'phone' | 'plate' | 'general')
+                }
+              >
+                <option value="phone">手机号</option>
+                <option value="plate">车牌号</option>
+                <option value="general">一般号码</option>
+              </select>
+            </Field>
             <button className="culture-tools-primary" type="submit">
               解析号码
             </button>
+            <p className="culture-tools-footnote">
+              数理只适合作为文化参考，不替代号码价格、安全性或实际使用体验。
+            </p>
           </form>
-          {numberResult ? (
-            <div className="culture-report">
-              <div className="culture-score">
-                <strong>{numberResult.primaryIndex}</strong>
-                <span>{numberResult.primaryNumerology.level}</span>
-              </div>
-              <h2>{numberResult.primaryNumerology.keywords}</h2>
-              <p>{numberResult.primaryNumerology.poem}</p>
-              <p>{numberResult.primaryNumerology.text}</p>
-              <dl>
-                <div>
-                  <dt>数字合计</dt>
-                  <dd>{numberResult.digitSum}</dd>
-                </div>
-                <div>
-                  <dt>奇偶数量</dt>
-                  <dd>
-                    {numberResult.oddCount} / {numberResult.evenCount}
-                  </dd>
-                </div>
-                <div>
-                  <dt>重复组合</dt>
-                  <dd>{numberResult.repeatedGroups.join('、') || '无'}</dd>
-                </div>
-              </dl>
-              <small>{numberResult.formula}</small>
-            </div>
-          ) : (
-            <Empty text="支持手机号、车牌号以及其他数字或字母编号。" />
-          )}
-        </section>
-      ) : null}
 
-      {activeTool === 'zhuge' ? (
-        <section className="culture-tools-panel">
-          <form
-            onSubmit={(event) => run(event, () => setZhugeResult(calculateZhugeNumber(zhugeText)))}
-          >
-            <label>
-              随念写下三个字
-              <input
-                value={zhugeText}
-                maxLength={3}
-                onChange={(event) => setZhugeText(event.target.value)}
+          <section className="culture-tools-result-panel">
+            <SectionHeading step="02" title="数理结果" hint="同时展示主数理与数字结构" />
+            {numberResult ? (
+              <NumberReport result={numberResult} />
+            ) : (
+              <Empty
+                mark="数"
+                title="号码结构会在这里清晰展开"
+                text="手机号按完整数字取数，车牌号会同时计算字母序号。"
               />
-            </label>
-            <button className="culture-tools-primary" type="submit">
-              取签
-            </button>
-          </form>
-          {zhugeResult ? (
-            <div className="culture-report">
-              <div className="culture-score">
-                <strong>{zhugeResult.number}</strong>
-                <span>第 {zhugeResult.number} 签</span>
-              </div>
-              <h2>{zhugeResult.sign.poem}</h2>
-              <p>{zhugeResult.sign.summary}</p>
-              <small>
-                {zhugeResult.chars
-                  .map(
-                    (char, index) =>
-                      `${char} ${zhugeResult.strokes[index]}画→${zhugeResult.digits[index]}`,
-                  )
-                  .join('，')}
-                ；组成 {zhugeResult.rawNumber}，按 384 循环取签。
-              </small>
-            </div>
-          ) : (
-            <Empty text="按三个字的康熙笔画取个位，组成签数后对应 384 签。" />
-          )}
+            )}
+          </section>
         </section>
       ) : null}
+    </main>
+  );
+}
 
-      {activeTool === 'kongming' ? (
-        <section className="culture-tools-panel">
-          <div className="culture-coins" aria-label="五枚硬币结果">
-            {coins.map((coin, index) => (
-              <button
-                key={index}
-                type="button"
-                className={coin === '●' ? 'is-yang' : ''}
-                onClick={() =>
-                  setCoins((current) =>
-                    current.map((item, itemIndex) =>
-                      itemIndex === index ? (item === '●' ? '○' : '●') : item,
-                    ),
-                  )
-                }
-              >
-                <strong>{coin}</strong>
-                <span>{coin === '●' ? '阳' : '阴'}</span>
-              </button>
-            ))}
-          </div>
-          <div className="culture-tools-actions">
-            <button
-              className="culture-tools-primary"
-              type="button"
-              onClick={() => {
-                setError('');
-                try {
-                  setKongmingResult(castKongmingHexagram(coins.join('')));
-                } catch (cause) {
-                  setError(cause instanceof Error ? cause.message : '起卦失败');
-                }
-              }}
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="culture-tools-field">
+      <span>
+        {label}
+        {hint ? <small>{hint}</small> : null}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function SectionHeading({ step, title, hint }: { step: string; title: string; hint: string }) {
+  return (
+    <header className="culture-tools-section-heading">
+      <span>{step}</span>
+      <div>
+        <h2>{title}</h2>
+        <p>{hint}</p>
+      </div>
+    </header>
+  );
+}
+
+function BirthSection({
+  value,
+  onChange,
+}: {
+  value: BirthDraft;
+  onChange: (next: BirthDraft) => void;
+}) {
+  return (
+    <section className={'culture-birth-card' + (value.enabled ? ' is-enabled' : '')}>
+      <header>
+        <div>
+          <strong>结合出生资料</strong>
+          <small>用于判断命局喜用方向</small>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={value.enabled}
+          onClick={() => onChange({ ...value, enabled: !value.enabled })}
+        >
+          <span />
+        </button>
+      </header>
+      {value.enabled ? (
+        <div className="culture-tools-fields is-three">
+          <Field label="公历生日">
+            <input
+              type="date"
+              required
+              value={value.date}
+              onChange={(event) => onChange({ ...value, date: event.target.value })}
+            />
+          </Field>
+          <Field label="性别">
+            <select
+              required
+              value={value.gender}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  gender: event.target.value as BirthDraft['gender'],
+                })
+              }
             >
-              按当前结果查卦
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const result = castKongmingHexagram();
-                setKongmingResult(result);
-                setCoins([...result.symbol] as Array<'●' | '○'>);
-              }}
+              <option value="">请选择</option>
+              <option value="male">男</option>
+              <option value="female">女</option>
+            </select>
+          </Field>
+          <Field label="出生时辰">
+            <select
+              required
+              value={value.timeIndex}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  timeIndex: event.target.value === '' ? '' : Number(event.target.value),
+                })
+              }
             >
-              随机起卦
-            </button>
-          </div>
-          {kongmingResult ? (
-            <div className="culture-report">
-              <div className="culture-score">
-                <strong>{kongmingResult.number}</strong>
-                <span>{kongmingResult.grade}</span>
-              </div>
-              <h2>{kongmingResult.name}</h2>
-              <p>{kongmingResult.poem}</p>
-              <small>
-                {kongmingResult.symbol
-                  .split('')
-                  .map((item) => (item === '●' ? '阳' : '阴'))
-                  .join(' · ')}
-              </small>
-            </div>
-          ) : (
-            <Empty text="依次记录五枚硬币的正反面，或使用随机起卦。" />
-          )}
-        </section>
+              <option value="">请选择</option>
+              {BIRTH_TIME_OPTIONS.map((item) => (
+                <option key={item.index} value={item.index}>
+                  {item.label} · {item.range}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
       ) : null}
+    </section>
+  );
+}
 
-      <p className="culture-tools-footnote">
-        姓名与数字数理属于文化参考体系，不用于替代医疗、法律、财务或其他重大决定。
-      </p>
+function Empty({ mark, title, text }: { mark: string; title: string; text: string }) {
+  return (
+    <div className="culture-tools-empty">
+      <span>{mark}</span>
+      <h3>{title}</h3>
+      <p>{text}</p>
     </div>
   );
 }
 
-function Empty({ text }: { text: string }) {
-  return <div className="culture-tools-empty">{text}</div>;
-}
-
 function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> }) {
   return (
-    <div className="culture-report">
-      <div className="culture-score">
-        <strong>{result.scores.total}</strong>
-        <span>综合参考</span>
-      </div>
-      <h2>
-        {result.surname}
-        {result.given}
-      </h2>
-      <div className="culture-grid-list">
-        {Object.entries(result.grids).map(([key, grid]) => (
-          <article key={key}>
-            <span>{gridLabels[key]}</span>
-            <strong>
-              {grid.num} · {grid.wuxing}
-            </strong>
+    <article className="culture-name-report">
+      <header>
+        <div>
+          <h3>
+            {result.surname}
+            {result.given}
+          </h3>
+          <p>
+            {result.sancai.combo} · {result.sancai.level}
+          </p>
+        </div>
+      </header>
+      {result.birthContext ? (
+        <div className="culture-birth-summary">
+          <span>出生适配</span>
+          <strong>{result.birthContext.pillars.join(' ')}</strong>
+          <p>
+            日主 {result.birthContext.dayMaster} · 喜用{' '}
+            {result.birthContext.favorableElements.join('、') || '需综合复核'}
+          </p>
+        </div>
+      ) : null}
+      <div className="culture-character-list">
+        {result.chars.map((item) => (
+          <div key={item.char + '-' + item.isSurname}>
+            <strong>{item.char}</strong>
+            <span>{item.pinyin ?? '读音待补充'}</span>
             <small>
-              {grid.level} · {grid.keywords}
+              康熙 {item.kangxiStrokes} 画 · {item.wuxing ?? '五行待定'}
             </small>
-          </article>
+            <p>{item.definition}</p>
+          </div>
         ))}
       </div>
-      <p>
-        {result.sancai.combo}三才 · {result.sancai.level}：{result.sancai.text}
-      </p>
-      <CharacterCards items={result.chars.map((item) => ({ char: item.char, detail: item }))} />
-    </div>
+      <div className="culture-grid-list">
+        {Object.entries(result.grids).map(([key, item]) => (
+          <div key={key}>
+            <span>{gridLabels[key] ?? key}</span>
+            <strong>{item.num}</strong>
+            <small>
+              {item.wuxing} · {item.level}
+            </small>
+            <p>{item.keywords}</p>
+          </div>
+        ))}
+      </div>
+      <div className="culture-sancai">
+        <strong>三才配置 · {result.sancai.combo}</strong>
+        <span>{result.sancai.text}</span>
+      </div>
+    </article>
+  );
+}
+
+function NamingCharacterPool({ items }: { items: ReturnType<typeof selectNamingCharacters> }) {
+  if (!items.length) return null;
+  return (
+    <section className="culture-naming-pool">
+      <header>
+        <h3>适配选字</h3>
+        <p>偏好字优先，随后结合出生取用与常用字整理；可继续交给 AI 重新组合。</p>
+      </header>
+      <div>
+        {items.map((item) => (
+          <span key={item.char} title={item.definition}>
+            <strong>{item.char}</strong>
+            <small>
+              {item.wuxing ?? '待定'} · {item.pinyin ?? '读音待补'}
+            </small>
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -552,29 +741,62 @@ function CharacterCards({
   items: ReturnType<typeof analyzeChineseCharacters>['characters'];
 }) {
   return (
-    <div className="culture-character-list">
+    <div className="culture-character-list is-analysis">
       {items.map((item, index) => (
-        <article key={`${item.char}-${index}`}>
+        <div key={item.char + '-' + index}>
           <strong>{item.char}</strong>
           {item.detail ? (
-            <div>
-              <span>
-                {item.detail.pinyin ?? '读音未录'} · {item.detail.kangxiStrokes} 画 ·{' '}
-                {item.detail.wuxing ?? '五行未定'}
-              </span>
+            <>
+              <span>{item.detail.pinyin ?? '读音待补充'}</span>
               <small>
-                {item.detail.radical ? `${item.detail.radical}部` : '部首未录'} ·{' '}
-                {item.detail.traditional !== item.detail.simplified
-                  ? `繁体 ${item.detail.traditional}`
-                  : '简繁同形'}
+                繁体 {item.detail.traditional} · 康熙 {item.detail.kangxiStrokes} 画 ·{' '}
+                {item.detail.wuxing ?? '五行待定'}
               </small>
-              <p>{item.detail.definition ?? '暂无现代释义'}</p>
-            </div>
+              <p>{item.detail.definition}</p>
+            </>
           ) : (
-            <span>字典暂未收录</span>
+            <p>字典暂未收录这个字。</p>
           )}
-        </article>
+        </div>
       ))}
     </div>
+  );
+}
+
+function NumberReport({ result }: { result: ReturnType<typeof analyzeNumber> }) {
+  return (
+    <article className="culture-number-report">
+      <div className="culture-number-main">
+        <span>主数理</span>
+        <strong>{result.primaryIndex}</strong>
+        <h3>
+          {result.primaryNumerology.level} · {result.primaryNumerology.keywords}
+        </h3>
+        <p>{result.primaryNumerology.text}</p>
+      </div>
+      <div className="culture-number-stats">
+        <div>
+          <span>数字和</span>
+          <strong>{result.digitSum}</strong>
+        </div>
+        <div>
+          <span>奇数 / 偶数</span>
+          <strong>
+            {result.oddCount} / {result.evenCount}
+          </strong>
+        </div>
+        <div>
+          <span>和数理</span>
+          <strong>{result.sumIndex}</strong>
+        </div>
+      </div>
+      <div className="culture-sancai">
+        <strong>计算方式</strong>
+        <span>{result.formula}</span>
+      </div>
+      {result.repeatedGroups.length ? (
+        <p className="culture-number-repeats">重复组合：{result.repeatedGroups.join('、')}</p>
+      ) : null}
+    </article>
   );
 }

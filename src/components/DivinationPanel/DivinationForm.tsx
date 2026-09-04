@@ -222,6 +222,8 @@ export function DivinationForm({
   );
   const ssgwMethod = draft.ssgwMethod ?? 'random';
   const ssgwNumber = draft.ssgwNumber ?? '';
+  const kongmingMethod = draft.kongmingMethod ?? 'random';
+  const kongmingPattern = draft.kongmingPattern ?? '';
   const isManualInputIncomplete =
     (draft.method === 'liuyao' &&
       ((liuyaoMethod === 'manual' && liuyaoYaos.length !== 6) ||
@@ -234,7 +236,11 @@ export function DivinationForm({
       lenormandInteractiveCards.length !== lenormandSpread.positions.length) ||
     (draft.method === 'ssgw' &&
       ssgwMethod === 'manual' &&
-      (!/^\d+$/.test(ssgwNumber) || Number(ssgwNumber) < 1 || Number(ssgwNumber) > 92));
+      (!/^\d+$/.test(ssgwNumber) || Number(ssgwNumber) < 1 || Number(ssgwNumber) > 92)) ||
+    (draft.method === 'zhuge' && [...draft.zhugeText.trim()].length !== 3) ||
+    (draft.method === 'kongming' &&
+      kongmingMethod === 'manual' &&
+      !/^[●○]{5}$/.test(kongmingPattern));
   const supplementaryInfoCount = isAlmanac
     ? Number(Boolean(draft.question.trim()))
     : DIVINATION_SUPPLEMENTARY_INFO_FIELDS.reduce(
@@ -1123,6 +1129,74 @@ export function DivinationForm({
                   />
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {draft.method === 'zhuge' ? (
+            <div className="divination-extra-panel manual-entry-panel">
+              <div className="form-item">
+                <label htmlFor="zhuge-text-input">随念写下三个汉字</label>
+                <input
+                  id="zhuge-text-input"
+                  type="text"
+                  className="form-input"
+                  placeholder="例如 顺其然"
+                  value={draft.zhugeText}
+                  onChange={(event) =>
+                    updateDraft('zhugeText', [...event.target.value].slice(0, 3).join(''))
+                  }
+                />
+                <small className="workspace-ui-field-hint">
+                  依三个字的康熙笔画取末位数，合成签序。
+                </small>
+              </div>
+            </div>
+          ) : null}
+
+          {draft.method === 'kongming' ? (
+            <div className="divination-extra-panel manual-entry-panel">
+              <div className="manual-mode-switch" role="group" aria-label="孔明神卦起卦方式">
+                <button
+                  type="button"
+                  className={kongmingMethod === 'random' ? 'is-active' : ''}
+                  onClick={() => updateDraft('kongmingMethod', 'random')}
+                >
+                  自动起卦
+                </button>
+                <button
+                  type="button"
+                  className={kongmingMethod === 'manual' ? 'is-active' : ''}
+                  onClick={() => updateDraft('kongmingMethod', 'manual')}
+                >
+                  手动取象
+                </button>
+              </div>
+              {kongmingMethod === 'manual' ? (
+                <div className="culture-coins" aria-label="五次阴阳结果">
+                  {[0, 1, 2, 3, 4].map((index) => {
+                    const symbol = kongmingPattern[index] === '●' ? '●' : '○';
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        className={symbol === '●' ? 'is-yang' : ''}
+                        onClick={() => {
+                          const next = [...kongmingPattern.padEnd(5, '○')];
+                          next[index] = symbol === '●' ? '○' : '●';
+                          updateDraft('kongmingPattern', next.join(''));
+                        }}
+                      >
+                        <strong>{symbol}</strong>
+                        <small>第{index + 1}次</small>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <small className="workspace-ui-field-hint">
+                  系统独立取得五次阴阳结果并组成卦象。
+                </small>
+              )}
             </div>
           ) : null}
 

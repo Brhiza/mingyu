@@ -97,6 +97,9 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     astrolabeLongitude: '116.4074',
     astrolabeTimezone: '8',
     taiyiYear: '2004',
+    zhugeText: '',
+    kongmingMethod: 'random',
+    kongmingPattern: '●○●○○',
     ...overrides,
   };
 }
@@ -4392,6 +4395,27 @@ test('自定起卦时间缺少日期或时间时应明确提示', async () => {
       ),
     /自定起卦时间需要填写日期和时间/,
   );
+});
+
+test('诸葛神数与孔明神卦进入统一占问会话并生成完整提示词', async () => {
+  const zhuge = await generateDivinationSession(
+    buildDraft({ method: 'zhuge', zhugeText: '顺其然' }),
+  );
+  assert.equal(zhuge.method, 'zhuge');
+  assert.match(zhuge.prompt, /【占卜信息】/);
+  assert.match(zhuge.prompt, /康熙笔画/);
+  assert.match(zhuge.prompt, /这件事接下来该怎么推进/);
+
+  const kongming = await generateDivinationSession(
+    buildDraft({
+      method: 'kongming',
+      kongmingMethod: 'manual',
+      kongmingPattern: '●○●○●',
+    }),
+  );
+  assert.equal(kongming.method, 'kongming');
+  assert.match(kongming.prompt, /孔明神卦/);
+  assert.match(kongming.prompt, /五次阴阳/);
 });
 
 test('占卜自定义问题保留资料与用户问题，并使用方法任务加通用短框架', async () => {

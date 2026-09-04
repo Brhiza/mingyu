@@ -18,6 +18,7 @@ import {
   type HuangjiPeriodHexagram,
 } from 'mingyu-core/huangji-jingshi';
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
+import type { KongmingHexagramResult, ZhugeNumberResult } from 'mingyu-core/name-number';
 import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import {
   getAllLiuyaoCategoryChapters,
@@ -3462,6 +3463,52 @@ export function LiurenTraditionalBoard({
   );
 }
 
+function ZhugeTraditionalBoard({ data }: { data: ZhugeNumberResult }) {
+  return (
+    <TraditionalBoardShell
+      title="诸葛神数"
+      subtitle={`三字取数 · 第${data.number}签`}
+      className="traditional-symbol-board"
+    >
+      <TraditionalMeta
+        items={[
+          ['所写三字', data.text],
+          ['康熙笔画', data.strokes.join('、')],
+          ['取数', data.digits.join('')],
+        ]}
+      />
+      <div className="traditional-poem-card">
+        <strong>第{data.number}签</strong>
+        <p>{data.sign.poem}</p>
+        <small>{data.sign.summary}</small>
+      </div>
+    </TraditionalBoardShell>
+  );
+}
+
+function KongmingTraditionalBoard({ data }: { data: KongmingHexagramResult }) {
+  return (
+    <TraditionalBoardShell
+      title="孔明神卦"
+      subtitle={`第${data.number}卦 · ${data.grade}`}
+      className="traditional-symbol-board"
+    >
+      <div className="traditional-symbol-sequence" aria-label="五次阴阳结果">
+        {[...data.symbol].map((symbol, index) => (
+          <span key={index}>
+            <strong>{symbol}</strong>
+            <small>第{index + 1}次</small>
+          </span>
+        ))}
+      </div>
+      <div className="traditional-poem-card">
+        <strong>{data.name}</strong>
+        <p>{data.poem}</p>
+      </div>
+    </TraditionalBoardShell>
+  );
+}
+
 const DIVINATION_METHOD_LABELS: Record<string, string> = {
   liuyao: '六爻纳甲',
   meihua: '梅花易数',
@@ -3476,6 +3523,8 @@ const DIVINATION_METHOD_LABELS: Record<string, string> = {
   taiyi: '太乙神数',
   huangji: '皇极经世',
   liuren: '大六壬',
+  zhuge: '诸葛神数',
+  kongming: '孔明神卦',
 };
 
 function formatDivinationSessionShareText(session: DivinationSession): string {
@@ -3574,6 +3623,12 @@ export function TraditionalDivinationBoard({
       break;
     case 'ssgw':
       boardContent = <SsgwTraditionalBoard data={session.data as SsgwData} session={session} />;
+      break;
+    case 'zhuge':
+      boardContent = <ZhugeTraditionalBoard data={session.data as ZhugeNumberResult} />;
+      break;
+    case 'kongming':
+      boardContent = <KongmingTraditionalBoard data={session.data as KongmingHexagramResult} />;
       break;
     case 'almanac':
       boardContent = (

@@ -78,6 +78,14 @@ export const PROMPT_GUIDANCE_TEXT = {
     tradition: '签诗原文与签题构成传统签文资料。',
     sources: '参考潮汕三山国王庙宇签文化及当前签诗资料。',
   },
+  zhuge: {
+    tradition: '以随念三字的康熙笔画末位合成三位数，再按三百八十四签循环取签。',
+    sources: '参考诸葛神数三字取数与三百八十四签的通行口径。',
+  },
+  kongming: {
+    tradition: '以五次阴阳结果组成卦象，依三十二种组合对应的卦名、等第与卦诗判断。',
+    sources: '参考孔明神卦五次阴阳取象与三十二卦的通行口径。',
+  },
   almanac: {
     tradition: '择日以原始宜忌与直接冲犯为先，建除、十二神、宿曜及参与人刑冲破害互参。',
     sources: '参考《钦定协纪辨方书》《选择要略》等择日资料。',
@@ -131,6 +139,8 @@ export type DivinationPromptGuidanceMethod =
   | 'tarot'
   | 'lenormand'
   | 'ssgw'
+  | 'zhuge'
+  | 'kongming'
   | 'almanac'
   | 'astrolabe';
 
@@ -184,6 +194,9 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
 
   // 5. 灵签与直断体系
   ssgw: '先依签文诗意与吉凶级别直断所问事项，再结合签诗典故与分项释义阐发事理，指明进退行止关窍。',
+  zhuge:
+    '先复核三字笔画与签序，再依签诗和基础解意直断所问事项，结合问题语境说明事态方向与进退关窍。',
+  kongming: '先依五次阴阳所得卦象、卦名与等第直断当前趋势，再结合卦诗说明处境、转折和行动方向。',
   xiaoliuren:
     '先复核农历月日与时辰的逐宫顺数，以时宫为本次占得宫，再结合所问事项选取歌诀中的对应句义并说明判断依据。',
   tarot:

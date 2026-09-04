@@ -8,6 +8,9 @@ import {
   analyzeNumber,
   calculateZhugeNumber,
   castKongmingHexagram,
+  buildChineseNameAnalysisPrompt,
+  buildChineseNamingPrompt,
+  selectNamingCharacters,
 } from 'mingyu-core/name-number';
 
 test('汉字解析区分现代笔画与康熙笔画并报告未知字', () => {
@@ -20,29 +23,82 @@ test('汉字解析区分现代笔画与康熙笔画并报告未知字', () => {
   assert.deepEqual(result.unknownCharacters, []);
 });
 
+test('起名与姓名解析可结合出生喜用并生成完整提示词', () => {
+  const birth = {
+    gender: 'male' as const,
+    year: 2000,
+    month: 1,
+    day: 1,
+    timeIndex: 6,
+    dateType: 'solar' as const,
+  };
+  const names = generateChineseNames({
+    surname: '李',
+    gender: '通用',
+    birth,
+    preferredCharacters: '清宁',
+    forbiddenCharacters: '乐',
+    limit: 3,
+  });
+  assert.equal(names.length, 3);
+  assert.ok(names.every((item) => item.analysis.birthContext?.pillars.length === 4));
+  assert.ok(names.every((item) => !item.fullName.includes('乐')));
+  const suitableCharacters = selectNamingCharacters({
+    gender: '通用',
+    birth,
+    preferredCharacters: '清宁',
+    forbiddenCharacters: '乐',
+    limit: 12,
+  });
+  assert.equal(suitableCharacters[0]?.char, '清');
+  const namingPrompt = buildChineseNamingPrompt({
+    surname: '李',
+    candidates: names,
+    suitableCharacters,
+    preferredCharacters: '清宁',
+    forbiddenCharacters: '乐',
+  });
+  assert.match(namingPrompt, /【出生资料】/);
+  assert.match(namingPrompt, /四柱：/);
+  assert.match(namingPrompt, /偏好字：清、宁/);
+  assert.match(namingPrompt, /回避用字：乐/);
+  assert.match(namingPrompt, /可以重新组合适配字/);
+
+  const analysis = analyzeChineseName({ fullName: '李清和', birth });
+  const prompt = buildChineseNameAnalysisPrompt({ analysis, question: '适合长期使用吗？' });
+  assert.match(prompt, /适合长期使用吗？/);
+  assert.match(prompt, /【传统依据】/);
+});
+
 test('汉字选字同时支持康熙笔画与五行过滤', () => {
   const result = selectChineseCharacters({ strokes: 8, wuxing: '木', limit: 20 });
   assert.ok(result.length > 0);
   assert.ok(result.every((item) => item.kangxiStrokes === 8 && item.wuxing === '木'));
 });
 
-test('姓名解析与起名候选返回完整五格三才并稳定排序', () => {
+test('姓名解析不返回数值评分，起名规则实际约束候选用字', () => {
   const analysis = analyzeChineseName({ fullName: '李清和' });
   assert.equal(analysis.surname, '李');
   assert.equal(analysis.given, '清和');
   assert.equal(Object.keys(analysis.grids).length, 5);
   assert.equal(analysis.sancai.combo.length, 3);
+  assert.equal('scores' in analysis, false);
 
-  const names = generateChineseNames({ surname: '李', gender: '通用', limit: 10 });
+  const names = generateChineseNames({
+    surname: '李',
+    gender: '通用',
+    preferredCharacters: '清',
+    forbiddenCharacters: '乐',
+    generationCharacter: '承',
+    generationPosition: 'second',
+    limit: 10,
+  });
   assert.equal(names.length, 10);
   assert.equal(new Set(names.map((item) => item.fullName)).size, names.length);
   assert.ok(names.every((item) => item.fullName.startsWith('李')));
-  assert.ok(
-    names.every(
-      (item, index) =>
-        index === 0 || names[index - 1].score.scores.total >= item.score.scores.total,
-    ),
-  );
+  assert.ok(names.every((item) => item.givenName.endsWith('承')));
+  assert.ok(names.every((item) => !item.givenName.includes('乐')));
+  assert.ok(names.every((item) => !('scores' in item.analysis)));
 });
 
 test('号码解析覆盖手机号、车牌字母换算与一般编号', () => {

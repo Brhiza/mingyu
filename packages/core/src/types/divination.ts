@@ -6,6 +6,7 @@ import type { SolarIlluminationEvidence } from '../calendar/solar-illumination-e
 import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -22,6 +23,8 @@ export type DivinationType =
   | 'tarot'
   | 'tarot_single'
   | 'ssgw'
+  | 'zhuge'
+  | 'kongming'
   | 'almanac'
   | 'lenormand'
   | 'astrolabe'
@@ -1638,6 +1641,8 @@ export type DivinationData =
   | LiurenData
   | TarotData
   | SsgwData
+  | ZhugeNumberResult
+  | KongmingHexagramResult
   | AlmanacData
   | LenormandData
   | AstrolabeData

@@ -71,6 +71,9 @@ export const defaultDraft: DivinationDraft = {
   astrolabeLongitude: '116.4074',
   astrolabeTimezone: '8',
   taiyiYear: String(new Date().getFullYear()),
+  zhugeText: '',
+  kongmingMethod: 'random',
+  kongmingPattern: '●○●○○',
   taiyiScope: 'year',
 };
 

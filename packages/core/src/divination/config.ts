@@ -22,6 +22,8 @@ export type DivinationMethodId =
       | 'liuren'
       | 'tarot'
       | 'ssgw'
+      | 'zhuge'
+      | 'kongming'
       | 'almanac'
       | 'lenormand'
       | 'astrolabe'
@@ -78,6 +80,16 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     value: 'ssgw',
     label: '三山国王灵签',
     description: '随机求签，适合快速获得方向提示。',
+  },
+  {
+    value: 'zhuge',
+    label: '诸葛神数',
+    description: '随念写下三个字，适合围绕一件具体事情取数占问。',
+  },
+  {
+    value: 'kongming',
+    label: '孔明神卦',
+    description: '以五次阴阳结果成卦，适合判断当前处境与行动方向。',
   },
   // 牌卡类放在传统时间起局与签占之后，保持占问主入口的优先级稳定。
   {

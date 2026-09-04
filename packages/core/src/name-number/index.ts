@@ -6,10 +6,11 @@ import {
   type GeneratedCharacterData,
 } from './generated-data';
 import { ZHUGE_SIGNS } from './zhuge-signs';
+import { calculateBaziChartFromInput, type BaziChartInputDraft } from '../bazi/input';
 
 export type Wuxing = '金' | '木' | '水' | '火' | '土';
 export type NamingGender = '男' | '女' | '通用';
-type CharacterDetail = GeneratedCharacterData;
+export type CharacterDetail = GeneratedCharacterData;
 export interface CharacterSearchFilter {
   strokes?: number;
   strokesMin?: number;
@@ -19,6 +20,29 @@ export interface CharacterSearchFilter {
   pinyin?: string;
   commonOnly?: boolean;
   limit?: number;
+}
+
+export type NamingBirthInput = BaziChartInputDraft;
+
+export function calculateNamingBirthContext(input: NamingBirthInput) {
+  const chart = calculateBaziChartFromInput(input);
+  const favorableElements = (chart.analysis.usefulGod.favorableWuxing ?? []).filter(
+    (item): item is Wuxing => ['金', '木', '水', '火', '土'].includes(item),
+  );
+  const unfavorableElements = (chart.analysis.usefulGod.unfavorableWuxing ?? []).filter(
+    (item): item is Wuxing => ['金', '木', '水', '火', '土'].includes(item),
+  );
+  return {
+    solarDate: `${chart.solarDate.year}-${String(chart.solarDate.month).padStart(2, '0')}-${String(chart.solarDate.day).padStart(2, '0')}`,
+    lunarDate: `${chart.lunarDate.year}年${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
+    pillars: Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
+    dayMaster: chart.dayMaster.gan,
+    zodiac: chart.zodiac,
+    favorableElements,
+    unfavorableElements,
+    usefulGodReason: chart.analysis.usefulGod.primaryReason ?? chart.analysis.usefulGod.useful,
+    warnings: chart.warnings,
+  };
 }
 
 const characterData: Record<string, CharacterDetail> = {};
@@ -114,9 +138,14 @@ function wuge(surnameStrokes: number[], givenStrokes: number[]) {
   return { tian, ren, di, wai, zong };
 }
 
-const LEVEL_POINTS: Record<string, number> = { 大吉: 100, 吉: 85, 半吉: 60, 凶: 30, 大凶: 12 };
-
-function scoreName(surname: string, given: string, options: { xiYong?: Wuxing[] } = {}) {
+function analyzeNameStructure(
+  surname: string,
+  given: string,
+  options: {
+    xiYong?: Wuxing[];
+    birthContext?: ReturnType<typeof calculateNamingBirthContext>;
+  } = {},
+) {
   const surnameDetails = [...surname].map(charDetail);
   const givenDetails = [...given].map(charDetail);
   if ([...surnameDetails, ...givenDetails].some((item) => !item))
@@ -139,24 +168,7 @@ function scoreName(surname: string, given: string, options: { xiYong?: Wuxing[] 
       { combo: string; tian_ren: string; ren_di: string; level: string; text: string }
     >
   )[combo];
-  const shuli = Math.round(
-    LEVEL_POINTS[grids.ren.level] * 0.4 +
-      LEVEL_POINTS[grids.zong.level] * 0.25 +
-      LEVEL_POINTS[grids.di.level] * 0.2 +
-      LEVEL_POINTS[grids.wai.level] * 0.15,
-  );
-  const sancaiScore = LEVEL_POINTS[sancai.level] ?? 60;
   const preferred = options.xiYong ?? [];
-  const matches = givenDetails.filter(
-    (item) => item!.wuxing && preferred.includes(item!.wuxing as Wuxing),
-  ).length;
-  const elementScore = preferred.length
-    ? Math.round(40 + (matches / givenDetails.length) * 60)
-    : null;
-  const total =
-    elementScore === null
-      ? Math.round(shuli * 0.62 + sancaiScore * 0.38)
-      : Math.round(shuli * 0.34 + sancaiScore * 0.21 + elementScore * 0.45);
   return {
     surname,
     given,
@@ -167,7 +179,12 @@ function scoreName(surname: string, given: string, options: { xiYong?: Wuxing[] 
     rawGrids,
     grids,
     sancai,
-    scores: { shuli, sancai: sancaiScore, elements: elementScore, total },
+    birthContext: options.birthContext ?? null,
+    elementMatches: preferred.length
+      ? givenDetails
+          .filter((item) => item!.wuxing && preferred.includes(item!.wuxing as Wuxing))
+          .map((item) => item!.char)
+      : [],
   };
 }
 
@@ -240,15 +257,61 @@ export function analyzeChineseName(input: {
   xiYong?: Wuxing[];
   jiShen?: Wuxing[];
   zodiac?: string;
+  birth?: NamingBirthInput;
 }) {
   const chars = [...input.fullName.trim()];
   const surnameLength = input.surnameLength ?? 1;
   if (chars.length <= surnameLength || chars.length > surnameLength + 2) {
     throw new Error('姓名需由 1 至 2 字姓氏和 1 至 2 字名字组成');
   }
-  return scoreName(chars.slice(0, surnameLength).join(''), chars.slice(surnameLength).join(''), {
-    xiYong: input.xiYong,
-  });
+  const birthContext = input.birth ? calculateNamingBirthContext(input.birth) : undefined;
+  return analyzeNameStructure(
+    chars.slice(0, surnameLength).join(''),
+    chars.slice(surnameLength).join(''),
+    {
+      xiYong: input.xiYong?.length ? input.xiYong : birthContext?.favorableElements,
+      birthContext,
+    },
+  );
+}
+
+function namingCharacters(value?: string) {
+  return [...new Set([...(value ?? '')].filter((char) => /\p{Script=Han}/u.test(char)))];
+}
+
+export type GenerationCharacterPosition = 'first' | 'second';
+
+export function selectNamingCharacters(input: {
+  gender?: NamingGender;
+  preferredElements?: Wuxing[];
+  preferredCharacters?: string;
+  forbiddenCharacters?: string;
+  birth?: NamingBirthInput;
+  limit?: number;
+}) {
+  const gender = input.gender ?? '通用';
+  const birthContext = input.birth ? calculateNamingBirthContext(input.birth) : undefined;
+  const preferredElements = input.preferredElements?.length
+    ? input.preferredElements
+    : birthContext?.favorableElements;
+  const forbidden = new Set(namingCharacters(input.forbiddenCharacters));
+  const preferred = namingCharacters(input.preferredCharacters).filter(
+    (char) => !forbidden.has(char),
+  );
+  const common = [...new Set([...`${NAMING_CHARACTERS[gender]}${NAMING_CHARACTERS.通用}`])];
+  const ordered = [
+    ...preferred,
+    ...common.filter((char) => {
+      const detail = charDetail(char);
+      return detail?.wuxing && preferredElements?.includes(detail.wuxing as Wuxing);
+    }),
+    ...common,
+  ];
+  return [...new Set(ordered)]
+    .filter((char) => !forbidden.has(char))
+    .map((char) => charDetail(char))
+    .filter((item): item is CharacterDetail => item !== null)
+    .slice(0, Math.min(Math.max(input.limit ?? 48, 1), 100));
 }
 
 export function generateChineseNames(input: {
@@ -256,62 +319,178 @@ export function generateChineseNames(input: {
   gender?: NamingGender;
   givenNameLength?: 1 | 2;
   preferredElements?: Wuxing[];
+  preferredCharacters?: string;
+  forbiddenCharacters?: string;
+  generationCharacter?: string;
+  generationPosition?: GenerationCharacterPosition;
   zodiac?: string;
   limit?: number;
+  birth?: NamingBirthInput;
 }) {
   const surname = input.surname.trim();
   if (![1, 2].includes([...surname].length)) throw new Error('姓氏需为 1 至 2 个汉字');
   const gender = input.gender ?? '通用';
   const length = input.givenNameLength ?? 2;
   const limit = Math.min(Math.max(input.limit ?? 20, 1), 50);
-  const pool = [...new Set([...`${NAMING_CHARACTERS[gender]}${NAMING_CHARACTERS.通用}`])]
-    .map((char) => charDetail(char))
-    .filter(
-      (item) =>
-        item &&
-        (!input.preferredElements?.length ||
-          (item.wuxing && input.preferredElements.includes(item.wuxing as Wuxing))),
-    )
-    .slice(0, length === 2 ? 48 : 80);
-  if (!pool.length) throw new Error('当前条件没有匹配的常用候选字，请放宽五行条件');
-  const options = { xiYong: input.preferredElements };
+  const birthContext = input.birth ? calculateNamingBirthContext(input.birth) : undefined;
+  const preferredElements = input.preferredElements?.length
+    ? input.preferredElements
+    : birthContext?.favorableElements;
+  const forbidden = new Set(namingCharacters(input.forbiddenCharacters));
+  const generationCharacters = namingCharacters(input.generationCharacter);
+  if (generationCharacters.length > 1) throw new Error('辈分字只能填写一个汉字');
+  const generationCharacter = generationCharacters[0];
+  if (generationCharacter && forbidden.has(generationCharacter))
+    throw new Error('辈分字不能同时设为忌用字');
+  if (generationCharacter && !charDetail(generationCharacter))
+    throw new Error('辈分字暂未收录在字典中');
+  const pool = selectNamingCharacters({
+    gender,
+    preferredElements,
+    preferredCharacters: input.preferredCharacters,
+    forbiddenCharacters: input.forbiddenCharacters,
+    birth: input.birth,
+    limit: length === 2 ? 48 : 80,
+  });
+  if (!pool.length) throw new Error('当前用字条件没有可用候选字');
+  const options = { xiYong: preferredElements, birthContext };
   const candidates: Array<{
     fullName: string;
     givenName: string;
-    score: ReturnType<typeof scoreName>;
+    analysis: ReturnType<typeof analyzeNameStructure>;
   }> = [];
-  for (let first = 0; first < pool.length; first += 1) {
-    const secondStart = length === 1 ? first : 0;
-    const secondEnd = length === 1 ? first + 1 : pool.length;
-    for (let second = secondStart; second < secondEnd; second += 1) {
-      if (length === 2 && first === second) continue;
-      const givenName =
-        length === 1 ? pool[first]!.char : `${pool[first]!.char}${pool[second]!.char}`;
-      try {
-        candidates.push({
-          fullName: `${surname}${givenName}`,
-          givenName,
-          score: scoreName(surname, givenName, options),
-        });
-      } catch {
-        continue;
-      }
+  const givenNames =
+    length === 1
+      ? generationCharacter
+        ? [generationCharacter]
+        : pool.map((item) => item.char)
+      : generationCharacter
+        ? pool.map((item) =>
+            input.generationPosition === 'second'
+              ? `${item.char}${generationCharacter}`
+              : `${generationCharacter}${item.char}`,
+          )
+        : pool.flatMap((first) =>
+            pool
+              .filter((second) => first.char !== second.char)
+              .map((second) => `${first.char}${second.char}`),
+          );
+  for (const givenName of givenNames) {
+    if ([...givenName].some((char) => forbidden.has(char))) continue;
+    if (length === 2 && givenName[0] === givenName[1]) continue;
+    try {
+      candidates.push({
+        fullName: `${surname}${givenName}`,
+        givenName,
+        analysis: analyzeNameStructure(surname, givenName, options),
+      });
+    } catch {
+      continue;
     }
   }
-  candidates.sort(
-    (a, b) =>
-      b.score.scores.total - a.score.scores.total || a.fullName.localeCompare(b.fullName, 'zh-CN'),
-  );
+  const uniqueCandidates = [...new Map(candidates.map((item) => [item.fullName, item])).values()];
   const selected: typeof candidates = [];
   const firstCharCounts = new Map<string, number>();
-  for (const candidate of candidates) {
+  for (const candidate of uniqueCandidates) {
     const firstChar = [...candidate.givenName][0];
-    if ((firstCharCounts.get(firstChar) ?? 0) >= 2) continue;
+    if (!generationCharacter && (firstCharCounts.get(firstChar) ?? 0) >= 2) continue;
     selected.push(candidate);
     firstCharCounts.set(firstChar, (firstCharCounts.get(firstChar) ?? 0) + 1);
     if (selected.length >= limit) break;
   }
   return selected;
+}
+
+function formatBirthContext(context: ReturnType<typeof calculateNamingBirthContext> | null) {
+  if (!context) return '本次未结合出生资料。';
+  return [
+    `公历：${context.solarDate}`,
+    `农历：${context.lunarDate}`,
+    `四柱：${context.pillars.join(' ')}`,
+    `日主：${context.dayMaster}`,
+    `生肖：${context.zodiac}`,
+    `喜用五行：${context.favorableElements.join('、') || '以整体命局复核'}`,
+    `取用依据：${context.usefulGodReason}`,
+  ].join('\n');
+}
+
+function formatNameAnalysis(result: ReturnType<typeof analyzeChineseName>) {
+  return [
+    `姓名：${result.surname}${result.given}`,
+    `逐字：${result.chars.map((item) => `${item.char}（康熙${item.kangxiStrokes}画、${item.wuxing ?? '五行未定'}、${item.pinyin ?? '读音未录'}）`).join('；')}`,
+    `五格：${Object.entries(result.grids)
+      .map(([key, item]) => `${key}${item.num}（${item.wuxing}、${item.level}、${item.keywords}）`)
+      .join('；')}`,
+    `三才：${result.sancai.combo}（${result.sancai.level}）${result.sancai.text}`,
+    result.birthContext
+      ? `喜用方向：${result.birthContext.favorableElements.join('、') || '以整体命局复核'}；名字中相应五行用字：${result.elementMatches.join('、') || '无'}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+export function buildChineseNameAnalysisPrompt(input: {
+  analysis: ReturnType<typeof analyzeChineseName>;
+  question?: string;
+}) {
+  return [
+    '【任务】',
+    '综合出生取用、姓名字义、音律、书写辨识、谐音联想、三才五格与现代使用场景，评价这个姓名的整体适配度；说明各项依据之间如何互相支持或制约，并给出自然可用的优化方向。',
+    '',
+    '【出生资料】',
+    formatBirthContext(input.analysis.birthContext),
+    '',
+    '【姓名资料】',
+    formatNameAnalysis(input.analysis),
+    '',
+    '【传统依据】',
+    '康熙笔画用于五格数理与三才配置；出生四柱用于提取命局喜用方向；字义、音律、字形和现实语境共同决定名字的实际使用感受。',
+    '',
+    '【问题】',
+    input.question?.trim() ||
+      `请完整解析“${input.analysis.surname}${input.analysis.given}”这个姓名。`,
+    '',
+    '【输出要求】',
+    '先给整体结论，再分别说明出生适配、字义组合、读音节奏、书写辨识、谐音与社会使用感受、三才五格，最后给出可直接比较的优点、留意点和优化建议。',
+  ].join('\n');
+}
+
+export function buildChineseNamingPrompt(input: {
+  surname: string;
+  gender?: NamingGender;
+  candidates: ReturnType<typeof generateChineseNames>;
+  suitableCharacters?: CharacterDetail[];
+  preferredCharacters?: string;
+  forbiddenCharacters?: string;
+  generationCharacter?: string;
+  generationPosition?: GenerationCharacterPosition;
+}) {
+  if (!input.candidates.length) throw new Error('请先生成姓名候选');
+  return [
+    '【任务】',
+    '综合出生取用、用字条件、字义搭配、音律节奏、字形协调、谐音联想和现代社会使用场景设计姓名。候选姓名只是比较起点，可以重新组合适配字，也可以补充同类常用字并提出更合适的新名字。',
+    '',
+    '【出生资料】',
+    formatBirthContext(input.candidates[0]!.analysis.birthContext),
+    '',
+    '【起名资料】',
+    [
+      `姓氏：${input.surname}`,
+      `取向：${input.gender ?? '通用'}`,
+      `偏好字：${namingCharacters(input.preferredCharacters).join('、') || '自然、易读、易写'}`,
+      `回避用字：${namingCharacters(input.forbiddenCharacters).join('、') || '无'}`,
+      `辈分字：${namingCharacters(input.generationCharacter).join('') || '无'}${input.generationCharacter ? `（${input.generationPosition === 'second' ? '名字末字' : '名字首字'}）` : ''}`,
+      `适配字池：${(input.suitableCharacters ?? []).map((item) => `${item.char}（${item.wuxing ?? '五行未定'}、${item.pinyin ?? '读音未录'}、${item.definition}）`).join('；') || '结合出生资料与用字条件补充'}`,
+      `候选姓名：\n${input.candidates.map((item, index) => `${index + 1}. ${formatNameAnalysis(item.analysis)}`).join('\n\n')}`,
+    ].join('\n'),
+    '',
+    '【传统依据】',
+    '康熙笔画用于五格数理与三才配置；出生四柱用于提取命局喜用方向；名字仍需结合字义、声音、字形和现实语境整体判断。',
+    '',
+    '【输出要求】',
+    '先说明选字思路，再给出不少于八个姓名方案。每个方案说明出生适配、字义组合、读音节奏、字形、谐音联想、辨识度与三才五格，明确标注哪些来自候选样本、哪些是重新设计；最后给出首选名及两个备选名。',
+  ].join('\n');
 }
 
 function reduceBy80(value: bigint) {
@@ -393,3 +572,6 @@ export function castKongmingHexagram(pattern?: string, options?: RandomOptions) 
   const [symbol, name, grade, poem] = KONGMING_HEXAGRAMS[index];
   return { number: index + 1, symbol, name, grade, poem, random: randomTrace };
 }
+
+export type ZhugeNumberResult = ReturnType<typeof calculateZhugeNumber>;
+export type KongmingHexagramResult = ReturnType<typeof castKongmingHexagram>;

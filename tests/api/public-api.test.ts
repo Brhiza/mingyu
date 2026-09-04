@@ -5729,21 +5729,73 @@ test('POST /consultation/thematic/prompt 支持大类主题选择与默认通用
 });
 
 test('公开 API 提供起名、姓名、汉字与号码完整工具链', async () => {
+  const birth = {
+    gender: 'male',
+    year: 2000,
+    month: 1,
+    day: 1,
+    timeIndex: 6,
+  };
   const generated = await callApi('name/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ surname: '李', gender: '通用', limit: 3 }),
+    body: JSON.stringify({
+      surname: '李',
+      gender: '通用',
+      forbiddenCharacters: '乐',
+      generationCharacter: '承',
+      generationPosition: 'second',
+      limit: 3,
+      birth,
+    }),
   });
   assert.equal(generated.response.status, 200);
   assert.equal(generated.body.data.length, 3);
+  assert.equal(generated.body.data[0].analysis.birthContext.pillars.length, 4);
+  assert.ok(
+    generated.body.data.every((item: { givenName: string }) => item.givenName.endsWith('承')),
+  );
+  assert.ok(
+    generated.body.data.every((item: { givenName: string }) => !item.givenName.includes('乐')),
+  );
+  assert.equal(generated.body.data[0].analysis.scores, undefined);
+
+  const namingPrompt = await callApi('name/generate/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      surname: '李',
+      gender: '通用',
+      preferredCharacters: '清宁',
+      forbiddenCharacters: '乐',
+      generationCharacter: '承',
+      generationPosition: 'second',
+      limit: 3,
+      birth,
+    }),
+  });
+  assert.equal(namingPrompt.response.status, 200);
+  assert.match(namingPrompt.body.data.prompt, /偏好字：清、宁/);
+  assert.match(namingPrompt.body.data.prompt, /回避用字：乐/);
+  assert.match(namingPrompt.body.data.prompt, /适配字池：/);
+  assert.match(namingPrompt.body.data.prompt, /重新设计/);
 
   const name = await callApi('name/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fullName: '李清和' }),
+    body: JSON.stringify({ fullName: '李清和', birth }),
   });
   assert.equal(name.response.status, 200);
   assert.equal(name.body.data.surname, '李');
+
+  const prompt = await callApi('name/analyze/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: '李清和', birth, question: '适合长期使用吗？' }),
+  });
+  assert.equal(prompt.response.status, 200);
+  assert.match(prompt.body.data.prompt, /【出生资料】/);
+  assert.match(prompt.body.data.prompt, /适合长期使用吗？/);
 
   const character = await callApi('character/analyze', {
     method: 'POST',
@@ -5788,6 +5840,15 @@ test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', 
   });
   assert.equal(kongming.response.status, 200);
   assert.equal(kongming.body.data.symbol, '●○●○●');
+
+  const zhugePrompt = await callApi('divination/zhuge/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '顺其然', question: '这件事接下来如何推进？' }),
+  });
+  assert.equal(zhugePrompt.response.status, 200);
+  assert.match(zhugePrompt.body.data.prompt, /【问题】/);
+  assert.match(zhugePrompt.body.data.prompt, /康熙笔画/);
 
   const random = await callApi('divination/kongming', {
     method: 'POST',
