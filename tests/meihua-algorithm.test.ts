@@ -283,4 +283,3 @@ test('梅花：应推导主互变事态演变趋势（三阶段趋势机）', ()
   assert.ok(result.analysis.timelineTrend.trend);
   assert.ok(result.analysis.timelineTrend.summary);
 });
-

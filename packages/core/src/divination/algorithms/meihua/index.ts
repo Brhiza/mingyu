@@ -120,18 +120,22 @@ export function evaluateMeihuaTimelineTrend(params: {
   trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '平稳演进';
   summary: string;
 } {
-  const { tiElement, originalYongElement, interTiElement, interYongElement, changedYongElement } = params;
+  const { tiElement, originalYongElement, interTiElement, interYongElement, changedYongElement } =
+    params;
 
   // 1. 初阶段（主卦用对体）
-  const startFavorable = isSheng(originalYongElement, tiElement) || originalYongElement === tiElement;
-  const startDifficult = isKe(originalYongElement, tiElement) || isSheng(tiElement, originalYongElement);
+  const startFavorable =
+    isSheng(originalYongElement, tiElement) || originalYongElement === tiElement;
+  const startDifficult =
+    isKe(originalYongElement, tiElement) || isSheng(tiElement, originalYongElement);
 
   // 2. 中阶段（互卦对原体）
   const midDifficult = isKe(interTiElement, tiElement) || isKe(interYongElement, tiElement);
 
   // 3. 终阶段（变卦用对原体）
   const endFavorable = isSheng(changedYongElement, tiElement) || changedYongElement === tiElement;
-  const endDifficult = isKe(changedYongElement, tiElement) || isSheng(tiElement, changedYongElement);
+  const endDifficult =
+    isKe(changedYongElement, tiElement) || isSheng(tiElement, changedYongElement);
 
   if (startDifficult && endFavorable) {
     return {

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeQimenEvidence, generateQimen, evaluateQimenPatternFulfillment } from 'mingyu-core/divination/qimen';
+import {
+  analyzeQimenEvidence,
+  generateQimen,
+  evaluateQimenPatternFulfillment,
+} from 'mingyu-core/divination/qimen';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
@@ -123,4 +127,3 @@ test('奇门应根据空亡与门迫推导格局成破实效', () => {
   const fulfillments = evaluateQimenPatternFulfillment(data);
   assert.ok(Array.isArray(fulfillments));
 });
-

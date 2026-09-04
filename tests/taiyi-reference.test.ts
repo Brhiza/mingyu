@@ -249,4 +249,3 @@ test('太乙大局攻守应根据和数算与纯阴纯阳策数定性', () => {
   assert.ok(result.countNatures, '太乙盘应包含算数性质');
   assert.match(result.prompt, /大局攻守/);
 });
-

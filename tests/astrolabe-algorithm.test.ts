@@ -455,4 +455,3 @@ test('星盘行星尊贵力量（Essential Dignities）应准确识别入庙、�
   assert.ok(sun);
   assert.ok('dignity' in sun);
 });
-

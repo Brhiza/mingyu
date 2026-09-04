@@ -64,9 +64,7 @@ function buildTaskBookBasicInfo(payload: AnalysisPayloadV1) {
     命主: payload.basic_info.soul,
     身主: payload.basic_info.body,
     五行局: payload.basic_info.five_elements_class,
-    身宫: bodyPalaceName
-      ? formatPalaceName(bodyPalaceName)
-      : undefined,
+    身宫: bodyPalaceName ? formatPalaceName(bodyPalaceName) : undefined,
     命身主轴: getBodyPalaceAxisSummary(bodyPalaceName),
     来因宫: hiddenPalaces?.original_palace_name
       ? formatPalaceName(hiddenPalaces.original_palace_name)

@@ -97,4 +97,3 @@ test('八字应准确推导调候寒暖燥湿失衡与药神', () => {
   assert.equal(hotResult.nature, '燥局');
   assert.match(hotResult.medicine, /壬癸水/);
 });
-

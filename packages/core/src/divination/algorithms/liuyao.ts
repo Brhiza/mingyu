@@ -637,7 +637,8 @@ export function evaluateLiuyaoHiddenSpiritInteraction(params: {
   // 1. 检查飞神是否空破（《增删卜易·伏神章》：飞神逢空逢破，无力压伏，伏神易得出）
   const isFlyingMonthBroken = monthBranch ? isLiuchong(flyingDizhi, monthBranch) : false;
   if (flyingVoid || isFlyingMonthBroken) {
-    const reason = flyingVoid && isFlyingMonthBroken ? '飞神旬空且月破' : flyingVoid ? '飞神旬空' : '飞神月破';
+    const reason =
+      flyingVoid && isFlyingMonthBroken ? '飞神旬空且月破' : flyingVoid ? '飞神旬空' : '飞神月破';
     return `${reason}，压制瓦解，伏神易脱颖而出`;
   }
 

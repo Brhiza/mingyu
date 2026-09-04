@@ -270,4 +270,3 @@ test('六爻伏神应推导飞伏生克实效断诀', () => {
     assert.match(spirit.interactionEffect, /飞|伏/);
   }
 });
-
