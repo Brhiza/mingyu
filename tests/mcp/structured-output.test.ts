@@ -445,7 +445,8 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 63);
+    assert.equal(tools.length, 64);
+    assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });

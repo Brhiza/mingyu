@@ -64,8 +64,8 @@ export function evaluateXiaoliurenFlow(sequence: {
   const rel1 = ELEMENT_RELATION[month.wuxing]?.[day.wuxing] ?? '比和';
   const rel2 = ELEMENT_RELATION[day.wuxing]?.[hour.wuxing] ?? '比和';
 
-  let trajectoryType: XiaoliurenFlowResult['trajectoryType'] = '起伏交错';
-  let classicalJudgment = '';
+  let trajectoryType: XiaoliurenFlowResult['trajectoryType'];
+  let classicalJudgment: string;
 
   if (
     month.name === '留连' &&

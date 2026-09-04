@@ -121,4 +121,9 @@ test('createMingyuMcpServer 应自动为所有工具注入 annotations 元数据
   assert.ok(liuyaoTool);
   assert.equal(liuyaoTool.annotations?.readOnlyHint, true);
   assert.equal(liuyaoTool.annotations?.idempotentHint, false);
+
+  const thematicTool = registered['thematic_consultation_prompt'];
+  assert.ok(thematicTool);
+  assert.equal(thematicTool.annotations?.readOnlyHint, true);
+  assert.equal(thematicTool.annotations?.idempotentHint, true);
 });

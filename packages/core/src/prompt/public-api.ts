@@ -357,7 +357,7 @@ function buildKeyPalaces(palaces: PalaceFact[], isOriginScope: boolean) {
   return lines.join('\n');
 }
 
-function formatZiweiEvidenceText(result: ZiweiRuntime, scope: ZiweiPromptScope = 'origin') {
+export function formatZiweiEvidenceText(result: ZiweiRuntime, scope: ZiweiPromptScope = 'origin') {
   const payload =
     scope === 'full'
       ? result.payloadByScope.origin
@@ -572,3 +572,15 @@ export function buildBaziZiweiPromptForResults(params: {
 export function buildCombinedPromptText(system: string, user: string) {
   return [system, user].filter(Boolean).join('\n\n');
 }
+
+export {
+  THEMATIC_TOPICS,
+  THEMATIC_TOPIC_CONFIGS,
+  normalizeThematicTopic,
+  getThematicTopicConfig,
+  buildThematicConsultationPrompt,
+  type ThematicTopic,
+  type ThematicTopicConfig,
+  type ThematicConsultationOptions,
+  type ThematicConsultationResult,
+} from './thematic';

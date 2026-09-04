@@ -53,6 +53,7 @@
 | **紫微双盘** | `/ziwei/compatibility` | `ziwei_compatibility` | 关键宫位叠盘、生年四化跨盘落宫 |
 | **紫微双盘提示词**| `/ziwei/compatibility/prompt` | `ziwei_compatibility_prompt`| 紫微双盘自包含结构化证据提示词 |
 | **八字紫微合参** | `/bazi-ziwei/prompt` | `bazi_ziwei_prompt` | 同一出生资料，八字定主线，紫微校验运限 |
+| **大类主题咨询** | `/consultation/thematic/prompt` | `thematic_consultation_prompt` | 8大类主题（感情、事业、财运等）自动提取盘面焦点要素生成自包含任务书 |
 | **六爻起卦** | `/divination/liuyao` | `divine_liuyao` | 六爻排卦、世应动变、月日生克 |
 | **六爻提示词** | `/divination/liuyao/prompt` | `liuyao_prompt` | 六爻自包含提示词，支持 `liuyaoTemplate` |
 | **梅花易数** | `/divination/meihua` | `divine_meihua` | 体用互变卦象，支持时间/数字/随机起卦 |
@@ -113,6 +114,7 @@
 - `POST /ziwei/compatibility`：紫微双盘计算。
 - `POST /ziwei/compatibility/prompt`：紫微双盘提示词生成。
 - `POST /bazi-ziwei/prompt`：八字紫微合参提示词生成。
+- `POST /consultation/thematic/prompt`：大类主题咨询提示词（感情、事业、财运等大类自动提取焦点要素）。
 - `POST /divination/liuyao`：六爻起卦。
 - `POST /divination/liuyao/prompt`：六爻提示词生成。
 - `POST /divination/meihua`：梅花易数起卦。

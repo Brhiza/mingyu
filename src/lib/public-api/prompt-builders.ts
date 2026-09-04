@@ -24,6 +24,11 @@ export {
   getBaziSchoolGuidance,
   getZiweiPromptCalculationScopes,
   getZiweiSchoolGuidance,
+  THEMATIC_TOPICS,
+  THEMATIC_TOPIC_CONFIGS,
+  normalizeThematicTopic,
+  getThematicTopicConfig,
+  buildThematicConsultationPrompt,
 } from 'mingyu-core/prompt/public-api';
 
 export type {
@@ -34,4 +39,8 @@ export type {
   ZiweiPromptScope,
   ZiweiPromptTopic,
   ZiweiSchool,
+  ThematicTopic,
+  ThematicTopicConfig,
+  ThematicConsultationOptions,
+  ThematicConsultationResult,
 } from 'mingyu-core/prompt/public-api';

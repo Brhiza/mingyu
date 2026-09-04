@@ -15,6 +15,7 @@ export interface ToolCatalogItem {
     | 'foundation'
     | 'calendar'
     | 'instant'
+    | 'consultation'
     | 'bazi'
     | 'ziwei'
     | 'liuyao'
@@ -259,6 +260,18 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     description: '以同一出生时间联动八字与紫微，生成双体系交叉互证的自包含任务书',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/bazi-ziwei/prompt',
+  },
+
+  // 大类主题咨询
+  {
+    id: 'thematic_consultation_prompt',
+    title: '大类主题咨询提示词',
+    category: 'consultation',
+    type: 'prompt',
+    description:
+      '按通用、感情、事业、财运、健康、家庭、学业、时机等大类自动提取八字与紫微核心要素生成自包含任务书',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/consultation/thematic/prompt',
   },
 
   // 占卜类

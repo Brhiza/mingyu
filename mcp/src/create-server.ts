@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerBaziTool } from './tools/bazi.js';
 import { registerZiweiTool } from './tools/ziwei.js';
 import { registerBaziZiweiTool } from './tools/bazi-ziwei.js';
+import { registerThematicTool } from './tools/thematic.js';
 import { registerLiuyaoTool } from './tools/liuyao.js';
 import { registerMeihuaTool } from './tools/meihua.js';
 import { registerXiaoliurenTool } from './tools/xiaoliuren.js';
@@ -55,6 +56,7 @@ export function createMingyuMcpServer(): McpServer {
   registerBaziTool(server);
   registerZiweiTool(server);
   registerBaziZiweiTool(server);
+  registerThematicTool(server);
   registerLiuyaoTool(server);
   registerMeihuaTool(server);
   registerXiaoliurenTool(server);

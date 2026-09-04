@@ -111,21 +111,124 @@ export function buildFocusTaskBundle(
     };
   }
 
-  if (/career|wealth|事业|工作|财运|创业|投资/i.test(topic)) {
+  if (/career|事业|工作|职场|跳槽|创业|变动/i.test(topic)) {
     const careerPalace = getPalaceByName(payload, '官禄');
     const wealthPalace = getPalaceByName(payload, '财帛');
-    const estatePalace = getPalaceByName(payload, '田宅');
     const migrationPalace = getPalaceByName(payload, '迁移');
+    const parentsPalace = getPalaceByName(payload, '父母');
+    const siblingPalace = getPalaceByName(payload, '兄弟');
     return {
-      focusSummary: '围绕官禄、财帛、田宅与命身宫组织事业财运证据。',
+      focusSummary: '围绕官禄宫及其三方四正（命宫、财帛、迁移）与父母、兄弟宫组织事业职场证据。',
       focusPalaces: dedupePalaces([
         careerPalace,
-        wealthPalace,
-        estatePalace,
-        migrationPalace,
         lifePalace,
         bodyPalace,
+        wealthPalace,
+        migrationPalace,
+        parentsPalace,
+        siblingPalace,
         activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
+  if (/wealth|财运|财富|求财|投资|资产/i.test(topic)) {
+    const wealthPalace = getPalaceByName(payload, '财帛');
+    const estatePalace = getPalaceByName(payload, '田宅');
+    const happinessPalace = getPalaceByName(payload, '福德');
+    const careerPalace = getPalaceByName(payload, '官禄');
+    const siblingPalace = getPalaceByName(payload, '兄弟');
+    return {
+      focusSummary: '围绕财帛宫、田宅宫（财库）、福德宫（财源造化）与官禄、命宫组织求财财富证据。',
+      focusPalaces: dedupePalaces([
+        wealthPalace,
+        estatePalace,
+        happinessPalace,
+        careerPalace,
+        lifePalace,
+        bodyPalace,
+        siblingPalace,
+        activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
+  if (/health|健康|疾厄|病|体质|五行/i.test(topic)) {
+    const healthPalace = getPalaceByName(payload, '疾厄');
+    const parentsPalace = getPalaceByName(payload, '父母');
+    const happinessPalace = getPalaceByName(payload, '福德');
+    return {
+      focusSummary:
+        '围绕疾厄宫、父母宫（遗传与疾厄对宫）、福德宫（心神寿元）与命身宫组织健康体质证据。',
+      focusPalaces: dedupePalaces([
+        healthPalace,
+        parentsPalace,
+        lifePalace,
+        bodyPalace,
+        happinessPalace,
+        activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 7),
+      avoid: [],
+    };
+  }
+
+  if (/family|家庭|六亲|田宅|父母|子女|房产|房宅/i.test(topic)) {
+    const estatePalace = getPalaceByName(payload, '田宅');
+    const parentsPalace = getPalaceByName(payload, '父母');
+    const childrenPalace = getPalaceByName(payload, '子女');
+    const siblingPalace = getPalaceByName(payload, '兄弟');
+    const spousePalace = getPalaceByName(payload, '夫妻');
+    return {
+      focusSummary: '围绕田宅宫（家宅不动产）、父母宫、子女宫、兄弟宫与命身宫组织家庭六亲证据。',
+      focusPalaces: dedupePalaces([
+        estatePalace,
+        parentsPalace,
+        childrenPalace,
+        siblingPalace,
+        lifePalace,
+        bodyPalace,
+        spousePalace,
+        activePalace,
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
+  if (/academic|study|学业|考试|考运|考研|考公|上岸|进修|升学/i.test(topic)) {
+    const careerPalace = getPalaceByName(payload, '官禄');
+    const parentsPalace = getPalaceByName(payload, '父母');
+    const happinessPalace = getPalaceByName(payload, '福德');
+    const migrationPalace = getPalaceByName(payload, '迁移');
+    return {
+      focusSummary: '围绕官禄宫、父母宫（考官印信）、命身宫与福德宫组织学业考试与进修证据。',
+      focusPalaces: dedupePalaces([
+        careerPalace,
+        parentsPalace,
+        lifePalace,
+        bodyPalace,
+        happinessPalace,
+        migrationPalace,
+        activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
+  if (/timing|时机|应期|岁运|动静|抉择/i.test(topic)) {
+    return {
+      focusSummary: '围绕当前运限落宫、对宫冲照、四化飞伏与命身主轴组织岁运动静抉择证据。',
+      focusPalaces: dedupePalaces([
+        activePalace,
+        getOppositePalace(payload, activePalace),
+        ...buildScopeFocusPalaces(payload),
+        lifePalace,
+        bodyPalace,
         ...buildMutagenFocusPalaces(payload).slice(0, 2),
       ]).slice(0, 8),
       avoid: [],
