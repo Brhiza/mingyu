@@ -1,6 +1,6 @@
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';
 import type { ZiweiRuntime } from '../ziwei/runtime';
-import { analyzeZiweiCompatibility } from '../ziwei/iztro/index';
+import { analyzeZiweiCompatibility, getBodyPalaceAxisSummary } from '../ziwei/iztro/index';
 import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance, buildPromptTask } from './guidance';
@@ -195,11 +195,14 @@ export function formatZiweiPayloadForPrompt(
     : payload.palaces;
   const selectedPalaces = palaces.length ? palaces : payload.palaces;
   const isOriginScope = active.scope === 'origin';
+  const bodyPalace = payload.palaces.find((p) => p.is_body_palace);
+  const bodyPalaceName = payload.basic_info.hidden_palaces?.body_palace_name || bodyPalace?.name;
+  const bodyAxis = getBodyPalaceAxisSummary(bodyPalaceName);
 
   return [
     `分析范围：${active.label || SCOPE_LABELS[active.scope]}`,
     `基本资料：${basic.gender}；公历${basic.solar_date}；农历${basic.lunar_date}；${basic.birth_time_label}；生肖${basic.zodiac}`,
-    `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}`,
+    `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}${bodyAxis ? `；命身主轴：${bodyAxis}` : ''}`,
     basic.four_pillars
       ? `四柱：年${basic.four_pillars.year_pillar}、月${basic.four_pillars.month_pillar}、日${basic.four_pillars.day_pillar}、时${basic.four_pillars.hour_pillar}`
       : '',
