@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeQimenEvidence, generateQimen } from 'mingyu-core/divination/qimen';
+import { analyzeQimenEvidence, generateQimen, evaluateQimenPatternFulfillment } from 'mingyu-core/divination/qimen';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
@@ -117,3 +117,10 @@ test('奇门证据应保留空亡与宫间五行反证', () => {
   assert.match(evidence.promptText, /宫位逢空/);
   assert.ok(evidence.relations.every((item) => item.relation.length > 0));
 });
+
+test('奇门应根据空亡与门迫推导格局成破实效', () => {
+  const data = generateQimen(fixedDate);
+  const fulfillments = evaluateQimenPatternFulfillment(data);
+  assert.ok(Array.isArray(fulfillments));
+});
+

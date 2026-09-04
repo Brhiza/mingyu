@@ -23,6 +23,7 @@ import {
   getDunJiaStem,
   hasTianPanStem,
 } from '../divination/algorithms/qimen/helpers/palace-utils';
+import { evaluateQimenPatternFulfillment } from '../divination/algorithms/qimen/helpers/guidance';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
 import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
@@ -544,6 +545,8 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
   const juTerm = data.timeInfo?.juTerm || data.timeInfo?.solarTerm || '未列';
   const birthInfo = formatQimenBirthInfo(data, supplementaryInfo);
 
+  const patternFulfillments = evaluateQimenPatternFulfillment(data);
+
   return [
     '占法：奇门遁甲',
     `起局方法：${data.method === 'feipan' ? '飞盘法' : '转盘法'}；${data.juMethod === 'zhirun' ? '置闰法定局' : '拆补法定局'}；${data.scope ? ({ hour: '时家', day: '日家', month: '月家', year: '年家' } as const)[data.scope] : '时家'}`,
@@ -557,6 +560,7 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
     palaceLines.length ? '九宫简表：' : '',
     ...palaceLines,
     classicPatternLines.length ? `格局索引：${classicPatternLines.join('、')}` : '',
+    patternFulfillments.length ? `格局实效：${patternFulfillments.slice(0, 3).join('；')}` : '',
   ]
     .filter(Boolean)
     .join('\n');
