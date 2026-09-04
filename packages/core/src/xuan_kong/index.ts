@@ -14,6 +14,10 @@ import {
 } from '../direction';
 import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './evidence';
 import {
+  evaluateCastleGate,
+  type CastleGateEvaluation,
+} from './castle-gate';
+import {
   flyStars,
   resolveFlyingStarYunState,
   resolveShanXiangRelation,
@@ -26,6 +30,7 @@ import {
 } from './period-stars';
 
 export {
+  evaluateCastleGate,
   flyStars,
   resolveFlyingStarYunState,
   resolveMonthFlyingStar,
@@ -39,6 +44,7 @@ export type {
   ShanXiangRelation,
   XuanKongFlowStars,
 } from './period-stars';
+export type { CastleGateCandidate, CastleGateEvaluation } from './castle-gate';
 
 export type XuanKongFormation = Formation;
 
@@ -122,6 +128,7 @@ export interface XuanKongResult {
     summary: string;
   };
   measurement?: XuanKongMeasurement;
+  castleGate?: CastleGateEvaluation;
   evidenceAnalysis: XuanKongEvidenceAnalysis;
   prompt: string;
 }
@@ -362,6 +369,7 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
       ? `组合：${result.combinations.map((item) => item.name).join('、')}`
       : '组合：未检出特殊组合',
     `到山到向：${result.daoShanXiang.summary}`,
+    result.castleGate?.summary ?? '',
     (() => {
       const wuHuang = result.palaces?.find((p) => p.xiangStar === 5 || p.shanStar === 5);
       return wuHuang
@@ -464,6 +472,11 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
   );
   const formation = chart.formation;
   const combinations = chart.combinations.map(mapCombination);
+  const castleGate = evaluateCastleGate({
+    yun: period.yun,
+    facingMountain,
+    yunPlate,
+  });
   const partial = {
     period,
     sitMountain,
@@ -485,6 +498,7 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
       mode: '下卦' as const,
     },
     daoShanXiang,
+    castleGate,
     ...(measurement ? { measurement } : {}),
   };
 
