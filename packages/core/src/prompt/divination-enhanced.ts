@@ -367,6 +367,9 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.analysis.tiYongSeasonEvaluation
       ? `体用吉凶实效：${data.analysis.tiYongSeasonEvaluation}`
       : '',
+    data.analysis.timelineTrend?.summary
+      ? `事态演进轨迹：${data.analysis.timelineTrend.summary}`
+      : '',
     timingEvidence ? `应期线索：${timingEvidence}` : '',
     data.mainHexagram?.description
       ? `主卦卦辞：${data.mainHexagram.name}，${data.mainHexagram.description}`

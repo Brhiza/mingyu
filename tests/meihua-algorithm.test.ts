@@ -276,3 +276,11 @@ test('梅花：五行关系 helper 应拒绝非法五行，不应返回未知', 
   assert.throws(() => MeihuaHelpers.getElementRelation('', '木'), /用卦五行无效/);
   assert.throws(() => MeihuaHelpers.getElementSeasonState('风', '春'), /目标五行无效/);
 });
+
+test('梅花：应推导主互变事态演变趋势（三阶段趋势机）', () => {
+  const result = generateMeihua(new Date('2025-06-18T10:30:00+08:00'));
+  assert.ok(result.analysis.timelineTrend);
+  assert.ok(result.analysis.timelineTrend.trend);
+  assert.ok(result.analysis.timelineTrend.summary);
+});
+

@@ -450,6 +450,11 @@ export interface MeihuaData extends BaseHexagramData {
     tiYongRaw?: string;
     /** 体用旺衰与生克综合断诀（《梅花易数·体用生克篇》） */
     tiYongSeasonEvaluation?: string;
+    /** 事态初中终三阶段推进演化趋势（依据《梅花易数·观梅数诀》） */
+    timelineTrend?: {
+      trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '平稳演进';
+      summary: string;
+    };
     yingQi?: string[];
   };
   /** 主卦信息 */
