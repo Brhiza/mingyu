@@ -23,6 +23,14 @@ mingyu-mcp
 
 ---
 
+## 远程服务（免安装）
+
+如果你不想在本地运行进程，也可以在支持 Remote MCP 的客户端中直接配置官方提供的远程 Streamable HTTP 节点：
+
+- **URL**: `https://aov.cc/mcp`
+
+---
+
 ## 客户端配置
 
 ### 1. Claude Desktop
@@ -50,6 +58,7 @@ mingyu-mcp
 ### 2. Cursor / Windsurf / Cline
 
 在对应客户端的 MCP 设置中添加命令：
+
 - **Command**: `npx`
 - **Args**: `-y mingyu-mcp`
 
@@ -70,4 +79,4 @@ mingyu-mcp
 
 ## 开源协议
 
-AGPL-3.0 License
+[AGPL-3.0-only](LICENSE) License

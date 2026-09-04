@@ -580,6 +580,58 @@ test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复�
         false,
         `${name} 不应通过旧排盘工具返回提示词`,
       );
+      if (name === 'divine_zhuge') {
+        const firstSign = await client.callTool({
+          name,
+          arguments: { text: '夏夏一', detailMode: 'full' },
+        });
+        assert.equal(firstSign.isError, undefined);
+        const analysis = firstSign.structuredContent!.result as {
+          number: number;
+          sign: { summary: string };
+          interpretation: { quote: string; interpretation: string; classicalImage: string };
+        };
+        assert.equal(analysis.number, 1);
+        assert.equal(analysis.interpretation.quote, '秋高听鹿鸣');
+        assert.equal(analysis.sign.summary, analysis.interpretation.interpretation);
+        assert.match(analysis.interpretation.classicalImage, /诗经·小雅·鹿鸣/);
+      }
+      if (name === 'divine_kongming') {
+        const analysis = result.structuredContent.result as {
+          interpretation: { quote: string; interpretation: string; condition: string };
+          draws: Array<{ index: number; polarity: string }>;
+        };
+        assert.equal(analysis.interpretation.quote, '目下如冬树');
+        assert.match(analysis.interpretation.interpretation, /等待条件回暖/);
+        assert.match(analysis.interpretation.condition, /启动信号/);
+        assert.deepEqual(
+          analysis.draws.map((item) => item.polarity),
+          ['阳', '阴', '阳', '阴', '阳'],
+        );
+      }
+      if (name === 'number_analyze') {
+        const analysis = result.structuredContent.result as {
+          energyPairs: Array<{ trigramEvidence: { starName: string; changedLines: number[] } }>;
+        };
+        assert.equal(analysis.energyPairs[0].trigramEvidence.starName, '破军');
+        assert.deepEqual(analysis.energyPairs[0].trigramEvidence.changedLines, [2]);
+      }
+      if (name === 'character_analyze') {
+        const analysis = result.structuredContent.result as {
+          characters: Array<{
+            detail: {
+              simplifiedStrokes: number;
+              traditionalStrokes: number;
+              kangxiText: string;
+              definition: string;
+            };
+          }>;
+        };
+        assert.equal(analysis.characters[1].detail.simplifiedStrokes, 8);
+        assert.equal(analysis.characters[1].detail.traditionalStrokes, 16);
+        assert.match(analysis.characters[1].detail.kangxiText, /【說文】/);
+        assert.match(analysis.characters[1].detail.definition, /博学多才/);
+      }
       if (name === 'foundation_capabilities') {
         const capabilities = result.structuredContent.result as {
           key: string;

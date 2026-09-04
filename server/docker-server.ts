@@ -5,6 +5,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { handlePublicApiRequest, isPublicApiRequestPath } from '../src/lib/public-api/handler';
+import { handleMcpRequest } from '../src/lib/mcp/handler';
 import { getPublicApiManifestForRequest } from '../src/lib/public-api/metadata';
 import type { AiEnv } from '../src/lib/ai/proxy';
 import { AI_CLIENT_ADDRESS_HEADER } from '../src/lib/ai/rate-limit';
@@ -128,6 +129,59 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
   }
 
   Readable.fromWeb(apiResponse.body).pipe(response);
+}
+
+async function handleMcpServerRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+) {
+  let body: Buffer | undefined;
+  try {
+    body =
+      request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS'
+        ? undefined
+        : await readLimitedNodeRequestBody(request, DEFAULT_MAX_REQUEST_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      sendJson(response, 413, {
+        jsonrpc: '2.0',
+        error: { code: -32600, message: 'Request body too large' },
+        id: null,
+      });
+      return;
+    }
+    throw error;
+  }
+
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(request.headers)) {
+    if (Array.isArray(value)) {
+      value.forEach((item) => headers.append(key, item));
+    } else if (value !== undefined) {
+      headers.set(key, value);
+    }
+  }
+
+  const mcpResponse = await handleMcpRequest(
+    new Request(url, {
+      method: request.method,
+      headers,
+      body,
+    }),
+  );
+
+  response.statusCode = mcpResponse.status;
+  mcpResponse.headers.forEach((value, key) => {
+    response.setHeader(key, value);
+  });
+
+  if (!mcpResponse.body) {
+    response.end();
+    return;
+  }
+
+  Readable.fromWeb(mcpResponse.body).pipe(response);
 }
 
 function getTrustedClientAddress(request: IncomingMessage): string {
@@ -297,6 +351,11 @@ export function createDockerServer() {
   return createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+
+      if (url.pathname === '/mcp') {
+        await handleMcpServerRequest(request, response, url);
+        return;
+      }
 
       if (isPublicApiRequestPath(url.pathname)) {
         await handleApiRequest(request, response, url);

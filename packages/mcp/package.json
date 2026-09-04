@@ -15,7 +15,7 @@
     "星盘"
   ],
   "author": "Brhiza",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-only",
   "homepage": "https://github.com/Brhiza/mingyu#readme",
   "repository": {
     "type": "git",
@@ -28,6 +28,7 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ]
 }
