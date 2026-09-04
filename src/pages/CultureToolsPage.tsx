@@ -1,5 +1,4 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   analyzeChineseCharacters,
   analyzeChineseName,
@@ -15,15 +14,34 @@ import {
   type Wuxing,
 } from 'mingyu-core/name-number';
 import { PromptDeliveryPanel } from '@/components/PromptPreview';
+import { DropdownSelect, type DropdownSelectOption } from '@/components/DropdownSelect';
+import { SegmentedControl } from '@/components/SegmentedControl';
+import { WorkspacePage } from '@/components/workspace/WorkspaceUI';
+import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
+import { sortPersonalCasesForQuickSwitch, type PersonalHistoryRecord } from '@/lib/history-records';
 
 type ToolId = 'naming' | 'name' | 'hanzi' | 'number';
 type BirthDraft = {
-  enabled: boolean;
-  date: string;
-  gender: '' | 'male' | 'female';
+  gender: 'male' | 'female';
+  dateType: 'solar' | 'lunar';
+  year: string;
+  month: string;
+  day: string;
   timeIndex: number | '';
+  isLeapMonth: boolean;
+};
+
+const TEMPORARY_CASE_VALUE = '__temporary_case__';
+const emptyBirthDraft: BirthDraft = {
+  gender: 'male',
+  dateType: 'solar',
+  year: '',
+  month: '',
+  day: '',
+  timeIndex: '',
+  isLeapMonth: false,
 };
 
 const tools: Array<{ id: ToolId; label: string; description: string; mark: string }> = [
@@ -33,6 +51,13 @@ const tools: Array<{ id: ToolId; label: string; description: string; mark: strin
   { id: 'number', label: '数字解析', description: '手机号、车牌号与一般号码', mark: '数' },
 ];
 const wuxingOptions: Array<'' | Wuxing> = ['', '金', '木', '水', '火', '土'];
+const birthTimeOptions: DropdownSelectOption<string>[] = [
+  { value: '', label: '请选择时辰' },
+  ...BIRTH_TIME_OPTIONS.map((item) => ({
+    value: String(item.index),
+    label: `${item.label}（${item.range}）`,
+  })),
+];
 const gridLabels: Record<string, string> = {
   tian: '天格',
   ren: '人格',
@@ -42,22 +67,36 @@ const gridLabels: Record<string, string> = {
 };
 
 function createBirthInput(birth: BirthDraft): NamingBirthInput | undefined {
-  if (!birth.enabled) return undefined;
-  if (!birth.date || !birth.gender || birth.timeIndex === '') {
+  if (!birth.year || !birth.month || !birth.day || birth.timeIndex === '') {
     throw new Error('请填写完整的出生日期、性别和时辰');
   }
-  const [year, month, day] = birth.date.split('-').map(Number);
   return {
     gender: birth.gender,
-    year,
-    month,
-    day,
+    year: Number(birth.year),
+    month: Number(birth.month),
+    day: Number(birth.day),
     timeIndex: birth.timeIndex,
-    dateType: 'solar',
+    dateType: birth.dateType,
+    ...(birth.dateType === 'lunar' ? { isLeapMonth: birth.isLeapMonth } : {}),
+  };
+}
+
+function getCaseBirthDraft(activeCase: PersonalHistoryRecord | null): BirthDraft {
+  if (!activeCase) return { ...emptyBirthDraft };
+  const { input } = activeCase;
+  return {
+    gender: input.gender,
+    dateType: input.dateType,
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    timeIndex: input.timeIndex,
+    isLeapMonth: input.isLeapMonth,
   };
 }
 
 export function CultureToolsPage() {
+  const { cases, activeCase, activeCaseId, selectCase } = useActivePersonalCase();
   const [activeTool, setActiveTool] = useState<ToolId>('naming');
   const [error, setError] = useState('');
   const [surname, setSurname] = useState('李');
@@ -67,12 +106,7 @@ export function CultureToolsPage() {
   const [generationCharacter, setGenerationCharacter] = useState('');
   const [generationPosition, setGenerationPosition] =
     useState<GenerationCharacterPosition>('first');
-  const [namingBirth, setNamingBirth] = useState<BirthDraft>({
-    enabled: true,
-    date: '',
-    gender: '',
-    timeIndex: '',
-  });
+  const [birth, setBirth] = useState<BirthDraft>(() => getCaseBirthDraft(activeCase));
   const [nameCandidates, setNameCandidates] = useState<ReturnType<typeof generateChineseNames>>([]);
   const [namingCharacterPool, setNamingCharacterPool] = useState<
     ReturnType<typeof selectNamingCharacters>
@@ -81,12 +115,6 @@ export function CultureToolsPage() {
   const [fullName, setFullName] = useState('李清和');
   const [surnameLength, setSurnameLength] = useState<1 | 2>(1);
   const [nameQuestion, setNameQuestion] = useState('');
-  const [analysisBirth, setAnalysisBirth] = useState<BirthDraft>({
-    enabled: true,
-    date: '',
-    gender: '',
-    timeIndex: '',
-  });
   const [nameResult, setNameResult] = useState<ReturnType<typeof analyzeChineseName> | null>(null);
   const [hanziText, setHanziText] = useState('清和');
   const [hanziResult, setHanziResult] = useState<ReturnType<
@@ -101,6 +129,28 @@ export function CultureToolsPage() {
   const [numberText, setNumberText] = useState('13800138000');
   const [numberPurpose, setNumberPurpose] = useState<'phone' | 'plate' | 'general'>('phone');
   const [numberResult, setNumberResult] = useState<ReturnType<typeof analyzeNumber> | null>(null);
+
+  const caseOptions = useMemo<DropdownSelectOption<string>[]>(
+    () => [
+      {
+        value: TEMPORARY_CASE_VALUE,
+        label: '不指定案例',
+        triggerLabel: '临时档案',
+      },
+      ...sortPersonalCasesForQuickSwitch(cases).map((record) => ({
+        value: record.id,
+        label: `${record.name} · ${record.birthText}`,
+        triggerLabel: record.name,
+      })),
+    ],
+    [cases],
+  );
+
+  useEffect(() => {
+    setBirth(getCaseBirthDraft(activeCase));
+    const caseName = activeCase?.input.name.trim();
+    if (caseName) setFullName(caseName);
+  }, [activeCase]);
 
   const namingPrompt = useMemo(
     () =>
@@ -153,20 +203,7 @@ export function CultureToolsPage() {
   }
 
   return (
-    <main className="culture-tools-page">
-      <header className="culture-tools-hero">
-        <div>
-          <span className="culture-tools-eyebrow">文字与数理</span>
-          <h1>从资料出发，得到可以比较的结果</h1>
-          <p>先看清字、名与数字本身，再把完整资料交给 AI 做综合解读。</p>
-        </div>
-        <nav className="culture-divination-links" aria-label="相关占问">
-          <span>想问一件具体的事？</span>
-          <Link to="/divination/zhuge">诸葛神数</Link>
-          <Link to="/divination/kongming">孔明神卦</Link>
-        </nav>
-      </header>
-
+    <WorkspacePage title="文字与数理" width="wide" className="culture-tools-page">
       <nav className="culture-tools-tabs" aria-label="文字与数理工具">
         {tools.map((tool) => (
           <button
@@ -190,7 +227,7 @@ export function CultureToolsPage() {
             className="culture-tools-input-panel"
             onSubmit={(event) =>
               run(event, () => {
-                const birth = createBirthInput(namingBirth);
+                const birthInput = createBirthInput(birth);
                 const options = {
                   surname,
                   gender,
@@ -199,7 +236,7 @@ export function CultureToolsPage() {
                   forbiddenCharacters,
                   generationCharacter,
                   generationPosition,
-                  birth,
+                  birth: birthInput,
                   limit: 12,
                 } as const;
                 const candidates = generateChineseNames(options);
@@ -226,14 +263,14 @@ export function CultureToolsPage() {
               </Field>
             </div>
             <div className="culture-tools-fields is-two">
-              <Field label="偏好字" hint="优先进入候选与适配字池">
+              <Field label="偏好字" hint="喜欢或希望保留的字">
                 <input
                   value={preferredCharacters}
                   onChange={(event) => setPreferredCharacters(event.target.value)}
                   placeholder="例如：清 宁 和"
                 />
               </Field>
-              <Field label="忌用字" hint="本地候选会直接排除">
+              <Field label="忌用字" hint="姓名中不会使用的字">
                 <input
                   value={forbiddenCharacters}
                   onChange={(event) => setForbiddenCharacters(event.target.value)}
@@ -259,7 +296,13 @@ export function CultureToolsPage() {
                 </select>
               </Field>
             </div>
-            <BirthSection value={namingBirth} onChange={setNamingBirth} />
+            <BirthSection
+              value={birth}
+              onChange={setBirth}
+              caseId={activeCaseId}
+              caseOptions={caseOptions}
+              onCaseChange={selectCase}
+            />
             <button className="culture-tools-primary" type="submit">
               生成姓名候选
             </button>
@@ -301,7 +344,7 @@ export function CultureToolsPage() {
               <Empty
                 mark="名"
                 title="候选会在这里集中比较"
-                text="出生取用会形成适配字池，偏好、忌用与辈分规则会直接作用于候选。"
+                text="填写资料后生成姓名，并逐个查看用字与出生适配。"
               />
             )}
           </section>
@@ -330,7 +373,7 @@ export function CultureToolsPage() {
                   analyzeChineseName({
                     fullName,
                     surnameLength,
-                    birth: createBirthInput(analysisBirth),
+                    birth: createBirthInput(birth),
                   }),
                 ),
               )
@@ -351,8 +394,14 @@ export function CultureToolsPage() {
                 </select>
               </Field>
             </div>
-            <BirthSection value={analysisBirth} onChange={setAnalysisBirth} />
-            <Field label="想重点了解什么" hint="会写入完整提示词">
+            <BirthSection
+              value={birth}
+              onChange={setBirth}
+              caseId={activeCaseId}
+              caseOptions={caseOptions}
+              onCaseChange={selectCase}
+            />
+            <Field label="想重点了解什么">
               <textarea
                 value={nameQuestion}
                 onChange={(event) => setNameQuestion(event.target.value)}
@@ -366,7 +415,7 @@ export function CultureToolsPage() {
           </form>
 
           <section className="culture-tools-result-panel">
-            <SectionHeading step="02" title="综合结果" hint="算法结果用于建立可核对的分析底稿" />
+            <SectionHeading step="02" title="综合结果" hint="查看姓名与出生信息的整体关系" />
             {nameResult ? (
               <NameReport result={nameResult} />
             ) : (
@@ -545,7 +594,7 @@ export function CultureToolsPage() {
           </section>
         </section>
       ) : null}
-    </main>
+    </WorkspacePage>
   );
 }
 
@@ -576,73 +625,129 @@ function SectionHeading({ step, title, hint }: { step: string; title: string; hi
 function BirthSection({
   value,
   onChange,
+  caseId,
+  caseOptions,
+  onCaseChange,
 }: {
   value: BirthDraft;
   onChange: (next: BirthDraft) => void;
+  caseId: string | null;
+  caseOptions: readonly DropdownSelectOption<string>[];
+  onCaseChange: (caseId: string | null) => void;
 }) {
+  const isLunar = value.dateType === 'lunar';
+
   return (
-    <section className={'culture-birth-card' + (value.enabled ? ' is-enabled' : '')}>
-      <header>
-        <div>
-          <strong>结合出生资料</strong>
-          <small>用于判断命局喜用方向</small>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={value.enabled}
-          onClick={() => onChange({ ...value, enabled: !value.enabled })}
-        >
-          <span />
-        </button>
-      </header>
-      {value.enabled ? (
-        <div className="culture-tools-fields is-three">
-          <Field label="公历生日">
-            <input
-              type="date"
-              required
-              value={value.date}
-              onChange={(event) => onChange({ ...value, date: event.target.value })}
-            />
-          </Field>
-          <Field label="性别">
-            <select
-              required
+    <section className="workspace-ui-form-surface culture-birth-section">
+      <div className="workspace-ui-form-heading">
+        <h3>出生资料</h3>
+        <DropdownSelect<string>
+          value={caseId ?? TEMPORARY_CASE_VALUE}
+          options={caseOptions}
+          onChange={(next) => onCaseChange(next === TEMPORARY_CASE_VALUE ? null : next)}
+          ariaLabel="切换案例"
+          prefix="案例"
+        />
+      </div>
+      <div className="workspace-ui-form-body">
+        <div className={`workspace-ui-form-row ${isLunar ? 'is-three-column' : 'is-two-column'}`}>
+          <div className="workspace-ui-field">
+            <label>性别</label>
+            <SegmentedControl
               value={value.gender}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  gender: event.target.value as BirthDraft['gender'],
-                })
+              options={[
+                { label: '男', value: 'male' as const },
+                { label: '女', value: 'female' as const },
+              ]}
+              onChange={(gender) => onChange({ ...value, gender })}
+            />
+          </div>
+          <div className="workspace-ui-field">
+            <label>日历</label>
+            <SegmentedControl
+              value={isLunar}
+              options={[
+                { label: '公历', value: false },
+                { label: '农历', value: true },
+              ]}
+              onChange={(next) =>
+                onChange({ ...value, dateType: next ? 'lunar' : 'solar', isLeapMonth: false })
               }
-            >
-              <option value="">请选择</option>
-              <option value="male">男</option>
-              <option value="female">女</option>
-            </select>
-          </Field>
-          <Field label="出生时辰">
-            <select
-              required
-              value={value.timeIndex}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  timeIndex: event.target.value === '' ? '' : Number(event.target.value),
-                })
-              }
-            >
-              <option value="">请选择</option>
-              {BIRTH_TIME_OPTIONS.map((item) => (
-                <option key={item.index} value={item.index}>
-                  {item.label} · {item.range}
-                </option>
-              ))}
-            </select>
-          </Field>
+            />
+          </div>
+          {isLunar ? (
+            <div className="workspace-ui-field">
+              <label>月别</label>
+              <SegmentedControl
+                value={value.isLeapMonth}
+                options={[
+                  { label: '平月', value: false },
+                  { label: '闰月', value: true },
+                ]}
+                onChange={(isLeapMonth) => onChange({ ...value, isLeapMonth })}
+              />
+            </div>
+          ) : null}
         </div>
-      ) : null}
+        <div className="workspace-ui-form-row workspace-ui-date-row">
+          <div className="workspace-ui-field">
+            <label htmlFor="culture-birth-year">年</label>
+            <input
+              id="culture-birth-year"
+              className="workspace-ui-control"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              required
+              value={value.year}
+              placeholder="2000"
+              onChange={(event) => onChange({ ...value, year: event.target.value })}
+            />
+          </div>
+          <div className="workspace-ui-field">
+            <label htmlFor="culture-birth-month">月</label>
+            <input
+              id="culture-birth-month"
+              className="workspace-ui-control"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              required
+              value={value.month}
+              placeholder="1-12"
+              onChange={(event) => onChange({ ...value, month: event.target.value })}
+            />
+          </div>
+          <div className="workspace-ui-field">
+            <label htmlFor="culture-birth-day">日</label>
+            <input
+              id="culture-birth-day"
+              className="workspace-ui-control"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              required
+              value={value.day}
+              placeholder="1-31"
+              onChange={(event) => onChange({ ...value, day: event.target.value })}
+            />
+          </div>
+        </div>
+        <div className="workspace-ui-form-row">
+          <div className="workspace-ui-field">
+            <label htmlFor="culture-birth-time">时辰</label>
+            <DropdownSelect<string>
+              id="culture-birth-time"
+              value={String(value.timeIndex)}
+              options={birthTimeOptions}
+              variant="field"
+              onChange={(next) =>
+                onChange({ ...value, timeIndex: next === '' ? '' : Number(next) })
+              }
+            />
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -719,7 +824,6 @@ function NamingCharacterPool({ items }: { items: ReturnType<typeof selectNamingC
     <section className="culture-naming-pool">
       <header>
         <h3>适配选字</h3>
-        <p>偏好字优先，随后结合出生取用与常用字整理；可继续交给 AI 重新组合。</p>
       </header>
       <div>
         {items.map((item) => (

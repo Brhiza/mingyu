@@ -2315,84 +2315,18 @@ button:focus-visible,
 }
 .culture-tools-page {
   width: min(1180px, 100%);
-  margin: 0 auto;
-  padding: 32px clamp(16px, 3vw, 40px) 64px;
 }
 
-.culture-tools-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 28px;
-  padding: clamp(20px, 4vw, 38px);
-  border: 1px solid var(--border-soft);
-  border-radius: 26px;
-  background:
-    radial-gradient(
-      circle at 8% 10%,
-      color-mix(in srgb, var(--accent-strong) 14%, transparent),
-      transparent 42%
-    ),
-    var(--surface-base);
-  box-shadow: var(--shadow-card);
-}
-
-.culture-tools-hero h1 {
-  max-width: 680px;
-  margin: 7px 0 10px;
-  font-size: clamp(28px, 4vw, 46px);
-  line-height: 1.15;
-}
-
-.culture-tools-hero p,
 .culture-tools-footnote {
   margin: 0;
   color: var(--text-muted);
-}
-
-.culture-tools-eyebrow {
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-}
-
-.culture-divination-links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  max-width: 340px;
-}
-
-.culture-divination-links span {
-  width: 100%;
-  color: var(--text-muted);
-  font-size: 12px;
-  text-align: right;
-}
-
-.culture-divination-links a {
-  padding: 9px 13px;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  background: var(--surface-soft);
-  color: inherit;
-  font-size: 13px;
-  text-decoration: none;
-}
-
-.culture-divination-links a:hover {
-  border-color: var(--border-contrast);
-  color: var(--accent-strong);
 }
 
 .culture-tools-tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  margin: 18px 0;
+  margin: 0 0 18px;
 }
 
 .culture-tools-tabs button {
@@ -2453,11 +2387,11 @@ button:focus-visible,
 
 .culture-tools-input-panel,
 .culture-tools-result-panel {
-  padding: clamp(20px, 3vw, 28px);
+  padding: 18px;
   border: 1px solid var(--border-soft);
-  border-radius: 22px;
+  border-radius: 14px;
   background: var(--surface-base);
-  box-shadow: var(--shadow-card);
+  box-shadow: none;
 }
 
 .culture-tools-input-panel {
@@ -2578,59 +2512,8 @@ button:focus-visible,
   color: var(--accent-strong);
 }
 
-.culture-birth-card {
-  padding: 15px;
-  border: 1px solid var(--border-soft);
-  border-radius: 16px;
+.culture-birth-section {
   background: var(--surface-soft);
-}
-
-.culture-birth-card > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.culture-birth-card > header div {
-  display: grid;
-  gap: 3px;
-}
-
-.culture-birth-card > header small {
-  color: var(--text-muted);
-}
-
-.culture-birth-card > header button {
-  width: 42px;
-  height: 24px;
-  padding: 3px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--surface-muted);
-  cursor: pointer;
-}
-
-.culture-birth-card > header button span {
-  display: block;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: transform 160ms ease;
-}
-
-.culture-birth-card.is-enabled > header button {
-  background: color-mix(in srgb, var(--accent-strong) 28%, var(--surface-muted));
-}
-
-.culture-birth-card.is-enabled > header button span {
-  background: var(--accent-strong);
-  transform: translateX(18px);
-}
-
-.culture-birth-card .culture-tools-fields {
-  margin-top: 15px;
 }
 
 .culture-tools-error {
@@ -2734,19 +2617,9 @@ button:focus-visible,
   background: var(--surface-soft);
 }
 
-.culture-naming-pool header h3,
-.culture-naming-pool header p {
-  margin: 0;
-}
-
 .culture-naming-pool header h3 {
+  margin: 0;
   font-size: 15px;
-}
-
-.culture-naming-pool header p {
-  margin-top: 4px;
-  color: var(--text-muted);
-  font-size: 11px;
 }
 
 .culture-naming-pool > div {
@@ -3006,24 +2879,6 @@ button:focus-visible,
 }
 
 @media (max-width: 700px) {
-  .culture-tools-page {
-    padding: 14px 11px 42px;
-  }
-
-  .culture-tools-hero {
-    display: grid;
-    padding: 22px 18px;
-    border-radius: 20px;
-  }
-
-  .culture-divination-links {
-    justify-content: flex-start;
-  }
-
-  .culture-divination-links span {
-    text-align: left;
-  }
-
   .culture-tools-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3045,8 +2900,8 @@ button:focus-visible,
 
   .culture-tools-input-panel,
   .culture-tools-result-panel {
-    padding: 18px 15px;
-    border-radius: 18px;
+    padding: 15px;
+    border-radius: 14px;
   }
 
   .culture-tools-fields.is-two,
