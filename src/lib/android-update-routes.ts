@@ -1,4 +1,4 @@
-export type AndroidDownloadRouteId = 'lanzou' | 'github' | 'gh-proxy' | 'ghfast';
+export type AndroidDownloadRouteId = 'rng-cdn' | 'lanzou' | 'github' | 'gh-proxy' | 'ghfast';
 
 export type AndroidDownloadRoute = {
   id: AndroidDownloadRouteId;
@@ -38,28 +38,30 @@ async function fetchRouteProbe(
 
 export function buildAndroidDownloadRoutes(
   version: string,
-  githubUrl: string,
+  apkUrl: string,
 ): AndroidDownloadRoute[] {
   const encodedVersion = encodeURIComponent(version);
+  const githubUrl = `https://github.com/Brhiza/mingyu/releases/download/android-v${encodedVersion}/mingyu-${encodedVersion}.apk`;
   return [
+    { id: 'rng-cdn', name: '线路 1 · 官方下载', url: apkUrl, priority: 1 },
     {
       id: 'lanzou',
-      name: '线路 1 · 蓝奏云',
+      name: '线路 2 · 蓝奏云',
       url: `https://lanzou-cloudflare-api.brhiza.workers.dev/v1/public/mingyu/${encodedVersion}`,
-      priority: 1,
+      priority: 2,
     },
-    { id: 'github', name: '线路 2 · GitHub 直连', url: githubUrl, priority: 2 },
+    { id: 'github', name: '线路 3 · GitHub 直连', url: githubUrl, priority: 3 },
     {
       id: 'gh-proxy',
-      name: '线路 3 · GitHub 加速',
+      name: '线路 4 · GitHub 加速',
       url: `https://gh-proxy.com/${githubUrl}`,
-      priority: 3,
+      priority: 4,
     },
     {
       id: 'ghfast',
-      name: '线路 4 · GitHub 加速',
+      name: '线路 5 · GitHub 加速',
       url: `https://ghfast.top/${githubUrl}`,
-      priority: 4,
+      priority: 5,
     },
   ];
 }
