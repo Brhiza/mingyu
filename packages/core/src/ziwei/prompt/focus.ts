@@ -88,7 +88,53 @@ export function buildFocusTaskBundle(
     };
   }
 
+  const topic = reportContext.selectedTopic ?? '';
+
+  if (/relationship|婚恋|感情|配偶|夫妻|桃花|合婚/i.test(topic)) {
+    const spousePalace = getPalaceByName(payload, '夫妻');
+    const careerPalace = getPalaceByName(payload, '官禄');
+    const happinessPalace = getPalaceByName(payload, '福德');
+    const migrationPalace = getPalaceByName(payload, '迁移');
+    return {
+      focusSummary: '围绕夫妻宫及其对宫（官禄）、三方（迁移、福德）与命身宫组织婚恋情感证据。',
+      focusPalaces: dedupePalaces([
+        spousePalace,
+        lifePalace,
+        careerPalace,
+        happinessPalace,
+        migrationPalace,
+        bodyPalace,
+        activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
+
+  if (/career|wealth|事业|工作|财运|创业|投资/i.test(topic)) {
+    const careerPalace = getPalaceByName(payload, '官禄');
+    const wealthPalace = getPalaceByName(payload, '财帛');
+    const estatePalace = getPalaceByName(payload, '田宅');
+    const migrationPalace = getPalaceByName(payload, '迁移');
+    return {
+      focusSummary: '围绕官禄、财帛、田宅与命身宫组织事业财运证据。',
+      focusPalaces: dedupePalaces([
+        careerPalace,
+        wealthPalace,
+        estatePalace,
+        migrationPalace,
+        lifePalace,
+        bodyPalace,
+        activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
   const generalPalaces = (
+
     isOriginScope
       ? dedupePalaces([
           activePalace,

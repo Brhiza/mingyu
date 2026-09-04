@@ -94,3 +94,32 @@ test('紫微命身复合主轴断诀应准确对应身宫落宫', async () => {
     '身在福德，重精神寄托、情趣与内省体验，好精神享受，后天行藏随心境变化',
   );
 });
+
+test('紫微提示词应完整输出夫妻宫主星、辅曜与宫干飞化自化', async () => {
+  const draft = {
+    name: '婚恋测试',
+    gender: 'female',
+    dateType: 'solar',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 4,
+    isLeapMonth: false,
+  } as const;
+  const input = buildZiweiChartInput(draft);
+  const runtime = await calculateZiweiChart(input, {
+    scopes: ['origin'],
+    skipAnalysis: false,
+    horoscopeContext: { dateStr: '2026-08-06', hourIndex: 4 },
+  });
+  const { buildZiweiPrompt } = await import('mingyu-core/prompt');
+  const prompt = buildZiweiPrompt({
+    runtime,
+    topic: 'relationship',
+  });
+  assert.match(prompt, /夫妻宫/);
+  assert.match(prompt, /主星：/);
+  assert.match(prompt, /宫干支/);
+  assert.match(prompt, /宫干飞化：/);
+});
+

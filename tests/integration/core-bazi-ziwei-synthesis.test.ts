@@ -99,3 +99,13 @@ test('高层客户端应直接提供八字紫微合参和安全调用', async ()
   assert.equal(safe.ok, true);
   assert.equal(client.capability('bazi-ziwei-synthesis').name, '八字紫微合参');
 });
+
+test('八字紫微跨体系合参互证应准确分析羊刃煞曜与天乙贵人吉曜同参', async () => {
+  const reading = await getCombinedReading();
+  assert.ok(reading.synthesis.corroboration);
+  assert.ok(reading.synthesis.corroboration.shaYao);
+  assert.ok(reading.synthesis.corroboration.guiRen);
+  assert.match(reading.synthesis.corroboration.summary, /八字紫微互证：/);
+  assert.match(reading.promptText, /八字紫微互证：/);
+});
+

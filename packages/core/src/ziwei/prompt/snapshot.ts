@@ -193,7 +193,12 @@ export function buildZiweiTaskBookSnapshot(params: {
     ...(patternSummary.length ? ['', '【命盘格局】', formatObjectList(patternSummary)] : []),
     ...(evidenceBody ? ['', '【关键判断线索】', evidenceBody] : []),
     ...(formatObjectList(focusBody) ? ['', '【重点宫位资料】', formatObjectList(focusBody)] : []),
+    ...(formatObjectList(buildPalaceIndex(payload))
+      ? ['', '【全盘十二宫总览】', formatObjectList(buildPalaceIndex(payload))]
+      : []),
   ];
+
+
   return sections
     .flat()
     .filter((line): line is string => typeof line === 'string')
