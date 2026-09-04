@@ -65,7 +65,8 @@ function formatLiuyaoYaoBrief(item: LiuyaoData['yaosDetail'][number]) {
 }
 
 function formatHiddenSpirit(item: NonNullable<LiuyaoData['hiddenSpirits']>[number]) {
-  return `${item.sixRelative}伏第${item.position}爻${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaDizhi}${item.underYao.wuxing}下`;
+  const effectText = item.interactionEffect ? `（${item.interactionEffect}）` : '';
+  return `${item.sixRelative}伏第${item.position}爻${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaDizhi}${item.underYao.wuxing}下${effectText}`;
 }
 
 function createLiuyaoTimingEvidence(data: LiuyaoData): string {

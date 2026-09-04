@@ -238,6 +238,8 @@ export interface LiuyaoHiddenSpirit {
     najiaDizhi: string;
     wuxing: string;
   };
+  /** 飞伏生克实效断语（依据《增删卜易·伏神章》与《卜筮正宗》） */
+  interactionEffect?: string;
 }
 
 export type LiuyaoHexagramRelation = '六合卦' | '六冲卦';
