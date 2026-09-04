@@ -131,11 +131,16 @@ jobs:
       - name: 同步到统一 APK 分发
         env:
           APP_RELEASE_PUBLISH_TOKEN: ${{ secrets.APP_RELEASE_PUBLISH_TOKEN }}
+          APP_RELEASE_ORIGIN_IP: ${{ secrets.APP_RELEASE_ORIGIN_IP }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           if [[ -z "$APP_RELEASE_PUBLISH_TOKEN" ]]; then
             echo "缺少 APP_RELEASE_PUBLISH_TOKEN，已停止发布。" >&2
+            exit 1
+          fi
+          if [[ -z "$APP_RELEASE_ORIGIN_IP" ]]; then
+            echo "缺少 APP_RELEASE_ORIGIN_IP，已停止发布。" >&2
             exit 1
           fi
           apk_name="mingyu-${ANDROID_VERSION}.apk"
@@ -154,6 +159,7 @@ jobs:
             '{version: $version, versionCode: $versionCode, channel: "latest", fileName: $fileName, sha256: $sha256, assetUrl: $assetUrl, releaseUrl: $releaseUrl, releaseNotes: $releaseNotes}' \
             > release/app-release-payload.json
           curl --fail-with-body --retry 3 --retry-all-errors \
+            --resolve "download.aov.cc:443:${APP_RELEASE_ORIGIN_IP}" \
             --request POST \
             --header "Authorization: Bearer ${APP_RELEASE_PUBLISH_TOKEN}" \
             --header "Content-Type: application/json" \
