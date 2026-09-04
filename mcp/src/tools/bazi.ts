@@ -203,6 +203,9 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
       applyChinaDst: args.applyChinaDst,
       shenShaScope: args.shenShaScope,
       shenShaVariants: args.shenShaVariants,
+    };
+  }
+
   const isUnknownTime = typeof args.timeIndex !== 'number' || args.timeIndex < 0;
   const timeIndex = isUnknownTime
     ? 6
