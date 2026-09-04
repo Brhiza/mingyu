@@ -62,21 +62,25 @@ export function evaluateQizhengEnNan(params: {
   // 1. 昼夜分金：卯时（5-7）至酉时（17-19）为昼，其余为夜
   const isDay = hour >= 6 && hour < 18;
   const sect: '昼生' | '夜生' = isDay ? '昼生' : '夜生';
-  const sectSummary = isDay
-    ? '昼生以日为尊，太阳高朗为贵'
-    : '夜生以月为重，太阴清辉为吉';
+  const sectSummary = isDay ? '昼生以日为尊，太阳高朗为贵' : '夜生以月为重，太阴清辉为吉';
 
   // 2. 命主五行与恩难仇用角色划分
   const mingElement = STAR_WUXING[mingZhu] ?? '木';
 
   // 生我者为恩
-  const enElement = Object.entries(ELEMENT_SHENG).find(([, v]) => v === mingElement)?.[0] as WuxingElement;
+  const enElement = Object.entries(ELEMENT_SHENG).find(
+    ([, v]) => v === mingElement,
+  )?.[0] as WuxingElement;
   // 克我者为难
-  const nanElement = Object.entries(ELEMENT_KE).find(([, v]) => v === mingElement)?.[0] as WuxingElement;
+  const nanElement = Object.entries(ELEMENT_KE).find(
+    ([, v]) => v === mingElement,
+  )?.[0] as WuxingElement;
   // 我生者为用
   const yongElement = ELEMENT_SHENG[mingElement];
   // 克恩者为仇
-  const chouElement = Object.entries(ELEMENT_KE).find(([, v]) => v === enElement)?.[0] as WuxingElement;
+  const chouElement = Object.entries(ELEMENT_KE).find(
+    ([, v]) => v === enElement,
+  )?.[0] as WuxingElement;
 
   const enStars: string[] = [];
   const nanStars: string[] = [];
@@ -93,9 +97,7 @@ export function evaluateQizhengEnNan(params: {
 
   // 3. 扫描吊照中与命主星交会的相位
   const aspectInteraction: string[] = [];
-  const mingZhuAspects = aspects.filter(
-    (a) => a.star1 === mingZhu || a.star2 === mingZhu,
-  );
+  const mingZhuAspects = aspects.filter((a) => a.star1 === mingZhu || a.star2 === mingZhu);
 
   for (const aspect of mingZhuAspects) {
     const counterpart = aspect.star1 === mingZhu ? aspect.star2 : aspect.star1;

@@ -346,4 +346,3 @@ test('八宅明镜气口制化：门主同元相生与九星制化断诀', () =>
   assert.ok(clashResult.gasRegulation);
   assert.match(clashResult.gasRegulation.doorMasterSummary, /命宅相悖/);
 });
-

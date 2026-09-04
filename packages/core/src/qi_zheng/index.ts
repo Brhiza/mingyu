@@ -57,10 +57,7 @@ import {
   formatQizhengTimeLordPrompt,
   type QizhengTimeLordResult,
 } from './time-lords';
-import {
-  evaluateQizhengEnNan,
-  type QizhengEnNanProfile,
-} from './en-nan';
+import { evaluateQizhengEnNan, type QizhengEnNanProfile } from './en-nan';
 
 // astronomy-engine 在 Node 22 的 tsx 环境中可能以 default 暴露，浏览器和 Rollup
 // 则通常直接暴露具名导出。动态读取只用于选择运行时模块形态，避免静态读取
@@ -2234,9 +2231,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   };
 }
 
-export {
-  evaluateQizhengEnNan,
-} from './en-nan';
+export { evaluateQizhengEnNan } from './en-nan';
 export type { QizhengEnNanProfile } from './en-nan';
 
 export {

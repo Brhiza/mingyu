@@ -13,10 +13,7 @@ import {
   type CompassMountainPosition,
 } from '../direction';
 import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './evidence';
-import {
-  evaluateCastleGate,
-  type CastleGateEvaluation,
-} from './castle-gate';
+import { evaluateCastleGate, type CastleGateEvaluation } from './castle-gate';
 import {
   flyStars,
   resolveFlyingStarYunState,

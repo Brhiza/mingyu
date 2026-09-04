@@ -13,7 +13,10 @@ import type {
   AstrolabeSynastrySummaryFact,
 } from '../types/divination';
 import { classifyAspectClosenessByRatio } from './astrolabe-aspect-evidence';
-import { evaluateAstrolabeSynastryReceptions, type AstrolabeSynastryReception } from './astrolabe-reception';
+import {
+  evaluateAstrolabeSynastryReceptions,
+  type AstrolabeSynastryReception,
+} from './astrolabe-reception';
 
 export { evaluateAstrolabeSynastryReceptions };
 export type { AstrolabeSynastryReception };

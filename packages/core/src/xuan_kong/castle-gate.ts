@@ -156,7 +156,8 @@ export function evaluateCastleGate(params: {
     const baseMountain = Object.values(MOUNTAIN_PROFILES).find(
       (m) => m.gong === yunStar && m.yuanLong === targetYuanLong,
     );
-    const flyDirection: FlyDirection = baseMountain && baseMountain.yinYang === '阳' ? '顺飞' : '逆飞';
+    const flyDirection: FlyDirection =
+      baseMountain && baseMountain.yinYang === '阳' ? '顺飞' : '逆飞';
     const plate = flyStars(yunStar, flyDirection);
     const arrivalStar = plate[gong - 1];
 

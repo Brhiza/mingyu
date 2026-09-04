@@ -16,7 +16,10 @@ export interface BaZhaiGasRegulationResult {
   promptSummary: string;
 }
 
-export const NINE_STAR_WUXING: Record<string, { star: string; element: '木' | '火' | '土' | '金' | '水'; nature: '吉' | '凶' }> = {
+export const NINE_STAR_WUXING: Record<
+  string,
+  { star: string; element: '木' | '火' | '土' | '金' | '水'; nature: '吉' | '凶' }
+> = {
   生气: { star: '贪狼', element: '木', nature: '吉' },
   延年: { star: '武曲', element: '金', nature: '吉' },
   天医: { star: '巨门', element: '土', nature: '吉' },
@@ -64,7 +67,7 @@ export function evaluateBaZhaiRegulation(params: {
   ];
 
   // 2. 门主（命与宅）相生化气配合
-  let doorMasterSummary = '';
+  let doorMasterSummary: string;
   if (!houseGua || !houseGroup) {
     doorMasterSummary = `单见${mingGua}命，未入宅气，以命卦四吉方纳气安居。`;
   } else if (mingGroup === houseGroup) {

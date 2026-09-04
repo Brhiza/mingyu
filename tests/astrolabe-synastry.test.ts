@@ -221,4 +221,3 @@ test('西占合盘互溶与接纳判定：识别金火互溶与接纳断诀', ()
   assert.match(mutual.summary, /庙旺互溶/);
   assert.match(result.promptText, /【古典接纳互溶】/);
 });
-

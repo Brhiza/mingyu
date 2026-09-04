@@ -16,33 +16,43 @@ export interface AstrolabeSynastryReception {
 }
 
 const TRADITIONAL_RULERS: Record<number, string> = {
-  0: 'Mars',     // 白羊
-  1: 'Venus',    // 金牛
-  2: 'Mercury',  // 双子
-  3: 'Moon',     // 巨蟹
-  4: 'Sun',      // 狮子
-  5: 'Mercury',  // 处女
-  6: 'Venus',    // 天秤
-  7: 'Mars',     // 天蝎
-  8: 'Jupiter',  // 射手
-  9: 'Saturn',   // 摩羯
-  10: 'Saturn',  // 水瓶
+  0: 'Mars', // 白羊
+  1: 'Venus', // 金牛
+  2: 'Mercury', // 双子
+  3: 'Moon', // 巨蟹
+  4: 'Sun', // 狮子
+  5: 'Mercury', // 处女
+  6: 'Venus', // 天秤
+  7: 'Mars', // 天蝎
+  8: 'Jupiter', // 射手
+  9: 'Saturn', // 摩羯
+  10: 'Saturn', // 水瓶
   11: 'Jupiter', // 双鱼
 };
 
 const TRADITIONAL_EXALTATIONS: Record<number, string> = {
-  0: 'Sun',      // 白羊
-  1: 'Moon',     // 金牛
-  3: 'Jupiter',  // 巨蟹
-  5: 'Mercury',  // 处女
-  6: 'Saturn',   // 天秤
-  9: 'Mars',     // 摩羯
-  11: 'Venus',   // 双鱼
+  0: 'Sun', // 白羊
+  1: 'Moon', // 金牛
+  3: 'Jupiter', // 巨蟹
+  5: 'Mercury', // 处女
+  6: 'Saturn', // 天秤
+  9: 'Mars', // 摩羯
+  11: 'Venus', // 双鱼
 };
 
 const ZODIAC_SIGNS = [
-  '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座',
-  '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座',
+  '白羊座',
+  '金牛座',
+  '双子座',
+  '巨蟹座',
+  '狮子座',
+  '处女座',
+  '天秤座',
+  '天蝎座',
+  '射手座',
+  '摩羯座',
+  '水瓶座',
+  '双鱼座',
 ];
 
 const PLANET_LABELS: Record<string, string> = {
@@ -76,11 +86,11 @@ export function evaluateAstrolabeSynastryReceptions(
 
   // 1. 检查双方互溶（Mutual Reception）
   for (const p1 of p1Planets) {
-    const sign1Index = Math.floor(((p1.longitude % 360) + 360) % 360 / 30);
+    const sign1Index = Math.floor((((p1.longitude % 360) + 360) % 360) / 30);
     const rulerOfSign1 = TRADITIONAL_RULERS[sign1Index];
 
     for (const p2 of p2Planets) {
-      const sign2Index = Math.floor(((p2.longitude % 360) + 360) % 360 / 30);
+      const sign2Index = Math.floor((((p2.longitude % 360) + 360) % 360) / 30);
       const rulerOfSign2 = TRADITIONAL_RULERS[sign2Index];
 
       const pairKey = `${p1.name}:${p2.name}`;
@@ -116,8 +126,8 @@ export function evaluateAstrolabeSynastryReceptions(
     const pairKey = `reception:${p1.name}:${p2.name}`;
     if (processedPairs.has(pairKey)) continue;
 
-    const sign1Index = Math.floor(((p1.longitude % 360) + 360) % 360 / 30);
-    const sign2Index = Math.floor(((p2.longitude % 360) + 360) % 360 / 30);
+    const sign1Index = Math.floor((((p1.longitude % 360) + 360) % 360) / 30);
+    const sign2Index = Math.floor((((p2.longitude % 360) + 360) % 360) / 30);
 
     const ruler1 = TRADITIONAL_RULERS[sign1Index];
     const exalt1 = TRADITIONAL_EXALTATIONS[sign1Index];

@@ -174,4 +174,3 @@ test('玄空飞星城门诀：八运午向判定巽方城门得位与提示词�
   assert.match(result.castleGate.summary, /城门诀/);
   assert.ok(result.prompt.includes('城门诀：'));
 });
-

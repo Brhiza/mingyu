@@ -291,4 +291,3 @@ test('七政四余恩难仇用与昼夜分金定性：根据生时判定昼夜�
   assert.equal(nightChart.enNan.sect, '夜生');
   assert.match(nightChart.enNan.sectSummary, /夜生以月为重/);
 });
-
