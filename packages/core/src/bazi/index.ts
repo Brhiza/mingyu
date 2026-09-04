@@ -189,3 +189,4 @@ export type {
   BaziUsefulGodCoverage,
   BaziUsefulGodCoverageItem,
 } from './compatibilityEvidence';
+export { evaluateBaziClimateBalance, type BaziClimateBalanceResult } from './climateBalance';

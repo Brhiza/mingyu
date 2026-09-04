@@ -407,6 +407,12 @@ export interface BaziChartResult {
   shenShaAnalysis: ShenShaResult;
   /** 自坐信息 */
   ziZuo: ZiZuoResult;
+  /** 调候寒暖燥湿定性（依据《穷通宝鉴》《滴天髓》） */
+  climate?: {
+    nature: '寒局' | '燥局' | '中和' | '微偏寒' | '微偏燥';
+    medicine: string;
+    summary: string;
+  };
   /** 空亡结果 */
   kongWang: KongWangResult;
   /** 各天干的四时旺相休囚死 */

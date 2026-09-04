@@ -7,6 +7,7 @@ import { ShenShaCalculator } from './baziShenSha';
 import { BaziAnalyzer } from './baziAnalysis';
 import { LuckCalculator } from './LuckCalculator';
 import { WuxingCalculator } from './WuxingCalculator';
+import { evaluateBaziClimateBalance } from './climateBalance';
 import {
   getWuxing as getWuxingUtil,
   getGanYinYang,
@@ -516,6 +517,7 @@ export class BaziCalculator {
     | 'wuxingSeasonStatus'
     | 'monthCommander'
     | 'seasonInfo'
+    | 'climate'
   > {
     const { gender } = person;
     const { pillars, dayMaster, solarTime, eightChar } = coreResult;
@@ -583,6 +585,7 @@ export class BaziCalculator {
       wuxingSeasonStatus: getSeasonStatus(pillars.month.zhi),
       monthCommander,
       seasonInfo,
+      climate: evaluateBaziClimateBalance(pillars),
       analysis: this.analyzer.analyzeBaziChart(pillars, hiddenStems, monthCommander, {
         currentJieqi: seasonInfo.currentJieqi,
       }),
