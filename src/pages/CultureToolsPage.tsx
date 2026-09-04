@@ -480,7 +480,7 @@ export function CultureToolsPage() {
                     <button
                       key={item.char}
                       type="button"
-                      title={item.definition}
+                      title={item.definition ?? undefined}
                       onClick={() => {
                         setHanziText(item.char);
                         setHanziResult(analyzeChineseCharacters(item.char));
@@ -723,7 +723,7 @@ function NamingCharacterPool({ items }: { items: ReturnType<typeof selectNamingC
       </header>
       <div>
         {items.map((item) => (
-          <span key={item.char} title={item.definition}>
+          <span key={item.char} title={item.definition ?? undefined}>
             <strong>{item.char}</strong>
             <small>
               {item.wuxing ?? '待定'} · {item.pinyin ?? '读音待补'}
