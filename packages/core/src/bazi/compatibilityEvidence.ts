@@ -21,7 +21,6 @@ import {
   type BaziMarriageDeepEvaluation,
 } from './compatibility-marriage';
 
-
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
 const PILLAR_LABELS: Record<PillarKey, string> = {
   year: '年柱',
@@ -984,7 +983,6 @@ export function analyzeBaziCompatibility(
   ];
   const marriageDeep = evaluateBaziMarriageDeep(chart1, chart2);
   const calculationSteps = buildBaseCalculationSteps({
-
     people,
     dayMasterRelation,
     relations: crossPillarRelations,

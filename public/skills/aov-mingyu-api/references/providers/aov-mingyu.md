@@ -6,21 +6,27 @@
 
 ## 一、基础服务地址与响应格式
 
-- **官方基础地址**：`https://aov.cc/api/v1`
-- **统一成功响应**：
+- **官方公开 API**：`https://aov.cc/api/v1`
+- **Remote MCP 服务地址（支持 CORS）**：
+  - **Streamable HTTP 端点**：`https://aov.cc/mcp`（或本地 `http://localhost:3000/mcp`）
+  - **SSE 通信端点**：`https://aov.cc/sse`（消息投递：`/message`）
+  - **本地 STDIO 启动**：`npx mingyu-mcp` 或 `pnpm mcp`
+- **统一成功响应与 Envelope 契约**：
   ```json
   {
-    "ok": true,
-    "data": {},
-    "meta": { "service": "aov.cc", "version": "v1" }
+    "result": {},
+    "meta": { "tool": "bazi_calculate", "durationMs": 12, "system": "mingyu-mcp" },
+    "warnings": ["缺时辰已安全启用三柱降级分析"]
   }
   ```
-- **统一错误响应**：
+- **统一结构化业务错误响应**：
   ```json
   {
-    "ok": false,
-    "error": { "code": "BAD_REQUEST", "message": "错误说明" },
-    "meta": { "service": "aov.cc", "version": "v1" }
+    "error": "缺少必要出生时辰",
+    "code": "MISSING_BIRTH_TIME",
+    "missingFields": ["timeIndex"],
+    "retryable": true,
+    "fallback": "可选择三柱降级模式仅排年月日三柱"
   }
   ```
 

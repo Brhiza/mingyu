@@ -286,4 +286,3 @@ test('八字合婚古典深层理法应准确判定纳音配对、夫妻宫天�
   assert.match(result.marriageDeep.summary, /八字合婚理法：/);
   assert.match(result.promptText, /八字合婚理法：/);
 });
-

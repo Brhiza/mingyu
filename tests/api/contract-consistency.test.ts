@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PUBLIC_API_ENDPOINTS,
@@ -73,7 +73,9 @@ test('Skill 数据提供方适配文档中的端点必须全部在 PUBLIC_API_EN
 });
 
 test('MCP Server 必须完整覆盖所有已公开的核心术式工具', () => {
-  const mcpServerPath = join(process.cwd(), 'mcp/src/server.ts');
+  const mcpServerPath = existsSync(join(process.cwd(), 'mcp/src/create-server.ts'))
+    ? join(process.cwd(), 'mcp/src/create-server.ts')
+    : join(process.cwd(), 'mcp/src/server.ts');
   const serverContent = readFileSync(mcpServerPath, 'utf8');
 
   const requiredToolRegisters = [

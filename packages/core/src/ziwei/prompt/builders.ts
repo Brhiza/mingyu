@@ -295,4 +295,3 @@ export function buildPalaceIndex(payload: AnalysisPayloadV1) {
     };
   });
 }
-

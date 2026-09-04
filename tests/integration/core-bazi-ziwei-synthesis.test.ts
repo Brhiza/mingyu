@@ -108,4 +108,3 @@ test('八字紫微跨体系合参互证应准确分析羊刃煞曜与天乙贵�
   assert.match(reading.synthesis.corroboration.summary, /八字紫微互证：/);
   assert.match(reading.promptText, /八字紫微互证：/);
 });
-

@@ -3,9 +3,27 @@ import { shapeCalculationResult, type ResultDetailMode } from '../../src/lib/res
 
 type StructuredContent = Record<string, unknown>;
 
+export interface ErrorToolResultOptions {
+  code?: string;
+  missingFields?: string[];
+  retryable?: boolean;
+  fallback?: string;
+}
+
+export interface StructuredToolResultOptions {
+  meta?: {
+    tool?: string;
+    durationMs?: number;
+    system?: string;
+    [key: string]: unknown;
+  };
+  warnings?: string[];
+}
+
 export function createStructuredToolResult(
   structuredContent: StructuredContent,
   detailMode?: ResultDetailMode | null,
+  options?: StructuredToolResultOptions,
 ): CallToolResult {
   const prompt =
     typeof structuredContent.prompt === 'string' ? structuredContent.prompt : undefined;
@@ -17,8 +35,14 @@ export function createStructuredToolResult(
         ? structuredContent
         : { prompt };
 
+  const finalContent: Record<string, unknown> = {
+    ...responseContent,
+    ...(options?.meta ? { meta: options.meta } : {}),
+    ...(options?.warnings?.length ? { warnings: options.warnings } : {}),
+  };
+
   return {
-    structuredContent: responseContent,
+    structuredContent: finalContent,
     content: [
       {
         type: 'text',
@@ -28,13 +52,24 @@ export function createStructuredToolResult(
   };
 }
 
-export function createErrorToolResult(message: string): CallToolResult {
+export function createErrorToolResult(
+  message: string,
+  options?: ErrorToolResultOptions,
+): CallToolResult {
+  const structuredContent: Record<string, unknown> = {
+    error: message,
+    ...(options?.code ? { code: options.code } : {}),
+    ...(options?.missingFields?.length ? { missingFields: options.missingFields } : {}),
+    ...(options?.retryable !== undefined ? { retryable: options.retryable } : {}),
+    ...(options?.fallback ? { fallback: options.fallback } : {}),
+  };
+
   return {
-    structuredContent: { error: message },
+    structuredContent,
     content: [
       {
         type: 'text',
-        text: JSON.stringify({ error: message }),
+        text: JSON.stringify(structuredContent),
       },
     ],
     isError: true,

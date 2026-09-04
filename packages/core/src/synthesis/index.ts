@@ -24,7 +24,6 @@ export {
   type GuiRenCorroborationResult,
 };
 
-
 export type BaziZiweiSynthesisThemeId =
   | 'overview'
   | 'character'
@@ -521,7 +520,6 @@ export function formatBaziZiweiSynthesisForPrompt(
     .filter((line) => line !== '')
     .join('\n');
 }
-
 
 export interface BaziZiweiCombinedReadingOptions {
   ziwei?: ZiweiRuntimeOptions;

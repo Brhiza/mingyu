@@ -122,4 +122,3 @@ test('紫微提示词应完整输出夫妻宫主星、辅曜与宫干飞化自�
   assert.match(prompt, /宫干支/);
   assert.match(prompt, /宫干飞化：/);
 });
-

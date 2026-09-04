@@ -111,7 +111,6 @@ export function buildFocusTaskBundle(
     };
   }
 
-
   if (/career|wealth|事业|工作|财运|创业|投资/i.test(topic)) {
     const careerPalace = getPalaceByName(payload, '官禄');
     const wealthPalace = getPalaceByName(payload, '财帛');
@@ -134,7 +133,6 @@ export function buildFocusTaskBundle(
   }
 
   const generalPalaces = (
-
     isOriginScope
       ? dedupePalaces([
           activePalace,

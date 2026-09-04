@@ -198,7 +198,6 @@ export function buildZiweiTaskBookSnapshot(params: {
       : []),
   ];
 
-
   return sections
     .flat()
     .filter((line): line is string => typeof line === 'string')

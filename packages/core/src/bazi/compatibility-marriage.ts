@@ -16,7 +16,6 @@ import {
 } from '../ganzhi/relations';
 import { getWuxing } from './baziUtils';
 
-
 export interface NayinCompatibilityResult {
   person1YearGanZhi: string;
   person1Nayin: string;
@@ -149,7 +148,6 @@ export function evaluateSpousePalaceDeepRelation(
     branchRelation = '同支';
   } else if (LIUHE_MAP[zhi1] === zhi2) {
     branchRelation = '六合';
-
   } else if (LIUCHONG_MAP[zhi1] === zhi2) {
     branchRelation = '六冲';
   } else if (isSanxing(zhi1, zhi2)) {
@@ -205,7 +203,6 @@ function countElementOccurrences(chart: BaziChartResult, elements: string[]): nu
   }
   return count;
 }
-
 
 /**
  * 评估喜用神互补度

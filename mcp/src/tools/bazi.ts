@@ -226,7 +226,6 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
   };
 }
 
-
 export function registerBaziTool(server: McpServer) {
   server.registerTool(
     'bazi_calculate',

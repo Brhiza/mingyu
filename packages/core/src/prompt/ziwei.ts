@@ -187,7 +187,6 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
     .join('；');
 }
 
-
 function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
   const values = payload.active_scope.mutagen_map
     .filter((item) => !isOriginScope || !item.dynamic_palace_name)

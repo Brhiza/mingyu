@@ -96,7 +96,8 @@ export function evaluateShaYaoCorroboration(
   let judgment: string;
   if (hasBaziYangRen && ziweiShaStars.length > 0) {
     if (isHarmonized) {
-      judgment = '八字见羊刃且日主旺健，紫微关键宫位逢煞星入照，煞为我用，威权独揽，多具决断破格之力';
+      judgment =
+        '八字见羊刃且日主旺健，紫微关键宫位逢煞星入照，煞为我用，威权独揽，多具决断破格之力';
     } else {
       judgment = '八字羊刃与紫微煞曜同现，刚气太重，行事宜沉潜蓄势，化刚戾为坚韧';
     }

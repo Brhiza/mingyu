@@ -155,7 +155,7 @@ export class BaziCalculator {
     const isLeapMonthEnabled = isLeapMonth === true;
     const isThreePillars = Boolean(
       person.isThreePillars ||
-        (!useTrueSolarTimeEnabled && (typeof timeIndex !== 'number' || timeIndex < 0)),
+      (!useTrueSolarTimeEnabled && (typeof timeIndex !== 'number' || timeIndex < 0)),
     );
     const effectiveTimeIndex = isThreePillars ? 6 : timeIndex!;
     const selectedTimeInfo = this.timeMap[effectiveTimeIndex];
