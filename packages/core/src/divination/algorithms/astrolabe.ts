@@ -129,6 +129,81 @@ function formatPosition(signName: string, degree: number, minute: number) {
   return `${SIGN_LABELS[signName] ?? signName}${degree}°${String(minute).padStart(2, '0')}′`;
 }
 
+const ESSENTIAL_DIGNITIES: Record<
+  string,
+  {
+    domicile: string[];
+    exaltation: string[];
+    detriment: string[];
+    fall: string[];
+  }
+> = {
+  Sun: {
+    domicile: ['Leo', '狮子座'],
+    exaltation: ['Aries', '白羊座'],
+    detriment: ['Aquarius', '水瓶座'],
+    fall: ['Libra', '天秤座'],
+  },
+  Moon: {
+    domicile: ['Cancer', '巨蟹座'],
+    exaltation: ['Taurus', '金牛座'],
+    detriment: ['Capricorn', '摩羯座'],
+    fall: ['Scorpio', '天蝎座'],
+  },
+  Mercury: {
+    domicile: ['Gemini', 'Virgo', '双子座', '处女座'],
+    exaltation: ['Virgo', '处女座'],
+    detriment: ['Sagittarius', 'Pisces', '射手座', '双鱼座'],
+    fall: ['Pisces', '双鱼座'],
+  },
+  Venus: {
+    domicile: ['Taurus', 'Libra', '金牛座', '天秤座'],
+    exaltation: ['Pisces', '双鱼座'],
+    detriment: ['Scorpio', 'Aries', '天蝎座', '白羊座'],
+    fall: ['Virgo', '处女座'],
+  },
+  Mars: {
+    domicile: ['Aries', 'Scorpio', '白羊座', '天蝎座'],
+    exaltation: ['Capricorn', '摩羯座'],
+    detriment: ['Libra', 'Taurus', '天秤座', '金牛座'],
+    fall: ['Cancer', '巨蟹座'],
+  },
+  Jupiter: {
+    domicile: ['Sagittarius', 'Pisces', '射手座', '双鱼座'],
+    exaltation: ['Cancer', '巨蟹座'],
+    detriment: ['Gemini', 'Virgo', '双子座', '处女座'],
+    fall: ['Capricorn', '摩羯座'],
+  },
+  Saturn: {
+    domicile: ['Capricorn', 'Aquarius', '摩羯座', '水瓶座'],
+    exaltation: ['Libra', '天秤座'],
+    detriment: ['Cancer', 'Leo', '巨蟹座', '狮子座'],
+    fall: ['Aries', '白羊座'],
+  },
+};
+
+export function getEssentialDignity(
+  planetName: string,
+  signName: string,
+): { dignity: 'domicile' | 'exaltation' | 'detriment' | 'fall'; label: string } | null {
+  const rule = ESSENTIAL_DIGNITIES[planetName];
+  if (!rule) return null;
+
+  if (rule.domicile.includes(signName)) {
+    return { dignity: 'domicile', label: '入庙' };
+  }
+  if (rule.exaltation.includes(signName)) {
+    return { dignity: 'exaltation', label: '曜升' };
+  }
+  if (rule.detriment.includes(signName)) {
+    return { dignity: 'detriment', label: '落陷' };
+  }
+  if (rule.fall.includes(signName)) {
+    return { dignity: 'fall', label: '坠落' };
+  }
+  return null;
+}
+
 function mapPlanet(planet: {
   name: string;
   longitude: number;
@@ -138,6 +213,7 @@ function mapPlanet(planet: {
   house: number;
   isRetrograde?: boolean;
 }): AstrolabePoint {
+  const dignityInfo = getEssentialDignity(planet.name, planet.signName);
   return {
     name: planet.name,
     label: PLANET_LABELS[planet.name] ?? planet.name,
@@ -148,6 +224,8 @@ function mapPlanet(planet: {
     house: planet.house,
     formatted: formatPosition(planet.signName, planet.degree, planet.minute),
     retrograde: planet.isRetrograde ?? false,
+    dignity: dignityInfo?.dignity,
+    dignityLabel: dignityInfo?.label,
   };
 }
 

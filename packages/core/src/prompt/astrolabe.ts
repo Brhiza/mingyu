@@ -70,7 +70,8 @@ const TOPIC_LABELS: Record<AstrolabePromptTopic, string> = {
 };
 
 function formatPoint(point: AstrolabeData['planets'][number]) {
-  return `${point.label}${point.formatted}，第${point.house}宫${point.retrograde ? '，逆行' : ''}`;
+  const dignity = point.dignityLabel ? `，${point.dignityLabel}` : '';
+  return `${point.label}${point.formatted}，第${point.house}宫${point.retrograde ? '，逆行' : ''}${dignity}`;
 }
 
 export function formatAstrolabeForPrompt(data: AstrolabeData) {

@@ -1324,6 +1324,10 @@ export interface AstrolabePoint {
   house: number;
   formatted: string;
   retrograde?: boolean;
+  /** 行星本征尊贵力量（入庙、曜升、落陷、坠落） */
+  dignity?: 'domicile' | 'exaltation' | 'detriment' | 'fall';
+  /** 行星本征尊贵力量中文标签（入庙、曜升、落陷、坠落） */
+  dignityLabel?: string;
 }
 
 export interface AstrolabeAspect {

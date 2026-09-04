@@ -834,7 +834,7 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     .filter((item) => coreBodies.has(item.name))
     .map(
       (item) =>
-        `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`,
+        `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}${item.dignityLabel ? `，${item.dignityLabel}` : ''}`,
     );
 
   return [

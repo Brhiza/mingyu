@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analyzeAstrolabeEvidence, generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import {
+  analyzeAstrolabeEvidence,
+  generateAstrolabe,
+  getEssentialDignity,
+} from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeBirthInput, AstrolabeData } from 'mingyu-core/types';
 
 const validInput: AstrolabeBirthInput = {
@@ -436,3 +440,19 @@ test('星盘北交点相位应统一名称并兼容旧节点别名引用', () =>
   assert.ok(fact.positionFactKeys.includes('星体与计算点:North Node'));
   assert.ok(fact.body1PositionFactKey || fact.body2PositionFactKey);
 });
+
+test('星盘行星尊贵力量（Essential Dignities）应准确识别入庙、曜升、落陷与坠落', () => {
+  assert.deepEqual(getEssentialDignity('Sun', 'Leo'), { dignity: 'domicile', label: '入庙' });
+  assert.deepEqual(getEssentialDignity('Sun', 'Libra'), { dignity: 'fall', label: '坠落' });
+  assert.deepEqual(getEssentialDignity('Sun', 'Aquarius'), { dignity: 'detriment', label: '落陷' });
+  assert.deepEqual(getEssentialDignity('Sun', 'Aries'), { dignity: 'exaltation', label: '曜升' });
+  assert.deepEqual(getEssentialDignity('Moon', 'Taurus'), { dignity: 'exaltation', label: '曜升' });
+  assert.deepEqual(getEssentialDignity('Moon', 'Scorpio'), { dignity: 'fall', label: '坠落' });
+  assert.equal(getEssentialDignity('Sun', 'Taurus'), null);
+
+  const result = generateAstrolabe(validInput);
+  const sun = result.planets.find((p) => p.name === 'Sun');
+  assert.ok(sun);
+  assert.ok('dignity' in sun);
+});
+
