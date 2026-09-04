@@ -98,6 +98,13 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
       customDate: '2026-08-24T12:30:00+08:00',
     },
   ],
+  ['name_generate', { surname: '李', gender: '通用', limit: 3 }],
+  ['name_analyze', { fullName: '李清和' }],
+  ['character_analyze', { text: '万学' }],
+  ['character_select', { kangxiStrokes: 8, wuxing: '木', limit: 5 }],
+  ['number_analyze', { value: '粤B12345', purpose: 'plate' }],
+  ['divine_zhuge', { text: '顺其然' }],
+  ['divine_kongming', { pattern: '10101' }],
   ['divine_qimen', {}],
   [
     'divine_jinkoujue',
@@ -445,7 +452,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 64);
+    assert.equal(tools.length, 71);
     assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
@@ -468,6 +475,17 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
     assert.ok(tools.find((tool) => tool.name === 'instant_chart'));
+    for (const name of [
+      'name_generate',
+      'name_analyze',
+      'character_analyze',
+      'character_select',
+      'number_analyze',
+      'divine_zhuge',
+      'divine_kongming',
+    ]) {
+      assert.ok(tools.find((tool) => tool.name === name));
+    }
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_residential'));
     assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));

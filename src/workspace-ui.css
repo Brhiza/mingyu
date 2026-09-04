@@ -2313,3 +2313,292 @@ button:focus-visible,
 [role='button']:focus-visible {
   outline: none;
 }
+.culture-tools-page {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: 28px clamp(16px, 3vw, 36px) 56px;
+}
+
+.culture-tools-heading h1 {
+  margin: 4px 0 6px;
+  font-size: clamp(28px, 4vw, 42px);
+}
+.culture-tools-heading p,
+.culture-tools-footnote {
+  color: var(--text-muted);
+}
+.culture-tools-eyebrow {
+  color: var(--accent-strong);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+}
+.culture-tools-tabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 24px 0 16px;
+}
+.culture-tools-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 48px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface-base);
+  color: inherit;
+  cursor: pointer;
+}
+.culture-tools-tabs button span {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 9px;
+  background: var(--surface-muted);
+  color: var(--accent-strong);
+}
+.culture-tools-tabs button.is-active {
+  border-color: var(--border-contrast);
+  background: var(--state-selected-surface);
+}
+.culture-tools-panel {
+  padding: clamp(18px, 3vw, 30px);
+  border: 1px solid var(--border-soft);
+  border-radius: 20px;
+  background: var(--surface-base);
+  box-shadow: var(--shadow-card);
+}
+.culture-tools-panel form {
+  display: grid;
+  gap: 16px;
+}
+.culture-tools-panel label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.culture-tools-panel input,
+.culture-tools-panel select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  background: var(--surface-soft);
+  color: inherit;
+  font: inherit;
+}
+.culture-tools-fields {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.5fr) repeat(2, minmax(120px, 1fr));
+  gap: 12px;
+}
+.culture-tools-primary {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--accent-strong);
+  color: white;
+  font: inherit;
+  cursor: pointer;
+  justify-self: start;
+}
+.culture-tools-actions {
+  display: flex;
+  gap: 10px;
+  margin: 18px 0;
+}
+.culture-tools-actions > button:not(.culture-tools-primary) {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.culture-tools-error {
+  margin: 0 0 12px;
+  padding: 12px 15px;
+  border-radius: 11px;
+  background: #a4353514;
+  color: #a43535;
+}
+.culture-tools-empty {
+  display: grid;
+  min-height: 170px;
+  place-items: center;
+  color: var(--text-muted);
+  text-align: center;
+}
+.culture-name-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+}
+.culture-name-grid button,
+.culture-char-pool button {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 13px;
+  background: var(--surface-soft);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.culture-name-grid strong {
+  font-size: 19px;
+}
+.culture-name-grid span {
+  color: var(--accent-strong);
+}
+.culture-name-grid small,
+.culture-char-pool small,
+.culture-report small {
+  color: var(--text-muted);
+}
+.culture-report {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border-soft);
+}
+.culture-report > h2 {
+  margin: 8px 0 12px;
+}
+.culture-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+  color: var(--accent-strong);
+}
+.culture-score strong {
+  font-size: 34px;
+}
+.culture-grid-list {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 18px 0;
+}
+.culture-grid-list article {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+.culture-character-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+}
+.culture-character-list article {
+  display: flex;
+  gap: 14px;
+  padding: 13px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+.culture-character-list article > strong {
+  font-size: 30px;
+  color: var(--accent-strong);
+}
+.culture-character-list article div {
+  display: grid;
+  gap: 4px;
+}
+.culture-character-list p {
+  margin: 2px 0 0;
+}
+.culture-tools-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+}
+.culture-tools-split h2 {
+  margin-top: 0;
+}
+.culture-char-pool {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+  margin-top: 18px;
+}
+.culture-char-pool button {
+  font-size: 22px;
+  text-align: center;
+}
+.culture-coins {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+.culture-coins button {
+  display: grid;
+  gap: 4px;
+  padding: 18px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 50%;
+  aspect-ratio: 1;
+  background: var(--surface-muted);
+  color: inherit;
+  cursor: pointer;
+}
+.culture-coins button.is-yang {
+  color: var(--accent-strong);
+  border-color: var(--border-contrast);
+}
+.culture-coins strong {
+  font-size: 28px;
+}
+.culture-report dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+.culture-report dl div {
+  display: flex;
+  gap: 7px;
+}
+.culture-report dt {
+  color: var(--text-muted);
+}
+.culture-tools-footnote {
+  margin: 14px 4px 0;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .culture-tools-page {
+    padding: 16px 12px 40px;
+  }
+  .culture-tools-tabs {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .culture-tools-tabs button {
+    flex-direction: column;
+    gap: 3px;
+    min-height: 62px;
+    font-size: 12px;
+  }
+  .culture-tools-fields,
+  .culture-tools-split {
+    grid-template-columns: 1fr;
+  }
+  .culture-name-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .culture-grid-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .culture-char-pool {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

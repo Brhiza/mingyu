@@ -1,7 +1,7 @@
 {
   "name": "mingyu-core",
   "version": "0.2.2",
-  "description": "TypeScript 算命、占卜与玄学排盘算法：八字、紫微斗数、六爻、奇门遁甲、塔罗、择日等",
+  "description": "TypeScript 算命、占卜与玄学算法：八字、紫微斗数、起名、姓名汉字与号码解析、诸葛神数等",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -275,6 +275,10 @@
       "types": "./dist/zodiac/index.d.ts",
       "import": "./dist/zodiac/index.js"
     },
+    "./name-number": {
+      "types": "./dist/name-number/index.d.ts",
+      "import": "./dist/name-number/index.js"
+    },
     "./taiyi": {
       "types": "./dist/taiyi/index.d.ts",
       "import": "./dist/taiyi/index.js"
@@ -315,6 +319,7 @@
   "files": [
     "dist",
     "data/chinaBirthPlaceTree.sources.md",
+    "data/name-number.sources.md",
     "README.md",
     "LICENSE"
   ],
@@ -369,7 +374,11 @@
     "tarot",
     "塔罗",
     "择日",
-    "黄道吉日"
+    "黄道吉日",
+    "起名",
+    "姓名解析",
+    "诸葛神数",
+    "孔明神卦"
   ],
   "author": "Brhiza",
   "license": "MIT",

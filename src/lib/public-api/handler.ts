@@ -56,6 +56,16 @@ import {
   residentialFengshui,
 } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
+import {
+  analyzeChineseCharacters,
+  selectChineseCharacters,
+  analyzeChineseName,
+  generateChineseNames,
+  analyzeNumber,
+  calculateZhugeNumber,
+  castKongmingHexagram,
+  type Wuxing,
+} from 'mingyu-core/name-number';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import {
   analyzeCompassDirection,
@@ -624,6 +634,55 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/name/generate': {
+        post: {
+          summary: '生成中文姓名候选并进行五格、三才与康熙笔画分析',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NameGenerateRequest'),
+          responses: { '200': { description: '按综合评分排序的姓名候选及逐名分析' } },
+        },
+      },
+      '/name/analyze': {
+        post: {
+          summary: '解析中文姓名的字形、康熙笔画、五格与三才',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NameAnalyzeRequest'),
+          responses: { '200': { description: '姓名结构化解析结果' } },
+        },
+      },
+      '/character/analyze': {
+        post: {
+          summary: '解析汉字的康熙笔画、五行、部首和读音',
+          requestBody: openApiJsonRequestBody('#/components/schemas/CharacterAnalyzeRequest'),
+          responses: { '200': { description: '逐字资料与合计笔画' } },
+        },
+      },
+      '/character/select': {
+        post: {
+          summary: '按康熙笔画、五行和读音筛选汉字',
+          requestBody: openApiJsonRequestBody('#/components/schemas/CharacterSelectRequest'),
+          responses: { '200': { description: '符合条件的常用汉字' } },
+        },
+      },
+      '/number/analyze': {
+        post: {
+          summary: '解析手机号、车牌号及一般数字字母编号',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NumberAnalyzeRequest'),
+          responses: { '200': { description: '号码数理、奇偶、重复与计算过程' } },
+        },
+      },
+      '/divination/zhuge': {
+        post: {
+          summary: '按三个汉字的康熙笔画计算诸葛神数',
+          requestBody: openApiJsonRequestBody('#/components/schemas/ZhugeRequest'),
+          responses: { '200': { description: '取数过程与对应签文' } },
+        },
+      },
+      '/divination/kongming': {
+        post: {
+          summary: '按五次阴阳结果起孔明神卦',
+          requestBody: openApiJsonRequestBody('#/components/schemas/KongmingRequest', false),
+          responses: { '200': { description: '五钱卦象、卦名、吉凶与卦诗' } },
+        },
+      },
       '/bazi/calculate': {
         post: {
           summary: '八字排盘',
@@ -1038,6 +1097,75 @@ export function getPublicApiOpenApiDocument(
     },
     components: {
       schemas: {
+        NameGenerateRequest: {
+          type: 'object',
+          required: ['surname'],
+          properties: {
+            surname: { type: 'string', minLength: 1, maxLength: 2 },
+            gender: { enum: ['男', '女', '通用'], default: '通用' },
+            givenNameLength: { enum: [1, 2], default: 2 },
+            preferredElements: {
+              type: 'array',
+              uniqueItems: true,
+              items: { enum: ['金', '木', '水', '火', '土'] },
+            },
+            limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+          },
+        },
+        NameAnalyzeRequest: {
+          type: 'object',
+          required: ['fullName'],
+          properties: {
+            fullName: { type: 'string', minLength: 2, maxLength: 4 },
+            surnameLength: { enum: [1, 2], default: 1 },
+            preferredElements: {
+              type: 'array',
+              uniqueItems: true,
+              items: { enum: ['金', '木', '水', '火', '土'] },
+            },
+          },
+        },
+        CharacterAnalyzeRequest: {
+          type: 'object',
+          required: ['text'],
+          properties: { text: { type: 'string', minLength: 1, maxLength: 20 } },
+        },
+        CharacterSelectRequest: {
+          type: 'object',
+          properties: {
+            kangxiStrokes: { type: 'integer', minimum: 1, maximum: 64 },
+            wuxing: { enum: ['金', '木', '水', '火', '土'] },
+            pinyin: { type: 'string', maxLength: 32 },
+            commonOnly: { type: 'boolean', default: true },
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+          },
+        },
+        NumberAnalyzeRequest: {
+          type: 'object',
+          required: ['value'],
+          properties: {
+            value: { type: 'string', minLength: 1, maxLength: 64 },
+            purpose: { enum: ['phone', 'plate', 'general'], default: 'general' },
+          },
+        },
+        ZhugeRequest: {
+          type: 'object',
+          required: ['text'],
+          properties: { text: { type: 'string', minLength: 3, maxLength: 3 } },
+        },
+        KongmingRequest: {
+          type: 'object',
+          properties: {
+            pattern: {
+              type: 'string',
+              minLength: 5,
+              maxLength: 5,
+              description: '五位阴阳结果，可使用●○、10或阴阳字样；不传则随机起卦。',
+            },
+            seed: DIVINATION_REQUEST_PROPERTIES.seed,
+            replay: DIVINATION_REQUEST_PROPERTIES.replay,
+          },
+        },
         InstantChartRequest: {
           type: 'object',
           required: ['type'],
@@ -1914,6 +2042,26 @@ async function route(context: RouteContext) {
       return calculateFoundationShensha(await readJson(context.request));
     case 'instant/calculate':
       return calculateApiResult(context.request, calculateInstantChartApi);
+    case 'name/generate':
+      return calculateCultureTool(async () => generateNameApi(await readJson(context.request)));
+    case 'name/analyze':
+      return calculateCultureTool(async () => analyzeNameApi(await readJson(context.request)));
+    case 'character/analyze':
+      return calculateCultureTool(async () =>
+        analyzeChineseCharacters(readString(await readJson(context.request), 'text', '')),
+      );
+    case 'character/select':
+      return calculateCultureTool(async () => selectCharactersApi(await readJson(context.request)));
+    case 'number/analyze':
+      return calculateCultureTool(async () => analyzeNumberApi(await readJson(context.request)));
+    case 'divination/zhuge':
+      return calculateCultureTool(async () =>
+        calculateZhugeNumber(readString(await readJson(context.request), 'text', '')),
+      );
+    case 'divination/kongming':
+      return calculateCultureTool(async () =>
+        calculateKongmingApi(await readJson(context.request, true)),
+      );
     case 'bazi/calculate':
       return calculateApiResult(context.request, calculateBaziApi);
     case 'bazi/prompt':
@@ -2022,6 +2170,76 @@ async function route(context: RouteContext) {
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
   }
+}
+
+const NAME_WUXING = ['金', '木', '水', '火', '土'] as const;
+
+async function calculateCultureTool<T>(calculate: () => T | Promise<T>): Promise<T> {
+  try {
+    return await calculate();
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '输入参数无法完成计算。',
+    );
+  }
+}
+
+function readWuxingList(input: JsonRecord, key: string): Wuxing[] | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (
+    !Array.isArray(value) ||
+    value.length > 5 ||
+    value.some((item) => !NAME_WUXING.includes(item as Wuxing))
+  ) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是金、木、水、火、土组成的数组。`);
+  }
+  return [...new Set(value)] as Wuxing[];
+}
+
+function generateNameApi(input: JsonRecord) {
+  return generateChineseNames({
+    surname: readString(input, 'surname', ''),
+    gender: readEnum(input, 'gender', ['男', '女', '通用'] as const, '通用'),
+    givenNameLength: readInteger(input, 'givenNameLength', 1, 2, 2) as 1 | 2,
+    preferredElements: readWuxingList(input, 'preferredElements'),
+    limit: readInteger(input, 'limit', 1, 50, 20),
+  });
+}
+
+function analyzeNameApi(input: JsonRecord) {
+  return analyzeChineseName({
+    fullName: readString(input, 'fullName', ''),
+    surnameLength: readInteger(input, 'surnameLength', 1, 2, 1) as 1 | 2,
+    xiYong: readWuxingList(input, 'preferredElements'),
+  });
+}
+
+function selectCharactersApi(input: JsonRecord) {
+  const wuxing = input.wuxing === undefined ? undefined : readEnum(input, 'wuxing', NAME_WUXING);
+  return selectChineseCharacters({
+    strokes: optInt(input, 'kangxiStrokes', 1, 64),
+    wuxing,
+    pinyin: readString(input, 'pinyin', '').trim() || undefined,
+    commonOnly: readBoolean(input, 'commonOnly', true),
+    limit: readInteger(input, 'limit', 1, 100, 50),
+  });
+}
+
+function analyzeNumberApi(input: JsonRecord) {
+  return analyzeNumber(
+    readString(input, 'value', ''),
+    readEnum(input, 'purpose', ['phone', 'plate', 'general'] as const, 'general'),
+  );
+}
+
+function calculateKongmingApi(input: JsonRecord) {
+  const pattern = readString(input, 'pattern', '').trim() || undefined;
+  if (pattern) assertNoRandomOptions(input, '指定卦象时不接受 seed 或 replay。');
+  return castKongmingHexagram(pattern, pattern ? undefined : readRandomOptions(input));
 }
 
 async function calculateApiResult(

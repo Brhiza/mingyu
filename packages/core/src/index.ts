@@ -40,6 +40,7 @@ export * as prompt from './prompt/index';
 // 新增术数系统
 export * as bazhai from './ba_zhai/index';
 export * as zodiac from './zodiac/index';
+export * as nameNumber from './name-number/index';
 export * as taiyi from './taiyi/index';
 export * as qizheng from './qi_zheng/index';
 export * as xuankong from './xuan_kong/index';
@@ -72,6 +73,7 @@ export * from './consumption/index';
 export * from './instant/index';
 export * from './minglu/index';
 export * from './terms/index';
+export * from './name-number/index';
 export type * from './capabilities/index';
 export * from './shared/result';
 

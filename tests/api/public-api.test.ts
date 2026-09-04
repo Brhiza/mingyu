@@ -5727,3 +5727,85 @@ test('POST /consultation/thematic/prompt 支持大类主题选择与默认通用
   assert.ok(fullRes.body.data.result.bazi);
   assert.ok(fullRes.body.data.result.ziwei);
 });
+
+test('公开 API 提供起名、姓名、汉字与号码完整工具链', async () => {
+  const generated = await callApi('name/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ surname: '李', gender: '通用', limit: 3 }),
+  });
+  assert.equal(generated.response.status, 200);
+  assert.equal(generated.body.data.length, 3);
+
+  const name = await callApi('name/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: '李清和' }),
+  });
+  assert.equal(name.response.status, 200);
+  assert.equal(name.body.data.surname, '李');
+
+  const character = await callApi('character/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '万学' }),
+  });
+  assert.equal(character.response.status, 200);
+  assert.equal(character.body.data.totalKangxiStrokes, 31);
+
+  const selected = await callApi('character/select', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kangxiStrokes: 8, wuxing: '木', limit: 5 }),
+  });
+  assert.equal(selected.response.status, 200);
+  assert.ok(
+    selected.body.data.every((item: { kangxiStrokes: number }) => item.kangxiStrokes === 8),
+  );
+
+  const number = await callApi('number/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value: '粤B12345', purpose: 'plate' }),
+  });
+  assert.equal(number.response.status, 200);
+  assert.equal(number.body.data.primaryIndex, 17);
+});
+
+test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', async () => {
+  const zhuge = await callApi('divination/zhuge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '顺其然' }),
+  });
+  assert.equal(zhuge.response.status, 200);
+  assert.ok(zhuge.body.data.number >= 1 && zhuge.body.data.number <= 384);
+
+  const kongming = await callApi('divination/kongming', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pattern: '10101' }),
+  });
+  assert.equal(kongming.response.status, 200);
+  assert.equal(kongming.body.data.symbol, '●○●○●');
+
+  const random = await callApi('divination/kongming', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seed: '公开接口重放' }),
+  });
+  const replay = await callApi('divination/kongming', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ replay: random.body.data.random.samples }),
+  });
+  assert.equal(replay.body.data.symbol, random.body.data.symbol);
+
+  const invalid = await callApi('divination/zhuge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '两个' }),
+  });
+  assert.equal(invalid.response.status, 400);
+  assert.equal(invalid.body.error.code, 'BAD_REQUEST');
+});

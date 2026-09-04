@@ -81,6 +81,12 @@ importers:
       prettier:
         specifier: ^3.8.3
         version: 3.9.1
+      shunshi-kangxi-core:
+        specifier: 0.1.1
+        version: 0.1.1
+      shunshi-naming-core:
+        specifier: 0.1.0
+        version: 0.1.0
       tsx:
         specifier: ^4.21.0
         version: 4.22.4
@@ -1895,6 +1901,14 @@ packages:
   shebang-regex@3.0.0:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
+
+  shunshi-kangxi-core@0.1.1:
+    resolution: {integrity: sha512-C+jzNEtzfz6IhuhxICEjh8ChMTD0Leg4NiU3O/p7fT4Bgh6oxRoXx0o3Cr6pRJAnFVx6YfpH3ZA6Kdb5YsyLPg==}
+    engines: {node: '>=20'}
+
+  shunshi-naming-core@0.1.0:
+    resolution: {integrity: sha512-/NgDdjEUjvGvwPUOrMrGRRmsdien8jIavgilUuL4obsKBA3KM1+Ooo2dXHGVQVLWtDP9cBM8DV8MnCMAQ+PQAA==}
+    engines: {node: '>=20'}
 
   side-channel-list@1.0.1:
     resolution: {integrity: sha512-mjn/0bi/oUURjc5Xl7IaWi/OJJJumuoJFQJfDDyO46+hBWsfaVM65TBHq2eoZBhzl9EchxOijpkbRC8SVBQU0w==}
@@ -4024,6 +4038,12 @@ snapshots:
       shebang-regex: 3.0.0
 
   shebang-regex@3.0.0: {}
+
+  shunshi-kangxi-core@0.1.1: {}
+
+  shunshi-naming-core@0.1.0:
+    dependencies:
+      shunshi-kangxi-core: 0.1.1
 
   side-channel-list@1.0.1:
     dependencies:

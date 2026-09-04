@@ -2,3 +2,5 @@ node_modules
 dist
 *.lock
 .claude
+packages/core/src/name-number/generated-data.ts
+packages/core/src/name-number/zhuge-signs.ts

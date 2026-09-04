@@ -15,6 +15,9 @@ export interface ToolCatalogItem {
     | 'foundation'
     | 'calendar'
     | 'instant'
+    | 'naming'
+    | 'character'
+    | 'number'
     | 'consultation'
     | 'bazi'
     | 'ziwei'
@@ -164,6 +167,71 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     description: '按当前时刻即时排八字、紫微、合参、星盘或七政盘，无需性别与个人字段',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/instant/calculate',
+  },
+
+  // 姓名、汉字与号码
+  {
+    id: 'name_generate',
+    title: '中文起名',
+    category: 'naming',
+    type: 'utility',
+    description: '按姓氏、性别、名字字数和偏好五行生成姓名候选并综合评分',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/name/generate',
+  },
+  {
+    id: 'name_analyze',
+    title: '姓名解析',
+    category: 'naming',
+    type: 'utility',
+    description: '解析姓名康熙笔画、五格数理、三才配置、五行分布与综合评分',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/name/analyze',
+  },
+  {
+    id: 'character_analyze',
+    title: '汉字解析',
+    category: 'character',
+    type: 'utility',
+    description: '查询汉字康熙笔画、现代笔画、五行、部首、拼音与繁简对应',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/character/analyze',
+  },
+  {
+    id: 'character_select',
+    title: '起名选字',
+    category: 'character',
+    type: 'utility',
+    description: '按康熙笔画、五行、拼音和常用字条件筛选汉字',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/character/select',
+  },
+  {
+    id: 'number_analyze',
+    title: '号码解析',
+    category: 'number',
+    type: 'utility',
+    description: '解析手机号、车牌号及一般编号的数理、数字和、奇偶与重复结构',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/number/analyze',
+  },
+  {
+    id: 'divine_zhuge',
+    title: '诸葛神数',
+    category: 'number',
+    type: 'calculate',
+    description: '按三个汉字康熙笔画尾数计算诸葛神数384签',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/divination/zhuge',
+  },
+  {
+    id: 'divine_kongming',
+    title: '孔明神卦',
+    category: 'number',
+    type: 'calculate',
+    description: '按五次阴阳结果生成三十二种孔明神卦之一',
+    annotations: READONLY_NON_IDEMPOTENT,
+    endpoint: '/divination/kongming',
   },
 
   // 八字

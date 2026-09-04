@@ -126,4 +126,17 @@ test('createMingyuMcpServer 应自动为所有工具注入 annotations 元数据
   assert.ok(thematicTool);
   assert.equal(thematicTool.annotations?.readOnlyHint, true);
   assert.equal(thematicTool.annotations?.idempotentHint, true);
+
+  for (const name of [
+    'name_generate',
+    'name_analyze',
+    'character_analyze',
+    'character_select',
+    'number_analyze',
+    'divine_zhuge',
+    'divine_kongming',
+  ]) {
+    assert.ok(registered[name], `${name} 应完成注册`);
+    assert.equal(registered[name].annotations?.readOnlyHint, true);
+  }
 });

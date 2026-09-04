@@ -25,6 +25,7 @@ import { registerResidentialFengshuiTool } from './tools/residential_fengshui.js
 import { registerFoundationTools } from './tools/foundation.js';
 import { registerCalendarTools } from './tools/calendar.js';
 import { registerInstantTool } from './tools/instant.js';
+import { registerNameNumberTools } from './tools/name-number.js';
 import { getToolAnnotations } from './catalog/tool-catalog.js';
 
 export const SERVER_INFO = {
@@ -33,7 +34,7 @@ export const SERVER_INFO = {
 } as const;
 
 export const SERVER_INSTRUCTIONS =
-  '命语 MCP Server：处理算命、看运势、占卜、玄学排盘、合婚、抽牌、求签、风水和择日等日常请求，也提供真太阳时、八字、紫微斗数、六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬、五运六气、皇极经世、塔罗、雷诺曼、灵签、黄历择日、星盘等专业工具。AI 可获取结构化排盘，也可直接获得完整的 AI 解读提示词。';
+  '命语 MCP Server：处理算命、看运势、占卜、玄学排盘、起名、姓名汉字与号码解析、合婚、抽牌、求签、风水和择日等日常请求，也提供真太阳时、八字、紫微斗数、六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬、诸葛神数、孔明神卦、五运六气、皇极经世、塔罗、雷诺曼、灵签、黄历择日、星盘等专业工具。AI 可获取结构化排盘，也可直接获得完整的 AI 解读提示词。';
 
 /**
  * 创建并配置命语 MCP 服务器实例
@@ -79,6 +80,7 @@ export function createMingyuMcpServer(): McpServer {
   registerFoundationTools(server);
   registerCalendarTools(server);
   registerInstantTool(server);
+  registerNameNumberTools(server);
 
   return server;
 }
