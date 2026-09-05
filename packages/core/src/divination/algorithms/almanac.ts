@@ -212,6 +212,11 @@ const GOD_RULE_SOURCES: Record<string, string> = {
   天仓: '《御定星历考原》天仓正月寅逆行起例',
   天巫: '《御定星历考原》天巫月建前二辰起例',
   福德: '《御定星历考原》福德月建前二辰起例',
+  阳德: '《御定星历考原》阳德正月戌顺行六阳起例',
+  阴德: '《御定星历考原》阴德正月酉逆行六阴起例',
+  解神: '《御定星历考原》解神逐月起例',
+  时阳: '《御定星历考原》时阳月建后二辰起例',
+  时阴: '《御定星历考原》时阴月建前四辰起例',
 };
 
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
