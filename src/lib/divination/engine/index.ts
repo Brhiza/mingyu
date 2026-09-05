@@ -564,11 +564,13 @@ function resolveDivinationTimeContext(
   }
   const longitude = readNumberText(draft.birthLongitude ?? '', '起局地点经度');
   assertNumberRange(longitude, '起局地点经度', -180, 180);
+  // 页面输入按全年 UTC+8 标准时构造（customDate 统一以 +08:00 生成），
+  // 因此只传固定偏移 8，不附 Asia/Shanghai 历史时区做一致性校验；
+  // 混用两种口径会让 1986-1991 夏令时日期在回拨冲突检查中被误拒。
   const conversion = convertTrueSolarTime({
     localDateTime: clockDateTime,
     longitude,
     timezone: 8,
-    timeZoneId: 'Asia/Shanghai',
   });
   const effectiveDateTime = conversion.correctedDateTime;
   const date = new Date(`${effectiveDateTime}+08:00`);
