@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   analyzeShenshaEvidence,
+  computeShensha,
+  getHuangliShensha,
   listShenshaCatalog,
   registerShensha,
 } from '../packages/core/src/shensha/index.ts';
@@ -13,6 +15,63 @@ const context = {
   dayGanZhi: '戊辰',
   hourGanZhi: '丁酉',
 };
+
+test('黄历神煞拒绝小数年月日和不存在的日期', () => {
+  for (const [year, month, day] of [
+    [2026.5, 1, 1],
+    [2026, 1.5, 1],
+    [2026, 1, 1.5],
+    [2026, 2, 30],
+    [2026, 1, NaN],
+  ]) {
+    assert.throws(() => getHuangliShensha(year, month, day));
+  }
+  assert.ok(getHuangliShensha(2000, 2, 29).shensha.length > 0);
+});
+
+test('通用神煞计算拒绝未知编号和无效四柱，与证据入口一致', () => {
+  assert.throws(() => computeShensha(['不存在'], context), /未注册神煞/);
+  assert.throws(() => computeShensha(['yima'], { ...context, yearGanZhi: '甲丑' }), /年柱/);
+  assert.throws(() => computeShensha(['yima'], { ...context, hourGanZhi: '' }), /时柱/);
+  assert.deepEqual(computeShensha([], context), []);
+});
+
+test('十二年支驿马与桃花目标按古籍三合起例核对', () => {
+  // 识典《太上玄灵北斗本命延生经注·驿马》及《古今图书集成·艺术典·论咸池》。
+  // https://www.shidianguji.com/zh/mid-page/7317722448558899209
+  // https://www.shidianguji.com/mid-page/7597555537223942182
+  const years = [
+    '甲子',
+    '乙丑',
+    '丙寅',
+    '丁卯',
+    '戊辰',
+    '己巳',
+    '庚午',
+    '辛未',
+    '壬申',
+    '癸酉',
+    '甲戌',
+    '乙亥',
+  ];
+  const horses = ['寅', '亥', '申', '巳', '寅', '亥', '申', '巳', '寅', '亥', '申', '巳'];
+  const flowers = ['酉', '午', '卯', '子', '酉', '午', '卯', '子', '酉', '午', '卯', '子'];
+  for (const [index, yearGanZhi] of years.entries()) {
+    const input = { ...context, yearGanZhi };
+    const results = computeShensha(['yima', 'taohua'], input);
+    assert.deepEqual(
+      results.map((item) => item.value),
+      [horses[index], flowers[index]],
+      yearGanZhi,
+    );
+    assert.deepEqual(
+      analyzeShenshaEvidence(input, ['yima', 'taohua']).matchFacts.map(
+        (item) => item.targetBranches,
+      ),
+      [[horses[index]], [flowers[index]]],
+    );
+  }
+});
 
 test('通用神煞证据应严格核验完整四柱并逐项定位命中柱位', () => {
   const analysis = analyzeShenshaEvidence(context);

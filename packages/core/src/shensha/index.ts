@@ -17,6 +17,7 @@
  */
 import { SolarDay, SixtyCycle, SixtyCycleDay, God } from 'tyme4ts';
 import { EARTHLY_BRANCHES, getYiMa, getTaoHua, isValidGanZhi } from '../ganzhi';
+import { daysInGregorianMonth } from '../calendar/date-validation';
 
 export type ShenshaScope = 'common' | 'bazi' | 'liuren' | 'qimen' | 'taiyi' | 'qizheng' | 'bazhai';
 
@@ -192,10 +193,12 @@ export function listShenshaCatalog(scope?: ShenshaScope): ShenshaCatalogItem[] {
 
 /** 计算指定神煞 */
 export function computeShensha(ids: string[], ctx: ShenshaContext): ShenshaResult[] {
+  validateShenshaContext(ctx);
+  if (!Array.isArray(ids)) throw new Error('神煞编号必须是数组。');
+  const requestedIds = ids.length === 0 ? [] : normalizeRequestedShenshaIds(ids);
   const out: ShenshaResult[] = [];
-  for (const id of ids) {
-    const def = REGISTRY.get(id);
-    if (!def) continue;
+  for (const id of requestedIds) {
+    const def = REGISTRY.get(id)!;
     const r = def.compute(ctx);
     if (r) out.push(r);
   }
@@ -291,6 +294,7 @@ export const COMMON_SHENSHA: ShenshaDefinition[] = [
 registerShenshas(COMMON_SHENSHA);
 
 function validateShenshaContext(ctx: ShenshaContext): ShenshaPillarFact[] {
+  if (!ctx || typeof ctx !== 'object') throw new Error('神煞计算需要完整四柱。');
   const entries = Object.entries(PILLAR_LABELS) as Array<
     [ShenshaContextKey, ShenshaPillarFact['label']]
   >;
@@ -571,6 +575,10 @@ export function listHuangliShenshaNames(): string[] {
  * 返回的 shensha 含吉凶分类，duty 为十二建除，nineStar 为九星。
  */
 export function getHuangliShensha(year: number, month: number, day: number): HuangliInfo {
+  const maxDay = daysInGregorianMonth(year, month);
+  if (!Number.isInteger(day) || day < 1 || day > maxDay) {
+    throw new Error('黄历查询日期不存在。');
+  }
   const solarDay = SolarDay.fromYmd(year, month, day);
   const scDay = SixtyCycleDay.fromSolarDay(solarDay);
   const gods = scDay.getGods();
