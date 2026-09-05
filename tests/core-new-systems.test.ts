@@ -274,19 +274,11 @@ test('tarot: 逐牌证据应保留正逆位、关键词、元素与牌阶', () =
 });
 
 test('tarot: 全部牌面事实只保留牌位、牌名、正逆位与牌面资料', () => {
-  const facts = tarotCards.flatMap((card, index) => {
-    const cardEvidence = getCardEvidence(card.name);
+  const facts = tarotCards.flatMap((card) => {
     return [false, true].flatMap((reversed) => {
-      const data = drawTarotSpread('single', { seed: `牌义证据-${index}-${reversed}` });
-      data.cards = [
-        {
-          id: card.number,
-          name: card.name,
-          position: '当前指引',
-          reversed,
-          ...cardEvidence,
-        },
-      ];
+      const data = drawTarotSpread('single', {
+        manualCards: [{ id: card.number, reversed }],
+      });
       return analyzeTarotEvidence(data).traditionalFacts;
     });
   });
