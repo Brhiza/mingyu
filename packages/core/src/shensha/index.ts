@@ -665,6 +665,7 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
     天火: '子酉午卯'[monthIndex % 4],
     灾煞: '子酉午卯'[monthIndex % 4],
     三丧: '辰未戌丑'[seasonIndex],
+    天符: '戌子寅辰午申'[monthIndex % 6],
     河魁: '亥午丑申卯戌巳子未寅酉辰'[monthIndex],
   };
   for (const [name, branch] of Object.entries(branchRules)) {
