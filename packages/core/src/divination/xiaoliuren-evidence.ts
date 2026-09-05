@@ -4,7 +4,9 @@ import type { XiaoliurenData, XiaoliurenPalaceDetail } from '../types/divination
 const RULE_SOURCE =
   '通行俗传小六壬掌诀：正月从大安起，月上起初一，日上起子时，依大安、留连、速喜、赤口、小吉、空亡顺行';
 const SOURCE_LIMITATION =
-  '现阶段未取得可核验的早期刻本、页码或定本；“李淳风六壬时课”等署名不作为已证实的古籍归属';
+  '《多能鄙事》卷八“小六壬课时”以正月初一留连起子时，与此处通行掌诀正月初一大安起子时的起日口径不同；“李淳风六壬时课”等署名不作为已证实的古籍归属';
+const EDITION_REFERENCE =
+  '《多能鄙事》卷八“小六壬课时”，Wikimedia Shanghai 多能鄙事十二卷扫描PDF第196—197页；识典古籍CADAL02097181卷八';
 const INTERPRETATION_LIMITATION =
   '只有时宫是本次占得宫；月宫和日宫只是顺数中间位置，不得解释成现实起因、过程或独立结果';
 const VERSE_LIMITATION =
@@ -192,7 +194,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       type: '来源边界',
       ownerFactKeys: [calculationFact.key, primaryFact.key],
       promptText: SOURCE_LIMITATION,
-      sources: ['现有书目与文本检索结果'],
+      sources: [EDITION_REFERENCE],
     },
     {
       key: 'xiaoliuren:limitation:intermediate-palaces',

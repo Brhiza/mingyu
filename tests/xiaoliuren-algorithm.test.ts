@@ -159,7 +159,13 @@ test('小六壬：来源限制必须明确，提示词不得恢复无来源扩�
 
   assert.match(evidenceText, /通行俗传小六壬掌诀/);
   assert.match(limitationText, /署名不作为已证实的古籍归属/);
-  assert.match(limitationText, /未取得可核验的早期刻本、页码或定本/);
+  assert.match(limitationText, /多能鄙事.*正月初一留连起子时/);
+  assert.match(limitationText, /通行掌诀正月初一大安起子时的起日口径不同/);
+  assert.ok(
+    data.evidenceAnalysis?.limitationFacts
+      .find((fact) => fact.type === '来源边界')
+      ?.sources.some((source) => source.includes('第196—197页')),
+  );
   assert.doesNotMatch(data.primary.verse, FORBIDDEN_EXTENSIONS);
   assert.match(limitationText, /未采用无可核验出处的华山派完整课/);
   const { evidenceAnalysis: _evidenceAnalysis, ...chartData } = data;
