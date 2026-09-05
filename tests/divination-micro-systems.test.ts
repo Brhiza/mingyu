@@ -6,6 +6,28 @@ import {
   analyzeTarotArchetypeJourney,
 } from 'mingyu-core/divination';
 import { tarotCards } from 'mingyu-core/divination/tarot';
+import { LENORMAND_CARDS } from 'mingyu-core/divination/lenormand';
+
+test('雷诺曼九宫拒绝缺牌、多牌、重复和无效牌名，全部位置距离固定', () => {
+  const cards = LENORMAND_CARDS.slice(0, 9).map(({ id, name }) => ({ id, name }));
+  for (const invalid of [
+    cards.slice(0, 8),
+    [...cards, LENORMAND_CARDS[9]],
+    new Array(9),
+    [cards[4], ...cards.slice(1)],
+    [{ id: 1, name: '未知' }, ...cards.slice(1)],
+  ]) {
+    assert.throws(() => analyzeLenormandNineGrid(invalid));
+  }
+  const grid = analyzeLenormandNineGrid(cards);
+  assert.equal(grid.cardDistances.length, 8);
+  const distances = new Map(grid.cardDistances.map((item) => [item.card.id, item.distance]));
+  assert.deepEqual(
+    cards.map((card) => distances.get(card.id) ?? 0),
+    [2, 1, 2, 1, 0, 1, 2, 1, 2],
+  );
+  assert.doesNotMatch(grid.summary, /显见|潜意识|起因|趋势|强烈/);
+});
 
 test('塔罗原型分组与主牌库78张编号一致，并列不产生唯一主导', () => {
   const groups = [
