@@ -326,11 +326,12 @@ test('五运六气年度资料列出平气条件，不据年干支确认全年�
   assert.match(result2026.prompt, /平气条件：/);
   assert.doesNotMatch(result2026.prompt, /五脏受候|心神亢燥|病机偏胜与平气/);
 
-  // 《古今医统大全》丁亥例附交司日时逢壬的条件，年干支本身不足以证实。
+  // 丁亥具司天同气资助；交司日时逢壬的干德符及实际平气仍须另核。
   const resultDingHai = calculateWuyunLiuqi({ yearGanZhi: '丁亥' });
   assert.ok(resultDingHai.pathomechanism);
   assert.equal(resultDingHai.pathomechanism.isPingQi, null);
-  assert.equal(resultDingHai.pathomechanism.pingQiType, '平气待定');
+  assert.equal(resultDingHai.pathomechanism.pingQiType, '具平气条件');
+  assert.match(resultDingHai.pathomechanism.pingQiConditions.join('；'), /司天与木运同气/);
   assert.match(resultDingHai.pathomechanism.pingQiBasis, /平气成立时称敷和之纪/);
   assert.match(resultDingHai.pathomechanism.pingQiBasis, /交气日时干德符/);
 });

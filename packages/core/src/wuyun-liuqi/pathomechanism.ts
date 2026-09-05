@@ -4,7 +4,7 @@
  */
 import type { AnnualConformities, AnnualMovement, LiuqiProfile, WuyunElement } from './index';
 import { assertValidGanZhi } from '../ganzhi/validation';
-import { isKe } from '../wuxing';
+import { isKe, isSheng } from '../wuxing';
 import {
   STEM_MOVEMENT,
   QI_PROFILES,
@@ -127,6 +127,11 @@ export function evaluateWuyunLiuqiPathomechanism(params: {
     pingQiConditions.push(`${sitian.name}司天制约${annualMovement.element}运太过`);
   }
   if (annualMovement.strength === '不及') {
+    if (sitian.element === annualMovement.element) {
+      pingQiConditions.push(`${sitian.name}司天与${annualMovement.element}运同气，资助岁运不及`);
+    } else if (isSheng(sitian.element, annualMovement.element)) {
+      pingQiConditions.push(`${sitian.name}司天生${annualMovement.element}运，资助岁运不及`);
+    }
     if (annualConformities.suihui) pingQiConditions.push('岁运不及而逢岁会');
     if (annualConformities.tongSuihui) pingQiConditions.push('岁运不及而逢同岁会');
     if (yearGanZhi === '辛亥') pingQiConditions.push('辛水运不及，亥水同气相佐');

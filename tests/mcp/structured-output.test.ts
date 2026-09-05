@@ -1518,6 +1518,18 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
     assert.equal(wuyunResult.pathomechanism.movementRegime, '流衍之纪');
     assert.equal(wuyunResult.pathomechanism.classicalReference.condition, '少阴司天，热淫所胜');
     assert.equal(wuyunResult.pathomechanism.classicalReference.conditionEstablished, null);
+    const assisted = await client.callTool({
+      name: 'metaphysics_wuyun_liuqi',
+      arguments: { yearGanZhi: '辛卯' },
+    });
+    assert.equal(assisted.isError, undefined);
+    const assistedResult = assisted.structuredContent?.result as {
+      pathomechanism: { isPingQi: null; pingQiConditions: string[] };
+    };
+    assert.equal(assistedResult.pathomechanism.isPingQi, null);
+    assert.ok(
+      assistedResult.pathomechanism.pingQiConditions.includes('阳明燥金司天生水运，资助岁运不及'),
+    );
     assert.deepEqual(
       [wuyunResult.annualMovement.name, wuyunResult.annualMovement.strength],
       ['水运', '太过'],

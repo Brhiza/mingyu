@@ -20,7 +20,7 @@ test('六十年逐一保留太过不及之纪并区别年层条件与实际平�
   const branches = [...'子丑寅卯辰巳午未申酉戌亥'];
   const regimes = ['敦阜', '从革', '流衍', '委和', '赫曦', '卑监', '坚成', '涸流', '发生', '伏明'];
   const conditions = new Set(
-    '戊辰 戊戌 庚子 庚午 庚寅 庚申 丁卯 己丑 己未 乙酉 辛丑 辛未 癸卯 癸酉 癸巳 癸亥 辛亥'.split(
+    '戊辰 戊戌 庚子 庚午 庚寅 庚申 丁卯 己丑 己未 乙酉 辛丑 辛未 癸卯 癸酉 癸巳 癸亥 辛亥 乙卯 丁巳 丁亥 乙丑 乙未 辛卯 辛酉'.split(
       ' ',
     ),
   );
@@ -30,5 +30,24 @@ test('六十年逐一保留太过不及之纪并区别年层条件与实际平�
     assert.equal(result.isPingQi, null, yearGanZhi);
     assert.equal(result.movementRegime, `${regimes[i % 10]}之纪`, yearGanZhi);
     assert.equal(result.pingQiConditions.length > 0, conditions.has(yearGanZhi), yearGanZhi);
+  }
+});
+
+test('运气要诀不及得助包含司天同气及相生，太过同气不混作资助', () => {
+  for (const yearGanZhi of ['乙卯', '乙酉', '丁巳', '丁亥', '己丑', '己未']) {
+    const result = calculateWuyunLiuqi({ yearGanZhi }).pathomechanism!;
+    assert.match(result.pingQiConditions.join('；'), /司天与.运同气，资助岁运不及/);
+    assert.equal(result.isPingQi, null);
+  }
+  for (const yearGanZhi of ['乙丑', '乙未', '辛卯', '辛酉', '癸巳', '癸亥']) {
+    const result = calculateWuyunLiuqi({ yearGanZhi }).pathomechanism!;
+    assert.match(result.pingQiConditions.join('；'), /司天生.运，资助岁运不及/);
+    assert.equal(result.isPingQi, null);
+  }
+  for (const yearGanZhi of ['丙辰', '丙戌', '戊子', '戊午', '戊寅', '戊申']) {
+    assert.doesNotMatch(
+      calculateWuyunLiuqi({ yearGanZhi }).pathomechanism!.pingQiConditions.join('；'),
+      /资助岁运不及/,
+    );
   }
 });
