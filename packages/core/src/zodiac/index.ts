@@ -24,6 +24,7 @@ import {
   getGanZhiFromDate,
 } from '../ganzhi';
 import { analyzeZodiacEvidence } from './evidence';
+import { buildPromptTask } from '../prompt/guidance';
 
 export { analyzeZodiacEvidence } from './evidence';
 export type {
@@ -364,7 +365,10 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const evidenceAnalysis = analyzeZodiacEvidence(resultBase);
   const prompt = [
     '【任务】',
-    '依据所给生肖年支与流年干支，解释同支、合冲刑害破及五行生克的传统含义，逐项联系本次关系资料。',
+    buildPromptTask(
+      '围绕所问事项解读以下生肖与流年资料，说明各项关系的传统含义及适用条件。涉及个人具体情况时，结合完整出生资料和实际处境展开。',
+      'zodiac',
+    ),
     `【生肖与流年关系简析】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${taiSui.star}太岁）。`,
     `五行关系：流年年干${yearGanZhi[0]}属${yearStemWuxing}，生肖地支${zodiacBranch}属${zodiacWuxing}，${relation}。`,
@@ -385,8 +389,6 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
           .join('；')}`
       : '太岁关系：未命中值、冲、刑、害、破关系。',
     '信息范围：仅使用出生年支与流年干支进行关系分类。',
-    '【输出要求】',
-    '以年支关系的简析为范围，分别说明已出现的关系及其适用条件。涉及个人具体情况时，结合完整出生资料和实际处境展开。',
   ]
     .filter(Boolean)
     .join('\n');

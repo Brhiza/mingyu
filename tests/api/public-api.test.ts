@@ -5347,6 +5347,9 @@ test('公开生肖提示词保留问题与关系资料，不混入内部证据�
   assert.match(body.data.prompt, /今年的关系如何理解/);
   assert.match(body.data.prompt, /鼠（子）遇丙午年/);
   assert.match(body.data.prompt, /冲太岁（生肖年支子与流年年支午相冲）/);
+  assert.equal(body.data.prompt.match(/^【任务】$/gm)?.length, 1);
+  assertPromptHasAnswerFramework(body.data.prompt);
+  assertPromptIsPortableTaskText(body.data.prompt);
   assert.doesNotMatch(
     body.data.prompt,
     /结构化类型|证据链完整|证据汇总|有利关系：|风险关系：|actionSignals|classification/,

@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  assertPromptHasAnswerFramework,
+  assertPromptIsPortableTaskText,
+} from './prompt-assertions';
+import {
   calculateZodiacYearFortune,
   getZodiacYearFortune,
 } from '../packages/core/src/zodiac/index.ts';
@@ -62,7 +66,10 @@ test('生肖六十流年七百二十组合保留全部刑冲害破与合会关�
           sanhui.some((group) => group.includes(branch) && group.includes(yearBranch)),
       );
       assert.ok(result.prompt.includes(yearGanZhi));
-      assert.match(result.prompt, /【任务】[\s\S]*【生肖与流年关系简析】[\s\S]*【输出要求】/);
+      assert.match(result.prompt, /【任务】[\s\S]*【生肖与流年关系简析】/);
+      assert.equal(result.prompt.match(/^【任务】$/gm)?.length, 1);
+      assertPromptHasAnswerFramework(result.prompt);
+      assertPromptIsPortableTaskText(result.prompt);
       assert.doesNotMatch(result.prompt, /证据链完整|结构化类型|证据汇总|来源：|MCP|API/);
       assert.equal(result.interpretationBoundary, '仅限生肖与流年关系');
     }
