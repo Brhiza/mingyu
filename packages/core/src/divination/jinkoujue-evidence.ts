@@ -2,10 +2,14 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import {
   buildRandomTraceFact,
+  createRandomContext,
+  randomInt,
   formatLegacyRandomFacts,
   type RandomTraceFact,
 } from '../shared/random';
 import type { JinkoujueData, JinkoujueFourPosition, JinkoujueMovement } from '../types/divination';
+import { MingyuCoreError } from '../shared/result';
+import { EARTHLY_BRANCHES } from '../ganzhi';
 
 export interface JinkoujuePositionFact {
   key: string;
@@ -333,6 +337,23 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     processLabel: '金口诀随机起课',
     sources: ['随机起课抽样过程'],
   });
+  if (data.method === 'random' && randomTraceFact.status === '可重放') {
+    const replay = createRandomContext({ replay: randomTraceFact.samples });
+    const value = randomInt(12, replay.random) + 1;
+    if (
+      replay.getTrace().samples.length !== randomTraceFact.samples.length ||
+      value !== data.calculation.inputBase ||
+      EARTHLY_BRANCHES[value - 1] !== data.positions.diFen.branch ||
+      EARTHLY_BRANCHES[value - 1] !== data.diFenBranch
+    ) {
+      throw new MingyuCoreError({
+        code: 'JINKOUJUE_RANDOM_TRACE_MISMATCH',
+        category: 'validation',
+        message: '金口诀随机轨迹与起课数字或地分不一致，或包含多余样本。',
+        field: 'randomTrace.samples',
+      });
+    }
+  }
 
   const items: PromptEvidenceItem[] = [
     {
