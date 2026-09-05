@@ -187,6 +187,8 @@ function buildTopicMatchFact(params: {
 }
 
 const GOD_RULE_SOURCES: Record<string, string> = {
+  孤辰: '《钦定协纪辨方书》行狠了戾孤辰起例',
+  灾煞: '《钦定协纪辨方书》灾煞正月子逆行四仲起例',
   天德: '《钦定协纪辨方书》四德日干起例',
   天德合: '《钦定协纪辨方书》四德日干起例',
   月德: '《钦定协纪辨方书》四德日干起例',
