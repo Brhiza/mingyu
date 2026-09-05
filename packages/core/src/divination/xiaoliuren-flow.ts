@@ -2,6 +2,7 @@
  * @file 小六壬初宫二宫三宫流转与终局定性断诀
  * @传统依据 《小六壬通占》《马前课》：月上起初一，日上起子时；初宫主事端起由，二宫主人事过渡，三宫（时宫）定局定性。
  */
+import { isKe, isSheng } from '../ganzhi';
 
 export interface XiaoliurenPalaceInfo {
   name: string;
@@ -18,13 +19,19 @@ export const XIAOLIUREN_PALACE_ATTRIBUTES: Record<string, XiaoliurenPalaceInfo> 
   空亡: { name: '空亡', wuxing: '土', auspice: '凶' },
 };
 
-const ELEMENT_RELATION: Record<string, Record<string, string>> = {
-  木: { 木: '比和', 火: '生出', 土: '克出', 金: '受克', 水: '受生' },
-  火: { 木: '受生', 火: '比和', 土: '生出', 金: '克出', 水: '受克' },
-  土: { 木: '受克', 火: '受生', 土: '比和', 金: '生出', 水: '克出' },
-  金: { 木: '克出', 火: '受克', 土: '受生', 金: '比和', 水: '生出' },
-  水: { 木: '生出', 火: '受克', 土: '受克', 金: '受生', 水: '比和' },
-};
+function elementRelation(source: string, target: string): string {
+  if (source === target) return '比和';
+  if (isSheng(source, target)) return '生出';
+  if (isSheng(target, source)) return '受生';
+  return isKe(source, target) ? '克出' : '受克';
+}
+
+function resolvePalace(name: string): XiaoliurenPalaceInfo {
+  if (typeof name !== 'string' || !Object.hasOwn(XIAOLIUREN_PALACE_ATTRIBUTES, name)) {
+    throw new Error(`未知的小六壬宫名：${name}`);
+  }
+  return { ...XIAOLIUREN_PALACE_ATTRIBUTES[name] };
+}
 
 export interface XiaoliurenFlowResult {
   month: XiaoliurenPalaceInfo;
@@ -45,24 +52,15 @@ export function evaluateXiaoliurenFlow(sequence: {
   dayName: string;
   hourName: string;
 }): XiaoliurenFlowResult {
-  const month = XIAOLIUREN_PALACE_ATTRIBUTES[sequence.monthName] ?? {
-    name: sequence.monthName,
-    wuxing: '木',
-    auspice: '平',
-  };
-  const day = XIAOLIUREN_PALACE_ATTRIBUTES[sequence.dayName] ?? {
-    name: sequence.dayName,
-    wuxing: '木',
-    auspice: '平',
-  };
-  const hour = XIAOLIUREN_PALACE_ATTRIBUTES[sequence.hourName] ?? {
-    name: sequence.hourName,
-    wuxing: '木',
-    auspice: '平',
-  };
+  if (!sequence || typeof sequence !== 'object' || Array.isArray(sequence)) {
+    throw new Error('小六壬三宫输入必须是对象');
+  }
+  const month = resolvePalace(sequence.monthName);
+  const day = resolvePalace(sequence.dayName);
+  const hour = resolvePalace(sequence.hourName);
 
-  const rel1 = ELEMENT_RELATION[month.wuxing]?.[day.wuxing] ?? '比和';
-  const rel2 = ELEMENT_RELATION[day.wuxing]?.[hour.wuxing] ?? '比和';
+  const rel1 = elementRelation(month.wuxing, day.wuxing);
+  const rel2 = elementRelation(day.wuxing, hour.wuxing);
 
   let trajectoryType: XiaoliurenFlowResult['trajectoryType'];
   let classicalJudgment: string;

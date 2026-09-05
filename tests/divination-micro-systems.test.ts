@@ -8,6 +8,47 @@ import {
 import { tarotCards } from 'mingyu-core/divination/tarot';
 import { LENORMAND_CARDS } from 'mingyu-core/divination/lenormand';
 
+test('小六壬216组三宫五行关系方向一致并拒绝未知宫名', () => {
+  const names = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'];
+  const generates = ['木火', '火土', '土金', '金水', '水木'];
+  const controls = ['木土', '土水', '水火', '火金', '金木'];
+  const relation = (a: string, b: string) =>
+    a === b
+      ? '比和'
+      : generates.includes(a + b)
+        ? '生出'
+        : generates.includes(b + a)
+          ? '受生'
+          : controls.includes(a + b)
+            ? '克出'
+            : '受克';
+  for (const monthName of names)
+    for (const dayName of names)
+      for (const hourName of names) {
+        const result = evaluateXiaoliurenFlow({ monthName, dayName, hourName });
+        assert.ok(
+          result.monthToDayRelation.endsWith(relation(result.month.wuxing, result.day.wuxing)),
+        );
+        assert.ok(
+          result.dayToHourRelation.endsWith(relation(result.day.wuxing, result.hour.wuxing)),
+        );
+      }
+  for (const name of ['未知', 'toString', '__proto__', ['大安'], null]) {
+    for (const field of ['monthName', 'dayName', 'hourName']) {
+      assert.throws(
+        () =>
+          evaluateXiaoliurenFlow({
+            monthName: '大安',
+            dayName: '速喜',
+            hourName: '小吉',
+            [field]: name,
+          } as never),
+        /未知的小六壬宫名/,
+      );
+    }
+  }
+});
+
 test('雷诺曼九宫拒绝缺牌、多牌、重复和无效牌名，全部位置距离固定', () => {
   const cards = LENORMAND_CARDS.slice(0, 9).map(({ id, name }) => ({ id, name }));
   for (const invalid of [
