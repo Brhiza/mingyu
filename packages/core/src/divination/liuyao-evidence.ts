@@ -8,7 +8,7 @@ import { isKe, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import { MingyuCoreError } from '../shared/result';
 import { generateYarrow } from './algorithms/yarrow';
-import type { YarrowResult } from './algorithms/yarrow';
+import type { YarrowResult, YarrowLine } from './algorithms/yarrow';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
   buildRandomTraceFact,
@@ -17,6 +17,34 @@ import {
 } from '../shared/random';
 
 export type LiuyaoEvidenceTopic = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
+
+function equalYarrowLines(expected: readonly YarrowLine[], actual?: readonly YarrowLine[]) {
+  const fields = [
+    'initial',
+    'left',
+    'right',
+    'hanging',
+    'leftRemainder',
+    'rightRemainder',
+    'removed',
+    'remaining',
+  ] as const;
+  return (
+    Array.isArray(actual) &&
+    actual.length === expected.length &&
+    expected.every((line, index) => {
+      const other = actual[index];
+      return (
+        other?.value === line.value &&
+        Array.isArray(other.changes) &&
+        other.changes.length === line.changes.length &&
+        line.changes.every((step, turn) =>
+          fields.every((field) => step[field] === other.changes[turn]?.[field]),
+        )
+      );
+    })
+  );
+}
 
 function formatYarrowProcess(yarrow: Omit<YarrowResult, 'randomTrace'>): string {
   return [
@@ -470,7 +498,7 @@ function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
       splits: yarrow.lines.flatMap((line) => line.changes.map((step) => step.left)),
     });
     if (
-      JSON.stringify(verified.lines) !== JSON.stringify(yarrow.lines) ||
+      !equalYarrowLines(verified.lines, yarrow.lines) ||
       JSON.stringify(verified.yaos) !== JSON.stringify(yarrow.yaos) ||
       JSON.stringify(verified.yaos) !== JSON.stringify(data.yaoArray) ||
       !['手工分堆', '余数等概率，类内分堆等概率'].includes(yarrow.samplingModel)
@@ -1441,7 +1469,7 @@ export function analyzeLiuyaoEvidence(
     const replayed = generateYarrow({ replay: randomFact.samples });
     if (
       randomFact.samples.length !== 36 ||
-      JSON.stringify(replayed.lines) !== JSON.stringify(generationFact.yarrow?.lines)
+      !equalYarrowLines(replayed.lines, generationFact.yarrow?.lines)
     ) {
       throw new Error('蓍草随机轨迹与分堆记录不一致。');
     }

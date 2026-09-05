@@ -63,6 +63,22 @@ test('蓍草六爻排盘保留来源并核验过程与随机样本', () => {
   assert.deepEqual(hand.yaoArray, result.yaoArray);
   assert.equal(hand.generation!.yarrow!.samplingModel, '手工分堆');
   assert.match(JSON.stringify(result.evidenceAnalysis), /第3变/);
+  for (const source of [result, hand]) {
+    const reordered = structuredClone(source);
+    reordered.generation!.yarrow!.lines = reordered.generation!.yarrow!.lines.map((line) => ({
+      value: line.value,
+      changes: line.changes.map(
+        (step) => Object.fromEntries(Object.entries(step).reverse()) as typeof step,
+      ),
+    }));
+    assert.deepEqual(analyzeLiuyaoEvidence(reordered), analyzeLiuyaoEvidence(source));
+    for (const field of Object.keys(record.lines[0].changes[0])) {
+      const tampered = structuredClone(reordered);
+      const step = tampered.generation!.yarrow!.lines[0].changes[0];
+      (step as unknown as Record<string, number>)[field]++;
+      assert.throws(() => analyzeLiuyaoEvidence(tampered), /不一致/);
+    }
+  }
   const changed = structuredClone(result);
   changed.generation!.yarrow!.lines[0].changes[0].remaining++;
   assert.throws(() => analyzeLiuyaoEvidence(changed), /不一致/);
