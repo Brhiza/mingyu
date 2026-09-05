@@ -51,6 +51,58 @@ export interface HuangjiDerivedHexagram extends HuangjiHexagramSummary {
   sequenceOffset?: number;
 }
 
+export interface HuangjiSixDayCycleInput {
+  /** 原例冬至甲子日子半起复后，已经过的完整日数，限本轮0至359。 */
+  elapsedDays: number;
+  /** 所求日内的整点小时，0至23；子半对应0时。 */
+  hour: number;
+}
+
+export interface HuangjiSixDayCycleResult {
+  model: '书绪言六日逐爻';
+  dayOfCycle: number;
+  jingIndex: number;
+  dayLine: number;
+  hourLine: number;
+  hourRange: string;
+  hexagrams: {
+    jing: HuangjiHexagramSummary;
+    daily: HuangjiDerivedHexagram;
+    hourly: HuangjiDerivedHexagram;
+  };
+}
+
+/** 《皇极经世书绪言》卷一的三百六十日坐标；起点由调用者另行校定。 */
+export function calculateHuangjiSixDayCycle(
+  input: HuangjiSixDayCycleInput,
+): HuangjiSixDayCycleResult {
+  if (
+    !input ||
+    !Number.isInteger(input.elapsedDays) ||
+    input.elapsedDays < 0 ||
+    input.elapsedDays > 359
+  ) {
+    throw new Error('六日逐爻已经过日数必须为0至359的整数。');
+  }
+  if (!Number.isInteger(input.hour) || input.hour < 0 || input.hour > 23) {
+    throw new Error('六日逐爻小时必须为0至23的整数。');
+  }
+  const jingIndex = Math.floor(input.elapsedDays / 6);
+  const dayLine = (input.elapsedDays % 6) + 1;
+  const hourLine = Math.floor(input.hour / 4) + 1;
+  const jing = summarizeHexagram(getHexagramByShortName(HUANGJI_CIRCLE_HEXAGRAMS[jingIndex]));
+  const daily = changeLine(jing, dayLine);
+  return {
+    model: '书绪言六日逐爻',
+    dayOfCycle: input.elapsedDays + 1,
+    jingIndex: jingIndex + 1,
+    dayLine,
+    hourLine,
+    hourRange: `${pad((hourLine - 1) * 4)}:00—${pad(hourLine * 4)}:00`,
+    hexagrams: { jing, daily, hourly: changeLine(daily, hourLine) },
+  };
+}
+
 export interface HuangjiDateTimeForecast {
   model: '经纬卦年月日时推衍';
   civilTime: {
