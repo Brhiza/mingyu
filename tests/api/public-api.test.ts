@@ -5368,6 +5368,12 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assert.equal(calculation.body.data.annualMovement.name, '水运');
   assert.equal(calculation.body.data.pathomechanism.isPingQi, null);
   assert.equal(calculation.body.data.pathomechanism.movementRegime, '流衍之纪');
+  assert.equal(calculation.body.data.pathomechanism.classicalReference.conditionEstablished, null);
+  assert.equal(
+    calculation.body.data.pathomechanism.classicalReference.condition,
+    '少阴司天，热淫所胜',
+  );
+  assert.match(calculation.body.data.pathomechanism.affectedZangFu, /病本于肺/);
   assert.equal(calculation.body.data.annualMovement.strength, '太过');
   assert.equal(calculation.body.data.sitian.name, '少阴君火');
   assert.equal(calculation.body.data.zaiquan.name, '阳明燥金');

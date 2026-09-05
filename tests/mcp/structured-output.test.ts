@@ -1487,7 +1487,11 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
       arguments: { year: 2026, yearGanZhi: '丙午' },
     });
     const wuyunResult = wuyun.structuredContent?.result as {
-      pathomechanism: { isPingQi: null; movementRegime: string };
+      pathomechanism: {
+        isPingQi: null;
+        movementRegime: string;
+        classicalReference: { condition: string; conditionEstablished: null };
+      };
       input: { yearGanZhi: string };
       annualMovement: { name: string; strength: string };
       sitian: { name: string };
@@ -1512,6 +1516,8 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
     assert.equal(wuyunResult.input.yearGanZhi, '丙午');
     assert.equal(wuyunResult.pathomechanism.isPingQi, null);
     assert.equal(wuyunResult.pathomechanism.movementRegime, '流衍之纪');
+    assert.equal(wuyunResult.pathomechanism.classicalReference.condition, '少阴司天，热淫所胜');
+    assert.equal(wuyunResult.pathomechanism.classicalReference.conditionEstablished, null);
     assert.deepEqual(
       [wuyunResult.annualMovement.name, wuyunResult.annualMovement.strength],
       ['水运', '太过'],

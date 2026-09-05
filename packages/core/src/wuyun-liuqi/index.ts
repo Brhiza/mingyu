@@ -3,6 +3,12 @@
  * @description 依据年干支推导岁运太过不及、五步主客运、司天在泉以及六步主气与客气。
  * @传统依据 《素问·天元纪大论》《素问·五运行大论》《素问·六微旨大论》及运气七篇大论。
  */
+import {
+  STEM_MOVEMENT,
+  QI_PROFILES,
+  BRANCH_SITIAN_ZAIQUAN,
+  SUIHUI_BRANCH_ELEMENT,
+} from './annual-data';
 import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
@@ -175,22 +181,6 @@ export interface WuyunLiuqiResult extends WuyunLiuqiCalculation {
   prompt: string;
 }
 
-const STEM_MOVEMENT: Record<
-  string,
-  { element: WuyunElement; yinYang: '阳' | '阴'; strength: WuyunStrength }
-> = {
-  甲: { element: '土', yinYang: '阳', strength: '太过' },
-  乙: { element: '金', yinYang: '阴', strength: '不及' },
-  丙: { element: '水', yinYang: '阳', strength: '太过' },
-  丁: { element: '木', yinYang: '阴', strength: '不及' },
-  戊: { element: '火', yinYang: '阳', strength: '太过' },
-  己: { element: '土', yinYang: '阴', strength: '不及' },
-  庚: { element: '金', yinYang: '阳', strength: '太过' },
-  辛: { element: '水', yinYang: '阴', strength: '不及' },
-  壬: { element: '木', yinYang: '阳', strength: '太过' },
-  癸: { element: '火', yinYang: '阴', strength: '不及' },
-};
-
 export const HOST_MOVEMENT_ORDER: readonly WuyunElement[] = ['木', '火', '土', '金', '水'];
 
 const MOVEMENT_TONE: Record<WuyunElement, WuyunTone> = {
@@ -253,15 +243,6 @@ export const MOVEMENT_STEP_BOUNDARIES: readonly {
   },
 ];
 
-const QI_PROFILES: Record<LiuqiName, LiuqiProfile> = {
-  厥阴风木: { name: '厥阴风木', phase: '厥阴', qi: '风', element: '木' },
-  少阴君火: { name: '少阴君火', phase: '少阴', qi: '君火', element: '火' },
-  少阳相火: { name: '少阳相火', phase: '少阳', qi: '相火', element: '火' },
-  太阴湿土: { name: '太阴湿土', phase: '太阴', qi: '湿', element: '土' },
-  阳明燥金: { name: '阳明燥金', phase: '阳明', qi: '燥', element: '金' },
-  太阳寒水: { name: '太阳寒水', phase: '太阳', qi: '寒', element: '水' },
-};
-
 /** 主气的少阳、太阴次序与客气轮转不同。 */
 export const HOST_QI_ORDER: readonly LiuqiName[] = [
   '厥阴风木',
@@ -280,21 +261,6 @@ export const GUEST_QI_ORDER: readonly LiuqiName[] = [
   '阳明燥金',
   '太阳寒水',
 ];
-
-const BRANCH_SITIAN_ZAIQUAN: Record<string, readonly [LiuqiName, LiuqiName]> = {
-  子: ['少阴君火', '阳明燥金'],
-  午: ['少阴君火', '阳明燥金'],
-  丑: ['太阴湿土', '太阳寒水'],
-  未: ['太阴湿土', '太阳寒水'],
-  寅: ['少阳相火', '厥阴风木'],
-  申: ['少阳相火', '厥阴风木'],
-  卯: ['阳明燥金', '少阴君火'],
-  酉: ['阳明燥金', '少阴君火'],
-  辰: ['太阳寒水', '太阴湿土'],
-  戌: ['太阳寒水', '太阴湿土'],
-  巳: ['厥阴风木', '少阳相火'],
-  亥: ['厥阴风木', '少阳相火'],
-};
 
 const QI_STEP_LABELS: LiuqiStep['label'][] = [
   '初之气',
@@ -393,16 +359,6 @@ export const QI_STEP_SOLAR_TERMS: readonly (readonly [string, string, string, st
 ];
 
 /** 岁会只取本运临本支之位：木卯、火午、土四维、金酉、水子。 */
-const SUIHUI_BRANCH_ELEMENT: Partial<Record<string, WuyunElement>> = {
-  卯: '木',
-  午: '火',
-  辰: '土',
-  戌: '土',
-  丑: '土',
-  未: '土',
-  酉: '金',
-  子: '水',
-};
 
 export const ANNUAL_CONFORMITY_SOURCE_RECONCILIATION = Object.freeze({
   distinctYearsByListedRules: 26 as const,
