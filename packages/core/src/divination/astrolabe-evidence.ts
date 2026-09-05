@@ -164,6 +164,7 @@ export interface AstrolabeLimitationFact {
   key: string;
   type:
     | '时区诊断'
+    | '星历精度边界'
     | '几何解释边界'
     | '相位强度边界'
     | '相位筛选边界'
@@ -826,6 +827,15 @@ function buildLimitationFacts(
     [illuminationFact.key, ...illuminationFact.crossingFactKeys],
     ['地点相关太阳光照计算资料'],
   );
+  (data.ephemerisWarnings ?? []).forEach((warning, index) => {
+    push(
+      `astrolabe:limitation:ephemeris:${index}`,
+      '星历精度边界',
+      warning,
+      [calculationFact.key],
+      ['星历验证年代与时标差不确定度'],
+    );
+  });
   return facts;
 }
 

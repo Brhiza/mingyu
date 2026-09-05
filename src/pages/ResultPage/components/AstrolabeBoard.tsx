@@ -65,6 +65,14 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
         </div>
       </div>
 
+      {Boolean(data.ephemerisWarnings?.length) && (
+        <div className="result-side-card" role="note" aria-label="星历精度">
+          {data.ephemerisWarnings!.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+        </div>
+      )}
+
       <div className="result-summary-grid">
         <div className="result-stat-card result-stat-card-accent">
           <span>太阳</span>

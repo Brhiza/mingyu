@@ -887,6 +887,7 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
   return [
     '占法：星盘',
     data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
+    ...(data.ephemerisWarnings ?? []).map((warning) => `星历精度：${warning}`),
     `出生信息：${data.birth.name}，${data.birth.gender || '性别未填'}，${data.birth.dateTime}，位置${data.birth.location}，时区 UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
     data.birth.isTrueSolarTime
       ? `出生时间校正：当地钟表时间${data.birth.standardDateTime || '未记录'}，采用真太阳时${data.birth.trueSolarDateTime || data.birth.dateTime}排盘。`

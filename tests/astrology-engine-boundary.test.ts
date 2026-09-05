@@ -11,6 +11,14 @@ import {
   toJulianDate,
 } from '../packages/core/src/astrology/engine';
 
+test('星历保留验证年代与古代时标差精度说明，现代日期无多余说明', () => {
+  const input = { year: 150, month: 1, day: 1, hour: 12, minute: 0, timezone: 0 };
+  const old = calculateChart(input);
+  assert.ok(old.warnings.some((warning) => /太阳.*1000—3000/.test(warning)));
+  assert.ok(old.warnings.some((warning) => /时标差.*230秒.*0.96度.*2.11角分/.test(warning)));
+  assert.deepEqual(calculateChart({ ...input, year: 2026 }).warnings, []);
+});
+
 test('请求的星体超出星历数据范围时明确报错，未请求的小行星不阻断主星盘', () => {
   const input = { year: 150, month: 1, day: 1, hour: 12, minute: 0, timezone: 0 };
   assert.equal(calculateChart(input).planets.length, 10);

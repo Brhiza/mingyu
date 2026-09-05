@@ -572,6 +572,13 @@ export function calculateChart(
   const planets = mainNames.map((name): ChartPlanet =>
     mapBody(name, chart.bodies[BODY_IDS[name]]!),
   );
+  const warnings = chart.warnings.map((warning) => {
+    if (warning.kind === 'outside_validated_range') {
+      const name = BODY_NAMES[warning.body] ?? warning.body;
+      return `${BODY_LABELS[name] ?? name}位置超出已验证年代（${warning.validated.from}—${warning.validated.to}年），当前数值的精度待验证。`;
+    }
+    return `时标差估计不确定度约${warning.sigmaSeconds}秒，对应四轴位置约${warning.angleSmearDeg}度、月亮位置约${warning.moonSmearArcmin}角分的不确定度。`;
+  });
   const nodes = options.includeNodes
     ? [
         createPoint(
@@ -637,6 +644,7 @@ export function calculateChart(
   const angle = (name: string, longitude: number) => ({ name, ...positionFields(longitude) });
   return {
     planets,
+    warnings,
     nodes,
     lilith,
     lots: chartLots,

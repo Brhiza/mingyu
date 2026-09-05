@@ -470,6 +470,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     },
     planets: calculatedPoints,
     houseSystem: chart.houses.system,
+    ephemerisWarnings: chart.warnings,
     angles,
     houses: chart.houses.cusps.map((cusp) => ({
       name: `House ${cusp.house}`,
