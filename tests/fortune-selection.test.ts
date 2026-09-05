@@ -87,6 +87,17 @@ test('近期年限预设会选择当前流月而不是锁定当天', () => {
   });
 });
 
+test('元旦至立春前的当前日期应回查上一节令年，不回退到当年首月首日', () => {
+  const result = createMockResult();
+  // 2008-01-15 处于立春前，节令年应为 2007 年的第十二月
+  const selection = buildCurrentBaziFortuneSelection(result, new Date(2008, 0, 15, 12));
+  assert.ok(selection);
+  assert.equal(selection.year, 2007);
+  assert.equal(selection.month, 12);
+  assert.ok(selection.day >= 1 && selection.day <= 30);
+  assert.equal(selection.cycleIndex, 0);
+});
+
 test('当前年份不在命盘运限范围时不应静默回退到第一步大运', () => {
   const result = createMockResult();
   const outOfRangeDate = new Date(1980, 1, 8, 12);
@@ -243,7 +254,7 @@ test('选择流日时只保留该流日本身', () => {
   assert.match(context.promptPayload.summaryLines.join('\n'), /流日：2008-02-08/);
   assert.match(
     context.promptPayload.summaryLines.join('\n'),
-    /按子初换日：2008-02-07 23:00 至 2008-02-08 22:59/,
+    /按子初换日（命理日口径，与节令月有效范围分列）：2008-02-07 23:00 至 2008-02-08 22:59/,
   );
   assert.match(context.promptPayload.breakdownLines?.[0] ?? '', /子时/);
   assert.doesNotMatch(context.promptPayload.breakdownLines?.join('\n') ?? '', /晚子时|早子时/);
@@ -266,6 +277,21 @@ test('流日可显式保留旧版早晚子时拆分', () => {
   assert.equal(context?.hourBreakdown?.length, 13);
   assert.match(context?.hourBreakdown?.[0]?.label ?? '', /晚子时/);
   assert.match(context?.hourBreakdown?.[1]?.label ?? '', /早子时/);
+});
+
+test('交节日的流时列表不应包含交节前时辰', () => {
+  const context = buildFortuneSelectionContext(
+    createMockResult(),
+    { scope: 'day', cycleIndex: 0, year: 2008, month: 1, day: 1 },
+    {},
+  );
+  assert.ok(context?.hourBreakdown?.length);
+  const boundaryStart = context.dayBreakdown?.[0]?.timeRange.startTimestamp ?? 0;
+  assert.ok(
+    context.hourBreakdown.every((item) => item.interval.startTimestamp >= boundaryStart),
+    '交节前时辰不应出现在流时列表',
+  );
+  assert.ok(context.hourBreakdown.length < 12, '立春日交节前的时辰应被裁剪');
 });
 
 test('岁运各层应按精确交运时刻裁剪并返回结构化时间', () => {

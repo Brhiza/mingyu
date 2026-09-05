@@ -186,12 +186,12 @@ function buildGanZhiTriggerSummary(
   const combinedZhis = new Set([parts.zhi, ...natalZhis]);
   if (combinedZhis.has('寅') && combinedZhis.has('巳') && combinedZhis.has('申')) {
     if (parts.zhi === '寅' || parts.zhi === '巳' || parts.zhi === '申') {
-      majorEvents.push('引动【寅巳申】恃势之三刑齐备');
+      majorEvents.push('引动【寅巳申】无恩之刑三刑齐备');
     }
   }
   if (combinedZhis.has('丑') && combinedZhis.has('戌') && combinedZhis.has('未')) {
     if (parts.zhi === '丑' || parts.zhi === '戌' || parts.zhi === '未') {
-      majorEvents.push('引动【丑戌未】无恩之三刑齐备');
+      majorEvents.push('引动【丑戌未】恃势之刑三刑齐备');
     }
   }
 
@@ -712,15 +712,23 @@ export function buildFortuneSelectionContext(
 
   const actualDate = dayInfo.solarDate;
   const [actualYear, actualMonth, actualDay] = actualDate.split('-').map(Number);
-  const hourBreakdown = getDayHourBreakdown(
+  // 流时列表按子初命理日生成（含前日 23:00 起的晚子时），因此第二重求交使用
+  // 节令月有效范围而非公历零点切片的流日范围：交节日前后不属于所选流月的时辰被裁剪，
+  // 平日午夜的晚子时仍正常保留
+  const monthTimeRangeForHours = clipToCycle(monthInfo.timeRange, cycleTimeRange);
+  const rawHourBreakdown = getDayHourBreakdown(
     actualYear,
     actualMonth,
     actualDay,
     options.hourMode ?? 'twelve',
-  ).flatMap((item) => {
+  );
+  const hourBreakdown = rawHourBreakdown.flatMap((item) => {
     const interval = clipToCycle(item.interval, cycleTimeRange);
-    return interval ? [{ ...item, interval }] : [];
+    if (!interval || !monthTimeRangeForHours) return [];
+    const clippedToMonth = clipToCycle(interval, monthTimeRangeForHours);
+    return clippedToMonth ? [{ ...item, interval: clippedToMonth }] : [];
   });
+  const hoursClippedByBoundary = hourBreakdown.length < rawHourBreakdown.length;
   const previousDate = new Date(actualYear, actualMonth - 1, actualDay - 1);
   const ziChuStart = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-${String(previousDate.getDate()).padStart(2, '0')} 23:00`;
   const ziChuEnd = `${actualDate} 22:59`;
@@ -772,8 +780,11 @@ export function buildFortuneSelectionContext(
         `流日：${actualDate} ${dayInfo.ganZhi}`,
         `流日十神：${dayTenGod}`,
         dayTriggerSummary,
-        `按子初换日：${ziChuStart} 至 ${ziChuEnd}`,
+        `按子初换日（命理日口径，与节令月有效范围分列）：${ziChuStart} 至 ${ziChuEnd}`,
         ...(dayInfo.boundaryNote ? [`交节提示：${dayInfo.boundaryNote}`] : []),
+        ...(hoursClippedByBoundary
+          ? ['流时列表已按节令月有效范围与交节时刻裁剪，交节前后各时辰仅保留落在所选节令月范围内者']
+          : []),
       ],
       evidenceLines: buildFortuneEvidenceLines({
         scope: 'day',
