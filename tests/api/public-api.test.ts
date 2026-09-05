@@ -5311,6 +5311,22 @@ test('公开 API 生肖流年应要求明确年份并校验年份干支一致', 
   }
 });
 
+test('公开生肖提示词保留问题与关系资料，不混入内部证据字段', async () => {
+  const { response, body } = await callApi('metaphysics/zodiac/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '鼠', year: 2026, question: '今年的关系如何理解？' }),
+  });
+  assert.equal(response.status, 200);
+  assert.match(body.data.prompt, /今年的关系如何理解/);
+  assert.match(body.data.prompt, /鼠（子）遇丙午年/);
+  assert.match(body.data.prompt, /冲太岁（生肖年支子与流年年支午相冲）/);
+  assert.doesNotMatch(
+    body.data.prompt,
+    /结构化类型|证据链完整|证据汇总|有利关系：|风险关系：|actionSignals|classification/,
+  );
+});
+
 test('公开 API 五运六气应返回年度主客气结构与轻量提示词结果', async () => {
   const calculation = await callApi('metaphysics/wuyun-liuqi/calculate', {
     method: 'POST',

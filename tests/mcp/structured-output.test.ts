@@ -1288,6 +1288,24 @@ test('MCP 生肖流年应拒绝缺失或互相冲突的年份依据', async () =
   });
 });
 
+test('MCP 生肖提示词保留问题与关系资料，不混入内部证据字段', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'zodiac_prompt',
+      arguments: { zodiac: '鼠', year: 2026, question: '今年的关系如何理解？' },
+    });
+    assert.notEqual(result.isError, true);
+    const prompt = (result.structuredContent as { prompt: string }).prompt;
+    assert.match(prompt, /今年的关系如何理解/);
+    assert.match(prompt, /鼠（子）遇丙午年/);
+    assert.match(prompt, /冲太岁（生肖年支子与流年年支午相冲）/);
+    assert.doesNotMatch(
+      prompt,
+      /结构化类型|证据链完整|证据汇总|有利关系：|风险关系：|actionSignals|classification/,
+    );
+  });
+});
+
 test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟表时间', async () => {
   await withMcpClient(async (client) => {
     const success = await client.callTool({
