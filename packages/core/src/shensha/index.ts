@@ -611,18 +611,23 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
     月德: ['丙', '甲', '壬', '庚'][monthIndex % 4],
     月德合: ['辛', '己', '丁', '乙'][monthIndex % 4],
   };
-  const gods = God.getDayGods(month, day).filter(
-    (god) => !Object.hasOwn(rules, god.getName()) || rules[god.getName()] === dayStem,
+  const matches: Record<string, boolean> = Object.fromEntries(
+    Object.entries(rules).map(([name, stem]) => [name, dayStem === stem]),
   );
-  for (const [name, stem] of Object.entries(rules)) {
-    if (dayStem === stem && !gods.some((god) => god.getName() === name))
-      gods.push(God.fromName(name));
+  const dayIndex = day.getIndex();
+  matches.天恩 =
+    dayIndex < 5 || (dayIndex >= 15 && dayIndex < 20) || (dayIndex >= 45 && dayIndex < 50);
+  const gods = God.getDayGods(month, day).filter(
+    (god) => !Object.hasOwn(matches, god.getName()) || matches[god.getName()],
+  );
+  for (const [name, matched] of Object.entries(matches)) {
+    if (matched && !gods.some((god) => god.getName() === name)) gods.push(God.fromName(name));
   }
   return gods;
 }
 
 /**
- * 查询指定公历日期的黄历神煞，四德日干起例依据《钦定协纪辨方书》。
+ * 查询指定公历日期的黄历神煞，四德依据《钦定协纪辨方书》，天恩依据《大清时宪历笺释》。
  * 返回的 shensha 含吉凶分类，duty 为十二建除，nineStar 为九星。
  */
 export function getHuangliShensha(year: number, month: number, day: number): HuangliInfo {

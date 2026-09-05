@@ -200,7 +200,9 @@ function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFac
       sources: [
         ['天德', '天德合', '月德', '月德合'].includes(name)
           ? '《钦定协纪辨方书》四德日干起例'
-          : 'tyme4ts 值日神煞',
+          : name === '天恩'
+            ? '《大清时宪历笺释》天恩十五日起例'
+            : 'tyme4ts 值日神煞',
         'tyme4ts God.getLuck() 原生吉凶属性',
       ],
       limitation: GOD_FACT_LIMITATION,

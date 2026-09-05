@@ -70,3 +70,60 @@ test('黄历旧记录只有神煞名称时完整保留且不推定吉凶', () =>
   assert.ok(formatEnhancedDivinationInfo('almanac', result).includes(expected));
   assert.ok(formatDetailedDivinationInfo('almanac', result).includes(expected));
 });
+
+test('黄历天恩与天赦按时宪历笺释覆盖十二月六十日', () => {
+  // 《大清时宪历笺释》天恩十五日及四季天赦起例。
+  // https://www.shidianguji.com/zh/book/NA06367/chapter/1m3q9g2tzjd4i
+  const graceDays = new Set([
+    '甲子',
+    '乙丑',
+    '丙寅',
+    '丁卯',
+    '戊辰',
+    '己卯',
+    '庚辰',
+    '辛巳',
+    '壬午',
+    '癸未',
+    '己酉',
+    '庚戌',
+    '辛亥',
+    '壬子',
+    '癸丑',
+  ]);
+  const pardonDays = ['戊寅', '甲午', '戊申', '甲子'];
+  const stems = [...'甲乙丙丁戊己庚辛壬癸'];
+  const pillar = (index: number) => stems[index % 10] + [...'子丑寅卯辰巳午未申酉戌亥'][index % 12];
+  for (let month = 0; month < 12; month++)
+    for (let day = 0; day < 60; day++) {
+      const dayPillar = pillar(day);
+      const names = getHuangliDayGods(pillar(month + 2), dayPillar).map((god) => god.getName());
+      assert.equal(
+        names.includes('天恩'),
+        graceDays.has(dayPillar),
+        `${month + 1}月/${dayPillar}/天恩`,
+      );
+      assert.equal(
+        names.includes('天赦'),
+        dayPillar === pardonDays[Math.floor(month / 3)],
+        `${month + 1}月/${dayPillar}/天赦`,
+      );
+    }
+});
+
+test('申月壬午日天恩贯通查询、择日与提示词', () => {
+  assert.ok(
+    getHuangliShensha(2026, 9, 5).shensha.some((god) => god.name === '天恩' && god.luck === '吉'),
+  );
+  const result = generateAlmanacSelection({
+    topic: 'travel',
+    startDate: '2026-09-05',
+    endDate: '2026-09-05',
+  });
+  assert.ok(result.days[0].gods.includes('天恩'));
+  assert.equal(
+    result.days[0].godFacts?.find((fact) => fact.name === '天恩')?.classification,
+    '吉神',
+  );
+  assert.ok(formatEnhancedDivinationInfo('almanac', result).includes('天恩'));
+});
