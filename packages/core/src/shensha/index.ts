@@ -684,6 +684,23 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
   matches.月刑 = day.getEarthBranch().getName() === [...'巳子辰申午丑寅酉未亥卯戌'][monthIndex];
   matches.天恩 =
     dayIndex < 5 || (dayIndex >= 15 && dayIndex < 20) || (dayIndex >= 45 && dayIndex < 50);
+  const nonGeneralStems = [
+    '丙丁己庚辛',
+    '乙丙丁己庚',
+    '甲乙丙丁己',
+    '甲乙丙丁戊',
+    '甲乙丙戊癸',
+    '甲乙戊壬癸',
+    '甲乙戊壬癸',
+    '甲戊辛壬癸',
+    '戊庚辛壬癸',
+    '己庚辛壬癸',
+    '丁己庚辛壬',
+    '丙丁己庚辛',
+  ];
+  matches.不将 =
+    nonGeneralStems[monthIndex].includes(dayStem) &&
+    (day.getEarthBranch().getIndex() + monthIndex + 1) % 12 < 5;
   const gods = God.getDayGods(month, day).filter(
     (god) => !Object.hasOwn(matches, god.getName()) || matches[god.getName()],
   );

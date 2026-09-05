@@ -68,5 +68,6 @@ test('亥月己丑日择日结果应列月厌而非月空', () => {
   assert.equal(day.godFacts?.find((fact) => fact.name === '地火')?.classification, '凶神');
   assert.equal(day.gods.includes('死神'), false);
   assert.equal(day.gods.includes('游祸'), false);
+  assert.equal(day.gods.includes('不将'), false);
   assert.equal(day.godFacts?.find((fact) => fact.name === '大煞')?.classification, '凶神');
 });
