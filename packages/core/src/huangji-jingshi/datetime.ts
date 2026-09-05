@@ -6,7 +6,6 @@
 
 import { SolarTerm, SolarTime } from 'tyme4ts';
 import { hexagramsData, type HexagramData } from '../divination/hexagram-data';
-import { getDivinationTime } from '../calendar/timeManager';
 import {
   HUANGJI_CIRCLE_HEXAGRAMS,
   calculateStandardHuangjiForecast,
@@ -62,6 +61,7 @@ export interface HuangjiDateTimeForecast {
     day: number;
     hour: number;
     minute: number;
+    second: number;
   };
   calendar: {
     forecastYear: number;
@@ -175,10 +175,16 @@ function pad(value: number): string {
 function resolveCalendar(
   date: Date,
 ): HuangjiDateTimeForecast['civilTime'] & HuangjiDateTimeForecast['calendar'] {
-  const { timeInfo } = getDivinationTime(date);
-  const { year, month, day, hour, minute } = timeInfo.solar;
-  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, minute, 0);
-  const targetJulianDay = solarTime.getJulianDay().getDay();
+  const beijing = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const year = beijing.getUTCFullYear();
+  const month = beijing.getUTCMonth() + 1;
+  const day = beijing.getUTCDate();
+  const hour = beijing.getUTCHours();
+  const minute = beijing.getUTCMinutes();
+  const second = beijing.getUTCSeconds();
+  const millisecond = beijing.getUTCMilliseconds();
+  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, minute, second);
+  const targetJulianDay = solarTime.getJulianDay().getDay() + millisecond / 86400000;
   const candidates: Array<{
     forecastYear: number;
     index: number;
@@ -213,13 +219,14 @@ function resolveCalendar(
   const hourEnd = hourSegment * 4;
 
   return {
-    dateTime: `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}`,
+    dateTime: `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}:${pad(second)}${millisecond ? `.${String(millisecond).padStart(3, '0')}` : ''}`,
     timezone: '北京时间（UTC+8）',
     year,
     month,
     day,
     hour,
     minute,
+    second,
     forecastYear: active.forecastYear,
     activeSolarTerm: active.name,
     actualDayInSolarTerm,
@@ -260,6 +267,7 @@ export function calculateHuangjiDateTimeForecast(date: Date): HuangjiDateTimeFor
       day: resolved.day,
       hour: resolved.hour,
       minute: resolved.minute,
+      second: resolved.second,
     },
     calendar: {
       forecastYear: resolved.forecastYear,

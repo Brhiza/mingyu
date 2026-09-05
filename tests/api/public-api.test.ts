@@ -5477,6 +5477,16 @@ test('公开 API 皇极经世应直接按公元年返回完整值年卦，并保
 });
 
 test('公开 API 皇极经世应支持年月日时完整排盘与提示词', async () => {
+  const boundary = await callApi('metaphysics/huangji-jingshi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: '2025-12-21T23:03:06+08:00' }),
+  });
+  assert.equal(boundary.response.status, 200);
+  assert.equal(boundary.body.data.dateTimeForecast.calendar.forecastYear, 2026);
+  assert.equal(boundary.body.data.dateTimeForecast.calendar.activeSolarTerm, '冬至');
+  assert.equal(boundary.body.data.dateTimeForecast.civilTime.second, 6);
+  assert.equal(boundary.body.data.dateTimeForecast.civilTime.dateTime, '2025-12-21 23:03:06');
   const calculation = await callApi('metaphysics/huangji-jingshi/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
