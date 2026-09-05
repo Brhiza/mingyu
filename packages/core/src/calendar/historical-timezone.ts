@@ -3,6 +3,8 @@
  * @description 通过运行环境 Intl/IANA 数据库解析当地钟表时刻的历史 UTC 偏移，并识别 DST 歧义与缺失时刻。
  */
 
+import { createUtcTimestamp } from './date-validation';
+
 export interface HistoricalTimezoneInput {
   year: number;
   month: number;
@@ -163,7 +165,7 @@ function sameParts(first: WallClockParts, second: WallClockParts) {
 
 function offsetHoursAt(formatter: Intl.DateTimeFormat, timestamp: number) {
   const parts = partsAt(formatter, timestamp);
-  const representedAsUtc = Date.UTC(
+  const representedAsUtc = createUtcTimestamp(
     parts.year,
     parts.month - 1,
     parts.day,
@@ -192,7 +194,7 @@ export function resolveHistoricalTimezone(
     minute: input.minute,
     second: input.second,
   };
-  const wallTimestamp = Date.UTC(
+  const wallTimestamp = createUtcTimestamp(
     target.year,
     target.month - 1,
     target.day,

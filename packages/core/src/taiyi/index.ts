@@ -14,6 +14,7 @@
  * 日、时计采用现代历法定位来复现通行实用排法；结果元数据会明确这一口径，不把它冒充为
  * 古籍历法常数、小余和气应链的逐项复原。
  */
+import { createUtcTimestamp } from '../calendar/date-validation';
 import { SolarTime } from 'tyme4ts';
 import { getGanZhiFromDate, getSixtyCycle, isValidGanZhi } from '../ganzhi';
 import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
@@ -76,6 +77,7 @@ const POINT_TO_PALACE: Record<string, number> = {
 const TAIYI_POINTS = Array.from(
   '乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽',
 );
+const YIN_TAIYI_POINTS = [...TAIYI_POINTS].reverse();
 const WENCHANG_POINTS = Array.from(
   '申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤',
 );
@@ -360,12 +362,7 @@ function countNature(value: number): string | undefined {
   return map[value];
 }
 
-/**
- * 依据《太乙金镜式经》卷二“五和、长短、纯阳纯阴”推导大局攻守与策数博弈定性：
- * - 逢“和算”（上和、下和、次和等）：和解调停，宜息争修好、不战屈人；
- * - 纯阳纯阴：纯阳过刚易躁进，纯阴退伏多沉潜；
- * - 主客多寡：主多利主，客多利客。
- */
+/** 按《太乙统宗宝鉴》卷五的长短缓急法描述主客算，并结合门将条件审其胜负。 */
 export function evaluateTaiyiTacticGuidance(params: {
   lordCount: number;
   guestCount: number;
@@ -373,38 +370,13 @@ export function evaluateTaiyiTacticGuidance(params: {
   guestNature?: string;
 }): string {
   const { lordCount, guestCount, lordNature, guestNature } = params;
-  const isLordHe = lordNature?.includes('和');
-  const isGuestHe = guestNature?.includes('和');
-
-  if (isLordHe && isGuestHe) {
-    return `主客皆得和数算（主${lordNature}、客${guestNature}），主和解调停，宜息争修好、不战屈人`;
-  }
-  if (isLordHe) {
-    return `主得和数算（${lordNature}），主方宜调和固本、守正求安；客算${guestCount > lordCount ? '占强宜严加防备' : '不及难以妄动'}`;
-  }
-  if (isGuestHe) {
-    return `客得和数算（${guestNature}），客方重调停求和；主方${lordCount > guestCount ? '势强宜以德服人' : '势平可顺水推舟'}`;
-  }
-  if (lordNature === '纯阳' && guestNature === '纯阴') {
-    return '主算纯阳刚烈亢进，客算纯阴退伏沉潜，宜戒骄躁、静候其变';
-  }
-  if (lordNature === '纯阴' && guestNature === '纯阳') {
-    return '主算纯阴柔顺退守，客算纯阳锋芒正盛，宜避其锐气、以柔制刚';
-  }
-  if (lordNature === '纯阳' && guestNature === '纯阳') {
-    return '主客皆纯阳两刚相搏，势均力敌必生震荡，动则两伤';
-  }
-  if (lordNature === '纯阴' && guestNature === '纯阴') {
-    return '主客皆纯阴柔滞伏匿，行事迟延暗阻，宜以明断破晦';
-  }
-
-  if (lordCount > guestCount) {
-    return '主算多于客算，利主不利客，守静固本为宜';
-  }
-  if (guestCount > lordCount) {
-    return '客算多于主算，利客不利主，动谋求变有利';
-  }
-  return '主客算均势，相持待机';
+  const describe = (side: string, count: number, nature?: string) =>
+    `${side}算${count}${nature ? `（${nature}）` : ''}，${count >= 11 ? '为长算，传统取缓而深入' : '为短算，传统取急而浅为'}`;
+  return [
+    describe('主', lordCount, lordNature),
+    describe('客', guestCount, guestNature),
+    '主客胜负须合看三门具否、五将发否、阴阳和否；主客吉凶条件相等时，再以算之长短比较',
+  ].join('；');
 }
 
 function generalPalaceFromCount(value: number, side: 'lord' | 'guest' | 'set'): number {
@@ -432,15 +404,8 @@ function createYearProbeDate(year: number): Date {
 }
 
 function daysSince(date: Date, year: number, month: number, day: number): number {
-  const current = Date.UTC(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    0,
-  );
-  const base = Date.UTC(year, month - 1, day, 0, 0, 0);
+  const current = createUtcTimestamp(date.getFullYear(), date.getMonth(), date.getDate());
+  const base = createUtcTimestamp(year, month - 1, day);
   return Math.floor((current - base) / 86400000);
 }
 
@@ -451,7 +416,7 @@ function getSeasonHalf(date: Date): 'winter' | 'summer' {
     date.getDate(),
     date.getHours(),
     date.getMinutes(),
-    0,
+    date.getSeconds(),
   )
     .getTerm()
     .getName();
@@ -498,10 +463,10 @@ function validateInput(input: TaiyiInput): {
     throw new Error('太乙参数必须是对象。');
   }
   const scope = input.scope ?? 'year';
-  if (!SCOPE_LABELS[scope]) throw new Error(`太乙计式无效：${String(scope)}`);
+  if (!Object.hasOwn(SCOPE_LABELS, scope)) throw new Error(`太乙计式无效：${String(scope)}`);
   if (
     input.date !== undefined &&
-    (typeof input.date.getTime !== 'function' || Number.isNaN(input.date.getTime()))
+    (!(input.date instanceof Date) || Number.isNaN(input.date.getTime()))
   ) {
     throw new Error('太乙日期无效。');
   }
@@ -579,7 +544,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const bureau = positiveOneBased(accumulatedValue, 72);
   const index = bureau - 1;
   const yinYang = resolveYinYang(scope, date);
-  const taiyiPosition = TAIYI_POINTS[index];
+  const taiyiPosition = (yinYang === '阳遁' ? TAIYI_POINTS : YIN_TAIYI_POINTS)[index];
   const wenChangPosition = (yinYang === '阳遁' ? WENCHANG_POINTS : YIN_WENCHANG_POINTS)[index];
   const shiJiPosition = SHIJI_POINTS[index];
   const taiyiPalace = pointToPalace(taiyiPosition);

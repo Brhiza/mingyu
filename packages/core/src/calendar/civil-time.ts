@@ -3,7 +3,7 @@
  * @description 统一处理当地钟表时间、固定 UTC 偏移与 IANA 历史时区，供真太阳时、星盘和天文时间共用。
  */
 
-import { daysInGregorianMonth, isValidClockTime } from './date-validation';
+import { createUtcTimestamp, daysInGregorianMonth, isValidClockTime } from './date-validation';
 import { resolveHistoricalTimezone, type HistoricalTimezoneEvidence } from './historical-timezone';
 
 export const MIN_FIXED_TIMEZONE_HOURS = -12;
@@ -145,7 +145,7 @@ export function resolveCivilTime(
   if (timezone === undefined) {
     throw new Error('timezone 与 timeZoneId 至少需要提供一项。');
   }
-  const wallTimestamp = Date.UTC(
+  const wallTimestamp = createUtcTimestamp(
     localTime.year,
     localTime.month - 1,
     localTime.day,
