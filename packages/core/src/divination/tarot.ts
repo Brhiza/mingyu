@@ -87,7 +87,10 @@ export function resolveInteractiveTarotCards(
   spreadType: TarotSpreadType,
   samples: readonly number[],
 ): TarotInteractiveCard[] {
-  const spread = tarotSpreads[spreadType];
+  const spread =
+    typeof spreadType === 'string' && Object.hasOwn(tarotSpreads, spreadType)
+      ? tarotSpreads[spreadType]
+      : undefined;
   if (!spread) throw new Error(`未知的牌阵类型: ${spreadType}`);
   if (samples.length % 2 !== 0) throw new Error('塔罗手动抽取每张牌需要两个随机样本');
   if (samples.length > spread.cardCount * 2) {
@@ -143,7 +146,10 @@ export function drawSingleCard(options?: RandomOptions) {
 }
 
 export function drawSpreadCards(spreadType: keyof typeof tarotSpreads, options?: RandomOptions) {
-  const spread = tarotSpreads[spreadType];
+  const spread =
+    typeof spreadType === 'string' && Object.hasOwn(tarotSpreads, spreadType)
+      ? tarotSpreads[spreadType]
+      : undefined;
   if (!spread) {
     throw new Error(`未知的牌阵类型: ${spreadType}`);
   }
@@ -301,7 +307,10 @@ export function drawTarotSpread(
   spreadType: TarotSpreadType = 'single',
   options?: TarotDrawOptions,
 ): TarotData {
-  const spread = tarotSpreads[spreadType];
+  const spread =
+    typeof spreadType === 'string' && Object.hasOwn(tarotSpreads, spreadType)
+      ? tarotSpreads[spreadType]
+      : undefined;
   if (!spread) {
     throw new Error(`未知的牌阵类型: ${spreadType}`);
   }

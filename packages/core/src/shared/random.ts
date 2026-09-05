@@ -157,7 +157,10 @@ export function hasRandomOptions(options?: RandomOptions): boolean {
 }
 
 function hashSeed(seed: string | number): number {
-  if (typeof seed === 'number' && !Number.isFinite(seed)) {
+  if (
+    (typeof seed !== 'string' && typeof seed !== 'number') ||
+    (typeof seed === 'number' && !Number.isFinite(seed))
+  ) {
     throwRandomError('RANDOM_SEED_INVALID', '随机种子必须是有限数字或文本。', 'seed');
   }
   const text = String(seed);
@@ -215,6 +218,7 @@ export function createRandomContext(options?: RandomOptions): RandomContext {
     throwRandomError('RANDOM_OPTIONS_CONFLICT', 'seed、replay 与自定义随机源只能提供一种。');
   }
   const customRandom = options?.random ?? options?.rng;
+  const seed = options?.seed;
   let mode: RandomMode = 'system';
   let source: RandomSource = secureRandomFloat;
   if (options?.replay !== undefined) {
@@ -238,12 +242,9 @@ export function createRandomContext(options?: RandomOptions): RandomContext {
     }
     mode = 'custom';
     source = customRandom;
-  } else if (options?.seed !== undefined) {
-    if (typeof options.seed !== 'string' && typeof options.seed !== 'number') {
-      throwRandomError('RANDOM_SEED_INVALID', '随机种子必须是有限数字或文本。', 'seed');
-    }
+  } else if (seed !== undefined) {
     mode = 'seeded';
-    source = createSeededRandom(options.seed);
+    source = createSeededRandom(seed);
   }
   const samples: number[] = [];
   return {
@@ -254,7 +255,7 @@ export function createRandomContext(options?: RandomOptions): RandomContext {
     },
     getTrace: () => ({
       mode,
-      seed: mode === 'seeded' ? options?.seed : undefined,
+      seed: mode === 'seeded' ? seed : undefined,
       samples: [...samples],
     }),
   };
