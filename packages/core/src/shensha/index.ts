@@ -597,8 +597,32 @@ export function listHuangliShenshaNames(): string[] {
   return God.NAMES.slice();
 }
 
+export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[] {
+  if (!isValidGanZhi(monthGanZhi) || !isValidGanZhi(dayGanZhi)) {
+    throw new Error('黄历月柱与日柱必须是有效六十甲子。');
+  }
+  const month = SixtyCycle.fromName(monthGanZhi);
+  const day = SixtyCycle.fromName(dayGanZhi);
+  const monthIndex = month.getEarthBranch().next(-2).getIndex();
+  const dayStem = day.getHeavenStem().getName();
+  const rules: Record<string, string | null> = {
+    天德: ['丁', null, '壬', '辛', null, '甲', '癸', null, '丙', '乙', null, '庚'][monthIndex],
+    天德合: ['壬', null, '丁', '丙', null, '己', '戊', null, '辛', '庚', null, '乙'][monthIndex],
+    月德: ['丙', '甲', '壬', '庚'][monthIndex % 4],
+    月德合: ['辛', '己', '丁', '乙'][monthIndex % 4],
+  };
+  const gods = God.getDayGods(month, day).filter(
+    (god) => !Object.hasOwn(rules, god.getName()) || rules[god.getName()] === dayStem,
+  );
+  for (const [name, stem] of Object.entries(rules)) {
+    if (dayStem === stem && !gods.some((god) => god.getName() === name))
+      gods.push(God.fromName(name));
+  }
+  return gods;
+}
+
 /**
- * 查询指定公历日期的黄历神煞（委托 tyme4ts，权威黄历体系）。
+ * 查询指定公历日期的黄历神煞，四德日干起例依据《钦定协纪辨方书》。
  * 返回的 shensha 含吉凶分类，duty 为十二建除，nineStar 为九星。
  */
 export function getHuangliShensha(year: number, month: number, day: number): HuangliInfo {
@@ -608,7 +632,7 @@ export function getHuangliShensha(year: number, month: number, day: number): Hua
   }
   const solarDay = SolarDay.fromYmd(year, month, day);
   const scDay = SixtyCycleDay.fromSolarDay(solarDay);
-  const gods = scDay.getGods();
+  const gods = getHuangliDayGods(scDay.getMonth().getName(), scDay.getSixtyCycle().getName());
   const shensha: HuangliShensha[] = gods.map((g) => ({
     name: g.getName(),
     luck: g.getLuck().getName(),
