@@ -19,6 +19,7 @@ import {
   type EngineData,
 } from 'caelus';
 import { embeddedData } from './vendor/caelus/embedded-data.js';
+import { createUtcTimestamp } from '../calendar/date-validation';
 import ceresPack from './vendor/caelus/ceres_cheb.js';
 import junoPack from './vendor/caelus/juno_cheb.js';
 import pallasPack from './vendor/caelus/pallas_cheb.js';
@@ -260,9 +261,25 @@ function separation(first: number, second: number): number {
   return raw > 180 ? 360 - raw : raw;
 }
 
+function isApplyingAspect(first: AspectBody, second: AspectBody, angle: number): boolean | null {
+  if (first.longitudeSpeed === undefined || second.longitudeSpeed === undefined) return null;
+  const relativeSpeed = second.longitudeSpeed - first.longitudeSpeed;
+  if (relativeSpeed === 0) return null;
+  const directedSeparation = normalize(second.longitude - first.longitude);
+  const separationSpeed = (directedSeparation > 180 ? -1 : 1) * relativeSpeed;
+  return (separation(first.longitude, second.longitude) - angle) * separationSpeed < 0;
+}
+
 function toUtc(input: BirthData): Date {
   return new Date(
-    Date.UTC(input.year, input.month - 1, input.day, input.hour, input.minute, input.second ?? 0) -
+    createUtcTimestamp(
+      input.year,
+      input.month - 1,
+      input.day,
+      input.hour,
+      input.minute,
+      input.second ?? 0,
+    ) -
       input.timezone * 3_600_000,
   );
 }
@@ -351,12 +368,8 @@ export function calculateAspects(
         const deviation = Math.abs(actual - angle);
         const orb = orbs[type];
         if (deviation > orb) continue;
-        const strength = Math.max(0, 100 * (1 - deviation / orb));
+        const strength = orb === 0 ? 100 : Math.max(0, 100 * (1 - deviation / orb));
         if (strength < minimumStrength) continue;
-        const future = separation(
-          first.longitude + (first.longitudeSpeed ?? 0) / 24,
-          second.longitude + (second.longitudeSpeed ?? 0) / 24,
-        );
         aspects.push({
           body1: first.name,
           body2: second.name,
@@ -367,10 +380,7 @@ export function calculateAspects(
           deviation,
           orb,
           strength,
-          isApplying:
-            (first.longitudeSpeed ?? 0) === 0 && (second.longitudeSpeed ?? 0) === 0
-              ? null
-              : Math.abs(future - angle) < deviation,
+          isApplying: isApplyingAspect(first, second, angle),
           isOutOfSign: isOutOfSign(first.longitude, second.longitude, angle),
         });
       }
@@ -629,7 +639,6 @@ export function calculateTransits(
   for (const bodyName of options.transitingBodies) {
     const bodyId = BODY_IDS[bodyName];
     const position = astrologyEngine.position(bodyId, jd);
-    const future = astrologyEngine.position(bodyId, jd + 1 / 24);
     for (const natal of natalPoints) {
       const actual = separation(position.lon, natal.longitude);
       for (const aspectType of options.aspectTypes) {
@@ -645,7 +654,11 @@ export function calculateTransits(
         }
         const strength = Math.max(0, 100 * (1 - deviation / orb));
         if (strength < (options.minimumStrength ?? 0)) continue;
-        const futureDeviation = Math.abs(separation(future.lon, natal.longitude) - angle);
+        const applying = isApplyingAspect(
+          { name: bodyName, longitude: position.lon, longitudeSpeed: position.speed },
+          { name: natal.name, longitude: natal.longitude, longitudeSpeed: 0 },
+          angle,
+        );
         transits.push({
           transitingBodyEnum: bodyName,
           transitingBody: bodyName,
@@ -654,8 +667,7 @@ export function calculateTransits(
           symbol: ASPECT_SYMBOLS[aspectType],
           deviation,
           strength,
-          phase:
-            deviation <= 0.1 ? 'exact' : futureDeviation < deviation ? 'applying' : 'separating',
+          phase: deviation <= 0.1 ? 'exact' : applying ? 'applying' : 'separating',
           isRetrograde: position.retrograde,
         });
       }
