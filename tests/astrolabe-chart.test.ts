@@ -9,6 +9,41 @@ import { AstrolabeBoard } from '../src/pages/ResultPage/components/AstrolabeBoar
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { buildAstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
 
+test('高纬度实际整宫制贯通星盘、解读资料和页面标签', () => {
+  for (const latitude of ['45', '70', '-70']) {
+    const data = generateAstrolabe({
+      name: '宫位用例',
+      gender: '女',
+      year: '2026',
+      month: '1',
+      day: '1',
+      hour: '12',
+      minute: '0',
+      latitude,
+      longitude: '0',
+      timezone: '0',
+      locationName: '测试地点',
+    });
+    const polar = Math.abs(Number(latitude)) >= 66;
+    assert.equal(data.houseSystem, polar ? 'whole_sign' : 'placidus');
+    const label = polar ? '整宫制' : 'Placidus';
+    assert.equal(data.evidenceAnalysis!.calculationFact.models.houseSystem, label);
+    assert.ok(
+      data.evidenceAnalysis!.calculationChain.some((item) => item.includes(`宫位制：${label}`)),
+    );
+    const html = renderToStaticMarkup(
+      createElement(AstrolabeBoard, { title: '本命星盘', name: '宫位用例', data }),
+    );
+    assert.ok(html.includes(label));
+    if (polar) {
+      assert.equal(data.houses.length, 12);
+      for (const house of data.houses)
+        assert.ok(Math.abs(house.longitude / 30 - Math.round(house.longitude / 30)) < 1e-8);
+      assert.doesNotMatch(JSON.stringify(data.evidenceAnalysis), /Placidus/);
+    }
+  }
+});
+
 test('星盘图应显示福点标记与星座宫位摘要', () => {
   const data = generateAstrolabe({
     name: '星盘样本',

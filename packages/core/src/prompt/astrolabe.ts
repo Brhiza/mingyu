@@ -80,6 +80,7 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
   return [
     `出生信息：${data.birth.name}；${data.birth.gender || '性别未填'}；${data.birth.dateTime}；位置${data.birth.location}；时区UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
+    data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
     data.birth.isTrueSolarTime
       ? `出生时间校正：当地钟表时间${data.birth.standardDateTime || '未记录'}；真太阳时${data.birth.trueSolarDateTime || data.birth.dateTime}`
       : '',

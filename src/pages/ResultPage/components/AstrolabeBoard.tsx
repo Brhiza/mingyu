@@ -57,6 +57,11 @@ export const AstrolabeBoard = memo(function AstrolabeBoard(props: {
           ) : null}
           <span className="result-chip">{data.birth.dateTime}</span>
           <span className="result-chip">{data.birth.location}</span>
+          {data.houseSystem && (
+            <span className="result-chip">
+              {data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}
+            </span>
+          )}
         </div>
       </div>
 

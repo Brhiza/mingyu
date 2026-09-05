@@ -101,6 +101,7 @@ function formatInstantAstrolabeData(data: AstrolabeData) {
   const aspectSections = formatAstrolabeAspectSections(data.aspects);
   return [
     `起盘时刻：${data.birth.dateTime}；观测地点：${data.birth.location}；时区：UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
+    data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
     data.birth.isTrueSolarTime
       ? `真太阳时：${data.birth.trueSolarDateTime || data.birth.dateTime}`
       : '',

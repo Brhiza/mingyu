@@ -1382,6 +1382,7 @@ export interface AstrolabeAspect {
 }
 
 export interface AstrolabeData {
+  houseSystem?: 'placidus' | 'whole_sign';
   /** 星体、四轴、相位、反证、计算链与解释限制。 */
   evidenceAnalysis?: import('../divination/astrolabe-evidence').AstrolabeEvidenceAnalysis;
   birth: {

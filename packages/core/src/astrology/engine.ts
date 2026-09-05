@@ -633,6 +633,7 @@ export function calculateChart(
       imumCoeli: angle('Imum Coeli', chart.angles.mc + 180),
     },
     houses: {
+      system: chart.houseSystem === 'whole_sign' ? ('whole_sign' as const) : ('placidus' as const),
       cusps: chart.cusps.map((longitude, index) => ({
         house: index + 1,
         ...positionFields(longitude),

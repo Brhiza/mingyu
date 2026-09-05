@@ -469,6 +469,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       isTrueSolarTime: Boolean(trueSolarResult),
     },
     planets: calculatedPoints,
+    houseSystem: chart.houses.system,
     angles,
     houses: chart.houses.cusps.map((cusp) => ({
       name: `House ${cusp.house}`,
