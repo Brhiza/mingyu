@@ -10,6 +10,29 @@ import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
 
 const NINE_STARS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+test('玄空九运二十四山提示词保留山向五黄的全部落宫', () => {
+  for (let yun = 1; yun <= 9; yun++) {
+    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
+      const result = generateXuanKong({ year: 1864 + (yun - 1) * 20, sitMountain });
+      const line = result.prompt.split('\n').find((item) => item.includes('五黄'));
+      assert.ok(line, `${yun}运${sitMountain}缺少五黄落宫`);
+      const expected = result.palaces.filter(
+        (palace) => palace.shanStar === 5 || palace.xiangStar === 5,
+      );
+      for (const palace of expected) {
+        assert.ok(line.includes(palace.name), `${yun}运${sitMountain}漏列${palace.name}：${line}`);
+      }
+      assert.equal(line.split('：')[1].split('；').length, expected.length);
+      for (const palace of expected) {
+        const layers = [palace.shanStar === 5 ? '山星' : '', palace.xiangStar === 5 ? '向星' : '']
+          .filter(Boolean)
+          .join('、');
+        assert.ok(line.includes(`${palace.name}（${palace.direction}，${layers}）`));
+      }
+    }
+  }
+});
+
 test('三元九运：2024 应落入下元九运区间附近可复现运表', () => {
   const period = resolveXuanKongPeriod(2024);
   assert.deepEqual(period, {

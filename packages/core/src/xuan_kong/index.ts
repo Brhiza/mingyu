@@ -384,9 +384,17 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
     `到山到向：${result.daoShanXiang.summary}`,
     result.castleGate?.summary ?? '',
     (() => {
-      const wuHuang = result.palaces?.find((p) => p.xiangStar === 5 || p.shanStar === 5);
-      return wuHuang
-        ? `气场避煞：五黄大煞见于${wuHuang.name}（${wuHuang.direction}），该方位动静宜慎、以静安为吉`
+      const wuHuang = result.palaces.filter((p) => p.xiangStar === 5 || p.shanStar === 5);
+      return wuHuang.length
+        ? `五黄落宫：${wuHuang
+            .map((palace) => {
+              const layers = [
+                palace.shanStar === 5 ? '山星' : '',
+                palace.xiangStar === 5 ? '向星' : '',
+              ].filter(Boolean);
+              return `${palace.name}（${palace.direction}，${layers.join('、')}）`;
+            })
+            .join('；')}`
         : '';
     })(),
     ...(result.measurement?.stability === '山向边界敏感' &&
