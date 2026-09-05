@@ -710,6 +710,7 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
     (monthIndex === 11 && day.getName() === '丁未');
   matches.八专 = ['甲寅', '丁未', '己未', '庚申', '癸丑'].includes(day.getName());
   matches.重日 = '巳亥'.includes(day.getEarthBranch().getName());
+  matches.四离 = false;
   const gods = God.getDayGods(month, day).filter(
     (god) => !Object.hasOwn(matches, god.getName()) || matches[god.getName()],
   );
@@ -738,6 +739,10 @@ export function getHuangliSolarDayGods(solarDay: SolarDay): God[] {
     (god) => god.getName() !== '母仓',
   );
   if (motherBranches.includes(day.getEarthBranch().getName())) gods.push(God.fromName('母仓'));
+  const nextPrincipalTerm = term.next((24 - term.getIndex()) % 6 || 6);
+  if (nextPrincipalTerm.getJulianDay().getSolarTime().getSolarDay().subtract(solarDay) === 1) {
+    gods.push(God.fromName('四离'));
+  }
   return gods;
 }
 
