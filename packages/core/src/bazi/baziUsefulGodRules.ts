@@ -59,4 +59,16 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
     trace: '身弱取印比',
     primaryReason: '扶抑',
   },
+  {
+    id: 'balance-neutral',
+    label: '中和基础取用规则',
+    description:
+      '中和属主旺衰合法状态，不得静默套用身强回退：先以泄耗克为基线登记，最终取用交由调候、司令与格局规则继续细化。',
+    priority: 50,
+    strengths: ['中和'],
+    favorable: 'output_wealth_officer',
+    unfavorable: 'resource_companion',
+    trace: '中和取泄耗克基线，待调候司令格局细化',
+    primaryReason: '中和基线',
+  },
 ];
