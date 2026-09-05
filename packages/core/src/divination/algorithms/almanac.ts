@@ -196,6 +196,8 @@ const GOD_RULE_SOURCES: Record<string, string> = {
   月恩: '《钦定协纪辨方书》月恩起例',
   月空: '《三命通会》所载大统历月空起例',
   月厌: '《三命通会》所载大统历月厌起例',
+  六合: '月建与日支六合关系',
+  月刑: '《选择天镜》逐月月刑起例',
 };
 
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {

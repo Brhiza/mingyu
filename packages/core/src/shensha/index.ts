@@ -16,7 +16,7 @@
  *       神煞体系混淆。
  */
 import { SolarDay, SixtyCycle, SixtyCycleDay, God } from 'tyme4ts';
-import { EARTHLY_BRANCHES, getYiMa, getTaoHua, isValidGanZhi } from '../ganzhi';
+import { EARTHLY_BRANCHES, getYiMa, getTaoHua, isValidGanZhi, isLiuhe } from '../ganzhi';
 import { daysInGregorianMonth } from '../calendar/date-validation';
 
 export type ShenshaScope = 'common' | 'bazi' | 'liuren' | 'qimen' | 'taiyi' | 'qizheng' | 'bazhai';
@@ -619,6 +619,8 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
   );
   const dayIndex = day.getIndex();
   matches.月厌 = day.getEarthBranch().getIndex() === (10 - monthIndex + 12) % 12;
+  matches.六合 = isLiuhe(month.getEarthBranch().getName(), day.getEarthBranch().getName());
+  matches.月刑 = day.getEarthBranch().getName() === [...'巳子辰申午丑寅酉未亥卯戌'][monthIndex];
   matches.天恩 =
     dayIndex < 5 || (dayIndex >= 15 && dayIndex < 20) || (dayIndex >= 45 && dayIndex < 50);
   const gods = God.getDayGods(month, day).filter(
