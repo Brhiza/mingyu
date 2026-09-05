@@ -125,6 +125,14 @@ test('低年份与年份上界流月叠盘保留实际节气年', () => {
     assert.equal(result.flowStars!.yearPlate.year, expectedYear);
     assert.equal(result.flowStars!.yearPlate.centerStar, star);
     assert.equal(result.flowStars!.monthPlate!.solarTermYear, expectedYear);
-    if (year === 1) assert.match(result.prompt, /流年飞星：公元前1年二黑入中/);
+    if (year === 1) {
+      assert.match(result.prompt, /流年飞星：公元前1年二黑入中/);
+      assert.ok(
+        result.evidenceAnalysis.facts.some(
+          (fact) => fact.key === 'xuankong:fact:year-star' && fact.promptText.includes('公元前1年'),
+        ),
+        '证据流年飞星应与主提示词统一使用公元前纪年',
+      );
+    }
   }
 });

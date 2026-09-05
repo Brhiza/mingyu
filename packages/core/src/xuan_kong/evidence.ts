@@ -84,6 +84,10 @@ const FACT_LIMIT = '飞星事实记录当运、山向飞布与到山到向结构
 const COUNTER_LIMIT = '反证用于提示测量边界和输入限制';
 const LIMIT_LIMIT = '限制事实用于界定玄空飞星 v1 的输出范围';
 
+function formatFlowYear(year: number): string {
+  return year === 0 ? '公元前1' : String(year);
+}
+
 export function analyzeXuanKongEvidence(
   result: XuanKongEvidenceSourceResult,
 ): XuanKongEvidenceAnalysis {
@@ -99,7 +103,7 @@ export function analyzeXuanKongEvidence(
       key: 'xuankong:calculation:mountain',
       stage: '定山向',
       promptText: `坐山${result.sitMountain}，朝向${result.facingMountain}，采用下卦`,
-      sources: ['二十四山罗盘换算', '下卦中央九度边界规则'],
+      sources: ['二十四山罗盘换算', '显式下卦计算（起替条件另行核定）'],
       limitation: STEP_LIMIT,
     },
     {
@@ -150,7 +154,7 @@ export function analyzeXuanKongEvidence(
     facts.push({
       key: 'xuankong:fact:year-star',
       type: '流年飞星',
-      promptText: `${result.flowStars.yearPlate.year}年${result.flowStars.yearPlate.starName}入中；${result.flowStars.yearPlate.calendarNote}`,
+      promptText: `${formatFlowYear(result.flowStars.yearPlate.year)}年${result.flowStars.yearPlate.starName}入中；${result.flowStars.yearPlate.calendarNote}`,
       sources: ['三元紫白年星', 'tyme4ts 干支年九星'],
       limitation: FACT_LIMIT,
     });
