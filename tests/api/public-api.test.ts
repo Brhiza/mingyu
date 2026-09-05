@@ -5498,6 +5498,34 @@ test('公开 API 玄空飞星应返回真实下卦局型', async () => {
   assert.match(valid.body.data.evidenceAnalysis.promptText, /下卦|元龙阴阳|双星到向/);
 });
 
+test('公开玄空流年流月与提示词在立春前使用上一节气年', async () => {
+  for (const operation of ['calculate', 'prompt']) {
+    const { response, body } = await callApi(`metaphysics/xuankong/${operation}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        year: 2008,
+        sitMountain: '子',
+        flowYear: 2026,
+        flowMonth: 1,
+        flowDay: 15,
+        detailMode: 'full',
+        question: '分析住宅',
+      }),
+    });
+    assert.equal(response.status, 200);
+    if (operation === 'calculate') {
+      assert.equal(body.data.flowStars.yearPlate.year, 2025);
+      assert.equal(body.data.flowStars.yearPlate.centerStar, 2);
+      assert.equal(body.data.flowStars.monthPlate.solarTermYear, 2025);
+      assert.equal(body.data.flowStars.monthPlate.year, 2026);
+    } else {
+      assert.match(body.data.prompt, /流年飞星：2025年二黑入中/);
+      assert.match(body.data.prompt, /2026年1月15日所属节气月/);
+    }
+  }
+});
+
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {
   const cases = [
     ['metaphysics/bazhai/calculate', { birthYear: 1990 }],

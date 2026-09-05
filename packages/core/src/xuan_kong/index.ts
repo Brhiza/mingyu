@@ -382,7 +382,7 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
         ]
       : []),
     result.flowStars
-      ? `流年飞星：${result.flowStars.yearPlate.year}年${result.flowStars.yearPlate.starName}入中；${result.flowStars.yearPlate.calendarNote}`
+      ? `流年飞星：${result.flowStars.yearPlate.year === 0 ? '公元前1' : result.flowStars.yearPlate.year}年${result.flowStars.yearPlate.starName}入中；${result.flowStars.yearPlate.calendarNote}`
       : '',
     result.flowStars?.monthPlate
       ? `流月飞星：${result.flowStars.monthPlate.starName}入中；${result.flowStars.monthPlate.calendarNote}`

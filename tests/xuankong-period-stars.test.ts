@@ -71,3 +71,60 @@ test('三元年紫白按上元甲子一白逐年逆行一百八十年', () => {
     expected = expected === 1 ? 9 : expected - 1;
   }
 });
+
+test('玄空年盘与月盘在立春前后使用同一节气年', () => {
+  for (const item of [
+    { month: 1, day: 15, year: 2025, star: 2 },
+    { month: 2, day: 3, year: 2025, star: 2 },
+    { month: 2, day: 5, year: 2026, star: 1 },
+  ]) {
+    const result = generateXuanKong({
+      year: 2008,
+      sitMountain: '子',
+      flowYear: 2026,
+      flowMonth: item.month,
+      flowDay: item.day,
+    });
+    assert.equal(result.flowStars!.yearPlate.year, item.year);
+    assert.equal(result.flowStars!.yearPlate.centerStar, item.star);
+    assert.equal(result.flowStars!.monthPlate!.solarTermYear, item.year);
+    assert.equal(result.flowStars!.monthPlate!.year, 2026);
+    assert.equal(result.plates.year![4], item.star);
+    assert.ok(result.prompt.includes(`流年飞星：${item.year}年`));
+  }
+});
+
+test('月紫白按协纪辨方书十二年支三组表逐月逆行', () => {
+  const firstMonthStars = [8, 5, 2, 8, 5, 2, 8, 5, 2, 8, 5, 2];
+  for (let yearOffset = 0; yearOffset < 12; yearOffset++) {
+    const year = 2020 + yearOffset;
+    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+      const civilMonth = ((monthIndex + 1) % 12) + 1;
+      const civilYear = civilMonth === 1 ? year + 1 : year;
+      const result = resolveMonthFlyingStar(civilYear, civilMonth, 15);
+      const expected = ((firstMonthStars[yearOffset] - 1 - monthIndex + 18) % 9) + 1;
+      assert.equal(result.centerStar, expected, `${year}年节气月序${monthIndex + 1}`);
+      assert.equal(result.solarTermYear, year);
+    }
+  }
+});
+
+test('低年份与年份上界流月叠盘保留实际节气年', () => {
+  for (const [year, expectedYear, star] of [
+    [1, 0, 2],
+    [99, 98, 3],
+    [9999, 9998, 3],
+  ]) {
+    const result = generateXuanKong({
+      year: 2008,
+      sitMountain: '子',
+      flowYear: year,
+      flowMonth: 1,
+      flowDay: 15,
+    });
+    assert.equal(result.flowStars!.yearPlate.year, expectedYear);
+    assert.equal(result.flowStars!.yearPlate.centerStar, star);
+    assert.equal(result.flowStars!.monthPlate!.solarTermYear, expectedYear);
+    if (year === 1) assert.match(result.prompt, /流年飞星：公元前1年二黑入中/);
+  }
+});
