@@ -359,14 +359,67 @@ test('八宅 0 至 360 度应首尾一致，二十四山分界前后连续且严
   }
 });
 
-test('八宅明镜气口制化：门主同元相生与九星制化断诀', () => {
-  const matchResult = analyzeBaZhai({ mingGua: '坎', sitMountain: '子' }); // 坎命坎宅（子山），东四配东四
-  assert.ok(matchResult.gasRegulation);
-  assert.match(matchResult.gasRegulation.doorMasterSummary, /门主同元相生相和/);
-  assert.ok(matchResult.prompt.includes('气口制化：'));
-  assert.ok(matchResult.gasRegulation.suppressionLaws.length >= 3);
-
-  const clashResult = analyzeBaZhai({ mingGua: '坎', sitMountain: '乾' }); // 坎命乾宅（乾山），东四配西四
-  assert.ok(clashResult.gasRegulation);
-  assert.match(clashResult.gasRegulation.doorMasterSummary, /命宅相悖/);
+test('八宅逐宫计算星宫生克，并区分命宅分组与五行关系', () => {
+  const equal = analyzeBaZhai({ mingGua: '坎', sitMountain: '子' });
+  const sameGroup = analyzeBaZhai({ mingGua: '坎', sitMountain: '午' });
+  const otherGroup = analyzeBaZhai({ mingGua: '坎', sitMountain: '乾' });
+  assert.match(equal.gasRegulation!.doorMasterSummary, /同组，五行关系为命卦与宅卦比和/);
+  assert.match(sameGroup.gasRegulation!.doorMasterSummary, /同组，五行关系为命卦克宅卦/);
+  assert.match(otherGroup.gasRegulation!.doorMasterSummary, /异组，五行关系为宅卦生命卦/);
+  const elements: Record<string, string> = {
+    坎: '水',
+    艮: '土',
+    震: '木',
+    巽: '木',
+    离: '火',
+    坤: '土',
+    兑: '金',
+    乾: '金',
+  };
+  const stars: Record<string, string> = {
+    生气: '木',
+    天医: '土',
+    延年: '金',
+    伏位: '木',
+    绝命: '金',
+    五鬼: '火',
+    六煞: '水',
+    祸害: '土',
+  };
+  const sheng = ['木火', '火土', '土金', '金水', '水木'];
+  const ke = ['木土', '土水', '水火', '火金', '金木'];
+  const observed = new Set<string>();
+  for (const gua of TRIGRAMS) {
+    const result = analyzeBaZhai({
+      mingGua: gua,
+      sitMountain:
+        ({ 坎: '子', 震: '卯', 离: '午', 兑: '酉' } as Record<string, string>)[gua] ?? gua,
+    });
+    const facts = result.gasRegulation!.suppressionLaws;
+    assert.equal(facts.length, 8);
+    result.housePalace!.forEach((palace, index) => {
+      const a = stars[palace.label],
+        b = elements[palace.gua];
+      const expected =
+        a === b
+          ? '星与宫比和'
+          : sheng.includes(a + b)
+            ? '星生宫'
+            : sheng.includes(b + a)
+              ? '宫生星'
+              : ke.includes(a + b)
+                ? '星克宫'
+                : '宫克星';
+      assert.equal(facts[index].suppressionRule, expected);
+      assert.equal(facts[index].element, a);
+      assert.match(
+        result.prompt,
+        new RegExp(`${facts[index].counterpart}：${facts[index].star}，${expected}`),
+      );
+      observed.add(expected);
+    });
+    assert.doesNotMatch(result.prompt, /贪狼制绝命|门主同元|福力深厚|化凶为吉/);
+  }
+  assert.equal(observed.size, 5);
+  assert.match(analyzeBaZhai({ mingGua: '坎' }).prompt, /命卦星宫生克/);
 });

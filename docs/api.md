@@ -288,6 +288,8 @@ curl -X POST https://aov.cc/api/v1/divination/astrolabe/synastry/prompt \
   -d '{"person1":{"name":"甲","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8},"person2":{"name":"乙","gender":"男","year":1992,"month":8,"day":21,"hour":8,"minute":15,"latitude":31.2304,"longitude":121.4737,"timezone":8},"question":"我们长期合作时最需要注意什么？","responseMode":"prompt-only"}'
 ```
 
+八宅结果的 `gasRegulation.suppressionLaws` 按所排八宫返回星宫五行关系，提供坐山时采用宅卦，否则采用命卦；伏位按左辅木计算。`doorMasterSummary` 分别说明命宅分组与五行生克，门房关系需结合实际门房位置判断。
+
 新增术数系统使用统一的 `/metaphysics/{method}/calculate` 与 `/prompt` 路径。八宅示例：
 
 ```bash
