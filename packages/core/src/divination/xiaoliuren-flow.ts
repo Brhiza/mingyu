@@ -1,6 +1,7 @@
 /**
- * @file 小六壬初宫二宫三宫流转与终局定性断诀
- * @传统依据 《小六壬通占》《马前课》：月上起初一，日上起子时；初宫主事端起由，二宫主人事过渡，三宫（时宫）定局定性。
+ * @file 小六壬三宫五行关系与组合分类
+ * 六宫五行采用《大杂字万事不求人》民国三十五年本“李淳风六壬时课”，扫描第21—22页。
+ * 组合类别为现代归类，不将月日时计数位置对应为现实事件的三个阶段。
  */
 import { isKe, isSheng } from '../ganzhi';
 
@@ -34,6 +35,7 @@ function resolvePalace(name: string): XiaoliurenPalaceInfo {
 }
 
 export interface XiaoliurenFlowResult {
+  interpretationBasis: '现代组合分类';
   month: XiaoliurenPalaceInfo;
   day: XiaoliurenPalaceInfo;
   hour: XiaoliurenPalaceInfo;
@@ -45,7 +47,7 @@ export interface XiaoliurenFlowResult {
 }
 
 /**
- * 推导小六壬月日时三宫流转与终局定性
+ * 比较三宫五行关系并按宫名组合归类。
  */
 export function evaluateXiaoliurenFlow(sequence: {
   monthName: string;
@@ -70,33 +72,34 @@ export function evaluateXiaoliurenFlow(sequence: {
     (hour.name === '速喜' || hour.name === '大安' || hour.name === '小吉')
   ) {
     trajectoryType = '先滞后发';
-    classicalJudgment = '起手虽逢淹留滞涩，得时宫吉曜化解，先难后易、终见转机。';
+    classicalJudgment = `月宫留连，时宫${hour.name}；该类别按两宫名称组合归类。`;
   } else if (
     (month.name === '大安' || month.name === '小吉' || month.name === '速喜') &&
     hour.name === '空亡'
   ) {
     trajectoryType = '始吉终空';
-    classicalJudgment = '初念虽吉，历经转折归于空亡，须防虚花无实、防范虎头蛇尾。';
+    classicalJudgment = `月宫${month.name}，时宫空亡；该类别按两宫名称组合归类。`;
   } else if (
     (month.name === '大安' || month.name === '小吉' || month.name === '速喜') &&
     hour.name === '赤口'
   ) {
     trajectoryType = '转折相克';
-    classicalJudgment = '事本吉昌，然归结临赤口金煞，谨防临门起口舌官非或争斗破耗。';
+    classicalJudgment = `月宫${month.name}，时宫赤口；该类别按两宫名称组合归类。`;
   } else if ((rel1 === '生出' || rel1 === '受生') && (rel2 === '生出' || rel2 === '受生')) {
     trajectoryType = '顺畅相生';
-    classicalJudgment = '三宫五行相生有情，事态由萌芽至归结气脉顺遂，所谋易成。';
+    classicalJudgment = '月日两宫与日时两宫均构成相生关系。';
   } else if (rel1 === '比和' && rel2 === '比和') {
     trajectoryType = '平稳和合';
-    classicalJudgment = '三宫同气比和，事态平稳少突变，宜顺应既定节奏稳步落实。';
+    classicalJudgment = '月、日、时三宫五行相同，均为比和关系。';
   } else {
     trajectoryType = '起伏交错';
-    classicalJudgment = `初宫${month.name}、二宫${day.name}、时宫${hour.name}，吉凶参半，以时宫为最终决疑准绳。`;
+    classicalJudgment = `月日关系${rel1}，日时关系${rel2}。`;
   }
 
-  const summary = `【小六壬三宫流转】初宫${month.name}（${month.wuxing}）→ 二宫${day.name}（${day.wuxing}）→ 时宫${hour.name}（${hour.wuxing}），流转走势定性为「${trajectoryType}」。断诀：${classicalJudgment}`;
+  const summary = `【小六壬三宫流转】月宫${month.name}（${month.wuxing}）→ 日宫${day.name}（${day.wuxing}）→ 时宫${hour.name}（${hour.wuxing}），现代组合分类「${trajectoryType}」。${classicalJudgment}`;
 
   return {
+    interpretationBasis: '现代组合分类',
     month,
     day,
     hour,

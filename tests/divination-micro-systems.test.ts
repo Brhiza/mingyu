@@ -26,6 +26,8 @@ test('小六壬216组三宫五行关系方向一致并拒绝未知宫名', () =>
     for (const dayName of names)
       for (const hourName of names) {
         const result = evaluateXiaoliurenFlow({ monthName, dayName, hourName });
+        assert.equal(result.interpretationBasis, '现代组合分类');
+        assert.doesNotMatch(result.summary, /所谋易成|先难后易|终见转机|官非|决疑准绳|断诀/);
         assert.ok(
           result.monthToDayRelation.endsWith(relation(result.month.wuxing, result.day.wuxing)),
         );
@@ -102,7 +104,7 @@ test('塔罗原型分组与主牌库78张编号一致，并列不产生唯一主
   }
 });
 
-test('小六壬三宫流转应准确推导五行生克与终局定性断诀', () => {
+test('小六壬三宫组合类别保留实际落宫条件', () => {
   // 先滞后发：初宫留连（水），终局速喜（火）
   const flow1 = evaluateXiaoliurenFlow({
     monthName: '留连',
@@ -110,7 +112,7 @@ test('小六壬三宫流转应准确推导五行生克与终局定性断诀', ()
     hourName: '速喜',
   });
   assert.equal(flow1.trajectoryType, '先滞后发');
-  assert.match(flow1.classicalJudgment, /先难后易|终见转机/);
+  assert.match(flow1.classicalJudgment, /月宫留连，时宫速喜/);
   assert.match(flow1.summary, /【小六壬三宫流转】/);
 
   // 始吉终空：初宫大安（木），终局空亡（土）
@@ -120,7 +122,7 @@ test('小六壬三宫流转应准确推导五行生克与终局定性断诀', ()
     hourName: '空亡',
   });
   assert.equal(flow2.trajectoryType, '始吉终空');
-  assert.match(flow2.classicalJudgment, /归于空亡|防范虎头蛇尾/);
+  assert.match(flow2.classicalJudgment, /月宫大安，时宫空亡/);
 
   // 转折相克：终局赤口（金）
   const flow3 = evaluateXiaoliurenFlow({
@@ -129,7 +131,7 @@ test('小六壬三宫流转应准确推导五行生克与终局定性断诀', ()
     hourName: '赤口',
   });
   assert.equal(flow3.trajectoryType, '转折相克');
-  assert.match(flow3.classicalJudgment, /赤口金煞|口舌官非/);
+  assert.match(flow3.classicalJudgment, /月宫大安，时宫赤口/);
 });
 
 test('雷诺曼九宫十字网格应准确推导核心牌十字邻牌与曼哈顿距离', () => {
