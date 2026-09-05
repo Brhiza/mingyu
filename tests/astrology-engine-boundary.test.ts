@@ -4,10 +4,29 @@ import {
   AspectType,
   CelestialBody,
   calculateAspects,
+  calculateChart,
   calculateTransits,
   getApparentPosition,
   toJulianDate,
 } from '../packages/core/src/astrology/engine';
+
+test('交点与真莉莉丝保留星历速度和逆行状态，南北交点运动一致', () => {
+  for (const year of [1990, 2008, 2026]) {
+    const input = { year, month: 1, day: 1, hour: 12, minute: 0, timezone: 0 };
+    const chart = calculateChart(input, { includeNodes: true, includeLilith: true });
+    const jd = toJulianDate(input);
+    for (const [point, bodyId] of [
+      [chart.nodes[0], 'true_node'],
+      [chart.nodes[1], 'true_node'],
+      [chart.lilith[0], 'true_lilith'],
+    ] as const) {
+      const reference = getApparentPosition(bodyId, jd);
+      assert.ok(Math.abs(reference.speed) > 0.00001);
+      assert.equal(point.longitudeSpeed, reference.speed);
+      assert.equal(point.isRetrograde, reference.speed < 0);
+    }
+  }
+});
 
 test('星历日期转换保留公元1至99年且时区换算可以跨年', () => {
   for (const year of [1, 4, 99, 100, 2000]) {

@@ -330,14 +330,19 @@ function mapBody(name: string, body: CaelusChartBody): ChartPlanet {
   };
 }
 
-function createPoint(name: string, longitude: number, cusps: readonly number[]): ChartPlanet {
+function createPoint(
+  name: string,
+  longitude: number,
+  cusps: readonly number[],
+  longitudeSpeed = 0,
+): ChartPlanet {
   return {
     name,
     ...positionFields(longitude),
     latitude: 0,
     distance: 0,
-    longitudeSpeed: 0,
-    isRetrograde: false,
+    longitudeSpeed,
+    isRetrograde: longitudeSpeed < 0,
     house: houseForLongitude(cusps, longitude),
   };
 }
@@ -509,12 +514,29 @@ export function calculateChart(
   });
   const nodes = options.includeNodes
     ? [
-        createPoint('North Node', chart.bodies.true_node.lon, chart.cusps),
-        createPoint('South Node', chart.bodies.true_node.lon + 180, chart.cusps),
+        createPoint(
+          'North Node',
+          chart.bodies.true_node.lon,
+          chart.cusps,
+          chart.bodies.true_node.speed,
+        ),
+        createPoint(
+          'South Node',
+          chart.bodies.true_node.lon + 180,
+          chart.cusps,
+          chart.bodies.true_node.speed,
+        ),
       ]
     : [];
   const lilith = options.includeLilith
-    ? [createPoint('True Lilith', chart.bodies.true_lilith!.lon, chart.cusps)]
+    ? [
+        createPoint(
+          'True Lilith',
+          chart.bodies.true_lilith!.lon,
+          chart.cusps,
+          chart.bodies.true_lilith!.speed,
+        ),
+      ]
     : [];
   const chartLots = options.includeLots
     ? (() => {
