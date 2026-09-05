@@ -97,6 +97,9 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     astrolabeLongitude: '116.4074',
     astrolabeTimezone: '8',
     taiyiYear: '2004',
+    zhugeText: '',
+    kongmingMethod: 'random',
+    kongmingPattern: '●○●○○',
     ...overrides,
   };
 }
@@ -1378,6 +1381,7 @@ test('奇门复合格局应按月将时支输出天三门地四户', () => {
 
   const zhengYueWuShiCombos = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '午',
     jiuGongGe,
   });
@@ -1395,6 +1399,7 @@ test('奇门复合格局应按月将时支输出天三门地四户', () => {
 
   const jiuYueSiShiCombos = detectQimenPatternCombos({
     monthBranch: '戌',
+    actualSolarTerm: '霜降',
     hourBranch: '巳',
     jiuGongGe,
   });
@@ -1413,6 +1418,7 @@ test('奇门复合格局应按月将时支输出天三门地四户', () => {
 
   const noHourBranch = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     jiuGongGe,
   });
   assert.ok(!noHourBranch.some((combo) => combo.name === '天三门地四户'));
@@ -1424,6 +1430,7 @@ test('奇门复合格局应按月将贵人排十二天将输出地私门', () =>
   const yangNobleCombos = detectQimenPatternCombos({
     dayGanZhi: '甲辰',
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '辰',
     jiuGongGe,
   });
@@ -1440,6 +1447,7 @@ test('奇门复合格局应按月将贵人排十二天将输出地私门', () =>
     dayStem: '甲',
     dayBranch: '午',
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '辰',
     jiuGongGe,
   });
@@ -1453,6 +1461,7 @@ test('奇门复合格局应按月将贵人排十二天将输出地私门', () =>
 
   const noDay = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '辰',
     jiuGongGe,
   });
@@ -1468,6 +1477,7 @@ test('奇门复合格局应按月将贵人排十二天将输出地私门', () =>
   const noHourBranch = detectQimenPatternCombos({
     dayGanZhi: '甲辰',
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     jiuGongGe,
   });
   assert.ok(!noHourBranch.some((combo) => combo.name === '地私门'));
@@ -1478,6 +1488,7 @@ test('奇门复合格局应按月将时支输出太冲天马方', () => {
 
   const zhengYueZiShiCombos = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '子',
     jiuGongGe,
   });
@@ -1488,6 +1499,7 @@ test('奇门复合格局应按月将时支输出太冲天马方', () => {
 
   const zhengYueWuShiCombos = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '午',
     jiuGongGe,
   });
@@ -1502,6 +1514,7 @@ test('奇门复合格局应按月将时支输出太冲天马方', () => {
 
   const noHourBranch = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     jiuGongGe,
   });
   assert.ok(!noHourBranch.some((combo) => combo.name === '天马方'));
@@ -1512,6 +1525,7 @@ test('奇门复合格局应按月将时支输出天罡斗星方', () => {
 
   const zhengYueWuShiCombos = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '午',
     jiuGongGe,
   });
@@ -1522,6 +1536,7 @@ test('奇门复合格局应按月将时支输出天罡斗星方', () => {
 
   const jiuYueSiShiCombos = detectQimenPatternCombos({
     monthBranch: '戌',
+    actualSolarTerm: '霜降',
     hourBranch: '巳',
     jiuGongGe,
   });
@@ -1537,6 +1552,7 @@ test('奇门复合格局应按月将时支输出天罡斗星方', () => {
 
   const noHourBranch = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     jiuGongGe,
   });
   assert.ok(!noHourBranch.some((combo) => combo.name === '天罡时'));
@@ -1547,6 +1563,7 @@ test('奇门复合格局应按月将时支输出迷路法路向', () => {
 
   const mengCombos = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '午',
     jiuGongGe,
   });
@@ -1557,6 +1574,7 @@ test('奇门复合格局应按月将时支输出迷路法路向', () => {
 
   const zhongCombos = detectQimenPatternCombos({
     monthBranch: '戌',
+    actualSolarTerm: '霜降',
     hourBranch: '巳',
     jiuGongGe,
   });
@@ -1566,6 +1584,7 @@ test('奇门复合格局应按月将时支输出迷路法路向', () => {
 
   const jiCombos = detectQimenPatternCombos({
     monthBranch: '戌',
+    actualSolarTerm: '霜降',
     hourBranch: '午',
     jiuGongGe,
   });
@@ -1581,6 +1600,7 @@ test('奇门复合格局应按月将时支输出迷路法路向', () => {
 
   const noHourBranch = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     jiuGongGe,
   });
   assert.ok(!noHourBranch.some((combo) => combo.name === '迷路法'));
@@ -1591,6 +1611,7 @@ test('奇门复合格局应按月将时支输出亭亭白奸方位', () => {
 
   const zhengYueWuShiCombos = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     hourBranch: '午',
     jiuGongGe,
   });
@@ -1605,6 +1626,7 @@ test('奇门复合格局应按月将时支输出亭亭白奸方位', () => {
 
   const jiuYueSiShiCombos = detectQimenPatternCombos({
     monthBranch: '戌',
+    actualSolarTerm: '霜降',
     hourBranch: '巳',
     jiuGongGe,
   });
@@ -1624,6 +1646,7 @@ test('奇门复合格局应按月将时支输出亭亭白奸方位', () => {
 
   const noHourBranch = detectQimenPatternCombos({
     monthBranch: '寅',
+    actualSolarTerm: '雨水',
     jiuGongGe,
   });
   assert.ok(!noHourBranch.some((combo) => combo.name === '亭亭白奸'));
@@ -4391,6 +4414,43 @@ test('自定起卦时间缺少日期或时间时应明确提示', async () => {
         }),
       ),
     /自定起卦时间需要填写日期和时间/,
+  );
+});
+
+test('诸葛神数与孔明神卦进入统一占问会话并生成完整提示词', async () => {
+  const zhuge = await generateDivinationSession(
+    buildDraft({ method: 'zhuge', zhugeText: '顺其然' }),
+  );
+  assert.equal(zhuge.method, 'zhuge');
+  assert.match(zhuge.prompt, /【占卜信息】/);
+  assert.match(zhuge.prompt, /康熙笔画/);
+  assert.match(zhuge.prompt, /这件事接下来该怎么推进/);
+
+  const kongming = await generateDivinationSession(
+    buildDraft({
+      method: 'kongming',
+      kongmingMethod: 'manual',
+      kongmingPattern: '●○●○●',
+    }),
+  );
+  assert.equal(kongming.method, 'kongming');
+  assert.match(kongming.prompt, /孔明神卦/);
+  assert.match(kongming.prompt, /五枚硬币/);
+  assert.match(kongming.prompt, /●为正面、阳.*○为反面、阴/);
+  assert.match(kongming.prompt, /诗句取象：目下如冬树/);
+  assert.match(kongming.prompt, /基础解卦：/);
+  assert.match(kongming.prompt, /补充解释：/);
+
+  await assert.rejects(
+    () =>
+      generateDivinationSession(
+        buildDraft({
+          method: 'kongming',
+          kongmingMethod: 'manual',
+          kongmingPattern: '●○---',
+        }),
+      ),
+    /请完成五枚硬币的阴阳取象/,
   );
 });
 

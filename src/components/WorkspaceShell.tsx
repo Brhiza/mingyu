@@ -60,6 +60,7 @@ function resolveActiveFeature(pathname: string, search: string): WorkspaceFeatur
 }
 
 function resolvePageTitle(pathname: string, activeFeature: WorkspaceFeatureId | null) {
+  if (pathname === '/culture-tools') return '文字与数理';
   if (pathname === '/cases') return '案例';
   if (pathname === '/records') return '历史记录';
   if (pathname === '/tutorial') return '使用说明';
@@ -380,6 +381,22 @@ export function WorkspaceShell() {
               </span>
               <span className="workspace-nav-copy">
                 <strong>案例</strong>
+              </span>
+            </button>
+            <button
+              type="button"
+              className={location.pathname === '/culture-tools' ? 'is-active' : ''}
+              onClick={() => {
+                navigate('/culture-tools');
+                setIsDrawerOpen(false);
+              }}
+              aria-current={location.pathname === '/culture-tools' ? 'page' : undefined}
+            >
+              <span className="workspace-nav-mark" aria-hidden="true">
+                文
+              </span>
+              <span className="workspace-nav-copy">
+                <strong>文字与数理</strong>
               </span>
             </button>
           </div>

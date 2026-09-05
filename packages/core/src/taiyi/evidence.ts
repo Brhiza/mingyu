@@ -376,7 +376,7 @@ function buildLimitationFacts(
       key: 'taiyi:limitation:time-scale',
       type: '时间尺度边界',
       ownerFactKeys: calculationSteps.map((item) => item.key),
-      promptText: `${SCOPE_LABELS[data.scope]}只适用于对应时间尺度，年、月、日、时四计不得互相替代；月、日、时计采用现代历法定位复现通行排法，不等同于逐项复原古籍历法常数、小余和气应链`,
+      promptText: `${SCOPE_LABELS[data.scope]}只适用于对应时间尺度，年、月、日、时四计不得互相替代；月计按逐月节气换局，日、时计采用现代历法定位，不等同于逐项复原古籍历法常数、小余和气应链`,
       sources: ['《太乙金镜式经》卷一年、月、日、时四计历法条文', data.model.precision],
     },
     {

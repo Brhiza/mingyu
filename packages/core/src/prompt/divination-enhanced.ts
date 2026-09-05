@@ -26,9 +26,13 @@ import {
 import { evaluateQimenPatternFulfillment } from '../divination/algorithms/qimen/helpers/guidance';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import { analyzeLiuyaoEvidence } from '../divination/algorithms/liuyao';
+import { analyzeLiurenEvidence } from '../divination/liuren-evidence';
 import { analyzeLenormandEvidence } from '../divination/lenormand-evidence';
 import { formatAstrolabeAspectSections } from '../divination/astrolabe-chart-facts';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
+import { getKongmingInterpretation } from '../name-number/kongming-interpretations';
+import { getZhugeInterpretation } from '../name-number/zhuge-interpretations';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 
 function joinPromptSentences(items: Array<string | undefined>) {
@@ -36,6 +40,43 @@ function joinPromptSentences(items: Array<string | undefined>) {
     .filter((item): item is string => Boolean(item?.trim()))
     .map((item) => item.trim().replace(/[。、；，]+$/u, ''))
     .join('；');
+}
+
+function formatZhugeInfo(data: ZhugeNumberResult) {
+  const interpretation = data.interpretation ?? getZhugeInterpretation(data.number);
+  return [
+    '占法：诸葛神数',
+    `所写三字：${data.text}`,
+    `康熙笔画：${data.chars.map((char, index) => `${char}${data.strokes[index]}画`).join('、')}`,
+    `取数：${data.digits.join('')}，归入第${data.number}签`,
+    `签诗：${data.sign.poem}`,
+    `基础解意：${interpretation?.interpretation ?? data.sign.summary}`,
+    interpretation ? `诗句取象：${interpretation.quote}；${interpretation.imageMeaning}` : '',
+    interpretation ? `补充解释：${interpretation.condition}` : '',
+    interpretation?.classicalImage ? `典故取象：${interpretation.classicalImage}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function formatKongmingInfo(data: KongmingHexagramResult) {
+  const interpretation = data.interpretation ?? getKongmingInterpretation(data.symbol);
+  return [
+    '占法：孔明神卦',
+    `五枚硬币：${data.symbol}（●为正面、阳；○为反面、阴；按摆放顺序排列）`,
+    `卦序：第${data.number}卦`,
+    `卦名：${data.name}`,
+    `等第：${data.grade}`,
+    `卦诗：${data.poem}`,
+    `诗句取象：${interpretation.quote}；${interpretation.imageMeaning}`,
+    `基础解卦：${interpretation.interpretation}`,
+    `补充解释：${interpretation.condition}`,
+    ...(interpretation.classicalImage
+      ? [
+          `卦名取象：${interpretation.classicalImage.title}“${interpretation.classicalImage.quote}”；${interpretation.classicalImage.meaning}`,
+        ]
+      : []),
+  ].join('\n');
 }
 
 function getMeihuaMethodLabel(
@@ -567,6 +608,9 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
 }
 
 function formatLiurenInfo(data: LiurenData) {
+  const ridingFacts = analyzeLiurenEvidence(data).traditionalFacts.filter(
+    (item) => item.kind === '天将乘神',
+  );
   const lessonLines = data.fourLessons.map(
     (item) => `${item.name}${item.upper}临${item.lower}乘${item.god}，${item.relation}`,
   );
@@ -622,6 +666,7 @@ function formatLiurenInfo(data: LiurenData) {
     ...lessonLines.map((item) => `  ${item}`),
     transmissionLines.length ? '三传：' : '',
     ...transmissionLines.map((item) => `  ${item}`),
+    ...ridingFacts.map((item) => `乘神生克：${item.promptText}`),
   ]
     .filter(Boolean)
     .join('\n');
@@ -963,6 +1008,10 @@ export function formatEnhancedDivinationInfo(
       return formatTarotInfo(data as TarotData);
     case 'ssgw':
       return formatSsgwInfo(data as SsgwData);
+    case 'zhuge':
+      return formatZhugeInfo(data as ZhugeNumberResult);
+    case 'kongming':
+      return formatKongmingInfo(data as KongmingHexagramResult);
     case 'almanac':
       return formatAlmanacInfo(data as AlmanacData);
     case 'lenormand':

@@ -56,6 +56,21 @@ import {
   residentialFengshui,
 } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
+import {
+  analyzeChineseCharactersWithReferences,
+  selectChineseCharacters,
+  selectNamingCharacters,
+  analyzeChineseName,
+  generateChineseNames,
+  analyzeNumber,
+  calculateZhugeNumber,
+  castKongmingHexagram,
+  buildChineseNameAnalysisPrompt,
+  buildChineseNamingPrompt,
+  buildNumberEnergyPrompt,
+  type NamingBirthInput,
+  type Wuxing,
+} from 'mingyu-core/name-number';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import {
   analyzeCompassDirection,
@@ -624,6 +639,88 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/name/generate': {
+        post: {
+          summary: '生成中文姓名候选并进行五格、三才与康熙笔画分析',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NameGenerateRequest'),
+          responses: { '200': { description: '遵循用字条件的姓名候选及逐名分析' } },
+        },
+      },
+      '/name/analyze': {
+        post: {
+          summary: '解析中文姓名的字形、康熙笔画、五格与三才',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NameAnalyzeRequest'),
+          responses: { '200': { description: '姓名结构化解析结果' } },
+        },
+      },
+      '/name/generate/prompt': {
+        post: {
+          summary: '结合出生资料与姓名候选生成完整起名提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NameGenerateRequest'),
+          responses: { '200': { description: '姓名候选与可直接交给 AI 的完整提示词' } },
+        },
+      },
+      '/name/analyze/prompt': {
+        post: {
+          summary: '结合出生资料生成完整姓名解析提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NameAnalyzeRequest'),
+          responses: { '200': { description: '姓名分析底稿与可直接交给 AI 的完整提示词' } },
+        },
+      },
+      '/character/analyze': {
+        post: {
+          summary: '解析汉字的繁简笔画、五行、读音、完整释义与康熙字典原文',
+          requestBody: openApiJsonRequestBody('#/components/schemas/CharacterAnalyzeRequest'),
+          responses: { '200': { description: '逐字资料与合计笔画' } },
+        },
+      },
+      '/divination/zhuge/prompt': {
+        post: {
+          summary: '按三字取数并生成诸葛神数完整解读提示词',
+          responses: { '200': { description: '取数结果与可直接交给 AI 的完整提示词' } },
+        },
+      },
+      '/divination/kongming/prompt': {
+        post: {
+          summary: '取得五枚硬币的阴阳卦象并生成孔明神卦完整解读提示词',
+          responses: { '200': { description: '卦象结果与可直接交给 AI 的完整提示词' } },
+        },
+      },
+      '/character/select': {
+        post: {
+          summary: '按康熙笔画、五行和读音筛选汉字',
+          requestBody: openApiJsonRequestBody('#/components/schemas/CharacterSelectRequest'),
+          responses: { '200': { description: '符合条件的常用汉字' } },
+        },
+      },
+      '/number/analyze': {
+        post: {
+          summary: '解析手机号、车牌号及一般编号的数字能量',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NumberAnalyzeRequest'),
+          responses: { '200': { description: '字母换算、八星磁场、0和5作用与组合分布' } },
+        },
+      },
+      '/number/analyze/prompt': {
+        post: {
+          summary: '解析数字能量并生成完整解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/NumberAnalyzeRequest'),
+          responses: { '200': { description: '数字能量结果与可直接交给 AI 的完整提示词' } },
+        },
+      },
+      '/divination/zhuge': {
+        post: {
+          summary: '按三个汉字的康熙笔画计算诸葛神数',
+          requestBody: openApiJsonRequestBody('#/components/schemas/ZhugeRequest'),
+          responses: { '200': { description: '取数过程与对应签文' } },
+        },
+      },
+      '/divination/kongming': {
+        post: {
+          summary: '按五枚硬币的阴阳结果起孔明神卦',
+          requestBody: openApiJsonRequestBody('#/components/schemas/KongmingRequest', false),
+          responses: { '200': { description: '五钱卦象、卦名、吉凶与卦诗' } },
+        },
+      },
       '/bazi/calculate': {
         post: {
           summary: '八字排盘',
@@ -1038,6 +1135,99 @@ export function getPublicApiOpenApiDocument(
     },
     components: {
       schemas: {
+        NameGenerateRequest: {
+          type: 'object',
+          required: ['surname'],
+          properties: {
+            surname: { type: 'string', minLength: 1, maxLength: 2 },
+            gender: { enum: ['男', '女', '通用'], default: '通用' },
+            givenNameLength: { enum: [1, 2], default: 2 },
+            preferredElements: {
+              type: 'array',
+              uniqueItems: true,
+              items: { enum: ['金', '木', '水', '火', '土'] },
+            },
+            preferredCharacters: { type: 'string', maxLength: 100 },
+            forbiddenCharacters: { type: 'string', maxLength: 100 },
+            generationCharacter: { type: 'string', maxLength: 1 },
+            generationPosition: { enum: ['first', 'second'], default: 'first' },
+            limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+            birth: { $ref: '#/components/schemas/NamingBirthInput' },
+          },
+        },
+        NameAnalyzeRequest: {
+          type: 'object',
+          required: ['fullName'],
+          properties: {
+            fullName: { type: 'string', minLength: 2, maxLength: 4 },
+            surnameLength: { enum: [1, 2], default: 1 },
+            preferredElements: {
+              type: 'array',
+              uniqueItems: true,
+              items: { enum: ['金', '木', '水', '火', '土'] },
+            },
+            birth: { $ref: '#/components/schemas/NamingBirthInput' },
+          },
+        },
+        NamingBirthInput: {
+          type: 'object',
+          required: ['gender', 'year', 'month', 'day', 'timeIndex'],
+          properties: {
+            gender: { enum: ['male', 'female'] },
+            year: { type: 'integer', minimum: 1900, maximum: 2100 },
+            month: { type: 'integer', minimum: 1, maximum: 12 },
+            day: { type: 'integer', minimum: 1, maximum: 31 },
+            timeIndex: { type: 'integer', minimum: 0, maximum: 12 },
+            dateType: { enum: ['solar', 'lunar'], default: 'solar' },
+            isLeapMonth: { type: 'boolean', default: false },
+          },
+        },
+        CharacterAnalyzeRequest: {
+          type: 'object',
+          required: ['text'],
+          properties: { text: { type: 'string', minLength: 1, maxLength: 20 } },
+        },
+        CharacterSelectRequest: {
+          type: 'object',
+          properties: {
+            kangxiStrokes: { type: 'integer', minimum: 1, maximum: 64 },
+            wuxing: { enum: ['金', '木', '水', '火', '土'] },
+            pinyin: { type: 'string', maxLength: 32 },
+            commonOnly: {
+              type: 'boolean',
+              default: true,
+              description: '仅GB2312一级字；false包含补充用字',
+            },
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+          },
+        },
+        NumberAnalyzeRequest: {
+          type: 'object',
+          required: ['value'],
+          properties: {
+            value: { type: 'string', minLength: 1, maxLength: 64 },
+            purpose: { enum: ['phone', 'plate', 'general'], default: 'general' },
+            question: { type: 'string', maxLength: 1000 },
+          },
+        },
+        ZhugeRequest: {
+          type: 'object',
+          required: ['text'],
+          properties: { text: { type: 'string', minLength: 3, maxLength: 3 } },
+        },
+        KongmingRequest: {
+          type: 'object',
+          properties: {
+            pattern: {
+              type: 'string',
+              minLength: 5,
+              maxLength: 5,
+              description: '五位阴阳结果，可使用●○、10或阴阳字样；不传则随机起卦。',
+            },
+            seed: DIVINATION_REQUEST_PROPERTIES.seed,
+            replay: DIVINATION_REQUEST_PROPERTIES.replay,
+          },
+        },
         InstantChartRequest: {
           type: 'object',
           required: ['type'],
@@ -1914,6 +2104,44 @@ async function route(context: RouteContext) {
       return calculateFoundationShensha(await readJson(context.request));
     case 'instant/calculate':
       return calculateApiResult(context.request, calculateInstantChartApi);
+    case 'name/generate':
+      return calculateCultureTool(async () => generateNameApi(await readJson(context.request)));
+    case 'name/analyze':
+      return calculateCultureTool(async () => analyzeNameApi(await readJson(context.request)));
+    case 'name/generate/prompt':
+      return calculateCultureTool(async () =>
+        buildNameGenerationPromptApi(await readJson(context.request)),
+      );
+    case 'name/analyze/prompt':
+      return calculateCultureTool(async () =>
+        buildNameAnalysisPromptApi(await readJson(context.request)),
+      );
+    case 'character/analyze':
+      return calculateCultureTool(async () =>
+        analyzeChineseCharactersWithReferences(
+          readString(await readJson(context.request), 'text', ''),
+        ),
+      );
+    case 'character/select':
+      return calculateCultureTool(async () => selectCharactersApi(await readJson(context.request)));
+    case 'number/analyze':
+      return calculateCultureTool(async () => analyzeNumberApi(await readJson(context.request)));
+    case 'number/analyze/prompt':
+      return calculateCultureTool(async () =>
+        buildNumberEnergyPromptApi(await readJson(context.request)),
+      );
+    case 'divination/zhuge':
+      return calculateCultureTool(async () =>
+        calculateZhugeNumber(readString(await readJson(context.request), 'text', '')),
+      );
+    case 'divination/kongming':
+      return calculateCultureTool(async () =>
+        calculateKongmingApi(await readJson(context.request, true)),
+      );
+    case 'divination/zhuge/prompt':
+      return buildDivinationPromptResult('zhuge', await readJson(context.request));
+    case 'divination/kongming/prompt':
+      return buildDivinationPromptResult('kongming', await readJson(context.request, true));
     case 'bazi/calculate':
       return calculateApiResult(context.request, calculateBaziApi);
     case 'bazi/prompt':
@@ -2022,6 +2250,162 @@ async function route(context: RouteContext) {
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
   }
+}
+
+const NAME_WUXING = ['金', '木', '水', '火', '土'] as const;
+
+async function calculateCultureTool<T>(calculate: () => T | Promise<T>): Promise<T> {
+  try {
+    return await calculate();
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '输入参数无法完成计算。',
+    );
+  }
+}
+
+function readWuxingList(input: JsonRecord, key: string): Wuxing[] | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (
+    !Array.isArray(value) ||
+    value.length > 5 ||
+    value.some((item) => !NAME_WUXING.includes(item as Wuxing))
+  ) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是金、木、水、火、土组成的数组。`);
+  }
+  return [...new Set(value)] as Wuxing[];
+}
+
+function generateNameApi(input: JsonRecord) {
+  return generateChineseNames({
+    surname: readString(input, 'surname', ''),
+    gender: readEnum(input, 'gender', ['男', '女', '通用'] as const, '通用'),
+    givenNameLength: readInteger(input, 'givenNameLength', 1, 2, 2) as 1 | 2,
+    preferredElements: readWuxingList(input, 'preferredElements'),
+    preferredCharacters: readString(input, 'preferredCharacters', '').trim() || undefined,
+    forbiddenCharacters: readString(input, 'forbiddenCharacters', '').trim() || undefined,
+    generationCharacter: readString(input, 'generationCharacter', '').trim() || undefined,
+    generationPosition: readEnum(
+      input,
+      'generationPosition',
+      ['first', 'second'] as const,
+      'first',
+    ),
+    limit: readInteger(input, 'limit', 1, 50, 20),
+    birth: readNamingBirthInput(input),
+  });
+}
+
+function analyzeNameApi(input: JsonRecord) {
+  return analyzeChineseName({
+    fullName: readString(input, 'fullName', ''),
+    surnameLength: readInteger(input, 'surnameLength', 1, 2, 1) as 1 | 2,
+    xiYong: readWuxingList(input, 'preferredElements'),
+    birth: readNamingBirthInput(input),
+  });
+}
+
+function buildNameGenerationPromptApi(input: JsonRecord) {
+  const candidates = generateNameApi(input);
+  const birth = readNamingBirthInput(input);
+  const gender = readEnum(input, 'gender', ['男', '女', '通用'] as const, '通用');
+  const preferredCharacters = readString(input, 'preferredCharacters', '').trim() || undefined;
+  const forbiddenCharacters = readString(input, 'forbiddenCharacters', '').trim() || undefined;
+  const generationCharacter = readString(input, 'generationCharacter', '').trim() || undefined;
+  const generationPosition = readEnum(
+    input,
+    'generationPosition',
+    ['first', 'second'] as const,
+    'first',
+  );
+  return {
+    candidates,
+    prompt: buildChineseNamingPrompt({
+      surname: readString(input, 'surname', ''),
+      gender,
+      candidates,
+      suitableCharacters: selectNamingCharacters({
+        gender,
+        preferredElements: readWuxingList(input, 'preferredElements'),
+        preferredCharacters,
+        forbiddenCharacters,
+        birth,
+        limit: 24,
+      }),
+      preferredCharacters,
+      forbiddenCharacters,
+      generationCharacter,
+      generationPosition,
+    }),
+  };
+}
+
+function buildNameAnalysisPromptApi(input: JsonRecord) {
+  const analysis = analyzeNameApi(input);
+  return {
+    analysis,
+    prompt: buildChineseNameAnalysisPrompt({
+      analysis,
+      question: readString(input, 'question', '').trim() || undefined,
+    }),
+  };
+}
+
+function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
+  const value = input.birth;
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'birth 必须是出生资料对象。');
+  }
+  const birth = value as JsonRecord;
+  return {
+    gender: readEnum(birth, 'gender', ['male', 'female'] as const),
+    year: readInteger(birth, 'year', 1900, 2100),
+    month: readInteger(birth, 'month', 1, 12),
+    day: readInteger(birth, 'day', 1, 31),
+    timeIndex: readInteger(birth, 'timeIndex', 0, 12),
+    dateType: readEnum(birth, 'dateType', ['solar', 'lunar'] as const, 'solar'),
+    isLeapMonth: readBoolean(birth, 'isLeapMonth', false),
+  };
+}
+
+function selectCharactersApi(input: JsonRecord) {
+  const wuxing = input.wuxing === undefined ? undefined : readEnum(input, 'wuxing', NAME_WUXING);
+  return selectChineseCharacters({
+    strokes: optInt(input, 'kangxiStrokes', 1, 64),
+    wuxing,
+    pinyin: readString(input, 'pinyin', '').trim() || undefined,
+    commonOnly: readBoolean(input, 'commonOnly', true),
+    limit: readInteger(input, 'limit', 1, 100, 50),
+  });
+}
+
+function analyzeNumberApi(input: JsonRecord) {
+  return analyzeNumber(
+    readString(input, 'value', ''),
+    readEnum(input, 'purpose', ['phone', 'plate', 'general'] as const, 'general'),
+  );
+}
+
+function buildNumberEnergyPromptApi(input: JsonRecord) {
+  const analysis = analyzeNumberApi(input);
+  return {
+    analysis,
+    prompt: buildNumberEnergyPrompt({
+      analysis,
+      question: readString(input, 'question', '').trim() || undefined,
+    }),
+  };
+}
+
+function calculateKongmingApi(input: JsonRecord) {
+  const pattern = readString(input, 'pattern', '').trim() || undefined;
+  if (pattern) assertNoRandomOptions(input, '指定卦象时不接受 seed 或 replay。');
+  return castKongmingHexagram(pattern, pattern ? undefined : readRandomOptions(input));
 }
 
 async function calculateApiResult(
@@ -3909,6 +4293,10 @@ function calculateDivinationData(
       return calculateTarot(input);
     case 'ssgw':
       return drawSsgw(input);
+    case 'zhuge':
+      return calculateZhugeNumber(readString(input, 'text', ''));
+    case 'kongming':
+      return calculateKongmingApi(input);
     case 'almanac':
       return calculateAlmanac(input);
     case 'lenormand':

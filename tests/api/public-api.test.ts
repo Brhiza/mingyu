@@ -5727,3 +5727,209 @@ test('POST /consultation/thematic/prompt 支持大类主题选择与默认通用
   assert.ok(fullRes.body.data.result.bazi);
   assert.ok(fullRes.body.data.result.ziwei);
 });
+
+test('公开 API 提供起名、姓名、汉字与号码完整工具链', async () => {
+  const birth = {
+    gender: 'male',
+    year: 2000,
+    month: 1,
+    day: 1,
+    timeIndex: 6,
+  };
+  const generated = await callApi('name/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      surname: '李',
+      gender: '通用',
+      forbiddenCharacters: '乐',
+      generationCharacter: '承',
+      generationPosition: 'second',
+      limit: 3,
+      birth,
+    }),
+  });
+  assert.equal(generated.response.status, 200);
+  assert.equal(generated.body.data.length, 3);
+  assert.equal(generated.body.data[0].analysis.birthContext.pillars.length, 4);
+  assert.ok(
+    generated.body.data.every((item: { givenName: string }) => item.givenName.endsWith('承')),
+  );
+  assert.ok(
+    generated.body.data.every((item: { givenName: string }) => !item.givenName.includes('乐')),
+  );
+  assert.equal(generated.body.data[0].analysis.scores, undefined);
+
+  const namingPrompt = await callApi('name/generate/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      surname: '李',
+      gender: '通用',
+      preferredCharacters: '清宁',
+      forbiddenCharacters: '乐',
+      generationCharacter: '承',
+      generationPosition: 'second',
+      limit: 3,
+      birth,
+    }),
+  });
+  assert.equal(namingPrompt.response.status, 200);
+  assert.match(namingPrompt.body.data.prompt, /偏好字：清、宁/);
+  assert.match(namingPrompt.body.data.prompt, /回避用字：乐/);
+  assert.match(namingPrompt.body.data.prompt, /适配字池：/);
+  assert.match(namingPrompt.body.data.prompt, /重新设计/);
+
+  const name = await callApi('name/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: '李清和', birth }),
+  });
+  assert.equal(name.response.status, 200);
+  assert.equal(name.body.data.surname, '李');
+
+  const prompt = await callApi('name/analyze/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: '李清和', birth, question: '适合长期使用吗？' }),
+  });
+  assert.equal(prompt.response.status, 200);
+  assert.match(prompt.body.data.prompt, /【出生资料】/);
+  assert.match(prompt.body.data.prompt, /适合长期使用吗？/);
+
+  const character = await callApi('character/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '万学' }),
+  });
+  assert.equal(character.response.status, 200);
+  assert.equal(character.body.data.totalKangxiStrokes, 31);
+  assert.equal(character.body.data.characters[1].detail.simplifiedStrokes, 8);
+  assert.equal(character.body.data.characters[1].detail.traditionalStrokes, 16);
+  assert.match(character.body.data.characters[1].detail.kangxiText, /【說文】/);
+  assert.match(character.body.data.characters[1].detail.definition, /博学多才/);
+
+  const selected = await callApi('character/select', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kangxiStrokes: 8, wuxing: '木', limit: 5 }),
+  });
+  assert.equal(selected.response.status, 200);
+  assert.ok(
+    selected.body.data.every((item: { kangxiStrokes: number }) => item.kangxiStrokes === 8),
+  );
+
+  const number = await callApi('number/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value: '粤B12345', purpose: 'plate' }),
+  });
+  assert.equal(number.response.status, 200);
+  assert.equal(number.body.data.primaryIndex, 17);
+  assert.equal(number.body.data.energySequence, '212345');
+  assert.equal(number.body.data.energyPairs[0].trigramEvidence.starName, '破军');
+  assert.equal(number.body.data.energyPairs[0].trigramEvidence.from.name, '坤');
+  assert.equal(number.body.data.energyPairs[0].trigramEvidence.to.name, '坎');
+  assert.deepEqual(number.body.data.energyPairs[0].trigramEvidence.changedLines, [2]);
+  assert.deepEqual(number.body.data.letterConversions, [{ letter: 'B', value: 2, digits: '2' }]);
+  assert.deepEqual(
+    number.body.data.energyPairs.map((item: { name: string }) => item.name),
+    ['绝命', '绝命', '祸害', '延年'],
+  );
+
+  const numberPrompt = await callApi('number/analyze/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      value: '粤B12345',
+      purpose: 'plate',
+      question: '适合长期使用吗？',
+    }),
+  });
+  assert.equal(numberPrompt.response.status, 200);
+  assert.equal(numberPrompt.body.data.analysis.energySequence, '212345');
+  assert.match(numberPrompt.body.data.prompt, /【磁场组合】/);
+  assert.match(numberPrompt.body.data.prompt, /大游年原为宅卦相配之法/);
+  assert.match(numberPrompt.body.data.prompt, /卦变：2为坤☷，1为坎☵/);
+  assert.match(numberPrompt.body.data.prompt, /适合长期使用吗？/);
+});
+
+test('公开 API 的诸葛神数释义与完整提示词保持一致', async () => {
+  const result = await callApi('divination/zhuge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '夏夏一' }),
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.number, 1);
+  assert.equal(result.body.data.sign.summary, result.body.data.interpretation.interpretation);
+  const prompt = await callApi('divination/zhuge/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '夏夏一', question: '如何准备评选？' }),
+  });
+  assert.equal(prompt.response.status, 200);
+  for (const text of Object.values(result.body.data.interpretation)) {
+    assert.ok(prompt.body.data.prompt.includes(text));
+  }
+  assert.doesNotMatch(prompt.body.data.prompt, /健康、婚姻均顺遂/);
+});
+
+test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', async () => {
+  const zhuge = await callApi('divination/zhuge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '顺其然' }),
+  });
+  assert.equal(zhuge.response.status, 200);
+  assert.ok(zhuge.body.data.number >= 1 && zhuge.body.data.number <= 384);
+
+  const kongming = await callApi('divination/kongming', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pattern: '10101' }),
+  });
+  assert.equal(kongming.response.status, 200);
+  assert.equal(kongming.body.data.symbol, '●○●○●');
+
+  const zhugePrompt = await callApi('divination/zhuge/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '顺其然', question: '这件事接下来如何推进？' }),
+  });
+  assert.equal(zhugePrompt.response.status, 200);
+  assert.match(zhugePrompt.body.data.prompt, /【问题】/);
+  assert.match(zhugePrompt.body.data.prompt, /康熙笔画/);
+
+  const random = await callApi('divination/kongming', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seed: '公开接口重放' }),
+  });
+  const replay = await callApi('divination/kongming', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ replay: random.body.data.random.samples }),
+  });
+  assert.equal(replay.body.data.symbol, random.body.data.symbol);
+  assert.deepEqual(replay.body.data.interpretation, random.body.data.interpretation);
+  assert.deepEqual(replay.body.data.draws, random.body.data.draws);
+
+  const kongmingPrompt = await callApi('divination/kongming/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pattern: '10000', question: '这次转变如何准备？' }),
+  });
+  assert.equal(kongmingPrompt.response.status, 200);
+  assert.match(kongmingPrompt.body.data.prompt, /诗句取象：龙门鱼跃过/);
+  assert.match(kongmingPrompt.body.data.prompt, /《尚书·洪范》“金曰从革”/);
+  assert.match(kongmingPrompt.body.data.prompt, /这次转变如何准备/);
+
+  const invalid = await callApi('divination/zhuge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '两个' }),
+  });
+  assert.equal(invalid.response.status, 400);
+  assert.equal(invalid.body.error.code, 'BAD_REQUEST');
+});

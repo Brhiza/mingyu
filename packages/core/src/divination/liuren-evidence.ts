@@ -1,6 +1,7 @@
 import type { LiurenData, LiurenLesson, LiurenTransmission } from '../types/divination';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import { getBranchWuxing, getStemWuxing, isKe, isSheng } from '../ganzhi';
 
 export interface LiurenRelationEvidenceFact {
   key: string;
@@ -123,13 +124,20 @@ export interface LiurenFocusSummaryFact {
 
 export interface LiurenTraditionalFact {
   key: string;
-  kind: '经典取传规则' | '课体' | '天将属性' | '神煞';
+  kind: '经典取传规则' | '课体' | '天将属性' | '天将乘神' | '神煞';
   name: string;
   originalText: string;
   promptText: string;
   sources: string[];
   stages?: string[];
   branches?: string[];
+  riding?: {
+    branch: string;
+    element: string;
+    dayStem: string;
+    dayElement: string;
+    relation: '乘神生日' | '乘神克日' | '日生乘神' | '日克乘神' | '乘神日干比和';
+  };
   limitation: '传统规则或类象只用于限定解释方向，不证明现实事件、身份、疾病、死亡、犯罪、婚姻、法律责任或财务结果';
 }
 
@@ -355,6 +363,36 @@ function buildTraditionalFacts(
       }, new Map<string, LiurenTraditionalFact>())
       .values(),
   );
+  const dayStem = data.ganzhi.day.charAt(0);
+  const dayElement = getStemWuxing(dayStem);
+  const ridingFacts = data.threeTransmissions.map((transmission): LiurenTraditionalFact => {
+    const element = getBranchWuxing(transmission.branch);
+    const relation =
+      element === dayElement
+        ? '乘神日干比和'
+        : isSheng(element, dayElement)
+          ? '乘神生日'
+          : isKe(element, dayElement)
+            ? '乘神克日'
+            : isSheng(dayElement, element)
+              ? '日生乘神'
+              : '日克乘神';
+    return {
+      key: `riding:${transmission.stage}:${transmission.god}:${transmission.branch}`,
+      kind: '天将乘神',
+      name: `${transmission.god}乘${transmission.branch}`,
+      originalText: '而用者专取天盘乘神决之',
+      promptText: `${transmission.stage}${transmission.god}乘天盘${transmission.branch}${element}，与日干${dayStem}${dayElement}为${relation}${transmission.seasonState ? `，月令${transmission.seasonState}` : ''}${typeof transmission.isVoid === 'boolean' ? `，${transmission.isVoid ? '旬空' : '不逢旬空'}` : ''}`,
+      sources: [
+        '《六壬大全》卷二·天将总论',
+        'https://www.shidianguji.com/zh/book/SK1599/chapter/1k1lqkhebd2cy',
+      ],
+      stages: [transmission.stage],
+      branches: [transmission.branch],
+      riding: { branch: transmission.branch, element, dayStem, dayElement, relation },
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    };
+  });
   const shenShaFacts: LiurenTraditionalFact[] = data.shenShaFacts?.length
     ? data.shenShaFacts.map((fact, index): LiurenTraditionalFact => {
         const text = `${fact.name}在${fact.target}`;
@@ -403,6 +441,7 @@ function buildTraditionalFacts(
     ...registeredPatternFacts,
     ...patternFacts,
     ...tianJiangFacts,
+    ...ridingFacts,
     ...shenShaFacts,
   ];
 }
@@ -1380,10 +1419,10 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
         ]
       : []),
     ...traditionalFacts
-      .filter((item) => item.kind === '天将属性')
+      .filter((item) => item.kind === '天将属性' || item.kind === '天将乘神')
       .map((item): PromptEvidenceItem => ({
         level: '辅证',
-        title: `${item.stages?.join('、') || ''}${item.name}天将属性`,
+        title: `${item.stages?.join('、') || ''}${item.name}${item.kind}`,
         detail: `${item.promptText}；入传位置${item.stages?.join('、') || '未列'}，地支${item.branches?.join('、') || '未列'}；边界：${item.limitation}`,
         source: `${item.sources.join('、')}；原始传统文义仅供资料核对，解读采用条件化表述`,
         tags: ['天将属性', ...(item.stages ?? []), item.name],

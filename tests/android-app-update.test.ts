@@ -63,7 +63,10 @@ test('统一 APK 清单必须匹配命语的应用、版本和固定下载路径
   };
   assert.equal(normalizeAndroidManifest(manifest)?.version, '1.2.3');
   assert.equal(normalizeAndroidManifest({ ...manifest, appId: 'other' }), null);
-  assert.equal(normalizeAndroidManifest({ ...manifest, apkUrl: 'https://example.com/app.apk' }), null);
+  assert.equal(
+    normalizeAndroidManifest({ ...manifest, apkUrl: 'https://example.com/app.apk' }),
+    null,
+  );
 });
 
 test('更新检查会跳过其他用途的 GitHub Release', async () => {

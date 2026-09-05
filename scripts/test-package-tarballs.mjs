@@ -13,14 +13,17 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+import {
+  assertCorePackageSize,
+  assertSizeBudget,
+  BROWSER_SIZE_LIMITS,
+} from './package-size-budget.mjs';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const coreDirectory = join(repositoryRoot, 'packages', 'core');
 const pnpmEntry = process.env.npm_execpath;
-// 四小行星与兼容边缘运行时的固定星历数据约增加 0.45 MB 压缩体积，且包含全术数深层算法与大类主题提取；
-// 仍保留明确上限（2.25 MB），防止后续依赖或构建产物无意混入发布包。
-const CORE_TARBALL_MAX_BYTES = 2_250_000;
-const FULL_BROWSER_BUNDLE_MAX_BYTES = 4_000_000;
 
 if (!pnpmEntry) {
   throw new Error('请通过 pnpm package:check 运行 npm 包契约检查。');
@@ -68,11 +71,7 @@ try {
 
   runPnpm(['pack', '--out', coreTarball], coreDirectory);
 
-  const coreTarballBytes = statSync(coreTarball).size;
-  assert.ok(
-    coreTarballBytes <= CORE_TARBALL_MAX_BYTES,
-    `mingyu-core 压缩包不应超过 2.25 MB：${coreTarballBytes} 字节`,
-  );
+  const corePackageSizes = assertCorePackageSize(readFileSync(coreTarball));
 
   writeFileSync(
     join(consumerDirectory, 'package.json'),
@@ -109,6 +108,25 @@ try {
   }
 
   const installedCoreFiles = listFiles(installedCoreDirectory);
+  for (const file of [
+    'generated-data.js',
+    'generated-data.d.ts',
+    'generated-character-references.js',
+    'generated-character-references.d.ts',
+    'generated-character-strokes.js',
+    'generated-character-strokes.d.ts',
+  ]) {
+    const relative = join('dist', 'name-number', file);
+    const hash = (root) =>
+      createHash('sha256')
+        .update(readFileSync(join(root, relative)))
+        .digest('hex');
+    assert.equal(
+      hash(installedCoreDirectory),
+      hash(coreDirectory),
+      `隔离安装的字典资料需完整一致：${file}`,
+    );
+  }
   assert.equal(
     installedCoreFiles.some((path) => path.endsWith('.map')),
     false,
@@ -133,6 +151,19 @@ try {
   const runtimeFixture = `
 const specifiers = ${JSON.stringify(coreSpecifiers)};
 for (const specifier of specifiers) await import(specifier);
+
+const names = await import('mingyu-core/name-number');
+const characters = await names.analyzeChineseCharactersWithReferences('万清');
+if (characters.characters.some((item) => !item.detail?.kangxiText || !item.detail?.definition)) {
+  throw new Error('隔离安装后的完整字典或延迟加载失败。');
+}
+const candidates = names.generateChineseNames({ surname: '李', generationCharacter: '清', forbiddenCharacters: '乐', limit: 3 });
+if (candidates.length !== 3 || candidates.some((item) => !item.givenName.startsWith('清') || /[乐樂]/u.test(item.givenName))) {
+  throw new Error('隔离安装后的起名用字规则失败。');
+}
+if (names.analyzeNumber('AZ').energySequence !== '126' || !names.getZhugeInterpretation(384)?.interpretation || !names.castKongmingHexagram('10000').interpretation?.interpretation) {
+  throw new Error('隔离安装后的数字能量或签谱资料不完整。');
+}
 
 const { createMingyuClient } = await import('mingyu-core/client');
 const client = createMingyuClient();
@@ -349,10 +380,14 @@ target.textContent = result.data.yearGanZhi;
   const browserBytes = listFiles(browserOutput)
     .filter((path) => path.endsWith('.js'))
     .reduce((total, path) => total + statSync(join(browserOutput, path)).size, 0);
-  assert.ok(
-    browserBytes <= FULL_BROWSER_BUNDLE_MAX_BYTES,
-    `含固定小行星星历的完整客户端浏览器产物不应超过 4.0 MB：${browserBytes} 字节`,
-  );
+  assertSizeBudget(browserBytes, BROWSER_SIZE_LIMITS.full, '完整客户端 JavaScript');
+  const browserGzipBytes = listFiles(browserOutput)
+    .filter((path) => path.endsWith('.js'))
+    .reduce(
+      (total, path) =>
+        total + gzipSync(readFileSync(join(browserOutput, path)), { level: 9 }).length,
+      0,
+    );
 
   const zodiacBrowserDirectory = join(consumerDirectory, 'zodiac-browser');
   mkdirSync(zodiacBrowserDirectory, { recursive: true });
@@ -376,6 +411,7 @@ target.textContent = result.data.yearGanZhi;
     .filter((path) => path.endsWith('.js'))
     .reduce((total, path) => total + statSync(join(zodiacBrowserOutput, path)).size, 0);
   assert.ok(zodiacBrowserBytes > 0, '生肖子路径浏览器构建应生成 JavaScript');
+  assertSizeBudget(zodiacBrowserBytes, BROWSER_SIZE_LIMITS.zodiac, '生肖子路径 JavaScript');
   assert.ok(
     zodiacBrowserBytes < browserBytes * 0.75,
     `生肖子路径浏览器产物应明显小于完整客户端：${zodiacBrowserBytes}/${browserBytes} 字节`,
@@ -387,10 +423,12 @@ target.textContent = result.data.yearGanZhi;
         core: {
           version: coreManifest.version,
           tarballBytes: statSync(coreTarball).size,
+          compressedSections: corePackageSizes,
           files: installedCoreFiles.length,
           exports: coreSpecifiers.length,
           browserBuild: true,
           browserBytes,
+          browserGzipBytes,
           zodiacBrowserBytes,
         },
         chinaLocationIncluded: true,

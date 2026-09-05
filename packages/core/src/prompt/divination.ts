@@ -31,6 +31,7 @@ import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
 import { buildPromptSchoolSection, type PromptSchoolMethod } from './schools';
 import type { AstrolabePromptTopic } from './astrolabe';
+import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 import type { PromptBuildOptions, PromptDocument } from './types';
 import { formatEnhancedDivinationInfo, formatTaiyiTradition } from './divination-enhanced';
 import { resolveSsgwStoryContent } from '../divination/ssgw-content';
@@ -409,6 +410,27 @@ export function getDivinationSummaryBlocks(
             )
             .map(([key, value]) => `${key}：${value}`),
         ].filter(Boolean),
+      };
+    }
+    case 'zhuge': {
+      const item = data as ZhugeNumberResult;
+      return {
+        title: '诸葛神数结果',
+        tags: [`三字：${item.text}`, `签序：第${item.number}签`],
+        lines: [
+          `康熙笔画：${item.strokes.join('、')}`,
+          `取数：${item.digits.join('')}`,
+          `签诗：${item.sign.poem}`,
+          `基础解意：${item.sign.summary}`,
+        ],
+      };
+    }
+    case 'kongming': {
+      const item = data as KongmingHexagramResult;
+      return {
+        title: '孔明神卦结果',
+        tags: [`卦象：${item.symbol}`, `卦名：${item.name}`, `等第：${item.grade}`],
+        lines: [`卦诗：${item.poem}`],
       };
     }
     case 'almanac': {

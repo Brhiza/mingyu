@@ -15,6 +15,9 @@ export interface ToolCatalogItem {
     | 'foundation'
     | 'calendar'
     | 'instant'
+    | 'naming'
+    | 'character'
+    | 'number'
     | 'consultation'
     | 'bazi'
     | 'ziwei'
@@ -164,6 +167,98 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     description: '按当前时刻即时排八字、紫微、合参、星盘或七政盘，无需性别与个人字段',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/instant/calculate',
+  },
+
+  // 姓名、汉字与号码
+  {
+    id: 'name_generate',
+    title: '中文起名',
+    category: 'naming',
+    type: 'utility',
+    description: '结合出生资料、偏好字、忌用字与辈分字生成姓名候选',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/name/generate',
+  },
+  {
+    id: 'name_analyze',
+    title: '姓名解析',
+    category: 'naming',
+    type: 'utility',
+    description: '解析姓名康熙笔画、五格数理、三才配置与五行分布',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/name/analyze',
+  },
+  {
+    id: 'name_generate_prompt',
+    title: '中文起名提示词',
+    category: 'naming',
+    type: 'prompt',
+    description: '结合出生资料、用字条件、适配字池和候选样本生成完整起名提示词',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/name/generate/prompt',
+  },
+  {
+    id: 'name_analyze_prompt',
+    title: '姓名解析提示词',
+    category: 'naming',
+    type: 'prompt',
+    description: '结合出生资料和姓名底稿生成完整姓名解析提示词',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/name/analyze/prompt',
+  },
+  {
+    id: 'character_analyze',
+    title: '汉字解析',
+    category: 'character',
+    type: 'utility',
+    description: '查询汉字康熙笔画、现代笔画、五行、部首、拼音与繁简对应',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/character/analyze',
+  },
+  {
+    id: 'character_select',
+    title: '起名选字',
+    category: 'character',
+    type: 'utility',
+    description: '按康熙笔画、五行、拼音和常用字条件筛选汉字',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/character/select',
+  },
+  {
+    id: 'number_analyze',
+    title: '数字能量',
+    category: 'number',
+    type: 'utility',
+    description: '解析数字与字母编号的八星磁场、相邻组合以及0和5的作用',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/number/analyze',
+  },
+  {
+    id: 'number_energy_prompt',
+    title: '数字能量提示词',
+    category: 'number',
+    type: 'prompt',
+    description: '解析八星数字能量并生成可直接交给 AI 的完整提示词',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/number/analyze/prompt',
+  },
+  {
+    id: 'divine_zhuge',
+    title: '诸葛神数',
+    category: 'number',
+    type: 'calculate',
+    description: '按三个汉字康熙笔画尾数计算诸葛神数384签',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/divination/zhuge',
+  },
+  {
+    id: 'divine_kongming',
+    title: '孔明神卦',
+    category: 'number',
+    type: 'calculate',
+    description: '按五枚硬币的阴阳结果生成三十二种孔明神卦之一',
+    annotations: READONLY_NON_IDEMPOTENT,
+    endpoint: '/divination/kongming',
   },
 
   // 八字

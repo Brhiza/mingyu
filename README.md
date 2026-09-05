@@ -35,22 +35,24 @@
 
 ## 🔮 支持功能
 
-| 分类 | 术数方法 | 主要功能 |
-| :--- | :--- | :--- |
+| 分类         | 术数方法                                             | 主要功能                                                                                       |
+| :----------- | :--------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
 | **命理运势** | 八字命理、紫微斗数、八字紫微合参、西方星盘、七政四余 | 支持真太阳时换算、大运流年流月流日细盘、三方四正、庙旺四化、神煞、合盘分析，以及七政行限与流曜 |
-| **周易占卜** | 六爻纳甲、梅花易数 | 支持手摇/指定卦象、京房八宫纳甲、六亲六神、世应动变、体用生克与四时旺衰 |
-| **三式绝学** | 奇门遁甲、大六壬、金口诀、太乙神数、皇极经世 | 支持时家转盘/飞盘奇门、月将天地盘四课三传、阴阳五用、年计七十二局与元会运世 |
-| **牌卡灵签** | 西方塔罗牌、雷诺曼牌、三山国王灵签、小六壬 | 包含 78 张塔罗全牌阵、36 张雷诺曼及大 Tableau、揭西祖庙 92 签全篇签谱 |
-| **择日风水** | 黄历择吉、八宅明镜、玄空飞星、五运六气 | 建除十二神与宜忌排查、东四西四命卦、三元九运飞星排盘、流年流月紫白加临与客主加临 |
+| **周易占卜** | 六爻纳甲、梅花易数                                   | 支持手摇/指定卦象、京房八宫纳甲、六亲六神、世应动变、体用生克与四时旺衰                        |
+| **三式绝学** | 奇门遁甲、大六壬、金口诀、太乙神数、皇极经世         | 支持时家转盘/飞盘奇门、月将天地盘四课三传、阴阳五用、年计七十二局与元会运世                    |
+| **牌卡灵签** | 西方塔罗牌、雷诺曼牌、三山国王灵签、小六壬           | 包含 78 张塔罗全牌阵、36 张雷诺曼及大 Tableau、揭西祖庙 92 签全篇签谱                          |
+| **择日风水** | 黄历择吉、八宅明镜、玄空飞星、五运六气               | 建除十二神与宜忌排查、东四西四命卦、三元九运飞星排盘、流年流月紫白加临与客主加临               |
 
 ---
 
 ## 🛠️ 开发者接入
 
 ### 1. 核心算法包 `mingyu-core`
+
 ```bash
 npm install mingyu-core
 ```
+
 ```typescript
 import { generateBazi, generateLiuyao, drawTarotSpread } from 'mingyu-core';
 
@@ -63,20 +65,27 @@ const liuyao = generateLiuyao(new Date());
 // 抽塔罗牌
 const tarot = drawTarotSpread('celtic');
 ```
+
 详见 [mingyu-core 文档](packages/core/README.md)。
 
 ### 2. 公开 REST API
+
 基础地址：`https://aov.cc/api/v1`
-* [API 接口文档](docs/api.md) · [OpenAPI 规范](https://aov.cc/api/v1/openapi.json) · [LLMs.txt](https://aov.cc/llms.txt)
+
+- [API 接口文档](docs/api.md) · [OpenAPI 规范](https://aov.cc/api/v1/openapi.json) · [LLMs.txt](https://aov.cc/llms.txt)
 
 ### 3. MCP Server
-支持 Claude Desktop、Cursor、Cline 等 MCP 客户端通过 `npx` 零门槛直接调用：
-```bash
-npx -y mingyu-mcp
-```
+
+- **在线 Remote MCP（免安装直接接入）**：支持在 Cursor、Windsurf、Claude Desktop 中直接配置 Streamable HTTP 远程端点：`https://aov.cc/mcp`
+- **本地 npx CLI（开箱即用）**：
+  ```bash
+  npx -y mingyu-mcp
+  ```
+
 （本地源码开发也可通过 `pnpm mcp` 启动，详见 [MCP 服务文档](mcp/README.md)）
 
 ### 4. Agent Skill
+
 ```bash
 npx skills add Brhiza/mingyu --skill aov-mingyu-api -g -y
 ```
@@ -158,4 +167,4 @@ QQ群：命语 Mingyu 技术交流群（1080947018）
 
 ## 📄 开源协议
 
-本项目基于 MIT License 协议开源。
+本项目基于 [AGPL-3.0-only](LICENSE) 协议开源。

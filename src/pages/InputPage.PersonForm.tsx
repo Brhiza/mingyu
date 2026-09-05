@@ -57,6 +57,7 @@ export interface PersonFormProps {
   headerAction?: ReactNode;
   footerHint?: ReactNode;
   forcePreciseBirthPlace?: boolean;
+  showNameField?: boolean;
 }
 
 export const PersonForm = memo(function PersonForm({
@@ -70,6 +71,7 @@ export const PersonForm = memo(function PersonForm({
   headerAction,
   footerHint,
   forcePreciseBirthPlace = false,
+  showNameField = true,
 }: PersonFormProps) {
   const birthTimeValue =
     getPersonValue(form, role, 'birthHour') !== '' &&
@@ -93,19 +95,21 @@ export const PersonForm = memo(function PersonForm({
       </div>
 
       <div className="workspace-ui-form-body">
-        <div className="workspace-ui-form-row">
-          <div className="workspace-ui-field">
-            <label htmlFor={`${role}-name-input`}>姓名</label>
-            <input
-              id={`${role}-name-input`}
-              value={String(getPersonValue(form, role, 'name'))}
-              type="text"
-              placeholder="请输入姓名"
-              className="workspace-ui-control"
-              onChange={(event) => updatePersonField(role, 'name', event.target.value)}
-            />
+        {showNameField ? (
+          <div className="workspace-ui-form-row">
+            <div className="workspace-ui-field">
+              <label htmlFor={`${role}-name-input`}>姓名</label>
+              <input
+                id={`${role}-name-input`}
+                value={String(getPersonValue(form, role, 'name'))}
+                type="text"
+                placeholder="请输入姓名"
+                className="workspace-ui-control"
+                onChange={(event) => updatePersonField(role, 'name', event.target.value)}
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className={`workspace-ui-form-row ${isLunar ? 'is-three-column' : 'is-two-column'}`}>
           <div className="workspace-ui-field">

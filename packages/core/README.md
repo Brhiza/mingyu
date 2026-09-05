@@ -3,7 +3,7 @@
 > 算命、占卜与玄学排盘算法的 TypeScript 实现，覆盖八字、紫微斗数、奇门遁甲、六爻、六壬、梅花易数、塔罗和择日等能力。
 
 [![npm version](https://img.shields.io/npm/v/mingyu-core.svg)](https://www.npmjs.com/package/mingyu-core)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)](LICENSE)
 
 ---
 
@@ -824,7 +824,7 @@ pnpm --filter mingyu-core test
 
 ## License
 
-[MIT](LICENSE)
+[AGPL-3.0-only](LICENSE)
 
 ## 免责
 

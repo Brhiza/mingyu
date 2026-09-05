@@ -50,6 +50,7 @@ export type BasicInfo = {
   gender: string;
   solar_date: string;
   lunar_date: string;
+  /** 紫微引擎按本盘年、月分界生成的原始干支日期。 */
   chinese_date: string;
   birth_time_label: string;
   birth_time_range: string;
@@ -60,6 +61,7 @@ export type BasicInfo = {
   body: string;
   soul_palace_branch: string;
   body_palace_branch: string;
+  /** 出生四柱展示采用八字节气历及子初换日，与紫微安星用的年月日口径独立。 */
   four_pillars?: FourPillars;
   hidden_palaces?: HiddenPalaces;
 };

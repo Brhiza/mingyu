@@ -46,7 +46,13 @@ try {
   assert.equal(unsupportedMethod.status, 405);
   assert.equal(unsupportedMethod.headers.get('allow'), 'GET,HEAD');
 
-  console.log('Docker 运行时静态资源、SPA 回退和请求方法检查通过。');
+  const mcpGet = await fetch(`${origin}/mcp`);
+  assert.equal(mcpGet.status, 200);
+  const mcpJson = await mcpGet.json();
+  assert.equal(mcpJson.status, 'ok');
+  assert.equal(mcpJson.endpoint, '/mcp');
+
+  console.log('Docker 运行时静态资源、SPA 回退、请求方法和 MCP 端点检查通过。');
 } catch (error) {
   if (output.trim()) console.error(output.trim());
   throw error;

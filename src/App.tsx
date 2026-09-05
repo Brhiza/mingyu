@@ -41,6 +41,11 @@ const TutorialPage = lazy(async () => {
   return { default: module.TutorialPage };
 });
 
+const CultureToolsPage = lazy(async () => {
+  const module = await import('./pages/CultureToolsPage');
+  return { default: module.CultureToolsPage };
+});
+
 const DivinationPage = lazy(async () => {
   const module = await import('./pages/DivinationPage');
   return { default: module.DivinationPage };
@@ -120,6 +125,7 @@ export default function App() {
               element={<DivinationResultPage assistantOnly />}
             />
             <Route path="/tutorial" element={<TutorialPage />} />
+            <Route path="/culture-tools" element={<CultureToolsPage />} />
             <Route path="/cases" element={<CasePage />} />
             <Route path="/records" element={<RecordsPage />} />
             <Route path="/result" element={<ResultPage />} />

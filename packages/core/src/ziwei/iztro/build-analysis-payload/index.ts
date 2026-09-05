@@ -1,4 +1,5 @@
 import type { IztroAstrolabe, IztroHoroscope } from '../../../types/iztro';
+import type { ChartInput } from '../../../types/chart';
 import type { AnalysisPayloadV1, ScopeType, ZiweiCalculationConfig } from '../../../types/analysis';
 import { buildEvidenceAnalysis, buildEvidencePool } from '../build-evidence-pool';
 import { buildPatternAnalysis, detectPatterns } from '../pattern-detection';
@@ -11,13 +12,15 @@ export function buildAnalysisPayloadV1(params: {
   horoscope: IztroHoroscope;
   currentScope: ScopeType;
   calculationConfig?: ZiweiCalculationConfig;
+  birthTime?: ChartInput['birthTime'];
   skipAnalysis?: boolean;
 }): AnalysisPayloadV1 {
   const { astrolabe, horoscope, currentScope, calculationConfig, skipAnalysis } = params;
   assertScopeType(currentScope);
 
   const currentScopeItem = getCurrentScopeItem(horoscope, currentScope);
-  const basic_info = buildBasicInfo(astrolabe);
+  const basic_info = buildBasicInfo(astrolabe, params.birthTime);
+  const birthYearHeavenlyStem = astrolabe.rawDates?.chineseDate?.yearly?.[0];
   const active_scope = buildActiveScope({
     astrolabe,
     horoscope,
@@ -53,7 +56,7 @@ export function buildAnalysisPayloadV1(params: {
         palaces,
         birthTimeLabel: basic_info.birth_time_label,
         birthTimeRange: basic_info.birth_time_range,
-        birthYearHeavenlyStem: basic_info.four_pillars?.year_pillar.slice(0, 1),
+        birthYearHeavenlyStem,
       });
   const pattern_analysis = buildPatternAnalysis({
     patterns,
@@ -61,7 +64,7 @@ export function buildAnalysisPayloadV1(params: {
     skipped: skipAnalysis,
     birthTimeLabel: basic_info.birth_time_label,
     birthTimeRange: basic_info.birth_time_range,
-    birthYearHeavenlyStem: basic_info.four_pillars?.year_pillar.slice(0, 1),
+    birthYearHeavenlyStem,
   });
 
   return {

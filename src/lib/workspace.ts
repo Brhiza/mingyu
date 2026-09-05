@@ -138,6 +138,8 @@ const divinationMarks: Record<DivinationWorkspaceId, string> = {
   taiyi: '太',
   huangji: '皇',
   ssgw: '签',
+  zhuge: '诸',
+  kongming: '孔',
   tarot: '塔',
   lenormand: '雷',
   almanac: '日',

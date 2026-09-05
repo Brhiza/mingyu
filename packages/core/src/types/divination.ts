@@ -6,6 +6,7 @@ import type { SolarIlluminationEvidence } from '../calendar/solar-illumination-e
 import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -22,6 +23,8 @@ export type DivinationType =
   | 'tarot'
   | 'tarot_single'
   | 'ssgw'
+  | 'zhuge'
+  | 'kongming'
   | 'almanac'
   | 'lenormand'
   | 'astrolabe'
@@ -222,6 +225,20 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   liuhePartner?: string;
   isLiuhai?: boolean;
   isRuMu?: boolean;
+  /** 本爻五行对日辰所处的十二长生阶段。 */
+  dayLifeStage?: string;
+  /** 本爻五行对卦中明动爻地支所处的十二长生阶段。 */
+  movingLifeStages?: Array<{
+    position: number;
+    branch: string;
+    stage: string;
+  }>;
+  /** 本爻五行对自身变爻地支所处的十二长生阶段。 */
+  changedLifeStage?: string;
+  /** 本爻是否入卦中明动墓库。 */
+  isDongMu?: boolean;
+  /** 本爻发动后是否变入自身五行墓库。 */
+  isHuaMu?: boolean;
   shiErGong?: string;
   /** @deprecated 古籍三墓不含“月墓”；为兼容旧结构保留，始终为 false。 */
   isYueMu?: boolean;
@@ -1638,6 +1655,8 @@ export type DivinationData =
   | LiurenData
   | TarotData
   | SsgwData
+  | ZhugeNumberResult
+  | KongmingHexagramResult
   | AlmanacData
   | LenormandData
   | AstrolabeData

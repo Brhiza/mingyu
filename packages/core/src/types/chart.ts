@@ -3,6 +3,8 @@ export type ChartInput = {
   dateType: 'solar' | 'lunar';
   birthDate: string;
   birthTimeIndex: number;
+  /** 与 birthDate 对应的排盘时分，用于展示节气四柱；真太阳时已在上层校正。 */
+  birthTime?: { hour: number; minute: number };
   gender: '男' | '女';
   isLeapMonth?: boolean;
   fixLeap?: boolean;

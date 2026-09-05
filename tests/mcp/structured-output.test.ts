@@ -98,6 +98,16 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
       customDate: '2026-08-24T12:30:00+08:00',
     },
   ],
+  ['name_generate', { surname: '李', gender: '通用', limit: 3 }],
+  ['name_analyze', { fullName: '李清和' }],
+  ['name_generate_prompt', { surname: '李', limit: 3 }],
+  ['name_analyze_prompt', { fullName: '李清和' }],
+  ['character_analyze', { text: '万学' }],
+  ['character_select', { kangxiStrokes: 8, wuxing: '木', limit: 5 }],
+  ['number_analyze', { value: '粤B12345', purpose: 'plate' }],
+  ['number_energy_prompt', { value: '粤B12345', purpose: 'plate' }],
+  ['divine_zhuge', { text: '顺其然' }],
+  ['divine_kongming', { pattern: '10101' }],
   ['divine_qimen', {}],
   [
     'divine_jinkoujue',
@@ -445,7 +455,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 64);
+    assert.equal(tools.length, 74);
     assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
@@ -468,6 +478,20 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
     assert.ok(tools.find((tool) => tool.name === 'instant_chart'));
+    for (const name of [
+      'name_generate',
+      'name_analyze',
+      'name_generate_prompt',
+      'name_analyze_prompt',
+      'character_analyze',
+      'character_select',
+      'number_analyze',
+      'number_energy_prompt',
+      'divine_zhuge',
+      'divine_kongming',
+    ]) {
+      assert.ok(tools.find((tool) => tool.name === name));
+    }
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_residential'));
     assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));
@@ -556,6 +580,58 @@ test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复�
         false,
         `${name} 不应通过旧排盘工具返回提示词`,
       );
+      if (name === 'divine_zhuge') {
+        const firstSign = await client.callTool({
+          name,
+          arguments: { text: '夏夏一', detailMode: 'full' },
+        });
+        assert.equal(firstSign.isError, undefined);
+        const analysis = firstSign.structuredContent!.result as {
+          number: number;
+          sign: { summary: string };
+          interpretation: { quote: string; interpretation: string; classicalImage: string };
+        };
+        assert.equal(analysis.number, 1);
+        assert.equal(analysis.interpretation.quote, '秋高听鹿鸣');
+        assert.equal(analysis.sign.summary, analysis.interpretation.interpretation);
+        assert.match(analysis.interpretation.classicalImage, /诗经·小雅·鹿鸣/);
+      }
+      if (name === 'divine_kongming') {
+        const analysis = result.structuredContent.result as {
+          interpretation: { quote: string; interpretation: string; condition: string };
+          draws: Array<{ index: number; polarity: string }>;
+        };
+        assert.equal(analysis.interpretation.quote, '目下如冬树');
+        assert.match(analysis.interpretation.interpretation, /等待条件回暖/);
+        assert.match(analysis.interpretation.condition, /启动信号/);
+        assert.deepEqual(
+          analysis.draws.map((item) => item.polarity),
+          ['阳', '阴', '阳', '阴', '阳'],
+        );
+      }
+      if (name === 'number_analyze') {
+        const analysis = result.structuredContent.result as {
+          energyPairs: Array<{ trigramEvidence: { starName: string; changedLines: number[] } }>;
+        };
+        assert.equal(analysis.energyPairs[0].trigramEvidence.starName, '破军');
+        assert.deepEqual(analysis.energyPairs[0].trigramEvidence.changedLines, [2]);
+      }
+      if (name === 'character_analyze') {
+        const analysis = result.structuredContent.result as {
+          characters: Array<{
+            detail: {
+              simplifiedStrokes: number;
+              traditionalStrokes: number;
+              kangxiText: string;
+              definition: string;
+            };
+          }>;
+        };
+        assert.equal(analysis.characters[1].detail.simplifiedStrokes, 8);
+        assert.equal(analysis.characters[1].detail.traditionalStrokes, 16);
+        assert.match(analysis.characters[1].detail.kangxiText, /【說文】/);
+        assert.match(analysis.characters[1].detail.definition, /博学多才/);
+      }
       if (name === 'foundation_capabilities') {
         const capabilities = result.structuredContent.result as {
           key: string;
@@ -3618,6 +3694,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.equal(liurenResult.isError, undefined, 'liuren_prompt 不应返回错误');
     const liurenPrompt = String(liurenResult.structuredContent?.prompt);
     assert.match(liurenPrompt, /占法：大六壬/);
+    assert.match(liurenPrompt, /乘神生克：初传.+乘天盘.+与日干/);
     assert.match(liurenPrompt, /课传主线：[\s\S]*四课：[\s\S]*三传：/);
     assert.match(liurenPrompt, /【问题范围】\n事业工作/);
     assert.doesNotMatch(liurenPrompt, /结构化证据|计算链|证据汇总|解释限制|断课要点/);
@@ -3883,7 +3960,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     );
     assert.deepEqual(
       new Set(liurenData.evidenceAnalysis.traditionalFacts.map((item) => item.kind)),
-      new Set(['经典取传规则', '课体', '天将属性', '神煞']),
+      new Set(['经典取传规则', '课体', '天将属性', '天将乘神', '神煞']),
     );
     assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
     assert.doesNotMatch(liurenPrompt, /取传依据：/);
