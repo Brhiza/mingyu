@@ -198,3 +198,22 @@ test('城门计算校验当运九宫运盘与二十四山，星名保持紫白�
       }
     }
 });
+
+test('城门五黄入中按本运元龙取阴阳，复现《沈氏玄空学》乾向子方九运例', () => {
+  const expected = [false, true, false, true, true, false, true, false, true];
+  for (let yun = 1; yun <= 9; yun++) {
+    const result = evaluateCastleGate({
+      yun,
+      facingMountain: '乾',
+      yunPlate: flyStars(yun, '顺飞'),
+    });
+    const zi = result.candidates.find((item) => item.mountain === '子')!;
+    assert.equal(zi.status === '得旺可用', expected[yun - 1], `${yun}运子方`);
+    if (expected[yun - 1]) assert.equal(zi.arrivalStar, yun);
+    if (yun === 9) {
+      assert.equal(zi.yunStar, 5);
+      assert.equal(zi.flyDirection, '逆飞');
+      assert.equal(zi.arrivalStar, 9);
+    }
+  }
+});

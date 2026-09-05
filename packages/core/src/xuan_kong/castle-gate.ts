@@ -150,23 +150,8 @@ export function evaluateCastleGate(params: {
     if (!matchingMountain) continue;
 
     const yunStar = yunPlate[gong - 1];
-    if (yunStar === 5) {
-      candidates.push({
-        gong,
-        gongName: GONG_NAMES[gong],
-        mountain: matchingMountain.mountain,
-        role: '副城门',
-        yunStar,
-        flyDirection: '顺飞',
-        arrivalStar: 5,
-        status: '不得旺不可用',
-        summary: `${GONG_NAMES[gong]}宫（${matchingMountain.mountain}方）运星逢五黄入中不可作城门`,
-      });
-      continue;
-    }
-
     const baseMountain = Object.values(MOUNTAIN_PROFILES).find(
-      (m) => m.gong === yunStar && m.yuanLong === targetYuanLong,
+      (m) => m.gong === (yunStar === 5 ? yun : yunStar) && m.yuanLong === targetYuanLong,
     );
     const flyDirection: FlyDirection =
       baseMountain && baseMountain.yinYang === '阳' ? '顺飞' : '逆飞';
