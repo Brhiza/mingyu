@@ -4,6 +4,56 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getStemWuxing, getBranchWuxing, isLiuhe } from '../packages/core/src/ganzhi/index.ts';
 import { isValidGanZhi } from '../packages/core/src/ganzhi/validation.ts';
+import {
+  BRANCH_HIDDEN_STEMS,
+  getHiddenMainStem,
+  SANXING_MAP,
+  isSanxing,
+  isLiuchong,
+  isLiuhai,
+} from '../packages/core/src/ganzhi/relations.ts';
+
+test('十二支递刑方向与星历考原一致，相刑关系与六冲六害覆盖全部配对', () => {
+  const branches = [...'子丑寅卯辰巳午未申酉戌亥'];
+  const punishments = [...'卯戌巳子辰申午丑寅酉未亥'];
+  const clashes = ['子午', '丑未', '寅申', '卯酉', '辰戌', '巳亥'];
+  const harms = ['子未', '丑午', '寅巳', '卯辰', '申亥', '酉戌'];
+  for (let i = 0; i < branches.length; i++) {
+    const a = branches[i];
+    assert.equal(SANXING_MAP[a], punishments[i]);
+    for (let j = 0; j < branches.length; j++) {
+      const b = branches[j];
+      assert.equal(isSanxing(a, b), punishments[i] === b || punishments[j] === a, `${a}${b}刑`);
+      assert.equal(
+        isLiuchong(a, b),
+        clashes.includes(a + b) || clashes.includes(b + a),
+        `${a}${b}冲`,
+      );
+      assert.equal(isLiuhai(a, b), harms.includes(a + b) || harms.includes(b + a), `${a}${b}害`);
+    }
+  }
+});
+
+test('十二支藏干集合与选择天镜支神藏干表一致，主气单独核验', () => {
+  const rows = [
+    ['子', '癸', '癸'],
+    ['丑', '己癸辛', '己'],
+    ['寅', '丙戊甲', '甲'],
+    ['卯', '乙', '乙'],
+    ['辰', '乙癸戊', '戊'],
+    ['巳', '丙戊庚', '丙'],
+    ['午', '丁己', '丁'],
+    ['未', '乙己丁', '己'],
+    ['申', '戊庚壬', '庚'],
+    ['酉', '辛', '辛'],
+    ['戌', '辛丁戊', '戊'],
+    ['亥', '壬甲', '壬'],
+  ];
+  for (const [branch, stems, main] of rows) {
+    assert.deepEqual([...BRANCH_HIDDEN_STEMS[branch]].sort(), [...stems].sort(), branch);
+    assert.equal(getHiddenMainStem(branch), main, `${branch}主气`);
+  }
+});
 
 test('干支五行与六合逐项对应《渊海子平》基础表', () => {
   const groups = {

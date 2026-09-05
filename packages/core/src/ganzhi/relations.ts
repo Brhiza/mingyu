@@ -202,7 +202,7 @@ export const ANHE_MAP: Record<string, string> = {
 };
 
 /**
- * 地支三刑（《阴符经》三刑定例）：
+ * 地支三刑（《御定星历考原》岁刑所列递刑与自刑）：
  * - 无礼之刑：子刑卯、卯刑子
  * - 无恩之刑：寅刑巳、巳刑申、申刑寅（三刑互刑）
  * - 恃势之刑：丑刑戌、戌刑未、未刑丑
@@ -257,8 +257,9 @@ export function getSanxingType(branch: string): SanxingType | null {
 }
 
 /**
- * 地支藏干（《渊海子平》《三命通会》本气/中气/余气）：
- * 各支所藏天干，按本气（主气）、中气（次气）、余气排列
+ * 地支藏干，采用子藏癸、亥藏壬甲的常用表，与《选择天镜》支神藏干所列相符。
+ * 首项为主气，其余采用本库固定次序；中气、余气字段及统计权重沿用此顺序。
+ * 此表不是月令司事分日表，不能按数组位置推断交节后的用事天数。
  */
 export const BRANCH_HIDDEN_STEMS: Record<string, string[]> = {
   子: ['癸'],
@@ -438,7 +439,7 @@ export function isLiuhai(a: string, b: string): boolean {
   return LIUHAI_MAP[a] === b;
 }
 
-/** 检查两个地支是否为三刑关系 */
+/** 检查两个地支是否存在三刑关系；判断单向所刑须查询 SANXING_MAP。 */
 export function isSanxing(a: string, b: string): boolean {
   assertBranch(a, '第一个地支');
   assertBranch(b, '第二个地支');
