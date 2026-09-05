@@ -10,6 +10,32 @@ import type { TarotData, TarotSpreadType } from 'mingyu-core/types';
 
 const spreadTypes = Object.keys(tarotSpreads) as TarotSpreadType[];
 
+test('凯尔特十字十牌位保留韦特原著的目标、基础、过去影响及希望恐惧', () => {
+  // Waite《The Pictorial Key to the Tarot》Part III §7 十张牌位说明。
+  const positions = [
+    '当前状况',
+    '挑战/阻碍',
+    '目标与潜能',
+    '现实基础',
+    '过去影响',
+    '近期未来',
+    '你的态度',
+    '外界影响',
+    '希望与恐惧',
+    '最终结果',
+  ];
+  assert.deepEqual(tarotSpreads.celtic.positions, positions);
+  const result = drawTarotSpread('celtic', { seed: '凯尔特牌位校勘' });
+  assert.deepEqual(
+    result.cards.map((card) => card.position),
+    positions,
+  );
+  assert.deepEqual(
+    result.draw?.order.map((card) => card.position),
+    positions,
+  );
+});
+
 test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对象', () => {
   assert.equal(spreadTypes.length, 18);
 

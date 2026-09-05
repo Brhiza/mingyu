@@ -1167,6 +1167,12 @@ test('每种塔罗牌阵都应输出专属解读主线、牌位联动与结论�
       drawTarotSpread(spreadType, { seed: `牌阵框架-${spreadType}` }),
     );
     assert.match(prompt, expectedFocus[spreadType], `${spreadType} 应包含专属主线`);
+    if (spreadType === 'celtic') {
+      assert.match(prompt, /目标与可达潜能/);
+      assert.match(prompt, /已形成的现实基础/);
+      assert.match(prompt, /正在消退的过去影响/);
+      assert.match(prompt, /希望与恐惧/);
+    }
     if (spreadType === 'single') {
       assert.doesNotMatch(prompt, /牌序组合|牌序互动|相邻牌|牌位联动/);
     } else {
