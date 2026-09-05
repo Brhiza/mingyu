@@ -5970,3 +5970,25 @@ test('八宅公开提示词完整保留八宫生克及命宅分组', async () =>
   }
   assert.doesNotMatch(body.data.prompt, /贪狼制绝命|门主同元相生|福力深厚/);
 });
+
+test('玄空与住宅接口拒绝将替卦请求静默计算为下卦', async () => {
+  for (const method of ['xuankong', 'residential']) {
+    for (const operation of ['calculate', 'prompt']) {
+      const { response, body } = await callApi(`metaphysics/${method}/${operation}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year: 2024,
+          sitMountain: '子',
+          facingMountain: '午',
+          mingGua: '坎',
+          guaType: '替卦',
+          question: '分析住宅',
+        }),
+      });
+      assert.equal(response.status, 400, `${method}/${operation}`);
+      assert.equal(body.error.code, 'BAD_REQUEST');
+      assert.match(body.error.message, /guaType.*下卦/);
+    }
+  }
+});

@@ -3073,10 +3073,7 @@ function calculateXuanKongApi(input: JsonRecord) {
     input.measurementUncertaintyDegrees === undefined
       ? undefined
       : readNumberLike(input, 'measurementUncertaintyDegrees', 0, 45);
-  const guaType =
-    input.guaType === undefined
-      ? undefined
-      : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
+  const guaType = input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦']);
   const flowYear =
     input.flowYear === undefined ? undefined : readInteger(input, 'flowYear', 1, 9999);
   const flowMonth =
@@ -3130,10 +3127,7 @@ function calculateResidentialApi(input: JsonRecord) {
   const flowMonth =
     input.flowMonth === undefined ? undefined : readInteger(input, 'flowMonth', 1, 12);
   const flowDay = input.flowDay === undefined ? undefined : readInteger(input, 'flowDay', 1, 31);
-  const guaType =
-    input.guaType === undefined
-      ? undefined
-      : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
+  const guaType = input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦']);
 
   if (mingGua && !BAGUA.includes(mingGua)) {
     throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
