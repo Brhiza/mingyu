@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateYarrow } from '../packages/core/src/divination/algorithms/liuyao';
+import {
+  generateYarrow,
+  generateLiuyao,
+  analyzeLiuyaoEvidence,
+} from '../packages/core/src/divination/algorithms/liuyao';
 
 test('蓍草三变守恒与四象权数覆盖全部余数组合', () => {
   // 《周易衍义》老阴4、少阳20、少阴28、老阳12种。
@@ -40,4 +44,34 @@ test('蓍草支持种子与分堆重放并拒绝非法记录', () => {
   }
   assert.throws(() => generateYarrow({ splits: [] }), /十八变/);
   assert.throws(() => generateYarrow({ splits, seed: 1 }), /同时/);
+});
+
+test('蓍草六爻排盘保留来源并核验过程与随机样本', () => {
+  const date = new Date(2026, 8, 6, 12);
+  const result = generateLiuyao(date, { method: 'yarrow', seed: '十八变' });
+  const record = result.generation!.yarrow!;
+  assert.equal(result.generation!.method, 'yarrow');
+  assert.deepEqual(result.yaoArray, record.yaos);
+  const manual = generateLiuyao(date, { method: 'manual', yaos: record.yaos });
+  assert.equal(result.originalName, manual.originalName);
+  assert.equal(result.changedName, manual.changedName);
+  assert.deepEqual(result.changingYaos, manual.changingYaos);
+  const replay = generateLiuyao(date, { method: 'yarrow', replay: result.meta!.random!.samples });
+  assert.deepEqual(replay.generation, result.generation);
+  const splits = record.lines.flatMap((line) => line.changes.map((step) => step.left));
+  const hand = generateLiuyao(date, { method: 'yarrow', yarrowSplits: splits });
+  assert.deepEqual(hand.yaoArray, result.yaoArray);
+  assert.equal(hand.generation!.yarrow!.samplingModel, '手工分堆');
+  assert.match(JSON.stringify(result.evidenceAnalysis), /第3变/);
+  const changed = structuredClone(result);
+  changed.generation!.yarrow!.lines[0].changes[0].remaining++;
+  assert.throws(() => analyzeLiuyaoEvidence(changed), /不一致/);
+  const changedTrace = structuredClone(result);
+  changedTrace.meta!.random!.samples[0] = (changedTrace.meta!.random!.samples[0] + 0.5) % 1;
+  assert.throws(() => analyzeLiuyaoEvidence(changedTrace), /不一致/);
+  assert.throws(
+    () => generateLiuyao(date, { method: 'manual', yaos: record.yaos, yarrowSplits: splits }),
+    /只适用/,
+  );
+  assert.throws(() => generateLiuyao(date, { method: 'yarrow', yaos: record.yaos }), /同时/);
 });

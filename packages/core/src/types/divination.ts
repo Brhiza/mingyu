@@ -319,7 +319,8 @@ export interface LiuyaoData extends BaseHexagramData {
   evidenceAnalysis?: import('../divination/liuyao-evidence').LiuyaoEvidenceAnalysis;
   /** 起卦来源与三钱投掷轨迹。 */
   generation?: {
-    method: 'time' | 'manual' | 'coins';
+    method: 'time' | 'manual' | 'coins' | 'yarrow';
+    yarrow?: Omit<import('../divination/algorithms/yarrow').YarrowResult, 'randomTrace'>;
     coinThrows?: Array<{
       coins: [2 | 3, 2 | 3, 2 | 3];
       total: 6 | 7 | 8 | 9;

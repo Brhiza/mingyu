@@ -15,6 +15,7 @@
 
 import { hexagramsData } from '../../divination/hexagram-data';
 export { generateYarrow } from './yarrow';
+import { generateYarrow } from './yarrow';
 export type { YarrowChange, YarrowLine, YarrowOptions, YarrowResult } from './yarrow';
 import { getSixAnimals, getVoidBranches } from '../../calendar/lunar';
 import {
@@ -835,11 +836,13 @@ function getSpecialPattern(
  * // result 包含 mainHexagram、changedHexagram、yaos（六爻详情）等字段
  * ```
  */
-export type LiuyaoGenerationMethod = 'time' | 'manual' | 'coins';
+export type LiuyaoGenerationMethod = 'time' | 'manual' | 'coins' | 'yarrow';
 
 export interface LiuyaoGenerationOptions extends RandomOptions {
   /** 起卦方式；默认有 yaos 时为 manual，否则为 time。 */
   method?: LiuyaoGenerationMethod;
+  /** 蓍草十八变的手工左堆策数。 */
+  yarrowSplits?: readonly number[];
   /** 可选手工三钱法爻值，按初爻到上爻传入 6、7、8、9。 */
   yaos?: readonly number[];
   /** 用户逐爻手摇得到的三钱记录，按初爻到上爻传入。 */
@@ -885,10 +888,25 @@ function resolveRawYaos(
 ): { yaos: number[]; generation: LiuyaoGeneration; randomTrace?: RandomTrace } {
   assertOptionalRecord(options, '六爻起卦设置');
   const method = options?.method ?? (options?.yaos !== undefined ? 'manual' : 'time');
-  if (!['time', 'manual', 'coins'].includes(method)) {
+  if (!['time', 'manual', 'coins', 'yarrow'].includes(method)) {
     throw new Error(`未知的六爻起卦方式: ${method}`);
   }
   const usesRandomOptions = hasRandomOptions(options);
+  if (method === 'yarrow') {
+    if (options?.yaos !== undefined || options?.coinThrows !== undefined) {
+      throw new Error('蓍草起卦不能同时提供手工爻值或铜钱记录。');
+    }
+    const { randomTrace, ...yarrow } = generateYarrow({
+      ...options,
+      ...(options?.yarrowSplits !== undefined ? { splits: options.yarrowSplits } : {}),
+    });
+    return {
+      yaos: yarrow.yaos,
+      generation: { method, yarrow },
+      ...(randomTrace ? { randomTrace } : {}),
+    };
+  }
+  if (options?.yarrowSplits !== undefined) throw new Error('蓍草分堆记录只适用于蓍草起卦。');
   if (method === 'time') {
     if (options?.yaos !== undefined) throw new Error('六爻时间起卦不能同时提供手工爻值。');
     if (options?.coinThrows !== undefined) throw new Error('六爻时间起卦不能同时提供手摇记录。');
