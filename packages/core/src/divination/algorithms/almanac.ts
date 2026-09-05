@@ -198,6 +198,11 @@ const GOD_RULE_SOURCES: Record<string, string> = {
   月厌: '《三命通会》所载大统历月厌起例',
   六合: '月建与日支六合关系',
   月刑: '《选择天镜》逐月月刑起例',
+  时德: '《钦定大清会典》四季时德起例',
+  守日: '《钦定协纪辨方书》守日与牢日校正起例',
+  相日: '《钦定协纪辨方书》四季相日起例',
+  四击: '《钦定协纪辨方书》四季四击起例',
+  九空: '《钦定协纪辨方书》九空逆行四季起例',
 };
 
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {

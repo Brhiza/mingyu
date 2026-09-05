@@ -618,6 +618,17 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
     Object.entries(rules).map(([name, stem]) => [name, dayStem === stem]),
   );
   const dayIndex = day.getIndex();
+  const seasonIndex = Math.floor(monthIndex / 3);
+  const branchRules: Record<string, string> = {
+    时德: '午辰子寅'[seasonIndex],
+    守日: '辰未戌丑'[seasonIndex],
+    相日: '巳申亥寅'[seasonIndex],
+    四击: '戌丑辰未'[seasonIndex],
+    九空: '辰丑戌未'[monthIndex % 4],
+  };
+  for (const [name, branch] of Object.entries(branchRules)) {
+    matches[name] = day.getEarthBranch().getName() === branch;
+  }
   matches.月厌 = day.getEarthBranch().getIndex() === (10 - monthIndex + 12) % 12;
   matches.六合 = isLiuhe(month.getEarthBranch().getName(), day.getEarthBranch().getName());
   matches.月刑 = day.getEarthBranch().getName() === [...'巳子辰申午丑寅酉未亥卯戌'][monthIndex];
