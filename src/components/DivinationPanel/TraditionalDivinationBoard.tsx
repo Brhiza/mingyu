@@ -799,6 +799,29 @@ function LiuyaoTraditionalBoard({
       {/* 2. 双卦并列对齐爻卦区 */}
       <LiuyaoDualHexagramView data={data} />
 
+      {data.generation?.method === 'yarrow' && data.generation.yarrow ? (
+        <details className="traditional-classic-card">
+          <summary>蓍草起卦 · 十八变记录</summary>
+          <div className="traditional-classic-body">
+            <p>分堆方式：{data.generation.yarrow.samplingModel}</p>
+            {data.generation.yarrow.lines.map((line, index) => (
+              <div key={index}>
+                <strong>
+                  {formatYaoPosition(index + 1)} · 爻值{line.value}
+                </strong>
+                {line.changes.map((step, changeIndex) => (
+                  <p key={changeIndex}>
+                    第{changeIndex + 1}变：{step.initial}策，左{step.left}、右{step.right}，
+                    挂一，左余{step.leftRemainder}、右余{step.rightRemainder}， 去{step.removed}
+                    策，剩{step.remaining}策。
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
+
       {/* 3. 持世与卦象特性速查 */}
       {hexagramTips.length ? (
         <div className="liuyao-quick-insights-box">

@@ -103,6 +103,8 @@
 
 ## Agent 调用选择指南
 
+六爻接口的 `liuyaoMethod` 支持 `time`、`coins`、`manual`、`yarrow`。蓍草起卦使用 `yarrow`，可提供 `seed` 或 `replay` 重放随机过程；也可单独提供 `yarrowSplits`，按初爻至上爻传入十八次挂一前左堆策数。每次左堆须为正整数，右堆挂一后至少留一策；具体上限随前一变剩策变化。手工分堆与随机选项、手工爻值不能混用。结果 `generation.yarrow` 保留六爻十八变，`meta.random` 保留随机样本，提示词接口同步包含起卦过程。MCP 的 `divine_liuyao` 与 `liuyao_prompt` 使用对应的 `method: "yarrow"` 和 `yarrowSplits` 参数。
+
 面向自动化代理时，优先使用 `/prompt` 一站式接口，让接口直接返回可交给 AI 解读的 `data.prompt`，不要先取完整排盘再自行拼装提示词。只有需要做表格展示、二次计算或缓存结构化数据时，才调用 `/calculate` 或 `/divination/{method}`。
 
 默认优先级：

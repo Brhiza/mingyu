@@ -84,7 +84,7 @@ export type DivinationDraft = {
   birthPlace?: string;
   birthLongitude?: string;
   birthLatitude?: string;
-  liuyaoMethod?: 'time' | 'coins' | 'manual';
+  liuyaoMethod?: 'time' | 'coins' | 'manual' | 'yarrow';
   liuyaoYaos?: Array<6 | 7 | 8 | 9>;
   liuyaoCoinThrows?: Array<{ coins: [2 | 3, 2 | 3, 2 | 3]; total: 6 | 7 | 8 | 9 }>;
   meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';

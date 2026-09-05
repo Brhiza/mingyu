@@ -59,6 +59,7 @@ const JINKOUJUE_BRANCH_OPTIONS = [
 const LIUYAO_METHOD_OPTIONS = [
   { value: 'time', label: '时间起卦' },
   { value: 'coins', label: '手摇' },
+  { value: 'yarrow', label: '蓍草起卦' },
   { value: 'manual', label: '手动录入' },
 ] as const;
 
