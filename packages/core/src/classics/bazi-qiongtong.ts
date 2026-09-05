@@ -473,7 +473,13 @@ export function getBaziQiongtongAdvice(
   monthBranch: string,
 ): BaziQiongtongEntry | undefined {
   const direct = BAZI_QIONGTONG_TABLE[`${dayMaster}+${monthBranch}`];
-  if (direct) return direct;
+  if (direct)
+    return {
+      ...direct,
+      requestedMonth: monthBranch,
+      matchedMonth: monthBranch,
+      seasonFallback: false,
+    };
 
   // 季节 fallback
   const seasonMonthMap: Record<string, string[]> = {
@@ -494,7 +500,10 @@ export function getBaziQiongtongAdvice(
   const candidates = seasonMonthMap[monthBranch] ?? [];
   for (const branch of candidates) {
     const entry = BAZI_QIONGTONG_TABLE[`${dayMaster}+${branch}`];
-    if (entry) return entry;
+    if (entry) {
+      // 同季借用：明确登记实际命中月份，避免跨月资料被当作本月专条展示
+      return { ...entry, requestedMonth: monthBranch, matchedMonth: branch, seasonFallback: true };
+    }
   }
 
   return undefined;

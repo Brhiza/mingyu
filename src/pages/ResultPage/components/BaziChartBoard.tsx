@@ -1154,6 +1154,10 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
               <p className="traditional-classic-verse">{qiongtongAdvice.classicVerse}</p>
               <p className="traditional-classic-advice">
                 {`【调候要领】${qiongtongAdvice.modernExplanation}`}
+                {qiongtongAdvice.seasonFallback
+                  ? `
+【覆盖提示】${qiongtongAdvice.requestedMonth}月暂无直接条目，本条借用同季${qiongtongAdvice.matchedMonth}月资料，属同季一般参考而非本月专条`
+                  : ''}
                 {qiongtongAdvice.primaryGods?.length
                   ? `\n【核心喜用】优先取：${qiongtongAdvice.primaryGods.join('、')}`
                   : ''}
@@ -1192,7 +1196,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
               <p className="traditional-classic-verse">{ditiansuiAdvice.verse}</p>
               <p className="traditional-classic-advice">
                 {`【原典精解】${ditiansuiAdvice.nature}`}
-                {`\n【行运指引】${ditiansuiAdvice.modernAdvice}`}
+                {`\n【十干一般释义（未结合本盘旺衰、合化与岁运，不能视为当前行运判断）】${ditiansuiAdvice.modernAdvice}`}
               </p>
             </div>
           ) : null}
