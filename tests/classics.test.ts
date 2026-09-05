@@ -304,7 +304,64 @@ test('五运六气《黄帝内经》大运司在经文查询正确', () => {
   const ziWu = getWuyunLiuqiClassic('少阴君火司天');
   assert.ok(ziWu);
   assert.equal(ziWu.category, '司天');
-  assert.ok(ziWu.verse.includes('少阴君火司天'));
+  assert.equal(ziWu.verse, '少阴司天，其化以热。');
+});
+
+test('五运六气典籍十一项逐项对应原句并保留太过不及区别', () => {
+  for (const [key, verse, feature] of [
+    ['甲己化土', '甲己之岁，土运统之。', '甲年为土运太过，己年为土运不及'],
+    ['乙庚化金', '乙庚之岁，金运统之。', '乙年为金运不及，庚年为金运太过'],
+    ['丙辛化水', '丙辛之岁，水运统之。', '丙年为水运太过，辛年为水运不及'],
+    ['丁壬化木', '丁壬之岁，木运统之。', '丁年为木运不及，壬年为木运太过'],
+    ['戊癸化火', '戊癸之岁，火运统之。', '戊年为火运太过，癸年为火运不及'],
+  ]) {
+    const result = getWuyunLiuqiClassic(key)!;
+    assert.equal(result.verse, verse);
+    assert.equal(result.sourceBook, '素问·天元纪大论');
+    assert.ok(result.climateFeature.includes(feature));
+    assert.equal(result.healthAdvice, undefined);
+  }
+  for (const [factor, phase, qi] of [
+    ['少阴君火司天', '少阴', '热'],
+    ['太阴湿土司天', '太阴', '湿'],
+    ['少阳相火司天', '少阳', '火'],
+    ['阳明燥金司天', '阳明', '燥'],
+    ['太阳寒水司天', '太阳', '寒'],
+    ['厥阴风木司天', '厥阴', '风'],
+  ]) {
+    const result = getWuyunLiuqiClassic(factor)!;
+    assert.equal(result.verse, `${phase}司天，其化以${qi}。`);
+    assert.equal(result.sourceBook, '素问·至真要大论');
+    assert.equal(result.healthAdvice, undefined);
+  }
+});
+
+test('五运六气典籍精确匹配完整名称并隔离返回资料', () => {
+  for (const factor of ['', '司天', '少阴', '甲', '土', '说明甲己化土', 'constructor']) {
+    assert.equal(getWuyunLiuqiClassic(factor), undefined);
+  }
+  const first = getWuyunLiuqiClassic('子午少阴君火司天')!;
+  assert.deepEqual(first, getWuyunLiuqiClassic('少阴君火司天'));
+  first.verse = '修改';
+  assert.equal(getWuyunLiuqiClassic('少阴君火司天')!.verse, '少阴司天，其化以热。');
+});
+
+test('六组在泉气化资料与司天对应分别查询', () => {
+  for (const [key, factor, phase, qi, taste] of [
+    ['寅申厥阴风木在泉', '厥阴风木在泉', '厥阴', '风', '酸'],
+    ['卯酉少阴君火在泉', '少阴君火在泉', '少阴', '热', '苦'],
+    ['辰戌太阴湿土在泉', '太阴湿土在泉', '太阴', '湿', '甘'],
+    ['巳亥少阳相火在泉', '少阳相火在泉', '少阳', '火', '苦'],
+    ['子午阳明燥金在泉', '阳明燥金在泉', '阳明', '燥', '辛'],
+    ['丑未太阳寒水在泉', '太阳寒水在泉', '太阳', '寒', '咸'],
+  ]) {
+    const result = getWuyunLiuqiClassic(key)!;
+    assert.deepEqual(result, getWuyunLiuqiClassic(factor));
+    assert.equal(result.category, '在泉');
+    assert.equal(result.verse, `${phase}司天为${qi}化，在泉为${taste}化。`);
+    assert.equal(result.sourceBook, '素问·至真要大论');
+    assert.equal(result.healthAdvice, undefined);
+  }
 });
 
 test('通胜择日《协纪辨方书》建除十二神歌诀查询正确', () => {

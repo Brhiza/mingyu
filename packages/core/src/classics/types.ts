@@ -268,7 +268,7 @@ export interface WuyunLiuqiClassic {
   sourceBook: string;
   verse: string;
   climateFeature: string;
-  healthAdvice: string;
+  healthAdvice?: string;
 }
 
 export interface AlmanacOfficerClassic {
