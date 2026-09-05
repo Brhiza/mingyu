@@ -186,6 +186,18 @@ function buildTopicMatchFact(params: {
   };
 }
 
+const GOD_RULE_SOURCES: Record<string, string> = {
+  天德: '《钦定协纪辨方书》四德日干起例',
+  天德合: '《钦定协纪辨方书》四德日干起例',
+  月德: '《钦定协纪辨方书》四德日干起例',
+  月德合: '《钦定协纪辨方书》四德日干起例',
+  天恩: '《大清时宪历笺释》天恩十五日起例',
+  母仓: '《钦定协纪辨方书》母仓起例、《历事明原》四立前十八日土王用事',
+  月恩: '《钦定协纪辨方书》月恩起例',
+  月空: '《三命通会》所载大统历月空起例',
+  月厌: '《三命通会》所载大统历月厌起例',
+};
+
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
   return gods.map((god) => {
     const name = god.getName();
@@ -197,16 +209,7 @@ function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFac
       classification,
       status: '已读取',
       promptText: `${name}列为${classification}`,
-      sources: [
-        ['天德', '天德合', '月德', '月德合'].includes(name)
-          ? '《钦定协纪辨方书》四德日干起例'
-          : name === '天恩'
-            ? '《大清时宪历笺释》天恩十五日起例'
-            : name === '母仓'
-              ? '《钦定协纪辨方书》母仓起例、《历事明原》四立前十八日土王用事'
-              : 'tyme4ts 值日神煞',
-        'tyme4ts God.getLuck() 原生吉凶属性',
-      ],
+      sources: [GOD_RULE_SOURCES[name] ?? 'tyme4ts 值日神煞', 'tyme4ts God.getLuck() 原生吉凶属性'],
       limitation: GOD_FACT_LIMITATION,
     };
   });

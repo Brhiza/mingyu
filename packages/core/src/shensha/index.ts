@@ -611,11 +611,14 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
     天德合: ['壬', null, '丁', '丙', null, '己', '戊', null, '辛', '庚', null, '乙'][monthIndex],
     月德: ['丙', '甲', '壬', '庚'][monthIndex % 4],
     月德合: ['辛', '己', '丁', '乙'][monthIndex % 4],
+    月恩: ['丙', '丁', '庚', '己', '戊', '辛', '壬', '癸', '庚', '乙', '甲', '辛'][monthIndex],
+    月空: ['壬', '庚', '丙', '甲'][monthIndex % 4],
   };
   const matches: Record<string, boolean> = Object.fromEntries(
     Object.entries(rules).map(([name, stem]) => [name, dayStem === stem]),
   );
   const dayIndex = day.getIndex();
+  matches.月厌 = day.getEarthBranch().getIndex() === (10 - monthIndex + 12) % 12;
   matches.天恩 =
     dayIndex < 5 || (dayIndex >= 15 && dayIndex < 20) || (dayIndex >= 45 && dayIndex < 50);
   const gods = God.getDayGods(month, day).filter(
