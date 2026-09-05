@@ -145,6 +145,11 @@ test('皇极经世年月日时盘应由值年卦继续推至月经、旬纬、�
   });
   const dateTime = result.dateTimeForecast;
   assert.ok(dateTime);
+  assert.equal(dateTime.model, '经纬卦年月日时推衍');
+  assert.match(dateTime.sources[0].title, /皇极经世书绪言.*卷三/);
+  assert.match(result.prompt, /每个节气按十五个皇极日定位/);
+  assert.match(result.prompt, /每六十日变一爻得月经卦/);
+  assert.doesNotMatch(result.prompt, /黄畿.*分形同构规则/);
   assert.equal(result.input.mode, '年月日时');
   assert.equal(result.input.year, 2026);
   assert.deepEqual(dateTime.calendar, {

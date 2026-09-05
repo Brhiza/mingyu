@@ -1,7 +1,7 @@
 /**
  * @file 皇极经世年月日时卦
- * @description 依黄畿所释“一六为经、六六为纬”的分形推衍，将值年卦继续细分至月经、旬纬、日与时经。
- * @传统依据 《皇极经世书传》所述“求月日时分直之卦，又岂有异乎”及“自子半至寅半”时段规则。
+ * @description 按“一六为经、六六为纬”的层级思路推衍，将值年卦继续细分至月经、旬纬、日与时经。
+ * @传统依据 《皇极经世书绪言》卷一子半时段、卷三经纬层级。节气十五日映射为本算法采用的日序口径。
  */
 
 import { SolarTerm, SolarTime } from 'tyme4ts';
@@ -52,7 +52,7 @@ export interface HuangjiDerivedHexagram extends HuangjiHexagramSummary {
 }
 
 export interface HuangjiDateTimeForecast {
-  model: '黄畿分形同构年月日时推衍';
+  model: '经纬卦年月日时推衍';
   civilTime: {
     dateTime: string;
     timezone: '北京时间（UTC+8）';
@@ -258,7 +258,7 @@ export function calculateHuangjiDateTimeForecast(date: Date): HuangjiDateTimeFor
   const hourJing = changeLine(daily, resolved.hourSegment);
 
   return {
-    model: '黄畿分形同构年月日时推衍',
+    model: '经纬卦年月日时推衍',
     civilTime: {
       dateTime: resolved.dateTime,
       timezone: resolved.timezone,
@@ -290,15 +290,15 @@ export function calculateHuangjiDateTimeForecast(date: Date): HuangjiDateTimeFor
     ],
     sources: [
       {
-        title: '黄畿《皇极经世书传》',
-        scope: '月日时分直卦按宏观层级分形同构推衍，以及“一六为经、六六为纬”的经纬规则。',
+        title: '《皇极经世书绪言》卷三',
+        scope: '以运经世段提出由年卦推求月日时分直卦的经纬层级思路。',
       },
       {
-        title: '《皇极经世》先天六十卦序',
-        scope: '日卦由月经卦按六十卦序逐日顺行。',
+        title: '《皇极经世书绪言》卷三值年卦例',
+        scope: '原例由小畜起甲子，依六十卦序逐年顺行；本算法将同序应用于月经卦下的日序。',
       },
       {
-        title: '《皇极经世书传》子半时段规则',
+        title: '《皇极经世书绪言》卷一子半时段',
         scope: '时经卦自子半起，每四小时对应一爻。',
       },
     ],

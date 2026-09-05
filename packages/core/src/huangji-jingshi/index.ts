@@ -51,8 +51,8 @@ export const HUANGJI_JINGSHI_SOURCES = [
     scope: '会内统卦、运卦、六十年统卦、十年卦和值年卦的层级推演。',
   },
   {
-    title: '黄畿《皇极经世书传》',
-    scope: '月日时分直卦的分形同构推衍，以及“一六为经、六六为纬”的经纬规则。',
+    title: '《皇极经世书绪言》卷一、卷三',
+    scope: '子半时段及月日时分直卦的经纬层级思路。',
   },
 ] as const;
 
@@ -275,7 +275,7 @@ export function buildHuangjiJingshiPrompt(
         ]
       : [];
     const prompt = [
-      `【传统依据】\n${forecast.model.model}以${formatHuangjiCivilYear(forecast.model.yuanStartYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。${dateTimeForecast ? '具体时点再依黄畿“一六为经、六六为纬”的分形同构规则，由岁卦推月经、旬纬、日卦与时经卦。' : ''}`,
+      `【传统依据】\n${forecast.model.model}以${formatHuangjiCivilYear(forecast.model.yuanStartYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。${dateTimeForecast ? '具体时点以冬至换年，每个节气按十五个皇极日定位，超过十五日的尾段归第十五日；值年卦每六十日变一爻得月经卦，月经卦每十日变一爻得旬纬卦，日卦从月经卦依六十卦序逐日顺行，日卦自子半起每四小时变一爻得时经卦。' : ''}`,
       [
         '【排盘资料】',
         ...dateTimeLines,
