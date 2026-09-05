@@ -62,6 +62,8 @@ test('生肖六十流年七百二十组合保留全部刑冲害破与合会关�
           sanhui.some((group) => group.includes(branch) && group.includes(yearBranch)),
       );
       assert.ok(result.prompt.includes(yearGanZhi));
+      assert.match(result.prompt, /【任务】[\s\S]*【生肖与流年关系简析】[\s\S]*【输出要求】/);
+      assert.doesNotMatch(result.prompt, /证据链完整|结构化类型|证据汇总|来源：|MCP|API/);
       assert.equal(result.interpretationBoundary, '仅限生肖与流年关系');
     }
   }
