@@ -627,6 +627,8 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
     九空: '辰丑戌未'[monthIndex % 4],
     五富: '亥寅巳申'[monthIndex % 4],
     生气: EARTHLY_BRANCHES[monthIndex],
+    普护: '申寅酉卯戌辰亥巳子午丑未'[monthIndex],
+    福生: '酉卯戌辰亥巳子午丑未寅申'[monthIndex],
   };
   for (const [name, branch] of Object.entries(branchRules)) {
     matches[name] = day.getEarthBranch().getName() === branch;

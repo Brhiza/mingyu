@@ -204,7 +204,9 @@ const GOD_RULE_SOURCES: Record<string, string> = {
   四击: '《钦定协纪辨方书》四季四击起例',
   九空: '《钦定协纪辨方书》九空逆行四季起例',
   五富: '《钦定大清会典》逐月五富起例',
-  生气: '《黄帝宅经》逐月生气地支起例',
+  生气: '《御定星历考原》生气起例',
+  普护: '《御定星历考原》逐月普护起例',
+  福生: '《御定星历考原》逐月福生起例',
 };
 
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
