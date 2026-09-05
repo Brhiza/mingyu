@@ -360,8 +360,26 @@ export function calculateAspects(
   bodies: AspectBody[],
   options: { orbs?: Partial<Record<AspectType, number>>; minimumStrength?: number } = {},
 ): { aspects: Aspect[] } {
-  const orbs = { ...DEFAULT_ORBS, ...options.orbs };
+  const orbs = { ...DEFAULT_ORBS };
+  for (const type of Object.values(AspectType)) {
+    const configured = options.orbs?.[type];
+    if (configured !== undefined) {
+      if (!Number.isFinite(configured) || configured < 0) {
+        throw new Error('相位容许度必须是非负有限数值。');
+      }
+      orbs[type] = configured;
+    }
+  }
   const minimumStrength = options.minimumStrength ?? 0;
+  if (!Number.isFinite(minimumStrength) || minimumStrength < 0 || minimumStrength > 100) {
+    throw new Error('相位最低强度必须在0至100之间。');
+  }
+  for (const body of bodies) {
+    if (!Number.isFinite(body.longitude)) throw new Error('相位主体黄经必须是有限数值。');
+    if (body.longitudeSpeed !== undefined && !Number.isFinite(body.longitudeSpeed)) {
+      throw new Error('相位主体黄经速度必须是有限数值。');
+    }
+  }
   const aspects: Aspect[] = [];
   for (let firstIndex = 0; firstIndex < bodies.length; firstIndex += 1) {
     for (let secondIndex = firstIndex + 1; secondIndex < bodies.length; secondIndex += 1) {

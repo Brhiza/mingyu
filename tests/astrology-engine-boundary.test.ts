@@ -10,6 +10,40 @@ import {
   toJulianDate,
 } from '../packages/core/src/astrology/engine';
 
+test('相位拒绝非有限位置速度和非法容许度强度', () => {
+  const bodies = [
+    { name: '甲', longitude: 0 },
+    { name: '乙', longitude: 60 },
+  ];
+  for (const value of [NaN, Infinity, -Infinity]) {
+    assert.throws(() => calculateAspects([{ name: '甲', longitude: value }, bodies[1]]), /黄经/);
+    assert.throws(
+      () => calculateAspects([{ ...bodies[0], longitudeSpeed: value }, bodies[1]]),
+      /速度/,
+    );
+  }
+  for (const value of [NaN, Infinity, -1]) {
+    assert.throws(
+      () => calculateAspects(bodies, { orbs: { [AspectType.Sextile]: value } }),
+      /容许度/,
+    );
+  }
+  for (const value of [NaN, Infinity, -1, 101]) {
+    assert.throws(() => calculateAspects(bodies, { minimumStrength: value }), /最低强度/);
+  }
+});
+
+test('显式未指定相位容许度沿用默认值并保持有限强度', () => {
+  const bodies = [
+    { name: '甲', longitude: 0 },
+    { name: '乙', longitude: 61 },
+  ];
+  assert.deepEqual(
+    calculateAspects(bodies, { orbs: { [AspectType.Sextile]: undefined } }),
+    calculateAspects(bodies),
+  );
+});
+
 test('交点与真莉莉丝保留星历速度和逆行状态，南北交点运动一致', () => {
   for (const year of [1990, 2008, 2026]) {
     const input = { year, month: 1, day: 1, hour: 12, minute: 0, timezone: 0 };
