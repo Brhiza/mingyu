@@ -209,6 +209,9 @@ const GOD_RULE_SOURCES: Record<string, string> = {
   福生: '《御定星历考原》逐月福生起例',
   玉宇: '《历事明原》逐月玉宇起例',
   金堂: '《御定星历考原》逐月金堂起例',
+  天仓: '《御定星历考原》天仓正月寅逆行起例',
+  天巫: '《御定星历考原》天巫月建前二辰起例',
+  福德: '《御定星历考原》福德月建前二辰起例',
 };
 
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
