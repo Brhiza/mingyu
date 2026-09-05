@@ -437,7 +437,7 @@ export interface UsefulGodPlacementItem {
   branch?: string;
   stem: string;
   tenGod: string;
-  status: '喜神得力' | '喜神受制' | '忌神受制' | '忌神猖獗' | '中性';
+  status: '喜用五行透出' | '喜用五行藏支' | '忌神五行透出' | '忌神五行藏支' | '喜忌冲突' | '中性';
   evidence: string;
 }
 export interface UsefulGodPlacementProfile {
