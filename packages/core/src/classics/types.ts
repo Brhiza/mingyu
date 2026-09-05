@@ -225,7 +225,7 @@ export interface BazhaiStarClassic {
 export interface TaiyiGeneralClassic {
   general: string;
   role: string;
-  wuxing: string;
+  wuxing?: string;
   sourceBook: string;
   verse: string;
   nature: string;
