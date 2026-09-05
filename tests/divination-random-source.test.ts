@@ -82,6 +82,30 @@ test('塔罗三个抽牌入口拒绝对象原型属性和非文本牌阵', () =>
   }
 });
 
+test('塔罗逐张抽牌拒绝缺失样本并保留合法的未完成进度', () => {
+  for (const samples of [new Array(2), [0.5, ,], null, false, { length: 2 }]) {
+    assert.throws(() => resolveInteractiveTarotCards('single', samples as never));
+    assert.throws(() => drawTarotSpread('single', { interactiveSamples: samples as never }));
+  }
+  assert.deepEqual(resolveInteractiveTarotCards('three', []), []);
+  const partial = resolveInteractiveTarotCards('three', [0, 0.49]);
+  const completed = resolveInteractiveTarotCards('three', [0, 0.49, 0, 0.5, 0, 0.99]);
+  assert.equal(partial.length, 1);
+  assert.deepEqual(completed.slice(0, 1), partial);
+  assert.equal(new Set(completed.map((card) => card.id)).size, 3);
+  assert.deepEqual(
+    completed.map((card) => card.reversed),
+    [true, false, false],
+  );
+  assert.throws(() => drawTarotSpread('three', { interactiveSamples: [0, 0.49] }));
+});
+
+test('塔罗手工录入拒绝缺失牌面和非法容器', () => {
+  for (const manualCards of [new Array(1), [null], null, false, { length: 1 }]) {
+    assert.throws(() => drawTarotSpread('single', { manualCards: manualCards as never }));
+  }
+});
+
 test('时间起卦随机工具应拒绝非法范围和数量，避免返回空结果或 NaN', () => {
   assert.throws(() => TimeManager.getSeededRandom(Number.NaN, 6), /随机种子时间戳必须是有效数字/);
   assert.throws(
