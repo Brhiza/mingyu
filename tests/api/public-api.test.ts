@@ -5412,6 +5412,7 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assert.equal(prompted.body.data.result, undefined);
   assert.equal(prompted.body.data.resultSummary.yearGanZhi, '丙午');
   assert.match(prompted.body.data.prompt, /交气日时干德符/);
+  assert.match(prompted.body.data.prompt, /二火加临：君位臣则顺/);
   const assisted = await callApi('metaphysics/wuyun-liuqi/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

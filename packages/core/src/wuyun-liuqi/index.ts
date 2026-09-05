@@ -124,6 +124,7 @@ export interface LiuqiStep {
   hostGuestRelation: {
     kind: HostGuestRelationKind;
     basis: string;
+    fireOrder?: '君位臣则顺' | '臣位君则逆';
   };
   guestRole?: '司天' | '在泉';
 }
@@ -441,10 +442,26 @@ function buildAnnualRelation(
 }
 
 function buildHostGuestRelation(
-  hostElement: WuyunElement,
-  guestElement: WuyunElement,
+  host: LiuqiProfile,
+  guest: LiuqiProfile,
 ): LiuqiStep['hostGuestRelation'] {
+  const hostElement = host.element;
+  const guestElement = guest.element;
   if (hostElement === guestElement) {
+    if (host.qi === '相火' && guest.qi === '君火') {
+      return {
+        kind: '同气',
+        fireOrder: '君位臣则顺',
+        basis: '客气君火加临主气相火，二火同属火；君位臣则顺。',
+      };
+    }
+    if (host.qi === '君火' && guest.qi === '相火') {
+      return {
+        kind: '同气',
+        fireOrder: '臣位君则逆',
+        basis: '客气相火加临主气君火，二火同属火；臣位君则逆。',
+      };
+    }
     return { kind: '同气', basis: `客气${guestElement}与主气${hostElement}同气。` };
   }
   if (isSheng(guestElement, hostElement)) {
@@ -650,7 +667,7 @@ function buildQiSteps(sitianName: LiuqiName, year?: number): LiuqiStep[] {
       solarTerms: [...QI_STEP_SOLAR_TERMS[index]],
       hostQi,
       guestQi,
-      hostGuestRelation: buildHostGuestRelation(hostQi.element, guestQi.element),
+      hostGuestRelation: buildHostGuestRelation(hostQi, guestQi),
       guestRole: index === 2 ? ('司天' as const) : index === 5 ? ('在泉' as const) : undefined,
     } satisfies LiuqiStep;
   });
@@ -734,7 +751,7 @@ export function buildWuyunLiuqiPrompt(
               ? '；年中落在此步'
               : ''
             : '';
-        return `${step.order}. ${step.label}（${step.solarTerms.join('、')}${dates}${current}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`;
+        return `${step.order}. ${step.label}（${step.solarTerms.join('、')}${dates}${current}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}${step.hostGuestRelation.fireOrder ? `；二火加临：${step.hostGuestRelation.fireOrder}` : ''}`;
       }),
     ].join('\n'),
   ];

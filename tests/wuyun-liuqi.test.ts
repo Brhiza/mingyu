@@ -364,3 +364,23 @@ test('五运六气跨节气精度范围保留完整年度结构并明确日期�
     assert.ok(result.qiSteps[5].gregorianEnd?.startsWith(`${year + 1}-01-`));
   }
 });
+
+test('六十甲子二火加临保留君臣顺逆并与五行同气分别表达', () => {
+  for (const yearGanZhi of SIXTY_CYCLE) {
+    const result = calculateWuyunLiuqi({ yearGanZhi });
+    for (const step of result.qiSteps) {
+      const expected =
+        '子午'.includes(yearGanZhi[1]) && step.order === 3
+          ? '君位臣则顺'
+          : '卯酉'.includes(yearGanZhi[1]) && step.order === 2
+            ? '臣位君则逆'
+            : undefined;
+      assert.equal(step.hostGuestRelation.fireOrder, expected, `${yearGanZhi}${step.label}`);
+      if (expected) {
+        assert.equal(step.hostGuestRelation.kind, '同气');
+        assert.ok(step.hostGuestRelation.basis.includes(expected));
+        assert.ok(result.prompt.includes(`二火加临：${expected}`));
+      }
+    }
+  }
+});
