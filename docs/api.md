@@ -290,6 +290,8 @@ curl -X POST https://aov.cc/api/v1/divination/astrolabe/synastry/prompt \
 
 玄空提供流月时，年盘与月盘统一按所选日期的节气年计算；未给流月日期时采用该公历月15日。`yearPlate.year` 为实际节气年，`monthPlate.year` 保留查询公历年，`monthPlate.solarTermYear` 标明节气年。公元1年立春前的节气年按天文年编号返回0，提示词显示公元前1年。只给 `flowYear` 时查询该年度紫白。
 
+玄空 `castleGate` 按元旦宫数一六、二七、三八、四九区分正副城门。候选方只有当运旺星飞临时返回 `得旺可用`，其余返回 `不得旺不可用`；`hasUsableGate` 表示存在旺星到位的候选方，实际应用仍须结合水口位置、周围形势及生克。
+
 八宅结果的 `gasRegulation.suppressionLaws` 按所排八宫返回星宫五行关系，提供坐山时采用宅卦，否则采用命卦；伏位按左辅木计算。`doorMasterSummary` 分别说明命宅分组与五行生克，门房关系需结合实际门房位置判断。
 
 新增术数系统使用统一的 `/metaphysics/{method}/calculate` 与 `/prompt` 路径。八宅示例：

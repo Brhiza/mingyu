@@ -208,12 +208,55 @@ test('城门五黄入中按本运元龙取阴阳，复现《沈氏玄空学》�
       yunPlate: flyStars(yun, '顺飞'),
     });
     const zi = result.candidates.find((item) => item.mountain === '子')!;
-    assert.equal(zi.status === '得旺可用', expected[yun - 1], `${yun}运子方`);
+    assert.equal(zi.status, expected[yun - 1] ? '得旺可用' : '不得旺不可用', `${yun}运子方`);
     if (expected[yun - 1]) assert.equal(zi.arrivalStar, yun);
     if (yun === 9) {
       assert.equal(zi.yunStar, 5);
       assert.equal(zi.flyDirection, '逆飞');
       assert.equal(zi.arrivalStar, 9);
+    }
+  }
+});
+
+test('正城门按元旦宫数生成配对并覆盖二十四山同元龙', () => {
+  const pairs = [
+    ['壬', '戌'],
+    ['子', '乾'],
+    ['癸', '亥'],
+    ['丑', '甲'],
+    ['艮', '卯'],
+    ['寅', '乙'],
+    ['甲', '丑'],
+    ['卯', '艮'],
+    ['乙', '寅'],
+    ['辰', '丙'],
+    ['巽', '午'],
+    ['巳', '丁'],
+    ['丙', '辰'],
+    ['午', '巽'],
+    ['丁', '巳'],
+    ['未', '庚'],
+    ['坤', '酉'],
+    ['申', '辛'],
+    ['庚', '未'],
+    ['酉', '坤'],
+    ['辛', '申'],
+    ['戌', '壬'],
+    ['乾', '子'],
+    ['亥', '癸'],
+  ];
+  for (let yun = 1; yun <= 9; yun++) {
+    for (const [facingMountain, gateMountain] of pairs) {
+      const result = evaluateCastleGate({ yun, facingMountain, yunPlate: flyStars(yun, '顺飞') });
+      assert.deepEqual(
+        result.candidates.filter((c) => c.role === '正城门').map((c) => c.mountain),
+        [gateMountain],
+      );
+      assert.equal(result.candidates.filter((c) => c.role === '副城门').length, 1);
+      assert.equal(
+        result.hasUsableGate,
+        result.candidates.some((c) => c.arrivalStar === yun),
+      );
     }
   }
 });

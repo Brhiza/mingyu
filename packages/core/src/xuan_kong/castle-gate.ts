@@ -66,18 +66,6 @@ const GONG_NAMES: Record<number, string> = {
   9: '离',
 };
 
-/** 先天八卦数（用于判定正城门与副城门：乾九兑四离三震八巽二坎七艮六坤一） */
-const EARLY_HEAVEN_NUMBERS: Record<number, number> = {
-  1: 7, // 坎
-  2: 1, // 坤
-  3: 8, // 震
-  4: 2, // 巽
-  6: 9, // 乾
-  7: 4, // 兑
-  8: 6, // 艮
-  9: 3, // 离
-};
-
 export interface CastleGateCandidate {
   gong: number;
   gongName: string;
@@ -86,7 +74,7 @@ export interface CastleGateCandidate {
   yunStar: number;
   flyDirection: FlyDirection;
   arrivalStar: number;
-  status: '得旺可用' | '得生气可用' | '不得旺不可用';
+  status: '得旺可用' | '不得旺不可用';
   summary: string;
 }
 
@@ -158,27 +146,18 @@ export function evaluateCastleGate(params: {
     const plate = flyStars(yunStar, flyDirection);
     const arrivalStar = plate[gong - 1];
 
-    const nextYun = (yun % 9) + 1;
-    let status: CastleGateCandidate['status'] = '不得旺不可用';
-    if (arrivalStar === yun) {
-      status = '得旺可用';
-    } else if (arrivalStar === nextYun) {
-      status = '得生气可用';
-    }
+    const status: CastleGateCandidate['status'] = arrivalStar === yun ? '得旺可用' : '不得旺不可用';
 
-    const facingEarly = EARLY_HEAVEN_NUMBERS[facingGong] ?? 0;
-    const gateEarly = EARLY_HEAVEN_NUMBERS[gong] ?? 0;
-    const isEarlyMatch = facingEarly + gateEarly === 10 || Math.abs(facingEarly - gateEarly) === 5;
-    const role: CastleGateCandidate['role'] = isEarlyMatch ? '正城门' : '副城门';
+    // 元旦盘宫数合一六、二七、三八、四九为正城门。
+    const role: CastleGateCandidate['role'] =
+      Math.abs(facingGong - gong) === 5 ? '正城门' : '副城门';
 
     const arrivalProfile = getNineStarProfile(arrivalStar - 1);
     const arrivalName = `${arrivalProfile.number}${arrivalProfile.color}`;
     const statusDesc =
       status === '得旺可用'
-        ? `飞临当令${arrivalName}旺星，城门得位吉可用`
-        : status === '得生气可用'
-          ? `飞临进气${arrivalName}生气星，城门次吉可用`
-          : `飞临${arrivalStar}星非旺气，城门不合`;
+        ? `飞临当令${arrivalName}旺星，城门旺星到位`
+        : `飞临${arrivalName}，未得当运旺星，城门不合`;
 
     candidates.push({
       gong,
@@ -193,9 +172,9 @@ export function evaluateCastleGate(params: {
     });
   }
 
-  const usable = candidates.filter((c) => c.status !== '不得旺不可用');
+  const usable = candidates.filter((c) => c.status === '得旺可用');
   const summary = usable.length
-    ? `城门诀：${usable.map((u) => `${u.role}${u.mountain}方${u.status === '得旺可用' ? '当旺大吉' : '得生气次吉'}`).join('、')}`
+    ? `城门诀：${usable.map((u) => `${u.role}${u.mountain}方旺星到位`).join('、')}；须结合该方实际水口、周围形势及生克判断`
     : '城门诀：两旁城门未得旺星飞临，正向纳气为要';
 
   return {
