@@ -49,7 +49,13 @@ async function callApi(path: string, body: Record<string, unknown>) {
 }
 
 test('术数抽查清单应覆盖能力表中的全部体系', () => {
-  const expected = SYSTEM_CAPABILITY_IDS.filter((id) => !id.startsWith('calendar.'));
+  // 文字数理能力（name.*）已登记进能力目录，走各自模块的独立测试，
+  // 不在术数抽查 API 的覆盖范围内，此处显式排除。
+  const nameNumberCapabilityIds = SYSTEM_CAPABILITY_IDS.filter((id) => id.startsWith('name.'));
+  assert.ok(nameNumberCapabilityIds.length >= 6, 'name.* 能力应保持目录登记');
+  const expected = SYSTEM_CAPABILITY_IDS.filter(
+    (id) => !id.startsWith('calendar.') && !id.startsWith('name.'),
+  );
   assert.deepEqual([...AUDITED_SYSTEM_IDS].sort(), [...expected].sort());
 
   const capabilities = getCapabilities().systems.filter((item) =>

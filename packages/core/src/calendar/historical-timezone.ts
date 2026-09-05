@@ -248,7 +248,10 @@ export function resolveHistoricalTimezone(
       status: '已解析',
       dependsOnStepKeys: [],
       inputs: { timeZoneId, wallClockDateTime },
-      result: { database: 'Intl.DateTimeFormat 所带 IANA Time Zone Database' },
+      result: {
+        database:
+          'Intl.DateTimeFormat 运行环境所带 IANA Time Zone Database（规则版本由环境提供，未随证据快照记录）',
+      },
       promptText: `按 IANA 时区 ${timeZoneId} 加载${wallClockDateTime}对应的历史规则`,
       sources: ['IANA Time Zone Database', 'Intl.DateTimeFormat 时区解析'],
       limitation: CALCULATION_STEP_LIMITATION,
@@ -411,7 +414,8 @@ export function resolveHistoricalTimezone(
   return {
     key: `historical-timezone:${timeZoneId}:${wallClockDateTime}`,
     timeZoneId,
-    database: 'Intl.DateTimeFormat 所带 IANA Time Zone Database',
+    database:
+      'Intl.DateTimeFormat 运行环境所带 IANA Time Zone Database（规则版本由环境提供，未随证据快照记录）',
     status: matches.length > 1 ? 'ambiguous' : 'unique',
     selectedUtcTimestamp: selected.timestamp,
     selectedUtcDateTime: toIso(selected.timestamp),
