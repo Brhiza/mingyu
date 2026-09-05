@@ -10,6 +10,44 @@ import {
   toJulianDate,
 } from '../packages/core/src/astrology/engine';
 
+test('星历输入拒绝不存在的公历日期及越界时分秒时区', () => {
+  const input = { year: 2026, month: 1, day: 1, hour: 12, minute: 0, timezone: 8 };
+  for (const changed of [
+    { year: NaN },
+    { year: 1.5 },
+    { month: 0 },
+    { month: 13 },
+    { month: 2, day: 29 },
+    { month: 4, day: 31 },
+    { day: 0 },
+    { hour: 24 },
+    { minute: 60 },
+    { second: 60 },
+    { second: -1 },
+    { timezone: NaN },
+    { timezone: Infinity },
+    { timezone: 15 },
+  ]) {
+    assert.throws(() => toJulianDate({ ...input, ...changed }), undefined, JSON.stringify(changed));
+  }
+  assert.equal(
+    toJulianDate({ ...input, year: 2000, month: 2, day: 29 }),
+    Date.parse('2000-02-29T12:00:00+08:00') / 86_400_000 + 2440587.5,
+  );
+});
+
+test('星盘底层入口拒绝无效地理坐标', () => {
+  const input = { year: 2026, month: 1, day: 1, hour: 12, minute: 0, timezone: 8 };
+  for (const changed of [
+    { latitude: NaN },
+    { latitude: 91 },
+    { longitude: Infinity },
+    { longitude: 181 },
+  ]) {
+    assert.throws(() => calculateChart({ ...input, ...changed }), /经度|纬度/);
+  }
+});
+
 test('相位拒绝非有限位置速度和非法容许度强度', () => {
   const bodies = [
     { name: '甲', longitude: 0 },

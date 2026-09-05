@@ -19,7 +19,11 @@ import {
   type EngineData,
 } from 'caelus';
 import { embeddedData } from './vendor/caelus/embedded-data.js';
-import { createUtcTimestamp } from '../calendar/date-validation';
+import {
+  createUtcTimestamp,
+  daysInGregorianMonth,
+  isValidClockTime,
+} from '../calendar/date-validation';
 import ceresPack from './vendor/caelus/ceres_cheb.js';
 import junoPack from './vendor/caelus/juno_cheb.js';
 import pallasPack from './vendor/caelus/pallas_cheb.js';
@@ -180,6 +184,7 @@ const SIGN_LABELS = [
 ] as const;
 
 export interface BirthData {
+  /** 公历年，1至9999；星历数据的适用范围由具体计算另行约束。 */
   year: number;
   month: number;
   day: number;
@@ -271,6 +276,17 @@ function isApplyingAspect(first: AspectBody, second: AspectBody, angle: number):
 }
 
 function toUtc(input: BirthData): Date {
+  if (!input || typeof input !== 'object') throw new Error('星历日期输入不能为空。');
+  const maxDay = daysInGregorianMonth(input.year, input.month);
+  if (!Number.isInteger(input.day) || input.day < 1 || input.day > maxDay) {
+    throw new Error('星历公历日期不存在。');
+  }
+  if (!isValidClockTime(input.hour, input.minute, input.second ?? 0)) {
+    throw new Error('星历时分秒必须是有效的24小时制时间。');
+  }
+  if (!Number.isFinite(input.timezone) || input.timezone < -12 || input.timezone > 14) {
+    throw new Error('星历时区必须在UTC-12至UTC+14之间。');
+  }
   return new Date(
     createUtcTimestamp(
       input.year,
@@ -497,6 +513,18 @@ export function calculateChart(
   } = {},
 ) {
   const utc = toUtc(input);
+  if (
+    input.latitude !== undefined &&
+    (!Number.isFinite(input.latitude) || Math.abs(input.latitude) > 90)
+  ) {
+    throw new Error('星盘纬度必须在-90至90度之间。');
+  }
+  if (
+    input.longitude !== undefined &&
+    (!Number.isFinite(input.longitude) || Math.abs(input.longitude) > 180)
+  ) {
+    throw new Error('星盘经度必须在-180至180度之间。');
+  }
   const jd = julianDay(
     utc.getUTCFullYear(),
     utc.getUTCMonth() + 1,
