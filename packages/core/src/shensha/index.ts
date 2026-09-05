@@ -704,6 +704,9 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
   matches.大会 =
     ['甲戌', '乙酉', '', '', '丙午', '丁巳', '庚辰', '辛卯', '', '', '壬子', '癸亥'][monthIndex] ===
     day.getName();
+  matches.阳破阴冲 =
+    (monthIndex === 5 && day.getName() === '癸丑') ||
+    (monthIndex === 11 && day.getName() === '丁未');
   const gods = God.getDayGods(month, day).filter(
     (god) => !Object.hasOwn(matches, god.getName()) || matches[god.getName()],
   );
