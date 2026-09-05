@@ -1,4 +1,4 @@
-import { MingyuCoreError } from './result';
+import { MingyuCoreError, normalizeRandomTrace } from './result';
 
 export type RandomSource = () => number;
 
@@ -47,7 +47,7 @@ export const RANDOM_TRACE_FACT_LIMITATION =
 
 /** 将各术数模块的随机记录统一转换为可公开序列化的结构化事实。 */
 export function buildRandomTraceFact(options: RandomTraceFactOptions): RandomTraceFact {
-  const trace = options.trace;
+  const trace = normalizeRandomTrace(options.trace);
   const hasReplayableTrace = options.applicable && Boolean(trace?.samples.length);
   const status: RandomTraceFactStatus = !options.applicable
     ? '不适用'

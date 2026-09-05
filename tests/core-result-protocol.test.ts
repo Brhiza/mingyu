@@ -163,6 +163,37 @@ test('随机轨迹事实应区分可重放、轨迹缺失和不适用', () => {
   assert.match(notApplicable.promptText, /不依赖随机抽样/);
 });
 
+test('随机事实与结果元数据统一拒绝损坏轨迹及稀疏样本', () => {
+  for (const trace of [
+    null,
+    { mode: 'unknown', samples: [0.5] },
+    { mode: 'system', samples: '0.5' },
+    { mode: 'system', samples: new Array(1) },
+    { mode: 'system', samples: [NaN] },
+    { mode: 'system', samples: [1] },
+    { mode: 'system', samples: [-0.1] },
+    { mode: 'seeded', seed: {}, samples: [0.5] },
+  ]) {
+    const isValidationError = (error: unknown) =>
+      error instanceof MingyuCoreError && error.category === 'validation';
+    assert.throws(
+      () => createResultMeta({ algorithm: 'test', input: {}, random: trace as never }),
+      isValidationError,
+    );
+    assert.throws(
+      () =>
+        buildRandomTraceFact({
+          key: 'random:test',
+          applicable: true,
+          trace: trace as never,
+          processLabel: '测试过程',
+          sources: ['随机记录'],
+        }),
+      isValidationError,
+    );
+  }
+});
+
 test('塔罗、灵签和梅花可由结果元数据完整重放', () => {
   const tarot = drawSpreadCards('three', { seed: '塔罗样例' });
   const tarotReplay = drawSpreadCards('three', { replay: tarot.meta.random?.samples });
