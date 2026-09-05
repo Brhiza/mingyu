@@ -270,7 +270,7 @@ export function resolveInteractiveLenormandCards(
   });
 }
 
-function shuffleCards(rng: RandomSource) {
+export function shuffleLenormandCards(rng: RandomSource) {
   const shuffled = [...LENORMAND_CARDS];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = randomInt(i + 1, rng);
@@ -503,7 +503,7 @@ export function drawLenormandSpread(
       })
     : interactiveSamples
       ? resolveInteractiveLenormandCards(spreadType, interactiveSamples)
-      : shuffleCards(context!.random).slice(0, spread.positions.length);
+      : shuffleLenormandCards(context!.random).slice(0, spread.positions.length);
   const cards = selectedCards.map((card, index) => {
     const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
     const houseCard = spreadType === 'grandTableau' ? LENORMAND_CARDS[index] : undefined;
