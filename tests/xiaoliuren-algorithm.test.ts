@@ -11,6 +11,35 @@ const PALACE_NAMES = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'
 const FORBIDDEN_EXTENSIONS =
   /起因.{0,12}过程.{0,12}结果|五行推进|月令旺衰|日干六亲|旬空|驿马|桃花|固定应期|华山派完整课/;
 
+test('小六壬：修改已返回宫位不会污染后续起课及同盘其他宫位', () => {
+  const params = { customDate: new Date('2025-06-29T08:00:00+08:00') };
+  const baseline = generateXiaoliuren(params);
+  const expected = structuredClone(baseline);
+  const palaces = [
+    baseline.sequence.month,
+    baseline.sequence.day,
+    baseline.sequence.hour,
+    baseline.primary,
+    ...baseline.palaceOrder,
+  ];
+  const originals = palaces.map((palace) => ({ ...palace }));
+  try {
+    baseline.primary.verse = '修改后的歌诀';
+    assert.deepEqual(baseline.sequence.hour, expected.sequence.hour);
+    for (const palace of palaces) {
+      palace.verse = '修改后的歌诀';
+      palace.index = 99;
+    }
+    const next = generateXiaoliuren(params);
+    assert.deepEqual(next.sequence, expected.sequence);
+    assert.deepEqual(next.primary, expected.primary);
+    assert.deepEqual(next.palaceOrder, expected.palaceOrder);
+    assert.deepEqual(next.evidenceAnalysis, expected.evidenceAnalysis);
+  } finally {
+    palaces.forEach((palace, index) => Object.assign(palace, originals[index]));
+  }
+});
+
 test('小六壬：六宫顺序和通行歌诀应完整且稳定', () => {
   const data = generateXiaoliuren({ customDate: new Date('2025-06-29T08:00:00+08:00') });
 

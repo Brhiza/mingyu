@@ -69,7 +69,7 @@ function palaceAt(index: number): XiaoliurenPalaceDetail {
   if (!palace) {
     throw new Error(`小六壬宫位索引无效：${index}`);
   }
-  return palace;
+  return { ...palace };
 }
 
 function assertReferenceData(): void {
