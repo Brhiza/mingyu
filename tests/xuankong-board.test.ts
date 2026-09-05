@@ -89,6 +89,35 @@ test('玄空飞星拒绝缺年和不相对坐向，且不再生成替卦分支',
   );
 });
 
+test('玄空坐向度数及显式山名必须相互一致', () => {
+  for (const [sitDegree, facingDegree] of [
+    [0, 181],
+    [359, 180],
+    [7, 173],
+  ]) {
+    assert.throws(() => generateXuanKong({ year: 2024, sitDegree, facingDegree }), /相差180度/);
+  }
+  for (const extra of [{ sitMountain: '卯' }, { facingMountain: '酉' }, { sitMountain: '' }]) {
+    assert.throws(
+      () => generateXuanKong({ year: 2024, sitDegree: 0, ...extra }),
+      /不一致|有效二十四山/,
+    );
+  }
+  for (const sitDegree of [0, 0.1, 7.5, 179.9, 180, 359.9, 360]) {
+    const facingDegree = (sitDegree + 180) % 360;
+    const single = generateXuanKong({ year: 2024, sitDegree });
+    const both = generateXuanKong({
+      year: 2024,
+      sitDegree,
+      facingDegree,
+      sitMountain: single.sitMountain,
+      facingMountain: single.facingMountain,
+    });
+    assert.deepEqual(both.plates, single.plates);
+    assert.deepEqual(both.measurement, single.measurement);
+  }
+});
+
 test('测量误差跨边界时标记山向边界敏感，仍使用下卦', () => {
   const result = generateXuanKong({
     year: 2024,

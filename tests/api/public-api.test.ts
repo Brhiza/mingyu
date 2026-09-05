@@ -33,6 +33,18 @@ async function callApi(path: string, init?: RequestInit) {
   };
 }
 
+test('玄空公开接口拒绝互相矛盾的坐向度数与山名', async () => {
+  for (const extra of [{ facingDegree: 181 }, { sitMountain: '卯' }, { facingMountain: '酉' }]) {
+    const result = await callApi('metaphysics/xuankong/calculate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year: 2024, sitDegree: 0, ...extra }),
+    });
+    assert.equal(result.response.status, 400);
+    assert.match(JSON.stringify(result.body), /相差180度|不一致/);
+  }
+});
+
 test('蓍草公开接口保留十八变并支持重放及提示词', async () => {
   const post = (data: object) => ({
     method: 'POST',

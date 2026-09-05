@@ -252,6 +252,22 @@ function resolveMountains(input: XuanKongInput): {
       input.facingDegree !== undefined
         ? getMountainFromDegree(input.facingDegree)
         : getMountainFromDegree(((input.sitDegree as number) + 180) % 360);
+    if (Math.abs(Math.abs(sitPos.degree - facingPos.degree) - 180) > 1e-10) {
+      throw new Error('坐向度数必须严格相差180度。');
+    }
+    for (const [mountain, position, label] of [
+      [input.sitMountain, sitPos, '坐山'],
+      [input.facingMountain, facingPos, '朝向'],
+    ] as const) {
+      if (mountain !== undefined) {
+        assertMountain(mountain, label);
+        if (mountain !== position.mountain) {
+          throw new Error(
+            `${label}${mountain}与度数${position.degree}对应的${position.mountain}不一致。`,
+          );
+        }
+      }
+    }
     if (oppositeMountain(sitPos.mountain) !== facingPos.mountain) {
       throw new Error(
         `坐向必须严格相对；当前坐${sitPos.mountain}应向${oppositeMountain(sitPos.mountain)}，不能向${facingPos.mountain}。`,

@@ -208,6 +208,8 @@ function buildXuanKong(
   if (input.sitDegree != null || input.facingDegree != null) {
     if (input.sitDegree != null) xuanInput.sitDegree = input.sitDegree;
     if (input.facingDegree != null) xuanInput.facingDegree = input.facingDegree;
+    if (input.sitMountain != null) xuanInput.sitMountain = input.sitMountain;
+    if (input.facingMountain != null) xuanInput.facingMountain = input.facingMountain;
   } else if (input.doorToInteriorDegree != null && measurement) {
     // 八宅门向量测：measuredDegree 是入户方向；玄空优先用其换算出的坐向。
     if (measurement.sitMountain) xuanInput.sitMountain = measurement.sitMountain;

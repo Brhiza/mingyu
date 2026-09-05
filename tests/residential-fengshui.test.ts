@@ -2,6 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateResidentialFengshui } from '../packages/core/src/residential_fengshui/index.ts';
 
+test('住宅风水保留显式山名并拒绝与坐向度数冲突', () => {
+  for (const extra of [{ sitMountain: '卯' }, { facingMountain: '酉' }, { facingDegree: 181 }]) {
+    assert.throws(
+      () => generateResidentialFengshui({ year: 2024, sitDegree: 0, ...extra }),
+      /不一致|相差180度/,
+    );
+  }
+  const result = generateResidentialFengshui({
+    year: 2024,
+    sitDegree: 0,
+    sitMountain: '子',
+    facingMountain: '午',
+  });
+  assert.equal(result.xuankong?.sitMountain, '子');
+  assert.equal(result.xuankong?.facingMountain, '午');
+});
+
 test('住宅风水仅有出生信息时可出八宅，不出玄空', () => {
   const result = generateResidentialFengshui({
     birthYear: 1990,
