@@ -5366,6 +5366,8 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assert.equal(calculation.response.status, 200);
   assert.equal(calculation.body.data.input.yearGanZhi, '丙午');
   assert.equal(calculation.body.data.annualMovement.name, '水运');
+  assert.equal(calculation.body.data.pathomechanism.isPingQi, null);
+  assert.equal(calculation.body.data.pathomechanism.movementRegime, '流衍之纪');
   assert.equal(calculation.body.data.annualMovement.strength, '太过');
   assert.equal(calculation.body.data.sitian.name, '少阴君火');
   assert.equal(calculation.body.data.zaiquan.name, '阳明燥金');
@@ -5403,6 +5405,7 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assert.equal(prompted.response.status, 200);
   assert.equal(prompted.body.data.result, undefined);
   assert.equal(prompted.body.data.resultSummary.yearGanZhi, '丙午');
+  assert.match(prompted.body.data.prompt, /交气日时干德符/);
   assert.equal(prompted.body.data.resultSummary.annualRelation.kind, '不和');
   assert.equal(
     prompted.body.data.resultSummary.annualConformities.sourceReconciliation.sourceSummaryYears,

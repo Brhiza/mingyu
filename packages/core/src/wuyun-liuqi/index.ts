@@ -34,6 +34,10 @@ export const WUYUN_LIUQI_SOURCES = [
     scope:
       '五步主客运、五音太少、交司日期、六步节令、气运相临以及天符、岁会、太乙天符、同天符、同岁会。',
   },
+  {
+    title: '《古今医统大全》卷五·论纪运（平气）',
+    scope: '司天制运、岁会及同岁会、辛亥癸巳同气相佐；平气还须核交气日时与气候应期。',
+  },
 ] as const;
 
 export type WuyunElement = '木' | '火' | '土' | '金' | '水';
@@ -738,6 +742,7 @@ export function buildWuyunLiuqiPrompt(
             annualMovement: result.annualMovement,
             sitian: result.sitian,
             yearGanZhi: result.input.yearGanZhi,
+            annualConformities: result.annualConformities,
           }).summary,
       '五步主客运：',
       ...result.movementSteps.map((step) => {
@@ -837,6 +842,7 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     annualMovement,
     sitian,
     yearGanZhi: resolved.yearGanZhi,
+    annualConformities,
   });
 
   const calculation: WuyunLiuqiCalculation = {

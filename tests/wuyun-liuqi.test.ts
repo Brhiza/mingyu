@@ -318,19 +318,21 @@ test('五运六气提示词应是可独立使用的完整任务书', () => {
   assertPromptIsPortableTaskText(prompt);
 });
 
-test('五运六气病机偏胜与平气判定算法应准确识别病机倾向与平气干支', () => {
+test('五运六气年度资料列出平气条件，不据年干支确认全年平气', () => {
   const result2026 = calculateWuyunLiuqi({ yearGanZhi: '丙午' });
   assert.ok(result2026.pathomechanism);
-  assert.equal(result2026.pathomechanism.isPingQi, false);
-  assert.equal(result2026.pathomechanism.affectedZangFu, '心神亢燥，肺金受制');
-  assert.match(result2026.pathomechanism.climaticPathology, /热气淫胜/);
-  assert.match(result2026.prompt, /病机偏胜与平气：/);
+  assert.equal(result2026.pathomechanism.isPingQi, null);
+  assert.equal(result2026.pathomechanism.movementRegime, '流衍之纪');
+  assert.match(result2026.prompt, /平气条件：/);
+  assert.doesNotMatch(result2026.prompt, /五脏受候|心神亢燥|病机偏胜与平气/);
 
-  // 经典平气年测试，如 丁亥 (木运不及，得亥水生之，或反得司天厥阴相协，古籍平气例) 或 戊戌
+  // 《古今医统大全》丁亥例附交司日时逢壬的条件，年干支本身不足以证实。
   const resultDingHai = calculateWuyunLiuqi({ yearGanZhi: '丁亥' });
   assert.ok(resultDingHai.pathomechanism);
-  assert.equal(resultDingHai.pathomechanism.isPingQi, true);
-  assert.match(resultDingHai.pathomechanism.pingQiBasis, /委和之平气/);
+  assert.equal(resultDingHai.pathomechanism.isPingQi, null);
+  assert.equal(resultDingHai.pathomechanism.pingQiType, '平气待定');
+  assert.match(resultDingHai.pathomechanism.pingQiBasis, /平气成立时称敷和之纪/);
+  assert.match(resultDingHai.pathomechanism.pingQiBasis, /交气日时干德符/);
 });
 
 test('五运六气跨节气精度范围保留完整年度结构并明确日期口径', () => {
