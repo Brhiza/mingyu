@@ -649,6 +649,13 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
   matches.六合 = isLiuhe(month.getEarthBranch().getName(), day.getEarthBranch().getName());
   matches.五合 = '寅卯'.includes(day.getEarthBranch().getName());
   matches.除神 = '申酉'.includes(day.getEarthBranch().getName());
+  matches.鸣吠 =
+    day.getEarthBranch().getName() === '酉' ||
+    ('午申'.includes(day.getEarthBranch().getName()) && '甲丙庚壬'.includes(dayStem));
+  matches.鸣吠对 =
+    (day.getEarthBranch().getName() === '子' && '丙庚壬'.includes(dayStem)) ||
+    (day.getEarthBranch().getName() === '寅' && '甲丙庚壬'.includes(dayStem)) ||
+    (day.getEarthBranch().getName() === '卯' && '乙丁辛癸'.includes(dayStem));
   matches.月刑 = day.getEarthBranch().getName() === [...'巳子辰申午丑寅酉未亥卯戌'][monthIndex];
   matches.天恩 =
     dayIndex < 5 || (dayIndex >= 15 && dayIndex < 20) || (dayIndex >= 45 && dayIndex < 50);

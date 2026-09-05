@@ -221,6 +221,8 @@ const GOD_RULE_SOURCES: Record<string, string> = {
   金匮: '《万年书》逐月金匮起例',
   五合: '《万年书》五合寅卯日起例',
   除神: '《万年书》除神申酉日起例',
+  鸣吠: '《钦定协纪辨方书》鸣吠十三日校正起例',
+  鸣吠对: '《钦定协纪辨方书》鸣吠对十一日校正起例',
 };
 
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
