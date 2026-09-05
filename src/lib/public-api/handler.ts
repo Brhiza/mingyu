@@ -2871,8 +2871,9 @@ function calculateTaiyiApi(input: JsonRecord) {
     if (scope !== 'year') {
       const month = readInteger(input, 'month', 1, 12);
       const day = readInteger(input, 'day', 1, 31);
-      const hour = scope === 'hour' ? readInteger(input, 'hour', 0, 23) : 12;
-      const minute = scope === 'hour' ? readInteger(input, 'minute', 0, 59, 0) : 0;
+      // 月计/日计也允许明确时分（默认中午 12:00），便于核对交节前后的局数差异
+      const hour = readInteger(input, 'hour', 0, 23, 12);
+      const minute = readInteger(input, 'minute', 0, 59, 0);
       date = new Date(year, month - 1, day, hour, minute, 0);
       if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
         throw new Error('太乙日期无效。');

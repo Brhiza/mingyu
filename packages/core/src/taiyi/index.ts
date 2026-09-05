@@ -16,7 +16,7 @@
  */
 import { createUtcTimestamp } from '../calendar/date-validation';
 import { SolarTime } from 'tyme4ts';
-import { getGanZhiFromDate, getSixtyCycle, isValidGanZhi } from '../ganzhi';
+import { getSixtyCycle, isValidGanZhi } from '../ganzhi';
 import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
 import { buildTaiyiEvidence } from './evidence';
 
@@ -403,20 +403,76 @@ function createYearProbeDate(year: number): Date {
   return date;
 }
 
+/**
+ * 太乙日期统一按东八区（UTC+8）读取民用字段。
+ * Date 本身是绝对时刻，其本地字段随运行环境时区变化；固定按东八区读取
+ * 可保证同一时刻在任何环境得到相同的积日、积时与局数。
+ */
+const TAIYI_TIMEZONE_OFFSET_MS = 8 * 3_600_000;
+
+interface TaiyiCivilParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+}
+
+function readCivilParts(date: Date): TaiyiCivilParts {
+  const shifted = new Date(date.getTime() + TAIYI_TIMEZONE_OFFSET_MS);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+  };
+}
+
+/** 按东八区民用字段推四柱，替代依赖环境时区的 getGanZhiFromDate。 */
+function getTaiyiGanZhiFromDate(date: Date): {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+} {
+  const parts = readCivilParts(date);
+  const eightChar = SolarTime.fromYmdHms(
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  )
+    .getLunarHour()
+    .getEightChar();
+  return {
+    year: eightChar.getYear().getName(),
+    month: eightChar.getMonth().getName(),
+    day: eightChar.getDay().getName(),
+    hour: eightChar.getHour().getName(),
+  };
+}
+
 function daysSince(date: Date, year: number, month: number, day: number): number {
-  const current = createUtcTimestamp(date.getFullYear(), date.getMonth(), date.getDate());
+  const parts = readCivilParts(date);
+  const current = createUtcTimestamp(parts.year, parts.month - 1, parts.day);
   const base = createUtcTimestamp(year, month - 1, day);
   return Math.floor((current - base) / 86400000);
 }
 
 function getSeasonHalf(date: Date): 'winter' | 'summer' {
+  const parts = readCivilParts(date);
   const term = SolarTime.fromYmdHms(
-    date.getFullYear(),
-    date.getMonth() + 1,
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
   )
     .getTerm()
     .getName();
@@ -479,7 +535,7 @@ function validateInput(input: TaiyiInput): {
   if (scope !== 'year' && input.date === undefined) {
     throw new Error(`太乙${SCOPE_LABELS[scope].title}需要提供有效日期和时间。`);
   }
-  const dateYear = input.date?.getFullYear();
+  const dateYear = input.date ? readCivilParts(input.date).year : undefined;
   if (input.year !== undefined && dateYear !== undefined && input.year !== dateYear) {
     throw new Error('太乙 year 与 date 的公历年份不一致。');
   }
@@ -488,7 +544,7 @@ function validateInput(input: TaiyiInput): {
     throw new Error('太乙年份必须是 1-9999 之间的整数。');
   }
   const date = input.date ?? createYearProbeDate(year);
-  const pillars = getGanZhiFromDate(date);
+  const pillars = getTaiyiGanZhiFromDate(date);
   const calculatedGanZhi = pillars[scope];
   if (input.ganZhi !== undefined) {
     if (!isValidGanZhi(input.ganZhi)) throw new Error(`太乙干支无效：${input.ganZhi}`);
@@ -520,7 +576,7 @@ function calculateAccumulatedValue(
     const monthOrder = TAIYI_MONTH_BRANCHES.indexOf(ganZhi[1]) + 1;
     if (monthOrder === 0) throw new Error(`太乙月建地支无效：${ganZhi}`);
     const solarYear =
-      getGanZhiFromDate(date).year === getGanZhiFromDate(createYearProbeDate(year)).year
+      getTaiyiGanZhiFromDate(date).year === getTaiyiGanZhiFromDate(createYearProbeDate(year)).year
         ? year
         : year - 1;
     return (TAIYI_BASE_YEARS + solarYear - 1) * 12 + 2 + monthOrder;
@@ -532,7 +588,7 @@ function calculateAccumulatedValue(
   }
 
   const accumulatedDays = 708011105 + daysSince(date, 1900, 12, 21);
-  const timeIndex = Math.floor((date.getHours() + 1) / 2);
+  const timeIndex = Math.floor((readCivilParts(date).hour + 1) / 2);
   return (accumulatedDays - 1) * 12 + timeIndex + 1;
 }
 
@@ -593,7 +649,8 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
   const scopeInfo = SCOPE_LABELS[scope];
-  const dateTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const civil = readCivilParts(date);
+  const dateTime = `${civil.year}-${String(civil.month).padStart(2, '0')}-${String(civil.day).padStart(2, '0')} ${String(civil.hour).padStart(2, '0')}:${String(civil.minute).padStart(2, '0')}`;
   const evidenceAnalysis = buildTaiyiEvidence({
     scope,
     dateTime,
