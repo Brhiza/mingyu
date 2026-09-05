@@ -1169,10 +1169,10 @@ function XiaoliurenTraditionalBoard({
         />
       ) : hourPalaceClassic ? (
         <ClassicalAnnotationCard
-          title={`${hourPalaceClassic.name}（${hourPalaceClassic.auspice} · 属${hourPalaceClassic.wuxing}）· 诗诀决断`}
+          title={`${hourPalaceClassic.name}（属${hourPalaceClassic.wuxing}）· 六宫歌诀`}
           source={hourPalaceClassic.sourceBook}
           verse={hourPalaceClassic.poem}
-          modernAdvice={`【决断指导】${hourPalaceClassic.modernAdvice}\n【方位类象】${hourPalaceClassic.direction} | 【对应身部】${hourPalaceClassic.bodyPart}`}
+          modernAdvice={hourPalaceClassic.modernAdvice}
         />
       ) : null}
     </TraditionalBoardShell>

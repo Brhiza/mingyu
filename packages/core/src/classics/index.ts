@@ -198,7 +198,7 @@ export function getZhouyiHexagramClassic(hexagramId: number): ZhouyiHexagramText
 }
 
 /**
- * 查询小六壬落宫歌诀与《小六壬口诀》断语
+ * 查询小六壬六宫歌诀及主题解释。
  */
 export function getXiaoliurenClassic(palaceName: string): XiaoliurenPalaceClassic | undefined {
   return queryXiaoliurenClassic(palaceName);

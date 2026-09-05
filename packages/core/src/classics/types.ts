@@ -91,8 +91,8 @@ export interface XiaoliurenPalaceClassic {
   sourceBook: string;
   poem: string;
   modernAdvice: string;
-  direction: string;
-  bodyPart: string;
+  direction?: string;
+  bodyPart?: string;
 }
 
 export interface JinkoujueMovementClassic {

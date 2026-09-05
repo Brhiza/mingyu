@@ -188,7 +188,7 @@ test('周易六十四卦全本经文与爻辞查询正确', () => {
   assert.ok(kun.daXiang.includes('厚德载物'));
 });
 
-test('小六壬《小六壬口诀》六神经典诗赋与断语查询正确', () => {
+test('小六壬民国通书歌诀保留底本字句并隔离查询结果', () => {
   const daan = getXiaoliurenClassic('大安');
   assert.ok(daan);
   assert.equal(daan.wuxing, '木');
@@ -198,7 +198,20 @@ test('小六壬《小六壬口诀》六神经典诗赋与断语查询正确', ()
   const kongwang = getXiaoliurenClassic('空亡');
   assert.ok(kongwang);
   assert.equal(kongwang.auspice, '凶');
-  assert.ok(kongwang.poem.includes('空亡事不祥'));
+  assert.ok(kongwang.poem.includes('空亡事不长'));
+  assert.match(kongwang.sourceBook, /大杂字万事不求人.*1946/);
+  const original = daan.poem;
+  daan.poem = '已修改';
+  assert.equal(getXiaoliurenClassic('大安')?.poem, original);
+  for (const name of ['toString', '__proto__', 'constructor', '未知', ['大安'], null]) {
+    assert.equal(getXiaoliurenClassic(name as never), undefined);
+  }
+  for (const name of ['大安', '留连', '速喜', '赤口', '小吉', '空亡']) {
+    const item = getXiaoliurenClassic(name)!;
+    assert.equal(item.bodyPart, undefined);
+    assert.equal(item.direction, undefined);
+    assert.doesNotMatch(item.modernAdvice, /即刻降临|必有收获|圆满|当前局势/);
+  }
 });
 
 test('金口诀《金口诀大全》五动三动歌诀查询正确', () => {
