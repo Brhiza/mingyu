@@ -11,6 +11,30 @@ import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
 const TRIGRAMS = ['坎', '坤', '震', '巽', '乾', '兑', '艮', '离'];
 const EAST_TRIGRAMS = new Set(['坎', '震', '巽', '离']);
 
+test('八宅低年份立春换年保留原始公历年份', () => {
+  for (const item of [
+    { year: 20, beforeGua: '坎', afterGua: '离' },
+    { year: 50, beforeGua: '兑', afterGua: '乾' },
+  ]) {
+    const before = analyzeBaZhai({
+      birthYear: item.year,
+      birthMonth: 2,
+      birthDay: 5,
+      gender: 'male',
+    });
+    const after = analyzeBaZhai({
+      birthYear: item.year,
+      birthMonth: 2,
+      birthDay: 7,
+      gender: 'male',
+    });
+    assert.equal(before.effectiveBirthYear, item.year - 1);
+    assert.equal(before.mingGua, item.beforeGua);
+    assert.equal(after.effectiveBirthYear, item.year);
+    assert.equal(after.mingGua, item.afterGua);
+  }
+});
+
 test('八宅命卦应符合 2000 年前后传统九宫真值与五黄寄宫口径', () => {
   const cases = [
     { birthYear: 1990, gender: 'male' as const, gua: '坎' },
