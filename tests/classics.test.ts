@@ -262,14 +262,25 @@ test('太乙神数《太乙金镜式经》八将主客算经文查询正确', ()
   assert.ok(shiJi.verse.includes('受火德之正气'));
 });
 
-test('皇极经世邵雍《皇极经世书》元会运世卦气查询正确', () => {
+test('皇极周期典籍按索隐原文查询并隔离结果', () => {
   const nian = getHuangjiCycleClassic('年');
   assert.ok(nian);
-  assert.ok(nian.verse.includes('年卦司岁气之机'));
+  assert.equal(nian.verse, '会之用至年，故以会经运，始书年。');
 
   const shi = getHuangjiCycleClassic('世');
   assert.ok(shi);
   assert.ok(shi.verse.includes('三十年为一世'));
+  for (const cycle of ['元', '会', '运', '世', '年']) {
+    const item = getHuangjiCycleClassic(cycle)!;
+    assert.equal(item.sourceBook, '《皇极经世索隐·经世观物总要》');
+    const original = item.verse;
+    item.verse = '被修改';
+    assert.equal(getHuangjiCycleClassic(cycle)!.verse, original);
+  }
+  for (const cycle of ['三十年', '元会', 'constructor', '未知', ['年'], null, 1]) {
+    assert.equal(getHuangjiCycleClassic(cycle as never), undefined);
+  }
+  assert.match(getHuangjiCycleClassic('运')!.principle, /三百六十年/);
 });
 
 test('七政四余《果老星宗》日月五星与四余经解查询正确', () => {

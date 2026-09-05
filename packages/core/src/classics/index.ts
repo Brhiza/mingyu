@@ -287,7 +287,7 @@ export function getTaiyiGeneralClassic(general: string): TaiyiGeneralClassic | u
 }
 
 /**
- * 查询皇极经世元会运世治乱卦气
+ * 查询《皇极经世索隐》的元会运世年周期资料
  */
 export function getHuangjiCycleClassic(cycle: string): HuangjiCycleClassic | undefined {
   return queryHuangjiCycleClassic(cycle);

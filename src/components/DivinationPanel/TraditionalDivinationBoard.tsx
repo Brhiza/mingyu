@@ -3220,19 +3220,19 @@ function HuangjiTraditionalBoard({
 
       {annualCycleClassic ? (
         <ClassicalAnnotationCard
-          title={`${annualCycleClassic.name} · 邵雍《皇极经世》要义`}
+          title={annualCycleClassic.name}
           source={annualCycleClassic.sourceBook}
           verse={annualCycleClassic.verse}
-          modernAdvice={`【经世原理】${annualCycleClassic.principle}\n【指引】${annualCycleClassic.modernAdvice}`}
+          modernAdvice={`${annualCycleClassic.principle}\n${annualCycleClassic.modernAdvice}`}
         />
       ) : null}
 
       {shiCycleClassic ? (
         <ClassicalAnnotationCard
-          title={`${shiCycleClassic.name} · 三十年世卦要义`}
+          title={shiCycleClassic.name}
           source={shiCycleClassic.sourceBook}
           verse={shiCycleClassic.verse}
-          modernAdvice={`【经世原理】${shiCycleClassic.principle}\n【指引】${shiCycleClassic.modernAdvice}`}
+          modernAdvice={`${shiCycleClassic.principle}\n${shiCycleClassic.modernAdvice}`}
         />
       ) : null}
     </TraditionalBoardShell>
