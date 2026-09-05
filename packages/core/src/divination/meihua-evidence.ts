@@ -2,6 +2,8 @@ import type { MeihuaData, MeihuaDivinationMethod } from '../types/divination';
 import { trigramsByIndex } from './hexagram-data';
 import { getSeasonState, isKe, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
+import { MingyuCoreError } from '../shared/result';
+import { resolveRandomMethod } from './algorithms/meihua/helpers/methods';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
   buildRandomTraceFact,
@@ -1411,6 +1413,25 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     sources: ['梅花起卦方式与取数记录', '随机上下卦、动爻样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
+  if (isRandomMethod && randomFact.status === '可重放') {
+    const replayed = resolveRandomMethod({ replay: randomFact.samples });
+    if (
+      replayed.randomTrace?.samples.length !== randomFact.samples.length ||
+      replayed.upperTrigramIndex !== data.calculation?.upperTrigramIndex ||
+      replayed.lowerTrigramIndex !== data.calculation?.lowerTrigramIndex ||
+      trigramsByIndex[replayed.upperTrigramIndex].name !== data.mainHexagram.upper ||
+      trigramsByIndex[replayed.lowerTrigramIndex].name !== data.mainHexagram.lower ||
+      replayed.movingYaoIndex !== data.calculation?.movingYaoIndex ||
+      replayed.movingYaoIndex !== data.movingYao.position
+    ) {
+      throw new MingyuCoreError({
+        code: 'MEIHUA_RANDOM_TRACE_MISMATCH',
+        category: 'validation',
+        message: '梅花随机轨迹与起卦计算记录不一致，或包含多余样本。',
+        field: 'meta.random.samples',
+      });
+    }
+  }
   const summaryFact = buildSummaryFact({
     calculationFact,
     randomFact,
