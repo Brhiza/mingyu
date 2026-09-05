@@ -153,6 +153,7 @@ export interface WuyunLiuqiCalculation {
     yearGanZhi: string;
     yearGanZhiSource: '明确年干支' | '公历年年中换算';
   };
+  calendarDateStatus: '公历日期已换算' | '节令边界';
   annualMovement: AnnualMovement;
   sitian: LiuqiProfile;
   zaiquan: LiuqiProfile;
@@ -725,6 +726,7 @@ export function buildWuyunLiuqiPrompt(
     [
       '【盘面资料】',
       `年干支：${result.input.yearGanZhi}${result.input.year === undefined ? '' : `（公历 ${result.input.year} 年）`}`,
+      `日期口径：${result.calendarDateStatus === '公历日期已换算' ? '节令边界同时列出公历日期' : '按节气与传统序日表示各步边界'}`,
       `岁运：${result.annualMovement.name}（${result.annualMovement.toneName}），${result.annualMovement.strength}（${result.annualMovement.yinYang}干）`,
       `司天：${result.sitian.name}`,
       `在泉：${result.zaiquan.name}`,
@@ -813,8 +815,13 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
   };
   const sitian = profile(pair[0]);
   const zaiquan = profile(pair[1]);
-  const movementSteps = buildMovementSteps(annualMovement, resolved.year);
-  const qiSteps = buildQiSteps(pair[0], resolved.year);
+  // 全年末步延续至下一年大寒，公历日期因此最多支持到 2199 年。
+  const calendarYear =
+    resolved.year !== undefined && resolved.year >= 1900 && resolved.year <= 2199
+      ? resolved.year
+      : undefined;
+  const movementSteps = buildMovementSteps(annualMovement, calendarYear);
+  const qiSteps = buildQiSteps(pair[0], calendarYear);
   if (qiSteps[2].guestQi.name !== sitian.name || qiSteps[5].guestQi.name !== zaiquan.name) {
     throw new Error(`客气轮转与司天在泉不一致：${resolved.yearGanZhi}`);
   }
@@ -834,6 +841,7 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
 
   const calculation: WuyunLiuqiCalculation = {
     input: resolved,
+    calendarDateStatus: calendarYear === undefined ? '节令边界' : '公历日期已换算',
     annualMovement,
     sitian,
     zaiquan,
@@ -856,6 +864,7 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     ],
     sources: WUYUN_LIUQI_SOURCES.map((source) => ({ ...source })),
     limitations: [
+      '公历交司日期支持1900—2199年；其他年份按节气和传统序日表达五步、六步边界。',
       '五步交司按《运气要诀》所列传统日期序号表达，不把“节气后第几日”换算成现代精确到时分秒的交运时刻。',
       '结果为年度传统节律结构，不含逐日气候计算。',
       '传统运气模型不能替代地域气象资料、个人健康资料或医疗诊断。',

@@ -332,3 +332,32 @@ test('五运六气病机偏胜与平气判定算法应准确识别病机倾向�
   assert.equal(resultDingHai.pathomechanism.isPingQi, true);
   assert.match(resultDingHai.pathomechanism.pingQiBasis, /委和之平气/);
 });
+
+test('五运六气跨节气精度范围保留完整年度结构并明确日期口径', () => {
+  for (const year of [1, 99, 1899, 2200, 9999]) {
+    const result = calculateWuyunLiuqi({ year });
+    const reference = calculateWuyunLiuqi({ yearGanZhi: getWuyunLiuqiYearGanZhi(year) });
+    assert.equal(result.calendarDateStatus, '节令边界');
+    assert.deepEqual(result.annualMovement, reference.annualMovement);
+    assert.deepEqual(result.movementSteps, reference.movementSteps);
+    assert.deepEqual(result.qiSteps, reference.qiSteps);
+    assert.equal(result.movementSteps.length, 5);
+    assert.equal(result.qiSteps.length, 6);
+    assert.ok(
+      [...result.movementSteps, ...result.qiSteps].every(
+        (step) => step.gregorianStart === undefined && step.gregorianEnd === undefined,
+      ),
+    );
+    assert.match(result.prompt, /按节气与传统序日表示各步边界/);
+  }
+  for (const year of [1900, 2199]) {
+    const result = calculateWuyunLiuqi({ year });
+    assert.equal(result.calendarDateStatus, '公历日期已换算');
+    assert.ok(
+      [...result.movementSteps, ...result.qiSteps].every(
+        (step) => step.gregorianStart && step.gregorianEnd,
+      ),
+    );
+    assert.ok(result.qiSteps[5].gregorianEnd?.startsWith(`${year + 1}-01-`));
+  }
+});

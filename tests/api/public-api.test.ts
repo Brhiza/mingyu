@@ -5933,3 +5933,20 @@ test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', 
   assert.equal(invalid.response.status, 400);
   assert.equal(invalid.body.error.code, 'BAD_REQUEST');
 });
+
+test('五运六气公开接口保留全年份年度结构并明确公历日期范围', async () => {
+  for (const year of [1, 1899, 1900, 2199, 2200, 9999]) {
+    const { response, body } = await callApi('metaphysics/wuyun-liuqi/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year }),
+    });
+    assert.equal(response.status, 200, `${year}年应可计算年度结构`);
+    assert.equal(body.data.movementSteps.length, 5);
+    assert.equal(body.data.qiSteps.length, 6);
+    assert.equal(
+      body.data.calendarDateStatus,
+      year >= 1900 && year <= 2199 ? '公历日期已换算' : '节令边界',
+    );
+  }
+});
