@@ -63,6 +63,8 @@ export interface AlmanacCandidateDecisionFact {
   steps: AlmanacDecisionStep[];
   supportingFactKeys: string[];
   limitingFactKeys: string[];
+  /** 值日神煞作为背景资料登记，不参与当前候选分组裁决 */
+  backgroundGodFactKeys: string[];
   strongConstraintTexts: string[];
   promptText: string;
   sources: string[];
@@ -717,16 +719,19 @@ function buildCandidateDecisionFact(params: {
   strongConstraintTexts: string[];
   usableHours: AlmanacHourEvidence[];
 }): AlmanacCandidateDecisionFact {
+  // 值日神煞仅作背景登记（见 backgroundGodFactKeys），不计入分组依据；
+  // 分组依据只包含实际参与裁决的事项宜忌、参与人关系、可用时辰与传统限制。
+  const backgroundGodFactKeys = params.godFacts
+    .filter((item) => item.classification === '吉神' || item.classification === '凶神')
+    .map((item) => item.key);
   const supportingFactKeys = [
     ...params.topicMatchFacts.filter((item) => item.status === '支持').map((item) => item.key),
-    ...params.godFacts.filter((item) => item.classification === '吉神').map((item) => item.key),
     ...params.participantRelationFacts
       .filter((item) => item.status === '支持')
       .map((item) => item.key),
   ];
   const limitingFactKeys = [
     ...params.topicMatchFacts.filter((item) => item.status === '限制').map((item) => item.key),
-    ...params.godFacts.filter((item) => item.classification === '凶神').map((item) => item.key),
     ...params.participantRelationFacts
       .filter((item) => item.status === '限制')
       .map((item) => item.key),
@@ -787,7 +792,9 @@ function buildCandidateDecisionFact(params: {
       factKeys: params.godFacts.map((item) => item.key),
       inputs: params.godFacts.map((item) => item.name),
       result: `吉神${params.godFacts.filter((item) => item.classification === '吉神').length}项，凶神${params.godFacts.filter((item) => item.classification === '凶神').length}项，未分级${params.godFacts.filter((item) => item.classification === '未分级').length}项`,
-      promptText: params.godFacts.map((item) => item.promptText).join('；') || '未列值日神煞',
+      promptText: `${
+        params.godFacts.map((item) => item.promptText).join('；') || '未列值日神煞'
+      }；值日神煞作为背景资料登记，不直接参与当前候选分组裁决`,
       sources: unique(params.godFacts.flatMap((item) => item.sources)),
     },
     {
@@ -840,7 +847,7 @@ function buildCandidateDecisionFact(params: {
         : '未筛出无强冲突时辰',
       promptText: params.usableHours.length
         ? `可用时辰：${params.usableHours.map((item) => `${item.name}${item.range}`).join('、')}`
-        : '未筛出无明显冲突的时辰，不硬指定吉时',
+        : '未筛出无明显冲突的时辰，不硬指定吉时；日期等级仍按全天传统判断计算，展示时辰受偏好筛选影响，不单独改判日期',
       sources: ['逐时时柱、十二神与参与人关系核验'],
     },
     {
@@ -854,7 +861,12 @@ function buildCandidateDecisionFact(params: {
             : supportingFactKeys.length
               ? '有支持'
               : '通过',
-      factKeys: [...supportingFactKeys, ...limitingFactKeys],
+      factKeys: [
+        params.rawTabooFact.key,
+        ...params.topicMatchFacts.map((item) => item.key),
+        ...params.participantRelationFacts.map((item) => item.key),
+        ...params.usableHours.map((item) => item.key),
+      ],
       inputs: [...params.strongConstraintTexts, ...params.traditionalConstraints],
       result: params.status,
       promptText: params.strongConstraintTexts.length
@@ -872,6 +884,7 @@ function buildCandidateDecisionFact(params: {
     steps,
     supportingFactKeys: unique(supportingFactKeys),
     limitingFactKeys: unique(limitingFactKeys),
+    backgroundGodFactKeys: unique(backgroundGodFactKeys),
     strongConstraintTexts: unique(params.strongConstraintTexts),
     promptText: steps
       .map((item) => `${item.stage === '候选分组' ? '最终状态' : item.stage}：${item.result}`)
