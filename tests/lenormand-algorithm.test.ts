@@ -23,6 +23,33 @@ const spreadTypes: LenormandSpreadType[] = [
   'grandTableau',
 ];
 
+test('雷诺曼入口拒绝原型牌阵、非文本牌阵和缺项录入', () => {
+  for (const spread of ['toString', '__proto__', 'constructor', ['single'], null]) {
+    assert.throws(() => drawLenormandSpread(spread as never), /未知的雷诺曼牌阵类型/);
+    assert.throws(
+      () => resolveInteractiveLenormandCards(spread as never, []),
+      /未知的雷诺曼牌阵类型/,
+    );
+  }
+  for (const samples of [new Array(1), null, false, { length: 1 }]) {
+    assert.throws(() => resolveInteractiveLenormandCards('single', samples as never));
+    assert.throws(() => drawLenormandSpread('single', { interactiveSamples: samples as never }));
+    assert.throws(() => drawLenormandSpread('single', { manualCardIds: samples as never }));
+  }
+});
+
+test('雷诺曼未完成进度可续抽且36张均不重复，完整入口拒绝缺牌记录', () => {
+  assert.deepEqual(resolveInteractiveLenormandCards('grandTableau', []), []);
+  const partial = resolveInteractiveLenormandCards('grandTableau', [0, 0]);
+  const complete = resolveInteractiveLenormandCards('grandTableau', Array(36).fill(0));
+  assert.deepEqual(complete.slice(0, 2), partial);
+  assert.deepEqual(
+    complete.map((card) => card.id),
+    Array.from({ length: 36 }, (_, i) => i + 1),
+  );
+  assert.throws(() => drawLenormandSpread('grandTableau', { interactiveSamples: [0, 0] }));
+});
+
 test('雷诺曼大桌牌阵应抽取完整 36 张牌', () => {
   const result = drawLenormandSpread('grandTableau');
 

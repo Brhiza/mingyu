@@ -248,12 +248,18 @@ export function resolveInteractiveLenormandCards(
   spreadType: LenormandSpreadType,
   samples: readonly number[],
 ) {
-  const spread = LENORMAND_SPREADS[spreadType];
+  const spread =
+    typeof spreadType === 'string' && Object.hasOwn(LENORMAND_SPREADS, spreadType)
+      ? LENORMAND_SPREADS[spreadType]
+      : undefined;
   if (!spread) throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
+  if (!Array.isArray(samples)) throw new Error('雷诺曼抽牌随机样本必须是数组');
   if (samples.length > spread.positions.length) {
     throw new Error(`${spread.name}最多抽取${spread.positions.length}张牌`);
   }
-  samples.forEach(assertInteractiveSample);
+  for (let index = 0; index < samples.length; index++) {
+    assertInteractiveSample(samples[index], index);
+  }
 
   const remaining = [...LENORMAND_CARDS];
   return samples.map((sample) => {
@@ -453,13 +459,22 @@ export function drawLenormandSpread(
     interactiveSamples?: readonly number[];
   },
 ): LenormandData {
-  const spread = LENORMAND_SPREADS[spreadType];
+  const spread =
+    typeof spreadType === 'string' && Object.hasOwn(LENORMAND_SPREADS, spreadType)
+      ? LENORMAND_SPREADS[spreadType]
+      : undefined;
   if (!spread) {
     throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
   }
 
   const manualCardIds = options?.manualCardIds;
   const interactiveSamples = options?.interactiveSamples;
+  if (manualCardIds !== undefined && !Array.isArray(manualCardIds)) {
+    throw new Error('雷诺曼手工录入牌号必须是数组');
+  }
+  if (interactiveSamples !== undefined && !Array.isArray(interactiveSamples)) {
+    throw new Error('雷诺曼抽牌随机样本必须是数组');
+  }
   if (manualCardIds && interactiveSamples) {
     throw new Error('雷诺曼手动抽取不能同时提供手工录入牌面');
   }
@@ -481,7 +496,7 @@ export function drawLenormandSpread(
 
   const context = manualCardIds || interactiveSamples ? null : createRandomContext(options);
   const selectedCards = manualCardIds
-    ? manualCardIds.map((id, index) => {
+    ? [...manualCardIds].map((id, index) => {
         const card = LENORMAND_CARDS.find((item) => item.id === id);
         if (!card) throw new Error(`第${index + 1}张雷诺曼牌录入无效`);
         return card;
