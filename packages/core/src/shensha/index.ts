@@ -594,7 +594,7 @@ export interface HuangliInfo {
 
 /** 列出黄历神煞名称，供能力发现与文档使用。 */
 export function listHuangliShenshaNames(): string[] {
-  return God.NAMES.filter((name) => !['阳错阴冲', '成日'].includes(name));
+  return God.NAMES.filter((name) => !['阳错阴冲', '成日', '解除'].includes(name));
 }
 
 /** 月日干支立成表；母仓的土王分界需通过具体日期入口计算。 */
@@ -715,6 +715,7 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
   matches.四离 = false;
   matches.阳错阴冲 = false;
   matches.成日 = false;
+  matches.解除 = false;
   matches.孤辰 = [
     '',
     '',
