@@ -6,6 +6,8 @@ import {
   drawTarotSpread,
   resolveInteractiveTarotCards,
   getCardKeywords,
+  getCardEvidence,
+  tarotCards,
 } from '../packages/core/src/divination/tarot.ts';
 import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
@@ -79,6 +81,20 @@ test('塔罗三个抽牌入口拒绝对象原型属性和非文本牌阵', () =>
     assert.throws(() => drawSpreadCards(spread as never), /未知的牌阵类型/);
     assert.throws(() => drawTarotSpread(spread as never), /未知的牌阵类型/);
     assert.throws(() => resolveInteractiveTarotCards(spread as never, []), /未知的牌阵类型/);
+  }
+});
+
+test('塔罗牌名查询拒绝原型属性和非文本输入，全部78张牌均有有效关键词', () => {
+  for (const name of ['toString', '__proto__', 'constructor', ['愚者'], null]) {
+    assert.throws(() => getCardKeywords(name as never), /未知的塔罗牌名/);
+    assert.throws(() => getCardEvidence(name as never), /未知的塔罗牌名/);
+  }
+  assert.equal(tarotCards.length, 78);
+  for (const card of tarotCards) {
+    const keywords = getCardKeywords(card.name);
+    assert.equal(typeof keywords, 'string');
+    assert.ok(keywords.split(',').every((keyword) => keyword.trim().length > 0));
+    assert.deepEqual(getCardEvidence(card.name).keywords, keywords.split(','));
   }
 });
 

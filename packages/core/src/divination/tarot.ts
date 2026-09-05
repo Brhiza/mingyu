@@ -272,7 +272,10 @@ export function getCardKeywords(cardName: string): string {
     钱币国王: '富裕,成功,安全',
   };
 
-  const keywords = keywordsMap[cardName];
+  const keywords =
+    typeof cardName === 'string' && Object.hasOwn(keywordsMap, cardName)
+      ? keywordsMap[cardName]
+      : undefined;
   if (!keywords) {
     throw new Error(`未知的塔罗牌名: ${cardName}`);
   }
