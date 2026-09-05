@@ -6,6 +6,7 @@ import type {
 } from '../types/divination';
 import { isKe, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
+import { MingyuCoreError } from '../shared/result';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
   buildRandomTraceFact,
@@ -1373,6 +1374,33 @@ export function analyzeLiuyaoEvidence(
     sources: ['六爻起卦方式记录', '逐次随机投币样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
+  if (expectsRandomTrace && randomFact.status === '可重放') {
+    if (randomFact.samples.length !== 18) {
+      throw new MingyuCoreError({
+        code: 'LIUYAO_RANDOM_TRACE_LENGTH_INVALID',
+        category: 'validation',
+        message: '六爻三钱法随机轨迹必须包含十八个样本。',
+        field: 'meta.random.samples',
+      });
+    }
+    for (let index = 0; index < 6; index++) {
+      const coins = randomFact.samples
+        .slice(index * 3, index * 3 + 3)
+        .map((sample) => (sample < 0.5 ? 2 : 3));
+      const recordedCoins = data.generation?.coinThrows?.[index]?.coins;
+      if (
+        coins.reduce<number>((sum, coin) => sum + coin, 0) !== data.yaoArray[index] ||
+        (recordedCoins && coins.some((coin, coinIndex) => coin !== recordedCoins[coinIndex]))
+      ) {
+        throw new MingyuCoreError({
+          code: 'LIUYAO_RANDOM_TRACE_MISMATCH',
+          category: 'validation',
+          message: `第${index + 1}爻随机轨迹与投币记录或爻值不一致。`,
+          field: 'meta.random.samples',
+        });
+      }
+    }
+  }
   const timingFacts: LiuyaoTimingFact[] = [];
   lineFacts
     .filter((item) => item.activity === '明动')
