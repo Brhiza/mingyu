@@ -6,7 +6,10 @@ import {
   computeShensha,
   getHuangliShensha,
   listShenshaCatalog,
+  listShensha,
   registerShensha,
+  registerShenshas,
+  type ShenshaDefinition,
 } from '../packages/core/src/shensha/index.ts';
 
 const context = {
@@ -15,6 +18,73 @@ const context = {
   dayGanZhi: '戊辰',
   hourGanZhi: '丁酉',
 };
+
+test('注册参数与返回目录的修改不会改变已注册神煞', () => {
+  for (const [index, register] of [
+    registerShensha,
+    (definition: ShenshaDefinition) => registerShenshas([definition]),
+  ].entries()) {
+    const definition: ShenshaDefinition = {
+      id: `isolation-${index}`,
+      name: '隔离规则',
+      scope: 'bazi',
+      evidence: { inputDependencies: ['dayGanZhi'], ruleText: '固定规则', sources: ['固定表'] },
+      compute: () => ({ id: `isolation-${index}`, name: '隔离规则', value: '戌' }),
+    };
+    register(definition);
+    definition.name = '外部改名';
+    definition.evidence!.sources.push('外部来源');
+    const listed = listShensha().find((item) => item.id === definition.id)!;
+    assert.equal(listed.name, '隔离规则');
+    assert.deepEqual(listed.evidence!.sources, ['固定表']);
+    listed.compute = () => null;
+    listed.evidence!.inputDependencies.length = 0;
+    assert.equal(computeShensha([definition.id], context).length, 1);
+    assert.deepEqual(
+      listShenshaCatalog().find((item) => item.id === definition.id)!.inputDependencies,
+      ['dayGanZhi'],
+    );
+  }
+});
+
+test('神煞计算及证据结果与注册函数返回值相互隔离', () => {
+  const result = { id: 'result-isolation', name: '结果隔离', value: ['戌', '亥'] };
+  registerShensha({
+    id: result.id,
+    name: result.name,
+    scope: 'bazi',
+    compute: (ctx) => {
+      ctx.dayGanZhi = '甲寅';
+      return result;
+    },
+  });
+  const input = { ...context };
+  const computed = computeShensha([result.id], input);
+  assert.equal(input.dayGanZhi, context.dayGanZhi);
+  (computed[0].value as string[]).push('子');
+  assert.deepEqual(result.value, ['戌', '亥']);
+  const analysis = analyzeShenshaEvidence(input, [result.id]);
+  (analysis.matchFacts[0].result!.value as string[]).push('丑');
+  assert.deepEqual(result.value, ['戌', '亥']);
+  assert.equal(analysis.context.dayGanZhi, context.dayGanZhi);
+});
+
+test('六十甲子旬空按六旬原典固定表完整核对', () => {
+  // 识典《奇门遁甲秘笈大全·旬空》，仅核公共旬空，不混用各体系命中规则。
+  // https://www.shidianguji.com/zh/book/SDZJ0630/chapter/1lx9g1u5suadm
+  const stems = [...'甲乙丙丁戊己庚辛壬癸'];
+  const branches = [...'子丑寅卯辰巳午未申酉戌亥'];
+  const voids = ['戌亥', '申酉', '午未', '辰巳', '寅卯', '子丑'];
+  for (let index = 0; index < 60; index++) {
+    const dayGanZhi = stems[index % 10] + branches[index % 12];
+    const expected = [...voids[Math.floor(index / 10)]];
+    assert.deepEqual(
+      computeShensha(['kongwang'], { ...context, dayGanZhi })[0].value,
+      expected,
+      dayGanZhi,
+    );
+  }
+});
 
 test('黄历神煞拒绝小数年月日和不存在的日期', () => {
   for (const [year, month, day] of [

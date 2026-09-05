@@ -162,20 +162,47 @@ export interface ShenshaEvidenceAnalysis {
 
 const REGISTRY = new Map<string, ShenshaDefinition>();
 
+function copyDefinition(definition: ShenshaDefinition): ShenshaDefinition {
+  return {
+    ...definition,
+    ...(definition.evidence
+      ? {
+          evidence: {
+            ...definition.evidence,
+            inputDependencies: [...definition.evidence.inputDependencies],
+            sources: [...definition.evidence.sources],
+          },
+        }
+      : {}),
+  };
+}
+
+function computeDefinition(
+  definition: ShenshaDefinition,
+  context: ShenshaContext,
+): ShenshaResult | null {
+  const result = definition.compute({ ...context });
+  return result
+    ? { ...result, value: Array.isArray(result.value) ? [...result.value] : result.value }
+    : null;
+}
+
 /** 注册神煞（可重复覆盖） */
 export function registerShensha(def: ShenshaDefinition): void {
-  REGISTRY.set(def.id, def);
+  REGISTRY.set(def.id, copyDefinition(def));
 }
 
 /** 批量注册 */
 export function registerShenshas(defs: ShenshaDefinition[]): void {
-  for (const def of defs) REGISTRY.set(def.id, def);
+  for (const def of defs) registerShensha(def);
 }
 
 /** 列出已注册神煞（可按 scope 过滤） */
 export function listShensha(scope?: ShenshaScope): ShenshaDefinition[] {
   const all = Array.from(REGISTRY.values());
-  return scope ? all.filter((d) => d.scope === scope || d.scope === 'common') : all;
+  return (scope ? all.filter((d) => d.scope === scope || d.scope === 'common') : all).map(
+    copyDefinition,
+  );
 }
 
 /** 列出可安全序列化的神煞目录，不暴露计算函数。 */
@@ -199,7 +226,7 @@ export function computeShensha(ids: string[], ctx: ShenshaContext): ShenshaResul
   const out: ShenshaResult[] = [];
   for (const id of requestedIds) {
     const def = REGISTRY.get(id)!;
-    const r = def.compute(ctx);
+    const r = computeDefinition(def, ctx);
     if (r) out.push(r);
   }
   return out;
@@ -365,7 +392,7 @@ export function analyzeShenshaEvidence(
 
   for (const id of requestedIds) {
     const definition = REGISTRY.get(id)!;
-    const result = definition.compute(ctx);
+    const result = computeDefinition(definition, ctx);
     const ruleStepKey = `foundation:shensha:calculation:${id}:rule`;
     const matchStepKey = `foundation:shensha:calculation:${id}:match`;
     const metadata = definition.evidence;
