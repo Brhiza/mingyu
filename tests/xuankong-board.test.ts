@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   generateXuanKong,
+  evaluateCastleGate,
   flyStars,
   resolveXuanKongPeriod,
 } from '../packages/core/src/xuan_kong/index.ts';
@@ -173,4 +174,27 @@ test('玄空飞星城门诀：八运午向判定巽方城门得位与提示词�
   assert.equal(xunGate.arrivalStar, 8);
   assert.match(result.castleGate.summary, /城门诀/);
   assert.ok(result.prompt.includes('城门诀：'));
+});
+
+test('城门计算校验当运九宫运盘与二十四山，星名保持紫白本色', () => {
+  const valid = { yun: 9, facingMountain: '午', yunPlate: flyStars(9, '顺飞') };
+  for (const yun of [0, 10, NaN, 1.5]) assert.throws(() => evaluateCastleGate({ ...valid, yun }));
+  for (const facingMountain of ['toString', '__proto__', '无', []]) {
+    assert.throws(
+      () => evaluateCastleGate({ ...valid, facingMountain: facingMountain as never }),
+      /二十四山/,
+    );
+  }
+  for (const yunPlate of [[], Array(9).fill(9), flyStars(8, '顺飞'), flyStars(9, '逆飞')]) {
+    assert.throws(() => evaluateCastleGate({ ...valid, yunPlate }), /完整九宫盘/);
+  }
+  const names = ['一白', '二黑', '三碧', '四绿', '五黄', '六白', '七赤', '八白', '九紫'];
+  for (let yun = 1; yun <= 9; yun++)
+    for (const facingMountain of TWENTY_FOUR_MOUNTAINS) {
+      const result = evaluateCastleGate({ yun, facingMountain, yunPlate: flyStars(yun, '顺飞') });
+      assert.equal(result.candidates.length, 2);
+      for (const candidate of result.candidates.filter((item) => item.status !== '不得旺不可用')) {
+        assert.ok(candidate.summary.includes(names[candidate.arrivalStar - 1]));
+      }
+    }
 });

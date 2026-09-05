@@ -3,6 +3,7 @@
  * @传统依据 《沈氏玄空学》城门诀：向首两旁同元龙之位为城门候选；运星入中依元龙阴阳顺逆飞布，若旺星飞临城门宫位，为城门得位可用。
  */
 import { flyStars, type FlyDirection } from './period-stars';
+import { getNineStarProfile } from '../direction';
 
 export type YuanLong = '天元龙' | '地元龙' | '人元龙';
 
@@ -104,6 +105,17 @@ export function evaluateCastleGate(params: {
   yunPlate: number[];
 }): CastleGateEvaluation {
   const { yun, facingMountain, yunPlate } = params;
+  const expectedPlate = flyStars(yun, '顺飞');
+  if (
+    !Array.isArray(yunPlate) ||
+    yunPlate.length !== 9 ||
+    expectedPlate.some((star, index) => yunPlate[index] !== star)
+  ) {
+    throw new Error('城门运盘须为当运入中顺飞的完整九宫盘。');
+  }
+  if (typeof facingMountain !== 'string' || !Object.hasOwn(MOUNTAIN_PROFILES, facingMountain)) {
+    throw new Error('城门朝向须为有效的二十四山。');
+  }
   const facingProfile = MOUNTAIN_PROFILES[facingMountain];
   if (!facingProfile) {
     return {
@@ -174,11 +186,13 @@ export function evaluateCastleGate(params: {
     const isEarlyMatch = facingEarly + gateEarly === 10 || Math.abs(facingEarly - gateEarly) === 5;
     const role: CastleGateCandidate['role'] = isEarlyMatch ? '正城门' : '副城门';
 
+    const arrivalProfile = getNineStarProfile(arrivalStar - 1);
+    const arrivalName = `${arrivalProfile.number}${arrivalProfile.color}`;
     const statusDesc =
       status === '得旺可用'
-        ? `飞临当令${arrivalStar}白旺星，城门得位吉可用`
+        ? `飞临当令${arrivalName}旺星，城门得位吉可用`
         : status === '得生气可用'
-          ? `飞临进气${arrivalStar}白生气星，城门次吉可用`
+          ? `飞临进气${arrivalName}生气星，城门次吉可用`
           : `飞临${arrivalStar}星非旺气，城门不合`;
 
     candidates.push({

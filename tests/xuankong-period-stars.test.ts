@@ -63,3 +63,11 @@ test('九星当运与山向生克只记录结构，不打吉凶分', () => {
   assert.equal(resolveShanXiangRelation(1, 2), '克入');
   assert.equal(resolveShanXiangRelation(3, 2), '克出');
 });
+
+test('三元年紫白按上元甲子一白逐年逆行一百八十年', () => {
+  let expected = 1;
+  for (let year = 1864; year < 2044; year++) {
+    assert.equal(resolveYearFlyingStar(year).centerStar, expected, `${year}年`);
+    expected = expected === 1 ? 9 : expected - 1;
+  }
+});
