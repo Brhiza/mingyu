@@ -14,6 +14,8 @@
  */
 
 import { hexagramsData } from '../../divination/hexagram-data';
+export { generateYarrow } from './yarrow';
+export type { YarrowChange, YarrowLine, YarrowOptions, YarrowResult } from './yarrow';
 import { getSixAnimals, getVoidBranches } from '../../calendar/lunar';
 import {
   wuxing,
