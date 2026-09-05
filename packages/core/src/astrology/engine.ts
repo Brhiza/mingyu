@@ -247,7 +247,7 @@ export interface Transit {
   symbol: string;
   deviation: number;
   strength: number;
-  phase: 'applying' | 'exact' | 'separating';
+  phase: 'applying' | 'exact' | 'separating' | 'unknown';
   isRetrograde: boolean;
 }
 
@@ -726,6 +726,20 @@ export function calculateTransits(
     includeOutOfSign?: boolean;
   },
 ): { transits: Transit[] } {
+  if (!Number.isFinite(jd)) throw new Error('行运儒略日必须是有限数值。');
+  const minimumStrength = options.minimumStrength ?? 0;
+  if (!Number.isFinite(minimumStrength) || minimumStrength < 0 || minimumStrength > 100) {
+    throw new Error('行运最低强度必须在0至100之间。');
+  }
+  for (const natal of natalPoints) {
+    if (!Number.isFinite(natal.longitude)) throw new Error('本命点黄经必须是有限数值。');
+  }
+  if (options.aspectTypes.some((type) => !Object.values(AspectType).includes(type))) {
+    throw new Error('行运相位类型不受支持。');
+  }
+  if (options.transitingBodies.some((body) => !Object.values(CelestialBody).includes(body))) {
+    throw new Error('行运星体不受支持。');
+  }
   const transits: Transit[] = [];
   for (const bodyName of options.transitingBodies) {
     const bodyId = BODY_IDS[bodyName];
@@ -744,7 +758,7 @@ export function calculateTransits(
           continue;
         }
         const strength = Math.max(0, 100 * (1 - deviation / orb));
-        if (strength < (options.minimumStrength ?? 0)) continue;
+        if (strength < minimumStrength) continue;
         const applying = isApplyingAspect(
           { name: bodyName, longitude: position.lon, longitudeSpeed: position.speed },
           { name: natal.name, longitude: natal.longitude, longitudeSpeed: 0 },
@@ -758,7 +772,14 @@ export function calculateTransits(
           symbol: ASPECT_SYMBOLS[aspectType],
           deviation,
           strength,
-          phase: deviation <= 0.1 ? 'exact' : applying ? 'applying' : 'separating',
+          phase:
+            deviation <= 0.1
+              ? 'exact'
+              : applying === null
+                ? 'unknown'
+                : applying
+                  ? 'applying'
+                  : 'separating',
           isRetrograde: position.retrograde,
         });
       }

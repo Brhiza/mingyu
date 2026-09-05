@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   AspectType,
   CelestialBody,
+  astrologyEngine,
   calculateAspects,
   calculateChart,
   calculatePlanets,
@@ -10,6 +11,48 @@ import {
   getApparentPosition,
   toJulianDate,
 } from '../packages/core/src/astrology/engine';
+
+test('行运入口拒绝无效时间、黄经、强度及未知星体相位', () => {
+  const points = [{ name: '本命点', longitude: 0, type: 'planet' as const }];
+  const options = { aspectTypes: [AspectType.Conjunction], transitingBodies: [CelestialBody.Moon] };
+  for (const jd of [NaN, Infinity, -Infinity]) {
+    assert.throws(() => calculateTransits(points, jd, options), /儒略日/);
+  }
+  for (const longitude of [NaN, Infinity, -Infinity]) {
+    assert.throws(() => calculateTransits([{ ...points[0], longitude }], 2451545, options), /黄经/);
+  }
+  for (const minimumStrength of [NaN, Infinity, -1, 101]) {
+    assert.throws(
+      () => calculateTransits(points, 2451545, { ...options, minimumStrength }),
+      /强度/,
+    );
+  }
+  assert.throws(
+    () => calculateTransits(points, 2451545, { ...options, aspectTypes: ['未知' as AspectType] }),
+    /相位/,
+  );
+  assert.throws(
+    () =>
+      calculateTransits(points, 2451545, {
+        ...options,
+        transitingBodies: ['未知' as CelestialBody],
+      }),
+    /星体/,
+  );
+});
+
+test('行运速度为零时非精确相位保持未判定', (context) => {
+  const jd = 2451545;
+  const moon = astrologyEngine.position('moon', jd);
+  context.mock.method(astrologyEngine, 'position', () => ({ ...moon, speed: 0 }));
+  const result = calculateTransits(
+    [{ name: '本命点', longitude: moon.lon + 60.5, type: 'planet' }],
+    jd,
+    { aspectTypes: [AspectType.Sextile], transitingBodies: [CelestialBody.Moon] },
+  );
+  assert.equal(result.transits.length, 1);
+  assert.equal(result.transits[0].phase, 'unknown');
+});
 
 test('星历保留验证年代与古代时标差精度说明，现代日期无多余说明', () => {
   const input = { year: 150, month: 1, day: 1, hour: 12, minute: 0, timezone: 0 };
