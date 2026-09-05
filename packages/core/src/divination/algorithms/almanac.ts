@@ -207,6 +207,8 @@ const GOD_RULE_SOURCES: Record<string, string> = {
   生气: '《御定星历考原》生气起例',
   普护: '《御定星历考原》逐月普护起例',
   福生: '《御定星历考原》逐月福生起例',
+  玉宇: '《历事明原》逐月玉宇起例',
+  金堂: '《御定星历考原》逐月金堂起例',
 };
 
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
