@@ -1,10 +1,9 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { XiaoliurenData, XiaoliurenPalaceDetail } from '../types/divination';
 
-const RULE_SOURCE =
-  '通行俗传小六壬掌诀：正月从大安起，月上起初一，日上起子时，依大安、留连、速喜、赤口、小吉、空亡顺行';
+import { resolveXiaoliurenRule } from './xiaoliuren-rules';
 const SOURCE_LIMITATION =
-  '《多能鄙事》卷八“小六壬课时”以正月初一留连起子时，与此处通行掌诀正月初一大安起子时的起日口径不同；“李淳风六壬时课”等署名不作为已证实的古籍归属';
+  '《多能鄙事》卷八“小六壬课时”以正月初一留连起子时，与通行掌诀正月初一大安起子时的起日口径不同；“李淳风六壬时课”等署名不作为已证实的古籍归属';
 const EDITION_REFERENCE =
   '《多能鄙事》卷八“小六壬课时”，Wikimedia Shanghai 多能鄙事十二卷扫描PDF第196—197页；识典古籍CADAL02097181卷八';
 const INTERPRETATION_LIMITATION =
@@ -91,6 +90,7 @@ export interface XiaoliurenEvidenceAnalysis {
 
 function buildCalculationSteps(data: XiaoliurenData): XiaoliurenCalculationStep[] {
   const calculation = data.calculation;
+  const rule = resolveXiaoliurenRule(data.rule);
   if (!calculation) {
     return [];
   }
@@ -103,27 +103,27 @@ function buildCalculationSteps(data: XiaoliurenData): XiaoliurenCalculationStep[
       formula: `正月从大安起：(${calculation.lunarMonth}-1) mod 6=${calculation.monthPalaceIndex}，落${data.sequence.month.name}`,
       palace: data.sequence.month,
       dependsOnStepKeys: [],
-      source: RULE_SOURCE,
+      source: resolveXiaoliurenRule(data.rule).source,
       limitation: '月宫只确定日数起点，不是现实起因。',
     },
     {
       key: 'xiaoliuren:calculation:day',
       stage: '定日宫',
       status: '已计算',
-      formula: `月上起初一：(${calculation.lunarMonth}+${calculation.lunarDay}-2) mod 6=${calculation.dayPalaceIndex}，落${data.sequence.day.name}`,
+      formula: `${rule.dayStartOffset ? '月宫下一宫起初一' : '月上起初一'}：(${calculation.lunarMonth}+${calculation.lunarDay}-${2 - rule.dayStartOffset}) mod 6=${calculation.dayPalaceIndex}，落${data.sequence.day.name}`,
       palace: data.sequence.day,
       dependsOnStepKeys: ['xiaoliuren:calculation:month'],
-      source: RULE_SOURCE,
+      source: resolveXiaoliurenRule(data.rule).source,
       limitation: '日宫只确定时辰起点，不是现实过程。',
     },
     {
       key: 'xiaoliuren:calculation:hour',
       stage: '定时宫',
       status: '已计算',
-      formula: `日上起子时：(${calculation.lunarMonth}+${calculation.lunarDay}+${calculation.hourNumber}-3) mod 6=${calculation.hourPalaceIndex}，落${data.sequence.hour.name}`,
+      formula: `日上起子时：(${calculation.lunarMonth}+${calculation.lunarDay}+${calculation.hourNumber}-${3 - rule.dayStartOffset}) mod 6=${calculation.hourPalaceIndex}，落${data.sequence.hour.name}`,
       palace: data.sequence.hour,
       dependsOnStepKeys: ['xiaoliuren:calculation:day'],
-      source: RULE_SOURCE,
+      source: resolveXiaoliurenRule(data.rule).source,
       limitation: '时宫是本次占得宫，但宫名和歌诀仍不等于现实必然结果。',
     },
   ];
@@ -137,7 +137,7 @@ function buildPalaceFacts(data: XiaoliurenData): XiaoliurenPalaceFact[] {
       level: '计算轨迹',
       palace: data.sequence.month,
       promptText: `月宫${data.sequence.month.name}，只作为月上起日的计数起点`,
-      source: RULE_SOURCE,
+      source: resolveXiaoliurenRule(data.rule).source,
       limitation: '不得解释成事情起因或月运。',
     },
     {
@@ -146,7 +146,7 @@ function buildPalaceFacts(data: XiaoliurenData): XiaoliurenPalaceFact[] {
       level: '计算轨迹',
       palace: data.sequence.day,
       promptText: `日宫${data.sequence.day.name}，只作为日上起时的计数起点`,
-      source: RULE_SOURCE,
+      source: resolveXiaoliurenRule(data.rule).source,
       limitation: '不得解释成事情过程或日运。',
     },
     {
@@ -154,8 +154,9 @@ function buildPalaceFacts(data: XiaoliurenData): XiaoliurenPalaceFact[] {
       role: '时宫',
       level: '主证',
       palace: data.sequence.hour,
-      promptText: `占得${data.sequence.hour.name}；通行歌诀原文：${data.sequence.hour.verse}`,
-      source: '通行俗传小六壬六宫歌诀，版本文字存在异文',
+      promptText: `占得${data.sequence.hour.name}；六宫断语：${data.sequence.hour.verse}`,
+      source:
+        data.rule === 'duoneng' ? EDITION_REFERENCE : '通行俗传小六壬六宫歌诀，版本文字存在异文',
       limitation: VERSE_LIMITATION,
     },
   ];
@@ -184,7 +185,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     promptText: complete
       ? calculationSteps.map((step) => step.formula).join('；')
       : '结果未附完整的月、日、时逐宫顺数参数，不能复核落宫。',
-    sources: [RULE_SOURCE, '农历与时辰由统一历法模块换算'],
+    sources: [resolveXiaoliurenRule(data.rule).source, '农历与时辰由统一历法模块换算'],
     limitation: `${INTERPRETATION_LIMITATION}；${CALENDAR_LIMITATION}`,
   };
 
@@ -201,14 +202,14 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       type: '中间宫边界',
       ownerFactKeys: palaceFacts.slice(0, 2).map((fact) => fact.key),
       promptText: INTERPRETATION_LIMITATION,
-      sources: [RULE_SOURCE],
+      sources: [resolveXiaoliurenRule(data.rule).source],
     },
     {
       key: 'xiaoliuren:limitation:verse',
       type: '歌诀边界',
       ownerFactKeys: [primaryFact.key],
       promptText: VERSE_LIMITATION,
-      sources: ['通行俗传六宫歌诀'],
+      sources: [data.rule === 'duoneng' ? EDITION_REFERENCE : '通行俗传六宫歌诀'],
     },
     {
       key: 'xiaoliuren:limitation:calendar',
@@ -274,13 +275,13 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     })),
   ];
   const evidence: PromptEvidenceBundle = {
-    title: '小六壬通行时间课结构化证据',
+    title: `小六壬${resolveXiaoliurenRule(data.rule).label}时间课结构化证据`,
     items,
   };
   const limitations = limitationFacts.map((fact) => fact.promptText);
   const promptText = [
     '【传统依据】',
-    RULE_SOURCE,
+    resolveXiaoliurenRule(data.rule).source,
     '',
     '【排盘资料】',
     `农历：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
@@ -293,7 +294,11 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     key: 'xiaoliuren:evidence',
     status: complete ? '已计算' : '资料不足',
     sources: [
-      { title: '通行俗传小六壬掌诀', evidence: RULE_SOURCE, role: '规则来源' },
+      {
+        title: resolveXiaoliurenRule(data.rule).label,
+        evidence: resolveXiaoliurenRule(data.rule).source,
+        role: '规则来源',
+      },
       {
         title: '统一历法换算',
         evidence: '农历月日、东八区民用日与子1至亥12时辰序',

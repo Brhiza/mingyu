@@ -1,3 +1,4 @@
+import { XIAOLIUREN_RULE_OPTIONS } from 'mingyu-core/divination/xiaoliuren';
 import { useState } from 'react';
 import {
   DIVINATION_METHOD_OPTIONS,
@@ -441,6 +442,24 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
+                    {draft.method === 'xiaoliuren' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="xiaoliuren-rule-select">起课口径</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="xiaoliuren-rule-select"
+                            value={draft.xiaoliurenRule ?? 'common'}
+                            options={XIAOLIUREN_RULE_OPTIONS}
+                            onChange={(value) =>
+                              updateDraft(
+                                'xiaoliurenRule',
+                                value as DivinationDraft['xiaoliurenRule'],
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                     {draft.method === 'jinkoujue' ? (
                       <div className="form-item divination-inline-field">
                         <label htmlFor="jinkoujue-method-select">起课方式</label>
@@ -698,6 +717,18 @@ export function DivinationForm({
                   </div>
                 ) : null}
 
+                {draft.method === 'xiaoliuren' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <DropdownSelect
+                      value={draft.xiaoliurenRule ?? 'common'}
+                      options={XIAOLIUREN_RULE_OPTIONS}
+                      ariaLabel="小六壬起课口径"
+                      onChange={(value) =>
+                        updateDraft('xiaoliurenRule', value as DivinationDraft['xiaoliurenRule'])
+                      }
+                    />
+                  </div>
+                ) : null}
                 {draft.method === 'jinkoujue' ? (
                   <div className="divination-mobile-secondary-picker">
                     <DropdownSelect

@@ -306,6 +306,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
   number: { type: 'integer', minimum: 1 },
+  xiaoliurenRule: { enum: ['common', 'duoneng'], description: '起课口径：通行掌诀或多能鄙事。' },
   xiaoliurenMethod: {
     enum: ['time'],
     description: '小六壬当前仅保留可核验的通行时间起课。',
@@ -3951,6 +3952,8 @@ function calculateXiaoliuren(input: JsonRecord) {
     );
   }
   return generateXiaoliuren({
+    rule: readEnum(input, 'xiaoliurenRule', ['common', 'duoneng'], 'common') as
+      'common' | 'duoneng',
     method,
     customDate: readCustomDate(input),
   });

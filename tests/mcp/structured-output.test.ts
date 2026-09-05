@@ -4780,3 +4780,26 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     assert.equal(replayResult.meta.resultId, firstResult.meta.resultId);
   });
 });
+
+test('MCP 小六壬多能鄙事口径贯穿课盘与完整提示词', async () => {
+  await withMcpClient(async (client) => {
+    const args = { xiaoliurenRule: 'duoneng', customDate: '2025-01-29T00:30:00+08:00' };
+    const chart = await client.callTool({ name: 'divine_xiaoliuren', arguments: args });
+    assert.equal(chart.isError, undefined);
+    const result = (
+      chart.structuredContent as { result: { rule: string; primary: { name: string } } }
+    ).result;
+    assert.equal(result.rule, 'duoneng');
+    assert.equal(result.primary.name, '留连');
+    const response = await client.callTool({
+      name: 'xiaoliuren_prompt',
+      arguments: { ...args, question: '此事如何理解？' },
+    });
+    assert.equal(response.isError, undefined);
+    const prompt = (response.structuredContent as { prompt: string }).prompt;
+    assert.match(prompt, /多能鄙事/);
+    assert.match(prompt, /月宫大安下一宫起初一/);
+    assert.match(prompt, /占得宫：留连/);
+    assert.doesNotMatch(prompt, /通行俗传/);
+  });
+});

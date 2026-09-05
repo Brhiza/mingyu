@@ -74,7 +74,7 @@ export interface DivinationRequest {
   supplementaryInfo?: SupplementaryInfo;
   liuyao?: LiuyaoGenerationOptions;
   meihua?: MeihuaSettings;
-  xiaoliuren?: { method?: XiaoliurenDivinationMethod };
+  xiaoliuren?: { method?: XiaoliurenDivinationMethod; rule?: 'common' | 'duoneng' };
   jinkoujue?: {
     method?: JinkoujueDivinationMethod;
     branch?: string;

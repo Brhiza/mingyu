@@ -1,19 +1,23 @@
 /**
- * @file 小六壬通行时间课
+ * @file 小六壬时间课
  * @description 仅实现可复核的月、日、时逐宫顺数，不混入现代扩展断法。
- * @口径 正月从大安起，月上起初一，日上起子时，均按六宫顺行；时宫为占得宫。
+ * @口径 通行掌诀以月宫起初一；多能鄙事以月宫下一宫起初一。日宫起子时，六宫顺行。
  * @来源 通行俗传小六壬掌诀。作者、成书年代及“李淳风”署名暂无可靠版本学证据。
  */
 import type {
   XiaoliurenData,
   XiaoliurenDivinationMethod,
   XiaoliurenPalaceDetail,
+  XiaoliurenRule,
 } from '../../types/divination';
 import { getShichenByIndex, getTimeIndexFromClock } from '../../calendar/dateUtils';
 import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
+import { DUONENG_XIAOLIUREN_VERSES, resolveXiaoliurenRule } from '../xiaoliuren-rules';
+
+export { XIAOLIUREN_RULE_OPTIONS } from '../xiaoliuren-rules';
 
 export { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
 export type {
@@ -64,12 +68,15 @@ const XIAOLIUREN_PALACES = [
   },
 ] as const satisfies readonly XiaoliurenPalaceDetail[];
 
-function palaceAt(index: number): XiaoliurenPalaceDetail {
+function palaceAt(index: number, rule: XiaoliurenRule): XiaoliurenPalaceDetail {
   const palace = XIAOLIUREN_PALACES[((index % 6) + 6) % 6];
   if (!palace) {
     throw new Error(`小六壬宫位索引无效：${index}`);
   }
-  return { ...palace };
+  return {
+    ...palace,
+    verse: rule === 'duoneng' ? DUONENG_XIAOLIUREN_VERSES[palace.index] : palace.verse,
+  };
 }
 
 function assertReferenceData(): void {
@@ -87,16 +94,18 @@ function assertReferenceData(): void {
 assertReferenceData();
 
 /**
- * 生成通行小六壬时间课。
+ * 生成所选口径的小六壬时间课。
  *
  * 闰月沿用同名月序；农历日按东八区民用日零点换日。两项均在结果中显式标注，
  * 以免把有分歧的历法边界伪装成唯一传统口径。
  */
 export function generateXiaoliuren(params?: {
   method?: XiaoliurenDivinationMethod;
+  rule?: XiaoliurenRule;
   customDate?: Date;
 }): XiaoliurenData {
   assertOptionalRecord(params, '小六壬起课参数');
+  const rule = resolveXiaoliurenRule(params?.rule);
   const method = params?.method ?? 'time';
   if (method !== 'time') {
     throw new Error('小六壬当前仅保留有明确顺数规则的时间起课。');
@@ -115,13 +124,15 @@ export function generateXiaoliuren(params?: {
   // dateUtils 以 0 表示早子、12 表示晚子；掌诀均按子1至亥12计数。
   const hourNumber = (clockHourIndex % 12) + 1;
   const monthSeed = lunarMonth;
-  const daySeed = lunarMonth + lunarDay - 1;
-  const hourSeed = lunarMonth + lunarDay + hourNumber - 2;
+  const daySeed = lunarMonth + lunarDay - 1 + rule.dayStartOffset;
+  const hourSeed = lunarMonth + lunarDay + hourNumber - 2 + rule.dayStartOffset;
   const monthPalaceIndex = (monthSeed - 1) % 6;
   const dayPalaceIndex = (daySeed - 1) % 6;
   const hourPalaceIndex = (hourSeed - 1) % 6;
 
   const data: XiaoliurenData = {
+    rule: rule.id,
+    ruleLabel: rule.label,
     method,
     methodLabel: '时间起课',
     timestamp,
@@ -145,17 +156,17 @@ export function generateXiaoliuren(params?: {
       leapMonthRule: '闰月沿用同名月序',
     },
     sequence: {
-      month: palaceAt(monthPalaceIndex),
-      day: palaceAt(dayPalaceIndex),
-      hour: palaceAt(hourPalaceIndex),
+      month: palaceAt(monthPalaceIndex, rule.id),
+      day: palaceAt(dayPalaceIndex, rule.id),
+      hour: palaceAt(hourPalaceIndex, rule.id),
     },
-    palaceOrder: XIAOLIUREN_PALACES.map((palace) => ({ ...palace })),
-    primary: palaceAt(hourPalaceIndex),
+    palaceOrder: XIAOLIUREN_PALACES.map((palace) => palaceAt(palace.index, rule.id)),
+    primary: palaceAt(hourPalaceIndex, rule.id),
   };
 
   const result = attachResultMeta(data, {
     algorithm: 'xiaoliuren',
-    input: { method, timestamp },
+    input: { method, rule: rule.id, timestamp },
     calculatedAt: timestamp,
   });
   return { ...result, evidenceAnalysis: analyzeXiaoliurenEvidence(result) };

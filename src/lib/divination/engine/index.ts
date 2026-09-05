@@ -90,6 +90,7 @@ export type DivinationDraft = {
   meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
+  xiaoliurenRule?: 'common' | 'duoneng';
   jinkoujueMethod: JinkoujueDivinationMethod;
   jinkoujueBranch: string;
   jinkoujueNumber: string;
@@ -770,6 +771,7 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/xiaoliuren');
       data = module.generateXiaoliuren({
         method: draft.xiaoliurenMethod,
+        rule: draft.xiaoliurenRule ?? 'common',
         customDate: calculationDate,
       });
       break;

@@ -1,3 +1,4 @@
+import { resolveXiaoliurenRule } from '../divination/xiaoliuren-rules';
 import type {
   AlmanacData,
   AstrolabeData,
@@ -430,9 +431,10 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     `起课：农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
     '起课过程：',
     `  定月宫：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月从大安顺数，落${data.sequence.month.name}`,
-    `  定日宫：从月宫${data.sequence.month.name}起初一，顺数至${data.lunarDay}日，落${data.sequence.day.name}`,
+    `  定日宫：从月宫${data.sequence.month.name}${data.rule === 'duoneng' ? '下一宫' : ''}起初一，顺数至${data.lunarDay}日，落${data.sequence.day.name}`,
     `  定时宫：从日宫${data.sequence.day.name}起子时，顺数至${data.hourLabel}，落${data.sequence.hour.name}`,
     `取用层级：时宫${data.sequence.hour.name}为本次占得宫与主证；月宫${data.sequence.month.name}、日宫${data.sequence.day.name}为逐宫顺数位置`,
+    `起课口径：${resolveXiaoliurenRule(data.rule).source}`,
     `占得宫：${data.primary.name}`,
     `歌诀原文：${data.primary.verse}`,
   ]

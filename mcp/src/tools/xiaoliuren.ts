@@ -11,7 +11,11 @@ import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-co
 import { readMcpCustomDate } from './input-helpers.js';
 
 const xiaoliurenSchema = z.object({
-  xiaoliurenMethod: z.enum(['time']).optional().describe('起课方式：仅支持通行掌诀时间起课'),
+  xiaoliurenMethod: z.enum(['time']).optional().describe('起课方式：时间起课'),
+  xiaoliurenRule: z
+    .enum(['common', 'duoneng'])
+    .optional()
+    .describe('起课口径：common通行掌诀，duoneng多能鄙事'),
   customDate: z
     .string()
     .optional()
@@ -27,6 +31,7 @@ const xiaoliurenPromptSchema = extendPromptSchema(
 function buildXiaoliurenInput(args: z.infer<typeof xiaoliurenSchema>) {
   return {
     method: args.xiaoliurenMethod || 'time',
+    rule: args.xiaoliurenRule ?? 'common',
     customDate: readMcpCustomDate(args.customDate),
   };
 }
@@ -36,7 +41,7 @@ export function registerXiaoliurenTool(server: McpServer) {
     'divine_xiaoliuren',
     {
       description:
-        '小六壬通行时间课：按农历月、日、时辰逐步顺数，返回时宫歌诀与来源、历法和解释限制',
+        '小六壬时间课（通行掌诀或多能鄙事）：按农历月、日、时辰逐步顺数，返回时宫歌诀与来源、历法和解释限制',
       inputSchema: { ...xiaoliurenSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },

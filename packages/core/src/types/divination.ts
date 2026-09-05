@@ -34,6 +34,7 @@ export type DivinationType =
 export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
 
 export type XiaoliurenDivinationMethod = 'time';
+export type XiaoliurenRule = 'common' | 'duoneng';
 
 export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
@@ -47,6 +48,8 @@ export interface XiaoliurenPalaceDetail {
 }
 
 export interface XiaoliurenData {
+  rule?: XiaoliurenRule;
+  ruleLabel?: string;
   meta?: CoreResultMeta;
   method: XiaoliurenDivinationMethod;
   methodLabel: string;

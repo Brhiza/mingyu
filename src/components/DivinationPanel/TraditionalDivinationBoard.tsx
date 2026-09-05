@@ -1130,7 +1130,7 @@ function XiaoliurenTraditionalBoard({
               `农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日`,
           ],
           ['干支', `${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`],
-          ['起课法', data.methodLabel || '小六壬时宫速断'],
+          ['起课法', data.ruleLabel || '通行掌诀'],
         ]}
       />
       <TraditionalFacts
@@ -1161,7 +1161,13 @@ function XiaoliurenTraditionalBoard({
         </div>
       </div>
 
-      {hourPalaceClassic ? (
+      {data.rule === 'duoneng' ? (
+        <ClassicalAnnotationCard
+          title={`${data.primary.name} · 课时断语`}
+          source="《多能鄙事》卷八"
+          verse={data.primary.verse}
+        />
+      ) : hourPalaceClassic ? (
         <ClassicalAnnotationCard
           title={`${hourPalaceClassic.name}（${hourPalaceClassic.auspice} · 属${hourPalaceClassic.wuxing}）· 诗诀决断`}
           source={hourPalaceClassic.sourceBook}

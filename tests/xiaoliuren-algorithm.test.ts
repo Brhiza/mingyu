@@ -8,6 +8,54 @@ import {
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const PALACE_NAMES = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'] as const;
+
+test('小六壬：古法二月例、闰月与子时边界保持同一偏移，旧盘沿用通行法', () => {
+  const secondMonth = generateXiaoliuren({
+    rule: 'duoneng',
+    customDate: new Date('2025-02-28T00:30:00+08:00'),
+  });
+  assert.equal(secondMonth.lunarMonth, 2);
+  assert.equal(secondMonth.lunarDay, 1);
+  assert.equal(secondMonth.primary.name, '速喜');
+  for (const time of [
+    '2025-07-25T08:00:00+08:00',
+    '2025-06-29T23:00:00+08:00',
+    '2025-06-30T00:00:00+08:00',
+  ]) {
+    const customDate = new Date(time);
+    const common = generateXiaoliuren({ customDate });
+    const old = { ...common };
+    delete old.rule;
+    delete old.ruleLabel;
+    assert.deepEqual(analyzeXiaoliurenEvidence(old), common.evidenceAnalysis);
+    const ancient = generateXiaoliuren({ customDate, rule: 'duoneng' });
+    assert.equal(ancient.primary.index, (common.primary.index + 1) % 6);
+    assert.equal(ancient.lunarDay, common.lunarDay);
+    assert.equal(ancient.isLeapMonth, common.isLeapMonth);
+  }
+});
+
+test('小六壬：多能鄙事正月初一十二时辰与扫描例题一致', () => {
+  const names = ['留连', '速喜', '赤口', '小吉', '空亡', '大安'];
+  for (let i = 0; i < 12; i++) {
+    const customDate = new Date(Date.parse('2025-01-29T00:30:00+08:00') + i * 7200000);
+    const data = generateXiaoliuren({ rule: 'duoneng', customDate });
+    const common = generateXiaoliuren({ customDate });
+    assert.equal(data.lunarMonth, 1);
+    assert.equal(data.lunarDay, 1);
+    assert.equal(data.sequence.month.name, '大安');
+    assert.equal(data.sequence.day.name, '留连');
+    assert.equal(data.primary.name, names[i % 6]);
+    assert.equal(data.primary.index, (common.primary.index + 1) % 6);
+    assert.equal(data.ruleLabel, '《多能鄙事》');
+    assert.match(data.evidenceAnalysis!.promptText, /多能鄙事/);
+    assert.doesNotMatch(data.evidenceAnalysis!.promptText, /通行俗传/);
+    assert.match(data.evidenceAnalysis!.calculationSteps[1]!.formula, /下一宫起初一/);
+  }
+  for (const rule of ['unknown', null, false, ['duoneng']]) {
+    assert.throws(() => generateXiaoliuren({ rule } as never), /起课口径/);
+  }
+});
 const FORBIDDEN_EXTENSIONS =
   /起因.{0,12}过程.{0,12}结果|五行推进|月令旺衰|日干六亲|旬空|驿马|桃花|固定应期|华山派完整课/;
 

@@ -33,6 +33,32 @@ async function callApi(path: string, init?: RequestInit) {
   };
 }
 
+test('小六壬公开接口使用所选底本起课并生成同口径提示词', async () => {
+  const input = {
+    xiaoliurenRule: 'duoneng',
+    customDate: '2025-01-29T00:30:00+08:00',
+    question: '此事如何理解？',
+  };
+  const options = (data: object) => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const chart = await callApi('divination/xiaoliuren', options(input));
+  assert.equal(chart.response.status, 200);
+  assert.equal(chart.body.data.rule, 'duoneng');
+  assert.equal(chart.body.data.primary.name, '留连');
+  const prompted = await callApi('divination/xiaoliuren/prompt', options(input));
+  assert.equal(prompted.response.status, 200);
+  assert.match(prompted.body.data.prompt, /多能鄙事/);
+  assert.match(prompted.body.data.prompt, /占得宫：留连/);
+  assert.doesNotMatch(prompted.body.data.prompt, /通行俗传/);
+  for (const xiaoliurenRule of ['bad', false, ['duoneng']]) {
+    const invalid = await callApi('divination/xiaoliuren', options({ ...input, xiaoliurenRule }));
+    assert.equal(invalid.response.status, 400);
+  }
+});
+
 function createZiweiRuntimeFixture(input: Parameters<typeof calculateFullZiweiChart>[0]) {
   let runtimePromise: ReturnType<typeof calculateFullZiweiChart> | undefined;
   return () => {
