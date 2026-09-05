@@ -725,7 +725,9 @@ test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复�
         assert.deepEqual(analysis.weakestElements, ['金']);
         assert.equal(analysis.summaryFact.itemFactCount, analysis.itemFacts.length);
         assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
-        assert.match(analysis.promptText, /不是命理吉凶评分/);
+        assert.match(analysis.promptText, /五行构成的加权统计口径/);
+        assert.match(analysis.promptText, /【任务】[\s\S]*【结果】/);
+        assert.doesNotMatch(analysis.promptText, /证据汇总|证据链完整|单一真相源|来源：|限制：/);
       }
       if (name === 'foundation_direction') {
         const direction = result.structuredContent.result as {

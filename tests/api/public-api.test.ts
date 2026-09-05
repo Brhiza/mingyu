@@ -1065,7 +1065,9 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.deepEqual(wuxing.body.data.dominantElements, ['火']);
   assert.deepEqual(wuxing.body.data.weakestElements, ['金']);
   assert.equal(wuxing.body.data.summaryFact.itemFactCount, wuxing.body.data.itemFacts.length);
-  assert.match(wuxing.body.data.promptText, /不包含月令司权、季节旺衰、日主、格局/);
+  assert.match(wuxing.body.data.promptText, /【任务】[\s\S]*【统计口径】[\s\S]*【结果】/);
+  assert.match(wuxing.body.data.promptText, /本气1、中气0.5、余气0.3/);
+  assert.doesNotMatch(wuxing.body.data.promptText, /证据汇总|证据链完整|单一真相源|来源：|限制：/);
 
   const direction = await callApi('foundation/direction', {
     method: 'POST',

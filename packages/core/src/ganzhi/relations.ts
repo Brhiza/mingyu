@@ -28,7 +28,7 @@ export const BRANCH_WUXING: Record<string, string> = {
 
 // 月令当令五行（按月建地支本气定当令之神）：
 // 同令为旺，令生我为相，我生令为休，我克令为囚，令克我为死。
-// 六爻、梅花共用，比季节粗分（春夏秋冬）更精确。
+// 六爻、梅花共用月建本气简表；交节深浅与四季土旺十八日须另按日期判断。
 export const MONTH_LING_WUXING: Record<string, string> = {
   子: '水',
   丑: '土',
