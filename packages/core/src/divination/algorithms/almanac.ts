@@ -203,6 +203,8 @@ const GOD_RULE_SOURCES: Record<string, string> = {
   相日: '《钦定协纪辨方书》四季相日起例',
   四击: '《钦定协纪辨方书》四季四击起例',
   九空: '《钦定协纪辨方书》九空逆行四季起例',
+  五富: '《钦定大清会典》逐月五富起例',
+  生气: '《黄帝宅经》逐月生气地支起例',
 };
 
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
