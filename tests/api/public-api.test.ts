@@ -5432,6 +5432,9 @@ test('公开 API 皇极经世应直接按公元年返回完整值年卦，并保
   assert.equal(standard.body.data.forecast.hexagrams.sixtyYear.hexagram.name, '火风鼎');
   assert.equal(standard.body.data.forecast.hexagrams.decade.hexagram.name, '天风姤');
   assert.equal(standard.body.data.forecast.hexagrams.annual.name, '天火同人');
+  assert.equal(standard.body.data.eraTrend.yangLineCount, 5);
+  assert.equal(standard.body.data.eraTrend.yinLineCount, 1);
+  assert.match(standard.body.data.eraTrend.summary, /复至乾的阳半周/);
 
   const calculation = await callApi('metaphysics/huangji-jingshi/calculate', {
     method: 'POST',

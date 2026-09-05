@@ -314,10 +314,9 @@ test('皇极经世世运消息与阳息阴消算法应准确判定圆图阶段�
   const result2026 = calculateHuangjiJingshi({ year: 2026 });
   assert.ok(result2026.eraTrend);
   assert.equal(result2026.eraTrend.phase, '阳息进取');
-  assert.match(result2026.eraTrend.trendNature, /阳气升腾/);
-  assert.match(result2026.prompt, /世运消息：处于阳息进取期/);
+  assert.match(result2026.eraTrend.trendNature, /复至乾的阳半周/);
+  assert.match(result2026.prompt, /圆图消息：值年同人卦为5阳1阴/);
 
-  // 乾之极或坤之极测试
   const epochTest = calculateHuangjiJingshi({ year: 1984 });
   assert.ok(epochTest.eraTrend);
   assert.equal(typeof epochTest.eraTrend.summary, 'string');
