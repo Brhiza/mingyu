@@ -212,6 +212,8 @@ function buildXuanKong(
     if (input.facingMountain != null) xuanInput.facingMountain = input.facingMountain;
   } else if (input.doorToInteriorDegree != null && measurement) {
     // 八宅门向量测：measuredDegree 是入户方向；玄空优先用其换算出的坐向。
+    if (measurement.sitDegree !== undefined) xuanInput.sitDegree = measurement.sitDegree;
+    if (measurement.facingDegree !== undefined) xuanInput.facingDegree = measurement.facingDegree;
     if (measurement.sitMountain) xuanInput.sitMountain = measurement.sitMountain;
     if (measurement.facingMountain) xuanInput.facingMountain = measurement.facingMountain;
   } else if (input.doorToInteriorDegree != null) {
@@ -411,9 +413,7 @@ function buildPrompt(result: {
           '方位合参：',
           ...result.xuankong.palaces.map((palace) => {
             const mansion = result.bazhai?.mingPalace.find(
-              (item) =>
-                palace.direction.includes(item.direction.replace(/方$/u, '')) ||
-                item.direction.includes(palace.direction.replace(/宫$/u, '')),
+              (item) => palace.direction.replace(/宫$/u, '') === item.direction.replace(/方$/u, ''),
             );
             return `  ${palace.name}${palace.direction}：飞星运${palace.yunStar}山${palace.shanStar}向${palace.xiangStar}${palace.yearStar !== undefined ? `年${palace.yearStar}` : ''}${palace.monthStar !== undefined ? `月${palace.monthStar}` : ''}${mansion ? `；命卦${mansion.direction}${mansion.label}` : ''}`;
           }),
