@@ -30,7 +30,7 @@ import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
-import { attachResultMeta } from '../../shared/result';
+import { attachResultMeta, MingyuCoreError } from '../../shared/result';
 import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
 import type { LiuyaoChangeRelation, LiuyaoData } from '../../types/divination';
 import {
@@ -894,7 +894,11 @@ function resolveRawYaos(
   const usesRandomOptions = hasRandomOptions(options);
   if (method === 'yarrow') {
     if (options?.yaos !== undefined || options?.coinThrows !== undefined) {
-      throw new Error('蓍草起卦不能同时提供手工爻值或铜钱记录。');
+      throw new MingyuCoreError({
+        code: 'YARROW_INPUT_CONFLICT',
+        category: 'validation',
+        message: '蓍草起卦不能同时提供手工爻值或铜钱记录。',
+      });
     }
     const { randomTrace, ...yarrow } = generateYarrow({
       ...options,
@@ -906,7 +910,12 @@ function resolveRawYaos(
       ...(randomTrace ? { randomTrace } : {}),
     };
   }
-  if (options?.yarrowSplits !== undefined) throw new Error('蓍草分堆记录只适用于蓍草起卦。');
+  if (options?.yarrowSplits !== undefined)
+    throw new MingyuCoreError({
+      code: 'YARROW_INPUT_CONFLICT',
+      category: 'validation',
+      message: '蓍草分堆记录只适用于蓍草起卦。',
+    });
   if (method === 'time') {
     if (options?.yaos !== undefined) throw new Error('六爻时间起卦不能同时提供手工爻值。');
     if (options?.coinThrows !== undefined) throw new Error('六爻时间起卦不能同时提供手摇记录。');

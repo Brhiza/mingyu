@@ -442,6 +442,38 @@ async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
   return callback(await getMcpClient());
 }
 
+test('蓍草 MCP 支持计算、分堆重放和完整提示词', async () => {
+  await withMcpClient(async (client) => {
+    const input = { method: 'yarrow', seed: 'MCP蓍草', customDate: '2026-09-06T12:00:00+08:00' };
+    const chart = await client.callTool({ name: 'divine_liuyao', arguments: input });
+    assert.equal(chart.isError, undefined);
+    const data = chart.structuredContent
+      ?.result as import('../../packages/core/src/types/divination').LiuyaoData;
+    assert.equal(data.generation?.method, 'yarrow');
+    const splits = data.generation!.yarrow!.lines.flatMap((line) =>
+      line.changes.map((step) => step.left),
+    );
+    const hand = await client.callTool({
+      name: 'divine_liuyao',
+      arguments: { method: 'yarrow', customDate: input.customDate, yarrowSplits: splits },
+    });
+    assert.deepEqual((hand.structuredContent?.result as typeof data).yaoArray, data.yaoArray);
+    const promptResult = await client.callTool({
+      name: 'liuyao_prompt',
+      arguments: { ...input, question: '这件事如何推进？' },
+    });
+    const prompt = String(promptResult.structuredContent?.prompt);
+    assert.match(prompt, /蓍草/);
+    assert.match(prompt, /第3变/);
+    assertPromptIsPortableTaskText(prompt);
+    const invalid = await client.callTool({
+      name: 'divine_liuyao',
+      arguments: { ...input, yarrowSplits: splits },
+    });
+    assert.equal(invalid.isError, true);
+  });
+});
+
 async function withIsolatedMcpClient<T>(callback: (client: Client) => Promise<T>) {
   const client = await createMcpClient();
   try {

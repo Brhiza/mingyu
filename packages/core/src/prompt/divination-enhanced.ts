@@ -335,6 +335,7 @@ function formatLiuyaoInfo(
     : null;
   return [
     '占法：六爻',
+    ...(data.generation?.method === 'yarrow' ? evidenceAnalysis.generationFacts : []),
     `核心结构：主卦${data.originalName}${data.palace?.name ? `（${data.palace.name}宫）` : ''}；变卦${data.changedName || '无'}；互卦${data.interName || '无'}${data.specialPattern ? `；卦式${data.specialPattern}` : ''}`,
     data.palaceStage ? `八宫卦位：${data.palaceStage}` : '',
     data.guaShen?.branch

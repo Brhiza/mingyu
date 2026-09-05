@@ -14,9 +14,14 @@ import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 const liuyaoSchema = z.object({
   ...randomOptionShape,
   method: z
-    .enum(['time', 'manual', 'coins'])
+    .enum(['time', 'manual', 'coins', 'yarrow'])
     .optional()
-    .describe('起卦方式：time=时间，manual=手工爻值，coins=模拟三钱投掷'),
+    .describe('起卦方式：time=时间，manual=手工爻值，coins=模拟三钱投掷，yarrow=蓍草十八变'),
+  yarrowSplits: z
+    .array(z.number().int().min(1).max(47))
+    .length(18)
+    .optional()
+    .describe('蓍草手工分堆记录：十八变挂一前左堆策数，按初爻至上爻；不传则模拟分堆'),
   yaos: z
     .array(z.number().int().min(6).max(9))
     .length(6)
@@ -40,6 +45,7 @@ function buildLiuyaoResult(args: z.infer<typeof liuyaoSchema>) {
   return generateLiuyao(readMcpCustomDate(args.customDate), {
     method: args.method,
     yaos: args.yaos,
+    yarrowSplits: args.yarrowSplits,
     ...readMcpRandomOptions(args),
   });
 }

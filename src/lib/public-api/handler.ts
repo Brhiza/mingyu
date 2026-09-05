@@ -30,6 +30,7 @@ import {
   isValidIsoDateTime,
 } from '../date-validation';
 import { generateLiuyao, type LiuyaoGenerationOptions } from 'mingyu-core/divination/liuyao';
+import { MingyuCoreError } from 'mingyu-core/result';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
@@ -282,8 +283,15 @@ const DIVINATION_REQUEST_PROPERTIES = {
     description: '从结果 meta.random.samples 保存的随机样本，用于完整重放。',
   },
   liuyaoMethod: {
-    enum: ['time', 'manual', 'coins'],
-    description: '六爻起卦方式：时间起卦、手工爻值或模拟三钱投掷。',
+    enum: ['time', 'manual', 'coins', 'yarrow'],
+    description: '六爻起卦方式：时间、手工爻值、模拟三钱或蓍草十八变。',
+  },
+  yarrowSplits: {
+    type: 'array',
+    minItems: 18,
+    maxItems: 18,
+    items: { type: 'integer', minimum: 1, maximum: 47 },
+    description: '蓍草十八变挂一前左堆策数，按初爻至上爻；不传则模拟分堆。',
   },
   yaos: {
     type: 'array',
@@ -3759,18 +3767,32 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
 }
 
 function calculateLiuyao(input: JsonRecord) {
-  const method = readOptionalEnum(input, 'liuyaoMethod', ['time', 'manual', 'coins'] as const);
+  const method = readOptionalEnum(input, 'liuyaoMethod', [
+    'time',
+    'manual',
+    'coins',
+    'yarrow',
+  ] as const);
+  const yarrowSplits = readOptionalIntegerArray(input, 'yarrowSplits', 18, 1, 47);
   const yaos = readOptionalIntegerArray(input, 'yaos', 6, 6, 9);
   const randomOptions = readRandomOptions(input);
   const options: LiuyaoGenerationOptions | undefined =
-    method || yaos || randomOptions
+    method || yaos || yarrowSplits || randomOptions
       ? {
           method,
           yaos,
+          yarrowSplits,
           ...randomOptions,
         }
       : undefined;
-  return generateLiuyao(readCustomDate(input), options);
+  try {
+    return generateLiuyao(readCustomDate(input), options);
+  } catch (error) {
+    if (error instanceof MingyuCoreError && error.category === 'validation') {
+      throw new ApiError(400, 'BAD_REQUEST', error.message);
+    }
+    throw error;
+  }
 }
 
 function calculateQimen(input: JsonRecord) {

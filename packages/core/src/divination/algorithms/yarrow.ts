@@ -1,6 +1,16 @@
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { assertOptionalRecord } from '../../shared/validation';
+import { MingyuCoreError } from '../../shared/result';
+
+function invalidYarrowInput(message: string): never {
+  throw new MingyuCoreError({
+    code: 'YARROW_INPUT_INVALID',
+    category: 'validation',
+    message,
+    field: 'yarrowSplits',
+  });
+}
 
 export interface YarrowChange {
   initial: number;
@@ -35,10 +45,10 @@ export function generateYarrow(options: YarrowOptions = {}): YarrowResult {
   assertOptionalRecord(options, '蓍草起卦设置');
   const splits = options.splits;
   if (splits !== undefined && (!Array.isArray(splits) || splits.length !== 18)) {
-    throw new Error('蓍草分堆记录必须恰好包含十八变。');
+    invalidYarrowInput('蓍草分堆记录必须恰好包含十八变。');
   }
   if (splits !== undefined && hasRandomOptions(options)) {
-    throw new Error('手工分堆记录不能同时提供随机选项。');
+    invalidYarrowInput('手工分堆记录不能同时提供随机选项。');
   }
   const context = splits === undefined ? createRandomContext(options) : undefined;
   const lines: YarrowLine[] = [];
@@ -56,7 +66,7 @@ export function generateYarrow(options: YarrowOptions = {}): YarrowResult {
         left = remainder + 4 * randomInt(count, context!.random);
       }
       if (!Number.isInteger(left) || left < 1 || left > remaining - 2) {
-        throw new Error(`第${line + 1}爻第${change + 1}变左堆须为1至${remaining - 2}的整数。`);
+        invalidYarrowInput(`第${line + 1}爻第${change + 1}变左堆须为1至${remaining - 2}的整数。`);
       }
       const right = remaining - left;
       const leftRemainder = ((left - 1) % 4) + 1;

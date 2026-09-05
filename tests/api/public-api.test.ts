@@ -33,6 +33,56 @@ async function callApi(path: string, init?: RequestInit) {
   };
 }
 
+test('蓍草公开接口保留十八变并支持重放及提示词', async () => {
+  const post = (data: object) => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const input = {
+    liuyaoMethod: 'yarrow',
+    customDate: '2026-09-06T12:00:00+08:00',
+    seed: '公开蓍草',
+  };
+  const first = await callApi('divination/liuyao', post(input));
+  assert.equal(first.response.status, 200);
+  assert.equal(first.body.data.generation.method, 'yarrow');
+  assert.equal(first.body.data.generation.yarrow.lines.length, 6);
+  const replay = await callApi(
+    'divination/liuyao',
+    post({ ...input, seed: undefined, replay: first.body.data.meta.random.samples }),
+  );
+  assert.deepEqual(replay.body.data.generation, first.body.data.generation);
+  const splits = first.body.data.generation.yarrow.lines.flatMap(
+    (line: { changes: { left: number }[] }) => line.changes.map((step) => step.left),
+  );
+  const hand = await callApi(
+    'divination/liuyao',
+    post({ ...input, seed: undefined, yarrowSplits: splits }),
+  );
+  assert.equal(hand.response.status, 200);
+  assert.deepEqual(hand.body.data.yaoArray, first.body.data.yaoArray);
+  const prompt = await callApi(
+    'divination/liuyao/prompt',
+    post({ ...input, question: '这件事如何推进？' }),
+  );
+  assert.equal(prompt.response.status, 200);
+  assert.match(prompt.body.data.prompt, /蓍草/);
+  assert.match(prompt.body.data.prompt, /第3变/);
+  assertPromptIsPortableTaskText(prompt.body.data.prompt);
+  for (const invalid of [
+    { yarrowSplits: [1] },
+    { yarrowSplits: Array(18).fill(47) },
+    { yaos: [6, 7, 8, 9, 6, 7] },
+  ]) {
+    const result = await callApi(
+      'divination/liuyao',
+      post({ ...input, seed: undefined, ...invalid }),
+    );
+    assert.equal(result.response.status, 400);
+  }
+});
+
 test('小六壬公开接口使用所选底本起课并生成同口径提示词', async () => {
   const input = {
     xiaoliurenRule: 'duoneng',
