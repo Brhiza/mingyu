@@ -9,7 +9,9 @@ export interface BaziClimateBalanceResult {
 }
 
 /**
- * 依据《穷通宝鉴》《滴天髓》“天道有寒暖，地道有燥湿”的调候失衡与药神判定算法
+ * 依据《穷通宝鉴》《滴天髓》“天道有寒暖，地道有燥湿”的调候失衡与药神判定算法。
+ * 范围说明：本函数仅统计四柱水火分布的寒暖燥湿指标，不计算日主取用、合化、
+ * 制化与药神有效性；完整调候取用见 baziTherapeuticStrategy 的细分规则，两者结论范围不同。
  */
 export function evaluateBaziClimateBalance(pillars: Pillars): BaziClimateBalanceResult {
   const monthZhi = pillars.month.zhi;
@@ -96,6 +98,7 @@ export function evaluateBaziClimateBalance(pillars: Pillars): BaziClimateBalance
   return {
     nature: '中和',
     medicine: '气序中和',
-    summary: '局中寒暖燥湿相对调和，五行运化顺畅',
+    summary:
+      '按水火分布统计，寒暖燥湿指标未见明显失衡；此为寒暖单项指标，完整调候仍需结合日主与月令细分规则另核',
   };
 }
