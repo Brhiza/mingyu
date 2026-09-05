@@ -1344,6 +1344,8 @@ export interface AstrolabeBirthInput {
   timeZoneId?: string;
   locationName?: string;
   useTrueSolarTime?: boolean;
+  /** 坐标精度来源：user-provided 为用户精确坐标，其余见出生地点解析登记 */
+  coordinateAccuracy?: string;
 }
 
 export interface AstrolabePoint {
@@ -1403,6 +1405,8 @@ export interface AstrolabeData {
     trueSolarDateTime?: string;
     trueSolarEvidence?: TrueSolarTimeEvidenceFields;
     isTrueSolarTime?: boolean;
+    /** 坐标精度来源，未提供时为 undefined */
+    coordinateAccuracy?: string;
   };
   planets: AstrolabePoint[];
   angles: AstrolabePoint[];
