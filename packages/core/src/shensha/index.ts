@@ -582,7 +582,7 @@ export interface HuangliShensha {
 }
 
 export interface HuangliInfo {
-  /** 当日全部黄历神煞（来自 tyme4ts，共 151 种，按当日命中输出） */
+  /** 当日黄历神煞，按校正后的起例输出命中项。 */
   shensha: HuangliShensha[];
   /** 十二建除（值神） */
   duty: string;
@@ -592,9 +592,9 @@ export interface HuangliInfo {
   nineStarColor: string;
 }
 
-/** 列出 tyme4ts 内建的全部黄历神煞名（共 151 个），供能力发现/文档用 */
+/** 列出黄历神煞名称，供能力发现与文档使用。 */
 export function listHuangliShenshaNames(): string[] {
-  return God.NAMES.slice();
+  return God.NAMES.filter((name) => name !== '阳错阴冲');
 }
 
 /** 月日干支立成表；母仓的土王分界需通过具体日期入口计算。 */
@@ -712,6 +712,7 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
   matches.八专 = ['甲寅', '丁未', '己未', '庚申', '癸丑'].includes(day.getName());
   matches.重日 = '巳亥'.includes(day.getEarthBranch().getName());
   matches.四离 = false;
+  matches.阳错阴冲 = false;
   matches.孤辰 = [
     '',
     '',

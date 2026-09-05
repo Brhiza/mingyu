@@ -638,7 +638,7 @@ test('ganzhi: tyme4ts 权威后端（纳音/干支五行/合冲害/十神）', (
   assert.equal(core.ganzhi.getTenStar('甲', '乙'), '劫财');
 });
 
-test('shensha: 黄历神煞层（委托 tyme4ts 151 神煞）', () => {
+test('shensha: 黄历神煞目录与日期查询保留分类和建除信息', () => {
   const names = core.shensha.listHuangliShenshaNames();
   assert.ok(names.length >= 100, `黄历神煞应≥100，实为 ${names.length}`);
   const info = core.shensha.getHuangliShensha(2026, 7, 10);

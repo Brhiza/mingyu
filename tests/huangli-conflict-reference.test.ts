@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getHuangliDayGods } from '../packages/core/src/shensha';
+import { getHuangliDayGods, listHuangliShenshaNames } from '../packages/core/src/shensha';
 
 test('阴阳错冲与岁薄逐阵等十七项覆盖完整月日组合', () => {
   // 《协纪辨方书》月厌条所列阴阳错冲等十七项起例。
@@ -51,11 +51,14 @@ test('阴阳错冲与岁薄逐阵等十七项覆盖完整月日组合', () => {
     绝阳: ['', '', '', '', '', '', '', '', '', '戊戌', '', ''],
   };
   const stems = [...'甲乙丙丁戊己庚辛壬癸'];
+  assert.equal(listHuangliShenshaNames().includes('阳错阴冲'), false);
+  assert.equal(listHuangliShenshaNames().includes('阳破阴冲'), true);
   const branches = [...'子丑寅卯辰巳午未申酉戌亥'];
   const pillar = (index: number) => stems[index % 10] + branches[index % 12];
   for (let month = 0; month < 12; month++)
     for (let day = 0; day < 60; day++) {
       const names = getHuangliDayGods(pillar(month + 2), pillar(day)).map((god) => god.getName());
+      assert.equal(names.includes('阳错阴冲'), false, `${month + 1}月/${pillar(day)}`);
       for (const [name, targets] of Object.entries(tables)) {
         assert.equal(
           names.includes(name),
