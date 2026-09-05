@@ -7,7 +7,7 @@ import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
-import { getHuangliDayGods } from '../../shensha';
+import { getHuangliSolarDayGods } from '../../shensha';
 import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../ganzhi/data';
 import {
   getBranchWuxing,
@@ -202,7 +202,9 @@ function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFac
           ? '《钦定协纪辨方书》四德日干起例'
           : name === '天恩'
             ? '《大清时宪历笺释》天恩十五日起例'
-            : 'tyme4ts 值日神煞',
+            : name === '母仓'
+              ? '《钦定协纪辨方书》母仓起例、《历事明原》四立前十八日土王用事'
+              : 'tyme4ts 值日神煞',
         'tyme4ts God.getLuck() 原生吉凶属性',
       ],
       limitation: GOD_FACT_LIMITATION,
@@ -842,11 +844,7 @@ function buildDayCandidate(
   const dayBranch = dayCycle.getEarthBranch();
   const recommends = normalizeTaboos(lunarDay.getRecommends());
   const avoids = normalizeTaboos(lunarDay.getAvoids());
-  const cycleDay = lunarDay.getSixtyCycleDay();
-  const godSources = getHuangliDayGods(
-    cycleDay.getMonth().getName(),
-    cycleDay.getSixtyCycle().getName(),
-  );
+  const godSources = getHuangliSolarDayGods(solarDay);
   const gods = godSources.map((item) => item.getName());
   const scoring = buildDayFacts({
     dateKey,
