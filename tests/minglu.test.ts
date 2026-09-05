@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 import { buildMingluArticle } from '../packages/core/src/minglu/index.ts';
 import { MINGLU_GLOSSARY_DATABASE } from '../packages/core/src/minglu/glossary-data.ts';
+import { getBaZhaiPalace } from '../packages/core/src/direction/index.ts';
 
 test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   const person = {
@@ -110,4 +111,67 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(article.glossary.length >= 20);
   assert.ok(article.statistics.totalSections >= 8);
   assert.ok(article.statistics.totalGlossaryEntries >= 20);
+});
+
+test('命录岁运并临不应同时误判天地合或天克地冲，冲合判定须两字不同', () => {
+  const baziResult = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    gender: 'male',
+  });
+  const article = buildMingluArticle({ person: { name: '张三', gender: 'male' }, baziResult });
+
+  let sawBinglin = false;
+  for (const cycle of article.luckChronicleSection.cycles) {
+    for (const year of cycle.annualYears) {
+      const events = year.specialEvents.join('；');
+      if (year.ganZhi === cycle.ganZhi && cycle.ganZhi.length === 2) {
+        sawBinglin = true;
+        assert.match(events, /岁运并临/);
+        assert.doesNotMatch(events, /岁运天地合|岁运天克地冲/);
+      }
+      if (events.includes('太岁冲日支')) {
+        assert.notEqual(year.ganZhi.slice(1), baziResult.pillars.day.zhi, '同支不得记为太岁冲日支');
+      }
+      if (events.includes('太岁冲提纲')) {
+        assert.notEqual(
+          year.ganZhi.slice(1),
+          baziResult.pillars.month.zhi,
+          '同支不得记为太岁冲提纲',
+        );
+      }
+    }
+  }
+  assert.ok(sawBinglin, '十二年大运流年表中应至少出现一次岁运并临');
+});
+
+test('命录命卦方位应与公共八宅大游年表逐卦一致', () => {
+  const baziResult = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 5,
+    gender: 'male',
+  });
+  const article = buildMingluArticle({ person: { name: '张三', gender: 'male' }, baziResult });
+  const gua = baziResult.mingGua!.gua;
+  const palaceTable = getBaZhaiPalace(gua);
+  const directionOf = (label: string) => palaceTable.find((p) => p.label === label)!.direction;
+
+  const pillarsDirections = article.pillarsSection.mingGuaInfo!.directions;
+  assert.equal(pillarsDirections.find((d) => d.name === '生气方')!.direction, directionOf('生气'));
+  assert.equal(pillarsDirections.find((d) => d.name === '延年方')!.direction, directionOf('延年'));
+  assert.equal(pillarsDirections.find((d) => d.name === '绝命方')!.direction, directionOf('绝命'));
+
+  const fengshui = article.fengshuiSection!.mingGua;
+  assert.equal(
+    fengshui.beneficialDirections.find((d) => d.name === '天医方')!.direction,
+    directionOf('天医'),
+  );
+  assert.equal(
+    fengshui.unfavorableDirections.find((d) => d.name === '五鬼方')!.direction,
+    directionOf('五鬼'),
+  );
 });

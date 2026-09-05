@@ -364,6 +364,9 @@ export interface MingluAnnualYearItem {
 
 export interface MingluLuckCycleItem {
   cycleIndex: number;
+  /** 条目类型：大运，或起运前的童限（小运） */
+  entryType: '大运' | '小运';
+  isXiaoyun: boolean;
   startAge: number;
   endAge: number;
   startYear: number;
@@ -396,7 +399,8 @@ export interface MingluZiweiStarFact {
   brightness?: string;
   wuxing?: string;
   birthMutagen?: string;
-  selfMutagen?: string;
+  /** 当前运限四化（区别于宫位自化 selfMutagens） */
+  activeScopeMutagen?: string;
   scopeMutagen?: string;
 }
 
@@ -436,8 +440,8 @@ export interface MingluZiweiSectionData {
     matched: boolean;
     conditions: string[];
     traditionalInterpretation: string;
-    sourceTitle: string;
-    sourceQuote: string;
+    sourceTitle?: string;
+    sourceQuote?: string;
   }>;
   mutagens: Array<{
     mutagen: string;

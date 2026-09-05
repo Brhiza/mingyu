@@ -38,6 +38,9 @@ export const MingluZiweiSection: React.FC<Props> = ({ data }) => {
                     <span className="minglu-palace-badge is-soul">命宫</span>
                   )}
                   {pal.isBodyPalace && <span className="minglu-palace-badge is-body">身宫</span>}
+                  {pal.isLaiYinPalace && (
+                    <span className="minglu-palace-badge is-laiyin">来因</span>
+                  )}
                 </span>
                 <span className="text-xs text-slate-500 font-mono">
                   {pal.heavenlyStem}
@@ -121,7 +124,9 @@ export const MingluZiweiSection: React.FC<Props> = ({ data }) => {
                     {p.type}
                   </span>
                 </div>
-                <div className="text-xs text-slate-500 mb-2">出处：{p.sourceTitle}</div>
+                {p.sourceTitle && (
+                  <div className="text-xs text-slate-500 mb-2">出处：{p.sourceTitle}</div>
+                )}
                 <p className="text-xs text-slate-700 dark:text-slate-300 mb-2 leading-relaxed">
                   {p.traditionalInterpretation}
                 </p>
