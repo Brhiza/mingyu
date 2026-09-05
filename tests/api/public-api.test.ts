@@ -5950,3 +5950,23 @@ test('五运六气公开接口保留全年份年度结构并明确公历日期�
     );
   }
 });
+
+test('八宅公开提示词完整保留八宫生克及命宅分组', async () => {
+  const { response, body } = await callApi('metaphysics/bazhai/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mingGua: '坎',
+      sitMountain: '午',
+      responseMode: 'full',
+      question: '请分析住宅方位',
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.match(body.data.prompt, /命宅同组，五行关系为命卦克宅卦/);
+  assert.match(body.data.prompt, /宅卦星宫生克（伏位取左辅木）/);
+  for (const gua of ['坎', '艮', '震', '巽', '离', '坤', '兑', '乾']) {
+    assert.match(body.data.prompt, new RegExp(`${gua}宫[木火土金水]：`));
+  }
+  assert.doesNotMatch(body.data.prompt, /贪狼制绝命|门主同元相生|福力深厚/);
+});

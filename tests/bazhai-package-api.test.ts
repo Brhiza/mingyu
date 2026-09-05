@@ -423,3 +423,32 @@ test('八宅逐宫计算星宫生克，并区分命宅分组与五行关系', ()
   assert.equal(observed.size, 5);
   assert.match(analyzeBaZhai({ mingGua: '坎' }).prompt, /命卦星宫生克/);
 });
+
+test('命卦三元一百八十年符合男女九宫顺逆与寄宫规则', () => {
+  const guas: Record<number, string> = {
+    1: '坎',
+    2: '坤',
+    3: '震',
+    4: '巽',
+    6: '乾',
+    7: '兑',
+    8: '艮',
+    9: '离',
+  };
+  let male = 1;
+  let female = 5;
+  for (let year = 1864; year < 2044; year++) {
+    assert.equal(
+      analyzeBaZhai({ birthYear: year, gender: 'male' }).mingGua,
+      guas[male === 5 ? 2 : male],
+      `${year}男`,
+    );
+    assert.equal(
+      analyzeBaZhai({ birthYear: year, gender: 'female' }).mingGua,
+      guas[female === 5 ? 8 : female],
+      `${year}女`,
+    );
+    male = male === 1 ? 9 : male - 1;
+    female = female === 9 ? 1 : female + 1;
+  }
+});
