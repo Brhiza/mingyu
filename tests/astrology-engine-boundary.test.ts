@@ -5,10 +5,28 @@ import {
   CelestialBody,
   calculateAspects,
   calculateChart,
+  calculatePlanets,
   calculateTransits,
   getApparentPosition,
   toJulianDate,
 } from '../packages/core/src/astrology/engine';
+
+test('请求的星体超出星历数据范围时明确报错，未请求的小行星不阻断主星盘', () => {
+  const input = { year: 150, month: 1, day: 1, hour: 12, minute: 0, timezone: 0 };
+  assert.equal(calculateChart(input).planets.length, 10);
+  for (const calculate of [calculateChart, calculatePlanets]) {
+    assert.throws(() => calculate(input, { includeChiron: true }), /星历数据.*凯龙星/);
+    assert.throws(
+      () => calculate(input, { includeAsteroids: true }),
+      /星历数据.*谷神星.*智神星.*婚神星.*灶神星/,
+    );
+  }
+  assert.equal(
+    calculateChart({ ...input, year: 2026 }, { includeChiron: true, includeAsteroids: true })
+      .planets.length,
+    15,
+  );
+});
 
 test('星历输入拒绝不存在的公历日期及越界时分秒时区', () => {
   const input = { year: 2026, month: 1, day: 1, hour: 12, minute: 0, timezone: 8 };

@@ -440,8 +440,15 @@ const PATTERN_KIND_LABELS: Record<string, string> = {
   stellium_house: '同宫星群',
 };
 
-const PATTERN_BODY_LABELS: Record<string, string> = {
+const BODY_LABELS: Record<string, string> = {
   Sun: '太阳',
+  Chiron: '凯龙星',
+  Ceres: '谷神星',
+  Pallas: '智神星',
+  Juno: '婚神星',
+  Vesta: '灶神星',
+  'North Node': '北交点',
+  'True Lilith': '真莉莉丝',
   Moon: '月亮',
   Mercury: '水星',
   Venus: '金星',
@@ -460,8 +467,8 @@ function findPatternsFromBodies(bodies: AspectBody[]): AspectPattern[] {
   );
   return detected.map((pattern) => {
     const kind = PATTERN_KIND_LABELS[pattern.kind] ?? pattern.kind;
-    const members = pattern.bodies.map((item) => PATTERN_BODY_LABELS[item] ?? item).join('、');
-    const apex = pattern.apex ? (PATTERN_BODY_LABELS[pattern.apex] ?? pattern.apex) : '';
+    const members = pattern.bodies.map((item) => BODY_LABELS[item] ?? item).join('、');
+    const apex = pattern.apex ? (BODY_LABELS[pattern.apex] ?? pattern.apex) : '';
     const signIndex = SIGN_NAMES.indexOf(pattern.sign as (typeof SIGN_NAMES)[number]);
     const extra = pattern.sign
       ? `，${signIndex >= 0 ? SIGN_LABELS[signIndex] : pattern.sign}`
@@ -554,10 +561,17 @@ export function calculateChart(
     ...(options.includeChiron ? ['Chiron'] : []),
     ...(options.includeAsteroids ? ['Ceres', 'Pallas', 'Juno', 'Vesta'] : []),
   ];
-  const planets = mainNames.flatMap((name): ChartPlanet[] => {
-    const body = chart.bodies[BODY_IDS[name]];
-    return body ? [mapBody(name, body)] : [];
-  });
+  const missingNames = mainNames.filter((name) => !chart.bodies[BODY_IDS[name]]);
+  if (options.includeNodes && !chart.bodies.true_node) missingNames.push('North Node');
+  if (options.includeLilith && !chart.bodies.true_lilith) missingNames.push('True Lilith');
+  if (missingNames.length > 0) {
+    throw new RangeError(
+      `当前日期的星历数据无法提供：${missingNames.map((name) => BODY_LABELS[name] ?? name).join('、')}。`,
+    );
+  }
+  const planets = mainNames.map((name): ChartPlanet =>
+    mapBody(name, chart.bodies[BODY_IDS[name]]!),
+  );
   const nodes = options.includeNodes
     ? [
         createPoint(
