@@ -16,7 +16,7 @@ import type {
   JinkoujueData,
 } from '../types/divination';
 import { analyzeQimenEvidence } from '../divination/algorithms/qimen';
-import { analyzeAlmanacEvidence } from '../divination/algorithms/almanac';
+import { analyzeAlmanacEvidence, formatAlmanacGods } from '../divination/algorithms/almanac';
 import { LIUCHONG_MAP, LIUHE_MAP, SIXTY_CYCLE } from '../ganzhi';
 import {
   formatTianPanStars,
@@ -786,6 +786,7 @@ function formatAlmanacInfo(data: AlmanacData) {
       candidate?.status ? `分类${candidate.status}` : '',
       recommendationText,
       avoidText,
+      ...formatAlmanacGods(item),
       participantNotes.length ? `参与人${participantNotes.join('；')}` : '',
       hourText ? `备选时辰${hourText}` : '',
     ].filter(Boolean);

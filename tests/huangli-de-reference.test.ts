@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getHuangliDayGods, getHuangliShensha } from '../packages/core/src/shensha';
 import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac';
+import { formatAlmanacGods } from '../packages/core/src/divination/almanac-evidence';
+import { formatEnhancedDivinationInfo } from '../packages/core/src/prompt/divination-enhanced';
+import { formatDetailedDivinationInfo } from '../packages/core/src/prompt/divination-detail';
 
 test('黄历四德按协纪日干起例覆盖十二月六十日', () => {
   // 《协纪辨方书》四仲天德居四维、无天德合；与将四维映射地支的起例分开。
@@ -43,4 +46,27 @@ test('辰月壬寅日天德贯通黄历查询与择日结果', () => {
     result.days[0].godFacts?.find((fact) => fact.name === '天德')?.classification,
     '吉神',
   );
+  for (const text of [
+    formatAlmanacGods(result.days[0]).join('；'),
+    formatEnhancedDivinationInfo('almanac', result),
+    formatDetailedDivinationInfo('almanac', result),
+  ]) {
+    assert.match(text, /吉神：[\s\S]*天德/);
+    for (const name of result.days[0].gods) assert.ok(text.includes(name), name);
+  }
+});
+
+test('黄历旧记录只有神煞名称时完整保留且不推定吉凶', () => {
+  assert.deepEqual(formatAlmanacGods({ gods: ['天德', '月破', '天德'] }), ['神煞：天德、月破']);
+  assert.deepEqual(formatAlmanacGods({ gods: [] }), []);
+  const result = generateAlmanacSelection({
+    topic: 'travel',
+    startDate: '2024-04-08',
+    endDate: '2024-04-08',
+  });
+  const day = result.days[0];
+  day.godFacts = undefined;
+  const expected = `神煞：${day.gods.join('、')}`;
+  assert.ok(formatEnhancedDivinationInfo('almanac', result).includes(expected));
+  assert.ok(formatDetailedDivinationInfo('almanac', result).includes(expected));
 });

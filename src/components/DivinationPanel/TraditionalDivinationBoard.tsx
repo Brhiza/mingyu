@@ -20,7 +20,7 @@ import {
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from 'mingyu-core/name-number';
 import { getKongmingInterpretation, getZhugeInterpretation } from 'mingyu-core/name-number';
-import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
+import { analyzeAlmanacEvidence, formatAlmanacGods } from 'mingyu-core/divination/almanac';
 import {
   getAllLiuyaoCategoryChapters,
   getHuangjiCycleClassic,
@@ -2776,6 +2776,12 @@ function AlmanacTraditionalBoard({
                 <p>{selectedDay.avoids.slice(0, 8).join('、') || '未列明确忌项'}</p>
               </section>
             </div>
+
+            {formatAlmanacGods(selectedDay).map((text) => (
+              <p className="traditional-almanac-gods" key={text}>
+                {text}
+              </p>
+            ))}
 
             <div className="traditional-almanac-evidence-grid">
               <section>

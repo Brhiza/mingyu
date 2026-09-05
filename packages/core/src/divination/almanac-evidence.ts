@@ -17,6 +17,23 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 
 export type AlmanacCandidateStatus = '可用候选' | '条件候选' | '慎用候选';
 
+export function formatAlmanacGods(day: Pick<AlmanacDayCandidate, 'gods' | 'godFacts'>): string[] {
+  const names = [...new Set([...day.gods, ...(day.godFacts ?? []).map((fact) => fact.name)])];
+  const groups = new Map<string, string[]>();
+  for (const name of names) {
+    const classifications = new Set(
+      (day.godFacts ?? []).filter((fact) => fact.name === name).map((fact) => fact.classification),
+    );
+    const classification = classifications.size === 1 ? [...classifications][0] : undefined;
+    const label = classification === '吉神' || classification === '凶神' ? classification : '神煞';
+    groups.set(label, [...(groups.get(label) ?? []), name]);
+  }
+  return ['吉神', '凶神', '神煞'].flatMap((label) => {
+    const values = groups.get(label);
+    return values?.length ? [`${label}：${values.join('、')}`] : [];
+  });
+}
+
 export interface AlmanacRawTabooFact {
   key: string;
   scope: '候选日';
