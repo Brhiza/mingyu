@@ -38,7 +38,7 @@ export const WUYUN_LIUQI_SOURCES = [
   {
     title: '吴谦《运气要诀》',
     scope:
-      '五步主客运、五音太少、交司日期、六步节令、气运相临以及天符、岁会、太乙天符、同天符、同岁会。',
+      '五步主客运、五音太少、交司日期、六步节令、气运相临、司天正对化、南北政以及天符、岁会、太乙天符、同天符、同岁会。',
   },
   {
     title: '《古今医统大全》卷五·论纪运（平气）',
@@ -169,6 +169,11 @@ export interface WuyunLiuqiCalculation {
   sitian: LiuqiProfile;
   zaiquan: LiuqiProfile;
   annualRelation: AnnualQiMovementRelation;
+  annualClassification: {
+    sitianTransformation: '正化' | '对化';
+    governance: '南政' | '北政';
+    basis: string[];
+  };
   annualConformities: AnnualConformities;
   movementSteps: WuyunMovementStep[];
   qiSteps: LiuqiStep[];
@@ -707,6 +712,7 @@ export function buildWuyunLiuqiPrompt(
       `岁运：${result.annualMovement.name}（${result.annualMovement.toneName}），${result.annualMovement.strength}（${result.annualMovement.yinYang}干）`,
       `司天：${result.sitian.name}`,
       `在泉：${result.zaiquan.name}`,
+      `司天化令：${result.annualClassification.sitianTransformation}；南北政：${result.annualClassification.governance}`,
       `司天与中运：${result.annualRelation.kind}；${result.annualRelation.basis}`,
       `年度符会：${result.annualConformities.names.length ? result.annualConformities.names.join('、') : '未形成天符、岁会、太乙天符、同天符或同岁会'}`,
       result.pathomechanism
@@ -804,6 +810,14 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     throw new Error(`客气轮转与司天在泉不一致：${resolved.yearGanZhi}`);
   }
   const annualRelation = buildAnnualRelation(annualMovement.element, sitian.element);
+  const annualClassification: WuyunLiuqiCalculation['annualClassification'] = {
+    sitianTransformation: '寅午未酉戌亥'.includes(branch) ? '正化' : '对化',
+    governance: stem === '甲' || stem === '己' ? '南政' : '北政',
+    basis: [
+      '司天正对化按年支区分：寅午未酉戌亥为正化，子丑卯辰巳申为对化。',
+      '南北政按年干所化中运区分：甲己土运为南政，其余四运为北政。',
+    ],
+  };
   const annualConformities = buildAnnualConformities(
     resolved.yearGanZhi,
     annualMovement,
@@ -825,6 +839,7 @@ export function calculateWuyunLiuqi(input: WuyunLiuqiInput): WuyunLiuqiResult {
     sitian,
     zaiquan,
     annualRelation,
+    annualClassification,
     annualConformities,
     movementSteps,
     qiSteps,

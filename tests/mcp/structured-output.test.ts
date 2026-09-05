@@ -1511,6 +1511,7 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
         solarTerms: string[];
         hostGuestRelation: { kind: string; fireOrder?: string };
       }>;
+      annualClassification: { sitianTransformation: string; governance: string };
     };
     assert.equal(wuyun.isError, undefined);
     assert.equal(wuyunResult.input.yearGanZhi, '丙午');
@@ -1519,6 +1520,8 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
     assert.equal(wuyunResult.pathomechanism.classicalReference.condition, '少阴司天，热淫所胜');
     assert.equal(wuyunResult.pathomechanism.classicalReference.conditionEstablished, null);
     assert.equal(wuyunResult.qiSteps[2].hostGuestRelation.fireOrder, '君位臣则顺');
+    assert.equal(wuyunResult.annualClassification.sitianTransformation, '正化');
+    assert.equal(wuyunResult.annualClassification.governance, '北政');
     const assisted = await client.callTool({
       name: 'metaphysics_wuyun_liuqi',
       arguments: { yearGanZhi: '辛卯' },

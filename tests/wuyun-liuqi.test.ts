@@ -384,3 +384,43 @@ test('六十甲子二火加临保留君臣顺逆并与五行同气分别表达',
     }
   }
 });
+
+test('运气要诀六十年正对化与南北政按各自年支年干分类', () => {
+  const transformations = [
+    '对化',
+    '对化',
+    '正化',
+    '对化',
+    '对化',
+    '对化',
+    '正化',
+    '正化',
+    '对化',
+    '正化',
+    '正化',
+    '正化',
+  ];
+  const governance = [
+    '南政',
+    '北政',
+    '北政',
+    '北政',
+    '北政',
+    '南政',
+    '北政',
+    '北政',
+    '北政',
+    '北政',
+  ];
+  for (let index = 0; index < SIXTY_CYCLE.length; index += 1) {
+    const result = calculateWuyunLiuqi({ yearGanZhi: SIXTY_CYCLE[index] });
+    assert.equal(result.annualClassification.sitianTransformation, transformations[index % 12]);
+    assert.equal(result.annualClassification.governance, governance[index % 10]);
+    assert.ok(
+      result.prompt.includes(
+        `司天化令：${transformations[index % 12]}；南北政：${governance[index % 10]}`,
+      ),
+    );
+    assert.equal(result.pathomechanism!.isPingQi, null);
+  }
+});

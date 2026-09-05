@@ -2936,6 +2936,7 @@ function buildWuyunLiuqiPromptApi(input: JsonRecord) {
       sitian: result.sitian,
       zaiquan: result.zaiquan,
       annualRelation: result.annualRelation,
+      annualClassification: result.annualClassification,
       annualConformities: result.annualConformities,
       movementSteps: result.movementSteps,
       qiSteps: result.qiSteps,
