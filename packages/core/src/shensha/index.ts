@@ -639,12 +639,16 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
     解神: '申戌子寅辰午'[Math.floor(monthIndex / 2)],
     时阳: EARTHLY_BRANCHES[monthIndex],
     时阴: EARTHLY_BRANCHES[(monthIndex + 6) % 12],
+    玉堂: '未酉亥丑卯巳'[monthIndex % 6],
+    金匮: '辰午申戌子寅'[monthIndex % 6],
   };
   for (const [name, branch] of Object.entries(branchRules)) {
     matches[name] = day.getEarthBranch().getName() === branch;
   }
   matches.月厌 = day.getEarthBranch().getIndex() === (10 - monthIndex + 12) % 12;
   matches.六合 = isLiuhe(month.getEarthBranch().getName(), day.getEarthBranch().getName());
+  matches.五合 = '寅卯'.includes(day.getEarthBranch().getName());
+  matches.除神 = '申酉'.includes(day.getEarthBranch().getName());
   matches.月刑 = day.getEarthBranch().getName() === [...'巳子辰申午丑寅酉未亥卯戌'][monthIndex];
   matches.天恩 =
     dayIndex < 5 || (dayIndex >= 15 && dayIndex < 20) || (dayIndex >= 45 && dayIndex < 50);
