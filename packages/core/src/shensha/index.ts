@@ -643,6 +643,13 @@ export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[]
     金匮: '辰午申戌子寅'[monthIndex % 6],
     血支: EARTHLY_BRANCHES[(monthIndex + 1) % 12],
     血忌: '丑未寅申卯酉辰戌巳亥午子'[monthIndex],
+    天刑: '寅辰午申戌子'[monthIndex % 6],
+    白虎: '午申戌子寅辰'[monthIndex % 6],
+    天牢: '申戌子寅辰午'[monthIndex % 6],
+    朱雀: '卯巳未酉亥丑'[monthIndex % 6],
+    勾陈: '亥丑卯巳未酉'[monthIndex % 6],
+    天贼: '丑子亥戌酉申未午巳辰卯寅'[monthIndex],
+    致死: '酉午卯子'[monthIndex % 4],
   };
   for (const [name, branch] of Object.entries(branchRules)) {
     matches[name] = day.getEarthBranch().getName() === branch;
