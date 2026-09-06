@@ -28,8 +28,9 @@ export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
     dayMaster: '甲',
     monthBranch: '辰',
     seasonSummary: '季春甲木，木气渐老，土旺当令。',
-    primaryGods: ['庚', '丁', '壬'],
-    classicVerse: '三月甲木，木气已老，枝繁叶茂。先用庚金修剪，次取壬水润根，丁火通明。',
+    // 依维基文库《穷通宝鉴》三月甲木"先取庚金，次用壬水……支成金局方可用丁"校正次序
+    primaryGods: ['庚', '壬', '丁'],
+    classicVerse: '三月甲木，木气相竭。先取庚金修剪，次用壬水润根；支成金局方可用丁。',
     modernExplanation: '根深叶茂，兼具才智与耐力，适合统筹规划与管理工作，兼修技术更具竞争力。',
     taboos: ['土重埋根', '木盛无金'],
   },
@@ -287,8 +288,10 @@ export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
     dayMaster: '己',
     monthBranch: '卯',
     seasonSummary: '仲春己土，官煞当权，木旺土虚。',
-    primaryGods: ['甲', '丙', '癸'],
-    classicVerse: '二月己土，阳气渐升，木旺土虚。专取丙火化煞生身，癸水润泽。',
+    // 依维基文库《穷通宝鉴》二月己土"先取甲木疏之……次取癸水润之……加以一丙出透"校正
+    primaryGods: ['甲', '癸', '丙'],
+    classicVerse:
+      '二月己土，阳气渐升，木旺土虚。先取甲木疏土，次取癸水润泽；甲癸出干科甲，一丙出透尤佳。',
     modernExplanation: '心思细腻，善于协调各方利益，适合走策划、文职或咨询管理路线。',
     taboos: ['木多克破', '无火生身'],
   },
