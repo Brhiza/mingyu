@@ -43,6 +43,42 @@ export type {
 } from './period-stars';
 export type { CastleGateCandidate, CastleGateEvaluation } from './castle-gate';
 
+/**
+ * 蒋大鸿《地理辨正》、沈氏玄空学通行二十四山替卦（起星）诀。
+ * “子癸并甲申，贪狼一路行；壬卯乙未坤，五位为巨门；
+ *  乾亥辰巽巳，连枝武曲位；酉辛丑艮丙，天星说破军；
+ *  寅午庚丁上，右弼四星临。”
+ */
+export const SUBSTITUTE_STAR_POEM =
+  '子癸并甲申，贪狼一路行；壬卯乙未坤，五位为巨门；乾亥辰巽巳，连枝武曲位；酉辛丑艮丙，天星说破军；寅午庚丁上，右弼四星临。';
+
+/** 二十四山起星替卦对应表（替星数：1贪狼、2巨门、6武曲、7破军、9右弼，其余归本位星）。 */
+export const TWENTY_FOUR_MOUNTAIN_SUBSTITUTES: Readonly<Record<string, number>> = {
+  子: 1,
+  癸: 1,
+  甲: 1,
+  申: 1,
+  壬: 2,
+  卯: 2,
+  乙: 2,
+  未: 2,
+  坤: 2,
+  辰: 6,
+  巽: 6,
+  巳: 6,
+  乾: 6,
+  亥: 6,
+  艮: 7,
+  丙: 7,
+  辛: 7,
+  酉: 7,
+  丑: 7,
+  寅: 9,
+  午: 9,
+  丁: 9,
+  庚: 9,
+};
+
 export type XuanKongFormation = Formation;
 
 export interface XuanKongPeriod {
@@ -252,6 +288,22 @@ function resolveMountains(input: XuanKongInput): {
       input.facingDegree !== undefined
         ? getMountainFromDegree(input.facingDegree)
         : getMountainFromDegree(((input.sitDegree as number) + 180) % 360);
+    if (Math.abs(Math.abs(sitPos.degree - facingPos.degree) - 180) > 1e-10) {
+      throw new Error('坐向度数必须严格相差180度。');
+    }
+    for (const [mountain, position, label] of [
+      [input.sitMountain, sitPos, '坐山'],
+      [input.facingMountain, facingPos, '朝向'],
+    ] as const) {
+      if (mountain !== undefined) {
+        assertMountain(mountain, label);
+        if (mountain !== position.mountain) {
+          throw new Error(
+            `${label}${mountain}与度数${position.degree}对应的${position.mountain}不一致。`,
+          );
+        }
+      }
+    }
     if (oppositeMountain(sitPos.mountain) !== facingPos.mountain) {
       throw new Error(
         `坐向必须严格相对；当前坐${sitPos.mountain}应向${oppositeMountain(sitPos.mountain)}，不能向${facingPos.mountain}。`,
@@ -288,6 +340,18 @@ function resolveMountains(input: XuanKongInput): {
           label: `坐${sitCandidate.mountain}向${facingCandidate.mountain}`,
         });
       }
+    }
+    // 中央九度半宽（4.5度）之外的兼线提示：当前仅提供下卦计算，起替条件（兼度阈值）
+    // 尚未核定启用，替卦不作自动判断，由使用者结合流派自行核定
+    const distanceFromCenter = (pos: CompassMountainPosition) => {
+      if (pos.isBoundary) return 7.5;
+      const rem = (((pos.degree + 7.5) % 15) + 15) % 15;
+      return Math.abs(7.5 - rem);
+    };
+    if (distanceFromCenter(sitPos) > 4.5 || distanceFromCenter(facingPos) > 4.5) {
+      warnings.push(
+        '坐山或朝向偏离山中心超过中央九度半宽（4.5度），已进入兼向范围；当前仅提供下卦计算，替卦未启用，起替条件请结合所采用流派核定',
+      );
     }
     return {
       sitMountain: sitPos.mountain,
@@ -368,9 +432,17 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
     `到山到向：${result.daoShanXiang.summary}`,
     result.castleGate?.summary ?? '',
     (() => {
-      const wuHuang = result.palaces?.find((p) => p.xiangStar === 5 || p.shanStar === 5);
-      return wuHuang
-        ? `气场避煞：五黄大煞见于${wuHuang.name}（${wuHuang.direction}），该方位动静宜慎、以静安为吉`
+      const wuHuang = result.palaces.filter((p) => p.xiangStar === 5 || p.shanStar === 5);
+      return wuHuang.length
+        ? `五黄落宫：${wuHuang
+            .map((palace) => {
+              const layers = [
+                palace.shanStar === 5 ? '山星' : '',
+                palace.xiangStar === 5 ? '向星' : '',
+              ].filter(Boolean);
+              return `${palace.name}（${palace.direction}，${layers.join('、')}）`;
+            })
+            .join('；')}`
         : '';
     })(),
     ...(result.measurement?.stability === '山向边界敏感' &&
@@ -382,7 +454,7 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
         ]
       : []),
     result.flowStars
-      ? `流年飞星：${result.flowStars.yearPlate.year}年${result.flowStars.yearPlate.starName}入中；${result.flowStars.yearPlate.calendarNote}`
+      ? `流年飞星：${result.flowStars.yearPlate.year === 0 ? '公元前1' : result.flowStars.yearPlate.year}年${result.flowStars.yearPlate.starName}入中；${result.flowStars.yearPlate.calendarNote}`
       : '',
     result.flowStars?.monthPlate
       ? `流月飞星：${result.flowStars.monthPlate.starName}入中；${result.flowStars.monthPlate.calendarNote}`

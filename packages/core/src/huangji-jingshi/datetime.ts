@@ -1,12 +1,11 @@
 /**
  * @file 皇极经世年月日时卦
- * @description 依黄畿所释“一六为经、六六为纬”的分形推衍，将值年卦继续细分至月经、旬纬、日与时经。
- * @传统依据 《皇极经世书传》所述“求月日时分直之卦，又岂有异乎”及“自子半至寅半”时段规则。
+ * @description 按“一六为经、六六为纬”的层级思路推衍，将值年卦继续细分至月经、旬纬、日与时经。
+ * @传统依据 《皇极经世书绪言》卷一子半时段、卷三经纬层级。节气十五日映射为本算法采用的日序口径。
  */
 
 import { SolarTerm, SolarTime } from 'tyme4ts';
 import { hexagramsData, type HexagramData } from '../divination/hexagram-data';
-import { getDivinationTime } from '../calendar/timeManager';
 import {
   HUANGJI_CIRCLE_HEXAGRAMS,
   calculateStandardHuangjiForecast,
@@ -52,8 +51,60 @@ export interface HuangjiDerivedHexagram extends HuangjiHexagramSummary {
   sequenceOffset?: number;
 }
 
+export interface HuangjiSixDayCycleInput {
+  /** 原例冬至甲子日子半起复后，已经过的完整日数，限本轮0至359。 */
+  elapsedDays: number;
+  /** 所求日内的整点小时，0至23；子半对应0时。 */
+  hour: number;
+}
+
+export interface HuangjiSixDayCycleResult {
+  model: '书绪言六日逐爻';
+  dayOfCycle: number;
+  jingIndex: number;
+  dayLine: number;
+  hourLine: number;
+  hourRange: string;
+  hexagrams: {
+    jing: HuangjiHexagramSummary;
+    daily: HuangjiDerivedHexagram;
+    hourly: HuangjiDerivedHexagram;
+  };
+}
+
+/** 《皇极经世书绪言》卷一的三百六十日坐标；起点由调用者另行校定。 */
+export function calculateHuangjiSixDayCycle(
+  input: HuangjiSixDayCycleInput,
+): HuangjiSixDayCycleResult {
+  if (
+    !input ||
+    !Number.isInteger(input.elapsedDays) ||
+    input.elapsedDays < 0 ||
+    input.elapsedDays > 359
+  ) {
+    throw new Error('六日逐爻已经过日数必须为0至359的整数。');
+  }
+  if (!Number.isInteger(input.hour) || input.hour < 0 || input.hour > 23) {
+    throw new Error('六日逐爻小时必须为0至23的整数。');
+  }
+  const jingIndex = Math.floor(input.elapsedDays / 6);
+  const dayLine = (input.elapsedDays % 6) + 1;
+  const hourLine = Math.floor(input.hour / 4) + 1;
+  const jing = summarizeHexagram(getHexagramByShortName(HUANGJI_CIRCLE_HEXAGRAMS[jingIndex]));
+  const daily = changeLine(jing, dayLine);
+  return {
+    model: '书绪言六日逐爻',
+    dayOfCycle: input.elapsedDays + 1,
+    jingIndex: jingIndex + 1,
+    dayLine,
+    hourLine,
+    hourRange: `${pad((hourLine - 1) * 4)}:00—${pad(hourLine * 4)}:00`,
+    hexagrams: { jing, daily, hourly: changeLine(daily, hourLine) },
+  };
+}
+
 export interface HuangjiDateTimeForecast {
-  model: '黄畿分形同构年月日时推衍';
+  model: '经纬卦年月日时推衍';
   civilTime: {
     dateTime: string;
     timezone: '北京时间（UTC+8）';
@@ -62,6 +113,7 @@ export interface HuangjiDateTimeForecast {
     day: number;
     hour: number;
     minute: number;
+    second: number;
   };
   calendar: {
     forecastYear: number;
@@ -175,10 +227,16 @@ function pad(value: number): string {
 function resolveCalendar(
   date: Date,
 ): HuangjiDateTimeForecast['civilTime'] & HuangjiDateTimeForecast['calendar'] {
-  const { timeInfo } = getDivinationTime(date);
-  const { year, month, day, hour, minute } = timeInfo.solar;
-  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, minute, 0);
-  const targetJulianDay = solarTime.getJulianDay().getDay();
+  const beijing = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const year = beijing.getUTCFullYear();
+  const month = beijing.getUTCMonth() + 1;
+  const day = beijing.getUTCDate();
+  const hour = beijing.getUTCHours();
+  const minute = beijing.getUTCMinutes();
+  const second = beijing.getUTCSeconds();
+  const millisecond = beijing.getUTCMilliseconds();
+  const solarTime = SolarTime.fromYmdHms(year, month, day, hour, minute, second);
+  const targetJulianDay = solarTime.getJulianDay().getDay() + millisecond / 86400000;
   const candidates: Array<{
     forecastYear: number;
     index: number;
@@ -213,13 +271,14 @@ function resolveCalendar(
   const hourEnd = hourSegment * 4;
 
   return {
-    dateTime: `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}`,
+    dateTime: `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}:${pad(second)}${millisecond ? `.${String(millisecond).padStart(3, '0')}` : ''}`,
     timezone: '北京时间（UTC+8）',
     year,
     month,
     day,
     hour,
     minute,
+    second,
     forecastYear: active.forecastYear,
     activeSolarTerm: active.name,
     actualDayInSolarTerm,
@@ -251,7 +310,7 @@ export function calculateHuangjiDateTimeForecast(date: Date): HuangjiDateTimeFor
   const hourJing = changeLine(daily, resolved.hourSegment);
 
   return {
-    model: '黄畿分形同构年月日时推衍',
+    model: '经纬卦年月日时推衍',
     civilTime: {
       dateTime: resolved.dateTime,
       timezone: resolved.timezone,
@@ -260,6 +319,7 @@ export function calculateHuangjiDateTimeForecast(date: Date): HuangjiDateTimeFor
       day: resolved.day,
       hour: resolved.hour,
       minute: resolved.minute,
+      second: resolved.second,
     },
     calendar: {
       forecastYear: resolved.forecastYear,
@@ -282,15 +342,15 @@ export function calculateHuangjiDateTimeForecast(date: Date): HuangjiDateTimeFor
     ],
     sources: [
       {
-        title: '黄畿《皇极经世书传》',
-        scope: '月日时分直卦按宏观层级分形同构推衍，以及“一六为经、六六为纬”的经纬规则。',
+        title: '《皇极经世书绪言》卷三',
+        scope: '以运经世段提出由年卦推求月日时分直卦的经纬层级思路。',
       },
       {
-        title: '《皇极经世》先天六十卦序',
-        scope: '日卦由月经卦按六十卦序逐日顺行。',
+        title: '《皇极经世书绪言》卷三值年卦例',
+        scope: '原例由小畜起甲子，依六十卦序逐年顺行；本算法将同序应用于月经卦下的日序。',
       },
       {
-        title: '《皇极经世书传》子半时段规则',
+        title: '《皇极经世书绪言》卷一子半时段',
         scope: '时经卦自子半起，每四小时对应一爻。',
       },
     ],

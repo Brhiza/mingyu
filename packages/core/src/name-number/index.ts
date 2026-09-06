@@ -423,8 +423,6 @@ export function analyzeChineseName(input: {
   fullName: string;
   surnameLength?: 1 | 2;
   xiYong?: Wuxing[];
-  jiShen?: Wuxing[];
-  zodiac?: string;
   birth?: NamingBirthInput;
 }) {
   const chars = [...input.fullName.trim()];
@@ -495,12 +493,16 @@ export function generateChineseNames(input: {
   forbiddenCharacters?: string;
   generationCharacter?: string;
   generationPosition?: GenerationCharacterPosition;
-  zodiac?: string;
   limit?: number;
   birth?: NamingBirthInput;
 }) {
   const surname = input.surname.trim();
   if (![1, 2].includes([...surname].length)) throw new Error('姓氏需为 1 至 2 个汉字');
+  // 枚举前先核验姓氏用字，避免候选分析异常被吞掉后误报为“无可用名字”
+  const missingSurnameChars = [...surname].filter((char) => !charDetail(char));
+  if (missingSurnameChars.length) {
+    throw new Error(`姓氏用字暂未收录在字典中：${missingSurnameChars.join('、')}`);
+  }
   const gender = input.gender ?? '通用';
   const length = input.givenNameLength ?? 2;
   const limit = Math.min(Math.max(input.limit ?? 20, 1), 50);
@@ -542,6 +544,7 @@ export function generateChineseNames(input: {
       favorableElementCharacters: string[];
     };
   }> = [];
+  let candidateFailures = 0;
   const givenNames =
     length === 1
       ? generationCharacter
@@ -578,8 +581,13 @@ export function generateChineseNames(input: {
         },
       });
     } catch {
+      candidateFailures += 1;
       continue;
     }
+  }
+  // 全部候选都分析失败时保留原因，不用空数组掩盖输入或资料问题
+  if (!candidates.length && candidateFailures > 0) {
+    throw new Error(`候选名字分析全部失败（共${candidateFailures}个候选），请检查用字资料`);
   }
   const uniqueCandidates = [...new Map(candidates.map((item) => [item.fullName, item])).values()];
   const selected: typeof candidates = [];

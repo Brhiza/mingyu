@@ -14,8 +14,9 @@
  * 日、时计采用现代历法定位来复现通行实用排法；结果元数据会明确这一口径，不把它冒充为
  * 古籍历法常数、小余和气应链的逐项复原。
  */
+import { createUtcTimestamp } from '../calendar/date-validation';
 import { SolarTime } from 'tyme4ts';
-import { getGanZhiFromDate, getSixtyCycle, isValidGanZhi } from '../ganzhi';
+import { getSixtyCycle, isValidGanZhi } from '../ganzhi';
 import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
 import { buildTaiyiEvidence } from './evidence';
 
@@ -76,6 +77,7 @@ const POINT_TO_PALACE: Record<string, number> = {
 const TAIYI_POINTS = Array.from(
   '乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽乾乾乾午午午艮艮艮卯卯卯酉酉酉坤坤坤子子子巽巽巽',
 );
+const YIN_TAIYI_POINTS = [...TAIYI_POINTS].reverse();
 const WENCHANG_POINTS = Array.from(
   '申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤申酉戌乾乾亥子丑艮寅卯辰巽巳午未坤坤',
 );
@@ -360,12 +362,7 @@ function countNature(value: number): string | undefined {
   return map[value];
 }
 
-/**
- * 依据《太乙金镜式经》卷二“五和、长短、纯阳纯阴”推导大局攻守与策数博弈定性：
- * - 逢“和算”（上和、下和、次和等）：和解调停，宜息争修好、不战屈人；
- * - 纯阳纯阴：纯阳过刚易躁进，纯阴退伏多沉潜；
- * - 主客多寡：主多利主，客多利客。
- */
+/** 按《太乙统宗宝鉴》卷五的长短缓急法描述主客算，并结合门将条件审其胜负。 */
 export function evaluateTaiyiTacticGuidance(params: {
   lordCount: number;
   guestCount: number;
@@ -373,38 +370,13 @@ export function evaluateTaiyiTacticGuidance(params: {
   guestNature?: string;
 }): string {
   const { lordCount, guestCount, lordNature, guestNature } = params;
-  const isLordHe = lordNature?.includes('和');
-  const isGuestHe = guestNature?.includes('和');
-
-  if (isLordHe && isGuestHe) {
-    return `主客皆得和数算（主${lordNature}、客${guestNature}），主和解调停，宜息争修好、不战屈人`;
-  }
-  if (isLordHe) {
-    return `主得和数算（${lordNature}），主方宜调和固本、守正求安；客算${guestCount > lordCount ? '占强宜严加防备' : '不及难以妄动'}`;
-  }
-  if (isGuestHe) {
-    return `客得和数算（${guestNature}），客方重调停求和；主方${lordCount > guestCount ? '势强宜以德服人' : '势平可顺水推舟'}`;
-  }
-  if (lordNature === '纯阳' && guestNature === '纯阴') {
-    return '主算纯阳刚烈亢进，客算纯阴退伏沉潜，宜戒骄躁、静候其变';
-  }
-  if (lordNature === '纯阴' && guestNature === '纯阳') {
-    return '主算纯阴柔顺退守，客算纯阳锋芒正盛，宜避其锐气、以柔制刚';
-  }
-  if (lordNature === '纯阳' && guestNature === '纯阳') {
-    return '主客皆纯阳两刚相搏，势均力敌必生震荡，动则两伤';
-  }
-  if (lordNature === '纯阴' && guestNature === '纯阴') {
-    return '主客皆纯阴柔滞伏匿，行事迟延暗阻，宜以明断破晦';
-  }
-
-  if (lordCount > guestCount) {
-    return '主算多于客算，利主不利客，守静固本为宜';
-  }
-  if (guestCount > lordCount) {
-    return '客算多于主算，利客不利主，动谋求变有利';
-  }
-  return '主客算均势，相持待机';
+  const describe = (side: string, count: number, nature?: string) =>
+    `${side}算${count}${nature ? `（${nature}）` : ''}，${count >= 11 ? '为长算，传统取缓而深入' : '为短算，传统取急而浅为'}`;
+  return [
+    describe('主', lordCount, lordNature),
+    describe('客', guestCount, guestNature),
+    '主客胜负须合看三门具否、五将发否、阴阳和否；主客吉凶条件相等时，再以算之长短比较',
+  ].join('；');
 }
 
 function generalPalaceFromCount(value: number, side: 'lord' | 'guest' | 'set'): number {
@@ -431,27 +403,76 @@ function createYearProbeDate(year: number): Date {
   return date;
 }
 
+/**
+ * 太乙日期统一按东八区（UTC+8）读取民用字段。
+ * Date 本身是绝对时刻，其本地字段随运行环境时区变化；固定按东八区读取
+ * 可保证同一时刻在任何环境得到相同的积日、积时与局数。
+ */
+const TAIYI_TIMEZONE_OFFSET_MS = 8 * 3_600_000;
+
+interface TaiyiCivilParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+}
+
+function readCivilParts(date: Date): TaiyiCivilParts {
+  const shifted = new Date(date.getTime() + TAIYI_TIMEZONE_OFFSET_MS);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+  };
+}
+
+/** 按东八区民用字段推四柱，替代依赖环境时区的 getGanZhiFromDate。 */
+function getTaiyiGanZhiFromDate(date: Date): {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+} {
+  const parts = readCivilParts(date);
+  const eightChar = SolarTime.fromYmdHms(
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  )
+    .getLunarHour()
+    .getEightChar();
+  return {
+    year: eightChar.getYear().getName(),
+    month: eightChar.getMonth().getName(),
+    day: eightChar.getDay().getName(),
+    hour: eightChar.getHour().getName(),
+  };
+}
+
 function daysSince(date: Date, year: number, month: number, day: number): number {
-  const current = Date.UTC(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    0,
-  );
-  const base = Date.UTC(year, month - 1, day, 0, 0, 0);
+  const parts = readCivilParts(date);
+  const current = createUtcTimestamp(parts.year, parts.month - 1, parts.day);
+  const base = createUtcTimestamp(year, month - 1, day);
   return Math.floor((current - base) / 86400000);
 }
 
 function getSeasonHalf(date: Date): 'winter' | 'summer' {
+  const parts = readCivilParts(date);
   const term = SolarTime.fromYmdHms(
-    date.getFullYear(),
-    date.getMonth() + 1,
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    0,
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
   )
     .getTerm()
     .getName();
@@ -498,10 +519,10 @@ function validateInput(input: TaiyiInput): {
     throw new Error('太乙参数必须是对象。');
   }
   const scope = input.scope ?? 'year';
-  if (!SCOPE_LABELS[scope]) throw new Error(`太乙计式无效：${String(scope)}`);
+  if (!Object.hasOwn(SCOPE_LABELS, scope)) throw new Error(`太乙计式无效：${String(scope)}`);
   if (
     input.date !== undefined &&
-    (typeof input.date.getTime !== 'function' || Number.isNaN(input.date.getTime()))
+    (!(input.date instanceof Date) || Number.isNaN(input.date.getTime()))
   ) {
     throw new Error('太乙日期无效。');
   }
@@ -514,7 +535,7 @@ function validateInput(input: TaiyiInput): {
   if (scope !== 'year' && input.date === undefined) {
     throw new Error(`太乙${SCOPE_LABELS[scope].title}需要提供有效日期和时间。`);
   }
-  const dateYear = input.date?.getFullYear();
+  const dateYear = input.date ? readCivilParts(input.date).year : undefined;
   if (input.year !== undefined && dateYear !== undefined && input.year !== dateYear) {
     throw new Error('太乙 year 与 date 的公历年份不一致。');
   }
@@ -523,7 +544,7 @@ function validateInput(input: TaiyiInput): {
     throw new Error('太乙年份必须是 1-9999 之间的整数。');
   }
   const date = input.date ?? createYearProbeDate(year);
-  const pillars = getGanZhiFromDate(date);
+  const pillars = getTaiyiGanZhiFromDate(date);
   const calculatedGanZhi = pillars[scope];
   if (input.ganZhi !== undefined) {
     if (!isValidGanZhi(input.ganZhi)) throw new Error(`太乙干支无效：${input.ganZhi}`);
@@ -555,7 +576,7 @@ function calculateAccumulatedValue(
     const monthOrder = TAIYI_MONTH_BRANCHES.indexOf(ganZhi[1]) + 1;
     if (monthOrder === 0) throw new Error(`太乙月建地支无效：${ganZhi}`);
     const solarYear =
-      getGanZhiFromDate(date).year === getGanZhiFromDate(createYearProbeDate(year)).year
+      getTaiyiGanZhiFromDate(date).year === getTaiyiGanZhiFromDate(createYearProbeDate(year)).year
         ? year
         : year - 1;
     return (TAIYI_BASE_YEARS + solarYear - 1) * 12 + 2 + monthOrder;
@@ -567,7 +588,7 @@ function calculateAccumulatedValue(
   }
 
   const accumulatedDays = 708011105 + daysSince(date, 1900, 12, 21);
-  const timeIndex = Math.floor((date.getHours() + 1) / 2);
+  const timeIndex = Math.floor((readCivilParts(date).hour + 1) / 2);
   return (accumulatedDays - 1) * 12 + timeIndex + 1;
 }
 
@@ -579,7 +600,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const bureau = positiveOneBased(accumulatedValue, 72);
   const index = bureau - 1;
   const yinYang = resolveYinYang(scope, date);
-  const taiyiPosition = TAIYI_POINTS[index];
+  const taiyiPosition = (yinYang === '阳遁' ? TAIYI_POINTS : YIN_TAIYI_POINTS)[index];
   const wenChangPosition = (yinYang === '阳遁' ? WENCHANG_POINTS : YIN_WENCHANG_POINTS)[index];
   const shiJiPosition = SHIJI_POINTS[index];
   const taiyiPalace = pointToPalace(taiyiPosition);
@@ -628,7 +649,8 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
   const scopeInfo = SCOPE_LABELS[scope];
-  const dateTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const civil = readCivilParts(date);
+  const dateTime = `${civil.year}-${String(civil.month).padStart(2, '0')}-${String(civil.day).padStart(2, '0')} ${String(civil.hour).padStart(2, '0')}:${String(civil.minute).padStart(2, '0')}`;
   const evidenceAnalysis = buildTaiyiEvidence({
     scope,
     dateTime,

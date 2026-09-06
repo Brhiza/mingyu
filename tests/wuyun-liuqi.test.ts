@@ -318,17 +318,109 @@ test('五运六气提示词应是可独立使用的完整任务书', () => {
   assertPromptIsPortableTaskText(prompt);
 });
 
-test('五运六气病机偏胜与平气判定算法应准确识别病机倾向与平气干支', () => {
+test('五运六气年度资料列出平气条件，不据年干支确认全年平气', () => {
   const result2026 = calculateWuyunLiuqi({ yearGanZhi: '丙午' });
   assert.ok(result2026.pathomechanism);
-  assert.equal(result2026.pathomechanism.isPingQi, false);
-  assert.equal(result2026.pathomechanism.affectedZangFu, '心神亢燥，肺金受制');
-  assert.match(result2026.pathomechanism.climaticPathology, /热气淫胜/);
-  assert.match(result2026.prompt, /病机偏胜与平气：/);
+  assert.equal(result2026.pathomechanism.isPingQi, null);
+  assert.equal(result2026.pathomechanism.movementRegime, '流衍之纪');
+  assert.match(result2026.prompt, /平气条件：/);
+  assert.doesNotMatch(result2026.prompt, /五脏受候|心神亢燥|病机偏胜与平气/);
 
-  // 经典平气年测试，如 丁亥 (木运不及，得亥水生之，或反得司天厥阴相协，古籍平气例) 或 戊戌
+  // 丁亥具司天同气资助；交司日时逢壬的干德符及实际平气仍须另核。
   const resultDingHai = calculateWuyunLiuqi({ yearGanZhi: '丁亥' });
   assert.ok(resultDingHai.pathomechanism);
-  assert.equal(resultDingHai.pathomechanism.isPingQi, true);
-  assert.match(resultDingHai.pathomechanism.pingQiBasis, /委和之平气/);
+  assert.equal(resultDingHai.pathomechanism.isPingQi, null);
+  assert.equal(resultDingHai.pathomechanism.pingQiType, '具平气条件');
+  assert.match(resultDingHai.pathomechanism.pingQiConditions.join('；'), /司天与木运同气/);
+  assert.match(resultDingHai.pathomechanism.pingQiBasis, /平气成立时称敷和之纪/);
+  assert.match(resultDingHai.pathomechanism.pingQiBasis, /交气日时干德符/);
+});
+
+test('五运六气跨节气精度范围保留完整年度结构并明确日期口径', () => {
+  for (const year of [1, 99, 1899, 2200, 9999]) {
+    const result = calculateWuyunLiuqi({ year });
+    const reference = calculateWuyunLiuqi({ yearGanZhi: getWuyunLiuqiYearGanZhi(year) });
+    assert.equal(result.calendarDateStatus, '节令边界');
+    assert.deepEqual(result.annualMovement, reference.annualMovement);
+    assert.deepEqual(result.movementSteps, reference.movementSteps);
+    assert.deepEqual(result.qiSteps, reference.qiSteps);
+    assert.equal(result.movementSteps.length, 5);
+    assert.equal(result.qiSteps.length, 6);
+    assert.ok(
+      [...result.movementSteps, ...result.qiSteps].every(
+        (step) => step.gregorianStart === undefined && step.gregorianEnd === undefined,
+      ),
+    );
+    assert.match(result.prompt, /按节气与传统序日表示各步边界/);
+  }
+  for (const year of [1900, 2199]) {
+    const result = calculateWuyunLiuqi({ year });
+    assert.equal(result.calendarDateStatus, '公历日期已换算');
+    assert.ok(
+      [...result.movementSteps, ...result.qiSteps].every(
+        (step) => step.gregorianStart && step.gregorianEnd,
+      ),
+    );
+    assert.ok(result.qiSteps[5].gregorianEnd?.startsWith(`${year + 1}-01-`));
+  }
+});
+
+test('六十甲子二火加临保留君臣顺逆并与五行同气分别表达', () => {
+  for (const yearGanZhi of SIXTY_CYCLE) {
+    const result = calculateWuyunLiuqi({ yearGanZhi });
+    for (const step of result.qiSteps) {
+      const expected =
+        '子午'.includes(yearGanZhi[1]) && step.order === 3
+          ? '君位臣则顺'
+          : '卯酉'.includes(yearGanZhi[1]) && step.order === 2
+            ? '臣位君则逆'
+            : undefined;
+      assert.equal(step.hostGuestRelation.fireOrder, expected, `${yearGanZhi}${step.label}`);
+      if (expected) {
+        assert.equal(step.hostGuestRelation.kind, '同气');
+        assert.ok(step.hostGuestRelation.basis.includes(expected));
+        assert.ok(result.prompt.includes(`二火加临：${expected}`));
+      }
+    }
+  }
+});
+
+test('运气要诀六十年正对化与南北政按各自年支年干分类', () => {
+  const transformations = [
+    '对化',
+    '对化',
+    '正化',
+    '对化',
+    '对化',
+    '对化',
+    '正化',
+    '正化',
+    '对化',
+    '正化',
+    '正化',
+    '正化',
+  ];
+  const governance = [
+    '南政',
+    '北政',
+    '北政',
+    '北政',
+    '北政',
+    '南政',
+    '北政',
+    '北政',
+    '北政',
+    '北政',
+  ];
+  for (let index = 0; index < SIXTY_CYCLE.length; index += 1) {
+    const result = calculateWuyunLiuqi({ yearGanZhi: SIXTY_CYCLE[index] });
+    assert.equal(result.annualClassification.sitianTransformation, transformations[index % 12]);
+    assert.equal(result.annualClassification.governance, governance[index % 10]);
+    assert.ok(
+      result.prompt.includes(
+        `司天化令：${transformations[index % 12]}；南北政：${governance[index % 10]}`,
+      ),
+    );
+    assert.equal(result.pathomechanism!.isPingQi, null);
+  }
 });

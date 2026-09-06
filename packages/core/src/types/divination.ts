@@ -34,6 +34,7 @@ export type DivinationType =
 export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
 
 export type XiaoliurenDivinationMethod = 'time';
+export type XiaoliurenRule = 'common' | 'duoneng';
 
 export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
@@ -47,6 +48,8 @@ export interface XiaoliurenPalaceDetail {
 }
 
 export interface XiaoliurenData {
+  rule?: XiaoliurenRule;
+  ruleLabel?: string;
   meta?: CoreResultMeta;
   method: XiaoliurenDivinationMethod;
   methodLabel: string;
@@ -316,7 +319,8 @@ export interface LiuyaoData extends BaseHexagramData {
   evidenceAnalysis?: import('../divination/liuyao-evidence').LiuyaoEvidenceAnalysis;
   /** 起卦来源与三钱投掷轨迹。 */
   generation?: {
-    method: 'time' | 'manual' | 'coins';
+    method: 'time' | 'manual' | 'coins' | 'yarrow';
+    yarrow?: Omit<import('../divination/algorithms/yarrow').YarrowResult, 'randomTrace'>;
     coinThrows?: Array<{
       coins: [2 | 3, 2 | 3, 2 | 3];
       total: 6 | 7 | 8 | 9;
@@ -1340,6 +1344,8 @@ export interface AstrolabeBirthInput {
   timeZoneId?: string;
   locationName?: string;
   useTrueSolarTime?: boolean;
+  /** 坐标精度来源：user-provided 为用户精确坐标，其余见出生地点解析登记 */
+  coordinateAccuracy?: string;
 }
 
 export interface AstrolabePoint {
@@ -1379,6 +1385,8 @@ export interface AstrolabeAspect {
 }
 
 export interface AstrolabeData {
+  houseSystem?: 'placidus' | 'whole_sign';
+  ephemerisWarnings?: string[];
   /** 星体、四轴、相位、反证、计算链与解释限制。 */
   evidenceAnalysis?: import('../divination/astrolabe-evidence').AstrolabeEvidenceAnalysis;
   birth: {
@@ -1397,6 +1405,8 @@ export interface AstrolabeData {
     trueSolarDateTime?: string;
     trueSolarEvidence?: TrueSolarTimeEvidenceFields;
     isTrueSolarTime?: boolean;
+    /** 坐标精度来源，未提供时为 undefined */
+    coordinateAccuracy?: string;
   };
   planets: AstrolabePoint[];
   angles: AstrolabePoint[];

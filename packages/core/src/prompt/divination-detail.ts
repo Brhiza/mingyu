@@ -18,6 +18,7 @@ import { formatAstrolabeForPrompt } from './astrolabe';
 import { formatDivinationInfo } from './divination';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
+import { formatAlmanacGods } from '../divination/almanac-evidence';
 
 type SupportedMethod = Exclude<DivinationMethodId, 'random'>;
 
@@ -174,7 +175,16 @@ function formatSsgwDetail(data: SsgwData) {
 function formatAlmanacDetail(data: AlmanacData) {
   return [
     `参与人：${data.participants.map((item) => `${item.name}（${item.gender || '性别未填'}，${item.solarDate}，${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}）`).join('；') || '未列'}`,
-    `候选日：${data.days.map((item) => `${item.date}：${item.ganzhi.day}，${item.dayOfficer}执，宜${item.recommends.slice(0, 8).join('、') || '无'}，忌${item.avoids.slice(0, 8).join('、') || '无'}，${item.clash}`).join('\n')}`,
+    `候选日：${data.days
+      .map(
+        (item) =>
+          `${item.date}：${item.ganzhi.day}，${item.dayOfficer}执，宜${item.recommends.slice(0, 8).join('、') || '无'}，忌${item.avoids.slice(0, 8).join('、') || '无'}，${item.clash}${formatAlmanacGods(
+            item,
+          )
+            .map((text) => `；${text}`)
+            .join('')}`,
+      )
+      .join('\n')}`,
   ];
 }
 

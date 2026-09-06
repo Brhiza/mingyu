@@ -25,6 +25,7 @@ import {
 import { getLifeStage } from '../bazi/baziValues';
 import { calculateKongWangBranches } from '../bazi/kongWang';
 import { tallyWuxing } from '../wuxing';
+import { getBaZhaiPalace, type BaZhaiLabel } from '../direction';
 import type {
   MingluAnnualYearItem,
   MingluBeginnerGuide,
@@ -585,53 +586,40 @@ export function buildEnhancedPillarsSection(baziResult: BaziChartResult): Minglu
   let mingGuaInfo = undefined;
   if (baziResult.mingGua) {
     const mg = baziResult.mingGua;
-    const isEast = mg.eastWest.includes('东');
+    // 逐卦取公共八宅大游年表，避免按东四/西四分组固定方位而丢失具体命卦
+    const palaces = getBaZhaiPalace(mg.gua);
+    const pickDirection = (label: BaZhaiLabel): string => {
+      const palace = palaces.find((item) => item.label === label);
+      if (!palace) {
+        throw new Error(`命卦${mg.gua}大游年缺少${label}宫`);
+      }
+      return palace.direction;
+    };
     mingGuaInfo = {
       name: `${mg.gua}卦 (${mg.number}宫)`,
       number: mg.number,
       eastWest: mg.eastWest,
       wuxing: mg.element,
-      directions: isEast
-        ? [
-            {
-              type: '吉' as const,
-              name: '生气方',
-              direction: '正南/正东',
-              desc: '大吉，事业开拓与精力充沛',
-            },
-            {
-              type: '吉' as const,
-              name: '延年方',
-              direction: '东南/正北',
-              desc: '中吉，健康长寿与家庭和顺',
-            },
-            {
-              type: '凶' as const,
-              name: '绝命方',
-              direction: '正西/西北',
-              desc: '大凶，宜避开大门与床头',
-            },
-          ]
-        : [
-            {
-              type: '吉' as const,
-              name: '生气方',
-              direction: '西北/东北',
-              desc: '大吉，事业生发与开拓进取',
-            },
-            {
-              type: '吉' as const,
-              name: '延年方',
-              direction: '西南/正西',
-              desc: '中吉，健康长寿与人缘和谐',
-            },
-            {
-              type: '凶' as const,
-              name: '绝命方',
-              direction: '正南/正东',
-              desc: '大凶，宜避开大门与床头',
-            },
-          ],
+      directions: [
+        {
+          type: '吉' as const,
+          name: '生气方',
+          direction: pickDirection('生气'),
+          desc: '大吉，事业开拓与精力充沛',
+        },
+        {
+          type: '吉' as const,
+          name: '延年方',
+          direction: pickDirection('延年'),
+          desc: '中吉，健康长寿与人缘和谐',
+        },
+        {
+          type: '凶' as const,
+          name: '绝命方',
+          direction: pickDirection('绝命'),
+          desc: '大凶，宜避开大门与床头',
+        },
+      ],
     };
   }
 
@@ -664,7 +652,6 @@ export function buildEnhancedFiveElementsSection(
 
   const rawCounts = tallyWuxing(items, { weightHidden: true });
   const wuxingList: Wuxing[] = ['木', '火', '土', '金', '水'];
-  const totalScore = Object.values(rawCounts).reduce((a, b) => a + b, 0) || 1;
 
   // 月令司令加权 1.2
   const commanderStem = baziResult.monthCommander ? baziResult.monthCommander.slice(0, 1) : '';
@@ -672,6 +659,9 @@ export function buildEnhancedFiveElementsSection(
   if (commanderWuxing && rawCounts[commanderWuxing]) {
     rawCounts[commanderWuxing] += 1.2;
   }
+
+  // 总分在司令加权之后统计，保证五行比例的分母与分子同一口径
+  const totalScore = Object.values(rawCounts).reduce((a, b) => a + b, 0) || 1;
 
   const maxScore = Math.max(...Object.values(rawCounts));
   const minScore = Math.min(...Object.values(rawCounts));
@@ -758,8 +748,9 @@ export function buildEnhancedFiveElementsSection(
 
   const healthTcmAdvice = elements.map((el) => {
     const tcm = tcmMap[el.wuxing];
-    const isOver = el.score >= 30;
-    const isUnder = el.score <= 10 || el.isMissing;
+    // 阈值采用五行占比口径：占比达到 30% 视为过旺，不超过 10% 视为虚弱
+    const isOver = el.percentage >= 30;
+    const isUnder = el.percentage <= 10 || el.isMissing;
     const status = isOver
       ? ('过旺耗伤' as const)
       : isUnder
@@ -894,7 +885,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
           transformElement: match.targetWuxing,
           nature: '吉',
           description: match.desc,
-          influence: `${pillarEntries[i].label}${g1}与${pillarEntries[j].label}${g2}相合，增进两柱情义与化气气势。`,
+          influence: `${pillarEntries[i].label}${g1}与${pillarEntries[j].label}${g2}相合，增进两柱情义；此处为结构之合，成化与否须依日干参与、紧贴与化神透干另行判定。`,
           anchorId: `interaction-stem-he-${i}-${j}`,
         });
       }
@@ -961,7 +952,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
         transformElement: sanhe.wuxing,
         nature: '吉',
         description: sanhe.desc,
-        influence: `地支汇成${sanhe.name}，${sanhe.wuxing}气极其旺盛，对命局格局产生主导作用。`,
+        influence: `地支汇成${sanhe.name}，${sanhe.wuxing}气汇聚；此处为结构之聚，成化与否须依月令与透干另行判定。`,
         anchorId: `interaction-sanhe-${sanhe.wuxing}`,
       });
     }
@@ -1008,7 +999,7 @@ export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluIn
           transformElement: match.wuxing,
           nature: '吉',
           description: match.desc,
-          influence: `${allZhis[i].label}${z1}与${allZhis[j].label}${z2}六合有情，化解冲刑，增强安定稳固。`,
+          influence: `${allZhis[i].label}${z1}与${allZhis[j].label}${z2}六合有情，增进安定稳固；能否解冲化气，须依月令旺衰另行判定。`,
           anchorId: `interaction-liuhe-${i}-${j}`,
         });
       }
@@ -1220,14 +1211,16 @@ export function buildEnhancedShenShaSection(baziResult: BaziChartResult): Minglu
     const analysisList = rawAnalysis?.[key] || [];
     list.forEach((name) => {
       const cleanName = name === '天罗地网' ? '天罗地网' : name;
+      // 十神配合解释按条目开头归属对应神煞，避免整柱解释被复制到每个神煞卡片
+      const ownAnalysis = analysisList.filter((a) => a.startsWith(`${cleanName}逢`));
       if (!shenshaMap.has(cleanName)) {
         shenshaMap.set(cleanName, {
           pillars: new Set([pillarLabels[index]]),
-          tenGodCombos: new Set(analysisList),
+          tenGodCombos: new Set(ownAnalysis),
         });
       } else {
         shenshaMap.get(cleanName)!.pillars.add(pillarLabels[index]);
-        analysisList.forEach((a) => shenshaMap.get(cleanName)!.tenGodCombos.add(a));
+        ownAnalysis.forEach((a) => shenshaMap.get(cleanName)!.tenGodCombos.add(a));
       }
     });
   });
@@ -1462,6 +1455,8 @@ const SOLAR_TERMS = [
   '小寒 · 大寒',
 ];
 
+// 命录流月概览所附的月内司令固定串，属通行分日约定（每段合计30天）；
+// 与《三命通会》四库本“论人元司事”等具名版本存在差异，不作为已校勘的古籍定量依据
 const MONTH_COMMANDERS = [
   '戊丙甲 (甲木主权)',
   '甲乙 (乙木专权)',
@@ -1483,6 +1478,16 @@ function isHeavenlyStem(val: string): val is (typeof HEAVENLY_STEMS)[number] {
 
 function isEarthlyBranch(val: string): val is (typeof EARTHLY_BRANCHES)[number] {
   return (EARTHLY_BRANCHES as readonly string[]).includes(val);
+}
+
+/** 判定两字是否构成合/冲等二元关系：须分属组内两个不同成员，同字不成合冲 */
+export function formsPairRelation(
+  pairs: Array<{ pair: readonly string[] }>,
+  a: string,
+  b: string,
+): boolean {
+  if (!a || !b || a === b) return false;
+  return pairs.some((c) => c.pair.includes(a) && c.pair.includes(b));
 }
 
 // 五虎遁正月起法
@@ -1545,8 +1550,8 @@ function detectSpecialEvents(
   }
 
   // 2. 岁运天合地合
-  const isLuckStemHe = STEM_COMBOS.some((c) => c.pair.includes(yGan) && c.pair.includes(lGan));
-  const isLuckBranchHe = BRANCH_LIUHE.some((c) => c.pair.includes(yZhi) && c.pair.includes(lZhi));
+  const isLuckStemHe = formsPairRelation(STEM_COMBOS, yGan, lGan);
+  const isLuckBranchHe = formsPairRelation(BRANCH_LIUHE, yZhi, lZhi);
   if (isLuckStemHe && isLuckBranchHe) {
     specialEvents.push(
       '【岁运天地合】：流年与大运天干相合、地支相合，岁运有情，主贵人引路、协同发力、诸事和顺。',
@@ -1554,10 +1559,8 @@ function detectSpecialEvents(
   }
 
   // 3. 岁运天克地冲
-  const isLuckStemChong = STEM_CHONGS.some((c) => c.pair.includes(yGan) && c.pair.includes(lGan));
-  const isLuckBranchChong = BRANCH_CHONGS.some(
-    (c) => c.pair.includes(yZhi) && c.pair.includes(lZhi),
-  );
+  const isLuckStemChong = formsPairRelation(STEM_CHONGS, yGan, lGan);
+  const isLuckBranchChong = formsPairRelation(BRANCH_CHONGS, yZhi, lZhi);
   if (isLuckStemChong && isLuckBranchChong) {
     specialEvents.push(
       '【岁运天克地冲】：流年与大运天干相克、地支六冲，激荡震荡，主外部环境刷新、跨界开拓或奔波历练。',
@@ -1565,12 +1568,8 @@ function detectSpecialEvents(
   }
 
   // 4. 岁命日柱天地合
-  const isDayStemHe = STEM_COMBOS.some(
-    (c) => c.pair.includes(yGan) && c.pair.includes(pillars.day.gan),
-  );
-  const isDayBranchHe = BRANCH_LIUHE.some(
-    (c) => c.pair.includes(yZhi) && c.pair.includes(pillars.day.zhi),
-  );
+  const isDayStemHe = formsPairRelation(STEM_COMBOS, yGan, pillars.day.gan);
+  const isDayBranchHe = formsPairRelation(BRANCH_LIUHE, yZhi, pillars.day.zhi);
   if (isDayStemHe && isDayBranchHe) {
     specialEvents.push(
       '【岁命天地合】：流年与日柱干合支合，主情意深浓、良缘相聚、重要合作与生活喜庆。',
@@ -1578,7 +1577,7 @@ function detectSpecialEvents(
   }
 
   // 5. 冲日支（配偶宫动）
-  if (BRANCH_CHONGS.some((c) => c.pair.includes(yZhi) && c.pair.includes(pillars.day.zhi))) {
+  if (formsPairRelation(BRANCH_CHONGS, yZhi, pillars.day.zhi)) {
     specialEvents.push(
       `【太岁冲日支】：流年${yZhi}与日支${pillars.day.zhi}相冲，主家庭生活环境变迁、居所修葺或出行，宜多沟通互谅。`,
     );
@@ -1586,7 +1585,7 @@ function detectSpecialEvents(
   }
 
   // 6. 冲月令（冲提纲）
-  if (BRANCH_CHONGS.some((c) => c.pair.includes(yZhi) && c.pair.includes(pillars.month.zhi))) {
+  if (formsPairRelation(BRANCH_CHONGS, yZhi, pillars.month.zhi)) {
     specialEvents.push(
       `【太岁冲提纲】：流年${yZhi}与月令提纲${pillars.month.zhi}相冲，主事业赛道拓展、岗位转型、出外开拓新空间。`,
     );
@@ -1677,6 +1676,7 @@ export function buildEnhancedLuckChronicleSection(
     const zhi = cleanGanZhi.slice(1, 2);
     const isGanValid = isHeavenlyStem(gan);
     const isZhiValid = isEarthlyBranch(zhi);
+    const isXiaoyun = Boolean(cycle.isXiaoyun) || !isGanValid || !isZhiValid;
 
     const luckTenGod = isGanValid ? getTenGod(gan, dayMasterGan) : '—';
     const luckZhiTenGod = isZhiValid ? getTenGodForBranch(zhi, dayMasterGan) : '—';
@@ -1700,11 +1700,15 @@ export function buildEnhancedLuckChronicleSection(
       const isYZhiValid = isEarthlyBranch(yZhi);
 
       const months = calculateYearlyMonths(y.ganZhi, dayMasterGan);
-      const { specialEvents, natalInteractions, luckInteractions, yearTheme } = detectSpecialEvents(
-        baziResult,
-        cycle.ganZhi,
-        y.ganZhi,
-      );
+      // 童限条目无干支，不参与岁运合冲判定
+      const { specialEvents, natalInteractions, luckInteractions, yearTheme } = isXiaoyun
+        ? {
+            specialEvents: [] as string[],
+            natalInteractions: [] as string[],
+            luckInteractions: [] as string[],
+            yearTheme: `岁行${y.ganZhi} · 童限流年`,
+          }
+        : detectSpecialEvents(baziResult, cycle.ganZhi, y.ganZhi);
 
       return {
         year: y.year,
@@ -1722,19 +1726,33 @@ export function buildEnhancedLuckChronicleSection(
       };
     });
 
+    // 依据真实起止时间推算跨度，避免把童限统一按十年标注
+    const startSolarYear = cycle.startSolarTime?.year;
+    const endSolarYear = cycle.endSolarTime?.year;
+    const spanYears =
+      startSolarYear !== undefined && endSolarYear !== undefined
+        ? Math.max(1, endSolarYear - startSolarYear)
+        : 10;
+
     return {
       cycleIndex: cIndex + 1,
+      entryType: isXiaoyun ? ('小运' as const) : ('大运' as const),
+      isXiaoyun,
       startAge: cycle.age,
-      endAge: cycle.age + 9,
+      endAge: cycle.age + spanYears - 1,
       startYear: cycle.year,
-      endYear: cycle.year + 9,
+      endYear: cycle.year + spanYears - 1,
       ganZhi: cycle.ganZhi,
       tenGod: luckTenGod,
       zhiTenGod: luckZhiTenGod,
       nayin: NAYIN_MAP[cycle.ganZhi] || '—',
       lifeStage: luckStage,
-      lifeStageDesc: `日主${dayMasterGan}行至大运${zhi}临【${luckStage}】之运`,
-      interactionWithNatal: [`大运${cycle.ganZhi}主事十年，统领岁干流变`],
+      lifeStageDesc: isZhiValid
+        ? `日主${dayMasterGan}行至大运${zhi}临【${luckStage}】之运`
+        : '童限期，尚未交入大运',
+      interactionWithNatal: isXiaoyun
+        ? ['童限期统领起运前岁月，流年备查']
+        : [`大运${cycle.ganZhi}主事十年，统领岁干流变`],
       lifeTheme,
       careerAdvice,
       healthAdvice,
@@ -1747,9 +1765,12 @@ export function buildEnhancedLuckChronicleSection(
   const isMale = baziResult.gender === 'male';
   const isForward = (isYangYear && isMale) || (!isYangYear && !isMale);
 
+  // 起运岁数取第一步正式大运，而非排在首位的童限条目
+  const firstDayun = luckInfo.cycles.find((cycle) => !cycle.isXiaoyun);
+
   return {
-    startAge: luckInfo.cycles[0]?.age || 1,
-    startYear: luckInfo.cycles[0]?.year || baziResult.solarDate.year,
+    startAge: firstDayun?.age ?? luckInfo.cycles[0]?.age ?? 1,
+    startYear: firstDayun?.year ?? luckInfo.cycles[0]?.year ?? baziResult.solarDate.year,
     handoverInfo: luckInfo.handoverInfo || luckInfo.startInfo || '交运时间请参看节气',
     direction: isForward ? '顺行' : '逆行',
     cycles,

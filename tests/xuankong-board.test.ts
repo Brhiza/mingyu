@@ -2,12 +2,36 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   generateXuanKong,
+  evaluateCastleGate,
   flyStars,
   resolveXuanKongPeriod,
 } from '../packages/core/src/xuan_kong/index.ts';
 import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
 
 const NINE_STARS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+test('玄空九运二十四山提示词保留山向五黄的全部落宫', () => {
+  for (let yun = 1; yun <= 9; yun++) {
+    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
+      const result = generateXuanKong({ year: 1864 + (yun - 1) * 20, sitMountain });
+      const line = result.prompt.split('\n').find((item) => item.includes('五黄'));
+      assert.ok(line, `${yun}运${sitMountain}缺少五黄落宫`);
+      const expected = result.palaces.filter(
+        (palace) => palace.shanStar === 5 || palace.xiangStar === 5,
+      );
+      for (const palace of expected) {
+        assert.ok(line.includes(palace.name), `${yun}运${sitMountain}漏列${palace.name}：${line}`);
+      }
+      assert.equal(line.split('：')[1].split('；').length, expected.length);
+      for (const palace of expected) {
+        const layers = [palace.shanStar === 5 ? '山星' : '', palace.xiangStar === 5 ? '向星' : '']
+          .filter(Boolean)
+          .join('、');
+        assert.ok(line.includes(`${palace.name}（${palace.direction}，${layers}）`));
+      }
+    }
+  }
+});
 
 test('三元九运：2024 应落入下元九运区间附近可复现运表', () => {
   const period = resolveXuanKongPeriod(2024);
@@ -86,6 +110,35 @@ test('玄空飞星拒绝缺年和不相对坐向，且不再生成替卦分支',
       }),
     /measurementUncertaintyDegrees/,
   );
+});
+
+test('玄空坐向度数及显式山名必须相互一致', () => {
+  for (const [sitDegree, facingDegree] of [
+    [0, 181],
+    [359, 180],
+    [7, 173],
+  ]) {
+    assert.throws(() => generateXuanKong({ year: 2024, sitDegree, facingDegree }), /相差180度/);
+  }
+  for (const extra of [{ sitMountain: '卯' }, { facingMountain: '酉' }, { sitMountain: '' }]) {
+    assert.throws(
+      () => generateXuanKong({ year: 2024, sitDegree: 0, ...extra }),
+      /不一致|有效二十四山/,
+    );
+  }
+  for (const sitDegree of [0, 0.1, 7.5, 179.9, 180, 359.9, 360]) {
+    const facingDegree = (sitDegree + 180) % 360;
+    const single = generateXuanKong({ year: 2024, sitDegree });
+    const both = generateXuanKong({
+      year: 2024,
+      sitDegree,
+      facingDegree,
+      sitMountain: single.sitMountain,
+      facingMountain: single.facingMountain,
+    });
+    assert.deepEqual(both.plates, single.plates);
+    assert.deepEqual(both.measurement, single.measurement);
+  }
 });
 
 test('测量误差跨边界时标记山向边界敏感，仍使用下卦', () => {
@@ -173,4 +226,89 @@ test('玄空飞星城门诀：八运午向判定巽方城门得位与提示词�
   assert.equal(xunGate.arrivalStar, 8);
   assert.match(result.castleGate.summary, /城门诀/);
   assert.ok(result.prompt.includes('城门诀：'));
+});
+
+test('城门计算校验当运九宫运盘与二十四山，星名保持紫白本色', () => {
+  const valid = { yun: 9, facingMountain: '午', yunPlate: flyStars(9, '顺飞') };
+  for (const yun of [0, 10, NaN, 1.5]) assert.throws(() => evaluateCastleGate({ ...valid, yun }));
+  for (const facingMountain of ['toString', '__proto__', '无', []]) {
+    assert.throws(
+      () => evaluateCastleGate({ ...valid, facingMountain: facingMountain as never }),
+      /二十四山/,
+    );
+  }
+  for (const yunPlate of [[], Array(9).fill(9), flyStars(8, '顺飞'), flyStars(9, '逆飞')]) {
+    assert.throws(() => evaluateCastleGate({ ...valid, yunPlate }), /完整九宫盘/);
+  }
+  const names = ['一白', '二黑', '三碧', '四绿', '五黄', '六白', '七赤', '八白', '九紫'];
+  for (let yun = 1; yun <= 9; yun++)
+    for (const facingMountain of TWENTY_FOUR_MOUNTAINS) {
+      const result = evaluateCastleGate({ yun, facingMountain, yunPlate: flyStars(yun, '顺飞') });
+      assert.equal(result.candidates.length, 2);
+      for (const candidate of result.candidates.filter((item) => item.status !== '不得旺不可用')) {
+        assert.ok(candidate.summary.includes(names[candidate.arrivalStar - 1]));
+      }
+    }
+});
+
+test('城门五黄入中按本运元龙取阴阳，复现《沈氏玄空学》乾向子方九运例', () => {
+  const expected = [false, true, false, true, true, false, true, false, true];
+  for (let yun = 1; yun <= 9; yun++) {
+    const result = evaluateCastleGate({
+      yun,
+      facingMountain: '乾',
+      yunPlate: flyStars(yun, '顺飞'),
+    });
+    const zi = result.candidates.find((item) => item.mountain === '子')!;
+    assert.equal(zi.status, expected[yun - 1] ? '得旺可用' : '不得旺不可用', `${yun}运子方`);
+    if (expected[yun - 1]) assert.equal(zi.arrivalStar, yun);
+    if (yun === 9) {
+      assert.equal(zi.yunStar, 5);
+      assert.equal(zi.flyDirection, '逆飞');
+      assert.equal(zi.arrivalStar, 9);
+    }
+  }
+});
+
+test('正城门按元旦宫数生成配对并覆盖二十四山同元龙', () => {
+  const pairs = [
+    ['壬', '戌'],
+    ['子', '乾'],
+    ['癸', '亥'],
+    ['丑', '甲'],
+    ['艮', '卯'],
+    ['寅', '乙'],
+    ['甲', '丑'],
+    ['卯', '艮'],
+    ['乙', '寅'],
+    ['辰', '丙'],
+    ['巽', '午'],
+    ['巳', '丁'],
+    ['丙', '辰'],
+    ['午', '巽'],
+    ['丁', '巳'],
+    ['未', '庚'],
+    ['坤', '酉'],
+    ['申', '辛'],
+    ['庚', '未'],
+    ['酉', '坤'],
+    ['辛', '申'],
+    ['戌', '壬'],
+    ['乾', '子'],
+    ['亥', '癸'],
+  ];
+  for (let yun = 1; yun <= 9; yun++) {
+    for (const [facingMountain, gateMountain] of pairs) {
+      const result = evaluateCastleGate({ yun, facingMountain, yunPlate: flyStars(yun, '顺飞') });
+      assert.deepEqual(
+        result.candidates.filter((c) => c.role === '正城门').map((c) => c.mountain),
+        [gateMountain],
+      );
+      assert.equal(result.candidates.filter((c) => c.role === '副城门').length, 1);
+      assert.equal(
+        result.hasUsableGate,
+        result.candidates.some((c) => c.arrivalStar === yun),
+      );
+    }
+  }
 });

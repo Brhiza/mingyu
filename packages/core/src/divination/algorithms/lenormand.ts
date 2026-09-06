@@ -248,12 +248,18 @@ export function resolveInteractiveLenormandCards(
   spreadType: LenormandSpreadType,
   samples: readonly number[],
 ) {
-  const spread = LENORMAND_SPREADS[spreadType];
+  const spread =
+    typeof spreadType === 'string' && Object.hasOwn(LENORMAND_SPREADS, spreadType)
+      ? LENORMAND_SPREADS[spreadType]
+      : undefined;
   if (!spread) throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
+  if (!Array.isArray(samples)) throw new Error('雷诺曼抽牌随机样本必须是数组');
   if (samples.length > spread.positions.length) {
     throw new Error(`${spread.name}最多抽取${spread.positions.length}张牌`);
   }
-  samples.forEach(assertInteractiveSample);
+  for (let index = 0; index < samples.length; index++) {
+    assertInteractiveSample(samples[index], index);
+  }
 
   const remaining = [...LENORMAND_CARDS];
   return samples.map((sample) => {
@@ -264,7 +270,7 @@ export function resolveInteractiveLenormandCards(
   });
 }
 
-function shuffleCards(rng: RandomSource) {
+export function shuffleLenormandCards(rng: RandomSource) {
   const shuffled = [...LENORMAND_CARDS];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = randomInt(i + 1, rng);
@@ -312,12 +318,25 @@ export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {
 type LenormandCardPlacement = LenormandData['cards'][number];
 type LenormandCombination = NonNullable<LenormandData['combinations']>[number];
 
+/**
+ * 判词含先后/过程语义的组合键：这些条目的文字按登记次序描述过程（如“从迷茫走向清晰”），
+ * 反序抽到时附注登记次序，方向信息不丢失；其余组合按可交换主题处理。
+ * 有序读法的完整依据仍待核对历史牌组规则书。
+ */
+const DIRECTIONAL_COMBINATION_KEYS = new Set(['月亮+太阳', '星星+月亮', '锚+星星', '船+鹳']);
+
 function getFixedCombinationMeaning(firstName: string, secondName: string): string | null {
-  return (
-    LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`] ??
-    LENORMAND_FIXED_COMBINATIONS[`${secondName}+${firstName}`] ??
-    null
-  );
+  const direct = LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`];
+  if (direct) {
+    return DIRECTIONAL_COMBINATION_KEYS.has(`${firstName}+${secondName}`)
+      ? `${direct}（登记次序：${firstName}→${secondName}）`
+      : direct;
+  }
+  const reversed = LENORMAND_FIXED_COMBINATIONS[`${secondName}+${firstName}`];
+  if (!reversed) return null;
+  return DIRECTIONAL_COMBINATION_KEYS.has(`${secondName}+${firstName}`)
+    ? `${reversed}（登记判词按“${secondName}→${firstName}”次序，本抽牌为反序）`
+    : reversed;
 }
 
 function getGridCombinationCandidates(cards: LenormandCardPlacement[]) {
@@ -453,13 +472,22 @@ export function drawLenormandSpread(
     interactiveSamples?: readonly number[];
   },
 ): LenormandData {
-  const spread = LENORMAND_SPREADS[spreadType];
+  const spread =
+    typeof spreadType === 'string' && Object.hasOwn(LENORMAND_SPREADS, spreadType)
+      ? LENORMAND_SPREADS[spreadType]
+      : undefined;
   if (!spread) {
     throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
   }
 
   const manualCardIds = options?.manualCardIds;
   const interactiveSamples = options?.interactiveSamples;
+  if (manualCardIds !== undefined && !Array.isArray(manualCardIds)) {
+    throw new Error('雷诺曼手工录入牌号必须是数组');
+  }
+  if (interactiveSamples !== undefined && !Array.isArray(interactiveSamples)) {
+    throw new Error('雷诺曼抽牌随机样本必须是数组');
+  }
   if (manualCardIds && interactiveSamples) {
     throw new Error('雷诺曼手动抽取不能同时提供手工录入牌面');
   }
@@ -481,14 +509,14 @@ export function drawLenormandSpread(
 
   const context = manualCardIds || interactiveSamples ? null : createRandomContext(options);
   const selectedCards = manualCardIds
-    ? manualCardIds.map((id, index) => {
+    ? [...manualCardIds].map((id, index) => {
         const card = LENORMAND_CARDS.find((item) => item.id === id);
         if (!card) throw new Error(`第${index + 1}张雷诺曼牌录入无效`);
         return card;
       })
     : interactiveSamples
       ? resolveInteractiveLenormandCards(spreadType, interactiveSamples)
-      : shuffleCards(context!.random).slice(0, spread.positions.length);
+      : shuffleLenormandCards(context!.random).slice(0, spread.positions.length);
   const cards = selectedCards.map((card, index) => {
     const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
     const houseCard = spreadType === 'grandTableau' ? LENORMAND_CARDS[index] : undefined;

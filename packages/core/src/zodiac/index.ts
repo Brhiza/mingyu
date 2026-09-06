@@ -24,6 +24,7 @@ import {
   getGanZhiFromDate,
 } from '../ganzhi';
 import { analyzeZodiacEvidence } from './evidence';
+import { buildPromptTask } from '../prompt/guidance';
 
 export { analyzeZodiacEvidence } from './evidence';
 export type {
@@ -363,6 +364,11 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   };
   const evidenceAnalysis = analyzeZodiacEvidence(resultBase);
   const prompt = [
+    '【任务】',
+    buildPromptTask(
+      '围绕所问事项解读以下生肖与流年资料，说明各项关系的传统含义及适用条件。涉及个人具体情况时，结合完整出生资料和实际处境展开。',
+      'zodiac',
+    ),
     `【生肖与流年关系简析】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${taiSui.star}太岁）。`,
     `五行关系：流年年干${yearGanZhi[0]}属${yearStemWuxing}，生肖地支${zodiacBranch}属${zodiacWuxing}，${relation}。`,

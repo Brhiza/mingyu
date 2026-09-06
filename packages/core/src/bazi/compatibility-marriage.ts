@@ -42,7 +42,13 @@ export interface UsefulGodComplementarityResult {
   person2Useful: string[];
   person1CoveredByPerson2Count: number;
   person2CoveredByPerson1Count: number;
-  level: '互为喜用' | '单向得益' | '中和相济' | '互见忌神';
+  /** 对方盘面出现第一人忌神五行的次数（仅按天干与地支主气计数，不含藏干） */
+  person1AvoidCountInPerson2: number;
+  /** 对方盘面出现第二人忌神五行的次数（仅按天干与地支主气计数，不含藏干） */
+  person2AvoidCountInPerson1: number;
+  /** 双方喜忌资料覆盖状态 */
+  dataStatus: '完整' | '一方缺失' | '双方缺失';
+  level: '互为喜用' | '单向得益' | '中和相济' | '互见忌神' | '资料不足';
   judgment: string;
 }
 
@@ -206,6 +212,7 @@ function countElementOccurrences(chart: BaziChartResult, elements: string[]): nu
 
 /**
  * 评估喜用神互补度
+ * 命中次数仅按双方四柱天干与地支主气统计，不含藏干；2 次与 3 次阈值属现代约定口径，并非古籍定量规则。
  */
 export function evaluateUsefulGodComplementarity(
   chart1: BaziChartResult,
@@ -222,12 +229,23 @@ export function evaluateUsefulGodComplementarity(
   const avoid1 = countElementOccurrences(chart2, p1Avoid);
   const avoid2 = countElementOccurrences(chart1, p2Avoid);
 
+  // 喜忌资料缺失与“未命中”分开处理：缺失不得判为分布平稳
+  const p1HasData = p1Useful.length > 0 || p1Avoid.length > 0;
+  const p2HasData = p2Useful.length > 0 || p2Avoid.length > 0;
+  const dataStatus: UsefulGodComplementarityResult['dataStatus'] =
+    !p1HasData && !p2HasData ? '双方缺失' : !p1HasData || !p2HasData ? '一方缺失' : '完整';
+
   let level: UsefulGodComplementarityResult['level'];
   let judgment: string;
 
-  if (c1 >= 2 && c2 >= 2) {
+  if (dataStatus !== '完整') {
+    level = '资料不足';
+    judgment = `${dataStatus === '双方缺失' ? '双方' : '一方'}喜忌五行资料缺失，无法判定五行互补结构；资料缺失不等于分布平稳或中和`;
+  } else if (c1 >= 2 && c2 >= 2) {
     level = '互为喜用';
-    judgment = '双方八字互补喜用五行，所需皆由对方盘面承托，同舟共济，流通生生不息';
+    judgment = `双方八字互见对方喜用五行（对方盘面各命中${c1}次与${c2}次，2 次为现代约定阈值），五行互助流通；此处命中可能来自同一五行重复，不等于所需种类全部覆盖${
+      avoid1 >= 3 && avoid2 >= 3 ? '；惟同时互见忌神，喜忌并存，需并列参看' : ''
+    }`;
   } else if (c1 >= 2 || c2 >= 2) {
     level = '单向得益';
     judgment = '单方五行对另一方起到明显资助作用，互有依托，情深意笃';
@@ -236,7 +254,7 @@ export function evaluateUsefulGodComplementarity(
     judgment = '对方多见自身所忌五行，气场互有砥砺，需借大运流年与后天环境调停化解';
   } else {
     level = '中和相济';
-    judgment = '双方五行分布平稳，互补不显偏激，日常相处循序渐进';
+    judgment = '双方喜忌五行互见有限，互补不显偏激，日常相处循序渐进';
   }
 
   return {
@@ -244,6 +262,9 @@ export function evaluateUsefulGodComplementarity(
     person2Useful: p2Useful,
     person1CoveredByPerson2Count: c1,
     person2CoveredByPerson1Count: c2,
+    person1AvoidCountInPerson2: avoid1,
+    person2AvoidCountInPerson1: avoid2,
+    dataStatus,
     level,
     judgment,
   };

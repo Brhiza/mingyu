@@ -7,6 +7,7 @@ import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
+import { getHuangliSolarDayGods } from '../../shensha';
 import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../ganzhi/data';
 import {
   getBranchWuxing,
@@ -185,6 +186,79 @@ function buildTopicMatchFact(params: {
   };
 }
 
+const GOD_RULE_SOURCES: Record<string, string> = {
+  天符: '《御定星历考原》天符正月戌顺行六阳辰起例',
+  三丧: '《时俗丧祭便览》三丧四季起例，以交节分季',
+  孤辰: '《钦定协纪辨方书》行狠了戾孤辰起例',
+  灾煞: '《钦定协纪辨方书》灾煞正月子逆行四仲起例',
+  天德: '《钦定协纪辨方书》四德日干起例',
+  天德合: '《钦定协纪辨方书》四德日干起例',
+  月德: '《钦定协纪辨方书》四德日干起例',
+  月德合: '《钦定协纪辨方书》四德日干起例',
+  天恩: '《大清时宪历笺释》天恩十五日起例',
+  母仓: '《钦定协纪辨方书》母仓起例、《历事明原》四立前十八日土王用事',
+  月恩: '《钦定协纪辨方书》月恩起例',
+  月空: '《三命通会》所载大统历月空起例',
+  月厌: '《三命通会》所载大统历月厌起例',
+  六合: '月建与日支六合关系',
+  月刑: '《选择天镜》逐月月刑起例',
+  时德: '《钦定大清会典》四季时德起例',
+  守日: '《钦定协纪辨方书》守日与牢日校正起例',
+  相日: '《钦定协纪辨方书》四季相日起例',
+  四击: '《钦定协纪辨方书》四季四击起例',
+  九空: '《钦定协纪辨方书》九空逆行四季起例',
+  五富: '《钦定大清会典》逐月五富起例',
+  生气: '《御定星历考原》生气起例',
+  普护: '《御定星历考原》逐月普护起例',
+  福生: '《御定星历考原》逐月福生起例',
+  玉宇: '《历事明原》逐月玉宇起例',
+  金堂: '《御定星历考原》逐月金堂起例',
+  天仓: '《御定星历考原》天仓正月寅逆行起例',
+  天巫: '《御定星历考原》天巫月建前二辰起例',
+  福德: '《御定星历考原》福德月建前二辰起例',
+  阳德: '《御定星历考原》阳德正月戌顺行六阳起例',
+  阴德: '《御定星历考原》阴德正月酉逆行六阴起例',
+  解神: '《御定星历考原》解神逐月起例',
+  时阳: '《御定星历考原》时阳月建后二辰起例',
+  时阴: '《御定星历考原》时阴月建前四辰起例',
+  玉堂: '《万年书》逐月玉堂起例',
+  金匮: '《万年书》逐月金匮起例',
+  五合: '《万年书》五合寅卯日起例',
+  除神: '《万年书》除神申酉日起例',
+  五虚: '《钦定协纪辨方书》四季五虚起例',
+  血支: '《历事明原》血支正月丑顺行起例',
+  血忌: '《历事明原》血忌逐月相冲起例',
+  天刑: '《历事明原》天刑逐月起例',
+  白虎: '《历事明原》白虎逐月起例',
+  天牢: '《历事明原》天牢逐月起例',
+  朱雀: '《历事明原》朱雀逐月起例',
+  勾陈: '《历事明原》勾陈逐月起例',
+  天贼: '《历事明原》天贼正月丑逆行起例',
+  致死: '《历事明原》致死正月酉逆行四仲起例',
+  月虚: '《历事明原》月虚正月丑逆行四季起例',
+  小耗: '《历事明原》小耗月建前五辰起例',
+  归忌: '《历事明原》归忌孟月丑、仲月寅、季月子起例',
+  土符: '《历事明原》土符逐月起例',
+  土府: '《历事明原》土府与月建同行起例',
+  地火: '《历事明原》地火正月戌逆行十二辰起例',
+  天吏: '《历事明原》天吏正月酉逆行四仲起例',
+  小时: '《历事明原》小时与月建同行起例',
+  大煞: '《历事明原》大煞逐月起例',
+  劫煞: '《历事明原》劫煞正月亥逆行四孟起例',
+  死神: '《历事明原》死神月建前三辰起例',
+  游祸: '《历事明原》游祸正月巳逆行四孟起例',
+  天火: '《协纪辨方书》天火三合对冲校正起例',
+  不将: '《协纪辨方书》阴阳不将逐月干支起例',
+  大会: '《协纪辨方书》阴阳大会八日立成起例',
+  阳破阴冲: '《协纪辨方书》六月癸丑、十二月丁未起例',
+  八专: '《协纪辨方书》八专五日起例',
+  河魁: '《协纪辨方书》河魁阳月建后三辰、阴月建前三辰起例',
+  重日: '《选择历书》重日巳日、亥日起例',
+  四离: '《协纪辨方书》春分、夏至、秋分、冬至各前一日',
+  鸣吠: '《钦定协纪辨方书》鸣吠十三日校正起例',
+  鸣吠对: '《钦定协纪辨方书》鸣吠对十一日校正起例',
+};
+
 function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFact[] {
   return gods.map((god) => {
     const name = god.getName();
@@ -196,7 +270,7 @@ function buildGodFacts(dateKey: string, gods: AlmanacGodSource[]): AlmanacGodFac
       classification,
       status: '已读取',
       promptText: `${name}列为${classification}`,
-      sources: ['tyme4ts 值日神煞', 'tyme4ts God.getLuck() 原生吉凶属性'],
+      sources: [GOD_RULE_SOURCES[name] ?? 'tyme4ts 值日神煞', 'tyme4ts God.getLuck() 原生吉凶属性'],
       limitation: GOD_FACT_LIMITATION,
     };
   });
@@ -834,7 +908,7 @@ function buildDayCandidate(
   const dayBranch = dayCycle.getEarthBranch();
   const recommends = normalizeTaboos(lunarDay.getRecommends());
   const avoids = normalizeTaboos(lunarDay.getAvoids());
-  const godSources = lunarDay.getGods() as AlmanacGodSource[];
+  const godSources = getHuangliSolarDayGods(solarDay);
   const gods = godSources.map((item) => item.getName());
   const scoring = buildDayFacts({
     dateKey,
@@ -980,7 +1054,11 @@ export function generateAlmanacSelection(params: {
   return { ...result, evidenceAnalysis };
 }
 
-export { analyzeAlmanacEvidence, conditionAlmanacTraditionalText } from '../almanac-evidence';
+export {
+  analyzeAlmanacEvidence,
+  conditionAlmanacTraditionalText,
+  formatAlmanacGods,
+} from '../almanac-evidence';
 export type {
   AlmanacCandidateEvidence,
   AlmanacCandidateDecisionFact,

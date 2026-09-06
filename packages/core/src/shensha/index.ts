@@ -16,7 +16,8 @@
  *       神煞体系混淆。
  */
 import { SolarDay, SixtyCycle, SixtyCycleDay, God } from 'tyme4ts';
-import { EARTHLY_BRANCHES, getYiMa, getTaoHua, isValidGanZhi } from '../ganzhi';
+import { EARTHLY_BRANCHES, getYiMa, getTaoHua, isValidGanZhi, isLiuhe } from '../ganzhi';
+import { daysInGregorianMonth } from '../calendar/date-validation';
 
 export type ShenshaScope = 'common' | 'bazi' | 'liuren' | 'qimen' | 'taiyi' | 'qizheng' | 'bazhai';
 
@@ -161,20 +162,47 @@ export interface ShenshaEvidenceAnalysis {
 
 const REGISTRY = new Map<string, ShenshaDefinition>();
 
+function copyDefinition(definition: ShenshaDefinition): ShenshaDefinition {
+  return {
+    ...definition,
+    ...(definition.evidence
+      ? {
+          evidence: {
+            ...definition.evidence,
+            inputDependencies: [...definition.evidence.inputDependencies],
+            sources: [...definition.evidence.sources],
+          },
+        }
+      : {}),
+  };
+}
+
+function computeDefinition(
+  definition: ShenshaDefinition,
+  context: ShenshaContext,
+): ShenshaResult | null {
+  const result = definition.compute({ ...context });
+  return result
+    ? { ...result, value: Array.isArray(result.value) ? [...result.value] : result.value }
+    : null;
+}
+
 /** 注册神煞（可重复覆盖） */
 export function registerShensha(def: ShenshaDefinition): void {
-  REGISTRY.set(def.id, def);
+  REGISTRY.set(def.id, copyDefinition(def));
 }
 
 /** 批量注册 */
 export function registerShenshas(defs: ShenshaDefinition[]): void {
-  for (const def of defs) REGISTRY.set(def.id, def);
+  for (const def of defs) registerShensha(def);
 }
 
 /** 列出已注册神煞（可按 scope 过滤） */
 export function listShensha(scope?: ShenshaScope): ShenshaDefinition[] {
   const all = Array.from(REGISTRY.values());
-  return scope ? all.filter((d) => d.scope === scope || d.scope === 'common') : all;
+  return (scope ? all.filter((d) => d.scope === scope || d.scope === 'common') : all).map(
+    copyDefinition,
+  );
 }
 
 /** 列出可安全序列化的神煞目录，不暴露计算函数。 */
@@ -192,11 +220,13 @@ export function listShenshaCatalog(scope?: ShenshaScope): ShenshaCatalogItem[] {
 
 /** 计算指定神煞 */
 export function computeShensha(ids: string[], ctx: ShenshaContext): ShenshaResult[] {
+  validateShenshaContext(ctx);
+  if (!Array.isArray(ids)) throw new Error('神煞编号必须是数组。');
+  const requestedIds = ids.length === 0 ? [] : normalizeRequestedShenshaIds(ids);
   const out: ShenshaResult[] = [];
-  for (const id of ids) {
-    const def = REGISTRY.get(id);
-    if (!def) continue;
-    const r = def.compute(ctx);
+  for (const id of requestedIds) {
+    const def = REGISTRY.get(id)!;
+    const r = computeDefinition(def, ctx);
     if (r) out.push(r);
   }
   return out;
@@ -291,6 +321,7 @@ export const COMMON_SHENSHA: ShenshaDefinition[] = [
 registerShenshas(COMMON_SHENSHA);
 
 function validateShenshaContext(ctx: ShenshaContext): ShenshaPillarFact[] {
+  if (!ctx || typeof ctx !== 'object') throw new Error('神煞计算需要完整四柱。');
   const entries = Object.entries(PILLAR_LABELS) as Array<
     [ShenshaContextKey, ShenshaPillarFact['label']]
   >;
@@ -361,7 +392,7 @@ export function analyzeShenshaEvidence(
 
   for (const id of requestedIds) {
     const definition = REGISTRY.get(id)!;
-    const result = definition.compute(ctx);
+    const result = computeDefinition(definition, ctx);
     const ruleStepKey = `foundation:shensha:calculation:${id}:rule`;
     const matchStepKey = `foundation:shensha:calculation:${id}:match`;
     const metadata = definition.evidence;
@@ -551,7 +582,7 @@ export interface HuangliShensha {
 }
 
 export interface HuangliInfo {
-  /** 当日全部黄历神煞（来自 tyme4ts，共 151 种，按当日命中输出） */
+  /** 当日黄历神煞，按校正后的起例输出命中项。 */
   shensha: HuangliShensha[];
   /** 十二建除（值神） */
   duty: string;
@@ -561,19 +592,192 @@ export interface HuangliInfo {
   nineStarColor: string;
 }
 
-/** 列出 tyme4ts 内建的全部黄历神煞名（共 151 个），供能力发现/文档用 */
+/** 列出黄历神煞名称，供能力发现与文档使用。 */
 export function listHuangliShenshaNames(): string[] {
-  return God.NAMES.slice();
+  return God.NAMES.filter((name) => !['阳错阴冲', '成日', '解除'].includes(name));
+}
+
+/** 月日干支立成表；母仓的土王分界需通过具体日期入口计算。 */
+export function getHuangliDayGods(monthGanZhi: string, dayGanZhi: string): God[] {
+  if (!isValidGanZhi(monthGanZhi) || !isValidGanZhi(dayGanZhi)) {
+    throw new Error('黄历月柱与日柱必须是有效六十甲子。');
+  }
+  const month = SixtyCycle.fromName(monthGanZhi);
+  const day = SixtyCycle.fromName(dayGanZhi);
+  const monthIndex = month.getEarthBranch().next(-2).getIndex();
+  const dayStem = day.getHeavenStem().getName();
+  const rules: Record<string, string | null> = {
+    天德: ['丁', null, '壬', '辛', null, '甲', '癸', null, '丙', '乙', null, '庚'][monthIndex],
+    天德合: ['壬', null, '丁', '丙', null, '己', '戊', null, '辛', '庚', null, '乙'][monthIndex],
+    月德: ['丙', '甲', '壬', '庚'][monthIndex % 4],
+    月德合: ['辛', '己', '丁', '乙'][monthIndex % 4],
+    月恩: ['丙', '丁', '庚', '己', '戊', '辛', '壬', '癸', '庚', '乙', '甲', '辛'][monthIndex],
+    月空: ['壬', '庚', '丙', '甲'][monthIndex % 4],
+  };
+  const matches: Record<string, boolean> = Object.fromEntries(
+    Object.entries(rules).map(([name, stem]) => [name, dayStem === stem]),
+  );
+  const dayIndex = day.getIndex();
+  const seasonIndex = Math.floor(monthIndex / 3);
+  const branchRules: Record<string, string> = {
+    时德: '午辰子寅'[seasonIndex],
+    守日: '辰未戌丑'[seasonIndex],
+    相日: '巳申亥寅'[seasonIndex],
+    四击: '戌丑辰未'[seasonIndex],
+    九空: '辰丑戌未'[monthIndex % 4],
+    五富: '亥寅巳申'[monthIndex % 4],
+    生气: EARTHLY_BRANCHES[monthIndex],
+    普护: '申寅酉卯戌辰亥巳子午丑未'[monthIndex],
+    福生: '酉卯戌辰亥巳子午丑未寅申'[monthIndex],
+    玉宇: '卯酉辰戌巳亥午子未丑申寅'[monthIndex],
+    金堂: '辰戌巳亥午子未丑申寅酉卯'[monthIndex],
+    天仓: '寅丑子亥戌酉申未午巳辰卯'[monthIndex],
+    天巫: EARTHLY_BRANCHES[(monthIndex + 4) % 12],
+    福德: EARTHLY_BRANCHES[(monthIndex + 4) % 12],
+    阳德: '戌子寅辰午申'[monthIndex % 6],
+    阴德: '酉未巳卯丑亥'[monthIndex % 6],
+    解神: '申戌子寅辰午'[Math.floor(monthIndex / 2)],
+    时阳: EARTHLY_BRANCHES[monthIndex],
+    时阴: EARTHLY_BRANCHES[(monthIndex + 6) % 12],
+    玉堂: '未酉亥丑卯巳'[monthIndex % 6],
+    金匮: '辰午申戌子寅'[monthIndex % 6],
+    血支: EARTHLY_BRANCHES[(monthIndex + 1) % 12],
+    血忌: '丑未寅申卯酉辰戌巳亥午子'[monthIndex],
+    天刑: '寅辰午申戌子'[monthIndex % 6],
+    白虎: '午申戌子寅辰'[monthIndex % 6],
+    天牢: '申戌子寅辰午'[monthIndex % 6],
+    朱雀: '卯巳未酉亥丑'[monthIndex % 6],
+    勾陈: '亥丑卯巳未酉'[monthIndex % 6],
+    天贼: '丑子亥戌酉申未午巳辰卯寅'[monthIndex],
+    致死: '酉午卯子'[monthIndex % 4],
+    月虚: '丑戌未辰'[monthIndex % 4],
+    小耗: EARTHLY_BRANCHES[(monthIndex + 7) % 12],
+    归忌: '丑寅子'[monthIndex % 3],
+    土符: '丑巳酉寅午戌卯未亥辰申子'[monthIndex],
+    土府: month.getEarthBranch().getName(),
+    地火: '戌酉申未午巳辰卯寅丑子亥'[monthIndex],
+    天吏: '酉午卯子'[monthIndex % 4],
+    小时: month.getEarthBranch().getName(),
+    大煞: '戌巳午未寅卯辰亥子丑申酉'[monthIndex],
+    劫煞: '亥申巳寅'[monthIndex % 4],
+    死神: EARTHLY_BRANCHES[(monthIndex + 5) % 12],
+    游祸: '巳寅亥申'[monthIndex % 4],
+    天火: '子酉午卯'[monthIndex % 4],
+    灾煞: '子酉午卯'[monthIndex % 4],
+    三丧: '辰未戌丑'[seasonIndex],
+    天符: '戌子寅辰午申'[monthIndex % 6],
+    河魁: '亥午丑申卯戌巳子未寅酉辰'[monthIndex],
+  };
+  for (const [name, branch] of Object.entries(branchRules)) {
+    matches[name] = day.getEarthBranch().getName() === branch;
+  }
+  matches.月厌 = day.getEarthBranch().getIndex() === (10 - monthIndex + 12) % 12;
+  matches.六合 = isLiuhe(month.getEarthBranch().getName(), day.getEarthBranch().getName());
+  matches.五合 = '寅卯'.includes(day.getEarthBranch().getName());
+  matches.除神 = '申酉'.includes(day.getEarthBranch().getName());
+  matches.五虚 = ['巳酉丑', '申子辰', '亥卯未', '寅午戌'][seasonIndex].includes(
+    day.getEarthBranch().getName(),
+  );
+  matches.鸣吠 =
+    day.getEarthBranch().getName() === '酉' ||
+    ('午申'.includes(day.getEarthBranch().getName()) && '甲丙庚壬'.includes(dayStem));
+  matches.鸣吠对 =
+    (day.getEarthBranch().getName() === '子' && '丙庚壬'.includes(dayStem)) ||
+    (day.getEarthBranch().getName() === '寅' && '甲丙庚壬'.includes(dayStem)) ||
+    (day.getEarthBranch().getName() === '卯' && '乙丁辛癸'.includes(dayStem));
+  matches.月刑 = day.getEarthBranch().getName() === [...'巳子辰申午丑寅酉未亥卯戌'][monthIndex];
+  matches.天恩 =
+    dayIndex < 5 || (dayIndex >= 15 && dayIndex < 20) || (dayIndex >= 45 && dayIndex < 50);
+  const nonGeneralStems = [
+    '丙丁己庚辛',
+    '乙丙丁己庚',
+    '甲乙丙丁己',
+    '甲乙丙丁戊',
+    '甲乙丙戊癸',
+    '甲乙戊壬癸',
+    '甲乙戊壬癸',
+    '甲戊辛壬癸',
+    '戊庚辛壬癸',
+    '己庚辛壬癸',
+    '丁己庚辛壬',
+    '丙丁己庚辛',
+  ];
+  matches.不将 =
+    nonGeneralStems[monthIndex].includes(dayStem) &&
+    (day.getEarthBranch().getIndex() + monthIndex + 1) % 12 < 5;
+  matches.大会 =
+    ['甲戌', '乙酉', '', '', '丙午', '丁巳', '庚辰', '辛卯', '', '', '壬子', '癸亥'][monthIndex] ===
+    day.getName();
+  matches.阳破阴冲 =
+    (monthIndex === 5 && day.getName() === '癸丑') ||
+    (monthIndex === 11 && day.getName() === '丁未');
+  matches.八专 = ['甲寅', '丁未', '己未', '庚申', '癸丑'].includes(day.getName());
+  matches.重日 = '巳亥'.includes(day.getEarthBranch().getName());
+  matches.四离 = false;
+  matches.阳错阴冲 = false;
+  matches.成日 = false;
+  matches.解除 = false;
+  matches.孤辰 = [
+    '',
+    '',
+    '戊申庚申壬申',
+    '己未辛未癸未',
+    '',
+    '',
+    '',
+    '',
+    '甲寅丙寅戊寅',
+    '乙丑丁丑己丑',
+    '',
+    '',
+  ][monthIndex].includes(day.getName());
+  const gods = God.getDayGods(month, day).filter(
+    (god) => !Object.hasOwn(matches, god.getName()) || matches[god.getName()],
+  );
+  for (const [name, matched] of Object.entries(matches)) {
+    if (matched && !gods.some((god) => god.getName() === name)) gods.push(God.fromName(name));
+  }
+  return gods;
+}
+
+/** 整日黄历以节气所在民用日期分界，土王用事取四立前十八日。 */
+export function getHuangliSolarDayGods(solarDay: SolarDay): God[] {
+  const cycleDay = solarDay.getSixtyCycleDay();
+  const month = cycleDay.getMonth();
+  const day = cycleDay.getSixtyCycle();
+  const term = solarDay.getTerm();
+  const nextSeason = term.next((3 - term.getIndex() + 24) % 6 || 6);
+  const daysToNextSeason = nextSeason
+    .getJulianDay()
+    .getSolarTime()
+    .getSolarDay()
+    .subtract(solarDay);
+  const earthPeriod = daysToNextSeason > 0 && daysToNextSeason <= 18;
+  const season = Math.floor(month.getEarthBranch().next(-2).getIndex() / 3);
+  const motherBranches = earthPeriod ? '巳午' : ['亥子', '寅卯', '辰戌丑未', '申酉'][season];
+  const gods = getHuangliDayGods(month.getName(), day.getName()).filter(
+    (god) => god.getName() !== '母仓',
+  );
+  if (motherBranches.includes(day.getEarthBranch().getName())) gods.push(God.fromName('母仓'));
+  const nextPrincipalTerm = term.next((24 - term.getIndex()) % 6 || 6);
+  if (nextPrincipalTerm.getJulianDay().getSolarTime().getSolarDay().subtract(solarDay) === 1) {
+    gods.push(God.fromName('四离'));
+  }
+  return gods;
 }
 
 /**
- * 查询指定公历日期的黄历神煞（委托 tyme4ts，权威黄历体系）。
+ * 查询指定公历日期的黄历神煞，四德依据《钦定协纪辨方书》，天恩依据《大清时宪历笺释》。
  * 返回的 shensha 含吉凶分类，duty 为十二建除，nineStar 为九星。
  */
 export function getHuangliShensha(year: number, month: number, day: number): HuangliInfo {
+  const maxDay = daysInGregorianMonth(year, month);
+  if (!Number.isInteger(day) || day < 1 || day > maxDay) {
+    throw new Error('黄历查询日期不存在。');
+  }
   const solarDay = SolarDay.fromYmd(year, month, day);
   const scDay = SixtyCycleDay.fromSolarDay(solarDay);
-  const gods = scDay.getGods();
+  const gods = getHuangliSolarDayGods(solarDay);
   const shensha: HuangliShensha[] = gods.map((g) => ({
     name: g.getName(),
     luck: g.getLuck().getName(),

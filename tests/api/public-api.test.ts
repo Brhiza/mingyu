@@ -33,6 +33,94 @@ async function callApi(path: string, init?: RequestInit) {
   };
 }
 
+test('玄空公开接口拒绝互相矛盾的坐向度数与山名', async () => {
+  for (const extra of [{ facingDegree: 181 }, { sitMountain: '卯' }, { facingMountain: '酉' }]) {
+    const result = await callApi('metaphysics/xuankong/calculate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year: 2024, sitDegree: 0, ...extra }),
+    });
+    assert.equal(result.response.status, 400);
+    assert.match(JSON.stringify(result.body), /相差180度|不一致/);
+  }
+});
+
+test('蓍草公开接口保留十八变并支持重放及提示词', async () => {
+  const post = (data: object) => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const input = {
+    liuyaoMethod: 'yarrow',
+    customDate: '2026-09-06T12:00:00+08:00',
+    seed: '公开蓍草',
+  };
+  const first = await callApi('divination/liuyao', post(input));
+  assert.equal(first.response.status, 200);
+  assert.equal(first.body.data.generation.method, 'yarrow');
+  assert.equal(first.body.data.generation.yarrow.lines.length, 6);
+  const replay = await callApi(
+    'divination/liuyao',
+    post({ ...input, seed: undefined, replay: first.body.data.meta.random.samples }),
+  );
+  assert.deepEqual(replay.body.data.generation, first.body.data.generation);
+  const splits = first.body.data.generation.yarrow.lines.flatMap(
+    (line: { changes: { left: number }[] }) => line.changes.map((step) => step.left),
+  );
+  const hand = await callApi(
+    'divination/liuyao',
+    post({ ...input, seed: undefined, yarrowSplits: splits }),
+  );
+  assert.equal(hand.response.status, 200);
+  assert.deepEqual(hand.body.data.yaoArray, first.body.data.yaoArray);
+  const prompt = await callApi(
+    'divination/liuyao/prompt',
+    post({ ...input, question: '这件事如何推进？' }),
+  );
+  assert.equal(prompt.response.status, 200);
+  assert.match(prompt.body.data.prompt, /蓍草/);
+  assert.match(prompt.body.data.prompt, /第3变/);
+  assertPromptIsPortableTaskText(prompt.body.data.prompt);
+  for (const invalid of [
+    { yarrowSplits: [1] },
+    { yarrowSplits: Array(18).fill(47) },
+    { yaos: [6, 7, 8, 9, 6, 7] },
+  ]) {
+    const result = await callApi(
+      'divination/liuyao',
+      post({ ...input, seed: undefined, ...invalid }),
+    );
+    assert.equal(result.response.status, 400);
+  }
+});
+
+test('小六壬公开接口使用所选底本起课并生成同口径提示词', async () => {
+  const input = {
+    xiaoliurenRule: 'duoneng',
+    customDate: '2025-01-29T00:30:00+08:00',
+    question: '此事如何理解？',
+  };
+  const options = (data: object) => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const chart = await callApi('divination/xiaoliuren', options(input));
+  assert.equal(chart.response.status, 200);
+  assert.equal(chart.body.data.rule, 'duoneng');
+  assert.equal(chart.body.data.primary.name, '留连');
+  const prompted = await callApi('divination/xiaoliuren/prompt', options(input));
+  assert.equal(prompted.response.status, 200);
+  assert.match(prompted.body.data.prompt, /多能鄙事/);
+  assert.match(prompted.body.data.prompt, /占得宫：留连/);
+  assert.doesNotMatch(prompted.body.data.prompt, /通行俗传/);
+  for (const xiaoliurenRule of ['bad', false, ['duoneng']]) {
+    const invalid = await callApi('divination/xiaoliuren', options({ ...input, xiaoliurenRule }));
+    assert.equal(invalid.response.status, 400);
+  }
+});
+
 function createZiweiRuntimeFixture(input: Parameters<typeof calculateFullZiweiChart>[0]) {
   let runtimePromise: ReturnType<typeof calculateFullZiweiChart> | undefined;
   return () => {
@@ -1065,7 +1153,9 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.deepEqual(wuxing.body.data.dominantElements, ['火']);
   assert.deepEqual(wuxing.body.data.weakestElements, ['金']);
   assert.equal(wuxing.body.data.summaryFact.itemFactCount, wuxing.body.data.itemFacts.length);
-  assert.match(wuxing.body.data.promptText, /不包含月令司权、季节旺衰、日主、格局/);
+  assert.match(wuxing.body.data.promptText, /【任务】[\s\S]*【统计口径】[\s\S]*【结果】/);
+  assert.match(wuxing.body.data.promptText, /本气1、中气0.5、余气0.3/);
+  assert.doesNotMatch(wuxing.body.data.promptText, /证据汇总|证据链完整|单一真相源|来源：|限制：/);
 
   const direction = await callApi('foundation/direction', {
     method: 'POST',
@@ -5309,6 +5399,25 @@ test('公开 API 生肖流年应要求明确年份并校验年份干支一致', 
   }
 });
 
+test('公开生肖提示词保留问题与关系资料，不混入内部证据字段', async () => {
+  const { response, body } = await callApi('metaphysics/zodiac/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '鼠', year: 2026, question: '今年的关系如何理解？' }),
+  });
+  assert.equal(response.status, 200);
+  assert.match(body.data.prompt, /今年的关系如何理解/);
+  assert.match(body.data.prompt, /鼠（子）遇丙午年/);
+  assert.match(body.data.prompt, /冲太岁（生肖年支子与流年年支午相冲）/);
+  assert.equal(body.data.prompt.match(/^【任务】$/gm)?.length, 1);
+  assertPromptHasAnswerFramework(body.data.prompt);
+  assertPromptIsPortableTaskText(body.data.prompt);
+  assert.doesNotMatch(
+    body.data.prompt,
+    /结构化类型|证据链完整|证据汇总|有利关系：|风险关系：|actionSignals|classification/,
+  );
+});
+
 test('公开 API 五运六气应返回年度主客气结构与轻量提示词结果', async () => {
   const calculation = await callApi('metaphysics/wuyun-liuqi/calculate', {
     method: 'POST',
@@ -5319,6 +5428,14 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assert.equal(calculation.response.status, 200);
   assert.equal(calculation.body.data.input.yearGanZhi, '丙午');
   assert.equal(calculation.body.data.annualMovement.name, '水运');
+  assert.equal(calculation.body.data.pathomechanism.isPingQi, null);
+  assert.equal(calculation.body.data.pathomechanism.movementRegime, '流衍之纪');
+  assert.equal(calculation.body.data.pathomechanism.classicalReference.conditionEstablished, null);
+  assert.equal(
+    calculation.body.data.pathomechanism.classicalReference.condition,
+    '少阴司天，热淫所胜',
+  );
+  assert.match(calculation.body.data.pathomechanism.affectedZangFu, /病本于肺/);
   assert.equal(calculation.body.data.annualMovement.strength, '太过');
   assert.equal(calculation.body.data.sitian.name, '少阴君火');
   assert.equal(calculation.body.data.zaiquan.name, '阳明燥金');
@@ -5356,6 +5473,18 @@ test('公开 API 五运六气应返回年度主客气结构与轻量提示词结
   assert.equal(prompted.response.status, 200);
   assert.equal(prompted.body.data.result, undefined);
   assert.equal(prompted.body.data.resultSummary.yearGanZhi, '丙午');
+  assert.match(prompted.body.data.prompt, /交气日时干德符/);
+  assert.match(prompted.body.data.prompt, /二火加临：君位臣则顺/);
+  assert.match(prompted.body.data.prompt, /司天化令：正化；南北政：北政/);
+  assert.equal(prompted.body.data.resultSummary.annualClassification.sitianTransformation, '正化');
+  assert.equal(prompted.body.data.resultSummary.annualClassification.governance, '北政');
+  const assisted = await callApi('metaphysics/wuyun-liuqi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ yearGanZhi: '辛卯' }),
+  });
+  assert.equal(assisted.response.status, 200);
+  assert.match(assisted.body.data.prompt, /阳明燥金司天生水运，资助岁运不及/);
   assert.equal(prompted.body.data.resultSummary.annualRelation.kind, '不和');
   assert.equal(
     prompted.body.data.resultSummary.annualConformities.sourceReconciliation.sourceSummaryYears,
@@ -5385,6 +5514,9 @@ test('公开 API 皇极经世应直接按公元年返回完整值年卦，并保
   assert.equal(standard.body.data.forecast.hexagrams.sixtyYear.hexagram.name, '火风鼎');
   assert.equal(standard.body.data.forecast.hexagrams.decade.hexagram.name, '天风姤');
   assert.equal(standard.body.data.forecast.hexagrams.annual.name, '天火同人');
+  assert.equal(standard.body.data.eraTrend.yangLineCount, 5);
+  assert.equal(standard.body.data.eraTrend.yinLineCount, 1);
+  assert.match(standard.body.data.eraTrend.summary, /复至乾的阳半周/);
 
   const calculation = await callApi('metaphysics/huangji-jingshi/calculate', {
     method: 'POST',
@@ -5427,6 +5559,16 @@ test('公开 API 皇极经世应直接按公元年返回完整值年卦，并保
 });
 
 test('公开 API 皇极经世应支持年月日时完整排盘与提示词', async () => {
+  const boundary = await callApi('metaphysics/huangji-jingshi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: '2025-12-21T23:03:06+08:00' }),
+  });
+  assert.equal(boundary.response.status, 200);
+  assert.equal(boundary.body.data.dateTimeForecast.calendar.forecastYear, 2026);
+  assert.equal(boundary.body.data.dateTimeForecast.calendar.activeSolarTerm, '冬至');
+  assert.equal(boundary.body.data.dateTimeForecast.civilTime.second, 6);
+  assert.equal(boundary.body.data.dateTimeForecast.civilTime.dateTime, '2025-12-21 23:03:06');
   const calculation = await callApi('metaphysics/huangji-jingshi/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -5496,6 +5638,34 @@ test('公开 API 玄空飞星应返回真实下卦局型', async () => {
   assert.equal(valid.body.data.guaType, undefined);
   assert.equal(valid.body.data.replacementApplied, undefined);
   assert.match(valid.body.data.evidenceAnalysis.promptText, /下卦|元龙阴阳|双星到向/);
+});
+
+test('公开玄空流年流月与提示词在立春前使用上一节气年', async () => {
+  for (const operation of ['calculate', 'prompt']) {
+    const { response, body } = await callApi(`metaphysics/xuankong/${operation}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        year: 2008,
+        sitMountain: '子',
+        flowYear: 2026,
+        flowMonth: 1,
+        flowDay: 15,
+        detailMode: 'full',
+        question: '分析住宅',
+      }),
+    });
+    assert.equal(response.status, 200);
+    if (operation === 'calculate') {
+      assert.equal(body.data.flowStars.yearPlate.year, 2025);
+      assert.equal(body.data.flowStars.yearPlate.centerStar, 2);
+      assert.equal(body.data.flowStars.monthPlate.solarTermYear, 2025);
+      assert.equal(body.data.flowStars.monthPlate.year, 2026);
+    } else {
+      assert.match(body.data.prompt, /流年飞星：2025年二黑入中/);
+      assert.match(body.data.prompt, /2026年1月15日所属节气月/);
+    }
+  }
 });
 
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {
@@ -5610,6 +5780,12 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
   assert.equal(body.data.result.key, 'residential-fengshui');
   assert.ok(body.data.result.bazhai);
   assert.ok(body.data.result.xuankong);
+  for (const palace of body.data.result.bazhai.mingPalace) {
+    const line = body.data.prompt
+      .split('\n')
+      .find((item: string) => item.trim().startsWith(palace.gua) && item.includes('：飞星运'));
+    assert.ok(line?.endsWith(`；命卦${palace.direction}${palace.label}`));
+  }
   assert.match(body.data.prompt, /【住宅风水排盘】/);
   assert.match(body.data.prompt, /【传统依据】/);
   assert.match(body.data.prompt, /这套房怎么看？/);
@@ -5932,4 +6108,63 @@ test('公开 API 区分诸葛神数与孔明神卦并支持孔明随机重放', 
   });
   assert.equal(invalid.response.status, 400);
   assert.equal(invalid.body.error.code, 'BAD_REQUEST');
+});
+
+test('五运六气公开接口保留全年份年度结构并明确公历日期范围', async () => {
+  for (const year of [1, 1899, 1900, 2199, 2200, 9999]) {
+    const { response, body } = await callApi('metaphysics/wuyun-liuqi/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year }),
+    });
+    assert.equal(response.status, 200, `${year}年应可计算年度结构`);
+    assert.equal(body.data.movementSteps.length, 5);
+    assert.equal(body.data.qiSteps.length, 6);
+    assert.equal(
+      body.data.calendarDateStatus,
+      year >= 1900 && year <= 2199 ? '公历日期已换算' : '节令边界',
+    );
+  }
+});
+
+test('八宅公开提示词完整保留八宫生克及命宅分组', async () => {
+  const { response, body } = await callApi('metaphysics/bazhai/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mingGua: '坎',
+      sitMountain: '午',
+      responseMode: 'full',
+      question: '请分析住宅方位',
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.match(body.data.prompt, /命宅同组，五行关系为命卦克宅卦/);
+  assert.match(body.data.prompt, /宅卦星宫生克（伏位取左辅木）/);
+  for (const gua of ['坎', '艮', '震', '巽', '离', '坤', '兑', '乾']) {
+    assert.match(body.data.prompt, new RegExp(`${gua}宫[木火土金水]：`));
+  }
+  assert.doesNotMatch(body.data.prompt, /贪狼制绝命|门主同元相生|福力深厚/);
+});
+
+test('玄空与住宅接口拒绝将替卦请求静默计算为下卦', async () => {
+  for (const method of ['xuankong', 'residential']) {
+    for (const operation of ['calculate', 'prompt']) {
+      const { response, body } = await callApi(`metaphysics/${method}/${operation}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year: 2024,
+          sitMountain: '子',
+          facingMountain: '午',
+          mingGua: '坎',
+          guaType: '替卦',
+          question: '分析住宅',
+        }),
+      });
+      assert.equal(response.status, 400, `${method}/${operation}`);
+      assert.equal(body.error.code, 'BAD_REQUEST');
+      assert.match(body.error.message, /guaType.*下卦/);
+    }
+  }
 });

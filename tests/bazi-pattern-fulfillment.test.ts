@@ -82,3 +82,33 @@ test('子平真诠：七杀格得食神制杀大成格', () => {
   assert.equal(result.status, '成格');
   assert.ok(result.summary.includes('食神制杀'));
 });
+
+test('劫财格不得借用财格成败规则，按未单列细则登记', () => {
+  // 劫财格名称包含“财格”子串，历史上会被误送入财格的比劫争财分支
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '寅', ganZhi: '甲寅' }, // 比肩
+    month: { gan: '乙', zhi: '卯', ganZhi: '乙卯' }, // 劫财（月令刃劫）
+    day: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+    hour: { gan: '乙', zhi: '亥', ganZhi: '乙亥' }, // 比肩
+  };
+
+  const result = evaluatePatternFulfillment(pillars, '甲', '劫财格', getTenGod);
+  assert.equal(result.status, '平常');
+  assert.match(result.summary, /细则尚未单列|细则待补充/);
+  assert.doesNotMatch(result.summary, /争财|通关化劫|真纯/);
+  assert.doesNotMatch(result.basis, /财格逢|争财/);
+});
+
+test('建禄格比劫重重但见食伤时，不得记为不见财官食伤', () => {
+  // 甲日建禄格，寅卯比劫成群，无财官但透丙火食伤吐秀
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '寅', ganZhi: '甲寅' }, // 比肩
+    month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' }, // 食神
+    day: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+    hour: { gan: '乙', zhi: '卯', ganZhi: '乙卯' }, // 劫财
+  };
+
+  const result = evaluatePatternFulfillment(pillars, '甲', '建禄格', getTenGod);
+  assert.notEqual(result.status, '破格');
+  assert.doesNotMatch(result.summary, /无财官食伤|不见财官食伤/);
+});

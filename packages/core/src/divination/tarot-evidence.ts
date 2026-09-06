@@ -7,6 +7,8 @@ import {
 } from '../shared/random';
 import type { TarotData } from '../types/divination';
 import { tarotSpreads } from './tarot-data';
+import { drawSpreadCards, resolveInteractiveTarotCards } from './tarot';
+import { MingyuCoreError } from '../shared/result';
 
 export interface TarotCardEvidence {
   key: string;
@@ -951,6 +953,46 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
         : ['塔罗牌阵与抽牌顺序记录', '洗牌、抽牌、正逆位随机样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
+  if (!isManual && randomFact.status === '可重放') {
+    if (typeof data.spreadType !== 'string' || !Object.hasOwn(tarotSpreads, data.spreadType)) {
+      throw new Error(`未知的牌阵类型: ${data.spreadType}`);
+    }
+    const spreadType = data.spreadType as keyof typeof tarotSpreads;
+    const replayed = isInteractive
+      ? {
+          cards: resolveInteractiveTarotCards(spreadType, randomFact.samples),
+          consumed: randomFact.samples.length,
+        }
+      : (() => {
+          const result = drawSpreadCards(spreadType, { replay: randomFact.samples });
+          return {
+            cards: result.cards.map((item) => ({
+              id: item.card.number,
+              name: item.card.name,
+              reversed: item.isReversed,
+            })),
+            consumed: result.meta.random?.samples.length,
+          };
+        })();
+    if (
+      replayed.consumed !== randomFact.samples.length ||
+      replayed.cards.length !== data.cards.length ||
+      replayed.cards.length !== tarotSpreads[spreadType].cardCount ||
+      replayed.cards.some(
+        (card, index) =>
+          card.id !== data.cards[index]?.id ||
+          card.name !== data.cards[index]?.name ||
+          card.reversed !== data.cards[index]?.reversed,
+      )
+    ) {
+      throw new MingyuCoreError({
+        code: 'TAROT_RANDOM_TRACE_MISMATCH',
+        category: 'validation',
+        message: '塔罗随机轨迹与牌面、顺序或正逆位不一致，或包含多余样本。',
+        field: 'meta.random.samples',
+      });
+    }
+  }
   const counterEvidenceFacts = buildCounterEvidenceFacts(cards);
   const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);
   const counterEvidence = counterEvidenceFacts.map(

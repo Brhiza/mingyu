@@ -1,10 +1,12 @@
 /**
- * @file 皇极经世世运消息与气数演进断诀算法
- * @传统依据 邵雍《皇极经世》先天六十四卦圆图：阳进阴消（复至乾三十二卦为阳息）、阴进阳消（姤至坤三十二卦为阴消）；世卦与旬卦消长气数定性。
+ * 先天圆图阴阳半周与值年卦爻数。
+ * 《朱子语类》卷六十五：复至乾属阳，姤至坤属阴；内卦震离兑乾与巽坎艮坤分列两边。
  */
+import { hexagramsData } from '../divination/hexagram-data';
 import type { HuangjiStandardForecast } from './standard';
 
 export interface HuangjiEraTrendResult {
+  /** 圆图消息象意分类。 */
   phase: '阳息进取' | '阴消蓄养' | '极盛防变' | '剥极将生';
   yangLineCount: number;
   yinLineCount: number;
@@ -12,43 +14,46 @@ export interface HuangjiEraTrendResult {
   summary: string;
 }
 
-/**
- * 依据先天圆图与值年/十年卦象分析世运消长大势
- */
+/** 按值年卦的真实六爻与圆图所属半周整理消息象意。 */
 export function evaluateHuangjiEraTrend(forecast: HuangjiStandardForecast): HuangjiEraTrendResult {
-  const { annual, decade } = forecast.hexagrams;
+  const annual = forecast?.hexagrams?.annual;
+  const hexagram = hexagramsData.find((item) => item.id === annual?.id);
+  if (!annual || !hexagram) throw new Error('值年卦资料无效。');
+  const annualName = hexagram.upper === hexagram.lower ? hexagram.upper : hexagram.name.slice(2);
+  if (
+    annual.name !== hexagram.name ||
+    annual.shortName !== annualName ||
+    annual.upper !== hexagram.upper ||
+    annual.lower !== hexagram.lower
+  )
+    throw new Error('值年卦名称与卦画资料不一致。');
 
-  // 统计值年卦六爻阴阳（根据 description 或 upper/lower，或圆图卦序）
-  // 简便可靠：查圆图索引或卦名
-  // 复(13)至夬(42)为阳盛推进，姤(43)至剥(72)为阴息收敛
-  const annualName = annual.shortName;
-
-  // 常见主消息卦
-  const YANG_XIAO_XI = new Set(['复', '临', '泰', '大壮', '夬', '乾', '同人', '大有']);
-  const YIN_XIAO_XI = new Set(['姤', '遁', '否', '观', '剥', '坤', '师', '比']);
-
+  const yangLineCount = [...hexagram.binarySymbol].filter((line) => line === '1').length;
+  const yinLineCount = 6 - yangLineCount;
+  // binarySymbol先上卦后下卦，每个经卦自下而上；第4位为重卦初爻。
+  const yangHalf = hexagram.binarySymbol[3] === '1';
+  const half = yangHalf ? '复至乾的阳半周' : '姤至坤的阴半周';
   let phase: HuangjiEraTrendResult['phase'];
   let trendNature: string;
-
-  if (YANG_XIAO_XI.has(annualName)) {
-    phase = annualName === '乾' ? '极盛防变' : '阳息进取';
-    trendNature = '阳气升腾，生机勃发，气机进取';
-  } else if (YIN_XIAO_XI.has(annualName)) {
-    phase = annualName === '坤' || annualName === '剥' ? '剥极将生' : '阴消蓄养';
-    trendNature = '阴气渐长，万物收敛，积蓄生息';
+  if (annualName === '乾') {
+    phase = '极盛防变';
+    trendNature = '六爻纯阳，处于圆图阳半周终点，取阳极阴生之象';
+  } else if (annualName === '坤' || annualName === '剥') {
+    phase = '剥极将生';
+    trendNature =
+      annualName === '坤'
+        ? '六爻纯阴，处于圆图阴半周终点，取阴极阳生之象'
+        : '五阴在下、一阳在上，处于圆图阴半周近末，取剥尽而复之象';
   } else {
-    // 依据变爻与十年卦承接
-    phase = '阳息进取';
-    trendNature = `由${decade.hexagram.shortName}十年卦承接承转，动爻交变，循序发展`;
+    phase = yangHalf ? '阳息进取' : '阴消蓄养';
+    trendNature = `初爻为${yangHalf ? '阳' : '阴'}，属于${half}，取${yangHalf ? '阳息' : '阳消阴长'}之象`;
   }
-
-  const summary = `世运消息：处于${phase}期；值年${annualName}卦承接${decade.hexagram.shortName}十年卦气数，${trendNature}`;
 
   return {
     phase,
-    yangLineCount: 3, // 平均中和
-    yinLineCount: 3,
+    yangLineCount,
+    yinLineCount,
     trendNature,
-    summary,
+    summary: `圆图消息：值年${annualName}卦为${yangLineCount}阳${yinLineCount}阴；${trendNature}。`,
   };
 }

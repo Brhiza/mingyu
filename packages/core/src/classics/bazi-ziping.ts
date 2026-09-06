@@ -121,9 +121,20 @@ export const BAZI_ZIPING_PATTERNS: Record<string, BaziZipingPatternEntry> = {
  */
 export function getBaziZipingPatternAdvice(pattern: string): BaziZipingPatternEntry | undefined {
   if (!pattern) return undefined;
-  // 支持模糊匹配：如从 "正官格（用财）" 匹配到 "正官格"
   const exact = BAZI_ZIPING_PATTERNS[pattern];
   if (exact) return exact;
+  // 主格局名与典籍表键的显式映射：建禄格／劫财格同属“建禄月劫格”，月刃格对应“阳刃格”；
+  // 建禄与月劫、阳刃之间的差异以条目原文为准，不做子串猜测
+  const aliasMap: Record<string, string> = {
+    建禄格: '建禄月劫格',
+    劫财格: '建禄月劫格',
+    月刃格: '阳刃格',
+  };
+  const aliasKey = aliasMap[pattern];
+  if (aliasKey && BAZI_ZIPING_PATTERNS[aliasKey]) {
+    return BAZI_ZIPING_PATTERNS[aliasKey];
+  }
+  // 支持模糊匹配：如从 "正官格（用财）" 匹配到 "正官格"
   const key = Object.keys(BAZI_ZIPING_PATTERNS).find((k) => pattern.includes(k));
   return key ? BAZI_ZIPING_PATTERNS[key] : undefined;
 }

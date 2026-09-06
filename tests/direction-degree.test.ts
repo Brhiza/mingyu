@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   analyzeCompassDirection,
+  getHouseTrigram,
+  getHouseTrigramFromSitFacing,
+  getBaZhaiPalace,
   getMountainFromDegree,
   getSitFacingFromFacingDegree,
 } from '../packages/core/src/direction/index.ts';
@@ -54,4 +57,56 @@ test('罗盘度数应拒绝越界和非有限数字', () => {
   assert.throws(() => getMountainFromDegree(-0.1), /罗盘度数需在 0 到 360 之间/);
   assert.throws(() => getMountainFromDegree(360.1), /罗盘度数需在 0 到 360 之间/);
   assert.throws(() => getMountainFromDegree(Number.NaN), /罗盘度数需在 0 到 360 之间/);
+});
+
+test('宅卦与八宅查询拒绝对象原型键和非字符串坐山', () => {
+  for (const value of ['toString', 'constructor', '__proto__', [], { toString: () => '子' }]) {
+    assert.throws(() => getHouseTrigram(value as never), /坐山无效/);
+    assert.throws(() => getBaZhaiPalace(value as never), /基准卦无效/);
+  }
+});
+
+test('完整坐向文字以坐山取宅卦，并核对坐向相差一百八十度', () => {
+  const mountains = [...'子癸丑艮寅甲卯乙辰巽巳丙午丁未坤申庚酉辛戌乾亥壬'];
+  const expected = [...'坎坎艮艮艮震震震巽巽巽离离离坤坤坤兑兑兑乾乾乾坎'];
+  for (let i = 0; i < 24; i += 1) {
+    const sit = mountains[i];
+    const facing = mountains[(i + 12) % 24];
+    assert.equal(getHouseTrigramFromSitFacing(`${sit}山${facing}向`), expected[i]);
+    assert.equal(getHouseTrigramFromSitFacing(sit), expected[i]);
+  }
+  assert.throws(() => getHouseTrigramFromSitFacing('子山卯向'), /坐向须为相对/);
+  assert.throws(() => getHouseTrigramFromSitFacing('子山午'), /坐山无效/);
+});
+
+test('八宅六十四宫符合《阳宅真诀》大游年歌', () => {
+  const sequence = [...'坎艮震巽离坤兑乾'];
+  const songs: Record<string, string> = {
+    乾: '六天五祸绝延生',
+    坎: '五天生延绝祸六',
+    艮: '六绝祸生延天五',
+    震: '延生祸绝五天六',
+    巽: '天五六祸生绝延',
+    离: '六五绝延祸生天',
+    坤: '天延绝生祸五六',
+    兑: '生祸延绝六五天',
+  };
+  const names: Record<string, string> = {
+    伏: '伏位',
+    六: '六煞',
+    天: '天医',
+    五: '五鬼',
+    祸: '祸害',
+    绝: '绝命',
+    延: '延年',
+    生: '生气',
+  };
+  for (const base of sequence) {
+    const palace = getBaZhaiPalace(base);
+    const song = [...`伏${songs[base]}`];
+    for (let offset = 0; offset < 8; offset += 1) {
+      const index = (sequence.indexOf(base) + offset) % 8;
+      assert.equal(palace[index].label, names[song[offset]], `${base}宅${sequence[index]}宫`);
+    }
+  }
 });

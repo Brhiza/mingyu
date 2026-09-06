@@ -30,6 +30,7 @@ import {
   isValidIsoDateTime,
 } from '../date-validation';
 import { generateLiuyao, type LiuyaoGenerationOptions } from 'mingyu-core/divination/liuyao';
+import { MingyuCoreError } from 'mingyu-core/result';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
@@ -282,8 +283,15 @@ const DIVINATION_REQUEST_PROPERTIES = {
     description: '从结果 meta.random.samples 保存的随机样本，用于完整重放。',
   },
   liuyaoMethod: {
-    enum: ['time', 'manual', 'coins'],
-    description: '六爻起卦方式：时间起卦、手工爻值或模拟三钱投掷。',
+    enum: ['time', 'manual', 'coins', 'yarrow'],
+    description: '六爻起卦方式：时间、手工爻值、模拟三钱或蓍草十八变。',
+  },
+  yarrowSplits: {
+    type: 'array',
+    minItems: 18,
+    maxItems: 18,
+    items: { type: 'integer', minimum: 1, maximum: 47 },
+    description: '蓍草十八变挂一前左堆策数，按初爻至上爻；不传则模拟分堆。',
   },
   yaos: {
     type: 'array',
@@ -306,6 +314,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
   number: { type: 'integer', minimum: 1 },
+  xiaoliurenRule: { enum: ['common', 'duoneng'], description: '起课口径：通行掌诀或多能鄙事。' },
   xiaoliurenMethod: {
     enum: ['time'],
     description: '小六壬当前仅保留可核验的通行时间起课。',
@@ -1171,15 +1180,37 @@ export function getPublicApiOpenApiDocument(
         },
         NamingBirthInput: {
           type: 'object',
-          required: ['gender', 'year', 'month', 'day', 'timeIndex'],
+          required: ['gender', 'year', 'month', 'day'],
           properties: {
             gender: { enum: ['male', 'female'] },
             year: { type: 'integer', minimum: 1900, maximum: 2100 },
             month: { type: 'integer', minimum: 1, maximum: 12 },
             day: { type: 'integer', minimum: 1, maximum: 31 },
-            timeIndex: { type: 'integer', minimum: 0, maximum: 12 },
+            timeIndex: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 12,
+              description:
+                '时辰索引（0-12）；useTrueSolarTime=false 时必填，启用真太阳时后可改传 birthHour/birthMinute',
+            },
             dateType: { enum: ['solar', 'lunar'], default: 'solar' },
             isLeapMonth: { type: 'boolean', default: false },
+            useTrueSolarTime: {
+              type: 'boolean',
+              default: false,
+              description: '启用真太阳时校正；需同时提供 birthHour/birthMinute 与 birthLongitude',
+            },
+            birthHour: { type: 'integer', minimum: 0, maximum: 23 },
+            birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
+            birthPlace: { type: 'string' },
+            birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
+            timeZoneId: { type: 'string' },
+            applyChinaDst: {
+              type: 'boolean',
+              default: false,
+              description: '按中国 1986-1991 夏令时规则解释钟表时间',
+            },
           },
         },
         CharacterAnalyzeRequest: {
@@ -2362,14 +2393,37 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
     throw new ApiError(400, 'BAD_REQUEST', 'birth 必须是出生资料对象。');
   }
   const birth = value as JsonRecord;
+  const useTrueSolarTime = readBoolean(birth, 'useTrueSolarTime', false);
   return {
     gender: readEnum(birth, 'gender', ['male', 'female'] as const),
     year: readInteger(birth, 'year', 1900, 2100),
     month: readInteger(birth, 'month', 1, 12),
     day: readInteger(birth, 'day', 1, 31),
-    timeIndex: readInteger(birth, 'timeIndex', 0, 12),
+    // 启用真太阳时时允许以 birthHour/birthMinute 替代时辰索引；传统时辰模式仍必填
+    timeIndex:
+      useTrueSolarTime && birth.timeIndex === undefined
+        ? ''
+        : readInteger(birth, 'timeIndex', 0, 12),
     dateType: readEnum(birth, 'dateType', ['solar', 'lunar'] as const, 'solar'),
     isLeapMonth: readBoolean(birth, 'isLeapMonth', false),
+    useTrueSolarTime,
+    ...(birth.birthHour !== undefined ? { birthHour: readInteger(birth, 'birthHour', 0, 23) } : {}),
+    ...(birth.birthMinute !== undefined
+      ? { birthMinute: readInteger(birth, 'birthMinute', 0, 59) }
+      : {}),
+    ...(birth.birthPlace !== undefined && typeof birth.birthPlace === 'string'
+      ? { birthPlace: birth.birthPlace }
+      : {}),
+    ...(birth.birthLongitude !== undefined
+      ? { birthLongitude: optNumber(birth, 'birthLongitude', -180, 180) }
+      : {}),
+    ...(birth.timezone !== undefined ? { timezone: optNumber(birth, 'timezone', -12, 14) } : {}),
+    ...(birth.timeZoneId !== undefined && typeof birth.timeZoneId === 'string'
+      ? { timeZoneId: birth.timeZoneId }
+      : {}),
+    ...(birth.applyChinaDst !== undefined
+      ? { applyChinaDst: readBoolean(birth, 'applyChinaDst', false) }
+      : {}),
   };
 }
 
@@ -2862,8 +2916,9 @@ function calculateTaiyiApi(input: JsonRecord) {
     if (scope !== 'year') {
       const month = readInteger(input, 'month', 1, 12);
       const day = readInteger(input, 'day', 1, 31);
-      const hour = scope === 'hour' ? readInteger(input, 'hour', 0, 23) : 12;
-      const minute = scope === 'hour' ? readInteger(input, 'minute', 0, 59, 0) : 0;
+      // 月计/日计也允许明确时分（默认中午 12:00），便于核对交节前后的局数差异
+      const hour = readInteger(input, 'hour', 0, 23, 12);
+      const minute = readInteger(input, 'minute', 0, 59, 0);
       date = new Date(year, month - 1, day, hour, minute, 0);
       if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
         throw new Error('太乙日期无效。');
@@ -2935,6 +2990,7 @@ function buildWuyunLiuqiPromptApi(input: JsonRecord) {
       sitian: result.sitian,
       zaiquan: result.zaiquan,
       annualRelation: result.annualRelation,
+      annualClassification: result.annualClassification,
       annualConformities: result.annualConformities,
       movementSteps: result.movementSteps,
       qiSteps: result.qiSteps,
@@ -3073,10 +3129,7 @@ function calculateXuanKongApi(input: JsonRecord) {
     input.measurementUncertaintyDegrees === undefined
       ? undefined
       : readNumberLike(input, 'measurementUncertaintyDegrees', 0, 45);
-  const guaType =
-    input.guaType === undefined
-      ? undefined
-      : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
+  const guaType = input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦']);
   const flowYear =
     input.flowYear === undefined ? undefined : readInteger(input, 'flowYear', 1, 9999);
   const flowMonth =
@@ -3130,10 +3183,7 @@ function calculateResidentialApi(input: JsonRecord) {
   const flowMonth =
     input.flowMonth === undefined ? undefined : readInteger(input, 'flowMonth', 1, 12);
   const flowDay = input.flowDay === undefined ? undefined : readInteger(input, 'flowDay', 1, 31);
-  const guaType =
-    input.guaType === undefined
-      ? undefined
-      : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
+  const guaType = input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦']);
 
   if (mingGua && !BAGUA.includes(mingGua)) {
     throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
@@ -3763,18 +3813,32 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
 }
 
 function calculateLiuyao(input: JsonRecord) {
-  const method = readOptionalEnum(input, 'liuyaoMethod', ['time', 'manual', 'coins'] as const);
+  const method = readOptionalEnum(input, 'liuyaoMethod', [
+    'time',
+    'manual',
+    'coins',
+    'yarrow',
+  ] as const);
+  const yarrowSplits = readOptionalIntegerArray(input, 'yarrowSplits', 18, 1, 47);
   const yaos = readOptionalIntegerArray(input, 'yaos', 6, 6, 9);
   const randomOptions = readRandomOptions(input);
   const options: LiuyaoGenerationOptions | undefined =
-    method || yaos || randomOptions
+    method || yaos || yarrowSplits || randomOptions
       ? {
           method,
           yaos,
+          yarrowSplits,
           ...randomOptions,
         }
       : undefined;
-  return generateLiuyao(readCustomDate(input), options);
+  try {
+    return generateLiuyao(readCustomDate(input), options);
+  } catch (error) {
+    if (error instanceof MingyuCoreError && error.category === 'validation') {
+      throw new ApiError(400, 'BAD_REQUEST', error.message);
+    }
+    throw error;
+  }
 }
 
 function calculateQimen(input: JsonRecord) {
@@ -3957,6 +4021,8 @@ function calculateXiaoliuren(input: JsonRecord) {
     );
   }
   return generateXiaoliuren({
+    rule: readEnum(input, 'xiaoliurenRule', ['common', 'duoneng'], 'common') as
+      'common' | 'duoneng',
     method,
     customDate: readCustomDate(input),
   });

@@ -512,13 +512,14 @@ function buildFormationFacts(params: {
     const complete = definition.branches.every((branch) => allBranches.has(branch));
     if (natalComplete || !complete) return [];
 
-    const participants = definition.branches.map((branch) => {
-      const natalLayer = params.natalLayers.find(
+    // 同一支可能由多个岁运层级共同补全（如大运与流年同为辰）；
+    // 补支时保留该支的全部层级，不以取首冒充唯一触发者
+    const participants = definition.branches.flatMap((branch) => {
+      const matchingNatal = params.natalLayers.filter(
         (layer) => splitGanZhi(layer.ganZhi).zhi === branch,
       );
-      return (
-        natalLayer ?? params.activeLayers.find((layer) => splitGanZhi(layer.ganZhi).zhi === branch)
-      );
+      if (matchingNatal.length) return matchingNatal;
+      return params.activeLayers.filter((layer) => splitGanZhi(layer.ganZhi).zhi === branch);
     });
     if (participants.some((layer) => !layer)) return [];
 

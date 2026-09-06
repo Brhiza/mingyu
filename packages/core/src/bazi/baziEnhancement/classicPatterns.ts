@@ -162,7 +162,9 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description: '壬癸日见亥子丑三会水局或申子辰三合水局，水势泛滥。忌土来制水，喜木泄水为用。',
     conditions: {
       dayStems: ['壬', '癸'],
-      otherConditions: ['亥子丑三会水局', '三合水局', '水势旺盛'],
+      // 三会与三合为择一成立；四柱只有四支，逐项同时要求五支不可能命中
+      anyConditions: ['亥子丑三会水局', '申子辰三合水局'],
+      otherConditions: ['水势旺盛'],
       excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
     },
     favorableWuxing: ['木', '火'],
@@ -326,11 +328,11 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'hua-qi-tu',
     name: '甲己化土格',
     description:
-      '甲己合化土，月令辰戌丑未土旺之地，天干甲己同透，无乙庚争合破局。化气纯粹则贵，喜火土生扶，忌木克土破化。',
+      '甲己合化土，月令辰戌丑未土旺之地，天干甲己同透，甲己不重出争合妒合破局。化气纯粹则贵，喜火土生扶，忌木克土破化。',
     conditions: {
       dayStems: ['甲', '己'],
       monthBranch: ['辰', '戌', '丑', '未'],
-      otherConditions: ['甲己同透', '无乙庚争合'],
+      otherConditions: ['甲己同透', '无甲己争合'],
     },
     favorableWuxing: ['火', '土'],
     unfavorableWuxing: ['木', '水'],
@@ -340,11 +342,11 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'hua-qi-jin',
     name: '乙庚化金格',
     description:
-      '乙庚合化金，月令巳酉丑或申酉戌金旺之地，天干乙庚同透，无丙辛争合破局。化气纯粹则贵，喜土金生扶，忌火克金破化。',
+      '乙庚合化金，月令巳酉丑或申酉戌金旺之地，天干乙庚同透，乙庚不重出争合妒合破局。化气纯粹则贵，喜土金生扶，忌火克金破化。',
     conditions: {
       dayStems: ['乙', '庚'],
       monthBranch: ['巳', '酉', '丑', '申', '戌'],
-      otherConditions: ['乙庚同透', '无丙辛争合'],
+      otherConditions: ['乙庚同透', '无乙庚争合'],
     },
     favorableWuxing: ['土', '金'],
     unfavorableWuxing: ['火', '木'],
@@ -354,11 +356,11 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'hua-qi-shui',
     name: '丙辛化水格',
     description:
-      '丙辛合化水，月令申子辰或亥子丑水旺之地，天干丙辛同透，无丁壬争合破局。化气纯粹则贵，喜金水生扶，忌土克水破化。',
+      '丙辛合化水，月令申子辰或亥子丑水旺之地，天干丙辛同透，丙辛不重出争合妒合破局。化气纯粹则贵，喜金水生扶，忌土克水破化。',
     conditions: {
       dayStems: ['丙', '辛'],
       monthBranch: ['申', '子', '辰', '亥', '丑'],
-      otherConditions: ['丙辛同透', '无丁壬争合'],
+      otherConditions: ['丙辛同透', '无丙辛争合'],
     },
     favorableWuxing: ['金', '水'],
     unfavorableWuxing: ['土', '火'],
@@ -368,11 +370,11 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'hua-qi-mu',
     name: '丁壬化木格',
     description:
-      '丁壬合化木，月令亥卯未或寅卯辰木旺之地，天干丁壬同透，无戊癸争合破局。化气纯粹则贵，喜水木生扶，忌金克木破化。',
+      '丁壬合化木，月令亥卯未或寅卯辰木旺之地，天干丁壬同透，丁壬不重出争合妒合破局。化气纯粹则贵，喜水木生扶，忌金克木破化。',
     conditions: {
       dayStems: ['丁', '壬'],
       monthBranch: ['亥', '卯', '未', '寅', '辰'],
-      otherConditions: ['丁壬同透', '无戊癸争合'],
+      otherConditions: ['丁壬同透', '无丁壬争合'],
     },
     favorableWuxing: ['水', '木'],
     unfavorableWuxing: ['金', '土'],
@@ -382,11 +384,11 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'hua-qi-huo',
     name: '戊癸化火格',
     description:
-      '戊癸合化火，月令寅午戌或巳午未火旺之地，天干戊癸同透，无甲己争合破局。化气纯粹则贵，喜木火生扶，忌水克火破化。',
+      '戊癸合化火，月令寅午戌或巳午未火旺之地，天干戊癸同透，戊癸不重出争合妒合破局。化气纯粹则贵，喜木火生扶，忌水克火破化。',
     conditions: {
       dayStems: ['戊', '癸'],
       monthBranch: ['寅', '午', '戌', '巳', '未'],
-      otherConditions: ['戊癸同透', '无甲己争合'],
+      otherConditions: ['戊癸同透', '无戊癸争合'],
     },
     favorableWuxing: ['木', '火'],
     unfavorableWuxing: ['水', '金'],

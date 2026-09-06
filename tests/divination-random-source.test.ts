@@ -1,13 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { drawSpreadCards, getCardKeywords } from '../packages/core/src/divination/tarot.ts';
+import {
+  drawSpreadCards,
+  drawTarotSpread,
+  resolveInteractiveTarotCards,
+  getCardKeywords,
+  getCardEvidence,
+  tarotCards,
+} from '../packages/core/src/divination/tarot.ts';
 import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao.ts';
 import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
 import {
   createRandomContext,
+  createSeededRandom,
   createRandomSource,
   randomInt,
   secureRandomFloat,
@@ -17,6 +25,29 @@ import {
 
 const SEED = 'fixed-random-source';
 const DATE = new Date('2025-01-01T08:00:00+08:00');
+
+test('随机轨迹固定创建时种子，调用者修改选项或轨迹副本不改变重放依据', () => {
+  const options = { seed: '原始种子' };
+  const context = createRandomContext(options);
+  const first = context.random();
+  options.seed = '修改后的种子';
+  const second = context.random();
+  const trace = context.getTrace();
+  assert.equal(trace.seed, '原始种子');
+  const reproduced = createRandomContext({ seed: trace.seed });
+  assert.deepEqual([reproduced.random(), reproduced.random()], [first, second]);
+  trace.samples[0] = 0;
+  assert.deepEqual(context.getTrace().samples, [first, second]);
+});
+
+test('直接创建种子随机源与上下文入口统一拒绝非法种子', () => {
+  for (const seed of [null, undefined, {}, [], true, NaN, Infinity]) {
+    assert.throws(() => createSeededRandom(seed as never), /随机种子必须是有限数字或文本/);
+  }
+  for (const seed of ['', 0, -1, '种子']) {
+    assert.equal(createSeededRandom(seed)(), createSeededRandom(seed)());
+  }
+});
 
 test('随机占法支持种子复现抽取结果', () => {
   const tarot = (seed: string) =>
@@ -43,6 +74,52 @@ test('随机占法支持种子复现抽取结果', () => {
 test('塔罗抽牌应拒绝未知牌阵和未知牌名，不应用泛化关键词掩盖错误', () => {
   assert.throws(() => drawSpreadCards('unknown' as never), /未知的牌阵类型/);
   assert.throws(() => getCardKeywords('不存在的牌'), /未知的塔罗牌名/);
+});
+
+test('塔罗三个抽牌入口拒绝对象原型属性和非文本牌阵', () => {
+  for (const spread of ['toString', '__proto__', 'constructor', ['three'], null]) {
+    assert.throws(() => drawSpreadCards(spread as never), /未知的牌阵类型/);
+    assert.throws(() => drawTarotSpread(spread as never), /未知的牌阵类型/);
+    assert.throws(() => resolveInteractiveTarotCards(spread as never, []), /未知的牌阵类型/);
+  }
+});
+
+test('塔罗牌名查询拒绝原型属性和非文本输入，全部78张牌均有有效关键词', () => {
+  for (const name of ['toString', '__proto__', 'constructor', ['愚者'], null]) {
+    assert.throws(() => getCardKeywords(name as never), /未知的塔罗牌名/);
+    assert.throws(() => getCardEvidence(name as never), /未知的塔罗牌名/);
+  }
+  assert.equal(tarotCards.length, 78);
+  for (const card of tarotCards) {
+    const keywords = getCardKeywords(card.name);
+    assert.equal(typeof keywords, 'string');
+    assert.ok(keywords.split(',').every((keyword) => keyword.trim().length > 0));
+    assert.deepEqual(getCardEvidence(card.name).keywords, keywords.split(','));
+  }
+});
+
+test('塔罗逐张抽牌拒绝缺失样本并保留合法的未完成进度', () => {
+  for (const samples of [new Array(2), [0.5, ,], null, false, { length: 2 }]) {
+    assert.throws(() => resolveInteractiveTarotCards('single', samples as never));
+    assert.throws(() => drawTarotSpread('single', { interactiveSamples: samples as never }));
+  }
+  assert.deepEqual(resolveInteractiveTarotCards('three', []), []);
+  const partial = resolveInteractiveTarotCards('three', [0, 0.49]);
+  const completed = resolveInteractiveTarotCards('three', [0, 0.49, 0, 0.5, 0, 0.99]);
+  assert.equal(partial.length, 1);
+  assert.deepEqual(completed.slice(0, 1), partial);
+  assert.equal(new Set(completed.map((card) => card.id)).size, 3);
+  assert.deepEqual(
+    completed.map((card) => card.reversed),
+    [true, false, false],
+  );
+  assert.throws(() => drawTarotSpread('three', { interactiveSamples: [0, 0.49] }));
+});
+
+test('塔罗手工录入拒绝缺失牌面和非法容器', () => {
+  for (const manualCards of [new Array(1), [null], null, false, { length: 1 }]) {
+    assert.throws(() => drawTarotSpread('single', { manualCards: manualCards as never }));
+  }
 });
 
 test('时间起卦随机工具应拒绝非法范围和数量，避免返回空结果或 NaN', () => {

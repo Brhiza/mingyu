@@ -20,7 +20,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
     id: 'wu-month-gui-metal-no-visible-water-single-water-rich',
     label: '癸日午月无水透而支只一水规则',
     description:
-      '癸水生午月，若庚辛透干而天干不见壬癸，局中总水气又只一分，传统多断"一富之造"，富重贵轻，不应仍与金水会夏天的钟鼎名家同层并论。',
+      '癸水生午月，若庚辛透干而天干不见壬癸，除日干癸水自身外，地支本气仅一见水（依《穷通宝鉴》五月癸水"庚辛透干，支只一水，定主富也"之正文口径），传统多断"一富之造"，富重贵轻，不应仍与金水会夏天的钟鼎名家同层并论。',
     priority: 124,
     months: ['午'],
     dayMasters: ['水'],
@@ -28,8 +28,10 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
     forbiddenFormationTenGodCategories: ['财星'],
     minTenGodCategoryVisibleCounts: { 印星: 1 },
     maxTenGodCategoryVisibleCounts: { 比劫: 0 },
-    minWuxingCounts: { 水: 1 },
-    maxWuxingCounts: { 水: 1 },
+    // 全盘表层水计数＝日干癸水 1 分＋地支本气水；限定为 2 即“支只一水”。
+    // 原实现限定为 1 会强制地支全无水，与规则自身“支只一水”标签矛盾（审查 R53）。
+    minWuxingCounts: { 水: 2 },
+    maxWuxingCounts: { 水: 2 },
     usefulWuxing: '金',
     favorableOrder: ['金', '水'],
     traceHints: ['取用层次:庚辛透干，支只一水', '成格层次:一富之造，富重贵轻'],

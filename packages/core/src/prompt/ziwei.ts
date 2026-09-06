@@ -172,7 +172,7 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
       : '';
   const tags = isOriginScope ? natalTags(palace.summary_tags) : palace.summary_tags;
   return [
-    `${palace.name}宫${palace.is_body_palace ? '（身宫）' : ''}${palace.is_original_palace ? '（命宫）' : ''}`,
+    `${palace.name}${palace.name.endsWith('宫') ? '' : '宫'}${palace.is_body_palace ? '（身宫）' : ''}${palace.is_original_palace ? '（来因宫）' : ''}`,
     `宫干支${palace.heavenly_stem}${palace.earthly_branch}`,
     ranges,
     majorText,

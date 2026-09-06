@@ -211,3 +211,33 @@ test('不把古籍片段和单一神煞状态误立为经典格局', () => {
     assert.notEqual(identify(pillars)?.name, removedName, removedName);
   }
 });
+
+test('化气格须由日干紧贴相合且月令得气，隔位或他柱相合不能误成化格', () => {
+  // 1. 甲日己月，辰月（土当令），日干与月干紧贴五合 -> 甲己化土格
+  const validAdjacent = identify({
+    year: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    month: { gan: '己', zhi: '辰', ganZhi: '己辰' },
+    day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  });
+  assert.equal(validAdjacent?.name, '甲己化土格');
+  assert.match(validAdjacent?.description ?? '', /甲己合化土/);
+
+  // 2. 甲日，己在年干，月干为丙（隔位） -> 不能成化土格
+  const separated = identify({
+    year: { gan: '己', zhi: '辰', ganZhi: '己辰' },
+    month: { gan: '丙', zhi: '辰', ganZhi: '丙辰' },
+    day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  });
+  assert.notEqual(separated?.name, '甲己化土格');
+
+  // 3. 丙日（日干非合），年甲月己相合 -> 不能成化土格
+  const nonDayMaster = identify({
+    year: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+    month: { gan: '己', zhi: '辰', ganZhi: '己辰' },
+    day: { gan: '丙', zhi: '辰', ganZhi: '丙辰' },
+    hour: { gan: '戊', zhi: '子', ganZhi: '戊子' },
+  });
+  assert.notEqual(nonDayMaster?.name, '甲己化土格');
+});

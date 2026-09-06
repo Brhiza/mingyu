@@ -293,7 +293,7 @@ function normalizeCalculatedAt(value?: Date | string | number): string {
   return date.toISOString();
 }
 
-function normalizeRandomTrace(random?: RandomTrace): RandomTrace | undefined {
+export function normalizeRandomTrace(random?: RandomTrace): RandomTrace | undefined {
   if (random === undefined) return undefined;
   if (random === null || typeof random !== 'object' || Array.isArray(random)) {
     throw new MingyuCoreError({
@@ -319,7 +319,7 @@ function normalizeRandomTrace(random?: RandomTrace): RandomTrace | undefined {
       field: 'random.samples',
     });
   }
-  const samples = random.samples.map((sample) => {
+  const samples = [...random.samples].map((sample) => {
     if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
       throw new MingyuCoreError({
         code: 'RANDOM_TRACE_SAMPLE_INVALID',

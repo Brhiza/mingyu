@@ -10,6 +10,7 @@ import { getTaiyiGeneralClassic } from '../packages/core/src/classics/taiyi-clas
 
 test('太乙五将属性按金镜式经文昌土、始击火、主将金、客将水', () => {
   for (const [name, element] of [
+    ['太乙', '木'],
     ['文昌', '土'],
     ['始击', '火'],
     ['主将', '金'],
@@ -18,7 +19,7 @@ test('太乙五将属性按金镜式经文昌土、始击火、主将金、客�
     const entry = getTaiyiGeneralClassic(name);
     assert.equal(entry?.wuxing, element);
     assert.ok(entry?.verse.includes(`受${element}德之正气`));
-    assert.equal(entry?.sourceBook, '太乙金镜式经·卷一·推五将所主法');
+    assert.equal(entry?.sourceBook, '太乙金镜式经·卷二·推五将所主法');
   }
 });
 
@@ -124,4 +125,17 @@ test('六壬天将乘神以天盘地支对日干判断，不以天将固有五�
       evidence.evidence.items.some((item) => item.detail.includes(`贵人乘天盘${branch}${element}`)),
     );
   }
+});
+
+test('太乙参将与计神引用可定位原文并保留原文属性范围', () => {
+  for (const name of ['主参', '客参']) {
+    const entry = getTaiyiGeneralClassic(name);
+    assert.match(entry?.sourceBook ?? '', /太乙淘金歌·求参将宫$/);
+    assert.match(entry?.verse ?? '', /如大将在三宫而三因之，则参将在九宫也/);
+    assert.equal(entry?.wuxing, undefined);
+  }
+  const entry = getTaiyiGeneralClassic('计神');
+  assert.match(entry?.sourceBook ?? '', /太乙淘金歌·求计神$/);
+  assert.match(entry?.verse ?? '', /计神者，岁星之使也/);
+  assert.equal(entry?.wuxing, undefined);
 });

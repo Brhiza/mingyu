@@ -2,10 +2,8 @@
  * @file 五行生克模块（地基层）
  * @description 五行生克乘侮、旺相休囚死、五行强度统计等可复用基础能力。
  *
- * 深度整合 tyme4ts：五行生克（生我/我生/克我/我克）委托 tyme4ts 的 `Element`
- * （权威经典实现）；旺相休囚死(getSeasonState)、五行强度统计(tallyWuxing)保留本库实现。
+ * 五行生克与旺相休囚死复用公共干支关系，五行强度统计采用明示的贡献权重。
  */
-import { Element } from 'tyme4ts';
 import {
   BRANCH_WUXING,
   MONTH_LING_WUXING,
@@ -15,23 +13,15 @@ import {
   BRANCH_ORDER,
   BRANCH_HIDDEN_STEMS,
   WUXING,
+  isSheng,
+  isKe,
 } from '../ganzhi/relations';
 import { STEM_WUXING } from '../ganzhi/data';
 
 export { WUXING } from '../ganzhi/relations';
 export type { Wuxing } from '../ganzhi/relations';
 
-/** 五行相生：a 生 b？委托 tyme4ts Element */
-export function isSheng(a: string, b: string): boolean {
-  return Element.fromName(a).getReinforce().getName() === b;
-}
-
-/** 五行相克：a 克 b？委托 tyme4ts Element */
-export function isKe(a: string, b: string): boolean {
-  return Element.fromName(a).getRestrain().getName() === b;
-}
-
-export { BRANCH_WUXING, MONTH_LING_WUXING, getSeasonState, getBranchWuxing };
+export { BRANCH_WUXING, MONTH_LING_WUXING, getSeasonState, getBranchWuxing, isSheng, isKe };
 
 /**
  * 统计一组干支的五行分布
@@ -345,7 +335,21 @@ function buildWuxingEvidence(params: {
     limitations,
     limitationFacts,
     source,
-    promptText: `五行分布：${calculationSteps.map((item) => item.promptText).join(' → ')}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.map((item) => item.replace(/[。；]+$/, '')).join('；')}。`,
+    promptText: [
+      '【任务】',
+      '解释所给天干、地支的五行构成，按逐项贡献说明计数差异、并列及零计数情况。',
+      '【资料】',
+      ...itemFacts.map((fact) => fact.promptText),
+      '【统计口径】',
+      params.weightHidden
+        ? '每个天干或地支的主五行计1；地支另计藏干，本气1、中气0.5、余气0.3。这是五行构成的加权统计口径。'
+        : '每个天干或地支仅按主五行计1。',
+      '【结果】',
+      `五行分布：${countText}。`,
+      `最高计数：${params.profile.dominantElements.join('、')}；最低计数：${params.profile.weakestElements.join('、')}；零计数：${params.profile.lacking.join('、') || '无'}。`,
+      '【输出要求】',
+      '以五行构成与统计含义为中心说明结果；命局旺衰的讨论结合完整四柱、月令、合化与运限资料展开。',
+    ].join('\n'),
   };
 }
 
@@ -354,13 +358,18 @@ export function analyzeWuxing(
   items: readonly string[],
   options: { weightHidden?: boolean } = {},
 ): WuxingAnalysis {
+  if (!Array.isArray(items)) throw new Error('五行分析输入须为天干或地支数组。');
   if (items.length === 0) throw new Error('五行分析至少需要一个天干或地支。');
-  const invalid = items.find(
-    (item) =>
+  for (const item of items) {
+    if (
       !STEM_ORDER.includes(item as (typeof STEM_ORDER)[number]) &&
-      !BRANCH_ORDER.includes(item as (typeof BRANCH_ORDER)[number]),
-  );
-  if (invalid) throw new Error(`五行分析输入无效：${invalid}`);
+      !BRANCH_ORDER.includes(item as (typeof BRANCH_ORDER)[number])
+    )
+      throw new Error(`五行分析输入无效：${String(item)}`);
+  }
+  if (options.weightHidden !== undefined && typeof options.weightHidden !== 'boolean') {
+    throw new Error('藏干加权选项须为布尔值。');
+  }
   const weightHidden = options.weightHidden ?? true;
   const counts = tallyWuxing(items, { weightHidden });
   const profile = buildStrengthProfile(counts);
