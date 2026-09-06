@@ -20,7 +20,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
     id: 'wu-month-gui-metal-no-visible-water-single-water-rich',
     label: '癸日午月无水透而支只一水规则',
     description:
-      '癸水生午月，若庚辛透干而天干不见壬癸，除日干癸水自身外，地支本气仅一见水（支只一水按字面取数，底本口径仍待校），传统多断"一富之造"，富重贵轻，不应仍与金水会夏天的钟鼎名家同层并论。',
+      '癸水生午月，若庚辛透干而天干不见壬癸，除日干癸水自身外，地支本气仅一见水（依《穷通宝鉴》五月癸水"庚辛透干，支只一水，定主富也"之正文口径），传统多断"一富之造"，富重贵轻，不应仍与金水会夏天的钟鼎名家同层并论。',
     priority: 124,
     months: ['午'],
     dayMasters: ['水'],
