@@ -9,7 +9,7 @@ const APP_SHELL = [
   '/pwa-192x192.png',
   '/pwa-512x512.png',
 ];
-const RUNTIME_CONFIG_PATH = '/mingyu-runtime-config.js';
+const RUNTIME_CONFIG_PATH = '/temposoul-runtime-config.js';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(APP_SHELL)));
