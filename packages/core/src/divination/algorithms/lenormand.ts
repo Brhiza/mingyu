@@ -318,12 +318,25 @@ export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {
 type LenormandCardPlacement = LenormandData['cards'][number];
 type LenormandCombination = NonNullable<LenormandData['combinations']>[number];
 
+/**
+ * 判词含先后/过程语义的组合键：这些条目的文字按登记次序描述过程（如“从迷茫走向清晰”），
+ * 反序抽到时附注登记次序，方向信息不丢失；其余组合按可交换主题处理。
+ * 有序读法的完整依据仍待核对历史牌组规则书。
+ */
+const DIRECTIONAL_COMBINATION_KEYS = new Set(['月亮+太阳', '星星+月亮', '锚+星星', '船+鹳']);
+
 function getFixedCombinationMeaning(firstName: string, secondName: string): string | null {
-  return (
-    LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`] ??
-    LENORMAND_FIXED_COMBINATIONS[`${secondName}+${firstName}`] ??
-    null
-  );
+  const direct = LENORMAND_FIXED_COMBINATIONS[`${firstName}+${secondName}`];
+  if (direct) {
+    return DIRECTIONAL_COMBINATION_KEYS.has(`${firstName}+${secondName}`)
+      ? `${direct}（登记次序：${firstName}→${secondName}）`
+      : direct;
+  }
+  const reversed = LENORMAND_FIXED_COMBINATIONS[`${secondName}+${firstName}`];
+  if (!reversed) return null;
+  return DIRECTIONAL_COMBINATION_KEYS.has(`${secondName}+${firstName}`)
+    ? `${reversed}（登记判词按“${secondName}→${firstName}”次序，本抽牌为反序）`
+    : reversed;
 }
 
 function getGridCombinationCandidates(cards: LenormandCardPlacement[]) {
