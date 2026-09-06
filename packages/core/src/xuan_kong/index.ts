@@ -43,6 +43,42 @@ export type {
 } from './period-stars';
 export type { CastleGateCandidate, CastleGateEvaluation } from './castle-gate';
 
+/**
+ * 蒋大鸿《地理辨正》、沈氏玄空学通行二十四山替卦（起星）诀。
+ * “子癸并甲申，贪狼一路行；壬卯乙未坤，五位为巨门；
+ *  乾亥辰巽巳，连枝武曲位；酉辛丑艮丙，天星说破军；
+ *  寅午庚丁上，右弼四星临。”
+ */
+export const SUBSTITUTE_STAR_POEM =
+  '子癸并甲申，贪狼一路行；壬卯乙未坤，五位为巨门；乾亥辰巽巳，连枝武曲位；酉辛丑艮丙，天星说破军；寅午庚丁上，右弼四星临。';
+
+/** 二十四山起星替卦对应表（替星数：1贪狼、2巨门、6武曲、7破军、9右弼，其余归本位星）。 */
+export const TWENTY_FOUR_MOUNTAIN_SUBSTITUTES: Readonly<Record<string, number>> = {
+  子: 1,
+  癸: 1,
+  甲: 1,
+  申: 1,
+  壬: 2,
+  卯: 2,
+  乙: 2,
+  未: 2,
+  坤: 2,
+  辰: 6,
+  巽: 6,
+  巳: 6,
+  乾: 6,
+  亥: 6,
+  艮: 7,
+  丙: 7,
+  辛: 7,
+  酉: 7,
+  丑: 7,
+  寅: 9,
+  午: 9,
+  丁: 9,
+  庚: 9,
+};
+
 export type XuanKongFormation = Formation;
 
 export interface XuanKongPeriod {
