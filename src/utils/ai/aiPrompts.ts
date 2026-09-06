@@ -13,6 +13,8 @@ import {
   BAZI_COMPATIBILITY_PROMPT_PRESETS,
   BAZI_PROMPT_PRESETS,
   formatBaziFortuneSelection,
+  getThematicTopicConfig,
+  normalizeThematicTopic,
 } from 'mingyu-core/prompt';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import {
@@ -82,7 +84,26 @@ function buildBaziFullAnalysisObjectSection(): string {
 
 function buildFortunePromptAddon(ctx: FortuneSelectionContext | null): string {
   if (!ctx) return '';
-  return '';
+  const timeDetails: string[] = [];
+  if (ctx.cycle) {
+    timeDetails.push(
+      `当前聚焦大运【${ctx.cycle.ganZhi}】（约${ctx.cycle.startAge}-${ctx.cycle.endAge}岁）`,
+    );
+  }
+  if (ctx.year) {
+    timeDetails.push(`当前聚焦流年【${ctx.year.year}年 ${ctx.year.ganZhi}】（${ctx.year.age}岁）`);
+  }
+  if (ctx.month) {
+    timeDetails.push(`当前聚焦流月【${ctx.month.month}月 ${ctx.month.ganZhi}】`);
+  }
+  if (ctx.day) {
+    timeDetails.push(`当前聚焦流日【${ctx.day.ganZhi}】`);
+  }
+  if (ctx.hour) {
+    timeDetails.push(`当前聚焦流时【${ctx.hour.ganZhi}】`);
+  }
+  if (!timeDetails.length) return '';
+  return `结合${timeDetails.join('、')}，深入分析该时间维度的干支五行气机、岁运天克地冲/天合地合、刑冲破害原局关键字及太岁引动之具体吉凶动静，给出明确的时机推演与应对策略。`;
 }
 
 function normalizeBaziScopeLabel(scopeLabel: string | undefined) {

@@ -6,6 +6,7 @@ import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { formatPromptSchoolGuidance } from './schools';
 import { formatBaziSchoolsPrompt, normalizeBaziPromptSchools } from './bazi-school';
+import { getThematicTopicConfig } from './thematic';
 import {
   buildPromptDocument,
   buildPromptSection,
@@ -214,9 +215,11 @@ export function formatZiweiPayloadForPrompt(
   const evidencePrimary = evidenceItems.slice(0, evidenceLimit);
   const evidenceAppendix = evidenceItems.slice(evidenceLimit);
 
-  const focusNames = new Set(options.focusPalaceNames ?? []);
+  const focusNames = new Set(
+    (options.focusPalaceNames ?? []).map((name) => name.replace(/宫$/, '').trim()),
+  );
   const palaces = focusNames.size
-    ? payload.palaces.filter((palace) => focusNames.has(palace.name))
+    ? payload.palaces.filter((palace) => focusNames.has(palace.name.replace(/宫$/, '').trim()))
     : payload.palaces;
   const selectedPalaces = palaces.length ? palaces : payload.palaces;
   const isOriginScope = active.scope === 'origin';
@@ -443,35 +446,50 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
     : options.ziweiSchool
       ? [options.ziweiSchool]
       : [];
-  const user = joinPromptSections([
-    buildPromptGuidance('bazi'),
-    buildPromptGuidance('ziwei'),
-    buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
-    buildPromptSection('八字盘面资料', formatBaziForPrompt(options.bazi, null, 'general')),
-    selectedBaziSchools.length
-      ? buildPromptSection(
-          selectedBaziSchools.length > 1 ? '八字多派合参' : '八字解读流派',
-          formatBaziSchoolsPrompt(options.bazi, selectedBaziSchools),
-        )
-      : '',
-    buildPromptSection('紫微盘面资料', formatZiweiPayloadForPrompt(payload)),
-    selectedZiweiSchools.length
-      ? buildPromptSection(
-          selectedZiweiSchools.length > 1 ? '紫微多派合参' : '紫微解读流派',
-          formatPromptSchoolGuidance('ziwei', selectedZiweiSchools),
-        )
-      : '',
-    buildPromptSection('分析对象', topic),
-    buildPromptSection(
-      '任务',
-      buildPromptTask(
-        `请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
-        'bazi-ziwei',
+  const thematicConfig = getThematicTopicConfig(topic);
+  const ziweiFocusPalaces = thematicConfig?.ziweiFocusPalaces;
+  return buildPromptDocument(
+    joinPromptSections([
+      buildPromptGuidance('bazi-ziwei'),
+      buildPromptSection('分析主题', `${thematicConfig.name}合参`),
+      buildPromptSection(
+        '当前时间',
+        formatPromptCurrentTime(
+          typeof options.currentTime === 'string'
+            ? new Date(options.currentTime)
+            : options.currentTime,
+        ),
       ),
-    ),
-    buildPromptSection('问题', question),
-  ]);
-  return buildPromptDocument(user);
+      buildPromptSection('八字排盘资料', formatBaziForPrompt(options.bazi)),
+      selectedBaziSchools.length
+        ? buildPromptSection(
+            selectedBaziSchools.length > 1 ? '八字多派合参' : '八字解读流派',
+            formatBaziSchoolsPrompt(options.bazi, selectedBaziSchools),
+          )
+        : '',
+      buildPromptSection(
+        '紫微盘面资料',
+        formatZiweiPayloadForPrompt(payload, {
+          focusPalaceNames: ziweiFocusPalaces,
+        }),
+      ),
+      selectedZiweiSchools.length
+        ? buildPromptSection(
+            selectedZiweiSchools.length > 1 ? '紫微多派合参' : '紫微解读流派',
+            formatPromptSchoolGuidance('ziwei', selectedZiweiSchools),
+          )
+        : '',
+      buildPromptSection('分析对象', topic),
+      buildPromptSection(
+        '任务',
+        buildPromptTask(
+          `${thematicConfig.combinedTask} 请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
+          'bazi-ziwei',
+        ),
+      ),
+      buildPromptSection('问题', question),
+    ]),
+  );
 }
 
 export function buildBaziZiweiPrompt(options: BaziZiweiPromptOptions) {
