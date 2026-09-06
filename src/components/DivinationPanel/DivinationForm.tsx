@@ -237,7 +237,6 @@ export function DivinationForm({
     (draft.method === 'ssgw' &&
       ssgwMethod === 'manual' &&
       (!/^\d+$/.test(ssgwNumber) || Number(ssgwNumber) < 1 || Number(ssgwNumber) > 92)) ||
-    (draft.method === 'zhuge' && [...draft.zhugeText.trim()].length !== 3) ||
     (draft.method === 'kongming' &&
       kongmingMethod === 'manual' &&
       !/^[●○]{5}$/.test(kongmingPattern));
@@ -1142,9 +1141,7 @@ export function DivinationForm({
                   className="form-input"
                   placeholder="例如 顺其然"
                   value={draft.zhugeText}
-                  onChange={(event) =>
-                    updateDraft('zhugeText', [...event.target.value].slice(0, 3).join(''))
-                  }
+                  onChange={(event) => updateDraft('zhugeText', event.target.value)}
                 />
                 <small className="workspace-ui-field-hint">
                   依三个字的康熙笔画取末位数，合成签序。

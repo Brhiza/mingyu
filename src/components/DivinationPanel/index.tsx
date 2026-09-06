@@ -292,6 +292,14 @@ export function DivinationPanel({
   }
 
   const handleSubmit = useCallback(async () => {
+    if (draft.method === 'zhuge') {
+      const chars = [...draft.zhugeText.trim()];
+      if (chars.length !== 3) {
+        setError('诸葛神数请随念写下三个汉字（如：顺其自然）');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setError('');
     setSession(null);
