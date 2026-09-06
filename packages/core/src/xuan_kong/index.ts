@@ -305,6 +305,18 @@ function resolveMountains(input: XuanKongInput): {
         });
       }
     }
+    // 中央九度半宽（4.5度）之外的兼线提示：当前仅提供下卦计算，起替条件（兼度阈值）
+    // 尚未核定启用，替卦不作自动判断，由使用者结合流派自行核定
+    const distanceFromCenter = (pos: CompassMountainPosition) => {
+      if (pos.isBoundary) return 7.5;
+      const rem = (((pos.degree + 7.5) % 15) + 15) % 15;
+      return Math.abs(7.5 - rem);
+    };
+    if (distanceFromCenter(sitPos) > 4.5 || distanceFromCenter(facingPos) > 4.5) {
+      warnings.push(
+        '坐山或朝向偏离山中心超过中央九度半宽（4.5度），已进入兼向范围；当前仅提供下卦计算，替卦未启用，起替条件请结合所采用流派核定',
+      );
+    }
     return {
       sitMountain: sitPos.mountain,
       facingMountain: facingPos.mountain,

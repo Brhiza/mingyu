@@ -85,7 +85,8 @@ export function evaluateQizhengEnNan(params: {
 }): QizhengEnNanProfile {
   const { hour, mingZhu, aspects } = params;
 
-  // 1. 昼夜分金：卯时（5-7）至酉时（17-19）为昼，其余为夜
+  // 1. 昼夜分金：按固定钟表时段 6:00—18:00 判昼夜（固定时段约定，
+  //    未按地点、季节的日出日没或太阳高度计算，与天文昼夜是两种口径）
   const isDay = hour >= 6 && hour < 18;
   const sect: '昼生' | '夜生' = isDay ? '昼生' : '夜生';
   const sectSummary = isDay ? '昼生以日为尊，太阳高朗为贵' : '夜生以月为重，太阴清辉为吉';
@@ -153,7 +154,7 @@ export function evaluateQizhengEnNan(params: {
     ? aspectInteraction.slice(0, 2).join('；')
     : '命主未见恩难星曜直接交会相位，恩难实效待吊照与行运另行核对';
 
-  const summary = `【七政恩难】${sect}人（${sectSummary}）；命主${mingZhu}（${mingElement}），${interactionDesc}`;
+  const summary = `【七政恩难】${sect}人（${sectSummary}）；命主${mingZhu}（${mingElement}），${interactionDesc}；昼夜按 6:00—18:00 固定钟表时段判定，非按日出日没计算`;
 
   return {
     sect,
