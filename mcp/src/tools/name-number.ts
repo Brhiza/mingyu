@@ -28,9 +28,26 @@ const namingBirth = z
     year: z.number().int().min(1900).max(2100),
     month: z.number().int().min(1).max(12),
     day: z.number().int().min(1).max(31),
-    timeIndex: z.number().int().min(0).max(12),
+    timeIndex: z
+      .number()
+      .int()
+      .min(0)
+      .max(12)
+      .optional()
+      .describe('时辰索引（0-12）；useTrueSolarTime=false 时必填，启用真太阳时后可改传精确时分'),
     dateType: z.enum(['solar', 'lunar']).optional(),
     isLeapMonth: z.boolean().optional(),
+    useTrueSolarTime: z
+      .boolean()
+      .optional()
+      .describe('启用真太阳时校正；需同时提供 birthHour/birthMinute 与 birthLongitude'),
+    birthHour: z.number().int().min(0).max(23).optional(),
+    birthMinute: z.number().int().min(0).max(59).optional(),
+    birthPlace: z.string().optional().describe('出生地点名称，用于真太阳时说明'),
+    birthLongitude: z.number().min(-180).max(180).optional().describe('出生地经度'),
+    timezone: z.number().min(-12).max(14).optional().describe('小时偏移，如东八区为 8'),
+    timeZoneId: z.string().optional().describe('IANA 时区名，如 Asia/Shanghai'),
+    applyChinaDst: z.boolean().optional().describe('按中国 1986-1991 夏令时规则解释钟表时间'),
   })
   .describe('出生资料，用于结合四柱喜用筛选名字');
 

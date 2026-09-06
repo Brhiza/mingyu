@@ -1180,15 +1180,37 @@ export function getPublicApiOpenApiDocument(
         },
         NamingBirthInput: {
           type: 'object',
-          required: ['gender', 'year', 'month', 'day', 'timeIndex'],
+          required: ['gender', 'year', 'month', 'day'],
           properties: {
             gender: { enum: ['male', 'female'] },
             year: { type: 'integer', minimum: 1900, maximum: 2100 },
             month: { type: 'integer', minimum: 1, maximum: 12 },
             day: { type: 'integer', minimum: 1, maximum: 31 },
-            timeIndex: { type: 'integer', minimum: 0, maximum: 12 },
+            timeIndex: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 12,
+              description:
+                '时辰索引（0-12）；useTrueSolarTime=false 时必填，启用真太阳时后可改传 birthHour/birthMinute',
+            },
             dateType: { enum: ['solar', 'lunar'], default: 'solar' },
             isLeapMonth: { type: 'boolean', default: false },
+            useTrueSolarTime: {
+              type: 'boolean',
+              default: false,
+              description: '启用真太阳时校正；需同时提供 birthHour/birthMinute 与 birthLongitude',
+            },
+            birthHour: { type: 'integer', minimum: 0, maximum: 23 },
+            birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
+            birthPlace: { type: 'string' },
+            birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
+            timeZoneId: { type: 'string' },
+            applyChinaDst: {
+              type: 'boolean',
+              default: false,
+              description: '按中国 1986-1991 夏令时规则解释钟表时间',
+            },
           },
         },
         CharacterAnalyzeRequest: {
@@ -2371,14 +2393,37 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
     throw new ApiError(400, 'BAD_REQUEST', 'birth 必须是出生资料对象。');
   }
   const birth = value as JsonRecord;
+  const useTrueSolarTime = readBoolean(birth, 'useTrueSolarTime', false);
   return {
     gender: readEnum(birth, 'gender', ['male', 'female'] as const),
     year: readInteger(birth, 'year', 1900, 2100),
     month: readInteger(birth, 'month', 1, 12),
     day: readInteger(birth, 'day', 1, 31),
-    timeIndex: readInteger(birth, 'timeIndex', 0, 12),
+    // 启用真太阳时时允许以 birthHour/birthMinute 替代时辰索引；传统时辰模式仍必填
+    timeIndex:
+      useTrueSolarTime && birth.timeIndex === undefined
+        ? ''
+        : readInteger(birth, 'timeIndex', 0, 12),
     dateType: readEnum(birth, 'dateType', ['solar', 'lunar'] as const, 'solar'),
     isLeapMonth: readBoolean(birth, 'isLeapMonth', false),
+    useTrueSolarTime,
+    ...(birth.birthHour !== undefined ? { birthHour: readInteger(birth, 'birthHour', 0, 23) } : {}),
+    ...(birth.birthMinute !== undefined
+      ? { birthMinute: readInteger(birth, 'birthMinute', 0, 59) }
+      : {}),
+    ...(birth.birthPlace !== undefined && typeof birth.birthPlace === 'string'
+      ? { birthPlace: birth.birthPlace }
+      : {}),
+    ...(birth.birthLongitude !== undefined
+      ? { birthLongitude: optNumber(birth, 'birthLongitude', -180, 180) }
+      : {}),
+    ...(birth.timezone !== undefined ? { timezone: optNumber(birth, 'timezone', -12, 14) } : {}),
+    ...(birth.timeZoneId !== undefined && typeof birth.timeZoneId === 'string'
+      ? { timeZoneId: birth.timeZoneId }
+      : {}),
+    ...(birth.applyChinaDst !== undefined
+      ? { applyChinaDst: readBoolean(birth, 'applyChinaDst', false) }
+      : {}),
   };
 }
 
