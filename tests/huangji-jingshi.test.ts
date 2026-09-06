@@ -8,6 +8,7 @@ import {
   HUANGJI_STANDARD_EPOCH,
   calculateHuangjiJingshi,
 } from '@core/huangji-jingshi';
+import { calculateHuangjiDateTimeForecast } from '../packages/core/src/huangji-jingshi/datetime.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 test('皇极经世换算常量应满足元会运世层级恒等式', () => {
@@ -325,4 +326,34 @@ test('皇极经世世运消息与阳息阴消算法应准确判定圆图阶段�
   const epochTest = calculateHuangjiJingshi({ year: 1984 });
   assert.ok(epochTest.eraTrend);
   assert.equal(typeof epochTest.eraTrend.summary, 'string');
+});
+
+test('长节气第16日起沿用第15日映射位置，日卦与第15日一致（尾段折叠为现行约定）', () => {
+  // R07-B 验收矩阵的回归化：扫描冬至前后找出真实日长超过15天的节气样本，
+  // 验证第16日 actualDay=16、mappedDay=15，且日卦与第15日一致（尾段沿用为现行约定）
+  let day15: ReturnType<typeof calculateHuangjiDateTimeForecast> | null = null;
+  let day16: ReturnType<typeof calculateHuangjiDateTimeForecast> | null = null;
+  // 地球在1月过近日点，夏季节气日长短于冬季；长于15个民用日的节气出现在6—7月附近
+  for (let day = 1; day <= 61 && (!day15 || !day16); day += 1) {
+    const month = day <= 30 ? 6 : 7;
+    const dayOfMonth = day <= 30 ? day : day - 30;
+    const beijingNoon = new Date(Date.UTC(2024, month - 1, dayOfMonth, 4, 0, 0));
+    const forecast = calculateHuangjiDateTimeForecast(beijingNoon);
+    if (forecast.calendar.actualDayInSolarTerm === 15 && !day15) day15 = forecast;
+    if (forecast.calendar.actualDayInSolarTerm === 16 && !day16) day16 = forecast;
+  }
+  assert.ok(day15 && day16, '夏季应存在实际第15与第16日样本');
+  assert.equal(
+    day15.calendar.activeSolarTerm,
+    day16.calendar.activeSolarTerm,
+    '两个样本应属同一节气',
+  );
+  assert.equal(day16.calendar.mappedDayInSolarTerm, 15);
+  assert.equal(day15.calendar.activeSolarTerm, day16.calendar.activeSolarTerm);
+  assert.equal(
+    day16.hexagrams.daily.shortName,
+    day15.hexagrams.daily.shortName,
+    '第16日应沿用第15日映射位置，日卦一致',
+  );
+  assert.equal(day16.hexagrams.dayOfMonth ?? day16.calendar.dayOfMonth, day15.calendar.dayOfMonth);
 });

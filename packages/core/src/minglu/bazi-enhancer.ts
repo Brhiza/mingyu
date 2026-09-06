@@ -1455,6 +1455,8 @@ const SOLAR_TERMS = [
   '小寒 · 大寒',
 ];
 
+// 命录流月概览所附的月内司令固定串，属通行分日约定（每段合计30天）；
+// 与《三命通会》四库本“论人元司事”等具名版本存在差异，不作为已校勘的古籍定量依据
 const MONTH_COMMANDERS = [
   '戊丙甲 (甲木主权)',
   '甲乙 (乙木专权)',
@@ -1479,7 +1481,7 @@ function isEarthlyBranch(val: string): val is (typeof EARTHLY_BRANCHES)[number] 
 }
 
 /** 判定两字是否构成合/冲等二元关系：须分属组内两个不同成员，同字不成合冲 */
-function formsPairRelation(
+export function formsPairRelation(
   pairs: Array<{ pair: readonly string[] }>,
   a: string,
   b: string,

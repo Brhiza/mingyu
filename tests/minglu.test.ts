@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
-import { buildMingluArticle } from '../packages/core/src/minglu/index.ts';
+import { buildMingluArticle, formsPairRelation } from '../packages/core/src/minglu/index.ts';
 import { MINGLU_GLOSSARY_DATABASE } from '../packages/core/src/minglu/glossary-data.ts';
 import { getBaZhaiPalace } from '../packages/core/src/direction/index.ts';
 
@@ -174,4 +174,63 @@ test('命录命卦方位应与公共八宅大游年表逐卦一致', () => {
     fengshui.unfavorableDirections.find((d) => d.name === '五鬼方')!.direction,
     directionOf('五鬼'),
   );
+});
+
+test('岁运合冲判定穷举：十干100组、地支144组正反向与同字', () => {
+  // R18 验收建议：两两组合穷举，保证同字不成合冲、组内异字正反向均命中、组外不误判
+  const stemCombos = [
+    { pair: ['甲', '己'] },
+    { pair: ['乙', '庚'] },
+    { pair: ['丙', '辛'] },
+    { pair: ['丁', '壬'] },
+    { pair: ['戊', '癸'] },
+  ];
+  const liuhe = [
+    { pair: ['子', '丑'] },
+    { pair: ['寅', '亥'] },
+    { pair: ['卯', '戌'] },
+    { pair: ['辰', '酉'] },
+    { pair: ['巳', '申'] },
+    { pair: ['午', '未'] },
+  ];
+  const liuchong = [
+    { pair: ['子', '午'] },
+    { pair: ['丑', '未'] },
+    { pair: ['寅', '申'] },
+    { pair: ['卯', '酉'] },
+    { pair: ['辰', '戌'] },
+    { pair: ['巳', '亥'] },
+  ];
+  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+  const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+  const expected = (pairs: Array<{ pair: string[] }>, a: string, b: string, same: boolean) =>
+    a !== b &&
+    pairs.some(
+      (c) => (c.pair[0] === a && c.pair[1] === b) || (c.pair[0] === b && c.pair[1] === a),
+    ) &&
+    !same;
+
+  let checked = 0;
+  for (const a of stems) {
+    for (const b of stems) {
+      const same = a === b;
+      const actual = formsPairRelation(stemCombos, a, b);
+      assert.equal(actual, same ? false : expected(stemCombos, a, b, false), `天干${a}${b}`);
+      checked += 1;
+    }
+  }
+  assert.equal(checked, 100);
+
+  checked = 0;
+  for (const a of branches) {
+    for (const b of branches) {
+      const same = a === b;
+      const expectLiuhe = expected(liuhe, a, b, same);
+      const expectChong = expected(liuchong, a, b, same);
+      assert.equal(formsPairRelation(liuhe, a, b), expectLiuhe, `六合${a}${b}`);
+      assert.equal(formsPairRelation(liuchong, a, b), expectChong, `六冲${a}${b}`);
+      checked += 1;
+    }
+  }
+  assert.equal(checked, 144);
 });
