@@ -295,7 +295,7 @@ export function DivinationPanel({
     if (draft.method === 'zhuge') {
       const chars = [...draft.zhugeText.trim()];
       if (chars.length !== 3) {
-        setError('诸葛神数请随念写下三个汉字（如：顺其自然）');
+        setError('诸葛神数请随念写下三个汉字（如：定乾坤）');
         return;
       }
     }

@@ -1139,7 +1139,7 @@ export function DivinationForm({
                   id="zhuge-text-input"
                   type="text"
                   className="form-input"
-                  placeholder="例如 顺其然"
+                  placeholder="例如 定乾坤"
                   value={draft.zhugeText}
                   onChange={(event) => updateDraft('zhugeText', event.target.value)}
                 />
