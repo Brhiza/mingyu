@@ -87,19 +87,13 @@ export function resolveInteractiveTarotCards(
   spreadType: TarotSpreadType,
   samples: readonly number[],
 ): TarotInteractiveCard[] {
-  const spread =
-    typeof spreadType === 'string' && Object.hasOwn(tarotSpreads, spreadType)
-      ? tarotSpreads[spreadType]
-      : undefined;
+  const spread = tarotSpreads[spreadType];
   if (!spread) throw new Error(`未知的牌阵类型: ${spreadType}`);
-  if (!Array.isArray(samples)) throw new Error('塔罗抽牌随机样本必须是数组');
   if (samples.length % 2 !== 0) throw new Error('塔罗手动抽取每张牌需要两个随机样本');
   if (samples.length > spread.cardCount * 2) {
     throw new Error(`${spread.name}最多抽取${spread.cardCount}张牌`);
   }
-  for (let index = 0; index < samples.length; index++) {
-    assertInteractiveSample(samples[index], index);
-  }
+  samples.forEach(assertInteractiveSample);
 
   const remaining = [...tarotCards];
   const selected: TarotInteractiveCard[] = [];
@@ -149,10 +143,7 @@ export function drawSingleCard(options?: RandomOptions) {
 }
 
 export function drawSpreadCards(spreadType: keyof typeof tarotSpreads, options?: RandomOptions) {
-  const spread =
-    typeof spreadType === 'string' && Object.hasOwn(tarotSpreads, spreadType)
-      ? tarotSpreads[spreadType]
-      : undefined;
+  const spread = tarotSpreads[spreadType];
   if (!spread) {
     throw new Error(`未知的牌阵类型: ${spreadType}`);
   }
@@ -272,10 +263,7 @@ export function getCardKeywords(cardName: string): string {
     钱币国王: '富裕,成功,安全',
   };
 
-  const keywords =
-    typeof cardName === 'string' && Object.hasOwn(keywordsMap, cardName)
-      ? keywordsMap[cardName]
-      : undefined;
+  const keywords = keywordsMap[cardName];
   if (!keywords) {
     throw new Error(`未知的塔罗牌名: ${cardName}`);
   }
@@ -313,20 +301,11 @@ export function drawTarotSpread(
   spreadType: TarotSpreadType = 'single',
   options?: TarotDrawOptions,
 ): TarotData {
-  const spread =
-    typeof spreadType === 'string' && Object.hasOwn(tarotSpreads, spreadType)
-      ? tarotSpreads[spreadType]
-      : undefined;
+  const spread = tarotSpreads[spreadType];
   if (!spread) {
     throw new Error(`未知的牌阵类型: ${spreadType}`);
   }
 
-  if (options?.interactiveSamples !== undefined && !Array.isArray(options.interactiveSamples)) {
-    throw new Error('塔罗抽牌随机样本必须是数组');
-  }
-  if (options?.manualCards !== undefined && !Array.isArray(options.manualCards)) {
-    throw new Error('塔罗手工录入牌面必须是数组');
-  }
   if (options?.interactiveSamples && options.manualCards) {
     throw new Error('塔罗手动抽取不能同时提供手工录入牌面');
   }
@@ -370,12 +349,6 @@ export function drawTarotSpread(
     }
     if (options.manualCards.length !== spread.cardCount) {
       throw new Error(`${spread.name}需要按牌位录入${spread.cardCount}张牌`);
-    }
-    for (let index = 0; index < options.manualCards.length; index++) {
-      const input = options.manualCards[index];
-      if (!input || typeof input !== 'object' || typeof input.reversed !== 'boolean') {
-        throw new Error(`第${index + 1}张塔罗牌录入无效`);
-      }
     }
     const ids = options.manualCards.map((item) => item.id);
     if (new Set(ids).size !== ids.length) {

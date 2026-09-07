@@ -50,12 +50,7 @@ export function buildEnhancedAstrolabeSection(data: AstrolabeData): MingluAstrol
     };
   });
 
-  // 元素/模式摘要只统计参与分布计算的星体集合，比例分母须与分子保持同一集合，
-  // 不能使用合并全部交点、莉莉丝与阿拉伯点后的 points.length
-  const totalPoints =
-    Object.values(data.summary.elements).reduce((sum, list) => sum + list.length, 0) ||
-    Object.values(data.summary.modalities).reduce((sum, list) => sum + list.length, 0) ||
-    1;
+  const totalPoints = points.length || 1;
   const elementsRecord: Record<string, { count: number; percentage: number; points: string[] }> = {
     火: { count: 0, percentage: 0, points: [] },
     土: { count: 0, percentage: 0, points: [] },

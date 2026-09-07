@@ -154,9 +154,7 @@ export function civilYearToSerial(year: number): number {
 
 export function serialYearToCivil(year: number): number {
   if (!Number.isSafeInteger(year)) throw new Error('内部年份超出安全整数范围。');
-  const civilYear = year > 0 ? year : year - 1;
-  if (!Number.isSafeInteger(civilYear)) throw new Error('公元年份超出安全整数范围。');
-  return civilYear;
+  return year > 0 ? year : year - 1;
 }
 
 export function formatHuangjiCivilYear(year: number): string {
@@ -267,7 +265,6 @@ export function calculateStandardHuangjiForecast(year: number): HuangjiStandardF
   const yearSerial = civilYearToSerial(year);
   const epochSerial = civilYearToSerial(HUANGJI_STANDARD_EPOCH.yuanStartYear);
   const elapsedYears = yearSerial - epochSerial;
-  if (!Number.isSafeInteger(elapsedYears)) throw new Error('纪元差值超出安全整数范围。');
   if (elapsedYears < 0) {
     throw new Error(
       `year 不能早于${formatHuangjiCivilYear(HUANGJI_STANDARD_EPOCH.yuanStartYear)}。`,

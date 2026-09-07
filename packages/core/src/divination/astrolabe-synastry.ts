@@ -163,7 +163,6 @@ function calculateAspects(
   );
   return {
     aspects: sorted.slice(0, options.maxAspects ?? 40),
-    matchedAspects: sorted,
     selectedPointCount1: points1.length,
     selectedPointCount2: points2.length,
     evaluatedPairCount: points1.length * points2.length,
@@ -747,13 +746,7 @@ export function analyzeAstrolabeSynastry(
     limitationFacts,
   );
   const evidenceLines = formatPromptEvidenceBundle(evidence);
-  // 接纳与互溶基于全部命中相位计算，不受返回上限截断影响，并沿用计算点筛选
-  const receptionsResult = evaluateAstrolabeSynastryReceptions(
-    chart1,
-    chart2,
-    aspectCalculation.matchedAspects,
-    { pointNames: selectedNames },
-  );
+  const receptionsResult = evaluateAstrolabeSynastryReceptions(chart1, chart2, aspects);
 
   return {
     key: 'astrolabe:synastry:evidence',

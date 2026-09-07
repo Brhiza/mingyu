@@ -27,20 +27,10 @@ export const tianGanDuoMatcher: Matcher = ({ condition, allStems }) => {
   return count >= 3;
 };
 
-export const wuHeMatcher: Matcher = ({ condition, allStems, dayStem, pillars }) => {
+export const wuHeMatcher: Matcher = ({ condition, allStems }) => {
   const match = condition.match(WU_HE_REGEX);
   if (!match) return null;
-  const stemA = match[1];
-  const stemB = match[2];
-  if (!allStems.includes(stemA) || !allStems.includes(stemB)) return false;
-  // 古典化气格须由日干参与五合，且合神紧贴于月干或时干；年时隔位或日主未参与不能作真化
-  if (dayStem) {
-    if (dayStem !== stemA && dayStem !== stemB) return false;
-    const partner = dayStem === stemA ? stemB : stemA;
-    const isAdjacent = pillars?.month?.gan === partner || pillars?.hour?.gan === partner;
-    if (!isAdjacent) return false;
-  }
-  return true;
+  return allStems.includes(match[1]) && allStems.includes(match[2]);
 };
 
 export const noTouGanMatcher: Matcher = ({ condition, allStems }) => {

@@ -54,12 +54,6 @@ export interface BaziQiongtongEntry {
   classicVerse: string;
   modernExplanation: string;
   taboos: string[];
-  /** 查询的月支（条目本身仍是所命中月份的资料） */
-  requestedMonth?: string;
-  /** 实际命中的月支；与 requestedMonth 不同时属同季借用 */
-  matchedMonth?: string;
-  /** 同季借用标记：该日干本月无直接条目，展示时须注明为同季一般参考 */
-  seasonFallback?: boolean;
 }
 
 export interface LiuyaoMovementRule {
@@ -97,8 +91,8 @@ export interface XiaoliurenPalaceClassic {
   sourceBook: string;
   poem: string;
   modernAdvice: string;
-  direction?: string;
-  bodyPart?: string;
+  direction: string;
+  bodyPart: string;
 }
 
 export interface JinkoujueMovementClassic {
@@ -231,7 +225,7 @@ export interface BazhaiStarClassic {
 export interface TaiyiGeneralClassic {
   general: string;
   role: string;
-  wuxing?: string;
+  wuxing: string;
   sourceBook: string;
   verse: string;
   nature: string;
@@ -274,7 +268,7 @@ export interface WuyunLiuqiClassic {
   sourceBook: string;
   verse: string;
   climateFeature: string;
-  healthAdvice?: string;
+  healthAdvice: string;
 }
 
 export interface AlmanacOfficerClassic {

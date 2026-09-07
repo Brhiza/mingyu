@@ -1,4 +1,4 @@
-import { MingyuCoreError, normalizeRandomTrace } from './result';
+import { MingyuCoreError } from './result';
 
 export type RandomSource = () => number;
 
@@ -47,7 +47,7 @@ export const RANDOM_TRACE_FACT_LIMITATION =
 
 /** 将各术数模块的随机记录统一转换为可公开序列化的结构化事实。 */
 export function buildRandomTraceFact(options: RandomTraceFactOptions): RandomTraceFact {
-  const trace = normalizeRandomTrace(options.trace);
+  const trace = options.trace;
   const hasReplayableTrace = options.applicable && Boolean(trace?.samples.length);
   const status: RandomTraceFactStatus = !options.applicable
     ? '不适用'
@@ -157,10 +157,7 @@ export function hasRandomOptions(options?: RandomOptions): boolean {
 }
 
 function hashSeed(seed: string | number): number {
-  if (
-    (typeof seed !== 'string' && typeof seed !== 'number') ||
-    (typeof seed === 'number' && !Number.isFinite(seed))
-  ) {
+  if (typeof seed === 'number' && !Number.isFinite(seed)) {
     throwRandomError('RANDOM_SEED_INVALID', '随机种子必须是有限数字或文本。', 'seed');
   }
   const text = String(seed);
@@ -218,7 +215,6 @@ export function createRandomContext(options?: RandomOptions): RandomContext {
     throwRandomError('RANDOM_OPTIONS_CONFLICT', 'seed、replay 与自定义随机源只能提供一种。');
   }
   const customRandom = options?.random ?? options?.rng;
-  const seed = options?.seed;
   let mode: RandomMode = 'system';
   let source: RandomSource = secureRandomFloat;
   if (options?.replay !== undefined) {
@@ -242,9 +238,12 @@ export function createRandomContext(options?: RandomOptions): RandomContext {
     }
     mode = 'custom';
     source = customRandom;
-  } else if (seed !== undefined) {
+  } else if (options?.seed !== undefined) {
+    if (typeof options.seed !== 'string' && typeof options.seed !== 'number') {
+      throwRandomError('RANDOM_SEED_INVALID', '随机种子必须是有限数字或文本。', 'seed');
+    }
     mode = 'seeded';
-    source = createSeededRandom(seed);
+    source = createSeededRandom(options.seed);
   }
   const samples: number[] = [];
   return {
@@ -255,7 +254,7 @@ export function createRandomContext(options?: RandomOptions): RandomContext {
     },
     getTrace: () => ({
       mode,
-      seed: mode === 'seeded' ? seed : undefined,
+      seed: mode === 'seeded' ? options?.seed : undefined,
       samples: [...samples],
     }),
   };

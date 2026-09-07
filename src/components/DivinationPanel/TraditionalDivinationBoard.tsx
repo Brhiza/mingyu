@@ -20,7 +20,7 @@ import {
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from 'mingyu-core/name-number';
 import { getKongmingInterpretation, getZhugeInterpretation } from 'mingyu-core/name-number';
-import { analyzeAlmanacEvidence, formatAlmanacGods } from 'mingyu-core/divination/almanac';
+import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import {
   getAllLiuyaoCategoryChapters,
   getHuangjiCycleClassic,
@@ -799,29 +799,6 @@ function LiuyaoTraditionalBoard({
       {/* 2. 双卦并列对齐爻卦区 */}
       <LiuyaoDualHexagramView data={data} />
 
-      {data.generation?.method === 'yarrow' && data.generation.yarrow ? (
-        <details className="traditional-classic-card">
-          <summary>蓍草起卦 · 十八变记录</summary>
-          <div className="traditional-classic-body">
-            <p>分堆方式：{data.generation.yarrow.samplingModel}</p>
-            {data.generation.yarrow.lines.map((line, index) => (
-              <div key={index}>
-                <strong>
-                  {formatYaoPosition(index + 1)} · 爻值{line.value}
-                </strong>
-                {line.changes.map((step, changeIndex) => (
-                  <p key={changeIndex}>
-                    第{changeIndex + 1}变：{step.initial}策，左{step.left}、右{step.right}，
-                    挂一，左余{step.leftRemainder}、右余{step.rightRemainder}， 去{step.removed}
-                    策，剩{step.remaining}策。
-                  </p>
-                ))}
-              </div>
-            ))}
-          </div>
-        </details>
-      ) : null}
-
       {/* 3. 持世与卦象特性速查 */}
       {hexagramTips.length ? (
         <div className="liuyao-quick-insights-box">
@@ -1079,11 +1056,10 @@ function MeihuaTraditionalBoard({
       </div>
       {meihuaJudgement ? (
         <ClassicalAnnotationCard
-          title={`${meihuaJudgement.relationType} · 基础释义（未计季节旺衰与互变卦）`}
+          title={`${meihuaJudgement.relationType} · 定局断语（${meihuaJudgement.auspice}）`}
           source="梅花易数·体用总断"
           verse={meihuaJudgement.classicSummary}
-          modernAdvice={`【条目固定取象，未结合本盘季节旺衰、互卦与变卦，不能视为本局定断】
-【决策要领】${meihuaJudgement.actionAdvice}\n【求财】${meihuaJudgement.matterCategories.seekingWealth} | 【求事】${meihuaJudgement.matterCategories.wishing} | 【婚姻】${meihuaJudgement.matterCategories.marriage}`}
+          modernAdvice={`【决策要领】${meihuaJudgement.actionAdvice}\n【求财】${meihuaJudgement.matterCategories.seekingWealth} | 【求事】${meihuaJudgement.matterCategories.wishing} | 【婚姻】${meihuaJudgement.matterCategories.marriage}`}
         />
       ) : null}
       {tiTrigramClassic ? (
@@ -1154,7 +1130,7 @@ function XiaoliurenTraditionalBoard({
               `农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日`,
           ],
           ['干支', `${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时`],
-          ['起课法', data.ruleLabel || '通行掌诀'],
+          ['起课法', data.methodLabel || '小六壬时宫速断'],
         ]}
       />
       <TraditionalFacts
@@ -1185,18 +1161,12 @@ function XiaoliurenTraditionalBoard({
         </div>
       </div>
 
-      {data.rule === 'duoneng' ? (
+      {hourPalaceClassic ? (
         <ClassicalAnnotationCard
-          title={`${data.primary.name} · 课时断语`}
-          source="《多能鄙事》卷八"
-          verse={data.primary.verse}
-        />
-      ) : hourPalaceClassic ? (
-        <ClassicalAnnotationCard
-          title={`${hourPalaceClassic.name}（属${hourPalaceClassic.wuxing}）· 六宫歌诀`}
+          title={`${hourPalaceClassic.name}（${hourPalaceClassic.auspice} · 属${hourPalaceClassic.wuxing}）· 诗诀决断`}
           source={hourPalaceClassic.sourceBook}
           verse={hourPalaceClassic.poem}
-          modernAdvice={hourPalaceClassic.modernAdvice}
+          modernAdvice={`【决断指导】${hourPalaceClassic.modernAdvice}\n【方位类象】${hourPalaceClassic.direction} | 【对应身部】${hourPalaceClassic.bodyPart}`}
         />
       ) : null}
     </TraditionalBoardShell>
@@ -2801,12 +2771,6 @@ function AlmanacTraditionalBoard({
               </section>
             </div>
 
-            {formatAlmanacGods(selectedDay).map((text) => (
-              <p className="traditional-almanac-gods" key={text}>
-                {text}
-              </p>
-            ))}
-
             <div className="traditional-almanac-evidence-grid">
               <section>
                 <h5>择日依据</h5>
@@ -3250,19 +3214,19 @@ function HuangjiTraditionalBoard({
 
       {annualCycleClassic ? (
         <ClassicalAnnotationCard
-          title={annualCycleClassic.name}
+          title={`${annualCycleClassic.name} · 邵雍《皇极经世》要义`}
           source={annualCycleClassic.sourceBook}
           verse={annualCycleClassic.verse}
-          modernAdvice={`${annualCycleClassic.principle}\n${annualCycleClassic.modernAdvice}`}
+          modernAdvice={`【经世原理】${annualCycleClassic.principle}\n【指引】${annualCycleClassic.modernAdvice}`}
         />
       ) : null}
 
       {shiCycleClassic ? (
         <ClassicalAnnotationCard
-          title={shiCycleClassic.name}
+          title={`${shiCycleClassic.name} · 三十年世卦要义`}
           source={shiCycleClassic.sourceBook}
           verse={shiCycleClassic.verse}
-          modernAdvice={`${shiCycleClassic.principle}\n${shiCycleClassic.modernAdvice}`}
+          modernAdvice={`【经世原理】${shiCycleClassic.principle}\n【指引】${shiCycleClassic.modernAdvice}`}
         />
       ) : null}
     </TraditionalBoardShell>

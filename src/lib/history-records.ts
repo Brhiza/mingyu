@@ -276,6 +276,7 @@ function cloneDivinationSession(session: DivinationSession): DivinationSession {
           nineStarDetail: _nineStarDetail,
           annualDirectionGods: _annualDirectionGods,
           topicMatchFacts: _topicMatchFacts,
+          godFacts: _godFacts,
           participantRelationFacts: _participantRelationFacts,
           hours,
           ...daySummary

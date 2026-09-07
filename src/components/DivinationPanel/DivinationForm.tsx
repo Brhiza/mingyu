@@ -1,4 +1,3 @@
-import { XIAOLIUREN_RULE_OPTIONS } from 'mingyu-core/divination/xiaoliuren';
 import { useState } from 'react';
 import {
   DIVINATION_METHOD_OPTIONS,
@@ -59,7 +58,6 @@ const JINKOUJUE_BRANCH_OPTIONS = [
 const LIUYAO_METHOD_OPTIONS = [
   { value: 'time', label: '时间起卦' },
   { value: 'coins', label: '手摇' },
-  { value: 'yarrow', label: '蓍草起卦' },
   { value: 'manual', label: '手动录入' },
 ] as const;
 
@@ -239,6 +237,7 @@ export function DivinationForm({
     (draft.method === 'ssgw' &&
       ssgwMethod === 'manual' &&
       (!/^\d+$/.test(ssgwNumber) || Number(ssgwNumber) < 1 || Number(ssgwNumber) > 92)) ||
+    (draft.method === 'zhuge' && [...draft.zhugeText.trim()].length !== 3) ||
     (draft.method === 'kongming' &&
       kongmingMethod === 'manual' &&
       !/^[●○]{5}$/.test(kongmingPattern));
@@ -442,24 +441,6 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
-                    {draft.method === 'xiaoliuren' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="xiaoliuren-rule-select">起课口径</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <DropdownSelect
-                            id="xiaoliuren-rule-select"
-                            value={draft.xiaoliurenRule ?? 'common'}
-                            options={XIAOLIUREN_RULE_OPTIONS}
-                            onChange={(value) =>
-                              updateDraft(
-                                'xiaoliurenRule',
-                                value as DivinationDraft['xiaoliurenRule'],
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                    ) : null}
                     {draft.method === 'jinkoujue' ? (
                       <div className="form-item divination-inline-field">
                         <label htmlFor="jinkoujue-method-select">起课方式</label>
@@ -717,18 +698,6 @@ export function DivinationForm({
                   </div>
                 ) : null}
 
-                {draft.method === 'xiaoliuren' ? (
-                  <div className="divination-mobile-secondary-picker">
-                    <DropdownSelect
-                      value={draft.xiaoliurenRule ?? 'common'}
-                      options={XIAOLIUREN_RULE_OPTIONS}
-                      ariaLabel="小六壬起课口径"
-                      onChange={(value) =>
-                        updateDraft('xiaoliurenRule', value as DivinationDraft['xiaoliurenRule'])
-                      }
-                    />
-                  </div>
-                ) : null}
                 {draft.method === 'jinkoujue' ? (
                   <div className="divination-mobile-secondary-picker">
                     <DropdownSelect
@@ -1171,9 +1140,11 @@ export function DivinationForm({
                   id="zhuge-text-input"
                   type="text"
                   className="form-input"
-                  placeholder="例如 定乾坤"
+                  placeholder="例如 顺其然"
                   value={draft.zhugeText}
-                  onChange={(event) => updateDraft('zhugeText', event.target.value)}
+                  onChange={(event) =>
+                    updateDraft('zhugeText', [...event.target.value].slice(0, 3).join(''))
+                  }
                 />
                 <small className="workspace-ui-field-hint">
                   依三个字的康熙笔画取末位数，合成签序。
