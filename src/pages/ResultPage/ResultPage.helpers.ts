@@ -76,19 +76,19 @@ export function resolveZiweiTopicByBaziShortcutMode(mode: string) {
   const topicKey = normalizeThematicTopic(mode);
   switch (topicKey) {
     case 'relationship':
-      return 'marriage';
+      return 'relationship';
     case 'career':
-      return 'career';
+      return 'career-wealth';
     case 'wealth':
-      return 'wealth';
+      return 'career-wealth';
     case 'health':
       return 'health';
     case 'academic':
-      return 'academic';
+      return 'study';
     case 'family':
       return 'family';
     case 'timing':
-      return 'flow';
+      return 'recent';
     default:
       return ziweiSingleShortcutActions.find((item) => item.label === mode)?.topic ?? 'life';
   }
