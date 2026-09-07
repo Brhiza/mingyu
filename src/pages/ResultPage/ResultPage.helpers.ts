@@ -26,6 +26,7 @@ import {
   ziweiScopeLabelMap,
   ziweiSingleShortcutActions,
 } from './ResultPage.constants';
+import { getThematicTopicConfig, normalizeThematicTopic } from 'mingyu-core/prompt';
 import type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from './ResultPage.types';
 
 export type PromptDraftKind = 'custom' | 'inspiration';
@@ -72,7 +73,25 @@ export function resolveZiweiTopicByBaziShortcutMode(mode: string) {
     return 'life';
   }
 
-  return ziweiSingleShortcutActions.find((item) => item.label === mode)?.topic ?? 'life';
+  const topicKey = normalizeThematicTopic(mode);
+  switch (topicKey) {
+    case 'relationship':
+      return 'marriage';
+    case 'career':
+      return 'career';
+    case 'wealth':
+      return 'wealth';
+    case 'health':
+      return 'health';
+    case 'academic':
+      return 'academic';
+    case 'family':
+      return 'family';
+    case 'timing':
+      return 'flow';
+    default:
+      return ziweiSingleShortcutActions.find((item) => item.label === mode)?.topic ?? 'life';
+  }
 }
 
 export function resolveCompatType(
@@ -238,15 +257,20 @@ function resolveBaziZiweiTaskMethod(params: {
 function resolveBaziZiweiTaskText(params: {
   baziFortuneSummary?: string;
   ziweiScopeSummary?: string;
+  questionScopeLabel?: string;
 }) {
+  const topic = normalizeThematicTopic(params.questionScopeLabel);
+  const config = getThematicTopicConfig(topic);
   const method = resolveBaziZiweiTaskMethod(params);
+  const baseTask = config.combinedTask;
+
   if (method === 'bazi-ziwei-aligned') {
-    return '请先分别给出同一时间范围内的八字岁运依据和紫微运限依据，再交叉印证后回答问题。';
+    return `${baseTask} 当前八字岁运与紫微运限已对齐至同一时间层，请先分别给出该时间窗口内的八字岁运生克与紫微流曜四化依据，深度交叉印证后回答问题。`;
   }
   if (method === 'bazi-ziwei-mismatch') {
-    return '请先分别给出八字已列岁运依据和紫微已列运限依据，再交叉印证；时间层未对齐时分开陈述。';
+    return `${baseTask} 请先分别给出八字已列岁运依据和紫微已列运限依据，再交叉印证；时间层未对齐时分开陈述。`;
   }
-  return '请依据双方已列出的本命结构交叉印证后回答问题。';
+  return `${baseTask} 请依据双方已列出的本命与运限结构交叉印证后回答问题。`;
 }
 
 export function buildBaziZiweiEnhancedPrompt(params: {
