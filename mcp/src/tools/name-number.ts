@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
+  type NamingBirthInput,
   analyzeChineseCharactersWithReferences,
   selectChineseCharacters,
   selectNamingCharacters,
@@ -61,7 +62,7 @@ const namingPreferenceShape = {
     .describe('辈分字位于名字首字或末字，默认首字'),
 };
 
-function toBaziBirthDraft(birth?: z.infer<typeof namingBirth>) {
+function toBaziBirthDraft(birth?: z.infer<typeof namingBirth>): NamingBirthInput | undefined {
   if (!birth) return undefined;
   return {
     ...birth,

@@ -483,6 +483,45 @@ async function withIsolatedMcpClient<T>(callback: (client: Client) => Promise<T>
   }
 }
 
+test('姓名 MCP 真太阳时可省略时辰，普通出生资料缺时辰应报错', async () => {
+  await withMcpClient(async (client) => {
+    const birth = {
+      gender: 'male',
+      year: 1990,
+      month: 6,
+      day: 15,
+      useTrueSolarTime: true,
+      birthHour: 12,
+      birthMinute: 30,
+      birthLongitude: 116.4,
+      timezone: 8,
+    };
+    for (const name of [
+      'name_generate',
+      'name_analyze',
+      'name_generate_prompt',
+      'name_analyze_prompt',
+    ]) {
+      const input = name.startsWith('name_generate')
+        ? { surname: '张', limit: 1 }
+        : { fullName: '张明' };
+      const result = await client.callTool({ name, arguments: { ...input, birth } });
+      assert.equal(result.isError, undefined, `${name} 应支持精确时分代替时辰`);
+      const withTimeIndex = await client.callTool({
+        name,
+        arguments: { ...input, birth: { ...birth, timeIndex: 0 } },
+      });
+      assert.equal(withTimeIndex.isError, undefined);
+      assert.deepEqual(result.structuredContent, withTimeIndex.structuredContent);
+      const invalid = await client.callTool({
+        name,
+        arguments: { ...input, birth: { ...birth, useTrueSolarTime: false } },
+      });
+      assert.equal(invalid.isError, true, `${name} 应拒绝缺少时辰的普通出生资料`);
+    }
+  });
+});
+
 test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();

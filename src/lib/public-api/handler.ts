@@ -15,6 +15,7 @@ import {
   calculateSolarTermEvidence,
   convertTrueSolarTime,
   getTimeIndexFromClock,
+  resolveCivilTime,
   resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
 import { buildZiweiChartInput, calculatePublicZiweiChartForScopes } from 'mingyu-core/ziwei';
@@ -2917,12 +2918,11 @@ function calculateTaiyiApi(input: JsonRecord) {
       const month = readInteger(input, 'month', 1, 12);
       const day = readInteger(input, 'day', 1, 31);
       // 月计/日计也允许明确时分（默认中午 12:00），便于核对交节前后的局数差异
-      const hour = readInteger(input, 'hour', 0, 23, 12);
+      const hour = readInteger(input, 'hour', 0, 23, scope === 'hour' ? undefined : 12);
       const minute = readInteger(input, 'minute', 0, 59, 0);
-      date = new Date(year, month - 1, day, hour, minute, 0);
-      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-        throw new Error('太乙日期无效。');
-      }
+      date = new Date(
+        resolveCivilTime({ year, month, day, hour, minute, second: 0, timezone: 8 }).utcTimestamp,
+      );
     }
     return taiyi.generateTaiyi({
       scope,

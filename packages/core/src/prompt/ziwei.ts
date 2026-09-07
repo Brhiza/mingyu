@@ -460,7 +460,7 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
             : options.currentTime,
         ),
       ),
-      buildPromptSection('八字排盘资料', formatBaziForPrompt(options.bazi)),
+      buildPromptSection('八字盘面资料', formatBaziForPrompt(options.bazi)),
       selectedBaziSchools.length
         ? buildPromptSection(
             selectedBaziSchools.length > 1 ? '八字多派合参' : '八字解读流派',

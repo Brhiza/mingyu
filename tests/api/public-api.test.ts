@@ -16,6 +16,7 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';
+import { generateTaiyi } from 'mingyu-core/taiyi';
 import {
   assertPromptHasAnswerFramework,
   assertPromptHasSingleRole,
@@ -292,6 +293,7 @@ test('公开 API 即时盘应按固定时刻返回无性别的北京时间八字
     day: 24,
     hour: 12,
     minute: 30,
+    offsetHours: 8,
   });
   assert.equal('gender' in body.data.result, false);
   assert.equal('luckInfo' in body.data.result, false);
@@ -5599,7 +5601,7 @@ test('公开 API 皇极经世应支持年月日时完整排盘与提示词', asy
 
 test('公开 API 太乙应支持月日时四计', async () => {
   for (const path of ['metaphysics/taiyi/calculate', 'metaphysics/taiyi/prompt']) {
-    for (const scope of ['month', 'day', 'hour']) {
+    for (const scope of ['month', 'day', 'hour'] as const) {
       const { response, body } = await callApi(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -5618,6 +5620,12 @@ test('公开 API 太乙应支持月日时四计', async () => {
       const result = path.endsWith('/prompt') ? body.data.result : body.data;
       assert.equal(result.scope, scope, `${path}:${scope}`);
       assert.ok(result.accumulatedValue > 0, `${path}:${scope}`);
+      const expected = generateTaiyi({
+        scope,
+        date: new Date('2026-07-11T14:35:00+08:00'),
+      });
+      assert.equal(result.accumulatedValue, expected.accumulatedValue, `${path}:${scope}`);
+      assert.equal(result.ganZhi, expected.ganZhi, `${path}:${scope}`);
     }
   }
 });
