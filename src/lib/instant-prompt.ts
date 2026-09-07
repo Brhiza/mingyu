@@ -46,6 +46,7 @@ function formatInstantBaziData(result: BaziChartResult) {
     `起盘时刻：${result.solarDate.year}年${result.solarDate.month}月${result.solarDate.day}日 ${result.timeInfo.name}`,
     `农历：${lunar.year}年${lunar.monthName}${lunar.dayName}；生肖：${result.zodiac}`,
     `日元：${result.dayMaster.gan}${result.dayMaster.element}（${result.dayMaster.yinYang}）`,
+    result.hiddenStems.month?.[0] ? `月支本气：${result.hiddenStems.month[0]}` : '',
     result.monthCommander ? `月令司权：${result.monthCommander}` : '',
     ...pillarLines,
     `五行：出现${result.wuxingStrength.present.join('、') || '无'}；结构比较优先${result.wuxingStrength.dominantByRule.join('、') || '无'}；缺失${result.wuxingStrength.missing.join('、') || '无'}`,

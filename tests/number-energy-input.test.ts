@@ -22,6 +22,8 @@ test('提示词完整保留首尾及仅含0和5的序列位置', () => {
   assert.match(modifiersOnly, /第2位：5；独立/);
   assert.doesNotMatch(modifiersOnly, /0（隐藏）|5（增强）/);
   assert.match(modifiersOnly, /不足以形成八星磁场组合/);
+  assert.match(modifiersOnly, /依据原始数字字母序列/);
+  assert.doesNotMatch(modifiersOnly, /依据实际形成的八星数字能量相邻组合/);
 });
 
 test('字母内部与跨字符磁场均能追溯展开位置', () => {

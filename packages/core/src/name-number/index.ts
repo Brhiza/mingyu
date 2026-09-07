@@ -1,9 +1,6 @@
-import {
-  CHARACTER_TUPLES,
-  SANCAI_DATA,
-  SHULI_DATA,
-  type GeneratedCharacterData,
-} from './generated-data';
+import { CHARACTER_TUPLES } from './generated-character-tuples';
+import { SANCAI_DATA, SHULI_DATA } from './generated-numerology-data';
+import type { GeneratedCharacterData } from './generated-data';
 export { getZhugeInterpretation } from './zhuge-interpretations';
 import { analyzeNameSancai, formatNamingTradition, NAMING_TRADITION } from './naming-tradition';
 import { analyzeNumberEnergyPair, NUMBER_ENERGY_TRADITION } from './number-energy-tradition';
@@ -12,6 +9,12 @@ export { analyzeNumberEnergyPair } from './number-energy-tradition';
 export { analyzeNameSancai } from './naming-tradition';
 import { calculateBaziChartFromInput, type BaziChartInputDraft } from '../bazi/input';
 import { CHARACTER_STROKE_NOTES, CHARACTER_READING_NOTES } from './character-annotations';
+import {
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  type PromptSelection,
+} from '../prompt/framework';
+import { loadKangxiReferences } from './generated-character-reference-loader';
 
 export type Wuxing = '金' | '木' | '水' | '火' | '土';
 export type NamingGender = '男' | '女' | '通用';
@@ -369,19 +372,18 @@ export function selectChineseCharacters(filter: CharacterSearchFilter) {
 
 export async function analyzeChineseCharactersWithReferences(text: string) {
   const analysis = analyzeChineseCharacters(text);
-  if (analysis.characters.every((item) => item.detail === null)) return analysis;
-  const { KANGXI_TEXT_BY_CHARACTER } = await import('./generated-character-references.js').catch(
-    (cause: unknown) => {
-      throw new Error('字典原文加载失败，请重试', { cause });
-    },
-  );
+  const characters = analysis.characters
+    .map((item) => item.detail?.simplified)
+    .filter((char): char is string => Boolean(char));
+  if (characters.length === 0) return analysis;
+  const references = await loadKangxiReferences(characters).catch((cause: unknown) => {
+    throw new Error('字典原文加载失败，请重试', { cause });
+  });
   return {
     ...analysis,
     characters: analysis.characters.map(({ char, detail }) => ({
       char,
-      detail: detail
-        ? { ...detail, kangxiText: KANGXI_TEXT_BY_CHARACTER[detail.simplified] ?? null }
-        : null,
+      detail: detail ? { ...detail, kangxiText: references[detail.simplified] ?? null } : null,
     })),
   };
 }
@@ -718,10 +720,14 @@ function formatNamingCandidate(
 export function buildChineseNameAnalysisPrompt(input: {
   analysis: ReturnType<typeof analyzeChineseName>;
   question?: string;
+  selection?: PromptSelection;
 }) {
+  const task =
+    '综合出生取用、姓名字义、音律、书写辨识、谐音联想、三才五格与现代使用场景，评价这个姓名的整体适配度；说明各项依据之间如何互相支持或制约，并给出自然可用的优化方向。';
   return [
     '【任务】',
-    '综合出生取用、姓名字义、音律、书写辨识、谐音联想、三才五格与现代使用场景，评价这个姓名的整体适配度；说明各项依据之间如何互相支持或制约，并给出自然可用的优化方向。',
+    input.selection ? buildPromptSelectionTask(task, input.selection) : task,
+    ...(input.selection ? ['【解读选择】', getPromptSelectionSection(input.selection)] : []),
     '',
     '【出生资料】',
     formatBirthContext(input.analysis.birthContext),
@@ -750,6 +756,7 @@ export function buildChineseNamingPrompt(input: {
   forbiddenCharacters?: string;
   generationCharacter?: string;
   generationPosition?: GenerationCharacterPosition;
+  selection?: PromptSelection;
 }) {
   if (!input.candidates.length) throw new Error('请先生成姓名候选');
   const forbidden = new Set(namingCharacters(input.forbiddenCharacters).map(namingCharacterKey));
@@ -775,9 +782,12 @@ export function buildChineseNamingPrompt(input: {
       items.findIndex((entry) => namingCharacterKey(entry.char) === key) === index
     );
   });
+  const task =
+    '综合出生取用、用字条件、字义搭配、音律节奏、字形协调、谐音联想和现代社会使用场景设计姓名。候选姓名只是比较起点，可以重新组合适配字，也可以补充同类常用字并提出更合适的新名字。';
   return [
     '【任务】',
-    '综合出生取用、用字条件、字义搭配、音律节奏、字形协调、谐音联想和现代社会使用场景设计姓名。候选姓名只是比较起点，可以重新组合适配字，也可以补充同类常用字并提出更合适的新名字。',
+    input.selection ? buildPromptSelectionTask(task, input.selection) : task,
+    ...(input.selection ? ['【解读选择】', getPromptSelectionSection(input.selection)] : []),
     '',
     '【出生资料】',
     formatBirthContext(input.candidates[0]!.analysis.birthContext),
@@ -1112,6 +1122,7 @@ export function analyzeNumber(input: string, purpose: NumberPurpose = 'general')
 export function buildNumberEnergyPrompt(input: {
   analysis: ReturnType<typeof analyzeNumber>;
   question?: string;
+  selection?: PromptSelection;
 }) {
   const { analysis } = input;
   const purposeLabel =
@@ -1142,10 +1153,15 @@ export function buildNumberEnergyPrompt(input: {
       : analysis.purpose === 'plate'
         ? '车牌结合出行用途、号码辨识与个人审美来解读；驾驶安全以交通规则、车辆状况和驾驶行为为判断依据。'
         : '数字字母编号结合提问中说明的实际用途来解读；用途未明时先给通用象意，并列出需要补充的使用背景。';
+  const task = analysis.energyPairs.length
+    ? '依据实际形成的八星数字能量相邻组合、频次、连续段和前后作用，结合号码用途回答问题。'
+    : '依据原始数字字母序列、取数结果、0与5的位置和号码用途回答问题，并结合当前已列资料说明现实侧重点。';
+  const selectedTask = input.selection ? buildPromptSelectionTask(task, input.selection) : task;
 
   return [
     '【任务】',
-    '依据八星数字能量的相邻数组体系，综合解读号码中的高频磁场、连续组合、前后作用和现实使用侧重点。',
+    selectedTask,
+    ...(input.selection ? ['【解读选择】', getPromptSelectionSection(input.selection)] : []),
     '',
     '【号码资料】',
     `类型：${purposeLabel}`,

@@ -14,6 +14,11 @@ import {
 } from './standard';
 import { buildPromptTask, insertPromptSectionBeforeHeading } from '../prompt/guidance';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
+import {
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  requirePromptSelection,
+} from '../prompt/framework';
 import { calculateHuangjiDateTimeForecast, type HuangjiDateTimeForecast } from './datetime';
 import { evaluateHuangjiEraTrend, type HuangjiEraTrendResult } from './trend';
 
@@ -247,6 +252,11 @@ export function buildHuangjiJingshiPrompt(
   result: HuangjiJingshiCalculation,
   question?: string,
   schools?: readonly PromptSchoolId<'huangji-jingshi'>[],
+  selectionOptions?: {
+    topicId?: string;
+    subtopicId?: string;
+    scope?: string;
+  },
 ): string {
   const normalizedQuestion = normalizeQuestion(question);
   const { input, position } = result;
@@ -307,10 +317,13 @@ export function buildHuangjiJingshiPrompt(
       )}`,
       `【问题】\n${askedQuestion}`,
     ].join('\n\n');
-    return insertPromptSectionBeforeHeading(
-      prompt,
-      '【问题】',
-      buildPromptSchoolSection('huangji-jingshi', schools),
+    return applyHuangjiPromptSelection(
+      insertPromptSectionBeforeHeading(
+        prompt,
+        '【问题】',
+        buildPromptSchoolSection('huangji-jingshi', schools),
+      ),
+      selectionOptions,
     );
   }
 
@@ -334,14 +347,44 @@ export function buildHuangjiJingshiPrompt(
       normalizedQuestion
         ? '请依据周期资料回答【问题】，说明目标年在元、会、运、世中的位置、当前进度与下一周期边界。'
         : '请依据周期资料说明目标年在元、会、运、世中的位置、当前进度与下一周期边界。',
+      'huangji-cycle',
     )}`,
   );
   if (normalizedQuestion) sections.push(`【问题】\n${normalizedQuestion}`);
-  return insertPromptSectionBeforeHeading(
-    sections.join('\n\n'),
-    '【问题】',
-    buildPromptSchoolSection('huangji-jingshi', schools),
+  return applyHuangjiPromptSelection(
+    insertPromptSectionBeforeHeading(
+      sections.join('\n\n'),
+      '【问题】',
+      buildPromptSchoolSection('huangji-jingshi', schools),
+    ),
+    selectionOptions,
   );
+}
+
+function applyHuangjiPromptSelection(
+  prompt: string,
+  options?: { topicId?: string; subtopicId?: string; scope?: string },
+) {
+  if (
+    options?.topicId === undefined &&
+    options?.subtopicId === undefined &&
+    options?.scope === undefined
+  ) {
+    return prompt;
+  }
+  const selection = requirePromptSelection({
+    methodId: 'huangji-jingshi',
+    topicId: options.topicId,
+    subtopicId: options.subtopicId,
+    scope: options.scope,
+  });
+  const taskMatch = /【任务】\n([\s\S]*?)(?=\n\n【问题】|$)/u.exec(prompt);
+  if (!taskMatch) {
+    return `${prompt}\n\n【解读选择】\n${getPromptSelectionSection(selection)}`;
+  }
+  const taskText = taskMatch[1]?.trim() ?? '';
+  const replacement = `【解读选择】\n${getPromptSelectionSection(selection)}\n\n【任务】\n${buildPromptSelectionTask(taskText, selection)}`;
+  return prompt.replace(taskMatch[0], replacement);
 }
 
 export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJingshiResult {

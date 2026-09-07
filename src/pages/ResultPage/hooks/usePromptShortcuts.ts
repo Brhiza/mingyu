@@ -12,6 +12,79 @@ import {
   writePromptDraft,
 } from '../ResultPage.helpers';
 import type { PromptShortcutMode } from '../ResultPage.types';
+import { normalizeThematicTopic } from 'mingyu-core/prompt';
+
+function resolveBaziSelection(promptId: string, mode: string) {
+  const subtopicByPromptId: Record<string, string> = {
+    'ai-job-change': 'job-change',
+    'ai-startup-partnership': 'startup',
+    'ai-investment-partnership': 'investment',
+    'ai-relationship-push': 'partner',
+    'ai-relationship-decision': 'reconciliation',
+    'ai-reconciliation-decision': 'reconciliation',
+    'ai-study-advance': 'advanced-study',
+    'ai-exam-landing': 'exam',
+    'ai-home-move': 'home',
+    'ai-settle-relocate': 'home',
+  };
+  const compatibilityTopicByPromptId: Record<string, string> = {
+    'ai-compat-marriage': 'relationship',
+    'ai-compat-career': 'career',
+    'ai-compat-friendship': 'relationship',
+    'ai-compat-children': 'family',
+    'ai-compat-parents': 'family',
+    'ai-compat-siblings': 'family',
+  };
+  const topicId =
+    compatibilityTopicByPromptId[promptId] ??
+    (normalizeThematicTopic(mode) === 'general' && mode === '综合'
+      ? 'general'
+      : normalizeThematicTopic(mode));
+  return { topicId, subtopicId: subtopicByPromptId[promptId] ?? '' };
+}
+
+function resolveZiweiSelection(topic: string, mode: string) {
+  const topicByLegacyId: Record<string, string> = {
+    life: 'general',
+    destiny: 'general',
+    recent: 'timing',
+    relationship: 'relationship',
+    'relationship-push': 'relationship',
+    'relationship-decision': 'relationship',
+    'reconciliation-decision': 'relationship',
+    children: 'family',
+    family: 'family',
+    'career-wealth': 'career',
+    'job-change': 'career',
+    'startup-partnership': 'career',
+    'investment-partnership': 'wealth',
+    'home-move': 'family',
+    'settle-relocate': 'family',
+    social: 'relationship',
+    emotion: 'health',
+    health: 'health',
+    study: 'academic',
+    'study-advance': 'academic',
+    'exam-landing': 'academic',
+    growth: 'general',
+    talent: 'general',
+    chat: 'general',
+  };
+  const subtopicByLegacyId: Record<string, string> = {
+    'relationship-push': 'partner',
+    'relationship-decision': 'reconciliation',
+    'reconciliation-decision': 'reconciliation',
+    'job-change': 'job-change',
+    'startup-partnership': 'startup',
+    'investment-partnership': 'investment',
+    'home-move': 'home',
+    'settle-relocate': 'home',
+  };
+  return {
+    topicId: topicByLegacyId[topic] ?? normalizeThematicTopic(mode),
+    subtopicId: subtopicByLegacyId[topic] ?? '',
+  };
+}
 
 export interface PromptShortcuts {
   activeBaziShortcutMode: PromptShortcutMode;
@@ -242,9 +315,12 @@ export function usePromptShortcuts(
     }
 
     setBaziQuestionDraft('');
+    const selection = resolveBaziSelection(matched.promptId, mode);
     onUpdatePromptState({
       baziShortcutMode: mode,
       baziPresetId: matched.promptId,
+      baziTopicId: selection.topicId,
+      baziSubtopicId: selection.subtopicId,
       baziQuickQuestion: '',
     });
   }
@@ -263,9 +339,12 @@ export function usePromptShortcuts(
     }
 
     setZiweiQuestionDraft('');
+    const selection = resolveZiweiSelection(matched.topic, mode);
     onUpdatePromptState({
       ziweiShortcutMode: mode,
       ziweiTopic: matched.topic,
+      ziweiTopicId: selection.topicId,
+      ziweiSubtopicId: selection.subtopicId,
       ziweiQuickQuestion: '',
     });
   }
@@ -277,6 +356,8 @@ export function usePromptShortcuts(
       onUpdatePromptState({
         astrolabeShortcutMode: '自定义',
         astrolabeTopic: 'chat',
+        astrolabeTopicId: '',
+        astrolabeSubtopicId: '',
       });
       return;
     }
@@ -287,9 +368,12 @@ export function usePromptShortcuts(
     }
 
     setAstrolabeQuestionDraft('');
+    const selection = resolveZiweiSelection(matched.topic, mode);
     onUpdatePromptState({
       astrolabeShortcutMode: mode,
       astrolabeTopic: resolveAstrolabeTopicByShortcutMode(mode),
+      astrolabeTopicId: selection.topicId,
+      astrolabeSubtopicId: selection.subtopicId,
       astrolabeQuickQuestion: '',
     });
   }

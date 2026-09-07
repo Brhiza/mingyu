@@ -663,48 +663,59 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
       : result.gender === 'female'
         ? '元女'
         : '';
-  const natalColumns: BaziBoardColumn[] = PILLAR_KEYS.map((key, index) => ({
-    key,
-    label: PILLAR_LABELS[index],
-    gan: result.pillars[key].gan,
-    zhi: result.pillars[key].zhi,
-    ganTenGod: key === 'day' && dayOwnerLabel ? dayOwnerLabel : result.tenGods[key],
-    zhiTenGod: getTenGodForBranch(result.pillars[key].zhi, result.dayMaster.gan),
-    hiddenStems: result.hiddenStems[key],
-    hiddenTenGods: result.hiddenTenGods[key],
-    nayin: result.nayin[key],
-    ziZuo: result.ziZuo[key],
-    lifeStage: result.lifeStages[key],
-    kongWang: result.kongWang[key],
-    shensha:
-      key === 'year'
-        ? [...(result.shensha.global ?? []), ...result.shensha[key]]
-        : result.shensha[key],
-    isDayMaster: key === 'day',
-  }));
-  const activeFortuneColumns: BaziBoardColumn[] = fortuneColumns.flatMap((column) => {
-    if (!isGanZhiPair(column.ganZhi[0], column.ganZhi[1])) return [];
-    const [gan, zhi] = column.ganZhi.split('');
-    const hiddenStems = HIDDEN_STEMS[zhi] ?? [];
-    return [
-      {
-        ...column,
-        key: `fortune-${column.key}`,
-        gan,
-        zhi,
-        ganTenGod: getTenGod(gan, result.dayMaster.gan),
-        zhiTenGod: getTenGodForBranch(zhi, result.dayMaster.gan),
-        hiddenStems,
-        hiddenTenGods: hiddenStems.map((stem) => getTenGod(stem, result.dayMaster.gan)),
-        nayin: NAYIN_MAP[column.ganZhi] ?? '—',
-        ziZuo: getLifeStage(gan, zhi),
-        lifeStage: getLifeStage(result.dayMaster.gan, zhi),
-        kongWang: calculateKongWangBranches(gan, zhi),
-        shensha: calculateBaziFortuneShensha(result, gan, zhi),
-      },
-    ];
-  });
-  const boardColumns = [...natalColumns, ...activeFortuneColumns];
+  const natalColumns = useMemo<BaziBoardColumn[]>(
+    () =>
+      PILLAR_KEYS.map((key, index) => ({
+        key,
+        label: PILLAR_LABELS[index],
+        gan: result.pillars[key].gan,
+        zhi: result.pillars[key].zhi,
+        ganTenGod: key === 'day' && dayOwnerLabel ? dayOwnerLabel : result.tenGods[key],
+        zhiTenGod: getTenGodForBranch(result.pillars[key].zhi, result.dayMaster.gan),
+        hiddenStems: result.hiddenStems[key],
+        hiddenTenGods: result.hiddenTenGods[key],
+        nayin: result.nayin[key],
+        ziZuo: result.ziZuo[key],
+        lifeStage: result.lifeStages[key],
+        kongWang: result.kongWang[key],
+        shensha:
+          key === 'year'
+            ? [...(result.shensha.global ?? []), ...result.shensha[key]]
+            : result.shensha[key],
+        isDayMaster: key === 'day',
+      })),
+    [dayOwnerLabel, result],
+  );
+  const activeFortuneColumns = useMemo<BaziBoardColumn[]>(
+    () =>
+      fortuneColumns.flatMap((column) => {
+        if (!isGanZhiPair(column.ganZhi[0], column.ganZhi[1])) return [];
+        const [gan, zhi] = column.ganZhi.split('');
+        const hiddenStems = HIDDEN_STEMS[zhi] ?? [];
+        return [
+          {
+            ...column,
+            key: `fortune-${column.key}`,
+            gan,
+            zhi,
+            ganTenGod: getTenGod(gan, result.dayMaster.gan),
+            zhiTenGod: getTenGodForBranch(zhi, result.dayMaster.gan),
+            hiddenStems,
+            hiddenTenGods: hiddenStems.map((stem) => getTenGod(stem, result.dayMaster.gan)),
+            nayin: NAYIN_MAP[column.ganZhi] ?? '—',
+            ziZuo: getLifeStage(gan, zhi),
+            lifeStage: getLifeStage(result.dayMaster.gan, zhi),
+            kongWang: calculateKongWangBranches(gan, zhi),
+            shensha: calculateBaziFortuneShensha(result, gan, zhi),
+          },
+        ];
+      }),
+    [fortuneColumns, result],
+  );
+  const boardColumns = useMemo(
+    () => [...natalColumns, ...activeFortuneColumns],
+    [activeFortuneColumns, natalColumns],
+  );
   const interactions = useMemo(() => calculateBaziInteractions(boardColumns), [boardColumns]);
   const boardStyle = {
     '--bazi-display-column-count': boardColumns.length,

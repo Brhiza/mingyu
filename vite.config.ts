@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { lookup } from 'node:dns/promises';
+import { request as httpsRequest } from 'node:https';
 import path from 'node:path';
 import fs from 'node:fs';
 import { getManualChunk } from './build/chunking';
@@ -23,6 +24,117 @@ function parseDevVars(filePath: string): Record<string, string> {
     if (key) result[key] = value;
   }
   return result;
+}
+
+function createPinnedAiFetch() {
+  return async function fetchPinnedAi(
+    input: string | URL | Request,
+    init?: RequestInit,
+    resolvedAddresses?: readonly string[],
+  ): Promise<Response> {
+    if (!resolvedAddresses?.length) {
+      return fetch(input, init);
+    }
+
+    const url = new URL(
+      typeof input === 'string' ? input : input instanceof URL ? input : input.url,
+    );
+    if (url.protocol !== 'https:') {
+      return fetch(input, init);
+    }
+
+    const body = init?.body;
+    if (
+      body !== undefined &&
+      body !== null &&
+      typeof body !== 'string' &&
+      !(body instanceof Uint8Array)
+    ) {
+      throw new TypeError('AI 请求体类型不受当前 Node 绑定请求器支持。');
+    }
+
+    const requestHeaders = new Headers(init?.headers);
+    requestHeaders.set('host', url.host);
+    const headers = Object.fromEntries(requestHeaders.entries());
+    const address = resolvedAddresses[0];
+
+    return new Promise<Response>((resolve, reject) => {
+      let incoming: import('node:http').IncomingMessage | undefined;
+      let settled = false;
+      const request = httpsRequest(
+        {
+          hostname: address,
+          port: url.port || 443,
+          path: `${url.pathname}${url.search}`,
+          method: init?.method || 'GET',
+          headers,
+          servername: url.hostname,
+        },
+        (response) => {
+          incoming = response;
+          const responseHeaders = new Headers();
+          for (const [name, value] of Object.entries(response.headers)) {
+            if (value !== undefined) {
+              responseHeaders.set(name, Array.isArray(value) ? value.join(', ') : value);
+            }
+          }
+
+          const responseBody = new ReadableStream<Uint8Array>({
+            start(controller) {
+              response.on('data', (chunk: Buffer | string) => {
+                controller.enqueue(
+                  typeof chunk === 'string'
+                    ? new TextEncoder().encode(chunk)
+                    : new Uint8Array(chunk),
+                );
+              });
+              response.on('end', () => {
+                init?.signal?.removeEventListener('abort', abortRequest);
+                controller.close();
+              });
+              response.on('error', (error) => {
+                init?.signal?.removeEventListener('abort', abortRequest);
+                controller.error(error);
+              });
+            },
+            cancel() {
+              response.destroy();
+            },
+          });
+
+          settled = true;
+          resolve(
+            new Response(responseBody, {
+              status: response.statusCode || 502,
+              headers: responseHeaders,
+            }),
+          );
+        },
+      );
+
+      const abortRequest = () => {
+        request.destroy();
+        incoming?.destroy();
+        if (!settled) {
+          const error = new Error('请求已取消。');
+          error.name = 'AbortError';
+          reject(error);
+        }
+      };
+      if (init?.signal?.aborted) {
+        abortRequest();
+        return;
+      }
+      init?.signal?.addEventListener('abort', abortRequest, { once: true });
+      request.once('error', (error) => {
+        init?.signal?.removeEventListener('abort', abortRequest);
+        if (!settled) reject(error);
+      });
+
+      if (body !== undefined && body !== null) request.write(body);
+      request.end();
+    });
+  };
 }
 
 /**
@@ -70,6 +182,7 @@ function aiProxyDevPlugin(): Plugin {
         const aiRuntime = {
           resolveHostname: async (hostname: string) =>
             (await lookup(hostname, { all: true, verbatim: true })).map((item) => item.address),
+          fetch: createPinnedAiFetch(),
         };
 
         const response = req.url.startsWith('/api/v1/ai/models')

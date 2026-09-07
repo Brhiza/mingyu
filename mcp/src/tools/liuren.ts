@@ -62,6 +62,9 @@ export function registerLiurenTool(server: McpServer) {
           prompt: buildCommonDivinationPrompt('liuren', args.question, result, args.promptMode, {
             liurenTemplate: template,
             schools: args.schools,
+            topicId: args.topicId,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
           }),
         });
       } catch (error) {

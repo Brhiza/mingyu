@@ -11,12 +11,21 @@ import {
 const paths = [
   'package/dist/name-number/generated-data.js',
   'package/dist/name-number/generated-data.d.ts',
+  'package/dist/name-number/generated-character-tuples.js',
+  'package/dist/name-number/generated-numerology-data.js',
   'package/dist/name-number/generated-character-references.js',
   'package/dist/name-number/generated-character-references.d.ts',
   'package/dist/name-number/generated-character-strokes.js',
   'package/dist/name-number/generated-character-strokes.d.ts',
   'package/dist/name-number/kongming-interpretations.js',
   'package/dist/name-number/kongming-interpretations.d.ts',
+  ...Array.from({ length: 32 }, (_, index) => {
+    const shard = String(index).padStart(2, '0');
+    return [
+      `package/dist/name-number/generated-character-tuples-${shard}.js`,
+      `package/dist/name-number/generated-character-references-${shard}.js`,
+    ];
+  }).flat(),
 ];
 
 function entry(name: string, data = Buffer.from('export {};')) {

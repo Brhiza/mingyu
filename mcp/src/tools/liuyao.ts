@@ -85,6 +85,9 @@ export function registerLiuyaoTool(server: McpServer) {
           prompt: buildCommonDivinationPrompt('liuyao', args.question, result, args.promptMode, {
             liuyaoTemplate: args.liuyaoTemplate,
             schools: args.schools,
+            topicId: args.topicId,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
           }),
         });
       } catch (error) {

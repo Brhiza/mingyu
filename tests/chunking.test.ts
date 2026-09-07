@@ -61,12 +61,12 @@ test('八字运势面板相关模块会进入独立异步分块', () => {
   );
 });
 
-test('八字与紫微共用的历法和干支模块进入共享分块', () => {
+test('八字与紫微共用的历法和干支模块进入独立共享分块', () => {
   assert.equal(
     getManualChunk('D:/project/packages/core/dist/calendar/true-solar-time.js'),
-    'core-shared',
+    'calendar-engine',
   );
-  assert.equal(getManualChunk('D:/project/packages/core/src/ganzhi/relations.ts'), 'core-shared');
+  assert.equal(getManualChunk('D:/project/packages/core/src/ganzhi/relations.ts'), 'ganzhi-engine');
   assert.equal(getManualChunk('D:/project/packages/core/dist/shared/result.js'), 'core-shared');
   assert.equal(getManualChunk('D:/project/src/lib/time-policy.ts'), 'chart-engine-shared');
 });

@@ -5,14 +5,14 @@
  * 2. 天乙贵人与左辅右弼、天魁天钺吉曜同参（外力提携与顺遂福力）；
  * 3. 财官印绶与三方四正化禄化权同参（事业成就与资源承载）。
  */
-import type { BaziChartResult } from '../bazi/baziTypes';
+import { isStrongDayMasterStatus, type BaziChartResult } from '../bazi/baziTypes';
 import type { ZiweiRuntime } from '../ziwei/runtime';
 
 export interface ShaYaoCorroborationResult {
   hasBaziYangRen: boolean;
   baziDayMasterStrength: string;
   ziweiShaStars: string[];
-  isHarmonized: boolean; // 是否成权柄相济
+  isHarmonized: boolean; // 是否具备权柄相济的结构线索，不等于制化已经完成
   judgment: string;
   /** 紫微原盘核验状态：checked=已按关键宫核验；origin-missing=原盘缺失未核验 */
   ziweiCheckStatus: 'checked' | 'origin-missing';
@@ -107,7 +107,7 @@ export function evaluateShaYaoCorroboration(
     }
   }
 
-  const isWang = bazi.analysis.dayMasterStrength.status.includes('旺');
+  const isWang = isStrongDayMasterStatus(bazi.analysis.dayMasterStrength.status);
   const isHarmonized = hasBaziYangRen && isWang && ziweiShaStars.length > 0;
 
   let judgment: string;
@@ -116,7 +116,7 @@ export function evaluateShaYaoCorroboration(
   } else if (hasBaziYangRen && ziweiShaStars.length > 0) {
     if (isHarmonized) {
       judgment =
-        '八字见羊刃且日主旺健，紫微关键宫位逢煞星入照，煞为我用，威权独揽，多具决断破格之力';
+        '八字见羊刃且日主强，紫微关键宫位逢煞星入照，形成权柄相济的互证线索；制化成败仍须结合煞星性质、宫位层级与岁限变化核定';
     } else {
       judgment = '八字羊刃与紫微煞曜同现，刚气太重，行事宜沉潜蓄势，化刚戾为坚韧';
     }

@@ -1,5 +1,6 @@
 import type { AstrolabeData, AstrolabeSynastryData } from 'mingyu-core/types';
 import { buildAstrolabeSynastryPrompt as buildCoreAstrolabeSynastryPrompt } from 'mingyu-core/prompt';
+import type { PromptSelection } from 'mingyu-core/prompt';
 
 export type AstrolabeSynastryPromptMode = 'framework' | 'custom';
 
@@ -12,6 +13,7 @@ export function buildAstrolabeSynastryPrompt(params: {
   promptMode?: AstrolabeSynastryPromptMode;
   currentTime?: Date;
   schools?: readonly string[];
+  selection?: PromptSelection;
 }) {
   return buildCoreAstrolabeSynastryPrompt({
     chart1: params.chart1,
@@ -20,5 +22,6 @@ export function buildAstrolabeSynastryPrompt(params: {
     question: params.question,
     currentTime: params.currentTime,
     schools: params.schools,
+    selection: params.selection,
   });
 }

@@ -156,6 +156,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += `夏令时校正: ${baziResult.timing.dstCorrectionMinutes} 分钟\n`;
   }
   result += `日元本命: ${dayMaster.gan}${dayMaster.element} (${dayMaster.yinYang})\n`;
+  if (hiddenStems.month?.[0]) result += `月支本气: ${hiddenStems.month[0]}\n`;
   if (baziResult.monthCommander) result += `月令司权: ${baziResult.monthCommander}\n`;
   const birthSeason = formatBirthSeason(baziResult);
   if (birthSeason) result += `节令: ${birthSeason}\n`;

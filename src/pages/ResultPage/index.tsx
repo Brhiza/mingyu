@@ -110,9 +110,44 @@ import {
 } from '@/lib/instant-prompt';
 import { buildWorkspaceLaunchQuestion, readWorkspaceLaunchState } from '@/lib/workspace-launch';
 import { getConsultationHistoryById } from '@/lib/history-records';
+import {
+  buildPromptSelectionTask,
+  getPromptMethodCapability,
+  getPromptSubtopicOptions,
+  getPromptTopicOptions,
+  getPromptSelectionSection,
+  requirePromptSelection,
+} from 'mingyu-core/prompt';
 
 type FortuneScopePreset = 'default' | 'dayun' | 'year' | 'month' | 'day' | 'all' | 'manual';
 type FortuneScopePresetKind = 'bazi' | 'ziwei' | 'astrolabe';
+
+function toPromptScope(scope: string) {
+  return scope === 'origin' ? 'natal' : scope;
+}
+
+function applyZiweiPromptSelection(
+  prompt: string,
+  topicId: string,
+  subtopicId: string,
+  scope: string,
+) {
+  if (!topicId && !subtopicId) return prompt;
+  const selection = requirePromptSelection({
+    methodId: 'ziwei',
+    topicId,
+    subtopicId: subtopicId || undefined,
+    scope: toPromptScope(scope),
+  });
+  const taskMatch = /【任务】\n([\s\S]*?)(?=\n\n【问题】|$)/u.exec(prompt);
+  if (!taskMatch) {
+    return `${prompt}\n\n【解读选择】\n${getPromptSelectionSection(selection)}\n\n【任务】\n${buildPromptSelectionTask('请依据已列紫微盘面资料回答【问题】。', selection)}`;
+  }
+  const taskText = taskMatch[1]?.trim() ?? '';
+  const selectionSection = `【解读选择】\n${getPromptSelectionSection(selection)}`;
+  const replacement = `${selectionSection}\n\n【任务】\n${buildPromptSelectionTask(taskText, selection)}`;
+  return prompt.replace(taskMatch[0], replacement);
+}
 
 function FortuneScopePresetSelect(props: {
   value: FortuneScopePreset;
@@ -162,6 +197,101 @@ function FortuneScopePresetSelect(props: {
       prefix="范围"
       variant="field"
     />
+  );
+}
+
+function PromptThemeFields(props: {
+  source: 'bazi' | 'bazi-ziwei' | 'ziwei' | 'astrolabe';
+  promptState: QueryPromptState;
+  onChange: (next: Partial<QueryPromptState>) => void;
+}) {
+  const capability = getPromptMethodCapability(props.source);
+  const topicOptions = getPromptTopicOptions(props.source);
+  const currentTopic =
+    props.source === 'bazi'
+      ? props.promptState.baziTopicId
+      : props.source === 'ziwei'
+        ? props.promptState.ziweiTopicId
+        : props.source === 'astrolabe'
+          ? props.promptState.astrolabeTopicId
+          : props.promptState.baziTopicId || props.promptState.ziweiTopicId;
+  const currentSubtopic =
+    props.source === 'bazi'
+      ? props.promptState.baziSubtopicId
+      : props.source === 'ziwei'
+        ? props.promptState.ziweiSubtopicId
+        : props.source === 'astrolabe'
+          ? props.promptState.astrolabeSubtopicId
+          : props.promptState.baziSubtopicId || props.promptState.ziweiSubtopicId;
+  const topicId = topicOptions.some((item) => item.id === currentTopic) ? currentTopic : '';
+  const subtopicOptions = getPromptSubtopicOptions(topicId || 'general', props.source);
+  const subtopicId = subtopicOptions.some((item) => item.id === currentSubtopic)
+    ? currentSubtopic
+    : '';
+  const topicSelectOptions = [
+    { value: '', label: '随快捷主题' },
+    ...topicOptions.map((item) => ({ value: item.id, label: item.label })),
+  ];
+  const subtopicSelectOptions = subtopicOptions.map((item) => ({
+    value: item.id,
+    label: item.label,
+  }));
+
+  function updateTopic(value: string) {
+    if (props.source === 'bazi') {
+      props.onChange({ baziTopicId: value, baziSubtopicId: '' });
+    } else if (props.source === 'ziwei') {
+      props.onChange({ ziweiTopicId: value, ziweiSubtopicId: '' });
+    } else if (props.source === 'astrolabe') {
+      props.onChange({ astrolabeTopicId: value, astrolabeSubtopicId: '' });
+    } else {
+      props.onChange({
+        baziTopicId: value,
+        baziSubtopicId: '',
+        ziweiTopicId: value,
+        ziweiSubtopicId: '',
+      });
+    }
+  }
+
+  function updateSubtopic(value: string) {
+    if (props.source === 'bazi') {
+      props.onChange({ baziSubtopicId: value });
+    } else if (props.source === 'ziwei') {
+      props.onChange({ ziweiSubtopicId: value });
+    } else if (props.source === 'astrolabe') {
+      props.onChange({ astrolabeSubtopicId: value });
+    } else {
+      props.onChange({ baziSubtopicId: value, ziweiSubtopicId: value });
+    }
+  }
+
+  return (
+    <div className="workspace-prompt-selection-fields" title="主题会改变提示词的证据重点">
+      <span className="workspace-prompt-selection-method">
+        {capability?.categoryLabel ?? '命盘'} · {capability?.methodLabel ?? props.source}
+      </span>
+      <DropdownSelect
+        id="result-prompt-topic-select"
+        value={topicId}
+        options={topicSelectOptions}
+        onChange={updateTopic}
+        ariaLabel="解读主题"
+        prefix="主题"
+        variant="field"
+      />
+      {subtopicOptions.length > 0 ? (
+        <DropdownSelect
+          id="result-prompt-subtopic-select"
+          value={subtopicId}
+          options={[{ value: '', label: '不限定' }, ...subtopicSelectOptions]}
+          onChange={updateSubtopic}
+          ariaLabel="主题细项"
+          prefix="细项"
+          variant="field"
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -1094,6 +1224,22 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       {
         isCustomQuestion: activeBaziShortcutMode === '自定义',
         fortuneScope: promptState.baziFortuneScope,
+        ...(promptState.baziTopicId
+          ? {
+              topicId: promptState.baziTopicId,
+              subtopicId: promptState.baziSubtopicId || undefined,
+              scope:
+                promptState.baziFortuneScope === 'dayun'
+                  ? 'decadal'
+                  : promptState.baziFortuneScope === 'year'
+                    ? 'yearly'
+                    : promptState.baziFortuneScope === 'month'
+                      ? 'monthly'
+                      : promptState.baziFortuneScope === 'day'
+                        ? 'daily'
+                        : promptState.baziFortuneScope,
+            }
+          : {}),
       },
     );
     return buildCombinedPromptText(system, user);
@@ -1117,7 +1263,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       if (!currentZiweiPayload || !partnerZiweiPayload || !ziweiRuntime || !partnerZiweiRuntime) {
         return '';
       }
-      return buildCombinedZiweiCompatibilityPrompt({
+      const compatibilityPrompt = buildCombinedZiweiCompatibilityPrompt({
         primaryPayload: currentZiweiPayload,
         partnerPayload: partnerZiweiPayload,
         primaryAstrolabe: ziweiRuntime.astrolabe,
@@ -1128,6 +1274,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         question,
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
       });
+      return applyZiweiPromptSelection(
+        compatibilityPrompt,
+        promptState.ziweiTopicId,
+        promptState.ziweiSubtopicId,
+        toPromptScope(promptState.ziweiScope),
+      );
     }
     if (!currentZiweiPayload) return '';
     const basePrompt = buildCombinedZiweiPrompt(
@@ -1139,14 +1291,21 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         trueSolarEvidence: ziweiRuntime?.trueSolarEvidence,
       },
     );
-    if (promptState.ziweiScope !== 'full' || !activeZiweiPayloadByScope) {
-      return basePrompt;
-    }
-
-    const fullScopeText = formatZiweiFullScopeText(activeZiweiPayloadByScope);
-    return fullScopeText
-      ? basePrompt.replace('【问题】', `【完整运限资料】\n${fullScopeText}\n\n【问题】`)
-      : basePrompt;
+    const scopedPrompt =
+      promptState.ziweiScope === 'full' && activeZiweiPayloadByScope
+        ? (() => {
+            const fullScopeText = formatZiweiFullScopeText(activeZiweiPayloadByScope);
+            return fullScopeText
+              ? basePrompt.replace('【问题】', `【完整运限资料】\n${fullScopeText}\n\n【问题】`)
+              : basePrompt;
+          })()
+        : basePrompt;
+    return applyZiweiPromptSelection(
+      scopedPrompt,
+      promptState.ziweiTopicId,
+      promptState.ziweiSubtopicId,
+      toPromptScope(promptState.ziweiScope),
+    );
   }
 
   const ziweiScopeSummaryText =
@@ -1242,6 +1401,24 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ziweiScopeSummary:
         promptState.ziweiScope === 'origin' ? '' : `紫微分析范围：${ziweiScopeSummaryText}`,
       isCustomQuestion: activeBaziShortcutMode === '自定义',
+      ...(promptState.baziTopicId || promptState.ziweiTopicId
+        ? {
+            topicId: promptState.baziTopicId || promptState.ziweiTopicId,
+            subtopicId: promptState.baziSubtopicId || promptState.ziweiSubtopicId || undefined,
+            scope:
+              promptState.baziFortuneScope === 'dayun'
+                ? 'decadal'
+                : promptState.baziFortuneScope === 'year'
+                  ? 'yearly'
+                  : promptState.baziFortuneScope === 'month'
+                    ? 'monthly'
+                    : promptState.baziFortuneScope === 'day'
+                      ? 'daily'
+                      : promptState.baziFortuneScope === 'full'
+                        ? 'full'
+                        : toPromptScope(promptState.ziweiScope),
+          }
+        : {}),
     });
   }
 
@@ -1279,6 +1456,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       partnerBaziResult,
       promptEngine,
       promptState.baziPresetId,
+      promptState.baziTopicId,
+      promptState.baziSubtopicId,
       promptState.baziFortuneScope,
       promptState.promptSource,
       showAssistantPane,
@@ -1317,6 +1496,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       partnerBaziResult,
       promptEngine,
       promptState.baziPresetId,
+      promptState.baziTopicId,
+      promptState.baziSubtopicId,
       promptState.baziFortuneScope,
       promptState.promptSource,
       showAssistantPane,
@@ -1342,6 +1523,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       showAssistantPane,
       promptState.ziweiScope,
       promptState.ziweiTopic,
+      promptState.ziweiTopicId,
+      promptState.ziweiSubtopicId,
       ziweiRuntime,
     ],
   );
@@ -1372,6 +1555,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       showAssistantPane,
       promptState.ziweiScope,
       promptState.ziweiTopic,
+      promptState.ziweiTopicId,
+      promptState.ziweiSubtopicId,
       ziweiRuntime,
     ],
   );
@@ -1402,6 +1587,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         isCustomQuestion: activeAstrolabeShortcutMode === '自定义',
         astrolabeTopic: promptState.astrolabeTopic,
         astrolabeScopeText: astrolabeFullScopeContext ?? astrolabeScopeContext.promptText,
+        ...(promptState.astrolabeTopicId
+          ? {
+              topicId: promptState.astrolabeTopicId,
+              subtopicId: promptState.astrolabeSubtopicId || undefined,
+              scope: promptState.astrolabeScope,
+            }
+          : {}),
       },
     );
   }, [
@@ -1413,6 +1605,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     instantTimeBasisLabel,
     isInstantResult,
     promptState.astrolabeTopic,
+    promptState.astrolabeTopicId,
+    promptState.astrolabeSubtopicId,
+    promptState.astrolabeScope,
     promptState.promptSource,
     showAssistantPane,
   ]);
@@ -1446,6 +1641,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         isCustomQuestion: activeAstrolabeShortcutMode === '自定义',
         astrolabeTopic: promptState.astrolabeTopic,
         astrolabeScopeText: astrolabeFullScopeContext ?? astrolabeScopeContext.promptText,
+        ...(promptState.astrolabeTopicId
+          ? {
+              topicId: promptState.astrolabeTopicId,
+              subtopicId: promptState.astrolabeSubtopicId || undefined,
+              scope: promptState.astrolabeScope,
+            }
+          : {}),
       },
     );
   }, [
@@ -1459,6 +1661,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     instantTimeBasisLabel,
     isInstantResult,
     promptState.astrolabeTopic,
+    promptState.astrolabeTopicId,
+    promptState.astrolabeSubtopicId,
+    promptState.astrolabeScope,
     promptState.promptSource,
     showAssistantPane,
   ]);
@@ -2212,6 +2417,16 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                       <span>选择问题</span>
                       <small>{activePromptShortcutMode}</small>
                     </WorkspaceButton>
+                    {promptState.promptSource === 'bazi' ||
+                    promptState.promptSource === 'bazi-ziwei' ||
+                    promptState.promptSource === 'ziwei' ||
+                    promptState.promptSource === 'astrolabe' ? (
+                      <PromptThemeFields
+                        source={promptState.promptSource}
+                        promptState={promptState}
+                        onChange={updatePromptState}
+                      />
+                    ) : null}
                     {promptScopeField}
                   </div>
 

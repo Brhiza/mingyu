@@ -10,6 +10,7 @@ import {
   ZIWEI_PROMPT_SCOPES,
   ZIWEI_SCHOOLS,
   THEMATIC_TOPICS,
+  PROMPT_SCOPE_IDS,
   normalizeThematicTopic,
   buildThematicConsultationPrompt,
   buildSerializableZiweiResult,
@@ -43,6 +44,12 @@ const thematicConsultationPromptSchema = baziSchema.extend({
     .describe(
       '大类咨询主题：general=综合全景（默认），relationship=婚恋感情，career=事业职场，wealth=求财财富，health=身体健康，family=家庭六亲，academic=学业考试，timing=岁运应期时机',
     ),
+  methodId: z
+    .enum(['bazi', 'ziwei', 'bazi-ziwei'])
+    .optional()
+    .describe('统一解读方法：bazi=八字，ziwei=紫微斗数，bazi-ziwei=八字紫微合参'),
+  topicId: z.enum(THEMATIC_TOPICS).optional().describe('统一解读主题 ID；优先于兼容字段 topic'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
   question: z
     .string()
     .optional()
@@ -51,6 +58,7 @@ const thematicConsultationPromptSchema = baziSchema.extend({
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
     .describe('紫微运限范围：origin=本命盘（默认），full=完整输出版等'),
+  scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一分析范围；优先于兼容字段 promptScope'),
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
@@ -92,7 +100,10 @@ function buildCombinedZiweiInput(args: z.infer<typeof thematicConsultationPrompt
     month: String(args.month),
     day: String(args.day),
     timeIndex: args.timeIndex,
-    promptScope: args.promptScope,
+    promptScope:
+      args.scope === 'natal'
+        ? 'origin'
+        : ((args.scope as ZiweiPromptScope | undefined) ?? args.promptScope),
     isLeapMonth: args.isLeapMonth,
     useTrueSolarTime: args.useTrueSolarTime,
     birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
@@ -116,9 +127,18 @@ export function registerThematicTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const system = args.system ?? 'bazi_ziwei';
+        const legacySystem = args.system ?? 'bazi_ziwei';
+        const methodId =
+          args.methodId ??
+          (legacySystem === 'bazi' ? 'bazi' : legacySystem === 'ziwei' ? 'ziwei' : 'bazi-ziwei');
+        const system = methodId === 'bazi' ? 'bazi' : methodId === 'ziwei' ? 'ziwei' : 'bazi_ziwei';
         const topic = normalizeThematicTopic(args.topic);
-        const scope = (args.promptScope ?? 'origin') as ZiweiPromptScope;
+        const scope =
+          args.scope === undefined
+            ? ((args.promptScope ?? 'origin') as ZiweiPromptScope)
+            : args.scope === 'natal'
+              ? 'origin'
+              : (args.scope as ZiweiPromptScope);
 
         let baziResult: ReturnType<typeof baziCalculator.calculateBazi> | undefined;
         let ziweiResult: Awaited<ReturnType<typeof calculateZiweiChartForScopes>> | undefined;
@@ -142,7 +162,11 @@ export function registerThematicTool(server: McpServer) {
 
         const promptResult = buildThematicConsultationPrompt({
           system,
+          methodId,
           topic,
+          topicId: args.topicId ?? topic,
+          subtopicId: args.subtopicId,
+          scope: args.scope,
           question: args.question,
           mode: (args.promptMode ?? 'framework') as PromptMode,
           baziResult,
@@ -157,9 +181,13 @@ export function registerThematicTool(server: McpServer) {
         return createStructuredToolResult({
           result: {
             system: promptResult.system,
+            methodId: promptResult.methodId,
             topic: promptResult.topic,
             topicLabel: promptResult.topicLabel,
             topicTitle: promptResult.topicTitle,
+            subtopicId: promptResult.subtopicId,
+            subtopicLabel: promptResult.subtopicLabel,
+            selection: promptResult.selection,
             focusPalaces: promptResult.focusPalaces,
             focusElements: promptResult.focusElements,
             scope: promptResult.scope,

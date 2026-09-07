@@ -49,6 +49,9 @@ const baZhaiSchema = z.object({
     .optional()
     .describe('测量可能误差，用于判断是否跨越山向或宅卦边界'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
+  topicId: z.string().optional().describe('统一解读主题 ID'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID'),
+  scope: z.string().optional().describe('统一分析范围 ID'),
 });
 
 function calculateBaZhai(args: z.infer<typeof baZhaiSchema>) {
@@ -109,6 +112,9 @@ export function registerBaZhaiTool(server: McpServer) {
             schools: args.schools,
             measurement: (result as { directionMeasurement?: { promptText: string } })
               .directionMeasurement?.promptText,
+            topicId: args.topicId,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
           }),
         });
       } catch (error) {

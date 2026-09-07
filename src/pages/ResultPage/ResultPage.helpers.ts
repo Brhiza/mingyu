@@ -27,6 +27,11 @@ import {
   ziweiSingleShortcutActions,
 } from './ResultPage.constants';
 import { getThematicTopicConfig, normalizeThematicTopic } from 'mingyu-core/prompt';
+import {
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  requirePromptSelection,
+} from 'mingyu-core/prompt';
 import type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from './ResultPage.types';
 
 export type PromptDraftKind = 'custom' | 'inspiration';
@@ -258,6 +263,9 @@ function resolveBaziZiweiTaskText(params: {
   baziFortuneSummary?: string;
   ziweiScopeSummary?: string;
   questionScopeLabel?: string;
+  topicId?: string;
+  subtopicId?: string;
+  scope?: string;
 }) {
   const topic = normalizeThematicTopic(params.questionScopeLabel);
   const config = getThematicTopicConfig(topic);
@@ -279,6 +287,9 @@ export function buildBaziZiweiEnhancedPrompt(params: {
   ziweiText: string;
   question: string;
   questionScopeLabel?: string;
+  topicId?: string;
+  subtopicId?: string;
+  scope?: string;
   baziFortuneSummary?: string;
   ziweiScopeSummary?: string;
   isCustomQuestion?: boolean;
@@ -291,6 +302,18 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     .map((item) => item?.trim())
     .filter(Boolean);
   const questionScopeLabel = params.questionScopeLabel?.trim();
+  const selection =
+    params.topicId !== undefined || params.subtopicId !== undefined || params.scope !== undefined
+      ? requirePromptSelection({
+          methodId: 'bazi-ziwei',
+          topicId: params.topicId,
+          subtopicId: params.subtopicId,
+          scope: params.scope,
+        })
+      : undefined;
+  const baseTaskText = isCustomQuestion
+    ? buildCustomQuestionTask('八字和紫微盘面资料', resolveBaziZiweiTaskMethod(params))
+    : buildPromptTask(resolveBaziZiweiTaskText(params), resolveBaziZiweiTaskMethod(params));
 
   return [
     buildPromptGuidanceSections('bazi-ziwei'),
@@ -299,13 +322,10 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     questionScopeLabel && questionScopeLabel !== '通用'
       ? `【问题范围】\n${questionScopeLabel}`
       : '',
+    selection ? `【解读选择】\n${getPromptSelectionSection(selection)}` : '',
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${params.ziweiText}`,
-    `【任务】\n${
-      isCustomQuestion
-        ? buildCustomQuestionTask('八字和紫微盘面资料', resolveBaziZiweiTaskMethod(params))
-        : buildPromptTask(resolveBaziZiweiTaskText(params), resolveBaziZiweiTaskMethod(params))
-    }`,
+    `【任务】\n${selection ? buildPromptSelectionTask(baseTaskText, selection) : baseTaskText}`,
     ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
   ]
     .filter(Boolean)

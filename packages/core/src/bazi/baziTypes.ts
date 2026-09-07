@@ -14,6 +14,27 @@ import type { Wuxing } from '../wuxing';
 export { WUXING };
 export type { Wuxing };
 
+export const DAY_MASTER_STRENGTH_STATUSES = [
+  '极强',
+  '身强',
+  '偏强',
+  '中和',
+  '偏弱',
+  '身弱',
+  '极弱',
+  '未知',
+] as const;
+
+export type DayMasterStrengthStatus = (typeof DAY_MASTER_STRENGTH_STATUSES)[number];
+
+export function isStrongDayMasterStatus(status: string): boolean {
+  return status === '极强' || status === '身强' || status === '偏强';
+}
+
+export function isWeakDayMasterStatus(status: string): boolean {
+  return status === '极弱' || status === '身弱' || status === '偏弱';
+}
+
 export type CommanderEntry = [string, number];
 
 export interface Person {
@@ -261,7 +282,7 @@ export interface ConstraintAnalysis {
 }
 
 export interface DayMasterStrengthAnalysis {
-  status: string;
+  status: DayMasterStrengthStatus;
   details: {
     timely: boolean;
     seasonalEffect: '支持' | '中性' | '削弱';

@@ -18,6 +18,8 @@ test('八字切换到自定义时会清空已有快捷问题', () => {
   assert.deepEqual(buildBaziCustomPromptPatch(), {
     baziShortcutMode: '自定义',
     baziPresetId: 'ai-mingge-zonglun',
+    baziTopicId: '',
+    baziSubtopicId: '',
     baziQuickQuestion: '',
   });
 });
@@ -26,6 +28,8 @@ test('紫微切换到自定义时会清空已有快捷问题', () => {
   assert.deepEqual(buildZiweiCustomPromptPatch(), {
     ziweiShortcutMode: '自定义',
     ziweiTopic: 'chat',
+    ziweiTopicId: '',
+    ziweiSubtopicId: '',
     ziweiQuickQuestion: '',
   });
 });

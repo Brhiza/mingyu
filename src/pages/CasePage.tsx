@@ -198,12 +198,19 @@ export function CasePage() {
       return;
     }
 
-    const records = upsertPersonalHistory(
-      form,
-      editingRecord?.workspaceSource ?? 'bazi',
-      editingRecord?.id,
-      { allowIdentityChange: true },
-    );
+    setError('');
+    let records: PersonalHistoryRecord[];
+    try {
+      records = upsertPersonalHistory(
+        form,
+        editingRecord?.workspaceSource ?? 'bazi',
+        editingRecord?.id,
+        { allowIdentityChange: true },
+      );
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '案例保存失败，请稍后重试');
+      return;
+    }
     const savedRecord = editingRecord
       ? records.find((record) => record.id === editingRecord.id)
       : records[0];

@@ -7,10 +7,18 @@ on:
     tags:
       - 'v*'
       - 'mingyu-core-v*'
+      - 'mingyu-mcp-v*'
   workflow_dispatch:
 
 jobs:
   publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'release' &&
+        (startsWith(github.event.release.tag_name, 'v') ||
+         startsWith(github.event.release.tag_name, 'mingyu-core-v') ||
+         startsWith(github.event.release.tag_name, 'mingyu-mcp-v')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -21,15 +29,68 @@ jobs:
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
       - run: pnpm install --frozen-lockfile
+      - name: 校验发行标签与包版本
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+        run: |
+          set -euo pipefail
+          publish_core=false
+          publish_mcp=false
+          expected_version=""
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            publish_core=true
+            publish_mcp=true
+          elif [[ "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            publish_core=true
+            publish_mcp=true
+            expected_version="${BASH_REMATCH[1]}"
+          elif [[ "$RELEASE_TAG" =~ ^mingyu-core-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            publish_core=true
+            expected_version="${BASH_REMATCH[1]}"
+          elif [[ "$RELEASE_TAG" =~ ^mingyu-mcp-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            publish_mcp=true
+            expected_version="${BASH_REMATCH[1]}"
+          else
+            echo "不支持的发行标签：$RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          core_version="$(node -p "require('./packages/core/package.json').version")"
+          mcp_version="$(node -p "require('./packages/mcp/package.json').version")"
+          if [[ "$publish_core" == true && -n "$expected_version" && "$core_version" != "$expected_version" ]]; then
+            echo "标签版本 $expected_version 与 mingyu-core $core_version 不一致。" >&2
+            exit 1
+          fi
+          if [[ "$publish_mcp" == true && -n "$expected_version" && "$mcp_version" != "$expected_version" ]]; then
+            echo "标签版本 $expected_version 与 mingyu-mcp $mcp_version 不一致。" >&2
+            exit 1
+          fi
+          echo "PUBLISH_CORE=$publish_core" >> "$GITHUB_ENV"
+          echo "PUBLISH_MCP=$publish_mcp" >> "$GITHUB_ENV"
+          echo "发行范围：core=$publish_core，mcp=$publish_mcp；core=$core_version，mcp=$mcp_version。"
       - name: 构建 MCP 发布包
+        if: env.PUBLISH_MCP == 'true'
         run: pnpm run build:mcp
+      - name: 生产构建
+        run: pnpm run build
       - run: pnpm run package:check
       - run: pnpm test:ci
       - name: 发布 mingyu-core 至 npm
-        run: pnpm --filter mingyu-core publish --no-git-checks --access public
+        if: env.PUBLISH_CORE == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          core_version="$(node -p "require('./packages/core/package.json').version")"
+          if npm view "mingyu-core@${core_version}" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
+            echo "mingyu-core@${core_version} 已存在，跳过重复发布"
+          else
+            pnpm --filter mingyu-core publish --no-git-checks --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: 检查并发布 mingyu-mcp 至 npm
+        if: env.PUBLISH_MCP == 'true'
         shell: bash
         run: |
           mcp_version="$(node -p "require('./packages/mcp/package.json').version")"

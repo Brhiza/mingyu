@@ -7,6 +7,7 @@ import {
   BAZI_PROMPT_TOPICS,
   BAZI_MULTI_SCHOOLS,
   BAZI_SCHOOLS,
+  PROMPT_SCOPE_IDS,
   PROMPT_MODES,
   ZIWEI_PROMPT_SCOPES,
   ZIWEI_PROMPT_TOPICS,
@@ -27,6 +28,7 @@ import {
   createStructuredToolResult,
   getErrorMessage,
 } from '../tool-results.js';
+import { readMcpPromptSelection } from './prompt-helpers.js';
 import { buildBaziPerson } from './bazi.js';
 import { buildMcpZiweiChartInput } from './ziwei.js';
 
@@ -113,7 +115,26 @@ const baziZiweiPromptSchema = z.object({
     .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
     .optional()
     .describe('紫微侧多派合参'),
+  topicId: z
+    .string()
+    .optional()
+    .describe('统一解读主题 ID；优先于旧版 baziPromptTopic/ziweiPromptTopic'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
+  scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围；会同步紫微运限层'),
 });
+
+function mapPromptScopeToZiweiScope(scope: string | undefined): ZiweiPromptScope | undefined {
+  const mapped: Record<string, ZiweiPromptScope | undefined> = {
+    natal: 'origin',
+    full: 'full',
+    decadal: 'decadal',
+    yearly: 'yearly',
+    monthly: 'monthly',
+    daily: 'daily',
+    hourly: 'hourly',
+  };
+  return scope === undefined ? undefined : mapped[scope];
+}
 
 function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
   return buildMcpZiweiChartInput({
@@ -124,7 +145,10 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
     month: String(args.month),
     day: String(args.day),
     timeIndex: args.timeIndex,
-    promptScope: args.promptScope,
+    promptScope:
+      args.scope === undefined
+        ? args.promptScope
+        : (mapPromptScopeToZiweiScope(args.scope) ?? args.promptScope),
     isLeapMonth: args.isLeapMonth,
     useTrueSolarTime: args.useTrueSolarTime,
     birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
@@ -148,8 +172,18 @@ export function registerBaziZiweiTool(server: McpServer) {
     },
     async (args) => {
       try {
+        const selection = readMcpPromptSelection({
+          methodId: 'bazi-ziwei',
+          topicId: args.topicId,
+          subtopicId: args.subtopicId,
+          scope: args.scope,
+        });
         const baziResult = baziCalculator.calculateBazi(buildBaziPerson(args));
-        const scope = (args.promptScope ?? 'origin') as ZiweiPromptScope;
+        const scope = (
+          args.scope !== undefined
+            ? mapPromptScopeToZiweiScope(selection?.scope)
+            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'origin')
+        ) as ZiweiPromptScope;
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
@@ -176,6 +210,7 @@ export function registerBaziZiweiTool(server: McpServer) {
             baziSchools: args.baziSchools as BaziSchool[] | undefined,
             ziweiSchool: args.ziweiSchool as ZiweiSchool | undefined,
             ziweiSchools: args.ziweiSchools as ZiweiSchool[] | undefined,
+            selection,
           }),
         });
       } catch (error) {

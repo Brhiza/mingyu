@@ -29,9 +29,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter mingyu-core build
-      - run: npx tsc --project tsconfig.app.json --noEmit
-      - run: npx tsc --project mcp/tsconfig.json --noEmit
+      - run: pnpm typecheck
 
   test:
     runs-on: ubuntu-latest

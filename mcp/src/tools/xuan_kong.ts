@@ -38,6 +38,9 @@ const xuanKongSchema = z.object({
     .optional()
     .describe('流月日期；不传时按该月15日所属节气月'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
+  topicId: z.string().optional().describe('统一解读主题 ID'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID'),
+  scope: z.string().optional().describe('统一分析范围 ID'),
 });
 
 function calculateXuanKong(args: z.infer<typeof xuanKongSchema>) {
@@ -93,6 +96,9 @@ export function registerXuanKongTool(server: McpServer) {
           prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
             method: 'xuankong',
             schools: args.schools,
+            topicId: args.topicId,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
           }),
         });
       } catch (error) {

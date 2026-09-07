@@ -6013,7 +6013,7 @@ const testCases: Array<{
     },
   },
   {
-    name: '癸日午月无水透而支只一水时，应标记一富之造，不应仍提升到金水会夏天的富贵层次',
+    name: '癸日午月仅计日干一水时，不应误命中支只一水的一富规则',
     args: [
       '身弱',
       { pattern: '偏印格', isSpecial: false },
@@ -6024,6 +6024,26 @@ const testCases: Array<{
       {
         visibleStems: ['癸', '庚', '戊', '己'],
         wuxingCounts: { 木: 0, 火: 3, 土: 3, 金: 1, 水: 1 },
+      },
+    ],
+    expected: {
+      ruleNotHas: 'wu-month-gui-metal-no-visible-water-single-water-rich',
+      traceNotIncludes: '取用层次:庚辛透干，支只一水',
+    },
+  },
+  {
+    name: '癸日午月无水透而支只一水时，应标记一富之造，不应仍提升到金水会夏天的富贵层次',
+    args: [
+      '身弱',
+      { pattern: '偏印格', isSpecial: false },
+      '水',
+      '午',
+      undefined,
+      '癸',
+      {
+        visibleStems: ['癸', '庚', '戊', '己'],
+        // 五行统计包含日干：癸日自身计 1，另有一处地支本气水再计 1。
+        wuxingCounts: { 木: 0, 火: 3, 土: 3, 金: 1, 水: 2 },
       },
     ],
     expected: {

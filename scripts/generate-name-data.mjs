@@ -88,7 +88,12 @@ const characterTuples = characterList.map((item) => [
   item.kangxiSection,
   item.common,
 ]);
-const output = `export interface GeneratedCharacterData {
+const characterTupleShardCount = 32;
+const characterTupleShardSize = Math.ceil(characterTuples.length / characterTupleShardCount);
+const characterTupleShards = Array.from({ length: characterTupleShardCount }, (_, index) =>
+  characterTuples.slice(index * characterTupleShardSize, (index + 1) * characterTupleShardSize),
+);
+const generatedDataOutput = `export interface GeneratedCharacterData {
   char: string;
   simplified: string;
   traditional: string;
@@ -109,13 +114,46 @@ export type GeneratedCharacterTuple = readonly [string, string, number, string |
 
 export interface GeneratedShuliData { level: string; poem: string; text: string; keywords: string; level_note?: string }
 
-export const CHARACTER_TUPLES: readonly GeneratedCharacterTuple[] = ${JSON.stringify(characterTuples)};
+export { CHARACTER_TUPLES } from './generated-character-tuples.js';
+export { SANCAI_DATA, SHULI_DATA } from './generated-numerology-data.js';
+`;
+const outputUrl = new URL('../packages/core/src/name-number/generated-data.ts', import.meta.url);
+const numerologyOutput = `import type { GeneratedShuliData } from './generated-data.js';
 
 export const SHULI_DATA: readonly GeneratedShuliData[] = ${JSON.stringify(Array.from({ length: 81 }, (_, index) => shuliEntry(index + 1)))};
 
 export const SANCAI_DATA: Record<string, { combo: string; tian_ren: string; ren_di: string; level: string; text: string }> = ${JSON.stringify(sancaiTable)};
 `;
-const outputUrl = new URL('../packages/core/src/name-number/generated-data.ts', import.meta.url);
+const tupleAggregatorOutput = `import type { GeneratedCharacterTuple } from './generated-data.js';
+${characterTupleShards.map((_, index) => `import { CHARACTER_TUPLES_${String(index).padStart(2, '0')} } from './generated-character-tuples-${String(index).padStart(2, '0')}.js';`).join('\n')}
+
+export const CHARACTER_TUPLES: readonly GeneratedCharacterTuple[] = [
+${characterTupleShards.map((_, index) => `  ...CHARACTER_TUPLES_${String(index).padStart(2, '0')},`).join('\n')}
+];
+`;
+await writeFile(
+  new URL('../packages/core/src/name-number/generated-numerology-data.ts', import.meta.url),
+  numerologyOutput,
+  'utf8',
+);
+await writeFile(
+  new URL('../packages/core/src/name-number/generated-character-tuples.ts', import.meta.url),
+  tupleAggregatorOutput,
+  'utf8',
+);
+await Promise.all(
+  characterTupleShards.map((shard, index) => {
+    const shardName = String(index).padStart(2, '0');
+    return writeFile(
+      new URL(
+        `../packages/core/src/name-number/generated-character-tuples-${shardName}.ts`,
+        import.meta.url,
+      ),
+      `import type { GeneratedCharacterTuple } from './generated-data.js';\nexport const CHARACTER_TUPLES_${shardName}: readonly GeneratedCharacterTuple[] = ${JSON.stringify(shard)};\n`,
+      'utf8',
+    );
+  }),
+);
 await writeFile(
   new URL('../packages/core/src/name-number/generated-character-strokes.ts', import.meta.url),
   `const packed = ${JSON.stringify(characterList.map((item) => `${item.simplified}${item.traditional === item.simplified ? '' : item.traditional}${String.fromCharCode(33 + item.kangxiStrokes)}`).join(''))};
@@ -125,7 +163,7 @@ export const CHARACTER_STROKE_TUPLES: readonly (readonly [string, string, number
 );\n`,
   'utf8',
 );
-await writeFile(fileURLToPath(outputUrl), output, 'utf8');
+await writeFile(fileURLToPath(outputUrl), generatedDataOutput, 'utf8');
 const referenceUrl = new URL(
   '../packages/core/src/name-number/generated-character-references.ts',
   import.meta.url,
@@ -133,9 +171,37 @@ const referenceUrl = new URL(
 const references = Object.fromEntries(
   characterList.map((item) => [item.simplified, item.kangxiText]),
 );
-await writeFile(
-  fileURLToPath(referenceUrl),
-  `export const KANGXI_TEXT_BY_CHARACTER: Readonly<Record<string, string | null>> = ${JSON.stringify(references)};\n`,
-  'utf8',
+const referenceShardCount = 32;
+const referenceShards = Array.from({ length: referenceShardCount }, () => ({}));
+for (const [char, text] of Object.entries(references)) {
+  const shardIndex = (char.codePointAt(0) ?? 0) % referenceShardCount;
+  referenceShards[shardIndex][char] = text;
+}
+const referenceAggregator = `import { KANGXI_TEXT_BY_CHARACTER as KANGXI_TEXT_BY_CHARACTER_00 } from './generated-character-references-00.js';
+${referenceShards
+  .map(
+    (_, index) =>
+      `import { KANGXI_TEXT_BY_CHARACTER as KANGXI_TEXT_BY_CHARACTER_${String(index).padStart(2, '0')} } from './generated-character-references-${String(index).padStart(2, '0')}.js';`,
+  )
+  .slice(1)
+  .join('\n')}
+
+export const KANGXI_TEXT_BY_CHARACTER: Readonly<Record<string, string | null>> = {
+${referenceShards.map((_, index) => `  ...KANGXI_TEXT_BY_CHARACTER_${String(index).padStart(2, '0')},`).join('\n')}
+};
+`;
+await Promise.all(
+  referenceShards.map((shard, index) => {
+    const shardName = String(index).padStart(2, '0');
+    return writeFile(
+      new URL(
+        `../packages/core/src/name-number/generated-character-references-${shardName}.ts`,
+        import.meta.url,
+      ),
+      `export const KANGXI_TEXT_BY_CHARACTER: Readonly<Record<string, string | null>> = ${JSON.stringify(shard)};\n`,
+      'utf8',
+    );
+  }),
 );
+await writeFile(fileURLToPath(referenceUrl), referenceAggregator, 'utf8');
 console.log(`已生成 ${characterList.length} 条字形资料、81 数理与 125 三才配置`);

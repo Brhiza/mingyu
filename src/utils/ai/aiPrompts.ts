@@ -12,7 +12,10 @@ import {
 import {
   BAZI_COMPATIBILITY_PROMPT_PRESETS,
   BAZI_PROMPT_PRESETS,
+  buildPromptSelectionTask,
   formatBaziFortuneSelection,
+  getPromptSelectionSection,
+  requirePromptSelection,
 } from 'mingyu-core/prompt';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import {
@@ -122,10 +125,25 @@ export function buildPromptFromConfig(
   chartResult: BaziChartResult | null,
   fortuneSelectionContext: FortuneSelectionContext | null = null,
   questionScopeLabel?: string,
-  options: { isCustomQuestion?: boolean; fortuneScope?: BaziFortunePromptScope } = {},
+  options: {
+    isCustomQuestion?: boolean;
+    fortuneScope?: BaziFortunePromptScope;
+    topicId?: string;
+    subtopicId?: string;
+    scope?: string;
+  } = {},
 ): { system: string; user: string } {
   const isCustomQuestion = Boolean(options.isCustomQuestion);
   const fortuneScope = options.fortuneScope ?? fortuneSelectionContext?.scope ?? 'natal';
+  const selection =
+    options.topicId !== undefined || options.subtopicId !== undefined || options.scope !== undefined
+      ? requirePromptSelection({
+          methodId: 'bazi',
+          topicId: options.topicId,
+          subtopicId: options.subtopicId,
+          scope: options.scope,
+        })
+      : undefined;
   const hasFullFortuneOutput = fortuneScope === 'full';
   const promptConfig: SinglePromptConfig | null = chartResult?.pillars
     ? (BAZI_AI_PROMPTS.single.find((c) => c.id === selectedOption.id) ?? null)
@@ -148,9 +166,10 @@ export function buildPromptFromConfig(
       ? formatFullFortuneOutputSection(chartResult)
       : '';
     const fortuneAddon = buildFortunePromptAddon(fortuneSelectionContext);
-    const task = [buildBaziTaskText(scopeLabel, promptConfig.prompt), fortuneAddon]
+    const baseTask = [buildBaziTaskText(scopeLabel, promptConfig.prompt), fortuneAddon]
       .filter(Boolean)
       .join(' ');
+    const task = selection ? buildPromptSelectionTask(baseTask, selection) : baseTask;
 
     return {
       system: SYSTEM_PROMPT,
@@ -158,6 +177,7 @@ export function buildPromptFromConfig(
         buildPromptGuidanceSections('bazi'),
         buildPromptSection('当前时间', formatPromptCurrentTime()),
         buildPromptSection('排盘信息', chartData),
+        selection ? buildPromptSection('解读选择', getPromptSelectionSection(selection)) : '',
         hasFullFortuneOutput
           ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
           : '',
@@ -169,9 +189,11 @@ export function buildPromptFromConfig(
         fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
         buildPromptSection(
           '任务',
-          isCustomQuestion
-            ? buildCustomQuestionTask('八字排盘资料', 'bazi')
-            : buildPromptTask(task || '请依据八字排盘资料完成解读。', 'bazi'),
+          selection
+            ? task
+            : isCustomQuestion
+              ? buildCustomQuestionTask('八字排盘资料', 'bazi')
+              : buildPromptTask(task || '请依据八字排盘资料完成解读。', 'bazi'),
         ),
         normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
       ]),
@@ -191,6 +213,7 @@ export function buildPromptFromConfig(
       buildPromptGuidanceSections('bazi'),
       buildPromptSection('当前时间', formatPromptCurrentTime()),
       buildPromptSection('排盘信息', chartData),
+      selection ? buildPromptSection('解读选择', getPromptSelectionSection(selection)) : '',
       hasFullFortuneOutput
         ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
         : '',
@@ -200,9 +223,16 @@ export function buildPromptFromConfig(
       fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
       buildPromptSection(
         '任务',
-        isCustomQuestion
-          ? buildCustomQuestionTask('八字排盘资料', 'bazi')
-          : buildPromptTask('请依据八字排盘资料完成解读。', 'bazi'),
+        selection
+          ? buildPromptSelectionTask(
+              isCustomQuestion
+                ? buildCustomQuestionTask('八字排盘资料', 'bazi')
+                : buildPromptTask('请依据八字排盘资料完成解读。', 'bazi'),
+              selection,
+            )
+          : isCustomQuestion
+            ? buildCustomQuestionTask('八字排盘资料', 'bazi')
+            : buildPromptTask('请依据八字排盘资料完成解读。', 'bazi'),
       ),
       normalizedQuestion ? buildPromptSection('问题', normalizedQuestion) : '',
     ]),

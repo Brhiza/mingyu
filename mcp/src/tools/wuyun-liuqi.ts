@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { wuyunLiuqi } from 'mingyu-core';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
+import { resolvePromptSelection } from 'mingyu-core/prompt';
 import { calculationDetailShape, resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -18,6 +19,9 @@ const wuyunLiuqiSchema = z.object({
     .optional()
     .describe('明确年干支，如「丙午」；与 year 同时提供会校验一致性'),
   question: z.string().min(1).optional().describe('希望 AI 重点解释的问题'),
+  topicId: z.string().optional().describe('统一解读主题 ID'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID'),
+  scope: z.string().optional().describe('统一分析范围 ID'),
 });
 
 function calculateWuyunLiuqi(args: z.infer<typeof wuyunLiuqiSchema>) {
@@ -62,9 +66,26 @@ export function registerWuyunLiuqiTool(server: McpServer) {
     async (args) => {
       try {
         const result = calculateWuyunLiuqi(args);
+        const selectionResolution =
+          args.topicId !== undefined || args.subtopicId !== undefined || args.scope !== undefined
+            ? resolvePromptSelection({
+                methodId: 'wuyun-liuqi',
+                topicId: args.topicId,
+                subtopicId: args.subtopicId,
+                scope: args.scope,
+              })
+            : undefined;
+        if (selectionResolution && !selectionResolution.ok) {
+          throw new Error(selectionResolution.message);
+        }
         return createStructuredToolResult({
           result,
-          prompt: wuyunLiuqi.buildWuyunLiuqiPrompt(result, args.question, args.schools),
+          prompt: wuyunLiuqi.buildWuyunLiuqiPrompt(
+            result,
+            args.question,
+            args.schools,
+            selectionResolution?.ok ? selectionResolution.selection : undefined,
+          ),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成五运六气提示词失败'));

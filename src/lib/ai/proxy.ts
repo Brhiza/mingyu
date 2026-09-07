@@ -48,6 +48,14 @@ export type AiRuntime = {
   streamIdleTimeoutMs?: number;
   streamTotalTimeoutMs?: number;
   now?: () => number;
+  /** Node 开发运行时可提供解析结果，供自定义 AI 地址做 A/AAAA 出口校验。 */
+  resolveHostname?: (hostname: string) => Promise<readonly string[]>;
+  /** 可选的绑定解析结果的请求器；没有时仍使用全局 fetch。 */
+  fetch?: (
+    input: string | URL | Request,
+    init?: RequestInit,
+    resolvedAddresses?: readonly string[],
+  ) => Promise<Response>;
 };
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
@@ -109,6 +117,9 @@ export async function handleAiAnalyze(
   if ('error' in provider) {
     return provider.error;
   }
+
+  const resolvedAddresses = await resolveCustomAiAddresses(provider, runtime);
+  if ('error' in resolvedAddresses) return resolvedAddresses.error;
 
   // 解析对话消息：优先使用 messages 数组，否则回退到 prompt 字符串
   let chatMessages: ChatMessage[];
@@ -184,6 +195,7 @@ export async function handleAiAnalyze(
       signal: request.signal,
     },
     runtime,
+    resolvedAddresses.addresses,
   );
   if (upstreamResult.ok === false) {
     return upstreamResult.error;
@@ -222,6 +234,7 @@ export async function handleAiAnalyze(
     let buffer = '';
     const streamTimeouts = getStreamTimeouts(runtime, env);
     const streamDeadline = Date.now() + streamTimeouts.totalTimeoutMs;
+    let doneSent = false;
 
     try {
       while (true) {
@@ -240,59 +253,95 @@ export async function handleAiAnalyze(
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
+          if (doneSent) break;
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith('data:')) continue;
 
           const data = trimmed.slice(5).trim();
           if (data === '[DONE]') {
             await writer.write(encoder.encode('data: [DONE]\n\n'));
+            doneSent = true;
             continue;
           }
 
           try {
             const parsed = JSON.parse(data);
+            const upstreamStreamError = parseUpstreamStreamError(parsed);
+            if (upstreamStreamError) {
+              throw new UpstreamStreamResponseError(
+                upstreamStreamError.message,
+                upstreamStreamError.code,
+              );
+            }
             const delta = parsed?.choices?.[0]?.delta?.content;
             if (typeof delta === 'string' && delta) {
               const payload = JSON.stringify({ content: delta });
               await writer.write(encoder.encode(`data: ${payload}\n\n`));
             }
-          } catch {
+          } catch (error) {
+            if (error instanceof UpstreamStreamResponseError) throw error;
             // 忽略无法解析的行
           }
         }
+        if (doneSent) break;
       }
 
       // 流结束，flush decoder 并处理残留 buffer
       buffer += decoder.decode();
-      if (buffer.trim()) {
+      if (!doneSent && buffer.trim()) {
         const trimmed = buffer.trim();
         if (trimmed.startsWith('data:')) {
           const data = trimmed.slice(5).trim();
-          if (data && data !== '[DONE]') {
+          if (data === '[DONE]') {
+            await writer.write(encoder.encode('data: [DONE]\n\n'));
+            doneSent = true;
+          } else if (data) {
             try {
               const parsed = JSON.parse(data);
+              const upstreamStreamError = parseUpstreamStreamError(parsed);
+              if (upstreamStreamError) {
+                throw new UpstreamStreamResponseError(
+                  upstreamStreamError.message,
+                  upstreamStreamError.code,
+                );
+              }
               const delta = parsed?.choices?.[0]?.delta?.content;
               if (typeof delta === 'string' && delta) {
                 const payload = JSON.stringify({ content: delta });
                 await writer.write(encoder.encode(`data: ${payload}\n\n`));
               }
-            } catch {
+            } catch (error) {
+              if (error instanceof UpstreamStreamResponseError) throw error;
               // 忽略
             }
           }
         }
       }
+      if (!doneSent) {
+        throw new UpstreamStreamResponseError(
+          'AI 服务在发送完成标记前中断，请稍后重试。',
+          'AI_UPSTREAM_INCOMPLETE',
+        );
+      }
     } catch (err) {
       const timedOut = err instanceof UpstreamStreamTimeoutError;
+      const upstreamResponseError = err instanceof UpstreamStreamResponseError ? err : undefined;
       const payload = JSON.stringify({
         error: {
-          code: timedOut ? 'AI_UPSTREAM_TIMEOUT' : 'AI_UPSTREAM_STREAM_ERROR',
+          code: timedOut
+            ? 'AI_UPSTREAM_TIMEOUT'
+            : upstreamResponseError?.code || 'AI_UPSTREAM_STREAM_ERROR',
           message: timedOut
             ? 'AI 服务长时间没有继续响应，请稍后重试，或在设置里改用自己的接口。'
-            : 'AI 服务响应中断，请稍后重试，或在设置里改用自己的接口。',
+            : upstreamResponseError?.message ||
+              'AI 服务响应中断，请稍后重试，或在设置里改用自己的接口。',
           attempts,
           retryable: true,
-          detail: err instanceof Error ? err.message : undefined,
+          detail: upstreamResponseError
+            ? undefined
+            : err instanceof Error
+              ? err.message
+              : undefined,
         },
       });
       try {
@@ -342,6 +391,9 @@ export async function handleAiModels(
     return provider.error;
   }
 
+  const resolvedAddresses = await resolveCustomAiAddresses(provider, runtime);
+  if ('error' in resolvedAddresses) return resolvedAddresses.error;
+
   const rateLimitError = enforceBuiltinAiRateLimit(request, provider, env, runtime);
   if (rateLimitError) return rateLimitError;
 
@@ -356,6 +408,7 @@ export async function handleAiModels(
       signal: request.signal,
     },
     runtime,
+    resolvedAddresses.addresses,
   );
   if (upstreamResult.ok === false) {
     return upstreamResult.error;
@@ -516,6 +569,46 @@ function normalizeCustomAiBaseUrl(value: string): { baseUrl: string } | { error:
   return { baseUrl: url.href.replace(/\/+$/, '') };
 }
 
+async function resolveCustomAiAddresses(
+  provider: ResolvedAiProvider,
+  runtime: AiRuntime,
+): Promise<{ addresses?: readonly string[] } | { error: Response }> {
+  if (provider.mode !== 'custom' || !runtime.resolveHostname) {
+    return {};
+  }
+
+  const hostname = new URL(provider.baseUrl).hostname;
+  let addresses: readonly string[];
+  try {
+    addresses = await runtime.resolveHostname(hostname);
+  } catch {
+    return {
+      error: aiJsonError(
+        400,
+        'AI_CUSTOM_HOST_RESOLUTION_FAILED',
+        '自定义 AI 接口域名暂时无法解析，请检查地址后重试。',
+        { retryable: true },
+      ),
+    };
+  }
+
+  if (
+    addresses.length === 0 ||
+    addresses.some((address) => typeof address !== 'string' || isUnsafeCustomAiHost(address))
+  ) {
+    return {
+      error: aiJsonError(
+        400,
+        'AI_CUSTOM_HOST_UNSAFE',
+        '自定义 AI 接口域名解析到了本机、内网或非公网地址，已拒绝连接。',
+        { retryable: false },
+      ),
+    };
+  }
+
+  return { addresses };
+}
+
 function isUnsafeCustomAiHost(hostname: string): boolean {
   const host = hostname
     .toLowerCase()
@@ -646,7 +739,8 @@ function parseIpv6Address(host: string): number[] | null {
 async function fetchUpstreamWithRetry(
   url: string,
   init: RequestInit,
-  _runtime: AiRuntime,
+  runtime: AiRuntime,
+  resolvedAddresses?: readonly string[],
 ): Promise<UpstreamFetchResult> {
   const maxAttempts = UPSTREAM_RETRY_DELAYS_MS.length + 1;
   const { signal: externalSignal, ...fetchInit } = init;
@@ -666,13 +760,16 @@ async function fetchUpstreamWithRetry(
       controller.abort();
     }, UPSTREAM_FETCH_TIMEOUT_MS);
     try {
-      const response = await fetch(url, {
+      const fetchOptions = {
         ...fetchInit,
         // Cloudflare Workers 不支持 redirect: 'error'。使用 manual 后由这里显式拒绝
         // 跳转，既兼容边缘运行时，也避免自定义接口借 3xx 绕过地址校验。
-        redirect: 'manual',
+        redirect: 'manual' as const,
         signal: controller.signal,
-      });
+      };
+      const response = runtime.fetch
+        ? await runtime.fetch(url, fetchOptions, resolvedAddresses)
+        : await fetch(url, fetchOptions);
       if (response.status >= 300 && response.status < 400) {
         await response.body?.cancel().catch(() => undefined);
         cleanup();
@@ -747,6 +844,26 @@ class UpstreamStreamTimeoutError extends Error {
     super(message);
     this.name = 'UpstreamStreamTimeoutError';
   }
+}
+
+class UpstreamStreamResponseError extends Error {
+  readonly code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = 'UpstreamStreamResponseError';
+    this.code = code;
+  }
+}
+
+function parseUpstreamStreamError(value: unknown): { message: string; code?: string } | null {
+  if (!value || typeof value !== 'object' || !('error' in value)) return null;
+
+  const parsed = parseUpstreamError(JSON.stringify(value));
+  return {
+    message: parsed.message || 'AI 服务返回了流式错误。',
+    code: parsed.code,
+  };
 }
 
 type Uint8StreamReadResult = { done: boolean; value?: Uint8Array };

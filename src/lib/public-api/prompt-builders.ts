@@ -29,6 +29,14 @@ export {
   normalizeThematicTopic,
   getThematicTopicConfig,
   buildThematicConsultationPrompt,
+  getPromptMethodCapability,
+  getPromptMethodCapabilities,
+  getPromptSubtopicOptions,
+  getPromptTopicOptions,
+  resolvePromptSelection,
+  PROMPT_METHOD_IDS,
+  PROMPT_SCOPE_IDS,
+  PROMPT_TOPIC_IDS,
 } from 'mingyu-core/prompt/public-api';
 
 export type {
@@ -43,4 +51,12 @@ export type {
   ThematicTopicConfig,
   ThematicConsultationOptions,
   ThematicConsultationResult,
+  PromptMethodCapability,
+  PromptMethodCategoryId,
+  PromptMethodId,
+  PromptScopeId,
+  PromptSelection,
+  PromptSelectionResolution,
+  PromptSubtopicId,
+  PromptTopicId,
 } from 'mingyu-core/prompt/public-api';

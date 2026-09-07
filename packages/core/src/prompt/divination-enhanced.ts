@@ -35,6 +35,7 @@ import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
 import { getKongmingInterpretation } from '../name-number/kongming-interpretations';
 import { getZhugeInterpretation } from '../name-number/zhuge-interpretations';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
+import { resolveSsgwStoryContent } from '../divination/ssgw-content';
 
 function joinPromptSentences(items: Array<string | undefined>) {
   return items
@@ -604,7 +605,7 @@ function formatQimenInfo(data: QimenData, supplementaryInfo?: SupplementaryInfo)
     palaceLines.length ? '九宫简表：' : '',
     ...palaceLines,
     classicPatternLines.length ? `格局索引：${classicPatternLines.join('、')}` : '',
-    patternFulfillments.length ? `格局实效：${patternFulfillments.slice(0, 3).join('；')}` : '',
+    patternFulfillments.length ? `格局实效：${patternFulfillments.join('；')}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -725,7 +726,8 @@ function formatSsgwInfo(data: SsgwData) {
   const supplementaryInterpretationLines = Object.entries(details)
     .filter(([key, value]) => !excludedFields.has(key) && value.trim())
     .map(([key, value]) => `${key}：${value.trim()}`);
-  const story = data.story?.trim() || '';
+  const storyContent = resolveSsgwStoryContent(data);
+  const story = [storyContent.canonicalStory, storyContent.extraStory].filter(Boolean).join('\n');
 
   return [
     '占法：三山国王灵签',

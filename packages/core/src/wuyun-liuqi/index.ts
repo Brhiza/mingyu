@@ -13,6 +13,11 @@ import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
 import { assertValidGanZhi, SIXTY_CYCLE } from '../ganzhi';
 import { buildPromptSchoolSection, type PromptSchoolId } from '../prompt/schools';
 import { buildPromptTask, insertPromptSectionBeforeHeading } from '../prompt/guidance';
+import {
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  type PromptSelection,
+} from '../prompt/framework';
 import { isKe, isSheng } from '../wuxing';
 import {
   evaluateWuyunLiuqiPathomechanism,
@@ -701,6 +706,7 @@ export function buildWuyunLiuqiPrompt(
   result: WuyunLiuqiCalculation,
   question?: string,
   schools?: readonly PromptSchoolId<'wuyun-liuqi'>[],
+  selection?: PromptSelection,
 ): string {
   const normalizedQuestion = normalizeQuestion(question);
   const sections: string[] = [
@@ -761,12 +767,14 @@ export function buildWuyunLiuqiPrompt(
       }),
     ].join('\n'),
   ];
-  sections.push(
-    `【任务】\n${buildPromptTask(
-      normalizedQuestion ? '请结合年度运气资料回答【问题】。' : '请解读年度运气节律。',
-      'wuyun-liuqi',
-    )}`,
+  const task = buildPromptTask(
+    normalizedQuestion ? '请结合年度运气资料回答【问题】。' : '请解读年度运气节律。',
+    'wuyun-liuqi',
   );
+  if (selection) {
+    sections.push(`【解读选择】\n${getPromptSelectionSection(selection)}`);
+  }
+  sections.push(`【任务】\n${selection ? buildPromptSelectionTask(task, selection) : task}`);
   if (normalizedQuestion) {
     sections.push(`【问题】\n${normalizedQuestion}`);
   }

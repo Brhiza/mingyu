@@ -13,16 +13,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 final class AndroidAppUpdateVerifier {
+    private static final String CDN_HOST = "download.aov.cc";
     private static final Set<String> REDIRECT_HOSTS = Set.of(
         "github.com",
         "gh-proxy.com",
         "ghfast.top",
+        CDN_HOST,
         "lanzou-cloudflare-api.brhiza.workers.dev",
         "objects.githubusercontent.com",
         "release-assets.githubusercontent.com"
     );
     private static final Pattern RELEASE_ASSET_PATH_PATTERN = Pattern.compile(
         "^/Brhiza/mingyu/releases/download/(android-v\\d+\\.\\d+\\.\\d+)/([^/]+)$",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern CDN_ASSET_PATH_PATTERN = Pattern.compile(
+        "^/apps/mingyu/android/(\\d+\\.\\d+\\.\\d+)/([^/]+)$",
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern SHA256_PATTERN = Pattern.compile(
@@ -33,38 +39,51 @@ final class AndroidAppUpdateVerifier {
 
     static URL requireOfficialApkUrl(String rawUrl, URL checksumUrl) {
         Matcher checksumMatcher = RELEASE_ASSET_PATH_PATTERN.matcher(checksumUrl.getPath());
-        if (!checksumMatcher.matches() || !checksumMatcher.group(2).toLowerCase(Locale.ROOT).endsWith(".apk.sha256")) {
-            throw new IllegalArgumentException("更新校验地址无效。");
-        }
-        String tagName = checksumMatcher.group(1);
-        String apkName = checksumMatcher.group(2).substring(0, checksumMatcher.group(2).length() - ".sha256".length());
-        String version = tagName.substring("android-v".length());
-        String githubPath = "/Brhiza/mingyu/releases/download/" + tagName + "/" + apkName;
-        String acceleratedPath = "/https://github.com" + githubPath;
+        Matcher cdnChecksumMatcher = CDN_ASSET_PATH_PATTERN.matcher(checksumUrl.getPath());
         final URL url;
         try {
             url = new URL(rawUrl == null ? "" : rawUrl.trim());
         } catch (MalformedURLException error) {
             throw new IllegalArgumentException("更新地址无效。", error);
         }
-        String host = url.getHost().toLowerCase(Locale.ROOT);
-        String path = url.getPath();
-        boolean matches = "github.com".equals(host) && githubPath.equals(path)
-            || "gh-proxy.com".equals(host) && acceleratedPath.equals(path)
-            || "ghfast.top".equals(host) && acceleratedPath.equals(path)
-            || "lanzou-cloudflare-api.brhiza.workers.dev".equals(host)
-                && ("/v1/public/mingyu/" + version).equals(path);
         if (
             !"https".equalsIgnoreCase(url.getProtocol())
                 || url.getUserInfo() != null
                 || url.getPort() != -1
                 || url.getQuery() != null
                 || url.getRef() != null
-                || !matches
         ) {
             throw new IllegalArgumentException("更新地址不是命语官方发布线路。");
         }
-        return url;
+
+        if (checksumMatcher.matches() && checksumMatcher.group(2).toLowerCase(Locale.ROOT).endsWith(".apk.sha256")) {
+            String tagName = checksumMatcher.group(1);
+            String apkName = checksumMatcher.group(2).substring(0, checksumMatcher.group(2).length() - ".sha256".length());
+            String version = tagName.substring("android-v".length());
+            String githubPath = "/Brhiza/mingyu/releases/download/" + tagName + "/" + apkName;
+            String acceleratedPath = "/https://github.com" + githubPath;
+            String host = url.getHost().toLowerCase(Locale.ROOT);
+            String path = url.getPath();
+            boolean matches = "github.com".equals(host) && githubPath.equals(path)
+                || "gh-proxy.com".equals(host) && acceleratedPath.equals(path)
+                || "ghfast.top".equals(host) && acceleratedPath.equals(path)
+                || "lanzou-cloudflare-api.brhiza.workers.dev".equals(host)
+                    && ("/v1/public/mingyu/" + version).equals(path);
+            if (!matches) throw new IllegalArgumentException("更新地址不是命语官方发布线路。");
+            return url;
+        }
+
+        if (cdnChecksumMatcher.matches() && cdnChecksumMatcher.group(2).toLowerCase(Locale.ROOT).endsWith(".apk.sha256")) {
+            String version = cdnChecksumMatcher.group(1);
+            String apkName = cdnChecksumMatcher.group(2).substring(0, cdnChecksumMatcher.group(2).length() - ".sha256".length());
+            String expectedPath = "/apps/mingyu/android/" + version + "/" + apkName;
+            if (CDN_HOST.equalsIgnoreCase(url.getHost()) &&
+                apkName.equals("mingyu-" + version + ".apk") &&
+                expectedPath.equals(url.getPath())) {
+                return url;
+            }
+        }
+        throw new IllegalArgumentException("更新地址不是命语官方发布线路。");
     }
 
     static URL requireReleaseAssetUrl(String rawUrl, String expectedSuffix) {
@@ -75,18 +94,20 @@ final class AndroidAppUpdateVerifier {
             throw new IllegalArgumentException("更新地址无效。", error);
         }
         String path = url.getPath();
+        Matcher githubMatcher = RELEASE_ASSET_PATH_PATTERN.matcher(path);
+        Matcher cdnMatcher = CDN_ASSET_PATH_PATTERN.matcher(path);
         if (
             !"https".equalsIgnoreCase(url.getProtocol()) ||
             url.getUserInfo() != null ||
             url.getPort() != -1 ||
             url.getQuery() != null ||
             url.getRef() != null ||
-            !"github.com".equalsIgnoreCase(url.getHost()) ||
             path == null ||
-            !RELEASE_ASSET_PATH_PATTERN.matcher(path).matches() ||
-            !path.toLowerCase(Locale.ROOT).endsWith(expectedSuffix)
+            !path.toLowerCase(Locale.ROOT).endsWith(expectedSuffix) ||
+            !(("github.com".equalsIgnoreCase(url.getHost()) && githubMatcher.matches()) ||
+                (CDN_HOST.equalsIgnoreCase(url.getHost()) && cdnMatcher.matches()))
         ) {
-            throw new IllegalArgumentException("更新地址不是命语官方 GitHub Release。");
+            throw new IllegalArgumentException("更新地址不是命语官方发布线路。");
         }
         return url;
     }
@@ -121,6 +142,9 @@ final class AndroidAppUpdateVerifier {
         }
         if ("lanzou-cloudflare-api.brhiza.workers.dev".equals(host)) {
             return url.getQuery() == null && url.getPath().matches("^/v1/public/mingyu/\\d+\\.\\d+\\.\\d+$");
+        }
+        if (CDN_HOST.equals(host)) {
+            return url.getQuery() == null && CDN_ASSET_PATH_PATTERN.matcher(url.getPath()).matches();
         }
         return true;
     }
