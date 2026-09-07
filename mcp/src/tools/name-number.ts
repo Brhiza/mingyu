@@ -61,6 +61,14 @@ const namingPreferenceShape = {
     .describe('辈分字位于名字首字或末字，默认首字'),
 };
 
+function toBaziBirthDraft(birth?: z.infer<typeof namingBirth>) {
+  if (!birth) return undefined;
+  return {
+    ...birth,
+    timeIndex: birth.timeIndex ?? '',
+  };
+}
+
 export function registerNameNumberTools(server: McpServer) {
   server.registerTool(
     'name_generate',
@@ -82,7 +90,9 @@ export function registerNameNumberTools(server: McpServer) {
     },
     async (args) => {
       try {
-        return createStructuredToolResult({ result: generateChineseNames(args) });
+        return createStructuredToolResult({
+          result: generateChineseNames({ ...args, birth: toBaziBirthDraft(args.birth) }),
+        });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '起名失败'));
       }
@@ -111,7 +121,7 @@ export function registerNameNumberTools(server: McpServer) {
             fullName: args.fullName,
             surnameLength: args.surnameLength,
             xiYong: args.preferredElements,
-            birth: args.birth,
+            birth: toBaziBirthDraft(args.birth),
           }),
         });
       } catch (error) {
@@ -140,7 +150,12 @@ export function registerNameNumberTools(server: McpServer) {
     },
     async (args) => {
       try {
-        const candidates = generateChineseNames({ ...args, limit: args.limit ?? 10 });
+        const birthDraft = toBaziBirthDraft(args.birth);
+        const candidates = generateChineseNames({
+          ...args,
+          birth: birthDraft,
+          limit: args.limit ?? 10,
+        });
         return createStructuredToolResult({
           result: {
             candidates,
@@ -148,7 +163,11 @@ export function registerNameNumberTools(server: McpServer) {
               surname: args.surname,
               gender: args.gender,
               candidates,
-              suitableCharacters: selectNamingCharacters({ ...args, limit: 24 }),
+              suitableCharacters: selectNamingCharacters({
+                ...args,
+                birth: birthDraft,
+                limit: 24,
+              }),
               preferredCharacters: args.preferredCharacters,
               forbiddenCharacters: args.forbiddenCharacters,
               generationCharacter: args.generationCharacter,
@@ -184,7 +203,7 @@ export function registerNameNumberTools(server: McpServer) {
           fullName: args.fullName,
           surnameLength: args.surnameLength,
           xiYong: args.preferredElements,
-          birth: args.birth,
+          birth: toBaziBirthDraft(args.birth),
         });
         return createStructuredToolResult({
           result: {
