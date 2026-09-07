@@ -10,6 +10,11 @@ import {
   joinPromptSections,
 } from './sections';
 import type { PromptBuildOptions, PromptDocument } from './types';
+import {
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  type PromptSelection,
+} from './framework';
 
 export const ASTROLABE_PROMPT_TOPICS = [
   'life',
@@ -110,22 +115,27 @@ export interface AstrolabePromptOptions extends PromptBuildOptions {
   chart: AstrolabeData;
   schools?: readonly string[];
   topic?: AstrolabePromptTopic;
+  selection?: PromptSelection;
 }
 
 export function buildAstrolabePromptDocument(options: AstrolabePromptOptions): PromptDocument {
   const topic = options.topic ?? 'life';
   const question = options.question?.trim() || `请围绕${TOPIC_LABELS[topic]}解读这份星盘。`;
+  const task = buildPromptTask(
+    `请依据星体、宫位、相位和盘面证据，重点分析${TOPIC_LABELS[topic]}并回答问题。`,
+    'astrolabe',
+  );
   const user = joinPromptSections([
     buildPromptGuidance('astrolabe'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('星盘资料', formatAstrolabeForPrompt(options.chart)),
     buildPromptSchoolSection('astrolabe', options.schools),
+    options.selection
+      ? buildPromptSection('解读选择', getPromptSelectionSection(options.selection))
+      : '',
     buildPromptSection(
       '任务',
-      buildPromptTask(
-        `请依据星体、宫位、相位和盘面证据，重点分析${TOPIC_LABELS[topic]}并回答问题。`,
-        'astrolabe',
-      ),
+      options.selection ? buildPromptSelectionTask(task, options.selection) : task,
     ),
     buildPromptSection('问题', question),
   ]);
@@ -158,6 +168,7 @@ export interface AstrolabeSynastryPromptOptions extends PromptBuildOptions {
   chart2: AstrolabeData;
   synastry: AstrolabeSynastryData;
   schools?: readonly string[];
+  selection?: PromptSelection;
 }
 
 export function buildAstrolabeSynastryPromptDocument(
@@ -165,6 +176,10 @@ export function buildAstrolabeSynastryPromptDocument(
 ): PromptDocument {
   const question =
     options.question?.trim() || '请分析双方互动主轴、互补点、张力点与需要结合现实核对的部分。';
+  const task = buildPromptTask(
+    '请依据双方本命盘、跨盘相位和跨盘落宫，分析互动主轴、互补点与张力点，并列出各自对应证据，再回答问题。',
+    'astrolabe-synastry',
+  );
   const user = joinPromptSections([
     buildPromptGuidance('astrolabe-synastry'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
@@ -172,12 +187,12 @@ export function buildAstrolabeSynastryPromptDocument(
     buildPromptSection('第二人本命盘', formatAstrolabeForPrompt(options.chart2)),
     buildPromptSection('跨盘资料', formatSynastryFacts(options.synastry)),
     buildPromptSchoolSection('astrolabe', options.schools),
+    options.selection
+      ? buildPromptSection('解读选择', getPromptSelectionSection(options.selection))
+      : '',
     buildPromptSection(
       '任务',
-      buildPromptTask(
-        '请依据双方本命盘、跨盘相位和跨盘落宫，分析互动主轴、互补点与张力点，并列出各自对应证据，再回答问题。',
-        'astrolabe-synastry',
-      ),
+      options.selection ? buildPromptSelectionTask(task, options.selection) : task,
     ),
     buildPromptSection('问题', question),
   ]);

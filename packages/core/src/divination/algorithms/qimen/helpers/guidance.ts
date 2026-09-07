@@ -116,7 +116,7 @@ export function evaluateQimenPatternFulfillment(data: QimenData): string[] {
         }
       } else if (p.type === 'bad') {
         if (isVoid) {
-          results.push(`【${p.name}】落${palace.name}逢空亡，凶势落空，灾咎减半`);
+          results.push(`【${p.name}】落${palace.name}逢空亡，凶势受空而减弱，按空亡条件复核`);
         }
       }
     });

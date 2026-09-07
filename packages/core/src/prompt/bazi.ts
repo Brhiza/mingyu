@@ -12,6 +12,11 @@ import {
   type BaziPromptSchool as SharedBaziPromptSchool,
 } from './bazi-school';
 import { formatPromptSchoolGuidance } from './schools';
+import {
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  type PromptSelection,
+} from './framework';
 
 export const BAZI_PROMPT_TOPICS = [
   'general',
@@ -99,6 +104,7 @@ export interface BaziPromptOptions extends PromptBuildOptions {
    * 传入后只把所选层级、必要上下层背景与主要触发写入提示词。
    */
   fortuneSelectionContext?: FortuneSelectionContext | null;
+  selection?: PromptSelection;
 }
 
 function getBaziTopicTask(topic: BaziPromptTopic, topicLabel: string): string {
@@ -135,6 +141,7 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     options.mode === 'custom'
       ? buildCustomQuestionTask('八字排盘资料', 'bazi')
       : buildPromptTask(getBaziTopicTask(topic, topicLabel), 'bazi');
+  const selectedTask = options.selection ? buildPromptSelectionTask(task, options.selection) : task;
   const chart = formatBaziForPrompt(
     options.result,
     null,
@@ -182,7 +189,10 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     options.fortuneScope === 'full'
       ? buildPromptSection('命限资料', formatFullFortune(options.result))
       : '',
-    buildPromptSection('任务', task),
+    options.selection
+      ? buildPromptSection('解读选择', getPromptSelectionSection(options.selection))
+      : '',
+    buildPromptSection('任务', selectedTask),
     buildPromptSection('问题', question),
   ]);
 

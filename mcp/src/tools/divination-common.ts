@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import type { RandomOptions } from 'mingyu-core/types';
 import type { tarotSpreads } from 'mingyu-core/divination/tarot';
-import { PROMPT_MODES } from '../../../src/lib/public-api/prompt-builders.js';
+import { PROMPT_MODES, PROMPT_SCOPE_IDS } from '../../../src/lib/public-api/prompt-builders.js';
 import type { PromptMode } from '../../../src/lib/public-api/prompt-builders.js';
 import { buildDivinationPromptText } from './prompt-helpers.js';
 import type { PromptSchoolMethod } from 'mingyu-core/prompt';
@@ -22,6 +22,9 @@ export function extendPromptSchema<T extends z.ZodRawShape>(
       .enum(PROMPT_MODES)
       .optional()
       .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
+    topicId: z.string().optional().describe('统一解读主题 ID'),
+    subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
+    scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围'),
   });
 }
 
@@ -37,6 +40,9 @@ export function extendOptionalQuestionPromptSchema<T extends z.ZodRawShape>(
       .enum(PROMPT_MODES)
       .optional()
       .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
+    topicId: z.string().optional().describe('统一解读主题 ID'),
+    subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
+    scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围'),
   });
 }
 
@@ -51,6 +57,9 @@ export function buildCommonDivinationPrompt(
     astrolabeTopic?: string;
     astrolabeScopeText?: string;
     schools?: readonly string[];
+    topicId?: string;
+    subtopicId?: string;
+    scope?: string;
   },
 ) {
   return buildDivinationPromptText({
@@ -69,6 +78,9 @@ export function buildCommonDivinationPrompt(
     >[0]['astrolabeTopic'],
     astrolabeScopeText: options?.astrolabeScopeText,
     schools: options?.schools,
+    topicId: options?.topicId,
+    subtopicId: options?.subtopicId,
+    scope: options?.scope,
   });
 }
 

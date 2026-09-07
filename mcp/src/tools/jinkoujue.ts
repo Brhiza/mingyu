@@ -87,6 +87,9 @@ export function registerJinkoujueTool(server: McpServer) {
           result,
           prompt: buildCommonDivinationPrompt('jinkoujue', args.question, result, args.promptMode, {
             schools: args.schools,
+            topicId: args.topicId,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
           }),
         });
       } catch (error) {

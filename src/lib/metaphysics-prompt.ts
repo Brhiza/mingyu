@@ -10,6 +10,9 @@ export interface MetaphysicsPromptOptions {
   measurement?: string;
   schools?: readonly string[];
   currentTime?: Date;
+  topicId?: string;
+  subtopicId?: string;
+  scope?: string;
 }
 
 /** 页面兼容入口；元学提示词包装统一由 mingyu-core 提供。 */

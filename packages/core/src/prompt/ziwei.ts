@@ -7,6 +7,7 @@ import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { formatPromptSchoolGuidance } from './schools';
 import { formatBaziSchoolsPrompt, normalizeBaziPromptSchools } from './bazi-school';
 import { getThematicTopicConfig } from './thematic';
+import { getPromptMutagenItems } from '../ziwei/prompt/mutagen';
 import {
   buildPromptDocument,
   buildPromptSection,
@@ -14,6 +15,11 @@ import {
   joinPromptSections,
 } from './sections';
 import type { PromptBuildOptions, PromptDocument } from './types';
+import {
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  type PromptSelection,
+} from './framework';
 
 export const ZIWEI_PROMPT_SCOPES = [
   'origin',
@@ -135,7 +141,7 @@ function formatStar(star: StarFact, isOriginScope: boolean) {
 }
 
 function natalTags(tags: string[]) {
-  return tags.filter((tag) => !/大限|流年|流月|流日|流时|运限/.test(tag));
+  return tags.filter((tag) => !/大限|小限|流年|流月|流日|流时|运限/.test(tag));
 }
 
 function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
@@ -189,14 +195,12 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
 }
 
 function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
-  const values = payload.active_scope.mutagen_map
-    .filter((item) => !isOriginScope || !item.dynamic_palace_name)
-    .map((item) => {
-      const palace = item.palace_name ? `入${item.palace_name}宫` : '';
-      const dynamic =
-        !isOriginScope && item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : '';
-      return `${item.star || ''}化${item.mutagen}${palace}${dynamic}`;
-    });
+  const values = getPromptMutagenItems(payload, isOriginScope).map((item) => {
+    const palace = item.palace_name ? `入${item.palace_name}宫` : '';
+    const dynamic =
+      !isOriginScope && item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : '';
+    return `${item.star || ''}化${item.mutagen}${palace}${dynamic}`;
+  });
   return values.length ? values.join('；') : isOriginScope ? '未记录生年四化' : '未记录当前四化';
 }
 
@@ -276,6 +280,7 @@ export interface ZiweiPromptOptions extends PromptBuildOptions {
   schools?: readonly ZiweiPromptSchool[];
   topic?: ZiweiPromptTopic;
   focusPalaceNames?: readonly string[];
+  selection?: PromptSelection;
 }
 
 export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDocument {
@@ -309,6 +314,13 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
         )
       : '';
 
+  const task = buildPromptTask(
+    scope === 'origin'
+      ? `请依据命身十二宫、星曜庙旺和生年四化解读本命结构${topicLabel ? `，重点分析${topicLabel}` : ''}，再回答问题。`
+      : `请依据${scope === 'full' ? '本命与所列完整运限' : SCOPE_LABELS[scopes[0] ?? 'origin']}资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
+    scope === 'origin' ? 'ziwei-natal' : 'ziwei',
+  );
+  const selectedTask = options.selection ? buildPromptSelectionTask(task, options.selection) : task;
   const user = joinPromptSections([
     buildPromptGuidance('ziwei'),
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
@@ -319,15 +331,10 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
     schoolText
       ? buildPromptSection(selectedSchools.length > 1 ? '多派合参' : '流派', schoolText)
       : '',
-    buildPromptSection(
-      '任务',
-      buildPromptTask(
-        scope === 'origin'
-          ? `请依据命身十二宫、星曜庙旺和生年四化解读本命结构${topicLabel ? `，重点分析${topicLabel}` : ''}，再回答问题。`
-          : `请依据${scope === 'full' ? '本命与所列完整运限' : SCOPE_LABELS[scopes[0] ?? 'origin']}资料，${topicLabel ? `重点分析${topicLabel}，` : ''}先列出主要宫位、星曜、四化和运限证据，再回答问题。`,
-        scope === 'origin' ? 'ziwei-natal' : 'ziwei',
-      ),
-    ),
+    options.selection
+      ? buildPromptSection('解读选择', getPromptSelectionSection(options.selection))
+      : '',
+    buildPromptSection('任务', selectedTask),
     buildPromptSection('问题', question),
   ]);
   return buildPromptDocument(user);
@@ -423,6 +430,7 @@ export interface BaziZiweiPromptOptions extends PromptBuildOptions {
   baziSchools?: readonly import('./bazi').BaziPromptSchool[];
   ziweiSchool?: ZiweiPromptSchool;
   ziweiSchools?: readonly ZiweiPromptSchool[];
+  selection?: PromptSelection;
 }
 
 function resolveZiweiPayload(ziwei: ZiweiRuntime | AnalysisPayloadV1) {
@@ -448,6 +456,11 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
       : [];
   const thematicConfig = getThematicTopicConfig(topic);
   const ziweiFocusPalaces = thematicConfig?.ziweiFocusPalaces;
+  const task = buildPromptTask(
+    `${thematicConfig.combinedTask} 请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
+    'bazi-ziwei',
+  );
+  const selectedTask = options.selection ? buildPromptSelectionTask(task, options.selection) : task;
   return buildPromptDocument(
     joinPromptSections([
       buildPromptGuidance('bazi-ziwei'),
@@ -480,13 +493,10 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
           )
         : '',
       buildPromptSection('分析对象', topic),
-      buildPromptSection(
-        '任务',
-        buildPromptTask(
-          `${thematicConfig.combinedTask} 请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
-          'bazi-ziwei',
-        ),
-      ),
+      options.selection
+        ? buildPromptSection('解读选择', getPromptSelectionSection(options.selection))
+        : '',
+      buildPromptSection('任务', selectedTask),
       buildPromptSection('问题', question),
     ]),
   );

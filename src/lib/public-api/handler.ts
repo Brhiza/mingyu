@@ -112,7 +112,9 @@ import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import {
   formatPromptSchoolGuidance,
+  buildPromptSelectionTask,
   getPromptSchoolIds,
+  getPromptSelectionSection,
   insertPromptSectionBeforeHeading,
   type PromptSchoolMethod,
 } from 'mingyu-core/prompt';
@@ -133,6 +135,8 @@ import {
   getZiweiPromptCalculationScopes,
   THEMATIC_TOPICS,
   normalizeThematicTopic,
+  PROMPT_SCOPE_IDS,
+  resolvePromptSelection,
   buildThematicConsultationPrompt,
   type BaziPromptTopic,
   type BaziSchool,
@@ -355,6 +359,18 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   liuyaoTemplate: { enum: ['general', 'ganqing', 'shiye', 'caifu', 'guaishen'] },
   liurenTemplate: { enum: ['general', 'ganqing', 'shiye', 'caifu'] },
+  topicId: {
+    type: 'string',
+    description: '统一解读主题 ID；与 subtopicId、scope 一起决定提示词任务范围。',
+  },
+  subtopicId: {
+    type: 'string',
+    description: '统一解读主题细项 ID；必须属于 topicId。',
+  },
+  scope: {
+    enum: [...PROMPT_SCOPE_IDS],
+    description: '统一解读资料范围；不传时按方法使用默认范围。',
+  },
   topic: {
     enum: [
       'marriage',
@@ -1163,6 +1179,9 @@ export function getPublicApiOpenApiDocument(
             generationPosition: { enum: ['first', 'second'], default: 'first' },
             limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
             birth: { $ref: '#/components/schemas/NamingBirthInput' },
+            topicId: { type: 'string', description: '统一解读主题 ID；起名接口通常使用 general。' },
+            subtopicId: { type: 'string', description: '统一解读主题细项 ID，如 naming。' },
+            scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
           },
         },
         NameAnalyzeRequest: {
@@ -1177,6 +1196,10 @@ export function getPublicApiOpenApiDocument(
               items: { enum: ['金', '木', '水', '火', '土'] },
             },
             birth: { $ref: '#/components/schemas/NamingBirthInput' },
+            question: { type: 'string', maxLength: 1000 },
+            topicId: { type: 'string', description: '统一解读主题 ID；姓名解析通常使用 general。' },
+            subtopicId: { type: 'string', description: '统一解读主题细项 ID，如 name-analysis。' },
+            scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
           },
         },
         NamingBirthInput: {
@@ -1240,6 +1263,9 @@ export function getPublicApiOpenApiDocument(
             value: { type: 'string', minLength: 1, maxLength: 64 },
             purpose: { enum: ['phone', 'plate', 'general'], default: 'general' },
             question: { type: 'string', maxLength: 1000 },
+            topicId: { type: 'string', description: '统一解读主题 ID；数字能量通常使用 general。' },
+            subtopicId: { type: 'string', description: '统一解读主题细项 ID，如 number-energy。' },
+            scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
           },
         },
         ZhugeRequest: {
@@ -1605,6 +1631,12 @@ export function getPublicApiOpenApiDocument(
               description: '时区偏移（七政四余）',
             },
             question: { type: 'string', description: '解读问题（prompt 端点）' },
+            topicId: { type: 'string', description: '统一解读主题 ID。' },
+            subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+            promptScope: {
+              enum: [...PROMPT_SCOPE_IDS],
+              description: '统一提示词分析范围；太乙仍使用 scope 表示起计层级。',
+            },
             promptMode: { type: 'string', description: '提示词模式（prompt 端点）' },
             schools: DIVINATION_REQUEST_PROPERTIES.schools,
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
@@ -1629,6 +1661,9 @@ export function getPublicApiOpenApiDocument(
               description: '明确年干支，如「丙午」。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            topicId: { type: 'string', description: '统一解读主题 ID。' },
+            subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+            scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
             schools: DIVINATION_REQUEST_PROPERTIES.schools,
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
           },
@@ -1677,6 +1712,12 @@ export function getPublicApiOpenApiDocument(
               description: '自定义纪元下距第一年已经过的完整年数，0 表示第一年。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            topicId: { type: 'string', description: '统一解读主题 ID。' },
+            subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+            scope: {
+              enum: [...PROMPT_SCOPE_IDS],
+              description: '统一分析范围：cycle=元会运世周期，yearly=值年层级。',
+            },
             schools: DIVINATION_REQUEST_PROPERTIES.schools,
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
           },
@@ -1691,6 +1732,12 @@ export function getPublicApiOpenApiDocument(
                 question: {
                   type: 'string',
                   maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
+                },
+                topicId: { type: 'string', description: '统一解读主题 ID。' },
+                subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+                scope: {
+                  enum: [...PROMPT_SCOPE_IDS],
+                  description: '统一分析范围；与 baziFortuneScope 互不替代。',
                 },
                 promptTopic: { enum: [...BAZI_PROMPT_TOPICS] },
                 promptMode: { enum: [...PROMPT_MODES] },
@@ -1748,6 +1795,9 @@ export function getPublicApiOpenApiDocument(
             person1Name: { type: 'string', description: '第一人称呼；仅用于证据来源标注。' },
             person2Name: { type: 'string', description: '第二人称呼；仅用于证据来源标注。' },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            topicId: { type: 'string', description: '统一解读主题 ID。' },
+            subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+            scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
             compatType: {
               enum: ['marriage', 'career', 'friendship', 'children', 'parents', 'siblings'],
               description: '关系范围；只影响任务范围，不改变双盘事实计算。',
@@ -1807,6 +1857,12 @@ export function getPublicApiOpenApiDocument(
                   type: 'string',
                   maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
                 },
+                topicId: { type: 'string', description: '统一解读主题 ID。' },
+                subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+                scope: {
+                  enum: [...PROMPT_SCOPE_IDS],
+                  description: '统一分析范围；promptScope 仍保留为紫微资料范围兼容字段。',
+                },
                 promptTopic: { enum: [...ZIWEI_PROMPT_TOPICS] },
                 promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
                 promptMode: { enum: [...PROMPT_MODES] },
@@ -1843,6 +1899,9 @@ export function getPublicApiOpenApiDocument(
               description: '第二人称呼；未传时优先使用 person2.name。',
             },
             question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            topicId: { type: 'string', description: '统一解读主题 ID。' },
+            subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+            scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
             promptTopic: {
               enum: [...ZIWEI_PROMPT_TOPICS],
               description: '关系分析主题；只影响提示词任务范围。',
@@ -1870,6 +1929,12 @@ export function getPublicApiOpenApiDocument(
                 question: {
                   type: 'string',
                   maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
+                },
+                topicId: { type: 'string', description: '统一解读主题 ID。' },
+                subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+                scope: {
+                  enum: [...PROMPT_SCOPE_IDS],
+                  description: '统一分析范围；会同时约束八字与紫微合参任务。',
                 },
                 baziPromptTopic: {
                   enum: [...BAZI_PROMPT_TOPICS],
@@ -1933,6 +1998,23 @@ export function getPublicApiOpenApiDocument(
                   default: 'general',
                   description:
                     '大类主题：general=综合全景（默认）；relationship=婚恋感情；career=事业职场；wealth=求财财富；health=身体健康；family=家庭六亲；academic=学业考试；timing=岁运应期时机。',
+                },
+                methodId: {
+                  enum: ['bazi', 'ziwei', 'bazi-ziwei'],
+                  description:
+                    '统一解读方法 ID：bazi=八字，ziwei=紫微斗数，bazi-ziwei=八字紫微合参；传入后优先于 system。',
+                },
+                topicId: {
+                  enum: [...THEMATIC_TOPICS],
+                  description: '统一解读主题 ID；优先于兼容字段 topic。',
+                },
+                subtopicId: {
+                  type: 'string',
+                  description: '统一解读主题细项 ID；必须属于所选主题。',
+                },
+                scope: {
+                  enum: [...PROMPT_SCOPE_IDS],
+                  description: '统一分析范围；优先于兼容字段 promptScope。',
                 },
                 question: {
                   type: 'string',
@@ -2018,6 +2100,9 @@ export function getPublicApiOpenApiDocument(
                 question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+                topicId: { type: 'string', description: '统一解读主题 ID。' },
+                subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+                scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一解读资料范围。' },
                 schools: {
                   type: 'array',
                   minItems: 1,
@@ -2343,6 +2428,7 @@ function analyzeNameApi(input: JsonRecord) {
 
 function buildNameGenerationPromptApi(input: JsonRecord) {
   const candidates = generateNameApi(input);
+  const selection = readSharedPromptSelection(input, 'name.generation');
   const birth = readNamingBirthInput(input);
   const gender = readEnum(input, 'gender', ['男', '女', '通用'] as const, '通用');
   const preferredCharacters = readString(input, 'preferredCharacters', '').trim() || undefined;
@@ -2372,18 +2458,23 @@ function buildNameGenerationPromptApi(input: JsonRecord) {
       forbiddenCharacters,
       generationCharacter,
       generationPosition,
+      selection,
     }),
+    ...(selection ? { selection } : {}),
   };
 }
 
 function buildNameAnalysisPromptApi(input: JsonRecord) {
   const analysis = analyzeNameApi(input);
+  const selection = readSharedPromptSelection(input, 'name.chineseAnalysis');
   return {
     analysis,
     prompt: buildChineseNameAnalysisPrompt({
       analysis,
       question: readString(input, 'question', '').trim() || undefined,
+      selection,
     }),
+    ...(selection ? { selection } : {}),
   };
 }
 
@@ -2448,12 +2539,15 @@ function analyzeNumberApi(input: JsonRecord) {
 
 function buildNumberEnergyPromptApi(input: JsonRecord) {
   const analysis = analyzeNumberApi(input);
+  const selection = readSharedPromptSelection(input, 'name.numberEnergy');
   return {
     analysis,
     prompt: buildNumberEnergyPrompt({
       analysis,
       question: readString(input, 'question', '').trim() || undefined,
+      selection,
     }),
+    ...(selection ? { selection } : {}),
   };
 }
 
@@ -2795,7 +2889,74 @@ function buildMetaphysicsPrompt(
     readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。';
   const schools =
     input.schools === undefined ? undefined : readPromptSchools(input, getPromptSchoolIds(method));
-  return buildSharedMetaphysicsPrompt(basePrompt, question, { method, schools });
+  const topicId = input.topicId === undefined ? undefined : readString(input, 'topicId', '').trim();
+  const subtopicId =
+    input.subtopicId === undefined ? undefined : readString(input, 'subtopicId', '').trim();
+  const selectionScope =
+    input.promptScope === undefined ? undefined : readString(input, 'promptScope', '').trim();
+  return buildSharedMetaphysicsPrompt(basePrompt, question, {
+    method,
+    schools,
+    topicId,
+    subtopicId,
+    scope: selectionScope,
+  });
+}
+
+function readSharedPromptSelection(input: JsonRecord, methodId: string, scopeKey = 'scope') {
+  if (
+    input.topicId === undefined &&
+    input.subtopicId === undefined &&
+    input[scopeKey] === undefined
+  ) {
+    return undefined;
+  }
+  const resolution = resolvePromptSelection({
+    methodId,
+    topicId: input.topicId === undefined ? undefined : readString(input, 'topicId', ''),
+    subtopicId: input.subtopicId === undefined ? undefined : readString(input, 'subtopicId', ''),
+    scope: input[scopeKey] === undefined ? undefined : readString(input, scopeKey, ''),
+  });
+  if (!resolution.ok) {
+    throw new ApiError(400, 'BAD_REQUEST', resolution.message);
+  }
+  return resolution.selection;
+}
+
+function applyPromptSelectionToText(
+  prompt: string,
+  selection: Parameters<typeof getPromptSelectionSection>[0] | undefined,
+  fallbackTask: string,
+) {
+  if (!selection) return prompt;
+  const taskMatch = /【任务】\n([\s\S]*?)(?=\n\n【问题】|$)/u.exec(prompt);
+  const task = taskMatch?.[1]?.trim() || fallbackTask;
+  const replacement = [
+    `【解读选择】\n${getPromptSelectionSection(selection)}`,
+    `【任务】\n${buildPromptSelectionTask(task, selection)}`,
+  ].join('\n\n');
+  return taskMatch ? prompt.replace(taskMatch[0], replacement) : `${prompt}\n\n${replacement}`;
+}
+
+function toZiweiPromptScope(scope: string | undefined): ZiweiPromptScope | undefined {
+  if (!scope) return undefined;
+  if (scope === 'natal') return 'origin';
+  if (scope === 'custom' || scope === 'event' || scope === 'date-range' || scope === 'cycle') {
+    return undefined;
+  }
+  return scope as ZiweiPromptScope;
+}
+
+function toBaziFortuneScope(scope: string | undefined) {
+  const mapped = {
+    natal: 'natal',
+    full: 'full',
+    decadal: 'dayun',
+    yearly: 'year',
+    monthly: 'month',
+    daily: 'day',
+  } as const;
+  return scope ? mapped[scope as keyof typeof mapped] : undefined;
 }
 
 function calculateBaZhaiApi(input: JsonRecord) {
@@ -2851,6 +3012,7 @@ function calculateBaZhaiApi(input: JsonRecord) {
 
 function buildBaZhaiPrompt(input: JsonRecord) {
   const result = calculateBaZhaiApi(input);
+  const selection = readSharedPromptSelection(input, 'bazhai', 'promptScope');
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildSharedMetaphysicsPrompt(
@@ -2864,9 +3026,14 @@ function buildBaZhaiPrompt(input: JsonRecord) {
             : readPromptSchools(input, getPromptSchoolIds('bazhai')),
         measurement: (result as { directionMeasurement?: { promptText: string } })
           .directionMeasurement?.promptText,
+        topicId: input.topicId === undefined ? undefined : readString(input, 'topicId', ''),
+        subtopicId:
+          input.subtopicId === undefined ? undefined : readString(input, 'subtopicId', ''),
+        scope: input.promptScope === undefined ? undefined : readString(input, 'promptScope', ''),
       },
     ),
     fullResult: result,
+    resultSummary: selection ? { selection } : undefined,
   });
 }
 
@@ -2898,10 +3065,12 @@ function calculateZodiacApi(input: JsonRecord) {
 
 function buildZodiacPrompt(input: JsonRecord) {
   const result = calculateZodiacApi(input);
+  const selection = readSharedPromptSelection(input, 'zodiac');
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildMetaphysicsPrompt(result.prompt, input, 'zodiac'),
     fullResult: result,
+    resultSummary: selection ? { selection } : undefined,
   });
 }
 
@@ -2941,10 +3110,12 @@ function calculateTaiyiApi(input: JsonRecord) {
 
 function buildTaiyiPrompt(input: JsonRecord) {
   const result = calculateTaiyiApi(input);
+  const selection = readSharedPromptSelection(input, 'taiyi', 'promptScope');
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildMetaphysicsPrompt(result.prompt, input, 'taiyi'),
     fullResult: result,
+    resultSummary: selection ? { selection } : undefined,
   });
 }
 
@@ -2975,6 +3146,7 @@ function calculateWuyunLiuqiApi(input: JsonRecord) {
 
 function buildWuyunLiuqiPromptApi(input: JsonRecord) {
   const result = calculateWuyunLiuqiApi(input);
+  const selection = readSharedPromptSelection(input, 'wuyun-liuqi');
   const schools = readPromptSchools(input, getPromptSchoolIds('wuyun-liuqi')) as
     Array<'yunqi' | 'sitian' | 'kezhu'> | undefined;
   return buildPromptApiResult({
@@ -2983,6 +3155,7 @@ function buildWuyunLiuqiPromptApi(input: JsonRecord) {
       result,
       readString(input, 'question', '').trim() || undefined,
       schools,
+      selection,
     ),
     resultSummary: {
       yearGanZhi: result.input.yearGanZhi,
@@ -2994,6 +3167,7 @@ function buildWuyunLiuqiPromptApi(input: JsonRecord) {
       annualConformities: result.annualConformities,
       movementSteps: result.movementSteps,
       qiSteps: result.qiSteps,
+      ...(selection ? { selection } : {}),
     },
     fullResult: result,
   });
@@ -3045,12 +3219,18 @@ function buildHuangjiJingshiPromptApi(input: JsonRecord) {
   const result = calculateHuangjiJingshiApi(input);
   const schools = readPromptSchools(input, getPromptSchoolIds('huangji-jingshi')) as
     Array<'yuanhui' | 'guaqi'> | undefined;
+  const topicId = input.topicId === undefined ? undefined : readString(input, 'topicId', '').trim();
+  const subtopicId =
+    input.subtopicId === undefined ? undefined : readString(input, 'subtopicId', '').trim();
+  const scope = input.scope === undefined ? undefined : readString(input, 'scope', '').trim();
+  const selection = readDivinationPromptSelection('huangji', input);
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: huangjiJingshi.buildHuangjiJingshiPrompt(
       result,
       readString(input, 'question', '').trim() || undefined,
       schools,
+      { topicId, subtopicId, scope },
     ),
     resultSummary: {
       input: result.input,
@@ -3059,6 +3239,7 @@ function buildHuangjiJingshiPromptApi(input: JsonRecord) {
       conversion: result.conversion,
       forecast: result.forecast,
       dateTimeForecast: result.dateTimeForecast,
+      ...(selection ? { selection } : {}),
     },
     fullResult: result,
   });
@@ -3239,28 +3420,34 @@ function calculateResidentialApi(input: JsonRecord) {
 
 function buildResidentialPrompt(input: JsonRecord) {
   const result = calculateResidentialApi(input);
+  const selection = readSharedPromptSelection(input, 'residential', 'promptScope');
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildMetaphysicsPrompt(result.prompt, input, 'residential'),
     fullResult: result,
+    resultSummary: selection ? { selection } : undefined,
   });
 }
 
 function buildXuanKongPrompt(input: JsonRecord) {
   const result = calculateXuanKongApi(input);
+  const selection = readSharedPromptSelection(input, 'xuankong', 'promptScope');
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildMetaphysicsPrompt(result.prompt, input, 'xuankong'),
     fullResult: result,
+    resultSummary: selection ? { selection } : undefined,
   });
 }
 
 function buildQizhengPrompt(input: JsonRecord) {
   const result = calculateQizhengApi(input);
+  const selection = readSharedPromptSelection(input, 'qizheng', 'promptScope');
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildMetaphysicsPrompt(result.prompt, input, 'qizheng'),
     fullResult: result,
+    resultSummary: selection ? { selection } : undefined,
   });
 }
 
@@ -3352,8 +3539,12 @@ function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> |
   return variants;
 }
 
-function buildBaziFortuneContextFromInput(result: BaziChartResult, input: JsonRecord) {
-  const scope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
+function buildBaziFortuneContextFromInput(
+  result: BaziChartResult,
+  input: JsonRecord,
+  scopeOverride?: (typeof BAZI_FORTUNE_SCOPES)[number],
+) {
+  const scope = scopeOverride ?? readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
   const selection: BaziFortuneSelectionValue = {
     scope,
     cycleIndex:
@@ -3386,8 +3577,16 @@ function buildBaziFortuneContextFromInput(result: BaziChartResult, input: JsonRe
 
 function buildBaziPrompt(input: JsonRecord) {
   const result = calculateBazi(input);
-  const fortuneScope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
-  const fortuneSelectionContext = buildBaziFortuneContextFromInput(result, input);
+  const selection = readSharedPromptSelection(input, 'bazi');
+  const selectedFortuneScope =
+    input.baziFortuneScope === undefined ? toBaziFortuneScope(selection?.scope) : undefined;
+  const fortuneScope = readEnum(
+    input,
+    'baziFortuneScope',
+    BAZI_FORTUNE_SCOPES,
+    selectedFortuneScope ?? 'natal',
+  );
+  const fortuneSelectionContext = buildBaziFortuneContextFromInput(result, input, fortuneScope);
   const schoolValue = input.school;
   const school =
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
@@ -3403,6 +3602,7 @@ function buildBaziPrompt(input: JsonRecord) {
     fortuneScope,
     school,
     schools,
+    selection,
   });
   const prompt = basePrompt;
 
@@ -3415,6 +3615,7 @@ function buildBaziPrompt(input: JsonRecord) {
     },
     resultSummary: {
       ...buildCompactBaziResult(result),
+      ...(selection ? { selection } : {}),
     },
   });
 }
@@ -3449,6 +3650,7 @@ function calculateBaziCompatibilityApi(input: JsonRecord) {
 
 function buildBaziCompatibilityPromptApi(input: JsonRecord) {
   const result = calculateBaziCompatibilityApi(input);
+  const selection = readSharedPromptSelection(input, 'bazi');
   const promptParts = getCompatibilityPrompt(
     readString(input, 'question', ''),
     result.charts.person1,
@@ -3460,19 +3662,24 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
       person2Name: readString(input, 'person2Name', ''),
     },
   );
-  const basePrompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
+  const rawPrompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
   const schools = readPromptSchools(input, BAZI_MULTI_SCHOOLS) as BaziSchool[] | undefined;
   const normalizedSchools = schools
     ? Array.from(new Set(schools.map((school) => (school === 'traditional' ? 'ziping' : school))))
     : undefined;
   const schoolText = formatPromptSchoolGuidance('bazi', normalizedSchools);
-  const prompt = schoolText
+  const basePrompt = schoolText
     ? insertPromptSectionBeforeHeading(
-        basePrompt,
+        rawPrompt,
         '【问题】',
         `【${normalizedSchools && normalizedSchools.length > 1 ? '多派合参' : '解读流派'}】\n${schoolText}`,
       )
-    : basePrompt;
+    : rawPrompt;
+  const prompt = applyPromptSelectionToText(
+    basePrompt,
+    selection,
+    '请依据双方八字盘面和关系资料完成解读。',
+  );
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt,
@@ -3482,6 +3689,7 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
       dayMasterRelation: result.compatibility.dayMasterRelation,
       spousePalaceRelations: result.compatibility.spousePalaceRelations,
       summaryFact: result.compatibility.summaryFact,
+      ...(selection ? { selection } : {}),
     },
   });
 }
@@ -3539,7 +3747,14 @@ async function calculateZiwei(input: JsonRecord) {
 }
 
 async function buildZiweiPrompt(input: JsonRecord) {
-  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
+  const selection = readSharedPromptSelection(input, 'ziwei');
+  const selectedScope = toZiweiPromptScope(selection?.scope);
+  const scope = readEnum(
+    input,
+    'promptScope',
+    ZIWEI_PROMPT_SCOPES,
+    selectedScope ?? 'origin',
+  ) as ZiweiPromptScope;
   const result = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
   const promptTopic =
     input.promptTopic === undefined
@@ -3561,13 +3776,17 @@ async function buildZiweiPrompt(input: JsonRecord) {
     mode,
     school,
     schools,
+    selection,
   });
 
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt,
     fullResult: serializableResult,
-    resultSummary: buildCompactZiweiResult(serializableResult),
+    resultSummary: {
+      ...buildCompactZiweiResult(serializableResult),
+      ...(selection ? { selection } : {}),
+    },
   });
 }
 
@@ -3610,6 +3829,7 @@ async function calculateZiweiCompatibilityApi(input: JsonRecord) {
 
 async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
   assertNoRandomOptions(input, '紫微双盘是确定性计算，不接受 seed 或 replay。');
+  const selection = readSharedPromptSelection(input, 'ziwei');
   const charts = await readZiweiCompatibilityCharts(input);
   const compatibility = analyzeZiweiCompatibility(
     charts.person1.payloadByScope.origin,
@@ -3622,7 +3842,7 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
     },
   );
   const topic = readEnum(input, 'promptTopic', ZIWEI_PROMPT_TOPICS, 'relationship');
-  const prompt = buildCombinedZiweiCompatibilityPrompt({
+  const basePrompt = buildCombinedZiweiCompatibilityPrompt({
     primaryPayload: charts.person1.payloadByScope.origin,
     partnerPayload: charts.person2.payloadByScope.origin,
     primaryAstrolabe: charts.person1.astrolabe,
@@ -3636,6 +3856,11 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
     isCustomQuestion: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') === 'custom',
     schools: readPromptSchools(input, ZIWEI_SCHOOLS) as ZiweiSchool[] | undefined,
   });
+  const prompt = applyPromptSelectionToText(
+    basePrompt,
+    selection,
+    '请依据双方紫微盘面和跨盘关系资料完成解读。',
+  );
   const fullResult = {
     charts: {
       person1: buildSerializableZiweiResult(charts.person1),
@@ -3652,13 +3877,21 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
       status: compatibility.status,
       people: compatibility.people,
       summaryFact: compatibility.summaryFact,
+      ...(selection ? { selection } : {}),
     },
   });
 }
 
 async function buildBaziZiweiPrompt(input: JsonRecord) {
   const baziResult = calculateBazi(input);
-  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
+  const selection = readSharedPromptSelection(input, 'bazi-ziwei');
+  const selectedScope = toZiweiPromptScope(selection?.scope);
+  const scope = readEnum(
+    input,
+    'promptScope',
+    ZIWEI_PROMPT_SCOPES,
+    selectedScope ?? 'origin',
+  ) as ZiweiPromptScope;
   const ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
   const baziTopic = readEnum(
     input,
@@ -3700,6 +3933,7 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     baziSchools,
     ziweiSchool,
     ziweiSchools,
+    selection,
   });
   const fullResult = {
     bazi: baziResult,
@@ -3713,13 +3947,16 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     resultSummary: {
       bazi: buildCompactBaziResult(baziResult),
       ziwei: buildCompactZiweiResult(serializableZiweiResult),
+      ...(selection ? { selection } : {}),
     },
   });
 }
 
 async function buildThematicConsultationPromptApi(input: JsonRecord) {
-  const system =
+  const legacySystem =
     readOptionalEnum(input, 'system', ['bazi_ziwei', 'bazi', 'ziwei'] as const) ?? 'bazi_ziwei';
+  const requestedMethodId =
+    input.methodId === undefined ? undefined : readString(input, 'methodId', '').trim();
   const rawTopic =
     typeof input.topic === 'string'
       ? input.topic
@@ -3727,8 +3964,45 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
         ? input.thematicTopic
         : undefined;
   const topic = normalizeThematicTopic(rawTopic);
+  const topicId = input.topicId === undefined ? undefined : readString(input, 'topicId', '').trim();
+  const subtopicId =
+    input.subtopicId === undefined ? undefined : readString(input, 'subtopicId', '').trim();
   const question = typeof input.question === 'string' ? input.question.trim() : undefined;
-  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
+  const promptScope = readEnum(
+    input,
+    'promptScope',
+    ZIWEI_PROMPT_SCOPES,
+    'origin',
+  ) as ZiweiPromptScope;
+  const genericScope =
+    input.scope === undefined ? undefined : readEnum(input, 'scope', PROMPT_SCOPE_IDS, 'natal');
+  const methodId =
+    requestedMethodId ??
+    (legacySystem === 'bazi' ? 'bazi' : legacySystem === 'ziwei' ? 'ziwei' : 'bazi-ziwei');
+  const selectionResolution = resolvePromptSelection({
+    methodId,
+    topicId: topicId ?? topic,
+    subtopicId,
+    scope: genericScope,
+  });
+  if (!selectionResolution.ok) {
+    throw new ApiError(400, 'BAD_REQUEST', selectionResolution.message);
+  }
+  if (!['bazi', 'ziwei', 'bazi-ziwei'].includes(selectionResolution.selection.methodId)) {
+    throw new ApiError(400, 'BAD_REQUEST', '大类主题咨询只支持 bazi、ziwei、bazi-ziwei 方法。');
+  }
+  const system: 'bazi_ziwei' | 'bazi' | 'ziwei' =
+    selectionResolution.selection.methodId === 'bazi'
+      ? 'bazi'
+      : selectionResolution.selection.methodId === 'ziwei'
+        ? 'ziwei'
+        : 'bazi_ziwei';
+  const scope =
+    genericScope === undefined
+      ? promptScope
+      : genericScope === 'natal'
+        ? 'origin'
+        : (genericScope as ZiweiPromptScope);
   const mode = readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode;
 
   const baziSchoolValue = input.baziSchool;
@@ -3763,7 +4037,11 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
 
   const promptResult = buildThematicConsultationPrompt({
     system,
+    methodId: selectionResolution.selection.methodId,
     topic,
+    topicId: topicId ?? topic,
+    subtopicId,
+    scope: genericScope,
     question,
     mode,
     baziResult,
@@ -3777,9 +4055,13 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
 
   const fullResult = {
     system: promptResult.system,
+    methodId: promptResult.methodId,
     topic: promptResult.topic,
     topicLabel: promptResult.topicLabel,
     topicTitle: promptResult.topicTitle,
+    subtopicId: promptResult.subtopicId,
+    subtopicLabel: promptResult.subtopicLabel,
+    selection: promptResult.selection,
     focusPalaces: promptResult.focusPalaces,
     focusElements: promptResult.focusElements,
     scope: promptResult.scope,
@@ -3789,9 +4071,13 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
 
   const resultSummary: Record<string, unknown> = {
     system: promptResult.system,
+    methodId: promptResult.methodId,
     topic: promptResult.topic,
     topicLabel: promptResult.topicLabel,
     topicTitle: promptResult.topicTitle,
+    subtopicId: promptResult.subtopicId,
+    subtopicLabel: promptResult.subtopicLabel,
+    selection: promptResult.selection,
     focusPalaces: promptResult.focusPalaces,
     focusElements: promptResult.focusElements,
     scope: promptResult.scope,
@@ -4191,6 +4477,7 @@ function calculateAstrolabeSynastryApi(input: JsonRecord) {
 
 function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
   const result = calculateAstrolabeSynastryApi(input);
+  const selection = readSharedPromptSelection(input, 'astrolabe-synastry');
   const prompt = buildAstrolabeSynastryPrompt({
     chart1: result.charts.person1,
     chart2: result.charts.person2,
@@ -4201,6 +4488,7 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
       input.schools === undefined
         ? undefined
         : readPromptSchools(input, getPromptSchoolIds('astrolabe')),
+    selection,
   });
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
@@ -4219,6 +4507,7 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
         tightAspects: result.synastry.summary.tightAspects,
       },
       summaryFact: buildCompactAstrolabeSynastrySummaryFact(result.synastry.summaryFact),
+      ...(selection ? { selection } : {}),
     },
   });
 }
@@ -4328,6 +4617,7 @@ function buildDivinationPromptResult(
             }
           : rawData;
   const summary = getDivinationSummaryBlocks(method, promptData);
+  const promptSelection = readDivinationPromptSelection(method, input);
   const prompt = buildDivinationPromptText(method, question, promptData, input);
 
   return buildPromptApiResult({
@@ -4335,7 +4625,28 @@ function buildDivinationPromptResult(
     prompt,
     summary,
     fullResult,
+    resultSummary: promptSelection ? { ...summary, selection: promptSelection } : undefined,
   });
+}
+
+function readDivinationPromptSelection(
+  method: Exclude<DivinationMethodId, 'random'>,
+  input: JsonRecord,
+) {
+  if (input.topicId === undefined && input.subtopicId === undefined && input.scope === undefined) {
+    return undefined;
+  }
+  const promptMethodId = method === 'huangji' ? 'huangji-jingshi' : method;
+  const resolution = resolvePromptSelection({
+    methodId: promptMethodId,
+    topicId: input.topicId === undefined ? undefined : readString(input, 'topicId', ''),
+    subtopicId: input.subtopicId === undefined ? undefined : readString(input, 'subtopicId', ''),
+    scope: input.scope === undefined ? undefined : readString(input, 'scope', ''),
+  });
+  if (!resolution.ok) {
+    throw new ApiError(400, 'BAD_REQUEST', resolution.message);
+  }
+  return resolution.selection;
 }
 
 function calculateDivinationData(
@@ -4404,6 +4715,10 @@ function buildDivinationPromptText(
     method === 'ssgw' || input.schools === undefined
       ? undefined
       : readPromptSchools(input, getPromptSchoolIds(method as PromptSchoolMethod));
+  const topicId = input.topicId === undefined ? undefined : readString(input, 'topicId', '').trim();
+  const subtopicId =
+    input.subtopicId === undefined ? undefined : readString(input, 'subtopicId', '').trim();
+  const scope = input.scope === undefined ? undefined : readString(input, 'scope', '').trim();
 
   return buildDivinationPrompt(method, question, data as DivinationData, supplementaryInfo, {
     isCustomQuestion:
@@ -4419,6 +4734,9 @@ function buildDivinationPromptText(
         ? buildAstrolabePromptScopeText(input, data as AstrolabeData)
         : undefined,
     schools,
+    topicId,
+    subtopicId,
+    scope,
   });
 }
 

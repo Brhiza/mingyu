@@ -24,6 +24,9 @@ const huangjiJingshiSchema = z.object({
     .optional()
     .describe('自定义纪元下距第一年已经过的完整年数；仅与 epochYear 同时使用'),
   question: z.string().min(1).optional().describe('希望 AI 重点解释的问题'),
+  topicId: z.string().optional().describe('统一解读主题 ID'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID'),
+  scope: z.string().optional().describe('统一分析范围 ID'),
 });
 
 function calculateHuangjiJingshi(args: z.infer<typeof huangjiJingshiSchema>) {
@@ -88,7 +91,11 @@ export function registerHuangjiJingshiTool(server: McpServer) {
         const result = calculateHuangjiJingshi(args);
         return createStructuredToolResult({
           result,
-          prompt: huangjiJingshi.buildHuangjiJingshiPrompt(result, args.question, args.schools),
+          prompt: huangjiJingshi.buildHuangjiJingshiPrompt(result, args.question, args.schools, {
+            topicId: args.topicId,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成皇极经世提示词失败'));

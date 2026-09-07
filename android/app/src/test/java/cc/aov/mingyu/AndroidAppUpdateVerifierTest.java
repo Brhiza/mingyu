@@ -94,6 +94,31 @@ public class AndroidAppUpdateVerifierTest {
     }
 
     @Test
+    public void acceptsTheVersionedOfficialCdnRoute() throws Exception {
+        URL checksum = AndroidAppUpdateVerifier.requireReleaseAssetUrl(
+            "https://download.aov.cc/apps/mingyu/android/1.2.3/mingyu-1.2.3.apk.sha256",
+            ".sha256"
+        );
+        URL apk = AndroidAppUpdateVerifier.requireOfficialApkUrl(
+            "https://download.aov.cc/apps/mingyu/android/1.2.3/mingyu-1.2.3.apk",
+            checksum
+        );
+        assertEquals("download.aov.cc", apk.getHost());
+        assertTrue(
+            AndroidAppUpdateVerifier.isAllowedRedirectUrl(
+                new URL("https://download.aov.cc/apps/mingyu/android/1.2.3/mingyu-1.2.3.apk")
+            )
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> AndroidAppUpdateVerifier.requireOfficialApkUrl(
+                "https://download.aov.cc/apps/mingyu/android/1.2.4/mingyu-1.2.4.apk",
+                checksum
+            )
+        );
+    }
+
+    @Test
     public void validatesRedirectHostsAndChecksum() throws Exception {
         assertTrue(
             AndroidAppUpdateVerifier.isAllowedRedirectUrl(

@@ -3947,6 +3947,54 @@ select {
   box-shadow: none;
 }
 
+.divination-prompt-selection {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--surface-muted) 48%, transparent);
+}
+
+.divination-prompt-selection-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.divination-prompt-selection-head strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.divination-prompt-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.divination-prompt-selection-grid .form-item label {
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.divination-prompt-selection-grid .divination-select-shell {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+}
+
+.divination-prompt-selection-grid .workspace-ui-dropdown-trigger {
+  width: 100%;
+  min-height: 38px;
+  padding-inline: 10px 24px;
+  text-align: left;
+}
+
 .divination-question-field {
   display: grid;
   gap: 10px;
@@ -7837,6 +7885,20 @@ select {
   .divination-method-btn span {
     font-size: 10px;
     line-height: 1.35;
+  }
+
+  .divination-prompt-selection {
+    padding: 10px;
+  }
+
+  .divination-prompt-selection-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .divination-prompt-selection-grid {
+    grid-template-columns: 1fr;
   }
 
   .divination-mobile-control-row {

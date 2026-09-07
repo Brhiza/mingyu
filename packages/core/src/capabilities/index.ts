@@ -10,6 +10,7 @@ import {
 } from '../divination/config';
 import { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
 import { MingyuCoreError } from '../shared/result';
+import { getPromptMethodCapability, type PromptMethodCapability } from '../prompt/framework';
 
 export { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
 
@@ -90,6 +91,8 @@ export interface SystemCapability {
   };
   optionalDependencies?: string[];
   notes?: string[];
+  /** 提示词双层选择能力；算法计算与解读主题保持正交。 */
+  prompt?: PromptMethodCapability;
 }
 
 export interface MingyuCapabilities {
@@ -1465,13 +1468,18 @@ export function getCapabilities(): MingyuCapabilities {
     package: 'mingyu-core',
     version: MINGYU_CORE_VERSION,
     schemaVersion: MINGYU_SCHEMA_VERSION,
-    systems: structuredClone(systems),
+    systems: systems.map((system) => {
+      const prompt = getPromptMethodCapability(system.id);
+      return prompt ? { ...structuredClone(system), prompt } : structuredClone(system);
+    }),
   };
 }
 
 export function getSystemCapability(id: string): SystemCapability | undefined {
   const capability = systems.find((item) => item.id === id);
-  return capability ? structuredClone(capability) : undefined;
+  if (!capability) return undefined;
+  const prompt = getPromptMethodCapability(capability.id);
+  return prompt ? { ...structuredClone(capability), prompt } : structuredClone(capability);
 }
 
 /** 查询必须存在的能力；适合客户端、API 和表单把未知 ID 转成明确错误。 */

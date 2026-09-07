@@ -179,7 +179,7 @@ function buildDivinationAiPrompt(options: {
           ? buildTarotSpreadTask(options.data as TarotData)
           : options.method === 'lenormand' && (options.data as LenormandData).cards.length === 1
             ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
-            : buildTaskText(options.method),
+            : buildTaskText(options.method, options.data),
       ),
       buildPromptSection('问题', options.question || '请依据本次盘面资料完成解读。'),
     ]),

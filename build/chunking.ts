@@ -15,6 +15,11 @@ export function getManualChunk(id: string) {
     return 'tyme-vendor';
   }
 
+  const nameNumberTupleMatch = id.match(/generated-character-tuples-(\d+)\.(?:ts|js)$/);
+  if (nameNumberTupleMatch) {
+    return `name-number-data-${nameNumberTupleMatch[1]}`;
+  }
+
   if (
     id.includes('packages/core/src/ziwei/iztro/pattern-detection.ts') ||
     id.includes('packages/core/dist/ziwei/iztro/pattern-detection.js')
@@ -22,13 +27,27 @@ export function getManualChunk(id: string) {
     return 'ziwei-patterns';
   }
 
+  const astrologyDataMatch = id.match(/astrology[\\/]vendor[\\/]caelus[\\/]([^\\/]+)\.js$/);
+  if (astrologyDataMatch) {
+    return `astrology-data-${astrologyDataMatch[1].replace('_cheb', '')}`;
+  }
+
+  if (id.includes('packages/core/src/calendar/') || id.includes('packages/core/dist/calendar/')) {
+    return 'calendar-engine';
+  }
+
+  if (id.includes('packages/core/src/ganzhi/') || id.includes('packages/core/dist/ganzhi/')) {
+    return 'ganzhi-engine';
+  }
+
   if (
-    id.includes('packages/core/src/calendar/') ||
-    id.includes('packages/core/dist/calendar/') ||
-    id.includes('packages/core/src/ganzhi/') ||
-    id.includes('packages/core/dist/ganzhi/') ||
     id.includes('packages/core/src/prompt-evidence/') ||
-    id.includes('packages/core/dist/prompt-evidence/') ||
+    id.includes('packages/core/dist/prompt-evidence/')
+  ) {
+    return 'prompt-evidence';
+  }
+
+  if (
     id.includes('packages/core/src/shared/') ||
     id.includes('packages/core/dist/shared/') ||
     id.includes('packages/core/src/wuxing.ts') ||

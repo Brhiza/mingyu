@@ -25,17 +25,19 @@ import {
   type ZiweiSchool,
 } from './public-api';
 import { formatPromptSchoolGuidance } from './schools';
+import {
+  PROMPT_TOPIC_IDS,
+  getPromptSubtopicOptions,
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  requirePromptSelection,
+  type PromptMethodId,
+  type PromptScopeId,
+  type PromptSelection,
+  type PromptSubtopicId,
+} from './framework';
 
-export const THEMATIC_TOPICS = [
-  'general',
-  'relationship',
-  'career',
-  'wealth',
-  'health',
-  'family',
-  'academic',
-  'timing',
-] as const;
+export const THEMATIC_TOPICS = PROMPT_TOPIC_IDS;
 
 export type ThematicTopic = (typeof THEMATIC_TOPICS)[number];
 
@@ -50,6 +52,7 @@ export interface ThematicTopicConfig {
   combinedTask: string;
   ziweiFocusPalaces: string[];
   baziFocusElements: string[];
+  subtopics?: ReadonlyArray<{ id: string; label: string }>;
 }
 
 export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> = {
@@ -175,6 +178,26 @@ export const THEMATIC_TOPIC_CONFIGS: Record<ThematicTopic, ThematicTopicConfig> 
   },
 };
 
+function buildNatalSafeTask(task: string, selection: PromptSelection) {
+  if (selection.scope !== 'natal') return task;
+  const clauses = task
+    .split(/(?<=[，；。])/u)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !/(大运|流年|岁运|运限|应期|年份|时间节点)/u.test(item));
+  const normalized = clauses
+    .join('，')
+    .replace(/，+/gu, '，')
+    .replace(/^，|，$/gu, '');
+  return [normalized, '本次仅依据已提供的本命资料，不推演未列出的岁运或运限。']
+    .filter(Boolean)
+    .join('。');
+}
+
+function getFocusElements(elements: string[], selection: PromptSelection) {
+  return selection.subtopicLabel ? [...elements, `主题细项：${selection.subtopicLabel}`] : elements;
+}
+
 /**
  * 将任意输入的主题字符串或别名规范化为 8 大类主题之一，不匹配时平滑回退到 'general'。
  */
@@ -219,12 +242,19 @@ export function normalizeThematicTopic(topic?: string | null): ThematicTopic {
 
 export function getThematicTopicConfig(topic?: string | null): ThematicTopicConfig {
   const normalized = normalizeThematicTopic(topic);
-  return THEMATIC_TOPIC_CONFIGS[normalized];
+  return {
+    ...THEMATIC_TOPIC_CONFIGS[normalized],
+    subtopics: getPromptSubtopicOptions(normalized),
+  };
 }
 
 export interface ThematicConsultationOptions {
   system?: 'bazi_ziwei' | 'bazi' | 'ziwei';
+  methodId?: PromptMethodId | string;
   topic?: ThematicTopic | string;
+  topicId?: string;
+  subtopicId?: PromptSubtopicId | string;
+  scope?: PromptScopeId | string;
   question?: string;
   currentTime?: Date | string;
   // 八字资料
@@ -242,9 +272,13 @@ export interface ThematicConsultationOptions {
 }
 
 export interface ThematicConsultationResult {
+  methodId: PromptMethodId;
   topic: ThematicTopic;
   topicLabel: string;
   topicTitle: string;
+  subtopicId?: string;
+  subtopicLabel?: string;
+  selection: PromptSelection;
   system: 'bazi_ziwei' | 'bazi' | 'ziwei';
   prompt: string;
   focusPalaces: string[];
@@ -258,14 +292,55 @@ export interface ThematicConsultationResult {
 export function buildThematicConsultationPrompt(
   options: ThematicConsultationOptions,
 ): ThematicConsultationResult {
-  const config = getThematicTopicConfig(options.topic);
   const rawSystem = options.system ?? 'bazi_ziwei';
+  const requestedMethodId =
+    options.methodId ??
+    (rawSystem === 'bazi' ? 'bazi' : rawSystem === 'ziwei' ? 'ziwei' : 'bazi-ziwei');
   const effectiveSystem: 'bazi_ziwei' | 'bazi' | 'ziwei' =
-    rawSystem === 'bazi_ziwei' && !options.baziResult && options.ziweiResult
-      ? 'ziwei'
-      : rawSystem === 'bazi_ziwei' && options.baziResult && !options.ziweiResult
-        ? 'bazi'
-        : rawSystem;
+    requestedMethodId === 'bazi'
+      ? 'bazi'
+      : requestedMethodId === 'ziwei'
+        ? 'ziwei'
+        : requestedMethodId === 'bazi-ziwei'
+          ? 'bazi_ziwei'
+          : rawSystem === 'bazi_ziwei' && !options.baziResult && options.ziweiResult
+            ? 'ziwei'
+            : rawSystem === 'bazi_ziwei' && options.baziResult && !options.ziweiResult
+              ? 'bazi'
+              : rawSystem;
+
+  if (
+    requestedMethodId !== 'bazi' &&
+    requestedMethodId !== 'ziwei' &&
+    requestedMethodId !== 'bazi-ziwei'
+  ) {
+    throw new Error(`大类主题咨询不支持方法 ${requestedMethodId}。`);
+  }
+
+  const legacyScope =
+    options.scope ??
+    (options.fortuneSelectionContext?.scope === 'dayun'
+      ? 'decadal'
+      : options.fortuneSelectionContext?.scope === 'year'
+        ? 'yearly'
+        : options.fortuneSelectionContext?.scope === 'month'
+          ? 'monthly'
+          : options.fortuneSelectionContext?.scope === 'day'
+            ? 'daily'
+            : options.ziweiScope === 'origin'
+              ? 'natal'
+              : options.ziweiScope === 'full'
+                ? 'full'
+                : options.ziweiScope === 'age'
+                  ? 'natal'
+                  : options.ziweiScope);
+  const selection = requirePromptSelection({
+    methodId: requestedMethodId,
+    topicId: options.topicId ?? options.topic,
+    subtopicId: options.subtopicId,
+    scope: legacyScope,
+  });
+  const config = getThematicTopicConfig(selection.topicId);
 
   const question = options.question?.trim() || config.defaultQuestion;
   const isCustomMode = options.mode === 'custom';
@@ -284,9 +359,12 @@ export function buildThematicConsultationPrompt(
       null,
       fortuneSelection ? 'fortune' : 'general',
     );
-    const taskText = isCustomMode
-      ? buildCustomQuestionTask('八字排盘资料', 'bazi')
-      : buildPromptTask(config.baziTask, 'bazi');
+    const taskText = buildPromptSelectionTask(
+      isCustomMode
+        ? buildCustomQuestionTask('八字排盘资料', 'bazi')
+        : buildPromptTask(buildNatalSafeTask(config.baziTask, selection), 'bazi'),
+      selection,
+    );
 
     const schoolSection = options.baziSchools?.length
       ? buildBaziSchoolsPromptSection(options.baziResult, options.baziSchools)
@@ -298,7 +376,7 @@ export function buildThematicConsultationPrompt(
       buildPromptSection('当前时间', formatPromptCurrentTime(currentDate)),
       buildPromptSection(
         '分析主题',
-        `咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n八字核心考察：${config.baziFocusElements.join('、')}`,
+        `${getPromptSelectionSection(selection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n八字核心考察：${getFocusElements(config.baziFocusElements, selection).join('、')}`,
       ),
       buildPromptSection('排盘信息', baziChartText),
       fortuneSelection
@@ -307,18 +385,26 @@ export function buildThematicConsultationPrompt(
             `${fortuneSelection.analysisObject}\n${fortuneSelection.focus}`,
           )
         : '',
+      buildPromptSection(
+        '资料范围',
+        fortuneSelection ? fortuneSelection.analysisObject : '八字：本命原局；未提供具体岁运资料。',
+      ),
       buildPromptSection('任务', taskText),
       buildPromptSection('问题', question),
     ]);
 
     return {
       topic: config.topic,
+      methodId: selection.methodId,
       topicLabel: config.name,
       topicTitle: config.title,
+      subtopicId: selection.subtopicId,
+      subtopicLabel: selection.subtopicLabel,
+      selection,
       system: 'bazi',
       prompt: promptText,
       focusPalaces: [],
-      focusElements: config.baziFocusElements,
+      focusElements: getFocusElements(config.baziFocusElements, selection),
       scope: fortuneSelection ? fortuneSelection.analysisObject : '本命盘',
     };
   }
@@ -341,9 +427,12 @@ export function buildThematicConsultationPrompt(
             })
           : formatZiweiEvidenceText(options.ziweiResult, ziweiScope);
 
-    const taskText = isCustomMode
-      ? buildCustomQuestionTask('紫微盘面资料', ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei')
-      : buildPromptTask(config.ziweiTask, ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei');
+    const taskText = buildPromptSelectionTask(
+      isCustomMode
+        ? buildCustomQuestionTask('紫微盘面资料', ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei')
+        : buildPromptTask(config.ziweiTask, ziweiScope === 'origin' ? 'ziwei-natal' : 'ziwei'),
+      selection,
+    );
 
     const selectedSchools = options.ziweiSchools?.length ? options.ziweiSchools : [];
     const schoolText = selectedSchools.length
@@ -360,17 +449,27 @@ export function buildThematicConsultationPrompt(
       buildPromptSection('当前时间', formatPromptCurrentTime(currentDate)),
       buildPromptSection(
         '分析主题',
-        `咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n紫微核心宫位：${config.ziweiFocusPalaces.map((p) => (p.endsWith('宫') ? p : `${p}宫`)).join('、')}`,
+        `${getPromptSelectionSection(selection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n紫微核心宫位：${config.ziweiFocusPalaces.map((p) => (p.endsWith('宫') ? p : `${p}宫`)).join('、')}`,
       ),
       buildPromptSection('紫微盘面资料', chartText),
+      buildPromptSection(
+        '资料范围',
+        ziweiScope === 'origin'
+          ? '紫微：本命盘；未提供具体运限资料。'
+          : `紫微：${selection.scopeLabel}。`,
+      ),
       buildPromptSection('任务', taskText),
       buildPromptSection('问题', question),
     ]);
 
     return {
       topic: config.topic,
+      methodId: selection.methodId,
       topicLabel: config.name,
       topicTitle: config.title,
+      subtopicId: selection.subtopicId,
+      subtopicLabel: selection.subtopicLabel,
+      selection,
       system: 'ziwei',
       prompt: promptText,
       focusPalaces: config.ziweiFocusPalaces,
@@ -405,9 +504,12 @@ export function buildThematicConsultationPrompt(
     .filter(Boolean)
     .join('\n\n');
 
-  const taskText = isCustomMode
-    ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
-    : buildPromptTask(config.combinedTask, 'bazi-ziwei');
+  const taskText = buildPromptSelectionTask(
+    isCustomMode
+      ? buildCustomQuestionTask('八字和紫微盘面资料', 'bazi-ziwei')
+      : buildPromptTask(buildNatalSafeTask(config.combinedTask, selection), 'bazi-ziwei'),
+    selection,
+  );
 
   const promptText = joinPromptSections([
     buildPromptGuidance('bazi-ziwei'),
@@ -415,7 +517,7 @@ export function buildThematicConsultationPrompt(
     buildPromptSection('当前时间', formatPromptCurrentTime(currentDate)),
     buildPromptSection(
       '分析主题',
-      `咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n核心考查：紫微重点审视${config.ziweiFocusPalaces.map((p) => `${p}宫`).join('、')}；八字重点审视${config.baziFocusElements.join('、')}`,
+      `${getPromptSelectionSection(selection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n核心考查：紫微重点审视${config.ziweiFocusPalaces.map((p) => `${p}宫`).join('、')}；八字重点审视${getFocusElements(config.baziFocusElements, selection).join('、')}`,
     ),
     buildPromptSection('八字排盘信息', baziChartText),
     fortuneSelection
@@ -424,6 +526,17 @@ export function buildThematicConsultationPrompt(
           `${fortuneSelection.analysisObject}\n${fortuneSelection.focus}`,
         )
       : '',
+    buildPromptSection(
+      '资料范围',
+      [
+        fortuneSelection
+          ? `八字：${fortuneSelection.analysisObject}`
+          : '八字：本命原局；未提供具体岁运资料。',
+        ziweiScope === 'origin'
+          ? '紫微：本命盘；未提供具体运限资料。'
+          : `紫微：${selection.scopeLabel}。`,
+      ].join('\n'),
+    ),
     buildPromptSection('紫微盘面信息', ziweiText),
     buildPromptSection('任务', taskText),
     buildPromptSection('问题', question),
@@ -431,8 +544,12 @@ export function buildThematicConsultationPrompt(
 
   return {
     topic: config.topic,
+    methodId: selection.methodId,
     topicLabel: config.name,
     topicTitle: config.title,
+    subtopicId: selection.subtopicId,
+    subtopicLabel: selection.subtopicLabel,
+    selection,
     system: 'bazi_ziwei',
     prompt: promptText,
     focusPalaces: config.ziweiFocusPalaces,

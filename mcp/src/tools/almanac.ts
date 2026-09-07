@@ -133,6 +133,9 @@ export function registerAlmanacTool(server: McpServer) {
           result,
           prompt: buildCommonDivinationPrompt('almanac', question, result, args.promptMode, {
             schools: args.schools,
+            topicId: args.topicId,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
           }),
         });
       } catch (error) {

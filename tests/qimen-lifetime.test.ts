@@ -193,7 +193,7 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
   assert.match(prompt, /【人生阶段资料】/);
   assert.match(prompt, /【周期触发与事件簇】/);
   assert.match(prompt, /【传统依据】/);
-  assert.match(prompt, /【输出要求】/);
+  assert.doesNotMatch(prompt, /【输出要求】/);
 
   // 2. 流派依据融入
   assert.match(prompt, /《御定奇门宝鉴》/);

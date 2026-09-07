@@ -74,6 +74,9 @@ export function registerXiaoliurenTool(server: McpServer) {
             result,
             args.promptMode,
             {
+              topicId: args.topicId,
+              subtopicId: args.subtopicId,
+              scope: args.scope,
               schools: args.schools,
             },
           ),

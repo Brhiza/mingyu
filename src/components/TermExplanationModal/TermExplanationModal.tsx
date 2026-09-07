@@ -1,27 +1,10 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, type ReactNode } from 'react';
 import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
-import {
-  lookupMetaphysicsTerm,
-  type MetaphysicsTerm,
-  type TermContextData,
-} from '@/lib/metaphysics-terms';
-
-export type { TermContextData };
+import { lookupMetaphysicsTerm, type MetaphysicsTerm } from '@/lib/metaphysics-terms';
+import { TermExplanationContext, type TermContextData } from './TermExplanationContext';
 
 export interface MetaphysicsTermWithContext extends MetaphysicsTerm {
   context?: TermContextData;
-}
-
-export interface TermExplanationContextValue {
-  openTerm: (term: string, context?: TermContextData) => void;
-}
-
-export const TermExplanationContext = createContext<TermExplanationContextValue>({
-  openTerm: () => {},
-});
-
-export function useMetaphysicsTermModal() {
-  return useContext(TermExplanationContext);
 }
 
 export interface TermExplanationModalProps {

@@ -26,6 +26,7 @@ import {
   readMcpIntegerLikeInRange,
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
+import { readMcpPromptSelection } from './prompt-helpers.js';
 
 const astrolabeSchema = z.object({
   name: z.string().optional().describe('姓名（可选）'),
@@ -228,6 +229,9 @@ export function registerAstrolabeTool(server: McpServer) {
             astrolabeTopic: args.astrolabeTopic,
             astrolabeScopeText: buildAstrolabePromptScopeText(args, result),
             schools: args.schools,
+            topicId: args.topicId,
+            subtopicId: args.subtopicId,
+            scope: args.scope,
           }),
         });
       } catch (error) {
@@ -267,6 +271,12 @@ export function registerAstrolabeTool(server: McpServer) {
     async (args) => {
       try {
         const result = buildAstrolabeSynastryResult(args);
+        const selection = readMcpPromptSelection({
+          methodId: 'astrolabe-synastry',
+          topicId: args.topicId,
+          subtopicId: args.subtopicId,
+          scope: args.scope,
+        });
         return createStructuredToolResult({
           result,
           prompt: buildAstrolabeSynastryPrompt({
@@ -276,6 +286,7 @@ export function registerAstrolabeTool(server: McpServer) {
             question: args.question,
             promptMode: args.promptMode,
             schools: args.schools,
+            selection,
           }),
         });
       } catch (error) {

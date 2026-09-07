@@ -39,6 +39,12 @@ import { buildSolarTimeInfoText, buildTimeInfoText } from './formatters';
 import { buildTarotSpreadTask } from './tarot-spread';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
+import {
+  buildPromptSelectionTask,
+  getPromptSelectionSection,
+  requirePromptSelection,
+  type PromptSelection,
+} from './framework';
 
 export interface DivinationSummaryBlocks {
   title: string;
@@ -625,6 +631,9 @@ export interface DivinationPromptOptions extends PromptBuildOptions {
   astrolabeTopic?: AstrolabePromptTopic;
   astrolabeScopeText?: string;
   schools?: readonly string[];
+  topicId?: string;
+  subtopicId?: string;
+  scope?: string;
 }
 
 function formatSsgwPrompt(data: SsgwData) {
@@ -665,7 +674,23 @@ function formatSsgwPrompt(data: SsgwData) {
 }
 
 export function buildDivinationPromptDocument(options: DivinationPromptOptions): PromptDocument {
+  const promptMethodId = options.method === 'huangji' ? 'huangji-jingshi' : options.method;
+  const hasPromptSelection =
+    options.topicId !== undefined ||
+    options.subtopicId !== undefined ||
+    options.scope !== undefined;
+  const selection: PromptSelection | undefined = hasPromptSelection
+    ? requirePromptSelection({
+        methodId: promptMethodId,
+        topicId: options.topicId,
+        subtopicId: options.subtopicId,
+        scope: options.scope,
+      })
+    : undefined;
   if (options.method === 'ssgw') {
+    if (selection) {
+      throw new Error('三山国王灵签提示词只接受本次签谱资料，不支持通用主题选择。');
+    }
     return buildPromptDocument(formatSsgwPrompt(options.data as SsgwData));
   }
 
@@ -677,7 +702,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
     options.astrolabeScopeText &&
     /周期关键星象|行运取样|主要行运相位/.test(options.astrolabeScopeText),
   );
-  const task =
+  const baseTask =
     options.method === 'astrolabe' && !options.isCustomQuestion
       ? buildPromptTask(
           `请依据星体、宫位、相位和盘面证据，重点分析${ASTROLABE_TOPIC_LABELS[astrolabeTopic]}并回答【问题】。`,
@@ -687,7 +712,8 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         ? buildTarotSpreadTask(options.data as TarotData)
         : options.method === 'lenormand' && (options.data as LenormandData).cards.length === 1
           ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
-          : buildTaskText(options.method);
+          : buildTaskText(options.method, options.data);
+  const task = selection ? buildPromptSelectionTask(baseTask, selection) : baseTask;
   const templateText =
     options.method === 'liuyao'
       ? buildLiuyaoTemplateText(liuyaoTemplate)
@@ -717,6 +743,7 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
       }),
     ),
     buildPromptSchoolSection(promptSchoolMethod as PromptSchoolMethod, options.schools),
+    selection ? buildPromptSection('解读选择', getPromptSelectionSection(selection)) : '',
     templateText ? buildPromptSection('问题范围', templateText) : '',
     buildPromptSection('任务', task),
     buildPromptSection('问题', question),

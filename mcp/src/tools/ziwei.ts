@@ -6,6 +6,7 @@ import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt'
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei/iztro';
 import {
   PROMPT_MODES,
+  PROMPT_SCOPE_IDS,
   ZIWEI_PROMPT_SCOPES,
   ZIWEI_PROMPT_TOPICS,
   ZIWEI_SCHOOLS,
@@ -28,6 +29,7 @@ import {
   createStructuredToolResult,
   getErrorMessage,
 } from '../tool-results.js';
+import { applyMcpPromptSelection, readMcpPromptSelection } from './prompt-helpers.js';
 import {
   assertMcpBirthDate,
   readMcpIntegerLikeInRange,
@@ -93,6 +95,9 @@ const ziweiPromptSchema = ziweiSchema.extend({
     .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
     .optional()
     .describe('紫微多派合参；分别解读后归纳共同结论、分歧和综合判断'),
+  topicId: z.string().optional().describe('统一解读主题 ID；优先于旧版 promptTopic'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
+  scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围；会同步紫微运限层'),
 });
 
 const ziweiCompatibilitySchema = z.object({
@@ -114,7 +119,23 @@ const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
     .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
     .optional()
     .describe('紫微合盘解读流派；选择两个或三个时生成多派合参'),
+  topicId: z.string().optional().describe('统一解读主题 ID'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
+  scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围'),
 });
+
+function mapPromptScopeToZiweiScope(scope: string | undefined): ZiweiPromptScope | undefined {
+  const mapped: Record<string, ZiweiPromptScope | undefined> = {
+    natal: 'origin',
+    full: 'full',
+    decadal: 'decadal',
+    yearly: 'yearly',
+    monthly: 'monthly',
+    daily: 'daily',
+    hourly: 'hourly',
+  };
+  return scope === undefined ? undefined : mapped[scope];
+}
 
 export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
   const useTrueSolarTime = args.useTrueSolarTime ?? false;
@@ -198,7 +219,17 @@ export function registerZiweiTool(server: McpServer) {
     async (args) => {
       try {
         const input = buildMcpZiweiChartInput(args);
-        const scope = (args.promptScope ?? 'origin') as ZiweiPromptScope;
+        const selection = readMcpPromptSelection({
+          methodId: 'ziwei',
+          topicId: args.topicId,
+          subtopicId: args.subtopicId,
+          scope: args.scope,
+        });
+        const scope = (
+          args.scope !== undefined
+            ? mapPromptScopeToZiweiScope(selection?.scope)
+            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'origin')
+        ) as ZiweiPromptScope;
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
@@ -213,6 +244,7 @@ export function registerZiweiTool(server: McpServer) {
             mode: (args.promptMode ?? 'framework') as PromptMode,
             school: args.school as ZiweiSchool | undefined,
             schools: args.schools as ZiweiSchool[] | undefined,
+            selection,
           }),
         });
       } catch (error) {
@@ -295,22 +327,32 @@ export function registerZiweiTool(server: McpServer) {
           },
           compatibility,
         };
+        const selection = readMcpPromptSelection({
+          methodId: 'ziwei',
+          topicId: args.topicId,
+          subtopicId: args.subtopicId,
+          scope: args.scope,
+        });
         return createStructuredToolResult({
           result,
-          prompt: buildCombinedZiweiCompatibilityPrompt({
-            primaryPayload: person1.payloadByScope.origin,
-            partnerPayload: person2.payloadByScope.origin,
-            primaryAstrolabe: person1.astrolabe,
-            partnerAstrolabe: person2.astrolabe,
-            primaryTrueSolarEvidence: person1.trueSolarEvidence,
-            partnerTrueSolarEvidence: person2.trueSolarEvidence,
-            primaryName: args.person1.name,
-            partnerName: args.person2.name,
-            topic: args.promptTopic ?? 'relationship',
-            question: args.question ?? '',
-            isCustomQuestion: args.promptMode === 'custom',
-            schools: args.schools,
-          }),
+          prompt: applyMcpPromptSelection(
+            buildCombinedZiweiCompatibilityPrompt({
+              primaryPayload: person1.payloadByScope.origin,
+              partnerPayload: person2.payloadByScope.origin,
+              primaryAstrolabe: person1.astrolabe,
+              partnerAstrolabe: person2.astrolabe,
+              primaryTrueSolarEvidence: person1.trueSolarEvidence,
+              partnerTrueSolarEvidence: person2.trueSolarEvidence,
+              primaryName: args.person1.name,
+              partnerName: args.person2.name,
+              topic: args.promptTopic ?? 'relationship',
+              question: args.question ?? '',
+              isCustomQuestion: args.promptMode === 'custom',
+              schools: args.schools,
+            }),
+            selection,
+            '请依据双方紫微盘面、宫位叠盘和四化证据完成关系解读。',
+          ),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成紫微双盘提示词失败'));

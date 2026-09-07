@@ -1,4 +1,4 @@
-import type { PromptSourceKey, QueryInputState } from '@/lib/query-state';
+import { defaultInputState, type PromptSourceKey, type QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
 import type { AlmanacData } from '@/types/divination';
 import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
@@ -102,30 +102,158 @@ function isObjectRecord(item: unknown): item is Record<string, unknown> {
   return typeof item === 'object' && item !== null;
 }
 
+const QUERY_INPUT_STRING_KEYS: readonly (keyof QueryInputState)[] = [
+  'name',
+  'year',
+  'month',
+  'day',
+  'birthHour',
+  'birthMinute',
+  'birthPlace',
+  'birthLongitude',
+  'birthLatitude',
+  'partnerName',
+  'partnerYear',
+  'partnerMonth',
+  'partnerDay',
+  'partnerBirthHour',
+  'partnerBirthMinute',
+  'partnerBirthPlace',
+  'partnerBirthLongitude',
+  'partnerBirthLatitude',
+];
+
+const QUERY_INPUT_BOOLEAN_KEYS: readonly (keyof QueryInputState)[] = [
+  'isLeapMonth',
+  'useTrueSolarTime',
+  'partnerIsLeapMonth',
+  'partnerUseTrueSolarTime',
+];
+
+const QUERY_INPUT_INDEX_KEYS: readonly (keyof QueryInputState)[] = [
+  'timeIndex',
+  'partnerTimeIndex',
+];
+
+function isQueryInputState(value: unknown): value is QueryInputState {
+  if (!isObjectRecord(value)) return false;
+  if (
+    !['single', 'compatibility'].includes(value.analysisMode as string) ||
+    !['bazi', 'ziwei', 'astrolabe'].includes(value.chartType as string) ||
+    !['male', 'female'].includes(value.gender as string) ||
+    !['solar', 'lunar'].includes(value.dateType as string) ||
+    !['male', 'female'].includes(value.partnerGender as string) ||
+    !['solar', 'lunar'].includes(value.partnerDateType as string)
+  ) {
+    return false;
+  }
+  if (QUERY_INPUT_STRING_KEYS.some((key) => typeof value[key] !== 'string')) return false;
+  if (QUERY_INPUT_BOOLEAN_KEYS.some((key) => typeof value[key] !== 'boolean')) return false;
+  return QUERY_INPUT_INDEX_KEYS.every((key) => typeof value[key] === 'number' || value[key] === '');
+}
+
+function normalizeQueryInput(value: unknown, fallbackName = ''): QueryInputState | null {
+  if (!isObjectRecord(value)) return null;
+  const candidate = {
+    ...defaultInputState,
+    ...value,
+    name: typeof value.name === 'string' ? value.name : fallbackName,
+  };
+  return isQueryInputState(candidate) ? candidate : null;
+}
+
+function normalizePersonalHistoryRecord(
+  item: Record<string, unknown>,
+): PersonalHistoryRecord | null {
+  if (
+    item.type !== 'single' ||
+    typeof item.id !== 'string' ||
+    typeof item.name !== 'string' ||
+    typeof item.updatedAt !== 'string'
+  ) {
+    return null;
+  }
+  const input = normalizeQueryInput(item.input, item.name);
+  if (!input) return null;
+  return {
+    id: item.id,
+    type: 'single',
+    name: item.name,
+    gender: item.gender === 'female' ? 'female' : input.gender,
+    chartType:
+      item.chartType === 'ziwei' || item.chartType === 'astrolabe'
+        ? item.chartType
+        : input.chartType,
+    ...(typeof item.workspaceSource === 'string'
+      ? { workspaceSource: item.workspaceSource as PromptSourceKey }
+      : {}),
+    birthText: typeof item.birthText === 'string' ? item.birthText : buildBirthText(input),
+    input,
+    ...(typeof item.createdAt === 'string' ? { createdAt: item.createdAt } : {}),
+    ...(typeof item.lastUsedAt === 'string' ? { lastUsedAt: item.lastUsedAt } : {}),
+    updatedAt: item.updatedAt,
+    ...(typeof item.generatedName === 'boolean' ? { generatedName: item.generatedName } : {}),
+    ...(typeof item.pinned === 'boolean' ? { pinned: item.pinned } : {}),
+  };
+}
+
+function normalizeCompatibilityHistoryRecord(
+  item: Record<string, unknown>,
+): CompatibilityHistoryRecord | null {
+  if (
+    item.type !== 'compatibility' ||
+    typeof item.id !== 'string' ||
+    typeof item.name !== 'string' ||
+    typeof item.primaryName !== 'string' ||
+    typeof item.partnerName !== 'string' ||
+    typeof item.updatedAt !== 'string'
+  ) {
+    return null;
+  }
+  const input = normalizeQueryInput(item.input, item.primaryName);
+  if (!input) return null;
+  return {
+    id: item.id,
+    type: 'compatibility',
+    name: item.name,
+    primaryName: item.primaryName,
+    partnerName: item.partnerName,
+    input,
+    updatedAt: item.updatedAt,
+    ...(typeof item.primaryNameGenerated === 'boolean'
+      ? { primaryNameGenerated: item.primaryNameGenerated }
+      : {}),
+    ...(typeof item.partnerNameGenerated === 'boolean'
+      ? { partnerNameGenerated: item.partnerNameGenerated }
+      : {}),
+    ...(typeof item.pinned === 'boolean' ? { pinned: item.pinned } : {}),
+  };
+}
+
 function readRecords<T>(
   key: string,
-  isValidRecord: (item: Record<string, unknown>) => boolean,
+  normalizeRecord: (item: Record<string, unknown>) => T | null,
 ): T[] {
   const parsed = safeStorage.getJSON<unknown>(key, null);
   if (!Array.isArray(parsed)) {
     return [];
   }
-  return parsed.filter((item): item is T => isObjectRecord(item) && isValidRecord(item));
+  return parsed.flatMap((item) => {
+    if (!isObjectRecord(item)) return [];
+    const normalized = normalizeRecord(item);
+    return normalized ? [normalized] : [];
+  });
 }
 
 function writeRecords<T>(key: string, records: T[], limit: number): boolean {
   const pending = records.slice(0, limit);
-  while (true) {
-    if (safeStorage.setJSON(key, pending)) {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event(HISTORY_RECORDS_EVENT));
-      }
-      return true;
-    }
-    if (pending.length === 0) break;
-    pending.pop();
+  if (!safeStorage.setJSON(key, pending)) {
+    return false;
   }
-  return false;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(HISTORY_RECORDS_EVENT));
+  }
+  return true;
 }
 
 function normalizeText(value: string | undefined) {
@@ -318,10 +446,7 @@ function createDivinationHistoryId() {
 }
 
 export function loadPersonalHistory() {
-  const records = readRecords<PersonalHistoryRecord>(
-    PERSONAL_HISTORY_STORAGE_KEY,
-    (item) => item.type === 'single' && typeof item.name === 'string',
-  );
+  const records = readRecords(PERSONAL_HISTORY_STORAGE_KEY, normalizePersonalHistoryRecord);
   const uniqueRecords = records.reduce<PersonalHistoryRecord[]>((cases, record) => {
     const duplicateIndex = cases.findIndex((candidate) =>
       isSamePersonalCase(candidate, record.name, record.input),
@@ -355,24 +480,37 @@ export function loadPersonalHistory() {
 }
 
 export function loadCompatibilityHistory() {
-  return readRecords<CompatibilityHistoryRecord>(
-    COMPATIBILITY_HISTORY_STORAGE_KEY,
-    (item) => item.type === 'compatibility' && typeof item.name === 'string',
-  );
+  return readRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, normalizeCompatibilityHistoryRecord);
 }
 
 export function loadDivinationHistory() {
-  return readRecords<ConsultationHistoryRecord>(
-    DIVINATION_HISTORY_STORAGE_KEY,
-    (item) =>
-      (item.type === 'divination' && typeof item.question === 'string') ||
-      (item.type === 'instant' &&
-        typeof item.question === 'string' &&
-        typeof item.path === 'string' &&
-        item.path.startsWith('/result?') &&
-        INSTANT_CHART_DEFINITIONS.some((definition) => definition.type === item.instantType) &&
-        (item.timeStandard === 'beijing' || item.timeStandard === 'true-solar')),
-  );
+  return readRecords<ConsultationHistoryRecord>(DIVINATION_HISTORY_STORAGE_KEY, (item) => {
+    if (
+      item.type === 'divination' &&
+      typeof item.id === 'string' &&
+      typeof item.question === 'string' &&
+      typeof item.requestedMethod === 'string' &&
+      typeof item.method === 'string' &&
+      isObjectRecord(item.draft) &&
+      isObjectRecord(item.session) &&
+      typeof item.updatedAt === 'string'
+    ) {
+      return item as unknown as DivinationHistoryRecord;
+    }
+    if (
+      item.type === 'instant' &&
+      typeof item.id === 'string' &&
+      typeof item.question === 'string' &&
+      typeof item.path === 'string' &&
+      item.path.startsWith('/result?') &&
+      INSTANT_CHART_DEFINITIONS.some((definition) => definition.type === item.instantType) &&
+      (item.timeStandard === 'beijing' || item.timeStandard === 'true-solar') &&
+      typeof item.updatedAt === 'string'
+    ) {
+      return item as unknown as InstantHistoryRecord;
+    }
+    return null;
+  });
 }
 
 export function upsertPersonalHistory(
@@ -439,7 +577,9 @@ export function upsertPersonalHistory(
     record,
     ...records.filter((item) => item.id !== id && !isSamePersonalCase(item, name, input)),
   ];
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
+  if (!writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES)) {
+    throw new Error('案例无法保存，浏览器存储空间不足；原有案例未被改动，请清理空间后重试');
+  }
   return next.slice(0, MAX_PERSONAL_CASES);
 }
 
@@ -491,7 +631,9 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
   };
 
   const next = [record, ...records.filter((item) => item.id !== id)];
-  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
+  if (!writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS)) {
+    throw new Error('合盘案例无法保存，浏览器存储空间不足；原有案例未被改动，请清理空间后重试');
+  }
   return next.slice(0, MAX_COMPATIBILITY_RECORDS);
 }
 
@@ -501,8 +643,7 @@ export function removePersonalHistory(id: string) {
   const next = selectedRecord
     ? records.filter((item) => !isSamePersonalCase(item, selectedRecord.name, selectedRecord.input))
     : records;
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
-  return next;
+  return writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES) ? next : records;
 }
 
 export function togglePersonalHistoryPin(id: string) {
@@ -513,8 +654,7 @@ export function togglePersonalHistoryPin(id: string) {
       ? { ...item, pinned: !selectedRecord.pinned }
       : item,
   );
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
-  return next;
+  return writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES) ? next : records;
 }
 
 export function touchPersonalHistoryUsage(id: string) {
@@ -528,22 +668,23 @@ export function touchPersonalHistoryUsage(id: string) {
       ? { ...item, lastUsedAt: now }
       : item,
   );
-  writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES);
-  return next;
+  return writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next, MAX_PERSONAL_CASES) ? next : records;
 }
 
 export function removeCompatibilityHistory(id: string) {
-  const next = loadCompatibilityHistory().filter((item) => item.id !== id);
-  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
-  return next;
+  const records = loadCompatibilityHistory();
+  const next = records.filter((item) => item.id !== id);
+  return writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS)
+    ? next
+    : records;
 }
 
 export function toggleCompatibilityHistoryPin(id: string) {
-  const next = loadCompatibilityHistory().map((item) =>
-    item.id === id ? { ...item, pinned: !item.pinned } : item,
-  );
-  writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS);
-  return next;
+  const records = loadCompatibilityHistory();
+  const next = records.map((item) => (item.id === id ? { ...item, pinned: !item.pinned } : item));
+  return writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next, MAX_COMPATIBILITY_RECORDS)
+    ? next
+    : records;
 }
 
 export function addDivinationHistory(

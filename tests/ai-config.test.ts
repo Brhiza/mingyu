@@ -403,6 +403,73 @@ test('自定义 AI 应直接请求合法的 HTTPS 公网域名', async (t) => {
   assert.deepEqual(body, { ok: true, models: ['public-model'] });
 });
 
+test('自定义 AI 域名解析到混合公网和内网地址时应整体拒绝', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async () => {
+    fetchCalled = true;
+    return new Response(JSON.stringify({ data: [] }), { status: 200 });
+  }) as typeof fetch;
+
+  const response = await handleAiModels(
+    new Request('https://example.com/api/v1/ai/models', {
+      method: 'POST',
+      body: JSON.stringify({
+        aiConfig: {
+          mode: 'custom',
+          apiKey: 'test-key',
+          baseUrl: 'https://api.example.com/v1',
+        },
+      }),
+    }),
+    undefined,
+    {
+      resolveHostname: async () => ['93.184.216.34', '192.168.1.10'],
+    },
+  );
+
+  const body = await response.json();
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, 'AI_CUSTOM_HOST_UNSAFE');
+  assert.equal(fetchCalled, false);
+});
+
+test('自定义 AI 请求器收到已校验的解析地址并按绑定运行时发起请求', async () => {
+  let resolvedAddresses: readonly string[] | undefined;
+  let requestedUrl = '';
+  const response = await handleAiModels(
+    new Request('https://example.com/api/v1/ai/models', {
+      method: 'POST',
+      body: JSON.stringify({
+        aiConfig: {
+          mode: 'custom',
+          apiKey: 'test-key',
+          baseUrl: 'https://api.example.com/v1',
+        },
+      }),
+    }),
+    undefined,
+    {
+      resolveHostname: async () => ['93.184.216.34'],
+      fetch: async (input, _init, addresses) => {
+        requestedUrl = String(input);
+        resolvedAddresses = addresses;
+        return new Response(JSON.stringify({ data: [{ id: 'pinned-model' }] }), { status: 200 });
+      },
+    },
+  );
+
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(body, { ok: true, models: ['pinned-model'] });
+  assert.equal(requestedUrl, 'https://api.example.com/v1/models');
+  assert.deepEqual(resolvedAddresses, ['93.184.216.34']);
+});
+
 test('自定义 AI 应拒绝上游地址跳转', async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => {
@@ -663,6 +730,45 @@ test('AI 流式响应中断时返回明确错误码', async (t) => {
   assert.match(text, /"content":"开头"/);
   assert.match(text, /"code":"AI_UPSTREAM_STREAM_ERROR"/);
   assert.match(text, /"detail":"upstream stream aborted"/);
+});
+
+test('AI 流式正文后收到上游错误时不得继续伪装为正常完成', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async () =>
+    new Response(
+      'data: {"choices":[{"delta":{"content":"开头"}}]}\n\ndata: {"error":{"code":"upstream_failed","message":"上游已停止生成"}}\n\ndata: [DONE]\n\n',
+      {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+      },
+    )) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: '测试流内错误' }],
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'free/cc',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  const text = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(text, /"content":"开头"/);
+  assert.match(text, /"code":"upstream_failed"/);
+  assert.match(text, /上游已停止生成/);
+  assert.doesNotMatch(text, /data: \[DONE\]/);
 });
 
 test('AI 流式响应长时间无新内容时主动中止上游', async (t) => {

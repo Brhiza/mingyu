@@ -11,6 +11,7 @@ import {
   BAZI_FORTUNE_SCOPES,
   BAZI_MULTI_SCHOOLS,
   BAZI_SCHOOLS,
+  PROMPT_SCOPE_IDS,
   PROMPT_MODES,
   buildBaziPromptForResult,
   type BaziPromptTopic,
@@ -29,6 +30,7 @@ import {
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
 import { applyPromptSchools } from './school-options.js';
+import { applyMcpPromptSelection, readMcpPromptSelection } from './prompt-helpers.js';
 
 const shenShaVariantsSchema = z
   .object({
@@ -111,6 +113,9 @@ const baziCompatibilityPromptSchema = baziCompatibilitySchema.extend({
     .refine((values) => new Set(values).size === values.length, '不能选择重复流派')
     .optional()
     .describe('八字合盘解读流派；选择两个或三个时生成多派合参'),
+  topicId: z.string().optional().describe('统一解读主题 ID'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
+  scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围'),
 });
 
 const baziPromptSchema = baziSchema.extend({
@@ -151,7 +156,22 @@ const baziPromptSchema = baziSchema.extend({
   baziFortuneYear: z.number().optional().describe('指定流年年份；选择流年及以下范围时必填'),
   baziFortuneMonth: z.number().optional().describe('指定流月序号；选择流月及以下范围时必填'),
   baziFortuneDay: z.number().optional().describe('指定流日序号；选择流日时必填'),
+  topicId: z.string().optional().describe('统一解读主题 ID；优先于旧版 promptTopic'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
+  scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围；会同步可用的八字岁运层'),
 });
+
+function mapPromptScopeToBaziFortuneScope(scope: string | undefined) {
+  const mapped: Record<string, (typeof BAZI_FORTUNE_SCOPES)[number] | undefined> = {
+    natal: 'natal',
+    full: 'full',
+    decadal: 'dayun',
+    yearly: 'year',
+    monthly: 'month',
+    daily: 'day',
+  };
+  return scope === undefined ? undefined : mapped[scope];
+}
 
 export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
   const useTrueSolarTime = args.useTrueSolarTime ?? false;
@@ -258,7 +278,14 @@ export function registerBaziTool(server: McpServer) {
       try {
         const person = buildBaziPerson(args);
         const result = baziCalculator.calculateBazi(person);
-        const fortuneScope = args.baziFortuneScope ?? 'natal';
+        const selection = readMcpPromptSelection({
+          methodId: 'bazi',
+          topicId: args.topicId,
+          subtopicId: args.subtopicId,
+          scope: args.scope,
+        });
+        const fortuneScope =
+          args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope) ?? 'natal';
         const requiresCycle = fortuneScope === 'dayun';
         const requiresYear = ['year', 'month', 'day'].includes(fortuneScope);
         const requiresMonth = fortuneScope === 'month' || fortuneScope === 'day';
@@ -305,9 +332,10 @@ export function registerBaziTool(server: McpServer) {
           topic: (args.promptTopic ?? 'general') as BaziPromptTopic,
           mode: (args.promptMode ?? 'framework') as PromptMode,
           fortuneSelectionContext,
-          fortuneScope: args.baziFortuneScope ?? 'natal',
+          fortuneScope,
           school: args.school as BaziSchool | undefined,
           schools: args.schools as BaziSchool[] | undefined,
+          selection,
         });
         return createStructuredToolResult({
           result: {
@@ -376,7 +404,17 @@ export function registerBaziTool(server: McpServer) {
           },
         );
         const basePrompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
-        const prompt = applyPromptSchools(basePrompt, 'bazi', args.schools);
+        const selection = readMcpPromptSelection({
+          methodId: 'bazi',
+          topicId: args.topicId,
+          subtopicId: args.subtopicId,
+          scope: args.scope,
+        });
+        const prompt = applyMcpPromptSelection(
+          applyPromptSchools(basePrompt, 'bazi', args.schools),
+          selection,
+          '请依据双方八字盘面和关系资料完成解读。',
+        );
         return createStructuredToolResult({
           result: { charts: { person1: chart1, person2: chart2 }, compatibility },
           prompt,

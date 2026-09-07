@@ -1498,6 +1498,32 @@ label.workspace-ui-field > span:first-child {
   min-width: 0;
 }
 
+.workspace-prompt-selection-fields {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-prompt-selection-method {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-prompt-selection-fields .workspace-ui-dropdown-trigger.is-field {
+  min-height: 40px;
+  min-width: 0;
+  padding: 8px 26px 8px 9px;
+  font-size: 12px;
+}
+
 .workspace-prompt-scope .workspace-ui-dropdown-trigger.is-field {
   min-height: 40px;
   padding: 8px 30px 8px 10px;
@@ -2124,6 +2150,17 @@ label.workspace-ui-field > span:first-child {
 
   .workspace-result-assistant-stage .workspace-prompt-composer-toolbar {
     gap: 6px;
+  }
+
+  .workspace-result-assistant-stage .workspace-prompt-selection-fields {
+    gap: 5px;
+  }
+
+  .workspace-result-assistant-stage
+    .workspace-prompt-selection-fields
+    .workspace-ui-dropdown-trigger.is-field {
+    padding-inline: 8px 24px;
+    font-size: 11.5px;
   }
 
   .workspace-result-assistant-stage .workspace-prompt-composer-toolbar .workspace-prompt-scope {

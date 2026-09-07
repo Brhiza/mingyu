@@ -318,19 +318,24 @@ export function InputPage() {
       return;
     }
     let recordId: string | undefined;
-    if (config.compatibility) {
-      const partnerError = validatePerson('partner');
-      if (partnerError) {
-        setError(partnerError);
-        return;
+    try {
+      if (config.compatibility) {
+        const partnerError = validatePerson('partner');
+        if (partnerError) {
+          setError(partnerError);
+          return;
+        }
+        recordId = upsertCompatibilityHistory(form)[0]?.id;
+      } else {
+        recordId = upsertPersonalHistory(
+          form,
+          config.promptSource,
+          routeCaseId ?? activeCaseId ?? undefined,
+        )[0]?.id;
       }
-      recordId = upsertCompatibilityHistory(form)[0]?.id;
-    } else {
-      recordId = upsertPersonalHistory(
-        form,
-        config.promptSource,
-        routeCaseId ?? activeCaseId ?? undefined,
-      )[0]?.id;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '案例保存失败，请稍后重试');
+      return;
     }
 
     startSubmitTransition(() => {

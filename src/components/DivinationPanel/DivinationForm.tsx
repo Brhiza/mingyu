@@ -21,6 +21,11 @@ import {
   resolveInteractiveLenormandCards,
 } from 'mingyu-core/divination/lenormand';
 import { secureRandomIndexSample, secureRandomInt } from 'mingyu-core/random';
+import {
+  getPromptMethodCapability,
+  getPromptSubtopicOptions,
+  getPromptTopicOptions,
+} from 'mingyu-core/prompt';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { PersonalHistoryRecord } from '@/lib/history-records';
 import { DropdownSelect } from '@/components/DropdownSelect';
@@ -125,6 +130,20 @@ const ALMANAC_SUPPLEMENTARY_INFO_FIELDS = [
   },
 ] as const satisfies readonly SupplementaryInfoModalField[];
 
+const PROMPT_SCOPE_LABELS: Record<string, string> = {
+  natal: '本命',
+  full: '完整资料',
+  decadal: '大限 / 大运',
+  yearly: '流年 / 年计',
+  monthly: '流月 / 月计',
+  daily: '流日 / 日计',
+  hourly: '流时 / 时计',
+  event: '当前事项',
+  'date-range': '日期范围',
+  cycle: '周期层级',
+  custom: '自定义范围',
+};
+
 function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   if (draft.method === 'liuyao' || draft.method === 'qimen' || draft.method === 'liuren') {
     return true;
@@ -157,6 +176,88 @@ interface DivinationFormProps {
   questionInputRef: React.RefObject<HTMLTextAreaElement | null>;
   cases?: PersonalHistoryRecord[];
   showHeading?: boolean;
+}
+
+function PromptSelectionFields({
+  draft,
+  updateDraft,
+}: Pick<DivinationFormProps, 'draft' | 'updateDraft'>) {
+  if (draft.method === 'ssgw') return null;
+  const methodId = draft.method === 'huangji' ? 'huangji-jingshi' : draft.method;
+  const capability = getPromptMethodCapability(methodId);
+  const topicOptions = getPromptTopicOptions(methodId);
+  const topicId = topicOptions.some((item) => item.id === draft.promptTopicId)
+    ? draft.promptTopicId!
+    : (topicOptions[0]?.id ?? 'general');
+  const subtopicOptions = getPromptSubtopicOptions(topicId, methodId);
+  const selectedSubtopic = subtopicOptions.some((item) => item.id === draft.promptSubtopicId)
+    ? draft.promptSubtopicId!
+    : '';
+  const scopeOptions = (capability?.scopeIds ?? []).map((value) => ({
+    value,
+    label: PROMPT_SCOPE_LABELS[value] ?? value,
+  }));
+  const selectedScope = scopeOptions.some((item) => item.value === draft.promptScope)
+    ? draft.promptScope!
+    : (capability?.defaultScope ?? scopeOptions[0]?.value ?? 'event');
+  const topicSelectOptions = topicOptions.map((item) => ({ value: item.id, label: item.label }));
+  const subtopicSelectOptions = subtopicOptions.map((item) => ({
+    value: item.id,
+    label: item.label,
+  }));
+
+  return (
+    <div className="divination-prompt-selection">
+      <div className="divination-prompt-selection-head">
+        <span>解读方法</span>
+        <strong>
+          {capability?.categoryLabel ?? '占问'} · {capability?.methodLabel ?? methodId}
+        </strong>
+      </div>
+      <div className="divination-prompt-selection-grid">
+        <div className="form-item">
+          <label htmlFor="divination-prompt-topic-select">解读主题</label>
+          <div className="divination-select-shell">
+            <DropdownSelect
+              id="divination-prompt-topic-select"
+              value={topicId}
+              options={topicSelectOptions}
+              onChange={(value) => {
+                updateDraft('promptTopicId', value);
+                updateDraft('promptSubtopicId', undefined);
+              }}
+            />
+          </div>
+        </div>
+        {subtopicOptions.length ? (
+          <div className="form-item">
+            <label htmlFor="divination-prompt-subtopic-select">主题细项</label>
+            <div className="divination-select-shell">
+              <DropdownSelect
+                id="divination-prompt-subtopic-select"
+                value={selectedSubtopic}
+                options={[{ value: '', label: '不限定' }, ...subtopicSelectOptions]}
+                onChange={(value) => updateDraft('promptSubtopicId', value || undefined)}
+              />
+            </div>
+          </div>
+        ) : null}
+        {scopeOptions.length > 1 ? (
+          <div className="form-item">
+            <label htmlFor="divination-prompt-scope-select">分析范围</label>
+            <div className="divination-select-shell">
+              <DropdownSelect
+                id="divination-prompt-scope-select"
+                value={selectedScope}
+                options={scopeOptions}
+                onChange={(value) => updateDraft('promptScope', value)}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export function DivinationForm({
@@ -328,6 +429,13 @@ export function DivinationForm({
     updateDraft('lenormandInteractiveSamples', []);
   }
 
+  function updateMethod(value: DivinationDraft['method']) {
+    updateDraft('method', value);
+    updateDraft('promptTopicId', undefined);
+    updateDraft('promptSubtopicId', undefined);
+    updateDraft('promptScope', undefined);
+  }
+
   if (isAlmanac) {
     return (
       <>
@@ -345,7 +453,7 @@ export function DivinationForm({
                   key={item.value}
                   type="button"
                   className={`divination-method-btn ${draft.method === item.value ? 'is-active' : ''}`}
-                  onClick={() => updateDraft('method', item.value)}
+                  onClick={() => updateMethod(item.value)}
                 >
                   <strong>{item.label}</strong>
                   <span>{item.description}</span>
@@ -353,6 +461,8 @@ export function DivinationForm({
               ))}
             </div>
           ) : null}
+
+          <PromptSelectionFields draft={draft} updateDraft={updateDraft} />
 
           <AlmanacForm
             draft={draft}
@@ -397,7 +507,7 @@ export function DivinationForm({
                 key={item.value}
                 type="button"
                 className={`divination-method-btn ${draft.method === item.value ? 'is-active' : ''}`}
-                onClick={() => updateDraft('method', item.value)}
+                onClick={() => updateMethod(item.value)}
               >
                 <strong>{item.label}</strong>
                 <span>{item.description}</span>
@@ -405,6 +515,8 @@ export function DivinationForm({
             ))}
           </div>
         ) : null}
+
+        <PromptSelectionFields draft={draft} updateDraft={updateDraft} />
 
         <div className="person-info-form">
           <div className="form-row">
@@ -697,9 +809,7 @@ export function DivinationForm({
                       value={draft.method}
                       options={GENERAL_DIVINATION_METHOD_OPTIONS}
                       ariaLabel="占卜类型"
-                      onChange={(value) =>
-                        updateDraft('method', value as DivinationDraft['method'])
-                      }
+                      onChange={(value) => updateMethod(value as DivinationDraft['method'])}
                     />
                   </div>
                 ) : null}

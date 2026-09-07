@@ -15,6 +15,7 @@ import {
   buildNumberEnergyPrompt,
 } from 'mingyu-core/name-number';
 import { resultOutputSchema } from '../schemas.js';
+import { resolvePromptSelection } from 'mingyu-core/prompt';
 import {
   createErrorToolResult,
   createStructuredToolResult,
@@ -61,6 +62,24 @@ const namingPreferenceShape = {
     .optional()
     .describe('辈分字位于名字首字或末字，默认首字'),
 };
+
+const promptSelectionShape = {
+  topicId: z.string().optional().describe('统一解读主题 ID'),
+  subtopicId: z.string().optional().describe('统一解读主题细项 ID'),
+  scope: z.string().optional().describe('统一分析范围 ID'),
+};
+
+function readNamePromptSelection(
+  args: { topicId?: string; subtopicId?: string; scope?: string },
+  methodId: string,
+) {
+  if (args.topicId === undefined && args.subtopicId === undefined && args.scope === undefined) {
+    return undefined;
+  }
+  const result = resolvePromptSelection({ methodId, ...args });
+  if (!result.ok) throw new Error(result.message);
+  return result.selection;
+}
 
 function toBaziBirthDraft(birth?: z.infer<typeof namingBirth>): NamingBirthInput | undefined {
   if (!birth) return undefined;
@@ -144,6 +163,7 @@ export function registerNameNumberTools(server: McpServer) {
           .describe('名字字数，默认2'),
         preferredElements: z.array(wuxing).max(5).optional().describe('偏好五行，可多选'),
         ...namingPreferenceShape,
+        ...promptSelectionShape,
         limit: z.number().int().min(1).max(20).optional().describe('进入提示词的候选数量，默认10'),
         birth: namingBirth.optional(),
       },
@@ -152,6 +172,7 @@ export function registerNameNumberTools(server: McpServer) {
     async (args) => {
       try {
         const birthDraft = toBaziBirthDraft(args.birth);
+        const selection = readNamePromptSelection(args, 'name.generation');
         const candidates = generateChineseNames({
           ...args,
           birth: birthDraft,
@@ -173,6 +194,7 @@ export function registerNameNumberTools(server: McpServer) {
               forbiddenCharacters: args.forbiddenCharacters,
               generationCharacter: args.generationCharacter,
               generationPosition: args.generationPosition,
+              selection,
             }),
           },
         });
@@ -194,6 +216,7 @@ export function registerNameNumberTools(server: McpServer) {
           .describe('姓氏字数，默认1'),
         preferredElements: z.array(wuxing).max(5).optional().describe('偏好五行，用于评估用字匹配'),
         birth: namingBirth.optional(),
+        ...promptSelectionShape,
         question: z.string().max(1000).optional().describe('希望重点了解的问题'),
       },
       outputSchema: resultOutputSchema,
@@ -206,10 +229,15 @@ export function registerNameNumberTools(server: McpServer) {
           xiYong: args.preferredElements,
           birth: toBaziBirthDraft(args.birth),
         });
+        const selection = readNamePromptSelection(args, 'name.chineseAnalysis');
         return createStructuredToolResult({
           result: {
             analysis,
-            prompt: buildChineseNameAnalysisPrompt({ analysis, question: args.question }),
+            prompt: buildChineseNameAnalysisPrompt({
+              analysis,
+              question: args.question,
+              selection,
+            }),
           },
         });
       } catch (error) {
@@ -288,16 +316,21 @@ export function registerNameNumberTools(server: McpServer) {
         value: z.string().min(1).max(64).describe('待解析的数字或字母编号'),
         purpose: z.enum(['phone', 'plate', 'general']).optional().describe('使用类型，默认general'),
         question: z.string().max(1000).optional().describe('希望重点了解的问题'),
+        ...promptSelectionShape,
       },
       outputSchema: resultOutputSchema,
     },
-    async ({ value, purpose, question }) => {
+    async ({ value, purpose, question, topicId, subtopicId, scope }) => {
       try {
         const analysis = analyzeNumber(value, purpose);
+        const selection = readNamePromptSelection(
+          { topicId, subtopicId, scope },
+          'name.numberEnergy',
+        );
         return createStructuredToolResult({
           result: {
             analysis,
-            prompt: buildNumberEnergyPrompt({ analysis, question }),
+            prompt: buildNumberEnergyPrompt({ analysis, question, selection }),
           },
         });
       } catch (error) {

@@ -30,6 +30,8 @@ export function assertSizeBudget(bytes, limit, label, warn = console.warn) {
 const dictionaryPaths = new Set([
   'package/dist/name-number/generated-data.js',
   'package/dist/name-number/generated-data.d.ts',
+  'package/dist/name-number/generated-character-tuples.js',
+  'package/dist/name-number/generated-numerology-data.js',
   'package/dist/name-number/generated-character-references.js',
   'package/dist/name-number/generated-character-references.d.ts',
   'package/dist/name-number/generated-character-strokes.js',
@@ -37,6 +39,11 @@ const dictionaryPaths = new Set([
   'package/dist/name-number/kongming-interpretations.js',
   'package/dist/name-number/kongming-interpretations.d.ts',
 ]);
+
+for (const index of Array.from({ length: 32 }, (_, value) => String(value).padStart(2, '0'))) {
+  dictionaryPaths.add(`package/dist/name-number/generated-character-tuples-${index}.js`);
+  dictionaryPaths.add(`package/dist/name-number/generated-character-references-${index}.js`);
+}
 
 export function measureCorePackageSize(archive) {
   const tar = gunzipSync(archive);
