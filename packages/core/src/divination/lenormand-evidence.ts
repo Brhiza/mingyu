@@ -2,10 +2,17 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
   buildRandomTraceFact,
+  createRandomContext,
   formatLegacyRandomFacts,
   type RandomTraceFact,
 } from '../shared/random';
 import type { LenormandCombinationRelation, LenormandData } from '../types/divination';
+import { MingyuCoreError } from '../shared/result';
+import {
+  LENORMAND_SPREADS,
+  resolveInteractiveLenormandCards,
+  shuffleLenormandCards,
+} from './algorithms/lenormand';
 
 export interface LenormandCardEvidence {
   key: string;
@@ -1189,6 +1196,32 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
         : ['雷诺曼牌阵与抽牌顺序记录', '洗牌、抽牌随机样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
+  if (!isManual && randomFact.status === '可重放') {
+    if (typeof data.spreadType !== 'string' || !Object.hasOwn(LENORMAND_SPREADS, data.spreadType)) {
+      throw new Error(`未知的雷诺曼牌阵类型: ${data.spreadType}`);
+    }
+    const spreadType = data.spreadType as keyof typeof LENORMAND_SPREADS;
+    const count = LENORMAND_SPREADS[spreadType].positions.length;
+    const replay = createRandomContext({ replay: randomFact.samples });
+    const replayed = isInteractive
+      ? resolveInteractiveLenormandCards(spreadType, randomFact.samples)
+      : shuffleLenormandCards(replay.random).slice(0, count);
+    if (
+      (!isInteractive && replay.getTrace().samples.length !== randomFact.samples.length) ||
+      replayed.length !== count ||
+      replayed.length !== data.cards.length ||
+      replayed.some(
+        (card, index) => card.id !== data.cards[index]?.id || card.name !== data.cards[index]?.name,
+      )
+    ) {
+      throw new MingyuCoreError({
+        code: 'LENORMAND_RANDOM_TRACE_MISMATCH',
+        category: 'validation',
+        message: '雷诺曼随机轨迹与牌面或顺序不一致，或包含多余样本。',
+        field: 'meta.random.samples',
+      });
+    }
+  }
   const fixedCombinationFacts = traditionalFacts.filter((fact) => fact.kind === '固定组合');
   const counterEvidenceFacts = buildCounterEvidenceFacts(fixedCombinationFacts, layoutCoverageFact);
   const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);

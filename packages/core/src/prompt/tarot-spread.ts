@@ -34,8 +34,10 @@ export const TAROT_SPREAD_PROMPT_FRAMEWORKS: Record<TarotSpreadType, TarotSpread
     conclusion: '明确更匹配当前目标的选择、成立条件及仍需核实的现实信息。',
   },
   celtic: {
-    mainLine: '由当前与阻碍切入，结合过去基础、未来演变、个人态度和外界影响形成全局判断。',
-    connections: '串联十个牌位，重点解释内在态度与外界环境如何共同改变未来和最终结果。',
+    mainLine:
+      '由当前与阻碍切入，依次分析目标与可达潜能、已形成的现实基础、正在消退的过去影响和近期未来，再结合个人态度、外界影响、希望与恐惧形成全局判断。',
+    connections:
+      '比较目标与现实基础的距离，区分希望、恐惧与客观条件，说明过去影响如何延续或消退，以及态度与环境如何共同推动近期变化和最终结果。',
     conclusion: '归纳核心矛盾、关键助力、风险节点与最可能的整体走向。',
   },
   chakra: {

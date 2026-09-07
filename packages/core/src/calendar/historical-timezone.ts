@@ -3,6 +3,8 @@
  * @description 通过运行环境 Intl/IANA 数据库解析当地钟表时刻的历史 UTC 偏移，并识别 DST 歧义与缺失时刻。
  */
 
+import { createUtcTimestamp } from './date-validation';
+
 export interface HistoricalTimezoneInput {
   year: number;
   month: number;
@@ -163,7 +165,7 @@ function sameParts(first: WallClockParts, second: WallClockParts) {
 
 function offsetHoursAt(formatter: Intl.DateTimeFormat, timestamp: number) {
   const parts = partsAt(formatter, timestamp);
-  const representedAsUtc = Date.UTC(
+  const representedAsUtc = createUtcTimestamp(
     parts.year,
     parts.month - 1,
     parts.day,
@@ -192,7 +194,7 @@ export function resolveHistoricalTimezone(
     minute: input.minute,
     second: input.second,
   };
-  const wallTimestamp = Date.UTC(
+  const wallTimestamp = createUtcTimestamp(
     target.year,
     target.month - 1,
     target.day,
@@ -246,7 +248,10 @@ export function resolveHistoricalTimezone(
       status: '已解析',
       dependsOnStepKeys: [],
       inputs: { timeZoneId, wallClockDateTime },
-      result: { database: 'Intl.DateTimeFormat 所带 IANA Time Zone Database' },
+      result: {
+        database:
+          'Intl.DateTimeFormat 运行环境所带 IANA Time Zone Database（规则版本由环境提供，未随证据快照记录）',
+      },
       promptText: `按 IANA 时区 ${timeZoneId} 加载${wallClockDateTime}对应的历史规则`,
       sources: ['IANA Time Zone Database', 'Intl.DateTimeFormat 时区解析'],
       limitation: CALCULATION_STEP_LIMITATION,
@@ -409,7 +414,8 @@ export function resolveHistoricalTimezone(
   return {
     key: `historical-timezone:${timeZoneId}:${wallClockDateTime}`,
     timeZoneId,
-    database: 'Intl.DateTimeFormat 所带 IANA Time Zone Database',
+    database:
+      'Intl.DateTimeFormat 运行环境所带 IANA Time Zone Database（规则版本由环境提供，未随证据快照记录）',
     status: matches.length > 1 ? 'ambiguous' : 'unique',
     selectedUtcTimestamp: selected.timestamp,
     selectedUtcDateTime: toIso(selected.timestamp),

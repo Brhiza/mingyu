@@ -5,8 +5,106 @@ import {
   analyzeLenormandNineGrid,
   analyzeTarotArchetypeJourney,
 } from 'mingyu-core/divination';
+import { tarotCards } from 'mingyu-core/divination/tarot';
+import { LENORMAND_CARDS } from 'mingyu-core/divination/lenormand';
 
-test('小六壬三宫流转应准确推导五行生克与终局定性断诀', () => {
+test('小六壬216组三宫五行关系方向一致并拒绝未知宫名', () => {
+  const names = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'];
+  const generates = ['木火', '火土', '土金', '金水', '水木'];
+  const controls = ['木土', '土水', '水火', '火金', '金木'];
+  const relation = (a: string, b: string) =>
+    a === b
+      ? '比和'
+      : generates.includes(a + b)
+        ? '生出'
+        : generates.includes(b + a)
+          ? '受生'
+          : controls.includes(a + b)
+            ? '克出'
+            : '受克';
+  for (const monthName of names)
+    for (const dayName of names)
+      for (const hourName of names) {
+        const result = evaluateXiaoliurenFlow({ monthName, dayName, hourName });
+        assert.equal(result.interpretationBasis, '现代组合分类');
+        assert.doesNotMatch(result.summary, /所谋易成|先难后易|终见转机|官非|决疑准绳|断诀/);
+        assert.ok(
+          result.monthToDayRelation.endsWith(relation(result.month.wuxing, result.day.wuxing)),
+        );
+        assert.ok(
+          result.dayToHourRelation.endsWith(relation(result.day.wuxing, result.hour.wuxing)),
+        );
+      }
+  for (const name of ['未知', 'toString', '__proto__', ['大安'], null]) {
+    for (const field of ['monthName', 'dayName', 'hourName']) {
+      assert.throws(
+        () =>
+          evaluateXiaoliurenFlow({
+            monthName: '大安',
+            dayName: '速喜',
+            hourName: '小吉',
+            [field]: name,
+          } as never),
+        /未知的小六壬宫名/,
+      );
+    }
+  }
+});
+
+test('雷诺曼九宫拒绝缺牌、多牌、重复和无效牌名，全部位置距离固定', () => {
+  const cards = LENORMAND_CARDS.slice(0, 9).map(({ id, name }) => ({ id, name }));
+  for (const invalid of [
+    cards.slice(0, 8),
+    [...cards, LENORMAND_CARDS[9]],
+    new Array(9),
+    [cards[4], ...cards.slice(1)],
+    [{ id: 1, name: '未知' }, ...cards.slice(1)],
+  ]) {
+    assert.throws(() => analyzeLenormandNineGrid(invalid));
+  }
+  const grid = analyzeLenormandNineGrid(cards);
+  assert.equal(grid.cardDistances.length, 8);
+  const distances = new Map(grid.cardDistances.map((item) => [item.card.id, item.distance]));
+  assert.deepEqual(
+    cards.map((card) => distances.get(card.id) ?? 0),
+    [2, 1, 2, 1, 0, 1, 2, 1, 2],
+  );
+  assert.doesNotMatch(grid.summary, /显见|潜意识|起因|趋势|强烈/);
+});
+
+test('塔罗原型分组与主牌库78张编号一致，并列不产生唯一主导', () => {
+  const groups = [
+    ['愚者', '魔术师', '女祭司', '女皇', '皇帝', '教皇', '恋人', '战车'],
+    ['力量', '隐士', '命运之轮', '正义', '倒吊人', '死神', '节制'],
+    ['恶魔', '塔', '星星', '月亮', '太阳', '审判', '世界'],
+  ];
+  for (const card of tarotCards) {
+    const result = analyzeTarotArchetypeJourney([
+      { id: card.number, name: card.name, reversed: false },
+    ]);
+    const stageIndex = groups.findIndex((names) => names.includes(card.name));
+    assert.equal(result.majorCardCount, stageIndex >= 0 ? 1 : 0, card.name);
+    assert.equal(result.minorCardCount, stageIndex >= 0 ? 0 : 1, card.name);
+    if (stageIndex >= 0) assert.equal(result.stages[stageIndex].matchedCards[0].name, card.name);
+  }
+  const tied = analyzeTarotArchetypeJourney([
+    { id: 8, name: '战车', reversed: false },
+    { id: 15, name: '节制', reversed: true },
+  ]);
+  assert.equal(tied.dominantStage, undefined);
+  assert.match(tied.summary, /并列最多/);
+  assert.doesNotMatch(tied.summary, /均衡分布|主导演进重心/);
+  assert.match(analyzeTarotArchetypeJourney([]).summary, /尚无牌面/);
+  for (const cards of [
+    new Array(1),
+    [{ id: 0, name: '愚者', reversed: false }],
+    [{ id: 1, name: '魔术师', reversed: false }],
+  ]) {
+    assert.throws(() => analyzeTarotArchetypeJourney(cards));
+  }
+});
+
+test('小六壬三宫组合类别保留实际落宫条件', () => {
   // 先滞后发：初宫留连（水），终局速喜（火）
   const flow1 = evaluateXiaoliurenFlow({
     monthName: '留连',
@@ -14,7 +112,7 @@ test('小六壬三宫流转应准确推导五行生克与终局定性断诀', ()
     hourName: '速喜',
   });
   assert.equal(flow1.trajectoryType, '先滞后发');
-  assert.match(flow1.classicalJudgment, /先难后易|终见转机/);
+  assert.match(flow1.classicalJudgment, /月宫留连，时宫速喜/);
   assert.match(flow1.summary, /【小六壬三宫流转】/);
 
   // 始吉终空：初宫大安（木），终局空亡（土）
@@ -24,7 +122,7 @@ test('小六壬三宫流转应准确推导五行生克与终局定性断诀', ()
     hourName: '空亡',
   });
   assert.equal(flow2.trajectoryType, '始吉终空');
-  assert.match(flow2.classicalJudgment, /归于空亡|防范虎头蛇尾/);
+  assert.match(flow2.classicalJudgment, /月宫大安，时宫空亡/);
 
   // 转折相克：终局赤口（金）
   const flow3 = evaluateXiaoliurenFlow({
@@ -33,7 +131,7 @@ test('小六壬三宫流转应准确推导五行生克与终局定性断诀', ()
     hourName: '赤口',
   });
   assert.equal(flow3.trajectoryType, '转折相克');
-  assert.match(flow3.classicalJudgment, /赤口金煞|口舌官非/);
+  assert.match(flow3.classicalJudgment, /月宫大安，时宫赤口/);
 });
 
 test('雷诺曼九宫十字网格应准确推导核心牌十字邻牌与曼哈顿距离', () => {
@@ -75,11 +173,11 @@ test('雷诺曼九宫十字网格应准确推导核心牌十字邻牌与曼哈�
 test('塔罗大阿卡那演进轴应准确计算愚人之旅三阶段分布与主导重心', () => {
   // 抽得 3 张大阿卡那（均在阶段一）+ 2 张小阿卡那
   const cards1 = [
-    { id: 1, name: '魔术师', reversed: false }, // 阶段一
-    { id: 4, name: '皇帝', reversed: false }, // 阶段一
-    { id: 7, name: '战车', reversed: true }, // 阶段一
-    { id: 35, name: '圣杯二', reversed: false }, // 小牌
-    { id: 50, name: '宝剑三', reversed: true }, // 小牌
+    { id: 2, name: '魔术师', reversed: false }, // 阶段一
+    { id: 5, name: '皇帝', reversed: false }, // 阶段一
+    { id: 8, name: '战车', reversed: true }, // 阶段一
+    { id: 38, name: '圣杯二', reversed: false }, // 小牌
+    { id: 53, name: '宝剑三', reversed: true }, // 小牌
   ];
 
   const journey1 = analyzeTarotArchetypeJourney(cards1);
@@ -90,10 +188,10 @@ test('塔罗大阿卡那演进轴应准确计算愚人之旅三阶段分布与�
 
   // 灵性转化阶段（阶段三）主导
   const cards2 = [
-    { id: 16, name: '高塔', reversed: false }, // 阶段三
-    { id: 17, name: '星星', reversed: false }, // 阶段三
-    { id: 21, name: '世界', reversed: false }, // 阶段三
-    { id: 9, name: '隐士', reversed: false }, // 阶段二
+    { id: 17, name: '塔', reversed: false }, // 阶段三
+    { id: 18, name: '星星', reversed: false }, // 阶段三
+    { id: 22, name: '世界', reversed: false }, // 阶段三
+    { id: 10, name: '隐士', reversed: false }, // 阶段二
   ];
 
   const journey2 = analyzeTarotArchetypeJourney(cards2);

@@ -3,6 +3,7 @@
  * @传统依据 《沈氏玄空学》城门诀：向首两旁同元龙之位为城门候选；运星入中依元龙阴阳顺逆飞布，若旺星飞临城门宫位，为城门得位可用。
  */
 import { flyStars, type FlyDirection } from './period-stars';
+import { getNineStarProfile } from '../direction';
 
 export type YuanLong = '天元龙' | '地元龙' | '人元龙';
 
@@ -65,18 +66,6 @@ const GONG_NAMES: Record<number, string> = {
   9: '离',
 };
 
-/** 先天八卦数（用于判定正城门与副城门：乾九兑四离三震八巽二坎七艮六坤一） */
-const EARLY_HEAVEN_NUMBERS: Record<number, number> = {
-  1: 7, // 坎
-  2: 1, // 坤
-  3: 8, // 震
-  4: 2, // 巽
-  6: 9, // 乾
-  7: 4, // 兑
-  8: 6, // 艮
-  9: 3, // 离
-};
-
 export interface CastleGateCandidate {
   gong: number;
   gongName: string;
@@ -85,7 +74,7 @@ export interface CastleGateCandidate {
   yunStar: number;
   flyDirection: FlyDirection;
   arrivalStar: number;
-  status: '得旺可用' | '得生气可用' | '不得旺不可用';
+  status: '得旺可用' | '不得旺不可用';
   summary: string;
 }
 
@@ -104,6 +93,17 @@ export function evaluateCastleGate(params: {
   yunPlate: number[];
 }): CastleGateEvaluation {
   const { yun, facingMountain, yunPlate } = params;
+  const expectedPlate = flyStars(yun, '顺飞');
+  if (
+    !Array.isArray(yunPlate) ||
+    yunPlate.length !== 9 ||
+    expectedPlate.some((star, index) => yunPlate[index] !== star)
+  ) {
+    throw new Error('城门运盘须为当运入中顺飞的完整九宫盘。');
+  }
+  if (typeof facingMountain !== 'string' || !Object.hasOwn(MOUNTAIN_PROFILES, facingMountain)) {
+    throw new Error('城门朝向须为有效的二十四山。');
+  }
   const facingProfile = MOUNTAIN_PROFILES[facingMountain];
   if (!facingProfile) {
     return {
@@ -138,48 +138,26 @@ export function evaluateCastleGate(params: {
     if (!matchingMountain) continue;
 
     const yunStar = yunPlate[gong - 1];
-    if (yunStar === 5) {
-      candidates.push({
-        gong,
-        gongName: GONG_NAMES[gong],
-        mountain: matchingMountain.mountain,
-        role: '副城门',
-        yunStar,
-        flyDirection: '顺飞',
-        arrivalStar: 5,
-        status: '不得旺不可用',
-        summary: `${GONG_NAMES[gong]}宫（${matchingMountain.mountain}方）运星逢五黄入中不可作城门`,
-      });
-      continue;
-    }
-
     const baseMountain = Object.values(MOUNTAIN_PROFILES).find(
-      (m) => m.gong === yunStar && m.yuanLong === targetYuanLong,
+      (m) => m.gong === (yunStar === 5 ? yun : yunStar) && m.yuanLong === targetYuanLong,
     );
     const flyDirection: FlyDirection =
       baseMountain && baseMountain.yinYang === '阳' ? '顺飞' : '逆飞';
     const plate = flyStars(yunStar, flyDirection);
     const arrivalStar = plate[gong - 1];
 
-    const nextYun = (yun % 9) + 1;
-    let status: CastleGateCandidate['status'] = '不得旺不可用';
-    if (arrivalStar === yun) {
-      status = '得旺可用';
-    } else if (arrivalStar === nextYun) {
-      status = '得生气可用';
-    }
+    const status: CastleGateCandidate['status'] = arrivalStar === yun ? '得旺可用' : '不得旺不可用';
 
-    const facingEarly = EARLY_HEAVEN_NUMBERS[facingGong] ?? 0;
-    const gateEarly = EARLY_HEAVEN_NUMBERS[gong] ?? 0;
-    const isEarlyMatch = facingEarly + gateEarly === 10 || Math.abs(facingEarly - gateEarly) === 5;
-    const role: CastleGateCandidate['role'] = isEarlyMatch ? '正城门' : '副城门';
+    // 元旦盘宫数合一六、二七、三八、四九为正城门。
+    const role: CastleGateCandidate['role'] =
+      Math.abs(facingGong - gong) === 5 ? '正城门' : '副城门';
 
+    const arrivalProfile = getNineStarProfile(arrivalStar - 1);
+    const arrivalName = `${arrivalProfile.number}${arrivalProfile.color}`;
     const statusDesc =
       status === '得旺可用'
-        ? `飞临当令${arrivalStar}白旺星，城门得位吉可用`
-        : status === '得生气可用'
-          ? `飞临进气${arrivalStar}白生气星，城门次吉可用`
-          : `飞临${arrivalStar}星非旺气，城门不合`;
+        ? `飞临当令${arrivalName}旺星，城门旺星到位`
+        : `飞临${arrivalName}，未得当运旺星，城门不合`;
 
     candidates.push({
       gong,
@@ -194,9 +172,9 @@ export function evaluateCastleGate(params: {
     });
   }
 
-  const usable = candidates.filter((c) => c.status !== '不得旺不可用');
+  const usable = candidates.filter((c) => c.status === '得旺可用');
   const summary = usable.length
-    ? `城门诀：${usable.map((u) => `${u.role}${u.mountain}方${u.status === '得旺可用' ? '当旺大吉' : '得生气次吉'}`).join('、')}`
+    ? `城门诀：${usable.map((u) => `${u.role}${u.mountain}方旺星到位`).join('、')}；须结合该方实际水口、周围形势及生克判断`
     : '城门诀：两旁城门未得旺星飞临，正向纳气为要';
 
   return {

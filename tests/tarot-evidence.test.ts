@@ -10,6 +10,50 @@ import type { TarotData, TarotSpreadType } from 'mingyu-core/types';
 
 const spreadTypes = Object.keys(tarotSpreads) as TarotSpreadType[];
 
+test('塔罗自动与逐张抽牌的随机记录必须完整并对应实际牌面', () => {
+  for (const data of [
+    drawTarotSpread('three', { seed: '塔罗整组重放' }),
+    drawTarotSpread('three', { interactiveSamples: [0, 0.25, 0.2, 0.75, 0.4, 0.25] }),
+  ]) {
+    const shortened = structuredClone(data);
+    shortened.meta!.random!.samples.pop();
+    assert.throws(() => analyzeTarotEvidence(shortened));
+    const extended = structuredClone(data);
+    extended.meta!.random!.samples.push(0, 0);
+    assert.throws(() => analyzeTarotEvidence(extended));
+    const changed = structuredClone(data);
+    changed.cards[0].reversed = !changed.cards[0].reversed;
+    assert.throws(() => analyzeTarotEvidence(changed), /随机轨迹与牌面、顺序或正逆位不一致/);
+    assert.equal(analyzeTarotEvidence(data).randomFact.status, '可重放');
+  }
+});
+
+test('凯尔特十字十牌位保留韦特原著的目标、基础、过去影响及希望恐惧', () => {
+  // Waite《The Pictorial Key to the Tarot》Part III §7 十张牌位说明。
+  const positions = [
+    '当前状况',
+    '挑战/阻碍',
+    '目标与潜能',
+    '现实基础',
+    '过去影响',
+    '近期未来',
+    '你的态度',
+    '外界影响',
+    '希望与恐惧',
+    '最终结果',
+  ];
+  assert.deepEqual(tarotSpreads.celtic.positions, positions);
+  const result = drawTarotSpread('celtic', { seed: '凯尔特牌位校勘' });
+  assert.deepEqual(
+    result.cards.map((card) => card.position),
+    positions,
+  );
+  assert.deepEqual(
+    result.draw?.order.map((card) => card.position),
+    positions,
+  );
+});
+
 test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对象', () => {
   assert.equal(spreadTypes.length, 18);
 
@@ -273,15 +317,9 @@ test('塔罗手动抽取应按样本逐张无重复翻牌并保留可重放轨�
 });
 
 test('塔罗逆位应形成指向所属牌面的反证事实与汇总', () => {
-  const data = drawTarotSpread('three', { seed: '塔罗逆位反证' });
-  data.cards = data.cards.map((card, index) => ({ ...card, reversed: index === 1 }));
-  data.draw = {
-    ...data.draw!,
-    order: data.draw!.order.map((item, index) => ({
-      ...item,
-      orientation: index === 1 ? '逆位' : '正位',
-    })),
-  };
+  const data = drawTarotSpread('three', {
+    manualCards: [1, 2, 3].map((id, index) => ({ id, reversed: index === 1 })),
+  });
   const evidence = analyzeTarotEvidence(data);
 
   assert.equal(evidence.counterEvidenceFacts.length, 1);
@@ -353,7 +391,9 @@ test('塔罗抽牌序号或牌面被篡改时应标记来源链不一致', () =>
 });
 
 test('塔罗牌位、顺序和牌号异常时应给出可定位的覆盖事实', () => {
-  const data = drawTarotSpread('three', { seed: '塔罗牌阵覆盖异常' });
+  const data = drawTarotSpread('three', {
+    manualCards: [1, 2, 3].map((id) => ({ id, reversed: false })),
+  });
   const tampered: TarotData = structuredClone(data);
   tampered.cards[1].position = tampered.cards[0].position;
   tampered.cards[1].id = tampered.cards[0].id;

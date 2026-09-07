@@ -31,6 +31,13 @@ const selectedChars = new Set(
 );
 for (const char of definitionChars) selectedChars.add(char);
 for (const char of surnameChars) selectedChars.add(char);
+
+// 上游 shunshi-kangxi-core 个别字的康熙原文与字部存在错配，例如“简”的原文错挂“耕”字条目。
+// 在依据核验底本补录之前，先按缺文处理（置空），不得把其他字的原文当作该字的原文输出。
+const KANGXI_REFERENCE_OVERRIDES = {
+  简: { kangxiText: null, kangxiVolume: null, kangxiSection: null },
+};
+
 for (const char of selectedChars) {
   const detail = charDetail(char);
   if (!detail) continue;
@@ -50,6 +57,7 @@ for (const char of selectedChars) {
     kangxiVolume: detail.康熙部居,
     kangxiSection: detail.康熙字部,
     common: commonCharacters.has(detail.简体),
+    ...(KANGXI_REFERENCE_OVERRIDES[detail.简体] ?? {}),
   };
   characters.set(`${detail.简体}\u0000${detail.繁体}`, value);
 }

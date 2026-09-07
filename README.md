@@ -8,6 +8,16 @@
 
 命语是一套免费开源的在线算命、占卜排盘与 AI 解读提示词工具。输入出生时间或所问之事，即可完成高精度排盘，并生成可直接交给任意大模型解读的完整提示词。
 
+### ⚡ 一键接入（Agent 技能 & 在线 MCP）
+
+- **Agent Skill（推荐 · 免配置一句话安装）**：
+  ```bash
+  npx skills add Brhiza/mingyu --skill mingyu -g -y
+  ```
+- **在线 Remote MCP（云端直连 · 零依赖）**：
+  - **Claude Code**：`claude mcp add mingyu --transport sse https://aov.cc/mcp`
+  - **Cursor / Windsurf / VS Code**：直接添加 SSE 类型的 Server URL：`https://aov.cc/mcp`
+
 ---
 
 ## 📿 功德箱
@@ -87,7 +97,7 @@ const tarot = drawTarotSpread('celtic');
 ### 4. Agent Skill
 
 ```bash
-npx skills add Brhiza/mingyu --skill aov-mingyu-api -g -y
+npx skills add Brhiza/mingyu --skill mingyu -g -y
 ```
 
 ---

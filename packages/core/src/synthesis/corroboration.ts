@@ -14,6 +14,8 @@ export interface ShaYaoCorroborationResult {
   ziweiShaStars: string[];
   isHarmonized: boolean; // 是否成权柄相济
   judgment: string;
+  /** 紫微原盘核验状态：checked=已按关键宫核验；origin-missing=原盘缺失未核验 */
+  ziweiCheckStatus: 'checked' | 'origin-missing';
 }
 
 export interface GuiRenCorroborationResult {
@@ -21,6 +23,8 @@ export interface GuiRenCorroborationResult {
   ziweiGuiStars: string[];
   isDoubleBlessed: boolean;
   judgment: string;
+  /** 紫微原盘核验状态：checked=已按关键宫核验；origin-missing=原盘缺失未核验 */
+  ziweiCheckStatus: 'checked' | 'origin-missing';
 }
 
 export interface BaziZiweiCorroborationResult {
@@ -56,6 +60,18 @@ const TIAN_YI_MAP: Record<string, string[]> = {
   辛: ['午', '寅'],
 };
 
+/** 归一化宫位名称：兼容“官禄宫/官禄”两种资料形态（“命宫”本身即两字全名） */
+function stripPalaceSuffix(name: string): string {
+  return name.length > 2 && name.endsWith('宫') ? name.slice(0, -1) : name;
+}
+
+function matchesKeyPalace(name: string, keys: Set<string>): boolean {
+  return keys.has(name) || keys.has(stripPalaceSuffix(name));
+}
+
+const SHA_KEY_PALACES = new Set(['命宫', '身宫', '官禄', '迁移']);
+const GUI_KEY_PALACES = new Set(['命宫', '身宫', '官禄', '财帛', '迁移']);
+
 /**
  * 评估煞曜同参
  */
@@ -77,9 +93,10 @@ export function evaluateShaYaoCorroboration(
   const ziweiShaStars: string[] = [];
   const SHA_STAR_SET = new Set(['擎羊', '陀罗', '火星', '铃星']);
 
+  // 关键宫按归一化名称匹配并纳入身宫标记，避免“官禄宫/官禄”形态差异漏选
   if (origin) {
-    const keyPalaces = origin.palaces.filter((p) =>
-      ['命宫', '身宫', '官禄宫', '迁移宫'].includes(p.name),
+    const keyPalaces = origin.palaces.filter(
+      (p) => p.is_body_palace || matchesKeyPalace(p.name, SHA_KEY_PALACES),
     );
     for (const palace of keyPalaces) {
       for (const star of [...palace.major_stars, ...palace.minor_stars]) {
@@ -94,7 +111,9 @@ export function evaluateShaYaoCorroboration(
   const isHarmonized = hasBaziYangRen && isWang && ziweiShaStars.length > 0;
 
   let judgment: string;
-  if (hasBaziYangRen && ziweiShaStars.length > 0) {
+  if (!origin) {
+    judgment = '紫微原盘资料缺失，煞曜同参未核验，仅就八字羊刃作单盘判断';
+  } else if (hasBaziYangRen && ziweiShaStars.length > 0) {
     if (isHarmonized) {
       judgment =
         '八字见羊刃且日主旺健，紫微关键宫位逢煞星入照，煞为我用，威权独揽，多具决断破格之力';
@@ -115,6 +134,7 @@ export function evaluateShaYaoCorroboration(
     ziweiShaStars,
     isHarmonized,
     judgment,
+    ziweiCheckStatus: origin ? 'checked' : 'origin-missing',
   };
 }
 
@@ -139,9 +159,10 @@ export function evaluateGuiRenCorroboration(
   const ziweiGuiStars: string[] = [];
   const GUI_STAR_SET = new Set(['左辅', '右弼', '天魁', '天钺']);
 
+  // 关键宫按归一化名称匹配并纳入身宫标记，避免“财帛宫/财帛”形态差异漏选
   if (origin) {
-    const keyPalaces = origin.palaces.filter((p) =>
-      ['命宫', '身宫', '官禄宫', '财帛宫', '迁移宫'].includes(p.name),
+    const keyPalaces = origin.palaces.filter(
+      (p) => p.is_body_palace || matchesKeyPalace(p.name, GUI_KEY_PALACES),
     );
     for (const palace of keyPalaces) {
       for (const star of [...palace.major_stars, ...palace.minor_stars]) {
@@ -155,7 +176,9 @@ export function evaluateGuiRenCorroboration(
   const isDoubleBlessed = hasBaziTianYi && ziweiGuiStars.length > 0;
   let judgment: string;
 
-  if (isDoubleBlessed) {
+  if (!origin) {
+    judgment = '紫微原盘资料缺失，贵人吉曜同参未核验，仅就八字天乙作单盘判断';
+  } else if (isDoubleBlessed) {
     judgment = `双盘天乙与魁钺辅弼交相会聚（紫微逢${ziweiGuiStars.slice(0, 3).join('、')}），得长辈提携与外援襄助，生平逢凶化吉`;
   } else if (hasBaziTianYi) {
     judgment = '八字坐实天乙贵人，天资敏悟，遇险自见转机';
@@ -170,6 +193,7 @@ export function evaluateGuiRenCorroboration(
     ziweiGuiStars,
     isDoubleBlessed,
     judgment,
+    ziweiCheckStatus: origin ? 'checked' : 'origin-missing',
   };
 }
 

@@ -1,9 +1,9 @@
 /**
  * @file 雷诺曼核心九宫十字与距离几何算法
- * @传统依据 1799年《Das Spiel der Hoffnung》及欧洲 Petit Lenormand 通行牌阵网格几何：
- * 核心十字方位：上（目标/思维显意识）、下（根基/潜意识）、左（过去因由）、右（未来走向）；
- * 几何距离：曼哈顿距离越近，对核心牌的影响越强烈直接。
+ * @计算口径 九张牌按三行三列排列，以中心位置计算曼哈顿距离。
+ * 方位和距离仅记录牌面几何关系，具体象意结合牌位设定与问题解读。
  */
+import { LENORMAND_CARDS } from './algorithms/lenormand';
 
 export interface LenormandCardRef {
   id: number;
@@ -39,12 +39,20 @@ export interface LenormandCrossAnalysis {
 }
 
 /**
- * 分析雷诺曼九宫（3x3，9张牌）或带核心牌的网格十字距离
+ * 分析雷诺曼九宫（3x3，9张牌）的网格十字距离
  * 输入：9张牌数组（按九宫顺序：0左上, 1上, 2右上, 3左, 4核心, 5右, 6左下, 7下, 8右下）
  */
 export function analyzeLenormandNineGrid(cards: LenormandCardRef[]): LenormandCrossAnalysis {
-  if (cards.length < 9) {
-    throw new Error('雷诺曼九宫网格分析需要至少9张牌');
+  if (!Array.isArray(cards) || cards.length !== 9) {
+    throw new Error('雷诺曼九宫网格分析需要恰好9张牌');
+  }
+  const ids = new Set<number>();
+  for (const card of cards) {
+    if (!card || !LENORMAND_CARDS.some((item) => item.id === card.id && item.name === card.name)) {
+      throw new Error('雷诺曼牌号或牌名无效');
+    }
+    if (ids.has(card.id)) throw new Error('雷诺曼九宫不能重复录入同一张牌');
+    ids.add(card.id);
   }
 
   // 默认核心牌为中心位置（index 4）
@@ -71,7 +79,7 @@ export function analyzeLenormandNineGrid(cards: LenormandCardRef[]): LenormandCr
   ];
 
   const cardDistances = positions
-    .filter((p) => p.card.id !== centerCard.id)
+    .filter((p) => p.row !== 1 || p.col !== 1)
     .map((p) => {
       const dist = Math.abs(p.row - 1) + Math.abs(p.col - 1);
       const relationship: '紧邻' | '近距' | '远距' =
@@ -84,7 +92,7 @@ export function analyzeLenormandNineGrid(cards: LenormandCardRef[]): LenormandCr
     })
     .sort((a, b) => a.distance - b.distance);
 
-  const crossSummary = `核心「${centerCard.name}」：上方显见为「${topCard.name}」，下方根基为「${bottomCard.name}」，左侧起因为「${leftCard.name}」，右侧趋势为「${rightCard.name}」`;
+  const crossSummary = `核心「${centerCard.name}」：上方为「${topCard.name}」，下方为「${bottomCard.name}」，左侧为「${leftCard.name}」，右侧为「${rightCard.name}」`;
   const summary = `【雷诺曼九宫十字】${crossSummary}；最近紧邻牌包含：${cardDistances
     .filter((d) => d.relationship === '紧邻')
     .map((d) => d.card.name)

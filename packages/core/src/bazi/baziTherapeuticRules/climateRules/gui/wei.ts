@@ -1,21 +1,7 @@
 import type { ClimateRule } from '../../types';
 
 export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
-  {
-    id: 'wu-wei-month-gui-metal-water-summer-rich',
-    label: '癸日午未月金水会夏天规则',
-    description:
-      '癸水生午未月，本弱而畏火，若庚辛透干又见壬癸相扶，正合传统"金水会夏天"之论，多主富贵，不应仍按普通夏水身弱泛断。',
-    priority: 123,
-    months: ['午', '未'],
-    dayMasters: ['水'],
-    dayStems: ['癸'],
-    minTenGodCategoryVisibleCounts: { 印星: 1, 比劫: 1 },
-    usefulWuxing: '金',
-    favorableOrder: ['金', '水'],
-    traceHints: ['取用层次:金水会夏天', '成格层次:富贵永无边'],
-    hint: '癸水午未月庚辛透而又见壬癸，可按金水会夏天论富贵',
-  },
+  // “金水会夏天”跨午未两月规则登记于 gui/wu.ts，此处不再重复登记
   {
     id: 'wei-month-gui-xiaoshu-metal-water-rich',
     label: '癸日未月小暑后庚辛比劫同扶规则',

@@ -69,17 +69,21 @@ const SEVEN_PLANETS = new Set(['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupit
 
 /**
  * 依据古典占星守护与曜升计算双方行星互溶与接纳关系
+ * @param aspects 全部命中相位（应传入未截断的完整命中列表）
+ * @param options.pointNames 计算点筛选；提供时互溶与接纳均只考虑所选点位
  */
 export function evaluateAstrolabeSynastryReceptions(
   chart1: AstrolabeData,
   chart2: AstrolabeData,
   aspects: AstrolabeSynastryAspect[] = [],
+  options: { pointNames?: ReadonlySet<string> } = {},
 ): {
   receptions: AstrolabeSynastryReception[];
   summary: string;
 } {
-  const p1Planets = chart1.planets.filter((p) => SEVEN_PLANETS.has(p.name));
-  const p2Planets = chart2.planets.filter((p) => SEVEN_PLANETS.has(p.name));
+  const inScope = (name: string) => !options.pointNames || options.pointNames.has(name);
+  const p1Planets = chart1.planets.filter((p) => SEVEN_PLANETS.has(p.name) && inScope(p.name));
+  const p2Planets = chart2.planets.filter((p) => SEVEN_PLANETS.has(p.name) && inScope(p.name));
 
   const receptions: AstrolabeSynastryReception[] = [];
   const processedPairs = new Set<string>();
@@ -110,7 +114,8 @@ export function evaluateAstrolabeSynastryReceptions(
           person2PlanetLabel: l2,
           sign1: s1,
           sign2: s2,
-          summary: `双方${l1}（落${s1}）与${l2}（落${s2}）形成庙旺互溶，彼此包容支撑，可有效化解分歧`,
+          // 此处仅核验入庙守护互溶，不含曜升互溶
+          summary: `双方${l1}（落${s1}）与${l2}（落${s2}）互为对方星座的入庙守护，形成守护互溶，彼此包容支撑；是否化解分歧仍需结合全盘相位与尊贵强弱判断`,
         });
       }
     }
@@ -137,7 +142,13 @@ export function evaluateAstrolabeSynastryReceptions(
     const l1 = PLANET_LABELS[p1.name] ?? p1.name;
     const l2 = PLANET_LABELS[p2.name] ?? p2.name;
 
-    if (p2.name === ruler1 || p2.name === exalt1) {
+    // 双向分别判定并分别记录，两方向同时成立时不只保留第一个方向
+    const p2ReceivesP1 =
+      p2.name === ruler1 ? ('入庙' as const) : p2.name === exalt1 ? ('曜升' as const) : undefined;
+    const p1ReceivesP2 =
+      p1.name === ruler2 ? ('入庙' as const) : p1.name === exalt2 ? ('曜升' as const) : undefined;
+
+    if (p2ReceivesP1) {
       processedPairs.add(pairKey);
       receptions.push({
         type: '接纳',
@@ -147,9 +158,10 @@ export function evaluateAstrolabeSynastryReceptions(
         person2PlanetLabel: l2,
         sign1: ZODIAC_SIGNS[sign1Index],
         sign2: ZODIAC_SIGNS[sign2Index],
-        summary: `${chart2.birth.name}${l2}接纳${chart1.birth.name}${l1}（${aspect.type}），善意接纳并提供资源助力`,
+        summary: `${chart2.birth.name}${l2}在${l1}所在${ZODIAC_SIGNS[sign1Index]}拥有${p2ReceivesP1}尊贵，${l2}接纳${chart1.birth.name}${l1}（${aspect.type}相位伴随）`,
       });
-    } else if (p1.name === ruler2 || p1.name === exalt2) {
+    }
+    if (p1ReceivesP2) {
       processedPairs.add(pairKey);
       receptions.push({
         type: '接纳',
@@ -159,14 +171,14 @@ export function evaluateAstrolabeSynastryReceptions(
         person2PlanetLabel: l2,
         sign1: ZODIAC_SIGNS[sign1Index],
         sign2: ZODIAC_SIGNS[sign2Index],
-        summary: `${chart1.birth.name}${l1}接纳${chart2.birth.name}${l2}（${aspect.type}），善意接纳并提供资源助力`,
+        summary: `${chart1.birth.name}${l1}在${l2}所在${ZODIAC_SIGNS[sign2Index]}拥有${p1ReceivesP2}尊贵，${l1}接纳${chart2.birth.name}${l2}（${aspect.type}相位伴随）`,
       });
     }
   }
 
   const summary = receptions.length
     ? `【古典接纳互溶】${receptions.map((r) => r.summary).join('；')}`
-    : '【古典接纳互溶】双方主要行星未见紧密守护互溶，以常规几何相位交感为主';
+    : '【古典接纳互溶】双方主要行星未见守护互溶或伴随相位的接纳结构，以常规几何相位交感为主';
 
   return {
     receptions,

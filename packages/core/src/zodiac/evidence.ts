@@ -1,7 +1,8 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { TaiSuiConflict, ZodiacYearFortune } from './index';
-import { getBranchWuxing, getStemWuxing } from '../ganzhi';
+import { BRANCH_SANHE, SANHUI_GROUPS, getBranchWuxing, getStemWuxing, isLiuhe } from '../ganzhi';
+import { getTaiSuiConflicts } from './index';
 
 export interface ZodiacRelationEvidence {
   key: string;
@@ -271,12 +272,15 @@ function buildSummaryFact(args: {
   counterEvidenceFacts: ZodiacCounterEvidenceFact[];
   counterSummaryFact: ZodiacCounterSummaryFact;
   limitationFacts: ZodiacLimitationFact[];
+  /** 轻量关系复验的差异说明；null 表示复验一致 */
+  consistencyGap: string | null;
 }): ZodiacSummaryFact {
   const status =
     args.calculationSteps.length === 4 &&
     args.relations.length > 0 &&
     args.counterEvidenceFacts.length === 3 &&
-    args.limitationFacts.length === 5
+    args.limitationFacts.length === 5 &&
+    !args.consistencyGap
       ? '证据链完整'
       : '证据链有缺口';
   return {
@@ -296,7 +300,9 @@ function buildSummaryFact(args: {
     supportingEvidenceCount: args.supportingEvidence.length,
     counterEvidenceCount: args.counterEvidenceFacts.length,
     limitationFactCount: args.limitationFacts.length,
-    promptText: `证据链状态：${status}；关系事实${args.relations.length}项、主证${args.primaryEvidence.length}项、辅证${args.supportingEvidence.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    promptText: `证据链状态：${status}（仅表示证据包装字段覆盖与轻量关系复验，不构成对上游计算的独立复算）；关系事实${args.relations.length}项、主证${args.primaryEvidence.length}项、辅证${args.supportingEvidence.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项${
+      args.consistencyGap ? `；关系复验差异：${args.consistencyGap}` : ''
+    }`,
     sources: ['生肖年支、流年干支、关系表、五行辅助、反证与限制事实逐项汇总'],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -455,6 +461,35 @@ export function analyzeZodiacEvidence(
     .map((fact) => fact.promptText);
   const limitationFacts = buildLimitationFacts(calculationSteps, relations);
   const limitations = limitationFacts.map((fact) => fact.promptText);
+  // 轻量关系复验：按公共关系表重算犯太岁、贵人与会合，与传入资料比对，
+  // 防止把固定条目数量当作已经执行独立关系校验
+  const recomputedConflictTypes = getTaiSuiConflicts(data.zodiacBranch, data.yearBranch).map(
+    (item) => item.type,
+  );
+  const incomingConflictTypes = data.conflicts.map((item) => item.type);
+  const conflictsConsistent =
+    recomputedConflictTypes.length === incomingConflictTypes.length &&
+    recomputedConflictTypes.every((type, index) => type === incomingConflictTypes[index]);
+  const sanhe = BRANCH_SANHE[data.zodiacBranch];
+  const expectedNoble = isLiuhe(data.zodiacBranch, data.yearBranch)
+    ? '六合贵人'
+    : sanhe?.partners.includes(data.yearBranch)
+      ? `三合贵人（${sanhe.group}）`
+      : null;
+  const sanhuiGroup = Object.entries(SANHUI_GROUPS).find(
+    ([, members]) =>
+      members.includes(data.zodiacBranch) &&
+      members.includes(data.yearBranch) &&
+      data.zodiacBranch !== data.yearBranch,
+  );
+  const expectedMeeting = sanhuiGroup ? `三会关系（${sanhuiGroup[0]}）` : null;
+  const consistencyGap = !conflictsConsistent
+    ? '犯太岁关系重算结果与传入资料不一致'
+    : (data.noble ?? null) !== expectedNoble
+      ? '贵人关系重算结果与传入资料不一致'
+      : (data.meeting ?? null) !== expectedMeeting
+        ? '三会关系重算结果与传入资料不一致'
+        : null;
   const summaryFact = buildSummaryFact({
     calculationSteps,
     relations,
@@ -463,6 +498,7 @@ export function analyzeZodiacEvidence(
     counterEvidenceFacts,
     counterSummaryFact,
     limitationFacts,
+    consistencyGap,
   });
   const sources: ZodiacEvidenceAnalysis['sources'] = [
     {

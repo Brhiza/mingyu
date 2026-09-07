@@ -262,8 +262,14 @@ function resolveEffectiveBirthYear(input: BaZhaiInput): {
   if (!Number.isInteger(day) || day < 1 || day > maxDay) {
     throw new Error(`出生日期需在 1-${maxDay} 之间。`);
   }
-  const birthGanZhiYear = getGanZhiFromDate(new Date(year, month - 1, day, 12, 0, 0)).year;
-  const currentGanZhiYear = getGanZhiFromDate(new Date(year, 6, 1, 12, 0, 0)).year;
+  const birthDate = new Date(0);
+  birthDate.setFullYear(year, month - 1, day);
+  birthDate.setHours(12, 0, 0, 0);
+  const summerDate = new Date(0);
+  summerDate.setFullYear(year, 6, 1);
+  summerDate.setHours(12, 0, 0, 0);
+  const birthGanZhiYear = getGanZhiFromDate(birthDate).year;
+  const currentGanZhiYear = getGanZhiFromDate(summerDate).year;
   const effectiveYear = birthGanZhiYear === currentGanZhiYear ? year : year - 1;
   return {
     year: effectiveYear,

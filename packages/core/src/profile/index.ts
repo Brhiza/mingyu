@@ -572,6 +572,8 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
     longitude: String(location.longitude),
     ...(location.timezone !== undefined ? { timezone: String(location.timezone) } : {}),
     ...(location.timeZoneId ? { timeZoneId: location.timeZoneId } : {}),
+    // 保留坐标精度登记，使星盘结果可区分用户精确坐标与行政区/省级近似值
+    ...(location.coordinateAccuracy ? { coordinateAccuracy: location.coordinateAccuracy } : {}),
     locationName: location.name,
     useTrueSolarTime: profile.useTrueSolarTime,
   };

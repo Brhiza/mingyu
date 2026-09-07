@@ -1,7 +1,7 @@
 import type { WuyunLiuqiClassic } from './types';
 
 /**
- * 《黄帝内经·素问·气交变大论/六元正纪大论》五运六气天道医理全览
+ * 《素问·天元纪大论》《素问·至真要大论》五运与司天在泉气化资料
  */
 export const WUYUN_LIUQI_CLASSICS: Record<string, WuyunLiuqiClassic> = {
   // 十干大运
@@ -9,98 +9,129 @@ export const WUYUN_LIUQI_CLASSICS: Record<string, WuyunLiuqiClassic> = {
     factor: '甲己化土',
     category: '大运',
     sourceBook: '素问·天元纪大论',
-    verse: '甲己之岁，土运统之。太宫太阴，其政敦厚；湿气乃行，万物土生。',
-    climateFeature: '土运主湿，天气敦厚，湿气偏胜，雨水充沛。',
-    healthAdvice: '宜健脾利湿，调畅中焦气机，防脾胃虚衰与水湿内停。',
+    verse: '甲己之岁，土运统之。',
+    climateFeature: '甲年为土运太过，己年为土运不及；土运对应湿化。',
   },
   乙庚化金: {
     factor: '乙庚化金',
     category: '大运',
     sourceBook: '素问·天元纪大论',
-    verse: '乙庚之岁，金运统之。少商阳明，其政严峻；燥气流行，万物肃杀。',
-    climateFeature: '金运主燥，气候严清干燥，凉风肃杀，秋气偏盛。',
-    healthAdvice: '宜养阴润燥，滋润肺胃，防呼吸道与皮肤干燥。',
+    verse: '乙庚之岁，金运统之。',
+    climateFeature: '乙年为金运不及，庚年为金运太过；金运对应燥化。',
   },
   丙辛化水: {
     factor: '丙辛化水',
     category: '大运',
     sourceBook: '素问·天元纪大论',
-    verse: '丙辛之岁，水运统之。太羽太阳，其政严肃；寒气凝结，水泉坚涸。',
-    climateFeature: '水运主寒，气候寒冷凝滞，冰雪较多，严冬偏长。',
-    healthAdvice: '宜温阳散寒，补肾固本，防心脑血管与关节受寒。',
+    verse: '丙辛之岁，水运统之。',
+    climateFeature: '丙年为水运太过，辛年为水运不及；水运对应寒化。',
   },
   丁壬化木: {
     factor: '丁壬化木',
     category: '大运',
     sourceBook: '素问·天元纪大论',
-    verse: '丁壬之岁，木运统之。少角厥阴，其政开发；风气盛行，草木荣茂。',
-    climateFeature: '木运主风，春暖早临，多风动荡，万物生机勃发。',
-    healthAdvice: '宜疏肝理气，平抑肝阳，防肝风内动与眩晕急躁。',
+    verse: '丁壬之岁，木运统之。',
+    climateFeature: '丁年为木运不及，壬年为木运太过；木运对应风化。',
   },
   戊癸化火: {
     factor: '戊癸化火',
     category: '大运',
     sourceBook: '素问·天元纪大论',
-    verse: '戊癸之岁，火运统之。太徵少阳，其政升腾；暑热炎炎，万物蕃鲜。',
-    climateFeature: '火运主热，气候炎热酷暑，阳气亢盛，雨热同季。',
-    healthAdvice: '宜清热解暑，清心降火，防中暑伤津与心火偏亢。',
+    verse: '戊癸之岁，火运统之。',
+    climateFeature: '戊年为火运太过，癸年为火运不及；火运对应热化。',
   },
 
   // 司天在泉
   子午少阴君火司天: {
     factor: '少阴君火司天',
     category: '司天',
-    sourceBook: '素问·六元正纪大论',
-    verse: '子午之岁，少阴君火司天，阳明燥金在泉。天气热，地气清，炎火施化。',
-    climateFeature: '上半年炎热温和，下半年清凉干燥。',
-    healthAdvice: '上半年防心肺伏热，下半年防燥咳伤津。',
+    sourceBook: '素问·至真要大论',
+    verse: '少阴司天，其化以热。',
+    climateFeature: '少阴君火司天对应热化；具体变化结合中运、在泉与主客气判断。',
   },
   丑未太阴湿土司天: {
     factor: '太阴湿土司天',
     category: '司天',
-    sourceBook: '素问·六元正纪大论',
-    verse: '丑未之岁，太阴湿土司天，太阳寒水在泉。天气沉阴，地气大寒，雨湿流行。',
-    climateFeature: '上半年多雨湿重，下半年天寒水冻。',
-    healthAdvice: '健脾除湿为主，下半年重温肾散寒。',
+    sourceBook: '素问·至真要大论',
+    verse: '太阴司天，其化以湿。',
+    climateFeature: '太阴湿土司天对应湿化；具体变化结合中运、在泉与主客气判断。',
   },
   寅申少阳相火司天: {
     factor: '少阳相火司天',
     category: '司天',
-    sourceBook: '素问·六元正纪大论',
-    verse: '寅申之岁，少阳相火司天，厥阴风木在泉。天气炎暑，地气风动，火热流行。',
-    climateFeature: '上半年暑热偏盛，下半年风动气旋。',
-    healthAdvice: '上半年防热病疮疡，下半年防肝风动血。',
+    sourceBook: '素问·至真要大论',
+    verse: '少阳司天，其化以火。',
+    climateFeature: '少阳相火司天对应火化；具体变化结合中运、在泉与主客气判断。',
   },
   卯酉阳明燥金司天: {
     factor: '阳明燥金司天',
     category: '司天',
-    sourceBook: '素问·六元正纪大论',
-    verse: '卯酉之岁，阳明燥金司天，少阴君火在泉。天气清凉，地气热化，燥凉流行。',
-    climateFeature: '上半年清凉肃杀，下半年温热如夏。',
-    healthAdvice: '上半年润燥养肺，下半年清心泄热。',
+    sourceBook: '素问·至真要大论',
+    verse: '阳明司天，其化以燥。',
+    climateFeature: '阳明燥金司天对应燥化；具体变化结合中运、在泉与主客气判断。',
   },
   辰戌太阳寒水司天: {
     factor: '太阳寒水司天',
     category: '司天',
-    sourceBook: '素问·六元正纪大论',
-    verse: '辰戌之岁，太阳寒水司天，太阴湿土在泉。天气大寒，地气蒸湿，寒湿交争。',
-    climateFeature: '上半年寒气凛冽，下半年湿重泥泞。',
-    healthAdvice: '温中化湿，兼散外寒，固护脾肾。',
+    sourceBook: '素问·至真要大论',
+    verse: '太阳司天，其化以寒。',
+    climateFeature: '太阳寒水司天对应寒化；具体变化结合中运、在泉与主客气判断。',
   },
   巳亥厥阴风木司天: {
     factor: '厥阴风木司天',
     category: '司天',
-    sourceBook: '素问·六元正纪大论',
-    verse: '巳亥之岁，厥阴风木司天，少阳相火在泉。天气风动，地气炎热，风热合化。',
-    climateFeature: '上半年多大风回旋，下半年暑热伏留。',
-    healthAdvice: '平肝熄风，清泄相火，安神定志。',
+    sourceBook: '素问·至真要大论',
+    verse: '厥阴司天，其化以风。',
+    climateFeature: '厥阴风木司天对应风化；具体变化结合中运、在泉与主客气判断。',
+  },
+  寅申厥阴风木在泉: {
+    factor: '厥阴风木在泉',
+    category: '在泉',
+    sourceBook: '素问·至真要大论',
+    verse: '厥阴司天为风化，在泉为酸化。',
+    climateFeature: '厥阴风木在泉对应酸化，与司天、中运及各步客气合参。',
+  },
+  卯酉少阴君火在泉: {
+    factor: '少阴君火在泉',
+    category: '在泉',
+    sourceBook: '素问·至真要大论',
+    verse: '少阴司天为热化，在泉为苦化。',
+    climateFeature: '少阴君火在泉对应苦化，与司天、中运及各步客气合参。',
+  },
+  辰戌太阴湿土在泉: {
+    factor: '太阴湿土在泉',
+    category: '在泉',
+    sourceBook: '素问·至真要大论',
+    verse: '太阴司天为湿化，在泉为甘化。',
+    climateFeature: '太阴湿土在泉对应甘化，与司天、中运及各步客气合参。',
+  },
+  巳亥少阳相火在泉: {
+    factor: '少阳相火在泉',
+    category: '在泉',
+    sourceBook: '素问·至真要大论',
+    verse: '少阳司天为火化，在泉为苦化。',
+    climateFeature: '少阳相火在泉对应苦化，与司天、中运及各步客气合参。',
+  },
+  子午阳明燥金在泉: {
+    factor: '阳明燥金在泉',
+    category: '在泉',
+    sourceBook: '素问·至真要大论',
+    verse: '阳明司天为燥化，在泉为辛化。',
+    climateFeature: '阳明燥金在泉对应辛化，与司天、中运及各步客气合参。',
+  },
+  丑未太阳寒水在泉: {
+    factor: '太阳寒水在泉',
+    category: '在泉',
+    sourceBook: '素问·至真要大论',
+    verse: '太阳司天为寒化，在泉为咸化。',
+    climateFeature: '太阳寒水在泉对应咸化，与司天、中运及各步客气合参。',
   },
 };
 
 export function getWuyunLiuqiClassic(factor: string): WuyunLiuqiClassic | undefined {
-  if (!factor) return undefined;
-  for (const [key, val] of Object.entries(WUYUN_LIUQI_CLASSICS)) {
-    if (factor.includes(key) || key.includes(factor)) return val;
-  }
-  return undefined;
+  if (typeof factor !== 'string' || !factor) return undefined;
+  const entry = Object.entries(WUYUN_LIUQI_CLASSICS).find(
+    ([key, value]) => factor === key || factor === value.factor,
+  );
+  return entry ? { ...entry[1] } : undefined;
 }

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeBirthInput } from 'mingyu-core/types';
+import { getApparentPosition, toJulianDate } from '../packages/core/src/astrology/engine';
 
 // 参考值取自 Swiss Ephemeris 2.10（se1 星历文件，SE_OSCU_APOG=13、SE_TRUE_NODE=11）。
 // 容差为不同星历模型保留余量，并远小于会造成占星落位误判的角度。
@@ -94,5 +95,25 @@ test('相位几何量应由最终真莉莉丝和真交点黄经计算', () => {
       aspect.orb,
       Number(Math.abs(actualAngle - (aspect.exactAngle as number)).toFixed(2)),
     );
+  }
+});
+
+test('完整星盘交点与莉莉丝逆行标志保留底层星历方向', () => {
+  const chart = generateAstrolabe({
+    ...baseInput,
+    year: '2026',
+    month: '1',
+    day: '1',
+    hour: '20',
+    minute: '0',
+  });
+  const jd = toJulianDate({ year: 2026, month: 1, day: 1, hour: 20, minute: 0, timezone: 8 });
+  for (const [name, id] of [
+    ['North Node', 'true_node'],
+    ['South Node', 'true_node'],
+    ['True Lilith', 'true_lilith'],
+  ] as const) {
+    const point = chart.planets.find((item) => item.name === name)!;
+    assert.equal(point.retrograde, getApparentPosition(id, jd).speed < 0, name);
   }
 });

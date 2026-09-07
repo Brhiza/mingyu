@@ -218,6 +218,9 @@ test('西占合盘互溶与接纳判定：识别金火互溶与接纳断诀', ()
   assert.ok(result.receptions.length >= 1);
   const mutual = result.receptions.find((r) => r.type === '互溶');
   assert.ok(mutual);
-  assert.match(mutual.summary, /庙旺互溶/);
+  // 互溶分支只核验入庙守护，不再混称“庙旺”；曜升互溶未核验
+  assert.match(mutual.summary, /入庙守护/);
+  assert.match(mutual.summary, /守护互溶/);
+  assert.doesNotMatch(mutual.summary, /庙旺互溶/);
   assert.match(result.promptText, /【古典接纳互溶】/);
 });

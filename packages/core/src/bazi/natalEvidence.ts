@@ -191,8 +191,16 @@ function buildPillarFacts(data: BaziChartResult): BaziNatalPillarFact[] {
     const pillar = data.pillars[key];
     const hiddenStems = data.hiddenStems[key] ?? [];
     const hiddenTenGods = data.hiddenTenGods[key] ?? [];
-    const status =
-      hasText(pillar.gan) && hasText(pillar.zhi) && hasText(pillar.ganZhi) ? '已记录' : '资料缺口';
+    // 除干支本身外，同时核对派生字段的对应关系：
+    // 藏干十神应与藏干一一对应，干支拼接应与 ganZhi 一致，避免缺派生资料仍记“已记录”
+    const coreMissing = !hasText(pillar.gan) || !hasText(pillar.zhi) || !hasText(pillar.ganZhi);
+    const hiddenTenGodMismatch =
+      hiddenStems.length > 0 && hiddenTenGods.length !== hiddenStems.length;
+    const ganZhiMismatch =
+      hasText(pillar.gan) && hasText(pillar.zhi) && hasText(pillar.ganZhi)
+        ? pillar.ganZhi !== `${pillar.gan}${pillar.zhi}`
+        : false;
+    const status = coreMissing || hiddenTenGodMismatch || ganZhiMismatch ? '资料缺口' : '已记录';
     const promptText = [
       `${PILLAR_LABELS[key]}${pillar.ganZhi || '未记录干支'}`,
       `天干十神${data.tenGods[key] || '未记录'}`,
@@ -347,6 +355,9 @@ function buildCalculationSteps(args: {
     : '';
   const missingPillarCount = pillarFacts.filter((item) => item.status === '资料缺口').length;
   const missingAnalysisCount = analysisFacts.filter((item) => item.status === '资料缺口').length;
+  const missingDerivedCount = pillarFacts.filter(
+    (item) => item.hiddenStems.length > 0 && item.hiddenTenGods.length !== item.hiddenStems.length,
+  ).length;
 
   return [
     {
@@ -392,7 +403,7 @@ function buildCalculationSteps(args: {
     {
       key: 'bazi:natal:calculation:derived',
       stage: '派生资料计算',
-      status: missingPillarCount ? '存在资料缺口' : '已计算',
+      status: missingPillarCount || missingDerivedCount ? '存在资料缺口' : '已计算',
       inputs: {
         pillars: PILLAR_KEYS.map((key) => data.pillars[key].ganZhi),
         dayMaster: data.dayMaster.gan,
@@ -403,6 +414,7 @@ function buildCalculationSteps(args: {
           (total, key) => total + (data.hiddenStems[key]?.length ?? 0),
           0,
         ),
+        hiddenTenGodMismatchCount: missingDerivedCount,
         relationFactCount: relationFacts.length,
         presentWuxing: data.wuxingStrength.present,
       },
@@ -434,7 +446,10 @@ function buildCalculationSteps(args: {
     {
       key: 'bazi:natal:calculation:summary',
       stage: '证据汇总',
-      status: missingPillarCount || missingAnalysisCount ? '存在资料缺口' : '已计算',
+      status:
+        missingPillarCount || missingAnalysisCount || missingDerivedCount
+          ? '存在资料缺口'
+          : '已计算',
       inputs: {
         pillarFactCount: pillarFacts.length,
         analysisFactCount: analysisFacts.length,
@@ -442,10 +457,10 @@ function buildCalculationSteps(args: {
         warningFactCount: data.warningFacts.length,
       },
       result: {
-        missingFactCount: missingPillarCount + missingAnalysisCount,
+        missingFactCount: missingPillarCount + missingAnalysisCount + missingDerivedCount,
       },
       dependsOnStepKeys: ['bazi:natal:calculation:core-analysis'],
-      promptText: `汇总四柱${pillarFacts.length}项、核心判断${analysisFacts.length}项、柱间关系${relationFacts.length}项、排盘边界${data.warningFacts.length}项，资料缺口${missingPillarCount + missingAnalysisCount}项`,
+      promptText: `汇总四柱${pillarFacts.length}项、核心判断${analysisFacts.length}项、柱间关系${relationFacts.length}项、排盘边界${data.warningFacts.length}项，资料缺口${missingPillarCount + missingAnalysisCount + missingDerivedCount}项`,
       sources: ['出生时间、四柱、派生资料、核心判断与排盘边界逐项汇总'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -470,7 +485,7 @@ function buildCounterEvidenceFacts(args: {
       ownerFactKeys: ['bazi:natal:calculation:pillars', ...pillarFacts.map((item) => item.key)],
       promptText: missingPillars.length
         ? `${missingPillars.map((item) => item.pillar).join('、')}存在资料缺口，不得补造干支、藏干或十神`
-        : '年、月、日、时四柱及其主要派生字段均已登记',
+        : '年、月、日、时四柱干支已登记，且藏干十神数量与藏干一一对应、干支拼接一致',
       sources: ['四柱事实完整性逐项核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },

@@ -23,6 +23,53 @@ const spreadTypes: LenormandSpreadType[] = [
   'grandTableau',
 ];
 
+test('雷诺曼入口拒绝原型牌阵、非文本牌阵和缺项录入', () => {
+  for (const spread of ['toString', '__proto__', 'constructor', ['single'], null]) {
+    assert.throws(() => drawLenormandSpread(spread as never), /未知的雷诺曼牌阵类型/);
+    assert.throws(
+      () => resolveInteractiveLenormandCards(spread as never, []),
+      /未知的雷诺曼牌阵类型/,
+    );
+  }
+  for (const samples of [new Array(1), null, false, { length: 1 }]) {
+    assert.throws(() => resolveInteractiveLenormandCards('single', samples as never));
+    assert.throws(() => drawLenormandSpread('single', { interactiveSamples: samples as never }));
+    assert.throws(() => drawLenormandSpread('single', { manualCardIds: samples as never }));
+  }
+});
+
+test('雷诺曼未完成进度可续抽且36张均不重复，完整入口拒绝缺牌记录', () => {
+  assert.deepEqual(resolveInteractiveLenormandCards('grandTableau', []), []);
+  const partial = resolveInteractiveLenormandCards('grandTableau', [0, 0]);
+  const complete = resolveInteractiveLenormandCards('grandTableau', Array(36).fill(0));
+  assert.deepEqual(complete.slice(0, 2), partial);
+  assert.deepEqual(
+    complete.map((card) => card.id),
+    Array.from({ length: 36 }, (_, i) => i + 1),
+  );
+  assert.throws(() => drawLenormandSpread('grandTableau', { interactiveSamples: [0, 0] }));
+});
+
+test('雷诺曼整组随机记录应与牌面顺序一致并完整消耗', () => {
+  for (const data of [
+    drawLenormandSpread('three', { seed: '雷诺曼重放' }),
+    drawLenormandSpread('three', { interactiveSamples: [0, 0.25, 0.5] }),
+  ]) {
+    for (const samples of [
+      data.meta!.random!.samples.slice(0, -1),
+      [...data.meta!.random!.samples, 0],
+    ]) {
+      const changed = structuredClone(data);
+      changed.meta!.random!.samples = samples;
+      assert.throws(() => analyzeLenormandEvidence(changed));
+    }
+    const changed = structuredClone(data);
+    [changed.cards[0], changed.cards[1]] = [changed.cards[1], changed.cards[0]];
+    assert.throws(() => analyzeLenormandEvidence(changed), /随机轨迹与牌面或顺序不一致/);
+    assert.equal(analyzeLenormandEvidence(data).randomFact.status, '可重放');
+  }
+});
+
 test('雷诺曼大桌牌阵应抽取完整 36 张牌', () => {
   const result = drawLenormandSpread('grandTableau');
 
@@ -496,7 +543,7 @@ test('雷诺曼抽牌序号、牌面或布局落点不一致时应明确标记',
 });
 
 test('雷诺曼牌位、顺序和牌号异常时应给出可定位的覆盖事实', () => {
-  const result = drawLenormandSpread('three', { seed: '雷诺曼覆盖异常' });
+  const result = drawLenormandSpread('three', { manualCardIds: [1, 2, 3] });
   const tampered: LenormandData = structuredClone(result);
   tampered.cards[1].position = tampered.cards[0].position;
   tampered.cards[1].id = tampered.cards[0].id;
@@ -531,7 +578,7 @@ test('雷诺曼牌位、顺序和牌号异常时应给出可定位的覆盖事�
 });
 
 test('雷诺曼旧布局文字只能兼容展示，不得反推结构化布局', () => {
-  const result = drawLenormandSpread('nine', { seed: '雷诺曼旧布局兼容' });
+  const result = drawLenormandSpread('nine', { manualCardIds: [1, 2, 3, 4, 5, 6, 7, 8, 9] });
   const legacy = analyzeLenormandEvidence({
     ...result,
     cards: result.cards.slice(0, 8),

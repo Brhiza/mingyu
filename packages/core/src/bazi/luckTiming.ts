@@ -49,6 +49,21 @@ function assertSolarDateTimeInfo(time: SolarDateTimeInfo) {
   assertTimePart(time.second, 0, 59, '秒');
 }
 
+/** 构造保留完整年份（含 0—99 年）的本地 Date，绕开多参数构造对 0—99 年的 1900 偏移 */
+function createFullYearDate(
+  year: number,
+  month: number,
+  day: number,
+  hour = 0,
+  minute = 0,
+  second = 0,
+): Date {
+  const date = new Date();
+  date.setFullYear(year, month - 1, day);
+  date.setHours(hour, minute, second, 0);
+  return date;
+}
+
 export function toNativeDate(time: SolarDateTimeInfo | Date): Date {
   if (time instanceof Date) {
     assertValidDate(time, '时间');
@@ -56,7 +71,23 @@ export function toNativeDate(time: SolarDateTimeInfo | Date): Date {
   }
 
   assertSolarDateTimeInfo(time);
-  return new Date(time.year, time.month - 1, time.day, time.hour, time.minute, time.second);
+  const date = createFullYearDate(
+    time.year,
+    time.month,
+    time.day,
+    time.hour,
+    time.minute,
+    time.second,
+  );
+  // 回读校验：确认目标年月日在本地时区表达有效（不存在夏令时缺口等）
+  if (
+    date.getFullYear() !== time.year ||
+    date.getMonth() + 1 !== time.month ||
+    date.getDate() !== time.day
+  ) {
+    throw new Error(`本地时间无效：${time.year}-${time.month}-${time.day}`);
+  }
+  return date;
 }
 
 export function fromNativeDate(time: Date): SolarDateTimeInfo {
@@ -89,7 +120,7 @@ export function createLocalTimeRange(start: Date, end: Date): LocalTimeRange {
 export function getLuckCycleTimeRange(cycle: LuckCycle): LocalTimeRange {
   const start = cycle.startSolarTime
     ? toNativeDate(cycle.startSolarTime)
-    : new Date(cycle.year, 0, 1, 0, 0, 0);
+    : createFullYearDate(cycle.year, 1, 1);
   const end = cycle.endSolarTime ? toNativeDate(cycle.endSolarTime) : getFallbackCycleEnd(cycle);
   return createLocalTimeRange(start, end);
 }
@@ -144,10 +175,10 @@ export function shiftSolarDateTimeYears(time: SolarDateTimeInfo, years: number):
 function getFallbackCycleEnd(cycle: LuckCycle): Date {
   assertSolarYear(cycle.year);
   if (cycle.isXiaoyun) {
-    return new Date(cycle.year + Math.max(cycle.years.length, 1), 0, 1, 0, 0, 0);
+    return createFullYearDate(cycle.year + Math.max(cycle.years.length, 1), 1, 1);
   }
 
-  return new Date(cycle.year + 10, 0, 1, 0, 0, 0);
+  return createFullYearDate(cycle.year + 10, 1, 1);
 }
 
 export function isDateWithinLuckCycle(cycle: LuckCycle, referenceDate: Date = new Date()): boolean {

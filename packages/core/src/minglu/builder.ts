@@ -25,6 +25,7 @@ import {
 } from './bazi-enhancer';
 import { buildEnhancedZiweiSection } from './ziwei-enhancer';
 import { buildEnhancedAstrolabeSection } from './astrolabe-enhancer';
+import { getBaZhaiPalace, type BaZhaiLabel } from '../direction';
 import { MINGLU_GLOSSARY_DATABASE } from './glossary-data';
 
 export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
@@ -50,39 +51,37 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
   let fengshuiSection = undefined;
   if (baziResult.mingGua) {
     const mg = baziResult.mingGua;
-    const isEast = mg.eastWest.includes('东');
+    // 逐卦取公共八宅大游年表，避免按东四/西四分组固定方位而丢失具体命卦
+    const palaces = getBaZhaiPalace(mg.gua);
+    const pickDirection = (label: BaZhaiLabel): string => {
+      const palace = palaces.find((item) => item.label === label);
+      if (!palace) {
+        throw new Error(`命卦${mg.gua}大游年缺少${label}宫`);
+      }
+      return palace.direction;
+    };
     fengshuiSection = {
       mingGua: {
         gua: mg.gua,
         number: mg.number,
         eastWest: mg.eastWest,
         wuxing: mg.element,
-        beneficialDirections: isEast
-          ? [
-              { name: '生气方', direction: '正南/正东', desc: '大吉，生机勃勃，利于官运与进取' },
-              { name: '延年方', direction: '东南/正北', desc: '中吉，健康延年，家庭和睦' },
-              { name: '天医方', direction: '正东/东南', desc: '次吉，贵人相助，病除身健' },
-              { name: '伏位方', direction: '正北/正南', desc: '小吉，安稳从容，修身养性' },
-            ]
-          : [
-              { name: '生气方', direction: '西北/东北', desc: '大吉，生机勃勃，利于创业与进取' },
-              { name: '延年方', direction: '西南/正西', desc: '中吉，健康延年，人际和谐' },
-              { name: '天医方', direction: '东北/西北', desc: '次吉，贵人相助，福寿康宁' },
-              { name: '伏位方', direction: '正西/西南', desc: '小吉，安稳从容，积蓄实力' },
-            ],
-        unfavorableDirections: isEast
-          ? [
-              { name: '绝命方', direction: '正西', desc: '大凶，宜避开床头与主要气口' },
-              { name: '五鬼方', direction: '西北', desc: '次凶，防口舌是非与火燥' },
-              { name: '六煞方', direction: '西南', desc: '中凶，多思多虑，慎重决策' },
-              { name: '祸害方', direction: '东北', desc: '小凶，避免杂乱与堆放重物' },
-            ]
-          : [
-              { name: '绝命方', direction: '正东', desc: '大凶，宜避开床头与主要气口' },
-              { name: '五鬼方', direction: '东南', desc: '次凶，防口舌是非与浮躁' },
-              { name: '六煞方', direction: '正南', desc: '中凶，防情绪波澜' },
-              { name: '祸害方', direction: '正北', desc: '小凶，宜保持明亮整洁' },
-            ],
+        beneficialDirections: [
+          {
+            name: '生气方',
+            direction: pickDirection('生气'),
+            desc: '大吉，生机勃勃，利于官运与进取',
+          },
+          { name: '延年方', direction: pickDirection('延年'), desc: '中吉，健康延年，家庭和睦' },
+          { name: '天医方', direction: pickDirection('天医'), desc: '次吉，贵人相助，病除身健' },
+          { name: '伏位方', direction: pickDirection('伏位'), desc: '小吉，安稳从容，修身养性' },
+        ],
+        unfavorableDirections: [
+          { name: '绝命方', direction: pickDirection('绝命'), desc: '大凶，宜避开床头与主要气口' },
+          { name: '五鬼方', direction: pickDirection('五鬼'), desc: '次凶，防口舌是非与火燥' },
+          { name: '六煞方', direction: pickDirection('六煞'), desc: '中凶，多思多虑，慎重决策' },
+          { name: '祸害方', direction: pickDirection('祸害'), desc: '小凶，避免杂乱与堆放重物' },
+        ],
       },
       yuanYun: {
         currentYun: 9,
@@ -124,7 +123,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       crossVerificationNotes: [
         '八字日元与十神体现内在能量结构与处事原则。',
         ziweiSection ? '紫微星系呈现外在气度与人际行事风采，与八字格局互为表里。' : '',
-        astrolabeSection ? '占星日月升三位一体对应八字精气神，东西方在此高度印证。' : '',
+        astrolabeSection ? '占星日月升三位一体对应八字精气神，可与八字结构对照阅读。' : '',
       ].filter(Boolean),
     },
     {
@@ -162,7 +161,9 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       focus: '八字大运流年与紫微十年大限、占星行星推运之同步对齐。',
       baziEvidence: [
         `起运岁数：约${luckChronicleSection.startAge}岁起运`,
-        `当前大运：${luckChronicleSection.cycles[0]?.ganZhi || '—'}运`,
+        `首步大运：${
+          luckChronicleSection.cycles.find((c) => !c.isXiaoyun)?.ganZhi || '—'
+        }运（约${luckChronicleSection.startAge}岁起始）`,
       ],
       ziweiEvidence: ziweiSection
         ? [`大限按十年步进，起于命宫，顺逆依阳男阴女局数推求。`]

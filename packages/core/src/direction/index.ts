@@ -436,6 +436,9 @@ export const MOUNTAIN_TO_BAGUA: Record<string, string> = {
 
 /** 由坐山（二十四山）取宅卦 */
 export function getHouseTrigram(mountain: string): string {
+  if (typeof mountain !== 'string' || !Object.hasOwn(MOUNTAIN_TO_BAGUA, mountain)) {
+    throw new Error(`坐山无效：${String(mountain)}`);
+  }
   const gua = MOUNTAIN_TO_BAGUA[mountain];
   if (!gua) throw new Error(`坐山无效：${mountain}`);
   return gua;
@@ -443,6 +446,18 @@ export function getHouseTrigram(mountain: string): string {
 
 /** 由坐向（如「子山午向」）取宅卦 */
 export function getHouseTrigramFromSitFacing(sitMountain: string): string {
+  if (typeof sitMountain === 'string' && sitMountain.length === 4) {
+    const match = /^(.山)(.向)$/.exec(sitMountain);
+    if (match) {
+      const sit = sitMountain[0];
+      const facing = sitMountain[2];
+      const index = TWENTY_FOUR_MOUNTAINS.indexOf(sit);
+      if (index < 0 || TWENTY_FOUR_MOUNTAINS[(index + 12) % 24] !== facing) {
+        throw new Error(`坐向须为相对的二十四山：${sitMountain}`);
+      }
+      return getHouseTrigram(sit);
+    }
+  }
   return getHouseTrigram(sitMountain);
 }
 
@@ -481,6 +496,9 @@ export interface BaZhaiPalace {
  * @returns 八个方位的吉凶
  */
 export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
+  if (typeof baseGua !== 'string' || !Object.hasOwn(BA_ZHAI_TABLE, baseGua)) {
+    throw new Error(`基准卦无效（需为八卦之一）：${String(baseGua)}`);
+  }
   const row = BA_ZHAI_TABLE[baseGua];
   if (!row) throw new Error(`基准卦无效（需为八卦之一）：${baseGua}`);
   return BAGUA.map((gua, i) => ({

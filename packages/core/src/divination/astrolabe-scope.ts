@@ -271,6 +271,7 @@ const PHASE_LABELS: Record<Transit['phase'], string> = {
   applying: '入相',
   exact: '精准',
   separating: '出相',
+  unknown: '未判定',
 };
 
 const TRANSITING_BODIES = [

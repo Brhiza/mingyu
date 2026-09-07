@@ -1283,6 +1283,17 @@
   color: #a5b4fc;
 }
 
+.minglu-palace-badge.is-laiyin {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 700;
+}
+
+.dark .minglu-palace-badge.is-laiyin {
+  background: #451a03;
+  color: #fcd34d;
+}
+
 .minglu-stars-list {
   display: flex;
   flex-wrap: wrap;

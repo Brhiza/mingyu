@@ -141,3 +141,24 @@ test('民用时间统一入口应拒绝跳时缺口、未消歧回拨和固定�
   assert.equal(resolved.timezone, -5);
   assert.equal(resolved.timezoneEvidence?.ambiguityResolvedByFixedOffset, true);
 });
+
+test('民用时间的固定偏移和 IANA 时区保留公元一至九十九年', () => {
+  for (const year of [1, 4, 50, 99, 100]) {
+    const parts = { year, month: 3, day: 1, hour: 8, minute: 30, second: 15 };
+    const padded = String(year).padStart(4, '0');
+    const fixed = resolveCivilTime({ ...parts, timezone: 8 });
+    assert.equal(fixed.utcDateTime, `${padded}-03-01T00:30:15.000Z`);
+    const iana = resolveCivilTime({ ...parts, timeZoneId: 'Etc/UTC' });
+    assert.equal(iana.utcDateTime, `${padded}-03-01T08:30:15.000Z`);
+  }
+  const leap = resolveCivilTime({
+    year: 4,
+    month: 3,
+    day: 1,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    timezone: 8,
+  });
+  assert.equal(leap.utcDateTime, '0004-02-29T16:00:00.000Z');
+});

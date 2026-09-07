@@ -44,6 +44,8 @@ export interface InstantWallClockParts {
   day: number;
   hour: number;
   minute: number;
+  /** 该钟表值对应时区在原时刻的实际偏移（小时，含夏令时），用于保留消歧信息 */
+  offsetHours?: number;
 }
 
 export interface InstantChartDefinition {
@@ -207,7 +209,26 @@ function getWallClockPartsInOffset(date: Date, timezone: number): InstantWallClo
     day: shifted.getUTCDate(),
     hour: shifted.getUTCHours(),
     minute: shifted.getUTCMinutes(),
+    offsetHours: timezone,
   };
+}
+
+/** 读取指定时刻在目标 IANA 时区的实际偏移（小时，含夏令时）。 */
+function getTimeZoneOffsetHours(date: Date, timeZoneId: string): number | undefined {
+  try {
+    const name = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZoneId,
+      timeZoneName: 'longOffset',
+    })
+      .formatToParts(date)
+      .find((part) => part.type === 'timeZoneName')?.value;
+    const match = /GMT([+-])(\d{1,2}):(\d{2})/.exec(name ?? '');
+    if (!match) return 0; // GMT/UTC 时区返回无符号 "GMT"
+    const sign = match[1] === '+' ? 1 : -1;
+    return sign * (Number(match[2]) + Number(match[3]) / 60);
+  } catch {
+    return undefined;
+  }
 }
 
 function getWallClockPartsInTimeZone(date: Date, timeZoneId: string): InstantWallClockParts {
@@ -237,6 +258,8 @@ function getWallClockPartsInTimeZone(date: Date, timeZoneId: string): InstantWal
     day: parts.day,
     hour: parts.hour,
     minute: parts.minute,
+    // 记录原时刻的实际偏移，回拨重复区间由此区分，不得在后续换算中默选
+    offsetHours: getTimeZoneOffsetHours(date, timeZoneId),
   };
 }
 
@@ -283,8 +306,20 @@ export function buildInstantChartContext(
       ? convertTrueSolarTime({
           localDateTime: formatLocalDateTime(wallClock),
           longitude: observer!.longitude,
-          ...(observer!.timezone !== undefined ? { timezone: observer!.timezone } : {}),
-          ...(observer!.timeZoneId ? { timeZoneId: observer!.timeZoneId } : {}),
+          // 偏移来自原 customDate 时刻的实际时区偏移，用于回拨区间消歧；
+          // 仅当观测者只给 IANA 时区而钟表转换已取得实际偏移时才自动补齐。
+          ...(observer!.timeZoneId
+            ? {
+                timeZoneId: observer!.timeZoneId,
+                ...(observer!.timezone !== undefined
+                  ? { timezone: observer!.timezone }
+                  : wallClock.offsetHours !== undefined
+                    ? { timezone: wallClock.offsetHours }
+                    : {}),
+              }
+            : observer!.timezone !== undefined
+              ? { timezone: observer!.timezone }
+              : {}),
         })
       : undefined;
 

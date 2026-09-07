@@ -18,6 +18,39 @@ import { HIDDEN_STEMS } from './baziMappingsData';
 import { WUXING } from './baziTypes';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 
+/** 月支季节旺气五行（寅卯辰木、巳午未火、申酉戌金、亥子丑水、四库土） */
+const SEASON_WUXING: Record<string, string> = {
+  寅: '木',
+  卯: '木',
+  辰: '土',
+  巳: '火',
+  午: '火',
+  未: '土',
+  申: '金',
+  酉: '金',
+  戌: '土',
+  亥: '水',
+  子: '水',
+  丑: '土',
+};
+
+/** 按旺相休囚死口径给出透干月令状态：同我旺、我生相、生我休、克我囚、我克死 */
+function getSeasonStatus(element: string, monthBranch: string): string {
+  const season = SEASON_WUXING[monthBranch];
+  if (!season || !element || element === '未知') return '平';
+  const shengTo: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
+  const keTo: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+  const shengMe = Object.entries(shengTo).find(([, v]) => v === element)?.[0] ?? '';
+  const keMe = Object.entries(keTo).find(([, v]) => v === element)?.[0] ?? '';
+  const keByMe = Object.entries(keTo).find(([k]) => k === element)?.[1] ?? '';
+  if (season === element) return '旺';
+  if (season === shengMe) return '相';
+  if (season === shengTo[element]) return '休';
+  if (season === keByMe) return '囚';
+  if (season === keMe) return '死';
+  return '平';
+}
+
 const STEM_ELEMENT: Record<string, string> = {
   甲: '木',
   乙: '木',
@@ -147,8 +180,18 @@ export function analyzeExposedStemProfile(
   if (commanderStem) assertHeavenlyStem(commanderStem, '司令天干');
   if (monthBranch) assertEarthlyBranch(monthBranch, '月支');
 
+  // 月支缺省时从四柱月柱读取，避免把“未提供月支”误当作“不得月令”
+  const effectiveMonthBranch = monthBranch ?? pillars[1]?.zhi;
+  if (effectiveMonthBranch) assertEarthlyBranch(effectiveMonthBranch, '月支');
   const pillarNames = ['year', 'month', 'day', 'hour'];
-  const monthStems = monthBranch ? HIDDEN_STEMS[monthBranch] || [] : [];
+  const monthStems = effectiveMonthBranch ? HIDDEN_STEMS[effectiveMonthBranch] || [] : [];
+
+  // 根气复用同文件的根气分析结果，不再返回恒定“待定”
+  const rootProfile = analyzeStemRootProfile(pillars, dayMaster, getWuxing, getTenGod);
+  const rootStatusByPillar = new Map(
+    rootProfile.items.map((item, idx) => [pillarNames[idx] ?? String(idx), item.status]),
+  );
+
   const items: ExposedStemItem[] = [];
 
   pillars.forEach((p, idx) => {
@@ -156,20 +199,28 @@ export function analyzeExposedStemProfile(
     let commandStatus = '不得月令';
     if (commanderStem && p.gan === commanderStem) {
       commandStatus = '司令透出';
-    } else if (monthStems.includes(p.gan)) {
+    } else if (effectiveMonthBranch && monthStems.includes(p.gan)) {
       commandStatus = '月令藏干透出';
-    } else if (monthBranch && resolveWuxing(getWuxing, monthBranch, '月支') === stemElement) {
+    } else if (
+      effectiveMonthBranch &&
+      resolveWuxing(getWuxing, effectiveMonthBranch, '月支') === stemElement
+    ) {
       commandStatus = '得月令同气';
     }
+    const seasonStatus = effectiveMonthBranch
+      ? getSeasonStatus(stemElement, effectiveMonthBranch)
+      : '月支未提供';
 
     items.push({
       pillar: pillarNames[idx],
       stem: p.gan,
       tenGod: resolveTenGod(getTenGod, p.gan, dayMaster),
-      seasonStatus: '平',
+      seasonStatus,
       commandStatus,
-      rootStatus: '待定',
-      summary: `${p.gan}透于${pillarNames[idx]}，${commandStatus}`,
+      rootStatus: rootStatusByPillar.get(pillarNames[idx] ?? String(idx)) ?? '无根',
+      summary: `${p.gan}透于${pillarNames[idx]}，${commandStatus}；${seasonStatus}；根气${
+        rootStatusByPillar.get(pillarNames[idx] ?? String(idx)) ?? '无根'
+      }`,
     });
   });
 

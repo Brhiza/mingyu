@@ -50,6 +50,7 @@ export type ShanXiangRelation = '生入' | '生出' | '克入' | '克出' | '比
 
 export interface XuanKongPeriodStarPlate {
   year: number;
+  solarTermYear?: number;
   month?: number;
   day?: number;
   centerStar: number;
@@ -117,6 +118,7 @@ export function resolveMonthFlyingStar(
   const monthBranch = sixtyMonth.getSixtyCycle().getEarthBranch().getName();
   return {
     year,
+    solarTermYear: sixtyMonth.getSixtyCycleYear().getYear(),
     month,
     day: resolvedDay,
     centerStar,
@@ -142,13 +144,22 @@ export function resolveXuanKongFlowStars(input: {
   if (input.flowDay !== undefined && input.flowMonth === undefined) {
     throw new Error('提供 flowDay 时必须同时提供 flowMonth。');
   }
-  const yearPlate = resolveYearFlyingStar(input.flowYear);
   if (input.flowMonth === undefined) {
-    return { yearPlate };
+    return { yearPlate: resolveYearFlyingStar(input.flowYear) };
   }
+  const monthPlate = resolveMonthFlyingStar(input.flowYear, input.flowMonth, input.flowDay);
+  const effectiveYear = monthPlate.solarTermYear!;
+  const centerStar = SixtyCycleYear.fromYear(effectiveYear).getNineStar().getIndex() + 1;
+  const yearPlate: XuanKongPeriodStarPlate = {
+    year: effectiveYear,
+    centerStar,
+    starName: starName(centerStar),
+    plate: plateFromCenter(centerStar),
+    calendarNote: `按${input.flowYear}年${monthPlate.month}月${monthPlate.day}日所属节气年${effectiveYear === 0 ? '公元前1' : effectiveYear}年取年紫白入中，再顺飞九宫`,
+  };
   return {
     yearPlate,
-    monthPlate: resolveMonthFlyingStar(input.flowYear, input.flowMonth, input.flowDay),
+    monthPlate,
   };
 }
 

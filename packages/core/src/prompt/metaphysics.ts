@@ -41,13 +41,15 @@ export function buildMetaphysicsPromptDocument(
     baseSection,
     options.measurement ? buildPromptSection('测量换算', options.measurement) : '',
     buildPromptSchoolSection(options.method, options.schools),
-    buildPromptSection(
-      '任务',
-      buildPromptTask(
-        question?.trim() ? '请结合以上资料回答【问题】。' : '请结合以上资料完成解读。',
-        options.method,
-      ),
-    ),
+    options.method === 'zodiac' && /^【任务】$/m.test(normalizedBase)
+      ? ''
+      : buildPromptSection(
+          '任务',
+          buildPromptTask(
+            question?.trim() ? '请结合以上资料回答【问题】。' : '请结合以上资料完成解读。',
+            options.method,
+          ),
+        ),
     question?.trim() ? buildPromptSection('问题', question) : '',
   ];
 

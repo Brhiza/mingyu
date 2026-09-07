@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
+  type NamingBirthInput,
   analyzeChineseCharactersWithReferences,
   selectChineseCharacters,
   selectNamingCharacters,
@@ -28,9 +29,26 @@ const namingBirth = z
     year: z.number().int().min(1900).max(2100),
     month: z.number().int().min(1).max(12),
     day: z.number().int().min(1).max(31),
-    timeIndex: z.number().int().min(0).max(12),
+    timeIndex: z
+      .number()
+      .int()
+      .min(0)
+      .max(12)
+      .optional()
+      .describe('时辰索引（0-12）；useTrueSolarTime=false 时必填，启用真太阳时后可改传精确时分'),
     dateType: z.enum(['solar', 'lunar']).optional(),
     isLeapMonth: z.boolean().optional(),
+    useTrueSolarTime: z
+      .boolean()
+      .optional()
+      .describe('启用真太阳时校正；需同时提供 birthHour/birthMinute 与 birthLongitude'),
+    birthHour: z.number().int().min(0).max(23).optional(),
+    birthMinute: z.number().int().min(0).max(59).optional(),
+    birthPlace: z.string().optional().describe('出生地点名称，用于真太阳时说明'),
+    birthLongitude: z.number().min(-180).max(180).optional().describe('出生地经度'),
+    timezone: z.number().min(-12).max(14).optional().describe('小时偏移，如东八区为 8'),
+    timeZoneId: z.string().optional().describe('IANA 时区名，如 Asia/Shanghai'),
+    applyChinaDst: z.boolean().optional().describe('按中国 1986-1991 夏令时规则解释钟表时间'),
   })
   .describe('出生资料，用于结合四柱喜用筛选名字');
 
@@ -43,6 +61,14 @@ const namingPreferenceShape = {
     .optional()
     .describe('辈分字位于名字首字或末字，默认首字'),
 };
+
+function toBaziBirthDraft(birth?: z.infer<typeof namingBirth>): NamingBirthInput | undefined {
+  if (!birth) return undefined;
+  return {
+    ...birth,
+    timeIndex: birth.timeIndex ?? '',
+  };
+}
 
 export function registerNameNumberTools(server: McpServer) {
   server.registerTool(
@@ -65,7 +91,9 @@ export function registerNameNumberTools(server: McpServer) {
     },
     async (args) => {
       try {
-        return createStructuredToolResult({ result: generateChineseNames(args) });
+        return createStructuredToolResult({
+          result: generateChineseNames({ ...args, birth: toBaziBirthDraft(args.birth) }),
+        });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '起名失败'));
       }
@@ -94,7 +122,7 @@ export function registerNameNumberTools(server: McpServer) {
             fullName: args.fullName,
             surnameLength: args.surnameLength,
             xiYong: args.preferredElements,
-            birth: args.birth,
+            birth: toBaziBirthDraft(args.birth),
           }),
         });
       } catch (error) {
@@ -123,7 +151,12 @@ export function registerNameNumberTools(server: McpServer) {
     },
     async (args) => {
       try {
-        const candidates = generateChineseNames({ ...args, limit: args.limit ?? 10 });
+        const birthDraft = toBaziBirthDraft(args.birth);
+        const candidates = generateChineseNames({
+          ...args,
+          birth: birthDraft,
+          limit: args.limit ?? 10,
+        });
         return createStructuredToolResult({
           result: {
             candidates,
@@ -131,7 +164,11 @@ export function registerNameNumberTools(server: McpServer) {
               surname: args.surname,
               gender: args.gender,
               candidates,
-              suitableCharacters: selectNamingCharacters({ ...args, limit: 24 }),
+              suitableCharacters: selectNamingCharacters({
+                ...args,
+                birth: birthDraft,
+                limit: 24,
+              }),
               preferredCharacters: args.preferredCharacters,
               forbiddenCharacters: args.forbiddenCharacters,
               generationCharacter: args.generationCharacter,
@@ -167,7 +204,7 @@ export function registerNameNumberTools(server: McpServer) {
           fullName: args.fullName,
           surnameLength: args.surnameLength,
           xiYong: args.preferredElements,
-          birth: args.birth,
+          birth: toBaziBirthDraft(args.birth),
         });
         return createStructuredToolResult({
           result: {

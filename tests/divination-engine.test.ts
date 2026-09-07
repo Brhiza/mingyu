@@ -104,6 +104,19 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
   };
 }
 
+test('蓍草页面草稿生成六爻十八变及完整提示词', async () => {
+  const session = await generateDivinationSession(buildDraft({ liuyaoMethod: 'yarrow' }));
+  assert.equal(session.method, 'liuyao');
+  const data = session.data as ReturnType<typeof generateLiuyao>;
+  assert.equal(data.generation?.method, 'yarrow');
+  assert.equal(data.generation?.yarrow?.lines.length, 6);
+  assert.ok(data.generation?.yarrow?.lines.every((line) => line.changes.length === 3));
+  assert.match(session.prompt, /蓍草/);
+  assert.match(session.prompt, /第3变/);
+  const restored = JSON.parse(JSON.stringify(data));
+  assert.deepEqual(analyzeLiuyaoEvidence(restored), analyzeLiuyaoEvidence(data));
+});
+
 const qimenPalaceNameByGong: Record<number, string> = {
   1: '坎一宫',
   2: '坤二宫',

@@ -44,8 +44,25 @@ export interface BoundaryCheckInput {
   second?: number;
 }
 
+/** 按完整年份构造 UTC 毫秒；Date.UTC 对 0—99 年会按 1900+ 处理，此处显式避开 */
+function utcMsFromParts(
+  year: number,
+  monthIndex: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+): number {
+  if (year >= 0 && year <= 99) {
+    const shifted = new Date(Date.UTC(2000, monthIndex, day, hour, minute, second));
+    shifted.setUTCFullYear(year);
+    return shifted.getTime();
+  }
+  return Date.UTC(year, monthIndex, day, hour, minute, second);
+}
+
 function toUtcMs(t: BoundaryCheckInput): number {
-  return Date.UTC(t.year, t.month - 1, t.day, t.hour, t.minute, t.second ?? 0);
+  return utcMsFromParts(t.year, t.month - 1, t.day, t.hour, t.minute, t.second ?? 0);
 }
 
 function formatMinutes(value: number): string {
@@ -67,9 +84,12 @@ export function checkJieqiBoundary(t: BoundaryCheckInput): string[] {
   const warnings: string[] = [];
   const birthMs = toUtcMs(t);
   let best: { name: string; diffMinutes: number; before: boolean } | null = null;
+  let queried = 0;
+  let failed = 0;
 
   for (const y of [t.year - 1, t.year, t.year + 1]) {
     for (let i = 0; i < 24; i++) {
+      queried += 1;
       try {
         const term = SolarTerm.fromIndex(y, i);
         const name = term.getName();
@@ -77,7 +97,7 @@ export function checkJieqiBoundary(t: BoundaryCheckInput): string[] {
           continue;
         }
         const st = term.getJulianDay().getSolarTime();
-        const termMs = Date.UTC(
+        const termMs = utcMsFromParts(
           st.getYear(),
           st.getMonth() - 1,
           st.getDay(),
@@ -90,9 +110,23 @@ export function checkJieqiBoundary(t: BoundaryCheckInput): string[] {
           best = { name, diffMinutes, before: birthMs < termMs };
         }
       } catch {
+        failed += 1;
         continue;
       }
     }
+  }
+
+  // 资料缺口不得当作否定证据：全部或部分查询失败时显式登记，避免空数组被误读为“无预警”
+  if (queried > 0 && failed === queried) {
+    warnings.push(
+      '节气边界检查未完成：相邻三年节气资料全部查询失败，本次无法判断是否贴近交节边界，不能视为无预警。',
+    );
+    return warnings;
+  }
+  if (failed > 0) {
+    warnings.push(
+      `节气边界检查覆盖不完整：${failed}/${queried} 项节气资料查询失败，仅对成功取得的节气进行边界判断。`,
+    );
   }
 
   if (best && best.diffMinutes <= BOUNDARY_THRESHOLD_MINUTES) {

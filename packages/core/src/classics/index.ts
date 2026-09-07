@@ -198,7 +198,7 @@ export function getZhouyiHexagramClassic(hexagramId: number): ZhouyiHexagramText
 }
 
 /**
- * 查询小六壬落宫歌诀与《小六壬口诀》断语
+ * 查询小六壬六宫歌诀及主题解释。
  */
 export function getXiaoliurenClassic(palaceName: string): XiaoliurenPalaceClassic | undefined {
   return queryXiaoliurenClassic(palaceName);
@@ -287,7 +287,7 @@ export function getTaiyiGeneralClassic(general: string): TaiyiGeneralClassic | u
 }
 
 /**
- * 查询皇极经世元会运世治乱卦气
+ * 查询《皇极经世索隐》的元会运世年周期资料
  */
 export function getHuangjiCycleClassic(cycle: string): HuangjiCycleClassic | undefined {
   return queryHuangjiCycleClassic(cycle);

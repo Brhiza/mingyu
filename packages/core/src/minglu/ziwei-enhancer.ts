@@ -13,7 +13,7 @@ function mapStar(star: StarFact, type: MingluZiweiStarFact['type']): MingluZiwei
     type,
     brightness: star.brightness,
     birthMutagen: star.birth_mutagen,
-    selfMutagen: star.active_scope_mutagen,
+    activeScopeMutagen: star.active_scope_mutagen,
     scopeMutagen: star.horoscope_mutagen,
   };
 }
@@ -24,8 +24,9 @@ export function buildEnhancedZiweiSection(runtime: ZiweiRuntime): MingluZiweiSec
     throw new Error('紫微本命资料不存在');
   }
 
-  const soulPalace = origin.palaces.find((p) => p.is_original_palace) || origin.palaces[0];
-  const bodyPalace = origin.palaces.find((p) => p.is_body_palace) || origin.palaces[0];
+  // 命宫按宫位名称确定；来因宫标记单独保留，不得混用
+  const soulPalace = origin.palaces.find((p) => p.name === '命宫');
+  const bodyPalace = origin.palaces.find((p) => p.is_body_palace);
 
   const palaces: MingluZiweiPalaceData[] = origin.palaces.map((p) => {
     const opposite = origin.palaces.find((item) => item.index === p.opposite_palace_index);
@@ -39,7 +40,8 @@ export function buildEnhancedZiweiSection(runtime: ZiweiRuntime): MingluZiweiSec
       earthlyBranch: p.earthly_branch,
       heavenlyStem: p.heavenly_stem,
       isBodyPalace: Boolean(p.is_body_palace),
-      isOriginSoulPalace: Boolean(p.is_original_palace),
+      isOriginSoulPalace: p.name === '命宫',
+      isLaiYinPalace: Boolean(p.is_original_palace),
       decadalRange: p.decadal_range,
       majorStars: p.major_stars.map((s) => mapStar(s, 'major')),
       minorStars: p.minor_stars.map((s) => mapStar(s, 'minor')),
@@ -67,8 +69,9 @@ export function buildEnhancedZiweiSection(runtime: ZiweiRuntime): MingluZiweiSec
     matched: true,
     conditions: pat.matched_conditions || [],
     traditionalInterpretation: pat.traditional_interpretation || pat.description,
-    sourceTitle: pat.source || '紫微斗数全书',
-    sourceQuote: pat.description,
+    // 出处仅在资料确实提供时呈现，不得以默认书名填补；引文身份同样以来源存在为前提
+    sourceTitle: pat.source,
+    sourceQuote: pat.source ? pat.description : undefined,
   }));
 
   const mutagens: MingluZiweiSectionData['mutagens'] = [];

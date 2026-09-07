@@ -25,13 +25,26 @@ export function buildCurrentBaziFortuneSelection(
   now = new Date(),
 ): BaziFortuneSelectionValue | null {
   assertValidDate(now);
-  const year = now.getFullYear();
   const currentCycle = getCurrentBaziLuckCycle(result, now);
   if (!currentCycle) return null;
   const cycleIndex = result.luckInfo.cycles.findIndex((item) => item === currentCycle);
-  const month = getBaziMonthIndexByDate(year, now) ?? 1;
-  const day = getBaziDayIndexByDate(year, month, now) ?? 1;
-  return { scope: 'day', cycleIndex, year, month, day };
+
+  // 元旦至立春前属于上一节令年的末段：当前公历年查不到时须回查上一年，
+  // 不得回退到当年首月首日冒充当前日期
+  let termYear = now.getFullYear();
+  let monthIndex = getBaziMonthIndexByDate(termYear, now);
+  if (monthIndex === undefined) {
+    termYear -= 1;
+    monthIndex = getBaziMonthIndexByDate(termYear, now);
+  }
+  if (monthIndex === undefined) {
+    throw new Error('当前日期无法定位到所属节令月，不回退到默认首月。');
+  }
+  const day = getBaziDayIndexByDate(termYear, monthIndex, now);
+  if (day === undefined) {
+    throw new Error('当前日期无法定位到所属节令日，不回退到默认首日。');
+  }
+  return { scope: 'day', cycleIndex, year: termYear, month: monthIndex, day };
 }
 
 /** 生成当前节令月选择，适合“近期趋势”类入口。 */

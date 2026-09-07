@@ -135,33 +135,33 @@ test('太乙月计按节气、日时计按固定版本样例生成完整基础�
   const fixtures = [
     {
       scope: 'month' as const,
-      date: new Date(2026, 0, 15, 0, 0),
+      date: new Date('2026-01-15T00:00:00+08:00'),
       expected: [121871306, '阳遁', 2, '乾', '酉', '戌', '丑', 6, 1, 1],
     },
     {
       scope: 'day' as const,
-      date: new Date(2026, 0, 15, 0, 0),
+      date: new Date('2026-01-15T00:00:00+08:00'),
       expected: [708056786, '阳遁', 2, '乾', '酉', '戌', '丑', 6, 1, 1],
     },
     {
       scope: 'hour' as const,
-      date: new Date(2026, 0, 15, 0, 0),
+      date: new Date('2026-01-15T00:00:00+08:00'),
       expected: [8496681421, '阳遁', 13, '酉', '巽', '辰', '寅', 18, 19, 19],
     },
     {
       scope: 'month' as const,
-      date: new Date(2026, 6, 11, 14, 35),
+      date: new Date('2026-07-11T14:35:00+08:00'),
       expected: [121871312, '阳遁', 8, '艮', '丑', '坤', '未', 1, 22, 3],
     },
     {
       scope: 'day' as const,
-      date: new Date(2026, 6, 11, 14, 35),
+      date: new Date('2026-07-11T14:35:00+08:00'),
       expected: [708056963, '阳遁', 35, '卯', '坤', '巳', '辰', 25, 28, 1],
     },
     {
       scope: 'hour' as const,
-      date: new Date(2026, 6, 11, 14, 35),
-      expected: [8496683552, '阴遁', 56, '艮', '卯', '辰', '丑', 15, 12, 12],
+      date: new Date('2026-07-11T14:35:00+08:00'),
+      expected: [8496683552, '阴遁', 56, '坤', '卯', '辰', '丑', 15, 12, 12],
     },
   ];
 
@@ -188,12 +188,12 @@ test('太乙月计按节气、日时计按固定版本样例生成完整基础�
 
 test('太乙四计应严格区分年参数和日期参数', () => {
   assert.throws(
-    () => generateTaiyi({ scope: 'year', year: 2026, date: new Date(2026, 0, 1) }),
+    () => generateTaiyi({ scope: 'year', year: 2026, date: new Date('2026-01-01T00:00:00+08:00') }),
     /只接受 year/,
   );
   assert.throws(() => generateTaiyi({ scope: 'month' }), /需要提供有效日期和时间/);
   assert.throws(
-    () => generateTaiyi({ scope: 'day', year: 2025, date: new Date(2026, 0, 1) }),
+    () => generateTaiyi({ scope: 'day', year: 2025, date: new Date('2026-01-01T00:00:00+08:00') }),
     /year 与 date 的公历年份不一致/,
   );
 });
@@ -201,11 +201,11 @@ test('太乙四计应严格区分年参数和日期参数', () => {
 test('太乙月计应按逐月节气换局，不能跟随农历朔日提前或延后', () => {
   const beforeLichun = generateTaiyi({
     scope: 'month',
-    date: new Date(2024, 1, 4, 16, 26),
+    date: new Date('2024-02-04T16:26:00+08:00'),
   });
   const afterLichun = generateTaiyi({
     scope: 'month',
-    date: new Date(2024, 1, 4, 16, 28),
+    date: new Date('2024-02-04T16:28:00+08:00'),
   });
   assert.equal(afterLichun.accumulatedValue, beforeLichun.accumulatedValue + 1);
   assert.equal(beforeLichun.ganZhi, '乙丑');
@@ -213,11 +213,11 @@ test('太乙月计应按逐月节气换局，不能跟随农历朔日提前或�
 
   const beforeJingzhe = generateTaiyi({
     scope: 'month',
-    date: new Date(2024, 2, 5, 10, 22),
+    date: new Date('2024-03-05T10:22:00+08:00'),
   });
   const afterJingzhe = generateTaiyi({
     scope: 'month',
-    date: new Date(2024, 2, 5, 10, 24),
+    date: new Date('2024-03-05T10:24:00+08:00'),
   });
   assert.equal(afterJingzhe.accumulatedValue, beforeJingzhe.accumulatedValue + 1);
   assert.equal(beforeJingzhe.ganZhi, '丙寅');
@@ -225,23 +225,23 @@ test('太乙月计应按逐月节气换局，不能跟随农历朔日提前或�
 
   const beforeLeapMonth = generateTaiyi({
     scope: 'month',
-    date: new Date(2025, 6, 24, 12),
+    date: new Date('2025-07-24T12:00:00+08:00'),
   });
   const leapMonthStart = generateTaiyi({
     scope: 'month',
-    date: new Date(2025, 6, 25, 12),
+    date: new Date('2025-07-25T12:00:00+08:00'),
   });
   const leapMonthBeforeLiqiu = generateTaiyi({
     scope: 'month',
-    date: new Date(2025, 7, 7, 0),
+    date: new Date('2025-08-07T00:00:00+08:00'),
   });
   const leapMonthAfterLiqiu = generateTaiyi({
     scope: 'month',
-    date: new Date(2025, 7, 8, 0),
+    date: new Date('2025-08-08T00:00:00+08:00'),
   });
   const nextLunarMonth = generateTaiyi({
     scope: 'month',
-    date: new Date(2025, 7, 23, 12),
+    date: new Date('2025-08-23T12:00:00+08:00'),
   });
   assert.equal(leapMonthStart.accumulatedValue, beforeLeapMonth.accumulatedValue);
   assert.equal(leapMonthAfterLiqiu.accumulatedValue, leapMonthBeforeLiqiu.accumulatedValue + 1);
@@ -254,54 +254,77 @@ test('太乙月计应按逐月节气换局，不能跟随农历朔日提前或�
   assert.match(afterLichun.evidenceAnalysis.promptText, /月计按逐月节气换局/);
 });
 
-test('太乙大局攻守应根据和数算与纯阴纯阳策数定性', () => {
-  // 和数算测试
-  assert.equal(
-    evaluateTaiyiTacticGuidance({
-      lordCount: 12,
-      guestCount: 16,
-      lordNature: '下和',
-      guestNature: '下和',
-    }),
-    '主客皆得和数算（主下和、客下和），主和解调停，宜息争修好、不战屈人',
-  );
-
-  // 主得和算
-  assert.equal(
-    evaluateTaiyiTacticGuidance({
-      lordCount: 18,
-      guestCount: 25,
-      lordNature: '上和',
-      guestNature: '杂重阳',
-    }),
-    '主得和数算（上和），主方宜调和固本、守正求安；客算占强宜严加防备',
-  );
-
-  // 纯阳对纯阴
-  assert.equal(
-    evaluateTaiyiTacticGuidance({
-      lordCount: 33,
-      guestCount: 22,
-      lordNature: '纯阳',
-      guestNature: '纯阴',
-    }),
-    '主算纯阳刚烈亢进，客算纯阴退伏沉潜，宜戒骄躁、静候其变',
-  );
-
-  // 纯阴对纯阳
-  assert.equal(
-    evaluateTaiyiTacticGuidance({
-      lordCount: 26,
-      guestCount: 39,
-      lordNature: '纯阴',
-      guestNature: '纯阳',
-    }),
-    '主算纯阴柔顺退守，客算纯阳锋芒正盛，宜避其锐气、以柔制刚',
-  );
-
-  // 验证 generateTaiyi 返回结果中包含 tacticGuidance 与 countNatures
+test('太乙长短算按十一分界，和算结合门将审断', () => {
+  const guidance = evaluateTaiyiTacticGuidance({
+    lordCount: 10,
+    guestCount: 11,
+    guestNature: '阴中重阳',
+  });
+  assert.match(guidance, /主算10，为短算，传统取急而浅为/);
+  assert.match(guidance, /客算11（阴中重阳），为长算，传统取缓而深入/);
+  assert.match(guidance, /三门具否、五将发否、阴阳和否/);
+  assert.match(guidance, /吉凶条件相等时/);
+  const harmony = evaluateTaiyiTacticGuidance({
+    lordCount: 12,
+    guestCount: 16,
+    lordNature: '下和',
+    guestNature: '下和',
+  });
+  assert.match(harmony, /主算12（下和）/);
+  assert.match(harmony, /客算16（下和）/);
+  assert.doesNotMatch(harmony, /调停|和解|不战屈人/);
   const result = generateTaiyi({ year: 2026 });
-  assert.ok(result.tacticGuidance, '太乙盘应包含大局攻守定性');
-  assert.ok(result.countNatures, '太乙盘应包含算数性质');
-  assert.match(result.prompt, /大局攻守/);
+  assert.ok(result.prompt.includes(result.tacticGuidance));
+});
+
+test('太乙积时在公元九十九年与一百年交接连续', () => {
+  const before = new Date('0099-12-31T22:00:00+08:00');
+  const after = new Date('0100-01-01T00:00:00+08:00');
+  const first = generateTaiyi({ scope: 'hour', date: before });
+  const second = generateTaiyi({ scope: 'hour', date: after });
+  assert.equal(second.accumulatedValue, first.accumulatedValue + 1);
+  const firstDay = generateTaiyi({ scope: 'day', date: before });
+  const secondDay = generateTaiyi({ scope: 'day', date: after });
+  assert.equal(secondDay.accumulatedValue, firstDay.accumulatedValue + 1);
+});
+
+test('太乙拒绝原型属性计式和非日期对象', () => {
+  for (const scope of ['toString', 'constructor', '__proto__']) {
+    assert.throws(() => generateTaiyi({ scope, year: 2026 } as never), /太乙计式无效/);
+  }
+  for (const date of [null, {}, { getTime: () => 0 }, '2026-01-01']) {
+    assert.throws(() => generateTaiyi({ scope: 'day', date } as never), /太乙日期无效/);
+  }
+});
+
+test('太乙时计在夏至与冬至交接秒切换阴阳遁', () => {
+  const fixtures = [
+    { date: new Date('2026-06-21T16:24:30+08:00'), before: '阳遁', after: '阴遁' },
+    { date: new Date('2025-12-21T23:03:05+08:00'), before: '阴遁', after: '阳遁' },
+  ];
+  for (const { date: after, before: beforeDun, after: afterDun } of fixtures) {
+    const before = new Date(after.getTime() - 1000);
+    assert.equal(generateTaiyi({ scope: 'hour', date: before }).yinYang, beforeDun);
+    assert.equal(generateTaiyi({ scope: 'hour', date: after }).yinYang, afterDun);
+  }
+});
+
+test('太乙阴遁七十二局按金镜式经九八七六四三二一逆行', () => {
+  // 《太乙金镜式经》卷三阴局立成：每三局居一宫，二十四局一周。
+  const palaceOrder = [9, 8, 7, 6, 4, 3, 2, 1];
+  const positions = ['巽', '子', '坤', '酉', '卯', '艮', '午', '乾'];
+  const bureaus = new Set<number>();
+  for (let step = 0; step < 72; step += 1) {
+    const result = generateTaiyi({
+      scope: 'hour',
+      date: new Date(new Date('2026-07-01T00:00:00+08:00').getTime() + step * 2 * 3600000),
+    });
+    const index = Math.floor((result.bureau - 1) / 3) % 8;
+    assert.equal(result.yinYang, '阴遁');
+    assert.equal(result.taiyiPalace, palaceOrder[index], `阴遁第${result.bureau}局`);
+    assert.equal(result.taiyiPosition, positions[index]);
+    assert.ok(result.prompt.includes(`太乙在${positions[index]}（第${palaceOrder[index]}宫`));
+    bureaus.add(result.bureau);
+  }
+  assert.equal(bureaus.size, 72);
 });

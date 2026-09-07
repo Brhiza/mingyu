@@ -96,4 +96,41 @@ test('八字应准确推导调候寒暖燥湿失衡与药神', () => {
   const hotResult = evaluateBaziClimateBalance(hotPillars as any);
   assert.equal(hotResult.nature, '燥局');
   assert.match(hotResult.medicine, /壬癸水/);
+
+  // R52 边界补充：冬月火足转中和、春秋水盛火弱成寒局、火盛水弱成燥局、
+  // 中和摘要明确只描述寒暖指标
+  const winterBalanced = {
+    year: { gan: '丙', zhi: '子' },
+    month: { gan: '丙', zhi: '子' },
+    day: { gan: '癸', zhi: '亥' },
+    hour: { gan: '丁', zhi: '巳' },
+  };
+  const winterBalancedResult = evaluateBaziClimateBalance(winterBalanced as any);
+  assert.equal(winterBalancedResult.nature, '中和');
+
+  const springCold = {
+    year: { gan: '壬', zhi: '子' },
+    month: { gan: '癸', zhi: '亥' },
+    day: { gan: '甲', zhi: '寅' },
+    hour: { gan: '壬', zhi: '申' },
+  };
+  const springColdResult = evaluateBaziClimateBalance(springCold as any);
+  assert.equal(springColdResult.nature, '寒局');
+
+  const autumnDry = {
+    year: { gan: '丙', zhi: '午' },
+    month: { gan: '丁', zhi: '未' },
+    day: { gan: '戊', zhi: '戌' },
+    hour: { gan: '庚', zhi: '申' },
+  };
+  const autumnDryResult = evaluateBaziClimateBalance(autumnDry as any);
+  assert.equal(autumnDryResult.nature, '燥局');
+
+  const balancedSummary = evaluateBaziClimateBalance({
+    year: { gan: '甲', zhi: '子' },
+    month: { gan: '丙', zhi: '寅' },
+    day: { gan: '戊', zhi: '午' },
+    hour: { gan: '庚', zhi: '申' },
+  } as any);
+  assert.match(balancedSummary.summary, /寒暖单项指标/);
 });

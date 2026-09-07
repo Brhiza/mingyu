@@ -137,3 +137,18 @@ export function getBirthDateValidationMessage(params: {
 
   return undefined;
 }
+
+/** 将公历分量换成 UTC 毫秒，保留公元 1—99 年的原始年份。monthIndex 从零开始。 */
+export function createUtcTimestamp(
+  year: number,
+  monthIndex: number,
+  day = 1,
+  hour = 0,
+  minute = 0,
+  second = 0,
+): number {
+  const date = new Date(0);
+  date.setUTCFullYear(year, monthIndex, day);
+  date.setUTCHours(hour, minute, second, 0);
+  return date.getTime();
+}

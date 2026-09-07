@@ -15,19 +15,6 @@ export const REN_CHEN_CLIMATE_RULES: ClimateRule[] = [
     hint: '壬水辰月，甲先庚后，甲庚两透科甲',
   },
   {
-    id: 'chen-month-ren-jia-geng',
-    label: '壬日辰月甲庚并用规则',
-    description:
-      '壬水生辰月，土旺水衰，甲木疏土为先，庚金发源为后。甲庚两透，科甲可期，不宜仍按春水扶抑泛断。',
-    priority: 118,
-    months: ['辰'],
-    dayMasters: ['水'],
-    dayStems: ['壬'],
-    usefulWuxing: '木',
-    favorableOrder: ['木', '金'],
-    hint: '壬水辰月，甲先庚后，甲庚两透科甲',
-  },
-  {
     id: 'chen-month-ren-jia-no-geng',
     label: '壬日辰月甲透无庚异路规则',
     description:

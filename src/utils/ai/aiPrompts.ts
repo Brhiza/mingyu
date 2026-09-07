@@ -82,7 +82,9 @@ function buildBaziFullAnalysisObjectSection(): string {
 
 function buildFortunePromptAddon(ctx: FortuneSelectionContext | null): string {
   if (!ctx) return '';
-  return '';
+  const fortuneSections = formatBaziFortuneSelection(ctx);
+  if (!fortuneSections) return '';
+  return `结合当前所选岁运（${fortuneSections.analysisObject}），深入分析该时间维度的干支五行气机、岁运天克地冲/天合地合、刑冲破害原局关键字及太岁引动之具体吉凶动静，给出明确的时机推演与应对策略。`;
 }
 
 function normalizeBaziScopeLabel(scopeLabel: string | undefined) {

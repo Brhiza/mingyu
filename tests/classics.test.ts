@@ -188,7 +188,7 @@ test('周易六十四卦全本经文与爻辞查询正确', () => {
   assert.ok(kun.daXiang.includes('厚德载物'));
 });
 
-test('小六壬《小六壬口诀》六神经典诗赋与断语查询正确', () => {
+test('小六壬民国通书歌诀保留底本字句并隔离查询结果', () => {
   const daan = getXiaoliurenClassic('大安');
   assert.ok(daan);
   assert.equal(daan.wuxing, '木');
@@ -198,7 +198,20 @@ test('小六壬《小六壬口诀》六神经典诗赋与断语查询正确', ()
   const kongwang = getXiaoliurenClassic('空亡');
   assert.ok(kongwang);
   assert.equal(kongwang.auspice, '凶');
-  assert.ok(kongwang.poem.includes('空亡事不祥'));
+  assert.ok(kongwang.poem.includes('空亡事不长'));
+  assert.match(kongwang.sourceBook, /大杂字万事不求人.*1946/);
+  const original = daan.poem;
+  daan.poem = '已修改';
+  assert.equal(getXiaoliurenClassic('大安')?.poem, original);
+  for (const name of ['toString', '__proto__', 'constructor', '未知', ['大安'], null]) {
+    assert.equal(getXiaoliurenClassic(name as never), undefined);
+  }
+  for (const name of ['大安', '留连', '速喜', '赤口', '小吉', '空亡']) {
+    const item = getXiaoliurenClassic(name)!;
+    assert.equal(item.bodyPart, undefined);
+    assert.equal(item.direction, undefined);
+    assert.doesNotMatch(item.modernAdvice, /即刻降临|必有收获|圆满|当前局势/);
+  }
 });
 
 test('金口诀《金口诀大全》五动三动歌诀查询正确', () => {
@@ -249,14 +262,25 @@ test('太乙神数《太乙金镜式经》八将主客算经文查询正确', ()
   assert.ok(shiJi.verse.includes('受火德之正气'));
 });
 
-test('皇极经世邵雍《皇极经世书》元会运世卦气查询正确', () => {
+test('皇极周期典籍按索隐原文查询并隔离结果', () => {
   const nian = getHuangjiCycleClassic('年');
   assert.ok(nian);
-  assert.ok(nian.verse.includes('年卦司岁气之机'));
+  assert.equal(nian.verse, '会之用至年，故以会经运，始书年。');
 
   const shi = getHuangjiCycleClassic('世');
   assert.ok(shi);
   assert.ok(shi.verse.includes('三十年为一世'));
+  for (const cycle of ['元', '会', '运', '世', '年']) {
+    const item = getHuangjiCycleClassic(cycle)!;
+    assert.equal(item.sourceBook, '《皇极经世索隐·经世观物总要》');
+    const original = item.verse;
+    item.verse = '被修改';
+    assert.equal(getHuangjiCycleClassic(cycle)!.verse, original);
+  }
+  for (const cycle of ['三十年', '元会', 'constructor', '未知', ['年'], null, 1]) {
+    assert.equal(getHuangjiCycleClassic(cycle as never), undefined);
+  }
+  assert.match(getHuangjiCycleClassic('运')!.principle, /三百六十年/);
 });
 
 test('七政四余《果老星宗》日月五星与四余经解查询正确', () => {
@@ -280,7 +304,64 @@ test('五运六气《黄帝内经》大运司在经文查询正确', () => {
   const ziWu = getWuyunLiuqiClassic('少阴君火司天');
   assert.ok(ziWu);
   assert.equal(ziWu.category, '司天');
-  assert.ok(ziWu.verse.includes('少阴君火司天'));
+  assert.equal(ziWu.verse, '少阴司天，其化以热。');
+});
+
+test('五运六气典籍十一项逐项对应原句并保留太过不及区别', () => {
+  for (const [key, verse, feature] of [
+    ['甲己化土', '甲己之岁，土运统之。', '甲年为土运太过，己年为土运不及'],
+    ['乙庚化金', '乙庚之岁，金运统之。', '乙年为金运不及，庚年为金运太过'],
+    ['丙辛化水', '丙辛之岁，水运统之。', '丙年为水运太过，辛年为水运不及'],
+    ['丁壬化木', '丁壬之岁，木运统之。', '丁年为木运不及，壬年为木运太过'],
+    ['戊癸化火', '戊癸之岁，火运统之。', '戊年为火运太过，癸年为火运不及'],
+  ]) {
+    const result = getWuyunLiuqiClassic(key)!;
+    assert.equal(result.verse, verse);
+    assert.equal(result.sourceBook, '素问·天元纪大论');
+    assert.ok(result.climateFeature.includes(feature));
+    assert.equal(result.healthAdvice, undefined);
+  }
+  for (const [factor, phase, qi] of [
+    ['少阴君火司天', '少阴', '热'],
+    ['太阴湿土司天', '太阴', '湿'],
+    ['少阳相火司天', '少阳', '火'],
+    ['阳明燥金司天', '阳明', '燥'],
+    ['太阳寒水司天', '太阳', '寒'],
+    ['厥阴风木司天', '厥阴', '风'],
+  ]) {
+    const result = getWuyunLiuqiClassic(factor)!;
+    assert.equal(result.verse, `${phase}司天，其化以${qi}。`);
+    assert.equal(result.sourceBook, '素问·至真要大论');
+    assert.equal(result.healthAdvice, undefined);
+  }
+});
+
+test('五运六气典籍精确匹配完整名称并隔离返回资料', () => {
+  for (const factor of ['', '司天', '少阴', '甲', '土', '说明甲己化土', 'constructor']) {
+    assert.equal(getWuyunLiuqiClassic(factor), undefined);
+  }
+  const first = getWuyunLiuqiClassic('子午少阴君火司天')!;
+  assert.deepEqual(first, getWuyunLiuqiClassic('少阴君火司天'));
+  first.verse = '修改';
+  assert.equal(getWuyunLiuqiClassic('少阴君火司天')!.verse, '少阴司天，其化以热。');
+});
+
+test('六组在泉气化资料与司天对应分别查询', () => {
+  for (const [key, factor, phase, qi, taste] of [
+    ['寅申厥阴风木在泉', '厥阴风木在泉', '厥阴', '风', '酸'],
+    ['卯酉少阴君火在泉', '少阴君火在泉', '少阴', '热', '苦'],
+    ['辰戌太阴湿土在泉', '太阴湿土在泉', '太阴', '湿', '甘'],
+    ['巳亥少阳相火在泉', '少阳相火在泉', '少阳', '火', '苦'],
+    ['子午阳明燥金在泉', '阳明燥金在泉', '阳明', '燥', '辛'],
+    ['丑未太阳寒水在泉', '太阳寒水在泉', '太阳', '寒', '咸'],
+  ]) {
+    const result = getWuyunLiuqiClassic(key)!;
+    assert.deepEqual(result, getWuyunLiuqiClassic(factor));
+    assert.equal(result.category, '在泉');
+    assert.equal(result.verse, `${phase}司天为${qi}化，在泉为${taste}化。`);
+    assert.equal(result.sourceBook, '素问·至真要大论');
+    assert.equal(result.healthAdvice, undefined);
+  }
 });
 
 test('通胜择日《协纪辨方书》建除十二神歌诀查询正确', () => {

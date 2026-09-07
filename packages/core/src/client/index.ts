@@ -217,8 +217,11 @@ function mergeSynthesisOptions(
 /**
  * 创建统一高层客户端。
  *
- * 普通方法适合希望使用异常流程的 TypeScript/JavaScript 项目；safe 方法适合
- * API、表单、工作流和跨进程调用，返回值可以直接序列化。
+ * 普通方法适合希望使用异常流程的 TypeScript/JavaScript 项目；safe 方法把执行
+ * 异常转为结构化失败结果，适合 API、表单和工作流。注意：safe 成功结果未经稳定
+ * 序列化校验，部分结果（如紫微 runtime）含原生 astrolabe 等运行对象，跨进程
+ * 持久化前应改用对应结构化 payload 或先经 serializeCoreResult/stableStringify
+ * 实测导出，不能由 safe 名称推导可直接序列化。
  */
 export function createMingyuClient(options: MingyuClientOptions = {}): MingyuClient {
   const instant = <T extends InstantChartType>(request: InstantChartRequest<T>) =>

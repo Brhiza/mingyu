@@ -14,7 +14,10 @@ import { normalizeBirthProfile, BirthProfileError } from 'mingyu-core/profile';
 import { drawSpreadCards } from '../packages/core/src/divination/tarot';
 import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index';
-import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao';
+import {
+  generateLiuyao,
+  analyzeLiuyaoEvidence,
+} from '../packages/core/src/divination/algorithms/liuyao';
 import { TimeManager } from '../packages/core/src/calendar/timeManager';
 
 const DATE = new Date('2026-07-11T08:00:00+08:00');
@@ -161,6 +164,52 @@ test('随机轨迹事实应区分可重放、轨迹缺失和不适用', () => {
   assert.equal(notApplicable.status, '不适用');
   assert.equal(notApplicable.mode, '不适用');
   assert.match(notApplicable.promptText, /不依赖随机抽样/);
+});
+
+test('随机事实与结果元数据统一拒绝损坏轨迹及稀疏样本', () => {
+  for (const trace of [
+    null,
+    { mode: 'unknown', samples: [0.5] },
+    { mode: 'system', samples: '0.5' },
+    { mode: 'system', samples: new Array(1) },
+    { mode: 'system', samples: [NaN] },
+    { mode: 'system', samples: [1] },
+    { mode: 'system', samples: [-0.1] },
+    { mode: 'seeded', seed: {}, samples: [0.5] },
+  ]) {
+    const isValidationError = (error: unknown) =>
+      error instanceof MingyuCoreError && error.category === 'validation';
+    assert.throws(
+      () => createResultMeta({ algorithm: 'test', input: {}, random: trace as never }),
+      isValidationError,
+    );
+    assert.throws(
+      () =>
+        buildRandomTraceFact({
+          key: 'random:test',
+          applicable: true,
+          trace: trace as never,
+          processLabel: '测试过程',
+          sources: ['随机记录'],
+        }),
+      isValidationError,
+    );
+  }
+});
+
+test('六爻三钱随机轨迹必须完整且与六爻和投币记录一致', () => {
+  const data = generateLiuyao(DATE, { method: 'coins', seed: '六爻轨迹校验' });
+  assert.equal(data.meta?.random?.samples.length, 18);
+  for (const count of [1, 17, 19]) {
+    const changed = structuredClone(data);
+    changed.meta!.random!.samples = Array(count).fill(0);
+    assert.throws(() => analyzeLiuyaoEvidence(changed), /必须包含十八个样本/);
+  }
+  const changed = structuredClone(data);
+  const first = changed.meta!.random!.samples[0];
+  changed.meta!.random!.samples[0] = first < 0.5 ? 0.75 : 0.25;
+  assert.throws(() => analyzeLiuyaoEvidence(changed), /随机轨迹与投币记录或爻值不一致/);
+  assert.equal(analyzeLiuyaoEvidence(data).randomFact.status, '可重放');
 });
 
 test('塔罗、灵签和梅花可由结果元数据完整重放', () => {

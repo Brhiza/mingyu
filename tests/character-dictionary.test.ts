@@ -23,6 +23,9 @@ test('占问笔画表与完整字典逐字保持一致', () => {
 });
 
 test('字典逐条保留完整释义、繁简笔画及康熙原文', () => {
+  // 上游 shunshi-kangxi-core 的“简”康熙原文错挂“耕”字条目，
+  // 生成层已按缺文置空处理（见 scripts/generate-name-data.mjs 的 KANGXI_REFERENCE_OVERRIDES）。
+  const kangxiReferenceCorrections = new Set(['简']);
   assert.ok(CHARACTER_TUPLES.length > 3700);
   for (const row of CHARACTER_TUPLES) {
     const source = charDetail(row[0]);
@@ -31,6 +34,12 @@ test('字典逐条保留完整释义、繁简笔画及康熙原文', () => {
     assert.equal(row[7], source.简体笔画 ?? null, `${row[0]}简体笔画`);
     assert.equal(row[8], source.繁体笔画 ?? null, `${row[0]}繁体笔画`);
     assert.equal(row[9], source.结构 ?? null, `${row[0]}结构`);
+    if (kangxiReferenceCorrections.has(row[0])) {
+      assert.equal(KANGXI_TEXT_BY_CHARACTER[row[0]], null, `${row[0]}错配原文应按缺文置空`);
+      assert.equal(row[10], null, `${row[0]}错配部居应按缺文置空`);
+      assert.equal(row[11], null, `${row[0]}错配字部应按缺文置空`);
+      continue;
+    }
     assert.equal(KANGXI_TEXT_BY_CHARACTER[row[0]], source.康熙原文 ?? null, `${row[0]}康熙原文`);
     assert.equal(row[10], source.康熙部居 ?? null, `${row[0]}康熙部居`);
     assert.equal(row[11], source.康熙字部 ?? null, `${row[0]}康熙字部`);

@@ -194,7 +194,15 @@ export function detectDiseaseMedicine(
 ): { hasDisease: boolean; disease?: string; medicine?: string; rule?: DiseaseMedicineRule } {
   assertWuxingCounts(wuxingCounts);
 
-  for (const [wuxing, count] of Object.entries(wuxingCounts)) {
+  // 对象键序不是五行资料的业务含义，统一按木火土金水次序扫描，
+  // 避免相同数值因键序不同得到不同的单一结论
+  const canonicalOrder: string[] = [...WUXING];
+  const orderedEntries = Object.entries(wuxingCounts).sort(
+    (a, b) =>
+      canonicalOrder.indexOf(a[0]) - canonicalOrder.indexOf(b[0]) || a[0].localeCompare(b[0]),
+  );
+
+  for (const [wuxing, count] of orderedEntries) {
     if (count >= 40) {
       const rule = DISEASE_MEDICINE_RULES.find((r) => r.id === 'disease-over-strong');
       let medicine: string;

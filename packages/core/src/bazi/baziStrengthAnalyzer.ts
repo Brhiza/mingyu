@@ -469,6 +469,18 @@ export function analyzeFormation(
   };
 }
 
+/**
+ * 日主强弱综合分析。
+ *
+ * 【古典依据与算法口径】
+ * 1. 严格遵从《渊海子平》《穷通宝鉴》《滴天髓》论日主旺衰之“得令、得地、得势”三维结构定性法：
+ *    - 得令（monthTendency）：以月令当旺、得长生建禄印比司权为扶身，休囚死绝为克泄；
+ *    - 得地（rootTendency）：以四柱地支本气同气通根、逢冲逢合判定通根稳固度；
+ *    - 得势（structureTendency）：以三合三会成局生扶比助、干支党众为增力。
+ * 2. 澄清说明：本系统的正式旺衰分档（极强/偏强/身强/中和/身弱/偏弱/极弱）完全由上述三维定性
+ *    条件组合裁定；成局分析对象中附带的 strength/totalStrength 浮点分值仅为旧版接口保留的
+ *    参考性诊断数值（已在类型中声明为 @deprecated），不参与核心强弱分档与用神取用。
+ */
 export function analyzeDayMasterStrength(
   seasonalStatus: SeasonalStatusAnalysis,
   formationAnalysis: FormationAnalysis,

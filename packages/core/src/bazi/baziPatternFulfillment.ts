@@ -173,11 +173,8 @@ export function evaluatePatternFulfillment(
   }
 
   // 2. 财格（正财格 / 偏财格）
-  else if (
-    cleanPattern.includes('财格') ||
-    cleanPattern.includes('偏财') ||
-    cleanPattern.includes('正财')
-  ) {
+  // 只按正财/偏财显式分派：裸“财格”子串会把劫财格误送入财格成败规则
+  else if (cleanPattern.includes('偏财') || cleanPattern.includes('正财')) {
     const biJie = findExposedGods(['比肩', '劫财']);
     const shiShang = findExposedGods(['食神', '伤官']);
     const guanSha = findExposedGods(['正官', '七杀']);
@@ -394,7 +391,14 @@ export function evaluatePatternFulfillment(
     }
   }
 
-  // 8. 建禄格
+  // 8. 劫财格 / 月刃格：月令刃劫结构已登记，成败细则尚未单列，不借用财格或建禄分支结论
+  else if (cleanPattern.includes('劫财') || cleanPattern.includes('月刃')) {
+    status = '平常';
+    basis = '月令刃劫结构已登记，成败与救应细则尚未单列';
+    summary = `【${patternName}】月令刃劫结构成立，成败判断细则待补充，暂不下破格或成格结论。`;
+  }
+
+  // 9. 建禄格
   else if (cleanPattern.includes('建禄') || cleanPattern.includes('比肩')) {
     const guanSha = findExposedGods(['正官', '七杀']);
     const caiStems = findExposedGods(['正财', '偏财']);
@@ -409,9 +413,10 @@ export function evaluatePatternFulfillment(
       basis = '建禄用食伤生财，自强不息以富天下';
       summary = `建禄格食伤生财，技术创业，白手起家。`;
     } else if (
-      counts['比肩'] + counts['劫财'] >= 3 &&
+      (counts['比肩'] ?? 0) + (counts['劫财'] ?? 0) >= 3 &&
       guanSha.length === 0 &&
-      caiStems.length === 0
+      caiStems.length === 0 &&
+      shiShang.length === 0
     ) {
       status = '破格';
       contradiction = '建禄比劫重重，不见财官食伤吐秀，身旺无依';

@@ -50,6 +50,16 @@ export interface ZiweiCrossMutagenPlacement {
   limitation: '跨盘四化只证明一方生年四化星曜与对方同名星曜落宫之间的定位链路；化禄、权、科、忌均不直接等于关系吉凶、事件结果、匹配程度或应期';
 }
 
+export interface ZiweiCrossMutagenGap {
+  key: string;
+  sourcePerson: 'person1' | 'person2';
+  targetPerson: 'person1' | 'person2';
+  star: string;
+  mutagen: MutagenName;
+  sourcePalace: string;
+  reason: '目标盘缺少同名星曜';
+}
+
 export interface ZiweiCompatibilityCalculationStep {
   key: string;
   stage:
@@ -71,7 +81,7 @@ export interface ZiweiCompatibilityCalculationStep {
 export interface ZiweiCompatibilityCounterEvidenceFact {
   key: string;
   type: '关键宫位叠盘覆盖' | '跨盘四化覆盖' | '静态应期边界';
-  status: '有可用证据' | '未命中' | '固有限制';
+  status: '有可用证据' | '未命中' | '固有限制' | '资料缺口';
   direction?: 'person1-to-person2' | 'person2-to-person1';
   ownerFactKeys: string[];
   promptText: string;
@@ -111,6 +121,7 @@ export interface ZiweiCompatibilityEvidenceResult {
   calculationChain: string[];
   palaceOverlays: ZiweiPalaceOverlay[];
   crossMutagenPlacements: ZiweiCrossMutagenPlacement[];
+  crossMutagenGaps: ZiweiCrossMutagenGap[];
   counterEvidence: string[];
   counterEvidenceFacts: ZiweiCompatibilityCounterEvidenceFact[];
   summaryFact: ZiweiCompatibilitySummaryFact;
@@ -215,15 +226,18 @@ function calculateCrossMutagens(
   targetAstrolabe?: IztroAstrolabe,
 ) {
   if (sourceAstrolabe && targetAstrolabe) {
-    return calculateCrossMutagensWithIztro(
-      sourcePerson,
-      targetPerson,
-      source,
-      target,
-      people,
-      sourceAstrolabe,
-      targetAstrolabe,
-    );
+    return {
+      placements: calculateCrossMutagensWithIztro(
+        sourcePerson,
+        targetPerson,
+        source,
+        target,
+        people,
+        sourceAstrolabe,
+        targetAstrolabe,
+      ),
+      gaps: [],
+    };
   }
 
   const targetStars = new Map<string, PalaceFact>();
@@ -233,11 +247,24 @@ function calculateCrossMutagens(
     });
   });
   const placements: ZiweiCrossMutagenPlacement[] = [];
+  const gaps: ZiweiCrossMutagenGap[] = [];
   source.palaces.forEach((sourcePalace) => {
     allStars(sourcePalace).forEach((star) => {
       if (!star.birth_mutagen) return;
       const targetPalace = targetStars.get(star.name);
-      if (!targetPalace) return;
+      if (!targetPalace) {
+        // 来源方带生年四化而目标盘无同名星曜：登记为资料覆盖缺口，不与未命中混同
+        gaps.push({
+          key: `跨盘四化缺口:${sourcePerson}:${star.name}:化${star.birth_mutagen}:${targetPerson}`,
+          sourcePerson,
+          targetPerson,
+          star: star.name,
+          mutagen: star.birth_mutagen,
+          sourcePalace: palaceDisplayName(sourcePalace),
+          reason: '目标盘缺少同名星曜',
+        });
+        return;
+      }
       const sourcePalaceName = palaceDisplayName(sourcePalace);
       const targetPalaceName = palaceDisplayName(targetPalace);
       placements.push({
@@ -260,7 +287,7 @@ function calculateCrossMutagens(
       });
     });
   });
-  return placements;
+  return { placements, gaps };
 }
 
 function calculateCrossMutagensWithIztro(
@@ -438,6 +465,7 @@ function buildBaseCalculationSteps(params: {
 function buildCounterEvidenceFacts(params: {
   overlays: ZiweiPalaceOverlay[];
   mutagens: ZiweiCrossMutagenPlacement[];
+  gaps: ZiweiCrossMutagenGap[];
 }): ZiweiCompatibilityCounterEvidenceFact[] {
   const directions = [
     {
@@ -460,6 +488,9 @@ function buildCounterEvidenceFacts(params: {
     const mutagens = params.mutagens.filter(
       (item) => item.sourcePerson === direction.source && item.targetPerson === direction.target,
     );
+    const gaps = params.gaps.filter(
+      (item) => item.sourcePerson === direction.source && item.targetPerson === direction.target,
+    );
     return [
       {
         key: `ziwei:compatibility:counter:palace-overlays:${direction.key}`,
@@ -479,15 +510,23 @@ function buildCounterEvidenceFacts(params: {
       {
         key: `ziwei:compatibility:counter:cross-mutagens:${direction.key}`,
         type: '跨盘四化覆盖',
-        status: mutagens.length ? '有可用证据' : '未命中',
+        status: mutagens.length ? '有可用证据' : gaps.length ? '资料缺口' : '未命中',
         direction: direction.key,
         ownerFactKeys: [
           'ziwei:compatibility:calculation:cross-mutagens',
           ...mutagens.map((item) => item.key),
+          ...gaps.map((item) => item.key),
         ],
         promptText: mutagens.length
-          ? `${direction.label}记录${mutagens.length}项生年四化同名星曜落宫事实`
-          : `${direction.label}未形成可定位的跨盘生年四化事实；不得补造四化落宫或据此推断关系好坏`,
+          ? gaps.length
+            ? `${direction.label}记录${mutagens.length}项生年四化同名星曜落宫事实；另有${gaps.length}项因目标盘缺少同名星曜未能定位（${gaps
+                .slice(0, 4)
+                .map((item) => `${item.star}化${item.mutagen}`)
+                .join('、')}${gaps.length > 4 ? '等' : ''}），该方向四化资料不完备`
+            : `${direction.label}记录${mutagens.length}项生年四化同名星曜落宫事实`
+          : gaps.length
+            ? `${direction.label}全部${gaps.length}项生年四化星曜均因目标盘缺少同名星曜未能定位，属资料覆盖缺口而非已核验未命中；不得补造四化落宫或据此推断关系好坏`
+            : `${direction.label}未形成可定位的跨盘生年四化事实；不得补造四化落宫或据此推断关系好坏`,
         sources: ['来源方生年四化星曜与目标方同名星曜逐项定位结果'],
         limitation: COUNTER_FACT_LIMITATION,
       },
@@ -714,26 +753,26 @@ export function analyzeZiweiCompatibility(
     ...calculateOverlays('person1', 'person2', payload1, payload2, people),
     ...calculateOverlays('person2', 'person1', payload2, payload1, people),
   ];
-  const crossMutagenPlacements = [
-    ...calculateCrossMutagens(
-      'person1',
-      'person2',
-      payload1,
-      payload2,
-      people,
-      options.astrolabe1,
-      options.astrolabe2,
-    ),
-    ...calculateCrossMutagens(
-      'person2',
-      'person1',
-      payload2,
-      payload1,
-      people,
-      options.astrolabe2,
-      options.astrolabe1,
-    ),
-  ];
+  const cross1 = calculateCrossMutagens(
+    'person1',
+    'person2',
+    payload1,
+    payload2,
+    people,
+    options.astrolabe1,
+    options.astrolabe2,
+  );
+  const cross2 = calculateCrossMutagens(
+    'person2',
+    'person1',
+    payload2,
+    payload1,
+    people,
+    options.astrolabe2,
+    options.astrolabe1,
+  );
+  const crossMutagenPlacements = [...cross1.placements, ...cross2.placements];
+  const crossMutagenGaps = [...cross1.gaps, ...cross2.gaps];
   const calculationSteps = buildBaseCalculationSteps({
     people,
     payload1,
@@ -744,6 +783,7 @@ export function analyzeZiweiCompatibility(
   const counterEvidenceFacts = buildCounterEvidenceFacts({
     overlays: palaceOverlays,
     mutagens: crossMutagenPlacements,
+    gaps: crossMutagenGaps,
   });
   const summaryFact = buildSummaryFact({
     overlays: palaceOverlays,
@@ -796,6 +836,7 @@ export function analyzeZiweiCompatibility(
     calculationChain: calculationSteps.map((item) => item.promptText),
     palaceOverlays,
     crossMutagenPlacements,
+    crossMutagenGaps,
     counterEvidence,
     counterEvidenceFacts,
     summaryFact,

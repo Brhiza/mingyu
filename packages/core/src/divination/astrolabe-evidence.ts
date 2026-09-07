@@ -97,7 +97,7 @@ export interface AstrolabeCalculationFact {
   };
   models: {
     ephemeris: 'caelus';
-    houseSystem: 'Placidus';
+    houseSystem: 'Placidus' | '整宫制' | '未记录';
     aspectSelection: '主要相位按相位角与容许度筛选';
   };
   steps: AstrolabeCalculationStep[];
@@ -164,6 +164,7 @@ export interface AstrolabeLimitationFact {
   key: string;
   type:
     | '时区诊断'
+    | '星历精度边界'
     | '几何解释边界'
     | '相位强度边界'
     | '相位筛选边界'
@@ -283,7 +284,7 @@ function buildPositionFact(
     formatted: item.formatted,
     promptText,
     sources: [
-      kind === '宫头' ? 'Caelus Placidus 十二宫宫头计算' : 'Caelus 黄道位置计算',
+      kind === '宫头' ? 'Caelus 十二宫宫头计算' : 'Caelus 黄道位置计算',
       kind === '四轴' ? '出生地点、时间与地平子午圈四轴计算' : '出生时间、地点与黄经落宫计算',
     ],
     limitation: POSITION_FACT_LIMITATION,
@@ -431,8 +432,8 @@ function buildCalculationFact(
         houseCuspCount: data.houses.length,
       },
       dependsOnStepKeys: ['astrolabe:calculation:time'],
-      promptText: `由 Caelus 计算${data.planets.length}个星体与计算点、${data.angles.length}个四轴点和${data.houses.length}个 Placidus 宫头`,
-      sources: ['Caelus 黄道位置计算', 'Caelus Placidus 宫位与四轴计算'],
+      promptText: `由 Caelus 计算${data.planets.length}个星体与计算点、${data.angles.length}个四轴点和${data.houses.length}个宫头；宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : data.houseSystem === 'placidus' ? 'Placidus' : '未记录'}`,
+      sources: ['Caelus 黄道位置计算', 'Caelus 宫位与四轴计算'],
       limitation: STEP_FACT_LIMITATION,
     },
     {
@@ -487,7 +488,12 @@ function buildCalculationFact(
     },
     models: {
       ephemeris: 'caelus',
-      houseSystem: 'Placidus',
+      houseSystem:
+        data.houseSystem === 'whole_sign'
+          ? '整宫制'
+          : data.houseSystem === 'placidus'
+            ? 'Placidus'
+            : '未记录',
       aspectSelection: '主要相位按相位角与容许度筛选',
     },
     steps,
@@ -496,7 +502,7 @@ function buildCalculationFact(
     sources: [
       '出生时间、地点与时区输入记录',
       '历史时区与真太阳时换算资料',
-      'Caelus 黄道位置、Placidus 宫位、四轴与明御相位计算',
+      'Caelus 黄道位置、宫位、四轴与明御相位计算',
     ],
     limitation: CALCULATION_FACT_LIMITATION,
   };
@@ -805,14 +811,14 @@ function buildLimitationFacts(
   push(
     'astrolabe:limitation:houses',
     '宫位输入边界',
-    'Placidus 宫位和出生时刻高度相关，地点、时区或时间输入错误会直接改变四轴与落宫',
+    '宫位和出生时刻高度相关，地点、时区或时间输入错误会直接改变四轴与落宫',
     [
       calculationFact.key,
       ...positionFacts
         .filter((fact) => fact.kind === '四轴' || fact.kind === '宫头')
         .map((fact) => fact.key),
     ],
-    ['出生地点、时间、时区与 Placidus 宫位计算'],
+    ['出生地点、时间、时区与宫位计算'],
   );
   push(
     'astrolabe:limitation:illumination',
@@ -821,6 +827,15 @@ function buildLimitationFacts(
     [illuminationFact.key, ...illuminationFact.crossingFactKeys],
     ['地点相关太阳光照计算资料'],
   );
+  (data.ephemerisWarnings ?? []).forEach((warning, index) => {
+    push(
+      `astrolabe:limitation:ephemeris:${index}`,
+      '星历精度边界',
+      warning,
+      [calculationFact.key],
+      ['星历验证年代与时标差不确定度'],
+    );
+  });
   return facts;
 }
 
@@ -1035,8 +1050,8 @@ export function analyzeAstrolabeEvidence(
       level: '辅证',
       title: '十二宫宫头',
       detail: houseFacts.join('；'),
-      source: 'Caelus Placidus 十二宫宫头计算',
-      tags: ['Placidus', '十二宫', '宫头'],
+      source: `Caelus ${calculationFact.models.houseSystem} 十二宫宫头计算`,
+      tags: [calculationFact.models.houseSystem, '十二宫', '宫头'],
     },
     ...aspectFacts.map((item): PromptEvidenceItem => ({
       level: '辅证',

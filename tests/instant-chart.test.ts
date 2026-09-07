@@ -38,6 +38,7 @@ test('北京时间即时盘固定按东八区提取当前墙上时间', () => {
     day: 24,
     hour: 12,
     minute: 30,
+    offsetHours: 8,
   });
   assert.equal(context.trueSolarTime, undefined);
 });

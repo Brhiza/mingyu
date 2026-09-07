@@ -1,3 +1,4 @@
+import { resolveXiaoliurenRule } from '../divination/xiaoliuren-rules';
 import type {
   AlmanacData,
   AstrolabeData,
@@ -15,7 +16,7 @@ import type {
   JinkoujueData,
 } from '../types/divination';
 import { analyzeQimenEvidence } from '../divination/algorithms/qimen';
-import { analyzeAlmanacEvidence } from '../divination/algorithms/almanac';
+import { analyzeAlmanacEvidence, formatAlmanacGods } from '../divination/algorithms/almanac';
 import { LIUCHONG_MAP, LIUHE_MAP, SIXTY_CYCLE } from '../ganzhi';
 import {
   formatTianPanStars,
@@ -334,6 +335,7 @@ function formatLiuyaoInfo(
     : null;
   return [
     '占法：六爻',
+    ...(data.generation?.method === 'yarrow' ? evidenceAnalysis.generationFacts : []),
     `核心结构：主卦${data.originalName}${data.palace?.name ? `（${data.palace.name}宫）` : ''}；变卦${data.changedName || '无'}；互卦${data.interName || '无'}${data.specialPattern ? `；卦式${data.specialPattern}` : ''}`,
     data.palaceStage ? `八宫卦位：${data.palaceStage}` : '',
     data.guaShen?.branch
@@ -430,9 +432,10 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     `起课：农历${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
     '起课过程：',
     `  定月宫：${data.isLeapMonth ? '闰' : ''}${data.lunarMonth}月从大安顺数，落${data.sequence.month.name}`,
-    `  定日宫：从月宫${data.sequence.month.name}起初一，顺数至${data.lunarDay}日，落${data.sequence.day.name}`,
+    `  定日宫：从月宫${data.sequence.month.name}${data.rule === 'duoneng' ? '下一宫' : ''}起初一，顺数至${data.lunarDay}日，落${data.sequence.day.name}`,
     `  定时宫：从日宫${data.sequence.day.name}起子时，顺数至${data.hourLabel}，落${data.sequence.hour.name}`,
     `取用层级：时宫${data.sequence.hour.name}为本次占得宫与主证；月宫${data.sequence.month.name}、日宫${data.sequence.day.name}为逐宫顺数位置`,
+    `起课口径：${resolveXiaoliurenRule(data.rule).source}`,
     `占得宫：${data.primary.name}`,
     `歌诀原文：${data.primary.verse}`,
   ]
@@ -784,6 +787,7 @@ function formatAlmanacInfo(data: AlmanacData) {
       candidate?.status ? `分类${candidate.status}` : '',
       recommendationText,
       avoidText,
+      ...formatAlmanacGods(item),
       participantNotes.length ? `参与人${participantNotes.join('；')}` : '',
       hourText ? `备选时辰${hourText}` : '',
     ].filter(Boolean);
@@ -884,6 +888,8 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
 
   return [
     '占法：星盘',
+    data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
+    ...(data.ephemerisWarnings ?? []).map((warning) => `星历精度：${warning}`),
     `出生信息：${data.birth.name}，${data.birth.gender || '性别未填'}，${data.birth.dateTime}，位置${data.birth.location}，时区 UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
     data.birth.isTrueSolarTime
       ? `出生时间校正：当地钟表时间${data.birth.standardDateTime || '未记录'}，采用真太阳时${data.birth.trueSolarDateTime || data.birth.dateTime}排盘。`

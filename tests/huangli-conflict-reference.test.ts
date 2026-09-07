@@ -1,0 +1,70 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { getHuangliDayGods, listHuangliShenshaNames } from '../packages/core/src/shensha';
+
+test('阴阳错冲与岁薄逐阵等十七项覆盖完整月日组合', () => {
+  // 《协纪辨方书》月厌条所列阴阳错冲等十七项起例。
+  // https://www.shidianguji.com/book/SK1619/chapter/1l9llrodhgh7s
+  const tables = {
+    单阴: ['', '', '戊辰', '', '', '', '', '', '', '', '', ''],
+    纯阳: ['', '', '', '己巳', '', '', '', '', '', '', '', ''],
+    孤阳: ['', '', '', '', '', '', '', '', '戊戌', '', '', ''],
+    纯阴: ['', '', '', '', '', '', '', '', '', '己亥', '', ''],
+    阴位: ['', '', '庚辰', '', '', '', '', '', '甲戌', '', '', ''],
+    阴阳交破: ['', '', '', '癸亥', '', '', '', '', '', '丁巳', '', ''],
+    阴阳击冲: ['', '', '', '', '壬子', '', '', '', '', '', '丙午', ''],
+    阳破阴冲: ['', '', '', '', '', '癸丑', '', '', '', '', '', '丁未'],
+    阴道冲阳: ['', '己酉', '', '', '', '', '', '己卯', '', '', '', ''],
+    岁薄: ['', '', '', '丙午戊午', '', '', '', '', '', '壬子戊子', '', ''],
+    逐阵: ['', '', '', '', '', '丙午戊午', '', '', '', '', '', '壬子戊子'],
+    三阴: ['辛酉', '', '', '', '', '', '乙卯', '', '', '', '', ''],
+    阳错: [
+      '甲寅',
+      '乙卯',
+      '甲辰',
+      '丁巳己巳',
+      '',
+      '丁未己未',
+      '庚申',
+      '辛酉',
+      '庚戌',
+      '癸亥',
+      '',
+      '癸丑',
+    ],
+    阴错: [
+      '庚戌',
+      '辛酉',
+      '庚申',
+      '丁未己未',
+      '',
+      '丁巳己巳',
+      '甲辰',
+      '乙卯',
+      '甲寅',
+      '癸丑',
+      '',
+      '癸亥',
+    ],
+    阴阳俱错: ['', '', '', '', '丙午', '', '', '', '', '', '壬子', ''],
+    绝阴: ['', '', '', '戊辰', '', '', '', '', '', '', '', ''],
+    绝阳: ['', '', '', '', '', '', '', '', '', '戊戌', '', ''],
+  };
+  const stems = [...'甲乙丙丁戊己庚辛壬癸'];
+  assert.equal(listHuangliShenshaNames().includes('阳错阴冲'), false);
+  assert.equal(listHuangliShenshaNames().includes('阳破阴冲'), true);
+  const branches = [...'子丑寅卯辰巳午未申酉戌亥'];
+  const pillar = (index: number) => stems[index % 10] + branches[index % 12];
+  for (let month = 0; month < 12; month++)
+    for (let day = 0; day < 60; day++) {
+      const names = getHuangliDayGods(pillar(month + 2), pillar(day)).map((god) => god.getName());
+      assert.equal(names.includes('阳错阴冲'), false, `${month + 1}月/${pillar(day)}`);
+      for (const [name, targets] of Object.entries(tables)) {
+        assert.equal(
+          names.includes(name),
+          targets[month].includes(pillar(day)),
+          `${month + 1}月/${pillar(day)}/${name}`,
+        );
+      }
+    }
+});

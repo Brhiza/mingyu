@@ -1,77 +1,62 @@
 import type { XiaoliurenPalaceClassic } from './types';
 
 /**
- * 《小六壬口诀》六神经典诗赋与断语全录
- * 原典出处：《小六壬通占》《诸葛马前课》
+ * 《大杂字万事不求人》民国三十五年本，扫描第21—22页六宫歌诀。
+ * 现代解释按歌诀主题整理。
  */
 export const XIAOLIUREN_CLASSICS: Record<string, XiaoliurenPalaceClassic> = {
   大安: {
     name: '大安',
     wuxing: '木',
     auspice: '大吉',
-    sourceBook: '小六壬通占',
-    poem: '大安事事昌，求谋在坤方；失物去不远，宅舍保安康。行人身未动，病者在寻常；移徙一事吉，诸事皆吉祥。',
-    modernAdvice:
-      '当前局势安定平稳，事态发展顺遂。宜守正固本，按部就班推进，利于长期谋划与稳健合作。',
-    direction: '震东方',
-    bodyPart: '足部、肝胆',
+    sourceBook: '《大杂字万事不求人》六壬时课（1946年本）',
+    poem: '大安事事昌，求财在坤方，失物去不远，宅舍保安康，行人身未动，病者主无妨，将军回田野，仔细与推详。',
+    modernAdvice: '歌诀以安定、守成为主题。联系所问事项，核对已有安排及可持续推进的条件。',
   },
   留连: {
     name: '留连',
     wuxing: '水',
     auspice: '平',
-    sourceBook: '小六壬通占',
-    poem: '留连事难成，求谋日未明；官事只宜缓，去者未回程。失物南方见，急讨方称心；更防口舌起，延引并淹留。',
-    modernAdvice:
-      '当前事态处于停滞、拖延或犹豫期。不宜急躁盲进，需有耐心，做好延期准备并防范沟通口舌。',
-    direction: '坎北方',
-    bodyPart: '肾脏、泌尿',
+    sourceBook: '《大杂字万事不求人》六壬时课（1946年本）',
+    poem: '留连事难成，求谋日未明，官事只宜缓，去者未回程，失物南方见，急讨方称心，更须防口舌，人口且平平。',
+    modernAdvice: '歌诀以延迟、等待及沟通为主题。联系实际进度，核对尚未明确的信息与约定。',
   },
   速喜: {
     name: '速喜',
     wuxing: '火',
     auspice: '吉',
-    sourceBook: '小六壬通占',
-    poem: '速喜喜来临，求财向南行；失物申未午，逢人路上寻。官事有福德，病者无祸侵；田宅六畜吉，行人有信音。',
-    modernAdvice: '喜讯与好运即刻降临，办事效率极高。宜果断决策、把握良机，速战速决必有收获。',
-    direction: '离南方',
-    bodyPart: '心脏、目部',
+    sourceBook: '《大杂字万事不求人》六壬时课（1946年本）',
+    poem: '速喜喜来临，求财向南行，失物申未午，逢人路上寻，官事有福德，病者无祸侵，田家六畜吉，行人有信音。',
+    modernAdvice: '歌诀以消息、进展与往来为主题。联系实际收到的通知、回复或安排理解相应句义。',
   },
   赤口: {
     name: '赤口',
     wuxing: '金',
     auspice: '凶',
-    sourceBook: '小六壬通占',
-    poem: '赤口主口舌，官非切要防；失物速速讨，行人有惊慌。六畜多怪异，病者入西方；更防咒诅害，小人及损伤。',
-    modernAdvice:
-      '防范人际矛盾、口舌是非或争执冲突。做事宜低调慎言，避免签署有争议的协议或硬碰硬。',
-    direction: '兑西方',
-    bodyPart: '口舌、呼吸道',
+    sourceBook: '《大杂字万事不求人》六壬时课（1946年本）',
+    poem: '赤口主口舌，官非切要防，失物急去寻，行人有惊慌，鸡犬多作怪，病者出西方，更须防咒咀，恐怕染瘟癀。',
+    modernAdvice: '歌诀以口舌、争议为主题。联系已有分歧，核对沟通内容、约定和事实。',
   },
   小吉: {
     name: '小吉',
     wuxing: '木',
     auspice: '小吉',
-    sourceBook: '小六壬通占',
-    poem: '小吉最吉昌，路上好商量；阴人来报喜，失物在坤方。行人即便至，交关甚是强；求财必称意，病者在安康。',
-    modernAdvice:
-      '多得贵人与朋友相助，合作交易和美圆满。适合商谈协议、走访亲友、团队协作与小额求财。',
-    direction: '乾西北',
-    bodyPart: '筋骨、肠胃',
+    sourceBook: '《大杂字万事不求人》六壬时课（1946年本）',
+    poem: '小吉最吉昌，路上好商量，阴人来报喜，失物在坤方，行人立便至，交关甚是强，凡事皆和合，病者祷上苍。',
+    modernAdvice: '歌诀以商量、往来与和合为主题。联系已有合作基础和双方意愿理解相应句义。',
   },
   空亡: {
     name: '空亡',
     wuxing: '土',
     auspice: '凶',
-    sourceBook: '小六壬通占',
-    poem: '空亡事不祥，阴人多乖张；求财无利益，行人有灾殃。失物寻不见，官事有刑伤；病人逢暗鬼，解禳保安康。',
-    modernAdvice:
-      '事态落空虚浮，努力恐难见成效。宜止步防守、休养生息，切勿盲目投资或听信不可靠的承诺。',
-    direction: '中宫/坤西南',
-    bodyPart: '脾胃、神经',
+    sourceBook: '《大杂字万事不求人》六壬时课（1946年本）',
+    poem: '空亡事不长，阴人小乖张，求财无利益，行人有灾殃，失物寻不见，官事有刑伤，病人逢暗鬼，禳解保安康。',
+    modernAdvice: '歌诀以落空、难觅为主题。联系所问事项，核对实际进展、信息可靠程度与完成条件。',
   },
 };
 
 export function getXiaoliurenClassic(palaceName: string): XiaoliurenPalaceClassic | undefined {
-  return XIAOLIUREN_CLASSICS[palaceName];
+  if (typeof palaceName !== 'string' || !Object.hasOwn(XIAOLIUREN_CLASSICS, palaceName))
+    return undefined;
+  return { ...XIAOLIUREN_CLASSICS[palaceName] };
 }

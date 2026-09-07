@@ -8,6 +8,25 @@ import {
 } from '../packages/core/src/divination/algorithms/jinkoujue.ts';
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
+
+test('金口诀随机记录应重放拒绝采样并核对起课数字与地分', () => {
+  const samples = [0xffffffff / 0x100000000, 0.5];
+  const data = generateJinkoujue({ customDate: SAMPLE_DATE, method: 'random', replay: samples });
+  assert.equal(data.calculation.inputBase, 7);
+  assert.equal(data.positions.diFen.branch, '午');
+  assert.equal(analyzeJinkoujueEvidence(data).randomTraceFact.sampleCount, 2);
+  for (const invalid of [samples.slice(0, 1), [...samples, 0], [0]]) {
+    const changed = structuredClone(data);
+    changed.randomTrace!.samples = invalid;
+    assert.throws(
+      () => analyzeJinkoujueEvidence(changed),
+      /随机重放样本已用尽|随机轨迹与起课数字或地分不一致/,
+    );
+  }
+  const changed = structuredClone(data);
+  changed.positions.diFen.branch = '子';
+  assert.throws(() => analyzeJinkoujueEvidence(changed), /随机轨迹与起课数字或地分不一致/);
+});
 const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
 const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 const TIANJIANG = [
