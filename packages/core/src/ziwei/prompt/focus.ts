@@ -1,4 +1,5 @@
 import type { AnalysisPayloadV1, PalaceFact } from '../../types/analysis';
+import { normalizeThematicTopic } from '../../prompt/thematic';
 import {
   buildScopeFocusPalaces,
   dedupePalaces,
@@ -88,9 +89,13 @@ export function buildFocusTaskBundle(
     };
   }
 
-  const topic = reportContext.selectedTopic ?? '';
+  const rawTopic = reportContext.selectedTopic ?? '';
+  const topicKey = normalizeThematicTopic(rawTopic);
 
-  if (/relationship|婚恋|感情|配偶|夫妻|桃花|合婚/i.test(topic)) {
+  if (
+    topicKey === 'relationship' ||
+    /relationship|marriage|love|婚恋|感情|配偶|夫妻|桃花|合婚|复合|去留|推进/i.test(rawTopic)
+  ) {
     const spousePalace = getPalaceByName(payload, '夫妻');
     const careerPalace = getPalaceByName(payload, '官禄');
     const happinessPalace = getPalaceByName(payload, '福德');
@@ -99,10 +104,10 @@ export function buildFocusTaskBundle(
       focusSummary: '围绕夫妻宫及其对宫（官禄）、三方（迁移、福德）与命身宫组织婚恋情感证据。',
       focusPalaces: dedupePalaces([
         spousePalace,
-        lifePalace,
         careerPalace,
         happinessPalace,
         migrationPalace,
+        lifePalace,
         bodyPalace,
         activePalace,
         ...buildMutagenFocusPalaces(payload).slice(0, 2),
@@ -111,7 +116,10 @@ export function buildFocusTaskBundle(
     };
   }
 
-  if (/career|事业|工作|职场|跳槽|创业|变动/i.test(topic)) {
+  if (
+    topicKey === 'career' ||
+    /career|job|work|profession|startup|事业|工作|职场|升迁|跳槽|创业|变动/i.test(rawTopic)
+  ) {
     const careerPalace = getPalaceByName(payload, '官禄');
     const wealthPalace = getPalaceByName(payload, '财帛');
     const migrationPalace = getPalaceByName(payload, '迁移');
@@ -121,10 +129,10 @@ export function buildFocusTaskBundle(
       focusSummary: '围绕官禄宫及其三方四正（命宫、财帛、迁移）与父母、兄弟宫组织事业职场证据。',
       focusPalaces: dedupePalaces([
         careerPalace,
-        lifePalace,
-        bodyPalace,
         wealthPalace,
         migrationPalace,
+        lifePalace,
+        bodyPalace,
         parentsPalace,
         siblingPalace,
         activePalace,
@@ -134,7 +142,10 @@ export function buildFocusTaskBundle(
     };
   }
 
-  if (/wealth|财运|财富|求财|投资|资产/i.test(topic)) {
+  if (
+    topicKey === 'wealth' ||
+    /wealth|money|finance|investment|partnership|财运|财富|求财|投资|资产|合伙/i.test(rawTopic)
+  ) {
     const wealthPalace = getPalaceByName(payload, '财帛');
     const estatePalace = getPalaceByName(payload, '田宅');
     const happinessPalace = getPalaceByName(payload, '福德');
@@ -157,7 +168,76 @@ export function buildFocusTaskBundle(
     };
   }
 
-  if (/health|健康|疾厄|病|体质|五行/i.test(topic)) {
+  if (topicKey === 'health' || /health|body|disease|健康|身体|体质|疾厄|病/i.test(rawTopic)) {
+    const illnessPalace = getPalaceByName(payload, '疾厄');
+    const parentsPalace = getPalaceByName(payload, '父母');
+    const happinessPalace = getPalaceByName(payload, '福德');
+    return {
+      focusSummary: '围绕疾厄宫、父母宫（先天遗传气血）与福德宫（情志精神）组织健康体质证据。',
+      focusPalaces: dedupePalaces([
+        illnessPalace,
+        parentsPalace,
+        happinessPalace,
+        lifePalace,
+        bodyPalace,
+        activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
+  if (
+    topicKey === 'family' ||
+    /family|parent|children|home|house|settle|relocate|家庭|六亲|父母|子女|房宅|置业|搬家|定居/i.test(
+      rawTopic,
+    )
+  ) {
+    const parentsPalace = getPalaceByName(payload, '父母');
+    const childrenPalace = getPalaceByName(payload, '子女');
+    const estatePalace = getPalaceByName(payload, '田宅');
+    const siblingPalace = getPalaceByName(payload, '兄弟');
+    return {
+      focusSummary: '围绕田宅宫、父母宫、子女宫与兄弟宫组织家庭房产与六亲证据。',
+      focusPalaces: dedupePalaces([
+        estatePalace,
+        parentsPalace,
+        childrenPalace,
+        siblingPalace,
+        lifePalace,
+        bodyPalace,
+        activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
+  if (
+    topicKey === 'academic' ||
+    /academic|study|exam|education|学业|考试|考运|考研|考公|上岸|进修|升学|考证/i.test(rawTopic)
+  ) {
+    const careerPalace = getPalaceByName(payload, '官禄');
+    const parentsPalace = getPalaceByName(payload, '父母');
+    const happinessPalace = getPalaceByName(payload, '福德');
+    const migrationPalace = getPalaceByName(payload, '迁移');
+    return {
+      focusSummary: '围绕官禄宫（考运学业）、父母宫（文书考卷印信）与福德宫组织学业考试证据。',
+      focusPalaces: dedupePalaces([
+        careerPalace,
+        parentsPalace,
+        happinessPalace,
+        migrationPalace,
+        lifePalace,
+        bodyPalace,
+        activePalace,
+        ...buildMutagenFocusPalaces(payload).slice(0, 2),
+      ]).slice(0, 8),
+      avoid: [],
+    };
+  }
+
+  if ((topicKey as string) === 'health' || /health|健康|疾厄|病|体质|五行/i.test(rawTopic)) {
     const healthPalace = getPalaceByName(payload, '疾厄');
     const parentsPalace = getPalaceByName(payload, '父母');
     const happinessPalace = getPalaceByName(payload, '福德');
@@ -177,7 +257,10 @@ export function buildFocusTaskBundle(
     };
   }
 
-  if (/family|家庭|六亲|田宅|父母|子女|房产|房宅/i.test(topic)) {
+  if (
+    (topicKey as string) === 'family' ||
+    /family|家庭|六亲|田宅|父母|子女|房产|房宅/i.test(rawTopic)
+  ) {
     const estatePalace = getPalaceByName(payload, '田宅');
     const parentsPalace = getPalaceByName(payload, '父母');
     const childrenPalace = getPalaceByName(payload, '子女');
@@ -199,7 +282,10 @@ export function buildFocusTaskBundle(
     };
   }
 
-  if (/academic|study|学业|考试|考运|考研|考公|上岸|进修|升学/i.test(topic)) {
+  if (
+    (topicKey as string) === 'academic' ||
+    /academic|study|学业|考试|考运|考研|考公|上岸|进修|升学/i.test(rawTopic)
+  ) {
     const careerPalace = getPalaceByName(payload, '官禄');
     const parentsPalace = getPalaceByName(payload, '父母');
     const happinessPalace = getPalaceByName(payload, '福德');
@@ -220,7 +306,7 @@ export function buildFocusTaskBundle(
     };
   }
 
-  if (/timing|时机|应期|岁运|动静|抉择/i.test(topic)) {
+  if ((topicKey as string) === 'timing' || /timing|时机|应期|岁运|动静|抉择/i.test(rawTopic)) {
     return {
       focusSummary: '围绕当前运限落宫、对宫冲照、四化飞伏与命身主轴组织岁运动静抉择证据。',
       focusPalaces: dedupePalaces([

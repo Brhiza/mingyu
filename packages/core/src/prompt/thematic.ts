@@ -336,7 +336,9 @@ export function buildThematicConsultationPrompt(
       ziweiScope === 'full'
         ? formatPublicZiweiFullScopeText(options.ziweiResult)
         : payloads.length
-          ? formatZiweiPayloadForPrompt(payloads[0]!)
+          ? formatZiweiPayloadForPrompt(payloads[0]!, {
+              focusPalaceNames: config.ziweiFocusPalaces,
+            })
           : formatZiweiEvidenceText(options.ziweiResult, ziweiScope);
 
     const taskText = isCustomMode
@@ -358,7 +360,7 @@ export function buildThematicConsultationPrompt(
       buildPromptSection('当前时间', formatPromptCurrentTime(currentDate)),
       buildPromptSection(
         '分析主题',
-        `咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n紫微核心宫位：${config.ziweiFocusPalaces.map((p) => `${p}宫`).join('、')}`,
+        `咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n紫微核心宫位：${config.ziweiFocusPalaces.map((p) => (p.endsWith('宫') ? p : `${p}宫`)).join('、')}`,
       ),
       buildPromptSection('紫微盘面资料', chartText),
       buildPromptSection('任务', taskText),

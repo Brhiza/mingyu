@@ -98,7 +98,7 @@ export function buildPromptContextSnapshot(params: {
 }) {
   const { payload, reportContext } = params;
   const focusTaskBundle = buildFocusTaskBundle(payload, reportContext);
-  const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 4);
+  const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 8);
   const currentPalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
   const currentMutagens = payload.active_scope.mutagen_map ?? [];
   const isOrigin = payload.active_scope.scope === 'origin';
@@ -132,7 +132,7 @@ export function buildZiweiReadableSnapshot(params: {
   const focusPalaces = buildFocusTaskBundle(
     params.payload,
     params.reportContext,
-  ).focusPalaces.slice(0, 4);
+  ).focusPalaces.slice(0, 8);
   const patternSection = snapshot.命盘格局.length
     ? ['', '【命盘格局】', formatObjectList(snapshot.命盘格局)]
     : [];
@@ -172,7 +172,7 @@ export function buildZiweiTaskBookSnapshot(params: {
 }) {
   const { payload, reportContext } = params;
   const focusTaskBundle = buildFocusTaskBundle(payload, reportContext);
-  const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 4);
+  const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 8);
   const isOrigin = payload.active_scope.scope === 'origin';
   const patternSummary = buildPatternSummary(payload);
   const yunxianFocus = buildScopeHitSummary(payload);
