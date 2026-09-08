@@ -7,11 +7,14 @@
 ## 一、基础服务地址与响应格式
 
 - **官方公开 API**：`https://aov.cc/api/v1`
+- **AOV REST 响应封装**：成功响应使用 `{ "ok": true, "data": {}, "meta": {} }`；接口结果在 `data` 中读取。
+- **OpenAPI 发现**：`GET /openapi.json` 返回的 JSON 也使用 `data` 包装层，端点正文位于 `spec["data"]["paths"]`；不要从顶层 `spec["paths"]` 读取。
+- **实际出生接口**：八字排盘使用 `POST /bazi/calculate`，出生真太阳时换算使用 `POST /calendar/true-solar-birth`；`/calendar/true-solar-time` 仅用于一般当地钟表时间换算。
 - **Remote MCP 服务地址（支持 CORS）**：
   - **Streamable HTTP 端点**：`https://aov.cc/mcp`（或本地 `http://localhost:3000/mcp`）
   - **SSE 通信端点**：`https://aov.cc/sse`（消息投递：`/message`）
   - **本地 STDIO 启动**：`npx mingyu-mcp` 或 `pnpm mcp`
-- **统一成功响应与 Envelope 契约**：
+- **MCP 成功响应与 Envelope 契约**：
   ```json
   {
     "result": {},
@@ -19,7 +22,7 @@
     "warnings": ["缺时辰已安全启用三柱降级分析"]
   }
   ```
-- **统一结构化业务错误响应**：
+- **MCP 结构化业务错误响应**：
   ```json
   {
     "error": "缺少必要出生时辰",

@@ -8,6 +8,28 @@ const aovProviderRef = readFileSync(
   'public/skills/aov-mingyu-api/references/providers/aov-mingyu.md',
   'utf8',
 );
+const skillProviderRefs = [
+  readFileSync('skills/mingyu/references/providers/aov-mingyu.md', 'utf8'),
+  readFileSync('public/skills/mingyu/references/providers/aov-mingyu.md', 'utf8'),
+  aovProviderRef,
+];
+
+test('所有 AOV Provider 手册必须使用当前 REST 端点和 OpenAPI 包装层', () => {
+  for (const content of skillProviderRefs) {
+    assert.doesNotMatch(content, /\/bazi\/chart|\/ziwei\/chart/);
+    assert.match(content, /\/bazi\/calculate/);
+    assert.match(content, /\/calendar\/true-solar-birth/);
+    assert.match(content, /spec\["data"\]\["paths"\]/);
+    assert.match(content, /AOV REST 响应封装/);
+    assert.match(content, /MCP 成功响应与 Envelope 契约/);
+  }
+});
+
+test('公开 API 文档必须同步出生真太阳时端点与 OpenAPI 包装层', () => {
+  assert.match(publicApiDocs, /POST \/calendar\/true-solar-birth/);
+  assert.match(publicApiDocs, /POST \/bazi\/calculate/);
+  assert.match(publicApiDocs, /spec\["data"\]\["paths"\]/);
+});
 
 test('公开 API 文档和 provider 适配层应写明 AI 接口', () => {
   for (const content of [publicApiDocs, aovProviderRef]) {
