@@ -9,6 +9,8 @@
 - 发现元数据：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
 - Skill 文档：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
 
+`GET /openapi.json` 返回统一的 `{ "ok": true, "data": {}, "meta": {} }` 封装；读取完整 OpenAPI 定义时，端点正文位于 `spec["data"]["paths"]`。
+
 ## 返回格式
 
 成功响应：
@@ -49,6 +51,8 @@
 | `GET /health`                                 | 健康检查                                                       |
 | `GET /manifest`                               | 获取 API 元数据                                                |
 | `GET /openapi.json`                           | 获取 OpenAPI 文档                                              |
+| `POST /calendar/true-solar-time`              | 将当地钟表时间换算为真太阳时                                   |
+| `POST /calendar/true-solar-birth`             | 统一处理出生日期类型、真太阳时、跨日与时辰                     |
 | `POST /bazi/calculate`                        | 八字排盘                                                       |
 | `POST /bazi/prompt`                           | 八字排盘并生成 AI 解读提示词                                   |
 | `POST /bazi/compatibility`                    | 八字双盘交叉关系、十神、喜忌覆盖与证据计算                     |
@@ -122,6 +126,7 @@
 | 用户问题类型                       | 首选接口                                     | 推荐参数                                                                                                                                                    | 说明                                                             |
 | ---------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | 换算真太阳时                       | `POST /calendar/true-solar-time`             | `localDateTime`、`longitude`，可选 `timezone`、`timeZoneId`、`applyChinaDst`                                                                                | 支持固定偏移或 IANA 历史时区，返回修正明细、跨日状态和对应时辰   |
+| 出生时间、真太阳时与时辰           | `POST /calendar/true-solar-birth`            | 公历或农历出生日期、时分、`longitude`，可选 `timezone`、`timeZoneId`、`applyChinaDst`                                                                        | 统一处理出生日期类型、真太阳时换算、跨日与时辰，供排盘前使用   |
 | 计算太阳光照证据                   | `POST /calendar/solar-illumination`          | `year`、`month`、`day`、`latitude`、`longitude`，并提供 `timezone` 或 `timeZoneId`；可选参考时分秒                                                          | 返回太阳高度、方位、视太阳正午、日出日落与三类曙暮光             |
 | 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                    | `ganZhi`，如“甲子”                                                                                                                                          | 返回统一公共地基资料，不需重复实现                               |
 | 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认计入地支藏干权重                                             |
@@ -176,6 +181,16 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-time \
 ```
 
 `localDateTime` 是当地钟表时间，不要附带 `Z` 或 `+08:00`。未传 `timeZoneId` 时，`timezone` 默认是 `8`；历史日期或实行夏令时的地区可传 IANA 时区（如 `America/New_York`），系统会解析当时的法定偏移。秋季回拨的重复当地时间必须再传与原始记录一致的 `timezone` 消歧，固定偏移与 IANA 规则冲突时会拒绝计算。`timeZoneId` 已包含历史夏令时规则，不能同时启用 `applyChinaDst`；中国 1986–1991 年记录也可只用固定 `timezone: 8` 配合 `applyChinaDst: true` 走兼容口径。
+
+出生真太阳时换算：
+
+```bash
+curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
+  -H "Content-Type: application/json" \
+  -d '{"dateType":"lunar","year":1990,"month":5,"day":23,"hour":12,"minute":0,"longitude":116.4074,"timezone":8}'
+```
+
+该接口统一处理公历或农历出生日期、真太阳时换算、跨日和时辰变化；返回数据位于响应的 `data` 字段。
 
 六十甲子基础资料：
 
