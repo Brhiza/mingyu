@@ -180,7 +180,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-time \
   -d '{"localDateTime":"1988-07-15T12:00:00","longitude":116.4074,"timezone":8,"applyChinaDst":true}'
 ```
 
-`localDateTime` 是当地钟表时间，不要附带 `Z` 或 `+08:00`。未传 `timeZoneId` 时，`timezone` 默认是 `8`；历史日期或实行夏令时的地区可传 IANA 时区（如 `America/New_York`），系统会解析当时的法定偏移。秋季回拨的重复当地时间必须再传与原始记录一致的 `timezone` 消歧，固定偏移与 IANA 规则冲突时会拒绝计算。`timeZoneId` 已包含历史夏令时规则，不能同时启用 `applyChinaDst`；中国 1986–1991 年记录也可只用固定 `timezone: 8` 配合 `applyChinaDst: true` 走兼容口径。
+`localDateTime` 是当地钟表时间，不要附带 `Z` 或 `+08:00`。`timezone` 是固定 UTC 偏移，单位为小时，范围为 `-12` 到 `14`，支持 `5.5` 等小数；未传 `timeZoneId` 时默认是 `8`。历史日期或实行夏令时的地区可传 IANA 时区（如 `America/New_York`），系统会解析当时的法定偏移。秋季回拨的重复当地时间必须再传与原始记录一致的 `timezone` 消歧，固定偏移与 IANA 规则冲突时会拒绝计算。`timeZoneId` 已包含历史夏令时规则，不能同时启用 `applyChinaDst`；中国 1986–1991 年记录也可只用固定 `timezone: 8` 配合 `applyChinaDst: true` 走兼容口径。
 
 出生真太阳时换算：
 
@@ -191,6 +191,16 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
 ```
 
 该接口统一处理公历或农历出生日期、真太阳时换算、跨日和时辰变化；返回数据位于响应的 `data` 字段。
+
+八字真太阳时排盘：
+
+```bash
+curl -X POST https://aov.cc/api/v1/bazi/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"gender":"male","year":1990,"month":6,"day":15,"dateType":"solar","useTrueSolarTime":true,"birthHour":14,"birthMinute":30,"birthPlace":"上海","birthLongitude":121.47,"timeZoneId":"Asia/Shanghai","shenShaScope":"all","detailMode":"full"}'
+```
+
+启用 `useTrueSolarTime: true` 时，提供 `birthHour`、`birthMinute` 和 `birthLongitude` 后可省略 `timeIndex`，接口会自动推导真太阳时对应的时辰。`timeZoneId` 推荐使用 IANA 时区；`timezone` 仅在使用固定 UTC 小时偏移或为夏令时回拨重复时刻消歧时传入。`detailMode: "compact"` 适合前端和常规调用，`detailMode: "full"` 返回完整证据链与计算过程，适合审计或研究。
 
 六十甲子基础资料：
 

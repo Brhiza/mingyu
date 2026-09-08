@@ -99,3 +99,29 @@
 | **七政四余提示词**| `/metaphysics/qizheng/prompt` | `qizheng_prompt` | 七政四余天星自包含解读提示词 |
 | **AI 运行流** | `/ai/analyze` | - | SSE 流式 AI 问答接口 |
 | **AI 可用模型** | `/ai/models` | - | 查询内置或外部模型列表 |
+
+---
+
+## 三、出生时间、时区与真太阳时参数
+
+- `timezone` 表示固定 UTC 偏移，单位为小时，范围为 `-12` 到 `14`，支持 `5.5` 等小数；`timezone: 8` 表示 UTC+8，不是分钟偏移 `480`。
+- `timeZoneId` 使用 IANA 时区标识（例如 `Asia/Shanghai` 或 `America/New_York`），优先用于需要按出生日期解析历史时区或夏令时的场景。
+- `useTrueSolarTime: true` 用于八字或紫微真太阳时排盘。提供 `birthHour`、`birthMinute`、`birthLongitude` 后可省略 `timeIndex`，接口会自动推导真太阳时对应的时辰。
+- `POST /calendar/true-solar-birth` 是出生资料专用的真太阳时换算接口；一般当地钟表时间换算使用 `POST /calendar/true-solar-time`。两个接口的结果都从 AOV REST 响应的 `data` 字段读取。
+- `detailMode: "compact"` 适合常规调用和前端展示；`detailMode: "full"` 返回完整证据链与计算过程，适合审计或研究。
+
+八字真太阳时排盘示例：
+
+```bash
+curl -X POST https://aov.cc/api/v1/bazi/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"gender":"male","year":1990,"month":6,"day":15,"dateType":"solar","useTrueSolarTime":true,"birthHour":14,"birthMinute":30,"birthPlace":"上海","birthLongitude":121.47,"timeZoneId":"Asia/Shanghai","shenShaScope":"all","detailMode":"full"}'
+```
+
+出生真太阳时换算示例：
+
+```bash
+curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
+  -H "Content-Type: application/json" \
+  -d '{"dateType":"solar","year":1990,"month":6,"day":15,"hour":14,"minute":30,"longitude":121.47,"timeZoneId":"Asia/Shanghai"}'
+```
