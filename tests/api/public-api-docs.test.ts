@@ -31,6 +31,23 @@ test('公开 API 文档必须同步出生真太阳时端点与 OpenAPI 包装层
   assert.match(publicApiDocs, /spec\["data"\]\["paths"\]/);
 });
 
+test('AOV Provider 手册必须说明真太阳时出生参数和 timezone 单位', () => {
+  for (const content of skillProviderRefs) {
+    assert.match(content, /timezone.*单位为小时/);
+    assert.match(content, /-12.*14/);
+    assert.match(content, /useTrueSolarTime.*birthHour.*birthMinute.*birthLongitude/);
+    assert.match(content, /可省略 `timeIndex`/);
+    assert.match(content, /timeZoneId.*Asia\/Shanghai/);
+    assert.match(content, /detailMode: \"full\".*完整证据链/);
+    assert.match(content, /curl -X POST https:\/\/aov\.cc\/api\/v1\/bazi\/calculate/);
+  }
+
+  assert.match(publicApiDocs, /timezone.*单位为小时/);
+  assert.match(publicApiDocs, /useTrueSolarTime.*birthHour.*birthMinute.*birthLongitude/);
+  assert.match(publicApiDocs, /timeZoneId.*Asia\/Shanghai/);
+  assert.match(publicApiDocs, /detailMode: \"full\".*完整证据链/);
+});
+
 test('公开 API 文档和 provider 适配层应写明 AI 接口', () => {
   for (const content of [publicApiDocs, aovProviderRef]) {
     assert.match(content, /POST \/ai\/analyze/);
