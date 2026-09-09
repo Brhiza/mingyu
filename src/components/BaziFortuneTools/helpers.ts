@@ -31,6 +31,11 @@ export function formatBaziTenGodAbbreviation(value: string) {
   return baziTenGodAbbreviationMap[value] ?? value;
 }
 
+export function formatBaziMonthStart(month: { startDate: string; startTermName?: string }) {
+  const [, monthNumber, day] = month.startDate.split('-');
+  return [month.startTermName, `${Number(monthNumber)}/${Number(day)}`].filter(Boolean).join(' ');
+}
+
 export function splitGanZhi(value: string) {
   return [value.charAt(0), value.charAt(1)];
 }

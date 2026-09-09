@@ -15,6 +15,7 @@ import {
   baziFortuneScopeLabelMap,
   buildCurrentBaziFortuneSelection,
   formatBaziCycleDisplay,
+  formatBaziMonthStart,
 } from './helpers';
 import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
 
@@ -289,8 +290,12 @@ export function BaziFortuneModal(props: {
                         setDraftScope('month');
                       }}
                     >
-                      <strong>{monthNumber}月</strong>
-                      <span>{item.month}</span>
+                      <strong>{item.month}</strong>
+                      <span
+                        title={`${item.startTermName ?? ''} ${item.startDateTime ?? item.startDate}`}
+                      >
+                        {formatBaziMonthStart(item)}
+                      </span>
                       <span>
                         {item.startDate} 至 {item.endDate}
                       </span>
