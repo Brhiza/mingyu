@@ -181,7 +181,7 @@ function formatAlmanacDetail(data: AlmanacData) {
     `候选日：${data.days
       .map(
         (item) =>
-          `${item.date}：${item.ganzhi.day}，${item.dayOfficer}执，宜${item.recommends.slice(0, 8).join('、') || '无'}，忌${item.avoids.slice(0, 8).join('、') || '无'}，${item.clash}${formatAlmanacGods(
+          `${item.date}：${item.ganzhi.day}，${item.dayOfficer}执，宜${item.recommends.join('、') || '无'}，忌${item.avoids.join('、') || '无'}，${item.clash}${formatAlmanacGods(
             item,
           )
             .map((text) => `；${text}`)

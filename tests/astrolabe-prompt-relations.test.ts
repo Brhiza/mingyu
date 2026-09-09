@@ -47,6 +47,21 @@ test('真实星盘相位将跨星座合相的位置与角距偏差分别给出',
   assert.ok(formatAstrolabeAspectSections(chart.aspects, points).join('\n').includes(line));
 });
 
+test('相位保留已知入相出相，未知时不补造阶段', () => {
+  for (const applying of [true, false, null]) {
+    const line = formatAstrolabeAspectLine({
+      body1: '太阳',
+      body2: '水星',
+      type: '合相',
+      symbol: '☌',
+      orb: 3.32,
+      applying,
+    });
+    if (applying === null) assert.doesNotMatch(line, /入相|出相/);
+    else assert.ok(line.includes(applying ? '入相' : '出相'));
+  }
+});
+
 test('四轴的零宫位占位值不作为实际宫位输出', () => {
   const line = formatAstrolabeAspectLine(
     { body1: '上升', body2: '天顶', type: '刑相', symbol: '□', orb: 1, applying: null },

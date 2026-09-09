@@ -60,6 +60,7 @@ export function formatAstrolabeAspectLine(aspect: AstrolabeAspect, points: Astro
     `偏差${aspect.orb.toFixed(2)}°`,
     ...(typeof aspect.allowedOrb === 'number' ? [`容许偏差上限${aspect.allowedOrb}°`] : []),
     closeness,
+    ...(aspect.applying === true ? ['入相'] : aspect.applying === false ? ['出相'] : []),
     ...(first && second
       ? [
           first.sign === second.sign ? '同星座' : '跨星座',

@@ -226,7 +226,7 @@ function formatUsefulGodPlacements(result: BaziChartResult) {
 }
 
 function formatFortune(result: BaziChartResult) {
-  const cycles = (result.luckInfo?.cycles ?? []).filter((cycle) => !cycle.isXiaoyun).slice(0, 8);
+  const cycles = (result.luckInfo?.cycles ?? []).filter((cycle) => !cycle.isXiaoyun);
   const cycleText = cycles.map((cycle) => {
     const stem = cycle.ganZhi.charAt(0);
     const branch = cycle.ganZhi.charAt(1);

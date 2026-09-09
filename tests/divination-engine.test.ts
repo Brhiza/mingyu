@@ -4097,7 +4097,7 @@ test('前端把求测人基本资料用于解读，并避免与专用出生资�
   assert.match(qimenSession.prompt, /【补充信息】\n求测人：男/);
   assert.doesNotMatch(qimenSession.prompt, /【补充信息】[\s\S]*出生年份/);
   assert.match(liurenSession.prompt, /【补充信息】\n求测人：女；出生年份：1888/);
-  assert.match(astrolabeSession.prompt, /出生信息：本人，女，1995-05-20 12:30/);
+  assert.match(astrolabeSession.prompt, /出生信息：本人；女；1995-05-20 12:30/);
   assert.doesNotMatch(astrolabeSession.prompt, /出生年份|1888/);
 });
 

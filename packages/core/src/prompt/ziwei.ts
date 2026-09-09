@@ -357,8 +357,8 @@ export function buildZiweiTaskBookPrompt(options: ZiweiPromptOptions) {
 }
 
 function formatZiweiCompatibilityFacts(result: ReturnType<typeof analyzeZiweiCompatibility>) {
-  const overlays = result.palaceOverlays.slice(0, 24).map((item) => `  ${item.promptText}`);
-  const mutagens = result.crossMutagenPlacements.slice(0, 24).map((item) => `  ${item.promptText}`);
+  const overlays = result.palaceOverlays.map((item) => `  ${item.promptText}`);
+  const mutagens = result.crossMutagenPlacements.map((item) => `  ${item.promptText}`);
   return [
     `交叉资料：${result.summaryFact.promptText.replace(/^证据汇总：/, '')}`,
     overlays.length ? '宫位叠盘：' : '',
