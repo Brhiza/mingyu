@@ -1,5 +1,6 @@
+import { analyzeFortuneTriggers, type BaziChartResult } from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
-import { formatSolarDateTime } from '../bazi/luckTiming';
+import { getLuckCycleTimeRange, formatSolarDateTime } from '../bazi/luckTiming';
 
 export interface BaziFortuneSelectionSections {
   /** 可直接放入【分析对象】分段的范围说明。 */
@@ -70,37 +71,95 @@ export function formatBaziFortuneSelection(
     lines.push(`所选干支：${selectedGanZhi.replace(label, '')}`);
   }
 
-  const triggerLine = summary.find((line) => line.includes('触发：'));
-  if (triggerLine) {
-    lines.push(`主要触发：${triggerLine.split('：').slice(1).join('：')}`);
+  lines.push(...formatTriggerRelations(promptPayload.triggerEvidence));
+  const groups = new Map<string, Set<string>>();
+  for (const group of promptPayload.detailGroups ?? []) {
+    const entries = groups.get(group.title) ?? new Set<string>();
+    for (const line of group.lines) entries.add(line);
+    if (entries.size) groups.set(group.title, entries);
   }
-
-  const triggerEvidence = promptPayload.triggerEvidence;
-  if (triggerEvidence?.relations.length) {
-    lines.push(
-      '岁运干支关系：\n' +
-        triggerEvidence.relations.map((relation) => `  - ${relation.label}`).join('\n'),
-    );
-    lines.push(
-      '关系取义：岁运并临以大运与流年完整干支相同为条件；同柱伏吟以两柱干支完全相同为条件；天克地冲以两柱天干相冲且地支相冲为条件。天干五合与地支合局先取结构关系，成化另结合月令、透干、根气与制化条件判断。',
-    );
-  }
-
-  const detailGroups = (promptPayload.detailGroups ?? []).filter((group) => {
-    if (!group.lines.length) return false;
-    if (scope === 'dayun') return group.title === '该大运包含的流年';
-    if (scope === 'year') return group.title === '该流年包含的流月';
-    if (scope === 'month') return group.title === '该流月包含的流日';
-    if (scope === 'day') return group.title === '该流日包含的流时';
-    return false;
-  });
-  if (detailGroups.length) lines.push(detailGroups.map((group) => group.title).join('、'));
-  for (const group of detailGroups) {
-    lines.push(`${group.title}\n${group.lines.map((line) => `  - ${line}`).join('\n')}`);
-  }
+  for (const [title, entries] of groups) lines.push(`${title}\n${[...entries].join('\n')}`);
 
   return {
     analysisObject: promptPayload.scopeLabel,
     focus: lines.join('\n'),
   };
+}
+
+function formatTriggerRelations(
+  triggerEvidence: FortuneSelectionContext['promptPayload']['triggerEvidence'],
+) {
+  const lines: string[] = [];
+  if (triggerEvidence?.relations.length) {
+    const names = {
+      'stem-same': '干同',
+      'stem-combine': '干合',
+      'stem-clash': '干冲',
+      'branch-same': '支同',
+      'branch-combine': '六合',
+      'branch-clash': '六冲',
+      'branch-punishment': '刑',
+      'branch-harm': '害',
+      'branch-break': '破',
+      'pillar-fuyin': '同柱伏吟',
+      'tianke-dichong': '天克地冲',
+      'suiyun-binglin': '岁运并临',
+    };
+    const pairs = new Map<string, { label: string; relations: Set<string> }>();
+    const label = (layer: { label: string; ganZhi: string }) =>
+      layer.label.includes(layer.ganZhi) ? layer.label : `${layer.label}${layer.ganZhi}`;
+    for (const relation of triggerEvidence.relations) {
+      const key = `${relation.sourceLayerKey}:${relation.targetLayerKey}`;
+      const pair = pairs.get(key) ?? {
+        label: `${label(relation.source)}↔${label(relation.target)}`,
+        relations: new Set<string>(),
+      };
+      pair.relations.add(names[relation.type]);
+      pairs.set(key, pair);
+    }
+    lines.push(
+      '岁运干支关系：\n' +
+        [...pairs.values()]
+          .map((pair) => `${pair.label}：${[...pair.relations].join('、')}`)
+          .join('；'),
+    );
+  }
+  if (triggerEvidence?.formations.length) {
+    lines.push(
+      `三合三会：${[...new Set(triggerEvidence.formations.map((item) => item.label))].join('；')}`,
+    );
+  }
+  return lines;
+}
+
+export function formatBaziFullFortune(result: BaziChartResult): string {
+  const cycles = result.luckInfo?.cycles ?? [];
+  if (!cycles.length) return '';
+  const lines = ['完整大运流年：', '十神记法：干/支主气；流年以立春交接，交运年结合大运交接时刻。'];
+  for (const cycle of cycles) {
+    const range = getLuckCycleTimeRange(cycle);
+    lines.push(
+      `${cycle.isXiaoyun ? '童运' : `${cycle.ganZhi}大运`}｜${cycle.age}岁起｜${formatSolarDateTime(range.start, true)}～${formatSolarDateTime(range.end, true)}`,
+    );
+    const layers = cycle.isXiaoyun
+      ? []
+      : [{ id: 'dayun', type: 'dayun' as const, label: '大运', ganZhi: cycle.ganZhi }];
+    lines.push(...formatTriggerRelations(analyzeFortuneTriggers(result, layers)));
+    for (const year of cycle.years) {
+      lines.push(
+        `${year.year}年(${year.age}岁) ${year.ganZhi}｜${year.tenGod}/${year.tenGodZhi}${year.xiaoyun ? `｜小运${year.xiaoyun.ganZhi} ${year.xiaoyun.tenGod}/${year.xiaoyun.tenGodZhi}` : ''}`,
+      );
+      const evidence = analyzeFortuneTriggers(result, [
+        ...layers,
+        { id: 'year', type: 'year', label: `${year.year}流年`, ganZhi: year.ganZhi },
+      ]);
+      lines.push(
+        ...formatTriggerRelations({
+          ...evidence,
+          relations: evidence.relations.filter((item) => item.source.type === 'year'),
+        }).map((line) => line.replace('岁运干支关系：\n', '')),
+      );
+    }
+  }
+  return lines.join('\n');
 }

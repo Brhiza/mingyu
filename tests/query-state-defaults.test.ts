@@ -111,7 +111,8 @@ test('地址栏非法出生日期和真太阳时字段应清空', () => {
 
 test('结果页默认应直接打开提示词页', () => {
   assert.equal(defaultPromptState.tab, 'prompt');
-  assert.equal(defaultPromptState.baziFortuneScope, 'natal');
+  assert.equal(defaultPromptState.baziFortuneScope, 'dayun');
+  assert.equal(defaultPromptState.ziweiScope, 'decadal');
 });
 
 test('结果页默认紫微提示词状态应与自定义模式一致', () => {
@@ -347,7 +348,7 @@ test('结果页地址回写紫微本命范围时不应重新写回旧日期', ()
   });
 
   assert.match(search, /ps=ziwei/);
-  assert.doesNotMatch(search, /zs=origin/);
+  assert.match(search, /zs=origin/);
   assert.doesNotMatch(search, /zsd=2028-06-01/);
   assert.doesNotMatch(search, /ziweiScope=origin/);
   assert.doesNotMatch(search, /ziweiScopeDate=2028-06-01/);
@@ -364,8 +365,8 @@ test('结果页地址回写八字本命范围时不应重新写回更细的运�
     baziFortuneDay: '12',
   });
 
-  assert.equal(search, '');
-  assert.doesNotMatch(search, /bfs=natal/);
+  assert.equal(search, 'bfs=natal');
+  assert.match(search, /bfs=natal/);
   assert.doesNotMatch(search, /bci=3/);
   assert.doesNotMatch(search, /bfy=2028/);
   assert.doesNotMatch(search, /bfm=6/);

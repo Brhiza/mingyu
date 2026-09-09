@@ -64,11 +64,18 @@ function formatGanZhiTenGod(result: BaziChartResult, ganZhi: string | undefined)
   return `天干${parts.gan}为${getTenGod(parts.gan, result.dayMaster.gan)}，地支${parts.zhi}主气为${getTenGodForBranch(parts.zhi, result.dayMaster.gan)}`;
 }
 
+function compactTenGod(result: BaziChartResult, ganZhi: string) {
+  return formatGanZhiTenGod(result, ganZhi)
+    .replace(/天干(.)为/g, '干$1:')
+    .replace(/地支(.)主气为/g, '支$1:')
+    .replace(/，/g, '/');
+}
+
 function formatYearBreakdownLine(
   result: BaziChartResult,
   item: { year: number; age: number; ganZhi: string },
 ) {
-  return `${item.year}年（${item.age}岁） ${item.ganZhi}｜十神 ${formatGanZhiTenGod(result, item.ganZhi)}`;
+  return `${item.year}年(${item.age}岁) ${item.ganZhi}｜${compactTenGod(result, item.ganZhi)}`;
 }
 
 function formatMonthBreakdownLine(
@@ -85,7 +92,7 @@ function formatMonthBreakdownLine(
     endTermName?: string;
   },
 ) {
-  return `${item.month}月（${item.label}） ${item.ganZhi}｜十神 ${formatGanZhiTenGod(result, item.ganZhi)}｜日期范围 ${item.startDate} 至 ${item.endDate}｜交节 ${item.startTermName || ''} ${item.startDateTime || ''} 起，${item.endTermName || ''} ${item.endDateTime || ''} 交下节`;
+  return `${item.label} ${item.ganZhi}｜${compactTenGod(result, item.ganZhi)}｜${item.startTermName || ''} ${item.startDateTime || item.startDate}～${item.endTermName || ''} ${item.endDateTime || item.endDate}`;
 }
 
 function formatDayBreakdownLine(
@@ -96,7 +103,7 @@ function formatDayBreakdownLine(
     boundaryNote?: string;
   },
 ) {
-  return `${item.date} ${item.ganZhi}｜十神 ${formatGanZhiTenGod(result, item.ganZhi)}${item.boundaryNote ? `｜${item.boundaryNote}` : ''}`;
+  return `${item.date} ${item.ganZhi}｜${compactTenGod(result, item.ganZhi)}${item.boundaryNote ? `｜${item.boundaryNote}` : ''}`;
 }
 
 function buildGanZhiTriggerSummary(

@@ -1,3 +1,4 @@
+import { useWorkerRequest } from '@/hooks/useWorkerRequest';
 import { useEffect, useMemo, useState } from 'react';
 import { buildZiweiChartInput } from '@/lib/full-chart-engine/ziwei';
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei';
@@ -26,6 +27,7 @@ export interface ZiweiCalculations {
   promptZiweiPayload: AnalysisPayloadV1 | null;
   promptPartnerZiweiPayload: AnalysisPayloadV1 | null;
   ziweiError: string;
+  ziweiFortuneText: string;
   primaryZiweiInput: ChartInput | null;
   partnerZiweiInput: ChartInput | null;
   activeZiweiPayloadByScope: ZiweiPayloadByScopeState;
@@ -321,6 +323,45 @@ export function useZiweiCalculations(
     promptState.ziweiScope !== 'full' &&
     Boolean(promptState.ziweiScopeDate);
   const promptHourIndex = useMemo(() => getDefaultHoroscopeContext().hourIndex, []);
+  const fortuneRequest = useMemo(() => {
+    if (
+      !shouldLoadZiweiPromptPayload ||
+      inputState.analysisMode !== 'single' ||
+      !primaryZiweiInput ||
+      promptState.ziweiScope === 'origin'
+    )
+      return null;
+    const dateStr = promptState.ziweiScopeDate || getDefaultHoroscopeContext().dateStr;
+    const all = promptState.ziweiScope === 'full';
+    return {
+      input: primaryZiweiInput,
+      dateStr,
+      hourIndex: promptHourIndex,
+      all,
+      key: JSON.stringify([primaryZiweiInputKey, dateStr, promptHourIndex, all]),
+    };
+  }, [
+    shouldLoadZiweiPromptPayload,
+    inputState.analysisMode,
+    primaryZiweiInput,
+    primaryZiweiInputKey,
+    promptState.ziweiScope,
+    promptState.ziweiScopeDate,
+    promptHourIndex,
+  ]);
+  const fortuneResult = useWorkerRequest<
+    NonNullable<typeof fortuneRequest>,
+    { key: string; text: string }
+  >({
+    factory: () =>
+      new Worker(new URL('../../../workers/ziwei-fortune-prompt.worker.ts', import.meta.url), {
+        type: 'module',
+      }),
+    request: fortuneRequest,
+    timeoutMs: 120000,
+  });
+  const fortuneReady = !fortuneRequest || fortuneResult.data?.key === fortuneRequest.key;
+  const ziweiFortuneText = fortuneRequest && fortuneReady ? fortuneResult.data?.text || '' : '';
   const primaryPromptDisplayKey =
     shouldUseCustomZiweiPromptPayload && primaryZiweiInputKey
       ? getZiweiDisplayKey(
@@ -484,12 +525,13 @@ export function useZiweiCalculations(
     partnerZiweiPayloadByScope: currentPartnerZiweiPayloadByScope,
     promptZiweiPayload: activePromptZiweiPayload,
     promptPartnerZiweiPayload: activePromptPartnerZiweiPayload,
-    ziweiError,
+    ziweiError: fortuneResult.error || ziweiError,
+    ziweiFortuneText,
     primaryZiweiInput,
     partnerZiweiInput,
     activeZiweiPayloadByScope,
     activePartnerZiweiPayloadByScope,
-    currentZiweiPayload,
+    currentZiweiPayload: fortuneReady ? currentZiweiPayload : null,
     promptZiweiScopePayloads: shouldUseCustomZiweiPromptPayload
       ? promptZiweiPayloadKey === primaryPromptDisplayKey
         ? promptScopePayloads

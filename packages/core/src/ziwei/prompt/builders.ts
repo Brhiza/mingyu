@@ -224,7 +224,7 @@ export function buildEvidenceSummary(
   const seen = new Set<string>();
   for (const item of evidencePool) {
     const key = item.stable_key || item.id;
-    if (seen.has(key) || picked.length >= 8) continue;
+    if (seen.has(key)) continue;
     seen.add(key);
     picked.push(item);
   }

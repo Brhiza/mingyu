@@ -1772,7 +1772,7 @@ test('MCP 八字年限提示词应保留岁运重点且不返回内部证据对�
     assert.equal(response.structuredContent?.result, undefined);
     const prompt = String(response.structuredContent?.prompt);
     assert.match(prompt, /【分析对象】[\s\S]*分析对象：1998年流年/);
-    assert.match(prompt, /【岁运重点】[\s\S]*主要触发：/);
+    assert.match(prompt, /【岁运重点】[\s\S]*岁运干支关系：/);
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
   });
 });

@@ -170,10 +170,10 @@ test('选择流年时会附带该流年下的全部流月', () => {
   assert.equal(context.year, 2008);
   assert.equal(context.monthBreakdown?.length, 12);
   assert.match(context.promptPayload.breakdownTitle ?? '', /流月/);
-  assert.match(context.promptPayload.breakdownLines?.[0] ?? '', /1月/);
+  assert.match(context.promptPayload.breakdownLines?.[0] ?? '', /寅月/);
   assert.match(
     context.promptPayload.breakdownLines?.[0] ?? '',
-    /\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}/,
+    /立春 \d{4}-\d{2}-\d{2} \d{2}:\d{2}～惊蛰 \d{4}-\d{2}-\d{2} \d{2}:\d{2}/,
   );
   assert.doesNotMatch(context.promptPayload.summaryLines.join('\n'), /童运/);
   assert.match(

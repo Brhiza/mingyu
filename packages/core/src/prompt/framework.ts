@@ -790,8 +790,8 @@ export function buildPromptSelectionTask(task: string, selection: PromptSelectio
   const focus =
     selection.topicId === 'general'
       ? '先组织全部已列资料，说明整体主线与相互制约。'
-      : `只从已列资料中筛选与${selection.topicLabel}${selection.subtopicLabel ? `（${selection.subtopicLabel}）` : ''}直接相关的证据，其他资料作为旁证。`;
-  const scope = `本次判断只落在${selection.scopeLabel}范围；未提供的时间层或事实应明确说明缺失。`;
+      : `围绕${selection.topicLabel}${selection.subtopicLabel ? `（${selection.subtopicLabel}）` : ''}展开，综合相关宫位、干支关系与前后阶段，说明主线、成因和转折。`;
+  const scope = `以${selection.scopeLabel}为重点，结合所列本命与各层时间资料推演；区分盘面事实、传统取义和条件性判断。`;
   const normalizedTask = task.trim();
   return [normalizedTask, focus, scope].filter(Boolean).join(' ');
 }

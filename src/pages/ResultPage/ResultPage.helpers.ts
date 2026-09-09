@@ -30,6 +30,7 @@ import {
 } from './ResultPage.constants';
 import { getThematicTopicConfig, normalizeThematicTopic } from 'mingyu-core/prompt';
 import {
+  formatBaziFullFortune,
   formatBaziFortuneSelection,
   buildPromptSelectionTask,
   getPromptSelectionSection,
@@ -370,20 +371,7 @@ export function formatZiweiSupportingScopeText(
 }
 
 export function formatBaziFullFortuneText(result: BaziChartResult) {
-  if (!result.luckInfo?.cycles?.length) {
-    return '';
-  }
-
-  return [
-    '完整大运流年：',
-    ...result.luckInfo.cycles.flatMap((cycle, cycleIndex) => {
-      const cycleType = cycle.isXiaoyun ? '童运' : cycle.type;
-      return [
-        `${cycleIndex + 1}. ${cycle.ganZhi}${cycleType}：${cycle.year}年起，约${cycle.age}岁交运`,
-        ...cycle.years.map((year) => `  - ${year.year}年（${year.age}岁）${year.ganZhi}`),
-      ];
-    }),
-  ].join('\n');
+  return result ? formatBaziFullFortune(result) : '';
 }
 
 function formatZiweiMutagenMap(payload: AnalysisPayloadV1) {

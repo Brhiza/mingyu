@@ -245,8 +245,8 @@ test('八字紫微合参提示词可写入完整大运流年资料', () => {
   assert.match(prompt, /【分析对象】\n八字分析对象：本命盘与完整大运流年/);
   assert.match(prompt, /【八字排盘信息】[\s\S]*【命限资料】/);
   assert.match(prompt, /完整大运流年：/);
-  assert.match(prompt, /\d+\. .+：\d{4}年起，约\d+岁交运/);
-  assert.match(prompt, /  - \d{4}年（\d+岁）.+/);
+  assert.match(prompt, /大运｜\d+岁起｜/);
+  assert.match(prompt, /\d{4}年\(\d+岁\).+/);
 });
 
 test('星盘完整输出版会整理本命与行运资料', () => {

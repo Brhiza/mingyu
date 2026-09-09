@@ -139,6 +139,10 @@ function applyZiweiPromptSelection(
     subtopicId: subtopicId || undefined,
     scope: toPromptScope(scope),
   });
+  prompt = prompt.replace(
+    /^分析主题：.*$/mu,
+    `分析主题：${selection.topicLabel}${selection.subtopicLabel ? ` · ${selection.subtopicLabel}` : ''}`,
+  );
   const taskMatch = /【任务】\n([\s\S]*?)(?=\n\n【问题】|$)/u.exec(prompt);
   if (!taskMatch) {
     return `${prompt}\n\n【解读选择】\n${getPromptSelectionSection(selection)}\n\n【任务】\n${buildPromptSelectionTask('请依据已列紫微盘面资料回答【问题】。', selection)}`;
@@ -152,17 +156,23 @@ function applyZiweiPromptSelection(
 function FortuneScopePresetSelect(props: {
   value: FortuneScopePreset;
   onChange: (value: FortuneScopePreset) => void;
+  kind: 'bazi' | 'ziwei' | 'astrolabe';
   currentAvailable?: boolean;
   disabled?: boolean;
 }) {
   const currentAvailable = props.currentAvailable ?? true;
   const options: DropdownSelectOption<FortuneScopePreset>[] = [
     { value: 'default', label: '本命总览', triggerLabel: '本命总览' },
-    { value: 'year', label: '今年运势', disabled: !currentAvailable },
+    ...(props.kind === 'astrolabe'
+      ? []
+      : [{ value: 'dayun' as const, label: '当前阶段', disabled: !currentAvailable }]),
+    { value: 'all', label: '全部' },
     { value: 'manual', label: '自选时间…', triggerLabel: '自选时间' },
   ];
   const selectedValue =
-    props.value === 'default' || props.value === 'year' ? props.value : 'manual';
+    props.value === 'default' || props.value === 'dayun' || props.value === 'all'
+      ? props.value
+      : 'manual';
 
   return (
     <DropdownSelect
@@ -503,6 +513,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     partnerZiweiInput,
     activeZiweiPayloadByScope,
     promptZiweiScopePayloads,
+    ziweiFortuneText,
     currentZiweiPayload,
     partnerZiweiPayload,
   } = useZiweiCalculations(inputState, promptState, mountedTabs.ziwei, mountedTabs.prompt);
@@ -779,6 +790,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     return promptList.find((item) => item.id === promptState.baziPresetId) ?? promptList[0] ?? null;
   }, [inputState.analysisMode, promptEngine, promptState.baziPresetId]);
 
+  const currentScopeDate = useMemo(() => new Date(), []);
   const baziFortuneSelection = useMemo(
     () => buildBaziFortuneSelectionValue(promptState),
     [promptState],
@@ -789,11 +801,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
 
     try {
+      if (baziFortuneSelection.scope === 'dayun' && baziFortuneSelection.cycleIndex == null) {
+        const current = buildCurrentBaziFortuneSelection(baziResult, currentScopeDate);
+        if (current) return { ...current, scope: 'dayun' as const };
+      }
       return baziFortuneSelectionModule.normalizeFortuneSelection(baziResult, baziFortuneSelection);
     } catch {
       return { scope: 'natal' as const };
     }
-  }, [baziFortuneSelection, baziFortuneSelectionModule, baziResult]);
+  }, [baziFortuneSelection, baziFortuneSelectionModule, baziResult, currentScopeDate]);
   const baziFortuneContext = useMemo(() => {
     if (!baziResult || !baziFortuneSelectionModule) {
       return null;
@@ -804,7 +820,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       normalizedBaziFortuneSelection,
     );
   }, [baziFortuneSelectionModule, baziResult, normalizedBaziFortuneSelection]);
-  const currentScopeDate = useMemo(() => new Date(), []);
   const currentDateStr = useMemo(() => formatLocalDate(currentScopeDate), [currentScopeDate]);
   const currentBaziFortuneSelection = useMemo(
     () => (baziResult ? buildCurrentBaziFortuneSelection(baziResult, currentScopeDate) : null),
@@ -827,7 +842,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       ? 'default'
       : promptState.ziweiScope === 'full'
         ? 'all'
-        : promptState.ziweiScopeDate === currentDateStr
+        : !promptState.ziweiScopeDate || promptState.ziweiScopeDate === currentDateStr
           ? promptState.ziweiScope === 'decadal'
             ? 'dayun'
             : promptState.ziweiScope === 'yearly'
@@ -1270,7 +1285,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     );
     const basePrompt = buildCombinedZiweiPrompt(
       currentZiweiPayload,
-      promptState.ziweiTopic,
+      promptState.ziweiTopicId
+        ? resolveZiweiTopicByBaziShortcutMode(promptState.ziweiTopicId)
+        : promptState.ziweiTopic,
       question,
       {
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
@@ -1289,23 +1306,29 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           ? basePrompt.replace('【问题】', `【上层运限资料】\n${supportingText}\n\n【问题】`)
           : basePrompt;
     return applyZiweiPromptSelection(
-      scopedPrompt,
+      [scopedPrompt, ziweiFortuneText].filter(Boolean).join('\n\n'),
       promptState.ziweiTopicId,
       promptState.ziweiSubtopicId,
       toPromptScope(promptState.ziweiScope),
     );
   }
 
+  const selectedZiweiPeriod = ziweiRuntime?.decadalTimeline.find((period) => {
+    const age = currentZiweiPayload?.active_scope.nominal_age;
+    return age != null && age >= period.startAge && age <= period.endAge;
+  });
   const ziweiScopeSummaryText =
     promptState.ziweiScope === 'full'
       ? '本命盘与完整运限资料'
       : promptState.ziweiScope === 'origin'
         ? '本命盘与大运概览'
-        : formatZiweiPromptScopeSummary(
-            promptState.ziweiScope,
-            promptState.ziweiScopeDate,
-            promptState.ziweiScopeDate ? currentZiweiPayload?.active_scope.label : undefined,
-          );
+        : promptState.ziweiScope === 'decadal' && selectedZiweiPeriod
+          ? `${selectedZiweiPeriod.startAge}～${selectedZiweiPeriod.endAge}岁 · ${selectedZiweiPeriod.dateStr.slice(0, 4)}～${selectedZiweiPeriod.endDateStr?.slice(0, 4) || ''}年`
+          : formatZiweiPromptScopeSummary(
+              promptState.ziweiScope,
+              promptState.ziweiScopeDate,
+              promptState.ziweiScopeDate ? currentZiweiPayload?.active_scope.label : undefined,
+            );
 
   const enhancedZiweiPromptPack = useMemo(() => {
     if (
@@ -1317,9 +1340,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       return '';
     }
 
-    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(activeBaziShortcutMode);
+    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(
+      promptState.baziTopicId || promptState.ziweiTopicId || activeBaziShortcutMode,
+    );
     return [
       buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic),
+      ziweiFortuneText,
       formatZiweiSupportingScopeText(
         promptZiweiScopePayloads,
         currentZiweiPayload.active_scope.scope,
@@ -1329,8 +1355,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       .join('\n\n');
   }, [
     activeBaziShortcutMode,
+    promptState.baziTopicId,
+    promptState.ziweiTopicId,
     currentZiweiPayload,
     promptZiweiScopePayloads,
+    ziweiFortuneText,
     isInstantResult,
     promptState.promptSource,
     showAssistantPane,
@@ -1512,6 +1541,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     [
       activeZiweiPayloadByScope,
       promptZiweiScopePayloads,
+      ziweiFortuneText,
       currentZiweiPayload,
       activeZiweiShortcutMode,
       effectiveZiweiQuickQuestion,
@@ -1543,6 +1573,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     [
       activeZiweiPayloadByScope,
       promptZiweiScopePayloads,
+      ziweiFortuneText,
       currentZiweiPayload,
       activeZiweiShortcutMode,
       deferredZiweiQuickQuestion,
@@ -2065,6 +2096,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       {(promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
       inputState.analysisMode === 'single' ? (
         <FortuneScopePresetSelect
+          kind="bazi"
           value={baziFortunePreset}
           onChange={handleBaziFortunePresetChange}
           currentAvailable={Boolean(currentBaziFortuneSelection)}
@@ -2073,6 +2105,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
       {promptState.promptSource === 'ziwei' ? (
         <FortuneScopePresetSelect
+          kind="ziwei"
           value={ziweiScopePreset}
           onChange={handleZiweiScopePresetChange}
           disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
@@ -2081,6 +2114,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
       {promptState.promptSource === 'astrolabe' ? (
         <FortuneScopePresetSelect
+          kind="astrolabe"
           value={astrolabeScopePreset}
           onChange={handleAstrolabeScopePresetChange}
           disabled={!astrolabeCalculation.data}
@@ -2095,7 +2129,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               : `${promptState.astrolabeScopeDate || currentDateStr} · ${promptState.astrolabeScope === 'full' ? '各层行运' : promptState.astrolabeScope === 'yearly' ? '全年' : promptState.astrolabeScope === 'monthly' ? '整月' : '当日'}`
             : promptState.baziFortuneScope === 'full'
               ? '本命与全部大运流年'
-              : baziFortuneContext?.displayLabel || '本命盘与大运概览'}
+              : baziFortuneContext?.scope === 'dayun'
+                ? `${baziFortuneContext.displayLabel} · ${baziFortuneContext.cycleTimeRange.start.year}～${baziFortuneContext.cycleTimeRange.end.year}年`
+                : baziFortuneContext?.displayLabel || '本命盘与大运概览'}
       </small>
     </div>
   ) : null;
