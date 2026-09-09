@@ -2,9 +2,8 @@
  * 农历工具类
  * 基于tyme4ts库实现农历、干支等传统历法功能
  */
-import { SixtyCycle, SolarDay, SolarTime } from 'tyme4ts';
-
-type NamedTymeValue = { getName(): string };
+import { SolarDay, SolarTime } from 'tyme4ts';
+import { getXunKongBranches } from '../ganzhi';
 
 /**
  * 干支信息接口
@@ -242,9 +241,7 @@ export class LunarUtil {
    */
   static getVoidBranches(dayGanZhi: string): string[] {
     try {
-      return SixtyCycle.fromName(dayGanZhi)
-        .getExtraEarthBranches()
-        .map((item: NamedTymeValue) => item.getName());
+      return getXunKongBranches(dayGanZhi);
     } catch (error) {
       throw new Error(`无法识别日柱干支 "${dayGanZhi}" 的旬空。`, { cause: error });
     }

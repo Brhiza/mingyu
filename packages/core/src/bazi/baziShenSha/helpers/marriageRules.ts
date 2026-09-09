@@ -1,3 +1,4 @@
+import { getTaoHua } from '../../../ganzhi';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
 export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
@@ -6,21 +7,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
 
   return {
     桃花: () => {
-      const map: Record<string, string> = {
-        寅: '卯',
-        午: '卯',
-        戌: '卯',
-        亥: '子',
-        卯: '子',
-        未: '子',
-        申: '酉',
-        子: '酉',
-        辰: '酉',
-        巳: '午',
-        酉: '午',
-        丑: '午',
-      };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return getTaoHua(nianZhi) === zhi || getTaoHua(riZhi) === zhi;
     },
     红鸾: () => {
       const map: Record<string, string> = {

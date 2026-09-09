@@ -1,14 +1,10 @@
-import { SixtyCycle } from 'tyme4ts';
+import { getXunKongBranches } from '../ganzhi';
 import { assertGanZhiPair, assertPillars } from './baziUtils';
 import type { KongWangResult, Pillars } from './baziTypes';
 
-type NamedTymeValue = { getName(): string };
-
 export function calculateKongWangBranches(gan: string, zhi: string): string[] {
   assertGanZhiPair(gan, zhi, '空亡干支');
-  return SixtyCycle.fromName(`${gan}${zhi}`)
-    .getExtraEarthBranches()
-    .map((branch: NamedTymeValue) => branch.getName());
+  return getXunKongBranches(`${gan}${zhi}`);
 }
 
 export function calculateKongWang(pillars: Pillars): KongWangResult {

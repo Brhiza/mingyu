@@ -467,7 +467,7 @@ console.log(result.mingGua); // 命卦（八宅，按立春年界计算）
 console.log(result.warnings); // 排盘预警；无预警时为空数组
 ```
 
-神煞争议口径默认采用主流算法：空亡按日柱旬空、羊刃只取阳干帝旺、童子煞只查日柱和时柱。需要兼容其他系统时，可显式传入 `shenShaVariants`：
+神煞争议口径默认采用问真整理口径：空亡同时参考日柱与年柱旬空、羊刃包含阴干帝旺位的阴刃、童子煞只查日柱和时柱。需要采用原有传统兼容口径时，可显式传入 `shenShaVariants`：
 
 ```typescript
 const result = baziCalculator.calculateBazi({
@@ -477,9 +477,7 @@ const result = baziCalculator.calculateBazi({
   timeIndex: 5,
   gender: 'male',
   shenShaVariants: {
-    kongWangBasis: 'day-and-year',
-    yangRenMode: 'include-yin-ren',
-    tongZiScope: 'all-pillars',
+    referenceProfile: 'classical',
   },
 });
 ```

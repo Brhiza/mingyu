@@ -4857,6 +4857,7 @@ function buildCompactBaziResult(result: BaziChartResult) {
     taiYuan: result.taiYuan,
     taiXi: result.taiXi,
     kongWang: result.kongWang,
+    shensha: result.shensha,
     monthCommander: result.monthCommander,
     luckInfo: {
       startInfo: result.luckInfo.startInfo,

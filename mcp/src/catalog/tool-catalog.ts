@@ -97,7 +97,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '通用传统神煞',
     category: 'foundation',
     type: 'utility',
-    description: '核验四柱干支的空亡、驿马与桃花传统神煞',
+    description: '按八字默认口径核验四柱干支的空亡、驿马与桃花传统神煞',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/foundation/shensha',
   },

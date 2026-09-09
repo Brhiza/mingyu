@@ -110,7 +110,7 @@ export function registerFoundationTools(server: McpServer) {
     'foundation_shensha',
     {
       description:
-        '严格核验完整四柱，逐项计算空亡、驿马和桃花的目标地支与实际命中柱位，并返回起法、来源声明、计算链、证据汇总和解释限制',
+        '按八字默认口径严格核验完整四柱，逐项计算空亡、驿马和桃花的目标地支与实际命中柱位，并返回起法、来源声明、计算链、证据汇总和解释限制',
       inputSchema: shenshaSchema.shape,
       outputSchema: resultOutputSchema,
     },

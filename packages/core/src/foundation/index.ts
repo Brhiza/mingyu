@@ -208,7 +208,11 @@ function buildCapabilityFacts(): FoundationCapabilityFact[] {
       name: '通用神煞证据',
       provides: ['空亡', '驿马', '桃花', '完整四柱校验', '逐柱命中', '来源声明状态'],
       evidenceOutputs: [...FOUNDATION_EVIDENCE_OUTPUTS.shensha],
-      sources: ['六十甲子旬空固定规则', '年支三合局驿马与桃花固定表', '通用神煞注册目录'],
+      sources: [
+        '日柱与年柱六十甲子旬空固定规则',
+        '年支与日支三合局驿马、桃花固定表',
+        '通用神煞注册目录',
+      ],
       promptText:
         '通用神煞资料可严格核验完整四柱，逐项计算空亡、驿马和桃花目标，定位实际命中柱位并记录起法、来源与限制',
       limitation: CAPABILITY_FACT_LIMITATION,
