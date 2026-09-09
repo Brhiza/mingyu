@@ -16,10 +16,7 @@ final class AndroidAppUpdateVerifier {
     private static final String CDN_HOST = "download.aov.cc";
     private static final Set<String> REDIRECT_HOSTS = Set.of(
         "github.com",
-        "gh-proxy.com",
-        "ghfast.top",
         CDN_HOST,
-        "lanzou-cloudflare-api.brhiza.workers.dev",
         "objects.githubusercontent.com",
         "release-assets.githubusercontent.com"
     );
@@ -59,16 +56,10 @@ final class AndroidAppUpdateVerifier {
         if (checksumMatcher.matches() && checksumMatcher.group(2).toLowerCase(Locale.ROOT).endsWith(".apk.sha256")) {
             String tagName = checksumMatcher.group(1);
             String apkName = checksumMatcher.group(2).substring(0, checksumMatcher.group(2).length() - ".sha256".length());
-            String version = tagName.substring("android-v".length());
             String githubPath = "/Brhiza/mingyu/releases/download/" + tagName + "/" + apkName;
-            String acceleratedPath = "/https://github.com" + githubPath;
             String host = url.getHost().toLowerCase(Locale.ROOT);
             String path = url.getPath();
-            boolean matches = "github.com".equals(host) && githubPath.equals(path)
-                || "gh-proxy.com".equals(host) && acceleratedPath.equals(path)
-                || "ghfast.top".equals(host) && acceleratedPath.equals(path)
-                || "lanzou-cloudflare-api.brhiza.workers.dev".equals(host)
-                    && ("/v1/public/mingyu/" + version).equals(path);
+            boolean matches = "github.com".equals(host) && githubPath.equals(path);
             if (!matches) throw new IllegalArgumentException("更新地址不是命语官方发布线路。");
             return url;
         }
@@ -77,9 +68,10 @@ final class AndroidAppUpdateVerifier {
             String version = cdnChecksumMatcher.group(1);
             String apkName = cdnChecksumMatcher.group(2).substring(0, cdnChecksumMatcher.group(2).length() - ".sha256".length());
             String expectedPath = "/apps/mingyu/android/" + version + "/" + apkName;
-            if (CDN_HOST.equalsIgnoreCase(url.getHost()) &&
-                apkName.equals("mingyu-" + version + ".apk") &&
-                expectedPath.equals(url.getPath())) {
+            String githubPath = "/Brhiza/mingyu/releases/download/android-v" + version + "/" + apkName;
+            boolean matchesOfficialRoute = CDN_HOST.equalsIgnoreCase(url.getHost()) && expectedPath.equals(url.getPath())
+                || "github.com".equalsIgnoreCase(url.getHost()) && githubPath.equals(url.getPath());
+            if (apkName.equals("mingyu-" + version + ".apk") && matchesOfficialRoute) {
                 return url;
             }
         }
@@ -139,9 +131,6 @@ final class AndroidAppUpdateVerifier {
         String host = url.getHost().toLowerCase(Locale.ROOT);
         if ("github.com".equals(host)) {
             return url.getQuery() == null && RELEASE_ASSET_PATH_PATTERN.matcher(url.getPath()).matches();
-        }
-        if ("lanzou-cloudflare-api.brhiza.workers.dev".equals(host)) {
-            return url.getQuery() == null && url.getPath().matches("^/v1/public/mingyu/\\d+\\.\\d+\\.\\d+$");
         }
         if (CDN_HOST.equals(host)) {
             return url.getQuery() == null && CDN_ASSET_PATH_PATTERN.matcher(url.getPath()).matches();

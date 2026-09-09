@@ -13,7 +13,6 @@ import { safeStorage } from '@/lib/safe-storage';
 import {
   createTestingRouteProbes,
   probeAndroidDownloadRoutes,
-  selectBestAndroidRoute,
   type AndroidDownloadRouteId,
   type AndroidRouteProbe,
 } from '@/lib/android-update-routes';
@@ -71,8 +70,15 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
     setRouteProbes(createTestingRouteProbes(targetRelease.downloadRoutes));
     const probes = await probeAndroidDownloadRoutes(targetRelease.downloadRoutes);
     setRouteProbes(probes);
-    const best = selectBestAndroidRoute(probes);
-    setSelectedRouteId(best?.id ?? targetRelease.downloadRoutes[0]?.id ?? null);
+    setSelectedRouteId((current) => {
+      const selectedProbe = probes.find((probe) => probe.id === current);
+      if (selectedProbe?.status === 'available') return current;
+      return [...probes]
+        .filter((probe) => probe.status === 'available')
+        .sort((left, right) => left.priority - right.priority)[0]?.id
+        ?? targetRelease.downloadRoutes[0]?.id
+        ?? null;
+    });
   }, []);
 
   const checkForUpdates = useCallback(
@@ -123,12 +129,22 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
       }
       setStatus('downloading');
       setMessage('正在下载并校验更新包…');
-      const selectedUrl =
-        release.downloadRoutes.find((route) => route.id === selectedRouteId)?.url ??
-        selectBestAndroidRoute(routeProbes)?.url ??
-        release.downloadRoutes[0]?.url ??
-        release.apkUrl;
-      await downloadAndInstallAndroidUpdate(release, selectedUrl);
+      const orderedRoutes = [...release.downloadRoutes].sort((left, right) => {
+        if (left.id === selectedRouteId) return -1;
+        if (right.id === selectedRouteId) return 1;
+        return left.priority - right.priority;
+      });
+      let lastError: unknown = null;
+      for (const route of orderedRoutes) {
+        try {
+          await downloadAndInstallAndroidUpdate(release, route.url);
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (lastError) throw lastError;
       setStatus('installer-opened');
       setMessage('已打开系统安装页面');
     } catch (error) {
