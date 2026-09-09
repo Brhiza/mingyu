@@ -44,6 +44,7 @@ import {
   type HomeModeId,
 } from '@/lib/workspace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
+import { HomeSelectionDialog, type HomeSelectionOption } from './HomePage.SelectionDialog';
 
 const modeCopy: Record<HomeModeId, { heading: string; placeholder: string }> = {
   chart: {
@@ -81,6 +82,7 @@ export function HomePage() {
   const [temporaryBirthYear, setTemporaryBirthYear] = useState('');
   const [isSupplementaryInfoModalOpen, setIsSupplementaryInfoModalOpen] = useState(false);
   const [isQuestionInspirationOpen, setIsQuestionInspirationOpen] = useState(false);
+  const [selectionDialog, setSelectionDialog] = useState<'algorithm' | 'case' | null>(null);
   const [inspirationCategory, setInspirationCategory] = useState('近期');
   const [inspirationSearch, setInspirationSearch] = useState('');
   const [selectedChartFeature, setSelectedChartFeature] = useState<ChartWorkspaceId>(
@@ -127,33 +129,44 @@ export function HomePage() {
     () => orderedFeatures.filter((feature) => isDivinationWorkspaceId(feature.id)),
     [orderedFeatures],
   );
-  const chartOptions = useMemo<DropdownSelectOption<string>[]>(
-    () => chartFeatures.map((feature) => ({ value: feature.id, label: feature.label })),
+  const chartOptions = useMemo<HomeSelectionOption[]>(
+    () =>
+      chartFeatures.map((feature) => ({
+        value: feature.id,
+        label: feature.label,
+        description: feature.description,
+      })),
     [chartFeatures],
   );
-  const divinationOptions = useMemo<DropdownSelectOption<string>[]>(
-    () => divinationFeatures.map((feature) => ({ value: feature.id, label: feature.label })),
+  const divinationOptions = useMemo<HomeSelectionOption[]>(
+    () =>
+      divinationFeatures.map((feature) => ({
+        value: feature.id,
+        label: feature.label,
+        description: feature.description,
+      })),
     [divinationFeatures],
   );
-  const instantOptions = useMemo<DropdownSelectOption<string>[]>(
+  const instantOptions = useMemo<HomeSelectionOption[]>(
     () =>
       INSTANT_CHART_DEFINITIONS.map((definition) => ({
         value: definition.type,
         label: definition.label,
+        description: definition.description,
       })),
     [],
   );
-  const caseOptions = useMemo<DropdownSelectOption<string>[]>(
+  const caseOptions = useMemo<HomeSelectionOption[]>(
     () => [
       {
         value: TEMPORARY_CASE_VALUE,
         label: '不指定案例',
-        triggerLabel: '临时档案',
+        description: '使用临时档案，本次自行填写求测资料。',
       },
       ...sortPersonalCasesForQuickSwitch(cases).map((record) => ({
         value: record.id,
-        label: `${record.name} · ${record.birthText}`,
-        triggerLabel: record.name,
+        label: record.name,
+        description: `${record.input.gender === 'male' ? '男' : '女'} · ${record.birthText}`,
       })),
     ],
     [cases],
@@ -484,28 +497,33 @@ export function HomePage() {
             </div>
             <div className="workspace-home-composer-footer">
               <div className="workspace-home-algorithm">
-                <DropdownSelect<string>
-                  value={selectedAlgorithm}
-                  options={algorithmOptions}
-                  onChange={selectAlgorithm}
-                  ariaLabel="选择算法"
-                  prefix="算法"
-                  variant="field"
-                  favoriteValue={favoriteAlgorithmValue}
-                  favoriteLabel={favoriteAlgorithmLabel}
-                  onFavoriteChange={favoriteAlgorithm}
-                />
+                <button
+                  type="button"
+                  className="workspace-ui-dropdown-trigger is-field"
+                  aria-label="选择术数"
+                  aria-haspopup="dialog"
+                  aria-expanded={selectionDialog === 'algorithm'}
+                  onClick={() => setSelectionDialog('algorithm')}
+                >
+                  <span className="workspace-ui-dropdown-prefix">术数</span>
+                  <span>
+                    {algorithmOptions.find((option) => option.value === selectedAlgorithm)?.label}
+                  </span>
+                </button>
               </div>
               {activeMode !== 'instant' ? (
                 <div className="workspace-home-case-select">
-                  <DropdownSelect<string>
-                    value={activeCaseId ?? TEMPORARY_CASE_VALUE}
-                    options={caseOptions}
-                    onChange={(value) => selectCase(value === TEMPORARY_CASE_VALUE ? null : value)}
-                    ariaLabel="切换案例"
-                    prefix="案例"
-                    variant="field"
-                  />
+                  <button
+                    type="button"
+                    className="workspace-ui-dropdown-trigger is-field"
+                    aria-label="选择案例"
+                    aria-haspopup="dialog"
+                    aria-expanded={selectionDialog === 'case'}
+                    onClick={() => setSelectionDialog('case')}
+                  >
+                    <span className="workspace-ui-dropdown-prefix">案例</span>
+                    <span>{activeCase?.name ?? '临时档案'}</span>
+                  </button>
                 </div>
               ) : (
                 <div className="workspace-home-time-context">
@@ -559,6 +577,30 @@ export function HomePage() {
           </form>
         </div>
       </div>
+      {selectionDialog ? (
+        <HomeSelectionDialog
+          key={selectionDialog}
+          title={selectionDialog === 'algorithm' ? '选择术数' : '选择案例'}
+          searchPlaceholder={
+            selectionDialog === 'algorithm' ? '搜索术数名称或适用场景' : '搜索姓名或出生资料'
+          }
+          options={selectionDialog === 'algorithm' ? algorithmOptions : caseOptions}
+          value={
+            selectionDialog === 'algorithm'
+              ? selectedAlgorithm
+              : (activeCaseId ?? TEMPORARY_CASE_VALUE)
+          }
+          onSelect={(value) => {
+            if (selectionDialog === 'algorithm') selectAlgorithm(value);
+            else selectCase(value === TEMPORARY_CASE_VALUE ? null : value);
+            setSelectionDialog(null);
+          }}
+          onClose={() => setSelectionDialog(null)}
+          favoriteValue={selectionDialog === 'algorithm' ? favoriteAlgorithmValue : undefined}
+          favoriteLabel={favoriteAlgorithmLabel}
+          onFavoriteChange={selectionDialog === 'algorithm' ? favoriteAlgorithm : undefined}
+        />
+      ) : null}
       {instantBirthPlace.isBirthPlaceModalOpen ? (
         <BirthPlaceModal birthPlace={instantBirthPlace} purpose="observer" />
       ) : null}
