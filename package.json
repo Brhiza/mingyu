@@ -1,7 +1,7 @@
 {
   "name": "mingyu",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.2.4",
   "license": "AGPL-3.0-only",
   "description": "免费开源的在线算命、占卜、玄学排盘与 AI 解读提示词工具",
   "keywords": [

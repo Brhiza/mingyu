@@ -103,9 +103,10 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
     }`,
     `逆行：${formatStringList(data.summary.retrograde, '无')}`,
     `格局：${formatStringList(data.summary.patterns, '未列明显格局')}`,
+    ...data.angles.map((point) => `${point.label}：${point.formatted}`),
     '星体位置：',
     ...data.planets.map((item) => `  ${formatPoint(item)}`),
-    ...formatAstrolabeAspectSections(data.aspects),
+    ...formatAstrolabeAspectSections(data.aspects, [...data.planets, ...data.angles]),
   ]
     .filter(Boolean)
     .join('\n');
@@ -146,13 +147,24 @@ export function buildAstrolabePrompt(options: AstrolabePromptOptions) {
   return buildAstrolabePromptDocument(options).text;
 }
 
-function formatSynastryFacts(data: AstrolabeSynastryData) {
+function formatSynastryFacts(
+  data: AstrolabeSynastryData,
+  chart1: AstrolabeData,
+  chart2: AstrolabeData,
+) {
+  const position = (chart: AstrolabeData, name: string) => {
+    const point = [...chart.planets, ...chart.angles].find((item) => item.name === name);
+    return point
+      ? `（${point.formatted}${point.house > 0 ? `，自身本命第${point.house}宫` : ''}）`
+      : '';
+  };
   const aspects = data.aspects.map(
     (item) =>
-      `  ${item.person1}${item.point1Name}与${item.person2}${item.point2Name}：${item.type}，实际夹角${item.actualAngle.toFixed(2)}°，容许度${item.orb.toFixed(2)}°，${item.closeness}。`,
+      `  第一人${item.person1}的${item.point1}${position(chart1, item.point1Name)}与第二人${item.person2}的${item.point2}${position(chart2, item.point2Name)}：${item.type}，目标角${item.exactAngle}°，实际夹角${item.actualAngle.toFixed(2)}°，偏差${item.orb.toFixed(2)}°，容许偏差上限${item.allowedOrb}°，${item.closeness}。`,
   );
   const overlays = data.houseOverlays.map(
-    (item) => `  ${item.visitor}${item.pointName}落入${item.owner}本命盘第${item.house}宫。`,
+    (item) =>
+      `  ${item.visitorPerson === 'person1' ? '第一人' : '第二人'}${item.visitor}的${item.point}${position(item.visitorPerson === 'person1' ? chart1 : chart2, item.pointName)}落入${item.ownerPerson === 'person1' ? '第一人' : '第二人'}${item.owner}的本命盘第${item.house}宫。`,
   );
   return [
     data.receptionSummary ?? '',
@@ -185,7 +197,10 @@ export function buildAstrolabeSynastryPromptDocument(
     buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
     buildPromptSection('第一人本命盘', formatAstrolabeForPrompt(options.chart1)),
     buildPromptSection('第二人本命盘', formatAstrolabeForPrompt(options.chart2)),
-    buildPromptSection('跨盘资料', formatSynastryFacts(options.synastry)),
+    buildPromptSection(
+      '跨盘资料',
+      formatSynastryFacts(options.synastry, options.chart1, options.chart2),
+    ),
     buildPromptSchoolSection('astrolabe', options.schools),
     options.selection
       ? buildPromptSection('解读选择', getPromptSelectionSection(options.selection))

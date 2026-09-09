@@ -115,7 +115,7 @@ export function evaluateAstrolabeSynastryReceptions(
           sign1: s1,
           sign2: s2,
           // 此处仅核验入庙守护互溶，不含曜升互溶
-          summary: `双方${l1}（落${s1}）与${l2}（落${s2}）互为对方星座的入庙守护，形成守护互溶，彼此包容支撑；是否化解分歧仍需结合全盘相位与尊贵强弱判断`,
+          summary: `${chart1.birth.name}的${l1}落${s1}，${chart2.birth.name}的${l2}落${s2}；${s1}由${l2}入庙守护，${s2}由${l1}入庙守护，形成守护互溶；关系承接结合全盘相位与双方实际尊贵强弱判断`,
         });
       }
     }
@@ -158,7 +158,7 @@ export function evaluateAstrolabeSynastryReceptions(
         person2PlanetLabel: l2,
         sign1: ZODIAC_SIGNS[sign1Index],
         sign2: ZODIAC_SIGNS[sign2Index],
-        summary: `${chart2.birth.name}${l2}在${l1}所在${ZODIAC_SIGNS[sign1Index]}拥有${p2ReceivesP1}尊贵，${l2}接纳${chart1.birth.name}${l1}（${aspect.type}相位伴随）`,
+        summary: `${chart1.birth.name}的${l1}落${ZODIAC_SIGNS[sign1Index]}，${chart2.birth.name}的${l2}落${ZODIAC_SIGNS[sign2Index]}；${ZODIAC_SIGNS[sign1Index]}是${l2}的${p2ReceivesP1}星座，因此${chart2.birth.name}的${l2}接纳${chart1.birth.name}的${l1}，双方这两颗星伴随${aspect.type}`,
       });
     }
     if (p1ReceivesP2) {
@@ -171,7 +171,7 @@ export function evaluateAstrolabeSynastryReceptions(
         person2PlanetLabel: l2,
         sign1: ZODIAC_SIGNS[sign1Index],
         sign2: ZODIAC_SIGNS[sign2Index],
-        summary: `${chart1.birth.name}${l1}在${l2}所在${ZODIAC_SIGNS[sign2Index]}拥有${p1ReceivesP2}尊贵，${l1}接纳${chart2.birth.name}${l2}（${aspect.type}相位伴随）`,
+        summary: `${chart1.birth.name}的${l1}落${ZODIAC_SIGNS[sign1Index]}，${chart2.birth.name}的${l2}落${ZODIAC_SIGNS[sign2Index]}；${ZODIAC_SIGNS[sign2Index]}是${l1}的${p1ReceivesP2}星座，因此${chart1.birth.name}的${l1}接纳${chart2.birth.name}的${l2}，双方这两颗星伴随${aspect.type}`,
       });
     }
   }

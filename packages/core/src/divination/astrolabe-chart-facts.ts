@@ -1,4 +1,4 @@
-import type { AstrolabeAspect } from '../types/divination';
+import type { AstrolabeAspect, AstrolabePoint } from '../types/divination';
 
 const MAJOR_ASPECT_TYPES = new Set(['合相', '六合', '刑相', '拱相', '冲相', '三分']);
 const LUMINARY_LABELS = new Set(['太阳', '月亮', 'Sun', 'Moon']);
@@ -41,9 +41,35 @@ export function rankAstrolabeAspects(aspects: AstrolabeAspect[]) {
     .map((item) => item.aspect);
 }
 
-export function formatAstrolabeAspectLine(aspect: AstrolabeAspect) {
+export function formatAstrolabeAspectLine(aspect: AstrolabeAspect, points: AstrolabePoint[] = []) {
   const closeness = aspect.closeness ?? '未分级';
-  return `${aspect.body1}${aspect.symbol}${aspect.body2}（${aspect.type}，容许度${aspect.orb.toFixed(2)}°，${closeness}）`;
+  const first = points.find((point) => point.label === aspect.body1 || point.name === aspect.body1);
+  const second = points.find(
+    (point) => point.label === aspect.body2 || point.name === aspect.body2,
+  );
+  const position = (label: string, point: AstrolabePoint | undefined) =>
+    point
+      ? `${label}（${point.formatted}${point.house > 0 ? `，第${point.house}宫` : ''}）`
+      : label;
+  const facts = [
+    aspect.type,
+    ...(typeof aspect.exactAngle === 'number' ? [`目标角${aspect.exactAngle}°`] : []),
+    ...(typeof aspect.actualAngle === 'number'
+      ? [`实际角距${aspect.actualAngle.toFixed(2)}°`]
+      : []),
+    `偏差${aspect.orb.toFixed(2)}°`,
+    ...(typeof aspect.allowedOrb === 'number' ? [`容许偏差上限${aspect.allowedOrb}°`] : []),
+    closeness,
+    ...(first && second
+      ? [
+          first.sign === second.sign ? '同星座' : '跨星座',
+          ...(first.house > 0 && second.house > 0
+            ? [first.house === second.house ? '同宫' : '异宫']
+            : []),
+        ]
+      : []),
+  ];
+  return `${position(aspect.body1, first)}${aspect.symbol}${position(aspect.body2, second)}：${facts.join('，')}`;
 }
 
 export function isAstrolabeAspectHeadline(aspect: AstrolabeAspect) {
@@ -55,14 +81,17 @@ export function isAstrolabeAspectHeadline(aspect: AstrolabeAspect) {
   );
 }
 
-export function formatAstrolabeAspectSections(aspects: AstrolabeAspect[]) {
+export function formatAstrolabeAspectSections(
+  aspects: AstrolabeAspect[],
+  points: AstrolabePoint[] = [],
+) {
   if (aspects.length === 0) return [];
   const ranked = rankAstrolabeAspects(aspects);
   const headlines = ranked.filter(isAstrolabeAspectHeadline);
   const lead = headlines.length ? headlines : ranked.slice(0, Math.min(6, ranked.length));
   return [
-    `相位主线：${lead.map(formatAstrolabeAspectLine).join('；')}。`,
+    `相位主线：${lead.map((item) => formatAstrolabeAspectLine(item, points)).join('；')}。`,
     '相位明细：',
-    ...ranked.map((item) => `  ${formatAstrolabeAspectLine(item)}`),
+    ...ranked.map((item) => `  ${formatAstrolabeAspectLine(item, points)}`),
   ];
 }

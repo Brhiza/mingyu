@@ -2014,12 +2014,18 @@ function overlayQizhengFlowingStars(
   };
 }
 
-function formatQizhengFlowingPrompt(flowing: QizhengFlowingStarsResult): string[] {
+function formatQizhengFlowingPrompt(
+  flowing: QizhengFlowingStarsResult,
+  natalStars: QizhengStar[],
+): string[] {
   const ranked = splitPrimaryAppendix(
-    flowing.transits.map(
-      (aspect) =>
-        `${aspect.star1}与${aspect.star2}${aspect.type}（${aspect.actualAngle.toFixed(2)}°，${aspect.closeness}）`,
-    ),
+    flowing.transits.map((aspect) => {
+      const first = flowing.stars.find((star) => `流曜${star.name}` === aspect.star1)!;
+      const second = natalStars.find((star) => `本命${star.name}` === aspect.star2)!;
+      const relation = aspect.type === '同宫' ? '合相' : aspect.type;
+      const palaceRelation = first.signBranch === second.signBranch ? '同宫' : '异宫';
+      return `采样时刻${flowing.localDateTime}：${aspect.star1}（本命${first.signBranch}宫${first.palace}）与${aspect.star2}（${second.signBranch}宫${second.palace}）：${relation}；目标角${aspect.exactAngle}°，实际角距${aspect.actualAngle.toFixed(2)}°，偏差${aspect.orb.toFixed(2)}°，容许偏差上限${aspect.allowedOrb}°，${aspect.closeness}；落宫关系${palaceRelation}`;
+    }),
     16,
   );
   const transitText = flowing.transits.length
@@ -2191,19 +2197,22 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `七政四余吊照：${
       aspects.length
         ? aspects
-            .map(
-              (aspect) =>
-                `${aspect.star1}与${aspect.star2}${aspect.type}（${aspect.actualAngle.toFixed(2)}°）`,
-            )
+            .map((aspect) => {
+              const first = stars.find((star) => star.name === aspect.star1)!;
+              const second = stars.find((star) => star.name === aspect.star2)!;
+              const relation = aspect.type === '同宫' ? '合相' : aspect.type;
+              const palaceRelation = first.signBranch === second.signBranch ? '同宫' : '异宫';
+              return `${first.name}（${first.signBranch}宫${first.palace}）与${second.name}（${second.signBranch}宫${second.palace}）：${relation}；目标角${aspect.exactAngle}°，实际角距${aspect.actualAngle.toFixed(2)}°，偏差${aspect.orb.toFixed(2)}°，容许偏差上限${aspect.allowedOrb}°；落宫关系${palaceRelation}`;
+            })
             .join('；')
-        : '未见容许度内的主要同宫、六合、四正、三方或对照'
+        : '未见容许度内的主要合相、六合、四正、三方或对照'
     }。`,
     `命宫在${TWELVE_PALACES[0]}（${getQizhengSignBranch(mingGong)}宫），命主${mingZhu}；身宫在${getQizhengSignBranch(shenGong)}宫。`,
     enNan.summary,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
     '星历口径：七政、罗睺、计都、月孛按星历位置；紫炁按古法均速。',
     ...(timeLords ? formatQizhengTimeLordPrompt(timeLords) : []),
-    ...(flowingStars ? formatQizhengFlowingPrompt(flowingStars) : []),
+    ...(flowingStars ? formatQizhengFlowingPrompt(flowingStars, stars) : []),
     timeLords || flowingStars
       ? '本命盘为出生时点根基；阶段判断只使用上面的行限与流曜资料。'
       : '本盘为出生时点静态结构，只解读根基、落宿、落宫和吊照。',

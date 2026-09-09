@@ -3,6 +3,7 @@ import type { QizhengResult } from 'mingyu-core/qizheng';
 import type { ZiweiRuntime } from 'mingyu-core/ziwei';
 import type { AstrolabeData } from '@/types/divination';
 import { formatAstrolabeAspectSections } from 'mingyu-core/divination/astrolabe-scope';
+import { formatPalaceRelations } from 'mingyu-core/ziwei/prompt';
 
 type ZiweiPayload = ZiweiRuntime['payloadByScope']['origin'];
 
@@ -19,33 +20,39 @@ function buildInstantTaskBook(options: {
 }) {
   const question = options.question.trim() || `请整体解读这张${options.chartLabel}。`;
   return [
+    `【解读对象】\n${options.chartLabel}。盘面年月日时均为本次事件的起盘时间；所问事项是本次判断的对象。`,
     `【传统依据】\n${options.traditionalBasis}`,
     `【时间口径】\n${options.timeBasisLabel}`,
     `【盘面资料】\n${options.chartText}`,
-    `【任务】\n${options.task}`,
+    `【任务】\n${options.task}请围绕所问事项的当前条件、相互作用与发展可能展开，将每项判断对应到起盘时刻的具体盘面依据；涉及时间变化时，区分起盘已有状态与满足条件后的变化。`,
     `【问题】\n${question}`,
   ].join('\n\n');
 }
 
 function formatInstantBaziData(result: BaziChartResult) {
   const lunar = result.lunarDate;
+  const dayEmptyBranches = result.kongWang.day;
   const pillarLines = PILLAR_KEYS.map((key, index) => {
     const hidden = result.hiddenStems[key]
       .map((stem, stemIndex) => {
         const tenGod = result.hiddenTenGods[key][stemIndex];
-        return `${stem}${tenGod ? `（${tenGod}）` : ''}`;
+        const visiblePillars = PILLAR_KEYS.flatMap((pillarKey, pillarIndex) =>
+          result.pillars[pillarKey].gan === stem ? [PILLAR_LABELS[pillarIndex]] : [],
+        );
+        return `${stem}${tenGod ? `（${tenGod}）` : ''}〔${visiblePillars.length ? `明透于${visiblePillars.join('、')}天干` : '仅藏于支'}〕`;
       })
       .join('、');
     const kongWang = result.kongWang[key]?.join('、') || '无';
     return `${PILLAR_LABELS[index]}：${result.pillars[key].ganZhi}；天干十神：${
       key === 'day' ? '日元' : result.tenGods[key]
-    }；地支十神：${getTenGodForBranch(result.pillars[key].zhi, result.dayMaster.gan)}；藏干：${hidden || '无'}；纳音：${result.nayin[key]}；空亡：${kongWang}`;
+    }；地支十神：${getTenGodForBranch(result.pillars[key].zhi, result.dayMaster.gan)}；藏干：${hidden || '无'}；纳音：${result.nayin[key]}；该柱所属旬空：${kongWang}；按日旬核对本柱${result.pillars[key].zhi}支：${dayEmptyBranches.includes(result.pillars[key].zhi) ? '落空' : '不落空'}`;
   });
 
   return [
     `起盘时刻：${result.solarDate.year}年${result.solarDate.month}月${result.solarDate.day}日 ${result.timeInfo.name}`,
     `农历：${lunar.year}年${lunar.monthName}${lunar.dayName}；生肖：${result.zodiac}`,
     `日元：${result.dayMaster.gan}${result.dayMaster.element}（${result.dayMaster.yinYang}）`,
+    `日柱${result.pillars.day.ganZhi}所属旬空：${dayEmptyBranches.join('、') || '无'}`,
     result.hiddenStems.month?.[0] ? `月支本气：${result.hiddenStems.month[0]}` : '',
     result.monthCommander ? `月令司权：${result.monthCommander}` : '',
     ...pillarLines,
@@ -73,11 +80,13 @@ function formatInstantZiweiData(payload: ZiweiPayload) {
       .join('、');
     return `${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）${
       palace.is_body_palace ? '，身宫' : ''
-    }：${stars || '无主星'}`;
+    }：${stars || '无主星'}\n宫位关系：${formatPalaceRelations(payload, palace)}`;
   });
-  const mutagens = payload.active_scope.mutagen_map
-    .map(
-      (item) => `${item.star}化${item.mutagen}${item.palace_name ? `入${item.palace_name}` : ''}`,
+  const mutagens = payload.palaces
+    .flatMap((palace) =>
+      [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars]
+        .filter((star) => star.birth_mutagen)
+        .map((star) => `${star.name}化${star.birth_mutagen}入${palace.name}`),
     )
     .join('；');
 
@@ -86,8 +95,8 @@ function formatInstantZiweiData(payload: ZiweiPayload) {
     basic.four_pillars
       ? `四柱：${basic.four_pillars.year_pillar} ${basic.four_pillars.month_pillar} ${basic.four_pillars.day_pillar} ${basic.four_pillars.hour_pillar}`
       : '',
-    `五行局：${basic.five_elements_class}；命宫主星：${basic.soul}；身宫主星：${basic.body}`,
-    mutagens ? `生年四化：${mutagens}` : '',
+    `五行局：${basic.five_elements_class}；命主星：${basic.soul}；身主星：${basic.body}`,
+    mutagens ? `起盘年干四化：${mutagens}` : '',
     ...palaceLines,
   ]
     .filter(Boolean)
@@ -99,7 +108,10 @@ function formatInstantAstrolabeData(data: AstrolabeData) {
   const planets = data.planets.map(
     (item) => `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`,
   );
-  const aspectSections = formatAstrolabeAspectSections(data.aspects);
+  const aspectSections = formatAstrolabeAspectSections(data.aspects, [
+    ...data.planets,
+    ...data.angles,
+  ]);
   return [
     `起盘时刻：${data.birth.dateTime}；观测地点：${data.birth.location}；时区：UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
     data.houseSystem ? `宫位制：${data.houseSystem === 'whole_sign' ? '整宫制' : 'Placidus'}` : '',
@@ -108,6 +120,9 @@ function formatInstantAstrolabeData(data: AstrolabeData) {
       ? `真太阳时：${data.birth.trueSolarDateTime || data.birth.dateTime}`
       : '',
     `上升点：${ascendant?.formatted || '未列'}`,
+    ...data.angles
+      .filter((item) => item.name !== 'Ascendant')
+      .map((item) => `${item.label}：${item.formatted}`),
     `主要格局：${data.summary.patterns.join('、') || '未见明显格局'}`,
     '星体位置：',
     ...planets,
@@ -121,6 +136,10 @@ function formatInstantQizhengData(result: QizhengResult) {
   return result.prompt
     .replace('【七政四余 · 果老星宗】\n', '')
     .replace('出生时间：', '起盘时间：')
+    .replace(
+      '本盘为出生时点静态结构，只解读根基、落宿、落宫和吊照。',
+      '本盘为起盘时点的事件结构，结合落宿、落宫和吊照判断所问事项的当前条件。',
+    )
     .replace(/命主([^；\n]+)；/u, '命宫主星$1；');
 }
 

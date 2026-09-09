@@ -1,5 +1,5 @@
 import type { BaziChartResult } from './baziTypes';
-import { WUXING } from '../wuxing';
+import { WUXING, isSheng, isKe } from '../wuxing';
 
 interface FormatBaziOptions {
   includeRules?: boolean;
@@ -78,6 +78,44 @@ function formatWuxingSeasonStatus(baziResult: BaziChartResult): string {
   return WUXING.map((wuxing) => (status[wuxing] ? `${wuxing}${status[wuxing]}` : ''))
     .filter(Boolean)
     .join(' ');
+}
+
+function formatElementRelations(baziResult: BaziChartResult): string {
+  const dayElement = baziResult.dayMaster.element;
+  const roles = new Map<string, string>(
+    WUXING.map((element) => [
+      element,
+      element === dayElement
+        ? '日主、比劫'
+        : isSheng(dayElement, element)
+          ? '食伤'
+          : isKe(dayElement, element)
+            ? '财星'
+            : isKe(element, dayElement)
+              ? '官杀'
+              : '印星',
+    ]),
+  );
+  const label = (element: string) => `${roles.get(element)}${element}`;
+  const generating: string[] = [];
+  const controlling: string[] = [];
+  for (const source of WUXING) {
+    for (const target of WUXING) {
+      if (isSheng(source, target)) {
+        generating.push(`${label(source)}生${label(target)}，${label(target)}泄${label(source)}`);
+      }
+      if (isKe(source, target)) {
+        controlling.push(`${label(source)}克${label(target)}`);
+      }
+    }
+  }
+  return [
+    '【五行作用方向】',
+    `以日主${baziResult.dayMaster.gan}${dayElement}为十神参照：`,
+    ...generating,
+    ...controlling,
+    '以上为五行直接生克方向；作用强弱与成败结合月令、根气、透藏和制化条件判断。',
+  ].join('\n');
 }
 
 function formatSolarDateTime(value: {
@@ -162,6 +200,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (birthSeason) result += `节令: ${birthSeason}\n`;
   const wuxingSeasonStatus = formatWuxingSeasonStatus(baziResult);
   if (wuxingSeasonStatus) result += `月令旺相: ${wuxingSeasonStatus}\n`;
+  result += `\n${formatElementRelations(baziResult)}\n`;
 
   result += '\n【核心判断】\n';
   const analysis = baziResult.analysis;

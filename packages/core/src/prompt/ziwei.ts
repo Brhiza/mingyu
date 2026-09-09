@@ -8,6 +8,7 @@ import { formatPromptSchoolGuidance } from './schools';
 import { formatBaziSchoolsPrompt, normalizeBaziPromptSchools } from './bazi-school';
 import { getThematicTopicConfig } from './thematic';
 import { getPromptMutagenItems } from '../ziwei/prompt/mutagen';
+import { formatPalaceRelations } from '../ziwei/prompt/builders';
 import {
   buildPromptDocument,
   buildPromptSection,
@@ -243,7 +244,10 @@ export function formatZiweiPayloadForPrompt(
       : `当前运限：${active.label || SCOPE_LABELS[active.scope]}；${active.solar_date}；${active.lunar_date}；名义年龄${active.nominal_age}；${active.palace_name ? `落${active.palace_name}宫` : '落宫未记录'}`,
     `${isOriginScope ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, isOriginScope)}`,
     '十二宫资料：',
-    ...selectedPalaces.map((palace) => `  ${formatPalace(palace, isOriginScope)}`),
+    ...selectedPalaces.map(
+      (palace) =>
+        `  ${formatPalace(palace, isOriginScope)}\n  宫位关系：${formatPalaceRelations(payload, palace)}`,
+    ),
     evidencePrimary.length ? '证据资料：' : '',
     ...evidencePrimary.map((item) => `  ${item}`),
     evidenceAppendix.length ? '证据附录：' : '',

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { analyzeFortuneTriggers } from '@core/bazi/fortuneTriggerEvidence';
 
 import { baziCalculator, buildFortuneSelectionContext } from 'mingyu-core/bazi';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
@@ -31,6 +32,35 @@ function createChart(gender: 'male' | 'female', day: number) {
     gender,
   });
 }
+
+test('八字五行方向随日主转换十神参照并保留生泄和克的方向', () => {
+  const expectedRoles: Record<string, string[]> = {
+    木: ['日主、比劫', '食伤', '财星', '官杀', '印星'],
+    火: ['印星', '日主、比劫', '食伤', '财星', '官杀'],
+    土: ['官杀', '印星', '日主、比劫', '食伤', '财星'],
+    金: ['财星', '官杀', '印星', '日主、比劫', '食伤'],
+    水: ['食伤', '财星', '官杀', '印星', '日主、比劫'],
+  };
+  const elements = ['木', '火', '土', '金', '水'];
+  const seen = new Set<string>();
+  for (let day = 1; day <= 10; day++) {
+    const chart = createChart('female', day);
+    seen.add(chart.dayMaster.element);
+    const prompt = buildBaziPrompt({ result: chart, fortuneScope: 'natal' });
+    const section = prompt.split('【五行作用方向】')[1].split('【核心判断】')[0];
+    const labels = expectedRoles[chart.dayMaster.element].map((role, i) => `${role}${elements[i]}`);
+    for (let i = 0; i < 5; i++) {
+      const source = labels[i];
+      const generated = labels[(i + 1) % 5];
+      const controlled = labels[(i + 2) % 5];
+      assert.ok(section.includes(`${source}生${generated}，${generated}泄${source}`));
+      assert.ok(section.includes(`${source}克${controlled}`));
+      assert.ok(!section.includes(`${generated}生${source}`));
+      assert.ok(!section.includes(`${controlled}克${source}`));
+    }
+  }
+  assert.equal(seen.size, 5);
+});
 
 test('npm 提示词入口应生成自包含的八字任务书', () => {
   const prompt = buildBaziPrompt({
@@ -111,6 +141,56 @@ test('npm 八字提示词应保留指定岁运的上下层资料', () => {
   assert.match(sections.focus, /上层岁运：/);
   assert.match(sections.focus, /所选干支：/);
   assert.match(sections.focus, /主要触发：/);
+  const boundaryContext = {
+    ...context,
+    cycleTimeRange: {
+      ...context.cycleTimeRange,
+      start: { year: 1997, month: 9, day: 21, hour: 3, minute: 4, second: 5 },
+      end: { year: 2007, month: 9, day: 21, hour: 3, minute: 4, second: 5 },
+    },
+  };
+  const boundary = formatBaziFortuneSelection(boundaryContext)!;
+  assert.ok(boundary.focus.includes(`所选岁运背景：${context.cycleGanZhi}`));
+  assert.match(boundary.focus, /1997年9月21日 03:04:05起，至2007年9月21日 03:04:05交接/);
+  assert.match(boundary.focus, /起点归本运，终点归后续运段/);
+  assert.ok(boundary.focus.includes(`该运交接年龄：${context.cycleAge}岁`));
+});
+
+test('八字岁运正文区分同干支冲、岁运并临与天克地冲，并保留流月流日身份', () => {
+  const result = createChart('female', 15);
+  const cycleIndex = result.luckInfo.cycles.findIndex((cycle) => cycle.years.length > 0);
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'year',
+    cycleIndex,
+    year: result.luckInfo.cycles[cycleIndex].years[0].year,
+  });
+  assert.ok(context);
+  for (const [yearGanZhi, expected, excluded] of [
+    ['癸酉', '地支相冲', '构成岁运并临|构成天克地冲|同柱伏吟'],
+    ['癸卯', '构成岁运并临', '构成天克地冲'],
+    ['丁酉', '构成天克地冲', '构成岁运并临|同柱伏吟'],
+  ]) {
+    const triggerEvidence = analyzeFortuneTriggers(result, [
+      { id: 'dayun', type: 'dayun', label: '大运', ganZhi: '癸卯' },
+      { id: 'year', type: 'year', label: '流年', ganZhi: yearGanZhi },
+      { id: 'month', type: 'month', label: '节气流月', ganZhi: '甲寅' },
+      { id: 'day', type: 'day', label: '流日', ganZhi: '甲申' },
+    ]);
+    const focus = formatBaziFortuneSelection({
+      ...context,
+      promptPayload: { ...context.promptPayload, triggerEvidence },
+    })!.focus;
+    const pairLines = focus
+      .split('\n')
+      .filter((line) => line.includes(`流年${yearGanZhi}与大运癸卯`))
+      .join('\n');
+    assert.match(pairLines, new RegExp(expected));
+    assert.doesNotMatch(pairLines, new RegExp(excluded));
+    if (yearGanZhi === '癸酉') assert.match(pairLines, /天干同干/);
+    assert.match(focus, /流日甲申与节气流月甲寅天干同干/);
+    assert.match(focus, /流日甲申与节气流月甲寅地支相冲/);
+    assert.doesNotMatch(focus, /sourceLayerKey|已计算|反证事实|计算步骤|不得/);
+  }
 });
 
 test('npm 提示词入口应生成八字双盘关系资料', () => {
@@ -140,7 +220,8 @@ test('统一占法摘要应覆盖小六壬且不落回通用文案', () => {
   assert.equal(summary.title, '小六壬起课结果');
   assert.match(info, /占得宫/);
   assert.match(info, /起课过程/);
-  assert.match(info, /取用层级/);
+  assert.match(info, /定位用途：月宫.+用于确定初一的起数位置/);
+  assert.ok(info.includes(`断事主证：时宫${data.primary.name}及其下列歌诀`));
   assert.doesNotMatch(info, /顺数轨迹/);
   assert.doesNotMatch(info, /mod\s*6|时序\d+/);
   assert.match(prompt, /依据本次顺数结果、时宫与歌诀/);

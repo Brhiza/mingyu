@@ -66,6 +66,32 @@ test('生肖六十流年七百二十组合保留全部刑冲害破与合会关�
           sanhui.some((group) => group.includes(branch) && group.includes(yearBranch)),
       );
       assert.ok(result.prompt.includes(yearGanZhi));
+      assert.ok(
+        result.prompt.includes(`本次比较流年年干${yearGanZhi[0]}与出生年支${branch}的五行`),
+      );
+      assert.match(result.prompt, /十神以个人出生日干为参照，并结合双方天干阴阳确定/);
+      if (result.noble?.startsWith('三合')) {
+        const group = sanhe.find(
+          (members) => members.includes(branch) && members.includes(yearBranch),
+        )!;
+        const missing = [...group].find((member) => member !== branch && member !== yearBranch);
+        assert.ok(
+          result.prompt.includes(
+            `三合成员：本次具有生肖年支${branch}、流年年支${yearBranch}两支，同组另一支为${missing}`,
+          ),
+        );
+      }
+      if (result.meeting) {
+        const group = sanhui.find(
+          (members) => members.includes(branch) && members.includes(yearBranch),
+        )!;
+        const missing = [...group].find((member) => member !== branch && member !== yearBranch);
+        assert.ok(
+          result.prompt.includes(
+            `三会成员：${[...group].join('、')}为一组，本次具有${branch}、${yearBranch}两支，同组另一支为${missing}`,
+          ),
+        );
+      }
       assert.match(result.prompt, /【任务】[\s\S]*【生肖与流年关系简析】/);
       assert.equal(result.prompt.match(/^【任务】$/gm)?.length, 1);
       assertPromptHasAnswerFramework(result.prompt);

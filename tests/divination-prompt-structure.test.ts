@@ -980,7 +980,10 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
   assert.match(prompt, /核心结构：阳遁3局；[^\n]+/);
   assert.match(prompt, /取用主线：/);
   assert.doesNotMatch(prompt, /。、|。；|；。|、、|；；/);
-  assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
+  assert.match(
+    prompt,
+    /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁；天盘丁：未见落宫；地盘丁：离九宫/,
+  );
   assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
   assert.match(prompt, /太白入荧/);
   assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
@@ -1079,7 +1082,11 @@ test('六爻提示词会保留世应、动变、空亡、伏神和月日资料',
   assert.match(prompt, /核心结构：主卦/);
   assert.match(prompt, /世应：世爻第1爻兄弟子水；应爻第6爻兄弟戌土/);
   assert.match(prompt, /动变：第1爻兄弟子水/);
-  assert.match(prompt, /旬空戌、亥；命中.+；伏神/);
+  assert.match(prompt, /旬空戌、亥；命中第6爻兄弟戌土（本爻空亡；本爻戌逢值，辰冲戌）/);
+  assert.match(
+    prompt,
+    /明伏分布：本卦明爻6爻，六亲为兄弟、子孙、妻财、官鬼、父母；伏神1爻：子孙伏第2爻寅木，伏于子孙寅木下/,
+  );
   assert.doesNotMatch(prompt, /兄弟持世，主竞争、破财、朋友/);
   assert.doesNotMatch(prompt, /取用评分表|权重\d/);
   assert.match(
@@ -1380,8 +1387,10 @@ test('小六壬提示词保留可复核顺数，并明确只有时宫承担主�
   assert.match(prompt, /定月宫：.+月从大安顺数，落/);
   assert.match(prompt, /定日宫：从月宫.+起初一，顺数至.+日，落/);
   assert.match(prompt, /定时宫：从日宫.+起子时，顺数至巳时，落/);
-  assert.match(prompt, /取用层级：时宫.+为本次占得宫与主证；月宫.+、日宫.+为逐宫顺数位置/);
-  assert.doesNotMatch(prompt, /mod\s*6|时序\d+|东八区民用日零点换日/);
+  assert.match(prompt, /定位用途：月宫赤口用于确定初一的起数位置；日宫空亡用于确定子时的起数位置/);
+  assert.match(prompt, /断事主证：时宫小吉及其下列歌诀/);
+  assert.match(prompt, /历法口径：东八区民用日零点换日；闰月沿用同名月序/);
+  assert.doesNotMatch(prompt, /mod\s*6|时序\d+/);
   assert.doesNotMatch(prompt, /五行生克与落宫方位/);
 });
 

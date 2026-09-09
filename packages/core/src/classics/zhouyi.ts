@@ -464,8 +464,9 @@ export const ZHOUYI_HEXAGRAMS_TEXT: Record<number, ZhouyiHexagramText> = {
       {
         position: 3,
         positionName: '三爻',
-        yaoCi: '眇能视，跛能履',
-        xiaoXiang: '象曰：眇能视，跛能履。',
+        yaoCi: '眇能视，跛能履，履虎尾，咥人，凶。武人为于大君。',
+        xiaoXiang:
+          '象曰：眇能视，不足以有明也。跛能履，不足以与行也。咥人之凶，位不当也。武人为于大君，志刚也。',
       },
       {
         position: 4,

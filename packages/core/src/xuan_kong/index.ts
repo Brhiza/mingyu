@@ -16,6 +16,7 @@ import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './eviden
 import { evaluateCastleGate, type CastleGateEvaluation } from './castle-gate';
 import {
   flyStars,
+  FLYING_STAR_WUXING,
   resolveFlyingStarYunState,
   resolveShanXiangRelation,
   resolveMonthFlyingStar,
@@ -410,20 +411,51 @@ function buildPalaces(
   }));
 }
 
+function formatStarRelation(from: string, fromStar: number, to: string, toStar: number): string {
+  const source = `${from}${fromStar}${FLYING_STAR_WUXING[fromStar]}`;
+  const target = `${to}${toStar}${FLYING_STAR_WUXING[toStar]}`;
+  switch (resolveShanXiangRelation(fromStar, toStar)) {
+    case '生入':
+      return `${target}生${source}`;
+    case '生出':
+      return `${source}生${target}`;
+    case '克入':
+      return `${target}克${source}`;
+    case '克出':
+      return `${source}克${target}`;
+    case '比和':
+      return `${source}与${target}比和`;
+  }
+}
+
 function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>) {
+  const natalStar = (label: string, star: number) =>
+    `${label}${star}（${FLYING_STAR_WUXING[star]}，${resolveFlyingStarYunState(star, result.period.yun)}）`;
   const palaceLines = result.palaces
     .map((item) => {
       const combos = result.combinations
         .filter((combo) => combo.palaces?.includes(item.gong))
         .map((combo) => combo.name);
-      const yearText = item.yearStar !== undefined ? ` 年${item.yearStar}` : '';
-      const monthText = item.monthStar !== undefined ? ` 月${item.monthStar}` : '';
-      return `${item.name}（${item.direction}）：运${item.yunStar} 山${item.shanStar} 向${item.xiangStar}${yearText}${monthText}，山向${item.shanXiangRelation}，运星${item.yunStarState}${combos.length ? `，组合${combos.join('、')}` : ''}`;
+      const yearText =
+        item.yearStar !== undefined
+          ? ` 年${item.yearStar}（${FLYING_STAR_WUXING[item.yearStar]}）`
+          : '';
+      const monthText =
+        item.monthStar !== undefined
+          ? ` 月${item.monthStar}（${FLYING_STAR_WUXING[item.monthStar]}）`
+          : '';
+      const relations = [
+        `山向${item.shanXiangRelation}：${formatStarRelation('山星', item.shanStar, '向星', item.xiangStar)}`,
+        formatStarRelation('运星', item.yunStar, '山星', item.shanStar),
+        formatStarRelation('运星', item.yunStar, '向星', item.xiangStar),
+      ];
+      return `${item.name}（${item.direction}）：${natalStar('运', item.yunStar)} ${natalStar('山', item.shanStar)} ${natalStar('向', item.xiangStar)}${yearText}${monthText}\n  ${relations.join('；')}${combos.length ? `；组合${combos.join('、')}` : ''}`;
     })
     .join('\n');
   return [
     '【玄空飞星排盘】',
     `运程：${result.period.label}`,
+    `本次资料层级：宅盘（运盘、山盘、向盘）${result.flowStars ? '、流年盘' : ''}${result.flowStars?.monthPlate ? '、流月盘' : ''}。各星当运、生气、退气等状态以宅盘${result.period.yun}运为参照。`,
     `山向：坐${result.sitMountain}向${result.facingMountain}`,
     `局型：${result.formation}`,
     result.combinations.length

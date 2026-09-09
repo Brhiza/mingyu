@@ -21,6 +21,7 @@ import {
 } from '../prompt/framework';
 import { calculateHuangjiDateTimeForecast, type HuangjiDateTimeForecast } from './datetime';
 import { evaluateHuangjiEraTrend, type HuangjiEraTrendResult } from './trend';
+import { hexagramsData } from '../divination/hexagram-data';
 
 export * from './standard';
 export * from './datetime';
@@ -248,6 +249,14 @@ function buildProgress(
   };
 }
 
+function formatHuangjiLineFacts(label: string, id: number): string {
+  const hexagram = hexagramsData.find((item) => item.id === id);
+  if (!hexagram) throw new Error('皇极卦画资料无效。');
+  const lines = hexagram.binarySymbol.slice(3) + hexagram.binarySymbol.slice(0, 3);
+  const positions = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
+  return `${label}爻象：${hexagram.name}，上卦${hexagram.upper}、下卦${hexagram.lower}；自下而上为${[...lines].map((line, index) => `${positions[index]}${line === '1' ? '阳' : '阴'}`).join('、')}。`;
+}
+
 export function buildHuangjiJingshiPrompt(
   result: HuangjiJingshiCalculation,
   question?: string,
@@ -265,6 +274,13 @@ export function buildHuangjiJingshiPrompt(
     const { forecast } = result;
     const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
     const dateTimeForecast = result.dateTimeForecast;
+    const dayInMonthJing = dateTimeForecast
+      ? ((dateTimeForecast.calendar.dayOfYear - 1) % 60) + 1
+      : 0;
+    const monthJingStartDay = dateTimeForecast
+      ? dateTimeForecast.calendar.dayOfYear - dayInMonthJing + 1
+      : 0;
+    const xunStartDay = Math.floor((dayInMonthJing - 1) / 10) * 10 + 1;
     const askedQuestion =
       normalizedQuestion ||
       (dateTimeForecast
@@ -274,9 +290,12 @@ export function buildHuangjiJingshiPrompt(
       ? [
           `起盘时间：${dateTimeForecast.civilTime.dateTime}（${dateTimeForecast.civilTime.timezone}）`,
           `皇极历位：${formatHuangjiCivilYear(dateTimeForecast.calendar.forecastYear)}，${dateTimeForecast.calendar.monthBranch}月第${dateTimeForecast.calendar.dayOfMonth}日，${dateTimeForecast.calendar.activeSolarTerm}后第${dateTimeForecast.calendar.actualDayInSolarTerm}日`,
+          `日序口径：皇极年内第${dateTimeForecast.calendar.dayOfYear}日；本节气实际第${dateTimeForecast.calendar.actualDayInSolarTerm}日映射为皇极节气第${dateTimeForecast.calendar.mappedDayInSolarTerm}日。下列统辖范围均按皇极日序定位。`,
           `月经卦：${dateTimeForecast.hexagrams.monthJing.name}（由${dateTimeForecast.hexagrams.monthJing.derivedFrom}卦第${dateTimeForecast.hexagrams.monthJing.changedLine}爻变得）`,
+          `月经统辖：${dateTimeForecast.hexagrams.monthJing.name}统皇极年内第${monthJingStartDay}至${monthJingStartDay + 59}日，共60个皇极日；当前为本月经卦内第${dayInMonthJing}日。`,
           `月经卦辞：${dateTimeForecast.hexagrams.monthJing.judgment}`,
           `旬纬卦：${dateTimeForecast.hexagrams.xunWei.name}（由${dateTimeForecast.hexagrams.xunWei.derivedFrom}卦第${dateTimeForecast.hexagrams.xunWei.changedLine}爻变得）`,
+          `旬纬统辖：${dateTimeForecast.hexagrams.xunWei.name}统本月经卦内第${xunStartDay}至${xunStartDay + 9}日，共10个皇极日；当前为本旬第${dayInMonthJing - xunStartDay + 1}日。`,
           `旬纬卦辞：${dateTimeForecast.hexagrams.xunWei.judgment}`,
           `日卦：${dateTimeForecast.hexagrams.daily.name}（月经卦六十卦序第${(dateTimeForecast.hexagrams.daily.sequenceOffset || 0) + 1}位）`,
           `时经卦：${dateTimeForecast.hexagrams.hourJing.name}（由${dateTimeForecast.hexagrams.hourJing.derivedFrom}卦第${dateTimeForecast.hexagrams.hourJing.changedLine}爻变得，${dateTimeForecast.calendar.hourRange}）`,
@@ -301,6 +320,22 @@ export function buildHuangjiJingshiPrompt(
         `十年卦辞：${decade.hexagram.judgment}`,
         `值年卦：${annual.name}（${annual.symbol}，${annual.upper}上${annual.lower}下）`,
         `值年卦辞：${annual.judgment}`,
+        `值年取序：以${formatHuangjiCivilYear(sixtyYear.startYear)}的六十年统卦${sixtyYear.hexagram.name}为起点，按六十卦圆图顺序每年顺行一位；至${formatHuangjiCivilYear(annual.year)}已过${civilYearToSerial(annual.year) - civilYearToSerial(sixtyYear.startYear)}年，顺行${civilYearToSerial(annual.year) - civilYearToSerial(sixtyYear.startYear)}位，取得${annual.name}为本年静态值年卦。`,
+        `十年取卦：以六十年统卦${sixtyYear.hexagram.name}第${decade.changedLine}爻变化，得到${decade.hexagram.name}，统摄${formatHuangjiCivilYear(decade.startYear)}至${formatHuangjiCivilYear(decade.endYear)}；值年取序与十年取卦分别以上述六十年统卦为起点。`,
+        '爻象与层级：各卦阴阳爻象描述该层卦体；层级推演按所列原卦、爻位与所得卦分别取象。',
+        formatHuangjiLineFacts('会内统卦', governing.hexagram.id),
+        formatHuangjiLineFacts('运卦', yun.hexagram.id),
+        formatHuangjiLineFacts('六十年统卦', sixtyYear.hexagram.id),
+        formatHuangjiLineFacts('十年卦', decade.hexagram.id),
+        formatHuangjiLineFacts('值年卦', annual.id),
+        ...(dateTimeForecast
+          ? [
+              formatHuangjiLineFacts('月经卦', dateTimeForecast.hexagrams.monthJing.id),
+              formatHuangjiLineFacts('旬纬卦', dateTimeForecast.hexagrams.xunWei.id),
+              formatHuangjiLineFacts('日卦', dateTimeForecast.hexagrams.daily.id),
+              formatHuangjiLineFacts('时经卦', dateTimeForecast.hexagrams.hourJing.id),
+            ]
+          : []),
         evaluateHuangjiEraTrend(forecast).summary,
       ].join('\n'),
       [

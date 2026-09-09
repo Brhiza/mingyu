@@ -136,6 +136,26 @@ function deriveEvidenceMutagens(
   ).sort(compareMutagenPriority);
 }
 
+export function formatPalaceRelations(payload: AnalysisPayloadV1, palace: PalaceFact): string {
+  const label = (item: PalaceFact) => `${formatPalaceName(item.name)}（${item.earthly_branch}）`;
+  const opposite = getOppositePalace(payload, palace);
+  const trines = getSurroundedPalaces(payload, palace).filter(
+    (item) => item.index !== opposite?.index,
+  );
+  const neighbors = [
+    getPalaceByIndex(payload, (palace.index + 11) % 12),
+    getPalaceByIndex(payload, (palace.index + 1) % 12),
+  ].filter((item): item is PalaceFact => item !== null);
+  return [
+    `本宫${label(palace)}`,
+    trines.length ? `三合会照${trines.map(label).join('、')}` : '',
+    opposite ? `对宫${label(opposite)}` : '',
+    neighbors.length ? `两侧邻宫${neighbors.map(label).join('、')}` : '',
+  ]
+    .filter(Boolean)
+    .join('；');
+}
+
 export function buildPalaceSummary(payload: AnalysisPayloadV1, palace: PalaceFact) {
   const oppositePalace = getOppositePalace(payload, palace);
   const surroundedPalaces = getSurroundedPalaces(payload, palace);
@@ -161,6 +181,7 @@ export function buildPalaceSummary(payload: AnalysisPayloadV1, palace: PalaceFac
   return {
     宫位: formatPalaceName(palace.name),
     宫干支: `${palace.heavenly_stem}${palace.earthly_branch}`,
+    宫位关系: formatPalaceRelations(payload, palace),
     空宫: emptyPalaceText,
     主星: palace.major_stars.map(formatStarFact),
     辅星: palace.minor_stars.map(formatStarFact),
@@ -287,6 +308,7 @@ export function buildPalaceIndex(payload: AnalysisPayloadV1) {
     return {
       宫位: formatPalaceName(item.name),
       宫干支: `${item.heavenly_stem}${item.earthly_branch}`,
+      宫位关系: formatPalaceRelations(payload, item),
       主星: majorStars.length ? majorStars : emptyText ? [emptyText] : ['无十四主星'],
       辅曜: minorStars.length ? minorStars : undefined,
       当前动态宫名: includeScope ? item.dynamic_scope_name || undefined : undefined,
