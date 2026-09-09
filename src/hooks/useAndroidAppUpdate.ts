@@ -73,11 +73,13 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
     setSelectedRouteId((current) => {
       const selectedProbe = probes.find((probe) => probe.id === current);
       if (selectedProbe?.status === 'available') return current;
-      return [...probes]
-        .filter((probe) => probe.status === 'available')
-        .sort((left, right) => left.priority - right.priority)[0]?.id
-        ?? targetRelease.downloadRoutes[0]?.id
-        ?? null;
+      return (
+        [...probes]
+          .filter((probe) => probe.status === 'available')
+          .sort((left, right) => left.priority - right.priority)[0]?.id ??
+        targetRelease.downloadRoutes[0]?.id ??
+        null
+      );
     });
   }, []);
 
@@ -151,7 +153,7 @@ export function useAndroidAppUpdate(): AndroidAppUpdateController {
       setStatus('error');
       setMessage(getErrorMessage(error, '下载更新失败，请稍后重试'));
     }
-  }, [release, routeProbes, selectedRouteId, supported]);
+  }, [release, selectedRouteId, supported]);
 
   useEffect(() => {
     if (!supported) return;

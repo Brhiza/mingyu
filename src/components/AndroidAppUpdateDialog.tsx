@@ -7,14 +7,20 @@ type AndroidAppUpdateDialogProps = {
 };
 
 export function AndroidAppUpdateDialog({ updater }: AndroidAppUpdateDialogProps) {
+  const { dialogOpen, release, testRoutes } = updater;
+
   useEffect(() => {
-    if (updater.dialogOpen && updater.release) void updater.testRoutes();
-  }, [updater.dialogOpen, updater.release?.version]);
+    if (dialogOpen && release) void testRoutes();
+  }, [dialogOpen, release, testRoutes]);
 
   if (!updater.dialogOpen || !updater.release) return null;
   const displayedRoutes = updater.routeProbes.length
     ? updater.routeProbes
-    : updater.release.downloadRoutes.map((route) => ({ ...route, status: 'testing' as const, latencyMs: null }));
+    : updater.release.downloadRoutes.map((route) => ({
+        ...route,
+        status: 'testing' as const,
+        latencyMs: null,
+      }));
 
   return (
     <WorkspaceDialog
@@ -44,7 +50,13 @@ export function AndroidAppUpdateDialog({ updater }: AndroidAppUpdateDialogProps)
               onClick={() => updater.selectRoute(route.id)}
             >
               <span>{route.name}</span>
-              <span>{route.status === 'testing' ? '检测中…' : route.status === 'available' ? `${route.latencyMs} ms` : '不可用'}</span>
+              <span>
+                {route.status === 'testing'
+                  ? '检测中…'
+                  : route.status === 'available'
+                    ? `${route.latencyMs} ms`
+                    : '不可用'}
+              </span>
             </button>
           ))}
         </div>
