@@ -108,7 +108,7 @@
 - `timeZoneId` 使用 IANA 时区标识（例如 `Asia/Shanghai` 或 `America/New_York`），优先用于需要按出生日期解析历史时区或夏令时的场景。
 - `useTrueSolarTime: true` 用于八字或紫微真太阳时排盘。提供 `birthHour`、`birthMinute`、`birthLongitude` 后可省略 `timeIndex`，接口会自动推导真太阳时对应的时辰。
 - `POST /calendar/true-solar-birth` 是出生资料专用的真太阳时换算接口；一般当地钟表时间换算使用 `POST /calendar/true-solar-time`。两个接口的结果都从 AOV REST 响应的 `data` 字段读取。
-- `detailMode: "compact"` 适合常规调用和前端展示；八字排盘会保留逐柱神煞命中，省略神煞解释、完整证据链与计算过程。`detailMode: "full"` 返回全部上述明细，适合审计或研究。
+- `detailMode: "compact"` 适合常规调用和前端展示；八字排盘会保留逐柱神煞命中，省略神煞解释、完整证据链与计算过程。`detailMode: "full"` 返回神煞解释、完整证据链与计算过程，适合审计或研究。
 
 八字真太阳时排盘示例：
 
