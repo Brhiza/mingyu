@@ -36,8 +36,8 @@ public class AndroidDirectAiPlugin extends Plugin {
     private static final int MAX_MESSAGES = 30;
     private static final int MAX_PROMPT_LENGTH = 50_000;
     private static final int MAX_ERROR_BODY_LENGTH = 128_000;
-    private static final String SYSTEM_PROMPT_SINGLE = "请根据用户提供的排盘资料和问题直接解读。";
-    private static final String SYSTEM_PROMPT_CHAT = "用户的第一条消息是本次排盘资料和问题。请继续围绕这份资料解读。";
+    private static final String SYSTEM_PROMPT_SINGLE = "请完成用户当前指定的资料准备或解读任务。解读结合已有盘面、所附方法与传统资料，具体回应问题。";
+    private static final String SYSTEM_PROMPT_CHAT = "第一条消息保留本次盘面资料。请结合所附方法、补充资料和对话完成用户当前指定的任务，沿用主体与时间范围。";
 
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final Set<String> activeRequests = ConcurrentHashMap.newKeySet();
@@ -136,7 +136,7 @@ public class AndroidDirectAiPlugin extends Plugin {
             JSONObject body = new JSONObject();
             body.put("model", model);
             body.put("stream", true);
-            body.put("max_tokens", 4096);
+            body.put("max_tokens", 8192);
             body.put("temperature", 0.7);
             body.put("messages", messages);
             byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
@@ -404,6 +404,11 @@ public class AndroidDirectAiPlugin extends Plugin {
     private String extractErrorMessage(String rawJson) {
         try {
             JSONObject payload = new JSONObject(rawJson);
+            JSONArray choices = payload.optJSONArray("choices");
+            JSONObject choice = choices == null ? null : choices.optJSONObject(0);
+            if (choice != null && "length".equals(choice.optString("finish_reason"))) {
+                return "本次回复达到模型输出上限，已生成内容保留，可缩小问题范围后继续。";
+            }
             Object error = payload.opt("error");
             if (error instanceof JSONObject) {
                 return truncate(((JSONObject) error).optString("message", ""));

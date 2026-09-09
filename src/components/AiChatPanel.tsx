@@ -96,10 +96,14 @@ function ChatMessageItem({ turn }: { turn: ChatTurn }) {
   return (
     <div className="ai-chat-msg ai-chat-msg-assistant">
       <div className="ai-chat-msg-avatar">AI</div>
-      <div
-        className="ai-chat-msg-bubble markdown-body"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="ai-chat-msg-bubble">
+        <div className="markdown-body" dangerouslySetInnerHTML={{ __html: html }} />
+        {turn.notices?.map((notice) => (
+          <p className="ai-chat-workflow-notice" key={notice}>
+            {notice}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -124,6 +128,8 @@ function AiChatPanelImpl({
     streamingContent,
     status,
     error,
+    progress,
+    notices,
     hasStarted,
     analyze,
     ask,
@@ -131,6 +137,7 @@ function AiChatPanelImpl({
     retry,
     canRetry,
     reset,
+    cancel,
   } = useAiChat(aiConfig);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
@@ -184,6 +191,7 @@ function AiChatPanelImpl({
         id: createAiChatSessionId(),
         title: createAiChatTitle(options.titleSource, '自动解析'),
         initialQuestion: options.initialQuestion?.trim() ?? '',
+        initialPrompt: options.prompt,
         promptMode: options.promptMode,
         turns: [],
         createdAt: now,
@@ -542,9 +550,11 @@ function AiChatPanelImpl({
                   className="ai-chat-msg-bubble markdown-body"
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }}
                 />
-                <span className="ai-analysis-cursor" aria-hidden="true">
-                  ▋
-                </span>
+                {isBusy ? (
+                  <span className="ai-analysis-cursor" aria-hidden="true">
+                    ▋
+                  </span>
+                ) : null}
               </div>
             ) : null}
 
@@ -556,7 +566,7 @@ function AiChatPanelImpl({
                   <span className="ai-chat-thinking-dot" />
                   <span className="ai-chat-thinking-dot" />
                   <span className="ai-chat-thinking-dot" />
-                  <span className="ai-chat-thinking-text">AI 正在思考</span>
+                  <span className="ai-chat-thinking-text">{progress || 'AI 正在思考'}</span>
                 </div>
               </div>
             ) : null}
@@ -572,6 +582,11 @@ function AiChatPanelImpl({
 
           {/* 底部输入区 */}
           <div className="ai-chat-input-area">
+            {notices.map((notice) => (
+              <p key={notice} role="status" className="ai-chat-workflow-notice">
+                {notice}
+              </p>
+            ))}
             {error ? (
               <div className="ai-chat-error-notice" role="alert" aria-live="assertive">
                 <div className="ai-chat-error-content">
@@ -602,15 +617,13 @@ function AiChatPanelImpl({
                 <button
                   className="ai-chat-send-btn"
                   type="button"
-                  onClick={handleSend}
-                  disabled={isBusy || !inputValue.trim() || !isContextReady}
-                  aria-label="发送问题"
-                  title="发送"
+                  onClick={isBusy ? cancel : handleSend}
+                  disabled={!isBusy && (!inputValue.trim() || !isContextReady)}
+                  aria-label={isBusy ? '停止解读' : '发送问题'}
+                  title={isBusy ? '停止解读' : '发送'}
                 >
                   {isBusy ? (
-                    <span className="ai-analysis-spinner-wrap">
-                      <span className="ai-analysis-spinner" />
-                    </span>
+                    <span aria-hidden="true">■</span>
                   ) : (
                     <svg
                       width="18"

@@ -82,6 +82,7 @@ import { useZiweiCalculations } from './hooks/useZiweiCalculations';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
+import { getChartChatHistoryContext } from '@/lib/ai/chat-history';
 import {
   ResultAssistantFab,
   ResultAssistantHeader,
@@ -2441,6 +2442,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               <div className="workspace-ai-layout is-answer-workbench">
                 <AiChatPanel
                   contextPrompt={aiContextPrompt}
+                  historyKey={getChartChatHistoryContext(aiContextPrompt)}
                   resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
                   externalInput={inspirationText}
                   onExternalInputConsumed={() => setInspirationText('')}

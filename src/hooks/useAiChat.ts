@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamAiChat, type ChatMessage } from '@/lib/ai/stream-client';
 import type { AiRequestConfig } from '@/lib/ai/settings';
+import { runReadingWorkflow, type ReadingMemory } from '@/lib/ai/reading-workflow';
+import { executeReadingAction } from '@/lib/ai/reading-resources';
 
 export type AiChatStatus = 'idle' | 'loading' | 'streaming' | 'done' | 'error';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+  notices?: string[];
 }
 
 export interface UseAiChat {
@@ -16,6 +19,8 @@ export interface UseAiChat {
   streamingContent: string;
   status: AiChatStatus;
   error: string;
+  progress: string;
+  notices: string[];
   /** 是否已开始解析（至少有过一次 analyze 调用） */
   hasStarted: boolean;
   /** 用提示词开始首次解析 */
@@ -39,6 +44,10 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
   const [streamingContent, setStreamingContent] = useState('');
   const [status, setStatus] = useState<AiChatStatus>('idle');
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState('');
+  const [notices, setNotices] = useState<string[]>([]);
+  const noticesRef = useRef<string[]>([]);
+  const readingMemoryRef = useRef<ReadingMemory>({ resources: [] });
   const [hasStarted, setHasStarted] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -66,6 +75,9 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     streamingRef.current = '';
     turnsRef.current = [];
     initialPromptRef.current = '';
+    readingMemoryRef.current = { resources: [] };
+    setProgress('');
+    setNotices([]);
     lastRequestRef.current = [];
     setTurns([]);
     setStreamingContent('');
@@ -81,6 +93,9 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     streamingRef.current = '';
     turnsRef.current = nextTurns;
     initialPromptRef.current = initialPrompt;
+    readingMemoryRef.current = { resources: [] };
+    setProgress('');
+    setNotices([]);
     lastRequestRef.current = initialPrompt
       ? [{ role: 'user', content: initialPrompt }, ...nextTurns]
       : [...nextTurns];
@@ -97,6 +112,8 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     abortRef.current = null;
     setStatus('idle');
     setCanRetry(false);
+    setProgress('已停止解读');
+    setNotices((items) => [...new Set([...items, '已停止解读，已生成内容保留在当前对话中。'])]);
   }, []);
 
   const startStream = useCallback(
@@ -110,47 +127,66 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
       streamingRef.current = '';
       setStreamingContent('');
       setError('');
+      setNotices([]);
+      noticesRef.current = [];
       setCanRetry(false);
 
-      streamAiChat(messages, {
-        signal: controller.signal,
-        aiConfig,
-        onChunk: (text) => {
-          // 校验回调归属当前活跃请求
-          if (abortRef.current !== controller) return;
-          setStatus('streaming');
-          streamingRef.current += text;
-          setStreamingContent(streamingRef.current);
+      void runReadingWorkflow(
+        messages,
+        {
+          signal: controller.signal,
+          aiConfig,
+          memory: readingMemoryRef.current,
+          onProgress: (value) => {
+            if (abortRef.current === controller) setProgress(value.text);
+          },
+          onNotice: (notice) => {
+            if (abortRef.current === controller) {
+              noticesRef.current = [...new Set([...noticesRef.current, notice])];
+              setNotices(noticesRef.current);
+            }
+          },
+          onChunk: (text) => {
+            // 校验回调归属当前活跃请求
+            if (abortRef.current !== controller) return;
+            setStatus('streaming');
+            streamingRef.current += text;
+            setStreamingContent(streamingRef.current);
+          },
+          onDone: () => {
+            // 校验回调归属当前活跃请求
+            if (abortRef.current !== controller) return;
+            const finalContent = streamingRef.current;
+            streamingRef.current = '';
+            setStreamingContent('');
+            if (finalContent) {
+              const nextTurns = [
+                ...turnsRef.current,
+                {
+                  role: 'assistant' as const,
+                  content: finalContent,
+                  ...(noticesRef.current.length ? { notices: [...noticesRef.current] } : {}),
+                },
+              ];
+              turnsRef.current = nextTurns;
+              setTurns(nextTurns);
+            }
+            setStatus('done');
+            setNotices([]);
+            setCanRetry(false);
+            abortRef.current = null;
+          },
+          onError: (message) => {
+            // 校验回调归属当前活跃请求
+            if (abortRef.current !== controller) return;
+            setStatus('error');
+            setError(message);
+            setCanRetry(true);
+            abortRef.current = null;
+          },
         },
-        onDone: () => {
-          // 校验回调归属当前活跃请求
-          if (abortRef.current !== controller) return;
-          const finalContent = streamingRef.current;
-          streamingRef.current = '';
-          setStreamingContent('');
-          if (finalContent) {
-            const nextTurns = [
-              ...turnsRef.current,
-              { role: 'assistant' as const, content: finalContent },
-            ];
-            turnsRef.current = nextTurns;
-            setTurns(nextTurns);
-          }
-          setStatus('done');
-          setCanRetry(false);
-          abortRef.current = null;
-        },
-        onError: (message) => {
-          // 校验回调归属当前活跃请求
-          if (abortRef.current !== controller) return;
-          setStatus('error');
-          setError(message);
-          setCanRetry(true);
-          streamingRef.current = '';
-          setStreamingContent('');
-          abortRef.current = null;
-        },
-      });
+        { stream: streamAiChat, execute: executeReadingAction },
+      );
     },
     [aiConfig],
   );
@@ -159,6 +195,7 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     (prompt: string) => {
       if (!prompt.trim()) return;
       initialPromptRef.current = prompt;
+      readingMemoryRef.current = { resources: [] };
       turnsRef.current = [];
       setTurns([]);
       setHasStarted(true);
@@ -194,6 +231,8 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     streamingContent,
     status,
     error,
+    progress,
+    notices,
     hasStarted,
     analyze,
     ask,

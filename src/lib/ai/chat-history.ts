@@ -8,6 +8,7 @@ export interface AiChatSession {
   id: string;
   title: string;
   initialQuestion: string;
+  initialPrompt?: string;
   promptMode: AiChatPromptMode;
   turns: ChatTurn[];
   createdAt: string;
@@ -37,13 +38,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeTurns(value: unknown): ChatTurn[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (item): item is ChatTurn =>
-      isRecord(item) &&
-      (item.role === 'user' || item.role === 'assistant') &&
-      typeof item.content === 'string' &&
-      item.content.length > 0,
-  );
+  return value
+    .filter(
+      (item): item is ChatTurn =>
+        isRecord(item) &&
+        (item.role === 'user' || item.role === 'assistant') &&
+        typeof item.content === 'string' &&
+        item.content.length > 0,
+    )
+    .map((item) => ({
+      role: item.role,
+      content: item.content,
+      ...(Array.isArray(item.notices) && item.notices.some((notice) => typeof notice === 'string')
+        ? {
+            notices: item.notices
+              .filter((notice): notice is string => typeof notice === 'string')
+              .slice(0, 12),
+          }
+        : {}),
+    }));
 }
 
 function normalizeSession(value: unknown): AiChatSession | null {
@@ -57,6 +70,7 @@ function normalizeSession(value: unknown): AiChatSession | null {
     id: value.id,
     title: typeof value.title === 'string' && value.title.trim() ? value.title.trim() : '新对话',
     initialQuestion: typeof value.initialQuestion === 'string' ? value.initialQuestion : '',
+    ...(typeof value.initialPrompt === 'string' ? { initialPrompt: value.initialPrompt } : {}),
     promptMode,
     turns,
     createdAt,
@@ -131,10 +145,15 @@ export function extractPromptQuestion(prompt: string) {
 }
 
 export function buildAiChatInitialPrompt(contextPrompt: string, session: AiChatSession) {
+  if (session.initialPrompt?.trim()) return session.initialPrompt;
   if (session.promptMode === 'context-question' && session.initialQuestion.trim()) {
     return `${contextPrompt}\n\n${session.initialQuestion.trim()}`;
   }
   return contextPrompt;
+}
+
+export function getChartChatHistoryContext(prompt: string) {
+  return prompt.replace(/【当前时间】[\s\S]*?(?=【|$)/u, '').trim();
 }
 
 export function upsertAiChatSession(sessions: AiChatSession[], nextSession: AiChatSession) {
