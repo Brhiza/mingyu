@@ -101,7 +101,7 @@ function getMeihuaTiYongSeasonEvaluation(
     case '体生用':
       return '体生于用，泄我元气，防过度付出或破耗消耗';
     case '比和':
-      return '体用比和，同声相应，百事顺遂无逆';
+      return `体用同五行，比和相应；体卦${tiSeason}、用卦${yongSeason}，实际助力结合月令、互变与动爻判断`;
     default:
       return '体用各安其位，顺时而动';
   }

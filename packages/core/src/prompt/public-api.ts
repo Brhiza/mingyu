@@ -12,6 +12,7 @@ import { buildSerializableZiweiResult, formatZiweiPayloadForPrompt } from './ziw
 import { formatPromptCurrentTime } from './current-time';
 import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
 import { getPromptMutagenItems } from '../ziwei/prompt/mutagen';
+import { formatPalaceRelations } from '../ziwei/prompt/builders';
 import {
   buildPromptSelectionTask,
   getPromptSelectionSection,
@@ -388,7 +389,8 @@ function formatPalaceBrief(palace: PalaceFact, isOriginScope: boolean) {
   return `  ${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：${details.join('；')}${tags ? `；标记：${tags}` : ''}`;
 }
 
-function buildKeyPalaces(palaces: PalaceFact[], isOriginScope: boolean) {
+function buildKeyPalaces(payload: AnalysisPayloadV1, isOriginScope: boolean) {
+  const palaces = payload.palaces;
   if (!palaces.length) return '';
   const title = isOriginScope ? '【十二宫资料】' : '【重点宫位资料】';
   const ordered = isOriginScope
@@ -398,13 +400,11 @@ function buildKeyPalaces(palaces: PalaceFact[], isOriginScope: boolean) {
           right.scope_hits.length - left.scope_hits.length || left.index - right.index,
       );
   const lead = isOriginScope ? ordered : ordered.slice(0, 7);
-  const lines = [
-    `${title}\n${lead.map((palace) => formatPalaceBrief(palace, isOriginScope)).join('\n')}`,
-  ];
+  const format = (palace: PalaceFact) =>
+    `${formatPalaceBrief(palace, isOriginScope)}\n  宫位关系：${formatPalaceRelations(payload, palace)}`;
+  const lines = [`${title}\n${lead.map(format).join('\n')}`];
   if (!isOriginScope && ordered.length > lead.length) {
-    lines.push(
-      `十二宫明细：\n${ordered.map((palace) => formatPalaceBrief(palace, false)).join('\n')}`,
-    );
+    lines.push(`十二宫明细：\n${ordered.map(format).join('\n')}`);
   }
   return lines.join('\n');
 }
@@ -443,7 +443,7 @@ export function formatZiweiEvidenceText(result: ZiweiRuntime, scope: ZiweiPrompt
     getPromptMutagenItems(payload, payload.active_scope.scope === 'origin').length
       ? `${payload.active_scope.scope === 'origin' ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, payload.active_scope.scope === 'origin')}`
       : '',
-    buildKeyPalaces(payload.palaces, payload.active_scope.scope === 'origin'),
+    buildKeyPalaces(payload, payload.active_scope.scope === 'origin'),
     scope === 'full' ? formatPublicZiweiFullScopeText(result) : '',
   ]
     .filter(Boolean)
@@ -530,7 +530,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
         : payload.active_scope.label || scopeLabel(scope),
     ),
     section('本命资料', chartLines),
-    buildKeyPalaces(payload.palaces, payload.active_scope.scope === 'origin' || scope === 'origin'),
+    buildKeyPalaces(payload, payload.active_scope.scope === 'origin' || scope === 'origin'),
     scope === 'full' ? section('完整运限资料', formatPublicZiweiFullScopeText(params.result)) : '',
     params.selection ? section('解读选择', getPromptSelectionSection(params.selection)) : '',
     section('任务', selectedTask),

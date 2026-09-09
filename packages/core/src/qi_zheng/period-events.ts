@@ -162,13 +162,26 @@ export function scanQizhengPeriodEvents(params: {
   for (let utc = params.startUtcMs; utc < params.endUtcMs; utc += step) times.push(utc);
   times.push(params.endUtcMs);
   const frames = times.map((utc) => ({ utc, map: mapByName(params.sampleLongitudes(utc)) }));
+  const velocitySamples = new Map<number, Map<string, number>>();
+  const velocityAt = (utc: number, name: string) => {
+    const delta = 60_000;
+    for (const time of [utc - delta, utc + delta]) {
+      if (!velocitySamples.has(time)) {
+        velocitySamples.set(time, mapByName(params.sampleLongitudes(time)));
+      }
+    }
+    const before = velocitySamples.get(utc - delta)?.get(name);
+    const after = velocitySamples.get(utc + delta)?.get(name);
+    if (before === undefined || after === undefined) return undefined;
+    const velocity = wrap180(after - before);
+    return Math.abs(velocity) < 1e-10 ? 0 : velocity;
+  };
 
   for (let index = 1; index < frames.length; index += 1) {
     const previousUtc = frames[index - 1].utc;
     const currentUtc = frames[index].utc;
     const previous = frames[index - 1].map;
     const current = frames[index].map;
-    const earlier = index >= 2 ? frames[index - 2].map : undefined;
     for (const name of bodies) {
       const before = previous.get(name);
       const after = current.get(name);
@@ -190,26 +203,36 @@ export function scanQizhengPeriodEvents(params: {
           movingStar: name,
           palace: palace?.palace,
           signBranch: palace?.signBranch ?? getQizhengSignBranch(afterSign),
-          promptText: `${formatUtc(crossing, params.timezone)} 流曜${name}换入${palace?.signBranch ?? getQizhengSignBranch(afterSign)}宫${palace?.palace ?? ''}`,
+          promptText: `${formatUtc(crossing, params.timezone)} 换宫：流曜${name}换入本命${palace?.signBranch ?? getQizhengSignBranch(afterSign)}宫${palace?.palace ?? ''}`,
         });
       }
-      const beforeSpeed = wrap180(after - before);
-      if (earlier) {
-        const earlierLon = earlier.get(name);
-        if (earlierLon !== undefined) {
-          const earlierSpeed = wrap180(before - earlierLon);
-          if (
-            Math.sign(earlierSpeed) !== 0 &&
-            Math.sign(beforeSpeed) !== 0 &&
-            Math.sign(earlierSpeed) !== Math.sign(beforeSpeed)
-          ) {
-            const direction: '逆行' | '顺行' = beforeSpeed < 0 ? '逆行' : '顺行';
-            const crossing = refineCrossing(previousUtc, currentUtc, (value) => {
-              const mid = mapByName(params.sampleLongitudes(value)).get(name);
-              const prev = mapByName(params.sampleLongitudes(value - step / 4)).get(name);
-              if (mid === undefined || prev === undefined) return 0;
-              return wrap180(mid - prev);
-            });
+      const previousVelocity = velocityAt(previousUtc, name);
+      const currentVelocity = velocityAt(currentUtc, name);
+      if (previousVelocity !== undefined && currentVelocity !== undefined) {
+        const leftVelocity =
+          previousVelocity === 0 ? velocityAt(previousUtc - 60_000, name) : previousVelocity;
+        const rightVelocity =
+          currentVelocity === 0 ? velocityAt(currentUtc + 60_000, name) : currentVelocity;
+        if (
+          !(previousVelocity === 0 && index > 1) &&
+          leftVelocity !== undefined &&
+          rightVelocity !== undefined &&
+          leftVelocity !== 0 &&
+          rightVelocity !== 0 &&
+          Math.sign(leftVelocity) !== Math.sign(rightVelocity)
+        ) {
+          const direction: '逆行' | '顺行' = rightVelocity < 0 ? '逆行' : '顺行';
+          const crossing =
+            previousVelocity === 0
+              ? previousUtc
+              : currentVelocity === 0
+                ? currentUtc
+                : refineCrossing(previousUtc, currentUtc, (value) => {
+                    const velocity = velocityAt(value, name);
+                    if (velocity === undefined) throw new Error(`停逆求根缺少${name}的黄经采样。`);
+                    return velocity;
+                  });
+          if (crossing < params.endUtcMs) {
             events.push({
               key: `station:${name}:${direction}:${Math.round(crossing)}`,
               kind: '停逆',
@@ -217,7 +240,7 @@ export function scanQizhengPeriodEvents(params: {
               dateTime: formatUtc(crossing, params.timezone),
               movingStar: name,
               stationDirection: direction,
-              promptText: `${formatUtc(crossing, params.timezone)} 流曜${name}${direction === '逆行' ? '由顺转逆' : '由逆转顺'}`,
+              promptText: `${formatUtc(crossing, params.timezone)} 停逆：流曜${name}${direction === '逆行' ? '由顺转逆' : '由逆转顺'}`,
             });
           }
         }
@@ -231,7 +254,11 @@ export function scanQizhengPeriodEvents(params: {
           for (const target of targets) {
             const beforeWrapped = wrap180(wrap180(before - natal.longitude) - target);
             const afterWrapped = wrap180(wrap180(after - natal.longitude) - target);
-            if (Math.sign(beforeWrapped) === Math.sign(afterWrapped) || beforeWrapped === 0)
+            if (
+              Math.sign(beforeWrapped) === Math.sign(afterWrapped) ||
+              beforeWrapped === 0 ||
+              Math.abs(afterWrapped - beforeWrapped) >= 180
+            )
               continue;
             const crossing = refineCrossing(previousUtc, currentUtc, (value) => {
               const sample = mapByName(params.sampleLongitudes(value)).get(name);
@@ -246,7 +273,7 @@ export function scanQizhengPeriodEvents(params: {
               movingStar: name,
               targetStar: natal.name,
               aspectType: aspect.type,
-              promptText: `${formatUtc(crossing, params.timezone)} 流曜${name}与本命${natal.name}成${aspect.type}`,
+              promptText: `${formatUtc(crossing, params.timezone)} 精确吊照：流曜${name}与本命${natal.name}成${aspect.type === '同宫' ? '合相' : aspect.type}，目标角${aspect.angle}°`,
             });
           }
         }
@@ -276,11 +303,11 @@ export function scanQizhengPeriodEvents(params: {
   const promptText = [
     `范围：${startDateTime} 至 ${endDateTime}`,
     axis.length
-      ? `周期主轴：${axis.join('；')}`
-      : '周期主轴：本窗口未见停逆、换入重点宫或精确同宫对照三方',
+      ? `周期主轴：\n${axis.join('\n')}`
+      : '周期主轴：本窗口未见停逆、换入重点宫或精确合相对照三方',
     windows.length ? `关键窗口：${windows.join('；')}` : '',
     ordered.length
-      ? `完整明细：${ordered.map((item) => item.promptText).join('；')}`
+      ? `完整明细：\n${ordered.map((item) => item.promptText).join('\n')}`
       : '完整明细：本窗口未见换宫、停逆或精确吊照',
   ]
     .filter(Boolean)

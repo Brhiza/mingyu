@@ -125,10 +125,13 @@ export function buildFocusTaskBundle(
     const migrationPalace = getPalaceByName(payload, '迁移');
     const parentsPalace = getPalaceByName(payload, '父母');
     const siblingPalace = getPalaceByName(payload, '兄弟');
+    const careerOpposite = getOppositePalace(payload, careerPalace);
+    const careerRelated = getSurroundedPalaces(payload, careerPalace);
     return {
-      focusSummary: '围绕官禄宫及其三方四正（命宫、财帛、迁移）与父母、兄弟宫组织事业职场证据。',
+      focusSummary: `围绕官禄宫及其三方四正（${careerRelated.map((palace) => formatPalaceName(palace.name)).join('、')}），另结合迁移、父母、兄弟宫组织事业职场证据。`,
       focusPalaces: dedupePalaces([
         careerPalace,
+        careerOpposite,
         wealthPalace,
         migrationPalace,
         lifePalace,

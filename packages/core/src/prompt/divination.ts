@@ -1,4 +1,6 @@
+import { formatLiurenLesson, formatLiurenTransmission } from './liuren-facts';
 import { buildTaskText } from '../divination/engine/method-text';
+import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
 import { buildLiurenTemplateText } from '../divination/engine/liuren-template';
 import { buildLiuyaoTemplateText } from '../divination/engine/liuyao-template';
 import type { DivinationMethodId } from '../divination/config';
@@ -321,7 +323,8 @@ export function getDivinationSummaryBlocks(
           `动爻：${item.movements.map((movement) => `${movement.name}（${movement.trigger}）`).join('、') || '未触发五动或三动'}`,
           `月将贵人：月将${item.monthLeader}；${item.dayNight}贵人起${item.noblemanBranch}${item.calculation.noblemanDirection}`,
           `四位：地分${positions.diFen.branch}；将神${positions.jiangShen.branch}；贵神${positions.guiShen.branch}；人元${positions.renYuan.branch}`,
-          `四位关系：贵将${item.relations.guiToJiang}；贵人${item.relations.guiToRen}；将地${item.relations.jiangToDi}`,
+          formatJinkoujueRelations(item),
+          formatJinkoujueMovementRules(),
           item.xunKong.length ? `旬空：${item.xunKong.join('、')}` : '',
           item.summary,
         ].filter(Boolean),
@@ -368,8 +371,8 @@ export function getDivinationSummaryBlocks(
           `日干寄宫：${item.dayStemResidence ? `${item.ganzhi.day.charAt(0)}寄${item.dayStemResidence}` : '未知'}`,
           `旬空：${item.xunKong?.length ? item.xunKong.join('、') : '未知'}`,
           `取传法：${item.transmissionRule || '未记录'}；传态：${item.transmissionPattern || '未记录'}`,
-          `四课：${item.fourLessons.map((lesson) => `${lesson.name}${lesson.upper}/${lesson.lower}${lesson.relation}`).join('；')}`,
-          `三传：${item.threeTransmissions.map((transmission) => `${transmission.stage}${transmission.branch}乘${transmission.god}`).join(' → ')}`,
+          `四课：${item.fourLessons.map(formatLiurenLesson).join('；')}`,
+          `三传：${item.threeTransmissions.map((_, index) => formatLiurenTransmission(item, index)).join(' → ')}`,
           `课体：${item.guaTi?.join('、') || '无'}`,
           `神煞：${item.shenShaSummary?.length ? item.shenShaSummary.join('；') : '无'}`,
           ...formatLiurenDetailSummary(item),

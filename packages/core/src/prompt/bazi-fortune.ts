@@ -1,4 +1,5 @@
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
+import { formatSolarDateTime } from '../bazi/luckTiming';
 
 export interface BaziFortuneSelectionSections {
   /** 可直接放入【分析对象】分段的范围说明。 */
@@ -21,6 +22,14 @@ export function formatBaziFortuneSelection(
   const { promptPayload, scope } = context;
   const summary = promptPayload.summaryLines ?? [];
   const lines: string[] = [];
+  const cycleRange = context.cycleTimeRange;
+  const rangeStart = `${formatSolarDateTime(cycleRange.start, true)}:${String(cycleRange.start.second).padStart(2, '0')}`;
+  const rangeEnd = `${formatSolarDateTime(cycleRange.end, true)}:${String(cycleRange.end.second).padStart(2, '0')}`;
+  lines.push(
+    `所选岁运背景：${context.cycleGanZhi}${context.isXiaoyun ? '童运' : context.cycleType}`,
+  );
+  lines.push(`该运交接范围：${rangeStart}起，至${rangeEnd}交接；起点归本运，终点归后续运段。`);
+  lines.push(`该运交接年龄：${context.cycleAge}岁`);
 
   const selectedDate =
     scope === 'year'
@@ -64,6 +73,17 @@ export function formatBaziFortuneSelection(
   const triggerLine = summary.find((line) => line.includes('触发：'));
   if (triggerLine) {
     lines.push(`主要触发：${triggerLine.split('：').slice(1).join('：')}`);
+  }
+
+  const triggerEvidence = promptPayload.triggerEvidence;
+  if (triggerEvidence?.relations.length) {
+    lines.push(
+      '岁运干支关系：\n' +
+        triggerEvidence.relations.map((relation) => `  - ${relation.label}`).join('\n'),
+    );
+    lines.push(
+      '关系取义：岁运并临以大运与流年完整干支相同为条件；同柱伏吟以两柱干支完全相同为条件；天克地冲以两柱天干相冲且地支相冲为条件。天干五合与地支合局先取结构关系，成化另结合月令、透干、根气与制化条件判断。',
+    );
   }
 
   const detailGroups = (promptPayload.detailGroups ?? []).filter((group) => {

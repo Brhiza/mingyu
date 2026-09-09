@@ -363,6 +363,11 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     actionSignals,
   };
   const evidenceAnalysis = analyzeZodiacEvidence(resultBase);
+  const presentBranches = new Set([zodiacBranch, yearBranch]);
+  const sanhePartners = BRANCH_SANHE[zodiacBranch].partners;
+  const sanhuiGroup = Object.values(SANHUI_GROUPS).find(
+    (members) => members.includes(zodiacBranch) && members.includes(yearBranch),
+  );
   const prompt = [
     '【任务】',
     buildPromptTask(
@@ -371,9 +376,17 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     ),
     `【生肖与流年关系简析】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${taiSui.star}太岁）。`,
+    `参与关系的资料：出生年支${zodiacBranch}；目标流年年干${yearGanZhi[0]}、年支${yearBranch}。本次地支组合为${[...presentBranches].join('、')}，共${presentBranches.size}种不同地支。`,
     `五行关系：流年年干${yearGanZhi[0]}属${yearStemWuxing}，生肖地支${zodiacBranch}属${zodiacWuxing}，${relation}。`,
+    `关系参照：本次比较流年年干${yearGanZhi[0]}与出生年支${zodiacBranch}的五行；采用同类、相生、相克及其方向分类。十神以个人出生日干为参照，并结合双方天干阴阳确定。`,
     noble ? `贵人：${noble}。` : '',
+    noble?.startsWith('三合')
+      ? `三合成员：本次具有生肖年支${zodiacBranch}、流年年支${yearBranch}两支，同组另一支为${sanhePartners.filter((branch) => !presentBranches.has(branch)).join('、')}；三支齐备及成化条件分别结合完整命盘核验。`
+      : '',
     meeting ? `三会关系：${meeting}` : '',
+    meeting && sanhuiGroup
+      ? `三会成员：${sanhuiGroup.join('、')}为一组，本次具有${[...presentBranches].join('、')}两支，同组另一支为${sanhuiGroup.filter((branch) => !presentBranches.has(branch)).join('、')}；三支齐备及成化条件分别结合完整命盘核验。`
+      : '',
     conflicts.length
       ? `太岁关系：${conflicts
           .map((conflict) => {

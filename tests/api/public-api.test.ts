@@ -4094,7 +4094,10 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
   assert.match(body.data.prompt, /【第一人本命盘】/);
   assert.match(body.data.prompt, /【第二人本命盘】/);
   assert.match(body.data.prompt, /【跨盘相位】/);
-  assert.match(body.data.prompt, /实际夹角\d+\.\d{2}°，容许度\d+\.\d{2}°，(?:紧密|中等|宽松)/);
+  assert.match(
+    body.data.prompt,
+    /目标角\d+(?:\.\d+)?°，实际夹角\d+\.\d{2}°，偏差\d+\.\d{2}°，容许偏差上限\d+(?:\.\d+)?°，(?:紧密|中等|宽松)/,
+  );
   assert.match(body.data.prompt, /【跨盘落宫】/);
   assert.match(body.data.prompt, /【多口径合参】/);
   assert.match(body.data.prompt, /流派1：现代心理占星/);

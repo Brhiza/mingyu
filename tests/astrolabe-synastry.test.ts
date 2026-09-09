@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import type { AstrolabeData, AstrolabePoint } from 'mingyu-core/types';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
+import { buildAstrolabeSynastryPrompt } from '../packages/core/src/prompt/astrolabe';
 
 function point(name: string, label: string, longitude: number, house = 1): AstrolabePoint {
   return {
@@ -221,6 +222,46 @@ test('西占合盘互溶与接纳判定：识别金火互溶与接纳断诀', ()
   // 互溶分支只核验入庙守护，不再混称“庙旺”；曜升互溶未核验
   assert.match(mutual.summary, /入庙守护/);
   assert.match(mutual.summary, /守护互溶/);
+  assert.match(mutual.summary, /甲的金星落白羊座，乙的火星落金牛座/);
   assert.doesNotMatch(mutual.summary, /庙旺互溶/);
   assert.match(result.promptText, /【古典接纳互溶】/);
+});
+
+test('同名水星接纳分别保留双方实际星座与接纳方向', () => {
+  const first = { ...chart('甲', 0, 120), planets: [point('Mercury', '水星', 351)] };
+  const second = { ...chart('乙', 30, 150), planets: [point('Mercury', '水星', 81)] };
+  const result = analyzeAstrolabeSynastry(first, second, { pointNames: ['Mercury'] });
+  const receptions = result.receptions?.filter((item) => item.type === '接纳');
+  assert.equal(receptions?.length, 1);
+  assert.equal(receptions?.[0].sign1, '双鱼座');
+  assert.equal(receptions?.[0].sign2, '双子座');
+  assert.match(result.receptionSummary ?? '', /甲的水星落双鱼座，乙的水星落双子座/);
+  assert.match(result.receptionSummary ?? '', /双子座是水星的入庙星座，因此甲的水星接纳乙的水星/);
+  assert.match(result.receptionSummary ?? '', /双方这两颗星伴随刑相/);
+});
+
+test('跨盘相位在同名人物与反向星体组合中保持各自位置和角距', () => {
+  const first = {
+    ...chart('同名', 0, 120),
+    planets: [point('Mercury', '水星', 351, 3), point('Chiron', '凯龙星', 137, 8)],
+  };
+  const second = {
+    ...chart('同名', 30, 150),
+    planets: [point('Mercury', '水星', 77, 10), point('Chiron', '凯龙星', 171, 1)],
+  };
+  const synastry = analyzeAstrolabeSynastry(first, second, {
+    pointNames: ['Mercury', 'Chiron', 'Ascendant'],
+  });
+  const prompt = buildAstrolabeSynastryPrompt({ chart1: first, chart2: second, synastry });
+  const cross = prompt.slice(prompt.indexOf('【跨盘资料】'));
+  assert.match(
+    cross,
+    /第一人同名的水星（351°，自身本命第3宫）与第二人同名的凯龙星（171°，自身本命第1宫）：冲相，目标角180°，实际夹角180\.00°/,
+  );
+  assert.match(
+    cross,
+    /第一人同名的凯龙星（137°，自身本命第8宫）与第二人同名的水星（77°，自身本命第10宫）：六合，目标角60°，实际夹角60\.00°/,
+  );
+  assert.match(cross, /第二人同名的水星（77°，自身本命第10宫）落入第一人同名的本命盘第3宫/);
+  assert.match(cross, /第一人同名的水星（351°，自身本命第3宫）落入第二人同名的本命盘第12宫/);
 });

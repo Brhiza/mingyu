@@ -176,7 +176,12 @@ test('核心提示词与占问提示词应使用同一套本命相位主线和�
   );
   assert.ok(astrolabeData.aspects.length > 6);
   for (const aspect of astrolabeData.aspects) {
-    const line = `${aspect.body1}${aspect.symbol}${aspect.body2}`;
+    const points = [...astrolabeData.planets, ...astrolabeData.angles];
+    const first = points.find((point) => point.label === aspect.body1)!;
+    const second = points.find((point) => point.label === aspect.body2)!;
+    assert.ok(first);
+    assert.ok(second);
+    const line = `${aspect.body1}（${first.formatted}，第${first.house}宫）${aspect.symbol}${aspect.body2}（${second.formatted}，第${second.house}宫）`;
     assert.match(natal, new RegExp(line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(divination, new RegExp(line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }

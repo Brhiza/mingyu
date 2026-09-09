@@ -702,6 +702,20 @@ function normalizeQuestion(question?: string): string | undefined {
   return question.trim();
 }
 
+function formatElementDirection(
+  firstName: string,
+  firstElement: WuyunElement,
+  secondName: string,
+  secondElement: WuyunElement,
+): string {
+  const first = `${firstName}（${firstElement}）`;
+  const second = `${secondName}（${secondElement}）`;
+  if (firstElement === secondElement) return `${first}与${second}同气`;
+  if (isSheng(firstElement, secondElement)) return `${first}生${second}，${second}泄${first}`;
+  if (isSheng(secondElement, firstElement)) return `${second}生${first}，${first}泄${second}`;
+  return isKe(firstElement, secondElement) ? `${first}克${second}` : `${second}克${first}`;
+}
+
 export function buildWuyunLiuqiPrompt(
   result: WuyunLiuqiCalculation,
   question?: string,
@@ -720,6 +734,7 @@ export function buildWuyunLiuqiPrompt(
       `在泉：${result.zaiquan.name}`,
       `司天化令：${result.annualClassification.sitianTransformation}；南北政：${result.annualClassification.governance}`,
       `司天与中运：${result.annualRelation.kind}；${result.annualRelation.basis}`,
+      `年度五行作用：${formatElementDirection('中运', result.annualMovement.element, `司天${result.sitian.name}`, result.sitian.element)}；${formatElementDirection('中运', result.annualMovement.element, `在泉${result.zaiquan.name}`, result.zaiquan.element)}；${formatElementDirection(`司天${result.sitian.name}`, result.sitian.element, `在泉${result.zaiquan.name}`, result.zaiquan.element)}`,
       `年度符会：${result.annualConformities.names.length ? result.annualConformities.names.join('、') : '未形成天符、岁会、太乙天符、同天符或同岁会'}`,
       result.pathomechanism
         ? result.pathomechanism.summary
@@ -745,7 +760,7 @@ export function buildWuyunLiuqiPrompt(
               ? '；年中落在此步'
               : ''
             : '';
-        return `${step.order}. ${step.label}（${step.periodRule}${dates}${current}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}`;
+        return `${step.order}. ${step.label}（${step.periodRule}${dates}${current}）：主运${step.hostMovement.toneName}（${step.hostMovement.element}）；客运${step.guestMovement.toneName}（${step.guestMovement.element}）${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}；${formatElementDirection(`主运${step.hostMovement.toneName}`, step.hostMovement.element, `客运${step.guestMovement.toneName}`, step.guestMovement.element)}`;
       }),
       '六步主客气：',
       ...result.qiSteps.map((step) => {
@@ -763,7 +778,7 @@ export function buildWuyunLiuqiPrompt(
               ? '；年中落在此步'
               : ''
             : '';
-        return `${step.order}. ${step.label}（${step.solarTerms.join('、')}${dates}${current}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}${step.hostGuestRelation.fireOrder ? `；二火加临：${step.hostGuestRelation.fireOrder}` : ''}`;
+        return `${step.order}. ${step.label}（${step.solarTerms.join('、')}${dates}${current}）：主气${step.hostQi.name}；客气${step.guestQi.name}${step.guestRole ? `（${step.guestRole}）` : ''}；主客关系${step.hostGuestRelation.kind}；${formatElementDirection(`主气${step.hostQi.name}`, step.hostQi.element, `客气${step.guestQi.name}`, step.guestQi.element)}${step.hostGuestRelation.fireOrder ? `；二火加临：${step.hostGuestRelation.fireOrder}` : ''}`;
       }),
     ].join('\n'),
   ];

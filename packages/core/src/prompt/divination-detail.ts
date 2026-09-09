@@ -1,4 +1,6 @@
+import { formatLiurenLesson, formatLiurenTransmission } from './liuren-facts';
 import type { DivinationMethodId } from '../divination/config';
+import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
 import type {
   AlmanacData,
   AstrolabeData,
@@ -115,7 +117,8 @@ function formatJinkoujueDetail(data: JinkoujueData) {
       : '',
     `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '未记录'}`,
     data.bihePoem ? `四位比合：${data.bihePoem}` : '',
-    `四位关系：贵将${data.relations.guiToJiang}；贵人${data.relations.guiToRen}；将地${data.relations.jiangToDi}；人地${data.relations.renToDi}；贵地${data.relations.guiToDi}`,
+    formatJinkoujueRelations(data),
+    formatJinkoujueMovementRules(),
   ].filter(Boolean);
 }
 
@@ -142,8 +145,8 @@ function formatLiurenDetail(data: LiurenData) {
   return [
     `地盘：${data.earthlyPlate?.join('、') || '未列'}`,
     `天盘：${data.heavenlyPlate.map((item) => `${item.under}上${item.branch}乘${item.god}`).join('；')}`,
-    `四课：${data.fourLessons.map((item) => `${item.name}${item.upper}临${item.lower}乘${item.god}，${item.relation}`).join('；')}`,
-    `三传：${data.threeTransmissions.map((item) => `${item.stage}${item.branch}乘${item.god}，${item.relation}${item.isVoid ? '（空）' : ''}`).join('；')}`,
+    `四课：${data.fourLessons.map(formatLiurenLesson).join('；')}`,
+    `三传：${data.threeTransmissions.map((_, index) => formatLiurenTransmission(data, index)).join('；')}`,
     data.guaTi?.length ? `课体：${data.guaTi.join('、')}` : '',
   ];
 }

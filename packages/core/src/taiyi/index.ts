@@ -700,6 +700,9 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   });
   const prompt = [
     `【太乙神数 · ${scopeInfo.title}】`,
+    scope === 'year'
+      ? `分析目标：${year}年年计。`
+      : `分析目标：${dateTime}（东八区）起局的${scopeInfo.title}盘。`,
     `本计干支：${ganZhi}。`,
     `${yinYang}第 ${bureau} 局。`,
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,

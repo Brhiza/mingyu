@@ -54,7 +54,17 @@ export function buildMetaphysicsPromptDocument(
 
   const sections = [
     buildPromptGuidance(options.method),
-    buildPromptSection('当前时间', formatPromptCurrentTime(options.currentTime)),
+    buildPromptSection(
+      '当前时间',
+      [
+        options.method === 'zodiac'
+          ? '时间身份：本节为提问时点的历法背景；生肖流年关系的参与资料为下列出生年支与目标流年干支。'
+          : '',
+        formatPromptCurrentTime(options.currentTime),
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    ),
     baseSection,
     options.measurement ? buildPromptSection('测量换算', options.measurement) : '',
     buildPromptSchoolSection(options.method, options.schools),

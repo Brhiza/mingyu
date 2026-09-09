@@ -5,6 +5,7 @@
  */
 
 import type { QimenLifetimeData } from '../../../../types/divination';
+import { formatFixedTimezoneOffset } from '../../../../calendar/civil-time';
 
 /**
  * 构建终身局自包含提示词任务书
@@ -17,7 +18,7 @@ export function buildLifetimePrompt(data: QimenLifetimeData, question?: string):
 
   // 1. 【当前时间】
   lines.push(`【当前时间】`);
-  lines.push(`${nowStr}（${data.basis.timeZoneUsed}）\n`);
+  lines.push(`${nowStr}（UTC${formatFixedTimezoneOffset(-now.getTimezoneOffset() / 60)}）\n`);
 
   // 2. 【传统依据】
   lines.push(`【传统依据】`);
@@ -48,6 +49,7 @@ export function buildLifetimePrompt(data: QimenLifetimeData, question?: string):
   // 3. 【起盘依据】
   lines.push(`【起盘依据】`);
   lines.push(`出生时刻：${data.input.birthDateTime}`);
+  lines.push(`出生时区：${data.basis.timeZoneUsed}`);
   lines.push(`历法口径：${data.basis.calendar}`);
   lines.push(
     `时间标准：${data.basis.timeStandard}${data.basis.trueSolarOffsetSeconds !== undefined ? `（经度时差与均时差校正 ${data.basis.trueSolarOffsetSeconds} 秒）` : ''}`,
