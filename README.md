@@ -106,7 +106,7 @@ npx skills add Brhiza/mingyu --skill mingyu -g -y
 
 提供适配移动端的 Android 原生 APK，支持在生成排盘后**一键唤起已安装的 AI 应用**（如 ChatGPT、Claude、Kimi 等）直接对话，API Key 仅保存在本地设备。
 
-正式 APK 发布后会同步到 `download.aov.cc` 并由 Cloudflare CDN 分发；应用优先使用统一下载，同时保留蓝奏云、GitHub Release 和加速线路作为回退。
+正式 APK 发布后会同步到 `download.aov.cc` 并由 Cloudflare CDN 分发；应用默认使用官方下载，失败时回退到 GitHub Release。
 
 ```bash
 # 同步 Web 资源到 Android 工程
