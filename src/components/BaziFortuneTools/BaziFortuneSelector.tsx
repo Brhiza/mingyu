@@ -12,6 +12,7 @@ import {
 import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
 import {
   formatBaziTenGodAbbreviation,
+  formatBaziMonthStart,
   getCurrentLuckCycle,
   getWuxingClass,
   splitGanZhi,
@@ -244,7 +245,12 @@ export function BaziFortuneSelector(props: {
                   onClick={() => setSelectedMonth(monthNumber)}
                 >
                   <div className="fortune-year">{item.month}</div>
-                  <div className="fortune-age">{monthNumber}月</div>
+                  <div
+                    className="fortune-age"
+                    title={`${item.startTermName ?? ''} ${item.startDateTime ?? item.startDate}`}
+                  >
+                    {formatBaziMonthStart(item)}
+                  </div>
                   <FortuneGanZhi ganZhi={item.ganZhi} dayMaster={result.dayMaster.gan} />
                 </button>
               );
