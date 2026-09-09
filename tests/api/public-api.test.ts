@@ -1208,6 +1208,25 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
     /命语|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,
   );
 
+  const alignedShensha = await callApi('foundation/shensha', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      yearGanZhi: '乙亥',
+      monthGanZhi: '辛巳',
+      dayGanZhi: '甲辰',
+      hourGanZhi: '癸酉',
+    }),
+  });
+  assert.equal(alignedShensha.response.status, 200);
+  const alignedFacts = Object.fromEntries(
+    alignedShensha.body.data.matchFacts.map((item: { id: string }) => [item.id, item]),
+  ) as Record<string, { matchedPillars: Array<{ pillar: string }>; inputDependencies: string[] }>;
+  assert.ok(alignedFacts.kongwang.matchedPillars.some((item) => item.pillar === 'hourGanZhi'));
+  assert.ok(alignedFacts.taohua.matchedPillars.some((item) => item.pillar === 'hourGanZhi'));
+  assert.deepEqual(alignedFacts.kongwang.inputDependencies, ['dayGanZhi', 'yearGanZhi']);
+  assert.deepEqual(alignedFacts.taohua.inputDependencies, ['yearGanZhi', 'dayGanZhi']);
+
   for (const payload of [{ ganZhi: '甲丑' }, { ganZhi: '' }]) {
     const invalid = await callApi('foundation/ganzhi', {
       method: 'POST',
@@ -1443,18 +1462,24 @@ test('公开 API 八字排盘接口只返回排盘结果', async () => {
 });
 
 test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明细', async () => {
+  const input = {
+    gender: 'female',
+    year: 1987,
+    month: 7,
+    day: 5,
+    timeIndex: 6,
+    dateType: 'solar',
+    shenShaScope: 'all',
+  };
   const { response, body } = await callApi('bazi/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      gender: 'female',
-      year: 1987,
-      month: 7,
-      day: 5,
-      timeIndex: 6,
-      dateType: 'solar',
-      detailMode: 'compact',
-    }),
+    body: JSON.stringify({ ...input, detailMode: 'compact' }),
+  });
+  const full = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, detailMode: 'full' }),
   });
 
   assert.equal(response.status, 200);
@@ -1464,7 +1489,7 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
   assert.ok(body.data.luckInfo.cycles.length > 0);
   assert.equal(body.data.luckInfo.cycles[0].years, undefined);
   assert.equal(body.data.evidenceAnalysis, undefined);
-  assert.equal(body.data.shensha, undefined);
+  assert.deepEqual(body.data.shensha, full.body.data.shensha);
   assert.equal(body.data.shenShaAnalysis, undefined);
 });
 

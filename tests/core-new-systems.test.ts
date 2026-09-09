@@ -71,8 +71,8 @@ test('shensha: 可扩展 registry（不破坏既有系统）', () => {
     dayGanZhi: '甲申',
     hourGanZhi: '丁卯',
   });
-  assert.deepEqual(jiaXu[0].value, ['申', '酉']);
-  assert.deepEqual(jiaShen[0].value, ['午', '未']);
+  assert.deepEqual(jiaXu[0].value, ['申', '酉', '戌', '亥']);
+  assert.deepEqual(jiaShen[0].value, ['午', '未', '戌', '亥']);
   // 自定义神煞可自由注册（地基可继续拓展）
   core.shensha.registerShensha({
     id: 'demo',

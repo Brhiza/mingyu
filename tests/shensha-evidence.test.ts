@@ -69,8 +69,8 @@ test('神煞计算及证据结果与注册函数返回值相互隔离', () => {
   assert.equal(analysis.context.dayGanZhi, context.dayGanZhi);
 });
 
-test('六十甲子旬空按六旬原典固定表完整核对', () => {
-  // 识典《奇门遁甲秘笈大全·旬空》，仅核公共旬空，不混用各体系命中规则。
+test('六十甲子日年旬空按六旬原典固定表完整核对', () => {
+  // 识典《奇门遁甲秘笈大全·旬空》，以相同日年柱逐项核对六旬固定表。
   // https://www.shidianguji.com/zh/book/SDZJ0630/chapter/1lx9g1u5suadm
   const stems = [...'甲乙丙丁戊己庚辛壬癸'];
   const branches = [...'子丑寅卯辰巳午未申酉戌亥'];
@@ -79,7 +79,7 @@ test('六十甲子旬空按六旬原典固定表完整核对', () => {
     const dayGanZhi = stems[index % 10] + branches[index % 12];
     const expected = [...voids[Math.floor(index / 10)]];
     assert.deepEqual(
-      computeShensha(['kongwang'], { ...context, dayGanZhi })[0].value,
+      computeShensha(['kongwang'], { ...context, yearGanZhi: dayGanZhi, dayGanZhi })[0].value,
       expected,
       dayGanZhi,
     );
@@ -106,7 +106,7 @@ test('通用神煞计算拒绝未知编号和无效四柱，与证据入口一�
   assert.deepEqual(computeShensha([], context), []);
 });
 
-test('十二年支驿马与桃花目标按古籍三合起例核对', () => {
+test('十二年支与日支驿马、桃花目标按古籍三合起例核对', () => {
   // 识典《太上玄灵北斗本命延生经注·驿马》及《古今图书集成·艺术典·论咸池》。
   // https://www.shidianguji.com/zh/mid-page/7317722448558899209
   // https://www.shidianguji.com/mid-page/7597555537223942182
@@ -126,19 +126,25 @@ test('十二年支驿马与桃花目标按古籍三合起例核对', () => {
   ];
   const horses = ['寅', '亥', '申', '巳', '寅', '亥', '申', '巳', '寅', '亥', '申', '巳'];
   const flowers = ['酉', '午', '卯', '子', '酉', '午', '卯', '子', '酉', '午', '卯', '子'];
+  const dayHorse = '寅';
+  const dayFlower = '酉';
   for (const [index, yearGanZhi] of years.entries()) {
     const input = { ...context, yearGanZhi };
     const results = computeShensha(['yima', 'taohua'], input);
+    const expected = [
+      Array.from(new Set([horses[index], dayHorse])),
+      Array.from(new Set([flowers[index], dayFlower])),
+    ];
     assert.deepEqual(
       results.map((item) => item.value),
-      [horses[index], flowers[index]],
+      expected,
       yearGanZhi,
     );
     assert.deepEqual(
       analyzeShenshaEvidence(input, ['yima', 'taohua']).matchFacts.map(
         (item) => item.targetBranches,
       ),
-      [[horses[index]], [flowers[index]]],
+      expected,
     );
   }
 });

@@ -254,11 +254,15 @@ const SHENSHA_LIMITATION_FACT_LIMITATION =
 const SHENSHA_SUMMARY_LIMITATION =
   '神煞证据汇总只统计输入、规则取值、逐柱命中与来源声明的覆盖，不表示传统神煞具有现代实证效力或现实预测准确率' as const;
 
-/** 旬空（日柱旬空）：甲子旬戌亥空 … 甲寅旬子丑空 */
-function getVoidBranchesFromDay(dayGanZhi: string): string[] {
-  return SixtyCycle.fromName(dayGanZhi)
+/** 旬空：甲子旬戌亥空 … 甲寅旬子丑空 */
+function getVoidBranches(ganZhi: string): string[] {
+  return SixtyCycle.fromName(ganZhi)
     .getExtraEarthBranches()
     .map((branch) => branch.getName());
+}
+
+function uniqueBranches(...groups: string[][]): string[] {
+  return Array.from(new Set(groups.flat()));
 }
 
 /** 通用命理神煞：空亡、驿马、桃花 */
@@ -268,18 +272,20 @@ export const COMMON_SHENSHA: ShenshaDefinition[] = [
     name: '空亡',
     scope: 'common',
     evidence: {
-      inputDependencies: ['dayGanZhi'],
-      ruleText: '按日柱所属旬取得两支旬空，再核对年、月、日、时四柱地支',
+      inputDependencies: ['dayGanZhi', 'yearGanZhi'],
+      ruleText: '按日柱与年柱所属旬分别取得旬空地支，再核对年、月、日、时四柱地支',
       sources: ['六十甲子旬空固定规则', 'tyme4ts 六十甲子旬空资料'],
       resultMeaning: 'target-branches',
     },
     compute: (ctx) => {
-      const branches = getVoidBranchesFromDay(ctx.dayGanZhi);
+      const dayBranches = getVoidBranches(ctx.dayGanZhi);
+      const yearBranches = getVoidBranches(ctx.yearGanZhi);
+      const branches = uniqueBranches(dayBranches, yearBranches);
       return {
         id: 'kongwang',
         name: '空亡',
         value: branches,
-        detail: `日柱${ctx.dayGanZhi}旬空：${branches.join('、')}`,
+        detail: `日柱${ctx.dayGanZhi}旬空：${dayBranches.join('、')}；年柱${ctx.yearGanZhi}旬空：${yearBranches.join('、')}`,
       };
     },
   },
@@ -288,15 +294,22 @@ export const COMMON_SHENSHA: ShenshaDefinition[] = [
     name: '驿马',
     scope: 'common',
     evidence: {
-      inputDependencies: ['yearGanZhi'],
-      ruleText: '按年支所属三合局取得驿马地支，再核对年、月、日、时四柱地支',
-      sources: ['年支三合局对应驿马固定表', '公共干支驿马映射'],
+      inputDependencies: ['yearGanZhi', 'dayGanZhi'],
+      ruleText: '按年支与日支所属三合局分别取得驿马地支，再核对年、月、日、时四柱地支',
+      sources: ['年支与日支三合局对应驿马固定表', '公共干支驿马映射'],
       resultMeaning: 'target-branches',
     },
     compute: (ctx) => {
-      const yb = branchOf(ctx.yearGanZhi);
-      const m = getYiMa(yb);
-      return { id: 'yima', name: '驿马', value: m, detail: `年支${yb}驿马在${m}` };
+      const yearBranch = branchOf(ctx.yearGanZhi);
+      const dayBranch = branchOf(ctx.dayGanZhi);
+      const yearTarget = getYiMa(yearBranch);
+      const dayTarget = getYiMa(dayBranch);
+      return {
+        id: 'yima',
+        name: '驿马',
+        value: uniqueBranches([yearTarget], [dayTarget]),
+        detail: `年支${yearBranch}驿马在${yearTarget}；日支${dayBranch}驿马在${dayTarget}`,
+      };
     },
   },
   {
@@ -304,15 +317,22 @@ export const COMMON_SHENSHA: ShenshaDefinition[] = [
     name: '桃花',
     scope: 'common',
     evidence: {
-      inputDependencies: ['yearGanZhi'],
-      ruleText: '按年支所属三合局取得桃花地支，再核对年、月、日、时四柱地支',
-      sources: ['年支三合局对应桃花固定表', '公共干支桃花映射'],
+      inputDependencies: ['yearGanZhi', 'dayGanZhi'],
+      ruleText: '按年支与日支所属三合局分别取得桃花地支，再核对年、月、日、时四柱地支',
+      sources: ['年支与日支三合局对应桃花固定表', '公共干支桃花映射'],
       resultMeaning: 'target-branches',
     },
     compute: (ctx) => {
-      const yb = branchOf(ctx.yearGanZhi);
-      const t = getTaoHua(yb);
-      return { id: 'taohua', name: '桃花', value: t, detail: `年支${yb}桃花在${t}` };
+      const yearBranch = branchOf(ctx.yearGanZhi);
+      const dayBranch = branchOf(ctx.dayGanZhi);
+      const yearTarget = getTaoHua(yearBranch);
+      const dayTarget = getTaoHua(dayBranch);
+      return {
+        id: 'taohua',
+        name: '桃花',
+        value: uniqueBranches([yearTarget], [dayTarget]),
+        detail: `年支${yearBranch}桃花在${yearTarget}；日支${dayBranch}桃花在${dayTarget}`,
+      };
     },
   },
 ];
