@@ -31,7 +31,6 @@ import { QuestionInspirationModal } from '@/components/QuestionInspirationModal'
 import { useViewportSize } from '@/hooks/useViewportWidth';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
-import { formatBaziForPrompt } from 'mingyu-core/bazi';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
@@ -48,6 +47,8 @@ import {
   buildCombinedPromptText,
   formatZiweiPromptScopeSummary,
   formatBaziFullFortuneText,
+  buildEnhancedBaziPromptPack,
+  formatZiweiSupportingScopeText,
   formatZiweiFullScopeText,
   getBaziShortcutActions,
   getZiweiShortcutActions,
@@ -120,7 +121,6 @@ import {
 } from 'mingyu-core/prompt';
 
 type FortuneScopePreset = 'default' | 'dayun' | 'year' | 'month' | 'day' | 'all' | 'manual';
-type FortuneScopePresetKind = 'bazi' | 'ziwei' | 'astrolabe';
 
 function toPromptScope(scope: string) {
   return scope === 'origin' ? 'natal' : scope;
@@ -152,44 +152,21 @@ function applyZiweiPromptSelection(
 function FortuneScopePresetSelect(props: {
   value: FortuneScopePreset;
   onChange: (value: FortuneScopePreset) => void;
-  kind: FortuneScopePresetKind;
   currentAvailable?: boolean;
   disabled?: boolean;
 }) {
   const currentAvailable = props.currentAvailable ?? true;
-  const currentOptions: DropdownSelectOption<FortuneScopePreset>[] =
-    props.kind === 'bazi'
-      ? [
-          { value: 'dayun', label: '当前大运', disabled: !currentAvailable },
-          { value: 'year', label: '当前流年', disabled: !currentAvailable },
-          { value: 'month', label: '当前流月', disabled: !currentAvailable },
-          { value: 'day', label: '当前流日', disabled: !currentAvailable },
-        ]
-      : props.kind === 'ziwei'
-        ? [
-            { value: 'dayun', label: '当前大限' },
-            { value: 'year', label: '当前流年' },
-            { value: 'month', label: '当前流月' },
-            { value: 'day', label: '当前流日' },
-          ]
-        : [
-            { value: 'year', label: '当前流年' },
-            { value: 'month', label: '当前流月' },
-            { value: 'day', label: '当前流日' },
-          ];
   const options: DropdownSelectOption<FortuneScopePreset>[] = [
-    { value: 'default', label: '本命（默认）', triggerLabel: '本命' },
-    ...currentOptions,
-    {
-      value: 'all',
-      label: props.kind === 'bazi' ? '全部大运' : props.kind === 'ziwei' ? '完整运限' : '完整行运',
-    },
-    { value: 'manual', label: '自选年限' },
+    { value: 'default', label: '本命总览', triggerLabel: '本命总览' },
+    { value: 'year', label: '今年运势', disabled: !currentAvailable },
+    { value: 'manual', label: '自选时间…', triggerLabel: '自选时间' },
   ];
+  const selectedValue =
+    props.value === 'default' || props.value === 'year' ? props.value : 'manual';
 
   return (
     <DropdownSelect
-      value={props.value}
+      value={selectedValue}
       options={options}
       onChange={props.onChange}
       disabled={props.disabled}
@@ -525,6 +502,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     primaryZiweiInput,
     partnerZiweiInput,
     activeZiweiPayloadByScope,
+    promptZiweiScopePayloads,
     currentZiweiPayload,
     partnerZiweiPayload,
   } = useZiweiCalculations(inputState, promptState, mountedTabs.ziwei, mountedTabs.prompt);
@@ -894,14 +872,18 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       };
 
       if (promptState.promptSource === 'bazi-ziwei') {
-        const mappedZiweiScope = mapBaziFortuneToZiweiScope(next);
+        const context =
+          baziResult && baziFortuneSelectionModule
+            ? baziFortuneSelectionModule.buildFortuneSelectionContext(baziResult, next)
+            : null;
+        const mappedZiweiScope = mapBaziFortuneToZiweiScope(next, context);
         nextPromptState.ziweiScope = mappedZiweiScope.scope;
         nextPromptState.ziweiScopeDate = mappedZiweiScope.dateStr;
       }
 
       updatePromptState(nextPromptState);
     },
-    [promptState.promptSource, updatePromptState],
+    [baziResult, baziFortuneSelectionModule, promptState.promptSource, updatePromptState],
   );
 
   function handleBaziFortunePresetChange(value: FortuneScopePreset) {
@@ -1282,6 +1264,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       );
     }
     if (!currentZiweiPayload) return '';
+    const supportingText = formatZiweiSupportingScopeText(
+      promptZiweiScopePayloads,
+      currentZiweiPayload.active_scope.scope,
+    );
     const basePrompt = buildCombinedZiweiPrompt(
       currentZiweiPayload,
       promptState.ziweiTopic,
@@ -1299,7 +1285,9 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               ? basePrompt.replace('【问题】', `【完整运限资料】\n${fullScopeText}\n\n【问题】`)
               : basePrompt;
           })()
-        : basePrompt;
+        : supportingText
+          ? basePrompt.replace('【问题】', `【上层运限资料】\n${supportingText}\n\n【问题】`)
+          : basePrompt;
     return applyZiweiPromptSelection(
       scopedPrompt,
       promptState.ziweiTopicId,
@@ -1330,10 +1318,19 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     }
 
     const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(activeBaziShortcutMode);
-    return buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic);
+    return [
+      buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic),
+      formatZiweiSupportingScopeText(
+        promptZiweiScopePayloads,
+        currentZiweiPayload.active_scope.scope,
+      ),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
   }, [
     activeBaziShortcutMode,
     currentZiweiPayload,
+    promptZiweiScopePayloads,
     isInstantResult,
     promptState.promptSource,
     showAssistantPane,
@@ -1349,7 +1346,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       return '';
     }
 
-    const baseText = formatBaziForPrompt(baziResult, null, 'general');
+    const baseText = buildEnhancedBaziPromptPack(baziResult, baziFortuneContext);
     const fullFortuneText =
       promptState.baziFortuneScope === 'full' ? formatBaziFullFortuneText(baziResult) : '';
 
@@ -1358,6 +1355,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       .join('\n\n');
   }, [
     baziResult,
+    baziFortuneContext,
     isInstantResult,
     promptState.baziFortuneScope,
     promptState.promptSource,
@@ -1513,6 +1511,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       activeZiweiPayloadByScope,
+      promptZiweiScopePayloads,
       currentZiweiPayload,
       activeZiweiShortcutMode,
       effectiveZiweiQuickQuestion,
@@ -1543,6 +1542,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       activeZiweiPayloadByScope,
+      promptZiweiScopePayloads,
       currentZiweiPayload,
       activeZiweiShortcutMode,
       deferredZiweiQuickQuestion,
@@ -1744,6 +1744,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       enhancedZiweiPromptPack,
       finalBaziQuestion,
       inputState.analysisMode,
+      promptState.baziTopicId,
+      promptState.baziSubtopicId,
+      promptState.ziweiTopicId,
+      promptState.ziweiSubtopicId,
       promptState.baziFortuneScope,
       promptState.promptSource,
       showAssistantPane,
@@ -1781,6 +1785,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       finalBaziQuestion,
       inputState.analysisMode,
       latestEnhancedPromptText,
+      promptState.baziTopicId,
+      promptState.baziSubtopicId,
+      promptState.ziweiTopicId,
+      promptState.ziweiSubtopicId,
       promptState.baziFortuneScope,
       promptState.promptSource,
       showAssistantPane,
@@ -2059,7 +2067,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         <FortuneScopePresetSelect
           value={baziFortunePreset}
           onChange={handleBaziFortunePresetChange}
-          kind="bazi"
           currentAvailable={Boolean(currentBaziFortuneSelection)}
         />
       ) : null}
@@ -2068,7 +2075,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         <FortuneScopePresetSelect
           value={ziweiScopePreset}
           onChange={handleZiweiScopePresetChange}
-          kind="ziwei"
           disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
         />
       ) : null}
@@ -2077,10 +2083,20 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         <FortuneScopePresetSelect
           value={astrolabeScopePreset}
           onChange={handleAstrolabeScopePresetChange}
-          kind="astrolabe"
           disabled={!astrolabeCalculation.data}
         />
       ) : null}
+      <small className="workspace-prompt-scope-summary">
+        {promptState.promptSource === 'ziwei'
+          ? ziweiScopeSummaryText
+          : promptState.promptSource === 'astrolabe'
+            ? promptState.astrolabeScope === 'natal'
+              ? '本命盘'
+              : `${promptState.astrolabeScopeDate || currentDateStr} · ${promptState.astrolabeScope === 'full' ? '各层行运' : promptState.astrolabeScope === 'yearly' ? '全年' : promptState.astrolabeScope === 'monthly' ? '整月' : '当日'}`
+            : promptState.baziFortuneScope === 'full'
+              ? '本命与全部大运流年'
+              : baziFortuneContext?.displayLabel || '本命盘与大运概览'}
+      </small>
     </div>
   ) : null;
   const aiComposerTools = (
@@ -2097,6 +2113,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         {promptScopeField}
       </div>
 
+      {(promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei') &&
+      ziweiError ? (
+        <p className="error-text">{ziweiError}</p>
+      ) : null}
       {isAstrolabePromptSource && astrolabeCalculation.error ? (
         <p className="error-text">{astrolabeCalculation.error}</p>
       ) : null}
@@ -2399,7 +2419,15 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               <div className="workspace-prompt-layout is-workbench">
                 <PromptWorkbenchPanel
                   promptText={previewActivePromptText}
-                  fallback={<PromptPreSkeleton />}
+                  fallback={
+                    ziweiError &&
+                    (promptState.promptSource === 'ziwei' ||
+                      promptState.promptSource === 'bazi-ziwei') ? (
+                      <p className="error-text">{ziweiError}</p>
+                    ) : (
+                      <PromptPreSkeleton />
+                    )
+                  }
                   copyState={copyState}
                   shareState={shareState}
                   onCopy={handleCopy}
@@ -2441,6 +2469,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                     />
                   </label>
 
+                  {(promptState.promptSource === 'ziwei' ||
+                    promptState.promptSource === 'bazi-ziwei') &&
+                  ziweiError ? (
+                    <p className="error-text">{ziweiError}</p>
+                  ) : null}
                   {isAstrolabePromptSource && astrolabeCalculation.error ? (
                     <p className="error-text">{astrolabeCalculation.error}</p>
                   ) : null}

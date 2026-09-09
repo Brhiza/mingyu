@@ -12,6 +12,7 @@ import {
   getZiweiDisplayKey,
   getZiweiInputKey,
   loadZiweiDisplayPayload,
+  loadZiweiPromptScopePayloads,
   loadZiweiPayload,
   loadZiweiRuntime,
   stabilizeZiweiChartInput,
@@ -30,6 +31,7 @@ export interface ZiweiCalculations {
   activeZiweiPayloadByScope: ZiweiPayloadByScopeState;
   activePartnerZiweiPayloadByScope: ZiweiPayloadByScopeState;
   currentZiweiPayload: AnalysisPayloadV1 | null;
+  promptZiweiScopePayloads: Partial<Record<ScopeType, AnalysisPayloadV1>> | null;
   partnerZiweiPayload: AnalysisPayloadV1 | null;
 }
 
@@ -114,6 +116,9 @@ export function useZiweiCalculations(
   const [promptZiweiPayload, setPromptZiweiPayload] = useState<AnalysisPayloadV1 | null>(null);
   const [promptPartnerZiweiPayload, setPromptPartnerZiweiPayload] =
     useState<AnalysisPayloadV1 | null>(null);
+  const [promptScopePayloads, setPromptScopePayloads] = useState<Partial<
+    Record<ScopeType, AnalysisPayloadV1>
+  > | null>(null);
   const [promptZiweiPayloadKey, setPromptZiweiPayloadKey] = useState('');
   const [promptPartnerZiweiPayloadKey, setPromptPartnerZiweiPayloadKey] = useState('');
   const [ziweiError, setZiweiError] = useState('');
@@ -349,28 +354,24 @@ export function useZiweiCalculations(
       return;
     }
 
-    const cached = getCachedZiweiDisplayPayload(primaryPromptDisplayKey);
-    if (cached) {
-      setPromptZiweiPayload(cached);
-      setPromptZiweiPayloadKey(primaryPromptDisplayKey);
-      return;
-    }
-
     let active = true;
-    void loadZiweiDisplayPayload(
+    void loadZiweiPromptScopePayloads(
       primaryZiweiInput,
       primaryZiweiInputKey,
       promptState.ziweiScopeDate,
       promptHourIndex,
       ziweiPromptScopeType,
     )
-      .then((payload) => {
+      .then((payloads) => {
         if (!active) return;
-        setPromptZiweiPayload(payload);
+        setPromptScopePayloads(payloads);
+        setPromptZiweiPayload(payloads[ziweiPromptScopeType] ?? null);
+        setZiweiError('');
         setPromptZiweiPayloadKey(primaryPromptDisplayKey);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (active) {
+          setZiweiError(error instanceof Error ? error.message : '紫微运限盘生成失败。');
           setPromptZiweiPayload(null);
           setPromptZiweiPayloadKey('');
         }
@@ -467,8 +468,14 @@ export function useZiweiCalculations(
       : partnerPromptDisplayKey
         ? getCachedZiweiDisplayPayload(partnerPromptDisplayKey)
         : null;
-  const currentZiweiPayload = activePromptZiweiPayload ?? defaultZiweiPayload;
-  const partnerZiweiPayload = activePromptPartnerZiweiPayload ?? defaultPartnerZiweiPayload;
+  const currentZiweiPayload = shouldUseCustomZiweiPromptPayload
+    ? promptZiweiPayloadKey === primaryPromptDisplayKey
+      ? promptZiweiPayload
+      : null
+    : defaultZiweiPayload;
+  const partnerZiweiPayload = shouldUseCustomZiweiPromptPayload
+    ? activePromptPartnerZiweiPayload
+    : defaultPartnerZiweiPayload;
 
   return {
     ziweiRuntime: currentZiweiRuntime,
@@ -483,6 +490,11 @@ export function useZiweiCalculations(
     activeZiweiPayloadByScope,
     activePartnerZiweiPayloadByScope,
     currentZiweiPayload,
+    promptZiweiScopePayloads: shouldUseCustomZiweiPromptPayload
+      ? promptZiweiPayloadKey === primaryPromptDisplayKey
+        ? promptScopePayloads
+        : null
+      : activeZiweiPayloadByScope,
     partnerZiweiPayload,
   };
 }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildBaziZiweiEnhancedPrompt,
+  buildEnhancedBaziPromptPack,
   buildAstrolabeFullScopePromptText,
   getZiweiDisplaySurroundedPalaces,
   buildZiweiMonthAnchorDate,
@@ -20,6 +21,7 @@ import {
   writePromptDraft,
 } from '../src/pages/ResultPage/ResultPage.helpers';
 import { buildPersonFromInput, calculateFullBaziChart } from '../src/lib/full-chart-engine/bazi';
+import { buildFortuneSelectionContext, buildCurrentBaziFortuneSelection } from 'mingyu-core/bazi';
 import type { AnalysisPayloadV1 } from '../src/types/analysis';
 
 test('parseZiweiDateParts 正确解析合法日期', () => {
@@ -169,14 +171,6 @@ test('八字年限可映射为统一的紫微范围', () => {
   assert.deepEqual(mapBaziFortuneToZiweiScope({ scope: 'year', year: 2028 }), {
     scope: 'yearly',
     dateStr: '2028-07-01',
-  });
-  assert.deepEqual(mapBaziFortuneToZiweiScope({ scope: 'month', year: 2028, month: 6 }), {
-    scope: 'monthly',
-    dateStr: '2028-06-15',
-  });
-  assert.deepEqual(mapBaziFortuneToZiweiScope({ scope: 'day', year: 2028, month: 6, day: 9 }), {
-    scope: 'daily',
-    dateStr: '2028-06-09',
   });
 });
 
@@ -340,4 +334,49 @@ test('问题灵感草稿应与自定义草稿分开存储，避免互相覆盖',
       });
     }
   }
+});
+
+test('合参八字正文包含所选月份的上层岁运和逐日资料', () => {
+  const result = calculateFullBaziChart(
+    buildPersonFromInput({
+      gender: 'male',
+      dateType: 'solar',
+      year: '1990',
+      month: '5',
+      day: '15',
+      timeIndex: 1,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+      birthHour: '',
+      birthMinute: '',
+      birthPlace: '',
+      birthLongitude: '',
+    }),
+  );
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2028-06-15T12:00:00+08:00'));
+  assert.ok(selection);
+  const context = buildFortuneSelectionContext(result, { ...selection, scope: 'month' });
+  assert.ok(context);
+  const text = buildEnhancedBaziPromptPack(result, context);
+  assert.match(text, /【岁运重点】/);
+  assert.ok(text.includes(context.cycleGanZhi));
+  assert.ok(text.includes(context.yearGanZhi!));
+  assert.ok(text.includes(context.monthGanZhi!));
+  assert.match(text, /该流月包含的流日/);
+  const mapped = mapBaziFortuneToZiweiScope({ ...selection, scope: 'month' }, context);
+  assert.ok(context.dayBreakdown?.some((day) => day.date === mapped.dateStr));
+  const cycleContext = buildFortuneSelectionContext(result, { ...selection, scope: 'dayun' });
+  assert.ok(cycleContext);
+  assert.ok(mapBaziFortuneToZiweiScope({ scope: 'dayun' }, cycleContext).dateStr);
+  assert.doesNotMatch(buildEnhancedBaziPromptPack(result, null), /【岁运重点】/);
+});
+
+test('合参月份与流日按节气月真实日期映射，跨年丑月落在下一年', () => {
+  const month = mapBaziFortuneToZiweiScope({ scope: 'month', year: 2026, month: 5 });
+  assert.equal(month.scope, 'monthly');
+  assert.ok(month.dateStr >= '2026-06-05' && month.dateStr < '2026-07-07');
+  const nextYear = mapBaziFortuneToZiweiScope({ scope: 'month', year: 2026, month: 12 });
+  assert.ok(nextYear.dateStr >= '2027-01-05' && nextYear.dateStr < '2027-02-04');
+  const day = mapBaziFortuneToZiweiScope({ scope: 'day', year: 2026, month: 12, day: 9 });
+  assert.deepEqual(day, { scope: 'daily', dateStr: '2027-01-13' });
 });

@@ -469,7 +469,14 @@ label.workspace-ui-field > span:first-child {
   font-size: 14px;
 }
 
+.workspace-ui-dropdown-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .workspace-ui-dropdown-prefix {
+  flex-shrink: 0;
   margin-right: 6px;
   color: var(--text-muted);
   font-size: 0.85em;
@@ -1463,7 +1470,7 @@ label.workspace-ui-field > span:first-child {
   min-width: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: center;
+  align-items: start;
   gap: 8px;
 }
 
@@ -1498,15 +1505,26 @@ label.workspace-ui-field > span:first-child {
   min-width: 0;
 }
 
+.workspace-prompt-composer-toolbar > .workspace-prompt-selection-fields {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.workspace-prompt-composer-toolbar > .workspace-prompt-scope {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .workspace-prompt-selection-fields {
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   align-items: center;
   gap: 6px;
 }
 
 .workspace-prompt-selection-method {
+  display: none;
   grid-column: 1 / -1;
   min-width: 0;
   overflow: hidden;
@@ -3321,4 +3339,14 @@ button:focus-visible,
   padding-left: 12px;
   border-left: 2px solid var(--border-soft);
   color: var(--accent-strong);
+}
+
+.workspace-prompt-scope-summary {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

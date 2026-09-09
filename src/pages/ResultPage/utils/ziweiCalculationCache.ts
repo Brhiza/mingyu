@@ -133,3 +133,20 @@ export function loadZiweiDisplayPayload(
   pendingDisplayPayload.set(displayKey, request);
   return request;
 }
+
+export async function loadZiweiPromptScopePayloads(
+  input: ChartInput,
+  inputKey: string,
+  dateStr: string,
+  hourIndex: number,
+  scope: ScopeType,
+): Promise<Partial<Record<ScopeType, AnalysisPayloadV1>>> {
+  const order: ScopeType[] = ['decadal', 'yearly', 'monthly', 'daily', 'hourly'];
+  const index = order.indexOf(scope);
+  const scopes = index < 0 ? [scope] : order.slice(0, index + 1);
+  const payloads: Partial<Record<ScopeType, AnalysisPayloadV1>> = {};
+  for (const layer of scopes) {
+    payloads[layer] = await loadZiweiDisplayPayload(input, inputKey, dateStr, hourIndex, layer);
+  }
+  return payloads;
+}
