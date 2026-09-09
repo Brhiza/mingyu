@@ -1,0 +1,110 @@
+.workspace-ui-dialog.home-selection-dialog {
+  width: min(900px, calc(100vw - 32px));
+  max-height: min(780px, calc(100dvh - 32px));
+}
+
+.home-selection-search {
+  padding: 16px 20px 0;
+}
+
+.home-selection-search input {
+  width: 100%;
+}
+
+.home-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.home-selection-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.home-selection-card.is-selected {
+  border-color: var(--accent-strong);
+  background: var(--state-selected-surface);
+}
+
+.home-selection-option {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  padding: 18px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.home-selection-option:hover,
+.home-selection-favorite:hover {
+  background: var(--state-hover-surface);
+}
+
+.home-selection-option:focus-visible,
+.home-selection-favorite:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: -3px;
+}
+
+.home-selection-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  font-size: 16px;
+}
+
+.home-selection-status {
+  flex-shrink: 0;
+  color: var(--accent-strong);
+  font-size: 12px;
+}
+
+.home-selection-description {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.home-selection-favorite {
+  align-self: flex-start;
+  min-height: 36px;
+  margin: 0 12px 10px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.home-selection-favorite[aria-pressed='true'] {
+  color: var(--accent-strong);
+}
+
+.home-selection-empty {
+  padding: 24px 0;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .home-selection-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-selection-option {
+    padding: 16px;
+  }
+}
