@@ -45,7 +45,7 @@
 | **月相证据** | `/calendar/moon-phase` | `calendar_moon_phase` | 月相角、照明比例、朔弦望事件 |
 | **节气证据** | `/calendar/solar-term` | `calendar_solar_term` | 历表时刻、黄经度数与独立求根核验 |
 | **地基能力** | `/foundation/capabilities` | `foundation_capabilities` | 历法干支五行方位常量目录 |
-| **通用神煞** | `/foundation/shensha` | `foundation_shensha` | 严格核验四柱，返回空亡、驿马、桃花命中与来源 |
+| **通用神煞** | `/foundation/shensha` | `foundation_shensha` | 按八字默认口径核验四柱：空亡取日柱与年柱旬空，驿马、桃花同时按年支与日支查，返回逐柱命中与来源 |
 | **即时排盘** | `/instant/calculate` | `instant_chart` | 当刻排八字/紫微/合参/星盘/七政盘，无需性别 |
 | **八字排盘** | `/bazi/calculate` | `bazi_calculate` | 四柱十神藏干大运神煞旺衰 |
 | **八字提示词** | `/bazi/prompt` | `bazi_prompt` | `promptTopic`、`baziFortuneScope`、`schools` |
@@ -169,7 +169,7 @@
 - `timeZoneId` 使用 IANA 时区标识（例如 `Asia/Shanghai` 或 `America/New_York`），优先用于需要按出生日期解析历史时区或夏令时的场景。
 - `useTrueSolarTime: true` 用于八字或紫微真太阳时排盘。提供 `birthHour`、`birthMinute`、`birthLongitude` 后可省略 `timeIndex`，接口会自动推导真太阳时对应的时辰。
 - `POST /calendar/true-solar-birth` 是出生资料专用的真太阳时换算接口；一般当地钟表时间换算使用 `POST /calendar/true-solar-time`。两个接口的结果都从 AOV REST 响应的 `data` 字段读取。
-- `detailMode: "compact"` 适合常规调用和前端展示；`detailMode: "full"` 返回完整证据链与计算过程，适合审计或研究。
+- `detailMode: "compact"` 适合常规调用和前端展示；八字排盘会保留逐柱神煞命中，省略神煞解释、完整证据链与计算过程。`detailMode: "full"` 返回神煞解释、完整证据链与计算过程，适合审计或研究。
 
 八字真太阳时排盘示例：
 
@@ -242,7 +242,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
    - 轻量摘要：`summary`。返回提示词及核心盘面摘要；
    - 完整原始数据：`full`。仅在需要前端渲染完整交互式排盘或导出原始 JSON 时使用。
 2. **排盘明细 `detailMode`**：
-   - `compact`：在八字、紫微、奇门和黄历排盘中，过滤冗长计算步骤，仅保留核心盘面；
+   - `compact`：在八字、紫微、奇门和黄历排盘中，过滤冗长计算步骤，仅保留核心盘面；八字仍保留逐柱神煞命中；
    - `full`：返回全量证据节点。
 3. **服务异常与降级**：
    - 当 API 返回 5xx、超时或网络中断时，保留用户输入并转由上层 Skill 执行人工盘面核验或基于已知柱位做保守分析；

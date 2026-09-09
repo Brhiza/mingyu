@@ -16,7 +16,14 @@
  *       神煞体系混淆。
  */
 import { SolarDay, SixtyCycle, SixtyCycleDay, God } from 'tyme4ts';
-import { EARTHLY_BRANCHES, getYiMa, getTaoHua, isValidGanZhi, isLiuhe } from '../ganzhi';
+import {
+  EARTHLY_BRANCHES,
+  getYiMa,
+  getTaoHua,
+  getXunKongBranches,
+  isValidGanZhi,
+  isLiuhe,
+} from '../ganzhi';
 import { daysInGregorianMonth } from '../calendar/date-validation';
 
 export type ShenshaScope = 'common' | 'bazi' | 'liuren' | 'qimen' | 'taiyi' | 'qizheng' | 'bazhai';
@@ -254,13 +261,6 @@ const SHENSHA_LIMITATION_FACT_LIMITATION =
 const SHENSHA_SUMMARY_LIMITATION =
   '神煞证据汇总只统计输入、规则取值、逐柱命中与来源声明的覆盖，不表示传统神煞具有现代实证效力或现实预测准确率' as const;
 
-/** 旬空：甲子旬戌亥空 … 甲寅旬子丑空 */
-function getVoidBranches(ganZhi: string): string[] {
-  return SixtyCycle.fromName(ganZhi)
-    .getExtraEarthBranches()
-    .map((branch) => branch.getName());
-}
-
 function uniqueBranches(...groups: string[][]): string[] {
   return Array.from(new Set(groups.flat()));
 }
@@ -278,8 +278,8 @@ export const COMMON_SHENSHA: ShenshaDefinition[] = [
       resultMeaning: 'target-branches',
     },
     compute: (ctx) => {
-      const dayBranches = getVoidBranches(ctx.dayGanZhi);
-      const yearBranches = getVoidBranches(ctx.yearGanZhi);
+      const dayBranches = getXunKongBranches(ctx.dayGanZhi);
+      const yearBranches = getXunKongBranches(ctx.yearGanZhi);
       const branches = uniqueBranches(dayBranches, yearBranches);
       return {
         id: 'kongwang',

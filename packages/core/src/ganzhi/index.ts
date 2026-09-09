@@ -7,7 +7,7 @@
  *     （按《钦定协纪辨方书》等实现的权威历法库），保证与经典一致且单一真相源。
  *   - 十二长生统一「土长生在寅」流派（火土同宫，与八字/奇门所用 tyme4ts 一致）：
  *     委托 tyme4ts HeavenStem.getTerrain(branch) 取得权威长生状态；本地表仅作异常回退。
- *   - 刑、破、三合、三会、驿马、桃花、旬空 —— tyme4ts 未提供，由公共 relations 模块实现。
+ *   - 旬空委托 tyme4ts 六十甲子资料；刑、破、三合、三会、驿马、桃花由公共 relations 模块实现。
  *
  * 对外函数签名与返回形状保持不变，已接入 API/MCP 的模块无需改动。
  */
@@ -380,6 +380,14 @@ function buildGanZhiEvidence(profile: GanZhiBaseProfile): GanZhiEvidenceFields {
 /** 返回六十甲子副本，避免调用方改写公共序列。 */
 export function getSixtyCycle(): string[] {
   return [...SIXTY_CYCLE];
+}
+
+/** 按六十甲子所属旬返回两支旬空。 */
+export function getXunKongBranches(ganZhi: string): string[] {
+  assertValidGanZhi(ganZhi, '旬空干支');
+  return SixtyCycle.fromName(ganZhi)
+    .getExtraEarthBranches()
+    .map((branch: { getName(): string }) => branch.getName());
 }
 
 /** 天干基础属性与合冲关系。 */

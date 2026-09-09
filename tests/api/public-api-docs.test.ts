@@ -8,11 +8,21 @@ const aovProviderRef = readFileSync(
   'public/skills/aov-mingyu-api/references/providers/aov-mingyu.md',
   'utf8',
 );
-const skillProviderRefs = [
-  readFileSync('skills/mingyu/references/providers/aov-mingyu.md', 'utf8'),
-  readFileSync('public/skills/mingyu/references/providers/aov-mingyu.md', 'utf8'),
-  aovProviderRef,
-];
+const sourceProviderRef = readFileSync('skills/mingyu/references/providers/aov-mingyu.md', 'utf8');
+const publicMingyuProviderRef = readFileSync(
+  'public/skills/mingyu/references/providers/aov-mingyu.md',
+  'utf8',
+);
+const skillProviderRefs = [sourceProviderRef, publicMingyuProviderRef, aovProviderRef];
+
+test('Provider 源手册与发布副本应保持同一神煞和轻量输出口径', () => {
+  assert.equal(publicMingyuProviderRef, sourceProviderRef);
+  for (const content of [...skillProviderRefs, publicApiDocs]) {
+    assert.match(content, /空亡.*日柱.*年柱.*旬空/);
+    assert.match(content, /驿马、桃花.*年支.*日支/);
+    assert.match(content, /detailMode: "compact".*(?:保留|包含).*逐柱神煞命中/);
+  }
+});
 
 test('所有 AOV Provider 手册必须使用当前 REST 端点和 OpenAPI 包装层', () => {
   for (const content of skillProviderRefs) {

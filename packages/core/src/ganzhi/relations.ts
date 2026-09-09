@@ -485,9 +485,9 @@ export function getTianGanHeWuxing(stem: string): string | null {
   return TIAN_GAN_HE[stem]?.wuxing || null;
 }
 
-/** 检查地支是否为驿马（寅午戌年马在申等） */
-export function getYiMa(yearBranch: string): string {
-  assertBranch(yearBranch, '年支');
+/** 按起例地支取得驿马（寅午戌马在申等）。 */
+export function getYiMa(sourceBranch: string): string {
+  assertBranch(sourceBranch, '起例地支');
   const map: Record<string, string> = {
     寅: '申',
     午: '申',
@@ -502,16 +502,16 @@ export function getYiMa(yearBranch: string): string {
     卯: '巳',
     未: '巳',
   };
-  const branch = map[yearBranch];
+  const branch = map[sourceBranch];
   if (!branch) {
-    throw new Error(`驿马数据缺失：${yearBranch}`);
+    throw new Error(`驿马数据缺失：${sourceBranch}`);
   }
   return branch;
 }
 
-/** 检查地支是否为桃花（寅午戌年卯等） */
-export function getTaoHua(yearBranch: string): string {
-  assertBranch(yearBranch, '年支');
+/** 按起例地支取得桃花（寅午戌桃花在卯等）。 */
+export function getTaoHua(sourceBranch: string): string {
+  assertBranch(sourceBranch, '起例地支');
   const map: Record<string, string> = {
     寅: '卯',
     午: '卯',
@@ -526,9 +526,9 @@ export function getTaoHua(yearBranch: string): string {
     卯: '子',
     未: '子',
   };
-  const branch = map[yearBranch];
+  const branch = map[sourceBranch];
   if (!branch) {
-    throw new Error(`桃花数据缺失：${yearBranch}`);
+    throw new Error(`桃花数据缺失：${sourceBranch}`);
   }
   return branch;
 }

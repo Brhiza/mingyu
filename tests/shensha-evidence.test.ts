@@ -11,6 +11,8 @@ import {
   registerShenshas,
   type ShenshaDefinition,
 } from '../packages/core/src/shensha/index.ts';
+import { ShenShaCalculator } from '../packages/core/src/bazi/baziShenSha/index.ts';
+import { EARTHLY_BRANCHES, getSixtyCycle } from '../packages/core/src/ganzhi/index.ts';
 
 const context = {
   yearGanZhi: '甲子',
@@ -146,6 +148,54 @@ test('十二年支与日支驿马、桃花目标按古籍三合起例核对', ()
       ),
       expected,
     );
+  }
+});
+
+test('通用神煞与八字默认口径应在年日支组合中保持逐柱一致', () => {
+  const calculator = new ShenShaCalculator({ scope: 'all' });
+  const pillarNames = ['year', 'month', 'day', 'hour'] as const;
+  const evidencePillars = ['yearGanZhi', 'monthGanZhi', 'dayGanZhi', 'hourGanZhi'] as const;
+  const ruleNames = { kongwang: '空亡', yima: '驿马', taohua: '桃花' } as const;
+  const cycles = getSixtyCycle();
+  const branchPillars = Object.fromEntries(
+    EARTHLY_BRANCHES.map((branch) => [branch, cycles.find((ganZhi) => ganZhi[1] === branch)!]),
+  ) as Record<string, string>;
+  const representativePillars = Object.values(branchPillars);
+  const yearAndDayPairs = [
+    ...representativePillars.map((yearGanZhi) => ({ yearGanZhi, dayGanZhi: '甲辰' })),
+    ...representativePillars.map((dayGanZhi) => ({ yearGanZhi: '乙亥', dayGanZhi })),
+  ];
+
+  for (const { yearGanZhi, dayGanZhi } of yearAndDayPairs) {
+    for (const hourGanZhi of representativePillars) {
+      const ganZhiPillars = [yearGanZhi, '辛巳', dayGanZhi, hourGanZhi];
+      const baziResult = calculator.calculateAllShenSha(
+        ganZhiPillars.map((ganZhi): [string, string] => [ganZhi[0], ganZhi[1]]),
+        'female',
+      );
+      const evidence = analyzeShenshaEvidence({
+        yearGanZhi,
+        monthGanZhi: '辛巳',
+        dayGanZhi,
+        hourGanZhi,
+      });
+
+      for (const [id, name] of Object.entries(ruleNames)) {
+        const baziMatches = pillarNames.filter((pillar) => baziResult[pillar].includes(name));
+        const evidenceMatches = evidencePillars
+          .filter((pillar) =>
+            evidence.matchFacts
+              .find((item) => item.id === id)!
+              .matchedPillars.some((item) => item.pillar === pillar),
+          )
+          .map((pillar) => pillar.replace('GanZhi', ''));
+        assert.deepEqual(
+          evidenceMatches,
+          baziMatches,
+          `${yearGanZhi}/${dayGanZhi}/${hourGanZhi} 的${name}口径不一致`,
+        );
+      }
+    }
   }
 });
 
