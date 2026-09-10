@@ -76,6 +76,31 @@ export function assertFixedTimezoneHours(value: number, label = 'timezone'): voi
   }
 }
 
+/**
+ * 将真实瞬时点按固定 UTC 偏移读取为当地钟表字段。
+ *
+ * 这里刻意不经过 IANA 时区规则；需要历史夏令时或其他地区规则时，调用方
+ * 应显式提供 timeZoneId 并使用 resolveCivilTime。
+ */
+export function getCivilDateTimeAtFixedOffset(
+  referenceDate: Date,
+  timezone = DEFAULT_CHINA_TIMEZONE_HOURS,
+): CivilDateTimeParts {
+  if (!(referenceDate instanceof Date) || Number.isNaN(referenceDate.getTime())) {
+    throw new Error('参考时间不是有效日期。');
+  }
+  assertFixedTimezoneHours(timezone);
+  const shifted = new Date(referenceDate.getTime() + timezone * 3600000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+  };
+}
+
 function validateCivilDateTime(input: CivilDateTimeParts): void {
   const maxDay = daysInGregorianMonth(input.year, input.month);
   if (!Number.isInteger(input.day) || input.day < 1 || input.day > maxDay) {

@@ -364,14 +364,11 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 10：节令背景
   // ──────────────────────────────────────────────────────────────────────────
-  const seasonalityDate = new Date(
-    timeInfo.solar.year,
-    timeInfo.solar.month - 1,
-    timeInfo.solar.day,
-    timeInfo.solar.hour ?? 0,
-    timeInfo.solar.minute ?? 0,
+  const seasonality = buildSeasonality(
+    ganzhi,
+    jushuResult.actualJieQi || jieQi,
+    new Date(timestamp),
   );
-  const seasonality = buildSeasonality(ganzhi, jushuResult.actualJieQi || jieQi, seasonalityDate);
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 11：宫位洞察

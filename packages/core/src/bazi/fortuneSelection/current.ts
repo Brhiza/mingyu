@@ -1,47 +1,17 @@
 import { getBaziDayIndexByDate, getBaziMonthIndexByDate } from '../calendarTool';
 import type { BaziChartResult } from '../baziTypes';
-import { getLuckCycleForDate } from '../luckTiming';
+import {
+  createCivilDate,
+  getLuckCycleForCivilDate,
+  getLuckCycleForDate,
+  toChinaCivilDate,
+} from '../luckTiming';
 import type { BaziFortuneSelectionValue } from './helpers/types';
-
-const CHINA_TIME_ZONE = 'Asia/Shanghai';
-const chinaDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
-  timeZone: CHINA_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hourCycle: 'h23',
-});
 
 function assertValidDate(value: Date): void {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
     throw new TypeError('当前运势定位需要有效日期。');
   }
-}
-
-/**
- * 将瞬时点转换成北京时间的民用日期，再用运行环境本地 Date 表示。
- *
- * 八字节令与流日范围由本模块按民用年月日构造，不能直接拿 UTC 服务器的
- * getFullYear/getHours 与这些范围比较；否则交节前后会偏移一个时区。这里
- * 保留北京时间的墙上时间，确保浏览器、Node 与边缘运行时得到同一结果。
- */
-function toChinaLocalDate(reference: Date): Date {
-  const parts = chinaDateTimeFormatter.formatToParts(reference);
-  const values = Object.fromEntries(
-    parts.filter((part) => part.type !== 'literal').map((part) => [part.type, Number(part.value)]),
-  );
-  return new Date(
-    values.year,
-    values.month - 1,
-    values.day,
-    values.hour,
-    values.minute,
-    values.second,
-    reference.getMilliseconds(),
-  );
 }
 
 /** 按精确交运时刻定位大运；数字年份参数仅为旧调用方式保留。 */
@@ -51,10 +21,13 @@ export function getCurrentBaziLuckCycle(
 ): BaziChartResult['luckInfo']['cycles'][number] | null {
   if (reference instanceof Date) {
     assertValidDate(reference);
-    return getLuckCycleForDate(result.luckInfo.cycles, toChinaLocalDate(reference));
+    return getLuckCycleForDate(result.luckInfo.cycles, reference);
   }
   if (!Number.isInteger(reference)) throw new TypeError('当前年份必须是整数。');
-  return getLuckCycleForDate(result.luckInfo.cycles, new Date(reference, 6, 1, 12, 0, 0));
+  return getLuckCycleForCivilDate(
+    result.luckInfo.cycles,
+    createCivilDate(reference, 7, 1, 12, 0, 0),
+  );
 }
 
 /** 生成可直接传给 buildFortuneSelectionContext 的当前流日选择。 */
@@ -63,23 +36,23 @@ export function buildCurrentBaziFortuneSelection(
   now = new Date(),
 ): BaziFortuneSelectionValue | null {
   assertValidDate(now);
-  const localNow = toChinaLocalDate(now);
+  const civilNow = toChinaCivilDate(now);
   const currentCycle = getCurrentBaziLuckCycle(result, now);
   if (!currentCycle) return null;
   const cycleIndex = result.luckInfo.cycles.findIndex((item) => item === currentCycle);
 
   // 元旦至立春前属于上一节令年的末段：当前公历年查不到时须回查上一年，
   // 不得回退到当年首月首日冒充当前日期
-  let termYear = localNow.getFullYear();
-  let monthIndex = getBaziMonthIndexByDate(termYear, localNow);
+  let termYear = civilNow.getUTCFullYear();
+  let monthIndex = getBaziMonthIndexByDate(termYear, now);
   if (monthIndex === undefined) {
     termYear -= 1;
-    monthIndex = getBaziMonthIndexByDate(termYear, localNow);
+    monthIndex = getBaziMonthIndexByDate(termYear, now);
   }
   if (monthIndex === undefined) {
     throw new Error('当前日期无法定位到所属节令月，不回退到默认首月。');
   }
-  const day = getBaziDayIndexByDate(termYear, monthIndex, localNow);
+  const day = getBaziDayIndexByDate(termYear, monthIndex, now);
   if (day === undefined) {
     throw new Error('当前日期无法定位到所属节令日，不回退到默认首日。');
   }

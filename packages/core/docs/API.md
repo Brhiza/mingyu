@@ -328,6 +328,8 @@
 
 运限选择便捷入口：`import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune'`。传入一个童限或大限年龄范围后，可一次得到流年、流月、流日选项及各自干支。八字对应提供 `getCurrentBaziLuckCycle()`、`buildCurrentBaziFortuneSelection()` 和 `buildRecentBaziFortuneSelection()`，可直接生成 `buildFortuneSelectionContext()` 所需选择值；定位与各层列表均按精确交运时刻裁剪，时间范围同时返回结构化本地时间与时间戳。流时默认使用十二时辰，第三个参数传 `{ hourMode: 'splitZi' }` 可兼容旧版早晚子时拆分。目标时间不在命盘已计算的童限或大运范围内时，这三个入口返回 `null`，不会回退到第一步大运。
 
+八字日历与运限查询的 `Date` 参数表示真实瞬时点，统一按中国标准时（固定 UTC+8）读取年月日时分秒，不自动套用历史夏令时。`toNativeDate()` 将中国民用时间字段转换为真实瞬时点，传入 `Date` 时复制该瞬时点；`fromNativeDate()` 按固定 UTC+8 还原字段。`LocalTimeRange.startTimestamp/endTimestamp` 为 UTC epoch 毫秒，`start/end` 为对应中国民用时间，结束边界不包含在范围内。指定时点可使用 `new Date("2026-03-08T02:30:00+08:00")`，避免依赖宿主机器的默认时区；需要历史 IANA 时区规则时，应使用明确的 `timeZoneId`/`applyChinaDst` 输入路径。
+
 依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前固定版本传统目录登记 87 项，其中 55 条具备卷次、原文和可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中。空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
 
 ---

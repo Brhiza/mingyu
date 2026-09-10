@@ -73,7 +73,7 @@ export class TimeManager {
   }
 
   /**
-   * 在指定时区偏移下提取年月日时分（不改变原始时间戳）
+   * 在指定时区偏移下提取年月日时分秒（不改变原始时间戳）
    */
   private static getDatePartsInOffset(
     date: Date,
@@ -84,6 +84,7 @@ export class TimeManager {
     day: number;
     hour: number;
     minute: number;
+    second: number;
   } {
     const shifted = new Date(date.getTime() + offsetMinutes * 60 * 1000);
     return {
@@ -92,6 +93,7 @@ export class TimeManager {
       day: shifted.getUTCDate(),
       hour: shifted.getUTCHours(),
       minute: shifted.getUTCMinutes(),
+      second: shifted.getUTCSeconds(),
     };
   }
 
@@ -113,8 +115,8 @@ export class TimeManager {
   }
 
   /**
-   * 按统一时区策略提取墙上时间的年月日时分（默认东八区）。
-   * 供紫微等模块取"当前时刻"，避免直接读运行环境本地时区导致跨模块日期/时辰不一致。
+   * 按统一时区策略提取墙上时间的年月日时分秒（默认东八区）。
+   * 供紫微、奇门等模块取"当前时刻"，避免直接读运行环境本地时区导致跨模块日期/时辰不一致。
    */
   static getWallClockParts(date: Date = new Date()): {
     year: number;
@@ -122,6 +124,7 @@ export class TimeManager {
     day: number;
     hour: number;
     minute: number;
+    second: number;
   } {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
       throw new Error('当前时间不是有效日期。');

@@ -153,7 +153,10 @@ export interface SolarDateTimeInfo {
   second: number;
 }
 
-/** 采用运行环境本地时区解释的半开时间区间：[start, end)。 */
+/**
+ * 中国民用墙上时间字段对应真实 UTC 瞬时点的半开区间：[start, end)。
+ * `startTimestamp` 与 `endTimestamp` 始终是对应瞬时点的 UTC epoch 毫秒数。
+ */
 export interface LocalTimeRange {
   start: SolarDateTimeInfo;
   end: SolarDateTimeInfo;

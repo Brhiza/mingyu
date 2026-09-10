@@ -1,6 +1,11 @@
 import { SolarTime } from 'tyme4ts';
 import { daysInSolarMonth } from '../../../calendar/date-validation';
-import { createLocalTimeRange } from '../../luckTiming';
+import {
+  createCivilDate,
+  createLocalTimeRange,
+  fromCivilDate,
+  toNativeDate as toChinaInstant,
+} from '../../luckTiming';
 import type { FortuneHourMode } from './types';
 
 function assertSolarDate(year: number, month: number, day: number) {
@@ -20,6 +25,12 @@ function assertSolarDate(year: number, month: number, day: number) {
   }
 }
 
+function createNativeDateAtHour(year: number, month: number, day: number, hour: number): Date {
+  const date = createCivilDate(year, month, day);
+  date.setUTCHours(hour, 0, 0, 0);
+  return toChinaInstant(fromCivilDate(date));
+}
+
 export function getDayHourBreakdown(
   year: number,
   month: number,
@@ -27,15 +38,16 @@ export function getDayHourBreakdown(
   mode: FortuneHourMode = 'twelve',
 ) {
   assertSolarDate(year, month, day);
-  const previousDate = new Date(year, month - 1, day - 1);
+  const previousDate = createCivilDate(year, month, day);
+  previousDate.setUTCDate(previousDate.getUTCDate() - 1);
   const splitZiEntries = [
     {
-      year: previousDate.getFullYear(),
-      month: previousDate.getMonth() + 1,
-      day: previousDate.getDate(),
+      year: previousDate.getUTCFullYear(),
+      month: previousDate.getUTCMonth() + 1,
+      day: previousDate.getUTCDate(),
       hour: 23,
       label: '晚子时',
-      timeRange: `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-${String(previousDate.getDate()).padStart(2, '0')} 23:00-23:59`,
+      timeRange: `${previousDate.getUTCFullYear()}-${String(previousDate.getUTCMonth() + 1).padStart(2, '0')}-${String(previousDate.getUTCDate()).padStart(2, '0')} 23:00-23:59`,
     },
     {
       year,
@@ -140,12 +152,12 @@ export function getDayHourBreakdown(
       ? splitZiEntries
       : [
           {
-            year: previousDate.getFullYear(),
-            month: previousDate.getMonth() + 1,
-            day: previousDate.getDate(),
+            year: previousDate.getUTCFullYear(),
+            month: previousDate.getUTCMonth() + 1,
+            day: previousDate.getUTCDate(),
             hour: 23,
             label: '子时',
-            timeRange: `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-${String(previousDate.getDate()).padStart(2, '0')} 23:00-${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} 00:59`,
+            timeRange: `${previousDate.getUTCFullYear()}-${String(previousDate.getUTCMonth() + 1).padStart(2, '0')}-${String(previousDate.getUTCDate()).padStart(2, '0')} 23:00-${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} 00:59`,
           },
           ...splitZiEntries.slice(2),
         ];
@@ -159,23 +171,19 @@ export function getDayHourBreakdown(
       ganZhi: hourPillar.getName(),
       timeRange: entry.timeRange,
       interval: createLocalTimeRange(
-        new Date(
+        createNativeDateAtHour(
           entry.year,
-          entry.month - 1,
+          entry.month,
           entry.day,
           entry.hour === 0 ? 0 : entry.hour - (entry.hour % 2 === 0 ? 1 : 0),
-          0,
-          0,
         ),
         entry.label === '子时'
-          ? new Date(year, month - 1, day, 1, 0, 0)
-          : new Date(
+          ? createNativeDateAtHour(year, month, day, 1)
+          : createNativeDateAtHour(
               entry.year,
-              entry.month - 1,
+              entry.month,
               entry.day,
               entry.hour === 0 ? 1 : entry.hour + 1,
-              0,
-              0,
             ),
       ),
     };

@@ -1,5 +1,5 @@
 import type { BaziChartResult } from '../bazi/baziTypes';
-import { getLuckCycleForDate } from '../bazi/luckTiming';
+import { createCivilDate, getLuckCycleForCivilDate } from '../bazi/luckTiming';
 import { calculateBirthChartBundle, type BirthChartBundle } from '../birth';
 import { getShichenByIndex } from '../calendar/dateUtils';
 import type { BirthProfile } from '../profile';
@@ -182,8 +182,12 @@ function resolveTimingReference(runtime: ZiweiRuntime): {
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
-  const date = new Date(year, month - 1, day, shichen.hour, shichen.minute, 0, 0);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+  const date = createCivilDate(year, month, day, shichen.hour, shichen.minute, 0);
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
     throw new Error('紫微运限上下文日期无效。');
   }
   return {
@@ -224,7 +228,7 @@ function createBaziFacts(
     })
     .join('；');
   const useful = chart.analysis.usefulGod;
-  const currentCycle = getLuckCycleForDate(chart.luckInfo.cycles, timingReference.date);
+  const currentCycle = getLuckCycleForCivilDate(chart.luckInfo.cycles, timingReference.date);
   const annual =
     chart.liunian
       ?.filter((item) => item.year === timingReference.fact.year)

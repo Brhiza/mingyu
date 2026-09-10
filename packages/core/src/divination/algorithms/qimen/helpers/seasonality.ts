@@ -25,6 +25,7 @@ import {
   calculateMoonPhaseEvidence,
   type MoonPhaseEvidence,
 } from '../../../../calendar/moon-phase-evidence';
+import { TimeManager } from '../../../../calendar/timeManager';
 import { stemElements, isGenerating, isControlling } from './_constants';
 import {
   LIUHE_MAP,
@@ -138,17 +139,18 @@ export interface JieQiPhaseResult {
  * 每个节气跨度约 15 天，拆分为上元（第 1-5 天）、中元（第 6-10 天）、
  * 下元（第 11-15 天）。此字段只描述节气内日期位置；正式定局三元由定局算法给出。
  *
- * @param date 太阳历（公历）日期
+ * @param date 真实瞬时点；民用年月日时分秒按 TimeManager 当前偏移读取
  * @returns 节气内自然日阶段信息
  */
 export function getJieQiPhaseByDate(date: Date): JieQiPhaseResult {
+  const civilTime = TimeManager.getWallClockParts(date);
   const solarTime = SolarTime.fromYmdHms(
-    date.getFullYear(),
-    date.getMonth() + 1,
-    date.getDate(),
-    date.getHours(),
-    date.getMinutes(),
-    date.getSeconds(),
+    civilTime.year,
+    civilTime.month,
+    civilTime.day,
+    civilTime.hour,
+    civilTime.minute,
+    civilTime.second,
   );
   const term = solarTime.getTerm();
   const jieQi = term.getName();
@@ -310,14 +312,15 @@ export function getLunarPhaseByIndex(index: number): LunarPhase {
 
 /**
  * 获取农历日对应的四相月相
- * @param date 公历日期
+ * @param date 真实瞬时点；公历日期按 TimeManager 当前偏移读取
  * @returns 月相
  */
 export function getLunarPhase(date: Date): LunarPhase {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     throw new Error('月相日期必须是有效日期。');
   }
-  const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  const civilTime = TimeManager.getWallClockParts(date);
+  const solarDay = SolarDay.fromYmd(civilTime.year, civilTime.month, civilTime.day);
   const phase = solarDay.getLunarDay().getPhase();
   return getLunarPhaseByIndex(phase.getIndex());
 }
@@ -409,7 +412,7 @@ export function getDayOfficerInfo(dayOfficer: string) {
  *
  * @param ganzhi 四柱干支
  * @param jieQi 节气名称
- * @param date 公历日期（用于从 tyme4ts 获取精确节气、月相、建除等数据）
+ * @param date 真实瞬时点；民用日期按 TimeManager 当前偏移读取，月相证据保留该瞬时点
  * @returns 节令背景信息
  */
 export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date): SeasonalityInfo {
@@ -425,7 +428,8 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
   const { relation, description } = getDaySeasonRelation(dayStem, seasonalElement);
 
   // ── 3. 月相 ──
-  const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  const civilTime = TimeManager.getWallClockParts(date);
+  const solarDay = SolarDay.fromYmd(civilTime.year, civilTime.month, civilTime.day);
   const tymePhase = solarDay.getLunarDay().getPhase();
   const phaseIndex = tymePhase.getIndex();
   const lunarPhase = getLunarPhaseByIndex(phaseIndex);

@@ -10,21 +10,21 @@ import {
 } from '@core/bazi/calendarTool';
 
 test('跨年末尾的日历信息应能找到下一节气', () => {
-  const info = getCalendarInfo(new Date(2026, 11, 31, 12, 0, 0));
+  const info = getCalendarInfo(new Date('2026-12-31T12:00:00+08:00'));
 
   assert.equal(info.jieQi.prev, '冬至 (2026-12-22)');
   assert.equal(info.jieQi.next, '小寒 (2027-01-05)');
 });
 
 test('农历日期格式不应重复输出月字', () => {
-  const info = getCalendarInfo(new Date(2026, 0, 1, 12, 0, 0));
+  const info = getCalendarInfo(new Date('2026-01-01T12:00:00+08:00'));
 
   assert.equal(info.lunarDate, '2025年十一月十三');
 });
 
 test('交节当小时内应按实际分钟区分前后节气', () => {
-  const before = getCalendarInfo(new Date(2026, 10, 7, 17, 51, 0));
-  const after = getCalendarInfo(new Date(2026, 10, 7, 17, 53, 0));
+  const before = getCalendarInfo(new Date('2026-11-07T17:51:00+08:00'));
+  const after = getCalendarInfo(new Date('2026-11-07T17:53:00+08:00'));
 
   assert.equal(before.jieQi.prev, '霜降 (2026-10-23)');
   assert.equal(before.jieQi.next, '立冬 (2026-11-07)');
@@ -47,8 +47,8 @@ test('节令月应保留交节当天的末日部分时段，而不是整天提�
 });
 
 test('交节当天应按具体时刻切换节令月，不应整天一起切换', () => {
-  const before = new Date(2024, 2, 5, 10, 21, 0);
-  const after = new Date(2024, 2, 5, 10, 23, 0);
+  const before = new Date('2024-03-05T10:21:00+08:00');
+  const after = new Date('2024-03-05T10:23:00+08:00');
 
   assert.equal(getBaziMonthIndexByDate(2024, before), 1);
   assert.equal(getBaziMonthIndexByDate(2024, after), 2);

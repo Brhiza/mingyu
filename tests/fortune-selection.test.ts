@@ -64,7 +64,7 @@ function createMockResult(): BaziChartResult {
 
 test('运限选择器的当天快捷值会选择对应的大运、流月和流日', () => {
   const result = createMockResult();
-  const selection = buildCurrentBaziFortuneSelection(result, new Date(2008, 1, 8, 12));
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2008-02-08T12:00:00+08:00'));
 
   assert.deepEqual(selection, {
     scope: 'day',
@@ -77,7 +77,7 @@ test('运限选择器的当天快捷值会选择对应的大运、流月和流�
 
 test('近期年限预设会选择当前流月而不是锁定当天', () => {
   const result = createMockResult();
-  const selection = buildRecentBaziFortuneSelection(result, new Date(2008, 1, 8, 12));
+  const selection = buildRecentBaziFortuneSelection(result, new Date('2008-02-08T12:00:00+08:00'));
 
   assert.deepEqual(selection, {
     scope: 'month',
@@ -90,7 +90,7 @@ test('近期年限预设会选择当前流月而不是锁定当天', () => {
 test('元旦至立春前的当前日期应回查上一节令年，不回退到当年首月首日', () => {
   const result = createMockResult();
   // 2008-01-15 处于立春前，节令年应为 2007 年的第十二月
-  const selection = buildCurrentBaziFortuneSelection(result, new Date(2008, 0, 15, 12));
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2008-01-15T12:00:00+08:00'));
   assert.ok(selection);
   assert.equal(selection.year, 2007);
   assert.equal(selection.month, 12);
@@ -117,7 +117,7 @@ test('当前阶段定位按北京时间计算，不受运行环境时区影响',
 
 test('当前年份不在命盘运限范围时不应静默回退到第一步大运', () => {
   const result = createMockResult();
-  const outOfRangeDate = new Date(1980, 1, 8, 12);
+  const outOfRangeDate = new Date('1980-02-08T12:00:00+08:00');
 
   assert.equal(getCurrentBaziLuckCycle(result, 1980), null);
   assert.equal(buildCurrentBaziFortuneSelection(result, outOfRangeDate), null);
@@ -344,7 +344,7 @@ test('岁运各层应按精确交运时刻裁剪并返回结构化时间', () =>
     month: 1,
     day: 5,
   });
-  assert.equal(day?.cycleTimeRange.startTimestamp, new Date(2008, 1, 8, 12).getTime());
+  assert.equal(day?.cycleTimeRange.startTimestamp, Date.parse('2008-02-08T12:00:00+08:00'));
   assert.ok(
     day?.hourBreakdown?.every(
       (item) => item.interval.startTimestamp >= day.cycleTimeRange.startTimestamp,

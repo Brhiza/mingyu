@@ -130,8 +130,9 @@ test('八字节令月应携带起止交节的结构化证据', () => {
 });
 
 test('八字本命节令与奇门节令阶段应复用同一节气证据', () => {
-  const baziSeason = calculateSeasonInfoFromDate(new Date(2024, 1, 10, 12, 0, 0));
-  const qimenPhase = getJieQiPhaseByDate(new Date(2024, 1, 10, 12, 0, 0));
+  const instant = new Date('2024-02-10T04:00:00.000Z');
+  const baziSeason = calculateSeasonInfoFromDate(instant);
+  const qimenPhase = getJieQiPhaseByDate(instant);
 
   assert.equal(baziSeason.currentJieqi, '立春');
   assert.equal(baziSeason.previousTermEvidence?.name, '立春');
