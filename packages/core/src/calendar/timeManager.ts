@@ -4,6 +4,7 @@
  */
 import type { TimeInfo, GanZhiInfo } from './lunar';
 import { SolarTime } from 'tyme4ts';
+import { DEFAULT_CHINA_TIMEZONE_HOURS } from './civil-time';
 import type { RandomOptions } from '../shared/random';
 import { createRandomSource, randomInt } from '../shared/random';
 
@@ -42,7 +43,17 @@ export class TimeManager {
   /**
    * 获取目标时区偏移（分钟）
    */
-  private static getTimezoneOffsetMinutes(date: Date): number {
+  private static getTimezoneOffsetMinutes(date: Date, explicitOffsetMinutes?: number): number {
+    if (explicitOffsetMinutes !== undefined) {
+      if (
+        !Number.isFinite(explicitOffsetMinutes) ||
+        explicitOffsetMinutes < -720 ||
+        explicitOffsetMinutes > 840
+      ) {
+        throw new Error('时区偏移分钟数需为 -720 到 840 之间的有效数字。');
+      }
+      return explicitOffsetMinutes;
+    }
     const override = this.timezoneOffsetMinutesOverride;
     if (typeof override === 'number' && Number.isFinite(override)) {
       return override;
@@ -97,18 +108,37 @@ export class TimeManager {
     };
   }
 
+  /** 按采用历表的标准时区读取真实瞬时点，用于节气与月令边界。 */
+  private static getTermSolarTime(date: Date, offsetMinutes: number): SolarTime {
+    const parts = this.getDatePartsInOffset(date, offsetMinutes);
+    return SolarTime.fromYmdHms(
+      parts.year,
+      parts.month,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    );
+  }
+
   /**
    * 获取占卜用的统一时间数据
    * @param customTime 自定义时间（可选）
+   * @param explicitOffsetMinutes 可选的本次计算时区偏移；传入时不读取全局默认值
    * @returns 统一的时间数据
    */
-  static getDivinationTime(customTime?: Date): DivinationTime {
+  static getDivinationTime(customTime?: Date, explicitOffsetMinutes?: number): DivinationTime {
     const targetTime = customTime === undefined ? new Date() : customTime;
     if (!(targetTime instanceof Date) || Number.isNaN(targetTime.getTime())) {
       throw new Error('自定义时间不是有效日期。');
     }
-    const timeInfo = this.getTimeInfo(targetTime);
-    const ganzhi = this.getGanZhi(targetTime);
+    const offsetMinutes = this.getTimezoneOffsetMinutes(targetTime, explicitOffsetMinutes);
+    // 显式地点时区下，节气仍按采用历表的中国标准时瞬时点定位；未显式传入时保留原有全局口径。
+    const termOffsetMinutes =
+      explicitOffsetMinutes === undefined ? offsetMinutes : DEFAULT_CHINA_TIMEZONE_HOURS * 60;
+    const termSolarTime = this.getTermSolarTime(targetTime, termOffsetMinutes);
+    const timeInfo = this.getTimeInfo(targetTime, offsetMinutes, termSolarTime);
+    const ganzhi = this.getGanZhi(targetTime, offsetMinutes, termSolarTime);
     const timestamp = targetTime.getTime();
 
     return { timeInfo, ganzhi, timestamp };
@@ -118,7 +148,10 @@ export class TimeManager {
    * 按统一时区策略提取墙上时间的年月日时分秒（默认东八区）。
    * 供紫微、奇门等模块取"当前时刻"，避免直接读运行环境本地时区导致跨模块日期/时辰不一致。
    */
-  static getWallClockParts(date: Date = new Date()): {
+  static getWallClockParts(
+    date: Date = new Date(),
+    explicitOffsetMinutes?: number,
+  ): {
     year: number;
     month: number;
     day: number;
@@ -129,7 +162,10 @@ export class TimeManager {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
       throw new Error('当前时间不是有效日期。');
     }
-    return this.getDatePartsInOffset(date, this.getTimezoneOffsetMinutes(date));
+    return this.getDatePartsInOffset(
+      date,
+      this.getTimezoneOffsetMinutes(date, explicitOffsetMinutes),
+    );
   }
 
   /**
@@ -192,8 +228,11 @@ export class TimeManager {
   /**
    * 获取指定时间的干支信息
    */
-  private static getGanZhi(date: Date): GanZhiInfo {
-    const offsetMinutes = this.getTimezoneOffsetMinutes(date);
+  private static getGanZhi(
+    date: Date,
+    offsetMinutes: number,
+    termSolarTime: SolarTime,
+  ): GanZhiInfo {
     const parts = this.getDatePartsInOffset(date, offsetMinutes);
     const solarTime = SolarTime.fromYmdHms(
       parts.year,
@@ -205,10 +244,11 @@ export class TimeManager {
     );
     const lunarHour = solarTime.getLunarHour();
     const eightChar = lunarHour.getEightChar();
+    const termEightChar = termSolarTime.getLunarHour().getEightChar();
 
     return {
-      year: eightChar.getYear().getName(),
-      month: eightChar.getMonth().getName(),
+      year: termEightChar.getYear().getName(),
+      month: termEightChar.getMonth().getName(),
       day: eightChar.getDay().getName(),
       hour: eightChar.getHour().getName(),
     };
@@ -217,8 +257,11 @@ export class TimeManager {
   /**
    * 获取指定时间的完整信息
    */
-  private static getTimeInfo(date: Date): TimeInfo {
-    const offsetMinutes = this.getTimezoneOffsetMinutes(date);
+  private static getTimeInfo(
+    date: Date,
+    offsetMinutes: number,
+    termSolarTime: SolarTime,
+  ): TimeInfo {
     const parts = this.getDatePartsInOffset(date, offsetMinutes);
     const solarTime = SolarTime.fromYmdHms(
       parts.year,
@@ -232,8 +275,9 @@ export class TimeManager {
     const lunarHour = solarTime.getLunarHour();
     const lunarDay = lunarHour.getLunarDay();
     const eightChar = lunarHour.getEightChar();
+    const termEightChar = termSolarTime.getLunarHour().getEightChar();
     const lunarDayText = lunarDay.toString().replace(/^农历/, '');
-    const jieQi = solarTime.getTerm();
+    const jieQi = termSolarTime.getTerm();
 
     return {
       solar: {
@@ -244,8 +288,8 @@ export class TimeManager {
         minute: parts.minute,
       },
       lunar: {
-        year: eightChar.getYear().getName(),
-        month: eightChar.getMonth().getName(),
+        year: termEightChar.getYear().getName(),
+        month: termEightChar.getMonth().getName(),
         day: eightChar.getDay().getName(),
         hour: eightChar.getHour().getName(),
         yearInChinese: lunarDayText.split('年')[0] + '年',
@@ -257,14 +301,14 @@ export class TimeManager {
         dayNumber: lunarDay.getDay(),
       },
       ganzhi: {
-        year: eightChar.getYear().getName(),
-        month: eightChar.getMonth().getName(),
+        year: termEightChar.getYear().getName(),
+        month: termEightChar.getMonth().getName(),
         day: eightChar.getDay().getName(),
         hour: eightChar.getHour().getName(),
       },
       eightChar: {
-        year: eightChar.getYear().getName(),
-        month: eightChar.getMonth().getName(),
+        year: termEightChar.getYear().getName(),
+        month: termEightChar.getMonth().getName(),
         day: eightChar.getDay().getName(),
         hour: eightChar.getHour().getName(),
       },

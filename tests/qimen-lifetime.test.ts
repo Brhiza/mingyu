@@ -53,6 +53,153 @@ test('奇门终身局 P0：时间标准化与真太阳时校正', () => {
   }, /启用真太阳时必须提供出生地经度/);
 });
 
+test('奇门终身局应沿用固定非东八区的 civil 与真实瞬时点', () => {
+  const input = {
+    birthDateTime: '1990-05-15T14:30:00',
+    timezone: -5,
+    timeStandard: 'civil' as const,
+  };
+  const normalized = normalizeQimenLifetimeTime(input);
+  const lifetime = calculateQimenLifetime(input);
+
+  assert.equal(normalized.timezoneOffsetMinutes, -300);
+  assert.equal(normalized.normalizedDate.toISOString(), '1990-05-15T19:30:00.000Z');
+  assert.equal(lifetime.baseChart.timestamp, normalized.normalizedDate.getTime());
+  assert.deepEqual(lifetime.baseChart.timeInfo.solar, {
+    year: 1990,
+    month: 5,
+    day: 15,
+    hour: 14,
+    minute: 30,
+  });
+  assert.equal(lifetime.stages[0].calendarStart, '1990-05-15');
+});
+
+test('奇门终身局 IANA 夏令时应让基础盘保持当地 civil', () => {
+  const input = {
+    birthDateTime: '2024-05-15T14:30:00',
+    timeZoneId: 'America/New_York',
+    timeStandard: 'civil' as const,
+  };
+  const normalized = normalizeQimenLifetimeTime(input);
+  const lifetime = calculateQimenLifetime(input);
+
+  assert.equal(normalized.timezoneOffsetMinutes, -240);
+  assert.equal(normalized.normalizedDate.toISOString(), '2024-05-15T18:30:00.000Z');
+  assert.equal(lifetime.baseChart.timestamp, normalized.normalizedDate.getTime());
+  assert.deepEqual(lifetime.baseChart.timeInfo.solar, {
+    year: 2024,
+    month: 5,
+    day: 15,
+    hour: 14,
+    minute: 30,
+  });
+  assert.match(lifetime.basis.timeZoneUsed, /America\/New_York \(UTC-4\)/);
+});
+
+test('奇门终身局真太阳时应沿用非东八区修正后的 civil', () => {
+  const input = {
+    birthDateTime: '2024-05-15T14:30:00',
+    timezone: -5,
+    timeStandard: 'trueSolar' as const,
+    location: { longitude: -74 },
+  };
+  const normalized = normalizeQimenLifetimeTime(input);
+  const lifetime = calculateQimenLifetime(input);
+  const solar = lifetime.baseChart.timeInfo.solar;
+
+  assert.equal(lifetime.baseChart.timestamp, normalized.normalizedDate.getTime());
+  assert.deepEqual(solar, {
+    year: normalized.calculationParts.year,
+    month: normalized.calculationParts.month,
+    day: normalized.calculationParts.day,
+    hour: normalized.calculationParts.hour,
+    minute: normalized.calculationParts.minute,
+  });
+});
+
+test('奇门终身局 UTC+14 当地午夜应保留出生日期并用于阶段日历', () => {
+  const input = {
+    birthDateTime: '2024-01-02T00:30:00',
+    timezone: 14,
+    timeStandard: 'civil' as const,
+  };
+  const normalized = normalizeQimenLifetimeTime(input);
+  const lifetime = calculateQimenLifetime(input);
+
+  assert.equal(normalized.normalizedDate.toISOString(), '2024-01-01T10:30:00.000Z');
+  assert.deepEqual(lifetime.baseChart.timeInfo.solar, {
+    year: 2024,
+    month: 1,
+    day: 2,
+    hour: 0,
+    minute: 30,
+  });
+  assert.equal(lifetime.stages[0].calendarStart, '2024-01-02');
+});
+
+test('奇门终身局非东八区应按真实瞬时点切换立春而保留当地日时', () => {
+  const nyBefore = calculateQimenLifetime({
+    birthDateTime: '2024-02-04T03:27:00',
+    timezone: -5,
+    timeStandard: 'civil',
+  });
+  const nyAfter = calculateQimenLifetime({
+    birthDateTime: '2024-02-04T03:27:15',
+    timezone: -5,
+    timeStandard: 'civil',
+  });
+  assert.equal(nyBefore.baseChart.timeInfo.solarTerm, '大寒');
+  assert.equal(nyAfter.baseChart.timeInfo.solarTerm, '立春');
+  assert.deepEqual(nyBefore.baseChart.timeInfo.solar, {
+    year: 2024,
+    month: 2,
+    day: 4,
+    hour: 3,
+    minute: 27,
+  });
+  assert.deepEqual(nyAfter.baseChart.timeInfo.solar, nyBefore.baseChart.timeInfo.solar);
+  assert.deepEqual(
+    [nyBefore.baseChart.ganzhi.year, nyBefore.baseChart.ganzhi.month],
+    ['癸卯', '乙丑'],
+  );
+  assert.deepEqual(
+    [nyAfter.baseChart.ganzhi.year, nyAfter.baseChart.ganzhi.month],
+    ['甲辰', '丙寅'],
+  );
+  assert.equal(nyBefore.baseChart.seasonality?.currentJieQi, '大寒');
+  assert.equal(nyAfter.baseChart.seasonality?.currentJieQi, '立春');
+
+  const apiaBefore = calculateQimenLifetime({
+    birthDateTime: '2024-02-04T22:27:00',
+    timezone: 14,
+    timeStandard: 'civil',
+  });
+  const apiaAfter = calculateQimenLifetime({
+    birthDateTime: '2024-02-04T22:27:15',
+    timezone: 14,
+    timeStandard: 'civil',
+  });
+  assert.equal(apiaBefore.baseChart.timeInfo.solarTerm, '大寒');
+  assert.equal(apiaAfter.baseChart.timeInfo.solarTerm, '立春');
+  assert.deepEqual(apiaBefore.baseChart.timeInfo.solar, {
+    year: 2024,
+    month: 2,
+    day: 4,
+    hour: 22,
+    minute: 27,
+  });
+  assert.deepEqual(apiaAfter.baseChart.timeInfo.solar, apiaBefore.baseChart.timeInfo.solar);
+  assert.deepEqual(
+    [apiaBefore.baseChart.ganzhi.year, apiaBefore.baseChart.ganzhi.month],
+    ['癸卯', '乙丑'],
+  );
+  assert.deepEqual(
+    [apiaAfter.baseChart.ganzhi.year, apiaAfter.baseChart.ganzhi.month],
+    ['甲辰', '丙寅'],
+  );
+});
+
 test('奇门终身局 P1：个人标记与六亲主题宫提取', () => {
   const lifetime = calculateQimenLifetime({
     birthDateTime: '2024-06-15T14:30:00+08:00', // 芒种阳六局庚戌日癸未时

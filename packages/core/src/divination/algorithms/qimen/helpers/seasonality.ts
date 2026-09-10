@@ -21,6 +21,7 @@ import {
   type SolarTermEvidence,
   type SolarTermName,
 } from '../../../../calendar/solar-term-evidence';
+import { DEFAULT_CHINA_TIMEZONE_HOURS } from '../../../../calendar/civil-time';
 import {
   calculateMoonPhaseEvidence,
   type MoonPhaseEvidence,
@@ -140,17 +141,26 @@ export interface JieQiPhaseResult {
  * 下元（第 11-15 天）。此字段只描述节气内日期位置；正式定局三元由定局算法给出。
  *
  * @param date 真实瞬时点；民用年月日时分秒按 TimeManager 当前偏移读取
+ * @param explicitOffsetMinutes 可选的本次计算时区偏移；传入时不读取全局默认值
+ * @param termOffsetMinutes 节气采用历表的参考偏移；显式地点时区通常传中国标准时 480 分钟
  * @returns 节气内自然日阶段信息
  */
-export function getJieQiPhaseByDate(date: Date): JieQiPhaseResult {
-  const civilTime = TimeManager.getWallClockParts(date);
+export function getJieQiPhaseByDate(
+  date: Date,
+  explicitOffsetMinutes?: number,
+  termOffsetMinutes?: number,
+): JieQiPhaseResult {
+  const resolvedTermOffsetMinutes =
+    termOffsetMinutes ??
+    (explicitOffsetMinutes === undefined ? undefined : DEFAULT_CHINA_TIMEZONE_HOURS * 60);
+  const termTimeParts = TimeManager.getWallClockParts(date, resolvedTermOffsetMinutes);
   const solarTime = SolarTime.fromYmdHms(
-    civilTime.year,
-    civilTime.month,
-    civilTime.day,
-    civilTime.hour,
-    civilTime.minute,
-    civilTime.second,
+    termTimeParts.year,
+    termTimeParts.month,
+    termTimeParts.day,
+    termTimeParts.hour,
+    termTimeParts.minute,
+    termTimeParts.second,
   );
   const term = solarTime.getTerm();
   const jieQi = term.getName();
@@ -315,11 +325,11 @@ export function getLunarPhaseByIndex(index: number): LunarPhase {
  * @param date 真实瞬时点；公历日期按 TimeManager 当前偏移读取
  * @returns 月相
  */
-export function getLunarPhase(date: Date): LunarPhase {
+export function getLunarPhase(date: Date, explicitOffsetMinutes?: number): LunarPhase {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     throw new Error('月相日期必须是有效日期。');
   }
-  const civilTime = TimeManager.getWallClockParts(date);
+  const civilTime = TimeManager.getWallClockParts(date, explicitOffsetMinutes);
   const solarDay = SolarDay.fromYmd(civilTime.year, civilTime.month, civilTime.day);
   const phase = solarDay.getLunarDay().getPhase();
   return getLunarPhaseByIndex(phase.getIndex());
@@ -413,11 +423,19 @@ export function getDayOfficerInfo(dayOfficer: string) {
  * @param ganzhi 四柱干支
  * @param jieQi 节气名称
  * @param date 真实瞬时点；民用日期按 TimeManager 当前偏移读取，月相证据保留该瞬时点
+ * @param explicitOffsetMinutes 可选的本次计算时区偏移；传入时民用日期与月相使用同一 civil
+ * @param termOffsetMinutes 节气采用历表的参考偏移；显式地点时区通常传中国标准时 480 分钟
  * @returns 节令背景信息
  */
-export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date): SeasonalityInfo {
+export function buildSeasonality(
+  ganzhi: BaseGanZhi,
+  jieQi: string,
+  date: Date,
+  explicitOffsetMinutes?: number,
+  termOffsetMinutes?: number,
+): SeasonalityInfo {
   // ── 1. 节气与三元阶段（优先以太阳历准确定位节气） ──
-  const jieQiPhase = getJieQiPhaseByDate(date);
+  const jieQiPhase = getJieQiPhaseByDate(date, explicitOffsetMinutes, termOffsetMinutes);
   // 使用参数传人的节气名作为兜底，优先以太阳历实际节气为准
   const actualJieQi = jieQiPhase.jieQi || jieQi;
   const seasonalElement = getSeasonalElement(actualJieQi);
@@ -428,7 +446,7 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
   const { relation, description } = getDaySeasonRelation(dayStem, seasonalElement);
 
   // ── 3. 月相 ──
-  const civilTime = TimeManager.getWallClockParts(date);
+  const civilTime = TimeManager.getWallClockParts(date, explicitOffsetMinutes);
   const solarDay = SolarDay.fromYmd(civilTime.year, civilTime.month, civilTime.day);
   const tymePhase = solarDay.getLunarDay().getPhase();
   const phaseIndex = tymePhase.getIndex();

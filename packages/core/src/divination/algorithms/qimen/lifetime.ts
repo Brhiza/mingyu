@@ -32,7 +32,13 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
   const juMethod = input.juMethod ?? 'chaibu';
 
   // 2. P1: 生成本命基础局（体）
-  const baseChart = generateQimen(timeResult.normalizedDate, method, 'hour', juMethod);
+  const baseChart = generateQimen(
+    timeResult.normalizedDate,
+    method,
+    'hour',
+    juMethod,
+    timeResult.timezoneOffsetMinutes,
+  );
 
   // 3. P1: 提取个人标记与六亲主题宫（枢）
   const personalMarkers = extractPersonalMarkers(baseChart);
@@ -46,6 +52,7 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
     timeResult.basis.stagePolicy,
     timeResult.normalizedDate,
     input.gender,
+    timeResult.calculationParts,
   );
 
   // 5. P3: 动态事件扫描与事件聚类（用，仅在指定 periodRange 时触发）

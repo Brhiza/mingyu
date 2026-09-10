@@ -8,6 +8,7 @@ import type { QimenLifetimeInput, QimenStagePolicy } from '../../../../types/div
 import {
   resolveCivilTime,
   DEFAULT_CHINA_TIMEZONE_HOURS,
+  getCivilDateTimeAtFixedOffset,
   type CivilDateTimeParts,
 } from '../../../../calendar/civil-time';
 import {
@@ -22,6 +23,8 @@ export interface QimenNormalizedTimeResult {
   normalizedDate: Date;
   /** 四柱计算基准日期（真太阳时模式下为经度修正后的时刻） */
   calculationParts: CivilDateTimeParts;
+  /** 本次计算应使用的当地 UTC 偏移（分钟），与 normalizedDate 表示同一 civil 时刻 */
+  timezoneOffsetMinutes: number;
   /** 依据元数据快照 */
   basis: {
     calendar: string;
@@ -172,13 +175,14 @@ export function normalizeQimenLifetimeTime(input: QimenLifetimeInput): QimenNorm
   // 4. 提取当令节气
   let solarTermName = '立春';
   try {
+    const termParts = getCivilDateTimeAtFixedOffset(normalizedDate, DEFAULT_CHINA_TIMEZONE_HOURS);
     const st = SolarTime.fromYmdHms(
-      calculationParts.year,
-      calculationParts.month,
-      calculationParts.day,
-      calculationParts.hour,
-      calculationParts.minute,
-      calculationParts.second,
+      termParts.year,
+      termParts.month,
+      termParts.day,
+      termParts.hour,
+      termParts.minute,
+      termParts.second,
     );
     solarTermName = st.getTerm().getName();
   } catch {
@@ -214,6 +218,7 @@ export function normalizeQimenLifetimeTime(input: QimenLifetimeInput): QimenNorm
   return {
     normalizedDate,
     calculationParts,
+    timezoneOffsetMinutes: effectiveTimezone * 60,
     basis,
   };
 }

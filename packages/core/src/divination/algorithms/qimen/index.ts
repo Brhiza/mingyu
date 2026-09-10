@@ -34,7 +34,7 @@ import {
   getZhiFuZhiShiByGanZhi,
   getDunJiaStem,
 } from './helpers/jushu';
-import type { QimenJuMethod, QimenJuShuResult } from './helpers/jushu';
+import type { QimenJuMethod, QimenJuShuResult, QimenTermContext } from './helpers/jushu';
 import { getMonthQimenJuShu, getYearQimenJuShu } from './helpers/jushu-extended';
 import { arrangeJiuGongGe, resolveZhiShiLandingPalace } from './helpers/layout';
 import { getQimenPatternTags, buildPatternDetails, buildPalaceInsights } from './helpers/patterns';
@@ -231,6 +231,7 @@ function mapStemRelations(
  * @param customDate 自定义时间（可选，默认当前时间）
  * @param method     排盘方法，默认 'zhuanpan'（转盘法）
  * @param scope      排盘级别，默认 'hour'（时家奇门）
+ * @param timezoneOffsetMinutes 本次计算的显式 UTC 偏移（分钟），省略时沿用 TimeManager 默认值
  * @returns 完整的奇门遁甲数据 QimenData
  *
  * @example
@@ -250,13 +251,21 @@ export function generateQimen(
   method: QimenMethod = 'zhuanpan',
   scope: QimenScope = 'hour',
   juMethod: QimenJuMethod = 'chaibu',
+  timezoneOffsetMinutes?: number,
 ): QimenData {
   assertQimenScope(scope);
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 1：获取统一占卜时间信息
   // ──────────────────────────────────────────────────────────────────────────
-  const { timeInfo, ganzhi, timestamp } = getDivinationTime(customDate);
+  const { timeInfo, ganzhi, timestamp } = getDivinationTime(customDate, timezoneOffsetMinutes);
   const { jieQi } = timeInfo;
+  const termContext: QimenTermContext | undefined =
+    timezoneOffsetMinutes === undefined
+      ? undefined
+      : {
+          referenceDate: new Date(timestamp),
+          localOffsetMinutes: timezoneOffsetMinutes,
+        };
 
   // 根据 scope 确定"主动干支"（用于定局、寻符使、空亡、驿马）
   const activeGanZhi = getActiveGanZhi(ganzhi, scope);
@@ -264,7 +273,7 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 2：定局数
   // ──────────────────────────────────────────────────────────────────────────
-  const jushuResult = getJushuForScope(scope, ganzhi, timeInfo, juMethod);
+  const jushuResult = getJushuForScope(scope, ganzhi, timeInfo, juMethod, termContext);
   const { isYangDun, juShu, yuan } = jushuResult;
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -368,6 +377,8 @@ export function generateQimen(
     ganzhi,
     jushuResult.actualJieQi || jieQi,
     new Date(timestamp),
+    timezoneOffsetMinutes,
+    timezoneOffsetMinutes === undefined ? undefined : 480,
   );
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -512,6 +523,7 @@ function getJushuForScope(
     jieQi: string;
   },
   juMethod: QimenJuMethod = 'chaibu',
+  termContext?: QimenTermContext,
 ): QimenJuShuResult {
   switch (scope) {
     case 'year': {
@@ -550,6 +562,7 @@ function getJushuForScope(
           },
         },
         juMethod,
+        termContext,
       );
     }
   }
