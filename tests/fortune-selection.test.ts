@@ -108,10 +108,7 @@ test('当前阶段定位按北京时间计算，不受运行环境时区影响',
     isLunar: false,
   });
   // 2026 年白露后已经进入酉月；显式带 UTC+8 可在 UTC 运行环境复现边界。
-  const selection = buildCurrentBaziFortuneSelection(
-    result,
-    new Date('2026-09-08T00:00:00+08:00'),
-  );
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2026-09-08T00:00:00+08:00'));
 
   assert.ok(selection);
   assert.equal(selection.year, 2026);
