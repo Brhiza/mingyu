@@ -152,7 +152,7 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     ? buildPromptSection(
         '盘面焦点',
         [
-          `格局理法：《子平真诠》定为【${fulfillment.patternName}】（${fulfillment.status}）。${fulfillment.summary}`,
+          `格局理法：【${fulfillment.patternName}】（${fulfillment.status}）。${fulfillment.summary}`,
           fulfillment.remedies.length > 0
             ? `救应药神：${fulfillment.remedies.map((r: { effect: string }) => r.effect).join('；')}`
             : '',

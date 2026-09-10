@@ -305,7 +305,7 @@ export interface PatternAnalysis {
   /** 《子平真诠》格局成败、病因与救应药神推导 */
   fulfillment?: {
     patternName: string;
-    status: '成格' | '破格' | '破而复成' | '平常';
+    status: '成格' | '破格' | '破而复成' | '平常' | '未判定';
     basis: string;
     contradiction: string;
     remedies: Array<{

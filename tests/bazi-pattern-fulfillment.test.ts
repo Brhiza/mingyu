@@ -5,6 +5,22 @@ import { evaluatePatternFulfillment } from '../packages/core/src/bazi/baziPatter
 import { getTenGod } from '../packages/core/src/bazi/baziUtils';
 import type { Pillars } from '../packages/core/src/bazi/baziTypes';
 
+test('未匹配成败条件的格局保留未判定，继续提供合参依据', () => {
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '乙', zhi: '酉', ganZhi: '乙酉' },
+    day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    hour: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+  };
+  for (const pattern of ['其他格局', '正官格']) {
+    const result = evaluatePatternFulfillment(pillars, '甲', pattern, getTenGod);
+    assert.equal(result.status, '未判定', pattern);
+    assert.match(result.summary, /月令、透干、根气与制化条件/u);
+    assert.equal(result.contradiction, '');
+    assert.deepEqual(result.remedies, []);
+  }
+});
+
 test('子平真诠：正官格见伤官破格，透印绶制伤护官，破而复成', () => {
   // 假设：甲日主生酉月（正官格），天干透丁火（伤官欲破官），天干又透壬水（枭/印克丁火护酉金正官）
   // 年柱：壬申（印） 月柱：己酉（财/官） 日柱：甲子（日主） 时柱：丁卯（伤官）
