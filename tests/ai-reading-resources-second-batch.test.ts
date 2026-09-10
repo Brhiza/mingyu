@@ -267,6 +267,7 @@ test('星盘自动补算默认当前年度且实际资料与目标一致，显�
       astrolabeSubject,
     );
     const evidence = current.structured?.scopeEvidence as Record<string, unknown>;
+    assert.equal((current.structured?.birth as Record<string, unknown>).gender, '男');
     assert.equal(evidence.scope, 'yearly');
     assert.equal(evidence.dateStr, '2030');
     assert.match(current.title, /2030/u);

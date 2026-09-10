@@ -640,7 +640,7 @@ test('星盘本命范围不应保留多余日期参数', () => {
   assert.equal(parsed.astrolabeScopeDate, '');
 });
 
-test('星盘提示词范围参数非法时应回到默认范围', () => {
+test('星盘提示词范围参数非法时应回到本命并清空无效日期', () => {
   const parsed = parsePromptState(
     new URLSearchParams({
       astrolabeScope: 'decadal',
@@ -648,7 +648,7 @@ test('星盘提示词范围参数非法时应回到默认范围', () => {
     }),
   );
 
-  assert.equal(parsed.astrolabeScope, defaultPromptState.astrolabeScope);
+  assert.equal(parsed.astrolabeScope, 'natal');
   assert.equal(parsed.astrolabeScopeDate, '');
 });
 

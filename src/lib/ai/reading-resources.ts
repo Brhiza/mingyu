@@ -665,6 +665,10 @@ function assertBaziOrZiweiResult(
   }
 }
 
+function toAstrolabeGender(value: unknown) {
+  return value === 'male' ? '男' : value === 'female' ? '女' : value;
+}
+
 function assertAstrolabeResult(
   data: Record<string, unknown>,
   locked: Record<string, unknown>,
@@ -674,7 +678,8 @@ function assertAstrolabeResult(
   if (!record(result) || !record(result.birth)) throw new Error('补算未返回结构化星盘主体身份。');
   const birth = result.birth;
   for (const field of ['name', 'gender']) {
-    assertStructuredField(`astrolabe.${field}`, locked[field] || undefined, birth[field]);
+    const expected = field === 'gender' ? toAstrolabeGender(locked[field]) : locked[field];
+    assertStructuredField(`astrolabe.${field}`, expected || undefined, birth[field]);
   }
   for (const field of ['latitude', 'longitude', 'timezone', 'timeZoneId']) {
     assertStructuredField(`astrolabe.${field}`, locked[field], birth[field], {
@@ -921,6 +926,9 @@ export async function executeReadingAction(
     ...requestInput,
     responseMode: 'full',
   };
+  if (action.method === 'astrolabe' && calculationRequest.gender !== undefined) {
+    calculationRequest.gender = toAstrolabeGender(calculationRequest.gender);
+  }
   if (
     (action.method === 'bazi' || action.method === 'ziwei') &&
     calculationRequest.useTrueSolarTime === true
