@@ -5,10 +5,17 @@ import { verifyReadingAnswer } from './reading-verification';
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 
+export type ReadingTarget = 'primary' | 'partner';
+
 export type ReadingAction =
   | { kind: 'classic'; method: string; query: string }
   | { kind: 'schema'; method: string }
-  | { kind: 'calculate'; method: string; input: Record<string, unknown> };
+  | {
+      kind: 'calculate';
+      method: string;
+      target?: ReadingTarget;
+      input: Record<string, unknown>;
+    };
 export type ReadingResource = {
   key: string;
   title: string;
@@ -16,6 +23,7 @@ export type ReadingResource = {
   usable: boolean;
   kind?: 'evidence' | 'schema';
   sourceIds?: string[];
+  structured?: Record<string, unknown>;
 };
 export type ReadingMemory = { resources: ReadingResource[]; schemas?: ReadingResource[] };
 export type { ReadingSubjectSnapshot } from './reading-subject';
@@ -40,7 +48,6 @@ export interface ReadingOptions extends StreamOptions {
 }
 
 const MAX_CONTEXT = 49_000;
-const MAX_RESOURCES = 18_000;
 const MAX_ACTIONS = 4;
 const CALCULATIONS = Object.keys(READING_CALCULATION_ROUTES);
 
@@ -191,12 +198,17 @@ export function parseReadingPlan(text: string): ReadingAction[] {
         item.input &&
         typeof item.input === 'object' &&
         !Array.isArray(item.input)
-      )
+      ) {
+        if (item.target !== undefined && item.target !== 'primary' && item.target !== 'partner') {
+          throw new Error('资料准备的目标主体必须是 primary 或 partner。');
+        }
         return {
           kind: 'calculate',
           method: item.method,
+          target: item.target === undefined ? 'primary' : item.target,
           input: item.input as Record<string, unknown>,
         };
+      }
     }
     throw new Error('资料准备包含暂不支持的操作。');
   });
@@ -213,6 +225,44 @@ export function fitReadingMessages(messages: ChatMessage[], addition: string): C
   }
   if (size() > MAX_CONTEXT) throw new Error('本次盘面和问题超出解读容量，请缩小运限范围后继续。');
   return result;
+}
+
+function formatReadingResources(resources: ReadingResource[]) {
+  return resources.map((item) => `${item.title}\n${item.text}`).join('\n\n');
+}
+
+function formatCapacityNotice(stage: string, omitted: ReadingResource[]) {
+  if (!omitted.length) return '';
+  return `\n\n【资料覆盖】${stage}尚未覆盖以下资料，待后续补足：\n${omitted.map((item) => `- ${item.title}`).join('\n')}`;
+}
+
+type ResourceSelection = { selected: ReadingResource[]; omitted: ReadingResource[] };
+
+function selectResourcesForMessages(
+  messages: ChatMessage[],
+  resources: ReadingResource[],
+  buildAddition: (selected: ReadingResource[], omitted: ReadingResource[]) => string,
+): ResourceSelection {
+  const fits = (selected: ReadingResource[], omitted: ReadingResource[]) => {
+    try {
+      fitReadingMessages(messages, buildAddition(selected, omitted));
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('解读容量')) return false;
+      throw error;
+    }
+  };
+
+  if (fits(resources, [])) return { selected: resources, omitted: [] };
+
+  const selected: ReadingResource[] = [];
+  const omitted: ReadingResource[] = [];
+  for (const resource of resources) {
+    if (fits([...selected, resource], omitted)) selected.push(resource);
+    else omitted.push(resource);
+  }
+  while (!fits(selected, omitted) && selected.length) omitted.push(selected.pop()!);
+  return { selected, omitted };
 }
 
 function collectResponse(
@@ -293,13 +343,20 @@ export async function runReadingWorkflow(
     for (let round = 0; round < (isSimpleFollowup ? 0 : 2); round += 1) {
       let needsRefinement = false;
       guard();
-      const catalog = `【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","input":{}}，按已读取的参数格式补算。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
+      const catalog = `【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。兼容双盘时每个补算动作都必须明确 target；primary 使用主主体快照，partner 使用伴侣主体快照，两个目标分别填写自己的目标时段。target 仅是动作选择，不写入公共 API 参数。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。没有伴侣主体快照或目标不明确时不执行 partner 补算。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
       const schemas = schemaResources.length
         ? `\n\n【补算参数】\n${schemaResources.map((item) => `${item.title}\n${item.text}`).join('\n\n')}`
         : '';
+      const planningMessages = [...messages, { role: 'user' as const, content: catalog }];
+      const planningSelection = selectResourcesForMessages(
+        planningMessages,
+        resources,
+        (selected, omitted) =>
+          `${guide}${currentTimeContext}${schemas}${formatCapacityNotice('资料准备', omitted)}\n\n${formatReadingResources(selected)}`,
+      );
       const prepared = fitReadingMessages(
-        [...messages, { role: 'user', content: catalog }],
-        `${guide}${currentTimeContext}${schemas}\n\n${resources.map((item) => `${item.title}\n${item.text}`).join('\n\n')}`,
+        planningMessages,
+        `${guide}${currentTimeContext}${schemas}${formatCapacityNotice('资料准备', planningSelection.omitted)}\n\n${formatReadingResources(planningSelection.selected)}`,
       );
       let actions: ReadingAction[];
       try {
@@ -320,7 +377,10 @@ export async function runReadingWorkflow(
       for (const action of actions) {
         guard();
         if (calls >= MAX_ACTIONS) break;
-        const key = JSON.stringify(action);
+        const key =
+          action.kind === 'calculate'
+            ? JSON.stringify({ ...action, target: action.target ?? 'primary' })
+            : JSON.stringify(action);
         if (seen.has(key)) continue;
         if (subjectMethods && !subjectMethods.has(action.method)) {
           options.onNotice(mismatchedMethodNotice);
@@ -329,6 +389,15 @@ export async function runReadingWorkflow(
         if (action.kind === 'calculate' && !options.subject) {
           notes.push('当前会话缺少主体快照，无法安全补算目标时段；请重新开始解读。');
           options.onNotice('当前对话缺少主体快照，已跳过自动补算。');
+          continue;
+        }
+        if (
+          action.kind === 'calculate' &&
+          action.target === 'partner' &&
+          !options.subject?.lockedInputs[`${action.method}Partner`]
+        ) {
+          notes.push('当前会话没有第二人主体快照，无法安全补算伴侣目标时段。');
+          options.onNotice('当前会话没有第二人主体快照，已跳过伴侣补算。');
           continue;
         }
         if (
@@ -358,17 +427,6 @@ export async function runReadingWorkflow(
             notes.push(describeReadingFailure(action, new Error('未命中')));
             options.onNotice(`“${action.query}”未查到对应条文，已保留原有盘面资料。`);
           }
-          if (resource.text.length > MAX_RESOURCES) {
-            notes.push(`${resource.title}尚未加入解读资料，可按具体阶段进一步补齐。`);
-            options.onNotice('这份补充资料超出本轮容量，尚未加入解读；可以按具体阶段继续查询。');
-            continue;
-          }
-          while (
-            resources.length &&
-            resources.reduce((sum, item) => sum + item.text.length, 0) + resource.text.length >
-              MAX_RESOURCES
-          )
-            seen.delete(resources.shift()?.key ?? '');
           resources.push({ ...resource, key, kind: 'evidence' });
         } catch (error) {
           guard();
@@ -383,16 +441,38 @@ export async function runReadingWorkflow(
     guard();
     options.memory.resources = resources;
     options.memory.schemas = schemaResources;
-    const material = resources
-      .filter((item) => item.usable)
-      .map((item) => `${item.title}\n${item.text}`)
-      .join('\n\n');
-    const status = notes.length
-      ? `\n\n【资料状态】\n${notes.map((note) => `- ${note}`).join('\n')}\n已取得的完整盘面与补充资料仍可用于完成判断。`
-      : '';
+    const finalResources = resources.filter((item) => item.usable);
+    const getFinalStatusNotes = (omitted: ReadingResource[]) => {
+      const capacityNote = formatCapacityNotice('本轮解读', omitted).trim();
+      return [...notes, ...(capacityNote ? [capacityNote] : [])];
+    };
+    const buildFinalAddition = (
+      selected: ReadingResource[],
+      omitted: ReadingResource[],
+      statusNotes = getFinalStatusNotes(omitted),
+    ) => {
+      const status = statusNotes.length
+        ? `\n\n【资料状态】\n${statusNotes.map((note) => `- ${note}`).join('\n')}${
+            omitted.length || statusNotes.some((note) => note.includes('【资料覆盖】'))
+              ? '\n已纳入资料可用于完成判断，未纳入资料保留供后续阶段。'
+              : '\n已取得的完整盘面与补充资料仍可用于完成判断。'
+          }`
+        : '';
+      const material = formatReadingResources(selected);
+      return `${guide}${currentTimeContext}${material ? `\n\n【补充资料】\n${material}` : ''}${status}\n\n【本轮解读】\n${isSimpleFollowup ? '请结合当前盘面、已有补充资料和上一轮解读直接回答用户的追问，保持原盘主体与计算口径，说明判断依据和适用条件。' : '请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。'}先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。`;
+    };
+    const finalSelection = selectResourcesForMessages(messages, finalResources, buildFinalAddition);
+    const finalStatusNotes = getFinalStatusNotes(finalSelection.omitted);
+    if (finalSelection.omitted.length) {
+      options.onNotice(
+        `本轮解读资料容量不足，以下范围未纳入本轮判断：${finalSelection.omitted
+          .map((item) => item.title)
+          .join('、')}。`,
+      );
+    }
     const finalMessages = fitReadingMessages(
       messages,
-      `${guide}${currentTimeContext}${material ? `\n\n【补充资料】\n${material}` : ''}${status}\n\n【本轮解读】\n${isSimpleFollowup ? '请结合当前盘面、已有补充资料和上一轮解读直接回答用户的追问，保持原盘主体与计算口径，说明判断依据和适用条件。' : '请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。'}先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。`,
+      buildFinalAddition(finalSelection.selected, [], finalStatusNotes),
     );
     if (finalMessages.length < messages.length)
       options.onNotice('对话较长，本轮保留原始盘面与最近的问答。');

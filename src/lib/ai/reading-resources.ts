@@ -2,9 +2,10 @@ import {
   READING_CLASSIC_TABLES as TABLES,
   READING_CALCULATION_ROUTES as ROUTES,
 } from './reading-capabilities';
-import type { ReadingAction, ReadingResource } from './reading-workflow';
+import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-workflow';
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { getAiApiEndpoint } from './stream-client';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 
 const LABELS: Record<string, string> = {
   sourceBook: '典籍',
@@ -364,10 +365,443 @@ function filterCalculationSchema(method: string, value: unknown): Record<string,
 
   return {
     type: 'object',
+    description:
+      '这是补算 input。calculate 动作另带 target，取值为 primary 或 partner；partner 只在当前会话存在伴侣主体快照时使用。',
     properties: filteredProperties,
     ...(filteredRequired.length > 0 ? { required: filteredRequired } : {}),
     additionalProperties: false,
   };
+}
+
+function resolveReadingTarget(action: ReadingAction): ReadingTarget {
+  return action.kind === 'calculate' && action.target === 'partner' ? 'partner' : 'primary';
+}
+
+function resolveLockedInputKey(method: string, target: ReadingTarget) {
+  return target === 'partner' ? `${method}Partner` : method;
+}
+
+function assertStructuredField(
+  label: string,
+  expected: unknown,
+  actual: unknown,
+  options: { allowMissing?: boolean } = {},
+) {
+  if (expected === undefined) return;
+  if (actual === undefined && options.allowMissing) return;
+  if (actual === undefined || stableComparable(expected) !== stableComparable(actual)) {
+    throw new Error(`补算身份核验失败：${label}。`);
+  }
+}
+
+function assertIdentityBirth(
+  method: string,
+  identity: Record<string, unknown>,
+  locked: Record<string, unknown>,
+) {
+  const birth = identity.birth;
+  if (!record(birth)) throw new Error('补算返回缺少结构化出生主体身份。');
+
+  const fields = [
+    'gender',
+    'year',
+    'month',
+    'day',
+    'dateType',
+    'isLeapMonth',
+    'useTrueSolarTime',
+    'timeZoneId',
+    'timezone',
+    'birthPlace',
+    'birthLatitude',
+    'applyChinaDst',
+  ];
+  for (const field of fields) {
+    assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
+  }
+
+  const useTrueSolarTime = locked.useTrueSolarTime === true;
+  if (useTrueSolarTime) {
+    for (const field of ['birthHour', 'birthMinute', 'birthLongitude']) {
+      assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
+    }
+  } else {
+    assertStructuredField(`${method}.timeIndex`, locked.timeIndex, birth.timeIndex);
+  }
+
+  if (method === 'ziwei') {
+    assertStructuredField(`${method}.name`, locked.name, birth.name);
+    assertStructuredField(`${method}.algorithm`, locked.algorithm, birth.algorithm);
+  }
+}
+
+function assertBaziTarget(
+  identity: Record<string, unknown>,
+  result: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const target = identity.target;
+  if (!record(target)) throw new Error('补算返回缺少结构化目标时段身份。');
+  const fields = [
+    'baziFortuneScope',
+    'baziFortuneCycleIndex',
+    'baziFortuneYear',
+    'baziFortuneMonth',
+    'baziFortuneDay',
+  ];
+  for (const field of fields) {
+    assertStructuredField(`bazi.${field}`, calculationInput[field], target[field]);
+  }
+
+  const selection = result.fortuneSelection;
+  const requestedScope = calculationInput.baziFortuneScope;
+  if (requestedScope !== undefined && requestedScope !== 'natal' && requestedScope !== 'full') {
+    if (!record(selection)) throw new Error('补算返回缺少结构化八字目标运限。');
+    assertStructuredField('bazi.fortuneSelection.scope', target.baziFortuneScope, selection.scope);
+    for (const field of [
+      'baziFortuneCycleIndex',
+      'baziFortuneYear',
+      'baziFortuneMonth',
+      'baziFortuneDay',
+    ]) {
+      const selectionField =
+        field === 'baziFortuneCycleIndex'
+          ? 'cycleIndex'
+          : field.replace('baziFortune', '').replace(/^./u, (value) => value.toLowerCase());
+      assertStructuredField(
+        `bazi.fortuneSelection.${selectionField}`,
+        target[field],
+        selection[selectionField],
+        { allowMissing: field === 'baziFortuneYear' && requestedScope === 'dayun' },
+      );
+    }
+  }
+}
+
+function assertDateParts(label: string, expected: Record<string, unknown>, actual: unknown) {
+  if (!record(actual)) throw new Error(`补算返回缺少结构化${label}。`);
+  for (const field of ['year', 'month', 'day']) {
+    assertStructuredField(`${label}.${field}`, expected[field], actual[field]);
+  }
+}
+
+function assertTrueSolarEvidence(
+  label: string,
+  timing: Record<string, unknown> | undefined,
+): {
+  standardTime: Record<string, unknown>;
+  correctedTime: Record<string, unknown>;
+} {
+  if (!timing || timing.enabled !== true) {
+    throw new Error(`补算返回缺少${label}真太阳时证据。`);
+  }
+  const standardTime = timing.standardTime;
+  if (
+    !record(standardTime) ||
+    ['year', 'month', 'day', 'hour', 'minute'].some(
+      (field) => typeof standardTime[field] !== 'number',
+    )
+  ) {
+    throw new Error(`补算返回缺少${label}真太阳时标准时间。`);
+  }
+  const correctedTime = timing.correctedTime;
+  if (
+    !record(correctedTime) ||
+    ['year', 'month', 'day', 'hour', 'minute'].some(
+      (field) => typeof correctedTime[field] !== 'number',
+    )
+  ) {
+    throw new Error(`补算返回缺少${label}真太阳时校正结果。`);
+  }
+  const evidence = timing.evidence;
+  if (!record(evidence) || typeof evidence.key !== 'string' || !evidence.key.trim()) {
+    throw new Error(`补算返回缺少${label}真太阳时计算证据。`);
+  }
+  return { standardTime, correctedTime };
+}
+
+function assertBaziResultFacts(
+  result: Record<string, unknown>,
+  identity: Record<string, unknown>,
+  locked: Record<string, unknown>,
+) {
+  assertStructuredField('bazi.result.gender', locked.gender, result.gender);
+  const birth = identity.birth;
+  if (!record(birth)) throw new Error('补算返回缺少结构化出生主体身份。');
+  const dateType = birth.dateType;
+  const useTrueSolarTime = locked.useTrueSolarTime === true;
+  const timeInfo = result.timeInfo;
+  if (!record(timeInfo)) throw new Error('补算返回缺少八字实际出生时辰。');
+  if (!useTrueSolarTime) {
+    if (dateType === 'lunar') {
+      assertDateParts('八字实际农历出生日期', birth, result.lunarDate);
+    } else {
+      assertDateParts('八字实际公历出生日期', birth, result.solarDate);
+    }
+    assertStructuredField('bazi.result.timeInfo.index', locked.timeIndex, timeInfo.index);
+    return;
+  }
+
+  const timing = record(result.timing) ? result.timing : undefined;
+  const { standardTime, correctedTime } = assertTrueSolarEvidence('八字', timing);
+  assertDateParts('八字实际校正公历出生日期', correctedTime, result.solarDate);
+  assertStructuredField(
+    'bazi.result.timeInfo.index',
+    getTimeIndexFromClock(Number(correctedTime.hour), Number(correctedTime.minute)),
+    timeInfo.index,
+  );
+  if (dateType === 'solar') {
+    for (const field of ['year', 'month', 'day']) {
+      assertStructuredField(`bazi.timing.standardTime.${field}`, birth[field], standardTime[field]);
+    }
+    assertStructuredField('bazi.timing.standardTime.hour', locked.birthHour, standardTime.hour);
+    assertStructuredField(
+      'bazi.timing.standardTime.minute',
+      locked.birthMinute,
+      standardTime.minute,
+    );
+  }
+}
+
+function normalizeDateKey(value: unknown) {
+  if (typeof value !== 'string') return undefined;
+  const match = value.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/u);
+  if (!match) return undefined;
+  return [match[1], match[2].padStart(2, '0'), match[3].padStart(2, '0')].join('-');
+}
+
+function assertZiweiResultFacts(
+  result: Record<string, unknown>,
+  identity: Record<string, unknown>,
+  locked: Record<string, unknown>,
+) {
+  const basicInfo = result.basicInfo;
+  if (!record(basicInfo)) throw new Error('补算返回缺少紫微实际本命资料。');
+  const expectedGender =
+    locked.gender === 'male' ? '男' : locked.gender === 'female' ? '女' : locked.gender;
+  assertStructuredField('ziwei.result.basicInfo.gender', expectedGender, basicInfo.gender);
+
+  const birth = identity.birth;
+  if (!record(birth)) throw new Error('补算返回缺少结构化出生主体身份。');
+  if (birth.dateType === 'solar' && locked.useTrueSolarTime !== true) {
+    const actualDate = normalizeDateKey(basicInfo.solar_date);
+    const expectedDate = [birth.year, birth.month, birth.day]
+      .map((value, index) => (index === 0 ? String(value) : String(value).padStart(2, '0')))
+      .join('-');
+    assertStructuredField('ziwei.result.basicInfo.solar_date', expectedDate, actualDate);
+  }
+
+  if (locked.useTrueSolarTime === true) {
+    const evidence = result.trueSolarEvidence;
+    if (!record(evidence) || typeof evidence.key !== 'string' || !evidence.key.trim()) {
+      throw new Error('补算返回缺少紫微真太阳时计算证据。');
+    }
+  }
+}
+
+function assertZiweiTarget(
+  identity: Record<string, unknown>,
+  result: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const target = identity.target;
+  if (!record(target)) throw new Error('补算返回缺少结构化目标时段身份。');
+  assertStructuredField('ziwei.promptScope', calculationInput.promptScope, target.promptScope);
+  assertStructuredField('ziwei.scopeDate', calculationInput.scopeDate, target.scopeDate);
+  assertStructuredField(
+    'ziwei.scopeHourIndex',
+    calculationInput.scopeHourIndex,
+    target.scopeHourIndex,
+  );
+
+  const timeline = result.fortuneTimeline;
+  if (record(timeline)) {
+    assertStructuredField(
+      'ziwei.fortuneTimeline.targetDateStr',
+      target.scopeDate,
+      timeline.targetDateStr,
+    );
+    assertStructuredField(
+      'ziwei.fortuneTimeline.targetHourIndex',
+      target.scopeHourIndex,
+      timeline.targetHourIndex,
+    );
+  }
+
+  const scope = target.promptScope;
+  if (typeof scope === 'string' && scope !== 'full') {
+    const payloadByScope = result.payloadByScope;
+    const payload = record(payloadByScope) ? payloadByScope[scope] : undefined;
+    if (!record(payload) || !record(payload.active_scope)) {
+      throw new Error('补算返回缺少紫微实际目标宫限资料。');
+    }
+    assertStructuredField('ziwei.result.active_scope.scope', scope, payload.active_scope.scope);
+    if (scope !== 'origin' && target.scopeDate !== undefined) {
+      const actualDate = normalizeDateKey(payload.active_scope.solar_date);
+      assertStructuredField('ziwei.result.active_scope.solar_date', target.scopeDate, actualDate);
+    }
+  }
+}
+
+function assertBaziOrZiweiResult(
+  method: 'bazi' | 'ziwei',
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result)) throw new Error('补算未返回结构化盘面结果。');
+  const identity = result.calculationIdentity;
+  if (!record(identity)) throw new Error('补算未返回结构化身份，无法确认目标主体。');
+  assertStructuredField('calculationIdentity.method', method, identity.method);
+  assertIdentityBirth(method, identity, locked);
+  if (method === 'bazi') {
+    assertBaziResultFacts(result, identity, locked);
+    assertBaziTarget(identity, result, calculationInput);
+  } else {
+    assertZiweiResultFacts(result, identity, locked);
+    assertZiweiTarget(identity, result, calculationInput);
+  }
+}
+
+function assertAstrolabeResult(
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result) || !record(result.birth)) throw new Error('补算未返回结构化星盘主体身份。');
+  const birth = result.birth;
+  for (const field of ['name', 'gender']) {
+    assertStructuredField(`astrolabe.${field}`, locked[field] || undefined, birth[field]);
+  }
+  for (const field of ['latitude', 'longitude', 'timezone', 'timeZoneId']) {
+    assertStructuredField(`astrolabe.${field}`, locked[field], birth[field], {
+      allowMissing: field === 'timezone' && locked.timeZoneId !== undefined,
+    });
+  }
+  assertStructuredField(
+    'astrolabe.isTrueSolarTime',
+    locked.useTrueSolarTime,
+    birth.isTrueSolarTime,
+  );
+
+  if (locked.year !== undefined && locked.month !== undefined && locked.day !== undefined) {
+    const dateTime = birth.standardDateTime ?? birth.dateTime;
+    if (typeof dateTime !== 'string') throw new Error('补算返回缺少标准出生时间。');
+    const expectedDateTime = [locked.year, locked.month, locked.day]
+      .map((value, index) => (index === 0 ? String(value) : String(value).padStart(2, '0')))
+      .join('-');
+    const expectedClock =
+      locked.hour === undefined
+        ? undefined
+        : `${String(locked.hour).padStart(2, '0')}:${String(locked.minute ?? 0).padStart(2, '0')}`;
+    if (expectedClock) {
+      assertStructuredField(
+        'astrolabe.standardDateTime',
+        `${expectedDateTime} ${expectedClock}`,
+        dateTime,
+      );
+    }
+  }
+
+  const evidence = result.scopeEvidence;
+  const scope =
+    typeof calculationInput.astrolabeScopeText === 'string' &&
+    calculationInput.astrolabeScopeText.trim()
+      ? 'custom'
+      : (calculationInput.astrolabeScope ?? 'natal');
+  if (record(evidence)) {
+    assertStructuredField('astrolabe.scopeEvidence.scope', scope, evidence.scope);
+    const expectedDate = calculationInput.astrolabeScopeDate;
+    if (expectedDate !== undefined && scope !== 'custom') {
+      const actualDate = evidence.referenceDate ?? evidence.dateStr;
+      assertStructuredField('astrolabe.scopeEvidence.date', expectedDate, actualDate);
+    }
+  } else if (scope !== 'natal') {
+    throw new Error('补算返回缺少结构化目标时段身份。');
+  }
+}
+
+function assertQizhengResult(
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result) || !record(result.calculationContext))
+    throw new Error('补算未返回结构化七政计算口径。');
+  const context = result.calculationContext;
+  for (const field of ['latitude', 'longitude']) {
+    assertStructuredField(`qi-zheng.${field}`, locked[field], context[field]);
+  }
+  const flow = result.flowingStars;
+  const flowFields = ['flowYear', 'flowMonth', 'flowDay', 'flowHour', 'flowMinute'];
+  if (flowFields.some((field) => calculationInput[field] !== undefined)) {
+    if (!record(flow)) throw new Error('补算返回缺少结构化七政目标时段身份。');
+    for (const field of flowFields) {
+      const resultField = field.replace('flow', '').toLowerCase();
+      assertStructuredField(`qi-zheng.${field}`, calculationInput[field], flow[resultField]);
+    }
+  }
+}
+
+function verifyStructuredCalculation(
+  method: string,
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  if (method === 'bazi' || method === 'ziwei') {
+    assertBaziOrZiweiResult(method, data, locked, calculationInput);
+  } else if (method === 'astrolabe') {
+    assertAstrolabeResult(data, locked, calculationInput);
+  } else if (method === 'qi-zheng') {
+    assertQizhengResult(data, locked, calculationInput);
+  }
+}
+
+function buildCalculationResourceTitle(
+  method: string,
+  target: ReadingTarget,
+  locked: Record<string, unknown> | undefined,
+  calculationInput: Record<string, unknown>,
+  data: Record<string, unknown>,
+) {
+  const subjectName =
+    typeof locked?.name === 'string' && locked.name.trim()
+      ? locked.name.trim()
+      : target === 'partner'
+        ? '第二人'
+        : '第一人';
+  const methodName: Record<string, string> = {
+    bazi: '八字',
+    ziwei: '紫微',
+    astrolabe: '星盘',
+    'qi-zheng': '七政',
+  };
+  let range = '';
+  const result = record(data.result) ? data.result : undefined;
+  const identity = record(result?.calculationIdentity) ? result.calculationIdentity : undefined;
+  const identityTarget = record(identity?.target) ? identity.target : undefined;
+  if (method === 'bazi') {
+    const year = identityTarget?.baziFortuneYear ?? calculationInput.baziFortuneYear;
+    range = typeof year === 'number' || typeof year === 'string' ? `${year}年` : '';
+  } else if (method === 'ziwei') {
+    const date = identityTarget?.scopeDate ?? calculationInput.scopeDate;
+    const hour = identityTarget?.scopeHourIndex ?? calculationInput.scopeHourIndex;
+    range = typeof date === 'string' ? date : '';
+    if (typeof hour === 'number') range += `${range ? ' ' : ''}时辰${hour}`;
+  } else if (method === 'astrolabe') {
+    range =
+      typeof calculationInput.astrolabeScopeDate === 'string'
+        ? calculationInput.astrolabeScopeDate
+        : '';
+  } else if (method === 'qi-zheng') {
+    const year = calculationInput.flowYear;
+    range = typeof year === 'number' || typeof year === 'string' ? `${year}年` : '';
+  }
+  return `${subjectName}·${methodName[method] ?? method}${range}`;
 }
 
 async function fetchReadingData(
@@ -438,11 +872,18 @@ export async function executeReadingAction(
   if (!path) throw new Error('此方法暂不支持自动补算。');
   let locked: Record<string, unknown> | undefined;
   let calculationInput: Record<string, unknown> | undefined;
+  const target = resolveReadingTarget(action);
   if (subject) {
     if (!subject.allowedMethods.includes(action.method))
       throw new Error('补算方法与当前命盘类型不一致。');
-    locked = subject.lockedInputs[action.method];
-    if (!locked) throw new Error('当前会话缺少该方法的主体快照。');
+    locked = subject.lockedInputs[resolveLockedInputKey(action.method, target)];
+    if (!locked) {
+      throw new Error(
+        target === 'partner'
+          ? '当前会话没有第二人主体快照，已拒绝使用主主体替代。'
+          : '当前会话缺少该方法的主体快照。',
+      );
+    }
     if (action.kind === 'calculate') {
       calculationInput = prepareCalculationInput(action.method, action.input, locked);
     }
@@ -469,14 +910,22 @@ export async function executeReadingAction(
       usable: false,
     };
   }
+  const requestInput = calculationInput ?? action.input;
   const data = await fetchReadingData(path, signal, {
     ...(locked ?? {}),
-    ...(calculationInput ?? action.input),
-    responseMode: 'prompt-only',
+    ...requestInput,
+    responseMode: 'full',
   });
+  if (locked) verifyStructuredCalculation(action.method, data, locked, requestInput);
   if (typeof data.prompt !== 'string' || !data.prompt.trim())
     throw new Error('补算未返回完整盘面。');
-  return { key: '', title: '目标时段补充盘面', text: data.prompt, usable: true };
+  return {
+    key: '',
+    title: buildCalculationResourceTitle(action.method, target, locked, requestInput, data),
+    text: data.prompt,
+    usable: true,
+    structured: record(data.result) ? data.result : undefined,
+  };
 }
 
 function stableComparable(value: unknown): string {

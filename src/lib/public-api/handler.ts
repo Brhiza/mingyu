@@ -3721,6 +3721,60 @@ function buildBaziFortuneContextFromInput(
   }
 }
 
+function readOptionalIdentityNumber(input: JsonRecord, key: string) {
+  const value = input[key];
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'string' && /^[-+]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value.trim())) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function buildBaziCalculationIdentity(
+  input: JsonRecord,
+  fortuneScope: (typeof BAZI_FORTUNE_SCOPES)[number],
+  fortuneSelectionContext: ReturnType<typeof buildFortuneSelectionContext>,
+) {
+  const person = readBaziPerson(input);
+  const birth: JsonRecord = {
+    gender: person.gender,
+    year: person.year,
+    month: person.month,
+    day: person.day,
+    dateType: person.isLunar ? 'lunar' : 'solar',
+    isLeapMonth: Boolean(person.isLeapMonth),
+    useTrueSolarTime: Boolean(person.useTrueSolarTime),
+    birthPlace: person.birthPlace ?? '',
+  };
+  if (person.useTrueSolarTime) {
+    birth.birthHour = person.birthHour;
+    birth.birthMinute = person.birthMinute;
+    birth.birthLongitude = person.birthLongitude;
+  } else {
+    birth.timeIndex = person.timeIndex;
+  }
+  if (person.timezone !== undefined) birth.timezone = person.timezone;
+  if (person.timeZoneId !== undefined) birth.timeZoneId = person.timeZoneId;
+  if (person.applyChinaDst !== undefined) birth.applyChinaDst = person.applyChinaDst;
+  const birthLatitude = readOptionalIdentityNumber(input, 'birthLatitude');
+  if (birthLatitude !== undefined) birth.birthLatitude = birthLatitude;
+
+  const target: JsonRecord = { baziFortuneScope: fortuneScope };
+  if (fortuneSelectionContext) {
+    const targetFields: Record<string, unknown> = {
+      baziFortuneCycleIndex: fortuneSelectionContext.cycleIndex,
+      baziFortuneYear: fortuneSelectionContext.year,
+      baziFortuneMonth: fortuneSelectionContext.month,
+      baziFortuneDay: fortuneSelectionContext.day,
+    };
+    for (const [key, value] of Object.entries(targetFields)) {
+      if (value !== undefined) target[key] = value;
+    }
+  }
+  return { method: 'bazi', birth, target };
+}
+
 function buildBaziPrompt(input: JsonRecord) {
   const result = calculateBazi(input);
   const selection = readSharedPromptSelection(input, 'bazi');
@@ -3768,6 +3822,11 @@ function buildBaziPrompt(input: JsonRecord) {
     prompt,
     fullResult: {
       ...result,
+      calculationIdentity: buildBaziCalculationIdentity(
+        input,
+        fortuneScope,
+        fortuneSelectionContext,
+      ),
       ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
     },
     resultSummary: {
@@ -3941,6 +4000,53 @@ async function calculateZiwei(input: JsonRecord) {
   return input.detailMode === 'compact' ? buildCompactZiweiResult(result) : result;
 }
 
+function buildZiweiCalculationIdentity(
+  input: JsonRecord,
+  scope: ZiweiPromptScope,
+  result: ReturnType<typeof buildSerializableZiweiResult>,
+) {
+  const birthDate = readBirthDate(input, { asString: true });
+  const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
+  const birth: JsonRecord = {
+    name: readString(input, 'name', ''),
+    gender: readEnum(input, 'gender', ['male', 'female']),
+    year: birthDate.year,
+    month: birthDate.month,
+    day: birthDate.day,
+    dateType: birthDate.dateType,
+    isLeapMonth: readBoolean(input, 'isLeapMonth', false),
+    useTrueSolarTime,
+    birthPlace: readString(input, 'birthPlace', ''),
+  };
+  if (useTrueSolarTime) {
+    birth.birthHour = readIntegerLike(input, 'birthHour', 0, 23);
+    birth.birthMinute = readIntegerLike(input, 'birthMinute', 0, 59);
+    birth.birthLongitude = readNumberLike(input, 'birthLongitude', -180, 180);
+  } else {
+    birth.timeIndex = readInteger(input, 'timeIndex', 0, 12);
+  }
+  const birthLatitude = readOptionalIdentityNumber(input, 'birthLatitude');
+  if (birthLatitude !== undefined) birth.birthLatitude = birthLatitude;
+  if (input.timezone !== undefined) birth.timezone = readNumberLike(input, 'timezone', -12, 14);
+  if (input.timeZoneId !== undefined) birth.timeZoneId = readRequiredString(input, 'timeZoneId');
+  if (input.applyChinaDst !== undefined)
+    birth.applyChinaDst = readBoolean(input, 'applyChinaDst', false);
+  birth.algorithm = readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default');
+
+  const target: JsonRecord = { promptScope: scope };
+  if (input.scopeDate !== undefined) {
+    target.scopeDate = readOptionalZiweiScopeDate(input);
+  } else if (result.fortuneTimeline) {
+    target.scopeDate = result.fortuneTimeline.targetDateStr;
+  }
+  if (input.scopeHourIndex !== undefined) {
+    target.scopeHourIndex = optInt(input, 'scopeHourIndex', 0, 12);
+  } else if (result.fortuneTimeline) {
+    target.scopeHourIndex = result.fortuneTimeline.targetHourIndex;
+  }
+  return { method: 'ziwei', birth, target };
+}
+
 async function buildZiweiPrompt(input: JsonRecord) {
   const selection = readSharedPromptSelection(input, 'ziwei');
   const selectedScope = toZiweiPromptScope(selection?.scope);
@@ -3980,7 +4086,10 @@ async function buildZiweiPrompt(input: JsonRecord) {
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt,
-    fullResult: serializableResult,
+    fullResult: {
+      ...serializableResult,
+      calculationIdentity: buildZiweiCalculationIdentity(input, scope, serializableResult),
+    },
     resultSummary: {
       ...buildCompactZiweiResult(serializableResult),
       ...(selection ? { selection } : {}),

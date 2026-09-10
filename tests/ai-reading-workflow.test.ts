@@ -204,6 +204,13 @@ test('查询失败保留盘面且明确说明', async () => {
 test('取消准备后不执行补查或最终解读，也不写入其他会话资料', async () => {
   const h = harness([]),
     controller = new AbortController();
+  const existing = {
+    key: 'existing',
+    title: '既有资料',
+    text: '既有事实'.repeat(6000),
+    usable: true,
+  };
+  h.options.memory.resources = [existing];
   h.options.signal = controller.signal;
   await runReadingWorkflow([{ role: 'user', content: '八字盘面' }], h.options, {
     stream: async (_messages, callbacks) => {
@@ -216,7 +223,7 @@ test('取消准备后不执行补查或最终解读，也不写入其他会话�
     },
   });
   assert.equal(h.done(), 0);
-  assert.deepEqual(h.options.memory.resources, []);
+  assert.deepEqual(h.options.memory.resources, [existing]);
   assert.deepEqual(h.errors, []);
 });
 
@@ -294,6 +301,8 @@ test('补算使用真实公开契约且只返回完整提示词', async (t) => {
   );
   assert.ok(data.usable);
   assert.match(data.text, /1990|庚午/);
+  const structured = data.structured as { calculationIdentity?: { method?: string } } | undefined;
+  assert.equal(structured?.calculationIdentity?.method, 'bazi');
 });
 
 test('自动补算拒绝更换主体并保留当前主体字段', async (t) => {
@@ -301,10 +310,38 @@ test('自动补算拒绝更换主体并保留当前主体字段', async (t) => {
   let request: Record<string, unknown> | undefined;
   globalThis.fetch = (async (input, init) => {
     request = JSON.parse(String(init?.body)) as Record<string, unknown>;
-    return new Response(JSON.stringify({ success: true, data: { prompt: '目标流年' } }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          result: {
+            gender: request.gender,
+            solarDate: { year: request.year, month: request.month, day: request.day },
+            lunarDate: { year: request.year, month: request.month, day: request.day },
+            timeInfo: { index: request.timeIndex },
+            calculationIdentity: {
+              method: 'bazi',
+              birth: {
+                gender: request.gender,
+                year: request.year,
+                month: request.month,
+                day: request.day,
+                dateType: request.dateType,
+                isLeapMonth: request.isLeapMonth,
+                useTrueSolarTime: request.useTrueSolarTime,
+                timeIndex: request.timeIndex,
+              },
+              target: { baziFortuneYear: request.baziFortuneYear },
+            },
+          },
+          prompt: '目标流年',
+        },
+      }),
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      },
+    );
   }) as typeof fetch;
   t.after(() => {
     globalThis.fetch = original;
@@ -327,17 +364,86 @@ test('自动补算拒绝更换主体并保留当前主体字段', async (t) => {
   assert.equal(request?.baziFortuneYear, 2026);
 });
 
-test('过大的补充资料整项提示，原始盘面始终完整保留', async () => {
+test('超过18000但低于最终上下文的完整资料仍进入解读', async () => {
   const h = harness(['{"actions":[{"kind":"classic","method":"bazi","query":"甲"}]}', '解读']);
+  const text = '精确完整事实'.repeat(3500);
   await runReadingWorkflow([{ role: 'user', content: '完整原盘' }], h.options, {
     stream: h.stream,
-    execute: async () => ({ key: '', title: '长条文', text: '长条文'.repeat(7000), usable: true }),
+    execute: async () => ({ key: '', title: '精确完整资料', text, usable: true }),
   });
-  assert.deepEqual(h.options.memory.resources, []);
-  assert.ok(h.notices.some((text) => text.includes('超出本轮容量，尚未加入解读')));
-  assert.ok(h.sent.at(-1)![0].content.startsWith('完整原盘'));
-  assert.match(h.sent.at(-1)![0].content, /长条文尚未加入解读资料/);
-  assert.doesNotMatch(h.sent.at(-1)![0].content, /长条文长条文/);
+  assert.equal(h.options.memory.resources.length, 1);
+  assert.equal(h.options.memory.resources[0].text, text);
+  assert.match(h.sent.at(-1)![0].content, /精确完整资料/);
+  assert.match(h.sent.at(-1)![0].content, /精确完整事实/);
+  assert.doesNotMatch(h.sent.at(-1)![0].content, /资料覆盖/);
+});
+
+test('两份合计超过18000的完整资料同时保留', async () => {
+  const h = harness([
+    '{"actions":[{"kind":"classic","method":"bazi","query":"甲"},{"kind":"classic","method":"bazi","query":"乙"}]}',
+    '解读',
+  ]);
+  const first = '第一完整事实'.repeat(1900);
+  const second = '第二完整事实'.repeat(1900);
+  await runReadingWorkflow([{ role: 'user', content: '完整原盘' }], h.options, {
+    stream: h.stream,
+    execute: async (action) => ({
+      key: '',
+      title: action.kind === 'classic' && action.query === '甲' ? '第一资料' : '第二资料',
+      text: action.kind === 'classic' && action.query === '甲' ? first : second,
+      usable: true,
+    }),
+  });
+  assert.equal(h.options.memory.resources.length, 2);
+  assert.match(h.sent.at(-1)![0].content, /第一完整事实/);
+  assert.match(h.sent.at(-1)![0].content, /第二完整事实/);
+  assert.doesNotMatch(h.sent.at(-1)![0].content, /资料覆盖/);
+});
+
+test('真实超出最终上下文时不静默丢弃成功资料并明确覆盖范围', async () => {
+  const h = harness([
+    '{"actions":[{"kind":"classic","method":"bazi","query":"甲"},{"kind":"classic","method":"bazi","query":"乙"}]}',
+    '解读',
+  ]);
+  const first = '第一阶段完整事实'.repeat(5000);
+  const second = '第二阶段完整事实'.repeat(4000);
+  await runReadingWorkflow([{ role: 'user', content: '完整原盘' }], h.options, {
+    stream: h.stream,
+    execute: async (action) => ({
+      key: '',
+      title: action.kind === 'classic' && action.query === '甲' ? '第一阶段' : '第二阶段',
+      text: action.kind === 'classic' && action.query === '甲' ? first : second,
+      usable: true,
+    }),
+  });
+  assert.equal(h.options.memory.resources.length, 2);
+  assert.match(h.sent.at(-1)![0].content, /第一阶段完整事实/);
+  assert.match(h.sent.at(-1)![0].content, /【资料状态】/);
+  assert.match(h.sent.at(-1)![0].content, /第二阶段/);
+  assert.match(h.sent.at(-1)![0].content, /待后续补足/);
+  assert.ok(h.notices.some((text) => text.includes('未纳入本轮判断')));
+  assert.doesNotMatch(h.sent.at(-1)![0].content, /第二阶段完整事实/);
+});
+
+test('历史消息有余量时保留完整补充资料并按现有规则裁剪旧消息', async () => {
+  const h = harness(['{"actions":[{"kind":"classic","method":"bazi","query":"甲"}]}', '解读']);
+  const messages = [
+    { role: 'user' as const, content: '原始盘面' },
+    ...Array.from({ length: 30 }, (_, index) => ({
+      role: index % 2 ? ('user' as const) : ('assistant' as const),
+      content: `历史第${index}条` + '历史内容'.repeat(1000),
+    })),
+  ];
+  const text = '阶段完整事实'.repeat(3500);
+  await runReadingWorkflow(messages, h.options, {
+    stream: h.stream,
+    execute: async () => ({ key: '', title: '阶段资料', text, usable: true }),
+  });
+  const final = h.sent.at(-1)!;
+  assert.match(final[0].content, /原始盘面/);
+  assert.match(final[0].content, /阶段完整事实/);
+  assert.deepEqual(final.at(-1), messages.at(-1));
+  assert.ok(final.reduce((sum, item) => sum + item.content.length, 0) <= 49000);
 });
 
 test('模型输出达到上限时返回可辨认的中断错误', async (t) => {
