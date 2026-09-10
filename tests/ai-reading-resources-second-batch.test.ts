@@ -237,7 +237,7 @@ async function withRequestCapture<T>(
           palaceTimeMode: request.useTrueSolarTime ? '真太阳时混合口径' : '民用时间',
           astronomicalTime: {
             localDateTime: localDateTime.replace('T', ' '),
-            utcDateTime,
+            utcDateTime: utcDateTime.replace('T', ' ').replace('.000Z', 'Z'),
             timezone,
             timeZoneId: request.timeZoneId,
           },

@@ -778,7 +778,7 @@ function assertQizhengResult(
   }
   assertStructuredField(
     'qi-zheng.astronomicalTime.utcDateTime',
-    context.utcDateTime,
+    birthTime.utcDateTime.replace('T', ' ').replace('.000Z', 'Z'),
     astronomicalTime.utcDateTime,
   );
   assertStructuredField(
