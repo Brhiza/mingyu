@@ -6,7 +6,7 @@ import type {
 import {
   buildInputStateSearch,
   buildResultSearch,
-  defaultPromptState,
+  createDefaultPromptState,
   hasCompletePreciseBirthData,
   type PromptSourceKey,
   type QueryInputState,
@@ -118,7 +118,7 @@ export function buildChartFeaturePathForCase(
   return buildChartRecordPath(
     input,
     {
-      ...defaultPromptState,
+      ...createDefaultPromptState(),
       tab: resolveResultTab(source),
       promptSource: source,
     },
@@ -131,7 +131,7 @@ export function buildPersonalRecordPath(record: PersonalHistoryRecord) {
   return buildChartRecordPath(
     record.input,
     {
-      ...defaultPromptState,
+      ...createDefaultPromptState(),
       tab: resolveResultTab(source),
       promptSource: source,
     },
@@ -143,7 +143,7 @@ export function buildCompatibilityRecordPath(record: CompatibilityHistoryRecord)
   return buildChartRecordPath(
     record.input,
     {
-      ...defaultPromptState,
+      ...createDefaultPromptState(),
       tab: 'bazi',
       promptSource: 'bazi',
       baziShortcutMode: '合婚',

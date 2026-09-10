@@ -3968,9 +3968,12 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   assert.match(body.data.prompt, /【分析对象】/);
   assert.match(body.data.prompt, /完整星盘行运资料：/);
   assert.match(body.data.prompt, /分析对象：本命盘与完整行运资料。/);
-  assert.match(body.data.prompt, /分析对象：流年\d{4}。/);
-  assert.match(body.data.prompt, /分析对象：流月\d{4}-\d{2}。/);
-  assert.match(body.data.prompt, /分析对象：流日\d{4}-\d{2}-\d{2}。/);
+  assert.match(body.data.prompt, /分析对象：流年2028。/);
+  assert.match(body.data.prompt, /分析对象：流月2028-06。/);
+  assert.match(body.data.prompt, /分析对象：流日2028-06-12。/);
+  assert.match(body.data.prompt, /太阳返照（/);
+  assert.match(body.data.prompt, /次限相位：/);
+  assert.match(body.data.prompt, /太阳弧相位：/);
   assertPromptIsPortableTaskText(body.data.prompt);
 
   const detailed = await callApi('divination/astrolabe/prompt', {
@@ -4028,6 +4031,44 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   }
 });
 
+test('公开 API 星盘未指定范围默认当前年度，显式本命仍只使用本命资料', async () => {
+  const base = {
+    name: '本人',
+    gender: '女',
+    year: 1995,
+    month: 5,
+    day: 20,
+    hour: 12,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+    question: '请分析当前阶段。',
+    responseMode: 'full',
+  };
+
+  const defaultRange = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(base),
+  });
+  assert.equal(defaultRange.response.status, 200);
+  assert.equal(defaultRange.body.data.result.scopeEvidence.scope, 'yearly');
+  assert.match(defaultRange.body.data.prompt, /分析对象：流年\d{4}。/);
+  assert.match(defaultRange.body.data.prompt, /周期关键星象（/);
+  assert.match(defaultRange.body.data.prompt, /太阳返照（/);
+
+  const natal = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...base, astrolabeScope: 'natal' }),
+  });
+  assert.equal(natal.response.status, 200);
+  assert.equal(natal.body.data.result.scopeEvidence.scope, 'natal');
+  assert.match(natal.body.data.prompt, /分析对象：本命盘。/);
+  assert.doesNotMatch(natal.body.data.prompt, /主要行运相位：|太阳返照（/);
+});
+
 test('公开 API 星盘非本命范围必须提供匹配范围的明确日期', async () => {
   const base = {
     name: '本人',
@@ -4044,6 +4085,7 @@ test('公开 API 星盘非本命范围必须提供匹配范围的明确日期', 
   };
   const cases = [
     { ...base, astrolabeScope: 'full' },
+    { ...base, astrolabeScope: 'yearly' },
     { ...base, astrolabeScope: 'yearly', astrolabeScopeDate: '2028-06' },
     { ...base, astrolabeScope: 'monthly', astrolabeScopeDate: '2028-13' },
     { ...base, astrolabeScope: 'daily', astrolabeScopeDate: '2028-02-31' },

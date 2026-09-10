@@ -585,7 +585,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '西洋星盘提示词',
     category: 'astrolabe',
     type: 'prompt',
-    description: '生成本命与行运过境解读自包含提示词；支持统一主题、主题细项和分析范围选择',
+    description:
+      '生成本命与行运过境解读自包含提示词；未指定范围时默认当前年度行运，支持统一主题、主题细项和分析范围选择',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/divination/astrolabe/prompt',
   },

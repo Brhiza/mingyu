@@ -1,6 +1,7 @@
 import { ASTROLABE_PROMPT_TOPICS, type AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
+import { getDefaultAstrolabeScopeDate } from '@/lib/astrolabe-scope';
 
 export type ResultTabKey =
   'bazi' | 'ziwei' | 'qimen-lifetime' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt' | 'minglu';
@@ -167,36 +168,40 @@ export const defaultInputState: QueryInputState = {
   partnerBirthLatitude: '',
 };
 
-export const defaultPromptState: QueryPromptState = {
-  tab: 'prompt',
-  promptSource: 'bazi',
-  baziPresetId: 'ai-mingge-zonglun',
-  baziTopicId: '',
-  baziSubtopicId: '',
-  baziShortcutMode: '自定义',
-  baziQuickQuestion: '',
-  baziFortuneScope: 'dayun',
-  baziFortuneCycleIndex: '',
-  baziFortuneYear: '',
-  baziFortuneMonth: '',
-  baziFortuneDay: '',
-  ziweiTopic: 'chat',
-  ziweiTopicId: '',
-  ziweiSubtopicId: '',
-  ziweiShortcutMode: '自定义',
-  ziweiQuickQuestion: '',
-  ziweiScope: 'decadal',
-  ziweiScopeDate: '',
-  astrolabeTopic: 'life',
-  astrolabeTopicId: '',
-  astrolabeSubtopicId: '',
-  astrolabeShortcutMode: '综合',
-  astrolabeQuickQuestion: '',
-  astrolabeScope: 'natal',
-  astrolabeScopeDate: '',
-  bazhaiFacingDegree: '',
-  residentialHouseYear: '',
-};
+export function createDefaultPromptState(now: Date = new Date()): QueryPromptState {
+  return {
+    tab: 'prompt',
+    promptSource: 'bazi',
+    baziPresetId: 'ai-mingge-zonglun',
+    baziTopicId: '',
+    baziSubtopicId: '',
+    baziShortcutMode: '自定义',
+    baziQuickQuestion: '',
+    baziFortuneScope: 'dayun',
+    baziFortuneCycleIndex: '',
+    baziFortuneYear: '',
+    baziFortuneMonth: '',
+    baziFortuneDay: '',
+    ziweiTopic: 'chat',
+    ziweiTopicId: '',
+    ziweiSubtopicId: '',
+    ziweiShortcutMode: '自定义',
+    ziweiQuickQuestion: '',
+    ziweiScope: 'decadal',
+    ziweiScopeDate: '',
+    astrolabeTopic: 'life',
+    astrolabeTopicId: '',
+    astrolabeSubtopicId: '',
+    astrolabeShortcutMode: '综合',
+    astrolabeQuickQuestion: '',
+    astrolabeScope: 'yearly',
+    astrolabeScopeDate: getDefaultAstrolabeScopeDate('yearly', now),
+    bazhaiFacingDegree: '',
+    residentialHouseYear: '',
+  };
+}
+
+export const defaultPromptState: QueryPromptState = createDefaultPromptState();
 
 export function hasCompletePreciseBirthData(
   input: Pick<
@@ -391,6 +396,8 @@ function appendInputStateParams(params: URLSearchParams, input: QueryInputState)
 }
 
 function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptState) {
+  const currentDefaultPromptState = createDefaultPromptState();
+  const persistAstrolabeScope = prompt.promptSource === 'astrolabe' || prompt.tab === 'astrolabe';
   setCompactParam(params, 'tab', prompt.tab, defaultPromptState.tab);
   setCompactParam(params, 'promptSource', prompt.promptSource, defaultPromptState.promptSource);
   setCompactParam(params, 'baziPresetId', prompt.baziPresetId, defaultPromptState.baziPresetId);
@@ -482,18 +489,23 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
     prompt.astrolabeShortcutMode,
     defaultPromptState.astrolabeShortcutMode,
   );
-  setCompactParam(
-    params,
-    'astrolabeScope',
-    prompt.astrolabeScope,
-    defaultPromptState.astrolabeScope,
-  );
-  setCompactParam(
-    params,
-    'astrolabeScopeDate',
-    prompt.astrolabeScopeDate,
-    defaultPromptState.astrolabeScopeDate,
-  );
+  if (persistAstrolabeScope) {
+    setCompactParam(params, 'astrolabeScope', prompt.astrolabeScope, '');
+    setCompactParam(params, 'astrolabeScopeDate', prompt.astrolabeScopeDate, '');
+  } else {
+    setCompactParam(
+      params,
+      'astrolabeScope',
+      prompt.astrolabeScope,
+      currentDefaultPromptState.astrolabeScope,
+    );
+    setCompactParam(
+      params,
+      'astrolabeScopeDate',
+      prompt.astrolabeScopeDate,
+      currentDefaultPromptState.astrolabeScopeDate,
+    );
+  }
   setCompactParam(
     params,
     'bazhaiFacingDegree',
@@ -850,6 +862,9 @@ export function buildInputSearch(params: URLSearchParams) {
 }
 
 export function parsePromptState(params: URLSearchParams): QueryPromptState {
+  const currentDefaultPromptState = createDefaultPromptState();
+  const hasExplicitAstrolabeScope =
+    params.has(PARAM_KEY_ALIASES.astrolabeScope) || params.has('astrolabeScope');
   const rawTab = getString(params, 'tab', defaultPromptState.tab);
   const tab: ResultTabKey =
     rawTab === 'bazi' ||
@@ -935,12 +950,12 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
       defaultPromptState.astrolabeQuickQuestion,
     ),
     astrolabeScope: parseAstrolabeScope(
-      getString(params, 'astrolabeScope', defaultPromptState.astrolabeScope),
+      getString(params, 'astrolabeScope', currentDefaultPromptState.astrolabeScope),
     ),
     astrolabeScopeDate: getString(
       params,
       'astrolabeScopeDate',
-      defaultPromptState.astrolabeScopeDate,
+      hasExplicitAstrolabeScope ? '' : currentDefaultPromptState.astrolabeScopeDate,
     ),
     bazhaiFacingDegree: parseDecimalText(
       getString(params, 'bazhaiFacingDegree', defaultPromptState.bazhaiFacingDegree),
@@ -957,7 +972,7 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
 
 export function buildResultSearch(
   input: QueryInputState,
-  prompt: QueryPromptState = defaultPromptState,
+  prompt: QueryPromptState = createDefaultPromptState(),
 ) {
   const params = new URLSearchParams();
   const normalizedPrompt = normalizePromptState(prompt);

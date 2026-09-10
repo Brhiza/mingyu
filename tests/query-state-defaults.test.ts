@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  createDefaultPromptState,
   buildInputSearch,
   buildResultSearch,
   defaultInputState,
@@ -9,6 +10,7 @@ import {
   parseInputState,
   parsePromptState,
 } from '../src/lib/query-state';
+import { getDefaultAstrolabeScopeDate } from '../src/lib/astrolabe-scope';
 
 test('精准排盘资料必须包含时分、地点和经纬度，并允许北京时间或真太阳时', () => {
   const complete = {
@@ -120,11 +122,39 @@ test('结果页默认紫微提示词状态应与自定义模式一致', () => {
   assert.equal(defaultPromptState.ziweiTopic, 'chat');
 });
 
-test('结果页默认星盘提示词状态应直接落到综合专项方案', () => {
+test('结果页默认星盘提示词状态应直接落到当前阶段综合专项方案', () => {
   assert.equal(defaultPromptState.astrolabeShortcutMode, '综合');
   assert.equal(defaultPromptState.astrolabeTopic, 'life');
-  assert.equal(defaultPromptState.astrolabeScope, 'natal');
-  assert.equal(defaultPromptState.astrolabeScopeDate, '');
+  assert.equal(defaultPromptState.astrolabeScope, 'yearly');
+  assert.equal(defaultPromptState.astrolabeScopeDate, getDefaultAstrolabeScopeDate('yearly'));
+
+  const parsed = parsePromptState(new URLSearchParams());
+  assert.equal(parsed.astrolabeScope, 'yearly');
+  assert.equal(parsed.astrolabeScopeDate, getDefaultAstrolabeScopeDate('yearly'));
+
+  const explicitNatal = parsePromptState(new URLSearchParams({ astrolabeScope: 'natal' }));
+  assert.equal(explicitNatal.astrolabeScope, 'natal');
+  assert.equal(explicitNatal.astrolabeScopeDate, '');
+
+  const fixedDefaults = createDefaultPromptState(new Date('2026-09-11T23:30:00-07:00'));
+  assert.equal(fixedDefaults.astrolabeScope, 'yearly');
+  assert.equal(fixedDefaults.astrolabeScopeDate, '2026');
+});
+
+test('星盘结果页应显式保存目标年度，避免跨年打开时改写历史范围', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...createDefaultPromptState(new Date('2026-09-11T23:30:00-07:00')),
+    tab: 'astrolabe',
+    promptSource: 'astrolabe',
+    astrolabeScope: 'yearly',
+    astrolabeScopeDate: '2026',
+  });
+
+  assert.match(search, /as=yearly/);
+  assert.match(search, /asd=2026/);
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.astrolabeScope, 'yearly');
+  assert.equal(parsed.astrolabeScopeDate, '2026');
 });
 
 test('仅切换 AI 提示词参数时，输入参数快照应保持不变', () => {

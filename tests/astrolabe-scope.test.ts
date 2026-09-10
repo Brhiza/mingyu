@@ -7,6 +7,7 @@ import {
   calculateSecondaryProgressionEvidence,
   calculateSolarArcEvidence,
   calculateSolarReturnEvidence,
+  getDefaultAstrolabeScopeDate,
 } from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeData } from 'mingyu-core/types';
@@ -73,6 +74,16 @@ function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
   assert.match(evidence.promptText, /证据汇总：/);
 }
 
+test('星盘当前参考日按统一时区生成各层日期', () => {
+  const now = new Date('2026-09-11T23:30:00-07:00');
+
+  assert.equal(getDefaultAstrolabeScopeDate('natal', now), '');
+  assert.equal(getDefaultAstrolabeScopeDate('yearly', now), '2026');
+  assert.equal(getDefaultAstrolabeScopeDate('monthly', now), '2026-09');
+  assert.equal(getDefaultAstrolabeScopeDate('daily', now), '2026-09-12');
+  assert.equal(getDefaultAstrolabeScopeDate('full', now), '2026-09-12');
+});
+
 test('星盘本命分析对象只写入本命资料', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'natal', '2028-06-01');
 
@@ -97,6 +108,9 @@ test('星盘完整输出版显示完整行运资料摘要', () => {
   assert.equal(contexts.yearly.dateStr, '2028');
   assert.equal(contexts.monthly.dateStr, '2028-06');
   assert.equal(contexts.daily.dateStr, '2028-06-01');
+  assert.match(contexts.yearly.promptText, /太阳返照（/);
+  assert.match(contexts.yearly.promptText, /次限相位：/);
+  assert.match(contexts.yearly.promptText, /太阳弧相位：/);
 });
 
 test('星盘流年分析对象会生成行运证据和展示文本', () => {

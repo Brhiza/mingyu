@@ -25,6 +25,7 @@ import {
 import {
   buildAstrolabeFullScopeContexts,
   buildAstrolabeScopeContext,
+  getDefaultAstrolabeScopeDate,
   mergeAstrolabePeriodCollections,
 } from '@/lib/astrolabe-scope';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
@@ -165,7 +166,10 @@ function FortuneScopePresetSelect(props: {
   const currentAvailable = props.currentAvailable ?? true;
   const options: DropdownSelectOption<FortuneScopePreset>[] = [
     ...(props.kind === 'astrolabe'
-      ? [{ value: 'default' as const, label: '本命总览', triggerLabel: '本命总览' }]
+      ? [
+          { value: 'year' as const, label: '当前阶段', triggerLabel: '当前阶段' },
+          { value: 'default' as const, label: '本命总览', triggerLabel: '本命总览' },
+        ]
       : [{ value: 'dayun' as const, label: '当前阶段', disabled: !currentAvailable }]),
     { value: 'all', label: '全部' },
     { value: 'manual', label: '自选时间…', triggerLabel: '自选时间' },
@@ -174,7 +178,10 @@ function FortuneScopePresetSelect(props: {
       : [{ value: 'default' as const, label: '本命总览', triggerLabel: '本命总览' }]),
   ];
   const selectedValue =
-    props.value === 'default' || props.value === 'dayun' || props.value === 'all'
+    props.value === 'default' ||
+    props.value === 'dayun' ||
+    props.value === 'year' ||
+    props.value === 'all'
       ? props.value
       : 'manual';
 
@@ -863,10 +870,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           : 'manual';
   const currentAstrolabeScopeDate =
     promptState.astrolabeScope === 'yearly'
-      ? currentDateStr.slice(0, 4)
+      ? getDefaultAstrolabeScopeDate('yearly', currentScopeDate)
       : promptState.astrolabeScope === 'monthly'
-        ? currentDateStr.slice(0, 7)
-        : currentDateStr;
+        ? getDefaultAstrolabeScopeDate('monthly', currentScopeDate)
+        : getDefaultAstrolabeScopeDate('daily', currentScopeDate);
   const astrolabeScopePreset: FortuneScopePreset =
     promptState.astrolabeScope === 'natal'
       ? 'default'
@@ -968,11 +975,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       astrolabeScope,
       astrolabeScopeDate:
         astrolabeScope === 'yearly'
-          ? currentDateStr.slice(0, 4)
+          ? getDefaultAstrolabeScopeDate('yearly', currentScopeDate)
           : astrolabeScope === 'monthly'
-            ? currentDateStr.slice(0, 7)
+            ? getDefaultAstrolabeScopeDate('monthly', currentScopeDate)
             : astrolabeScope === 'daily' || astrolabeScope === 'full'
-              ? currentDateStr
+              ? getDefaultAstrolabeScopeDate('daily', currentScopeDate)
               : '',
     });
   }

@@ -92,7 +92,11 @@ import {
 } from 'mingyu-core/foundation';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
-import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '../astrolabe-scope';
+import {
+  buildAstrolabeFullScopeContexts,
+  buildAstrolabeScopeContext,
+  getDefaultAstrolabeScopeDate,
+} from '../astrolabe-scope';
 import { buildAstrolabeSynastryPrompt } from '../astrolabe-synastry-prompt';
 import { getCompatibilityPrompt, type CompatType } from '../../utils/ai/aiPrompts';
 import {
@@ -431,12 +435,12 @@ const DIVINATION_REQUEST_PROPERTIES = {
   astrolabeScope: {
     enum: [...ASTROLABE_PROMPT_SCOPES],
     description:
-      '星盘分析范围：natal=本命, full=完整输出版, yearly=流年, monthly=流月, daily=流日。不传时默认本命；传 astrolabeScopeText 时以自定义文本为准。',
+      '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日。不传时默认当前年度流年；传 astrolabeScopeText 时以自定义文本为准。',
   },
   astrolabeScopeDate: {
     type: 'string',
     description:
-      '星盘行运日期；full 和 daily 用 YYYY-MM-DD，yearly 用 YYYY，monthly 用 YYYY-MM。除 natal 外均必填。',
+      '星盘行运日期；full 和 daily 用 YYYY-MM-DD，yearly 用 YYYY，monthly 用 YYYY-MM。显式指定非 natal 范围时必填；省略范围时默认使用当前年度。',
   },
   astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
   promptMode: { enum: [...PROMPT_MODES] },
@@ -4954,13 +4958,19 @@ function buildAstrolabePromptScopeText(input: JsonRecord, data: AstrolabeData) {
   const customText = readString(input, 'astrolabeScopeText', '').trim();
   if (customText) return customText;
 
+  const hasExplicitScope = input.astrolabeScope !== undefined;
   const scope = readEnum(
     input,
     'astrolabeScope',
     ASTROLABE_PROMPT_SCOPES,
-    'natal',
+    hasExplicitScope ? 'natal' : 'yearly',
   ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
-  const dateStr = scope === 'natal' ? '' : readRequiredString(input, 'astrolabeScopeDate');
+  const dateStr =
+    scope === 'natal'
+      ? ''
+      : hasExplicitScope
+        ? readRequiredString(input, 'astrolabeScopeDate')
+        : readString(input, 'astrolabeScopeDate', getDefaultAstrolabeScopeDate(scope));
 
   try {
     if (scope === 'full') {
@@ -4983,13 +4993,19 @@ function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
     return { scope: 'custom' as const, promptText: customText };
   }
 
+  const hasExplicitScope = input.astrolabeScope !== undefined;
   const scope = readEnum(
     input,
     'astrolabeScope',
     ASTROLABE_PROMPT_SCOPES,
-    'natal',
+    hasExplicitScope ? 'natal' : 'yearly',
   ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
-  const dateStr = scope === 'natal' ? '' : readRequiredString(input, 'astrolabeScopeDate');
+  const dateStr =
+    scope === 'natal'
+      ? ''
+      : hasExplicitScope
+        ? readRequiredString(input, 'astrolabeScopeDate')
+        : readString(input, 'astrolabeScopeDate', getDefaultAstrolabeScopeDate(scope));
   try {
     if (scope === 'full') {
       return {
@@ -5009,6 +5025,21 @@ function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
   }
 }
 
+function resolveAstrolabePromptScopeInput(input: JsonRecord): JsonRecord {
+  if (input.astrolabeScope !== undefined) {
+    return input;
+  }
+
+  return {
+    ...input,
+    astrolabeScope: 'yearly',
+    astrolabeScopeDate:
+      input.astrolabeScopeDate === undefined
+        ? getDefaultAstrolabeScopeDate('yearly')
+        : readString(input, 'astrolabeScopeDate', ''),
+  };
+}
+
 function buildDivinationPromptResult(
   method: Exclude<DivinationMethodId, 'random'>,
   input: JsonRecord,
@@ -5025,6 +5056,7 @@ function buildDivinationPromptResult(
       ? readString(input, 'question', '')
       : readRequiredString(input, 'question');
   const rawData = calculateDivinationData(method, input);
+  const promptInput = method === 'astrolabe' ? resolveAstrolabePromptScopeInput(input) : input;
   const promptData =
     method === 'almanac' ? shapeAlmanacPromptData(rawData as AlmanacData, input) : rawData;
   const fullResult =
@@ -5035,12 +5067,12 @@ function buildDivinationPromptResult(
         : method === 'astrolabe'
           ? {
               ...(rawData as AstrolabeData),
-              scopeEvidence: buildAstrolabeScopeEvidence(input, rawData as AstrolabeData),
+              scopeEvidence: buildAstrolabeScopeEvidence(promptInput, rawData as AstrolabeData),
             }
           : rawData;
   const summary = getDivinationSummaryBlocks(method, promptData);
-  const promptSelection = readDivinationPromptSelection(method, input);
-  const prompt = buildDivinationPromptText(method, question, promptData, input);
+  const promptSelection = readDivinationPromptSelection(method, promptInput);
+  const prompt = buildDivinationPromptText(method, question, promptData, promptInput);
 
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),

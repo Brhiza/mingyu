@@ -2494,6 +2494,51 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
   });
 });
 
+test('MCP 星盘未指定范围默认当前年度，显式本命仍只使用本命资料', async () => {
+  await withMcpClient(async (client) => {
+    const base = {
+      name: '本人',
+      gender: '女',
+      year: 1995,
+      month: 5,
+      day: 20,
+      hour: 12,
+      minute: 30,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+      question: '请分析当前阶段。',
+    };
+
+    const defaultRange = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: base,
+    });
+    assert.equal(defaultRange.isError, undefined);
+    const defaultResult = defaultRange.structuredContent?.result as {
+      scopeEvidence?: { scope?: string };
+    };
+    assert.equal(defaultResult.scopeEvidence?.scope, 'yearly');
+    const defaultPrompt = String(defaultRange.structuredContent?.prompt ?? '');
+    assert.match(defaultPrompt, /分析对象：流年\d{4}。/);
+    assert.match(defaultPrompt, /周期关键星象（/);
+    assert.match(defaultPrompt, /太阳返照（/);
+
+    const natal = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: { ...base, astrolabeScope: 'natal' },
+    });
+    assert.equal(natal.isError, undefined);
+    const natalResult = natal.structuredContent?.result as {
+      scopeEvidence?: { scope?: string };
+    };
+    assert.equal(natalResult.scopeEvidence?.scope, 'natal');
+    const natalPrompt = String(natal.structuredContent?.prompt ?? '');
+    assert.match(natalPrompt, /分析对象：本命盘。/);
+    assert.doesNotMatch(natalPrompt, /主要行运相位：|太阳返照（/);
+  });
+});
+
 test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({

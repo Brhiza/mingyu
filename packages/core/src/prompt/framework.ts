@@ -346,7 +346,7 @@ const DEFAULT_SCOPE_BY_METHOD: Partial<Record<PromptMethodId, PromptScopeId>> = 
   bazi: 'decadal',
   ziwei: 'decadal',
   'bazi-ziwei': 'decadal',
-  astrolabe: 'natal',
+  astrolabe: 'yearly',
   'astrolabe-synastry': 'natal',
   'qimen-lifetime': 'natal',
   qizheng: 'natal',
