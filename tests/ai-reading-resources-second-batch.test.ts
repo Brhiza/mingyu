@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { executeReadingAction } from '../src/lib/ai/reading-resources';
 import type { ReadingSubjectSnapshot } from '../src/lib/ai/reading-subject';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
+import { resolveCivilTime } from 'mingyu-core/calendar';
 
 const baziInputs = {
   gender: 'male',
@@ -212,14 +213,39 @@ async function withRequestCapture<T>(
         },
       };
     } else {
+      const localDateTime = `${request.year}-${String(request.month).padStart(2, '0')}-${String(request.day).padStart(2, '0')}T${String(request.hour).padStart(2, '0')}:${String(request.minute ?? 0).padStart(2, '0')}:00`;
+      const { timezone, utcDateTime } = resolveCivilTime(
+        {
+          year: Number(request.year),
+          month: Number(request.month),
+          day: Number(request.day),
+          hour: Number(request.hour),
+          minute: Number(request.minute ?? 0),
+          second: 0,
+          timezone: request.timezone === undefined ? undefined : Number(request.timezone),
+          timeZoneId: typeof request.timeZoneId === 'string' ? request.timeZoneId : undefined,
+        },
+        { defaultTimezone: 8 },
+      );
       result = {
         calculationContext: {
           latitude: request.latitude,
           longitude: request.longitude,
+          localDateTime,
+          utcDateTime,
+          timezone,
+          palaceTimeMode: request.useTrueSolarTime ? '真太阳时混合口径' : '民用时间',
+          astronomicalTime: {
+            localDateTime: localDateTime.replace('T', ' '),
+            utcDateTime,
+            timezone,
+            timeZoneId: request.timeZoneId,
+          },
         },
         ...(request.flowYear === undefined
           ? {}
           : {
+              timeLords: { gender: request.gender },
               flowingStars: {
                 year: request.flowYear,
                 month: request.flowMonth,

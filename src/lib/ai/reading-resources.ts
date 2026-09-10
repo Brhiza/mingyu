@@ -6,7 +6,11 @@ import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-wo
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { getDefaultAstrolabeScopeDate } from '../astrolabe-scope';
 import { getAiApiEndpoint } from './stream-client';
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import {
+  DEFAULT_CHINA_TIMEZONE_HOURS,
+  getTimeIndexFromClock,
+  resolveCivilTime,
+} from 'mingyu-core/calendar';
 
 const LABELS: Record<string, string> = {
   sourceBook: '典籍',
@@ -740,6 +744,56 @@ function assertQizhengResult(
   const context = result.calculationContext;
   for (const field of ['latitude', 'longitude']) {
     assertStructuredField(`qi-zheng.${field}`, locked[field], context[field]);
+  }
+  const birthFields = ['year', 'month', 'day', 'hour'];
+  if (birthFields.some((field) => locked[field] === undefined)) {
+    throw new Error('当前会话缺少七政出生日期或时刻。');
+  }
+  const birthTime = resolveCivilTime(
+    {
+      year: Number(locked.year),
+      month: Number(locked.month),
+      day: Number(locked.day),
+      hour: Number(locked.hour),
+      minute: Number(locked.minute ?? 0),
+      second: 0,
+      timezone: locked.timezone === undefined ? undefined : Number(locked.timezone),
+      timeZoneId: typeof locked.timeZoneId === 'string' ? locked.timeZoneId : undefined,
+    },
+    { defaultTimezone: DEFAULT_CHINA_TIMEZONE_HOURS },
+  );
+  assertStructuredField('qi-zheng.localDateTime', birthTime.localDateTime, context.localDateTime);
+  assertStructuredField('qi-zheng.utcDateTime', birthTime.utcDateTime, context.utcDateTime);
+  assertStructuredField('qi-zheng.timezone', birthTime.timezone, context.timezone);
+  const astronomicalTime = context.astronomicalTime;
+  if (!record(astronomicalTime)) throw new Error('补算返回缺少七政出生时间证据。');
+  assertStructuredField('qi-zheng.timeZoneId', locked.timeZoneId, astronomicalTime.timeZoneId);
+  assertStructuredField(
+    'qi-zheng.astronomicalTime.localDateTime',
+    birthTime.localDateTime.replace('T', ' '),
+    astronomicalTime.localDateTime,
+  );
+  if (typeof context.utcDateTime !== 'string' || typeof context.timezone !== 'number') {
+    throw new Error('补算返回缺少七政 UTC 时刻或有效时区。');
+  }
+  assertStructuredField(
+    'qi-zheng.astronomicalTime.utcDateTime',
+    context.utcDateTime,
+    astronomicalTime.utcDateTime,
+  );
+  assertStructuredField(
+    'qi-zheng.astronomicalTime.timezone',
+    context.timezone,
+    astronomicalTime.timezone,
+  );
+  assertStructuredField(
+    'qi-zheng.palaceTimeMode',
+    locked.useTrueSolarTime === true ? '真太阳时混合口径' : '民用时间',
+    context.palaceTimeMode,
+  );
+  if (locked.gender !== undefined && calculationInput.flowYear !== undefined) {
+    if (!record(result.timeLords)) throw new Error('补算返回缺少七政行限主体资料。');
+    assertStructuredField('qi-zheng.timeLords.gender', locked.gender, result.timeLords.gender);
   }
   const flow = result.flowingStars;
   const flowFields = ['flowYear', 'flowMonth', 'flowDay', 'flowHour', 'flowMinute'];
