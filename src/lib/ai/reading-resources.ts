@@ -4,6 +4,7 @@ import {
 } from './reading-capabilities';
 import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-workflow';
 import type { ReadingSubjectSnapshot } from './reading-subject';
+import { getDefaultAstrolabeScopeDate } from '../astrolabe-scope';
 import { getAiApiEndpoint } from './stream-client';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 
@@ -910,7 +911,11 @@ export async function executeReadingAction(
       usable: false,
     };
   }
-  const requestInput = calculationInput ?? action.input;
+  const requestInput = { ...(calculationInput ?? action.input) };
+  if (action.method === 'astrolabe' && requestInput.astrolabeScope === undefined) {
+    requestInput.astrolabeScope = 'yearly';
+    requestInput.astrolabeScopeDate ??= getDefaultAstrolabeScopeDate('yearly');
+  }
   const calculationRequest: Record<string, unknown> = {
     ...(locked ?? {}),
     ...requestInput,

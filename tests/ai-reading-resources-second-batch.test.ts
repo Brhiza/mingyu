@@ -258,6 +258,33 @@ async function withPublicApiFetch<T>(callback: () => Promise<T>) {
   }
 }
 
+test('星盘自动补算默认当前年度且实际资料与目标一致，显式本命保留', async (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2030-06-15T04:00:00Z') });
+  await withPublicApiFetch(async () => {
+    const current = await executeReadingAction(
+      { kind: 'calculate', method: 'astrolabe', input: { question: '当前阶段事业变化' } },
+      undefined,
+      astrolabeSubject,
+    );
+    const evidence = current.structured?.scopeEvidence as Record<string, unknown>;
+    assert.equal(evidence.scope, 'yearly');
+    assert.equal(evidence.dateStr, '2030');
+    assert.match(current.title, /2030/u);
+    assert.match(current.text, /2030/u);
+
+    const natal = await executeReadingAction(
+      {
+        kind: 'calculate',
+        method: 'astrolabe',
+        input: { astrolabeScope: 'natal', question: '本命' },
+      },
+      undefined,
+      astrolabeSubject,
+    );
+    assert.equal((natal.structured?.scopeEvidence as Record<string, unknown>).scope, 'natal');
+  });
+});
+
 test('补算经真实公共 API 返回可核验的八字与紫微盘面事实', async () => {
   await withPublicApiFetch(async () => {
     const baziResource = await executeReadingAction(
