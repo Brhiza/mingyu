@@ -16,6 +16,9 @@ import type {
   TaiyiScope,
   XiaoliurenDivinationMethod,
   JinkoujueDivinationMethod,
+  MeihuaDirection,
+  MeihuaObjectType,
+  MeihuaDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
@@ -105,8 +108,16 @@ export type DivinationDraft = {
   liuyaoMethod?: 'time' | 'coins' | 'manual' | 'yarrow';
   liuyaoYaos?: Array<6 | 7 | 8 | 9>;
   liuyaoCoinThrows?: Array<{ coins: [2 | 3, 2 | 3, 2 | 3]; total: 6 | 7 | 8 | 9 }>;
-  meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
+  meihuaMethod: MeihuaDivinationMethod;
   meihuaNumber: string;
+  meihuaSoundCount: string;
+  meihuaCharacterText: string;
+  meihuaCharacterTones: string;
+  meihuaCharacterStrokeCounts: string;
+  meihuaCharacterLeftStrokes: string;
+  meihuaCharacterRightStrokes: string;
+  meihuaDirection: MeihuaDirection;
+  meihuaObjectType: MeihuaObjectType;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
   xiaoliurenRule?: 'common' | 'duoneng';
   jinkoujueMethod: JinkoujueDivinationMethod;
@@ -324,12 +335,52 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
     }
   }
   if (draft.method === 'meihua') {
-    info.meihuaSettings = {
+    const meihuaSettings: NonNullable<SupplementaryInfo['meihuaSettings']> = {
       method: draft.meihuaMethod,
-      ...(draft.meihuaMethod === 'number' && draft.meihuaNumber.trim()
-        ? { number: readPositiveIntegerText(draft.meihuaNumber, '数字起卦') }
-        : {}),
     };
+    if (draft.meihuaMethod === 'number' && draft.meihuaNumber.trim()) {
+      meihuaSettings.number = readPositiveIntegerText(draft.meihuaNumber, '数字起卦');
+    } else if (draft.meihuaMethod === 'sound' && draft.meihuaSoundCount.trim()) {
+      meihuaSettings.soundCount = readPositiveIntegerText(draft.meihuaSoundCount, '声音数');
+    } else if (draft.meihuaMethod === 'character') {
+      const characterText = draft.meihuaCharacterText.trim();
+      const characterCount = Array.from(characterText).length;
+      if (characterText) {
+        meihuaSettings.characterText = characterText;
+      }
+      if (characterCount === 1) {
+        if (draft.meihuaCharacterLeftStrokes.trim()) {
+          meihuaSettings.characterLeftStrokes = readPositiveIntegerText(
+            draft.meihuaCharacterLeftStrokes,
+            '单字左侧笔画数',
+          );
+        }
+        if (draft.meihuaCharacterRightStrokes.trim()) {
+          meihuaSettings.characterRightStrokes = readPositiveIntegerText(
+            draft.meihuaCharacterRightStrokes,
+            '单字右侧笔画数',
+          );
+        }
+      } else if (characterCount >= 2 && characterCount <= 3) {
+        if (draft.meihuaCharacterStrokeCounts.trim()) {
+          meihuaSettings.characterStrokeCounts = readPositiveIntegerListText(
+            draft.meihuaCharacterStrokeCounts,
+            '逐字笔画数',
+          );
+        }
+      } else if (characterCount >= 4 && characterCount <= 10) {
+        if (draft.meihuaCharacterTones.trim()) {
+          meihuaSettings.characterTones = readToneListText(
+            draft.meihuaCharacterTones,
+            '传统平上去入声数',
+          );
+        }
+      }
+    } else if (draft.meihuaMethod === 'direction') {
+      meihuaSettings.direction = draft.meihuaDirection;
+      meihuaSettings.objectType = draft.meihuaObjectType;
+    }
+    info.meihuaSettings = meihuaSettings;
   }
   const userSupplement = draft.userSupplement?.trim();
   if (draft.method === 'almanac' && draft.question.trim()) {
@@ -358,6 +409,36 @@ function validateDraft(draft: DivinationDraft) {
 
   if (draft.method === 'meihua' && draft.meihuaMethod === 'number') {
     readPositiveIntegerText(draft.meihuaNumber, '数字起卦');
+  }
+  if (draft.method === 'meihua' && draft.meihuaMethod === 'sound') {
+    readPositiveIntegerText(draft.meihuaSoundCount, '声音数');
+  }
+  if (draft.method === 'meihua' && draft.meihuaMethod === 'character') {
+    const characterText = draft.meihuaCharacterText.trim();
+    if (!characterText) {
+      throw new Error('字数起卦需要填写文字');
+    }
+    const characterCount = Array.from(characterText).length;
+    if (characterCount > 100) {
+      throw new Error('字数起卦的文字不能超过100字');
+    }
+    if (characterCount === 1) {
+      readPositiveIntegerText(draft.meihuaCharacterLeftStrokes, '单字左侧笔画数');
+      readPositiveIntegerText(draft.meihuaCharacterRightStrokes, '单字右侧笔画数');
+    } else if (characterCount <= 3) {
+      const strokeCounts = readPositiveIntegerListText(
+        draft.meihuaCharacterStrokeCounts,
+        '逐字笔画数',
+      );
+      if (strokeCounts.length !== characterCount) {
+        throw new Error('逐字笔画数数量必须与文字字数一致');
+      }
+    } else if (characterCount <= 10) {
+      const tones = readToneListText(draft.meihuaCharacterTones, '传统平上去入声数');
+      if (tones.length !== characterCount) {
+        throw new Error('传统平上去入声数数量必须与文字字数一致');
+      }
+    }
   }
 
   if (draft.method === 'liuyao' && (draft.liuyaoMethod ?? 'time') === 'manual') {
@@ -497,6 +578,32 @@ function readPositiveIntegerText(value: string, label: string) {
     throw new Error(`${label}需要填写正整数`);
   }
   return number;
+}
+
+function readToneListText(value: string, label: string): number[] {
+  const parts = value
+    .trim()
+    .split(/[,，、\s]+/u)
+    .filter(Boolean);
+  if (parts.length === 0) {
+    throw new Error(`${label}需要填写1-4的传统声类数`);
+  }
+  const tones = parts.map((part) => readPositiveIntegerText(part, label));
+  if (tones.some((tone) => tone > 4)) {
+    throw new Error(`${label}只能填写1、2、3、4`);
+  }
+  return tones;
+}
+
+function readPositiveIntegerListText(value: string, label: string): number[] {
+  const parts = value
+    .trim()
+    .split(/[,，、\s]+/u)
+    .filter(Boolean);
+  if (parts.length === 0) {
+    throw new Error(`${label}需要填写逐项正整数`);
+  }
+  return parts.map((part) => readPositiveIntegerText(part, label));
 }
 
 function readNumberText(value: string, label: string) {

@@ -5,6 +5,8 @@ import {
   LIUYAO_TEMPLATE_OPTIONS,
   LIUREN_TEMPLATE_OPTIONS,
   MEIHUA_METHOD_OPTIONS,
+  MEIHUA_DIRECTION_OPTIONS,
+  MEIHUA_OBJECT_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from 'mingyu-core/divination/config';
@@ -34,6 +36,14 @@ export const defaultDraft: DivinationDraft = {
   liuyaoCoinThrows: [],
   meihuaMethod: 'time',
   meihuaNumber: '',
+  meihuaSoundCount: '',
+  meihuaCharacterText: '',
+  meihuaCharacterTones: '',
+  meihuaCharacterStrokeCounts: '',
+  meihuaCharacterLeftStrokes: '',
+  meihuaCharacterRightStrokes: '',
+  meihuaDirection: 'north',
+  meihuaObjectType: 'earth',
   xiaoliurenMethod: 'time',
   jinkoujueMethod: 'time',
   jinkoujueBranch: '子',
@@ -85,6 +95,9 @@ export const methodLabelMap = Object.fromEntries([
 export const meihuaMethodLabelMap = Object.fromEntries(
   MEIHUA_METHOD_OPTIONS.map((item) => [item.value, item.label]),
 ) as Record<NonNullable<DivinationDraft['meihuaMethod']>, string>;
+
+export const meihuaDirectionOptions = MEIHUA_DIRECTION_OPTIONS;
+export const meihuaObjectOptions = MEIHUA_OBJECT_OPTIONS;
 
 export const jinkoujueMethodLabelMap = Object.fromEntries(
   JINKOUJUE_METHOD_OPTIONS.map((item) => [item.value, item.label]),

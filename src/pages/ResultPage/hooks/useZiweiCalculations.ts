@@ -333,12 +333,25 @@ export function useZiweiCalculations(
       return null;
     const dateStr = promptState.ziweiScopeDate || getDefaultHoroscopeContext().dateStr;
     const all = promptState.ziweiScope === 'full';
+    const scope =
+      promptState.ziweiScope === 'full'
+        ? 'all'
+        : promptState.ziweiScope === 'yearly'
+          ? 'year'
+          : promptState.ziweiScope === 'monthly'
+            ? 'month'
+            : promptState.ziweiScope === 'daily'
+              ? 'day'
+              : promptState.ziweiScope === 'hourly'
+                ? 'hour'
+                : 'current';
     return {
       input: primaryZiweiInput,
       dateStr,
       hourIndex: promptHourIndex,
       all,
-      key: JSON.stringify([primaryZiweiInputKey, dateStr, promptHourIndex, all]),
+      scope,
+      key: JSON.stringify([primaryZiweiInputKey, dateStr, promptHourIndex, all, scope]),
     };
   }, [
     shouldLoadZiweiPromptPayload,

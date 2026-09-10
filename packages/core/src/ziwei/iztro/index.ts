@@ -66,6 +66,20 @@ export {
   type ZiweiRuntime,
   type ZiweiRuntimeOptions,
 } from '../runtime';
+export {
+  buildZiweiFortuneTimeline,
+  buildZiweiFortuneTimelineFromAstrolabe,
+  findZiweiFortunePeriod,
+  formatZiweiFortuneTimeline,
+  type ZiweiFortuneDay,
+  type ZiweiFortuneLayer,
+  type ZiweiFortuneMonth,
+  type ZiweiFortunePeriod,
+  type ZiweiFortuneRangeOptions,
+  type ZiweiFortuneRangeScope,
+  type ZiweiFortuneTimeline,
+  type ZiweiFortuneYear,
+} from '../fortune-timeline';
 export { analyzeZiweiCompatibility } from './compatibility-evidence';
 export * from '../prompt/index';
 export { buildSerializableZiweiResult } from '../../prompt/ziwei';

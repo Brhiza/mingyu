@@ -334,9 +334,10 @@ test('过大的补充资料整项提示，原始盘面始终完整保留', async
     execute: async () => ({ key: '', title: '长条文', text: '长条文'.repeat(7000), usable: true }),
   });
   assert.deepEqual(h.options.memory.resources, []);
-  assert.ok(h.notices.some((text) => text.includes('较多')));
+  assert.ok(h.notices.some((text) => text.includes('超出本轮容量，尚未加入解读')));
   assert.ok(h.sent.at(-1)![0].content.startsWith('完整原盘'));
-  assert.doesNotMatch(h.sent.at(-1)![0].content, /长条文/);
+  assert.match(h.sent.at(-1)![0].content, /长条文尚未加入解读资料/);
+  assert.doesNotMatch(h.sent.at(-1)![0].content, /长条文长条文/);
 });
 
 test('模型输出达到上限时返回可辨认的中断错误', async (t) => {

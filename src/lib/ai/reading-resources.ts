@@ -44,6 +44,147 @@ const LABELS: Record<string, string> = {
   palace: '宫位',
 };
 
+type CalculationParameterRule = {
+  immutable: readonly string[];
+  mutable: readonly string[];
+};
+
+const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
+  bazi: {
+    immutable: [
+      'gender',
+      'year',
+      'month',
+      'day',
+      'dateType',
+      'isLeapMonth',
+      'timeIndex',
+      'useTrueSolarTime',
+      'birthHour',
+      'birthMinute',
+      'birthPlace',
+      'birthLongitude',
+      'birthLatitude',
+      'timezone',
+      'timeZoneId',
+      'applyChinaDst',
+      'shenShaScope',
+      'shenShaVariants',
+      'detailMode',
+    ],
+    mutable: [
+      'baziFortuneScope',
+      'baziFortuneCycleIndex',
+      'baziFortuneYear',
+      'baziFortuneMonth',
+      'baziFortuneDay',
+      'question',
+      'topicId',
+      'subtopicId',
+      'scope',
+      'promptTopic',
+      'promptMode',
+      'school',
+      'schools',
+    ],
+  },
+  ziwei: {
+    immutable: [
+      'name',
+      'gender',
+      'dateType',
+      'year',
+      'month',
+      'day',
+      'timeIndex',
+      'isLeapMonth',
+      'useTrueSolarTime',
+      'birthHour',
+      'birthMinute',
+      'birthLongitude',
+      'birthLatitude',
+      'birthPlace',
+      'timezone',
+      'timeZoneId',
+      'applyChinaDst',
+      'algorithm',
+      'detailMode',
+    ],
+    mutable: [
+      'promptScope',
+      'scopeDate',
+      'scopeHourIndex',
+      'question',
+      'topicId',
+      'subtopicId',
+      'scope',
+      'promptTopic',
+      'promptMode',
+      'school',
+      'schools',
+    ],
+  },
+  astrolabe: {
+    immutable: [
+      'name',
+      'gender',
+      'year',
+      'month',
+      'day',
+      'hour',
+      'minute',
+      'latitude',
+      'longitude',
+      'timezone',
+      'timeZoneId',
+      'locationName',
+      'useTrueSolarTime',
+      'detailMode',
+    ],
+    mutable: [
+      'astrolabeTopic',
+      'astrolabeScope',
+      'astrolabeScopeDate',
+      'astrolabeScopeText',
+      'question',
+      'topicId',
+      'subtopicId',
+      'scope',
+      'promptMode',
+      'schools',
+    ],
+  },
+  'qi-zheng': {
+    immutable: [
+      'gender',
+      'year',
+      'month',
+      'day',
+      'hour',
+      'minute',
+      'latitude',
+      'longitude',
+      'timezone',
+      'timeZoneId',
+      'useTrueSolarTime',
+      'detailMode',
+    ],
+    mutable: [
+      'flowYear',
+      'flowMonth',
+      'flowDay',
+      'flowHour',
+      'flowMinute',
+      'question',
+      'topicId',
+      'subtopicId',
+      'promptScope',
+      'promptMode',
+      'schools',
+    ],
+  },
+};
+
 function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -191,6 +332,44 @@ export function resolveReadingSchema(
   );
 }
 
+function collectObjectSchemaParts(value: unknown) {
+  const properties: Record<string, unknown> = {};
+  const required = new Set<string>();
+
+  const collect = (current: unknown) => {
+    if (!record(current)) return;
+    if (Array.isArray(current.allOf)) {
+      for (const item of current.allOf) collect(item);
+    }
+    if (record(current.properties)) Object.assign(properties, current.properties);
+    if (Array.isArray(current.required)) {
+      for (const item of current.required) if (typeof item === 'string') required.add(item);
+    }
+  };
+
+  collect(value);
+  return { properties, required };
+}
+
+function filterCalculationSchema(method: string, value: unknown): Record<string, unknown> {
+  const rule = CALCULATION_PARAMETER_RULES[method];
+  if (!rule) throw new Error('此方法暂不支持安全补算。');
+
+  const { properties, required } = collectObjectSchemaParts(value);
+  const mutable = new Set(rule.mutable);
+  const filteredProperties = Object.fromEntries(
+    Object.entries(properties).filter(([key]) => mutable.has(key)),
+  );
+  const filteredRequired = [...required].filter((key) => Object.hasOwn(filteredProperties, key));
+
+  return {
+    type: 'object',
+    properties: filteredProperties,
+    ...(filteredRequired.length > 0 ? { required: filteredRequired } : {}),
+    additionalProperties: false,
+  };
+}
+
 async function fetchReadingData(
   path: string,
   signal?: AbortSignal,
@@ -224,6 +403,31 @@ async function fetchReadingData(
   }
 }
 
+function prepareCalculationInput(
+  method: string,
+  input: Record<string, unknown>,
+  locked: Record<string, unknown>,
+): Record<string, unknown> {
+  const rule = CALCULATION_PARAMETER_RULES[method];
+  if (!rule) throw new Error('此方法暂不支持安全补算。');
+  const mutable = new Set(rule.mutable);
+  const immutable = new Set(rule.immutable);
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(input)) {
+    if (mutable.has(key)) {
+      result[key] = value;
+      continue;
+    }
+    if (!immutable.has(key)) throw new Error(`补算参数未声明或不可修改：${key}。`);
+    if (!Object.hasOwn(locked, key)) throw new Error(`补算主体快照缺少不可变参数：${key}。`);
+    if (stableComparable(value) !== stableComparable(locked[key]))
+      throw new Error(`补算主体与当前命盘不一致：${key}。`);
+  }
+
+  return result;
+}
+
 export async function executeReadingAction(
   action: ReadingAction,
   signal?: AbortSignal,
@@ -232,18 +436,15 @@ export async function executeReadingAction(
   if (action.kind === 'classic') return lookupReadingClassics(action.method, action.query);
   const path = Object.hasOwn(ROUTES, action.method) ? ROUTES[action.method] : undefined;
   if (!path) throw new Error('此方法暂不支持自动补算。');
+  let locked: Record<string, unknown> | undefined;
+  let calculationInput: Record<string, unknown> | undefined;
   if (subject) {
     if (!subject.allowedMethods.includes(action.method))
       throw new Error('补算方法与当前命盘类型不一致。');
-    const locked = subject.lockedInputs[action.method];
+    locked = subject.lockedInputs[action.method];
     if (!locked) throw new Error('当前会话缺少该方法的主体快照。');
     if (action.kind === 'calculate') {
-      for (const [key, value] of Object.entries(action.input)) {
-        if (!Object.hasOwn(locked, key)) continue;
-        const requested = stableComparable(value);
-        const expected = stableComparable(locked[key]);
-        if (requested !== expected) throw new Error(`补算主体与当前命盘不一致：${key}。`);
-      }
+      calculationInput = prepareCalculationInput(action.method, action.input, locked);
     }
   }
   if (action.kind === 'schema') {
@@ -257,17 +458,20 @@ export async function executeReadingAction(
       (action.method === 'astrolabe' ? paths?.['/divination/{method}/prompt'] : undefined)
     )?.post?.requestBody?.content?.['application/json']?.schema;
     if (!schema) throw new Error('暂未取得该方法的补算参数。');
+    const filteredSchema = filterCalculationSchema(
+      action.method,
+      resolveReadingSchema(schema, document),
+    );
     return {
       key: '',
       title: `${action.method}补算参数`,
-      text: JSON.stringify(resolveReadingSchema(schema, document)),
+      text: JSON.stringify(filteredSchema),
       usable: false,
     };
   }
   const data = await fetchReadingData(path, signal, {
-    ...(subject?.lockedInputs[action.method] ?? {}),
-    ...action.input,
-    ...(subject?.lockedInputs[action.method] ?? {}),
+    ...(locked ?? {}),
+    ...(calculationInput ?? action.input),
     responseMode: 'prompt-only',
   });
   if (typeof data.prompt !== 'string' || !data.prompt.trim())

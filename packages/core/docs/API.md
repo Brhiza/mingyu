@@ -179,8 +179,14 @@
 
 | 字段     | 类型                                              | 说明                                                       |
 | -------- | ------------------------------------------------- | ---------------------------------------------------------- |
-| `method` | `'time' \| 'number' \| 'random' \| 'timeTrigram'` | 起卦法；`timeTrigram` 为历史兼容入口，按年月日时起卦法计算 |
+| `method` | `'time' \| 'number' \| 'sound' \| 'character' \| 'direction' \| 'random' \| 'timeTrigram'` | 起卦法；`timeTrigram` 为历史兼容入口，按年月日时起卦法计算 |
 | `number` | `number`                                          | 数字起卦的正整数                                           |
+| `soundCount` | `number`                                      | 声音起卦记录的所闻声音数；与时支序数合取下卦和动爻       |
+| `characterText` / `characterCount` | `string` / `number`             | 字数起卦的原始文字或字符数；单字、2—3 字、4—10 字和 11—100 字分别按对应分段规则取数 |
+| `characterStrokeCounts` | `number[]`                                   | 2—3 字按顺序传各字人工笔画数，避免字体差异                         |
+| `characterTones` | `number[]`                                   | 4—10 字必须按顺序传传统平、上、去、入声类对应的 1—4 数，不等同于普通话一至四声 |
+| `characterLeftStrokes` / `characterRightStrokes` | `number`        | 单字起卦的左右分笔数                                      |
+| `objectType` / `direction` | `string` / `string`                    | 方位取象的所见物类与后天八卦方位                            |
 | `seed`   | `string \| number`                                | 随机起卦时可选；同一 seed 可复现同一组随机卦数             |
 | `rng`    | `() => number`                                    | 随机起卦时可选；自定义随机源，返回 0 到 1 之间的数         |
 

@@ -1,4 +1,5 @@
 import type { QueryInputState, QueryPromptState } from '@/lib/query-state';
+import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 
 /**
  * AI 自动补算时锁定的主体快照。模型只能改变目标时段、问题和解读范围，
@@ -53,6 +54,7 @@ function buildBirthInputs(input: QueryInputState, includeName = false) {
     dateType: input.dateType,
     isLeapMonth: input.isLeapMonth,
     useTrueSolarTime: input.useTrueSolarTime,
+    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
     birthPlace: input.birthPlace,
   };
   if (includeName) result.name = input.name;
@@ -64,6 +66,27 @@ function buildBirthInputs(input: QueryInputState, includeName = false) {
   return result;
 }
 
+function buildPartnerBirthInputs(input: QueryInputState, includeName = false) {
+  const result: Record<string, unknown> = {
+    gender: input.partnerGender,
+    year: numberOrString(input.partnerYear),
+    month: numberOrString(input.partnerMonth),
+    day: numberOrString(input.partnerDay),
+    dateType: input.partnerDateType,
+    isLeapMonth: input.partnerIsLeapMonth,
+    useTrueSolarTime: input.partnerUseTrueSolarTime,
+    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    birthPlace: input.partnerBirthPlace,
+  };
+  if (includeName) result.name = input.partnerName;
+  if (input.partnerTimeIndex !== '') result.timeIndex = input.partnerTimeIndex;
+  addIfPresent(result, 'birthHour', numberOrString(input.partnerBirthHour));
+  addIfPresent(result, 'birthMinute', numberOrString(input.partnerBirthMinute));
+  addIfPresent(result, 'birthLongitude', numberOrString(input.partnerBirthLongitude));
+  addIfPresent(result, 'birthLatitude', numberOrString(input.partnerBirthLatitude));
+  return result;
+}
+
 function buildAstrolabeInputs(input: QueryInputState) {
   const result: Record<string, unknown> = {
     name: input.name,
@@ -72,6 +95,7 @@ function buildAstrolabeInputs(input: QueryInputState) {
     month: numberOrString(input.month),
     day: numberOrString(input.day),
     useTrueSolarTime: input.useTrueSolarTime,
+    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
     locationName: input.birthPlace,
   };
   if (input.birthHour !== '') result.hour = Number(input.birthHour);
@@ -81,11 +105,32 @@ function buildAstrolabeInputs(input: QueryInputState) {
   return result;
 }
 
+function buildPartnerAstrolabeInputs(input: QueryInputState) {
+  const result: Record<string, unknown> = {
+    name: input.partnerName,
+    gender: input.partnerGender,
+    year: numberOrString(input.partnerYear),
+    month: numberOrString(input.partnerMonth),
+    day: numberOrString(input.partnerDay),
+    useTrueSolarTime: input.partnerUseTrueSolarTime,
+    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    locationName: input.partnerBirthPlace,
+  };
+  if (input.partnerBirthHour !== '') result.hour = Number(input.partnerBirthHour);
+  if (input.partnerBirthMinute !== '') result.minute = Number(input.partnerBirthMinute);
+  addIfPresent(result, 'latitude', numberOrString(input.partnerBirthLatitude));
+  addIfPresent(result, 'longitude', numberOrString(input.partnerBirthLongitude));
+  return result;
+}
+
 function buildQizhengInputs(input: QueryInputState) {
   const result: Record<string, unknown> = {
+    gender: input.gender,
     year: numberOrString(input.year),
     month: numberOrString(input.month),
     day: numberOrString(input.day),
+    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    useTrueSolarTime: input.useTrueSolarTime,
   };
   addIfPresent(result, 'hour', numberOrString(input.birthHour));
   addIfPresent(result, 'minute', numberOrString(input.birthMinute));
@@ -102,14 +147,23 @@ export function buildReadingSubject(
   const allowedMethods: string[] = [];
   if (prompt.promptSource === 'bazi' || prompt.promptSource === 'bazi-ziwei') {
     lockedInputs.bazi = buildBirthInputs(input);
+    if (input.analysisMode === 'compatibility') {
+      lockedInputs.baziPartner = buildPartnerBirthInputs(input);
+    }
     allowedMethods.push('bazi');
   }
   if (prompt.promptSource === 'ziwei' || prompt.promptSource === 'bazi-ziwei') {
     lockedInputs.ziwei = buildBirthInputs(input, true);
+    if (input.analysisMode === 'compatibility') {
+      lockedInputs.ziweiPartner = buildPartnerBirthInputs(input, true);
+    }
     allowedMethods.push('ziwei');
   }
   if (prompt.promptSource === 'astrolabe') {
     lockedInputs.astrolabe = buildAstrolabeInputs(input);
+    if (input.analysisMode === 'compatibility') {
+      lockedInputs.astrolabePartner = buildPartnerAstrolabeInputs(input);
+    }
     allowedMethods.push('astrolabe');
   }
   if (prompt.promptSource === 'qizheng') {
@@ -147,6 +201,12 @@ export function normalizeReadingSubject(value: unknown): ReadingSubjectSnapshot 
     !isRecord(value.lockedInputs) ||
     !Array.isArray(value.allowedMethods) ||
     !isRecord(value.range)
+  )
+    return undefined;
+  if (
+    !['bazi', 'ziwei', 'bazi-ziwei', 'qimen-lifetime', 'astrolabe', 'qizheng', 'bazhai'].includes(
+      value.source,
+    )
   )
     return undefined;
   const lockedInputs = Object.fromEntries(

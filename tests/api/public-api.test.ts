@@ -784,7 +784,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   );
   assert.match(
     body.data.components.schemas.ZiweiRequest.properties.promptScope.description,
-    /full 会返回本命、大限、流年、流月、流日、流时/,
+    /full 会返回本命、童限与大限及各阶段流年，并在指定时点附带可用的流月、流日和流时资料/,
   );
   assert.equal(
     body.data.components.schemas.BaziRequest.properties.shenShaVariants.$ref,
@@ -2191,7 +2191,12 @@ test('公开 API 紫微提示词支持完整输出版范围', async () => {
   assert.match(body.data.prompt, /分析范围：完整输出/);
   assert.match(body.data.prompt, /【完整运限资料】/);
   assert.match(body.data.prompt, /完整紫微运限资料：/);
-  assert.match(body.data.prompt, /流时：分析对象：/);
+  for (const label of ['流月', '流日', '流时']) {
+    assert.match(
+      body.data.prompt,
+      new RegExp(`${label}：[^\\n]+；四化：[^\\n]+\\n  十二宫（本命宫→动态宫）：[^\\n]+`),
+    );
+  }
   assertPromptIsPortableTaskText(body.data.prompt);
 });
 
@@ -3662,6 +3667,55 @@ test('公开 API 梅花数字起卦应拒绝超出安全整数范围的数字', 
     assert.equal(result.response.status, 400);
     assert.equal(result.body.ok, false);
     assert.equal(result.body.error.message, message);
+  }
+});
+
+test('公开 API 梅花应支持声音、字数和方位三类新增起法', async () => {
+  const requests = [
+    {
+      method: 'sound',
+      soundCount: 3,
+      expectedMethod: 'sound',
+      expectedUpper: 3,
+    },
+    {
+      method: 'character',
+      characterText: '今日动静如何',
+      characterTones: [1, 4, 3, 3, 1, 1],
+      expectedMethod: 'character',
+      expectedUpper: 8,
+    },
+    {
+      method: 'character',
+      characterText: '西林',
+      characterStrokeCounts: [7, 8],
+      expectedMethod: 'character',
+      expectedUpper: 7,
+    },
+    {
+      method: 'direction',
+      direction: 'south',
+      objectType: 'fire',
+      expectedMethod: 'direction',
+      expectedUpper: 3,
+    },
+  ];
+
+  for (const request of requests) {
+    const { response, body } = await callApi('divination/meihua', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...request,
+        detailMode: 'full',
+        customDate: '2025-01-01T08:00:00+08:00',
+      }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(body.data.calculation.methodKey, request.expectedMethod);
+    assert.equal(body.data.calculation.upperTrigramIndex, request.expectedUpper % 8 || 8);
+    assert.equal(body.data.evidenceAnalysis.calculationFact.status, '完整');
   }
 });
 
@@ -6202,5 +6256,46 @@ test('玄空与住宅接口拒绝将替卦请求静默计算为下卦', async ()
       assert.equal(body.error.code, 'BAD_REQUEST');
       assert.match(body.error.message, /guaType.*下卦/);
     }
+  }
+});
+
+test('紫微公开接口独立指定运限时辰并保留出生时辰', async () => {
+  const input = {
+    name: '时辰回归',
+    gender: 'female',
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '21',
+    timeIndex: 4,
+    promptScope: 'hourly',
+    scopeDate: '2026-08-06',
+    detailMode: 'full',
+  };
+  const results = [];
+  for (const scopeHourIndex of [0, 8]) {
+    const { response, body } = await callApi('ziwei/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, scopeHourIndex }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(body.data.fortuneTimeline.targetHourIndex, scopeHourIndex);
+    assert.equal(body.data.fortuneTimeline.targetDateStr, input.scopeDate);
+    assert.equal(body.data.basicInfo.birth_time_label, '辰时');
+    results.push(body.data);
+  }
+  assert.deepEqual(results[0].basicInfo, results[1].basicInfo);
+  assert.notDeepEqual(
+    results[0].payloadByScope.hourly.active_scope,
+    results[1].payloadByScope.hourly.active_scope,
+  );
+  for (const scopeHourIndex of [-1, 13, 1.5]) {
+    const { response } = await callApi('ziwei/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, scopeHourIndex }),
+    });
+    assert.equal(response.status, 400);
   }
 });

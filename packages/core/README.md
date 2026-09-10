@@ -399,7 +399,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **紫微斗数 Ziwei**       | `mingyu-core/ziwei`（兼容 `mingyu-core/ziwei/iztro`）、`mingyu-core/ziwei/runtime`                                                            | 十二宫、星曜、四化、运限、证据池、固定快照运行时，以及双盘宫位叠盘与生年四化跨盘落点                 |
 | **即时排盘 Instant**     | `mingyu-core/instant`                                                                                                                         | 当前时刻八字、紫微、八字紫微、星盘与七政四余，区分北京时间与真太阳时且不需要性别                     |
 | **六爻 Liuyao**          | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、用神作用链与逐爻证据                           |
-| **梅花易数 Meihua**      | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                   |
+| **梅花易数 Meihua**      | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/声音/字数/方位/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                   |
 | **奇门遁甲 Qimen**       | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据               |
 | **大六壬 Liuren**        | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞及四课取传与三传推进证据                                     |
 | **择日 Almanac**         | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                     |
@@ -541,6 +541,22 @@ console.log(coinLiuyao.generation.coinThrows); // 六爻逐爻、每爻三枚铜
 // 梅花易数（数字起卦）
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 const meihua = generateMeihua(undefined, { method: 'number', number: 123 });
+const soundMeihua = generateMeihua(undefined, { method: 'sound', soundCount: 3 });
+const characterMeihua = generateMeihua(undefined, {
+  method: 'character',
+  characterText: '今日动静如何',
+  characterTones: [1, 4, 3, 3, 1, 1],
+});
+const shortCharacterMeihua = generateMeihua(undefined, {
+  method: 'character',
+  characterText: '西林',
+  characterStrokeCounts: [7, 8],
+});
+const directionMeihua = generateMeihua(undefined, {
+  method: 'direction',
+  objectType: 'fire',
+  direction: 'south',
+});
 
 // 奇门遁甲
 import { generateQimen, createQimenPriorityPalaces } from 'mingyu-core/divination/qimen';

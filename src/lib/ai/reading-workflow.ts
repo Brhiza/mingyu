@@ -3,6 +3,7 @@ import workflow from '../../../skills/mingyu/references/reading-workflow.json';
 import type { ChatMessage, StreamOptions } from './stream-client';
 import { verifyReadingAnswer } from './reading-verification';
 import type { ReadingSubjectSnapshot } from './reading-subject';
+import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 
 export type ReadingAction =
   | { kind: 'classic'; method: string; query: string }
@@ -33,6 +34,7 @@ export interface ReadingDependencies {
 export interface ReadingOptions extends StreamOptions {
   memory: ReadingMemory;
   subject?: ReadingSubjectSnapshot;
+  readingMethod?: string;
   onProgress: (progress: ReadingProgress) => void;
   onNotice: (notice: string) => void;
 }
@@ -73,15 +75,92 @@ function describeReadingFailure(action: ReadingAction, error: unknown): string {
   return `${target}未取得：${message}`;
 }
 
-export function getReadingGuide(text: string) {
-  const methods = Object.entries(workflow.methods).filter(([, item]) =>
-    item.match.some((keyword) => text.includes(keyword)),
-  );
+const SOURCE_METHODS: Record<ReadingSubjectSnapshot['source'], string[]> = {
+  bazi: ['bazi'],
+  ziwei: ['ziwei'],
+  'bazi-ziwei': ['bazi', 'ziwei'],
+  'qimen-lifetime': ['qimen'],
+  astrolabe: ['astrolabe'],
+  qizheng: ['qizheng'],
+  bazhai: ['fengshui'],
+};
+
+function resolveReadingMethod(method?: string) {
+  const normalized = method?.trim();
+  if (!normalized) return undefined;
+  if (normalized === 'huangji-jingshi') return 'huangji';
+  return Object.hasOwn(workflow.methods, normalized) ? normalized : undefined;
+}
+
+export function getReadingGuide(
+  text: string,
+  subject?: ReadingSubjectSnapshot,
+  readingMethod?: string,
+) {
+  const explicitMethods = subject ? SOURCE_METHODS[subject.source] : undefined;
+  const explicitReadingMethod = resolveReadingMethod(readingMethod);
+  const hasReadingMethod = Boolean(readingMethod?.trim());
+  const methods = explicitMethods?.length
+    ? explicitMethods
+        .map((method) => workflow.methods[method as keyof typeof workflow.methods])
+        .filter((item): item is (typeof workflow.methods)[keyof typeof workflow.methods] =>
+          Boolean(item),
+        )
+    : hasReadingMethod
+      ? explicitReadingMethod
+        ? [workflow.methods[explicitReadingMethod as keyof typeof workflow.methods]]
+        : []
+      : Object.entries(workflow.methods)
+          .filter(([, item]) => item.match.some((keyword) => text.includes(keyword)))
+          .map(([, item]) => item);
   return [
     '【解读方法】',
     ...workflow.principles,
-    ...methods.map(([, item]) => `${item.label}：${item.guide}`),
+    ...methods.map((item) => `${item.label}：${item.guide}`),
   ].join('\n');
+}
+
+export function isTimeReadingFollowup(question: string) {
+  return /(?:今年|明年|后年|去年|前年|本年|下年|上年|今日|明天|昨天|后天|前天|现在|当前时间|当前时刻|此刻|本周|下周|上周|本月|下个月|上个月|本季度|下季度|上季度|最近|接下来|\d{4}年|\d{1,2}月|流年|流月|流日|流时|大运|交运|应期|何时|什么时候|哪年|哪月|哪天|时间窗口|期间|近期|未来|过去)/u.test(
+    question,
+  );
+}
+
+function isRelativeTimeReadingFollowup(question: string) {
+  return /(?:今年|明年|后年|去年|前年|本年|下年|上年|今日|明天|昨天|后天|前天|现在|当前时间|当前时刻|此刻|本周|下周|上周|本月|下个月|上个月|本季度|下季度|上季度|最近|接下来|流年|流月|流日|流时|大运|交运|应期|何时|什么时候|哪年|哪月|哪天|时间窗口|期间|近期|未来|过去)/u.test(
+    question,
+  );
+}
+
+export function isSimpleReadingFollowup(question: string) {
+  const compact = question.replace(/[\s，。！？、,.!?；;：:]+/gu, '').trim();
+  if (!compact || isTimeReadingFollowup(compact)) return false;
+  return (
+    /^(?:请)?(?:把|将)?(?:刚才|刚刚|上面|上一段|上一轮|上次)(?:的)?(?:回答|内容|结论)?(?:解释|总结|概括|说明|展开|换个说法|说简单点|讲清楚)(?:一下)?$/u.test(
+      compact,
+    ) ||
+    /^(?:请)?(?:解释|说明|讲讲|总结|概括|简要说明|再解释|展开讲讲|换句话说|说人话|什么意思)(?:一下)?$/u.test(
+      compact,
+    ) ||
+    /^(?:请)?(?:解释|说明|总结|概括|展开)(?:一下)?(?:这段|这个|上面的内容|刚才的回答)?$/u.test(
+      compact,
+    ) ||
+    /^(?:请)?(?:解释|说明|总结|概括|展开)(?:一下)?(?:刚才|刚刚|上面|上一段|上一轮|上次)(?:的)?(?:回答|内容|结论)?$/u.test(
+      compact,
+    )
+  );
+}
+
+export function formatReadingCurrentTime(value = new Date()) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(value);
 }
 
 export function parseReadingPlan(text: string): ReadingAction[] {
@@ -176,28 +255,51 @@ export async function runReadingWorkflow(
   const guard = () => {
     if (options.signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
   };
-  const guide = getReadingGuide(messages[0]?.content ?? '');
+  const guide = getReadingGuide(messages[0]?.content ?? '', options.subject, options.readingMethod);
+  const explicitReadingMethod = resolveReadingMethod(options.readingMethod);
+  const latestUserQuestion =
+    [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+  const hasPreviousAnswer = messages.some((message) => message.role === 'assistant');
+  const isTimeFollowup = hasPreviousAnswer && isTimeReadingFollowup(latestUserQuestion);
+  const isSimpleFollowup =
+    hasPreviousAnswer && !isTimeFollowup && isSimpleReadingFollowup(latestUserQuestion);
+  const currentTimeContext =
+    isTimeFollowup && isRelativeTimeReadingFollowup(latestUserQuestion)
+      ? `\n\n【本轮当前时间】${formatReadingCurrentTime()}；相对日期以本轮当前时间换算，用户明确指定的年月日作为目标时段。`
+      : '';
   const storedResources = [...options.memory.resources];
   const schemaResources = [
     ...(options.memory.schemas ?? []),
     ...storedResources.filter(isSchemaResource),
   ];
+  const subjectMethods = options.subject
+    ? new Set([
+        ...(SOURCE_METHODS[options.subject.source] ?? []),
+        ...options.subject.allowedMethods,
+        ...(options.subject.source === 'qizheng' ? ['qi-zheng'] : []),
+      ])
+    : options.readingMethod?.trim()
+      ? new Set(explicitReadingMethod ? [explicitReadingMethod] : [])
+      : undefined;
+  const mismatchedMethodNotice = options.subject
+    ? '已跳过与当前命盘类型不符的补充资料。'
+    : '已跳过与当前术式不符的补充资料。';
   const resources = storedResources.filter((item) => !isSchemaResource(item));
   const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
   const notes: string[] = [];
   let calls = 0;
   options.onProgress({ stage: 'preparing', text: '正在梳理问题与盘面' });
   try {
-    for (let round = 0; round < 2; round += 1) {
+    for (let round = 0; round < (isSimpleFollowup ? 0 : 2); round += 1) {
       let needsRefinement = false;
       guard();
-      const catalog = `【当前任务：准备解读资料】\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","input":{}}，按已读取的参数格式补算。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
+      const catalog = `【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","input":{}}，按已读取的参数格式补算。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
       const schemas = schemaResources.length
         ? `\n\n【补算参数】\n${schemaResources.map((item) => `${item.title}\n${item.text}`).join('\n\n')}`
         : '';
       const prepared = fitReadingMessages(
         [...messages, { role: 'user', content: catalog }],
-        `${guide}${schemas}\n\n${resources.map((item) => `${item.title}\n${item.text}`).join('\n\n')}`,
+        `${guide}${currentTimeContext}${schemas}\n\n${resources.map((item) => `${item.title}\n${item.text}`).join('\n\n')}`,
       );
       let actions: ReadingAction[];
       try {
@@ -220,6 +322,10 @@ export async function runReadingWorkflow(
         if (calls >= MAX_ACTIONS) break;
         const key = JSON.stringify(action);
         if (seen.has(key)) continue;
+        if (subjectMethods && !subjectMethods.has(action.method)) {
+          options.onNotice(mismatchedMethodNotice);
+          continue;
+        }
         if (action.kind === 'calculate' && !options.subject) {
           notes.push('当前会话缺少主体快照，无法安全补算目标时段；请重新开始解读。');
           options.onNotice('当前对话缺少主体快照，已跳过自动补算。');
@@ -253,8 +359,8 @@ export async function runReadingWorkflow(
             options.onNotice(`“${action.query}”未查到对应条文，已保留原有盘面资料。`);
           }
           if (resource.text.length > MAX_RESOURCES) {
-            notes.push('补充资料已达到本轮容量，可围绕具体问题进一步查询。');
-            options.onNotice('本轮补充资料较多，已保留完整盘面与已取得的条目。');
+            notes.push(`${resource.title}尚未加入解读资料，可按具体阶段进一步补齐。`);
+            options.onNotice('这份补充资料超出本轮容量，尚未加入解读；可以按具体阶段继续查询。');
             continue;
           }
           while (
@@ -286,7 +392,7 @@ export async function runReadingWorkflow(
       : '';
     const finalMessages = fitReadingMessages(
       messages,
-      `${guide}${material ? `\n\n【补充资料】\n${material}` : ''}${status}\n\n【本轮解读】\n请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。`,
+      `${guide}${currentTimeContext}${material ? `\n\n【补充资料】\n${material}` : ''}${status}\n\n【本轮解读】\n${isSimpleFollowup ? '请结合当前盘面、已有补充资料和上一轮解读直接回答用户的追问，保持原盘主体与计算口径，说明判断依据和适用条件。' : '请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。'}先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。`,
     );
     if (finalMessages.length < messages.length)
       options.onNotice('对话较长，本轮保留原始盘面与最近的问答。');

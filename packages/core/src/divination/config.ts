@@ -6,6 +6,8 @@ import type {
   LiuyaoTemplateType,
   LiurenTemplateType,
   MeihuaDivinationMethod,
+  MeihuaDirection,
+  MeihuaObjectType,
   TarotSpreadType,
   XiaoliurenDivinationMethod,
 } from '../types/divination';
@@ -119,12 +121,40 @@ export const GENERAL_DIVINATION_METHOD_OPTIONS = DIVINATION_METHOD_OPTIONS.filte
 );
 
 export const MEIHUA_METHOD_OPTIONS: Array<{
-  value: Extract<MeihuaDivinationMethod, 'time' | 'number' | 'random'>;
+  value: Extract<
+    MeihuaDivinationMethod,
+    'time' | 'number' | 'sound' | 'character' | 'direction' | 'random'
+  >;
   label: string;
 }> = [
   { value: 'time', label: '时间起卦' },
   { value: 'number', label: '数字起卦' },
+  { value: 'sound', label: '声音起卦' },
+  { value: 'character', label: '字数起卦' },
+  { value: 'direction', label: '方位取象' },
   { value: 'random', label: '随机起卦' },
+];
+
+export const MEIHUA_DIRECTION_OPTIONS: Array<{ value: MeihuaDirection; label: string }> = [
+  { value: 'northwest', label: '西北（乾）' },
+  { value: 'west', label: '正西（兑）' },
+  { value: 'south', label: '正南（离）' },
+  { value: 'east', label: '正东（震）' },
+  { value: 'southeast', label: '东南（巽）' },
+  { value: 'north', label: '正北（坎）' },
+  { value: 'northeast', label: '东北（艮）' },
+  { value: 'southwest', label: '西南（坤）' },
+];
+
+export const MEIHUA_OBJECT_OPTIONS: Array<{ value: MeihuaObjectType; label: string }> = [
+  { value: 'heaven', label: '天（乾）' },
+  { value: 'lake', label: '泽（兑）' },
+  { value: 'fire', label: '火（离）' },
+  { value: 'thunder', label: '雷（震）' },
+  { value: 'wind', label: '风（巽）' },
+  { value: 'water', label: '水（坎）' },
+  { value: 'mountain', label: '山（艮）' },
+  { value: 'earth', label: '地（坤）' },
 ];
 
 export const XIAOLIUREN_METHOD_OPTIONS: Array<{

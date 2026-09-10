@@ -228,6 +228,8 @@ curl -X POST https://aov.cc/api/v1/foundation/shensha \
 
 该入口要求四柱全部明确且合法，并与八字默认口径一致：空亡同时取日柱与年柱旬空，驿马、桃花同时按年支与日支查；不会生成候选时辰、缺时柱命盘、吉凶总分或事件概率。
 
+紫微排盘、提示词及八字紫微合参支持 `scopeDate`（YYYY-MM-DD）和 `scopeHourIndex`（整数0—12，0=早子、1=丑、…、12=晚子）指定运限时点；省略时使用当前日期和时辰。出生 `timeIndex` 单独用于本命盘。
+
 八字排盘并生成提示词：
 
 ```bash
@@ -272,7 +274,7 @@ curl -X POST https://aov.cc/api/v1/ziwei/compatibility/prompt \
 
 该接口只使用双方本命盘，输出关键宫位地支叠盘和“来源方生年四化星曜 → 对方同名星曜落宫”的可复核链路；不生成匹配总分，也不把静态双盘写成具体年份应期。
 
-紫微 `promptScope` 可传 `full` 生成完整输出版，会写入本命、大限、流年、流月、流日、流时资料：
+紫微 `promptScope` 可传 `full` 生成完整输出版，会写入本命、已验证童限与大限及各阶段流年资料；流月、流日和流时在 `yearly`、`monthly`、`daily`、`hourly` 范围按指定日期展开：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/ziwei/prompt \
@@ -454,7 +456,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 八字 `promptTopic` 支持 `general`、`career`、`wealth`、`marriage`、`children`、`health`、`relationship-push`、`relationship-decision`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`home-move`、`settle-relocate`、`study-advance`、`exam-landing`、`reconciliation-decision`、`emotion`、`talent`、`growth`、`social`。
 - 八字 `/bazi/prompt` 未指定范围时默认使用当前大运；也可传 `baziFortuneScope` 指定 `natal`、`full`、`dayun`、`year`、`month`、`day`，显式选择具体层级时必须提供该层级需要的明确年限参数，工具不会静默套用第一项。
 - 紫微 `promptTopic` 支持 `destiny`、`relationship`、`relationship-push`、`relationship-decision`、`children`、`career-wealth`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`family`、`home-move`、`settle-relocate`、`social`、`emotion`、`health`、`study`、`study-advance`、`exam-landing`、`reconciliation-decision`、`growth`、`talent`、`life`、`chat`。
-- 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
+- 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 会返回并写入本命、已验证童限与大限及各阶段流年资料，下层流月、流日和流时按指定范围展开。
 - 紫微公开 API 未指定 `promptScope` 时默认返回当前大限，并保留 `origin` 作为本命基础范围；如果请求传入 `promptScope`，接口会返回 `origin` 加指定范围。各范围统一读取 `iztro` 原生宫位对象与运限对象，包含落宫、动态宫名、运限星曜、四化、自化、宫干飞化和三方四正，不再另建一份简化盘面。
 - 紫微 `algorithm` 支持 `default`（传统通行安星法，默认）和 `zhongzhou`（中州派安星法）。它改变底层安星结果；`school` 仍只改变提示词的解读侧重点，不能替代 `algorithm`。
 - 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。本命 `active_scope.palace_index` / `palace_name` 明确指向 `iztro` 的命宫，不使用宫位数组首项代替。
@@ -471,7 +473,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 奇门的转盘/飞盘、拆补/置闰以及时家/日家等参数改变实际盘面，不属于 `schools`；紫微 `algorithm` 也属于排盘口径。三山国王灵签提示词只列本次签谱资料，不附加派系段落，也不接受 `schools`。
 - `customDate` 用于指定时间类占卜的起卦或排盘时间，支持六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬、太乙月日时计和皇极经世；不传时使用服务器当前时间。该字段必须使用带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00` 或 `2025-01-01T00:00:00Z`。
 - Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用时请显式设置正常 `User-Agent`，例如 `curl/8.0.0` 或业务自己的客户端名称。
-- 梅花易数 `method` 支持 `time`、`number`、`random`、`timeTrigram`。数字起卦使用 `number`；`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。
+- 梅花易数 `method` 支持 `time`、`number`、`sound`、`character`、`direction`、`random`、`timeTrigram`。数字起卦使用 `number` 与 `number` 参数；声音起卦使用 `soundCount`，按所闻声音数取上卦、加时支序数取下卦与动爻；字数起卦按字数段分流：单字传左右分笔数，2—3 字传 `characterStrokeCounts` 逐字笔画数，4—10 字必须传 `characterTones` 传统平、上、去、入声类的 1—4 数（不等同于普通话一至四声），11—100 字只按字符数分半；方位取象使用 `objectType` 与 `direction`，分别取所见物类上卦和后天方位下卦，再合时支取动爻。`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不改变旧时间起卦语义。
 - 梅花排盘结果的 `evidenceAnalysis` 返回主卦起因、互卦过程、变卦结果三阶段体用关系、月建旺衰、推进变化、支持项、限制项和触发条件。动爻与卦数只保留为层位和取数旁证，不机械换算绝对日期，也不输出吉凶总分或成功率。
 - 金口诀 `jinkoujueMethod` 支持 `time`、`branch`、`number`、`random`。`branch` 方式使用 `jinkoujueBranch` 直接指定子至亥之一作为地分；月将、昼夜贵人和遁干仍按起课时间计算。
 - 塔罗 `spreadType` 支持 `single`、`three`、`love`、`career`、`decision`、`celtic`、`chakra`、`year`、`mindBodySpirit`、`horseshoe`、`holyTriangle`、`universal`、`fourElements`、`hexagram`、`relationship`、`wealth`、`problemSolving`、`twelveHouses`。

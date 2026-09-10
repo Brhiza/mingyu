@@ -115,7 +115,7 @@
 | 临时小事快速判断                 | `xiaoliuren_prompt`            | `question`、可选 `customDate`                                            |
 | 金口诀四位课                     | `jinkoujue_prompt`             | `question`、可选 `jinkoujueMethod`、`jinkoujueBranch`、`customDate`      |
 | 生肖犯太岁、流年贵人             | `zodiac_prompt`                | `zodiac`、`year` 或 `yearGanZhi`                                         |
-| 时间或数字象意判断               | `meihua_prompt`                | `question`、可选 `method`、`number`、`customDate`                        |
+| 时间、数字、声音、字数或方位象意判断 | `meihua_prompt`             | `question`、可选 `method`、`number`、`soundCount`、`characterText`、`characterStrokeCounts`、`characterTones`、`direction`、`objectType`、`customDate` |
 | 传统复杂事项推演                 | `liuren_prompt`                | `question`、可选 `liurenTemplate`、`customDate`                          |
 | 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`               | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
 | 星盘本命和行运                   | `astrolabe_prompt`             | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                 |
@@ -293,7 +293,7 @@ pnpm mcp
 
 ### 紫微 promptScope 参数
 
-`ziwei_calculate` 和 `ziwei_prompt` 未指定范围时默认返回当前大限，并携带本命范围作为基础资料。传入 `promptScope` 时会返回 `origin` 加指定范围。支持的值：`origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
+`ziwei_calculate` 和 `ziwei_prompt` 未指定范围时默认返回当前大限，并携带本命范围作为基础资料。传入 `promptScope` 时会返回 `origin` 加指定范围。支持的值：`origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。`scopeDate` 可固定运限目标日期，保证当前阶段、指定流年和下层层级在不同入口使用同一时点。`full` 会沿已验证的童限与大限时间线返回实际覆盖的全部流年；当前阶段返回所属大限的完整流年，并为目标流年附带十二个真实流月边界；`yearly`、`monthly`、`daily`、`hourly` 返回目标流年的父级大限、对应流年及目标日期可用的下层资料。
 
 `ziwei_compatibility` 和 `ziwei_compatibility_prompt` 只计算双方静态本命盘的宫位叠盘与生年四化跨盘落点。它们不会伪造具体年份应期，也不会输出缺乏统一依据的匹配总分。
 

@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
-import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
+import {
+  evaluateMeihuaTimelineTrend,
+  generateMeihua,
+} from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import { analyzeMeihuaEvidence } from '../packages/core/src/divination/meihua-evidence.ts';
 import {
   findHexagramByTrigrams,
@@ -248,6 +251,116 @@ test('梅花：数字起卦应拒绝超出安全整数范围的数字', () => {
   );
 });
 
+test('梅花：声音起卦应区分所闻声音数与时间起卦', () => {
+  const data = generateMeihua(SAMPLE_DATE, { method: 'sound', soundCount: 3 });
+
+  assert.equal(data.calculation?.methodKey, 'sound');
+  assert.equal(data.calculation?.soundCount, 3);
+  assert.equal(data.calculation?.timeZhi, '辰');
+  assert.equal(data.calculation?.timeZhiIndex, 5);
+  assert.equal(data.calculation?.upperTrigramIndex, 3);
+  assert.equal(data.calculation?.lowerTrigramIndex, 8);
+  assert.equal(data.calculation?.movingYaoIndex, 2);
+  assert.equal(data.evidenceAnalysis?.calculationFact.status, '完整');
+  assert.match(data.evidenceAnalysis?.calculationFact.promptText || '', /声音取数/);
+});
+
+test('梅花：字数起卦应按分段规则支持笔画、传统四声与纯字数回放', () => {
+  const shortSettings = {
+    method: 'character' as const,
+    characterText: '西林',
+    characterStrokeCounts: [7, 8],
+  };
+  const shortData = generateMeihua(SAMPLE_DATE, shortSettings);
+  assert.deepEqual(shortData.calculation?.characterStrokeCounts, [7, 8]);
+  assert.equal(shortData.calculation?.characterUpperNumber, 7);
+  assert.equal(shortData.calculation?.characterLowerNumber, 8);
+  assert.equal(shortData.calculation?.upperTrigramIndex, 7);
+  assert.equal(shortData.calculation?.lowerTrigramIndex, 8);
+  assert.equal(shortData.calculation?.movingYaoIndex, 3);
+  assert.equal(shortData.mainHexagram.upper, '艮');
+  assert.equal(shortData.mainHexagram.lower, '坤');
+  const toneSettings = {
+    method: 'character' as const,
+    characterText: '今日动静如何',
+    characterTones: [1, 4, 3, 3, 1, 1],
+  };
+  const toneData = generateMeihua(SAMPLE_DATE, toneSettings);
+  const replayData = generateMeihua(SAMPLE_DATE, toneSettings);
+  assert.equal(toneData.calculation?.characterCount, 6);
+  assert.deepEqual(toneData.calculation?.characterTones, [1, 4, 3, 3, 1, 1]);
+  assert.equal(toneData.calculation?.characterUpperNumber, 8);
+  assert.equal(toneData.calculation?.characterLowerNumber, 5);
+  assert.equal(toneData.calculation?.upperTrigramIndex, 8);
+  assert.equal(toneData.calculation?.lowerTrigramIndex, 5);
+  assert.equal(toneData.calculation?.movingYaoIndex, 1);
+  assert.equal(toneData.mainHexagram.upper, '坤');
+  assert.equal(toneData.mainHexagram.lower, '巽');
+  assert.deepEqual(
+    [toneData.originalName, toneData.changedName, toneData.movingYao.position],
+    [replayData.originalName, replayData.changedName, replayData.movingYao.position],
+  );
+  assert.equal(toneData.evidenceAnalysis?.calculationFact.status, '完整');
+  const longData = generateMeihua(SAMPLE_DATE, {
+    method: 'character',
+    characterCount: 12,
+  });
+  assert.equal(longData.calculation?.characterUpperNumber, 6);
+  assert.equal(longData.calculation?.characterLowerNumber, 6);
+  assert.equal(longData.calculation?.movingYaoIndex, 6);
+  assert.throws(
+    () => generateMeihua(SAMPLE_DATE, { method: 'character', characterCount: 6 }),
+    /必须提供 characterTones 传统平上去入声数/,
+  );
+  assert.throws(
+    () => generateMeihua(SAMPLE_DATE, { method: 'character', characterText: '西林' }),
+    /2-3字起卦必须提供 characterStrokeCounts/,
+  );
+  assert.throws(
+    () =>
+      generateMeihua(SAMPLE_DATE, {
+        method: 'character',
+        characterText: '一',
+        characterLeftStrokes: Number.MAX_SAFE_INTEGER,
+        characterRightStrokes: 1,
+      }),
+    /总取数超出安全整数范围/,
+  );
+  assert.throws(
+    () =>
+      generateMeihua(SAMPLE_DATE, {
+        method: 'character',
+        characterText: '西林',
+        characterStrokeCounts: [Number.MAX_SAFE_INTEGER, 1],
+      }),
+    /总取数超出安全整数范围/,
+  );
+});
+
+test('梅花：方位取象应分别记录所见物类、方位与时支', () => {
+  const data = generateMeihua(SAMPLE_DATE, {
+    method: 'direction',
+    direction: 'south',
+    objectType: 'fire',
+  });
+
+  assert.equal(data.calculation?.methodKey, 'direction');
+  assert.equal(data.calculation?.objectType, 'fire');
+  assert.equal(data.calculation?.direction, 'south');
+  assert.equal(data.calculation?.objectTrigramIndex, 3);
+  assert.equal(data.calculation?.directionTrigramIndex, 3);
+  assert.equal(data.calculation?.timeZhiIndex, 5);
+  assert.equal(data.calculation?.movingYaoIndex, 5);
+  assert.equal(data.mainHexagram.upper, '离');
+  assert.equal(data.mainHexagram.lower, '离');
+  assert.equal(data.evidenceAnalysis?.calculationFact.status, '完整');
+  assert.match(data.evidenceAnalysis?.calculationFact.promptText || '', /方位取象/);
+  assert.throws(
+    () => generateMeihua(SAMPLE_DATE, { method: 'direction', direction: 'south' }),
+    /必须提供 direction 和 objectType/,
+  );
+});
+
 test('梅花：六十四卦查询应拒绝越界八卦索引，不应取模折回', () => {
   assert.throws(() => findHexagramByTrigrams(9, 1), /上卦索引必须在 1-8 之间/);
   assert.throws(() => findHexagramByTrigrams(1, 0), /下卦索引必须在 1-8 之间/);
@@ -302,4 +415,32 @@ test('梅花：应推导主互变事态演变趋势（三阶段趋势机）', ()
   assert.ok(result.analysis.timelineTrend);
   assert.ok(result.analysis.timelineTrend.trend);
   assert.ok(result.analysis.timelineTrend.summary);
+});
+
+test('梅花：三阶段摘要必须列出互变真实关系，不把互卦未见克制概括为全盘顺畅', () => {
+  const result = evaluateMeihuaTimelineTrend({
+    tiElement: '木',
+    originalYongElement: '木',
+    interTiElement: '火',
+    interYongElement: '木',
+    changedYongElement: '木',
+    changedTiElement: '木',
+  });
+
+  assert.equal(result.trend, '中途多阻');
+  assert.equal(
+    result.summary,
+    '主卦用/体：比和；互卦：原体生体互、用互与原体比和；变卦用/体：比和',
+  );
+  assert.doesNotMatch(result.summary, /终成吉局|全盘通畅无大碍/);
+
+  const changedTiResult = evaluateMeihuaTimelineTrend({
+    tiElement: '木',
+    originalYongElement: '木',
+    interTiElement: '木',
+    interYongElement: '木',
+    changedYongElement: '木',
+    changedTiElement: '火',
+  });
+  assert.match(changedTiResult.summary, /变卦用\/体：用生体/u);
 });

@@ -3832,6 +3832,42 @@ test('MCP 梅花数字起卦应要求提供对应数字', async () => {
   });
 });
 
+test('MCP 梅花工具应支持声音、字数和方位起卦参数', async () => {
+  await withMcpClient(async (client) => {
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ method: 'sound', soundCount: 3 }, 'sound'],
+      [
+        {
+          method: 'character',
+          characterText: '今日动静如何',
+          characterTones: [1, 4, 3, 3, 1, 1],
+        },
+        'character',
+      ],
+      [
+        {
+          method: 'character',
+          characterText: '西林',
+          characterStrokeCounts: [7, 8],
+        },
+        'character',
+      ],
+      [{ method: 'direction', direction: 'south', objectType: 'fire' }, 'direction'],
+    ];
+    for (const [args, methodKey] of cases) {
+      const result = await client.callTool({
+        name: 'divine_meihua',
+        arguments: { ...args, customDate: '2025-01-01T08:00:00+08:00' },
+      });
+      assert.equal(result.isError, undefined);
+      const chart = result.structuredContent as {
+        result?: { calculation?: { methodKey?: string } };
+      };
+      assert.equal(chart.result?.calculation?.methodKey, methodKey);
+    }
+  });
+});
+
 test('MCP 梅花数字起卦应拒绝超出安全整数范围的数字', async () => {
   await withMcpClient(async (client) => {
     const unsafeInteger = Number.MAX_SAFE_INTEGER + 1;
@@ -4963,5 +4999,36 @@ test('MCP 小六壬多能鄙事口径贯穿课盘与完整提示词', async () =
     assert.match(prompt, /月宫大安下一宫起初一/);
     assert.match(prompt, /占得宫：留连/);
     assert.doesNotMatch(prompt, /通行俗传/);
+  });
+});
+
+test('紫微 MCP 独立指定运限时辰并拒绝越界值', async () => {
+  await withMcpClient(async (client) => {
+    const input = {
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      promptScope: 'hourly',
+      scopeDate: '2026-08-06',
+      scopeHourIndex: 0,
+      detailMode: 'full',
+    };
+    const result = await client.callTool({ name: 'ziwei_calculate', arguments: input });
+    assert.equal(result.isError, undefined);
+    const data = result.structuredContent as {
+      basicInfo: { birth_time_label: string };
+      fortuneTimeline: { targetHourIndex: number; targetDateStr: string };
+    };
+    assert.equal(data.basicInfo.birth_time_label, '辰时');
+    assert.equal(data.fortuneTimeline.targetHourIndex, 0);
+    assert.equal(data.fortuneTimeline.targetDateStr, input.scopeDate);
+    const invalid = await client.callTool({
+      name: 'ziwei_calculate',
+      arguments: { ...input, scopeHourIndex: 13 },
+    });
+    assert.equal(invalid.isError, true);
   });
 });

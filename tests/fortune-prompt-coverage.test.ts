@@ -81,5 +81,9 @@ test('紫微当前阶段覆盖十年，全部范围覆盖每个虚岁且携带�
   });
   const lastAge = Math.max(...runtime.decadalTimeline.map((p) => p.endAge));
   for (let age = 1; age <= lastAge; age += 1)
-    assert.equal(full.split(`\n${age}岁｜`).length - 1, 1, `${age}岁`);
+    assert.equal(
+      full.split('\n').filter((line) => line.trimStart().startsWith(`${age}岁｜`)).length,
+      1,
+      `${age}岁`,
+    );
 });

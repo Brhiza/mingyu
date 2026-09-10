@@ -46,6 +46,8 @@ interface AiChatPanelProps {
   inputResetKey?: string;
   /** 当前页面锁定的排盘主体，供自动补算校验使用 */
   readingSubject?: ReadingSubjectSnapshot;
+  /** 当前页面锁定的占卜术式，随历史会话保存与恢复 */
+  readingMethod?: string;
 }
 
 const PLACEHOLDER = '输入你想询问的问题…';
@@ -127,6 +129,7 @@ function AiChatPanelImpl({
   composerTools,
   inputResetKey,
   readingSubject,
+  readingMethod,
 }: AiChatPanelProps) {
   const {
     turns,
@@ -143,7 +146,7 @@ function AiChatPanelImpl({
     canRetry,
     reset,
     cancel,
-  } = useAiChat(aiConfig, readingSubject);
+  } = useAiChat(aiConfig, readingSubject, readingMethod);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -151,6 +154,7 @@ function AiChatPanelImpl({
   const [historySessions, setHistorySessions] = useState<AiChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState('');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historySaveError, setHistorySaveError] = useState('');
   const isBusy = status === 'loading' || status === 'streaming';
   const isContextReady = contextPrompt.trim().length > 0;
   const storageKey = useMemo(
@@ -175,10 +179,11 @@ function AiChatPanelImpl({
       setHistorySessions(sessions);
       setActiveSessionId(nextActiveSessionId);
       if (persist) {
-        saveAiChatHistory(storageKey, {
+        const saved = saveAiChatHistory(storageKey, {
           sessions,
           activeSessionId: nextActiveSessionId,
         });
+        setHistorySaveError(saved ? '' : '历史记录暂未保存，请保留当前页面并稍后重试。');
       }
     },
     [storageKey],
@@ -198,6 +203,7 @@ function AiChatPanelImpl({
         initialQuestion: options.initialQuestion?.trim() ?? '',
         initialPrompt: options.prompt,
         readingSubject,
+        readingMethod,
         completionStatus: 'pending',
         promptMode: options.promptMode,
         turns: [],
@@ -212,7 +218,7 @@ function AiChatPanelImpl({
       setInputValue('');
       analyze(options.prompt);
     },
-    [analyze, applyHistoryState, readingSubject, reset],
+    [analyze, applyHistoryState, readingMethod, readingSubject, reset],
   );
 
   // 当上下文变化时，恢复上次使用的会话，并自动兼容旧版单条历史。
@@ -225,6 +231,7 @@ function AiChatPanelImpl({
     activeSessionIdRef.current = activeSession?.id ?? '';
     setHistorySessions(saved.sessions);
     setActiveSessionId(activeSession?.id ?? '');
+    setHistorySaveError('');
     setIsHistoryOpen(false);
 
     if (activeSession) {
@@ -233,6 +240,7 @@ function AiChatPanelImpl({
         buildAiChatInitialPrompt(contextPrompt, activeSession),
         activeSession.readingSubject,
         activeSession.completionStatus,
+        activeSession.readingMethod,
       );
       autoStartKeyRef.current = key;
     } else {
@@ -241,7 +249,8 @@ function AiChatPanelImpl({
     }
 
     if (saved.sessions.length) {
-      saveAiChatHistory(storageKey, saved);
+      if (!saveAiChatHistory(storageKey, saved))
+        setHistorySaveError('历史记录暂未保存，请保留当前页面并稍后重试。');
     }
 
     directSendIdRef.current = '';
@@ -252,6 +261,7 @@ function AiChatPanelImpl({
     autoStart,
     autoStartKey,
     readingSubject,
+    readingMethod,
     restore,
     reset,
     workspaceMode,
@@ -431,6 +441,7 @@ function AiChatPanelImpl({
       buildAiChatInitialPrompt(contextPrompt, session),
       session.readingSubject,
       session.completionStatus,
+      session.readingMethod,
     );
     setInputValue('');
     setIsHistoryOpen(false);
@@ -454,6 +465,7 @@ function AiChatPanelImpl({
         buildAiChatInitialPrompt(contextPrompt, nextActiveSession),
         nextActiveSession.readingSubject,
         nextActiveSession.completionStatus,
+        nextActiveSession.readingMethod,
       );
     } else {
       reset();
@@ -476,7 +488,7 @@ function AiChatPanelImpl({
                 : status === 'cancelled'
                   ? '本次回复已停止，已生成内容保留，可重新生成。'
                   : hasStarted
-                    ? '可以继续追问，历史对话会自动保存。'
+                    ? historySaveError || '可以继续追问，历史对话会自动保存。'
                     : '在下方输入问题开始 AI 解析。'}
           </p>
         </div>
@@ -619,6 +631,11 @@ function AiChatPanelImpl({
 
           {/* 底部输入区 */}
           <div className="ai-chat-input-area">
+            {historySaveError ? (
+              <p role="status" className="ai-chat-workflow-notice">
+                {historySaveError}
+              </p>
+            ) : null}
             {notices.map((notice) => (
               <p key={notice} role="status" className="ai-chat-workflow-notice">
                 {notice}

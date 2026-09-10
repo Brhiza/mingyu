@@ -1,3 +1,4 @@
+import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import {
   analyzeBaziCompatibility,
   type BaziChartResult,
@@ -22,7 +23,11 @@ import {
   resolveCivilTime,
   resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
-import { buildZiweiChartInput, calculatePublicZiweiChartForScopes } from 'mingyu-core/ziwei';
+import {
+  buildZiweiChartInput,
+  calculatePublicZiweiChartForScopes,
+  type ZiweiFortuneRangeScope,
+} from 'mingyu-core/ziwei';
 import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import {
   INSTANT_CHART_TYPES,
@@ -458,8 +463,45 @@ const DIVINATION_REQUEST_PROPERTIES = {
       meihuaSettings: {
         type: 'object',
         properties: {
-          method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
+          method: {
+            enum: ['time', 'number', 'sound', 'character', 'direction', 'random', 'timeTrigram'],
+          },
           number: { type: 'integer', minimum: 1 },
+          soundCount: { type: 'integer', minimum: 1 },
+          characterText: { type: 'string', minLength: 1, maxLength: 256 },
+          characterCount: { type: 'integer', minimum: 1, maximum: 100 },
+          characterTones: {
+            type: 'array',
+            minItems: 4,
+            maxItems: 10,
+            items: { type: 'integer', minimum: 1, maximum: 4 },
+            description:
+              '4—10 字按顺序提供传统平、上、去、入声类的 1—4 数，不等同于普通话一至四声。',
+          },
+          characterStrokeCounts: {
+            type: 'array',
+            minItems: 2,
+            maxItems: 3,
+            items: { type: 'integer', minimum: 1 },
+            description: '2—3 字按顺序提供各字人工笔画数，以避免字体差异。',
+          },
+          characterLeftStrokes: { type: 'integer', minimum: 1, description: '单字左侧分笔数。' },
+          characterRightStrokes: { type: 'integer', minimum: 1, description: '单字右侧分笔数。' },
+          direction: {
+            enum: [
+              'northwest',
+              'west',
+              'south',
+              'east',
+              'southeast',
+              'north',
+              'northeast',
+              'southwest',
+            ],
+          },
+          objectType: {
+            enum: ['heaven', 'lake', 'fire', 'thunder', 'wind', 'water', 'mountain', 'earth'],
+          },
         },
       },
     },
@@ -1047,14 +1089,14 @@ export function getPublicApiOpenApiDocument(
       '/metaphysics/qizheng/calculate': {
         post: {
           summary: '七政四余排盘',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QizhengRequest'),
           responses: { '200': { description: '十一星、真实距星宿界与结构化证据' } },
         },
       },
       '/metaphysics/qizheng/prompt': {
         post: {
           summary: '七政四余排盘并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QizhengRequest'),
           responses: { '200': { description: '七政四余盘与结构化提示词' } },
         },
       },
@@ -1646,6 +1688,41 @@ export function getPublicApiOpenApiDocument(
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
+        QizhengRequest: {
+          type: 'object',
+          required: ['year', 'month', 'day', 'hour'],
+          properties: {
+            year: { type: 'integer', minimum: 1900, maximum: 2200, description: '出生公历年。' },
+            month: { type: 'integer', minimum: 1, maximum: 12 },
+            day: { type: 'integer', minimum: 1, maximum: 31 },
+            hour: { type: 'integer', minimum: 0, maximum: 23 },
+            minute: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
+            gender: { enum: ['male', 'female'] },
+            latitude: { type: 'number', minimum: -90, maximum: 90 },
+            longitude: { type: 'number', minimum: -180, maximum: 180 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
+            timeZoneId: { type: 'string', description: '出生地 IANA 时区。' },
+            useTrueSolarTime: { type: 'boolean', default: false },
+            flowYear: {
+              type: 'integer',
+              minimum: 1900,
+              maximum: 2200,
+              description: '流运目标公历年。',
+            },
+            flowMonth: { type: 'integer', minimum: 1, maximum: 12 },
+            flowDay: { type: 'integer', minimum: 1, maximum: 31 },
+            flowHour: { type: 'integer', minimum: 0, maximum: 23 },
+            flowMinute: { type: 'integer', minimum: 0, maximum: 59 },
+            question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            topicId: { type: 'string' },
+            subtopicId: { type: 'string' },
+            promptScope: { enum: [...PROMPT_SCOPE_IDS] },
+            promptMode: { enum: [...PROMPT_MODES] },
+            schools: DIVINATION_REQUEST_PROPERTIES.schools,
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+            responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+          },
+        },
         WuyunLiuqiRequest: {
           type: 'object',
           description:
@@ -1832,7 +1909,18 @@ export function getPublicApiOpenApiDocument(
             promptScope: {
               enum: [...ZIWEI_PROMPT_SCOPES],
               description:
-                '可选。未指定时默认当前大限；origin=本命；full 会返回本命、大限、流年、流月、流日、流时；传入后返回指定分析范围。',
+                '可选。未指定时默认当前大限；origin=本命；full 会返回本命、童限与大限及各阶段流年，并在指定时点附带可用的流月、流日和流时资料；传入后返回指定分析范围。',
+            },
+            scopeDate: {
+              type: 'string',
+              pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+              description: '紫微运限目标日期；用于固定当前阶段、指定流年及下层资料的取盘时点。',
+            },
+            scopeHourIndex: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 12,
+              description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
             },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
@@ -1869,6 +1957,17 @@ export function getPublicApiOpenApiDocument(
                 },
                 promptTopic: { enum: [...ZIWEI_PROMPT_TOPICS] },
                 promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
+                scopeDate: {
+                  type: 'string',
+                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                  description: '紫微运限目标日期；用于固定当前阶段、指定流年及下层资料的取盘时点。',
+                },
+                scopeHourIndex: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 12,
+                  description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
+                },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
@@ -1949,6 +2048,17 @@ export function getPublicApiOpenApiDocument(
                   description: '紫微侧分析主题；不传时使用 life。',
                 },
                 promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
+                scopeDate: {
+                  type: 'string',
+                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                  description: '紫微运限目标日期；用于固定当前阶段、指定流年及下层资料的取盘时点。',
+                },
+                scopeHourIndex: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 12,
+                  description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
+                },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 baziSchool: {
@@ -2030,6 +2140,17 @@ export function getPublicApiOpenApiDocument(
                   enum: [...ZIWEI_PROMPT_SCOPES],
                   description:
                     '紫微运限范围：未指定时默认当前大限；origin=本命盘，full=完整输出版等。',
+                },
+                scopeDate: {
+                  type: 'string',
+                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                  description: '紫微运限目标日期；用于固定当前阶段、指定流年及下层资料的取盘时点。',
+                },
+                scopeHourIndex: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 12,
+                  description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
                 },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
@@ -2860,6 +2981,26 @@ function optInt(input: JsonRecord, key: string, min?: number, max?: number): num
   if (max !== undefined && v > max)
     throw new ApiError(400, 'BAD_REQUEST', `${key} 不能大于 ${max}。`);
   return v;
+}
+
+function readIntegerArray(
+  input: JsonRecord,
+  key: string,
+  min: number,
+  max: number,
+  maxItems: number,
+): number[] | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length < 1 || value.length > maxItems) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是包含1-${maxItems}项的整数数组。`);
+  }
+  return value.map((item, index) => {
+    if (typeof item !== 'number' || !Number.isSafeInteger(item) || item < min || item > max) {
+      throw new ApiError(400, 'BAD_REQUEST', `${key}[${index}] 必须是 ${min}-${max} 之间的整数。`);
+    }
+    return item;
+  });
 }
 
 function optNumber(input: JsonRecord, key: string, min: number, max: number): number | undefined {
@@ -3710,7 +3851,27 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
   });
 }
 
-async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['origin']) {
+function toZiweiFortuneRangeScope(scope: ZiweiPromptScope): ZiweiFortuneRangeScope | undefined {
+  const mapped: Partial<Record<ZiweiPromptScope, ZiweiFortuneRangeScope>> = {
+    full: 'all',
+    decadal: 'current',
+    yearly: 'year',
+    monthly: 'month',
+    daily: 'day',
+    hourly: 'hour',
+  };
+  return mapped[scope];
+}
+
+function readOptionalZiweiScopeDate(input: JsonRecord) {
+  return input.scopeDate === undefined ? undefined : readDateOnly(input, 'scopeDate').value;
+}
+
+async function calculateZiweiRuntime(
+  input: JsonRecord,
+  scopes: ScopeType[] = ['origin'],
+  options: { fortuneScope?: ZiweiFortuneRangeScope; scopeDate?: string } = {},
+) {
   const birthDate = readBirthDate(input, { asString: true });
   const { dateType } = birthDate;
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
@@ -3727,37 +3888,55 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
         birthMinute: readString(input, 'birthMinute', ''),
         birthLongitude: readString(input, 'birthLongitude', ''),
       };
+  const chartInput = buildZiweiChartInput({
+    name: readString(input, 'name', ''),
+    gender: readEnum(input, 'gender', ['male', 'female']),
+    dateType,
+    year: String(birthDate.year),
+    month: String(birthDate.month),
+    day: String(birthDate.day),
+    timeIndex: timeInput.timeIndex,
+    isLeapMonth: readBoolean(input, 'isLeapMonth', false),
+    useTrueSolarTime,
+    birthHour: timeInput.birthHour,
+    birthMinute: timeInput.birthMinute,
+    birthLongitude: timeInput.birthLongitude,
+    timezone: input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
+    timeZoneId:
+      input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
+    applyChinaDst:
+      input.applyChinaDst === undefined ? undefined : readBoolean(input, 'applyChinaDst', false),
+    algorithm: readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default') as
+      'default' | 'zhongzhou',
+  });
+  const currentContext = getDefaultHoroscopeContext();
+  const horoscopeContext = {
+    dateStr: options.scopeDate ?? currentContext.dateStr,
+    hourIndex: optInt(input, 'scopeHourIndex', 0, 12) ?? currentContext.hourIndex,
+  };
+  const fortuneRange = options.fortuneScope
+    ? {
+        scope: options.fortuneScope,
+        ...horoscopeContext,
+      }
+    : undefined;
   return calculatePublicZiweiChartForScopes(
-    buildZiweiChartInput({
-      name: readString(input, 'name', ''),
-      gender: readEnum(input, 'gender', ['male', 'female']),
-      dateType,
-      year: String(birthDate.year),
-      month: String(birthDate.month),
-      day: String(birthDate.day),
-      timeIndex: timeInput.timeIndex,
-      isLeapMonth: readBoolean(input, 'isLeapMonth', false),
-      useTrueSolarTime,
-      birthHour: timeInput.birthHour,
-      birthMinute: timeInput.birthMinute,
-      birthLongitude: timeInput.birthLongitude,
-      timezone:
-        input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
-      timeZoneId:
-        input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
-      applyChinaDst:
-        input.applyChinaDst === undefined ? undefined : readBoolean(input, 'applyChinaDst', false),
-      algorithm: readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default') as
-        'default' | 'zhongzhou',
-    }),
+    chartInput,
     Array.from(new Set(['origin' as ScopeType, ...scopes])),
+    {
+      ...(fortuneRange ? { fortuneRange } : {}),
+      horoscopeContext,
+    },
   );
 }
 
 async function calculateZiwei(input: JsonRecord) {
   const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'decadal') as ZiweiPromptScope;
   const result = buildSerializableZiweiResult(
-    await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope)),
+    await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
+      fortuneScope: toZiweiFortuneRangeScope(scope),
+      scopeDate: readOptionalZiweiScopeDate(input),
+    }),
   );
   return input.detailMode === 'compact' ? buildCompactZiweiResult(result) : result;
 }
@@ -3771,7 +3950,10 @@ async function buildZiweiPrompt(input: JsonRecord) {
     ZIWEI_PROMPT_SCOPES,
     selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
-  const result = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+  const result = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
+    fortuneScope: toZiweiFortuneRangeScope(scope),
+    scopeDate: readOptionalZiweiScopeDate(input),
+  });
   const promptTopic =
     input.promptTopic === undefined
       ? undefined
@@ -3908,7 +4090,10 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     ZIWEI_PROMPT_SCOPES,
     selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
-  const ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+  const ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
+    fortuneScope: toZiweiFortuneRangeScope(scope),
+    scopeDate: readOptionalZiweiScopeDate(input),
+  });
   const baziFortuneScope =
     scope === 'origin'
       ? 'natal'
@@ -4070,7 +4255,10 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
   }
 
   if (system === 'bazi_ziwei' || system === 'ziwei') {
-    ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+    ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
+      fortuneScope: toZiweiFortuneRangeScope(scope),
+      scopeDate: readOptionalZiweiScopeDate(input),
+    });
     serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
   }
 
@@ -4330,10 +4518,71 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
 }
 
 function calculateMeihua(input: JsonRecord) {
-  const method = readEnum(input, 'method', ['time', 'number', 'random', 'timeTrigram'], 'time');
+  const method = readEnum(
+    input,
+    'method',
+    ['time', 'number', 'sound', 'character', 'direction', 'random', 'timeTrigram'],
+    'time',
+  );
   const settings: MeihuaSettings = {
     method,
     ...(method === 'number' ? { number: readInteger(input, 'number', 1) } : {}),
+    ...(method === 'sound' ? { soundCount: readInteger(input, 'soundCount', 1) } : {}),
+    ...(method === 'character'
+      ? {
+          ...(input.characterText !== undefined
+            ? { characterText: readString(input, 'characterText', '').trim() }
+            : {}),
+          ...(optInt(input, 'characterCount', 1, 100) !== undefined
+            ? { characterCount: optInt(input, 'characterCount', 1, 100) }
+            : {}),
+          ...(readIntegerArray(input, 'characterTones', 1, 4, 10) !== undefined
+            ? { characterTones: readIntegerArray(input, 'characterTones', 1, 4, 10) }
+            : {}),
+          ...(readIntegerArray(input, 'characterStrokeCounts', 1, Number.MAX_SAFE_INTEGER, 3) !==
+          undefined
+            ? {
+                characterStrokeCounts: readIntegerArray(
+                  input,
+                  'characterStrokeCounts',
+                  1,
+                  Number.MAX_SAFE_INTEGER,
+                  3,
+                ),
+              }
+            : {}),
+          ...(optInt(input, 'characterLeftStrokes', 1) !== undefined
+            ? { characterLeftStrokes: optInt(input, 'characterLeftStrokes', 1) }
+            : {}),
+          ...(optInt(input, 'characterRightStrokes', 1) !== undefined
+            ? { characterRightStrokes: optInt(input, 'characterRightStrokes', 1) }
+            : {}),
+        }
+      : {}),
+    ...(method === 'direction'
+      ? {
+          direction: readEnum(input, 'direction', [
+            'northwest',
+            'west',
+            'south',
+            'east',
+            'southeast',
+            'north',
+            'northeast',
+            'southwest',
+          ] as const),
+          objectType: readEnum(input, 'objectType', [
+            'heaven',
+            'lake',
+            'fire',
+            'thunder',
+            'wind',
+            'water',
+            'mountain',
+            'earth',
+          ] as const),
+        }
+      : {}),
     ...(method === 'random' ? readRandomOptions(input) : {}),
   };
   if (method !== 'random') assertNoRandomOptions(input, '梅花易数仅随机起卦接受 seed 或 replay。');
@@ -4852,6 +5101,9 @@ function readSupplementaryInfo(input: JsonRecord): SupplementaryInfo | undefined
       meihuaSettings.method = readEnum(rawMeihuaSettings, 'method', [
         'time',
         'number',
+        'sound',
+        'character',
+        'direction',
         'random',
         'timeTrigram',
       ]);
@@ -4859,6 +5111,63 @@ function readSupplementaryInfo(input: JsonRecord): SupplementaryInfo | undefined
     const number = optInt(rawMeihuaSettings, 'number', 1);
     if (number !== undefined) {
       meihuaSettings.number = number;
+    }
+    const soundCount = optInt(rawMeihuaSettings, 'soundCount', 1);
+    if (soundCount !== undefined) {
+      meihuaSettings.soundCount = soundCount;
+    }
+    if (rawMeihuaSettings.characterText !== undefined) {
+      meihuaSettings.characterText = readString(rawMeihuaSettings, 'characterText', '').trim();
+    }
+    const characterCount = optInt(rawMeihuaSettings, 'characterCount', 1, 100);
+    if (characterCount !== undefined) {
+      meihuaSettings.characterCount = characterCount;
+    }
+    const characterTones = readIntegerArray(rawMeihuaSettings, 'characterTones', 1, 4, 10);
+    if (characterTones !== undefined) {
+      meihuaSettings.characterTones = characterTones;
+    }
+    const characterStrokeCounts = readIntegerArray(
+      rawMeihuaSettings,
+      'characterStrokeCounts',
+      1,
+      Number.MAX_SAFE_INTEGER,
+      3,
+    );
+    if (characterStrokeCounts !== undefined) {
+      meihuaSettings.characterStrokeCounts = characterStrokeCounts;
+    }
+    const characterLeftStrokes = optInt(rawMeihuaSettings, 'characterLeftStrokes', 1);
+    if (characterLeftStrokes !== undefined) {
+      meihuaSettings.characterLeftStrokes = characterLeftStrokes;
+    }
+    const characterRightStrokes = optInt(rawMeihuaSettings, 'characterRightStrokes', 1);
+    if (characterRightStrokes !== undefined) {
+      meihuaSettings.characterRightStrokes = characterRightStrokes;
+    }
+    if (rawMeihuaSettings.direction !== undefined) {
+      meihuaSettings.direction = readEnum(rawMeihuaSettings, 'direction', [
+        'northwest',
+        'west',
+        'south',
+        'east',
+        'southeast',
+        'north',
+        'northeast',
+        'southwest',
+      ] as const);
+    }
+    if (rawMeihuaSettings.objectType !== undefined) {
+      meihuaSettings.objectType = readEnum(rawMeihuaSettings, 'objectType', [
+        'heaven',
+        'lake',
+        'fire',
+        'thunder',
+        'wind',
+        'water',
+        'mountain',
+        'earth',
+      ] as const);
     }
     if (Object.keys(meihuaSettings).length > 0) {
       info.meihuaSettings = meihuaSettings;

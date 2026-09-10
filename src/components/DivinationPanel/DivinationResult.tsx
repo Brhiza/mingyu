@@ -193,6 +193,7 @@ export function DivinationResult({
                   autoStartKey={session.prompt}
                   resetKey={session.prompt}
                   aiConfig={aiRequestConfig}
+                  readingMethod={session.method}
                 />
               </div>
             ) : (

@@ -31,7 +31,16 @@ export type DivinationType =
   | 'taiyi'
   | 'huangji';
 
-export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
+export type MeihuaDivinationMethod =
+  'time' | 'number' | 'sound' | 'character' | 'direction' | 'random' | 'timeTrigram';
+
+/** 梅花后天八卦方位；英文值便于 API/MCP 稳定传输。 */
+export type MeihuaDirection =
+  'northwest' | 'west' | 'south' | 'east' | 'southeast' | 'north' | 'northeast' | 'southwest';
+
+/** 梅花所见物类对应的八卦自然象。 */
+export type MeihuaObjectType =
+  'heaven' | 'lake' | 'fire' | 'thunder' | 'wind' | 'water' | 'mountain' | 'earth';
 
 export type XiaoliurenDivinationMethod = 'time';
 export type XiaoliurenRule = 'common' | 'duoneng';
@@ -39,6 +48,22 @@ export type XiaoliurenRule = 'common' | 'duoneng';
 export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
   number?: number;
+  /** 所闻声音的可回放计数。 */
+  soundCount?: number;
+  /** 字占的原始文字；按 Unicode 字符计数。 */
+  characterText?: string;
+  /** 字占的字符数；未提供 characterText 时使用。 */
+  characterCount?: number;
+  /** 4—10 字时必须按传统平、上、去、入声类提供 1—4 数，不等同于普通话一至四声。 */
+  characterTones?: number[];
+  /** 2—3 字时按顺序提供每个字的人工笔画数，避免字体差异。 */
+  characterStrokeCounts?: number[];
+  /** 单字左右分笔时的左侧笔画数。 */
+  characterLeftStrokes?: number;
+  /** 单字左右分笔时的右侧笔画数。 */
+  characterRightStrokes?: number;
+  direction?: MeihuaDirection;
+  objectType?: MeihuaObjectType;
 }
 
 export interface XiaoliurenPalaceDetail {
@@ -396,6 +421,21 @@ export interface MeihuaCalculation {
   numbers?: number[];
   time?: string;
   number?: number;
+  soundCount?: number;
+  characterText?: string;
+  characterCount?: number;
+  characterTones?: number[];
+  characterStrokeCounts?: number[];
+  characterLeftStrokes?: number;
+  characterRightStrokes?: number;
+  characterUpperNumber?: number;
+  characterLowerNumber?: number;
+  characterRule?: string;
+  direction?: MeihuaDirection;
+  objectType?: MeihuaObjectType;
+  objectTrigramIndex?: number;
+  directionTrigramIndex?: number;
+  totalWithTime?: number;
   month?: number;
   day?: number;
   yearZhi?: string;

@@ -1,5 +1,6 @@
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';
 import type { ZiweiRuntime } from '../ziwei/runtime';
+import { formatZiweiFortuneTimeline, type ZiweiFortuneTimeline } from '../ziwei/fortune-timeline';
 import { analyzeZiweiCompatibility, getBodyPalaceAxisSummary } from '../ziwei/iztro/index';
 import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import { formatPromptCurrentTime } from './current-time';
@@ -141,6 +142,14 @@ function formatStar(star: StarFact, isOriginScope: boolean) {
     .join('，');
 }
 
+function formatDynamicMutagenStar(star: StarFact) {
+  return formatStar({ ...star, brightness: undefined, birth_mutagen: undefined }, false);
+}
+
+function getDynamicMutagenStarKey(star: StarFact) {
+  return `${star.name}|${star.horoscope_mutagen ?? ''}|${star.active_scope_mutagen ?? ''}`;
+}
+
 function natalTags(tags: string[]) {
   return tags.filter((tag) => !/大限|小限|流年|流月|流日|流时|运限/.test(tag));
 }
@@ -271,7 +280,58 @@ export function getZiweiPromptCalculationScopes(scope: ZiweiPromptScope): ScopeT
   return scope === 'full' ? SCOPE_ORDER : [scope];
 }
 
+export function formatZiweiTargetLowerScopeFacts(runtime: ZiweiRuntime) {
+  const scopes: ScopeType[] = ['monthly', 'daily', 'hourly'];
+  const lines = scopes.flatMap((scope) => {
+    const payload = runtime.payloadByScope[scope];
+    if (!payload) return [];
+    const active = payload.active_scope;
+    const header = `${SCOPE_LABELS[scope]}：${active.solar_date}；${active.heavenly_stem ?? ''}${active.earthly_branch ?? ''}；农历${active.lunar_date}；虚岁${active.nominal_age}；落${active.palace_name ?? ''}；四化：${formatMutagenMap(payload, false)}`;
+    const palaces = payload.palaces.map((palace) => {
+      const seenMutagenStars = new Set(palace.scope_stars.map(getDynamicMutagenStarKey));
+      const stars = palace.scope_stars.map((star) => formatStar(star, false)).filter(Boolean);
+      const staticMutagenStars = [
+        ...palace.major_stars,
+        ...palace.minor_stars,
+        ...palace.other_stars,
+      ]
+        .filter((star) => star.horoscope_mutagen || star.active_scope_mutagen)
+        .filter((star) => {
+          const key = getDynamicMutagenStarKey(star);
+          if (seenMutagenStars.has(key)) return false;
+          seenMutagenStars.add(key);
+          return true;
+        })
+        .map(formatDynamicMutagenStar)
+        .filter(Boolean);
+      return [
+        `${palace.name}${palace.dynamic_scope_name ? `→${palace.dynamic_scope_name}` : ''}`,
+        stars.length ? `流曜${stars.join('、')}` : '',
+        staticMutagenStars.length ? `星曜四化${staticMutagenStars.join('、')}` : '',
+        palace.scope_hits.length ? palace.scope_hits.join('、') : '',
+      ]
+        .filter(Boolean)
+        .join('：');
+    });
+    return [header, `  十二宫（本命宫→动态宫）：${palaces.join('；')}`];
+  });
+  return lines.length ? `目标日期下层资料：\n${lines.join('\n')}` : '';
+}
+
 export function formatZiweiFullScopeText(runtime: ZiweiRuntime) {
+  if (runtime.fortuneTimeline) {
+    const origin = runtime.payloadByScope.origin;
+    const originText = origin
+      ? formatZiweiPayloadForPrompt(origin, { includeBasicInfo: true })
+      : '';
+    return [
+      originText ? `本命：\n${originText}` : '',
+      `完整运限范围：\n${formatZiweiFortuneTimeline(runtime.fortuneTimeline)}`,
+      formatZiweiTargetLowerScopeFacts(runtime),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
   let firstPayload = true;
   return SCOPE_ORDER.map((scope) => runtime.payloadByScope[scope])
     .map((payload) => {
@@ -309,12 +369,19 @@ export function buildZiweiPromptDocument(options: ZiweiPromptOptions): PromptDoc
   const chartText =
     scope === 'full'
       ? formatZiweiFullScopeText(options.runtime)
-      : payloads
-          .map((payload) =>
-            formatZiweiPayloadForPrompt(payload, {
-              focusPalaceNames: options.focusPalaceNames,
-            }),
-          )
+      : [
+          payloads
+            .map((payload) =>
+              formatZiweiPayloadForPrompt(payload, {
+                focusPalaceNames: options.focusPalaceNames,
+              }),
+            )
+            .join('\n\n'),
+          options.runtime.fortuneTimeline
+            ? `运限范围资料：\n${formatZiweiFortuneTimeline(options.runtime.fortuneTimeline)}`
+            : '',
+        ]
+          .filter(Boolean)
           .join('\n\n');
   const topicLabel = options.topic ? TOPIC_LABELS[options.topic] : '';
   const question =
@@ -528,6 +595,7 @@ export interface SerializableZiweiResult {
   calculationConfig: AnalysisPayloadV1['calculation_config'];
   scopeNames: string[];
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
+  fortuneTimeline?: ZiweiFortuneTimeline;
   trueSolarEvidence?: ZiweiRuntime['trueSolarEvidence'];
   fourMutagens: Record<string, string>;
   birthMutagens: Record<string, string>;
@@ -590,6 +658,7 @@ export function buildSerializableZiweiResult(runtime: ZiweiRuntime): Serializabl
     calculationConfig: origin.calculation_config,
     scopeNames: Object.keys(runtime.payloadByScope),
     payloadByScope: runtime.payloadByScope,
+    ...(runtime.fortuneTimeline ? { fortuneTimeline: runtime.fortuneTimeline } : {}),
     trueSolarEvidence: runtime.trueSolarEvidence,
     fourMutagens: mutagens,
     birthMutagens: mutagens,

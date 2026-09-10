@@ -36,6 +36,7 @@ export interface UseAiChat {
     initialPrompt?: string,
     readingSubject?: ReadingSubjectSnapshot,
     completionStatus?: AiChatCompletionStatus,
+    readingMethod?: string,
   ) => void;
   /** 重新发送上一次失败的请求 */
   retry: () => void;
@@ -57,6 +58,7 @@ export interface RestoredAiChatState {
 export function useAiChat(
   aiConfig?: AiRequestConfig,
   readingSubject?: ReadingSubjectSnapshot,
+  readingMethod?: string,
 ): UseAiChat {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
@@ -75,10 +77,16 @@ export function useAiChat(
   const lastRequestRef = useRef<ChatMessage[]>([]);
   const readingSubjectRef = useRef<ReadingSubjectSnapshot | undefined>(readingSubject);
   const readingSubjectLockedRef = useRef(false);
+  const readingMethodRef = useRef<string | undefined>(readingMethod);
+  const readingMethodLockedRef = useRef(false);
 
   useEffect(() => {
     if (!readingSubjectLockedRef.current) readingSubjectRef.current = readingSubject;
   }, [readingSubject]);
+
+  useEffect(() => {
+    if (!readingMethodLockedRef.current) readingMethodRef.current = readingMethod;
+  }, [readingMethod]);
 
   // 保持 turnsRef 与 turns 同步，供 ask 回调读取最新值
   useEffect(() => {
@@ -102,6 +110,8 @@ export function useAiChat(
     readingMemoryRef.current = { resources: [] };
     readingSubjectLockedRef.current = false;
     readingSubjectRef.current = readingSubject;
+    readingMethodLockedRef.current = false;
+    readingMethodRef.current = readingMethod;
     setProgress('');
     setNotices([]);
     lastRequestRef.current = [];
@@ -111,7 +121,7 @@ export function useAiChat(
     setError('');
     setHasStarted(false);
     setCanRetry(false);
-  }, [readingSubject]);
+  }, [readingMethod, readingSubject]);
 
   const restore = useCallback(
     (
@@ -119,6 +129,7 @@ export function useAiChat(
       initialPrompt = '',
       restoredSubject?: ReadingSubjectSnapshot,
       completionStatus?: AiChatCompletionStatus,
+      restoredReadingMethod?: string,
     ) => {
       abortRef.current?.abort();
       abortRef.current = null;
@@ -128,6 +139,8 @@ export function useAiChat(
       readingMemoryRef.current = { resources: [] };
       readingSubjectLockedRef.current = true;
       readingSubjectRef.current = restoredSubject;
+      readingMethodLockedRef.current = true;
+      readingMethodRef.current = restoredReadingMethod ?? readingMethod;
       setProgress('');
       setNotices([]);
       lastRequestRef.current = buildAiChatRequest(initialPrompt, nextTurns);
@@ -139,7 +152,7 @@ export function useAiChat(
       setHasStarted(restoredState.hasStarted);
       setCanRetry(restoredState.canRetry);
     },
-    [],
+    [readingMethod],
   );
 
   const appendIncompleteTurn = useCallback((notice: string) => {
@@ -198,6 +211,7 @@ export function useAiChat(
           aiConfig,
           memory: readingMemoryRef.current,
           subject: readingSubjectRef.current,
+          readingMethod: readingMethodRef.current,
           onProgress: (value) => {
             if (abortRef.current === controller) setProgress(value.text);
           },
@@ -259,6 +273,8 @@ export function useAiChat(
       if (!prompt.trim()) return;
       readingSubjectLockedRef.current = false;
       readingSubjectRef.current = readingSubject;
+      readingMethodLockedRef.current = false;
+      readingMethodRef.current = readingMethod;
       initialPromptRef.current = prompt;
       readingMemoryRef.current = { resources: [] };
       turnsRef.current = [];
@@ -266,7 +282,7 @@ export function useAiChat(
       setHasStarted(true);
       startStream([{ role: 'user', content: prompt }]);
     },
-    [readingSubject, startStream],
+    [readingMethod, readingSubject, startStream],
   );
 
   const ask = useCallback(

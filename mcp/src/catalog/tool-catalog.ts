@@ -392,7 +392,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '梅花易数排盘',
     category: 'meihua',
     type: 'calculate',
-    description: '梅花易数体用互变卦象与五行生克',
+    description: '梅花易数时间、数字、声音、字数、方位取象或随机起卦，返回体用互变卦象与五行生克',
     annotations: READONLY_NON_IDEMPOTENT,
     endpoint: '/divination/meihua',
   },
@@ -402,7 +402,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     category: 'meihua',
     type: 'prompt',
     description:
-      '生成梅花易数主互变卦象推进与体用生克的自包含提示词；支持统一主题、主题细项和分析范围选择',
+      '生成梅花易数主互变卦象推进与体用生克的自包含提示词；支持时间、数字、声音、字数、方位取象或随机起卦及统一主题、主题细项和分析范围选择',
     annotations: READONLY_NON_IDEMPOTENT,
     endpoint: '/divination/meihua/prompt',
   },

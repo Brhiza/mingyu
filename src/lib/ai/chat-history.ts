@@ -11,6 +11,7 @@ export interface AiChatSession {
   initialQuestion: string;
   initialPrompt?: string;
   readingSubject?: ReadingSubjectSnapshot;
+  readingMethod?: string;
   completionStatus?: AiChatCompletionStatus;
   promptMode: AiChatPromptMode;
   turns: ChatTurn[];
@@ -63,6 +64,13 @@ function normalizeTurns(value: unknown): ChatTurn[] {
     }));
 }
 
+function inferCompletionStatus(turns: ChatTurn[]): AiChatCompletionStatus | undefined {
+  const latest = turns[turns.length - 1];
+  if (!latest) return undefined;
+  if (latest.role === 'user') return 'pending';
+  return latest.incomplete ? 'partial' : undefined;
+}
+
 function normalizeSession(value: unknown): AiChatSession | null {
   if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return null;
   const turns = normalizeTurns(value.turns);
@@ -70,6 +78,10 @@ function normalizeSession(value: unknown): AiChatSession | null {
   const updatedAt = typeof value.updatedAt === 'string' ? value.updatedAt : createdAt;
   const promptMode = value.promptMode === 'context-question' ? 'context-question' : 'context';
   const readingSubject = normalizeReadingSubject(value.readingSubject);
+  const readingMethod =
+    typeof value.readingMethod === 'string' && value.readingMethod.trim()
+      ? value.readingMethod.trim()
+      : undefined;
   const completionStatus =
     value.completionStatus === 'pending' ||
     value.completionStatus === 'complete' ||
@@ -77,9 +89,7 @@ function normalizeSession(value: unknown): AiChatSession | null {
     value.completionStatus === 'cancelled' ||
     value.completionStatus === 'error'
       ? value.completionStatus
-      : turns.some((turn) => turn.incomplete)
-        ? 'partial'
-        : undefined;
+      : inferCompletionStatus(turns);
 
   return {
     id: value.id,
@@ -87,6 +97,7 @@ function normalizeSession(value: unknown): AiChatSession | null {
     initialQuestion: typeof value.initialQuestion === 'string' ? value.initialQuestion : '',
     ...(typeof value.initialPrompt === 'string' ? { initialPrompt: value.initialPrompt } : {}),
     ...(readingSubject ? { readingSubject } : {}),
+    ...(readingMethod ? { readingMethod } : {}),
     ...(completionStatus ? { completionStatus } : {}),
     promptMode,
     turns,
@@ -135,8 +146,7 @@ export function loadAiChatHistory(storageKey: string): AiChatHistoryState {
 export function saveAiChatHistory(storageKey: string, state: AiChatHistoryState) {
   if (!storageKey) return false;
   if (!state.sessions.length) {
-    safeStorage.remove(storageKey);
-    return true;
+    return safeStorage.remove(storageKey);
   }
   const value: SavedAiChatHistoryV2 = {
     version: AI_CHAT_HISTORY_VERSION,
@@ -169,7 +179,10 @@ export function getAiChatCompletionStatus(
 ): AiChatCompletionStatus | undefined {
   if (status === 'done') return 'complete';
   if (status === 'cancelled') return 'cancelled';
-  if (status === 'error') return turns.some((turn) => turn.incomplete) ? 'partial' : 'error';
+  if (status === 'error') {
+    const latest = turns[turns.length - 1];
+    return latest?.role === 'assistant' && latest.incomplete ? 'partial' : 'error';
+  }
   if (status === 'loading' || status === 'streaming') return 'pending';
   return undefined;
 }

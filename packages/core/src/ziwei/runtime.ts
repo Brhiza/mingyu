@@ -12,6 +12,11 @@ import {
 } from './iztro/runtime-helpers';
 import { buildAnalysisPayloadV1 } from './iztro/build-analysis-payload/index';
 import { buildVerifiedDecadalTimelineOptions } from './iztro/decadal';
+import {
+  buildZiweiFortuneTimelineFromAstrolabe,
+  type ZiweiFortuneRangeOptions,
+  type ZiweiFortuneTimeline,
+} from './fortune-timeline';
 
 /** npm 用户可直接消费的紫微完整运行结果。 */
 export type ZiweiRuntime = {
@@ -21,6 +26,8 @@ export type ZiweiRuntime = {
   horoscopeContext: ZiweiHoroscopeContext;
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
   decadalTimeline: Awaited<ReturnType<typeof buildVerifiedDecadalTimelineOptions>>;
+  /** 当前、全部或指定下层范围的逐阶段逐年资料；未请求范围时省略。 */
+  fortuneTimeline?: ZiweiFortuneTimeline;
   trueSolarEvidence?: ChartInput['trueSolarEvidence'];
 };
 
@@ -50,6 +57,8 @@ export interface ZiweiRuntimeOptions {
   horoscopeContext?: ZiweiHoroscopeContext;
   /** 未指定 horoscopeContext 时使用的当前时间。 */
   now?: Date;
+  /** 组织网页、HTTP 与 MCP 共用的紫微阶段/逐年范围资料。 */
+  fortuneRange?: ZiweiFortuneRangeOptions;
 }
 
 function normalizeScopes(scopes?: ScopeType[]): ScopeType[] {
@@ -118,6 +127,13 @@ export async function calculateZiweiChart(
     skipAnalysis: options.skipAnalysis,
   });
   const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
+  const fortuneTimeline = options.fortuneRange
+    ? await buildZiweiFortuneTimelineFromAstrolabe(astrolabe, input, decadalTimeline, {
+        ...options.fortuneRange,
+        dateStr: options.fortuneRange.dateStr ?? horoscopeContext.dateStr,
+        hourIndex: options.fortuneRange.hourIndex ?? horoscopeContext.hourIndex,
+      })
+    : undefined;
 
   return {
     astrolabe,
@@ -125,6 +141,7 @@ export async function calculateZiweiChart(
     horoscopeContext: { ...horoscopeContext },
     payloadByScope,
     decadalTimeline,
+    ...(fortuneTimeline ? { fortuneTimeline } : {}),
     trueSolarEvidence: input.trueSolarEvidence,
   };
 }
@@ -142,16 +159,19 @@ export async function calculateZiweiChartForScopes(
   input: ChartInput,
   scopes?: ScopeType[],
   skipAnalysis?: boolean,
+  options: Omit<ZiweiRuntimeOptions, 'scopes' | 'skipAnalysis'> = {},
 ): Promise<ZiweiRuntime> {
-  return calculateZiweiChart(input, { scopes, skipAnalysis });
+  return calculateZiweiChart(input, { ...options, scopes, skipAnalysis });
 }
 
 /** 面向较小接口响应的范围入口，始终保留本命资料。 */
 export async function calculatePublicZiweiChartForScopes(
   input: ChartInput,
   scopes?: ScopeType[],
+  options: Omit<ZiweiRuntimeOptions, 'scopes'> = {},
 ): Promise<ZiweiRuntime> {
   return calculateZiweiChart(input, {
+    ...options,
     scopes: Array.from(new Set(['origin' as const, ...(scopes ?? [])])),
   });
 }

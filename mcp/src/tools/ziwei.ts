@@ -1,7 +1,12 @@
+import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
-import { buildZiweiChartInput, calculateZiweiChartForScopes } from 'mingyu-core/ziwei';
+import {
+  buildZiweiChartInput,
+  calculateZiweiChartForScopes,
+  type ZiweiFortuneRangeOptions,
+} from 'mingyu-core/ziwei';
 import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei/iztro';
 import {
@@ -32,6 +37,7 @@ import {
 import { applyMcpPromptSelection, readMcpPromptSelection } from './prompt-helpers.js';
 import {
   assertMcpBirthDate,
+  readMcpDateOnly,
   readMcpIntegerLikeInRange,
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
@@ -54,8 +60,20 @@ export const ziweiSchema = z.object({
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
     .describe(
-      '运限范围：未指定时默认当前大限；origin=本命, full=全部大限流年流月流日流时, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。',
+      '运限范围：未指定时默认当前大限；origin=本命, full=已验证童限与大限的全部流年, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。',
     ),
+  scopeDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe('紫微运限目标日期；固定当前阶段、指定流年或下层资料的取盘时点'),
+  scopeHourIndex: z
+    .number()
+    .int()
+    .min(0)
+    .max(12)
+    .optional()
+    .describe('目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
   birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
@@ -137,6 +155,29 @@ function mapPromptScopeToZiweiScope(scope: string | undefined): ZiweiPromptScope
   return scope === undefined ? undefined : mapped[scope];
 }
 
+export function buildMcpZiweiFortuneRangeOptions(
+  scope: ZiweiPromptScope,
+  scopeDate: string | undefined,
+  hourIndex: number,
+): ZiweiFortuneRangeOptions | undefined {
+  const mapped: Partial<Record<ZiweiPromptScope, ZiweiFortuneRangeOptions['scope']>> = {
+    full: 'all',
+    decadal: 'current',
+    yearly: 'year',
+    monthly: 'month',
+    daily: 'day',
+    hourly: 'hour',
+  };
+  const fortuneScope = mapped[scope];
+  if (!fortuneScope) return undefined;
+  const dateStr =
+    scopeDate === undefined ? undefined : readMcpDateOnly(scopeDate, 'scopeDate').value;
+  return {
+    scope: fortuneScope,
+    ...(dateStr ? { dateStr, hourIndex } : {}),
+  };
+}
+
 export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
   const useTrueSolarTime = args.useTrueSolarTime ?? false;
   assertMcpBirthDate({
@@ -197,7 +238,20 @@ export function registerZiweiTool(server: McpServer) {
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const result = await calculateZiweiChartForScopes(input, scopes);
+        const currentContext = getDefaultHoroscopeContext();
+        const horoscopeContext = {
+          dateStr: args.scopeDate ?? currentContext.dateStr,
+          hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
+        };
+        const fortuneRange = buildMcpZiweiFortuneRangeOptions(
+          scope,
+          horoscopeContext.dateStr,
+          horoscopeContext.hourIndex,
+        );
+        const result = await calculateZiweiChartForScopes(input, scopes, undefined, {
+          ...(fortuneRange ? { fortuneRange } : {}),
+          horoscopeContext,
+        });
         return createStructuredToolResult(
           { ...buildSerializableZiweiResult(result) },
           args.detailMode,
@@ -233,7 +287,20 @@ export function registerZiweiTool(server: McpServer) {
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const result = await calculateZiweiChartForScopes(input, scopes);
+        const currentContext = getDefaultHoroscopeContext();
+        const horoscopeContext = {
+          dateStr: args.scopeDate ?? currentContext.dateStr,
+          hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
+        };
+        const fortuneRange = buildMcpZiweiFortuneRangeOptions(
+          scope,
+          horoscopeContext.dateStr,
+          horoscopeContext.hourIndex,
+        );
+        const result = await calculateZiweiChartForScopes(input, scopes, undefined, {
+          ...(fortuneRange ? { fortuneRange } : {}),
+          horoscopeContext,
+        });
         return createStructuredToolResult({
           result: buildSerializableZiweiResult(result),
           prompt: buildZiweiPromptForRuntime({

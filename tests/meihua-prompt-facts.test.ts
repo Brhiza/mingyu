@@ -5,6 +5,26 @@ import { formatMeihuaFacts } from '@core/prompt/meihua-facts';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import { ZHOUYI_HEXAGRAMS_TEXT } from '@core/classics/zhouyi';
 
+test('梅花字占保留原字及分笔，方位取象使用中文资料', () => {
+  const date = new Date('2026-09-11T05:27:00+08:00');
+  const character = generateMeihua(date, {
+    method: 'character',
+    characterText: '明',
+    characterLeftStrokes: 4,
+    characterRightStrokes: 4,
+  });
+  assert.match(formatMeihuaFacts(character).join('\n'), /文字「明」，字数1，左右分笔数为4、4/u);
+  const direction = generateMeihua(date, {
+    method: 'direction',
+    direction: 'north',
+    objectType: 'earth',
+  });
+  const facts = formatMeihuaFacts(direction).join('\n');
+  assert.match(facts, /所见物类地（坤）取上卦数8，方位正北（坎）取下卦数6/u);
+  assert.doesNotMatch(facts, /earth|north|objectType|direction/u);
+  assert.doesNotMatch(direction.evidenceAnalysis?.promptText ?? '', /所见物类earth|方位north/u);
+});
+
 test('梅花比和判辞保留同盘在五种月令中的实际旺衰', () => {
   const settings = { method: 'number' as const, number: 42 };
   for (const [date, state] of [
