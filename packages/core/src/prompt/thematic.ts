@@ -292,6 +292,16 @@ export interface ThematicConsultationResult {
   scope: string;
 }
 
+const ZIWEI_SCOPE_BY_PROMPT_SCOPE: Partial<Record<PromptScopeId, ZiweiPromptScope>> = {
+  natal: 'origin',
+  full: 'full',
+  decadal: 'decadal',
+  yearly: 'yearly',
+  monthly: 'monthly',
+  daily: 'daily',
+  hourly: 'hourly',
+};
+
 /**
  * 构建大类主题咨询 AI 提示词（自包含完整任务书）。
  */
@@ -352,7 +362,8 @@ export function buildThematicConsultationPrompt(
 
   const question = options.question?.trim() || config.defaultQuestion;
   const isCustomMode = options.mode === 'custom';
-  const ziweiScope = options.ziweiScope ?? 'origin';
+  const ziweiScope =
+    options.ziweiScope ?? ZIWEI_SCOPE_BY_PROMPT_SCOPE[selection.scope] ?? 'decadal';
   const currentDate =
     typeof options.currentTime === 'string' ? new Date(options.currentTime) : options.currentTime;
 

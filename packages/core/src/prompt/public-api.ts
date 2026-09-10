@@ -372,19 +372,38 @@ function formatStar(star: StarFact) {
 }
 
 function formatPalaceBrief(palace: PalaceFact, isOriginScope: boolean) {
-  const stars = [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars]
+  const majorStars = palace.major_stars.map(formatStar).filter(Boolean);
+  const secondaryStars = [...palace.minor_stars, ...palace.other_stars]
     .map(formatStar)
     .filter(Boolean);
+  const scopeStars = (!isOriginScope ? palace.scope_stars : []).map(formatStar).filter(Boolean);
+  const flyMutagens = (palace.mutaged_palaces ?? [])
+    .filter((item) => item.palace_name)
+    .map((item) => `化${item.mutagen}入${item.palace_name}`);
+  const decadalRange =
+    !isOriginScope && palace.decadal_range?.length === 2
+      ? `大限${palace.decadal_range[0]}-${palace.decadal_range[1]}岁`
+      : '';
   const tags = (
     isOriginScope
       ? palace.summary_tags.filter((tag) => !/大限|小限|流年|流月|流日|流时|运限/.test(tag))
       : palace.summary_tags
   ).join('、');
   const details = [
-    stars.length ? `星曜：${stars.join('、')}` : '',
+    majorStars.length
+      ? `主星：${majorStars.join('、')}`
+      : palace.empty_state
+        ? '主星：无十四主星（空宫）'
+        : '主星：无',
+    secondaryStars.length ? `辅曜：${secondaryStars.join('、')}` : '',
+    scopeStars.length ? `运限星曜：${scopeStars.join('、')}` : '',
+    decadalRange,
     palace.changsheng12 ? `长生：${palace.changsheng12}` : '',
     palace.boshi12 ? `博士：${palace.boshi12}` : '',
     !isOriginScope && palace.scope_hits.length ? `运限命中：${palace.scope_hits.join('、')}` : '',
+    palace.self_mutagens?.length ? `自化：${palace.self_mutagens.join('、')}` : '',
+    flyMutagens.length ? `宫干飞化：${flyMutagens.join('、')}` : '',
+    !isOriginScope && palace.dynamic_scope_name ? `动态宫名：${palace.dynamic_scope_name}` : '',
   ].filter(Boolean);
   return `  ${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：${details.join('；')}${tags ? `；标记：${tags}` : ''}`;
 }
@@ -569,7 +588,7 @@ export function buildBaziZiweiPromptForResults(params: {
   fortuneScope?: PublicBaziFortuneScope;
   selection?: PromptSelection;
 }) {
-  const ziweiScope = params.ziweiScope ?? 'origin';
+  const ziweiScope = params.ziweiScope ?? 'decadal';
   const fortuneSelection = formatBaziFortuneSelection(params.fortuneSelectionContext);
   const hasFullBaziFortune = params.fortuneScope === 'full';
   const baziText = formatBaziForPrompt(

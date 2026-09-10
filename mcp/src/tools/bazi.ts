@@ -290,7 +290,9 @@ export function registerBaziTool(server: McpServer) {
         const explicitFortuneScope =
           args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope);
         const initialFortuneScope = explicitFortuneScope ?? 'dayun';
-        const useCurrentDefaults = args.baziFortuneScope === undefined && args.scope === undefined;
+        // 通用 scope 只指定层级（如 decadal），仍应自动定位当前阶段；只有
+        // baziFortuneScope 携带具体参数时才按显式选择严格校验。
+        const useCurrentDefaults = args.baziFortuneScope === undefined;
         const currentSelection =
           useCurrentDefaults && initialFortuneScope !== 'natal' && initialFortuneScope !== 'full'
             ? buildCurrentBaziFortuneSelectionForScope(result, initialFortuneScope)

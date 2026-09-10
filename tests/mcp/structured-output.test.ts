@@ -1814,6 +1814,19 @@ test('MCP 命理提示词默认使用当前阶段并在合参中同步八字岁�
       'dayun',
     );
 
+    const baziWithGenericScope = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: { ...common, scope: 'decadal' },
+    });
+    assert.equal(baziWithGenericScope.isError, undefined);
+    assert.equal(
+      (
+        baziWithGenericScope.structuredContent?.result as
+          { fortuneSelection?: { scope?: string } } | undefined
+      )?.fortuneSelection?.scope,
+      'dayun',
+    );
+
     const combined = await client.callTool({
       name: 'bazi_ziwei_prompt',
       arguments: {

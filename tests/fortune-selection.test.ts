@@ -98,6 +98,26 @@ test('元旦至立春前的当前日期应回查上一节令年，不回退到�
   assert.equal(selection.cycleIndex, 0);
 });
 
+test('当前阶段定位按北京时间计算，不受运行环境时区影响', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    isLunar: false,
+  });
+  // 2026 年白露后已经进入酉月；显式带 UTC+8 可在 UTC 运行环境复现边界。
+  const selection = buildCurrentBaziFortuneSelection(
+    result,
+    new Date('2026-09-08T00:00:00+08:00'),
+  );
+
+  assert.ok(selection);
+  assert.equal(selection.year, 2026);
+  assert.equal(selection.month, 8);
+});
+
 test('当前年份不在命盘运限范围时不应静默回退到第一步大运', () => {
   const result = createMockResult();
   const outOfRangeDate = new Date(1980, 1, 8, 12);
@@ -113,8 +133,8 @@ test('当前大运定位应服从交运时刻而不是只看交运年份', () =>
   cycle.startSolarTime = { year: 2008, month: 2, day: 8, hour: 12, minute: 0, second: 0 };
   cycle.endSolarTime = { year: 2018, month: 2, day: 8, hour: 12, minute: 0, second: 0 };
 
-  assert.equal(getCurrentBaziLuckCycle(result, new Date(2008, 1, 8, 11, 59, 59)), null);
-  assert.equal(getCurrentBaziLuckCycle(result, new Date(2008, 1, 8, 12)), cycle);
+  assert.equal(getCurrentBaziLuckCycle(result, new Date('2008-02-08T11:59:59+08:00')), null);
+  assert.equal(getCurrentBaziLuckCycle(result, new Date('2008-02-08T12:00:00+08:00')), cycle);
 });
 
 test('选择大运时会附带该大运下的全部流年', () => {
