@@ -34,6 +34,7 @@ export type {
 } from './helpers/types';
 export {
   buildCurrentBaziFortuneSelection,
+  buildCurrentBaziFortuneSelectionForScope,
   buildRecentBaziFortuneSelection,
   getCurrentBaziLuckCycle,
 } from './current';

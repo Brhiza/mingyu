@@ -3,7 +3,10 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { Person } from '@core/bazi/baziTypes';
-import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
+import {
+  buildCurrentBaziFortuneSelectionForScope,
+  buildFortuneSelectionContext,
+} from '@core/bazi/fortuneSelection';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
 import {
@@ -147,7 +150,7 @@ const baziPromptSchema = baziSchema.extend({
     .enum(BAZI_FORTUNE_SCOPES)
     .optional()
     .describe(
-      '八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日',
+      '八字命限范围：未指定时默认当前大运；natal=本命, full=全部大运流年, dayun=大运, year=流年（含全年流月）, month=流月（含流日）, day=流日',
     ),
   baziFortuneCycleIndex: z
     .number()
@@ -284,22 +287,51 @@ export function registerBaziTool(server: McpServer) {
           subtopicId: args.subtopicId,
           scope: args.scope,
         });
+        const explicitFortuneScope =
+          args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope);
+        const initialFortuneScope = explicitFortuneScope ?? 'dayun';
+        const useCurrentDefaults = args.baziFortuneScope === undefined && args.scope === undefined;
+        const currentSelection =
+          useCurrentDefaults && initialFortuneScope !== 'natal' && initialFortuneScope !== 'full'
+            ? buildCurrentBaziFortuneSelectionForScope(result, initialFortuneScope)
+            : null;
         const fortuneScope =
-          args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope) ?? 'natal';
+          useCurrentDefaults &&
+          initialFortuneScope !== 'natal' &&
+          initialFortuneScope !== 'full' &&
+          !currentSelection
+            ? 'natal'
+            : initialFortuneScope;
         const requiresCycle = fortuneScope === 'dayun';
         const requiresYear = ['year', 'month', 'day'].includes(fortuneScope);
         const requiresMonth = fortuneScope === 'month' || fortuneScope === 'day';
         const requiresDay = fortuneScope === 'day';
-        if (requiresCycle && args.baziFortuneCycleIndex === undefined) {
+        if (
+          requiresCycle &&
+          args.baziFortuneCycleIndex === undefined &&
+          currentSelection?.cycleIndex === undefined
+        ) {
           throw new Error('选择大运时必须提供 baziFortuneCycleIndex。');
         }
-        if (requiresYear && args.baziFortuneYear === undefined) {
+        if (
+          requiresYear &&
+          args.baziFortuneYear === undefined &&
+          currentSelection?.year === undefined
+        ) {
           throw new Error('选择流年、流月或流日时必须提供 baziFortuneYear。');
         }
-        if (requiresMonth && args.baziFortuneMonth === undefined) {
+        if (
+          requiresMonth &&
+          args.baziFortuneMonth === undefined &&
+          currentSelection?.month === undefined
+        ) {
           throw new Error('选择流月或流日时必须提供 baziFortuneMonth。');
         }
-        if (requiresDay && args.baziFortuneDay === undefined) {
+        if (
+          requiresDay &&
+          args.baziFortuneDay === undefined &&
+          currentSelection?.day === undefined
+        ) {
           throw new Error('选择流日时必须提供 baziFortuneDay。');
         }
         const fortuneSelectionContext = buildFortuneSelectionContext(result, {
@@ -312,18 +344,18 @@ export function registerBaziTool(server: McpServer) {
                   0,
                   99,
                 )
-              : undefined,
+              : currentSelection?.cycleIndex,
           year:
             args.baziFortuneYear === undefined
-              ? undefined
+              ? currentSelection?.year
               : readMcpIntegerLikeInRange(args.baziFortuneYear, 'baziFortuneYear', 1900, 2200),
           month:
             args.baziFortuneMonth === undefined
-              ? undefined
+              ? currentSelection?.month
               : readMcpIntegerLikeInRange(args.baziFortuneMonth, 'baziFortuneMonth', 1, 12),
           day:
             args.baziFortuneDay === undefined
-              ? undefined
+              ? currentSelection?.day
               : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 31),
         });
         const basePrompt = buildBaziPromptForResult({

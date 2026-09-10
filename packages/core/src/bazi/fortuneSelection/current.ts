@@ -47,6 +47,41 @@ export function buildCurrentBaziFortuneSelection(
   return { scope: 'day', cycleIndex, year: termYear, month: monthIndex, day };
 }
 
+/**
+ * 将当前日期定位结果收窄到指定岁运层级。
+ *
+ * 供提示词入口使用：未明确指定具体年份、月份或日期时，仍能返回当前阶段的
+ * 对应资料，而不是回退到只有本命盘的通用提示词。
+ */
+export function buildCurrentBaziFortuneSelectionForScope(
+  result: BaziChartResult,
+  scope: Exclude<BaziFortuneSelectionValue['scope'], 'natal' | 'full'>,
+  now = new Date(),
+): BaziFortuneSelectionValue | null {
+  const current = buildCurrentBaziFortuneSelection(result, now);
+  if (!current) return null;
+
+  if (scope === 'dayun') {
+    return { scope, cycleIndex: current.cycleIndex };
+  }
+  if (scope === 'year') {
+    return {
+      scope,
+      cycleIndex: current.cycleIndex,
+      year: current.year,
+    };
+  }
+  if (scope === 'month') {
+    return {
+      scope,
+      cycleIndex: current.cycleIndex,
+      year: current.year,
+      month: current.month,
+    };
+  }
+  return current;
+}
+
 /** 生成当前节令月选择，适合“近期趋势”类入口。 */
 export function buildRecentBaziFortuneSelection(
   result: BaziChartResult,

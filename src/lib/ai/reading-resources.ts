@@ -52,6 +52,52 @@ function textValues(value: unknown): string[] {
   if (record(value)) return Object.values(value).flatMap(textValues);
   return [];
 }
+
+const HEAVENLY_STEMS = '甲乙丙丁戊己庚辛壬癸';
+const EARTHLY_BRANCHES = '子丑寅卯辰巳午未申酉戌亥';
+
+function normalizeClassicQuery(query: string) {
+  const compact = query.replace(/[\s，、,；;+＋。！？“”‘’（）()]/gu, '');
+  const dayMaster = compact.match(
+    new RegExp(`([${HEAVENLY_STEMS}])(?:[木火土金水])?(?:日主|日元|日干|木|火|土|金|水)`),
+  )?.[1];
+  const monthBranch = compact.match(new RegExp(`([${EARTHLY_BRANCHES}])(?:月令|月份|月)`))?.[1];
+  const book = compact.includes('滴天髓')
+    ? 'ditiansui'
+    : compact.includes('穷通宝鉴') || compact.includes('穷通')
+      ? 'qiongtong'
+      : compact.includes('子平真诠') || compact.includes('子平')
+        ? 'ziping'
+        : undefined;
+  const terms = compact
+    .replace(
+      /(?:滴天髓|穷通宝鉴|穷通|子平真诠|子平|日主|日元|日干|生于|出生于|月令|月份|月份|月)/gu,
+      '',
+    )
+    .split(/[^\p{Script=Han}\p{Number}A-Za-z]+/u)
+    .filter((term) => term.length > 0);
+  return { compact, dayMaster, monthBranch, book, terms };
+}
+
+function tableBook(table: string): string | undefined {
+  if (table === 'BAZI_DITIANSUI_TABLE') return 'ditiansui';
+  if (table === 'BAZI_QIONGTONG_TABLE') return 'qiongtong';
+  if (table === 'BAZI_ZIPING_PATTERNS') return 'ziping';
+  return undefined;
+}
+
+function entryIdentity(table: string, index: number, entry: unknown): string {
+  if (record(entry)) {
+    if (typeof entry.dayMaster === 'string' && typeof entry.monthBranch === 'string')
+      return `${table}:${entry.dayMaster}+${entry.monthBranch}`;
+    for (const key of ['id', 'key', 'name', 'stem', 'dayMaster', 'monthBranch']) {
+      if (typeof entry[key] === 'string' || typeof entry[key] === 'number')
+        return `${table}:${String(entry[key])}`;
+    }
+  }
+  return `${table}:${index}`;
+}
+
 export function formatClassicEntry(value: unknown): string {
   if (!record(value)) return textValues(value).join('；');
   return Object.entries(value)
@@ -68,28 +114,53 @@ export async function lookupReadingClassics(
   query: string,
 ): Promise<ReadingResource> {
   const library: Record<string, unknown> = await import('mingyu-core/classics');
-  const terms = query.split(/[\s，、,；;+＋]+/u).filter(Boolean);
-  const dayMaster =
-    method === 'bazi' ? query.match(/([甲乙丙丁戊己庚辛壬癸])[木火土金水]?日主/u)?.[1] : undefined;
+  const normalized = normalizeClassicQuery(query);
   const matches = (TABLES[method] ?? []).flatMap((table) => {
-    if (dayMaster && query.includes('滴天髓') && table !== 'BAZI_DITIANSUI_TABLE') return [];
+    const requestedBook = normalized.book;
+    const currentBook = tableBook(table);
+    if (requestedBook && currentBook && currentBook !== requestedBook) return [];
     const entries = library[table];
-    return (
-      Array.isArray(entries) ? entries : record(entries) ? Object.values(entries) : []
-    ).filter((entry) =>
-      dayMaster && query.includes('滴天髓')
-        ? record(entry) && entry.stem === dayMaster
-        : terms.every((term) => textValues(entry).join(' ').includes(term)),
-    );
+    const values = Array.isArray(entries) ? entries : record(entries) ? Object.values(entries) : [];
+    return values
+      .map((entry, index) => {
+        if (!record(entry) && normalized.dayMaster) return null;
+        const entryText = textValues(entry).join('');
+        let score = 0;
+        if (normalized.dayMaster) {
+          const matched =
+            entry.dayMaster === normalized.dayMaster || entry.stem === normalized.dayMaster;
+          if (!matched) return null;
+          score += 20;
+        }
+        if (normalized.monthBranch) {
+          if (entry.monthBranch !== normalized.monthBranch) return null;
+          score += 20;
+        }
+        if (requestedBook && currentBook === requestedBook) score += 10;
+        for (const term of normalized.terms) if (entryText.includes(term)) score += 2;
+        if (!score && normalized.terms.length) return null;
+        return {
+          entry,
+          index,
+          table,
+          score,
+          identity: entryIdentity(table, index, entry),
+          text: formatClassicEntry(entry),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
   });
-  const unique = [...new Set(matches.map(formatClassicEntry))];
+  const unique = [...new Map(matches.map((item) => [item.text, item])).values()].sort(
+    (a, b) => b.score - a.score,
+  );
   const selected = unique.slice(0, 5);
   return {
     key: '',
     title: `传统条文：${query}`,
     usable: selected.length > 0,
+    sourceIds: selected.map((item) => item.identity),
     text: selected.length
-      ? `${selected.join('\n\n')}${unique.length > 5 ? `\n另有${unique.length - 5}条相关条文，可使用更具体的名称查询。` : ''}`
+      ? `${selected.map((item) => item.text).join('\n\n')}${unique.length > 5 ? `\n另有${unique.length - 5}条相关条文，可使用更具体的名称查询。` : ''}`
       : '本次检索未找到对应条文，可依据已附盘面和传统资料继续解读。',
   };
 }

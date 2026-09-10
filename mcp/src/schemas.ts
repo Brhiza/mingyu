@@ -80,6 +80,10 @@ export const resultOutputSchema = withErrorOutputSchema({
 
 export const promptOutputSchema = withErrorOutputSchema({
   prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
+  result: z
+    .unknown()
+    .optional()
+    .describe('生成提示词时同步计算出的结构化盘面或证据，可供程序继续使用'),
 });
 
 export const ziweiOutputSchema = withErrorOutputSchema({

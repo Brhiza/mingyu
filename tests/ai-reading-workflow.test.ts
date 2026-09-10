@@ -150,6 +150,7 @@ test('查询失败保留盘面且明确说明', async () => {
   });
   assert.ok(h.notices.length);
   assert.match(h.sent[1][0].content, /八字原始资料/);
+  assert.match(h.sent.at(-1)![0].content, /“甲”条文未取得：资料暂不可用/);
   assert.equal(h.done(), 1);
 });
 
@@ -198,6 +199,18 @@ test('古籍查询读取真实条文并限定术式', async () => {
   assert.doesNotMatch(item.text, /classicVerse|modernExplanation|sourceBook/);
   const absent = await lookupReadingClassics('tarot', '甲');
   assert.equal(absent.usable, false);
+});
+
+test('古籍查询支持自然语言日主与月令，并返回稳定条文来源编号', async () => {
+  const ditiansui = await lookupReadingClassics('bazi', '滴天髓论甲木');
+  assert.equal(ditiansui.usable, true);
+  assert.match(ditiansui.text, /甲木参天/u);
+  assert.deepEqual(ditiansui.sourceIds, ['BAZI_DITIANSUI_TABLE:甲']);
+
+  const qiongtong = await lookupReadingClassics('bazi', '甲木生于卯月');
+  assert.equal(qiongtong.usable, true);
+  assert.match(qiongtong.text, /仲春甲木/u);
+  assert.ok(qiongtong.sourceIds?.some((id) => id.startsWith('BAZI_QIONGTONG_TABLE:')));
 });
 
 test('补算使用真实公开契约且只返回完整提示词', async (t) => {

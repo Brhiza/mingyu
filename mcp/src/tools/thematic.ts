@@ -2,6 +2,10 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import {
+  buildCurrentBaziFortuneSelectionForScope,
+  buildFortuneSelectionContext,
+} from '@core/bazi/fortuneSelection';
 import { calculateZiweiChartForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_MULTI_SCHOOLS,
@@ -57,7 +61,9 @@ const thematicConsultationPromptSchema = baziSchema.extend({
   promptScope: z
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
-    .describe('紫微运限范围：origin=本命盘（默认），full=完整输出版等'),
+    .describe(
+      '运限范围：未指定时默认当前阶段；origin=本命盘，full=全部运限，decadal=大限，yearly=流年，monthly=流月，daily=流日等',
+    ),
   scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一分析范围；优先于兼容字段 promptScope'),
   promptMode: z
     .enum(PROMPT_MODES)
@@ -135,7 +141,7 @@ export function registerThematicTool(server: McpServer) {
         const topic = normalizeThematicTopic(args.topic);
         const scope =
           args.scope === undefined
-            ? ((args.promptScope ?? 'origin') as ZiweiPromptScope)
+            ? ((args.promptScope ?? 'decadal') as ZiweiPromptScope)
             : args.scope === 'natal'
               ? 'origin'
               : (args.scope as ZiweiPromptScope);
@@ -160,6 +166,32 @@ export function registerThematicTool(server: McpServer) {
           serializableZiweiResult = buildSerializableZiweiResult(computedZiwei);
         }
 
+        const baziFortuneScope =
+          scope === 'origin'
+            ? 'natal'
+            : scope === 'full'
+              ? 'full'
+              : scope === 'decadal'
+                ? 'dayun'
+                : scope === 'yearly'
+                  ? 'year'
+                  : scope === 'monthly'
+                    ? 'month'
+                    : scope === 'daily'
+                      ? 'day'
+                      : undefined;
+        const baziFortuneSelection =
+          baziResult &&
+          baziFortuneScope &&
+          baziFortuneScope !== 'natal' &&
+          baziFortuneScope !== 'full'
+            ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+            : null;
+        const baziFortuneSelectionContext =
+          baziResult && baziFortuneSelection
+            ? buildFortuneSelectionContext(baziResult, baziFortuneSelection)
+            : null;
+
         const promptResult = buildThematicConsultationPrompt({
           system,
           methodId,
@@ -170,6 +202,8 @@ export function registerThematicTool(server: McpServer) {
           question: args.question,
           mode: (args.promptMode ?? 'framework') as PromptMode,
           baziResult,
+          fortuneSelectionContext: baziFortuneSelectionContext,
+          fortuneScope: baziFortuneScope,
           ziweiResult,
           ziweiScope: scope,
           baziSchool: args.baziSchool as BaziSchool | undefined,

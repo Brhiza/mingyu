@@ -27,15 +27,30 @@ export async function startHttpServer(
   const port = options.port ?? (process.env.PORT ? parseInt(process.env.PORT, 10) : 3000);
   const host = options.host ?? process.env.HOST ?? '0.0.0.0';
 
-  // 1. 初始化 Streamable HTTP 服务端
-  const streamableMcpServer = createMingyuMcpServer();
-  const streamableTransport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-  });
-  await streamableMcpServer.connect(streamableTransport);
-
-  // 2. 初始化 SSE 活跃会话表
+  // Streamable HTTP 与 SSE 都按客户端维护独立会话，避免一个客户端的初始化状态污染其他客户端。
+  const streamableSessions = new Map<
+    string,
+    { transport: StreamableHTTPServerTransport; server: McpServer }
+  >();
   const sseSessions = new Map<string, { transport: SSEServerTransport; server: McpServer }>();
+
+  const createStreamableSession = async () => {
+    const streamableServer = createMingyuMcpServer();
+    const streamableTransport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+    });
+    await streamableServer.connect(streamableTransport);
+    const session = { transport: streamableTransport, server: streamableServer };
+    let closing = false;
+    streamableTransport.onclose = () => {
+      if (closing) return;
+      closing = true;
+      const sessionId = streamableTransport.sessionId;
+      if (sessionId) streamableSessions.delete(sessionId);
+      streamableServer.close().catch(() => {});
+    };
+    return session;
+  };
 
   const server = createServer(async (req, res) => {
     // 跨域支持 (CORS)
@@ -43,8 +58,9 @@ export async function startHttpServer(
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
     res.setHeader(
       'Access-Control-Allow-Headers',
-      'Content-Type, Authorization, X-Requested-With, mcp-session-id, Accept',
+      'Content-Type, Authorization, X-Requested-With, mcp-session-id, mcp-protocol-version, Accept',
     );
+    res.setHeader('Access-Control-Expose-Headers', 'mcp-session-id, mcp-protocol-version');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -58,7 +74,27 @@ export async function startHttpServer(
     // Streamable HTTP 端点 (/mcp)
     if (url.pathname === '/mcp') {
       try {
-        await streamableTransport.handleRequest(req, res);
+        const sessionId =
+          typeof req.headers['mcp-session-id'] === 'string'
+            ? req.headers['mcp-session-id']
+            : undefined;
+        let session = sessionId ? streamableSessions.get(sessionId) : undefined;
+        if (!session && sessionId) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'MCP session not found or expired' }));
+          return;
+        }
+        if (!session) {
+          if (req.method !== 'POST') {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'MCP session is required' }));
+            return;
+          }
+          session = await createStreamableSession();
+        }
+        await session.transport.handleRequest(req, res);
+        const initializedSessionId = session.transport.sessionId;
+        if (initializedSessionId) streamableSessions.set(initializedSessionId, session);
       } catch (err) {
         console.error('Streamable HTTP 处理异常:', err);
         if (!res.headersSent) {
@@ -168,7 +204,11 @@ export async function startHttpServer(
               session.server.close().catch(() => {});
             }
             sseSessions.clear();
-            streamableMcpServer.close().catch(() => {});
+            for (const session of streamableSessions.values()) {
+              session.transport.close().catch(() => {});
+              session.server.close().catch(() => {});
+            }
+            streamableSessions.clear();
             server.close((err) => (err ? rejClose(err) : resClose()));
           }),
       });

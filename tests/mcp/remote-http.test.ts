@@ -25,14 +25,29 @@ test('Remote MCP HTTP 服务端应支持 Streamable HTTP 与 SSE 双传输通道
     const optionsRes = await fetch(`${instance.url}/mcp`, { method: 'OPTIONS' });
     assert.equal(optionsRes.status, 204);
     assert.equal(optionsRes.headers.get('access-control-allow-origin'), '*');
+    assert.match(
+      optionsRes.headers.get('access-control-allow-headers') ?? '',
+      /mcp-protocol-version/i,
+    );
+    assert.match(optionsRes.headers.get('access-control-expose-headers') ?? '', /mcp-session-id/i);
 
     // 4. 验证 Streamable HTTP 客户端通信
     const streamableClient = new Client({ name: 'test-streamable-client', version: '1.0.0' });
     const streamableTransport = new StreamableHTTPClientTransport(new URL(`${instance.url}/mcp`));
     await streamableClient.connect(streamableTransport);
 
+    const secondStreamableClient = new Client({
+      name: 'test-streamable-client-2',
+      version: '1.0.0',
+    });
+    const secondStreamableTransport = new StreamableHTTPClientTransport(
+      new URL(`${instance.url}/mcp`),
+    );
+    await secondStreamableClient.connect(secondStreamableTransport);
+
     const streamableTools = await streamableClient.listTools();
     assert.equal(streamableTools.tools.length >= 63, true);
+    assert.equal((await secondStreamableClient.listTools()).tools.length >= 63, true);
 
     const callResult1 = await streamableClient.callTool({
       name: 'foundation_capabilities',
@@ -41,6 +56,12 @@ test('Remote MCP HTTP 服务端应支持 Streamable HTTP 与 SSE 双传输通道
     assert.equal(callResult1.isError, undefined);
     assert.ok(callResult1.structuredContent);
     await streamableClient.close();
+    const secondCallResult = await secondStreamableClient.callTool({
+      name: 'foundation_capabilities',
+      arguments: {},
+    });
+    assert.equal(secondCallResult.isError, undefined);
+    await secondStreamableClient.close();
 
     // 5. 验证 SSE 客户端通信
     const sseClient = new Client({ name: 'test-sse-client', version: '1.0.0' });

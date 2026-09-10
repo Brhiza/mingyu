@@ -79,6 +79,8 @@ export interface ModelExecutionArtifact {
     modelName?: string;
     isLiveOnline?: boolean;
     docsRead?: string[];
+    docsSent?: string[];
+    referenceChars?: number;
     isDegraded?: boolean;
     providerErrorReceived?: boolean;
     durationMs?: number;

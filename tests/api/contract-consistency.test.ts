@@ -57,7 +57,7 @@ test('Skill 数据提供方适配文档中的端点必须全部在 PUBLIC_API_EN
 
   const rows = [
     ...providerRefContent.matchAll(
-      /\| `(?<method>GET|POST) (?<path>\/[^`]+)` \| `(?<id>[^`]+)` \|/g,
+      /\|\s*`(?<method>GET|POST) (?<path>\/[^`]+)`\s*\|\s*`(?<id>[^`]+)`\s*\|/g,
     ),
   ];
   const catalog = getToolCatalog();

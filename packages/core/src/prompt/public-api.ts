@@ -7,7 +7,7 @@
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';
 import { formatBaziForPrompt, type BaziChartResult, type FortuneSelectionContext } from '../bazi';
 import type { ZiweiRuntime } from '../ziwei/runtime';
-import { formatBaziFortuneSelection } from './bazi-fortune';
+import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortune';
 import { buildSerializableZiweiResult, formatZiweiPayloadForPrompt } from './ziwei';
 import { formatPromptCurrentTime } from './current-time';
 import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
@@ -566,14 +566,16 @@ export function buildBaziZiweiPromptForResults(params: {
   ziweiSchool?: ZiweiSchool;
   ziweiSchools?: readonly ZiweiSchool[];
   fortuneSelectionContext?: FortuneSelectionContext | null;
+  fortuneScope?: PublicBaziFortuneScope;
   selection?: PromptSelection;
 }) {
   const ziweiScope = params.ziweiScope ?? 'origin';
   const fortuneSelection = formatBaziFortuneSelection(params.fortuneSelectionContext);
+  const hasFullBaziFortune = params.fortuneScope === 'full';
   const baziText = formatBaziForPrompt(
     params.baziResult,
     null,
-    fortuneSelection ? 'fortune' : 'general',
+    fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
   const ziweiText = formatZiweiEvidenceText(params.ziweiResult, ziweiScope);
   const guidance = [
@@ -588,8 +590,8 @@ export function buildBaziZiweiPromptForResults(params: {
   ]
     .filter(Boolean)
     .join('\n\n');
-  const aligned = ziweiScope !== 'origin' && Boolean(fortuneSelection);
-  const mismatched = ziweiScope !== 'origin' && !fortuneSelection;
+  const aligned = ziweiScope !== 'origin' && Boolean(fortuneSelection || hasFullBaziFortune);
+  const mismatched = ziweiScope !== 'origin' && !fortuneSelection && !hasFullBaziFortune;
   const task =
     params.mode === 'custom'
       ? buildCustomQuestionTask(
@@ -616,6 +618,7 @@ export function buildBaziZiweiPromptForResults(params: {
     fortuneSelection
       ? section('八字岁运', `${fortuneSelection.analysisObject}\n${fortuneSelection.focus}`)
       : '',
+    hasFullBaziFortune ? section('八字完整命限资料', formatBaziFullFortune(params.baziResult)) : '',
     section('紫微盘面信息', ziweiText),
     mismatched
       ? section('时间层说明', '紫微已给出运限范围，八字仍为本命资料，二者尚未对齐到同一日期。')

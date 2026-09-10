@@ -2335,7 +2335,7 @@ test('公开 API 紫微未指定方向时应默认走综合框架而不是自由
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【分析背景】/);
   assert.match(body.data.prompt, /分析主题：人生解析/);
-  assert.match(body.data.prompt, /【十二宫资料】/);
+  assert.match(body.data.prompt, /【重点宫位资料】/);
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
   assert.doesNotMatch(body.data.prompt, /主题只作为|自由问答|解读方法|推断顺序/);
 });
@@ -2396,7 +2396,7 @@ test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async 
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.deepEqual(body.data.scopeNames, ['origin']);
+  assert.deepEqual(body.data.scopeNames, ['origin', 'decadal']);
   assert.equal(
     body.data.basicInfo.solar_date,
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,

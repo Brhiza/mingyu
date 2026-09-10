@@ -54,7 +54,7 @@ export const ziweiSchema = z.object({
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
     .describe(
-      '运限范围：origin=本命（默认）, full=完整输出版, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。默认只返回 origin 范围；full 会返回本命、大限、流年、流月、流日、流时。',
+      '运限范围：未指定时默认当前大限；origin=本命, full=全部大限流年流月流日流时, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。',
     ),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
@@ -186,14 +186,14 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_calculate',
     {
       description:
-        '紫微斗数排盘：根据出生信息计算紫微命盘；启用真太阳时时返回统一校正计算链、事实、汇总与限制，关闭时保留传统时辰直接排盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外运限范围',
+        '紫微斗数排盘：根据出生信息计算紫微命盘与当前大限；启用真太阳时时返回统一校正计算链、事实、汇总与限制，关闭时保留传统时辰直接排盘。通过 promptScope 可指定本命、当前阶段、具体流年或全部运限范围',
       inputSchema: { ...ziweiSchema.shape, ...calculationDetailShape },
       outputSchema: ziweiOutputSchema,
     },
     async (args) => {
       try {
         const input = buildMcpZiweiChartInput(args);
-        const scope = (args.promptScope ?? 'origin') as ZiweiPromptScope;
+        const scope = (args.promptScope ?? 'decadal') as ZiweiPromptScope;
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
@@ -228,7 +228,7 @@ export function registerZiweiTool(server: McpServer) {
         const scope = (
           args.scope !== undefined
             ? mapPromptScopeToZiweiScope(selection?.scope)
-            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'origin')
+            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'decadal')
         ) as ZiweiPromptScope;
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),

@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
 const source = 'skills/mingyu';
@@ -10,7 +10,14 @@ function files(root) {
       : [entry.name],
   );
 }
-for (const name of files(source)) {
+const sourceFiles = new Set(files(source));
+for (const target of targets) {
+  if (!existsSync(target)) continue;
+  for (const name of files(target)) {
+    if (!sourceFiles.has(name)) rmSync(join(target, name));
+  }
+}
+for (const name of sourceFiles) {
   const content = readFileSync(join(source, name));
   for (const target of targets) {
     const path = join(target, name);

@@ -7,8 +7,15 @@ export type ReadingAction =
   | { kind: 'classic'; method: string; query: string }
   | { kind: 'schema'; method: string }
   | { kind: 'calculate'; method: string; input: Record<string, unknown> };
-export type ReadingResource = { key: string; title: string; text: string; usable: boolean };
-export type ReadingMemory = { resources: ReadingResource[] };
+export type ReadingResource = {
+  key: string;
+  title: string;
+  text: string;
+  usable: boolean;
+  kind?: 'evidence' | 'schema';
+  sourceIds?: string[];
+};
+export type ReadingMemory = { resources: ReadingResource[]; schemas?: ReadingResource[] };
 export type ReadingProgress = {
   stage: 'preparing' | 'consulting' | 'calculating' | 'checking' | 'writing';
   text: string;
@@ -27,6 +34,37 @@ const MAX_CONTEXT = 49_000;
 const MAX_RESOURCES = 18_000;
 const MAX_ACTIONS = 4;
 const CALCULATIONS = Object.keys(READING_CALCULATION_ROUTES);
+
+const FRIENDLY_FIELD_NAMES: Record<string, string> = {
+  birthDate: '出生日期',
+  birthTime: '出生时间',
+  birthPlace: '出生地点',
+  birthLongitude: '出生经度',
+  birthLatitude: '出生纬度',
+  timeZone: '时区',
+  timeZoneId: '时区名称',
+  question: '问题',
+  numbers: '起卦数字',
+};
+
+function isSchemaResource(resource: ReadingResource): boolean {
+  if (resource.kind === 'schema') return true;
+  try {
+    return JSON.parse(resource.key)?.kind === 'schema';
+  } catch {
+    return false;
+  }
+}
+
+function describeReadingFailure(action: ReadingAction, error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  const message = raw.replace(
+    /\b(birthDate|birthTime|birthPlace|birthLongitude|birthLatitude|timeZone|timeZoneId|question|numbers)\b/g,
+    (field) => FRIENDLY_FIELD_NAMES[field] ?? field,
+  );
+  const target = action.kind === 'classic' ? `“${action.query}”条文` : `${action.method}补充资料`;
+  return `${target}未取得：${message}`;
+}
 
 export function getReadingGuide(text: string) {
   const methods = Object.entries(workflow.methods).filter(([, item]) =>
@@ -132,8 +170,13 @@ export async function runReadingWorkflow(
     if (options.signal?.aborted) throw new DOMException('已停止解读', 'AbortError');
   };
   const guide = getReadingGuide(messages[0]?.content ?? '');
-  const resources = [...options.memory.resources];
-  const seen = new Set(resources.map((item) => item.key));
+  const storedResources = [...options.memory.resources];
+  const schemaResources = [
+    ...(options.memory.schemas ?? []),
+    ...storedResources.filter(isSchemaResource),
+  ];
+  const resources = storedResources.filter((item) => !isSchemaResource(item));
+  const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
   const notes: string[] = [];
   let calls = 0;
   options.onProgress({ stage: 'preparing', text: '正在梳理问题与盘面' });
@@ -169,11 +212,11 @@ export async function runReadingWorkflow(
         if (seen.has(key)) continue;
         if (
           action.kind === 'calculate' &&
-          !resources.some(
+          !schemaResources.some(
             (item) => item.key === JSON.stringify({ kind: 'schema', method: action.method }),
           )
         ) {
-          notes.push('补算需先读取对应参数格式。');
+          notes.push(`${action.method}补算所需参数格式未取得，无法断言目标时段。`);
           continue;
         }
         calls += 1;
@@ -185,9 +228,13 @@ export async function runReadingWorkflow(
         try {
           const resource = await deps.execute(action, options.signal);
           guard();
+          if (action.kind === 'schema') {
+            schemaResources.push({ ...resource, key, kind: 'schema' });
+            continue;
+          }
           if (action.kind === 'classic' && !resource.usable) {
             needsRefinement = true;
-            notes.push(`条文查询“${action.query}”未命中。`);
+            notes.push(describeReadingFailure(action, new Error('未命中')));
             options.onNotice(`“${action.query}”未查到对应条文，已保留原有盘面资料。`);
           }
           if (resource.text.length > MAX_RESOURCES) {
@@ -200,13 +247,11 @@ export async function runReadingWorkflow(
             resources.reduce((sum, item) => sum + item.text.length, 0) + resource.text.length >
               MAX_RESOURCES
           )
-            resources.shift();
-          resources.push({ ...resource, key });
+            seen.delete(resources.shift()?.key ?? '');
+          resources.push({ ...resource, key, kind: 'evidence' });
         } catch (error) {
           guard();
-          notes.push(
-            `${action.method}补充资料暂未取得：${error instanceof Error ? error.message : '查询失败'}`,
-          );
+          notes.push(describeReadingFailure(action, error));
           options.onNotice('部分补充资料暂未取得，将依据已有资料继续解读。');
         }
       }
@@ -216,13 +261,17 @@ export async function runReadingWorkflow(
     }
     guard();
     options.memory.resources = resources;
+    options.memory.schemas = schemaResources;
     const material = resources
       .filter((item) => item.usable)
       .map((item) => `${item.title}\n${item.text}`)
       .join('\n\n');
+    const status = notes.length
+      ? `\n\n【资料状态】\n${notes.map((note) => `- ${note}`).join('\n')}\n已取得的完整盘面与补充资料仍可用于完成判断。`
+      : '';
     const finalMessages = fitReadingMessages(
       messages,
-      `${guide}${material ? `\n\n【补充资料】\n${material}` : ''}\n\n【本轮解读】\n请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。${notes.length ? '\n本轮补查有未取得的资料，以已提供的完整盘面和补充条文形成判断。' : ''}`,
+      `${guide}${material ? `\n\n【补充资料】\n${material}` : ''}${status}\n\n【本轮解读】\n请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。`,
     );
     if (finalMessages.length < messages.length)
       options.onNotice('对话较长，本轮保留原始盘面与最近的问答。');

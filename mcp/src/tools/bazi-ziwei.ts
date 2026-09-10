@@ -2,6 +2,10 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import {
+  buildCurrentBaziFortuneSelectionForScope,
+  buildFortuneSelectionContext,
+} from '@core/bazi/fortuneSelection';
 import { calculateZiweiChartForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_PROMPT_TOPICS,
@@ -85,7 +89,7 @@ const baziZiweiPromptSchema = z.object({
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
     .describe(
-      '紫微运限范围：origin=本命, full=完整输出版, decadal=大限, yearly=流年, monthly=流月等',
+      '运限范围：未指定时默认当前阶段；origin=本命, full=全部运限, decadal=大限, yearly=流年, monthly=流月, daily=流日等',
     ),
   promptMode: z
     .enum(PROMPT_MODES)
@@ -136,6 +140,18 @@ function mapPromptScopeToZiweiScope(scope: string | undefined): ZiweiPromptScope
   return scope === undefined ? undefined : mapped[scope];
 }
 
+function mapZiweiScopeToBaziFortuneScope(scope: ZiweiPromptScope) {
+  const mapped = {
+    origin: 'natal',
+    full: 'full',
+    decadal: 'dayun',
+    yearly: 'year',
+    monthly: 'month',
+    daily: 'day',
+  } as const;
+  return mapped[scope as keyof typeof mapped];
+}
+
 function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
   return buildMcpZiweiChartInput({
     name: args.name,
@@ -182,7 +198,7 @@ export function registerBaziZiweiTool(server: McpServer) {
         const scope = (
           args.scope !== undefined
             ? mapPromptScopeToZiweiScope(selection?.scope)
-            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'origin')
+            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'decadal')
         ) as ZiweiPromptScope;
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
@@ -192,6 +208,14 @@ export function registerBaziZiweiTool(server: McpServer) {
           scopes,
         );
         const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
+        const baziFortuneScope = mapZiweiScopeToBaziFortuneScope(scope);
+        const baziFortuneSelection =
+          baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
+            ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+            : null;
+        const baziFortuneSelectionContext = baziFortuneSelection
+          ? buildFortuneSelectionContext(baziResult, baziFortuneSelection)
+          : null;
 
         return createStructuredToolResult({
           result: {
@@ -210,6 +234,8 @@ export function registerBaziZiweiTool(server: McpServer) {
             baziSchools: args.baziSchools as BaziSchool[] | undefined,
             ziweiSchool: args.ziweiSchool as ZiweiSchool | undefined,
             ziweiSchools: args.ziweiSchools as ZiweiSchool[] | undefined,
+            fortuneSelectionContext: baziFortuneSelectionContext,
+            fortuneScope: baziFortuneScope,
             selection,
           }),
         });

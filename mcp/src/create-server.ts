@@ -27,10 +27,11 @@ import { registerCalendarTools } from './tools/calendar.js';
 import { registerInstantTool } from './tools/instant.js';
 import { registerNameNumberTools } from './tools/name-number.js';
 import { getToolAnnotations } from './catalog/tool-catalog.js';
+import packageJson from '../../package.json' with { type: 'json' };
 
 export const SERVER_INFO = {
   name: 'mingyu-mcp-server',
-  version: '0.1.0',
+  version: packageJson.version,
 } as const;
 
 export const SERVER_INSTRUCTIONS =

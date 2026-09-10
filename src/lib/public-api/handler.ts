@@ -7,7 +7,11 @@ import {
 } from 'mingyu-core/bazi';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
-import { buildFortuneSelectionContext, type BaziFortuneSelectionValue } from 'mingyu-core/bazi';
+import {
+  buildCurrentBaziFortuneSelectionForScope,
+  buildFortuneSelectionContext,
+  type BaziFortuneSelectionValue,
+} from 'mingyu-core/bazi';
 import {
   buildAstronomicalTimeEvidence,
   calculateMoonPhaseEvidence,
@@ -1744,7 +1748,7 @@ export function getPublicApiOpenApiDocument(
                 baziFortuneScope: {
                   enum: [...BAZI_FORTUNE_SCOPES],
                   description:
-                    '八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日。',
+                    '八字命限范围：未指定时默认当前大运；natal=本命, full=全部大运流年, dayun=大运, year=流年（含全年流月）, month=流月（含流日）, day=流日。',
                 },
                 baziFortuneCycleIndex: {
                   type: 'integer',
@@ -1828,7 +1832,7 @@ export function getPublicApiOpenApiDocument(
             promptScope: {
               enum: [...ZIWEI_PROMPT_SCOPES],
               description:
-                '可选。默认只返回本命范围；传入后会额外返回指定分析范围；full 会返回本命、大限、流年、流月、流日、流时。',
+                '可选。未指定时默认当前大限；origin=本命；full 会返回本命、大限、流年、流月、流日、流时；传入后返回指定分析范围。',
             },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
@@ -2024,7 +2028,8 @@ export function getPublicApiOpenApiDocument(
                 },
                 promptScope: {
                   enum: [...ZIWEI_PROMPT_SCOPES],
-                  description: '紫微运限范围：origin=本命盘（默认），full=完整输出版等。',
+                  description:
+                    '紫微运限范围：未指定时默认当前大限；origin=本命盘，full=完整输出版等。',
                 },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
@@ -3580,13 +3585,24 @@ function buildBaziPrompt(input: JsonRecord) {
   const selection = readSharedPromptSelection(input, 'bazi');
   const selectedFortuneScope =
     input.baziFortuneScope === undefined ? toBaziFortuneScope(selection?.scope) : undefined;
-  const fortuneScope = readEnum(
+  const requestedFortuneScope = readEnum(
     input,
     'baziFortuneScope',
     BAZI_FORTUNE_SCOPES,
-    selectedFortuneScope ?? 'natal',
+    selectedFortuneScope ?? 'dayun',
   );
-  const fortuneSelectionContext = buildBaziFortuneContextFromInput(result, input, fortuneScope);
+  const useCurrentFortuneDefaults =
+    input.baziFortuneScope === undefined &&
+    requestedFortuneScope !== 'natal' &&
+    requestedFortuneScope !== 'full';
+  const currentSelection = useCurrentFortuneDefaults
+    ? buildCurrentBaziFortuneSelectionForScope(result, requestedFortuneScope)
+    : null;
+  const fortuneScope =
+    useCurrentFortuneDefaults && !currentSelection ? 'natal' : requestedFortuneScope;
+  const fortuneSelectionContext = currentSelection
+    ? buildFortuneSelectionContext(result, currentSelection)
+    : buildBaziFortuneContextFromInput(result, input, fortuneScope);
   const schoolValue = input.school;
   const school =
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
@@ -3739,7 +3755,7 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
 }
 
 async function calculateZiwei(input: JsonRecord) {
-  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
+  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'decadal') as ZiweiPromptScope;
   const result = buildSerializableZiweiResult(
     await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope)),
   );
@@ -3753,7 +3769,7 @@ async function buildZiweiPrompt(input: JsonRecord) {
     input,
     'promptScope',
     ZIWEI_PROMPT_SCOPES,
-    selectedScope ?? 'origin',
+    selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
   const result = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
   const promptTopic =
@@ -3890,9 +3906,30 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     input,
     'promptScope',
     ZIWEI_PROMPT_SCOPES,
-    selectedScope ?? 'origin',
+    selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
   const ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+  const baziFortuneScope =
+    scope === 'origin'
+      ? 'natal'
+      : scope === 'full'
+        ? 'full'
+        : scope === 'decadal'
+          ? 'dayun'
+          : scope === 'yearly'
+            ? 'year'
+            : scope === 'monthly'
+              ? 'month'
+              : scope === 'daily'
+                ? 'day'
+                : undefined;
+  const currentBaziSelection =
+    baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
+      ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+      : null;
+  const baziFortuneSelectionContext = currentBaziSelection
+    ? buildFortuneSelectionContext(baziResult, currentBaziSelection)
+    : null;
   const baziTopic = readEnum(
     input,
     'baziPromptTopic',
@@ -3933,6 +3970,8 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     baziSchools,
     ziweiSchool,
     ziweiSchools,
+    fortuneSelectionContext: baziFortuneSelectionContext,
+    fortuneScope: baziFortuneScope,
     selection,
   });
   const fullResult = {
@@ -3972,7 +4011,7 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
     input,
     'promptScope',
     ZIWEI_PROMPT_SCOPES,
-    'origin',
+    'decadal',
   ) as ZiweiPromptScope;
   const genericScope =
     input.scope === undefined ? undefined : readEnum(input, 'scope', PROMPT_SCOPE_IDS, 'natal');
@@ -4035,6 +4074,29 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
     serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
   }
 
+  const baziFortuneScope =
+    scope === 'origin'
+      ? 'natal'
+      : scope === 'full'
+        ? 'full'
+        : scope === 'decadal'
+          ? 'dayun'
+          : scope === 'yearly'
+            ? 'year'
+            : scope === 'monthly'
+              ? 'month'
+              : scope === 'daily'
+                ? 'day'
+                : undefined;
+  const currentBaziSelection =
+    baziResult && baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
+      ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+      : null;
+  const baziFortuneSelectionContext =
+    baziResult && currentBaziSelection
+      ? buildFortuneSelectionContext(baziResult, currentBaziSelection)
+      : null;
+
   const promptResult = buildThematicConsultationPrompt({
     system,
     methodId: selectionResolution.selection.methodId,
@@ -4045,6 +4107,8 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
     question,
     mode,
     baziResult,
+    fortuneSelectionContext: baziFortuneSelectionContext,
+    fortuneScope: baziFortuneScope,
     ziweiResult,
     ziweiScope: scope,
     baziSchool,

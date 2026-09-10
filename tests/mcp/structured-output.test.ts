@@ -581,10 +581,7 @@ test('MCP 工具列表应声明输出结构', async () => {
       false,
     );
     for (const name of promptToolNames) {
-      assert.equal(
-        tools.find((tool) => tool.name === name)?.outputSchema?.properties?.result,
-        undefined,
-      );
+      assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.result);
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.prompt);
     }
   });
@@ -1533,20 +1530,21 @@ test('MCP 太阳光照工具应返回日出日落与曙暮光结构化证据', a
   });
 });
 
-test('MCP 一站式提示词工具应只返回 prompt，避免混入完整排盘', async () => {
+test('MCP 一站式提示词工具应同时返回提示词与结构化盘面', async () => {
   await withMcpClient(async (client) => {
     for (const [name, args, promptPattern] of promptToolCalls) {
       const result = await client.callTool({ name, arguments: args });
 
       assert.equal(result.isError, undefined, `${name} 不应返回错误`);
-      assert.deepEqual(Object.keys(result.structuredContent ?? {}), ['prompt']);
+      assert.ok(result.structuredContent && 'result' in result.structuredContent);
+      assert.ok(result.structuredContent && 'prompt' in result.structuredContent);
       const prompt = String(result.structuredContent?.prompt);
       assert.match(prompt, promptPattern, `${name} prompt 格式不正确`);
       assertPromptIsPortableTaskText(prompt);
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
       assert.equal(text, prompt);
-      assert.ok(JSON.stringify(result).length < prompt.length * 3 + 1000);
+      assert.ok(JSON.stringify(result.structuredContent?.result).length > 0);
     }
   });
 });
@@ -1749,7 +1747,7 @@ test('MCP 五运六气与皇极经世应返回可复核结构并严格拒绝冲�
   });
 });
 
-test('MCP 八字年限提示词应保留岁运重点且不返回内部证据对象', async () => {
+test('MCP 八字年限提示词应保留岁运重点并返回结构化盘面', async () => {
   await withMcpClient(async (client) => {
     const response = await client.callTool({
       name: 'bazi_prompt',
@@ -1769,11 +1767,65 @@ test('MCP 八字年限提示词应保留岁运重点且不返回内部证据对�
     });
 
     assert.equal(response.isError, undefined);
-    assert.equal(response.structuredContent?.result, undefined);
+    assert.ok(response.structuredContent?.result);
     const prompt = String(response.structuredContent?.prompt);
     assert.match(prompt, /【分析对象】[\s\S]*分析对象：1998年流年/);
     assert.match(prompt, /【岁运重点】[\s\S]*岁运干支关系：/);
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
+  });
+});
+
+test('MCP 命理提示词默认使用当前阶段并在合参中同步八字岁运', async () => {
+  await withMcpClient(async (client) => {
+    const common = {
+      gender: 'male',
+      year: 1990,
+      month: 5,
+      day: 15,
+      timeIndex: 1,
+      dateType: 'solar',
+      question: '当前阶段的事业重点是什么？',
+    } as const;
+
+    const bazi = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: { ...common, promptTopic: 'career' },
+    });
+    assert.equal(bazi.isError, undefined);
+    assert.equal(
+      (bazi.structuredContent?.result as { fortuneSelection?: { scope?: string } } | undefined)
+        ?.fortuneSelection?.scope,
+      'dayun',
+    );
+    const baziPrompt = String(bazi.structuredContent?.prompt);
+    assert.match(baziPrompt, /【岁运重点】/);
+    assert.match(baziPrompt, /该大运包含的流年/);
+
+    const baziWithTopic = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: { ...common, topicId: 'career' },
+    });
+    assert.equal(baziWithTopic.isError, undefined);
+    assert.equal(
+      (
+        baziWithTopic.structuredContent?.result as
+          { fortuneSelection?: { scope?: string } } | undefined
+      )?.fortuneSelection?.scope,
+      'dayun',
+    );
+
+    const combined = await client.callTool({
+      name: 'bazi_ziwei_prompt',
+      arguments: {
+        ...common,
+        baziPromptTopic: 'career',
+        ziweiPromptTopic: 'career-wealth',
+      },
+    });
+    assert.equal(combined.isError, undefined);
+    const combinedPrompt = String(combined.structuredContent?.prompt);
+    assert.match(combinedPrompt, /【八字岁运】/);
+    assert.match(combinedPrompt, /该大运包含的流年/);
   });
 });
 
@@ -1886,7 +1938,7 @@ test('MCP 八字双盘排盘工具应返回计算链、反证、汇总与限制�
   });
 });
 
-test('MCP 黄历择日排盘保留证据，提示词允许省略问题且只返回 prompt', async () => {
+test('MCP 黄历择日排盘保留证据，提示词允许省略问题并返回结构化结果', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({
       name: 'divine_almanac',
@@ -2097,7 +2149,8 @@ test('MCP 黄历择日排盘保留证据，提示词允许省略问题且只返�
       },
     });
     assert.equal(promptResult.isError, undefined, 'almanac_prompt 不填 question 不应返回错误');
-    assert.deepEqual(Object.keys(promptResult.structuredContent ?? {}), ['prompt']);
+    assert.ok(promptResult.structuredContent && 'result' in promptResult.structuredContent);
+    assert.ok(promptResult.structuredContent && 'prompt' in promptResult.structuredContent);
     const prompt = String(promptResult.structuredContent?.prompt);
     assert.match(prompt, /【占卜信息】/);
     assert.match(prompt, /占法：黄历择日/);
@@ -2423,7 +2476,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       },
     });
     assert.equal(yearlyResult.isError, undefined);
-    assert.equal(yearlyResult.structuredContent?.result, undefined);
+    assert.ok(yearlyResult.structuredContent?.result);
     assert.match(String(yearlyResult.structuredContent?.prompt), /2028/);
   });
 });
@@ -2618,7 +2671,7 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     assert.equal(ziweiFrameworkResult.isError, undefined, 'ziwei_prompt framework 不应返回错误');
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
-    assert.match(ziweiFrameworkPrompt, /【十二宫资料】/);
+    assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /iztro|排盘资料提供/);
     assert.match(ziweiFrameworkPrompt, /【当前时间】/);
     assert.match(ziweiFrameworkPrompt, /【本命资料】/);
@@ -2805,7 +2858,7 @@ test('MCP 灵签应返回签号、签题与签诗', async () => {
       },
     });
     assert.equal(prompted.isError, undefined);
-    assert.equal(prompted.structuredContent?.result, undefined);
+    assert.ok(prompted.structuredContent?.result);
     const prompt = String(prompted.structuredContent?.prompt);
     assert.match(prompt, /签号：第\d+签/);
     assert.match(prompt, /签题：《.+》/);
@@ -3000,7 +3053,7 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       arguments: { ...astrolabeArguments, question: '请分析整体星盘。' },
     });
     assert.equal(astrolabePromptResult.isError, undefined);
-    assert.equal(astrolabePromptResult.structuredContent?.result, undefined);
+    assert.ok(astrolabePromptResult.structuredContent?.result);
     const astrolabePrompt = String(astrolabePromptResult.structuredContent?.prompt ?? '');
     assert.match(astrolabePrompt, /出生时间校正：[\s\S]*真太阳时/);
     assert.doesNotMatch(

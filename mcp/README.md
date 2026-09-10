@@ -237,9 +237,9 @@ pnpm mcp
 
 ### 八字命限提示词参数
 
-`bazi_prompt` 可通过 `baziFortuneScope` 指定命限范围：`natal`（本命）、`full`（完整输出版）、`dayun`（大运）、`year`（流年）、`month`（流月）、`day`（流日）。`full` 会写入完整大运与逐年流年，不需要再传具体年限参数。
+`bazi_prompt` 未指定 `baziFortuneScope` 时默认定位当前大运，并写入该阶段的交运边界与流年列表；如果当前日期无法落入有效运段，才退回本命。也可通过 `baziFortuneScope` 指定 `natal`（本命）、`full`（全部大运流年）、`dayun`（大运）、`year`（流年，含全年流月）、`month`（流月，含流日）、`day`（流日）。显式选择具体层级时仍需传对应的年限参数；`full` 不需要再传具体年限参数。
 
-选择 `dayun` 时必须传 `baziFortuneCycleIndex`。选择 `year`、`month`、`day` 时必须依次传入对应层级的 `baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay`；交运年份可同时传 `baziFortuneCycleIndex` 消除前后两步大运重叠歧义。工具不会自动选择当前年或第一项。
+显式选择 `dayun` 时必须传 `baziFortuneCycleIndex`。显式选择 `year`、`month`、`day` 时必须依次传入对应层级的 `baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay`；交运年份可同时传 `baziFortuneCycleIndex` 消除前后两步大运重叠歧义。工具不会静默套用第一项。
 
 ### 星盘行运提示词参数
 
@@ -293,7 +293,7 @@ pnpm mcp
 
 ### 紫微 promptScope 参数
 
-`ziwei_calculate` 和 `ziwei_prompt` 默认只返回 `origin`（本命）范围。传入 `promptScope` 时会返回 `origin` 加指定范围。支持的值：`origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
+`ziwei_calculate` 和 `ziwei_prompt` 未指定范围时默认返回当前大限，并携带本命范围作为基础资料。传入 `promptScope` 时会返回 `origin` 加指定范围。支持的值：`origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
 
 `ziwei_compatibility` 和 `ziwei_compatibility_prompt` 只计算双方静态本命盘的宫位叠盘与生年四化跨盘落点。它们不会伪造具体年份应期，也不会输出缺乏统一依据的匹配总分。
 

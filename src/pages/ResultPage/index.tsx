@@ -163,12 +163,14 @@ function FortuneScopePresetSelect(props: {
 }) {
   const currentAvailable = props.currentAvailable ?? true;
   const options: DropdownSelectOption<FortuneScopePreset>[] = [
-    { value: 'default', label: '本命总览', triggerLabel: '本命总览' },
     ...(props.kind === 'astrolabe'
-      ? []
+      ? [{ value: 'default' as const, label: '本命总览', triggerLabel: '本命总览' }]
       : [{ value: 'dayun' as const, label: '当前阶段', disabled: !currentAvailable }]),
     { value: 'all', label: '全部' },
     { value: 'manual', label: '自选时间…', triggerLabel: '自选时间' },
+    ...(props.kind === 'astrolabe'
+      ? []
+      : [{ value: 'default' as const, label: '本命总览', triggerLabel: '本命总览' }]),
   ];
   const selectedValue =
     props.value === 'default' || props.value === 'dayun' || props.value === 'all'
@@ -2093,7 +2095,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inspiration.close();
   }
   const promptScopeField = hasAdjustablePromptScope ? (
-    <div className="workspace-prompt-scope" title="本命包含完整本命资料；其他范围会追加相应岁运">
+    <div className="workspace-prompt-scope" title="默认使用当前阶段；全部会展开可用的各层运限资料">
       {(promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') &&
       inputState.analysisMode === 'single' ? (
         <FortuneScopePresetSelect

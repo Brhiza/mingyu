@@ -81,7 +81,13 @@ export function buildCleanModelInputBundle(
   const confirmedFacts = { ...scenario.providedFacts };
 
   // 严格检查：确保不包含隐藏标签
-  const forbiddenKeys = ['expectedRoute', 'requiredChecks', 'forbiddenLeakage', 'isBoundary', 'notes'];
+  const forbiddenKeys = [
+    'expectedRoute',
+    'requiredChecks',
+    'forbiddenLeakage',
+    'isBoundary',
+    'notes',
+  ];
   for (const k of forbiddenKeys) {
     if (k in confirmedFacts) {
       delete (confirmedFacts as Record<string, unknown>)[k];
@@ -120,6 +126,9 @@ export async function callRealModel(
 
   // 组合输入为提示词
   const userContent = [
+    `【本次解读参考资料】\n${Object.entries(cleanBundle.referenceDocs)
+      .map(([name, text]) => `【${name}】\n${text}`)
+      .join('\n\n')}`,
     `【求测者问题】\n${cleanBundle.userMessage}`,
     `【求测者主动提供的资料】\n${JSON.stringify(cleanBundle.confirmedFacts, null, 2)}`,
     cleanBundle.providerFact
@@ -234,6 +243,11 @@ export async function runScenarioLive(
       modelName: isOnline ? config.model : 'offline-reference-runner',
       isLiveOnline: isOnline,
       docsRead: Object.keys(cleanBundle.referenceDocs),
+      docsSent: Object.keys(cleanBundle.referenceDocs),
+      referenceChars: Object.values(cleanBundle.referenceDocs).reduce(
+        (sum, text) => sum + text.length,
+        0,
+      ),
       isDegraded: mode === 'unavailable',
       providerErrorReceived: mode === 'unavailable',
       durationMs,
@@ -256,12 +270,16 @@ export async function runLiveEvaluation() {
 
   console.log('=== 通用算命 Skill 真实模型接入与可信评测 ===\n');
   if (isOnline) {
-    console.log(`[在线执行模式] 正在调用真实公网模型: ${config.model} (${config.format || 'chat'})`);
+    console.log(
+      `[在线执行模式] 正在调用真实公网模型: ${config.model} (${config.format || 'chat'})`,
+    );
     console.log(`服务地址: ${config.baseUrl?.replace(/\/\/.*@/, '//***@')}`);
   } else {
     console.log('[离线基准演练模式] 未检测到在线模型凭据 (AI_API_KEY/OPENAI_API_KEY)。');
     console.log('当前执行离线高保真推演演练，绝不冒充公网在线模型结果。');
-    console.log('提示：若需发起公网模型真实调用，请配置环境变量: AI_API_KEY, AI_MODEL, AI_BASE_URL\n');
+    console.log(
+      '提示：若需发起公网模型真实调用，请配置环境变量: AI_API_KEY, AI_MODEL, AI_BASE_URL\n',
+    );
   }
 
   // 五个重点核心场景
