@@ -38,6 +38,7 @@ export interface FortuneSelectionContext {
   yearGanZhi?: string;
   yearAge?: number;
   month?: number;
+  day?: number;
   monthGanZhi?: string;
   monthLabel?: string;
   monthStartDate?: string;

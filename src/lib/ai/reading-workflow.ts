@@ -343,7 +343,7 @@ export async function runReadingWorkflow(
     for (let round = 0; round < (isSimpleFollowup ? 0 : 2); round += 1) {
       let needsRefinement = false;
       guard();
-      const catalog = `【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。兼容双盘时每个补算动作都必须明确 target；primary 使用主主体快照，partner 使用伴侣主体快照，两个目标分别填写自己的目标时段。target 仅是动作选择，不写入公共 API 参数。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。没有伴侣主体快照或目标不明确时不执行 partner 补算。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
+      const catalog = `【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。双人解读时用 target 指定对象；primary 对应第一人，partner 对应第二人，两人分别填写各自的目标时段。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。partner 补算以本次已提供的第二人出生资料为依据。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
       const schemas = schemaResources.length
         ? `\n\n【补算参数】\n${schemaResources.map((item) => `${item.title}\n${item.text}`).join('\n\n')}`
         : '';

@@ -281,10 +281,13 @@ test('超容量补充资料未进入解读时明确提示实际缺项', async ()
   ]);
   await runReadingWorkflow([{ role: 'user', content: '八字盘面' }], harness.options, {
     stream: harness.stream,
-    execute: async () => ({ key: '', title: '格局条文', text: '资料'.repeat(10000), usable: true }),
+    execute: async () => ({ key: '', title: '格局条文', text: '资料'.repeat(25000), usable: true }),
   });
-  assert.equal(harness.memory.resources.length, 0);
-  assert.ok(harness.notices.some((notice) => notice.includes('尚未加入解读')));
-  assert.match(harness.sent.at(-1)?.[0].content ?? '', /格局条文尚未加入解读资料/u);
+  assert.equal(harness.memory.resources.length, 1);
+  assert.equal(harness.memory.resources[0].text.length, 50000);
+  assert.ok(
+    harness.notices.some((notice) => notice.includes('格局条文') && notice.includes('未纳入')),
+  );
+  assert.match(harness.sent.at(-1)?.[0].content ?? '', /资料覆盖[\s\S]*格局条文/u);
   assert.doesNotMatch(harness.sent.at(-1)?.[0].content ?? '', /资料资料资料/u);
 });

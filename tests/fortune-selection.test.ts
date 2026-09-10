@@ -292,6 +292,8 @@ test('流日可显式保留旧版早晚子时拆分', () => {
   );
 
   assert.equal(context?.hourBreakdown?.length, 13);
+  assert.equal(context?.day, 5);
+  assert.equal(context?.dayBreakdown?.[0]?.date, '2008-02-08');
   assert.match(context?.hourBreakdown?.[0]?.label ?? '', /晚子时/);
   assert.match(context?.hourBreakdown?.[1]?.label ?? '', /早子时/);
 });

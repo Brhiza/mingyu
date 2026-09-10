@@ -771,6 +771,7 @@ export function buildFortuneSelectionContext(
     ...baseContext,
     scope: 'day',
     month: normalized.month,
+    day: normalized.day,
     monthGanZhi: monthInfo.ganZhi,
     monthLabel: monthInfo.month,
     hourBreakdown,

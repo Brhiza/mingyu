@@ -911,11 +911,18 @@ export async function executeReadingAction(
     };
   }
   const requestInput = calculationInput ?? action.input;
-  const data = await fetchReadingData(path, signal, {
+  const calculationRequest: Record<string, unknown> = {
     ...(locked ?? {}),
     ...requestInput,
     responseMode: 'full',
-  });
+  };
+  if (
+    (action.method === 'bazi' || action.method === 'ziwei') &&
+    calculationRequest.useTrueSolarTime === true
+  ) {
+    delete calculationRequest.timeIndex;
+  }
+  const data = await fetchReadingData(path, signal, calculationRequest);
   if (locked) verifyStructuredCalculation(action.method, data, locked, requestInput);
   if (typeof data.prompt !== 'string' || !data.prompt.trim())
     throw new Error('补算未返回完整盘面。');
