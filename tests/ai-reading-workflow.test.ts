@@ -11,6 +11,7 @@ import {
   type ReadingDependencies,
 } from '../src/lib/ai/reading-workflow';
 import { executeReadingAction, lookupReadingClassics } from '../src/lib/ai/reading-resources';
+import type { ReadingSubjectSnapshot } from '../src/lib/ai/reading-subject';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
 
 function harness(responses: string[]) {
@@ -39,6 +40,25 @@ function harness(responses: string[]) {
   return { sent, progress, notices, errors, chunks, options, stream, done: () => done };
 }
 
+const baziSubject: ReadingSubjectSnapshot = {
+  id: 'subject-test',
+  source: 'bazi',
+  lockedInputs: {
+    bazi: {
+      gender: 'male',
+      year: 1990,
+      month: 5,
+      day: 15,
+      timeIndex: 8,
+      dateType: 'solar',
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    },
+  },
+  allowedMethods: ['bazi'],
+  range: { baziFortuneScope: 'year' },
+};
+
 test('解读加载分术式路线并与可下载 Skill 同源', () => {
   assert.equal(
     readFileSync('skills/mingyu/references/reading-workflow.json', 'utf8'),
@@ -48,6 +68,15 @@ test('解读加载分术式路线并与可下载 Skill 同源', () => {
   assert.match(bazi, /透干、藏干、通根/);
   assert.doesNotMatch(bazi, /紫微斗数：|六爻：/);
   assert.match(getReadingGuide('八字紫微合参'), /八字：.*\n紫微斗数：/);
+});
+
+test('解读 Skill 按资料自适应，排盘时段优先于古籍查询', () => {
+  const skill = readFileSync('skills/mingyu/SKILL.md', 'utf8');
+  assert.match(skill, /按资料与问题自适应/);
+  assert.doesNotMatch(skill, /严格遵循以下固定生命周期/);
+  const source = readFileSync('src/lib/ai/reading-workflow.ts', 'utf8');
+  assert.match(source, /排盘类优先补齐当前阶段/);
+  assert.ok(source.indexOf('kind":"schema') < source.indexOf('kind":"classic'));
 });
 
 test('准备结果只接受有限的查询与补算动作', () => {
@@ -100,6 +129,7 @@ test('读取参数后补算，原始盘面与补充盘面同时保留', async ()
     '解读',
   ]);
   const actions: string[] = [];
+  h.options.subject = baziSubject;
   await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
     stream: h.stream,
     execute: async (action) => {
@@ -107,16 +137,33 @@ test('读取参数后补算，原始盘面与补充盘面同时保留', async ()
       return {
         key: '',
         title: action.kind === 'schema' ? '参数' : '补充盘面',
-        text: action.kind === 'schema' ? '{"properties":{}}' : '目标流年丙午',
+        text: action.kind === 'schema' ? 'SCHEMA_SENTINEL_出生年份整数' : '目标流年丙午',
         usable: action.kind !== 'schema',
       };
     },
   });
   assert.deepEqual(actions, ['schema', 'calculate']);
+  assert.match(h.sent[1][0].content, /SCHEMA_SENTINEL_出生年份整数/);
   const final = h.sent[2][0].content;
   assert.match(final, /八字原始盘面/);
   assert.match(final, /目标流年丙午/);
-  assert.doesNotMatch(final, /properties/);
+  assert.doesNotMatch(final, /SCHEMA_SENTINEL_出生年份整数/);
+});
+
+test('没有主体快照时跳过自动补算并明确提示', async () => {
+  const h = harness([
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
+    '已有盘面解读',
+  ]);
+  await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+    stream: h.stream,
+    execute: async () => {
+      throw new Error('不应执行');
+    },
+  });
+  assert.ok(h.notices.some((item) => item.includes('主体快照')));
+  assert.deepEqual(h.errors, []);
+  assert.deepEqual(h.chunks, ['已有盘面解读']);
 });
 
 test('准备格式不兼容时明确提示并继续已有资料解读，网络失败保留重试', async () => {
@@ -228,21 +275,56 @@ test('补算使用真实公开契约且只返回完整提示词', async (t) => {
     assert.match(schema.text, /properties/);
     assert.doesNotMatch(schema.text, /\$ref/);
   }
-  const data = await executeReadingAction({
-    kind: 'calculate',
-    method: 'bazi',
-    input: {
-      year: 1990,
-      month: 5,
-      day: 15,
-      timeIndex: 8,
-      dateType: 'solar',
-      gender: 'male',
-      question: '整体解读',
+  const data = await executeReadingAction(
+    {
+      kind: 'calculate',
+      method: 'bazi',
+      input: {
+        year: 1990,
+        month: 5,
+        day: 15,
+        timeIndex: 8,
+        dateType: 'solar',
+        gender: 'male',
+        question: '整体解读',
+      },
     },
-  });
+    undefined,
+    baziSubject,
+  );
   assert.ok(data.usable);
   assert.match(data.text, /1990|庚午/);
+});
+
+test('自动补算拒绝更换主体并保留当前主体字段', async (t) => {
+  const original = globalThis.fetch;
+  let request: Record<string, unknown> | undefined;
+  globalThis.fetch = (async (input, init) => {
+    request = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return new Response(JSON.stringify({ success: true, data: { prompt: '目标流年' } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  await assert.rejects(
+    () =>
+      executeReadingAction(
+        { kind: 'calculate', method: 'bazi', input: { year: 1991, baziFortuneYear: 2026 } },
+        undefined,
+        baziSubject,
+      ),
+    /主体与当前命盘不一致/u,
+  );
+  await executeReadingAction(
+    { kind: 'calculate', method: 'bazi', input: { year: 1990, baziFortuneYear: 2026 } },
+    undefined,
+    baziSubject,
+  );
+  assert.equal(request?.year, 1990);
+  assert.equal(request?.baziFortuneYear, 2026);
 });
 
 test('过大的补充资料整项提示，原始盘面始终完整保留', async () => {

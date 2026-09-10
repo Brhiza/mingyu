@@ -71,6 +71,11 @@ export function formatBaziFortuneSelection(
     lines.push(`所选干支：${selectedGanZhi.replace(label, '')}`);
   }
 
+  const selectedFacts = [
+    ...new Set((promptPayload.selectedFacts ?? []).map((line) => line.trim()).filter(Boolean)),
+  ];
+  if (selectedFacts.length) lines.push(`所选层关键事实：\n${selectedFacts.join('\n')}`);
+
   lines.push(...formatTriggerRelations(promptPayload.triggerEvidence));
   const groups = new Map<string, Set<string>>();
   for (const group of promptPayload.detailGroups ?? []) {

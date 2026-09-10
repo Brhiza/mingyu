@@ -17,6 +17,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
+      - run: pnpm run format:check
 
   type-check:
     runs-on: ubuntu-latest
@@ -53,7 +54,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter mingyu-core build
       - run: pnpm run build
+      - run: pnpm run build:pages-functions
       - run: pnpm run build:server
       - run: pnpm run test:docker-runtime

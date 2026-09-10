@@ -257,18 +257,6 @@ function insertBeforeHeading(prompt: string, heading: string, content: string) {
     : `${prompt}\n\n${content}`;
 }
 
-function formatFullFortune(result: BaziChartResult) {
-  const cycles = result.luckInfo?.cycles ?? [];
-  if (!cycles.length) return '';
-  return [
-    '完整大运流年：',
-    ...cycles.flatMap((cycle, index) => [
-      `${index + 1}. ${cycle.ganZhi}${cycle.isXiaoyun ? '童运' : cycle.type}：${cycle.year}年起，约${cycle.age}岁交运`,
-      ...(cycle.years ?? []).map((year) => `  - ${year.year}年（${year.age}岁）${year.ganZhi}`),
-    ]),
-  ].join('\n');
-}
-
 function baziDefaultQuestion() {
   return '请先做整体解读。';
 }
@@ -288,6 +276,7 @@ export function buildBaziPromptForResult(params: {
   const question = params.question?.trim() || baziDefaultQuestion();
   const fortuneScope = params.fortuneScope ?? params.fortuneSelectionContext?.scope ?? 'natal';
   const fortuneSelection = formatBaziFortuneSelection(params.fortuneSelectionContext);
+  const fortuneFocus = fortuneSelection?.focus ?? '';
   const hasFortuneData = Boolean(
     fortuneSelection || (fortuneScope === 'full' && params.result.luckInfo?.cycles?.length),
   );
@@ -320,8 +309,10 @@ export function buildBaziPromptForResult(params: {
     section('当前时间', formatPromptCurrentTime()),
     section('排盘信息', chart),
     section('分析对象', scopeText),
-    effectiveFortuneScope === 'full' ? section('命限资料', formatFullFortune(params.result)) : '',
-    fortuneSelection ? section('岁运重点', fortuneSelection.focus) : '',
+    effectiveFortuneScope === 'full'
+      ? section('命限资料', formatBaziFullFortune(params.result))
+      : '',
+    fortuneSelection ? section('岁运重点', fortuneFocus) : '',
     params.selection ? section('解读选择', getPromptSelectionSection(params.selection)) : '',
     selectedTask ? section('任务', selectedTask) : '',
     section('问题', question),
@@ -353,10 +344,13 @@ function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
 }
 
 export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
+  let firstPayload = true;
   const lines = FULL_ZIWEI_SCOPE_ORDER.map((scope) => {
     const payload = result.payloadByScope[scope];
     if (!payload) return '';
-    return `${SCOPE_LABELS[scope]}：分析对象：${payload.active_scope.label || SCOPE_LABELS[scope]}。\n${formatZiweiPayloadForPrompt(payload)}`;
+    const text = formatZiweiPayloadForPrompt(payload, { includeBasicInfo: firstPayload });
+    firstPayload = false;
+    return `${SCOPE_LABELS[scope]}：分析对象：${payload.active_scope.label || SCOPE_LABELS[scope]}。\n${text}`;
   }).filter(Boolean);
   return lines.length ? `完整紫微运限资料：\n${lines.join('\n\n')}` : '';
 }

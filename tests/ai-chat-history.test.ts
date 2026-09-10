@@ -53,6 +53,16 @@ test('AI 对话标题与自动解析问题应保持简洁', () => {
   assert.equal(createAiChatTitle('  事业   和   财运  '), '事业 和 财运');
 });
 
+test('AI 对话问题提取应忽略任务正文中的行内问题引用', () => {
+  const prompt = `【任务】
+请依据六爻资料回答【问题】。先辨世应和用神，再判断发展趋势。
+
+【问题】
+这次合作是否适合继续推进？`;
+
+  assert.equal(extractPromptQuestion(prompt), '这次合作是否适合继续推进？');
+});
+
 test('AI 对话标识应使用系统级安全随机且不重复', () => {
   const first = createAiChatSessionId();
   const second = createAiChatSessionId();
@@ -78,4 +88,38 @@ test('AI 历史会话更新后应移到列表首位', () => {
     upsertAiChatSession([second, first], updatedFirst).map((session) => session.id),
     ['first', 'second'],
   );
+});
+
+test('AI 历史应保留未完成回答标记和原主体快照', () => {
+  const state = normalizeAiChatHistory({
+    version: 2,
+    sessions: [
+      {
+        id: 'partial',
+        title: '旧命盘',
+        initialQuestion: '旧问题',
+        initialPrompt: '旧盘面提示词',
+        completionStatus: 'partial',
+        readingSubject: {
+          id: 'subject-old',
+          source: 'bazi',
+          lockedInputs: { bazi: { year: 1990, month: 1, day: 2 } },
+          allowedMethods: ['bazi'],
+          range: { source: 'bazi' },
+        },
+        promptMode: 'context-question',
+        turns: [
+          { role: 'user', content: '旧问题' },
+          { role: 'assistant', content: '截断回答', incomplete: true },
+        ],
+        createdAt: '2026-07-13T08:00:00.000Z',
+        updatedAt: '2026-07-13T08:01:00.000Z',
+      },
+    ],
+    activeSessionId: 'partial',
+  });
+
+  assert.equal(state.sessions[0]?.completionStatus, 'partial');
+  assert.equal(state.sessions[0]?.turns[1]?.incomplete, true);
+  assert.equal(state.sessions[0]?.readingSubject?.id, 'subject-old');
 });

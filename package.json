@@ -25,6 +25,7 @@
     "build": "pnpm skill:sync && pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs",
     "build:mcp": "pnpm skill:sync && pnpm --filter mingyu-core build && vite build --config vite.mcp.config.ts",
     "build:server": "pnpm skill:sync && pnpm --filter mingyu-core build && node scripts/run-vite-build.mjs --server",
+    "build:pages-functions": "pnpm dlx wrangler@3.114.17 pages functions build functions --outdir .local/pages-functions-build",
     "preview": "vite preview",
     "test": "pnpm --filter mingyu-core build && pnpm test:unit:run",
     "test:unit:run": "tsx --tsconfig tsconfig.app.json --test --test-concurrency=1 \"tests/*.test.ts\" \"tests/*.test.tsx\"",

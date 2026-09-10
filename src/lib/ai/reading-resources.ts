@@ -3,6 +3,7 @@ import {
   READING_CALCULATION_ROUTES as ROUTES,
 } from './reading-capabilities';
 import type { ReadingAction, ReadingResource } from './reading-workflow';
+import type { ReadingSubjectSnapshot } from './reading-subject';
 import { getAiApiEndpoint } from './stream-client';
 
 const LABELS: Record<string, string> = {
@@ -226,10 +227,25 @@ async function fetchReadingData(
 export async function executeReadingAction(
   action: ReadingAction,
   signal?: AbortSignal,
+  subject?: ReadingSubjectSnapshot,
 ): Promise<ReadingResource> {
   if (action.kind === 'classic') return lookupReadingClassics(action.method, action.query);
   const path = Object.hasOwn(ROUTES, action.method) ? ROUTES[action.method] : undefined;
   if (!path) throw new Error('此方法暂不支持自动补算。');
+  if (subject) {
+    if (!subject.allowedMethods.includes(action.method))
+      throw new Error('补算方法与当前命盘类型不一致。');
+    const locked = subject.lockedInputs[action.method];
+    if (!locked) throw new Error('当前会话缺少该方法的主体快照。');
+    if (action.kind === 'calculate') {
+      for (const [key, value] of Object.entries(action.input)) {
+        if (!Object.hasOwn(locked, key)) continue;
+        const requested = stableComparable(value);
+        const expected = stableComparable(locked[key]);
+        if (requested !== expected) throw new Error(`补算主体与当前命盘不一致：${key}。`);
+      }
+    }
+  }
   if (action.kind === 'schema') {
     const document = await fetchReadingData('/openapi.json', signal);
     const paths = document.paths as Record<
@@ -249,10 +265,27 @@ export async function executeReadingAction(
     };
   }
   const data = await fetchReadingData(path, signal, {
+    ...(subject?.lockedInputs[action.method] ?? {}),
     ...action.input,
+    ...(subject?.lockedInputs[action.method] ?? {}),
     responseMode: 'prompt-only',
   });
   if (typeof data.prompt !== 'string' || !data.prompt.trim())
     throw new Error('补算未返回完整盘面。');
   return { key: '', title: '目标时段补充盘面', text: data.prompt, usable: true };
+}
+
+function stableComparable(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableComparable).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, item]) => `${key}:${stableComparable(item)}`)
+      .join(',')}}`;
+  }
+  if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return `number:${numeric}`;
+  }
+  return `${typeof value}:${String(value)}`;
 }

@@ -27,7 +27,7 @@ import { registerCalendarTools } from './tools/calendar.js';
 import { registerInstantTool } from './tools/instant.js';
 import { registerNameNumberTools } from './tools/name-number.js';
 import { getToolAnnotations } from './catalog/tool-catalog.js';
-import packageJson from '../../package.json' assert { type: 'json' };
+import packageJson from '../../package.json';
 
 export const SERVER_INFO = {
   name: 'mingyu-mcp-server',

@@ -467,6 +467,7 @@ export function buildFortuneSelectionContext(
             ? '类型：未起运，行童运'
             : `类型：${cycle.type === '小运' ? '童运' : cycle.type}`,
         ],
+        selectedFacts: [`大运十神：${cycleTenGod}`, cycleTriggerSummary],
         evidenceLines: buildFortuneEvidenceLines({
           scope: 'dayun',
           scopeLabel: `${cycleLabel}`,
@@ -547,6 +548,11 @@ export function buildFortuneSelectionContext(
           yearTriggerSummary,
           `对应年龄：${yearItem.age}岁`,
         ].filter(Boolean) as string[],
+        selectedFacts: [
+          `流年十神：${yearTenGod}`,
+          yearTriggerSummary,
+          `对应年龄：${yearItem.age}岁`,
+        ],
         evidenceLines: buildFortuneEvidenceLines({
           scope: 'year',
           scopeLabel: `${yearItem.year}年流年`,
@@ -676,6 +682,7 @@ export function buildFortuneSelectionContext(
             ? [`结束交节核验：${monthInfo.endTermEvidence.promptText}`]
             : []),
         ],
+        selectedFacts: [`流月十神：${monthTenGod}`, monthTriggerSummary],
         evidenceLines: [
           ...buildFortuneEvidenceLines({
             scope: 'month',
@@ -786,6 +793,15 @@ export function buildFortuneSelectionContext(
         `所属流年：${yearItem.year}年 ${yearItem.ganZhi}`,
         `所属流月：${monthInfo.month} ${monthInfo.ganZhi}`,
         `流日：${actualDate} ${dayInfo.ganZhi}`,
+        `流日十神：${dayTenGod}`,
+        dayTriggerSummary,
+        `按子初换日（命理日口径，与节令月有效范围分列）：${ziChuStart} 至 ${ziChuEnd}`,
+        ...(dayInfo.boundaryNote ? [`交节提示：${dayInfo.boundaryNote}`] : []),
+        ...(hoursClippedByBoundary
+          ? ['流时列表已按节令月有效范围与交节时刻裁剪，交节前后各时辰仅保留落在所选节令月范围内者']
+          : []),
+      ],
+      selectedFacts: [
         `流日十神：${dayTenGod}`,
         dayTriggerSummary,
         `按子初换日（命理日口径，与节令月有效范围分列）：${ziChuStart} 至 ${ziChuEnd}`,

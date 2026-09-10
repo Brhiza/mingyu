@@ -1,6 +1,7 @@
-import type { ChatTurn } from '@/hooks/useAiChat';
+import type { AiChatCompletionStatus, AiChatStatus, ChatTurn } from '@/hooks/useAiChat';
 import { safeStorage } from '@/lib/safe-storage';
 import { createSecureId } from '@/lib/secure-id';
+import { normalizeReadingSubject, type ReadingSubjectSnapshot } from './reading-subject';
 
 export type AiChatPromptMode = 'context' | 'context-question';
 
@@ -9,6 +10,8 @@ export interface AiChatSession {
   title: string;
   initialQuestion: string;
   initialPrompt?: string;
+  readingSubject?: ReadingSubjectSnapshot;
+  completionStatus?: AiChatCompletionStatus;
   promptMode: AiChatPromptMode;
   turns: ChatTurn[];
   createdAt: string;
@@ -56,6 +59,7 @@ function normalizeTurns(value: unknown): ChatTurn[] {
               .slice(0, 12),
           }
         : {}),
+      ...(item.incomplete === true ? { incomplete: true } : {}),
     }));
 }
 
@@ -65,12 +69,25 @@ function normalizeSession(value: unknown): AiChatSession | null {
   const createdAt = typeof value.createdAt === 'string' ? value.createdAt : '';
   const updatedAt = typeof value.updatedAt === 'string' ? value.updatedAt : createdAt;
   const promptMode = value.promptMode === 'context-question' ? 'context-question' : 'context';
+  const readingSubject = normalizeReadingSubject(value.readingSubject);
+  const completionStatus =
+    value.completionStatus === 'pending' ||
+    value.completionStatus === 'complete' ||
+    value.completionStatus === 'partial' ||
+    value.completionStatus === 'cancelled' ||
+    value.completionStatus === 'error'
+      ? value.completionStatus
+      : turns.some((turn) => turn.incomplete)
+        ? 'partial'
+        : undefined;
 
   return {
     id: value.id,
     title: typeof value.title === 'string' && value.title.trim() ? value.title.trim() : '新对话',
     initialQuestion: typeof value.initialQuestion === 'string' ? value.initialQuestion : '',
     ...(typeof value.initialPrompt === 'string' ? { initialPrompt: value.initialPrompt } : {}),
+    ...(readingSubject ? { readingSubject } : {}),
+    ...(completionStatus ? { completionStatus } : {}),
     promptMode,
     turns,
     createdAt,
@@ -140,8 +157,21 @@ export function createAiChatTitle(value: string, fallback = '新对话') {
 }
 
 export function extractPromptQuestion(prompt: string) {
-  const match = prompt.match(/【问题】\s*([\s\S]*?)(?=\n【[^\n】]+】|$)/);
+  const match = prompt.match(
+    /^[ \t]*【问题】[ \t]*(?:\r?\n|$)([\s\S]*?)(?=^[ \t]*【[^\r\n】]+】[ \t]*(?:\r?\n|$)|(?![\s\S]))/mu,
+  );
   return match?.[1]?.trim() ?? '';
+}
+
+export function getAiChatCompletionStatus(
+  status: AiChatStatus,
+  turns: ChatTurn[],
+): AiChatCompletionStatus | undefined {
+  if (status === 'done') return 'complete';
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'error') return turns.some((turn) => turn.incomplete) ? 'partial' : 'error';
+  if (status === 'loading' || status === 'streaming') return 'pending';
+  return undefined;
 }
 
 export function buildAiChatInitialPrompt(contextPrompt: string, session: AiChatSession) {

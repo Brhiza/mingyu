@@ -83,6 +83,7 @@ import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { getChartChatHistoryContext } from '@/lib/ai/chat-history';
+import { buildReadingSubject } from '@/lib/ai/reading-subject';
 import {
   ResultAssistantFab,
   ResultAssistantHeader,
@@ -359,6 +360,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const inputState = useMemo(
     () => normalizeChartInputForSource(parseInputState(searchParams), promptState.promptSource),
     [promptState.promptSource, searchParams],
+  );
+  const readingSubject = useMemo(
+    () => buildReadingSubject(inputState, promptState),
+    [inputState, promptState],
   );
   const inputSearch = useMemo(() => buildInputStateSearch(inputState), [inputState]);
   const isCombinedResult =
@@ -2444,6 +2449,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               <div className="workspace-ai-layout is-answer-workbench">
                 <AiChatPanel
                   contextPrompt={aiContextPrompt}
+                  readingSubject={readingSubject}
                   historyKey={getChartChatHistoryContext(aiContextPrompt)}
                   resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
                   externalInput={inspirationText}

@@ -11,6 +11,8 @@ export interface FortuneSelectionOptions {
 export interface FortunePromptPayload {
   scopeLabel: string;
   summaryLines: string[];
+  /** 当前所选层已计算、且通用岁运摘要需要原样保留的事实。 */
+  selectedFacts?: string[];
   evidenceLines?: string[];
   breakdownTitle?: string;
   breakdownLines?: string[];

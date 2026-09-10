@@ -7,12 +7,14 @@ import {
   createAiChatSessionId,
   createAiChatTitle,
   extractPromptQuestion,
+  getAiChatCompletionStatus,
   loadAiChatHistory,
   saveAiChatHistory,
   upsertAiChatSession,
 } from '@/lib/ai/chat-history';
 import type { AiChatPromptMode, AiChatSession } from '@/lib/ai/chat-history';
 import type { AiRequestConfig } from '@/lib/ai/settings';
+import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
 import { registerDismissLayer } from '@/lib/dismiss-layer';
 import { WorkspaceButton } from './workspace/WorkspaceUI';
 
@@ -42,6 +44,8 @@ interface AiChatPanelProps {
   composerTools?: ReactNode;
   /** 只在真正切换案例或命盘时清空未发送的输入 */
   inputResetKey?: string;
+  /** 当前页面锁定的排盘主体，供自动补算校验使用 */
+  readingSubject?: ReadingSubjectSnapshot;
 }
 
 const PLACEHOLDER = '输入你想询问的问题…';
@@ -122,6 +126,7 @@ function AiChatPanelImpl({
   workspaceMode = false,
   composerTools,
   inputResetKey,
+  readingSubject,
 }: AiChatPanelProps) {
   const {
     turns,
@@ -138,7 +143,7 @@ function AiChatPanelImpl({
     canRetry,
     reset,
     cancel,
-  } = useAiChat(aiConfig);
+  } = useAiChat(aiConfig, readingSubject);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -192,6 +197,8 @@ function AiChatPanelImpl({
         title: createAiChatTitle(options.titleSource, '自动解析'),
         initialQuestion: options.initialQuestion?.trim() ?? '',
         initialPrompt: options.prompt,
+        readingSubject,
+        completionStatus: 'pending',
         promptMode: options.promptMode,
         turns: [],
         createdAt: now,
@@ -205,7 +212,7 @@ function AiChatPanelImpl({
       setInputValue('');
       analyze(options.prompt);
     },
-    [analyze, applyHistoryState, reset],
+    [analyze, applyHistoryState, readingSubject, reset],
   );
 
   // 当上下文变化时，恢复上次使用的会话，并自动兼容旧版单条历史。
@@ -221,7 +228,12 @@ function AiChatPanelImpl({
     setIsHistoryOpen(false);
 
     if (activeSession) {
-      restore(activeSession.turns, buildAiChatInitialPrompt(contextPrompt, activeSession));
+      restore(
+        activeSession.turns,
+        buildAiChatInitialPrompt(contextPrompt, activeSession),
+        activeSession.readingSubject,
+        activeSession.completionStatus,
+      );
       autoStartKeyRef.current = key;
     } else {
       reset();
@@ -234,7 +246,16 @@ function AiChatPanelImpl({
 
     directSendIdRef.current = '';
     if (!workspaceMode) setInputValue('');
-  }, [storageKey, contextPrompt, autoStart, autoStartKey, restore, reset, workspaceMode]);
+  }, [
+    storageKey,
+    contextPrompt,
+    autoStart,
+    autoStartKey,
+    readingSubject,
+    restore,
+    reset,
+    workspaceMode,
+  ]);
 
   useEffect(() => {
     if (inputResetKeyRef.current === inputResetKey) return;
@@ -242,15 +263,19 @@ function AiChatPanelImpl({
     setInputValue('');
   }, [inputResetKey]);
 
-  // AI 回复完成或出错后，更新当前会话，不覆盖其他历史。
+  // AI 回复完成、出错或取消后，更新当前会话，不覆盖其他历史。
   useEffect(() => {
-    if (!hasStarted || (status !== 'done' && status !== 'error')) return;
+    if (!hasStarted) return;
     const sessionId = activeSessionIdRef.current;
     const currentSession = historySessionsRef.current.find((session) => session.id === sessionId);
-    if (!currentSession || currentSession.turns === turns) return;
+    const completionStatus = getAiChatCompletionStatus(status, turns);
+    if (!currentSession || !completionStatus) return;
+    if (currentSession.turns === turns && currentSession.completionStatus === completionStatus)
+      return;
     const updatedSession: AiChatSession = {
       ...currentSession,
       turns,
+      completionStatus,
       updatedAt: new Date().toISOString(),
     };
     applyHistoryState(
@@ -401,7 +426,12 @@ function AiChatPanelImpl({
     }
     shouldAutoScrollRef.current = true;
     applyHistoryState(historySessionsRef.current, session.id);
-    restore(session.turns, buildAiChatInitialPrompt(contextPrompt, session));
+    restore(
+      session.turns,
+      buildAiChatInitialPrompt(contextPrompt, session),
+      session.readingSubject,
+      session.completionStatus,
+    );
     setInputValue('');
     setIsHistoryOpen(false);
   }
@@ -419,7 +449,12 @@ function AiChatPanelImpl({
     applyHistoryState(nextSessions, nextActiveSession?.id ?? '');
     shouldAutoScrollRef.current = true;
     if (nextActiveSession) {
-      restore(nextActiveSession.turns, buildAiChatInitialPrompt(contextPrompt, nextActiveSession));
+      restore(
+        nextActiveSession.turns,
+        buildAiChatInitialPrompt(contextPrompt, nextActiveSession),
+        nextActiveSession.readingSubject,
+        nextActiveSession.completionStatus,
+      );
     } else {
       reset();
     }
@@ -438,9 +473,11 @@ function AiChatPanelImpl({
               ? '正在生成排盘数据，请稍候…'
               : status === 'error'
                 ? '本次回复失败，你的问题已保留，可直接重新生成。'
-                : hasStarted
-                  ? '可以继续追问，历史对话会自动保存。'
-                  : '在下方输入问题开始 AI 解析。'}
+                : status === 'cancelled'
+                  ? '本次回复已停止，已生成内容保留，可重新生成。'
+                  : hasStarted
+                    ? '可以继续追问，历史对话会自动保存。'
+                    : '在下方输入问题开始 AI 解析。'}
           </p>
         </div>
         <div className="ai-chat-head-actions">
@@ -593,6 +630,19 @@ function AiChatPanelImpl({
                   <strong>AI 回复失败</strong>
                   <span>{error}</span>
                   <small>你的问题已保留，不需要重新输入。</small>
+                </div>
+                {canRetry ? (
+                  <button type="button" className="ai-chat-retry-btn" onClick={handleRetry}>
+                    重新生成
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {status === 'cancelled' ? (
+              <div className="ai-chat-error-notice" role="status" aria-live="polite">
+                <div className="ai-chat-error-content">
+                  <strong>AI 回复已停止</strong>
+                  <span>已生成内容保留在当前对话中。</span>
                 </div>
                 {canRetry ? (
                   <button type="button" className="ai-chat-retry-btn" onClick={handleRetry}>

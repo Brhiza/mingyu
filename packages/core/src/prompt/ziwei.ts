@@ -207,7 +207,12 @@ function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
 
 export function formatZiweiPayloadForPrompt(
   payload: AnalysisPayloadV1,
-  options: { focusPalaceNames?: readonly string[]; maxEvidence?: number } = {},
+  options: {
+    focusPalaceNames?: readonly string[];
+    maxEvidence?: number;
+    /** 完整运限中首段已给出主体资料，后续层只保留动态事实。 */
+    includeBasicInfo?: boolean;
+  } = {},
 ) {
   const basic = payload.basic_info;
   const active = payload.active_scope;
@@ -231,12 +236,17 @@ export function formatZiweiPayloadForPrompt(
   const bodyPalace = payload.palaces.find((p) => p.is_body_palace);
   const bodyPalaceName = payload.basic_info.hidden_palaces?.body_palace_name || bodyPalace?.name;
   const bodyAxis = getBodyPalaceAxisSummary(bodyPalaceName);
+  const includeBasicInfo = options.includeBasicInfo ?? true;
 
   return [
     `分析范围：${active.label || SCOPE_LABELS[active.scope]}`,
-    `基本资料：${basic.gender}；公历${basic.solar_date}；农历${basic.lunar_date}；${basic.birth_time_label}；生肖${basic.zodiac}`,
-    `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}${bodyAxis ? `；命身主轴：${bodyAxis}` : ''}`,
-    basic.four_pillars
+    includeBasicInfo
+      ? `基本资料：${basic.gender}；公历${basic.solar_date}；农历${basic.lunar_date}；${basic.birth_time_label}；生肖${basic.zodiac}`
+      : '',
+    includeBasicInfo
+      ? `命身资料：命宫${basic.soul_palace_branch}；身宫${basic.body_palace_branch}；命主${basic.soul}；身主${basic.body}${bodyAxis ? `；命身主轴：${bodyAxis}` : ''}`
+      : '',
+    includeBasicInfo && basic.four_pillars
       ? `四柱：年${basic.four_pillars.year_pillar}、月${basic.four_pillars.month_pillar}、日${basic.four_pillars.day_pillar}、时${basic.four_pillars.hour_pillar}`
       : '',
     isOriginScope
@@ -262,12 +272,15 @@ export function getZiweiPromptCalculationScopes(scope: ZiweiPromptScope): ScopeT
 }
 
 export function formatZiweiFullScopeText(runtime: ZiweiRuntime) {
+  let firstPayload = true;
   return SCOPE_ORDER.map((scope) => runtime.payloadByScope[scope])
-    .filter((payload): payload is AnalysisPayloadV1 => Boolean(payload))
-    .map(
-      (payload) =>
-        `${SCOPE_LABELS[payload.active_scope.scope]}：\n${formatZiweiPayloadForPrompt(payload)}`,
-    )
+    .map((payload) => {
+      if (!payload) return '';
+      const text = formatZiweiPayloadForPrompt(payload, { includeBasicInfo: firstPayload });
+      firstPayload = false;
+      return `${SCOPE_LABELS[payload.active_scope.scope]}：\n${text}`;
+    })
+    .filter(Boolean)
     .join('\n\n');
 }
 
