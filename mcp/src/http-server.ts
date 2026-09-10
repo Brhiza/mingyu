@@ -38,8 +38,10 @@ export async function startHttpServer(
     const streamableServer = createMingyuMcpServer();
     const streamableTransport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
+      onsessioninitialized: (sessionId) => {
+        streamableSessions.set(sessionId, session);
+      },
     });
-    await streamableServer.connect(streamableTransport);
     const session = { transport: streamableTransport, server: streamableServer };
     let closing = false;
     streamableTransport.onclose = () => {
@@ -49,6 +51,12 @@ export async function startHttpServer(
       if (sessionId) streamableSessions.delete(sessionId);
       streamableServer.close().catch(() => {});
     };
+    try {
+      await streamableServer.connect(streamableTransport);
+    } catch (error) {
+      await streamableServer.close();
+      throw error;
+    }
     return session;
   };
 
@@ -84,6 +92,7 @@ export async function startHttpServer(
           res.end(JSON.stringify({ error: 'MCP session not found or expired' }));
           return;
         }
+        const createdSession = !session;
         if (!session) {
           if (req.method !== 'POST') {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -92,9 +101,13 @@ export async function startHttpServer(
           }
           session = await createStreamableSession();
         }
-        await session.transport.handleRequest(req, res);
-        const initializedSessionId = session.transport.sessionId;
-        if (initializedSessionId) streamableSessions.set(initializedSessionId, session);
+        try {
+          await session.transport.handleRequest(req, res);
+        } finally {
+          if (createdSession && !session.transport.sessionId) {
+            await session.server.close();
+          }
+        }
       } catch (err) {
         console.error('Streamable HTTP 处理异常:', err);
         if (!res.headersSent) {
@@ -107,30 +120,30 @@ export async function startHttpServer(
 
     // SSE 建立连接端点 (/sse)
     if (url.pathname === '/sse' && req.method === 'GET') {
+      const sseTransport = new SSEServerTransport('/message', res);
+      const sseServer = createMingyuMcpServer();
+      const sessionId = sseTransport.sessionId;
+      let isClosed = false;
+      const cleanup = () => {
+        if (isClosed) return;
+        isClosed = true;
+        sseSessions.delete(sessionId);
+        sseServer.close().catch(() => {});
+      };
+      res.on('close', cleanup);
+      sseTransport.onclose = cleanup;
       try {
-        const sseTransport = new SSEServerTransport('/message', res);
-        const sseServer = createMingyuMcpServer();
         await sseServer.connect(sseTransport);
-
-        const sessionId = sseTransport.sessionId;
-        sseSessions.set(sessionId, { transport: sseTransport, server: sseServer });
-
-        let isClosed = false;
-        const cleanup = () => {
-          if (isClosed) return;
-          isClosed = true;
-          sseSessions.delete(sessionId);
-          sseServer.close().catch(() => {});
-        };
-
-        res.on('close', cleanup);
-        sseTransport.onclose = cleanup;
+        if (!isClosed) {
+          sseSessions.set(sessionId, { transport: sseTransport, server: sseServer });
+        }
       } catch (err) {
         console.error('SSE 连接建立失败:', err);
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Failed to establish SSE connection' }));
         }
+        cleanup();
       }
       return;
     }
