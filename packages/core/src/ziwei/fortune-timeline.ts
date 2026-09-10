@@ -42,6 +42,8 @@ export type ZiweiFortuneMonth = {
   month: number;
   dateStr: string;
   layer: ZiweiFortuneLayer;
+  /** 流年从节令年首开始但尚未进入本年正月时，保留这一段真实交界资料。 */
+  boundaryFragment?: 'previous-year-tail';
 };
 
 export type ZiweiFortuneDay = {
@@ -81,6 +83,20 @@ export type ZiweiFortuneTimeline = {
 };
 
 const MUTAGEN_LABELS = ['禄', '权', '科', '忌'] as const;
+const FLOW_MONTH_BRANCHES = [
+  '寅',
+  '卯',
+  '辰',
+  '巳',
+  '午',
+  '未',
+  '申',
+  '酉',
+  '戌',
+  '亥',
+  '子',
+  '丑',
+];
 
 function parseDateParts(dateStr: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
@@ -445,15 +461,25 @@ async function addLowerLayers(
       throw new Error('紫微流月边界未产生新的月干支，不能把重复月份压缩为一层。');
     }
     previousMonthlySignature = monthlySignature;
+    const layer = serializeLayer(horoscope, 'monthly', astrolabe);
+    const month = getFlowMonthNumber(layer);
     months.push({
-      month: index + 1,
+      month,
       dateStr,
-      layer: serializeLayer(horoscope, 'monthly', astrolabe),
+      layer,
+      ...(input.horoscopeDivide === 'exact' && index === 0 && month !== 1
+        ? { boundaryFragment: 'previous-year-tail' as const }
+        : {}),
     });
   }
-  if (months.length !== 12) {
+  const regularMonths = months.filter((month) => !month.boundaryFragment);
+  if (
+    regularMonths.length !== 12 ||
+    new Set(regularMonths.map((month) => month.month)).size !== 12 ||
+    regularMonths.some((month) => month.month < 1 || month.month > 12)
+  ) {
     throw new Error(
-      `紫微未能按${input.horoscopeDivide === 'exact' ? '节气' : '农历'}边界生成十二个流月。`,
+      `紫微未能按${input.horoscopeDivide === 'exact' ? '节气' : '农历'}边界生成十二个常规流月。`,
     );
   }
   year.months = months;
@@ -500,13 +526,43 @@ async function buildTimelineFromAstrolabe(
     throw new Error(`所选日期对应虚岁 ${targetAge}，超出紫微已支持的运限范围。`);
   }
 
+  const targetYear = parseDateParts(options.dateStr).year;
+  const horoscopeCache: HoroscopeCache = new Map([[options.dateStr, targetHoroscope]]);
+  // 指定年及其下层范围都以目标流年的真实起止为父范围；当前阶段和全部仍沿用各自的
+  // 大限/全量范围，不因目标流年跨段而改变入口语义。
+  const targetYearBounds =
+    options.scope !== 'all' && options.scope !== 'current'
+      ? await findTargetYearBoundary(
+          astrolabe,
+          input,
+          options.dateStr,
+          options.hourIndex,
+          targetHoroscope,
+          horoscopeCache,
+        )
+      : null;
   const periodIndexes =
-    options.scope === 'all' ? decadalTimeline.map((_, index) => index) : [selectedPeriodIndex];
+    options.scope === 'all'
+      ? decadalTimeline.map((_, index) => index)
+      : options.scope === 'current'
+        ? [selectedPeriodIndex]
+        : // 目标流年与大限均按包含起止日的区间判断，跨大限时保留两侧各自的 period.layer。
+          decadalTimeline
+            .map((period, index) => ({ period, index }))
+            .filter(({ period }) => {
+              const periodEndDateStr = period.endDateStr ?? period.dateStr;
+              return (
+                period.dateStr <= targetYearBounds!.endDateStr &&
+                periodEndDateStr >= targetYearBounds!.startDateStr
+              );
+            })
+            .map(({ index }) => index);
+  if (!periodIndexes.length) {
+    throw new Error('所选流年未落入紫微已支持的大限范围。');
+  }
   const includeMonths = options.scope !== 'all';
   const includeDay = options.scope === 'day' || options.scope === 'hour';
   const includeHour = options.scope === 'hour';
-  const targetYear = parseDateParts(options.dateStr).year;
-  const horoscopeCache: HoroscopeCache = new Map([[options.dateStr, targetHoroscope]]);
   const periodDrafts: Array<{
     period: DecadalTimelineOption;
     decadalHoroscope: IztroHoroscope;
@@ -585,10 +641,11 @@ async function buildTimelineFromAstrolabe(
         year.dateStr <= options.dateStr &&
         (year.endDateStr ?? year.dateStr) >= options.dateStr,
     );
-    if (options.scope !== 'all' && !targetYearEntry) {
+    const isTargetPeriod = targetAge >= draft.period.startAge && targetAge <= draft.period.endAge;
+    if (options.scope !== 'all' && isTargetPeriod && !targetYearEntry) {
       throw new Error(`所选日期对应的流年不在${draft.period.label}支持范围内。`);
     }
-    if (targetYearEntry && options.scope !== 'all') {
+    if (targetYearEntry && isTargetPeriod && options.scope !== 'all') {
       await addLowerLayers(
         targetYearEntry,
         astrolabe,
@@ -604,11 +661,14 @@ async function buildTimelineFromAstrolabe(
     }
     const visibleYears =
       options.scope !== 'all' && options.scope !== 'current'
-        ? splitYears.filter(
-            (year) =>
-              year.dateStr <= options.dateStr &&
-              (year.endDateStr ?? year.dateStr) >= options.dateStr,
-          )
+        ? // splitYears 也是闭区间；边界相等表示该段确实覆盖目标流年的首/末日。
+          splitYears.filter((year) => {
+            const yearEndDateStr = year.endDateStr ?? year.dateStr;
+            return (
+              year.dateStr <= targetYearBounds!.endDateStr &&
+              yearEndDateStr >= targetYearBounds!.startDateStr
+            );
+          })
         : splitYears;
     periods.push({
       ...draft.period,
@@ -690,6 +750,12 @@ function formatMutagens(mutagen: string[]) {
     .map((star, index) => (star ? `${star}化${MUTAGEN_LABELS[index] ?? ''}` : ''))
     .filter(Boolean)
     .join('、');
+}
+
+function getFlowMonthNumber(layer: ZiweiFortuneLayer) {
+  const month = FLOW_MONTH_BRANCHES.indexOf(layer.earthlyBranch);
+  if (month < 0) throw new Error(`紫微流月地支无效：${layer.earthlyBranch}。`);
+  return month + 1;
 }
 
 function formatDictionaryCode(index: number) {
@@ -899,13 +965,16 @@ function formatLowerLayers(year: ZiweiFortuneYear) {
   if (year.months?.length) {
     lines.push(
       `    全年流月：${year.months
-        .map((month) => `${month.month}月 ${month.dateStr}｜${formatLayer(month.layer)}`)
+        .map(
+          (month) =>
+            `${month.boundaryFragment ? `上一流年${month.month}月交界段` : `${month.month}月`} ${month.dateStr}｜${formatLayer(month.layer)}`,
+        )
         .join('\n      ')}`,
     );
   }
   if (year.targetMonth) {
     lines.push(
-      `    指定流月：${year.targetMonth.month}月 ${year.targetMonth.dateStr}｜${formatLayer(year.targetMonth.layer)}`,
+      `    指定流月：${year.targetMonth.boundaryFragment ? `上一流年${year.targetMonth.month}月交界段` : `${year.targetMonth.month}月`} ${year.targetMonth.dateStr}｜${formatLayer(year.targetMonth.layer)}`,
     );
   }
   if (year.targetDay)

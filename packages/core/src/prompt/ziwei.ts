@@ -194,6 +194,8 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
     ranges,
     majorText,
     secondaryText,
+    palace.changsheng12 ? `长生：${palace.changsheng12}` : '',
+    palace.boshi12 ? `博士：${palace.boshi12}` : '',
     selfText,
     flyText,
     !isOriginScope && palace.scope_hits.length ? `运限命中：${palace.scope_hits.join('、')}` : '',
@@ -206,7 +208,9 @@ function formatPalace(palace: PalaceFact, isOriginScope: boolean) {
 
 function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
   const values = getPromptMutagenItems(payload, isOriginScope).map((item) => {
-    const palace = item.palace_name ? `入${item.palace_name}宫` : '';
+    const palace = item.palace_name
+      ? `入${item.palace_name}${item.palace_name.endsWith('宫') ? '' : '宫'}`
+      : '';
     const dynamic =
       !isOriginScope && item.dynamic_palace_name ? `（动态${item.dynamic_palace_name}）` : '';
     return `${item.star || ''}化${item.mutagen}${palace}${dynamic}`;
@@ -259,8 +263,8 @@ export function formatZiweiPayloadForPrompt(
       ? `四柱：年${basic.four_pillars.year_pillar}、月${basic.four_pillars.month_pillar}、日${basic.four_pillars.day_pillar}、时${basic.four_pillars.hour_pillar}`
       : '',
     isOriginScope
-      ? '本命盘：只列生年四化与十二宫本命星曜，不混入运限落宫。'
-      : `当前运限：${active.label || SCOPE_LABELS[active.scope]}；${active.solar_date}；${active.lunar_date}；名义年龄${active.nominal_age}；${active.palace_name ? `落${active.palace_name}宫` : '落宫未记录'}`,
+      ? '本命盘：生年四化与十二宫本命星曜。'
+      : `当前运限：${active.label || SCOPE_LABELS[active.scope]}；${active.solar_date}；${active.lunar_date}；名义年龄${active.nominal_age}；${active.palace_name ? `落${active.palace_name}${active.palace_name.endsWith('宫') ? '' : '宫'}` : '落宫未记录'}`,
     `${isOriginScope ? '生年四化' : '当前四化'}：${formatMutagenMap(payload, isOriginScope)}`,
     '十二宫资料：',
     ...selectedPalaces.map(

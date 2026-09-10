@@ -349,6 +349,10 @@ function formatMutagenMap(payload: AnalysisPayloadV1, isOriginScope = false) {
 }
 
 export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
+  const algorithmText =
+    result.payloadByScope.origin?.calculation_config.algorithm === 'zhongzhou'
+      ? '安星口径：中州派安星法'
+      : '安星口径：传统通行安星法';
   if (result.fortuneTimeline) {
     const origin = result.payloadByScope.origin;
     const originText = origin
@@ -356,6 +360,7 @@ export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
       : '';
     return [
       '完整紫微运限资料：',
+      algorithmText,
       originText ? `本命：\n${originText}` : '',
       formatZiweiFortuneTimeline(result.fortuneTimeline),
       formatZiweiTargetLowerScopeFacts(result),
@@ -371,7 +376,7 @@ export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
     firstPayload = false;
     return `${SCOPE_LABELS[scope]}：分析对象：${payload.active_scope.label || SCOPE_LABELS[scope]}。\n${text}`;
   }).filter(Boolean);
-  return lines.length ? `完整紫微运限资料：\n${lines.join('\n\n')}` : '';
+  return lines.length ? `完整紫微运限资料：\n${algorithmText}\n${lines.join('\n\n')}` : '';
 }
 
 function formatStar(star: StarFact) {
@@ -570,8 +575,10 @@ export function buildPublicZiweiPromptForRuntime(params: {
         ? '本命盘、童限与大限流年；目标日期下附流月、流日与流时'
         : payload.active_scope.label || scopeLabel(scope),
     ),
-    section('本命资料', chartLines),
-    buildKeyPalaces(payload, payload.active_scope.scope === 'origin' || scope === 'origin'),
+    scope !== 'full' ? section('本命资料', chartLines) : '',
+    scope !== 'full'
+      ? buildKeyPalaces(payload, payload.active_scope.scope === 'origin' || scope === 'origin')
+      : '',
     scope === 'full' ? section('完整运限资料', formatPublicZiweiFullScopeText(params.result)) : '',
     scope !== 'origin' && scope !== 'full' && params.result.fortuneTimeline
       ? section('运限范围资料', formatZiweiFortuneTimeline(params.result.fortuneTimeline))

@@ -44,8 +44,8 @@ const historicalInput = new Date('1990-07-01T04:00:00.000Z');
 const historicalCivil = fromNativeDate(historicalInput);
 const historicalSeason = calculateSeasonInfoFromDate(historicalInput);
 const boundaryEvidence = calculateSolarTermEvidence(2024, 3);
-const boundaryBefore = calculateSeasonInfoFromDate(new Date(boundaryEvidence.utcTimestamp - 1000));
-const boundaryAfter = calculateSeasonInfoFromDate(new Date(boundaryEvidence.utcTimestamp + 1000));
+const seasonBefore = calculateSeasonInfoFromDate(new Date(boundaryEvidence.utcTimestamp - 1000));
+const seasonAfter = calculateSeasonInfoFromDate(new Date(boundaryEvidence.utcTimestamp + 1000));
 const range = createLocalTimeRange(
   toNativeDate({ year: 2024, month: 3, day: 5, hour: 10, minute: 22, second: 0 }),
   toNativeDate({ year: 2024, month: 3, day: 5, hour: 10, minute: 23, second: 0 }),
@@ -94,16 +94,16 @@ process.stdout.write(
         utcDateTime: boundaryEvidence.utcDateTime,
       },
       before: {
-        currentJieqi: boundaryBefore.currentJieqi,
-        nextJieqi: boundaryBefore.nextJieqi,
-        currentSeason: boundaryBefore.currentSeason,
-        nextTermUtcTimestamp: boundaryBefore.nextTermEvidence?.utcTimestamp ?? null,
+        currentJieqi: seasonBefore.currentJieqi,
+        nextJieqi: seasonBefore.nextJieqi,
+        currentSeason: seasonBefore.currentSeason,
+        nextTermUtcTimestamp: seasonBefore.nextTermEvidence?.utcTimestamp ?? null,
       },
       after: {
-        currentJieqi: boundaryAfter.currentJieqi,
-        nextJieqi: boundaryAfter.nextJieqi,
-        currentSeason: boundaryAfter.currentSeason,
-        previousTermUtcTimestamp: boundaryAfter.previousTermEvidence?.utcTimestamp ?? null,
+        currentJieqi: seasonAfter.currentJieqi,
+        nextJieqi: seasonAfter.nextJieqi,
+        currentSeason: seasonAfter.currentSeason,
+        previousTermUtcTimestamp: seasonAfter.previousTermEvidence?.utcTimestamp ?? null,
       },
     },
     range: {
