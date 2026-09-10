@@ -112,6 +112,10 @@ test('createMingyuMcpServer 应自动为所有工具注入 annotations 元数据
     }
   )._registeredTools;
 
+  const ids = getToolCatalog().map((tool) => tool.id);
+  assert.equal(new Set(ids).size, ids.length, '目录工具名必须唯一');
+  assert.deepEqual(Object.keys(registered).sort(), ids.sort(), '目录与实际注册必须双向一致');
+
   const baziTool = registered['bazi_calculate'];
   assert.ok(baziTool);
   assert.equal(baziTool.annotations?.readOnlyHint, true);

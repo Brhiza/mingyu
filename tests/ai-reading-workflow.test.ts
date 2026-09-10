@@ -271,3 +271,28 @@ test('模型输出达到上限时返回可辨认的中断错误', async (t) => {
   assert.match(text, /AI_OUTPUT_LIMIT/);
   assert.doesNotMatch(text, /data: \[DONE\]/);
 });
+
+test('AI 宣称的每种古籍查询必须有真实非空资料表', async () => {
+  const { READING_CLASSIC_TABLES } = await import('../src/lib/ai/reading-capabilities');
+  const library: Record<string, unknown> = await import('mingyu-core/classics');
+  for (const [method, tables] of Object.entries(READING_CLASSIC_TABLES)) {
+    assert.ok(tables.length > 0, method);
+    assert.equal(
+      parseReadingPlan(JSON.stringify({ actions: [{ kind: 'classic', method, query: '条文' }] }))
+        .length,
+      1,
+    );
+    for (const table of tables) {
+      const value = library[table];
+      assert.ok(
+        value && typeof value === 'object' && Object.keys(value).length > 0,
+        `${method}/${table} 缺少实际资料`,
+      );
+    }
+  }
+  for (const method of ['tarot', 'lenormand', 'astrolabe', 'ssgw', 'name', 'zodiac']) {
+    assert.throws(() =>
+      parseReadingPlan(JSON.stringify({ actions: [{ kind: 'classic', method, query: '条文' }] })),
+    );
+  }
+});

@@ -303,16 +303,6 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/bazi/compatibility/prompt',
   },
-  {
-    id: 'bazi_timeline_prompt',
-    title: '八字岁运流年提示词',
-    category: 'bazi',
-    type: 'prompt',
-    description:
-      '聚焦特定大运、流年或流月的针对性八字运势分析提示词；支持统一主题、主题细项和分析范围选择',
-    annotations: READONLY_IDEMPOTENT,
-    endpoint: '/bazi/timeline/prompt',
-  },
 
   // 紫微斗数
   {
@@ -471,7 +461,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     endpoint: '/divination/qimen/prompt',
   },
   {
-    id: 'qimen_lifetime',
+    id: 'divine_qimen_lifetime',
     title: '奇门终身局排盘',
     category: 'qimen',
     type: 'calculate',
