@@ -56,7 +56,7 @@ export async function streamAiChat(messages: ChatMessage[], options: StreamOptio
     try {
       await streamAndroidDirectAi(messages, aiConfig, { onChunk, onDone, onError }, signal);
     } catch (error) {
-      if (isAbortError(error)) return;
+      if (isAbortError(error) || signal?.aborted) return;
       onError(error instanceof Error ? error.message : '无法从当前设备直连自定义 AI。');
     }
     return;

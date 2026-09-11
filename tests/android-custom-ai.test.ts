@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   isAndroidDirectCustomAi,
   normalizeAndroidDirectAiConfig,
+  streamAndroidDirectAi,
 } from '../src/lib/ai/android-custom-ai';
 
 test('Android 自定义 AI 应选择设备直连，内置 AI 仍走服务端', () => {
@@ -63,4 +64,65 @@ test('Android 自定义 AI 直连应拒绝不安全地址和缺失配置', () =>
       }),
     /接口、密钥和模型/,
   );
+});
+
+test('Android 直连取消后底层普通拒绝不触发失败回调', async () => {
+  let started!: () => void;
+  const streamStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let rejectStream!: (error: unknown) => void;
+  let cancelCalls = 0;
+  const plugin = {
+    addListener: async (
+      _eventName: 'streamEvent',
+      _listener: (event: {
+        requestId: string;
+        type: 'chunk' | 'done' | 'error';
+        content?: string;
+        message?: string;
+      }) => void,
+    ) => ({ remove: async () => {} }),
+    cancelStream: async (_options: { requestId: string }) => {
+      cancelCalls += 1;
+    },
+    streamChat: async (_options: {
+      requestId: string;
+      apiKey: string;
+      baseUrl: string;
+      model: string;
+      messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    }) => {
+      started();
+      await new Promise<void>((_resolve, reject) => {
+        rejectStream = reject;
+      });
+    },
+    fetchModels: async (_options: { apiKey: string; baseUrl: string }) => ({ models: [] }),
+  };
+  const controller = new AbortController();
+  const errors: string[] = [];
+  const request = streamAndroidDirectAi(
+    [{ role: 'user', content: '测试问题' }],
+    {
+      mode: 'custom',
+      apiKey: 'test-key',
+      baseUrl: 'https://api.example.com/v1',
+      model: 'test-model',
+    },
+    {
+      onChunk: () => {},
+      onDone: () => {},
+      onError: (message) => errors.push(message),
+    },
+    controller.signal,
+    plugin,
+  );
+  await streamStarted;
+  controller.abort();
+  rejectStream(new Error('请求已取消'));
+  await request;
+
+  assert.equal(cancelCalls, 1);
+  assert.deepEqual(errors, []);
 });

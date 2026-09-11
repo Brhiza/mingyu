@@ -889,7 +889,11 @@ export async function runReadingWorkflow(
   const mismatchedMethodNotice = options.subject
     ? '已跳过与当前命盘类型不符的补充资料。'
     : '已跳过与当前术式不符的补充资料。';
-  const resources = storedResources.filter((item) => !isSchemaResource(item));
+  const resources = storedResources.filter((item) => !isSchemaResource(item) && item.usable);
+  const persistResources = () => {
+    options.memory.resources = [...resources];
+    options.memory.schemas = [...schemaResources];
+  };
   const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
   const notes: string[] = [];
   let calls = 0;
@@ -973,18 +977,25 @@ export async function runReadingWorkflow(
         });
         try {
           const resource = await deps.execute(action, options.signal, options.subject);
-          guard();
           if (action.kind === 'schema') {
             schemaResources.push({ ...resource, key, kind: 'schema' });
+            persistResources();
+            guard();
             continue;
           }
           if (action.kind === 'classic' && !resource.usable) {
+            seen.delete(key);
+            guard();
             needsRefinement = true;
             notes.push(describeReadingFailure(action, new Error('未命中')));
             options.onNotice(`“${action.query}”未查到对应条文，已保留原有盘面资料。`);
+            continue;
           }
           resources.push({ ...resource, key, kind: 'evidence' });
+          persistResources();
+          guard();
         } catch (error) {
+          seen.delete(key);
           guard();
           notes.push(describeReadingFailure(action, error));
           options.onNotice('部分补充资料暂未取得，将依据已有资料继续解读。');
@@ -995,8 +1006,7 @@ export async function runReadingWorkflow(
         break;
     }
     guard();
-    options.memory.resources = resources;
-    options.memory.schemas = schemaResources;
+    persistResources();
     const finalResources = resources.filter((item) => item.usable);
     const getFinalStatusNotes = (omitted: ReadingResource[]) => {
       const capacityNote = formatCapacityNotice('本轮解读', omitted).trim();

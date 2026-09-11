@@ -89,6 +89,7 @@ export async function streamAndroidDirectAi(
   aiConfig: AiRequestConfig,
   callbacks: DirectStreamCallbacks,
   signal?: AbortSignal,
+  plugin: AndroidDirectAiPlugin = AndroidDirectAi,
 ): Promise<void> {
   const config = normalizeAndroidDirectAiConfig(aiConfig);
   const requestId = createRequestId();
@@ -109,11 +110,11 @@ export async function streamAndroidDirectAi(
   };
 
   const handleAbort = () => {
-    void AndroidDirectAi.cancelStream({ requestId }).catch(() => undefined);
+    void plugin.cancelStream({ requestId }).catch(() => undefined);
     finish();
   };
 
-  listener = await AndroidDirectAi.addListener('streamEvent', (event) => {
+  listener = await plugin.addListener('streamEvent', (event) => {
     if (settled || event.requestId !== requestId) return;
     if (event.type === 'chunk') {
       if (event.content) {
@@ -142,13 +143,23 @@ export async function streamAndroidDirectAi(
   signal?.addEventListener('abort', handleAbort, { once: true });
 
   try {
-    await AndroidDirectAi.streamChat({ requestId, ...config, messages });
+    await plugin.streamChat({ requestId, ...config, messages });
   } catch (error) {
+    if (settled || signal?.aborted || isAbortError(error)) {
+      finish();
+      return completion;
+    }
     callbacks.onError(formatNativeError(error, '无法从当前设备直连自定义 AI。'));
     finish();
   }
 
   return completion;
+}
+
+function isAbortError(error: unknown): boolean {
+  return Boolean(
+    error && typeof error === 'object' && 'name' in error && error.name === 'AbortError',
+  );
 }
 
 export async function fetchAndroidDirectAiModels(aiConfig: AiRequestConfig): Promise<string[]> {

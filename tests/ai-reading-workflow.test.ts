@@ -363,6 +363,149 @@ test('查询失败保留盘面且明确说明', async () => {
   assert.equal(h.done(), 1);
 });
 
+test('补算成功后后续资料准备失败仍保留已取得资料', async () => {
+  const memory: ReadingMemory = { resources: [] };
+  const errors: string[] = [];
+  const executed: string[] = [];
+  let planningCalls = 0;
+  const options: ReadingOptions = {
+    memory,
+    subject: baziSubject,
+    onProgress: () => {},
+    onNotice: () => {},
+    onError: (message) => errors.push(message),
+    onChunk: () => {},
+    onDone: () => {},
+  };
+  const stream: ReadingDependencies['stream'] = async (_messages, callbacks) => {
+    planningCalls += 1;
+    if (planningCalls === 1) {
+      callbacks.onChunk(
+        JSON.stringify({
+          actions: [
+            { kind: 'schema', method: 'bazi' },
+            { kind: 'calculate', method: 'bazi', input: { year: 1990 } },
+          ],
+        }),
+      );
+      callbacks.onDone();
+      return;
+    }
+    callbacks.onError('后续准备失败');
+  };
+  await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], options, {
+    stream,
+    execute: async (action) => {
+      executed.push(action.kind);
+      return action.kind === 'schema'
+        ? { key: '', title: '八字参数', text: '参数格式', usable: false }
+        : { key: '', title: '目标流年', text: '补算事实', usable: true };
+    },
+  });
+
+  assert.deepEqual(executed, ['schema', 'calculate']);
+  assert.equal(memory.resources[0]?.text, '补算事实');
+  assert.equal(memory.schemas?.[0]?.text, '参数格式');
+  assert.deepEqual(errors, ['后续准备失败']);
+});
+
+test('补算返回后立即取消仍保留成功资料', async () => {
+  const controller = new AbortController();
+  const schema: ReadingResource = {
+    key: JSON.stringify({ kind: 'schema', method: 'bazi' }),
+    title: '八字参数',
+    text: '参数格式',
+    usable: false,
+    kind: 'schema',
+  };
+  const memory: ReadingMemory = { resources: [], schemas: [schema] };
+  const errors: string[] = [];
+  const options: ReadingOptions = {
+    memory,
+    subject: baziSubject,
+    signal: controller.signal,
+    onProgress: () => {},
+    onNotice: () => {},
+    onError: (message) => errors.push(message),
+    onChunk: () => {},
+    onDone: () => {},
+  };
+  const stream: ReadingDependencies['stream'] = async (_messages, callbacks) => {
+    callbacks.onChunk(
+      JSON.stringify({
+        actions: [{ kind: 'calculate', method: 'bazi', input: { year: 1990 } }],
+      }),
+    );
+    callbacks.onDone();
+  };
+  await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], options, {
+    stream,
+    execute: async () => {
+      controller.abort();
+      return { key: '', title: '目标流年', text: '取消前已取得', usable: true };
+    },
+  });
+
+  assert.equal(memory.resources[0]?.text, '取消前已取得');
+  assert.deepEqual(errors, []);
+});
+
+test('未命中的古籍查询不会占用已见键并可在下一轮重试', async () => {
+  const h = harness([
+    '{"actions":[{"kind":"schema","method":"bazi"},{"kind":"classic","method":"bazi","query":"不存在的条文"}]}',
+    '{"actions":[{"kind":"classic","method":"bazi","query":"不存在的条文"}]}',
+    '重试后的解读',
+  ]);
+  h.options.memory.resources = [
+    {
+      key: JSON.stringify({ kind: 'classic', method: 'bazi', query: '不存在的条文' }),
+      title: '历史未命中条文',
+      text: '',
+      usable: false,
+    },
+  ];
+  let attempts = 0;
+  await runReadingWorkflow([{ role: 'user', content: '八字原始资料' }], h.options, {
+    stream: h.stream,
+    execute: async (action) => {
+      if (action.kind === 'schema')
+        return { key: '', title: '八字参数', text: '参数格式', usable: false };
+      attempts += 1;
+      return attempts === 1
+        ? { key: '', title: '未命中条文', text: '', usable: false }
+        : { key: '', title: '补充条文', text: '甲木参天', usable: true };
+    },
+  });
+
+  assert.equal(attempts, 2);
+  assert.equal(h.options.memory.resources.length, 1);
+  assert.equal(h.options.memory.resources[0]?.text, '甲木参天');
+  assert.deepEqual(h.chunks, ['重试后的解读']);
+});
+
+test('失败的古籍查询不会占用已见键并可在下一轮重试', async () => {
+  const h = harness([
+    '{"actions":[{"kind":"schema","method":"bazi"},{"kind":"classic","method":"bazi","query":"甲木"}]}',
+    '{"actions":[{"kind":"classic","method":"bazi","query":"甲木"}]}',
+    '失败后重试的解读',
+  ]);
+  let attempts = 0;
+  await runReadingWorkflow([{ role: 'user', content: '八字原始资料' }], h.options, {
+    stream: h.stream,
+    execute: async (action) => {
+      if (action.kind === 'schema')
+        return { key: '', title: '八字参数', text: '参数格式', usable: false };
+      attempts += 1;
+      if (attempts === 1) throw new Error('条文服务暂时失败');
+      return { key: '', title: '补充条文', text: '甲木参天', usable: true };
+    },
+  });
+
+  assert.equal(attempts, 2);
+  assert.equal(h.options.memory.resources[0]?.text, '甲木参天');
+  assert.deepEqual(h.chunks, ['失败后重试的解读']);
+});
+
 test('取消准备后不执行补查或最终解读，也不写入其他会话资料', async () => {
   const h = harness([]),
     controller = new AbortController();
