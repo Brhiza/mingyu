@@ -10,6 +10,9 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
     facts.push(
       `主卦爻象：上卦${data.mainHexagram.upper}、下卦${data.mainHexagram.lower}；自下而上为${lines.map((line) => `第${line.position}爻${line.yaoType}`).join('、')}`,
     );
+    facts.push(
+      `逐爻体用：${lines.map((line) => `第${line.position}爻${line.yaoType}属${line.tiYong}${line.isChanging ? '（动爻）' : ''}`).join('、')}`,
+    );
     if (data.interHexagram) {
       facts.push(
         `互卦取爻：主卦第2至4爻${lines

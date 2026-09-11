@@ -55,7 +55,7 @@ export function registerLiuyaoTool(server: McpServer) {
     'divine_liuyao',
     {
       description:
-        '六爻起卦：基于当前时间或自定义时间生成六爻卦象，包含纳甲、六亲、六神、世应、动变、空亡等完整信息',
+        '六爻起卦：基于当前时间或自定义时间生成六爻卦象，包含纳甲、六亲、六神、世应、动变、空亡、逐爻月日旺衰与生旺墓绝、合冲刑害及反吟伏吟；detailMode=full 时保留完整计算资料',
       inputSchema: { ...liuyaoSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },

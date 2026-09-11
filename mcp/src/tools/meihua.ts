@@ -112,7 +112,7 @@ export function registerMeihuaTool(server: McpServer) {
     'divine_meihua',
     {
       description:
-        '梅花易数起卦：支持时间、数字、声音、字数、方位取象和随机起卦，timeTrigram 作为兼容旧参数按时间起卦计算，生成主卦、互卦、变卦/体用生克分析及应期判断',
+        '梅花易数起卦：支持时间、数字、声音、字数、方位取象和随机起卦，timeTrigram 作为兼容旧参数按时间起卦计算，生成主卦、互卦、变卦、逐爻体用、月令旺衰与实际应期条件',
       inputSchema: { ...meihuaSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },

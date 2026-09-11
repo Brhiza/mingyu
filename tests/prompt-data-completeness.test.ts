@@ -43,6 +43,30 @@ test('六爻全动卦保留全部动爻应期线索', () => {
   for (let position = 1; position <= 6; position += 1) assert.ok(text.includes(`第${position}爻`));
 });
 
+test('六爻提示词逐爻保留原爻、月日旺衰、十二长生与反伏吟详情', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    yaos: [9, 7, 7, 9, 7, 7],
+  });
+  assert.equal(data.originalName, '乾为天');
+  assert.equal(data.changedName, '巽为风');
+  assert.equal(data.yaosDetail.length, 6);
+  const text = formatDivinationInfo('liuyao', data);
+  const rawLabels: Record<number, string> = { 6: '老阴', 7: '少阳', 8: '少阴', 9: '老阳' };
+
+  for (const yao of data.yaosDetail) {
+    assert.match(
+      text,
+      new RegExp(`第${yao.position}爻[^\\n]*原爻${yao.yaoType}（${rawLabels[yao.rawValue]}）`),
+    );
+    assert.match(text, new RegExp(`月令${yao.seasonState}`));
+    if (yao.dayLifeStage) assert.match(text, new RegExp(`日辰十二长生${yao.dayLifeStage}`));
+  }
+
+  const fanfu = data.fanfuRelations?.fanyin[0] ?? data.fanfuRelations?.fuyin[0];
+  assert.ok(fanfu, '固定卦例应生成反吟或伏吟结构');
+  assert.match(text, new RegExp(fanfu.description));
+});
+
 test('梅花完整保留本互变的卦辞与六爻辞', () => {
   const data = generateMeihua(date, { method: 'number', number: 123 });
   const text = buildDivinationPrompt('meihua', '整体解读', data);
@@ -51,6 +75,34 @@ test('梅花完整保留本互变的卦辞与六爻辞', () => {
     assert.ok(text.includes(gua.description));
     for (const line of gua.yaoCi ?? []) assert.ok(text.includes(line), line);
   }
+  assert.match(text, /逐爻体用：/);
+  assert.ok(data.analysis.yingQi?.length, '固定梅花卦例应提供实际应期条件');
+  for (const yao of data.yaosDetail) {
+    assert.match(text, new RegExp(`第${yao.position}爻${yao.yaoType}属${yao.tiYong}`));
+  }
+  for (const condition of data.analysis.yingQi ?? []) {
+    const promptCondition = condition.replace(
+      '，只作取数来源旁证，不换算绝对日期',
+      '；取数来源旁证',
+    );
+    assert.ok(text.includes(promptCondition), condition);
+  }
+  assert.doesNotMatch(text, /只作取数来源旁证，不换算绝对日期/);
+  const mainDescription = `${data.mainHexagram.name}，${data.mainHexagram.description}`;
+  assert.equal(text.split(mainDescription).length - 1, 1);
+  const movingText = data.mainHexagram.yaoCi?.[data.movingYao.position - 1];
+  if (movingText) assert.equal(text.split(movingText).length - 1, 1);
+});
+
+test('梅花单动乾卦不把用九当作当前卦辞', () => {
+  const qian = generateMeihua(new Date('2025-01-01T14:00:00+08:00'), {
+    method: 'number',
+    number: 1,
+  });
+  assert.equal(qian.mainHexagram.name, '乾为天');
+  assert.equal(qian.mainHexagram.yongCi, '见群龙无首，吉');
+  const text = formatDivinationInfo('meihua', qian);
+  assert.doesNotMatch(text, /见群龙无首，吉/);
 });
 
 test('灵签解释保留完整段落及有效补充并合并同文', () => {

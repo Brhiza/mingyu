@@ -21,7 +21,16 @@ import type {
 } from '../types/divination';
 import { analyzeQimenEvidence } from '../divination/algorithms/qimen';
 import { analyzeAlmanacEvidence, formatAlmanacGods } from '../divination/algorithms/almanac';
-import { LIUCHONG_MAP, LIUHE_MAP, SIXTY_CYCLE, BRANCH_WUXING, isSheng, isKe } from '../ganzhi';
+import {
+  LIUCHONG_MAP,
+  LIUHE_MAP,
+  SIXTY_CYCLE,
+  BRANCH_WUXING,
+  isSheng,
+  isKe,
+  isLiuhai,
+  isSanxing,
+} from '../ganzhi';
 import {
   formatTianPanStars,
   formatTianPanStems,
@@ -112,6 +121,93 @@ function formatLiuyaoYaoBrief(item: LiuyaoData['yaosDetail'][number]) {
   return `第${item.position}爻${item.sixRelative}${item.najiaDizhi}${item.wuxing}`;
 }
 
+function formatLiuyaoRawYao(item: LiuyaoData['yaosDetail'][number]) {
+  const rawLabel: Record<number, string> = {
+    6: '老阴',
+    7: '少阳',
+    8: '少阴',
+    9: '老阳',
+  };
+  return rawLabel[item.rawValue] || item.changeType || item.yaoType;
+}
+
+function formatLiuyaoTriggerRelations(
+  item: LiuyaoData['yaosDetail'][number],
+  triggerLabel: string,
+  triggerBranch: string,
+) {
+  if (!triggerBranch) return [];
+  return [
+    item.najiaDizhi === triggerBranch ? `值${triggerLabel}${triggerBranch}` : '',
+    LIUHE_MAP[item.najiaDizhi] === triggerBranch ? `合${triggerLabel}${triggerBranch}` : '',
+    LIUCHONG_MAP[item.najiaDizhi] === triggerBranch ? `冲${triggerLabel}${triggerBranch}` : '',
+    isLiuhai(item.najiaDizhi, triggerBranch) ? `害${triggerLabel}${triggerBranch}` : '',
+    isSanxing(item.najiaDizhi, triggerBranch)
+      ? `刑${triggerLabel}${triggerBranch}${item.sanxingType ? `（${item.sanxingType}）` : ''}`
+      : '',
+  ].filter(Boolean);
+}
+
+function formatLiuyaoLifeStages(item: LiuyaoData['yaosDetail'][number]) {
+  return [
+    item.dayLifeStage ? `日辰十二长生${item.dayLifeStage}` : '',
+    item.shiErGong ? `本爻十二长生${item.shiErGong}` : '',
+    item.movingLifeStages?.length
+      ? `明动十二长生${item.movingLifeStages.map((stage) => `第${stage.position}爻${stage.branch}${stage.stage}`).join('、')}`
+      : '',
+    item.changedLifeStage ? `变爻十二长生${item.changedLifeStage}` : '',
+    item.isRiMu ? '入日墓' : '',
+    item.isDongMu ? '入动墓' : '',
+    item.isHuaMu ? '动而化墓' : '',
+    item.isRuMu && !item.isRiMu && !item.isDongMu && !item.isHuaMu ? '入墓' : '',
+  ].filter(Boolean);
+}
+
+function formatLiuyaoLineFacts(item: LiuyaoData['yaosDetail'][number], data: LiuyaoData) {
+  const monthBranch = getGanzhiBranch(data.ganzhi.month);
+  const dayBranch = getGanzhiBranch(data.ganzhi.day);
+  const triggerRelations = [
+    ...formatLiuyaoTriggerRelations(item, '月建', monthBranch),
+    ...formatLiuyaoTriggerRelations(item, '日辰', dayBranch),
+  ];
+  const activity = [
+    item.isWorld ? '世' : '',
+    item.isResponse ? '应' : '',
+    item.isChanging ? '动' : '',
+    item.isVoid ? '旬空' : '',
+    item.isMonthBreak ? '月破' : '',
+    item.isHiddenMove ? '日冲暗动' : '',
+    item.isDayBreak ? '日冲成破' : '',
+    item.isChanging && item.isDayClash ? '日辰冲动' : '',
+  ].filter(Boolean);
+  const lifeStages = formatLiuyaoLifeStages(item);
+  const changed = item.changedYao
+    ? `化${item.changedYao.liuqin}${item.changedYao.dizhi}${item.changedYao.wuxing}${item.changeRelations?.length ? `（${[...new Set(item.changeRelations)].join('、')}）` : item.changeDirection ? `（${item.changeDirection}）` : ''}`
+    : '';
+  return [
+    `原爻${item.yaoType}（${formatLiuyaoRawYao(item)}）`,
+    item.seasonState ? `月令${item.seasonState}` : '',
+    ...lifeStages,
+    ...triggerRelations,
+    ...activity,
+    changed,
+  ]
+    .filter(Boolean)
+    .join('，');
+}
+
+function formatLiuyaoSpecialAdvice(data: LiuyaoData) {
+  if (!data.specialPattern) return '';
+  const normalized: Partial<Record<NonNullable<LiuyaoData['specialPattern']>, string>> = {
+    静卦: '六爻安静；以本卦卦意、世应和用神为主',
+    独静卦: '五爻发动、一爻独静；以独静爻为关键并参看变卦趋势',
+    全动卦: '六爻全动；整体参看本卦与变卦气势，并以用神旺衰为主',
+    乾卦用九: '乾卦六爻皆动；用九“见群龙无首，吉”为主并参看变卦总势',
+    坤卦用六: '坤卦六爻皆动；用六“利永贞”为主并参看变卦总势',
+  };
+  return normalized[data.specialPattern] || data.specialAdvice || '';
+}
+
 function formatHiddenSpirit(item: NonNullable<LiuyaoData['hiddenSpirits']>[number]) {
   const effectText = item.interactionEffect ? `（${item.interactionEffect}）` : '';
   return `${item.sixRelative}伏第${item.position}爻${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaDizhi}${item.underYao.wuxing}下${effectText}`;
@@ -193,11 +289,14 @@ function formatLiuyaoHexagramRelation(data: LiuyaoData) {
 
 function formatLiuyaoFanFuRelation(data: LiuyaoData) {
   const relations = data.fanfuRelations;
-  if (!relations?.labels?.length) {
+  if (!relations) {
     return '';
   }
 
-  return relations.labels.join('；');
+  const details = [...(relations.fanyin ?? []), ...(relations.fuyin ?? [])].map(
+    (item) => `${item.label}（${item.kind}，${item.scope}）：${item.description}`,
+  );
+  return details.length ? [...new Set(details)].join('；') : relations.labels.join('；');
 }
 
 function getGanzhiBranch(value?: string) {
@@ -388,10 +487,10 @@ function formatLiuyaoInfo(
   return [
     '占法：六爻',
     ...(data.generation?.method === 'yarrow' ? evidenceAnalysis.generationFacts : []),
-    `核心结构：主卦${data.originalName}${data.palace?.name ? `（${data.palace.name}宫）` : ''}；变卦${data.changedName || '无'}；互卦${data.interName || '无'}${data.specialPattern ? `；卦式${data.specialPattern}` : ''}`,
+    `核心结构：主卦${data.originalName}${data.palace?.name ? `（${data.palace.name}宫）` : ''}；变卦${data.changedName || '无'}；互卦${data.interName || '无'}${data.specialPattern ? `；卦式${data.specialPattern}${formatLiuyaoSpecialAdvice(data) ? `：${formatLiuyaoSpecialAdvice(data)}` : ''}` : ''}`,
     data.palaceStage ? `八宫卦位：${data.palaceStage}` : '',
     data.guaShen?.branch
-      ? `卦身：在【${data.guaShen.branch}】，居第${data.guaShen.position}爻`
+      ? `卦身：在【${data.guaShen.branch}】，居第${data.guaShen.position}爻${data.guaShen.sixRelative ? `，六亲${data.guaShen.sixRelative}` : ''}`
       : '',
     hexagramRelationText ? `整卦关系：${hexagramRelationText}` : '',
     fanfuRelationText ? `反伏关系：${fanfuRelationText}` : '',
@@ -412,21 +511,8 @@ function formatLiuyaoInfo(
           '六爻全表：',
           ...data.yaosDetail.map((item) => {
             const god = data.sixGods?.[item.position - 1] || '';
-            const flags = [
-              item.isWorld ? '世' : '',
-              item.isResponse ? '应' : '',
-              item.isChanging ? '动' : '',
-              item.isVoid ? '空' : '',
-              item.isMonthBreak ? '月破' : '',
-              item.isHiddenMove ? '暗动' : '',
-              item.isDayBreak ? '日破' : '',
-            ]
-              .filter(Boolean)
-              .join('、');
-            const changed = item.changedYao
-              ? `变${item.changedYao.liuqin}${item.changedYao.dizhi}${item.changeDirection ? `（${item.changeDirection}）` : ''}`
-              : '';
-            return `  ${formatLiuyaoYaoBrief(item)}${god ? `，六神${god}` : ''}${flags ? `，${flags}` : ''}${changed ? `，${changed}` : ''}`;
+            const lineFacts = formatLiuyaoLineFacts(item, data);
+            return `  ${formatLiuyaoYaoBrief(item)}${god ? `，六神${god}` : ''}${lineFacts ? `，${lineFacts}` : ''}`;
           }),
         ].join('\n')
       : '',
@@ -438,6 +524,103 @@ function formatLiuyaoInfo(
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+type MeihuaClassicalEntry = {
+  kind: '卦辞' | '爻辞' | '用辞';
+  text: string;
+  references: Array<{
+    stage: '主卦' | '互卦' | '变卦';
+    hexagram: string;
+    position?: number;
+    isMoving?: boolean;
+  }>;
+};
+
+function formatMeihuaClassicalText(data: MeihuaData) {
+  const entries = new Map<string, MeihuaClassicalEntry>();
+  const add = (
+    kind: MeihuaClassicalEntry['kind'],
+    text: string | undefined,
+    reference: MeihuaClassicalEntry['references'][number],
+  ) => {
+    if (!text?.trim()) return;
+    const key = `${kind}:${text}`;
+    const entry = entries.get(key);
+    if (entry) {
+      entry.references.push(reference);
+      return;
+    }
+    entries.set(key, { kind, text, references: [reference] });
+  };
+  const stages = [
+    ['主卦', data.mainHexagram],
+    ['互卦', data.interHexagram],
+    ['变卦', data.changedHexagram],
+  ] as const;
+  for (const [stage, hexagram] of stages) {
+    if (!hexagram) continue;
+    add('卦辞', hexagram.description, { stage, hexagram: hexagram.name });
+    (hexagram.yaoCi ?? []).forEach((text, index) =>
+      add('爻辞', text, {
+        stage,
+        hexagram: hexagram.name,
+        position: index + 1,
+        isMoving: stage === '主卦' && index + 1 === data.movingYao.position,
+      }),
+    );
+    if (stage === '主卦' && !(hexagram.yaoCi ?? []).length) {
+      add('爻辞', hexagram.movingYaoCi, {
+        stage,
+        hexagram: hexagram.name,
+        position: data.movingYao.position,
+        isMoving: true,
+      });
+    }
+  }
+
+  const allChanging =
+    data.yaosDetail.length === 6 && data.yaosDetail.every((item) => item.isChanging);
+  const usesSpecialYongCi =
+    allChanging &&
+    (data.mainHexagram.name === '乾为天' || data.mainHexagram.name === '坤为地') &&
+    data.mainHexagram.yongCi;
+  if (usesSpecialYongCi) {
+    add('用辞', data.mainHexagram.yongCi, {
+      stage: '主卦',
+      hexagram: data.mainHexagram.name,
+      isMoving: true,
+    });
+  }
+
+  return [...entries.values()].map((entry) => {
+    const first = entry.references[0];
+    if (entry.kind === '卦辞') {
+      const stageNames = [...new Set(entry.references.map((item) => item.stage))].join('、');
+      const names = [...new Set(entry.references.map((item) => item.hexagram))].join('、');
+      return `${stageNames}卦辞：${names}，${entry.text}`;
+    }
+    if (entry.kind === '用辞') {
+      const firstReference = entry.references[0];
+      return `特殊用辞：${firstReference.hexagram}六爻皆动，${entry.text}`;
+    }
+    const moving = entry.references.some((item) => item.isMoving);
+    const referenceText =
+      first.position !== undefined
+        ? first.stage === '主卦' && first.isMoving
+          ? `第${first.position}爻`
+          : `${first.stage}${first.hexagram}第${first.position}爻`
+        : `${first.stage}${first.hexagram}特殊用辞`;
+    const label = moving ? '动爻爻辞' : '背景爻辞';
+    const additionalReferences = entry.references
+      .slice(1)
+      .map((item) =>
+        item.position === undefined
+          ? `${item.stage}${item.hexagram}特殊用辞`
+          : `${item.stage}${item.hexagram}第${item.position}爻`,
+      );
+    return `${label}：${referenceText}${additionalReferences.length ? `（同文：${additionalReferences.join('、')}）` : ''}，${entry.text}`;
+  });
 }
 
 function formatMeihuaInfo(data: MeihuaData) {
@@ -453,16 +636,12 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.changedTiGua && data.changedYongGua
       ? `；变后体卦${data.changedTiGua.name}（${data.changedTiGua.element}）；变后用卦${data.changedYongGua.name}（${data.changedYongGua.element}）；变后体用${data.analysis.changedTiYongRelation}`
       : '';
-  const hexagrams = new Map(
-    [data.mainHexagram, data.interHexagram, data.changedHexagram]
-      .filter((item) => item != null)
-      .map((item) => [item.name, item]),
-  );
-  const classicalLines = [...hexagrams.values()].map(
-    (item) =>
-      `${item.name}：${item.description}${item.yaoCi?.length ? `；六爻辞 ${item.yaoCi.join('；')}` : ''}${item.yongCi ? `；${item.yongCi}` : ''}`,
-  );
+  const classicalLines = formatMeihuaClassicalText(data);
   const timingEvidence = createMeihuaTimingEvidence(data);
+  const yingQiConditions = (data.analysis.yingQi ?? []).map((condition) =>
+    condition.replace('，只作取数来源旁证，不换算绝对日期', '；取数来源旁证'),
+  );
+  const yingQiText = yingQiConditions.length ? `应期条件：${yingQiConditions.join('；')}` : '';
   const seasonBasis =
     data.analysis.monthBranch && data.analysis.monthElement
       ? `${data.analysis.monthBranch}月（${data.analysis.monthElement}令）`
@@ -480,14 +659,11 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.analysis.tiYongSeasonEvaluation
       ? `体用吉凶实效：${data.analysis.tiYongSeasonEvaluation}`
       : '',
-    data.analysis.timelineTrend?.summary ? `阶段关系：${data.analysis.timelineTrend.summary}` : '',
+    data.analysis.timelineTrend
+      ? `阶段关系：${data.analysis.timelineTrend.summary}${data.analysis.timelineTrend.trend ? `；阶段趋势${data.analysis.timelineTrend.trend}` : ''}`
+      : '',
     timingEvidence ? `应期线索：${timingEvidence}` : '',
-    data.mainHexagram?.description
-      ? `主卦卦辞：${data.mainHexagram.name}，${data.mainHexagram.description}`
-      : '',
-    data.movingYao?.position && data.mainHexagram?.yaoCi?.[data.movingYao.position - 1]
-      ? `动爻爻辞：第${data.movingYao.position}爻，${data.mainHexagram.yaoCi[data.movingYao.position - 1]}`
-      : '',
+    yingQiText,
   ]
     .filter(Boolean)
     .join('\n');
