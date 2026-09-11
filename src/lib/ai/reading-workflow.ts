@@ -546,7 +546,7 @@ function qimenPhaseFits(
 function assertQimenPhaseCoverage(phases: readonly QimenPhase[], result: QimenLifetimeData) {
   const clusters = result.eventClusters ?? [];
   const expectedClusterKeys = clusters.map((cluster, index) => `${index}:${cluster.key}`).sort();
-  const actualClusterKeys = phases.flatMap((phase) => phase.clusterKeys).sort();
+  const actualClusterKeys = [...new Set(phases.flatMap((phase) => phase.clusterKeys))].sort();
   if (JSON.stringify(actualClusterKeys) !== JSON.stringify(expectedClusterKeys)) {
     throw new Error('奇门终身局阶段资料未完整覆盖全部事件簇。');
   }
