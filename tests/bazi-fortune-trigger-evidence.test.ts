@@ -94,6 +94,36 @@ test('岁运触发证据应逐层保留原局、大运和流年关系来源', ()
   assert.match(result.promptText, /岁运层级与应期边界/);
 });
 
+test('岁运关系应区分同柱伏吟、天干同干和地支同支', () => {
+  const samePillar = analyzeFortuneTriggers(createResult(), [
+    { id: 'year', type: 'year', label: '甲子流年', ganZhi: '甲子' },
+  ]);
+  assert.ok(samePillar.relations.some((item) => item.type === 'pillar-fuyin'));
+  assert.doesNotMatch(
+    samePillar.relations.map((item) => item.label).join('；'),
+    /天干同干|地支同支/,
+  );
+
+  const sameStem = analyzeFortuneTriggers(createResult(), [
+    { id: 'year', type: 'year', label: '甲辰流年', ganZhi: '甲辰' },
+  ]);
+  const sameStemRelation = sameStem.relations.find(
+    (item) => item.type === 'stem-same' && item.target.id === 'natal-year',
+  );
+  assert.ok(sameStemRelation);
+  assert.match(sameStemRelation.label, /天干同干/);
+
+  const sameBranch = analyzeFortuneTriggers(createResult(), [
+    { id: 'year', type: 'year', label: '乙子流年', ganZhi: '乙子' },
+  ]);
+  const sameBranchRelation = sameBranch.relations.find(
+    (item) => item.type === 'branch-same' && item.target.id === 'natal-year',
+  );
+  assert.ok(sameBranchRelation);
+  assert.match(sameBranchRelation.label, /地支同支/);
+  assert.doesNotMatch(sameBranchRelation.label, /伏吟/);
+});
+
 test('岁运触发证据应识别天克地冲但不直接给出吉凶', () => {
   const result = analyzeFortuneTriggers(createResult(), [
     { id: 'year', type: 'year', label: '庚午流年', ganZhi: '庚午' },

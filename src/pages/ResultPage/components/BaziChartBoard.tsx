@@ -654,6 +654,8 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   const pillarRelationGroups = [
     { label: '伏吟', items: result.pillarRelations.fuxin },
     { label: '反吟', items: result.pillarRelations.fanyin },
+    { label: '同干', items: result.pillarRelations.sameStem },
+    { label: '同支', items: result.pillarRelations.sameBranch },
     { label: '刑冲合会', items: result.pillarRelations.xingChong },
   ].filter((item) => item.items.length > 0);
   const dayOwnerLabel = isInstant
@@ -1195,7 +1197,8 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <div>
               <span className="traditional-classic-badge">滴天髓</span>
               <strong>
-                {dayMasterGan}木{ditiansuiAdvice.wuxing} · 十干体象与性情
+                {dayMasterGan}
+                {ditiansuiAdvice.wuxing} · 十干体象与性情
               </strong>
             </div>
             <span className="traditional-classic-toggle">

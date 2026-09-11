@@ -776,6 +776,9 @@ test('八字提示词保留原局同支关系且不重复展开段落', () => {
 
   assert.match(withPrompt.user, /年柱与日柱地支同为卯/);
   assert.match(withPrompt.user, /月柱与时柱地支同为子/);
+  assert.equal(withFuxin.pillarRelations.fuxin.length, 0);
+  assert.ok(withFuxin.pillarRelations.sameBranch.length >= 2);
+  assert.doesNotMatch(withPrompt.user, /【伏吟反吟】/);
 
   const withoutFuxin = baziCalculator.calculateBazi({
     year: 1988,

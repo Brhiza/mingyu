@@ -401,7 +401,7 @@ export class BaziCalculator {
       timeInfo: finalTimeInfo,
       pillars,
       isThreePillars,
-      pillarRelations: { fuxin: [], fanyin: [], xingChong: [] },
+      pillarRelations: { fuxin: [], fanyin: [], sameStem: [], sameBranch: [], xingChong: [] },
       warnings: isThreePillars
         ? [
             ...warnings,

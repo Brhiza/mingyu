@@ -125,12 +125,15 @@ function buildGanZhiTriggerSummary(
 
     const isStemClash = BASIC_MAPPINGS.TIAN_GAN_CHONG[parts.gan] === pillar.gan;
     const isBranchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === pillar.zhi;
+    const isSamePillar = parts.gan === pillar.gan && parts.zhi === pillar.zhi;
 
     if (isStemClash && isBranchClash) {
       majorEvents.push(`与${pillarLabel}天克地冲`);
+    } else if (isSamePillar) {
+      triggers.push(`干支${parts.gan}${parts.zhi}与${pillarLabel}${pillar.ganZhi}同柱伏吟`);
     } else {
       if (parts.gan === pillar.gan) {
-        triggers.push(`天干${parts.gan}与${pillarLabel}${pillar.gan}伏吟`);
+        triggers.push(`天干${parts.gan}与${pillarLabel}${pillar.gan}同干`);
       }
       if (BASIC_MAPPINGS.TIAN_GAN_WU_HE[parts.gan] === pillar.gan) {
         triggers.push(`天干${parts.gan}合${pillarLabel}${pillar.gan}`);
@@ -140,7 +143,7 @@ function buildGanZhiTriggerSummary(
       }
 
       if (parts.zhi === pillar.zhi) {
-        triggers.push(`地支${parts.zhi}与${pillarLabel}${pillar.zhi}伏吟`);
+        triggers.push(`地支${parts.zhi}与${pillarLabel}${pillar.zhi}同支`);
       }
       if (BASIC_MAPPINGS.DI_ZHI_LIU_HE[parts.zhi] === pillar.zhi) {
         triggers.push(`地支${parts.zhi}合${pillarLabel}${pillar.zhi}`);

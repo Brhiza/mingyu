@@ -395,7 +395,7 @@ export interface BaziChartResult {
   pillars: Pillars;
   /** 是否为时辰未知的“前三柱降级”模式 */
   isThreePillars?: boolean;
-  /** 四柱之间可直接复核的伏吟、反吟、合冲刑害破、三合三会关系 */
+  /** 四柱之间可直接复核的同柱伏吟、同干、同支、反吟、合冲刑害破、三合三会关系 */
 
   pillarRelations: import('./baziPromptEnhancement').BaziPillarRelations;
   /** 日主（出生日的天干，代表命主自身） */

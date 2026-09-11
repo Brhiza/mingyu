@@ -107,6 +107,11 @@ test('八字《穷通宝鉴》月令调候喜忌查询正确', () => {
   assert.ok(gengShen);
   assert.deepEqual(gengShen.primaryGods, ['丁', '甲']);
   assert.ok(gengShen.classicVerse.includes('七月庚金'));
+
+  const renWu = getBaziQiongtongAdvice('壬', '午');
+  assert.ok(renWu);
+  assert.deepEqual(renWu.primaryGods, ['庚', '辛', '癸']);
+  assert.ok(renWu.classicVerse.includes('五月壬水'));
 });
 
 test('六爻《卜筮正宗》六亲持世歌诀查询正确', () => {

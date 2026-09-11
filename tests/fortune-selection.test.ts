@@ -156,7 +156,7 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.match(context.promptPayload.summaryLines.join('\n'), /天干甲合月柱己/);
   assert.match(context.promptPayload.summaryLines.join('\n'), /地支子冲年柱午/);
   assert.match(context.promptPayload.summaryLines.join('\n'), /地支子合月柱丑/);
-  assert.match(context.promptPayload.summaryLines.join('\n'), /地支子与日柱子伏吟/);
+  assert.match(context.promptPayload.summaryLines.join('\n'), /地支子与日柱子同支/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】指定年限运限/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】大运干支与十神/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【应期】应期边界/);
@@ -172,6 +172,40 @@ test('选择大运时会附带该大运下的全部流年', () => {
     ),
   );
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【八字岁运触发结构化证据】/);
+});
+
+test('2030庚戌流年应分别标出干冲、年柱同支与月柱同干', () => {
+  const result = createMockResult();
+  result.pillars.year = { gan: '甲', zhi: '戌', ganZhi: '甲戌' };
+  result.pillars.month = { gan: '庚', zhi: '午', ganZhi: '庚午' };
+  result.luckInfo.cycles[0] = {
+    ...result.luckInfo.cycles[0],
+    year: 2030,
+    ganZhi: '庚戌',
+    years: [
+      {
+        year: 2030,
+        age: 36,
+        ganZhi: '庚戌',
+        tenGod: '',
+        tenGodZhi: '',
+      },
+    ],
+  };
+
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'year',
+    cycleIndex: 0,
+    year: 2030,
+  });
+
+  assert.ok(context);
+  const summary = context.promptPayload.summaryLines.join('\n');
+  assert.match(summary, /天干庚冲年柱甲/);
+  assert.match(summary, /地支戌与年柱戌同支/);
+  assert.match(summary, /天干庚与月柱庚同干/);
+  assert.doesNotMatch(summary, /地支戌与年柱戌伏吟/);
+  assert.doesNotMatch(summary, /天干庚与月柱庚伏吟/);
 });
 
 test('选择流年时会附带该流年下的全部流月', () => {

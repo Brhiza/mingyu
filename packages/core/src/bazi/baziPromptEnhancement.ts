@@ -59,6 +59,8 @@ function getKongWangEvidence(chartResult: BaziChartResult): string[] {
 export interface BaziPillarRelations {
   fuxin: string[];
   fanyin: string[];
+  sameStem: string[];
+  sameBranch: string[];
   xingChong: string[];
 }
 
@@ -67,11 +69,13 @@ export function analyzePillarRelations(
 ): BaziPillarRelations {
   const fuxin = new Set<string>();
   const fanyin = new Set<string>();
+  const sameStem = new Set<string>();
+  const sameBranch = new Set<string>();
   const xingChong = new Set<string>();
   const { pillars } = chartResult;
 
   if (!pillars) {
-    return { fuxin: [], fanyin: [], xingChong: [] };
+    return { fuxin: [], fanyin: [], sameStem: [], sameBranch: [], xingChong: [] };
   }
 
   for (let i = 0; i < PILLAR_KEYS.length; i += 1) {
@@ -87,10 +91,10 @@ export function analyzePillarRelations(
         fuxin.add(`${leftLabel}与${rightLabel}干支同为${left.ganZhi}`);
       } else {
         if (left.gan === right.gan) {
-          fuxin.add(`${leftLabel}与${rightLabel}天干同为${left.gan}`);
+          sameStem.add(`${leftLabel}与${rightLabel}天干同为${left.gan}`);
         }
         if (left.zhi === right.zhi) {
-          fuxin.add(`${leftLabel}与${rightLabel}地支同为${left.zhi}`);
+          sameBranch.add(`${leftLabel}与${rightLabel}地支同为${left.zhi}`);
         }
       }
 
@@ -140,6 +144,8 @@ export function analyzePillarRelations(
   return {
     fuxin: Array.from(fuxin),
     fanyin: Array.from(fanyin),
+    sameStem: Array.from(sameStem),
+    sameBranch: Array.from(sameBranch),
     xingChong: Array.from(xingChong),
   };
 }

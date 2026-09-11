@@ -37,6 +37,24 @@ test('日干月令专用调候规则应优先于泛化扶抑', () => {
   assert.ok(result.matchedRules?.some((rule) => rule.id === 'you-month-jia-fire-forge'));
 });
 
+test('壬日午月应以癸水为用、庚金为佐', () => {
+  const result = determineUsefulGod(
+    '身弱',
+    { pattern: '偏财格', isSpecial: false },
+    '水',
+    '午',
+    undefined,
+    '壬',
+    { visibleStems: ['壬', '丙', '辛'] },
+  );
+
+  assert.deepEqual(result.favorableWuxing?.slice(0, 2), ['水', '金']);
+  assert.equal(result.primaryFavorableWuxing, '水');
+  assert.equal(result.primaryReason, '调候');
+  assert.ok(result.matchedRules?.some((rule) => rule.id === 'wu-month-ren-gui-geng'));
+  assert.ok(!result.matchedRules?.some((rule) => rule.id.startsWith('wu-month-ren-bing')));
+});
+
 test('用神策略应拒绝非法五行和干支', () => {
   const pattern: PatternAnalysis = { pattern: '正官格', isSpecial: false };
 
