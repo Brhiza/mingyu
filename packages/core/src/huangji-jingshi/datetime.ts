@@ -8,15 +8,13 @@ import { SolarTerm, SolarTime } from 'tyme4ts';
 import { hexagramsData, type HexagramData } from '../divination/hexagram-data';
 import {
   assertFixedTimezoneHours,
+  createUtcTimestamp,
   formatCivilDateTime,
   formatFixedTimezoneOffset,
-  getCivilDateTimeAtFixedOffset,
-  getHistoricalTimezoneOffsetAt,
   resolveCivilTime,
   type CivilDateTimeParts,
   type CivilTimeZoneInput,
 } from '../calendar';
-import { getSixtyCycleIndex } from '../ganzhi';
 import {
   HUANGJI_CIRCLE_HEXAGRAMS,
   calculateStandardHuangjiForecast,
@@ -70,7 +68,7 @@ export interface HuangjiSixDayCycleInput {
 }
 
 export interface HuangjiSixDayCycleResult {
-  model: '书绪言六日逐爻' | '书绪言六日逐爻·公历定位';
+  model: '书绪言六日逐爻' | '书绪言六日逐爻·显式历元';
   elapsedDays: number;
   hour: number;
   dayOfCycle: number;
@@ -85,18 +83,20 @@ export interface HuangjiSixDayCycleResult {
   };
 }
 
-export const HUANGJI_SIX_DAY_CALENDAR_MODEL = 'six-day-seven-part' as const;
+export const HUANGJI_SIX_DAY_CALENDAR_MODEL = 'six-day-explicit-epoch' as const;
 export type HuangjiSixDayCalendarModel = typeof HUANGJI_SIX_DAY_CALENDAR_MODEL;
 
 export interface HuangjiSixDayDateInput extends CivilDateTimeParts, CivilTimeZoneInput {
-  /** 明确选择以实岁比例承载“六日七分”的现代公历换算模型。 */
+  /** 明确选择以校定公历历元直接适配六日逐爻坐标的模型。 */
   calendarModel: HuangjiSixDayCalendarModel;
+  /** 经校定的当地公历子半；该时刻对应 elapsedDays=0、hour=0。 */
+  epochDateTime: string;
   /** 可选毫秒；六日逐爻以秒作为传统时段的最小公开精度。 */
   millisecond?: number;
 }
 
 export interface HuangjiSixDayDateResult extends HuangjiSixDayCycleResult {
-  model: '书绪言六日逐爻·公历定位';
+  model: '书绪言六日逐爻·显式历元';
   civilTime: {
     dateTime: string;
     utcDateTime: string;
@@ -111,39 +111,29 @@ export interface HuangjiSixDayDateResult extends HuangjiSixDayCycleResult {
     millisecond: number;
   };
   anchor: {
-    term: '冬至';
-    forecastYear: number;
+    kind: 'explicit-epoch';
     dateTime: string;
     utcDateTime: string;
-    timezone: 8;
-    dayStartDateTime: string;
-    dayStartUtcDateTime: string;
-    dayStartTimezone: number;
-    dayGanZhi: string;
-    dayIndex: number;
+    timezone: number;
+    timeZoneId?: string;
     dayBoundary: '当地子半';
   };
   calendar: {
     model: HuangjiSixDayCalendarModel;
-    mapping: 'solar-year-proportional';
-    forecastYear: number;
+    mapping: 'explicit-epoch-civil-days';
+    targetYear: number;
     actualElapsedDays: number;
     actualElapsedSeconds: number;
     logicalElapsedDays: number;
-    logicalDayFraction: number;
-    yearLengthDays: number;
-    yearLengthSeconds: number;
-    logicalDayLengthSeconds: number;
+    logicalDayFraction: 0;
+    coordinateSpanDays: 360;
     cycleDay: number;
-    cardinalSeason: '冬' | '春' | '夏' | '秋';
-    cardinalDay: number;
   };
   calculationChain: string[];
   sources: Array<{ title: string; scope: string }>;
   limitations: string[];
 }
 
-const HUANGJI_SOLAR_TERM_TIMEZONE = 8;
 const HUANGJI_LOGICAL_DAYS = 360;
 const MILLISECONDS_PER_DAY = 86400000;
 
@@ -154,15 +144,15 @@ const HUANGJI_SIX_DAY_SOURCES = [
   },
   {
     title: '《皇极经世书绪言》卷八上',
-    scope: '以三百六十为正数、另列六日余分；本公历入口保留其正数与余分关系，不预设整日闰位。',
+    scope: '以三百六十为正数、另列六日余分；公历入口只适配已给出的正数坐标。',
   },
   {
     title: '《皇极经世书解》卷十二',
-    scope: '说明余分六藏于六甲；本公历入口不把它暗化为固定整日闰位。',
+    scope: '说明余分六藏于六甲；公历入口不把未校定的余分暗化为整日坐标。',
   },
   {
     title: '《皇极经世观物外篇衍义》卷一',
-    scope: '三百六十正数与六日余分、六日七分的卦气换算说明。',
+    scope: '三百六十正数与六日余分、六日七分的卦气换算说明；未据此推定现代公历历元。',
   },
 ] as const;
 
@@ -221,37 +211,23 @@ function parseSixDayTimezoneOffset(value: string): number {
   return offset;
 }
 
-/**
- * 解析六日逐爻专用的当地公历时间。
- *
- * 这个入口不改变既有 customDate 的年月日时算法。时间字符串可以自带 ISO 偏移；
- * 未带偏移时必须同时提供 timezone 或 timeZoneId，避免按宿主机时区猜测。
- */
-export function parseHuangjiSixDayDateTime(
-  value: string,
-  timezone?: number,
-  timeZoneId?: string,
-  calendarModel?: HuangjiSixDayCalendarModel,
-): HuangjiSixDayDateInput {
-  if (calendarModel !== HUANGJI_SIX_DAY_CALENDAR_MODEL) {
-    throw new Error(`六日逐爻公历换算暂只支持${HUANGJI_SIX_DAY_CALENDAR_MODEL}模型。`);
-  }
-  if (typeof value !== 'string') throw new Error('六日逐爻公历时间必须是 ISO 8601 字符串。');
+type ParsedSixDayDateTime = CivilDateTimeParts & {
+  millisecond: number;
+  embeddedTimezone?: number;
+};
+
+function parseSixDayDateTimeParts(value: string, label: string): ParsedSixDayDateTime {
+  if (typeof value !== 'string') throw new Error(`${label}必须是 ISO 8601 字符串。`);
   const match =
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})?$/u.exec(
       value,
     );
   if (!match) {
     throw new Error(
-      '六日逐爻公历时间必须为 YYYY-MM-DDTHH:mm[:ss[.SSS]]，并明确提供时区偏移或 timeZoneId。',
+      `${label}必须为 YYYY-MM-DDTHH:mm[:ss[.SSS]]，并明确提供时区偏移或 timeZoneId。`,
     );
   }
-  const embeddedTimezone = match[8] ? parseSixDayTimezoneOffset(match[8]) : undefined;
-  if (timezone !== undefined && embeddedTimezone !== undefined && timezone !== embeddedTimezone) {
-    throw new Error('六日逐爻公历时间内的时区偏移与 timezone 不一致。');
-  }
   const millisecondText = match[7] || '';
-  const millisecond = millisecondText ? Number(millisecondText.padEnd(3, '0')) : 0;
   return {
     year: Number(match[1]),
     month: Number(match[2]),
@@ -259,102 +235,78 @@ export function parseHuangjiSixDayDateTime(
     hour: Number(match[4]),
     minute: Number(match[5]),
     second: match[6] ? Number(match[6]) : 0,
-    millisecond,
-    ...(timezone !== undefined ? { timezone } : {}),
-    ...(embeddedTimezone !== undefined && timezone === undefined
-      ? { timezone: embeddedTimezone }
-      : {}),
+    millisecond: millisecondText ? Number(millisecondText.padEnd(3, '0')) : 0,
+    ...(match[8] ? { embeddedTimezone: parseSixDayTimezoneOffset(match[8]) } : {}),
+  };
+}
+
+function assertSixDayDateTimeZones(
+  target: ParsedSixDayDateTime,
+  epoch: ParsedSixDayDateTime,
+  timezone: number | undefined,
+  timeZoneId: string | undefined,
+): number | undefined {
+  if (timezone !== undefined) assertFixedTimezoneHours(timezone, '六日逐爻公历时间的 timezone');
+  if (timeZoneId !== undefined && timezone === undefined) {
+    if (target.embeddedTimezone !== undefined || epoch.embeddedTimezone !== undefined) {
+      throw new Error(
+        '使用 timeZoneId 时，sixDayDateTime 与 sixDayEpochDateTime 不得内嵌固定时区偏移。',
+      );
+    }
+    return undefined;
+  }
+
+  const inferredTimezone = timezone ?? target.embeddedTimezone ?? epoch.embeddedTimezone;
+  if (inferredTimezone === undefined) {
+    throw new Error('timezone 与 timeZoneId 至少需要提供一项。');
+  }
+  if (
+    (target.embeddedTimezone !== undefined && target.embeddedTimezone !== inferredTimezone) ||
+    (epoch.embeddedTimezone !== undefined && epoch.embeddedTimezone !== inferredTimezone)
+  ) {
+    throw new Error('sixDayDateTime 与 sixDayEpochDateTime 的时区偏移必须一致。');
+  }
+  return inferredTimezone;
+}
+
+/**
+ * 解析六日逐爻专用的当地公历时间。
+ *
+ * 这个入口不改变既有 customDate 的年月日时算法。时间字符串可以自带 ISO 偏移；
+ * 未带偏移时必须同时提供 timezone 或 timeZoneId，避免按宿主机时区猜测。历元必须
+ * 由调用者明确提供，并表示当地子半对应的 elapsedDays=0。
+ */
+export function parseHuangjiSixDayDateTime(
+  value: string,
+  timezone?: number,
+  timeZoneId?: string,
+  calendarModel?: HuangjiSixDayCalendarModel,
+  epochDateTime?: string,
+): HuangjiSixDayDateInput {
+  if (calendarModel !== HUANGJI_SIX_DAY_CALENDAR_MODEL) {
+    throw new Error(`六日逐爻公历换算暂只支持${HUANGJI_SIX_DAY_CALENDAR_MODEL}模型。`);
+  }
+  if (typeof epochDateTime !== 'string' || !epochDateTime.trim()) {
+    throw new Error('六日逐爻公历时间必须同时提供经校定的 sixDayEpochDateTime。');
+  }
+  const target = parseSixDayDateTimeParts(value, '六日逐爻公历时间');
+  const epoch = parseSixDayDateTimeParts(epochDateTime, '六日逐爻显式历元');
+  const inferredTimezone = assertSixDayDateTimeZones(target, epoch, timezone, timeZoneId);
+  if (epoch.hour !== 0 || epoch.minute !== 0 || epoch.second !== 0 || epoch.millisecond !== 0) {
+    throw new Error('六日逐爻显式历元必须是当地子半（00:00:00.000）。');
+  }
+  return {
+    year: target.year,
+    month: target.month,
+    day: target.day,
+    hour: target.hour,
+    minute: target.minute,
+    second: target.second,
+    millisecond: target.millisecond,
+    ...(inferredTimezone !== undefined ? { timezone: inferredTimezone } : {}),
     ...(timeZoneId !== undefined ? { timeZoneId } : {}),
     calendarModel,
-  };
-}
-
-function getSolarTimeParts(solarTime: SolarTime): CivilDateTimeParts {
-  return {
-    year: solarTime.getYear(),
-    month: solarTime.getMonth(),
-    day: solarTime.getDay(),
-    hour: solarTime.getHour(),
-    minute: solarTime.getMinute(),
-    second: solarTime.getSecond(),
-  };
-}
-
-function resolveWinterSolstice(termYear: number) {
-  const term = SolarTerm.fromName(termYear, '冬至');
-  const solarTime = term.getJulianDay().getSolarTime();
-  const civilTime = getSolarTimeParts(solarTime);
-  const resolved = resolveCivilTime({ ...civilTime, timezone: HUANGJI_SOLAR_TERM_TIMEZONE });
-  return {
-    termYear,
-    civilTime,
-    utcTimestamp: resolved.utcTimestamp,
-    utcDateTime: resolved.utcDateTime,
-  };
-}
-
-function resolveWinterSolsticeDayStart(
-  term: ReturnType<typeof resolveWinterSolstice>,
-  target: ReturnType<typeof resolveCivilTime>,
-) {
-  const dayStartTimezone = target.timeZoneId
-    ? getHistoricalTimezoneOffsetAt(new Date(term.utcTimestamp), target.timeZoneId)
-    : target.timezone;
-  const localDate = getCivilDateTimeAtFixedOffset(new Date(term.utcTimestamp), dayStartTimezone);
-  const dayStart = resolveCivilTime({
-    year: localDate.year,
-    month: localDate.month,
-    day: localDate.day,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    ...(target.timeZoneId ? { timeZoneId: target.timeZoneId } : { timezone: dayStartTimezone }),
-  });
-  const dayGanZhi = SolarTime.fromYmdHms(localDate.year, localDate.month, localDate.day, 0, 0, 0)
-    .getLunarHour()
-    .getEightChar()
-    .getDay()
-    .getName();
-  return {
-    ...term,
-    dayStartCivilTime: dayStart.localTime,
-    dayStartUtcTimestamp: dayStart.utcTimestamp,
-    dayStartUtcDateTime: dayStart.utcDateTime,
-    dayStartTimezone: dayStart.timezone,
-    dayGanZhi,
-    dayIndex: getSixtyCycleIndex(dayGanZhi),
-  };
-}
-
-function resolveWinterSolsticeAnchor(target: ReturnType<typeof resolveCivilTime>) {
-  const targetYear = target.localTime.year;
-  const candidates = [targetYear - 1, targetYear, targetYear + 1]
-    .map(resolveWinterSolstice)
-    .map((term) => resolveWinterSolsticeDayStart(term, target));
-  const anchor = candidates
-    .filter((candidate) => candidate.utcTimestamp <= target.utcTimestamp)
-    .sort((left, right) => right.utcTimestamp - left.utcTimestamp)[0];
-  if (!anchor) throw new Error('无法定位六日逐爻公历时间所属的冬至锚点。');
-  return anchor;
-}
-
-function mapSolarYearToLogicalDay(
-  actualElapsedMilliseconds: number,
-  yearLengthMilliseconds: number,
-) {
-  if (
-    !Number.isFinite(actualElapsedMilliseconds) ||
-    actualElapsedMilliseconds < 0 ||
-    actualElapsedMilliseconds >= yearLengthMilliseconds
-  ) {
-    throw new Error('六日逐爻公历时间不在冬至子半至下一冬至子半的单年范围内。');
-  }
-  const logicalPosition =
-    (actualElapsedMilliseconds / yearLengthMilliseconds) * HUANGJI_LOGICAL_DAYS;
-  const logicalElapsedDays = Math.min(HUANGJI_LOGICAL_DAYS - 1, Math.floor(logicalPosition));
-  return {
-    logicalElapsedDays,
-    logicalDayFraction: logicalPosition - logicalElapsedDays,
+    epochDateTime,
   };
 }
 
@@ -366,15 +318,38 @@ function formatLocalDateTime(
   return `${formatCivilDateTime(value)}${millisecond ? `.${String(millisecond).padStart(3, '0')}` : ''}${formatFixedTimezoneOffset(timezone)}`;
 }
 
-/** 从带时区的真实公历时间定位书绪言六日逐爻坐标。 */
-export function calculateHuangjiSixDayCycleFromDate(
-  input: HuangjiSixDayDateInput,
-): HuangjiSixDayDateResult {
-  if (!input || typeof input !== 'object') throw new Error('六日逐爻公历输入不能为空。');
-  if (input.calendarModel !== HUANGJI_SIX_DAY_CALENDAR_MODEL) {
-    throw new Error(`六日逐爻公历换算暂只支持${HUANGJI_SIX_DAY_CALENDAR_MODEL}模型。`);
+function civilDayNumber(value: CivilDateTimeParts): number {
+  return createUtcTimestamp(value.year, value.month - 1, value.day) / MILLISECONDS_PER_DAY;
+}
+
+function calculateCivilDateDifference(start: CivilDateTimeParts, end: CivilDateTimeParts): number {
+  return civilDayNumber(end) - civilDayNumber(start);
+}
+
+function resolveExplicitEpoch(input: HuangjiSixDayDateInput, targetMillisecond: number) {
+  const epochParts = parseSixDayDateTimeParts(input.epochDateTime, '六日逐爻显式历元');
+  if (
+    input.timeZoneId !== undefined &&
+    input.timezone === undefined &&
+    epochParts.embeddedTimezone !== undefined
+  ) {
+    throw new Error('使用 timeZoneId 时，sixDayEpochDateTime 不得内嵌固定时区偏移。');
   }
-  const millisecond = assertSixDayMillisecond(input.millisecond);
+  if (
+    input.timezone !== undefined &&
+    epochParts.embeddedTimezone !== undefined &&
+    epochParts.embeddedTimezone !== input.timezone
+  ) {
+    throw new Error('sixDayEpochDateTime 的时区偏移与 timezone 不一致。');
+  }
+  if (
+    epochParts.hour !== 0 ||
+    epochParts.minute !== 0 ||
+    epochParts.second !== 0 ||
+    epochParts.millisecond !== 0
+  ) {
+    throw new Error('六日逐爻显式历元必须是当地子半（00:00:00.000）。');
+  }
   const target = resolveCivilTime({
     year: input.year,
     month: input.month,
@@ -385,49 +360,73 @@ export function calculateHuangjiSixDayCycleFromDate(
     ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
     ...(input.timeZoneId !== undefined ? { timeZoneId: input.timeZoneId } : {}),
   });
-  const targetTimestamp = target.utcTimestamp + millisecond;
-  const anchor = resolveWinterSolsticeAnchor({ ...target, utcTimestamp: targetTimestamp });
-  const nextAnchor = resolveWinterSolsticeDayStart(
-    resolveWinterSolstice(anchor.termYear + 1),
+  const epoch = resolveCivilTime({
+    year: epochParts.year,
+    month: epochParts.month,
+    day: epochParts.day,
+    hour: epochParts.hour,
+    minute: epochParts.minute,
+    second: epochParts.second,
+    ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
+    ...(input.timeZoneId !== undefined ? { timeZoneId: input.timeZoneId } : {}),
+  });
+  const actualElapsedDays = calculateCivilDateDifference(epoch.localTime, target.localTime);
+  if (!Number.isInteger(actualElapsedDays)) {
+    throw new Error('六日逐爻公历历元与目标日期无法形成完整的当地公历日坐标。');
+  }
+  if (actualElapsedDays < 0 || actualElapsedDays >= HUANGJI_LOGICAL_DAYS) {
+    throw new Error('六日逐爻公历时间超出显式历元后0至359日的已定义坐标范围。');
+  }
+  return {
     target,
-  );
-  const yearLengthMilliseconds = nextAnchor.dayStartUtcTimestamp - anchor.dayStartUtcTimestamp;
-  const actualElapsedMilliseconds = targetTimestamp - anchor.dayStartUtcTimestamp;
-  const actualElapsedDays = Math.floor(actualElapsedMilliseconds / MILLISECONDS_PER_DAY);
-  const actualElapsedSeconds = Math.floor(actualElapsedMilliseconds / 1000);
-  const mapped = mapSolarYearToLogicalDay(actualElapsedMilliseconds, yearLengthMilliseconds);
-  const cycleElapsedDays = (anchor.dayIndex + mapped.logicalElapsedDays) % HUANGJI_LOGICAL_DAYS;
+    epoch,
+    epochMillisecond: epochParts.millisecond,
+    targetTimestamp: target.utcTimestamp + targetMillisecond,
+    epochTimestamp: epoch.utcTimestamp + epochParts.millisecond,
+    actualElapsedDays,
+  };
+}
+
+/** 从经校定历元与当地公历时间直接适配书绪言六日逐爻坐标。 */
+export function calculateHuangjiSixDayCycleFromDate(
+  input: HuangjiSixDayDateInput,
+): HuangjiSixDayDateResult {
+  if (!input || typeof input !== 'object') throw new Error('六日逐爻公历输入不能为空。');
+  if (input.calendarModel !== HUANGJI_SIX_DAY_CALENDAR_MODEL) {
+    throw new Error(`六日逐爻公历换算暂只支持${HUANGJI_SIX_DAY_CALENDAR_MODEL}模型。`);
+  }
+  if (typeof input.epochDateTime !== 'string' || !input.epochDateTime.trim()) {
+    throw new Error('六日逐爻公历时间必须同时提供经校定的 sixDayEpochDateTime。');
+  }
+  const millisecond = assertSixDayMillisecond(input.millisecond);
+  const resolved = resolveExplicitEpoch(input, millisecond);
+  const { target, epoch, targetTimestamp, epochTimestamp, actualElapsedDays } = resolved;
+  const actualElapsedSeconds = Math.floor((targetTimestamp - epochTimestamp) / 1000);
+  const cycleElapsedDays = actualElapsedDays;
   const cycle = calculateHuangjiSixDayCycle({
     elapsedDays: cycleElapsedDays,
     hour: target.localTime.hour,
   });
-  const cardinalIndex = Math.floor(mapped.logicalElapsedDays / 90);
-  const cardinalSeasons: Array<'冬' | '春' | '夏' | '秋'> = ['冬', '春', '夏', '秋'];
   const targetDateTime = formatLocalDateTime(target.localTime, millisecond, target.timezone);
-  const anchorDateTime = `${formatCivilDateTime(anchor.civilTime)}${formatFixedTimezoneOffset(HUANGJI_SOLAR_TERM_TIMEZONE)}`;
-  const anchorDayStartDateTime = formatLocalDateTime(
-    anchor.dayStartCivilTime,
-    0,
-    anchor.dayStartTimezone,
+  const epochDateTime = formatLocalDateTime(
+    epoch.localTime,
+    resolved.epochMillisecond,
+    epoch.timezone,
   );
   const calendar = {
     model: HUANGJI_SIX_DAY_CALENDAR_MODEL,
-    mapping: 'solar-year-proportional',
-    forecastYear: anchor.termYear,
+    mapping: 'explicit-epoch-civil-days',
+    targetYear: target.localTime.year,
     actualElapsedDays,
     actualElapsedSeconds,
-    logicalElapsedDays: mapped.logicalElapsedDays,
-    logicalDayFraction: mapped.logicalDayFraction,
-    yearLengthDays: yearLengthMilliseconds / MILLISECONDS_PER_DAY,
-    yearLengthSeconds: Math.floor(yearLengthMilliseconds / 1000),
-    logicalDayLengthSeconds: yearLengthMilliseconds / 1000 / HUANGJI_LOGICAL_DAYS,
+    logicalElapsedDays: actualElapsedDays,
+    logicalDayFraction: 0,
+    coordinateSpanDays: HUANGJI_LOGICAL_DAYS,
     cycleDay: cycleElapsedDays + 1,
-    cardinalSeason: cardinalSeasons[Math.min(cardinalIndex, cardinalSeasons.length - 1)],
-    cardinalDay: (mapped.logicalElapsedDays % 90) + 1,
   } as HuangjiSixDayDateResult['calendar'];
   return {
     ...cycle,
-    model: '书绪言六日逐爻·公历定位',
+    model: '书绪言六日逐爻·显式历元',
     civilTime: {
       dateTime: targetDateTime,
       utcDateTime: new Date(targetTimestamp).toISOString(),
@@ -437,30 +436,26 @@ export function calculateHuangjiSixDayCycleFromDate(
       millisecond,
     },
     anchor: {
-      term: '冬至',
-      forecastYear: anchor.termYear,
-      dateTime: anchorDateTime,
-      utcDateTime: anchor.utcDateTime,
-      timezone: HUANGJI_SOLAR_TERM_TIMEZONE,
-      dayStartDateTime: anchorDayStartDateTime,
-      dayStartUtcDateTime: anchor.dayStartUtcDateTime,
-      dayStartTimezone: anchor.dayStartTimezone,
-      dayGanZhi: anchor.dayGanZhi,
-      dayIndex: anchor.dayIndex,
+      kind: 'explicit-epoch',
+      dateTime: epochDateTime,
+      utcDateTime: new Date(epochTimestamp).toISOString(),
+      timezone: epoch.timezone,
+      ...(epoch.timeZoneId ? { timeZoneId: epoch.timeZoneId } : {}),
       dayBoundary: '当地子半',
     },
     calendar,
     calculationChain: [
       `${targetDateTime}解析为 UTC${target.timezone >= 0 ? '+' : ''}${target.timezone} 的当地公历时刻，保留真实 UTC 瞬时点。`,
-      `以${anchorDateTime}的冬至天文时刻核定${anchor.termYear}皇极年，并以当地${anchorDayStartDateTime}子半作为公历换算起点；起点日干支为${anchor.dayGanZhi}，甲子序号${anchor.dayIndex}。`,
-      `以当地冬至子半至下一冬至子半的实测间隔${(yearLengthMilliseconds / MILLISECONDS_PER_DAY).toFixed(6)}日，按三百六十日正数等分；实际已过${actualElapsedDays}个完整公历日，对应当地年内正数坐标第${mapped.logicalElapsedDays + 1}日，结合起点日干支后为周期坐标第${cycleElapsedDays + 1}日。`,
+      `${epochDateTime}是经校定的当地子半起点，对应六日逐爻已过日数0、子半时刻。`,
+      `按当地公历日期从显式历元至目标时间经过${actualElapsedDays}个完整日，直接取得六日逐爻坐标第${cycleElapsedDays + 1}日；实际 UTC 瞬时相隔${actualElapsedSeconds}秒。`,
       `第${cycle.jingIndex}经卦第${cycle.dayLine}爻当日，第${cycle.hourLine}个四小时段取${cycle.hexagrams.hourly.shortName}卦。`,
     ],
     sources: HUANGJI_SIX_DAY_SOURCES.map((source) => ({ ...source })),
     limitations: [
-      '原典的冬至甲子子半是抽象条件，并未给出现代公历唯一甲子纪元；本入口明确以实际冬至节气核定年份、以该冬至所在当地公历日子半作换算起点，并回显起点日干支与甲子序号。',
-      '六日七分存在按回归年等分的不同传承；本入口不插入六个虚构整日，而按本次冬至子半至下一冬至子半的实测间隔等分三百六十日正数，实测年长与传统三百六十五又四分之一日模型的差异由结果字段显式保留。',
-      '小时爻沿用当地子半起的四小时段；该小时口径与公历日子半共用同一当地民用日边界，不将当地时钟改写成北京时间。',
+      '原典的冬至甲子子半是抽象条件，并未给出现代公历唯一历元；本入口要求调用者提供已经校定的公历子半起点。',
+      '公历适配直接使用显式历元与目标当地日期的整数日差，未使用太阳年比例压缩，也未把日干支序号加入六日坐标。',
+      '三百六十日坐标之后的六日余分没有在本入口定义换算，目标时间必须位于显式历元后第0至359个当地公历日。',
+      '小时爻沿用当地子半起的四小时段；分钟、秒和毫秒保留在真实时刻资料中，不改变四小时段。',
     ],
   };
 }

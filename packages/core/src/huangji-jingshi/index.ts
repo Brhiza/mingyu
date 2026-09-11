@@ -78,7 +78,7 @@ export interface HuangjiJingshiInput {
   elapsedYears?: number;
   /** 年月日时起盘时间；提供时不得同时提供 epochYear、year 或 elapsedYears。 */
   date?: Date;
-  /** 六日逐爻专用的带时区当地公历时间；提供时不得同时提供 date 或年份坐标。 */
+  /** 六日逐爻专用的带时区当地公历时间与显式历元；提供时不得同时提供 date 或年份坐标。 */
   sixDayDate?: HuangjiSixDayDateInput;
   /** 可选问题，只用于生成完整提示词，不改变换算。 */
   question?: string;
@@ -318,14 +318,14 @@ export function buildHuangjiJingshiPrompt(
       : sixDayCycle
         ? [
             `六日逐爻公历时间：${sixDayCycle.civilTime.dateTime}（UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}${sixDayCycle.civilTime.timeZoneId ? `，${sixDayCycle.civilTime.timeZoneId}` : ''}）`,
-            `冬至定位依据：节气时刻${sixDayCycle.anchor.dateTime}（UTC${sixDayCycle.anchor.timezone >= 0 ? '+' : ''}${sixDayCycle.anchor.timezone}，真实瞬时${sixDayCycle.anchor.utcDateTime}）；当地子半起点为${sixDayCycle.anchor.dayStartDateTime}（${sixDayCycle.anchor.dayGanZhi}，甲子序号${sixDayCycle.anchor.dayIndex}），对应皇极年${formatHuangjiCivilYear(sixDayCycle.anchor.forecastYear)}。`,
-            `六日逐爻坐标：当地冬至子半后实际经过${sixDayCycle.calendar.actualElapsedDays}个完整公历日，按${sixDayCycle.calendar.yearLengthDays.toFixed(6)}日实岁等分为三百六十日正数，当前为第${sixDayCycle.dayOfCycle}日。`,
-            `四正分区：${sixDayCycle.calendar.cardinalSeason}段第${sixDayCycle.calendar.cardinalDay}日；经卦${sixDayCycle.hexagrams.jing.name}第${sixDayCycle.dayLine}爻，日变卦${sixDayCycle.hexagrams.daily.name}，${sixDayCycle.hexagrams.hourRange}时变卦${sixDayCycle.hexagrams.hourly.name}。`,
-            `时段依据：当地公历子半起，钟表${sixDayCycle.civilTime.hour}时处于${sixDayCycle.hourRange}，每四小时一爻；冬至日干支${sixDayCycle.anchor.dayGanZhi}的甲子序号为${sixDayCycle.anchor.dayIndex}。`,
+            `显式历元：${sixDayCycle.anchor.dateTime}（UTC${sixDayCycle.anchor.timezone >= 0 ? '+' : ''}${sixDayCycle.anchor.timezone}，真实瞬时${sixDayCycle.anchor.utcDateTime}）为经校定的当地子半起点，对应六日逐爻已过日数0、子半时刻。`,
+            `六日逐爻坐标：从显式历元至目标当地日期经过${sixDayCycle.calendar.actualElapsedDays}个完整公历日，直接取得三百六十日正数中的第${sixDayCycle.dayOfCycle}日；实际 UTC 瞬时相隔${sixDayCycle.calendar.actualElapsedSeconds}秒。`,
+            `经卦${sixDayCycle.hexagrams.jing.name}第${sixDayCycle.dayLine}爻当日，日变卦${sixDayCycle.hexagrams.daily.name}，${sixDayCycle.hexagrams.hourRange}时变卦${sixDayCycle.hexagrams.hourly.name}。`,
+            `时段依据：当地公历子半起，钟表${sixDayCycle.civilTime.hour}时处于${sixDayCycle.hourRange}，每四小时一爻。`,
           ]
         : [];
     const dateTimeBasis = sixDayCycle
-      ? '具体时点以真实带时区公历时间核定冬至所在当地公历日，再以当地子半为日界；传统依据为每卦六日七分与每四小时一爻，本次明确选择的公历换算模型将该冬至子半至下一冬至子半的实测间隔等分为三百六十日正数，再依每六日一经卦、每日一爻、每四小时一爻取象。'
+      ? '具体时点以真实带时区公历时间与经校定的当地子半历元适配六日逐爻坐标；传统依据为每卦六日七分与每四小时一爻，公历日期差直接对应三百六十日正数中的已过日数，再依每六日一经卦、每日一爻、每四小时一爻取象。'
       : dateTimeForecast
         ? '具体时点以冬至换年，每个节气按十五个皇极日定位，超过十五日的尾段归第十五日；值年卦每六十日变一爻得月经卦，月经卦每十日变一爻得旬纬卦，日卦从月经卦依六十卦序逐日顺行，日卦自子半起每四小时变一爻得时经卦。'
         : '';
@@ -480,7 +480,7 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
     dateTimeForecast
       ? { year: dateTimeForecast.calendar.forecastYear, question: input.question }
       : sixDayCycle
-        ? { year: sixDayCycle.anchor.forecastYear, question: input.question }
+        ? { year: sixDayCycle.calendar.targetYear, question: input.question }
         : input,
   );
   const elapsed = normalized.elapsedYears;

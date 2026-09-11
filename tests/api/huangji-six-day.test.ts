@@ -13,7 +13,7 @@ type HuangjiResponse = {
   input?: { mode?: string };
   sixDayCycle?: {
     civilTime?: { timezone?: number };
-    anchor?: { forecastYear?: number };
+    anchor?: { kind?: string };
     calendar?: { actualElapsedDays?: number };
   };
   result?: HuangjiResponse;
@@ -50,7 +50,8 @@ async function callHttp(tool: string, input: Record<string, unknown>) {
 test('皇极六日逐爻 HTTP 与 MCP 入口返回同一带时区公历结果', async () => {
   const args = {
     sixDayDateTime: '2025-12-22T05:03:05+14:00',
-    calendarModel: 'six-day-seven-part',
+    sixDayEpochDateTime: '2025-12-21T00:00:00+14:00',
+    calendarModel: 'six-day-explicit-epoch',
     detailMode: 'full',
   };
   const http = await callHttp('metaphysics_huangji_jingshi', args);
@@ -61,14 +62,15 @@ test('皇极六日逐爻 HTTP 与 MCP 入口返回同一带时区公历结果', 
   assert.deepEqual(mcpResult, http.body.data);
   assert.equal(http.body.data?.input?.mode, '六日逐爻公历');
   assert.equal(http.body.data?.sixDayCycle?.civilTime?.timezone, 14);
-  assert.equal(http.body.data?.sixDayCycle?.anchor?.forecastYear, 2026);
-  assert.equal(http.body.data?.sixDayCycle?.calendar?.actualElapsedDays, 0);
+  assert.equal(http.body.data?.sixDayCycle?.anchor?.kind, 'explicit-epoch');
+  assert.equal(http.body.data?.sixDayCycle?.calendar?.actualElapsedDays, 1);
 });
 
-test('皇极六日逐爻 prompt 入口保留公历定位资料并拒绝无时区时间', async () => {
+test('皇极六日逐爻 prompt 入口保留显式历元资料并拒绝无时区时间', async () => {
   const prompt = await callHttp('huangji_jingshi_prompt', {
     sixDayDateTime: '2025-12-21T23:03:05+08:00',
-    calendarModel: 'six-day-seven-part',
+    sixDayEpochDateTime: '2025-12-21T00:00:00+08:00',
+    calendarModel: 'six-day-explicit-epoch',
     question: '此时应取何象？',
     responseMode: 'full',
   });
@@ -81,7 +83,8 @@ test('皇极六日逐爻 prompt 入口保留公历定位资料并拒绝无时区
     name: 'huangji_jingshi_prompt',
     arguments: {
       sixDayDateTime: '2025-12-21T23:03:05+08:00',
-      calendarModel: 'six-day-seven-part',
+      sixDayEpochDateTime: '2025-12-21T00:00:00+08:00',
+      calendarModel: 'six-day-explicit-epoch',
       question: '此时应取何象？',
     },
   });
@@ -95,13 +98,25 @@ test('皇极六日逐爻 prompt 入口保留公历定位资料并拒绝无时区
 
   const missingModel = await callHttp('metaphysics_huangji_jingshi', {
     sixDayDateTime: '2025-12-21T23:03:05+08:00',
+    sixDayEpochDateTime: '2025-12-21T00:00:00+08:00',
   });
   assert.equal(missingModel.response.status, 400);
-  assert.match(JSON.stringify(missingModel.body), /必须明确提供 calendarModel=six-day-seven-part/);
+  assert.match(
+    JSON.stringify(missingModel.body),
+    /必须明确提供 calendarModel=six-day-explicit-epoch/,
+  );
+
+  const missingEpoch = await callHttp('metaphysics_huangji_jingshi', {
+    sixDayDateTime: '2025-12-21T23:03:05+08:00',
+    calendarModel: 'six-day-explicit-epoch',
+  });
+  assert.equal(missingEpoch.response.status, 400);
+  assert.match(JSON.stringify(missingEpoch.body), /sixDayEpochDateTime/);
 
   const missingTimezone = await callHttp('metaphysics_huangji_jingshi', {
     sixDayDateTime: '2025-12-21T23:03:05',
-    calendarModel: 'six-day-seven-part',
+    sixDayEpochDateTime: '2025-12-21T00:00:00',
+    calendarModel: 'six-day-explicit-epoch',
   });
   assert.equal(missingTimezone.response.status, 400);
   assert.match(JSON.stringify(missingTimezone.body), /timezone 与 timeZoneId 至少需要提供一项/);

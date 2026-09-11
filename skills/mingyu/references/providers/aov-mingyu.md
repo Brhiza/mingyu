@@ -182,7 +182,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
   `jinkoujueMethod` 支持 `time`（时间）、`branch`（直接指定地分）、`number`（数字）、`random`（随机）。采用 `branch` 方式必须传 `jinkoujueBranch`，取子至亥之一；指定地分后仍按起课时间计算月将与日干。
 - **五运六气与皇极经世输入口径规范**：
   - 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 按该公历年年中所属年柱换算。结果包含天符、岁会、太乙天符、同天符、同岁会逐项核验；吴谦《运气要诀》列出的五类符会逐年名单按六十甲子去重为 26 年，与原文“二十八年”汇总不一致；接口保留 `sourceReconciliation` 校勘说明，并以逐项定义为准。
-  - 皇极经世提供 `customDate` 时，以北京时间和冬至换年定位皇极年，并在元会运世和值年卦之下继续推演月经卦、旬纬卦、日卦及时经卦，即 `customDate` 对应年月日时完整排盘。
+  - 皇极经世提供 `customDate` 时，以北京时间和冬至换年定位皇极年，并在元会运世和值年卦之下继续推演月经卦、旬纬卦、日卦及时经卦，即 `customDate` 对应年月日时完整排盘；六日逐爻公历入口另须提供经校定的 `sixDayEpochDateTime`（当地子半）与 `calendarModel=six-day-explicit-epoch`，按显式历元至目标当地日期的整数日差适配三百六十日正数，余分不自动换算。
   - 年度研究提供公元 `year`，默认采用公元前 67017 年为本元起点、1984 年鼎卦为甲子值年锚点的通行排法，包含值年卦及互卦错卦综卦。
   - 研究自定义纪元时提供 `epochYear`，并从公元 `year` 与 `elapsedYears` 中选择一项；该模式保留纯元会运世坐标换算。
 

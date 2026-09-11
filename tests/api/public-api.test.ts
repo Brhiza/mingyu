@@ -547,6 +547,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
       not: {
         anyOf: [
           { required: ['sixDayDateTime'] },
+          { required: ['sixDayEpochDateTime'] },
           { required: ['calendarModel'] },
           { required: ['epochYear'] },
           { required: ['year'] },
@@ -555,7 +556,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
       },
     },
     {
-      required: ['sixDayDateTime', 'calendarModel'],
+      required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
       not: {
         anyOf: [
           { required: ['customDate'] },
@@ -572,6 +573,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
           { required: ['elapsedYears'] },
           { required: ['customDate'] },
           { required: ['sixDayDateTime'] },
+          { required: ['sixDayEpochDateTime'] },
           { required: ['calendarModel'] },
         ],
       },
@@ -583,11 +585,20 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
           { required: ['year'] },
           { required: ['customDate'] },
           { required: ['sixDayDateTime'] },
+          { required: ['sixDayEpochDateTime'] },
           { required: ['calendarModel'] },
         ],
       },
     },
   ]);
+  assert.equal(
+    body.data.components.schemas.HuangjiJingshiRequest.properties.calendarModel.enum[0],
+    'six-day-explicit-epoch',
+  );
+  assert.match(
+    body.data.components.schemas.HuangjiJingshiRequest.properties.sixDayEpochDateTime.description,
+    /当地子半|已过日数0/,
+  );
   assert.equal(body.data.components.schemas.HuangjiJingshiRequest.required, undefined);
   assert.equal(
     body.data.components.schemas.BaziCompatibilityRequest.properties.schools.maxItems,

@@ -6,219 +6,120 @@ import {
   parseHuangjiSixDayDateTime,
 } from '@core/huangji-jingshi';
 
-test('六日逐爻以冬至真实瞬时建立公历锚点并保留旧坐标字段', () => {
+const MODEL = 'six-day-explicit-epoch' as const;
+
+function parseSixDay(target: string, epoch: string, timezone?: number, timeZoneId?: string) {
+  return parseHuangjiSixDayDateTime(target, timezone, timeZoneId, MODEL, epoch);
+}
+
+test('六日逐爻使用显式子半历元直接进入三百六十日坐标', () => {
   const result = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2025-12-21T23:03:05+08:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
+    parseSixDay('2025-01-01T23:03:05+08:00', '2025-01-01T00:00:00+08:00'),
   );
 
-  assert.equal(result.model, '书绪言六日逐爻·公历定位');
-  assert.equal(result.anchor.forecastYear, 2026);
-  assert.equal(result.anchor.dateTime, '2025-12-21T23:03:05+08:00');
-  assert.equal(result.anchor.utcDateTime, '2025-12-21T15:03:05.000Z');
-  assert.equal(result.anchor.dayStartDateTime, '2025-12-21T00:00:00+08:00');
-  assert.equal(result.anchor.dayStartUtcDateTime, '2025-12-20T16:00:00.000Z');
+  assert.equal(result.model, '书绪言六日逐爻·显式历元');
+  assert.equal(result.anchor.kind, 'explicit-epoch');
+  assert.equal(result.anchor.dateTime, '2025-01-01T00:00:00+08:00');
+  assert.equal(result.anchor.utcDateTime, '2024-12-31T16:00:00.000Z');
   assert.equal(result.anchor.dayBoundary, '当地子半');
-  assert.equal(result.civilTime.utcDateTime, '2025-12-21T15:03:05.000Z');
+  assert.equal(result.civilTime.utcDateTime, '2025-01-01T15:03:05.000Z');
+  assert.equal(result.calendar.model, MODEL);
+  assert.equal(result.calendar.mapping, 'explicit-epoch-civil-days');
+  assert.equal(result.calendar.targetYear, 2025);
   assert.equal(result.calendar.actualElapsedDays, 0);
-  assert.equal(result.calendar.model, 'six-day-seven-part');
-  assert.equal(result.calendar.mapping, 'solar-year-proportional');
-  assert.equal(
-    result.calendar.logicalElapsedDays,
-    (result.elapsedDays - result.anchor.dayIndex + 360) % 360,
-  );
-  assert.equal(result.calendar.cycleDay, result.elapsedDays + 1);
-  assert.equal(result.elapsedDays, result.anchor.dayIndex);
-  assert.equal(result.dayOfCycle, result.elapsedDays + 1);
+  assert.equal(result.calendar.logicalElapsedDays, 0);
+  assert.equal(result.calendar.logicalDayFraction, 0);
+  assert.equal(result.calendar.coordinateSpanDays, 360);
+  assert.equal(result.calendar.cycleDay, 1);
+  assert.equal(result.elapsedDays, 0);
+  assert.equal(result.dayOfCycle, 1);
   assert.equal(result.hour, 23);
   assert.equal(result.hourRange, '20:00—24:00');
 });
 
-test('六日逐爻跨固定时区、IANA 夏令时与 UTC+14 保留真实瞬时及当地子半口径', () => {
-  const beijing = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime('2026-07-01T16:00:00Z', undefined, undefined, 'six-day-seven-part'),
+test('显式历元按当地日期差覆盖起点、六日交界和最后一个已定义日', () => {
+  const epoch = '2025-01-01T00:00:00+08:00';
+  const first = calculateHuangjiSixDayCycleFromDate(parseSixDay(epoch, epoch));
+  const nextJing = calculateHuangjiSixDayCycleFromDate(
+    parseSixDay('2025-01-07T00:00:00+08:00', epoch),
   );
-  const newYork = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2026-07-01T12:00:00',
-      undefined,
-      'America/New_York',
-      'six-day-seven-part',
-    ),
-  );
-  const utcPlus14 = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2026-07-02T06:00:00+14:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
-  );
+  const last = calculateHuangjiSixDayCycleFromDate(parseSixDay('2025-12-26T23:59:59+08:00', epoch));
 
-  assert.equal(newYork.civilTime.timezone, -4);
-  assert.equal(newYork.civilTime.utcDateTime, beijing.civilTime.utcDateTime);
-  assert.equal(utcPlus14.civilTime.utcDateTime, beijing.civilTime.utcDateTime);
-  assert.equal(newYork.calendar.mapping, 'solar-year-proportional');
-  assert.equal(utcPlus14.calendar.mapping, 'solar-year-proportional');
-  assert.equal(newYork.anchor.dayBoundary, '当地子半');
-  assert.equal(utcPlus14.anchor.dayBoundary, '当地子半');
-  assert.notEqual(newYork.civilTime.hour, beijing.civilTime.hour);
-  assert.notEqual(utcPlus14.civilTime.day, beijing.civilTime.day);
+  assert.equal(first.elapsedDays, 0);
+  assert.equal(first.dayLine, 1);
+  assert.equal(nextJing.elapsedDays, 6);
+  assert.equal(nextJing.jingIndex, 2);
+  assert.equal(nextJing.dayLine, 1);
+  assert.equal(last.calendar.actualElapsedDays, 359);
+  assert.equal(last.dayOfCycle, 360);
 });
 
-test('六日七分按冬至子半至下一冬至子半实岁比例承载余分', () => {
-  const leapDay = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2026-02-19T23:03:05+08:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
-  );
-  const nextLogicalDay = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2026-02-20T23:03:05+08:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
+test('IANA 夏令时只影响真实瞬时，不改变显式历元的当地日期坐标', () => {
+  const result = calculateHuangjiSixDayCycleFromDate(
+    parseSixDay('2026-03-09T00:00:00', '2026-03-07T00:00:00', undefined, 'America/New_York'),
   );
 
-  assert.equal(leapDay.calendar.actualElapsedDays, 60);
-  assert.equal(
-    leapDay.calendar.logicalElapsedDays,
-    (leapDay.elapsedDays - leapDay.anchor.dayIndex + 360) % 360,
-  );
-  assert.ok(leapDay.calendar.yearLengthDays > 365 && leapDay.calendar.yearLengthDays < 367);
-  assert.ok(leapDay.calendar.logicalDayFraction >= 0);
-  assert.ok(leapDay.calendar.logicalDayFraction < 1);
-  assert.equal(nextLogicalDay.calendar.actualElapsedDays, 61);
-  assert.ok(nextLogicalDay.elapsedDays >= leapDay.elapsedDays);
+  assert.equal(result.civilTime.timezone, -4);
+  assert.equal(result.anchor.timezone, -5);
+  assert.equal(result.calendar.actualElapsedDays, 2);
+  assert.equal(result.elapsedDays, 2);
+  assert.equal(result.calendar.actualElapsedSeconds, 169200);
+});
 
-  const springStart = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2026-03-22T23:03:05+08:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
+test('六日逐爻公历入口拒绝未经校定的模型、历元和坐标范围', () => {
+  assert.throws(
+    () =>
+      parseHuangjiSixDayDateTime(
+        '2025-01-01T00:00:00+08:00',
+        undefined,
+        undefined,
+        'six-day-seven-part' as never,
+        '2025-01-01T00:00:00+08:00',
+      ),
+    /six-day-explicit-epoch/,
   );
-  assert.equal(springStart.calendar.actualElapsedDays, 91);
-  assert.equal(
-    springStart.calendar.cardinalSeason,
-    ['冬', '春', '夏', '秋'][Math.floor(springStart.calendar.logicalElapsedDays / 90)],
+  assert.throws(
+    () => parseHuangjiSixDayDateTime('2025-01-01T00:00:00+08:00', undefined, undefined, MODEL),
+    /sixDayEpochDateTime/,
   );
-  assert.equal(
-    springStart.calendar.cardinalDay,
-    (springStart.calendar.logicalElapsedDays % 90) + 1,
+  assert.throws(
+    () => parseSixDay('2025-01-02T00:00:00', '2025-01-01T00:00:00'),
+    /timezone 与 timeZoneId 至少需要提供一项/,
+  );
+  assert.throws(
+    () => parseSixDay('2025-01-02T00:00:00+08:00', '2025-01-01T01:00:00+08:00'),
+    /当地子半/,
+  );
+  assert.throws(
+    () => parseSixDay('2025-01-02T00:00:00+08:00', '2025-01-01T00:00:00+09:00'),
+    /时区偏移必须一致/,
+  );
+  assert.throws(
+    () =>
+      calculateHuangjiSixDayCycleFromDate(
+        parseSixDay('2024-12-31T23:59:59+08:00', '2025-01-01T00:00:00+08:00'),
+      ),
+    /超出显式历元后0至359日/,
+  );
+  assert.throws(
+    () =>
+      calculateHuangjiSixDayCycleFromDate(
+        parseSixDay('2025-12-27T00:00:00+08:00', '2025-01-01T00:00:00+08:00'),
+      ),
+    /超出显式历元后0至359日/,
   );
 });
 
-test('公历冬至换年后重新从新一轮六日逐爻坐标起算', () => {
-  const before = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2026-12-21T12:00:00+08:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
-  );
-  const after = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2026-12-23T12:00:00+08:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
-  );
-
-  assert.equal(before.anchor.forecastYear, 2026);
-  assert.equal(after.anchor.forecastYear, 2027);
-  assert.ok(after.calendar.actualElapsedDays >= 0 && after.calendar.actualElapsedDays <= 2);
-  assert.equal(
-    after.calendar.logicalElapsedDays,
-    (after.elapsedDays - after.anchor.dayIndex + 360) % 360,
-  );
-  assert.equal(after.dayOfCycle, after.elapsedDays + 1);
-});
-
-test('冬至当地日期内按真实节气瞬时切换皇极年，子半只负责公历日界', () => {
-  const beforeTerm = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2025-12-21T12:00:00+08:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
-  );
-  const afterTerm = calculateHuangjiSixDayCycleFromDate(
-    parseHuangjiSixDayDateTime(
-      '2025-12-22T00:00:00+08:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
-  );
-
-  assert.equal(beforeTerm.anchor.forecastYear, 2025);
-  assert.equal(afterTerm.anchor.forecastYear, 2026);
-  assert.equal(beforeTerm.anchor.dayStartDateTime, '2024-12-21T00:00:00+08:00');
-  assert.equal(afterTerm.anchor.dayStartDateTime, '2025-12-21T00:00:00+08:00');
-  assert.equal(beforeTerm.anchor.dayGanZhi, '己未');
-  assert.equal(beforeTerm.anchor.dayIndex, 55);
-});
-
-test('六日逐爻公历输入进入皇极结果与自包含提示词', () => {
+test('六日逐爻公历结果与提示词保留显式历元事实', () => {
   const result = calculateHuangjiJingshi({
-    sixDayDate: parseHuangjiSixDayDateTime(
-      '2025-12-22T05:03:05+14:00',
-      undefined,
-      undefined,
-      'six-day-seven-part',
-    ),
+    sixDayDate: parseSixDay('2025-01-02T05:03:05+14:00', '2025-01-01T00:00:00+14:00'),
     question: '此时的主要变化是什么？',
   });
 
   assert.equal(result.input.mode, '六日逐爻公历');
   assert.equal(result.sixDayCycle?.civilTime.timezone, 14);
-  assert.match(result.prompt, /六日逐爻公历时间：2025-12-22T05:03:05\+14:00/);
+  assert.match(result.prompt, /显式历元：2025-01-01T00:00:00\+14:00/);
   assert.match(result.prompt, /每六日一经卦、每日一爻、每四小时一爻/);
+  assert.doesNotMatch(result.prompt, /冬至定位依据|太阳年|日干支/);
   assert.match(result.prompt, /【问题】\n此时的主要变化是什么？/);
-});
-
-test('六日逐爻拒绝没有时区依据或互相矛盾的公历输入', () => {
-  assert.throws(
-    () =>
-      calculateHuangjiSixDayCycleFromDate(
-        parseHuangjiSixDayDateTime(
-          '2025-12-21T23:03:05',
-          undefined,
-          undefined,
-          'six-day-seven-part',
-        ),
-      ),
-    /timezone 与 timeZoneId 至少需要提供一项/,
-  );
-  assert.throws(
-    () =>
-      parseHuangjiSixDayDateTime('2025-12-21T23:03:05+08:00', 9, undefined, 'six-day-seven-part'),
-    /时区偏移与 timezone 不一致/,
-  );
-  assert.throws(
-    () =>
-      calculateHuangjiJingshi({
-        sixDayDate: parseHuangjiSixDayDateTime(
-          '2025-12-21T23:03:05+08:00',
-          undefined,
-          undefined,
-          'six-day-seven-part',
-        ),
-        year: 2026,
-      }),
-    /不得同时提供/,
-  );
 });
