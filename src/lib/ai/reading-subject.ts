@@ -334,6 +334,9 @@ export function buildDivinationReadingSubject(
     const result = session.data as HuangjiJingshiResult;
     const mode = result.input?.mode ?? '年月日时';
     lockedInputs.huangji = { _mode: mode };
+    if (mode === '年坐标' || mode === '已过年数') {
+      lockedInputs.huangji.epochYear = result.input.epochYear;
+    }
     range.huangjiMode = mode;
     range.huangjiInput = result.input;
     if (result.dateTimeForecast?.civilTime?.dateTime) {

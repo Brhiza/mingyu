@@ -1191,7 +1191,7 @@ function assertHuangjiResult(
     if (!record(hexagrams) || !record(hexagrams.hourJing)) {
       throw new Error('补算返回缺少皇极时经卦事实。');
     }
-  } else if (calculationInput.year !== undefined) {
+  } else if (calculationInput.year !== undefined && calculationInput.epochYear === undefined) {
     assertStructuredField('huangji.input.year', calculationInput.year, actualInput.year);
     const forecast = result.forecast;
     if (!record(forecast) || !record(forecast.hexagrams)) {
@@ -1453,9 +1453,6 @@ function prepareCalculationInput(
     const lockedScope = typeof locked.scope === 'string' ? locked.scope : undefined;
     const scope = typeof result.scope === 'string' ? result.scope : lockedScope;
     if (!scope) throw new Error('太乙补算必须明确 scope。');
-    if (lockedScope !== undefined && scope !== lockedScope) {
-      throw new Error('太乙补算不得改变当前会话的计式。');
-    }
     if (scope !== 'year') {
       for (const field of ['year', 'month', 'day']) {
         if (result[field] === undefined) throw new Error(`太乙${field}计补算必须明确${field}。`);
@@ -1470,6 +1467,15 @@ function prepareCalculationInput(
 
   if (method === 'huangji') {
     const mode = locked._mode;
+    if (locked.epochYear !== undefined) {
+      if (
+        result.epochYear !== undefined &&
+        stableComparable(result.epochYear) !== stableComparable(locked.epochYear)
+      ) {
+        throw new Error('皇极补算不得改变当前会话的纪元。');
+      }
+      result.epochYear = locked.epochYear;
+    }
     if (mode === '年月日时') {
       if (result.customDate === undefined) throw new Error('皇极年月日时补算必须明确 customDate。');
       if (

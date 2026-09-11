@@ -206,6 +206,55 @@ test('网页太乙与皇极会话建立真实目标快照并锁定术式口径',
   });
 });
 
+test('皇极自定义纪元按年坐标核验并在追问时保持原纪元', async () => {
+  const subject: ReadingSubjectSnapshot = {
+    id: 'huangji-custom-epoch',
+    source: 'huangji',
+    lockedInputs: { huangji: { _mode: '年坐标', epochYear: 1000 } },
+    allowedMethods: ['huangji'],
+    range: {},
+  };
+  await withRealApi(async () => {
+    const resource = await executeReadingAction(
+      { kind: 'calculate', method: 'huangji', input: { year: 2026 } },
+      undefined,
+      subject,
+    );
+    const result = resource.structured as {
+      input: { epochYear: number; year: number; mode: string };
+    };
+    assert.equal(result.input.epochYear, 1000);
+    assert.equal(result.input.year, 2026);
+    assert.equal(result.input.mode, '年坐标');
+    await assert.rejects(
+      executeReadingAction(
+        { kind: 'calculate', method: 'huangji', input: { epochYear: 1001, year: 2026 } },
+        undefined,
+        subject,
+      ),
+      /不得改变当前会话的纪元/u,
+    );
+  });
+});
+
+test('太乙追问可明确补齐另一时间层级并核验实际计式', async () => {
+  const subject: ReadingSubjectSnapshot = {
+    id: 'taiyi-month-question',
+    source: 'taiyi',
+    lockedInputs: { taiyi: { scope: 'month' } },
+    allowedMethods: ['taiyi'],
+    range: {},
+  };
+  await withRealApi(async () => {
+    const resource = await executeReadingAction(
+      { kind: 'calculate', method: 'taiyi', input: { scope: 'year', year: 2027 } },
+      undefined,
+      subject,
+    );
+    assert.equal((resource.structured as { scope: string }).scope, 'year');
+  });
+});
+
 test('非命盘补算按结构化目标事实核验返回结果', async () => {
   await withRealApi(
     async () => {
