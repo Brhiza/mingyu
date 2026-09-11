@@ -952,6 +952,14 @@ function assertResidentialResult(
   }
 
   const bazhai = result.bazhai;
+  if (
+    !record(bazhai) &&
+    (locked.birthYear !== undefined ||
+      locked.mingGua !== undefined ||
+      locked.doorToInteriorDegree !== undefined)
+  ) {
+    throw new Error('补算返回缺少住宅八宅主体资料。');
+  }
   if (record(bazhai)) {
     const bazhaiInput = bazhai.calculationInput;
     if (!record(bazhaiInput)) throw new Error('补算返回缺少八宅实际输入资料。');
@@ -1010,6 +1018,8 @@ function assertResidentialResult(
           measurement[field],
         );
       }
+    } else if (locked.facingDegree !== undefined || locked.sitDegree !== undefined) {
+      throw new Error('补算返回缺少玄空实际方向测量资料。');
     }
   }
 
@@ -1034,13 +1044,14 @@ function assertResidentialResult(
     const palaces = xuankong.palaces;
     if (
       !Array.isArray(palaces) ||
-      !palaces.some((palace) => record(palace) && typeof palace.yearStar === 'number')
+      palaces.length !== 9 ||
+      !palaces.every((palace) => record(palace) && typeof palace.yearStar === 'number')
     ) {
       throw new Error('补算返回缺少住宅玄空逐宫流年飞星。');
     }
     if (
       calculationInput.flowMonth !== undefined &&
-      !palaces.some((palace) => record(palace) && typeof palace.monthStar === 'number')
+      !palaces.every((palace) => record(palace) && typeof palace.monthStar === 'number')
     ) {
       throw new Error('补算返回缺少住宅玄空逐宫流月飞星。');
     }

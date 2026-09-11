@@ -2,7 +2,11 @@ import type { QueryInputState, QueryPromptState } from '@/lib/query-state';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import type { QimenLifetimeInput } from 'mingyu-core/types';
-import { buildResidentialCoreInput } from '@/lib/residential-fengshui-chart';
+import { getBirthDateValidationMessage } from 'mingyu-core/calendar';
+import {
+  buildResidentialCoreInput,
+  resolveResidentialBirthDate,
+} from '@/lib/residential-fengshui-chart';
 
 /**
  * AI 自动补算时锁定的主体快照。模型只能改变目标时段、问题和解读范围，
@@ -152,17 +156,28 @@ function buildResidentialInputs(input: QueryInputState, prompt: QueryPromptState
     typeof birthDay === 'number' &&
     Number.isInteger(birthYear) &&
     Number.isInteger(birthMonth) &&
-    Number.isInteger(birthDay);
+    Number.isInteger(birthDay) &&
+    !getBirthDateValidationMessage({
+      year: birthYear,
+      month: birthMonth,
+      day: birthDay,
+      dateType: input.dateType,
+      isLeapMonth: input.isLeapMonth,
+    });
   const houseYear = numberOrString(prompt.residentialHouseYear);
   const doorToInteriorDegree = numberOrString(prompt.bazhaiFacingDegree);
   return buildResidentialCoreInput({
     birthData: hasBirth
-      ? {
-          year: Number(birthYear),
-          month: Number(birthMonth),
-          day: Number(birthDay),
-          gender: input.gender,
-        }
+      ? resolveResidentialBirthDate(
+          {
+            year: Number(birthYear),
+            month: Number(birthMonth),
+            day: Number(birthDay),
+            gender: input.gender,
+          },
+          input.dateType,
+          input.isLeapMonth,
+        )
       : undefined,
     ...(typeof houseYear === 'number' && Number.isInteger(houseYear) ? { houseYear } : {}),
     ...(typeof doorToInteriorDegree === 'number' && Number.isFinite(doorToInteriorDegree)

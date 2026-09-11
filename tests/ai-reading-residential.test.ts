@@ -125,6 +125,41 @@ test('住宅 AI 补算经真实公开接口返回目标流年流月与逐宫飞�
   });
 });
 
+test('住宅农历出生日期转换为同一公历主体后再补算', async () => {
+  const lunarSubject = buildReadingSubject(
+    { ...input, year: '2024', month: '1', day: '1', dateType: 'lunar' },
+    prompt,
+  );
+  assert.equal(lunarSubject.lockedInputs.fengshui.birthYear, 2024);
+  assert.equal(lunarSubject.lockedInputs.fengshui.birthMonth, 2);
+  assert.equal(lunarSubject.lockedInputs.fengshui.birthDay, 10);
+  await withRealApi(async () => {
+    const resource = await executeReadingAction(action, undefined, lunarSubject);
+    const result = resource.structured as {
+      bazhai: { calculationInput: { birthMonth: number; birthDay: number } };
+    };
+    assert.equal(result.bazhai.calculationInput.birthMonth, 2);
+    assert.equal(result.bazhai.calculationInput.birthDay, 10);
+  });
+});
+
+test('住宅补算拒绝缺失主体与不完整九宫流运资料', async () => {
+  for (const missing of ['bazhai', 'yearStar', 'monthStar']) {
+    await withRealApi(
+      async () => {
+        await assert.rejects(executeReadingAction(action, undefined, subject), /缺少住宅/u);
+      },
+      (body) => {
+        const data = body.data as {
+          result: { bazhai?: unknown; xuankong: { palaces: Array<Record<string, unknown>> } };
+        };
+        if (missing === 'bazhai') delete data.result.bazhai;
+        else delete data.result.xuankong.palaces[0][missing];
+      },
+    );
+  }
+});
+
 test('住宅 AI 补算保留真实北向基准、磁偏角和测量误差', async () => {
   await withRealApi(async () => {
     const resource = await executeReadingAction(action, undefined, measuredSubject);

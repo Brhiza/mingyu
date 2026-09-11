@@ -97,10 +97,12 @@ import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
 import {
   buildResidentialChartInput,
+  resolveResidentialBirthDate,
   calculateResidentialChart,
   type ResidentialMeasurement,
 } from '@/lib/residential-fengshui-chart';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
+import { getBirthDateValidationMessage } from '@/lib/date-validation';
 import { buildCurrentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from 'mingyu-core/bazi';
 import { PromptWorkbenchPanel } from '@/components/PromptPreview';
@@ -418,9 +420,23 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       month <= 12 &&
       Number.isInteger(day) &&
       day >= 1 &&
-      day <= 31
+      day <= 31 &&
+      !getBirthDateValidationMessage({
+        year,
+        month,
+        day,
+        dateType: inputState.dateType,
+        isLeapMonth: inputState.isLeapMonth,
+      })
     );
-  }, [inputState.analysisMode, inputState.day, inputState.month, inputState.year]);
+  }, [
+    inputState.analysisMode,
+    inputState.day,
+    inputState.month,
+    inputState.year,
+    inputState.dateType,
+    inputState.isLeapMonth,
+  ]);
   const canUseResidentialFengshui =
     hasResidentialBirthData || Boolean(promptState.bazhaiFacingDegree.trim());
   const hasAstrolabeChart = hasPreciseBirthData;
@@ -508,20 +524,17 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   }, [baziResult, hasPreciseBirthData, inputState]);
   const residentialBirthData = useMemo(() => {
     if (!hasResidentialBirthData) return null;
-    if (inputState.dateType === 'solar') {
-      return {
+    return resolveResidentialBirthDate(
+      {
         year: Number(inputState.year),
         month: Number(inputState.month),
         day: Number(inputState.day),
         gender: inputState.gender,
-      };
-    }
-    if (!baziResult) return null;
-    return {
-      ...baziResult.solarDate,
-      gender: inputState.gender,
-    };
-  }, [baziResult, hasResidentialBirthData, inputState]);
+      },
+      inputState.dateType,
+      inputState.isLeapMonth,
+    );
+  }, [hasResidentialBirthData, inputState]);
   const {
     ziweiRuntime,
     partnerZiweiRuntime,
@@ -728,6 +741,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       setResidentialResult(next.result);
       setResidentialMeasurement(next.measurement);
     } catch {
+      setResidentialResult(null);
+      setResidentialMeasurement(null);
       // URL 中的旧值或人工修改值无法生成时，住宅风水页仍允许用户重新测量。
     }
   }, [

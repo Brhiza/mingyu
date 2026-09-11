@@ -10,6 +10,7 @@ import {
 } from 'mingyu-core/bazhai';
 import type { SitFacingPosition } from 'mingyu-core/direction';
 import type { XuanKongResult } from 'mingyu-core/xuankong';
+import { LunarDay } from 'tyme4ts';
 
 export type ResidentialMeasurement = BaZhaiDoorMeasurement;
 export type ResidentialChartResult = ResidentialFengshuiResult;
@@ -35,6 +36,25 @@ export type ResidentialChartInput = {
 };
 
 export type ResidentialBirthData = Pick<ResidentialChartInput, 'year' | 'month' | 'day' | 'gender'>;
+
+export function resolveResidentialBirthDate(
+  birth: Required<ResidentialBirthData>,
+  dateType: 'solar' | 'lunar',
+  isLeapMonth: boolean,
+): Required<ResidentialBirthData> {
+  if (dateType === 'solar') return birth;
+  const solar = LunarDay.fromYmd(
+    birth.year,
+    isLeapMonth ? -birth.month : birth.month,
+    birth.day,
+  ).getSolarDay();
+  return {
+    year: solar.getYear(),
+    month: solar.getMonth(),
+    day: solar.getDay(),
+    gender: birth.gender,
+  };
+}
 
 /** 将网页或主体快照中的住宅资料统一整理为核心住宅输入。 */
 export function buildResidentialChartInput(params: {
