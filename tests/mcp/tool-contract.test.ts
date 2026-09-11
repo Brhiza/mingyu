@@ -27,6 +27,10 @@ test('统一 Tool Catalog 应包含所有核心工具并声明元数据注解', 
   assert.ok(promptTool);
   assert.equal(promptTool.type, 'prompt');
 
+  const qimenLifetimePrompt = findTool('qimen_lifetime_prompt');
+  assert.ok(qimenLifetimePrompt);
+  assert.doesNotMatch(qimenLifetimePrompt.description, /统一主题参数/);
+
   const annotations = getToolAnnotations('foundation_capabilities');
   assert.equal(annotations.readOnlyHint, true);
 });

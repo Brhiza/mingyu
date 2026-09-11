@@ -581,6 +581,98 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'huangji_jingshi_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'huangji_reference_tables'));
 
+    const wuyunTool = tools.find((tool) => tool.name === 'metaphysics_wuyun_liuqi');
+    assert.deepEqual(wuyunTool?.inputSchema?.anyOf, [
+      { required: ['year'] },
+      { required: ['yearGanZhi'] },
+    ]);
+    const wuyunPromptTool = tools.find((tool) => tool.name === 'wuyun_liuqi_prompt');
+    assert.deepEqual(wuyunPromptTool?.inputSchema?.anyOf, wuyunTool?.inputSchema?.anyOf);
+
+    const huangjiTool = tools.find((tool) => tool.name === 'metaphysics_huangji_jingshi');
+    assert.deepEqual(huangjiTool?.inputSchema?.oneOf, [
+      {
+        required: ['customDate'],
+        not: {
+          anyOf: [
+            { required: ['sixDayDateTime'] },
+            { required: ['sixDayEpochDateTime'] },
+            { required: ['calendarModel'] },
+            { required: ['epochYear'] },
+            { required: ['year'] },
+            { required: ['elapsedYears'] },
+          ],
+        },
+      },
+      {
+        required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
+        not: {
+          anyOf: [
+            { required: ['customDate'] },
+            { required: ['epochYear'] },
+            { required: ['year'] },
+            { required: ['elapsedYears'] },
+          ],
+        },
+      },
+      {
+        required: ['year'],
+        not: {
+          anyOf: [
+            { required: ['customDate'] },
+            { required: ['sixDayDateTime'] },
+            { required: ['sixDayEpochDateTime'] },
+            { required: ['calendarModel'] },
+            { required: ['epochYear'] },
+            { required: ['elapsedYears'] },
+          ],
+        },
+      },
+      {
+        required: ['epochYear', 'year'],
+        not: {
+          anyOf: [
+            { required: ['customDate'] },
+            { required: ['sixDayDateTime'] },
+            { required: ['sixDayEpochDateTime'] },
+            { required: ['calendarModel'] },
+            { required: ['elapsedYears'] },
+          ],
+        },
+      },
+      {
+        required: ['epochYear', 'elapsedYears'],
+        not: {
+          anyOf: [
+            { required: ['customDate'] },
+            { required: ['sixDayDateTime'] },
+            { required: ['sixDayEpochDateTime'] },
+            { required: ['calendarModel'] },
+            { required: ['year'] },
+          ],
+        },
+      },
+    ]);
+    const huangjiPromptTool = tools.find((tool) => tool.name === 'huangji_jingshi_prompt');
+    assert.deepEqual(huangjiPromptTool?.inputSchema?.oneOf, huangjiTool?.inputSchema?.oneOf);
+
+    const huangjiReferenceTool = tools.find((tool) => tool.name === 'huangji_reference_tables');
+    assert.deepEqual(huangjiReferenceTool?.inputSchema?.oneOf, [
+      {
+        required: ['table'],
+        not: {
+          anyOf: [
+            { required: ['shiIndex'] },
+            { properties: { table: { const: 'historical-era' } } },
+          ],
+        },
+      },
+      {
+        required: ['table', 'shiIndex'],
+        properties: { table: { const: 'historical-era' } },
+      },
+    ]);
+
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),
       false,

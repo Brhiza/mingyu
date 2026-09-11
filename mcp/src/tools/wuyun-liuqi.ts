@@ -12,17 +12,34 @@ import {
 import { createPromptSchoolsShape } from './school-options.js';
 
 const wuyunLiuqiSchema = z.object({
-  year: z.number().int().min(1).max(9999).optional().describe('公历年，按该年年中所属年柱换算'),
+  year: z
+    .number()
+    .int()
+    .min(1)
+    .max(9999)
+    .optional()
+    .describe('公历年，按该年年中所属年柱换算；year 与 yearGanZhi 至少提供一项'),
   yearGanZhi: z
     .string()
     .refine(isValidGanZhi, 'yearGanZhi 必须是有效的六十甲子')
     .optional()
-    .describe('明确年干支，如「丙午」；与 year 同时提供会校验一致性'),
+    .describe('明确年干支，如「丙午」；year 与 yearGanZhi 至少提供一项，同时提供时会校验一致性'),
   question: z.string().min(1).optional().describe('希望 AI 重点解释的问题'),
   topicId: z.string().optional().describe('统一解读主题 ID'),
   subtopicId: z.string().optional().describe('统一解读主题细项 ID'),
   scope: z.string().optional().describe('统一分析范围 ID'),
 });
+
+const wuyunCalculationSchema = wuyunLiuqiSchema
+  .omit({ question: true })
+  .extend(calculationDetailShape)
+  .describe('五运六气输入：year 与 yearGanZhi 至少提供一项；同时提供时校验一致性')
+  .meta({ anyOf: [{ required: ['year'] }, { required: ['yearGanZhi'] }] });
+
+const wuyunPromptSchema = wuyunLiuqiSchema
+  .extend(createPromptSchoolsShape('wuyun-liuqi'))
+  .describe('五运六气输入：year 与 yearGanZhi 至少提供一项；同时提供时校验一致性')
+  .meta({ anyOf: [{ required: ['year'] }, { required: ['yearGanZhi'] }] });
 
 function calculateWuyunLiuqi(args: z.infer<typeof wuyunLiuqiSchema>) {
   if (args.year === undefined && args.yearGanZhi === undefined) {
@@ -37,10 +54,7 @@ export function registerWuyunLiuqiTool(server: McpServer) {
     {
       description:
         '五运六气年度计算：返回岁运、五步主客运与五音太少、司天在泉、气运相临、天符岁会及六步节令主客气',
-      inputSchema: {
-        ...wuyunLiuqiSchema.omit({ question: true }).shape,
-        ...calculationDetailShape,
-      },
+      inputSchema: wuyunCalculationSchema,
       outputSchema: resultOutputSchema,
     },
     async (args) => {
@@ -57,10 +71,7 @@ export function registerWuyunLiuqiTool(server: McpServer) {
     'wuyun_liuqi_prompt',
     {
       description: '五运六气年度深化计算并生成可直接交给 AI 的完整任务书',
-      inputSchema: {
-        ...wuyunLiuqiSchema.shape,
-        ...createPromptSchoolsShape('wuyun-liuqi'),
-      },
+      inputSchema: wuyunPromptSchema,
       outputSchema: promptOutputSchema,
     },
     async (args) => {
