@@ -607,7 +607,9 @@ function packPhaseAnswers(
     } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('解读容量')) throw error;
       if (!current.length)
-        throw new Error(`紫微阶段${entry.indices[0]! + 1}/${phaseCount}的分析结果超出汇总容量。`);
+        throw new Error(`紫微阶段${entry.indices[0]! + 1}/${phaseCount}的分析结果超出汇总容量。`, {
+          cause: error,
+        });
       groups.push(current);
       current = [entry];
     }
@@ -626,7 +628,7 @@ async function collectZiweiPhaseSummary(
   question: string,
   supplementalText: string,
 ) {
-  let entries: PhaseAnswer[] = Array.from({ length: phases.length }, (_, index) => ({
+  const entries: PhaseAnswer[] = Array.from({ length: phases.length }, (_, index) => ({
     indices: [index],
     labels: [phases[index]!.summaryLabel],
     answer: '',
