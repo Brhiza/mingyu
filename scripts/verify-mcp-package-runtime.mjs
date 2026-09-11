@@ -115,6 +115,13 @@ try {
   assert.equal(soundReference.bodyCounts.heavenlyUseSound, 112);
   assert.equal(soundReference.bodyCounts.earthlyUseTone, 152);
   assert.equal(soundReference.pairings.length, 4);
+  assert.deepEqual(
+    soundReference.diagramCounts.map((item) => [item.value, item.formula]),
+    [
+      [1064, '7×152'],
+      [560, '5×112'],
+    ],
+  );
   assert.ok(soundReference.source.every((source) => source.url));
 
   const historicalReference = await callTool(client, 'huangji_reference_tables', {
@@ -127,6 +134,19 @@ try {
   assert.equal(historicalReference.rows.length, 30);
   assert.equal(historicalReference.namedEntries[0].label, '商武丁');
   assert.ok(historicalReference.source.url);
+  let historicalRowCount = 0;
+  for (let shiIndex = 2149; shiIndex <= 2208; shiIndex += 1) {
+    const block = await callTool(client, 'huangji_reference_tables', {
+      table: 'historical-era',
+      shiIndex,
+      detailMode: 'full',
+    });
+    assert.equal(block.rows.length, 30);
+    assert.ok(block.rows.every((row) => typeof row.sourceText === 'string'));
+    historicalRowCount += block.rows.length;
+  }
+  assert.equal(historicalRowCount, 1800);
+  assert.equal(historicalReference.rows[23].sourceText, '商武丁');
 
   console.log('MCP 发布包隔离安装后的 initialize、tools/list 与四类工具调用检查通过。');
 } finally {

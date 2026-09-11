@@ -92,6 +92,13 @@ try {
   assert.equal(soundReference.bodyCounts.heavenlyUseSound, 112);
   assert.equal(soundReference.bodyCounts.earthlyUseTone, 152);
   assert.equal(soundReference.pairings.length, 4);
+  assert.deepEqual(
+    soundReference.diagramCounts.map((item) => [item.value, item.formula]),
+    [
+      [1064, '7×152'],
+      [560, '5×112'],
+    ],
+  );
   assert.ok(soundReference.source.every((source) => source.url));
 
   const animalPlantReference = await postJson('/api/v1/metaphysics/huangji-jingshi/references', {
@@ -115,6 +122,19 @@ try {
   assert.equal(historicalReference.rows.length, 30);
   assert.equal(historicalReference.namedEntries[0].label, '商武丁');
   assert.ok(historicalReference.source.url);
+  let historicalRowCount = 0;
+  for (let shiIndex = 2149; shiIndex <= 2208; shiIndex += 1) {
+    const block = await postJson('/api/v1/metaphysics/huangji-jingshi/references', {
+      table: 'historical-era',
+      shiIndex,
+      detailMode: 'full',
+    });
+    assert.equal(block.rows.length, 30);
+    assert.ok(block.rows.every((row) => typeof row.sourceText === 'string'));
+    historicalRowCount += block.rows.length;
+  }
+  assert.equal(historicalRowCount, 1800);
+  assert.equal(historicalReference.rows[23].sourceText, '商武丁');
 
   console.log(
     'Docker 运行时静态资源、SPA 回退、请求方法、MCP 端点及易林、五运六气、替卦、皇极资料 API 检查通过。',
