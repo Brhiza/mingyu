@@ -19,7 +19,7 @@ pages_build_output_dir = "dist"
 # 未绑定 AUTH_KV / 未设 AUTH_SECRET 时，/api/auth/* 返回 503，
 # 前端登录入口显示"部署后启用"（已做优雅降级，不影响其余功能上线）。
 [[kv_namespaces]]
-binding = "temposoul_auth"
+binding = "AUTH_KV"
 id = "4561e72198ea4b9c9582a9826303e3d2"
 
 # ── 非机密运行时变量 ──
