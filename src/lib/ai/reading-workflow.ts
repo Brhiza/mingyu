@@ -480,6 +480,13 @@ function getQimenPhaseCoverage(
   );
   const range = result.input.periodRange;
   const rangeLabel = range ? `${range.startDate}至${range.endDate}` : '终身阶段范围';
+  const actualDates = selected
+    .flatMap(({ slice, cluster }) =>
+      (cluster.triggerDates ?? []).slice(slice.startDateIndex, slice.endDateIndex),
+    )
+    .map((item) => item.dateTime ?? item.date)
+    .sort();
+  const dateSpan = actualDates.length ? `（${actualDates[0]}至${actualDates.at(-1)}）` : '';
   const spanLabel =
     spans.length <= 4
       ? spans.join('、') || '基础局资料'
@@ -487,7 +494,7 @@ function getQimenPhaseCoverage(
   return {
     label: `目标时间范围：${rangeLabel}；本阶段覆盖：${spanLabel}；相关阶段：${
       stageNames.join('、') || '基础局'
-    }；可复核日期：${dateKeys.length}条`,
+    }；可复核日期：${dateKeys.length}条${dateSpan}`,
     clusterKeys: selected.map(({ slice, cluster }) => `${slice.clusterIndex}:${cluster.key}`),
     dateKeys,
   };
