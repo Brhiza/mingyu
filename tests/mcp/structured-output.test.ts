@@ -529,7 +529,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 75);
+    assert.equal(tools.length, 76);
     assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
@@ -579,6 +579,7 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'wuyun_liuqi_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_huangji_jingshi'));
     assert.ok(tools.find((tool) => tool.name === 'huangji_jingshi_prompt'));
+    assert.ok(tools.find((tool) => tool.name === 'huangji_reference_tables'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),
