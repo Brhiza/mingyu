@@ -438,6 +438,7 @@ export function resolveReadingSchema(
 function collectObjectSchemaParts(value: unknown) {
   const properties: Record<string, unknown> = {};
   const required = new Set<string>();
+  const conditions: Record<string, unknown>[] = [];
 
   const collect = (current: unknown) => {
     if (!record(current)) return;
@@ -448,17 +449,23 @@ function collectObjectSchemaParts(value: unknown) {
     if (Array.isArray(current.required)) {
       for (const item of current.required) if (typeof item === 'string') required.add(item);
     }
+    const condition = Object.fromEntries(
+      ['anyOf', 'oneOf', 'not']
+        .filter((key) => current[key] !== undefined)
+        .map((key) => [key, current[key]]),
+    );
+    if (Object.keys(condition).length) conditions.push(condition);
   };
 
   collect(value);
-  return { properties, required };
+  return { properties, required, conditions };
 }
 
 function filterCalculationSchema(method: string, value: unknown): Record<string, unknown> {
   const rule = CALCULATION_PARAMETER_RULES[method];
   if (!rule) throw new Error('此方法暂不支持安全补算。');
 
-  const { properties, required } = collectObjectSchemaParts(value);
+  const { properties, required, conditions } = collectObjectSchemaParts(value);
   const mutable = new Set(rule.mutable);
   const filteredProperties = Object.fromEntries(
     Object.entries(properties).filter(([key]) => mutable.has(key)),
@@ -471,6 +478,11 @@ function filterCalculationSchema(method: string, value: unknown): Record<string,
       '这是补算 input。calculate 动作另带 target，取值为 primary 或 partner；partner 只在当前会话存在伴侣主体快照时使用。',
     properties: filteredProperties,
     ...(filteredRequired.length > 0 ? { required: filteredRequired } : {}),
+    ...(conditions.length === 1
+      ? conditions[0]
+      : conditions.length > 1
+        ? { allOf: conditions }
+        : {}),
     additionalProperties: false,
   };
 }
@@ -1142,7 +1154,7 @@ function assertTaiyiResult(
   }
   const dateTimeParts = readDateTimeParts(result.dateTime);
   if (!dateTimeParts) throw new Error('补算返回缺少太乙实际目标时刻。');
-  for (const field of ['year', 'month', 'day', 'hour', 'minute']) {
+  for (const field of ['year', 'month', 'day', 'hour', 'minute'] as const) {
     if (calculationInput[field] !== undefined) {
       assertStructuredField(`taiyi.${field}`, calculationInput[field], dateTimeParts[field]);
     }

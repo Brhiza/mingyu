@@ -84,7 +84,11 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
         const resource = await executeReadingAction({ kind: 'schema', method });
         return [
           method,
-          JSON.parse(resource.text) as { properties?: Record<string, unknown> },
+          JSON.parse(resource.text) as {
+            properties?: Record<string, unknown>;
+            anyOf?: unknown;
+            oneOf?: unknown;
+          },
         ] as const;
       }),
     );
@@ -94,6 +98,27 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
     assert.ok(byMethod.taiyi.properties?.month);
     assert.ok(byMethod.huangji.properties?.customDate);
     assert.ok(byMethod.huangji.properties?.epochYear);
+    assert.deepEqual(byMethod.wuyun.anyOf, [{ required: ['year'] }, { required: ['yearGanZhi'] }]);
+    assert.deepEqual(byMethod.huangji.oneOf, [
+      {
+        required: ['customDate'],
+        not: {
+          anyOf: [
+            { required: ['epochYear'] },
+            { required: ['year'] },
+            { required: ['elapsedYears'] },
+          ],
+        },
+      },
+      {
+        required: ['year'],
+        not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+      },
+      {
+        required: ['epochYear', 'elapsedYears'],
+        not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
+      },
+    ]);
     assert.ok(byMethod.wuyun.properties?.year);
     assert.ok(byMethod.wuyun.properties?.yearGanZhi);
     for (const schema of Object.values(byMethod)) {
