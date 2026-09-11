@@ -19,6 +19,7 @@ import type {
 import { formatAstrolabeForPrompt } from './astrolabe';
 import { formatDivinationInfo } from './divination';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
+import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 import { formatAlmanacGods } from '../divination/almanac-evidence';
 
@@ -267,6 +268,28 @@ function formatHuangjiDetail(data: HuangjiJingshiResult) {
   ];
 }
 
+function formatWuyunDetail(data: WuyunLiuqiResult) {
+  return [
+    `年干支：${data.input.yearGanZhi}${data.input.year === undefined ? '' : `（公历${data.input.year}年）`}`,
+    `岁运：${data.annualMovement.name}${data.annualMovement.toneName}${data.annualMovement.strength}；司天${data.sitian.name}；在泉${data.zaiquan.name}`,
+    `年度关系：${data.annualRelation.kind}；司天化令${data.annualClassification.sitianTransformation}；${data.annualClassification.governance}`,
+    `年度符会：${data.annualConformities.names.join('、') || '未形成五类符会'}`,
+    `五步主客运：${data.movementSteps
+      .map(
+        (item) =>
+          `${item.label}${item.gregorianStart && item.gregorianEnd ? `（${item.gregorianStart}至${item.gregorianEnd}）` : ''}主${item.hostMovement.toneName}${item.hostMovement.element}客${item.guestMovement.toneName}${item.guestMovement.element}${item.hostGuestRelation.kind}`,
+      )
+      .join('；')}`,
+    `六步主客气：${data.qiSteps
+      .map(
+        (item) =>
+          `${item.label}${item.gregorianStart && item.gregorianEnd ? `（${item.gregorianStart}至${item.gregorianEnd}）` : ''}主${item.hostQi.name}客${item.guestQi.name}${item.hostGuestRelation.kind}`,
+      )
+      .join('；')}`,
+    data.pathomechanism?.summary ?? '',
+  ].filter(Boolean);
+}
+
 /** 输出比摘要更完整的、可直接拼入任务书的占法资料。 */
 export function formatDetailedDivinationInfo(method: SupportedMethod, data: DivinationData) {
   const detail = (() => {
@@ -297,6 +320,8 @@ export function formatDetailedDivinationInfo(method: SupportedMethod, data: Divi
         return formatTaiyiDetail(data as TaiyiResult);
       case 'huangji':
         return formatHuangjiDetail(data as HuangjiJingshiResult);
+      case 'wuyun':
+        return formatWuyunDetail(data as WuyunLiuqiResult);
       default:
         return [];
     }

@@ -22,6 +22,7 @@ import type {
 } from '../../../types/divination';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
+import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import { convertTrueSolarTime, formatSolarDateTimeParts, TimeManager } from 'mingyu-core/calendar';
 import { daysInSolarMonth } from '../../date-validation';
 import {
@@ -63,6 +64,7 @@ const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> 
   'qimen',
   'liuren',
   'taiyi',
+  'wuyun',
   'tarot',
   'ssgw',
   'lenormand',
@@ -160,6 +162,9 @@ export type DivinationDraft = {
   promptScope?: string;
   taiyiYear: string;
   taiyiScope?: TaiyiScope;
+  /** 历史草稿可能没有年度字段；五运六气提交时再校验必填。 */
+  wuyunYear?: string;
+  wuyunYearGanZhi?: string;
   zhugeText: string;
   kongmingMethod?: 'random' | 'manual';
   kongmingPattern?: string;
@@ -209,7 +214,8 @@ export function buildDivinationPrompt(
   options: BuildDivinationPromptOptions = {},
 ) {
   const isCustomQuestion = Boolean(options.isCustomQuestion);
-  const promptMethodId = method === 'huangji' ? 'huangji-jingshi' : method;
+  const promptMethodId =
+    method === 'huangji' ? 'huangji-jingshi' : method === 'wuyun' ? 'wuyun-liuqi' : method;
   const hasPromptSelection =
     options.topicId !== undefined ||
     options.subtopicId !== undefined ||
@@ -264,7 +270,8 @@ export function buildDivinationPrompt(
           ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
           : buildTaskText(method, data);
   const taskText = selection ? buildPromptSelectionTask(baseTaskText, selection) : baseTaskText;
-  const promptSchoolMethod = method === 'huangji' ? 'huangji-jingshi' : method;
+  const promptSchoolMethod =
+    method === 'huangji' ? 'huangji-jingshi' : method === 'wuyun' ? 'wuyun-liuqi' : method;
   const selectedSchools = options.schools?.length
     ? normalizePromptSchoolIds(promptSchoolMethod as PromptSchoolMethod, options.schools)
     : [];
@@ -324,7 +331,10 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
   const info: SupplementaryInfo = {};
 
   const usesDedicatedBirthInfo =
-    draft.method === 'almanac' || draft.method === 'astrolabe' || draft.method === 'huangji';
+    draft.method === 'almanac' ||
+    draft.method === 'astrolabe' ||
+    draft.method === 'huangji' ||
+    draft.method === 'wuyun';
   if (!usesDedicatedBirthInfo && draft.gender) {
     info.gender = draft.gender;
   }
@@ -526,6 +536,10 @@ function validateDraft(draft: DivinationDraft) {
     assertNumberRange(year, '太乙年计年份', 1900, 2200);
   }
 
+  if (draft.method === 'wuyun') {
+    resolveWuyunInput(draft);
+  }
+
   if (draft.method === 'almanac') {
     if (!draft.almanacStartDate || !draft.almanacEndDate) {
       throw new Error('黄历择日需要选择开始日期和结束日期');
@@ -557,6 +571,22 @@ function readIntegerText(value: string, label: string) {
     throw new Error(`${label}必须是整数`);
   }
   return Number(text);
+}
+
+function resolveWuyunInput(draft: DivinationDraft) {
+  const yearText = draft.wuyunYear?.trim() ?? '';
+  const yearGanZhi = draft.wuyunYearGanZhi?.trim() ?? '';
+  if (!yearText && !yearGanZhi) {
+    throw new Error('五运六气需要填写目标年份或年干支');
+  }
+  const year = yearText ? readIntegerText(yearText, '五运六气目标年份') : undefined;
+  if (year !== undefined) {
+    assertNumberRange(year, '五运六气目标年份', 1, 9999);
+  }
+  return {
+    ...(year === undefined ? {} : { year }),
+    ...(yearGanZhi ? { yearGanZhi } : {}),
+  };
 }
 
 function readOptionalPositiveIntegerText(value: string) {
@@ -980,6 +1010,14 @@ export async function generateDivinationSession(
       });
       break;
     }
+    case 'wuyun': {
+      const module = await import('mingyu-core/wuyun-liuqi');
+      data = module.calculateWuyunLiuqi({
+        ...resolveWuyunInput(draft),
+        question: inputQuestion,
+      }) as WuyunLiuqiResult;
+      break;
+    }
     case 'tarot': {
       const module = await import('mingyu-core/divination/tarot');
       data = module.drawTarotSpread(
@@ -1061,7 +1099,8 @@ export async function generateDivinationSession(
     method === 'almanac' && !inputQuestion
       ? buildAlmanacSessionTitle(data as AlmanacData)
       : inputQuestion;
-  const promptMethodId = method === 'huangji' ? 'huangji-jingshi' : method;
+  const promptMethodId =
+    method === 'huangji' ? 'huangji-jingshi' : method === 'wuyun' ? 'wuyun-liuqi' : method;
   const selection =
     draft.promptTopicId !== undefined ||
     draft.promptSubtopicId !== undefined ||

@@ -18,6 +18,7 @@ import {
   type HuangjiPeriodHexagram,
 } from 'mingyu-core/huangji-jingshi';
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
+import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from 'mingyu-core/name-number';
 import { getKongmingInterpretation, getZhugeInterpretation } from 'mingyu-core/name-number';
 import { analyzeAlmanacEvidence, formatAlmanacGods } from 'mingyu-core/divination/almanac';
@@ -3269,6 +3270,93 @@ function HuangjiTraditionalBoard({
   );
 }
 
+function WuyunTraditionalBoard({
+  data,
+  session,
+}: {
+  data: WuyunLiuqiResult;
+  session?: DivinationSession;
+}) {
+  const targetYear = data.input.year === undefined ? '' : `${data.input.year}年`;
+  const target = `${targetYear}${data.input.yearGanZhi}`;
+  const formatRange = (start?: string, end?: string) =>
+    start && end ? `公历${start}至${end}` : '按传统节气序日';
+
+  return (
+    <TraditionalBoardShell
+      title="五运六气年度盘"
+      subtitle={`${target} · ${data.annualMovement.name}${data.annualMovement.toneName} · 司天${data.sitian.name}`}
+      className="traditional-wuyun-board"
+    >
+      <TraditionalMeta
+        items={[
+          ['占事', session?.question],
+          ['目标年度', target],
+          [
+            '岁运',
+            `${data.annualMovement.name}${data.annualMovement.toneName}${data.annualMovement.strength}`,
+          ],
+          ['司天', data.sitian.name],
+          ['在泉', data.zaiquan.name],
+          [
+            '政化',
+            `${data.annualClassification.sitianTransformation} · ${data.annualClassification.governance}`,
+          ],
+        ]}
+      />
+      <TraditionalFacts
+        items={[
+          ['中运与司天', data.annualRelation.kind],
+          ['年度符会', data.annualConformities.names.join('、') || '未形成五类符会'],
+          ['年度病机', data.pathomechanism?.summary],
+        ]}
+      />
+
+      <section className="traditional-wuyun-steps" aria-label="五步主客运">
+        <h4>五步主客运</h4>
+        <div className="traditional-fact-grid">
+          {data.movementSteps.map((step) => (
+            <div key={step.label}>
+              <span>
+                {step.label} · {formatRange(step.gregorianStart, step.gregorianEnd)}
+              </span>
+              <strong>
+                主运{step.hostMovement.toneName}
+                {step.hostMovement.element}；客运{step.guestMovement.toneName}
+                {step.guestMovement.element}
+              </strong>
+              <small>
+                {step.hostGuestRelation.kind}
+                {step.guestRole ? ` · ${step.guestRole}` : ''}
+              </small>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="traditional-wuyun-steps" aria-label="六步主客气">
+        <h4>六步主客气</h4>
+        <div className="traditional-fact-grid">
+          {data.qiSteps.map((step) => (
+            <div key={step.label}>
+              <span>
+                {step.label} · {formatRange(step.gregorianStart, step.gregorianEnd)}
+              </span>
+              <strong>
+                主气{step.hostQi.name}；客气{step.guestQi.name}
+              </strong>
+              <small>
+                {step.hostGuestRelation.kind}
+                {step.guestRole ? ` · ${step.guestRole}` : ''}
+              </small>
+            </div>
+          ))}
+        </div>
+      </section>
+    </TraditionalBoardShell>
+  );
+}
+
 const LIUREN_BRANCH_POSITIONS: Record<string, { row: number; column: number }> = {
   巳: { row: 1, column: 1 },
   午: { row: 1, column: 2 },
@@ -3598,6 +3686,7 @@ const DIVINATION_METHOD_LABELS: Record<string, string> = {
   astrolabe: '古典星盘',
   taiyi: '太乙神数',
   huangji: '皇极经世',
+  wuyun: '五运六气',
   liuren: '大六壬',
   zhuge: '诸葛神数',
   kongming: '孔明神卦',
@@ -3647,6 +3736,16 @@ function formatDivinationSessionShareText(session: DivinationSession): string {
     lines.push(
       `四位：人元【${formatPosition(d.positions.renYuan)}】 贵神【${formatPosition(d.positions.guiShen)}】 将神【${formatPosition(d.positions.jiangShen)}】 地分【${formatPosition(d.positions.diFen)}】`,
     );
+  } else if (session.method === 'wuyun') {
+    const d = session.data as WuyunLiuqiResult;
+    lines.push(
+      `目标年度：${d.input.year === undefined ? '' : `${d.input.year}年`}${d.input.yearGanZhi}`,
+    );
+    lines.push(
+      `岁运：${d.annualMovement.name}${d.annualMovement.toneName}${d.annualMovement.strength}`,
+    );
+    lines.push(`司天：${d.sitian.name}  在泉：${d.zaiquan.name}`);
+    lines.push(`符会：${d.annualConformities.names.join('、') || '未形成五类符会'}`);
   }
 
   return lines.join('\n');
@@ -3733,6 +3832,11 @@ export function TraditionalDivinationBoard({
     case 'huangji':
       boardContent = (
         <HuangjiTraditionalBoard data={session.data as HuangjiJingshiResult} session={session} />
+      );
+      break;
+    case 'wuyun':
+      boardContent = (
+        <WuyunTraditionalBoard data={session.data as WuyunLiuqiResult} session={session} />
       );
       break;
     case 'liuren':

@@ -136,6 +136,7 @@ export type DivinationPromptGuidanceMethod =
   | 'liuren'
   | 'taiyi'
   | 'huangji'
+  | 'wuyun'
   | 'tarot'
   | 'lenormand'
   | 'ssgw'
@@ -254,10 +255,11 @@ export function buildCustomQuestionTask(subject = '以上资料', method?: strin
   return buildPromptTask(`请依据${subject.trim() || '以上资料'}回答【问题】`, method);
 }
 
-export function buildPromptGuidanceSections(method: PromptGuidanceId) {
+export function buildPromptGuidanceSections(method: PromptGuidanceId | 'wuyun') {
+  const guidanceMethod = method === 'wuyun' ? 'wuyun-liuqi' : method;
   // 签谱提示词只允许携带本次签谱资料；签文、典故和解签由盘面资料本身提供。
-  if (method === 'ssgw') return '';
-  const guidance = PROMPT_GUIDANCE_TEXT[method];
+  if (guidanceMethod === 'ssgw') return '';
+  const guidance = PROMPT_GUIDANCE_TEXT[guidanceMethod];
   // 书目名称不参与本次判断，完整来源仍保留在结构化证据中。
   const blocks = 'tradition' in guidance ? guidance.tradition : '';
 
@@ -282,7 +284,8 @@ export function insertPromptSectionBeforeHeading(prompt: string, heading: string
 
 /** 生成核心提示词使用的传统依据段落。 */
 export function buildPromptGuidance(method: string) {
-  return method in PROMPT_GUIDANCE_TEXT
-    ? buildPromptGuidanceSections(method as PromptGuidanceId)
+  const guidanceMethod = method === 'wuyun' ? 'wuyun-liuqi' : method;
+  return guidanceMethod in PROMPT_GUIDANCE_TEXT
+    ? buildPromptGuidanceSections(guidanceMethod as PromptGuidanceId)
     : '';
 }

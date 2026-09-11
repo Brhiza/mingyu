@@ -10,6 +10,7 @@ import {
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
 import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
 import type { TaiyiResult } from 'mingyu-core/types';
+import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 
 export type ReadingSubjectSource = QueryPromptState['promptSource'] | 'taiyi' | 'huangji' | 'wuyun';
 
@@ -315,12 +316,13 @@ export function buildDivinationReadingSubject(
   _draft: DivinationDraft,
   session: DivinationSession,
 ): ReadingSubjectSnapshot | undefined {
-  if (session.method !== 'taiyi' && session.method !== 'huangji') return undefined;
+  if (session.method !== 'taiyi' && session.method !== 'huangji' && session.method !== 'wuyun')
+    return undefined;
 
   const lockedInputs: Record<string, Record<string, unknown>> = {};
   const range: Record<string, unknown> = {
     source: session.method,
-    targetKind: 'time-divination',
+    targetKind: session.method === 'wuyun' ? 'annual-divination' : 'time-divination',
   };
 
   if (session.method === 'taiyi') {
@@ -330,7 +332,7 @@ export function buildDivinationReadingSubject(
     range.taiyiScope = result.scope;
     range.taiyiDateTime = result.dateTime;
     if (dateParts) range.taiyiTarget = dateParts;
-  } else {
+  } else if (session.method === 'huangji') {
     const result = session.data as HuangjiJingshiResult;
     const mode = result.input?.mode ?? '年月日时';
     lockedInputs.huangji = { _mode: mode };
@@ -342,6 +344,14 @@ export function buildDivinationReadingSubject(
     if (result.dateTimeForecast?.civilTime?.dateTime) {
       range.huangjiDateTime = result.dateTimeForecast.civilTime.dateTime;
     }
+  } else {
+    const result = session.data as WuyunLiuqiResult;
+    lockedInputs.wuyun = {
+      ...(result.input.year === undefined ? {} : { year: result.input.year }),
+      yearGanZhi: result.input.yearGanZhi,
+    };
+    if (result.input.year !== undefined) range.wuyunYear = result.input.year;
+    range.wuyunYearGanZhi = result.input.yearGanZhi;
   }
 
   const fingerprint = stableStringify({ source: session.method, lockedInputs, range });

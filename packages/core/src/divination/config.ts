@@ -31,6 +31,7 @@ export type DivinationMethodId =
       | 'astrolabe'
       | 'taiyi'
       | 'huangji'
+      | 'wuyun'
     >;
 
 export const DIVINATION_METHOD_OPTIONS: Array<{
@@ -77,6 +78,11 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     value: 'huangji',
     label: '皇极经世',
     description: '由元会运世逐层推至值年、月经、旬纬、日卦与时经卦。',
+  },
+  {
+    value: 'wuyun',
+    label: '五运六气',
+    description: '按目标年度推演岁运、五步主客运与六步主客气的年度节律。',
   },
   {
     value: 'ssgw',

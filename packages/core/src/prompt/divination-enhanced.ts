@@ -16,6 +16,7 @@ import type {
   SupplementaryInfo,
   TarotData,
   TaiyiResult,
+  WuyunLiuqiResult,
   XiaoliurenData,
   JinkoujueData,
 } from '../types/divination';
@@ -1134,6 +1135,39 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     .join('\n');
 }
 
+export function formatWuyunLiuqiInfo(data: WuyunLiuqiResult) {
+  const targetYear = data.input.year === undefined ? '' : `公历${data.input.year}年`;
+  const movementLines = data.movementSteps.map((step) => {
+    const dates =
+      step.gregorianStart && step.gregorianEnd
+        ? `，${step.gregorianStart}至${step.gregorianEnd}`
+        : '';
+    return `${step.label}${dates}：主运${step.hostMovement.toneName}${step.hostMovement.element}；客运${step.guestMovement.toneName}${step.guestMovement.element}；${step.hostGuestRelation.kind}`;
+  });
+  const qiLines = data.qiSteps.map((step) => {
+    const dates =
+      step.gregorianStart && step.gregorianEnd
+        ? `，${step.gregorianStart}至${step.gregorianEnd}`
+        : '';
+    return `${step.label}${dates}：主气${step.hostQi.name}；客气${step.guestQi.name}；${step.hostGuestRelation.kind}`;
+  });
+  return [
+    '占法：五运六气',
+    `目标年度：${targetYear}${data.input.yearGanZhi}（${data.input.yearGanZhiSource}）`,
+    `岁运：${data.annualMovement.name}（${data.annualMovement.toneName}，${data.annualMovement.strength}）`,
+    `司天：${data.sitian.name}；在泉：${data.zaiquan.name}`,
+    `司天化令：${data.annualClassification.sitianTransformation}；${data.annualClassification.governance}；中运与司天为${data.annualRelation.kind}`,
+    `年度符会：${data.annualConformities.names.length ? data.annualConformities.names.join('、') : '未形成五类符会'}`,
+    data.pathomechanism?.summary ?? '',
+    '五步主客运：',
+    ...movementLines,
+    '六步主客气：',
+    ...qiLines,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export function formatHuangjiInfo(data: HuangjiJingshiResult) {
   const forecast = data.forecast;
   if (!forecast) {
@@ -1228,6 +1262,8 @@ export function formatEnhancedDivinationInfo(
       return formatTaiyiInfo(data as TaiyiResult);
     case 'huangji':
       return formatHuangjiInfo(data as HuangjiJingshiResult);
+    case 'wuyun':
+      return formatWuyunLiuqiInfo(data as WuyunLiuqiResult);
     default:
       return '占卜信息暂不可用';
   }

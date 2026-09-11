@@ -1596,6 +1596,17 @@
   border-right: 0;
 }
 
+.traditional-wuyun-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.traditional-wuyun-steps h4 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
 .traditional-huangji-related strong {
   color: color-mix(in srgb, var(--chart-accent) 68%, var(--text-strong));
   font-size: 24px;

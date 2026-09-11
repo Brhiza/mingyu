@@ -7,6 +7,7 @@ import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
+import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -29,7 +30,8 @@ export type DivinationType =
   | 'lenormand'
   | 'astrolabe'
   | 'taiyi'
-  | 'huangji';
+  | 'huangji'
+  | 'wuyun';
 
 export type MeihuaDivinationMethod =
   'time' | 'number' | 'sound' | 'character' | 'direction' | 'random' | 'timeTrigram';
@@ -1713,7 +1715,8 @@ export type DivinationData =
   | LenormandData
   | AstrolabeData
   | TaiyiResult
-  | HuangjiJingshiResult;
+  | HuangjiJingshiResult
+  | WuyunLiuqiResult;
 
 export interface SupplementaryInfo {
   /** 求测人性别，用于补充解读背景，不参与起盘算法。 */

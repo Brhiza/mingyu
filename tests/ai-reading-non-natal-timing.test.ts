@@ -231,6 +231,45 @@ test('网页太乙与皇极会话建立真实目标快照并锁定术式口径',
   });
 });
 
+test('网页五运六气会话保留固定年度并把同一目标交给 AI 补算', async () => {
+  const draft = buildTimingDraft({
+    method: 'wuyun',
+    question: '2026年全年运气与时令重点是什么？',
+    wuyunYear: '2026',
+    wuyunYearGanZhi: '丙午',
+  });
+  const session = await generateDivinationSession(draft);
+  assert.equal(session.method, 'wuyun');
+  assert.match(session.prompt, /2026年/u);
+  assert.match(session.prompt, /丙午/u);
+  assert.match(session.prompt, /五步主客运/u);
+  const subject = buildDivinationReadingSubject(draft, session);
+  assert.ok(subject);
+  assert.deepEqual(subject?.allowedMethods, ['wuyun']);
+  assert.equal(subject?.range.targetKind, 'annual-divination');
+  assert.equal(subject?.lockedInputs.wuyun.year, 2026);
+  assert.equal(subject?.lockedInputs.wuyun.yearGanZhi, '丙午');
+
+  await withRealApi(async () => {
+    const resource = await executeReadingAction(
+      {
+        kind: 'calculate',
+        method: 'wuyun',
+        input: { year: 2026, yearGanZhi: '丙午', question: draft.question },
+      },
+      undefined,
+      subject,
+    );
+    const result = resource.structured as Record<string, unknown>;
+    const input = result.input as Record<string, unknown>;
+    assert.equal(input.year, 2026);
+    assert.equal(input.yearGanZhi, '丙午');
+    assert.equal((result.movementSteps as unknown[]).length, 5);
+    assert.equal((result.qiSteps as unknown[]).length, 6);
+    assert.match(resource.text, /司天/u);
+  });
+});
+
 test('皇极自定义纪元按年坐标核验并在追问时保持原纪元', async () => {
   const subject: ReadingSubjectSnapshot = {
     id: 'huangji-custom-epoch',

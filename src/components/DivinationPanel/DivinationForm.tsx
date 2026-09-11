@@ -185,7 +185,12 @@ function PromptSelectionFields({
   updateDraft,
 }: Pick<DivinationFormProps, 'draft' | 'updateDraft'>) {
   if (draft.method === 'ssgw') return null;
-  const methodId = draft.method === 'huangji' ? 'huangji-jingshi' : draft.method;
+  const methodId =
+    draft.method === 'huangji'
+      ? 'huangji-jingshi'
+      : draft.method === 'wuyun'
+        ? 'wuyun-liuqi'
+        : draft.method;
   const capability = getPromptMethodCapability(methodId);
   const topicOptions = getPromptTopicOptions(methodId);
   const topicId = topicOptions.some((item) => item.id === draft.promptTopicId)
@@ -284,7 +289,9 @@ export function DivinationForm({
   const questionPlaceholder =
     draft.method === 'huangji'
       ? '例如：这个时点整体处于怎样的时势阶段，接下来应把握什么主线？'
-      : '例如：我现在该主动推进，还是先稳住等待更好的时机？';
+      : draft.method === 'wuyun'
+        ? '例如：2026年全年气候节律与需要关注的重点是什么？'
+        : '例如：我现在该主动推进，还是先稳住等待更好的时机？';
   const submitButtonText =
     draft.method === 'almanac'
       ? '开始择日'
@@ -292,7 +299,9 @@ export function DivinationForm({
         ? '生成星盘'
         : draft.method === 'huangji'
           ? '生成皇极盘'
-          : '开始占卜';
+          : draft.method === 'wuyun'
+            ? '生成五运六气盘'
+            : '开始占卜';
   const timeActionLabel =
     draft.method === 'huangji'
       ? '起盘'
@@ -1705,6 +1714,45 @@ export function DivinationForm({
             )
           ) : null}
 
+          {draft.method === 'wuyun' ? (
+            <div className="divination-extra-panel divination-time-panel">
+              <div className="form-row-flex">
+                <div className="form-item">
+                  <label htmlFor="wuyun-year-input">目标年份</label>
+                  <input
+                    id="wuyun-year-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    className="form-input"
+                    placeholder="例如 2026"
+                    value={draft.wuyunYear}
+                    onChange={(event) =>
+                      updateDraft('wuyunYear', event.target.value.replace(/[^\d]/g, '').slice(0, 4))
+                    }
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="wuyun-year-ganzhi-input">目标年干支（可选）</label>
+                  <input
+                    id="wuyun-year-ganzhi-input"
+                    type="text"
+                    maxLength={2}
+                    className="form-input"
+                    placeholder="例如 丙午"
+                    value={draft.wuyunYearGanZhi}
+                    onChange={(event) =>
+                      updateDraft('wuyunYearGanZhi', event.target.value.trim().slice(0, 2))
+                    }
+                  />
+                </div>
+              </div>
+              <small className="workspace-ui-field-hint">
+                可只填写年份或年干支；同时填写时会核对两者对应同一年度。
+              </small>
+            </div>
+          ) : null}
+
           {supportsTrueSolarTime && divinationTimeStandard === 'true-solar' ? (
             <div className="divination-extra-panel divination-time-panel divination-solar-place-panel">
               <div className="form-row">
@@ -1729,7 +1777,8 @@ export function DivinationForm({
 
           {draft.method !== 'almanac' &&
           draft.method !== 'astrolabe' &&
-          draft.method !== 'huangji' ? (
+          draft.method !== 'huangji' &&
+          draft.method !== 'wuyun' ? (
             <div className="form-row-flex divination-subject-fields">
               <div className="form-item">
                 <label htmlFor="divination-gender-select">性别（可选）</label>
