@@ -751,16 +751,18 @@ export interface QimenData {
 }
 
 /** 奇门终身局人生主题枚举 */
-export type QimenTopic =
-  | 'career'
-  | 'wealth'
-  | 'marriage'
-  | 'health'
-  | 'academic'
-  | 'relocation'
-  | 'family'
-  | 'children'
-  | 'partnership';
+export const QIMEN_LIFETIME_TOPICS = [
+  'career',
+  'wealth',
+  'marriage',
+  'health',
+  'academic',
+  'relocation',
+  'family',
+  'children',
+  'partnership',
+] as const;
+export type QimenTopic = (typeof QIMEN_LIFETIME_TOPICS)[number];
 
 /** 奇门终身局阶段引擎策略配置 */
 export interface QimenStagePolicy {

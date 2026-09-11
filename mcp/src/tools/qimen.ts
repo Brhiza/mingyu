@@ -5,7 +5,7 @@ import {
   calculateQimenLifetime,
   generateQimenLifetimePrompt,
 } from 'mingyu-core/divination/qimen';
-import type { QimenLifetimeInput, QimenTopic } from 'mingyu-core/types';
+import { QIMEN_LIFETIME_TOPICS, type QimenLifetimeInput } from 'mingyu-core/types';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -35,18 +35,6 @@ const qimenSchema = z.object({
 });
 
 const qimenPromptSchema = extendPromptSchema(qimenSchema, 'qimen', '用户希望围绕奇门盘解读的问题');
-
-const QIMEN_LIFETIME_TOPICS = [
-  'career',
-  'wealth',
-  'marriage',
-  'health',
-  'academic',
-  'relocation',
-  'family',
-  'children',
-  'partnership',
-] as const satisfies readonly QimenTopic[];
 
 const qimenLifetimeSchema = z.object({
   birthDateTime: z.string().describe('出生时刻（ISO 8601 格式，如 1990-05-15T14:30:00）'),

@@ -46,6 +46,26 @@ const input: QueryInputState = {
 const prompt = { promptSource: 'qimen-lifetime' } as QueryPromptState;
 const generatedSubject = buildReadingSubject(input, prompt);
 
+test('终身奇门HTTP计算与提示词拒绝无效主题，避免静默返回空主题资料', async () => {
+  for (const endpoint of ['/divination/qimen/lifetime', '/divination/qimen/lifetime/prompt']) {
+    for (const topics of [['unknown'], [1], 'career']) {
+      const response = await handlePublicApiRequest(
+        new Request(`https://aov.cc/api/v1${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            birthDateTime: '1990-05-15T10:30:00+08:00',
+            question: '解读事业阶段。',
+            topics,
+          }),
+        }),
+      );
+      assert.equal(response.status, 400);
+      assert.match(await response.text(), /topics/u);
+    }
+  }
+});
+
 const subject: ReadingSubjectSnapshot = {
   ...generatedSubject,
   id: 'qimen-lifetime-real-identity',
@@ -156,10 +176,7 @@ test('终身奇门公共接口拒绝无效或超过31年的目标区间', async 
     ...generatedSubject.lockedInputs['qimen-lifetime'],
     question: '目标区间校验',
   };
-  for (const path of [
-    'divination/qimen/lifetime',
-    'divination/qimen/lifetime/prompt',
-  ]) {
+  for (const path of ['divination/qimen/lifetime', 'divination/qimen/lifetime/prompt']) {
     const tooLong = await callLifetimeApi(path, {
       ...baseRequest,
       periodRange: { startDate: '2026-01-01', endDate: '2057-01-01' },

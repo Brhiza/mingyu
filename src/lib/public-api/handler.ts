@@ -51,7 +51,11 @@ import {
   validateLifetimePeriodRange,
 } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
-import type { QimenLifetimeInput, QimenLifetimeData } from 'mingyu-core/types';
+import {
+  QIMEN_LIFETIME_TOPICS,
+  type QimenLifetimeInput,
+  type QimenLifetimeData,
+} from 'mingyu-core/types';
 import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
@@ -2249,23 +2253,7 @@ export function getPublicApiOpenApiDocument(
               description:
                 '需要补充动态流年资料的目标日期区间；日期须为有效 YYYY-MM-DD，最多覆盖连续31个年份。',
             },
-            topics: {
-              type: 'array',
-              uniqueItems: true,
-              items: {
-                enum: [
-                  'career',
-                  'wealth',
-                  'marriage',
-                  'health',
-                  'academic',
-                  'relocation',
-                  'family',
-                  'children',
-                  'partnership',
-                ],
-              },
-            },
+            topics: { type: 'array', items: { enum: [...QIMEN_LIFETIME_TOPICS] } },
             name: { type: 'string' },
             gender: { enum: ['male', 'female'] },
             schools: { type: 'array', items: { type: 'string' } },
@@ -4608,6 +4596,19 @@ function calculateQimenApi(input: JsonRecord) {
   return input.detailMode === 'compact' ? buildCompactQimenResult(result) : result;
 }
 
+function readQimenLifetimeTopics(input: JsonRecord): QimenLifetimeInput['topics'] {
+  if (input.topics === undefined) return undefined;
+  if (
+    !Array.isArray(input.topics) ||
+    input.topics.some(
+      (topic) =>
+        typeof topic !== 'string' || !(QIMEN_LIFETIME_TOPICS as readonly string[]).includes(topic),
+    )
+  ) {
+    throw new ApiError(400, 'BAD_REQUEST', 'topics 必须是有效的奇门终身局主题数组。');
+  }
+  return input.topics as QimenLifetimeInput['topics'];
+}
 function calculateQimenLifetimeApi(input: JsonRecord) {
   assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
   const birthDateTime = readString(input, 'birthDateTime', '');
@@ -4632,9 +4633,7 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
       ? (input.stagePolicy as unknown as QimenLifetimeInput['stagePolicy'])
       : undefined,
     periodRange: readQimenLifetimePeriodRange(input),
-    topics: Array.isArray(input.topics)
-      ? (input.topics as QimenLifetimeInput['topics'])
-      : undefined,
+    topics: readQimenLifetimeTopics(input),
     name: typeof input.name === 'string' ? input.name : undefined,
     gender: readEnum(input, 'gender', ['male', 'female', ''], '') as 'male' | 'female' | undefined,
     schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
@@ -4721,9 +4720,7 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
       ? (input.stagePolicy as unknown as QimenLifetimeInput['stagePolicy'])
       : undefined,
     periodRange: readQimenLifetimePeriodRange(input),
-    topics: Array.isArray(input.topics)
-      ? (input.topics as QimenLifetimeInput['topics'])
-      : undefined,
+    topics: readQimenLifetimeTopics(input),
     name: typeof input.name === 'string' ? input.name : undefined,
     gender: readEnum(input, 'gender', ['male', 'female', ''], '') as 'male' | 'female' | undefined,
     schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
