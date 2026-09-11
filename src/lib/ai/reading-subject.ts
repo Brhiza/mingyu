@@ -1,5 +1,7 @@
 import type { QueryInputState, QueryPromptState } from '@/lib/query-state';
+import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
+import type { QimenLifetimeInput } from 'mingyu-core/types';
 
 /**
  * AI 自动补算时锁定的主体快照。模型只能改变目标时段、问题和解读范围，
@@ -139,6 +141,48 @@ function buildQizhengInputs(input: QueryInputState) {
   return result;
 }
 
+export function buildQimenLifetimeInputs(input: QueryInputState): QimenLifetimeInput {
+  let hour = 12;
+  let minute = 0;
+  if (input.useTrueSolarTime && input.birthHour !== '') {
+    hour = Number(input.birthHour);
+    minute = input.birthMinute === '' ? 0 : Number(input.birthMinute);
+  } else if (input.timeIndex !== '') {
+    const option = BIRTH_TIME_OPTIONS[Number(input.timeIndex)];
+    if (option) {
+      hour = option.hour;
+      minute = option.minute;
+    }
+  }
+
+  const result: QimenLifetimeInput = {
+    birthDateTime: `${String(Number(input.year)).padStart(4, '0')}-${String(Number(input.month)).padStart(2, '0')}-${String(Number(input.day)).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`,
+    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    calendarType: input.dateType,
+    isLeapMonth: input.isLeapMonth,
+    timeStandard: input.useTrueSolarTime ? 'trueSolar' : 'civil',
+    applyChinaDst: false,
+    method: 'zhuanpan',
+    juMethod: 'chaibu',
+    stagePolicy: {
+      model: 'pillarFourLimits',
+      anchorRule: 'birthInstant',
+      ageSystem: 'fullYears',
+      yearsPerStage: 15,
+    },
+    name: input.name,
+    gender: input.gender,
+  };
+  if (input.useTrueSolarTime && input.birthLongitude !== '') {
+    result.location = {
+      longitude: Number(input.birthLongitude),
+      ...(input.birthLatitude === '' ? {} : { latitude: Number(input.birthLatitude) }),
+      ...(input.birthPlace ? { locationName: input.birthPlace } : {}),
+    };
+  }
+  return result;
+}
+
 export function buildReadingSubject(
   input: QueryInputState,
   prompt: QueryPromptState,
@@ -169,6 +213,10 @@ export function buildReadingSubject(
   if (prompt.promptSource === 'qizheng') {
     lockedInputs['qi-zheng'] = buildQizhengInputs(input);
     allowedMethods.push('qi-zheng');
+  }
+  if (prompt.promptSource === 'qimen-lifetime') {
+    lockedInputs['qimen-lifetime'] = buildQimenLifetimeInputs(input);
+    allowedMethods.push('qimen-lifetime');
   }
 
   const range = {
@@ -216,6 +264,9 @@ export function normalizeReadingSubject(value: unknown): ReadingSubjectSnapshot 
     (item): item is string => typeof item === 'string',
   );
   if (!allowedMethods.length) return undefined;
+  if (value.source === 'qimen-lifetime' && !allowedMethods.includes('qimen-lifetime')) {
+    return undefined;
+  }
   return {
     id: value.id,
     source: value.source as ReadingSubjectSnapshot['source'],

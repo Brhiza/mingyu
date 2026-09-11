@@ -189,6 +189,24 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
       'schools',
     ],
   },
+  'qimen-lifetime': {
+    immutable: [
+      'birthDateTime',
+      'timeZoneId',
+      'timezone',
+      'location',
+      'calendarType',
+      'isLeapMonth',
+      'timeStandard',
+      'applyChinaDst',
+      'method',
+      'juMethod',
+      'stagePolicy',
+      'name',
+      'gender',
+    ],
+    mutable: ['periodRange', 'topics', 'question'],
+  },
 };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -806,6 +824,86 @@ function assertQizhengResult(
   }
 }
 
+function assertQimenLifetimeResult(
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result) || !record(result.input)) {
+    throw new Error('补算未返回结构化奇门终身局主体身份。');
+  }
+  const actualInput = result.input;
+  for (const field of [
+    'birthDateTime',
+    'timeZoneId',
+    'timezone',
+    'location',
+    'calendarType',
+    'isLeapMonth',
+    'timeStandard',
+    'applyChinaDst',
+    'method',
+    'juMethod',
+    'stagePolicy',
+    'name',
+    'gender',
+  ]) {
+    assertStructuredField(`qimen-lifetime.input.${field}`, locked[field], actualInput[field]);
+  }
+
+  const stages = result.stages;
+  if (!Array.isArray(stages) || stages.length === 0) {
+    throw new Error('补算返回缺少奇门终身局阶段资料。');
+  }
+  for (const stage of stages) {
+    if (!record(stage) || typeof stage.stageIndex !== 'number') {
+      throw new Error('补算返回的奇门终身局阶段资料无效。');
+    }
+  }
+
+  const requestedRange = calculationInput.periodRange;
+  if (requestedRange !== undefined) {
+    if (!record(requestedRange)) throw new Error('奇门终身局目标区间格式无效。');
+    const actualRange = actualInput.periodRange;
+    if (!record(actualRange)) throw new Error('补算返回缺少奇门终身局目标区间。');
+    assertStructuredField(
+      'qimen-lifetime.periodRange.startDate',
+      requestedRange.startDate,
+      actualRange.startDate,
+    );
+    assertStructuredField(
+      'qimen-lifetime.periodRange.endDate',
+      requestedRange.endDate,
+      actualRange.endDate,
+    );
+
+    const startYear = Number(String(requestedRange.startDate).slice(0, 4));
+    const endYear = Number(String(requestedRange.endDate).slice(0, 4));
+    const clusters = result.eventClusters;
+    if (!Array.isArray(clusters)) throw new Error('补算返回缺少奇门终身局目标区间动态资料。');
+    if (!Number.isInteger(startYear) || !Number.isInteger(endYear) || endYear < startYear) {
+      throw new Error('奇门终身局目标区间无效。');
+    }
+    for (let year = startYear; year <= Math.min(endYear, startYear + 30); year += 1) {
+      if (
+        !clusters.some(
+          (cluster) =>
+            record(cluster) &&
+            typeof cluster.timeSpan === 'string' &&
+            cluster.timeSpan.startsWith(`${year}年`),
+        )
+      ) {
+        throw new Error(`补算返回缺少奇门终身局${year}年动态资料。`);
+      }
+    }
+  }
+
+  if (calculationInput.topics !== undefined) {
+    assertStructuredField('qimen-lifetime.topics', calculationInput.topics, actualInput.topics);
+  }
+}
+
 function verifyStructuredCalculation(
   method: string,
   data: Record<string, unknown>,
@@ -818,6 +916,8 @@ function verifyStructuredCalculation(
     assertAstrolabeResult(data, locked, calculationInput);
   } else if (method === 'qi-zheng') {
     assertQizhengResult(data, locked, calculationInput);
+  } else if (method === 'qimen-lifetime') {
+    assertQimenLifetimeResult(data, locked, calculationInput);
   }
 }
 
@@ -839,6 +939,7 @@ function buildCalculationResourceTitle(
     ziwei: '紫微',
     astrolabe: '星盘',
     'qi-zheng': '七政',
+    'qimen-lifetime': '奇门终身局',
   };
   let range = '';
   const result = record(data.result) ? data.result : undefined;
@@ -860,6 +961,13 @@ function buildCalculationResourceTitle(
   } else if (method === 'qi-zheng') {
     const year = calculationInput.flowYear;
     range = typeof year === 'number' || typeof year === 'string' ? `${year}年` : '';
+  } else if (method === 'qimen-lifetime') {
+    const lifetimeInput = record(result?.input) ? result.input : undefined;
+    const periodRangeValue = lifetimeInput?.periodRange ?? calculationInput.periodRange;
+    const periodRange = record(periodRangeValue) ? periodRangeValue : undefined;
+    if (periodRange) {
+      range = `${String(periodRange.startDate)}至${String(periodRange.endDate)}`;
+    }
   }
   return `${subjectName}·${methodName[method] ?? method}${range}`;
 }
@@ -910,6 +1018,19 @@ function prepareCalculationInput(
 
   for (const [key, value] of Object.entries(input)) {
     if (mutable.has(key)) {
+      if (method === 'qimen-lifetime' && key === 'periodRange') {
+        if (!record(value)) throw new Error('奇门终身局目标区间格式无效。');
+        const startYear = Number(String(value.startDate).slice(0, 4));
+        const endYear = Number(String(value.endDate).slice(0, 4));
+        if (
+          !Number.isInteger(startYear) ||
+          !Number.isInteger(endYear) ||
+          endYear < startYear ||
+          endYear > startYear + 30
+        ) {
+          throw new Error('奇门终身局目标区间必须覆盖有效日期，且最多支持连续31个年份。');
+        }
+      }
       result[key] = value;
       continue;
     }

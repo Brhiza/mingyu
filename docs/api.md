@@ -73,7 +73,7 @@
 | `POST /divination/qimen`                      | 奇门遁甲排盘                                                   |
 | `POST /divination/qimen/prompt`               | 奇门遁甲排盘并生成 AI 解读提示词                               |
 | `POST /divination/qimen/lifetime`             | 奇门终身局排盘：输入出生信息返回本命局、个人标记、阶段卡与事件簇 |
-| `POST /divination/qimen/lifetime/prompt`      | 奇门终身局排盘并生成自包含 AI 解读提示词                       |
+| `POST /divination/qimen/lifetime/prompt`      | 奇门终身局排盘并生成自包含 AI 解读提示词；按出生时区、真太阳时和最多31年 `periodRange` 补充实际阶段动态资料 |
 | `POST /divination/liuren`                     | 大六壬排盘                                                     |
 | `POST /divination/liuren/prompt`              | 大六壬排盘并生成 AI 解读提示词                                 |
 | `POST /divination/tarot`                      | 塔罗抽牌，返回牌位、正逆位、牌序与结构化证据                   |

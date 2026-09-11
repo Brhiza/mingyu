@@ -15,6 +15,13 @@ export const READING_CLASSIC_TABLES: Record<string, string[]> = {
     'QIMEN_DEITY_CLASSICS',
     'QIMEN_YANBO_CLASSICS',
   ],
+  'qimen-lifetime': [
+    'QIMEN_STEM_PATTERNS',
+    'QIMEN_STAR_CLASSICS',
+    'QIMEN_DOOR_CLASSICS',
+    'QIMEN_DEITY_CLASSICS',
+    'QIMEN_YANBO_CLASSICS',
+  ],
   liuren: [
     'LIUREN_TRANSMISSION_CLASSICS',
     'LIUREN_LESSON_PATTERN_CLASSICS',
@@ -36,4 +43,5 @@ export const READING_CALCULATION_ROUTES: Record<string, string> = {
   ziwei: '/ziwei/prompt',
   astrolabe: '/divination/astrolabe/prompt',
   'qi-zheng': '/metaphysics/qizheng/prompt',
+  'qimen-lifetime': '/divination/qimen/lifetime/prompt',
 };

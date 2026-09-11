@@ -12,7 +12,7 @@ import type {
 } from '../../../../types/divination';
 import { DEFAULT_CHINA_TIMEZONE_HOURS } from '../../../../calendar/civil-time';
 import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
-import { createUtcTimestamp } from '../../../../calendar/date-validation';
+import { createUtcTimestamp, daysInGregorianMonth } from '../../../../calendar/date-validation';
 import { generateQimen } from '../index';
 import { diPanPalaces } from './_constants';
 
@@ -23,6 +23,41 @@ export interface QimenDynamicTimeContext {
   timeZoneId?: string;
   /** 出生时间已经解析出的固定偏移，用于日期字符串带偏移但未单独传 timezone 的情况。 */
   fallbackOffsetMinutes?: number;
+}
+
+function parseLifetimePeriodDate(value: unknown, field: string) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
+    throw new Error(`${field} 必须是 YYYY-MM-DD 格式。`);
+  }
+  const [, yearText, monthText, dayText] = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value)!;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (year < 1 || year > 9999 || month < 1 || month > 12) {
+    throw new Error(`${field} 不是有效日期。`);
+  }
+  const maxDay = daysInGregorianMonth(year, month);
+  if (day < 1 || day > maxDay) throw new Error(`${field} 不是有效日期。`);
+  return { year, month, day };
+}
+
+/** 校验动态流年区间；扫描能力最多覆盖起始年及其后30年。 */
+export function validateLifetimePeriodRange(periodRange: unknown): asserts periodRange is {
+  startDate: string;
+  endDate: string;
+} {
+  if (!periodRange || typeof periodRange !== 'object' || Array.isArray(periodRange)) {
+    throw new Error('periodRange 必须是包含 startDate 和 endDate 的对象。');
+  }
+  const value = periodRange as { startDate?: unknown; endDate?: unknown };
+  const start = parseLifetimePeriodDate(value.startDate, 'periodRange.startDate');
+  const end = parseLifetimePeriodDate(value.endDate, 'periodRange.endDate');
+  const startKey = start.year * 10000 + start.month * 100 + start.day;
+  const endKey = end.year * 10000 + end.month * 100 + end.day;
+  if (endKey < startKey) throw new Error('periodRange.endDate 不能早于 startDate。');
+  if (end.year > start.year + 30) {
+    throw new Error('periodRange 最多支持连续31个年份。');
+  }
 }
 
 const OPPOSITE_BRANCHES: Record<string, string> = {

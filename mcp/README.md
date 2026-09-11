@@ -48,8 +48,8 @@
 | `jinkoujue_prompt` | 金口诀提示词 | 生成金口诀四位发用与生克主客提示词；支持统一主题、主题细项和分析范围选择 |
 | `divine_qimen` | 奇门遁甲时局排盘 | 时家奇门九星、九宫、八门、八神与三奇六仪盘面 |
 | `qimen_prompt` | 奇门遁甲提示词 | 生成奇门时空方位与动静主客策略自包含提示词；支持统一主题、主题细项和分析范围选择 |
-| `divine_qimen_lifetime` | 奇门终身局排盘 | 根据出生四柱排布奇门命盘，提取终身格局与阶段卡 |
-| `qimen_lifetime_prompt` | 奇门终身局提示词 | 生成奇门终身局长远运势与格局自包含提示词；支持统一主题、主题细项和分析范围选择 |
+| `divine_qimen_lifetime` | 奇门终身局排盘 | 根据出生时刻与时区排布终身本命盘，提取阶段卡和目标区间动态事件 |
+| `qimen_lifetime_prompt` | 奇门终身局提示词 | 生成奇门终身局长远运势与阶段动态提示词；支持 `periodRange`、`topics` 和统一主题参数 |
 | `divine_liuren` | 大六壬排盘 | 大六壬天地盘、四课、三传九宗门与十二天将 |
 | `liuren_prompt` | 大六壬提示词 | 生成大六壬课体演化与人事博弈自包含提示词；支持统一主题、主题细项和分析范围选择 |
 | `divine_tarot` | 塔罗抽牌排阵 | 78张塔罗牌多牌阵抽取、正逆位与牌位结构化证据 |
@@ -93,7 +93,7 @@
 2. 用户提供完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先调用 `bazi_ziwei_prompt`。这是深度解读首选工具，用八字定主线，用紫微校验宫位、四化、三方四正和运限。
 3. 用户明确只看单人八字时调用 `bazi_prompt`；询问两人婚恋、合作或亲属互动时调用 `bazi_compatibility_prompt`；长期或完整阶段分析优先传 `baziFortuneScope: "full"`。出生时间由输入约束保证符合排盘要求，不基于模糊时间范围继续排盘。
 4. 用户明确只看紫微时，调用 `ziwei_prompt`；长期或完整阶段分析优先传 `promptScope: "full"`。
-5. 用户问单件事情当前能否推进、对方态度、短期成败或应期，优先调用 `liuyao_prompt`；涉及项目路径、方位、谈判、出行和时空窗口时，优先调用 `qimen_prompt`。
+5. 用户问单件事情当前能否推进、对方态度、短期成败或应期，优先调用 `liuyao_prompt`；涉及项目路径、方位、谈判、出行和时空窗口时，优先调用 `qimen_prompt`。用户提供出生时刻并询问人生阶段、终身格局或指定年份动态时，调用 `qimen_lifetime_prompt`，不要用普通时局工具代替。
 6. 用户要从日期范围里选日子，调用 `almanac_prompt`；日期范围或参与人较多时使用分页参数。
 7. 用户提供一人的西方占星资料时调用 `astrolabe_prompt`；提供双方完整资料并询问关系时调用 `astrolabe_synastry_prompt`。
 8. 用户没有出生信息，只想要轻量启发、牌阵或签文时，用 `tarot_prompt`、`lenormand_prompt` 或 `ssgw_prompt`。
@@ -112,6 +112,7 @@
 | 紫微宫位、四化、运限             | `ziwei_prompt`                 | `promptTopic`、`promptScope`                                             |
 | 一事一问、短期成败、应期         | `liuyao_prompt`                | `question`、可选 `customDate`                                            |
 | 项目推进、方向、方位、谈判       | `qimen_prompt`                 | `question`、可选 `qimenMethod`、`customDate`                             |
+| 奇门终身格局、阶段运限、指定年份   | `qimen_lifetime_prompt`        | `birthDateTime`、`timeZoneId`，可选 `timeStandard`、`location`、`periodRange`、`topics`、`question` |
 | 临时小事快速判断                 | `xiaoliuren_prompt`            | `question`、可选 `customDate`                                            |
 | 金口诀四位课                     | `jinkoujue_prompt`             | `question`、可选 `jinkoujueMethod`、`jinkoujueBranch`、`customDate`      |
 | 生肖犯太岁、流年贵人             | `zodiac_prompt`                | `zodiac`、`year` 或 `yearGanZhi`                                         |
@@ -259,6 +260,8 @@ pnpm mcp
 
 奇门遁甲工具支持 `qimenMethod` 参数：`zhuanpan`（转盘法，默认）或 `feipan`（飞盘法）；`qimenScope` 可选 `hour`（时家，默认）、`day`、`month`、`year`；`qimenJuMethod` 可选 `chaibu`（拆补，默认）或 `zhirun`（置闰），后者只对时家、日家生效。
 返回结果会包含 `timeInfo`（正式定局节气与三元）、`seasonality`（实际节气、节气五行、月相、建除十二神、四柱干支互动）和 `patternCombos`（吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局），提示词工具会把这些字段作为解读证据。
+
+奇门终身局工具必须提供 `birthDateTime`；出生时间按 `timeZoneId` 或固定 `timezone` 解析，`timeStandard: "trueSolar"` 时还必须提供 `location.longitude`。`periodRange` 使用有效的 `startDate`、`endDate`（`YYYY-MM-DD`）指定动态流年区间，最多连续31个年份；`topics` 可限定事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作主题；终身局工具返回出生主体、阶段卡和该区间实际生成的动态事件簇。
 
 ### 解读口径与合参
 

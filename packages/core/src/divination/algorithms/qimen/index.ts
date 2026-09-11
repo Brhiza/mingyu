@@ -57,6 +57,7 @@ export {
   buildTopicCandidates,
   buildLifetimeStages,
   scanLifetimeDynamicEvents,
+  validateLifetimePeriodRange,
 } from './lifetime';
 export { analyzeQimenEvidence } from '../../qimen-evidence';
 export type {

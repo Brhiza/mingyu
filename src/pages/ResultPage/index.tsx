@@ -84,7 +84,7 @@ import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { getChartChatHistoryContext } from '@/lib/ai/chat-history';
-import { buildReadingSubject } from '@/lib/ai/reading-subject';
+import { buildQimenLifetimeInputs, buildReadingSubject } from '@/lib/ai/reading-subject';
 import type { ReadingMemorySeed } from '@/lib/ai/reading-workflow';
 import {
   ResultAssistantFab,
@@ -1105,20 +1105,6 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       return { data: null, error: '请填写完整出生年月日' };
     }
 
-    let hour = 12;
-    let minute = 0;
-    if (inputState.useTrueSolarTime && inputState.birthHour !== '') {
-      hour = Number(inputState.birthHour);
-      minute = inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute);
-    } else if (inputState.timeIndex !== '' && Number(inputState.timeIndex) >= 0) {
-      const opt = BIRTH_TIME_OPTIONS[Number(inputState.timeIndex)];
-      if (opt) {
-        hour = opt.hour;
-        minute = opt.minute;
-      }
-    }
-
-    const birthDateTime = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
     const currentYear = new Date().getFullYear();
     const periodRange = {
       startDate: `${currentYear - 1}-01-01`,
@@ -1127,20 +1113,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
     try {
       const data = calculateQimenLifetime({
-        birthDateTime,
-        calendarType: inputState.dateType === 'lunar' ? 'lunar' : 'solar',
-        isLeapMonth: inputState.isLeapMonth,
-        timeStandard: inputState.useTrueSolarTime ? 'trueSolar' : 'civil',
-        location:
-          inputState.useTrueSolarTime && inputState.birthLongitude
-            ? {
-                longitude: Number(inputState.birthLongitude),
-                latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
-                locationName: inputState.birthPlace,
-              }
-            : undefined,
-        gender: inputState.gender,
-        name: inputState.name,
+        ...buildQimenLifetimeInputs(inputState),
         periodRange,
       });
       return { data, error: '' };

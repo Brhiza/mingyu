@@ -119,7 +119,7 @@ const SOURCE_METHODS: Record<ReadingSubjectSnapshot['source'], string[]> = {
   bazi: ['bazi'],
   ziwei: ['ziwei'],
   'bazi-ziwei': ['bazi', 'ziwei'],
-  'qimen-lifetime': ['qimen'],
+  'qimen-lifetime': ['qimen-lifetime'],
   astrolabe: ['astrolabe'],
   qizheng: ['qizheng'],
   bazhai: ['fengshui'],

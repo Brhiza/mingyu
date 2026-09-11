@@ -5,7 +5,7 @@ import {
   calculateQimenLifetime,
   generateQimenLifetimePrompt,
 } from 'mingyu-core/divination/qimen';
-import type { QimenLifetimeInput } from 'mingyu-core/types';
+import type { QimenLifetimeInput, QimenTopic } from 'mingyu-core/types';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -35,6 +35,18 @@ const qimenSchema = z.object({
 });
 
 const qimenPromptSchema = extendPromptSchema(qimenSchema, 'qimen', '用户希望围绕奇门盘解读的问题');
+
+const QIMEN_LIFETIME_TOPICS = [
+  'career',
+  'wealth',
+  'marriage',
+  'health',
+  'academic',
+  'relocation',
+  'family',
+  'children',
+  'partnership',
+] as const satisfies readonly QimenTopic[];
 
 const qimenLifetimeSchema = z.object({
   birthDateTime: z.string().describe('出生时刻（ISO 8601 格式，如 1990-05-15T14:30:00）'),
@@ -85,7 +97,11 @@ const qimenLifetimeSchema = z.object({
       endDate: z.string().describe('结束日期（YYYY-MM-DD）'),
     })
     .optional()
-    .describe('动态扫描的时间区间'),
+    .describe('动态扫描的时间区间；日期必须有效，最多覆盖连续31个年份'),
+  topics: z
+    .array(z.enum(QIMEN_LIFETIME_TOPICS))
+    .optional()
+    .describe('重点人生主题：事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作'),
   name: z.string().optional().describe('求测者姓名或代号'),
   gender: z.enum(['male', 'female']).optional().describe('性别：male 为男，female 为女'),
   schools: z.array(z.string()).optional().describe('流派或解读侧重'),

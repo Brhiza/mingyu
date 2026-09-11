@@ -606,6 +606,30 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
       `${path} 应复用占卜请求 schema`,
     );
   }
+  assert.equal(
+    body.data.paths['/divination/qimen/lifetime'].post.requestBody.content['application/json']
+      .schema.$ref,
+    '#/components/schemas/QimenLifetimeRequest',
+  );
+  assert.equal(
+    body.data.paths['/divination/qimen/lifetime/prompt'].post.requestBody.content[
+      'application/json'
+    ].schema.$ref,
+    '#/components/schemas/QimenLifetimePromptRequest',
+  );
+  assert.deepEqual(body.data.components.schemas.QimenLifetimeRequest.required, ['birthDateTime']);
+  assert.equal(
+    body.data.components.schemas.QimenLifetimeRequest.properties.periodRange.properties.startDate
+      .format,
+    'date',
+  );
+  assert.match(
+    body.data.components.schemas.QimenLifetimeRequest.properties.periodRange.description,
+    /最多覆盖连续31个年份/u,
+  );
+  assert.deepEqual(body.data.components.schemas.QimenLifetimePromptRequest.allOf[1].required, [
+    'question',
+  ]);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.topic);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.participants);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.latitude);

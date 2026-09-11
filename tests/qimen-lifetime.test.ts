@@ -585,22 +585,35 @@ test('奇门终身局 P5：MCP 工具注册与调用', async () => {
 
   // 调用 divine_qimen_lifetime
   const lifetimeTool = registeredTools['divine_qimen_lifetime'];
-  const toolResult = await lifetimeTool.handler({
+  const lifetimeInput = {
     birthDateTime: '1990-05-15T14:30:00+08:00',
-  });
+    topics: ['career'],
+  };
+  const parsedLifetimeInput = lifetimeTool.inputSchema.safeParse(lifetimeInput);
+  assert.equal(parsedLifetimeInput.success, true, 'MCP 终身局 schema 应保留 topics');
+  if (!parsedLifetimeInput.success) throw new Error('MCP 终身局 schema 未接受 topics。');
+  const toolResult = await lifetimeTool.handler(parsedLifetimeInput.data);
   assert.ok(toolResult.structuredContent);
   const parsedData = toolResult.structuredContent as any;
   assert.ok(parsedData.result.baseChart);
   assert.ok(parsedData.result.personalMarkers);
+  assert.deepEqual(parsedData.result.input.topics, ['career']);
+  assert.equal(parsedData.result.topicCandidates.length, 1);
 
   // 调用 qimen_lifetime_prompt
   const promptTool = registeredTools['qimen_lifetime_prompt'];
-  const promptToolResult = await promptTool.handler({
+  const promptInput = {
     question: '我的人生宏观趋势如何？',
     birthDateTime: '1990-05-15T14:30:00+08:00',
-  });
+    topics: ['wealth'],
+  };
+  const parsedPromptInput = promptTool.inputSchema.safeParse(promptInput);
+  assert.equal(parsedPromptInput.success, true, 'MCP 终身局提示词 schema 应保留 topics');
+  if (!parsedPromptInput.success) throw new Error('MCP 终身局提示词 schema 未接受 topics。');
+  const promptToolResult = await promptTool.handler(parsedPromptInput.data);
   assert.ok(promptToolResult.content);
   assert.match(promptToolResult.content[0].text, /【终身局基础盘】/);
+  assert.match(promptToolResult.content[0].text, /财运/);
 });
 
 test('奇门终身局前端与命盘集成：纳入命盘分类并可复用个人案例', async () => {

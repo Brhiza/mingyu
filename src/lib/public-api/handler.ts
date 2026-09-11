@@ -48,6 +48,7 @@ import {
   generateQimen,
   calculateQimenLifetime,
   generateQimenLifetimePrompt,
+  validateLifetimePeriodRange,
 } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import type { QimenLifetimeInput, QimenLifetimeData } from 'mingyu-core/types';
@@ -923,7 +924,7 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '奇门遁甲终身局排盘',
           description: '生成奇门终身局基础盘、个人标记、阶段卡与动态事件簇。',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QimenLifetimeRequest', false),
           responses: { '200': { description: '奇门终身局结构化盘面数据' } },
         },
       },
@@ -931,7 +932,7 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '奇门遁甲终身局提示词',
           description: '生成奇门终身局结构化数据并输出自包含提示词任务书。',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationPromptRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QimenLifetimePromptRequest'),
           responses: { '200': { description: '奇门终身局盘面与自包含提示词' } },
         },
       },
@@ -2189,6 +2190,103 @@ export function getPublicApiOpenApiDocument(
         DivinationPromptRequest: {
           type: 'object',
           properties: DIVINATION_REQUEST_PROPERTIES,
+        },
+        QimenLifetimeRequest: {
+          type: 'object',
+          required: ['birthDateTime'],
+          properties: {
+            birthDateTime: {
+              type: 'string',
+              format: 'date-time',
+              description: '出生时刻；使用本地钟表时间时同时传 timeZoneId 或 timezone。',
+            },
+            timeZoneId: {
+              type: 'string',
+              example: 'Asia/Shanghai',
+              description: '出生时刻对应的 IANA 时区；历史日期优先使用此字段。',
+            },
+            timezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              description: '固定 UTC 偏移小时数；未传时默认东八区。',
+            },
+            location: {
+              type: 'object',
+              required: ['longitude'],
+              properties: {
+                longitude: { type: 'number', minimum: -180, maximum: 180 },
+                latitude: { type: 'number', minimum: -90, maximum: 90 },
+                locationName: { type: 'string' },
+              },
+              description: '出生地点；timeStandard 为 trueSolar 时必须提供 longitude。',
+            },
+            calendarType: { enum: ['solar', 'lunar'], default: 'solar' },
+            isLeapMonth: { type: 'boolean', default: false },
+            timeStandard: { enum: ['civil', 'trueSolar'], default: 'civil' },
+            applyChinaDst: { type: 'boolean', default: false },
+            method: { enum: ['zhuanpan', 'feipan'], default: 'zhuanpan' },
+            juMethod: { enum: ['chaibu', 'zhirun'], default: 'chaibu' },
+            stagePolicy: {
+              type: 'object',
+              properties: {
+                model: {
+                  enum: ['pillarFourLimits', 'palaceWalk', 'fuShiHexagramOrbit'],
+                  default: 'pillarFourLimits',
+                },
+                anchorRule: { enum: ['birthInstant', 'solarTermBoundary', 'lunarNewYear'] },
+                ageSystem: { enum: ['fullYears', 'nominalAge'] },
+                yearsPerStage: { type: 'number', minimum: 1 },
+              },
+            },
+            periodRange: {
+              type: 'object',
+              required: ['startDate', 'endDate'],
+              properties: {
+                startDate: { type: 'string', format: 'date' },
+                endDate: { type: 'string', format: 'date' },
+              },
+              description:
+                '需要补充动态流年资料的目标日期区间；日期须为有效 YYYY-MM-DD，最多覆盖连续31个年份。',
+            },
+            topics: {
+              type: 'array',
+              uniqueItems: true,
+              items: {
+                enum: [
+                  'career',
+                  'wealth',
+                  'marriage',
+                  'health',
+                  'academic',
+                  'relocation',
+                  'family',
+                  'children',
+                  'partnership',
+                ],
+              },
+            },
+            name: { type: 'string' },
+            gender: { enum: ['male', 'female'] },
+            schools: { type: 'array', items: { type: 'string' } },
+            detailMode: { enum: [...DETAIL_MODES], default: 'compact' },
+          },
+        },
+        QimenLifetimePromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/QimenLifetimeRequest' },
+            {
+              type: 'object',
+              required: ['question'],
+              properties: {
+                question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+                responseMode: {
+                  enum: [...PROMPT_RESPONSE_MODES],
+                  default: 'prompt-only',
+                },
+              },
+            },
+          ],
         },
         AstrolabeBirthRequest: {
           type: 'object',
@@ -4533,9 +4631,7 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
     stagePolicy: isRecord(input.stagePolicy)
       ? (input.stagePolicy as unknown as QimenLifetimeInput['stagePolicy'])
       : undefined,
-    periodRange: isRecord(input.periodRange)
-      ? (input.periodRange as unknown as QimenLifetimeInput['periodRange'])
-      : undefined,
+    periodRange: readQimenLifetimePeriodRange(input),
     topics: Array.isArray(input.topics)
       ? (input.topics as QimenLifetimeInput['topics'])
       : undefined,
@@ -4549,6 +4645,29 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
     return buildCompactQimenLifetimeResult(result);
   }
   return result;
+}
+
+function readQimenLifetimePeriodRange(
+  input: JsonRecord,
+): QimenLifetimeInput['periodRange'] | undefined {
+  if (input.periodRange === undefined) return undefined;
+  if (!isRecord(input.periodRange)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'periodRange 必须是包含 startDate 和 endDate 的对象。');
+  }
+  const periodRange = {
+    startDate: readString(input.periodRange, 'startDate', ''),
+    endDate: readString(input.periodRange, 'endDate', ''),
+  };
+  try {
+    validateLifetimePeriodRange(periodRange);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : 'periodRange 日期区间无效。',
+    );
+  }
+  return periodRange;
 }
 
 function buildCompactQimenLifetimeResult(result: QimenLifetimeData) {
@@ -4601,9 +4720,7 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
     stagePolicy: isRecord(input.stagePolicy)
       ? (input.stagePolicy as unknown as QimenLifetimeInput['stagePolicy'])
       : undefined,
-    periodRange: isRecord(input.periodRange)
-      ? (input.periodRange as unknown as QimenLifetimeInput['periodRange'])
-      : undefined,
+    periodRange: readQimenLifetimePeriodRange(input),
     topics: Array.isArray(input.topics)
       ? (input.topics as QimenLifetimeInput['topics'])
       : undefined,
