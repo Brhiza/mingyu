@@ -315,7 +315,7 @@ test('读取参数后补算，原始盘面与补充盘面同时保留', async ()
 test('准备格式错误后在剩余轮次读取真实参数并补算目标', async (t) => {
   const h = harness([
     '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}',
-    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990,"question":"分析2027年事业","baziFortuneYear":2027}}]}',
     '格式恢复后的解读',
   ]);
   h.options.subject = baziSubject;
@@ -339,6 +339,8 @@ test('准备格式错误后在剩余轮次读取真实参数并补算目标', as
   assert.match(h.sent[1][0].content, /properties/);
   assert.match(h.sent[1].at(-1)!.content, /可解析的 JSON 对象/);
   assert.match(h.sent[2][0].content, /1990|庚午/);
+  assert.equal(h.options.memory.resources.length, 1);
+  assert.equal(h.options.memory.resources[0].usable, true);
   assert.deepEqual(h.chunks, ['格式恢复后的解读']);
 });
 
@@ -381,8 +383,8 @@ test('连续两次准备格式错误时最终上下文说明资料状态', async
 
 test('补算执行安全校验失败后带纠错反馈并成功重试', async (t) => {
   const h = harness([
-    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1991,"baziFortuneYear":2027}}]}',
-    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990,"baziFortuneYear":2027}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1991,"baziFortuneYear":2027,"question":"分析2027年事业"}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990,"baziFortuneYear":2027,"question":"分析2027年事业"}}]}',
     '重试后的解读',
   ]);
   h.options.subject = baziSubject;
@@ -415,6 +417,7 @@ test('补算执行安全校验失败后带纠错反馈并成功重试', async (t
   assert.match(h.sent[1].at(-1)!.content, /补算主体与当前命盘不一致：year/);
   const final = h.sent[2][0].content;
   assert.doesNotMatch(final, /bazi补充资料未取得/);
+  assert.equal(h.options.memory.resources.length, 1);
   assert.match(final, /1990|庚午/);
   assert.deepEqual(h.chunks, ['重试后的解读']);
 });
