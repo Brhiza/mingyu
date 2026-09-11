@@ -613,7 +613,13 @@ test('奇门终身局 P5：MCP 工具注册与调用', async () => {
   const promptToolResult = await promptTool.handler(parsedPromptInput.data);
   assert.ok(promptToolResult.content);
   assert.match(promptToolResult.content[0].text, /【终身局基础盘】/);
-  assert.match(promptToolResult.content[0].text, /财运/);
+  const promptData = promptToolResult.structuredContent as any;
+  assert.deepEqual(promptData.result.input.topics, ['wealth']);
+  assert.deepEqual(
+    promptData.result.topicCandidates.map((candidate: { topic: string }) => candidate.topic),
+    ['wealth'],
+  );
+  assert.match(promptToolResult.content[0].text, /资产财帛：主落/);
 });
 
 test('奇门终身局前端与命盘集成：纳入命盘分类并可复用个人案例', async () => {
