@@ -717,7 +717,7 @@ function AiChatPanelImpl({
                 ) : null}
               </div>
             ) : null}
-            {error ? (
+            {error && !(readingResourceError && isReadingResourceBlocked) ? (
               <div className="ai-chat-error-notice" role="alert" aria-live="assertive">
                 <div className="ai-chat-error-content">
                   <strong>{isReadingResourceBlocked ? '完整资料尚未就绪' : 'AI 回复失败'}</strong>
