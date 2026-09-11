@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import { getDivinationTime } from '../../packages/core/src/calendar/timeManager';
 import { calculateQimenLifetime } from '../../packages/core/src/divination/algorithms/qimen';
 
 const result = calculateQimenLifetime({
@@ -28,10 +30,13 @@ const summarizeClusters = (source: typeof result) =>
     counterEvidence: cluster.counterEvidence,
   }));
 
+const actualTime = getDivinationTime(new Date(result.baseChart.timestamp), 840);
+assert.deepEqual(result.baseChart.ganzhi, actualTime.ganzhi);
+
 process.stdout.write(
   JSON.stringify({
     timestamp: result.baseChart.timestamp,
-    solar: result.baseChart.timeInfo.solar,
+    solar: actualTime.timeInfo.solar,
     ganzhi: result.baseChart.ganzhi,
     seasonality: {
       currentJieQi: result.baseChart.seasonality?.currentJieQi,

@@ -10,6 +10,14 @@ import {
   generateQimen,
   scanLifetimeDynamicEvents,
 } from '../packages/core/src/divination/algorithms/qimen';
+import { getDivinationTime } from '../packages/core/src/calendar/timeManager';
+
+function verifiedChartSolar(chart: ReturnType<typeof generateQimen>, offset: number) {
+  const expected = getDivinationTime(new Date(chart.timestamp), offset);
+  assert.deepEqual(chart.ganzhi, expected.ganzhi);
+  return expected.timeInfo.solar;
+}
+
 import { diPanPalaces } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 
 function annualPatternFacts(
@@ -114,7 +122,7 @@ test('奇门终身局应沿用固定非东八区的 civil 与真实瞬时点', (
   assert.equal(normalized.timezoneOffsetMinutes, -300);
   assert.equal(normalized.normalizedDate.toISOString(), '1990-05-15T19:30:00.000Z');
   assert.equal(lifetime.baseChart.timestamp, normalized.normalizedDate.getTime());
-  assert.deepEqual(lifetime.baseChart.timeInfo.solar, {
+  assert.deepEqual(verifiedChartSolar(lifetime.baseChart, normalized.timezoneOffsetMinutes), {
     year: 1990,
     month: 5,
     day: 15,
@@ -136,7 +144,7 @@ test('奇门终身局 IANA 夏令时应让基础盘保持当地 civil', () => {
   assert.equal(normalized.timezoneOffsetMinutes, -240);
   assert.equal(normalized.normalizedDate.toISOString(), '2024-05-15T18:30:00.000Z');
   assert.equal(lifetime.baseChart.timestamp, normalized.normalizedDate.getTime());
-  assert.deepEqual(lifetime.baseChart.timeInfo.solar, {
+  assert.deepEqual(verifiedChartSolar(lifetime.baseChart, normalized.timezoneOffsetMinutes), {
     year: 2024,
     month: 5,
     day: 15,
@@ -155,7 +163,7 @@ test('奇门终身局真太阳时应沿用非东八区修正后的 civil', () =>
   };
   const normalized = normalizeQimenLifetimeTime(input);
   const lifetime = calculateQimenLifetime(input);
-  const solar = lifetime.baseChart.timeInfo.solar;
+  const solar = verifiedChartSolar(lifetime.baseChart, normalized.timezoneOffsetMinutes);
 
   assert.equal(lifetime.baseChart.timestamp, normalized.normalizedDate.getTime());
   assert.deepEqual(solar, {
@@ -177,7 +185,7 @@ test('奇门终身局 UTC+14 当地午夜应保留出生日期并用于阶段日
   const lifetime = calculateQimenLifetime(input);
 
   assert.equal(normalized.normalizedDate.toISOString(), '2024-01-01T10:30:00.000Z');
-  assert.deepEqual(lifetime.baseChart.timeInfo.solar, {
+  assert.deepEqual(verifiedChartSolar(lifetime.baseChart, normalized.timezoneOffsetMinutes), {
     year: 2024,
     month: 1,
     day: 2,
@@ -200,14 +208,17 @@ test('奇门终身局非东八区应按真实瞬时点切换立春而保留当�
   });
   assert.equal(nyBefore.baseChart.timeInfo.solarTerm, '大寒');
   assert.equal(nyAfter.baseChart.timeInfo.solarTerm, '立春');
-  assert.deepEqual(nyBefore.baseChart.timeInfo.solar, {
+  assert.deepEqual(verifiedChartSolar(nyBefore.baseChart, -300), {
     year: 2024,
     month: 2,
     day: 4,
     hour: 3,
     minute: 27,
   });
-  assert.deepEqual(nyAfter.baseChart.timeInfo.solar, nyBefore.baseChart.timeInfo.solar);
+  assert.deepEqual(
+    verifiedChartSolar(nyAfter.baseChart, -300),
+    verifiedChartSolar(nyBefore.baseChart, -300),
+  );
   assert.deepEqual(
     [nyBefore.baseChart.ganzhi.year, nyBefore.baseChart.ganzhi.month],
     ['癸卯', '乙丑'],
@@ -231,14 +242,17 @@ test('奇门终身局非东八区应按真实瞬时点切换立春而保留当�
   });
   assert.equal(apiaBefore.baseChart.timeInfo.solarTerm, '大寒');
   assert.equal(apiaAfter.baseChart.timeInfo.solarTerm, '立春');
-  assert.deepEqual(apiaBefore.baseChart.timeInfo.solar, {
+  assert.deepEqual(verifiedChartSolar(apiaBefore.baseChart, 840), {
     year: 2024,
     month: 2,
     day: 4,
     hour: 22,
     minute: 27,
   });
-  assert.deepEqual(apiaAfter.baseChart.timeInfo.solar, apiaBefore.baseChart.timeInfo.solar);
+  assert.deepEqual(
+    verifiedChartSolar(apiaAfter.baseChart, 840),
+    verifiedChartSolar(apiaBefore.baseChart, 840),
+  );
   assert.deepEqual(
     [apiaBefore.baseChart.ganzhi.year, apiaBefore.baseChart.ganzhi.month],
     ['癸卯', '乙丑'],
@@ -370,25 +384,29 @@ test('奇门终身局动态年盘失败应保留年份与原始原因', () => {
     endDate: '2024-12-31',
   };
 
-  const invalidTimezoneError = assert.throws(() => {
-    scanLifetimeDynamicEvents(base.baseChart, base.stages, periodRange, 'zhuanpan', 'chaibu', {
-      timeZoneId: 'Invalid/Unknown',
-    });
-  }) as Error & { cause?: Error };
-  assert.match(invalidTimezoneError.message, /2024年动态年盘生成失败/u);
-  const invalidTimezoneCause = invalidTimezoneError.cause;
-  assert.ok(invalidTimezoneCause instanceof Error);
-  assert.match(invalidTimezoneCause.message, /无法识别 IANA 时区/u);
-
-  const generationError = assert.throws(() => {
-    scanLifetimeDynamicEvents(base.baseChart, base.stages, periodRange, 'zhuanpan', 'chaibu', {
-      fallbackOffsetMinutes: Number.NaN,
-    });
-  }) as Error & { cause?: Error };
-  assert.match(generationError.message, /2024年动态年盘生成失败/u);
-  const generationCause = generationError.cause;
-  assert.ok(generationCause instanceof Error);
-  assert.match(generationCause.message, /时区偏移分钟数/u);
+  for (const [context, causePattern] of [
+    [{ timeZoneId: 'Invalid/Unknown' }, /无法识别 IANA 时区/u],
+    [{ fallbackOffsetMinutes: Number.NaN }, /时区偏移分钟数/u],
+  ] as const) {
+    assert.throws(
+      () =>
+        scanLifetimeDynamicEvents(
+          base.baseChart,
+          base.stages,
+          periodRange,
+          'zhuanpan',
+          'chaibu',
+          context,
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /2024年动态年盘生成失败/u);
+        assert.ok(error.cause instanceof Error);
+        assert.match(error.cause.message, causePattern);
+        return true;
+      },
+    );
+  }
 });
 
 test('奇门终身局动态年盘应采用固定 UTC 偏移而非默认东八区', () => {

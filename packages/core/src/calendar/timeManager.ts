@@ -109,7 +109,7 @@ export class TimeManager {
   }
 
   /** 按采用历表的标准时区读取真实瞬时点，用于节气与月令边界。 */
-  private static getTermSolarTime(date: Date, offsetMinutes: number): SolarTime {
+  private static getTermSolarTime(date: Date, offsetMinutes: number) {
     const parts = this.getDatePartsInOffset(date, offsetMinutes);
     return SolarTime.fromYmdHms(
       parts.year,
@@ -231,7 +231,7 @@ export class TimeManager {
   private static getGanZhi(
     date: Date,
     offsetMinutes: number,
-    termSolarTime: SolarTime,
+    termSolarTime: ReturnType<typeof SolarTime.fromYmdHms>,
   ): GanZhiInfo {
     const parts = this.getDatePartsInOffset(date, offsetMinutes);
     const solarTime = SolarTime.fromYmdHms(
@@ -260,7 +260,7 @@ export class TimeManager {
   private static getTimeInfo(
     date: Date,
     offsetMinutes: number,
-    termSolarTime: SolarTime,
+    termSolarTime: ReturnType<typeof SolarTime.fromYmdHms>,
   ): TimeInfo {
     const parts = this.getDatePartsInOffset(date, offsetMinutes);
     const solarTime = SolarTime.fromYmdHms(
