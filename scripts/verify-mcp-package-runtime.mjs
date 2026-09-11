@@ -113,7 +113,8 @@ try {
     timeStandard: 'civil',
     periodRange: { startDate: '2026-01-01', endDate: '2056-12-31' },
     question: '分析完整目标时段的事业变化。',
-  };  const lifetimeResponse = await client.callTool({
+  };
+  const lifetimeResponse = await client.callTool({
     name: 'qimen_lifetime_prompt',
     arguments: lifetimeInput,
   });
@@ -122,7 +123,10 @@ try {
   assert.ok(lifetime.prompt.length > 100_000);
   assert.deepEqual(lifetime.result.input.periodRange, lifetimeInput.periodRange);
   assert.equal(lifetime.result.eventClusters.length, 161);
-  assert.equal(lifetime.result.eventClusters.flatMap((item) => item.triggerDates ?? []).length, 3806);
+  assert.equal(
+    lifetime.result.eventClusters.flatMap((item) => item.triggerDates ?? []).length,
+    3806,
+  );
 
   const soundReference = await callTool(client, 'huangji_reference_tables', {
     table: 'sound-rhythm',
