@@ -180,7 +180,7 @@ function HistoricalEraReference({ reference }: { reference: HuangjiHistoricalEra
               <tr key={`${row.rowIndex}-${row.ganzhi}`}>
                 <th scope="row">{row.rowIndex}</th>
                 <td>{row.ganzhi}</td>
-                <td>{row.historicalLabel ?? '—'}</td>
+                <td>{row.sourceText || row.historicalLabel || '—'}</td>
               </tr>
             ))}
           </tbody>

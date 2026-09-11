@@ -57,7 +57,12 @@ test('皇极历史纪年公开 API 与 MCP 保留经辰原文字和三十年序�
   assert.equal(http.body.data?.sourceBranch, '己');
   assert.equal(http.body.data?.branch, '巳');
   assert.equal((http.body.data?.rows as unknown[]).length, 30);
-  assert.equal((http.body.data?.namedEntries as Array<{ label: string }>)[0]?.label, '商武丁');
+  assert.deepEqual(
+    (
+      http.body.data?.namedEntries as Array<{ label: string; rowIndex: number; sourceText: string }>
+    )[0],
+    { rowIndex: 24, ganzhi: '丁巳', label: '商武丁', sourceText: '商武丁' },
+  );
 
   const mcp = await client.callTool({ name: 'huangji_reference_tables', arguments: input });
   assert.notEqual(mcp.isError, true, JSON.stringify(mcp));

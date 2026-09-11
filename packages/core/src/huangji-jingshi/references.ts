@@ -1,4 +1,5 @@
 import { EARTHLY_BRANCHES, SIXTY_CYCLE, type EarthlyBranch } from '../ganzhi/data';
+import { HUANGJI_HISTORICAL_SOURCE_TEXTS } from './historical-source-texts';
 
 /** 固定资料查询表的版本信息。 */
 export interface HuangjiReferenceSource {
@@ -80,6 +81,8 @@ export interface HuangjiAnimalPlantReference {
 export interface HuangjiHistoricalEraRow {
   readonly rowIndex: number;
   readonly ganzhi: string;
+  /** 固定卷页中该行干支之后的原文数字或纪年标记，空字符串表示原页留空。 */
+  readonly sourceText: string;
   readonly historicalLabel?: string;
 }
 
@@ -87,6 +90,7 @@ export interface HuangjiHistoricalEraEntry {
   readonly rowIndex: number;
   readonly ganzhi: string;
   readonly label: string;
+  readonly sourceText: string;
 }
 
 export interface HuangjiHistoricalEraReference {
@@ -232,7 +236,7 @@ const HUANGJI_SOURCE_BRANCH_CORRECTIONS: Readonly<Record<number, string>> = Obje
 });
 
 const HISTORICAL_LIMITATIONS = Object.freeze([
-  '本表按固定卷三上、卷三下逐“经辰”区块保留三十个六十甲子顺序与原文标出的历史名称；普通行不擅自解释为现代公历年。',
+  '本表按固定卷三上、卷三下逐“经辰”区块保留三十个六十甲子顺序与逐行原文标记；普通行不擅自解释为现代公历年。',
   '卷页文字本在第2178、2190区块将顺序地支录作“己”；接口同时返回原文字和按经辰序列校出的“巳”，方便复核，不把校正值当作另一套纪年算法。',
 ] as const);
 
@@ -256,6 +260,10 @@ export function getHuangjiHistoricalEraBlock(shiIndex: number): HuangjiHistorica
   const branch = EARTHLY_BRANCHES[(shiIndex - 2149) % EARTHLY_BRANCHES.length];
   const sourceBranch = HUANGJI_SOURCE_BRANCH_CORRECTIONS[shiIndex] ?? branch;
   const events = HUANGJI_HISTORICAL_EVENTS.filter((event) => event.shiIndex === shiIndex);
+  const sourceTexts = HUANGJI_HISTORICAL_SOURCE_TEXTS[shiIndex];
+  if (!sourceTexts || sourceTexts.length !== 30) {
+    throw new Error(`经辰${shiIndex}缺少固定卷页的三十行原文标记。`);
+  }
   const start = ((shiIndex - 2149) * 30) % SIXTY_CYCLE.length;
   const rows = Array.from({ length: 30 }, (_, index) => {
     const ganzhi = SIXTY_CYCLE[(start + index) % SIXTY_CYCLE.length];
@@ -263,6 +271,7 @@ export function getHuangjiHistoricalEraBlock(shiIndex: number): HuangjiHistorica
     return {
       rowIndex: index + 1,
       ganzhi,
+      sourceText: sourceTexts[index] as string,
       ...(event ? { historicalLabel: event.label } : {}),
     };
   });
@@ -278,11 +287,16 @@ export function getHuangjiHistoricalEraBlock(shiIndex: number): HuangjiHistorica
       ? { sourceBranchNote: '固定卷页文字作“己”；按相邻经辰的子丑寅卯辰巳顺序校为“巳”。' }
       : {}),
     rows,
-    namedEntries: events.map((event) => ({
-      rowIndex: rows.findIndex((row) => row.ganzhi === event.ganzhi) + 1,
-      ganzhi: event.ganzhi,
-      label: event.label,
-    })),
+    namedEntries: events.map((event) => {
+      const row = rows.find((item) => item.ganzhi === event.ganzhi);
+      if (!row) throw new Error(`经辰${shiIndex}的历史纪年缺少${event.ganzhi}行。`);
+      return {
+        rowIndex: row.rowIndex,
+        ganzhi: event.ganzhi,
+        label: event.label,
+        sourceText: row.sourceText,
+      };
+    }),
     limitations: [...HISTORICAL_LIMITATIONS],
   };
 }

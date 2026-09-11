@@ -86,6 +86,7 @@ test('皇极资料表切换后通过核心查询完整展示对应底本字段',
   );
   assert.match(historicalHtml, /经辰历史纪年原表/);
   assert.match(historicalHtml, /2149—2208/);
+  assert.match(historicalHtml, /二十八/);
   assert.match(historicalHtml, /商武丁/);
   assert.match(historicalHtml, /oldid=789512/u);
 });
