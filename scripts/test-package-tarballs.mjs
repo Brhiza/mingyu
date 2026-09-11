@@ -233,6 +233,15 @@ const astronomicalTime = client.astronomicalTime({
 if (xuankong.sitMountain !== '子') {
   throw new Error('隔离安装后的玄空客户端入口失败。');
 }
+const substitute = client.xuankong({ year: 2024, sitMountain: '子', guaType: '替卦', flowYear: 2026, flowMonth: 6 });
+if (substitute.guaType !== '替卦' || substitute.replacement?.mountain.replacementStar !== 5 || substitute.palaces.length !== 9 || !substitute.flowStars?.monthPlate) {
+  throw new Error('隔离安装后的替卦五黄或流年流月资料不完整。');
+}
+const wuyunModule = await import('mingyu-core/wuyun-liuqi');
+const wuyun = wuyunModule.calculateWuyunLiuqi({ year: 2026 });
+if (wuyun.input.yearGanZhi !== '丙午' || wuyun.movementSteps.length !== 5 || wuyun.qiSteps.length !== 6 || !wuyun.prompt.includes('客气')) {
+  throw new Error('隔离安装后的五运六气年度资料不完整。');
+}
 
 const ziwei = await client.safe.birth(profile, { systems: ['ziwei'] });
 if (ziwei.ok || ziwei.error.code !== 'IZTRO_DEPENDENCY_REQUIRED') {
