@@ -32,8 +32,18 @@ test('易林每个卦对均可查询，文字一致状态依据两份正文判�
     for (const target of YILIN_HEXAGRAM_ORDER) {
       const entry = queryYilinEntry(base, target);
       keys.add(entry.key);
-      assert.ok(entry.sources.wikisource.text.length > 0);
-      assert.ok(entry.sources.kanripo.text.length > 0);
+      for (const source of [entry.sources.wikisource, entry.sources.kanripo]) {
+        assert.ok(source.text.length > 0, entry.key);
+        assert.ok(source.source.length > 0, entry.key);
+        assert.ok(Number.isInteger(source.volume), entry.key);
+        assert.ok(Number.isInteger(source.line), entry.key);
+        assert.ok(source.rawLabel.length > 0, entry.key);
+        if (source.observedLabel !== null) assert.ok(source.observedLabel.length > 0, entry.key);
+        assert.ok(source.page === null || source.page.length > 0, entry.key);
+        assert.match(source.textDigest, /^[0-9a-f]{16}$/u);
+        assert.ok(Array.isArray(source.markers.kanripoRefs), entry.key);
+        assert.ok(Array.isArray(source.markers.wikisourceSKchars), entry.key);
+      }
       if (entry.dataStatus === '双底本对读一致') {
         assert.equal(entry.sources.wikisource.text, entry.sources.kanripo.text, entry.key);
       }

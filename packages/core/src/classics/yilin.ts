@@ -77,7 +77,106 @@ type RawPairIndex = {
   pairs: RawYilinPair[];
 };
 
-const rawPairIndex = pairIndex as unknown as RawPairIndex;
+// 每行依次为卦名索引、目标索引、卷次，以及两份底本各自的元数据索引、卷次、行号、页码、标签、正文、标记和字形索引，末尾是两份正文摘要。
+type CompactPairRow = [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
+type CompactPairIndex = {
+  task: 'W20.03';
+  hexagrams: string[];
+  strings: string[];
+  sourceMeta: Array<[number, number]>;
+  markers: Array<[number[], number[]]>;
+  pairs: CompactPairRow[];
+};
+
+function readCompactValue(index: CompactPairIndex, stringIndex: number): string | null {
+  if (stringIndex < 0) return null;
+  const value = index.strings[stringIndex];
+  if (value === undefined) {
+    throw new Error('焦氏易林固定索引字符串表下标异常。');
+  }
+  return value;
+}
+
+function decodeCompactSource(
+  index: CompactPairIndex,
+  row: CompactPairRow,
+  offset: number,
+): RawYilinSource {
+  const [kindIndex, sourceIndex] = index.sourceMeta[row[offset]];
+  const marker = index.markers[row[offset + 7]];
+  if (!marker) throw new Error('焦氏易林固定索引标记表下标异常。');
+  const [kanripoMarkerIndexes, wikisourceMarkerIndexes] = marker;
+  return {
+    sourceKind: readCompactValue(index, kindIndex) as YilinSourceKind,
+    source: readCompactValue(index, sourceIndex) as string,
+    volume: row[offset + 1],
+    line: row[offset + 2],
+    page: readCompactValue(index, row[offset + 3]),
+    rawLabel: readCompactValue(index, row[offset + 4]) as string,
+    observedLabel: readCompactValue(index, row[offset + 5]) as string,
+    text: readCompactValue(index, row[offset + 6]) as string,
+    markers: {
+      kanripoRefs: kanripoMarkerIndexes.map(
+        (stringIndex) => readCompactValue(index, stringIndex) as string,
+      ),
+      wikisourceSKchars: wikisourceMarkerIndexes.map(
+        (stringIndex) => readCompactValue(index, stringIndex) as string,
+      ),
+    },
+    skcharId: readCompactValue(index, row[offset + 8]),
+  };
+}
+
+function decodeCompactPairIndex(index: CompactPairIndex): RawPairIndex {
+  return {
+    task: index.task,
+    pairs: index.pairs.map((row) => {
+      const base = index.hexagrams[row[0]];
+      const target = index.hexagrams[row[1]];
+      if (!base || !target) throw new Error('焦氏易林固定索引卦名表下标异常。');
+      return {
+        base,
+        target,
+        key: `${base}→${target}`,
+        volume: row[2],
+        kanripo: decodeCompactSource(index, row, 3) as RawYilinPair['kanripo'],
+        wikisource: decodeCompactSource(index, row, 12) as RawYilinPair['wikisource'],
+        textDigest: {
+          kanripo: readCompactValue(index, row[21]) as string,
+          wikisource: readCompactValue(index, row[22]) as string,
+        },
+      };
+    }),
+  };
+}
+
+const rawPairIndex = decodeCompactPairIndex(pairIndex as unknown as CompactPairIndex);
 const rawGapReport = gapReport as unknown as RawGapReport;
 const rawConfirmedMappings = confirmedMappings as unknown as {
   mappings: unknown[];
