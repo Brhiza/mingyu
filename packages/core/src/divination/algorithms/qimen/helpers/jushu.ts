@@ -27,7 +27,8 @@
 import { SolarDay, SolarTerm, SolarTime } from 'tyme4ts';
 import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
 import { SIX_XUN_HEADS } from '../../../../ganzhi/data';
-import { DEFAULT_CHINA_TIMEZONE_HOURS } from '../../../../calendar/civil-time';
+import { DEFAULT_CHINA_TIMEZONE_HOURS, resolveCivilTime } from '../../../../calendar/civil-time';
+import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
 import { TimeManager } from '../../../../calendar/timeManager';
 import { sanQiLiuYi } from './_constants';
 
@@ -152,10 +153,16 @@ export interface QimenTermContext {
   referenceDate: Date;
   /** 将交节瞬时点换算为当地民用日期，以判断交节所在日与晚子时。 */
   localOffsetMinutes: number;
+  /** IANA 时区；历史节气逐项按交节真实瞬时点读取当地偏移。 */
+  timeZoneId?: string;
 }
 
 /** 精确交节所在的奇门干支日；23 点后按晚子时换日。 */
-function getQimenDayForTerm(term: TymeSolarTerm, localOffsetMinutes?: number): TymeSolarDay {
+function getQimenDayForTerm(
+  term: TymeSolarTerm,
+  localOffsetMinutes?: number,
+  timeZoneId?: string,
+): TymeSolarDay {
   const termTime = term.getJulianDay().getSolarTime();
   const localTermTime =
     localOffsetMinutes === undefined
@@ -163,17 +170,20 @@ function getQimenDayForTerm(term: TymeSolarTerm, localOffsetMinutes?: number): T
       : (() => {
           const chinaTime = termTime;
           const termUtcDate = new Date(
-            Date.UTC(
-              chinaTime.getYear(),
-              chinaTime.getMonth() - 1,
-              chinaTime.getDay(),
-              chinaTime.getHour(),
-              chinaTime.getMinute(),
-              chinaTime.getSecond(),
-            ) -
-              DEFAULT_CHINA_TIMEZONE_HOURS * 60 * 60 * 1000,
+            resolveCivilTime({
+              year: chinaTime.getYear(),
+              month: chinaTime.getMonth(),
+              day: chinaTime.getDay(),
+              hour: chinaTime.getHour(),
+              minute: chinaTime.getMinute(),
+              second: chinaTime.getSecond(),
+              timezone: DEFAULT_CHINA_TIMEZONE_HOURS,
+            }).utcTimestamp,
           );
-          const localParts = TimeManager.getWallClockParts(termUtcDate, localOffsetMinutes);
+          const resolvedOffsetMinutes = timeZoneId
+            ? getHistoricalTimezoneOffsetAt(termUtcDate, timeZoneId) * 60
+            : localOffsetMinutes;
+          const localParts = TimeManager.getWallClockParts(termUtcDate, resolvedOffsetMinutes);
           return SolarTime.fromYmdHms(
             localParts.year,
             localParts.month,
@@ -202,13 +212,14 @@ function resolveZhirunSegment(
   today: TymeSolarDay,
   currentTerm: TymeSolarTerm,
   localOffsetMinutes?: number,
+  timeZoneId?: string,
 ): ZhirunSegment {
   let anchorTerm = currentTerm;
   let anchorDay: TymeSolarDay | undefined;
 
   // 四个上元符头每十五日一遇，天然正授通常一年可见；十年上限用于防止历法异常。
   for (let i = 0; i < 240; i++) {
-    const candidateDay = getQimenDayForTerm(anchorTerm, localOffsetMinutes);
+    const candidateDay = getQimenDayForTerm(anchorTerm, localOffsetMinutes, timeZoneId);
     if (!candidateDay.isAfter(today) && isUpperYuanFuTou(candidateDay)) {
       anchorDay = candidateDay;
       break;
@@ -230,7 +241,10 @@ function resolveZhirunSegment(
   for (let i = 0; i < segmentCount; i++) {
     const nextStartDay = segment.startDay.next(15);
     const nextTerm = segment.term.next(1);
-    const leadDays = dayDiff(nextStartDay, getQimenDayForTerm(nextTerm, localOffsetMinutes));
+    const leadDays = dayDiff(
+      nextStartDay,
+      getQimenDayForTerm(nextTerm, localOffsetMinutes, timeZoneId),
+    );
     const shouldIntercalate =
       !segment.isIntercalary && ZHIRUN_TERMS.has(segment.term.getName()) && leadDays >= 8;
 
@@ -368,11 +382,20 @@ export function getQimenJuShu(
       throw new Error(`找不到节气 "${jieQi}" 对应的局数规则。`);
     }
 
-    const jieQiDay = getQimenDayForTerm(term, termContext?.localOffsetMinutes);
+    const jieQiDay = getQimenDayForTerm(
+      term,
+      termContext?.localOffsetMinutes,
+      termContext?.timeZoneId,
+    );
     const yuanNames = ['上元', '中元', '下元'] as const;
 
     if (juMethod === 'zhirun') {
-      const segment = resolveZhirunSegment(today, term, termContext?.localOffsetMinutes);
+      const segment = resolveZhirunSegment(
+        today,
+        term,
+        termContext?.localOffsetMinutes,
+        termContext?.timeZoneId,
+      );
       const activeJieQi = segment.term.getName();
       const activeRule = jieQiJuShuMap[activeJieQi as keyof typeof jieQiJuShuMap];
       if (!activeRule) {
@@ -383,7 +406,11 @@ export function getQimenJuShu(
       const yuanIndex = Math.floor(daysFromUpperFuTou / 5);
       const activeFuTouDay = segment.startDay.next(yuanIndex * 5);
       const activeFuTou = getDayGanZhi(activeFuTouDay);
-      const termDay = getQimenDayForTerm(segment.term, termContext?.localOffsetMinutes);
+      const termDay = getQimenDayForTerm(
+        segment.term,
+        termContext?.localOffsetMinutes,
+        termContext?.timeZoneId,
+      );
       const termLeadDays = dayDiff(segment.startDay, termDay);
       const chaoShenOrJieQi: QimenChaoShenState = segment.isIntercalary
         ? '超神'

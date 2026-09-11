@@ -38,6 +38,7 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
     'hour',
     juMethod,
     timeResult.timezoneOffsetMinutes,
+    input.timeZoneId,
   );
 
   // 3. P1: 提取个人标记与六亲主题宫（枢）
@@ -64,6 +65,11 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
       input.periodRange,
       method,
       juMethod,
+      {
+        timezone: input.timezone,
+        timeZoneId: input.timeZoneId,
+        fallbackOffsetMinutes: timeResult.timezoneOffsetMinutes,
+      },
     );
   }
 

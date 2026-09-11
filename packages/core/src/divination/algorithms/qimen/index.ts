@@ -232,6 +232,7 @@ function mapStemRelations(
  * @param method     排盘方法，默认 'zhuanpan'（转盘法）
  * @param scope      排盘级别，默认 'hour'（时家奇门）
  * @param timezoneOffsetMinutes 本次计算的显式 UTC 偏移（分钟），省略时沿用 TimeManager 默认值
+ * @param timeZoneId 本次计算所用 IANA 时区；用于历史节气按真实瞬时点解析当地偏移
  * @returns 完整的奇门遁甲数据 QimenData
  *
  * @example
@@ -252,6 +253,7 @@ export function generateQimen(
   scope: QimenScope = 'hour',
   juMethod: QimenJuMethod = 'chaibu',
   timezoneOffsetMinutes?: number,
+  timeZoneId?: string,
 ): QimenData {
   assertQimenScope(scope);
   // ──────────────────────────────────────────────────────────────────────────
@@ -265,6 +267,7 @@ export function generateQimen(
       : {
           referenceDate: new Date(timestamp),
           localOffsetMinutes: timezoneOffsetMinutes,
+          timeZoneId,
         };
 
   // 根据 scope 确定"主动干支"（用于定局、寻符使、空亡、驿马）

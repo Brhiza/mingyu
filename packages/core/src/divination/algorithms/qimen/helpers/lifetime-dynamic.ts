@@ -10,9 +10,20 @@ import type {
   QimenLifetimeStage,
   QimenTopic,
 } from '../../../../types/divination';
-import { LunarUtil } from '../../../../calendar/lunar';
+import { DEFAULT_CHINA_TIMEZONE_HOURS } from '../../../../calendar/civil-time';
+import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
+import { createUtcTimestamp } from '../../../../calendar/date-validation';
 import { generateQimen } from '../index';
 import { diPanPalaces } from './_constants';
+
+export interface QimenDynamicTimeContext {
+  /** 固定 UTC 偏移；存在 IANA 时区时由 timeZoneId 优先。 */
+  timezone?: number;
+  /** 目标年度沿用的 IANA 时区，按年度瞬时点重新读取历史偏移。 */
+  timeZoneId?: string;
+  /** 出生时间已经解析出的固定偏移，用于日期字符串带偏移但未单独传 timezone 的情况。 */
+  fallbackOffsetMinutes?: number;
+}
 
 const OPPOSITE_BRANCHES: Record<string, string> = {
   子: '午',
@@ -29,6 +40,27 @@ const OPPOSITE_BRANCHES: Record<string, string> = {
   亥: '巳',
 };
 
+function getIanaOffsetMinutesAt(date: Date, timeZoneId: string): number {
+  const offsetMinutes = getHistoricalTimezoneOffsetAt(date, timeZoneId) * 60;
+  if (!Number.isFinite(offsetMinutes) || offsetMinutes < -720 || offsetMinutes > 840) {
+    throw new Error(`IANA 时区 ${timeZoneId} 在目标时刻的偏移无效。`);
+  }
+  return offsetMinutes;
+}
+
+function getDynamicOffsetMinutes(
+  date: Date,
+  timeContext: QimenDynamicTimeContext | undefined,
+): number {
+  if (timeContext?.timeZoneId?.trim()) {
+    return getIanaOffsetMinutesAt(date, timeContext.timeZoneId.trim());
+  }
+  if (timeContext?.timezone !== undefined) {
+    return timeContext.timezone * 60;
+  }
+  return timeContext?.fallbackOffsetMinutes ?? DEFAULT_CHINA_TIMEZONE_HOURS * 60;
+}
+
 /**
  * 扫描指定时间范围内的流年动态事件簇
  */
@@ -38,6 +70,7 @@ export function scanLifetimeDynamicEvents(
   periodRange: { startDate: string; endDate: string },
   method: 'zhuanpan' | 'feipan' = 'zhuanpan',
   juMethod: 'chaibu' | 'zhirun' = 'chaibu',
+  timeContext?: QimenDynamicTimeContext,
 ): QimenEventCluster[] {
   const clusters: QimenEventCluster[] = [];
 
@@ -55,13 +88,23 @@ export function scanLifetimeDynamicEvents(
     baseChart.jiuGongGe.find((item) => item.gong === p)?.name || `${p}宫`;
 
   for (let y = startYear; y <= maxEndYear; y++) {
-    const midYearDate = new Date(Date.UTC(y, 5, 15, 12, 0, 0));
+    const midYearDate = new Date(createUtcTimestamp(y, 5, 15, 12, 0, 0));
     let flowYearGanZhi: string;
+    let yearQimen: QimenData;
     try {
-      const timeInfo = LunarUtil.getTimeInfo(midYearDate);
-      flowYearGanZhi = timeInfo.ganzhi.year;
-    } catch {
-      continue;
+      const targetOffsetMinutes = getDynamicOffsetMinutes(midYearDate, timeContext);
+      yearQimen = generateQimen(
+        midYearDate,
+        method,
+        'year',
+        juMethod,
+        targetOffsetMinutes,
+        timeContext?.timeZoneId,
+      );
+      flowYearGanZhi = yearQimen.ganzhi.year;
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      throw new Error(`${y}年动态年盘生成失败：${detail}`, { cause });
     }
 
     const flowYearBranch = flowYearGanZhi[1];
@@ -160,21 +203,16 @@ export function scanLifetimeDynamicEvents(
     }
 
     // 4. 年家奇门局合参
-    try {
-      const yearQimen = generateQimen(midYearDate, method, 'year', juMethod);
-      if (yearQimen.classicPatterns && yearQimen.classicPatterns.length > 0) {
-        for (const yp of yearQimen.classicPatterns) {
-          if (yp.palaces.includes(taiSuiPalaceNum)) {
-            if (yp.type === 'good') {
-              supportEvidence.push(`岁盘吉格「${yp.name}」叠合临宫：${yp.summary}`);
-            } else if (yp.type === 'bad') {
-              counterEvidence.push(`岁盘凶格「${yp.name}」叠合临宫：${yp.summary}`);
-            }
+    if (yearQimen.classicPatterns && yearQimen.classicPatterns.length > 0) {
+      for (const yp of yearQimen.classicPatterns) {
+        if (yp.palaces.includes(taiSuiPalaceNum)) {
+          if (yp.type === 'good') {
+            supportEvidence.push(`岁盘吉格「${yp.name}」叠合临宫：${yp.summary}`);
+          } else if (yp.type === 'bad') {
+            counterEvidence.push(`岁盘凶格「${yp.name}」叠合临宫：${yp.summary}`);
           }
         }
       }
-    } catch {
-      // 容错忽略岁盘额外计算错误
     }
 
     // 若未命中任何特定主题，默认归为事业与大势

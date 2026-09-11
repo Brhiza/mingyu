@@ -14,6 +14,18 @@ interface TimezoneProbe {
     minute: number;
   };
   stageStart: string;
+  dynamicClusters: Array<{
+    key: string;
+    stageIndex: number;
+    supportEvidence: string[];
+    counterEvidence: string[];
+  }>;
+  ianaDynamicClusters: Array<{
+    key: string;
+    stageIndex: number;
+    supportEvidence: string[];
+    counterEvidence: string[];
+  }>;
 }
 
 function runProbe(timeZone: string) {
@@ -46,4 +58,12 @@ test('奇门终身局显式出生时区不受宿主时区影响', () => {
     minute: 30,
   });
   assert.equal(baseline.stageStart, '2024-01-02');
+  assert.ok(
+    baseline.dynamicClusters.some((cluster) => cluster.key.startsWith('cluster:2024:')),
+    '动态年盘应保留年度事件簇',
+  );
+  assert.ok(
+    baseline.ianaDynamicClusters.some((cluster) => cluster.key.startsWith('cluster:2024:')),
+    'IANA 时区动态年盘应保留年度事件簇',
+  );
 });
