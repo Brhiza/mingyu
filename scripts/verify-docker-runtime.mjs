@@ -59,17 +59,19 @@ try {
     periodRange: { startDate: '2026-01-01', endDate: '2056-12-31' },
     question: '分析完整目标时段的事业变化。',
   };
-  const lifetime = await postJson('/api/v1/divination/qimen/lifetime/prompt', {
-    ...lifetimeInput,
-    responseMode: 'full',
-  });
+  const lifetime = await postJson('/api/v1/divination/qimen/lifetime/prompt', lifetimeInput);
   assert.ok(lifetime.prompt.length > 100_000);
-  assert.deepEqual(lifetime.result.input.periodRange, lifetimeInput.periodRange);
-  assert.equal(lifetime.result.eventClusters.length, 161);
-  assert.equal(
-    lifetime.result.eventClusters.flatMap((item) => item.triggerDates ?? []).length,
-    3806,
-  );
+  for (let year = 2026; year <= 2056; year += 1) {
+    assert.ok(lifetime.prompt.includes(`${year}年`));
+  }
+  assert.match(lifetime.prompt, /可复核日期/u);
+  const oversizedLifetime = await fetch(`${origin}/api/v1/divination/qimen/lifetime/prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...lifetimeInput, responseMode: 'full' }),
+  });
+  assert.equal(oversizedLifetime.status, 413);
+  assert.equal((await oversizedLifetime.json()).error.code, 'RESPONSE_TOO_LARGE');
 
   const yilin = await postJson('/api/v1/classics/yilin', {
     baseHexagram: '乾',
