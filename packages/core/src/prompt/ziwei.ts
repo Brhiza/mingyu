@@ -1,6 +1,11 @@
 import type { AnalysisPayloadV1, PalaceFact, ScopeType, StarFact } from '../types/analysis';
 import type { ZiweiRuntime } from '../ziwei/runtime';
-import { formatZiweiFortuneTimeline, type ZiweiFortuneTimeline } from '../ziwei/fortune-timeline';
+import {
+  formatZiweiFortuneTimeline,
+  formatZiweiFortuneTimelinePhase,
+  type ZiweiFortuneTimeline,
+  type ZiweiFortuneTimelinePhaseSelection,
+} from '../ziwei/fortune-timeline';
 import { analyzeZiweiCompatibility, getBodyPalaceAxisSummary } from '../ziwei/iztro/index';
 import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import { formatPromptCurrentTime } from './current-time';
@@ -284,7 +289,7 @@ export function getZiweiPromptCalculationScopes(scope: ZiweiPromptScope): ScopeT
   return scope === 'full' ? SCOPE_ORDER : [scope];
 }
 
-export function formatZiweiTargetLowerScopeFacts(runtime: ZiweiRuntime) {
+export function formatZiweiTargetLowerScopeFacts(runtime: Pick<ZiweiRuntime, 'payloadByScope'>) {
   const scopes: ScopeType[] = ['monthly', 'daily', 'hourly'];
   const lines = scopes.flatMap((scope) => {
     const payload = runtime.payloadByScope[scope];
@@ -321,6 +326,12 @@ export function formatZiweiTargetLowerScopeFacts(runtime: ZiweiRuntime) {
   });
   return lines.length ? `目标日期下层资料：\n${lines.join('\n')}` : '';
 }
+
+export {
+  formatZiweiFortuneTimelinePhase,
+  type ZiweiFortuneTimeline,
+  type ZiweiFortuneTimelinePhaseSelection,
+};
 
 export function formatZiweiFullScopeText(runtime: ZiweiRuntime) {
   if (runtime.fortuneTimeline) {

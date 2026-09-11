@@ -82,6 +82,13 @@ export type ZiweiFortuneTimeline = {
   periods: ZiweiFortunePeriod[];
 };
 
+/** 完整运限资料中的一个连续阶段；年份索引保持原时间线顺序。 */
+export type ZiweiFortuneTimelinePhaseSelection = {
+  periodIndex: number;
+  startYearIndex: number;
+  endYearIndex: number;
+};
+
 const MUTAGEN_LABELS = ['禄', '权', '科', '忌'] as const;
 const FLOW_MONTH_BRANCHES = [
   '寅',
@@ -1011,6 +1018,63 @@ export function formatZiweiFortuneTimeline(timeline: ZiweiFortuneTimeline) {
     }
   }
   return lines.join('\n');
+}
+
+/**
+ * 将已有完整时间线按大限/流年边界格式化为一个自包含阶段。
+ * 阶段只裁剪结构化 periods/years，不裁剪已经格式化的字符串。
+ */
+export function formatZiweiFortuneTimelinePhase(
+  timeline: ZiweiFortuneTimeline,
+  selections: readonly ZiweiFortuneTimelinePhaseSelection[],
+  phaseNumber: number,
+  phaseCount: number,
+) {
+  if (!selections.length) throw new Error('紫微阶段至少需要一段运限资料。');
+  if (!Number.isInteger(phaseNumber) || phaseNumber < 1 || phaseNumber > phaseCount) {
+    throw new Error('紫微阶段编号无效。');
+  }
+  const periods = selections.map((selection) => {
+    const source = timeline.periods[selection.periodIndex];
+    if (!source) throw new Error(`紫微阶段引用不存在的大限：${selection.periodIndex}。`);
+    if (
+      !Number.isInteger(selection.startYearIndex) ||
+      !Number.isInteger(selection.endYearIndex) ||
+      selection.startYearIndex < 0 ||
+      selection.endYearIndex < selection.startYearIndex ||
+      selection.endYearIndex >= source.years.length
+    ) {
+      throw new Error(`紫微阶段引用无效的流年范围：${selection.periodIndex}。`);
+    }
+    return {
+      ...source,
+      years: source.years.slice(selection.startYearIndex, selection.endYearIndex + 1),
+    };
+  });
+  const phaseTimeline: ZiweiFortuneTimeline = { ...timeline, periods };
+  const firstPeriod = periods[0]!;
+  const firstYear = firstPeriod.years[0]!;
+  const lastPeriod = periods.at(-1)!;
+  const lastYear = lastPeriod.years.at(-1)!;
+  const selectionText = selections
+    .map((selection) => {
+      const period = timeline.periods[selection.periodIndex]!;
+      const first = period.years[selection.startYearIndex]!;
+      const last = period.years[selection.endYearIndex]!;
+      return `${period.label}：${first.age}岁至${last.age}岁（${first.dateStr}至${last.endDateStr ?? last.dateStr}）`;
+    })
+    .join('；');
+  const timelineText =
+    timeline.scope === 'all'
+      ? formatCompactTimeline(phaseTimeline)
+      : formatZiweiFortuneTimeline(phaseTimeline);
+  return [
+    `紫微完整运限阶段 ${phaseNumber}/${phaseCount}`,
+    `本阶段覆盖：${selectionText}`,
+    `本阶段事实日期：${firstYear.dateStr} 至 ${lastYear.endDateStr ?? lastYear.dateStr}`,
+    `完整资料全局覆盖：${timeline.actualStartDateStr} 至 ${timeline.actualEndDateStr}`,
+    timelineText,
+  ].join('\n');
 }
 
 export function findZiweiFortunePeriod(timeline: ZiweiFortuneTimeline, nominalAge: number) {

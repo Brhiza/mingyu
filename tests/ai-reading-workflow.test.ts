@@ -9,10 +9,17 @@ import {
   type ReadingMemory,
   type ReadingOptions,
   type ReadingDependencies,
+  type ReadingResource,
 } from '../src/lib/ai/reading-workflow';
 import { executeReadingAction, lookupReadingClassics } from '../src/lib/ai/reading-resources';
 import type { ReadingSubjectSnapshot } from '../src/lib/ai/reading-subject';
+import type { ChatMessage } from '../src/lib/ai/stream-client';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
+import {
+  buildSerializableZiweiResult,
+  buildZiweiChartInput,
+  calculatePublicZiweiChartForScopes,
+} from 'mingyu-core/ziwei';
 
 function harness(responses: string[]) {
   const sent: Parameters<ReadingDependencies['stream']>[0][] = [];
@@ -57,6 +64,160 @@ const baziSubject: ReadingSubjectSnapshot = {
   },
   allowedMethods: ['bazi'],
   range: { baziFortuneScope: 'year' },
+};
+
+function makeZiweiLayer(seed: string, starCount = 1) {
+  return {
+    name: `流年${seed}`,
+    heavenlyStem: '甲',
+    earthlyBranch: '子',
+    palaceNames: ['命宫'],
+    palaceTargets: ['命宫'],
+    mutagen: [''],
+    stars: [Array.from({ length: starCount }, (_, index) => `星曜${seed}-${index}`)],
+    yearlyDecStars: { jiangqian12: [], suiqian12: [] },
+  };
+}
+
+function makeZiweiFullResource(yearCount = 2, starCount = 1, text = '紫微完整资料') {
+  const years = Array.from({ length: yearCount }, (_, index) => ({
+    age: index + 1,
+    year: 2000 + index,
+    dateStr: `${2000 + index}-01-01`,
+    endDateStr: `${2000 + index}-12-31`,
+    label: `流年${2000 + index}`,
+    ganZhi: '甲子',
+    layer: makeZiweiLayer(String(2000 + index), starCount),
+  }));
+  const payload = {
+    basic_info: {
+      gender: '男',
+      solar_date: '1999-01-01',
+      lunar_date: '己卯年腊月十五',
+      birth_time_label: '子时',
+      zodiac: '兔',
+      soul_palace_branch: '子',
+      body_palace_branch: '午',
+      soul: '贪狼',
+      body: '天相',
+      hidden_palaces: { body_palace_name: '身宫' },
+      four_pillars: {
+        year_pillar: '己卯',
+        month_pillar: '丙子',
+        day_pillar: '甲子',
+        hour_pillar: '甲子',
+      },
+    },
+    active_scope: {
+      scope: 'origin',
+      label: '本命',
+      solar_date: '1999-01-01',
+      lunar_date: '己卯年腊月十五',
+      nominal_age: 1,
+      palace_name: '命宫',
+      mutagen_map: [],
+    },
+    palaces: [],
+    evidence_pool: [],
+  };
+  const timeline = {
+    scope: 'all',
+    targetDateStr: '2000-06-01',
+    targetHourIndex: 0,
+    targetAge: 1,
+    targetYear: 2000,
+    actualStartDateStr: '2000-01-01',
+    actualEndDateStr: `${1999 + yearCount}-12-31`,
+    selectedPeriodIndex: 0,
+    periods: [
+      {
+        kind: 'decadal' as const,
+        label: '第一大限',
+        startAge: 1,
+        endAge: yearCount,
+        dateStr: '2000-01-01',
+        endDateStr: `${1999 + yearCount}-12-31`,
+        source: 'iztro-horoscope' as const,
+        years,
+        layer: makeZiweiLayer('大限'),
+      },
+    ],
+  };
+  const payloadByScope = Object.fromEntries(
+    ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly'].map((scope) => [
+      scope,
+      {
+        ...payload,
+        active_scope: {
+          ...payload.active_scope,
+          scope,
+          label: scope,
+        },
+      },
+    ]),
+  );
+  const structured = {
+    basicInfo: payload.basic_info,
+    calculationConfig: { algorithm: 'default' },
+    scopeNames: ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly'],
+    payloadByScope,
+    fortuneTimeline: timeline,
+    fourMutagens: {},
+    birthMutagens: {},
+    gongList: [],
+    命宫: '子',
+    身宫: '身宫',
+    五行局: '水二局',
+    四化: {},
+  };
+  return {
+    key: 'ziwei-full',
+    title: '紫微完整运限资料',
+    text,
+    usable: true,
+    structured,
+  } satisfies ReadingResource;
+}
+
+async function makeCanonicalZiweiFullResource(
+  name: string,
+  gender: 'male' | 'female',
+  birth: { year: string; month: string; day: string },
+  key: string,
+) {
+  const input = buildZiweiChartInput({
+    name,
+    gender,
+    dateType: 'solar',
+    ...birth,
+    timeIndex: 4,
+    isLeapMonth: false,
+    algorithm: 'default',
+  });
+  const runtime = await calculatePublicZiweiChartForScopes(
+    input,
+    ['decadal', 'yearly', 'monthly', 'daily', 'hourly'],
+    {
+      skipAnalysis: true,
+      horoscopeContext: { dateStr: '2026-08-06', hourIndex: 4 },
+      fortuneRange: { scope: 'all', dateStr: '2026-08-06', hourIndex: 4 },
+    },
+  );
+  return {
+    key,
+    title: `${name}紫微完整运限资料`,
+    text: `${name}原始完整资料`.repeat(16_000),
+    usable: true,
+    structured: buildSerializableZiweiResult(runtime),
+  } satisfies ReadingResource;
+}
+
+const ziweiSubject: ReadingSubjectSnapshot = {
+  id: 'subject-ziwei-test',
+  source: 'ziwei',
+  lockedInputs: { ziwei: { name: '测试者', gender: 'male' } },
+  allowedMethods: ['ziwei'],
+  range: { ziweiScope: 'full', ziweiScopeDate: '2000-06-01', scopeHourIndex: 0 },
 };
 
 test('解读加载分术式路线并与可下载 Skill 同源', () => {
@@ -423,6 +584,269 @@ test('真实超出最终上下文时不静默丢弃成功资料并明确覆盖�
   assert.match(h.sent.at(-1)![0].content, /待后续补足/);
   assert.ok(h.notices.some((text) => text.includes('未纳入本轮判断')));
   assert.doesNotMatch(h.sent.at(-1)![0].content, /第二阶段完整事实/);
+});
+
+test('紫微完整结构化资料未超限时零额外阶段调用', async () => {
+  const h = harness(['最终解读']);
+  const resource = makeZiweiFullResource(2, 1);
+  h.options.memory.resources = [resource];
+  h.options.subject = ziweiSubject;
+  await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], h.options, {
+    stream: h.stream,
+    execute: async () => {
+      throw new Error('未预期的补算');
+    },
+  });
+  assert.equal(h.sent.length, 1);
+  assert.equal(h.options.memory.ziweiPhaseReading, undefined);
+  assert.match(h.sent[0]![0]!.content, /紫微完整资料/);
+});
+
+test('紫微结构化时间线超限时按完整阶段事实逐段解读并汇总', async () => {
+  const h = harness(['第一阶段判断', '第二阶段判断', '全部阶段汇总']);
+  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  h.options.memory.resources = [resource];
+  h.options.subject = ziweiSubject;
+  await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], h.options, {
+    stream: h.stream,
+    execute: async () => {
+      throw new Error('未预期的补算');
+    },
+  });
+  assert.equal(h.sent.length, 3);
+  assert.match(h.sent[0]![0]!.content, /阶段 1\/2/);
+  assert.match(h.sent[0]![0]!.content, /主体：紫微完整运限资料/);
+  assert.match(h.sent[0]![0]!.content, /安星口径：传统通行安星法/);
+  assert.match(h.sent[0]![0]!.content, /流年2000/);
+  assert.match(h.sent[1]![0]!.content, /阶段 2\/2/);
+  assert.match(h.sent[1]![0]!.content, /流年2001/);
+  assert.match(h.sent[2]![0]!.content, /1\/2、2\/2/);
+  assert.equal(h.options.memory.resources[0], resource);
+  assert.equal(
+    h.options.memory.ziweiPhaseReading?.phases.every((item) => item.status === 'succeeded'),
+    true,
+  );
+});
+
+test('紫微阶段空回答标记失败并可重试', async () => {
+  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  const first = harness([]);
+  first.options.memory.resources = [resource];
+  first.options.subject = ziweiSubject;
+  let calls = 0;
+  const emptyStream: ReadingDependencies['stream'] = async (_messages, callbacks) => {
+    calls += 1;
+    callbacks.onDone();
+  };
+  await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], first.options, {
+    stream: emptyStream,
+    execute: async () => resource,
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(first.errors, ['紫微阶段1/2返回空结果，请重试。']);
+  assert.equal(first.done(), 0);
+  assert.equal(first.options.memory.ziweiPhaseReading?.phases[0]?.status, 'failed');
+
+  const retry = harness(['第一阶段重试', '第二阶段重试', '重试汇总']);
+  retry.options.memory = first.options.memory;
+  retry.options.subject = ziweiSubject;
+  await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], retry.options, {
+    stream: retry.stream,
+    execute: async () => resource,
+  });
+  assert.equal(retry.done(), 1);
+  assert.deepEqual(
+    retry.options.memory.ziweiPhaseReading?.phases.map((item) => item.status),
+    ['succeeded', 'succeeded'],
+  );
+});
+
+test('紫微阶段归并空回答不形成全覆盖', async () => {
+  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  const h = harness([]);
+  h.options.memory.resources = [resource];
+  h.options.subject = ziweiSubject;
+  let calls = 0;
+  const stream: ReadingDependencies['stream'] = async (_messages, callbacks) => {
+    calls += 1;
+    if (calls <= 2) callbacks.onChunk('答'.repeat(25_000));
+    callbacks.onDone();
+  };
+  await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], h.options, {
+    stream,
+    execute: async () => resource,
+  });
+  assert.equal(calls, 3);
+  assert.ok(h.errors[0]?.includes('阶段归并'));
+  assert.equal(h.done(), 0);
+  assert.deepEqual(
+    h.options.memory.ziweiPhaseReading?.phases.map((item) => item.status),
+    ['succeeded', 'succeeded'],
+  );
+});
+
+test('两份真实完整紫微盘超限时按主体分别分阶段并综合', async () => {
+  const primary = await makeCanonicalZiweiFullResource(
+    '甲主体',
+    'female',
+    { year: '1992', month: '8', day: '21' },
+    'ziwei-full-primary',
+  );
+  const partner = await makeCanonicalZiweiFullResource(
+    '乙主体',
+    'male',
+    { year: '1991', month: '3', day: '14' },
+    'ziwei-full-partner',
+  );
+  const h = harness([]);
+  h.options.memory.resources = [primary, partner];
+  h.options.subject = ziweiSubject;
+  await runReadingWorkflow([{ role: 'user', content: '紫微双主体原盘，问关系' }], h.options, {
+    stream: h.stream,
+    execute: async () => primary,
+  });
+  const phaseCount = h.options.memory.ziweiPhaseReading?.phases.length ?? 0;
+  assert.ok(phaseCount > 2);
+  assert.equal(h.sent.length, phaseCount + 1);
+  assert.ok(
+    h.sent.slice(0, phaseCount).some((batch) => batch[0]!.content.includes('主体：甲主体')),
+  );
+  assert.ok(
+    h.sent.slice(0, phaseCount).some((batch) => batch[0]!.content.includes('主体：乙主体')),
+  );
+  assert.ok(h.sent.at(-1)![0]!.content.includes('主体：甲主体'));
+  assert.ok(h.sent.at(-1)![0]!.content.includes('主体：乙主体'));
+  assert.ok(
+    h.options.memory.ziweiPhaseReading?.phases.every((item) => item.status === 'succeeded'),
+  );
+  assert.deepEqual(
+    new Set(h.options.memory.ziweiPhaseReading?.phases.map((item) => item.resourceKey)),
+    new Set([primary.key, partner.key]),
+  );
+  assert.equal(h.options.memory.resources.length, 2);
+});
+
+test('紫微双主体中途失败后重试只补失败主体阶段', async () => {
+  const primary = {
+    ...makeZiweiFullResource(2, 4000, '第一主体完整资料'.repeat(16_000)),
+    key: 'ziwei-full-primary',
+    title: '甲主体紫微完整运限资料',
+  };
+  const partner = {
+    ...makeZiweiFullResource(2, 4000, '第二主体完整资料'.repeat(16_000)),
+    key: 'ziwei-full-partner',
+    title: '乙主体紫微完整运限资料',
+  };
+  const h = harness([]);
+  h.options.memory.resources = [primary, partner];
+  h.options.subject = ziweiSubject;
+  const sent: ChatMessage[][] = [];
+  let calls = 0;
+  let fail = true;
+  const stream: ReadingDependencies['stream'] = async (messages, callbacks) => {
+    sent.push(messages);
+    calls += 1;
+    if (fail && calls === 3) {
+      callbacks.onError('乙主体阶段暂时失败');
+      return;
+    }
+    callbacks.onChunk(calls === 1 ? '甲主体阶段一成功' : '汇总成功');
+    callbacks.onDone();
+  };
+  const input = [{ role: 'user' as const, content: '紫微双主体原盘，问关系' }];
+  await runReadingWorkflow(input, h.options, { stream, execute: async () => primary });
+  assert.deepEqual(
+    h.options.memory.ziweiPhaseReading?.phases.map((item) => item.status),
+    ['succeeded', 'succeeded', 'failed', 'pending'],
+  );
+  assert.deepEqual(
+    h.options.memory.ziweiPhaseReading?.phases.map((item) => item.resourceKey),
+    [primary.key, primary.key, partner.key, partner.key],
+  );
+  assert.deepEqual(h.errors, ['乙主体阶段暂时失败']);
+  fail = false;
+  await runReadingWorkflow(input, h.options, { stream, execute: async () => primary });
+  assert.equal(calls, 6);
+  assert.ok(sent[3]![0]!.content.includes('主体：乙主体'));
+  assert.ok(sent[4]![0]!.content.includes('主体：乙主体'));
+  assert.ok(sent[5]![0]!.content.includes('主体：甲主体'));
+  assert.ok(sent[5]![0]!.content.includes('主体：乙主体'));
+  assert.deepEqual(
+    h.options.memory.ziweiPhaseReading?.phases.map((item) => item.status),
+    ['succeeded', 'succeeded', 'succeeded', 'succeeded'],
+  );
+});
+
+test('紫微阶段失败后同问题重试只补失败阶段并保留成功阶段', async () => {
+  const h = harness([]);
+  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  h.options.memory.resources = [resource];
+  h.options.subject = ziweiSubject;
+  const sent: ChatMessage[][] = [];
+  let calls = 0;
+  let fail = true;
+  const stream: ReadingDependencies['stream'] = async (messages, callbacks) => {
+    sent.push(messages);
+    calls += 1;
+    if (fail && calls === 2) {
+      callbacks.onError('阶段暂时失败');
+      return;
+    }
+    callbacks.onChunk(calls === 1 ? '第一阶段成功' : calls === 3 ? '第二阶段重试成功' : '最终汇总');
+    callbacks.onDone();
+  };
+  const input = [{ role: 'user' as const, content: '紫微完整原盘，问事业' }];
+  await runReadingWorkflow(input, h.options, { stream, execute: async () => resource });
+  assert.deepEqual(
+    h.options.memory.ziweiPhaseReading?.phases.map((item) => item.status),
+    ['succeeded', 'failed'],
+  );
+  assert.deepEqual(h.errors, ['阶段暂时失败']);
+  fail = false;
+  await runReadingWorkflow(input, h.options, { stream, execute: async () => resource });
+  assert.equal(calls, 4);
+  assert.match(sent[2]![0]!.content, /阶段 2\/2/);
+  assert.doesNotMatch(sent[2]![0]!.content, /第一阶段成功/);
+  assert.deepEqual(
+    h.options.memory.ziweiPhaseReading?.phases.map((item) => item.status),
+    ['succeeded', 'succeeded'],
+  );
+});
+
+test('紫微阶段取消后换问题不会复用旧摘要', async () => {
+  const h = harness([]);
+  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  h.options.memory.resources = [resource];
+  h.options.subject = ziweiSubject;
+  const controller = new AbortController();
+  h.options.signal = controller.signal;
+  const cancelledStream: ReadingDependencies['stream'] = async (messages, callbacks) => {
+    void messages;
+    callbacks.onChunk('取消前摘要');
+    controller.abort();
+  };
+  await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], h.options, {
+    stream: cancelledStream,
+    execute: async () => resource,
+  });
+  assert.equal(h.options.memory.ziweiPhaseReading?.phases[0]?.status, 'cancelled');
+
+  const retry = harness(['新问题阶段一', '新问题阶段二', '新问题汇总']);
+  retry.options.memory = h.options.memory;
+  retry.options.subject = ziweiSubject;
+  await runReadingWorkflow(
+    [
+      { role: 'user', content: '紫微完整原盘，问事业' },
+      { role: 'assistant', content: '上一轮未完成' },
+      { role: 'user', content: '改问婚恋' },
+    ],
+    retry.options,
+    { stream: retry.stream, execute: async () => resource },
+  );
+  assert.equal(retry.sent.length, 3);
+  assert.ok(retry.sent.every((batch) => batch[0]!.content.includes('改问婚恋')));
+  assert.ok(retry.sent.every((batch) => !batch[0]!.content.includes('取消前摘要')));
+  assert.equal(retry.options.memory.ziweiPhaseReading?.question, '改问婚恋');
 });
 
 test('历史消息有余量时保留完整补充资料并按现有规则裁剪旧消息', async () => {

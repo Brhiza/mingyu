@@ -4,6 +4,14 @@ import type { ChatMessage, StreamOptions } from './stream-client';
 import { verifyReadingAnswer } from './reading-verification';
 import type { ReadingSubjectSnapshot } from './reading-subject';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
+import {
+  formatZiweiFortuneTimelinePhase,
+  formatZiweiPayloadForPrompt,
+  formatZiweiTargetLowerScopeFacts,
+  type SerializableZiweiResult,
+  type ZiweiFortuneTimeline,
+  type ZiweiFortuneTimelinePhaseSelection,
+} from '@core/prompt';
 
 export type ReadingTarget = 'primary' | 'partner';
 
@@ -25,7 +33,27 @@ export type ReadingResource = {
   sourceIds?: string[];
   structured?: Record<string, unknown>;
 };
-export type ReadingMemory = { resources: ReadingResource[]; schemas?: ReadingResource[] };
+type ZiweiPhaseStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled';
+type ZiweiPhaseMemory = {
+  resourceKey: string;
+  resourceText: string;
+  structuredText: string;
+  subjectId: string;
+  question: string;
+  phases: Array<{
+    index: number;
+    resourceKey: string;
+    subjectTitle: string;
+    facts: string;
+    status: ZiweiPhaseStatus;
+    answer?: string;
+  }>;
+};
+export type ReadingMemory = {
+  resources: ReadingResource[];
+  schemas?: ReadingResource[];
+  ziweiPhaseReading?: ZiweiPhaseMemory;
+};
 export type { ReadingSubjectSnapshot } from './reading-subject';
 export type ReadingProgress = {
   stage: 'preparing' | 'consulting' | 'calculating' | 'checking' | 'writing';
@@ -297,6 +325,530 @@ function collectResponse(
   });
 }
 
+type ZiweiPhaseDraft = {
+  selection: ZiweiFortuneTimelinePhaseSelection[];
+  includeTargetLower: boolean;
+};
+
+type ZiweiPhase = ZiweiPhaseDraft & {
+  resourceKey: string;
+  subjectTitle: string;
+  summaryLabel: string;
+  facts: string;
+};
+
+type PhaseAnswer = {
+  indices: number[];
+  labels: string[];
+  answer: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getZiweiFullResult(resource: ReadingResource): SerializableZiweiResult | undefined {
+  const structured = resource.structured;
+  if (!structured || structured.fortuneTimeline === undefined) return undefined;
+  const timeline = structured.fortuneTimeline;
+  const payloadByScope = structured.payloadByScope;
+  if (
+    !isRecord(timeline) ||
+    timeline.scope !== 'all' ||
+    !Array.isArray(timeline.periods) ||
+    !timeline.periods.length ||
+    !isRecord(payloadByScope) ||
+    ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly'].some(
+      (scope) => !isRecord(payloadByScope[scope]),
+    )
+  )
+    return undefined;
+  if (
+    timeline.periods.some(
+      (period: unknown) =>
+        !isRecord(period) || !Array.isArray(period.years) || !period.years.length,
+    )
+  )
+    return undefined;
+  return structured as unknown as SerializableZiweiResult;
+}
+
+function getZiweiTargetYearIndex(timeline: ZiweiFortuneTimeline) {
+  const periodIndex = timeline.selectedPeriodIndex;
+  const period = timeline.periods[periodIndex];
+  if (!period) throw new Error('紫微完整运限资料缺少目标大限。');
+  const yearIndex = period.years.findIndex(
+    (year) =>
+      year.age === timeline.targetAge &&
+      year.dateStr <= timeline.targetDateStr &&
+      (year.endDateStr ?? year.dateStr) >= timeline.targetDateStr,
+  );
+  if (yearIndex < 0) throw new Error('紫微完整运限资料缺少目标流年。');
+  return { periodIndex, yearIndex };
+}
+
+function formatZiweiPhaseFacts(
+  result: SerializableZiweiResult,
+  draft: ZiweiPhaseDraft,
+  phaseNumber: number,
+  phaseCount: number,
+  resourceTitle: string,
+) {
+  const timeline = result.fortuneTimeline;
+  if (!timeline) throw new Error('紫微完整资料缺少运限时间线。');
+  const origin = result.payloadByScope.origin;
+  if (!origin) throw new Error('紫微完整资料缺少本命资料。');
+  const algorithmText =
+    (origin.calculation_config?.algorithm ?? result.calculationConfig.algorithm) === 'zhongzhou'
+      ? '安星口径：中州派安星法'
+      : '安星口径：传统通行安星法';
+  const originText = formatZiweiPayloadForPrompt(origin, { includeBasicInfo: true });
+  const timelineText = formatZiweiFortuneTimelinePhase(
+    timeline,
+    draft.selection,
+    phaseNumber,
+    phaseCount,
+  );
+  const lowerText = draft.includeTargetLower ? formatZiweiTargetLowerScopeFacts(result) : '';
+  return [
+    `主体：${resourceTitle}`,
+    algorithmText,
+    `本命资料：\n${originText}`,
+    timelineText,
+    lowerText,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function buildZiweiPhaseAddition(
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+  facts: string,
+  supplementalText: string,
+) {
+  return `${guide}${currentTimeContext}\n\n【本轮问题】${question}\n\n【紫微完整资料阶段】\n${facts}${
+    supplementalText ? `\n\n【其他已取得资料】\n${supplementalText}` : ''
+  }\n\n【阶段解读】依据本阶段盘面分析，保留阶段编号、日期与运限边界，给出本阶段结论及其适用条件。`;
+}
+
+function buildZiweiPhasePlan(
+  messages: ChatMessage[],
+  result: SerializableZiweiResult,
+  resourceKey: string,
+  resourceTitle: string,
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+  supplementalText: string,
+): ZiweiPhase[] {
+  const timeline = result.fortuneTimeline;
+  if (!timeline) throw new Error('紫微完整资料缺少运限时间线。');
+  const target = getZiweiTargetYearIndex(timeline);
+  const drafts: ZiweiPhaseDraft[] = [];
+  const fits = (draft: ZiweiPhaseDraft) => {
+    const facts = formatZiweiPhaseFacts(result, draft, 9999, 9999, resourceTitle);
+    try {
+      fitReadingMessages(
+        messages,
+        buildZiweiPhaseAddition(guide, currentTimeContext, question, facts, supplementalText),
+      );
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('解读容量')) return false;
+      throw error;
+    }
+  };
+
+  for (let periodIndex = 0; periodIndex < timeline.periods.length; periodIndex += 1) {
+    const period = timeline.periods[periodIndex]!;
+    const wholePeriod: ZiweiPhaseDraft = {
+      selection: [
+        {
+          periodIndex,
+          startYearIndex: 0,
+          endYearIndex: period.years.length - 1,
+        },
+      ],
+      includeTargetLower: periodIndex === target.periodIndex,
+    };
+    if (fits(wholePeriod)) {
+      drafts.push(wholePeriod);
+      continue;
+    }
+
+    let startYearIndex = 0;
+    while (startYearIndex < period.years.length) {
+      let endYearIndex = -1;
+      for (
+        let candidateEnd = startYearIndex;
+        candidateEnd < period.years.length;
+        candidateEnd += 1
+      ) {
+        const candidate: ZiweiPhaseDraft = {
+          selection: [{ periodIndex, startYearIndex, endYearIndex: candidateEnd }],
+          includeTargetLower:
+            periodIndex === target.periodIndex &&
+            target.yearIndex >= startYearIndex &&
+            target.yearIndex <= candidateEnd,
+        };
+        if (!fits(candidate)) break;
+        endYearIndex = candidateEnd;
+      }
+      if (endYearIndex < startYearIndex) {
+        throw new Error(`紫微完整资料的第${periodIndex + 1}个大限仍超出单阶段容量。`);
+      }
+      drafts.push({
+        selection: [{ periodIndex, startYearIndex, endYearIndex }],
+        includeTargetLower:
+          periodIndex === target.periodIndex &&
+          target.yearIndex >= startYearIndex &&
+          target.yearIndex <= endYearIndex,
+      });
+      startYearIndex = endYearIndex + 1;
+    }
+  }
+
+  const phases = drafts.map((draft, index) => ({
+    ...draft,
+    resourceKey,
+    subjectTitle: resourceTitle,
+    summaryLabel: `主体：${resourceTitle}｜阶段${index + 1}/${drafts.length}`,
+    facts: formatZiweiPhaseFacts(result, draft, index + 1, drafts.length, resourceTitle),
+  }));
+  for (const phase of phases) {
+    fitReadingMessages(
+      messages,
+      buildZiweiPhaseAddition(guide, currentTimeContext, question, phase.facts, supplementalText),
+    );
+  }
+  return phases;
+}
+
+function buildPhaseSummaryAddition(
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+  entries: readonly PhaseAnswer[],
+  phaseCount: number,
+  intermediate: boolean,
+) {
+  const covered = [...new Set(entries.flatMap((entry) => entry.indices))].sort((a, b) => a - b);
+  const facts = entries
+    .map((entry) => `【${entry.labels.join('；')}分析】\n${entry.answer}`)
+    .join('\n\n');
+  return `${guide}${currentTimeContext}\n\n【本轮问题】${question}\n\n【阶段覆盖核对】已纳入阶段：${covered
+    .map((index) => `${index + 1}/${phaseCount}`)
+    .join('、')}；阶段资料必须全部参与当前${intermediate ? '归并' : '汇总'}。\n\n${
+    intermediate
+      ? '【阶段归并】请保留每个阶段编号、日期和事实边界，归并阶段分析，不补写未列事实。'
+      : '【最终解读】请综合已完成的全部阶段分析回答本轮问题；结论必须能追溯到阶段编号和日期范围。'
+  }\n\n${facts}`;
+}
+
+function assertPhaseCoverage(entries: readonly PhaseAnswer[], phaseCount: number) {
+  for (const entry of entries) {
+    if (!entry.answer.trim()) {
+      throw new Error(
+        `紫微阶段${entry.indices.map((index) => `${index + 1}/${phaseCount}`).join('、')}返回空结果，请重试。`,
+      );
+    }
+  }
+  const covered = new Set(entries.flatMap((entry) => entry.indices));
+  for (let index = 0; index < phaseCount; index += 1) {
+    if (!covered.has(index)) throw new Error(`紫微阶段${index + 1}/${phaseCount}未参与汇总。`);
+  }
+}
+
+function requirePhaseAnswer(answer: string, label: string) {
+  if (!answer.trim()) throw new Error(`${label}返回空结果，请重试。`);
+  return answer;
+}
+
+function assertPhaseIndices(entries: readonly PhaseAnswer[], phaseCount: number) {
+  for (const index of entries.flatMap((entry) => entry.indices)) {
+    if (!Number.isInteger(index) || index < 0 || index >= phaseCount) {
+      throw new Error(`紫微阶段编号${index + 1}超出当前阶段范围。`);
+    }
+  }
+}
+
+function packPhaseAnswers(
+  messages: ChatMessage[],
+  entries: readonly PhaseAnswer[],
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+  phaseCount: number,
+) {
+  const groups: PhaseAnswer[][] = [];
+  let current: PhaseAnswer[] = [];
+  for (const entry of entries) {
+    const candidate = [...current, entry];
+    try {
+      fitReadingMessages(
+        messages,
+        buildPhaseSummaryAddition(
+          guide,
+          currentTimeContext,
+          question,
+          candidate,
+          phaseCount,
+          false,
+        ),
+      );
+      current = candidate;
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('解读容量')) throw error;
+      if (!current.length)
+        throw new Error(`紫微阶段${entry.indices[0]! + 1}/${phaseCount}的分析结果超出汇总容量。`);
+      groups.push(current);
+      current = [entry];
+    }
+  }
+  if (current.length) groups.push(current);
+  return groups;
+}
+
+async function collectZiweiPhaseSummary(
+  messages: ChatMessage[],
+  phases: readonly ZiweiPhase[],
+  options: ReadingOptions,
+  deps: ReadingDependencies,
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+  supplementalText: string,
+) {
+  let entries: PhaseAnswer[] = Array.from({ length: phases.length }, (_, index) => ({
+    indices: [index],
+    labels: [phases[index]!.summaryLabel],
+    answer: '',
+  }));
+  const cached = options.memory.ziweiPhaseReading;
+  for (let index = 0; index < phases.length; index += 1) {
+    const phase = phases[index]!;
+    const record = cached?.phases[index];
+    if (
+      record?.status === 'succeeded' &&
+      record.resourceKey === phase.resourceKey &&
+      record.subjectTitle === phase.subjectTitle &&
+      record.facts === phase.facts &&
+      record.answer?.trim()
+    ) {
+      entries[index]!.answer = record.answer;
+      continue;
+    }
+    const prepared = fitReadingMessages(
+      messages,
+      buildZiweiPhaseAddition(guide, currentTimeContext, question, phase.facts, supplementalText),
+    );
+    options.onProgress({
+      stage: 'writing',
+      text: `正在分析${phase.subjectTitle} ${phase.summaryLabel.split('｜').at(-1)}`,
+    });
+    if (cached) {
+      cached.phases[index] = {
+        index,
+        resourceKey: phase.resourceKey,
+        subjectTitle: phase.subjectTitle,
+        facts: phase.facts,
+        status: 'pending',
+      };
+    }
+    try {
+      const answer = requirePhaseAnswer(
+        await collectResponse(prepared, options, deps.stream),
+        `紫微阶段${index + 1}/${phases.length}`,
+      );
+      entries[index]!.answer = answer;
+      if (cached)
+        cached.phases[index] = {
+          index,
+          resourceKey: phase.resourceKey,
+          subjectTitle: phase.subjectTitle,
+          facts: phase.facts,
+          status: 'succeeded',
+          answer,
+        };
+    } catch (error) {
+      if (cached) {
+        cached.phases[index] = {
+          index,
+          resourceKey: phase.resourceKey,
+          subjectTitle: phase.subjectTitle,
+          facts: phase.facts,
+          status: options.signal?.aborted ? 'cancelled' : 'failed',
+        };
+      }
+      throw error;
+    }
+  }
+  assertPhaseCoverage(entries, phases.length);
+
+  let currentEntries = entries;
+  let reductionRound = 0;
+  while (true) {
+    const groups = packPhaseAnswers(
+      messages,
+      currentEntries,
+      guide,
+      currentTimeContext,
+      question,
+      phases.length,
+    );
+    if (groups.length === 1) {
+      assertPhaseCoverage(groups[0]!, phases.length);
+      const addition = buildPhaseSummaryAddition(
+        guide,
+        currentTimeContext,
+        question,
+        groups[0]!,
+        phases.length,
+        false,
+      );
+      return fitReadingMessages(messages, addition);
+    }
+    reductionRound += 1;
+    if (reductionRound > 8) throw new Error('紫微阶段汇总超过可控归并层数，请重试。');
+    const nextEntries: PhaseAnswer[] = [];
+    for (const group of groups) {
+      assertPhaseIndices(group, phases.length);
+      const prepared = fitReadingMessages(
+        messages,
+        buildPhaseSummaryAddition(guide, currentTimeContext, question, group, phases.length, true),
+      );
+      const answer = await collectResponse(prepared, options, deps.stream);
+      requirePhaseAnswer(
+        answer,
+        `紫微阶段归并（${group.map((entry) => entry.indices.map((index) => index + 1).join('、')).join('、')}）`,
+      );
+      nextEntries.push({
+        indices: [...new Set(group.flatMap((entry) => entry.indices))].sort((a, b) => a - b),
+        labels: [...new Set(group.flatMap((entry) => entry.labels))],
+        answer,
+      });
+    }
+    assertPhaseCoverage(nextEntries, phases.length);
+    currentEntries = nextEntries;
+  }
+}
+
+async function runZiweiPhasedReading(
+  messages: ChatMessage[],
+  options: ReadingOptions,
+  deps: ReadingDependencies,
+  fullResources: readonly {
+    resource: ReadingResource;
+    result: SerializableZiweiResult;
+  }[],
+  supplementalResources: ReadingResource[],
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+) {
+  if (!fullResources.length) throw new Error('紫微完整资料缺少主体。');
+  const supplementalText = formatReadingResources(supplementalResources);
+  const phases = fullResources.flatMap(({ resource, result }) =>
+    buildZiweiPhasePlan(
+      messages,
+      result,
+      resource.key,
+      resource.title,
+      guide,
+      currentTimeContext,
+      question,
+      supplementalText,
+    ),
+  );
+  const resourceKey = fullResources
+    .map(({ resource }) => `${resource.key}:${resource.title}`)
+    .join('\u0000');
+  const resourceText = [
+    ...fullResources.map(({ resource }) => `${resource.title}\n${resource.text}`),
+    supplementalText,
+  ].join('\u0000');
+  const structuredText = fullResources
+    .map(({ resource }) => JSON.stringify(resource.structured) ?? '')
+    .join('\u0000');
+  const previous = options.memory.ziweiPhaseReading;
+  const reusable =
+    previous?.resourceKey === resourceKey &&
+    previous.resourceText === resourceText &&
+    previous.structuredText === structuredText &&
+    previous.subjectId === (options.subject?.id ?? '') &&
+    previous.question === question &&
+    previous.phases.length === phases.length;
+  const phaseMemory: ZiweiPhaseMemory = reusable
+    ? previous!
+    : {
+        resourceKey,
+        resourceText,
+        structuredText,
+        subjectId: options.subject?.id ?? '',
+        question,
+        phases: phases.map((phase, index) => ({
+          index,
+          resourceKey: phase.resourceKey,
+          subjectTitle: phase.subjectTitle,
+          facts: phase.facts,
+          status: 'pending',
+        })),
+      };
+  if (reusable) {
+    phaseMemory.phases = phases.map((phase, index) => {
+      const old = previous!.phases[index];
+      return old?.resourceKey === phase.resourceKey &&
+        old.subjectTitle === phase.subjectTitle &&
+        old.facts === phase.facts
+        ? old
+        : {
+            index,
+            resourceKey: phase.resourceKey,
+            subjectTitle: phase.subjectTitle,
+            facts: phase.facts,
+            status: 'pending' as const,
+          };
+    });
+  }
+  options.memory.ziweiPhaseReading = phaseMemory;
+  const finalMessages = await collectZiweiPhaseSummary(
+    messages,
+    phases,
+    options,
+    deps,
+    guide,
+    currentTimeContext,
+    question,
+    supplementalText,
+  );
+  if (finalMessages.length < messages.length)
+    options.onNotice('对话较长，本轮保留原始盘面与最近的问答。');
+  options.onProgress({ stage: 'writing', text: '正在综合全部紫微阶段解读' });
+  let answer = '';
+  await deps.stream(finalMessages, {
+    ...options,
+    onChunk: (chunk) => {
+      answer += chunk;
+      options.onChunk(chunk);
+    },
+    onDone: () => {
+      if (!answer.trim()) {
+        options.onError('紫微最终汇总返回空结果，请重试。');
+        return;
+      }
+      options.onProgress({ stage: 'checking', text: '正在核对关键事实' });
+      for (const issue of verifyReadingAnswer(messages[0]!.content, answer, [
+        ...fullResources.map(({ resource }) => resource),
+        ...supplementalResources,
+      ]))
+        options.onNotice(`回答中有一处需要核对：${issue}`);
+      options.onDone();
+    },
+  });
+}
+
 export async function runReadingWorkflow(
   messages: ChatMessage[],
   options: ReadingOptions,
@@ -338,9 +890,10 @@ export async function runReadingWorkflow(
   const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
   const notes: string[] = [];
   let calls = 0;
+  const hasStoredFullZiwei = resources.some((resource) => Boolean(getZiweiFullResult(resource)));
   options.onProgress({ stage: 'preparing', text: '正在梳理问题与盘面' });
   try {
-    for (let round = 0; round < (isSimpleFollowup ? 0 : 2); round += 1) {
+    for (let round = 0; round < (isSimpleFollowup || hasStoredFullZiwei ? 0 : 2); round += 1) {
       let needsRefinement = false;
       guard();
       const catalog = `【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。双人解读时用 target 指定对象；primary 对应第一人，partner 对应第二人，两人分别填写各自的目标时段。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。partner 补算以本次已提供的第二人出生资料为依据。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
@@ -462,6 +1015,27 @@ export async function runReadingWorkflow(
       return `${guide}${currentTimeContext}${material ? `\n\n【补充资料】\n${material}` : ''}${status}\n\n【本轮解读】\n${isSimpleFollowup ? '请结合当前盘面、已有补充资料和上一轮解读直接回答用户的追问，保持原盘主体与计算口径，说明判断依据和适用条件。' : '请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。'}先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。`;
     };
     const finalSelection = selectResourcesForMessages(messages, finalResources, buildFinalAddition);
+    const ziweiFullResources = finalResources.flatMap((resource) => {
+      const result = getZiweiFullResult(resource);
+      return result ? [{ resource, result }] : [];
+    });
+    const ziweiFullResourceSet = new Set(ziweiFullResources.map(({ resource }) => resource));
+    const omittedZiweiFullResources = finalSelection.omitted.filter((resource) =>
+      ziweiFullResourceSet.has(resource),
+    );
+    if (omittedZiweiFullResources.length && ziweiFullResources.length) {
+      await runZiweiPhasedReading(
+        messages,
+        options,
+        deps,
+        ziweiFullResources,
+        finalResources.filter((resource) => !ziweiFullResourceSet.has(resource)),
+        guide,
+        currentTimeContext,
+        latestUserQuestion,
+      );
+      return;
+    }
     const finalStatusNotes = getFinalStatusNotes(finalSelection.omitted);
     if (finalSelection.omitted.length) {
       options.onNotice(

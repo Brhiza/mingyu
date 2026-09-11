@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import {
   buildZiweiChartInput,
   buildSerializableZiweiResult,
+  calculatePublicZiweiChartForScopes,
   calculateZiweiChart,
   formatZiweiFortuneTimeline,
 } from 'mingyu-core/ziwei';
 import { buildPublicZiweiPromptForRuntime } from 'mingyu-core/prompt/public-api';
-import { formatZiweiTargetLowerScopeFacts } from '../packages/core/src/prompt/ziwei';
+import {
+  formatZiweiFortuneTimelinePhase,
+  formatZiweiTargetLowerScopeFacts,
+} from '../packages/core/src/prompt/ziwei';
 
 const input = buildZiweiChartInput({
   name: '范围回归样本',
@@ -158,6 +162,77 @@ test('紫微全部资料覆盖已验证的童限和大限流年，不伪造下�
   assert.match(text, /目标时辰：辰时/);
   assert.ok(text.length < 14_000, `全部运限段过长：${text.length}`);
   assert.equal((text.match(/流年[甲乙丙丁戊己庚辛壬癸]/g) ?? []).length, 125);
+});
+
+test('紫微阶段格式化覆盖真实完整时间线边界、交界流月和目标下层事实', async () => {
+  const runtime = await calculatePublicZiweiChartForScopes(
+    input,
+    ['decadal', 'yearly', 'monthly', 'daily', 'hourly'],
+    {
+      skipAnalysis: true,
+      horoscopeContext: fixedContext,
+      fortuneRange: { scope: 'all', ...fixedContext },
+    },
+  );
+  const timeline = runtime.fortuneTimeline;
+  assert.ok(timeline);
+  assert.ok(timeline.periods.length > 1);
+  const phaseTexts = timeline.periods.map((period, periodIndex) =>
+    formatZiweiFortuneTimelinePhase(
+      timeline,
+      [
+        {
+          periodIndex,
+          startYearIndex: 0,
+          endYearIndex: period.years.length - 1,
+        },
+      ],
+      periodIndex + 1,
+      timeline.periods.length,
+    ),
+  );
+  for (const [periodIndex, period] of timeline.periods.entries()) {
+    const text = phaseTexts[periodIndex]!;
+    assert.match(text, new RegExp(`${period.label}.*${period.dateStr}至${period.endDateStr}`));
+    for (const year of period.years) {
+      assert.ok(
+        text.includes(`${year.age}岁｜${year.label}｜${year.dateStr}至${year.endDateStr}`),
+        `${period.label} 缺少 ${year.label} 的完整边界`,
+      );
+    }
+  }
+
+  const lowerFacts = formatZiweiTargetLowerScopeFacts(runtime);
+  assert.match(lowerFacts, /目标日期下层资料：/);
+  assert.match(lowerFacts, /流月：2026-08-06/);
+  assert.match(lowerFacts, /流日：2026-08-06/);
+  assert.match(lowerFacts, /流时：2026-08-06/);
+
+  const exactInput = { ...input, horoscopeDivide: 'exact' as const, yearDivide: 'exact' as const };
+  const boundaryDate = { dateStr: '2027-02-04', hourIndex: 4 } as const;
+  const boundaryRuntime = await calculateZiweiChart(exactInput, {
+    scopes: ['origin', 'yearly'],
+    skipAnalysis: true,
+    horoscopeContext: boundaryDate,
+    fortuneRange: { scope: 'year', ...boundaryDate },
+  });
+  const boundaryTimeline = boundaryRuntime.fortuneTimeline;
+  assert.ok(boundaryTimeline);
+  const boundaryPeriod = boundaryTimeline.periods[0];
+  assert.ok(boundaryPeriod);
+  const boundaryText = formatZiweiFortuneTimelinePhase(
+    boundaryTimeline,
+    [
+      {
+        periodIndex: 0,
+        startYearIndex: 0,
+        endYearIndex: boundaryPeriod.years.length - 1,
+      },
+    ],
+    1,
+    1,
+  );
+  assert.match(boundaryText, /上一流年12月交界段 2027-02-04/);
 });
 
 test('紫微全部运限的编号表可逐年还原四化、宫位、流曜和年系事实', async () => {
