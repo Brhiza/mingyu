@@ -52,6 +52,18 @@ try {
   assert.equal(mcpJson.status, 'ok');
   assert.equal(mcpJson.endpoint, '/mcp');
 
+  const lifetimeInput = {
+    birthDateTime: '1994-06-15T12:00:00',
+    timeZoneId: 'Asia/Shanghai',
+    timeStandard: 'civil',
+    periodRange: { startDate: '2026-01-01', endDate: '2056-12-31' },
+    question: '分析完整目标时段的事业变化。',
+  };  const lifetime = await postJson('/api/v1/divination/qimen/lifetime/prompt', lifetimeInput);
+  assert.ok(lifetime.prompt.length > 100_000);
+  assert.deepEqual(lifetime.result.input.periodRange, lifetimeInput.periodRange);
+  assert.equal(lifetime.result.eventClusters.length, 161);
+  assert.equal(lifetime.result.eventClusters.flatMap((item) => item.triggerDates ?? []).length, 3806);
+
   const yilin = await postJson('/api/v1/classics/yilin', {
     baseHexagram: '乾',
     targetHexagram: '需',
