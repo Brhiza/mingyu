@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { BaZhaiResult } from 'mingyu-core/bazhai';
 import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
 import type { XuanKongResult } from 'mingyu-core/xuankong';
+import { daysInGregorianMonth } from 'mingyu-core/calendar';
 import {
   buildResidentialChartInput,
   calculateResidentialChart,
@@ -32,7 +33,7 @@ interface MetaphysicsPanelProps {
   onHouseYearChange?: (value: string) => void;
   onFlowDateChange?: (value: string) => void;
   onResultChange?: (
-    result: ResidentialFengshuiResult,
+    result: ResidentialFengshuiResult | null,
     measurement: ResidentialMeasurement | null,
   ) => void;
 }
@@ -41,28 +42,23 @@ const DIRECTIONS = ['北', '东北', '东', '东南', '南', '西南', '西', '�
 const LO_SHU_ORDER = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
 function parseResidentialFlowDate(value: string) {
+  if (!value) return {};
   const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
-  if (!match) return {};
+  if (!match) throw new Error('请选择完整的目标日期。');
   const flowYear = Number(match[1]);
   const flowMonth = Number(match[2]);
   const flowDay = Number(match[3]);
-  const maxDay =
-    flowMonth === 2
-      ? flowYear % 4 === 0 && (flowYear % 100 !== 0 || flowYear % 400 === 0)
-        ? 29
-        : 28
-      : [4, 6, 9, 11].includes(flowMonth)
-        ? 30
-        : 31;
+  const maxDay = daysInGregorianMonth(flowYear, flowMonth);
   if (
     !Number.isInteger(flowYear) ||
+    flowYear < 1 ||
     flowMonth < 1 ||
     flowMonth > 12 ||
     !Number.isInteger(flowDay) ||
     flowDay < 1 ||
     flowDay > maxDay
   ) {
-    return {};
+    throw new Error('目标日期无效，请检查年月日。');
   }
   return { flowYear, flowMonth, flowDay };
 }
@@ -306,6 +302,9 @@ export function MetaphysicsPanel({
 
   useEffect(() => {
     if (directionPreview.error || boundaryMessage) {
+      setResult(null);
+      setMeasurement(null);
+      onResultChange?.(null, null);
       setError(directionPreview.error || boundaryMessage);
       return;
     }
@@ -315,6 +314,7 @@ export function MetaphysicsPanel({
     if (!hasPerson && !hasOrientation) {
       setResult(null);
       setMeasurement(null);
+      onResultChange?.(null, null);
       setError('请补充出生年月日与性别，或填写大门向屋内度数，至少一项。');
       return;
     }
@@ -334,6 +334,9 @@ export function MetaphysicsPanel({
         setError('');
         onResultChange?.(next.result, next.measurement);
       } catch (currentError) {
+        setResult(null);
+        setMeasurement(null);
+        onResultChange?.(null, null);
         setError(currentError instanceof Error ? currentError.message : '住宅风水排盘失败。');
       }
     }, 250);

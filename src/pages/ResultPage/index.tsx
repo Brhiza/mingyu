@@ -756,7 +756,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
 
   const handleBazhaiResultChange = useCallback(
-    (nextResult: ResidentialFengshuiResult, nextMeasurement: ResidentialMeasurement | null) => {
+    (
+      nextResult: ResidentialFengshuiResult | null,
+      nextMeasurement: ResidentialMeasurement | null,
+    ) => {
       setResidentialResult(nextResult);
       setResidentialMeasurement(nextMeasurement);
     },
