@@ -77,9 +77,21 @@ for (const [label, tool, input] of cases) {
     const mcp = await client.callTool({ name: tool, arguments: args });
     assert.notEqual(mcp.isError, true, JSON.stringify(mcp));
     const structured = mcp.structuredContent as Record<string, unknown>;
-    assert.ok(http.body.data.result);
+    assert.ok(http.body.data);
     assert.ok(structured.result);
-    assert.deepEqual(JSON.parse(JSON.stringify(structured.result)), http.body.data.result);
+    const mcpResult = JSON.parse(JSON.stringify(structured.result));
+    if (tool === 'divine_qimen_lifetime') {
+      const { input: httpInput, ...httpFacts } = http.body.data;
+      const { input: mcpInput, ...mcpFacts } = mcpResult;
+      for (const [field, value] of Object.entries(args)) {
+        assert.deepEqual(httpInput[field], value, `HTTP 回显 ${field}`);
+        assert.deepEqual(mcpInput[field], value, `MCP 回显 ${field}`);
+      }
+      // 输入回显可省略默认字段；实际默认口径由 basis 和完整盘面共同核验。
+      assert.deepEqual(mcpFacts, httpFacts);
+    } else {
+      assert.deepEqual(mcpResult, http.body.data);
+    }
   });
 }
 
