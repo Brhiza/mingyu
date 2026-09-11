@@ -98,6 +98,9 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
     assert.ok(byMethod.taiyi.properties?.month);
     assert.ok(byMethod.huangji.properties?.customDate);
     assert.ok(byMethod.huangji.properties?.epochYear);
+    assert.ok(byMethod.huangji.properties?.sixDayDateTime);
+    assert.equal(byMethod.huangji.properties?.sixDayEpochDateTime, undefined);
+    assert.equal(byMethod.huangji.properties?.calendarModel, undefined);
     assert.deepEqual(byMethod.wuyun.anyOf, [{ required: ['year'] }, { required: ['yearGanZhi'] }]);
     assert.deepEqual(byMethod.huangji.oneOf, [
       {
@@ -105,8 +108,6 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
         not: {
           anyOf: [
             { required: ['sixDayDateTime'] },
-            { required: ['sixDayEpochDateTime'] },
-            { required: ['calendarModel'] },
             { required: ['epochYear'] },
             { required: ['year'] },
             { required: ['elapsedYears'] },
@@ -114,7 +115,7 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
         },
       },
       {
-        required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
+        required: ['sixDayDateTime'],
         not: {
           anyOf: [
             { required: ['customDate'] },
@@ -131,8 +132,6 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
             { required: ['elapsedYears'] },
             { required: ['customDate'] },
             { required: ['sixDayDateTime'] },
-            { required: ['sixDayEpochDateTime'] },
-            { required: ['calendarModel'] },
           ],
         },
       },
@@ -143,8 +142,6 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
             { required: ['year'] },
             { required: ['customDate'] },
             { required: ['sixDayDateTime'] },
-            { required: ['sixDayEpochDateTime'] },
-            { required: ['calendarModel'] },
           ],
         },
       },

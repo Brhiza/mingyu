@@ -75,6 +75,21 @@ test('网页皇极六日逐爻入口保留目标、历元和有效盘面资料',
     assert.ok(restoredCycle.civilTime);
     assert.ok(restoredCycle.anchor);
     assert.ok(restoredCycle.hexagrams);
+    await assert.rejects(
+      executeReadingAction(
+        {
+          kind: 'calculate',
+          method: 'huangji',
+          input: {
+            sixDayDateTime: '2026-08-25T15:30:00+08:00',
+            sixDayEpochDateTime: '2026-08-21T00:00:00+08:00',
+          },
+        },
+        undefined,
+        subject,
+      ),
+      /补算主体与当前命盘不一致/u,
+    );
   });
 });
 

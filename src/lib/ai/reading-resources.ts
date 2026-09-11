@@ -474,7 +474,9 @@ function filterCalculationSchema(method: string, value: unknown): Record<string,
   const filteredRequired = [...required].filter((key) => Object.hasOwn(filteredProperties, key));
   const visibleConditions =
     method === 'huangji'
-      ? conditions.map((condition) => filterCalculationSchemaCondition(condition, mutable))
+      ? conditions
+          .map((condition) => filterCalculationSchemaCondition(condition, mutable))
+          .filter((condition) => condition !== undefined)
       : conditions;
 
   return {
@@ -494,20 +496,23 @@ function filterCalculationSchema(method: string, value: unknown): Record<string,
 
 function filterCalculationSchemaCondition(value: unknown, mutable: Set<string>): unknown {
   if (Array.isArray(value)) {
-    return value.map((item) => filterCalculationSchemaCondition(item, mutable));
+    const conditions = value
+      .map((item) => filterCalculationSchemaCondition(item, mutable))
+      .filter((item) => item !== undefined);
+    return conditions.length ? conditions : undefined;
   }
   if (!record(value)) return value;
-  return Object.fromEntries(
-    Object.entries(value).flatMap(([key, item]) => {
-      if (key === 'required' && Array.isArray(item)) {
-        const required = item.filter(
-          (field): field is string => typeof field === 'string' && mutable.has(field),
-        );
-        return required.length ? [[key, required]] : [];
-      }
-      return [[key, filterCalculationSchemaCondition(item, mutable)]];
-    }),
-  );
+  const entries = Object.entries(value).flatMap(([key, item]) => {
+    if (key === 'required' && Array.isArray(item)) {
+      const required = item.filter(
+        (field): field is string => typeof field === 'string' && mutable.has(field),
+      );
+      return required.length ? [[key, required]] : [];
+    }
+    const condition = filterCalculationSchemaCondition(item, mutable);
+    return condition === undefined ? [] : [[key, condition]];
+  });
+  return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
 function resolveReadingTarget(action: ReadingAction): ReadingTarget {
