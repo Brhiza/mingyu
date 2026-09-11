@@ -57,7 +57,7 @@ function SoundRhythmReference({ reference }: { reference: HuangjiSoundRhythmRefe
   return (
     <>
       <ReferenceSources sources={reference.source} />
-      <div className="traditional-huangji-reference-grid" aria-label="声音律吕数目">
+      <dl className="traditional-huangji-reference-grid" aria-label="声音律吕数目">
         <div>
           <dt>天之体数</dt>
           <dd>{reference.bodyCounts.heavenlyBody}</dd>
@@ -74,7 +74,7 @@ function SoundRhythmReference({ reference }: { reference: HuangjiSoundRhythmRefe
           <dt>地之用音数</dt>
           <dd>{reference.bodyCounts.earthlyUseTone}</dd>
         </div>
-      </div>
+      </dl>
       <div className="traditional-huangji-reference-facts">
         <p>
           <strong>声类：</strong>
@@ -148,7 +148,7 @@ function HistoricalEraReference({ reference }: { reference: HuangjiHistoricalEra
   return (
     <>
       <ReferenceSources sources={[reference.source]} />
-      <div className="traditional-huangji-reference-grid" aria-label="经辰区块信息">
+      <dl className="traditional-huangji-reference-grid" aria-label="经辰区块信息">
         <div>
           <dt>经辰序号</dt>
           <dd>{reference.shiIndex}</dd>
@@ -161,7 +161,7 @@ function HistoricalEraReference({ reference }: { reference: HuangjiHistoricalEra
           <dt>经辰地支</dt>
           <dd>{reference.branch}</dd>
         </div>
-      </div>
+      </dl>
       {reference.sourceBranchNote ? (
         <p className="traditional-huangji-reference-note">{reference.sourceBranchNote}</p>
       ) : null}
@@ -186,18 +186,6 @@ function HistoricalEraReference({ reference }: { reference: HuangjiHistoricalEra
           </tbody>
         </table>
       </div>
-      {reference.namedEntries.length ? (
-        <div className="traditional-huangji-reference-events">
-          <h4>原表纪年标记</h4>
-          <ul>
-            {reference.namedEntries.map((entry) => (
-              <li key={`${entry.rowIndex}-${entry.ganzhi}-${entry.label}`}>
-                第{entry.rowIndex}年 {entry.ganzhi} · {entry.label}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
       <ReferenceNotes title="底本说明" items={reference.limitations} />
     </>
   );
@@ -239,7 +227,7 @@ export function HuangjiReferenceTable({
   }, [shiIndex, table, validHistoricalIndex]);
 
   return (
-    <details className="traditional-classic-card traditional-huangji-reference-card" open>
+    <details className="traditional-classic-card traditional-huangji-reference-card">
       <summary className="traditional-classic-head">
         <div>
           <span className="traditional-classic-badge">皇极经世</span>

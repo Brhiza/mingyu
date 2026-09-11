@@ -76,6 +76,7 @@ test('皇极资料表切换后通过核心查询完整展示对应底本字段',
   assert.match(soundHtml, /天之体数.*160/u);
   assert.match(soundHtml, /动植物数/);
   assert.match(soundHtml, /shidianguji\.com/u);
+  assert.doesNotMatch(soundHtml, /traditional-huangji-reference-card" open/u);
 
   const historicalHtml = renderToStaticMarkup(
     createElement(HuangjiReferenceTable, {

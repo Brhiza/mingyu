@@ -2443,8 +2443,7 @@
 }
 
 .traditional-huangji-reference-result > h4,
-.traditional-huangji-reference-notes > h4,
-.traditional-huangji-reference-events > h4 {
+.traditional-huangji-reference-notes > h4 {
   margin: 0;
   color: var(--text-strong);
   font-size: 13px;
@@ -2537,14 +2536,12 @@
   font-weight: 600;
 }
 
-.traditional-huangji-reference-notes,
-.traditional-huangji-reference-events {
+.traditional-huangji-reference-notes {
   display: grid;
   gap: 4px;
 }
 
-.traditional-huangji-reference-notes ul,
-.traditional-huangji-reference-events ul {
+.traditional-huangji-reference-notes ul {
   display: grid;
   gap: 3px;
   margin: 0;
