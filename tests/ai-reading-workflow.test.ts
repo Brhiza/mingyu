@@ -20,6 +20,7 @@ import {
   buildZiweiChartInput,
   calculatePublicZiweiChartForScopes,
 } from 'mingyu-core/ziwei';
+import { formatPublicZiweiFullScopeText } from 'mingyu-core/prompt/public-api';
 
 function harness(responses: string[]) {
   const sent: Parameters<ReadingDependencies['stream']>[0][] = [];
@@ -184,6 +185,7 @@ async function makeCanonicalZiweiFullResource(
   gender: 'male' | 'female',
   birth: { year: string; month: string; day: string },
   key: string,
+  oversized = true,
 ) {
   const input = buildZiweiChartInput({
     name,
@@ -206,7 +208,9 @@ async function makeCanonicalZiweiFullResource(
   return {
     key,
     title: `${name}紫微完整运限资料`,
-    text: `${name}原始完整资料`.repeat(16_000),
+    text: oversized
+      ? `${name}原始完整资料`.repeat(16_000)
+      : formatPublicZiweiFullScopeText(runtime),
     usable: true,
     structured: buildSerializableZiweiResult(runtime),
   } satisfies ReadingResource;
@@ -600,6 +604,28 @@ test('紫微完整结构化资料未超限时零额外阶段调用', async () =>
   assert.equal(h.sent.length, 1);
   assert.equal(h.options.memory.ziweiPhaseReading, undefined);
   assert.match(h.sent[0]![0]!.content, /紫微完整资料/);
+});
+
+test('真实完整紫微规范正文未超限时进入最终stream', async () => {
+  const h = harness(['最终解读']);
+  const resource = await makeCanonicalZiweiFullResource(
+    '真实主体',
+    'female',
+    { year: '1992', month: '8', day: '21' },
+    'ziwei-full-real-text',
+    false,
+  );
+  h.options.memory.resources = [resource];
+  h.options.subject = ziweiSubject;
+  await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], h.options, {
+    stream: h.stream,
+    execute: async () => {
+      throw new Error('未预期的补算');
+    },
+  });
+  assert.equal(h.sent.length, 1);
+  assert.match(h.sent[0]![0]!.content, /完整紫微运限资料/);
+  assert.match(h.sent[0]![0]!.content, /真实主体紫微完整运限资料/);
 });
 
 test('紫微结构化时间线超限时按完整阶段事实逐段解读并汇总', async () => {

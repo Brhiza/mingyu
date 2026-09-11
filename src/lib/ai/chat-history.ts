@@ -11,6 +11,7 @@ export interface AiChatSession {
   initialQuestion: string;
   initialPrompt?: string;
   readingSubject?: ReadingSubjectSnapshot;
+  readingResourceKey?: string;
   readingMethod?: string;
   completionStatus?: AiChatCompletionStatus;
   promptMode: AiChatPromptMode;
@@ -97,6 +98,9 @@ function normalizeSession(value: unknown): AiChatSession | null {
     initialQuestion: typeof value.initialQuestion === 'string' ? value.initialQuestion : '',
     ...(typeof value.initialPrompt === 'string' ? { initialPrompt: value.initialPrompt } : {}),
     ...(readingSubject ? { readingSubject } : {}),
+    ...(typeof value.readingResourceKey === 'string' && value.readingResourceKey.trim()
+      ? { readingResourceKey: value.readingResourceKey.trim() }
+      : {}),
     ...(readingMethod ? { readingMethod } : {}),
     ...(completionStatus ? { completionStatus } : {}),
     promptMode,

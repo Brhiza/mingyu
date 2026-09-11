@@ -54,6 +54,11 @@ export type ReadingMemory = {
   schemas?: ReadingResource[];
   ziweiPhaseReading?: ZiweiPhaseMemory;
 };
+export type ReadingMemorySeed = {
+  subjectId: string;
+  key: string;
+  resources: ReadingResource[];
+};
 export type { ReadingSubjectSnapshot } from './reading-subject';
 export type ReadingProgress = {
   stage: 'preparing' | 'consulting' | 'calculating' | 'checking' | 'writing';

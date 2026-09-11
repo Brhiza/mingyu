@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamAiChat, type ChatMessage } from '@/lib/ai/stream-client';
 import type { AiRequestConfig } from '@/lib/ai/settings';
-import { runReadingWorkflow, type ReadingMemory } from '@/lib/ai/reading-workflow';
+import {
+  runReadingWorkflow,
+  type ReadingMemory,
+  type ReadingMemorySeed,
+} from '@/lib/ai/reading-workflow';
 import { executeReadingAction } from '@/lib/ai/reading-resources';
 import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
 
@@ -27,7 +31,7 @@ export interface UseAiChat {
   /** 是否已开始解析（至少有过一次 analyze 调用） */
   hasStarted: boolean;
   /** 用提示词开始首次解析 */
-  analyze: (prompt: string) => void;
+  analyze: (prompt: string, resourceSeed?: ReadingMemorySeed) => void;
   /** 发送追问消息 */
   ask: (question: string) => void;
   /** 恢复已保存的对话 */
@@ -37,6 +41,8 @@ export interface UseAiChat {
     readingSubject?: ReadingSubjectSnapshot,
     completionStatus?: AiChatCompletionStatus,
     readingMethod?: string,
+    resourceSeed?: ReadingMemorySeed,
+    resourceKey?: string,
   ) => void;
   /** 重新发送上一次失败的请求 */
   retry: () => void;
@@ -55,10 +61,69 @@ export interface RestoredAiChatState {
   canRetry: boolean;
 }
 
+export interface ReadingResourceRequirement {
+  subjectId: string;
+  key: string;
+}
+
+export function isReadingResourceSeedCompatible(
+  seed: ReadingMemorySeed | undefined,
+  subjectId: string | undefined,
+  resourceKey: string | undefined,
+) {
+  return Boolean(
+    seed && subjectId && resourceKey && seed.subjectId === subjectId && seed.key === resourceKey,
+  );
+}
+
+export function resolveReadingResourceSeed(
+  requirement: ReadingResourceRequirement | undefined,
+  seed: ReadingMemorySeed | undefined,
+): ReadingMemory | null {
+  if (
+    !seed ||
+    !requirement ||
+    !isReadingResourceSeedCompatible(seed, requirement.subjectId, requirement.key)
+  )
+    return null;
+  return { resources: [...seed.resources] };
+}
+
+const READING_RESOURCE_RESTORE_ERROR =
+  '本次历史会话所需的完整盘面资料正在恢复，资料就绪后才能继续。';
+const READING_RESOURCE_MISMATCH_ERROR =
+  '本次历史会话所需的完整盘面资料与当前主体或运限范围不匹配，请切换回原范围后继续。';
+const READING_RESOURCE_SUBJECT_ERROR =
+  '本次历史会话缺少锁定主体资料，无法安全恢复完整盘面，请新建会话后继续。';
+
+export function getReadingResourceRestoreError(
+  seed: ReadingMemorySeed | undefined,
+  requirement?: ReadingResourceRequirement,
+) {
+  if (requirement && !requirement.subjectId) return READING_RESOURCE_SUBJECT_ERROR;
+  return seed ? READING_RESOURCE_MISMATCH_ERROR : READING_RESOURCE_RESTORE_ERROR;
+}
+
+function createReadingMemory(
+  seed: ReadingMemorySeed | undefined,
+  subjectId?: string,
+  resourceKey?: string,
+): ReadingMemory {
+  if (
+    !seed ||
+    !subjectId ||
+    seed.subjectId !== subjectId ||
+    (resourceKey !== undefined && seed.key !== resourceKey)
+  )
+    return { resources: [] };
+  return { resources: [...seed.resources] };
+}
+
 export function useAiChat(
   aiConfig?: AiRequestConfig,
   readingSubject?: ReadingSubjectSnapshot,
   readingMethod?: string,
+  readingSeed?: ReadingMemorySeed,
 ): UseAiChat {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
@@ -68,6 +133,11 @@ export function useAiChat(
   const [notices, setNotices] = useState<string[]>([]);
   const noticesRef = useRef<string[]>([]);
   const readingMemoryRef = useRef<ReadingMemory>({ resources: [] });
+  const readingSeedRef = useRef<ReadingMemorySeed | undefined>(readingSeed);
+  const readingResourceRequirementRef = useRef<ReadingResourceRequirement | undefined>(undefined);
+  const pendingRestoredStateRef = useRef<
+    Pick<RestoredAiChatState, 'error' | 'canRetry'> | undefined
+  >(undefined);
   const [hasStarted, setHasStarted] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -79,6 +149,26 @@ export function useAiChat(
   const readingSubjectLockedRef = useRef(false);
   const readingMethodRef = useRef<string | undefined>(readingMethod);
   const readingMethodLockedRef = useRef(false);
+
+  useEffect(() => {
+    readingSeedRef.current = readingSeed;
+    const requirement = readingResourceRequirementRef.current;
+    const memory = resolveReadingResourceSeed(requirement, readingSeed);
+    if (!memory) {
+      if (requirement) {
+        setError(getReadingResourceRestoreError(readingSeed, requirement));
+        setCanRetry(false);
+      }
+      return;
+    }
+
+    readingMemoryRef.current = memory;
+    readingResourceRequirementRef.current = undefined;
+    const restoredState = pendingRestoredStateRef.current;
+    pendingRestoredStateRef.current = undefined;
+    setError(restoredState?.error ?? '');
+    setCanRetry(restoredState?.canRetry ?? false);
+  }, [readingSeed]);
 
   useEffect(() => {
     if (!readingSubjectLockedRef.current) readingSubjectRef.current = readingSubject;
@@ -107,7 +197,9 @@ export function useAiChat(
     streamingRef.current = '';
     turnsRef.current = [];
     initialPromptRef.current = '';
-    readingMemoryRef.current = { resources: [] };
+    readingMemoryRef.current = createReadingMemory(readingSeedRef.current, readingSubject?.id);
+    readingResourceRequirementRef.current = undefined;
+    pendingRestoredStateRef.current = undefined;
     readingSubjectLockedRef.current = false;
     readingSubjectRef.current = readingSubject;
     readingMethodLockedRef.current = false;
@@ -130,13 +222,26 @@ export function useAiChat(
       restoredSubject?: ReadingSubjectSnapshot,
       completionStatus?: AiChatCompletionStatus,
       restoredReadingMethod?: string,
+      resourceSeed?: ReadingMemorySeed,
+      resourceKey?: string,
     ) => {
       abortRef.current?.abort();
       abortRef.current = null;
       streamingRef.current = '';
       turnsRef.current = nextTurns;
       initialPromptRef.current = initialPrompt;
-      readingMemoryRef.current = { resources: [] };
+      const resourceRequirement = resourceKey
+        ? { subjectId: restoredSubject?.id ?? '', key: resourceKey }
+        : undefined;
+      const restoredMemory = resolveReadingResourceSeed(
+        resourceRequirement,
+        resourceSeed ?? readingSeedRef.current,
+      );
+      readingMemoryRef.current = resourceKey
+        ? (restoredMemory ?? { resources: [] })
+        : createReadingMemory(undefined, restoredSubject?.id);
+      readingResourceRequirementRef.current =
+        resourceKey && !restoredMemory ? resourceRequirement : undefined;
       readingSubjectLockedRef.current = true;
       readingSubjectRef.current = restoredSubject;
       readingMethodLockedRef.current = true;
@@ -147,10 +252,20 @@ export function useAiChat(
       setTurns(nextTurns);
       setStreamingContent('');
       const restoredState = resolveRestoredAiChatState(nextTurns, initialPrompt, completionStatus);
+      pendingRestoredStateRef.current = readingResourceRequirementRef.current
+        ? { error: restoredState.error, canRetry: restoredState.canRetry }
+        : undefined;
       setStatus(restoredState.status);
-      setError(restoredState.error);
+      setError(
+        readingResourceRequirementRef.current
+          ? getReadingResourceRestoreError(
+              resourceSeed ?? readingSeedRef.current,
+              readingResourceRequirementRef.current,
+            )
+          : restoredState.error,
+      );
       setHasStarted(restoredState.hasStarted);
-      setCanRetry(restoredState.canRetry);
+      setCanRetry(readingResourceRequirementRef.current ? false : restoredState.canRetry);
     },
     [readingMethod],
   );
@@ -269,14 +384,19 @@ export function useAiChat(
   );
 
   const analyze = useCallback(
-    (prompt: string) => {
+    (prompt: string, resourceSeed?: ReadingMemorySeed) => {
       if (!prompt.trim()) return;
       readingSubjectLockedRef.current = false;
       readingSubjectRef.current = readingSubject;
       readingMethodLockedRef.current = false;
       readingMethodRef.current = readingMethod;
       initialPromptRef.current = prompt;
-      readingMemoryRef.current = { resources: [] };
+      readingResourceRequirementRef.current = undefined;
+      pendingRestoredStateRef.current = undefined;
+      readingMemoryRef.current = createReadingMemory(
+        resourceSeed ?? readingSeedRef.current,
+        readingSubject?.id,
+      );
       turnsRef.current = [];
       setTurns([]);
       setHasStarted(true);
@@ -289,6 +409,16 @@ export function useAiChat(
     (question: string) => {
       const trimmed = question.trim();
       if (!trimmed) return;
+      if (readingResourceRequirementRef.current) {
+        setError(
+          getReadingResourceRestoreError(
+            readingSeedRef.current,
+            readingResourceRequirementRef.current,
+          ),
+        );
+        setCanRetry(false);
+        return;
+      }
 
       // 从 ref 读取最新的 turns，避免在 state updater 内部产生副作用
       const nextTurns = [...turnsRef.current, { role: 'user' as const, content: trimmed }];
@@ -300,6 +430,16 @@ export function useAiChat(
   );
 
   const retry = useCallback(() => {
+    if (readingResourceRequirementRef.current) {
+      setError(
+        getReadingResourceRestoreError(
+          readingSeedRef.current,
+          readingResourceRequirementRef.current,
+        ),
+      );
+      setCanRetry(false);
+      return;
+    }
     if (!lastRequestRef.current.length) return;
     const nextTurns = removeIncompleteChatTurns(turnsRef.current);
     if (nextTurns.length !== turnsRef.current.length) {

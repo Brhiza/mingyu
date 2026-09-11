@@ -85,6 +85,7 @@ import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { getChartChatHistoryContext } from '@/lib/ai/chat-history';
 import { buildReadingSubject } from '@/lib/ai/reading-subject';
+import type { ReadingMemorySeed } from '@/lib/ai/reading-workflow';
 import {
   ResultAssistantFab,
   ResultAssistantHeader,
@@ -531,7 +532,17 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     ziweiFortuneText,
     currentZiweiPayload,
     partnerZiweiPayload,
-  } = useZiweiCalculations(inputState, promptState, mountedTabs.ziwei, mountedTabs.prompt);
+    ziweiReadingResources,
+    ziweiReadingResourcesReady,
+    ziweiReadingResourceError,
+    reloadZiweiReadingResources,
+  } = useZiweiCalculations(
+    inputState,
+    promptState,
+    mountedTabs.ziwei,
+    mountedTabs.prompt,
+    isInstantResult,
+  );
   const updatePromptState = useCallback(
     (next: Partial<QueryPromptState>) => {
       const merged = {
@@ -1264,7 +1275,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       }),
     [activeBaziShortcutMode],
   );
-  function computeZiweiPromptText(question: string): string {
+  function computeZiweiPromptText(question: string, includeFullScope = true): string {
     if (!showAssistantPane) return '';
     if (isInstantResult) {
       return currentZiweiPayload
@@ -1310,18 +1321,20 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       },
     );
     const scopedPrompt =
-      promptState.ziweiScope === 'full' && activeZiweiPayloadByScope
-        ? (() => {
-            const fullScopeText = formatZiweiFullScopeText(activeZiweiPayloadByScope);
-            return fullScopeText
-              ? basePrompt.replace('【问题】', `【完整运限资料】\n${fullScopeText}\n\n【问题】`)
-              : basePrompt;
-          })()
+      promptState.ziweiScope === 'full'
+        ? includeFullScope && activeZiweiPayloadByScope
+          ? (() => {
+              const fullScopeText = formatZiweiFullScopeText(activeZiweiPayloadByScope);
+              return fullScopeText
+                ? basePrompt.replace('【问题】', `【完整运限资料】\n${fullScopeText}\n\n【问题】`)
+                : basePrompt;
+            })()
+          : basePrompt
         : supportingText
           ? basePrompt.replace('【问题】', `【上层运限资料】\n${supportingText}\n\n【问题】`)
           : basePrompt;
     return applyZiweiPromptSelection(
-      [scopedPrompt, ziweiFortuneText].filter(Boolean).join('\n\n'),
+      [scopedPrompt, includeFullScope ? ziweiFortuneText : ''].filter(Boolean).join('\n\n'),
       promptState.ziweiTopicId,
       promptState.ziweiSubtopicId,
       toPromptScope(promptState.ziweiScope),
@@ -1380,6 +1393,39 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     showAssistantPane,
   ]);
 
+  const phaseEnhancedZiweiPromptPack = useMemo(() => {
+    if (
+      isInstantResult ||
+      !showAssistantPane ||
+      promptState.promptSource !== 'bazi-ziwei' ||
+      !currentZiweiPayload
+    ) {
+      return '';
+    }
+
+    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(
+      promptState.baziTopicId || promptState.ziweiTopicId || activeBaziShortcutMode,
+    );
+    return [
+      buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic),
+      formatZiweiSupportingScopeText(
+        promptZiweiScopePayloads,
+        currentZiweiPayload.active_scope.scope,
+      ),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }, [
+    activeBaziShortcutMode,
+    promptState.baziTopicId,
+    promptState.promptSource,
+    promptState.ziweiTopicId,
+    currentZiweiPayload,
+    promptZiweiScopePayloads,
+    isInstantResult,
+    showAssistantPane,
+  ]);
+
   const enhancedBaziPromptPack = useMemo(() => {
     if (
       isInstantResult ||
@@ -1406,7 +1452,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     showAssistantPane,
   ]);
 
-  function computeEnhancedPromptText(question: string, finalQuestion: string): string {
+  function computeEnhancedPromptText(
+    question: string,
+    finalQuestion: string,
+    includeFullScope = true,
+  ): string {
     if (!showAssistantPane || inputState.analysisMode !== 'single') return '';
     if (isInstantResult) {
       return baziResult && currentZiweiPayload
@@ -1418,20 +1468,23 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           )
         : '';
     }
-    if (!baziResult || !enhancedZiweiPromptPack || !enhancedBaziPromptPack) return '';
+    const ziweiPromptPack = includeFullScope
+      ? enhancedZiweiPromptPack
+      : phaseEnhancedZiweiPromptPack;
+    if (!baziResult || !ziweiPromptPack || !enhancedBaziPromptPack) return '';
 
     return buildBaziZiweiEnhancedPrompt({
       baziResult,
       baziText: enhancedBaziPromptPack,
       ziweiText:
-        promptState.ziweiScope === 'full' && activeZiweiPayloadByScope
+        includeFullScope && promptState.ziweiScope === 'full' && activeZiweiPayloadByScope
           ? [
-              enhancedZiweiPromptPack,
+              ziweiPromptPack,
               `【完整运限资料】\n${formatZiweiFullScopeText(activeZiweiPayloadByScope)}`,
             ]
               .filter(Boolean)
               .join('\n\n')
-          : enhancedZiweiPromptPack,
+          : ziweiPromptPack,
       question: finalQuestion || question,
       questionScopeLabel: activeBaziQuestionScopeLabel,
       baziFortuneSummary:
@@ -1915,6 +1968,66 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
 
     return previewActivePromptText;
   }, [previewActivePromptText, showAssistantPane]);
+
+  const readingResourceSeed = useMemo<ReadingMemorySeed | undefined>(() => {
+    if (!readingSubject.id || !ziweiReadingResourcesReady) return undefined;
+    return {
+      subjectId: readingSubject.id,
+      key: ziweiReadingResources.map((resource) => resource.key).join('\u0000'),
+      resources: ziweiReadingResources,
+    };
+  }, [readingSubject.id, ziweiReadingResources, ziweiReadingResourcesReady]);
+
+  const workflowPrompt = useMemo(() => {
+    if (
+      isInstantResult ||
+      promptState.ziweiScope !== 'full' ||
+      (promptState.promptSource === 'bazi-ziwei' && inputState.analysisMode !== 'single')
+    )
+      return '';
+    if (promptState.promptSource === 'ziwei') {
+      return computeZiweiPromptText(effectiveZiweiQuickQuestion, false);
+    }
+    if (promptState.promptSource === 'bazi-ziwei') {
+      return computeEnhancedPromptText(effectiveBaziQuickQuestion, finalBaziQuestion, false);
+    }
+    return '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    promptState.promptSource,
+    effectiveZiweiQuickQuestion,
+    effectiveBaziQuickQuestion,
+    finalBaziQuestion,
+    promptState.ziweiScope,
+    promptState.ziweiTopic,
+    promptState.ziweiTopicId,
+    promptState.ziweiSubtopicId,
+    promptState.baziTopicId,
+    promptState.baziSubtopicId,
+    activeZiweiPayloadByScope,
+    activeZiweiShortcutMode,
+    activeBaziShortcutMode,
+    promptZiweiScopePayloads,
+    currentZiweiPayload,
+    partnerZiweiPayload,
+    ziweiRuntime,
+    partnerZiweiRuntime,
+    baziResult,
+    enhancedZiweiPromptPack,
+    phaseEnhancedZiweiPromptPack,
+    enhancedBaziPromptPack,
+    baziFortuneContext,
+    activeBaziQuestionScopeLabel,
+    ziweiScopeSummaryText,
+    inputState.analysisMode,
+    isInstantResult,
+    showAssistantPane,
+  ]);
+  const readingResourceRequired =
+    !isInstantResult &&
+    promptState.ziweiScope === 'full' &&
+    (promptState.promptSource === 'ziwei' ||
+      (promptState.promptSource === 'bazi-ziwei' && inputState.analysisMode === 'single'));
 
   const [inspirationText, setInspirationText] = useState('');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -2456,7 +2569,12 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               <div className="workspace-ai-layout is-answer-workbench">
                 <AiChatPanel
                   contextPrompt={aiContextPrompt}
+                  workflowPrompt={workflowPrompt || undefined}
                   readingSubject={readingSubject}
+                  readingResourceSeed={workflowPrompt.trim() ? readingResourceSeed : undefined}
+                  readingResourceRequired={readingResourceRequired}
+                  readingResourceError={ziweiReadingResourceError || undefined}
+                  onRetryReadingResources={reloadZiweiReadingResources}
                   historyKey={getChartChatHistoryContext(aiContextPrompt)}
                   resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
                   externalInput={inspirationText}

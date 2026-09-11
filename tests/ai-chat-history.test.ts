@@ -123,3 +123,32 @@ test('AI 历史应保留未完成回答标记和原主体快照', () => {
   assert.equal(state.sessions[0]?.turns[1]?.incomplete, true);
   assert.equal(state.sessions[0]?.readingSubject?.id, 'subject-old');
 });
+
+test('AI 历史应保留结构化资料指纹以隔离不同命盘', () => {
+  const state = normalizeAiChatHistory({
+    version: 2,
+    sessions: [
+      {
+        id: 'structured',
+        title: '完整紫微资料',
+        initialQuestion: '问事业',
+        initialPrompt: '阶段入口',
+        readingResourceKey: 'ziwei-reading-full-primary-old',
+        readingSubject: {
+          id: 'subject-old',
+          source: 'ziwei',
+          lockedInputs: { ziwei: { year: 1990 } },
+          allowedMethods: ['ziwei'],
+          range: { ziweiScope: 'full' },
+        },
+        promptMode: 'context-question',
+        turns: [],
+        createdAt: '2026-07-13T08:00:00.000Z',
+        updatedAt: '2026-07-13T08:01:00.000Z',
+      },
+    ],
+    activeSessionId: 'structured',
+  });
+
+  assert.equal(state.sessions[0]?.readingResourceKey, 'ziwei-reading-full-primary-old');
+});

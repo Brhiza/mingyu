@@ -3,9 +3,13 @@ import assert from 'node:assert/strict';
 import { getAiChatCompletionStatus } from '@/lib/ai/chat-history';
 import {
   buildAiChatRequest,
+  getReadingResourceRestoreError,
+  isReadingResourceSeedCompatible,
   removeIncompleteChatTurns,
+  resolveReadingResourceSeed,
   resolveRestoredAiChatState,
 } from '@/hooks/useAiChat';
+import type { ReadingMemorySeed } from '@/lib/ai/reading-workflow';
 
 test('重试和追问的消息应过滤未完成回答但保留原问题', () => {
   const turns = [
@@ -130,4 +134,46 @@ test('无新增消息时显式未完成状态仍按保存状态恢复', () => {
     'cancelled',
   );
   assert.equal(resolveRestoredAiChatState(turns, '原始盘面提示词', 'error').status, 'error');
+});
+
+test('历史完整资料应等待异步种子且拒绝不同范围或主体的种子', () => {
+  const requirement = { subjectId: 'subject-old', key: 'ziwei-full-range-a' };
+  const delayedSeed: ReadingMemorySeed = {
+    subjectId: 'subject-old',
+    key: 'ziwei-full-range-a',
+    resources: [
+      {
+        key: 'ziwei-full-range-a',
+        title: '旧主体紫微完整运限资料',
+        text: '完整盘面资料',
+        usable: true,
+      },
+    ],
+  };
+
+  assert.equal(resolveReadingResourceSeed(requirement, undefined), null);
+  assert.equal(
+    isReadingResourceSeedCompatible(
+      { ...delayedSeed, key: 'ziwei-full-range-b' },
+      requirement.subjectId,
+      requirement.key,
+    ),
+    false,
+  );
+  assert.equal(
+    isReadingResourceSeedCompatible(
+      { ...delayedSeed, subjectId: 'subject-current' },
+      requirement.subjectId,
+      requirement.key,
+    ),
+    false,
+  );
+  assert.deepEqual(
+    resolveReadingResourceSeed(requirement, delayedSeed)?.resources,
+    delayedSeed.resources,
+  );
+  assert.match(
+    getReadingResourceRestoreError(undefined, { subjectId: '', key: requirement.key }),
+    /缺少锁定主体资料/,
+  );
 });
