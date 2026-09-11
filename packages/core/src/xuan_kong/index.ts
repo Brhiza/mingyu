@@ -274,10 +274,7 @@ const STAR_HOME_MOUNTAINS: Record<number, readonly [string, string, string]> = {
 };
 
 /** 原典二十四山表中的元龙序与顺逆，方向仍以参考山阴阳确定。 */
-const MOUNTAIN_YUAN_AND_DIRECTION: Record<
-  string,
-  { yuan: 0 | 1 | 2; direction: FlyDirection }
-> = {
+const MOUNTAIN_YUAN_AND_DIRECTION: Record<string, { yuan: 0 | 1 | 2; direction: FlyDirection }> = {
   壬: { yuan: 0, direction: '顺飞' },
   子: { yuan: 1, direction: '逆飞' },
   癸: { yuan: 2, direction: '逆飞' },
