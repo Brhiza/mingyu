@@ -312,10 +312,7 @@ test('玄空替卦九运乘二十四山的 216 盘应重算替星三盘并保留
       );
       assert.deepEqual(
         result.plates.xiang,
-        flyStars(
-          result.replacement.facing.replacementStar,
-          result.replacement.facing.direction,
-        ),
+        flyStars(result.replacement.facing.replacementStar, result.replacement.facing.direction),
       );
       assert.deepEqual([...result.plates.yun].sort(), NINE_STARS);
       assert.deepEqual([...result.plates.shan].sort(), NINE_STARS);
