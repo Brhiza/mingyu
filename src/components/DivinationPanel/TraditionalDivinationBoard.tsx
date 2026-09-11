@@ -3117,9 +3117,9 @@ function HuangjiDateTimeCell(props: {
         <em>
           {hexagram.derivedFrom}卦第{hexagram.changedLine}爻变
         </em>
-      ) : (
+      ) : hexagram.sequenceOffset !== undefined ? (
         <em>六十卦序第{(hexagram.sequenceOffset || 0) + 1}位</em>
-      )}
+      ) : null}
     </article>
   );
 }
@@ -3137,6 +3137,7 @@ function HuangjiTraditionalBoard({
   const forecast = data.forecast;
   if (!forecast) return null;
   const dateTimeForecast = data.dateTimeForecast;
+  const sixDayCycle = data.sixDayCycle;
 
   const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
   const related = [
@@ -3149,9 +3150,11 @@ function HuangjiTraditionalBoard({
     <TraditionalBoardShell
       title="皇极经世盘"
       subtitle={
-        dateTimeForecast
-          ? `${dateTimeForecast.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
-          : `${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+        sixDayCycle
+          ? `${sixDayCycle.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+          : dateTimeForecast
+            ? `${dateTimeForecast.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+            : `${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`
       }
       className="traditional-huangji-board"
     >
@@ -3160,7 +3163,8 @@ function HuangjiTraditionalBoard({
           ['占事', session?.question],
           [
             '日期',
-            getSessionDisplayDate(session) ??
+            sixDayCycle?.civilTime.dateTime ??
+              getSessionDisplayDate(session) ??
               dateTimeForecast?.civilTime.dateTime ??
               `${formatHuangjiCivilYear(annual.year)}`,
           ],
@@ -3229,6 +3233,56 @@ function HuangjiTraditionalBoard({
             active
           />
         </div>
+      ) : null}
+
+      {sixDayCycle ? (
+        <>
+          <TraditionalMeta
+            items={[
+              ['六日目标时间', sixDayCycle.civilTime.dateTime],
+              ['校定历元', sixDayCycle.anchor.dateTime],
+              [
+                '业务时区',
+                `UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}`,
+              ],
+            ]}
+          />
+          <TraditionalFacts
+            items={[
+              [
+                '六日坐标',
+                `第${sixDayCycle.dayOfCycle}日（已过${sixDayCycle.calendar.actualElapsedDays}日）`,
+              ],
+              ['经卦', `${sixDayCycle.hexagrams.jing.name} · 第${sixDayCycle.dayLine}爻`],
+              ['当日变卦', sixDayCycle.hexagrams.daily.name],
+              ['时变卦', `${sixDayCycle.hexagrams.hourly.name}（${sixDayCycle.hourRange}）`],
+              ['实际时刻相隔', `${sixDayCycle.calendar.actualElapsedSeconds}秒`],
+              ['有效坐标范围', '显式历元后第0至359个当地公历日'],
+            ]}
+          />
+          <div
+            className="traditional-huangji-cycle is-datetime is-six-day"
+            role="list"
+            aria-label="皇极经世六日逐爻卦序"
+          >
+            <HuangjiDateTimeCell
+              label="六日经卦"
+              hexagram={sixDayCycle.hexagrams.jing}
+              note={`第${sixDayCycle.dayOfCycle}日 · 第${sixDayCycle.dayLine}爻`}
+            />
+            <HuangjiDateTimeCell
+              label="当日变卦"
+              hexagram={sixDayCycle.hexagrams.daily}
+              note="当日"
+            />
+            <HuangjiDateTimeCell
+              label="时变卦"
+              hexagram={sixDayCycle.hexagrams.hourly}
+              note={sixDayCycle.hourRange}
+              active
+            />
+          </div>
+        </>
       ) : null}
 
       <div className="traditional-huangji-focus">

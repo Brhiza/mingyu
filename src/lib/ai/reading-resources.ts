@@ -258,8 +258,9 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
     ],
   },
   huangji: {
-    immutable: [],
+    immutable: ['sixDayEpochDateTime', 'calendarModel', 'timezone', 'timeZoneId'],
     mutable: [
+      'sixDayDateTime',
       'customDate',
       'epochYear',
       'year',
@@ -471,6 +472,10 @@ function filterCalculationSchema(method: string, value: unknown): Record<string,
     Object.entries(properties).filter(([key]) => mutable.has(key)),
   );
   const filteredRequired = [...required].filter((key) => Object.hasOwn(filteredProperties, key));
+  const visibleConditions =
+    method === 'huangji'
+      ? conditions.map((condition) => filterCalculationSchemaCondition(condition, mutable))
+      : conditions;
 
   return {
     type: 'object',
@@ -478,13 +483,31 @@ function filterCalculationSchema(method: string, value: unknown): Record<string,
       '这是补算 input。calculate 动作另带 target，取值为 primary 或 partner；partner 只在当前会话存在伴侣主体快照时使用。',
     properties: filteredProperties,
     ...(filteredRequired.length > 0 ? { required: filteredRequired } : {}),
-    ...(conditions.length === 1
-      ? conditions[0]
-      : conditions.length > 1
-        ? { allOf: conditions }
+    ...(visibleConditions.length === 1
+      ? visibleConditions[0]
+      : visibleConditions.length > 1
+        ? { allOf: visibleConditions }
         : {}),
     additionalProperties: false,
   };
+}
+
+function filterCalculationSchemaCondition(value: unknown, mutable: Set<string>): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => filterCalculationSchemaCondition(item, mutable));
+  }
+  if (!record(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, item]) => {
+      if (key === 'required' && Array.isArray(item)) {
+        const required = item.filter(
+          (field): field is string => typeof field === 'string' && mutable.has(field),
+        );
+        return required.length ? [[key, required]] : [];
+      }
+      return [[key, filterCalculationSchemaCondition(item, mutable)]];
+    }),
+  );
 }
 
 function resolveReadingTarget(action: ReadingAction): ReadingTarget {
@@ -1185,7 +1208,60 @@ function assertHuangjiResult(
   if (expectedMode !== undefined) {
     assertStructuredField('huangji.input.mode', expectedMode, actualInput.mode);
   }
-  if (calculationInput.customDate !== undefined) {
+  if (calculationInput.sixDayDateTime !== undefined || expectedMode === '六日逐爻公历') {
+    assertStructuredField('huangji.input.mode', '六日逐爻公历', actualInput.mode);
+    const cycle = result.sixDayCycle;
+    if (
+      !record(cycle) ||
+      !record(cycle.civilTime) ||
+      !record(cycle.anchor) ||
+      !record(cycle.calendar) ||
+      !record(cycle.hexagrams) ||
+      !record(cycle.hexagrams.jing) ||
+      !record(cycle.hexagrams.daily) ||
+      !record(cycle.hexagrams.hourly)
+    ) {
+      throw new Error('补算返回缺少皇极六日逐爻实际资料。');
+    }
+    const expectedEpoch = locked.sixDayEpochDateTime ?? calculationInput.sixDayEpochDateTime;
+    const expectedModel = locked.calendarModel ?? calculationInput.calendarModel;
+    const expectedTimezone = locked.timezone ?? calculationInput.timezone;
+    if (
+      typeof calculationInput.sixDayDateTime !== 'string' ||
+      typeof expectedEpoch !== 'string' ||
+      typeof expectedModel !== 'string' ||
+      typeof expectedTimezone !== 'number'
+    ) {
+      throw new Error('皇极六日逐爻补算缺少目标、历元、模型或业务时区。');
+    }
+    assertStructuredField(
+      'huangji.sixDayCycle.civilTime.dateTime',
+      normalizeDateTimeKey(calculationInput.sixDayDateTime),
+      normalizeDateTimeKey(cycle.civilTime.dateTime),
+    );
+    assertStructuredField(
+      'huangji.sixDayCycle.anchor.dateTime',
+      normalizeDateTimeKey(expectedEpoch),
+      normalizeDateTimeKey(cycle.anchor.dateTime),
+    );
+    assertStructuredField(
+      'huangji.sixDayCycle.calendar.model',
+      expectedModel,
+      cycle.calendar.model,
+    );
+    assertStructuredField(
+      'huangji.sixDayCycle.civilTime.timezone',
+      expectedTimezone,
+      cycle.civilTime.timezone,
+    );
+    if (locked.timeZoneId !== undefined || calculationInput.timeZoneId !== undefined) {
+      assertStructuredField(
+        'huangji.sixDayCycle.civilTime.timeZoneId',
+        locked.timeZoneId ?? calculationInput.timeZoneId,
+        cycle.civilTime.timeZoneId,
+      );
+    }
+  } else if (calculationInput.customDate !== undefined) {
     assertStructuredField('huangji.input.mode', '年月日时', actualInput.mode);
     const dateTimeForecast = result.dateTimeForecast;
     if (!record(dateTimeForecast)) {
@@ -1363,10 +1439,13 @@ function buildCalculationResourceTitle(
         : '';
   } else if (method === 'huangji') {
     const dateTimeForecast = result?.dateTimeForecast;
+    const sixDayCycle = result?.sixDayCycle;
     const dateTime =
-      record(dateTimeForecast) && record(dateTimeForecast.civilTime)
-        ? dateTimeForecast.civilTime.dateTime
-        : undefined;
+      record(sixDayCycle) && record(sixDayCycle.civilTime)
+        ? sixDayCycle.civilTime.dateTime
+        : record(dateTimeForecast) && record(dateTimeForecast.civilTime)
+          ? dateTimeForecast.civilTime.dateTime
+          : undefined;
     const resultInput = result?.input;
     const year = record(resultInput) ? resultInput.year : calculationInput.year;
     range =
@@ -1420,6 +1499,7 @@ function prepareCalculationInput(
   method: string,
   input: Record<string, unknown>,
   locked: Record<string, unknown>,
+  allowUnboundImmutable = false,
 ): Record<string, unknown> {
   const rule = CALCULATION_PARAMETER_RULES[method];
   if (!rule) throw new Error('此方法暂不支持安全补算。');
@@ -1446,7 +1526,18 @@ function prepareCalculationInput(
       continue;
     }
     if (!immutable.has(key)) throw new Error(`补算参数未声明或不可修改：${key}。`);
-    if (!Object.hasOwn(locked, key)) throw new Error(`补算主体快照缺少不可变参数：${key}。`);
+    if (!Object.hasOwn(locked, key)) {
+      const canAcceptDirectHuangjiSixDayInput =
+        allowUnboundImmutable &&
+        method === 'huangji' &&
+        ['sixDayEpochDateTime', 'calendarModel', 'timezone', 'timeZoneId'].includes(key) &&
+        input.sixDayDateTime !== undefined;
+      if (!canAcceptDirectHuangjiSixDayInput) {
+        throw new Error(`补算主体快照缺少不可变参数：${key}。`);
+      }
+      result[key] = value;
+      continue;
+    }
     if (stableComparable(value) !== stableComparable(locked[key]))
       throw new Error(`补算主体与当前命盘不一致：${key}。`);
   }
@@ -1487,7 +1578,17 @@ function prepareCalculationInput(
       }
       result.epochYear = locked.epochYear;
     }
-    if (mode === '年月日时') {
+    if (mode === '六日逐爻公历') {
+      if (
+        result.sixDayDateTime === undefined ||
+        result.customDate !== undefined ||
+        result.epochYear !== undefined ||
+        result.year !== undefined ||
+        result.elapsedYears !== undefined
+      ) {
+        throw new Error('当前皇极会话只能补算六日逐爻目标。');
+      }
+    } else if (mode === '年月日时') {
       if (result.customDate === undefined) throw new Error('皇极年月日时补算必须明确 customDate。');
       if (
         result.epochYear !== undefined ||
@@ -1580,7 +1681,7 @@ export async function executeReadingAction(
     action.kind === 'calculate' &&
     (action.method === 'taiyi' || action.method === 'huangji' || action.method === 'wuyun')
   ) {
-    calculationInput = prepareCalculationInput(action.method, action.input, {});
+    calculationInput = prepareCalculationInput(action.method, action.input, {}, true);
   }
   if (action.kind === 'schema') {
     const document = await fetchReadingData('/openapi.json', signal);

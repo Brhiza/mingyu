@@ -1479,6 +1479,10 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.traditional-huangji-cycle.is-six-day {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .traditional-huangji-period {
   min-width: 0;
   padding: 12px;

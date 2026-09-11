@@ -343,7 +343,21 @@ export function buildDivinationReadingSubject(
     }
     range.huangjiMode = mode;
     range.huangjiInput = result.input;
-    if (result.dateTimeForecast?.civilTime?.dateTime) {
+    if (result.sixDayCycle) {
+      const cycle = result.sixDayCycle;
+      lockedInputs.huangji = {
+        _mode: mode,
+        sixDayEpochDateTime: cycle.anchor.dateTime,
+        calendarModel: cycle.calendar.model,
+        timezone: cycle.civilTime.timezone,
+        ...(cycle.civilTime.timeZoneId ? { timeZoneId: cycle.civilTime.timeZoneId } : {}),
+      };
+      range.huangjiSixDayDateTime = cycle.civilTime.dateTime;
+      range.huangjiSixDayEpochDateTime = cycle.anchor.dateTime;
+      range.huangjiSixDayTimezone = cycle.civilTime.timezone;
+      range.huangjiCalendarModel = cycle.calendar.model;
+      range.huangjiDateTime = cycle.civilTime.dateTime;
+    } else if (result.dateTimeForecast?.civilTime?.dateTime) {
       range.huangjiDateTime = result.dateTimeForecast.civilTime.dateTime;
     }
   } else {

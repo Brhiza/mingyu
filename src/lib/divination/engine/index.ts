@@ -103,6 +103,9 @@ export type DivinationDraft = {
   customDivinationDate?: string;
   customDivinationTime?: string;
   divinationTimeStandard?: 'beijing' | 'true-solar';
+  huangjiMethod?: 'standard' | 'six-day';
+  huangjiSixDayEpochDate?: string;
+  huangjiSixDayTimezone?: string;
   birthPlace?: string;
   birthLongitude?: string;
   birthLatitude?: string;
@@ -414,6 +417,17 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
 function validateDraft(draft: DivinationDraft) {
   if (draft.method !== 'almanac' && !draft.question.trim()) {
     throw new Error('请输入你想占卜的问题');
+  }
+
+  if (draft.method === 'huangji' && draft.huangjiMethod === 'six-day') {
+    readCustomDivinationDate(draft);
+    const epochDate = draft.huangjiSixDayEpochDate?.trim() ?? '';
+    if (!epochDate) {
+      throw new Error('六日逐爻需要填写经校定的历元日期');
+    }
+    readDateText(epochDate, '六日逐爻校定历元日期');
+    const timezone = readNumberText(draft.huangjiSixDayTimezone?.trim() ?? '', '六日逐爻业务时区');
+    assertNumberRange(timezone, '六日逐爻业务时区', -12, 14);
   }
 
   if (draft.method === 'meihua' && draft.meihuaMethod === 'number') {
@@ -854,6 +868,19 @@ function resolveCustomDivinationDate(
   return readCustomDivinationDate(draft);
 }
 
+function buildHuangjiSixDayDateInput(draft: DivinationDraft) {
+  const targetDate = draft.customDivinationDate?.trim() ?? '';
+  const targetTime = draft.customDivinationTime?.trim() ?? '';
+  const epochDate = draft.huangjiSixDayEpochDate?.trim() ?? '';
+  const timezone = readNumberText(draft.huangjiSixDayTimezone?.trim() ?? '', '六日逐爻业务时区');
+  assertNumberRange(timezone, '六日逐爻业务时区', -12, 14);
+  return {
+    targetDateTime: `${targetDate}T${targetTime}:00`,
+    epochDateTime: `${epochDate}T00:00:00`,
+    timezone,
+  };
+}
+
 function resolveTaiyiYear(draft: DivinationDraft): number {
   if (draft.divinationTimeMode === 'custom') {
     return readIntegerText(draft.taiyiYear, '太乙年计年份');
@@ -921,10 +948,12 @@ export async function generateDivinationSession(
 ): Promise<DivinationSession> {
   validateDraft(draft);
   const method = resolveMethod(draft.method);
-  const customDate = resolveCustomDivinationDate(method, draft);
-  const timing = isTimeBasedDivinationMethod(method)
-    ? resolveDivinationTimeContext(method, draft, customDate ?? new Date())
-    : undefined;
+  const isHuangjiSixDay = method === 'huangji' && draft.huangjiMethod === 'six-day';
+  const customDate = isHuangjiSixDay ? undefined : resolveCustomDivinationDate(method, draft);
+  const timing =
+    !isHuangjiSixDay && isTimeBasedDivinationMethod(method)
+      ? resolveDivinationTimeContext(method, draft, customDate ?? new Date())
+      : undefined;
   const calculationDate = timing?.date;
   const supplementaryInfo = buildSupplementaryInfo({
     ...draft,
@@ -1003,10 +1032,25 @@ export async function generateDivinationSession(
     }
     case 'huangji': {
       const module = await import('mingyu-core/huangji-jingshi');
-      data = module.calculateHuangjiJingshi({
-        date: calculationDate ?? new Date(),
-        question: inputQuestion,
-      });
+      if (isHuangjiSixDay) {
+        const sixDay = buildHuangjiSixDayDateInput(draft);
+        const sixDayDate = module.parseHuangjiSixDayDateTime(
+          sixDay.targetDateTime,
+          sixDay.timezone,
+          undefined,
+          module.HUANGJI_SIX_DAY_CALENDAR_MODEL,
+          sixDay.epochDateTime,
+        );
+        data = module.calculateHuangjiJingshi({
+          sixDayDate,
+          question: inputQuestion,
+        });
+      } else {
+        data = module.calculateHuangjiJingshi({
+          date: calculationDate ?? new Date(),
+          question: inputQuestion,
+        });
+      }
       break;
     }
     case 'wuyun': {
