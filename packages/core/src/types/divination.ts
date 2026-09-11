@@ -893,8 +893,8 @@ export interface QimenLifetimeStage {
 export interface QimenEventCluster {
   /** 事件簇唯一标识 */
   key: string;
-  /** 归属阶段索引 */
-  stageIndex: number;
+  /** 归属阶段索引；日期超出已列阶段时为空，仍保留日期关系事实。 */
+  stageIndex?: number;
   /** 时间跨度描述（如 "2027年"） */
   timeSpan: string;
   /** 可复核的日期级触发事实；不包含评分或未计算的日盘结论。 */

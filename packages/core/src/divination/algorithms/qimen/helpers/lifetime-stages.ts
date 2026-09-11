@@ -309,8 +309,7 @@ export function buildLifetimeStages(
       const ageEnd = (yao === 8 ? 80 : yao * 10 - 1) + ageOffset;
       const curGong = yao % 2 === 1 ? zhiFuPalace : zhiShiPalace;
       const calendarStart = addYearsToCivilDate(anchorBaseDate, (yao - 1) * 10);
-      const nextCalendarStart =
-        yao < 8 ? addYearsToCivilDate(anchorBaseDate, yao * 10) : undefined;
+      const nextCalendarStart = yao < 8 ? addYearsToCivilDate(anchorBaseDate, yao * 10) : undefined;
       const { support, constraints } = evaluatePalaceSupportAndConstraints(curGong, baseChart);
 
       const yaoTitle =

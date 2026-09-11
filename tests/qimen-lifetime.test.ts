@@ -363,17 +363,22 @@ test('奇门终身局 P2：阶段划分引擎（四柱分限 vs 九宫巡行）'
 
 test('奇门终身局动态扫描不得将阶段范围外日期归入首阶段', () => {
   const lifetime = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
-  assert.throws(
-    () =>
-      scanLifetimeDynamicEvents(
-        lifetime.baseChart,
-        lifetime.stages,
-        { startDate: '1989-01-01', endDate: '1989-12-31' },
-        'zhuanpan',
-        'chaibu',
-        { timezone: 8 },
-      ),
-    /periodRange 必须落在终身局阶段范围内/u,
+  const clusters = scanLifetimeDynamicEvents(
+    lifetime.baseChart,
+    lifetime.stages,
+    { startDate: '1989-01-01', endDate: '1989-12-31' },
+    'zhuanpan',
+    'chaibu',
+    { timezone: 8 },
+  );
+  assert.ok(clusters.length > 0);
+  assert.ok(clusters.every((cluster) => cluster.stageIndex === undefined));
+  assert.ok(clusters.some((cluster) => cluster.triggerDates?.length));
+  const keys = new Set(clusters.map((cluster) => cluster.key));
+  assert.ok(
+    lifetime.stages.every(
+      (stage) => stage.eventClusterKeys?.every((key) => !keys.has(key)) ?? true,
+    ),
   );
 });
 
@@ -459,7 +464,8 @@ test('奇门日级事件跨阶段时应逐日归属并保留全部日期', () =>
   assert.ok(clusters.some((cluster) => cluster.stageIndex === 0));
   assert.ok(clusters.some((cluster) => cluster.stageIndex === 1));
   for (const cluster of clusters) {
-    const stage = stages[cluster.stageIndex];
+    assert.notEqual(cluster.stageIndex, undefined);
+    const stage = stages[cluster.stageIndex!];
     assert.ok(cluster.triggerDates?.length);
     assert.ok(
       cluster.triggerDates!.every(

@@ -456,7 +456,10 @@ export const QimenLifetimeBoard = memo(function QimenLifetimeBoard({
             {data.eventClusters.map((cluster) => (
               <div key={cluster.key} className="qimen-lifetime-event-item">
                 <div className="event-head">
-                  <span className="event-time">{cluster.timeSpan}</span>
+                  <span className="event-time">
+                    {cluster.timeSpan}
+                    {cluster.stageIndex === undefined ? '（阶段表范围外）' : ''}
+                  </span>
                   <span className="event-trigger">{cluster.triggerFact}</span>
                   <span className="event-rhythm">节奏：{cluster.rhythm}</span>
                 </div>

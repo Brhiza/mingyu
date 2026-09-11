@@ -205,33 +205,9 @@ function getMonthClashTermFacts(
   return isDateWithin(parts, start, end) ? [{ ...fact, relation: `${branch}月建交节` }] : [];
 }
 
-function getStageIndexForDate(stages: QimenLifetimeStage[], date: string): number {
+function getStageIndexForDate(stages: QimenLifetimeStage[], date: string): number | undefined {
   const matched = stages.find((stage) => stage.calendarStart <= date && stage.calendarEnd >= date);
-  if (!matched) {
-    throw new Error(`动态事实日期 ${date} 不在任何人生阶段范围内。`);
-  }
-  return matched.stageIndex;
-}
-
-function validateStageCoverage(
-  stages: QimenLifetimeStage[],
-  start: LifetimeDateParts,
-  end: LifetimeDateParts,
-): void {
-  if (stages.length === 0) {
-    throw new Error('终身局阶段范围不能为空。');
-  }
-  const firstDate = stages.reduce(
-    (current, stage) => (stage.calendarStart < current ? stage.calendarStart : current),
-    stages[0].calendarStart,
-  );
-  const lastDate = stages.reduce(
-    (current, stage) => (stage.calendarEnd > current ? stage.calendarEnd : current),
-    stages[0].calendarEnd,
-  );
-  if (formatLifetimeDate(start) < firstDate || formatLifetimeDate(end) > lastDate) {
-    throw new Error(`periodRange 必须落在终身局阶段范围内（${firstDate} 至 ${lastDate}）。`);
-  }
+  return matched?.stageIndex;
 }
 
 function collectDailyRelationFacts(
@@ -345,7 +321,6 @@ export function scanLifetimeDynamicEvents(
 
   const start = parseLifetimePeriodDate(periodRange.startDate, 'periodRange.startDate');
   const end = parseLifetimePeriodDate(periodRange.endDate, 'periodRange.endDate');
-  validateStageCoverage(stages, start, end);
   const startYear = start.year;
   const endYear = end.year;
   const maxEndYear = endYear;
@@ -356,9 +331,7 @@ export function scanLifetimeDynamicEvents(
   // 查询从一月开始时，补查上一干支年的丑月小寒节点；该节点落在当前公历年一月。
   if (start.month === 1 && startYear > 1) {
     const previousFlowYear = startYear - 1;
-    const previousMidYearDate = new Date(
-      createUtcTimestamp(previousFlowYear, 5, 15, 12, 0, 0),
-    );
+    const previousMidYearDate = new Date(createUtcTimestamp(previousFlowYear, 5, 15, 12, 0, 0));
     const previousYearGanZhi = getDivinationTime(
       previousMidYearDate,
       DEFAULT_CHINA_TIMEZONE_HOURS * 60,
@@ -578,7 +551,7 @@ export function scanLifetimeDynamicEvents(
     for (const [relationKey, facts] of dailyGroups) {
       const relation = dailyRelationMeta[relationKey];
       if (!relation || facts.length === 0) continue;
-      const stageGroups = new Map<number, LifetimeDateFact[]>();
+      const stageGroups = new Map<number | undefined, LifetimeDateFact[]>();
       for (const fact of facts) {
         const dailyStageIndex = getStageIndexForDate(stages, fact.date);
         const stageFacts = stageGroups.get(dailyStageIndex) ?? [];

@@ -7,11 +7,13 @@
 import type { QimenLifetimeData } from '../../../../types/divination';
 import { formatFixedTimezoneOffset } from '../../../../calendar/civil-time';
 
-type TriggerDate = NonNullable<NonNullable<QimenLifetimeData['eventClusters']>[number]['triggerDates']>[number];
+type TriggerDate = NonNullable<
+  NonNullable<QimenLifetimeData['eventClusters']>[number]['triggerDates']
+>[number];
 
 function formatTriggerDate(item: TriggerDate): string {
   const detail = [item.ganzhi, item.relation].filter(Boolean).join('，');
-  return detail ? `${item.dateTime ?? item.date}（${detail}）` : item.dateTime ?? item.date;
+  return detail ? `${item.dateTime ?? item.date}（${detail}）` : (item.dateTime ?? item.date);
 }
 
 function formatTriggerDates(items: TriggerDate[]): string[] {
@@ -21,12 +23,7 @@ function formatTriggerDates(items: TriggerDate[]): string[] {
   const outputs: Output[] = [];
   const groups = new Map<string, DateGroup>();
   for (const item of items) {
-    if (
-      !item.dateTime &&
-      item.ganzhi &&
-      item.relation &&
-      /^\d{4}-\d{2}-\d{2}$/u.test(item.date)
-    ) {
+    if (!item.dateTime && item.ganzhi && item.relation && /^\d{4}-\d{2}-\d{2}$/u.test(item.date)) {
       const month = item.date.slice(0, 7);
       const key = `${month}|${item.relation}`;
       let group = groups.get(key);
@@ -207,7 +204,9 @@ export function buildLifetimePrompt(data: QimenLifetimeData, question?: string):
   if (data.eventClusters && data.eventClusters.length > 0) {
     lines.push(`【周期触发与事件簇】`);
     for (const ec of data.eventClusters) {
-      lines.push(`${ec.timeSpan} ${ec.triggerFact}（节奏：${ec.rhythm}）`);
+      lines.push(
+        `${ec.timeSpan}${ec.stageIndex === undefined ? '（阶段表范围外）' : ''} ${ec.triggerFact}（节奏：${ec.rhythm}）`,
+      );
       if (ec.triggerDates && ec.triggerDates.length > 0) {
         lines.push(...formatTriggerDates(ec.triggerDates));
       }
