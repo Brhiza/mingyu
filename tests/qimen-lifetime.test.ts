@@ -331,6 +331,16 @@ test('奇门终身局 P2：阶段划分引擎（四柱分限 vs 九宫巡行）'
   assert.equal(resultPillar.stages[2].ageEnd, 48);
   assert.equal(resultPillar.stages[3].ageStart, 49);
   assert.equal(resultPillar.stages[3].ageEnd, 80);
+  assert.deepEqual(
+    resultPillar.stages.map((stage) => [stage.calendarStart, stage.calendarEnd]),
+    [
+      ['1990-05-15', '2007-05-14'],
+      ['2007-05-15', '2023-05-14'],
+      ['2023-05-15', '2039-05-14'],
+      ['2039-05-15', '2070-05-15'],
+    ],
+    '生日非年初时阶段日历必须连续，不得留下整年空档',
+  );
 
   // 3. 符使卦轨模型（覆盖至 80 岁）
   const resultGuaGui = calculateQimenLifetime({
@@ -338,6 +348,8 @@ test('奇门终身局 P2：阶段划分引擎（四柱分限 vs 九宫巡行）'
     stagePolicy: { model: 'fuShiHexagramOrbit' },
   });
   assert.equal(resultGuaGui.stages.length, 8);
+  assert.equal(resultGuaGui.stages[0].calendarEnd, '2000-05-14');
+  assert.equal(resultGuaGui.stages[1].calendarStart, '2000-05-15');
   assert.equal(resultGuaGui.stages[7].ageEnd, 80);
 
   // 4. 虚岁系统测试
@@ -347,6 +359,22 @@ test('奇门终身局 P2：阶段划分引擎（四柱分限 vs 九宫巡行）'
   });
   assert.equal(resultNominal.stages[0].ageStart, 1);
   assert.equal(resultNominal.stages[0].ageEnd, 17);
+});
+
+test('奇门终身局动态扫描不得将阶段范围外日期归入首阶段', () => {
+  const lifetime = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
+  assert.throws(
+    () =>
+      scanLifetimeDynamicEvents(
+        lifetime.baseChart,
+        lifetime.stages,
+        { startDate: '1989-01-01', endDate: '1989-12-31' },
+        'zhuanpan',
+        'chaibu',
+        { timezone: 8 },
+      ),
+    /periodRange 必须落在终身局阶段范围内/u,
+  );
 });
 
 test('奇门终身局 P3：动态周期扫描与事件聚类（含年月日关键节点）', () => {
@@ -453,6 +481,22 @@ test('奇门日级事件跨阶段时应逐日归属并保留全部日期', () =>
       .map((fact) => `${fact.date}:${fact.relation}`)
       .sort();
   assert.deepEqual(dates(clusters), dates(original));
+});
+
+test('奇门终身局一月窗口应回看上一干支年丑月交节', () => {
+  const result = calculateQimenLifetime({
+    birthDateTime: '1990-05-15T14:30:00+08:00',
+    periodRange: {
+      startDate: '2028-01-01',
+      endDate: '2028-01-31',
+    },
+  });
+  const chouMonth = result.eventClusters?.find((cluster) =>
+    cluster.key.startsWith('cluster:2027:month-clash:丑:'),
+  );
+  assert.ok(chouMonth, '一月窗口应保留上一干支年丑月的小寒节点');
+  assert.equal(chouMonth.triggerDates?.length, 1);
+  assert.match(chouMonth.triggerDates![0].date, /^2028-01-/u);
 });
 
 test('奇门终身局日级关系应跨年裁切并保留当地日干支', () => {
@@ -692,7 +736,28 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
     ?.flatMap((cluster) => cluster.triggerDates ?? [])
     .find((fact) => fact.ganzhi);
   assert.ok(promptDateFact?.date, '提示词应带具体日级日期事实');
-  assert.match(prompt, new RegExp(promptDateFact?.date ?? '年-月-日'));
+  const [promptFactYear, promptFactMonth, promptFactDay] = promptDateFact!.date.split('-');
+  assert.match(prompt, new RegExp(`${promptFactYear}年${promptFactMonth}月.*${promptFactDay}日`));
+  const promptDateLines = prompt.split('\n').filter((line) => line.includes('可复核日期：'));
+  const dailyFacts =
+    data.eventClusters
+      ?.flatMap((cluster) => cluster.triggerDates ?? [])
+      .filter((fact) => fact.ganzhi && fact.relation) ?? [];
+  for (const fact of dailyFacts) {
+    const [year, month, day] = fact.date.split('-');
+    const line = promptDateLines.find(
+      (candidate) =>
+        candidate.includes(`${year}年${month}月`) &&
+        candidate.includes(`${day}日（${fact.ganzhi}）`) &&
+        candidate.includes(`日干支关系：${fact.relation}`),
+    );
+    assert.ok(line, `提示词应保留 ${fact.date} ${fact.ganzhi} ${fact.relation}`);
+    assert.equal(
+      line!.split(`日干支关系：${fact.relation}`).length - 1,
+      1,
+      '同一月份同一关系只应输出一次关系说明',
+    );
+  }
   assert.doesNotMatch(prompt, /指定日期窗口引动本命/u);
   assert.doesNotMatch(prompt, /至2027-12-31关键动应日/u);
 

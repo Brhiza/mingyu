@@ -7,6 +7,47 @@
 import type { QimenLifetimeData } from '../../../../types/divination';
 import { formatFixedTimezoneOffset } from '../../../../calendar/civil-time';
 
+type TriggerDate = NonNullable<NonNullable<QimenLifetimeData['eventClusters']>[number]['triggerDates']>[number];
+
+function formatTriggerDate(item: TriggerDate): string {
+  const detail = [item.ganzhi, item.relation].filter(Boolean).join('，');
+  return detail ? `${item.dateTime ?? item.date}（${detail}）` : item.dateTime ?? item.date;
+}
+
+function formatTriggerDates(items: TriggerDate[]): string[] {
+  type DateGroup = { month: string; relation: string; entries: string[] };
+  type Output = { kind: 'group'; group: DateGroup } | { kind: 'single'; text: string };
+
+  const outputs: Output[] = [];
+  const groups = new Map<string, DateGroup>();
+  for (const item of items) {
+    if (
+      !item.dateTime &&
+      item.ganzhi &&
+      item.relation &&
+      /^\d{4}-\d{2}-\d{2}$/u.test(item.date)
+    ) {
+      const month = item.date.slice(0, 7);
+      const key = `${month}|${item.relation}`;
+      let group = groups.get(key);
+      if (!group) {
+        group = { month, relation: item.relation, entries: [] };
+        groups.set(key, group);
+        outputs.push({ kind: 'group', group });
+      }
+      group.entries.push(`${item.date.slice(8, 10)}日（${item.ganzhi}）`);
+    } else {
+      outputs.push({ kind: 'single', text: formatTriggerDate(item) });
+    }
+  }
+
+  return outputs.map((output) => {
+    if (output.kind === 'single') return `  可复核日期：${output.text}`;
+    const [year, month] = output.group.month.split('-');
+    return `  可复核日期：${year}年${month}月${output.group.entries.join('、')}；日干支关系：${output.group.relation}`;
+  });
+}
+
 /**
  * 构建终身局自包含提示词任务书
  */
@@ -168,16 +209,7 @@ export function buildLifetimePrompt(data: QimenLifetimeData, question?: string):
     for (const ec of data.eventClusters) {
       lines.push(`${ec.timeSpan} ${ec.triggerFact}（节奏：${ec.rhythm}）`);
       if (ec.triggerDates && ec.triggerDates.length > 0) {
-        lines.push(
-          `  可复核日期：${ec.triggerDates
-            .map((item) => {
-              const detail = [item.ganzhi, item.relation].filter(Boolean).join('，');
-              return detail
-                ? `${item.dateTime ?? item.date}（${detail}）`
-                : (item.dateTime ?? item.date);
-            })
-            .join('、')}`,
-        );
+        lines.push(...formatTriggerDates(ec.triggerDates));
       }
       lines.push(`  动态交互：${ec.interactionAnalysis}`);
       if (ec.supportEvidence.length > 0) {

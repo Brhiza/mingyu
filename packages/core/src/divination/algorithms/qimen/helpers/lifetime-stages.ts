@@ -11,6 +11,7 @@ import type {
   QimenTopicCandidate,
 } from '../../../../types/divination';
 import type { CivilDateTimeParts } from '../../../../calendar/civil-time';
+import { createUtcTimestamp } from '../../../../calendar/date-validation';
 import { diPanPalaces } from './_constants';
 import { getDunJiaStem } from './jushu';
 
@@ -23,6 +24,12 @@ function addYearsToCivilDate(date: CivilDateTimeParts, years: number): string {
   const d = new Date(Date.UTC(date.year, date.month - 1, date.day));
   d.setUTCFullYear(d.getUTCFullYear() + years);
   return d.toISOString().split('T')[0];
+}
+
+function subtractOneCivilDay(value: string): string {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(createUtcTimestamp(year, month - 1, day) - 86400000);
+  return `${String(date.getUTCFullYear()).padStart(4, '0')}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -177,7 +184,7 @@ export function buildLifetimeStages(
         ageStart: 0 + ageOffset,
         ageEnd: 16 + ageOffset,
         calStart: addYearsToCivilDate(anchorBaseDate, 0),
-        calEnd: addYearsToCivilDate(anchorBaseDate, 16),
+        calEnd: subtractOneCivilDay(addYearsToCivilDate(anchorBaseDate, 17)),
         gongs: yearPalaces,
         theme: '年柱主限：主家庭原生教养、长辈福荫护持、学识基础与先天命质形成。',
         markers: [`年干${yearStem}`, `年支${yearBranch}`],
@@ -188,7 +195,7 @@ export function buildLifetimeStages(
         ageStart: 17 + ageOffset,
         ageEnd: 32 + ageOffset,
         calStart: addYearsToCivilDate(anchorBaseDate, 17),
-        calEnd: addYearsToCivilDate(anchorBaseDate, 32),
+        calEnd: subtractOneCivilDay(addYearsToCivilDate(anchorBaseDate, 33)),
         gongs: monthPalaces,
         theme: '月柱主限：走出家庭踏入社会、人际圈层开拓、事业基石奠定与青年自我认知。',
         markers: [`月干${monthStem}`, `月支${monthBranch}`],
@@ -199,7 +206,7 @@ export function buildLifetimeStages(
         ageStart: 33 + ageOffset,
         ageEnd: 48 + ageOffset,
         calStart: addYearsToCivilDate(anchorBaseDate, 33),
-        calEnd: addYearsToCivilDate(anchorBaseDate, 48),
+        calEnd: subtractOneCivilDay(addYearsToCivilDate(anchorBaseDate, 49)),
         gongs: dayPalaces,
         theme: '日柱主限：人生核心建树期，自身心力智慧完全展现，家庭与社会中流砥柱。',
         markers: [`日干${dayStem}`],
@@ -264,6 +271,9 @@ export function buildLifetimeStages(
       const gong = ring[(startIdx + i) % ring.length];
       const ageStart = i * yearsPerStage + ageOffset;
       const ageEnd = (i + 1) * yearsPerStage - 1 + ageOffset;
+      const calendarStart = addYearsToCivilDate(anchorBaseDate, i * yearsPerStage);
+      const nextCalendarStart =
+        i < 8 ? addYearsToCivilDate(anchorBaseDate, (i + 1) * yearsPerStage) : undefined;
       const { support, constraints } = evaluatePalaceSupportAndConstraints(gong, baseChart);
 
       stages.push({
@@ -271,8 +281,10 @@ export function buildLifetimeStages(
         title: `行限第${i + 1}步（${getPalaceName(gong)}）`,
         ageStart,
         ageEnd,
-        calendarStart: addYearsToCivilDate(anchorBaseDate, i * yearsPerStage),
-        calendarEnd: addYearsToCivilDate(anchorBaseDate, (i + 1) * yearsPerStage - 1),
+        calendarStart,
+        calendarEnd: nextCalendarStart
+          ? subtractOneCivilDay(nextCalendarStart)
+          : addYearsToCivilDate(anchorBaseDate, (i + 1) * yearsPerStage - 1),
         dominantPalaces: [{ palace: gong, name: getPalaceName(gong) }],
         associatedMarkers: [`行限临${getPalaceName(gong)}`],
         stageTheme: `九宫巡行运限：当值${getPalaceName(gong)}，能量由该宫门星神干及奇仪克应主导。`,
@@ -296,6 +308,9 @@ export function buildLifetimeStages(
       const ageStart = (yao - 1) * 10 + ageOffset;
       const ageEnd = (yao === 8 ? 80 : yao * 10 - 1) + ageOffset;
       const curGong = yao % 2 === 1 ? zhiFuPalace : zhiShiPalace;
+      const calendarStart = addYearsToCivilDate(anchorBaseDate, (yao - 1) * 10);
+      const nextCalendarStart =
+        yao < 8 ? addYearsToCivilDate(anchorBaseDate, yao * 10) : undefined;
       const { support, constraints } = evaluatePalaceSupportAndConstraints(curGong, baseChart);
 
       const yaoTitle =
@@ -310,8 +325,10 @@ export function buildLifetimeStages(
         title: yaoTitle,
         ageStart,
         ageEnd,
-        calendarStart: addYearsToCivilDate(anchorBaseDate, (yao - 1) * 10),
-        calendarEnd: addYearsToCivilDate(anchorBaseDate, yao === 8 ? 80 : yao * 10 - 1),
+        calendarStart,
+        calendarEnd: nextCalendarStart
+          ? subtractOneCivilDay(nextCalendarStart)
+          : addYearsToCivilDate(anchorBaseDate, 80),
         dominantPalaces: [{ palace: curGong, name: getPalaceName(curGong) }],
         associatedMarkers: [
           yao % 2 === 1 ? `值符星${baseChart.zhiFu}` : `值使门${baseChart.zhiShi}`,

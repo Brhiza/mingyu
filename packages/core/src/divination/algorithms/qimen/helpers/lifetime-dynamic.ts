@@ -207,7 +207,31 @@ function getMonthClashTermFacts(
 
 function getStageIndexForDate(stages: QimenLifetimeStage[], date: string): number {
   const matched = stages.find((stage) => stage.calendarStart <= date && stage.calendarEnd >= date);
-  return matched?.stageIndex ?? stages[0]?.stageIndex ?? 0;
+  if (!matched) {
+    throw new Error(`动态事实日期 ${date} 不在任何人生阶段范围内。`);
+  }
+  return matched.stageIndex;
+}
+
+function validateStageCoverage(
+  stages: QimenLifetimeStage[],
+  start: LifetimeDateParts,
+  end: LifetimeDateParts,
+): void {
+  if (stages.length === 0) {
+    throw new Error('终身局阶段范围不能为空。');
+  }
+  const firstDate = stages.reduce(
+    (current, stage) => (stage.calendarStart < current ? stage.calendarStart : current),
+    stages[0].calendarStart,
+  );
+  const lastDate = stages.reduce(
+    (current, stage) => (stage.calendarEnd > current ? stage.calendarEnd : current),
+    stages[0].calendarEnd,
+  );
+  if (formatLifetimeDate(start) < firstDate || formatLifetimeDate(end) > lastDate) {
+    throw new Error(`periodRange 必须落在终身局阶段范围内（${firstDate} 至 ${lastDate}）。`);
+  }
 }
 
 function collectDailyRelationFacts(
@@ -271,6 +295,41 @@ function getDynamicOffsetMinutes(
   return timeContext?.fallbackOffsetMinutes ?? DEFAULT_CHINA_TIMEZONE_HOURS * 60;
 }
 
+function appendMonthClashCluster(
+  clusters: QimenEventCluster[],
+  baseChart: QimenData,
+  stages: QimenLifetimeStage[],
+  year: number,
+  flowYearGanZhi: string,
+  start: LifetimeDateParts,
+  end: LifetimeDateParts,
+  timeContext: QimenDynamicTimeContext | undefined,
+  getPalaceName: (palace: number) => string,
+): void {
+  const flowYearBranch = flowYearGanZhi[1];
+  const clashBranch = OPPOSITE_BRANCHES[flowYearBranch];
+  const clashPalace = clashBranch ? diPanPalaces[clashBranch] : undefined;
+  if (!clashPalace) return;
+
+  const termFacts = getMonthClashTermFacts(clashBranch, year, start, end, timeContext);
+  if (termFacts.length === 0) return;
+
+  const termDates = termFacts.map((fact) => fact.date);
+  clusters.push({
+    key: `cluster:${year}:month-clash:${clashBranch}:${termDates.join(',')}`,
+    stageIndex: getStageIndexForDate(stages, termFacts[0]!.date),
+    timeSpan: `${termDates.join('、')}${clashBranch}月建交节`,
+    triggerDates: termFacts,
+    topics: ['career', 'relocation'],
+    triggerFact: `${year}年流年${flowYearGanZhi}对应的${clashBranch}月建交节日为${termFacts.map((fact) => fact.dateTime ?? fact.date).join('、')}，该月支与年支相冲，落${getPalaceName(clashPalace)}。`,
+    interactionAnalysis: `月建${clashBranch}与${flowYearGanZhi}年支${flowYearBranch}构成相冲；交节日期按目标时区的真实当地时间列出。`,
+    supportEvidence: [`${clashBranch}月建交节日：${termDates.join('、')}`],
+    counterEvidence: [],
+    rhythm: '快',
+    verificationQuestions: [`交节日前后是否出现阶段性决策、迁动或环境变化？`],
+  });
+}
+
 /**
  * 扫描指定时间范围内的流年动态事件簇
  */
@@ -287,12 +346,38 @@ export function scanLifetimeDynamicEvents(
 
   const start = parseLifetimePeriodDate(periodRange.startDate, 'periodRange.startDate');
   const end = parseLifetimePeriodDate(periodRange.endDate, 'periodRange.endDate');
+  validateStageCoverage(stages, start, end);
   const startYear = start.year;
   const endYear = end.year;
   const maxEndYear = endYear;
 
   const getPalaceName = (p: number) =>
     baseChart.jiuGongGe.find((item) => item.gong === p)?.name || `${p}宫`;
+
+  // 查询从一月开始时，补查上一干支年的丑月小寒节点；该节点落在当前公历年一月。
+  if (start.month === 1 && startYear > 1) {
+    const previousFlowYear = startYear - 1;
+    const previousMidYearDate = new Date(
+      createUtcTimestamp(previousFlowYear, 5, 15, 12, 0, 0),
+    );
+    const previousYearGanZhi = getDivinationTime(
+      previousMidYearDate,
+      DEFAULT_CHINA_TIMEZONE_HOURS * 60,
+    ).ganzhi.year;
+    if (previousYearGanZhi[1] === '未') {
+      appendMonthClashCluster(
+        clusters,
+        baseChart,
+        stages,
+        previousFlowYear,
+        previousYearGanZhi,
+        start,
+        end,
+        timeContext,
+        getPalaceName,
+      );
+    }
+  }
 
   for (let y = startYear; y <= maxEndYear; y++) {
     const midYearDate = new Date(createUtcTimestamp(y, 5, 15, 12, 0, 0));
@@ -321,11 +406,15 @@ export function scanLifetimeDynamicEvents(
     const basePalace = baseChart.jiuGongGe.find((p) => p.gong === taiSuiPalaceNum);
     if (!basePalace) continue;
 
-    // 匹配所属阶段卡
-    const yStr = `${y}-06-15`;
-    const matchedStage =
-      stages.find((s) => s.calendarStart <= yStr && s.calendarEnd >= yStr) || stages[0];
-    const stageIndex = matchedStage ? matchedStage.stageIndex : 0;
+    // 用请求范围内的年度代表日匹配阶段卡，避免年初或年末窗口落到代表日之外。
+    const yearRepresentative = { year: y, month: 6, day: 15 };
+    const representativeDate =
+      dateKey(yearRepresentative) < dateKey(start)
+        ? start
+        : dateKey(yearRepresentative) > dateKey(end)
+          ? end
+          : yearRepresentative;
+    const stageIndex = getStageIndexForDate(stages, formatLifetimeDate(representativeDate));
 
     const topics: QimenTopic[] = [];
     const supportEvidence: string[] = [];
@@ -443,27 +532,17 @@ export function scanLifetimeDynamicEvents(
     });
 
     // 细化年月日关键节点：节令只记录真实交节日，日级只记录已有本命关系命中的当地日期。
-    const clashBranch = OPPOSITE_BRANCHES[flowYearBranch];
-    const clashPalace = clashBranch ? diPanPalaces[clashBranch] : undefined;
-    if (clashPalace) {
-      const termFacts = getMonthClashTermFacts(clashBranch, y, start, end, timeContext);
-      if (termFacts.length > 0) {
-        const termDates = termFacts.map((fact) => fact.date);
-        clusters.push({
-          key: `cluster:${y}:month-clash:${clashBranch}:${termDates.join(',')}`,
-          stageIndex: termFacts[0] ? getStageIndexForDate(stages, termFacts[0].date) : stageIndex,
-          timeSpan: `${termDates.join('、')}${clashBranch}月建交节`,
-          triggerDates: termFacts,
-          topics: ['career', 'relocation'],
-          triggerFact: `${y}年流年${flowYearGanZhi}对应的${clashBranch}月建交节日为${termFacts.map((fact) => fact.dateTime ?? fact.date).join('、')}，该月支与年支相冲，落${getPalaceName(clashPalace)}。`,
-          interactionAnalysis: `月建${clashBranch}与${flowYearGanZhi}年支${flowYearBranch}构成相冲；交节日期按目标时区的真实当地时间列出。`,
-          supportEvidence: [`${clashBranch}月建交节日：${termDates.join('、')}`],
-          counterEvidence: [],
-          rhythm: '快',
-          verificationQuestions: [`交节日前后是否出现阶段性决策、迁动或环境变化？`],
-        });
-      }
-    }
+    appendMonthClashCluster(
+      clusters,
+      baseChart,
+      stages,
+      y,
+      flowYearGanZhi,
+      start,
+      end,
+      timeContext,
+      getPalaceName,
+    );
 
     const yearStart = { year: y, month: 1, day: 1 };
     const yearEnd = { year: y, month: 12, day: 31 };
