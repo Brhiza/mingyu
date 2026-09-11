@@ -4,7 +4,6 @@ import {
 } from './reading-capabilities';
 import type { ReadingAction, ReadingResource, ReadingTarget } from './reading-workflow';
 import type { ReadingSubjectSnapshot } from './reading-subject';
-import type { QimenLifetimeInput } from 'mingyu-core/types';
 import { executeQimenLifetimeWorker } from './qimen-lifetime-worker';
 import { getDefaultAstrolabeScopeDate } from '../astrolabe-scope';
 import { getAiApiEndpoint } from './stream-client';
@@ -1751,8 +1750,12 @@ export async function executeReadingAction(
       typeof calculationRequest.question === 'string' ? calculationRequest.question.trim() : '';
     if (!question) throw new Error('缺少必填字段：question。');
     const { question: _question, responseMode: _responseMode, ...qimenInput } = calculationRequest;
+    const birthDateTime = qimenInput.birthDateTime;
+    if (typeof birthDateTime !== 'string' || !birthDateTime.trim()) {
+      throw new Error('奇门终身局排盘必须提供出生时间 birthDateTime。');
+    }
     const workerResult = await executeQimenLifetimeWorker(
-      qimenInput as QimenLifetimeInput,
+      { ...qimenInput, birthDateTime },
       question,
       signal,
     );
