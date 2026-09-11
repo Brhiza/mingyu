@@ -312,6 +312,59 @@ test('读取参数后补算，原始盘面与补充盘面同时保留', async ()
   assert.doesNotMatch(final, /SCHEMA_SENTINEL_出生年份整数/);
 });
 
+test('准备格式错误后在剩余轮次读取真实参数并补算目标', async (t) => {
+  const h = harness([
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
+    '格式恢复后的解读',
+  ]);
+  h.options.subject = baziSubject;
+  const executed: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input, init) =>
+    handlePublicApiRequest(
+      new Request(new URL(String(input), 'https://aov.cc'), init),
+    )) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+    stream: h.stream,
+    execute: async (action, signal, subject) => {
+      executed.push(action.kind);
+      return executeReadingAction(action, signal, subject);
+    },
+  });
+  assert.deepEqual(executed, ['schema', 'calculate']);
+  assert.match(h.sent[1][0].content, /properties/);
+  assert.match(h.sent[1][0].content, /可解析的 JSON 对象/);
+  assert.match(h.sent[2][0].content, /1990|庚午/);
+  assert.deepEqual(h.chunks, ['格式恢复后的解读']);
+});
+
+test('缺少补算参数时先读取真实 schema 再在下一轮补算', async () => {
+  const h = harness([
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
+    '读取参数后的解读',
+  ]);
+  h.options.subject = baziSubject;
+  const executed: string[] = [];
+  await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+    stream: h.stream,
+    execute: async (action) => {
+      executed.push(action.kind);
+      return action.kind === 'schema'
+        ? { key: '', title: '八字参数', text: 'SCHEMA_AUTO', usable: false }
+        : { key: '', title: '目标流年', text: 'TARGET_AUTO', usable: true };
+    },
+  });
+  assert.deepEqual(executed, ['schema', 'calculate']);
+  assert.match(h.sent[1][0].content, /SCHEMA_AUTO/);
+  assert.match(h.sent[2][0].content, /TARGET_AUTO/);
+  assert.deepEqual(h.chunks, ['读取参数后的解读']);
+});
+
 test('没有主体快照时跳过自动补算并明确提示', async () => {
   const h = harness([
     '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
@@ -329,7 +382,7 @@ test('没有主体快照时跳过自动补算并明确提示', async () => {
 });
 
 test('准备格式不兼容时明确提示并继续已有资料解读，网络失败保留重试', async () => {
-  const h = harness(['不是JSON', '已有资料解读']);
+  const h = harness(['不是JSON', '仍不是JSON', '已有资料解读']);
   await runReadingWorkflow([{ role: 'user', content: '塔罗：星星正位' }], h.options, {
     stream: h.stream,
     execute: async () => {

@@ -900,13 +900,47 @@ export async function runReadingWorkflow(
   const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
   const notes: string[] = [];
   let calls = 0;
+  let planningRepairHint = '';
   const hasStoredFullZiwei = resources.some((resource) => Boolean(getZiweiFullResult(resource)));
   options.onProgress({ stage: 'preparing', text: '正在梳理问题与盘面' });
+  const schemaKeyForMethod = (method: string) => JSON.stringify({ kind: 'schema', method });
+  const hasSchemaForMethod = (method: string) =>
+    schemaResources.some((item) => item.key === schemaKeyForMethod(method));
+  const loadSchema = async (method: string) => {
+    if (hasSchemaForMethod(method)) return true;
+    if (calls >= MAX_ACTIONS) return false;
+    const key = schemaKeyForMethod(method);
+    const schemaAction: ReadingAction = { kind: 'schema', method };
+    calls += 1;
+    seen.add(key);
+    options.onProgress({ stage: 'consulting', text: '正在读取补算参数' });
+    try {
+      const resource = await deps.execute(schemaAction, options.signal, options.subject);
+      schemaResources.push({ ...resource, key, kind: 'schema' });
+      persistResources();
+      guard();
+      return true;
+    } catch (error) {
+      guard();
+      seen.delete(key);
+      notes.push(describeReadingFailure(schemaAction, error));
+      options.onNotice('补算参数暂未取得，将依据已有资料继续解读。');
+      return false;
+    }
+  };
+  const prefetchSubjectSchemas = async () => {
+    if (!subjectMethods) return;
+    for (const method of subjectMethods) {
+      if (!CALCULATIONS.includes(method as (typeof CALCULATIONS)[number])) continue;
+      if (calls >= MAX_ACTIONS) break;
+      await loadSchema(method);
+    }
+  };
   try {
     for (let round = 0; round < (isSimpleFollowup || hasStoredFullZiwei ? 0 : 2); round += 1) {
       let needsRefinement = false;
       guard();
-      const catalog = `【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。双人解读时用 target 指定对象；primary 对应第一人，partner 对应第二人，两人分别填写各自的目标时段。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。partner 补算以本次已提供的第二人出生资料为依据。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
+      const catalog = `${planningRepairHint}【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。双人解读时用 target 指定对象；primary 对应第一人，partner 对应第二人，两人分别填写各自的目标时段。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。partner 补算以本次已提供的第二人出生资料为依据。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
       const schemas = schemaResources.length
         ? `\n\n【补算参数】\n${schemaResources.map((item) => `${item.title}\n${item.text}`).join('\n\n')}`
         : '';
@@ -926,11 +960,15 @@ export async function runReadingWorkflow(
         actions = parseReadingPlan(await collectResponse(prepared, options, deps.stream));
       } catch (error) {
         guard();
-        // 格式不支持时沿用已准备资料；网络、限流等请求失败交由用户重试。
+        // 格式问题在现有准备轮次内补充结构提示；网络、限流等请求失败交由用户重试。
         if (
           error instanceof SyntaxError ||
           (error instanceof Error && /资料准备|一次补充/u.test(error.message))
         ) {
+          planningRepairHint =
+            '\n【资料准备修正】上一次返回未形成可执行资料动作。请输出可解析的 JSON 对象，顶层包含 actions 数组；动作使用 schema、calculate 或 classic 的既定字段，并保留目标主体与目标时段。\n';
+          await prefetchSubjectSchemas();
+          if (round + 1 < 2) continue;
           options.onNotice('本次自动补查未完成，解读将使用已有盘面与解读方法。');
           break;
         }
@@ -963,13 +1001,10 @@ export async function runReadingWorkflow(
           options.onNotice('当前会话没有第二人主体快照，已跳过伴侣补算。');
           continue;
         }
-        if (
-          action.kind === 'calculate' &&
-          !schemaResources.some(
-            (item) => item.key === JSON.stringify({ kind: 'schema', method: action.method }),
-          )
-        ) {
-          notes.push(`${action.method}补算所需参数格式未取得，无法断言目标时段。`);
+        if (action.kind === 'calculate' && !hasSchemaForMethod(action.method)) {
+          const canRetrySchema = calls < MAX_ACTIONS;
+          const schemaLoaded = await loadSchema(action.method);
+          if (schemaLoaded || canRetrySchema) needsRefinement = true;
           continue;
         }
         calls += 1;
