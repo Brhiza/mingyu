@@ -497,9 +497,16 @@ function filterCalculationSchema(method: string, value: unknown): Record<string,
 
 function filterCalculationSchemaCondition(value: unknown, mutable: Set<string>): unknown {
   if (Array.isArray(value)) {
+    const seen = new Set<string>();
     const conditions = value
       .map((item) => filterCalculationSchemaCondition(item, mutable))
-      .filter((item) => item !== undefined);
+      .filter((item) => {
+        if (item === undefined) return false;
+        const key = JSON.stringify(item);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     return conditions.length ? conditions : undefined;
   }
   if (!record(value)) return value;
@@ -509,6 +516,12 @@ function filterCalculationSchemaCondition(value: unknown, mutable: Set<string>):
         (field): field is string => typeof field === 'string' && mutable.has(field),
       );
       return required.length ? [[key, required]] : [];
+    }
+    if (key === 'properties' && record(item)) {
+      const properties = Object.fromEntries(
+        Object.entries(item).filter(([field]) => mutable.has(field)),
+      );
+      return Object.keys(properties).length ? [[key, properties]] : [];
     }
     const condition = filterCalculationSchemaCondition(item, mutable);
     return condition === undefined ? [] : [[key, condition]];
