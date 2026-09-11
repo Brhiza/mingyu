@@ -444,7 +444,7 @@ export function scanLifetimeDynamicEvents(
 
   const getPalaceName = (p: number) =>
     baseChart.jiuGongGe.find((item) => item.gong === p)?.name || `${p}宫`;
-  const ianaNoonValidator = createIanaNoonValidator(timeContext);
+  let ianaNoonValidator: IanaNoonValidator | undefined;
 
   // 查询从一月开始时，补查上一干支年的丑月小寒节点；该节点落在当前公历年一月。
   if (start.month === 1 && startYear > 1) {
@@ -636,6 +636,7 @@ export function scanLifetimeDynamicEvents(
     const yearEnd = { year: y, month: 12, day: 31 };
     const dailyStart = dateKey(start) > dateKey(yearStart) ? start : yearStart;
     const dailyEnd = dateKey(end) < dateKey(yearEnd) ? end : yearEnd;
+    ianaNoonValidator ??= createIanaNoonValidator(timeContext);
     const dailyGroups = collectDailyRelationFacts(
       dailyStart,
       dailyEnd,
