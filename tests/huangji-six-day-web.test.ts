@@ -71,7 +71,7 @@ test('网页皇极六日逐爻入口保留目标、历元和有效盘面资料',
     const structured = resource.structured as Record<string, unknown>;
     const restoredCycle = structured.sixDayCycle as Record<string, unknown>;
     assert.equal(resource.usable, true);
-    assert.match(resource.title, /皇极经世2026-08-24 15:30:00/u);
+    assert.equal(resource.title, '本次目标时点·皇极经世2026-08-24T15:30:00+08:00');
     assert.ok(restoredCycle.civilTime);
     assert.ok(restoredCycle.anchor);
     assert.ok(restoredCycle.hexagrams);
