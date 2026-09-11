@@ -47,6 +47,20 @@ test('住宅风水保留显式山名并拒绝与坐向度数冲突', () => {
   assert.equal(result.xuankong?.facingMountain, '午');
 });
 
+test('住宅风水入口传递替卦并保留玄空替星完整盘面', () => {
+  const result = generateResidentialFengshui({
+    year: 2008,
+    sitDegree: 339,
+    facingDegree: 159,
+    guaType: '替卦',
+  });
+  assert.equal(result.xuankong?.guaType, '替卦');
+  assert.equal(result.xuankong?.replacement?.mountain.referenceMountain, '辰');
+  assert.equal(result.xuankong?.replacement?.facing.referenceMountain, '甲');
+  assert.match(result.prompt, /玄空：.*替卦/);
+  assert.match(result.prompt, /玄空完整盘面：[\s\S]*卦型：替卦/);
+});
+
 test('添加居住人资料不改变门向测量及玄空候选山向', () => {
   const input = {
     year: 2024,

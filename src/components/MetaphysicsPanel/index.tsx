@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { BaZhaiResult } from 'mingyu-core/bazhai';
 import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
-import type { XuanKongResult } from 'mingyu-core/xuankong';
+import type { XuanKongGuaType, XuanKongResult } from 'mingyu-core/xuankong';
 import { daysInGregorianMonth } from 'mingyu-core/calendar';
 import {
   buildResidentialChartInput,
@@ -198,8 +198,19 @@ function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
         </div>
         <div>
           <span>卦型</span>
-          <strong>下卦</strong>
+          <strong>{xuankong.guaType}</strong>
         </div>
+        {xuankong.replacement ? (
+          <div>
+            <span>替星取法</span>
+            <strong>
+              山{xuankong.replacement.mountain.replacementStar}
+              {xuankong.replacement.mountain.direction} · 向
+              {xuankong.replacement.facing.replacementStar}
+              {xuankong.replacement.facing.direction}
+            </strong>
+          </div>
+        ) : null}
         {xuankong.measurement?.candidateMountains?.length ? (
           <div>
             <span>边界候选</span>
@@ -225,6 +236,7 @@ export function MetaphysicsPanel({
 }: MetaphysicsPanelProps) {
   const [facingDegree, setFacingDegree] = useState(initialFacingDegree);
   const [houseYear, setHouseYear] = useState(initialHouseYear);
+  const [guaType, setGuaType] = useState<XuanKongGuaType>('下卦');
   const [flowDate, setFlowDate] = useState(initialFlowDate);
 
   useEffect(() => {
@@ -251,6 +263,7 @@ export function MetaphysicsPanel({
       const next = calculateResidentialChart(
         buildResidentialChartInput({
           birthData,
+          guaType,
           ...(initialHouseYear.trim() && Number.isInteger(Number(initialHouseYear))
             ? { houseYear: Number(initialHouseYear) }
             : {}),
@@ -268,7 +281,7 @@ export function MetaphysicsPanel({
         error: currentError instanceof Error ? currentError.message : '住宅风水排盘失败。',
       };
     }
-  }, [birthData, initialFacingDegree, initialFlowDate, initialHouseYear]);
+  }, [birthData, initialFacingDegree, initialFlowDate, initialHouseYear, guaType]);
   const [result, setResult] = useState<ResidentialFengshuiResult | null>(initialChart.result);
   const [measurement, setMeasurement] = useState<ResidentialMeasurement | null>(
     initialChart.measurement,
@@ -324,6 +337,7 @@ export function MetaphysicsPanel({
         const next = calculateResidentialChart(
           buildResidentialChartInput({
             birthData,
+            guaType,
             ...(parsedHouseYear != null ? { houseYear: parsedHouseYear } : {}),
             ...(facingDegree.trim() ? { doorToInteriorDegree: Number(facingDegree) } : {}),
             ...parseResidentialFlowDate(flowDate),
@@ -347,6 +361,7 @@ export function MetaphysicsPanel({
     directionPreview.error,
     facingDegree,
     flowDate,
+    guaType,
     onResultChange,
     parsedHouseYear,
   ]);
@@ -375,6 +390,7 @@ export function MetaphysicsPanel({
             {bazhai ? <span className="result-chip">命卦 {bazhai.mingGua}</span> : null}
             {bazhai?.houseGua ? <span className="result-chip">宅卦 {bazhai.houseGua}</span> : null}
             {xuankong ? <span className="result-chip">{xuankong.period.label}</span> : null}
+            {xuankong ? <span className="result-chip">{xuankong.guaType}</span> : null}
             {!bazhai && !xuankong ? <span className="result-chip">待补充资料</span> : null}
           </div>
         </div>
@@ -516,6 +532,21 @@ export function MetaphysicsPanel({
                 />
                 <small className="birth-time-hint">
                   站在大门处面向屋内，用手机指南针连续测三次，填写接近的平均度数。
+                </small>
+              </label>
+              <label className="form-item" htmlFor="metaphysics-gua-type">
+                <span>玄空起法</span>
+                <select
+                  id="metaphysics-gua-type"
+                  className="form-input"
+                  value={guaType}
+                  onChange={(event) => setGuaType(event.target.value as XuanKongGuaType)}
+                >
+                  <option value="下卦">下卦（默认）</option>
+                  <option value="替卦">替卦（已核定兼向）</option>
+                </select>
+                <small className="birth-time-hint">
+                  替卦用于已确认的山向兼向外侧三度；分界线和中央九度按下卦处理。
                 </small>
               </label>
               {error ? (

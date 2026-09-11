@@ -324,6 +324,10 @@ test('公开 API OpenAPI 应公开即时盘类型与两种时间口径', async (
   ]);
   assert.deepEqual(schema.properties.timeStandard.enum, ['beijing', 'true-solar']);
   assert.ok(body.data.paths['/instant/calculate']);
+  const metaphysics = body.data.components.schemas.MetaphysicsRequest;
+  assert.deepEqual(metaphysics.properties.guaType.enum, ['下卦', '替卦']);
+  assert.ok(metaphysics.properties.facingDegree);
+  assert.ok(metaphysics.properties.sitDegree);
 });
 
 test('公开 API 八字双盘应返回交叉证据与完整提示词', async () => {
@@ -5791,8 +5795,8 @@ test('公开 API 玄空飞星应返回真实下卦局型', async () => {
   );
   assert.equal(valid.body.data.engine.name, '@soul-atelier/xuankong');
   assert.equal(valid.body.data.engine.mode, '下卦');
-  assert.equal(valid.body.data.guaType, undefined);
-  assert.equal(valid.body.data.replacementApplied, undefined);
+  assert.equal(valid.body.data.guaType, '下卦');
+  assert.equal(valid.body.data.replacementApplied, false);
   assert.match(valid.body.data.evidenceAnalysis.promptText, /下卦|元龙阴阳|双星到向/);
 });
 
@@ -6347,7 +6351,7 @@ test('八宅公开提示词完整保留八宫生克及命宅分组', async () =>
   assert.doesNotMatch(body.data.prompt, /贪狼制绝命|门主同元相生|福力深厚/);
 });
 
-test('玄空与住宅接口拒绝将替卦请求静默计算为下卦', async () => {
+test('玄空与住宅接口应按请求计算替卦并保留替星盘面', async () => {
   for (const method of ['xuankong', 'residential']) {
     for (const operation of ['calculate', 'prompt']) {
       const { response, body } = await callApi(`metaphysics/${method}/${operation}`, {
@@ -6359,12 +6363,27 @@ test('玄空与住宅接口拒绝将替卦请求静默计算为下卦', async ()
           facingMountain: '午',
           mingGua: '坎',
           guaType: '替卦',
+          responseMode: 'full',
           question: '分析住宅',
         }),
       });
-      assert.equal(response.status, 400, `${method}/${operation}`);
-      assert.equal(body.error.code, 'BAD_REQUEST');
-      assert.match(body.error.message, /guaType.*下卦/);
+      assert.equal(response.status, 200, `${method}/${operation}`);
+      const chart =
+        method === 'xuankong'
+          ? operation === 'calculate'
+            ? body.data
+            : body.data.result
+          : operation === 'calculate'
+            ? body.data.xuankong
+            : body.data.result.xuankong;
+      assert.equal(chart.guaType, '替卦', `${method}/${operation}`);
+      assert.equal(chart.replacementApplied, true, `${method}/${operation}`);
+      assert.equal(chart.replacement?.mountain.referenceMountain, '子', `${method}/${operation}`);
+      assert.equal(chart.replacement?.facing.referenceMountain, '巽', `${method}/${operation}`);
+      assert.match(
+        operation === 'calculate' ? JSON.stringify(body.data) : body.data.prompt,
+        /卦型：替卦/,
+      );
     }
   }
 });

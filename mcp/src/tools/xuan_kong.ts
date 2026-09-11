@@ -28,6 +28,7 @@ const xuanKongSchema = z.object({
     .max(45)
     .optional()
     .describe('测量误差，用于边界敏感判断'),
+  guaType: z.enum(['下卦', '替卦']).optional().describe('起法；默认下卦，兼向外侧三度可选替卦'),
   flowYear: z.number().int().min(1).max(9999).optional().describe('目标流年公元年；不传则只排宅盘'),
   flowMonth: z
     .number()
@@ -59,6 +60,7 @@ function calculateXuanKong(args: z.infer<typeof xuanKongSchema>) {
     ...(args.measurementUncertaintyDegrees !== undefined
       ? { measurementUncertaintyDegrees: args.measurementUncertaintyDegrees }
       : {}),
+    ...(args.guaType ? { guaType: args.guaType } : {}),
     ...(args.flowYear !== undefined ? { flowYear: args.flowYear } : {}),
     ...(args.flowMonth !== undefined ? { flowMonth: args.flowMonth } : {}),
     ...(args.flowDay !== undefined ? { flowDay: args.flowDay } : {}),
@@ -70,7 +72,7 @@ export function registerXuanKongTool(server: McpServer) {
     'metaphysics_xuankong',
     {
       description:
-        '玄空飞星：按建造/起运年与山向生成运盘、山盘、向盘；可传目标流年流月日期叠紫白飞星；不传目标时只返回宅盘；不做形峦或吉凶总分',
+        '玄空飞星：按建造/起运年与山向生成运盘、山盘、向盘；默认下卦，兼向可选替卦；可传目标流年流月日期叠紫白飞星；不传目标时只返回宅盘；不做形峦或吉凶总分',
       inputSchema: {
         ...xuanKongSchema.omit({ question: true }).shape,
         ...calculationDetailShape,

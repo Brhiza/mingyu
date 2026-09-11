@@ -9,7 +9,7 @@ import {
   type BaZhaiResult,
 } from 'mingyu-core/bazhai';
 import type { SitFacingPosition } from 'mingyu-core/direction';
-import type { XuanKongResult } from 'mingyu-core/xuankong';
+import type { XuanKongGuaType, XuanKongResult } from 'mingyu-core/xuankong';
 import { LunarDay } from 'tyme4ts';
 
 export type ResidentialMeasurement = BaZhaiDoorMeasurement;
@@ -30,6 +30,7 @@ export type ResidentialChartInput = {
   northReference?: ResidentialFengshuiInput['northReference'];
   magneticDeclinationDegrees?: number;
   measurementUncertaintyDegrees?: number;
+  guaType?: XuanKongGuaType;
   flowYear?: number;
   flowMonth?: number;
   flowDay?: number;
@@ -69,6 +70,7 @@ export function buildResidentialChartInput(params: {
   northReference?: ResidentialFengshuiInput['northReference'];
   magneticDeclinationDegrees?: number;
   measurementUncertaintyDegrees?: number;
+  guaType?: XuanKongGuaType;
   flowYear?: number;
   flowMonth?: number;
   flowDay?: number;
@@ -91,6 +93,7 @@ export function buildResidentialChartInput(params: {
     ...(params.measurementUncertaintyDegrees != null
       ? { measurementUncertaintyDegrees: params.measurementUncertaintyDegrees }
       : {}),
+    ...(params.guaType ? { guaType: params.guaType } : {}),
     ...(params.flowYear != null ? { flowYear: params.flowYear } : {}),
     ...(params.flowMonth != null ? { flowMonth: params.flowMonth } : {}),
     ...(params.flowDay != null ? { flowDay: params.flowDay } : {}),
@@ -129,6 +132,7 @@ function toCoreInput(input: ResidentialChartInput): ResidentialFengshuiInput {
     ...(input.measurementUncertaintyDegrees != null
       ? { measurementUncertaintyDegrees: input.measurementUncertaintyDegrees }
       : {}),
+    ...(input.guaType ? { guaType: input.guaType } : {}),
     ...(input.flowYear != null ? { flowYear: input.flowYear } : {}),
     ...(input.flowMonth != null ? { flowMonth: input.flowMonth } : {}),
     ...(input.flowDay != null ? { flowDay: input.flowDay } : {}),

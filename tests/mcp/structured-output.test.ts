@@ -3504,7 +3504,7 @@ test('MCP 七政、太乙和玄空不得补造缺失必填参数', async () => {
   });
 });
 
-test('MCP 玄空应只返回可核验下卦盘', async () => {
+test('MCP 玄空应返回默认下卦并支持显式替卦盘', async () => {
   await withMcpClient(async (client) => {
     const response = await client.callTool({
       name: 'metaphysics_xuankong',
@@ -3514,13 +3514,37 @@ test('MCP 玄空应只返回可核验下卦盘', async () => {
     const chart = (
       response.structuredContent as {
         result: {
+          guaType: string;
+          replacementApplied: boolean;
           engine: { mode: string };
           evidenceAnalysis: { promptText: string };
         };
       }
     ).result;
     assert.equal(chart.engine.mode, '下卦');
+    assert.equal(chart.guaType, '下卦');
+    assert.equal(chart.replacementApplied, false);
     assert.match(chart.evidenceAnalysis.promptText, /下卦|元龙阴阳|双星到向/);
+
+    const replacementResponse = await client.callTool({
+      name: 'metaphysics_xuankong',
+      arguments: { year: 2024, sitMountain: '子', guaType: '替卦', detailMode: 'full' },
+    });
+    assert.equal(replacementResponse.isError, undefined);
+    const replacementChart = (
+      replacementResponse.structuredContent as {
+        result: {
+          guaType: string;
+          replacementApplied: boolean;
+          engine: { mode: string };
+          replacement?: { mountain: { referenceMountain: string } };
+        };
+      }
+    ).result;
+    assert.equal(replacementChart.guaType, '替卦');
+    assert.equal(replacementChart.replacementApplied, true);
+    assert.equal(replacementChart.engine.mode, '替卦');
+    assert.equal(replacementChart.replacement?.mountain.referenceMountain, '子');
   });
 });
 

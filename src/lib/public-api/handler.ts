@@ -1630,6 +1630,24 @@ export function getPublicApiOpenApiDocument(
             gender: { enum: ['male', 'female'], description: '性别（八宅）' },
             mingGua: { type: 'string', description: '直接给定命卦（八宅）' },
             sitMountain: { type: 'string', description: '坐山，如「子」（八宅）' },
+            facingMountain: { type: 'string', description: '朝向，如「午」（玄空、八宅）' },
+            facingDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '朝向度数，正北 0°、顺时针（玄空）',
+            },
+            sitDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '坐山度数，正北 0°、顺时针（玄空）',
+            },
+            guaType: {
+              enum: ['下卦', '替卦'],
+              default: '下卦',
+              description: '玄空起法；默认下卦，已核定兼向外侧三度时可选替卦',
+            },
             doorToInteriorDegree: {
               type: 'number',
               minimum: 0,
@@ -3747,7 +3765,10 @@ function calculateXuanKongApi(input: JsonRecord) {
     input.measurementUncertaintyDegrees === undefined
       ? undefined
       : readNumberLike(input, 'measurementUncertaintyDegrees', 0, 45);
-  const guaType = input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦']);
+  const guaType =
+    input.guaType === undefined
+      ? undefined
+      : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
   const flowYear =
     input.flowYear === undefined ? undefined : readInteger(input, 'flowYear', 1, 9999);
   const flowMonth =
@@ -3801,7 +3822,10 @@ function calculateResidentialApi(input: JsonRecord) {
   const flowMonth =
     input.flowMonth === undefined ? undefined : readInteger(input, 'flowMonth', 1, 12);
   const flowDay = input.flowDay === undefined ? undefined : readInteger(input, 'flowDay', 1, 31);
-  const guaType = input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦']);
+  const guaType =
+    input.guaType === undefined
+      ? undefined
+      : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
 
   if (mingGua && !BAGUA.includes(mingGua)) {
     throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);

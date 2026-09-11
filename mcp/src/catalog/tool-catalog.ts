@@ -634,7 +634,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '玄空飞星排盘',
     category: 'fengshui',
     type: 'calculate',
-    description: '三元九运山向运星排盘、反伏吟与城门诀计算；可按目标流年、流月日期叠加飞星',
+    description:
+      '三元九运山向运星排盘、下卦或兼向替卦、反伏吟与城门诀计算；可按目标流年、流月日期叠加飞星',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/metaphysics/xuankong/calculate',
   },
@@ -644,7 +645,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     category: 'fengshui',
     type: 'prompt',
     description:
-      '生成玄空飞星山向旺衰与城门气口自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择',
+      '生成玄空飞星下卦或兼向替卦山向旺衰与城门气口自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/metaphysics/xuankong/prompt',
   },
@@ -653,7 +654,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '住宅风水合参排盘',
     category: 'fengshui',
     type: 'calculate',
-    description: '综合八宅生年命卦与玄空飞星九运的住宅风水合参；可按目标流年、流月日期叠加飞星',
+    description:
+      '综合八宅生年命卦与玄空飞星九运（下卦或兼向替卦）的住宅风水合参；可按目标流年、流月日期叠加飞星',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/metaphysics/residential/calculate',
   },
@@ -663,7 +665,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     category: 'fengshui',
     type: 'prompt',
     description:
-      '生成住宅风水八宅玄空综合评估自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择',
+      '生成住宅风水八宅玄空（下卦或兼向替卦）综合评估自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/metaphysics/residential/prompt',
   },

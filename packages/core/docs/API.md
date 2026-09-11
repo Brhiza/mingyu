@@ -354,7 +354,7 @@
 | `bazhaiByDoorDegree(input)`                 | 从大门面向屋内读数换算山向并生成八宅盘                    |
 | `zodiac(input)`                             | 按生肖/年支与公历年或指定干支生成生肖流年关系             |
 | `taiyi(input)` / `qizheng(input)`           | 生成太乙年、月、日、时四计或七政四余盘                    |
-| `xuankong(input)`                           | 生成玄空下卦三盘                                          |
+| `xuankong(input)`                           | 默认生成玄空下卦三盘；显式选择兼向替卦时重算山盘、向盘与局型组合 |
 | `residentialFengshui(input)`                | 按实际资料组合八宅与玄空住宅结果                          |
 | `capabilities()` / `capability(id)`         | 查询全部或单项能力声明；未知 ID 明确失败                  |
 | `serialize(value)`                          | 输出键顺序稳定的 JSON                                     |

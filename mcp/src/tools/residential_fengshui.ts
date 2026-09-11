@@ -37,6 +37,10 @@ const residentialSchema = z.object({
   facingMountain: mountainSchema.describe('朝向二十四山'),
   facingDegree: z.number().min(0).max(360).optional().describe('朝向度数，正北 0°'),
   sitDegree: z.number().min(0).max(360).optional().describe('坐山度数，正北 0°'),
+  guaType: z
+    .enum(['下卦', '替卦'])
+    .optional()
+    .describe('玄空起法；默认下卦，已核定兼向外侧三度时可选替卦'),
   doorToInteriorDegree: z
     .number()
     .min(0)
@@ -88,6 +92,7 @@ function calculateResidential(args: z.infer<typeof residentialSchema>) {
     ...(args.facingMountain ? { facingMountain: args.facingMountain } : {}),
     ...(args.facingDegree !== undefined ? { facingDegree: args.facingDegree } : {}),
     ...(args.sitDegree !== undefined ? { sitDegree: args.sitDegree } : {}),
+    ...(args.guaType ? { guaType: args.guaType } : {}),
     ...(args.doorToInteriorDegree !== undefined
       ? { doorToInteriorDegree: args.doorToInteriorDegree }
       : {}),
@@ -109,7 +114,7 @@ export function registerResidentialFengshuiTool(server: McpServer) {
     'metaphysics_residential',
     {
       description:
-        '住宅风水一站式：分层计算八宅与玄空飞星，输出宅运结构、人宅适配、合参要点与证据；可传目标流年、流月日期叠加对应飞星；玄空层须提供建造年或起运年，不生成综合吉凶总分',
+        '住宅风水一站式：分层计算八宅与玄空飞星，输出宅运结构、人宅适配、合参要点与证据；可传目标流年、流月日期叠加对应飞星；玄空层默认下卦，兼向可选替卦；须提供建造年或起运年，不生成综合吉凶总分',
       inputSchema: {
         ...residentialSchema.omit({ question: true }).shape,
         ...calculationDetailShape,
