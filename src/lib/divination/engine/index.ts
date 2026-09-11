@@ -21,7 +21,7 @@ import type {
   MeihuaDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
-import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
+import type { HuangjiJingshiResult, HuangjiSixDayCalendarModel } from 'mingyu-core/huangji-jingshi';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import { convertTrueSolarTime, formatSolarDateTimeParts, TimeManager } from 'mingyu-core/calendar';
 import { daysInSolarMonth } from '../../date-validation';
@@ -104,6 +104,7 @@ export type DivinationDraft = {
   customDivinationTime?: string;
   divinationTimeStandard?: 'beijing' | 'true-solar';
   huangjiMethod?: 'standard' | 'six-day';
+  huangjiSixDayCalendarModel?: HuangjiSixDayCalendarModel;
   huangjiSixDayEpochDate?: string;
   huangjiSixDayTimezone?: string;
   birthPlace?: string;
@@ -421,11 +422,17 @@ function validateDraft(draft: DivinationDraft) {
 
   if (draft.method === 'huangji' && draft.huangjiMethod === 'six-day') {
     readCustomDivinationDate(draft);
-    const epochDate = draft.huangjiSixDayEpochDate?.trim() ?? '';
-    if (!epochDate) {
-      throw new Error('六日逐爻需要填写经校定的历元日期');
+    const calendarModel = draft.huangjiSixDayCalendarModel ?? 'six-day-seven-part';
+    if (calendarModel !== 'six-day-seven-part' && calendarModel !== 'six-day-explicit-epoch') {
+      throw new Error('六日逐爻换算模型无效');
     }
-    readDateText(epochDate, '六日逐爻校定历元日期');
+    if (calendarModel === 'six-day-explicit-epoch') {
+      const epochDate = draft.huangjiSixDayEpochDate?.trim() ?? '';
+      if (!epochDate) {
+        throw new Error('六日逐爻显式历元需要填写校定日期');
+      }
+      readDateText(epochDate, '六日逐爻校定历元日期');
+    }
     const timezone = readNumberText(draft.huangjiSixDayTimezone?.trim() ?? '', '六日逐爻业务时区');
     assertNumberRange(timezone, '六日逐爻业务时区', -12, 14);
   }
@@ -871,13 +878,16 @@ function resolveCustomDivinationDate(
 function buildHuangjiSixDayDateInput(draft: DivinationDraft) {
   const targetDate = draft.customDivinationDate?.trim() ?? '';
   const targetTime = draft.customDivinationTime?.trim() ?? '';
-  const epochDate = draft.huangjiSixDayEpochDate?.trim() ?? '';
+  const calendarModel = draft.huangjiSixDayCalendarModel ?? 'six-day-seven-part';
   const timezone = readNumberText(draft.huangjiSixDayTimezone?.trim() ?? '', '六日逐爻业务时区');
   assertNumberRange(timezone, '六日逐爻业务时区', -12, 14);
   return {
     targetDateTime: `${targetDate}T${targetTime}:00`,
-    epochDateTime: `${epochDate}T00:00:00`,
     timezone,
+    calendarModel,
+    ...(calendarModel === 'six-day-explicit-epoch'
+      ? { epochDateTime: `${draft.huangjiSixDayEpochDate?.trim() ?? ''}T00:00:00` }
+      : {}),
   };
 }
 
@@ -1038,8 +1048,8 @@ export async function generateDivinationSession(
           sixDay.targetDateTime,
           sixDay.timezone,
           undefined,
-          module.HUANGJI_SIX_DAY_CALENDAR_MODEL,
-          sixDay.epochDateTime,
+          sixDay.calendarModel,
+          sixDay.calendarModel === 'six-day-explicit-epoch' ? sixDay.epochDateTime : undefined,
         );
         data = module.calculateHuangjiJingshi({
           sixDayDate,

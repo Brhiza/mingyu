@@ -13,6 +13,7 @@ function buildSixDayDraft(overrides: Partial<DivinationDraft> = {}): DivinationD
     method: 'huangji',
     question: '这个目标时点的六日时势如何？',
     huangjiMethod: 'six-day',
+    huangjiSixDayCalendarModel: 'six-day-seven-part',
     divinationTimeMode: 'custom',
     customDivinationDate: '2026-08-24',
     customDivinationTime: '15:30',
@@ -35,8 +36,8 @@ async function withRealApi(callback: () => Promise<void>) {
   }
 }
 
-test('网页皇极六日逐爻入口保留目标、历元和有效盘面资料', async () => {
-  const draft = buildSixDayDraft();
+test('网页皇极六日逐爻显式历元入口保留目标、历元和有效盘面资料', async () => {
+  const draft = buildSixDayDraft({ huangjiSixDayCalendarModel: 'six-day-explicit-epoch' });
   const session = await generateDivinationSession(draft);
   const data = session.data as HuangjiJingshiResult;
   const cycle = data.sixDayCycle;
@@ -97,9 +98,34 @@ test('网页皇极六日逐爻入口拒绝超出显式历元坐标范围的目�
   await assert.rejects(
     generateDivinationSession(
       buildSixDayDraft({
+        huangjiSixDayCalendarModel: 'six-day-explicit-epoch',
         customDivinationDate: '2027-08-24',
       }),
     ),
     /超出显式历元后0至359日的已定义坐标范围/u,
   );
+});
+
+test('网页皇极六日七分默认不要求历元并锁定现代换算模型', async () => {
+  assert.equal(defaultDraft.huangjiSixDayCalendarModel, 'six-day-seven-part');
+  const draft = buildSixDayDraft({
+    huangjiSixDayEpochDate: '',
+    huangjiSixDayCalendarModel: 'six-day-seven-part',
+  });
+  const session = await generateDivinationSession(draft);
+  const data = session.data as HuangjiJingshiResult;
+  const cycle = data.sixDayCycle;
+
+  assert.ok(cycle);
+  assert.equal(cycle?.calendar.model, 'six-day-seven-part');
+  assert.equal(cycle?.calendar.mapping, 'winter-solstice-proportional-360');
+  assert.equal(cycle?.anchor.kind, 'winter-solstice-civil-midnight');
+  assert.equal(cycle?.model, '书绪言六日逐爻·现代冬至岁周换算');
+  assert.equal(data.input.mode, '六日逐爻公历');
+
+  const subject = buildDivinationReadingSubject(draft, session);
+  assert.equal(subject?.lockedInputs.huangji.calendarModel, 'six-day-seven-part');
+  assert.equal(subject?.lockedInputs.huangji.sixDayEpochDateTime, undefined);
+  assert.equal(subject?.range.huangjiSixDayEpochDateTime, undefined);
+  assert.equal(subject?.range.huangjiSixDayAnchorDateTime, cycle?.anchor.dateTime);
 });

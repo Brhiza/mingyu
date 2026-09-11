@@ -4037,6 +4037,10 @@ select {
   flex: 0 1 200px;
 }
 
+.divination-huangji-model-field {
+  flex-basis: 190px;
+}
+
 .divination-inline-number-field {
   flex-basis: 148px;
 }
@@ -7941,6 +7945,11 @@ select {
     min-height: 44px;
     overflow: hidden;
     border-radius: 8px;
+  }
+
+  .divination-huangji-model-picker {
+    flex: 1 1 132px;
+    min-width: 132px;
   }
 
   .divination-mobile-control-row {

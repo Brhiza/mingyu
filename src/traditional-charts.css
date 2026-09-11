@@ -2184,6 +2184,10 @@
     font-weight: 600;
   }
 
+  .traditional-huangji-board .traditional-fact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .traditional-facts-row,
   .traditional-note-row {
     padding: 6px 8px;

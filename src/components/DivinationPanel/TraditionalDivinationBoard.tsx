@@ -3138,6 +3138,8 @@ function HuangjiTraditionalBoard({
   if (!forecast) return null;
   const dateTimeForecast = data.dateTimeForecast;
   const sixDayCycle = data.sixDayCycle;
+  const sixDayUsesExplicitEpoch = sixDayCycle?.calendar.model === 'six-day-explicit-epoch';
+  const sixDayModelLabel = sixDayUsesExplicitEpoch ? '显式校定历元' : '冬至岁周换算（现代）';
 
   const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
   const related = [
@@ -3240,7 +3242,8 @@ function HuangjiTraditionalBoard({
           <TraditionalMeta
             items={[
               ['六日目标时间', sixDayCycle.civilTime.dateTime],
-              ['校定历元', sixDayCycle.anchor.dateTime],
+              [sixDayUsesExplicitEpoch ? '校定历元' : '现代冬至定位', sixDayCycle.anchor.dateTime],
+              ['换算模型', sixDayModelLabel],
               [
                 '时区',
                 `UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}`,
@@ -3253,11 +3256,22 @@ function HuangjiTraditionalBoard({
                 '六日坐标',
                 `第${sixDayCycle.dayOfCycle}日（已过${sixDayCycle.calendar.actualElapsedDays}日）`,
               ],
+              [
+                '换算说明',
+                sixDayUsesExplicitEpoch
+                  ? '按校定历元后的当地公历日定位'
+                  : '按现代冬至与实际岁周比例定位',
+              ],
               ['经卦', `${sixDayCycle.hexagrams.jing.name} · 第${sixDayCycle.dayLine}爻`],
               ['当日变卦', sixDayCycle.hexagrams.daily.name],
               ['时变卦', `${sixDayCycle.hexagrams.hourly.name}（${sixDayCycle.hourRange}）`],
               ['实际时刻相隔', `${sixDayCycle.calendar.actualElapsedSeconds}秒`],
-              ['有效坐标范围', '显式历元后第0至359个当地公历日'],
+              [
+                '有效坐标范围',
+                sixDayUsesExplicitEpoch
+                  ? '显式历元后第0至359个当地公历日'
+                  : '现代冬至至下一冬至映射360个逻辑日',
+              ],
             ]}
           />
           <div

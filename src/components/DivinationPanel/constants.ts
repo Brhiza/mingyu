@@ -29,6 +29,7 @@ export const defaultDraft: DivinationDraft = {
   customDivinationTime: '',
   divinationTimeStandard: 'beijing',
   huangjiMethod: 'standard',
+  huangjiSixDayCalendarModel: 'six-day-seven-part',
   huangjiSixDayEpochDate: '',
   huangjiSixDayTimezone: '8',
   birthPlace: '',

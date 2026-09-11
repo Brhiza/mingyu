@@ -50,7 +50,20 @@ const DIVINATION_TIME_STANDARD_OPTIONS = [
 
 const HUANGJI_METHOD_OPTIONS = [
   { value: 'standard', label: '年月日时' },
-  { value: 'six-day', label: '六日逐爻（校定历元）' },
+  { value: 'six-day', label: '六日逐爻' },
+] as const;
+
+const HUANGJI_SIX_DAY_MODEL_OPTIONS = [
+  {
+    value: 'six-day-seven-part',
+    label: '冬至岁周换算（现代）',
+    triggerLabel: '现代换算',
+  },
+  {
+    value: 'six-day-explicit-epoch',
+    label: '显式校定历元',
+    triggerLabel: '显式历元',
+  },
 ] as const;
 
 const JINKOUJUE_BRANCH_OPTIONS = [
@@ -318,6 +331,9 @@ export function DivinationForm({
   const isTimeBasedDivination = isTimeBasedDivinationDraft(draft);
   const huangjiMethod = draft.huangjiMethod ?? 'standard';
   const isHuangjiSixDay = draft.method === 'huangji' && huangjiMethod === 'six-day';
+  const huangjiSixDayCalendarModel = draft.huangjiSixDayCalendarModel ?? 'six-day-seven-part';
+  const isHuangjiSixDayExplicitEpoch =
+    isHuangjiSixDay && huangjiSixDayCalendarModel === 'six-day-explicit-epoch';
   const supportsTrueSolarTime =
     isTimeBasedDivination &&
     !isHuangjiSixDay &&
@@ -473,6 +489,12 @@ export function DivinationForm({
   function updateHuangjiMethod(value: NonNullable<DivinationDraft['huangjiMethod']>) {
     updateDraft('huangjiMethod', value);
     if (value === 'six-day') updateDraft('divinationTimeMode', 'custom');
+  }
+
+  function updateHuangjiSixDayCalendarModel(
+    value: NonNullable<DivinationDraft['huangjiSixDayCalendarModel']>,
+  ) {
+    updateDraft('huangjiSixDayCalendarModel', value);
   }
 
   if (isAlmanac) {
@@ -641,6 +663,25 @@ export function DivinationForm({
                             onChange={(value) =>
                               updateHuangjiMethod(
                                 value as NonNullable<DivinationDraft['huangjiMethod']>,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {isHuangjiSixDay ? (
+                      <div className="form-item divination-inline-field divination-huangji-model-field">
+                        <label htmlFor="huangji-six-day-model-select">换算模型</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="huangji-six-day-model-select"
+                            value={huangjiSixDayCalendarModel}
+                            options={HUANGJI_SIX_DAY_MODEL_OPTIONS}
+                            ariaLabel="六日逐爻换算模型"
+                            onChange={(value) =>
+                              updateHuangjiSixDayCalendarModel(
+                                value as NonNullable<DivinationDraft['huangjiSixDayCalendarModel']>,
                               )
                             }
                           />
@@ -1069,6 +1110,21 @@ export function DivinationForm({
                       ariaLabel="皇极起盘方式"
                       onChange={(value) =>
                         updateHuangjiMethod(value as NonNullable<DivinationDraft['huangjiMethod']>)
+                      }
+                    />
+                  </div>
+                ) : null}
+
+                {isHuangjiSixDay ? (
+                  <div className="divination-mobile-secondary-picker divination-huangji-model-picker">
+                    <DropdownSelect
+                      value={huangjiSixDayCalendarModel}
+                      options={HUANGJI_SIX_DAY_MODEL_OPTIONS}
+                      ariaLabel="六日逐爻换算模型"
+                      onChange={(value) =>
+                        updateHuangjiSixDayCalendarModel(
+                          value as NonNullable<DivinationDraft['huangjiSixDayCalendarModel']>,
+                        )
                       }
                     />
                   </div>
@@ -1742,7 +1798,7 @@ export function DivinationForm({
               </div>
             ) : (
               <div className="divination-extra-panel divination-time-panel">
-                <div className="form-row-flex">
+                <div className={`form-row-flex ${isHuangjiSixDay ? 'has-third-item' : ''}`}>
                   <div className="form-item">
                     <label htmlFor="custom-divination-date-input">
                       {isHuangjiSixDay ? '目标日期' : `${timeActionLabel}日期`}
@@ -1769,8 +1825,26 @@ export function DivinationForm({
                       onChange={(event) => updateDraft('customDivinationTime', event.target.value)}
                     />
                   </div>
+                  {isHuangjiSixDay ? (
+                    <div className="form-item">
+                      <label htmlFor="huangji-six-day-timezone-input">时区（UTC偏移）</label>
+                      <input
+                        id="huangji-six-day-timezone-input"
+                        type="number"
+                        min="-12"
+                        max="14"
+                        step="any"
+                        inputMode="decimal"
+                        className="form-input"
+                        value={draft.huangjiSixDayTimezone ?? ''}
+                        onChange={(event) =>
+                          updateDraft('huangjiSixDayTimezone', event.target.value)
+                        }
+                      />
+                    </div>
+                  ) : null}
                 </div>
-                {isHuangjiSixDay ? (
+                {isHuangjiSixDayExplicitEpoch ? (
                   <>
                     <div className="form-row-flex">
                       <div className="form-item">
@@ -1787,27 +1861,15 @@ export function DivinationForm({
                           }
                         />
                       </div>
-                      <div className="form-item">
-                        <label htmlFor="huangji-six-day-timezone-input">时区（UTC偏移）</label>
-                        <input
-                          id="huangji-six-day-timezone-input"
-                          type="number"
-                          min="-12"
-                          max="14"
-                          step="any"
-                          inputMode="decimal"
-                          className="form-input"
-                          value={draft.huangjiSixDayTimezone ?? ''}
-                          onChange={(event) =>
-                            updateDraft('huangjiSixDayTimezone', event.target.value)
-                          }
-                        />
-                      </div>
                     </div>
                     <small className="workspace-ui-field-hint">
-                      填写已校定的历元日期，其当地00:00作为六日逐爻起点。目标时间和历元使用同一时区。
+                      填写当地子半作为第1日，目标时间和历元使用同一时区。
                     </small>
                   </>
+                ) : isHuangjiSixDay ? (
+                  <small className="workspace-ui-field-hint">
+                    默认按现代冬至和实际岁周比例换算；结果会标明“现代换算”。
+                  </small>
                 ) : null}
               </div>
             )
