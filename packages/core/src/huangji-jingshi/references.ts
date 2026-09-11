@@ -122,7 +122,7 @@ const SOUND_RHYTHM_LIMITATIONS = Object.freeze([
   '识典章节该处转录为“一百一十二因一百二十二”而结果给出一万七千二十四；动植物数表按同段上下文以112×152复算，原字仍待底本影像逐字校核。',
 ] as const);
 
-const HUANGJI_SOUND_RHYTHM_REFERENCE: HuangjiSoundRhythmReference = Object.freeze({
+const HUANGJI_SOUND_RHYTHM_REFERENCE = Object.freeze<HuangjiSoundRhythmReference>({
   table: 'sound-rhythm',
   title: '声音律吕图',
   source: [HUANGJI_REFERENCE_SOURCES.volume10Lower, HUANGJI_REFERENCE_SOURCES.soundCommentary],
@@ -296,9 +296,7 @@ export function queryHuangjiReference(query: HuangjiReferenceQuery): HuangjiRefe
         bodyCounts: { ...HUANGJI_SOUND_RHYTHM_REFERENCE.bodyCounts },
         soundCategories: [...HUANGJI_SOUND_RHYTHM_REFERENCE.soundCategories],
         toneCategories: [...HUANGJI_SOUND_RHYTHM_REFERENCE.toneCategories],
-        pairings: HUANGJI_SOUND_RHYTHM_REFERENCE.pairings.map((item) => ({
-          ...item,
-        })) as HuangjiSoundRhythmReference['pairings'],
+        pairings: structuredClone(HUANGJI_SOUND_RHYTHM_REFERENCE.pairings),
         rules: [...HUANGJI_SOUND_RHYTHM_REFERENCE.rules],
         limitations: [...HUANGJI_SOUND_RHYTHM_REFERENCE.limitations],
       };
