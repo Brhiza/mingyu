@@ -264,7 +264,7 @@ export function buildReadingSubject(
     allowedMethods.push('qimen-lifetime');
   }
   if (prompt.promptSource === 'bazhai') {
-    lockedInputs.fengshui = buildResidentialInputs(input, prompt);
+    lockedInputs.fengshui = { ...buildResidentialInputs(input, prompt) };
     allowedMethods.push('fengshui');
   }
 
