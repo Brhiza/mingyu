@@ -1,14 +1,9 @@
 import { attachWorkerSafety } from '@/hooks/useWorkerRequest';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
-import type { buildSerializableZiweiResult } from 'mingyu-core/ziwei';
+import type { ReadingResource } from '@/lib/ai/reading-workflow';
 
-type ZiweiReadingResourceContent = {
-  text: string;
-  usable: true;
-  kind: 'evidence';
-  structured: ReturnType<typeof buildSerializableZiweiResult>;
-};
+export type ZiweiReadingResourceContent = Omit<ReadingResource, 'key' | 'title'>;
 
 export function createPayloadWorker(
   input: ChartInput,

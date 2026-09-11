@@ -11,7 +11,7 @@ import {
   type SerializableZiweiResult,
   type ZiweiFortuneTimeline,
   type ZiweiFortuneTimelinePhaseSelection,
-} from '@core/prompt';
+} from 'mingyu-core/prompt';
 
 export type ReadingTarget = 'primary' | 'partner';
 
