@@ -127,7 +127,11 @@ export class TimeManager {
    * @param explicitOffsetMinutes 可选的本次计算时区偏移；传入时不读取全局默认值
    * @returns 统一的时间数据
    */
-  static getDivinationTime(customTime?: Date, explicitOffsetMinutes?: number): DivinationTime {
+  static getDivinationTime(
+    customTime?: Date,
+    explicitOffsetMinutes?: number,
+    referenceDate?: Date,
+  ): DivinationTime {
     const targetTime = customTime === undefined ? new Date() : customTime;
     if (!(targetTime instanceof Date) || Number.isNaN(targetTime.getTime())) {
       throw new Error('自定义时间不是有效日期。');
@@ -136,7 +140,11 @@ export class TimeManager {
     // 显式地点时区下，节气仍按采用历表的中国标准时瞬时点定位；未显式传入时保留原有全局口径。
     const termOffsetMinutes =
       explicitOffsetMinutes === undefined ? offsetMinutes : DEFAULT_CHINA_TIMEZONE_HOURS * 60;
-    const termSolarTime = this.getTermSolarTime(targetTime, termOffsetMinutes);
+    const termDate = referenceDate ?? targetTime;
+    if (!(termDate instanceof Date) || Number.isNaN(termDate.getTime())) {
+      throw new Error('节气参考时间不是有效日期。');
+    }
+    const termSolarTime = this.getTermSolarTime(termDate, termOffsetMinutes);
     const timeInfo = this.getTimeInfo(targetTime, offsetMinutes, termSolarTime);
     const ganzhi = this.getGanZhi(targetTime, offsetMinutes, termSolarTime);
     const timestamp = targetTime.getTime();

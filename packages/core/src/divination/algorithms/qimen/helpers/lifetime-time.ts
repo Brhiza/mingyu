@@ -19,8 +19,10 @@ import {
 } from '../../../../calendar/true-solar-time';
 
 export interface QimenNormalizedTimeResult {
-  /** 用于排盘计算的标准化 Date 对象 */
+  /** 日时计算坐标；真太阳时模式下表示校正后的当地钟表时间。 */
   normalizedDate: Date;
+  /** 出生真实瞬时点，用于节气与天文事件定位。 */
+  referenceDate: Date;
   /** 四柱计算基准日期（真太阳时模式下为经度修正后的时刻） */
   calculationParts: CivilDateTimeParts;
   /** 本次计算应使用的当地 UTC 偏移（分钟），与 normalizedDate 表示同一 civil 时刻 */
@@ -125,6 +127,7 @@ export function normalizeQimenLifetimeTime(input: QimenLifetimeInput): QimenNorm
   let crossesDate: boolean | undefined;
 
   let normalizedDate: Date;
+  let referenceDate: Date | undefined;
   let effectiveTimezone: number;
 
   if (timeStandard === 'trueSolar') {
@@ -146,13 +149,18 @@ export function normalizeQimenLifetimeTime(input: QimenLifetimeInput): QimenNorm
     isDstApplied = tstResult.chinaDst.applied;
     crossesDate = tstResult.crossesDate;
     effectiveTimezone = tstResult.timezone;
+    referenceDate = new Date(
+      resolveCivilTime(
+        { ...tstResult.standardTime, timezone: tstResult.timezone },
+        { defaultTimezone: DEFAULT_CHINA_TIMEZONE_HOURS },
+      ).utcTimestamp,
+    );
 
-    // 解析真太阳时修正后的标准 UTC 时间
+    // 太阳时钟表不再应用民用时区的跳时/回拨规则，沿用出生时已解析的偏移。
     const resolvedCivil = resolveCivilTime(
       {
         ...calculationParts,
         timezone: tstResult.timezone,
-        timeZoneId: tstResult.timeZoneId,
       },
       { defaultTimezone: DEFAULT_CHINA_TIMEZONE_HOURS },
     );
@@ -173,21 +181,20 @@ export function normalizeQimenLifetimeTime(input: QimenLifetimeInput): QimenNorm
   }
 
   // 4. 提取当令节气
-  let solarTermName = '立春';
-  try {
-    const termParts = getCivilDateTimeAtFixedOffset(normalizedDate, DEFAULT_CHINA_TIMEZONE_HOURS);
-    const st = SolarTime.fromYmdHms(
-      termParts.year,
-      termParts.month,
-      termParts.day,
-      termParts.hour,
-      termParts.minute,
-      termParts.second,
-    );
-    solarTermName = st.getTerm().getName();
-  } catch {
-    // 容错默认节气
-  }
+  const termParts = getCivilDateTimeAtFixedOffset(
+    referenceDate ?? normalizedDate,
+    DEFAULT_CHINA_TIMEZONE_HOURS,
+  );
+  const solarTermName = SolarTime.fromYmdHms(
+    termParts.year,
+    termParts.month,
+    termParts.day,
+    termParts.hour,
+    termParts.minute,
+    termParts.second,
+  )
+    .getTerm()
+    .getName();
 
   // 5. 默认阶段策略
   const stagePolicy: QimenStagePolicy = {
@@ -217,6 +224,7 @@ export function normalizeQimenLifetimeTime(input: QimenLifetimeInput): QimenNorm
 
   return {
     normalizedDate,
+    referenceDate: referenceDate ?? normalizedDate,
     calculationParts,
     timezoneOffsetMinutes: effectiveTimezone * 60,
     basis,

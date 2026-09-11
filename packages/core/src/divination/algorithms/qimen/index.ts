@@ -254,18 +254,23 @@ export function generateQimen(
   juMethod: QimenJuMethod = 'chaibu',
   timezoneOffsetMinutes?: number,
   timeZoneId?: string,
+  referenceDate?: Date,
 ): QimenData {
   assertQimenScope(scope);
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 1：获取统一占卜时间信息
   // ──────────────────────────────────────────────────────────────────────────
-  const { timeInfo, ganzhi, timestamp } = getDivinationTime(customDate, timezoneOffsetMinutes);
+  const { timeInfo, ganzhi, timestamp } = getDivinationTime(
+    customDate,
+    timezoneOffsetMinutes,
+    referenceDate,
+  );
   const { jieQi } = timeInfo;
   const termContext: QimenTermContext | undefined =
     timezoneOffsetMinutes === undefined
       ? undefined
       : {
-          referenceDate: new Date(timestamp),
+          referenceDate: referenceDate ?? new Date(timestamp),
           localOffsetMinutes: timezoneOffsetMinutes,
           timeZoneId,
         };
@@ -382,6 +387,7 @@ export function generateQimen(
     new Date(timestamp),
     timezoneOffsetMinutes,
     timezoneOffsetMinutes === undefined ? undefined : 480,
+    referenceDate,
   );
 
   // ──────────────────────────────────────────────────────────────────────────

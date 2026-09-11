@@ -433,9 +433,11 @@ export function buildSeasonality(
   date: Date,
   explicitOffsetMinutes?: number,
   termOffsetMinutes?: number,
+  referenceDate?: Date,
 ): SeasonalityInfo {
   // ── 1. 节气与三元阶段（优先以太阳历准确定位节气） ──
-  const jieQiPhase = getJieQiPhaseByDate(date, explicitOffsetMinutes, termOffsetMinutes);
+  const actualInstant = referenceDate ?? date;
+  const jieQiPhase = getJieQiPhaseByDate(actualInstant, explicitOffsetMinutes, termOffsetMinutes);
   // 使用参数传人的节气名作为兜底，优先以太阳历实际节气为准
   const actualJieQi = jieQiPhase.jieQi || jieQi;
   const seasonalElement = getSeasonalElement(actualJieQi);
@@ -452,7 +454,7 @@ export function buildSeasonality(
   const phaseIndex = tymePhase.getIndex();
   const lunarPhase = getLunarPhaseByIndex(phaseIndex);
   const lunarPhaseDetail = tymePhase.getName();
-  const moonPhaseEvidence = calculateMoonPhaseEvidence(date.getTime());
+  const moonPhaseEvidence = calculateMoonPhaseEvidence(actualInstant.getTime());
   const lunarPhaseConsistency = lunarPhaseDetail === moonPhaseEvidence.eightPhaseName;
 
   // ── 4. 建除十二神 ──

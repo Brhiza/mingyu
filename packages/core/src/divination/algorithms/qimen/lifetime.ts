@@ -39,6 +39,7 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
     juMethod,
     timeResult.timezoneOffsetMinutes,
     input.timeZoneId,
+    timeResult.referenceDate,
   );
 
   // 3. P1: 提取个人标记与六亲主题宫（枢）
