@@ -123,6 +123,9 @@ const SOURCE_METHODS: Record<ReadingSubjectSnapshot['source'], string[]> = {
   astrolabe: ['astrolabe'],
   qizheng: ['qizheng'],
   bazhai: ['fengshui'],
+  taiyi: ['taiyi'],
+  huangji: ['huangji'],
+  wuyun: ['wuyun'],
 };
 
 function resolveReadingMethod(method?: string) {

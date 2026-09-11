@@ -11,6 +11,7 @@ import {
   getTimeIndexFromClock,
   resolveCivilTime,
 } from 'mingyu-core/calendar';
+import { getWuyunLiuqiYearGanZhi } from 'mingyu-core/wuyun-liuqi';
 
 const LABELS: Record<string, string> = {
   sourceBook: '典籍',
@@ -229,6 +230,53 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
       'flowYear',
       'flowMonth',
       'flowDay',
+      'question',
+      'topicId',
+      'subtopicId',
+      'scope',
+      'promptScope',
+      'promptMode',
+      'schools',
+    ],
+  },
+  taiyi: {
+    immutable: [],
+    mutable: [
+      'scope',
+      'year',
+      'month',
+      'day',
+      'hour',
+      'minute',
+      'ganZhi',
+      'question',
+      'topicId',
+      'subtopicId',
+      'promptScope',
+      'promptMode',
+      'schools',
+    ],
+  },
+  huangji: {
+    immutable: [],
+    mutable: [
+      'customDate',
+      'epochYear',
+      'year',
+      'elapsedYears',
+      'question',
+      'topicId',
+      'subtopicId',
+      'scope',
+      'promptMode',
+      'schools',
+    ],
+  },
+  wuyun: {
+    immutable: [],
+    mutable: [
+      'year',
+      'yearGanZhi',
       'question',
       'topicId',
       'subtopicId',
@@ -622,6 +670,28 @@ function normalizeDateKey(value: unknown) {
   const match = value.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/u);
   if (!match) return undefined;
   return [match[1], match[2].padStart(2, '0'), match[3].padStart(2, '0')].join('-');
+}
+
+function readDateTimeParts(value: unknown) {
+  if (typeof value !== 'string') return undefined;
+  const match = value.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)/u,
+  );
+  if (!match) return undefined;
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5]),
+    ...(match[6] === undefined ? {} : { second: Number(match[6]) }),
+  };
+}
+
+function normalizeDateTimeKey(value: unknown) {
+  const parts = readDateTimeParts(value);
+  if (!parts) return undefined;
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')} ${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`;
 }
 
 function assertZiweiResultFacts(
@@ -1058,6 +1128,132 @@ function assertResidentialResult(
   }
 }
 
+function assertTaiyiResult(
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result)) throw new Error('补算未返回结构化太乙神数结果。');
+  const scope = calculationInput.scope ?? locked.scope;
+  assertStructuredField('taiyi.scope', scope, result.scope);
+  if (typeof result.scope !== 'string' || !result.scope) {
+    throw new Error('补算返回缺少太乙计式。');
+  }
+  const dateTimeParts = readDateTimeParts(result.dateTime);
+  if (!dateTimeParts) throw new Error('补算返回缺少太乙实际目标时刻。');
+  for (const field of ['year', 'month', 'day', 'hour', 'minute']) {
+    if (calculationInput[field] !== undefined) {
+      assertStructuredField(`taiyi.${field}`, calculationInput[field], dateTimeParts[field]);
+    }
+  }
+  if (typeof calculationInput.ganZhi === 'string' && calculationInput.ganZhi.trim()) {
+    assertStructuredField('taiyi.ganZhi', calculationInput.ganZhi, result.ganZhi);
+  }
+  if (
+    typeof result.accumulatedValue !== 'number' ||
+    typeof result.bureau !== 'number' ||
+    !Array.isArray(result.sixteenGods) ||
+    !record(result.evidenceAnalysis)
+  ) {
+    throw new Error('补算返回缺少太乙实际局数与判断依据。');
+  }
+}
+
+function assertHuangjiResult(
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result) || !record(result.input)) {
+    throw new Error('补算未返回结构化皇极经世结果。');
+  }
+  const actualInput = result.input;
+  const expectedMode = locked._mode;
+  if (expectedMode !== undefined) {
+    assertStructuredField('huangji.input.mode', expectedMode, actualInput.mode);
+  }
+  if (calculationInput.customDate !== undefined) {
+    assertStructuredField('huangji.input.mode', '年月日时', actualInput.mode);
+    const dateTimeForecast = result.dateTimeForecast;
+    if (!record(dateTimeForecast)) {
+      throw new Error('补算返回缺少皇极实际目标时刻。');
+    }
+    const civilTime = dateTimeForecast.civilTime;
+    if (!record(civilTime)) throw new Error('补算返回缺少皇极实际目标时刻。');
+    assertStructuredField(
+      'huangji.dateTimeForecast.civilTime.dateTime',
+      normalizeDateTimeKey(calculationInput.customDate),
+      normalizeDateTimeKey(civilTime.dateTime),
+    );
+    const hexagrams = dateTimeForecast.hexagrams;
+    if (!record(hexagrams) || !record(hexagrams.hourJing)) {
+      throw new Error('补算返回缺少皇极时经卦事实。');
+    }
+  } else if (calculationInput.year !== undefined) {
+    assertStructuredField('huangji.input.year', calculationInput.year, actualInput.year);
+    const forecast = result.forecast;
+    if (!record(forecast) || !record(forecast.hexagrams)) {
+      throw new Error('补算返回缺少皇极值年卦事实。');
+    }
+  } else if (
+    calculationInput.epochYear !== undefined ||
+    calculationInput.elapsedYears !== undefined
+  ) {
+    assertStructuredField(
+      'huangji.input.epochYear',
+      calculationInput.epochYear,
+      actualInput.epochYear,
+    );
+    assertStructuredField('huangji.input.year', calculationInput.year, actualInput.year);
+    assertStructuredField(
+      'huangji.input.elapsedYears',
+      calculationInput.elapsedYears,
+      actualInput.elapsedYears,
+    );
+  }
+  if (!record(result.position) || !Array.isArray(result.calculationChain)) {
+    throw new Error('补算返回缺少皇极周期位置与计算链。');
+  }
+}
+
+function assertWuyunResult(
+  data: Record<string, unknown>,
+  _locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result) || !record(result.input)) {
+    throw new Error('补算未返回结构化五运六气结果。');
+  }
+  const actualInput = result.input;
+  assertStructuredField('wuyun.input.year', calculationInput.year, actualInput.year);
+  if (calculationInput.year !== undefined) {
+    assertStructuredField(
+      'wuyun.input.yearGanZhi',
+      getWuyunLiuqiYearGanZhi(Number(calculationInput.year)),
+      actualInput.yearGanZhi,
+    );
+  }
+  assertStructuredField(
+    'wuyun.input.yearGanZhi',
+    calculationInput.yearGanZhi,
+    actualInput.yearGanZhi,
+  );
+  if (
+    !record(result.annualMovement) ||
+    !record(result.sitian) ||
+    !record(result.zaiquan) ||
+    !Array.isArray(result.movementSteps) ||
+    result.movementSteps.length !== 5 ||
+    !Array.isArray(result.qiSteps) ||
+    result.qiSteps.length !== 6
+  ) {
+    throw new Error('补算返回缺少五运六气全年运气事实。');
+  }
+}
+
 function verifyStructuredCalculation(
   method: string,
   data: Record<string, unknown>,
@@ -1074,6 +1270,12 @@ function verifyStructuredCalculation(
     assertQimenLifetimeResult(data, locked, calculationInput);
   } else if (method === 'fengshui') {
     assertResidentialResult(data, locked, calculationInput);
+  } else if (method === 'taiyi') {
+    assertTaiyiResult(data, locked, calculationInput);
+  } else if (method === 'huangji') {
+    assertHuangjiResult(data, locked, calculationInput);
+  } else if (method === 'wuyun') {
+    assertWuyunResult(data, locked, calculationInput);
   }
 }
 
@@ -1084,12 +1286,17 @@ function buildCalculationResourceTitle(
   calculationInput: Record<string, unknown>,
   data: Record<string, unknown>,
 ) {
+  const isTimeDivination = method === 'taiyi' || method === 'huangji' || method === 'wuyun';
   const subjectName =
-    typeof locked?.name === 'string' && locked.name.trim()
-      ? locked.name.trim()
-      : target === 'partner'
-        ? '第二人'
-        : '第一人';
+    method === 'wuyun'
+      ? '本次目标年度'
+      : isTimeDivination
+        ? '本次目标时点'
+        : typeof locked?.name === 'string' && locked.name.trim()
+          ? locked.name.trim()
+          : target === 'partner'
+            ? '第二人'
+            : '第一人';
   const methodName: Record<string, string> = {
     bazi: '八字',
     ziwei: '紫微',
@@ -1097,6 +1304,9 @@ function buildCalculationResourceTitle(
     'qi-zheng': '七政',
     'qimen-lifetime': '奇门终身局',
     fengshui: '住宅风水',
+    taiyi: '太乙神数',
+    huangji: '皇极经世',
+    wuyun: '五运六气',
   };
   let range = '';
   const result = record(data.result) ? data.result : undefined;
@@ -1133,6 +1343,31 @@ function buildCalculationResourceTitle(
     if (typeof month === 'number' || typeof month === 'string')
       range += `${range ? ' ' : ''}${month}月`;
     if (typeof day === 'number' || typeof day === 'string') range += `${range ? ' ' : ''}${day}日`;
+  } else if (method === 'taiyi') {
+    const dateTime = result?.dateTime;
+    const scope = result?.scope ?? calculationInput.scope;
+    range =
+      typeof dateTime === 'string'
+        ? `${typeof scope === 'string' ? scope : ''} ${dateTime}`.trim()
+        : '';
+  } else if (method === 'huangji') {
+    const dateTimeForecast = result?.dateTimeForecast;
+    const dateTime =
+      record(dateTimeForecast) && record(dateTimeForecast.civilTime)
+        ? dateTimeForecast.civilTime.dateTime
+        : undefined;
+    const resultInput = result?.input;
+    const year = record(resultInput) ? resultInput.year : calculationInput.year;
+    range =
+      typeof dateTime === 'string'
+        ? dateTime
+        : typeof year === 'number' || typeof year === 'string'
+          ? `${year}年`
+          : '';
+  } else if (method === 'wuyun') {
+    const resultInput = result?.input;
+    const year = record(resultInput) ? resultInput.year : calculationInput.year;
+    range = typeof year === 'number' || typeof year === 'string' ? `${year}年` : '';
   }
   return `${subjectName}·${methodName[method] ?? method}${range}`;
 }
@@ -1214,6 +1449,86 @@ function prepareCalculationInput(
     }
   }
 
+  if (method === 'taiyi') {
+    const lockedScope = typeof locked.scope === 'string' ? locked.scope : undefined;
+    const scope = typeof result.scope === 'string' ? result.scope : lockedScope;
+    if (!scope) throw new Error('太乙补算必须明确 scope。');
+    if (lockedScope !== undefined && scope !== lockedScope) {
+      throw new Error('太乙补算不得改变当前会话的计式。');
+    }
+    if (scope !== 'year') {
+      for (const field of ['year', 'month', 'day']) {
+        if (result[field] === undefined) throw new Error(`太乙${field}计补算必须明确${field}。`);
+      }
+      if (scope === 'hour' && result.hour === undefined) {
+        throw new Error('太乙时计补算必须明确 hour。');
+      }
+    } else if (result.year === undefined) {
+      throw new Error('太乙年计补算必须明确 year。');
+    }
+  }
+
+  if (method === 'huangji') {
+    const mode = locked._mode;
+    if (mode === '年月日时') {
+      if (result.customDate === undefined) throw new Error('皇极年月日时补算必须明确 customDate。');
+      if (
+        result.epochYear !== undefined ||
+        result.year !== undefined ||
+        result.elapsedYears !== undefined
+      ) {
+        throw new Error('当前皇极会话只能补算年月日时目标。');
+      }
+    } else if (mode === '通行公元年') {
+      if (
+        result.year === undefined ||
+        result.customDate !== undefined ||
+        result.epochYear !== undefined ||
+        result.elapsedYears !== undefined
+      ) {
+        throw new Error('当前皇极会话只能补算公元 year 目标。');
+      }
+    } else if (mode === '年坐标') {
+      if (
+        result.epochYear === undefined ||
+        result.year === undefined ||
+        result.customDate !== undefined ||
+        result.elapsedYears !== undefined
+      ) {
+        throw new Error('当前皇极会话只能补算年坐标目标。');
+      }
+    } else if (mode === '已过年数') {
+      if (
+        result.epochYear === undefined ||
+        result.elapsedYears === undefined ||
+        result.customDate !== undefined ||
+        result.year !== undefined
+      ) {
+        throw new Error('当前皇极会话只能补算已过年数目标。');
+      }
+    } else if (result.customDate !== undefined) {
+      if (
+        result.epochYear !== undefined ||
+        result.year !== undefined ||
+        result.elapsedYears !== undefined
+      ) {
+        throw new Error('皇极年月日时补算不得混用年份坐标。');
+      }
+    } else if (result.epochYear !== undefined) {
+      if ((result.year === undefined) === (result.elapsedYears === undefined)) {
+        throw new Error('皇极自定义纪元补算必须在 year 与 elapsedYears 中选择一项。');
+      }
+    } else if (result.year === undefined) {
+      throw new Error('皇极补算必须明确 customDate、year 或完整纪元坐标。');
+    } else if (result.elapsedYears !== undefined) {
+      throw new Error('皇极公元 year 补算不得同时提供 elapsedYears。');
+    }
+  }
+
+  if (method === 'wuyun' && result.year === undefined && result.yearGanZhi === undefined) {
+    throw new Error('五运六气补算必须明确 year 或 yearGanZhi。');
+  }
+
   return result;
 }
 
@@ -1243,6 +1558,13 @@ export async function executeReadingAction(
       calculationInput = prepareCalculationInput(action.method, action.input, locked);
     }
   }
+  if (
+    !subject &&
+    action.kind === 'calculate' &&
+    (action.method === 'taiyi' || action.method === 'huangji' || action.method === 'wuyun')
+  ) {
+    calculationInput = prepareCalculationInput(action.method, action.input, {});
+  }
   if (action.kind === 'schema') {
     const document = await fetchReadingData('/openapi.json', signal);
     const paths = document.paths as Record<
@@ -1270,8 +1592,11 @@ export async function executeReadingAction(
     requestInput.astrolabeScope = 'yearly';
     requestInput.astrolabeScopeDate ??= getDefaultAstrolabeScopeDate('yearly');
   }
+  const requestLocked = Object.fromEntries(
+    Object.entries(locked ?? {}).filter(([key]) => !key.startsWith('_')),
+  );
   const calculationRequest: Record<string, unknown> = {
-    ...(locked ?? {}),
+    ...requestLocked,
     ...requestInput,
     responseMode: 'full',
   };
@@ -1285,7 +1610,14 @@ export async function executeReadingAction(
     delete calculationRequest.timeIndex;
   }
   const data = await fetchReadingData(path, signal, calculationRequest);
-  if (locked) verifyStructuredCalculation(action.method, data, locked, requestInput);
+  if (
+    locked ||
+    action.method === 'taiyi' ||
+    action.method === 'huangji' ||
+    action.method === 'wuyun'
+  ) {
+    verifyStructuredCalculation(action.method, data, locked ?? {}, requestInput);
+  }
   if (typeof data.prompt !== 'string' || !data.prompt.trim())
     throw new Error('补算未返回完整盘面。');
   return {

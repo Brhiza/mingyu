@@ -45,4 +45,7 @@ export const READING_CALCULATION_ROUTES: Record<string, string> = {
   'qi-zheng': '/metaphysics/qizheng/prompt',
   'qimen-lifetime': '/divination/qimen/lifetime/prompt',
   fengshui: '/metaphysics/residential/prompt',
+  taiyi: '/metaphysics/taiyi/prompt',
+  huangji: '/metaphysics/huangji-jingshi/prompt',
+  wuyun: '/metaphysics/wuyun-liuqi/prompt',
 };

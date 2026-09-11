@@ -21,6 +21,7 @@ import { applyPersonalCaseToDivinationDraft } from '@/lib/divination/case-contex
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { useActivePersonalCase } from '@/hooks/useActivePersonalCase';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
+import { buildDivinationReadingSubject } from '@/lib/ai/reading-subject';
 import {
   QuestionInspirationModal,
   type QuestionInspirationSection,
@@ -170,6 +171,10 @@ export function DivinationPanel({
   const summary = useMemo(
     () => (session ? getDivinationSummaryBlocks(session.method, session.data) : null),
     [session],
+  );
+  const readingSubject = useMemo(
+    () => (session ? buildDivinationReadingSubject(draft, session) : undefined),
+    [draft, session],
   );
   const specialInspiration = useMemo(() => getDivinationSpecialInspiration(draft), [draft]);
   const inspirationFilters = useMemo(
@@ -367,6 +372,7 @@ export function DivinationPanel({
             onOpenAssistant={onOpenAssistant}
             onReturnToBoard={onReturnToBoard}
             onRestart={onRestart}
+            readingSubject={readingSubject}
           />
         </>
       ) : null}

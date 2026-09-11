@@ -7,6 +7,11 @@ import {
   buildResidentialCoreInput,
   resolveResidentialBirthDate,
 } from '@/lib/residential-fengshui-chart';
+import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
+import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
+import type { TaiyiResult } from 'mingyu-core/types';
+
+export type ReadingSubjectSource = QueryPromptState['promptSource'] | 'taiyi' | 'huangji' | 'wuyun';
 
 /**
  * AI 自动补算时锁定的主体快照。模型只能改变目标时段、问题和解读范围，
@@ -14,7 +19,7 @@ import {
  */
 export type ReadingSubjectSnapshot = {
   id: string;
-  source: QueryPromptState['promptSource'];
+  source: ReadingSubjectSource;
   lockedInputs: Record<string, Record<string, unknown>>;
   allowedMethods: string[];
   range: Record<string, unknown>;
@@ -293,6 +298,59 @@ export function buildReadingSubject(
   };
 }
 
+function readDivinationDateParts(value: unknown) {
+  if (typeof value !== 'string') return undefined;
+  const match = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2}))?/u);
+  if (!match) return undefined;
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    ...(match[4] === undefined ? {} : { hour: Number(match[4]) }),
+    ...(match[5] === undefined ? {} : { minute: Number(match[5]) }),
+  };
+}
+
+export function buildDivinationReadingSubject(
+  _draft: DivinationDraft,
+  session: DivinationSession,
+): ReadingSubjectSnapshot | undefined {
+  if (session.method !== 'taiyi' && session.method !== 'huangji') return undefined;
+
+  const lockedInputs: Record<string, Record<string, unknown>> = {};
+  const range: Record<string, unknown> = {
+    source: session.method,
+    targetKind: 'time-divination',
+  };
+
+  if (session.method === 'taiyi') {
+    const result = session.data as TaiyiResult;
+    const dateParts = readDivinationDateParts(result.dateTime);
+    lockedInputs.taiyi = { scope: result.scope };
+    range.taiyiScope = result.scope;
+    range.taiyiDateTime = result.dateTime;
+    if (dateParts) range.taiyiTarget = dateParts;
+  } else {
+    const result = session.data as HuangjiJingshiResult;
+    const mode = result.input?.mode ?? '年月日时';
+    lockedInputs.huangji = { _mode: mode };
+    range.huangjiMode = mode;
+    range.huangjiInput = result.input;
+    if (result.dateTimeForecast?.civilTime?.dateTime) {
+      range.huangjiDateTime = result.dateTimeForecast.civilTime.dateTime;
+    }
+  }
+
+  const fingerprint = stableStringify({ source: session.method, lockedInputs, range });
+  return {
+    id: `subject-${hashText(fingerprint)}`,
+    source: session.method,
+    lockedInputs,
+    allowedMethods: [session.method],
+    range,
+  };
+}
+
 export function normalizeReadingSubject(value: unknown): ReadingSubjectSnapshot | undefined {
   if (!isRecord(value)) return undefined;
   if (
@@ -304,9 +362,18 @@ export function normalizeReadingSubject(value: unknown): ReadingSubjectSnapshot 
   )
     return undefined;
   if (
-    !['bazi', 'ziwei', 'bazi-ziwei', 'qimen-lifetime', 'astrolabe', 'qizheng', 'bazhai'].includes(
-      value.source,
-    )
+    ![
+      'bazi',
+      'ziwei',
+      'bazi-ziwei',
+      'qimen-lifetime',
+      'astrolabe',
+      'qizheng',
+      'bazhai',
+      'taiyi',
+      'huangji',
+      'wuyun',
+    ].includes(value.source)
   )
     return undefined;
   const lockedInputs = Object.fromEntries(
@@ -319,9 +386,15 @@ export function normalizeReadingSubject(value: unknown): ReadingSubjectSnapshot 
   if (value.source === 'qimen-lifetime' && !allowedMethods.includes('qimen-lifetime')) {
     return undefined;
   }
+  if (
+    (value.source === 'taiyi' || value.source === 'huangji' || value.source === 'wuyun') &&
+    !allowedMethods.includes(value.source)
+  ) {
+    return undefined;
+  }
   return {
     id: value.id,
-    source: value.source as ReadingSubjectSnapshot['source'],
+    source: value.source as ReadingSubjectSource,
     lockedInputs,
     allowedMethods,
     range: { ...value.range },
