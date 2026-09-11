@@ -152,6 +152,12 @@ try {
 const specifiers = ${JSON.stringify(coreSpecifiers)};
 for (const specifier of specifiers) await import(specifier);
 
+const yilin = await import('mingyu-core/classics');
+const yilinEntry = yilin.queryYilinEntry('乾', '需');
+if (yilin.getYilinIndexStats().parsedPairCount !== 4096 || !yilinEntry.sources.kanripo.text || yilinEntry.dataStatus === '双底本对读一致') {
+  throw new Error('隔离安装后的易林索引或文字差异判断异常。');
+}
+
 const names = await import('mingyu-core/name-number');
 const characters = await names.analyzeChineseCharactersWithReferences('万清');
 if (characters.characters.some((item) => !item.detail?.kangxiText || !item.detail?.definition)) {

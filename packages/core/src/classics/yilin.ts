@@ -1,6 +1,6 @@
-import pairIndex from './data/yilin-w20-03-pair-index.json';
-import gapReport from './data/yilin-w20-03-gap-report.json';
-import confirmedMappings from './data/yilin-w20-03-confirmed-mappings.json';
+import pairIndex from './data/yilin-w20-03-pair-index';
+import gapReport from './data/yilin-w20-03-gap-report';
+import confirmedMappings from './data/yilin-w20-03-confirmed-mappings';
 import type {
   YilinDataStatus,
   YilinEditionMetadata,
