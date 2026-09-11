@@ -95,6 +95,7 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
       key: c.key,
       timeSpan: c.timeSpan,
       triggerFact: c.triggerFact,
+      ...(c.triggerDates ? { triggerDates: c.triggerDates } : {}),
       rhythm: c.rhythm,
     })),
     limitations: [

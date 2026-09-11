@@ -897,6 +897,13 @@ export interface QimenEventCluster {
   stageIndex: number;
   /** 时间跨度描述（如 "2027年"） */
   timeSpan: string;
+  /** 可复核的日期级触发事实；不包含评分或未计算的日盘结论。 */
+  triggerDates?: Array<{
+    date: string;
+    dateTime?: string;
+    ganzhi?: string;
+    relation?: string;
+  }>;
   /** 涉及的人生主题 */
   topics: QimenTopic[];
   /** 触发盘事实（如流年干支、定局、太岁落宫） */
@@ -933,6 +940,7 @@ export interface QimenLifetimeEvidence {
     key: string;
     timeSpan: string;
     triggerFact: string;
+    triggerDates?: QimenEventCluster['triggerDates'];
     rhythm: string;
   }>;
   limitations: string[];

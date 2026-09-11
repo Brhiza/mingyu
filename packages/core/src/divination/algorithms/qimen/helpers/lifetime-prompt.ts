@@ -167,6 +167,18 @@ export function buildLifetimePrompt(data: QimenLifetimeData, question?: string):
     lines.push(`【周期触发与事件簇】`);
     for (const ec of data.eventClusters) {
       lines.push(`${ec.timeSpan} ${ec.triggerFact}（节奏：${ec.rhythm}）`);
+      if (ec.triggerDates && ec.triggerDates.length > 0) {
+        lines.push(
+          `  可复核日期：${ec.triggerDates
+            .map((item) => {
+              const detail = [item.ganzhi, item.relation].filter(Boolean).join('，');
+              return detail
+                ? `${item.dateTime ?? item.date}（${detail}）`
+                : (item.dateTime ?? item.date);
+            })
+            .join('、')}`,
+        );
+      }
       lines.push(`  动态交互：${ec.interactionAnalysis}`);
       if (ec.supportEvidence.length > 0) {
         lines.push(`  增益因素：${ec.supportEvidence.join('；')}`);

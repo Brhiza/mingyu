@@ -1,18 +1,24 @@
 /**
  * @file 奇门终身局动态扫描与事件聚类模块
  * @description 根据用户请求的时间区间（periodRange），按年扫描流年太岁引动、
- * 空亡填实、马星引动与年家盘叠合，聚类生成结构化事件簇（Event Clusters）。
+ * 空亡填实、马星引动与年家盘叠合，并列出可复核的交节日与日支关系。
  */
 
+import { SolarTerm } from 'tyme4ts';
 import type {
   QimenData,
   QimenEventCluster,
   QimenLifetimeStage,
   QimenTopic,
 } from '../../../../types/divination';
-import { DEFAULT_CHINA_TIMEZONE_HOURS } from '../../../../calendar/civil-time';
+import {
+  DEFAULT_CHINA_TIMEZONE_HOURS,
+  resolveCivilTime,
+  type CivilDateTimeParts,
+} from '../../../../calendar/civil-time';
 import { getHistoricalTimezoneOffsetAt } from '../../../../calendar/historical-timezone';
 import { createUtcTimestamp, daysInGregorianMonth } from '../../../../calendar/date-validation';
+import { TimeManager, getDivinationTime } from '../../../../calendar/timeManager';
 import { generateQimen } from '../index';
 import { diPanPalaces } from './_constants';
 
@@ -75,6 +81,180 @@ const OPPOSITE_BRANCHES: Record<string, string> = {
   亥: '巳',
 };
 
+const MONTH_BRANCH_TERM_INDEX: Record<string, number> = {
+  寅: 3,
+  卯: 5,
+  辰: 7,
+  巳: 9,
+  午: 11,
+  未: 13,
+  申: 15,
+  酉: 17,
+  戌: 19,
+  亥: 21,
+  子: 23,
+  丑: 1,
+};
+
+type LifetimeDateParts = ReturnType<typeof parseLifetimePeriodDate>;
+
+interface LifetimeDateFact {
+  date: string;
+  dateTime?: string;
+  ganzhi?: string;
+  relation?: string;
+}
+
+function formatLifetimeDate(value: Pick<CivilDateTimeParts, 'year' | 'month' | 'day'>): string {
+  return `${String(value.year).padStart(4, '0')}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`;
+}
+
+function formatLifetimeDateTime(value: CivilDateTimeParts): string {
+  return `${formatLifetimeDate(value)} ${String(value.hour).padStart(2, '0')}:${String(value.minute).padStart(2, '0')}:${String(value.second).padStart(2, '0')}`;
+}
+
+function dateKey(value: Pick<CivilDateTimeParts, 'year' | 'month' | 'day'>): number {
+  return value.year * 10000 + value.month * 100 + value.day;
+}
+
+function isDateWithin(
+  value: Pick<CivilDateTimeParts, 'year' | 'month' | 'day'>,
+  start: LifetimeDateParts,
+  end: LifetimeDateParts,
+): boolean {
+  const key = dateKey(value);
+  return key >= dateKey(start) && key <= dateKey(end);
+}
+
+function nextLifetimeDate(value: LifetimeDateParts): LifetimeDateParts {
+  const next = new Date(
+    createUtcTimestamp(value.year, value.month - 1, value.day, 12, 0, 0) + 86400000,
+  );
+  return {
+    year: next.getUTCFullYear(),
+    month: next.getUTCMonth() + 1,
+    day: next.getUTCDate(),
+  };
+}
+
+function resolveLifetimeNoon(
+  value: LifetimeDateParts,
+  timeContext: QimenDynamicTimeContext | undefined,
+): { date: Date; offsetMinutes: number } {
+  const timeZoneId = timeContext?.timeZoneId?.trim();
+  const resolved = resolveCivilTime(
+    {
+      ...value,
+      hour: 12,
+      minute: 0,
+      second: 0,
+      ...(timeZoneId
+        ? { timeZoneId }
+        : {
+            timezone:
+              timeContext?.timezone ??
+              (timeContext?.fallbackOffsetMinutes ?? DEFAULT_CHINA_TIMEZONE_HOURS * 60) / 60,
+          }),
+    },
+    { defaultTimezone: DEFAULT_CHINA_TIMEZONE_HOURS },
+  );
+  return { date: new Date(resolved.utcTimestamp), offsetMinutes: resolved.timezone * 60 };
+}
+
+function getTermInstant(termYear: number, termIndex: number): Date {
+  const termTime = SolarTerm.fromIndex(termYear, termIndex).getJulianDay().getSolarTime();
+  const resolved = resolveCivilTime({
+    year: termTime.getYear(),
+    month: termTime.getMonth(),
+    day: termTime.getDay(),
+    hour: termTime.getHour(),
+    minute: termTime.getMinute(),
+    second: termTime.getSecond(),
+    timezone: DEFAULT_CHINA_TIMEZONE_HOURS,
+  });
+  return new Date(resolved.utcTimestamp);
+}
+
+function getLocalTermFact(
+  termYear: number,
+  termIndex: number,
+  timeContext: QimenDynamicTimeContext | undefined,
+): LifetimeDateFact {
+  const termInstant = getTermInstant(termYear, termIndex);
+  const offsetMinutes = getDynamicOffsetMinutes(termInstant, timeContext);
+  const localTime = TimeManager.getWallClockParts(termInstant, offsetMinutes);
+  return {
+    date: formatLifetimeDate(localTime),
+    dateTime: formatLifetimeDateTime(localTime),
+  };
+}
+
+function getMonthClashTermFacts(
+  branch: string,
+  year: number,
+  start: LifetimeDateParts,
+  end: LifetimeDateParts,
+  timeContext: QimenDynamicTimeContext | undefined,
+): LifetimeDateFact[] {
+  const termIndex = MONTH_BRANCH_TERM_INDEX[branch];
+  if (termIndex === undefined) return [];
+
+  const facts: LifetimeDateFact[] = [];
+  for (let termYear = Math.max(1, year - 1); termYear <= year + 1; termYear += 1) {
+    const fact = getLocalTermFact(termYear, termIndex, timeContext);
+    const parts = parseLifetimePeriodDate(fact.date, '交节日期');
+    if (isDateWithin(parts, start, end) && !facts.some((item) => item.date === fact.date)) {
+      facts.push({ ...fact, relation: `${branch}月建交节` });
+    }
+  }
+  return facts;
+}
+
+function getStageIndexForDate(stages: QimenLifetimeStage[], date: string): number {
+  const matched = stages.find((stage) => stage.calendarStart <= date && stage.calendarEnd >= date);
+  return matched?.stageIndex ?? stages[0]?.stageIndex ?? 0;
+}
+
+function collectDailyRelationFacts(
+  start: LifetimeDateParts,
+  end: LifetimeDateParts,
+  baseChart: QimenData,
+  timeContext: QimenDynamicTimeContext | undefined,
+): Map<string, LifetimeDateFact[]> {
+  const groups = new Map<string, LifetimeDateFact[]>();
+  const horseBranch = baseChart.horseStar?.branch;
+  const voidBranches = new Set(baseChart.voidBranches ?? []);
+  let current = start;
+
+  while (dateKey(current) <= dateKey(end)) {
+    const dateText = formatLifetimeDate(current);
+    const { date, offsetMinutes } = resolveLifetimeNoon(current, timeContext);
+    const dayGanZhi = getDivinationTime(date, offsetMinutes).ganzhi.day;
+    const dayBranch = dayGanZhi.charAt(1);
+    const relations: Array<[string, string]> = [];
+
+    if (voidBranches.has(dayBranch)) {
+      relations.push(['void-fill', `本命空亡填实（${Array.from(voidBranches).join('、')}）`]);
+    }
+    if (horseBranch && dayBranch === horseBranch) {
+      relations.push(['horse-same', `日支同本命驿马（${horseBranch}）`]);
+    }
+    if (horseBranch && OPPOSITE_BRANCHES[horseBranch] === dayBranch) {
+      relations.push(['horse-clash', `日支冲本命驿马（${horseBranch}）`]);
+    }
+
+    for (const [kind, relation] of relations) {
+      const facts = groups.get(kind) ?? [];
+      facts.push({ date: dateText, ganzhi: dayGanZhi, relation });
+      groups.set(kind, facts);
+    }
+
+    current = nextLifetimeDate(current);
+  }
+
+  return groups;
+}
+
 function getIanaOffsetMinutesAt(date: Date, timeZoneId: string): number {
   const offsetMinutes = getHistoricalTimezoneOffsetAt(date, timeZoneId) * 60;
   if (!Number.isFinite(offsetMinutes) || offsetMinutes < -720 || offsetMinutes > 840) {
@@ -107,17 +287,14 @@ export function scanLifetimeDynamicEvents(
   juMethod: 'chaibu' | 'zhirun' = 'chaibu',
   timeContext?: QimenDynamicTimeContext,
 ): QimenEventCluster[] {
+  validateLifetimePeriodRange(periodRange);
   const clusters: QimenEventCluster[] = [];
 
-  const startYear = parseInt(periodRange.startDate.slice(0, 4), 10);
-  const endYear = parseInt(periodRange.endDate.slice(0, 4), 10);
-
-  if (isNaN(startYear) || isNaN(endYear) || endYear < startYear) {
-    return clusters;
-  }
-
-  // 限制扫描范围最多 30 年，防止过度计算
-  const maxEndYear = Math.min(endYear, startYear + 30);
+  const start = parseLifetimePeriodDate(periodRange.startDate, 'periodRange.startDate');
+  const end = parseLifetimePeriodDate(periodRange.endDate, 'periodRange.endDate');
+  const startYear = start.year;
+  const endYear = end.year;
+  const maxEndYear = endYear;
 
   const getPalaceName = (p: number) =>
     baseChart.jiuGongGe.find((item) => item.gong === p)?.name || `${p}宫`;
@@ -270,56 +447,81 @@ export function scanLifetimeDynamicEvents(
       verificationQuestions: Array.from(new Set(verificationQuestions)),
     });
 
-    // 细化年月日关键节点扫描（针对短周期或重点转折年份扫描关键月日节令触发）
-    if (maxEndYear - startYear <= 3) {
-      // 提取该年与年支冲合的关键月（以月将与节令月支考察）
-      const clashBranchMap: Record<string, string> = {
-        子: '午',
-        丑: '未',
-        寅: '申',
-        卯: '酉',
-        辰: '戌',
-        巳: '亥',
-        午: '子',
-        未: '丑',
-        申: '寅',
-        酉: '卯',
-        戌: '辰',
-        亥: '巳',
-      };
-      const clashBranch = clashBranchMap[flowYearBranch];
-      const clashPalace = clashBranch ? diPanPalaces[clashBranch] : undefined;
-
-      if (clashPalace) {
+    // 细化年月日关键节点：节令只记录真实交节日，日级只记录已有本命关系命中的当地日期。
+    const clashBranch = OPPOSITE_BRANCHES[flowYearBranch];
+    const clashPalace = clashBranch ? diPanPalaces[clashBranch] : undefined;
+    if (clashPalace) {
+      const termFacts = getMonthClashTermFacts(clashBranch, y, start, end, timeContext);
+      if (termFacts.length > 0) {
+        const termDates = termFacts.map((fact) => fact.date);
         clusters.push({
-          key: `cluster:${y}:month-clash:${clashBranch}`,
-          stageIndex,
-          timeSpan: `${y}年${clashBranch}月建交气节点`,
+          key: `cluster:${y}:month-clash:${clashBranch}:${termDates.join(',')}`,
+          stageIndex: termFacts[0] ? getStageIndexForDate(stages, termFacts[0].date) : stageIndex,
+          timeSpan: `${termDates.join('、')}${clashBranch}月建交节`,
+          triggerDates: termFacts,
           topics: ['career', 'relocation'],
-          triggerFact: `${y}年流月逢${clashBranch}月建冲起${getPalaceName(clashPalace)}，形成月令冲合震荡。`,
-          interactionAnalysis: `月令与岁气本命对冲，气机骤变，主关键事务抉择或环境转折。`,
-          supportEvidence: [`逢冲则动，利于突破僵局与陈旧瓶颈`],
-          counterEvidence: [`月令逢冲动应强烈，需防急躁冒进导致节外生枝`],
+          triggerFact: `${y}年流年${flowYearGanZhi}对应的${clashBranch}月建交节日为${termFacts.map((fact) => fact.dateTime ?? fact.date).join('、')}，该月支与年支相冲，落${getPalaceName(clashPalace)}。`,
+          interactionAnalysis: `月建${clashBranch}与${flowYearGanZhi}年支${flowYearBranch}构成相冲；交节日期按目标时区的真实当地时间列出。`,
+          supportEvidence: [`${clashBranch}月建交节日：${termDates.join('、')}`],
+          counterEvidence: [],
           rhythm: '快',
-          verificationQuestions: [`该月份是否有阶段性关键决策、动迁走动或人事变动？`],
+          verificationQuestions: [`交节日前后是否出现阶段性决策、迁动或环境变化？`],
         });
       }
+    }
 
-      // 若具体指定了日期范围，增加关键日辰触发点
-      if (periodRange.startDate.length >= 10) {
-        clusters.push({
-          key: `cluster:${periodRange.startDate}:day-nodal`,
-          stageIndex,
-          timeSpan: `${periodRange.startDate}至${periodRange.endDate}关键动应日`,
-          topics: ['career'],
-          triggerFact: `指定日期窗口引动本命${getPalaceName(taiSuiPalaceNum)}，形成日辰时空感应。`,
-          interactionAnalysis: `日辰为事之先声，时令地气在此区间交汇显现。`,
-          supportEvidence: [`日辰引动为具体事项之契机发端`],
-          counterEvidence: [`日力轻微，需配合月建大势研判`],
-          rhythm: '快',
-          verificationQuestions: [`指定日前后是否有具体的签约、会谈或突发事件发生？`],
-        });
+    const yearStart = { year: y, month: 1, day: 1 };
+    const yearEnd = { year: y, month: 12, day: 31 };
+    const dailyStart = dateKey(start) > dateKey(yearStart) ? start : yearStart;
+    const dailyEnd = dateKey(end) < dateKey(yearEnd) ? end : yearEnd;
+    const dailyGroups = collectDailyRelationFacts(dailyStart, dailyEnd, baseChart, timeContext);
+    const dailyRelationMeta: Record<
+      string,
+      {
+        label: string;
+        topics: QimenTopic[];
+        rhythm: '快' | '中' | '慢' | '待机';
+        question: string;
       }
+    > = {
+      'void-fill': {
+        label: '本命空亡填实',
+        topics: ['career'],
+        rhythm: '中',
+        question: '这些日辰是否对应原先悬而未决事项出现实质推进？',
+      },
+      'horse-same': {
+        label: '日支同本命驿马',
+        topics: ['relocation'],
+        rhythm: '快',
+        question: '这些日辰是否对应出行、迁动或跨区域安排？',
+      },
+      'horse-clash': {
+        label: '日支冲本命驿马',
+        topics: ['relocation'],
+        rhythm: '快',
+        question: '这些日辰是否对应行程变化、迁动或节奏加速？',
+      },
+    };
+
+    for (const [relationKey, facts] of dailyGroups) {
+      const relation = dailyRelationMeta[relationKey];
+      if (!relation || facts.length === 0) continue;
+      const dateTexts = facts.map((fact) => fact.date);
+      const dailyStageIndex = getStageIndexForDate(stages, dateTexts[0] as string);
+      clusters.push({
+        key: `cluster:${y}:day:${relationKey}:${dateTexts[0]}-${dateTexts[dateTexts.length - 1]}`,
+        stageIndex: dailyStageIndex,
+        timeSpan: `${y}年${relation.label}`,
+        triggerDates: facts,
+        topics: relation.topics,
+        triggerFact: `${y}年窗口内有${facts.length}个日干支符合${relation.label}。`,
+        interactionAnalysis: `按当地民用日读取日支与本命${relation.label}关系，结合具体日期核验该层时间关系。`,
+        supportEvidence: [`命中日干支：${facts.map((fact) => fact.ganzhi).join('、')}`],
+        counterEvidence: [],
+        rhythm: relation.rhythm,
+        verificationQuestions: [relation.question],
+      });
     }
   }
 

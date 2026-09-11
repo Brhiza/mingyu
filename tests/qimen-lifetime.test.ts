@@ -11,6 +11,7 @@ import {
   scanLifetimeDynamicEvents,
 } from '../packages/core/src/divination/algorithms/qimen';
 import { getDivinationTime } from '../packages/core/src/calendar/timeManager';
+import { resolveCivilTime } from '../packages/core/src/calendar/civil-time';
 
 function verifiedChartSolar(chart: ReturnType<typeof generateQimen>, offset: number) {
   const expected = getDivinationTime(new Date(chart.timestamp), offset);
@@ -365,12 +366,129 @@ test('奇门终身局 P3：动态周期扫描与事件聚类（含年月日关�
     ),
     '短区间应生成月令关键节点事件簇',
   );
+  const triggerFacts = result.eventClusters.flatMap((ec) => ec.triggerDates ?? []);
+  const dailyFacts = triggerFacts.filter((fact) => fact.ganzhi);
+  assert.ok(triggerFacts.length > 0, '窗口内应保留实际日支关系日期');
+  assert.ok(triggerFacts.every((fact) => /^202[6-8]-\d{2}-\d{2}$/u.test(fact.date)));
+  assert.ok(dailyFacts.length > 0, '窗口内应保留日干支事实');
+  assert.ok(dailyFacts.every((fact) => typeof fact.ganzhi === 'string'));
+  assert.equal(
+    new Set(result.eventClusters.map((ec) => ec.key)).size,
+    result.eventClusters.length,
+    '事件簇主键必须唯一',
+  );
+  assert.ok(
+    result.eventClusters.every((ec) => !ec.key.endsWith(':day-nodal')),
+    '不能以整段窗口冒充日级节点',
+  );
+  const monthFacts = result.eventClusters
+    .filter((ec) => ec.key.includes(':month-clash:'))
+    .flatMap((ec) => ec.triggerDates ?? []);
+  assert.ok(monthFacts.length > 0, '月令节点应带真实交节日期');
+  assert.ok(monthFacts.every((fact) => /^202[6-8]-\d{2}-\d{2}$/u.test(fact.date)));
   for (const ec of result.eventClusters) {
     assert.ok(ec.key.startsWith('cluster:'));
     assert.ok(ec.topics.length > 0);
     assert.ok(ec.triggerFact.length > 0);
     assert.ok(ec.verificationQuestions.length > 0);
   }
+});
+
+test('奇门终身局日级关系应跨年裁切并保留当地日干支', () => {
+  const result = calculateQimenLifetime({
+    birthDateTime: '1990-05-15T14:30:00+08:00',
+    periodRange: {
+      startDate: '2025-01-01',
+      endDate: '2026-12-31',
+    },
+  });
+  const dates =
+    result.eventClusters
+      ?.flatMap((cluster) => cluster.triggerDates ?? [])
+      .filter((fact) => fact.ganzhi)
+      .map((fact) => fact.date) ?? [];
+  assert.ok(dates.length > 0);
+  assert.ok(dates.some((date) => date.startsWith('2025-')));
+  assert.ok(dates.some((date) => date.startsWith('2026-')));
+  assert.ok(result.eventClusters?.every((cluster) => !cluster.timeSpan.includes('至')));
+});
+
+test('奇门终身局日级关系应按纽约夏令时读取当地日期', () => {
+  const localNoon = resolveCivilTime({
+    year: 2024,
+    month: 3,
+    day: 10,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    timeZoneId: 'America/New_York',
+  });
+  const expected = getDivinationTime(new Date(localNoon.utcTimestamp), -240).ganzhi.day;
+  const lifetime = calculateQimenLifetime({
+    birthDateTime: '1990-05-15T14:30:00',
+    periodRange: {
+      startDate: '2024-03-10',
+      endDate: '2024-03-10',
+    },
+    timeZoneId: 'America/New_York',
+  });
+  const { horseStar: _horseStar, ...baseChartWithoutHorse } = lifetime.baseChart;
+  const baseChart = { ...baseChartWithoutHorse, voidBranches: [expected.charAt(1)] };
+  const clusters = scanLifetimeDynamicEvents(
+    baseChart,
+    lifetime.stages,
+    { startDate: '2024-03-10', endDate: '2024-03-10' },
+    'zhuanpan',
+    'chaibu',
+    { timeZoneId: 'America/New_York' },
+  );
+  const fact = clusters
+    .flatMap((cluster) => cluster.triggerDates ?? [])
+    .find((item) => item.date === '2024-03-10');
+  assert.deepEqual(fact, {
+    date: '2024-03-10',
+    ganzhi: expected,
+    relation: `本命空亡填实（${expected.charAt(1)}）`,
+  });
+});
+
+test('奇门终身局日级关系应按 UTC+14 的当地日期读取跨 UTC 日', () => {
+  const localNoon = resolveCivilTime({
+    year: 2024,
+    month: 1,
+    day: 1,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    timeZoneId: 'Pacific/Kiritimati',
+  });
+  const expected = getDivinationTime(new Date(localNoon.utcTimestamp), 840).ganzhi.day;
+  const lifetime = calculateQimenLifetime({
+    birthDateTime: '1990-05-15T14:30:00',
+    periodRange: {
+      startDate: '2024-01-01',
+      endDate: '2024-01-01',
+    },
+    timezone: 14,
+  });
+  const { horseStar: _horseStar, ...baseChartWithoutHorse } = lifetime.baseChart;
+  const baseChart = { ...baseChartWithoutHorse, voidBranches: [expected.charAt(1)] };
+  const clusters = scanLifetimeDynamicEvents(
+    baseChart,
+    lifetime.stages,
+    { startDate: '2024-01-01', endDate: '2024-01-01' },
+    'zhuanpan',
+    'chaibu',
+    { timezone: 14, fallbackOffsetMinutes: 840 },
+  );
+  const fact = clusters
+    .flatMap((cluster) => cluster.triggerDates ?? [])
+    .find((item) => item.date === '2024-01-01');
+  assert.deepEqual(fact, {
+    date: '2024-01-01',
+    ganzhi: expected,
+    relation: `本命空亡填实（${expected.charAt(1)}）`,
+  });
 });
 
 test('奇门终身局动态年盘失败应保留年份与原始原因', () => {
@@ -509,6 +627,13 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
   assert.match(prompt, /《御定奇门宝鉴》/);
   assert.match(prompt, /《奇门遁甲统宗》/);
   assert.match(prompt, /参考流派：宝鉴派、统宗派/);
+  const promptDateFact = data.eventClusters
+    ?.flatMap((cluster) => cluster.triggerDates ?? [])
+    .find((fact) => fact.ganzhi);
+  assert.ok(promptDateFact?.date, '提示词应带具体日级日期事实');
+  assert.match(prompt, new RegExp(promptDateFact?.date ?? '年-月-日'));
+  assert.doesNotMatch(prompt, /指定日期窗口引动本命/u);
+  assert.doesNotMatch(prompt, /至2027-12-31关键动应日/u);
 
   // 3. 严禁泄漏工程术语与内部层位键名
   assert.doesNotMatch(prompt, /ownerFactKeys/);
