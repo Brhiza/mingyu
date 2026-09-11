@@ -3242,7 +3242,7 @@ function HuangjiTraditionalBoard({
               ['六日目标时间', sixDayCycle.civilTime.dateTime],
               ['校定历元', sixDayCycle.anchor.dateTime],
               [
-                '业务时区',
+                '时区',
                 `UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}`,
               ],
             ]}

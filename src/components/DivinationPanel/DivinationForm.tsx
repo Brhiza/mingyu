@@ -1758,7 +1758,7 @@ export function DivinationForm({
                   <div className="form-item">
                     <label htmlFor="custom-divination-time-input">
                       {isHuangjiSixDay
-                        ? '目标时间（业务时区）'
+                        ? '目标时间（所选时区）'
                         : `${timeActionLabel}时间（北京时间）`}
                     </label>
                     <input
@@ -1788,7 +1788,7 @@ export function DivinationForm({
                         />
                       </div>
                       <div className="form-item">
-                        <label htmlFor="huangji-six-day-timezone-input">业务时区（UTC）</label>
+                        <label htmlFor="huangji-six-day-timezone-input">时区（UTC偏移）</label>
                         <input
                           id="huangji-six-day-timezone-input"
                           type="number"
@@ -1805,7 +1805,7 @@ export function DivinationForm({
                       </div>
                     </div>
                     <small className="workspace-ui-field-hint">
-                      历元日期的00:00作为六日逐爻起点；请填写已校定的历元，系统不会代为推定。目标日期和历元均按此业务时区解释。
+                      填写已校定的历元日期，其当地00:00作为六日逐爻起点。目标时间和历元使用同一时区。
                     </small>
                   </>
                 ) : null}
