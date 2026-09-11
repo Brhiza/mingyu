@@ -630,7 +630,7 @@ test('真实完整紫微规范正文未超限时进入最终stream', async () =>
 
 test('紫微结构化时间线超限时按完整阶段事实逐段解读并汇总', async () => {
   const h = harness(['第一阶段判断', '第二阶段判断', '全部阶段汇总']);
-  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  const resource = makeZiweiFullResource(2, 1500, '完整原始资料'.repeat(16000));
   h.options.memory.resources = [resource];
   h.options.subject = ziweiSubject;
   await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], h.options, {
@@ -639,7 +639,7 @@ test('紫微结构化时间线超限时按完整阶段事实逐段解读并汇�
       throw new Error('未预期的补算');
     },
   });
-  assert.equal(h.sent.length, 3);
+  assert.equal(h.sent.length, 3, JSON.stringify(h.errors));
   assert.match(h.sent[0]![0]!.content, /阶段 1\/2/);
   assert.match(h.sent[0]![0]!.content, /主体：紫微完整运限资料/);
   assert.match(h.sent[0]![0]!.content, /安星口径：传统通行安星法/);
@@ -654,8 +654,23 @@ test('紫微结构化时间线超限时按完整阶段事实逐段解读并汇�
   );
 });
 
+test('紫微单年事实仍超容量时保留原始资料并明确失败', async () => {
+  const h = harness([]);
+  const resource = makeZiweiFullResource(1, 4000, '完整原始资料'.repeat(16000));
+  h.options.memory.resources = [resource];
+  h.options.subject = ziweiSubject;
+  await runReadingWorkflow([{ role: 'user', content: '紫微完整原盘，问事业' }], h.options, {
+    stream: h.stream,
+    execute: async () => resource,
+  });
+  assert.equal(h.sent.length, 0);
+  assert.deepEqual(h.errors, ['紫微完整资料的第1个大限仍超出单阶段容量。']);
+  assert.equal(h.options.memory.resources[0], resource);
+  assert.equal(h.done(), 0);
+});
+
 test('紫微阶段空回答标记失败并可重试', async () => {
-  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  const resource = makeZiweiFullResource(2, 1500, '完整原始资料'.repeat(16000));
   const first = harness([]);
   first.options.memory.resources = [resource];
   first.options.subject = ziweiSubject;
@@ -688,7 +703,7 @@ test('紫微阶段空回答标记失败并可重试', async () => {
 });
 
 test('紫微阶段归并空回答不形成全覆盖', async () => {
-  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  const resource = makeZiweiFullResource(2, 1500, '完整原始资料'.repeat(16000));
   const h = harness([]);
   h.options.memory.resources = [resource];
   h.options.subject = ziweiSubject;
@@ -754,12 +769,12 @@ test('两份真实完整紫微盘超限时按主体分别分阶段并综合', as
 
 test('紫微双主体中途失败后重试只补失败主体阶段', async () => {
   const primary = {
-    ...makeZiweiFullResource(2, 4000, '第一主体完整资料'.repeat(16_000)),
+    ...makeZiweiFullResource(2, 1500, '第一主体完整资料'.repeat(16_000)),
     key: 'ziwei-full-primary',
     title: '甲主体紫微完整运限资料',
   };
   const partner = {
-    ...makeZiweiFullResource(2, 4000, '第二主体完整资料'.repeat(16_000)),
+    ...makeZiweiFullResource(2, 1500, '第二主体完整资料'.repeat(16_000)),
     key: 'ziwei-full-partner',
     title: '乙主体紫微完整运限资料',
   };
@@ -805,7 +820,7 @@ test('紫微双主体中途失败后重试只补失败主体阶段', async () =>
 
 test('紫微阶段失败后同问题重试只补失败阶段并保留成功阶段', async () => {
   const h = harness([]);
-  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  const resource = makeZiweiFullResource(2, 1500, '完整原始资料'.repeat(16000));
   h.options.memory.resources = [resource];
   h.options.subject = ziweiSubject;
   const sent: ChatMessage[][] = [];
@@ -841,7 +856,7 @@ test('紫微阶段失败后同问题重试只补失败阶段并保留成功阶�
 
 test('紫微阶段取消后换问题不会复用旧摘要', async () => {
   const h = harness([]);
-  const resource = makeZiweiFullResource(2, 4000, '完整原始资料'.repeat(16000));
+  const resource = makeZiweiFullResource(2, 1500, '完整原始资料'.repeat(16000));
   h.options.memory.resources = [resource];
   h.options.subject = ziweiSubject;
   const controller = new AbortController();
