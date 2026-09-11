@@ -6380,10 +6380,12 @@ test('玄空与住宅接口应按请求计算替卦并保留替星盘面', async
       assert.equal(chart.replacementApplied, true, `${method}/${operation}`);
       assert.equal(chart.replacement?.mountain.referenceMountain, '子', `${method}/${operation}`);
       assert.equal(chart.replacement?.facing.referenceMountain, '巽', `${method}/${operation}`);
-      assert.match(
-        operation === 'calculate' ? JSON.stringify(body.data) : body.data.prompt,
-        /卦型：替卦/,
+      assert.equal(chart.replacement?.mountain.replacementStar, 5, `${method}/${operation}`);
+      assert.equal(chart.plates.shan.length, 9, `${method}/${operation}`);
+      assert.ok(
+        chart.combinations.some((item: { name: string }) => item.name === '全盘反吟（山星）'),
       );
+      if (operation === 'prompt') assert.match(body.data.prompt, /卦型：替卦/);
     }
   }
 });
