@@ -11,10 +11,15 @@ import {
 
 test('Pages Functions bundle 门禁按 Cloudflare 25 MiB 未压缩限制计量', () => {
   const warnings: string[] = [];
-  assertPagesFunctionsBundleSize(PAGES_FUNCTIONS_BUNDLE_LIMIT_BYTES - 1, (message) => {
+  const belowWarningThreshold = Math.floor(PAGES_FUNCTIONS_BUNDLE_LIMIT_BYTES * 0.9) - 1;
+  assertPagesFunctionsBundleSize(belowWarningThreshold, (message) => {
     warnings.push(message);
   });
   assert.equal(warnings.length, 0);
+  assertPagesFunctionsBundleSize(PAGES_FUNCTIONS_BUNDLE_LIMIT_BYTES - 1, (message) => {
+    warnings.push(message);
+  });
+  assert.equal(warnings.length, 1);
   assert.throws(
     () => assertPagesFunctionsBundleSize(PAGES_FUNCTIONS_BUNDLE_LIMIT_BYTES + 1),
     /超过 Cloudflare 25 MiB 限制/,

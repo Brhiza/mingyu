@@ -102,7 +102,6 @@ type CompactPairRow = [
   number,
   number,
   number,
-  number,
 ];
 
 type CompactPairIndex = {
