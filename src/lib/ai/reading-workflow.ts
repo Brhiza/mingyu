@@ -899,10 +899,30 @@ export async function runReadingWorkflow(
   };
   const seen = new Set([...resources, ...schemaResources].map((item) => item.key));
   const notes: string[] = [];
+  const retryFailures = new Map<string, string>();
   let calls = 0;
   let planningRepairHint = '';
   const hasStoredFullZiwei = resources.some((resource) => Boolean(getZiweiFullResult(resource)));
   options.onProgress({ stage: 'preparing', text: '正在梳理问题与盘面' });
+  const retryFailureKey = (key: string, action: ReadingAction) =>
+    action.kind === 'calculate'
+      ? JSON.stringify({
+          kind: action.kind,
+          method: action.method,
+          target: action.target ?? 'primary',
+        })
+      : key;
+  const rememberRetryFailure = (key: string, action: ReadingAction, error: unknown) => {
+    const note = describeReadingFailure(action, error);
+    retryFailures.set(retryFailureKey(key, action), note);
+  };
+  const clearRetryFailure = (key: string, action: ReadingAction) => {
+    retryFailures.delete(retryFailureKey(key, action));
+  };
+  const formatRetryFailures = () =>
+    retryFailures.size
+      ? `\n\n【上轮补算反馈】\n${[...retryFailures.values()].map((note) => `- ${note}`).join('\n')}\n`
+      : '';
   const schemaKeyForMethod = (method: string) => JSON.stringify({ kind: 'schema', method });
   const hasSchemaForMethod = (method: string) =>
     schemaResources.some((item) => item.key === schemaKeyForMethod(method));
@@ -916,6 +936,7 @@ export async function runReadingWorkflow(
     options.onProgress({ stage: 'consulting', text: '正在读取补算参数' });
     try {
       const resource = await deps.execute(schemaAction, options.signal, options.subject);
+      clearRetryFailure(key, schemaAction);
       schemaResources.push({ ...resource, key, kind: 'schema' });
       persistResources();
       guard();
@@ -923,7 +944,7 @@ export async function runReadingWorkflow(
     } catch (error) {
       guard();
       seen.delete(key);
-      notes.push(describeReadingFailure(schemaAction, error));
+      rememberRetryFailure(key, schemaAction, error);
       options.onNotice('补算参数暂未取得，将依据已有资料继续解读。');
       return false;
     }
@@ -940,7 +961,7 @@ export async function runReadingWorkflow(
     for (let round = 0; round < (isSimpleFollowup || hasStoredFullZiwei ? 0 : 2); round += 1) {
       let needsRefinement = false;
       guard();
-      const catalog = `${planningRepairHint}【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。双人解读时用 target 指定对象；primary 对应第一人，partner 对应第二人，两人分别填写各自的目标时段。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。partner 补算以本次已提供的第二人出生资料为依据。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
+      const catalog = `${planningRepairHint}${formatRetryFailures()}【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。双人解读时用 target 指定对象；primary 对应第一人，partner 对应第二人，两人分别填写各自的目标时段。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。partner 补算以本次已提供的第二人出生资料为依据。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
       const schemas = schemaResources.length
         ? `\n\n【补算参数】\n${schemaResources.map((item) => `${item.title}\n${item.text}`).join('\n\n')}`
         : '';
@@ -969,6 +990,9 @@ export async function runReadingWorkflow(
             '\n【资料准备修正】上一次返回未形成可执行资料动作。请输出可解析的 JSON 对象，顶层包含 actions 数组；动作使用 schema、calculate 或 classic 的既定字段，并保留目标主体与目标时段。\n';
           await prefetchSubjectSchemas();
           if (round + 1 < 2) continue;
+          notes.push(
+            '本轮资料准备未取得可执行的补充动作，解读应依据当前已有盘面与已取得资料完成。',
+          );
           options.onNotice('本次自动补查未完成，解读将使用已有盘面与解读方法。');
           break;
         }
@@ -1016,6 +1040,7 @@ export async function runReadingWorkflow(
         try {
           const resource = await deps.execute(action, options.signal, options.subject);
           if (action.kind === 'schema') {
+            clearRetryFailure(key, action);
             schemaResources.push({ ...resource, key, kind: 'schema' });
             persistResources();
             guard();
@@ -1025,17 +1050,19 @@ export async function runReadingWorkflow(
             seen.delete(key);
             guard();
             needsRefinement = true;
-            notes.push(describeReadingFailure(action, new Error('未命中')));
+            rememberRetryFailure(key, action, new Error('未命中'));
             options.onNotice(`“${action.query}”未查到对应条文，已保留原有盘面资料。`);
             continue;
           }
+          clearRetryFailure(key, action);
           resources.push({ ...resource, key, kind: 'evidence' });
           persistResources();
           guard();
         } catch (error) {
           seen.delete(key);
           guard();
-          notes.push(describeReadingFailure(action, error));
+          rememberRetryFailure(key, action, error);
+          needsRefinement = true;
           options.onNotice('部分补充资料暂未取得，将依据已有资料继续解读。');
         }
       }
@@ -1048,7 +1075,7 @@ export async function runReadingWorkflow(
     const finalResources = resources.filter((item) => item.usable);
     const getFinalStatusNotes = (omitted: ReadingResource[]) => {
       const capacityNote = formatCapacityNotice('本轮解读', omitted).trim();
-      return [...notes, ...(capacityNote ? [capacityNote] : [])];
+      return [...notes, ...retryFailures.values(), ...(capacityNote ? [capacityNote] : [])];
     };
     const buildFinalAddition = (
       selected: ReadingResource[],

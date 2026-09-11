@@ -365,6 +365,60 @@ test('缺少补算参数时先读取真实 schema 再在下一轮补算', async 
   assert.deepEqual(h.chunks, ['读取参数后的解读']);
 });
 
+test('连续两次准备格式错误时最终上下文说明资料状态', async () => {
+  const h = harness(['不是JSON', '仍不是JSON', '已有资料解读']);
+  await runReadingWorkflow([{ role: 'user', content: '塔罗：星星正位' }], h.options, {
+    stream: h.stream,
+    execute: async () => {
+      throw new Error('不应执行');
+    },
+  });
+  const final = h.sent.at(-1)![0].content;
+  assert.match(final, /本轮资料准备未取得可执行的补充动作/);
+  assert.doesNotMatch(final, /资料准备修正/);
+  assert.deepEqual(h.chunks, ['已有资料解读']);
+});
+
+test('补算执行安全校验失败后带纠错反馈并成功重试', async (t) => {
+  const h = harness([
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1991}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
+    '重试后的解读',
+  ]);
+  h.options.subject = baziSubject;
+  h.options.memory.schemas = [
+    {
+      key: JSON.stringify({ kind: 'schema', method: 'bazi' }),
+      title: '八字补算参数',
+      text: '{"properties":{"year":{"type":"integer"}}}',
+      usable: false,
+      kind: 'schema',
+    },
+  ];
+  const executed: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input, init) =>
+    handlePublicApiRequest(
+      new Request(new URL(String(input), 'https://aov.cc'), init),
+    )) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+    stream: h.stream,
+    execute: async (action, signal, subject) => {
+      executed.push(action.kind);
+      return executeReadingAction(action, signal, subject);
+    },
+  });
+  assert.deepEqual(executed, ['calculate', 'calculate']);
+  assert.match(h.sent[1][0].content, /补算主体与当前命盘不一致：year/);
+  const final = h.sent[2][0].content;
+  assert.doesNotMatch(final, /bazi补充资料未取得/);
+  assert.match(final, /1990|庚午/);
+  assert.deepEqual(h.chunks, ['重试后的解读']);
+});
+
 test('没有主体快照时跳过自动补算并明确提示', async () => {
   const h = harness([
     '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
