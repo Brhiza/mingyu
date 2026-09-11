@@ -17,7 +17,7 @@
 - **在线 Remote MCP（云端直连 · 零依赖）**：
   - **Claude Code**：`claude mcp add mingyu --transport sse https://aov.cc/mcp`
   - **Cursor / Windsurf / VS Code**：直接添加 SSE 类型的 Server URL：`https://aov.cc/mcp`
-  - **QQ 交流群**：命语 Mingyu 技术交流群（1080947018）
+- **QQ 交流群**：命语 Mingyu 技术交流群（1080947018）
 
 ---
 
