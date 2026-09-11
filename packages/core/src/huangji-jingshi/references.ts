@@ -56,6 +56,11 @@ export interface HuangjiSoundRhythmReference {
   };
   readonly soundCategories: readonly ['平', '上', '去', '入'];
   readonly toneCategories: readonly ['开', '发', '收', '闭'];
+  readonly diagramCounts: readonly {
+    readonly name: string;
+    readonly value: number;
+    readonly formula: string;
+  }[];
   readonly pairings: readonly [
     { readonly image: '日'; readonly sound: '声'; readonly tone: '音'; readonly element: '水' },
     { readonly image: '月'; readonly sound: '声'; readonly tone: '音'; readonly element: '火' },
@@ -138,6 +143,10 @@ const HUANGJI_SOUND_RHYTHM_REFERENCE = Object.freeze<HuangjiSoundRhythmReference
   },
   soundCategories: ['平', '上', '去', '入'],
   toneCategories: ['开', '发', '收', '闭'],
+  diagramCounts: [
+    { name: '辰星声入辟图音数', value: 1064, formula: '7×152' },
+    { name: '石土音闭清图声数', value: 560, formula: '5×112' },
+  ],
   pairings: [
     { image: '日', sound: '声', tone: '音', element: '水' },
     { image: '月', sound: '声', tone: '音', element: '火' },
@@ -158,7 +167,7 @@ const HUANGJI_ANIMAL_PLANT_REFERENCE: HuangjiAnimalPlantReference = Object.freez
     { name: '动植之全数', value: 30720, formula: '160×192' },
     { name: '动物之用数', value: 17024, formula: '112×152' },
     { name: '植物之用数', value: 17024, formula: '152×112' },
-    { name: '动物通数', value: 289816576, formula: '17024×17024' },
+    { name: '动植之通数', value: 289816576, formula: '17024×17024' },
   ],
   limitations: SOUND_RHYTHM_LIMITATIONS,
 });
@@ -311,6 +320,7 @@ export function queryHuangjiReference(query: HuangjiReferenceQuery): HuangjiRefe
         soundCategories: [...HUANGJI_SOUND_RHYTHM_REFERENCE.soundCategories],
         toneCategories: [...HUANGJI_SOUND_RHYTHM_REFERENCE.toneCategories],
         pairings: structuredClone(HUANGJI_SOUND_RHYTHM_REFERENCE.pairings),
+        diagramCounts: HUANGJI_SOUND_RHYTHM_REFERENCE.diagramCounts.map((item) => ({ ...item })),
         rules: [...HUANGJI_SOUND_RHYTHM_REFERENCE.rules],
         limitations: [...HUANGJI_SOUND_RHYTHM_REFERENCE.limitations],
       };

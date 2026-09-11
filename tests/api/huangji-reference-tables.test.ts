@@ -44,6 +44,10 @@ test('皇极扩展资料公开 API 与 MCP 返回同一声音律吕表', async (
   assert.equal(http.response.status, 200, JSON.stringify(http.body));
   assert.equal(http.body.data?.table, 'sound-rhythm');
   assert.equal((http.body.data?.bodyCounts as { heavenlyUseSound?: number }).heavenlyUseSound, 112);
+  assert.deepEqual(
+    (http.body.data?.diagramCounts as { value: number }[]).map((item) => item.value),
+    [1064, 560],
+  );
 
   const mcp = await client.callTool({ name: 'huangji_reference_tables', arguments: input });
   assert.notEqual(mcp.isError, true, JSON.stringify(mcp));

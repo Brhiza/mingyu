@@ -74,6 +74,14 @@ function SoundRhythmReference({ reference }: { reference: HuangjiSoundRhythmRefe
           <dt>地之用音数</dt>
           <dd>{reference.bodyCounts.earthlyUseTone}</dd>
         </div>
+        {reference.diagramCounts.map((item) => (
+          <div key={item.name}>
+            <dt>{item.name}</dt>
+            <dd>
+              {item.formula}＝{item.value}
+            </dd>
+          </div>
+        ))}
       </dl>
       <div className="traditional-huangji-reference-facts">
         <p>

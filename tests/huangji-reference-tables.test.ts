@@ -15,6 +15,10 @@ test('皇极声音律吕表返回固定数目、分类和四象次序', () => {
   });
   assert.deepEqual(result.soundCategories, ['平', '上', '去', '入']);
   assert.deepEqual(result.toneCategories, ['开', '发', '收', '闭']);
+  assert.deepEqual(result.diagramCounts, [
+    { name: '辰星声入辟图音数', value: 1064, formula: '7×152' },
+    { name: '石土音闭清图声数', value: 560, formula: '5×112' },
+  ]);
   assert.deepEqual(
     result.pairings.map((item) => [item.image, item.element]),
     [
@@ -34,7 +38,7 @@ test('皇极动植物数表保留可复算数目与校勘边界', () => {
   assert.equal(values['动植之全数'], 160 * 192);
   assert.equal(values['动物之用数'], 112 * 152);
   assert.equal(values['植物之用数'], 152 * 112);
-  assert.equal(values['动物通数'], 17024 * 17024);
+  assert.equal(values['动植之通数'], 17024 * 17024);
   assert.match(result.limitations.join('\n'), /一百二十二/);
 });
 
