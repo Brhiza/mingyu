@@ -12,6 +12,8 @@ import {
   type ZiweiFortuneTimeline,
   type ZiweiFortuneTimelinePhaseSelection,
 } from 'mingyu-core/prompt';
+import { buildLifetimePrompt } from 'mingyu-core/divination/qimen';
+import type { QimenLifetimeData } from 'mingyu-core/types';
 
 export type ReadingTarget = 'primary' | 'partner';
 
@@ -49,10 +51,28 @@ type ZiweiPhaseMemory = {
     answer?: string;
   }>;
 };
+type QimenPhaseMemory = {
+  resourceKey: string;
+  resourceText: string;
+  structuredText: string;
+  subjectId: string;
+  question: string;
+  phases: Array<{
+    index: number;
+    resourceKey: string;
+    subjectTitle: string;
+    coverageLabel: string;
+    dateKeys: string[];
+    facts: string;
+    status: ZiweiPhaseStatus;
+    answer?: string;
+  }>;
+};
 export type ReadingMemory = {
   resources: ReadingResource[];
   schemas?: ReadingResource[];
   ziweiPhaseReading?: ZiweiPhaseMemory;
+  qimenPhaseReading?: QimenPhaseMemory;
 };
 export type ReadingMemorySeed = {
   subjectId: string;
@@ -379,6 +399,628 @@ function getZiweiFullResult(resource: ReadingResource): SerializableZiweiResult 
   )
     return undefined;
   return structured as unknown as SerializableZiweiResult;
+}
+
+type QimenEventCluster = NonNullable<QimenLifetimeData['eventClusters']>[number];
+type QimenPhaseSlice = {
+  clusterIndex: number;
+  startDateIndex: number;
+  endDateIndex: number;
+};
+type QimenPhaseDraft = { slices: QimenPhaseSlice[] };
+type QimenPhase = QimenPhaseDraft & {
+  resourceKey: string;
+  subjectTitle: string;
+  summaryLabel: string;
+  coverageLabel: string;
+  clusterKeys: string[];
+  dateKeys: string[];
+  facts: string;
+};
+
+function getQimenLifetimeResult(resource: ReadingResource): QimenLifetimeData | undefined {
+  const structured = resource.structured;
+  if (
+    !structured ||
+    !isRecord(structured.input) ||
+    !isRecord(structured.basis) ||
+    !isRecord(structured.baseChart) ||
+    !Array.isArray(structured.stages)
+  )
+    return undefined;
+  return structured as unknown as QimenLifetimeData;
+}
+
+function getQimenPhaseData(result: QimenLifetimeData, draft: QimenPhaseDraft): QimenLifetimeData {
+  const slices = new Map<number, QimenPhaseSlice[]>();
+  for (const slice of draft.slices) {
+    const clusterSlices = slices.get(slice.clusterIndex) ?? [];
+    clusterSlices.push(slice);
+    slices.set(slice.clusterIndex, clusterSlices);
+  }
+  const eventClusters = (result.eventClusters ?? [])
+    .map((cluster, clusterIndex) => {
+      const clusterSlices = slices.get(clusterIndex);
+      if (!clusterSlices) return undefined;
+      if (!cluster.triggerDates) return { ...cluster };
+      return {
+        ...cluster,
+        triggerDates: clusterSlices.flatMap((slice) =>
+          cluster.triggerDates!.slice(slice.startDateIndex, slice.endDateIndex),
+        ),
+      };
+    })
+    .filter((cluster): cluster is QimenEventCluster => Boolean(cluster));
+  return { ...result, eventClusters };
+}
+
+function getQimenPhaseCoverage(
+  result: QimenLifetimeData,
+  draft: QimenPhaseDraft,
+): { label: string; clusterKeys: string[]; dateKeys: string[] } {
+  const clusters = result.eventClusters ?? [];
+  const selected = draft.slices
+    .map((slice) => ({ slice, cluster: clusters[slice.clusterIndex] }))
+    .filter((item): item is { slice: QimenPhaseSlice; cluster: QimenEventCluster } =>
+      Boolean(item.cluster),
+    );
+  const spans = [...new Set(selected.map(({ cluster }) => cluster.timeSpan))];
+  const stageIndexes = [...new Set(selected.map(({ cluster }) => cluster.stageIndex))].sort(
+    (a, b) => (a ?? Number.MAX_SAFE_INTEGER) - (b ?? Number.MAX_SAFE_INTEGER),
+  );
+  const stageNames = stageIndexes.map((index) =>
+    index === undefined
+      ? '阶段范围外日期'
+      : (result.stages.find((stage) => stage.stageIndex === index)?.title ?? `阶段${index + 1}`),
+  );
+  const dateKeys = selected.flatMap(({ slice, cluster }) =>
+    (cluster.triggerDates ?? [])
+      .slice(slice.startDateIndex, slice.endDateIndex)
+      .map((_, index) => `${slice.clusterIndex}:${slice.startDateIndex + index}`),
+  );
+  const range = result.input.periodRange;
+  const rangeLabel = range ? `${range.startDate}至${range.endDate}` : '终身阶段范围';
+  const spanLabel =
+    spans.length <= 4
+      ? spans.join('、') || '基础局资料'
+      : `${spans[0]}至${spans.at(-1)}（${spans.length}个事件簇）`;
+  return {
+    label: `目标时间范围：${rangeLabel}；本阶段覆盖：${spanLabel}；相关阶段：${
+      stageNames.join('、') || '基础局'
+    }；可复核日期：${dateKeys.length}条`,
+    clusterKeys: selected.map(({ slice, cluster }) => `${slice.clusterIndex}:${cluster.key}`),
+    dateKeys,
+  };
+}
+
+function formatQimenPhaseFacts(
+  result: QimenLifetimeData,
+  draft: QimenPhaseDraft,
+  subjectTitle: string,
+  question: string,
+) {
+  const coverage = getQimenPhaseCoverage(result, draft);
+  const phaseData = getQimenPhaseData(result, draft);
+  return {
+    coverage,
+    facts: [`主体：${subjectTitle}`, coverage.label, buildLifetimePrompt(phaseData, question)].join(
+      '\n\n',
+    ),
+  };
+}
+
+function buildQimenPhaseAddition(
+  guide: string,
+  currentTimeContext: string,
+  facts: string,
+  supplementalText: string,
+) {
+  return `${guide}${currentTimeContext}\n\n【奇门终身局资料阶段】\n${facts}${
+    supplementalText ? `\n\n【其他已取得资料】\n${supplementalText}` : ''
+  }\n\n【阶段解读】请依据本阶段标明的原局、阶段、事件日期和问题给出阶段判断；结论中保留目标时间范围、阶段覆盖和关键日期。`;
+}
+
+function qimenPhaseFits(
+  messages: ChatMessage[],
+  result: QimenLifetimeData,
+  draft: QimenPhaseDraft,
+  subjectTitle: string,
+  question: string,
+  guide: string,
+  currentTimeContext: string,
+  supplementalText: string,
+) {
+  const { facts } = formatQimenPhaseFacts(result, draft, subjectTitle, question);
+  try {
+    fitReadingMessages(
+      messages,
+      buildQimenPhaseAddition(guide, currentTimeContext, facts, supplementalText),
+    );
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('解读容量')) return false;
+    throw error;
+  }
+}
+
+function assertQimenPhaseCoverage(phases: readonly QimenPhase[], result: QimenLifetimeData) {
+  const clusters = result.eventClusters ?? [];
+  const expectedClusterKeys = clusters.map((cluster, index) => `${index}:${cluster.key}`).sort();
+  const actualClusterKeys = phases.flatMap((phase) => phase.clusterKeys).sort();
+  if (JSON.stringify(actualClusterKeys) !== JSON.stringify(expectedClusterKeys)) {
+    throw new Error('奇门终身局阶段资料未完整覆盖全部事件簇。');
+  }
+  const expectedDateKeys = clusters.flatMap((cluster, clusterIndex) =>
+    (cluster.triggerDates ?? []).map((_, dateIndex) => `${clusterIndex}:${dateIndex}`),
+  );
+  const actualDateKeys = phases.flatMap((phase) => phase.dateKeys);
+  if (
+    actualDateKeys.length !== new Set(actualDateKeys).size ||
+    JSON.stringify([...actualDateKeys].sort()) !== JSON.stringify([...expectedDateKeys].sort())
+  ) {
+    throw new Error('奇门终身局阶段资料未完整覆盖全部可复核日期。');
+  }
+}
+
+function buildQimenPhasePlan(
+  messages: ChatMessage[],
+  result: QimenLifetimeData,
+  resourceKey: string,
+  subjectTitle: string,
+  guide: string,
+  currentTimeContext: string,
+  supplementalText: string,
+  question: string,
+): QimenPhase[] {
+  const clusters = result.eventClusters ?? [];
+  const fits = (draft: QimenPhaseDraft) =>
+    qimenPhaseFits(
+      messages,
+      result,
+      draft,
+      subjectTitle,
+      question,
+      guide,
+      currentTimeContext,
+      supplementalText,
+    );
+  const drafts: QimenPhaseDraft[] = [];
+  let current: QimenPhaseSlice[] = [];
+
+  for (let clusterIndex = 0; clusterIndex < clusters.length; clusterIndex += 1) {
+    const cluster = clusters[clusterIndex]!;
+    const fullSlice: QimenPhaseSlice = {
+      clusterIndex,
+      startDateIndex: 0,
+      endDateIndex: cluster.triggerDates?.length ?? 0,
+    };
+    if (fits({ slices: [...current, fullSlice] })) {
+      current.push(fullSlice);
+      continue;
+    }
+    if (current.length) {
+      drafts.push({ slices: current });
+      current = [];
+    }
+    if (fits({ slices: [fullSlice] })) {
+      current = [fullSlice];
+      continue;
+    }
+
+    const triggerDates = cluster.triggerDates ?? [];
+    if (triggerDates.length === 0) {
+      throw new Error(`奇门终身局事件簇${cluster.timeSpan}仍超出单阶段容量。`);
+    }
+    let startDateIndex = 0;
+    while (startDateIndex < triggerDates.length) {
+      let low = startDateIndex + 1;
+      let high = triggerDates.length;
+      let bestEndDateIndex = startDateIndex;
+      while (low <= high) {
+        const candidateEndDateIndex = Math.floor((low + high) / 2);
+        const candidate: QimenPhaseDraft = {
+          slices: [
+            {
+              clusterIndex,
+              startDateIndex,
+              endDateIndex: candidateEndDateIndex,
+            },
+          ],
+        };
+        if (fits(candidate)) {
+          bestEndDateIndex = candidateEndDateIndex;
+          low = candidateEndDateIndex + 1;
+        } else {
+          high = candidateEndDateIndex - 1;
+        }
+      }
+      if (bestEndDateIndex === startDateIndex) {
+        throw new Error(`奇门终身局事件簇${cluster.timeSpan}的日期资料超出单阶段容量。`);
+      }
+      drafts.push({
+        slices: [
+          {
+            clusterIndex,
+            startDateIndex,
+            endDateIndex: bestEndDateIndex,
+          },
+        ],
+      });
+      startDateIndex = bestEndDateIndex;
+    }
+  }
+  if (current.length || drafts.length === 0) drafts.push({ slices: current });
+
+  const packedDrafts: QimenPhaseDraft[] = [];
+  for (const draft of drafts) {
+    const previous = packedDrafts.at(-1);
+    const combined = previous ? { slices: [...previous.slices, ...draft.slices] } : undefined;
+    if (combined && fits(combined)) packedDrafts[packedDrafts.length - 1] = combined;
+    else packedDrafts.push(draft);
+  }
+
+  const phases = packedDrafts.map((draft, index) => {
+    const { coverage, facts } = formatQimenPhaseFacts(result, draft, subjectTitle, question);
+    return {
+      ...draft,
+      resourceKey,
+      subjectTitle,
+      summaryLabel: `主体：${subjectTitle}｜阶段${index + 1}/${packedDrafts.length}｜${coverage.label}`,
+      coverageLabel: coverage.label,
+      clusterKeys: coverage.clusterKeys,
+      dateKeys: coverage.dateKeys,
+      facts,
+    };
+  });
+  assertQimenPhaseCoverage(phases, result);
+  for (const phase of phases) {
+    fitReadingMessages(
+      messages,
+      buildQimenPhaseAddition(guide, currentTimeContext, phase.facts, supplementalText),
+    );
+  }
+  return phases;
+}
+
+function buildQimenPhaseSummaryAddition(
+  guide: string,
+  currentTimeContext: string,
+  entries: readonly PhaseAnswer[],
+  phaseCount: number,
+  targetRange: string,
+  intermediate: boolean,
+) {
+  const covered = [...new Set(entries.flatMap((entry) => entry.indices))].sort((a, b) => a - b);
+  const facts = entries
+    .map((entry) => `【${entry.labels.join('；')}分析】\n${entry.answer}`)
+    .join('\n\n');
+  return `${guide}${currentTimeContext}\n\n【奇门终身局阶段覆盖核对】目标时间范围：${targetRange}；已纳入阶段：${covered
+    .map((index) => `${index + 1}/${phaseCount}`)
+    .join('、')}；阶段中列出的事件日期均已参与分析。\n\n${
+    intermediate
+      ? '【阶段归并】请保留每个阶段编号、日期和事实边界，依据各阶段已列事实归并分析。'
+      : '【最终解读】请综合已完成的全部奇门终身局阶段分析回答本轮问题；结论必须能追溯到阶段编号和日期范围。'
+  }\n\n${facts}`;
+}
+
+function assertQimenPhaseAnswerCoverage(entries: readonly PhaseAnswer[], phaseCount: number) {
+  for (const entry of entries) {
+    if (!entry.answer.trim()) {
+      throw new Error(
+        `奇门终身局阶段${entry.indices.map((index) => `${index + 1}/${phaseCount}`).join('、')}返回空结果，请重试。`,
+      );
+    }
+  }
+  const covered = new Set(entries.flatMap((entry) => entry.indices));
+  for (let index = 0; index < phaseCount; index += 1) {
+    if (!covered.has(index))
+      throw new Error(`奇门终身局阶段${index + 1}/${phaseCount}未参与汇总。`);
+  }
+}
+
+function packQimenPhaseAnswers(
+  messages: ChatMessage[],
+  entries: readonly PhaseAnswer[],
+  guide: string,
+  currentTimeContext: string,
+  phaseCount: number,
+  targetRange: string,
+) {
+  const groups: PhaseAnswer[][] = [];
+  let current: PhaseAnswer[] = [];
+  for (const entry of entries) {
+    const candidate = [...current, entry];
+    try {
+      fitReadingMessages(
+        messages,
+        buildQimenPhaseSummaryAddition(
+          guide,
+          currentTimeContext,
+          candidate,
+          phaseCount,
+          targetRange,
+          false,
+        ),
+      );
+      current = candidate;
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('解读容量')) throw error;
+      if (!current.length)
+        throw new Error(`奇门终身局${entry.indices[0]! + 1}/${phaseCount}阶段结果超出汇总容量。`, {
+          cause: error,
+        });
+      groups.push(current);
+      current = [entry];
+    }
+  }
+  if (current.length) groups.push(current);
+  return groups;
+}
+
+async function collectQimenPhaseSummary(
+  messages: ChatMessage[],
+  phases: readonly QimenPhase[],
+  options: ReadingOptions,
+  deps: ReadingDependencies,
+  guide: string,
+  currentTimeContext: string,
+  supplementalText: string,
+  targetRange: string,
+) {
+  const entries: PhaseAnswer[] = Array.from({ length: phases.length }, (_, index) => ({
+    indices: [index],
+    labels: [phases[index]!.summaryLabel],
+    answer: '',
+  }));
+  const cached = options.memory.qimenPhaseReading;
+  for (let index = 0; index < phases.length; index += 1) {
+    const phase = phases[index]!;
+    const record = cached?.phases[index];
+    if (
+      record?.status === 'succeeded' &&
+      record.resourceKey === phase.resourceKey &&
+      record.subjectTitle === phase.subjectTitle &&
+      record.coverageLabel === phase.coverageLabel &&
+      JSON.stringify(record.dateKeys) === JSON.stringify(phase.dateKeys) &&
+      record.facts === phase.facts &&
+      record.answer?.trim()
+    ) {
+      entries[index]!.answer = record.answer;
+      continue;
+    }
+    const prepared = fitReadingMessages(
+      messages,
+      buildQimenPhaseAddition(guide, currentTimeContext, phase.facts, supplementalText),
+    );
+    options.onProgress({
+      stage: 'writing',
+      text: `正在分析${phase.subjectTitle} ${phase.summaryLabel.split('｜').at(-1)}`,
+    });
+    if (cached) {
+      cached.phases[index] = {
+        index,
+        resourceKey: phase.resourceKey,
+        subjectTitle: phase.subjectTitle,
+        coverageLabel: phase.coverageLabel,
+        dateKeys: phase.dateKeys,
+        facts: phase.facts,
+        status: 'pending',
+      };
+    }
+    try {
+      const answer = requirePhaseAnswer(
+        await collectResponse(prepared, options, deps.stream),
+        `奇门终身局阶段${index + 1}/${phases.length}`,
+      );
+      entries[index]!.answer = answer;
+      if (cached)
+        cached.phases[index] = {
+          index,
+          resourceKey: phase.resourceKey,
+          subjectTitle: phase.subjectTitle,
+          coverageLabel: phase.coverageLabel,
+          dateKeys: phase.dateKeys,
+          facts: phase.facts,
+          status: 'succeeded',
+          answer,
+        };
+    } catch (error) {
+      if (cached) {
+        cached.phases[index] = {
+          index,
+          resourceKey: phase.resourceKey,
+          subjectTitle: phase.subjectTitle,
+          coverageLabel: phase.coverageLabel,
+          dateKeys: phase.dateKeys,
+          facts: phase.facts,
+          status: options.signal?.aborted ? 'cancelled' : 'failed',
+        };
+      }
+      throw error;
+    }
+  }
+  assertQimenPhaseAnswerCoverage(entries, phases.length);
+
+  let currentEntries = entries;
+  let reductionRound = 0;
+  while (true) {
+    const groups = packQimenPhaseAnswers(
+      messages,
+      currentEntries,
+      guide,
+      currentTimeContext,
+      phases.length,
+      targetRange,
+    );
+    if (groups.length === 1) {
+      assertQimenPhaseAnswerCoverage(groups[0]!, phases.length);
+      return fitReadingMessages(
+        messages,
+        buildQimenPhaseSummaryAddition(
+          guide,
+          currentTimeContext,
+          groups[0]!,
+          phases.length,
+          targetRange,
+          false,
+        ),
+      );
+    }
+    reductionRound += 1;
+    if (reductionRound > 8) throw new Error('奇门终身局阶段汇总超过可控归并层数，请重试。');
+    const nextEntries: PhaseAnswer[] = [];
+    for (const group of groups) {
+      assertPhaseIndices(group, phases.length);
+      const prepared = fitReadingMessages(
+        messages,
+        buildQimenPhaseSummaryAddition(
+          guide,
+          currentTimeContext,
+          group,
+          phases.length,
+          targetRange,
+          true,
+        ),
+      );
+      const answer = await collectResponse(prepared, options, deps.stream);
+      requirePhaseAnswer(
+        answer,
+        `奇门终身局阶段归并（${group
+          .map((entry) => entry.indices.map((index) => index + 1).join('、'))
+          .join('、')}）`,
+      );
+      nextEntries.push({
+        indices: [...new Set(group.flatMap((entry) => entry.indices))].sort((a, b) => a - b),
+        labels: [...new Set(group.flatMap((entry) => entry.labels))],
+        answer,
+      });
+    }
+    assertQimenPhaseAnswerCoverage(nextEntries, phases.length);
+    currentEntries = nextEntries;
+  }
+}
+
+async function runQimenPhasedReading(
+  messages: ChatMessage[],
+  options: ReadingOptions,
+  deps: ReadingDependencies,
+  fullResources: readonly { resource: ReadingResource; result: QimenLifetimeData }[],
+  supplementalResources: ReadingResource[],
+  guide: string,
+  currentTimeContext: string,
+  question: string,
+) {
+  if (!fullResources.length) throw new Error('奇门终身局完整资料缺少主体。');
+  const supplementalText = formatReadingResources(supplementalResources);
+  const phases = fullResources.flatMap(({ resource, result }) =>
+    buildQimenPhasePlan(
+      messages,
+      result,
+      resource.key,
+      resource.title,
+      guide,
+      currentTimeContext,
+      supplementalText,
+      question,
+    ),
+  );
+  const targetRange = fullResources
+    .map(({ result }) => {
+      const range = result.input.periodRange;
+      return range ? `${range.startDate}至${range.endDate}` : '终身阶段范围';
+    })
+    .join('；');
+  const resourceKey = fullResources
+    .map(({ resource }) => `${resource.key}:${resource.title}`)
+    .join('\u0000');
+  const resourceText = [
+    ...fullResources.map(({ resource }) => `${resource.title}\n${resource.text}`),
+    supplementalText,
+  ].join('\u0000');
+  const structuredText = fullResources
+    .map(({ resource }) => JSON.stringify(resource.structured) ?? '')
+    .join('\u0000');
+  const previous = options.memory.qimenPhaseReading;
+  const reusable =
+    previous?.resourceKey === resourceKey &&
+    previous.resourceText === resourceText &&
+    previous.structuredText === structuredText &&
+    previous.subjectId === (options.subject?.id ?? '') &&
+    previous.question === question &&
+    previous.phases.length === phases.length;
+  const phaseMemory: QimenPhaseMemory = reusable
+    ? previous!
+    : {
+        resourceKey,
+        resourceText,
+        structuredText,
+        subjectId: options.subject?.id ?? '',
+        question,
+        phases: phases.map((phase, index) => ({
+          index,
+          resourceKey: phase.resourceKey,
+          subjectTitle: phase.subjectTitle,
+          coverageLabel: phase.coverageLabel,
+          dateKeys: phase.dateKeys,
+          facts: phase.facts,
+          status: 'pending',
+        })),
+      };
+  if (reusable) {
+    phaseMemory.phases = phases.map((phase, index) => {
+      const old = previous!.phases[index];
+      return old?.resourceKey === phase.resourceKey &&
+        old.subjectTitle === phase.subjectTitle &&
+        old.coverageLabel === phase.coverageLabel &&
+        JSON.stringify(old.dateKeys) === JSON.stringify(phase.dateKeys) &&
+        old.facts === phase.facts
+        ? old
+        : {
+            index,
+            resourceKey: phase.resourceKey,
+            subjectTitle: phase.subjectTitle,
+            coverageLabel: phase.coverageLabel,
+            dateKeys: phase.dateKeys,
+            facts: phase.facts,
+            status: 'pending' as const,
+          };
+    });
+  }
+  options.memory.qimenPhaseReading = phaseMemory;
+  const finalMessages = await collectQimenPhaseSummary(
+    messages,
+    phases,
+    options,
+    deps,
+    guide,
+    currentTimeContext,
+    supplementalText,
+    targetRange,
+  );
+  if (finalMessages.length < messages.length)
+    options.onNotice('对话较长，本轮保留原始盘面与最近的问答。');
+  options.onProgress({ stage: 'writing', text: '正在综合全部奇门终身局阶段解读' });
+  let answer = '';
+  await deps.stream(finalMessages, {
+    ...options,
+    onChunk: (chunk) => {
+      answer += chunk;
+      options.onChunk(chunk);
+    },
+    onDone: () => {
+      if (!answer.trim()) {
+        options.onError('奇门终身局最终汇总返回空结果，请重试。');
+        return;
+      }
+      options.onProgress({ stage: 'checking', text: '正在核对关键事实' });
+      for (const issue of verifyReadingAnswer(messages[0]!.content, answer, [
+        ...fullResources.map(({ resource }) => resource),
+        ...supplementalResources,
+      ]))
+        options.onNotice(`回答中有一处需要核对：${issue}`);
+      options.onDone();
+    },
+  });
 }
 
 function getZiweiTargetYearIndex(timeline: ZiweiFortuneTimeline) {
@@ -903,6 +1545,9 @@ export async function runReadingWorkflow(
   let calls = 0;
   let planningRepairHint = '';
   const hasStoredFullZiwei = resources.some((resource) => Boolean(getZiweiFullResult(resource)));
+  const hasStoredFullQimen = resources.some((resource) =>
+    Boolean(getQimenLifetimeResult(resource)),
+  );
   options.onProgress({ stage: 'preparing', text: '正在梳理问题与盘面' });
   const schemaKeyForMethod = (method: string) => JSON.stringify({ kind: 'schema', method });
   const getCalculationTargetInput = (action: Extract<ReadingAction, { kind: 'calculate' }>) => {
@@ -981,7 +1626,14 @@ export async function runReadingWorkflow(
     }
   };
   try {
-    for (let round = 0; round < (isSimpleFollowup || hasStoredFullZiwei ? 0 : 2); round += 1) {
+    for (
+      let round = 0;
+      round <
+      (isSimpleFollowup || hasStoredFullZiwei || (hasStoredFullQimen && !hasPreviousAnswer)
+        ? 0
+        : 2);
+      round += 1
+    ) {
       let needsRefinement = false;
       guard();
       const catalog = `${planningRepairHint}${formatRetryFailures()}【当前任务：准备解读资料】${currentTimeContext}\n请依据本次问题判断哪些额外资料能改变判断。输出一个JSON对象 {"actions":[]}，资料充足时使用空数组。每次最多4项。排盘类优先补齐当前阶段、所属上层运限和问题涉及的目标时段；占卜类优先保留本次起盘已有的时间、动变、牌阵或签谱事实。只有传统条文能改变取义时才查询。可选动作：\n1. {"kind":"schema","method":"${CALCULATIONS.join('或')}"}，查看补算参数。\n2. {"kind":"calculate","method":"方法编号","target":"primary","input":{}}（或使用 target:"partner"），按已读取的参数格式补算。双人解读时用 target 指定对象；primary 对应第一人，partner 对应第二人，两人分别填写各自的目标时段。参数取自用户明确提供的出生资料、地点、历法和目标时段，保持原盘的主体与计算口径；必要输入缺失时直接进入已有资料解读并指出具体缺项。partner 补算以本次已提供的第二人出生资料为依据。原始卦、课、牌、签沿用本次结果。\n3. {"kind":"classic","method":"方法编号","query":"具体星曜、日主月令、格局或卦名"}，查阅传统条文。方法编号：${Object.keys(READING_CLASSIC_TABLES).join('、')}。\n本轮仅完成资料选择，解读正文将在下一步生成。`;
@@ -1124,6 +1776,14 @@ export async function runReadingWorkflow(
       return `${guide}${currentTimeContext}${material ? `\n\n【补充资料】\n${material}` : ''}${status}\n\n【本轮解读】\n${isSimpleFollowup ? '请结合当前盘面、已有补充资料和上一轮解读直接回答用户的追问，保持原盘主体与计算口径，说明判断依据和适用条件。' : '请完整回答用户最近的问题，将已知盘面与查得传统条文结合具体情境推导。'}先说明主要判断，再展开支持依据、变化条件与关键时段。对影响当前结论的缺项，具体说明所需资料，同时完成已知部分。`;
     };
     const finalSelection = selectResourcesForMessages(messages, finalResources, buildFinalAddition);
+    const qimenFullResources = finalResources.flatMap((resource) => {
+      const result = getQimenLifetimeResult(resource);
+      return result ? [{ resource, result }] : [];
+    });
+    const qimenFullResourceSet = new Set(qimenFullResources.map(({ resource }) => resource));
+    const omittedQimenFullResources = finalSelection.omitted.filter((resource) =>
+      qimenFullResourceSet.has(resource),
+    );
     const ziweiFullResources = finalResources.flatMap((resource) => {
       const result = getZiweiFullResult(resource);
       return result ? [{ resource, result }] : [];
@@ -1132,6 +1792,32 @@ export async function runReadingWorkflow(
     const omittedZiweiFullResources = finalSelection.omitted.filter((resource) =>
       ziweiFullResourceSet.has(resource),
     );
+    if (omittedQimenFullResources.length && omittedZiweiFullResources.length) {
+      throw new Error('奇门终身局与紫微完整资料同时超出解读容量，请分开解读。');
+    }
+    if (omittedQimenFullResources.length && qimenFullResources.length) {
+      const omittedOtherResources = finalSelection.omitted.filter(
+        (resource) => !qimenFullResourceSet.has(resource),
+      );
+      if (omittedOtherResources.length) {
+        options.onNotice(
+          `本轮解读资料容量不足，以下资料未纳入奇门终身局阶段判断：${omittedOtherResources
+            .map((item) => item.title)
+            .join('、')}。`,
+        );
+      }
+      await runQimenPhasedReading(
+        messages,
+        options,
+        deps,
+        qimenFullResources,
+        finalSelection.selected.filter((resource) => !qimenFullResourceSet.has(resource)),
+        guide,
+        currentTimeContext,
+        latestUserQuestion,
+      );
+      return;
+    }
     if (omittedZiweiFullResources.length && ziweiFullResources.length) {
       await runZiweiPhasedReading(
         messages,

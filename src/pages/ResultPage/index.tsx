@@ -85,7 +85,7 @@ import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { getChartChatHistoryContext } from '@/lib/ai/chat-history';
 import { buildQimenLifetimeInputs, buildReadingSubject } from '@/lib/ai/reading-subject';
-import type { ReadingMemorySeed } from '@/lib/ai/reading-workflow';
+import type { ReadingMemorySeed, ReadingResource } from '@/lib/ai/reading-workflow';
 import {
   ResultAssistantFab,
   ResultAssistantHeader,
@@ -349,6 +349,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   );
   const [residentialMeasurement, setResidentialMeasurement] =
     useState<ResidentialMeasurement | null>(null);
+  const [qimenLifetimeCalculationRevision, setQimenLifetimeCalculationRevision] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const instantChartType = searchParams.get('instant');
   const isInstantResult = isInstantChartType(instantChartType);
@@ -1174,7 +1175,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         error: err instanceof Error ? err.message : '奇门终身局排盘失败。',
       };
     }
-  }, [inputState, shouldCalculateQimenLifetime]);
+  }, [inputState, qimenLifetimeCalculationRevision, shouldCalculateQimenLifetime]);
+  const reloadQimenLifetimeCalculation = useCallback(() => {
+    setQimenLifetimeCalculationRevision((value) => value + 1);
+  }, []);
   const astrolabeScopeContext = useMemo(
     () =>
       buildAstrolabeScopeContext(
@@ -1974,25 +1978,72 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   const aiContextPrompt = useMemo(() => {
     if (!showAssistantPane) return '';
 
+    if (isQimenLifetimePromptSource) {
+      return '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。';
+    }
+
     return previewActivePromptText;
-  }, [previewActivePromptText, showAssistantPane]);
+  }, [isQimenLifetimePromptSource, previewActivePromptText, showAssistantPane]);
+
+  const qimenReadingResource = useMemo<ReadingResource | undefined>(() => {
+    if (
+      !isQimenLifetimePromptSource ||
+      !qimenLifetimeCalculation.data ||
+      !qimenLifetimePromptText.trim()
+    ) {
+      return undefined;
+    }
+
+    const range = qimenLifetimeCalculation.data.input.periodRange;
+    const rangeKey = range ? `${range.startDate}-${range.endDate}` : 'current';
+    return {
+      key: `qimen-lifetime:${inputSearch}:${rangeKey}`,
+      title: '奇门终身局完整资料',
+      text: qimenLifetimePromptText,
+      usable: true,
+      structured: qimenLifetimeCalculation.data as unknown as Record<string, unknown>,
+    };
+  }, [
+    inputSearch,
+    isQimenLifetimePromptSource,
+    qimenLifetimeCalculation.data,
+    qimenLifetimePromptText,
+  ]);
 
   const readingResourceSeed = useMemo<ReadingMemorySeed | undefined>(() => {
-    if (!readingSubject.id || !ziweiReadingResourcesReady) return undefined;
+    if (!readingSubject.id) return undefined;
+    if (isQimenLifetimePromptSource) {
+      if (!qimenReadingResource) return undefined;
+      return {
+        subjectId: readingSubject.id,
+        key: qimenReadingResource.key,
+        resources: [qimenReadingResource],
+      };
+    }
+    if (!ziweiReadingResourcesReady) return undefined;
     return {
       subjectId: readingSubject.id,
       key: ziweiReadingResources.map((resource) => resource.key).join('\u0000'),
       resources: ziweiReadingResources,
     };
-  }, [readingSubject.id, ziweiReadingResources, ziweiReadingResourcesReady]);
+  }, [
+    isQimenLifetimePromptSource,
+    qimenReadingResource,
+    readingSubject.id,
+    ziweiReadingResources,
+    ziweiReadingResourcesReady,
+  ]);
 
   const workflowPrompt = useMemo(() => {
     if (
       isInstantResult ||
-      promptState.ziweiScope !== 'full' ||
+      (!isQimenLifetimePromptSource && promptState.ziweiScope !== 'full') ||
       (promptState.promptSource === 'bazi-ziwei' && inputState.analysisMode !== 'single')
     )
       return '';
+    if (isQimenLifetimePromptSource) {
+      return '请依据随后提供的奇门终身局资料，结合用户问题完成完整、清晰、可核对的解读。';
+    }
     if (promptState.promptSource === 'ziwei') {
       return computeZiweiPromptText(effectiveZiweiQuickQuestion, false);
     }
@@ -2003,6 +2054,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     promptState.promptSource,
+    isQimenLifetimePromptSource,
     effectiveZiweiQuickQuestion,
     effectiveBaziQuickQuestion,
     finalBaziQuestion,
@@ -2033,9 +2085,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   ]);
   const readingResourceRequired =
     !isInstantResult &&
-    promptState.ziweiScope === 'full' &&
-    (promptState.promptSource === 'ziwei' ||
-      (promptState.promptSource === 'bazi-ziwei' && inputState.analysisMode === 'single'));
+    (isQimenLifetimePromptSource ||
+      (promptState.ziweiScope === 'full' &&
+        (promptState.promptSource === 'ziwei' ||
+          (promptState.promptSource === 'bazi-ziwei' && inputState.analysisMode === 'single'))));
 
   const [inspirationText, setInspirationText] = useState('');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -2585,9 +2638,21 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   readingSubject={readingSubject}
                   readingResourceSeed={workflowPrompt.trim() ? readingResourceSeed : undefined}
                   readingResourceRequired={readingResourceRequired}
-                  readingResourceError={ziweiReadingResourceError || undefined}
-                  onRetryReadingResources={reloadZiweiReadingResources}
-                  historyKey={getChartChatHistoryContext(aiContextPrompt)}
+                  readingResourceError={
+                    (isQimenLifetimePromptSource
+                      ? qimenLifetimeCalculation.error
+                      : ziweiReadingResourceError) || undefined
+                  }
+                  onRetryReadingResources={
+                    isQimenLifetimePromptSource
+                      ? reloadQimenLifetimeCalculation
+                      : reloadZiweiReadingResources
+                  }
+                  historyKey={getChartChatHistoryContext(
+                    isQimenLifetimePromptSource
+                      ? `${aiContextPrompt}\n${qimenReadingResource?.key ?? inputSearch}`
+                      : aiContextPrompt,
+                  )}
                   resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
                   externalInput={inspirationText}
                   onExternalInputConsumed={() => setInspirationText('')}
