@@ -1758,9 +1758,14 @@ function buildTransitEvidence(
     .slice(0, 6)
     .map(formatTransitLine);
   const lead = headline.length ? headline : transitLines.slice(0, 6);
-  return [`主要行运相位：${lead.join('；')}。`, `取样相位明细：${transitLines.join('；')}。`].join(
-    '\n',
-  );
+  const leadSet = new Set(lead);
+  const remaining = transitLines.filter((line) => !leadSet.has(line));
+  return [
+    `主要行运相位：${lead.join('；')}。`,
+    remaining.length ? `其余取样相位：${remaining.join('；')}。` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function formatAdvancedScopeFacts(params: {

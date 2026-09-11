@@ -122,6 +122,17 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.doesNotMatch(context.promptText, /宫主星落宫/);
   assert.match(context.promptText, /行运取样：2028-07-01 12:00（UTC\+8）/);
   assert.match(context.promptText, /主要行运相位：/);
+  const sampledAspects = context.promptText
+    .split('\n')
+    .filter((line) => /^(主要行运相位|其余取样相位|取样相位明细)：/.test(line))
+    .flatMap((line) =>
+      line
+        .slice(line.indexOf('：') + 1)
+        .replace(/。$/, '')
+        .split('；'),
+    );
+  assert.ok(sampledAspects.length > 6, '固定流年样本应保留重点以外的取样相位');
+  assert.equal(new Set(sampledAspects).size, sampledAspects.length, '每条取样相位只列示一次');
   assert.match(context.promptText, /行运落宫：/);
   assert.match(context.promptText, /周期关键星象（2028-01-01 00:00至2029-01-01 00:00，共\d+项）。/);
   assert.match(context.promptText, /周期主轴：/);
