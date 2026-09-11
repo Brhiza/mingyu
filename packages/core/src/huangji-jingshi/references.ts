@@ -1,6 +1,6 @@
 import { EARTHLY_BRANCHES, SIXTY_CYCLE, type EarthlyBranch } from '../ganzhi/data';
 
-/** W20.05 固定资料查询表的版本信息。 */
+/** 固定资料查询表的版本信息。 */
 export interface HuangjiReferenceSource {
   readonly title: string;
   readonly edition: string;
@@ -283,7 +283,7 @@ export function getHuangjiHistoricalEraBlock(shiIndex: number): HuangjiHistorica
       ganzhi: event.ganzhi,
       label: event.label,
     })),
-    limitations: HISTORICAL_LIMITATIONS,
+    limitations: [...HISTORICAL_LIMITATIONS],
   };
 }
 
@@ -294,6 +294,8 @@ export function queryHuangjiReference(query: HuangjiReferenceQuery): HuangjiRefe
         ...HUANGJI_SOUND_RHYTHM_REFERENCE,
         source: HUANGJI_SOUND_RHYTHM_REFERENCE.source.map(cloneSource),
         bodyCounts: { ...HUANGJI_SOUND_RHYTHM_REFERENCE.bodyCounts },
+        soundCategories: [...HUANGJI_SOUND_RHYTHM_REFERENCE.soundCategories],
+        toneCategories: [...HUANGJI_SOUND_RHYTHM_REFERENCE.toneCategories],
         pairings: HUANGJI_SOUND_RHYTHM_REFERENCE.pairings.map((item) => ({
           ...item,
         })) as HuangjiSoundRhythmReference['pairings'],
