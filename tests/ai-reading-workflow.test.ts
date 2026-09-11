@@ -381,8 +381,8 @@ test('连续两次准备格式错误时最终上下文说明资料状态', async
 
 test('补算执行安全校验失败后带纠错反馈并成功重试', async (t) => {
   const h = harness([
-    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1991}}]}',
-    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1991,"baziFortuneYear":2027}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990,"baziFortuneYear":2027}}]}',
     '重试后的解读',
   ]);
   h.options.subject = baziSubject;
@@ -390,7 +390,7 @@ test('补算执行安全校验失败后带纠错反馈并成功重试', async (t
     {
       key: JSON.stringify({ kind: 'schema', method: 'bazi' }),
       title: '八字补算参数',
-      text: '{"properties":{"year":{"type":"integer"}}}',
+      text: '{"properties":{"baziFortuneYear":{"type":"integer"}}}',
       usable: false,
       kind: 'schema',
     },
@@ -417,6 +417,39 @@ test('补算执行安全校验失败后带纠错反馈并成功重试', async (t
   assert.doesNotMatch(final, /bazi补充资料未取得/);
   assert.match(final, /1990|庚午/);
   assert.deepEqual(h.chunks, ['重试后的解读']);
+});
+
+test('不同目标时段的补算成功不清除另一个失败状态', async () => {
+  const h = harness([
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"baziFortuneYear":2027}},{"kind":"calculate","method":"bazi","input":{"baziFortuneYear":2028}}]}',
+    '{"actions":[]}',
+    '保留失败状态的解读',
+  ]);
+  h.options.subject = baziSubject;
+  h.options.memory.schemas = [
+    {
+      key: JSON.stringify({ kind: 'schema', method: 'bazi' }),
+      title: '八字补算参数',
+      text: '{"properties":{"baziFortuneYear":{"type":"integer"}}}',
+      usable: false,
+      kind: 'schema',
+    },
+  ];
+  const executed: string[] = [];
+  await runReadingWorkflow([{ role: 'user', content: '八字原始盘面' }], h.options, {
+    stream: h.stream,
+    execute: async (action) => {
+      executed.push(action.kind);
+      if (action.kind === 'calculate' && action.input.baziFortuneYear === 2027)
+        throw new Error('2027目标暂未取得');
+      return { key: '', title: '2028目标', text: 'TARGET_2028', usable: true };
+    },
+  });
+  assert.deepEqual(executed, ['calculate', 'calculate']);
+  const final = h.sent[2][0].content;
+  assert.match(final, /bazi补充资料未取得：2027目标暂未取得/);
+  assert.match(final, /TARGET_2028/);
+  assert.deepEqual(h.chunks, ['保留失败状态的解读']);
 });
 
 test('没有主体快照时跳过自动补算并明确提示', async () => {

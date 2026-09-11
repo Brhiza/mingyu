@@ -904,12 +904,36 @@ export async function runReadingWorkflow(
   let planningRepairHint = '';
   const hasStoredFullZiwei = resources.some((resource) => Boolean(getZiweiFullResult(resource)));
   options.onProgress({ stage: 'preparing', text: '正在梳理问题与盘面' });
+  const schemaKeyForMethod = (method: string) => JSON.stringify({ kind: 'schema', method });
+  const getCalculationTargetInput = (action: Extract<ReadingAction, { kind: 'calculate' }>) => {
+    const sortedInput = () =>
+      Object.fromEntries(
+        Object.entries(action.input).sort(([left], [right]) => left.localeCompare(right)),
+      );
+    const schema = schemaResources.find((item) => item.key === schemaKeyForMethod(action.method));
+    if (!schema) return sortedInput();
+    try {
+      const parsed: unknown = JSON.parse(schema.text);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return sortedInput();
+      const properties = (parsed as Record<string, unknown>).properties;
+      if (!properties || typeof properties !== 'object' || Array.isArray(properties))
+        return sortedInput();
+      return Object.fromEntries(
+        Object.entries(action.input)
+          .filter(([field]) => Object.hasOwn(properties, field))
+          .sort(([left], [right]) => left.localeCompare(right)),
+      );
+    } catch {
+      return sortedInput();
+    }
+  };
   const retryFailureKey = (key: string, action: ReadingAction) =>
     action.kind === 'calculate'
       ? JSON.stringify({
           kind: action.kind,
           method: action.method,
           target: action.target ?? 'primary',
+          input: getCalculationTargetInput(action),
         })
       : key;
   const rememberRetryFailure = (key: string, action: ReadingAction, error: unknown) => {
@@ -923,7 +947,6 @@ export async function runReadingWorkflow(
     retryFailures.size
       ? `\n\n【上轮补算反馈】\n${[...retryFailures.values()].map((note) => `- ${note}`).join('\n')}\n`
       : '';
-  const schemaKeyForMethod = (method: string) => JSON.stringify({ kind: 'schema', method });
   const hasSchemaForMethod = (method: string) =>
     schemaResources.some((item) => item.key === schemaKeyForMethod(method));
   const loadSchema = async (method: string) => {
