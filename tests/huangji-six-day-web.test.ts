@@ -128,4 +128,23 @@ test('网页皇极六日七分默认不要求历元并锁定现代换算模型',
   assert.equal(subject?.lockedInputs.huangji.sixDayEpochDateTime, undefined);
   assert.equal(subject?.range.huangjiSixDayEpochDateTime, undefined);
   assert.equal(subject?.range.huangjiSixDayAnchorDateTime, cycle?.anchor.dateTime);
+
+  await withRealApi(async () => {
+    const resource = await executeReadingAction(
+      {
+        kind: 'calculate',
+        method: 'huangji',
+        input: { sixDayDateTime: '2026-09-01T09:00:00+08:00' },
+      },
+      undefined,
+      subject,
+    );
+    const structured = resource.structured as Record<string, unknown>;
+    const restoredCycle = structured.sixDayCycle as Record<string, unknown>;
+    const restoredCalendar = restoredCycle.calendar as Record<string, unknown>;
+    const restoredAnchor = restoredCycle.anchor as Record<string, unknown>;
+    assert.equal(resource.usable, true);
+    assert.equal(restoredCalendar.model, 'six-day-seven-part');
+    assert.equal(restoredAnchor.kind, 'winter-solstice-civil-midnight');
+  });
 });

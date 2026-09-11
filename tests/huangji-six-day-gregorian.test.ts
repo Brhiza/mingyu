@@ -139,9 +139,11 @@ test('现代比例模型以实际冬至瞬时确定岁周并以当地冬至日�
 
   assert.equal(beforeTerm.model, '书绪言六日逐爻·现代冬至岁周换算');
   assert.equal(beforeTerm.anchor.kind, 'winter-solstice-civil-midnight');
-  assert.equal(beforeTerm.anchor.winterSolsticeYear, 2025);
+  assert.equal(beforeTerm.anchor.winterSolsticeGregorianYear, 2024);
+  assert.equal(beforeTerm.calendar.targetYear, 2025);
   assert.equal(beforeTerm.anchor.dayStartDateTime, '2024-12-21T00:00:00+08:00');
-  assert.equal(atTerm.anchor.winterSolsticeYear, 2026);
+  assert.equal(atTerm.anchor.winterSolsticeGregorianYear, 2025);
+  assert.equal(atTerm.calendar.targetYear, 2026);
   assert.equal(atTerm.anchor.dateTime, '2025-12-21T23:03:05+08:00');
   assert.equal(atTerm.anchor.utcDateTime, '2025-12-21T15:03:05.000Z');
   assert.equal(atTerm.anchor.dayStartDateTime, '2025-12-21T00:00:00+08:00');
@@ -170,7 +172,7 @@ test('现代比例模型按冬至子半至下一冬至子半的实际跨度映�
   assert.equal(result.hourLine, 6);
   assert.equal(result.hourRange, '20:00—24:00');
   assert.match(result.limitations.join('；'), /现代比例换算/);
-  assert.match(result.limitations.join('；'), /不宣称古籍唯一算法/);
+  assert.match(result.limitations.join('；'), /不宣称是古籍唯一算法/);
 });
 
 test('现代比例模型支持固定时区与 IANA，并分别保留真实瞬时和当地子半', () => {

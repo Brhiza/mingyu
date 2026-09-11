@@ -52,7 +52,10 @@ test('皇极六日逐爻 OpenAPI 以 oneOf 固定两种模型的历元要求', a
     new Request('https://aov.cc/api/v1/openapi.json', { method: 'GET' }),
   );
   assert.equal(response.status, 200);
-  const document = (await response.json()) as {
+  const payload = (await response.json()) as {
+    data?: unknown;
+  };
+  const document = (payload.data ?? payload) as {
     components?: {
       schemas?: {
         HuangjiJingshiRequest?: {
@@ -165,7 +168,7 @@ test('皇极六日逐爻 prompt 入口保留显式历元资料并拒绝无时区
   assert.equal(missingModel.response.status, 400);
   assert.match(
     JSON.stringify(missingModel.body),
-    /必须明确提供 calendarModel=six-day-explicit-epoch/,
+    /必须明确提供 calendarModel=six-day-seven-part 或 six-day-explicit-epoch/,
   );
 
   const missingEpoch = await callHttp('metaphysics_huangji_jingshi', {

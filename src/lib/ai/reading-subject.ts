@@ -345,15 +345,17 @@ export function buildDivinationReadingSubject(
     range.huangjiInput = result.input;
     if (result.sixDayCycle) {
       const cycle = result.sixDayCycle;
+      const usesExplicitEpoch = cycle.calendar.model === 'six-day-explicit-epoch';
       lockedInputs.huangji = {
         _mode: mode,
-        sixDayEpochDateTime: cycle.anchor.dateTime,
+        ...(usesExplicitEpoch ? { sixDayEpochDateTime: cycle.anchor.dateTime } : {}),
         calendarModel: cycle.calendar.model,
         timezone: cycle.civilTime.timezone,
         ...(cycle.civilTime.timeZoneId ? { timeZoneId: cycle.civilTime.timeZoneId } : {}),
       };
       range.huangjiSixDayDateTime = cycle.civilTime.dateTime;
-      range.huangjiSixDayEpochDateTime = cycle.anchor.dateTime;
+      range.huangjiSixDayAnchorDateTime = cycle.anchor.dateTime;
+      if (usesExplicitEpoch) range.huangjiSixDayEpochDateTime = cycle.anchor.dateTime;
       range.huangjiSixDayTimezone = cycle.civilTime.timezone;
       range.huangjiCalendarModel = cycle.calendar.model;
       range.huangjiDateTime = cycle.civilTime.dateTime;

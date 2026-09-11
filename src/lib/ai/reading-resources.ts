@@ -1234,22 +1234,33 @@ function assertHuangjiResult(
     const expectedTimezone = locked.timezone ?? calculationInput.timezone;
     if (
       typeof calculationInput.sixDayDateTime !== 'string' ||
-      typeof expectedEpoch !== 'string' ||
       typeof expectedModel !== 'string' ||
       typeof expectedTimezone !== 'number'
     ) {
-      throw new Error('皇极六日逐爻补算缺少目标、历元、模型或业务时区。');
+      throw new Error('皇极六日逐爻补算缺少目标、模型或业务时区。');
     }
     assertStructuredField(
       'huangji.sixDayCycle.civilTime.dateTime',
       normalizeDateTimeKey(calculationInput.sixDayDateTime),
       normalizeDateTimeKey(cycle.civilTime.dateTime),
     );
-    assertStructuredField(
-      'huangji.sixDayCycle.anchor.dateTime',
-      normalizeDateTimeKey(expectedEpoch),
-      normalizeDateTimeKey(cycle.anchor.dateTime),
-    );
+    if (expectedModel === 'six-day-explicit-epoch') {
+      if (typeof expectedEpoch !== 'string') {
+        throw new Error('皇极六日逐爻显式历元补算缺少历元。');
+      }
+      assertStructuredField(
+        'huangji.sixDayCycle.anchor.dateTime',
+        normalizeDateTimeKey(expectedEpoch),
+        normalizeDateTimeKey(cycle.anchor.dateTime),
+      );
+      assertStructuredField('huangji.sixDayCycle.anchor.kind', 'explicit-epoch', cycle.anchor.kind);
+    } else if (expectedModel === 'six-day-seven-part') {
+      assertStructuredField(
+        'huangji.sixDayCycle.anchor.kind',
+        'winter-solstice-civil-midnight',
+        cycle.anchor.kind,
+      );
+    }
     assertStructuredField(
       'huangji.sixDayCycle.calendar.model',
       expectedModel,

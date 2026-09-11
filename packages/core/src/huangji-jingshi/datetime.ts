@@ -94,8 +94,7 @@ export const HUANGJI_SIX_DAY_CALENDAR_MODEL = 'six-day-explicit-epoch' as const;
 /** 以冬至岁周实测跨度按三百六十逻辑日等分的现代比例换算模型。 */
 export const HUANGJI_SIX_DAY_PROPORTIONAL_CALENDAR_MODEL = 'six-day-seven-part' as const;
 export type HuangjiSixDayCalendarModel =
-  | typeof HUANGJI_SIX_DAY_CALENDAR_MODEL
-  | typeof HUANGJI_SIX_DAY_PROPORTIONAL_CALENDAR_MODEL;
+  typeof HUANGJI_SIX_DAY_CALENDAR_MODEL | typeof HUANGJI_SIX_DAY_PROPORTIONAL_CALENDAR_MODEL;
 
 interface HuangjiSixDayDateInputBase extends CivilDateTimeParts, CivilTimeZoneInput {
   /** 可选毫秒；六日逐爻以秒作为传统时段的最小公开精度。 */
@@ -115,8 +114,7 @@ export interface HuangjiSixDayProportionalDateInput extends HuangjiSixDayDateInp
 }
 
 export type HuangjiSixDayDateInput =
-  | HuangjiSixDayExplicitDateInput
-  | HuangjiSixDayProportionalDateInput;
+  HuangjiSixDayExplicitDateInput | HuangjiSixDayProportionalDateInput;
 
 interface HuangjiSixDayDateResultBase extends HuangjiSixDayCycleResult {
   civilTime: {
@@ -165,8 +163,8 @@ export interface HuangjiSixDayProportionalDateResult extends HuangjiSixDayDateRe
   anchor: {
     kind: 'winter-solstice-civil-midnight';
     term: '冬至';
-    /** tyme4ts 的冬至年标识；例如 2026 指向公历 2025 年冬至。 */
-    winterSolsticeYear: number;
+    /** 冬至节气落在当地公历中的年份；所属皇极岁周见 calendar.targetYear。 */
+    winterSolsticeGregorianYear: number;
     /** 节气真实瞬时按现有节气口径以 UTC+8 回显。 */
     dateTime: string;
     utcDateTime: string;
@@ -185,7 +183,8 @@ export interface HuangjiSixDayProportionalDateResult extends HuangjiSixDayDateRe
   calendar: {
     model: typeof HUANGJI_SIX_DAY_PROPORTIONAL_CALENDAR_MODEL;
     mapping: 'winter-solstice-proportional-360';
-    winterSolsticeYear: number;
+    /** 所属皇极岁周，沿用 tyme4ts 的冬至 termYear 语义；例如公历2025冬至为2026。 */
+    targetYear: number;
     actualElapsedDays: number;
     actualElapsedMilliseconds: number;
     actualElapsedSeconds: number;
@@ -206,8 +205,7 @@ export interface HuangjiSixDayProportionalDateResult extends HuangjiSixDayDateRe
 }
 
 export type HuangjiSixDayDateResult =
-  | HuangjiSixDayExplicitDateResult
-  | HuangjiSixDayProportionalDateResult;
+  HuangjiSixDayExplicitDateResult | HuangjiSixDayProportionalDateResult;
 
 const HUANGJI_SOLAR_TERM_TIMEZONE = 8;
 const HUANGJI_LOGICAL_DAYS = 360;
@@ -361,10 +359,7 @@ function assertSixDayTargetTimezone(
   if (inferredTimezone === undefined) {
     throw new Error('timezone 与 timeZoneId 至少需要提供一项。');
   }
-  if (
-    target.embeddedTimezone !== undefined &&
-    target.embeddedTimezone !== inferredTimezone
-  ) {
+  if (target.embeddedTimezone !== undefined && target.embeddedTimezone !== inferredTimezone) {
     throw new Error('六日逐爻公历时间内的时区偏移与 timezone 不一致。');
   }
   return inferredTimezone;
@@ -444,7 +439,7 @@ function formatLocalDateTime(
   return `${formatCivilDateTime(value)}${millisecond ? `.${String(millisecond).padStart(3, '0')}` : ''}${formatFixedTimezoneOffset(timezone)}`;
 }
 
-function getSolarTimeParts(solarTime: SolarTime): CivilDateTimeParts {
+function getSolarTimeParts(solarTime: ReturnType<typeof SolarTime.fromYmdHms>): CivilDateTimeParts {
   return {
     year: solarTime.getYear(),
     month: solarTime.getMonth(),
@@ -565,10 +560,7 @@ function calculateCivilDateDifference(start: CivilDateTimeParts, end: CivilDateT
   return civilDayNumber(end) - civilDayNumber(start);
 }
 
-function resolveExplicitEpoch(
-  input: HuangjiSixDayExplicitDateInput,
-  targetMillisecond: number,
-) {
+function resolveExplicitEpoch(input: HuangjiSixDayExplicitDateInput, targetMillisecond: number) {
   const epochParts = parseSixDayDateTimeParts(input.epochDateTime, '六日逐爻显式历元');
   if (
     input.timeZoneId !== undefined &&
@@ -726,8 +718,7 @@ function calculateHuangjiSixDayCycleFromProportionalDate(
   const actualElapsedDays = Math.floor(actualElapsedMilliseconds / MILLISECONDS_PER_DAY);
   const actualElapsedSeconds = Math.floor(actualElapsedMilliseconds / 1000);
   const mapped = mapSolarYearToLogicalDay(actualElapsedMilliseconds, yearLengthMilliseconds);
-  const cycleElapsedDays =
-    (anchor.dayIndex + mapped.logicalElapsedDays) % HUANGJI_LOGICAL_DAYS;
+  const cycleElapsedDays = (anchor.dayIndex + mapped.logicalElapsedDays) % HUANGJI_LOGICAL_DAYS;
   const cycle = calculateHuangjiSixDayCycle({
     elapsedDays: cycleElapsedDays,
     hour: target.localTime.hour,
@@ -749,7 +740,7 @@ function calculateHuangjiSixDayCycleFromProportionalDate(
   const calendar: HuangjiSixDayProportionalDateResult['calendar'] = {
     model: HUANGJI_SIX_DAY_PROPORTIONAL_CALENDAR_MODEL,
     mapping: 'winter-solstice-proportional-360',
-    winterSolsticeYear: anchor.termYear,
+    targetYear: anchor.termYear,
     actualElapsedDays,
     actualElapsedMilliseconds,
     actualElapsedSeconds,
@@ -780,7 +771,7 @@ function calculateHuangjiSixDayCycleFromProportionalDate(
     anchor: {
       kind: 'winter-solstice-civil-midnight',
       term: '冬至',
-      winterSolsticeYear: anchor.termYear,
+      winterSolsticeGregorianYear: anchor.civilTime.year,
       dateTime: anchorDateTime,
       utcDateTime: anchor.utcDateTime,
       timezone: HUANGJI_SOLAR_TERM_TIMEZONE,
@@ -803,7 +794,7 @@ function calculateHuangjiSixDayCycleFromProportionalDate(
     ],
     sources: HUANGJI_SIX_DAY_SOURCES.map((source) => ({ ...source })),
     limitations: [
-      '原典给出冬至甲子日子半、六日逐爻和六日七分的传统条件，没有给出现代公历唯一对应的甲子历元；本结果是明确标注的现代比例换算，不宣称古籍唯一算法。',
+      '原典给出冬至甲子日子半、六日逐爻和六日七分的传统条件，没有给出现代公历唯一对应的甲子历元；本结果是明确标注的现代比例换算，不宣称是古籍唯一算法。',
       '本模型以实际冬至瞬时确定所属冬至岁周，以该冬至所在当地公历日子半至下一冬至当地公历日子半的实测 UTC 间隔等分三百六十逻辑日；不同地点的民用日界和历史时区规则会改变子半锚点。',
       '六日七分的传统余分有不同传承；本模型不把六个余分硬插为六个公历整日，也不以该比例换算替代既有年月日时十五日节气链。',
       '若下一冬至发生在其当地公历日子半之后，该日期子半至真实节气前仍属上一岁周；因下一岁周的子半端点已先到，逻辑位置封顶在上一岁周最后一个逻辑日，并保留实际跨度字段。',
