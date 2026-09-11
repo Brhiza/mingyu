@@ -17,7 +17,9 @@ import {
   type HuangjiJingshiResult,
   type HuangjiPeriodHexagram,
 } from 'mingyu-core/huangji-jingshi';
+import { HuangjiReferenceTable } from './HuangjiReferenceTable';
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
+import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from 'mingyu-core/name-number';
 import { getKongmingInterpretation, getZhugeInterpretation } from 'mingyu-core/name-number';
 import { analyzeAlmanacEvidence, formatAlmanacGods } from 'mingyu-core/divination/almanac';
@@ -3115,9 +3117,9 @@ function HuangjiDateTimeCell(props: {
         <em>
           {hexagram.derivedFrom}卦第{hexagram.changedLine}爻变
         </em>
-      ) : (
+      ) : hexagram.sequenceOffset !== undefined ? (
         <em>六十卦序第{(hexagram.sequenceOffset || 0) + 1}位</em>
-      )}
+      ) : null}
     </article>
   );
 }
@@ -3135,6 +3137,9 @@ function HuangjiTraditionalBoard({
   const forecast = data.forecast;
   if (!forecast) return null;
   const dateTimeForecast = data.dateTimeForecast;
+  const sixDayCycle = data.sixDayCycle;
+  const sixDayUsesExplicitEpoch = sixDayCycle?.calendar.model === 'six-day-explicit-epoch';
+  const sixDayModelLabel = sixDayUsesExplicitEpoch ? '显式校定历元' : '冬至岁周换算（现代）';
 
   const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
   const related = [
@@ -3147,9 +3152,11 @@ function HuangjiTraditionalBoard({
     <TraditionalBoardShell
       title="皇极经世盘"
       subtitle={
-        dateTimeForecast
-          ? `${dateTimeForecast.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
-          : `${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+        sixDayCycle
+          ? `${sixDayCycle.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+          : dateTimeForecast
+            ? `${dateTimeForecast.civilTime.dateTime} · ${annual.ganzhi} · ${forecast.hui.branch}会`
+            : `${formatHuangjiCivilYear(annual.year)} · ${annual.ganzhi} · ${forecast.hui.branch}会`
       }
       className="traditional-huangji-board"
     >
@@ -3158,7 +3165,8 @@ function HuangjiTraditionalBoard({
           ['占事', session?.question],
           [
             '日期',
-            getSessionDisplayDate(session) ??
+            sixDayCycle?.civilTime.dateTime ??
+              getSessionDisplayDate(session) ??
               dateTimeForecast?.civilTime.dateTime ??
               `${formatHuangjiCivilYear(annual.year)}`,
           ],
@@ -3229,6 +3237,68 @@ function HuangjiTraditionalBoard({
         </div>
       ) : null}
 
+      {sixDayCycle ? (
+        <>
+          <TraditionalMeta
+            items={[
+              ['六日目标时间', sixDayCycle.civilTime.dateTime],
+              [sixDayUsesExplicitEpoch ? '校定历元' : '现代冬至定位', sixDayCycle.anchor.dateTime],
+              ['换算模型', sixDayModelLabel],
+              [
+                '时区',
+                `UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}`,
+              ],
+            ]}
+          />
+          <TraditionalFacts
+            items={[
+              [
+                '六日坐标',
+                `第${sixDayCycle.dayOfCycle}日（已过${sixDayCycle.calendar.actualElapsedDays}日）`,
+              ],
+              [
+                '换算说明',
+                sixDayUsesExplicitEpoch
+                  ? '按校定历元后的当地公历日定位'
+                  : '按现代冬至与实际岁周比例定位',
+              ],
+              ['经卦', `${sixDayCycle.hexagrams.jing.name} · 第${sixDayCycle.dayLine}爻`],
+              ['当日变卦', sixDayCycle.hexagrams.daily.name],
+              ['时变卦', `${sixDayCycle.hexagrams.hourly.name}（${sixDayCycle.hourRange}）`],
+              ['实际时刻相隔', `${sixDayCycle.calendar.actualElapsedSeconds}秒`],
+              [
+                '有效坐标范围',
+                sixDayUsesExplicitEpoch
+                  ? '显式历元后第0至359个当地公历日'
+                  : '现代冬至至下一冬至映射360个逻辑日',
+              ],
+            ]}
+          />
+          <div
+            className="traditional-huangji-cycle is-datetime is-six-day"
+            role="list"
+            aria-label="皇极经世六日逐爻卦序"
+          >
+            <HuangjiDateTimeCell
+              label="六日经卦"
+              hexagram={sixDayCycle.hexagrams.jing}
+              note={`第${sixDayCycle.dayOfCycle}日 · 第${sixDayCycle.dayLine}爻`}
+            />
+            <HuangjiDateTimeCell
+              label="当日变卦"
+              hexagram={sixDayCycle.hexagrams.daily}
+              note="当日"
+            />
+            <HuangjiDateTimeCell
+              label="时变卦"
+              hexagram={sixDayCycle.hexagrams.hourly}
+              note={sixDayCycle.hourRange}
+              active
+            />
+          </div>
+        </>
+      ) : null}
+
       <div className="traditional-huangji-focus">
         <div className="traditional-huangji-judgment">
           <span>值年卦辞</span>
@@ -3248,6 +3318,8 @@ function HuangjiTraditionalBoard({
         </div>
       </div>
 
+      <HuangjiReferenceTable />
+
       {annualCycleClassic ? (
         <ClassicalAnnotationCard
           title={annualCycleClassic.name}
@@ -3265,6 +3337,93 @@ function HuangjiTraditionalBoard({
           modernAdvice={`${shiCycleClassic.principle}\n${shiCycleClassic.modernAdvice}`}
         />
       ) : null}
+    </TraditionalBoardShell>
+  );
+}
+
+function WuyunTraditionalBoard({
+  data,
+  session,
+}: {
+  data: WuyunLiuqiResult;
+  session?: DivinationSession;
+}) {
+  const targetYear = data.input.year === undefined ? '' : `${data.input.year}年`;
+  const target = `${targetYear}${data.input.yearGanZhi}`;
+  const formatRange = (start?: string, end?: string) =>
+    start && end ? `公历${start}至${end}` : '按传统节气序日';
+
+  return (
+    <TraditionalBoardShell
+      title="五运六气年度盘"
+      subtitle={`${target} · ${data.annualMovement.name}${data.annualMovement.toneName} · 司天${data.sitian.name}`}
+      className="traditional-wuyun-board"
+    >
+      <TraditionalMeta
+        items={[
+          ['占事', session?.question],
+          ['目标年度', target],
+          [
+            '岁运',
+            `${data.annualMovement.name}${data.annualMovement.toneName}${data.annualMovement.strength}`,
+          ],
+          ['司天', data.sitian.name],
+          ['在泉', data.zaiquan.name],
+          [
+            '政化',
+            `${data.annualClassification.sitianTransformation} · ${data.annualClassification.governance}`,
+          ],
+        ]}
+      />
+      <TraditionalFacts
+        items={[
+          ['中运与司天', data.annualRelation.kind],
+          ['年度符会', data.annualConformities.names.join('、') || '未形成五类符会'],
+          ['年度病机', data.pathomechanism?.summary],
+        ]}
+      />
+
+      <section className="traditional-wuyun-steps" aria-label="五步主客运">
+        <h4>五步主客运</h4>
+        <div className="traditional-fact-grid">
+          {data.movementSteps.map((step) => (
+            <div key={step.label}>
+              <span>
+                {step.label} · {formatRange(step.gregorianStart, step.gregorianEnd)}
+              </span>
+              <strong>
+                主运{step.hostMovement.toneName}
+                {step.hostMovement.element}；客运{step.guestMovement.toneName}
+                {step.guestMovement.element}
+              </strong>
+              <small>
+                {step.hostGuestRelation.kind}
+                {step.guestRole ? ` · ${step.guestRole}` : ''}
+              </small>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="traditional-wuyun-steps" aria-label="六步主客气">
+        <h4>六步主客气</h4>
+        <div className="traditional-fact-grid">
+          {data.qiSteps.map((step) => (
+            <div key={step.label}>
+              <span>
+                {step.label} · {formatRange(step.gregorianStart, step.gregorianEnd)}
+              </span>
+              <strong>
+                主气{step.hostQi.name}；客气{step.guestQi.name}
+              </strong>
+              <small>
+                {step.hostGuestRelation.kind}
+                {step.guestRole ? ` · ${step.guestRole}` : ''}
+              </small>
+            </div>
+          ))}
+        </div>
+      </section>
     </TraditionalBoardShell>
   );
 }
@@ -3598,6 +3757,7 @@ const DIVINATION_METHOD_LABELS: Record<string, string> = {
   astrolabe: '古典星盘',
   taiyi: '太乙神数',
   huangji: '皇极经世',
+  wuyun: '五运六气',
   liuren: '大六壬',
   zhuge: '诸葛神数',
   kongming: '孔明神卦',
@@ -3647,6 +3807,16 @@ function formatDivinationSessionShareText(session: DivinationSession): string {
     lines.push(
       `四位：人元【${formatPosition(d.positions.renYuan)}】 贵神【${formatPosition(d.positions.guiShen)}】 将神【${formatPosition(d.positions.jiangShen)}】 地分【${formatPosition(d.positions.diFen)}】`,
     );
+  } else if (session.method === 'wuyun') {
+    const d = session.data as WuyunLiuqiResult;
+    lines.push(
+      `目标年度：${d.input.year === undefined ? '' : `${d.input.year}年`}${d.input.yearGanZhi}`,
+    );
+    lines.push(
+      `岁运：${d.annualMovement.name}${d.annualMovement.toneName}${d.annualMovement.strength}`,
+    );
+    lines.push(`司天：${d.sitian.name}  在泉：${d.zaiquan.name}`);
+    lines.push(`符会：${d.annualConformities.names.join('、') || '未形成五类符会'}`);
   }
 
   return lines.join('\n');
@@ -3733,6 +3903,11 @@ export function TraditionalDivinationBoard({
     case 'huangji':
       boardContent = (
         <HuangjiTraditionalBoard data={session.data as HuangjiJingshiResult} session={session} />
+      );
+      break;
+    case 'wuyun':
+      boardContent = (
+        <WuyunTraditionalBoard data={session.data as WuyunLiuqiResult} session={session} />
       );
       break;
     case 'liuren':

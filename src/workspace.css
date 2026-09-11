@@ -1459,6 +1459,7 @@
 
 .workspace-theme-option {
   min-width: 0;
+  width: 100%;
   display: grid;
   justify-items: center;
   gap: 6px;
@@ -2010,7 +2011,19 @@
   }
 
   .workspace-theme-options {
-    grid-template-columns: repeat(5, minmax(54px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .workspace-theme-option {
+    flex: 0 0 68px;
+    padding-inline: 2px;
+  }
+
+  .workspace-theme-option > span:last-child {
+    white-space: nowrap;
   }
 }
 

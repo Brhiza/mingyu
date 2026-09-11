@@ -324,6 +324,10 @@ test('公开 API OpenAPI 应公开即时盘类型与两种时间口径', async (
   ]);
   assert.deepEqual(schema.properties.timeStandard.enum, ['beijing', 'true-solar']);
   assert.ok(body.data.paths['/instant/calculate']);
+  const metaphysics = body.data.components.schemas.MetaphysicsRequest;
+  assert.deepEqual(metaphysics.properties.guaType.enum, ['下卦', '替卦']);
+  assert.ok(metaphysics.properties.facingDegree);
+  assert.ok(metaphysics.properties.sitDegree);
 });
 
 test('公开 API 八字双盘应返回交叉证据与完整提示词', async () => {
@@ -542,6 +546,34 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
       required: ['customDate'],
       not: {
         anyOf: [
+          { required: ['sixDayDateTime'] },
+          { required: ['sixDayEpochDateTime'] },
+          { required: ['calendarModel'] },
+          { required: ['epochYear'] },
+          { required: ['year'] },
+          { required: ['elapsedYears'] },
+        ],
+      },
+    },
+    {
+      required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
+      properties: { calendarModel: { const: 'six-day-explicit-epoch' } },
+      not: {
+        anyOf: [
+          { required: ['customDate'] },
+          { required: ['epochYear'] },
+          { required: ['year'] },
+          { required: ['elapsedYears'] },
+        ],
+      },
+    },
+    {
+      required: ['sixDayDateTime', 'calendarModel'],
+      properties: { calendarModel: { const: 'six-day-seven-part' } },
+      not: {
+        anyOf: [
+          { required: ['sixDayEpochDateTime'] },
+          { required: ['customDate'] },
           { required: ['epochYear'] },
           { required: ['year'] },
           { required: ['elapsedYears'] },
@@ -550,13 +582,37 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     },
     {
       required: ['year'],
-      not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+      not: {
+        anyOf: [
+          { required: ['elapsedYears'] },
+          { required: ['customDate'] },
+          { required: ['sixDayDateTime'] },
+          { required: ['sixDayEpochDateTime'] },
+          { required: ['calendarModel'] },
+        ],
+      },
     },
     {
       required: ['epochYear', 'elapsedYears'],
-      not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
+      not: {
+        anyOf: [
+          { required: ['year'] },
+          { required: ['customDate'] },
+          { required: ['sixDayDateTime'] },
+          { required: ['sixDayEpochDateTime'] },
+          { required: ['calendarModel'] },
+        ],
+      },
     },
   ]);
+  assert.deepEqual(
+    body.data.components.schemas.HuangjiJingshiRequest.properties.calendarModel.enum,
+    ['six-day-explicit-epoch', 'six-day-seven-part'],
+  );
+  assert.match(
+    body.data.components.schemas.HuangjiJingshiRequest.properties.sixDayEpochDateTime.description,
+    /当地子半|已过日数0/,
+  );
   assert.equal(body.data.components.schemas.HuangjiJingshiRequest.required, undefined);
   assert.equal(
     body.data.components.schemas.BaziCompatibilityRequest.properties.schools.maxItems,
@@ -606,6 +662,30 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
       `${path} 应复用占卜请求 schema`,
     );
   }
+  assert.equal(
+    body.data.paths['/divination/qimen/lifetime'].post.requestBody.content['application/json']
+      .schema.$ref,
+    '#/components/schemas/QimenLifetimeRequest',
+  );
+  assert.equal(
+    body.data.paths['/divination/qimen/lifetime/prompt'].post.requestBody.content[
+      'application/json'
+    ].schema.$ref,
+    '#/components/schemas/QimenLifetimePromptRequest',
+  );
+  assert.deepEqual(body.data.components.schemas.QimenLifetimeRequest.required, ['birthDateTime']);
+  assert.equal(
+    body.data.components.schemas.QimenLifetimeRequest.properties.periodRange.properties.startDate
+      .format,
+    'date',
+  );
+  assert.match(
+    body.data.components.schemas.QimenLifetimeRequest.properties.periodRange.description,
+    /最多覆盖连续31个年份/u,
+  );
+  assert.deepEqual(body.data.components.schemas.QimenLifetimePromptRequest.allOf[1].required, [
+    'question',
+  ]);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.topic);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.participants);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.latitude);
@@ -784,7 +864,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   );
   assert.match(
     body.data.components.schemas.ZiweiRequest.properties.promptScope.description,
-    /full 会返回本命、大限、流年、流月、流日、流时/,
+    /full 会返回本命、童限与大限及各阶段流年，并在指定时点附带可用的流月、流日和流时资料/,
   );
   assert.equal(
     body.data.components.schemas.BaziRequest.properties.shenShaVariants.$ref,
@@ -2191,7 +2271,12 @@ test('公开 API 紫微提示词支持完整输出版范围', async () => {
   assert.match(body.data.prompt, /分析范围：完整输出/);
   assert.match(body.data.prompt, /【完整运限资料】/);
   assert.match(body.data.prompt, /完整紫微运限资料：/);
-  assert.match(body.data.prompt, /流时：分析对象：/);
+  for (const label of ['流月', '流日', '流时']) {
+    assert.match(
+      body.data.prompt,
+      new RegExp(`${label}：[^\\n]+；四化：[^\\n]+\\n  十二宫（本命宫→动态宫）：[^\\n]+`),
+    );
+  }
   assertPromptIsPortableTaskText(body.data.prompt);
 });
 
@@ -2335,7 +2420,7 @@ test('公开 API 紫微未指定方向时应默认走综合框架而不是自由
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【分析背景】/);
   assert.match(body.data.prompt, /分析主题：人生解析/);
-  assert.match(body.data.prompt, /【十二宫资料】/);
+  assert.match(body.data.prompt, /【重点宫位资料】/);
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
   assert.doesNotMatch(body.data.prompt, /主题只作为|自由问答|解读方法|推断顺序/);
 });
@@ -2396,7 +2481,7 @@ test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async 
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.deepEqual(body.data.scopeNames, ['origin']);
+  assert.deepEqual(body.data.scopeNames, ['origin', 'decadal']);
   assert.equal(
     body.data.basicInfo.solar_date,
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,
@@ -3665,6 +3750,55 @@ test('公开 API 梅花数字起卦应拒绝超出安全整数范围的数字', 
   }
 });
 
+test('公开 API 梅花应支持声音、字数和方位三类新增起法', async () => {
+  const requests = [
+    {
+      method: 'sound',
+      soundCount: 3,
+      expectedMethod: 'sound',
+      expectedUpper: 3,
+    },
+    {
+      method: 'character',
+      characterText: '今日动静如何',
+      characterTones: [1, 4, 3, 3, 1, 1],
+      expectedMethod: 'character',
+      expectedUpper: 8,
+    },
+    {
+      method: 'character',
+      characterText: '西林',
+      characterStrokeCounts: [7, 8],
+      expectedMethod: 'character',
+      expectedUpper: 7,
+    },
+    {
+      method: 'direction',
+      direction: 'south',
+      objectType: 'fire',
+      expectedMethod: 'direction',
+      expectedUpper: 3,
+    },
+  ];
+
+  for (const request of requests) {
+    const { response, body } = await callApi('divination/meihua', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...request,
+        detailMode: 'full',
+        customDate: '2025-01-01T08:00:00+08:00',
+      }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(body.data.calculation.methodKey, request.expectedMethod);
+    assert.equal(body.data.calculation.upperTrigramIndex, request.expectedUpper % 8 || 8);
+    assert.equal(body.data.evidenceAnalysis.calculationFact.status, '完整');
+  }
+});
+
 test('公开 API 星盘应附带真太阳时参考且不改写现代星历时刻', async () => {
   const corrected = calculateTrueSolarTime(
     {
@@ -3914,9 +4048,12 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   assert.match(body.data.prompt, /【分析对象】/);
   assert.match(body.data.prompt, /完整星盘行运资料：/);
   assert.match(body.data.prompt, /分析对象：本命盘与完整行运资料。/);
-  assert.match(body.data.prompt, /分析对象：流年\d{4}。/);
-  assert.match(body.data.prompt, /分析对象：流月\d{4}-\d{2}。/);
-  assert.match(body.data.prompt, /分析对象：流日\d{4}-\d{2}-\d{2}。/);
+  assert.match(body.data.prompt, /分析对象：流年2028。/);
+  assert.match(body.data.prompt, /分析对象：流月2028-06。/);
+  assert.match(body.data.prompt, /分析对象：流日2028-06-12。/);
+  assert.match(body.data.prompt, /太阳返照（/);
+  assert.match(body.data.prompt, /次限相位：/);
+  assert.match(body.data.prompt, /太阳弧相位：/);
   assertPromptIsPortableTaskText(body.data.prompt);
 
   const detailed = await callApi('divination/astrolabe/prompt', {
@@ -3974,6 +4111,44 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   }
 });
 
+test('公开 API 星盘未指定范围默认当前年度，显式本命仍只使用本命资料', async () => {
+  const base = {
+    name: '本人',
+    gender: '女',
+    year: 1995,
+    month: 5,
+    day: 20,
+    hour: 12,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+    question: '请分析当前阶段。',
+    responseMode: 'full',
+  };
+
+  const defaultRange = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(base),
+  });
+  assert.equal(defaultRange.response.status, 200);
+  assert.equal(defaultRange.body.data.result.scopeEvidence.scope, 'yearly');
+  assert.match(defaultRange.body.data.prompt, /分析对象：流年\d{4}。/);
+  assert.match(defaultRange.body.data.prompt, /周期关键星象（/);
+  assert.match(defaultRange.body.data.prompt, /太阳返照（/);
+
+  const natal = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...base, astrolabeScope: 'natal' }),
+  });
+  assert.equal(natal.response.status, 200);
+  assert.equal(natal.body.data.result.scopeEvidence.scope, 'natal');
+  assert.match(natal.body.data.prompt, /分析对象：本命盘。/);
+  assert.doesNotMatch(natal.body.data.prompt, /主要行运相位：|太阳返照（/);
+});
+
 test('公开 API 星盘非本命范围必须提供匹配范围的明确日期', async () => {
   const base = {
     name: '本人',
@@ -3990,6 +4165,7 @@ test('公开 API 星盘非本命范围必须提供匹配范围的明确日期', 
   };
   const cases = [
     { ...base, astrolabeScope: 'full' },
+    { ...base, astrolabeScope: 'yearly' },
     { ...base, astrolabeScope: 'yearly', astrolabeScopeDate: '2028-06' },
     { ...base, astrolabeScope: 'monthly', astrolabeScopeDate: '2028-13' },
     { ...base, astrolabeScope: 'daily', astrolabeScopeDate: '2028-02-31' },
@@ -5671,8 +5847,8 @@ test('公开 API 玄空飞星应返回真实下卦局型', async () => {
   );
   assert.equal(valid.body.data.engine.name, '@soul-atelier/xuankong');
   assert.equal(valid.body.data.engine.mode, '下卦');
-  assert.equal(valid.body.data.guaType, undefined);
-  assert.equal(valid.body.data.replacementApplied, undefined);
+  assert.equal(valid.body.data.guaType, '下卦');
+  assert.equal(valid.body.data.replacementApplied, false);
   assert.match(valid.body.data.evidenceAnalysis.promptText, /下卦|元龙阴阳|双星到向/);
 });
 
@@ -5806,6 +5982,9 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
       gender: 'male',
       year: 2024,
       doorToInteriorDegree: 0,
+      flowYear: 2026,
+      flowMonth: 2,
+      flowDay: 10,
       responseMode: 'full',
       question: '这套房怎么看？',
     }),
@@ -5816,6 +5995,9 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
   assert.equal(body.data.result.key, 'residential-fengshui');
   assert.ok(body.data.result.bazhai);
   assert.ok(body.data.result.xuankong);
+  assert.equal(body.data.result.xuankong.flowStars.monthPlate.year, 2026);
+  assert.equal(body.data.result.xuankong.flowStars.monthPlate.month, 2);
+  assert.equal(body.data.result.xuankong.flowStars.monthPlate.day, 10);
   for (const palace of body.data.result.bazhai.mingPalace) {
     const line = body.data.prompt
       .split('\n')
@@ -5824,7 +6006,45 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
   }
   assert.match(body.data.prompt, /【住宅风水排盘】/);
   assert.match(body.data.prompt, /【传统依据】/);
+  assert.match(body.data.prompt, /流年飞星/);
+  assert.match(body.data.prompt, /流月飞星/);
   assert.match(body.data.prompt, /这套房怎么看？/);
+});
+
+test('住宅与玄空公开接口使用专用流运请求 schema', async () => {
+  const { response, body } = await callApi('openapi.json');
+
+  assert.equal(response.status, 200);
+  const paths = body.data.paths;
+  assert.equal(
+    paths['/metaphysics/residential/calculate'].post.requestBody.content['application/json'].schema
+      .$ref,
+    '#/components/schemas/ResidentialFengshuiRequest',
+  );
+  assert.equal(
+    paths['/metaphysics/residential/prompt'].post.requestBody.content['application/json'].schema
+      .$ref,
+    '#/components/schemas/ResidentialFengshuiPromptRequest',
+  );
+  assert.equal(
+    paths['/metaphysics/xuankong/calculate'].post.requestBody.content['application/json'].schema
+      .$ref,
+    '#/components/schemas/XuanKongRequest',
+  );
+  assert.equal(
+    paths['/metaphysics/xuankong/prompt'].post.requestBody.content['application/json'].schema.$ref,
+    '#/components/schemas/XuanKongPromptRequest',
+  );
+  for (const schemaName of ['ResidentialFengshuiRequest', 'XuanKongRequest'] as const) {
+    const schema = body.data.components.schemas[schemaName];
+    assert.ok(schema.properties.flowYear);
+    assert.ok(schema.properties.flowMonth);
+    assert.ok(schema.properties.flowDay);
+  }
+  assert.deepEqual(
+    body.data.components.schemas.ResidentialFengshuiPromptRequest.allOf[1].required,
+    ['question'],
+  );
 });
 
 test('公开 API 住宅风水缺建造或起运年时不得静默生成玄空盘', async () => {
@@ -6183,7 +6403,7 @@ test('八宅公开提示词完整保留八宫生克及命宅分组', async () =>
   assert.doesNotMatch(body.data.prompt, /贪狼制绝命|门主同元相生|福力深厚/);
 });
 
-test('玄空与住宅接口拒绝将替卦请求静默计算为下卦', async () => {
+test('玄空与住宅接口应按请求计算替卦并保留替星盘面', async () => {
   for (const method of ['xuankong', 'residential']) {
     for (const operation of ['calculate', 'prompt']) {
       const { response, body } = await callApi(`metaphysics/${method}/${operation}`, {
@@ -6195,12 +6415,70 @@ test('玄空与住宅接口拒绝将替卦请求静默计算为下卦', async ()
           facingMountain: '午',
           mingGua: '坎',
           guaType: '替卦',
+          responseMode: 'full',
           question: '分析住宅',
         }),
       });
-      assert.equal(response.status, 400, `${method}/${operation}`);
-      assert.equal(body.error.code, 'BAD_REQUEST');
-      assert.match(body.error.message, /guaType.*下卦/);
+      assert.equal(response.status, 200, `${method}/${operation}`);
+      const chart =
+        method === 'xuankong'
+          ? operation === 'calculate'
+            ? body.data
+            : body.data.result
+          : operation === 'calculate'
+            ? body.data.xuankong
+            : body.data.result.xuankong;
+      assert.equal(chart.guaType, '替卦', `${method}/${operation}`);
+      assert.equal(chart.replacementApplied, true, `${method}/${operation}`);
+      assert.equal(chart.replacement?.mountain.referenceMountain, '子', `${method}/${operation}`);
+      assert.equal(chart.replacement?.facing.referenceMountain, '巽', `${method}/${operation}`);
+      assert.equal(chart.replacement?.mountain.replacementStar, 5, `${method}/${operation}`);
+      assert.equal(chart.plates.shan.length, 9, `${method}/${operation}`);
+      assert.ok(
+        chart.combinations.some((item: { name: string }) => item.name === '全盘反吟（山星）'),
+      );
+      if (operation === 'prompt') assert.match(body.data.prompt, /卦型：替卦/);
     }
+  }
+});
+
+test('紫微公开接口独立指定运限时辰并保留出生时辰', async () => {
+  const input = {
+    name: '时辰回归',
+    gender: 'female',
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '21',
+    timeIndex: 4,
+    promptScope: 'hourly',
+    scopeDate: '2026-08-06',
+    detailMode: 'full',
+  };
+  const results = [];
+  for (const scopeHourIndex of [0, 8]) {
+    const { response, body } = await callApi('ziwei/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, scopeHourIndex }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(body.data.fortuneTimeline.targetHourIndex, scopeHourIndex);
+    assert.equal(body.data.fortuneTimeline.targetDateStr, input.scopeDate);
+    assert.equal(body.data.basicInfo.birth_time_label, '辰时');
+    results.push(body.data);
+  }
+  assert.deepEqual(results[0].basicInfo, results[1].basicInfo);
+  assert.notDeepEqual(
+    results[0].payloadByScope.hourly.active_scope,
+    results[1].payloadByScope.hourly.active_scope,
+  );
+  for (const scopeHourIndex of [-1, 13, 1.5]) {
+    const { response } = await callApi('ziwei/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, scopeHourIndex }),
+    });
+    assert.equal(response.status, 400);
   }
 });

@@ -1154,6 +1154,17 @@ const systems: SystemCapability[] = [
         description: '独立玄空飞星排盘必须提供。',
       },
       {
+        id: 'guaType',
+        label: '玄空起法',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: '下卦', label: '下卦（默认）' },
+          { value: '替卦', label: '替卦（已核定兼向）' },
+        ]),
+        description: '默认按下卦；仅在山向稳定且已核定兼向外侧三度时选择替卦。',
+      },
+      {
         id: 'sitMountain',
         label: '坐山',
         type: 'text',
@@ -1190,7 +1201,7 @@ const systems: SystemCapability[] = [
     outputs: [
       '三元九运',
       '山向',
-      '下卦',
+      '下卦或替卦',
       '运盘',
       '山盘',
       '向盘',
@@ -1209,9 +1220,9 @@ const systems: SystemCapability[] = [
       batch: false,
     },
     notes: [
-      '玄空飞星输出可复现的下卦三盘、局型、组合与证据，不覆盖形峦、玄空大卦或替卦口诀。',
+      '玄空飞星默认输出下卦；显式选择替卦时按已核定兼向外侧三度重算三盘、局型、组合与证据，不覆盖形峦或玄空大卦。',
       '传入流年后叠加三元紫白流年飞星；再传入流月则叠加节气月紫白。',
-      '度数落在二十四山边界附近时会返回候选山向与测量警告，但仍按下卦分别计算。',
+      '度数落在二十四山边界附近时会返回候选山向与测量警告；边界敏感度数不能用于替卦。',
     ],
   },
   {
@@ -1240,6 +1251,17 @@ const systems: SystemCapability[] = [
       },
       { id: 'mingGua', label: '直接指定命卦', type: 'text', required: false },
       { id: 'year', label: '建造或起运年', type: 'number', required: false },
+      {
+        id: 'guaType',
+        label: '玄空起法',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: '下卦', label: '下卦（默认）' },
+          { value: '替卦', label: '替卦（已核定兼向）' },
+        ]),
+        description: '玄空层默认按下卦；仅在山向稳定且已核定兼向外侧三度时选择替卦。',
+      },
       {
         id: 'sitMountain',
         label: '坐山',
@@ -1291,7 +1313,7 @@ const systems: SystemCapability[] = [
       '宅运结构',
       '人宅适配',
       '八宅命卦宅卦',
-      '玄空下卦运盘山盘向盘',
+      '玄空下卦或替卦运盘山盘向盘',
       '合参要点',
       '行动建议',
       '结构化证据',
@@ -1305,6 +1327,7 @@ const systems: SystemCapability[] = [
     },
     notes: [
       '住宅风水为产品统一入口：后台分别计算八宅与玄空飞星后合参，不生成综合吉凶总分，也不互相改写两套规则。',
+      '玄空层默认下卦；已核定兼向外侧三度且山向稳定时，可显式选择替卦重算山向飞星与组合。',
       '至少提供山向/门向度数，或居住人出生年与性别/命卦之一；玄空宅运层还必须提供住宅建造年或起运年，缺年时不得用当前年份代替。底层 bazhai 与 xuankong 能力仍保留。',
     ],
   },

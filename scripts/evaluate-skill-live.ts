@@ -81,7 +81,13 @@ export function buildCleanModelInputBundle(
   const confirmedFacts = { ...scenario.providedFacts };
 
   // 严格检查：确保不包含隐藏标签
-  const forbiddenKeys = ['expectedRoute', 'requiredChecks', 'forbiddenLeakage', 'isBoundary', 'notes'];
+  const forbiddenKeys = [
+    'expectedRoute',
+    'requiredChecks',
+    'forbiddenLeakage',
+    'isBoundary',
+    'notes',
+  ];
   for (const k of forbiddenKeys) {
     if (k in confirmedFacts) {
       delete (confirmedFacts as Record<string, unknown>)[k];
@@ -120,6 +126,9 @@ export async function callRealModel(
 
   // 组合输入为提示词
   const userContent = [
+    `【本次解读参考资料】\n${Object.entries(cleanBundle.referenceDocs)
+      .map(([name, text]) => `【${name}】\n${text}`)
+      .join('\n\n')}`,
     `【求测者问题】\n${cleanBundle.userMessage}`,
     `【求测者主动提供的资料】\n${JSON.stringify(cleanBundle.confirmedFacts, null, 2)}`,
     cleanBundle.providerFact
@@ -148,7 +157,10 @@ export async function callRealModel(
       const data = (await res.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       };
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const text = (data.candidates?.[0]?.content?.parts ?? [])
+        .map((part) => part.text ?? '')
+        .join('');
+      if (!text.trim()) throw new Error('在线模型返回空正文');
       return { text, durationMs: Date.now() - startTime };
     }
 
@@ -179,6 +191,7 @@ export async function callRealModel(
       choices?: Array<{ message?: { content?: string } }>;
     };
     const text = data.choices?.[0]?.message?.content || '';
+    if (typeof text !== 'string' || !text.trim()) throw new Error('在线模型返回空正文');
     return { text, durationMs: Date.now() - startTime };
   } finally {
     clearTimeout(timer);
@@ -199,6 +212,8 @@ export async function runScenarioLive(
   let userReply = '';
   let prompt: string | undefined;
   let durationMs = 0;
+  let executionError = false;
+  const startedAt = Date.now();
 
   if (isOnline) {
     try {
@@ -212,10 +227,9 @@ export async function runScenarioLive(
       }
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[Live 请求失败 - 安全降级为离线基准] ${errorMsg}`);
-      const fallback = MockProviderRegistry.generateStandardArtifact(scenario, mode);
-      userReply = fallback.userReply;
-      prompt = fallback.prompt;
+      executionError = true;
+      durationMs = Date.now() - startedAt;
+      console.warn(`[Live 请求失败 - 未生成评测答案] ${errorMsg}`);
     }
   } else {
     // 离线基准模式
@@ -229,13 +243,18 @@ export async function runScenarioLive(
   const artifact: ModelExecutionArtifact = {
     userReply,
     prompt,
-    identifiedMethods: [...scenario.expectedRoute.primary],
+    identifiedMethods: isOnline ? [] : [...scenario.expectedRoute.primary],
     telemetry: {
       modelName: isOnline ? config.model : 'offline-reference-runner',
-      isLiveOnline: isOnline,
+      isLiveOnline: isOnline && !executionError,
       docsRead: Object.keys(cleanBundle.referenceDocs),
-      isDegraded: mode === 'unavailable',
-      providerErrorReceived: mode === 'unavailable',
+      docsSent: isOnline ? Object.keys(cleanBundle.referenceDocs) : [],
+      referenceChars: Object.values(cleanBundle.referenceDocs).reduce(
+        (sum, text) => sum + text.length,
+        0,
+      ),
+      isDegraded: mode === 'unavailable' || executionError,
+      providerErrorReceived: mode === 'unavailable' || executionError,
       durationMs,
       requestDigest: cleanBundle.sanitizedDigest,
     },
@@ -243,6 +262,16 @@ export async function runScenarioLive(
 
   // 由独立评测器进行严格 L0—L5 证据评审
   const evaluation = evaluateModelOutput(scenario, artifact, mode);
+  if (executionError) {
+    evaluation.passed = false;
+    evaluation.status = 'fail';
+    evaluation.errors.unshift('在线模型调用失败，未生成可评测结果。');
+    for (const score of Object.values(evaluation.scoreLevels)) {
+      score.passed = false;
+      score.status = 'needs_review';
+      score.details = '模型调用未完成，缺少可评测正文。';
+    }
+  }
 
   return { artifact, evaluation };
 }
@@ -256,12 +285,16 @@ export async function runLiveEvaluation() {
 
   console.log('=== 通用算命 Skill 真实模型接入与可信评测 ===\n');
   if (isOnline) {
-    console.log(`[在线执行模式] 正在调用真实公网模型: ${config.model} (${config.format || 'chat'})`);
+    console.log(
+      `[在线执行模式] 正在调用真实公网模型: ${config.model} (${config.format || 'chat'})`,
+    );
     console.log(`服务地址: ${config.baseUrl?.replace(/\/\/.*@/, '//***@')}`);
   } else {
     console.log('[离线基准演练模式] 未检测到在线模型凭据 (AI_API_KEY/OPENAI_API_KEY)。');
     console.log('当前执行离线高保真推演演练，绝不冒充公网在线模型结果。');
-    console.log('提示：若需发起公网模型真实调用，请配置环境变量: AI_API_KEY, AI_MODEL, AI_BASE_URL\n');
+    console.log(
+      '提示：若需发起公网模型真实调用，请配置环境变量: AI_API_KEY, AI_MODEL, AI_BASE_URL\n',
+    );
   }
 
   // 五个重点核心场景
@@ -320,8 +353,8 @@ export async function runLiveEvaluation() {
     `- 运行环境模式：${isOnline ? `【真实在线模型：${config.model}】` : '【离线高保真基准演练】'}`,
     `- 评测时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`,
     `- 核心场景数：${liveResults.length}`,
-    `- 输入上下文纯净化：100%（已验证无 expectedRoute/forbiddenLeakage 等任何隐藏标签）`,
-    `- 判定模式：从生成文本客观提取证据，三态分层判定`,
+    `- 输入内容：用户问题、已提供资料、参考正文与固定排盘样例`,
+    `- 判定方式：按文本规则检查资料、路由与输出结构；解读质量需结合完整回答复核`,
     '',
     '## 核心场景双通道评测结果',
     '',
@@ -331,7 +364,11 @@ export async function runLiveEvaluation() {
 
   for (const r of liveResults) {
     const sc = r.evaluation.scoreLevels;
-    const modelTag = r.telemetry?.isLiveOnline ? r.telemetry.modelName : 'offline-reference';
+    const modelTag = r.telemetry?.isLiveOnline
+      ? r.telemetry.modelName
+      : r.telemetry?.modelName === 'offline-reference-runner'
+        ? '离线样例'
+        : `${r.telemetry?.modelName ?? '在线模型'}（请求失败）`;
     mdLines.push(
       `| ${r.scenarioId} | ${r.title} | ${r.mode} | ${modelTag} | ${sc.l0Intake.passed ? '✔' : '✖'} | ${sc.l1Routing.passed ? '✔' : '✖'} | ${sc.l2Evidence.passed ? '✔' : '✖'} | ${sc.l3DynamicSynthesis.passed ? '✔' : '✖'} | ${sc.l4OutputPrompt.passed ? '✔' : '✖'} | ${sc.l5SafetyPrivacy.passed ? '✔' : '✖'} | ${r.evaluation.passed ? 'PASS' : 'FAIL'} |`,
     );
@@ -359,6 +396,7 @@ export async function runLiveEvaluation() {
   console.log(`\n✔ 评测执行完毕！`);
   console.log(`✔ 报告已保存至：${reportMd}`);
   console.log(`✔ 软链最新报告：${latestMd}`);
+  if (liveResults.some((result) => !result.evaluation.passed)) process.exitCode = 1;
 }
 
 if (import.meta.url.endsWith(process.argv[1]) || process.argv[1]?.includes('evaluate-skill-live')) {

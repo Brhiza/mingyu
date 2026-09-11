@@ -82,9 +82,11 @@ type ResolvedAiProvider = {
   model: string;
 };
 
-const SYSTEM_PROMPT_SINGLE = '请根据用户提供的排盘资料和问题直接解读。';
+const SYSTEM_PROMPT_SINGLE =
+  '请完成用户当前指定的资料准备或解读任务。解读结合已有盘面、所附方法与传统资料，具体回应问题。';
 
-const SYSTEM_PROMPT_CHAT = '用户的第一条消息是本次排盘资料和问题。请继续围绕这份资料解读。';
+const SYSTEM_PROMPT_CHAT =
+  '第一条消息保留本次盘面资料。请结合所附方法、补充资料和对话完成用户当前指定的任务，沿用主体与时间范围。';
 
 /**
  * 处理 AI 解析请求，返回 SSE Response。
@@ -182,7 +184,7 @@ export async function handleAiAnalyze(
       body: JSON.stringify({
         model: provider.model,
         stream: true,
-        max_tokens: 4096,
+        max_tokens: 8192,
         temperature: 0.7,
         messages: [
           {
@@ -857,6 +859,18 @@ class UpstreamStreamResponseError extends Error {
 }
 
 function parseUpstreamStreamError(value: unknown): { message: string; code?: string } | null {
+  if (
+    value &&
+    typeof value === 'object' &&
+    'choices' in value &&
+    Array.isArray(value.choices) &&
+    value.choices[0]?.finish_reason === 'length'
+  ) {
+    return {
+      message: '本次回复达到模型输出上限，已生成内容保留，可缩小问题范围后继续。',
+      code: 'AI_OUTPUT_LIMIT',
+    };
+  }
   if (!value || typeof value !== 'object' || !('error' in value)) return null;
 
   const parsed = parseUpstreamError(JSON.stringify(value));

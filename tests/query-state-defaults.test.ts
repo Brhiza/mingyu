@@ -1,6 +1,8 @@
+import { calculateResidentialChart } from '../src/lib/residential-fengshui-chart';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  createDefaultPromptState,
   buildInputSearch,
   buildResultSearch,
   defaultInputState,
@@ -9,6 +11,7 @@ import {
   parseInputState,
   parsePromptState,
 } from '../src/lib/query-state';
+import { getDefaultAstrolabeScopeDate } from '../src/lib/astrolabe-scope';
 
 test('精准排盘资料必须包含时分、地点和经纬度，并允许北京时间或真太阳时', () => {
   const complete = {
@@ -111,7 +114,8 @@ test('地址栏非法出生日期和真太阳时字段应清空', () => {
 
 test('结果页默认应直接打开提示词页', () => {
   assert.equal(defaultPromptState.tab, 'prompt');
-  assert.equal(defaultPromptState.baziFortuneScope, 'natal');
+  assert.equal(defaultPromptState.baziFortuneScope, 'dayun');
+  assert.equal(defaultPromptState.ziweiScope, 'decadal');
 });
 
 test('结果页默认紫微提示词状态应与自定义模式一致', () => {
@@ -119,11 +123,39 @@ test('结果页默认紫微提示词状态应与自定义模式一致', () => {
   assert.equal(defaultPromptState.ziweiTopic, 'chat');
 });
 
-test('结果页默认星盘提示词状态应直接落到综合专项方案', () => {
+test('结果页默认星盘提示词状态应直接落到当前阶段综合专项方案', () => {
   assert.equal(defaultPromptState.astrolabeShortcutMode, '综合');
   assert.equal(defaultPromptState.astrolabeTopic, 'life');
-  assert.equal(defaultPromptState.astrolabeScope, 'natal');
-  assert.equal(defaultPromptState.astrolabeScopeDate, '');
+  assert.equal(defaultPromptState.astrolabeScope, 'yearly');
+  assert.equal(defaultPromptState.astrolabeScopeDate, getDefaultAstrolabeScopeDate('yearly'));
+
+  const parsed = parsePromptState(new URLSearchParams());
+  assert.equal(parsed.astrolabeScope, 'yearly');
+  assert.equal(parsed.astrolabeScopeDate, getDefaultAstrolabeScopeDate('yearly'));
+
+  const explicitNatal = parsePromptState(new URLSearchParams({ astrolabeScope: 'natal' }));
+  assert.equal(explicitNatal.astrolabeScope, 'natal');
+  assert.equal(explicitNatal.astrolabeScopeDate, '');
+
+  const fixedDefaults = createDefaultPromptState(new Date('2026-09-11T23:30:00-07:00'));
+  assert.equal(fixedDefaults.astrolabeScope, 'yearly');
+  assert.equal(fixedDefaults.astrolabeScopeDate, '2026');
+});
+
+test('星盘结果页应显式保存目标年度，避免跨年打开时改写历史范围', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...createDefaultPromptState(new Date('2026-09-11T23:30:00-07:00')),
+    tab: 'astrolabe',
+    promptSource: 'astrolabe',
+    astrolabeScope: 'yearly',
+    astrolabeScopeDate: '2026',
+  });
+
+  assert.match(search, /as=yearly/);
+  assert.match(search, /asd=2026/);
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.astrolabeScope, 'yearly');
+  assert.equal(parsed.astrolabeScopeDate, '2026');
 });
 
 test('仅切换 AI 提示词参数时，输入参数快照应保持不变', () => {
@@ -347,7 +379,7 @@ test('结果页地址回写紫微本命范围时不应重新写回旧日期', ()
   });
 
   assert.match(search, /ps=ziwei/);
-  assert.doesNotMatch(search, /zs=origin/);
+  assert.match(search, /zs=origin/);
   assert.doesNotMatch(search, /zsd=2028-06-01/);
   assert.doesNotMatch(search, /ziweiScope=origin/);
   assert.doesNotMatch(search, /ziweiScopeDate=2028-06-01/);
@@ -364,8 +396,8 @@ test('结果页地址回写八字本命范围时不应重新写回更细的运�
     baziFortuneDay: '12',
   });
 
-  assert.equal(search, '');
-  assert.doesNotMatch(search, /bfs=natal/);
+  assert.equal(search, 'bfs=natal');
+  assert.match(search, /bfs=natal/);
   assert.doesNotMatch(search, /bci=3/);
   assert.doesNotMatch(search, /bfy=2028/);
   assert.doesNotMatch(search, /bfm=6/);
@@ -506,15 +538,96 @@ test('七政四余和八宅提示词来源可从地址栏恢复', () => {
   assert.equal(parsed.bazhaiFacingDegree, '12.5');
 });
 
-test('八宅入户方向缓存应拒绝越界度数', () => {
+test('住宅地址保留越界测量以提示修正，不能静默当成未测量', () => {
+  for (const value of ['361', '-1']) {
+    const parsed = parsePromptState(new URLSearchParams({ bazhaiFacingDegree: value }));
+    assert.equal(parsed.bazhaiFacingDegree, value);
+    assert.throws(() =>
+      calculateResidentialChart({
+        houseYear: 2024,
+        doorToInteriorDegree: Number(parsed.bazhaiFacingDegree),
+      }),
+    );
+  }
+});
+
+test('住宅替卦选择随地址恢复并用于真实宅盘', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...defaultPromptState,
+    tab: 'bazhai',
+    promptSource: 'bazhai',
+    bazhaiFacingDegree: '5',
+    residentialHouseYear: '2024',
+    residentialGuaType: '替卦',
+  });
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.residentialGuaType, '替卦');
   assert.equal(
-    parsePromptState(new URLSearchParams({ bazhaiFacingDegree: '361' })).bazhaiFacingDegree,
-    '',
+    calculateResidentialChart({
+      houseYear: Number(parsed.residentialHouseYear),
+      doorToInteriorDegree: Number(parsed.bazhaiFacingDegree),
+      guaType: parsed.residentialGuaType,
+    }).xuankong?.guaType,
+    '替卦',
   );
-  assert.equal(
-    parsePromptState(new URLSearchParams({ bazhaiFacingDegree: '-1' })).bazhaiFacingDegree,
-    '',
+});
+
+test('住宅目标流运日期会随结果地址保存并从地址栏恢复', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...createDefaultPromptState(new Date('2026-09-11T23:30:00-07:00')),
+    tab: 'bazhai',
+    promptSource: 'bazhai',
+    residentialFlowYear: '2026',
+    residentialFlowMonth: '2',
+    residentialFlowDay: '10',
+  });
+
+  assert.match(search, /ps=bazhai/);
+  assert.match(search, /rfy=2026/);
+  assert.match(search, /rfm=2/);
+  assert.match(search, /rfd=10/);
+
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.promptSource, 'bazhai');
+  assert.equal(parsed.residentialFlowYear, '2026');
+  assert.equal(parsed.residentialFlowMonth, '2');
+  assert.equal(parsed.residentialFlowDay, '10');
+});
+
+test('住宅静态盘与仅指定年度的链接保留原有时间范围', () => {
+  const prompt = {
+    ...defaultPromptState,
+    tab: 'bazhai' as const,
+    promptSource: 'bazhai' as const,
+    residentialFlowYear: '',
+    residentialFlowMonth: '',
+    residentialFlowDay: '',
+  };
+  const staticState = parsePromptState(
+    new URLSearchParams(buildResultSearch(defaultInputState, prompt)),
   );
+  assert.equal(staticState.residentialFlowYear, '');
+  assert.equal(staticState.residentialFlowMonth, '');
+  assert.equal(staticState.residentialFlowDay, '');
+  const yearlyState = parsePromptState(new URLSearchParams('ps=bazhai&rfy=2020'));
+  assert.equal(yearlyState.residentialFlowYear, '2020');
+  assert.equal(yearlyState.residentialFlowMonth, '');
+  assert.equal(yearlyState.residentialFlowDay, '');
+});
+
+test('住宅目标流运日期非法时应清空不完整日期', () => {
+  const parsed = parsePromptState(
+    new URLSearchParams({
+      promptSource: 'bazhai',
+      residentialFlowYear: '2026',
+      residentialFlowMonth: '2',
+      residentialFlowDay: '31',
+    }),
+  );
+
+  assert.equal(parsed.residentialFlowYear, '2026');
+  assert.equal(parsed.residentialFlowMonth, '2');
+  assert.equal(parsed.residentialFlowDay, '');
 });
 
 test('星盘提示词范围日期应按范围校验并清空非法日期', () => {
@@ -609,7 +722,7 @@ test('星盘本命范围不应保留多余日期参数', () => {
   assert.equal(parsed.astrolabeScopeDate, '');
 });
 
-test('星盘提示词范围参数非法时应回到默认范围', () => {
+test('星盘提示词范围参数非法时应回到本命并清空无效日期', () => {
   const parsed = parsePromptState(
     new URLSearchParams({
       astrolabeScope: 'decadal',
@@ -617,7 +730,7 @@ test('星盘提示词范围参数非法时应回到默认范围', () => {
     }),
   );
 
-  assert.equal(parsed.astrolabeScope, defaultPromptState.astrolabeScope);
+  assert.equal(parsed.astrolabeScope, 'natal');
   assert.equal(parsed.astrolabeScopeDate, '');
 });
 

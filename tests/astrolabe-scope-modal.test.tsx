@@ -17,4 +17,5 @@ test('星盘年限弹窗应显示从地址恢复的远期年份选项', () => {
   );
 
   assert.match(html, /fortune-modal-item[^>]*><strong>2101年<\/strong>/);
+  assert.match(html, /流年/);
 });

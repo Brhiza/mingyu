@@ -140,7 +140,7 @@ export function evaluateWuyunLiuqiPathomechanism(params: {
   const names = MOVEMENT_REGIMES[annualMovement.element];
   const movementRegime = `${names[annualMovement.strength === '太过' ? 0 : 1]}之纪`;
   const pingQiType = pingQiConditions.length ? '具平气条件' : '平气待定';
-  const pingQiBasis = `${yearGanZhi}${annualMovement.element}运${annualMovement.strength}，属${movementRegime}；${pingQiConditions.length ? pingQiConditions.join('；') : '年层资料尚未列出平气条件'}。平气成立时称${names[2]}之纪，仍须结合交气日时干德符及气候应期核定。`;
+  const pingQiBasis = `${yearGanZhi}${annualMovement.element}运${annualMovement.strength}，属${movementRegime}${pingQiConditions.length ? `；${pingQiConditions.join('；')}` : ''}。平气成立时称${names[2]}之纪，仍须结合交气日时干德符及气候应期核定。`;
 
   const pathology = SITIAN_PATHOLOGY[sitian.name];
 

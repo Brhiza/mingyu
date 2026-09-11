@@ -19,6 +19,7 @@
 - [西洋占星 Astrolabe](#西洋占星-astrolabe)
 - [紫微斗数 Ziwei](#紫微斗数-ziwei)
 - [统一客户端 Client](#统一客户端-client)
+- [焦氏易林固定索引 Yilin](#焦氏易林固定索引-yilin)
 - [历法 Calendar](#历法-calendar)
 - [统一出生档案 Profile](#统一出生档案-profile)
 - [出生盘 Bundle](#出生盘-bundle)
@@ -179,8 +180,14 @@
 
 | 字段     | 类型                                              | 说明                                                       |
 | -------- | ------------------------------------------------- | ---------------------------------------------------------- |
-| `method` | `'time' \| 'number' \| 'random' \| 'timeTrigram'` | 起卦法；`timeTrigram` 为历史兼容入口，按年月日时起卦法计算 |
+| `method` | `'time' \| 'number' \| 'sound' \| 'character' \| 'direction' \| 'random' \| 'timeTrigram'` | 起卦法；`timeTrigram` 为历史兼容入口，按年月日时起卦法计算 |
 | `number` | `number`                                          | 数字起卦的正整数                                           |
+| `soundCount` | `number`                                      | 声音起卦记录的所闻声音数；与时支序数合取下卦和动爻       |
+| `characterText` / `characterCount` | `string` / `number`             | 字数起卦的原始文字或字符数；单字、2—3 字、4—10 字和 11—100 字分别按对应分段规则取数 |
+| `characterStrokeCounts` | `number[]`                                   | 2—3 字按顺序传各字人工笔画数，避免字体差异                         |
+| `characterTones` | `number[]`                                   | 4—10 字必须按顺序传传统平、上、去、入声类对应的 1—4 数，不等同于普通话一至四声 |
+| `characterLeftStrokes` / `characterRightStrokes` | `number`        | 单字起卦的左右分笔数                                      |
+| `objectType` / `direction` | `string` / `string`                    | 方位取象的所见物类与后天八卦方位                            |
 | `seed`   | `string \| number`                                | 随机起卦时可选；同一 seed 可复现同一组随机卦数             |
 | `rng`    | `() => number`                                    | 随机起卦时可选；自定义随机源，返回 0 到 1 之间的数         |
 
@@ -322,9 +329,28 @@
 
 运限选择便捷入口：`import { buildZiweiFortuneOptions } from 'mingyu-core/ziwei/fortune'`。传入一个童限或大限年龄范围后，可一次得到流年、流月、流日选项及各自干支。八字对应提供 `getCurrentBaziLuckCycle()`、`buildCurrentBaziFortuneSelection()` 和 `buildRecentBaziFortuneSelection()`，可直接生成 `buildFortuneSelectionContext()` 所需选择值；定位与各层列表均按精确交运时刻裁剪，时间范围同时返回结构化本地时间与时间戳。流时默认使用十二时辰，第三个参数传 `{ hourMode: 'splitZi' }` 可兼容旧版早晚子时拆分。目标时间不在命盘已计算的童限或大运范围内时，这三个入口返回 `null`，不会回退到第一步大运。
 
+八字日历与运限查询的 `Date` 参数表示真实瞬时点，统一按中国标准时（固定 UTC+8）读取年月日时分秒，不自动套用历史夏令时。`toNativeDate()` 将中国民用时间字段转换为真实瞬时点，传入 `Date` 时复制该瞬时点；`fromNativeDate()` 按固定 UTC+8 还原字段。`LocalTimeRange.startTimestamp/endTimestamp` 为 UTC epoch 毫秒，`start/end` 为对应中国民用时间，结束边界不包含在范围内。指定时点可使用 `new Date("2026-03-08T02:30:00+08:00")`，避免依赖宿主机器的默认时区；需要历史 IANA 时区规则时，应使用明确的 `timeZoneId`/`applyChinaDst` 输入路径。
+
 依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前固定版本传统目录登记 87 项，其中 55 条具备卷次、原文和可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中。空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
 
 ---
+
+## 焦氏易林固定索引 Yilin
+
+导入：`import { queryYilinEntry } from 'mingyu-core/classics'`
+
+### `queryYilinEntry(baseHexagram, targetHexagram, source?)`
+
+查询固定 W20.03 数据集中的焦氏易林本卦到之卦条目。固定卦序提供 64×64 共 4096 条索引；`source` 可为 `wikisource`、`kanripo` 或 `both`，默认返回两个底本并以 Wikisource 文本作为 `text` 主显示。返回值包含 `edition` 版本声明、两个 `sources` 来源条目、`dataStatus` 和本条 `gaps`。`gaps` 中的字形标记、观察标签和校勘差异必须按原样处理，不得将未知字形当作已确认文字。
+
+| 返回字段 | 说明 |
+| --- | --- |
+| `key` | 规范化后的 `${base}→${target}` 卦对 |
+| `text` | 选定主底本的文本；卷尾已知转录尾注会标记为 `fixed-volume-footer` |
+| `sources.wikisource` / `sources.kanripo` | 两个固定底本的原始标签、卷次、条次、来源、文本摘要与标记 |
+| `dataStatus` / `gaps` | 双底本一致或含校勘/字形差异，以及可追溯差异明细 |
+
+固定索引是文献查询，不承担起卦、随机取卦或根据卦名推断爻变。来源与 120 项全库缺口统计见 [`焦氏易林索引与底本.md`](./焦氏易林索引与底本.md)。
 
 ## 统一客户端 Client
 
@@ -346,7 +372,7 @@
 | `bazhaiByDoorDegree(input)`                 | 从大门面向屋内读数换算山向并生成八宅盘                    |
 | `zodiac(input)`                             | 按生肖/年支与公历年或指定干支生成生肖流年关系             |
 | `taiyi(input)` / `qizheng(input)`           | 生成太乙年、月、日、时四计或七政四余盘                    |
-| `xuankong(input)`                           | 生成玄空下卦三盘                                          |
+| `xuankong(input)`                           | 默认生成玄空下卦三盘；显式选择兼向替卦时重算山盘、向盘与局型组合 |
 | `residentialFengshui(input)`                | 按实际资料组合八宅与玄空住宅结果                          |
 | `capabilities()` / `capability(id)`         | 查询全部或单项能力声明；未知 ID 明确失败                  |
 | `serialize(value)`                          | 输出键顺序稳定的 JSON                                     |

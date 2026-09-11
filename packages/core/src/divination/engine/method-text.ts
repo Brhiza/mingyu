@@ -23,6 +23,7 @@ function getPromptMethod(method: Exclude<DivinationMethodId, 'random'>, data?: D
   if (method === 'huangji' && data && !(data as HuangjiJingshiResult).forecast) {
     return 'huangji-cycle';
   }
+  if (method === 'wuyun') return 'wuyun-liuqi';
   return method;
 }
 
@@ -58,6 +59,8 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>, data
       return !data || (data as HuangjiJingshiResult).forecast
         ? '依据元会运世位置、会内统卦、运卦、六十年统卦、十年卦、值年卦以及月经、旬纬、日卦和时经卦回答【问题】。'
         : '依据元会运世周期资料回答【问题】，说明目标年在周期层级中的位置、当前进度与下一周期边界。';
+    case 'wuyun':
+      return '依据岁运、司天在泉、五步主客运、六步主客气、符会与年度病机资料回答【问题】。';
     default:
       return '请结合占卜信息回答【问题】。';
   }

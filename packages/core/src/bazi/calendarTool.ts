@@ -5,7 +5,13 @@ import {
 } from '../calendar/solar-term-evidence';
 import { EARTHLY_BRANCHES, ZODIACS } from './baziMappingsData';
 import type { LocalTimeRange } from './baziTypes';
-import { createLocalTimeRange } from './luckTiming';
+import {
+  createCivilDate,
+  createLocalTimeRange,
+  fromCivilDate,
+  fromNativeDate,
+  toNativeDate as toChinaInstant,
+} from './luckTiming';
 
 type SolarTermInstance = ReturnType<typeof SolarTerm.fromIndex>;
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
@@ -98,17 +104,6 @@ function formatSolarDayKey(solarDay: {
   return formatSolarDateKey(solarDay.getYear(), solarDay.getMonth(), solarDay.getDay());
 }
 
-function createLocalDate(
-  year: number,
-  month: number,
-  day: number,
-  hour = 0,
-  minute = 0,
-  second = 0,
-): Date {
-  return new Date(year, month - 1, day, hour, minute, second, 0);
-}
-
 function toNativeDate(time: {
   getYear(): number;
   getMonth(): number;
@@ -117,32 +112,43 @@ function toNativeDate(time: {
   getMinute(): number;
   getSecond(): number;
 }) {
-  return createLocalDate(
-    time.getYear(),
-    time.getMonth(),
-    time.getDay(),
-    time.getHour(),
-    time.getMinute(),
-    time.getSecond(),
-  );
+  return toChinaInstant({
+    year: time.getYear(),
+    month: time.getMonth(),
+    day: time.getDay(),
+    hour: time.getHour(),
+    minute: time.getMinute(),
+    second: time.getSecond(),
+  });
 }
 
 function formatDateTime(date: Date): string {
-  return `${date.getFullYear()}-${formatNumber(date.getMonth() + 1)}-${formatNumber(date.getDate())} ${formatNumber(date.getHours())}:${formatNumber(date.getMinutes())}`;
+  const civil = fromNativeDate(date);
+  return `${civil.year}-${formatNumber(civil.month)}-${formatNumber(civil.day)} ${formatNumber(civil.hour)}:${formatNumber(civil.minute)}`;
 }
 
 function formatHourMinute(date: Date): string {
-  return `${formatNumber(date.getHours())}:${formatNumber(date.getMinutes())}`;
+  const civil = fromNativeDate(date);
+  return `${formatNumber(civil.hour)}:${formatNumber(civil.minute)}`;
 }
 
 function startOfLocalDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+  const civil = fromNativeDate(date);
+  return toChinaInstant({
+    year: civil.year,
+    month: civil.month,
+    day: civil.day,
+    hour: 0,
+    minute: 0,
+    second: 0,
+  });
 }
 
 function addLocalDays(date: Date, days: number) {
-  const next = new Date(date.getTime());
-  next.setDate(next.getDate() + days);
-  return next;
+  const civil = fromNativeDate(date);
+  const next = createCivilDate(civil.year, civil.month, civil.day);
+  next.setUTCDate(next.getUTCDate() + days);
+  return toChinaInstant(fromCivilDate(next));
 }
 
 function maxDate(left: Date, right: Date) {
@@ -249,10 +255,9 @@ function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMont
   const termDateMap = buildTermDateMap([year - 1, year, year + 1, year + 2]);
   const firstDay = startOfLocalDay(monthInfo.startAt);
   const lastDay = startOfLocalDay(monthInfo.endAt);
+  const endCivil = fromNativeDate(monthInfo.endAt);
   const lastDayInclusive =
-    monthInfo.endAt.getHours() === 0 &&
-    monthInfo.endAt.getMinutes() === 0 &&
-    monthInfo.endAt.getSeconds() === 0
+    endCivil.hour === 0 && endCivil.minute === 0 && endCivil.second === 0
       ? addLocalDays(lastDay, -1)
       : lastDay;
   const list: DetailedBaziMonthDayInfo[] = [];
@@ -270,9 +275,10 @@ function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMont
       continue;
     }
 
-    const currentYear = cursor.getFullYear();
-    const currentMonth = cursor.getMonth() + 1;
-    const currentDay = cursor.getDate();
+    const currentCivil = fromNativeDate(cursor);
+    const currentYear = currentCivil.year;
+    const currentMonth = currentCivil.month;
+    const currentDay = currentCivil.day;
     const solarTime = SolarTime.fromYmdHms(currentYear, currentMonth, currentDay, 12, 0, 0);
     const lunarHour = solarTime.getLunarHour();
     const lunarDay = lunarHour.getLunarDay();
@@ -311,12 +317,13 @@ function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMont
 
 export function getCalendarInfo(date: Date = new Date()): CalendarInfo {
   assertValidDate(date, '时间');
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hour = date.getHours();
-  const minute = date.getMinutes();
-  const second = date.getSeconds();
+  const civilDate = fromNativeDate(date);
+  const year = civilDate.year;
+  const month = civilDate.month;
+  const day = civilDate.day;
+  const hour = civilDate.hour;
+  const minute = civilDate.minute;
+  const second = civilDate.second;
 
   const solarTime = SolarTime.fromYmdHms(year, month, day, hour, minute, second);
   const lunarHour = solarTime.getLunarHour();
@@ -394,6 +401,17 @@ export function getYearMonthsGanZhi(year: number): BaziMonthInfo[] {
   );
 }
 
+export function getBaziMonthIndexByCivilDate(year: number, civilDate: Date): number | undefined {
+  assertYear(year);
+  assertValidDate(civilDate, '民用参考时间');
+  const referenceDate = toChinaInstant(fromCivilDate(civilDate));
+  return getYearMonthsGanZhiDetailed(year).find(
+    (item) =>
+      referenceDate.getTime() >= item.startAt.getTime() &&
+      referenceDate.getTime() < item.endAt.getTime(),
+  )?.index;
+}
+
 export function getBaziMonthIndexByDate(
   year: number,
   referenceDate: Date = new Date(),
@@ -405,6 +423,22 @@ export function getBaziMonthIndexByDate(
       referenceDate.getTime() >= item.startAt.getTime() &&
       referenceDate.getTime() < item.endAt.getTime(),
   )?.index;
+}
+
+export function getBaziDayIndexByCivilDate(
+  year: number,
+  monthIndex: number,
+  civilDate: Date,
+): number | undefined {
+  assertYear(year);
+  assertBaziMonthIndex(monthIndex);
+  assertValidDate(civilDate, '民用参考时间');
+  const referenceDate = toChinaInstant(fromCivilDate(civilDate));
+  return getMonthDaysInfoDetailed(year, monthIndex).find(
+    (item) =>
+      referenceDate.getTime() >= item.startAt.getTime() &&
+      referenceDate.getTime() < item.endAt.getTime(),
+  )?.day;
 }
 
 export function getBaziDayIndexByDate(

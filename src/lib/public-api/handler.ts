@@ -1,3 +1,4 @@
+import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import {
   analyzeBaziCompatibility,
   type BaziChartResult,
@@ -7,7 +8,11 @@ import {
 } from 'mingyu-core/bazi';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei';
-import { buildFortuneSelectionContext, type BaziFortuneSelectionValue } from 'mingyu-core/bazi';
+import {
+  buildCurrentBaziFortuneSelectionForScope,
+  buildFortuneSelectionContext,
+  type BaziFortuneSelectionValue,
+} from 'mingyu-core/bazi';
 import {
   buildAstronomicalTimeEvidence,
   calculateMoonPhaseEvidence,
@@ -18,7 +23,11 @@ import {
   resolveCivilTime,
   resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
-import { buildZiweiChartInput, calculatePublicZiweiChartForScopes } from 'mingyu-core/ziwei';
+import {
+  buildZiweiChartInput,
+  calculatePublicZiweiChartForScopes,
+  type ZiweiFortuneRangeScope,
+} from 'mingyu-core/ziwei';
 import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import {
   INSTANT_CHART_TYPES,
@@ -39,9 +48,14 @@ import {
   generateQimen,
   calculateQimenLifetime,
   generateQimenLifetimePrompt,
+  validateLifetimePeriodRange,
 } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
-import type { QimenLifetimeInput, QimenLifetimeData } from 'mingyu-core/types';
+import {
+  QIMEN_LIFETIME_TOPICS,
+  type QimenLifetimeInput,
+  type QimenLifetimeData,
+} from 'mingyu-core/types';
 import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
@@ -57,6 +71,7 @@ import {
   xuankong,
   residentialFengshui,
 } from 'mingyu-core';
+import { queryYilinEntry, type YilinSourcePreference } from 'mingyu-core/classics';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import {
   analyzeChineseCharactersWithReferences,
@@ -83,7 +98,11 @@ import {
 } from 'mingyu-core/foundation';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
-import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '../astrolabe-scope';
+import {
+  buildAstrolabeFullScopeContexts,
+  buildAstrolabeScopeContext,
+  getDefaultAstrolabeScopeDate,
+} from '../astrolabe-scope';
 import { buildAstrolabeSynastryPrompt } from '../astrolabe-synastry-prompt';
 import { getCompatibilityPrompt, type CompatType } from '../../utils/ai/aiPrompts';
 import {
@@ -422,12 +441,12 @@ const DIVINATION_REQUEST_PROPERTIES = {
   astrolabeScope: {
     enum: [...ASTROLABE_PROMPT_SCOPES],
     description:
-      '星盘分析范围：natal=本命, full=完整输出版, yearly=流年, monthly=流月, daily=流日。不传时默认本命；传 astrolabeScopeText 时以自定义文本为准。',
+      '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日。不传时默认当前年度流年；传 astrolabeScopeText 时以自定义文本为准。',
   },
   astrolabeScopeDate: {
     type: 'string',
     description:
-      '星盘行运日期；full 和 daily 用 YYYY-MM-DD，yearly 用 YYYY，monthly 用 YYYY-MM。除 natal 外均必填。',
+      '星盘行运日期；full 和 daily 用 YYYY-MM-DD，yearly 用 YYYY，monthly 用 YYYY-MM。显式指定非 natal 范围时必填；省略范围时默认使用当前年度。',
   },
   astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
   promptMode: { enum: [...PROMPT_MODES] },
@@ -454,8 +473,45 @@ const DIVINATION_REQUEST_PROPERTIES = {
       meihuaSettings: {
         type: 'object',
         properties: {
-          method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
+          method: {
+            enum: ['time', 'number', 'sound', 'character', 'direction', 'random', 'timeTrigram'],
+          },
           number: { type: 'integer', minimum: 1 },
+          soundCount: { type: 'integer', minimum: 1 },
+          characterText: { type: 'string', minLength: 1, maxLength: 256 },
+          characterCount: { type: 'integer', minimum: 1, maximum: 100 },
+          characterTones: {
+            type: 'array',
+            minItems: 4,
+            maxItems: 10,
+            items: { type: 'integer', minimum: 1, maximum: 4 },
+            description:
+              '4—10 字按顺序提供传统平、上、去、入声类的 1—4 数，不等同于普通话一至四声。',
+          },
+          characterStrokeCounts: {
+            type: 'array',
+            minItems: 2,
+            maxItems: 3,
+            items: { type: 'integer', minimum: 1 },
+            description: '2—3 字按顺序提供各字人工笔画数，以避免字体差异。',
+          },
+          characterLeftStrokes: { type: 'integer', minimum: 1, description: '单字左侧分笔数。' },
+          characterRightStrokes: { type: 'integer', minimum: 1, description: '单字右侧分笔数。' },
+          direction: {
+            enum: [
+              'northwest',
+              'west',
+              'south',
+              'east',
+              'southeast',
+              'north',
+              'northeast',
+              'southwest',
+            ],
+          },
+          objectType: {
+            enum: ['heaven', 'lake', 'fire', 'thunder', 'wind', 'water', 'mountain', 'earth'],
+          },
         },
       },
     },
@@ -873,7 +929,7 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '奇门遁甲终身局排盘',
           description: '生成奇门终身局基础盘、个人标记、阶段卡与动态事件簇。',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QimenLifetimeRequest', false),
           responses: { '200': { description: '奇门终身局结构化盘面数据' } },
         },
       },
@@ -881,7 +937,7 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '奇门遁甲终身局提示词',
           description: '生成奇门终身局结构化数据并输出自包含提示词任务书。',
-          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationPromptRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QimenLifetimePromptRequest'),
           responses: { '200': { description: '奇门终身局盘面与自包含提示词' } },
         },
       },
@@ -1028,57 +1084,85 @@ export function getPublicApiOpenApiDocument(
       },
       '/metaphysics/huangji-jingshi/calculate': {
         post: {
-          summary: '皇极经世年月日时盘与元会运世周期换算',
+          summary: '皇极经世六日逐爻、公历年月日时盘与元会运世周期换算',
           requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
-          responses: { '200': { description: '年月日时卦、值年卦与元会运世层级' } },
+          responses: {
+            '200': {
+              description:
+                '六日逐爻或年月日时卦、值年卦与元会运世层级；六日七分模型以现代冬至与岁周比例定位，并返回适用边界。',
+            },
+          },
         },
       },
       '/metaphysics/huangji-jingshi/prompt': {
         post: {
-          summary: '皇极经世年月日时盘并生成完整解读提示词',
+          summary: '皇极经世六日逐爻、公历年月日时盘并生成完整解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
-          responses: { '200': { description: '年月日时盘、元会运世结果与自包含提示词' } },
+          responses: {
+            '200': {
+              description:
+                '六日逐爻或年月日时盘、元会运世结果与自包含提示词；六日七分模型以现代冬至与岁周比例定位，并返回适用边界。',
+            },
+          },
+        },
+      },
+      '/classics/yilin': {
+        post: {
+          summary: '焦氏易林固定4096条索引查询',
+          description:
+            '按固定卦序查询焦氏易林卦对原文；同时返回 Wikisource 四库全书本与 Kanripo KR3g0029 WYG 对读资料、来源定位和未决字形/校勘状态，不承担起卦或随机取卦。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/YilinQueryRequest'),
+          responses: { '200': { description: '焦氏易林原文、双底本对读和来源状态' } },
+        },
+      },
+      '/metaphysics/huangji-jingshi/references': {
+        post: {
+          summary: '皇极经世声音律吕、动植物数与历史纪年原表查询',
+          requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiReferenceRequest'),
+          responses: { '200': { description: '固定版本的皇极经世扩展资料表' } },
         },
       },
       '/metaphysics/qizheng/calculate': {
         post: {
           summary: '七政四余排盘',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QizhengRequest'),
           responses: { '200': { description: '十一星、真实距星宿界与结构化证据' } },
         },
       },
       '/metaphysics/qizheng/prompt': {
         post: {
           summary: '七政四余排盘并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/QizhengRequest'),
           responses: { '200': { description: '七政四余盘与结构化提示词' } },
         },
       },
       '/metaphysics/xuankong/calculate': {
         post: {
           summary: '玄空飞星排盘',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/XuanKongRequest'),
           responses: { '200': { description: '运盘、山盘、向盘与到山到向证据' } },
         },
       },
       '/metaphysics/xuankong/prompt': {
         post: {
           summary: '玄空飞星排盘并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/XuanKongPromptRequest'),
           responses: { '200': { description: '玄空飞星盘与结构化提示词' } },
         },
       },
       '/metaphysics/residential/calculate': {
         post: {
           summary: '住宅风水排盘',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/ResidentialFengshuiRequest'),
           responses: { '200': { description: '八宅与玄空分层合参结果' } },
         },
       },
       '/metaphysics/residential/prompt': {
         post: {
           summary: '住宅风水排盘并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody(
+            '#/components/schemas/ResidentialFengshuiPromptRequest',
+          ),
           responses: { '200': { description: '住宅风水合参结果与结构化提示词' } },
         },
       },
@@ -1573,6 +1657,24 @@ export function getPublicApiOpenApiDocument(
             gender: { enum: ['male', 'female'], description: '性别（八宅）' },
             mingGua: { type: 'string', description: '直接给定命卦（八宅）' },
             sitMountain: { type: 'string', description: '坐山，如「子」（八宅）' },
+            facingMountain: { type: 'string', description: '朝向，如「午」（玄空、八宅）' },
+            facingDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '朝向度数，正北 0°、顺时针（玄空）',
+            },
+            sitDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '坐山度数，正北 0°、顺时针（玄空）',
+            },
+            guaType: {
+              enum: ['下卦', '替卦'],
+              default: '下卦',
+              description: '玄空起法；默认下卦，已核定兼向外侧三度时可选替卦',
+            },
             doorToInteriorDegree: {
               type: 'number',
               minimum: 0,
@@ -1642,6 +1744,248 @@ export function getPublicApiOpenApiDocument(
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
+        ResidentialFengshuiRequest: {
+          type: 'object',
+          description:
+            '住宅风水输入。出生资料、建造或起运年、山向和测量口径属于住宅主体；flowYear/flowMonth/flowDay 只叠加指定目标时段的玄空飞星。',
+          properties: {
+            year: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '住宅建造年或起运年；有山向时用于排玄空宅运盘。',
+            },
+            birthYear: {
+              type: 'integer',
+              minimum: 1900,
+              maximum: 2100,
+              description: '居住人出生公历年份；与 gender 一起推命卦。',
+            },
+            birthMonth: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 12,
+              description: '居住人出生公历月份。',
+            },
+            birthDay: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 31,
+              description: '居住人出生公历日期。',
+            },
+            gender: { enum: ['male', 'female'], description: '居住人性别。' },
+            mingGua: {
+              type: 'string',
+              description: '直接给定命卦：坎、坤、震、巽、乾、兑、艮或离。',
+            },
+            sitMountain: { type: 'string', description: '坐山，二十四山之一。' },
+            facingMountain: { type: 'string', description: '朝向，二十四山之一。' },
+            facingDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '朝向度数，正北 0°。',
+            },
+            sitDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '坐山度数，正北 0°。',
+            },
+            doorToInteriorDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '站在大门处面向屋内的指南针读数。',
+            },
+            northReference: {
+              enum: ['unspecified', 'magnetic', 'true'],
+              description: '门向读数的北向基准。',
+            },
+            magneticDeclinationDegrees: {
+              type: 'number',
+              minimum: -30,
+              maximum: 30,
+              description: '磁偏角；northReference 为 magnetic 时使用，东偏为正。',
+            },
+            measurementUncertaintyDegrees: {
+              type: 'number',
+              minimum: 0,
+              maximum: 45,
+              description: '坐向测量可能误差。',
+            },
+            guaType: {
+              enum: ['下卦', '替卦'],
+              default: '下卦',
+              description: '玄空起法；兼向外侧三度可选替卦。',
+            },
+            flowYear: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '目标流年公元年；不传则只返回静态宅盘。',
+            },
+            flowMonth: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 12,
+              description: '目标流月公历月；须同时提供 flowYear。',
+            },
+            flowDay: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 31,
+              description:
+                '目标流月日期；用于确定该日所属节气月，须同时提供 flowYear 与 flowMonth。',
+            },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+          },
+        },
+        ResidentialFengshuiPromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/ResidentialFengshuiRequest' },
+            {
+              type: 'object',
+              required: ['question'],
+              properties: {
+                question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+                topicId: { type: 'string', description: '统一解读主题 ID。' },
+                subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+                scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
+                promptScope: { enum: [...PROMPT_SCOPE_IDS], description: '住宅资料分析范围。' },
+                promptMode: { enum: [...PROMPT_MODES] },
+                schools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...getPromptSchoolIds('residential')] },
+                  description: '住宅风水解读口径。',
+                },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+              },
+            },
+          ],
+        },
+        XuanKongRequest: {
+          type: 'object',
+          required: ['year'],
+          description:
+            '玄空飞星输入。year 与山向属于宅盘主体；flowYear/flowMonth/flowDay 只叠加指定目标时段飞星。',
+          properties: {
+            year: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '住宅建造年或起运年。',
+            },
+            sitMountain: { type: 'string', description: '坐山，二十四山之一。' },
+            facingMountain: { type: 'string', description: '朝向，二十四山之一。' },
+            facingDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '朝向度数，正北 0°。',
+            },
+            sitDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '坐山度数，正北 0°。',
+            },
+            measurementUncertaintyDegrees: {
+              type: 'number',
+              minimum: 0,
+              maximum: 45,
+              description: '坐向测量可能误差。',
+            },
+            guaType: {
+              enum: ['下卦', '替卦'],
+              default: '下卦',
+              description: '玄空起法；兼向外侧三度可选替卦。',
+            },
+            flowYear: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '目标流年公元年；不传则只返回静态宅盘。',
+            },
+            flowMonth: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 12,
+              description: '目标流月公历月；须同时提供 flowYear。',
+            },
+            flowDay: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 31,
+              description: '目标流月日期；用于确定节气月，须同时提供 flowYear 与 flowMonth。',
+            },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+          },
+        },
+        XuanKongPromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/XuanKongRequest' },
+            {
+              type: 'object',
+              required: ['question'],
+              properties: {
+                question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+                topicId: { type: 'string', description: '统一解读主题 ID。' },
+                subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+                scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
+                promptScope: { enum: [...PROMPT_SCOPE_IDS], description: '玄空资料分析范围。' },
+                promptMode: { enum: [...PROMPT_MODES] },
+                schools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...getPromptSchoolIds('xuankong')] },
+                  description: '玄空风水解读口径。',
+                },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+              },
+            },
+          ],
+        },
+        QizhengRequest: {
+          type: 'object',
+          required: ['year', 'month', 'day', 'hour'],
+          properties: {
+            year: { type: 'integer', minimum: 1900, maximum: 2200, description: '出生公历年。' },
+            month: { type: 'integer', minimum: 1, maximum: 12 },
+            day: { type: 'integer', minimum: 1, maximum: 31 },
+            hour: { type: 'integer', minimum: 0, maximum: 23 },
+            minute: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
+            gender: { enum: ['male', 'female'] },
+            latitude: { type: 'number', minimum: -90, maximum: 90 },
+            longitude: { type: 'number', minimum: -180, maximum: 180 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
+            timeZoneId: { type: 'string', description: '出生地 IANA 时区。' },
+            useTrueSolarTime: { type: 'boolean', default: false },
+            flowYear: {
+              type: 'integer',
+              minimum: 1900,
+              maximum: 2200,
+              description: '流运目标公历年。',
+            },
+            flowMonth: { type: 'integer', minimum: 1, maximum: 12 },
+            flowDay: { type: 'integer', minimum: 1, maximum: 31 },
+            flowHour: { type: 'integer', minimum: 0, maximum: 23 },
+            flowMinute: { type: 'integer', minimum: 0, maximum: 59 },
+            question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            topicId: { type: 'string' },
+            subtopicId: { type: 'string' },
+            promptScope: { enum: [...PROMPT_SCOPE_IDS] },
+            promptMode: { enum: [...PROMPT_MODES] },
+            schools: DIVINATION_REQUEST_PROPERTIES.schools,
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+            responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+          },
+        },
         WuyunLiuqiRequest: {
           type: 'object',
           description:
@@ -1671,12 +2015,40 @@ export function getPublicApiOpenApiDocument(
         HuangjiJingshiRequest: {
           type: 'object',
           description:
-            '提供 customDate 可获得年月日时完整排盘；只提供公元 year 可兼容获得值年盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
+            '提供 customDate 可获得既有年月日时盘；六日逐爻可选择 calendarModel=six-day-seven-part（以现代冬至与岁周比例定位，不传 sixDayEpochDateTime）或 calendarModel=six-day-explicit-epoch（必须同时传经校定的 sixDayEpochDateTime）；只提供公元 year 可获得值年盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
           oneOf: [
             {
               required: ['customDate'],
               not: {
                 anyOf: [
+                  { required: ['sixDayDateTime'] },
+                  { required: ['sixDayEpochDateTime'] },
+                  { required: ['calendarModel'] },
+                  { required: ['epochYear'] },
+                  { required: ['year'] },
+                  { required: ['elapsedYears'] },
+                ],
+              },
+            },
+            {
+              required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
+              properties: { calendarModel: { const: 'six-day-explicit-epoch' } },
+              not: {
+                anyOf: [
+                  { required: ['customDate'] },
+                  { required: ['epochYear'] },
+                  { required: ['year'] },
+                  { required: ['elapsedYears'] },
+                ],
+              },
+            },
+            {
+              required: ['sixDayDateTime', 'calendarModel'],
+              properties: { calendarModel: { const: 'six-day-seven-part' } },
+              not: {
+                anyOf: [
+                  { required: ['sixDayEpochDateTime'] },
+                  { required: ['customDate'] },
                   { required: ['epochYear'] },
                   { required: ['year'] },
                   { required: ['elapsedYears'] },
@@ -1685,11 +2057,27 @@ export function getPublicApiOpenApiDocument(
             },
             {
               required: ['year'],
-              not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+              not: {
+                anyOf: [
+                  { required: ['elapsedYears'] },
+                  { required: ['customDate'] },
+                  { required: ['sixDayDateTime'] },
+                  { required: ['sixDayEpochDateTime'] },
+                  { required: ['calendarModel'] },
+                ],
+              },
             },
             {
               required: ['epochYear', 'elapsedYears'],
-              not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
+              not: {
+                anyOf: [
+                  { required: ['year'] },
+                  { required: ['customDate'] },
+                  { required: ['sixDayDateTime'] },
+                  { required: ['sixDayEpochDateTime'] },
+                  { required: ['calendarModel'] },
+                ],
+              },
             },
           ],
           properties: {
@@ -1697,6 +2085,34 @@ export function getPublicApiOpenApiDocument(
               ...DIVINATION_REQUEST_PROPERTIES.customDate,
               description:
                 '年月日时起盘时间，ISO 8601 格式；建议明确提供 +08:00，北京时间示例：2026-08-24T15:30:00+08:00。',
+            },
+            sixDayDateTime: {
+              type: 'string',
+              description:
+                '六日逐爻目标当地公历时间，ISO 8601 格式；six-day-seven-part 以现代冬至与岁周比例定位，不需要 sixDayEpochDateTime；six-day-explicit-epoch 须与历元一起带同一固定 UTC 偏移，或均不带偏移并配合 timezone 或 timeZoneId。',
+            },
+            sixDayEpochDateTime: {
+              type: 'string',
+              description:
+                '显式历元模型使用的经校定当地子半，ISO 8601 格式；该时刻对应已过日数0，须与 sixDayDateTime 使用同一时区口径；calendarModel=six-day-seven-part 时不得提供。',
+            },
+            calendarModel: {
+              type: 'string',
+              enum: ['six-day-explicit-epoch', 'six-day-seven-part'],
+              description:
+                '六日逐爻公历换算模型。six-day-seven-part 使用现代冬至与岁周比例定位，不需要 sixDayEpochDateTime，并仅适用于核心返回的定义范围；six-day-explicit-epoch 使用已校定公历子半历元直接适配三百六十日正数坐标，必须同时提供 sixDayEpochDateTime。',
+            },
+            timezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              description:
+                'sixDayDateTime 未带偏移时的固定 UTC 时区；显式历元模型中也用于核验 sixDayEpochDateTime，有 IANA 时区时用于消歧与核验。',
+            },
+            timeZoneId: {
+              type: 'string',
+              description:
+                'sixDayDateTime 对应的 IANA 历史时区，例如 America/New_York；显式历元模型中目标与历元共用该时区。',
             },
             epochYear: {
               type: 'integer',
@@ -1722,6 +2138,68 @@ export function getPublicApiOpenApiDocument(
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
           },
         },
+        YilinQueryRequest: {
+          type: 'object',
+          required: ['baseHexagram', 'targetHexagram'],
+          additionalProperties: false,
+          description:
+            '固定 W20.03 版本的焦氏易林 64×64 索引查询。支持固定卦名及已登记的繁简/异体输入；source 默认 both，同时返回两个固定底本的原文和来源状态。',
+          properties: {
+            baseHexagram: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 4,
+              description: '固定卦序中的本卦名称，例如「乾」。',
+            },
+            targetHexagram: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 4,
+              description: '固定卦序中的之卦名称，例如「需」。',
+            },
+            source: {
+              type: 'string',
+              enum: ['wikisource', 'kanripo', 'both'],
+              default: 'both',
+              description: '选择 text 字段的主底本；both 仍以 Wikisource 为主并同时返回两份资料。',
+            },
+          },
+        },
+        HuangjiReferenceRequest: {
+          type: 'object',
+          description:
+            '查询固定版本皇极经世扩展资料。sound-rhythm 返回声音律吕分类与数目，animal-plant 返回动植物数，historical-era 需另传 2149-2208 的经辰序号。',
+          oneOf: [
+            {
+              required: ['table'],
+              properties: {
+                table: { enum: ['sound-rhythm', 'animal-plant'] },
+              },
+              not: { required: ['shiIndex'] },
+            },
+            {
+              required: ['table', 'shiIndex'],
+              properties: {
+                table: { enum: ['historical-era'] },
+                shiIndex: { type: 'integer', minimum: 2149, maximum: 2208 },
+              },
+            },
+          ],
+          properties: {
+            table: {
+              type: 'string',
+              enum: ['sound-rhythm', 'animal-plant', 'historical-era'],
+              description: '资料表：声音律吕、动植物数或经辰历史纪年。',
+            },
+            shiIndex: {
+              type: 'integer',
+              minimum: 2149,
+              maximum: 2208,
+              description: '历史纪年原表的经辰序号，仅 historical-era 使用。',
+            },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+          },
+        },
         BaziPromptRequest: {
           allOf: [
             { $ref: '#/components/schemas/BaziRequest' },
@@ -1744,7 +2222,7 @@ export function getPublicApiOpenApiDocument(
                 baziFortuneScope: {
                   enum: [...BAZI_FORTUNE_SCOPES],
                   description:
-                    '八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日。',
+                    '八字命限范围：未指定时默认当前大运；natal=本命, full=全部大运流年, dayun=大运, year=流年（含全年流月）, month=流月（含流日）, day=流日。',
                 },
                 baziFortuneCycleIndex: {
                   type: 'integer',
@@ -1828,7 +2306,18 @@ export function getPublicApiOpenApiDocument(
             promptScope: {
               enum: [...ZIWEI_PROMPT_SCOPES],
               description:
-                '可选。默认只返回本命范围；传入后会额外返回指定分析范围；full 会返回本命、大限、流年、流月、流日、流时。',
+                '可选。未指定时默认当前大限；origin=本命；full 会返回本命、童限与大限及各阶段流年，并在指定时点附带可用的流月、流日和流时资料；传入后返回指定分析范围。',
+            },
+            scopeDate: {
+              type: 'string',
+              pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+              description: '紫微运限目标日期；用于固定当前阶段、指定流年及下层资料的取盘时点。',
+            },
+            scopeHourIndex: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 12,
+              description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
             },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
@@ -1865,6 +2354,17 @@ export function getPublicApiOpenApiDocument(
                 },
                 promptTopic: { enum: [...ZIWEI_PROMPT_TOPICS] },
                 promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
+                scopeDate: {
+                  type: 'string',
+                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                  description: '紫微运限目标日期；用于固定当前阶段、指定流年及下层资料的取盘时点。',
+                },
+                scopeHourIndex: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 12,
+                  description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
+                },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
@@ -1945,6 +2445,17 @@ export function getPublicApiOpenApiDocument(
                   description: '紫微侧分析主题；不传时使用 life。',
                 },
                 promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
+                scopeDate: {
+                  type: 'string',
+                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                  description: '紫微运限目标日期；用于固定当前阶段、指定流年及下层资料的取盘时点。',
+                },
+                scopeHourIndex: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 12,
+                  description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
+                },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 baziSchool: {
@@ -2024,7 +2535,19 @@ export function getPublicApiOpenApiDocument(
                 },
                 promptScope: {
                   enum: [...ZIWEI_PROMPT_SCOPES],
-                  description: '紫微运限范围：origin=本命盘（默认），full=完整输出版等。',
+                  description:
+                    '紫微运限范围：未指定时默认当前大限；origin=本命盘，full=完整输出版等。',
+                },
+                scopeDate: {
+                  type: 'string',
+                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                  description: '紫微运限目标日期；用于固定当前阶段、指定流年及下层资料的取盘时点。',
+                },
+                scopeHourIndex: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 12,
+                  description: '目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰。',
                 },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
@@ -2059,6 +2582,87 @@ export function getPublicApiOpenApiDocument(
         DivinationPromptRequest: {
           type: 'object',
           properties: DIVINATION_REQUEST_PROPERTIES,
+        },
+        QimenLifetimeRequest: {
+          type: 'object',
+          required: ['birthDateTime'],
+          properties: {
+            birthDateTime: {
+              type: 'string',
+              format: 'date-time',
+              description: '出生时刻；使用本地钟表时间时同时传 timeZoneId 或 timezone。',
+            },
+            timeZoneId: {
+              type: 'string',
+              example: 'Asia/Shanghai',
+              description: '出生时刻对应的 IANA 时区；历史日期优先使用此字段。',
+            },
+            timezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              description: '固定 UTC 偏移小时数；未传时默认东八区。',
+            },
+            location: {
+              type: 'object',
+              required: ['longitude'],
+              properties: {
+                longitude: { type: 'number', minimum: -180, maximum: 180 },
+                latitude: { type: 'number', minimum: -90, maximum: 90 },
+                locationName: { type: 'string' },
+              },
+              description: '出生地点；timeStandard 为 trueSolar 时必须提供 longitude。',
+            },
+            calendarType: { enum: ['solar', 'lunar'], default: 'solar' },
+            isLeapMonth: { type: 'boolean', default: false },
+            timeStandard: { enum: ['civil', 'trueSolar'], default: 'civil' },
+            applyChinaDst: { type: 'boolean', default: false },
+            method: { enum: ['zhuanpan', 'feipan'], default: 'zhuanpan' },
+            juMethod: { enum: ['chaibu', 'zhirun'], default: 'chaibu' },
+            stagePolicy: {
+              type: 'object',
+              properties: {
+                model: {
+                  enum: ['pillarFourLimits', 'palaceWalk', 'fuShiHexagramOrbit'],
+                  default: 'pillarFourLimits',
+                },
+                anchorRule: { enum: ['birthInstant', 'solarTermBoundary', 'lunarNewYear'] },
+                ageSystem: { enum: ['fullYears', 'nominalAge'] },
+                yearsPerStage: { type: 'number', minimum: 1 },
+              },
+            },
+            periodRange: {
+              type: 'object',
+              required: ['startDate', 'endDate'],
+              properties: {
+                startDate: { type: 'string', format: 'date' },
+                endDate: { type: 'string', format: 'date' },
+              },
+              description:
+                '需要补充动态流年资料的目标日期区间；日期须为有效 YYYY-MM-DD，最多覆盖连续31个年份。',
+            },
+            topics: { type: 'array', items: { enum: [...QIMEN_LIFETIME_TOPICS] } },
+            name: { type: 'string' },
+            gender: { enum: ['male', 'female'] },
+            schools: { type: 'array', items: { type: 'string' } },
+            detailMode: { enum: [...DETAIL_MODES], default: 'compact' },
+          },
+        },
+        QimenLifetimePromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/QimenLifetimeRequest' },
+            {
+              type: 'object',
+              required: ['question'],
+              properties: {
+                question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+                responseMode: {
+                  enum: [...PROMPT_RESPONSE_MODES],
+                  default: 'prompt-only',
+                },
+              },
+            },
+          ],
         },
         AstrolabeBirthRequest: {
           type: 'object',
@@ -2352,6 +2956,10 @@ async function route(context: RouteContext) {
       return calculateApiResult(context.request, calculateHuangjiJingshiApi);
     case 'metaphysics/huangji-jingshi/prompt':
       return buildHuangjiJingshiPromptApi(await readJson(context.request));
+    case 'classics/yilin':
+      return calculateYilinApi(await readJson(context.request));
+    case 'metaphysics/huangji-jingshi/references':
+      return calculateApiResult(context.request, calculateHuangjiReferenceApi);
     case 'metaphysics/qizheng/calculate':
       return calculateApiResult(context.request, calculateQizhengApi);
     case 'metaphysics/qizheng/prompt':
@@ -2857,6 +3465,26 @@ function optInt(input: JsonRecord, key: string, min?: number, max?: number): num
   return v;
 }
 
+function readIntegerArray(
+  input: JsonRecord,
+  key: string,
+  min: number,
+  max: number,
+  maxItems: number,
+): number[] | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length < 1 || value.length > maxItems) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是包含1-${maxItems}项的整数数组。`);
+  }
+  return value.map((item, index) => {
+    if (typeof item !== 'number' || !Number.isSafeInteger(item) || item < min || item > max) {
+      throw new ApiError(400, 'BAD_REQUEST', `${key}[${index}] 必须是 ${min}-${max} 之间的整数。`);
+    }
+    return item;
+  });
+}
+
 function optNumber(input: JsonRecord, key: string, min: number, max: number): number | undefined {
   const value = input[key];
   if (value === undefined) return undefined;
@@ -3178,8 +3806,81 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
   const year = optInt(input, 'year');
   const elapsedYears = optInt(input, 'elapsedYears', 0);
   const customDate = readCustomDate(input);
+  const sixDayDateTime =
+    input.sixDayDateTime === undefined ? undefined : readString(input, 'sixDayDateTime', '').trim();
+  if (sixDayDateTime !== undefined && !sixDayDateTime) {
+    throw new ApiError(400, 'BAD_REQUEST', 'sixDayDateTime 不能为空。');
+  }
+  const sixDayEpochDateTime =
+    input.sixDayEpochDateTime === undefined
+      ? undefined
+      : readString(input, 'sixDayEpochDateTime', '').trim();
+  if (sixDayEpochDateTime !== undefined && !sixDayEpochDateTime) {
+    throw new ApiError(400, 'BAD_REQUEST', 'sixDayEpochDateTime 不能为空。');
+  }
+  const calendarModel =
+    input.calendarModel === undefined ? undefined : readString(input, 'calendarModel', '').trim();
+  const sixDayTimezone =
+    sixDayDateTime === undefined || input.timezone === undefined
+      ? undefined
+      : readNumber(input, 'timezone', -12, 14);
+  const sixDayTimeZoneId =
+    sixDayDateTime === undefined || input.timeZoneId === undefined
+      ? undefined
+      : readString(input, 'timeZoneId', '').trim();
   const question = readString(input, 'question', '').trim();
-  if (customDate) {
+  let sixDayDate: ReturnType<typeof huangjiJingshi.parseHuangjiSixDayDateTime> | undefined;
+  if (sixDayDateTime !== undefined) {
+    if (calendarModel !== 'six-day-explicit-epoch' && calendarModel !== 'six-day-seven-part') {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        '六日逐爻公历时间必须明确提供 calendarModel=six-day-seven-part 或 six-day-explicit-epoch。',
+      );
+    }
+    if (calendarModel === 'six-day-explicit-epoch' && sixDayEpochDateTime === undefined) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        '六日逐爻公历时间必须同时提供经校定的 sixDayEpochDateTime。',
+      );
+    }
+    if (calendarModel === 'six-day-seven-part' && sixDayEpochDateTime !== undefined) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        'calendarModel=six-day-seven-part 不得提供 sixDayEpochDateTime；该模型以现代冬至与岁周比例定位。',
+      );
+    }
+    if (customDate || epochYear !== undefined || year !== undefined || elapsedYears !== undefined) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        '六日逐爻公历时间不得同时提供 customDate、epochYear、year 或 elapsedYears。',
+      );
+    }
+    try {
+      sixDayDate = huangjiJingshi.parseHuangjiSixDayDateTime(
+        sixDayDateTime,
+        sixDayTimezone,
+        sixDayTimeZoneId,
+        calendarModel,
+        sixDayEpochDateTime,
+      );
+    } catch (error) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        error instanceof Error ? error.message : '六日逐爻公历时间无效。',
+      );
+    }
+  } else if (calendarModel !== undefined || sixDayEpochDateTime !== undefined) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      'calendarModel 与 sixDayEpochDateTime 只能与 sixDayDateTime 一起提供。',
+    );
+  } else if (customDate) {
     if (epochYear !== undefined || year !== undefined || elapsedYears !== undefined) {
       throw new ApiError(
         400,
@@ -3201,6 +3902,7 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
   try {
     return huangjiJingshi.calculateHuangjiJingshi({
       ...(customDate ? { date: customDate } : {}),
+      ...(sixDayDate ? { sixDayDate } : {}),
       ...(epochYear !== undefined ? { epochYear } : {}),
       ...(year !== undefined ? { year } : {}),
       ...(elapsedYears !== undefined ? { elapsedYears } : {}),
@@ -3211,6 +3913,26 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
       400,
       'BAD_REQUEST',
       error instanceof Error ? error.message : '皇极经世参数无效。',
+    );
+  }
+}
+
+function calculateYilinApi(input: JsonRecord) {
+  const baseHexagram = readRequiredString(input, 'baseHexagram');
+  const targetHexagram = readRequiredString(input, 'targetHexagram');
+  const source = readEnum(
+    input,
+    'source',
+    ['wikisource', 'kanripo', 'both'],
+    'both',
+  ) as YilinSourcePreference;
+  try {
+    return queryYilinEntry(baseHexagram, targetHexagram, source);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '焦氏易林索引查询失败。',
     );
   }
 }
@@ -3239,10 +3961,43 @@ function buildHuangjiJingshiPromptApi(input: JsonRecord) {
       conversion: result.conversion,
       forecast: result.forecast,
       dateTimeForecast: result.dateTimeForecast,
+      sixDayCycle: result.sixDayCycle,
       ...(selection ? { selection } : {}),
     },
     fullResult: result,
   });
+}
+
+function calculateHuangjiReferenceApi(input: JsonRecord) {
+  const table = readEnum(input, 'table', [
+    'sound-rhythm',
+    'animal-plant',
+    'historical-era',
+  ] as const);
+  if (table === 'historical-era') {
+    const shiIndex = readInteger(input, 'shiIndex', 2149, 2208);
+    try {
+      return huangjiJingshi.queryHuangjiReference({ table, shiIndex });
+    } catch (error) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        error instanceof Error ? error.message : '皇极经世历史纪年资料无效。',
+      );
+    }
+  }
+  if (input.shiIndex !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', 'shiIndex 只可与 historical-era 一起提供。');
+  }
+  try {
+    return huangjiJingshi.queryHuangjiReference({ table });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '皇极经世扩展资料无效。',
+    );
+  }
 }
 
 function calculateQizhengApi(input: JsonRecord) {
@@ -3310,7 +4065,8 @@ function calculateXuanKongApi(input: JsonRecord) {
     input.measurementUncertaintyDegrees === undefined
       ? undefined
       : readNumberLike(input, 'measurementUncertaintyDegrees', 0, 45);
-  const guaType = input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦']);
+  const guaType =
+    input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
   const flowYear =
     input.flowYear === undefined ? undefined : readInteger(input, 'flowYear', 1, 9999);
   const flowMonth =
@@ -3364,7 +4120,8 @@ function calculateResidentialApi(input: JsonRecord) {
   const flowMonth =
     input.flowMonth === undefined ? undefined : readInteger(input, 'flowMonth', 1, 12);
   const flowDay = input.flowDay === undefined ? undefined : readInteger(input, 'flowDay', 1, 31);
-  const guaType = input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦']);
+  const guaType =
+    input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
 
   if (mingGua && !BAGUA.includes(mingGua)) {
     throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
@@ -3575,18 +4332,83 @@ function buildBaziFortuneContextFromInput(
   }
 }
 
+function readOptionalIdentityNumber(input: JsonRecord, key: string) {
+  const value = input[key];
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'string' && /^[-+]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value.trim())) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function buildBaziCalculationIdentity(
+  input: JsonRecord,
+  fortuneScope: (typeof BAZI_FORTUNE_SCOPES)[number],
+  fortuneSelectionContext: ReturnType<typeof buildFortuneSelectionContext>,
+) {
+  const person = readBaziPerson(input);
+  const birth: JsonRecord = {
+    gender: person.gender,
+    year: person.year,
+    month: person.month,
+    day: person.day,
+    dateType: person.isLunar ? 'lunar' : 'solar',
+    isLeapMonth: Boolean(person.isLeapMonth),
+    useTrueSolarTime: Boolean(person.useTrueSolarTime),
+    birthPlace: person.birthPlace ?? '',
+  };
+  if (person.useTrueSolarTime) {
+    birth.birthHour = person.birthHour;
+    birth.birthMinute = person.birthMinute;
+    birth.birthLongitude = person.birthLongitude;
+  } else {
+    birth.timeIndex = person.timeIndex;
+  }
+  if (person.timezone !== undefined) birth.timezone = person.timezone;
+  if (person.timeZoneId !== undefined) birth.timeZoneId = person.timeZoneId;
+  if (person.applyChinaDst !== undefined) birth.applyChinaDst = person.applyChinaDst;
+  const birthLatitude = readOptionalIdentityNumber(input, 'birthLatitude');
+  if (birthLatitude !== undefined) birth.birthLatitude = birthLatitude;
+
+  const target: JsonRecord = { baziFortuneScope: fortuneScope };
+  if (fortuneSelectionContext) {
+    const targetFields: Record<string, unknown> = {
+      baziFortuneCycleIndex: fortuneSelectionContext.cycleIndex,
+      baziFortuneYear: fortuneSelectionContext.year,
+      baziFortuneMonth: fortuneSelectionContext.month,
+      baziFortuneDay: fortuneSelectionContext.day,
+    };
+    for (const [key, value] of Object.entries(targetFields)) {
+      if (value !== undefined) target[key] = value;
+    }
+  }
+  return { method: 'bazi', birth, target };
+}
+
 function buildBaziPrompt(input: JsonRecord) {
   const result = calculateBazi(input);
   const selection = readSharedPromptSelection(input, 'bazi');
   const selectedFortuneScope =
     input.baziFortuneScope === undefined ? toBaziFortuneScope(selection?.scope) : undefined;
-  const fortuneScope = readEnum(
+  const requestedFortuneScope = readEnum(
     input,
     'baziFortuneScope',
     BAZI_FORTUNE_SCOPES,
-    selectedFortuneScope ?? 'natal',
+    selectedFortuneScope ?? 'dayun',
   );
-  const fortuneSelectionContext = buildBaziFortuneContextFromInput(result, input, fortuneScope);
+  const useCurrentFortuneDefaults =
+    input.baziFortuneScope === undefined &&
+    requestedFortuneScope !== 'natal' &&
+    requestedFortuneScope !== 'full';
+  const currentSelection = useCurrentFortuneDefaults
+    ? buildCurrentBaziFortuneSelectionForScope(result, requestedFortuneScope)
+    : null;
+  const fortuneScope =
+    useCurrentFortuneDefaults && !currentSelection ? 'natal' : requestedFortuneScope;
+  const fortuneSelectionContext = currentSelection
+    ? buildFortuneSelectionContext(result, currentSelection)
+    : buildBaziFortuneContextFromInput(result, input, fortuneScope);
   const schoolValue = input.school;
   const school =
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
@@ -3611,6 +4433,11 @@ function buildBaziPrompt(input: JsonRecord) {
     prompt,
     fullResult: {
       ...result,
+      calculationIdentity: buildBaziCalculationIdentity(
+        input,
+        fortuneScope,
+        fortuneSelectionContext,
+      ),
       ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
     },
     resultSummary: {
@@ -3694,7 +4521,27 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
   });
 }
 
-async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['origin']) {
+function toZiweiFortuneRangeScope(scope: ZiweiPromptScope): ZiweiFortuneRangeScope | undefined {
+  const mapped: Partial<Record<ZiweiPromptScope, ZiweiFortuneRangeScope>> = {
+    full: 'all',
+    decadal: 'current',
+    yearly: 'year',
+    monthly: 'month',
+    daily: 'day',
+    hourly: 'hour',
+  };
+  return mapped[scope];
+}
+
+function readOptionalZiweiScopeDate(input: JsonRecord) {
+  return input.scopeDate === undefined ? undefined : readDateOnly(input, 'scopeDate').value;
+}
+
+async function calculateZiweiRuntime(
+  input: JsonRecord,
+  scopes: ScopeType[] = ['origin'],
+  options: { fortuneScope?: ZiweiFortuneRangeScope; scopeDate?: string } = {},
+) {
   const birthDate = readBirthDate(input, { asString: true });
   const { dateType } = birthDate;
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
@@ -3711,39 +4558,104 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
         birthMinute: readString(input, 'birthMinute', ''),
         birthLongitude: readString(input, 'birthLongitude', ''),
       };
+  const chartInput = buildZiweiChartInput({
+    name: readString(input, 'name', ''),
+    gender: readEnum(input, 'gender', ['male', 'female']),
+    dateType,
+    year: String(birthDate.year),
+    month: String(birthDate.month),
+    day: String(birthDate.day),
+    timeIndex: timeInput.timeIndex,
+    isLeapMonth: readBoolean(input, 'isLeapMonth', false),
+    useTrueSolarTime,
+    birthHour: timeInput.birthHour,
+    birthMinute: timeInput.birthMinute,
+    birthLongitude: timeInput.birthLongitude,
+    timezone: input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
+    timeZoneId:
+      input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
+    applyChinaDst:
+      input.applyChinaDst === undefined ? undefined : readBoolean(input, 'applyChinaDst', false),
+    algorithm: readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default') as
+      'default' | 'zhongzhou',
+  });
+  const currentContext = getDefaultHoroscopeContext();
+  const horoscopeContext = {
+    dateStr: options.scopeDate ?? currentContext.dateStr,
+    hourIndex: optInt(input, 'scopeHourIndex', 0, 12) ?? currentContext.hourIndex,
+  };
+  const fortuneRange = options.fortuneScope
+    ? {
+        scope: options.fortuneScope,
+        ...horoscopeContext,
+      }
+    : undefined;
   return calculatePublicZiweiChartForScopes(
-    buildZiweiChartInput({
-      name: readString(input, 'name', ''),
-      gender: readEnum(input, 'gender', ['male', 'female']),
-      dateType,
-      year: String(birthDate.year),
-      month: String(birthDate.month),
-      day: String(birthDate.day),
-      timeIndex: timeInput.timeIndex,
-      isLeapMonth: readBoolean(input, 'isLeapMonth', false),
-      useTrueSolarTime,
-      birthHour: timeInput.birthHour,
-      birthMinute: timeInput.birthMinute,
-      birthLongitude: timeInput.birthLongitude,
-      timezone:
-        input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
-      timeZoneId:
-        input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId'),
-      applyChinaDst:
-        input.applyChinaDst === undefined ? undefined : readBoolean(input, 'applyChinaDst', false),
-      algorithm: readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default') as
-        'default' | 'zhongzhou',
-    }),
+    chartInput,
     Array.from(new Set(['origin' as ScopeType, ...scopes])),
+    {
+      ...(fortuneRange ? { fortuneRange } : {}),
+      horoscopeContext,
+    },
   );
 }
 
 async function calculateZiwei(input: JsonRecord) {
-  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
+  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'decadal') as ZiweiPromptScope;
   const result = buildSerializableZiweiResult(
-    await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope)),
+    await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
+      fortuneScope: toZiweiFortuneRangeScope(scope),
+      scopeDate: readOptionalZiweiScopeDate(input),
+    }),
   );
   return input.detailMode === 'compact' ? buildCompactZiweiResult(result) : result;
+}
+
+function buildZiweiCalculationIdentity(
+  input: JsonRecord,
+  scope: ZiweiPromptScope,
+  result: ReturnType<typeof buildSerializableZiweiResult>,
+) {
+  const birthDate = readBirthDate(input, { asString: true });
+  const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
+  const birth: JsonRecord = {
+    name: readString(input, 'name', ''),
+    gender: readEnum(input, 'gender', ['male', 'female']),
+    year: birthDate.year,
+    month: birthDate.month,
+    day: birthDate.day,
+    dateType: birthDate.dateType,
+    isLeapMonth: readBoolean(input, 'isLeapMonth', false),
+    useTrueSolarTime,
+    birthPlace: readString(input, 'birthPlace', ''),
+  };
+  if (useTrueSolarTime) {
+    birth.birthHour = readIntegerLike(input, 'birthHour', 0, 23);
+    birth.birthMinute = readIntegerLike(input, 'birthMinute', 0, 59);
+    birth.birthLongitude = readNumberLike(input, 'birthLongitude', -180, 180);
+  } else {
+    birth.timeIndex = readInteger(input, 'timeIndex', 0, 12);
+  }
+  const birthLatitude = readOptionalIdentityNumber(input, 'birthLatitude');
+  if (birthLatitude !== undefined) birth.birthLatitude = birthLatitude;
+  if (input.timezone !== undefined) birth.timezone = readNumberLike(input, 'timezone', -12, 14);
+  if (input.timeZoneId !== undefined) birth.timeZoneId = readRequiredString(input, 'timeZoneId');
+  if (input.applyChinaDst !== undefined)
+    birth.applyChinaDst = readBoolean(input, 'applyChinaDst', false);
+  birth.algorithm = readEnum(input, 'algorithm', ['default', 'zhongzhou'], 'default');
+
+  const target: JsonRecord = { promptScope: scope };
+  if (input.scopeDate !== undefined) {
+    target.scopeDate = readOptionalZiweiScopeDate(input);
+  } else if (result.fortuneTimeline) {
+    target.scopeDate = result.fortuneTimeline.targetDateStr;
+  }
+  if (input.scopeHourIndex !== undefined) {
+    target.scopeHourIndex = optInt(input, 'scopeHourIndex', 0, 12);
+  } else if (result.fortuneTimeline) {
+    target.scopeHourIndex = result.fortuneTimeline.targetHourIndex;
+  }
+  return { method: 'ziwei', birth, target };
 }
 
 async function buildZiweiPrompt(input: JsonRecord) {
@@ -3753,9 +4665,12 @@ async function buildZiweiPrompt(input: JsonRecord) {
     input,
     'promptScope',
     ZIWEI_PROMPT_SCOPES,
-    selectedScope ?? 'origin',
+    selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
-  const result = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+  const result = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
+    fortuneScope: toZiweiFortuneRangeScope(scope),
+    scopeDate: readOptionalZiweiScopeDate(input),
+  });
   const promptTopic =
     input.promptTopic === undefined
       ? undefined
@@ -3782,7 +4697,10 @@ async function buildZiweiPrompt(input: JsonRecord) {
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt,
-    fullResult: serializableResult,
+    fullResult: {
+      ...serializableResult,
+      calculationIdentity: buildZiweiCalculationIdentity(input, scope, serializableResult),
+    },
     resultSummary: {
       ...buildCompactZiweiResult(serializableResult),
       ...(selection ? { selection } : {}),
@@ -3890,9 +4808,33 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     input,
     'promptScope',
     ZIWEI_PROMPT_SCOPES,
-    selectedScope ?? 'origin',
+    selectedScope ?? 'decadal',
   ) as ZiweiPromptScope;
-  const ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+  const ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
+    fortuneScope: toZiweiFortuneRangeScope(scope),
+    scopeDate: readOptionalZiweiScopeDate(input),
+  });
+  const baziFortuneScope =
+    scope === 'origin'
+      ? 'natal'
+      : scope === 'full'
+        ? 'full'
+        : scope === 'decadal'
+          ? 'dayun'
+          : scope === 'yearly'
+            ? 'year'
+            : scope === 'monthly'
+              ? 'month'
+              : scope === 'daily'
+                ? 'day'
+                : undefined;
+  const currentBaziSelection =
+    baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
+      ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+      : null;
+  const baziFortuneSelectionContext = currentBaziSelection
+    ? buildFortuneSelectionContext(baziResult, currentBaziSelection)
+    : null;
   const baziTopic = readEnum(
     input,
     'baziPromptTopic',
@@ -3933,6 +4875,8 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     baziSchools,
     ziweiSchool,
     ziweiSchools,
+    fortuneSelectionContext: baziFortuneSelectionContext,
+    fortuneScope: baziFortuneScope,
     selection,
   });
   const fullResult = {
@@ -3972,7 +4916,7 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
     input,
     'promptScope',
     ZIWEI_PROMPT_SCOPES,
-    'origin',
+    'decadal',
   ) as ZiweiPromptScope;
   const genericScope =
     input.scope === undefined ? undefined : readEnum(input, 'scope', PROMPT_SCOPE_IDS, 'natal');
@@ -4031,9 +4975,35 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
   }
 
   if (system === 'bazi_ziwei' || system === 'ziwei') {
-    ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+    ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope), {
+      fortuneScope: toZiweiFortuneRangeScope(scope),
+      scopeDate: readOptionalZiweiScopeDate(input),
+    });
     serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
   }
+
+  const baziFortuneScope =
+    scope === 'origin'
+      ? 'natal'
+      : scope === 'full'
+        ? 'full'
+        : scope === 'decadal'
+          ? 'dayun'
+          : scope === 'yearly'
+            ? 'year'
+            : scope === 'monthly'
+              ? 'month'
+              : scope === 'daily'
+                ? 'day'
+                : undefined;
+  const currentBaziSelection =
+    baziResult && baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
+      ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+      : null;
+  const baziFortuneSelectionContext =
+    baziResult && currentBaziSelection
+      ? buildFortuneSelectionContext(baziResult, currentBaziSelection)
+      : null;
 
   const promptResult = buildThematicConsultationPrompt({
     system,
@@ -4045,6 +5015,8 @@ async function buildThematicConsultationPromptApi(input: JsonRecord) {
     question,
     mode,
     baziResult,
+    fortuneSelectionContext: baziFortuneSelectionContext,
+    fortuneScope: baziFortuneScope,
     ziweiResult,
     ziweiScope: scope,
     baziSchool,
@@ -4145,6 +5117,19 @@ function calculateQimenApi(input: JsonRecord) {
   return input.detailMode === 'compact' ? buildCompactQimenResult(result) : result;
 }
 
+function readQimenLifetimeTopics(input: JsonRecord): QimenLifetimeInput['topics'] {
+  if (input.topics === undefined) return undefined;
+  if (
+    !Array.isArray(input.topics) ||
+    input.topics.some(
+      (topic) =>
+        typeof topic !== 'string' || !(QIMEN_LIFETIME_TOPICS as readonly string[]).includes(topic),
+    )
+  ) {
+    throw new ApiError(400, 'BAD_REQUEST', 'topics 必须是有效的奇门终身局主题数组。');
+  }
+  return input.topics as QimenLifetimeInput['topics'];
+}
 function calculateQimenLifetimeApi(input: JsonRecord) {
   assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
   const birthDateTime = readString(input, 'birthDateTime', '');
@@ -4168,12 +5153,8 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
     stagePolicy: isRecord(input.stagePolicy)
       ? (input.stagePolicy as unknown as QimenLifetimeInput['stagePolicy'])
       : undefined,
-    periodRange: isRecord(input.periodRange)
-      ? (input.periodRange as unknown as QimenLifetimeInput['periodRange'])
-      : undefined,
-    topics: Array.isArray(input.topics)
-      ? (input.topics as QimenLifetimeInput['topics'])
-      : undefined,
+    periodRange: readQimenLifetimePeriodRange(input),
+    topics: readQimenLifetimeTopics(input),
     name: typeof input.name === 'string' ? input.name : undefined,
     gender: readEnum(input, 'gender', ['male', 'female', ''], '') as 'male' | 'female' | undefined,
     schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
@@ -4184,6 +5165,29 @@ function calculateQimenLifetimeApi(input: JsonRecord) {
     return buildCompactQimenLifetimeResult(result);
   }
   return result;
+}
+
+function readQimenLifetimePeriodRange(
+  input: JsonRecord,
+): QimenLifetimeInput['periodRange'] | undefined {
+  if (input.periodRange === undefined) return undefined;
+  if (!isRecord(input.periodRange)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'periodRange 必须是包含 startDate 和 endDate 的对象。');
+  }
+  const periodRange = {
+    startDate: readString(input.periodRange, 'startDate', ''),
+    endDate: readString(input.periodRange, 'endDate', ''),
+  };
+  try {
+    validateLifetimePeriodRange(periodRange);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : 'periodRange 日期区间无效。',
+    );
+  }
+  return periodRange;
 }
 
 function buildCompactQimenLifetimeResult(result: QimenLifetimeData) {
@@ -4236,12 +5240,8 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
     stagePolicy: isRecord(input.stagePolicy)
       ? (input.stagePolicy as unknown as QimenLifetimeInput['stagePolicy'])
       : undefined,
-    periodRange: isRecord(input.periodRange)
-      ? (input.periodRange as unknown as QimenLifetimeInput['periodRange'])
-      : undefined,
-    topics: Array.isArray(input.topics)
-      ? (input.topics as QimenLifetimeInput['topics'])
-      : undefined,
+    periodRange: readQimenLifetimePeriodRange(input),
+    topics: readQimenLifetimeTopics(input),
     name: typeof input.name === 'string' ? input.name : undefined,
     gender: readEnum(input, 'gender', ['male', 'female', ''], '') as 'male' | 'female' | undefined,
     schools: Array.isArray(input.schools) ? (input.schools as readonly string[]) : undefined,
@@ -4266,10 +5266,71 @@ function buildQimenLifetimePromptResult(input: JsonRecord) {
 }
 
 function calculateMeihua(input: JsonRecord) {
-  const method = readEnum(input, 'method', ['time', 'number', 'random', 'timeTrigram'], 'time');
+  const method = readEnum(
+    input,
+    'method',
+    ['time', 'number', 'sound', 'character', 'direction', 'random', 'timeTrigram'],
+    'time',
+  );
   const settings: MeihuaSettings = {
     method,
     ...(method === 'number' ? { number: readInteger(input, 'number', 1) } : {}),
+    ...(method === 'sound' ? { soundCount: readInteger(input, 'soundCount', 1) } : {}),
+    ...(method === 'character'
+      ? {
+          ...(input.characterText !== undefined
+            ? { characterText: readString(input, 'characterText', '').trim() }
+            : {}),
+          ...(optInt(input, 'characterCount', 1, 100) !== undefined
+            ? { characterCount: optInt(input, 'characterCount', 1, 100) }
+            : {}),
+          ...(readIntegerArray(input, 'characterTones', 1, 4, 10) !== undefined
+            ? { characterTones: readIntegerArray(input, 'characterTones', 1, 4, 10) }
+            : {}),
+          ...(readIntegerArray(input, 'characterStrokeCounts', 1, Number.MAX_SAFE_INTEGER, 3) !==
+          undefined
+            ? {
+                characterStrokeCounts: readIntegerArray(
+                  input,
+                  'characterStrokeCounts',
+                  1,
+                  Number.MAX_SAFE_INTEGER,
+                  3,
+                ),
+              }
+            : {}),
+          ...(optInt(input, 'characterLeftStrokes', 1) !== undefined
+            ? { characterLeftStrokes: optInt(input, 'characterLeftStrokes', 1) }
+            : {}),
+          ...(optInt(input, 'characterRightStrokes', 1) !== undefined
+            ? { characterRightStrokes: optInt(input, 'characterRightStrokes', 1) }
+            : {}),
+        }
+      : {}),
+    ...(method === 'direction'
+      ? {
+          direction: readEnum(input, 'direction', [
+            'northwest',
+            'west',
+            'south',
+            'east',
+            'southeast',
+            'north',
+            'northeast',
+            'southwest',
+          ] as const),
+          objectType: readEnum(input, 'objectType', [
+            'heaven',
+            'lake',
+            'fire',
+            'thunder',
+            'wind',
+            'water',
+            'mountain',
+            'earth',
+          ] as const),
+        }
+      : {}),
     ...(method === 'random' ? readRandomOptions(input) : {}),
   };
   if (method !== 'random') assertNoRandomOptions(input, '梅花易数仅随机起卦接受 seed 或 replay。');
@@ -4532,13 +5593,19 @@ function buildAstrolabePromptScopeText(input: JsonRecord, data: AstrolabeData) {
   const customText = readString(input, 'astrolabeScopeText', '').trim();
   if (customText) return customText;
 
+  const hasExplicitScope = input.astrolabeScope !== undefined;
   const scope = readEnum(
     input,
     'astrolabeScope',
     ASTROLABE_PROMPT_SCOPES,
-    'natal',
+    hasExplicitScope ? 'natal' : 'yearly',
   ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
-  const dateStr = scope === 'natal' ? '' : readRequiredString(input, 'astrolabeScopeDate');
+  const dateStr =
+    scope === 'natal'
+      ? ''
+      : hasExplicitScope
+        ? readRequiredString(input, 'astrolabeScopeDate')
+        : readString(input, 'astrolabeScopeDate', getDefaultAstrolabeScopeDate(scope));
 
   try {
     if (scope === 'full') {
@@ -4561,13 +5628,19 @@ function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
     return { scope: 'custom' as const, promptText: customText };
   }
 
+  const hasExplicitScope = input.astrolabeScope !== undefined;
   const scope = readEnum(
     input,
     'astrolabeScope',
     ASTROLABE_PROMPT_SCOPES,
-    'natal',
+    hasExplicitScope ? 'natal' : 'yearly',
   ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
-  const dateStr = scope === 'natal' ? '' : readRequiredString(input, 'astrolabeScopeDate');
+  const dateStr =
+    scope === 'natal'
+      ? ''
+      : hasExplicitScope
+        ? readRequiredString(input, 'astrolabeScopeDate')
+        : readString(input, 'astrolabeScopeDate', getDefaultAstrolabeScopeDate(scope));
   try {
     if (scope === 'full') {
       return {
@@ -4587,6 +5660,21 @@ function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
   }
 }
 
+function resolveAstrolabePromptScopeInput(input: JsonRecord): JsonRecord {
+  if (input.astrolabeScope !== undefined) {
+    return input;
+  }
+
+  return {
+    ...input,
+    astrolabeScope: 'yearly',
+    astrolabeScopeDate:
+      input.astrolabeScopeDate === undefined
+        ? getDefaultAstrolabeScopeDate('yearly')
+        : readString(input, 'astrolabeScopeDate', ''),
+  };
+}
+
 function buildDivinationPromptResult(
   method: Exclude<DivinationMethodId, 'random'>,
   input: JsonRecord,
@@ -4603,6 +5691,7 @@ function buildDivinationPromptResult(
       ? readString(input, 'question', '')
       : readRequiredString(input, 'question');
   const rawData = calculateDivinationData(method, input);
+  const promptInput = method === 'astrolabe' ? resolveAstrolabePromptScopeInput(input) : input;
   const promptData =
     method === 'almanac' ? shapeAlmanacPromptData(rawData as AlmanacData, input) : rawData;
   const fullResult =
@@ -4613,12 +5702,12 @@ function buildDivinationPromptResult(
         : method === 'astrolabe'
           ? {
               ...(rawData as AstrolabeData),
-              scopeEvidence: buildAstrolabeScopeEvidence(input, rawData as AstrolabeData),
+              scopeEvidence: buildAstrolabeScopeEvidence(promptInput, rawData as AstrolabeData),
             }
           : rawData;
   const summary = getDivinationSummaryBlocks(method, promptData);
-  const promptSelection = readDivinationPromptSelection(method, input);
-  const prompt = buildDivinationPromptText(method, question, promptData, input);
+  const promptSelection = readDivinationPromptSelection(method, promptInput);
+  const prompt = buildDivinationPromptText(method, question, promptData, promptInput);
 
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
@@ -4788,6 +5877,9 @@ function readSupplementaryInfo(input: JsonRecord): SupplementaryInfo | undefined
       meihuaSettings.method = readEnum(rawMeihuaSettings, 'method', [
         'time',
         'number',
+        'sound',
+        'character',
+        'direction',
         'random',
         'timeTrigram',
       ]);
@@ -4795,6 +5887,63 @@ function readSupplementaryInfo(input: JsonRecord): SupplementaryInfo | undefined
     const number = optInt(rawMeihuaSettings, 'number', 1);
     if (number !== undefined) {
       meihuaSettings.number = number;
+    }
+    const soundCount = optInt(rawMeihuaSettings, 'soundCount', 1);
+    if (soundCount !== undefined) {
+      meihuaSettings.soundCount = soundCount;
+    }
+    if (rawMeihuaSettings.characterText !== undefined) {
+      meihuaSettings.characterText = readString(rawMeihuaSettings, 'characterText', '').trim();
+    }
+    const characterCount = optInt(rawMeihuaSettings, 'characterCount', 1, 100);
+    if (characterCount !== undefined) {
+      meihuaSettings.characterCount = characterCount;
+    }
+    const characterTones = readIntegerArray(rawMeihuaSettings, 'characterTones', 1, 4, 10);
+    if (characterTones !== undefined) {
+      meihuaSettings.characterTones = characterTones;
+    }
+    const characterStrokeCounts = readIntegerArray(
+      rawMeihuaSettings,
+      'characterStrokeCounts',
+      1,
+      Number.MAX_SAFE_INTEGER,
+      3,
+    );
+    if (characterStrokeCounts !== undefined) {
+      meihuaSettings.characterStrokeCounts = characterStrokeCounts;
+    }
+    const characterLeftStrokes = optInt(rawMeihuaSettings, 'characterLeftStrokes', 1);
+    if (characterLeftStrokes !== undefined) {
+      meihuaSettings.characterLeftStrokes = characterLeftStrokes;
+    }
+    const characterRightStrokes = optInt(rawMeihuaSettings, 'characterRightStrokes', 1);
+    if (characterRightStrokes !== undefined) {
+      meihuaSettings.characterRightStrokes = characterRightStrokes;
+    }
+    if (rawMeihuaSettings.direction !== undefined) {
+      meihuaSettings.direction = readEnum(rawMeihuaSettings, 'direction', [
+        'northwest',
+        'west',
+        'south',
+        'east',
+        'southeast',
+        'north',
+        'northeast',
+        'southwest',
+      ] as const);
+    }
+    if (rawMeihuaSettings.objectType !== undefined) {
+      meihuaSettings.objectType = readEnum(rawMeihuaSettings, 'objectType', [
+        'heaven',
+        'lake',
+        'fire',
+        'thunder',
+        'wind',
+        'water',
+        'mountain',
+        'earth',
+      ] as const);
     }
     if (Object.keys(meihuaSettings).length > 0) {
       info.meihuaSettings = meihuaSettings;

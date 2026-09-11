@@ -1,7 +1,12 @@
+import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import {
+  buildCurrentBaziFortuneSelectionForScope,
+  buildFortuneSelectionContext,
+} from '@core/bazi/fortuneSelection';
 import { calculateZiweiChartForScopes } from '../../../src/lib/full-chart-engine/ziwei.js';
 import {
   BAZI_PROMPT_TOPICS,
@@ -30,7 +35,7 @@ import {
 } from '../tool-results.js';
 import { readMcpPromptSelection } from './prompt-helpers.js';
 import { buildBaziPerson } from './bazi.js';
-import { buildMcpZiweiChartInput } from './ziwei.js';
+import { buildMcpZiweiChartInput, buildMcpZiweiFortuneRangeOptions } from './ziwei.js';
 
 const baziZiweiPromptSchema = z.object({
   name: z.string().optional().describe('姓名（可选）'),
@@ -85,8 +90,20 @@ const baziZiweiPromptSchema = z.object({
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
     .describe(
-      '紫微运限范围：origin=本命, full=完整输出版, decadal=大限, yearly=流年, monthly=流月等',
+      '运限范围：未指定时默认当前阶段；origin=本命, full=已验证童限与大限及各阶段流年, decadal=大限, yearly=流年, monthly=流月, daily=流日等',
     ),
+  scopeDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe('紫微运限目标日期；固定当前阶段、指定流年或下层资料的取盘时点'),
+  scopeHourIndex: z
+    .number()
+    .int()
+    .min(0)
+    .max(12)
+    .optional()
+    .describe('目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰'),
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
@@ -136,6 +153,18 @@ function mapPromptScopeToZiweiScope(scope: string | undefined): ZiweiPromptScope
   return scope === undefined ? undefined : mapped[scope];
 }
 
+function mapZiweiScopeToBaziFortuneScope(scope: ZiweiPromptScope) {
+  const mapped = {
+    origin: 'natal',
+    full: 'full',
+    decadal: 'dayun',
+    yearly: 'year',
+    monthly: 'month',
+    daily: 'day',
+  } as const;
+  return mapped[scope as keyof typeof mapped];
+}
+
 function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
   return buildMcpZiweiChartInput({
     name: args.name,
@@ -149,6 +178,8 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
       args.scope === undefined
         ? args.promptScope
         : (mapPromptScopeToZiweiScope(args.scope) ?? args.promptScope),
+    scopeDate: args.scopeDate,
+    scopeHourIndex: args.scopeHourIndex,
     isLeapMonth: args.isLeapMonth,
     useTrueSolarTime: args.useTrueSolarTime,
     birthHour: args.birthHour === undefined ? undefined : String(args.birthHour),
@@ -166,7 +197,7 @@ export function registerBaziZiweiTool(server: McpServer) {
     'bazi_ziwei_prompt',
     {
       description:
-        '八字紫微合参提示词：同一份出生信息同时计算八字和紫微斗数，仅返回可直接用于 AI 深度解读的完整提示词',
+        '八字紫微合参：同一份出生信息同时计算八字和紫微斗数，生成可直接解读的完整任务书并返回两套结构化盘面',
       inputSchema: baziZiweiPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -182,16 +213,35 @@ export function registerBaziZiweiTool(server: McpServer) {
         const scope = (
           args.scope !== undefined
             ? mapPromptScopeToZiweiScope(selection?.scope)
-            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'origin')
+            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'decadal')
         ) as ZiweiPromptScope;
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const ziweiResult = await calculateZiweiChartForScopes(
-          buildCombinedZiweiInput(args),
-          scopes,
+        const ziweiInput = buildCombinedZiweiInput(args);
+        const currentContext = getDefaultHoroscopeContext();
+        const horoscopeContext = {
+          dateStr: args.scopeDate ?? currentContext.dateStr,
+          hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
+        };
+        const fortuneRange = buildMcpZiweiFortuneRangeOptions(
+          scope,
+          horoscopeContext.dateStr,
+          horoscopeContext.hourIndex,
         );
+        const ziweiResult = await calculateZiweiChartForScopes(ziweiInput, scopes, undefined, {
+          ...(fortuneRange ? { fortuneRange } : {}),
+          horoscopeContext,
+        });
         const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
+        const baziFortuneScope = mapZiweiScopeToBaziFortuneScope(scope);
+        const baziFortuneSelection =
+          baziFortuneScope && baziFortuneScope !== 'natal' && baziFortuneScope !== 'full'
+            ? buildCurrentBaziFortuneSelectionForScope(baziResult, baziFortuneScope)
+            : null;
+        const baziFortuneSelectionContext = baziFortuneSelection
+          ? buildFortuneSelectionContext(baziResult, baziFortuneSelection)
+          : null;
 
         return createStructuredToolResult({
           result: {
@@ -210,6 +260,8 @@ export function registerBaziZiweiTool(server: McpServer) {
             baziSchools: args.baziSchools as BaziSchool[] | undefined,
             ziweiSchool: args.ziweiSchool as ZiweiSchool | undefined,
             ziweiSchools: args.ziweiSchools as ZiweiSchool[] | undefined,
+            fortuneSelectionContext: baziFortuneSelectionContext,
+            fortuneScope: baziFortuneScope,
             selection,
           }),
         });

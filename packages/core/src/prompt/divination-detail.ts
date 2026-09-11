@@ -69,6 +69,37 @@ function formatLiuyaoDetail(data: LiuyaoData) {
   ].filter(Boolean);
 }
 
+function formatMeihuaCalculation(data: MeihuaData) {
+  const calculation = data.calculation;
+  if (!calculation) return '';
+  const details = [`起卦计算：${calculation.method}`];
+  if (calculation.methodKey === 'number' && calculation.number !== undefined) {
+    details.push(`数字${calculation.number}`);
+  }
+  if (calculation.methodKey === 'sound' && calculation.soundCount !== undefined) {
+    details.push(`声音数${calculation.soundCount}`);
+  }
+  if (calculation.methodKey === 'character') {
+    if (calculation.characterText) details.push(`文字${calculation.characterText}`);
+    if (calculation.characterCount !== undefined) details.push(`字数${calculation.characterCount}`);
+    if (calculation.characterTones?.length) {
+      details.push(
+        `传统平上去入声数${calculation.characterTones.join('、')}（不等同于普通话一至四声）`,
+      );
+    }
+    if (calculation.characterStrokeCounts?.length) {
+      details.push(`逐字笔画数${calculation.characterStrokeCounts.join('、')}`);
+    }
+    if (calculation.characterRule) details.push(calculation.characterRule);
+  }
+  if (calculation.methodKey === 'direction') {
+    if (calculation.objectType) details.push(`所见物类${calculation.objectType}`);
+    if (calculation.direction) details.push(`方位${calculation.direction}`);
+  }
+  if (calculation.time) details.push(`时间${calculation.time}`);
+  return details.join('；');
+}
+
 function formatMeihuaDetail(data: MeihuaData) {
   const hexagrams = [data.mainHexagram, data.interHexagram, data.changedHexagram]
     .map((item) => (item ? item : null))
@@ -90,9 +121,7 @@ function formatMeihuaDetail(data: MeihuaData) {
     data.analysis
       ? `体用分析：体卦${data.tiGua.name}（${data.tiGua.element}），用卦${data.yongGua.name}（${data.yongGua.element}），体用关系为【${data.analysis.tiYongRelation}】，体卦月令${data.analysis.tiSeasonState}，变后体用为【${data.analysis.changedTiYongRelation}】`
       : '',
-    data.calculation
-      ? `起卦计算：${data.calculation.method}${data.calculation.numbers?.length ? `；数字${data.calculation.numbers.join('、')}` : ''}${data.calculation.time ? `；时间${data.calculation.time}` : ''}`
-      : '',
+    formatMeihuaCalculation(data),
   ].filter(Boolean);
 }
 
@@ -181,7 +210,7 @@ function formatAlmanacDetail(data: AlmanacData) {
     `候选日：${data.days
       .map(
         (item) =>
-          `${item.date}：${item.ganzhi.day}，${item.dayOfficer}执，宜${item.recommends.slice(0, 8).join('、') || '无'}，忌${item.avoids.slice(0, 8).join('、') || '无'}，${item.clash}${formatAlmanacGods(
+          `${item.date}：${item.ganzhi.day}，${item.dayOfficer}执，宜${item.recommends.join('、') || '无'}，忌${item.avoids.join('、') || '无'}，${item.clash}${formatAlmanacGods(
             item,
           )
             .map((text) => `；${text}`)
@@ -240,6 +269,7 @@ function formatHuangjiDetail(data: HuangjiJingshiResult) {
 
 /** 输出比摘要更完整的、可直接拼入任务书的占法资料。 */
 export function formatDetailedDivinationInfo(method: SupportedMethod, data: DivinationData) {
+  if (method === 'wuyun') return formatDivinationInfo(method, data);
   const detail = (() => {
     switch (method) {
       case 'liuyao':

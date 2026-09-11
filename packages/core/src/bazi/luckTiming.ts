@@ -1,4 +1,8 @@
 import type { LocalTimeRange, LuckCycle, SolarDateTimeInfo } from './baziTypes';
+import {
+  DEFAULT_CHINA_TIMEZONE_HOURS,
+  getCivilDateTimeAtFixedOffset,
+} from '../calendar/civil-time';
 
 function getLastDayOfMonth(year: number, month: number) {
   assertSolarYear(year);
@@ -49,8 +53,13 @@ function assertSolarDateTimeInfo(time: SolarDateTimeInfo) {
   assertTimePart(time.second, 0, 59, '秒');
 }
 
-/** 构造保留完整年份（含 0—99 年）的本地 Date，绕开多参数构造对 0—99 年的 1900 偏移 */
-function createFullYearDate(
+/**
+ * 用 UTC 时间戳编码民用墙上时间。
+ *
+ * 这种 Date 只作为跨运行环境传递年月日时分秒的稳定容器，并不代表当地
+ * 时区中的真实瞬时点；读取时必须使用 UTC getter。
+ */
+export function createCivilDate(
   year: number,
   month: number,
   day: number,
@@ -58,12 +67,50 @@ function createFullYearDate(
   minute = 0,
   second = 0,
 ): Date {
-  const date = new Date();
-  date.setFullYear(year, month - 1, day);
-  date.setHours(hour, minute, second, 0);
+  assertSolarDateTimeInfo({ year, month, day, hour, minute, second });
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(hour, minute, second, 0);
   return date;
 }
 
+/** 将真实瞬时点转换成八字采用的中国时区民用时间容器。 */
+export function toChinaCivilDate(referenceDate: Date): Date {
+  assertValidDate(referenceDate, '参考时间');
+  const values = getCivilDateTimeAtFixedOffset(referenceDate, DEFAULT_CHINA_TIMEZONE_HOURS);
+  const civilDate = createCivilDate(
+    values.year,
+    values.month,
+    values.day,
+    values.hour,
+    values.minute,
+    values.second,
+  );
+  civilDate.setUTCMilliseconds(referenceDate.getMilliseconds());
+  return civilDate;
+}
+
+/** 读取 UTC 编码的民用时间容器，仅供内部 civil 入口使用。 */
+export function fromCivilDate(time: Date): SolarDateTimeInfo {
+  assertValidDate(time, '民用时间');
+  return {
+    year: time.getUTCFullYear(),
+    month: time.getUTCMonth() + 1,
+    day: time.getUTCDate(),
+    hour: time.getUTCHours(),
+    minute: time.getUTCMinutes(),
+    second: time.getUTCSeconds(),
+  };
+}
+
+function toChinaInstant(civilDate: Date): Date {
+  assertValidDate(civilDate, '民用时间');
+  return new Date(civilDate.getTime() - DEFAULT_CHINA_TIMEZONE_HOURS * 3600000);
+}
+
+/**
+ * 将中国民用时间字段解析为真实瞬时点；传入 Date 时只复制原瞬时点，不重新解释其时区。
+ */
 export function toNativeDate(time: SolarDateTimeInfo | Date): Date {
   if (time instanceof Date) {
     assertValidDate(time, '时间');
@@ -71,37 +118,31 @@ export function toNativeDate(time: SolarDateTimeInfo | Date): Date {
   }
 
   assertSolarDateTimeInfo(time);
-  const date = createFullYearDate(
-    time.year,
-    time.month,
-    time.day,
-    time.hour,
-    time.minute,
-    time.second,
+  const date = toChinaInstant(
+    createCivilDate(time.year, time.month, time.day, time.hour, time.minute, time.second),
   );
-  // 回读校验：确认目标年月日在本地时区表达有效（不存在夏令时缺口等）
+  // 回读校验：确认目标年月日在中国时区中仍表达为同一民用时间。
+  const restored = fromNativeDate(date);
   if (
-    date.getFullYear() !== time.year ||
-    date.getMonth() + 1 !== time.month ||
-    date.getDate() !== time.day
+    restored.year !== time.year ||
+    restored.month !== time.month ||
+    restored.day !== time.day ||
+    restored.hour !== time.hour ||
+    restored.minute !== time.minute ||
+    restored.second !== time.second
   ) {
-    throw new Error(`本地时间无效：${time.year}-${time.month}-${time.day}`);
+    throw new Error(`中国时区民用时间无效：${time.year}-${time.month}-${time.day}`);
   }
   return date;
 }
 
+/** 将真实瞬时点按固定 UTC+8 还原为八字使用的中国民用时间字段。 */
 export function fromNativeDate(time: Date): SolarDateTimeInfo {
   assertValidDate(time, '时间');
-  return {
-    year: time.getFullYear(),
-    month: time.getMonth() + 1,
-    day: time.getDate(),
-    hour: time.getHours(),
-    minute: time.getMinutes(),
-    second: time.getSeconds(),
-  };
+  return fromCivilDate(toChinaCivilDate(time));
 }
 
+/** 以真实 UTC 瞬时点建立范围，同时保存对应的中国民用起止字段。 */
 export function createLocalTimeRange(start: Date, end: Date): LocalTimeRange {
   assertValidDate(start, '开始时间');
   assertValidDate(end, '结束时间');
@@ -120,7 +161,7 @@ export function createLocalTimeRange(start: Date, end: Date): LocalTimeRange {
 export function getLuckCycleTimeRange(cycle: LuckCycle): LocalTimeRange {
   const start = cycle.startSolarTime
     ? toNativeDate(cycle.startSolarTime)
-    : createFullYearDate(cycle.year, 1, 1);
+    : toChinaInstant(createCivilDate(cycle.year, 1, 1));
   const end = cycle.endSolarTime ? toNativeDate(cycle.endSolarTime) : getFallbackCycleEnd(cycle);
   return createLocalTimeRange(start, end);
 }
@@ -175,19 +216,39 @@ export function shiftSolarDateTimeYears(time: SolarDateTimeInfo, years: number):
 function getFallbackCycleEnd(cycle: LuckCycle): Date {
   assertSolarYear(cycle.year);
   if (cycle.isXiaoyun) {
-    return createFullYearDate(cycle.year + Math.max(cycle.years.length, 1), 1, 1);
+    return toChinaInstant(createCivilDate(cycle.year + Math.max(cycle.years.length, 1), 1, 1));
   }
 
-  return createFullYearDate(cycle.year + 10, 1, 1);
+  return toChinaInstant(createCivilDate(cycle.year + 10, 1, 1));
 }
 
-export function isDateWithinLuckCycle(cycle: LuckCycle, referenceDate: Date = new Date()): boolean {
-  assertValidDate(referenceDate, '参考时间');
+export function isCivilDateWithinLuckCycle(cycle: LuckCycle, civilDate: Date): boolean {
+  assertValidDate(civilDate, '民用参考时间');
+  return isInstantDateWithinLuckCycle(cycle, toChinaInstant(civilDate));
+}
+
+function isInstantDateWithinLuckCycle(cycle: LuckCycle, referenceDate: Date): boolean {
   const range = getLuckCycleTimeRange(cycle);
 
   return (
     referenceDate.getTime() >= range.startTimestamp && referenceDate.getTime() < range.endTimestamp
   );
+}
+
+/** 按真实瞬时点定位大运；瞬时点按中国时区还原后再与民用运限比较。 */
+export function isDateWithinLuckCycle(cycle: LuckCycle, referenceDate: Date = new Date()): boolean {
+  assertValidDate(referenceDate, '参考时间');
+  return isInstantDateWithinLuckCycle(cycle, referenceDate);
+}
+
+export function getLuckCycleForCivilDate(cycles: LuckCycle[], civilDate: Date): LuckCycle | null {
+  assertValidDate(civilDate, '民用参考时间');
+  if (!cycles.length) {
+    return null;
+  }
+
+  const exactMatch = cycles.find((cycle) => isCivilDateWithinLuckCycle(cycle, civilDate));
+  return exactMatch ?? null;
 }
 
 export function getLuckCycleForDate(
@@ -198,8 +259,7 @@ export function getLuckCycleForDate(
   if (!cycles.length) {
     return null;
   }
-
-  const exactMatch = cycles.find((cycle) => isDateWithinLuckCycle(cycle, referenceDate));
+  const exactMatch = cycles.find((cycle) => isInstantDateWithinLuckCycle(cycle, referenceDate));
   return exactMatch ?? null;
 }
 

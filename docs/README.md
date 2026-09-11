@@ -33,20 +33,6 @@
 npx skills add Brhiza/mingyu --skill mingyu -g -y
 ```
 
-如果当前环境无法使用 `npx skills`，也可以手动保存在线 Skill。
+手动安装时，从仓库复制完整的 `skills/mingyu/` 目录到客户端的 Skill 目录，包含 `SKILL.md` 和全部 `references/` 文件。
 
-Linux 或 macOS：
-
-```bash
-mkdir -p ~/.codex/skills/aov-mingyu-api
-curl -L https://aov.cc/skills/aov-mingyu-api/SKILL.md \
-  -o ~/.codex/skills/aov-mingyu-api/SKILL.md
-```
-
-Windows PowerShell：
-
-```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.codex\skills\aov-mingyu-api"
-Invoke-WebRequest "https://aov.cc/skills/aov-mingyu-api/SKILL.md" `
-  -OutFile "$env:USERPROFILE\.codex\skills\aov-mingyu-api\SKILL.md"
-```
+Skill 内容统一在 `skills/mingyu/` 维护，更新后运行 `node scripts/sync-skill.mjs` 同步两个公开入口。

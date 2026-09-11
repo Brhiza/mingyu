@@ -1,7 +1,12 @@
+import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei/iztro';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
-import { buildZiweiChartInput, calculateZiweiChartForScopes } from 'mingyu-core/ziwei';
+import {
+  buildZiweiChartInput,
+  calculateZiweiChartForScopes,
+  type ZiweiFortuneRangeOptions,
+} from 'mingyu-core/ziwei';
 import { buildCombinedZiweiCompatibilityPrompt } from 'mingyu-core/ziwei/prompt';
 import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei/iztro';
 import {
@@ -32,6 +37,7 @@ import {
 import { applyMcpPromptSelection, readMcpPromptSelection } from './prompt-helpers.js';
 import {
   assertMcpBirthDate,
+  readMcpDateOnly,
   readMcpIntegerLikeInRange,
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
@@ -54,8 +60,20 @@ export const ziweiSchema = z.object({
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
     .describe(
-      '运限范围：origin=本命（默认）, full=完整输出版, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。默认只返回 origin 范围；full 会返回本命、大限、流年、流月、流日、流时。',
+      '运限范围：未指定时默认当前大限；origin=本命, full=已验证童限与大限的全部流年, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。',
     ),
+  scopeDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe('紫微运限目标日期；固定当前阶段、指定流年或下层资料的取盘时点'),
+  scopeHourIndex: z
+    .number()
+    .int()
+    .min(0)
+    .max(12)
+    .optional()
+    .describe('目标运限时辰：0=早子、1=丑、…、12=晚子；省略时使用当前时辰'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
   birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
@@ -137,6 +155,29 @@ function mapPromptScopeToZiweiScope(scope: string | undefined): ZiweiPromptScope
   return scope === undefined ? undefined : mapped[scope];
 }
 
+export function buildMcpZiweiFortuneRangeOptions(
+  scope: ZiweiPromptScope,
+  scopeDate: string | undefined,
+  hourIndex: number,
+): ZiweiFortuneRangeOptions | undefined {
+  const mapped: Partial<Record<ZiweiPromptScope, ZiweiFortuneRangeOptions['scope']>> = {
+    full: 'all',
+    decadal: 'current',
+    yearly: 'year',
+    monthly: 'month',
+    daily: 'day',
+    hourly: 'hour',
+  };
+  const fortuneScope = mapped[scope];
+  if (!fortuneScope) return undefined;
+  const dateStr =
+    scopeDate === undefined ? undefined : readMcpDateOnly(scopeDate, 'scopeDate').value;
+  return {
+    scope: fortuneScope,
+    ...(dateStr ? { dateStr, hourIndex } : {}),
+  };
+}
+
 export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
   const useTrueSolarTime = args.useTrueSolarTime ?? false;
   assertMcpBirthDate({
@@ -186,18 +227,31 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_calculate',
     {
       description:
-        '紫微斗数排盘：根据出生信息计算紫微命盘；启用真太阳时时返回统一校正计算链、事实、汇总与限制，关闭时保留传统时辰直接排盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外运限范围',
+        '紫微斗数排盘：根据出生信息计算紫微命盘与当前大限；启用真太阳时时返回统一校正计算链、事实、汇总与限制，关闭时保留传统时辰直接排盘。通过 promptScope 可指定本命、当前阶段、具体流年或全部运限范围',
       inputSchema: { ...ziweiSchema.shape, ...calculationDetailShape },
       outputSchema: ziweiOutputSchema,
     },
     async (args) => {
       try {
         const input = buildMcpZiweiChartInput(args);
-        const scope = (args.promptScope ?? 'origin') as ZiweiPromptScope;
+        const scope = (args.promptScope ?? 'decadal') as ZiweiPromptScope;
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const result = await calculateZiweiChartForScopes(input, scopes);
+        const currentContext = getDefaultHoroscopeContext();
+        const horoscopeContext = {
+          dateStr: args.scopeDate ?? currentContext.dateStr,
+          hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
+        };
+        const fortuneRange = buildMcpZiweiFortuneRangeOptions(
+          scope,
+          horoscopeContext.dateStr,
+          horoscopeContext.hourIndex,
+        );
+        const result = await calculateZiweiChartForScopes(input, scopes, undefined, {
+          ...(fortuneRange ? { fortuneRange } : {}),
+          horoscopeContext,
+        });
         return createStructuredToolResult(
           { ...buildSerializableZiweiResult(result) },
           args.detailMode,
@@ -212,7 +266,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_prompt',
     {
       description:
-        '紫微斗数排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要命盘数据时调用 ziwei_calculate',
+        '紫微斗数排盘并生成可直接交给 AI 的完整任务书，同时返回本命十二宫、四化和所选运限资料',
       inputSchema: ziweiPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -228,12 +282,25 @@ export function registerZiweiTool(server: McpServer) {
         const scope = (
           args.scope !== undefined
             ? mapPromptScopeToZiweiScope(selection?.scope)
-            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'origin')
+            : (args.promptScope ?? mapPromptScopeToZiweiScope(selection?.scope) ?? 'decadal')
         ) as ZiweiPromptScope;
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const result = await calculateZiweiChartForScopes(input, scopes);
+        const currentContext = getDefaultHoroscopeContext();
+        const horoscopeContext = {
+          dateStr: args.scopeDate ?? currentContext.dateStr,
+          hourIndex: args.scopeHourIndex ?? currentContext.hourIndex,
+        };
+        const fortuneRange = buildMcpZiweiFortuneRangeOptions(
+          scope,
+          horoscopeContext.dateStr,
+          horoscopeContext.hourIndex,
+        );
+        const result = await calculateZiweiChartForScopes(input, scopes, undefined, {
+          ...(fortuneRange ? { fortuneRange } : {}),
+          horoscopeContext,
+        });
         return createStructuredToolResult({
           result: buildSerializableZiweiResult(result),
           prompt: buildZiweiPromptForRuntime({

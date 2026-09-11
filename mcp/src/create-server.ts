@@ -26,15 +26,22 @@ import { registerFoundationTools } from './tools/foundation.js';
 import { registerCalendarTools } from './tools/calendar.js';
 import { registerInstantTool } from './tools/instant.js';
 import { registerNameNumberTools } from './tools/name-number.js';
-import { getToolAnnotations } from './catalog/tool-catalog.js';
+import { registerYilinTool } from './tools/yilin.js';
+import { getToolAnnotations, getToolDescription } from './catalog/tool-catalog.js';
+import packageJson from '../../package.json';
 
 export const SERVER_INFO = {
   name: 'mingyu-mcp-server',
-  version: '0.1.0',
+  version: packageJson.version,
 } as const;
 
-export const SERVER_INSTRUCTIONS =
-  '命语 MCP Server：处理算命、看运势、占卜、玄学排盘、起名、姓名汉字与数字能量、合婚、抽牌、求签、风水和择日等日常请求，也提供真太阳时、八字、紫微斗数、六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬、诸葛神数、孔明神卦、五运六气、皇极经世、塔罗、雷诺曼、灵签、黄历择日、星盘等专业工具。AI 可获取结构化排盘，也可直接获得完整的 AI 解读提示词。';
+export const SERVER_INSTRUCTIONS = [
+  '命语 MCP Server 提供命理排盘、运势、占卜、风水、择日、起名、历法与天文工具。先根据用户目的选择一个首选工具，再调用并回答。',
+  '调用规则：需要直接解读时优先调用名称以 _prompt 结尾的工具；它会自行计算并返回完整 prompt，可用时还会同步返回 result，不要先调用同类排盘工具。只要结构化盘面、表格或二次计算时，使用 *_calculate、divine_*、metaphysics_* 或基础查询工具。随机起卦、抽牌、求签同一问题只调用一次，继续分析时复用返回的重放参数或固定结果。',
+  '参数规则：只传用户已提供或工具 schema 能可靠默认的值。不得猜测出生时辰、日期、地点、经纬度、时区或指定运限坐标；不明确时读取工具描述和默认范围，缺少必填资料则向用户补问。当前时间只用于明确的即时盘或时间起卦，历史复盘必须传用户指定时刻。',
+  '结果读取：成功时按 outputSchema 读取 structuredContent 中的计算字段（通常为 result，部分工具使用具名字段），以 prompt 为完整解读任务书，并检查 warnings、时间口径、分析范围和资料限制。失败时读取 error、missingFields、retryable 与 fallback，只补充缺失参数后重试，不用另一套算法静默替代。',
+  '解读规则：先说明采用的方法、时间和范围，再提炼主要证据、相反证据与限制，最后直接回答用户问题。计算事实与传统取义分开表达；只从返回资料推导，不补造盘面、古籍依据或确定性事件。',
+].join('\n');
 
 /**
  * 创建并配置命语 MCP 服务器实例
@@ -51,7 +58,8 @@ export function createMingyuMcpServer(): McpServer {
   const originalRegisterTool = server.registerTool.bind(server);
   server.registerTool = (name, config, cb) => {
     const annotations = config.annotations ?? getToolAnnotations(name);
-    return originalRegisterTool(name, { ...config, annotations }, cb);
+    const description = getToolDescription(name, config.description);
+    return originalRegisterTool(name, { ...config, annotations, description }, cb);
   };
 
   registerBaziTool(server);
@@ -81,6 +89,7 @@ export function createMingyuMcpServer(): McpServer {
   registerCalendarTools(server);
   registerInstantTool(server);
   registerNameNumberTools(server);
+  registerYilinTool(server);
 
   return server;
 }

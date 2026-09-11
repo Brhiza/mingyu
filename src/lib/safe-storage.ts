@@ -31,13 +31,14 @@ export const safeStorage = {
     }
   },
 
-  remove(key: string): void {
+  remove(key: string): boolean {
     const storage = getStorage();
-    if (!storage) return;
+    if (!storage) return false;
     try {
       storage.removeItem(key);
+      return storage.getItem(key) === null;
     } catch {
-      // 隐私模式或权限受限时静默忽略
+      return false;
     }
   },
 

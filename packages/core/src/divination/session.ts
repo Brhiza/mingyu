@@ -1,3 +1,4 @@
+import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import type { DivinationMethodId } from './config';
 import { generateAlmanacSelection } from './algorithms/almanac';
 import { generateAstrolabe } from './algorithms/astrolabe';
@@ -11,6 +12,7 @@ import { drawRandomSign, resolveSignByNumber } from './algorithms/ssgw';
 import { generateXiaoliuren } from './algorithms/xiaoliuren';
 import { generateTaiyi } from '../taiyi/index';
 import { calculateHuangjiJingshi, type HuangjiJingshiResult } from '../huangji-jingshi';
+import { calculateWuyunLiuqi } from '../wuyun-liuqi';
 import { calculateZhugeNumber, castKongmingHexagram } from '../name-number/oracles';
 import { drawTarotSpread, type TarotDrawOptions, type TarotManualCardInput } from './tarot';
 import { isEarthlyBranch } from '../ganzhi';
@@ -108,6 +110,8 @@ export interface DivinationRequest {
   taiyi?: { year?: number; scope?: TaiyiScope };
   /** 皇极经世兼容值年输入；省略 year 时按 divinationTime（未填则当前时间）排年月日时卦。 */
   huangji?: { year?: number };
+  /** 五运六气年度输入；省略时按当前北京时间所在公历年计算。 */
+  wuyun?: { year?: number; yearGanZhi?: string };
   prompt?: Omit<DivinationPromptOptions, 'method' | 'data' | 'question' | 'currentTime'>;
 }
 
@@ -220,6 +224,14 @@ function formatAiChart(
       `四轴：${item.angles.map((point) => `${point.name}${point.formatted}`).join('；')}`,
       `宫位：${item.houses.map((point) => `第${point.house}宫宫头${point.formatted}`).join('；')}`,
       `相位：${item.aspects.map((aspect) => `${aspect.body1}${aspect.symbol}${aspect.body2}，容许度${aspect.orb.toFixed(2)}°`).join('；') || '无'}`,
+    );
+  } else if (method === 'wuyun') {
+    const item = data as WuyunLiuqiResult;
+    base.push(
+      `年度资料：${item.input.year === undefined ? '' : `${item.input.year}年`}${item.input.yearGanZhi}；岁运${item.annualMovement.name}${item.annualMovement.toneName}${item.annualMovement.strength}；司天${item.sitian.name}；在泉${item.zaiquan.name}`,
+      `五步主客运：${item.movementSteps.map((step) => `${step.label}${step.hostMovement.element}/${step.guestMovement.element}（${step.hostGuestRelation.kind}）`).join('；')}`,
+      `六步主客气：${item.qiSteps.map((step) => `${step.label}${step.hostQi.name}/${step.guestQi.name}（${step.hostGuestRelation.kind}）`).join('；')}`,
+      item.pathomechanism?.summary ?? '',
     );
   }
   return base.join('\n');
@@ -365,6 +377,27 @@ export function validateDivinationRequest(request: DivinationRequest): void {
       throw new Error('皇极经世年份与年月日时起盘时间不能同时提供。');
     }
   }
+  if (request.method === 'wuyun' && request.wuyun) {
+    const { year, yearGanZhi } = request.wuyun;
+    if (year === undefined && yearGanZhi === undefined) {
+      throw new Error('五运六气需要提供 year 或 yearGanZhi。');
+    }
+    if (year !== undefined && (!Number.isSafeInteger(year) || year < 1 || year > 9999)) {
+      throw new Error('五运六气年份必须是 1-9999 之间的整数。');
+    }
+    if (yearGanZhi !== undefined && typeof yearGanZhi !== 'string') {
+      throw new Error('五运六气 yearGanZhi 必须是有效年干支。');
+    }
+  }
+}
+
+function resolveCurrentCivilYear() {
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+    }).format(new Date()),
+  );
 }
 
 function generateData(
@@ -463,6 +496,13 @@ function generateData(
               date: customDate ?? new Date(),
               question: request.question?.trim(),
             },
+      );
+    case 'wuyun':
+      return calculateWuyunLiuqi(
+        request.wuyun &&
+          (request.wuyun.year !== undefined || request.wuyun.yearGanZhi !== undefined)
+          ? request.wuyun
+          : { year: resolveCurrentCivilYear() },
       );
   }
 }

@@ -88,16 +88,19 @@ test('Android 更新只生成默认下载和 GitHub 备用线路', () => {
     ['rng-cdn', 'github'],
   );
   assert.equal(routes[0]?.url, cdnUrl);
-  assert.equal(routes[1]?.url, 'https://github.com/Brhiza/mingyu/releases/download/android-v1.2.3/mingyu-1.2.3.apk');
+  assert.equal(
+    routes[1]?.url,
+    'https://github.com/Brhiza/mingyu/releases/download/android-v1.2.3/mingyu-1.2.3.apk',
+  );
 });
 
 test('线路测速会跳过失败线路并自动选择最低延迟', async () => {
   const routes = buildAndroidDownloadRoutes('1.2.3', 'https://github.com/example.apk');
-  const probes = await probeAndroidDownloadRoutes(routes, (async (
-    url: RequestInfo | URL,
-  ) => {
+  const probes = await probeAndroidDownloadRoutes(routes, (async (url: RequestInfo | URL) => {
     const value = String(url);
-    await new Promise((resolve) => setTimeout(resolve, value.startsWith('https://github.com/') ? 2 : 12));
+    await new Promise((resolve) =>
+      setTimeout(resolve, value.startsWith('https://github.com/') ? 2 : 12),
+    );
     return new Response(null, {
       status: value.startsWith('https://github.com/') ? 503 : 200,
     });

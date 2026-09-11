@@ -12,6 +12,7 @@ import {
   getThematicTopicConfig,
   buildThematicConsultationPrompt,
 } from '../packages/core/src/prompt/thematic';
+import { buildBaziZiweiPromptForResults } from '../packages/core/src/prompt/public-api';
 import type { ScopeType } from '../src/types/analysis';
 
 const samplePerson = {
@@ -99,10 +100,25 @@ test('八字紫微双盘默认通用主题 (general) 合参提示词', async () 
   assert.ok(result.prompt.includes('【紫微盘面信息】'));
   assert.ok(result.prompt.includes('【任务】'));
   assert.ok(result.prompt.includes('【问题】'));
+  assert.equal(result.selection.scope, 'decadal');
+  assert.match(result.prompt, /紫微：大限\/大运。/);
 
   // 严格遵守 AGENTS.md 规范：不包含项目、代码或规则词汇
   assert.doesNotMatch(result.prompt, /API|MCP|repository|GitHub|项目|代码|待校|后人整理/i);
   assert.doesNotMatch(result.prompt, /【行动建议】|【风险提醒】/);
+});
+
+test('八字紫微核心合参提示词默认使用当前阶段范围', async () => {
+  const baziResult = baziCalculator.calculateBazi(samplePerson);
+  const ziweiResult = await getSampleZiweiResult();
+
+  const prompt = buildBaziZiweiPromptForResults({
+    baziResult,
+    ziweiResult,
+    question: '当前阶段的事业重点是什么？',
+  });
+
+  assert.match(prompt, /紫微已给出运限范围，八字仍为本命资料，二者尚未对齐到同一日期。/);
 });
 
 test('感情大类主题 (relationship) 必须重点聚焦夫妻宫与配偶星', async () => {

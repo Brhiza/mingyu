@@ -16,7 +16,7 @@ export interface PatternRemedy {
 
 export interface PatternFulfillmentResult {
   patternName: string;
-  status: '成格' | '破格' | '破而复成' | '平常';
+  status: '成格' | '破格' | '破而复成' | '平常' | '未判定';
   basis: string;
   contradiction: string;
   remedies: PatternRemedy[];
@@ -88,12 +88,11 @@ export function evaluatePatternFulfillment(
   const findExposedGods = (gods: string[]) =>
     exposed.filter((item) => item.tenGod && gods.includes(item.tenGod));
 
-  // 默认占位
-  let status: PatternFulfillmentResult['status'] = '成格';
-  let basis = '格局气纯，干支互为表里';
-  let contradiction = '原局气清，未见显著刑破破败';
+  let status: PatternFulfillmentResult['status'] = '未判定';
+  let basis = '结合月令、透干、根气与制化条件论成败';
+  let contradiction = '';
   const remedies: PatternRemedy[] = [];
-  let summary = `【${patternName}】气象端正，顺用逆用得宜。`;
+  let summary = `【${patternName}】成败需结合月令、透干、根气与制化条件辨明。`;
 
   const cleanPattern = patternName.replace(/^杂气/, '');
 

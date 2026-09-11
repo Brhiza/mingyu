@@ -33,7 +33,7 @@ export function createStructuredToolResult(
       ? shapeCalculationResult(structuredContent, detailMode ?? 'compact')
       : prompt === undefined
         ? structuredContent
-        : { prompt };
+        : structuredContent;
 
   const finalContent: Record<string, unknown> = {
     ...responseContent,

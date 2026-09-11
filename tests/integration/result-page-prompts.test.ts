@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildBaziZiweiEnhancedPrompt,
   formatZiweiFullScopeText,
+  formatZiweiSupportingScopeText,
 } from '../../src/pages/ResultPage/ResultPage.helpers';
 import { buildPersonFromInput, calculateFullBaziChart } from '../../src/lib/full-chart-engine/bazi';
 import {
@@ -83,4 +84,19 @@ test('紫微完整输出版会整理本命与各层运限资料', async () => {
   assert.match(text, /流日：分析对象：/);
   assert.match(text, /当前四化：/);
   assert.match(text, /运限命中：/);
+});
+
+test('紫微流月解读保留大限和流年十二宫关系，不混入下层日期', async () => {
+  const runtime = await getZiweiRuntime();
+  const text = formatZiweiSupportingScopeText(runtime.payloadByScope, 'monthly');
+  for (const scope of ['decadal', 'yearly'] as const) {
+    const payload = runtime.payloadByScope[scope];
+    assert.ok(text.includes(payload.active_scope.label));
+    for (const palace of payload.palaces)
+      assert.ok(text.includes(`落本命${palace.name.replace(/宫$/, '')}宫`));
+    for (const item of payload.active_scope.mutagen_map)
+      assert.ok(text.includes(`${item.star}化${item.mutagen}`));
+  }
+  assert.doesNotMatch(text, /流月：|流日：|流时：|宫宫/);
+  assert.equal(formatZiweiSupportingScopeText(runtime.payloadByScope, 'origin'), '');
 });

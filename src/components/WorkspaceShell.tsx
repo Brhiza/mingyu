@@ -61,6 +61,7 @@ function resolveActiveFeature(pathname: string, search: string): WorkspaceFeatur
 
 function resolvePageTitle(pathname: string, activeFeature: WorkspaceFeatureId | null) {
   if (pathname === '/culture-tools') return '文字与数理';
+  if (pathname === '/classics/yilin') return '焦氏易林';
   if (pathname === '/cases') return '案例';
   if (pathname === '/records') return '历史记录';
   if (pathname === '/tutorial') return '使用说明';
@@ -349,7 +350,7 @@ export function WorkspaceShell() {
       </div>
 
       {sidebarView === 'tools' ? (
-        <nav className="workspace-tool-sections" aria-label="排盘与占问工具">
+        <nav className="workspace-tool-sections" aria-label="排盘、占问与古籍工具">
           <div className="workspace-nav-list workspace-home-nav-list">
             <button
               type="button"
@@ -397,6 +398,22 @@ export function WorkspaceShell() {
               </span>
               <span className="workspace-nav-copy">
                 <strong>文字与数理</strong>
+              </span>
+            </button>
+            <button
+              type="button"
+              className={location.pathname === '/classics/yilin' ? 'is-active' : ''}
+              onClick={() => {
+                navigate('/classics/yilin');
+                setIsDrawerOpen(false);
+              }}
+              aria-current={location.pathname === '/classics/yilin' ? 'page' : undefined}
+            >
+              <span className="workspace-nav-mark" aria-hidden="true">
+                林
+              </span>
+              <span className="workspace-nav-copy">
+                <strong>焦氏易林</strong>
               </span>
             </button>
           </div>

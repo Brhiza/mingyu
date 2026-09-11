@@ -33,7 +33,7 @@ function createChart(gender: 'male' | 'female', day: number) {
   });
 }
 
-test('八字五行方向随日主转换十神参照并保留生泄和克的方向', () => {
+test('八字五行方向随日主转换十神参照并保留生克方向', () => {
   const expectedRoles: Record<string, string[]> = {
     木: ['日主、比劫', '食伤', '财星', '官杀', '印星'],
     火: ['印星', '日主、比劫', '食伤', '财星', '官杀'],
@@ -53,7 +53,7 @@ test('八字五行方向随日主转换十神参照并保留生泄和克的方�
       const source = labels[i];
       const generated = labels[(i + 1) % 5];
       const controlled = labels[(i + 2) % 5];
-      assert.ok(section.includes(`${source}生${generated}，${generated}泄${source}`));
+      assert.ok(section.includes(`${source}生${generated}`));
       assert.ok(section.includes(`${source}克${controlled}`));
       assert.ok(!section.includes(`${generated}生${source}`));
       assert.ok(!section.includes(`${controlled}克${source}`));
@@ -140,7 +140,7 @@ test('npm 八字提示词应保留指定岁运的上下层资料', () => {
   assert.match(sections.focus, /选择日期：/);
   assert.match(sections.focus, /上层岁运：/);
   assert.match(sections.focus, /所选干支：/);
-  assert.match(sections.focus, /主要触发：/);
+  assert.match(sections.focus, /岁运干支关系：/);
   const boundaryContext = {
     ...context,
     cycleTimeRange: {
@@ -166,9 +166,9 @@ test('八字岁运正文区分同干支冲、岁运并临与天克地冲，并�
   });
   assert.ok(context);
   for (const [yearGanZhi, expected, excluded] of [
-    ['癸酉', '地支相冲', '构成岁运并临|构成天克地冲|同柱伏吟'],
-    ['癸卯', '构成岁运并临', '构成天克地冲'],
-    ['丁酉', '构成天克地冲', '构成岁运并临|同柱伏吟'],
+    ['癸酉', '六冲', '岁运并临|天克地冲|同柱伏吟'],
+    ['癸卯', '岁运并临', '天克地冲'],
+    ['丁酉', '天克地冲', '岁运并临|同柱伏吟'],
   ]) {
     const triggerEvidence = analyzeFortuneTriggers(result, [
       { id: 'dayun', type: 'dayun', label: '大运', ganZhi: '癸卯' },
@@ -181,14 +181,14 @@ test('八字岁运正文区分同干支冲、岁运并临与天克地冲，并�
       promptPayload: { ...context.promptPayload, triggerEvidence },
     })!.focus;
     const pairLines = focus
-      .split('\n')
-      .filter((line) => line.includes(`流年${yearGanZhi}与大运癸卯`))
+      .split('；')
+      .filter((line) => line.includes(`流年${yearGanZhi}↔大运癸卯`))
       .join('\n');
     assert.match(pairLines, new RegExp(expected));
     assert.doesNotMatch(pairLines, new RegExp(excluded));
-    if (yearGanZhi === '癸酉') assert.match(pairLines, /天干同干/);
-    assert.match(focus, /流日甲申与节气流月甲寅天干同干/);
-    assert.match(focus, /流日甲申与节气流月甲寅地支相冲/);
+    if (yearGanZhi === '癸酉') assert.match(pairLines, /干同/);
+    assert.match(focus, /流日甲申↔节气流月甲寅：干同、六冲/);
+    assert.match(focus, /流日甲申↔节气流月甲寅：干同、六冲/);
     assert.doesNotMatch(focus, /sourceLayerKey|已计算|反证事实|计算步骤|不得/);
   }
 });

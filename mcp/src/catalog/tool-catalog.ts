@@ -13,6 +13,7 @@ export interface ToolCatalogItem {
   title: string;
   category:
     | 'foundation'
+    | 'classics'
     | 'calendar'
     | 'instant'
     | 'naming'
@@ -100,6 +101,15 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     description: '按八字默认口径核验四柱干支的空亡、驿马与桃花传统神煞',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/foundation/shensha',
+  },
+  {
+    id: 'classics_yilin_query',
+    title: '焦氏易林固定索引查询',
+    category: 'classics',
+    type: 'utility',
+    description: '查询焦氏易林固定4096条卦对原文、双底本来源定位与未决字形/校勘状态',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/classics/yilin',
   },
 
   // 历法与天文
@@ -303,16 +313,6 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/bazi/compatibility/prompt',
   },
-  {
-    id: 'bazi_timeline_prompt',
-    title: '八字岁运流年提示词',
-    category: 'bazi',
-    type: 'prompt',
-    description:
-      '聚焦特定大运、流年或流月的针对性八字运势分析提示词；支持统一主题、主题细项和分析范围选择',
-    annotations: READONLY_IDEMPOTENT,
-    endpoint: '/bazi/timeline/prompt',
-  },
 
   // 紫微斗数
   {
@@ -402,7 +402,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '梅花易数排盘',
     category: 'meihua',
     type: 'calculate',
-    description: '梅花易数体用互变卦象与五行生克',
+    description: '梅花易数时间、数字、声音、字数、方位取象或随机起卦，返回体用互变卦象与五行生克',
     annotations: READONLY_NON_IDEMPOTENT,
     endpoint: '/divination/meihua',
   },
@@ -412,7 +412,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     category: 'meihua',
     type: 'prompt',
     description:
-      '生成梅花易数主互变卦象推进与体用生克的自包含提示词；支持统一主题、主题细项和分析范围选择',
+      '生成梅花易数主互变卦象推进与体用生克的自包含提示词；支持时间、数字、声音、字数、方位取象或随机起卦及统一主题、主题细项和分析范围选择',
     annotations: READONLY_NON_IDEMPOTENT,
     endpoint: '/divination/meihua/prompt',
   },
@@ -471,11 +471,11 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     endpoint: '/divination/qimen/prompt',
   },
   {
-    id: 'qimen_lifetime',
+    id: 'divine_qimen_lifetime',
     title: '奇门终身局排盘',
     category: 'qimen',
     type: 'calculate',
-    description: '根据出生四柱排布奇门命盘，提取终身格局与阶段卡',
+    description: '根据出生时刻与时区排布奇门终身本命盘，提取阶段卡和目标区间动态事件',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/divination/qimen/lifetime',
   },
@@ -484,7 +484,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '奇门终身局提示词',
     category: 'qimen',
     type: 'prompt',
-    description: '生成奇门终身局长远运势与格局自包含提示词；支持统一主题、主题细项和分析范围选择',
+    description: '生成奇门终身局长远运势与阶段动态自包含提示词；支持 periodRange 与 topics',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/divination/qimen/lifetime/prompt',
   },
@@ -595,7 +595,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '西洋星盘提示词',
     category: 'astrolabe',
     type: 'prompt',
-    description: '生成本命与行运过境解读自包含提示词；支持统一主题、主题细项和分析范围选择',
+    description:
+      '生成本命与行运过境解读自包含提示词；未指定范围时默认当前年度行运，支持统一主题、主题细项和分析范围选择',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/divination/astrolabe/prompt',
   },
@@ -642,7 +643,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '玄空飞星排盘',
     category: 'fengshui',
     type: 'calculate',
-    description: '三元九运山向运星排盘、反伏吟与城门诀计算',
+    description:
+      '三元九运山向运星排盘、下卦或兼向替卦、反伏吟与城门诀计算；可按目标流年、流月日期叠加飞星',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/metaphysics/xuankong/calculate',
   },
@@ -651,7 +653,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '玄空飞星提示词',
     category: 'fengshui',
     type: 'prompt',
-    description: '生成玄空飞星山向旺衰与城门气口自包含提示词；支持统一主题、主题细项和分析范围选择',
+    description:
+      '生成玄空飞星下卦或兼向替卦山向旺衰与城门气口自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/metaphysics/xuankong/prompt',
   },
@@ -660,7 +663,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '住宅风水合参排盘',
     category: 'fengshui',
     type: 'calculate',
-    description: '综合八宅生年命卦与玄空飞星九运的住宅风水合参',
+    description:
+      '综合八宅生年命卦与玄空飞星九运（下卦或兼向替卦）的住宅风水合参；可按目标流年、流月日期叠加飞星',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/metaphysics/residential/calculate',
   },
@@ -669,7 +673,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '住宅风水合参提示词',
     category: 'fengshui',
     type: 'prompt',
-    description: '生成住宅风水八宅玄空综合评估自包含提示词；支持统一主题、主题细项和分析范围选择',
+    description:
+      '生成住宅风水八宅玄空（下卦或兼向替卦）综合评估自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/metaphysics/residential/prompt',
   },
@@ -747,6 +752,15 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     endpoint: '/metaphysics/huangji-jingshi/prompt',
   },
   {
+    id: 'huangji_reference_tables',
+    title: '皇极经世扩展资料表',
+    category: 'huangji-jingshi',
+    type: 'utility',
+    description: '查询固定版本的声音律吕、动植物数与经辰历史纪年原表',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/metaphysics/huangji-jingshi/references',
+  },
+  {
     id: 'metaphysics_qizheng',
     title: '七政四余排盘',
     category: 'qizheng',
@@ -776,6 +790,35 @@ export function findTool(id: string): ToolCatalogItem | undefined {
 
 export function getToolAnnotations(id: string): ToolMetadataAnnotations {
   return findTool(id)?.annotations ?? READONLY_IDEMPOTENT;
+}
+
+const TOOL_USAGE_GUIDANCE: Record<ToolCatalogItem['type'], string> = {
+  prompt:
+    '直接解读时优先调用；本工具已完成所需计算，返回 prompt，并可能同步返回 result，无需先调同类排盘工具。按 prompt 回答，以 result 和 warnings 为事实边界',
+  calculate:
+    '只用于结构化盘面、表格展示或二次计算；直接解读应选同类提示词工具，避免重复计算。按 outputSchema 读取结构化字段和 warnings',
+  utility:
+    '只用于单项事实或固定查询；已有盘面包含所需资料时不要重复调用，也不要把单项结果扩大成完整吉凶',
+};
+
+function normalizeRegisteredDescription(description: string): string {
+  return description
+    .replace(/，?仅返回提示词；需要[^。]+/u, '')
+    .replace(/，?仅返回提示词/u, '')
+    .replace(/[，；。\s]+$/u, '');
+}
+
+export function getToolDescription(id: string, registeredDescription?: string): string {
+  const tool = findTool(id);
+  const baseDescription = normalizeRegisteredDescription(
+    registeredDescription?.trim() || tool?.description || '返回结构化术数资料',
+  );
+  const type = tool?.type ?? 'utility';
+  const replayGuidance =
+    tool && !tool.annotations.idempotentHint
+      ? '。本工具可能随机；同一问题只调用一次，复核时复用重放参数或固定输入'
+      : '';
+  return `${baseDescription}。调用与读取：${TOOL_USAGE_GUIDANCE[type]}${replayGuidance}。信息不足时按 error、missingFields 和 fallback 补问，不猜时辰、日期、地点或结论。`;
 }
 
 export function getToolsByCategory(category: ToolCatalogItem['category']): ToolCatalogItem[] {

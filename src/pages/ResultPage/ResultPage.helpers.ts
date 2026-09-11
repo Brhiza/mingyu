@@ -6,7 +6,9 @@ import { buildPortablePromptPack, type PromptContext } from '@/lib/ziwei-prompts
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import {
   formatBaziForPrompt,
+  getMonthDaysInfo,
   type BaziChartResult,
+  type FortuneSelectionContext,
   type BaziFortuneSelectionValue,
 } from 'mingyu-core/bazi';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
@@ -28,6 +30,8 @@ import {
 } from './ResultPage.constants';
 import { getThematicTopicConfig, normalizeThematicTopic } from 'mingyu-core/prompt';
 import {
+  formatBaziFullFortune,
+  formatBaziFortuneSelection,
   buildPromptSelectionTask,
   getPromptSelectionSection,
   requirePromptSelection,
@@ -332,21 +336,42 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     .join('\n\n');
 }
 
-export function formatBaziFullFortuneText(result: BaziChartResult) {
-  if (!result.luckInfo?.cycles?.length) {
-    return '';
-  }
-
+export function buildEnhancedBaziPromptPack(
+  result: BaziChartResult,
+  context: FortuneSelectionContext | null,
+) {
+  const fortune = formatBaziFortuneSelection(context);
   return [
-    '完整大运流年：',
-    ...result.luckInfo.cycles.flatMap((cycle, cycleIndex) => {
-      const cycleType = cycle.isXiaoyun ? '童运' : cycle.type;
-      return [
-        `${cycleIndex + 1}. ${cycle.ganZhi}${cycleType}：${cycle.year}年起，约${cycle.age}岁交运`,
-        ...cycle.years.map((year) => `  - ${year.year}年（${year.age}岁）${year.ganZhi}`),
-      ];
-    }),
-  ].join('\n');
+    formatBaziForPrompt(result, null, 'general'),
+    fortune ? `【岁运重点】\n${fortune.focus}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+export function formatZiweiSupportingScopeText(
+  payloads: Partial<Record<ScopeType, AnalysisPayloadV1>> | null,
+  scope: ScopeType,
+) {
+  if (!payloads) return '';
+  const order: ScopeType[] = ['decadal', 'yearly', 'monthly', 'daily', 'hourly'];
+  return order
+    .slice(0, Math.max(0, order.indexOf(scope)))
+    .map((parent) => {
+      const payload = payloads[parent];
+      if (!payload) return '';
+      const palaces = payload.palaces.map((palace) => {
+        const stars = palace.scope_stars.map((star) => star.name).join('、');
+        return `${(palace.dynamic_scope_name || palace.name).replace(/宫$/, '')}宫落本命${palace.name.replace(/宫$/, '')}宫（${palace.heavenly_stem}${palace.earthly_branch}）${stars ? `，流曜：${stars}` : ''}`;
+      });
+      return `${ziweiScopeLabelMap[parent as ZiweiScopeMode]}：${payload.active_scope.label}，${payload.active_scope.solar_date}\n四化：${formatZiweiMutagenMap(payload)}\n${palaces.join('；')}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+export function formatBaziFullFortuneText(result: BaziChartResult) {
+  return result ? formatBaziFullFortune(result) : '';
 }
 
 function formatZiweiMutagenMap(payload: AnalysisPayloadV1) {
@@ -514,22 +539,36 @@ export function formatZiweiPromptScopeSummary(
   return `${label} · ${dateStr}`;
 }
 
-export function mapBaziFortuneToZiweiScope(params: {
-  scope: BaziFortuneSelectionValue['scope'];
-  year?: number;
-  month?: number;
-  day?: number;
-}) {
+export function mapBaziFortuneToZiweiScope(
+  params: {
+    scope: BaziFortuneSelectionValue['scope'];
+    year?: number;
+    month?: number;
+    day?: number;
+  },
+  context?: FortuneSelectionContext | null,
+) {
+  const days =
+    (params.scope === 'month' || params.scope === 'day') && params.year && params.month
+      ? getMonthDaysInfo(params.year, params.month)
+      : [];
   switch (params.scope) {
     case 'natal':
       return { scope: 'origin' as const, dateStr: '' };
     case 'full':
       return { scope: 'full' as const, dateStr: '' };
-    case 'dayun':
+    case 'dayun': {
+      const anchor =
+        context?.yearBreakdown?.[Math.floor(context.yearBreakdown.length / 2)]?.timeRange.start;
       return {
         scope: 'decadal' as const,
-        dateStr: params.year ? `${params.year}-07-01` : '',
+        dateStr: anchor
+          ? `${anchor.year}-${String(anchor.month).padStart(2, '0')}-${String(anchor.day).padStart(2, '0')}`
+          : params.year
+            ? `${params.year}-07-01`
+            : '',
       };
+    }
     case 'year':
       return {
         scope: 'yearly' as const,
@@ -539,17 +578,17 @@ export function mapBaziFortuneToZiweiScope(params: {
       return {
         scope: 'monthly' as const,
         dateStr:
-          params.year && params.month
-            ? `${params.year}-${String(params.month).padStart(2, '0')}-15`
-            : '',
+          context?.dayBreakdown?.[Math.floor(context.dayBreakdown.length / 2)]?.date ||
+          days[Math.floor(days.length / 2)]?.solarDate ||
+          '',
       };
     case 'day':
       return {
         scope: 'daily' as const,
         dateStr:
-          params.year && params.month && params.day
-            ? `${params.year}-${String(params.month).padStart(2, '0')}-${String(params.day).padStart(2, '0')}`
-            : '',
+          context?.dayBreakdown?.[0]?.date ||
+          days.find((day) => day.day === params.day)?.solarDate ||
+          '',
       };
     default:
       return { scope: 'origin' as const, dateStr: '' };

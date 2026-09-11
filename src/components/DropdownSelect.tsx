@@ -134,7 +134,7 @@ export function DropdownSelect<T extends string>({
       onChange(option.value);
       setActiveIndex(index);
       closeMenu();
-      triggerRef.current?.focus();
+      triggerRef.current?.focus({ preventScroll: true });
     },
     [closeMenu, onChange, options],
   );
@@ -151,11 +151,14 @@ export function DropdownSelect<T extends string>({
     const visualViewport = window.visualViewport;
 
     document.addEventListener('pointerdown', handlePointerDown);
+    const resizeObserver = new ResizeObserver(handleViewportChange);
+    if (triggerRef.current) resizeObserver.observe(triggerRef.current);
     window.addEventListener('resize', handleViewportChange);
     window.addEventListener('scroll', handleViewportChange, true);
     visualViewport?.addEventListener('resize', handleViewportChange);
     visualViewport?.addEventListener('scroll', handleViewportChange);
     return () => {
+      resizeObserver.disconnect();
       document.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('resize', handleViewportChange);
       window.removeEventListener('scroll', handleViewportChange, true);
@@ -178,9 +181,14 @@ export function DropdownSelect<T extends string>({
   useEffect(() => {
     if (!isOpen || activeIndex < 0) return;
 
-    menuRef.current
-      ?.querySelectorAll<HTMLElement>('[role="option"]')
-      [activeIndex]?.scrollIntoView({ block: 'nearest' });
+    const menu = menuRef.current;
+    const option = menu?.querySelectorAll<HTMLElement>('[role="option"]')[activeIndex];
+    if (!menu || !option) return;
+    const menuRect = menu.getBoundingClientRect();
+    const optionRect = option.getBoundingClientRect();
+    if (optionRect.top < menuRect.top) menu.scrollTop -= menuRect.top - optionRect.top;
+    else if (optionRect.bottom > menuRect.bottom)
+      menu.scrollTop += optionRect.bottom - menuRect.bottom;
   }, [activeIndex, isOpen]);
 
   function moveActiveIndex(direction: 1 | -1) {
@@ -233,7 +241,9 @@ export function DropdownSelect<T extends string>({
         onKeyDown={handleKeyDown}
       >
         {prefix ? <span className="workspace-ui-dropdown-prefix">{prefix}</span> : null}
-        <span>{selectedOption?.triggerLabel ?? selectedOption?.label ?? ''}</span>
+        <span className="workspace-ui-dropdown-value">
+          {selectedOption?.triggerLabel ?? selectedOption?.label ?? ''}
+        </span>
       </button>
 
       {isOpen && position

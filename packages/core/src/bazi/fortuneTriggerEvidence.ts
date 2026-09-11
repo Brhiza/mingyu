@@ -229,7 +229,8 @@ function compareLayers(
   const branchSame = sourceParts.zhi === targetParts.zhi;
   const branchClash = BASIC_MAPPINGS.DI_ZHI_CHONG[sourceParts.zhi] === targetParts.zhi;
 
-  if (source.ganZhi === target.ganZhi) {
+  const samePillar = source.ganZhi === target.ganZhi;
+  if (samePillar) {
     items.push(
       relation(
         'pillar-fuyin',
@@ -269,7 +270,7 @@ function compareLayers(
       ),
     );
   }
-  if (stemSame) {
+  if (!samePillar && stemSame) {
     items.push(
       relation(
         'stem-same',
@@ -308,11 +309,11 @@ function compareLayers(
       ),
     );
   }
-  if (branchSame) {
+  if (!samePillar && branchSame) {
     items.push(
       relation(
         'branch-same',
-        `${prefix}地支伏吟`,
+        `${prefix}地支同支`,
         source,
         target,
         calculationStepKey,

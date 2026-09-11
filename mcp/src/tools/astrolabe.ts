@@ -7,6 +7,7 @@ import { ASTROLABE_PROMPT_TOPICS } from '../../../src/lib/astrolabe-prompts.js';
 import {
   buildAstrolabeFullScopeContexts,
   buildAstrolabeScopeContext,
+  getDefaultAstrolabeScopeDate,
 } from '../../../src/lib/astrolabe-scope.js';
 import { buildAstrolabeSynastryPrompt } from '../../../src/lib/astrolabe-synastry-prompt.js';
 import type { AstrolabeData } from '../../../src/types/divination.js';
@@ -58,12 +59,14 @@ const astrolabePromptSchema = extendPromptSchema(
     astrolabeScope: z
       .enum(astrolabePromptScopes)
       .optional()
-      .describe('星盘分析范围：natal=本命, full=完整输出版, yearly=流年, monthly=流月, daily=流日'),
+      .describe(
+        '星盘分析范围：natal=本命, full=同一参考日的完整层级输出版, yearly=流年, monthly=流月, daily=流日；省略时默认当前年度流年',
+      ),
     astrolabeScopeDate: z
       .string()
       .optional()
       .describe(
-        '星盘行运日期；full 和 daily 用 YYYY-MM-DD，yearly 用 YYYY，monthly 用 YYYY-MM；除 natal 外必填',
+        '星盘行运日期；full 和 daily 用 YYYY-MM-DD，yearly 用 YYYY，monthly 用 YYYY-MM；显式指定非 natal 范围时必填，省略范围时默认当前年度',
       ),
     astrolabeScopeText: z
       .string()
@@ -125,6 +128,20 @@ function buildAstrolabeResult(args: z.infer<typeof astrolabeSchema>) {
   return generateAstrolabe(buildAstrolabeInput(args));
 }
 
+function resolveAstrolabePromptScopeArgs(
+  args: z.infer<typeof astrolabePromptSchema>,
+): z.infer<typeof astrolabePromptSchema> {
+  if (args.astrolabeScope !== undefined) {
+    return args;
+  }
+
+  return {
+    ...args,
+    astrolabeScope: 'yearly',
+    astrolabeScopeDate: args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate('yearly'),
+  };
+}
+
 function buildAstrolabeSynastryResult(args: z.infer<typeof astrolabeSynastrySchema>) {
   const chart1 = buildAstrolabeResult(args.person1);
   const chart2 = buildAstrolabeResult(args.person2);
@@ -157,8 +174,14 @@ function buildAstrolabePromptScopeText(
   const customText = args.astrolabeScopeText?.trim();
   if (customText) return customText;
 
-  const scope = args.astrolabeScope ?? 'natal';
-  const dateStr = scope === 'natal' ? '' : requireAstrolabeScopeDate(args.astrolabeScopeDate);
+  const hasExplicitScope = args.astrolabeScope !== undefined;
+  const scope = args.astrolabeScope ?? 'yearly';
+  const dateStr =
+    scope === 'natal'
+      ? ''
+      : hasExplicitScope
+        ? requireAstrolabeScopeDate(args.astrolabeScopeDate)
+        : args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate(scope);
   if (scope === 'full') {
     return buildAstrolabeFullScopePromptText(result, dateStr);
   }
@@ -180,8 +203,14 @@ function buildAstrolabeScopeEvidence(
   const customText = args.astrolabeScopeText?.trim();
   if (customText) return { scope: 'custom' as const, promptText: customText };
 
-  const scope = args.astrolabeScope ?? 'natal';
-  const dateStr = scope === 'natal' ? '' : requireAstrolabeScopeDate(args.astrolabeScopeDate);
+  const hasExplicitScope = args.astrolabeScope !== undefined;
+  const scope = args.astrolabeScope ?? 'yearly';
+  const dateStr =
+    scope === 'natal'
+      ? ''
+      : hasExplicitScope
+        ? requireAstrolabeScopeDate(args.astrolabeScopeDate)
+        : args.astrolabeScopeDate?.trim() || getDefaultAstrolabeScopeDate(scope);
   if (scope === 'full') {
     return {
       scope: 'full' as const,
@@ -215,24 +244,30 @@ export function registerAstrolabeTool(server: McpServer) {
   server.registerTool(
     'astrolabe_prompt',
     {
-      description:
-        '星盘生成并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要星盘和结构化证据时调用 divine_astrolabe',
+      description: '星盘计算并生成可直接交给 AI 的完整任务书，同时返回星盘和结构化证据',
       inputSchema: astrolabePromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {
-        const result = buildAstrolabeResult(args);
+        const scopeArgs = resolveAstrolabePromptScopeArgs(args);
+        const result = buildAstrolabeResult(scopeArgs);
         return createStructuredToolResult({
-          result: { ...result, scopeEvidence: buildAstrolabeScopeEvidence(args, result) },
-          prompt: buildCommonDivinationPrompt('astrolabe', args.question, result, args.promptMode, {
-            astrolabeTopic: args.astrolabeTopic,
-            astrolabeScopeText: buildAstrolabePromptScopeText(args, result),
-            schools: args.schools,
-            topicId: args.topicId,
-            subtopicId: args.subtopicId,
-            scope: args.scope,
-          }),
+          result: { ...result, scopeEvidence: buildAstrolabeScopeEvidence(scopeArgs, result) },
+          prompt: buildCommonDivinationPrompt(
+            'astrolabe',
+            scopeArgs.question,
+            result,
+            scopeArgs.promptMode,
+            {
+              astrolabeTopic: scopeArgs.astrolabeTopic,
+              astrolabeScopeText: buildAstrolabePromptScopeText(scopeArgs, result),
+              schools: scopeArgs.schools,
+              topicId: scopeArgs.topicId,
+              subtopicId: scopeArgs.subtopicId,
+              scope: scopeArgs.scope,
+            },
+          ),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成星盘提示词失败'));
@@ -263,8 +298,7 @@ export function registerAstrolabeTool(server: McpServer) {
   server.registerTool(
     'astrolabe_synastry_prompt',
     {
-      description:
-        '西洋占星双盘计算并生成可直接使用的完整任务书，仅返回提示词；需要本命盘和跨盘证据时调用 astrolabe_synastry',
+      description: '西洋占星双盘计算并生成可直接使用的完整任务书，同时返回双方本命盘和跨盘证据',
       inputSchema: astrolabeSynastryPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

@@ -11,6 +11,7 @@ export type { PromptChartScene } from './baziAnalysisFormatter';
 export { generateEnhancedAnalysisSection } from './baziPromptEnhancement';
 export {
   buildCurrentBaziFortuneSelection,
+  buildCurrentBaziFortuneSelectionForScope,
   buildFortuneSelectionContext,
   buildRecentBaziFortuneSelection,
   getCurrentBaziLuckCycle,

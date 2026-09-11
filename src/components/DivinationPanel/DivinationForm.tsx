@@ -7,6 +7,8 @@ import {
   LIUYAO_TEMPLATE_OPTIONS,
   LIUREN_TEMPLATE_OPTIONS,
   MEIHUA_METHOD_OPTIONS,
+  MEIHUA_DIRECTION_OPTIONS,
+  MEIHUA_OBJECT_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from 'mingyu-core/divination/config';
@@ -44,6 +46,24 @@ const DIVINATION_TIME_MODE_OPTIONS = [
 const DIVINATION_TIME_STANDARD_OPTIONS = [
   { value: 'beijing', label: '北京时间' },
   { value: 'true-solar', label: '真太阳时' },
+] as const;
+
+const HUANGJI_METHOD_OPTIONS = [
+  { value: 'standard', label: '年月日时' },
+  { value: 'six-day', label: '六日逐爻' },
+] as const;
+
+const HUANGJI_SIX_DAY_MODEL_OPTIONS = [
+  {
+    value: 'six-day-seven-part',
+    label: '冬至岁周换算（现代）',
+    triggerLabel: '现代换算',
+  },
+  {
+    value: 'six-day-explicit-epoch',
+    label: '显式校定历元',
+    triggerLabel: '显式历元',
+  },
 ] as const;
 
 const JINKOUJUE_BRANCH_OPTIONS = [
@@ -183,7 +203,12 @@ function PromptSelectionFields({
   updateDraft,
 }: Pick<DivinationFormProps, 'draft' | 'updateDraft'>) {
   if (draft.method === 'ssgw') return null;
-  const methodId = draft.method === 'huangji' ? 'huangji-jingshi' : draft.method;
+  const methodId =
+    draft.method === 'huangji'
+      ? 'huangji-jingshi'
+      : draft.method === 'wuyun'
+        ? 'wuyun-liuqi'
+        : draft.method;
   const capability = getPromptMethodCapability(methodId);
   const topicOptions = getPromptTopicOptions(methodId);
   const topicId = topicOptions.some((item) => item.id === draft.promptTopicId)
@@ -282,7 +307,9 @@ export function DivinationForm({
   const questionPlaceholder =
     draft.method === 'huangji'
       ? '例如：这个时点整体处于怎样的时势阶段，接下来应把握什么主线？'
-      : '例如：我现在该主动推进，还是先稳住等待更好的时机？';
+      : draft.method === 'wuyun'
+        ? '例如：2026年全年气候节律与需要关注的重点是什么？'
+        : '例如：我现在该主动推进，还是先稳住等待更好的时机？';
   const submitButtonText =
     draft.method === 'almanac'
       ? '开始择日'
@@ -290,7 +317,9 @@ export function DivinationForm({
         ? '生成星盘'
         : draft.method === 'huangji'
           ? '生成皇极盘'
-          : '开始占卜';
+          : draft.method === 'wuyun'
+            ? '生成五运六气盘'
+            : '开始占卜';
   const timeActionLabel =
     draft.method === 'huangji'
       ? '起盘'
@@ -300,10 +329,19 @@ export function DivinationForm({
           ? '起课'
           : '起卦';
   const isTimeBasedDivination = isTimeBasedDivinationDraft(draft);
+  const huangjiMethod = draft.huangjiMethod ?? 'standard';
+  const isHuangjiSixDay = draft.method === 'huangji' && huangjiMethod === 'six-day';
+  const huangjiSixDayCalendarModel = draft.huangjiSixDayCalendarModel ?? 'six-day-seven-part';
+  const isHuangjiSixDayExplicitEpoch =
+    isHuangjiSixDay && huangjiSixDayCalendarModel === 'six-day-explicit-epoch';
   const supportsTrueSolarTime =
-    isTimeBasedDivination && !(draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year');
+    isTimeBasedDivination &&
+    !isHuangjiSixDay &&
+    !(draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year');
   const divinationTimeMode = draft.divinationTimeMode ?? 'current';
+  const effectiveDivinationTimeMode = isHuangjiSixDay ? 'custom' : divinationTimeMode;
   const divinationTimeStandard = draft.divinationTimeStandard ?? 'beijing';
+  const meihuaCharacterCount = Array.from(draft.meihuaCharacterText.trim()).length;
   const liuyaoMethod = draft.liuyaoMethod ?? 'time';
   const liuyaoYaos = draft.liuyaoYaos ?? [];
   const liuyaoCoinThrows = draft.liuyaoCoinThrows ?? [];
@@ -429,11 +467,34 @@ export function DivinationForm({
     updateDraft('lenormandInteractiveSamples', []);
   }
 
+  function updateMeihuaCharacterText(value: string) {
+    const nextCharacterCount = Array.from(value.trim()).length;
+    const currentCharacterCount = Array.from(draft.meihuaCharacterText.trim()).length;
+    updateDraft('meihuaCharacterText', value);
+    if (nextCharacterCount !== currentCharacterCount) {
+      updateDraft('meihuaCharacterTones', '');
+      updateDraft('meihuaCharacterStrokeCounts', '');
+      updateDraft('meihuaCharacterLeftStrokes', '');
+      updateDraft('meihuaCharacterRightStrokes', '');
+    }
+  }
+
   function updateMethod(value: DivinationDraft['method']) {
     updateDraft('method', value);
     updateDraft('promptTopicId', undefined);
     updateDraft('promptSubtopicId', undefined);
     updateDraft('promptScope', undefined);
+  }
+
+  function updateHuangjiMethod(value: NonNullable<DivinationDraft['huangjiMethod']>) {
+    updateDraft('huangjiMethod', value);
+    if (value === 'six-day') updateDraft('divinationTimeMode', 'custom');
+  }
+
+  function updateHuangjiSixDayCalendarModel(
+    value: NonNullable<DivinationDraft['huangjiSixDayCalendarModel']>,
+  ) {
+    updateDraft('huangjiSixDayCalendarModel', value);
   }
 
   if (isAlmanac) {
@@ -591,6 +652,43 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
+                    {draft.method === 'huangji' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="huangji-method-select">起盘方式</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="huangji-method-select"
+                            value={huangjiMethod}
+                            options={HUANGJI_METHOD_OPTIONS}
+                            onChange={(value) =>
+                              updateHuangjiMethod(
+                                value as NonNullable<DivinationDraft['huangjiMethod']>,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {isHuangjiSixDay ? (
+                      <div className="form-item divination-inline-field divination-huangji-model-field">
+                        <label htmlFor="huangji-six-day-model-select">换算模型</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <DropdownSelect
+                            id="huangji-six-day-model-select"
+                            value={huangjiSixDayCalendarModel}
+                            options={HUANGJI_SIX_DAY_MODEL_OPTIONS}
+                            ariaLabel="六日逐爻换算模型"
+                            onChange={(value) =>
+                              updateHuangjiSixDayCalendarModel(
+                                value as NonNullable<DivinationDraft['huangjiSixDayCalendarModel']>,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
                     {draft.method === 'meihua' && draft.meihuaMethod === 'number' ? (
                       <div className="form-item divination-inline-field divination-inline-number-field">
                         <label htmlFor="meihua-number-input">起卦数字</label>
@@ -606,6 +704,153 @@ export function DivinationForm({
                           }
                         />
                       </div>
+                    ) : null}
+
+                    {draft.method === 'meihua' && draft.meihuaMethod === 'sound' ? (
+                      <div className="form-item divination-inline-field divination-inline-number-field">
+                        <label htmlFor="meihua-sound-count-input">声音数</label>
+                        <input
+                          id="meihua-sound-count-input"
+                          type="text"
+                          inputMode="numeric"
+                          className="form-input"
+                          placeholder="例如 3"
+                          value={draft.meihuaSoundCount}
+                          onChange={(event) =>
+                            updateDraft(
+                              'meihuaSoundCount',
+                              event.target.value.replace(/[^\d]/g, ''),
+                            )
+                          }
+                        />
+                      </div>
+                    ) : null}
+
+                    {draft.method === 'meihua' && draft.meihuaMethod === 'character' ? (
+                      <>
+                        <div className="form-item divination-inline-field">
+                          <label htmlFor="meihua-character-text-input">起卦文字</label>
+                          <input
+                            id="meihua-character-text-input"
+                            type="text"
+                            className="form-input"
+                            placeholder="例如 今日动静如何"
+                            value={draft.meihuaCharacterText}
+                            onChange={(event) => updateMeihuaCharacterText(event.target.value)}
+                          />
+                        </div>
+                        {meihuaCharacterCount >= 4 && meihuaCharacterCount <= 10 ? (
+                          <div className="form-item divination-inline-field">
+                            <label htmlFor="meihua-character-tones-input">
+                              传统平上去入声数（非普通话声调）
+                            </label>
+                            <input
+                              id="meihua-character-tones-input"
+                              type="text"
+                              className="form-input"
+                              placeholder="4-10字填写，如 1,4,3,3"
+                              value={draft.meihuaCharacterTones}
+                              onChange={(event) =>
+                                updateDraft('meihuaCharacterTones', event.target.value)
+                              }
+                            />
+                          </div>
+                        ) : null}
+                        {[2, 3].includes(meihuaCharacterCount) ? (
+                          <div className="form-item divination-inline-field">
+                            <label htmlFor="meihua-character-strokes-input">各字笔画数</label>
+                            <input
+                              id="meihua-character-strokes-input"
+                              type="text"
+                              inputMode="numeric"
+                              className="form-input"
+                              placeholder="2-3字填写，如 7,8"
+                              value={draft.meihuaCharacterStrokeCounts}
+                              onChange={(event) =>
+                                updateDraft(
+                                  'meihuaCharacterStrokeCounts',
+                                  event.target.value.replace(/[^\d,，、\s]/g, ''),
+                                )
+                              }
+                            />
+                          </div>
+                        ) : null}
+                        {meihuaCharacterCount === 1 ? (
+                          <>
+                            <div className="form-item divination-inline-field">
+                              <label htmlFor="meihua-character-left-strokes-input">左侧笔画</label>
+                              <input
+                                id="meihua-character-left-strokes-input"
+                                type="text"
+                                inputMode="numeric"
+                                className="form-input"
+                                placeholder="单字分笔"
+                                value={draft.meihuaCharacterLeftStrokes}
+                                onChange={(event) =>
+                                  updateDraft(
+                                    'meihuaCharacterLeftStrokes',
+                                    event.target.value.replace(/[^\d]/g, ''),
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="form-item divination-inline-field">
+                              <label htmlFor="meihua-character-right-strokes-input">右侧笔画</label>
+                              <input
+                                id="meihua-character-right-strokes-input"
+                                type="text"
+                                inputMode="numeric"
+                                className="form-input"
+                                placeholder="单字分笔"
+                                value={draft.meihuaCharacterRightStrokes}
+                                onChange={(event) =>
+                                  updateDraft(
+                                    'meihuaCharacterRightStrokes',
+                                    event.target.value.replace(/[^\d]/g, ''),
+                                  )
+                                }
+                              />
+                            </div>
+                          </>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {draft.method === 'meihua' && draft.meihuaMethod === 'direction' ? (
+                      <>
+                        <div className="form-item divination-inline-field">
+                          <label htmlFor="meihua-direction-select">方位</label>
+                          <div className="divination-select-shell divination-desktop-select-shell">
+                            <DropdownSelect
+                              id="meihua-direction-select"
+                              value={draft.meihuaDirection}
+                              options={MEIHUA_DIRECTION_OPTIONS}
+                              onChange={(value) =>
+                                updateDraft(
+                                  'meihuaDirection',
+                                  value as DivinationDraft['meihuaDirection'],
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="form-item divination-inline-field">
+                          <label htmlFor="meihua-object-type-select">所见物类</label>
+                          <div className="divination-select-shell divination-desktop-select-shell">
+                            <DropdownSelect
+                              id="meihua-object-type-select"
+                              value={draft.meihuaObjectType}
+                              options={MEIHUA_OBJECT_OPTIONS}
+                              onChange={(value) =>
+                                updateDraft(
+                                  'meihuaObjectType',
+                                  value as DivinationDraft['meihuaObjectType'],
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      </>
                     ) : null}
 
                     {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number' ? (
@@ -734,8 +979,13 @@ export function DivinationForm({
                         <div className="divination-select-shell divination-desktop-select-shell">
                           <DropdownSelect
                             id="divination-time-mode-select"
-                            value={divinationTimeMode}
-                            options={DIVINATION_TIME_MODE_OPTIONS}
+                            value={effectiveDivinationTimeMode}
+                            options={
+                              isHuangjiSixDay
+                                ? [{ value: 'custom', label: '自定时间' }]
+                                : DIVINATION_TIME_MODE_OPTIONS
+                            }
+                            disabled={isHuangjiSixDay}
                             onChange={(value) =>
                               updateDraft(
                                 'divinationTimeMode',
@@ -852,6 +1102,34 @@ export function DivinationForm({
                   </div>
                 ) : null}
 
+                {draft.method === 'huangji' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <DropdownSelect
+                      value={huangjiMethod}
+                      options={HUANGJI_METHOD_OPTIONS}
+                      ariaLabel="皇极起盘方式"
+                      onChange={(value) =>
+                        updateHuangjiMethod(value as NonNullable<DivinationDraft['huangjiMethod']>)
+                      }
+                    />
+                  </div>
+                ) : null}
+
+                {isHuangjiSixDay ? (
+                  <div className="divination-mobile-secondary-picker divination-huangji-model-picker">
+                    <DropdownSelect
+                      value={huangjiSixDayCalendarModel}
+                      options={HUANGJI_SIX_DAY_MODEL_OPTIONS}
+                      ariaLabel="六日逐爻换算模型"
+                      onChange={(value) =>
+                        updateHuangjiSixDayCalendarModel(
+                          value as NonNullable<DivinationDraft['huangjiSixDayCalendarModel']>,
+                        )
+                      }
+                    />
+                  </div>
+                ) : null}
+
                 {draft.method === 'liuyao' ? (
                   <div className="divination-mobile-secondary-picker">
                     <DropdownSelect
@@ -923,8 +1201,13 @@ export function DivinationForm({
                 {isTimeBasedDivination ? (
                   <div className="divination-mobile-secondary-picker">
                     <DropdownSelect
-                      value={divinationTimeMode}
-                      options={DIVINATION_TIME_MODE_OPTIONS}
+                      value={effectiveDivinationTimeMode}
+                      options={
+                        isHuangjiSixDay
+                          ? [{ value: 'custom', label: '自定时间' }]
+                          : DIVINATION_TIME_MODE_OPTIONS
+                      }
+                      disabled={isHuangjiSixDay}
                       ariaLabel={`${timeActionLabel}时间`}
                       onChange={(value) =>
                         updateDraft(
@@ -983,6 +1266,138 @@ export function DivinationForm({
                   value={draft.meihuaNumber}
                   onChange={(event) =>
                     updateDraft('meihuaNumber', event.target.value.replace(/[^\d]/g, ''))
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {draft.method === 'meihua' && draft.meihuaMethod === 'sound' ? (
+            <div className="form-row divination-mobile-only">
+              <div className="form-item">
+                <label htmlFor="meihua-sound-count-input-mobile">声音数</label>
+                <input
+                  id="meihua-sound-count-input-mobile"
+                  type="text"
+                  inputMode="numeric"
+                  className="form-input"
+                  placeholder="例如 3"
+                  value={draft.meihuaSoundCount}
+                  onChange={(event) =>
+                    updateDraft('meihuaSoundCount', event.target.value.replace(/[^\d]/g, ''))
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {draft.method === 'meihua' && draft.meihuaMethod === 'character' ? (
+            <div className="form-row divination-mobile-only">
+              <div className="form-item">
+                <label htmlFor="meihua-character-text-input-mobile">起卦文字</label>
+                <input
+                  id="meihua-character-text-input-mobile"
+                  type="text"
+                  className="form-input"
+                  placeholder="例如 今日动静如何"
+                  value={draft.meihuaCharacterText}
+                  onChange={(event) => updateMeihuaCharacterText(event.target.value)}
+                />
+              </div>
+              {meihuaCharacterCount >= 4 && meihuaCharacterCount <= 10 ? (
+                <div className="form-item">
+                  <label htmlFor="meihua-character-tones-input-mobile">
+                    传统平上去入声数（非普通话声调）
+                  </label>
+                  <input
+                    id="meihua-character-tones-input-mobile"
+                    type="text"
+                    className="form-input"
+                    placeholder="4-10字填写，如 1,4,3,3"
+                    value={draft.meihuaCharacterTones}
+                    onChange={(event) => updateDraft('meihuaCharacterTones', event.target.value)}
+                  />
+                </div>
+              ) : null}
+              {[2, 3].includes(meihuaCharacterCount) ? (
+                <div className="form-item">
+                  <label htmlFor="meihua-character-strokes-input-mobile">各字笔画数</label>
+                  <input
+                    id="meihua-character-strokes-input-mobile"
+                    type="text"
+                    inputMode="numeric"
+                    className="form-input"
+                    placeholder="2-3字填写，如 7,8"
+                    value={draft.meihuaCharacterStrokeCounts}
+                    onChange={(event) =>
+                      updateDraft(
+                        'meihuaCharacterStrokeCounts',
+                        event.target.value.replace(/[^\d,，、\s]/g, ''),
+                      )
+                    }
+                  />
+                </div>
+              ) : null}
+              {meihuaCharacterCount === 1 ? (
+                <div className="form-row-flex">
+                  <div className="form-item">
+                    <label htmlFor="meihua-character-left-strokes-input-mobile">左侧笔画</label>
+                    <input
+                      id="meihua-character-left-strokes-input-mobile"
+                      type="text"
+                      inputMode="numeric"
+                      className="form-input"
+                      value={draft.meihuaCharacterLeftStrokes}
+                      onChange={(event) =>
+                        updateDraft(
+                          'meihuaCharacterLeftStrokes',
+                          event.target.value.replace(/[^\d]/g, ''),
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="form-item">
+                    <label htmlFor="meihua-character-right-strokes-input-mobile">右侧笔画</label>
+                    <input
+                      id="meihua-character-right-strokes-input-mobile"
+                      type="text"
+                      inputMode="numeric"
+                      className="form-input"
+                      value={draft.meihuaCharacterRightStrokes}
+                      onChange={(event) =>
+                        updateDraft(
+                          'meihuaCharacterRightStrokes',
+                          event.target.value.replace(/[^\d]/g, ''),
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {draft.method === 'meihua' && draft.meihuaMethod === 'direction' ? (
+            <div className="form-row-flex divination-mobile-only">
+              <div className="form-item">
+                <label htmlFor="meihua-direction-select-mobile">方位</label>
+                <DropdownSelect
+                  id="meihua-direction-select-mobile"
+                  value={draft.meihuaDirection}
+                  options={MEIHUA_DIRECTION_OPTIONS}
+                  onChange={(value) =>
+                    updateDraft('meihuaDirection', value as DivinationDraft['meihuaDirection'])
+                  }
+                />
+              </div>
+              <div className="form-item">
+                <label htmlFor="meihua-object-type-select-mobile">所见物类</label>
+                <DropdownSelect
+                  id="meihua-object-type-select-mobile"
+                  value={draft.meihuaObjectType}
+                  options={MEIHUA_OBJECT_OPTIONS}
+                  onChange={(value) =>
+                    updateDraft('meihuaObjectType', value as DivinationDraft['meihuaObjectType'])
                   }
                 />
               </div>
@@ -1361,7 +1776,7 @@ export function DivinationForm({
             </div>
           ) : null}
 
-          {isTimeBasedDivination && divinationTimeMode === 'custom' ? (
+          {isTimeBasedDivination && effectiveDivinationTimeMode === 'custom' ? (
             draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year' ? (
               <div className="divination-extra-panel divination-time-panel">
                 <div className="form-row">
@@ -1383,9 +1798,11 @@ export function DivinationForm({
               </div>
             ) : (
               <div className="divination-extra-panel divination-time-panel">
-                <div className="form-row-flex">
+                <div className={`form-row-flex ${isHuangjiSixDay ? 'has-third-item' : ''}`}>
                   <div className="form-item">
-                    <label htmlFor="custom-divination-date-input">{timeActionLabel}日期</label>
+                    <label htmlFor="custom-divination-date-input">
+                      {isHuangjiSixDay ? '目标日期' : `${timeActionLabel}日期`}
+                    </label>
                     <input
                       id="custom-divination-date-input"
                       type="date"
@@ -1396,7 +1813,9 @@ export function DivinationForm({
                   </div>
                   <div className="form-item">
                     <label htmlFor="custom-divination-time-input">
-                      {timeActionLabel}时间（北京时间）
+                      {isHuangjiSixDay
+                        ? '目标时间（所选时区）'
+                        : `${timeActionLabel}时间（北京时间）`}
                     </label>
                     <input
                       id="custom-divination-time-input"
@@ -1406,9 +1825,93 @@ export function DivinationForm({
                       onChange={(event) => updateDraft('customDivinationTime', event.target.value)}
                     />
                   </div>
+                  {isHuangjiSixDay ? (
+                    <div className="form-item">
+                      <label htmlFor="huangji-six-day-timezone-input">时区（UTC偏移）</label>
+                      <input
+                        id="huangji-six-day-timezone-input"
+                        type="number"
+                        min="-12"
+                        max="14"
+                        step="any"
+                        inputMode="decimal"
+                        className="form-input"
+                        value={draft.huangjiSixDayTimezone ?? ''}
+                        onChange={(event) =>
+                          updateDraft('huangjiSixDayTimezone', event.target.value)
+                        }
+                      />
+                    </div>
+                  ) : null}
                 </div>
+                {isHuangjiSixDayExplicitEpoch ? (
+                  <>
+                    <div className="form-row-flex">
+                      <div className="form-item">
+                        <label htmlFor="huangji-six-day-epoch-date-input">
+                          校定历元日期（当地子半）
+                        </label>
+                        <input
+                          id="huangji-six-day-epoch-date-input"
+                          type="date"
+                          className="form-input"
+                          value={draft.huangjiSixDayEpochDate ?? ''}
+                          onChange={(event) =>
+                            updateDraft('huangjiSixDayEpochDate', event.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <small className="workspace-ui-field-hint">
+                      填写当地子半作为第1日，目标时间和历元使用同一时区。
+                    </small>
+                  </>
+                ) : isHuangjiSixDay ? (
+                  <small className="workspace-ui-field-hint">
+                    默认按现代冬至和实际岁周比例换算；结果会标明“现代换算”。
+                  </small>
+                ) : null}
               </div>
             )
+          ) : null}
+
+          {draft.method === 'wuyun' ? (
+            <div className="divination-extra-panel divination-time-panel">
+              <div className="form-row-flex">
+                <div className="form-item">
+                  <label htmlFor="wuyun-year-input">目标年份</label>
+                  <input
+                    id="wuyun-year-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    className="form-input"
+                    placeholder="例如 2026"
+                    value={draft.wuyunYear ?? ''}
+                    onChange={(event) =>
+                      updateDraft('wuyunYear', event.target.value.replace(/[^\d]/g, '').slice(0, 4))
+                    }
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="wuyun-year-ganzhi-input">目标年干支（可选）</label>
+                  <input
+                    id="wuyun-year-ganzhi-input"
+                    type="text"
+                    maxLength={2}
+                    className="form-input"
+                    placeholder="例如 丙午"
+                    value={draft.wuyunYearGanZhi ?? ''}
+                    onChange={(event) =>
+                      updateDraft('wuyunYearGanZhi', event.target.value.trim().slice(0, 2))
+                    }
+                  />
+                </div>
+              </div>
+              <small className="workspace-ui-field-hint">
+                可只填写年份或年干支；同时填写时会核对两者对应同一年度。
+              </small>
+            </div>
           ) : null}
 
           {supportsTrueSolarTime && divinationTimeStandard === 'true-solar' ? (
@@ -1435,7 +1938,8 @@ export function DivinationForm({
 
           {draft.method !== 'almanac' &&
           draft.method !== 'astrolabe' &&
-          draft.method !== 'huangji' ? (
+          draft.method !== 'huangji' &&
+          draft.method !== 'wuyun' ? (
             <div className="form-row-flex divination-subject-fields">
               <div className="form-item">
                 <label htmlFor="divination-gender-select">性别（可选）</label>

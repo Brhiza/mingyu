@@ -7,18 +7,23 @@ import {
   createAiChatSessionId,
   createAiChatTitle,
   extractPromptQuestion,
+  getAiChatCompletionStatus,
   loadAiChatHistory,
   saveAiChatHistory,
   upsertAiChatSession,
 } from '@/lib/ai/chat-history';
 import type { AiChatPromptMode, AiChatSession } from '@/lib/ai/chat-history';
 import type { AiRequestConfig } from '@/lib/ai/settings';
+import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
+import type { ReadingMemorySeed } from '@/lib/ai/reading-workflow';
 import { registerDismissLayer } from '@/lib/dismiss-layer';
 import { WorkspaceButton } from './workspace/WorkspaceUI';
 
 interface AiChatPanelProps {
   /** AI 上下文提示（排盘数据 + 设置摘要，不含用户问题） */
   contextPrompt: string;
+  /** 工作流首条提示；完整运限资料由 readingResourceSeed 发送，避免原文重复进入每个阶段。 */
+  workflowPrompt?: string;
   /** 用于在 contextPrompt 变化时重置对话的 key */
   resetKey?: string;
   /** 问题灵感弹窗 */
@@ -42,6 +47,18 @@ interface AiChatPanelProps {
   composerTools?: ReactNode;
   /** 只在真正切换案例或命盘时清空未发送的输入 */
   inputResetKey?: string;
+  /** 当前页面锁定的排盘主体，供自动补算校验使用 */
+  readingSubject?: ReadingSubjectSnapshot;
+  /** 当前页面锁定的占卜术式，随历史会话保存与恢复 */
+  readingMethod?: string;
+  /** 当前页面可复用的结构化盘面资源，仅接受与 readingSubject 匹配的种子。 */
+  readingResourceSeed?: ReadingMemorySeed;
+  /** 当前工作流必须等完整结构化资料就绪后才能发送。 */
+  readingResourceRequired?: boolean;
+  /** 完整结构化资料生成失败时的可重试提示。 */
+  readingResourceError?: string;
+  /** 重新生成失败的完整结构化资料。 */
+  onRetryReadingResources?: () => void;
 }
 
 const PLACEHOLDER = '输入你想询问的问题…';
@@ -96,16 +113,21 @@ function ChatMessageItem({ turn }: { turn: ChatTurn }) {
   return (
     <div className="ai-chat-msg ai-chat-msg-assistant">
       <div className="ai-chat-msg-avatar">AI</div>
-      <div
-        className="ai-chat-msg-bubble markdown-body"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="ai-chat-msg-bubble">
+        <div className="markdown-body" dangerouslySetInnerHTML={{ __html: html }} />
+        {turn.notices?.map((notice) => (
+          <p className="ai-chat-workflow-notice" key={notice}>
+            {notice}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
 
 function AiChatPanelImpl({
   contextPrompt,
+  workflowPrompt,
   resetKey,
   onOpenInspiration,
   externalInput,
@@ -118,12 +140,20 @@ function AiChatPanelImpl({
   workspaceMode = false,
   composerTools,
   inputResetKey,
+  readingSubject,
+  readingMethod,
+  readingResourceSeed,
+  readingResourceRequired = false,
+  readingResourceError,
+  onRetryReadingResources,
 }: AiChatPanelProps) {
   const {
     turns,
     streamingContent,
     status,
     error,
+    progress,
+    notices,
     hasStarted,
     analyze,
     ask,
@@ -131,7 +161,8 @@ function AiChatPanelImpl({
     retry,
     canRetry,
     reset,
-  } = useAiChat(aiConfig);
+    cancel,
+  } = useAiChat(aiConfig, readingSubject, readingMethod, readingResourceSeed);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -139,8 +170,9 @@ function AiChatPanelImpl({
   const [historySessions, setHistorySessions] = useState<AiChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState('');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historySaveError, setHistorySaveError] = useState('');
   const isBusy = status === 'loading' || status === 'streaming';
-  const isContextReady = contextPrompt.trim().length > 0;
+  const isStructuredWorkflow = Boolean(workflowPrompt?.trim());
   const storageKey = useMemo(
     () => getAiChatStorageKey(historyKey || `${resetKey || ''}\n${contextPrompt}`),
     [historyKey, resetKey, contextPrompt],
@@ -149,12 +181,25 @@ function AiChatPanelImpl({
     () => historySessions.find((session) => session.id === activeSessionId),
     [historySessions, activeSessionId],
   );
+  const isLegacySession = Boolean(activeSession && !activeSession.readingResourceKey);
+  const requiresStructuredSeed =
+    !isLegacySession && (readingResourceRequired || isStructuredWorkflow);
+  const isContextReady =
+    contextPrompt.trim().length > 0 &&
+    (!requiresStructuredSeed || (isStructuredWorkflow && Boolean(readingResourceSeed)));
+  const isReadingResourceBlocked =
+    error.includes('历史会话所需的完整盘面资料') || error.includes('历史会话缺少锁定主体资料');
   const directSendIdRef = useRef('');
   const autoStartKeyRef = useRef<string | undefined>(undefined);
   const autoStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historySessionsRef = useRef<AiChatSession[]>([]);
   const activeSessionIdRef = useRef('');
   const inputResetKeyRef = useRef(inputResetKey);
+  const readingResourceSeedRef = useRef(readingResourceSeed);
+
+  useEffect(() => {
+    readingResourceSeedRef.current = readingResourceSeed;
+  }, [readingResourceSeed]);
 
   const applyHistoryState = useCallback(
     (sessions: AiChatSession[], nextActiveSessionId: string, persist = true) => {
@@ -163,10 +208,11 @@ function AiChatPanelImpl({
       setHistorySessions(sessions);
       setActiveSessionId(nextActiveSessionId);
       if (persist) {
-        saveAiChatHistory(storageKey, {
+        const saved = saveAiChatHistory(storageKey, {
           sessions,
           activeSessionId: nextActiveSessionId,
         });
+        setHistorySaveError(saved ? '' : '历史记录暂未保存，请保留当前页面并稍后重试。');
       }
     },
     [storageKey],
@@ -179,11 +225,17 @@ function AiChatPanelImpl({
       initialQuestion?: string;
       promptMode: AiChatPromptMode;
     }) => {
+      if (readingResourceRequired && !readingResourceSeed) return;
       const now = new Date().toISOString();
       const session: AiChatSession = {
         id: createAiChatSessionId(),
         title: createAiChatTitle(options.titleSource, '自动解析'),
         initialQuestion: options.initialQuestion?.trim() ?? '',
+        initialPrompt: options.prompt,
+        readingSubject,
+        ...(readingResourceSeed?.key ? { readingResourceKey: readingResourceSeed.key } : {}),
+        readingMethod,
+        completionStatus: 'pending',
         promptMode: options.promptMode,
         turns: [],
         createdAt: now,
@@ -195,9 +247,17 @@ function AiChatPanelImpl({
       setIsHistoryOpen(false);
       reset();
       setInputValue('');
-      analyze(options.prompt);
+      analyze(options.prompt, readingResourceSeed);
     },
-    [analyze, applyHistoryState, reset],
+    [
+      analyze,
+      applyHistoryState,
+      readingMethod,
+      readingResourceRequired,
+      readingResourceSeed,
+      readingSubject,
+      reset,
+    ],
   );
 
   // 当上下文变化时，恢复上次使用的会话，并自动兼容旧版单条历史。
@@ -210,10 +270,19 @@ function AiChatPanelImpl({
     activeSessionIdRef.current = activeSession?.id ?? '';
     setHistorySessions(saved.sessions);
     setActiveSessionId(activeSession?.id ?? '');
+    setHistorySaveError('');
     setIsHistoryOpen(false);
 
     if (activeSession) {
-      restore(activeSession.turns, buildAiChatInitialPrompt(contextPrompt, activeSession));
+      restore(
+        activeSession.turns,
+        buildAiChatInitialPrompt(contextPrompt, activeSession),
+        activeSession.readingSubject,
+        activeSession.completionStatus,
+        activeSession.readingMethod,
+        readingResourceSeedRef.current,
+        activeSession.readingResourceKey,
+      );
       autoStartKeyRef.current = key;
     } else {
       reset();
@@ -221,12 +290,23 @@ function AiChatPanelImpl({
     }
 
     if (saved.sessions.length) {
-      saveAiChatHistory(storageKey, saved);
+      if (!saveAiChatHistory(storageKey, saved))
+        setHistorySaveError('历史记录暂未保存，请保留当前页面并稍后重试。');
     }
 
     directSendIdRef.current = '';
     if (!workspaceMode) setInputValue('');
-  }, [storageKey, contextPrompt, autoStart, autoStartKey, restore, reset, workspaceMode]);
+  }, [
+    storageKey,
+    contextPrompt,
+    autoStart,
+    autoStartKey,
+    readingSubject,
+    readingMethod,
+    restore,
+    reset,
+    workspaceMode,
+  ]);
 
   useEffect(() => {
     if (inputResetKeyRef.current === inputResetKey) return;
@@ -234,15 +314,19 @@ function AiChatPanelImpl({
     setInputValue('');
   }, [inputResetKey]);
 
-  // AI 回复完成或出错后，更新当前会话，不覆盖其他历史。
+  // AI 回复完成、出错或取消后，更新当前会话，不覆盖其他历史。
   useEffect(() => {
-    if (!hasStarted || (status !== 'done' && status !== 'error')) return;
+    if (!hasStarted) return;
     const sessionId = activeSessionIdRef.current;
     const currentSession = historySessionsRef.current.find((session) => session.id === sessionId);
-    if (!currentSession || currentSession.turns === turns) return;
+    const completionStatus = getAiChatCompletionStatus(status, turns);
+    if (!currentSession || !completionStatus) return;
+    if (currentSession.turns === turns && currentSession.completionStatus === completionStatus)
+      return;
     const updatedSession: AiChatSession = {
       ...currentSession,
       turns,
+      completionStatus,
       updatedAt: new Date().toISOString(),
     };
     applyHistoryState(
@@ -267,12 +351,12 @@ function AiChatPanelImpl({
     const text = directSend.text.trim();
     if (!text || !isContextReady) return;
     startNewSession({
-      prompt: contextPrompt + '\n\n' + text,
+      prompt: (workflowPrompt || contextPrompt) + '\n\n' + text,
       titleSource: text,
       initialQuestion: text,
       promptMode: 'context-question',
     });
-  }, [directSend, isContextReady, contextPrompt, startNewSession]);
+  }, [directSend, isContextReady, contextPrompt, startNewSession, workflowPrompt]);
 
   // 自动发送首轮（占卜页：session.prompt 已含完整问题，无需用户输入）
   useEffect(() => {
@@ -349,7 +433,7 @@ function AiChatPanelImpl({
 
     if (!hasStarted) {
       startNewSession({
-        prompt: contextPrompt + '\n\n' + text,
+        prompt: (workflowPrompt || contextPrompt) + '\n\n' + text,
         titleSource: text,
         initialQuestion: text,
         promptMode: 'context-question',
@@ -358,7 +442,16 @@ function AiChatPanelImpl({
       // 追问
       ask(text);
     }
-  }, [inputValue, isBusy, isContextReady, hasStarted, contextPrompt, startNewSession, ask]);
+  }, [
+    inputValue,
+    isBusy,
+    isContextReady,
+    hasStarted,
+    contextPrompt,
+    workflowPrompt,
+    startNewSession,
+    ask,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -393,7 +486,15 @@ function AiChatPanelImpl({
     }
     shouldAutoScrollRef.current = true;
     applyHistoryState(historySessionsRef.current, session.id);
-    restore(session.turns, buildAiChatInitialPrompt(contextPrompt, session));
+    restore(
+      session.turns,
+      buildAiChatInitialPrompt(contextPrompt, session),
+      session.readingSubject,
+      session.completionStatus,
+      session.readingMethod,
+      readingResourceSeed,
+      session.readingResourceKey,
+    );
     setInputValue('');
     setIsHistoryOpen(false);
   }
@@ -411,7 +512,15 @@ function AiChatPanelImpl({
     applyHistoryState(nextSessions, nextActiveSession?.id ?? '');
     shouldAutoScrollRef.current = true;
     if (nextActiveSession) {
-      restore(nextActiveSession.turns, buildAiChatInitialPrompt(contextPrompt, nextActiveSession));
+      restore(
+        nextActiveSession.turns,
+        buildAiChatInitialPrompt(contextPrompt, nextActiveSession),
+        nextActiveSession.readingSubject,
+        nextActiveSession.completionStatus,
+        nextActiveSession.readingMethod,
+        readingResourceSeed,
+        nextActiveSession.readingResourceKey,
+      );
     } else {
       reset();
     }
@@ -426,13 +535,19 @@ function AiChatPanelImpl({
         <div>
           <h2>{workspaceMode ? '解答' : 'AI 解析'}</h2>
           <p>
-            {!isContextReady
-              ? '正在生成排盘数据，请稍候…'
-              : status === 'error'
-                ? '本次回复失败，你的问题已保留，可直接重新生成。'
-                : hasStarted
-                  ? '可以继续追问，历史对话会自动保存。'
-                  : '在下方输入问题开始 AI 解析。'}
+            {readingResourceError
+              ? '完整盘面资料生成失败，请重试。'
+              : error && !canRetry
+                ? '完整盘面资料正在恢复，请稍候。'
+                : !isContextReady
+                  ? '正在生成排盘数据，请稍候…'
+                  : status === 'error'
+                    ? '本次回复失败，你的问题已保留，可直接重新生成。'
+                    : status === 'cancelled'
+                      ? '本次回复已停止，已生成内容保留，可重新生成。'
+                      : hasStarted
+                        ? historySaveError || '可以继续追问，历史对话会自动保存。'
+                        : '在下方输入问题开始 AI 解析。'}
           </p>
         </div>
         <div className="ai-chat-head-actions">
@@ -542,9 +657,11 @@ function AiChatPanelImpl({
                   className="ai-chat-msg-bubble markdown-body"
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }}
                 />
-                <span className="ai-analysis-cursor" aria-hidden="true">
-                  ▋
-                </span>
+                {isBusy ? (
+                  <span className="ai-analysis-cursor" aria-hidden="true">
+                    ▋
+                  </span>
+                ) : null}
               </div>
             ) : null}
 
@@ -556,7 +673,7 @@ function AiChatPanelImpl({
                   <span className="ai-chat-thinking-dot" />
                   <span className="ai-chat-thinking-dot" />
                   <span className="ai-chat-thinking-dot" />
-                  <span className="ai-chat-thinking-text">AI 正在思考</span>
+                  <span className="ai-chat-thinking-text">{progress || 'AI 正在思考'}</span>
                 </div>
               </div>
             ) : null}
@@ -572,12 +689,57 @@ function AiChatPanelImpl({
 
           {/* 底部输入区 */}
           <div className="ai-chat-input-area">
-            {error ? (
+            {historySaveError ? (
+              <p role="status" className="ai-chat-workflow-notice">
+                {historySaveError}
+              </p>
+            ) : null}
+            {notices.map((notice) => (
+              <p key={notice} role="status" className="ai-chat-workflow-notice">
+                {notice}
+              </p>
+            ))}
+            {readingResourceError ? (
               <div className="ai-chat-error-notice" role="alert" aria-live="assertive">
                 <div className="ai-chat-error-content">
-                  <strong>AI 回复失败</strong>
+                  <strong>完整资料生成失败</strong>
+                  <span>{readingResourceError}</span>
+                  <small>已保留成功生成的资料，重试只补生成失败的部分。</small>
+                </div>
+                {onRetryReadingResources ? (
+                  <button
+                    type="button"
+                    className="ai-chat-retry-btn"
+                    onClick={onRetryReadingResources}
+                  >
+                    重新生成资料
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {error && !(readingResourceError && isReadingResourceBlocked) ? (
+              <div className="ai-chat-error-notice" role="alert" aria-live="assertive">
+                <div className="ai-chat-error-content">
+                  <strong>{isReadingResourceBlocked ? '完整资料尚未就绪' : 'AI 回复失败'}</strong>
                   <span>{error}</span>
-                  <small>你的问题已保留，不需要重新输入。</small>
+                  <small>
+                    {isReadingResourceBlocked
+                      ? '资料准备完成后可以继续当前会话。'
+                      : '你的问题已保留，不需要重新输入。'}
+                  </small>
+                </div>
+                {canRetry ? (
+                  <button type="button" className="ai-chat-retry-btn" onClick={handleRetry}>
+                    重新生成
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {status === 'cancelled' && !error ? (
+              <div className="ai-chat-error-notice" role="status" aria-live="polite">
+                <div className="ai-chat-error-content">
+                  <strong>AI 回复已停止</strong>
+                  <span>已生成内容保留在当前对话中。</span>
                 </div>
                 {canRetry ? (
                   <button type="button" className="ai-chat-retry-btn" onClick={handleRetry}>
@@ -602,15 +764,13 @@ function AiChatPanelImpl({
                 <button
                   className="ai-chat-send-btn"
                   type="button"
-                  onClick={handleSend}
-                  disabled={isBusy || !inputValue.trim() || !isContextReady}
-                  aria-label="发送问题"
-                  title="发送"
+                  onClick={isBusy ? cancel : handleSend}
+                  disabled={!isBusy && (!inputValue.trim() || !isContextReady)}
+                  aria-label={isBusy ? '停止解读' : '发送问题'}
+                  title={isBusy ? '停止解读' : '发送'}
                 >
                   {isBusy ? (
-                    <span className="ai-analysis-spinner-wrap">
-                      <span className="ai-analysis-spinner" />
-                    </span>
+                    <span aria-hidden="true">■</span>
                   ) : (
                     <svg
                       width="18"

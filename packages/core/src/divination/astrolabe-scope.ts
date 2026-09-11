@@ -41,6 +41,7 @@ import {
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
 import { resolveCivilTime, type CivilTimeZoneInput } from '../calendar/civil-time';
+import { TimeManager } from '../calendar/timeManager';
 
 export type AstrolabeScopeContext = {
   scope: AstrolabeScopeMode;
@@ -209,6 +210,21 @@ const SCOPE_LABEL_MAP: Record<AstrolabeScopeMode, string> = {
   monthly: '流月',
   daily: '流日',
 };
+
+/**
+ * 返回星盘行运入口共用的当前参考日期。
+ *
+ * 行运日期采用项目统一的墙上时间策略，范围层级只改变日期精度：
+ * yearly=YYYY、monthly=YYYY-MM、daily/full=YYYY-MM-DD。
+ */
+export function getDefaultAstrolabeScopeDate(scope: AstrolabeScopeMode, now: Date = new Date()) {
+  const parts = TimeManager.getWallClockParts(now);
+  const dailyDate = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+  if (scope === 'natal') return '';
+  if (scope === 'yearly') return dailyDate.slice(0, 4);
+  if (scope === 'monthly') return dailyDate.slice(0, 7);
+  return dailyDate;
+}
 
 const CELESTIAL_BODY_LABELS: Record<string, string> = {
   Sun: '太阳',
@@ -1742,9 +1758,14 @@ function buildTransitEvidence(
     .slice(0, 6)
     .map(formatTransitLine);
   const lead = headline.length ? headline : transitLines.slice(0, 6);
-  return [`主要行运相位：${lead.join('；')}。`, `取样相位明细：${transitLines.join('；')}。`].join(
-    '\n',
-  );
+  const leadSet = new Set(lead);
+  const remaining = transitLines.filter((line) => !leadSet.has(line));
+  return [
+    `主要行运相位：${lead.join('；')}。`,
+    remaining.length ? `其余取样相位：${remaining.join('；')}。` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function formatAdvancedScopeFacts(params: {

@@ -36,6 +36,9 @@ export interface StreamOptions extends StreamCallbacks {
 
 export type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
+export const AI_STREAM_INTERRUPTED_MESSAGE = 'AI 流在完成前中断，已保留已生成内容，请重新生成。';
+export const AI_STREAM_MALFORMED_MESSAGE = 'AI 流数据无法解析，本次回答未完整生成，请重新生成。';
+
 type AiErrorPayload = {
   error?: string | { code?: unknown; message?: unknown };
 };
@@ -53,6 +56,7 @@ export async function streamAiChat(messages: ChatMessage[], options: StreamOptio
     try {
       await streamAndroidDirectAi(messages, aiConfig, { onChunk, onDone, onError }, signal);
     } catch (error) {
+      if (isAbortError(error) || signal?.aborted) return;
       onError(error instanceof Error ? error.message : '无法从当前设备直连自定义 AI。');
     }
     return;
@@ -68,10 +72,7 @@ export async function streamAiChat(messages: ChatMessage[], options: StreamOptio
 
     await consumeSseStream(response, { onChunk, onDone, onError });
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      onDone();
-      return;
-    }
+    if (isAbortError(err)) return;
     const message = err instanceof Error ? err.message : '';
     onError(
       err instanceof TypeError || /failed to fetch|network error/i.test(message)
@@ -135,77 +136,115 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
   const decoder = new TextDecoder();
   let buffer = '';
   let receivedContent = false;
+  let completed = false;
+  let failed = false;
+
+  const closeReader = () => {
+    void reader.cancel().catch(() => undefined);
+    try {
+      reader.releaseLock();
+    } catch {
+      // reader 可能已由底层响应关闭
+    }
+  };
+
+  const fail = (message: string) => {
+    if (completed || failed) return;
+    failed = true;
+    closeReader();
+    onError(message);
+  };
 
   const finish = () => {
+    if (completed || failed) return;
     if (!receivedContent) {
-      onError('AI 未返回任何内容，请重新生成。');
+      fail('AI 未返回任何内容，请重新生成。');
       return;
     }
+    completed = true;
+    closeReader();
     onDone();
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  const processEvent = (event: string) => {
+    if (completed || failed) return;
+    const data = event
+      .split(/\r?\n/u)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trim())
+      .join('\n')
+      .trim();
+    if (!data) return;
+    if (data === '[DONE]') {
+      finish();
+      return;
+    }
 
-    buffer += decoder.decode(value, { stream: true });
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      fail(AI_STREAM_MALFORMED_MESSAGE);
+      return;
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      fail(AI_STREAM_MALFORMED_MESSAGE);
+      return;
+    }
+    const payload = parsed as { content?: unknown; error?: unknown };
+    if (payload.error) {
+      fail(formatAiErrorMessage(parsed, 'AI 返回错误。'));
+      return;
+    }
+    if (typeof payload.content === 'string' && payload.content) {
+      receivedContent ||= payload.content.trim().length > 0;
+      onChunk(payload.content);
+    }
+  };
 
-    // 按双换行分割 SSE 事件
-    const events = buffer.split('\n\n');
-    buffer = events.pop() ?? '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    for (const event of events) {
-      const line = event.trim();
-      if (!line.startsWith('data:')) continue;
+      buffer += decoder.decode(value, { stream: true });
 
-      const data = line.slice(5).trim();
-      if (!data) continue;
-      if (data === '[DONE]') {
-        finish();
-        return;
+      // 按双换行分割 SSE 事件
+      const events = buffer.split(/\r?\n\r?\n/u);
+      buffer = events.pop() ?? '';
+
+      for (const event of events) {
+        processEvent(event);
+        if (completed || failed) return;
       }
+    }
 
+    // 流结束，flush decoder 并处理残留 buffer
+    buffer += decoder.decode();
+    if (buffer.trim()) {
+      processEvent(buffer);
+    }
+    if (completed || failed) return;
+    fail(
+      receivedContent
+        ? AI_STREAM_INTERRUPTED_MESSAGE
+        : 'AI 流在完成前中断，未返回任何内容，请重新生成。',
+    );
+  } finally {
+    if (!completed && !failed) {
       try {
-        const parsed = JSON.parse(data);
-        if (parsed.error) {
-          onError(formatAiErrorMessage(parsed, 'AI 返回错误。'));
-          return;
-        }
-        if (typeof parsed.content === 'string' && parsed.content) {
-          receivedContent ||= parsed.content.trim().length > 0;
-          onChunk(parsed.content);
-        }
+        reader.releaseLock();
       } catch {
-        // 忽略无法解析的行
+        // reader 可能已由底层响应关闭
       }
     }
   }
+}
 
-  // 流结束，flush decoder 并处理残留 buffer
-  buffer += decoder.decode();
-  if (buffer.trim()) {
-    const line = buffer.trim();
-    if (line.startsWith('data:')) {
-      const data = line.slice(5).trim();
-      if (data && data !== '[DONE]') {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) {
-            onError(formatAiErrorMessage(parsed, 'AI 返回错误。'));
-            return;
-          }
-          if (typeof parsed.content === 'string' && parsed.content) {
-            receivedContent ||= parsed.content.trim().length > 0;
-            onChunk(parsed.content);
-          }
-        } catch {
-          // 忽略
-        }
-      }
-    }
-  }
-
-  finish();
+function isAbortError(error: unknown): boolean {
+  return Boolean(
+    error && typeof error === 'object' && 'name' in error && error.name === 'AbortError',
+  );
 }
 
 function formatAiErrorMessage(data: unknown, fallback: string): string {

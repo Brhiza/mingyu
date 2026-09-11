@@ -24,11 +24,9 @@ export function useAiSettings() {
   }, []);
 
   const setSettings = useCallback((next: AiSettings | ((current: AiSettings) => AiSettings)) => {
-    setSettingsState((current) => {
-      const resolved = typeof next === 'function' ? next(current) : next;
-      saveAiSettings(resolved);
-      return resolved;
-    });
+    const resolved = typeof next === 'function' ? next(readAiSettings()) : next;
+    saveAiSettings(resolved);
+    setSettingsState(resolved);
   }, []);
 
   return [settings, setSettings] as const;

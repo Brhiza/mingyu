@@ -1,6 +1,6 @@
 import { analyzeBaziCompatibility, formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
 import type { FortuneSelectionContext } from '../bazi/fortuneSelection';
-import { formatBaziFortuneSelection } from './bazi-fortune';
+import { formatBaziFullFortune, formatBaziFortuneSelection } from './bazi-fortune';
 import { formatPromptCurrentTime } from './current-time';
 import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptDocument, buildPromptSection, joinPromptSections } from './sections';
@@ -80,15 +80,7 @@ const TOPIC_LABELS: Record<BaziPromptTopic, string> = {
 };
 
 function formatFullFortune(result: BaziChartResult) {
-  const cycles = result.luckInfo?.cycles ?? [];
-  if (!cycles.length) return '';
-  return [
-    '完整大运流年：',
-    ...cycles.flatMap((cycle, index) => [
-      `${index + 1}. ${cycle.ganZhi}${cycle.isXiaoyun ? '童运' : cycle.type}：${cycle.year}年起，约${cycle.age}岁交运`,
-      ...(cycle.years ?? []).map((year) => `  - ${year.year}年（${year.age}岁）${year.ganZhi}`),
-    ]),
-  ].join('\n');
+  return result ? formatBaziFullFortune(result) : '';
 }
 
 export interface BaziPromptOptions extends PromptBuildOptions {
@@ -160,7 +152,7 @@ export function buildBaziPromptDocument(options: BaziPromptOptions): PromptDocum
     ? buildPromptSection(
         '盘面焦点',
         [
-          `格局理法：《子平真诠》定为【${fulfillment.patternName}】（${fulfillment.status}）。${fulfillment.summary}`,
+          `格局理法：【${fulfillment.patternName}】（${fulfillment.status}）。${fulfillment.summary}`,
           fulfillment.remedies.length > 0
             ? `救应药神：${fulfillment.remedies.map((r: { effect: string }) => r.effect).join('；')}`
             : '',

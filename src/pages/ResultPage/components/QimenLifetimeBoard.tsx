@@ -456,10 +456,26 @@ export const QimenLifetimeBoard = memo(function QimenLifetimeBoard({
             {data.eventClusters.map((cluster) => (
               <div key={cluster.key} className="qimen-lifetime-event-item">
                 <div className="event-head">
-                  <span className="event-time">{cluster.timeSpan}</span>
+                  <span className="event-time">
+                    {cluster.timeSpan}
+                    {cluster.stageIndex === undefined ? '（阶段表范围外）' : ''}
+                  </span>
                   <span className="event-trigger">{cluster.triggerFact}</span>
                   <span className="event-rhythm">节奏：{cluster.rhythm}</span>
                 </div>
+                {cluster.triggerDates && cluster.triggerDates.length > 0 ? (
+                  <p className="event-dates">
+                    <strong>可复核日期：</strong>
+                    {cluster.triggerDates
+                      .map((item) => {
+                        const detail = [item.ganzhi, item.relation].filter(Boolean).join('，');
+                        return detail
+                          ? `${item.dateTime ?? item.date}（${detail}）`
+                          : (item.dateTime ?? item.date);
+                      })
+                      .join('、')}
+                  </p>
+                ) : null}
                 <p className="event-interaction">{cluster.interactionAnalysis}</p>
                 {cluster.supportEvidence.length > 0 ? (
                   <div className="event-evidence is-good">

@@ -13,6 +13,7 @@ import {
   BAZI_COMPATIBILITY_PROMPT_PRESETS,
   BAZI_PROMPT_PRESETS,
   buildPromptSelectionTask,
+  formatBaziFullFortune,
   formatBaziFortuneSelection,
   getPromptSelectionSection,
   requirePromptSelection,
@@ -58,21 +59,8 @@ function resolvePromptScene(promptId: string): PromptChartScene {
   return 'general';
 }
 
-function formatFullFortuneOutputSection(result: BaziChartResult | null): string {
-  if (!result?.luckInfo?.cycles?.length) return '';
-
-  const lines = [
-    '完整大运流年：',
-    ...result.luckInfo.cycles.map((cycle) => {
-      const cycleType = cycle.isXiaoyun ? '童运' : cycle.type;
-      const yearsText = cycle.years
-        .map((year) => `${year.year}年（${year.age}岁）${year.ganZhi}`)
-        .join('、');
-      return `  ${cycle.ganZhi}${cycleType}（${cycle.year}年起，约${cycle.age}岁交运）：${yearsText}`;
-    }),
-  ];
-
-  return lines.join('\n');
+function formatFullFortuneOutputSection(result: BaziChartResult | null) {
+  return result ? formatBaziFullFortune(result) : '';
 }
 
 function buildBaziNatalAnalysisObjectSection(): string {

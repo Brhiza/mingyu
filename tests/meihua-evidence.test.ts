@@ -231,12 +231,23 @@ test('梅花旧结果缺少逐爻或互卦阶段时应明确标记缺口且不�
   );
 });
 
-test('梅花四种起卦入口都应生成完整可移植的对象化证据', () => {
+test('梅花七种起卦入口都应生成完整可移植的对象化证据', () => {
   const cases = [
     generateMeihua(fixedDate, { method: 'time' }),
     generateMeihua(fixedDate, { method: 'timeTrigram' }),
     generateMeihua(fixedDate, { method: 'number', number: 123 }),
-    generateMeihua(fixedDate, { method: 'random', seed: '四种入口核验' }),
+    generateMeihua(fixedDate, { method: 'sound', soundCount: 3 }),
+    generateMeihua(fixedDate, {
+      method: 'character',
+      characterText: '今日动静如何',
+      characterTones: [1, 4, 3, 3, 1, 1],
+    }),
+    generateMeihua(fixedDate, {
+      method: 'direction',
+      direction: 'south',
+      objectType: 'fire',
+    }),
+    generateMeihua(fixedDate, { method: 'random', seed: '七种入口核验' }),
   ];
 
   for (const data of cases) {

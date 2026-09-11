@@ -19,6 +19,7 @@ import {
   type DivinationPromptGuidanceMethod,
 } from '../src/lib/prompt-guidance';
 import type {
+  AlmanacData,
   AstrolabeData,
   DivinationData,
   DivinationType,
@@ -868,9 +869,19 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.doesNotMatch(prompt, /岁支十二神方位|全年方位神|岁支方位避|可参考太阳|可参考福德/);
   assert.match(prompt, /第1日：2026-06-01/);
   assert.match(prompt, /第2日：2026-06-02/);
-  assert.match(prompt, /忌节选入宅、移徙/);
+  assert.match(prompt, /忌入宅、移徙/);
   assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
+});
+
+test('择日保留事项匹配之外的完整当日宜忌', () => {
+  const data = createAlmanacData() as AlmanacData;
+  const day = data.days[0];
+  day.recommends = ['入宅', '移徙', '安床', '祭祀', '祈福', '求嗣', '出行', '纳采', '订盟'];
+  day.avoids = ['开市', '动土', '破土', '安葬', '修造', '开仓', '伐木', '作灶', '掘井'];
+  const prompt = buildDivinationPrompt('almanac', '', data);
+  assert.ok(prompt.includes(day.recommends.join('、')));
+  assert.ok(prompt.includes(day.avoids.join('、')));
 });
 
 test('择日提示词在有补充诉求时输出问题，空时不强制输出问题 section', () => {
@@ -1478,8 +1489,8 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位资料', ()
   assert.match(prompt, /上升：狮子座 12°/);
   assert.match(prompt, /太阳金牛座 29°，第10宫/);
   assert.match(prompt, /月亮处女座 08°，第2宫/);
-  assert.doesNotMatch(prompt, /核心位置：/);
-  assert.match(prompt, /主要格局：土象偏强/);
+  assert.match(prompt, /核心位置：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
+  assert.match(prompt, /格局：土象偏强/);
   assert.doesNotMatch(prompt, /逆行星体无/);
   assert.match(prompt, /相位明细：/);
   assert.doesNotMatch(prompt, /强度\d+%/);

@@ -1,6 +1,7 @@
-import type { ChatTurn } from '@/hooks/useAiChat';
+import type { AiChatCompletionStatus, AiChatStatus, ChatTurn } from '@/hooks/useAiChat';
 import { safeStorage } from '@/lib/safe-storage';
 import { createSecureId } from '@/lib/secure-id';
+import { normalizeReadingSubject, type ReadingSubjectSnapshot } from './reading-subject';
 
 export type AiChatPromptMode = 'context' | 'context-question';
 
@@ -8,6 +9,11 @@ export interface AiChatSession {
   id: string;
   title: string;
   initialQuestion: string;
+  initialPrompt?: string;
+  readingSubject?: ReadingSubjectSnapshot;
+  readingResourceKey?: string;
+  readingMethod?: string;
+  completionStatus?: AiChatCompletionStatus;
   promptMode: AiChatPromptMode;
   turns: ChatTurn[];
   createdAt: string;
@@ -37,13 +43,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeTurns(value: unknown): ChatTurn[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (item): item is ChatTurn =>
-      isRecord(item) &&
-      (item.role === 'user' || item.role === 'assistant') &&
-      typeof item.content === 'string' &&
-      item.content.length > 0,
-  );
+  return value
+    .filter(
+      (item): item is ChatTurn =>
+        isRecord(item) &&
+        (item.role === 'user' || item.role === 'assistant') &&
+        typeof item.content === 'string' &&
+        item.content.length > 0,
+    )
+    .map((item) => ({
+      role: item.role,
+      content: item.content,
+      ...(Array.isArray(item.notices) && item.notices.some((notice) => typeof notice === 'string')
+        ? {
+            notices: item.notices
+              .filter((notice): notice is string => typeof notice === 'string')
+              .slice(0, 12),
+          }
+        : {}),
+      ...(item.incomplete === true ? { incomplete: true } : {}),
+    }));
+}
+
+function inferCompletionStatus(turns: ChatTurn[]): AiChatCompletionStatus | undefined {
+  const latest = turns[turns.length - 1];
+  if (!latest) return undefined;
+  if (latest.role === 'user') return 'pending';
+  return latest.incomplete ? 'partial' : undefined;
 }
 
 function normalizeSession(value: unknown): AiChatSession | null {
@@ -52,11 +78,31 @@ function normalizeSession(value: unknown): AiChatSession | null {
   const createdAt = typeof value.createdAt === 'string' ? value.createdAt : '';
   const updatedAt = typeof value.updatedAt === 'string' ? value.updatedAt : createdAt;
   const promptMode = value.promptMode === 'context-question' ? 'context-question' : 'context';
+  const readingSubject = normalizeReadingSubject(value.readingSubject);
+  const readingMethod =
+    typeof value.readingMethod === 'string' && value.readingMethod.trim()
+      ? value.readingMethod.trim()
+      : undefined;
+  const completionStatus =
+    value.completionStatus === 'pending' ||
+    value.completionStatus === 'complete' ||
+    value.completionStatus === 'partial' ||
+    value.completionStatus === 'cancelled' ||
+    value.completionStatus === 'error'
+      ? value.completionStatus
+      : inferCompletionStatus(turns);
 
   return {
     id: value.id,
     title: typeof value.title === 'string' && value.title.trim() ? value.title.trim() : '新对话',
     initialQuestion: typeof value.initialQuestion === 'string' ? value.initialQuestion : '',
+    ...(typeof value.initialPrompt === 'string' ? { initialPrompt: value.initialPrompt } : {}),
+    ...(readingSubject ? { readingSubject } : {}),
+    ...(typeof value.readingResourceKey === 'string' && value.readingResourceKey.trim()
+      ? { readingResourceKey: value.readingResourceKey.trim() }
+      : {}),
+    ...(readingMethod ? { readingMethod } : {}),
+    ...(completionStatus ? { completionStatus } : {}),
     promptMode,
     turns,
     createdAt,
@@ -104,8 +150,7 @@ export function loadAiChatHistory(storageKey: string): AiChatHistoryState {
 export function saveAiChatHistory(storageKey: string, state: AiChatHistoryState) {
   if (!storageKey) return false;
   if (!state.sessions.length) {
-    safeStorage.remove(storageKey);
-    return true;
+    return safeStorage.remove(storageKey);
   }
   const value: SavedAiChatHistoryV2 = {
     version: AI_CHAT_HISTORY_VERSION,
@@ -126,15 +171,36 @@ export function createAiChatTitle(value: string, fallback = '新对话') {
 }
 
 export function extractPromptQuestion(prompt: string) {
-  const match = prompt.match(/【问题】\s*([\s\S]*?)(?=\n【[^\n】]+】|$)/);
+  const match = prompt.match(
+    /^[ \t]*【问题】[ \t]*(?:\r?\n|$)([\s\S]*?)(?=^[ \t]*【[^\r\n】]+】[ \t]*(?:\r?\n|$)|(?![\s\S]))/mu,
+  );
   return match?.[1]?.trim() ?? '';
 }
 
+export function getAiChatCompletionStatus(
+  status: AiChatStatus,
+  turns: ChatTurn[],
+): AiChatCompletionStatus | undefined {
+  if (status === 'done') return 'complete';
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'error') {
+    const latest = turns[turns.length - 1];
+    return latest?.role === 'assistant' && latest.incomplete ? 'partial' : 'error';
+  }
+  if (status === 'loading' || status === 'streaming') return 'pending';
+  return undefined;
+}
+
 export function buildAiChatInitialPrompt(contextPrompt: string, session: AiChatSession) {
+  if (session.initialPrompt?.trim()) return session.initialPrompt;
   if (session.promptMode === 'context-question' && session.initialQuestion.trim()) {
     return `${contextPrompt}\n\n${session.initialQuestion.trim()}`;
   }
   return contextPrompt;
+}
+
+export function getChartChatHistoryContext(prompt: string) {
+  return prompt.replace(/【当前时间】[\s\S]*?(?=【|$)/u, '').trim();
 }
 
 export function upsertAiChatSession(sessions: AiChatSession[], nextSession: AiChatSession) {

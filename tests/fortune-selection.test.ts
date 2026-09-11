@@ -64,7 +64,7 @@ function createMockResult(): BaziChartResult {
 
 test('运限选择器的当天快捷值会选择对应的大运、流月和流日', () => {
   const result = createMockResult();
-  const selection = buildCurrentBaziFortuneSelection(result, new Date(2008, 1, 8, 12));
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2008-02-08T12:00:00+08:00'));
 
   assert.deepEqual(selection, {
     scope: 'day',
@@ -77,7 +77,7 @@ test('运限选择器的当天快捷值会选择对应的大运、流月和流�
 
 test('近期年限预设会选择当前流月而不是锁定当天', () => {
   const result = createMockResult();
-  const selection = buildRecentBaziFortuneSelection(result, new Date(2008, 1, 8, 12));
+  const selection = buildRecentBaziFortuneSelection(result, new Date('2008-02-08T12:00:00+08:00'));
 
   assert.deepEqual(selection, {
     scope: 'month',
@@ -90,7 +90,7 @@ test('近期年限预设会选择当前流月而不是锁定当天', () => {
 test('元旦至立春前的当前日期应回查上一节令年，不回退到当年首月首日', () => {
   const result = createMockResult();
   // 2008-01-15 处于立春前，节令年应为 2007 年的第十二月
-  const selection = buildCurrentBaziFortuneSelection(result, new Date(2008, 0, 15, 12));
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2008-01-15T12:00:00+08:00'));
   assert.ok(selection);
   assert.equal(selection.year, 2007);
   assert.equal(selection.month, 12);
@@ -98,9 +98,26 @@ test('元旦至立春前的当前日期应回查上一节令年，不回退到�
   assert.equal(selection.cycleIndex, 0);
 });
 
+test('当前阶段定位按北京时间计算，不受运行环境时区影响', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    isLunar: false,
+  });
+  // 2026 年白露后已经进入酉月；显式带 UTC+8 可在 UTC 运行环境复现边界。
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2026-09-08T00:00:00+08:00'));
+
+  assert.ok(selection);
+  assert.equal(selection.year, 2026);
+  assert.equal(selection.month, 8);
+});
+
 test('当前年份不在命盘运限范围时不应静默回退到第一步大运', () => {
   const result = createMockResult();
-  const outOfRangeDate = new Date(1980, 1, 8, 12);
+  const outOfRangeDate = new Date('1980-02-08T12:00:00+08:00');
 
   assert.equal(getCurrentBaziLuckCycle(result, 1980), null);
   assert.equal(buildCurrentBaziFortuneSelection(result, outOfRangeDate), null);
@@ -113,8 +130,8 @@ test('当前大运定位应服从交运时刻而不是只看交运年份', () =>
   cycle.startSolarTime = { year: 2008, month: 2, day: 8, hour: 12, minute: 0, second: 0 };
   cycle.endSolarTime = { year: 2018, month: 2, day: 8, hour: 12, minute: 0, second: 0 };
 
-  assert.equal(getCurrentBaziLuckCycle(result, new Date(2008, 1, 8, 11, 59, 59)), null);
-  assert.equal(getCurrentBaziLuckCycle(result, new Date(2008, 1, 8, 12)), cycle);
+  assert.equal(getCurrentBaziLuckCycle(result, new Date('2008-02-08T11:59:59+08:00')), null);
+  assert.equal(getCurrentBaziLuckCycle(result, new Date('2008-02-08T12:00:00+08:00')), cycle);
 });
 
 test('选择大运时会附带该大运下的全部流年', () => {
@@ -139,7 +156,7 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.match(context.promptPayload.summaryLines.join('\n'), /天干甲合月柱己/);
   assert.match(context.promptPayload.summaryLines.join('\n'), /地支子冲年柱午/);
   assert.match(context.promptPayload.summaryLines.join('\n'), /地支子合月柱丑/);
-  assert.match(context.promptPayload.summaryLines.join('\n'), /地支子与日柱子伏吟/);
+  assert.match(context.promptPayload.summaryLines.join('\n'), /干支甲子与日柱甲子同柱伏吟/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】指定年限运限/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】大运干支与十神/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【应期】应期边界/);
@@ -157,6 +174,40 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【八字岁运触发结构化证据】/);
 });
 
+test('2030庚戌流年应分别标出干冲、年柱同支与月柱同干', () => {
+  const result = createMockResult();
+  result.pillars.year = { gan: '甲', zhi: '戌', ganZhi: '甲戌' };
+  result.pillars.month = { gan: '庚', zhi: '午', ganZhi: '庚午' };
+  result.luckInfo.cycles[0] = {
+    ...result.luckInfo.cycles[0],
+    year: 2030,
+    ganZhi: '庚戌',
+    years: [
+      {
+        year: 2030,
+        age: 36,
+        ganZhi: '庚戌',
+        tenGod: '',
+        tenGodZhi: '',
+      },
+    ],
+  };
+
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'year',
+    cycleIndex: 0,
+    year: 2030,
+  });
+
+  assert.ok(context);
+  const summary = context.promptPayload.summaryLines.join('\n');
+  assert.match(summary, /天干庚冲年柱甲/);
+  assert.match(summary, /地支戌与年柱戌同支/);
+  assert.match(summary, /天干庚与月柱庚同干/);
+  assert.doesNotMatch(summary, /地支戌与年柱戌伏吟/);
+  assert.doesNotMatch(summary, /天干庚与月柱庚伏吟/);
+});
+
 test('选择流年时会附带该流年下的全部流月', () => {
   const result = createMockResult();
   const context = buildFortuneSelectionContext(result, {
@@ -170,10 +221,10 @@ test('选择流年时会附带该流年下的全部流月', () => {
   assert.equal(context.year, 2008);
   assert.equal(context.monthBreakdown?.length, 12);
   assert.match(context.promptPayload.breakdownTitle ?? '', /流月/);
-  assert.match(context.promptPayload.breakdownLines?.[0] ?? '', /1月/);
+  assert.match(context.promptPayload.breakdownLines?.[0] ?? '', /寅月/);
   assert.match(
     context.promptPayload.breakdownLines?.[0] ?? '',
-    /\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}/,
+    /立春 \d{4}-\d{2}-\d{2} \d{2}:\d{2}～惊蛰 \d{4}-\d{2}-\d{2} \d{2}:\d{2}/,
   );
   assert.doesNotMatch(context.promptPayload.summaryLines.join('\n'), /童运/);
   assert.match(
@@ -275,6 +326,8 @@ test('流日可显式保留旧版早晚子时拆分', () => {
   );
 
   assert.equal(context?.hourBreakdown?.length, 13);
+  assert.equal(context?.day, 5);
+  assert.equal(context?.dayBreakdown?.[0]?.date, '2008-02-08');
   assert.match(context?.hourBreakdown?.[0]?.label ?? '', /晚子时/);
   assert.match(context?.hourBreakdown?.[1]?.label ?? '', /早子时/);
 });
@@ -327,7 +380,7 @@ test('岁运各层应按精确交运时刻裁剪并返回结构化时间', () =>
     month: 1,
     day: 5,
   });
-  assert.equal(day?.cycleTimeRange.startTimestamp, new Date(2008, 1, 8, 12).getTime());
+  assert.equal(day?.cycleTimeRange.startTimestamp, Date.parse('2008-02-08T12:00:00+08:00'));
   assert.ok(
     day?.hourBreakdown?.every(
       (item) => item.interval.startTimestamp >= day.cycleTimeRange.startTimestamp,

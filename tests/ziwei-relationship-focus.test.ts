@@ -45,8 +45,8 @@ test('紫微斗数在婚恋与感情主题下必须完整输出夫妻宫及三�
 
   assert.match(snapshotMarriage, /【重点宫位资料】/, '任务书快照必须包含【重点宫位资料】');
   assert.match(snapshotMarriage, /宫位[：:]\s*夫妻/i, '婚恋主题下重点宫位资料必须明确包含夫妻宫');
-  assert.match(snapshotMarriage, /对宫[：:]\s*官禄/i, '夫妻宫输出必须包含对宫官禄宫关联');
-  assert.match(snapshotMarriage, /三方四正[：:]/i, '夫妻宫输出必须包含三方四正互动');
+  assert.match(snapshotMarriage, /对宫官禄/i, '夫妻宫输出必须包含对宫官禄宫关联');
+  assert.match(snapshotMarriage, /三合会照/, '夫妻宫输出必须包含三方四正互动');
 
   // 2. 测试 relationship 别名主题
   const reportContextRelationship = {

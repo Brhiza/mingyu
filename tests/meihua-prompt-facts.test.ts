@@ -5,6 +5,26 @@ import { formatMeihuaFacts } from '@core/prompt/meihua-facts';
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import { ZHOUYI_HEXAGRAMS_TEXT } from '@core/classics/zhouyi';
 
+test('梅花字占保留原字及分笔，方位取象使用中文资料', () => {
+  const date = new Date('2026-09-11T05:27:00+08:00');
+  const character = generateMeihua(date, {
+    method: 'character',
+    characterText: '明',
+    characterLeftStrokes: 4,
+    characterRightStrokes: 4,
+  });
+  assert.match(formatMeihuaFacts(character).join('\n'), /文字「明」，字数1，左右分笔数为4、4/u);
+  const direction = generateMeihua(date, {
+    method: 'direction',
+    direction: 'north',
+    objectType: 'earth',
+  });
+  const facts = formatMeihuaFacts(direction).join('\n');
+  assert.match(facts, /所见物类地（坤）取上卦数8，方位正北（坎）取下卦数6/u);
+  assert.doesNotMatch(facts, /earth|north|objectType|direction/u);
+  assert.doesNotMatch(direction.evidenceAnalysis?.promptText ?? '', /所见物类earth|方位north/u);
+});
+
 test('梅花比和判辞保留同盘在五种月令中的实际旺衰', () => {
   const settings = { method: 'number' as const, number: 42 };
   for (const [date, state] of [
@@ -34,7 +54,7 @@ test('履六三动爻原文保留咥人凶与对应小象，卦辞和动爻辞�
   const prompt = buildDivinationPrompt('meihua', '请做整体解读。', data, {
     meihuaSettings: settings,
   });
-  const fullText = '眇能视，跛能履，履虎尾，咥人，凶。武人为于大君。';
+  const fullText = '眇能视，跛能履，履虎尾，咥人，凶。武人为于大君';
   assert.ok(prompt.includes(`动爻爻辞：第3爻，${fullText}`));
   assert.match(prompt, /主卦卦辞：天泽履，履虎尾，不咥人，亨/);
   assert.equal(ZHOUYI_HEXAGRAMS_TEXT[10].yaos[2].yaoCi, fullText);

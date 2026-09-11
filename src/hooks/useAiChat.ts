@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamAiChat, type ChatMessage } from '@/lib/ai/stream-client';
 import type { AiRequestConfig } from '@/lib/ai/settings';
+import {
+  runReadingWorkflow,
+  type ReadingMemory,
+  type ReadingMemorySeed,
+} from '@/lib/ai/reading-workflow';
+import { executeReadingAction } from '@/lib/ai/reading-resources';
+import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
 
-export type AiChatStatus = 'idle' | 'loading' | 'streaming' | 'done' | 'error';
+export type AiChatStatus = 'idle' | 'loading' | 'streaming' | 'done' | 'cancelled' | 'error';
+export type AiChatCompletionStatus = 'pending' | 'complete' | 'partial' | 'cancelled' | 'error';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+  notices?: string[];
+  incomplete?: boolean;
 }
 
 export interface UseAiChat {
@@ -16,14 +26,24 @@ export interface UseAiChat {
   streamingContent: string;
   status: AiChatStatus;
   error: string;
+  progress: string;
+  notices: string[];
   /** 是否已开始解析（至少有过一次 analyze 调用） */
   hasStarted: boolean;
   /** 用提示词开始首次解析 */
-  analyze: (prompt: string) => void;
+  analyze: (prompt: string, resourceSeed?: ReadingMemorySeed) => void;
   /** 发送追问消息 */
   ask: (question: string) => void;
   /** 恢复已保存的对话 */
-  restore: (turns: ChatTurn[], initialPrompt?: string) => void;
+  restore: (
+    turns: ChatTurn[],
+    initialPrompt?: string,
+    readingSubject?: ReadingSubjectSnapshot,
+    completionStatus?: AiChatCompletionStatus,
+    readingMethod?: string,
+    resourceSeed?: ReadingMemorySeed,
+    resourceKey?: string,
+  ) => void;
   /** 重新发送上一次失败的请求 */
   retry: () => void;
   /** 当前是否可以重试 */
@@ -34,11 +54,90 @@ export interface UseAiChat {
   cancel: () => void;
 }
 
-export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
+export interface RestoredAiChatState {
+  status: AiChatStatus;
+  error: string;
+  hasStarted: boolean;
+  canRetry: boolean;
+}
+
+export interface ReadingResourceRequirement {
+  subjectId: string;
+  key: string;
+}
+
+export function isReadingResourceSeedCompatible(
+  seed: ReadingMemorySeed | undefined,
+  subjectId: string | undefined,
+  resourceKey: string | undefined,
+) {
+  return Boolean(
+    seed && subjectId && resourceKey && seed.subjectId === subjectId && seed.key === resourceKey,
+  );
+}
+
+export function resolveReadingResourceSeed(
+  requirement: ReadingResourceRequirement | undefined,
+  seed: ReadingMemorySeed | undefined,
+): ReadingMemory | null {
+  if (
+    !seed ||
+    !requirement ||
+    !isReadingResourceSeedCompatible(seed, requirement.subjectId, requirement.key)
+  )
+    return null;
+  return { resources: [...seed.resources] };
+}
+
+const READING_RESOURCE_RESTORE_ERROR =
+  '本次历史会话所需的完整盘面资料正在恢复，资料就绪后才能继续。';
+const READING_RESOURCE_MISMATCH_ERROR =
+  '本次历史会话所需的完整盘面资料与当前主体或运限范围不匹配，请切换回原范围后继续。';
+const READING_RESOURCE_SUBJECT_ERROR =
+  '本次历史会话缺少锁定主体资料，无法安全恢复完整盘面，请新建会话后继续。';
+
+export function getReadingResourceRestoreError(
+  seed: ReadingMemorySeed | undefined,
+  requirement?: ReadingResourceRequirement,
+) {
+  if (requirement && !requirement.subjectId) return READING_RESOURCE_SUBJECT_ERROR;
+  return seed ? READING_RESOURCE_MISMATCH_ERROR : READING_RESOURCE_RESTORE_ERROR;
+}
+
+function createReadingMemory(
+  seed: ReadingMemorySeed | undefined,
+  subjectId?: string,
+  resourceKey?: string,
+): ReadingMemory {
+  if (
+    !seed ||
+    !subjectId ||
+    seed.subjectId !== subjectId ||
+    (resourceKey !== undefined && seed.key !== resourceKey)
+  )
+    return { resources: [] };
+  return { resources: [...seed.resources] };
+}
+
+export function useAiChat(
+  aiConfig?: AiRequestConfig,
+  readingSubject?: ReadingSubjectSnapshot,
+  readingMethod?: string,
+  readingSeed?: ReadingMemorySeed,
+): UseAiChat {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
   const [status, setStatus] = useState<AiChatStatus>('idle');
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState('');
+  const [notices, setNotices] = useState<string[]>([]);
+  const noticesRef = useRef<string[]>([]);
+  const readingMemoryRef = useRef<ReadingMemory>({ resources: [] });
+  const readingSeedRef = useRef<ReadingMemorySeed | undefined>(readingSeed);
+  const readingResourceRequirementRef = useRef<ReadingResourceRequirement | undefined>(undefined);
+  const pendingRestoredStateRef = useRef<
+    Pick<RestoredAiChatState, 'error' | 'canRetry'> | undefined
+  >(undefined);
   const [hasStarted, setHasStarted] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -46,6 +145,38 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
   const turnsRef = useRef<ChatTurn[]>([]);
   const initialPromptRef = useRef('');
   const lastRequestRef = useRef<ChatMessage[]>([]);
+  const readingSubjectRef = useRef<ReadingSubjectSnapshot | undefined>(readingSubject);
+  const readingSubjectLockedRef = useRef(false);
+  const readingMethodRef = useRef<string | undefined>(readingMethod);
+  const readingMethodLockedRef = useRef(false);
+
+  useEffect(() => {
+    readingSeedRef.current = readingSeed;
+    const requirement = readingResourceRequirementRef.current;
+    const memory = resolveReadingResourceSeed(requirement, readingSeed);
+    if (!memory) {
+      if (requirement) {
+        setError(getReadingResourceRestoreError(readingSeed, requirement));
+        setCanRetry(false);
+      }
+      return;
+    }
+
+    readingMemoryRef.current = memory;
+    readingResourceRequirementRef.current = undefined;
+    const restoredState = pendingRestoredStateRef.current;
+    pendingRestoredStateRef.current = undefined;
+    setError(restoredState?.error ?? '');
+    setCanRetry(restoredState?.canRetry ?? false);
+  }, [readingSeed]);
+
+  useEffect(() => {
+    if (!readingSubjectLockedRef.current) readingSubjectRef.current = readingSubject;
+  }, [readingSubject]);
+
+  useEffect(() => {
+    if (!readingMethodLockedRef.current) readingMethodRef.current = readingMethod;
+  }, [readingMethod]);
 
   // 保持 turnsRef 与 turns 同步，供 ask 回调读取最新值
   useEffect(() => {
@@ -66,6 +197,15 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     streamingRef.current = '';
     turnsRef.current = [];
     initialPromptRef.current = '';
+    readingMemoryRef.current = createReadingMemory(readingSeedRef.current, readingSubject?.id);
+    readingResourceRequirementRef.current = undefined;
+    pendingRestoredStateRef.current = undefined;
+    readingSubjectLockedRef.current = false;
+    readingSubjectRef.current = readingSubject;
+    readingMethodLockedRef.current = false;
+    readingMethodRef.current = readingMethod;
+    setProgress('');
+    setNotices([]);
     lastRequestRef.current = [];
     setTurns([]);
     setStreamingContent('');
@@ -73,31 +213,95 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     setError('');
     setHasStarted(false);
     setCanRetry(false);
-  }, []);
+  }, [readingMethod, readingSubject]);
 
-  const restore = useCallback((nextTurns: ChatTurn[], initialPrompt = '') => {
-    abortRef.current?.abort();
-    abortRef.current = null;
+  const restore = useCallback(
+    (
+      nextTurns: ChatTurn[],
+      initialPrompt = '',
+      restoredSubject?: ReadingSubjectSnapshot,
+      completionStatus?: AiChatCompletionStatus,
+      restoredReadingMethod?: string,
+      resourceSeed?: ReadingMemorySeed,
+      resourceKey?: string,
+    ) => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      streamingRef.current = '';
+      turnsRef.current = nextTurns;
+      initialPromptRef.current = initialPrompt;
+      const resourceRequirement = resourceKey
+        ? { subjectId: restoredSubject?.id ?? '', key: resourceKey }
+        : undefined;
+      const restoredMemory = resolveReadingResourceSeed(
+        resourceRequirement,
+        resourceSeed ?? readingSeedRef.current,
+      );
+      readingMemoryRef.current = resourceKey
+        ? (restoredMemory ?? { resources: [] })
+        : createReadingMemory(undefined, restoredSubject?.id);
+      readingResourceRequirementRef.current =
+        resourceKey && !restoredMemory ? resourceRequirement : undefined;
+      readingSubjectLockedRef.current = true;
+      readingSubjectRef.current = restoredSubject;
+      readingMethodLockedRef.current = true;
+      readingMethodRef.current = restoredReadingMethod ?? readingMethod;
+      setProgress('');
+      setNotices([]);
+      lastRequestRef.current = buildAiChatRequest(initialPrompt, nextTurns);
+      setTurns(nextTurns);
+      setStreamingContent('');
+      const restoredState = resolveRestoredAiChatState(nextTurns, initialPrompt, completionStatus);
+      pendingRestoredStateRef.current = readingResourceRequirementRef.current
+        ? { error: restoredState.error, canRetry: restoredState.canRetry }
+        : undefined;
+      setStatus(restoredState.status);
+      setError(
+        readingResourceRequirementRef.current
+          ? getReadingResourceRestoreError(
+              resourceSeed ?? readingSeedRef.current,
+              readingResourceRequirementRef.current,
+            )
+          : restoredState.error,
+      );
+      setHasStarted(restoredState.hasStarted);
+      setCanRetry(readingResourceRequirementRef.current ? false : restoredState.canRetry);
+    },
+    [readingMethod],
+  );
+
+  const appendIncompleteTurn = useCallback((notice: string) => {
+    const partial = streamingRef.current;
     streamingRef.current = '';
-    turnsRef.current = nextTurns;
-    initialPromptRef.current = initialPrompt;
-    lastRequestRef.current = initialPrompt
-      ? [{ role: 'user', content: initialPrompt }, ...nextTurns]
-      : [...nextTurns];
-    setTurns(nextTurns);
     setStreamingContent('');
-    setStatus(nextTurns.length ? 'done' : 'idle');
-    setError('');
-    setHasStarted(nextTurns.length > 0);
-    setCanRetry(false);
+    if (!partial) return false;
+
+    const nextTurns: ChatTurn[] = [
+      ...turnsRef.current,
+      {
+        role: 'assistant',
+        content: partial,
+        incomplete: true,
+        notices: [...new Set([...noticesRef.current, notice])],
+      },
+    ];
+    turnsRef.current = nextTurns;
+    setTurns(nextTurns);
+    return true;
   }, []);
 
   const cancel = useCallback(() => {
-    abortRef.current?.abort();
+    const controller = abortRef.current;
+    if (!controller) return;
+    controller.abort();
     abortRef.current = null;
-    setStatus('idle');
-    setCanRetry(false);
-  }, []);
+    appendIncompleteTurn('本次回答未完整生成，可重新生成。');
+    setStatus('cancelled');
+    setError('');
+    setCanRetry(lastRequestRef.current.length > 0);
+    setProgress('已停止解读');
+    setNotices((items) => [...new Set([...items, '已停止解读，已生成内容保留在当前对话中。'])]);
+  }, [appendIncompleteTurn]);
 
   const startStream = useCallback(
     (messages: ChatMessage[]) => {
@@ -110,82 +314,138 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
       streamingRef.current = '';
       setStreamingContent('');
       setError('');
+      setProgress('');
+      setNotices([]);
+      noticesRef.current = [];
       setCanRetry(false);
 
-      streamAiChat(messages, {
-        signal: controller.signal,
-        aiConfig,
-        onChunk: (text) => {
-          // 校验回调归属当前活跃请求
-          if (abortRef.current !== controller) return;
-          setStatus('streaming');
-          streamingRef.current += text;
-          setStreamingContent(streamingRef.current);
+      void runReadingWorkflow(
+        messages,
+        {
+          signal: controller.signal,
+          aiConfig,
+          memory: readingMemoryRef.current,
+          subject: readingSubjectRef.current,
+          readingMethod: readingMethodRef.current,
+          onProgress: (value) => {
+            if (abortRef.current === controller) setProgress(value.text);
+          },
+          onNotice: (notice) => {
+            if (abortRef.current === controller) {
+              noticesRef.current = [...new Set([...noticesRef.current, notice])];
+              setNotices(noticesRef.current);
+            }
+          },
+          onChunk: (text) => {
+            // 校验回调归属当前活跃请求
+            if (abortRef.current !== controller) return;
+            setStatus('streaming');
+            streamingRef.current += text;
+            setStreamingContent(streamingRef.current);
+          },
+          onDone: () => {
+            // 校验回调归属当前活跃请求
+            if (abortRef.current !== controller) return;
+            const finalContent = streamingRef.current;
+            streamingRef.current = '';
+            setStreamingContent('');
+            if (finalContent) {
+              const nextTurns = [
+                ...turnsRef.current,
+                {
+                  role: 'assistant' as const,
+                  content: finalContent,
+                  ...(noticesRef.current.length ? { notices: [...noticesRef.current] } : {}),
+                },
+              ];
+              turnsRef.current = nextTurns;
+              setTurns(nextTurns);
+            }
+            setStatus('done');
+            setNotices([]);
+            setCanRetry(false);
+            abortRef.current = null;
+          },
+          onError: (message) => {
+            // 校验回调归属当前活跃请求
+            if (abortRef.current !== controller) return;
+            appendIncompleteTurn('本次回答未完整生成，可重新生成。');
+            setStatus('error');
+            setError(message);
+            setCanRetry(true);
+            setNotices([]);
+            abortRef.current = null;
+          },
         },
-        onDone: () => {
-          // 校验回调归属当前活跃请求
-          if (abortRef.current !== controller) return;
-          const finalContent = streamingRef.current;
-          streamingRef.current = '';
-          setStreamingContent('');
-          if (finalContent) {
-            const nextTurns = [
-              ...turnsRef.current,
-              { role: 'assistant' as const, content: finalContent },
-            ];
-            turnsRef.current = nextTurns;
-            setTurns(nextTurns);
-          }
-          setStatus('done');
-          setCanRetry(false);
-          abortRef.current = null;
-        },
-        onError: (message) => {
-          // 校验回调归属当前活跃请求
-          if (abortRef.current !== controller) return;
-          setStatus('error');
-          setError(message);
-          setCanRetry(true);
-          streamingRef.current = '';
-          setStreamingContent('');
-          abortRef.current = null;
-        },
-      });
+        { stream: streamAiChat, execute: executeReadingAction },
+      );
     },
-    [aiConfig],
+    [aiConfig, appendIncompleteTurn],
   );
 
   const analyze = useCallback(
-    (prompt: string) => {
+    (prompt: string, resourceSeed?: ReadingMemorySeed) => {
       if (!prompt.trim()) return;
+      readingSubjectLockedRef.current = false;
+      readingSubjectRef.current = readingSubject;
+      readingMethodLockedRef.current = false;
+      readingMethodRef.current = readingMethod;
       initialPromptRef.current = prompt;
+      readingResourceRequirementRef.current = undefined;
+      pendingRestoredStateRef.current = undefined;
+      readingMemoryRef.current = createReadingMemory(
+        resourceSeed ?? readingSeedRef.current,
+        readingSubject?.id,
+      );
       turnsRef.current = [];
       setTurns([]);
       setHasStarted(true);
       startStream([{ role: 'user', content: prompt }]);
     },
-    [startStream],
+    [readingMethod, readingSubject, startStream],
   );
 
   const ask = useCallback(
     (question: string) => {
       const trimmed = question.trim();
       if (!trimmed) return;
+      if (readingResourceRequirementRef.current) {
+        setError(
+          getReadingResourceRestoreError(
+            readingSeedRef.current,
+            readingResourceRequirementRef.current,
+          ),
+        );
+        setCanRetry(false);
+        return;
+      }
 
       // 从 ref 读取最新的 turns，避免在 state updater 内部产生副作用
       const nextTurns = [...turnsRef.current, { role: 'user' as const, content: trimmed }];
       turnsRef.current = nextTurns;
       setTurns(nextTurns);
-      const requestTurns: ChatMessage[] = initialPromptRef.current
-        ? [{ role: 'user', content: initialPromptRef.current }, ...nextTurns]
-        : nextTurns;
-      startStream(requestTurns);
+      startStream(buildAiChatRequest(initialPromptRef.current, nextTurns));
     },
     [startStream],
   );
 
   const retry = useCallback(() => {
+    if (readingResourceRequirementRef.current) {
+      setError(
+        getReadingResourceRestoreError(
+          readingSeedRef.current,
+          readingResourceRequirementRef.current,
+        ),
+      );
+      setCanRetry(false);
+      return;
+    }
     if (!lastRequestRef.current.length) return;
+    const nextTurns = removeIncompleteChatTurns(turnsRef.current);
+    if (nextTurns.length !== turnsRef.current.length) {
+      turnsRef.current = nextTurns;
+      setTurns(nextTurns);
+    }
     startStream([...lastRequestRef.current]);
   }, [startStream]);
 
@@ -194,6 +454,8 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     streamingContent,
     status,
     error,
+    progress,
+    notices,
     hasStarted,
     analyze,
     ask,
@@ -202,5 +464,85 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     canRetry,
     reset,
     cancel,
+  };
+}
+
+type LatestChatTurnState = 'none' | 'user' | 'partial' | 'complete';
+
+function getLatestChatTurnState(turns: ChatTurn[]): LatestChatTurnState {
+  const latestTurn = turns[turns.length - 1];
+  if (!latestTurn) return 'none';
+  if (latestTurn.role === 'user') return 'user';
+  return latestTurn.incomplete ? 'partial' : 'complete';
+}
+
+function resolveLatestCompletionStatus(
+  turns: ChatTurn[],
+  completionStatus?: AiChatCompletionStatus,
+): AiChatCompletionStatus | undefined {
+  const latestState = getLatestChatTurnState(turns);
+  if (latestState === 'user') {
+    return completionStatus === 'cancelled' || completionStatus === 'error'
+      ? completionStatus
+      : 'pending';
+  }
+  if (latestState === 'partial') {
+    return completionStatus === 'cancelled' ||
+      completionStatus === 'error' ||
+      completionStatus === 'pending'
+      ? completionStatus
+      : 'partial';
+  }
+  if (latestState === 'complete') {
+    return completionStatus === 'pending' ||
+      completionStatus === 'cancelled' ||
+      completionStatus === 'error'
+      ? completionStatus
+      : 'complete';
+  }
+  return completionStatus;
+}
+
+export function removeIncompleteChatTurns(turns: ChatTurn[]) {
+  return turns.filter((turn) => !turn.incomplete);
+}
+
+export function buildAiChatRequest(initialPrompt: string, turns: ChatTurn[]): ChatMessage[] {
+  const completeTurns = removeIncompleteChatTurns(turns).map(({ role, content }) => ({
+    role,
+    content,
+  }));
+  return initialPrompt
+    ? [{ role: 'user', content: initialPrompt }, ...completeTurns]
+    : completeTurns;
+}
+
+export function resolveRestoredAiChatState(
+  turns: ChatTurn[],
+  initialPrompt: string,
+  completionStatus?: AiChatCompletionStatus,
+): RestoredAiChatState {
+  const restoredStatus = resolveLatestCompletionStatus(turns, completionStatus);
+  const hasRequest = buildAiChatRequest(initialPrompt, turns).length > 0;
+  const isUnfinished =
+    restoredStatus === 'partial' || restoredStatus === 'error' || restoredStatus === 'pending';
+  const hasStarted = turns.length > 0 || Boolean(initialPrompt.trim()) || Boolean(restoredStatus);
+
+  return {
+    status: isUnfinished
+      ? 'error'
+      : restoredStatus === 'cancelled'
+        ? 'cancelled'
+        : restoredStatus === 'complete'
+          ? 'done'
+          : 'idle',
+    error:
+      restoredStatus === 'partial'
+        ? '上次回答未完整生成，可重新生成。'
+        : isUnfinished
+          ? '上次回答未完成，可重新生成。'
+          : '',
+    hasStarted,
+    canRetry: hasRequest && (isUnfinished || restoredStatus === 'cancelled'),
   };
 }

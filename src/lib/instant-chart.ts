@@ -9,7 +9,7 @@ import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { buildChartRecordPath } from '@/lib/case-navigation';
 import {
   defaultInputState,
-  defaultPromptState,
+  createDefaultPromptState,
   type PromptSourceKey,
   type QueryInputState,
   type ResultTabKey,
@@ -124,7 +124,7 @@ export function buildInstantResultPath(options: {
   const config = INSTANT_RESULT_CONFIG[options.type];
   const input = buildInstantQueryInput(options);
   const path = buildChartRecordPath(input, {
-    ...defaultPromptState,
+    ...createDefaultPromptState(options.now),
     tab: config.tab,
     promptSource: config.promptSource,
     ziweiScope: 'origin',

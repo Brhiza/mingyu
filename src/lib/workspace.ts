@@ -137,6 +137,7 @@ const divinationMarks: Record<DivinationWorkspaceId, string> = {
   jinkoujue: '金',
   taiyi: '太',
   huangji: '皇',
+  wuyun: '运',
   ssgw: '签',
   zhuge: '诸',
   kongming: '孔',

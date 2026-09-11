@@ -19,13 +19,22 @@ import {
   getPromptSelectionSection,
   requirePromptSelection,
 } from '../prompt/framework';
-import { calculateHuangjiDateTimeForecast, type HuangjiDateTimeForecast } from './datetime';
+import {
+  calculateHuangjiDateTimeForecast,
+  calculateHuangjiSixDayCycleFromDate,
+  parseHuangjiSixDayDateTime,
+  type HuangjiDateTimeForecast,
+  type HuangjiSixDayDateInput,
+  type HuangjiSixDayDateResult,
+} from './datetime';
 import { evaluateHuangjiEraTrend, type HuangjiEraTrendResult } from './trend';
 import { hexagramsData } from '../divination/hexagram-data';
 
 export * from './standard';
 export * from './datetime';
 export * from './trend';
+export * from './references';
+import { queryHuangjiReference } from './references';
 
 export const HUANGJI_CYCLE_YEARS = Object.freeze({
   shi: 30,
@@ -71,6 +80,8 @@ export interface HuangjiJingshiInput {
   elapsedYears?: number;
   /** 年月日时起盘时间；提供时不得同时提供 epochYear、year 或 elapsedYears。 */
   date?: Date;
+  /** 六日逐爻专用的带时区当地公历时间与显式历元；提供时不得同时提供 date 或年份坐标。 */
+  sixDayDate?: HuangjiSixDayDateInput;
   /** 可选问题，只用于生成完整提示词，不改变换算。 */
   question?: string;
 }
@@ -89,7 +100,7 @@ export interface HuangjiCycleProgress {
 
 export interface HuangjiJingshiCalculation {
   input: {
-    mode: '通行公元年' | '年月日时' | '年坐标' | '已过年数';
+    mode: '通行公元年' | '年月日时' | '六日逐爻公历' | '年坐标' | '已过年数';
     calendar: '公元纪年（无公元0年）' | '整数坐标';
     epochYear: number;
     year: number;
@@ -122,6 +133,7 @@ export interface HuangjiJingshiCalculation {
   limitations: string[];
   forecast?: HuangjiStandardForecast;
   dateTimeForecast?: HuangjiDateTimeForecast;
+  sixDayCycle?: HuangjiSixDayDateResult;
   eraTrend?: HuangjiEraTrendResult;
 }
 
@@ -274,6 +286,7 @@ export function buildHuangjiJingshiPrompt(
     const { forecast } = result;
     const { governing, yun, sixtyYear, decade, annual } = forecast.hexagrams;
     const dateTimeForecast = result.dateTimeForecast;
+    const sixDayCycle = result.sixDayCycle;
     const dayInMonthJing = dateTimeForecast
       ? ((dateTimeForecast.calendar.dayOfYear - 1) % 60) + 1
       : 0;
@@ -285,7 +298,26 @@ export function buildHuangjiJingshiPrompt(
       normalizedQuestion ||
       (dateTimeForecast
         ? `请解读${dateTimeForecast.civilTime.dateTime}这一时点的时势与主要变化。`
-        : `请解读${input.year}年的整体趋势与主要变化。`);
+        : sixDayCycle
+          ? `请解读${sixDayCycle.civilTime.dateTime}这一时点的六日逐爻时势与主要变化。`
+          : `请解读${input.year}年的整体趋势与主要变化。`);
+    const sixDayDateTimeLines = sixDayCycle
+      ? sixDayCycle.model === '书绪言六日逐爻·显式历元'
+        ? [
+            `六日逐爻公历时间：${sixDayCycle.civilTime.dateTime}（UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}${sixDayCycle.civilTime.timeZoneId ? `，${sixDayCycle.civilTime.timeZoneId}` : ''}）`,
+            `显式历元：${sixDayCycle.anchor.dateTime}（UTC${sixDayCycle.anchor.timezone >= 0 ? '+' : ''}${sixDayCycle.anchor.timezone}，真实瞬时${sixDayCycle.anchor.utcDateTime}）为经校定的当地子半起点，对应六日逐爻已过日数0、子半时刻。`,
+            `六日逐爻坐标：从显式历元至目标当地日期经过${sixDayCycle.calendar.actualElapsedDays}个完整公历日，直接取得三百六十日正数中的第${sixDayCycle.dayOfCycle}日；实际 UTC 瞬时相隔${sixDayCycle.calendar.actualElapsedSeconds}秒。`,
+            `经卦${sixDayCycle.hexagrams.jing.name}第${sixDayCycle.dayLine}爻当日，日变卦${sixDayCycle.hexagrams.daily.name}，${sixDayCycle.hourRange}时变卦${sixDayCycle.hexagrams.hourly.name}。`,
+            `时段依据：当地公历子半起，钟表${sixDayCycle.civilTime.hour}时处于${sixDayCycle.hourRange}，每四小时一爻。`,
+          ]
+        : [
+            `六日逐爻公历时间：${sixDayCycle.civilTime.dateTime}（UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}${sixDayCycle.civilTime.timeZoneId ? `，${sixDayCycle.civilTime.timeZoneId}` : ''}）`,
+            `现代冬至岁周换算模型：以${sixDayCycle.anchor.dateTime}的冬至真实瞬时确定${sixDayCycle.calendar.targetYear}岁周；该冬至落在公历${sixDayCycle.anchor.winterSolsticeGregorianYear}年，该瞬时在目标地点为${sixDayCycle.anchor.localDateTime}。`,
+            `当地子半锚点：${sixDayCycle.anchor.dayStartDateTime}（真实瞬时${sixDayCycle.anchor.dayStartUtcDateTime}），以冬至子半至下一冬至子半的实际跨度按三百六十逻辑日比例映射。`,
+            `实际跨度：已经过${sixDayCycle.calendar.actualElapsedSeconds}秒（${sixDayCycle.calendar.actualElapsedDays}个完整日），逻辑位置${sixDayCycle.calendar.logicalPosition.toFixed(9)}日，即第${sixDayCycle.calendar.logicalElapsedDays + 1}个逻辑日的${sixDayCycle.calendar.logicalDayFraction.toFixed(9)}。`,
+            `冬至日子半干支：${sixDayCycle.anchor.dayGanZhi}（六十甲子序号${sixDayCycle.anchor.dayIndex}）；经卦${sixDayCycle.hexagrams.jing.name}第${sixDayCycle.dayLine}爻当日，${sixDayCycle.hourRange}时变卦${sixDayCycle.hexagrams.hourly.name}，每四小时一爻。`,
+          ]
+      : [];
     const dateTimeLines = dateTimeForecast
       ? [
           `起盘时间：${dateTimeForecast.civilTime.dateTime}（${dateTimeForecast.civilTime.timezone}）`,
@@ -302,9 +334,18 @@ export function buildHuangjiJingshiPrompt(
           `日卦卦辞：${dateTimeForecast.hexagrams.daily.judgment}`,
           `时经卦卦辞：${dateTimeForecast.hexagrams.hourJing.judgment}`,
         ]
-      : [];
+      : sixDayCycle
+        ? sixDayDateTimeLines
+        : [];
+    const dateTimeBasis = sixDayCycle
+      ? sixDayCycle.model === '书绪言六日逐爻·显式历元'
+        ? '具体时点以真实带时区公历时间与经校定的当地子半历元适配六日逐爻坐标；传统依据为每卦六日七分与每四小时一爻，公历日期差直接对应三百六十日正数中的已过日数，再依每六日一经卦、每日一爻、每四小时一爻取象。'
+        : '具体时点采用明确标注的现代冬至岁周比例换算：以实际冬至瞬时确定所属岁周，以冬至所在当地公历日子半至下一冬至当地公历日子半的实际跨度映射三百六十逻辑日；传统取象仍沿用每六日一经卦、每日一爻、每四小时一爻。该现代比例口径不宣称是古籍唯一算法。'
+      : dateTimeForecast
+        ? '具体时点以冬至换年，每个节气按十五个皇极日定位，超过十五日的尾段归第十五日；值年卦每六十日变一爻得月经卦，月经卦每十日变一爻得旬纬卦，日卦从月经卦依六十卦序逐日顺行，日卦自子半起每四小时变一爻得时经卦。'
+        : '';
     const prompt = [
-      `【传统依据】\n${forecast.model.model}以${formatHuangjiCivilYear(forecast.model.yuanStartYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。${dateTimeForecast ? '具体时点以冬至换年，每个节气按十五个皇极日定位，超过十五日的尾段归第十五日；值年卦每六十日变一爻得月经卦，月经卦每十日变一爻得旬纬卦，日卦从月经卦依六十卦序逐日顺行，日卦自子半起每四小时变一爻得时经卦。' : ''}`,
+      `【传统依据】\n${forecast.model.model}以${formatHuangjiCivilYear(forecast.model.yuanStartYear)}为本元起点，以${forecast.model.annualAnchorYear}年${forecast.model.annualAnchorHexagram}卦为甲子值年锚点，值年卦按先天圆图去除乾、坤、坎、离后的六十卦顺序轮转。${dateTimeBasis}`,
       [
         '【排盘资料】',
         ...dateTimeLines,
@@ -336,6 +377,13 @@ export function buildHuangjiJingshiPrompt(
               formatHuangjiLineFacts('时经卦', dateTimeForecast.hexagrams.hourJing.id),
             ]
           : []),
+        ...(sixDayCycle
+          ? [
+              formatHuangjiLineFacts('六日经卦', sixDayCycle.hexagrams.jing.id),
+              formatHuangjiLineFacts('六日当日卦', sixDayCycle.hexagrams.daily.id),
+              formatHuangjiLineFacts('六日时变卦', sixDayCycle.hexagrams.hourly.id),
+            ]
+          : []),
         evaluateHuangjiEraTrend(forecast).summary,
       ].join('\n'),
       [
@@ -345,9 +393,11 @@ export function buildHuangjiJingshiPrompt(
         `综卦：${forecast.relatedHexagrams.reversed.name}；卦辞：${forecast.relatedHexagrams.reversed.judgment}`,
       ].join('\n'),
       `【任务】\n${buildPromptTask(
-        dateTimeForecast
-          ? '以时经卦与日卦为当前时点的主要取象，以旬纬卦、月经卦和值年卦说明近远层级，再结合十年卦、六十年统卦、运卦和会内统卦交代长期背景，回答所问事项。'
-          : '以值年卦为主要取象，结合十年卦、六十年统卦、运卦和会内统卦的层级背景，解读所问事项；个人事项结合问题中的现实背景作条件化分析。',
+        sixDayCycle
+          ? '以六日逐爻经卦、当日变卦与四小时段时变卦为当前时点的主要取象，以值年卦、十年卦、六十年统卦、运卦和会内统卦交代长期背景，回答所问事项。'
+          : dateTimeForecast
+            ? '以时经卦与日卦为当前时点的主要取象，以旬纬卦、月经卦和值年卦说明近远层级，再结合十年卦、六十年统卦、运卦和会内统卦交代长期背景，回答所问事项。'
+            : '以值年卦为主要取象，结合十年卦、六十年统卦、运卦和会内统卦的层级背景，解读所问事项；个人事项结合问题中的现实背景作条件化分析。',
         'huangji-jingshi',
       )}`,
       `【问题】\n${askedQuestion}`,
@@ -425,19 +475,34 @@ function applyHuangjiPromptSelection(
 export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJingshiResult {
   if (!input || typeof input !== 'object') throw new Error('皇极经世输入不能为空。');
   const hasDate = input.date !== undefined;
+  const hasSixDayDate = input.sixDayDate !== undefined;
   if (
-    hasDate &&
+    (hasDate || hasSixDayDate) &&
     (input.epochYear !== undefined || input.year !== undefined || input.elapsedYears !== undefined)
   ) {
-    throw new Error('年月日时起盘不得同时提供 epochYear、year 或 elapsedYears。');
+    throw new Error('公历起盘不得同时提供 epochYear、year 或 elapsedYears。');
+  }
+  if (hasDate && hasSixDayDate) {
+    throw new Error('customDate 与六日逐爻公历时间只能选择一项。');
   }
   const dateTimeForecast = hasDate
     ? calculateHuangjiDateTimeForecast(input.date as Date)
     : undefined;
+  const sixDayCycle = hasSixDayDate
+    ? calculateHuangjiSixDayCycleFromDate(input.sixDayDate as HuangjiSixDayDateInput)
+    : undefined;
   const normalized = resolveInput(
     dateTimeForecast
       ? { year: dateTimeForecast.calendar.forecastYear, question: input.question }
-      : input,
+      : sixDayCycle
+        ? {
+            year:
+              sixDayCycle.model === '书绪言六日逐爻·显式历元'
+                ? sixDayCycle.calendar.targetYear
+                : sixDayCycle.calendar.targetYear,
+            question: input.question,
+          }
+        : input,
   );
   const elapsed = normalized.elapsedYears;
   const yuanOffset = Math.floor(elapsed / HUANGJI_CYCLE_YEARS.yuan);
@@ -484,7 +549,7 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
     ? calculateStandardHuangjiForecast(normalized.year)
     : undefined;
   const publicInput: HuangjiJingshiCalculation['input'] = {
-    mode: dateTimeForecast ? '年月日时' : normalized.mode,
+    mode: sixDayCycle ? '六日逐爻公历' : dateTimeForecast ? '年月日时' : normalized.mode,
     calendar: normalized.calendar,
     epochYear: normalized.epochYear,
     year: normalized.year,
@@ -548,6 +613,7 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
           `${forecast.hexagrams.yun.hexagram.shortName}运卦第${forecast.hexagrams.sixtyYear.changedLine}爻变为${forecast.hexagrams.sixtyYear.hexagram.shortName}六十年统卦`,
           `${forecast.hexagrams.sixtyYear.hexagram.shortName}六十年统卦第${forecast.hexagrams.decade.changedLine}爻变为${forecast.hexagrams.decade.hexagram.shortName}十年卦；本年轮值${forecast.hexagrams.annual.shortName}卦`,
           ...(dateTimeForecast ? dateTimeForecast.calculationChain : []),
+          ...(sixDayCycle ? sixDayCycle.calculationChain : []),
         ]
       : [
           `${normalized.year} - ${normalized.epochYear} = ${elapsed}（距纪元已过年数）`,
@@ -561,6 +627,7 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
           '值年卦描述年度公共时势取象，个人事项需结合现实背景分析。',
           '公元纪年按无公元0年的连续年序换算，跨公元前后边界时已作校正。',
           ...(dateTimeForecast ? dateTimeForecast.limitations : []),
+          ...(sixDayCycle ? sixDayCycle.limitations : []),
         ]
       : [
           '结果使用整数年坐标，不自动解释为公元、民国或其他历史纪年。',
@@ -569,6 +636,7 @@ export function calculateHuangjiJingshi(input: HuangjiJingshiInput): HuangjiJing
         ],
     ...(forecast ? { forecast, eraTrend: evaluateHuangjiEraTrend(forecast) } : {}),
     ...(dateTimeForecast ? { dateTimeForecast } : {}),
+    ...(sixDayCycle ? { sixDayCycle } : {}),
   };
 
   return { ...calculation, prompt: buildHuangjiJingshiPrompt(calculation, input.question) };
@@ -582,5 +650,8 @@ export const huangjiJingshi = {
   calculateHuangjiJingshi,
   calculateStandardHuangjiForecast,
   calculateHuangjiDateTimeForecast,
+  calculateHuangjiSixDayCycleFromDate,
+  parseHuangjiSixDayDateTime,
   buildHuangjiJingshiPrompt,
+  queryHuangjiReference,
 };

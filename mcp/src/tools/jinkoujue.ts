@@ -76,7 +76,7 @@ export function registerJinkoujueTool(server: McpServer) {
     'jinkoujue_prompt',
     {
       description:
-        '金口诀起课并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要四位课盘时调用 divine_jinkoujue',
+        '金口诀起课并生成可直接交给 AI 的完整任务书，同时返回人元、贵神、将神和地分四位课盘',
       inputSchema: jinkoujuePromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

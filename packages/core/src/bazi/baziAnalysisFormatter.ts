@@ -111,10 +111,7 @@ function formatElementRelations(baziResult: BaziChartResult): string {
   }
   return [
     '【五行作用方向】',
-    `以日主${baziResult.dayMaster.gan}${dayElement}为十神参照：`,
-    ...generating,
-    ...controlling,
-    '以上为五行直接生克方向；作用强弱与成败结合月令、根气、透藏和制化条件判断。',
+    `日主${baziResult.dayMaster.gan}${dayElement}；相生：${generating.map((line) => line.split('，')[0]).join('；')}；相克：${controlling.join('；')}`,
   ].join('\n');
 }
 
@@ -324,6 +321,11 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
       result += ` | 缺失:${baziResult.wuxingStrength.missing.join(',')}`;
     }
     result += '\n';
+  }
+
+  if (includeNatalDetails && baziResult.pillarRelations) {
+    const relations = Object.values(baziResult.pillarRelations).flat();
+    if (relations.length) result += `\n【原局干支关系】\n${[...new Set(relations)].join('；')}\n`;
   }
 
   if (includeNatalDetails && baziResult.warnings?.length) {

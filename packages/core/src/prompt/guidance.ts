@@ -1,4 +1,8 @@
 export const PROMPT_GUIDANCE_TEXT = {
+  'wuyun-liuqi': {
+    tradition: '以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
+    sources: '参考《素问》运气七篇与吴谦《运气要诀》。',
+  },
   bazi: {
     tradition:
       '子平法先看月令、根气、透干与全局制化，再定旺衰、格局和调候；十神落实人事，岁运以原局为根，神煞仅作旁证。',
@@ -114,14 +118,15 @@ export const PROMPT_GUIDANCE_TEXT = {
     sources: '参考《果老星宗》《御定五星精义》《星学大成》《七政算内篇》及天文星历。',
   },
   residential: {
-    tradition: '住宅风水结合玄空三元九运、山向飞布与八宅命卦、宅卦和八方吉凶判断宅运及人宅适配。',
+    tradition:
+      '住宅风水结合玄空三元九运、下卦或兼向替卦山向飞布与八宅命卦、宅卦和八方吉凶判断宅运及人宅适配。',
     sources:
-      '参考《八宅明镜》《阳宅十书》命卦宅卦与大游年口径，以及玄空飞星通行的三元九运、元龙阴阳顺逆与下卦口径。',
+      '参考《八宅明镜》《阳宅十书》命卦宅卦与大游年口径，以及玄空飞星通行的三元九运、元龙阴阳顺逆、下卦与兼向替星口径。',
   },
   xuankong: {
     tradition:
-      '先按下卦定三元九运与二十四山向，再结合运盘、山盘、向盘、到山到向和局型判断；有流年或流月时，把三元紫白飞星叠到各宫。',
-    sources: '参考玄空飞星通行的三元九运、元龙阴阳顺逆、下卦口径及三元紫白流年流月飞布。',
+      '先按盘面标注的下卦或兼向替卦定三元九运与二十四山向，再结合运盘、山盘、向盘、到山到向和局型判断；有流年或流月时，把三元紫白飞星叠到各宫。',
+    sources: '参考玄空飞星通行的三元九运、元龙阴阳顺逆、下卦与兼向替星口径及三元紫白流年流月飞布。',
   },
 } as const;
 
@@ -136,6 +141,7 @@ export type DivinationPromptGuidanceMethod =
   | 'liuren'
   | 'taiyi'
   | 'huangji'
+  | 'wuyun'
   | 'tarot'
   | 'lenormand'
   | 'ssgw'
@@ -179,7 +185,7 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
   'meihua-random':
     '先依据随机所得本卦、互卦、变卦、动爻与体用旺衰判断当前趋势，再结合盘面结构说明进展。',
   'meihua-time':
-    '先依据年月日时起卦的本卦、互卦、变卦、动爻与体用旺衰判断当前趋势，再结合起卦时间线索说明进展。',
+    '先依据本次起卦的本卦、互卦、变卦、动爻与体用旺衰判断当前趋势，再结合盘面已有的时间线索说明进展。',
   qimen:
     '先以值符值使定大势局型与主客攻守，再依用神落宫门星神干与格局生克详析事态，给出清晰明确的进退取舍与破局机先。',
   liuren:
@@ -193,9 +199,10 @@ export const PROMPT_METHOD_ANSWER_FRAMEWORKS: Record<string, string> = {
   // 3. 堪舆风水体系
   bazhai:
     '先断人宅相合与宅卦吉凶大局，再依大游年八方详析各宫气场生克，并给出传统方位宜忌与趋避要点。',
-  xuankong: '先按三元九运与山向定当运局型，再依三盘九宫详析生克；有流年流月时再叠紫白加临。',
+  xuankong:
+    '先按三元九运与盘面标注的下卦或兼向替卦山向定当运局型，再依三盘九宫详析生克；有流年流月时再叠紫白加临。',
   residential:
-    '先断玄空当运山向与八宅人宅相合大局，再结合飞星九宫与大游年吉凶详析各方位气场，并给出传统布局趋避要点。',
+    '先断玄空当运下卦或兼向替卦山向与八宅人宅相合大局，再结合飞星九宫与大游年吉凶详析各方位气场，并给出传统布局趋避要点。',
 
   // 4. 择日体系
   almanac:
@@ -254,10 +261,11 @@ export function buildCustomQuestionTask(subject = '以上资料', method?: strin
   return buildPromptTask(`请依据${subject.trim() || '以上资料'}回答【问题】`, method);
 }
 
-export function buildPromptGuidanceSections(method: PromptGuidanceId) {
+export function buildPromptGuidanceSections(method: PromptGuidanceId | 'wuyun') {
+  const guidanceMethod = method === 'wuyun' ? 'wuyun-liuqi' : method;
   // 签谱提示词只允许携带本次签谱资料；签文、典故和解签由盘面资料本身提供。
-  if (method === 'ssgw') return '';
-  const guidance = PROMPT_GUIDANCE_TEXT[method];
+  if (guidanceMethod === 'ssgw') return '';
+  const guidance = PROMPT_GUIDANCE_TEXT[guidanceMethod];
   // 书目名称不参与本次判断，完整来源仍保留在结构化证据中。
   const blocks = 'tradition' in guidance ? guidance.tradition : '';
 
@@ -282,7 +290,8 @@ export function insertPromptSectionBeforeHeading(prompt: string, heading: string
 
 /** 生成核心提示词使用的传统依据段落。 */
 export function buildPromptGuidance(method: string) {
-  return method in PROMPT_GUIDANCE_TEXT
-    ? buildPromptGuidanceSections(method as PromptGuidanceId)
+  const guidanceMethod = method === 'wuyun' ? 'wuyun-liuqi' : method;
+  return guidanceMethod in PROMPT_GUIDANCE_TEXT
+    ? buildPromptGuidanceSections(guidanceMethod as PromptGuidanceId)
     : '';
 }

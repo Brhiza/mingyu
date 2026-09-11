@@ -13,6 +13,7 @@ import {
   ResultShareFab,
 } from '@/components/workspace/WorkspaceUI';
 import { useViewportSize } from '@/hooks/useViewportWidth';
+import type { ReadingSubjectSnapshot } from '@/lib/ai/reading-subject';
 
 interface DivinationResultProps {
   isSubmitting: boolean;
@@ -28,6 +29,7 @@ interface DivinationResultProps {
   onOpenAssistant?: () => void;
   onReturnToBoard?: () => void;
   onRestart?: () => void;
+  readingSubject?: ReadingSubjectSnapshot;
 }
 
 export function DivinationResult({
@@ -44,6 +46,7 @@ export function DivinationResult({
   onOpenAssistant,
   onReturnToBoard,
   onRestart,
+  readingSubject,
 }: DivinationResultProps) {
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
@@ -193,6 +196,8 @@ export function DivinationResult({
                   autoStartKey={session.prompt}
                   resetKey={session.prompt}
                   aiConfig={aiRequestConfig}
+                  readingMethod={session.method}
+                  readingSubject={readingSubject}
                 />
               </div>
             ) : (

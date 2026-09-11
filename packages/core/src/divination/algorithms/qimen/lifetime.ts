@@ -13,26 +13,35 @@ import { generateQimen } from './index';
 import { normalizeQimenLifetimeTime } from './helpers/lifetime-time';
 import { extractPersonalMarkers, buildTopicCandidates } from './helpers/lifetime-markers';
 import { buildLifetimeStages } from './helpers/lifetime-stages';
-import { scanLifetimeDynamicEvents } from './helpers/lifetime-dynamic';
+import { scanLifetimeDynamicEvents, validateLifetimePeriodRange } from './helpers/lifetime-dynamic';
 import { buildLifetimePrompt } from './helpers/lifetime-prompt';
 
 export { buildLifetimePrompt } from './helpers/lifetime-prompt';
 export { normalizeQimenLifetimeTime } from './helpers/lifetime-time';
 export { extractPersonalMarkers, buildTopicCandidates } from './helpers/lifetime-markers';
 export { buildLifetimeStages } from './helpers/lifetime-stages';
-export { scanLifetimeDynamicEvents } from './helpers/lifetime-dynamic';
+export { scanLifetimeDynamicEvents, validateLifetimePeriodRange } from './helpers/lifetime-dynamic';
 
 /**
  * 计算奇门终身局完整结构
  */
 export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetimeData {
+  if (input.periodRange !== undefined) validateLifetimePeriodRange(input.periodRange);
   // 1. P0: 时间标准化与历法依据
   const timeResult = normalizeQimenLifetimeTime(input);
   const method = input.method ?? 'zhuanpan';
   const juMethod = input.juMethod ?? 'chaibu';
 
   // 2. P1: 生成本命基础局（体）
-  const baseChart = generateQimen(timeResult.normalizedDate, method, 'hour', juMethod);
+  const baseChart = generateQimen(
+    timeResult.normalizedDate,
+    method,
+    'hour',
+    juMethod,
+    timeResult.timezoneOffsetMinutes,
+    input.timeZoneId,
+    timeResult.referenceDate,
+  );
 
   // 3. P1: 提取个人标记与六亲主题宫（枢）
   const personalMarkers = extractPersonalMarkers(baseChart);
@@ -46,6 +55,7 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
     timeResult.basis.stagePolicy,
     timeResult.normalizedDate,
     input.gender,
+    timeResult.calculationParts,
   );
 
   // 5. P3: 动态事件扫描与事件聚类（用，仅在指定 periodRange 时触发）
@@ -57,6 +67,11 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
       input.periodRange,
       method,
       juMethod,
+      {
+        timezone: input.timezone,
+        timeZoneId: input.timeZoneId,
+        fallbackOffsetMinutes: timeResult.timezoneOffsetMinutes,
+      },
     );
   }
 
@@ -80,6 +95,7 @@ export function calculateQimenLifetime(input: QimenLifetimeInput): QimenLifetime
       key: c.key,
       timeSpan: c.timeSpan,
       triggerFact: c.triggerFact,
+      ...(c.triggerDates ? { triggerDates: c.triggerDates } : {}),
       rhythm: c.rhythm,
     })),
     limitations: [

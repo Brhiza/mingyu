@@ -10,6 +10,10 @@ import {
   getTenGodForBranch,
 } from './baziUtils';
 import type { BaziChartResult, SeasonInfo, ShenShaResult } from './baziTypes';
+import {
+  DEFAULT_CHINA_TIMEZONE_HOURS,
+  getCivilDateTimeAtFixedOffset,
+} from '../calendar/civil-time';
 import { daysInSolarMonth } from '../calendar/date-validation';
 import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
 
@@ -388,14 +392,15 @@ export function calculateSeasonInfoFromDate(date: Date): SeasonInfo {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     throw new Error('时间不是有效日期。');
   }
+  const civilTime = getCivilDateTimeAtFixedOffset(date, DEFAULT_CHINA_TIMEZONE_HOURS);
   return calculateSeasonInfo(
     SolarTime.fromYmdHms(
-      date.getFullYear(),
-      date.getMonth() + 1,
-      date.getDate(),
-      date.getHours(),
-      date.getMinutes(),
-      date.getSeconds(),
+      civilTime.year,
+      civilTime.month,
+      civilTime.day,
+      civilTime.hour,
+      civilTime.minute,
+      civilTime.second,
     ),
   );
 }

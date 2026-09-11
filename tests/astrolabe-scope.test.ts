@@ -7,6 +7,7 @@ import {
   calculateSecondaryProgressionEvidence,
   calculateSolarArcEvidence,
   calculateSolarReturnEvidence,
+  getDefaultAstrolabeScopeDate,
 } from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeData } from 'mingyu-core/types';
@@ -73,6 +74,16 @@ function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
   assert.match(evidence.promptText, /证据汇总：/);
 }
 
+test('星盘当前参考日按统一时区生成各层日期', () => {
+  const now = new Date('2026-09-11T23:30:00-07:00');
+
+  assert.equal(getDefaultAstrolabeScopeDate('natal', now), '');
+  assert.equal(getDefaultAstrolabeScopeDate('yearly', now), '2026');
+  assert.equal(getDefaultAstrolabeScopeDate('monthly', now), '2026-09');
+  assert.equal(getDefaultAstrolabeScopeDate('daily', now), '2026-09-12');
+  assert.equal(getDefaultAstrolabeScopeDate('full', now), '2026-09-12');
+});
+
 test('星盘本命分析对象只写入本命资料', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'natal', '2028-06-01');
 
@@ -97,6 +108,9 @@ test('星盘完整输出版显示完整行运资料摘要', () => {
   assert.equal(contexts.yearly.dateStr, '2028');
   assert.equal(contexts.monthly.dateStr, '2028-06');
   assert.equal(contexts.daily.dateStr, '2028-06-01');
+  assert.match(contexts.yearly.promptText, /太阳返照（/);
+  assert.match(contexts.yearly.promptText, /次限相位：/);
+  assert.match(contexts.yearly.promptText, /太阳弧相位：/);
 });
 
 test('星盘流年分析对象会生成行运证据和展示文本', () => {
@@ -108,6 +122,17 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.doesNotMatch(context.promptText, /宫主星落宫/);
   assert.match(context.promptText, /行运取样：2028-07-01 12:00（UTC\+8）/);
   assert.match(context.promptText, /主要行运相位：/);
+  const sampledAspects = context.promptText
+    .split('\n')
+    .filter((line) => /^(主要行运相位|其余取样相位|取样相位明细)：/.test(line))
+    .flatMap((line) =>
+      line
+        .slice(line.indexOf('：') + 1)
+        .replace(/。$/, '')
+        .split('；'),
+    );
+  assert.ok(sampledAspects.length > 6, '固定流年样本应保留重点以外的取样相位');
+  assert.equal(new Set(sampledAspects).size, sampledAspects.length, '每条取样相位只列示一次');
   assert.match(context.promptText, /行运落宫：/);
   assert.match(context.promptText, /周期关键星象（2028-01-01 00:00至2029-01-01 00:00，共\d+项）。/);
   assert.match(context.promptText, /周期主轴：/);

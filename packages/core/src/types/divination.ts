@@ -7,6 +7,7 @@ import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import type { HuangjiJingshiResult } from '../huangji-jingshi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from '../name-number';
+import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -29,9 +30,19 @@ export type DivinationType =
   | 'lenormand'
   | 'astrolabe'
   | 'taiyi'
-  | 'huangji';
+  | 'huangji'
+  | 'wuyun';
 
-export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
+export type MeihuaDivinationMethod =
+  'time' | 'number' | 'sound' | 'character' | 'direction' | 'random' | 'timeTrigram';
+
+/** 梅花后天八卦方位；英文值便于 API/MCP 稳定传输。 */
+export type MeihuaDirection =
+  'northwest' | 'west' | 'south' | 'east' | 'southeast' | 'north' | 'northeast' | 'southwest';
+
+/** 梅花所见物类对应的八卦自然象。 */
+export type MeihuaObjectType =
+  'heaven' | 'lake' | 'fire' | 'thunder' | 'wind' | 'water' | 'mountain' | 'earth';
 
 export type XiaoliurenDivinationMethod = 'time';
 export type XiaoliurenRule = 'common' | 'duoneng';
@@ -39,6 +50,22 @@ export type XiaoliurenRule = 'common' | 'duoneng';
 export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
   number?: number;
+  /** 所闻声音的可回放计数。 */
+  soundCount?: number;
+  /** 字占的原始文字；按 Unicode 字符计数。 */
+  characterText?: string;
+  /** 字占的字符数；未提供 characterText 时使用。 */
+  characterCount?: number;
+  /** 4—10 字时必须按传统平、上、去、入声类提供 1—4 数，不等同于普通话一至四声。 */
+  characterTones?: number[];
+  /** 2—3 字时按顺序提供每个字的人工笔画数，避免字体差异。 */
+  characterStrokeCounts?: number[];
+  /** 单字左右分笔时的左侧笔画数。 */
+  characterLeftStrokes?: number;
+  /** 单字左右分笔时的右侧笔画数。 */
+  characterRightStrokes?: number;
+  direction?: MeihuaDirection;
+  objectType?: MeihuaObjectType;
 }
 
 export interface XiaoliurenPalaceDetail {
@@ -396,6 +423,21 @@ export interface MeihuaCalculation {
   numbers?: number[];
   time?: string;
   number?: number;
+  soundCount?: number;
+  characterText?: string;
+  characterCount?: number;
+  characterTones?: number[];
+  characterStrokeCounts?: number[];
+  characterLeftStrokes?: number;
+  characterRightStrokes?: number;
+  characterUpperNumber?: number;
+  characterLowerNumber?: number;
+  characterRule?: string;
+  direction?: MeihuaDirection;
+  objectType?: MeihuaObjectType;
+  objectTrigramIndex?: number;
+  directionTrigramIndex?: number;
+  totalWithTime?: number;
   month?: number;
   day?: number;
   yearZhi?: string;
@@ -711,16 +753,18 @@ export interface QimenData {
 }
 
 /** 奇门终身局人生主题枚举 */
-export type QimenTopic =
-  | 'career'
-  | 'wealth'
-  | 'marriage'
-  | 'health'
-  | 'academic'
-  | 'relocation'
-  | 'family'
-  | 'children'
-  | 'partnership';
+export const QIMEN_LIFETIME_TOPICS = [
+  'career',
+  'wealth',
+  'marriage',
+  'health',
+  'academic',
+  'relocation',
+  'family',
+  'children',
+  'partnership',
+] as const;
+export type QimenTopic = (typeof QIMEN_LIFETIME_TOPICS)[number];
 
 /** 奇门终身局阶段引擎策略配置 */
 export interface QimenStagePolicy {
@@ -849,10 +893,17 @@ export interface QimenLifetimeStage {
 export interface QimenEventCluster {
   /** 事件簇唯一标识 */
   key: string;
-  /** 归属阶段索引 */
-  stageIndex: number;
+  /** 归属阶段索引；日期超出已列阶段时为空，仍保留日期关系事实。 */
+  stageIndex?: number;
   /** 时间跨度描述（如 "2027年"） */
   timeSpan: string;
+  /** 可复核的日期级触发事实；不包含评分或未计算的日盘结论。 */
+  triggerDates?: Array<{
+    date: string;
+    dateTime?: string;
+    ganzhi?: string;
+    relation?: string;
+  }>;
   /** 涉及的人生主题 */
   topics: QimenTopic[];
   /** 触发盘事实（如流年干支、定局、太岁落宫） */
@@ -889,6 +940,7 @@ export interface QimenLifetimeEvidence {
     key: string;
     timeSpan: string;
     triggerFact: string;
+    triggerDates?: QimenEventCluster['triggerDates'];
     rhythm: string;
   }>;
   limitations: string[];
@@ -1671,7 +1723,8 @@ export type DivinationData =
   | LenormandData
   | AstrolabeData
   | TaiyiResult
-  | HuangjiJingshiResult;
+  | HuangjiJingshiResult
+  | WuyunLiuqiResult;
 
 export interface SupplementaryInfo {
   /** 求测人性别，用于补充解读背景，不参与起盘算法。 */

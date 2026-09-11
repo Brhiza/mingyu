@@ -9,8 +9,8 @@ import {
   type PersonalHistoryRecord,
 } from '@/lib/history-records';
 import {
+  createDefaultPromptState,
   defaultInputState,
-  defaultPromptState,
   hasCompletePreciseBirthData,
   parseInputState,
   type PromptSourceKey,
@@ -339,17 +339,16 @@ export function InputPage() {
     }
 
     startSubmitTransition(() => {
+      const promptDefaults = createDefaultPromptState();
       navigate(
         buildChartRecordPath(
           form,
           {
-            ...defaultPromptState,
+            ...promptDefaults,
             tab: config.resultTab,
             promptSource: config.promptSource,
-            baziShortcutMode: config.compatibility ? '合婚' : defaultPromptState.baziShortcutMode,
-            baziPresetId: config.compatibility
-              ? 'ai-compat-marriage'
-              : defaultPromptState.baziPresetId,
+            baziShortcutMode: config.compatibility ? '合婚' : promptDefaults.baziShortcutMode,
+            baziPresetId: config.compatibility ? 'ai-compat-marriage' : promptDefaults.baziPresetId,
           },
           recordId,
         ),

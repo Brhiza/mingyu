@@ -176,6 +176,17 @@ function offsetHoursAt(formatter: Intl.DateTimeFormat, timestamp: number) {
   return Number(((representedAsUtc - Math.floor(timestamp / 1000) * 1000) / 3600000).toFixed(6));
 }
 
+/** 读取指定真实瞬时点在 IANA 时区中的历史 UTC 偏移。 */
+export function getHistoricalTimezoneOffsetAt(date: Date, timeZoneId: string): number {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    throw new Error('历史时区参考时间不是有效日期。');
+  }
+  if (!timeZoneId?.trim()) {
+    throw new Error('IANA 时区名不能为空。');
+  }
+  return offsetHoursAt(getFormatter(timeZoneId.trim()), date.getTime());
+}
+
 function toIso(timestamp: number) {
   return new Date(timestamp).toISOString();
 }

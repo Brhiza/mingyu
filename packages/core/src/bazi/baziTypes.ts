@@ -153,7 +153,10 @@ export interface SolarDateTimeInfo {
   second: number;
 }
 
-/** 采用运行环境本地时区解释的半开时间区间：[start, end)。 */
+/**
+ * 中国民用墙上时间字段对应真实 UTC 瞬时点的半开区间：[start, end)。
+ * `startTimestamp` 与 `endTimestamp` 始终是对应瞬时点的 UTC epoch 毫秒数。
+ */
 export interface LocalTimeRange {
   start: SolarDateTimeInfo;
   end: SolarDateTimeInfo;
@@ -305,7 +308,7 @@ export interface PatternAnalysis {
   /** 《子平真诠》格局成败、病因与救应药神推导 */
   fulfillment?: {
     patternName: string;
-    status: '成格' | '破格' | '破而复成' | '平常';
+    status: '成格' | '破格' | '破而复成' | '平常' | '未判定';
     basis: string;
     contradiction: string;
     remedies: Array<{
@@ -392,7 +395,7 @@ export interface BaziChartResult {
   pillars: Pillars;
   /** 是否为时辰未知的“前三柱降级”模式 */
   isThreePillars?: boolean;
-  /** 四柱之间可直接复核的伏吟、反吟、合冲刑害破、三合三会关系 */
+  /** 四柱之间可直接复核的同柱伏吟、同干、同支、反吟、合冲刑害破、三合三会关系 */
 
   pillarRelations: import('./baziPromptEnhancement').BaziPillarRelations;
   /** 日主（出生日的天干，代表命主自身） */

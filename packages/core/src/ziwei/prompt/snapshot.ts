@@ -172,12 +172,28 @@ export function buildZiweiTaskBookSnapshot(params: {
 }) {
   const { payload, reportContext } = params;
   const focusTaskBundle = buildFocusTaskBundle(payload, reportContext);
-  const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 8);
+  const focusPalaces = focusTaskBundle.focusPalaces;
   const isOrigin = payload.active_scope.scope === 'origin';
   const patternSummary = buildPatternSummary(payload);
   const yunxianFocus = buildScopeHitSummary(payload);
-  const focusBody = focusPalaces.map((item) => buildPalaceSummary(payload, item));
-  const evidenceBody = formatObjectList(buildEvidenceSummary(payload, focusPalaces, reportContext));
+  const focusBody = `宫位：${focusPalaces.map((item) => formatPalaceName(item.name)).join('、')}`;
+  const palaceBody = payload.palaces
+    .map((palace) =>
+      Object.entries(buildPalaceSummary(payload, palace))
+        .filter(
+          ([key, value]) =>
+            !['对宫', '三方四正'].includes(key) &&
+            value != null &&
+            value !== '' &&
+            (!Array.isArray(value) || value.length),
+        )
+        .map(([key, value]) => `${key}：${Array.isArray(value) ? value.join('、') : value}`)
+        .join('｜'),
+    )
+    .join('\n');
+  const evidenceBody = buildEvidenceSummary(payload, focusPalaces, reportContext)
+    .map((item) => `${item.适用范围}｜${item.判断线索}｜${item.说明}`)
+    .join('\n');
 
   const sections = [
     '【分析背景】',
@@ -192,10 +208,8 @@ export function buildZiweiTaskBookSnapshot(params: {
     ...(isOrigin ? [] : ['', '【运限重点】', yunxianFocus.length ? yunxianFocus.join('\n') : '无']),
     ...(patternSummary.length ? ['', '【命盘格局】', formatObjectList(patternSummary)] : []),
     ...(evidenceBody ? ['', '【关键判断线索】', evidenceBody] : []),
-    ...(formatObjectList(focusBody) ? ['', '【重点宫位资料】', formatObjectList(focusBody)] : []),
-    ...(formatObjectList(buildPalaceIndex(payload))
-      ? ['', '【全盘十二宫总览】', formatObjectList(buildPalaceIndex(payload))]
-      : []),
+    ...['', '【重点宫位资料】', focusBody],
+    ...['', '【全盘十二宫总览】', palaceBody],
   ];
 
   return sections

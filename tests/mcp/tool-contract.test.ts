@@ -5,6 +5,7 @@ import {
   findTool,
   getToolsByCategory,
   getToolAnnotations,
+  getToolDescription,
 } from '../../mcp/src/catalog/tool-catalog.js';
 import { birthInputSchema } from '../../mcp/src/schemas.js';
 import { createErrorToolResult, createStructuredToolResult } from '../../mcp/src/tool-results.js';
@@ -26,6 +27,10 @@ test('统一 Tool Catalog 应包含所有核心工具并声明元数据注解', 
   const promptTool = findTool('ziwei_prompt');
   assert.ok(promptTool);
   assert.equal(promptTool.type, 'prompt');
+
+  const qimenLifetimePrompt = findTool('qimen_lifetime_prompt');
+  assert.ok(qimenLifetimePrompt);
+  assert.doesNotMatch(qimenLifetimePrompt.description, /统一主题参数/);
 
   const annotations = getToolAnnotations('foundation_capabilities');
   assert.equal(annotations.readOnlyHint, true);
@@ -57,6 +62,25 @@ test('BirthInputSchema 应支持标准出生参数及三柱降级缺省时辰', 
   const parsedThree = birthInputSchema.safeParse(threePillarsInput);
   assert.equal(parsedThree.success, true);
   assert.equal(parsedThree.data.timeIndex, undefined);
+});
+
+test('统一工具描述应说明首选调用、结果读取和随机重放规则', () => {
+  const promptDescription = getToolDescription(
+    'bazi_prompt',
+    '八字排盘并生成完整提示词，仅返回提示词；需要完整命盘时调用 bazi_calculate',
+  );
+  assert.match(promptDescription, /直接解读时优先调用/);
+  assert.match(promptDescription, /无需先调同类排盘工具/);
+  assert.match(promptDescription, /返回 prompt/);
+  assert.doesNotMatch(promptDescription, /仅返回提示词/);
+
+  const calculationDescription = getToolDescription('bazi_calculate', '八字排盘');
+  assert.match(calculationDescription, /只用于结构化盘面/);
+  assert.match(calculationDescription, /按 outputSchema 读取结构化字段/);
+
+  const randomDescription = getToolDescription('divine_liuyao', '六爻起卦');
+  assert.match(randomDescription, /同一问题只调用一次/);
+  assert.match(randomDescription, /重放参数或固定输入/);
 });
 
 test('结构化错误应返回扩展错误字段 (code, missingFields, retryable, fallback)', () => {
@@ -101,29 +125,44 @@ test('结构化结果 Envelope 应支持元数据与预警信息 (data, meta, wa
 });
 
 test('createMingyuMcpServer 应自动为所有工具注入 annotations 元数据', async () => {
-  const { createMingyuMcpServer } = await import('../../mcp/src/create-server.js');
+  const { createMingyuMcpServer, SERVER_INSTRUCTIONS } =
+    await import('../../mcp/src/create-server.js');
+  assert.match(SERVER_INSTRUCTIONS, /需要直接解读时优先调用名称以 _prompt 结尾的工具/);
+  assert.match(SERVER_INSTRUCTIONS, /不得猜测出生时辰/);
+  assert.match(SERVER_INSTRUCTIONS, /部分工具使用具名字段/);
+  assert.match(SERVER_INSTRUCTIONS, /计算事实与传统取义分开表达/);
   const server = createMingyuMcpServer();
   const registered = (
     server as unknown as {
       _registeredTools: Record<
         string,
-        { annotations?: { readOnlyHint?: boolean; idempotentHint?: boolean } }
+        {
+          description?: string;
+          annotations?: { readOnlyHint?: boolean; idempotentHint?: boolean };
+        }
       >;
     }
   )._registeredTools;
 
+  const ids = getToolCatalog().map((tool) => tool.id);
+  assert.equal(new Set(ids).size, ids.length, '目录工具名必须唯一');
+  assert.deepEqual(Object.keys(registered).sort(), ids.sort(), '目录与实际注册必须双向一致');
+
   const baziTool = registered['bazi_calculate'];
   assert.ok(baziTool);
+  assert.match(baziTool.description ?? '', /只用于结构化盘面/);
   assert.equal(baziTool.annotations?.readOnlyHint, true);
   assert.equal(baziTool.annotations?.idempotentHint, true);
 
   const liuyaoTool = registered['divine_liuyao'];
   assert.ok(liuyaoTool);
+  assert.match(liuyaoTool.description ?? '', /同一问题只调用一次/);
   assert.equal(liuyaoTool.annotations?.readOnlyHint, true);
   assert.equal(liuyaoTool.annotations?.idempotentHint, false);
 
   const thematicTool = registered['thematic_consultation_prompt'];
   assert.ok(thematicTool);
+  assert.match(thematicTool.description ?? '', /无需先调同类排盘工具/);
   assert.equal(thematicTool.annotations?.readOnlyHint, true);
   assert.equal(thematicTool.annotations?.idempotentHint, true);
 

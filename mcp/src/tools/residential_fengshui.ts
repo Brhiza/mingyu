@@ -37,6 +37,10 @@ const residentialSchema = z.object({
   facingMountain: mountainSchema.describe('朝向二十四山'),
   facingDegree: z.number().min(0).max(360).optional().describe('朝向度数，正北 0°'),
   sitDegree: z.number().min(0).max(360).optional().describe('坐山度数，正北 0°'),
+  guaType: z
+    .enum(['下卦', '替卦'])
+    .optional()
+    .describe('玄空起法；默认下卦，已核定兼向外侧三度时可选替卦'),
   doorToInteriorDegree: z
     .number()
     .min(0)
@@ -49,9 +53,27 @@ const residentialSchema = z.object({
     .describe('指南针读数的北向基准'),
   magneticDeclinationDegrees: z.number().min(-30).max(30).optional().describe('当地磁偏角'),
   measurementUncertaintyDegrees: z.number().min(0).max(45).optional().describe('测量可能误差'),
-  flowYear: z.number().int().min(1).max(9999).optional().describe('流年公元年'),
-  flowMonth: z.number().int().min(1).max(12).optional().describe('流月公历月'),
-  flowDay: z.number().int().min(1).max(31).optional().describe('流月日期'),
+  flowYear: z
+    .number()
+    .int()
+    .min(1)
+    .max(9999)
+    .optional()
+    .describe('目标流年公元年；不传则只排静态宅盘'),
+  flowMonth: z
+    .number()
+    .int()
+    .min(1)
+    .max(12)
+    .optional()
+    .describe('目标流月公历月；须同时提供 flowYear'),
+  flowDay: z
+    .number()
+    .int()
+    .min(1)
+    .max(31)
+    .optional()
+    .describe('目标流月日期，用于确定所属节气月；须同时提供 flowYear 与 flowMonth'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
   topicId: z.string().optional().describe('统一解读主题 ID'),
   subtopicId: z.string().optional().describe('统一解读主题细项 ID'),
@@ -70,6 +92,7 @@ function calculateResidential(args: z.infer<typeof residentialSchema>) {
     ...(args.facingMountain ? { facingMountain: args.facingMountain } : {}),
     ...(args.facingDegree !== undefined ? { facingDegree: args.facingDegree } : {}),
     ...(args.sitDegree !== undefined ? { sitDegree: args.sitDegree } : {}),
+    ...(args.guaType ? { guaType: args.guaType } : {}),
     ...(args.doorToInteriorDegree !== undefined
       ? { doorToInteriorDegree: args.doorToInteriorDegree }
       : {}),
@@ -91,7 +114,7 @@ export function registerResidentialFengshuiTool(server: McpServer) {
     'metaphysics_residential',
     {
       description:
-        '住宅风水一站式：分层计算八宅与玄空飞星，输出宅运结构、人宅适配、合参要点与证据；玄空层须提供建造年或起运年，不生成综合吉凶总分',
+        '住宅风水一站式：分层计算八宅与玄空飞星，输出宅运结构、人宅适配、合参要点与证据；可传目标流年、流月日期叠加对应飞星；玄空层默认下卦，兼向可选替卦；须提供建造年或起运年，不生成综合吉凶总分',
       inputSchema: {
         ...residentialSchema.omit({ question: true }).shape,
         ...calculationDetailShape,
@@ -111,7 +134,8 @@ export function registerResidentialFengshuiTool(server: McpServer) {
   server.registerTool(
     'residential_prompt',
     {
-      description: '住宅风水排盘并生成可直接复制给 AI 的结构化提示词',
+      description:
+        '住宅风水排盘并生成可直接复制给 AI 的结构化提示词；可传目标流年和流月日期，提示词会携带对应飞星资料',
       inputSchema: { ...residentialSchema.shape, ...createPromptSchoolsShape('residential') },
       outputSchema: promptOutputSchema,
     },

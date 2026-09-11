@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AstrolabeScopeMode } from '@/lib/query-state';
+import { getDefaultAstrolabeScopeDate } from '@/lib/astrolabe-scope';
 import { WorkspaceButton, WorkspaceDialog } from '@/components/workspace/WorkspaceUI';
 
 const astrolabeScopeLabelMap: Record<AstrolabeScopeMode, string> = {
@@ -14,11 +15,12 @@ const ASTROLABE_SCOPE_MIN_YEAR = 1900;
 const ASTROLABE_SCOPE_MAX_YEAR = 2200;
 
 function getCurrentDateParts() {
-  const now = new Date();
+  const dateStr = getDefaultAstrolabeScopeDate('daily');
+  const [year, month, day] = dateStr.split('-').map(Number);
   return {
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    day: now.getDate(),
+    year,
+    month,
+    day,
   };
 }
 
@@ -153,7 +155,7 @@ export function AstrolabeScopeModal(props: {
           : `${draftYear}年${draftMonth}月${normalizedDraftDay}日`;
   const summaryText =
     draftScope === 'full'
-      ? '本命盘与完整流年流月流日行运。'
+      ? '本命盘与同一参考日的流年、流月、流日行运。'
       : draftScope === 'natal'
         ? '仅使用本命信息，不附加任何流年、流月或流日行运。'
         : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位，以及周期内动态点的精准相位、停逆、换座、换宫、朔望与交食。`;

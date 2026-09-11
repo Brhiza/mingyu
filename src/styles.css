@@ -4037,6 +4037,10 @@ select {
   flex: 0 1 200px;
 }
 
+.divination-huangji-model-field {
+  flex-basis: 190px;
+}
+
 .divination-inline-number-field {
   flex-basis: 148px;
 }
@@ -7943,6 +7947,11 @@ select {
     border-radius: 8px;
   }
 
+  .divination-huangji-model-picker {
+    flex: 1 1 132px;
+    min-width: 132px;
+  }
+
   .divination-mobile-control-row {
     gap: 8px;
     margin-top: 8px;
@@ -9530,6 +9539,10 @@ select {
     pointer-events: auto;
   }
 
+  .result-tab-pane:has(.ai-chat-history-shell) {
+    z-index: 1200;
+  }
+
   .ai-chat-history-backdrop {
     position: absolute;
     inset: 0;
@@ -9715,4 +9728,11 @@ select {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.ai-chat-workflow-notice {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }

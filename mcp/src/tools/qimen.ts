@@ -5,7 +5,7 @@ import {
   calculateQimenLifetime,
   generateQimenLifetimePrompt,
 } from 'mingyu-core/divination/qimen';
-import type { QimenLifetimeInput } from 'mingyu-core/types';
+import { QIMEN_LIFETIME_TOPICS, type QimenLifetimeInput } from 'mingyu-core/types';
 import { calculationDetailShape, promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -85,7 +85,11 @@ const qimenLifetimeSchema = z.object({
       endDate: z.string().describe('结束日期（YYYY-MM-DD）'),
     })
     .optional()
-    .describe('动态扫描的时间区间'),
+    .describe('动态扫描的时间区间；日期必须有效，最多覆盖连续31个年份'),
+  topics: z
+    .array(z.enum(QIMEN_LIFETIME_TOPICS))
+    .optional()
+    .describe('重点人生主题：事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作'),
   name: z.string().optional().describe('求测者姓名或代号'),
   gender: z.enum(['male', 'female']).optional().describe('性别：male 为男，female 为女'),
   schools: z.array(z.string()).optional().describe('流派或解读侧重'),
@@ -126,7 +130,7 @@ export function registerQimenTool(server: McpServer) {
     'qimen_prompt',
     {
       description:
-        '奇门遁甲排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整奇门盘时调用 divine_qimen',
+        '奇门遁甲排盘并生成可直接交给 AI 的完整任务书，同时返回九宫、三奇六仪和用神宫证据',
       inputSchema: qimenPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

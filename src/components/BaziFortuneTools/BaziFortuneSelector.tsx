@@ -10,6 +10,7 @@ import {
   isGanZhiPair,
 } from 'mingyu-core/bazi';
 import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
+import { toChinaCivilDate } from '@core/bazi/luckTiming';
 import {
   formatBaziTenGodAbbreviation,
   formatBaziMonthStart,
@@ -69,14 +70,16 @@ export function BaziFortuneSelector(props: {
     result.luckInfo.cycles.findIndex((item) => item === currentCycle),
   );
   const now = new Date();
-  const initialMonth = getBaziMonthIndexByDate(now.getFullYear(), now) ?? 1;
-  const initialDay = getBaziDayIndexByDate(now.getFullYear(), initialMonth, now) ?? 1;
+  const civilNow = toChinaCivilDate(now);
+  const currentYear = civilNow.getUTCFullYear();
+  const initialMonth = getBaziMonthIndexByDate(currentYear, now) ?? 1;
+  const initialDay = getBaziDayIndexByDate(currentYear, initialMonth, now) ?? 1;
   const [selectedCycleIndex, setSelectedCycleIndex] = useState(currentCycleIndex);
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(initialMonth);
   const [selectedDay, setSelectedDay] = useState(initialDay);
   const [selectedHourIndex, setSelectedHourIndex] = useState(
-    Math.floor(((now.getHours() + 1) % 24) / 2),
+    Math.floor(((civilNow.getUTCHours() + 1) % 24) / 2),
   );
 
   const resolvedCycleIndex = result.luckInfo.cycles[selectedCycleIndex]
@@ -167,14 +170,15 @@ export function BaziFortuneSelector(props: {
 
   function selectToday() {
     const today = new Date();
-    const year = today.getFullYear();
+    const civilToday = toChinaCivilDate(today);
+    const year = civilToday.getUTCFullYear();
     const month = getBaziMonthIndexByDate(year, today) ?? 1;
     const day = getBaziDayIndexByDate(year, month, today) ?? 1;
     setSelectedCycleIndex(currentCycleIndex);
     setSelectedYear(year);
     setSelectedMonth(month);
     setSelectedDay(day);
-    setSelectedHourIndex(Math.floor(((today.getHours() + 1) % 24) / 2));
+    setSelectedHourIndex(Math.floor(((civilToday.getUTCHours() + 1) % 24) / 2));
   }
 
   return (

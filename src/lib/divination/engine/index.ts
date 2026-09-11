@@ -16,9 +16,13 @@ import type {
   TaiyiScope,
   XiaoliurenDivinationMethod,
   JinkoujueDivinationMethod,
+  MeihuaDirection,
+  MeihuaObjectType,
+  MeihuaDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
-import type { HuangjiJingshiResult } from 'mingyu-core/huangji-jingshi';
+import type { HuangjiJingshiResult, HuangjiSixDayCalendarModel } from 'mingyu-core/huangji-jingshi';
+import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import { convertTrueSolarTime, formatSolarDateTimeParts, TimeManager } from 'mingyu-core/calendar';
 import { daysInSolarMonth } from '../../date-validation';
 import {
@@ -99,14 +103,26 @@ export type DivinationDraft = {
   customDivinationDate?: string;
   customDivinationTime?: string;
   divinationTimeStandard?: 'beijing' | 'true-solar';
+  huangjiMethod?: 'standard' | 'six-day';
+  huangjiSixDayCalendarModel?: HuangjiSixDayCalendarModel;
+  huangjiSixDayEpochDate?: string;
+  huangjiSixDayTimezone?: string;
   birthPlace?: string;
   birthLongitude?: string;
   birthLatitude?: string;
   liuyaoMethod?: 'time' | 'coins' | 'manual' | 'yarrow';
   liuyaoYaos?: Array<6 | 7 | 8 | 9>;
   liuyaoCoinThrows?: Array<{ coins: [2 | 3, 2 | 3, 2 | 3]; total: 6 | 7 | 8 | 9 }>;
-  meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
+  meihuaMethod: MeihuaDivinationMethod;
   meihuaNumber: string;
+  meihuaSoundCount: string;
+  meihuaCharacterText: string;
+  meihuaCharacterTones: string;
+  meihuaCharacterStrokeCounts: string;
+  meihuaCharacterLeftStrokes: string;
+  meihuaCharacterRightStrokes: string;
+  meihuaDirection: MeihuaDirection;
+  meihuaObjectType: MeihuaObjectType;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
   xiaoliurenRule?: 'common' | 'duoneng';
   jinkoujueMethod: JinkoujueDivinationMethod;
@@ -149,6 +165,9 @@ export type DivinationDraft = {
   promptScope?: string;
   taiyiYear: string;
   taiyiScope?: TaiyiScope;
+  /** 历史草稿可能没有年度字段；五运六气提交时再校验必填。 */
+  wuyunYear?: string;
+  wuyunYearGanZhi?: string;
   zhugeText: string;
   kongmingMethod?: 'random' | 'manual';
   kongmingPattern?: string;
@@ -198,7 +217,8 @@ export function buildDivinationPrompt(
   options: BuildDivinationPromptOptions = {},
 ) {
   const isCustomQuestion = Boolean(options.isCustomQuestion);
-  const promptMethodId = method === 'huangji' ? 'huangji-jingshi' : method;
+  const promptMethodId =
+    method === 'huangji' ? 'huangji-jingshi' : method === 'wuyun' ? 'wuyun-liuqi' : method;
   const hasPromptSelection =
     options.topicId !== undefined ||
     options.subtopicId !== undefined ||
@@ -253,7 +273,8 @@ export function buildDivinationPrompt(
           ? buildPromptTask('依据唯一牌位与基础牌义回答【问题】。', 'lenormand-single')
           : buildTaskText(method, data);
   const taskText = selection ? buildPromptSelectionTask(baseTaskText, selection) : baseTaskText;
-  const promptSchoolMethod = method === 'huangji' ? 'huangji-jingshi' : method;
+  const promptSchoolMethod =
+    method === 'huangji' ? 'huangji-jingshi' : method === 'wuyun' ? 'wuyun-liuqi' : method;
   const selectedSchools = options.schools?.length
     ? normalizePromptSchoolIds(promptSchoolMethod as PromptSchoolMethod, options.schools)
     : [];
@@ -313,7 +334,10 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
   const info: SupplementaryInfo = {};
 
   const usesDedicatedBirthInfo =
-    draft.method === 'almanac' || draft.method === 'astrolabe' || draft.method === 'huangji';
+    draft.method === 'almanac' ||
+    draft.method === 'astrolabe' ||
+    draft.method === 'huangji' ||
+    draft.method === 'wuyun';
   if (!usesDedicatedBirthInfo && draft.gender) {
     info.gender = draft.gender;
   }
@@ -324,12 +348,52 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
     }
   }
   if (draft.method === 'meihua') {
-    info.meihuaSettings = {
+    const meihuaSettings: NonNullable<SupplementaryInfo['meihuaSettings']> = {
       method: draft.meihuaMethod,
-      ...(draft.meihuaMethod === 'number' && draft.meihuaNumber.trim()
-        ? { number: readPositiveIntegerText(draft.meihuaNumber, '数字起卦') }
-        : {}),
     };
+    if (draft.meihuaMethod === 'number' && draft.meihuaNumber.trim()) {
+      meihuaSettings.number = readPositiveIntegerText(draft.meihuaNumber, '数字起卦');
+    } else if (draft.meihuaMethod === 'sound' && draft.meihuaSoundCount.trim()) {
+      meihuaSettings.soundCount = readPositiveIntegerText(draft.meihuaSoundCount, '声音数');
+    } else if (draft.meihuaMethod === 'character') {
+      const characterText = draft.meihuaCharacterText.trim();
+      const characterCount = Array.from(characterText).length;
+      if (characterText) {
+        meihuaSettings.characterText = characterText;
+      }
+      if (characterCount === 1) {
+        if (draft.meihuaCharacterLeftStrokes.trim()) {
+          meihuaSettings.characterLeftStrokes = readPositiveIntegerText(
+            draft.meihuaCharacterLeftStrokes,
+            '单字左侧笔画数',
+          );
+        }
+        if (draft.meihuaCharacterRightStrokes.trim()) {
+          meihuaSettings.characterRightStrokes = readPositiveIntegerText(
+            draft.meihuaCharacterRightStrokes,
+            '单字右侧笔画数',
+          );
+        }
+      } else if (characterCount >= 2 && characterCount <= 3) {
+        if (draft.meihuaCharacterStrokeCounts.trim()) {
+          meihuaSettings.characterStrokeCounts = readPositiveIntegerListText(
+            draft.meihuaCharacterStrokeCounts,
+            '逐字笔画数',
+          );
+        }
+      } else if (characterCount >= 4 && characterCount <= 10) {
+        if (draft.meihuaCharacterTones.trim()) {
+          meihuaSettings.characterTones = readToneListText(
+            draft.meihuaCharacterTones,
+            '传统平上去入声数',
+          );
+        }
+      }
+    } else if (draft.meihuaMethod === 'direction') {
+      meihuaSettings.direction = draft.meihuaDirection;
+      meihuaSettings.objectType = draft.meihuaObjectType;
+    }
+    info.meihuaSettings = meihuaSettings;
   }
   const userSupplement = draft.userSupplement?.trim();
   if (draft.method === 'almanac' && draft.question.trim()) {
@@ -356,8 +420,55 @@ function validateDraft(draft: DivinationDraft) {
     throw new Error('请输入你想占卜的问题');
   }
 
+  if (draft.method === 'huangji' && draft.huangjiMethod === 'six-day') {
+    readCustomDivinationDate(draft);
+    const calendarModel = draft.huangjiSixDayCalendarModel ?? 'six-day-seven-part';
+    if (calendarModel !== 'six-day-seven-part' && calendarModel !== 'six-day-explicit-epoch') {
+      throw new Error('六日逐爻换算模型无效');
+    }
+    if (calendarModel === 'six-day-explicit-epoch') {
+      const epochDate = draft.huangjiSixDayEpochDate?.trim() ?? '';
+      if (!epochDate) {
+        throw new Error('六日逐爻显式历元需要填写校定日期');
+      }
+      readDateText(epochDate, '六日逐爻校定历元日期');
+    }
+    const timezone = readNumberText(draft.huangjiSixDayTimezone?.trim() ?? '', '六日逐爻业务时区');
+    assertNumberRange(timezone, '六日逐爻业务时区', -12, 14);
+  }
+
   if (draft.method === 'meihua' && draft.meihuaMethod === 'number') {
     readPositiveIntegerText(draft.meihuaNumber, '数字起卦');
+  }
+  if (draft.method === 'meihua' && draft.meihuaMethod === 'sound') {
+    readPositiveIntegerText(draft.meihuaSoundCount, '声音数');
+  }
+  if (draft.method === 'meihua' && draft.meihuaMethod === 'character') {
+    const characterText = draft.meihuaCharacterText.trim();
+    if (!characterText) {
+      throw new Error('字数起卦需要填写文字');
+    }
+    const characterCount = Array.from(characterText).length;
+    if (characterCount > 100) {
+      throw new Error('字数起卦的文字不能超过100字');
+    }
+    if (characterCount === 1) {
+      readPositiveIntegerText(draft.meihuaCharacterLeftStrokes, '单字左侧笔画数');
+      readPositiveIntegerText(draft.meihuaCharacterRightStrokes, '单字右侧笔画数');
+    } else if (characterCount <= 3) {
+      const strokeCounts = readPositiveIntegerListText(
+        draft.meihuaCharacterStrokeCounts,
+        '逐字笔画数',
+      );
+      if (strokeCounts.length !== characterCount) {
+        throw new Error('逐字笔画数数量必须与文字字数一致');
+      }
+    } else if (characterCount <= 10) {
+      const tones = readToneListText(draft.meihuaCharacterTones, '传统平上去入声数');
+      if (tones.length !== characterCount) {
+        throw new Error('传统平上去入声数数量必须与文字字数一致');
+      }
+    }
   }
 
   if (draft.method === 'liuyao' && (draft.liuyaoMethod ?? 'time') === 'manual') {
@@ -445,6 +556,10 @@ function validateDraft(draft: DivinationDraft) {
     assertNumberRange(year, '太乙年计年份', 1900, 2200);
   }
 
+  if (draft.method === 'wuyun') {
+    resolveWuyunInput(draft);
+  }
+
   if (draft.method === 'almanac') {
     if (!draft.almanacStartDate || !draft.almanacEndDate) {
       throw new Error('黄历择日需要选择开始日期和结束日期');
@@ -478,6 +593,22 @@ function readIntegerText(value: string, label: string) {
   return Number(text);
 }
 
+function resolveWuyunInput(draft: DivinationDraft) {
+  const yearText = draft.wuyunYear?.trim() ?? '';
+  const yearGanZhi = draft.wuyunYearGanZhi?.trim() ?? '';
+  if (!yearText && !yearGanZhi) {
+    throw new Error('五运六气需要填写目标年份或年干支');
+  }
+  const year = yearText ? readIntegerText(yearText, '五运六气目标年份') : undefined;
+  if (year !== undefined) {
+    assertNumberRange(year, '五运六气目标年份', 1, 9999);
+  }
+  return {
+    ...(year === undefined ? {} : { year }),
+    ...(yearGanZhi ? { yearGanZhi } : {}),
+  };
+}
+
 function readOptionalPositiveIntegerText(value: string) {
   const text = value.trim();
   if (!/^\d+$/.test(text)) {
@@ -497,6 +628,32 @@ function readPositiveIntegerText(value: string, label: string) {
     throw new Error(`${label}需要填写正整数`);
   }
   return number;
+}
+
+function readToneListText(value: string, label: string): number[] {
+  const parts = value
+    .trim()
+    .split(/[,，、\s]+/u)
+    .filter(Boolean);
+  if (parts.length === 0) {
+    throw new Error(`${label}需要填写1-4的传统声类数`);
+  }
+  const tones = parts.map((part) => readPositiveIntegerText(part, label));
+  if (tones.some((tone) => tone > 4)) {
+    throw new Error(`${label}只能填写1、2、3、4`);
+  }
+  return tones;
+}
+
+function readPositiveIntegerListText(value: string, label: string): number[] {
+  const parts = value
+    .trim()
+    .split(/[,，、\s]+/u)
+    .filter(Boolean);
+  if (parts.length === 0) {
+    throw new Error(`${label}需要填写逐项正整数`);
+  }
+  return parts.map((part) => readPositiveIntegerText(part, label));
 }
 
 function readNumberText(value: string, label: string) {
@@ -718,6 +875,22 @@ function resolveCustomDivinationDate(
   return readCustomDivinationDate(draft);
 }
 
+function buildHuangjiSixDayDateInput(draft: DivinationDraft) {
+  const targetDate = draft.customDivinationDate?.trim() ?? '';
+  const targetTime = draft.customDivinationTime?.trim() ?? '';
+  const calendarModel = draft.huangjiSixDayCalendarModel ?? 'six-day-seven-part';
+  const timezone = readNumberText(draft.huangjiSixDayTimezone?.trim() ?? '', '六日逐爻业务时区');
+  assertNumberRange(timezone, '六日逐爻业务时区', -12, 14);
+  return {
+    targetDateTime: `${targetDate}T${targetTime}:00`,
+    timezone,
+    calendarModel,
+    ...(calendarModel === 'six-day-explicit-epoch'
+      ? { epochDateTime: `${draft.huangjiSixDayEpochDate?.trim() ?? ''}T00:00:00` }
+      : {}),
+  };
+}
+
 function resolveTaiyiYear(draft: DivinationDraft): number {
   if (draft.divinationTimeMode === 'custom') {
     return readIntegerText(draft.taiyiYear, '太乙年计年份');
@@ -785,10 +958,12 @@ export async function generateDivinationSession(
 ): Promise<DivinationSession> {
   validateDraft(draft);
   const method = resolveMethod(draft.method);
-  const customDate = resolveCustomDivinationDate(method, draft);
-  const timing = isTimeBasedDivinationMethod(method)
-    ? resolveDivinationTimeContext(method, draft, customDate ?? new Date())
-    : undefined;
+  const isHuangjiSixDay = method === 'huangji' && draft.huangjiMethod === 'six-day';
+  const customDate = isHuangjiSixDay ? undefined : resolveCustomDivinationDate(method, draft);
+  const timing =
+    !isHuangjiSixDay && isTimeBasedDivinationMethod(method)
+      ? resolveDivinationTimeContext(method, draft, customDate ?? new Date())
+      : undefined;
   const calculationDate = timing?.date;
   const supplementaryInfo = buildSupplementaryInfo({
     ...draft,
@@ -867,10 +1042,33 @@ export async function generateDivinationSession(
     }
     case 'huangji': {
       const module = await import('mingyu-core/huangji-jingshi');
-      data = module.calculateHuangjiJingshi({
-        date: calculationDate ?? new Date(),
+      if (isHuangjiSixDay) {
+        const sixDay = buildHuangjiSixDayDateInput(draft);
+        const sixDayDate = module.parseHuangjiSixDayDateTime(
+          sixDay.targetDateTime,
+          sixDay.timezone,
+          undefined,
+          sixDay.calendarModel,
+          sixDay.calendarModel === 'six-day-explicit-epoch' ? sixDay.epochDateTime : undefined,
+        );
+        data = module.calculateHuangjiJingshi({
+          sixDayDate,
+          question: inputQuestion,
+        });
+      } else {
+        data = module.calculateHuangjiJingshi({
+          date: calculationDate ?? new Date(),
+          question: inputQuestion,
+        });
+      }
+      break;
+    }
+    case 'wuyun': {
+      const module = await import('mingyu-core/wuyun-liuqi');
+      data = module.calculateWuyunLiuqi({
+        ...resolveWuyunInput(draft),
         question: inputQuestion,
-      });
+      }) as WuyunLiuqiResult;
       break;
     }
     case 'tarot': {
@@ -954,7 +1152,8 @@ export async function generateDivinationSession(
     method === 'almanac' && !inputQuestion
       ? buildAlmanacSessionTitle(data as AlmanacData)
       : inputQuestion;
-  const promptMethodId = method === 'huangji' ? 'huangji-jingshi' : method;
+  const promptMethodId =
+    method === 'huangji' ? 'huangji-jingshi' : method === 'wuyun' ? 'wuyun-liuqi' : method;
   const selection =
     draft.promptTopicId !== undefined ||
     draft.promptSubtopicId !== undefined ||

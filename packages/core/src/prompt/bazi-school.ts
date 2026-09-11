@@ -100,8 +100,10 @@ function formatPillars(
 function formatRelations(result: BaziChartResult) {
   const relations = result.pillarRelations;
   return joinFacts([
-    relations.fuxin.length ? `伏吟与同柱${relations.fuxin.join('、')}` : undefined,
+    relations.fuxin.length ? `同柱伏吟${relations.fuxin.join('、')}` : undefined,
     relations.fanyin.length ? `反吟与天克地冲${relations.fanyin.join('、')}` : undefined,
+    relations.sameStem.length ? `天干同干${relations.sameStem.join('、')}` : undefined,
+    relations.sameBranch.length ? `地支同支${relations.sameBranch.join('、')}` : undefined,
     relations.xingChong.length
       ? `合冲刑害破及三合三会${relations.xingChong.join('、')}`
       : undefined,
@@ -226,7 +228,7 @@ function formatUsefulGodPlacements(result: BaziChartResult) {
 }
 
 function formatFortune(result: BaziChartResult) {
-  const cycles = (result.luckInfo?.cycles ?? []).filter((cycle) => !cycle.isXiaoyun).slice(0, 8);
+  const cycles = (result.luckInfo?.cycles ?? []).filter((cycle) => !cycle.isXiaoyun);
   const cycleText = cycles.map((cycle) => {
     const stem = cycle.ganZhi.charAt(0);
     const branch = cycle.ganZhi.charAt(1);

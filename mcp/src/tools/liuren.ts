@@ -49,7 +49,7 @@ export function registerLiurenTool(server: McpServer) {
     'liuren_prompt',
     {
       description:
-        '大六壬排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要课盘数据时调用 divine_liuren',
+        '大六壬排盘并生成可直接交给 AI 的完整任务书，同时返回天地盘、四课、三传和课体资料',
       inputSchema: liurenPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

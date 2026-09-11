@@ -104,6 +104,9 @@ export function formatAstrolabeForPrompt(data: AstrolabeData) {
     `逆行：${formatStringList(data.summary.retrograde, '无')}`,
     `格局：${formatStringList(data.summary.patterns, '未列明显格局')}`,
     ...data.angles.map((point) => `${point.label}：${point.formatted}`),
+    data.houses?.length
+      ? `十二宫宫头：${data.houses.map((point) => `${point.label} ${point.formatted}`).join('；')}`
+      : '',
     '星体位置：',
     ...data.planets.map((item) => `  ${formatPoint(item)}`),
     ...formatAstrolabeAspectSections(data.aspects, [...data.planets, ...data.angles]),

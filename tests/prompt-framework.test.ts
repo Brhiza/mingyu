@@ -46,6 +46,9 @@ test('方法能力目录提供类别、主题细项和范围约束', () => {
   assert.ok(bazi?.topicIds.includes('career'));
   assert.ok(bazi?.scopeIds.includes('natal'));
 
+  assert.equal(getPromptMethodCapability('astrolabe')?.defaultScope, 'yearly');
+  assert.equal(getPromptMethodCapability('astrolabe-synastry')?.defaultScope, 'natal');
+
   const nameSubtopics = getPromptSubtopicOptions('general', 'name.generation');
   assert.deepEqual(nameSubtopics, [{ id: 'naming', label: '起名方案' }]);
   assert.deepEqual(getPromptSubtopicOptions('career', 'name.generation'), []);

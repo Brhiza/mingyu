@@ -7,6 +7,8 @@ export const CORE_PACKAGE_SIZE_LIMITS = {
   total: 5_000_000,
   code: 2_650_000,
   dictionary: 2_300_000,
+  // 固定双底本易林与校勘表；独立约束资料增长，总包上限保持不变。
+  classics: 500_000,
 };
 
 // Vite 生产构建全部 JS 的未压缩总量，不代表网站首屏或网络传输体积。
@@ -40,6 +42,14 @@ const dictionaryPaths = new Set([
   'package/dist/name-number/kongming-interpretations.d.ts',
 ]);
 
+const classicsPaths = new Set(
+  ['pair-index', 'gap-report', 'confirmed-mappings'].flatMap((name) =>
+    ['js', 'd.ts'].map(
+      (extension) => `package/dist/classics/data/yilin-w20-03-${name}.${extension}`,
+    ),
+  ),
+);
+
 for (const index of Array.from({ length: 32 }, (_, value) => String(value).padStart(2, '0'))) {
   dictionaryPaths.add(`package/dist/name-number/generated-character-tuples-${index}.js`);
   dictionaryPaths.add(`package/dist/name-number/generated-character-references-${index}.js`);
@@ -49,6 +59,8 @@ export function measureCorePackageSize(archive) {
   const tar = gunzipSync(archive);
   const code = [];
   const dictionary = [];
+  const classics = [];
+  const seenClassics = new Set();
   const seen = new Set();
   let cursor = 0;
   while (cursor + 512 <= tar.length) {
@@ -74,6 +86,11 @@ export function measureCorePackageSize(archive) {
       assert.ok(!seen.has(path), `字典资料重复：${path}`);
       seen.add(path);
       dictionary.push(block);
+    } else if (classicsPaths.has(path)) {
+      assert.ok(header[156] === 0 || header[156] === 48, '典籍资料必须为普通文件');
+      assert.ok(!seenClassics.has(path), `典籍资料重复：${path}`);
+      seenClassics.add(path);
+      classics.push(block);
     } else {
       code.push(block);
     }
@@ -88,12 +105,18 @@ export function measureCorePackageSize(archive) {
     [...dictionaryPaths].sort(),
     '发布归档需完整包含字典及类型声明',
   );
+  assert.deepEqual(
+    [...seenClassics].sort(),
+    [...classicsPaths].sort(),
+    '发布归档需完整包含典籍及类型声明',
+  );
   const compressedSize = (blocks) =>
     gzipSync(Buffer.concat([...blocks, Buffer.alloc(1024)]), { level: 9 }).length;
   return {
     total: archive.length,
     code: compressedSize(code),
     dictionary: compressedSize(dictionary),
+    classics: compressedSize(classics),
   };
 }
 
@@ -103,7 +126,7 @@ export function assertCorePackageSize(archive) {
     assertSizeBudget(
       sizes[section],
       limit,
-      `核心包${section === 'total' ? '总量' : section === 'code' ? '代码' : '字典'}压缩体积`,
+      `核心包${{ total: '总量', code: '代码', dictionary: '字典', classics: '典籍' }[section]}压缩体积`,
     );
   }
   return sizes;

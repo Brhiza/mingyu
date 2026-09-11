@@ -13,7 +13,12 @@ import {
   type BaZhaiInput,
   type BaZhaiResult,
 } from '../ba_zhai';
-import { generateXuanKong, type XuanKongInput, type XuanKongResult } from '../xuan_kong';
+import {
+  generateXuanKong,
+  type XuanKongGuaType,
+  type XuanKongInput,
+  type XuanKongResult,
+} from '../xuan_kong';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
@@ -30,6 +35,8 @@ export interface ResidentialFengshuiInput {
   facingMountain?: string;
   facingDegree?: number;
   sitDegree?: number;
+  /** 默认下卦；仅在已核定兼向时显式传入替卦。 */
+  guaType?: XuanKongGuaType;
   /** 八宅门向测量：站在大门处面向屋内 */
   doorToInteriorDegree?: number;
   northReference?: 'unspecified' | 'magnetic' | 'true';
@@ -197,6 +204,7 @@ function buildXuanKong(
 
   const xuanInput: XuanKongInput = {
     year: input.year,
+    ...(input.guaType ? { guaType: input.guaType } : {}),
     ...(input.measurementUncertaintyDegrees != null
       ? { measurementUncertaintyDegrees: input.measurementUncertaintyDegrees }
       : {}),
@@ -314,7 +322,7 @@ function buildAdvice(
   const advice: string[] = [];
   if (xuankong) {
     advice.push(
-      `先看宅运：${xuankong.period.label}，坐${xuankong.sitMountain}向${xuankong.facingMountain}，${xuankong.daoShanXiang.summary}。`,
+      `先看宅运：${xuankong.period.label}，坐${xuankong.sitMountain}向${xuankong.facingMountain}，${xuankong.guaType}，${xuankong.daoShanXiang.summary}。`,
     );
   }
   if (bazhai) {
@@ -355,7 +363,7 @@ function buildEvidencePrompt(params: {
     items.push({
       level: '主证',
       title: '玄空宅运层',
-      detail: `${params.xuankong.period.label}；坐${params.xuankong.sitMountain}向${params.xuankong.facingMountain}；${params.xuankong.daoShanXiang.summary}`,
+      detail: `${params.xuankong.period.label}；坐${params.xuankong.sitMountain}向${params.xuankong.facingMountain}；${params.xuankong.guaType}；${params.xuankong.daoShanXiang.summary}`,
       source: '玄空飞星 v1',
     });
   }
@@ -397,7 +405,7 @@ function buildPrompt(result: {
     `山向：${result.orientationText}`,
     result.houseYear != null ? `宅运年份：${result.houseYear}` : '',
     result.xuankong
-      ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.daoShanXiang.summary}`
+      ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.guaType}；${result.xuankong.daoShanXiang.summary}`
       : result.bazhai
         ? result.xuankongStatus === '缺少建造年或起运年'
           ? '玄空：未排盘（缺少建造年或起运年）'

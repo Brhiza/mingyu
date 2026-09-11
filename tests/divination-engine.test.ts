@@ -4097,7 +4097,7 @@ test('前端把求测人基本资料用于解读，并避免与专用出生资�
   assert.match(qimenSession.prompt, /【补充信息】\n求测人：男/);
   assert.doesNotMatch(qimenSession.prompt, /【补充信息】[\s\S]*出生年份/);
   assert.match(liurenSession.prompt, /【补充信息】\n求测人：女；出生年份：1888/);
-  assert.match(astrolabeSession.prompt, /出生信息：本人，女，1995-05-20 12:30/);
+  assert.match(astrolabeSession.prompt, /出生信息：本人；女；1995-05-20 12:30/);
   assert.doesNotMatch(astrolabeSession.prompt, /出生年份|1888/);
 });
 
@@ -4481,6 +4481,37 @@ test('占卜自定义问题保留资料与用户问题，并使用方法任务�
   assert.ok(session.prompt.includes('我自己只想问这个具体情况。'));
   assert.match(session.prompt, /【任务】\n依据体用、互卦、变卦与四时旺衰回答【问题】。/);
   assert.ok(!session.prompt.includes('【输出要求】'));
+});
+
+test('占卜引擎梅花字占切换字数后只携带当前适用取数', async () => {
+  const shortSession = await generateDivinationSession(
+    buildDraft({
+      method: 'meihua',
+      meihuaMethod: 'character',
+      meihuaCharacterText: '西林',
+      meihuaCharacterTones: '1,2',
+      meihuaCharacterStrokeCounts: '7,8',
+    }),
+  );
+  const shortCalculation = (shortSession.data as { calculation: Record<string, unknown> })
+    .calculation;
+  assert.deepEqual(shortCalculation.characterStrokeCounts, [7, 8]);
+  assert.equal(shortCalculation.characterTones, undefined);
+
+  const longSession = await generateDivinationSession(
+    buildDraft({
+      method: 'meihua',
+      meihuaMethod: 'character',
+      meihuaCharacterText: '春风得意马蹄疾一日看花',
+      meihuaCharacterTones: '1,2,3,4,1,2,3,4,1,2,3',
+      meihuaCharacterStrokeCounts: '7,8',
+    }),
+  );
+  const longCalculation = (longSession.data as { calculation: Record<string, unknown> })
+    .calculation;
+  assert.equal(longCalculation.characterCount, 11);
+  assert.equal(longCalculation.characterTones, undefined);
+  assert.equal(longCalculation.characterStrokeCounts, undefined);
 });
 
 test('黄历择日会结合可选事项、日期范围和多位出生信息生成提示词', async () => {

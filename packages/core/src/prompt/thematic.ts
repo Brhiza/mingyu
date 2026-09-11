@@ -4,9 +4,14 @@
  * 提供统一的大类主题枚举、规范化映射、盘面焦点宫位与传统理法任务书。
  * 遵循 AGENTS.md 最高规范：自包含完整任务书，不含工程/API/MCP等噪声，纯盘面与正统理法。
  */
-import { formatBaziForPrompt, type BaziChartResult, type FortuneSelectionContext } from '../bazi';
+import {
+  formatBaziForPrompt,
+  type BaziChartResult,
+  type BaziFortuneSelectionValue,
+  type FortuneSelectionContext,
+} from '../bazi';
 import type { ZiweiRuntime } from '../ziwei/runtime';
-import { formatBaziFortuneSelection } from './bazi-fortune';
+import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortune';
 import { formatPromptCurrentTime } from './current-time';
 import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptSection, joinPromptSections } from './sections';
@@ -260,6 +265,7 @@ export interface ThematicConsultationOptions {
   // 八字资料
   baziResult?: BaziChartResult;
   fortuneSelectionContext?: FortuneSelectionContext | null;
+  fortuneScope?: BaziFortuneSelectionValue['scope'];
   baziSchool?: BaziPromptSchool;
   baziSchools?: readonly BaziPromptSchool[];
   // 紫微资料
@@ -285,6 +291,16 @@ export interface ThematicConsultationResult {
   focusElements: string[];
   scope: string;
 }
+
+const ZIWEI_SCOPE_BY_PROMPT_SCOPE: Partial<Record<PromptScopeId, ZiweiPromptScope>> = {
+  natal: 'origin',
+  full: 'full',
+  decadal: 'decadal',
+  yearly: 'yearly',
+  monthly: 'monthly',
+  daily: 'daily',
+  hourly: 'hourly',
+};
 
 /**
  * 构建大类主题咨询 AI 提示词（自包含完整任务书）。
@@ -319,21 +335,23 @@ export function buildThematicConsultationPrompt(
 
   const legacyScope =
     options.scope ??
-    (options.fortuneSelectionContext?.scope === 'dayun'
-      ? 'decadal'
-      : options.fortuneSelectionContext?.scope === 'year'
-        ? 'yearly'
-        : options.fortuneSelectionContext?.scope === 'month'
-          ? 'monthly'
-          : options.fortuneSelectionContext?.scope === 'day'
-            ? 'daily'
-            : options.ziweiScope === 'origin'
-              ? 'natal'
-              : options.ziweiScope === 'full'
-                ? 'full'
-                : options.ziweiScope === 'age'
-                  ? 'natal'
-                  : options.ziweiScope);
+    (options.fortuneScope === 'full'
+      ? 'full'
+      : options.fortuneSelectionContext?.scope === 'dayun'
+        ? 'decadal'
+        : options.fortuneSelectionContext?.scope === 'year'
+          ? 'yearly'
+          : options.fortuneSelectionContext?.scope === 'month'
+            ? 'monthly'
+            : options.fortuneSelectionContext?.scope === 'day'
+              ? 'daily'
+              : options.ziweiScope === 'origin'
+                ? 'natal'
+                : options.ziweiScope === 'full'
+                  ? 'full'
+                  : options.ziweiScope === 'age'
+                    ? 'natal'
+                    : options.ziweiScope);
   const selection = requirePromptSelection({
     methodId: requestedMethodId,
     topicId: options.topicId ?? options.topic,
@@ -344,7 +362,8 @@ export function buildThematicConsultationPrompt(
 
   const question = options.question?.trim() || config.defaultQuestion;
   const isCustomMode = options.mode === 'custom';
-  const ziweiScope = options.ziweiScope ?? 'origin';
+  const ziweiScope =
+    options.ziweiScope ?? ZIWEI_SCOPE_BY_PROMPT_SCOPE[selection.scope] ?? 'decadal';
   const currentDate =
     typeof options.currentTime === 'string' ? new Date(options.currentTime) : options.currentTime;
 
@@ -354,10 +373,11 @@ export function buildThematicConsultationPrompt(
       throw new Error('生成八字大类主题提示词必须提供 baziResult。');
     }
     const fortuneSelection = formatBaziFortuneSelection(options.fortuneSelectionContext);
+    const hasFullBaziFortune = options.fortuneScope === 'full';
     const baziChartText = formatBaziForPrompt(
       options.baziResult,
       null,
-      fortuneSelection ? 'fortune' : 'general',
+      fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
     );
     const taskText = buildPromptSelectionTask(
       isCustomMode
@@ -385,9 +405,16 @@ export function buildThematicConsultationPrompt(
             `${fortuneSelection.analysisObject}\n${fortuneSelection.focus}`,
           )
         : '',
+      hasFullBaziFortune
+        ? buildPromptSection('命限资料', formatBaziFullFortune(options.baziResult))
+        : '',
       buildPromptSection(
         '资料范围',
-        fortuneSelection ? fortuneSelection.analysisObject : '八字：本命原局；未提供具体岁运资料。',
+        fortuneSelection
+          ? fortuneSelection.analysisObject
+          : hasFullBaziFortune
+            ? '八字：本命盘与完整大运流年资料。'
+            : '八字：本命原局；未提供具体岁运资料。',
       ),
       buildPromptSection('任务', taskText),
       buildPromptSection('问题', question),
@@ -405,7 +432,11 @@ export function buildThematicConsultationPrompt(
       prompt: promptText,
       focusPalaces: [],
       focusElements: getFocusElements(config.baziFocusElements, selection),
-      scope: fortuneSelection ? fortuneSelection.analysisObject : '本命盘',
+      scope: fortuneSelection
+        ? fortuneSelection.analysisObject
+        : hasFullBaziFortune
+          ? '本命盘与完整命限'
+          : '本命盘',
     };
   }
 
@@ -484,10 +515,11 @@ export function buildThematicConsultationPrompt(
   }
 
   const fortuneSelection = formatBaziFortuneSelection(options.fortuneSelectionContext);
+  const hasFullBaziFortune = options.fortuneScope === 'full';
   const baziChartText = formatBaziForPrompt(
     options.baziResult,
     null,
-    fortuneSelection ? 'fortune' : 'general',
+    fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
   const ziweiText = formatZiweiEvidenceText(options.ziweiResult, ziweiScope);
 
@@ -526,12 +558,17 @@ export function buildThematicConsultationPrompt(
           `${fortuneSelection.analysisObject}\n${fortuneSelection.focus}`,
         )
       : '',
+    hasFullBaziFortune
+      ? buildPromptSection('八字完整命限资料', formatBaziFullFortune(options.baziResult))
+      : '',
     buildPromptSection(
       '资料范围',
       [
         fortuneSelection
           ? `八字：${fortuneSelection.analysisObject}`
-          : '八字：本命原局；未提供具体岁运资料。',
+          : hasFullBaziFortune
+            ? '八字：本命盘与完整大运流年资料。'
+            : '八字：本命原局；未提供具体岁运资料。',
         ziweiScope === 'origin'
           ? '紫微：本命盘；未提供具体运限资料。'
           : `紫微：${selection.scopeLabel}。`,

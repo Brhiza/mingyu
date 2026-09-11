@@ -1,3 +1,4 @@
+import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import { formatLiurenLesson, formatLiurenTransmission } from './liuren-facts';
 import { buildTaskText } from '../divination/engine/method-text';
 import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
@@ -549,6 +550,30 @@ export function getDivinationSummaryBlocks(
         ].filter(Boolean),
       };
     }
+    case 'wuyun': {
+      const item = data as WuyunLiuqiResult;
+      const targetYear =
+        item.input.year === undefined
+          ? item.input.yearGanZhi
+          : `${item.input.year}年${item.input.yearGanZhi}`;
+      return {
+        title: '五运六气年度结果',
+        tags: [
+          targetYear,
+          `${item.annualMovement.name}·${item.annualMovement.strength}`,
+          `司天${item.sitian.name}`,
+        ],
+        lines: [
+          `在泉：${item.zaiquan.name}`,
+          `司天化令：${item.annualClassification.sitianTransformation}；${item.annualClassification.governance}`,
+          `中运与司天：${item.annualRelation.kind}`,
+          `年度符会：${item.annualConformities.names.length ? item.annualConformities.names.join('、') : '未形成五类符会'}`,
+          `五步主客运：${item.movementSteps.map((step) => `${step.label}${step.hostMovement.element}/${step.guestMovement.element}（${step.hostGuestRelation.kind}）`).join('；')}`,
+          `六步主客气：${item.qiSteps.map((step) => `${step.label}${step.hostQi.name}/${step.guestQi.name}（${step.hostGuestRelation.kind}）`).join('；')}`,
+          item.pathomechanism?.summary ?? '',
+        ].filter(Boolean),
+      };
+    }
     default:
       return { title: '占卜结果', tags: [], lines: [] };
   }
@@ -677,7 +702,12 @@ function formatSsgwPrompt(data: SsgwData) {
 }
 
 export function buildDivinationPromptDocument(options: DivinationPromptOptions): PromptDocument {
-  const promptMethodId = options.method === 'huangji' ? 'huangji-jingshi' : options.method;
+  const promptMethodId =
+    options.method === 'huangji'
+      ? 'huangji-jingshi'
+      : options.method === 'wuyun'
+        ? 'wuyun-liuqi'
+        : options.method;
   const hasPromptSelection =
     options.topicId !== undefined ||
     options.subtopicId !== undefined ||
@@ -724,7 +754,12 @@ export function buildDivinationPromptDocument(options: DivinationPromptOptions):
         ? buildLiurenTemplateText(liurenTemplate, options.data as LiurenData)
         : '';
   const supplementaryText = formatSupplementaryInfo(options.supplementaryInfo, options.method);
-  const promptSchoolMethod = options.method === 'huangji' ? 'huangji-jingshi' : options.method;
+  const promptSchoolMethod =
+    options.method === 'huangji'
+      ? 'huangji-jingshi'
+      : options.method === 'wuyun'
+        ? 'wuyun-liuqi'
+        : options.method;
   const singleCardGuidance =
     options.method === 'tarot' && (options.data as TarotData).cards.length === 1
       ? buildPromptSection('传统依据', '塔罗单牌以牌位职能、正逆位、牌组属性与单牌牌义为主要资料。')

@@ -1,5 +1,6 @@
 import type { MeihuaData, MeihuaDivinationMethod } from '../types/divination';
 import { trigramsByIndex } from './hexagram-data';
+import { MEIHUA_DIRECTION_OPTIONS, MEIHUA_OBJECT_OPTIONS } from './config';
 import { getSeasonState, isKe, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import { MingyuCoreError } from '../shared/result';
@@ -586,6 +587,73 @@ function buildCalculationFacts(data: MeihuaData): string[] {
       facts.push('现有资料未附完整数字取数中间参数，仅保留已确定卦象与动爻结果');
       appendResolvedResultFacts(facts, data);
     }
+  } else if (calculation.methodKey === 'sound') {
+    const hasCompleteSoundInputs =
+      hasFiniteNumber(calculation.soundCount) &&
+      hasText(calculation.timeZhi) &&
+      hasFiniteNumber(calculation.timeZhiIndex) &&
+      hasFiniteNumber(calculation.totalWithTime) &&
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex);
+    if (hasCompleteSoundInputs) {
+      facts.push(
+        `声音取数：所闻声音数${calculation.soundCount}，时支${calculation.timeZhi}序${calculation.timeZhiIndex}，合计${calculation.totalWithTime}`,
+        `上卦=${calculation.soundCount}除8取余为${calculation.upperTrigramIndex}`,
+        `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
+        `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
+      );
+    } else {
+      facts.push('现有资料未附完整声音取数中间参数，仅保留已确定卦象与动爻结果');
+      appendResolvedResultFacts(facts, data);
+    }
+  } else if (calculation.methodKey === 'character') {
+    const hasCharacterNumbers =
+      hasFiniteNumber(calculation.characterCount) &&
+      hasFiniteNumber(calculation.characterUpperNumber) &&
+      hasFiniteNumber(calculation.characterLowerNumber) &&
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex);
+    if (hasCharacterNumbers) {
+      const toneText = Array.isArray(calculation.characterTones)
+        ? `，传统平上去入声数${calculation.characterTones.join('、')}（不等同于普通话一至四声）`
+        : Array.isArray(calculation.characterStrokeCounts)
+          ? `，逐字笔画数${calculation.characterStrokeCounts.join('、')}`
+          : '';
+      facts.push(
+        `字数取数：字符数${calculation.characterCount}${toneText}；上卦取数${calculation.characterUpperNumber}，下卦取数${calculation.characterLowerNumber}`,
+        `上卦=${calculation.characterUpperNumber}除8取余为${calculation.upperTrigramIndex}`,
+        `下卦=${calculation.characterLowerNumber}除8取余为${calculation.lowerTrigramIndex}`,
+        `动爻=(${calculation.characterUpperNumber}+${calculation.characterLowerNumber})除6取余为${calculation.movingYaoIndex}`,
+      );
+    } else {
+      facts.push('现有资料未附完整字数取数中间参数，仅保留已确定卦象与动爻结果');
+      appendResolvedResultFacts(facts, data);
+    }
+  } else if (calculation.methodKey === 'direction') {
+    const hasCompleteDirectionInputs =
+      hasText(calculation.direction) &&
+      hasText(calculation.objectType) &&
+      hasFiniteNumber(calculation.objectTrigramIndex) &&
+      hasFiniteNumber(calculation.directionTrigramIndex) &&
+      hasText(calculation.timeZhi) &&
+      hasFiniteNumber(calculation.timeZhiIndex) &&
+      hasFiniteNumber(calculation.totalWithTime) &&
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex);
+    if (hasCompleteDirectionInputs) {
+      facts.push(
+        `方位取象：所见物类${MEIHUA_OBJECT_OPTIONS.find((item) => item.value === calculation.objectType)?.label ?? data.mainHexagram.upper}取数${calculation.objectTrigramIndex}，方位${MEIHUA_DIRECTION_OPTIONS.find((item) => item.value === calculation.direction)?.label ?? data.mainHexagram.lower}取数${calculation.directionTrigramIndex}，时支${calculation.timeZhi}序${calculation.timeZhiIndex}`,
+        `上卦=${calculation.objectTrigramIndex}`,
+        `下卦=${calculation.directionTrigramIndex}`,
+        `动爻=(${calculation.objectTrigramIndex}+${calculation.directionTrigramIndex}+${calculation.timeZhiIndex})除6取余为${calculation.movingYaoIndex}`,
+      );
+    } else {
+      facts.push('现有资料未附完整方位取象中间参数，仅保留已确定卦象与动爻结果');
+      appendResolvedResultFacts(facts, data);
+    }
   } else if (calculation.methodKey === 'random') {
     if (
       hasFiniteNumber(calculation.upperTrigramIndex) &&
@@ -696,6 +764,143 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
         },
       );
     }
+  } else if (calculation && methodKey === 'sound') {
+    if (hasFiniteNumber(calculation.soundCount)) inputs.soundCount = calculation.soundCount;
+    if (hasText(calculation.timeZhi)) inputs.timeZhi = calculation.timeZhi;
+    if (hasFiniteNumber(calculation.timeZhiIndex)) inputs.timeZhiIndex = calculation.timeZhiIndex;
+    if (hasFiniteNumber(calculation.totalWithTime))
+      inputs.totalWithTime = calculation.totalWithTime;
+    if (
+      hasFiniteNumber(calculation.soundCount) &&
+      hasFiniteNumber(calculation.totalWithTime) &&
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex)
+    ) {
+      steps.push(
+        {
+          key: 'meihua:calculation:upper',
+          target: '上卦',
+          expression: String(calculation.soundCount),
+          modulus: 8,
+          result: calculation.upperTrigramIndex,
+          promptText: `上卦=${calculation.soundCount}除8取余为${calculation.upperTrigramIndex}`,
+        },
+        {
+          key: 'meihua:calculation:lower',
+          target: '下卦',
+          expression: String(calculation.totalWithTime),
+          modulus: 8,
+          result: calculation.lowerTrigramIndex,
+          promptText: `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
+        },
+        {
+          key: 'meihua:calculation:moving',
+          target: '动爻',
+          expression: String(calculation.totalWithTime),
+          modulus: 6,
+          result: calculation.movingYaoIndex,
+          promptText: `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
+        },
+      );
+    }
+  } else if (calculation && methodKey === 'character') {
+    if (hasText(calculation.characterText)) inputs.characterText = calculation.characterText;
+    if (hasFiniteNumber(calculation.characterCount))
+      inputs.characterCount = calculation.characterCount;
+    if (hasText(calculation.characterRule)) inputs.characterRule = calculation.characterRule;
+    if (hasFiniteNumber(calculation.characterUpperNumber)) {
+      inputs.characterUpperNumber = calculation.characterUpperNumber;
+    }
+    if (hasFiniteNumber(calculation.characterLowerNumber)) {
+      inputs.characterLowerNumber = calculation.characterLowerNumber;
+    }
+    if (Array.isArray(calculation.characterTones)) {
+      inputs.characterTones = calculation.characterTones.join(',');
+    }
+    if (Array.isArray(calculation.characterStrokeCounts)) {
+      inputs.characterStrokeCounts = calculation.characterStrokeCounts.join(',');
+    }
+    if (
+      hasFiniteNumber(calculation.characterUpperNumber) &&
+      hasFiniteNumber(calculation.characterLowerNumber) &&
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex)
+    ) {
+      steps.push(
+        {
+          key: 'meihua:calculation:upper',
+          target: '上卦',
+          expression: String(calculation.characterUpperNumber),
+          modulus: 8,
+          result: calculation.upperTrigramIndex,
+          promptText: `上卦取数${calculation.characterUpperNumber}除8取余为${calculation.upperTrigramIndex}`,
+        },
+        {
+          key: 'meihua:calculation:lower',
+          target: '下卦',
+          expression: String(calculation.characterLowerNumber),
+          modulus: 8,
+          result: calculation.lowerTrigramIndex,
+          promptText: `下卦取数${calculation.characterLowerNumber}除8取余为${calculation.lowerTrigramIndex}`,
+        },
+        {
+          key: 'meihua:calculation:moving',
+          target: '动爻',
+          expression: `${calculation.characterUpperNumber}+${calculation.characterLowerNumber}`,
+          modulus: 6,
+          result: calculation.movingYaoIndex,
+          promptText: `动爻=(${calculation.characterUpperNumber}+${calculation.characterLowerNumber})除6取余为${calculation.movingYaoIndex}`,
+        },
+      );
+    }
+  } else if (calculation && methodKey === 'direction') {
+    if (hasText(calculation.direction)) inputs.direction = calculation.direction;
+    if (hasText(calculation.objectType)) inputs.objectType = calculation.objectType;
+    if (hasFiniteNumber(calculation.objectTrigramIndex)) {
+      inputs.objectTrigramIndex = calculation.objectTrigramIndex;
+    }
+    if (hasFiniteNumber(calculation.directionTrigramIndex)) {
+      inputs.directionTrigramIndex = calculation.directionTrigramIndex;
+    }
+    if (hasText(calculation.timeZhi)) inputs.timeZhi = calculation.timeZhi;
+    if (hasFiniteNumber(calculation.timeZhiIndex)) inputs.timeZhiIndex = calculation.timeZhiIndex;
+    if (hasFiniteNumber(calculation.totalWithTime))
+      inputs.totalWithTime = calculation.totalWithTime;
+    if (
+      hasFiniteNumber(calculation.objectTrigramIndex) &&
+      hasFiniteNumber(calculation.directionTrigramIndex) &&
+      hasFiniteNumber(calculation.timeZhiIndex) &&
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex)
+    ) {
+      steps.push(
+        {
+          key: 'meihua:calculation:upper',
+          target: '上卦',
+          expression: String(calculation.objectTrigramIndex),
+          result: calculation.upperTrigramIndex,
+          promptText: `所见物类取上卦数${calculation.objectTrigramIndex}`,
+        },
+        {
+          key: 'meihua:calculation:lower',
+          target: '下卦',
+          expression: String(calculation.directionTrigramIndex),
+          result: calculation.lowerTrigramIndex,
+          promptText: `方位取下卦数${calculation.directionTrigramIndex}`,
+        },
+        {
+          key: 'meihua:calculation:moving',
+          target: '动爻',
+          expression: `${calculation.objectTrigramIndex}+${calculation.directionTrigramIndex}+${calculation.timeZhiIndex}`,
+          modulus: 6,
+          result: calculation.movingYaoIndex,
+          promptText: `动爻=(${calculation.objectTrigramIndex}+${calculation.directionTrigramIndex}+${calculation.timeZhiIndex})除6取余为${calculation.movingYaoIndex}`,
+        },
+      );
+    }
   } else if (calculation && methodKey === 'random') {
     if (
       hasFiniteNumber(calculation.upperTrigramIndex) &&
@@ -750,9 +955,15 @@ function buildMeihuaCalculationFact(data: MeihuaData): MeihuaCalculationFact {
         ? '《梅花易数》年月日时取数与八卦、六爻取余规则'
         : methodKey === 'number'
           ? '输入数字、时支序与八卦、六爻取余规则'
-          : methodKey === 'random'
-            ? '随机上下卦与动爻索引记录'
-            : '旧结果已确定的主卦与动爻资料',
+          : methodKey === 'sound'
+            ? '《梅花易数》声音数、时支序与八卦、六爻取余规则'
+            : methodKey === 'character'
+              ? '《梅花易数》字占字数、分半、声调与八卦、六爻取余规则'
+              : methodKey === 'direction'
+                ? '《梅花易数》所见物类、后天方位与时支取数规则'
+                : methodKey === 'random'
+                  ? '随机上下卦与动爻索引记录'
+                  : '旧结果已确定的主卦与动爻资料',
       '当前主卦上下经卦与动爻结果',
     ],
     limitation: CALCULATION_FACT_LIMITATION,

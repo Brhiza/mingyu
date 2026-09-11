@@ -21,6 +21,7 @@ export * from './huangji-classics';
 export * from './qizheng-classics';
 export * from './wuyun-liuqi-classics';
 export * from './almanac-classics';
+export * from './yilin';
 
 import {
   QIMEN_STEM_PATTERNS,

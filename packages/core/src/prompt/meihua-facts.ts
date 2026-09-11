@@ -1,5 +1,6 @@
 import type { MeihuaData } from '../types/divination';
 import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../ganzhi';
+import { MEIHUA_DIRECTION_OPTIONS, MEIHUA_OBJECT_OPTIONS } from '../divination/config';
 
 export function formatMeihuaFacts(data: MeihuaData): string[] {
   const lines = [...data.yaosDetail].sort((a, b) => a.position - b.position);
@@ -8,6 +9,9 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
   if (lines.length === 6 && lines.every((line, index) => line.position === index + 1)) {
     facts.push(
       `主卦爻象：上卦${data.mainHexagram.upper}、下卦${data.mainHexagram.lower}；自下而上为${lines.map((line) => `第${line.position}爻${line.yaoType}`).join('、')}`,
+    );
+    facts.push(
+      `逐爻体用：${lines.map((line) => `第${line.position}爻${line.yaoType}属${line.tiYong}${line.isChanging ? '（动爻）' : ''}`).join('、')}`,
     );
     if (data.interHexagram) {
       facts.push(
@@ -42,6 +46,45 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
     ) {
       facts.push(
         `起卦取数：数字${c.number}除8取余得上卦数${c.upperTrigramIndex}；数字${c.number}加时支${c.timeZhi}序数${c.timeZhiIndex}，除8取余得下卦数${c.lowerTrigramIndex}，除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
+      );
+    } else if (
+      c.methodKey === 'sound' &&
+      typeof c.soundCount === 'number' &&
+      typeof c.timeZhiIndex === 'number'
+    ) {
+      facts.push(
+        `起卦取数：所闻声音数${c.soundCount}除8取余得上卦数${c.upperTrigramIndex}；声音数${c.soundCount}加时支${c.timeZhi}序数${c.timeZhiIndex}，除8取余得下卦数${c.lowerTrigramIndex}，除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
+      );
+    } else if (
+      c.methodKey === 'character' &&
+      typeof c.characterCount === 'number' &&
+      typeof c.characterUpperNumber === 'number' &&
+      typeof c.characterLowerNumber === 'number'
+    ) {
+      const toneText = Array.isArray(c.characterTones)
+        ? `，传统声类按平1、上2、去3、入4取数为${c.characterTones.join('、')}`
+        : Array.isArray(c.characterStrokeCounts)
+          ? `，逐字笔画数为${c.characterStrokeCounts.join('、')}`
+          : c.characterCount === 1
+            ? `，左右分笔数为${c.characterLeftStrokes}、${c.characterRightStrokes}`
+            : '';
+      facts.push(
+        `起卦取数：${c.characterText ? `文字「${c.characterText}」，` : ''}字数${c.characterCount}${toneText}，上卦取数${c.characterUpperNumber}，下卦取数${c.characterLowerNumber}；分别除8取余得上卦数${c.upperTrigramIndex}、下卦数${c.lowerTrigramIndex}，上下卦取数之和除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
+      );
+    } else if (
+      c.methodKey === 'direction' &&
+      typeof c.objectTrigramIndex === 'number' &&
+      typeof c.directionTrigramIndex === 'number' &&
+      typeof c.timeZhiIndex === 'number'
+    ) {
+      const objectLabel =
+        MEIHUA_OBJECT_OPTIONS.find((item) => item.value === c.objectType)?.label ??
+        data.mainHexagram.upper;
+      const directionLabel =
+        MEIHUA_DIRECTION_OPTIONS.find((item) => item.value === c.direction)?.label ??
+        data.mainHexagram.lower;
+      facts.push(
+        `起卦取数：所见物类${objectLabel}取上卦数${c.objectTrigramIndex}，方位${directionLabel}取下卦数${c.directionTrigramIndex}；上卦数加下卦数及时支${c.timeZhi}序数${c.timeZhiIndex}除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
     }
   }

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { getToolCatalog } from '../../mcp/src/catalog/tool-catalog';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -54,21 +55,20 @@ test('Skill 数据提供方适配文档中的端点必须全部在 PUBLIC_API_EN
   );
   const providerRefContent = readFileSync(providerRefPath, 'utf8');
 
-  // 匹配表格中的所有端点: `/calendar/...`, `/divination/...`, `/metaphysics/...`, `/bazi/...`, `/ziwei/...`
-  const endpointRegex =
-    /`\/(?:calendar|foundation|instant|bazi|ziwei|bazi-ziwei|divination|metaphysics|ai)\/[^`]+`/g;
-  const matches = providerRefContent.match(endpointRegex) || [];
-
-  assert.ok(matches.length > 20, '应当解析出至少 20 个提供方端点映射');
-
-  for (const raw of matches) {
-    const apiPath = raw.replace(/`/g, '');
-    const isPost = (PUBLIC_API_ENDPOINTS as readonly string[]).includes(`POST /api/v1${apiPath}`);
-    const isGet = (PUBLIC_API_ENDPOINTS as readonly string[]).includes(`GET /api/v1${apiPath}`);
+  const rows = [
+    ...providerRefContent.matchAll(
+      /\|\s*`(?<method>GET|POST) (?<path>\/[^`]+)`\s*\|\s*`(?<id>[^`]+)`\s*\|/g,
+    ),
+  ];
+  const catalog = getToolCatalog();
+  assert.deepEqual(rows.map((row) => row.groups!.id).sort(), catalog.map((tool) => tool.id).sort());
+  for (const row of rows) {
+    const { method, path, id } = row.groups!;
     assert.ok(
-      isPost || isGet,
-      `Skill 适配文档列出了端点 ${apiPath}，但在 PUBLIC_API_ENDPOINTS 中未找到对应 GET 或 POST 路由！`,
+      (PUBLIC_API_ENDPOINTS as readonly string[]).includes(`${method} /api/v1${path}`),
+      `${id} HTTP 方法或路径失效`,
     );
+    assert.equal(catalog.find((tool) => tool.id === id)?.endpoint, path, `${id} 映射不一致`);
   }
 });
 
@@ -104,6 +104,7 @@ test('MCP Server 必须完整覆盖所有已公开的核心术式工具', () => 
     'registerFoundationTools',
     'registerCalendarTools',
     'registerInstantTool',
+    'registerYilinTool',
   ];
 
   for (const reg of requiredToolRegisters) {
@@ -112,4 +113,15 @@ test('MCP Server 必须完整覆盖所有已公开的核心术式工具', () => 
       `MCP Server 中缺失关键工具注册: ${reg}，导致部分术式无法被 MCP 客户端调用`,
     );
   }
+});
+
+test('MCP 使用说明中的工具清单必须与真实目录完整对应', () => {
+  const readme = readFileSync('mcp/README.md', 'utf8');
+  const ids = [...readme.matchAll(/^\| `([^`]+)` \|/gm)].map((match) => match[1]);
+  assert.deepEqual(
+    ids.sort(),
+    getToolCatalog()
+      .map((tool) => tool.id)
+      .sort(),
+  );
 });

@@ -11,6 +11,7 @@ import { generateQimen } from 'mingyu-core/divination/qimen';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { calculateWuyunLiuqi } from 'mingyu-core/wuyun-liuqi';
 import { TraditionalDivinationBoard } from '../src/components/DivinationPanel/TraditionalDivinationBoard';
 import type { DivinationSession } from '../src/lib/divination/engine';
 import type { DivinationData, QimenData } from '../src/types/divination';
@@ -39,11 +40,20 @@ test('主要占卜传统盘应能使用当前核心数据直接渲染', () => {
     ['tarot', drawTarotSpread('single'), /塔罗/],
     ['ssgw', drawRandomSign(FIXED_DATE), /签/],
     ['lenormand', drawLenormandSpread('single'), /雷诺曼/],
+    ['wuyun', calculateWuyunLiuqi({ year: 2026 }), /五运六气年度盘/],
   ];
 
   for (const [method, data, expected] of cases) {
     assert.match(renderBoard(method, data), expected, `${method}传统盘渲染失败`);
   }
+});
+
+test('五运六气年度盘展示全年主客运气事实', () => {
+  const html = renderBoard('wuyun', calculateWuyunLiuqi({ year: 2026 }));
+  assert.match(html, /丙午/u);
+  assert.match(html, /五步主客运/u);
+  assert.match(html, /六步主客气/u);
+  assert.match(html, /司天/u);
 });
 
 test('缺少可选格局标签的旧奇门记录仍应正常渲染', () => {

@@ -1,6 +1,6 @@
 /**
  * @file 梅花易数排盘算法
- * @description 基于邵雍（康节）先生所传之《梅花易数》，实现年月日时、数字、随机起卦法。
+ * @description 基于邵雍（康节）先生所传之《梅花易数》，实现年月日时、数字、声音、字数、方位与随机起卦法。
  * @来源 通行本《梅花易数》（传为邵雍所传）；版本、卦序与体用互变口径以当前固定数据为准。
  * @流派 邵氏心易
  * @核心思想
@@ -26,6 +26,9 @@ import {
   resolveNumberMethod,
   resolveRandomMethod,
   resolveTimeMethod,
+  resolveSoundMethod,
+  resolveCharacterMethod,
+  resolveDirectionMethod,
   type MeihuaMethodResult,
 } from './helpers/methods';
 import { attachResultMeta } from '../../../shared/result';
@@ -116,61 +119,77 @@ export function evaluateMeihuaTimelineTrend(params: {
   interTiElement: string;
   interYongElement: string;
   changedYongElement: string;
+  changedTiElement?: string;
 }): {
   trend: '先难后易' | '先顺后阻' | '始末顺畅' | '始终受制' | '中途多阻' | '平稳演进';
   summary: string;
 } {
-  const { tiElement, originalYongElement, interTiElement, interYongElement, changedYongElement } =
-    params;
+  const {
+    tiElement,
+    originalYongElement,
+    interTiElement,
+    interYongElement,
+    changedYongElement,
+    changedTiElement = tiElement,
+  } = params;
+
+  const startRelation = getTiYongRelation(originalYongElement, tiElement);
+  const interTiRelation = getInterRelationToOriginalTi('体互', interTiElement, tiElement);
+  const interYongRelation = getInterRelationToOriginalTi('用互', interYongElement, tiElement);
+  const endRelation = getTiYongRelation(changedYongElement, changedTiElement);
 
   // 1. 初阶段（主卦用对体）
-  const startFavorable =
-    isSheng(originalYongElement, tiElement) || originalYongElement === tiElement;
-  const startDifficult =
-    isKe(originalYongElement, tiElement) || isSheng(tiElement, originalYongElement);
+  const startFavorable = startRelation === '用生体' || startRelation === '比和';
+  const startDifficult = startRelation === '用克体' || startRelation === '体生用';
 
   // 2. 中阶段（互卦对原体）
-  const midDifficult = isKe(interTiElement, tiElement) || isKe(interYongElement, tiElement);
+  const interRelations = [interTiRelation, interYongRelation];
+  const midFavorable = interRelations.every(
+    (relation) => relation.includes('生原体') || relation.includes('与原体比和'),
+  );
+  const midDifficult = interRelations.some(
+    (relation) => relation.includes('克原体') || relation.startsWith('原体生'),
+  );
 
-  // 3. 终阶段（变卦用对原体）
-  const endFavorable = isSheng(changedYongElement, tiElement) || changedYongElement === tiElement;
-  const endDifficult =
-    isKe(changedYongElement, tiElement) || isSheng(tiElement, changedYongElement);
+  // 3. 终阶段（变卦用对变后体）
+  const endFavorable = endRelation === '用生体' || endRelation === '比和';
+  const endDifficult = endRelation === '用克体' || endRelation === '体生用';
+  const summary = `主卦用/体：${startRelation}；互卦：${interTiRelation}、${interYongRelation}；变卦用/体：${endRelation}`;
 
   if (startDifficult && endFavorable) {
     return {
       trend: '先难后易',
-      summary: '初始受制或多周折，中后程得生助转顺，终成吉局',
+      summary,
     };
   }
   if (startFavorable && endDifficult) {
     return {
       trend: '先顺后阻',
-      summary: '起步顺遂得利，中后程克泄交加阻力渐显，防后继乏力',
+      summary,
     };
   }
-  if (startFavorable && endFavorable && !midDifficult) {
+  if (startFavorable && endFavorable && midFavorable) {
     return {
       trend: '始末顺畅',
-      summary: '事之初中终三阶段皆得生扶比和，全盘通畅无大碍',
+      summary,
     };
   }
   if (startDifficult && endDifficult && midDifficult) {
     return {
       trend: '始终受制',
-      summary: '初中终重重受克泄制约，阻力严峻，大宜退守蓄力',
+      summary,
     };
   }
   if (midDifficult) {
     return {
       trend: '中途多阻',
-      summary: '起步与结局尚可，惟中途互卦见克制，过程中须防突发变故',
+      summary,
     };
   }
 
   return {
     trend: '平稳演进',
-    summary: '体用互变各有所制，局势循序渐进，随事态应时权变',
+    summary,
   };
 }
 
@@ -235,11 +254,11 @@ function estimateYingQi(params: {
 /**
  * 生成梅花易数卦盘
  *
- * 支持时间起卦、数字起卦和随机起卦；timeTrigram 作为历史兼容入口按时间起卦计算。
+ * 支持时间、数字、声音、字数、方位和随机起卦；timeTrigram 作为历史兼容入口按时间起卦计算。
  * 不传 `customDate` 则使用当前时间。
  *
  * @param customDate 自定义起卦时间（可选），影响时间卦的时间干支。
- * @param settings   起卦设置，含 method（起卦方式）、number（数字起卦用）等。
+ * @param settings   起卦设置，含 method（起卦方式）及对应的声音、文字或方位输入。
  * @returns 完整的梅花易数卦盘数据对象 MeihuaData。
  *
  * @example
@@ -265,6 +284,20 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     switch (method) {
       case 'number':
         return resolveNumberMethod(settings?.number ?? 0, ganzhi.hour.slice(-1));
+      case 'sound':
+        return resolveSoundMethod(settings?.soundCount ?? 0, ganzhi.hour.slice(-1));
+      case 'character':
+        return resolveCharacterMethod(settings ?? {});
+      case 'direction': {
+        if (!settings?.direction || !settings.objectType) {
+          throw new Error('方位起卦必须提供 direction 和 objectType');
+        }
+        return resolveDirectionMethod(
+          settings.direction,
+          settings.objectType,
+          ganzhi.hour.slice(-1),
+        );
+      }
       case 'random':
         return resolveRandomMethod(settings);
       case 'timeTrigram':
@@ -477,6 +510,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
         interTiElement: interTiGua.element,
         interYongElement: interYongGua.element,
         changedYongElement: changedTiYong.yongGua.element,
+        changedTiElement: changedTiYong.tiGua.element,
       }),
       yingQi: estimateYingQi({
         movingYaoIndex,
@@ -495,7 +529,20 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   };
   const resultWithMeta = attachResultMeta(result, {
     algorithm: 'meihua',
-    input: { method, number: settings?.number, timestamp },
+    input: {
+      method,
+      number: settings?.number,
+      soundCount: settings?.soundCount,
+      characterText: settings?.characterText,
+      characterCount: settings?.characterCount,
+      characterTones: settings?.characterTones,
+      characterStrokeCounts: settings?.characterStrokeCounts,
+      characterLeftStrokes: settings?.characterLeftStrokes,
+      characterRightStrokes: settings?.characterRightStrokes,
+      direction: settings?.direction,
+      objectType: settings?.objectType,
+      timestamp,
+    },
     calculatedAt: timestamp,
     random: randomTrace,
   });

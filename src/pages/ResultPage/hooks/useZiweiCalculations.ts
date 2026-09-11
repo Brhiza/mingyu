@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useWorkerRequest } from '@/hooks/useWorkerRequest';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildZiweiChartInput } from '@/lib/full-chart-engine/ziwei';
 import { getDefaultHoroscopeContext } from 'mingyu-core/ziwei';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
+import type { ReadingResource } from '@/lib/ai/reading-workflow';
 import type { QueryInputState } from '@/lib/query-state';
 import type { ZiweiPayloadByScopeState, ZiweiRuntimeState } from '../ResultPage.types';
 import {
@@ -11,7 +13,10 @@ import {
   getCachedZiweiRuntime,
   getZiweiDisplayKey,
   getZiweiInputKey,
+  getZiweiReadingResourceKey,
   loadZiweiDisplayPayload,
+  loadZiweiPromptScopePayloads,
+  loadZiweiReadingResource,
   loadZiweiPayload,
   loadZiweiRuntime,
   stabilizeZiweiChartInput,
@@ -25,12 +30,18 @@ export interface ZiweiCalculations {
   promptZiweiPayload: AnalysisPayloadV1 | null;
   promptPartnerZiweiPayload: AnalysisPayloadV1 | null;
   ziweiError: string;
+  ziweiFortuneText: string;
   primaryZiweiInput: ChartInput | null;
   partnerZiweiInput: ChartInput | null;
   activeZiweiPayloadByScope: ZiweiPayloadByScopeState;
   activePartnerZiweiPayloadByScope: ZiweiPayloadByScopeState;
   currentZiweiPayload: AnalysisPayloadV1 | null;
+  promptZiweiScopePayloads: Partial<Record<ScopeType, AnalysisPayloadV1>> | null;
   partnerZiweiPayload: AnalysisPayloadV1 | null;
+  ziweiReadingResources: ReadingResource[];
+  ziweiReadingResourcesReady: boolean;
+  ziweiReadingResourceError: string;
+  reloadZiweiReadingResources: () => void;
 }
 
 export function useZiweiCalculations(
@@ -43,6 +54,7 @@ export function useZiweiCalculations(
   },
   isZiweiTabMounted: boolean,
   isPromptTabMounted: boolean,
+  isInstantResult = false,
 ): ZiweiCalculations {
   const primaryZiweiInput = useMemo(() => {
     try {
@@ -114,6 +126,9 @@ export function useZiweiCalculations(
   const [promptZiweiPayload, setPromptZiweiPayload] = useState<AnalysisPayloadV1 | null>(null);
   const [promptPartnerZiweiPayload, setPromptPartnerZiweiPayload] =
     useState<AnalysisPayloadV1 | null>(null);
+  const [promptScopePayloads, setPromptScopePayloads] = useState<Partial<
+    Record<ScopeType, AnalysisPayloadV1>
+  > | null>(null);
   const [promptZiweiPayloadKey, setPromptZiweiPayloadKey] = useState('');
   const [promptPartnerZiweiPayloadKey, setPromptPartnerZiweiPayloadKey] = useState('');
   const [ziweiError, setZiweiError] = useState('');
@@ -316,6 +331,184 @@ export function useZiweiCalculations(
     promptState.ziweiScope !== 'full' &&
     Boolean(promptState.ziweiScopeDate);
   const promptHourIndex = useMemo(() => getDefaultHoroscopeContext().hourIndex, []);
+  const readingResourceRequest = useMemo(() => {
+    if (
+      isInstantResult ||
+      !isPromptTabMounted ||
+      promptState.ziweiScope !== 'full' ||
+      (promptState.promptSource !== 'ziwei' && promptState.promptSource !== 'bazi-ziwei') ||
+      (promptState.promptSource === 'bazi-ziwei' && inputState.analysisMode !== 'single') ||
+      !primaryZiweiInput ||
+      !primaryZiweiInputKey
+    ) {
+      return null;
+    }
+
+    const dateStr = promptState.ziweiScopeDate || getDefaultHoroscopeContext().dateStr;
+    const items: Array<{
+      role: 'primary' | 'partner';
+      input: ChartInput;
+      inputKey: string;
+      subjectTitle: string;
+    }> = [
+      {
+        role: 'primary' as const,
+        input: primaryZiweiInput,
+        inputKey: primaryZiweiInputKey,
+        subjectTitle: primaryZiweiInput.name || '第一主体',
+      },
+    ];
+    if (inputState.analysisMode === 'compatibility') {
+      if (!partnerZiweiInput || !partnerZiweiInputKey) return null;
+      items.push({
+        role: 'partner' as const,
+        input: partnerZiweiInput,
+        inputKey: partnerZiweiInputKey,
+        subjectTitle: partnerZiweiInput.name || '第二主体',
+      });
+    }
+    return {
+      dateStr,
+      hourIndex: promptHourIndex,
+      items,
+      key: items
+        .map(({ role, inputKey }) =>
+          getZiweiReadingResourceKey(inputKey, dateStr, promptHourIndex, role),
+        )
+        .join('\u0000'),
+    };
+  }, [
+    inputState.analysisMode,
+    isInstantResult,
+    isPromptTabMounted,
+    partnerZiweiInput,
+    partnerZiweiInputKey,
+    primaryZiweiInput,
+    primaryZiweiInputKey,
+    promptHourIndex,
+    promptState.promptSource,
+    promptState.ziweiScope,
+    promptState.ziweiScopeDate,
+  ]);
+  const [ziweiReadingResources, setZiweiReadingResources] = useState<ReadingResource[]>([]);
+  const [ziweiReadingResourceKey, setZiweiReadingResourceKey] = useState('');
+  const [ziweiReadingResourceError, setZiweiReadingResourceError] = useState('');
+  const [ziweiReadingResourceRetry, setZiweiReadingResourceRetry] = useState(0);
+  const readingResourceRequestKeyRef = useRef('');
+  const reloadZiweiReadingResources = useCallback(() => {
+    setZiweiReadingResourceRetry((value) => value + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!readingResourceRequest) {
+      readingResourceRequestKeyRef.current = '';
+      setZiweiReadingResources([]);
+      setZiweiReadingResourceKey('');
+      setZiweiReadingResourceError('');
+      return;
+    }
+
+    let active = true;
+    const isSameRequest = readingResourceRequestKeyRef.current === readingResourceRequest.key;
+    readingResourceRequestKeyRef.current = readingResourceRequest.key;
+    if (!isSameRequest) {
+      setZiweiReadingResources([]);
+      setZiweiReadingResourceKey('');
+    }
+    setZiweiReadingResourceError('');
+    void Promise.all(
+      readingResourceRequest.items.map(async (item) => {
+        try {
+          return {
+            resource: await loadZiweiReadingResource(
+              item.input,
+              item.inputKey,
+              readingResourceRequest.dateStr,
+              readingResourceRequest.hourIndex,
+              item.role,
+              item.subjectTitle,
+            ),
+          };
+        } catch {
+          return { resource: null };
+        }
+      }),
+    ).then((results) => {
+      if (!active) return;
+      const resources = results
+        .map(({ resource }) => resource)
+        .filter((resource): resource is ReadingResource => Boolean(resource));
+      setZiweiReadingResources(resources);
+      const hasFailure = resources.length !== results.length;
+      setZiweiReadingResourceKey(hasFailure ? '' : readingResourceRequest.key);
+      setZiweiReadingResourceError(hasFailure ? '完整紫微资料生成失败，请重新生成资料。' : '');
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [readingResourceRequest, ziweiReadingResourceRetry]);
+
+  const currentZiweiReadingResources =
+    readingResourceRequest?.key === ziweiReadingResourceKey ? ziweiReadingResources : [];
+  const ziweiReadingResourcesReady = Boolean(
+    readingResourceRequest &&
+    readingResourceRequest.key === ziweiReadingResourceKey &&
+    currentZiweiReadingResources.length === readingResourceRequest.items.length,
+  );
+
+  const fortuneRequest = useMemo(() => {
+    if (
+      !shouldLoadZiweiPromptPayload ||
+      inputState.analysisMode !== 'single' ||
+      !primaryZiweiInput ||
+      promptState.ziweiScope === 'origin'
+    )
+      return null;
+    const dateStr = promptState.ziweiScopeDate || getDefaultHoroscopeContext().dateStr;
+    const all = promptState.ziweiScope === 'full';
+    const scope =
+      promptState.ziweiScope === 'full'
+        ? 'all'
+        : promptState.ziweiScope === 'yearly'
+          ? 'year'
+          : promptState.ziweiScope === 'monthly'
+            ? 'month'
+            : promptState.ziweiScope === 'daily'
+              ? 'day'
+              : promptState.ziweiScope === 'hourly'
+                ? 'hour'
+                : 'current';
+    return {
+      input: primaryZiweiInput,
+      dateStr,
+      hourIndex: promptHourIndex,
+      all,
+      scope,
+      key: JSON.stringify([primaryZiweiInputKey, dateStr, promptHourIndex, all, scope]),
+    };
+  }, [
+    shouldLoadZiweiPromptPayload,
+    inputState.analysisMode,
+    primaryZiweiInput,
+    primaryZiweiInputKey,
+    promptState.ziweiScope,
+    promptState.ziweiScopeDate,
+    promptHourIndex,
+  ]);
+  const fortuneResult = useWorkerRequest<
+    NonNullable<typeof fortuneRequest>,
+    { key: string; text: string }
+  >({
+    factory: () =>
+      new Worker(new URL('../../../workers/ziwei-fortune-prompt.worker.ts', import.meta.url), {
+        type: 'module',
+      }),
+    request: fortuneRequest,
+    timeoutMs: 120000,
+  });
+  const fortuneReady = !fortuneRequest || fortuneResult.data?.key === fortuneRequest.key;
+  const ziweiFortuneText = fortuneRequest && fortuneReady ? fortuneResult.data?.text || '' : '';
   const primaryPromptDisplayKey =
     shouldUseCustomZiweiPromptPayload && primaryZiweiInputKey
       ? getZiweiDisplayKey(
@@ -349,28 +542,24 @@ export function useZiweiCalculations(
       return;
     }
 
-    const cached = getCachedZiweiDisplayPayload(primaryPromptDisplayKey);
-    if (cached) {
-      setPromptZiweiPayload(cached);
-      setPromptZiweiPayloadKey(primaryPromptDisplayKey);
-      return;
-    }
-
     let active = true;
-    void loadZiweiDisplayPayload(
+    void loadZiweiPromptScopePayloads(
       primaryZiweiInput,
       primaryZiweiInputKey,
       promptState.ziweiScopeDate,
       promptHourIndex,
       ziweiPromptScopeType,
     )
-      .then((payload) => {
+      .then((payloads) => {
         if (!active) return;
-        setPromptZiweiPayload(payload);
+        setPromptScopePayloads(payloads);
+        setPromptZiweiPayload(payloads[ziweiPromptScopeType] ?? null);
+        setZiweiError('');
         setPromptZiweiPayloadKey(primaryPromptDisplayKey);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (active) {
+          setZiweiError(error instanceof Error ? error.message : '紫微运限盘生成失败。');
           setPromptZiweiPayload(null);
           setPromptZiweiPayloadKey('');
         }
@@ -467,8 +656,14 @@ export function useZiweiCalculations(
       : partnerPromptDisplayKey
         ? getCachedZiweiDisplayPayload(partnerPromptDisplayKey)
         : null;
-  const currentZiweiPayload = activePromptZiweiPayload ?? defaultZiweiPayload;
-  const partnerZiweiPayload = activePromptPartnerZiweiPayload ?? defaultPartnerZiweiPayload;
+  const currentZiweiPayload = shouldUseCustomZiweiPromptPayload
+    ? promptZiweiPayloadKey === primaryPromptDisplayKey
+      ? promptZiweiPayload
+      : null
+    : defaultZiweiPayload;
+  const partnerZiweiPayload = shouldUseCustomZiweiPromptPayload
+    ? activePromptPartnerZiweiPayload
+    : defaultPartnerZiweiPayload;
 
   return {
     ziweiRuntime: currentZiweiRuntime,
@@ -477,12 +672,22 @@ export function useZiweiCalculations(
     partnerZiweiPayloadByScope: currentPartnerZiweiPayloadByScope,
     promptZiweiPayload: activePromptZiweiPayload,
     promptPartnerZiweiPayload: activePromptPartnerZiweiPayload,
-    ziweiError,
+    ziweiError: fortuneResult.error || ziweiError,
+    ziweiFortuneText,
     primaryZiweiInput,
     partnerZiweiInput,
     activeZiweiPayloadByScope,
     activePartnerZiweiPayloadByScope,
-    currentZiweiPayload,
+    currentZiweiPayload: fortuneReady ? currentZiweiPayload : null,
+    promptZiweiScopePayloads: shouldUseCustomZiweiPromptPayload
+      ? promptZiweiPayloadKey === primaryPromptDisplayKey
+        ? promptScopePayloads
+        : null
+      : activeZiweiPayloadByScope,
     partnerZiweiPayload,
+    ziweiReadingResources: currentZiweiReadingResources,
+    ziweiReadingResourcesReady,
+    ziweiReadingResourceError,
+    reloadZiweiReadingResources,
   };
 }

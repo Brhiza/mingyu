@@ -14,7 +14,7 @@ import {
   buildChineseNamingPrompt,
   buildNumberEnergyPrompt,
 } from 'mingyu-core/name-number';
-import { resultOutputSchema } from '../schemas.js';
+import { promptOutputSchema, resultOutputSchema } from '../schemas.js';
 import { resolvePromptSelection } from 'mingyu-core/prompt';
 import {
   createErrorToolResult,
@@ -64,9 +64,15 @@ const namingPreferenceShape = {
 };
 
 const promptSelectionShape = {
-  topicId: z.string().optional().describe('统一解读主题 ID'),
-  subtopicId: z.string().optional().describe('统一解读主题细项 ID'),
-  scope: z.string().optional().describe('统一分析范围 ID'),
+  topicId: z
+    .string()
+    .optional()
+    .describe('解读主题 ID；用户没有指定主题时省略，使用工具的实用默认值'),
+  subtopicId: z
+    .string()
+    .optional()
+    .describe('主题细项 ID；只在已明确 topicId 且用户问题需要细分时传入'),
+  scope: z.string().optional().describe('分析范围 ID；用户没有指定范围时省略，不自行编造取值'),
 };
 
 function readNamePromptSelection(
@@ -167,7 +173,7 @@ export function registerNameNumberTools(server: McpServer) {
         limit: z.number().int().min(1).max(20).optional().describe('进入提示词的候选数量，默认10'),
         birth: namingBirth.optional(),
       },
-      outputSchema: resultOutputSchema,
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {
@@ -178,26 +184,22 @@ export function registerNameNumberTools(server: McpServer) {
           birth: birthDraft,
           limit: args.limit ?? 10,
         });
-        return createStructuredToolResult({
-          result: {
-            candidates,
-            prompt: buildChineseNamingPrompt({
-              surname: args.surname,
-              gender: args.gender,
-              candidates,
-              suitableCharacters: selectNamingCharacters({
-                ...args,
-                birth: birthDraft,
-                limit: 24,
-              }),
-              preferredCharacters: args.preferredCharacters,
-              forbiddenCharacters: args.forbiddenCharacters,
-              generationCharacter: args.generationCharacter,
-              generationPosition: args.generationPosition,
-              selection,
-            }),
-          },
+        const prompt = buildChineseNamingPrompt({
+          surname: args.surname,
+          gender: args.gender,
+          candidates,
+          suitableCharacters: selectNamingCharacters({
+            ...args,
+            birth: birthDraft,
+            limit: 24,
+          }),
+          preferredCharacters: args.preferredCharacters,
+          forbiddenCharacters: args.forbiddenCharacters,
+          generationCharacter: args.generationCharacter,
+          generationPosition: args.generationPosition,
+          selection,
         });
+        return createStructuredToolResult({ result: { candidates, prompt }, prompt });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '起名提示词生成失败'));
       }
@@ -217,9 +219,13 @@ export function registerNameNumberTools(server: McpServer) {
         preferredElements: z.array(wuxing).max(5).optional().describe('偏好五行，用于评估用字匹配'),
         birth: namingBirth.optional(),
         ...promptSelectionShape,
-        question: z.string().max(1000).optional().describe('希望重点了解的问题'),
+        question: z
+          .string()
+          .max(1000)
+          .optional()
+          .describe('用户希望重点了解的问题；尽量保留原意，未提供时省略'),
       },
-      outputSchema: resultOutputSchema,
+      outputSchema: promptOutputSchema,
     },
     async (args) => {
       try {
@@ -230,16 +236,12 @@ export function registerNameNumberTools(server: McpServer) {
           birth: toBaziBirthDraft(args.birth),
         });
         const selection = readNamePromptSelection(args, 'name.chineseAnalysis');
-        return createStructuredToolResult({
-          result: {
-            analysis,
-            prompt: buildChineseNameAnalysisPrompt({
-              analysis,
-              question: args.question,
-              selection,
-            }),
-          },
+        const prompt = buildChineseNameAnalysisPrompt({
+          analysis,
+          question: args.question,
+          selection,
         });
+        return createStructuredToolResult({ result: { analysis, prompt }, prompt });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '姓名解析提示词生成失败'));
       }
@@ -315,10 +317,14 @@ export function registerNameNumberTools(server: McpServer) {
       inputSchema: {
         value: z.string().min(1).max(64).describe('待解析的数字或字母编号'),
         purpose: z.enum(['phone', 'plate', 'general']).optional().describe('使用类型，默认general'),
-        question: z.string().max(1000).optional().describe('希望重点了解的问题'),
+        question: z
+          .string()
+          .max(1000)
+          .optional()
+          .describe('用户希望重点了解的问题；尽量保留原意，未提供时省略'),
         ...promptSelectionShape,
       },
-      outputSchema: resultOutputSchema,
+      outputSchema: promptOutputSchema,
     },
     async ({ value, purpose, question, topicId, subtopicId, scope }) => {
       try {
@@ -327,12 +333,8 @@ export function registerNameNumberTools(server: McpServer) {
           { topicId, subtopicId, scope },
           'name.numberEnergy',
         );
-        return createStructuredToolResult({
-          result: {
-            analysis,
-            prompt: buildNumberEnergyPrompt({ analysis, question, selection }),
-          },
-        });
+        const prompt = buildNumberEnergyPrompt({ analysis, question, selection });
+        return createStructuredToolResult({ result: { analysis, prompt }, prompt });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '数字能量提示词生成失败'));
       }

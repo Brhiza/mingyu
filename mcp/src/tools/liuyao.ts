@@ -55,7 +55,7 @@ export function registerLiuyaoTool(server: McpServer) {
     'divine_liuyao',
     {
       description:
-        '六爻起卦：基于当前时间或自定义时间生成六爻卦象，包含纳甲、六亲、六神、世应、动变、空亡等完整信息',
+        '六爻起卦：基于当前时间或自定义时间生成六爻卦象，包含纳甲、六亲、六神、世应、动变、空亡、逐爻月日旺衰与生旺墓绝、合冲刑害及反吟伏吟；detailMode=full 时保留完整计算资料',
       inputSchema: { ...liuyaoSchema.shape, ...calculationDetailShape },
       outputSchema: resultOutputSchema,
     },
@@ -72,8 +72,7 @@ export function registerLiuyaoTool(server: McpServer) {
   server.registerTool(
     'liuyao_prompt',
     {
-      description:
-        '六爻起卦并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要卦盘数据时调用 divine_liuyao',
+      description: '六爻起卦并生成可直接交给 AI 的完整任务书，同时返回纳甲、世应、动变和逐爻证据',
       inputSchema: liuyaoPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
