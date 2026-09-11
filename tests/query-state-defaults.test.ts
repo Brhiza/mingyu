@@ -570,6 +570,27 @@ test('住宅目标流运日期会随结果地址保存并从地址栏恢复', ()
   assert.equal(parsed.residentialFlowDay, '10');
 });
 
+test('住宅静态盘与仅指定年度的链接保留原有时间范围', () => {
+  const prompt = {
+    ...defaultPromptState,
+    tab: 'bazhai' as const,
+    promptSource: 'bazhai' as const,
+    residentialFlowYear: '',
+    residentialFlowMonth: '',
+    residentialFlowDay: '',
+  };
+  const staticState = parsePromptState(
+    new URLSearchParams(buildResultSearch(defaultInputState, prompt)),
+  );
+  assert.equal(staticState.residentialFlowYear, '');
+  assert.equal(staticState.residentialFlowMonth, '');
+  assert.equal(staticState.residentialFlowDay, '');
+  const yearlyState = parsePromptState(new URLSearchParams('ps=bazhai&rfy=2020'));
+  assert.equal(yearlyState.residentialFlowYear, '2020');
+  assert.equal(yearlyState.residentialFlowMonth, '');
+  assert.equal(yearlyState.residentialFlowDay, '');
+});
+
 test('住宅目标流运日期非法时应清空不完整日期', () => {
   const parsed = parsePromptState(
     new URLSearchParams({

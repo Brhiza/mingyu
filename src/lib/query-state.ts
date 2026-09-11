@@ -2,6 +2,7 @@ import { ASTROLABE_PROMPT_TOPICS, type AstrolabePromptTopic } from '@/lib/astrol
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
 import { getDefaultAstrolabeScopeDate } from '@/lib/astrolabe-scope';
+import { daysInGregorianMonth } from 'mingyu-core/calendar';
 
 export type ResultTabKey =
   'bazi' | 'ziwei' | 'qimen-lifetime' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt' | 'minglu';
@@ -528,6 +529,12 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
     defaultPromptState.residentialHouseYear,
   );
   const persistResidentialFlow = prompt.promptSource === 'bazhai' || prompt.tab === 'bazhai';
+  if (persistResidentialFlow) {
+    params.set('rfy', prompt.residentialFlowYear);
+    params.set('rfm', prompt.residentialFlowMonth);
+    params.set('rfd', prompt.residentialFlowDay);
+    return;
+  }
   setCompactParam(
     params,
     'residentialFlowYear',
@@ -755,16 +762,7 @@ function normalizeResidentialFlowDate(yearText: string, monthText: string, dayTe
   if (!month) return { year, month: '', day: '' };
   const day = parseIntegerText(dayText, 1, 31);
   if (!day) return { year, month, day: '' };
-  const numericYear = Number(year);
-  const numericMonth = Number(month);
-  const maxDay =
-    numericMonth === 2
-      ? numericYear % 4 === 0 && (numericYear % 100 !== 0 || numericYear % 400 === 0)
-        ? 29
-        : 28
-      : [4, 6, 9, 11].includes(numericMonth)
-        ? 30
-        : 31;
+  const maxDay = daysInGregorianMonth(Number(year), Number(month));
   return Number(day) <= maxDay ? { year, month, day } : { year, month, day: '' };
 }
 
@@ -920,6 +918,11 @@ export function buildInputSearch(params: URLSearchParams) {
 
 export function parsePromptState(params: URLSearchParams): QueryPromptState {
   const currentDefaultPromptState = createDefaultPromptState();
+  const hasResidentialFlow = [
+    'residentialFlowYear',
+    'residentialFlowMonth',
+    'residentialFlowDay',
+  ].some((key) => params.has(key) || params.has(PARAM_KEY_ALIASES[key]));
   const hasExplicitAstrolabeScope =
     params.has(PARAM_KEY_ALIASES.astrolabeScope) || params.has('astrolabeScope');
   const rawTab = getString(params, 'tab', defaultPromptState.tab);
@@ -1027,17 +1030,17 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
     residentialFlowYear: getString(
       params,
       'residentialFlowYear',
-      currentDefaultPromptState.residentialFlowYear,
+      hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowYear,
     ),
     residentialFlowMonth: getString(
       params,
       'residentialFlowMonth',
-      currentDefaultPromptState.residentialFlowMonth,
+      hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowMonth,
     ),
     residentialFlowDay: getString(
       params,
       'residentialFlowDay',
-      currentDefaultPromptState.residentialFlowDay,
+      hasResidentialFlow ? '' : currentDefaultPromptState.residentialFlowDay,
     ),
   });
 }
