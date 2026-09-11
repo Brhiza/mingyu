@@ -221,6 +221,14 @@ test('终身局主体拒绝普通即时奇门和篡改后的出生主体', async
       undefined,
       subject,
     ),
+    /此方法暂不支持自动补算/u,
+  );
+  await assert.rejects(
+    executeReadingAction(
+      { kind: 'calculate', method: 'bazi', input: { year: 2030 } },
+      undefined,
+      subject,
+    ),
     /补算方法与当前命盘类型不一致/u,
   );
 
