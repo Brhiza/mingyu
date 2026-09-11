@@ -1466,6 +1466,10 @@
   line-height: 1.5;
 }
 
+.traditional-huangji-board .traditional-meta-row > span {
+  overflow-wrap: anywhere;
+}
+
 .traditional-huangji-cycle {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
