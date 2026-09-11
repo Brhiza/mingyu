@@ -14,7 +14,7 @@ type HuangjiResponse = {
   sixDayCycle?: {
     civilTime?: { timezone?: number };
     anchor?: { kind?: string };
-    calendar?: { actualElapsedDays?: number };
+    calendar?: { model?: string; mapping?: string; actualElapsedDays?: number };
   };
   result?: HuangjiResponse;
   prompt?: string;
@@ -47,6 +47,40 @@ async function callHttp(tool: string, input: Record<string, unknown>) {
   };
 }
 
+test('皇极六日逐爻 OpenAPI 以 oneOf 固定两种模型的历元要求', async () => {
+  const response = await handlePublicApiRequest(
+    new Request('https://aov.cc/api/v1/openapi.json', { method: 'GET' }),
+  );
+  assert.equal(response.status, 200);
+  const document = (await response.json()) as {
+    components?: {
+      schemas?: {
+        HuangjiJingshiRequest?: {
+          oneOf?: Array<{
+            required?: string[];
+            properties?: { calendarModel?: { const?: string } };
+            not?: { anyOf?: Array<{ required?: string[] }> };
+          }>;
+        };
+      };
+    };
+  };
+  const modes = document.components?.schemas?.HuangjiJingshiRequest?.oneOf ?? [];
+  const explicit = modes.find(
+    (mode) => mode.properties?.calendarModel?.const === 'six-day-explicit-epoch',
+  );
+  const proportional = modes.find(
+    (mode) => mode.properties?.calendarModel?.const === 'six-day-seven-part',
+  );
+  assert.deepEqual(explicit?.required, ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel']);
+  assert.deepEqual(proportional?.required, ['sixDayDateTime', 'calendarModel']);
+  assert.ok(
+    proportional?.not?.anyOf?.some((condition) =>
+      condition.required?.includes('sixDayEpochDateTime'),
+    ),
+  );
+});
+
 test('皇极六日逐爻 HTTP 与 MCP 入口返回同一带时区公历结果', async () => {
   const args = {
     sixDayDateTime: '2025-12-22T05:03:05+14:00',
@@ -64,6 +98,34 @@ test('皇极六日逐爻 HTTP 与 MCP 入口返回同一带时区公历结果', 
   assert.equal(http.body.data?.sixDayCycle?.civilTime?.timezone, 14);
   assert.equal(http.body.data?.sixDayCycle?.anchor?.kind, 'explicit-epoch');
   assert.equal(http.body.data?.sixDayCycle?.calendar?.actualElapsedDays, 1);
+});
+
+test('皇极六日七分模型无需显式历元且 HTTP 与 MCP 均保留现代定位说明', async () => {
+  const args = {
+    sixDayDateTime: '2025-12-22T05:03:05+08:00',
+    calendarModel: 'six-day-seven-part',
+    detailMode: 'full',
+  };
+  const http = await callHttp('metaphysics_huangji_jingshi', args);
+  assert.equal(http.response.status, 200, JSON.stringify(http.body));
+  assert.equal(http.body.data?.input?.mode, '六日逐爻公历');
+  assert.equal(http.body.data?.sixDayCycle?.calendar?.model, 'six-day-seven-part');
+  assert.equal(http.body.data?.sixDayCycle?.calendar?.mapping, 'winter-solstice-proportional-360');
+  assert.equal(http.body.data?.sixDayCycle?.anchor?.kind, 'winter-solstice-civil-midnight');
+  assert.match(JSON.stringify(http.body.data), /冬至|岁周|适用/);
+
+  const mcp = await client.callTool({ name: 'metaphysics_huangji_jingshi', arguments: args });
+  assert.notEqual(mcp.isError, true, JSON.stringify(mcp));
+  const mcpResult = (mcp.structuredContent as { result: HuangjiResponse }).result;
+  assert.deepEqual(mcpResult, http.body.data);
+  assert.equal(mcpResult.sixDayCycle?.calendar?.model, 'six-day-seven-part');
+
+  const rejectedEpoch = await callHttp('metaphysics_huangji_jingshi', {
+    ...args,
+    sixDayEpochDateTime: '2025-12-21T00:00:00+08:00',
+  });
+  assert.equal(rejectedEpoch.response.status, 400);
+  assert.match(JSON.stringify(rejectedEpoch.body), /six-day-seven-part.*sixDayEpochDateTime/);
 });
 
 test('皇极六日逐爻 prompt 入口保留显式历元资料并拒绝无时区时间', async () => {

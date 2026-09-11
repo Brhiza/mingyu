@@ -25,32 +25,34 @@ const huangjiJingshiSchema = z
       .min(1)
       .optional()
       .describe(
-        '六日逐爻目标当地公历时间（ISO 8601 格式）；必须同时提供 calendarModel 与 sixDayEpochDateTime，并与其他起法字段互斥；可与历元一起带同一固定 UTC 偏移，或均不带偏移并配合 timezone 或 timeZoneId',
+        '六日逐爻目标当地公历时间（ISO 8601 格式）；calendarModel=six-day-seven-part 以现代冬至与岁周比例定位且不需要 sixDayEpochDateTime，calendarModel=six-day-explicit-epoch 必须同时提供显式历元；与其他起法字段互斥',
       ),
     sixDayEpochDateTime: z
       .string()
       .min(1)
       .optional()
       .describe(
-        '六日逐爻经校定的当地子半历元（ISO 8601 格式）；必须与 sixDayDateTime、calendarModel 同时提供；该时刻对应已过日数0',
+        '六日逐爻经校定的当地子半历元（ISO 8601 格式）；仅 calendarModel=six-day-explicit-epoch 使用，须与 sixDayDateTime、calendarModel 同时提供；该时刻对应已过日数0，six-day-seven-part 不得提供',
       ),
     calendarModel: z
-      .literal('six-day-explicit-epoch')
+      .enum(['six-day-explicit-epoch', 'six-day-seven-part'])
       .optional()
       .describe(
-        '六日逐爻公历换算模型；仅可与 sixDayDateTime、sixDayEpochDateTime 同时提供，并须取 six-day-explicit-epoch',
+        '六日逐爻公历换算模型；six-day-seven-part 使用现代冬至与岁周比例定位并保留核心定义范围，six-day-explicit-epoch 使用经校定公历子半历元且必须同时提供 sixDayEpochDateTime',
       ),
     timezone: z
       .number()
       .min(-12)
       .max(14)
       .optional()
-      .describe('sixDayDateTime 与 sixDayEpochDateTime 未带偏移时的固定 UTC 时区'),
+      .describe(
+        'sixDayDateTime 未带偏移时的固定 UTC 时区；显式历元模型中也用于核验 sixDayEpochDateTime',
+      ),
     timeZoneId: z
       .string()
       .optional()
       .describe(
-        'sixDayDateTime 与 sixDayEpochDateTime 对应的 IANA 历史时区，例如 America/New_York',
+        'sixDayDateTime 对应的 IANA 历史时区，例如 America/New_York；显式历元模型中目标与历元共用该时区',
       ),
     epochYear: safeInteger
       .optional()
@@ -72,7 +74,7 @@ const huangjiJingshiSchema = z
     scope: z.string().optional().describe('统一分析范围 ID'),
   })
   .describe(
-    '皇极经世起盘输入模式互斥：customDate、六日逐爻显式历元、通行公元 year、自定义 epochYear 配 year 或 elapsedYears 四类只能选一类',
+    '皇极经世起盘输入模式互斥：customDate、六日逐爻六日七分模型、六日逐爻显式历元、通行公元 year、自定义 epochYear 配 year 或 elapsedYears 五类只能选一类',
   );
 
 const huangjiReferenceSchema = z.object({
@@ -106,8 +108,22 @@ const huangjiModeContract = {
     },
     {
       required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
+      properties: { calendarModel: { const: 'six-day-explicit-epoch' } },
       not: {
         anyOf: [
+          { required: ['customDate'] },
+          { required: ['epochYear'] },
+          { required: ['year'] },
+          { required: ['elapsedYears'] },
+        ],
+      },
+    },
+    {
+      required: ['sixDayDateTime', 'calendarModel'],
+      properties: { calendarModel: { const: 'six-day-seven-part' } },
+      not: {
+        anyOf: [
+          { required: ['sixDayEpochDateTime'] },
           { required: ['customDate'] },
           { required: ['epochYear'] },
           { required: ['year'] },
@@ -159,14 +175,14 @@ const huangjiCalculationSchema = huangjiJingshiSchema
   .omit({ question: true })
   .extend(calculationDetailShape)
   .describe(
-    '皇极经世输入模式互斥：customDate、六日逐爻显式历元、通行公元 year、自定义 epochYear 配 year 或 elapsedYears 四类只能选一类',
+    '皇极经世输入模式互斥：customDate、六日逐爻六日七分模型、六日逐爻显式历元、通行公元 year、自定义 epochYear 配 year 或 elapsedYears 五类只能选一类',
   )
   .meta(huangjiModeContract);
 
 const huangjiPromptSchema = huangjiJingshiSchema
   .extend(createPromptSchoolsShape('huangji-jingshi'))
   .describe(
-    '皇极经世输入模式互斥：customDate、六日逐爻显式历元、通行公元 year、自定义 epochYear 配 year 或 elapsedYears 四类只能选一类',
+    '皇极经世输入模式互斥：customDate、六日逐爻六日七分模型、六日逐爻显式历元、通行公元 year、自定义 epochYear 配 year 或 elapsedYears 五类只能选一类',
   )
   .meta(huangjiModeContract);
 
@@ -195,11 +211,18 @@ function calculateHuangjiJingshi(args: z.infer<typeof huangjiJingshiSchema>) {
   const sixDayEpochDateTime = args.sixDayEpochDateTime;
   let sixDayDate: ReturnType<typeof huangjiJingshi.parseHuangjiSixDayDateTime> | undefined;
   if (args.sixDayDateTime !== undefined) {
-    if (calendarModel !== 'six-day-explicit-epoch') {
-      throw new Error('六日逐爻公历时间必须明确提供 calendarModel=six-day-explicit-epoch。');
+    if (calendarModel !== 'six-day-explicit-epoch' && calendarModel !== 'six-day-seven-part') {
+      throw new Error(
+        '六日逐爻公历时间必须明确提供 calendarModel=six-day-seven-part 或 six-day-explicit-epoch。',
+      );
     }
-    if (sixDayEpochDateTime === undefined) {
+    if (calendarModel === 'six-day-explicit-epoch' && sixDayEpochDateTime === undefined) {
       throw new Error('六日逐爻公历时间必须同时提供经校定的 sixDayEpochDateTime。');
+    }
+    if (calendarModel === 'six-day-seven-part' && sixDayEpochDateTime !== undefined) {
+      throw new Error(
+        'calendarModel=six-day-seven-part 不得提供 sixDayEpochDateTime；该模型以现代冬至与岁周比例定位。',
+      );
     }
     if (
       args.customDate !== undefined ||
@@ -261,7 +284,7 @@ export function registerHuangjiJingshiTool(server: McpServer) {
     'metaphysics_huangji_jingshi',
     {
       description:
-        '皇极经世排盘：customDate 返回既有年月日时盘；sixDayDateTime 配合 sixDayEpochDateTime 与 calendarModel=six-day-explicit-epoch 返回显式历元六日逐爻盘；year 兼容值年盘，也支持自定义纪元换算',
+        '皇极经世排盘：customDate 返回既有年月日时盘；sixDayDateTime 可选 calendarModel=six-day-seven-part（现代冬至与岁周比例定位，返回适用边界）或 calendarModel=six-day-explicit-epoch（必须配合 sixDayEpochDateTime）；year 兼容值年盘，也支持自定义纪元换算',
       inputSchema: huangjiCalculationSchema,
       outputSchema: resultOutputSchema,
     },

@@ -1086,7 +1086,12 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '皇极经世六日逐爻、公历年月日时盘与元会运世周期换算',
           requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
-          responses: { '200': { description: '六日逐爻或年月日时卦、值年卦与元会运世层级' } },
+          responses: {
+            '200': {
+              description:
+                '六日逐爻或年月日时卦、值年卦与元会运世层级；六日七分模型以现代冬至与岁周比例定位，并返回适用边界。',
+            },
+          },
         },
       },
       '/metaphysics/huangji-jingshi/prompt': {
@@ -1094,7 +1099,10 @@ export function getPublicApiOpenApiDocument(
           summary: '皇极经世六日逐爻、公历年月日时盘并生成完整解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiJingshiRequest'),
           responses: {
-            '200': { description: '六日逐爻或年月日时盘、元会运世结果与自包含提示词' },
+            '200': {
+              description:
+                '六日逐爻或年月日时盘、元会运世结果与自包含提示词；六日七分模型以现代冬至与岁周比例定位，并返回适用边界。',
+            },
           },
         },
       },
@@ -2007,7 +2015,7 @@ export function getPublicApiOpenApiDocument(
         HuangjiJingshiRequest: {
           type: 'object',
           description:
-            '提供 customDate 可获得既有年月日时盘；提供 sixDayDateTime、sixDayEpochDateTime 与 calendarModel=six-day-explicit-epoch 可按显式历元定位六日逐爻；只提供公元 year 可获得值年盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
+            '提供 customDate 可获得既有年月日时盘；六日逐爻可选择 calendarModel=six-day-seven-part（以现代冬至与岁周比例定位，不传 sixDayEpochDateTime）或 calendarModel=six-day-explicit-epoch（必须同时传经校定的 sixDayEpochDateTime）；只提供公元 year 可获得值年盘；研究自定义纪元时提供 epochYear，并从 year 与 elapsedYears 中选择一项。',
           oneOf: [
             {
               required: ['customDate'],
@@ -2024,8 +2032,22 @@ export function getPublicApiOpenApiDocument(
             },
             {
               required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
+              properties: { calendarModel: { const: 'six-day-explicit-epoch' } },
               not: {
                 anyOf: [
+                  { required: ['customDate'] },
+                  { required: ['epochYear'] },
+                  { required: ['year'] },
+                  { required: ['elapsedYears'] },
+                ],
+              },
+            },
+            {
+              required: ['sixDayDateTime', 'calendarModel'],
+              properties: { calendarModel: { const: 'six-day-seven-part' } },
+              not: {
+                anyOf: [
+                  { required: ['sixDayEpochDateTime'] },
                   { required: ['customDate'] },
                   { required: ['epochYear'] },
                   { required: ['year'] },
@@ -2067,30 +2089,30 @@ export function getPublicApiOpenApiDocument(
             sixDayDateTime: {
               type: 'string',
               description:
-                '六日逐爻目标当地公历时间，ISO 8601 格式；可与历元一起带同一固定 UTC 偏移，或均不带偏移并配合 timezone 或 timeZoneId。',
+                '六日逐爻目标当地公历时间，ISO 8601 格式；six-day-seven-part 以现代冬至与岁周比例定位，不需要 sixDayEpochDateTime；six-day-explicit-epoch 须与历元一起带同一固定 UTC 偏移，或均不带偏移并配合 timezone 或 timeZoneId。',
             },
             sixDayEpochDateTime: {
               type: 'string',
               description:
-                '六日逐爻经校定的当地子半历元，ISO 8601 格式；该时刻对应已过日数0，须与 sixDayDateTime 使用同一时区口径。',
+                '显式历元模型使用的经校定当地子半，ISO 8601 格式；该时刻对应已过日数0，须与 sixDayDateTime 使用同一时区口径；calendarModel=six-day-seven-part 时不得提供。',
             },
             calendarModel: {
               type: 'string',
-              enum: ['six-day-explicit-epoch'],
+              enum: ['six-day-explicit-epoch', 'six-day-seven-part'],
               description:
-                '六日逐爻公历换算模型；须明确传 six-day-explicit-epoch，表示使用已校定公历子半历元直接适配三百六十日正数坐标。',
+                '六日逐爻公历换算模型。six-day-seven-part 使用现代冬至与岁周比例定位，不需要 sixDayEpochDateTime，并仅适用于核心返回的定义范围；six-day-explicit-epoch 使用已校定公历子半历元直接适配三百六十日正数坐标，必须同时提供 sixDayEpochDateTime。',
             },
             timezone: {
               type: 'number',
               minimum: -12,
               maximum: 14,
               description:
-                'sixDayDateTime 与 sixDayEpochDateTime 未带偏移时的固定 UTC 时区；有 IANA 时区时用于消歧与核验。',
+                'sixDayDateTime 未带偏移时的固定 UTC 时区；显式历元模型中也用于核验 sixDayEpochDateTime，有 IANA 时区时用于消歧与核验。',
             },
             timeZoneId: {
               type: 'string',
               description:
-                'sixDayDateTime 与 sixDayEpochDateTime 对应的 IANA 历史时区，例如 America/New_York。',
+                'sixDayDateTime 对应的 IANA 历史时区，例如 America/New_York；显式历元模型中目标与历元共用该时区。',
             },
             epochYear: {
               type: 'integer',
@@ -3809,18 +3831,25 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
   const question = readString(input, 'question', '').trim();
   let sixDayDate: ReturnType<typeof huangjiJingshi.parseHuangjiSixDayDateTime> | undefined;
   if (sixDayDateTime !== undefined) {
-    if (calendarModel !== 'six-day-explicit-epoch') {
+    if (calendarModel !== 'six-day-explicit-epoch' && calendarModel !== 'six-day-seven-part') {
       throw new ApiError(
         400,
         'BAD_REQUEST',
-        '六日逐爻公历时间必须明确提供 calendarModel=six-day-explicit-epoch。',
+        '六日逐爻公历时间必须明确提供 calendarModel=six-day-seven-part 或 six-day-explicit-epoch。',
       );
     }
-    if (sixDayEpochDateTime === undefined) {
+    if (calendarModel === 'six-day-explicit-epoch' && sixDayEpochDateTime === undefined) {
       throw new ApiError(
         400,
         'BAD_REQUEST',
         '六日逐爻公历时间必须同时提供经校定的 sixDayEpochDateTime。',
+      );
+    }
+    if (calendarModel === 'six-day-seven-part' && sixDayEpochDateTime !== undefined) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        'calendarModel=six-day-seven-part 不得提供 sixDayEpochDateTime；该模型以现代冬至与岁周比例定位。',
       );
     }
     if (customDate || epochYear !== undefined || year !== undefined || elapsedYears !== undefined) {

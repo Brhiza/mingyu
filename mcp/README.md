@@ -77,8 +77,8 @@
 | `taiyi_prompt` | 太乙神数提示词 | 生成太乙主客胜负定性与宏观时势自包含提示词；支持统一主题、主题细项和分析范围选择 |
 | `metaphysics_wuyun_liuqi` | 五运六气排盘 | 年度五步主客运、司天在泉与天符岁会五类符会病机 |
 | `wuyun_liuqi_prompt` | 五运六气提示词 | 生成年度气候节律与病机平气自包含提示词；支持统一主题、主题细项和分析范围选择 |
-| `metaphysics_huangji_jingshi` | 皇极经世宏观周期 | 邵雍皇极经世元会运世、值年卦与运世消息推进 |
-| `huangji_jingshi_prompt` | 皇极经世提示词 | 生成皇极经世时代坐标与值年卦演变自包含提示词；支持统一主题、主题细项和分析范围选择 |
+| `metaphysics_huangji_jingshi` | 皇极经世宏观周期 | 邵雍皇极经世元会运世、值年卦与运世消息推进；六日七分支持现代冬至岁周比例模型和显式历元模型 |
+| `huangji_jingshi_prompt` | 皇极经世提示词 | 生成皇极经世时代坐标与值年卦演变自包含提示词；支持六日七分两种公历模型、统一主题、主题细项和分析范围选择 |
 | `huangji_reference_tables` | 皇极经世扩展资料表 | 查询固定版本的声音律吕、动植物数与经辰历史纪年原表；历史表按经辰序号查询 |
 | `metaphysics_qizheng` | 七政四余排盘 | 果老星宗七政十一星、二十八宿界、昼夜分金恩难与行限流曜 |
 | `qizheng_prompt` | 七政四余提示词 | 生成七政四余天星恩难自包含解读任务书；支持统一主题、主题细项和分析范围选择 |
@@ -128,7 +128,7 @@
 | 雷诺曼关系或选择牌阵             | `lenormand_prompt`             | `spreadType`、`question`                                                 |
 | 求签                             | `ssgw_prompt`                  | `question`                                                               |
 | 年度气候节律、司天在泉           | `wuyun_liuqi_prompt`           | `year` 或 `yearGanZhi`、`question`                                      |
-| 皇极经世宏观周期、值年卦          | `huangji_jingshi_prompt`       | `customDate` 或 `year` / `epochYear` / `elapsedYears`、`question`        |
+| 皇极经世宏观周期、值年卦          | `huangji_jingshi_prompt`       | `customDate`、`sixDayDateTime` + `calendarModel`，或 `year` / `epochYear` / `elapsedYears`、`question` |
 
 出生时辰未知时，不要自行补时辰。八字可以保守分析；紫微和八字紫微合参需要时辰，优先请用户补足后再调用。
 
@@ -259,7 +259,7 @@ pnpm mcp
 
 ### 起卦与排盘时间参数
 
-六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬以及太乙月、日、时计默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。皇极经世可用 `customDate` 固定年月日时，五运六气应明确目标 `year` 或 `yearGanZhi`；这些资料按目标时点或年度解读，不作为出生本命。金口诀还可用 `jinkoujueMethod: "branch"` 与 `jinkoujueBranch` 直接指定地分。
+六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬以及太乙月、日、时计默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。皇极经世可用 `customDate` 固定年月日时；六日逐爻公历占断传 `sixDayDateTime` 并选择 `calendarModel=six-day-seven-part`（以现代冬至与岁周比例定位，不传 `sixDayEpochDateTime`）或 `calendarModel=six-day-explicit-epoch`（必须同时传经校定当地子半 `sixDayEpochDateTime`）。两种模型在未带时区偏移时都需 `timezone` 或 `timeZoneId`，响应会保留相应模型的适用边界；五运六气应明确目标 `year` 或 `yearGanZhi`，这些资料按目标时点或年度解读，不作为出生本命。金口诀还可用 `jinkoujueMethod: "branch"` 与 `jinkoujueBranch` 直接指定地分。
 
 `customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_xiaoliuren`、`xiaoliuren_prompt`、`divine_jinkoujue`、`jinkoujue_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`、`metaphysics_taiyi`、`taiyi_prompt`、`metaphysics_huangji_jingshi` 和 `huangji_jingshi_prompt`。
 

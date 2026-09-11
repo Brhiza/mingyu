@@ -120,7 +120,7 @@
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
-7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世年月日时即时占断使用 `customDate`，六日逐爻公历占断使用显式历元参数，年度研究使用 `year`，研究其他纪元时再额外提供 `epochYear`；查声音律吕、动植物数或固定卷三历史纪年时使用 `/metaphysics/huangji-jingshi/references`。
+7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世年月日时即时占断使用 `customDate`，六日逐爻公历占断可选 `calendarModel=six-day-seven-part`（现代冬至与岁周比例定位，不传显式历元）或 `calendarModel=six-day-explicit-epoch`（必须传显式历元），年度研究使用 `year`，研究其他纪元时再额外提供 `epochYear`；查声音律吕、动植物数或固定卷三历史纪年时使用 `/metaphysics/huangji-jingshi/references`。
 
 常见问题到推荐接口：
 
@@ -155,7 +155,7 @@
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                               |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | `scope` 支持 `year`、`month`、`day`、`hour`；年计传 `year`，其余计式传对应年月日时分                                                                        | 返回四计七十二局式盘与 `evidenceAnalysis` 结构化证据             |
 | 五运六气年度结构                   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`；同时提供时会校验一致性，可选 `question`                                                                                             | 返回五步主客运、五类符会与六步主客气；不替代实际气象或医疗资料   |
-| 皇极经世年月日时与六日逐爻占断     | `POST /metaphysics/huangji-jingshi/prompt`   | 既有年月日时传 `customDate`；六日逐爻同时传 `sixDayDateTime`、经校定的 `sixDayEpochDateTime` 与 `calendarModel=six-day-explicit-epoch`，未带偏移时再传 `timezone`/`timeZoneId`；年度研究传 `year`；自定义纪元传 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个 | 返回元会运世、值年卦、六日逐爻或年月日时层级资料               |
+| 皇极经世年月日时与六日逐爻占断     | `POST /metaphysics/huangji-jingshi/prompt`   | 既有年月日时传 `customDate`；六日逐爻传 `sixDayDateTime` 与 `calendarModel=six-day-seven-part`，或传 `sixDayDateTime`、经校定的 `sixDayEpochDateTime` 与 `calendarModel=six-day-explicit-epoch`；未带偏移时再传 `timezone`/`timeZoneId`；年度研究传 `year`；自定义纪元传 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个 | 返回元会运世、值年卦、六日逐爻或年月日时层级资料，并说明现代冬至岁周比例模型的适用边界 |
 | 皇极声音律吕、动植物数与历史纪年资料 | `POST /metaphysics/huangji-jingshi/references` | `table: "sound-rhythm"`、`"animal-plant"` 或 `"historical-era"`；查询历史表时另传 `shiIndex: 2149-2208` | 返回固定版本中的声音分类与数目、动植物数，或经辰三十年干支及原表标注名称 |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`、`gender`、`flowYear`/`flowMonth`/`flowDay`                            | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照；有流年时另给行限与流曜 |
 | 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选 `guaType: 下卦/替卦`、测量误差、`flowYear`/`flowMonth`/`flowDay` 目标流运日期                                                               | 返回下卦或显式替卦的三盘飞星、局型与组合；有目标日期时叠紫白流年流月飞星 |
@@ -462,7 +462,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 五运六气使用 `year` 或 `yearGanZhi`；同时提供时会校验两者一致。`year` 支持 1—9999 年，按该公历年年中所属年柱换算。公历交司日期支持 1900—2199 年；其他年份和仅提供干支时仍返回完整年度结构，以节气及传统序日表示边界，`calendarDateStatus` 为“节令边界”；已换算日期时为“公历日期已换算”。结果包含固定木火土金水的五步主运、从中运起按相生轮转的五步客运、五音太少、传统交司日期、司天与中运的同气、顺化、天刑、小逆、不和关系，天符、岁会、太乙天符、同天符、同岁会逐项核验，以及从大寒起每四个节气一组的六步主客气。交司日期保留《运气要诀》的“节气后第几日”口径，不包装成精确到时分秒的现代时刻。
 - 吴谦《运气要诀》列出的五类符会逐年名单按六十甲子去重为 26 年，与原文“二十八年”汇总不一致；接口保留 `sourceReconciliation` 校勘说明，并以逐项定义和逐年名单为计算依据。
 - 皇极经世提供 `customDate` 时，以北京时间和冬至换年定位皇极年，并在元会运世和值年卦之下继续推演月经卦、旬纬卦、日卦及时经卦。月日层按二十四节气分配的三百六十日历法坐标推演，结果会明确返回该传统历法口径，不把它包装为现代公历自然月日。
-- 皇极经世六日逐爻入口同时传 `sixDayDateTime`、`sixDayEpochDateTime` 与 `calendarModel=six-day-explicit-epoch`。`sixDayEpochDateTime` 必须是经校定的当地子半（00:00:00），表示三百六十日正数坐标的起点；两个时间字符串可自带同一固定 UTC 偏移，或均未带偏移并同时提供固定 `timezone` 或 IANA `timeZoneId`。公历适配直接使用显式历元至目标当地日期的整数日差作为六日坐标，并保留真实 UTC 瞬时和每四小时一爻资料；原典没有现代公历唯一历元，三百六十日坐标之外的六日余分不在该入口换算。
+- 皇极经世六日逐爻入口支持两种公历模型。`calendarModel=six-day-seven-part` 只需传 `sixDayDateTime`，按现代冬至起点与实际岁周长度的比例定位六日七分坐标；目标时间仍须带固定 UTC 偏移，或在未带偏移时同时提供 `timezone`/`timeZoneId`。响应会返回该现代比例定位的依据和适用边界，不能把它解释为原典已经指定的现代公历唯一历元，也不能超出核心声明的公历与坐标范围。`calendarModel=six-day-explicit-epoch` 则必须同时传经校定的 `sixDayEpochDateTime`，且该时间为当地子半（00:00:00）；两个时间字符串可自带同一固定 UTC 偏移，或均未带偏移并同时提供固定 `timezone` 或 IANA `timeZoneId`，按显式历元至目标当地日期的整数日差适配三百六十日正数。显式历元之外的六日余分不在该模型自动换算。
 - 只提供公元 `year` 时仍返回年度盘，默认采用公元前 67017 年为本元起点、1984 年鼎卦为甲子值年锚点的通行排法，包含会内统卦、运卦、六十年统卦、十年卦、值年卦及互卦、错卦、综卦。
 - 研究自定义纪元时提供 `epochYear`，并从 `year` 与 `elapsedYears` 中选择一项；该模式保留纯元会运世坐标换算，不附通行值年卦。
 - `progress` 分别给出当前元、会、运、世内已过年数、当前年之后剩余的完整年数，以及下一元、会、运、世开始年；所有层级序号均从 1 开始。

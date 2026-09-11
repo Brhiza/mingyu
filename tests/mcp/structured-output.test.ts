@@ -606,8 +606,22 @@ test('MCP 工具列表应声明输出结构', async () => {
       },
       {
         required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
+        properties: { calendarModel: { const: 'six-day-explicit-epoch' } },
         not: {
           anyOf: [
+            { required: ['customDate'] },
+            { required: ['epochYear'] },
+            { required: ['year'] },
+            { required: ['elapsedYears'] },
+          ],
+        },
+      },
+      {
+        required: ['sixDayDateTime', 'calendarModel'],
+        properties: { calendarModel: { const: 'six-day-seven-part' } },
+        not: {
+          anyOf: [
+            { required: ['sixDayEpochDateTime'] },
             { required: ['customDate'] },
             { required: ['epochYear'] },
             { required: ['year'] },
