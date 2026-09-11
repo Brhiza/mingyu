@@ -413,8 +413,16 @@ export function MetaphysicsPanel({
           </div>
           <div className="result-stat-card">
             <span>命宅关系</span>
-            <strong>{bazhai && measurement ? bazhai.match : bazhai ? '待合参' : '仅宅运'}</strong>
-            <small>{xuankong ? xuankong.daoShanXiang.summary : '可先只看宅运'}</small>
+            <strong>
+              {bazhai && measurement
+                ? bazhai.match
+                : bazhai
+                  ? '待合参'
+                  : xuankong
+                    ? '仅宅运'
+                    : '待补资料'}
+            </strong>
+            <small>{xuankong ? xuankong.daoShanXiang.summary : '补充建造年与坐向可排宅运'}</small>
           </div>
           <div className="result-stat-card">
             <span>住宅坐向</span>
@@ -515,7 +523,7 @@ export function MetaphysicsPanel({
                     onHouseYearChange?.(value);
                   }}
                 />
-                <small className="birth-time-hint">不填则按当前年看玄空宅运。</small>
+                <small className="birth-time-hint">填写后计算住宅所属元运。</small>
               </label>
               <label className="form-item" htmlFor="metaphysics-facing-degree">
                 <span>从大门面向屋内的度数</span>
