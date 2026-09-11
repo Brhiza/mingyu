@@ -1123,23 +1123,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         error: err instanceof Error ? err.message : '奇门终身局排盘失败。',
       };
     }
-  }, [
-    inputState.birthHour,
-    inputState.birthLatitude,
-    inputState.birthLongitude,
-    inputState.birthMinute,
-    inputState.birthPlace,
-    inputState.dateType,
-    inputState.day,
-    inputState.gender,
-    inputState.isLeapMonth,
-    inputState.month,
-    inputState.name,
-    inputState.timeIndex,
-    inputState.useTrueSolarTime,
-    inputState.year,
-    shouldCalculateQimenLifetime,
-  ]);
+  }, [inputState, shouldCalculateQimenLifetime]);
   const astrolabeScopeContext = useMemo(
     () =>
       buildAstrolabeScopeContext(

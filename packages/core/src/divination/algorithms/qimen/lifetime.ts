@@ -13,20 +13,14 @@ import { generateQimen } from './index';
 import { normalizeQimenLifetimeTime } from './helpers/lifetime-time';
 import { extractPersonalMarkers, buildTopicCandidates } from './helpers/lifetime-markers';
 import { buildLifetimeStages } from './helpers/lifetime-stages';
-import {
-  scanLifetimeDynamicEvents,
-  validateLifetimePeriodRange,
-} from './helpers/lifetime-dynamic';
+import { scanLifetimeDynamicEvents, validateLifetimePeriodRange } from './helpers/lifetime-dynamic';
 import { buildLifetimePrompt } from './helpers/lifetime-prompt';
 
 export { buildLifetimePrompt } from './helpers/lifetime-prompt';
 export { normalizeQimenLifetimeTime } from './helpers/lifetime-time';
 export { extractPersonalMarkers, buildTopicCandidates } from './helpers/lifetime-markers';
 export { buildLifetimeStages } from './helpers/lifetime-stages';
-export {
-  scanLifetimeDynamicEvents,
-  validateLifetimePeriodRange,
-} from './helpers/lifetime-dynamic';
+export { scanLifetimeDynamicEvents, validateLifetimePeriodRange } from './helpers/lifetime-dynamic';
 
 /**
  * 计算奇门终身局完整结构
