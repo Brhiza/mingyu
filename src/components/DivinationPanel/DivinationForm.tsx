@@ -1726,7 +1726,7 @@ export function DivinationForm({
                     maxLength={4}
                     className="form-input"
                     placeholder="例如 2026"
-                    value={draft.wuyunYear}
+                    value={draft.wuyunYear ?? ''}
                     onChange={(event) =>
                       updateDraft('wuyunYear', event.target.value.replace(/[^\d]/g, '').slice(0, 4))
                     }
@@ -1740,7 +1740,7 @@ export function DivinationForm({
                     maxLength={2}
                     className="form-input"
                     placeholder="例如 丙午"
-                    value={draft.wuyunYearGanZhi}
+                    value={draft.wuyunYearGanZhi ?? ''}
                     onChange={(event) =>
                       updateDraft('wuyunYearGanZhi', event.target.value.trim().slice(0, 2))
                     }

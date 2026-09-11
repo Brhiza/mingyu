@@ -243,6 +243,10 @@ test('网页五运六气会话保留固定年度并把同一目标交给 AI 补�
   assert.match(session.prompt, /2026年/u);
   assert.match(session.prompt, /丙午/u);
   assert.match(session.prompt, /五步主客运/u);
+  assert.match(session.prompt, /年度五行作用/u);
+  assert.match(session.prompt, /春分后第13日/u);
+  assert.match(session.prompt, /六步主客气/u);
+  assert.doesNotMatch(session.prompt, /公历年年中换算|明确年干支/u);
   const subject = buildDivinationReadingSubject(draft, session);
   assert.ok(subject);
   assert.deepEqual(subject?.allowedMethods, ['wuyun']);

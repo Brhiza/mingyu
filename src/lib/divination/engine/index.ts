@@ -64,7 +64,6 @@ const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> 
   'qimen',
   'liuren',
   'taiyi',
-  'wuyun',
   'tarot',
   'ssgw',
   'lenormand',

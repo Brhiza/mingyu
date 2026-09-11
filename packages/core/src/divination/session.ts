@@ -245,7 +245,6 @@ const RANDOM_METHODS: DivinationSessionMethod[] = [
   'qimen',
   'liuren',
   'taiyi',
-  'wuyun',
   'tarot',
   'ssgw',
   'lenormand',
