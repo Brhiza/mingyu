@@ -1022,9 +1022,15 @@ export async function runReadingWorkflow(
         throw error;
       }
       if (!actions.length) break;
-      for (const action of actions) {
+      const actionPriority = { schema: 0, calculate: 1, classic: 2 };
+      const orderedActions = [...actions].sort(
+        (left, right) => actionPriority[left.kind] - actionPriority[right.kind],
+      );
+      let waitingForCalculationPlan = false;
+      for (const action of orderedActions) {
         guard();
         if (calls >= MAX_ACTIONS) break;
+        if (action.kind === 'classic' && waitingForCalculationPlan) continue;
         const key =
           action.kind === 'calculate'
             ? JSON.stringify({ ...action, target: action.target ?? 'primary' })
@@ -1052,6 +1058,7 @@ export async function runReadingWorkflow(
           const canRetrySchema = calls < MAX_ACTIONS;
           const schemaLoaded = await loadSchema(action.method);
           if (schemaLoaded || canRetrySchema) needsRefinement = true;
+          waitingForCalculationPlan = true;
           continue;
         }
         calls += 1;
@@ -1086,6 +1093,7 @@ export async function runReadingWorkflow(
           guard();
           rememberRetryFailure(key, action, error);
           needsRefinement = true;
+          if (action.kind === 'calculate') waitingForCalculationPlan = true;
           options.onNotice('部分补充资料暂未取得，将依据已有资料继续解读。');
         }
       }

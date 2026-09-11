@@ -15,6 +15,9 @@ import { executeReadingAction, lookupReadingClassics } from '../src/lib/ai/readi
 import type { ReadingSubjectSnapshot } from '../src/lib/ai/reading-subject';
 import type { ChatMessage } from '../src/lib/ai/stream-client';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
+import { defaultDraft } from '../src/components/DivinationPanel/constants';
+import { generateDivinationSession } from '../src/lib/divination/engine';
+import { buildDivinationReadingSubject } from '../src/lib/ai/reading-subject';
 import {
   buildSerializableZiweiResult,
   buildZiweiChartInput,
@@ -453,6 +456,89 @@ test('不同目标时段的补算成功不清除另一个失败状态', async ()
   assert.match(final, /bazi补充资料未取得：2027目标暂未取得/);
   assert.match(final, /TARGET_2028/);
   assert.deepEqual(h.chunks, ['保留失败状态的解读']);
+});
+
+test('皇极真实规划先列古籍时仍优先补算目标时点并保留纠错额度', async (t) => {
+  const question = '比较2026年8月24日15:30与2027年1月5日09:00的皇极变化';
+  const draft = {
+    ...defaultDraft,
+    method: 'huangji' as const,
+    question,
+    questionSource: 'custom' as const,
+    divinationTimeMode: 'custom' as const,
+    customDivinationDate: '2026-08-24',
+    customDivinationTime: '15:30',
+    divinationTimeStandard: 'beijing' as const,
+    huangjiMethod: 'standard' as const,
+  };
+  const session = await generateDivinationSession(draft);
+  const h = harness([
+    JSON.stringify({
+      actions: [
+        {
+          kind: 'calculate',
+          method: 'huangji',
+          target: 'primary',
+          input: { time: '2027-01-05 09:00:00', timezone: 'UTC+8' },
+        },
+        {
+          kind: 'classic',
+          method: 'huangji',
+          query: '跨冬至换年时皇极经世月经卦、旬纬卦的统辖规则',
+        },
+        {
+          kind: 'classic',
+          method: 'huangji',
+          query: '六十年统卦火风鼎范围内2027年的值年卦取序规则',
+        },
+        { kind: 'schema', method: 'huangji' },
+      ],
+    }),
+    JSON.stringify({
+      actions: [
+        { kind: 'classic', method: 'huangji', query: '跨冬至换年时皇极经世月经卦、旬纬卦统辖规则' },
+        {
+          kind: 'classic',
+          method: 'huangji',
+          query: '六十年统卦火风鼎范围内2027年的值年卦取序规则',
+        },
+        {
+          kind: 'calculate',
+          method: 'huangji',
+          target: 'primary',
+          input: { customDate: '2027-01-05T09:00:00+08:00' },
+        },
+        { kind: 'classic', method: 'huangji', query: '皇极经世冬至换年的具体时点与卦象变易规则' },
+      ],
+    }),
+    '根据实际目标盘解读',
+  ]);
+  h.options.subject = buildDivinationReadingSubject(draft, session);
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input, init) =>
+    handlePublicApiRequest(
+      new Request(new URL(String(input), 'https://aov.cc'), init),
+    )) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  const actions: string[] = [];
+  await runReadingWorkflow([{ role: 'user', content: session.prompt }], h.options, {
+    stream: h.stream,
+    execute: async (action, signal, subject) => {
+      actions.push(action.kind);
+      return executeReadingAction(action, signal, subject);
+    },
+  });
+  assert.deepEqual(h.errors, []);
+  assert.equal(h.done(), 1);
+  assert.deepEqual(actions.slice(0, 3), ['schema', 'calculate', 'calculate']);
+  assert.ok(actions.length <= 4);
+  const target = h.options.memory.resources.find((item) => item.structured?.dateTimeForecast);
+  assert.ok(target?.usable);
+  const forecast = target.structured!.dateTimeForecast as { civilTime: { dateTime: string } };
+  assert.match(forecast.civilTime.dateTime, /^2027-01-05[ T]09:00/);
+  assert.match(h.sent.at(-1)![0].content, /2027/);
 });
 
 test('没有主体快照时跳过自动补算并明确提示', async () => {
