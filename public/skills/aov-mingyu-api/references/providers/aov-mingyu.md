@@ -83,8 +83,8 @@
 | 金口诀提示词       | `POST /divination/jinkoujue/prompt`           | `jinkoujue_prompt`             | 生成金口诀四位发用与生克主客提示词；支持统一主题、主题细项和分析范围选择                                                               |
 | 奇门遁甲时局排盘   | `POST /divination/qimen`                      | `divine_qimen`                 | 时家奇门九星、九宫、八门、八神与三奇六仪盘面                                                                                           |
 | 奇门遁甲提示词     | `POST /divination/qimen/prompt`               | `qimen_prompt`                 | 生成奇门时空方位与动静主客策略自包含提示词；支持统一主题、主题细项和分析范围选择                                                       |
-| 奇门终身局排盘     | `POST /divination/qimen/lifetime`             | `divine_qimen_lifetime`        | 根据出生四柱排布奇门命盘，提取终身格局与阶段卡                                                                                         |
-| 奇门终身局提示词   | `POST /divination/qimen/lifetime/prompt`      | `qimen_lifetime_prompt`        | 生成奇门终身局长远运势与格局自包含提示词；支持统一主题、主题细项和分析范围选择                                                         |
+| 奇门终身局排盘     | `POST /divination/qimen/lifetime`             | `divine_qimen_lifetime`        | 根据出生时刻与时区排布终身本命盘，提取阶段卡和目标区间动态事件                                                                         |
+| 奇门终身局提示词   | `POST /divination/qimen/lifetime/prompt`      | `qimen_lifetime_prompt`        | 生成奇门终身局长远运势与阶段动态提示词；支持最多31年 `periodRange`、`topics` 和统一主题参数                                      |
 | 大六壬排盘         | `POST /divination/liuren`                     | `divine_liuren`                | 大六壬天地盘、四课、三传九宗门与十二天将                                                                                               |
 | 大六壬提示词       | `POST /divination/liuren/prompt`              | `liuren_prompt`                | 生成大六壬课体演化与人事博弈自包含提示词；支持统一主题、主题细项和分析范围选择                                                         |
 | 塔罗抽牌排阵       | `POST /divination/tarot`                      | `divine_tarot`                 | 78张塔罗牌多牌阵抽取、正逆位与牌位结构化证据                                                                                           |
