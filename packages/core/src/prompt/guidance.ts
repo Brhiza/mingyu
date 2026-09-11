@@ -1,6 +1,7 @@
 export const PROMPT_GUIDANCE_TEXT = {
   'wuyun-liuqi': {
     tradition: '以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
+    sources: '参考《素问》运气七篇与吴谦《运气要诀》。',
   },
   bazi: {
     tradition:
