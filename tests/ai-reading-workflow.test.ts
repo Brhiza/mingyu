@@ -541,6 +541,21 @@ test('皇极真实规划先列古籍时仍优先补算目标时点并保留纠�
   assert.match(h.sent.at(-1)![0].content, /2027/);
 });
 
+test('补算服务返回非JSON错误页时保留HTTP状态并给出可读错误', async (t) => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response('<!DOCTYPE html><title>Worker exceeded resource limits</title>', {
+      status: 503,
+    })) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  await assert.rejects(
+    executeReadingAction({ kind: 'schema', method: 'bazi' }, undefined, baziSubject),
+    /补充资料服务暂不可用（HTTP 503）/,
+  );
+});
+
 test('没有主体快照时跳过自动补算并明确提示', async () => {
   const h = harness([
     '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}}]}',

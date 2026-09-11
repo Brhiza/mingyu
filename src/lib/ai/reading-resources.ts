@@ -1485,7 +1485,17 @@ async function fetchReadingData(
         : {}),
       signal: timeout.signal,
     });
-    const body: unknown = await response.json();
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch (error) {
+      if (timeout.signal.aborted) throw error;
+      throw new Error(
+        response.ok
+          ? '补充资料服务返回的内容格式不完整，请稍后重试。'
+          : `补充资料服务暂不可用（HTTP ${response.status}），请稍后重试。`,
+      );
+    }
     if (!response.ok || !record(body) || body.success === false) {
       const error =
         record(body) && record(body.error) && typeof body.error.message === 'string'
