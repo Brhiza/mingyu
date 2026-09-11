@@ -87,12 +87,11 @@ function hasTriggerDateInPrompt(
   if (item.dateTime && text.includes(item.dateTime)) return true;
   const match = item.date.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/u);
   if (!match) return text.includes(item.date);
-  const monthLabels = [`${match[1]}年${match[2]}月`, `${match[1]}年${Number(match[2])}月`];
-  const dayLabels = [`${match[3]}日`, `${Number(match[3])}日`];
-  const hasMonthAndDay = monthLabels.some((month) =>
-    dayLabels.some((day) => text.includes(`${month}${day}`)),
-  );
-  return hasMonthAndDay && (!item.ganzhi || text.includes(item.ganzhi));
+  const monthLabel = `${match[1]}年${match[2].padStart(2, '0')}月`;
+  const dayLabel = `${match[3].padStart(2, '0')}日${item.ganzhi ? `（${item.ganzhi}）` : ''}`;
+  return text
+    .split('\n')
+    .some((line) => line.includes(`可复核日期：${monthLabel}`) && line.includes(dayLabel));
 }
 
 test('三十一年奇门终身局超容量时分阶段送入AI并覆盖每条日期', async () => {
