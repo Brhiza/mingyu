@@ -429,11 +429,10 @@ function formatZiweiPhaseFacts(
 function buildZiweiPhaseAddition(
   guide: string,
   currentTimeContext: string,
-  question: string,
   facts: string,
   supplementalText: string,
 ) {
-  return `${guide}${currentTimeContext}\n\n【本轮问题】${question}\n\n【紫微完整资料阶段】\n${facts}${
+  return `${guide}${currentTimeContext}\n\n【紫微完整资料阶段】\n${facts}${
     supplementalText ? `\n\n【其他已取得资料】\n${supplementalText}` : ''
   }\n\n【阶段解读】依据本阶段盘面分析，保留阶段编号、日期与运限边界，给出本阶段结论及其适用条件。`;
 }
@@ -445,7 +444,6 @@ function buildZiweiPhasePlan(
   resourceTitle: string,
   guide: string,
   currentTimeContext: string,
-  question: string,
   supplementalText: string,
 ): ZiweiPhase[] {
   const timeline = result.fortuneTimeline;
@@ -457,7 +455,7 @@ function buildZiweiPhasePlan(
     try {
       fitReadingMessages(
         messages,
-        buildZiweiPhaseAddition(guide, currentTimeContext, question, facts, supplementalText),
+        buildZiweiPhaseAddition(guide, currentTimeContext, facts, supplementalText),
       );
       return true;
     } catch (error) {
@@ -515,17 +513,29 @@ function buildZiweiPhasePlan(
     }
   }
 
-  const phases = drafts.map((draft, index) => ({
+  const packedDrafts: ZiweiPhaseDraft[] = [];
+  for (const draft of drafts) {
+    const previous = packedDrafts.at(-1);
+    const combined = previous
+      ? {
+          selection: [...previous.selection, ...draft.selection],
+          includeTargetLower: previous.includeTargetLower || draft.includeTargetLower,
+        }
+      : undefined;
+    if (combined && fits(combined)) packedDrafts[packedDrafts.length - 1] = combined;
+    else packedDrafts.push(draft);
+  }
+  const phases = packedDrafts.map((draft, index) => ({
     ...draft,
     resourceKey,
     subjectTitle: resourceTitle,
-    summaryLabel: `主体：${resourceTitle}｜阶段${index + 1}/${drafts.length}`,
-    facts: formatZiweiPhaseFacts(result, draft, index + 1, drafts.length, resourceTitle),
+    summaryLabel: `主体：${resourceTitle}｜阶段${index + 1}/${packedDrafts.length}`,
+    facts: formatZiweiPhaseFacts(result, draft, index + 1, packedDrafts.length, resourceTitle),
   }));
   for (const phase of phases) {
     fitReadingMessages(
       messages,
-      buildZiweiPhaseAddition(guide, currentTimeContext, question, phase.facts, supplementalText),
+      buildZiweiPhaseAddition(guide, currentTimeContext, phase.facts, supplementalText),
     );
   }
   return phases;
@@ -534,7 +544,6 @@ function buildZiweiPhasePlan(
 function buildPhaseSummaryAddition(
   guide: string,
   currentTimeContext: string,
-  question: string,
   entries: readonly PhaseAnswer[],
   phaseCount: number,
   intermediate: boolean,
@@ -543,11 +552,11 @@ function buildPhaseSummaryAddition(
   const facts = entries
     .map((entry) => `【${entry.labels.join('；')}分析】\n${entry.answer}`)
     .join('\n\n');
-  return `${guide}${currentTimeContext}\n\n【本轮问题】${question}\n\n【阶段覆盖核对】已纳入阶段：${covered
+  return `${guide}${currentTimeContext}\n\n【阶段覆盖核对】已纳入阶段：${covered
     .map((index) => `${index + 1}/${phaseCount}`)
     .join('、')}；阶段资料必须全部参与当前${intermediate ? '归并' : '汇总'}。\n\n${
     intermediate
-      ? '【阶段归并】请保留每个阶段编号、日期和事实边界，归并阶段分析，不补写未列事实。'
+      ? '【阶段归并】请保留每个阶段编号、日期和事实边界，依据各阶段已列事实归并分析。'
       : '【最终解读】请综合已完成的全部阶段分析回答本轮问题；结论必须能追溯到阶段编号和日期范围。'
   }\n\n${facts}`;
 }
@@ -584,7 +593,6 @@ function packPhaseAnswers(
   entries: readonly PhaseAnswer[],
   guide: string,
   currentTimeContext: string,
-  question: string,
   phaseCount: number,
 ) {
   const groups: PhaseAnswer[][] = [];
@@ -594,14 +602,7 @@ function packPhaseAnswers(
     try {
       fitReadingMessages(
         messages,
-        buildPhaseSummaryAddition(
-          guide,
-          currentTimeContext,
-          question,
-          candidate,
-          phaseCount,
-          false,
-        ),
+        buildPhaseSummaryAddition(guide, currentTimeContext, candidate, phaseCount, false),
       );
       current = candidate;
     } catch (error) {
@@ -625,7 +626,6 @@ async function collectZiweiPhaseSummary(
   deps: ReadingDependencies,
   guide: string,
   currentTimeContext: string,
-  question: string,
   supplementalText: string,
 ) {
   const entries: PhaseAnswer[] = Array.from({ length: phases.length }, (_, index) => ({
@@ -649,7 +649,7 @@ async function collectZiweiPhaseSummary(
     }
     const prepared = fitReadingMessages(
       messages,
-      buildZiweiPhaseAddition(guide, currentTimeContext, question, phase.facts, supplementalText),
+      buildZiweiPhaseAddition(guide, currentTimeContext, phase.facts, supplementalText),
     );
     options.onProgress({
       stage: 'writing',
@@ -702,7 +702,6 @@ async function collectZiweiPhaseSummary(
       currentEntries,
       guide,
       currentTimeContext,
-      question,
       phases.length,
     );
     if (groups.length === 1) {
@@ -710,7 +709,6 @@ async function collectZiweiPhaseSummary(
       const addition = buildPhaseSummaryAddition(
         guide,
         currentTimeContext,
-        question,
         groups[0]!,
         phases.length,
         false,
@@ -724,7 +722,7 @@ async function collectZiweiPhaseSummary(
       assertPhaseIndices(group, phases.length);
       const prepared = fitReadingMessages(
         messages,
-        buildPhaseSummaryAddition(guide, currentTimeContext, question, group, phases.length, true),
+        buildPhaseSummaryAddition(guide, currentTimeContext, group, phases.length, true),
       );
       const answer = await collectResponse(prepared, options, deps.stream);
       requirePhaseAnswer(
@@ -765,7 +763,6 @@ async function runZiweiPhasedReading(
       resource.title,
       guide,
       currentTimeContext,
-      question,
       supplementalText,
     ),
   );
@@ -827,7 +824,6 @@ async function runZiweiPhasedReading(
     deps,
     guide,
     currentTimeContext,
-    question,
     supplementalText,
   );
   if (finalMessages.length < messages.length)

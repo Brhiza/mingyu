@@ -185,7 +185,6 @@ async function makeCanonicalZiweiFullResource(
   gender: 'male' | 'female',
   birth: { year: string; month: string; day: string },
   key: string,
-  oversized = true,
 ) {
   const input = buildZiweiChartInput({
     name,
@@ -208,9 +207,7 @@ async function makeCanonicalZiweiFullResource(
   return {
     key,
     title: `${name}紫微完整运限资料`,
-    text: oversized
-      ? `${name}原始完整资料`.repeat(16_000)
-      : formatPublicZiweiFullScopeText(runtime),
+    text: formatPublicZiweiFullScopeText(runtime),
     usable: true,
     structured: buildSerializableZiweiResult(runtime),
   } satisfies ReadingResource;
@@ -613,7 +610,6 @@ test('真实完整紫微规范正文未超限时进入最终stream', async () =>
     'female',
     { year: '1992', month: '8', day: '21' },
     'ziwei-full-real-text',
-    false,
   );
   h.options.memory.resources = [resource];
   h.options.subject = ziweiSubject;
@@ -726,7 +722,7 @@ test('紫微阶段归并空回答不形成全覆盖', async () => {
   );
 });
 
-test('两份真实完整紫微盘超限时按主体分别分阶段并综合', async () => {
+test('真实双人八字紫微全文自然超限时合并相邻运段且完整保留双方资料', async () => {
   const primary = await makeCanonicalZiweiFullResource(
     '甲主体',
     'female',
@@ -742,13 +738,46 @@ test('两份真实完整紫微盘超限时按主体分别分阶段并综合', as
   const h = harness([]);
   h.options.memory.resources = [primary, partner];
   h.options.subject = ziweiSubject;
-  await runReadingWorkflow([{ role: 'user', content: '紫微双主体原盘，问关系' }], h.options, {
+  const baziPrompts: string[] = [];
+  for (const person of [
+    { name: '甲主体', gender: 'female', year: 1992, month: 8, day: 21 },
+    { name: '乙主体', gender: 'male', year: 1991, month: 3, day: 14 },
+  ]) {
+    const response = await handlePublicApiRequest(
+      new Request('https://aov.cc/api/v1/bazi/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...person,
+          dateType: 'solar',
+          timeIndex: 4,
+          timeZoneId: 'Asia/Shanghai',
+          baziFortuneScope: 'full',
+          responseMode: 'full',
+          question: '结合双方完整运限分析关系的发展阶段。',
+        }),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    baziPrompts.push(`【${person.name}八字资料】\n${body.data.prompt}`);
+  }
+  const initial = `${baziPrompts.join('\n\n')}\n\n【问题】结合双方完整运限分析关系的发展阶段。`;
+  assert.ok(initial.length < 49_000);
+  assert.ok(initial.length + primary.text.length + partner.text.length > 49_000);
+  assert.deepEqual(structuredClone([primary, partner]), [primary, partner]);
+  await runReadingWorkflow([{ role: 'user', content: initial }], h.options, {
     stream: h.stream,
     execute: async () => primary,
   });
   const phaseCount = h.options.memory.ziweiPhaseReading?.phases.length ?? 0;
-  assert.ok(phaseCount > 2);
+  assert.deepEqual(h.errors, []);
+  assert.equal(phaseCount, 2);
   assert.equal(h.sent.length, phaseCount + 1);
+  for (const batch of h.sent) {
+    assert.ok(batch.reduce((sum, message) => sum + message.content.length, 0) <= 49_000);
+    assert.equal(batch[0]!.content.split(initial).length - 1, 1);
+  }
   assert.ok(
     h.sent.slice(0, phaseCount).some((batch) => batch[0]!.content.includes('主体：甲主体')),
   );
@@ -885,8 +914,17 @@ test('紫微阶段取消后换问题不会复用旧摘要', async () => {
     { stream: retry.stream, execute: async () => resource },
   );
   assert.equal(retry.sent.length, 3);
-  assert.ok(retry.sent.every((batch) => batch[0]!.content.includes('改问婚恋')));
-  assert.ok(retry.sent.every((batch) => !batch[0]!.content.includes('取消前摘要')));
+  for (const batch of retry.sent) {
+    assert.deepEqual(batch.at(-1), { role: 'user', content: '改问婚恋' });
+    assert.equal(
+      batch
+        .map((message) => message.content)
+        .join('\n')
+        .split('改问婚恋').length - 1,
+      1,
+    );
+    assert.ok(batch.every((message) => !message.content.includes('取消前摘要')));
+  }
   assert.equal(retry.options.memory.ziweiPhaseReading?.question, '改问婚恋');
 });
 
