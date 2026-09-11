@@ -59,7 +59,10 @@ try {
     periodRange: { startDate: '2026-01-01', endDate: '2056-12-31' },
     question: '分析完整目标时段的事业变化。',
   };
-  const lifetime = await postJson('/api/v1/divination/qimen/lifetime/prompt', lifetimeInput);
+  const lifetime = await postJson('/api/v1/divination/qimen/lifetime/prompt', {
+    ...lifetimeInput,
+    responseMode: 'full',
+  });
   assert.ok(lifetime.prompt.length > 100_000);
   assert.deepEqual(lifetime.result.input.periodRange, lifetimeInput.periodRange);
   assert.equal(lifetime.result.eventClusters.length, 161);
