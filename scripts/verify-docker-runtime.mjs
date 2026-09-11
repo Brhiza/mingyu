@@ -52,7 +52,73 @@ try {
   assert.equal(mcpJson.status, 'ok');
   assert.equal(mcpJson.endpoint, '/mcp');
 
-  console.log('Docker 运行时静态资源、SPA 回退、请求方法和 MCP 端点检查通过。');
+  const yilin = await postJson('/api/v1/classics/yilin', {
+    baseHexagram: '乾',
+    targetHexagram: '需',
+    source: 'both',
+  });
+  assert.equal(yilin.edition.parsedPairCount, 4096);
+  assert.ok(yilin.sources.kanripo?.text);
+  assert.ok(yilin.sources.wikisource?.text);
+
+  const wuyun = await postJson('/api/v1/metaphysics/wuyun-liuqi/calculate', {
+    year: 2026,
+    yearGanZhi: '丙午',
+    detailMode: 'full',
+  });
+  assert.equal(wuyun.input.yearGanZhi, '丙午');
+  assert.equal(wuyun.annualMovement.name, '水运');
+  assert.equal(wuyun.movementSteps.length, 5);
+  assert.equal(wuyun.qiSteps.length, 6);
+  assert.ok(wuyun.pathomechanism.classicalReference.condition);
+
+  const xuankong = await postJson('/api/v1/metaphysics/xuankong/calculate', {
+    year: 2024,
+    sitMountain: '子',
+    facingMountain: '午',
+    guaType: '替卦',
+    detailMode: 'full',
+  });
+  assert.equal(xuankong.guaType, '替卦');
+  assert.equal(xuankong.replacementApplied, true);
+  assert.equal(xuankong.replacement.mountain.referenceMountain, '子');
+  assert.equal(xuankong.replacement.facing.referenceMountain, '巽');
+
+  const soundReference = await postJson('/api/v1/metaphysics/huangji-jingshi/references', {
+    table: 'sound-rhythm',
+    detailMode: 'full',
+  });
+  assert.equal(soundReference.table, 'sound-rhythm');
+  assert.equal(soundReference.bodyCounts.heavenlyUseSound, 112);
+  assert.equal(soundReference.bodyCounts.earthlyUseTone, 152);
+  assert.equal(soundReference.pairings.length, 4);
+  assert.ok(soundReference.source.every((source) => source.url));
+
+  const animalPlantReference = await postJson('/api/v1/metaphysics/huangji-jingshi/references', {
+    table: 'animal-plant',
+    detailMode: 'full',
+  });
+  assert.equal(animalPlantReference.table, 'animal-plant');
+  assert.equal(animalPlantReference.counts.length, 6);
+  assert.equal(
+    animalPlantReference.counts.find((item) => item.name === '动物之用数')?.value,
+    17024,
+  );
+
+  const historicalReference = await postJson('/api/v1/metaphysics/huangji-jingshi/references', {
+    table: 'historical-era',
+    shiIndex: 2190,
+    detailMode: 'full',
+  });
+  assert.equal(historicalReference.table, 'historical-era');
+  assert.equal(historicalReference.shiIndex, 2190);
+  assert.equal(historicalReference.rows.length, 30);
+  assert.equal(historicalReference.namedEntries[0].label, '商武丁');
+  assert.ok(historicalReference.source.url);
+
+  console.log(
+    'Docker 运行时静态资源、SPA 回退、请求方法、MCP 端点及易林、五运六气、替卦、皇极资料 API 检查通过。',
+  );
 } catch (error) {
   if (output.trim()) console.error(output.trim());
   throw error;
@@ -93,4 +159,23 @@ async function waitUntilReady(url, serverProcess) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function postJson(pathname, payload) {
+  const response = await fetch(`${origin}${pathname}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const raw = await response.text();
+  let body;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    throw new Error(`${pathname} 未返回 JSON：${raw.slice(0, 500)}`);
+  }
+  assert.equal(response.status, 200, `${pathname} 返回异常：${JSON.stringify(body)}`);
+  assert.equal(body.ok, true, `${pathname} 未返回 ok=true：${JSON.stringify(body)}`);
+  assert.ok(body.data && typeof body.data === 'object', `${pathname} 缺少 data：${raw}`);
+  return body.data;
 }
