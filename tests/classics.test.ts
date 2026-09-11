@@ -179,13 +179,39 @@ test('周易六十四卦全本经文与爻辞查询正确', () => {
   assert.equal(qian.name, '乾为天');
   assert.equal(qian.yaos.length, 6);
   assert.equal(qian.yaos[0].yaoCi, '潜龙勿用');
-  assert.ok(qian.tuanCi.includes('乾为天'));
+  assert.ok(qian.tuanCi.includes('大哉乾元，万物资始'));
+  assert.equal(qian.yaos[0].xiaoXiang, '象曰：潜龙勿用，阳在下也。');
   assert.ok(qian.daXiang.includes('自强不息'));
 
   const kun = getZhouyiHexagramClassic(2);
   assert.ok(kun);
   assert.equal(kun.name, '坤为地');
   assert.ok(kun.daXiang.includes('厚德载物'));
+});
+
+test('周易彖传与小象使用完整底本文字', () => {
+  const tun = getZhouyiHexagramClassic(3);
+  assert.ok(tun);
+  assert.equal(tun.yaos[1].yaoCi, '屯如邅如，乘马班如，匪寇婚媾，女子贞不字，十年乃字');
+  assert.equal(tun.yaos[1].xiaoXiang, '象曰：六二之难，乘刚也。十年乃字，反常也。');
+
+  const lv = getZhouyiHexagramClassic(10);
+  assert.ok(lv);
+  assert.match(lv.tuanCi, /^彖曰：履，柔履刚也。/);
+  assert.equal(
+    lv.yaos[2].xiaoXiang,
+    '象曰：眇能视，不足以有明也。跛能履，不足以与行也。咥人之凶，位不当也。武人为于大君，志刚也。',
+  );
+
+  for (let id = 1; id <= 64; id += 1) {
+    const gua = getZhouyiHexagramClassic(id);
+    assert.ok(gua);
+    assert.equal(gua.yaos.length, 6);
+    assert.doesNotMatch(gua.tuanCi, /刚柔顺应，时运亨通/);
+    for (const yao of gua.yaos) {
+      assert.notEqual(yao.xiaoXiang, `象曰：${yao.yaoCi}。`);
+    }
+  }
 });
 
 test('小六壬民国通书歌诀保留底本字句并隔离查询结果', () => {

@@ -54,7 +54,7 @@ test('履六三动爻原文保留咥人凶与对应小象，卦辞和动爻辞�
   const prompt = buildDivinationPrompt('meihua', '请做整体解读。', data, {
     meihuaSettings: settings,
   });
-  const fullText = '眇能视，跛能履，履虎尾，咥人，凶。武人为于大君。';
+  const fullText = '眇能视，跛能履，履虎尾，咥人，凶。武人为于大君';
   assert.ok(prompt.includes(`动爻爻辞：第3爻，${fullText}`));
   assert.match(prompt, /主卦卦辞：天泽履，履虎尾，不咥人，亨/);
   assert.equal(ZHOUYI_HEXAGRAMS_TEXT[10].yaos[2].yaoCi, fullText);
