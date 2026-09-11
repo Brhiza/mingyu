@@ -240,8 +240,14 @@ function validateIanaNoon(
   const candidateTimestamp = wallTimestamp - sampledOffsetHours * 3600000;
   const candidate = getIanaWallClockParts(validator.formatter, candidateTimestamp);
   const previousOffsetHours = validator.previousOffsetHours;
+  const nearbyOffsets = [
+    getIanaOffsetHoursAt(validator.formatter, wallTimestamp - 36 * 3600000),
+    getIanaOffsetHoursAt(validator.formatter, wallTimestamp + 36 * 3600000),
+  ];
   const offsetChanged =
-    previousOffsetHours !== undefined && Math.abs(previousOffsetHours - sampledOffsetHours) > 1e-6;
+    (previousOffsetHours !== undefined &&
+      Math.abs(previousOffsetHours - sampledOffsetHours) > 1e-6) ||
+    nearbyOffsets.some((offsetHours) => Math.abs(offsetHours - sampledOffsetHours) > 1e-6);
   if (!sameIanaWallClockParts(candidate, target) || offsetChanged) {
     const resolved = resolveCivilTime(
       { ...target, timeZoneId },

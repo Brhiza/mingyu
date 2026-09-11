@@ -54,3 +54,24 @@ test('奇门终身局日级扫描保留 IANA 时区跳过日期的错误', () =>
     /Pacific\/Apia.*不存在/u,
   );
 });
+
+test('奇门终身局日级扫描保留 IANA 正午重复时刻的错误', () => {
+  const lifetime = calculateQimenLifetime({
+    birthDateTime: '1990-05-15T14:30:00+08:00',
+    timezone: 8,
+    timeStandard: 'civil',
+  });
+
+  assert.throws(
+    () =>
+      scanLifetimeDynamicEvents(
+        lifetime.baseChart,
+        lifetime.stages,
+        { startDate: '1969-09-30', endDate: '1969-09-30' },
+        'zhuanpan',
+        'chaibu',
+        { timeZoneId: 'Pacific/Kwajalein' },
+      ),
+    /Pacific\/Kwajalein.*回拨歧义.*timezone/u,
+  );
+});
