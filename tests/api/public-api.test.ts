@@ -546,6 +546,19 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
       required: ['customDate'],
       not: {
         anyOf: [
+          { required: ['sixDayDateTime'] },
+          { required: ['calendarModel'] },
+          { required: ['epochYear'] },
+          { required: ['year'] },
+          { required: ['elapsedYears'] },
+        ],
+      },
+    },
+    {
+      required: ['sixDayDateTime', 'calendarModel'],
+      not: {
+        anyOf: [
+          { required: ['customDate'] },
           { required: ['epochYear'] },
           { required: ['year'] },
           { required: ['elapsedYears'] },
@@ -554,11 +567,25 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     },
     {
       required: ['year'],
-      not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+      not: {
+        anyOf: [
+          { required: ['elapsedYears'] },
+          { required: ['customDate'] },
+          { required: ['sixDayDateTime'] },
+          { required: ['calendarModel'] },
+        ],
+      },
     },
     {
       required: ['epochYear', 'elapsedYears'],
-      not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
+      not: {
+        anyOf: [
+          { required: ['year'] },
+          { required: ['customDate'] },
+          { required: ['sixDayDateTime'] },
+          { required: ['calendarModel'] },
+        ],
+      },
     },
   ]);
   assert.equal(body.data.components.schemas.HuangjiJingshiRequest.required, undefined);
