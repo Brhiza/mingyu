@@ -215,7 +215,7 @@ export function buildReadingSubject(
     allowedMethods.push('qi-zheng');
   }
   if (prompt.promptSource === 'qimen-lifetime') {
-    lockedInputs['qimen-lifetime'] = buildQimenLifetimeInputs(input);
+    lockedInputs['qimen-lifetime'] = { ...buildQimenLifetimeInputs(input) };
     allowedMethods.push('qimen-lifetime');
   }
 
