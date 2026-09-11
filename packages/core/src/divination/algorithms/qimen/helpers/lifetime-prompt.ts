@@ -48,15 +48,25 @@ function formatTriggerDates(items: TriggerDate[]): string[] {
 /**
  * 构建终身局自包含提示词任务书
  */
-export function buildLifetimePrompt(data: QimenLifetimeData, question?: string): string {
+export type LifetimePromptOptions = {
+  includeCurrentTime?: boolean;
+};
+
+export function buildLifetimePrompt(
+  data: QimenLifetimeData,
+  question?: string,
+  options: LifetimePromptOptions = {},
+): string {
   const lines: string[] = [];
   const q = question?.trim() || '请全面推演我的人生宏观格局、核心阶段运限与关键转折窗口。';
-  const now = new Date();
-  const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   // 1. 【当前时间】
-  lines.push(`【当前时间】`);
-  lines.push(`${nowStr}（UTC${formatFixedTimezoneOffset(-now.getTimezoneOffset() / 60)}）\n`);
+  if (options.includeCurrentTime !== false) {
+    const now = new Date();
+    const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    lines.push(`【当前时间】`);
+    lines.push(`${nowStr}（UTC${formatFixedTimezoneOffset(-now.getTimezoneOffset() / 60)}）\n`);
+  }
 
   // 2. 【传统依据】
   lines.push(`【传统依据】`);

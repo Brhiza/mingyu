@@ -80,9 +80,19 @@ function makeHarness(resource: ReadingResource, subject: ReadingSubjectSnapshot)
   return { sent, errors, notices, memory, options, stream, done: () => done };
 }
 
-function formatTriggerDateNeedle(item: { date: string; dateTime?: string }) {
-  if (item.dateTime) return item.dateTime;
-  return `${item.date.slice(0, 4)}年${item.date.slice(5, 7)}月${item.date.slice(8, 10)}日`;
+function hasTriggerDateInPrompt(
+  text: string,
+  item: { date: string; dateTime?: string; ganzhi?: string },
+) {
+  if (item.dateTime && text.includes(item.dateTime)) return true;
+  const match = item.date.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/u);
+  if (!match) return text.includes(item.date);
+  const monthLabels = [`${match[1]}年${match[2]}月`, `${match[1]}年${Number(match[2])}月`];
+  const dayLabels = [`${match[3]}日`, `${Number(match[3])}日`];
+  const hasMonthAndDay = monthLabels.some((month) =>
+    dayLabels.some((day) => text.includes(`${month}${day}`)),
+  );
+  return hasMonthAndDay && (!item.ganzhi || text.includes(item.ganzhi));
 }
 
 test('三十一年奇门终身局超容量时分阶段送入AI并覆盖每条日期', async () => {
@@ -90,6 +100,7 @@ test('三十一年奇门终身局超容量时分阶段送入AI并覆盖每条日
   const data = resource.structured as unknown as QimenLifetimeData;
   const subject = buildSubject(data);
   const h = makeHarness(resource, subject);
+  assert.match(resource.text, /【当前时间】/u);
   assert.ok(resource.text.length > 49_000);
 
   await runReadingWorkflow(
@@ -112,7 +123,7 @@ test('三十一年奇门终身局超容量时分阶段送入AI并覆盖每条日
   for (const cluster of data.eventClusters ?? []) {
     for (const date of cluster.triggerDates ?? []) {
       assert.ok(
-        phaseText.includes(formatTriggerDateNeedle(date)),
+        hasTriggerDateInPrompt(phaseText, date),
         `阶段资料缺少日期 ${date.dateTime ?? date.date}`,
       );
     }
@@ -200,9 +211,10 @@ test('同一事件簇拆分到多个阶段时仍完整保留事件日期', async
   assert.deepEqual(h.errors, []);
   assert.equal(h.done(), 1);
   assert.ok(h.sent.length > 2);
+  const clusterDatePrefix = `${clusterIndex}:`;
   assert.ok(
     h.memory.qimenPhaseReading?.phases.filter((phase) =>
-      phase.clusterKeys.includes(`${clusterIndex}:${cluster.key}`),
+      phase.dateKeys.some((key) => key.startsWith(clusterDatePrefix)),
     ).length > 1,
   );
   const expectedDateKeys = clusters.flatMap((item, itemIndex) =>
@@ -217,7 +229,8 @@ test('同一事件簇拆分到多个阶段时仍完整保留事件日期', async
   }
 });
 
-test('奇门阶段失败后重试只补跑未完成阶段并完成汇总', async () => {
+test('奇门阶段跨分钟失败后重试只补跑未完成阶段并完成汇总', async (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-11T04:34:00Z') });
   const resource = buildQimenResource();
   const data = resource.structured as unknown as QimenLifetimeData;
   const subject = buildSubject(data);
@@ -258,9 +271,11 @@ test('奇门阶段失败后重试只补跑未完成阶段并完成汇总', async
   assert.ok(phaseCount > 1);
   assert.equal(h.done(), 0);
   assert.equal(h.errors.length, 1);
+  assert.doesNotMatch(h.memory.qimenPhaseReading?.phases[0]?.facts ?? '', /【当前时间】/u);
   assert.equal(h.memory.qimenPhaseReading?.phases[0]?.status, 'succeeded');
   assert.equal(h.memory.qimenPhaseReading?.phases[1]?.status, 'failed');
 
+  context.mock.timers.setTime(new Date('2026-09-11T04:35:00Z').getTime());
   await runReadingWorkflow(messages, h.options, {
     stream,
     execute: async () => resource,

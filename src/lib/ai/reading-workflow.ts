@@ -503,9 +503,11 @@ function formatQimenPhaseFacts(
   const phaseData = getQimenPhaseData(result, draft);
   return {
     coverage,
-    facts: [`主体：${subjectTitle}`, coverage.label, buildLifetimePrompt(phaseData, question)].join(
-      '\n\n',
-    ),
+    facts: [
+      `主体：${subjectTitle}`,
+      coverage.label,
+      buildLifetimePrompt(phaseData, question, { includeCurrentTime: false }),
+    ].join('\n\n'),
   };
 }
 
