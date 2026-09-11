@@ -297,7 +297,6 @@ function getDynamicOffsetMinutes(
 
 function appendMonthClashCluster(
   clusters: QimenEventCluster[],
-  baseChart: QimenData,
   stages: QimenLifetimeStage[],
   year: number,
   flowYearGanZhi: string,
@@ -367,7 +366,6 @@ export function scanLifetimeDynamicEvents(
     if (previousYearGanZhi[1] === '未') {
       appendMonthClashCluster(
         clusters,
-        baseChart,
         stages,
         previousFlowYear,
         previousYearGanZhi,
@@ -534,7 +532,6 @@ export function scanLifetimeDynamicEvents(
     // 细化年月日关键节点：节令只记录真实交节日，日级只记录已有本命关系命中的当地日期。
     appendMonthClashCluster(
       clusters,
-      baseChart,
       stages,
       y,
       flowYearGanZhi,
