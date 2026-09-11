@@ -158,7 +158,7 @@
 | 皇极经世年月日时与六日逐爻占断     | `POST /metaphysics/huangji-jingshi/prompt`   | 既有年月日时传 `customDate`；六日逐爻同时传 `sixDayDateTime`、经校定的 `sixDayEpochDateTime` 与 `calendarModel=six-day-explicit-epoch`，未带偏移时再传 `timezone`/`timeZoneId`；年度研究传 `year`；自定义纪元传 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个 | 返回元会运世、值年卦、六日逐爻或年月日时层级资料               |
 | 皇极声音律吕、动植物数与历史纪年资料 | `POST /metaphysics/huangji-jingshi/references` | `table: "sound-rhythm"`、`"animal-plant"` 或 `"historical-era"`；查询历史表时另传 `shiIndex: 2149-2208` | 返回固定版本中的声音分类与数目、动植物数，或经辰三十年干支及原表标注名称 |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`、`gender`、`flowYear`/`flowMonth`/`flowDay`                            | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照；有流年时另给行限与流曜 |
-| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选测量误差、`flowYear`/`flowMonth`/`flowDay` 目标流运日期                                                               | 返回下卦的三元九运、三盘飞星、局型、到山到向；有目标日期时叠紫白流年流月飞星 |
+| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选 `guaType: 下卦/替卦`、测量误差、`flowYear`/`flowMonth`/`flowDay` 目标流运日期                                                               | 返回下卦或显式替卦的三盘飞星、局型与组合；有目标日期时叠紫白流年流月飞星 |
 
 参数选择建议：
 
