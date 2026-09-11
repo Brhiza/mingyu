@@ -114,7 +114,7 @@ test('岁运关系应区分同柱伏吟、天干同干和地支同支', () => {
   assert.match(sameStemRelation.label, /天干同干/);
 
   const sameBranch = analyzeFortuneTriggers(createResult(), [
-    { id: 'year', type: 'year', label: '乙子流年', ganZhi: '乙子' },
+    { id: 'year', type: 'year', label: '丙子流年', ganZhi: '丙子' },
   ]);
   const sameBranchRelation = sameBranch.relations.find(
     (item) => item.type === 'branch-same' && item.target.id === 'natal-year',

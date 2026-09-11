@@ -156,7 +156,7 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.match(context.promptPayload.summaryLines.join('\n'), /天干甲合月柱己/);
   assert.match(context.promptPayload.summaryLines.join('\n'), /地支子冲年柱午/);
   assert.match(context.promptPayload.summaryLines.join('\n'), /地支子合月柱丑/);
-  assert.match(context.promptPayload.summaryLines.join('\n'), /地支子与日柱子同支/);
+  assert.match(context.promptPayload.summaryLines.join('\n'), /干支甲子与日柱甲子同柱伏吟/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】指定年限运限/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】大运干支与十神/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【应期】应期边界/);
