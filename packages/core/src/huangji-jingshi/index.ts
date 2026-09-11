@@ -26,6 +26,8 @@ import { hexagramsData } from '../divination/hexagram-data';
 export * from './standard';
 export * from './datetime';
 export * from './trend';
+export * from './references';
+import { queryHuangjiReference } from './references';
 
 export const HUANGJI_CYCLE_YEARS = Object.freeze({
   shi: 30,
@@ -583,4 +585,5 @@ export const huangjiJingshi = {
   calculateStandardHuangjiForecast,
   calculateHuangjiDateTimeForecast,
   buildHuangjiJingshiPrompt,
+  queryHuangjiReference,
 };

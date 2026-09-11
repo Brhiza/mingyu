@@ -1105,6 +1105,13 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '焦氏易林原文、双底本对读和来源状态' } },
         },
       },
+      '/metaphysics/huangji-jingshi/references': {
+        post: {
+          summary: '皇极经世声音律吕、动植物数与历史纪年原表查询',
+          requestBody: openApiJsonRequestBody('#/components/schemas/HuangjiReferenceRequest'),
+          responses: { '200': { description: '固定版本的皇极经世扩展资料表' } },
+        },
+      },
       '/metaphysics/qizheng/calculate': {
         post: {
           summary: '七政四余排盘',
@@ -2076,6 +2083,41 @@ export function getPublicApiOpenApiDocument(
             },
           },
         },
+        HuangjiReferenceRequest: {
+          type: 'object',
+          description:
+            '查询固定版本皇极经世扩展资料。sound-rhythm 返回声音律吕分类与数目，animal-plant 返回动植物数，historical-era 需另传 2149-2208 的经辰序号。',
+          oneOf: [
+            {
+              required: ['table'],
+              properties: {
+                table: { enum: ['sound-rhythm', 'animal-plant'] },
+              },
+              not: { required: ['shiIndex'] },
+            },
+            {
+              required: ['table', 'shiIndex'],
+              properties: {
+                table: { enum: ['historical-era'] },
+                shiIndex: { type: 'integer', minimum: 2149, maximum: 2208 },
+              },
+            },
+          ],
+          properties: {
+            table: {
+              type: 'string',
+              enum: ['sound-rhythm', 'animal-plant', 'historical-era'],
+              description: '资料表：声音律吕、动植物数或经辰历史纪年。',
+            },
+            shiIndex: {
+              type: 'integer',
+              minimum: 2149,
+              maximum: 2208,
+              description: '历史纪年原表的经辰序号，仅 historical-era 使用。',
+            },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+          },
+        },
         BaziPromptRequest: {
           allOf: [
             { $ref: '#/components/schemas/BaziRequest' },
@@ -2834,6 +2876,8 @@ async function route(context: RouteContext) {
       return buildHuangjiJingshiPromptApi(await readJson(context.request));
     case 'classics/yilin':
       return calculateYilinApi(await readJson(context.request));
+    case 'metaphysics/huangji-jingshi/references':
+      return calculateApiResult(context.request, calculateHuangjiReferenceApi);
     case 'metaphysics/qizheng/calculate':
       return calculateApiResult(context.request, calculateQizhengApi);
     case 'metaphysics/qizheng/prompt':
@@ -3765,6 +3809,38 @@ function buildHuangjiJingshiPromptApi(input: JsonRecord) {
     },
     fullResult: result,
   });
+}
+
+function calculateHuangjiReferenceApi(input: JsonRecord) {
+  const table = readEnum(input, 'table', [
+    'sound-rhythm',
+    'animal-plant',
+    'historical-era',
+  ] as const);
+  if (table === 'historical-era') {
+    const shiIndex = readInteger(input, 'shiIndex', 2149, 2208);
+    try {
+      return huangjiJingshi.queryHuangjiReference({ table, shiIndex });
+    } catch (error) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        error instanceof Error ? error.message : '皇极经世历史纪年资料无效。',
+      );
+    }
+  }
+  if (input.shiIndex !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', 'shiIndex 只可与 historical-era 一起提供。');
+  }
+  try {
+    return huangjiJingshi.queryHuangjiReference({ table });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '皇极经世扩展资料无效。',
+    );
+  }
 }
 
 function calculateQizhengApi(input: JsonRecord) {

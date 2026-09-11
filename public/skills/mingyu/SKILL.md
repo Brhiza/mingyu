@@ -143,6 +143,8 @@ flowchart TD
 
 命理排盘调用的范围默认取当前阶段：八字优先取得运，紫微优先取当前大限；需要回答今年、近期或具体日期时，必须继续保留所属大运/大限和上层边界，再按年、月、日、时逐层细化。需要比较完整人生时间线时才使用全部范围。占卜类没有出生运限，则完整保留起卦时刻、历法、时区、动变和牌阵等实际时间资料。
 
+皇极经世的声音律吕、动植物数和历史纪年原表通过 `POST /metaphysics/huangji-jingshi/references` 与 MCP `huangji_reference_tables` 独立查询；历史纪年查询传 `table: "historical-era"` 及 `shiIndex: 2149-2208`，结果带固定卷页版本和原表标记。
+
 ---
 
 ## 六、安全、伦理与专业红线（Safety & Ethics）

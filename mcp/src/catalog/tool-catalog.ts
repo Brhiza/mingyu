@@ -753,6 +753,15 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     endpoint: '/metaphysics/huangji-jingshi/prompt',
   },
   {
+    id: 'huangji_reference_tables',
+    title: '皇极经世扩展资料表',
+    category: 'huangji-jingshi',
+    type: 'utility',
+    description: '查询固定版本的声音律吕、动植物数与经辰历史纪年原表',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/metaphysics/huangji-jingshi/references',
+  },
+  {
     id: 'metaphysics_qizheng',
     title: '七政四余排盘',
     category: 'qizheng',

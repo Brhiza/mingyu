@@ -100,6 +100,7 @@
 | `POST /metaphysics/wuyun-liuqi/prompt`        | 五运六气计算并生成自包含 AI 解读提示词                         |
 | `POST /metaphysics/huangji-jingshi/calculate` | 皇极经世元会运世、值年卦与年月日时完整排盘                     |
 | `POST /metaphysics/huangji-jingshi/prompt`    | 皇极经世完整排盘并生成自包含 AI 解读提示词                     |
+| `POST /metaphysics/huangji-jingshi/references` | 皇极经世声音律吕、动植物数与经辰历史纪年原表                   |
 | `POST /metaphysics/qizheng/calculate`         | 七政四余十一星、真实距星宿界、命身十二宫、庙旺吊照与结构化证据 |
 | `POST /metaphysics/qizheng/prompt`            | 七政四余排盘并生成含分层天文证据的 AI 解读提示词               |
 | `POST /ai/analyze`                            | AI 解读，返回 SSE 流式响应                                     |
@@ -119,7 +120,7 @@
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、灵签等提示词接口。
-7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世即时占断使用 `customDate`，年度研究使用 `year`，研究其他纪元时再额外提供 `epochYear`。
+7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；太乙、五运六气、皇极经世和七政四余仍用各自 `/metaphysics/{method}/prompt`。皇极经世即时占断使用 `customDate`，年度研究使用 `year`，研究其他纪元时再额外提供 `epochYear`；查声音律吕、动植物数或固定卷三历史纪年时使用 `/metaphysics/huangji-jingshi/references`。
 
 常见问题到推荐接口：
 
@@ -155,6 +156,7 @@
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | `scope` 支持 `year`、`month`、`day`、`hour`；年计传 `year`，其余计式传对应年月日时分                                                                        | 返回四计七十二局式盘与 `evidenceAnalysis` 结构化证据             |
 | 五运六气年度结构                   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`；同时提供时会校验一致性，可选 `question`                                                                                             | 返回五步主客运、五类符会与六步主客气；不替代实际气象或医疗资料   |
 | 皇极经世年月日时占断               | `POST /metaphysics/huangji-jingshi/prompt`   | 即时或指定时刻传 `customDate`；年度研究传 `year`；自定义纪元传 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个                                          | 返回元会运世、值年卦、月经卦、旬纬卦、日卦及时经卦               |
+| 皇极声音律吕、动植物数与历史纪年资料 | `POST /metaphysics/huangji-jingshi/references` | `table: "sound-rhythm"`、`"animal-plant"` 或 `"historical-era"`；查询历史表时另传 `shiIndex: 2149-2208` | 返回固定版本中的声音分类与数目、动植物数，或经辰三十年干支及原表标注名称 |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`、`gender`、`flowYear`/`flowMonth`/`flowDay`                            | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照；有流年时另给行限与流曜 |
 | 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选测量误差、`flowYear`/`flowMonth`/`flowDay` 目标流运日期                                                               | 返回下卦的三元九运、三盘飞星、局型、到山到向；有目标日期时叠紫白流年流月飞星 |
 
@@ -348,6 +350,20 @@ curl -X POST https://aov.cc/api/v1/metaphysics/huangji-jingshi/prompt \
   -H "Content-Type: application/json" \
   -d '{"customDate":"2025-12-25T12:30:00+08:00","question":"请解释此刻所问事项的时势与变化。","responseMode":"prompt-only"}'
 ```
+
+皇极经世扩展资料表：
+
+```bash
+curl -X POST https://aov.cc/api/v1/metaphysics/huangji-jingshi/references \
+  -H "Content-Type: application/json" \
+  -d '{"table":"sound-rhythm","detailMode":"full"}'
+
+curl -X POST https://aov.cc/api/v1/metaphysics/huangji-jingshi/references \
+  -H "Content-Type: application/json" \
+  -d '{"table":"historical-era","shiIndex":2156,"detailMode":"full"}'
+```
+
+`table` 为 `sound-rhythm` 时返回声音律吕的四象、分类和体用数；`animal-plant` 返回动植物数；`historical-era` 还需传固定卷三中的经辰序号 `2149` 至 `2208`，返回该区块的三十个六十甲子顺序和原表标出的历史名称。结果附固定版本与修订号，普通经辰行不换算为现代公历年。
 
 塔罗抽牌并生成提示词：
 

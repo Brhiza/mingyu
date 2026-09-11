@@ -29,6 +29,20 @@ const huangjiJingshiSchema = z.object({
   scope: z.string().optional().describe('统一分析范围 ID'),
 });
 
+const huangjiReferenceSchema = z.object({
+  table: z
+    .enum(['sound-rhythm', 'animal-plant', 'historical-era'])
+    .describe('资料表：声音律吕、动植物数或经辰历史纪年'),
+  shiIndex: z
+    .number()
+    .int()
+    .min(2149)
+    .max(2208)
+    .refine(Number.isSafeInteger, '必须是安全范围内的整数')
+    .optional()
+    .describe('历史纪年原表的经辰序号；仅查询 historical-era 时提供'),
+});
+
 function calculateHuangjiJingshi(args: z.infer<typeof huangjiJingshiSchema>) {
   if (args.customDate !== undefined) {
     if (
@@ -52,6 +66,19 @@ function calculateHuangjiJingshi(args: z.infer<typeof huangjiJingshiSchema>) {
     ...(args.elapsedYears !== undefined ? { elapsedYears: args.elapsedYears } : {}),
     ...(args.question ? { question: args.question } : {}),
   });
+}
+
+function calculateHuangjiReference(args: z.infer<typeof huangjiReferenceSchema>) {
+  if (args.table === 'historical-era') {
+    if (args.shiIndex === undefined) {
+      throw new Error('查询 historical-era 时必须提供 shiIndex。');
+    }
+    return huangjiJingshi.queryHuangjiReference({ table: args.table, shiIndex: args.shiIndex });
+  }
+  if (args.shiIndex !== undefined) {
+    throw new Error('shiIndex 只可与 historical-era 一起提供。');
+  }
+  return huangjiJingshi.queryHuangjiReference({ table: args.table });
 }
 
 export function registerHuangjiJingshiTool(server: McpServer) {
@@ -99,6 +126,27 @@ export function registerHuangjiJingshiTool(server: McpServer) {
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成皇极经世提示词失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'huangji_reference_tables',
+    {
+      description:
+        '查询固定版本皇极经世扩展资料：声音律吕分类与数目、动植物数，以及按经辰序号查询的历史纪年原表',
+      inputSchema: {
+        ...huangjiReferenceSchema.shape,
+        ...calculationDetailShape,
+      },
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        const result = calculateHuangjiReference(args);
+        return createStructuredToolResult({ result }, args.detailMode);
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '皇极经世扩展资料查询失败'));
       }
     },
   );

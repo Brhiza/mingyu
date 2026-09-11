@@ -52,3 +52,18 @@ test('皇极经世传统盘应展示年月日时四层卦象', () => {
   assert.match(html, /雷山小过/);
   assert.match(html, /地山谦/);
 });
+
+test('皇极经世传统盘在固定历史经辰范围内展示原表标记', () => {
+  const data = calculateHuangjiJingshi({ year: -2367, question: '历史经辰对应的原表标记是什么？' });
+  const session: DivinationSession = {
+    method: 'huangji',
+    requestedMethod: 'huangji',
+    question: '历史经辰对应的原表标记是什么？',
+    prompt: data.prompt,
+    data,
+  };
+
+  const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
+  assert.match(html, /经辰历史纪年原表 · 第2156世/);
+  assert.match(html, /甲辰唐堯/);
+});

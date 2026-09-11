@@ -114,6 +114,7 @@
 | 皇极经世宏观周期   | `POST /metaphysics/huangji-jingshi/calculate` | `metaphysics_huangji_jingshi`  | 邵雍皇极经世元会运世、值年卦与运世消息推进                                                                                             |
 | 皇极经世提示词     | `POST /metaphysics/huangji-jingshi/prompt`    | `huangji_jingshi_prompt`       | 生成皇极经世时代坐标与值年卦演变自包含提示词；支持统一主题、主题细项和分析范围选择                                                     |
 | 焦氏易林固定索引   | `POST /classics/yilin`                        | `classics_yilin_query`         | 按固定 W20.03 版本查询 64×64 卦对原文，返回 Wikisource 四库全书本、Kanripo KR3g0029 WYG、来源定位和未决字形/校勘状态 |
+| 皇极经世扩展资料表 | `POST /metaphysics/huangji-jingshi/references` | `huangji_reference_tables` | 查询声音律吕、动植物数与经辰历史纪年原表；历史表需传 `shiIndex` 2149-2208                                          |
 | 七政四余排盘       | `POST /metaphysics/qizheng/calculate`         | `metaphysics_qizheng`          | 果老星宗七政十一星、二十八宿界、昼夜分金恩难与行限流曜                                                                                 |
 | 七政四余提示词     | `POST /metaphysics/qizheng/prompt`            | `qizheng_prompt`               | 生成七政四余天星恩难自包含解读任务书；支持统一主题、主题细项和分析范围选择                                                             |
 
@@ -211,6 +212,7 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
   - 生肖流年：`ganzhi`、`sanhe`，即 `ganzhi/sanhe`；
   - 五运六气：`yunqi`、`sitian`、`kezhu`，即 `yunqi/sitian/kezhu`；
   - 皇极经世：`yuanhui`、`guaqi`，即 `yuanhui/guaqi`。
+  - 皇极经世资料表：`table` 取 `sound-rhythm`、`animal-plant` 或 `historical-era`；后者另传 `shiIndex`，结果保留固定卷页版本与原表标记。
 - **流派与排盘口径界限**：
   - 奇门的转盘法与飞盘法属于实际排盘，`schools` 属于解读取向；紫微 `algorithm` 同理属于排盘口径。
   - **三山国王灵签提示词只列本次签谱资料，不附加派系段落，也不接受 `schools`**。

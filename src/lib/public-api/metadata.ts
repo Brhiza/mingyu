@@ -86,6 +86,7 @@ export const PUBLIC_API_ENDPOINTS = [
   'POST /api/v1/metaphysics/huangji-jingshi/calculate',
   'POST /api/v1/metaphysics/huangji-jingshi/prompt',
   'POST /api/v1/classics/yilin',
+  'POST /api/v1/metaphysics/huangji-jingshi/references',
   'POST /api/v1/metaphysics/qizheng/calculate',
   'POST /api/v1/metaphysics/qizheng/prompt',
   'POST /api/v1/metaphysics/xuankong/calculate',
