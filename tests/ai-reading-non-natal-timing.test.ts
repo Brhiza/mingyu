@@ -104,6 +104,20 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
         required: ['customDate'],
         not: {
           anyOf: [
+            { required: ['sixDayDateTime'] },
+            { required: ['sixDayEpochDateTime'] },
+            { required: ['calendarModel'] },
+            { required: ['epochYear'] },
+            { required: ['year'] },
+            { required: ['elapsedYears'] },
+          ],
+        },
+      },
+      {
+        required: ['sixDayDateTime', 'sixDayEpochDateTime', 'calendarModel'],
+        not: {
+          anyOf: [
+            { required: ['customDate'] },
             { required: ['epochYear'] },
             { required: ['year'] },
             { required: ['elapsedYears'] },
@@ -112,11 +126,27 @@ test('皇极、太乙和五运六气补算参数表只暴露目标时限输入',
       },
       {
         required: ['year'],
-        not: { anyOf: [{ required: ['elapsedYears'] }, { required: ['customDate'] }] },
+        not: {
+          anyOf: [
+            { required: ['elapsedYears'] },
+            { required: ['customDate'] },
+            { required: ['sixDayDateTime'] },
+            { required: ['sixDayEpochDateTime'] },
+            { required: ['calendarModel'] },
+          ],
+        },
       },
       {
         required: ['epochYear', 'elapsedYears'],
-        not: { anyOf: [{ required: ['year'] }, { required: ['customDate'] }] },
+        not: {
+          anyOf: [
+            { required: ['year'] },
+            { required: ['customDate'] },
+            { required: ['sixDayDateTime'] },
+            { required: ['sixDayEpochDateTime'] },
+            { required: ['calendarModel'] },
+          ],
+        },
       },
     ]);
     assert.ok(byMethod.wuyun.properties?.year);
