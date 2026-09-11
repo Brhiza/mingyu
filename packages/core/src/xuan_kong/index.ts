@@ -17,7 +17,11 @@ import {
   TWENTY_FOUR_MOUNTAINS,
   type CompassMountainPosition,
 } from '../direction';
-import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './evidence';
+import {
+  analyzeXuanKongEvidence,
+  formatReplacementLeg,
+  type XuanKongEvidenceAnalysis,
+} from './evidence';
 import { evaluateCastleGate, type CastleGateEvaluation } from './castle-gate';
 import {
   flyStars,
@@ -532,7 +536,8 @@ function resolveReplacementLeg(
   if (!referenceMountain) {
     throw new Error(`替卦无法按${originalCenterStar}星与${sourceMountain}山同元龙取本宫山。`);
   }
-  const replacementStar = TWENTY_FOUR_MOUNTAIN_SUBSTITUTES[referenceMountain];
+  const replacementStar =
+    originalCenterStar === 5 ? 5 : TWENTY_FOUR_MOUNTAIN_SUBSTITUTES[referenceMountain];
   const referenceMeta = MOUNTAIN_YUAN_AND_DIRECTION[referenceMountain];
   if (!replacementStar || !referenceMeta) {
     throw new Error(`替卦缺少${referenceMountain}山替星或阴阳资料。`);
@@ -633,7 +638,7 @@ function buildPrompt(result: Omit<XuanKongResult, 'evidenceAnalysis' | 'prompt'>
     `山向：坐${result.sitMountain}向${result.facingMountain}`,
     `卦型：${result.guaType}；${result.replacementReason}`,
     result.replacement
-      ? `替星取法：山盘原${result.replacement.mountain.originalCenterStar}星取${result.replacement.mountain.referenceMountain}山替为${result.replacement.mountain.replacementStar}${result.replacement.mountain.direction}；向盘原${result.replacement.facing.originalCenterStar}星取${result.replacement.facing.referenceMountain}山替为${result.replacement.facing.replacementStar}${result.replacement.facing.direction}`
+      ? `替星取法：山盘${formatReplacementLeg(result.replacement.mountain)}；向盘${formatReplacementLeg(result.replacement.facing)}`
       : '',
     `局型：${result.formation}`,
     result.combinations.length
@@ -726,7 +731,7 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
     replacement = {
       mountain,
       facing,
-      rule: '运盘山向宫星入中，按原入中星本宫同元龙取替星；五黄无本宫时借实际山向；顺逆依参考山阴阳',
+      rule: '运盘山向宫星入中，按原入中星本宫同元龙取替星；五黄仍以五入中，借实际山向阴阳定顺逆；其余星顺逆依参考山阴阳',
       sourceUrl: REPLACEMENT_SOURCE_URL,
       verificationSourceUrl: REPLACEMENT_TABLE_VERIFICATION_URL,
     };
@@ -771,18 +776,17 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
   const combinationSource =
     gua.guaType === '下卦'
       ? chart.combinations
-      : formation === '替卦未成四正局'
-        ? []
-        : detectCombinations(
-            period.yun,
-            formation,
-            chart.facing.palace,
-            chart.palaces.map((palace) => ({
-              ...palace,
-              mountain: shanPlate[palace.earth - 1],
-              water: xiangPlate[palace.earth - 1],
-            })),
-          );
+      : detectCombinations(
+          period.yun,
+          // 检测器仅以“双星到向”开启打劫，其余组合独立于四正局；保留扩展局型原值。
+          formation as Formation,
+          chart.facing.palace,
+          chart.palaces.map((palace) => ({
+            ...palace,
+            mountain: shanPlate[palace.earth - 1],
+            water: xiangPlate[palace.earth - 1],
+          })),
+        );
   const combinations = combinationSource.map(mapCombination);
   const castleGate = evaluateCastleGate({
     yun: period.yun,

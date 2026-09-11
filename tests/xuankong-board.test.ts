@@ -169,13 +169,13 @@ test('玄空八运壬山丙向兼亥巳按同元取星重算替卦三盘与证�
   assert.match(result.evidenceAnalysis.promptText, /同元|辰山替为6逆飞|甲山替为1顺飞/);
 });
 
-test('玄空九运子山替卦应保留五黄借山与向盘同元取星', () => {
+test('玄空九运子山替卦应保持五黄入中并按同元参考山排向盘', () => {
   const result = generateXuanKong({ year: 2024, sitMountain: '子', guaType: '替卦' });
 
   assert.deepEqual(result.replacement?.mountain, {
     originalCenterStar: 5,
     referenceMountain: '子',
-    replacementStar: 1,
+    replacementStar: 5,
     direction: '逆飞',
   });
   assert.deepEqual(result.replacement?.facing, {
@@ -184,9 +184,11 @@ test('玄空九运子山替卦应保留五黄借山与向盘同元取星', () =>
     replacementStar: 6,
     direction: '顺飞',
   });
-  assert.deepEqual(result.plates.shan, flyStars(1, '逆飞'));
+  assert.deepEqual(result.plates.shan, flyStars(5, '逆飞'));
   assert.deepEqual(result.plates.xiang, flyStars(6, '顺飞'));
-  assert.match(result.prompt, /五黄|子山替为1逆飞|巽山替为6顺飞/);
+  assert.match(result.prompt, /五黄保持5入中，借子山阴阳逆飞/);
+  assert.match(result.evidenceAnalysis.promptText, /五黄保持5入中/);
+  assert.doesNotMatch(result.prompt, /子山替为1/);
 });
 
 test('玄空坐向度数及显式山名必须相互一致', () => {
@@ -318,8 +320,8 @@ test('玄空替卦九运乘二十四山的 216 盘应重算替星三盘并保留
       assert.deepEqual([...result.plates.shan].sort(), NINE_STARS);
       assert.deepEqual([...result.plates.xiang].sort(), NINE_STARS);
       assert.equal(result.palaces.length, 9);
-      assert.ok([1, 2, 6, 7, 9].includes(result.replacement.mountain.replacementStar));
-      assert.ok([1, 2, 6, 7, 9].includes(result.replacement.facing.replacementStar));
+      assert.ok([1, 2, 5, 6, 7, 9].includes(result.replacement.mountain.replacementStar));
+      assert.ok([1, 2, 5, 6, 7, 9].includes(result.replacement.facing.replacementStar));
     }
   }
 });
@@ -419,4 +421,55 @@ test('正城门按元旦宫数生成配对并覆盖二十四山同元龙', () =>
       );
     }
   }
+});
+
+test('兼向测量误差跨中央九度边界时必须拒绝显式替卦', () => {
+  assert.throws(
+    () =>
+      generateXuanKong({
+        year: 2024,
+        sitDegree: 5,
+        measurementUncertaintyDegrees: 1,
+        guaType: '替卦',
+      }),
+    /边界敏感/,
+  );
+});
+
+test('替卦未成四正局仍保留实际盘面的反伏吟组合', () => {
+  let checked = 0;
+  for (let yun = 1; yun <= 9; yun++) {
+    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
+      const result = generateXuanKong({
+        year: 1864 + (yun - 1) * 20,
+        sitMountain,
+        guaType: '替卦',
+      });
+      if (result.formation !== '替卦未成四正局') continue;
+      checked++;
+      for (const [label, plate] of [
+        ['山星', result.plates.shan],
+        ['向星', result.plates.xiang],
+      ] as const) {
+        const fullFu = plate.every((star, index) => star === index + 1);
+        const fullFan = plate.every((star, index) => star + index + 1 === 10);
+        const names = result.combinations.map((item) => item.name);
+        if (fullFu) assert.ok(names.includes(`全盘伏吟（${label}）`));
+        else if (fullFan) assert.ok(names.includes(`全盘反吟（${label}）`));
+        else {
+          if (plate.some((star, index) => star === index + 1)) {
+            assert.ok(names.includes(`单宫伏吟（${label}）`));
+          }
+          if (plate.some((star, index) => star + index + 1 === 10)) {
+            assert.ok(names.includes(`单宫反吟（${label}）`));
+          }
+        }
+      }
+      assert.equal(
+        result.combinations.some((item) => /打劫/.test(item.name)),
+        false,
+      );
+    }
+  }
+  assert.ok(checked > 0);
 });

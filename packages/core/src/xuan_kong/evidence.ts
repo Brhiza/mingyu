@@ -108,6 +108,18 @@ function formatFlowYear(year: number): string {
   return year === 0 ? '公元前1' : String(year);
 }
 
+export function formatReplacementLeg(
+  leg: NonNullable<XuanKongEvidenceSourceResult['replacement']>['mountain'],
+) {
+  if (leg.originalCenterStar === 5) {
+    return `五黄保持5入中，借${leg.referenceMountain}山阴阳${leg.direction}`;
+  }
+  if (leg.originalCenterStar === leg.replacementStar) {
+    return `原${leg.originalCenterStar}星取${leg.referenceMountain}山，星数不变${leg.direction}`;
+  }
+  return `原${leg.originalCenterStar}星取${leg.referenceMountain}山替为${leg.replacementStar}${leg.direction}`;
+}
+
 export function analyzeXuanKongEvidence(
   result: XuanKongEvidenceSourceResult,
 ): XuanKongEvidenceAnalysis {
@@ -130,7 +142,7 @@ export function analyzeXuanKongEvidence(
       key: 'xuankong:calculation:plates',
       stage: '飞布三盘',
       promptText: result.replacement
-        ? `运星${result.period.yunStar}顺飞生成运盘；山盘原${result.replacement.mountain.originalCenterStar}星取${result.replacement.mountain.referenceMountain}山替为${result.replacement.mountain.replacementStar}${result.replacement.mountain.direction}；向盘原${result.replacement.facing.originalCenterStar}星取${result.replacement.facing.referenceMountain}山替为${result.replacement.facing.replacementStar}${result.replacement.facing.direction}`
+        ? `运星${result.period.yunStar}顺飞生成运盘；山盘${formatReplacementLeg(result.replacement.mountain)}；向盘${formatReplacementLeg(result.replacement.facing)}`
         : `运星${result.period.yunStar}顺飞生成运盘；山向盘按入中星本宫同元龙山阴阳定顺逆，五黄入中时借原山阴阳`,
       sources: result.replacement
         ? [
@@ -236,7 +248,7 @@ export function analyzeXuanKongEvidence(
       type: '体系边界',
       promptText:
         result.formation === '替卦未成四正局'
-          ? '当前替卦运盘、山盘、向盘已重算，但未形成四类正局，组合检测保守跳过'
+          ? '当前替卦未形成四类正局，按实际三盘保留三般卦、合十、反伏吟与入囚组合'
           : result.flowStars
             ? `当前输出${result.guaType}运盘、山盘、向盘、流年流月飞星、局型与已登记组合`
             : `当前输出${result.guaType}运盘、山盘、向盘、局型与已登记组合`,
