@@ -157,7 +157,6 @@ const HEXAGRAM_ALIASES: Record<string, YilinHexagramName> = {
   兑: '兌',
   剥: '剝',
   归妹: '歸妹',
-  壮: '壯',
   随: '隨',
   观: '觀',
   贲: '賁',
@@ -284,6 +283,9 @@ export function getYilinEntry(
   targetHexagram: string,
   source: YilinSourcePreference = 'both',
 ): YilinQueryResult | undefined {
+  if (!['both', 'wikisource', 'kanripo'].includes(source)) {
+    throw new Error('文字底本须为 both、wikisource 或 kanripo。');
+  }
   const base = normalizeYilinHexagramName(baseHexagram);
   const target = normalizeYilinHexagramName(targetHexagram);
   if (!base || !target) return undefined;
@@ -298,7 +300,10 @@ export function getYilinEntry(
   };
   const selectedSource = source === 'kanripo' ? 'kanripo' : 'wikisource';
   const gaps = (gapsByKey.get(key) ?? []).map((gap) => summarizeGap(gap, key));
-  const dataStatus: YilinDataStatus = gaps.length ? '含校勘或字形差异' : '双底本对读一致';
+  const dataStatus: YilinDataStatus =
+    gaps.length || sources.wikisource.text !== sources.kanripo.text
+      ? '含校勘或字形差异'
+      : '双底本对读一致';
 
   return {
     edition: getYilinEditionMetadata(),

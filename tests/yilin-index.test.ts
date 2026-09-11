@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getYilinIndexStats, queryYilinEntry } from '../packages/core/src/classics/yilin';
+import {
+  YILIN_HEXAGRAM_ORDER,
+  getYilinIndexStats,
+  queryYilinEntry,
+} from '../packages/core/src/classics/yilin';
 import { getPublicApiOpenApiDocument, handlePublicApiRequest } from '../src/lib/public-api/handler';
 import { DEFAULT_PUBLIC_API_RUNTIME } from '../src/lib/public-api/metadata';
 
@@ -20,6 +24,31 @@ test('焦氏易林固定索引覆盖 64×64 卦对并保留版本缺口统计', 
   assert.ok(qian.text.length > 0);
   assert.equal(qian.gaps.length, 0);
   assert.equal(qian.edition.id, 'yilin-w20-03-fixed-4096');
+});
+
+test('易林每个卦对均可查询，文字一致状态依据两份正文判断', () => {
+  const keys = new Set<string>();
+  for (const base of YILIN_HEXAGRAM_ORDER) {
+    for (const target of YILIN_HEXAGRAM_ORDER) {
+      const entry = queryYilinEntry(base, target);
+      keys.add(entry.key);
+      assert.ok(entry.sources.wikisource.text.length > 0);
+      assert.ok(entry.sources.kanripo.text.length > 0);
+      if (entry.dataStatus === '双底本对读一致') {
+        assert.equal(entry.sources.wikisource.text, entry.sources.kanripo.text, entry.key);
+      }
+    }
+  }
+  assert.equal(keys.size, 4096);
+  const entry = queryYilinEntry('乾', '需');
+  assert.equal(entry.gaps.length, 0);
+  assert.notEqual(entry.sources.wikisource.text, entry.sources.kanripo.text);
+  assert.equal(entry.dataStatus, '含校勘或字形差异');
+});
+
+test('易林查询拒绝无效底本和不完整卦名', () => {
+  assert.throws(() => queryYilinEntry('乾', '乾', 'unknown' as 'both'), /文字底本/);
+  assert.throws(() => queryYilinEntry('壮', '乾'), /有效卦名/);
 });
 
 test('易林卦名别名规范化且原始标签差异不会被静默改写', () => {
