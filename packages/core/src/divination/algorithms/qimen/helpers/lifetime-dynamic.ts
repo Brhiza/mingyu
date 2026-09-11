@@ -4,7 +4,7 @@
  * 空亡填实、马星引动与年家盘叠合，并列出可复核的交节日与日支关系。
  */
 
-import { SolarTerm } from 'tyme4ts';
+import { SolarDay, SolarTerm } from 'tyme4ts';
 import type {
   QimenData,
   QimenEventCluster,
@@ -137,28 +137,141 @@ function nextLifetimeDate(value: LifetimeDateParts): LifetimeDateParts {
   };
 }
 
-function resolveLifetimeNoon(
+type IanaNoonValidator = {
+  formatter: Intl.DateTimeFormat;
+  previousOffsetHours?: number;
+  initialized: boolean;
+};
+
+type IanaWallClockParts = Pick<
+  CivilDateTimeParts,
+  'year' | 'month' | 'day' | 'hour' | 'minute' | 'second'
+>;
+
+function createIanaNoonValidator(
+  timeContext: QimenDynamicTimeContext | undefined,
+): IanaNoonValidator | undefined {
+  const timeZoneId = timeContext?.timeZoneId?.trim();
+  if (!timeZoneId) return undefined;
+  try {
+    return {
+      formatter: new Intl.DateTimeFormat('en-CA', {
+        timeZone: timeZoneId,
+        calendar: 'gregory',
+        numberingSystem: 'latn',
+        hourCycle: 'h23',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }),
+      initialized: false,
+    };
+  } catch {
+    throw new Error(`无法识别 IANA 时区 ${timeZoneId}。`);
+  }
+}
+
+function getIanaWallClockParts(
+  formatter: Intl.DateTimeFormat,
+  timestamp: number,
+): IanaWallClockParts {
+  const values = Object.fromEntries(
+    formatter
+      .formatToParts(new Date(timestamp))
+      .filter((item) => item.type !== 'literal')
+      .map((item) => [item.type, Number(item.value)]),
+  ) as Partial<IanaWallClockParts>;
+  return {
+    year: values.year!,
+    month: values.month!,
+    day: values.day!,
+    hour: values.hour!,
+    minute: values.minute!,
+    second: values.second!,
+  };
+}
+
+function getIanaOffsetHoursAt(formatter: Intl.DateTimeFormat, timestamp: number): number {
+  const parts = getIanaWallClockParts(formatter, timestamp);
+  const representedAsUtc = createUtcTimestamp(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+  return Number(((representedAsUtc - Math.floor(timestamp / 1000) * 1000) / 3600000).toFixed(6));
+}
+
+function sameIanaWallClockParts(first: IanaWallClockParts, second: IanaWallClockParts): boolean {
+  return (
+    first.year === second.year &&
+    first.month === second.month &&
+    first.day === second.day &&
+    first.hour === second.hour &&
+    first.minute === second.minute &&
+    first.second === second.second
+  );
+}
+
+/**
+ * 验证当地正午在 IANA 时区中真实存在，并在异常边界复用完整解析以保留缺失/歧义报错。
+ * 正常日期只需两次 Intl 读取，避免逐日构造完整 SolarTime 与 73 个候选时区样本。
+ */
+function validateIanaNoon(
+  value: LifetimeDateParts,
+  timeZoneId: string,
+  validator: IanaNoonValidator,
+): void {
+  const target: IanaWallClockParts = { ...value, hour: 12, minute: 0, second: 0 };
+  const wallTimestamp = createUtcTimestamp(
+    target.year,
+    target.month - 1,
+    target.day,
+    target.hour,
+    target.minute,
+    target.second,
+  );
+  const sampledOffsetHours = getIanaOffsetHoursAt(validator.formatter, wallTimestamp);
+  const candidateTimestamp = wallTimestamp - sampledOffsetHours * 3600000;
+  const candidate = getIanaWallClockParts(validator.formatter, candidateTimestamp);
+  const previousOffsetHours = validator.previousOffsetHours;
+  const offsetChanged =
+    previousOffsetHours !== undefined && Math.abs(previousOffsetHours - sampledOffsetHours) > 1e-6;
+  if (!sameIanaWallClockParts(candidate, target) || offsetChanged) {
+    const resolved = resolveCivilTime(
+      { ...target, timeZoneId },
+      { defaultTimezone: DEFAULT_CHINA_TIMEZONE_HOURS },
+    );
+    validator.previousOffsetHours = resolved.timezone;
+  } else {
+    validator.previousOffsetHours = sampledOffsetHours;
+  }
+  validator.initialized = true;
+}
+
+function validateLifetimeNoon(
   value: LifetimeDateParts,
   timeContext: QimenDynamicTimeContext | undefined,
-): { date: Date; offsetMinutes: number } {
+  ianaNoonValidator: IanaNoonValidator | undefined,
+): void {
   const timeZoneId = timeContext?.timeZoneId?.trim();
-  const resolved = resolveCivilTime(
-    {
-      ...value,
-      hour: 12,
-      minute: 0,
-      second: 0,
-      ...(timeZoneId
-        ? { timeZoneId }
-        : {
-            timezone:
-              timeContext?.timezone ??
-              (timeContext?.fallbackOffsetMinutes ?? DEFAULT_CHINA_TIMEZONE_HOURS * 60) / 60,
-          }),
-    },
-    { defaultTimezone: DEFAULT_CHINA_TIMEZONE_HOURS },
-  );
-  return { date: new Date(resolved.utcTimestamp), offsetMinutes: resolved.timezone * 60 };
+  if (!timeZoneId) return;
+  if (!ianaNoonValidator) {
+    throw new Error(`无法识别 IANA 时区 ${timeZoneId}。`);
+  }
+  if (!ianaNoonValidator.initialized) {
+    const wallTimestamp = createUtcTimestamp(value.year, value.month - 1, value.day, 12, 0, 0);
+    ianaNoonValidator.previousOffsetHours = getIanaOffsetHoursAt(
+      ianaNoonValidator.formatter,
+      wallTimestamp - 86400000,
+    );
+  }
+  validateIanaNoon(value, timeZoneId, ianaNoonValidator);
 }
 
 function getTermInstant(termYear: number, termIndex: number): Date {
@@ -215,6 +328,7 @@ function collectDailyRelationFacts(
   end: LifetimeDateParts,
   baseChart: QimenData,
   timeContext: QimenDynamicTimeContext | undefined,
+  ianaNoonValidator: IanaNoonValidator | undefined,
 ): Map<string, LifetimeDateFact[]> {
   const groups = new Map<string, LifetimeDateFact[]>();
   const horseBranch = baseChart.horseStar?.branch;
@@ -223,8 +337,11 @@ function collectDailyRelationFacts(
 
   while (dateKey(current) <= dateKey(end)) {
     const dateText = formatLifetimeDate(current);
-    const { date, offsetMinutes } = resolveLifetimeNoon(current, timeContext);
-    const dayGanZhi = getDivinationTime(date, offsetMinutes).ganzhi.day;
+    validateLifetimeNoon(current, timeContext, ianaNoonValidator);
+    const dayGanZhi = SolarDay.fromYmd(current.year, current.month, current.day)
+      .getLunarDay()
+      .getSixtyCycle()
+      .getName();
     const dayBranch = dayGanZhi.charAt(1);
     const relations: Array<[string, string]> = [];
 
@@ -327,6 +444,7 @@ export function scanLifetimeDynamicEvents(
 
   const getPalaceName = (p: number) =>
     baseChart.jiuGongGe.find((item) => item.gong === p)?.name || `${p}宫`;
+  const ianaNoonValidator = createIanaNoonValidator(timeContext);
 
   // 查询从一月开始时，补查上一干支年的丑月小寒节点；该节点落在当前公历年一月。
   if (start.month === 1 && startYear > 1) {
@@ -518,7 +636,13 @@ export function scanLifetimeDynamicEvents(
     const yearEnd = { year: y, month: 12, day: 31 };
     const dailyStart = dateKey(start) > dateKey(yearStart) ? start : yearStart;
     const dailyEnd = dateKey(end) < dateKey(yearEnd) ? end : yearEnd;
-    const dailyGroups = collectDailyRelationFacts(dailyStart, dailyEnd, baseChart, timeContext);
+    const dailyGroups = collectDailyRelationFacts(
+      dailyStart,
+      dailyEnd,
+      baseChart,
+      timeContext,
+      ianaNoonValidator,
+    );
     const dailyRelationMeta: Record<
       string,
       {
