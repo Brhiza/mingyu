@@ -386,12 +386,73 @@ test('奇门终身局 P3：动态周期扫描与事件聚类（含年月日关�
     .flatMap((ec) => ec.triggerDates ?? []);
   assert.ok(monthFacts.length > 0, '月令节点应带真实交节日期');
   assert.ok(monthFacts.every((fact) => /^202[6-8]-\d{2}-\d{2}$/u.test(fact.date)));
+  const ziMonth = result.eventClusters.find((ec) =>
+    ec.key.startsWith('cluster:2026:month-clash:子:'),
+  );
+  assert.equal(ziMonth?.triggerDates?.length, 1);
+  assert.match(ziMonth!.triggerDates![0].date, /^2026-12-/u);
+  const chouMonth = result.eventClusters.find((ec) =>
+    ec.key.startsWith('cluster:2027:month-clash:丑:'),
+  );
+  assert.equal(chouMonth?.triggerDates?.length, 1);
+  assert.match(chouMonth!.triggerDates![0].date, /^2028-01-/u);
   for (const ec of result.eventClusters) {
     assert.ok(ec.key.startsWith('cluster:'));
     assert.ok(ec.topics.length > 0);
     assert.ok(ec.triggerFact.length > 0);
     assert.ok(ec.verificationQuestions.length > 0);
   }
+});
+
+test('奇门日级事件跨阶段时应逐日归属并保留全部日期', () => {
+  const lifetime = calculateQimenLifetime({ birthDateTime: '1990-05-15T14:30:00+08:00' });
+  const stages = [
+    {
+      ...lifetime.stages[0],
+      stageIndex: 0,
+      calendarStart: '2026-01-01',
+      calendarEnd: '2026-06-14',
+    },
+    {
+      ...lifetime.stages[0],
+      stageIndex: 1,
+      calendarStart: '2026-06-15',
+      calendarEnd: '2026-12-31',
+    },
+  ];
+  const clusters = scanLifetimeDynamicEvents(
+    lifetime.baseChart,
+    stages,
+    { startDate: '2026-01-01', endDate: '2026-12-31' },
+    'zhuanpan',
+    'chaibu',
+    { timezone: 8 },
+  ).filter((cluster) => cluster.key.includes(':day:'));
+  assert.ok(clusters.some((cluster) => cluster.stageIndex === 0));
+  assert.ok(clusters.some((cluster) => cluster.stageIndex === 1));
+  for (const cluster of clusters) {
+    const stage = stages[cluster.stageIndex];
+    assert.ok(cluster.triggerDates?.length);
+    assert.ok(
+      cluster.triggerDates!.every(
+        (fact) => fact.date >= stage.calendarStart && fact.date <= stage.calendarEnd,
+      ),
+    );
+  }
+  const original = scanLifetimeDynamicEvents(
+    lifetime.baseChart,
+    [{ ...stages[0], calendarEnd: '2026-12-31' }],
+    { startDate: '2026-01-01', endDate: '2026-12-31' },
+    'zhuanpan',
+    'chaibu',
+    { timezone: 8 },
+  ).filter((cluster) => cluster.key.includes(':day:'));
+  const dates = (items: typeof clusters) =>
+    items
+      .flatMap((cluster) => cluster.triggerDates ?? [])
+      .map((fact) => `${fact.date}:${fact.relation}`)
+      .sort();
+  assert.deepEqual(dates(clusters), dates(original));
 });
 
 test('奇门终身局日级关系应跨年裁切并保留当地日干支', () => {

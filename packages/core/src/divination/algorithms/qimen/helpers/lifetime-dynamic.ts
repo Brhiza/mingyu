@@ -199,15 +199,10 @@ function getMonthClashTermFacts(
   const termIndex = MONTH_BRANCH_TERM_INDEX[branch];
   if (termIndex === undefined) return [];
 
-  const facts: LifetimeDateFact[] = [];
-  for (let termYear = Math.max(1, year - 1); termYear <= year + 1; termYear += 1) {
-    const fact = getLocalTermFact(termYear, termIndex, timeContext);
-    const parts = parseLifetimePeriodDate(fact.date, '交节日期');
-    if (isDateWithin(parts, start, end) && !facts.some((item) => item.date === fact.date)) {
-      facts.push({ ...fact, relation: `${branch}月建交节` });
-    }
-  }
-  return facts;
+  // 丑月自次年小寒开始，仍属于本年立春起算的干支年。
+  const fact = getLocalTermFact(branch === '丑' ? year + 1 : year, termIndex, timeContext);
+  const parts = parseLifetimePeriodDate(fact.date, '交节日期');
+  return isDateWithin(parts, start, end) ? [{ ...fact, relation: `${branch}月建交节` }] : [];
 }
 
 function getStageIndexForDate(stages: QimenLifetimeStage[], date: string): number {
@@ -507,21 +502,29 @@ export function scanLifetimeDynamicEvents(
     for (const [relationKey, facts] of dailyGroups) {
       const relation = dailyRelationMeta[relationKey];
       if (!relation || facts.length === 0) continue;
-      const dateTexts = facts.map((fact) => fact.date);
-      const dailyStageIndex = getStageIndexForDate(stages, dateTexts[0] as string);
-      clusters.push({
-        key: `cluster:${y}:day:${relationKey}:${dateTexts[0]}-${dateTexts[dateTexts.length - 1]}`,
-        stageIndex: dailyStageIndex,
-        timeSpan: `${y}年${relation.label}`,
-        triggerDates: facts,
-        topics: relation.topics,
-        triggerFact: `${y}年窗口内有${facts.length}个日干支符合${relation.label}。`,
-        interactionAnalysis: `按当地民用日读取日支与本命${relation.label}关系，结合具体日期核验该层时间关系。`,
-        supportEvidence: [`命中日干支：${facts.map((fact) => fact.ganzhi).join('、')}`],
-        counterEvidence: [],
-        rhythm: relation.rhythm,
-        verificationQuestions: [relation.question],
-      });
+      const stageGroups = new Map<number, LifetimeDateFact[]>();
+      for (const fact of facts) {
+        const dailyStageIndex = getStageIndexForDate(stages, fact.date);
+        const stageFacts = stageGroups.get(dailyStageIndex) ?? [];
+        stageFacts.push(fact);
+        stageGroups.set(dailyStageIndex, stageFacts);
+      }
+      for (const [dailyStageIndex, stageFacts] of stageGroups) {
+        const dateTexts = stageFacts.map((fact) => fact.date);
+        clusters.push({
+          key: `cluster:${y}:day:${relationKey}:${dateTexts[0]}-${dateTexts[dateTexts.length - 1]}`,
+          stageIndex: dailyStageIndex,
+          timeSpan: `${y}年${relation.label}`,
+          triggerDates: stageFacts,
+          topics: relation.topics,
+          triggerFact: `${y}年本阶段窗口内有${stageFacts.length}个日干支符合${relation.label}。`,
+          interactionAnalysis: `按当地民用日读取日支与本命${relation.label}关系，结合具体日期核验该层时间关系。`,
+          supportEvidence: [`日支关系：${stageFacts[0]?.relation}`],
+          counterEvidence: [],
+          rhythm: relation.rhythm,
+          verificationQuestions: [relation.question],
+        });
+      }
     }
   }
 
