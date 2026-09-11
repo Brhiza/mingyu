@@ -274,6 +274,8 @@ pnpm mcp
 
 奇门终身局工具必须提供 `birthDateTime`；出生时间按 `timeZoneId` 或固定 `timezone` 解析，`timeStandard: "trueSolar"` 时还必须提供 `location.longitude`。`periodRange` 使用有效的 `startDate`、`endDate`（`YYYY-MM-DD`）指定动态流年区间，最多连续31个年份；`topics` 可限定事业、财运、婚姻、健康、学业、迁居、家庭、子女或合作主题；终身局工具返回出生主体、阶段卡和该区间实际生成的动态事件簇。
 
+独立 MCP 的 stdio 工具在本机运行，奇门31年时限可返回完整 `result` 和 `prompt`。HTTP部署另受应用1MiB成功响应上限与托管运行额度限制：`RESPONSE_TOO_LARGE` 表示响应过大，Pages的1102表示运行资源超限。仅需完整解读文本时可选HTTP的 `responseMode: "prompt-only"`；切换入口或分段获取时仍应保留原主体、主题与目标时间范围。
+
 ### 解读口径与合参
 
 只对规划内确有合理差异的提示词工具提供 `schools`，可传一至三个值。传一个值时按该流派、断法或侧重解读；传两个或三个值时，提示词会要求分别判断，再归纳共同结论、分歧及各自盘面依据，最后形成综合判断。同属流派时称“多派合参”，同属断法时称“多法合参”，混合类型时称“多口径合参”。八字、紫微、住宅风水属于真实流派选择；塔罗、黄历择日、星盘和七政四余同时包含流派与断法；其余登记项属于不同断法，不称作不同派系。八字和紫微原有 `school` 参数继续兼容；同时传入时以 `schools` 为准。八字紫微合参分别使用 `baziSchools`、`ziweiSchools`。

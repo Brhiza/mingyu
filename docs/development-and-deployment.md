@@ -87,6 +87,8 @@ npx tsc --project mcp/tsconfig.json --noEmit
 
 静态页面由 Pages 托管，`/api/v1/*` 由 Pages Functions 处理。
 
+Pages Functions 使用 Workers 的运行额度。免费计划的 CPU 时间上限为每次10毫秒，长时限排盘可能触发1102资源超限；HTTP的1MiB成功响应上限则由应用自身执行。浏览器奇门终身局AI补算使用后台Worker，独立MCP在客户端运行；需要托管长时限API时，应选择有足够计算资源的Node/Docker部署或评估Workers额度。具体平台限制见 [Cloudflare官方文档](https://developers.cloudflare.com/workers/platform/limits/)。
+
 | 配置项                 | 值           |
 | ---------------------- | ------------ |
 | Build command          | `pnpm build` |

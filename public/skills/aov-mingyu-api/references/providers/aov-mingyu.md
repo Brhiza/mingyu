@@ -229,5 +229,6 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
    - `compact`：在八字、紫微、奇门和黄历排盘中，过滤冗长计算步骤，仅保留核心盘面；八字仍保留逐柱神煞命中；
    - `full`：返回全量证据节点。
 3. **服务异常与降级**：
+   - HTTP成功响应上限为1MiB；`413 / RESPONSE_TOO_LARGE` 时，纯解读任务可使用 `responseMode: "prompt-only"`，需要完整结构化时限资料时可切换独立MCP。Pages的1102属于运行资源限制。保留原主体、主题与目标范围，分段获取后核对完整覆盖；
    - 当 API 返回 5xx、超时或网络中断时，保留用户输入并转由上层 Skill 执行人工盘面核验或基于已知柱位做保守分析；
    - 严禁将 HTTP 错误代码解释为命理吉凶。
