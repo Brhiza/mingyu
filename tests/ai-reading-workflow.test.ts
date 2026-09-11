@@ -315,7 +315,7 @@ test('读取参数后补算，原始盘面与补充盘面同时保留', async ()
 test('准备格式错误后在剩余轮次读取真实参数并补算目标', async (t) => {
   const h = harness([
     '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990}',
-    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990,"question":"分析2027年事业","baziFortuneYear":2027}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990,"question":"分析2027年事业","baziFortuneScope":"year","baziFortuneYear":2027}}]}',
     '格式恢复后的解读',
   ]);
   h.options.subject = baziSubject;
@@ -383,8 +383,8 @@ test('连续两次准备格式错误时最终上下文说明资料状态', async
 
 test('补算执行安全校验失败后带纠错反馈并成功重试', async (t) => {
   const h = harness([
-    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1991,"baziFortuneYear":2027,"question":"分析2027年事业"}}]}',
-    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990,"baziFortuneYear":2027,"question":"分析2027年事业"}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1991,"baziFortuneYear":2027,"question":"分析2027年事业","baziFortuneScope":"year"}}]}',
+    '{"actions":[{"kind":"calculate","method":"bazi","input":{"year":1990,"baziFortuneYear":2027,"question":"分析2027年事业","baziFortuneScope":"year"}}]}',
     '重试后的解读',
   ]);
   h.options.subject = baziSubject;
