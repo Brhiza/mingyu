@@ -130,7 +130,7 @@ export function registerQimenTool(server: McpServer) {
     'qimen_prompt',
     {
       description:
-        '奇门遁甲排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整奇门盘时调用 divine_qimen',
+        '奇门遁甲排盘并生成可直接交给 AI 的完整任务书，同时返回九宫、三奇六仪和用神宫证据',
       inputSchema: qimenPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

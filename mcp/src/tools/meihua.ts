@@ -131,7 +131,7 @@ export function registerMeihuaTool(server: McpServer) {
     'meihua_prompt',
     {
       description:
-        '梅花易数起卦并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要主互变卦等卦盘数据时调用 divine_meihua',
+        '梅花易数起卦并生成可直接交给 AI 的完整任务书，同时返回主卦、互卦、变卦和体用关系',
       inputSchema: meihuaPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

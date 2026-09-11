@@ -17,14 +17,22 @@ export function extendPromptSchema<T extends z.ZodRawShape>(
 ) {
   return baseSchema.extend({
     ...createPromptSchoolsShape(method),
-    question: z.string().describe(questionDescription),
+    question: z
+      .string()
+      .describe(`${questionDescription}；按用户原意传入具体问题，不自行补写事实或结果`),
     promptMode: z
       .enum(PROMPT_MODES)
       .optional()
-      .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
-    topicId: z.string().optional().describe('统一解读主题 ID'),
-    subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
-    scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围'),
+      .describe('提示词模式：一般省略并使用 framework；只有用户的问题不适合已有主题时使用 custom'),
+    topicId: z.string().optional().describe('解读主题 ID；用户未指定时省略并使用该术式的通用主题'),
+    subtopicId: z
+      .string()
+      .optional()
+      .describe('解读主题细项 ID；必须属于所选 topicId，用户未指定时省略'),
+    scope: z
+      .enum(PROMPT_SCOPE_IDS)
+      .optional()
+      .describe('解读资料范围；用户未指定时省略并采用该术式的实用默认范围'),
   });
 }
 
@@ -35,14 +43,23 @@ export function extendOptionalQuestionPromptSchema<T extends z.ZodRawShape>(
 ) {
   return baseSchema.extend({
     ...createPromptSchoolsShape(method),
-    question: z.string().optional().describe(questionDescription),
+    question: z
+      .string()
+      .optional()
+      .describe(`${questionDescription}；有明确问题时按用户原意传入，不自行补写事实或结果`),
     promptMode: z
       .enum(PROMPT_MODES)
       .optional()
-      .describe('提示词模式：framework=内置主题任务, custom=用户问题加通用短答题框架'),
-    topicId: z.string().optional().describe('统一解读主题 ID'),
-    subtopicId: z.string().optional().describe('统一解读主题细项 ID；必须属于所选主题'),
-    scope: z.enum(PROMPT_SCOPE_IDS).optional().describe('统一解读资料范围'),
+      .describe('提示词模式：一般省略并使用 framework；只有用户的问题不适合已有主题时使用 custom'),
+    topicId: z.string().optional().describe('解读主题 ID；用户未指定时省略并使用该术式的通用主题'),
+    subtopicId: z
+      .string()
+      .optional()
+      .describe('解读主题细项 ID；必须属于所选 topicId，用户未指定时省略'),
+    scope: z
+      .enum(PROMPT_SCOPE_IDS)
+      .optional()
+      .describe('解读资料范围；用户未指定时省略并采用该术式的实用默认范围'),
   });
 }
 

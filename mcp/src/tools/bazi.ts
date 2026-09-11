@@ -272,8 +272,7 @@ export function registerBaziTool(server: McpServer) {
   server.registerTool(
     'bazi_prompt',
     {
-      description:
-        '八字排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要完整命盘时调用 bazi_calculate',
+      description: '八字排盘并生成可直接交给 AI 的完整任务书，同时返回本次计算的命盘与所选运限资料',
       inputSchema: baziPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -413,8 +412,7 @@ export function registerBaziTool(server: McpServer) {
   server.registerTool(
     'bazi_compatibility_prompt',
     {
-      description:
-        '八字双盘计算并生成完整关系分析任务书，仅返回提示词；需要双方命盘和交叉证据时调用 bazi_compatibility',
+      description: '八字双盘计算并生成完整关系分析任务书，同时返回双方命盘和交叉证据',
       inputSchema: baziCompatibilityPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

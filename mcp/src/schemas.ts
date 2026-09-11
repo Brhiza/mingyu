@@ -5,7 +5,9 @@ export const calculationDetailShape = {
   detailMode: z
     .enum(RESULT_DETAIL_MODES)
     .optional()
-    .describe('返回细节：默认 compact 精简证据噪音；full 返回完整证据链和计算过程'),
+    .describe(
+      '返回细节：日常调用省略此项，默认 compact，保留解读所需盘面并精简重复过程；只有审计或研究时使用 full 获取完整证据链',
+    ),
 };
 
 /**
@@ -45,7 +47,10 @@ export function withErrorOutputSchema<T extends z.ZodRawShape>(successShape: T) 
   const enhancedSuccessShape: z.ZodRawShape = {
     ...successShape,
     meta: z.record(z.string(), z.unknown()).optional().describe('元数据（耗时、工具名称、版本等）'),
-    warnings: z.array(z.string()).optional().describe('非阻断性预警或降级说明'),
+    warnings: z
+      .array(z.string())
+      .optional()
+      .describe('非阻断性预警或降级说明；最终解读必须据此收窄结论'),
   };
   const successSchema = z.strictObject(enhancedSuccessShape);
   const optionalSuccessShape: Record<string, z.ZodTypeAny> = {};
@@ -75,15 +80,19 @@ export function withErrorOutputSchema<T extends z.ZodRawShape>(successShape: T) 
 }
 
 export const resultOutputSchema = withErrorOutputSchema({
-  result: z.unknown().describe('工具返回的结构化结果'),
+  result: z
+    .unknown()
+    .describe('本次调用已计算出的结构化事实；后续展示、比较或解读应复用该结果，避免重复调用'),
 });
 
 export const promptOutputSchema = withErrorOutputSchema({
-  prompt: z.string().describe('可直接用于 AI 解读的结构化提示词'),
+  prompt: z
+    .string()
+    .describe('包含任务、盘面与传统依据的完整任务书；需要直接解读时按其内容回答，无需再次计算'),
   result: z
     .unknown()
     .optional()
-    .describe('生成提示词时同步计算出的结构化盘面或证据，可供程序继续使用'),
+    .describe('生成提示词时同步计算出的结构化盘面或证据；可供展示和后续追问复用，避免再调排盘工具'),
 });
 
 export const ziweiOutputSchema = withErrorOutputSchema({

@@ -100,12 +100,9 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ],
   ['name_generate', { surname: '李', gender: '通用', limit: 3 }],
   ['name_analyze', { fullName: '李清和' }],
-  ['name_generate_prompt', { surname: '李', limit: 3 }],
-  ['name_analyze_prompt', { fullName: '李清和' }],
   ['character_analyze', { text: '万学' }],
   ['character_select', { kangxiStrokes: 8, wuxing: '木', limit: 5 }],
   ['number_analyze', { value: '粤B12345', purpose: 'plate' }],
-  ['number_energy_prompt', { value: '粤B12345', purpose: 'plate' }],
   ['divine_zhuge', { text: '顺其然' }],
   ['divine_kongming', { pattern: '10101' }],
   ['divine_qimen', {}],
@@ -395,9 +392,11 @@ const promptToolNames = [
   'ziwei_prompt',
   'ziwei_compatibility_prompt',
   'bazi_ziwei_prompt',
+  'thematic_consultation_prompt',
   'liuyao_prompt',
   'meihua_prompt',
   'qimen_prompt',
+  'qimen_lifetime_prompt',
   'liuren_prompt',
   'tarot_prompt',
   'ssgw_prompt',
@@ -405,6 +404,7 @@ const promptToolNames = [
   'astrolabe_prompt',
   'astrolabe_synastry_prompt',
   'bazhai_prompt',
+  'xuankong_prompt',
   'residential_prompt',
   'taiyi_prompt',
   'wuyun_liuqi_prompt',
@@ -413,6 +413,10 @@ const promptToolNames = [
   'jinkoujue_prompt',
   'lenormand_prompt',
   'zodiac_prompt',
+  'name_generate_prompt',
+  'name_analyze_prompt',
+  'number_energy_prompt',
+  'qizheng_prompt',
 ];
 
 let mcpClientPromise: Promise<Client> | undefined;
@@ -525,6 +529,27 @@ test('姓名 MCP 真太阳时可省略时辰，普通出生资料缺时辰应报
   });
 });
 
+test('姓名与数字提示词工具应返回顶层 prompt 并兼容旧读取路径', async () => {
+  await withMcpClient(async (client) => {
+    for (const [name, arguments_] of [
+      ['name_generate_prompt', { surname: '李', limit: 3 }],
+      ['name_analyze_prompt', { fullName: '李清和' }],
+      ['number_energy_prompt', { value: '粤B12345', purpose: 'plate' }],
+    ] as const) {
+      const response = await client.callTool({ name, arguments: arguments_ });
+      assert.equal(response.isError, undefined, `${name} 不应返回错误`);
+      assert.match(String(response.structuredContent?.prompt), /【任务】/);
+      const result = response.structuredContent?.result as Record<string, unknown>;
+      assert.ok(result && typeof result === 'object', `${name} 缺少结构化结果`);
+      assert.equal(
+        result.prompt,
+        response.structuredContent?.prompt,
+        `${name} 旧读取路径应保持兼容`,
+      );
+    }
+  });
+});
+
 test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
@@ -533,7 +558,15 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
+      assert.match(tool.description ?? '', /调用与读取/, `${tool.name} 缺少调用与读取说明`);
+      assert.match(tool.description ?? '', /信息不足时/, `${tool.name} 缺少参数不足处理说明`);
     });
+
+    const baziPromptTool = tools.find((tool) => tool.name === 'bazi_prompt');
+    assert.match(baziPromptTool?.description ?? '', /无需先调同类排盘工具/);
+    assert.doesNotMatch(baziPromptTool?.description ?? '', /仅返回提示词/);
+    const liuyaoTool = tools.find((tool) => tool.name === 'divine_liuyao');
+    assert.match(liuyaoTool?.description ?? '', /同一问题只调用一次/);
 
     const ziweiTool = tools.find((tool) => tool.name === 'ziwei_calculate');
     assert.ok(ziweiTool?.outputSchema?.properties?.payloadByScope);

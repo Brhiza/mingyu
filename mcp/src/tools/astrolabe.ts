@@ -244,8 +244,7 @@ export function registerAstrolabeTool(server: McpServer) {
   server.registerTool(
     'astrolabe_prompt',
     {
-      description:
-        '星盘生成并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要星盘和结构化证据时调用 divine_astrolabe',
+      description: '星盘计算并生成可直接交给 AI 的完整任务书，同时返回星盘和结构化证据',
       inputSchema: astrolabePromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -299,8 +298,7 @@ export function registerAstrolabeTool(server: McpServer) {
   server.registerTool(
     'astrolabe_synastry_prompt',
     {
-      description:
-        '西洋占星双盘计算并生成可直接使用的完整任务书，仅返回提示词；需要本命盘和跨盘证据时调用 astrolabe_synastry',
+      description: '西洋占星双盘计算并生成可直接使用的完整任务书，同时返回双方本命盘和跨盘证据',
       inputSchema: astrolabeSynastryPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

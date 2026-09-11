@@ -72,8 +72,7 @@ export function registerLiuyaoTool(server: McpServer) {
   server.registerTool(
     'liuyao_prompt',
     {
-      description:
-        '六爻起卦并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要卦盘数据时调用 divine_liuyao',
+      description: '六爻起卦并生成可直接交给 AI 的完整任务书，同时返回纳甲、世应、动变和逐爻证据',
       inputSchema: liuyaoPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

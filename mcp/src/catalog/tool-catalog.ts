@@ -792,6 +792,35 @@ export function getToolAnnotations(id: string): ToolMetadataAnnotations {
   return findTool(id)?.annotations ?? READONLY_IDEMPOTENT;
 }
 
+const TOOL_USAGE_GUIDANCE: Record<ToolCatalogItem['type'], string> = {
+  prompt:
+    '直接解读时优先调用；本工具已完成所需计算，返回 prompt，并可能同步返回 result，无需先调同类排盘工具。按 prompt 回答，以 result 和 warnings 为事实边界',
+  calculate:
+    '只用于结构化盘面、表格展示或二次计算；直接解读应选同类提示词工具，避免重复计算。按 outputSchema 读取结构化字段和 warnings',
+  utility:
+    '只用于单项事实或固定查询；已有盘面包含所需资料时不要重复调用，也不要把单项结果扩大成完整吉凶',
+};
+
+function normalizeRegisteredDescription(description: string): string {
+  return description
+    .replace(/，?仅返回提示词；需要[^。]+/u, '')
+    .replace(/，?仅返回提示词/u, '')
+    .replace(/[，；。\s]+$/u, '');
+}
+
+export function getToolDescription(id: string, registeredDescription?: string): string {
+  const tool = findTool(id);
+  const baseDescription = normalizeRegisteredDescription(
+    registeredDescription?.trim() || tool?.description || '返回结构化术数资料',
+  );
+  const type = tool?.type ?? 'utility';
+  const replayGuidance =
+    tool && !tool.annotations.idempotentHint
+      ? '。本工具可能随机；同一问题只调用一次，复核时复用重放参数或固定输入'
+      : '';
+  return `${baseDescription}。调用与读取：${TOOL_USAGE_GUIDANCE[type]}${replayGuidance}。信息不足时按 error、missingFields 和 fallback 补问，不猜时辰、日期、地点或结论。`;
+}
+
 export function getToolsByCategory(category: ToolCatalogItem['category']): ToolCatalogItem[] {
   return TOOL_CATALOG.filter((tool) => tool.category === category);
 }

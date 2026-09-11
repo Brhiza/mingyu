@@ -65,8 +65,7 @@ export function registerLenormandTool(server: McpServer) {
   server.registerTool(
     'lenormand_prompt',
     {
-      description:
-        '雷诺曼抽牌并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要牌阵结果时调用 divine_lenormand',
+      description: '雷诺曼抽牌并生成可直接交给 AI 的完整任务书，同时返回本次牌阵和组合关系',
       inputSchema: lenormandPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

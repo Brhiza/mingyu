@@ -266,7 +266,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_prompt',
     {
       description:
-        '紫微斗数排盘并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要命盘数据时调用 ziwei_calculate',
+        '紫微斗数排盘并生成可直接交给 AI 的完整任务书，同时返回本命十二宫、四化和所选运限资料',
       inputSchema: ziweiPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

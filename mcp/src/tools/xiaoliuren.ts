@@ -58,8 +58,7 @@ export function registerXiaoliurenTool(server: McpServer) {
   server.registerTool(
     'xiaoliuren_prompt',
     {
-      description:
-        '小六壬起课并生成可直接复制给 AI 的完整提示词，仅返回提示词；需要课盘结果时调用 divine_xiaoliuren',
+      description: '小六壬起课并生成可直接交给 AI 的完整任务书，同时返回月宫、日宫、时宫推移和主证',
       inputSchema: xiaoliurenPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
