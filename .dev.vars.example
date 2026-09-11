@@ -24,3 +24,18 @@ AI_MODEL=deepseek-chat
 
 # 页面是否默认打开 AI 解读（可选，默认 false）
 # AI_DEFAULT_ENABLED=false
+
+# ── 隐私友好分析（可选，默认关闭）──
+# 仅当显式配置 ANALYTICS_PROVIDER 时启用；合规铁律：默认不采集。
+# provider 取值：plausible | umami | ga（留空或 none 则关闭）
+# ANALYTICS_PROVIDER=plausible
+# Plausible：ANALYTICS_URL=https://plausible.io/js/script.js ANALYTICS_SITE_ID=your-domain.com
+# Umami：  ANALYTICS_URL=https://umami.your-domain.com/script.js ANALYTICS_SITE_ID=your-website-id
+# GA：     ANALYTICS_SITE_ID=G-XXXXXXXXXX
+
+# ── 账户认证（可选，CF KV + 边缘函数）──
+# 需在 Cloudflare Pages → Functions → KV 命名空间绑定 AUTH_KV，并配置 AUTH_SECRET。
+# 本地 vite dev 不执行 functions/api/auth/*，认证端点返回 503（客户端优雅降级）。
+# AUTH_ENABLED=true
+# AUTH_SECRET=请生成强随机密钥（如 openssl rand -hex 32）
+# 同时在 Cloudflare 控制台创建 KV 命名空间并命名为 AUTH_KV 后绑定到本 Pages 项目。

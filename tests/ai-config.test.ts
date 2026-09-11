@@ -11,7 +11,7 @@ import { getAiRuntimeConfig, getAiRuntimeConfigScript } from '../src/lib/ai/runt
 import { onRequest as handleRuntimeConfigRequest } from '../functions/_middleware';
 
 type RuntimeConfigGlobal = typeof globalThis & {
-  __MINGYU_RUNTIME_CONFIG__?: {
+  __TEMPOSOUL_RUNTIME_CONFIG__?: {
     aiBuiltinEnabled?: boolean;
     aiDefaultEnabled?: boolean;
     aiProviderName?: string;
@@ -20,12 +20,12 @@ type RuntimeConfigGlobal = typeof globalThis & {
 
 test('内置 AI 可显示但默认仍保持提示词模式', (t) => {
   const target = globalThis as RuntimeConfigGlobal;
-  const originalConfig = target.__MINGYU_RUNTIME_CONFIG__;
+  const originalConfig = target.__TEMPOSOUL_RUNTIME_CONFIG__;
   t.after(() => {
-    target.__MINGYU_RUNTIME_CONFIG__ = originalConfig;
+    target.__TEMPOSOUL_RUNTIME_CONFIG__ = originalConfig;
   });
 
-  target.__MINGYU_RUNTIME_CONFIG__ = {
+  target.__TEMPOSOUL_RUNTIME_CONFIG__ = {
     aiBuiltinEnabled: true,
     aiDefaultEnabled: false,
     aiProviderName: '内置（不稳定）',
@@ -58,6 +58,10 @@ test('运行时 AI 配置需要同时配置密钥和开启开关', () => {
       aiBuiltinEnabled: true,
       aiDefaultEnabled: false,
       aiProviderName: 'DeepSeek',
+      analyticsProvider: 'none',
+      analyticsUrl: undefined,
+      analyticsSiteId: undefined,
+      authEnabled: false,
     },
   );
 
@@ -79,13 +83,13 @@ test('运行时 AI 配置脚本可被页面直接加载', () => {
       AI_DEFAULT_ENABLED: 'false',
       AI_PROVIDER_NAME: 'DeepSeek',
     }),
-    'window.__MINGYU_RUNTIME_CONFIG__ = {"aiBuiltinEnabled":true,"aiDefaultEnabled":false,"aiProviderName":"DeepSeek"};\n',
+    'window.__TEMPOSOUL_RUNTIME_CONFIG__ = {"aiBuiltinEnabled":true,"aiDefaultEnabled":false,"aiProviderName":"DeepSeek","analyticsProvider":"none","authEnabled":false};\n',
   );
 });
 
 test('Pages 运行时配置入口返回不缓存脚本', async () => {
   const response = await handleRuntimeConfigRequest({
-    request: new Request('https://aov.cc/mingyu-runtime-config.js'),
+    request: new Request('https://aov.cc/temposoul-runtime-config.js'),
     next: () => new Response('next'),
     env: {
       AI_API_KEY: 'test-key',
@@ -99,7 +103,7 @@ test('Pages 运行时配置入口返回不缓存脚本', async () => {
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(
     await response.text(),
-    'window.__MINGYU_RUNTIME_CONFIG__ = {"aiBuiltinEnabled":true,"aiDefaultEnabled":false,"aiProviderName":"DeepSeek"};\n',
+    'window.__TEMPOSOUL_RUNTIME_CONFIG__ = {"aiBuiltinEnabled":true,"aiDefaultEnabled":false,"aiProviderName":"DeepSeek","analyticsProvider":"none","authEnabled":false};\n',
   );
 });
 

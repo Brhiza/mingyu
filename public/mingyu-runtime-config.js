@@ -1,1 +1,0 @@
-window.__MINGYU_RUNTIME_CONFIG__ = window.__MINGYU_RUNTIME_CONFIG__ || {};

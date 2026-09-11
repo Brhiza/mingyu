@@ -29,19 +29,38 @@ const WUXU_DUN_ZI_SHI: Record<string, string> = {
   丁: '庚子', 壬: '庚子', 戊: '壬子', 癸: '壬子',
 };
 
-test('C-盲区1 农历 dateType + dayDivide:lunar 晚子时透传并产出有效八字', () => {
-  const person = buildBaziPersonInput({
-    gender: 'male', year: 2024, month: 3, day: 15, timeIndex: 12,
-    dateType: 'lunar', dayDivide: 'current', useTrueSolarTime: false, isLeapMonth: false,
-  });
+test('C-盲区1 农历 dateType + dayDivide 晚子时:current 与 forward 必须产出不同日柱', () => {
+  const lunarPerson = (div: 'forward' | 'current') =>
+    buildBaziPersonInput({
+      gender: 'male', year: 2024, month: 3, day: 15, timeIndex: 12,
+      dateType: 'lunar', dayDivide: div, useTrueSolarTime: false, isLeapMonth: false,
+    });
+
+  const cur = lunarPerson('current');
+  const fwd = lunarPerson('forward');
   // draft → Person 透传（A' 新增路径盲区）
-  assert.equal(person.dayDivide, 'current');
-  const r = baziCalculator.calculateBazi(person);
-  // 农历晚子时仍是子时（时辰轴恒定 23:00 归子）
-  assert.equal(r.timeInfo.index, 12);
-  assert.ok(r.pillars.year.ganZhi && r.pillars.day.ganZhi && r.pillars.hour.ganZhi);
-  // dayDivide=current 同步回退日/时柱，五鼠遁自洽（丁日→庚子）
-  assert.equal(gz(r.pillars.hour), WUXU_DUN_ZI_SHI[r.pillars.day.gan]);
+  assert.equal(cur.dayDivide, 'current');
+  assert.equal(fwd.dayDivide, 'forward');
+
+  const rCur = baziCalculator.calculateBazi(cur);
+  const rFwd = baziCalculator.calculateBazi(fwd);
+
+  // 农历晚子时仍是子时（时辰轴恒定 23:00 归子，不受 dayDivide 影响）
+  assert.equal(rCur.timeInfo.index, 12);
+  assert.equal(rFwd.timeInfo.index, 12);
+
+  // 🔴 承重断言：农历路径同样吃 dayDivide。
+  // 若 lunar 分支漏接（或 dayDivide 分支被禁用），下面两条会立刻变红。
+  assert.notEqual(gz(rCur.pillars.day), gz(rFwd.pillars.day));
+  assert.notEqual(gz(rCur.pillars.hour), gz(rFwd.pillars.hour));
+
+  // 年柱/月柱由节气决定，不随日界回退
+  assert.equal(gz(rCur.pillars.year), gz(rFwd.pillars.year));
+  assert.equal(gz(rCur.pillars.month), gz(rFwd.pillars.month));
+
+  // 两个口径各自五鼠遁自洽
+  assert.equal(gz(rCur.pillars.hour), WUXU_DUN_ZI_SHI[rCur.pillars.day.gan]);
+  assert.equal(gz(rFwd.pillars.hour), WUXU_DUN_ZI_SHI[rFwd.pillars.day.gan]);
 });
 
 test('C-盲区2 真太阳时×dayDivide 经度交互:120°E 晚子时回退 / 105°E 亥时不回退', () => {
@@ -98,6 +117,23 @@ test('C-盲区3 亥时/子时均非晚子时:dayDivide 无副作用,且子时对
   assert.notEqual(gz(haiF.pillars.hour), gz(ziF.pillars.hour));
   assert.equal(gz(haiF.pillars.day), '戊寅');
   assert.equal(gz(haiF.pillars.hour), '癸亥');
+
+  // 🔴 晚子时对照组（timeIndex 12）——本 test 的承重部分。
+  // 上面所有 assert.equal 在「dayDivide 彻底没接线」时同样成立（亥时/早子时本就不受影响），
+  // 属于零信息断言。必须有一个 dayDivide 真正生效的对照组，
+  // 才能证明「亥时无副作用」是因为亥时不该受影响，而不是因为参数根本没生效。
+  const lateZi = (div: 'forward' | 'current') =>
+    baziCalculator.calculateBazi({ year: 2024, month: 3, day: 15, timeIndex: 12, gender: 'male', dayDivide: div });
+  const lzF = lateZi('forward');
+  const lzC = lateZi('current');
+
+  assert.equal(lzF.timeInfo.index, 12);
+  assert.notEqual(gz(lzF.pillars.day), gz(lzC.pillars.day)); // 己卯 vs 戊寅
+  assert.notEqual(gz(lzF.pillars.hour), gz(lzC.pillars.hour)); // 甲子 vs 壬子
+
+  // current 的晚子时 == 当日早子时（current 的定义），同时锁死它没错滚到亥时
+  assert.equal(gz(lzC.pillars.day), gz(hai('forward').pillars.day)); // 同为当日 戊寅
+  assert.notEqual(gz(lzC.pillars.hour), gz(haiF.pillars.hour)); // 但时柱是子时 壬子，不是亥时 癸亥
 });
 
 test('C-盲区4 紫微不变量:五行局/命主/身主/命宫位置在 forward 与 current 下都结构稳定', async () => {

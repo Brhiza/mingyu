@@ -6,7 +6,7 @@ type PagesContext = {
   next: () => Response | Promise<Response>;
 };
 
-const RUNTIME_CONFIG_PATH = '/mingyu-runtime-config.js';
+const RUNTIME_CONFIG_PATH = '/temposoul-runtime-config.js';
 const SCRIPT_HEADERS = {
   'Content-Type': 'text/javascript; charset=utf-8',
   'Cache-Control': 'no-store',

@@ -1,0 +1,1 @@
+window.__TEMPOSOUL_RUNTIME_CONFIG__ = window.__TEMPOSOUL_RUNTIME_CONFIG__ || {};

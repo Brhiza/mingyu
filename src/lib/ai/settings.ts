@@ -22,8 +22,8 @@ export interface AiRequestConfig {
   model?: string;
 }
 
-export const AI_SETTINGS_STORAGE_KEY = 'mingyu:ai-settings:v1';
-export const AI_SETTINGS_EVENT = 'mingyu-ai-settings-change';
+export const AI_SETTINGS_STORAGE_KEY = 'temposoul:ai-settings:v1';
+export const AI_SETTINGS_EVENT = 'temposoul-ai-settings-change';
 
 type RuntimeAiConfig = {
   aiBuiltinEnabled?: boolean;
@@ -71,8 +71,8 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
 
 export function isServerBuiltinAiEnabled(): boolean {
   const runtimeConfig = (
-    globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig }
-  ).__MINGYU_RUNTIME_CONFIG__;
+    globalThis as typeof globalThis & { __TEMPOSOUL_RUNTIME_CONFIG__?: RuntimeAiConfig }
+  ).__TEMPOSOUL_RUNTIME_CONFIG__;
   if (typeof runtimeConfig?.aiBuiltinEnabled === 'boolean') {
     return runtimeConfig.aiBuiltinEnabled;
   }
@@ -88,8 +88,8 @@ export function isServerBuiltinAiEnabled(): boolean {
 
 export function getServerBuiltinAiLabel(): string {
   const runtimeConfig = (
-    globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig }
-  ).__MINGYU_RUNTIME_CONFIG__;
+    globalThis as typeof globalThis & { __TEMPOSOUL_RUNTIME_CONFIG__?: RuntimeAiConfig }
+  ).__TEMPOSOUL_RUNTIME_CONFIG__;
   if (runtimeConfig?.aiProviderName) {
     return runtimeConfig.aiProviderName;
   }
@@ -98,8 +98,8 @@ export function getServerBuiltinAiLabel(): string {
 
 export function isServerDefaultAiEnabled(): boolean {
   const runtimeConfig = (
-    globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig }
-  ).__MINGYU_RUNTIME_CONFIG__;
+    globalThis as typeof globalThis & { __TEMPOSOUL_RUNTIME_CONFIG__?: RuntimeAiConfig }
+  ).__TEMPOSOUL_RUNTIME_CONFIG__;
   const defaultEnabled =
     typeof runtimeConfig?.aiDefaultEnabled === 'boolean'
       ? runtimeConfig.aiDefaultEnabled

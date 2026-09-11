@@ -10,6 +10,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { PrivacyHint } from '@/components/PrivacyHint';
+import { TrustBanner } from '@/components/TrustEngine/TrustBanner';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
 import { upsertCompatibilityHistory, upsertPersonalHistory } from '@/lib/history-records';
 import {
@@ -51,6 +52,13 @@ export function InputPage() {
   const [bottomToolsHeight, setBottomToolsHeight] = useState(0);
 
   const birthPlace = useBirthPlace({ form, setForm });
+
+  // P1-2 Trust Engine: 输入页横幅判定用——表单是否已填入任一实质字段。
+  const inputHasContent =
+    form.year.trim() !== '' ||
+    form.month.trim() !== '' ||
+    form.day.trim() !== '' ||
+    form.timeIndex !== '';
 
   useEffect(() => {
     const nextEntryMode =
@@ -398,6 +406,8 @@ export function InputPage() {
       <div className="bazi-view-container">
         <div className="input-page-main-content" ref={mainContentRef}>
           <PrivacyHint />
+          {/* P1-2 Trust Engine: 输入页挂载 — 覆盖 T0/T3（空表单）/ T5（已填）/ T4（占卜·择日）。 */}
+          <TrustBanner inputMode={entryMode} inputHasContent={inputHasContent} />
           <div className="analysis-mode-strip">
             <div className="top-switch-control">
               <SegmentedControl

@@ -16,6 +16,9 @@ import { generateQimen } from '@temposoul/core/divination/qimen';
 import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from './prompt-assertions';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 
+// 限流开关：单进程测试用例数远超 120 次/分钟，避免误触限流。
+(globalThis as Record<string, unknown>)['__DISABLE_PUBLIC_API_RATE_LIMIT__'] = true;
+
 async function callApi(path: string, init?: RequestInit) {
   const request = new Request(`https://aov.cc/api/v1/${path}`, init);
   const response = await handlePublicApiRequest(request);

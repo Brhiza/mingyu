@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TempoSoul 命律 · 部署手顺（Cloudflare Pages）</title>
+<style>
+  :root{
+    --bg:#0e0b14; --panel:#17121f; --panel2:#1f1830; --line:#2c2440;
+    --txt:#ece7f5; --dim:#a89dc0; --accent:#8b7bff; --accent2:#46d3c0;
+    --ok:#3ddc97; --warn:#ffcf6b; --bad:#ff6b8b; --mono:#27e0c4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 80% -10%,#241a3a 0%,var(--bg) 60%);color:var(--txt);
+    font:14px/1.7 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:24px;margin:0 0 4px;letter-spacing:.5px}
+  .sub{color:var(--dim);margin-bottom:24px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0}
+  .card h2{font-size:17px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .step{display:flex;gap:12px;padding:10px 0;border-top:1px dashed var(--line)}
+  .step:first-child{border-top:none}
+  .num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--panel2);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .step b{color:var(--txt)} .step .d{color:var(--dim);font-size:13px}
+  code{background:#0c0a12;border:1px solid var(--line);color:var(--mono);padding:1px 7px;border-radius:6px;font-size:12.5px}
+  pre{background:#0c0a12;border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;color:var(--mono);font-size:12.5px}
+  pre code{background:none;border:none;padding:0;color:inherit}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;margin-left:6px}
+  .t-ok{background:rgba(61,220,151,.15);color:var(--ok)}
+  .t-warn{background:rgba(255,207,107,.15);color:var(--warn)}
+  .t-core{background:rgba(139,123,255,.15);color:var(--accent)}
+  ul{margin:8px 0 0;padding-left:20px} li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  th{background:var(--panel2);color:var(--dim);font-weight:600}
+  .note{background:rgba(255,207,107,.08);border:1px solid rgba(255,207,107,.3);border-radius:10px;padding:10px 14px;color:var(--warn);font-size:13px;margin:10px 0}
+  .chk{accent-color:var(--accent2);width:16px;height:16px;vertical-align:-3px;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TempoSoul 命律 · 部署手顺</h1>
+  <div class="sub">目标平台：Cloudflare Pages（静态 dist + 边缘 functions） · 构建栈：Vite 7 + React 19 + pnpm</div>
+
+  <div class="card">
+    <h2>📋 部署前就绪状态 <span class="tag t-ok">已验证</span></h2>
+    <ul>
+      <li>源码 Phase 2/3 完成：i18n(zh/en/ja)、analytics(默认关)、Starfield、auth(CF Functions+Web Crypto)、词库 MVP</li>
+      <li><code>vite build</code> 绿灯（EXIT 0，703 模块），新鲜 dist 已产出</li>
+      <li>产品面改名完成：<code>__TEMPOSOUL_RUNTIME_CONFIG__</code> / <code>temposoul-runtime-config.js</code> / package name <code>temposoul</code></li>
+      <li>部署配置就绪：<code>wrangler.toml</code>（Pages + AUTH_KV 绑定占位）、<code>.dev.vars.example</code>（AUTH/ANALYTICS 文档）</li>
+    </ul>
+    <div class="note">⚠️ 仍保留的内部命名（刻意为之，避免破坏 frozen-lockfile CI 与已发布 skill）：引擎包 <code>@temposoul/core</code>（~100+ import + pnpm-lock）、对外 skill <code>aov-mingyu-api</code>（CI 测试 + aov.cc 外链）。这两类如需改名需单独协调。</div>
+  </div>
+
+  <div class="card">
+    <h2>① 本地构建校验 <span class="tag t-core">必做</span></h2>
+    <div class="step"><div class="num">1</div><div>
+      <b>确认构建产物</b><div class="d">在仓库根执行，产物输出到 <code>dist/</code>。</div>
+      <pre><code>pnpm --filter @temposoul/core build &amp;&amp; vite build
+# 或本沙箱等价：node node_modules/vite/bin/vite.js build</code></pre>
+    </div></div>
+    <div class="step"><div class="num">2</div><div>
+      <b>本地预览</b><div class="d">核对路由 /lexicon、/login、语言切换、深空背景。</div>
+      <pre><code>vite preview   # 默认 http://localhost:4173</code></pre>
+      <div class="note">本地 <code>vite dev/preview</code> 不执行 <code>functions/api/auth/*</code>，登录页会显示"部署后启用"——这是预期降级，非缺陷。</div>
+    </div></div>
+  </div>
+
+  <div class="card">
+    <h2>② 选择部署方式</h2>
+    <div class="step"><div class="num">A</div><div>
+      <b>方式 A：Git 集成（推荐，零 CLI）</b>
+      <ul>
+        <li>Cloudflare 控制台 → <b>Workers &amp; Pages → Create → Pages → 连接 Git 仓库</b></li>
+        <li>构建设置：<b>Framework preset = Vite</b>；Build command <code>pnpm --filter @temposoul/core build &amp;&amp; vite build</code>；Build output <code>dist</code></li>
+        <li>Node 版本用仓库 <code>packageManager</code> 声明的 pnpm@11 + Node 22</li>
+        <li>每次 push 到 <code>main</code> 自动触发构建部署</li>
+      </ul>
+    </div></div>
+    <div class="step"><div class="num">B</div><div>
+      <b>方式 B：wrangler CLI 手动部署</b>
+      <pre><code># 首次登录
+npx wrangler login
+# 部署（读取本仓库 wrangler.toml 的 name / pages_build_output_dir）
+npx wrangler pages deploy dist</code></pre>
+      <div class="d">CI 已存在 <code>.github/workflows/ci.yml</code>（lint/type/test/build），但<b>无自动部署步骤</b>；部署动作由上述方式触发。</div>
+    </div></div>
+  </div>
+
+  <div class="card">
+    <h2>③ 启用账户认证（可选） <span class="tag t-warn">需 secret</span></h2>
+    <div class="step"><div class="num">1</div><div>
+      <b>创建并绑定 KV 命名空间</b>
+      <pre><code>npx wrangler kv namespace create temposoul-auth
+# 把返回的 id 填进 wrangler.toml 的 [[kv_namespaces]] id</code></pre>
+      <div class="d">或在控制台 Pages 项目 → Settings → Functions → KV namespace bindings → 绑定 <code>AUTH_KV</code>。</div>
+    </div></div>
+    <div class="step"><div class="num">2</div><div>
+      <b>设置机密 AUTH_SECRET</b><div class="d">切勿写入仓库文件。</div>
+      <pre><code>openssl rand -hex 32          # 生成
+npx wrangler secret put AUTH_SECRET   # 粘贴上面的值</code></pre>
+    </div></div>
+    <div class="step"><div class="num">3</div><div>
+      <b>打开认证开关</b><div class="d">把 <code>wrangler.toml</code> 的 <code>AUTH_ENABLED</code> 改为 <code>"true"</code>（或控制台 Environment variables 设同键），重新部署。</div>
+      <pre><code># 未绑定 AUTH_KV / 未设 AUTH_SECRET 时 /api/auth/* 返回 503，前端优雅降级</code></pre>
+    </div></div>
+  </div>
+
+  <div class="card">
+    <h2>④ 首部署验证清单 <span class="tag t-ok">上线前逐项勾选</span></h2>
+    <table>
+      <tr><th>检查项</th><th>预期</th></tr>
+      <tr><td><input type="checkbox" class="chk"> 首页与路由</td><td><code>/</code> <code>/lexicon</code> <code>/login</code> 均 200，深空背景渲染</td></tr>
+      <tr><td><input type="checkbox" class="chk"> 多语言</td><td>右上角切换 zh / en / ja，文案随 locale 变化并持久化</td></tr>
+      <tr><td><input type="checkbox" class="chk"> 词库页</td><td>搜索 + 分类筛选 + 详情正常，种子数据可见</td></tr>
+      <tr><td><input type="checkbox" class="chk"> 运行时配置</td><td>页面加载 <code>/temposoul-runtime-config.js</code> 返回 JSON（no-store）</td></tr>
+      <tr><td><input type="checkbox" class="chk"> 认证端点</td><td>未启用时 <code>/api/auth/me</code> 返回 503 + 友好文案；启用后 register/login 可用</td></tr>
+      <tr><td><input type="checkbox" class="chk"> 隐私分析</td><td>默认 none，未注入任何第三方脚本</td></tr>
+      <tr><td><input type="checkbox" class="chk"> PWA</td><td><code>/manifest.webmanifest</code> 与 <code>/sw.js</code> 可访问，可安装</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>⑤ 后续可选增强</h2>
+    <ul>
+      <li><b>词库扩充</b>：当前 MVP 74 条种子，CTO 报告目标 ~800 条（天干地支/纳音/神煞/紫微辅星/二十八宿/九宫/卦象等）。</li>
+      <li><b>分析接入</b>：在 <code>wrangler.toml</code> 的 <code>ANALYTICS_PROVIDER</code> 改值并配 URL/SITE_ID（合规铁律：默认关闭）。</li>
+      <li><b>自定义域名</b>：把 <code>index.html</code> 里 <code>temposoul.example.com</code> 占位替换为真实域名，并在 Pages 绑定。</li>
+      <li><b>内部命名收尾（高风险）</b>：<code>@temposoul/core</code> 引擎包与 <code>aov-mingyu-api</code> skill 改名需同步改 pnpm-lock + 全部 import + CI 测试 + aov.cc 托管文件，单独评估。</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

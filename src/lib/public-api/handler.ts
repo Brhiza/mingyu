@@ -1525,6 +1525,12 @@ const RATE_LIMIT_MAX = 120;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const rateLimitHits = new Map<string, number[]>();
 
+// 测试开关：node:test 单进程内 public-api 用例远超 120 次/分钟，会误触限流。
+// 仅当显式设置全局标志 __DISABLE_PUBLIC_API_RATE_LIMIT__ = true 时跳过限流；
+// 生产环境无此标志，行为完全不变。
+const isRateLimitDisabled = () =>
+  (globalThis as Record<string, unknown>)['__DISABLE_PUBLIC_API_RATE_LIMIT__'] === true;
+
 function getClientIp(request: Request): string {
   const cf = request.headers.get('CF-Connecting-IP');
   if (cf) return cf;
@@ -1534,6 +1540,7 @@ function getClientIp(request: Request): string {
 }
 
 function enforceRateLimit(request: Request): Response | null {
+  if (isRateLimitDisabled()) return null;
   try {
     const ip = getClientIp(request);
     const now = Date.now();

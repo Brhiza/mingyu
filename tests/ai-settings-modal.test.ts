@@ -6,7 +6,7 @@ import { AiSettingsModal } from '../src/components/AiSettingsModal';
 import type { AiSettings } from '../src/lib/ai/settings';
 
 type RuntimeConfigGlobal = typeof globalThis & {
-  __MINGYU_RUNTIME_CONFIG__?: {
+  __TEMPOSOUL_RUNTIME_CONFIG__?: {
     aiBuiltinEnabled?: boolean;
     aiDefaultEnabled?: boolean;
     aiProviderName?: string;
@@ -24,12 +24,12 @@ const baseSettings: AiSettings = {
 
 function withBuiltinAiConfig(t: TestContext) {
   const target = globalThis as RuntimeConfigGlobal;
-  const originalConfig = target.__MINGYU_RUNTIME_CONFIG__;
+  const originalConfig = target.__TEMPOSOUL_RUNTIME_CONFIG__;
   t.after(() => {
-    target.__MINGYU_RUNTIME_CONFIG__ = originalConfig;
+    target.__TEMPOSOUL_RUNTIME_CONFIG__ = originalConfig;
   });
 
-  target.__MINGYU_RUNTIME_CONFIG__ = {
+  target.__TEMPOSOUL_RUNTIME_CONFIG__ = {
     aiBuiltinEnabled: true,
     aiDefaultEnabled: false,
     aiProviderName: '内置 AI',

@@ -1,0 +1,36 @@
+# TempoSoul 命律 · Cloudflare Pages 部署配置
+# 文档: https://developers.cloudflare.com/pages/
+# 注: 本文件只放非机密配置；机密 AUTH_SECRET 走 secret（见文末），切勿提交明文。
+
+name = "temposoul"
+compatibility_date = "2025-08-01"
+
+# Pages 静态构建产物目录（与 vite build 输出一致）
+pages_build_output_dir = "dist"
+
+# 构建命令与 package.json 的 scripts.build 一致，CF Pages 会自动用 pnpm（读取 packageManager 字段）
+#   pnpm --filter @temposoul/core build && vite build
+# 若用本地 CLI 部署：wrangler pages deploy dist
+
+# ── 账户认证所需的 KV 命名空间 ──
+# 启用 /api/auth/* 的前置条件：
+#   1) 在 Cloudflare 控制台创建 KV 命名空间，复制其 ID 填到下方 id；
+#   2) 或用 CLI：wrangler kv namespace create temposoul-auth
+# 未绑定 AUTH_KV / 未设 AUTH_SECRET 时，/api/auth/* 返回 503，
+# 前端登录入口显示"部署后启用"（已做优雅降级，不影响其余功能上线）。
+[[kv_namespaces]]
+binding = "temposoul_auth"
+id = "4561e72198ea4b9c9582a9826303e3d2"
+
+# ── 非机密运行时变量 ──
+[vars]
+# 是否启用账户认证（置 true 前，必须先绑定上面的 AUTH_KV 并设置 AUTH_SECRET）
+AUTH_ENABLED = "true"
+# 隐私友好分析（默认 none；可选 plausible | umami | ga）
+ANALYTICS_PROVIDER = "none"
+
+# ── 机密：AUTH_SECRET（不要写进本文件 / 不要提交仓库）──
+#   本地预览：写入 .dev.vars（已 gitignore），形如  AUTH_SECRET=xxxx
+#   Pages 生产：Cloudflare 控制台 → Pages 项目 → Settings → Environment variables → 添加 AUTH_SECRET
+#   或 CLI：   wrangler secret put AUTH_SECRET
+#   生成强随机密钥：  openssl rand -hex 32
