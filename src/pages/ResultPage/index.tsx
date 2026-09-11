@@ -1149,6 +1149,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     data: import('@/types/divination').QimenLifetimeData | null;
     error: string;
   }>(() => {
+    void qimenLifetimeCalculationRevision;
     if (!shouldCalculateQimenLifetime) return { data: null, error: '' };
     const year = Number(inputState.year);
     const month = Number(inputState.month);
