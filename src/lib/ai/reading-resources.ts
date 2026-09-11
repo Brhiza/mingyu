@@ -1494,6 +1494,7 @@ async function fetchReadingData(
         response.ok
           ? '补充资料服务返回的内容格式不完整，请稍后重试。'
           : `补充资料服务暂不可用（HTTP ${response.status}），请稍后重试。`,
+        { cause: error },
       );
     }
     if (!response.ok || !record(body) || body.success === false) {
