@@ -26,6 +26,11 @@ const paths = [
       `package/dist/name-number/generated-character-references-${shard}.js`,
     ];
   }).flat(),
+  ...['pair-index', 'gap-report', 'confirmed-mappings'].flatMap((name) =>
+    ['js', 'd.ts'].map(
+      (extension) => `package/dist/classics/data/yilin-w20-03-${name}.${extension}`,
+    ),
+  ),
 ];
 
 function entry(name: string, data = Buffer.from('export {};')) {
@@ -65,6 +70,7 @@ test('包体积分项预算要求完整的字典与静态释义资料', () => {
   assert.equal(CORE_PACKAGE_SIZE_LIMITS.code, 2_650_000);
   assert.equal(CORE_PACKAGE_SIZE_LIMITS.dictionary, 2_300_000);
   assert.equal(CORE_PACKAGE_SIZE_LIMITS.total, 5_000_000);
+  assert.equal(CORE_PACKAGE_SIZE_LIMITS.classics, 500_000);
   const result = assertCorePackageSize(archive());
   assert.ok(result.total > 0 && result.code > 0 && result.dictionary > 0);
   assert.throws(
@@ -74,6 +80,29 @@ test('包体积分项预算要求完整的字典与静态释义资料', () => {
   assert.throws(
     () => assertCorePackageSize(archive([...paths, paths[0]].map((path) => entry(path)))),
     /字典资料重复/,
+  );
+});
+
+test('典籍预算独立校验完整资料与超限，不挪用代码或字典额度', () => {
+  const corpusPath = 'package/dist/classics/data/yilin-w20-03-pair-index.js';
+  assert.throws(
+    () =>
+      assertCorePackageSize(
+        archive(paths.filter((path) => path !== corpusPath).map((path) => entry(path))),
+      ),
+    /完整包含典籍/,
+  );
+  assert.throws(
+    () => assertCorePackageSize(archive([...paths, corpusPath].map((path) => entry(path)))),
+    /典籍资料重复/,
+  );
+  const payload = variedBytes(CORE_PACKAGE_SIZE_LIMITS.classics + 10_000);
+  assert.throws(
+    () =>
+      assertCorePackageSize(
+        archive(paths.map((path) => entry(path, path === corpusPath ? payload : undefined))),
+      ),
+    /典籍压缩体积超过预算/,
   );
 });
 
