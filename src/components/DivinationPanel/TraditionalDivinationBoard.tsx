@@ -13,11 +13,11 @@ import { ChartShareModal } from '@/components/ChartShareModal';
 import type { DivinationSession } from '@/lib/divination/engine';
 import {
   formatHuangjiCivilYear,
-  getHuangjiHistoricalEraBlock,
   type HuangjiDerivedHexagram,
   type HuangjiJingshiResult,
   type HuangjiPeriodHexagram,
 } from 'mingyu-core/huangji-jingshi';
+import { HuangjiReferenceTable } from './HuangjiReferenceTable';
 import { TAIYI_PALACES } from 'mingyu-core/taiyi';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
 import type { KongmingHexagramResult, ZhugeNumberResult } from 'mingyu-core/name-number';
@@ -3133,11 +3133,6 @@ function HuangjiTraditionalBoard({
 }) {
   const annualCycleClassic = useMemo(() => getHuangjiCycleClassic('年'), []);
   const shiCycleClassic = useMemo(() => getHuangjiCycleClassic('世'), []);
-  const historicalEra = useMemo(() => {
-    const shiIndex = data.position.shi.indexInYuan;
-    if (shiIndex < 2149 || shiIndex > 2208) return undefined;
-    return getHuangjiHistoricalEraBlock(shiIndex);
-  }, [data.position.shi.indexInYuan]);
 
   const forecast = data.forecast;
   if (!forecast) return null;
@@ -3255,14 +3250,7 @@ function HuangjiTraditionalBoard({
         </div>
       </div>
 
-      {historicalEra?.namedEntries.length ? (
-        <ClassicalAnnotationCard
-          title={`经辰历史纪年原表 · 第${historicalEra.shiIndex}世`}
-          source={historicalEra.source.title}
-          verse={`三十年甲子：${historicalEra.rows.map((row) => row.ganzhi).join('、')}`}
-          modernAdvice={`原表标记：${historicalEra.namedEntries.map((entry) => `${entry.ganzhi}${entry.label}`).join('；')}${historicalEra.sourceBranchNote ? `\n${historicalEra.sourceBranchNote}` : ''}`}
-        />
-      ) : null}
+      <HuangjiReferenceTable />
 
       {annualCycleClassic ? (
         <ClassicalAnnotationCard

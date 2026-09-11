@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { calculateHuangjiJingshi } from 'mingyu-core/huangji-jingshi';
+import { HuangjiReferenceTable } from '../src/components/DivinationPanel/HuangjiReferenceTable';
 import { TraditionalDivinationBoard } from '../src/components/DivinationPanel/TraditionalDivinationBoard';
 import type { DivinationSession } from '../src/lib/divination/engine';
 
@@ -53,7 +54,7 @@ test('皇极经世传统盘应展示年月日时四层卦象', () => {
   assert.match(html, /地山谦/);
 });
 
-test('皇极经世传统盘在固定历史经辰范围内展示原表标记', () => {
+test('皇极经世传统盘提供显式资料表入口而不自动绑定当前世序', () => {
   const data = calculateHuangjiJingshi({ year: -2367, question: '历史经辰对应的原表标记是什么？' });
   const session: DivinationSession = {
     method: 'huangji',
@@ -64,6 +65,37 @@ test('皇极经世传统盘在固定历史经辰范围内展示原表标记', ()
   };
 
   const html = renderToStaticMarkup(createElement(TraditionalDivinationBoard, { session }));
-  assert.match(html, /经辰历史纪年原表 · 第2156世/);
-  assert.match(html, /甲辰唐堯/);
+  assert.match(html, /皇极资料表/);
+  assert.match(html, /声音律吕/);
+  assert.doesNotMatch(html, /经辰历史纪年原表 · 第2156世/);
+});
+
+test('皇极资料表切换后通过核心查询完整展示对应底本字段', () => {
+  const soundHtml = renderToStaticMarkup(createElement(HuangjiReferenceTable));
+  assert.match(soundHtml, /声音律吕图/);
+  assert.match(soundHtml, /天之体数.*160/u);
+  assert.match(soundHtml, /动植物数/);
+  assert.match(soundHtml, /shidianguji\.com/u);
+
+  const historicalHtml = renderToStaticMarkup(
+    createElement(HuangjiReferenceTable, {
+      initialTable: 'historical-era',
+      initialShiIndex: 2190,
+    }),
+  );
+  assert.match(historicalHtml, /经辰历史纪年原表/);
+  assert.match(historicalHtml, /2149—2208/);
+  assert.match(historicalHtml, /商武丁/);
+  assert.match(historicalHtml, /oldid=789512/u);
+});
+
+test('皇极资料表拒绝范围外经辰序号并保留输入范围提示', () => {
+  const html = renderToStaticMarkup(
+    createElement(HuangjiReferenceTable, {
+      initialTable: 'historical-era',
+      initialShiIndex: 2148,
+    }),
+  );
+  assert.match(html, /2149—2208/);
+  assert.doesNotMatch(html, /三十年甲子序列/);
 });

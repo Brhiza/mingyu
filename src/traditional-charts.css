@@ -2383,6 +2383,180 @@
   white-space: pre-line;
 }
 
+.traditional-huangji-reference-card > summary {
+  list-style: none;
+}
+
+.traditional-huangji-reference-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.traditional-huangji-reference-card > summary::after {
+  color: var(--text-secondary);
+  content: '▾';
+  font-size: 12px;
+}
+
+.traditional-huangji-reference-card[open] > summary::after {
+  content: '▴';
+}
+
+.traditional-huangji-reference-body {
+  display: grid;
+  gap: 12px;
+}
+
+.traditional-huangji-reference-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.traditional-huangji-reference-controls label {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.traditional-huangji-reference-controls select,
+.traditional-huangji-reference-controls input {
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--chart-border);
+  border-radius: 5px;
+  background: var(--surface-base);
+  color: var(--text-strong);
+  font: inherit;
+}
+
+.traditional-huangji-reference-controls small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.traditional-huangji-reference-result {
+  display: grid;
+  gap: 10px;
+}
+
+.traditional-huangji-reference-result > h4,
+.traditional-huangji-reference-notes > h4,
+.traditional-huangji-reference-events > h4 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.traditional-huangji-reference-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  align-items: baseline;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.traditional-huangji-reference-sources a {
+  color: var(--chart-accent);
+}
+
+.traditional-huangji-reference-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.traditional-huangji-reference-grid > div {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border: 1px solid var(--chart-border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--surface-muted) 28%, transparent);
+}
+
+.traditional-huangji-reference-grid dt {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.traditional-huangji-reference-grid dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.traditional-huangji-reference-facts {
+  display: grid;
+  gap: 3px;
+}
+
+.traditional-huangji-reference-facts p,
+.traditional-huangji-reference-note {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.traditional-huangji-reference-table-wrap {
+  overflow-x: auto;
+}
+
+.traditional-huangji-reference-table {
+  width: 100%;
+  min-width: 360px;
+  border-collapse: collapse;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.traditional-huangji-reference-table caption {
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.traditional-huangji-reference-table th,
+.traditional-huangji-reference-table td {
+  padding: 5px 7px;
+  border: 1px solid var(--chart-border);
+  text-align: left;
+}
+
+.traditional-huangji-reference-table thead th {
+  color: var(--text-strong);
+  background: var(--surface-muted);
+}
+
+.traditional-huangji-reference-table tbody th {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.traditional-huangji-reference-notes,
+.traditional-huangji-reference-events {
+  display: grid;
+  gap: 4px;
+}
+
+.traditional-huangji-reference-notes ul,
+.traditional-huangji-reference-events ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+}
+
+.traditional-huangji-reference-validation {
+  margin: 0;
+  color: var(--state-warning-text, var(--text-secondary));
+}
+
 /* 起卦基本信息表 (Top Meta Table) */
 .liuyao-meta-table {
   width: 100%;
