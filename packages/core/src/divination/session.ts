@@ -1,3 +1,4 @@
+import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import type { DivinationMethodId } from './config';
 import { generateAlmanacSelection } from './algorithms/almanac';
 import { generateAstrolabe } from './algorithms/astrolabe';
@@ -54,7 +55,6 @@ import type {
   TarotSpreadType,
   TaiyiResult,
   TaiyiScope,
-  WuyunLiuqiResult,
   XiaoliurenDivinationMethod,
 } from '../types/divination';
 

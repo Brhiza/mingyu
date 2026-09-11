@@ -1,4 +1,7 @@
 export const PROMPT_GUIDANCE_TEXT = {
+  'wuyun-liuqi': {
+    tradition: '以年干定岁运太过不及，以年支定司天在泉，再看五步主客运与六步主客气的阶段关系。',
+  },
   bazi: {
     tradition:
       '子平法先看月令、根气、透干与全局制化，再定旺衰、格局和调候；十神落实人事，岁运以原局为根，神煞仅作旁证。',

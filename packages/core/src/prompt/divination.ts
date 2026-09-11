@@ -1,3 +1,4 @@
+import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import { formatLiurenLesson, formatLiurenTransmission } from './liuren-facts';
 import { buildTaskText } from '../divination/engine/method-text';
 import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
@@ -24,7 +25,6 @@ import type {
   QimenData,
   SsgwData,
   TaiyiResult,
-  WuyunLiuqiResult,
   TarotData,
   XiaoliurenData,
   SupplementaryInfo,

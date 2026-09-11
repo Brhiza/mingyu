@@ -1,3 +1,4 @@
+import type { WuyunLiuqiResult } from '../wuyun-liuqi';
 import { formatWuyunLiuqiFacts } from '../wuyun-liuqi';
 import { formatAstrolabeForPrompt } from './astrolabe';
 import { formatLiurenLesson, formatLiurenTransmission } from './liuren-facts';
@@ -17,7 +18,6 @@ import type {
   SupplementaryInfo,
   TarotData,
   TaiyiResult,
-  WuyunLiuqiResult,
   XiaoliurenData,
   JinkoujueData,
 } from '../types/divination';
