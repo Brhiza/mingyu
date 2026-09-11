@@ -3,6 +3,7 @@ import type { BaZhaiResult } from 'mingyu-core/bazhai';
 import type { ResidentialFengshuiResult } from 'mingyu-core/residential-fengshui';
 import type { XuanKongResult } from 'mingyu-core/xuankong';
 import {
+  buildResidentialChartInput,
   calculateResidentialChart,
   resolveResidentialDoorDirection,
   type ResidentialMeasurement,
@@ -26,8 +27,10 @@ interface MetaphysicsPanelProps {
   embedded?: boolean;
   initialFacingDegree?: string;
   initialHouseYear?: string;
+  initialFlowDate?: string;
   onDirectionDegreeChange?: (value: string) => void;
   onHouseYearChange?: (value: string) => void;
+  onFlowDateChange?: (value: string) => void;
   onResultChange?: (
     result: ResidentialFengshuiResult,
     measurement: ResidentialMeasurement | null,
@@ -36,6 +39,33 @@ interface MetaphysicsPanelProps {
 
 const DIRECTIONS = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
 const LO_SHU_ORDER = [4, 9, 2, 3, 5, 7, 8, 1, 6];
+
+function parseResidentialFlowDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  if (!match) return {};
+  const flowYear = Number(match[1]);
+  const flowMonth = Number(match[2]);
+  const flowDay = Number(match[3]);
+  const maxDay =
+    flowMonth === 2
+      ? flowYear % 4 === 0 && (flowYear % 100 !== 0 || flowYear % 400 === 0)
+        ? 29
+        : 28
+      : [4, 6, 9, 11].includes(flowMonth)
+        ? 30
+        : 31;
+  if (
+    !Number.isInteger(flowYear) ||
+    flowMonth < 1 ||
+    flowMonth > 12 ||
+    !Number.isInteger(flowDay) ||
+    flowDay < 1 ||
+    flowDay > maxDay
+  ) {
+    return {};
+  }
+  return { flowYear, flowMonth, flowDay };
+}
 
 function BaZhaiCompass({
   result,
@@ -105,12 +135,19 @@ function BaZhaiCompass({
 
 function XuanKongBoard({ xuankong }: { xuankong: XuanKongResult }) {
   const byGong = new Map(xuankong.palaces.map((item) => [item.gong, item]));
+  const targetPlate = xuankong.flowStars?.monthPlate ?? xuankong.flowStars?.yearPlate;
+  const targetDateLabel = targetPlate
+    ? `${targetPlate.year}年${targetPlate.month ? `${targetPlate.month}月` : ''}${
+        targetPlate.day ? `${targetPlate.day}日` : ''
+      }`
+    : '';
   return (
     <div className="result-side-card">
       <div className="result-side-head">
         <h3>玄空九宫盘</h3>
         <p>
           {xuankong.period.label} · 坐{xuankong.sitMountain}向{xuankong.facingMountain}
+          {targetDateLabel ? ` · 目标${targetDateLabel}` : ''}
         </p>
       </div>
       <div className="xuankong-grid" role="img" aria-label="玄空飞星九宫盘">
@@ -184,12 +221,28 @@ export function MetaphysicsPanel({
   birthData,
   initialFacingDegree = '',
   initialHouseYear = '',
+  initialFlowDate = '',
   onDirectionDegreeChange,
   onHouseYearChange,
+  onFlowDateChange,
   onResultChange,
 }: MetaphysicsPanelProps) {
   const [facingDegree, setFacingDegree] = useState(initialFacingDegree);
   const [houseYear, setHouseYear] = useState(initialHouseYear);
+  const [flowDate, setFlowDate] = useState(initialFlowDate);
+
+  useEffect(() => {
+    setFacingDegree(initialFacingDegree);
+  }, [initialFacingDegree]);
+
+  useEffect(() => {
+    setHouseYear(initialHouseYear);
+  }, [initialHouseYear]);
+
+  useEffect(() => {
+    setFlowDate(initialFlowDate);
+  }, [initialFlowDate]);
+
   const initialChart = useMemo(() => {
     try {
       if (!birthData && !initialFacingDegree.trim()) {
@@ -199,22 +252,18 @@ export function MetaphysicsPanel({
           error: '',
         };
       }
-      const next = calculateResidentialChart({
-        ...(birthData
-          ? {
-              year: birthData.year,
-              month: birthData.month,
-              day: birthData.day,
-              gender: birthData.gender,
-            }
-          : {}),
-        ...(initialHouseYear.trim() && Number.isInteger(Number(initialHouseYear))
-          ? { houseYear: Number(initialHouseYear) }
-          : {}),
-        ...(initialFacingDegree.trim()
-          ? { doorToInteriorDegree: Number(initialFacingDegree) }
-          : {}),
-      });
+      const next = calculateResidentialChart(
+        buildResidentialChartInput({
+          birthData,
+          ...(initialHouseYear.trim() && Number.isInteger(Number(initialHouseYear))
+            ? { houseYear: Number(initialHouseYear) }
+            : {}),
+          ...(initialFacingDegree.trim()
+            ? { doorToInteriorDegree: Number(initialFacingDegree) }
+            : {}),
+          ...parseResidentialFlowDate(initialFlowDate),
+        }),
+      );
       return { result: next.result, measurement: next.measurement, error: '' };
     } catch (currentError) {
       return {
@@ -223,7 +272,7 @@ export function MetaphysicsPanel({
         error: currentError instanceof Error ? currentError.message : '住宅风水排盘失败。',
       };
     }
-  }, [birthData, initialFacingDegree, initialHouseYear]);
+  }, [birthData, initialFacingDegree, initialFlowDate, initialHouseYear]);
   const [result, setResult] = useState<ResidentialFengshuiResult | null>(initialChart.result);
   const [measurement, setMeasurement] = useState<ResidentialMeasurement | null>(
     initialChart.measurement,
@@ -272,18 +321,14 @@ export function MetaphysicsPanel({
 
     const timer = window.setTimeout(() => {
       try {
-        const next = calculateResidentialChart({
-          ...(birthData
-            ? {
-                year: birthData.year,
-                month: birthData.month,
-                day: birthData.day,
-                gender: birthData.gender,
-              }
-            : {}),
-          ...(parsedHouseYear != null ? { houseYear: parsedHouseYear } : {}),
-          ...(facingDegree.trim() ? { doorToInteriorDegree: Number(facingDegree) } : {}),
-        });
+        const next = calculateResidentialChart(
+          buildResidentialChartInput({
+            birthData,
+            ...(parsedHouseYear != null ? { houseYear: parsedHouseYear } : {}),
+            ...(facingDegree.trim() ? { doorToInteriorDegree: Number(facingDegree) } : {}),
+            ...parseResidentialFlowDate(flowDate),
+          }),
+        );
         setResult(next.result);
         setMeasurement(next.measurement);
         setError('');
@@ -298,6 +343,7 @@ export function MetaphysicsPanel({
     boundaryMessage,
     directionPreview.error,
     facingDegree,
+    flowDate,
     onResultChange,
     parsedHouseYear,
   ]);
@@ -490,6 +536,27 @@ export function MetaphysicsPanel({
                   </span>
                 </div>
               )}
+            </div>
+            <div className="result-side-card bazhai-direction-card">
+              <div className="result-side-head">
+                <h3>住宅目标流运</h3>
+                <p>选择目标日期后，玄空盘会叠加对应流年与节气流月飞星。</p>
+              </div>
+              <label className="form-item" htmlFor="metaphysics-flow-date">
+                <span>目标流运日期</span>
+                <input
+                  id="metaphysics-flow-date"
+                  className="form-input"
+                  type="date"
+                  value={flowDate}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setFlowDate(value);
+                    onFlowDateChange?.(value);
+                  }}
+                />
+                <small className="birth-time-hint">默认按当前日期，可切换到历史或未来日期。</small>
+              </label>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import type { QueryInputState, QueryPromptState } from '@/lib/query-state';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
 import type { QimenLifetimeInput } from 'mingyu-core/types';
+import { buildResidentialCoreInput } from '@/lib/residential-fengshui-chart';
 
 /**
  * AI 自动补算时锁定的主体快照。模型只能改变目标时段、问题和解读范围，
@@ -141,6 +142,35 @@ function buildQizhengInputs(input: QueryInputState) {
   return result;
 }
 
+function buildResidentialInputs(input: QueryInputState, prompt: QueryPromptState) {
+  const birthYear = numberOrString(input.year);
+  const birthMonth = numberOrString(input.month);
+  const birthDay = numberOrString(input.day);
+  const hasBirth =
+    typeof birthYear === 'number' &&
+    typeof birthMonth === 'number' &&
+    typeof birthDay === 'number' &&
+    Number.isInteger(birthYear) &&
+    Number.isInteger(birthMonth) &&
+    Number.isInteger(birthDay);
+  const houseYear = numberOrString(prompt.residentialHouseYear);
+  const doorToInteriorDegree = numberOrString(prompt.bazhaiFacingDegree);
+  return buildResidentialCoreInput({
+    birthData: hasBirth
+      ? {
+          year: Number(birthYear),
+          month: Number(birthMonth),
+          day: Number(birthDay),
+          gender: input.gender,
+        }
+      : undefined,
+    ...(typeof houseYear === 'number' && Number.isInteger(houseYear) ? { houseYear } : {}),
+    ...(typeof doorToInteriorDegree === 'number' && Number.isFinite(doorToInteriorDegree)
+      ? { doorToInteriorDegree }
+      : {}),
+  });
+}
+
 export function buildQimenLifetimeInputs(input: QueryInputState): QimenLifetimeInput {
   let hour = 12;
   let minute = 0;
@@ -218,6 +248,10 @@ export function buildReadingSubject(
     lockedInputs['qimen-lifetime'] = { ...buildQimenLifetimeInputs(input) };
     allowedMethods.push('qimen-lifetime');
   }
+  if (prompt.promptSource === 'bazhai') {
+    lockedInputs.fengshui = buildResidentialInputs(input, prompt);
+    allowedMethods.push('fengshui');
+  }
 
   const range = {
     source: prompt.promptSource,
@@ -230,6 +264,9 @@ export function buildReadingSubject(
     ziweiScopeDate: prompt.ziweiScopeDate,
     astrolabeScope: prompt.astrolabeScope,
     astrolabeScopeDate: prompt.astrolabeScopeDate,
+    residentialFlowYear: prompt.residentialFlowYear,
+    residentialFlowMonth: prompt.residentialFlowMonth,
+    residentialFlowDay: prompt.residentialFlowDay,
   };
   const fingerprint = stableStringify({ source: prompt.promptSource, lockedInputs, range });
   return {

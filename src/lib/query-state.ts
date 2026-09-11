@@ -77,6 +77,9 @@ export type QueryPromptState = {
   astrolabeScopeDate: string;
   bazhaiFacingDegree: string;
   residentialHouseYear: string;
+  residentialFlowYear: string;
+  residentialFlowMonth: string;
+  residentialFlowDay: string;
 };
 
 const BAZI_FORTUNE_SCOPES: readonly BaziFortuneScope[] = [
@@ -198,6 +201,9 @@ export function createDefaultPromptState(now: Date = new Date()): QueryPromptSta
     astrolabeScopeDate: getDefaultAstrolabeScopeDate('yearly', now),
     bazhaiFacingDegree: '',
     residentialHouseYear: '',
+    residentialFlowYear: getDefaultAstrolabeScopeDate('yearly', now),
+    residentialFlowMonth: getDefaultAstrolabeScopeDate('monthly', now).slice(5),
+    residentialFlowDay: getDefaultAstrolabeScopeDate('daily', now).slice(8),
   };
 }
 
@@ -287,6 +293,9 @@ const PROMPT_PARAM_KEYS: Record<keyof QueryPromptState, string> = {
   astrolabeScopeDate: 'asd',
   bazhaiFacingDegree: 'bhd',
   residentialHouseYear: 'rhy',
+  residentialFlowYear: 'rfy',
+  residentialFlowMonth: 'rfm',
+  residentialFlowDay: 'rfd',
 };
 
 const PARAM_KEY_ALIASES: Record<string, string> = {
@@ -518,6 +527,25 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
     prompt.residentialHouseYear,
     defaultPromptState.residentialHouseYear,
   );
+  const persistResidentialFlow = prompt.promptSource === 'bazhai' || prompt.tab === 'bazhai';
+  setCompactParam(
+    params,
+    'residentialFlowYear',
+    prompt.residentialFlowYear,
+    persistResidentialFlow ? '' : defaultPromptState.residentialFlowYear,
+  );
+  setCompactParam(
+    params,
+    'residentialFlowMonth',
+    prompt.residentialFlowMonth,
+    persistResidentialFlow ? '' : defaultPromptState.residentialFlowMonth,
+  );
+  setCompactParam(
+    params,
+    'residentialFlowDay',
+    prompt.residentialFlowDay,
+    persistResidentialFlow ? '' : defaultPromptState.residentialFlowDay,
+  );
 }
 
 function getString(params: URLSearchParams, key: string, fallback: string) {
@@ -720,6 +748,26 @@ function normalizeAstrolabeScopeDate(scope: AstrolabeScopeMode, dateStr: string)
   return parseScopeDateParts(dateStr) ? dateStr : '';
 }
 
+function normalizeResidentialFlowDate(yearText: string, monthText: string, dayText: string) {
+  const year = parseIntegerText(yearText, 1, 9999);
+  if (!year) return { year: '', month: '', day: '' };
+  const month = parseIntegerText(monthText, 1, 12);
+  if (!month) return { year, month: '', day: '' };
+  const day = parseIntegerText(dayText, 1, 31);
+  if (!day) return { year, month, day: '' };
+  const numericYear = Number(year);
+  const numericMonth = Number(month);
+  const maxDay =
+    numericMonth === 2
+      ? numericYear % 4 === 0 && (numericYear % 100 !== 0 || numericYear % 400 === 0)
+        ? 29
+        : 28
+      : [4, 6, 9, 11].includes(numericMonth)
+        ? 30
+        : 31;
+  return Number(day) <= maxDay ? { year, month, day } : { year, month, day: '' };
+}
+
 function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
   const normalized: QueryPromptState = { ...prompt };
 
@@ -743,6 +791,15 @@ function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
   if (normalized.astrolabeScope !== 'natal' && !normalized.astrolabeScopeDate) {
     normalized.astrolabeScope = 'natal';
   }
+
+  const residentialFlowDate = normalizeResidentialFlowDate(
+    normalized.residentialFlowYear,
+    normalized.residentialFlowMonth,
+    normalized.residentialFlowDay,
+  );
+  normalized.residentialFlowYear = residentialFlowDate.year;
+  normalized.residentialFlowMonth = residentialFlowDate.month;
+  normalized.residentialFlowDay = residentialFlowDate.day;
 
   if (normalized.baziFortuneScope === 'natal' || normalized.baziFortuneScope === 'full') {
     normalized.baziFortuneCycleIndex = '';
@@ -966,6 +1023,21 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
       getString(params, 'residentialHouseYear', defaultPromptState.residentialHouseYear),
       1,
       9999,
+    ),
+    residentialFlowYear: getString(
+      params,
+      'residentialFlowYear',
+      currentDefaultPromptState.residentialFlowYear,
+    ),
+    residentialFlowMonth: getString(
+      params,
+      'residentialFlowMonth',
+      currentDefaultPromptState.residentialFlowMonth,
+    ),
+    residentialFlowDay: getString(
+      params,
+      'residentialFlowDay',
+      currentDefaultPromptState.residentialFlowDay,
     ),
   });
 }

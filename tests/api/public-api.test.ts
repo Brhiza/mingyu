@@ -5926,6 +5926,9 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
       gender: 'male',
       year: 2024,
       doorToInteriorDegree: 0,
+      flowYear: 2026,
+      flowMonth: 2,
+      flowDay: 10,
       responseMode: 'full',
       question: '这套房怎么看？',
     }),
@@ -5936,6 +5939,9 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
   assert.equal(body.data.result.key, 'residential-fengshui');
   assert.ok(body.data.result.bazhai);
   assert.ok(body.data.result.xuankong);
+  assert.equal(body.data.result.xuankong.flowStars.monthPlate.year, 2026);
+  assert.equal(body.data.result.xuankong.flowStars.monthPlate.month, 2);
+  assert.equal(body.data.result.xuankong.flowStars.monthPlate.day, 10);
   for (const palace of body.data.result.bazhai.mingPalace) {
     const line = body.data.prompt
       .split('\n')
@@ -5944,7 +5950,45 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
   }
   assert.match(body.data.prompt, /【住宅风水排盘】/);
   assert.match(body.data.prompt, /【传统依据】/);
+  assert.match(body.data.prompt, /流年飞星/);
+  assert.match(body.data.prompt, /流月飞星/);
   assert.match(body.data.prompt, /这套房怎么看？/);
+});
+
+test('住宅与玄空公开接口使用专用流运请求 schema', async () => {
+  const { response, body } = await callApi('openapi.json');
+
+  assert.equal(response.status, 200);
+  const paths = body.data.paths;
+  assert.equal(
+    paths['/metaphysics/residential/calculate'].post.requestBody.content['application/json'].schema
+      .$ref,
+    '#/components/schemas/ResidentialFengshuiRequest',
+  );
+  assert.equal(
+    paths['/metaphysics/residential/prompt'].post.requestBody.content['application/json'].schema
+      .$ref,
+    '#/components/schemas/ResidentialFengshuiPromptRequest',
+  );
+  assert.equal(
+    paths['/metaphysics/xuankong/calculate'].post.requestBody.content['application/json'].schema
+      .$ref,
+    '#/components/schemas/XuanKongRequest',
+  );
+  assert.equal(
+    paths['/metaphysics/xuankong/prompt'].post.requestBody.content['application/json'].schema.$ref,
+    '#/components/schemas/XuanKongPromptRequest',
+  );
+  for (const schemaName of ['ResidentialFengshuiRequest', 'XuanKongRequest'] as const) {
+    const schema = body.data.components.schemas[schemaName];
+    assert.ok(schema.properties.flowYear);
+    assert.ok(schema.properties.flowMonth);
+    assert.ok(schema.properties.flowDay);
+  }
+  assert.deepEqual(
+    body.data.components.schemas.ResidentialFengshuiPromptRequest.allOf[1].required,
+    ['question'],
+  );
 });
 
 test('公开 API 住宅风水缺建造或起运年时不得静默生成玄空盘', async () => {

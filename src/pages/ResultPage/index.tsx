@@ -96,6 +96,7 @@ import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
 import {
+  buildResidentialChartInput,
   calculateResidentialChart,
   type ResidentialMeasurement,
 } from '@/lib/residential-fengshui-chart';
@@ -699,25 +700,31 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       setResidentialMeasurement(null);
       return;
     }
-    if (residentialResult) return;
     try {
       const houseYear = promptState.residentialHouseYear
         ? Number(promptState.residentialHouseYear)
         : undefined;
-      const next = calculateResidentialChart({
-        ...(residentialBirthData
-          ? {
-              year: residentialBirthData.year,
-              month: residentialBirthData.month,
-              day: residentialBirthData.day,
-              gender: residentialBirthData.gender,
-            }
-          : {}),
-        ...(houseYear != null && Number.isFinite(houseYear) ? { houseYear } : {}),
-        ...(promptState.bazhaiFacingDegree
-          ? { doorToInteriorDegree: Number(promptState.bazhaiFacingDegree) }
-          : {}),
-      });
+      const flowYear = promptState.residentialFlowYear
+        ? Number(promptState.residentialFlowYear)
+        : undefined;
+      const flowMonth = promptState.residentialFlowMonth
+        ? Number(promptState.residentialFlowMonth)
+        : undefined;
+      const flowDay = promptState.residentialFlowDay
+        ? Number(promptState.residentialFlowDay)
+        : undefined;
+      const next = calculateResidentialChart(
+        buildResidentialChartInput({
+          birthData: residentialBirthData,
+          ...(houseYear != null && Number.isFinite(houseYear) ? { houseYear } : {}),
+          ...(promptState.bazhaiFacingDegree
+            ? { doorToInteriorDegree: Number(promptState.bazhaiFacingDegree) }
+            : {}),
+          ...(flowYear != null && Number.isFinite(flowYear) ? { flowYear } : {}),
+          ...(flowMonth != null && Number.isFinite(flowMonth) ? { flowMonth } : {}),
+          ...(flowDay != null && Number.isFinite(flowDay) ? { flowDay } : {}),
+        }),
+      );
       setResidentialResult(next.result);
       setResidentialMeasurement(next.measurement);
     } catch {
@@ -726,9 +733,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
   }, [
     canUseResidentialFengshui,
     promptState.bazhaiFacingDegree,
+    promptState.residentialFlowDay,
+    promptState.residentialFlowMonth,
+    promptState.residentialFlowYear,
     promptState.residentialHouseYear,
     residentialBirthData,
-    residentialResult,
   ]);
 
   const handleBazhaiResultChange = useCallback(
@@ -753,6 +762,28 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       }
     },
     [promptState.residentialHouseYear, updatePromptState],
+  );
+  const residentialFlowDate = useMemo(() => {
+    const year = promptState.residentialFlowYear;
+    const month = promptState.residentialFlowMonth;
+    const day = promptState.residentialFlowDay;
+    if (!year || !month || !day) return '';
+    return `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }, [
+    promptState.residentialFlowDay,
+    promptState.residentialFlowMonth,
+    promptState.residentialFlowYear,
+  ]);
+  const handleResidentialFlowDateChange = useCallback(
+    (value: string) => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+      updatePromptState({
+        residentialFlowYear: match?.[1] ?? '',
+        residentialFlowMonth: match?.[2] ?? '',
+        residentialFlowDay: match?.[3] ?? '',
+      });
+    },
+    [updatePromptState],
   );
 
   useEffect(() => {
@@ -2493,8 +2524,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 embedded
                 initialFacingDegree={promptState.bazhaiFacingDegree}
                 initialHouseYear={promptState.residentialHouseYear}
+                initialFlowDate={residentialFlowDate}
                 onDirectionDegreeChange={handleBazhaiDirectionDegreeChange}
                 onHouseYearChange={handleResidentialHouseYearChange}
+                onFlowDateChange={handleResidentialFlowDateChange}
                 onResultChange={handleBazhaiResultChange}
               />
             </Suspense>

@@ -25,7 +25,63 @@ export type ResidentialChartInput = {
   facingMountain?: string;
   facingDegree?: number;
   sitDegree?: number;
+  mingGua?: string;
+  northReference?: ResidentialFengshuiInput['northReference'];
+  magneticDeclinationDegrees?: number;
+  measurementUncertaintyDegrees?: number;
+  flowYear?: number;
+  flowMonth?: number;
+  flowDay?: number;
 };
+
+export type ResidentialBirthData = Pick<ResidentialChartInput, 'year' | 'month' | 'day' | 'gender'>;
+
+/** 将网页或主体快照中的住宅资料统一整理为核心住宅输入。 */
+export function buildResidentialChartInput(params: {
+  birthData?: ResidentialBirthData | null;
+  houseYear?: number;
+  doorToInteriorDegree?: number;
+  sitMountain?: string;
+  facingMountain?: string;
+  facingDegree?: number;
+  sitDegree?: number;
+  mingGua?: string;
+  northReference?: ResidentialFengshuiInput['northReference'];
+  magneticDeclinationDegrees?: number;
+  measurementUncertaintyDegrees?: number;
+  flowYear?: number;
+  flowMonth?: number;
+  flowDay?: number;
+}): ResidentialChartInput {
+  return {
+    ...(params.birthData ?? {}),
+    ...(params.houseYear != null ? { houseYear: params.houseYear } : {}),
+    ...(params.doorToInteriorDegree != null
+      ? { doorToInteriorDegree: params.doorToInteriorDegree }
+      : {}),
+    ...(params.sitMountain ? { sitMountain: params.sitMountain } : {}),
+    ...(params.facingMountain ? { facingMountain: params.facingMountain } : {}),
+    ...(params.facingDegree != null ? { facingDegree: params.facingDegree } : {}),
+    ...(params.sitDegree != null ? { sitDegree: params.sitDegree } : {}),
+    ...(params.mingGua ? { mingGua: params.mingGua } : {}),
+    ...(params.northReference ? { northReference: params.northReference } : {}),
+    ...(params.magneticDeclinationDegrees != null
+      ? { magneticDeclinationDegrees: params.magneticDeclinationDegrees }
+      : {}),
+    ...(params.measurementUncertaintyDegrees != null
+      ? { measurementUncertaintyDegrees: params.measurementUncertaintyDegrees }
+      : {}),
+    ...(params.flowYear != null ? { flowYear: params.flowYear } : {}),
+    ...(params.flowMonth != null ? { flowMonth: params.flowMonth } : {}),
+    ...(params.flowDay != null ? { flowDay: params.flowDay } : {}),
+  };
+}
+
+export function buildResidentialCoreInput(
+  params: Parameters<typeof buildResidentialChartInput>[0],
+) {
+  return toCoreInput(buildResidentialChartInput(params));
+}
 
 export function resolveResidentialDoorDirection(measuredDegree: number): SitFacingPosition {
   return getBaZhaiSitFacingFromDoorDegree(measuredDegree);
@@ -45,6 +101,17 @@ function toCoreInput(input: ResidentialChartInput): ResidentialFengshuiInput {
     ...(input.facingMountain ? { facingMountain: input.facingMountain } : {}),
     ...(input.facingDegree != null ? { facingDegree: input.facingDegree } : {}),
     ...(input.sitDegree != null ? { sitDegree: input.sitDegree } : {}),
+    ...(input.mingGua ? { mingGua: input.mingGua } : {}),
+    ...(input.northReference ? { northReference: input.northReference } : {}),
+    ...(input.magneticDeclinationDegrees != null
+      ? { magneticDeclinationDegrees: input.magneticDeclinationDegrees }
+      : {}),
+    ...(input.measurementUncertaintyDegrees != null
+      ? { measurementUncertaintyDegrees: input.measurementUncertaintyDegrees }
+      : {}),
+    ...(input.flowYear != null ? { flowYear: input.flowYear } : {}),
+    ...(input.flowMonth != null ? { flowMonth: input.flowMonth } : {}),
+    ...(input.flowDay != null ? { flowDay: input.flowDay } : {}),
   };
 }
 

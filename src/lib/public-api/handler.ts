@@ -1112,28 +1112,30 @@ export function getPublicApiOpenApiDocument(
       '/metaphysics/xuankong/calculate': {
         post: {
           summary: '玄空飞星排盘',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/XuanKongRequest'),
           responses: { '200': { description: '运盘、山盘、向盘与到山到向证据' } },
         },
       },
       '/metaphysics/xuankong/prompt': {
         post: {
           summary: '玄空飞星排盘并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/XuanKongPromptRequest'),
           responses: { '200': { description: '玄空飞星盘与结构化提示词' } },
         },
       },
       '/metaphysics/residential/calculate': {
         post: {
           summary: '住宅风水排盘',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody('#/components/schemas/ResidentialFengshuiRequest'),
           responses: { '200': { description: '八宅与玄空分层合参结果' } },
         },
       },
       '/metaphysics/residential/prompt': {
         post: {
           summary: '住宅风水排盘并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          requestBody: openApiJsonRequestBody(
+            '#/components/schemas/ResidentialFengshuiPromptRequest',
+          ),
           responses: { '200': { description: '住宅风水合参结果与结构化提示词' } },
         },
       },
@@ -1696,6 +1698,205 @@ export function getPublicApiOpenApiDocument(
             schools: DIVINATION_REQUEST_PROPERTIES.schools,
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
+        },
+        ResidentialFengshuiRequest: {
+          type: 'object',
+          description:
+            '住宅风水输入。出生资料、建造或起运年、山向和测量口径属于住宅主体；flowYear/flowMonth/flowDay 只叠加指定目标时段的玄空飞星。',
+          properties: {
+            year: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '住宅建造年或起运年；有山向时用于排玄空宅运盘。',
+            },
+            birthYear: {
+              type: 'integer',
+              minimum: 1900,
+              maximum: 2100,
+              description: '居住人出生公历年份；与 gender 一起推命卦。',
+            },
+            birthMonth: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 12,
+              description: '居住人出生公历月份。',
+            },
+            birthDay: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 31,
+              description: '居住人出生公历日期。',
+            },
+            gender: { enum: ['male', 'female'], description: '居住人性别。' },
+            mingGua: {
+              type: 'string',
+              description: '直接给定命卦：坎、坤、震、巽、乾、兑、艮或离。',
+            },
+            sitMountain: { type: 'string', description: '坐山，二十四山之一。' },
+            facingMountain: { type: 'string', description: '朝向，二十四山之一。' },
+            facingDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '朝向度数，正北 0°。',
+            },
+            sitDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '坐山度数，正北 0°。',
+            },
+            doorToInteriorDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '站在大门处面向屋内的指南针读数。',
+            },
+            northReference: {
+              enum: ['unspecified', 'magnetic', 'true'],
+              description: '门向读数的北向基准。',
+            },
+            magneticDeclinationDegrees: {
+              type: 'number',
+              minimum: -30,
+              maximum: 30,
+              description: '磁偏角；northReference 为 magnetic 时使用，东偏为正。',
+            },
+            measurementUncertaintyDegrees: {
+              type: 'number',
+              minimum: 0,
+              maximum: 45,
+              description: '坐向测量可能误差。',
+            },
+            guaType: { enum: ['下卦'], description: '玄空局型口径；当前统一入口为下卦。' },
+            flowYear: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '目标流年公元年；不传则只返回静态宅盘。',
+            },
+            flowMonth: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 12,
+              description: '目标流月公历月；须同时提供 flowYear。',
+            },
+            flowDay: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 31,
+              description:
+                '目标流月日期；用于确定该日所属节气月，须同时提供 flowYear 与 flowMonth。',
+            },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+          },
+        },
+        ResidentialFengshuiPromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/ResidentialFengshuiRequest' },
+            {
+              type: 'object',
+              required: ['question'],
+              properties: {
+                question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+                topicId: { type: 'string', description: '统一解读主题 ID。' },
+                subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+                scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
+                promptScope: { enum: [...PROMPT_SCOPE_IDS], description: '住宅资料分析范围。' },
+                promptMode: { enum: [...PROMPT_MODES] },
+                schools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...getPromptSchoolIds('residential')] },
+                  description: '住宅风水解读口径。',
+                },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+              },
+            },
+          ],
+        },
+        XuanKongRequest: {
+          type: 'object',
+          required: ['year'],
+          description:
+            '玄空飞星输入。year 与山向属于宅盘主体；flowYear/flowMonth/flowDay 只叠加指定目标时段飞星。',
+          properties: {
+            year: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '住宅建造年或起运年。',
+            },
+            sitMountain: { type: 'string', description: '坐山，二十四山之一。' },
+            facingMountain: { type: 'string', description: '朝向，二十四山之一。' },
+            facingDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '朝向度数，正北 0°。',
+            },
+            sitDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '坐山度数，正北 0°。',
+            },
+            measurementUncertaintyDegrees: {
+              type: 'number',
+              minimum: 0,
+              maximum: 45,
+              description: '坐向测量可能误差。',
+            },
+            guaType: { enum: ['下卦'], description: '当前玄空接口只支持下卦。' },
+            flowYear: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 9999,
+              description: '目标流年公元年；不传则只返回静态宅盘。',
+            },
+            flowMonth: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 12,
+              description: '目标流月公历月；须同时提供 flowYear。',
+            },
+            flowDay: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 31,
+              description: '目标流月日期；用于确定节气月，须同时提供 flowYear 与 flowMonth。',
+            },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+          },
+        },
+        XuanKongPromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/XuanKongRequest' },
+            {
+              type: 'object',
+              required: ['question'],
+              properties: {
+                question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+                topicId: { type: 'string', description: '统一解读主题 ID。' },
+                subtopicId: { type: 'string', description: '统一解读主题细项 ID。' },
+                scope: { enum: [...PROMPT_SCOPE_IDS], description: '统一分析范围。' },
+                promptScope: { enum: [...PROMPT_SCOPE_IDS], description: '玄空资料分析范围。' },
+                promptMode: { enum: [...PROMPT_MODES] },
+                schools: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 3,
+                  uniqueItems: true,
+                  items: { enum: [...getPromptSchoolIds('xuankong')] },
+                  description: '玄空风水解读口径。',
+                },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+              },
+            },
+          ],
         },
         QizhengRequest: {
           type: 'object',

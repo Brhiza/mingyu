@@ -44,4 +44,5 @@ export const READING_CALCULATION_ROUTES: Record<string, string> = {
   astrolabe: '/divination/astrolabe/prompt',
   'qi-zheng': '/metaphysics/qizheng/prompt',
   'qimen-lifetime': '/divination/qimen/lifetime/prompt',
+  fengshui: '/metaphysics/residential/prompt',
 };

@@ -66,10 +66,10 @@
 | `astrolabe_synastry_prompt` | 西占双盘提示词 | 生成西占双人关系比较盘自包含提示词；支持统一主题、主题细项和分析范围选择 |
 | `metaphysics_bazhai` | 八宅风水排盘 | 居者生年命卦、宅卦大游年与门主灶九星相配 |
 | `bazhai_prompt` | 八宅风水提示词 | 生成八宅方位吉凶与布局调谐自包含提示词；支持统一主题、主题细项和分析范围选择 |
-| `metaphysics_xuankong` | 玄空飞星排盘 | 三元九运山向运星排盘、反伏吟与城门诀计算 |
-| `xuankong_prompt` | 玄空飞星提示词 | 生成玄空飞星山向旺衰与城门气口自包含提示词；支持统一主题、主题细项和分析范围选择 |
-| `metaphysics_residential` | 住宅风水合参排盘 | 综合八宅生年命卦与玄空飞星九运的住宅风水合参 |
-| `residential_prompt` | 住宅风水合参提示词 | 生成住宅风水八宅玄空综合评估自包含提示词；支持统一主题、主题细项和分析范围选择 |
+| `metaphysics_xuankong` | 玄空飞星排盘 | 三元九运山向运星排盘、反伏吟与城门诀计算；可按目标流年、流月日期叠加飞星 |
+| `xuankong_prompt` | 玄空飞星提示词 | 生成玄空飞星山向旺衰与城门气口自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择 |
+| `metaphysics_residential` | 住宅风水合参排盘 | 综合八宅生年命卦与玄空飞星九运的住宅风水合参；可按目标流年、流月日期叠加飞星 |
+| `residential_prompt` | 住宅风水合参提示词 | 生成住宅风水八宅玄空综合评估自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择 |
 | `metaphysics_zodiac` | 生肖流年关系 | 分析生肖与流年太岁刑冲克害破、三合六合关系 |
 | `zodiac_prompt` | 生肖流年提示词 | 生成生肖与岁星作用自包含提示词；支持统一主题、主题细项和分析范围选择 |
 | `metaphysics_taiyi` | 太乙神数式盘 | 太乙神数年月日时四计七十二局式盘与主客和数算分析 |
@@ -245,6 +245,10 @@ pnpm mcp
 ### 星盘行运提示词参数
 
 `astrolabe_prompt` 未指定 `astrolabeScope` 时默认使用当前年度 `yearly` 行运，并按项目统一时区生成当前年份；需要固定回归日期时传入 `astrolabeScope: "yearly"` 和 `astrolabeScopeDate: "YYYY"`。显式指定 `yearly`、`monthly`、`daily` 范围时分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`。`full` 也必须传 `YYYY-MM-DD` 基准日，用于生成同一基准下的本命、流年、流月和流日资料；它覆盖一个参考日的四层资料，不表示全生命周期。
+
+### 住宅风水流运提示词参数
+
+`residential_prompt` 与 `metaphysics_residential` 先锁定住宅主体资料：`year` 为建造或起运年，出生资料、命卦、山向、实测度数、北向基准、磁偏角和测量误差用于形成同一住宅盘。可选 `flowYear` 叠加目标流年飞星；再传 `flowMonth` 和 `flowDay` 时按目标日期所属节气月生成流月飞星。未传目标流运字段时只返回宅盘与八宅人宅资料，不把静态宅盘称作流运。
 
 ### 起卦与排盘时间参数
 

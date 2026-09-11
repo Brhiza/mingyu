@@ -207,6 +207,37 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
     ],
     mutable: ['periodRange', 'topics', 'question'],
   },
+  fengshui: {
+    immutable: [
+      'year',
+      'birthYear',
+      'birthMonth',
+      'birthDay',
+      'gender',
+      'mingGua',
+      'sitMountain',
+      'facingMountain',
+      'facingDegree',
+      'sitDegree',
+      'doorToInteriorDegree',
+      'northReference',
+      'magneticDeclinationDegrees',
+      'measurementUncertaintyDegrees',
+      'guaType',
+    ],
+    mutable: [
+      'flowYear',
+      'flowMonth',
+      'flowDay',
+      'question',
+      'topicId',
+      'subtopicId',
+      'scope',
+      'promptScope',
+      'promptMode',
+      'schools',
+    ],
+  },
 };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -904,6 +935,118 @@ function assertQimenLifetimeResult(
   }
 }
 
+function assertResidentialResult(
+  data: Record<string, unknown>,
+  locked: Record<string, unknown>,
+  calculationInput: Record<string, unknown>,
+) {
+  const result = data.result;
+  if (!record(result) || result.key !== 'residential-fengshui') {
+    throw new Error('补算未返回结构化住宅风水结果。');
+  }
+  const inputSummary = result.inputSummary;
+  if (!record(inputSummary)) throw new Error('补算返回缺少住宅风水计算摘要。');
+
+  if (locked.year !== undefined) {
+    assertStructuredField('fengshui.inputSummary.houseYear', locked.year, inputSummary.houseYear);
+  }
+
+  const bazhai = result.bazhai;
+  if (record(bazhai)) {
+    const bazhaiInput = bazhai.calculationInput;
+    if (!record(bazhaiInput)) throw new Error('补算返回缺少八宅实际输入资料。');
+    for (const field of ['birthYear', 'birthMonth', 'birthDay', 'gender']) {
+      assertStructuredField(`fengshui.bazhai.${field}`, locked[field], bazhaiInput[field]);
+    }
+    if (locked.mingGua !== undefined) {
+      assertStructuredField('fengshui.bazhai.mingGua', locked.mingGua, bazhai.mingGua);
+    }
+    const directionMeasurement = bazhai.directionMeasurement;
+    if (record(directionMeasurement)) {
+      for (const field of [
+        'doorToInteriorDegree',
+        'northReference',
+        'magneticDeclinationDegrees',
+        'measurementUncertaintyDegrees',
+      ]) {
+        const actualField = field === 'doorToInteriorDegree' ? 'measuredDegree' : field;
+        assertStructuredField(
+          `fengshui.bazhai.directionMeasurement.${actualField}`,
+          locked[field],
+          directionMeasurement[actualField],
+        );
+      }
+    } else if (locked.doorToInteriorDegree !== undefined) {
+      throw new Error('补算返回缺少八宅实际方向测量资料。');
+    }
+  }
+
+  const xuankong = result.xuankong;
+  if (record(xuankong)) {
+    const engine = xuankong.engine;
+    if (locked.guaType !== undefined && record(engine)) {
+      assertStructuredField('fengshui.xuankong.engine.mode', locked.guaType, engine.mode);
+    }
+    if (locked.sitMountain !== undefined) {
+      assertStructuredField(
+        'fengshui.xuankong.sitMountain',
+        locked.sitMountain,
+        xuankong.sitMountain,
+      );
+    }
+    if (locked.facingMountain !== undefined) {
+      assertStructuredField(
+        'fengshui.xuankong.facingMountain',
+        locked.facingMountain,
+        xuankong.facingMountain,
+      );
+    }
+    const measurement = xuankong.measurement;
+    if (record(measurement)) {
+      for (const field of ['facingDegree', 'sitDegree']) {
+        assertStructuredField(
+          `fengshui.xuankong.measurement.${field}`,
+          locked[field],
+          measurement[field],
+        );
+      }
+    }
+  }
+
+  const flowFields = ['flowYear', 'flowMonth', 'flowDay'];
+  if (flowFields.some((field) => calculationInput[field] !== undefined)) {
+    if (!record(xuankong)) throw new Error('补算返回缺少住宅玄空流运结果。');
+    const flowStars = xuankong.flowStars;
+    if (!record(flowStars) || !record(flowStars.yearPlate)) {
+      throw new Error('补算返回缺少住宅玄空实际流年资料。');
+    }
+    const year = calculationInput.flowYear;
+    if (year !== undefined && calculationInput.flowMonth === undefined) {
+      assertStructuredField('fengshui.flowYear', year, flowStars.yearPlate.year);
+    }
+    if (calculationInput.flowMonth !== undefined) {
+      const monthPlate = flowStars.monthPlate;
+      if (!record(monthPlate)) throw new Error('补算返回缺少住宅玄空实际流月资料。');
+      assertStructuredField('fengshui.flowYear', year, monthPlate.year);
+      assertStructuredField('fengshui.flowMonth', calculationInput.flowMonth, monthPlate.month);
+      assertStructuredField('fengshui.flowDay', calculationInput.flowDay, monthPlate.day);
+    }
+    const palaces = xuankong.palaces;
+    if (
+      !Array.isArray(palaces) ||
+      !palaces.some((palace) => record(palace) && typeof palace.yearStar === 'number')
+    ) {
+      throw new Error('补算返回缺少住宅玄空逐宫流年飞星。');
+    }
+    if (
+      calculationInput.flowMonth !== undefined &&
+      !palaces.some((palace) => record(palace) && typeof palace.monthStar === 'number')
+    ) {
+      throw new Error('补算返回缺少住宅玄空逐宫流月飞星。');
+    }
+  }
+}
+
 function verifyStructuredCalculation(
   method: string,
   data: Record<string, unknown>,
@@ -918,6 +1061,8 @@ function verifyStructuredCalculation(
     assertQizhengResult(data, locked, calculationInput);
   } else if (method === 'qimen-lifetime') {
     assertQimenLifetimeResult(data, locked, calculationInput);
+  } else if (method === 'fengshui') {
+    assertResidentialResult(data, locked, calculationInput);
   }
 }
 
@@ -940,6 +1085,7 @@ function buildCalculationResourceTitle(
     astrolabe: '星盘',
     'qi-zheng': '七政',
     'qimen-lifetime': '奇门终身局',
+    fengshui: '住宅风水',
   };
   let range = '';
   const result = record(data.result) ? data.result : undefined;
@@ -968,6 +1114,14 @@ function buildCalculationResourceTitle(
     if (periodRange) {
       range = `${String(periodRange.startDate)}至${String(periodRange.endDate)}`;
     }
+  } else if (method === 'fengshui') {
+    const year = calculationInput.flowYear;
+    const month = calculationInput.flowMonth;
+    const day = calculationInput.flowDay;
+    if (typeof year === 'number' || typeof year === 'string') range = `${year}年`;
+    if (typeof month === 'number' || typeof month === 'string')
+      range += `${range ? ' ' : ''}${month}月`;
+    if (typeof day === 'number' || typeof day === 'string') range += `${range ? ' ' : ''}${day}日`;
   }
   return `${subjectName}·${methodName[method] ?? method}${range}`;
 }
@@ -1038,6 +1192,15 @@ function prepareCalculationInput(
     if (!Object.hasOwn(locked, key)) throw new Error(`补算主体快照缺少不可变参数：${key}。`);
     if (stableComparable(value) !== stableComparable(locked[key]))
       throw new Error(`补算主体与当前命盘不一致：${key}。`);
+  }
+
+  if (method === 'fengshui') {
+    if (result.flowMonth !== undefined && result.flowYear === undefined) {
+      throw new Error('住宅流月补算必须同时提供 flowYear。');
+    }
+    if (result.flowDay !== undefined && result.flowMonth === undefined) {
+      throw new Error('住宅流日补算必须同时提供 flowMonth。');
+    }
   }
 
   return result;

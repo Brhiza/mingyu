@@ -43,6 +43,21 @@ const cases: Array<[string, string, Record<string, unknown>]> = [
     { year: 2024, facingDegree: 180, flowYear: 2026, flowMonth: 2, flowDay: 4 },
   ],
   [
+    '住宅指定流年流月日期',
+    'metaphysics_residential',
+    {
+      birthYear: 1990,
+      birthMonth: 5,
+      birthDay: 15,
+      gender: 'male',
+      year: 2024,
+      doorToInteriorDegree: 0,
+      flowYear: 2026,
+      flowMonth: 2,
+      flowDay: 10,
+    },
+  ],
+  [
     '七政历史时区与目标流年',
     'metaphysics_qizheng',
     {

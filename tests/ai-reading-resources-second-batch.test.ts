@@ -614,12 +614,25 @@ test('schema 动作只暴露各术式可修改字段并清理公共 OpenAPI 引�
         'promptMode',
         'schools',
       ],
+      fengshui: [
+        'flowYear',
+        'flowMonth',
+        'flowDay',
+        'question',
+        'topicId',
+        'subtopicId',
+        'scope',
+        'promptScope',
+        'promptMode',
+        'schools',
+      ],
     };
     const expectedRequired: Record<string, string[]> = {
       bazi: ['question'],
       ziwei: ['question'],
       astrolabe: [],
       'qi-zheng': [],
+      fengshui: ['question'],
     };
     const forbiddenProperties = new Set([
       'gender',

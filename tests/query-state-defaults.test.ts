@@ -548,6 +548,43 @@ test('八宅入户方向缓存应拒绝越界度数', () => {
   );
 });
 
+test('住宅目标流运日期会随结果地址保存并从地址栏恢复', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...createDefaultPromptState(new Date('2026-09-11T23:30:00-07:00')),
+    tab: 'bazhai',
+    promptSource: 'bazhai',
+    residentialFlowYear: '2026',
+    residentialFlowMonth: '2',
+    residentialFlowDay: '10',
+  });
+
+  assert.match(search, /ps=bazhai/);
+  assert.match(search, /rfy=2026/);
+  assert.match(search, /rfm=2/);
+  assert.match(search, /rfd=10/);
+
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.promptSource, 'bazhai');
+  assert.equal(parsed.residentialFlowYear, '2026');
+  assert.equal(parsed.residentialFlowMonth, '2');
+  assert.equal(parsed.residentialFlowDay, '10');
+});
+
+test('住宅目标流运日期非法时应清空不完整日期', () => {
+  const parsed = parsePromptState(
+    new URLSearchParams({
+      promptSource: 'bazhai',
+      residentialFlowYear: '2026',
+      residentialFlowMonth: '2',
+      residentialFlowDay: '31',
+    }),
+  );
+
+  assert.equal(parsed.residentialFlowYear, '2026');
+  assert.equal(parsed.residentialFlowMonth, '2');
+  assert.equal(parsed.residentialFlowDay, '');
+});
+
 test('星盘提示词范围日期应按范围校验并清空非法日期', () => {
   assert.equal(
     parsePromptState(new URLSearchParams({ astrolabeScope: 'yearly', astrolabeScopeDate: '2028' }))

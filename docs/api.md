@@ -90,8 +90,8 @@
 | `POST /divination/astrolabe/synastry/prompt`  | 西占双盘计算并生成证据提示词                                   |
 | `POST /metaphysics/bazhai/calculate`          | 八宅命卦、宅卦、测量候选及命宅逐方结构化证据                   |
 | `POST /metaphysics/bazhai/prompt`             | 八宅排盘并生成含测量和现实边界的 AI 解读提示词                 |
-| `POST /metaphysics/residential/calculate`     | 住宅风水：八宅与玄空飞星分层合参结果                           |
-| `POST /metaphysics/residential/prompt`        | 住宅风水合参并生成 AI 解读提示词                               |
+| `POST /metaphysics/residential/calculate`     | 住宅风水：八宅与玄空飞星分层合参结果；可带目标流年、流月日期 |
+| `POST /metaphysics/residential/prompt`        | 住宅风水合参并生成 AI 解读提示词；可带目标流年、流月日期     |
 | `POST /metaphysics/zodiac/calculate`          | 生肖与流年值冲刑害破、三合六合及结构化关系证据                 |
 | `POST /metaphysics/zodiac/prompt`             | 生肖流年关系排盘并生成含信息量限制的 AI 解读提示词             |
 | `POST /metaphysics/taiyi/calculate`           | 太乙神数排盘                                                   |
@@ -149,14 +149,14 @@
 | 牌面灵感、关系牌阵、选择牌阵       | `POST /divination/tarot/prompt`              | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                 |
 | 雷诺曼关系或选择牌阵               | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                 |
 | 求签                               | `POST /divination/ssgw/prompt`               | `question`                                                                                                                                                  | 有拒签情况时如实返回，不强行解释                                 |
-| 住宅风水（八宅+玄空）              | `POST /metaphysics/residential/prompt`       | 山向或居住人至少一项：`birthYear`+`gender`/`mingGua`，`sitMountain`/`facingDegree`/`doorToInteriorDegree`，可选 `year` 建造/起运年                          | 统一入口；可只做人宅、只做宅运或两者合参；不给综合吉凶总分       |
+| 住宅风水（八宅+玄空）              | `POST /metaphysics/residential/prompt`       | 山向或居住人至少一项：`birthYear`+`gender`/`mingGua`，`sitMountain`/`facingDegree`/`doorToInteriorDegree`，可选 `year` 建造/起运年、`flowYear`/`flowMonth`/`flowDay` 目标流运日期                          | 统一入口；可只做人宅、只做宅运或两者合参；目标日期按节气流月叠加飞星，不给综合吉凶总分       |
 | 仅八宅命卦、坐山吉凶               | `POST /metaphysics/bazhai/prompt`            | `birthYear`、`gender`、可选 `sitMountain`；实测可传 `doorToInteriorDegree`、`northReference`、`magneticDeclinationDegrees`、`measurementUncertaintyDegrees` | 返回磁北/真北换算、候选坐向与边界稳定性                          |
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                               |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | `scope` 支持 `year`、`month`、`day`、`hour`；年计传 `year`，其余计式传对应年月日时分                                                                        | 返回四计七十二局式盘与 `evidenceAnalysis` 结构化证据             |
 | 五运六气年度结构                   | `POST /metaphysics/wuyun-liuqi/prompt`       | `year` 或 `yearGanZhi`；同时提供时会校验一致性，可选 `question`                                                                                             | 返回五步主客运、五类符会与六步主客气；不替代实际气象或医疗资料   |
 | 皇极经世年月日时占断               | `POST /metaphysics/huangji-jingshi/prompt`   | 即时或指定时刻传 `customDate`；年度研究传 `year`；自定义纪元传 `epochYear`，再从 `year` 与 `elapsedYears` 中选一个                                          | 返回元会运世、值年卦、月经卦、旬纬卦、日卦及时经卦               |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`、`gender`、`flowYear`/`flowMonth`/`flowDay`                            | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照；有流年时另给行限与流曜 |
-| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选测量误差、`flowYear`/`flowMonth`/`flowDay`                                                               | 返回下卦的三元九运、三盘飞星、局型、到山到向；有流年流月时叠紫白飞星 |
+| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选测量误差、`flowYear`/`flowMonth`/`flowDay` 目标流运日期                                                               | 返回下卦的三元九运、三盘飞星、局型、到山到向；有目标日期时叠紫白流年流月飞星 |
 
 参数选择建议：
 
@@ -318,7 +318,7 @@ curl -X POST https://aov.cc/api/v1/divination/astrolabe/synastry/prompt \
   -d '{"person1":{"name":"甲","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8},"person2":{"name":"乙","gender":"男","year":1992,"month":8,"day":21,"hour":8,"minute":15,"latitude":31.2304,"longitude":121.4737,"timezone":8},"question":"我们长期合作时最需要注意什么？","responseMode":"prompt-only"}'
 ```
 
-玄空提供流月时，年盘与月盘统一按所选日期的节气年计算；未给流月日期时采用该公历月15日。`yearPlate.year` 为实际节气年，`monthPlate.year` 保留查询公历年，`monthPlate.solarTermYear` 标明节气年。公元1年立春前的节气年按天文年编号返回0，提示词显示公元前1年。只给 `flowYear` 时查询该年度紫白。
+住宅风水和玄空提供 `flowYear` 时叠加目标流年飞星；再传 `flowMonth`、`flowDay` 时，月盘按所选日期的节气月计算，未给日期时采用该公历月15日。`yearPlate.year` 为实际节气年，`monthPlate.year` 保留查询公历年，`monthPlate.solarTermYear` 标明节气年。公元1年立春前的节气年按天文年编号返回0，提示词显示公元前1年。只给 `flowYear` 时查询该年度紫白；未传流运字段时只返回宅盘层和八宅人宅资料。
 
 玄空 `castleGate` 按元旦宫数一六、二七、三八、四九区分正副城门。候选方只有当运旺星飞临时返回 `得旺可用`，其余返回 `不得旺不可用`；`hasUsableGate` 表示存在旺星到位的候选方，实际应用仍须结合水口位置、周围形势及生克。
 
