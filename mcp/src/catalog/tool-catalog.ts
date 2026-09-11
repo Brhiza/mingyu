@@ -13,6 +13,7 @@ export interface ToolCatalogItem {
   title: string;
   category:
     | 'foundation'
+    | 'classics'
     | 'calendar'
     | 'instant'
     | 'naming'
@@ -100,6 +101,15 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     description: '按八字默认口径核验四柱干支的空亡、驿马与桃花传统神煞',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/foundation/shensha',
+  },
+  {
+    id: 'classics_yilin_query',
+    title: '焦氏易林固定索引查询',
+    category: 'classics',
+    type: 'utility',
+    description: '查询焦氏易林固定4096条卦对原文、双底本来源定位与未决字形/校勘状态',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/classics/yilin',
   },
 
   // 历法与天文

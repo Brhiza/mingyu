@@ -71,6 +71,7 @@ import {
   xuankong,
   residentialFengshui,
 } from 'mingyu-core';
+import { queryYilinEntry, type YilinSourcePreference } from 'mingyu-core/classics';
 import { isValidGanZhi } from 'mingyu-core/ganzhi';
 import {
   analyzeChineseCharactersWithReferences,
@@ -1095,6 +1096,15 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '年月日时盘、元会运世结果与自包含提示词' } },
         },
       },
+      '/classics/yilin': {
+        post: {
+          summary: '焦氏易林固定4096条索引查询',
+          description:
+            '按固定卦序查询焦氏易林卦对原文；同时返回 Wikisource 四库全书本与 Kanripo KR3g0029 WYG 对读资料、来源定位和未决字形/校勘状态，不承担起卦或随机取卦。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/YilinQueryRequest'),
+          responses: { '200': { description: '焦氏易林原文、双底本对读和来源状态' } },
+        },
+      },
       '/metaphysics/qizheng/calculate': {
         post: {
           summary: '七政四余排盘',
@@ -2039,6 +2049,33 @@ export function getPublicApiOpenApiDocument(
             responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
           },
         },
+        YilinQueryRequest: {
+          type: 'object',
+          required: ['baseHexagram', 'targetHexagram'],
+          additionalProperties: false,
+          description:
+            '固定 W20.03 版本的焦氏易林 64×64 索引查询。支持固定卦名及已登记的繁简/异体输入；source 默认 both，同时返回两个固定底本的原文和来源状态。',
+          properties: {
+            baseHexagram: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 4,
+              description: '固定卦序中的本卦名称，例如「乾」。',
+            },
+            targetHexagram: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 4,
+              description: '固定卦序中的之卦名称，例如「需」。',
+            },
+            source: {
+              type: 'string',
+              enum: ['wikisource', 'kanripo', 'both'],
+              default: 'both',
+              description: '选择 text 字段的主底本；both 仍以 Wikisource 为主并同时返回两份资料。',
+            },
+          },
+        },
         BaziPromptRequest: {
           allOf: [
             { $ref: '#/components/schemas/BaziRequest' },
@@ -2795,6 +2832,8 @@ async function route(context: RouteContext) {
       return calculateApiResult(context.request, calculateHuangjiJingshiApi);
     case 'metaphysics/huangji-jingshi/prompt':
       return buildHuangjiJingshiPromptApi(await readJson(context.request));
+    case 'classics/yilin':
+      return calculateYilinApi(await readJson(context.request));
     case 'metaphysics/qizheng/calculate':
       return calculateApiResult(context.request, calculateQizhengApi);
     case 'metaphysics/qizheng/prompt':
@@ -3674,6 +3713,26 @@ function calculateHuangjiJingshiApi(input: JsonRecord) {
       400,
       'BAD_REQUEST',
       error instanceof Error ? error.message : '皇极经世参数无效。',
+    );
+  }
+}
+
+function calculateYilinApi(input: JsonRecord) {
+  const baseHexagram = readRequiredString(input, 'baseHexagram');
+  const targetHexagram = readRequiredString(input, 'targetHexagram');
+  const source = readEnum(
+    input,
+    'source',
+    ['wikisource', 'kanripo', 'both'],
+    'both',
+  ) as YilinSourcePreference;
+  try {
+    return queryYilinEntry(baseHexagram, targetHexagram, source);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '焦氏易林索引查询失败。',
     );
   }
 }

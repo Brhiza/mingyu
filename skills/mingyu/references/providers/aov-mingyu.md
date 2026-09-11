@@ -113,10 +113,13 @@
 | 五运六气提示词     | `POST /metaphysics/wuyun-liuqi/prompt`        | `wuyun_liuqi_prompt`           | 生成年度气候节律与病机平气自包含提示词；支持统一主题、主题细项和分析范围选择                                                           |
 | 皇极经世宏观周期   | `POST /metaphysics/huangji-jingshi/calculate` | `metaphysics_huangji_jingshi`  | 邵雍皇极经世元会运世、值年卦与运世消息推进                                                                                             |
 | 皇极经世提示词     | `POST /metaphysics/huangji-jingshi/prompt`    | `huangji_jingshi_prompt`       | 生成皇极经世时代坐标与值年卦演变自包含提示词；支持统一主题、主题细项和分析范围选择                                                     |
+| 焦氏易林固定索引   | `POST /classics/yilin`                        | `classics_yilin_query`         | 按固定 W20.03 版本查询 64×64 卦对原文，返回 Wikisource 四库全书本、Kanripo KR3g0029 WYG、来源定位和未决字形/校勘状态 |
 | 七政四余排盘       | `POST /metaphysics/qizheng/calculate`         | `metaphysics_qizheng`          | 果老星宗七政十一星、二十八宿界、昼夜分金恩难与行限流曜                                                                                 |
 | 七政四余提示词     | `POST /metaphysics/qizheng/prompt`            | `qizheng_prompt`               | 生成七政四余天星恩难自包含解读任务书；支持统一主题、主题细项和分析范围选择                                                             |
 
 API 独立入口：`GET /health`、`GET /manifest`、`GET /openapi.json`；AI 问答使用 `POST /ai/analyze`，模型列表使用 `POST /ai/models`，通过 `aiConfig` 指定模型配置。完整参数以 OpenAPI 为准。AI 问答返回 `text/event-stream`。
+
+焦氏易林固定索引只接受本卦 `baseHexagram`、之卦 `targetHexagram` 与可选 `source`（`wikisource`、`kanripo`、`both`）。它是固定文献查询，不承担起卦或随机取卦；返回结果会保留两个底本的原始标签、来源定位、原文标记和已核出的字形/校勘状态。缺字标记和未确认字形不以其他版本静默替换。
 
 神煞口径：空亡取日柱与年柱旬空；驿马、桃花同时按年支与日支查，返回逐柱命中。
 

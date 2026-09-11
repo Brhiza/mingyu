@@ -104,6 +104,7 @@ test('MCP Server 必须完整覆盖所有已公开的核心术式工具', () => 
     'registerFoundationTools',
     'registerCalendarTools',
     'registerInstantTool',
+    'registerYilinTool',
   ];
 
   for (const reg of requiredToolRegisters) {

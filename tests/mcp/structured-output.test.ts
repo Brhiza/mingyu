@@ -529,7 +529,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 74);
+    assert.equal(tools.length, 75);
     assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
@@ -551,6 +551,7 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
+    assert.ok(tools.find((tool) => tool.name === 'classics_yilin_query'));
     assert.ok(tools.find((tool) => tool.name === 'instant_chart'));
     for (const name of [
       'name_generate',
@@ -5100,6 +5101,36 @@ test('紫微 MCP 独立指定运限时辰并拒绝越界值', async () => {
     const invalid = await client.callTool({
       name: 'ziwei_calculate',
       arguments: { ...input, scopeHourIndex: 13 },
+    });
+    assert.equal(invalid.isError, true);
+  });
+});
+
+test('MCP 提供焦氏易林固定索引并返回双底本来源状态', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'classics_yilin_query',
+      arguments: { baseHexagram: '兑', targetHexagram: '随', source: 'both' },
+    });
+    assert.equal(response.isError, undefined);
+    const result = (
+      response.structuredContent as {
+        result: {
+          key: string;
+          edition: { id: string; parsedPairCount: number };
+          sources: { wikisource: unknown; kanripo: unknown };
+        };
+      }
+    ).result;
+    assert.equal(result.key, '兌→隨');
+    assert.equal(result.edition.id, 'yilin-w20-03-fixed-4096');
+    assert.equal(result.edition.parsedPairCount, 4096);
+    assert.ok(result.sources.wikisource);
+    assert.ok(result.sources.kanripo);
+
+    const invalid = await client.callTool({
+      name: 'classics_yilin_query',
+      arguments: { baseHexagram: '不存在', targetHexagram: '乾' },
     });
     assert.equal(invalid.isError, true);
   });

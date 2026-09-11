@@ -287,6 +287,93 @@ export interface AlmanacOfficerClassic {
   taboo: string[];
 }
 
+export type YilinSourceKind = 'kanripo-wyg' | 'wikisource-skqs';
+
+export type YilinHexagramName = string;
+
+export type YilinSourcePreference = 'wikisource' | 'kanripo' | 'both';
+
+export type YilinDataStatus = '双底本对读一致' | '含校勘或字形差异';
+
+export interface YilinSourceEntry {
+  sourceKind: YilinSourceKind;
+  source: string;
+  volume: number;
+  line: number;
+  page: string | null;
+  rawLabel: string;
+  observedLabel: string;
+  text: string;
+  markers: {
+    kanripoRefs: string[];
+    wikisourceSKchars: string[];
+  };
+  skcharId: string | null;
+  textDigest: string;
+  textNormalization: 'none' | 'fixed-volume-footer';
+}
+
+export interface YilinGapSummary {
+  kind: string;
+  status?: string;
+  key: string;
+  source?: string;
+  line?: number;
+  page?: string;
+  observedRaw?: string;
+  observed?: string;
+  kanripoRefs?: string[];
+  wikisourceSKchars?: string[];
+}
+
+export interface YilinEditionMetadata {
+  task: 'W20.03';
+  id: 'yilin-w20-03-fixed-4096';
+  title: '焦氏易林';
+  editionPolicy: string;
+  expectedPairCount: number;
+  parsedPairCount: number;
+  sourceProvenance: {
+    wikisource: {
+      revisionIds: Record<string, number>;
+      pageTemplate: string;
+    };
+    kanripo: {
+      collection: 'KR3g0029';
+      baseEdition: 'WYG';
+      pageTemplate: string;
+    };
+  };
+  gapSummary: {
+    total: number;
+    confirmedMappings: number;
+    wikisourceOnlySKcharIds: string[];
+    opaqueMarkerCountMismatchKeys: string[];
+    labelOrderMismatchKeys: string[];
+    markerCounts: {
+      kanripoKRRefs: number;
+      wikisourceSKchars: number;
+      alignedPairs: number;
+      mismatchPairs: number;
+    };
+  };
+}
+
+export interface YilinQueryResult {
+  edition: YilinEditionMetadata;
+  base: string;
+  target: string;
+  key: string;
+  selectedSource: Exclude<YilinSourcePreference, 'both'>;
+  text: string;
+  dataStatus: YilinDataStatus;
+  gaps: YilinGapSummary[];
+  sources: {
+    wikisource: YilinSourceEntry;
+    kanripo: YilinSourceEntry;
+  };
+}
+
 export interface ZiweiFuClassic {
   key: string;
   title: string;

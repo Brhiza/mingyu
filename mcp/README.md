@@ -11,6 +11,7 @@
 | `foundation_wuxing` | 五行力量与生克 | 分析干支列表的五行统计、藏干权重与主导五行生克 |
 | `foundation_direction` | 二十四山与罗盘方位 | 按罗盘角度查询所属八卦、二十四山、天心十道对冲山与四正四隅属性 |
 | `foundation_shensha` | 通用传统神煞 | 按八字默认口径核验四柱干支的空亡、驿马与桃花传统神煞 |
+| `classics_yilin_query` | 焦氏易林固定索引查询 | 查询固定4096条卦对原文、双底本来源定位与未决字形/校勘状态 |
 | `calendar_true_solar_time` | 真太阳时校正 | 根据地理经度与平太阳时换算真太阳时与均时差 |
 | `calendar_true_solar_birth` | 统一出生真太阳时 | 根据出生公历或农历及经度时区计算校正后的公历与农历时间 |
 | `calendar_solar_illumination` | 太阳光照与出没 | 计算指定日期的日出日落时刻、地平高度与曙暮光证据 |
@@ -98,6 +99,7 @@
 7. 用户提供一人的西方占星资料时调用 `astrolabe_prompt`；提供双方完整资料并询问关系时调用 `astrolabe_synastry_prompt`。
 8. 用户没有出生信息，只想要轻量启发、牌阵或签文时，用 `tarot_prompt`、`lenormand_prompt` 或 `ssgw_prompt`。
 9. 用户明确要求八宅、生肖犯太岁、太乙、五运六气、皇极经世或七政四余时，使用对应的 `*_prompt` 工具；只要原始排盘则使用 `metaphysics_*`。
+10. 用户明确给出本卦和之卦、要求查《焦氏易林》原文时，调用 `classics_yilin_query`；这是固定文献索引查询，不承担起卦、随机取卦或替用户判断卦象。
 
 常见问题到工具：
 

@@ -791,7 +791,7 @@ const context = getBaziTermContext('正官', baziChart, { pillarLabel: '月柱' 
 ### 全息命录与历代古籍（`mingyu-core/minglu` / `mingyu-core/classics`）
 
 - `mingyu-core/minglu`：提供全息多维命理画像生成引擎与维基档案数据组织能力。
-- `mingyu-core/classics`：提供历代正统命理典籍经文原文与各术数门类原典依据索引。
+- `mingyu-core/classics`：提供历代正统命理典籍经文原文与各术数门类原典依据索引，并提供焦氏易林 W20.03 固定 4096 卦对查询（保留底本差异与字形缺口）。
 
 ### 类型（`mingyu-core/types`）
 

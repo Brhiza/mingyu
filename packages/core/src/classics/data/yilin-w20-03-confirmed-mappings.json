@@ -1,0 +1,1301 @@
+{
+  "task": "W20.03",
+  "mappings": [
+    {
+      "kind": "position-confirmed-label",
+      "key": "艮→小畜",
+      "canonicalTarget": "小畜",
+      "sourceLabel": "小過",
+      "reason": "Wikisource 卷4 与 Kanripo WYG 004 在艮之第五十二第10条均见小過；固定卦序第10位应为小畜。保留原字，不改写原始资料。",
+      "sources": {
+        "wikisource": {
+          "file": "卷4.json",
+          "line": 430
+        },
+        "kanripo": {
+          "file": "KR3g0029_004.txt",
+          "line": 725,
+          "page": "KR3g0029_WYG_004-40b"
+        }
+      }
+    },
+    {
+      "kind": "same-page-glyph",
+      "sourceMarker": "{{SKchar|3681}}",
+      "renderedGlyph": "𫎇",
+      "canonicalLabel": "蒙",
+      "reason": "同一 Wikisource 固定页面的蒙卦标题/条目位置渲染为 𫎇；4096 固定卦序中这些条目均处于蒙位。只记录字形对应，不改原始 SKchar。",
+      "occurrenceCount": 57,
+      "occurrences": [
+        {
+          "key": "乾→需",
+          "source": "卷1.json",
+          "line": 12,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "屯→家人",
+          "source": "卷1.json",
+          "line": 127,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "屯→艮",
+          "source": "卷1.json",
+          "line": 139,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "蒙→同人",
+          "source": "卷1.json",
+          "line": 159,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "需→大有",
+          "source": "卷1.json",
+          "line": 205,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "需→坎",
+          "source": "卷1.json",
+          "line": 216,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "需→未濟",
+          "source": "卷1.json",
+          "line": 240,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "訟→艮",
+          "source": "卷1.json",
+          "line": 284,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "師→蠱",
+          "source": "卷1.json",
+          "line": 308,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "師→恒",
+          "source": "卷1.json",
+          "line": 319,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "師→歸妹",
+          "source": "卷1.json",
+          "line": 338,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "師→豐",
+          "source": "卷1.json",
+          "line": 339,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "師→節",
+          "source": "卷1.json",
+          "line": 343,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "師→中孚",
+          "source": "卷1.json",
+          "line": 343,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "比→需",
+          "source": "卷1.json",
+          "line": 350,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "比→未濟",
+          "source": "卷1.json",
+          "line": 391,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "小畜→井",
+          "source": "卷1.json",
+          "line": 432,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "履→咸",
+          "source": "卷1.json",
+          "line": 465,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "泰→泰",
+          "source": "卷1.json",
+          "line": 492,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "泰→蒙",
+          "source": "卷1.json",
+          "line": 494,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "泰→訟",
+          "source": "卷1.json",
+          "line": 495,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "泰→咸",
+          "source": "卷1.json",
+          "line": 510,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "否→臨",
+          "source": "卷1.json",
+          "line": 551,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "否→賁",
+          "source": "卷1.json",
+          "line": 552,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "同人→比",
+          "source": "卷1.json",
+          "line": 589,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "同人→大壯",
+          "source": "卷1.json",
+          "line": 607,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "大有→觀",
+          "source": "卷1.json",
+          "line": 645,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "隨→屯",
+          "source": "卷1.json",
+          "line": 790,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "蠱→明夷",
+          "source": "卷1.json",
+          "line": 861,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "萃→觀",
+          "source": "卷4.json",
+          "line": 76,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "困→乾",
+          "source": "卷4.json",
+          "line": 162,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "困→明夷",
+          "source": "卷4.json",
+          "line": 190,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "困→渙",
+          "source": "卷4.json",
+          "line": 207,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "革→革",
+          "source": "卷4.json",
+          "line": 267,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "鼎→萃",
+          "source": "卷4.json",
+          "line": 358,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "鼎→漸",
+          "source": "卷4.json",
+          "line": 364,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "震→剝",
+          "source": "卷4.json",
+          "line": 393,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "艮→謙",
+          "source": "卷4.json",
+          "line": 433,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "豐→復",
+          "source": "卷4.json",
+          "line": 595,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "旅→解",
+          "source": "卷4.json",
+          "line": 649,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "兌→晉",
+          "source": "卷4.json",
+          "line": 748,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "兌→困",
+          "source": "卷4.json",
+          "line": 757,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "節→比",
+          "source": "卷4.json",
+          "line": 823,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "節→大壯",
+          "source": "卷4.json",
+          "line": 844,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "節→蹇",
+          "source": "卷4.json",
+          "line": 846,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "節→井",
+          "source": "卷4.json",
+          "line": 854,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "節→革",
+          "source": "卷4.json",
+          "line": 855,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "中孚→大壯",
+          "source": "卷4.json",
+          "line": 895,
+          "skcharIds": [
+            "3681",
+            "3681"
+          ]
+        },
+        {
+          "key": "小過→蠱",
+          "source": "卷4.json",
+          "line": 939,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "既濟→大有",
+          "source": "卷4.json",
+          "line": 987,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "既濟→萃",
+          "source": "卷4.json",
+          "line": 1013,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "既濟→升",
+          "source": "卷4.json",
+          "line": 1014,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "既濟→漸",
+          "source": "卷4.json",
+          "line": 1021,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "既濟→渙",
+          "source": "卷4.json",
+          "line": 1026,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "未濟→大壯",
+          "source": "卷4.json",
+          "line": 1058,
+          "skcharIds": [
+            "3681"
+          ]
+        },
+        {
+          "key": "未濟→豐",
+          "source": "卷4.json",
+          "line": 1075,
+          "skcharIds": [
+            "3681"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0008;",
+      "wikisourceMarker": "{{SKchar|2025}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 20,
+      "pairs": [
+        "蒙→否",
+        "蠱→坤",
+        "蠱→坤",
+        "賁→蹇",
+        "賁→蹇",
+        "賁→蹇",
+        "賁→蹇",
+        "遯→震",
+        "明夷→无妄",
+        "睽→泰",
+        "睽→損",
+        "困→姤",
+        "震→否",
+        "艮→履",
+        "艮→履",
+        "豐→晉",
+        "豐→晉",
+        "兌→咸",
+        "未濟→頤",
+        "未濟→頤"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0034;",
+      "wikisourceMarker": "{{SKchar|2026}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 2,
+      "pairs": [
+        "大過→小過",
+        "大過→小過"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0037;",
+      "wikisourceMarker": "{{SKchar|3138}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "師→豫"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0067;",
+      "wikisourceMarker": "{{SKchar|2928}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "小過→睽"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0146;",
+      "wikisourceMarker": "{{SKchar|2029}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "漸→豫"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0156;",
+      "wikisourceMarker": "{{SKchar|2835}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 2,
+      "pairs": [
+        "頤→解",
+        "旅→大畜"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0247;",
+      "wikisourceMarker": "{{SKchar|2974}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "坤→晉"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0343;",
+      "wikisourceMarker": "{{SKchar|3256}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "渙→離"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0349;",
+      "wikisourceMarker": "{{SKchar|2773}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "需→升"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0357;",
+      "wikisourceMarker": "{{SKchar|3947}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "益→蠱"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0406;",
+      "wikisourceMarker": "{{SKchar|3855}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 2,
+      "pairs": [
+        "无妄→蠱",
+        "大壯→臨"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0672;",
+      "wikisourceMarker": "{{SKchar|2634}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "坤→損"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0693;",
+      "wikisourceMarker": "{{SKchar|2693}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 3,
+      "pairs": [
+        "蒙→復",
+        "豫→漸",
+        "蠱→鼎"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0841;",
+      "wikisourceMarker": "{{SKchar|3577}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "屯→旅"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0926;",
+      "wikisourceMarker": "{{SKchar|3586}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "未濟→震"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR0978;",
+      "wikisourceMarker": "{{SKchar|1679}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 2,
+      "pairs": [
+        "姤→同人",
+        "既濟→噬嗑"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR1108;",
+      "wikisourceMarker": "{{SKchar|2868}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "未濟→革"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR1614;",
+      "wikisourceMarker": "{{SKchar|1745}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "遯→震"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR1744;",
+      "wikisourceMarker": "{{SKchar|2761}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 1,
+      "pairs": [
+        "中孚→升"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR1855;",
+      "wikisourceMarker": "{{SKchar|807}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 5,
+      "pairs": [
+        "同人→升",
+        "賁→震",
+        "歸妹→鼎",
+        "歸妹→鼎",
+        "小過→解"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR1985;",
+      "wikisourceMarker": "{{SKchar|3727}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 14,
+      "pairs": [
+        "泰→謙",
+        "泰→謙",
+        "否→離",
+        "否→離",
+        "頤→大有",
+        "頤→大有",
+        "益→坎",
+        "益→坎",
+        "震→損",
+        "震→損",
+        "艮→履",
+        "艮→履",
+        "渙→家人",
+        "渙→家人"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    },
+    {
+      "kind": "same-fixed-source-marker",
+      "kanripoMarker": "&KR2094;",
+      "wikisourceMarker": "{{SKchar|3891}}",
+      "status": "positional-correspondence-only",
+      "glyphIdentity": "unresolved",
+      "occurrenceCount": 6,
+      "pairs": [
+        "震→既濟",
+        "震→既濟",
+        "豐→晉",
+        "豐→晉",
+        "未濟→頤",
+        "未濟→頤"
+      ],
+      "reason": "两份固定资料在同一卦对正文位置逐项出现；未据此猜测缺字本体。"
+    }
+  ],
+  "alignedMarkerPairs": [
+    {
+      "pair": "坤→晉",
+      "aligned": [
+        [
+          "KR0247",
+          "2974"
+        ]
+      ]
+    },
+    {
+      "pair": "坤→損",
+      "aligned": [
+        [
+          "KR0672",
+          "2634"
+        ]
+      ]
+    },
+    {
+      "pair": "屯→旅",
+      "aligned": [
+        [
+          "KR0841",
+          "3577"
+        ]
+      ]
+    },
+    {
+      "pair": "蒙→否",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "蒙→復",
+      "aligned": [
+        [
+          "KR0693",
+          "2693"
+        ]
+      ]
+    },
+    {
+      "pair": "需→升",
+      "aligned": [
+        [
+          "KR0349",
+          "2773"
+        ]
+      ]
+    },
+    {
+      "pair": "師→豫",
+      "aligned": [
+        [
+          "KR0037",
+          "3138"
+        ]
+      ]
+    },
+    {
+      "pair": "泰→謙",
+      "aligned": [
+        [
+          "KR1985",
+          "3727"
+        ],
+        [
+          "KR1985",
+          "3727"
+        ]
+      ]
+    },
+    {
+      "pair": "否→離",
+      "aligned": [
+        [
+          "KR1985",
+          "3727"
+        ],
+        [
+          "KR1985",
+          "3727"
+        ]
+      ]
+    },
+    {
+      "pair": "同人→升",
+      "aligned": [
+        [
+          "KR1855",
+          "807"
+        ]
+      ]
+    },
+    {
+      "pair": "豫→漸",
+      "aligned": [
+        [
+          "KR0693",
+          "2693"
+        ]
+      ]
+    },
+    {
+      "pair": "蠱→坤",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "蠱→鼎",
+      "aligned": [
+        [
+          "KR0693",
+          "2693"
+        ]
+      ]
+    },
+    {
+      "pair": "賁→蹇",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "賁→震",
+      "aligned": [
+        [
+          "KR1855",
+          "807"
+        ]
+      ]
+    },
+    {
+      "pair": "无妄→蠱",
+      "aligned": [
+        [
+          "KR0406",
+          "3855"
+        ]
+      ]
+    },
+    {
+      "pair": "頤→大有",
+      "aligned": [
+        [
+          "KR1985",
+          "3727"
+        ],
+        [
+          "KR1985",
+          "3727"
+        ]
+      ]
+    },
+    {
+      "pair": "頤→解",
+      "aligned": [
+        [
+          "KR0156",
+          "2835"
+        ]
+      ]
+    },
+    {
+      "pair": "大過→小過",
+      "aligned": [
+        [
+          "KR0034",
+          "2026"
+        ],
+        [
+          "KR0034",
+          "2026"
+        ]
+      ]
+    },
+    {
+      "pair": "遯→震",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ],
+        [
+          "KR1614",
+          "1745"
+        ]
+      ]
+    },
+    {
+      "pair": "大壯→臨",
+      "aligned": [
+        [
+          "KR0406",
+          "3855"
+        ]
+      ]
+    },
+    {
+      "pair": "明夷→无妄",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "睽→泰",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "睽→損",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "益→蠱",
+      "aligned": [
+        [
+          "KR0357",
+          "3947"
+        ]
+      ]
+    },
+    {
+      "pair": "益→坎",
+      "aligned": [
+        [
+          "KR1985",
+          "3727"
+        ],
+        [
+          "KR1985",
+          "3727"
+        ]
+      ]
+    },
+    {
+      "pair": "姤→同人",
+      "aligned": [
+        [
+          "KR0978",
+          "1679"
+        ]
+      ]
+    },
+    {
+      "pair": "困→姤",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "震→否",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "震→損",
+      "aligned": [
+        [
+          "KR1985",
+          "3727"
+        ],
+        [
+          "KR1985",
+          "3727"
+        ]
+      ]
+    },
+    {
+      "pair": "震→既濟",
+      "aligned": [
+        [
+          "KR2094",
+          "3891"
+        ],
+        [
+          "KR2094",
+          "3891"
+        ]
+      ]
+    },
+    {
+      "pair": "艮→履",
+      "aligned": [
+        [
+          "KR1985",
+          "3727"
+        ],
+        [
+          "KR1985",
+          "3727"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "漸→豫",
+      "aligned": [
+        [
+          "KR0146",
+          "2029"
+        ]
+      ]
+    },
+    {
+      "pair": "歸妹→鼎",
+      "aligned": [
+        [
+          "KR1855",
+          "807"
+        ],
+        [
+          "KR1855",
+          "807"
+        ]
+      ]
+    },
+    {
+      "pair": "豐→晉",
+      "aligned": [
+        [
+          "KR2094",
+          "3891"
+        ],
+        [
+          "KR2094",
+          "3891"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "旅→大畜",
+      "aligned": [
+        [
+          "KR0156",
+          "2835"
+        ]
+      ]
+    },
+    {
+      "pair": "兌→咸",
+      "aligned": [
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "渙→離",
+      "aligned": [
+        [
+          "KR0343",
+          "3256"
+        ]
+      ]
+    },
+    {
+      "pair": "渙→家人",
+      "aligned": [
+        [
+          "KR1985",
+          "3727"
+        ],
+        [
+          "KR1985",
+          "3727"
+        ]
+      ]
+    },
+    {
+      "pair": "中孚→升",
+      "aligned": [
+        [
+          "KR1744",
+          "2761"
+        ]
+      ]
+    },
+    {
+      "pair": "小過→睽",
+      "aligned": [
+        [
+          "KR0067",
+          "2928"
+        ]
+      ]
+    },
+    {
+      "pair": "小過→解",
+      "aligned": [
+        [
+          "KR1855",
+          "807"
+        ]
+      ]
+    },
+    {
+      "pair": "既濟→噬嗑",
+      "aligned": [
+        [
+          "KR0978",
+          "1679"
+        ]
+      ]
+    },
+    {
+      "pair": "未濟→頤",
+      "aligned": [
+        [
+          "KR2094",
+          "3891"
+        ],
+        [
+          "KR2094",
+          "3891"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ],
+        [
+          "KR0008",
+          "2025"
+        ]
+      ]
+    },
+    {
+      "pair": "未濟→革",
+      "aligned": [
+        [
+          "KR1108",
+          "2868"
+        ]
+      ]
+    },
+    {
+      "pair": "未濟→震",
+      "aligned": [
+        [
+          "KR0926",
+          "3586"
+        ]
+      ]
+    }
+  ]
+}

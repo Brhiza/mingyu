@@ -19,6 +19,7 @@
 - [西洋占星 Astrolabe](#西洋占星-astrolabe)
 - [紫微斗数 Ziwei](#紫微斗数-ziwei)
 - [统一客户端 Client](#统一客户端-client)
+- [焦氏易林固定索引 Yilin](#焦氏易林固定索引-yilin)
 - [历法 Calendar](#历法-calendar)
 - [统一出生档案 Profile](#统一出生档案-profile)
 - [出生盘 Bundle](#出生盘-bundle)
@@ -333,6 +334,23 @@
 依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前固定版本传统目录登记 87 项，其中 55 条具备卷次、原文和可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中。空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
 
 ---
+
+## 焦氏易林固定索引 Yilin
+
+导入：`import { queryYilinEntry } from 'mingyu-core/classics'`
+
+### `queryYilinEntry(baseHexagram, targetHexagram, source?)`
+
+查询固定 W20.03 数据集中的焦氏易林本卦到之卦条目。固定卦序提供 64×64 共 4096 条索引；`source` 可为 `wikisource`、`kanripo` 或 `both`，默认返回两个底本并以 Wikisource 文本作为 `text` 主显示。返回值包含 `edition` 版本声明、两个 `sources` 来源条目、`dataStatus` 和本条 `gaps`。`gaps` 中的字形标记、观察标签和校勘差异必须按原样处理，不得将未知字形当作已确认文字。
+
+| 返回字段 | 说明 |
+| --- | --- |
+| `key` | 规范化后的 `${base}→${target}` 卦对 |
+| `text` | 选定主底本的文本；卷尾已知转录尾注会标记为 `fixed-volume-footer` |
+| `sources.wikisource` / `sources.kanripo` | 两个固定底本的原始标签、卷次、条次、来源、文本摘要与标记 |
+| `dataStatus` / `gaps` | 双底本一致或含校勘/字形差异，以及可追溯差异明细 |
+
+固定索引是文献查询，不承担起卦、随机取卦或根据卦名推断爻变。来源与 120 项全库缺口统计见 [`焦氏易林-W20.03来源.md`](./焦氏易林-W20.03来源.md)。
 
 ## 统一客户端 Client
 
