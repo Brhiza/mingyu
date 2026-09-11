@@ -173,6 +173,7 @@ function buildResidentialInputs(input: QueryInputState, prompt: QueryPromptState
   const houseYear = numberOrString(prompt.residentialHouseYear);
   const doorToInteriorDegree = numberOrString(prompt.bazhaiFacingDegree);
   return buildResidentialCoreInput({
+    guaType: prompt.residentialGuaType,
     birthData: hasBirth
       ? resolveResidentialBirthDate(
           {
@@ -285,6 +286,7 @@ export function buildReadingSubject(
     ziweiScopeDate: prompt.ziweiScopeDate,
     astrolabeScope: prompt.astrolabeScope,
     astrolabeScopeDate: prompt.astrolabeScopeDate,
+    residentialGuaType: prompt.residentialGuaType,
     residentialFlowYear: prompt.residentialFlowYear,
     residentialFlowMonth: prompt.residentialFlowMonth,
     residentialFlowDay: prompt.residentialFlowDay,

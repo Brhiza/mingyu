@@ -729,7 +729,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       const next = calculateResidentialChart(
         buildResidentialChartInput({
           birthData: residentialBirthData,
-          ...(houseYear != null && Number.isFinite(houseYear) ? { houseYear } : {}),
+          guaType: promptState.residentialGuaType,
+          ...(houseYear != null ? { houseYear } : {}),
           ...(promptState.bazhaiFacingDegree
             ? { doorToInteriorDegree: Number(promptState.bazhaiFacingDegree) }
             : {}),
@@ -752,6 +753,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     promptState.residentialFlowMonth,
     promptState.residentialFlowYear,
     promptState.residentialHouseYear,
+    promptState.residentialGuaType,
     residentialBirthData,
   ]);
 
@@ -2543,6 +2545,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                 initialFacingDegree={promptState.bazhaiFacingDegree}
                 initialHouseYear={promptState.residentialHouseYear}
                 initialFlowDate={residentialFlowDate}
+                initialGuaType={promptState.residentialGuaType}
+                onGuaTypeChange={(value) => updatePromptState({ residentialGuaType: value })}
                 onDirectionDegreeChange={handleBazhaiDirectionDegreeChange}
                 onHouseYearChange={handleResidentialHouseYearChange}
                 onFlowDateChange={handleResidentialFlowDateChange}

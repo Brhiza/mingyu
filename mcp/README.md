@@ -248,6 +248,8 @@ pnpm mcp
 
 `astrolabe_prompt` 未指定 `astrolabeScope` 时默认使用当前年度 `yearly` 行运，并按项目统一时区生成当前年份；需要固定回归日期时传入 `astrolabeScope: "yearly"` 和 `astrolabeScopeDate: "YYYY"`。显式指定 `yearly`、`monthly`、`daily` 范围时分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`。`full` 也必须传 `YYYY-MM-DD` 基准日，用于生成同一基准下的本命、流年、流月和流日资料；它覆盖一个参考日的四层资料，不表示全生命周期。
 
+玄空与住宅工具支持 `guaType: 下卦 | 替卦`，默认下卦。实测坐向稳定落在每山中央九度之外、两侧各三度兼向范围时可选替卦；后续流运补算保留同一起法。
+
 ### 住宅风水流运提示词参数
 
 `residential_prompt` 与 `metaphysics_residential` 先锁定住宅主体资料：`year` 为建造或起运年，出生资料、命卦、山向、实测度数、北向基准、磁偏角和测量误差用于形成同一住宅盘。可选 `flowYear` 叠加目标流年飞星；再传 `flowMonth` 和 `flowDay` 时按目标日期所属节气月生成流月飞星。未传目标流运字段时只返回宅盘与八宅人宅资料，不把静态宅盘称作流运。

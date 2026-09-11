@@ -1073,9 +1073,8 @@ function assertResidentialResult(
 
   const xuankong = result.xuankong;
   if (record(xuankong)) {
-    const engine = xuankong.engine;
-    if (locked.guaType !== undefined && record(engine)) {
-      assertStructuredField('fengshui.xuankong.engine.mode', locked.guaType, engine.mode);
+    if (locked.guaType !== undefined) {
+      assertStructuredField('fengshui.xuankong.guaType', locked.guaType, xuankong.guaType);
     }
     if (locked.sitMountain !== undefined) {
       assertStructuredField(

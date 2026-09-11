@@ -78,6 +78,7 @@ export type QueryPromptState = {
   astrolabeScopeDate: string;
   bazhaiFacingDegree: string;
   residentialHouseYear: string;
+  residentialGuaType: '下卦' | '替卦';
   residentialFlowYear: string;
   residentialFlowMonth: string;
   residentialFlowDay: string;
@@ -202,6 +203,7 @@ export function createDefaultPromptState(now: Date = new Date()): QueryPromptSta
     astrolabeScopeDate: getDefaultAstrolabeScopeDate('yearly', now),
     bazhaiFacingDegree: '',
     residentialHouseYear: '',
+    residentialGuaType: '下卦',
     residentialFlowYear: getDefaultAstrolabeScopeDate('yearly', now),
     residentialFlowMonth: getDefaultAstrolabeScopeDate('monthly', now).slice(5),
     residentialFlowDay: getDefaultAstrolabeScopeDate('daily', now).slice(8),
@@ -294,6 +296,7 @@ const PROMPT_PARAM_KEYS: Record<keyof QueryPromptState, string> = {
   astrolabeScopeDate: 'asd',
   bazhaiFacingDegree: 'bhd',
   residentialHouseYear: 'rhy',
+  residentialGuaType: 'rgt',
   residentialFlowYear: 'rfy',
   residentialFlowMonth: 'rfm',
   residentialFlowDay: 'rfd',
@@ -527,6 +530,12 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
     'residentialHouseYear',
     prompt.residentialHouseYear,
     defaultPromptState.residentialHouseYear,
+  );
+  setCompactParam(
+    params,
+    'residentialGuaType',
+    prompt.residentialGuaType,
+    defaultPromptState.residentialGuaType,
   );
   const persistResidentialFlow = prompt.promptSource === 'bazhai' || prompt.tab === 'bazhai';
   if (persistResidentialFlow) {
@@ -790,6 +799,7 @@ function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
     normalized.astrolabeScope = 'natal';
   }
 
+  normalized.residentialGuaType = normalized.residentialGuaType === '替卦' ? '替卦' : '下卦';
   const residentialFlowDate = normalizeResidentialFlowDate(
     normalized.residentialFlowYear,
     normalized.residentialFlowMonth,
@@ -1017,16 +1027,18 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
       'astrolabeScopeDate',
       hasExplicitAstrolabeScope ? '' : currentDefaultPromptState.astrolabeScopeDate,
     ),
-    bazhaiFacingDegree: parseDecimalText(
-      getString(params, 'bazhaiFacingDegree', defaultPromptState.bazhaiFacingDegree),
-      0,
-      360,
-    ),
-    residentialHouseYear: parseDecimalText(
-      getString(params, 'residentialHouseYear', defaultPromptState.residentialHouseYear),
-      1,
-      9999,
-    ),
+    bazhaiFacingDegree: getString(
+      params,
+      'bazhaiFacingDegree',
+      defaultPromptState.bazhaiFacingDegree,
+    ).trim(),
+    residentialHouseYear: getString(
+      params,
+      'residentialHouseYear',
+      defaultPromptState.residentialHouseYear,
+    ).trim(),
+    residentialGuaType:
+      getString(params, 'residentialGuaType', '下卦') === '替卦' ? '替卦' : '下卦',
     residentialFlowYear: getString(
       params,
       'residentialFlowYear',

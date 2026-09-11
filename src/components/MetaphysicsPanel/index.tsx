@@ -29,6 +29,8 @@ interface MetaphysicsPanelProps {
   initialFacingDegree?: string;
   initialHouseYear?: string;
   initialFlowDate?: string;
+  initialGuaType?: XuanKongGuaType;
+  onGuaTypeChange?: (value: XuanKongGuaType) => void;
   onDirectionDegreeChange?: (value: string) => void;
   onHouseYearChange?: (value: string) => void;
   onFlowDateChange?: (value: string) => void;
@@ -229,6 +231,8 @@ export function MetaphysicsPanel({
   initialFacingDegree = '',
   initialHouseYear = '',
   initialFlowDate = '',
+  initialGuaType = '下卦',
+  onGuaTypeChange,
   onDirectionDegreeChange,
   onHouseYearChange,
   onFlowDateChange,
@@ -236,7 +240,7 @@ export function MetaphysicsPanel({
 }: MetaphysicsPanelProps) {
   const [facingDegree, setFacingDegree] = useState(initialFacingDegree);
   const [houseYear, setHouseYear] = useState(initialHouseYear);
-  const [guaType, setGuaType] = useState<XuanKongGuaType>('下卦');
+  const [guaType, setGuaType] = useState<XuanKongGuaType>(initialGuaType);
   const [flowDate, setFlowDate] = useState(initialFlowDate);
 
   useEffect(() => {
@@ -251,6 +255,10 @@ export function MetaphysicsPanel({
     setFlowDate(initialFlowDate);
   }, [initialFlowDate]);
 
+  useEffect(() => {
+    setGuaType(initialGuaType);
+  }, [initialGuaType]);
+
   const initialChart = useMemo(() => {
     try {
       if (!birthData && !initialFacingDegree.trim()) {
@@ -264,9 +272,7 @@ export function MetaphysicsPanel({
         buildResidentialChartInput({
           birthData,
           guaType,
-          ...(initialHouseYear.trim() && Number.isInteger(Number(initialHouseYear))
-            ? { houseYear: Number(initialHouseYear) }
-            : {}),
+          ...(initialHouseYear.trim() ? { houseYear: Number(initialHouseYear) } : {}),
           ...(initialFacingDegree.trim()
             ? { doorToInteriorDegree: Number(initialFacingDegree) }
             : {}),
@@ -290,8 +296,7 @@ export function MetaphysicsPanel({
 
   const parsedHouseYear = useMemo(() => {
     if (!houseYear.trim()) return undefined;
-    const value = Number(houseYear);
-    return Number.isInteger(value) ? value : undefined;
+    return Number(houseYear);
   }, [houseYear]);
 
   const directionPreview = useMemo(() => {
@@ -540,13 +545,17 @@ export function MetaphysicsPanel({
                   id="metaphysics-gua-type"
                   className="form-input"
                   value={guaType}
-                  onChange={(event) => setGuaType(event.target.value as XuanKongGuaType)}
+                  onChange={(event) => {
+                    const value = event.target.value as XuanKongGuaType;
+                    setGuaType(value);
+                    onGuaTypeChange?.(value);
+                  }}
                 >
                   <option value="下卦">下卦（默认）</option>
-                  <option value="替卦">替卦（已核定兼向）</option>
+                  <option value="替卦">替卦（兼向）</option>
                 </select>
                 <small className="birth-time-hint">
-                  替卦用于已确认的山向兼向外侧三度；分界线和中央九度按下卦处理。
+                  下卦用于每山中央九度，替卦用于两侧兼向各三度；山向分界处需重新测量。
                 </small>
               </label>
               {error ? (

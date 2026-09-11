@@ -101,10 +101,10 @@
 | 西占双盘提示词     | `POST /divination/astrolabe/synastry/prompt`  | `astrolabe_synastry_prompt`    | 生成西占双人关系比较盘自包含提示词；支持统一主题、主题细项和分析范围选择                                                               |
 | 八宅风水排盘       | `POST /metaphysics/bazhai/calculate`          | `metaphysics_bazhai`           | 居者生年命卦、宅卦大游年与门主灶九星相配                                                                                               |
 | 八宅风水提示词     | `POST /metaphysics/bazhai/prompt`             | `bazhai_prompt`                | 生成八宅方位吉凶与布局调谐自包含提示词；支持统一主题、主题细项和分析范围选择                                                           |
-| 玄空飞星排盘       | `POST /metaphysics/xuankong/calculate`        | `metaphysics_xuankong`         | 三元九运山向运星排盘、反伏吟与城门诀计算；可按目标流年、流月日期叠加飞星                                                                                               |
-| 玄空飞星提示词     | `POST /metaphysics/xuankong/prompt`           | `xuankong_prompt`              | 生成玄空飞星山向旺衰与城门气口自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择                                                       |
-| 住宅风水合参排盘   | `POST /metaphysics/residential/calculate`     | `metaphysics_residential`      | 综合八宅生年命卦与玄空飞星九运的住宅风水合参；可按目标流年、流月日期叠加飞星                                                                                           |
-| 住宅风水合参提示词 | `POST /metaphysics/residential/prompt`        | `residential_prompt`           | 生成住宅风水八宅玄空综合评估自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择                                                         |
+| 玄空飞星排盘       | `POST /metaphysics/xuankong/calculate`        | `metaphysics_xuankong`         | 三元九运山向运星排盘、下卦或兼向替卦、反伏吟与城门诀计算；可按目标流年、流月日期叠加飞星                                                                                               |
+| 玄空飞星提示词     | `POST /metaphysics/xuankong/prompt`           | `xuankong_prompt`              | 生成玄空飞星下卦或兼向替卦山向旺衰与城门气口自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择                                                       |
+| 住宅风水合参排盘   | `POST /metaphysics/residential/calculate`     | `metaphysics_residential`      | 综合八宅生年命卦与玄空飞星九运（下卦或兼向替卦）的住宅风水合参；可按目标流年、流月日期叠加飞星                                                                                           |
+| 住宅风水合参提示词 | `POST /metaphysics/residential/prompt`        | `residential_prompt`           | 生成住宅风水八宅玄空（下卦或兼向替卦）综合评估自包含提示词；可按目标流年、流月日期携带飞星资料，支持统一主题、主题细项和分析范围选择                                                         |
 | 生肖流年关系       | `POST /metaphysics/zodiac/calculate`          | `metaphysics_zodiac`           | 分析生肖与流年太岁刑冲克害破、三合六合关系                                                                                             |
 | 生肖流年提示词     | `POST /metaphysics/zodiac/prompt`             | `zodiac_prompt`                | 生成生肖与岁星作用自包含提示词；支持统一主题、主题细项和分析范围选择                                                                   |
 | 太乙神数式盘       | `POST /metaphysics/taiyi/calculate`           | `metaphysics_taiyi`            | 太乙神数年月日时四计七十二局式盘与主客和数算分析                                                                                       |
@@ -135,6 +135,7 @@ API 独立入口：`GET /health`、`GET /manifest`、`GET /openapi.json`；AI �
 - **流日/流时**：保留上层运限背景，并附目标日期或目标时辰的实际盘面。紫微通过 `scopeDate`（YYYY-MM-DD）与 `scopeHourIndex`（0=早子、1=丑、…、12=晚子）选择目标；省略时使用当前日期和时辰。出生 `timeIndex` 始终用于本命盘。
 - **全部**：只有用户需要全景或比较多个阶段时使用，展开全部大运、流年及已计算的下层时间资料；普通问题优先使用当前阶段以保持提示词紧凑。
 
+- **玄空起法**：玄空与住宅接口均接受 `guaType: 下卦 | 替卦`，默认下卦；实测坐向稳定落在每山中央九度之外、两侧各三度兼向范围时可选替卦。补算时保留同一起法，再叠加目标流年和流月。
 - **住宅风水流运**：`residential_prompt` 锁定建造或起运年、出生资料、山向和测量口径；可传 `flowYear` 叠加流年飞星，再用 `flowMonth`、`flowDay` 按目标日期所属节气月生成流月飞星。未传流运字段时返回宅盘与八宅资料。
 
 占卜类本身没有出生运限时，完整保留起卦时间、时区/真太阳时、月建日辰、旬空、动变、牌阵顺序或候选日期等实际时间证据，不用本命资料替代占问时点。

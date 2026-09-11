@@ -1,3 +1,4 @@
+import { calculateResidentialChart } from '../src/lib/residential-fengshui-chart';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -537,14 +538,37 @@ test('七政四余和八宅提示词来源可从地址栏恢复', () => {
   assert.equal(parsed.bazhaiFacingDegree, '12.5');
 });
 
-test('八宅入户方向缓存应拒绝越界度数', () => {
+test('住宅地址保留越界测量以提示修正，不能静默当成未测量', () => {
+  for (const value of ['361', '-1']) {
+    const parsed = parsePromptState(new URLSearchParams({ bazhaiFacingDegree: value }));
+    assert.equal(parsed.bazhaiFacingDegree, value);
+    assert.throws(() =>
+      calculateResidentialChart({
+        houseYear: 2024,
+        doorToInteriorDegree: Number(parsed.bazhaiFacingDegree),
+      }),
+    );
+  }
+});
+
+test('住宅替卦选择随地址恢复并用于真实宅盘', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...defaultPromptState,
+    tab: 'bazhai',
+    promptSource: 'bazhai',
+    bazhaiFacingDegree: '5',
+    residentialHouseYear: '2024',
+    residentialGuaType: '替卦',
+  });
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.residentialGuaType, '替卦');
   assert.equal(
-    parsePromptState(new URLSearchParams({ bazhaiFacingDegree: '361' })).bazhaiFacingDegree,
-    '',
-  );
-  assert.equal(
-    parsePromptState(new URLSearchParams({ bazhaiFacingDegree: '-1' })).bazhaiFacingDegree,
-    '',
+    calculateResidentialChart({
+      houseYear: Number(parsed.residentialHouseYear),
+      doorToInteriorDegree: Number(parsed.bazhaiFacingDegree),
+      guaType: parsed.residentialGuaType,
+    }).xuankong?.guaType,
+    '替卦',
   );
 });
 

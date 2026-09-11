@@ -92,6 +92,7 @@ test('住宅 AI 主体快照锁定出生、建造年和门向资料', () => {
     gender: 'male',
     year: 2024,
     doorToInteriorDegree: 0,
+    guaType: '下卦',
   });
   assert.deepEqual(
     {
@@ -219,4 +220,34 @@ test('住宅 AI 补算拒绝修改已锁定的建造年或门向', async () => {
     ),
     /补算主体与当前命盘不一致：doorToInteriorDegree/u,
   );
+});
+
+test('住宅替卦网页快照与 AI 补算保持同一起法和目标流运', async () => {
+  const replacementSubject = buildReadingSubject(input, {
+    ...prompt,
+    bazhaiFacingDegree: '5',
+    residentialGuaType: '替卦',
+  });
+  assert.equal(replacementSubject.lockedInputs.fengshui.guaType, '替卦');
+  assert.notEqual(replacementSubject.id, generatedSubject.id);
+  await withRealApi(async () => {
+    const resource = await executeReadingAction(action, undefined, replacementSubject);
+    const result = resource.structured as {
+      xuankong: { guaType: string; palaces: Array<{ yearStar?: number; monthStar?: number }> };
+    };
+    assert.equal(result.xuankong.guaType, '替卦');
+    assert.equal(result.xuankong.palaces.length, 9);
+    assert.ok(
+      result.xuankong.palaces.every(
+        (palace) => typeof palace.yearStar === 'number' && typeof palace.monthStar === 'number',
+      ),
+    );
+    await assert.rejects(
+      executeReadingAction(
+        { ...action, input: { ...action.input, guaType: '下卦' } },
+        undefined,
+        replacementSubject,
+      ),
+    );
+  });
 });

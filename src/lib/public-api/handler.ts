@@ -1787,7 +1787,11 @@ export function getPublicApiOpenApiDocument(
               maximum: 45,
               description: '坐向测量可能误差。',
             },
-            guaType: { enum: ['下卦'], description: '玄空局型口径；当前统一入口为下卦。' },
+            guaType: {
+              enum: ['下卦', '替卦'],
+              default: '下卦',
+              description: '玄空起法；兼向外侧三度可选替卦。',
+            },
             flowYear: {
               type: 'integer',
               minimum: 1,
@@ -1868,7 +1872,11 @@ export function getPublicApiOpenApiDocument(
               maximum: 45,
               description: '坐向测量可能误差。',
             },
-            guaType: { enum: ['下卦'], description: '当前玄空接口只支持下卦。' },
+            guaType: {
+              enum: ['下卦', '替卦'],
+              default: '下卦',
+              description: '玄空起法；兼向外侧三度可选替卦。',
+            },
             flowYear: {
               type: 'integer',
               minimum: 1,
@@ -3766,9 +3774,7 @@ function calculateXuanKongApi(input: JsonRecord) {
       ? undefined
       : readNumberLike(input, 'measurementUncertaintyDegrees', 0, 45);
   const guaType =
-    input.guaType === undefined
-      ? undefined
-      : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
+    input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
   const flowYear =
     input.flowYear === undefined ? undefined : readInteger(input, 'flowYear', 1, 9999);
   const flowMonth =
@@ -3823,9 +3829,7 @@ function calculateResidentialApi(input: JsonRecord) {
     input.flowMonth === undefined ? undefined : readInteger(input, 'flowMonth', 1, 12);
   const flowDay = input.flowDay === undefined ? undefined : readInteger(input, 'flowDay', 1, 31);
   const guaType =
-    input.guaType === undefined
-      ? undefined
-      : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
+    input.guaType === undefined ? undefined : readEnum(input, 'guaType', ['下卦', '替卦'] as const);
 
   if (mingGua && !BAGUA.includes(mingGua)) {
     throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
