@@ -21,6 +21,8 @@ import {
 } from '../prompt/framework';
 import {
   calculateHuangjiDateTimeForecast,
+  calculateHuangjiSixDayCycleFromDate,
+  parseHuangjiSixDayDateTime,
   type HuangjiDateTimeForecast,
   type HuangjiSixDayDateInput,
   type HuangjiSixDayDateResult,
@@ -320,7 +322,7 @@ export function buildHuangjiJingshiPrompt(
             `六日逐爻公历时间：${sixDayCycle.civilTime.dateTime}（UTC${sixDayCycle.civilTime.timezone >= 0 ? '+' : ''}${sixDayCycle.civilTime.timezone}${sixDayCycle.civilTime.timeZoneId ? `，${sixDayCycle.civilTime.timeZoneId}` : ''}）`,
             `显式历元：${sixDayCycle.anchor.dateTime}（UTC${sixDayCycle.anchor.timezone >= 0 ? '+' : ''}${sixDayCycle.anchor.timezone}，真实瞬时${sixDayCycle.anchor.utcDateTime}）为经校定的当地子半起点，对应六日逐爻已过日数0、子半时刻。`,
             `六日逐爻坐标：从显式历元至目标当地日期经过${sixDayCycle.calendar.actualElapsedDays}个完整公历日，直接取得三百六十日正数中的第${sixDayCycle.dayOfCycle}日；实际 UTC 瞬时相隔${sixDayCycle.calendar.actualElapsedSeconds}秒。`,
-            `经卦${sixDayCycle.hexagrams.jing.name}第${sixDayCycle.dayLine}爻当日，日变卦${sixDayCycle.hexagrams.daily.name}，${sixDayCycle.hexagrams.hourRange}时变卦${sixDayCycle.hexagrams.hourly.name}。`,
+            `经卦${sixDayCycle.hexagrams.jing.name}第${sixDayCycle.dayLine}爻当日，日变卦${sixDayCycle.hexagrams.daily.name}，${sixDayCycle.hourRange}时变卦${sixDayCycle.hexagrams.hourly.name}。`,
             `时段依据：当地公历子半起，钟表${sixDayCycle.civilTime.hour}时处于${sixDayCycle.hourRange}，每四小时一爻。`,
           ]
         : [];
