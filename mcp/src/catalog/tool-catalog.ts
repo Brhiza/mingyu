@@ -484,8 +484,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     title: '奇门终身局提示词',
     category: 'qimen',
     type: 'prompt',
-    description:
-      '生成奇门终身局长远运势与阶段动态自包含提示词；支持 periodRange 与 topics',
+    description: '生成奇门终身局长远运势与阶段动态自包含提示词；支持 periodRange 与 topics',
     annotations: READONLY_IDEMPOTENT,
     endpoint: '/divination/qimen/lifetime/prompt',
   },
