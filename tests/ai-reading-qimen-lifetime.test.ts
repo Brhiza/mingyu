@@ -8,7 +8,8 @@ import {
 import { executeReadingAction, type ReadingAction } from '../src/lib/ai/reading-resources';
 import type { QueryInputState, QueryPromptState } from '../src/lib/query-state';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
-import { calculateQimenLifetime } from 'mingyu-core/divination/qimen';
+import { buildLifetimePrompt, calculateQimenLifetime } from 'mingyu-core/divination/qimen';
+import type { QimenLifetimeInput } from 'mingyu-core/types';
 
 const input: QueryInputState = {
   analysisMode: 'single',
@@ -212,6 +213,144 @@ test('终身奇门补算经真实公共 API 返回实际阶段和目标区间动
     assert.match(resource.title, /奇门终身局.*2026-01-01至2027-12-31/u);
     assert.match(resource.text, /2026年/u);
   });
+});
+
+test('浏览器奇门终身补算通过 Worker 返回同形 prompt/result 并继续主体校验', async () => {
+  const originalWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
+  const originalFetch = globalThis.fetch;
+  class FakeWorker {
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    onerror: ((event: ErrorEvent) => void) | null = null;
+    onmessageerror: (() => void) | null = null;
+
+    postMessage(message: { id: string; input: QimenLifetimeInput; question?: string }) {
+      queueMicrotask(() => {
+        try {
+          const result = calculateQimenLifetime(message.input);
+          const response = {
+            id: message.id,
+            ok: true,
+            prompt: buildLifetimePrompt(result, message.question),
+            result,
+          };
+          this.onmessage?.({ data: response } as MessageEvent);
+        } catch (error) {
+          this.onerror?.({ message: String(error) } as ErrorEvent);
+        }
+      });
+    }
+
+    terminate() {}
+  }
+
+  Object.defineProperty(globalThis, 'Worker', {
+    configurable: true,
+    writable: true,
+    value: FakeWorker,
+  });
+  globalThis.fetch = (async () => {
+    throw new Error('浏览器 Worker 补算不应访问公开接口。');
+  }) as typeof fetch;
+  try {
+    const resource = await executeReadingAction(action, undefined, subject);
+    const result = resource.structured as Record<string, unknown>;
+    const actualInput = result.input as Record<string, unknown>;
+    assert.deepEqual(actualInput.periodRange, periodRange);
+    assert.deepEqual(actualInput.topics, ['career']);
+    assert.match(resource.text, /未来两年的事业变化/u);
+    assert.match(resource.title, /2026-01-01至2027-12-31/u);
+    await assert.rejects(
+      executeReadingAction(
+        { ...action, input: { periodRange, topics: ['career'] } },
+        undefined,
+        subject,
+      ),
+      /缺少必填字段：question/u,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWorker) {
+      Object.defineProperty(globalThis, 'Worker', originalWorker);
+    } else {
+      Reflect.deleteProperty(globalThis, 'Worker');
+    }
+  }
+});
+
+test('浏览器奇门终身 Worker 取消会终止且可忽略迟到结果，失败后可重试', async () => {
+  const originalWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  let terminatedWorkers = 0;
+  let lateResponses = 0;
+  class RetryWorker {
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    onerror: ((event: ErrorEvent) => void) | null = null;
+    onmessageerror: (() => void) | null = null;
+
+    postMessage(message: { id: string; input: QimenLifetimeInput; question?: string }) {
+      const attempt = ++attempts;
+      queueMicrotask(() => {
+        if (attempt === 1) {
+          lateResponses += 1;
+          this.onmessage?.({
+            data: { id: message.id, ok: true, prompt: '迟到结果', result: {} },
+          } as MessageEvent);
+          return;
+        }
+        if (attempt === 2) {
+          this.onerror?.({ message: '本次 Worker 计算失败。' } as ErrorEvent);
+          return;
+        }
+        const result = calculateQimenLifetime(message.input);
+        this.onmessage?.({
+          data: {
+            id: message.id,
+            ok: true,
+            prompt: buildLifetimePrompt(result, message.question),
+            result,
+          },
+        } as MessageEvent);
+      });
+    }
+
+    terminate() {
+      terminatedWorkers += 1;
+    }
+  }
+
+  Object.defineProperty(globalThis, 'Worker', {
+    configurable: true,
+    writable: true,
+    value: RetryWorker,
+  });
+  globalThis.fetch = (async () => {
+    throw new Error('浏览器 Worker 补算不应访问公开接口。');
+  }) as typeof fetch;
+  try {
+    const controller = new AbortController();
+    const cancelled = executeReadingAction(action, controller.signal, subject);
+    controller.abort();
+    await assert.rejects(cancelled, (error: unknown) => {
+      return error instanceof DOMException && error.name === 'AbortError';
+    });
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    assert.equal(lateResponses, 1);
+    assert.equal(terminatedWorkers, 1);
+
+    await assert.rejects(executeReadingAction(action, undefined, subject), /本次 Worker 计算失败/u);
+    const resource = await executeReadingAction(action, undefined, subject);
+    assert.ok(resource.structured);
+    assert.equal(attempts, 3);
+    assert.equal(terminatedWorkers, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWorker) {
+      Object.defineProperty(globalThis, 'Worker', originalWorker);
+    } else {
+      Reflect.deleteProperty(globalThis, 'Worker');
+    }
+  }
 });
 
 test('终身局主体拒绝普通即时奇门和篡改后的出生主体', async () => {
