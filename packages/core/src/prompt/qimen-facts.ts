@@ -4,6 +4,20 @@ import { getDunJiaStem, hasTianPanStem } from '../divination/algorithms/qimen/he
 
 type Palace = QimenData['jiuGongGe'][number];
 
+/** 同干在两层盘中的实际位置，供采用追干判法时核对起点与落点。 */
+export function formatQimenStemLocations(data: QimenData): string[] {
+  const stems = new Set(
+    data.jiuGongGe
+      .flatMap((palace) => [palace.tianPan.stem, palace.tianPan.companionStem, palace.diPan.stem])
+      .filter((stem): stem is string => Boolean(stem)),
+  );
+  return [...stems].sort().map((stem) => {
+    const sky = data.jiuGongGe.filter((palace) => hasTianPanStem(palace, stem));
+    const earth = data.jiuGongGe.filter((palace) => palace.diPan.stem === stem);
+    return `${stem}：天盘${sky.map((palace) => `${palace.name}${palace.tianPan.companionStem === stem ? '（寄干）' : ''}`).join('、') || '未列'}；地盘${earth.map((palace) => palace.name).join('、') || '未列'}`;
+  });
+}
+
 function elementRelation(a: string, ae: string, b: string, be: string): string {
   if (ae === be) return `${a}与${b}同五行，比和`;
   if (isSheng(ae, be)) return `${a}生${b}`;
@@ -51,7 +65,7 @@ export function formatQimenRelationFacts(
       const combine =
         TIAN_GAN_HE[sky!]?.partner === earth ? `；天干五合：${sky}与${earth}相合` : '';
       const clash = TIAN_GAN_CHONG[sky!] === earth ? `；天干相冲：${sky}与${earth}相冲` : '';
-      lines.push(`取用宫${useful.name}天地盘干：${relation}${combine}${clash}`);
+      lines.push(`${useful.name}天地盘干：${relation}${combine}${clash}`);
     }
   }
   return lines;

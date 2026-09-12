@@ -5000,6 +5000,9 @@ test('公开 API supplementaryInfo 应校验嵌套字段并保留求测人基本
 
   assert.equal(qimen.response.status, 200);
   assert.match(qimen.body.data.prompt, /年命资料：公历1990年/);
+  assert.match(qimen.body.data.prompt, /换象：/);
+  assert.match(qimen.body.data.prompt, /造象：/);
+  assert.match(qimen.body.data.prompt, /同干定位：/);
   assert.doesNotMatch(qimen.body.data.prompt, /【补充信息】[\s\S]*出生年份/);
 
   const invalidNestedField = await callApi('divination/liuren/prompt', {

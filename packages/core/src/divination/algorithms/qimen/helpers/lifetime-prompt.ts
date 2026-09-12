@@ -6,6 +6,8 @@
 
 import type { QimenLifetimeData } from '../../../../types/divination';
 import { formatFixedTimezoneOffset } from '../../../../calendar/civil-time';
+import { QIMEN_IMAGE_INTERPRETATION_TASK } from '../../../../prompt/qimen-interpretation';
+import { formatQimenStemLocations } from '../../../../prompt/qimen-facts';
 
 type TriggerDate = NonNullable<
   NonNullable<QimenLifetimeData['eventClusters']>[number]['triggerDates']
@@ -71,17 +73,15 @@ export function buildLifetimePrompt(
   // 2. 【传统依据】
   lines.push(`【传统依据】`);
   const baseTradition = [
-    `《奇门遁甲统宗》卷首：“推人年命，以局内年干为主。以正时推占，则以局内天上时干为主。查看各宫，凡奇仪之生我干者为父母，我干所生之奇仪为子息，与我干相比肩之奇仪为兄弟，奇仪之克我干者为官、为疾厄，我干所克之奇仪为妻妾、财禄、为奴仆。”`,
-    `《奇门遁甲统宗》：“八将之中最喜值符贵神……太阴吉神加之皆吉，六合百事和谐，玄武疾厄少病、财帛聚财，九地幽暗利财帛，九天官禄显达。”`,
-    `《遁甲演义》卷四：“夫用遁之法，不推本命行年，未见精妙，必人生年命乘本局吉星奇门生旺之方，始得神将护持。”`,
-    `《奇门遁甲元灵经》：“以本人年命与日干落宫，星旺门吉有三奇吉格者，自招吉祥；若本命日干犯击刑门迫，必多挫折磨练。”`,
+    '奇门终身局以本次年命、日干和时干落宫为个人标记，结合门、星、神、天地盘干、宫间生克与格局解释人生主题。',
+    '本命为根，阶段运限按所列起止与行限口径展开，流年引动结合本命及所属阶段共同判断；同一象意在不同时间层级分别取证。',
   ];
 
   const schoolNotes: Record<string, string> = {
-    baojian: '《御定奇门宝鉴》：“奇门吉凶以生克为本，星门相合，吉凶乃应；年命所乘，尤关通变。”',
-    tongzong: '《奇门遁甲统宗》：“推人年命，以局内年干为主；符使所指，大运周流。”',
-    mingfa: '《奇门鸣法》：“凡测终身，以年命为根柢，日干为自身，时干为落脚；九宫动静，神煞相兼。”',
-    yubo: '《烟波钓叟歌》：“急则从神缓从门，到处便为吉庆方；天马奔驰逢六合，阴阳顺逆理幽微。”',
+    baojian: '《御定奇门宝鉴》取向：结合星门、奇仪、宫位生克与格局条件推演。',
+    tongzong: '《奇门遁甲统宗》取向：围绕年命与个人标记落宫，结合各宫奇仪生克解释人事关系。',
+    mingfa: '《奇门鸣法》取向：结合本次九宫、符使与动静关系推演。',
+    yubo: '《烟波钓叟歌》取向：结合九星八门、奇仪格局与主客动静推演。',
   };
 
   if (data.input.schools && data.input.schools.length > 0) {
@@ -165,6 +165,8 @@ export function buildLifetimePrompt(
   }
   lines.push('');
 
+  lines.push(`同干定位（本命局）：\n${formatQimenStemLocations(data.baseChart).join('\n')}\n`);
+
   // 5. 【个人标记与主题宫】
   lines.push(`【个人标记与主题宫】`);
   lines.push(`核心个人标记：`);
@@ -236,6 +238,10 @@ export function buildLifetimePrompt(
 
   // 8. 【任务】
   lines.push(`【任务】`);
+  lines.push(QIMEN_IMAGE_INTERPRETATION_TASK);
+  lines.push(
+    '终身局取象以本命为根，阶段与流年各用本层已列盘面；换象与造象分别说明适用的人生主题和时间层级。',
+  );
   lines.push(
     `请依据奇门遁甲本命局、个人标记、阶段运限与事件动态推演终身格局与大限走向。先综述先天格局底色，再按人生阶段依次展开运限分析，最后结合流年触发窗口回答【问题】。先给出明确的倾向或吉凶定性，再说明主要理据及其生克演变；涉及阶段变化时，依据已列干支时段、节令或时间层级说明。`,
   );

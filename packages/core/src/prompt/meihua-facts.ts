@@ -86,6 +86,14 @@ export function formatMeihuaFacts(data: MeihuaData): string[] {
       facts.push(
         `起卦取数：所见物类${objectLabel}取上卦数${c.objectTrigramIndex}，方位${directionLabel}取下卦数${c.directionTrigramIndex}；上卦数加下卦数及时支${c.timeZhi}序数${c.timeZhiIndex}除6取余得动爻${c.movingYaoIndex}；卦数余0取8，动爻余0取6`,
       );
+      if (
+        MEIHUA_OBJECT_OPTIONS.some((item) => item.value === c.objectType) &&
+        MEIHUA_DIRECTION_OPTIONS.some((item) => item.value === c.direction)
+      ) {
+        facts.push(
+          `物象锚点：本次所选物类${objectLabel}、所记方位${directionLabel}；本卦${data.mainHexagram.name}，体卦${data.tiGua.name}、用卦${data.yongGua.name}${data.interHexagram ? `，互卦${data.interHexagram.name}` : ''}${data.changedHexagram ? `，变卦${data.changedHexagram.name}` : ''}。物类与方位承担本次取象起点，具体形态、材质与人物对应按已知情境取义；多种象意并存时保留待核实条件。`,
+        );
+      }
     }
   }
   const branch = data.analysis.monthBranch;

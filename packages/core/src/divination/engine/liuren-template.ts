@@ -17,7 +17,38 @@ export function getLiurenPatternHint(pattern?: LiurenData['transmissionPattern']
   return '传态未标注。';
 }
 
-export function buildLiurenTemplateText(template: LiurenTemplateType, _data: LiurenData) {
+const TOPIC_GODS: Record<Exclude<LiurenTemplateType, 'general'>, readonly string[]> = {
+  ganqing: ['天后', '六合', '青龙'],
+  shiye: ['贵人', '朱雀', '青龙'],
+  caifu: ['青龙', '太常', '天空'],
+};
+
+function formatGodLocations(data: LiurenData, god: string) {
+  const plateHits = data.heavenlyPlate.filter((item) => item.god === god);
+  const lessonHits = data.fourLessons.filter((item) => item.god === god);
+  const transmissionHits = data.threeTransmissions.filter((item) => item.god === god);
+  const plateText = plateHits.length
+    ? plateHits.map((item) => `天盘${item.branch}下临地盘${item.under}`).join('、')
+    : '未见';
+  const lessonText = lessonHits.length
+    ? lessonHits.map((item) => `${item.name}${item.upper}临${item.lower}`).join('、')
+    : '未见';
+  const transmissionText = transmissionHits.length
+    ? transmissionHits
+        .map((item) => {
+          const conditions = [
+            item.seasonState ? `月令${item.seasonState}` : '',
+            typeof item.isVoid === 'boolean' ? (item.isVoid ? '旬空' : '不逢旬空') : '',
+            item.dayRelation || '',
+          ].filter(Boolean);
+          return `${item.stage}${item.branch}${conditions.length ? `（${conditions.join('、')}）` : ''}`;
+        })
+        .join('、')
+    : '未见';
+  return `${god}：天地盘${plateText}；四课命中${lessonText}；三传命中${transmissionText}`;
+}
+
+export function buildLiurenTemplateText(template: LiurenTemplateType, data: LiurenData) {
   const templateLabelMap: Record<LiurenTemplateType, string> = {
     general: '通用',
     ganqing: '感情关系',
@@ -32,5 +63,10 @@ export function buildLiurenTemplateText(template: LiurenTemplateType, _data: Liu
   };
   const safeTemplate = templateLabelMap[template] ? template : 'general';
 
-  return `${templateLabelMap[safeTemplate]}；${mainLineMap[safeTemplate]}`;
+  if (safeTemplate === 'general') {
+    return `${templateLabelMap[safeTemplate]}；${mainLineMap[safeTemplate]}`;
+  }
+
+  const locations = TOPIC_GODS[safeTemplate].map((god) => formatGodLocations(data, god)).join('；');
+  return `${templateLabelMap[safeTemplate]}；${mainLineMap[safeTemplate]}；事项类神盘面定位：${locations}；初传保持发用结构，事项类神按上述盘面定位与三传条件合看`;
 }

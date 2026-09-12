@@ -2,6 +2,7 @@ import type { DivinationMethodId } from '../config';
 import type { DivinationData, MeihuaData } from '../../types/divination';
 import type { HuangjiJingshiResult } from '../../huangji-jingshi';
 import { buildPromptTask } from '../../prompt/guidance';
+import { QIMEN_IMAGE_INTERPRETATION_TASK } from '../../prompt/qimen-interpretation';
 
 function getMeihuaPromptMethod(data?: DivinationData) {
   if (!data) return 'meihua';
@@ -38,7 +39,7 @@ function buildMethodTaskText(method: Exclude<DivinationMethodId, 'random'>, data
     case 'jinkoujue':
       return '依据地分、将神、贵神、人元四位、阴阳发用与五动三动回答【问题】。';
     case 'qimen':
-      return '依据用神、值符值使、宫位门星神干与格局回答【问题】。';
+      return `依据用神、值符值使、宫位门星神干与格局回答【问题】。\n${QIMEN_IMAGE_INTERPRETATION_TASK}`;
     case 'liuren':
       return '依据月将、四课、三传、天将与课体回答【问题】。';
     case 'tarot':
