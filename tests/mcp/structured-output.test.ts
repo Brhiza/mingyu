@@ -4413,6 +4413,9 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     });
     assert.equal(result.isError, undefined, 'qimen_prompt 不应返回错误');
     const prompt = String(result.structuredContent?.prompt);
+    assert.match(prompt, /换象：/);
+    assert.match(prompt, /造象：/);
+    assert.match(prompt, /同干定位：/);
     const chartResult = await client.callTool({
       name: 'divine_qimen',
       arguments: {

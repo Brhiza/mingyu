@@ -6,6 +6,20 @@ import { isKe, isSheng } from 'mingyu-core/ganzhi';
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 const fixedYaos = [7, 8, 9, 6, 7, 8] as const;
 
+test('六爻主用神缺失时保留已命中辅证，并保持主取用缺口', () => {
+  const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
+  data.yaosDetail = data.yaosDetail.map((line) => ({ ...line, sixRelative: '父母' }));
+  data.hiddenSpirits = [];
+  const evidence = analyzeLiuyaoEvidence(data, { topic: 'shiye' });
+  assert.equal(evidence.selectedCandidate, null);
+  assert.equal(evidence.selectionFact.selectedCandidateKey, null);
+  assert.equal(evidence.candidates[0].status, '未匹配');
+  assert.equal(evidence.candidates[1].status, '已匹配');
+  assert.match(evidence.selectionFact.promptText, /事业用神未匹配；已有辅证：文书辅证见/);
+  assert.match(evidence.selectionFact.promptText, /主用神取用仍待核实/);
+  assert.doesNotMatch(evidence.selectionFact.promptText, /改以世应.*裁定/);
+});
+
 test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
   const evidence = data.evidenceAnalysis;

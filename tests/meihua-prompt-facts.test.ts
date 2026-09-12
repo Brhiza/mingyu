@@ -21,8 +21,26 @@ test('梅花字占保留原字及分笔，方位取象使用中文资料', () =>
   });
   const facts = formatMeihuaFacts(direction).join('\n');
   assert.match(facts, /所见物类地（坤）取上卦数8，方位正北（坎）取下卦数6/u);
+  assert.match(facts, /物象锚点：本次所选物类地（坤）、所记方位正北（坎）/u);
+  assert.ok(facts.includes(`体卦${direction.tiGua.name}、用卦${direction.yongGua.name}`));
   assert.doesNotMatch(facts, /earth|north|objectType|direction/u);
   assert.doesNotMatch(direction.evidenceAnalysis?.promptText ?? '', /所见物类earth|方位north/u);
+});
+
+test('梅花物象锚点只由完整方位起卦资料形成', () => {
+  const date = new Date('2026-09-11T05:27:00+08:00');
+  const number = generateMeihua(date, { method: 'number', number: 42 });
+  assert.doesNotMatch(formatMeihuaFacts(number).join('\n'), /物象锚点/);
+  const direction = generateMeihua(date, {
+    method: 'direction',
+    direction: 'north',
+    objectType: 'earth',
+  });
+  const before = structuredClone(direction);
+  formatMeihuaFacts(direction);
+  assert.deepEqual(direction, before);
+  delete direction.calculation!.objectType;
+  assert.doesNotMatch(formatMeihuaFacts(direction).join('\n'), /物象锚点/);
 });
 
 test('梅花比和判辞保留同盘在五种月令中的实际旺衰', () => {

@@ -715,6 +715,10 @@ test('奇门终身局 P4：自包含提示词规范、多流派依据与合规�
   );
 
   assert.ok(prompt.length > 500);
+  assert.match(prompt, /换象：/);
+  assert.match(prompt, /造象：/);
+  assert.match(prompt, /同干定位（本命局）：/);
+  assert.match(prompt, /阶段与流年各用本层已列盘面/);
   assert.equal(data.topicCandidates.length, 2, 'topics 过滤应真正生效');
   assert.match(data.basis.timeZoneUsed, /America\/New_York/);
   const currentTimeSection = prompt.split('【传统依据】')[0];

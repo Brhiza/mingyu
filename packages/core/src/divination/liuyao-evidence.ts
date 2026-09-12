@@ -1385,7 +1385,18 @@ export function analyzeLiuyaoEvidence(
     candidateKeys: candidates.map((item) => item.key),
     promptText: selectedCandidate
       ? `本次用神取${selectedCandidate.label}；盘面匹配${selectedCandidate.references.map(formatYao).join('、')}`
-      : '本次按既定取用规则检索后，本卦与伏神均未见对应用神爻，改以世应与动变主线裁定',
+      : `本次${candidates[0]?.label ?? '主用神'}未匹配；${
+          candidates.slice(1).some((candidate) => candidate.references.length)
+            ? `已有辅证：${candidates
+                .slice(1)
+                .filter((candidate) => candidate.references.length)
+                .map(
+                  (candidate) =>
+                    `${candidate.label}见${candidate.references.map(formatYao).join('、')}`,
+                )
+                .join('；')}；主用神取用仍待核实`
+            : '本卦与伏神未见本次候选对应爻；主用神取用待核实'
+        }；世应与动变作为现有盘面线索保留`,
     sources: ['候选顺序、匹配状态与逐爻引用核验'],
     limitation: SELECTION_FACT_LIMITATION,
   };
