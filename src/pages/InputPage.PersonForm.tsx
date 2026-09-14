@@ -8,6 +8,9 @@ import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { isValidHourMinute } from '@/lib/input-validation';
 import { getPersonValue, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from './InputPage.field-helpers';
+import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
+
+export type PersonInputMode = 'birth' | 'pillars';
 
 const BIRTH_TIME_DROPDOWN_OPTIONS = [
   { value: '', label: '请选择时辰' },
@@ -58,6 +61,10 @@ export interface PersonFormProps {
   footerHint?: ReactNode;
   forcePreciseBirthPlace?: boolean;
   showNameField?: boolean;
+  inputMode?: PersonInputMode;
+  onInputModeChange?: (mode: PersonInputMode) => void;
+  reversePanel?: ReactNode;
+  reverseSource?: BaziReverseSource | null;
 }
 
 export const PersonForm = memo(function PersonForm({
@@ -72,18 +79,28 @@ export const PersonForm = memo(function PersonForm({
   footerHint,
   forcePreciseBirthPlace = false,
   showNameField = true,
+  inputMode = 'birth',
+  onInputModeChange,
+  reversePanel,
+  reverseSource = null,
 }: PersonFormProps) {
   const birthTimeValue =
     getPersonValue(form, role, 'birthHour') !== '' &&
     getPersonValue(form, role, 'birthMinute') !== ''
       ? `${String(getPersonValue(form, role, 'birthHour')).padStart(2, '0')}:${String(
           getPersonValue(form, role, 'birthMinute'),
-        ).padStart(2, '0')}`
+        ).padStart(2, '0')}${
+          getPersonValue(form, role, 'birthSecond') !== ''
+            ? `:${String(getPersonValue(form, role, 'birthSecond')).padStart(2, '0')}`
+            : ''
+        }`
       : '';
   const isLunar = getPersonValue(form, role, 'dateType') === 'lunar';
   const useTrueSolarTime =
     forcePreciseBirthPlace || Boolean(getPersonValue(form, role, 'useTrueSolarTime'));
   const trueSolarTimeLabel = getTrueSolarTimeLabel(form, role);
+  const hasPreciseStandardTime = getPersonValue(form, role, 'birthSecond') !== '';
+  const canChooseInputMode = Boolean(onInputModeChange && reversePanel);
 
   return (
     <section
@@ -111,7 +128,7 @@ export const PersonForm = memo(function PersonForm({
           </div>
         ) : null}
 
-        <div className={`workspace-ui-form-row ${isLunar ? 'is-three-column' : 'is-two-column'}`}>
+        <div className="workspace-ui-form-row">
           <div className="workspace-ui-field">
             <label>性别</label>
             <SegmentedControl
@@ -123,140 +140,183 @@ export const PersonForm = memo(function PersonForm({
               onChange={(value) => updatePersonField(role, 'gender', value)}
             />
           </div>
+        </div>
 
-          <div className="workspace-ui-field">
-            <label>日历</label>
-            <SegmentedControl
-              value={isLunar}
-              options={[
-                { label: '公历', value: false },
-                { label: '农历', value: true },
-              ]}
-              onChange={(value) => updatePersonField(role, 'dateType', value ? 'lunar' : 'solar')}
-            />
-          </div>
-
-          {isLunar ? (
+        {canChooseInputMode ? (
+          <div className="workspace-ui-form-row">
             <div className="workspace-ui-field">
-              <label>月别</label>
+              <label>出生资料方式</label>
               <SegmentedControl
-                value={Boolean(getPersonValue(form, role, 'isLeapMonth'))}
+                value={inputMode === 'pillars'}
                 options={[
-                  { label: '平月', value: false },
-                  { label: '闰月', value: true },
+                  { label: '按出生日期', value: false },
+                  { label: '已知四柱反推', value: true },
                 ]}
-                onChange={(value) => updatePersonField(role, 'isLeapMonth', value)}
+                onChange={(value) => onInputModeChange?.(value ? 'pillars' : 'birth')}
               />
             </div>
-          ) : null}
-        </div>
-
-        <div className="workspace-ui-form-row workspace-ui-date-row">
-          <div className="workspace-ui-field">
-            <label htmlFor={`${role}-year-input`}>年</label>
-            <input
-              id={`${role}-year-input`}
-              value={String(getPersonValue(form, role, 'year'))}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="2000"
-              className="workspace-ui-control"
-              onChange={(event) => updateNumericField(role, 'year', event.target.value)}
-            />
           </div>
-          <div className="workspace-ui-field">
-            <label htmlFor={`${role}-month-input`}>月</label>
-            <input
-              id={`${role}-month-input`}
-              value={String(getPersonValue(form, role, 'month'))}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="1-12"
-              className="workspace-ui-control"
-              onChange={(event) => updateNumericField(role, 'month', event.target.value)}
-            />
-          </div>
-          <div className="workspace-ui-field">
-            <label htmlFor={`${role}-day-input`}>日</label>
-            <input
-              id={`${role}-day-input`}
-              value={String(getPersonValue(form, role, 'day'))}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="1-31"
-              className="workspace-ui-control"
-              onChange={(event) => updateNumericField(role, 'day', event.target.value)}
-            />
-          </div>
-        </div>
+        ) : null}
 
-        {forcePreciseBirthPlace ? null : (
-          <div className="workspace-ui-form-row">
-            <label className="workspace-ui-checkbox" htmlFor={`${role}-true-solar-time-input`}>
-              <input
-                id={`${role}-true-solar-time-input`}
-                checked={useTrueSolarTime}
-                type="checkbox"
-                onChange={(event) =>
-                  updatePersonField(role, 'useTrueSolarTime', event.target.checked)
-                }
-              />
-              <span>使用真太阳时（需精准时分和出生地）</span>
-            </label>
-          </div>
-        )}
-
-        {useTrueSolarTime ? (
-          <>
-            <div className="workspace-ui-form-row">
-              <div className="workspace-ui-field">
-                <label htmlFor={`${role}-birth-time-input`}>精准时间</label>
-                <input
-                  id={`${role}-birth-time-input`}
-                  value={birthTimeValue}
-                  type="time"
-                  className="workspace-ui-control"
-                  onChange={(event) => updateBirthTime(role, event.target.value)}
-                />
-                {trueSolarTimeLabel ? (
-                  <div className="workspace-ui-field-hint">{trueSolarTimeLabel}</div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="workspace-ui-form-row">
-              <div className="workspace-ui-field">
-                <label htmlFor={`${role}-birth-place-input`}>出生地</label>
-                <button
-                  id={`${role}-birth-place-input`}
-                  type="button"
-                  className="workspace-ui-control address-trigger"
-                  onClick={() => openBirthPlaceModal(role)}
-                >
-                  <span>{String(getPersonValue(form, role, 'birthPlace')) || '请选择出生地'}</span>
-                  <span className="address-trigger-arrow">选择</span>
-                </button>
-              </div>
-            </div>
-          </>
+        {inputMode === 'pillars' && reversePanel ? (
+          reversePanel
         ) : (
-          <div className="workspace-ui-form-row">
-            <div className="workspace-ui-field">
-              <label htmlFor={`${role}-time-index-input`}>时辰</label>
-              <DropdownSelect
-                id={`${role}-time-index-input`}
-                value={String(getPersonValue(form, role, 'timeIndex'))}
-                options={BIRTH_TIME_DROPDOWN_OPTIONS}
-                variant="field"
-                onChange={(value) =>
-                  updatePersonField(role, 'timeIndex', value === '' ? '' : Number(value))
-                }
-              />
+          <>
+            <div
+              className={`workspace-ui-form-row ${isLunar ? 'is-three-column' : 'is-two-column'}`}
+            >
+              <div className="workspace-ui-field">
+                <label>日历</label>
+                <SegmentedControl
+                  value={isLunar}
+                  options={[
+                    { label: '公历', value: false },
+                    { label: '农历', value: true },
+                  ]}
+                  onChange={(value) =>
+                    updatePersonField(role, 'dateType', value ? 'lunar' : 'solar')
+                  }
+                />
+              </div>
+
+              {isLunar ? (
+                <div className="workspace-ui-field">
+                  <label>月别</label>
+                  <SegmentedControl
+                    value={Boolean(getPersonValue(form, role, 'isLeapMonth'))}
+                    options={[
+                      { label: '平月', value: false },
+                      { label: '闰月', value: true },
+                    ]}
+                    onChange={(value) => updatePersonField(role, 'isLeapMonth', value)}
+                  />
+                </div>
+              ) : null}
             </div>
-          </div>
+
+            <div className="workspace-ui-form-row workspace-ui-date-row">
+              <div className="workspace-ui-field">
+                <label htmlFor={`${role}-year-input`}>年</label>
+                <input
+                  id={`${role}-year-input`}
+                  value={String(getPersonValue(form, role, 'year'))}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="2000"
+                  className="workspace-ui-control"
+                  onChange={(event) => updateNumericField(role, 'year', event.target.value)}
+                />
+              </div>
+              <div className="workspace-ui-field">
+                <label htmlFor={`${role}-month-input`}>月</label>
+                <input
+                  id={`${role}-month-input`}
+                  value={String(getPersonValue(form, role, 'month'))}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="1-12"
+                  className="workspace-ui-control"
+                  onChange={(event) => updateNumericField(role, 'month', event.target.value)}
+                />
+              </div>
+              <div className="workspace-ui-field">
+                <label htmlFor={`${role}-day-input`}>日</label>
+                <input
+                  id={`${role}-day-input`}
+                  value={String(getPersonValue(form, role, 'day'))}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="1-31"
+                  className="workspace-ui-control"
+                  onChange={(event) => updateNumericField(role, 'day', event.target.value)}
+                />
+              </div>
+            </div>
+
+            {forcePreciseBirthPlace ? null : (
+              <div className="workspace-ui-form-row">
+                <label className="workspace-ui-checkbox" htmlFor={`${role}-true-solar-time-input`}>
+                  <input
+                    id={`${role}-true-solar-time-input`}
+                    checked={useTrueSolarTime}
+                    type="checkbox"
+                    onChange={(event) =>
+                      updatePersonField(role, 'useTrueSolarTime', event.target.checked)
+                    }
+                  />
+                  <span>使用真太阳时（需精准时分和出生地）</span>
+                </label>
+              </div>
+            )}
+
+            {useTrueSolarTime || hasPreciseStandardTime ? (
+              <>
+                <div className="workspace-ui-form-row">
+                  <div className="workspace-ui-field">
+                    <label htmlFor={`${role}-birth-time-input`}>
+                      {useTrueSolarTime ? '精准时间' : '标准北京时间（精确到秒）'}
+                    </label>
+                    <input
+                      id={`${role}-birth-time-input`}
+                      value={birthTimeValue}
+                      type="time"
+                      step={hasPreciseStandardTime ? 1 : undefined}
+                      className="workspace-ui-control"
+                      onChange={(event) => updateBirthTime(role, event.target.value)}
+                    />
+                    {useTrueSolarTime && trueSolarTimeLabel ? (
+                      <div className="workspace-ui-field-hint">{trueSolarTimeLabel}</div>
+                    ) : null}
+                  </div>
+                </div>
+
+                {useTrueSolarTime ? (
+                  <div className="workspace-ui-form-row">
+                    <div className="workspace-ui-field">
+                      <label htmlFor={`${role}-birth-place-input`}>出生地</label>
+                      <button
+                        id={`${role}-birth-place-input`}
+                        type="button"
+                        className="workspace-ui-control address-trigger"
+                        onClick={() => openBirthPlaceModal(role)}
+                      >
+                        <span>
+                          {String(getPersonValue(form, role, 'birthPlace')) || '请选择出生地'}
+                        </span>
+                        <span className="address-trigger-arrow">选择</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="workspace-ui-form-row">
+                <div className="workspace-ui-field">
+                  <label htmlFor={`${role}-time-index-input`}>时辰</label>
+                  <DropdownSelect
+                    id={`${role}-time-index-input`}
+                    value={String(getPersonValue(form, role, 'timeIndex'))}
+                    options={BIRTH_TIME_DROPDOWN_OPTIONS}
+                    variant="field"
+                    onChange={(value) =>
+                      updatePersonField(role, 'timeIndex', value === '' ? '' : Number(value))
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {reverseSource ? (
+              <div className="workspace-ui-field-hint">
+                四柱来源：{Object.values(reverseSource.pillars).join(' ')}；候选区间{' '}
+                {reverseSource.intervalStart} 至 {reverseSource.intervalEnd}（起点含、终点不含）。
+                已按区间起点 {birthTimeValue || '代表时刻'} 回填，这不是对真实出生秒数的确定。
+              </div>
+            ) : null}
+          </>
         )}
       </div>
       {footerHint ? <div className="workspace-ui-form-case-hint">{footerHint}</div> : null}

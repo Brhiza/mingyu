@@ -50,8 +50,8 @@ function hashText(value: string) {
   return (hash >>> 0).toString(36);
 }
 
-function numberOrString(value: string) {
-  return value === '' ? '' : Number(value);
+function numberOrString(value: string | undefined) {
+  return value === '' || value === undefined ? '' : Number(value);
 }
 
 function addIfPresent(target: Record<string, unknown>, key: string, value: unknown) {
@@ -74,6 +74,7 @@ function buildBirthInputs(input: QueryInputState, includeName = false) {
   if (input.timeIndex !== '') result.timeIndex = input.timeIndex;
   addIfPresent(result, 'birthHour', numberOrString(input.birthHour));
   addIfPresent(result, 'birthMinute', numberOrString(input.birthMinute));
+  addIfPresent(result, 'birthSecond', numberOrString(input.birthSecond));
   addIfPresent(result, 'birthLongitude', numberOrString(input.birthLongitude));
   addIfPresent(result, 'birthLatitude', numberOrString(input.birthLatitude));
   return result;
@@ -95,6 +96,7 @@ function buildPartnerBirthInputs(input: QueryInputState, includeName = false) {
   if (input.partnerTimeIndex !== '') result.timeIndex = input.partnerTimeIndex;
   addIfPresent(result, 'birthHour', numberOrString(input.partnerBirthHour));
   addIfPresent(result, 'birthMinute', numberOrString(input.partnerBirthMinute));
+  addIfPresent(result, 'birthSecond', numberOrString(input.partnerBirthSecond));
   addIfPresent(result, 'birthLongitude', numberOrString(input.partnerBirthLongitude));
   addIfPresent(result, 'birthLatitude', numberOrString(input.partnerBirthLatitude));
   return result;
@@ -197,11 +199,18 @@ export function buildQimenLifetimeInputs(
   input: QueryInputState,
   stageModel: QimenLifetimeStageModel = 'pillarFourLimits',
 ): QimenLifetimeInput {
+  const birthSecond = input.birthSecond ?? '';
   let hour = 12;
   let minute = 0;
+  let second = 0;
   if (input.useTrueSolarTime && input.birthHour !== '') {
     hour = Number(input.birthHour);
     minute = input.birthMinute === '' ? 0 : Number(input.birthMinute);
+    second = birthSecond === '' ? 0 : Number(birthSecond);
+  } else if (!input.useTrueSolarTime && birthSecond !== '' && input.birthHour !== '') {
+    hour = Number(input.birthHour);
+    minute = input.birthMinute === '' ? 0 : Number(input.birthMinute);
+    second = Number(birthSecond);
   } else if (input.timeIndex !== '') {
     const option = BIRTH_TIME_OPTIONS[Number(input.timeIndex)];
     if (option) {
@@ -211,7 +220,7 @@ export function buildQimenLifetimeInputs(
   }
 
   const result: QimenLifetimeInput = {
-    birthDateTime: `${String(Number(input.year)).padStart(4, '0')}-${String(Number(input.month)).padStart(2, '0')}-${String(Number(input.day)).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`,
+    birthDateTime: `${String(Number(input.year)).padStart(4, '0')}-${String(Number(input.month)).padStart(2, '0')}-${String(Number(input.day)).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`,
     timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
     calendarType: input.dateType,
     isLeapMonth: input.isLeapMonth,

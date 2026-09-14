@@ -224,7 +224,8 @@
 .ganzhi-cell-lunar,
 .ganzhi-cell-ganzhi,
 .ganzhi-cell-god,
-.ganzhi-cell-term {
+.ganzhi-cell-term,
+.ganzhi-cell-personal {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -260,6 +261,21 @@
   color: var(--accent-deep);
   font-size: 10px;
   font-weight: 700;
+}
+
+.ganzhi-cell-personal {
+  max-width: 100%;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ganzhi-cell-personal.is-supported {
+  color: var(--success-text);
+}
+
+.ganzhi-cell-personal.is-restricted {
+  color: var(--danger-text);
 }
 
 .ganzhi-calendar-detail {
@@ -349,6 +365,54 @@
 .ganzhi-detail-note {
   margin: 0;
   color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ganzhi-personal-facts {
+  display: grid;
+  gap: 6px;
+}
+
+.ganzhi-personal-fact {
+  display: grid;
+  grid-template-columns: minmax(62px, auto) auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: baseline;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--surface-base);
+  font-size: 11px;
+}
+
+.ganzhi-personal-fact strong {
+  color: var(--text-strong);
+}
+
+.ganzhi-personal-fact span {
+  color: var(--text-secondary);
+}
+
+.ganzhi-personal-fact small {
+  min-width: 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.ganzhi-personal-fact.is-supported span {
+  color: var(--success-text);
+}
+
+.ganzhi-personal-fact.is-restricted span {
+  color: var(--danger-text);
+}
+
+.ganzhi-personal-notes {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.5;
 }
@@ -525,7 +589,8 @@
   }
 
   .ganzhi-cell-god,
-  .ganzhi-cell-term {
+  .ganzhi-cell-term,
+  .ganzhi-cell-personal {
     font-size: 9px;
   }
 
@@ -554,8 +619,14 @@
   }
 
   .ganzhi-cell-god,
-  .ganzhi-cell-term {
+  .ganzhi-cell-term,
+  .ganzhi-cell-personal {
     font-size: 8px;
+  }
+
+  .ganzhi-personal-fact {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 
   .ganzhi-hour-grid {

@@ -4,6 +4,7 @@
  */
 
 import {
+  formatUsefulGodFunctions,
   getShenShaType,
   getTenGod,
   getTenGodForBranch,
@@ -1860,7 +1861,8 @@ export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerG
 
   const info = GAN_ARCHETYPES[dayMasterGan] || GAN_ARCHETYPES['甲']!;
 
-  const strengthPlain = `【日主${strengthStatus}】${baziResult.analysis.dayMasterStrength.details.ruleBasis.join('；')}。本局取用为【${primaryUseful}】。${baziResult.analysis.usefulGod.strategyTrace?.join('；') || baziResult.analysis.usefulGod.primaryReason || ''}`;
+  const usefulGod = baziResult.analysis.usefulGod;
+  const strengthPlain = `【日主${strengthStatus}】${baziResult.analysis.dayMasterStrength.details.ruleBasis.join('；')}。本局五行取用为【${primaryUseful}】，取用主线为${usefulGod.primaryReason || '扶抑'}。${formatUsefulGodFunctions(usefulGod).join('；')}`;
 
   const favorableHabitsPlain = [
     `核心调和五行：【${primaryUseful}】，建议在生活与工作中多向该五行属性的行业、思维方式或生活习惯靠拢。`,

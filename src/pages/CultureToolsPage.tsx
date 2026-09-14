@@ -761,6 +761,20 @@ function BirthSection({
             ...current,
             [getFieldKey(role, key)]: next,
             ...(key === 'dateType' ? { isLeapMonth: false } : {}),
+            ...([
+              'dateType',
+              'year',
+              'month',
+              'day',
+              'timeIndex',
+              'isLeapMonth',
+              'useTrueSolarTime',
+              'birthHour',
+              'birthMinute',
+              'birthSecond',
+            ].includes(key)
+              ? { birthReverseSource: '' }
+              : {}),
           }))
         }
         updateNumericField={(role, key, next) => {
@@ -768,12 +782,19 @@ function BirthSection({
             onChange((current) => ({
               ...current,
               [getFieldKey(role, key)]: clampNumericField(key, next),
+              birthReverseSource: '',
             }));
           }
         }}
         updateBirthTime={(_, next) => {
-          const [birthHour = '', birthMinute = ''] = next.split(':');
-          onChange((current) => ({ ...current, birthHour, birthMinute }));
+          const [birthHour = '', birthMinute = '', birthSecond = ''] = next.split(':');
+          onChange((current) => ({
+            ...current,
+            birthHour,
+            birthMinute,
+            birthSecond,
+            birthReverseSource: '',
+          }));
         }}
         openBirthPlaceModal={birthPlace.openBirthPlaceModal}
       />
@@ -846,11 +867,14 @@ function NameReport({ result }: { result: ReturnType<typeof analyzeChineseName> 
             </p>
             {result.birthContext.climate ? (
               <p>
-                调候：{result.birthContext.climate.nature} · {result.birthContext.climate.summary} ·{' '}
-                {result.birthContext.climate.medicine}
+                寒暖分布：{result.birthContext.climate.nature} ·{' '}
+                {result.birthContext.climate.summary} · {result.birthContext.climate.medicine}
               </p>
             ) : null}
             <p>{result.birthContext.usefulGodReason}</p>
+            {result.birthContext.functionalUse.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
             {result.birthContext.warnings.map((warning) => (
               <p key={warning}>{warning}</p>
             ))}

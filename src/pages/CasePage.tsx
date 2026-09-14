@@ -14,6 +14,7 @@ import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { defaultInputState, type QueryInputState } from '@/lib/query-state';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
+import { parseBaziReverseSource } from '@/lib/bazi-reverse-input';
 import {
   WorkspaceButton,
   WorkspaceConfirmDialog,
@@ -143,7 +144,23 @@ export function CasePage() {
     value: QueryInputState[keyof QueryInputState],
   ) {
     const fieldKey = getFieldKey(role, key) as keyof QueryInputState;
-    setForm((current) => ({ ...current, [fieldKey]: value }));
+    const clearsReverseSource = [
+      'dateType',
+      'year',
+      'month',
+      'day',
+      'timeIndex',
+      'isLeapMonth',
+      'useTrueSolarTime',
+      'birthHour',
+      'birthMinute',
+      'birthSecond',
+    ].includes(key);
+    setForm((current) => ({
+      ...current,
+      [fieldKey]: value,
+      ...(clearsReverseSource ? { birthReverseSource: '' } : {}),
+    }));
   }
 
   function updateNumericField(
@@ -158,11 +175,23 @@ export function CasePage() {
 
   function updateBirthTime(_role: PersonRole, value: string) {
     if (!value) {
-      setForm((current) => ({ ...current, birthHour: '', birthMinute: '' }));
+      setForm((current) => ({
+        ...current,
+        birthHour: '',
+        birthMinute: '',
+        birthSecond: '',
+        birthReverseSource: '',
+      }));
       return;
     }
-    const [hour, minute] = value.split(':');
-    setForm((current) => ({ ...current, birthHour: hour, birthMinute: minute }));
+    const [hour, minute, second = ''] = value.split(':');
+    setForm((current) => ({
+      ...current,
+      birthHour: hour,
+      birthMinute: minute,
+      birthSecond: second,
+      birthReverseSource: '',
+    }));
   }
 
   function validateCase() {
@@ -384,6 +413,7 @@ export function CasePage() {
               updateBirthTime={updateBirthTime}
               openBirthPlaceModal={birthPlace.openBirthPlaceModal}
               sectionTitle="出生资料"
+              reverseSource={parseBaziReverseSource(form.birthReverseSource)}
             />
             {error ? <div className="workspace-ui-form-error">{error}</div> : null}
           </div>

@@ -1209,6 +1209,13 @@ export interface AlmanacParticipantInput {
   timeIndex: string;
   dateType: 'solar' | 'lunar';
   isLeapMonth?: boolean;
+  /** 有精确出生时刻时保留原始钟表时间，避免案例回落到时辰中点。 */
+  birthHour?: string;
+  birthMinute?: string;
+  birthSecond?: string;
+  birthPlace?: string;
+  birthLongitude?: string;
+  useTrueSolarTime?: boolean;
 }
 
 export interface AlmanacParticipantProfile {

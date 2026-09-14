@@ -76,6 +76,14 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     },
   ],
   [
+    'calendar_bazi_reverse',
+    {
+      pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+      startYear: 2024,
+      endYear: 2024,
+    },
+  ],
+  [
     'calendar_solar_illumination',
     {
       year: 2024,
@@ -585,7 +593,8 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withIsolatedMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 76);
+    assert.equal(tools.length, 77);
+    assert.ok(tools.find((tool) => tool.name === 'calendar_bazi_reverse'));
     assert.ok(tools.find((tool) => tool.name === 'thematic_consultation_prompt'));
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
@@ -1476,6 +1485,26 @@ test('MCP 排盘工具应返回 structuredContent，文本兼容输出不重复�
           /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
         );
         assertPromptIsPortableTaskText(compatibility?.promptText ?? '');
+      }
+      if (name === 'calendar_bazi_reverse') {
+        const reverse = result.structuredContent.result as {
+          candidateCount: number;
+          candidates: Array<{
+            start: { text: string };
+            end: { text: string };
+            endExclusive: boolean;
+          }>;
+          policy: { timezone: string; dayChange: string };
+        };
+        const candidate = reverse.candidates.find(
+          (item) => item.start.text === '2024-02-04 23:00:00',
+        );
+        assert.equal(reverse.candidateCount, reverse.candidates.length);
+        assert.equal(reverse.policy.timezone, 'Asia/Shanghai');
+        assert.equal(reverse.policy.dayChange, '子时23点换日');
+        assert.ok(candidate);
+        assert.equal(candidate.end.text, '2024-02-05 01:00:00');
+        assert.equal(candidate.endExclusive, true);
       }
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';

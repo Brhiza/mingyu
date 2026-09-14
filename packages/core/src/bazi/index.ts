@@ -16,7 +16,7 @@ export type {
 } from './baziPatternFulfillment';
 export { buildBaziPersonInput, calculateBaziChartFromInput } from './input';
 export type { BaziChartInputDraft, BaziInputText } from './input';
-export { formatBaziForPrompt } from './baziAnalysisFormatter';
+export { formatBaziForPrompt, formatUsefulGodFunctions } from './baziAnalysisFormatter';
 export type { PromptChartScene } from './baziAnalysisFormatter';
 export { generateEnhancedAnalysisSection } from './baziPromptEnhancement';
 export {
@@ -51,11 +51,23 @@ export type {
   BaziAnalysisResult,
   BaziWarningFact,
   BaziWarningSummaryFact,
+  UsefulGodAnalysis,
+  UsefulGodClimateCandidateEvidence,
+  UsefulGodControlFunctionEvidence,
+  UsefulGodDecisionEvidence,
+  UsefulGodDecisionStatus,
   SolarDateTimeInfo,
   LocalTimeRange,
   TimingInfo,
   Wuxing,
 } from './baziTypes';
+export type {
+  ClimateRule,
+  ClimateRuleEffect,
+  ClimateRuleMode,
+  ClimateRulePolicy,
+  ClimateRuleSource,
+} from './baziTherapeuticRules';
 export {
   getBaziDayIndexByDate,
   getBaziMonthIndexByDate,

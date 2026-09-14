@@ -199,6 +199,10 @@
       "types": "./dist/calendar/true-solar-time.d.ts",
       "import": "./dist/calendar/true-solar-time.js"
     },
+    "./calendar/bazi-reverse": {
+      "types": "./dist/calendar/bazi-reverse.d.ts",
+      "import": "./dist/calendar/bazi-reverse.js"
+    },
     "./ganzhi": {
       "types": "./dist/ganzhi/index.d.ts",
       "import": "./dist/ganzhi/index.js"

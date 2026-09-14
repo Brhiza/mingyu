@@ -6,6 +6,8 @@ import {
   type BaziReversePillars,
 } from '../packages/core/src/calendar/bazi-reverse';
 import { getGanZhiFromDate } from '../packages/core/src/ganzhi';
+import { reverseBaziDates as reverseBaziDatesFromCalendar } from 'mingyu-core/calendar';
+import { reverseBaziDates as reverseBaziDatesFromSubpath } from 'mingyu-core/calendar/bazi-reverse';
 
 function at(
   year: number,
@@ -47,6 +49,16 @@ function chinaPartsFromUtcTimestamp(timestamp: number): ReturnType<typeof at> {
     time.getUTCSeconds(),
   );
 }
+
+test('八字反推应同时从核心历法主入口和独立包子路径导出', () => {
+  assert.equal(reverseBaziDatesFromCalendar, reverseBaziDatesFromSubpath);
+  const result = reverseBaziDatesFromSubpath({
+    pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+    startYear: 2024,
+    endYear: 2024,
+  });
+  assert.equal(result.candidates[0]?.start.text, '2024-02-04 23:00:00');
+});
 
 test('八字反推返回完整候选区间，并能在区间内正向复核', () => {
   const pillars = pillarsAt(at(2024, 2, 4, 23));

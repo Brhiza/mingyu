@@ -321,7 +321,7 @@ test('八字提示词不应由五行百分比阈值自动生成病药结论', ()
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /；忌火/);
+  assert.match(prompt.user, /；忌水/);
   assert.doesNotMatch(prompt.user, /【五行结构】/);
   assert.doesNotMatch(prompt.user, /【病药法】/);
 });
@@ -347,7 +347,7 @@ test('八字提示词不应把五行构成阈值包装为过强过弱病药断�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /取用: 主用火，辅水、土、金.+；忌木/);
+  assert.match(prompt.user, /取用: 主用火，辅土、金.+；忌水/);
   assert.doesNotMatch(prompt.user, /【病药法】|过弱为病|过旺为病/);
 });
 

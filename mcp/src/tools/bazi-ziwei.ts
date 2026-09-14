@@ -46,12 +46,19 @@ const baziZiweiPromptSchema = z.object({
   timeIndex: z
     .number()
     .optional()
-    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；未启用真太阳时时必填'),
+    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；精确标准北京时间传时分秒时可省略'),
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
-  birthHour: z.number().optional().describe('精准出生小时，启用真太阳时时必填'),
-  birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
+  birthHour: z.number().optional().describe('精准出生小时，启用真太阳时或精确标准北京时间时必填'),
+  birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时或精确标准北京时间时必填'),
+  birthSecond: z
+    .number()
+    .int()
+    .min(0)
+    .max(59)
+    .optional()
+    .describe('八字精确标准北京时间秒数（0-59）；紫微安星仍按时辰索引'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
   timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
@@ -166,6 +173,10 @@ function mapZiweiScopeToBaziFortuneScope(scope: ZiweiPromptScope) {
 }
 
 function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
+  const standardTimeIndex =
+    !args.useTrueSolarTime && args.birthSecond !== undefined
+      ? buildBaziPerson(args).timeIndex
+      : args.timeIndex;
   return buildMcpZiweiChartInput({
     name: args.name,
     gender: args.gender,
@@ -173,7 +184,7 @@ function buildCombinedZiweiInput(args: z.infer<typeof baziZiweiPromptSchema>) {
     year: String(args.year),
     month: String(args.month),
     day: String(args.day),
-    timeIndex: args.timeIndex,
+    timeIndex: standardTimeIndex,
     promptScope:
       args.scope === undefined
         ? args.promptScope

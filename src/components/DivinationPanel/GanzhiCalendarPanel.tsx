@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getBeijingTodayKey,
   getDefaultGanzhiCalendarMonth,
@@ -8,12 +8,9 @@ import {
   type GanzhiCalendarCell,
   type GanzhiCalendarDayDetail,
 } from '@/lib/ganzhi-calendar';
-import {
-  WorkspaceButton,
-  WorkspacePage,
-  WorkspaceSurface,
-} from '@/components/workspace/WorkspaceUI';
-import './GanzhiCalendarPage.css';
+import { WorkspaceButton, WorkspaceSurface } from '@/components/workspace/WorkspaceUI';
+import type { AlmanacParticipantInput } from 'mingyu-core/types';
+import './GanzhiCalendarPanel.css';
 
 const WEEK_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -41,6 +38,34 @@ function valueGodClass(cell: GanzhiCalendarCell): string {
   return cell.valueGodFortune === '黄道' ? 'is-huangdao' : 'is-heidao';
 }
 
+function getParticipantAssociation(cell: GanzhiCalendarCell) {
+  const facts = cell.participantRelationFacts;
+  const restricted = facts.find((fact) => fact.status === '限制');
+  if (restricted) {
+    return {
+      className: 'is-restricted',
+      label: `避${restricted.participantName}`,
+      title: restricted.promptText,
+    };
+  }
+  const supported = facts.find((fact) => fact.status === '支持');
+  if (supported) {
+    return {
+      className: 'is-supported',
+      label: `合${supported.participantName}`,
+      title: supported.promptText,
+    };
+  }
+  if (facts.length || cell.participantNotes.length) {
+    return {
+      className: 'is-neutral',
+      label: '个人关联',
+      title: cell.participantNotes.join('；') || '已读取参与人关系事实。',
+    };
+  }
+  return null;
+}
+
 function CalendarCell({
   cell,
   selected,
@@ -51,6 +76,7 @@ function CalendarCell({
   onSelect: (dateKey: string) => void;
 }) {
   const termLabel = cell.solarTerms.map(formatTermLabel).join('、');
+  const participantAssociation = getParticipantAssociation(cell);
   return (
     <button
       type="button"
@@ -59,7 +85,7 @@ function CalendarCell({
         cell.isToday ? ' is-today' : ''
       }${selected ? ' is-selected' : ''}`}
       aria-pressed={selected}
-      aria-label={`${cell.date} ${cell.weekday}，农历${cell.lunarDate}，${cell.dayGanzhi}日，${cell.valueGod}${cell.valueGodFortune}，${termLabel || '无节气'}`}
+      aria-label={`${cell.date} ${cell.weekday}，农历${cell.lunarDate}，${cell.dayGanzhi}日，${cell.valueGod}${cell.valueGodFortune}，${termLabel || '无节气'}${participantAssociation ? `，${participantAssociation.label}` : ''}`}
       onClick={() => onSelect(cell.date)}
     >
       <span className="ganzhi-cell-topline">
@@ -74,6 +100,14 @@ function CalendarCell({
       </span>
       {cell.solarTerms.length ? (
         <span className="ganzhi-cell-term">{cell.solarTerms.map(formatTermLabel).join(' ')}</span>
+      ) : null}
+      {participantAssociation ? (
+        <span
+          className={`ganzhi-cell-personal ${participantAssociation.className}`}
+          title={participantAssociation.title}
+        >
+          {participantAssociation.label}
+        </span>
       ) : null}
     </button>
   );
@@ -103,6 +137,8 @@ function DetailPillarBoundary({
 
 function DayDetail({ detail }: { detail: GanzhiCalendarDayDetail }) {
   const almanac = detail.almanac;
+  const participantFacts = almanac.participantRelationFacts ?? [];
+  const participantNotes = almanac.participantNotes ?? [];
   return (
     <section className="ganzhi-calendar-detail" aria-labelledby="ganzhi-calendar-detail-title">
       <header className="ganzhi-detail-header">
@@ -184,6 +220,34 @@ function DayDetail({ detail }: { detail: GanzhiCalendarDayDetail }) {
       </section>
 
       <section className="ganzhi-detail-section">
+        <h3>参与人关联</h3>
+        {participantFacts.length ? (
+          <div className="ganzhi-personal-facts">
+            {participantFacts.map((fact) => (
+              <div
+                key={fact.key}
+                className={`ganzhi-personal-fact is-${fact.status === '限制' ? 'restricted' : fact.status === '支持' ? 'supported' : 'neutral'}`}
+              >
+                <strong>{fact.participantName}</strong>
+                <span>
+                  {fact.relation} · {fact.status}
+                </span>
+                <small>{fact.detail || fact.promptText}</small>
+              </div>
+            ))}
+          </div>
+        ) : participantNotes.length ? (
+          <ul className="ganzhi-personal-notes">
+            {participantNotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="ganzhi-detail-note">当前未指定可用于匹配的参与人资料。</p>
+        )}
+      </section>
+
+      <section className="ganzhi-detail-section">
         <h3>十二时辰</h3>
         <div className="ganzhi-hour-grid">
           {(almanac.hours ?? []).map((hour) => (
@@ -200,21 +264,47 @@ function DayDetail({ detail }: { detail: GanzhiCalendarDayDetail }) {
   );
 }
 
-export function GanzhiCalendarPage() {
+export type GanzhiCalendarPanelProps = {
+  participants?: readonly AlmanacParticipantInput[];
+  selectedDate?: string;
+  onSelectDate?: (dateKey: string) => void;
+  embedded?: boolean;
+};
+
+function isDateKey(value: string | undefined): value is string {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/u.test(value));
+}
+
+export function GanzhiCalendarPanel({
+  participants = [],
+  selectedDate: selectedDateProp,
+  onSelectDate,
+  embedded = false,
+}: GanzhiCalendarPanelProps) {
   const todayKey = useMemo(() => getBeijingTodayKey(), []);
   const todayMonth = useMemo(() => getDefaultGanzhiCalendarMonth(), []);
-  const [monthKey, setMonthKey] = useState(todayMonth);
-  const [selectedDate, setSelectedDate] = useState(todayKey);
-  const month = useMemo(() => getGanzhiCalendarMonth(monthKey, todayKey), [monthKey, todayKey]);
+  const initialDate = isDateKey(selectedDateProp) ? selectedDateProp : todayKey;
+  const [monthKey, setMonthKey] = useState(getDateMonthKey(initialDate));
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  useEffect(() => {
+    if (!isDateKey(selectedDateProp)) return;
+    setSelectedDate(selectedDateProp);
+    setMonthKey(getDateMonthKey(selectedDateProp));
+  }, [selectedDateProp]);
+  const month = useMemo(
+    () => getGanzhiCalendarMonth(monthKey, todayKey, participants),
+    [monthKey, participants, todayKey],
+  );
   const detail = useMemo(
-    () => getGanzhiCalendarDayDetail(selectedDate, todayKey),
-    [selectedDate, todayKey],
+    () => getGanzhiCalendarDayDetail(selectedDate, todayKey, participants),
+    [participants, selectedDate, todayKey],
   );
 
   function selectDate(dateKey: string) {
     setSelectedDate(dateKey);
     const nextMonthKey = getDateMonthKey(dateKey);
     if (nextMonthKey !== monthKey) setMonthKey(nextMonthKey);
+    onSelectDate?.(dateKey);
   }
 
   function navigateMonth(amount: number) {
@@ -225,13 +315,14 @@ export function GanzhiCalendarPage() {
 
   function showToday() {
     setMonthKey(todayMonth);
-    setSelectedDate(todayKey);
+    selectDate(todayKey);
   }
 
   return (
-    <WorkspacePage title="干支日历" width="wide" className="ganzhi-calendar-page">
+    <div className={`ganzhi-calendar-page${embedded ? ' is-embedded' : ''}`}>
       <p className="ganzhi-calendar-intro">
-        北京时间 · 公历、农历、日干支与黄黑道值神同屏查看；点击日期查看建除、宜忌、冲煞和时辰。
+        北京时间 ·
+        公历、农历、日干支与黄黑道值神同屏查看；点击日期查看建除、宜忌、冲煞、时辰和参与人关联。
       </p>
       <WorkspaceSurface className="ganzhi-calendar-surface">
         <header className="ganzhi-calendar-toolbar">
@@ -331,6 +422,6 @@ export function GanzhiCalendarPage() {
           <DayDetail detail={detail} />
         </div>
       </WorkspaceSurface>
-    </WorkspacePage>
+    </div>
   );
 }

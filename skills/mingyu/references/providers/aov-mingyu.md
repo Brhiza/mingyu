@@ -46,6 +46,7 @@
 | 通用传统神煞       | `POST /foundation/shensha`           | `foundation_shensha`           | 按八字默认口径核验四柱干支的空亡、驿马与桃花传统神煞                                                                                   |
 | 真太阳时校正       | `POST /calendar/true-solar-time`     | `calendar_true_solar_time`     | 根据地理经度与平太阳时换算真太阳时与均时差                                                                                             |
 | 统一出生真太阳时   | `POST /calendar/true-solar-birth`    | `calendar_true_solar_birth`    | 根据出生公历或农历及经度时区计算校正后的公历与农历时间                                                                                 |
+| 四柱反推日期       | `POST /calendar/bazi-reverse`       | `calendar_bazi_reverse`       | 根据完整四柱查找指定公历年份范围内的北京时间候选区间，并返回查询范围、节气、子时换日或时辰交接边界                             |
 | 太阳光照与出没     | `POST /calendar/solar-illumination`  | `calendar_solar_illumination`  | 计算指定日期的日出日落时刻、地平高度与曙暮光证据                                                                                       |
 | 天文时间尺度       | `POST /calendar/astronomical-time`   | `calendar_astronomical_time`   | 计算儒略日、近似 UT1、ΔT 与近似 TT 证据                                                                                                |
 | 月相证据           | `POST /calendar/moon-phase`          | `calendar_moon_phase`          | 计算月相角、照明比例与朔弦望事件                                                                                                       |
@@ -152,6 +153,7 @@ API 独立入口：`GET /health`、`GET /manifest`、`GET /openapi.json`；AI �
 - `timeZoneId` 使用 IANA 时区标识（例如 `Asia/Shanghai` 或 `America/New_York`），优先用于需要按出生日期解析历史时区或夏令时的场景。
 - `useTrueSolarTime: true` 用于八字或紫微真太阳时排盘。提供 `birthHour`、`birthMinute`、`birthLongitude` 后可省略 `timeIndex`，接口会自动推导真太阳时对应的时辰。
 - `POST /calendar/true-solar-birth` 是出生资料专用的真太阳时换算接口；一般当地钟表时间换算使用 `POST /calendar/true-solar-time`。两个接口的结果都从 AOV REST 响应的 `data` 字段读取。
+- `POST /calendar/bazi-reverse` 接收完整 `pillars`（年、月、日、时四柱）及可选 `startYear`、`endYear`，按北京时间、节气月和 23:00 子时换日返回全部候选区间；起点包含、终点不包含，结果边界会标注原因。
 - `detailMode: "compact"` 适合常规调用和前端展示；八字排盘会保留逐柱神煞命中，省略神煞解释、完整证据链与计算过程。`detailMode: "full"` 返回神煞解释、完整证据链与计算过程，适合深度解读、核验或研究。
 
 八字真太阳时排盘示例：

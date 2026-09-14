@@ -49,8 +49,9 @@
 | `isLunar`          | `boolean`                       |      | 输入是否农历，默认公历                                                         |
 | `isLeapMonth`      | `boolean`                       |      | 农历是否闰月                                                                   |
 | `useTrueSolarTime` | `boolean`                       |      | 启用真太阳时                                                                   |
-| `birthHour`        | `number`                        | *    | 真太阳时模式下的小时（0-23）                                                   |
-| `birthMinute`      | `number`                        | *    | 真太阳时模式下的分钟（0-59）                                                   |
+| `birthHour`        | `number`                        | *    | 真太阳时或精确标准北京时间模式下的小时（0-23）                                   |
+| `birthMinute`      | `number`                        | *    | 真太阳时或精确标准北京时间模式下的分钟（0-59）                                   |
+| `birthSecond`      | `number`                        | *    | 提供时表示秒（0-59）；关闭真太阳时并同时提供时分时，按精确标准北京时间排盘          |
 | `birthLongitude`   | `number`                        | *    | 出生地经度（-180~180）                                                         |
 | `timezone`         | `number`                        |      | 当地标准时区（UTC-12~UTC+14），默认 UTC+8；影响标准经线                        |
 | `timeZoneId`       | `string`                        |      | IANA 历史时区；按出生日期解析当时的法定 UTC 偏移                               |
@@ -58,7 +59,7 @@
 | `shenShaScope`     | `'common' \| 'all'`             |      | 神煞输出范围；默认 `common` 返回 55 个常用神煞，`all` 返回全部已计算神煞       |
 | `shenShaVariants`  | `Partial<ShenShaVariantConfig>` |      | 神煞争议口径配置；不传时使用默认主流口径                                       |
 
-\* `timeIndex` 与真太阳时三参数二选一。
+\* 普通时辰输入仍需 `timeIndex`；真太阳时可用精准时分和经度替代，精确标准北京时间可用 `birthHour`、`birthMinute`、`birthSecond` 替代并自动推导时辰索引。
 
 **神煞争议口径 `shenShaVariants`：**
 
@@ -108,6 +109,23 @@
 | `dayMasterStrength` | `{ score, status, details }`                 | 日主强度（极弱/身弱/中和/偏强/身强/极强） |
 | `mingGe`            | `{ pattern, isSpecial, basis?, isKuiGang? }` | 格局（普通格局名/特殊格局/魁罡）          |
 | `usefulGod`         | `UsefulGodAnalysis`                          | 用神（喜用/忌神十神与五行）               |
+
+### 区分五行喜忌与条件取用
+
+`analysis.usefulGod` 保留五行兼容字段，并提供具体天干作用与决策证据。月令调候条文先作为候选；命中条文不等于改变综合喜忌。
+
+| 字段 | 用法 |
+| --- | --- |
+| `favorableWuxing` / `unfavorableWuxing` | 整五行的喜忌判断；阴阳两干结论分化时，从整五行所忌中移出该项，分别读取干级字段。 |
+| `conditionalFavorableStems` | 在本次条件下采用的具体天干，作用与对象见已采用候选的 `effects`。 |
+| `conditionalUnfavorableStems` | 同五行中仍保留基础忌性、未获条件取用的天干。 |
+| `conditionalFavorableWuxing` | 条件取用涉及的五行索引，不代表整个五行皆喜。 |
+| `decisionEvidence` | 基础取用、候选满足状态、采用结果、制化路径与冲突证据。 |
+| `decisionEvidence.controlFunctions` | 制化路径的满足状态、作用干、对象、根气、位置、合绊、资料缺口及基础喜忌属性；原局已有作用与待补取用分别表达。 |
+
+例如基础忌火而条件仅采用丙火解冻时，结果可以是 `conditionalFavorableStems: ['丙']`、`conditionalUnfavorableStems: ['丁']`，火不因此加入 `favorableWuxing`。起名等按五行选择的功能仍读取整五行判断。展示或生成提示词时，可调用 `formatUsefulGodFunctions(usefulGod)` 获取具体作用说明。
+
+候选规则的 `reference` 模式只供参考，`within-balance` 只重排已有喜用，`conditional` 按核验条件采用明确的天干作用。未提供资料与已核查未见分开记录，同权限候选发生作用冲突时保留冲突证据。现有条文会逐项核验，未声明采用权限的条文保持参考身份。
 
 ### 八字增强分析函数
 
@@ -386,7 +404,7 @@
 
 导入：`import { ... } from 'mingyu-core/profile'`
 
-统一出生档案同时支持公历、农历、闰月、传统时辰、精确时分、地点和真太阳时。它只负责客观输入与时间口径，不包含页面状态或报告内容。
+统一出生档案同时支持公历、农历、闰月、传统时辰、精确时分秒、地点和真太阳时。`second` 可选，省略时按 `0` 秒处理；提供精准时分时会随八字标准北京时间进入核心计算。它只负责客观输入与时间口径，不包含页面状态或报告内容。
 
 | 函数                                        | 说明                                                           |
 | ------------------------------------------- | -------------------------------------------------------------- |
@@ -473,8 +491,11 @@ console.log(reading.promptText);
 | `calculateSolarTermsForYear(year)`          | 按公历年份生成从小寒至冬至的 24 个节气证据                          |
 | `findSolarTermEvidence(name, year)`         | 按节气名称和节气周期年份查询单项证据                                |
 | `calculateSolarIlluminationEvidence(input)` | 由当地日期时间、经纬度和时区生成太阳位置、日出日落及三类曙暮光证据  |
+| `reverseBaziDates(input)`                   | 根据完整四柱反推公历北京时间候选区间，返回起止边界及边界原因        |
 
-`resolveCivilTime()`、`queryAstronomicalFacts()`、`buildAstronomicalTimeEvidence()` 与 `calculateSolarIlluminationEvidence()` 的年月日时分秒都按输入地点的当地民用时间解释，必须提供 `timezone` 或 `timeZoneId`。IANA 时区优先；同时提供时，固定偏移只用于秋季回拨消歧和一致性核验。未消歧回拨、春季跳时缺口和固定偏移冲突都会拒绝计算。固定偏移范围统一为 UTC-12 至 UTC+14。`calculateMoonPhaseEvidence()` 直接接受 UTC Unix 毫秒。单项节气底层索引以冬至为 `0`、大雪为 `23`；若目标是普通公历年列表，应使用 `calculateSolarTermsForYear(year)` 或客户端 `solarTerms(year)`，返回该年小寒至冬至的时间顺序。
+`resolveCivilTime()`、`queryAstronomicalFacts()`、`buildAstronomicalTimeEvidence()` 与 `calculateSolarIlluminationEvidence()` 的年月日时分秒都按输入地点的当地民用时间解释，必须提供 `timezone` 或 `timeZoneId`。IANA 时区优先；同时提供时，固定偏移只用于秋季回拨的重复当地时间消歧和一致性核验。未消歧回拨、春季跳时缺口和 `timeZoneId` 与 `applyChinaDst` 同时启用会被拒绝。固定偏移范围统一为 UTC-12 至 UTC+14。`calculateMoonPhaseEvidence()` 直接接受 UTC Unix 毫秒。单项节气底层索引以冬至为 `0`、大雪为 `23`；若目标是普通公历年列表，应使用 `calculateSolarTermsForYear(year)` 或客户端 `solarTerms(year)`，返回该年小寒至冬至的时间顺序。
+
+四柱反推也可按需从 `mingyu-core/calendar/bazi-reverse` 导入；该子路径与 `mingyu-core/calendar` 主入口导出同一函数和类型。
 
 ---
 

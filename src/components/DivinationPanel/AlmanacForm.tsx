@@ -5,6 +5,8 @@ import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { PersonalHistoryRecord } from '@/lib/history-records';
 import { createSecureId } from '@/lib/secure-id';
+import { updateAlmanacParticipantField } from '@/lib/divination/almanac-participants';
+import { GanzhiCalendarPanel } from './GanzhiCalendarPanel';
 
 const OPTIONAL_GENDER_OPTIONS = [
   { value: '', label: '不填' },
@@ -87,6 +89,12 @@ function participantFromCase(record: PersonalHistoryRecord): AlmanacParticipantI
     timeIndex: input.timeIndex === '' ? '' : String(input.timeIndex),
     dateType: input.dateType,
     isLeapMonth: input.isLeapMonth,
+    ...(input.birthHour !== '' ? { birthHour: input.birthHour } : {}),
+    ...(input.birthMinute !== '' ? { birthMinute: input.birthMinute } : {}),
+    ...(input.birthSecond !== '' ? { birthSecond: input.birthSecond } : {}),
+    ...(input.birthPlace.trim() ? { birthPlace: input.birthPlace } : {}),
+    ...(input.birthLongitude.trim() ? { birthLongitude: input.birthLongitude } : {}),
+    ...(input.useTrueSolarTime ? { useTrueSolarTime: true } : {}),
   };
 }
 
@@ -102,7 +110,10 @@ function getParticipantSummary(participant: AlmanacParticipantInput) {
       ? `${participant.year}-${participant.month.padStart(2, '0')}-${participant.day.padStart(2, '0')}`
       : '出生日期未填';
   const timeLabel =
-    BIRTH_TIME_OPTIONS.find((item) => item.value === participant.timeIndex)?.label ?? '时辰不详';
+    participant.birthHour !== undefined && participant.birthMinute !== undefined
+      ? `${participant.birthHour.padStart(2, '0')}:${participant.birthMinute.padStart(2, '0')}${participant.birthSecond !== undefined ? `:${participant.birthSecond.padStart(2, '0')}` : ''}（${participant.useTrueSolarTime ? '启用真太阳时校正' : '北京时间'}）`
+      : (BIRTH_TIME_OPTIONS.find((item) => item.value === participant.timeIndex)?.label ??
+        '时辰不详');
   const calendarLabel = participant.dateType === 'lunar' ? '农历' : '公历';
   return [participant.gender, `${calendarLabel} ${birthDate}`, timeLabel]
     .filter(Boolean)
@@ -133,12 +144,7 @@ export function AlmanacForm({
     updateDraft(
       'almanacParticipants',
       draft.almanacParticipants.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              [key]: value,
-            }
-          : item,
+        item.id === id ? updateAlmanacParticipantField(item, key, value) : item,
       ),
     );
   }
@@ -184,6 +190,11 @@ export function AlmanacForm({
     if (!value || (draft.almanacEndDate && draft.almanacEndDate >= value)) return;
     const start = new Date(`${value}T00:00:00Z`);
     updateDraft('almanacEndDate', formatDate(addDays(start, 20)));
+  }
+
+  function selectCalendarDate(value: string) {
+    updateDraft('almanacStartDate', value);
+    updateDraft('almanacEndDate', value);
   }
 
   function setWeekendPreference(value: 'any' | 'prefer' | 'avoid') {
@@ -313,6 +324,22 @@ export function AlmanacForm({
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="almanac-form-section almanac-calendar-section">
+        <div className="almanac-form-section-head">
+          <div>
+            <strong>个人黄历</strong>
+            <span>月格和详情沿用下方参与人的择日关系事实</span>
+          </div>
+          <small>点击日期带入择日范围</small>
+        </div>
+        <GanzhiCalendarPanel
+          embedded
+          participants={draft.almanacParticipants}
+          selectedDate={draft.almanacStartDate}
+          onSelectDate={selectCalendarDate}
+        />
       </section>
 
       <section className="almanac-form-section">

@@ -32,6 +32,14 @@ test('统一 Tool Catalog 应包含所有核心工具并声明元数据注解', 
   const baziTools = getToolsByCategory('bazi');
   assert.equal(baziTools.length >= 4, true);
 
+  const baziReverseTool = findTool('calendar_bazi_reverse');
+  assert.ok(baziReverseTool);
+  assert.equal(baziReverseTool.category, 'calendar');
+  assert.equal(baziReverseTool.type, 'utility');
+  assert.equal(baziReverseTool.endpoint, '/calendar/bazi-reverse');
+  assert.equal(baziReverseTool.annotations.readOnlyHint, true);
+  assert.equal(baziReverseTool.annotations.idempotentHint, true);
+
   const promptTool = findTool('ziwei_prompt');
   assert.ok(promptTool);
   assert.equal(promptTool.type, 'prompt');

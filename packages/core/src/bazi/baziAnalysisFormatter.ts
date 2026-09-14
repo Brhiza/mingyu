@@ -1,4 +1,4 @@
-import type { BaziChartResult } from './baziTypes';
+import type { BaziChartResult, UsefulGodAnalysis } from './baziTypes';
 import { WUXING, isSheng, isKe } from '../wuxing';
 
 interface FormatBaziOptions {
@@ -15,6 +15,40 @@ export type PromptChartScene =
 
 function joinOrFallback(values: string[] | undefined, fallback = '无'): string {
   return values && values.length > 0 ? values.join('、') : fallback;
+}
+
+/** 保留具体干的作用范围，供盘面、复制文本及解读资料共同使用。 */
+export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[] {
+  const adoptedStems = new Set(usefulGod.conditionalFavorableStems ?? []);
+  const effects =
+    usefulGod.decisionEvidence?.climateCandidates
+      .filter((candidate) => candidate.adopted)
+      .flatMap((candidate) => candidate.effects ?? [])
+      .filter((effect) => effect.rank === 'primary' && adoptedStems.has(effect.stem)) ?? [];
+  const descriptions = [
+    ...new Set(
+      effects.map(
+        (effect) =>
+          `${effect.stem}${effect.wuxing}用于${effect.role}${effect.targetStems?.length ? `（作用对象：${effect.targetStems.join('、')}）` : ''}`,
+      ),
+    ),
+  ];
+  for (const stem of adoptedStems) {
+    if (!effects.some((effect) => effect.stem === stem)) descriptions.push(stem);
+  }
+  const observedFunctions = (usefulGod.decisionEvidence?.controlFunctions ?? [])
+    .filter((path) => path.status === '满足' && path.sourceStems.length && path.targetStems.length)
+    .map(
+      (path) =>
+        `原局制化：${path.label}；${path.sourceStems.join('、')}作用于${path.targetStems.join('、')}${path.baseUnfavorableStems.length ? `；其中${path.baseUnfavorableStems.join('、')}在扶抑基线属忌，原局作用与增补取用分别判断` : ''}${path.evidenceGaps.length ? `；作用条件待核：${path.evidenceGaps.join('、')}` : ''}`,
+    );
+  return [
+    descriptions.length ? `条件取用：${descriptions.join('；')}` : '',
+    usefulGod.conditionalUnfavorableStems?.length
+      ? `干级所忌：${usefulGod.conditionalUnfavorableStems.join('、')}`
+      : '',
+    ...observedFunctions,
+  ].filter(Boolean);
 }
 
 function formatLunarDate(baziResult: BaziChartResult): string {
@@ -236,6 +270,8 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
         : [];
 
     result += `取用: 主用${primaryFavorableWuxing}${secondaryFavorableWuxing.length ? '，辅' + secondaryFavorableWuxing.join('、') : ''}（${joinOrFallback(primaryFavorableTenGods)}）；忌${primaryUnfavorableWuxing}${secondaryUnfavorableWuxing.length ? '，次忌' + secondaryUnfavorableWuxing.join('、') : ''}（${joinOrFallback(primaryUnfavorableTenGods)}）\n`;
+    const functionalUse = formatUsefulGodFunctions(analysis.usefulGod);
+    if (functionalUse.length) result += `${functionalUse.join('\n')}\n`;
     if (includeRules && analysis.usefulGod.primaryReason) {
       result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
       result += `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;

@@ -53,6 +53,7 @@
 | `GET /openapi.json`                           | 获取 OpenAPI 文档                                              |
 | `POST /calendar/true-solar-time`              | 将当地钟表时间换算为真太阳时                                   |
 | `POST /calendar/true-solar-birth`             | 统一处理出生日期类型、真太阳时、跨日与时辰                     |
+| `POST /calendar/bazi-reverse`                 | 根据完整四柱反推公历北京时间候选区间                           |
 | `POST /bazi/calculate`                        | 八字排盘                                                       |
 | `POST /bazi/prompt`                           | 八字排盘并生成 AI 解读提示词                                   |
 | `POST /bazi/compatibility`                    | 八字双盘交叉关系、十神、喜忌覆盖与证据计算                     |
@@ -128,6 +129,7 @@
 | ---------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | 换算真太阳时                       | `POST /calendar/true-solar-time`             | `localDateTime`、`longitude`，可选 `timezone`、`timeZoneId`、`applyChinaDst`                                                                                | 支持固定偏移或 IANA 历史时区，返回修正明细、跨日状态和对应时辰   |
 | 出生时间、真太阳时与时辰           | `POST /calendar/true-solar-birth`            | 公历或农历出生日期、时分、`longitude`，可选 `timezone`、`timeZoneId`、`applyChinaDst`                                                                        | 统一处理出生日期类型、真太阳时换算、跨日与时辰，供排盘前使用   |
+| 已知四柱反推出生日期时间           | `POST /calendar/bazi-reverse`               | `pillars.year/month/day/hour`，可选 `startYear`、`endYear`                                                                                                  | 按北京时间、节气月和 23:00 子时换日查找全部候选区间；起点含、终点不含 |
 | 计算太阳光照证据                   | `POST /calendar/solar-illumination`          | `year`、`month`、`day`、`latitude`、`longitude`，并提供 `timezone` 或 `timeZoneId`；可选参考时分秒                                                          | 返回太阳高度、方位、视太阳正午、日出日落与三类曙暮光             |
 | 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                    | `ganZhi`，如“甲子”                                                                                                                                          | 返回统一公共地基资料，不需重复实现                               |
 | 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认计入地支藏干权重                                             |
@@ -197,6 +199,16 @@ curl -X POST https://aov.cc/api/v1/calendar/true-solar-birth \
 ```
 
 该接口统一处理公历或农历出生日期、真太阳时换算、跨日和时辰变化；返回数据位于响应的 `data` 字段。
+
+四柱反推日期时间：
+
+```bash
+curl -X POST https://aov.cc/api/v1/calendar/bazi-reverse \
+  -H "Content-Type: application/json" \
+  -d '{"pillars":{"year":"甲辰","month":"丙寅","day":"己亥","hour":"甲子"},"startYear":2024,"endYear":2024}'
+```
+
+`pillars` 必须完整提供年、月、日、时四个六十甲子名称。`startYear` 和 `endYear` 按公历年闭区间筛选，省略时分别默认为 1900 年和当前北京时间年份。结果中的每个候选区间采用北京时间（`Asia/Shanghai`、UTC+8）、节气月和 23:00 子时换日口径，起点包含、终点不包含；`startBoundary` 与 `endBoundary` 说明是查询范围、节气交接、子时换日还是时辰交接导致边界。
 
 八字真太阳时排盘：
 

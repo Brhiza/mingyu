@@ -38,8 +38,8 @@ export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
     dayMaster: '甲',
     monthBranch: '巳',
     seasonSummary: '孟夏甲木，天气渐热，火旺木焦。',
-    primaryGods: ['癸', '庚'],
-    classicVerse: '巳月火旺，木性枯焦，专用癸水调候滋润，次用庚金发水源。无水则木焚，无金则水涸。',
+    primaryGods: ['癸', '丁', '庚'],
+    classicVerse: '四月甲木退气，丙火司权，先癸后丁。',
     modernExplanation:
       '夏季之木，首重降温滋养。事业与生活中宜保持冷静，多与智者交流，忌盲目扩张引发内耗。',
     taboos: ['火多木焚', '无水干枯'],
@@ -48,20 +48,20 @@ export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
     dayMaster: '甲',
     monthBranch: '午',
     seasonSummary: '仲夏甲木，火炎土燥，木极虚弱。',
-    primaryGods: ['癸', '庚'],
-    classicVerse:
-      '午月伤官秉令，木气虚竭，非癸水不能救命，非庚金不能源远流长。庚癸两全，富贵天然。',
+    primaryGods: ['癸', '丁', '庚'],
+    classicVerse: '五月先癸后丁庚金次之。',
     modernExplanation:
-      '思维极度活跃，才华横溢，但易情绪大起大落或精力透支，需水相调候方能细水长流。',
+      '先核对癸水润燥的需要，再分别论丁火与庚金的制化；原局已经具备的作用与后续所需分开判断。',
     taboos: ['重火烈炎', '土燥金脆'],
   },
   '甲+未': {
     dayMaster: '甲',
     monthBranch: '未',
     seasonSummary: '季夏甲木，燥土当权，木气受困。',
-    primaryGods: ['癸', '庚'],
-    classicVerse: '六月甲木，三伏生寒，然燥土炙热，首用癸水润土培木，次取庚金以生癸水。',
-    modernExplanation: '需润泽根基以抗暑热，稳扎稳打为上，忌冒进操盘大宗资金。',
+    primaryGods: ['丁', '庚'],
+    classicVerse: '六月三伏生寒，丁火退气。先丁后庚，无癸亦可。',
+    modernExplanation:
+      '此为未月丁庚取用的一般提纲，同篇另分木盛先庚、庚盛先丁。具体需结合原局制化：身弱而火土偏盛时，扶抑重在水木；丁火制金是否适用，须看庚金与日主承载。',
     taboos: ['燥烈焦枯', '水气全无'],
   },
   '甲+申': {
@@ -79,18 +79,20 @@ export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
     dayMaster: '甲',
     monthBranch: '酉',
     seasonSummary: '仲秋甲木，正官当权，金肃木凋。',
-    primaryGods: ['丁', '丙', '癸'],
-    classicVerse: '八月甲木，官星得令，木已成材。喜丁火以克金，用丙火以暖局，癸水以滋木。',
-    modernExplanation: '为人正直守信，规矩方圆感强。适合从事体制内、法律、金融或规章制度管理。',
+    primaryGods: ['丁', '丙', '庚'],
+    classicVerse: '八月甲木，木囚金旺。丁火为先，次用丙火，庚金再次。',
+    modernExplanation:
+      '丁火制金、丙火照暖与庚金裁木各有对象；结合金木根气、透干与合绊核对作用能否成立。',
     taboos: ['金多折木', '无火抗金'],
   },
   '甲+戌': {
     dayMaster: '甲',
     monthBranch: '戌',
     seasonSummary: '季秋甲木，深秋木凋，土燥金坚。',
-    primaryGods: ['癸', '丁'],
-    classicVerse: '九月甲木，木性将枯，深秋霜降。专取水以润根，次用火以暖局。水火相济，生机盎然。',
-    modernExplanation: '深思熟虑、老练稳健，适合总结复盘、知识沉淀与厚积薄发。',
+    primaryGods: ['丁', '壬', '癸'],
+    classicVerse: '九月甲木，木星凋零，独爱丁火，壬癸滋扶。',
+    modernExplanation:
+      '丁火与壬癸分别承担火气与滋扶作用，需结合土的燥湿、甲木根气及水火制化确定实际所需。',
     taboos: ['燥土无湿', '重金劈伐'],
   },
   '甲+亥': {
@@ -106,18 +108,21 @@ export const BAZI_QIONGTONG_TABLE: Record<string, BaziQiongtongEntry> = {
     dayMaster: '甲',
     monthBranch: '子',
     seasonSummary: '仲冬甲木，严寒彻骨，水泛木浮。',
-    primaryGods: ['丙', '丁', '戊'],
-    classicVerse: '十一月甲木，严冬水盛，木根冻结。专用丙火解冻，配合戊土制水培根，大贵之局。',
-    modernExplanation: '极喜火土温暖命局，为人智慧深邃，适宜在温暖的环境或热情的团队中发挥才华。',
+    primaryGods: ['丁', '庚', '丙'],
+    classicVerse: '十一月甲木，为寒枝，不比春木清茂，耑取庚丁。',
+    modernExplanation:
+      '此条以庚丁配合为提纲，并另论丙火佐助；需核对庚丁根气与作用链，水土喜忌仍结合完整原局判断。',
     taboos: ['湿寒无阳', '水旺冲堤'],
   },
   '甲+丑': {
     dayMaster: '甲',
     monthBranch: '丑',
     seasonSummary: '季冬甲木，天寒地冻，冰封土冷。',
-    primaryGods: ['丙', '丁', '甲'],
-    classicVerse: '十二月甲木，严冬大雪，天地严凝。非丙火解冻不能发育，见丁火通根则生机勃勃。',
-    modernExplanation: '韧性极强，善于在逆境中坚守，一旦春暖花开即可展翅高飞。',
+    primaryGods: ['庚', '丁'],
+    classicVerse:
+      '十二月甲木，天寒气冻，木性极寒，无生发之象，先用庚噼甲，方引丁火始得木火有通明之象，故丁次之。',
+    modernExplanation:
+      '庚劈甲、甲引丁是相互配合的作用链；需核对庚丁是否具备根气与位置条件，并保留扶抑承载判断。',
     taboos: ['冰雪深寒', '无阳自枯'],
   },
 

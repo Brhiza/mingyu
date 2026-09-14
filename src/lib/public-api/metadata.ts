@@ -18,6 +18,7 @@ export const PUBLIC_API_ENDPOINTS = [
   'GET /.well-known/aov-mingyu-api.json',
   'POST /api/v1/calendar/true-solar-time',
   'POST /api/v1/calendar/true-solar-birth',
+  'POST /api/v1/calendar/bazi-reverse',
   'POST /api/v1/calendar/solar-illumination',
   'POST /api/v1/calendar/astronomical-time',
   'POST /api/v1/calendar/moon-phase',

@@ -44,6 +44,9 @@ export interface PatternPathEvaluation {
   status: PatternConditionStatus;
   source: string[];
   target: string[];
+  /** 来源与作用对象的结构化天干，供取用裁决引用，不从 detail 文本反解析。 */
+  sourceStems: string[];
+  targetStems: string[];
   /** 只记录四柱外干之间的实际位置，不把距离折算为分数。 */
   position: PatternPathPosition;
   positionPairs: string[];
@@ -497,6 +500,8 @@ function evaluatePath(
     status,
     source: sourceItems.map(formatObserved),
     target: targetItems.map(formatObserved),
+    sourceStems: sourceItems.map((item) => item.stem),
+    targetStems: targetItems.map((item) => item.stem),
     position: positionEvidence.position,
     positionPairs: positionEvidence.pairs,
     detail,
@@ -619,6 +624,8 @@ function combinePathChain(
     status,
     source: parts[0]?.source ?? [],
     target: parts.at(-1)?.target ?? [],
+    sourceStems: parts[0]?.sourceStems ?? [],
+    targetStems: parts.at(-1)?.targetStems ?? [],
     position,
     positionPairs: parts.flatMap((part) => part.positionPairs),
     detail: `${label}由${parts

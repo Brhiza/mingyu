@@ -471,7 +471,7 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
     isLeapMonth: useTrueSolarTime ? false : profile.isLeapMonth,
     useTrueSolarTime,
     ...(normalized.timePrecision === 'minute'
-      ? { birthHour: clock.hour, birthMinute: clock.minute }
+      ? { birthHour: clock.hour, birthMinute: clock.minute, birthSecond: clock.second }
       : {}),
     birthPlace: location?.name,
     birthLongitude: location?.longitude,
@@ -622,15 +622,29 @@ export function birthProfileToAlmanacParticipant(
         }
       : undefined;
   requireReady(normalized, genderDiagnostic);
+  const clock = normalized.solarClockTime;
   const effective = normalized.effectiveTime;
+  const useTrueSolarTime = profile.useTrueSolarTime === true;
+  const location = normalized.resolvedLocation;
+  // 择日算法接收的是参与人最终四柱；真太阳时已在统一档案中校正，输出校正后的精确公历时刻，避免重复校正。
+  const participantTime = useTrueSolarTime ? effective : clock;
   return {
     id,
     name: profile.name ?? '参与人',
     gender: profile.gender === 'male' ? '男' : '女',
-    year: String(effective.year),
-    month: String(effective.month),
-    day: String(effective.day),
+    year: String(useTrueSolarTime ? effective.year : profile.year),
+    month: String(useTrueSolarTime ? effective.month : profile.month),
+    day: String(useTrueSolarTime ? effective.day : profile.day),
     timeIndex: String(normalized.timeIndex),
-    dateType: 'solar',
+    dateType: useTrueSolarTime ? 'solar' : profile.calendarType,
+    ...(normalized.timePrecision === 'minute'
+      ? {
+          birthHour: String(participantTime.hour),
+          birthMinute: String(participantTime.minute),
+          birthSecond: String(participantTime.second),
+        }
+      : {}),
+    ...(location?.name ? { birthPlace: location.name } : {}),
+    ...(location?.longitude !== undefined ? { birthLongitude: String(location.longitude) } : {}),
   };
 }

@@ -19,6 +19,7 @@ import {
   calculateSolarIlluminationEvidence,
   calculateSolarTermEvidence,
   convertTrueSolarTime,
+  reverseBaziDates,
   getTimeIndexFromClock,
   resolveCivilTime,
   resolveTrueSolarBirthTime,
@@ -611,6 +612,18 @@ export function getPublicApiOpenApiDocument(
             '200': {
               description:
                 '公历钟表时间、标准时间、真太阳时、跨日、唯一时辰索引、夏令时资料，以及历法输入在内的完整结构化计算链、事实、汇总与限制',
+            },
+          },
+        },
+      },
+      '/calendar/bazi-reverse': {
+        post: {
+          summary: '根据四柱反推公历北京时间候选区间',
+          requestBody: openApiJsonRequestBody('#/components/schemas/BaziReverseRequest'),
+          responses: {
+            '200': {
+              description:
+                '指定年份范围内所有四柱稳定成立的候选区间；区间起点包含、终点不包含，并标注查询范围、节气、子时换日或时辰交接边界',
             },
           },
         },
@@ -1299,7 +1312,7 @@ export function getPublicApiOpenApiDocument(
               minimum: 0,
               maximum: 12,
               description:
-                '时辰索引（0-12）；useTrueSolarTime=false 时必填，启用真太阳时后可改传 birthHour/birthMinute',
+                '时辰索引（0-12）；普通时辰模式必填，精确标准北京时间或真太阳时可改传 birthHour/birthMinute/birthSecond',
             },
             dateType: { enum: ['solar', 'lunar'], default: 'solar' },
             isLeapMonth: { type: 'boolean', default: false },
@@ -1310,6 +1323,12 @@ export function getPublicApiOpenApiDocument(
             },
             birthHour: { type: 'integer', minimum: 0, maximum: 23 },
             birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
+            birthSecond: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 59,
+              description: '出生秒数；与 birthHour/birthMinute 一起表示精确标准北京时间',
+            },
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
             timezone: { type: 'number', minimum: -12, maximum: 14 },
@@ -1464,6 +1483,42 @@ export function getPublicApiOpenApiDocument(
             applyChinaDst: { type: 'boolean', default: false },
           },
         },
+        BaziReverseRequest: {
+          type: 'object',
+          required: ['pillars'],
+          description:
+            '按北京时间（UTC+8）、节气月和 23:00 子时换日口径，根据完整四柱查找候选公历时间区间。默认查询 1900 年至当前北京时间年份。',
+          properties: {
+            pillars: {
+              type: 'object',
+              required: ['year', 'month', 'day', 'hour'],
+              properties: {
+                year: { type: 'string', minLength: 2, maxLength: 2, description: '年柱六十甲子' },
+                month: {
+                  type: 'string',
+                  minLength: 2,
+                  maxLength: 2,
+                  description: '月柱六十甲子',
+                },
+                day: { type: 'string', minLength: 2, maxLength: 2, description: '日柱六十甲子' },
+                hour: { type: 'string', minLength: 2, maxLength: 2, description: '时柱六十甲子' },
+              },
+            },
+            startYear: {
+              type: 'integer',
+              minimum: 1900,
+              maximum: 2100,
+              default: 1900,
+              description: '查询公历年份起点（含）',
+            },
+            endYear: {
+              type: 'integer',
+              minimum: 1900,
+              maximum: 2100,
+              description: '查询公历年份终点（含）；不传时使用当前北京时间年份',
+            },
+          },
+        },
         SolarIlluminationRequest: {
           type: 'object',
           required: ['year', 'month', 'day', 'latitude', 'longitude'],
@@ -1611,13 +1666,19 @@ export function getPublicApiOpenApiDocument(
               minimum: 0,
               maximum: 12,
               description:
-                '时辰索引（0-12）。启用真太阳时（useTrueSolarTime=true）时可省略，将从 birthHour/birthMinute 推导。',
+                '时辰索引（0-12）。传入 birthSecond 并提供 birthHour/birthMinute 时可省略，将从精确标准北京时间推导；真太阳时同理。',
             },
             dateType: { enum: ['solar', 'lunar'] },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
             birthHour: { type: 'integer', minimum: 0, maximum: 23 },
             birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
+            birthSecond: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 59,
+              description: '出生秒数；与 birthHour/birthMinute 一起表示精确标准北京时间',
+            },
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
             timezone: { type: 'number', minimum: -12, maximum: 14 },
@@ -2809,6 +2870,8 @@ async function route(context: RouteContext) {
       return calculateTrueSolarTimeApi(await readJson(context.request));
     case 'calendar/true-solar-birth':
       return calculateTrueSolarBirthApi(await readJson(context.request));
+    case 'calendar/bazi-reverse':
+      return calculateApiResult(context.request, calculateBaziReverseApi);
     case 'calendar/solar-illumination':
       return calculateSolarIlluminationApi(await readJson(context.request));
     case 'calendar/astronomical-time':
@@ -3096,14 +3159,15 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
   }
   const birth = value as JsonRecord;
   const useTrueSolarTime = readBoolean(birth, 'useTrueSolarTime', false);
+  const hasPreciseStandardTime = !useTrueSolarTime && birth.birthSecond !== undefined;
   return {
     gender: readEnum(birth, 'gender', ['male', 'female'] as const),
     year: readInteger(birth, 'year', 1900, 2100),
     month: readInteger(birth, 'month', 1, 12),
     day: readInteger(birth, 'day', 1, 31),
-    // 启用真太阳时时允许以 birthHour/birthMinute 替代时辰索引；传统时辰模式仍必填
+    // 启用真太阳时或精确标准北京时间时允许以钟表时间替代时辰索引。
     timeIndex:
-      useTrueSolarTime && birth.timeIndex === undefined
+      (useTrueSolarTime || hasPreciseStandardTime) && birth.timeIndex === undefined
         ? ''
         : readInteger(birth, 'timeIndex', 0, 12),
     dateType: readEnum(birth, 'dateType', ['solar', 'lunar'] as const, 'solar'),
@@ -3112,6 +3176,9 @@ function readNamingBirthInput(input: JsonRecord): NamingBirthInput | undefined {
     ...(birth.birthHour !== undefined ? { birthHour: readInteger(birth, 'birthHour', 0, 23) } : {}),
     ...(birth.birthMinute !== undefined
       ? { birthMinute: readInteger(birth, 'birthMinute', 0, 59) }
+      : {}),
+    ...(birth.birthSecond !== undefined
+      ? { birthSecond: readInteger(birth, 'birthSecond', 0, 59) }
       : {}),
     ...(birth.birthPlace !== undefined && typeof birth.birthPlace === 'string'
       ? { birthPlace: birth.birthPlace }
@@ -3275,6 +3342,34 @@ function calculateTrueSolarBirthApi(input: JsonRecord) {
       400,
       'BAD_REQUEST',
       error instanceof Error ? error.message : '出生真太阳时参数无效。',
+    );
+  }
+}
+
+function calculateBaziReverseApi(input: JsonRecord) {
+  if (!isRecord(input.pillars)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'pillars 必须是包含年、月、日、时四柱的对象。');
+  }
+
+  try {
+    return reverseBaziDates({
+      pillars: {
+        year: readRequiredString(input.pillars, 'year'),
+        month: readRequiredString(input.pillars, 'month'),
+        day: readRequiredString(input.pillars, 'day'),
+        hour: readRequiredString(input.pillars, 'hour'),
+      },
+      startYear:
+        input.startYear === undefined ? undefined : readIntegerLike(input, 'startYear', 1900, 2100),
+      endYear:
+        input.endYear === undefined ? undefined : readIntegerLike(input, 'endYear', 1900, 2100),
+    });
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '八字反推参数无效。',
     );
   }
 }
@@ -4220,21 +4315,34 @@ function readBaziPerson(input: JsonRecord): Person {
   const birthDate = readBirthDate(input);
   const { dateType } = birthDate;
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
-  const birthHour = useTrueSolarTime ? readInteger(input, 'birthHour', 0, 23) : undefined;
-  const birthMinute = useTrueSolarTime ? readInteger(input, 'birthMinute', 0, 59) : undefined;
+  const hasPreciseStandardTime = !useTrueSolarTime && input.birthSecond !== undefined;
+  const hasPreciseClock = useTrueSolarTime || hasPreciseStandardTime;
+  const birthHour = hasPreciseClock ? readInteger(input, 'birthHour', 0, 23) : undefined;
+  const birthMinute = hasPreciseClock ? readInteger(input, 'birthMinute', 0, 59) : undefined;
+  const birthSecond =
+    input.birthSecond === undefined ? undefined : readInteger(input, 'birthSecond', 0, 59);
   const birthLongitude = useTrueSolarTime
     ? readNumber(input, 'birthLongitude', -180, 180)
     : undefined;
   const derivedTimeIndex =
-    useTrueSolarTime && typeof birthHour === 'number' && typeof birthMinute === 'number'
+    hasPreciseClock && typeof birthHour === 'number' && typeof birthMinute === 'number'
       ? getTimeIndexFromClock(birthHour, birthMinute)
       : -1;
 
-  // 未启用真太阳时时 timeIndex 必填；启用时优先使用 derivedTimeIndex
+  // 精确标准北京时间和真太阳时都从时分推导时辰；普通时辰模式要求 timeIndex。
   let finalTimeIndex: number;
   if (useTrueSolarTime) {
     if (derivedTimeIndex < 0) {
       throw new ApiError(400, 'BAD_REQUEST', 'birthHour 和 birthMinute 无法换算为有效时辰。');
+    }
+    finalTimeIndex = derivedTimeIndex;
+  } else if (hasPreciseStandardTime) {
+    if (derivedTimeIndex < 0) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        '精确标准北京时间需要同时提供有效的 birthHour 和 birthMinute。',
+      );
     }
     finalTimeIndex = derivedTimeIndex;
   } else {
@@ -4259,6 +4367,7 @@ function readBaziPerson(input: JsonRecord): Person {
     useTrueSolarTime,
     birthHour,
     birthMinute,
+    birthSecond,
     birthLongitude,
     birthPlace: readString(input, 'birthPlace', ''),
     timezone: input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -12, 14),
@@ -4364,6 +4473,11 @@ function buildBaziCalculationIdentity(
     birth.birthHour = person.birthHour;
     birth.birthMinute = person.birthMinute;
     birth.birthLongitude = person.birthLongitude;
+    if (person.birthSecond !== undefined) birth.birthSecond = person.birthSecond;
+  } else if (person.birthSecond !== undefined) {
+    birth.birthHour = person.birthHour;
+    birth.birthMinute = person.birthMinute;
+    birth.birthSecond = person.birthSecond;
   } else {
     birth.timeIndex = person.timeIndex;
   }
@@ -4547,6 +4661,7 @@ async function calculateZiweiRuntime(
   const birthDate = readBirthDate(input, { asString: true });
   const { dateType } = birthDate;
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
+  const hasPreciseStandardTime = !useTrueSolarTime && input.birthSecond !== undefined;
   const timeInput = useTrueSolarTime
     ? {
         timeIndex: '' as const,
@@ -4555,9 +4670,18 @@ async function calculateZiweiRuntime(
         birthLongitude: String(readNumberLike(input, 'birthLongitude', -180, 180)),
       }
     : {
-        timeIndex: readInteger(input, 'timeIndex', 0, 12),
-        birthHour: readString(input, 'birthHour', ''),
-        birthMinute: readString(input, 'birthMinute', ''),
+        timeIndex: hasPreciseStandardTime
+          ? getTimeIndexFromClock(
+              readIntegerLike(input, 'birthHour', 0, 23),
+              readIntegerLike(input, 'birthMinute', 0, 59),
+            )
+          : readInteger(input, 'timeIndex', 0, 12),
+        birthHour: hasPreciseStandardTime
+          ? String(readIntegerLike(input, 'birthHour', 0, 23))
+          : readString(input, 'birthHour', ''),
+        birthMinute: hasPreciseStandardTime
+          ? String(readIntegerLike(input, 'birthMinute', 0, 59))
+          : readString(input, 'birthMinute', ''),
         birthLongitude: readString(input, 'birthLongitude', ''),
       };
   const chartInput = buildZiweiChartInput({
@@ -6008,6 +6132,7 @@ function buildPromptApiResult(params: {
 }
 
 function buildCompactBaziResult(result: BaziChartResult) {
+  const decision = result.analysis.usefulGod.decisionEvidence;
   return {
     gender: result.gender,
     solarDate: result.solarDate,
@@ -6019,7 +6144,31 @@ function buildCompactBaziResult(result: BaziChartResult) {
     constellation: result.constellation,
     mingGua: result.mingGua,
     wuxingStrength: result.wuxingStrength,
-    analysis: result.analysis,
+    analysis: {
+      ...result.analysis,
+      usefulGod: {
+        ...result.analysis.usefulGod,
+        decisionEvidence: decision
+          ? {
+              base: decision.base,
+              appliedLayers: decision.appliedLayers,
+              conflicts: decision.conflicts,
+              climateCandidates: decision.climateCandidates.filter(
+                (candidate) => candidate.adopted || candidate.status === '冲突',
+              ),
+              controlFunctions: decision.controlFunctions?.map((path) => ({
+                label: path.label,
+                status: path.status,
+                sourceStems: path.sourceStems,
+                targetStems: path.targetStems,
+                baseFavorableStems: path.baseFavorableStems,
+                baseUnfavorableStems: path.baseUnfavorableStems,
+                evidenceGaps: path.evidenceGaps,
+              })),
+            }
+          : undefined,
+      },
+    },
     mingGong: result.mingGong,
     shenGong: result.shenGong,
     taiYuan: result.taiYuan,

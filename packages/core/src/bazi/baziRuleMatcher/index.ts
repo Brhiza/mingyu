@@ -46,6 +46,9 @@ import {
   matchMinWuxingCounts,
 } from './counts';
 import type { MatchableRule, RuleMatchContext } from './types';
+import { getMissingRuleInputs } from './evidence';
+
+export { getMissingRuleInputs } from './evidence';
 
 export type {
   BranchPillarPairRule,
@@ -61,6 +64,7 @@ export type {
 } from './types';
 
 export function matchesRule<T extends MatchableRule>(rule: T, context: RuleMatchContext): boolean {
+  if (getMissingRuleInputs(rule, context).length) return false;
   const formationTenGodCategories = buildFormationTenGodCategories(
     context.dayStem,
     context.formationWuxings,
@@ -76,6 +80,7 @@ export function matchesRule<T extends MatchableRule>(rule: T, context: RuleMatch
     includesOrWildcard(rule.patterns, context.pattern) &&
     includesOrWildcard(rule.currentJieqi, context.currentJieqi) &&
     includesAll(rule.requiredFormationWuxings, context.formationWuxings) &&
+    excludesAll(rule.forbiddenFormationWuxings, context.formationWuxings) &&
     includesAll(rule.requiredFormationTenGodCategories, formationTenGodCategories) &&
     includesAny(rule.optionalFormationTenGodCategories, formationTenGodCategories) &&
     excludesAll(rule.forbiddenFormationTenGodCategories, formationTenGodCategories) &&
@@ -218,4 +223,32 @@ export function matchFirstRule<T extends MatchableRule>(
   return [...rules]
     .sort((left, right) => (right.priority || 0) - (left.priority || 0))
     .find((rule) => matchesRule(rule, context));
+}
+
+export function assessRuleMatch(rule: MatchableRule, context: RuleMatchContext) {
+  const missingInputs = getMissingRuleInputs(rule, context);
+  const knownConditions = { ...rule };
+  for (const key of Object.keys(rule) as (keyof MatchableRule)[]) {
+    if (key === 'id' || key === 'priority') continue;
+    if (key === 'distinctStemGroupCounts') {
+      knownConditions.distinctStemGroupCounts = rule.distinctStemGroupCounts?.filter(
+        (group) =>
+          !getMissingRuleInputs({ id: rule.id, distinctStemGroupCounts: [group] }, context).length,
+      );
+      continue;
+    }
+    if (getMissingRuleInputs({ id: rule.id, [key]: rule[key] }, context).length) {
+      delete knownConditions[key];
+    }
+  }
+  const knownConditionsMatch = matchesRule(knownConditions, context);
+  return {
+    ruleId: rule.id,
+    status: !knownConditionsMatch
+      ? ('不满足' as const)
+      : missingInputs.length
+        ? ('资料不足' as const)
+        : ('满足' as const),
+    missingInputs,
+  };
 }

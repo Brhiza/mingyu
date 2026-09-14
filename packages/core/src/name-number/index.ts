@@ -8,6 +8,7 @@ export { getKongmingInterpretation } from './kongming-interpretations';
 export { analyzeNumberEnergyPair } from './number-energy-tradition';
 export { analyzeNameSancai } from './naming-tradition';
 import { calculateBaziChartFromInput, type BaziChartInputDraft } from '../bazi/input';
+import { formatUsefulGodFunctions } from '../bazi/baziAnalysisFormatter';
 import { CHARACTER_STROKE_NOTES, CHARACTER_READING_NOTES } from './character-annotations';
 import {
   buildPromptSelectionTask,
@@ -43,8 +44,25 @@ const COMPOUND_SURNAME_READINGS: Readonly<Record<string, readonly string[]>> = {
 
 export type NamingBirthInput = BaziChartInputDraft;
 
+function formatNamingClock(input: NamingBirthInput, includeSeconds: boolean) {
+  if (input.birthHour === undefined || input.birthMinute === undefined) return null;
+  const hour = String(Number(input.birthHour)).padStart(2, '0');
+  const minute = String(Number(input.birthMinute)).padStart(2, '0');
+  if (!includeSeconds) return `${hour}:${minute}`;
+  const second =
+    input.birthSecond === undefined || input.birthSecond === '' ? 0 : Number(input.birthSecond);
+  return `${hour}:${minute}:${String(second).padStart(2, '0')}`;
+}
+
 export function calculateNamingBirthContext(input: NamingBirthInput) {
   const chart = calculateBaziChartFromInput(input);
+  const hasPreciseStandardTime =
+    input.useTrueSolarTime !== true && input.birthSecond !== undefined && input.birthSecond !== '';
+  const hasInputSecond = input.birthSecond !== undefined && input.birthSecond !== '';
+  const inputClock = formatNamingClock(input, hasInputSecond);
+  const calculatedClock = chart.timing
+    ? `${String(chart.timing.correctedTime.hour).padStart(2, '0')}:${String(chart.timing.correctedTime.minute).padStart(2, '0')}${input.birthSecond !== undefined && input.birthSecond !== '' ? `:${String(chart.timing.correctedTime.second).padStart(2, '0')}` : ''}`
+    : null;
   const strength = chart.analysis.dayMasterStrength;
   const favorableElements = (chart.analysis.usefulGod.favorableWuxing ?? []).filter(
     (item): item is Wuxing => ['金', '木', '水', '火', '土'].includes(item),
@@ -57,14 +75,23 @@ export function calculateNamingBirthContext(input: NamingBirthInput) {
     timeBasis: {
       inputDate: `${input.dateType === 'lunar' ? '农历' : '公历'}${Number(input.year)}年${input.dateType === 'lunar' && input.isLeapMonth ? '闰' : ''}${Number(input.month)}月${Number(input.day)}日`,
       inputTime: input.useTrueSolarTime
-        ? `${String(Number(input.birthHour)).padStart(2, '0')}:${String(Number(input.birthMinute)).padStart(2, '0')}`
-        : `${chart.timeInfo.name}（${chart.timeInfo.range}）`,
-      mode: input.useTrueSolarTime ? '真太阳时' : '时辰',
+        ? (inputClock ??
+          `${String(Number(input.birthHour)).padStart(2, '0')}:${String(Number(input.birthMinute)).padStart(2, '0')}`)
+        : hasPreciseStandardTime && inputClock
+          ? inputClock
+          : `${chart.timeInfo.name}（${chart.timeInfo.range}）`,
+      mode: input.useTrueSolarTime
+        ? '真太阳时'
+        : hasPreciseStandardTime
+          ? '标准北京时间（精确到秒）'
+          : '时辰',
       place: input.birthPlace?.trim() || '',
       longitude: input.useTrueSolarTime ? Number(input.birthLongitude) : null,
       calculatedTime: chart.timing
-        ? `${String(chart.timing.correctedTime.hour).padStart(2, '0')}:${String(chart.timing.correctedTime.minute).padStart(2, '0')}`
-        : `${chart.timeInfo.name}（${chart.timeInfo.range}）`,
+        ? calculatedClock!
+        : hasPreciseStandardTime && inputClock
+          ? inputClock
+          : `${chart.timeInfo.name}（${chart.timeInfo.range}）`,
     },
     lunarDate: `${chart.lunarDate.year}年${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
     pillars: Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
@@ -73,6 +100,7 @@ export function calculateNamingBirthContext(input: NamingBirthInput) {
     favorableElements,
     unfavorableElements,
     usefulGodReason: chart.analysis.usefulGod.primaryReason ?? chart.analysis.usefulGod.useful,
+    functionalUse: formatUsefulGodFunctions(chart.analysis.usefulGod),
     monthContext: {
       branch: chart.pillars.month.zhi,
       commander: chart.monthCommander,
@@ -641,10 +669,13 @@ function formatBirthContext(context: ReturnType<typeof calculateNamingBirthConte
     ),
     `旺衰：${context.strength.status}；${context.strength.basis.join('；')}`,
     ...(context.climate
-      ? [`调候：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`]
+      ? [
+          `寒暖分布：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
+        ]
       : []),
     `喜用五行：${context.favorableElements.join('、') || '以整体命局复核'}`,
     `取用依据：${context.usefulGodReason}`,
+    ...context.functionalUse,
     ...context.warnings.map((warning) => `出生时刻说明：${warning}`),
   ].join('\n');
 }

@@ -1,6 +1,10 @@
 import { calculateSolarTermsForYear, type SolarTermEvidence } from 'mingyu-core/calendar';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import type { AlmanacDayCandidate } from 'mingyu-core/types';
+import type {
+  AlmanacDayCandidate,
+  AlmanacParticipantInput,
+  AlmanacParticipantRelationFact,
+} from 'mingyu-core/types';
 import { SolarDay, SolarTime } from 'tyme4ts';
 
 const CHINA_TIME_ZONE = 'Asia/Shanghai';
@@ -47,6 +51,9 @@ export interface GanzhiCalendarCell {
   valueGodFortune: ValueGodFortune;
   dayOfficer: string;
   solarTerms: SolarTermMarker[];
+  /** 黄历择日参与人的关系事实，供月格快速识别个人关联。 */
+  participantNotes: string[];
+  participantRelationFacts: AlmanacParticipantRelationFact[];
 }
 
 export interface GanzhiCalendarDayDetail extends GanzhiCalendarCell {
@@ -71,6 +78,10 @@ const monthCache = new Map<string, GanzhiCalendarMonth>();
 const dayDetailCache = new Map<string, GanzhiCalendarDayDetail>();
 const solarTermsYearCache = new Map<number, SolarTermEvidence[]>();
 const monthBoundaryCache = new Map<number, MonthPillarBoundary[]>();
+
+function participantCacheKey(participants: readonly AlmanacParticipantInput[]): string {
+  return JSON.stringify(participants);
+}
 
 function assertYear(year: number): void {
   if (!Number.isInteger(year) || year < MIN_YEAR || year > MAX_YEAR) {
@@ -274,6 +285,7 @@ function buildBaseCell(
   todayKey: string,
   termMap: ReadonlyMap<string, SolarTermMarker[]>,
   boundaries: readonly MonthPillarBoundary[],
+  almanac?: AlmanacDayCandidate,
 ): GanzhiCalendarCell {
   const { year, month, day } = parseDateKey(dateKey);
   const solarDay = SolarDay.fromYmd(year, month, day);
@@ -305,6 +317,8 @@ function buildBaseCell(
     valueGodFortune: classifyValueGod(valueGod),
     dayOfficer: lunar.getDuty().getName(),
     solarTerms: terms,
+    participantNotes: [...(almanac?.participantNotes ?? [])],
+    participantRelationFacts: [...(almanac?.participantRelationFacts ?? [])],
   };
 }
 
@@ -314,13 +328,24 @@ function createMonthCells(
   todayKey: string,
   boundaries: readonly MonthPillarBoundary[],
   termMap: ReadonlyMap<string, SolarTermMarker[]>,
+  almanacByDate: ReadonlyMap<string, AlmanacDayCandidate>,
 ): GanzhiCalendarCell[] {
   const monthKey = `${year}-${formatNumber(month)}`;
   const first = new Date(Date.UTC(year, month - 1, 1));
   const firstDateKey = formatUtcDate(first);
   const startDateKey = addCivilDays(firstDateKey, -first.getUTCDay());
   return Array.from({ length: GRID_SIZE }, (_, index) =>
-    buildBaseCell(addCivilDays(startDateKey, index), monthKey, todayKey, termMap, boundaries),
+    (() => {
+      const dateKey = addCivilDays(startDateKey, index);
+      return buildBaseCell(
+        dateKey,
+        monthKey,
+        todayKey,
+        termMap,
+        boundaries,
+        almanacByDate.get(dateKey),
+      );
+    })(),
   );
 }
 
@@ -352,21 +377,46 @@ export function shiftGanzhiCalendarMonth(monthKey: string, amount: number): stri
 export function getGanzhiCalendarMonth(
   monthKey: string,
   todayKey = getBeijingTodayKey(),
+  participants: readonly AlmanacParticipantInput[] = [],
 ): GanzhiCalendarMonth {
   const parsed = parseMonthKey(monthKey);
-  const cacheKey = `${monthKey}:${todayKey}`;
+  const participantKey = participantCacheKey(participants);
+  const cacheKey = `${monthKey}:${todayKey}:${participantKey}`;
   const cached = monthCache.get(cacheKey);
   if (cached) return cached;
 
   const boundaries = buildMonthBoundaries(parsed.year);
   const terms = getSolarTermsForYears([parsed.year - 1, parsed.year, parsed.year + 1]);
   const termMap = buildSolarTermMap(terms);
+  const first = new Date(Date.UTC(parsed.year, parsed.month - 1, 1));
+  const firstDateKey = formatUtcDate(first);
+  const startDateKey = addCivilDays(firstDateKey, -first.getUTCDay());
+  const endDateKey = addCivilDays(startDateKey, GRID_SIZE - 1);
+  const almanacStartDate = startDateKey < `${MIN_YEAR}-01-01` ? `${MIN_YEAR}-01-01` : startDateKey;
+  const almanacEndDate = endDateKey > `${MAX_YEAR}-12-31` ? `${MAX_YEAR}-12-31` : endDateKey;
+  const almanac =
+    almanacStartDate <= almanacEndDate
+      ? generateAlmanacSelection({
+          topic: 'custom',
+          startDate: almanacStartDate,
+          endDate: almanacEndDate,
+          participants: [...participants],
+        })
+      : { days: [] as AlmanacDayCandidate[] };
+  const almanacByDate = new Map(almanac.days.map((day) => [day.date, day]));
   const month: GanzhiCalendarMonth = {
     monthKey,
     year: parsed.year,
     month: parsed.month,
     label: `${parsed.year}年${parsed.month}月`,
-    cells: createMonthCells(parsed.year, parsed.month, todayKey, boundaries, termMap),
+    cells: createMonthCells(
+      parsed.year,
+      parsed.month,
+      todayKey,
+      boundaries,
+      termMap,
+      almanacByDate,
+    ),
     monthBoundaries: boundaries,
   };
   monthCache.set(cacheKey, month);
@@ -377,9 +427,11 @@ export function getGanzhiCalendarMonth(
 export function getGanzhiCalendarDayDetail(
   dateKey: string,
   todayKey = getBeijingTodayKey(),
+  participants: readonly AlmanacParticipantInput[] = [],
 ): GanzhiCalendarDayDetail {
   parseDateKey(dateKey);
-  const cacheKey = `${dateKey}:${todayKey}`;
+  const participantKey = participantCacheKey(participants);
+  const cacheKey = `${dateKey}:${todayKey}:${participantKey}`;
   const cached = dayDetailCache.get(cacheKey);
   if (cached) return cached;
 
@@ -387,13 +439,21 @@ export function getGanzhiCalendarDayDetail(
   const boundaries = buildMonthBoundaries(year);
   const terms = getSolarTermsForYears([year - 1, year, year + 1]);
   const termMap = buildSolarTermMap(terms);
-  const base = buildBaseCell(dateKey, monthKeyFromDateKey(dateKey), todayKey, termMap, boundaries);
   const almanac = generateAlmanacSelection({
     topic: 'custom',
     startDate: dateKey,
     endDate: dateKey,
+    participants: [...participants],
   }).days.find((day) => day.date === dateKey);
   if (!almanac) throw new Error(`无法生成 ${dateKey} 的黄历资料。`);
+  const base = buildBaseCell(
+    dateKey,
+    monthKeyFromDateKey(dateKey),
+    todayKey,
+    termMap,
+    boundaries,
+    almanac,
+  );
 
   const chinaNoonTimestamp = getChinaNoonTimestamp(dateKey);
   const detail: GanzhiCalendarDayDetail = {

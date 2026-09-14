@@ -111,6 +111,10 @@ const thematicConsultationPromptSchema = baziSchema.extend({
 });
 
 function buildCombinedZiweiInput(args: z.infer<typeof thematicConsultationPromptSchema>) {
+  const standardTimeIndex =
+    !args.useTrueSolarTime && args.birthSecond !== undefined
+      ? buildBaziPerson(args).timeIndex
+      : args.timeIndex;
   return buildMcpZiweiChartInput({
     name: args.name,
     gender: args.gender,
@@ -118,7 +122,7 @@ function buildCombinedZiweiInput(args: z.infer<typeof thematicConsultationPrompt
     year: String(args.year),
     month: String(args.month),
     day: String(args.day),
-    timeIndex: args.timeIndex,
+    timeIndex: standardTimeIndex,
     promptScope:
       args.scope === 'natal'
         ? 'origin'

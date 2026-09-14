@@ -46,21 +46,6 @@ const CultureToolsPage = lazy(async () => {
   return { default: module.CultureToolsPage };
 });
 
-const YilinPage = lazy(async () => {
-  const module = await import('./pages/YilinPage');
-  return { default: module.YilinPage };
-});
-
-const GanzhiCalendarPage = lazy(async () => {
-  const module = await import('./pages/GanzhiCalendarPage');
-  return { default: module.GanzhiCalendarPage };
-});
-
-const BaziReversePage = lazy(async () => {
-  const module = await import('./pages/BaziReversePage');
-  return { default: module.BaziReversePage };
-});
-
 const DivinationPage = lazy(async () => {
   const module = await import('./pages/DivinationPage');
   return { default: module.DivinationPage };
@@ -141,9 +126,6 @@ export default function App() {
             />
             <Route path="/tutorial" element={<TutorialPage />} />
             <Route path="/culture-tools" element={<CultureToolsPage />} />
-            <Route path="/classics/yilin" element={<YilinPage />} />
-            <Route path="/tools/calendar" element={<GanzhiCalendarPage />} />
-            <Route path="/tools/bazi-reverse" element={<BaziReversePage />} />
             <Route path="/cases" element={<CasePage />} />
             <Route path="/records" element={<RecordsPage />} />
             <Route path="/result" element={<ResultPage />} />

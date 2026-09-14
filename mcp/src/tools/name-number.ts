@@ -36,7 +36,7 @@ const namingBirth = z
       .min(0)
       .max(12)
       .optional()
-      .describe('时辰索引（0-12）；useTrueSolarTime=false 时必填，启用真太阳时后可改传精确时分'),
+      .describe('时辰索引（0-12）；普通时辰模式必填，精确标准北京时间可改传时分秒'),
     dateType: z.enum(['solar', 'lunar']).optional(),
     isLeapMonth: z.boolean().optional(),
     useTrueSolarTime: z
@@ -45,6 +45,13 @@ const namingBirth = z
       .describe('启用真太阳时校正；需同时提供 birthHour/birthMinute 与 birthLongitude'),
     birthHour: z.number().int().min(0).max(23).optional(),
     birthMinute: z.number().int().min(0).max(59).optional(),
+    birthSecond: z
+      .number()
+      .int()
+      .min(0)
+      .max(59)
+      .optional()
+      .describe('出生秒数（0-59）；与标准北京时间时分一起表示精确时刻'),
     birthPlace: z.string().optional().describe('出生地点名称，用于真太阳时说明'),
     birthLongitude: z.number().min(-180).max(180).optional().describe('出生地经度'),
     timezone: z.number().min(-12).max(14).optional().describe('小时偏移，如东八区为 8'),

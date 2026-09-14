@@ -66,13 +66,20 @@ export const baziSchema = z.object({
   timeIndex: z
     .number()
     .optional()
-    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；若不传则自动按前三柱（年月日）降级排盘'),
+    .describe('时辰索引：0=早子时,1=丑时,...,12=晚子时；精确标准北京时间传时分秒时可省略'),
 
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
-  birthHour: z.number().optional().describe('精准出生小时，启用真太阳时时必填'),
-  birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
+  birthHour: z.number().optional().describe('精准出生小时，启用真太阳时或精确标准北京时间时必填'),
+  birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时或精确标准北京时间时必填'),
+  birthSecond: z
+    .number()
+    .int()
+    .min(0)
+    .max(59)
+    .optional()
+    .describe('出生秒数（0-59）；与标准北京时间时分一起表示精确时刻'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
   timezone: z.number().min(-12).max(14).optional().describe('固定 UTC 偏移，默认 UTC+8'),
@@ -197,6 +204,10 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
 
     const birthHour = readMcpIntegerLikeInRange(args.birthHour, 'birthHour', 0, 23);
     const birthMinute = readMcpIntegerLikeInRange(args.birthMinute, 'birthMinute', 0, 59);
+    const birthSecond =
+      args.birthSecond === undefined
+        ? undefined
+        : readMcpIntegerLikeInRange(args.birthSecond, 'birthSecond', 0, 59);
     const birthLongitude = readMcpNumberLikeInRange(
       args.birthLongitude,
       'birthLongitude',
@@ -219,6 +230,7 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
       useTrueSolarTime,
       birthHour,
       birthMinute,
+      ...(birthSecond === undefined ? {} : { birthSecond }),
       birthPlace: args.birthPlace ?? '',
       birthLongitude,
       timezone: args.timezone,
@@ -229,10 +241,33 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     };
   }
 
-  const isUnknownTime = typeof args.timeIndex !== 'number' || args.timeIndex < 0;
+  const hasPreciseStandardTime = args.birthSecond !== undefined;
+  if (hasPreciseStandardTime && (args.birthHour === undefined || args.birthMinute === undefined)) {
+    throw new Error('精确标准北京时间需要同时提供 birthHour、birthMinute 和 birthSecond。');
+  }
+  const birthHour = hasPreciseStandardTime
+    ? readMcpIntegerLikeInRange(args.birthHour, 'birthHour', 0, 23)
+    : undefined;
+  const birthMinute = hasPreciseStandardTime
+    ? readMcpIntegerLikeInRange(args.birthMinute, 'birthMinute', 0, 59)
+    : undefined;
+  const birthSecond = hasPreciseStandardTime
+    ? readMcpIntegerLikeInRange(args.birthSecond, 'birthSecond', 0, 59)
+    : undefined;
+  const derivedTimeIndex =
+    hasPreciseStandardTime && birthHour !== undefined && birthMinute !== undefined
+      ? getTimeIndexFromClock(birthHour, birthMinute)
+      : -1;
+  if (hasPreciseStandardTime && derivedTimeIndex < 0) {
+    throw new Error('birthHour 和 birthMinute 无法换算为有效时辰。');
+  }
+  const isUnknownTime =
+    !hasPreciseStandardTime && (typeof args.timeIndex !== 'number' || args.timeIndex < 0);
   const timeIndex = isUnknownTime
     ? 6
-    : readMcpIntegerLikeInRange(args.timeIndex, 'timeIndex', 0, 12);
+    : hasPreciseStandardTime
+      ? derivedTimeIndex
+      : readMcpIntegerLikeInRange(args.timeIndex, 'timeIndex', 0, 12);
 
   return {
     gender: args.gender,
@@ -244,6 +279,9 @@ export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
     isLeapMonth: args.isLeapMonth ?? false,
     useTrueSolarTime,
     isThreePillars: isUnknownTime,
+    ...(birthHour === undefined ? {} : { birthHour }),
+    ...(birthMinute === undefined ? {} : { birthMinute }),
+    ...(birthSecond === undefined ? {} : { birthSecond }),
     shenShaScope: args.shenShaScope,
     shenShaVariants: args.shenShaVariants,
   };

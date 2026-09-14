@@ -18,7 +18,7 @@ const LABELS: Record<string, string> = {
   sourceBook: '典籍',
   source: '典籍',
   verse: '原文',
-  classicVerse: '原文',
+  classicVerse: '条文参考',
   modernMeaning: '取义',
   modernExplanation: '释义',
   explanation: '释义',
@@ -27,7 +27,7 @@ const LABELS: Record<string, string> = {
   nature: '性质',
   dayMaster: '日主',
   monthBranch: '月令',
-  primaryGods: '调候取用',
+  primaryGods: '条文取用',
   seasonSummary: '月令概要',
   name: '名称',
   star: '星曜',
@@ -70,6 +70,7 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
       'useTrueSolarTime',
       'birthHour',
       'birthMinute',
+      'birthSecond',
       'birthPlace',
       'birthLongitude',
       'birthLatitude',
@@ -109,6 +110,7 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
       'useTrueSolarTime',
       'birthHour',
       'birthMinute',
+      'birthSecond',
       'birthLongitude',
       'birthLatitude',
       'birthPlace',
@@ -578,11 +580,14 @@ function assertIdentityBirth(
 
   const useTrueSolarTime = locked.useTrueSolarTime === true;
   if (useTrueSolarTime) {
-    for (const field of ['birthHour', 'birthMinute', 'birthLongitude']) {
+    for (const field of ['birthHour', 'birthMinute', 'birthSecond', 'birthLongitude']) {
       assertStructuredField(`${method}.${field}`, locked[field], birth[field]);
     }
   } else {
     assertStructuredField(`${method}.timeIndex`, locked.timeIndex, birth.timeIndex);
+    if (locked.birthSecond !== undefined) {
+      assertStructuredField(`${method}.birthSecond`, locked.birthSecond, birth.birthSecond);
+    }
   }
 
   if (method === 'ziwei') {
@@ -716,6 +721,13 @@ function assertBaziResultFacts(
       locked.birthMinute,
       standardTime.minute,
     );
+    if (locked.birthSecond !== undefined) {
+      assertStructuredField(
+        'bazi.timing.standardTime.second',
+        locked.birthSecond,
+        standardTime.second,
+      );
+    }
   }
 }
 

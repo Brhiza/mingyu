@@ -49,7 +49,36 @@ test('月历值神区分黄黑道，详情按日调用通用黄历事实并保�
   assert.ok(detail.almanac.recommends.length > 0 || detail.almanac.avoids.length > 0);
 });
 
+test('个人黄历月格和详情应沿用参与人的择日关系事实', () => {
+  clearGanzhiCalendarCache();
+  const participant = {
+    id: 'case:person',
+    name: '本人',
+    gender: '男' as const,
+    year: '1990',
+    month: '1',
+    day: '1',
+    timeIndex: '6',
+    dateType: 'solar' as const,
+  };
+  const month = getGanzhiCalendarMonth('2026-09', '2026-09-14', [participant]);
+  const detail = getGanzhiCalendarDayDetail('2026-09-14', '2026-09-14', [participant]);
+  const cell = month.cells.find((item) => item.date === '2026-09-14');
+
+  assert.ok(cell);
+  assert.ok(cell.participantRelationFacts.length > 0);
+  assert.deepEqual(cell.participantRelationFacts, detail.participantRelationFacts);
+  assert.ok(
+    detail.almanac.participantNotes.length > 0 ||
+      (detail.almanac.participantRelationFacts?.length ?? 0) > 0,
+  );
+});
+
 test('月份导航和北京时间当前日期使用稳定的公历键', () => {
+  clearGanzhiCalendarCache();
+  assert.equal(getGanzhiCalendarMonth('1900-01', '2026-09-14').cells[0]?.date, '1899-12-31');
+  clearGanzhiCalendarCache();
+  assert.equal(getGanzhiCalendarMonth('2100-12', '2026-09-14').cells.at(-1)?.date, '2101-01-08');
   assert.equal(shiftGanzhiCalendarMonth('2026-01', -1), '2025-12');
   assert.equal(shiftGanzhiCalendarMonth('2026-12', 1), '2027-01');
   assert.equal(getBeijingTodayKey(new Date('2026-09-13T16:30:00.000Z')), '2026-09-14');

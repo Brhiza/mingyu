@@ -4,12 +4,13 @@ import { HIDDEN_STEMS } from './baziDefinitions';
 
 export interface BaziClimateBalanceResult {
   nature: '寒局' | '燥局' | '中和' | '微偏寒' | '微偏燥';
+  /** 寒暖指标对应的候选作用方向；具体干与适用条件由取用决策给出。 */
   medicine: string;
   summary: string;
 }
 
 /**
- * 依据《穷通宝鉴》《滴天髓》“天道有寒暖，地道有燥湿”的调候失衡与药神判定算法。
+ * 四柱水火分布的寒暖燥湿辅助指标。
  * 范围说明：本函数仅统计四柱水火分布的寒暖燥湿指标，不计算日主取用、合化、
  * 制化与药神有效性；完整调候取用见 baziTherapeuticStrategy 的细分规则，两者结论范围不同。
  */
@@ -38,21 +39,21 @@ export function evaluateBaziClimateBalance(pillars: Pillars): BaziClimateBalance
     if (fireCount <= 0.5) {
       return {
         nature: '寒局',
-        medicine: '急需丙丁火暖局解冻',
-        summary: '三冬水冷金寒，全局火气虚绝，急需丙丁火暖局解冻照拂',
+        medicine: '照暖与解冻',
+        summary: '生于冬月，透干及藏干中的火气分布稀少，寒暖指标偏寒',
       };
     }
     if (fireCount >= 2.5) {
       return {
         nature: '中和',
-        medicine: '冬阳暖局，气象和顺',
-        summary: '生于冬月而原局火气温润，冬阳照暖，寒暖得宜',
+        medicine: '核对已有温暖作用',
+        summary: '生于冬月，原局已见较多火气分布，需结合火的根气与制化核对暖局作用',
       };
     }
     return {
       nature: '微偏寒',
-      medicine: '喜火向荣',
-      summary: '冬月寒气仍盛，原局微带火意，行运仍喜木火温煦',
+      medicine: '温暖作用',
+      summary: '生于冬月，原局见少量火气分布，寒暖指标微偏寒',
     };
   }
 
@@ -61,21 +62,21 @@ export function evaluateBaziClimateBalance(pillars: Pillars): BaziClimateBalance
     if (waterCount <= 0.5) {
       return {
         nature: '燥局',
-        medicine: '急需壬癸水润泽生津',
-        summary: '三夏火炎土燥，全局水气枯竭，急需壬癸水润燥解渴',
+        medicine: '润燥作用',
+        summary: '生于夏月，透干及藏干中的水气分布稀少，寒暖燥湿指标偏燥',
       };
     }
     if (waterCount >= 2.5) {
       return {
         nature: '中和',
-        medicine: '清凉润泽，气象中和',
-        summary: '生于夏月而原局甘霖得济，火烈得制，寒暖燥湿适中',
+        medicine: '核对已有润燥作用',
+        summary: '生于夏月，原局已见较多水气分布，需结合水的根气与制化核对润燥作用',
       };
     }
     return {
       nature: '微偏燥',
-      medicine: '喜水润泽',
-      summary: '夏月炎炎，原局水气尚薄，行运喜金水清润',
+      medicine: '润燥作用',
+      summary: '生于夏月，原局见少量水气分布，寒暖燥湿指标微偏燥',
     };
   }
 
@@ -83,15 +84,15 @@ export function evaluateBaziClimateBalance(pillars: Pillars): BaziClimateBalance
   if (waterCount >= 4.0 && fireCount <= 1.0) {
     return {
       nature: '寒局',
-      medicine: '喜火照暖',
-      summary: '全局水势浩荡而火气羸弱，局势湿寒，喜木火宣泄温煦',
+      medicine: '照暖作用',
+      summary: '原局水气分布多、火气分布少，寒暖指标偏寒',
     };
   }
   if (fireCount >= 4.0 && waterCount <= 1.0) {
     return {
       nature: '燥局',
-      medicine: '喜水清润',
-      summary: '全局火势焦炎而水气无存，局势偏燥，喜金水调剂润泽',
+      medicine: '润燥作用',
+      summary: '原局火气分布多、水气分布少，寒暖燥湿指标偏燥',
     };
   }
 

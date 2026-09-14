@@ -299,9 +299,15 @@ function getNoonEightChar(date: Date) {
 }
 
 function shouldBuildParticipantProfile(item: AlmanacParticipantInput) {
-  return [item.year, item.month, item.day, item.timeIndex].some(
-    (value) => typeof value === 'string' && value.trim() !== '',
-  );
+  return [
+    item.year,
+    item.month,
+    item.day,
+    item.timeIndex,
+    item.birthHour,
+    item.birthMinute,
+    item.birthSecond,
+  ].some((value) => typeof value === 'string' && value.trim() !== '');
 }
 
 function readParticipantInteger(value: string, label: string, min: number, max: number) {
@@ -320,6 +326,25 @@ function readParticipantInteger(value: string, label: string, min: number, max: 
   return number;
 }
 
+function readOptionalParticipantInteger(
+  value: string | undefined,
+  label: string,
+  min: number,
+  max: number,
+) {
+  if (value === undefined || value.trim() === '') return undefined;
+  return readParticipantInteger(value, label, min, max);
+}
+
+function readOptionalParticipantNumber(value: string | undefined, label: string) {
+  if (value === undefined || value.trim() === '') return undefined;
+  const number = Number(value.trim());
+  if (!Number.isFinite(number) || number < -180 || number > 180) {
+    throw new Error(`参与人${label}必须是 -180 到 180 之间的数字`);
+  }
+  return number;
+}
+
 function readParticipantBirthInput(item: AlmanacParticipantInput) {
   if (item.gender !== '男' && item.gender !== '女') {
     throw new Error('参与人性别必须是 男 或 女。');
@@ -334,7 +359,35 @@ function readParticipantBirthInput(item: AlmanacParticipantInput) {
   const year = readParticipantInteger(item.year, '出生年份', 1900, 2100);
   const month = readParticipantInteger(item.month, '出生月份', 1, 12);
   const day = readParticipantInteger(item.day, '出生日期', 1, item.dateType === 'lunar' ? 30 : 31);
-  const timeIndex = readParticipantInteger(item.timeIndex, '出生时辰', 0, 12);
+  if (item.useTrueSolarTime !== undefined && typeof item.useTrueSolarTime !== 'boolean') {
+    throw new Error('参与人useTrueSolarTime必须是布尔值。');
+  }
+  const birthHour = readOptionalParticipantInteger(item.birthHour, '出生小时', 0, 23);
+  const birthMinute = readOptionalParticipantInteger(item.birthMinute, '出生分钟', 0, 59);
+  const birthSecond = readOptionalParticipantInteger(item.birthSecond, '出生秒数', 0, 59);
+  const hasPreciseClock =
+    birthHour !== undefined || birthMinute !== undefined || birthSecond !== undefined;
+  if (hasPreciseClock && (birthHour === undefined || birthMinute === undefined)) {
+    throw new Error('参与人精准出生时间需要同时提供小时和分钟。');
+  }
+  const hasBlankTimeIndex = typeof item.timeIndex === 'string' && item.timeIndex.trim() === '';
+  const timeIndex =
+    typeof item.timeIndex !== 'string' || hasBlankTimeIndex
+      ? undefined
+      : readParticipantInteger(item.timeIndex, '出生时辰', 0, 12);
+  if (timeIndex === undefined && !hasPreciseClock) {
+    if (hasBlankTimeIndex) {
+      readParticipantInteger(item.timeIndex, '出生时辰', 0, 12);
+    }
+    throw new Error('参与人需要提供出生时辰或精准出生时间。');
+  }
+  const birthLongitude = readOptionalParticipantNumber(item.birthLongitude, '出生经度');
+  if (item.useTrueSolarTime === true && (birthHour === undefined || birthMinute === undefined)) {
+    throw new Error('参与人真太阳时需要精准出生小时和分钟。');
+  }
+  if (item.useTrueSolarTime === true && birthLongitude === undefined) {
+    throw new Error('参与人真太阳时需要出生经度。');
+  }
   const validationMessage = getBirthDateValidationMessage({
     year,
     month,
@@ -347,7 +400,18 @@ function readParticipantBirthInput(item: AlmanacParticipantInput) {
     throw new Error(`参与人出生${validationMessage}`);
   }
 
-  return { year, month, day, timeIndex };
+  return {
+    year,
+    month,
+    day,
+    timeIndex,
+    birthHour,
+    birthMinute,
+    birthSecond,
+    birthPlace: item.birthPlace?.trim() || undefined,
+    birthLongitude,
+    useTrueSolarTime: item.useTrueSolarTime === true,
+  };
 }
 
 function readParticipantText(value: unknown, label: string, fallback: string) {
@@ -385,11 +449,24 @@ function createParticipantProfiles(
         year: birthInput.year,
         month: birthInput.month,
         day: birthInput.day,
-        timeIndex: birthInput.timeIndex,
+        ...(birthInput.timeIndex === undefined ? {} : { timeIndex: birthInput.timeIndex }),
         gender: item.gender === '男' ? 'male' : item.gender === '女' ? 'female' : '',
         isLunar: item.dateType === 'lunar',
         isLeapMonth: Boolean(item.isLeapMonth),
-        useTrueSolarTime: false,
+        ...(birthInput.birthHour === undefined
+          ? {}
+          : {
+              birthHour: birthInput.birthHour,
+              birthMinute: birthInput.birthMinute,
+              ...(birthInput.birthSecond === undefined
+                ? {}
+                : { birthSecond: birthInput.birthSecond }),
+            }),
+        ...(birthInput.birthPlace === undefined ? {} : { birthPlace: birthInput.birthPlace }),
+        ...(birthInput.birthLongitude === undefined
+          ? {}
+          : { birthLongitude: birthInput.birthLongitude }),
+        useTrueSolarTime: birthInput.useTrueSolarTime,
       });
 
       return {

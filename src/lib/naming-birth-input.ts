@@ -17,6 +17,7 @@ export function createNamingBirthInput(birth: QueryInputState): NamingBirthInput
     useTrueSolarTime: birth.useTrueSolarTime,
     birthHour: birth.birthHour,
     birthMinute: birth.birthMinute,
+    birthSecond: birth.birthSecond,
     birthPlace: birth.birthPlace,
     birthLongitude: birth.birthLongitude,
   };

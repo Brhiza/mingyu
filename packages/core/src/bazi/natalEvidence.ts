@@ -1,5 +1,6 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { BaziChartResult } from './baziTypes';
+import { formatUsefulGodFunctions } from './baziAnalysisFormatter';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -255,7 +256,14 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
   const usefulGod = data.analysis.usefulGod;
   const usefulBasis = [
     conditionPortableBasis(usefulGod.primaryReason ?? ''),
-    ...filterPortableStrategyTrace(usefulGod.strategyTrace),
+    ...(usefulGod.decisionEvidence
+      ? [
+          `基础取用${usefulGod.decisionEvidence.base.favorable.join('、')}；基础所忌${usefulGod.decisionEvidence.base.unfavorable.join('、')}`,
+          ...(usefulGod.decisionEvidence.controlPaths ?? [])
+            .filter((path) => path.status === '满足')
+            .map((path) => `已见制化路径：${path.label}；${path.detail}`),
+        ]
+      : filterPortableStrategyTrace(usefulGod.strategyTrace)),
   ].filter(hasText);
   const favorableWuxing = usefulGod.favorableWuxing ?? [];
   const unfavorableWuxing = usefulGod.unfavorableWuxing ?? [];
@@ -275,6 +283,7 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
         : '',
     usefulGod.useful ? `喜十神${usefulGod.useful}` : '',
     usefulGod.avoid ? `忌十神${usefulGod.avoid}` : '',
+    ...formatUsefulGodFunctions(usefulGod),
   ]
     .filter(Boolean)
     .join('；');

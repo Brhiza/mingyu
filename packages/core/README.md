@@ -406,7 +406,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **灵签 SSGW**            | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签，返回签号、签题与签诗原文，支持 `seed` 和 `replay`                                    |
 | **西洋占星 Astrolabe**   | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、扩展点、相位偏差、容许度分层、行运与太阳返照求根证据                    |
 | **西占双盘 Synastry**    | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 双方主要跨盘相位、实际夹角、精确角、可配置容许度、紧密等级、跨盘落宫与结构化证据                     |
-| **历法 Calendar**        | `mingyu-core/calendar`、`mingyu-core/calendar/true-solar-time`                                                                                | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据            |
+| **历法 Calendar**        | `mingyu-core/calendar`、`mingyu-core/calendar/true-solar-time`、`mingyu-core/calendar/bazi-reverse`                                          | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时、UTC/UT/TT 时间尺度及四柱反推日期      |
 | **出生档案 Profile**     | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，直接生成八字传统盘并提供紫微、星盘、择日适配器           |
 | **出生盘 Bundle**        | `mingyu-core/birth`                                                                                                                           | 从一份 `BirthProfile` 按需生成八字、紫微、星盘和七政四余结果                                         |
 | **双人合盘 Bundle**      | `mingyu-core/compatibility`                                                                                                                   | 从两份 `BirthProfile` 生成八字合盘、紫微双盘证据和西占双盘相位                                       |
@@ -707,10 +707,16 @@ const luckDir = buildLuckDirectionProfile('male', '庚'); // { direction:'顺行
 ### 历法工具
 
 ```typescript
-import { getDivinationTime, getVoidBranches } from 'mingyu-core/calendar';
+import { getDivinationTime, getVoidBranches, reverseBaziDates } from 'mingyu-core/calendar';
 
 const { ganzhi, timeInfo } = getDivinationTime(); // 当前时间干支
 const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
+const reverse = reverseBaziDates({
+  pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+  startYear: 2024,
+  endYear: 2024,
+});
+console.log(reverse.candidates); // 北京时间候选区间，起点含、终点不含
 ```
 
 ---
@@ -767,6 +773,8 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | ------------------------------------------------- | ---------------------------------------------------------------- |
 | `calendar.resolveTrueSolarBirthTime(input)`       | 公历/农历出生真太阳时、历史时区、夏令时、跨日和时辰索引统一换算  |
 | `calendar.convertTrueSolarTime(input)`            | 当地钟表时间按固定偏移或 IANA 历史时区、经度和均时差换算真太阳时 |
+| `calendar.reverseBaziDates(input)`                 | 根据完整四柱反推公历北京时间候选区间（节气月、23:00 子时换日） |
+| `calendar/bazi-reverse` 独立子路径                  | 仅导出 `reverseBaziDates` 及其请求、结果类型，适合按需加载       |
 | `profile.calculateBaziFromBirthProfile(profile)`  | 从统一出生档案直接生成八字传统盘结果                             |
 | `profile.birthProfileToZiweiChartInput(profile)`  | 将统一出生档案转换为紫微传统盘输入                               |
 | `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宅结果与候选坐向 |

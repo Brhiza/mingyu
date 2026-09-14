@@ -132,6 +132,7 @@ export class BaziCalculator {
       useTrueSolarTime,
       birthHour,
       birthMinute,
+      birthSecond,
       birthPlace,
       birthLongitude,
     } = person;
@@ -151,15 +152,22 @@ export class BaziCalculator {
     assertBaziGender(gender);
 
     const useTrueSolarTimeEnabled = useTrueSolarTime === true;
+    const hasPreciseStandardTime = !useTrueSolarTimeEnabled && birthSecond !== undefined;
+    const preciseStandardTimeIndex =
+      hasPreciseStandardTime && Number.isInteger(birthHour) && Number.isInteger(birthMinute)
+        ? getTimeIndexFromClock(birthHour!, birthMinute!)
+        : undefined;
+    const resolvedTimeIndex = hasPreciseStandardTime ? preciseStandardTimeIndex : timeIndex;
     const isLunarEnabled = isLunar === true;
     const isLeapMonthEnabled = isLeapMonth === true;
     const isThreePillars = Boolean(
       person.isThreePillars ||
-      (!useTrueSolarTimeEnabled && (typeof timeIndex !== 'number' || timeIndex < 0)),
+      (!useTrueSolarTimeEnabled &&
+        (typeof resolvedTimeIndex !== 'number' || resolvedTimeIndex < 0)),
     );
-    const effectiveTimeIndex = isThreePillars ? 6 : timeIndex!;
+    const effectiveTimeIndex = isThreePillars ? 6 : resolvedTimeIndex!;
     const selectedTimeInfo = this.timeMap[effectiveTimeIndex];
-    if (!useTrueSolarTimeEnabled && !isThreePillars && !Number.isInteger(timeIndex)) {
+    if (!useTrueSolarTimeEnabled && !isThreePillars && !Number.isInteger(resolvedTimeIndex)) {
       throw new Error('无效的时辰索引');
     }
     if (!useTrueSolarTimeEnabled && !selectedTimeInfo) {
@@ -175,6 +183,12 @@ export class BaziCalculator {
       throw new Error('真太阳时缺少精准时间或经度');
     }
     if (
+      hasPreciseStandardTime &&
+      (typeof birthHour !== 'number' || typeof birthMinute !== 'number')
+    ) {
+      throw new Error('标准北京时间缺少精准小时或分钟');
+    }
+    if (
       useTrueSolarTimeEnabled &&
       (!Number.isInteger(birthHour) || birthHour! < 0 || birthHour! > 23)
     ) {
@@ -185,6 +199,24 @@ export class BaziCalculator {
       (!Number.isInteger(birthMinute) || birthMinute! < 0 || birthMinute! > 59)
     ) {
       throw new Error('出生分钟需在 0-59 之间。');
+    }
+    if (
+      hasPreciseStandardTime &&
+      (!Number.isInteger(birthHour) || birthHour! < 0 || birthHour! > 23)
+    ) {
+      throw new Error('标准北京时间小时需在 0-23 之间。');
+    }
+    if (
+      hasPreciseStandardTime &&
+      (!Number.isInteger(birthMinute) || birthMinute! < 0 || birthMinute! > 59)
+    ) {
+      throw new Error('标准北京时间分钟需在 0-59 之间。');
+    }
+    if (
+      birthSecond !== undefined &&
+      (!Number.isInteger(birthSecond) || birthSecond < 0 || birthSecond > 59)
+    ) {
+      throw new Error('出生秒数需在 0-59 之间。');
     }
     if (
       useTrueSolarTimeEnabled &&
@@ -225,17 +257,20 @@ export class BaziCalculator {
     let solarTime: SolarTimeInstance;
     let lunarHour: LunarHourInstance;
     let timing: TimingInfo | undefined;
-    const baseHour = useTrueSolarTimeEnabled ? birthHour! : selectedTimeInfo!.hour;
-    const baseMinute = useTrueSolarTimeEnabled ? birthMinute! : selectedTimeInfo!.minute;
+    const baseHour =
+      useTrueSolarTimeEnabled || hasPreciseStandardTime ? birthHour! : selectedTimeInfo!.hour;
+    const baseMinute =
+      useTrueSolarTimeEnabled || hasPreciseStandardTime ? birthMinute! : selectedTimeInfo!.minute;
+    const baseSecond = useTrueSolarTimeEnabled || hasPreciseStandardTime ? (birthSecond ?? 0) : 0;
 
     if (isLunarEnabled) {
       // 如果选择农历，使用 LunarHour.fromYmdHms() 创建，然后转换为 SolarTime
       const lunarMonth = isLeapMonthEnabled ? -Math.abs(month) : month;
-      lunarHour = LunarHour.fromYmdHms(year, lunarMonth, day, baseHour, baseMinute, 0);
+      lunarHour = LunarHour.fromYmdHms(year, lunarMonth, day, baseHour, baseMinute, baseSecond);
       solarTime = lunarHour.getSolarTime();
     } else {
       // 如果选择公历，直接使用 SolarTime.fromYmdHms()
-      solarTime = SolarTime.fromYmdHms(year, month, day, baseHour, baseMinute, 0);
+      solarTime = SolarTime.fromYmdHms(year, month, day, baseHour, baseMinute, baseSecond);
       lunarHour = solarTime.getLunarHour();
     }
 
@@ -259,7 +294,7 @@ export class BaziCalculator {
         day,
         hour: baseHour,
         minute: baseMinute,
-        second: 0,
+        second: baseSecond,
         isLeapMonth: isLeapMonthEnabled,
         longitude: birthLongitude!,
         timezone,

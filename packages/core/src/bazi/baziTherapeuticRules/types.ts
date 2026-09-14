@@ -1,8 +1,34 @@
+export type ClimateRuleMode = 'reference' | 'within-balance' | 'conditional';
+
+export interface ClimateRuleSource {
+  title: string;
+  section: string;
+  excerpt: string;
+  url: string;
+}
+
+export interface ClimateRuleEffect {
+  /** 作用到的具体天干；没有干级依据的规则不得伪造阴阳功能。 */
+  stem: string;
+  wuxing: string;
+  role: string;
+  targetStems?: string[];
+  /** 未标主作用时，conditional 规则只能作为参考。 */
+  rank?: 'primary' | 'secondary';
+}
+
+export interface ClimateRulePolicy {
+  mode: ClimateRuleMode;
+  source: ClimateRuleSource;
+  effects: ClimateRuleEffect[];
+}
+
 export interface ClimateRule {
   id: string;
   label: string;
   description: string;
   priority?: number;
+  strengths?: string[];
   yearStems?: string[];
   months: string[];
   hourBranches?: string[];
@@ -96,6 +122,7 @@ export interface ClimateRule {
     scope?: 'visible' | 'hidden' | 'total';
   }>;
   requiredFormationWuxings?: string[];
+  forbiddenFormationWuxings?: string[];
   requiredFormationTenGodCategories?: string[];
   optionalFormationTenGodCategories?: string[];
   forbiddenFormationTenGodCategories?: string[];
@@ -115,6 +142,8 @@ export interface ClimateRule {
   maxTenGodCategoryTotalDistinctCounts?: Record<string, number>;
   usefulWuxing: string;
   favorableOrder?: string[];
+  /** 没有 policy 时默认为 reference，不得由 priority 推断覆盖权限。 */
+  policy?: ClimateRulePolicy;
   traceHints?: string[];
   hint: string;
 }

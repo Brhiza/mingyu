@@ -52,6 +52,7 @@ export function useBaziCalculations(inputState: QueryInputState): BaziCalculatio
           useTrueSolarTime: inputState.partnerUseTrueSolarTime,
           birthHour: inputState.partnerBirthHour,
           birthMinute: inputState.partnerBirthMinute,
+          birthSecond: inputState.partnerBirthSecond,
           birthPlace: inputState.partnerBirthPlace,
           birthLongitude: inputState.partnerBirthLongitude,
         }),

@@ -10,7 +10,15 @@ import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
 import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import { WUXING } from '../wuxing';
 import type { Wuxing } from '../wuxing';
-import type { PatternFulfillmentResult } from './baziPatternFulfillment';
+import type {
+  PatternConditionStatus,
+  PatternFulfillmentResult,
+  PatternInteractionEvidence,
+  PatternPathPosition,
+  PatternRemedy,
+  PatternStemEvidence,
+} from './baziPatternFulfillment';
+import type { ClimateRuleEffect, ClimateRuleMode } from './baziTherapeuticRules/types';
 
 export { WUXING };
 export type { Wuxing };
@@ -51,6 +59,8 @@ export interface Person {
   birthHour?: number;
 
   birthMinute?: number;
+  /** 标准北京时间的秒数；提供时表示 birthHour/birthMinute 为精确标准时刻。 */
+  birthSecond?: number;
   birthPlace?: string;
   birthLongitude?: number;
   /** 当地标准时区，例如中国为 UTC+8；真太阳时模式默认 UTC+8。 */
@@ -327,6 +337,12 @@ export interface UsefulGodAnalysis {
   secondaryUnfavorableWuxing?: string[];
   primaryUseful?: string;
   primaryAvoid?: string;
+  /** 只适用于明确 policy.effects 的干级候选，不代表同五行全部可用。 */
+  conditionalFavorableStems?: string[];
+  /** 条件作用只取其中一干时，记录同五行仍承接基线忌性的另一干。 */
+  conditionalUnfavorableStems?: string[];
+  conditionalFavorableWuxing?: string[];
+  decisionEvidence?: UsefulGodDecisionEvidence;
   strategyTrace?: string[];
   primaryReason?: string;
   matchedRules?: {
@@ -334,6 +350,59 @@ export interface UsefulGodAnalysis {
     label: string;
     description: string;
   }[];
+}
+
+export type UsefulGodDecisionStatus = '满足' | '不满足' | '资料不足' | '冲突';
+
+/** 已满足的格局制化路径；只记录结构化干、根气、位置和合绊证据，不直接改写喜忌。 */
+export interface UsefulGodControlFunctionEvidence {
+  key: string;
+  label: string;
+  status: PatternConditionStatus;
+  sourceStems: string[];
+  targetStems: string[];
+  position: PatternPathPosition;
+  positionPairs: string[];
+  sourceRootEvidence: PatternStemEvidence[];
+  targetRootEvidence: PatternStemEvidence[];
+  remedies: PatternRemedy[];
+  interactionEvidence: PatternInteractionEvidence[];
+  /** 作用干/对象落在基础扶抑喜神集合中的干；仅记录交集，不宣称发生冲突。 */
+  baseFavorableStems: string[];
+  /** 作用干/对象落在基础扶抑忌神集合中的干；需结合路径作用判断是否可用。 */
+  baseUnfavorableStems: string[];
+  evidenceGaps: string[];
+  detail: string;
+}
+
+export interface UsefulGodClimateCandidateEvidence {
+  ruleId: string;
+  mode: ClimateRuleMode;
+  status: UsefulGodDecisionStatus;
+  requestedOrder: string[];
+  missingInputs?: string[];
+  effects?: ClimateRuleEffect[];
+  adopted: boolean;
+}
+
+export interface UsefulGodDecisionEvidence {
+  base: {
+    favorable: string[];
+    unfavorable: string[];
+    ruleId?: string;
+  };
+  climateCandidates: UsefulGodClimateCandidateEvidence[];
+  climateReferenceOrder?: string[];
+  climateAppliedRuleId?: string;
+  climateAppliedRuleIds?: string[];
+  controlFunctions?: UsefulGodControlFunctionEvidence[];
+  conditionalFavorableStems?: string[];
+  conditionalUnfavorableStems?: string[];
+  conditionalFavorableWuxing?: string[];
+  controlPaths?: PatternFulfillmentResult['pathEvaluations'];
+  controlRemedies?: PatternFulfillmentResult['remedies'];
+  appliedLayers: string[];
+  conflicts: string[];
 }
 
 export interface BaziAnalysisResult {

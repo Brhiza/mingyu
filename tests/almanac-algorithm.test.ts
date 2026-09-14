@@ -8,6 +8,7 @@ import {
   getAlmanacPengZuDetails,
   getAlmanacTwentyEightStarDetail,
 } from '../packages/core/src/divination/algorithms/almanac.ts';
+import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 
 const ALMANAC_CROSS_CENTURY_TRUTH = [
   ['1900-01-01', '己亥', '丙子', '甲戌'],
@@ -227,6 +228,82 @@ test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
       (withoutParticipant.evidenceAnalysis?.candidates[0].participantConflicts.length ?? 0),
   );
   assert.doesNotMatch(participantText, /未见直接/);
+});
+
+test('黄历参与人应保留案例的精准出生时刻而不是回落到时辰中点', () => {
+  const precise = {
+    id: 'precise-person',
+    name: '精准案例',
+    gender: '男' as const,
+    year: '1990',
+    month: '1',
+    day: '1',
+    timeIndex: '6',
+    birthHour: '0',
+    birthMinute: '5',
+    birthSecond: '30',
+    dateType: 'solar' as const,
+  };
+  const expected = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 1,
+    day: 1,
+    timeIndex: 6,
+    birthHour: 0,
+    birthMinute: 5,
+    birthSecond: 30,
+    gender: 'male',
+    isLunar: false,
+    useTrueSolarTime: false,
+  });
+  const result = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+    participants: [precise],
+  });
+
+  assert.equal(result.participants[0]?.pillars.hour, expected.pillars.hour.ganZhi);
+});
+
+test('黄历参与人应沿用案例的真太阳时精准时刻与经度', () => {
+  const participant = {
+    id: 'true-solar-person',
+    name: '真太阳时案例',
+    gender: '女' as const,
+    year: '1990',
+    month: '5',
+    day: '15',
+    timeIndex: '0',
+    birthHour: '0',
+    birthMinute: '5',
+    birthSecond: '0',
+    birthLongitude: '75',
+    useTrueSolarTime: true,
+    dateType: 'solar' as const,
+  };
+  const expected = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 0,
+    birthHour: 0,
+    birthMinute: 5,
+    birthSecond: 0,
+    birthLongitude: 75,
+    gender: 'female',
+    isLunar: false,
+    useTrueSolarTime: true,
+  });
+  const result = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+    participants: [participant],
+  });
+
+  assert.equal(result.participants[0]?.solarDate, '1990-05-14');
+  assert.equal(result.participants[0]?.pillars.hour, expected.pillars.hour.ganZhi);
 });
 
 test('黄历择日：空白参与人行可忽略，但半填资料必须报错', () => {

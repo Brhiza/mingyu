@@ -14,6 +14,7 @@
 | `classics_yilin_query` | 焦氏易林固定索引查询 | 查询固定4096条卦对原文、双底本来源定位与未决字形/校勘状态 |
 | `calendar_true_solar_time` | 真太阳时校正 | 根据地理经度与平太阳时换算真太阳时与均时差 |
 | `calendar_true_solar_birth` | 统一出生真太阳时 | 根据出生公历或农历及经度时区计算校正后的公历与农历时间 |
+| `calendar_bazi_reverse` | 四柱反推日期 | 根据完整四柱查找指定公历年份范围内的北京时间候选区间，并返回边界原因 |
 | `calendar_solar_illumination` | 太阳光照与出没 | 计算指定日期的日出日落时刻、地平高度与曙暮光证据 |
 | `calendar_astronomical_time` | 天文时间尺度 | 计算儒略日、近似 UT1、ΔT 与近似 TT 证据 |
 | `calendar_moon_phase` | 月相证据 | 计算月相角、照明比例与朔弦望事件 |

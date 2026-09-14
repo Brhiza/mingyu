@@ -81,3 +81,21 @@ test('切换到临时档案清空精确资料，普通时辰与农历闰月口�
     /出生小时/,
   );
 });
+
+test('姓名案例展示精确标准北京时间秒而非整段时辰', () => {
+  const context = calculateNamingBirthContext({
+    ...defaultInputState,
+    year: '2006',
+    month: '7',
+    day: '14',
+    timeIndex: '',
+    birthHour: '09',
+    birthMinute: '00',
+    birthSecond: '37',
+    useTrueSolarTime: false,
+  });
+
+  assert.equal(context.timeBasis.inputTime, '09:00:37');
+  assert.equal(context.timeBasis.mode, '标准北京时间（精确到秒）');
+  assert.equal(context.timeBasis.calculatedTime, '09:00:37');
+});

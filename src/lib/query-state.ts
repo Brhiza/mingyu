@@ -32,6 +32,8 @@ export type QueryInputState = {
   useTrueSolarTime: boolean;
   birthHour: string;
   birthMinute: string;
+  birthSecond: string;
+  birthReverseSource: string;
   birthPlace: string;
   birthLongitude: string;
   birthLatitude: string;
@@ -46,6 +48,8 @@ export type QueryInputState = {
   partnerUseTrueSolarTime: boolean;
   partnerBirthHour: string;
   partnerBirthMinute: string;
+  partnerBirthSecond: string;
+  partnerBirthReverseSource: string;
   partnerBirthPlace: string;
   partnerBirthLongitude: string;
   partnerBirthLatitude: string;
@@ -157,6 +161,8 @@ export const defaultInputState: QueryInputState = {
   useTrueSolarTime: false,
   birthHour: '',
   birthMinute: '',
+  birthSecond: '',
+  birthReverseSource: '',
   birthPlace: '',
   birthLongitude: '',
   birthLatitude: '',
@@ -171,6 +177,8 @@ export const defaultInputState: QueryInputState = {
   partnerUseTrueSolarTime: false,
   partnerBirthHour: '',
   partnerBirthMinute: '',
+  partnerBirthSecond: '',
+  partnerBirthReverseSource: '',
   partnerBirthPlace: '',
   partnerBirthLongitude: '',
   partnerBirthLatitude: '',
@@ -252,6 +260,8 @@ const INPUT_PARAM_KEYS: Record<keyof QueryInputState, string> = {
   useTrueSolarTime: 'ts',
   birthHour: 'bh',
   birthMinute: 'bm',
+  birthSecond: 'bs',
+  birthReverseSource: 'brs',
   birthPlace: 'bp',
   birthLongitude: 'lo',
   birthLatitude: 'la',
@@ -266,6 +276,8 @@ const INPUT_PARAM_KEYS: Record<keyof QueryInputState, string> = {
   partnerUseTrueSolarTime: 'pts',
   partnerBirthHour: 'pbh',
   partnerBirthMinute: 'pbm',
+  partnerBirthSecond: 'pbs',
+  partnerBirthReverseSource: 'pbrs',
   partnerBirthPlace: 'pbp',
   partnerBirthLongitude: 'plo',
   partnerBirthLatitude: 'pla',
@@ -349,6 +361,13 @@ function appendInputStateParams(params: URLSearchParams, input: QueryInputState)
   );
   setCompactParam(params, 'birthHour', input.birthHour, defaultInputState.birthHour);
   setCompactParam(params, 'birthMinute', input.birthMinute, defaultInputState.birthMinute);
+  setCompactParam(params, 'birthSecond', input.birthSecond, defaultInputState.birthSecond);
+  setCompactParam(
+    params,
+    'birthReverseSource',
+    input.birthReverseSource,
+    defaultInputState.birthReverseSource,
+  );
   setCompactParam(params, 'birthPlace', input.birthPlace, defaultInputState.birthPlace);
   setCompactParam(params, 'birthLongitude', input.birthLongitude, defaultInputState.birthLongitude);
   setCompactParam(params, 'birthLatitude', input.birthLatitude, defaultInputState.birthLatitude);
@@ -392,6 +411,18 @@ function appendInputStateParams(params: URLSearchParams, input: QueryInputState)
     'partnerBirthMinute',
     input.partnerBirthMinute,
     defaultInputState.partnerBirthMinute,
+  );
+  setCompactParam(
+    params,
+    'partnerBirthSecond',
+    input.partnerBirthSecond,
+    defaultInputState.partnerBirthSecond,
+  );
+  setCompactParam(
+    params,
+    'partnerBirthReverseSource',
+    input.partnerBirthReverseSource,
+    defaultInputState.partnerBirthReverseSource,
   );
   setCompactParam(
     params,
@@ -655,6 +686,10 @@ function parseBirthMinute(value: string) {
   return parseIntegerText(value, 0, 59);
 }
 
+function parseBirthSecond(value: string) {
+  return parseIntegerText(value, 0, 59);
+}
+
 function parseLongitude(value: string) {
   return parseDecimalText(value, -180, 180);
 }
@@ -909,6 +944,12 @@ export function parseInputState(params: URLSearchParams): QueryInputState {
     useTrueSolarTime: getString(params, 'useTrueSolarTime', '0') === '1',
     birthHour: parseBirthHour(getString(params, 'birthHour', defaultInputState.birthHour)),
     birthMinute: parseBirthMinute(getString(params, 'birthMinute', defaultInputState.birthMinute)),
+    birthSecond: parseBirthSecond(getString(params, 'birthSecond', defaultInputState.birthSecond)),
+    birthReverseSource: getString(
+      params,
+      'birthReverseSource',
+      defaultInputState.birthReverseSource,
+    ),
     birthPlace: getString(params, 'birthPlace', defaultInputState.birthPlace),
     birthLongitude: parseLongitude(
       getString(params, 'birthLongitude', defaultInputState.birthLongitude),
@@ -935,6 +976,14 @@ export function parseInputState(params: URLSearchParams): QueryInputState {
     ),
     partnerBirthMinute: parseBirthMinute(
       getString(params, 'partnerBirthMinute', defaultInputState.partnerBirthMinute),
+    ),
+    partnerBirthSecond: parseBirthSecond(
+      getString(params, 'partnerBirthSecond', defaultInputState.partnerBirthSecond),
+    ),
+    partnerBirthReverseSource: getString(
+      params,
+      'partnerBirthReverseSource',
+      defaultInputState.partnerBirthReverseSource,
     ),
     partnerBirthPlace: getString(params, 'partnerBirthPlace', defaultInputState.partnerBirthPlace),
     partnerBirthLongitude: parseLongitude(

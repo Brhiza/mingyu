@@ -15,6 +15,7 @@ import {
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { BaziChartResult, Pillar, Wuxing } from './baziTypes';
+import { formatUsefulGodFunctions } from './baziAnalysisFormatter';
 import { assertPillars, getTenGod, getTenGodForBranch, getWuxing } from './baziUtils';
 import {
   evaluateBaziMarriageDeep,
@@ -127,6 +128,12 @@ export interface BaziUsefulGodCoverage {
   provider: 'person1' | 'person2';
   favorable: BaziUsefulGodCoverageItem[];
   unfavorable: BaziUsefulGodCoverageItem[];
+  /** 干级功能与整五行覆盖分开记录，出现对应天干本身不证明跨盘作用成立。 */
+  functionalEvidence?: {
+    favorableStems: string[];
+    unfavorableStems: string[];
+    descriptions: string[];
+  };
   unavailableReason?: string;
   calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage';
   promptText: string;
@@ -481,6 +488,8 @@ function calculateUsefulGodCoverage(
       });
   const favorableCoverage = match('喜用', favorable);
   const unfavorableCoverage = match('忌神', unfavorable);
+  const usefulGod = beneficiaryChart.analysis.usefulGod;
+  const functionalDescriptions = formatUsefulGodFunctions(usefulGod);
   return {
     key: `bazi:compatibility:useful-god-coverage:${beneficiary}:from:${provider}`,
     status: '已计算',
@@ -488,8 +497,17 @@ function calculateUsefulGodCoverage(
     provider,
     favorable: favorableCoverage,
     unfavorable: unfavorableCoverage,
+    ...(functionalDescriptions.length
+      ? {
+          functionalEvidence: {
+            favorableStems: [...(usefulGod.conditionalFavorableStems ?? [])],
+            unfavorableStems: [...(usefulGod.conditionalUnfavorableStems ?? [])],
+            descriptions: functionalDescriptions,
+          },
+        }
+      : {}),
     calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage',
-    promptText: `${provider === 'person1' ? '第一人' : '第二人'}盘面命中${beneficiary === 'person1' ? '第一人' : '第二人'}喜用五行${favorableCoverage.map((item) => item.wuxing).join('、') || '无'}，忌神五行${unfavorableCoverage.map((item) => item.wuxing).join('、') || '无'}`,
+    promptText: `${provider === 'person1' ? '第一人' : '第二人'}盘面命中${beneficiary === 'person1' ? '第一人' : '第二人'}喜用五行${favorableCoverage.map((item) => item.wuxing).join('、') || '无'}，忌神五行${unfavorableCoverage.map((item) => item.wuxing).join('、') || '无'}${functionalDescriptions.length ? `；${beneficiary === 'person1' ? '第一人' : '第二人'}另有${functionalDescriptions.join('；')}` : ''}`,
     sources: ['受益方结构化喜忌五行', '提供方四柱天干、地支与藏干五行来源'],
     limitation: USEFUL_GOD_LIMITATION,
   };

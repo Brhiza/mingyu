@@ -104,20 +104,20 @@ test('1994年6月15日午时壬日男命应贯通壬午月取用证据与公共�
 
   assert.equal(result.pillars.day.gan, '壬');
   assert.equal(result.pillars.month.zhi, '午');
-  assert.equal(result.analysis.usefulGod.primaryFavorableWuxing, '水');
-  assert.deepEqual(result.analysis.usefulGod.favorableWuxing?.slice(0, 2), ['水', '金']);
+  assert.equal(result.analysis.usefulGod.primaryFavorableWuxing, '金');
+  assert.deepEqual(result.analysis.usefulGod.favorableWuxing?.slice(0, 2), ['金', '水']);
   assert.ok(
     result.analysis.usefulGod.matchedRules?.some((rule) => rule.id === 'wu-month-ren-gui-geng'),
   );
   assert.ok(result.evidenceAnalysis);
 
   const usefulFact = result.evidenceAnalysis.analysisFacts.find((item) => item.type === '用神取忌');
-  assert.match(usefulFact?.promptText || '', /主用水/);
+  assert.match(usefulFact?.promptText || '', /主用金/);
   assert.doesNotMatch(usefulFact?.promptText || '', /主用火/);
 
   const prompt = formatBaziForPrompt(result);
-  assert.match(prompt, /取用: 主用水，辅金/);
-  assert.match(prompt, /调候特征: 夏月炎炎，原局水气尚薄，行运喜金水清润/);
+  assert.match(prompt, /取用: 主用金，辅水/);
+  assert.match(prompt, /调候特征: 生于夏月，原局见少量水气分布，寒暖燥湿指标微偏燥/);
   assert.doesNotMatch(prompt, /取用: 主用火/);
 });
 

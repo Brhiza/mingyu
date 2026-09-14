@@ -22,7 +22,7 @@ test('普通格局与特殊从格应走各自取用主线', () => {
   assert.equal(special.useful, '食伤');
 });
 
-test('日干月令专用调候规则应优先于泛化扶抑', () => {
+test('未核实覆盖权限的日干月令调候规则只留下参考，不覆盖扶抑', () => {
   const result = determineUsefulGod(
     '身弱',
     { pattern: '正官格', isSpecial: false },
@@ -32,12 +32,18 @@ test('日干月令专用调候规则应优先于泛化扶抑', () => {
     '甲',
   );
 
-  assert.equal(result.favorableWuxing?.[0], '火');
-  assert.equal(result.primaryReason, '调候');
+  assert.equal(result.favorableWuxing?.[0], '水');
+  assert.equal(result.primaryReason, '扶抑');
   assert.ok(result.matchedRules?.some((rule) => rule.id === 'you-month-jia-fire-forge'));
+  assert.equal(
+    result.decisionEvidence?.climateCandidates.find(
+      (candidate) => candidate.ruleId === 'you-month-jia-fire-forge',
+    )?.adopted,
+    false,
+  );
 });
 
-test('壬日午月应以癸水为用、庚金为佐', () => {
+test('壬日午月调候顺序只在扶抑喜神中排序', () => {
   const result = determineUsefulGod(
     '身弱',
     { pattern: '偏财格', isSpecial: false },
@@ -48,9 +54,9 @@ test('壬日午月应以癸水为用、庚金为佐', () => {
     { visibleStems: ['壬', '丙', '辛'] },
   );
 
-  assert.deepEqual(result.favorableWuxing?.slice(0, 2), ['水', '金']);
-  assert.equal(result.primaryFavorableWuxing, '水');
-  assert.equal(result.primaryReason, '调候');
+  assert.deepEqual(result.favorableWuxing?.slice(0, 2), ['金', '水']);
+  assert.equal(result.primaryFavorableWuxing, '金');
+  assert.equal(result.primaryReason, '扶抑');
   assert.ok(result.matchedRules?.some((rule) => rule.id === 'wu-month-ren-gui-geng'));
   assert.ok(!result.matchedRules?.some((rule) => rule.id.startsWith('wu-month-ren-bing')));
 });
@@ -102,7 +108,8 @@ test('八字应准确推导调候寒暖燥湿失衡与药神', () => {
   };
   const coldResult = evaluateBaziClimateBalance(coldPillars as any);
   assert.equal(coldResult.nature, '寒局');
-  assert.match(coldResult.medicine, /丙丁火/);
+  assert.match(coldResult.medicine, /照暖与解冻/);
+  assert.doesNotMatch(coldResult.medicine, /丙丁|壬癸/);
 
   // 夏月无水（燥局）
   const hotPillars = {
@@ -113,7 +120,8 @@ test('八字应准确推导调候寒暖燥湿失衡与药神', () => {
   };
   const hotResult = evaluateBaziClimateBalance(hotPillars as any);
   assert.equal(hotResult.nature, '燥局');
-  assert.match(hotResult.medicine, /壬癸水/);
+  assert.match(hotResult.medicine, /润燥作用/);
+  assert.doesNotMatch(hotResult.medicine, /丙丁|壬癸/);
 
   // R52 边界补充：冬月火足转中和、春秋水盛火弱成寒局、火盛水弱成燥局、
   // 中和摘要明确只描述寒暖指标

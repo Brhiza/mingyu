@@ -102,6 +102,7 @@ export interface MatchableRule {
   maxStemTotalCounts?: Record<string, number>;
   distinctStemGroupCounts?: DistinctStemGroupCountRule[];
   requiredFormationWuxings?: string[];
+  forbiddenFormationWuxings?: string[];
   requiredFormationTenGodCategories?: string[];
   optionalFormationTenGodCategories?: string[];
   forbiddenFormationTenGodCategories?: string[];

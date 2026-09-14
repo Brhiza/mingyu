@@ -255,6 +255,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('GET /api/v1/foundation/capabilities'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-time'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-birth'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/bazi-reverse'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/astronomical-time'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/moon-phase'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/solar-term'));
@@ -892,6 +893,67 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     'day',
     'day-and-year',
   ]);
+});
+
+test('公开 API 应按完整四柱反推北京时间候选区间', async () => {
+  const { response, body } = await callApi('calendar/bazi-reverse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+      startYear: 2024,
+      endYear: 2024,
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.data.pillars, {
+    year: '甲辰',
+    month: '丙寅',
+    day: '己亥',
+    hour: '甲子',
+  });
+  assert.equal(body.data.startYear, 2024);
+  assert.equal(body.data.endYear, 2024);
+  const candidate = body.data.candidates.find(
+    (item: { start: { text: string } }) => item.start.text === '2024-02-04 23:00:00',
+  );
+  assert.ok(candidate);
+  assert.equal(candidate.end.text, '2024-02-05 01:00:00');
+  assert.equal(candidate.endExclusive, true);
+  assert.equal(candidate.startBoundary.reason, '子时换日');
+  assert.equal(candidate.endBoundary.reason, '时辰交接');
+
+  const openapi = await callApi('openapi.json');
+  assert.equal(
+    openapi.body.data.paths['/calendar/bazi-reverse'].post.summary,
+    '根据四柱反推公历北京时间候选区间',
+  );
+  assert.deepEqual(openapi.body.data.components.schemas.BaziReverseRequest.required, ['pillars']);
+
+  for (const payload of [
+    { startYear: 2024, endYear: 2024 },
+    {
+      pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+      startYear: 2025,
+      endYear: 2024,
+    },
+    {
+      pillars: { year: '甲辰', month: '丙寅', day: '未知', hour: '甲子' },
+      startYear: 2024,
+      endYear: 2024,
+    },
+  ]) {
+    const invalid = await callApi('calendar/bazi-reverse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(invalid.response.status, 400);
+    assert.equal(invalid.body.ok, false);
+    assert.equal(invalid.body.error.code, 'BAD_REQUEST');
+  }
 });
 
 test('公开 API 应提供便捷真太阳时换算接口', async () => {
@@ -1578,6 +1640,19 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
   assert.equal(body.data.evidenceAnalysis, undefined);
   assert.deepEqual(body.data.shensha, full.body.data.shensha);
   assert.equal(body.data.shenShaAnalysis, undefined);
+  assert.deepEqual(
+    body.data.analysis.usefulGod.favorableWuxing,
+    full.body.data.analysis.usefulGod.favorableWuxing,
+  );
+  const compactCandidates = body.data.analysis.usefulGod.decisionEvidence.climateCandidates;
+  const fullCandidates = full.body.data.analysis.usefulGod.decisionEvidence.climateCandidates;
+  assert.ok(fullCandidates.length > compactCandidates.length);
+  assert.ok(
+    compactCandidates.every(
+      (candidate: { adopted: boolean; status: string }) =>
+        candidate.adopted || candidate.status === '冲突',
+    ),
+  );
 });
 
 test('公开 API 八字排盘应支持真太阳时精确时分和经度', async () => {

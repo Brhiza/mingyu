@@ -40,6 +40,8 @@ test('输入页默认状态不应预填生日与时辰', () => {
   assert.equal(defaultInputState.timeIndex, '');
   assert.equal(defaultInputState.birthHour, '');
   assert.equal(defaultInputState.birthMinute, '');
+  assert.equal(defaultInputState.birthSecond, '');
+  assert.equal(defaultInputState.birthReverseSource, '');
   assert.equal(defaultInputState.birthLatitude, '');
 
   assert.equal(defaultInputState.partnerYear, '');
@@ -48,6 +50,8 @@ test('输入页默认状态不应预填生日与时辰', () => {
   assert.equal(defaultInputState.partnerTimeIndex, '');
   assert.equal(defaultInputState.partnerBirthHour, '');
   assert.equal(defaultInputState.partnerBirthMinute, '');
+  assert.equal(defaultInputState.partnerBirthSecond, '');
+  assert.equal(defaultInputState.partnerBirthReverseSource, '');
   assert.equal(defaultInputState.partnerBirthLatitude, '');
 });
 
@@ -56,6 +60,33 @@ test('空查询参数不应把空时辰解析成 0', () => {
 
   assert.equal(inputState.timeIndex, '');
   assert.equal(inputState.partnerTimeIndex, '');
+});
+
+test('精确标准北京时间的秒数应随结果地址往返恢复', () => {
+  const input = {
+    ...defaultInputState,
+    year: '2024',
+    month: '2',
+    day: '4',
+    timeIndex: 12,
+    useTrueSolarTime: false,
+    birthHour: '23',
+    birthMinute: '59',
+    birthSecond: '58',
+    birthReverseSource: JSON.stringify({
+      pillars: { year: '丙戌', month: '乙未', day: '甲辰', hour: '己巳' },
+      intervalStart: '2006-07-14 09:00:00',
+      intervalEnd: '2006-07-14 11:00:00',
+    }),
+  };
+  const search = buildResultSearch(input, defaultPromptState);
+  assert.match(search, /bs=58/);
+  assert.match(search, /brs=/);
+  const parsed = parseInputState(new URLSearchParams(search));
+  assert.equal(parsed.birthHour, '23');
+  assert.equal(parsed.birthMinute, '59');
+  assert.equal(parsed.birthSecond, '58');
+  assert.equal(parsed.birthReverseSource, input.birthReverseSource);
 });
 
 test('地址栏非法时辰索引应清空而不是继续恢复', () => {

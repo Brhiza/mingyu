@@ -72,6 +72,7 @@ export interface BaziAnalysisPipelineDeps {
     monthCommander?: string,
     dayMasterStem?: string,
     climateContext?: {
+      strengthStatus?: string;
       yearStem?: string;
       hourBranch?: string;
       currentJieqi?: string;
@@ -231,6 +232,7 @@ function buildPipelineState(
     monthCommander,
     dayMaster,
     {
+      strengthStatus: dayMasterStrength.status,
       yearStem: pillars.year.gan,
       hourBranch: pillars.hour.zhi,
       currentJieqi: seasonInfo?.currentJieqi,

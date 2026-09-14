@@ -1,4 +1,5 @@
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
+import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import { baziCalculator } from './baziCalculator';
 import type { BaziChartResult, Person } from './baziTypes';
 import type { ShenShaScope } from './baziShenSha/scope';
@@ -17,6 +18,8 @@ export interface BaziChartInputDraft {
   useTrueSolarTime?: boolean;
   birthHour?: BaziInputText;
   birthMinute?: BaziInputText;
+  /** useTrueSolarTime=false 时可用来表达精确到秒的标准北京时间。 */
+  birthSecond?: BaziInputText;
   birthPlace?: string;
   birthLongitude?: BaziInputText;
   timezone?: number;
@@ -85,17 +88,34 @@ export function buildBaziPersonInput(input: BaziChartInputDraft): Person {
   });
   if (validationMessage) throw new Error(validationMessage);
 
-  if (!useTrueSolarTime && input.timeIndex === '') {
+  const hasPreciseStandardTime =
+    !useTrueSolarTime && input.birthSecond !== undefined && input.birthSecond !== '';
+  if (!useTrueSolarTime && input.timeIndex === '' && !hasPreciseStandardTime) {
     throw new Error('请选择出生时辰。');
   }
 
-  const timeIndex = useTrueSolarTime ? 0 : readIntegerInRange(input.timeIndex, '出生时辰', 0, 12);
-  const birthHour = useTrueSolarTime
-    ? readIntegerInRange(input.birthHour, '出生小时', 0, 23)
-    : undefined;
-  const birthMinute = useTrueSolarTime
-    ? readIntegerInRange(input.birthMinute, '出生分钟', 0, 59)
-    : undefined;
+  const birthHour =
+    useTrueSolarTime || hasPreciseStandardTime
+      ? readIntegerInRange(input.birthHour, '出生小时', 0, 23)
+      : undefined;
+  const birthMinute =
+    useTrueSolarTime || hasPreciseStandardTime
+      ? readIntegerInRange(input.birthMinute, '出生分钟', 0, 59)
+      : undefined;
+  const birthSecond =
+    input.birthSecond === undefined || input.birthSecond === ''
+      ? undefined
+      : readIntegerInRange(input.birthSecond, '出生秒数', 0, 59);
+  const timeIndex = useTrueSolarTime
+    ? 0
+    : hasPreciseStandardTime
+      ? getTimeIndexFromClock(birthHour!, birthMinute!)
+      : input.timeIndex !== ''
+        ? readIntegerInRange(input.timeIndex, '出生时辰', 0, 12)
+        : getTimeIndexFromClock(birthHour!, birthMinute!);
+  if (!useTrueSolarTime && timeIndex < 0) {
+    throw new Error('标准北京时间无法换算为有效时辰。');
+  }
   const birthLongitude = useTrueSolarTime ? readLongitude(input.birthLongitude) : undefined;
 
   return {
@@ -109,6 +129,7 @@ export function buildBaziPersonInput(input: BaziChartInputDraft): Person {
     useTrueSolarTime,
     birthHour,
     birthMinute,
+    ...(birthSecond === undefined ? {} : { birthSecond }),
     birthPlace: input.birthPlace?.trim() || undefined,
     birthLongitude,
     timezone: input.timezone,

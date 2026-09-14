@@ -6,6 +6,7 @@ import {
   calculateSolarIlluminationEvidence,
   calculateSolarTermEvidence,
   convertTrueSolarTime,
+  reverseBaziDates,
   resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
 import { resultOutputSchema } from '../schemas.js';
@@ -97,7 +98,49 @@ const solarTermSchema = z.object({
   index: z.number().int().min(0).max(23).describe('节气索引：0冬至、1小寒、2大寒、3立春……23大雪'),
 });
 
+const baziReverseSchema = z.object({
+  pillars: z
+    .object({
+      year: z.string().min(1).describe('年柱六十甲子，如 甲子'),
+      month: z.string().min(1).describe('月柱六十甲子，如 丙寅'),
+      day: z.string().min(1).describe('日柱六十甲子，如 戊戌'),
+      hour: z.string().min(1).describe('时柱六十甲子，如 庚申'),
+    })
+    .describe('完整四柱；按年、月、日、时填写'),
+  startYear: z
+    .number()
+    .int()
+    .min(1900)
+    .max(2100)
+    .optional()
+    .describe('查询公历年份起点（含），默认 1900'),
+  endYear: z
+    .number()
+    .int()
+    .min(1900)
+    .max(2100)
+    .optional()
+    .describe('查询公历年份终点（含），默认当前北京时间年份'),
+});
+
 export function registerCalendarTools(server: McpServer) {
+  server.registerTool(
+    'calendar_bazi_reverse',
+    {
+      description:
+        '根据完整四柱反推指定公历年份范围内的全部北京时间候选区间；采用节气月、23:00 子时换日口径，返回正向复核后的起止时间和查询范围、节气、子时换日或时辰交接边界',
+      inputSchema: baziReverseSchema.shape,
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        return createStructuredToolResult({ result: reverseBaziDates(args) });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '八字反推失败'));
+      }
+    },
+  );
+
   server.registerTool(
     'calendar_true_solar_time',
     {

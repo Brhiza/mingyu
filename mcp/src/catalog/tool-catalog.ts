@@ -132,6 +132,15 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
     endpoint: '/calendar/true-solar-birth',
   },
   {
+    id: 'calendar_bazi_reverse',
+    title: '四柱反推日期',
+    category: 'calendar',
+    type: 'utility',
+    description: '根据完整四柱反推指定公历年份范围内的北京时间候选区间，并标注边界原因',
+    annotations: READONLY_IDEMPOTENT,
+    endpoint: '/calendar/bazi-reverse',
+  },
+  {
     id: 'calendar_solar_illumination',
     title: '太阳光照与出没',
     category: 'calendar',

@@ -32,6 +32,13 @@ export const birthInputShape = {
     .describe('出生时辰序号（0-12），未知时可省略以进行三柱降级分析'),
   birthHour: z.number().int().min(0).max(23).optional().describe('出生小时（0-23）'),
   birthMinute: z.number().int().min(0).max(59).optional().describe('出生分钟（0-59）'),
+  birthSecond: z
+    .number()
+    .int()
+    .min(0)
+    .max(59)
+    .optional()
+    .describe('出生秒数（0-59）；与标准北京时间时分一起表示精确时刻'),
   birthLongitude: z.number().min(-180).max(180).optional().describe('出生地经度（-180至180）'),
   birthLatitude: z.number().min(-90).max(90).optional().describe('出生地纬度（-90至90）'),
   birthPlace: z.string().optional().describe('出生地地名（如“北京市东城区”）'),

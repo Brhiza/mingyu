@@ -1,0 +1,115 @@
+.bazi-reverse-input {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  background: var(--surface-elevated);
+}
+
+.bazi-reverse-input-intro {
+  display: grid;
+  gap: 4px;
+}
+
+.bazi-reverse-input-intro strong,
+.bazi-reverse-input-result-summary strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.bazi-reverse-input-intro p,
+.bazi-reverse-input-note,
+.bazi-reverse-input-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.bazi-reverse-input-fields,
+.bazi-reverse-input-years {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bazi-reverse-input-years {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bazi-reverse-input-results {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.bazi-reverse-input-result-summary {
+  display: grid;
+  gap: 2px;
+}
+
+.bazi-reverse-input-result-summary span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.bazi-reverse-input-candidates {
+  display: grid;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.bazi-reverse-input-candidate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  background: var(--surface-base);
+}
+
+.bazi-reverse-input-candidate-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.bazi-reverse-input-candidate-copy strong {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.bazi-reverse-input-candidate-copy small {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.bazi-reverse-input-unsupported {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  .bazi-reverse-input-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bazi-reverse-input-candidate {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .bazi-reverse-input-candidate .workspace-ui-button {
+    width: 100%;
+  }
+}

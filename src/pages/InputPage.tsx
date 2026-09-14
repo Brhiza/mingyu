@@ -43,13 +43,19 @@ import {
   type WorkspaceLaunchState,
 } from '@/lib/workspace-launch';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
-import { PersonForm } from './InputPage.PersonForm';
+import { BaziReverseInput } from '@/components/BaziReverseInput';
+import { PersonForm, type PersonInputMode } from './InputPage.PersonForm';
 import {
   WorkspaceButton,
   WorkspaceDialog,
   WorkspacePage,
 } from '@/components/workspace/WorkspaceUI';
 import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
+import {
+  parseBaziReverseSource,
+  serializeBaziReverseSource,
+  type BaziReverseResolvedInput,
+} from '@/lib/bazi-reverse-input';
 
 type ChartToolConfig = {
   label: string;
@@ -59,6 +65,19 @@ type ChartToolConfig = {
   preciseBirthData: boolean;
   compatibility: boolean;
 };
+
+const REVERSE_SOURCE_INVALIDATING_FIELDS: readonly (keyof typeof SELF_FIELD_MAP)[] = [
+  'dateType',
+  'year',
+  'month',
+  'day',
+  'timeIndex',
+  'isLeapMonth',
+  'useTrueSolarTime',
+  'birthHour',
+  'birthMinute',
+  'birthSecond',
+];
 
 const CHART_TOOL_CONFIG: Record<ChartWorkspaceId, ChartToolConfig> = {
   bazi: {
@@ -187,6 +206,10 @@ export function InputPage() {
   const [caseSearchText, setCaseSearchText] = useState('');
   const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
   const [resumeInstantDialogAfterPlace, setResumeInstantDialogAfterPlace] = useState(false);
+  const [personInputModes, setPersonInputModes] = useState<Record<PersonRole, PersonInputMode>>({
+    self: 'birth',
+    partner: 'birth',
+  });
   const birthPlace = useBirthPlace({ form, setForm });
   const instantType = getInstantChartTypeForWorkspace(tool ?? '');
   const visibleCases = useMemo(() => {
@@ -204,6 +227,7 @@ export function InputPage() {
     const nextConfig = CHART_TOOL_CONFIG[tool];
     setError('');
     setForm(createFormFromLocation(searchParams, nextConfig, routeCase));
+    setPersonInputModes({ self: 'birth', partner: 'birth' });
   }, [location.key, routeCase, searchParams, tool]);
 
   useEffect(() => {
@@ -218,26 +242,32 @@ export function InputPage() {
     return <Navigate to="/chart/bazi" replace />;
   }
 
-  function updateField<K extends keyof QueryInputState>(key: K, value: QueryInputState[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
-  }
-
   function updatePersonField(
     role: PersonRole,
     key: keyof typeof SELF_FIELD_MAP,
     value: QueryInputState[keyof QueryInputState],
   ) {
     const fieldKey = getFieldKey(role, key) as keyof QueryInputState;
-    updateField(fieldKey, value as QueryInputState[keyof QueryInputState]);
+    setForm((current) => ({
+      ...current,
+      [fieldKey]: value as QueryInputState[keyof QueryInputState],
+      ...(REVERSE_SOURCE_INVALIDATING_FIELDS.includes(key)
+        ? { [getFieldKey(role, 'reverseSource')]: '' }
+        : {}),
+    }));
   }
 
   function updateNumericField(
     role: PersonRole,
-    key: 'year' | 'month' | 'day' | 'birthHour' | 'birthMinute',
+    key: 'year' | 'month' | 'day' | 'birthHour' | 'birthMinute' | 'birthSecond',
     value: string,
   ) {
     if (value === '' || /^\d*$/.test(value)) {
-      updatePersonField(role, key, clampNumericField(key, value));
+      updatePersonField(
+        role,
+        key,
+        clampNumericField(key === 'birthSecond' ? 'birthMinute' : key, value),
+      );
     }
   }
 
@@ -245,11 +275,39 @@ export function InputPage() {
     if (!value) {
       updatePersonField(role, 'birthHour', '');
       updatePersonField(role, 'birthMinute', '');
+      updatePersonField(role, 'birthSecond', '');
       return;
     }
-    const [hour, minute] = value.split(':');
+    const [hour, minute, second = ''] = value.split(':');
     updatePersonField(role, 'birthHour', hour);
     updatePersonField(role, 'birthMinute', minute);
+    updatePersonField(role, 'birthSecond', second);
+  }
+
+  function changePersonInputMode(role: PersonRole, mode: PersonInputMode) {
+    setPersonInputModes((current) => ({ ...current, [role]: mode }));
+    if (mode === 'pillars') {
+      updatePersonField(role, 'useTrueSolarTime', false);
+    }
+  }
+
+  function applyReverseSelection(role: PersonRole, selection: BaziReverseResolvedInput) {
+    setForm((current) => ({
+      ...current,
+      [getFieldKey(role, 'dateType')]: 'solar',
+      [getFieldKey(role, 'year')]: selection.year,
+      [getFieldKey(role, 'month')]: selection.month,
+      [getFieldKey(role, 'day')]: selection.day,
+      [getFieldKey(role, 'timeIndex')]: selection.timeIndex,
+      [getFieldKey(role, 'isLeapMonth')]: false,
+      [getFieldKey(role, 'useTrueSolarTime')]: false,
+      [getFieldKey(role, 'birthHour')]: String(selection.representativeHour),
+      [getFieldKey(role, 'birthMinute')]: String(selection.representativeMinute),
+      [getFieldKey(role, 'birthSecond')]: String(selection.representativeSecond),
+      [getFieldKey(role, 'reverseSource')]: serializeBaziReverseSource(selection.source),
+    }));
+    setPersonInputModes((current) => ({ ...current, [role]: 'birth' }));
+    setError('');
   }
 
   function openCasePicker(role: PersonRole) {
@@ -279,15 +337,23 @@ export function InputPage() {
     const useTrueSolarTime = isPartner ? form.partnerUseTrueSolarTime : form.useTrueSolarTime;
     const birthHour = isPartner ? form.partnerBirthHour : form.birthHour;
     const birthMinute = isPartner ? form.partnerBirthMinute : form.birthMinute;
+    const birthSecond = isPartner ? form.partnerBirthSecond : form.birthSecond;
     const birthPlaceText = isPartner ? form.partnerBirthPlace : form.birthPlace;
     const birthLongitude = isPartner ? form.partnerBirthLongitude : form.birthLongitude;
     const dateType = isPartner ? form.partnerDateType : form.dateType;
+    const hasPreciseStandardTime = birthSecond !== '';
 
+    if (config.chartType === 'bazi' && personInputModes[role] === 'pillars') {
+      return `请先为${label}选择一个可回填的四柱候选时段`;
+    }
     if (!year || !month || !day) return `请填写完整的${label}信息`;
     const requiresPreciseBirthData = role === 'self' && config.preciseBirthData;
     const validateAsPreciseBirthData = useTrueSolarTime || requiresPreciseBirthData;
     if (!validateAsPreciseBirthData && timeIndex === '') return `请选择${label}的出生时辰`;
-    if (validateAsPreciseBirthData && (birthHour === '' || birthMinute === '')) {
+    if (
+      (validateAsPreciseBirthData || hasPreciseStandardTime) &&
+      (birthHour === '' || birthMinute === '' || (hasPreciseStandardTime && birthSecond === ''))
+    ) {
       return `请填写${label}的精准出生时间`;
     }
     if (validateAsPreciseBirthData && (!birthPlaceText.trim() || !birthLongitude.trim())) {
@@ -307,6 +373,12 @@ export function InputPage() {
       },
       label,
     );
+    if (result.ok && hasPreciseStandardTime) {
+      const second = Number(birthSecond);
+      if (!Number.isInteger(second) || second < 0 || second > 59) {
+        return `${label}出生秒数需在 0-59 之间`;
+      }
+    }
     return result.ok ? '' : result.message;
   }
 
@@ -431,6 +503,20 @@ export function InputPage() {
                 : null
             }
             forcePreciseBirthPlace={config.preciseBirthData}
+            inputMode={config.chartType === 'bazi' ? personInputModes.self : 'birth'}
+            onInputModeChange={
+              config.chartType === 'bazi'
+                ? (mode) => changePersonInputMode('self', mode)
+                : undefined
+            }
+            reversePanel={
+              config.chartType === 'bazi' ? (
+                <BaziReverseInput
+                  onSelect={(selection) => applyReverseSelection('self', selection)}
+                />
+              ) : undefined
+            }
+            reverseSource={parseBaziReverseSource(form.birthReverseSource)}
           />
           {config.compatibility ? (
             <PersonForm
@@ -446,6 +532,20 @@ export function InputPage() {
                   从案例选择
                 </WorkspaceButton>
               }
+              inputMode={config.chartType === 'bazi' ? personInputModes.partner : 'birth'}
+              onInputModeChange={
+                config.chartType === 'bazi'
+                  ? (mode) => changePersonInputMode('partner', mode)
+                  : undefined
+              }
+              reversePanel={
+                config.chartType === 'bazi' ? (
+                  <BaziReverseInput
+                    onSelect={(selection) => applyReverseSelection('partner', selection)}
+                  />
+                ) : undefined
+              }
+              reverseSource={parseBaziReverseSource(form.partnerBirthReverseSource)}
             />
           ) : null}
         </div>
