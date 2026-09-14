@@ -18,7 +18,9 @@ export function DivinationPage() {
   }
 
   return (
-    <div className="workspace-focused-page workspace-divination-page">
+    <div
+      className={`workspace-focused-page workspace-divination-page${method === 'almanac' ? ' is-almanac' : ''}`}
+    >
       <DivinationPanel
         key={location.key}
         initialMethod={method}

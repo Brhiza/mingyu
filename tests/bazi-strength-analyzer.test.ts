@@ -5,13 +5,14 @@ import {
   analyzeConstraint,
   analyzeDayMasterStrength,
   analyzeFormation,
+  analyzeRoot,
   analyzeSeasonalStatus,
   analyzeSupport,
 } from '@core/bazi/baziStrengthAnalyzer';
 import { analyzeMonthQiProfile } from '@core/bazi/monthCommand';
 import { analyzeTenGodStructure } from '@core/bazi/tenGodAnalysis';
 import { getSeasonStatus, getWuxing } from '@core/bazi/baziUtils';
-import { SEASON_STATUS } from '@core/bazi/baziDefinitions';
+import { HIDDEN_STEMS, SEASON_STATUS } from '@core/bazi/baziDefinitions';
 import type { Wuxing } from '@core/bazi/baziTypes';
 import {
   collectCompleteBranchFormations,
@@ -147,6 +148,92 @@ test('十神结构应按透干与藏支事实分类，不以隐藏权重裁定�
   );
 });
 
+test('日主本气根被外支六冲时仍记录有根，但不能继续标为强根', () => {
+  const pillars = {
+    year: { gan: '甲', zhi: '申', ganZhi: '甲申' },
+    month: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+  };
+
+  const result = analyzeRoot(
+    '甲',
+    pillars,
+    {
+      year: HIDDEN_STEMS.申,
+      month: HIDDEN_STEMS.申,
+      day: HIDDEN_STEMS.寅,
+      hour: HIDDEN_STEMS.午,
+    },
+    getWuxing as (value: string) => Wuxing,
+  );
+
+  assert.equal(result.hasRoot, true);
+  assert.equal(result.roots[0]?.stable, false);
+  assert.equal(result.strongRoot, false);
+});
+
+test('另有未被六冲的本气根时，不能因一处冲根误删稳定强根', () => {
+  const pillars = {
+    year: { gan: '甲', zhi: '申', ganZhi: '甲申' },
+    month: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    hour: { gan: '乙', zhi: '卯', ganZhi: '乙卯' },
+  };
+
+  const result = analyzeRoot(
+    '甲',
+    pillars,
+    {
+      year: HIDDEN_STEMS.申,
+      month: HIDDEN_STEMS.申,
+      day: HIDDEN_STEMS.寅,
+      hour: HIDDEN_STEMS.卯,
+    },
+    getWuxing as (value: string) => Wuxing,
+  );
+
+  assert.equal(result.hasRoot, true);
+  assert.equal(
+    result.roots.some((root) => root.stable),
+    true,
+  );
+  assert.equal(result.strongRoot, true);
+});
+
+test('冲根仍保留有根事实，但不把未稳明根计入结构扶身证据', () => {
+  const pillars = {
+    year: { gan: '甲', zhi: '申', ganZhi: '甲申' },
+    month: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+  };
+  const root = analyzeRoot(
+    '甲',
+    pillars,
+    {
+      year: HIDDEN_STEMS.申,
+      month: HIDDEN_STEMS.申,
+      day: HIDDEN_STEMS.寅,
+      hour: HIDDEN_STEMS.午,
+    },
+    getWuxing as (value: string) => Wuxing,
+  );
+
+  const result = analyzeDayMasterStrength(
+    analyzeSeasonalStatus('甲', '申', getSeasonStatus, getWuxing, '壬'),
+    { formations: [], totalStrength: 0 },
+    root,
+    { supporters: [], totalStrength: 0, hasSupport: false },
+    { constraints: [], totalStrength: 0, hasConstraint: false },
+  );
+
+  assert.equal(result.status, '中和');
+  assert.equal(result.details.hasRoot, true);
+  assert.equal(result.details.hasStrongRoot, false);
+  assert.match(result.details.ruleBasis[0] ?? '', /成局、明根明透及中余气合看为相持/);
+});
+
 test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
   const result = analyzeDayMasterStrength(
     { status: '休', score: 0, isTimely: false },
@@ -176,6 +263,33 @@ test('无根失令且无帮扶时，仍应判为极弱', () => {
 
   assert.equal(result.status, '极弱');
   assert.ok(!('score' in result));
+});
+
+test('异党成局不能绕过明透印比而把无根日主直接判为极弱', () => {
+  const pillars = {
+    year: { gan: '癸', zhi: '巳', ganZhi: '癸巳' },
+    month: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    day: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    hour: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+  };
+  const hiddenStems = {
+    year: HIDDEN_STEMS.巳,
+    month: HIDDEN_STEMS.酉,
+    day: HIDDEN_STEMS.丑,
+    hour: HIDDEN_STEMS.午,
+  };
+
+  const result = analyzeDayMasterStrength(
+    analyzeSeasonalStatus('乙', '酉', getSeasonStatus, getWuxing, '辛'),
+    analyzeFormation('乙', pillars, getWuxing),
+    analyzeRoot('乙', pillars, hiddenStems, getWuxing),
+    analyzeSupport('乙', pillars, hiddenStems, getWuxing),
+    analyzeConstraint('乙', pillars, hiddenStems, getWuxing),
+  );
+
+  assert.equal(result.status, '身弱');
+  assert.equal(result.details.hasSupport, true);
+  assert.equal(result.details.formationEffect, '削弱');
 });
 
 test('旺衰分类只读逐项条件，不应被同一证据的任意小数缩放改变', () => {
@@ -436,7 +550,7 @@ test('三合三会被局外地支冲破时，只记录结构，不应计入成�
   });
 });
 
-test('克泄耗一方三合成局时，旺衰条件也应计入成局破势，不应仍按普通身弱看待', () => {
+test('克泄耗一方三合成局且无帮扶时，旺衰条件应保留成局破势与极弱结论', () => {
   const formation = analyzeFormation(
     '甲',
     {
@@ -478,11 +592,7 @@ test('克泄耗一方三合成局时，旺衰条件也应计入成局破势，�
     { status: '休', score: 0, isTimely: false },
     formation,
     { roots: [], totalStrength: 0, hasRoot: false, strongRoot: false },
-    {
-      supporters: [{ position: 'month', stem: '己', strength: 1 }],
-      totalStrength: 1,
-      hasSupport: true,
-    },
+    { supporters: [], totalStrength: 0, hasSupport: false },
     { constraints: [], totalStrength: 0, hasConstraint: false },
   );
 

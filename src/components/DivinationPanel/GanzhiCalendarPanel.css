@@ -12,7 +12,9 @@
 .ganzhi-calendar-surface {
   display: grid;
   gap: 14px;
+  min-width: 0;
   padding: 14px;
+  container: ganzhi-calendar / inline-size;
 }
 
 .ganzhi-calendar-toolbar,
@@ -30,6 +32,7 @@
 .ganzhi-calendar-toolbar {
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .ganzhi-calendar-month-control {
@@ -292,6 +295,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .ganzhi-detail-header h2 {
@@ -344,11 +348,9 @@
 }
 
 .ganzhi-detail-facts strong {
-  overflow: hidden;
   color: var(--text-strong);
   font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .ganzhi-detail-section {
@@ -543,11 +545,9 @@
 
 .ganzhi-hour-item span,
 .ganzhi-hour-item small {
-  overflow: hidden;
   color: var(--text-muted);
   font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 860px) {
@@ -631,5 +631,72 @@
 
   .ganzhi-hour-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/*
+ * 日历嵌在宽度可独立变化的表单中。仅在容器有足够可用宽度时保留桌面双栏；
+ * 上方 viewport 媒体查询继续作为不支持容器查询浏览器的手机兜底。
+ */
+@container ganzhi-calendar (min-width: 960px) {
+  .ganzhi-calendar-layout {
+    grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  }
+
+  .ganzhi-calendar-grid {
+    gap: 5px;
+  }
+
+  .ganzhi-calendar-cell {
+    min-height: 112px;
+    gap: 4px;
+    padding: 10px 8px 9px;
+  }
+
+  .ganzhi-cell-topline strong {
+    font-size: 18px;
+  }
+
+  .ganzhi-cell-lunar,
+  .ganzhi-cell-ganzhi,
+  .ganzhi-cell-god,
+  .ganzhi-cell-term,
+  .ganzhi-cell-personal {
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .ganzhi-cell-lunar,
+  .ganzhi-cell-ganzhi {
+    font-size: 12px;
+  }
+
+  .ganzhi-cell-god,
+  .ganzhi-cell-term,
+  .ganzhi-cell-personal {
+    font-size: 11px;
+  }
+}
+
+@container ganzhi-calendar (max-width: 799px) {
+  .ganzhi-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ganzhi-calendar-detail {
+    order: 2;
+  }
+}
+
+@container ganzhi-calendar (max-width: 560px) {
+  .ganzhi-calendar-toolbar {
+    align-items: flex-start;
+  }
+
+  .ganzhi-calendar-month-picker {
+    min-width: 102px;
+    font-size: 16px;
   }
 }

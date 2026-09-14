@@ -19,6 +19,7 @@ import { HIDDEN_STEMS, NAYIN_MAP } from '@core/bazi/baziMappingsData';
 import { getLifeStage } from '@core/bazi/baziValues';
 import { calculateKongWangBranches } from '@core/bazi/kongWang';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
+import { formatBaziDecisionDetails } from '@/lib/bazi-decision-details';
 import {
   BaziFortuneSelector,
   type BaziFortuneDisplayColumn,
@@ -726,6 +727,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   const { openTerm } = useMetaphysicsTermModal();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const functionalUse = formatUsefulGodFunctions(result.analysis.usefulGod);
+  const decisionDetails = formatBaziDecisionDetails(result);
 
   const formatBaziChartText = useCallback(() => {
     return [
@@ -735,6 +737,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
       `四柱：年柱【${result.pillars.year.gan}${result.pillars.year.zhi}】 月柱【${result.pillars.month.gan}${result.pillars.month.zhi}】 日柱【${result.pillars.day.gan}${result.pillars.day.zhi}】 时柱【${result.pillars.hour.gan}${result.pillars.hour.zhi}】`,
       `五行取用：${result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '无'}  所忌：${result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '无'}`,
       ...formatUsefulGodFunctions(result.analysis.usefulGod),
+      ...formatBaziDecisionDetails(result),
       activeFortuneColumns.length
         ? `当前岁运：${activeFortuneColumns.map((c) => `${c.label}:${c.gan}${c.zhi}`).join(' ')}`
         : '',
@@ -943,6 +946,20 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <small>{formatAvoidGodPrioritySummary(result)}</small>
           </div>
         </div>
+      ) : null}
+
+      {!isInstant ? (
+        <details className="traditional-classic-card">
+          <summary className="traditional-classic-head">
+            <strong>旺衰、格局与取用依据</strong>
+            <span className="traditional-classic-toggle">查看依据</span>
+          </summary>
+          <div className="traditional-classic-body">
+            {decisionDetails.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+        </details>
       ) : null}
 
       {functionalUse.length ? (

@@ -1,4 +1,5 @@
 import { SixtyCycle, SixtyCycleYear, SolarTerm, SolarTime } from 'tyme4ts';
+import { assertValidBaziPillarCombination } from '../ganzhi/validation';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 
@@ -154,12 +155,14 @@ function normalizePillarName(value: unknown, label: string): string {
 
 function normalizePillars(input: BaziReversePillars): BaziReversePillars {
   if (!input || typeof input !== 'object') throw new Error('四柱资料不能为空。');
-  return {
+  const normalized = {
     year: normalizePillarName(input.year, '年柱'),
     month: normalizePillarName(input.month, '月柱'),
     day: normalizePillarName(input.day, '日柱'),
     hour: normalizePillarName(input.hour, '时柱'),
   };
+  assertValidBaziPillarCombination(normalized);
+  return normalized;
 }
 
 function normalizeYear(value: number | undefined, fallback: number, label: string): number {

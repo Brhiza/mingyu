@@ -226,7 +226,7 @@ test('七杀格只在食神制杀路径双方有根且未被合绊时成格', ()
   assert.equal(blocked.pathEvaluations?.find((path) => path.key === '食神制杀')?.status, '不满足');
   assert.match(
     blocked.interactionEvidence?.find(
-      (item) => item.type === '天干五合' && item.source.includes('year丙'),
+      (item) => item.type === '天干五合' && item.source.includes('年柱丙'),
     )?.detail ?? '',
     /合而不化|合绊/,
   );

@@ -123,6 +123,20 @@ function isDirectEvidence(value: string): boolean {
   return !value.includes('(');
 }
 
+/**
+ * 与格局根气证据复用同一六冲边界：外支冲到承载根的地支时，
+ * 仍可登记为“见根”，但不能把该根作为未受破坏的本气强根。
+ */
+function isRootBranchClashed(branch: string, pillars: Pillars, ownPosition: string): boolean {
+  const clash = BASIC_MAPPINGS.DI_ZHI_CHONG[branch];
+  return Boolean(
+    clash &&
+    Object.entries(pillars).some(
+      ([position, pillar]) => position !== ownPosition && pillar.zhi === clash,
+    ),
+  );
+}
+
 function compareEvidenceCount(supporting: number, constraining: number): StrengthTendency {
   if (supporting > constraining) return '扶身';
   if (constraining > supporting) return '制身';
@@ -144,8 +158,12 @@ function resolveStructureTendency(
     return compareEvidenceCount(supportingFormations, constrainingFormations);
   }
 
+  // 根被外支六冲时仍保留“见根”事实，但不能作为未破的明根/藏根参与结构计票。
+  // stable 缺省兼容旧调用方注入的 RootAnalysis，真实 analyzeRoot 会始终提供该字段。
+  const stableRoots = rootAnalysis.roots.filter((root) => root.stable !== false);
+
   const directSupporting =
-    rootAnalysis.roots.filter((root) => isDirectEvidence(root.branch)).length +
+    stableRoots.filter((root) => isDirectEvidence(root.branch)).length +
     supportAnalysis.supporters.filter((supporter) => isDirectEvidence(supporter.stem)).length;
   const directConstraining = constraintAnalysis.constraints.filter((constraint) =>
     isDirectEvidence(constraint.stem),
@@ -156,7 +174,7 @@ function resolveStructureTendency(
   }
 
   const hiddenSupporting =
-    rootAnalysis.roots.length + supportAnalysis.supporters.length - directSupporting;
+    stableRoots.length + supportAnalysis.supporters.length - directSupporting;
   const hiddenConstraining = constraintAnalysis.constraints.length - directConstraining;
   return compareEvidenceCount(hiddenSupporting, hiddenConstraining);
 }
@@ -170,15 +188,16 @@ export function analyzeRoot(
   assertStrengthPillars(dayMaster, pillars);
   assertHiddenStemsMatchPillars(pillars, hiddenStems);
 
-  const roots: { position: string; branch: string; strength: number }[] = [];
+  const roots: { position: string; branch: string; stable: boolean; strength: number }[] = [];
   let totalStrength = 0;
   const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
 
   Object.entries(pillars).forEach(([position, pillar]) => {
     const branchWuxing = resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`);
     const hasMainQiRoot = branchWuxing === dayMasterWuxing;
+    const stable = !isRootBranchClashed(pillar.zhi, pillars, position);
     if (branchWuxing === dayMasterWuxing) {
-      roots.push({ position, branch: pillar.zhi, strength: 2 });
+      roots.push({ position, branch: pillar.zhi, stable, strength: 2 });
       totalStrength += 2;
     }
     hiddenStems[position as keyof HiddenStems].forEach((stem, index) => {
@@ -186,7 +205,7 @@ export function analyzeRoot(
         return;
       }
       if (resolveWuxing(getWuxing, stem, `${position}柱藏干`) === dayMasterWuxing) {
-        roots.push({ position, branch: `${pillar.zhi}(${stem})`, strength: 1 });
+        roots.push({ position, branch: `${pillar.zhi}(${stem})`, stable, strength: 1 });
         totalStrength += 1;
       }
     });
@@ -196,8 +215,8 @@ export function analyzeRoot(
     roots,
     totalStrength,
     hasRoot: roots.length > 0,
-    // 地支本气与日主同气即为明根；只在中余气中见同气者仍记有根，不抬成强根。
-    strongRoot: roots.some((root) => isDirectEvidence(root.branch)),
+    // 地支本气与日主同气且未被外支六冲，才作为未破的明根；冲根仍保留为有根事实。
+    strongRoot: roots.some((root) => isDirectEvidence(root.branch) && root.stable),
   };
 }
 
@@ -522,7 +541,7 @@ export function analyzeDayMasterStrength(
   } else if (
     !rootAnalysis.hasRoot &&
     monthTendency !== '扶身' &&
-    (supportAnalysis.supporters.length === 0 || hasConstrainingFormation) &&
+    supportAnalysis.supporters.length === 0 &&
     !hasSupportingFormation
   ) {
     status = '极弱';

@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { formatBaziDecisionDetails } from '../src/lib/bazi-decision-details';
+
+test('反馈盘的展示依据保留旺衰、格局成败及调候与扶抑区别', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 2006,
+    month: 7,
+    day: 14,
+    timeIndex: 5,
+    gender: 'male',
+    isLunar: false,
+  });
+  const text = formatBaziDecisionDetails(result).join('\n');
+  assert.match(text, /取用基线：身弱扶抑，喜水、木/);
+  assert.ok(text.includes(result.analysis.mingGe.basis!));
+  assert.ok(text.includes(result.analysis.dayMasterStrength.details.ruleBasis[0]));
+  for (const condition of result.analysis.mingGe.fulfillment?.conditionFacts ?? []) {
+    assert.ok(text.includes(`成格条件（${condition.status}）：${condition.detail}`));
+  }
+  assert.match(text, /调候参考次序：/);
+  assert.match(text, /日柱甲与时柱己/);
+  assert.doesNotMatch(
+    JSON.stringify(result.analysis.mingGe.fulfillment),
+    /(?:year|month|day|hour)[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]/,
+  );
+  assert.doesNotMatch(text, /ruleId|within-balance|wei-month-jia|day甲|hour己|小数总分/);
+});
+
+test('成格名称与成败状态分别保留，待核条件和反证不会被隐藏', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 2006,
+    month: 7,
+    day: 14,
+    timeIndex: 5,
+    gender: 'male',
+    isLunar: false,
+  });
+  result.analysis.mingGe.fulfillment = {
+    patternName: '正财格',
+    status: '未判定',
+    basis: '月令取格',
+    summary: '救应条件待核',
+    contradiction: '财星受合绊',
+    remedies: [],
+    conditionFacts: [
+      { key: 'private-root-key', status: '资料不足', detail: '根气尚待核对' },
+      { key: 'private-path-key', status: '不满足', detail: '作用路径未成立' },
+    ],
+  };
+  const text = formatBaziDecisionDetails(result).join('\n');
+  assert.match(text, /格局成败：未判定；救应条件待核/);
+  assert.match(text, /成格条件（资料不足）：根气尚待核对/);
+  assert.match(text, /成格条件（不满足）：作用路径未成立/);
+  assert.match(text, /格局反证：财星受合绊/);
+  assert.doesNotMatch(text, /private-root-key|private-path-key/);
+});

@@ -4,6 +4,11 @@ import {
   type BaziReversePillars,
   type BaziReverseResult,
 } from 'mingyu-core/calendar';
+import {
+  getBaziHourPillarOptions,
+  getBaziMonthPillarOptions,
+  getSixtyCycle,
+} from 'mingyu-core/ganzhi';
 import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import {
   resolveBaziReverseCandidate,
@@ -26,6 +31,13 @@ const PILLAR_FIELDS: Array<{ key: keyof BaziReversePillars; label: string }> = [
   { key: 'day', label: '日柱' },
   { key: 'hour', label: '时柱' },
 ];
+const GANZHI_OPTIONS = getSixtyCycle();
+
+function getPillarOptions(key: keyof BaziReversePillars, pillars: BaziReversePillars) {
+  if (key === 'month') return getBaziMonthPillarOptions(pillars.year);
+  if (key === 'hour') return getBaziHourPillarOptions(pillars.day);
+  return GANZHI_OPTIONS;
+}
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : '暂时无法完成反推，请检查四柱和年份。';
@@ -45,15 +57,46 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
   const [endYear, setEndYear] = useState(String(currentBeijingYear));
   const [result, setResult] = useState<BaziReverseResult | null>(null);
   const [error, setError] = useState('');
+  const startYearNumber = Number(startYear);
+  const endYearNumber = Number(endYear);
+  const hasValidYearRange =
+    Number.isInteger(startYearNumber) &&
+    Number.isInteger(endYearNumber) &&
+    startYearNumber >= 1900 &&
+    startYearNumber <= 2100 &&
+    endYearNumber >= 1900 &&
+    endYearNumber <= 2100 &&
+    startYearNumber <= endYearNumber;
+  const canSearch =
+    PILLAR_FIELDS.every((field) => pillars[field.key].length > 0) && hasValidYearRange;
+
+  function updatePillar(key: keyof BaziReversePillars, value: string) {
+    setPillars((current) => {
+      const next = { ...current, [key]: value };
+      if (key === 'year' && next.month && !getBaziMonthPillarOptions(value).includes(next.month)) {
+        next.month = '';
+      }
+      if (key === 'day' && next.hour && !getBaziHourPillarOptions(value).includes(next.hour)) {
+        next.hour = '';
+      }
+      return next;
+    });
+    setResult(null);
+    setError('');
+  }
 
   function searchCandidates() {
     setError('');
     setResult(null);
+    if (!canSearch) {
+      setError('请先选择完整四柱，并填写 1900-2100 年内的有效查询范围。');
+      return;
+    }
     try {
       const nextResult = reverseBaziDates({
         pillars,
-        startYear: Number(startYear),
-        endYear: Number(endYear),
+        startYear: startYearNumber,
+        endYear: endYearNumber,
       });
       setResult(nextResult);
     } catch (cause) {
@@ -75,19 +118,28 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
         {PILLAR_FIELDS.map((field) => (
           <label className="workspace-ui-field" key={field.key}>
             <span>{field.label}</span>
-            <input
+            <select
               className="workspace-ui-control"
               value={pillars[field.key]}
-              maxLength={2}
-              inputMode="text"
-              autoComplete="off"
-              placeholder="如甲子"
-              onChange={(event) => {
-                setPillars((current) => ({ ...current, [field.key]: event.target.value }));
-                setResult(null);
-                setError('');
-              }}
-            />
+              data-testid={`bazi-reverse-${field.key}`}
+              disabled={
+                field.key === 'month' ? !pillars.year : field.key === 'hour' ? !pillars.day : false
+              }
+              onChange={(event) => updatePillar(field.key, event.target.value)}
+            >
+              <option value="">
+                {field.key === 'month' && !pillars.year
+                  ? '请先选择年柱'
+                  : field.key === 'hour' && !pillars.day
+                    ? '请先选择日柱'
+                    : `请选择${field.label}`}
+              </option>
+              {getPillarOptions(field.key, pillars).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </label>
         ))}
       </div>
@@ -122,8 +174,13 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
           />
         </label>
       </div>
+      {!hasValidYearRange ? (
+        <p className="bazi-reverse-input-note">
+          查询年份需为 1900-2100 的整数，且起始年不能晚于结束年。
+        </p>
+      ) : null}
 
-      <WorkspaceButton variant="secondary" onClick={searchCandidates}>
+      <WorkspaceButton variant="secondary" onClick={searchCandidates} disabled={!canSearch}>
         查找候选时段
       </WorkspaceButton>
 

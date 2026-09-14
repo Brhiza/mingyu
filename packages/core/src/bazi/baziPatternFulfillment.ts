@@ -288,7 +288,7 @@ function toStemEvidence(
 function buildHarmonyProfiles(pillars: Pillars): HarmonyTransformProfile[] {
   return assessAllHarmonyTransforms(
     POSITIONS.map((pillar) => ({
-      label: pillar,
+      label: PILLAR_NAMES[pillar],
       gan: pillars[pillar].gan,
       zhi: pillars[pillar].zhi,
       hiddenStems: HIDDEN_STEMS[pillars[pillar].zhi],
@@ -302,7 +302,7 @@ function findHarmonyProfiles(
   profiles: HarmonyTransformProfile[],
 ): HarmonyTransformProfile[] {
   if (item.placement !== '透干') return [];
-  const token = `${item.pillar}${item.stem}`;
+  const token = `${PILLAR_NAMES[item.pillar]}${item.stem}`;
   return profiles.filter(
     (profile) => profile.type === '天干五合' && profile.participants.includes(token),
   );

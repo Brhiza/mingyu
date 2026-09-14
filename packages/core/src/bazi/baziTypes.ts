@@ -262,6 +262,8 @@ export interface RootAnalysis {
   roots: {
     position: string;
     branch: string;
+    /** 根所承载的地支未被外支六冲时为 true；旧调用方省略时按历史兼容口径处理。 */
+    stable?: boolean;
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
     strength: number;
   }[];
