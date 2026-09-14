@@ -81,7 +81,10 @@ test('节气交接秒级边界会切换月柱并返回真实起止时间', () =>
   assert.ok(result.candidates.some((item) => item.startBoundary.reason === '节气交接'));
   assert.ok(candidate);
   assert.deepEqual(pillarsAt(term), pillars);
-  assert.notDeepEqual(pillarsAt(chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp - 1000)), pillars);
+  assert.notDeepEqual(
+    pillarsAt(chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp - 1000)),
+    pillars,
+  );
 });
 
 test('查询首年一月会保留上一年节气年，并正确裁剪前夜子时', () => {
