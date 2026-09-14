@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { SolarTerm, SolarTime } from 'tyme4ts';
+import { calculateSolarTermEvidence } from '../packages/core/src/calendar/solar-term-evidence';
 import {
   reverseBaziDates,
   type BaziReversePillars,
 } from '../packages/core/src/calendar/bazi-reverse';
+import { getGanZhiFromDate } from '../packages/core/src/ganzhi';
 
 function at(
   year: number,
@@ -25,34 +26,26 @@ function at(
 }
 
 function pillarsAt(input: ReturnType<typeof at>): BaziReversePillars {
-  const eightChar = SolarTime.fromYmdHms(
-    input.year,
-    input.month,
-    input.day,
-    input.hour,
-    input.minute,
-    input.second,
-  )
-    .getSixtyCycleHour()
-    .getEightChar();
-  return {
-    year: eightChar.getYear().getName(),
-    month: eightChar.getMonth().getName(),
-    day: eightChar.getDay().getName(),
-    hour: eightChar.getHour().getName(),
-  };
+  return getGanZhiFromDate(
+    new Date(input.year, input.month - 1, input.day, input.hour, input.minute, input.second),
+  );
 }
 
-function textOf(time: {
-  getYear(): number;
-  getMonth(): number;
-  getDay(): number;
-  getHour(): number;
-  getMinute(): number;
-  getSecond(): number;
-}): string {
+function textOf(time: ReturnType<typeof at>): string {
   const pad = (value: number) => String(value).padStart(2, '0');
-  return `${time.getYear()}-${pad(time.getMonth())}-${pad(time.getDay())} ${pad(time.getHour())}:${pad(time.getMinute())}:${pad(time.getSecond())}`;
+  return `${time.year}-${pad(time.month)}-${pad(time.day)} ${pad(time.hour)}:${pad(time.minute)}:${pad(time.second)}`;
+}
+
+function chinaPartsFromUtcTimestamp(timestamp: number): ReturnType<typeof at> {
+  const time = new Date(timestamp + 8 * 60 * 60 * 1000);
+  return at(
+    time.getUTCFullYear(),
+    time.getUTCMonth() + 1,
+    time.getUTCDate(),
+    time.getUTCHours(),
+    time.getUTCMinutes(),
+    time.getUTCSeconds(),
+  );
 }
 
 test('八字反推返回完整候选区间，并能在区间内正向复核', () => {
@@ -77,37 +70,18 @@ test('八字反推返回完整候选区间，并能在区间内正向复核', ()
 });
 
 test('节气交接秒级边界会切换月柱并返回真实起止时间', () => {
-  const termTime = SolarTerm.fromIndex(2024, 3).getJulianDay().getSolarTime();
-  const term = at(
-    termTime.getYear(),
-    termTime.getMonth(),
-    termTime.getDay(),
-    termTime.getHour(),
-    termTime.getMinute(),
-    termTime.getSecond(),
-  );
+  const termEvidence = calculateSolarTermEvidence(2024, 3);
+  const term = chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp);
   const pillars = pillarsAt(term);
   const result = reverseBaziDates({ pillars, startYear: 2024, endYear: 2024 });
-  const termText = textOf(termTime);
+  const termText = textOf(term);
   const candidate = result.candidates.find((item) => item.start.text === termText);
 
   assert.ok(result.candidates.length > 0);
   assert.ok(result.candidates.some((item) => item.startBoundary.reason === '节气交接'));
   assert.ok(candidate);
   assert.deepEqual(pillarsAt(term), pillars);
-  assert.notDeepEqual(
-    pillarsAt(
-      at(
-        termTime.getYear(),
-        termTime.getMonth(),
-        termTime.getDay(),
-        termTime.getHour(),
-        termTime.getMinute(),
-        Math.max(0, termTime.getSecond() - 1),
-      ),
-    ),
-    pillars,
-  );
+  assert.notDeepEqual(pillarsAt(chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp - 1000)), pillars);
 });
 
 test('查询首年一月会保留上一年节气年，并正确裁剪前夜子时', () => {
@@ -123,37 +97,17 @@ test('查询首年一月会保留上一年节气年，并正确裁剪前夜子�
 });
 
 test('交节落在时辰前段时，交节前的短区间不会因只取时辰中点而漏掉', () => {
-  const termTime = SolarTerm.fromIndex(2025, 9).getJulianDay().getSolarTime();
-  const beforeTerm = termTime.next(-1);
-  const pillars = pillarsAt(
-    at(
-      beforeTerm.getYear(),
-      beforeTerm.getMonth(),
-      beforeTerm.getDay(),
-      beforeTerm.getHour(),
-      beforeTerm.getMinute(),
-      beforeTerm.getSecond(),
-    ),
-  );
+  const termEvidence = calculateSolarTermEvidence(2025, 9);
+  const termTime = chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp);
+  const beforeTerm = chinaPartsFromUtcTimestamp(termEvidence.utcTimestamp - 1000);
+  const pillars = pillarsAt(beforeTerm);
   const result = reverseBaziDates({ pillars, startYear: 2025, endYear: 2025 });
   const candidate = result.candidates.find((item) => item.start.text === '2025-05-05 13:00:00');
 
   assert.ok(candidate);
   assert.equal(candidate.end.text, textOf(termTime));
   assert.equal(candidate.endBoundary.reason, '节气交接');
-  assert.deepEqual(
-    pillarsAt(
-      at(
-        beforeTerm.getYear(),
-        beforeTerm.getMonth(),
-        beforeTerm.getDay(),
-        beforeTerm.getHour(),
-        beforeTerm.getMinute(),
-        beforeTerm.getSecond(),
-      ),
-    ),
-    pillars,
-  );
+  assert.deepEqual(pillarsAt(beforeTerm), pillars);
 });
 
 test('四柱格式和年份范围错误会明确拒绝', () => {
