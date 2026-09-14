@@ -14,3 +14,4 @@ export * from './solar-term-evidence';
 export * from './moon-phase-evidence';
 export * from './solar-illumination-evidence';
 export * from './astronomical-facts';
+export * from './bazi-reverse';

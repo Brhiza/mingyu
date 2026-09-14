@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  clearGanzhiCalendarCache,
+  formatChinaStandardDateTime,
+  getBeijingTodayKey,
+  getGanzhiCalendarDayDetail,
+  getGanzhiCalendarMonth,
+  shiftGanzhiCalendarMonth,
+} from '../src/lib/ganzhi-calendar';
+
+test('干支月历生成固定 42 格，并把月外日期标记为可点选', () => {
+  clearGanzhiCalendarCache();
+  const month = getGanzhiCalendarMonth('2026-09', '2026-09-14');
+
+  assert.equal(month.cells.length, 42);
+  assert.equal(month.cells.filter((cell) => cell.isCurrentMonth).length, 30);
+  assert.ok(month.cells.some((cell) => !cell.isCurrentMonth));
+  assert.equal(month.cells.find((cell) => cell.date === '2026-09-14')?.isToday, true);
+  assert.equal(month.cells.find((cell) => cell.date === '2026-09-14')?.lunarDate, '初四');
+});
+
+test('月柱只在十二节交接，交节前后月柱和精确北京时间分别可见', () => {
+  clearGanzhiCalendarCache();
+  const before = getGanzhiCalendarDayDetail('2026-03-05', '2026-03-05');
+  const after = getGanzhiCalendarDayDetail('2026-03-06', '2026-03-05');
+
+  assert.equal(before.monthGanzhi, '庚寅');
+  assert.equal(after.monthGanzhi, '辛卯');
+  assert.equal(before.monthBoundaryAfter?.termName, '惊蛰');
+  assert.equal(before.monthBoundaryAfter?.beforePillar, '庚寅');
+  assert.equal(before.monthBoundaryAfter?.afterPillar, '辛卯');
+  assert.match(before.monthBoundaryAfter?.chinaDateTime ?? '', /^2026-03-05 21:59:/);
+
+  const solarTerm = before.solarTerms.find((term) => term.name === '惊蛰');
+  assert.equal(solarTerm?.isJie, true);
+  assert.equal(solarTerm?.chinaDateTime, before.monthBoundaryAfter?.chinaDateTime);
+});
+
+test('月历值神区分黄黑道，详情按日调用通用黄历事实并保留十二时辰', () => {
+  clearGanzhiCalendarCache();
+  const detail = getGanzhiCalendarDayDetail('2026-09-14', '2026-09-14');
+
+  assert.equal(detail.valueGod, '明堂');
+  assert.equal(detail.valueGodFortune, '黄道');
+  assert.equal(detail.dayOfficer, '破');
+  assert.equal(detail.almanac.date, '2026-09-14');
+  assert.equal(detail.almanac.hours?.length, 13);
+  assert.ok(detail.almanac.recommends.length > 0 || detail.almanac.avoids.length > 0);
+});
+
+test('月份导航和北京时间当前日期使用稳定的公历键', () => {
+  assert.equal(shiftGanzhiCalendarMonth('2026-01', -1), '2025-12');
+  assert.equal(shiftGanzhiCalendarMonth('2026-12', 1), '2027-01');
+  assert.equal(getBeijingTodayKey(new Date('2026-09-13T16:30:00.000Z')), '2026-09-14');
+  assert.equal(
+    formatChinaStandardDateTime(Date.parse('2026-09-13T16:30:00.000Z')),
+    '2026-09-14 00:30:00',
+  );
+});

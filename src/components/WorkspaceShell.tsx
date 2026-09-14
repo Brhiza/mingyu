@@ -60,6 +60,8 @@ function resolveActiveFeature(pathname: string, search: string): WorkspaceFeatur
 }
 
 function resolvePageTitle(pathname: string, activeFeature: WorkspaceFeatureId | null) {
+  if (pathname === '/tools/calendar') return '干支日历';
+  if (pathname === '/tools/bazi-reverse') return '八字反推日期';
   if (pathname === '/culture-tools') return '文字与数理';
   if (pathname === '/classics/yilin') return '焦氏易林';
   if (pathname === '/cases') return '案例';
@@ -416,6 +418,28 @@ export function WorkspaceShell() {
                 <strong>焦氏易林</strong>
               </span>
             </button>
+            {[
+              { path: '/tools/calendar', label: '干支日历', mark: '历' },
+              { path: '/tools/bazi-reverse', label: '八字反推日期', mark: '溯' },
+            ].map((tool) => (
+              <button
+                key={tool.path}
+                type="button"
+                className={location.pathname === tool.path ? 'is-active' : ''}
+                onClick={() => {
+                  navigate(tool.path);
+                  setIsDrawerOpen(false);
+                }}
+                aria-current={location.pathname === tool.path ? 'page' : undefined}
+              >
+                <span className="workspace-nav-mark" aria-hidden="true">
+                  {tool.mark}
+                </span>
+                <span className="workspace-nav-copy">
+                  <strong>{tool.label}</strong>
+                </span>
+              </button>
+            ))}
           </div>
           {WORKSPACE_FEATURE_GROUPS.map((group) => {
             const features = orderedFeatures.filter((feature) => feature.group === group.id);

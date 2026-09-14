@@ -1,0 +1,312 @@
+.bazi-reverse-page {
+  width: min(1180px, 100%);
+}
+
+.bazi-reverse-intro {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 6px 2px 2px;
+}
+
+.bazi-reverse-eyebrow {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.bazi-reverse-intro h2 {
+  margin: 0;
+  font-size: clamp(23px, 3vw, 31px);
+  letter-spacing: -0.03em;
+}
+
+.bazi-reverse-intro > p:last-child {
+  max-width: 760px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.bazi-reverse-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.86fr) minmax(420px, 1.14fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.bazi-reverse-form-surface,
+.bazi-reverse-result-surface {
+  min-width: 0;
+  padding: 19px;
+}
+
+.bazi-reverse-form-surface {
+  display: grid;
+  gap: 18px;
+}
+
+.bazi-reverse-result-surface {
+  min-height: 525px;
+}
+
+.bazi-reverse-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bazi-reverse-section-heading > span {
+  flex: 0 0 auto;
+  padding-top: 3px;
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.bazi-reverse-section-heading > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.bazi-reverse-section-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.bazi-reverse-section-heading p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.bazi-reverse-form {
+  display: grid;
+  gap: 16px;
+}
+
+.bazi-reverse-pillar-grid,
+.bazi-reverse-year-grid {
+  display: grid;
+  gap: 11px;
+}
+
+.bazi-reverse-pillar-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bazi-reverse-year-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bazi-reverse-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.bazi-reverse-field > span {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.bazi-reverse-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  background: var(--surface-soft);
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.bazi-reverse-pillar-grid .bazi-reverse-field input {
+  font-family: serif;
+  font-size: 19px;
+  letter-spacing: 0.06em;
+}
+
+.bazi-reverse-field input:focus {
+  border-color: var(--border-contrast);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong) 10%, transparent);
+}
+
+.bazi-reverse-primary {
+  min-height: 46px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--accent-strong);
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.bazi-reverse-primary:hover {
+  filter: brightness(1.05);
+}
+
+.bazi-reverse-form-note,
+.bazi-reverse-policy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.bazi-reverse-form-note {
+  padding-top: 1px;
+}
+
+.bazi-reverse-policy {
+  display: grid;
+  gap: 4px;
+  padding: 13px 14px;
+  border-radius: 11px;
+  background: var(--surface-soft);
+}
+
+.bazi-reverse-policy strong {
+  margin-bottom: 2px;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.bazi-reverse-error {
+  margin: 0 0 15px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, #a43535 25%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, #a43535 8%, transparent);
+  color: #a43535;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.bazi-reverse-candidate-list {
+  display: grid;
+  gap: 10px;
+}
+
+.bazi-reverse-candidate {
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  gap: 3px 11px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.bazi-reverse-candidate-index {
+  grid-row: 1 / span 2;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.bazi-reverse-candidate-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.bazi-reverse-candidate-main strong {
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.bazi-reverse-candidate-main strong span {
+  padding: 0 3px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.bazi-reverse-candidate-main small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.bazi-reverse-boundaries {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.bazi-reverse-empty {
+  display: grid;
+  min-height: 390px;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+}
+
+.bazi-reverse-empty > span {
+  display: grid;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 13px;
+  place-items: center;
+  border-radius: 20px;
+  background: var(--surface-muted);
+  color: var(--accent-strong);
+  font-family: serif;
+  font-size: 26px;
+}
+
+.bazi-reverse-empty h3 {
+  margin: 0 0 7px;
+  font-size: 16px;
+}
+
+.bazi-reverse-empty p {
+  max-width: 330px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+@media (max-width: 860px) {
+  .bazi-reverse-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bazi-reverse-result-surface {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .bazi-reverse-form-surface,
+  .bazi-reverse-result-surface {
+    padding: 15px;
+  }
+
+  .bazi-reverse-pillar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bazi-reverse-section-heading {
+    gap: 9px;
+  }
+
+  .bazi-reverse-candidate {
+    padding: 12px;
+  }
+}

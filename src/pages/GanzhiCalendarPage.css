@@ -1,0 +1,564 @@
+.ganzhi-calendar-page {
+  gap: 8px;
+}
+
+.ganzhi-calendar-intro {
+  margin: -2px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.ganzhi-calendar-surface {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.ganzhi-calendar-toolbar,
+.ganzhi-calendar-month-control,
+.ganzhi-calendar-legend,
+.ganzhi-cell-topline,
+.ganzhi-detail-header,
+.ganzhi-boundary-row,
+.ganzhi-term-list > div,
+.ganzhi-recommend-grid > div {
+  display: flex;
+  align-items: center;
+}
+
+.ganzhi-calendar-toolbar {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ganzhi-calendar-month-control {
+  min-width: 0;
+  gap: 8px;
+}
+
+.ganzhi-calendar-nav-button {
+  min-width: 32px;
+  padding-inline: 8px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.ganzhi-calendar-month-picker {
+  position: relative;
+  display: grid;
+  min-width: 124px;
+  justify-items: center;
+  color: var(--text-strong);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.ganzhi-calendar-month-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.ganzhi-calendar-month-picker:focus-within {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.ganzhi-cell-fortune::before {
+  content: '·';
+}
+
+.ganzhi-calendar-legend {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.ganzhi-calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ganzhi-calendar-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.ganzhi-calendar-legend i.is-huangdao {
+  background: #c48a2c;
+}
+
+.ganzhi-calendar-legend i.is-heidao {
+  background: #7b6d8f;
+}
+
+.ganzhi-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(285px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.ganzhi-calendar-board {
+  min-width: 0;
+}
+
+.ganzhi-month-terms {
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.ganzhi-month-terms p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 6px 0;
+}
+
+.ganzhi-month-terms strong {
+  color: var(--accent-deep);
+}
+
+.ganzhi-calendar-cell:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.ganzhi-calendar-week-row,
+.ganzhi-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.ganzhi-calendar-week-row {
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.ganzhi-calendar-week-row span.is-weekend {
+  color: var(--accent-deep);
+}
+
+.ganzhi-calendar-grid {
+  gap: 3px;
+}
+
+.ganzhi-calendar-cell {
+  min-width: 0;
+  min-height: 94px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 7px 6px 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.ganzhi-calendar-cell:hover,
+.ganzhi-calendar-cell:focus-visible {
+  border-color: var(--border-contrast);
+  background: var(--state-hover-surface);
+  outline: 0;
+}
+
+.ganzhi-calendar-cell:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft-strong);
+}
+
+.ganzhi-calendar-cell.is-selected {
+  border-color: var(--accent-strong);
+  background: var(--state-selected-surface);
+  box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.ganzhi-calendar-cell.is-outside {
+  opacity: 0.55;
+}
+
+.ganzhi-calendar-cell.is-today .ganzhi-cell-topline strong {
+  color: var(--accent-deep);
+}
+
+.ganzhi-cell-topline {
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.ganzhi-cell-topline strong {
+  color: var(--text-strong);
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.ganzhi-cell-topline em {
+  padding: 1px 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft-strong);
+  color: var(--accent-deep);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.ganzhi-cell-lunar,
+.ganzhi-cell-ganzhi,
+.ganzhi-cell-god,
+.ganzhi-cell-term {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ganzhi-cell-lunar {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.ganzhi-cell-ganzhi {
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ganzhi-cell-god {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ganzhi-cell-god.is-huangdao,
+.ganzhi-detail-badge.is-huangdao {
+  color: #a66c15;
+}
+
+.ganzhi-cell-god.is-heidao,
+.ganzhi-detail-badge.is-heidao {
+  color: var(--text-muted);
+}
+
+.ganzhi-cell-term {
+  color: var(--accent-deep);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ganzhi-calendar-detail {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.ganzhi-detail-header {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ganzhi-detail-header h2 {
+  margin: 2px 0 2px;
+  color: var(--text-strong);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.ganzhi-detail-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.ganzhi-detail-eyebrow {
+  color: var(--accent-deep) !important;
+  font-size: 11px !important;
+  font-weight: 800;
+}
+
+.ganzhi-detail-badge {
+  flex: none;
+  padding: 4px 7px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ganzhi-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.ganzhi-detail-facts > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--surface-base);
+}
+
+.ganzhi-detail-facts span,
+.ganzhi-boundary-row > span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.ganzhi-detail-facts strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ganzhi-detail-section {
+  display: grid;
+  gap: 7px;
+}
+
+.ganzhi-detail-section h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.ganzhi-detail-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ganzhi-boundary-list,
+.ganzhi-term-list {
+  display: grid;
+  gap: 6px;
+}
+
+.ganzhi-boundary-row {
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--surface-base);
+}
+
+.ganzhi-boundary-row > span {
+  flex: 0 0 42px;
+  padding-top: 2px;
+}
+
+.ganzhi-boundary-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.ganzhi-boundary-row strong {
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.ganzhi-boundary-row small,
+.ganzhi-term-list span,
+.ganzhi-term-list small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.ganzhi-boundary-row p {
+  margin: 1px 0 0;
+  color: var(--accent-deep);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ganzhi-boundary-row p b {
+  padding: 0 4px;
+  color: var(--text-muted);
+}
+
+.ganzhi-term-list > div {
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface-base);
+}
+
+.ganzhi-term-list strong {
+  min-width: 32px;
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.ganzhi-term-list small {
+  margin-left: auto;
+  color: var(--accent-deep);
+}
+
+.ganzhi-recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.ganzhi-recommend-grid > div {
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--surface-base);
+}
+
+.ganzhi-recommend-grid > div > span {
+  flex: none;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ganzhi-recommend-grid > div > p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.ganzhi-recommend-grid .is-recommend > span {
+  color: var(--success-text);
+}
+
+.ganzhi-recommend-grid .is-avoid > span {
+  color: var(--danger-text);
+}
+
+.ganzhi-hour-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.ganzhi-hour-item {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 7px;
+  background: var(--surface-base);
+}
+
+.ganzhi-hour-item strong,
+.ganzhi-hour-item b {
+  color: var(--text-strong);
+  font-size: 11px;
+}
+
+.ganzhi-hour-item span,
+.ganzhi-hour-item small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .ganzhi-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ganzhi-calendar-detail {
+    order: 2;
+  }
+}
+
+@media (max-width: 480px) {
+  .ganzhi-cell-fortune {
+    display: block;
+  }
+
+  .ganzhi-cell-fortune::before {
+    content: '';
+  }
+
+  .ganzhi-calendar-surface {
+    padding: 9px;
+  }
+
+  .ganzhi-calendar-cell {
+    min-height: 76px;
+    padding: 5px 4px;
+    border-radius: 7px;
+  }
+
+  .ganzhi-cell-topline strong {
+    font-size: 14px;
+  }
+
+  .ganzhi-cell-lunar,
+  .ganzhi-cell-ganzhi {
+    font-size: 10px;
+  }
+
+  .ganzhi-cell-god,
+  .ganzhi-cell-term {
+    font-size: 9px;
+  }
+
+  .ganzhi-calendar-detail {
+    padding: 11px;
+  }
+}
+
+@media (max-width: 350px) {
+  .ganzhi-calendar-toolbar {
+    align-items: flex-start;
+  }
+
+  .ganzhi-calendar-month-picker {
+    min-width: 102px;
+    font-size: 16px;
+  }
+
+  .ganzhi-calendar-cell {
+    min-height: 70px;
+    padding-inline: 3px;
+  }
+
+  .ganzhi-cell-lunar {
+    font-size: 9px;
+  }
+
+  .ganzhi-cell-god,
+  .ganzhi-cell-term {
+    font-size: 8px;
+  }
+
+  .ganzhi-hour-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
