@@ -1,3 +1,4 @@
+import { parseBaziReverseSource } from '@/lib/bazi-reverse-input';
 import { DEFAULT_CHINA_TIME_ZONE_ID } from 'mingyu-core/calendar';
 
 export const FRONTEND_DEFAULT_TIME_ZONE_ID = DEFAULT_CHINA_TIME_ZONE_ID;
@@ -24,4 +25,13 @@ export function applyFrontendBirthTimeDefaults<T extends FrontendBirthTimeOption
     timeZoneId: input.timeZoneId?.trim() || FRONTEND_DEFAULT_TIME_ZONE_ID,
     applyChinaDst: false,
   };
+}
+
+/** 四柱候选已经是标准北京时间，普通钟表输入沿用历史时区。 */
+export function getFrontendBirthTimeZone(
+  reverseSource?: string,
+): { timezone: number; timeZoneId?: undefined } | { timeZoneId: string; timezone?: undefined } {
+  return parseBaziReverseSource(reverseSource)
+    ? { timezone: 8 }
+    : { timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID };
 }

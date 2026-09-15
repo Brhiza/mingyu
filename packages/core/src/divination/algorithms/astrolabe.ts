@@ -285,6 +285,7 @@ function localTimestamp(input: AstrolabeBirthInput) {
   const day = requireNumber(input.day, '出生日期');
   const hour = requireNumber(input.hour, '出生小时');
   const minute = requireNumber(input.minute, '出生分钟');
+  const second = input.second === undefined ? 0 : requireNumber(input.second, '出生秒');
 
   assertIntegerRange(year, '出生年份', 1900, 2100);
   assertIntegerRange(month, '出生月份', 1, 12);
@@ -294,18 +295,26 @@ function localTimestamp(input: AstrolabeBirthInput) {
   }
   assertIntegerRange(hour, '出生小时', 0, 23);
   assertIntegerRange(minute, '出生分钟', 0, 59);
+  assertIntegerRange(second, '出生秒', 0, 59);
 
-  return { year, month, day, hour, minute };
+  return { year, month, day, hour, minute, second };
 }
 
-function formatDateTime(birth: {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-}) {
-  return `${birth.year}-${String(birth.month).padStart(2, '0')}-${String(birth.day).padStart(2, '0')} ${String(birth.hour).padStart(2, '0')}:${String(birth.minute).padStart(2, '0')}`;
+function formatDateTime(
+  birth: {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second?: number;
+  },
+  includeSeconds = birth.second !== undefined && birth.second !== 0,
+) {
+  const minuteText = `${birth.year}-${String(birth.month).padStart(2, '0')}-${String(birth.day).padStart(2, '0')} ${String(birth.hour).padStart(2, '0')}:${String(birth.minute).padStart(2, '0')}`;
+  return includeSeconds && birth.second !== undefined
+    ? `${minuteText}:${String(birth.second).padStart(2, '0')}`
+    : minuteText;
 }
 
 function readOptionalText(value: unknown, fallback: string) {
@@ -356,7 +365,6 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     input.timezone === undefined ? undefined : requireNumber(input.timezone, '时区');
   const civilTime = resolveCivilTime({
     ...standardBirth,
-    second: 0,
     timezone: fixedTimezone,
     timeZoneId: input.timeZoneId,
   });
@@ -372,6 +380,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         day: standardBirth.day,
         hour: standardBirth.hour,
         minute: standardBirth.minute,
+        second: standardBirth.second,
         longitude,
         timezone: fixedTimezone,
         timeZoneId,
@@ -380,7 +389,6 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   const locationName = readOptionalText(input.locationName, '');
   const solarIllumination = calculateSolarIlluminationEvidence({
     ...standardBirth,
-    second: 0,
     latitude,
     longitude,
     timezone: fixedTimezone,
@@ -390,7 +398,6 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   const chart = calculateChart(
     {
       ...standardBirth,
-      second: 0,
       timezone,
       latitude,
       longitude,
@@ -451,7 +458,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       coordinateAccuracy: input.coordinateAccuracy,
       standardDateTime: formatDateTime(standardBirth),
       trueSolarDateTime: trueSolarResult
-        ? formatDateTime(trueSolarResult.correctedTime)
+        ? formatDateTime(trueSolarResult.correctedTime, standardBirth.second !== 0)
         : undefined,
       trueSolarEvidence: trueSolarResult
         ? {

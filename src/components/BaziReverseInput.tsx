@@ -13,6 +13,7 @@ import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import {
   resolveBaziReverseCandidate,
   type BaziReverseResolvedInput,
+  type BaziReverseSource,
 } from '@/lib/bazi-reverse-input';
 import './BaziReverseInput.css';
 
@@ -49,12 +50,16 @@ function formatRepresentative(selection: BaziReverseResolvedInput) {
 
 export type BaziReverseInputProps = {
   onSelect: (selection: BaziReverseResolvedInput) => void;
+  source?: BaziReverseSource | null;
+  onInvalidate?: () => void;
 };
 
-export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
-  const [pillars, setPillars] = useState<BaziReversePillars>(EMPTY_PILLARS);
-  const [startYear, setStartYear] = useState('1900');
-  const [endYear, setEndYear] = useState(String(currentBeijingYear));
+export function BaziReverseInput({ onSelect, source, onInvalidate }: BaziReverseInputProps) {
+  const [pillars, setPillars] = useState<BaziReversePillars>(source?.pillars ?? EMPTY_PILLARS);
+  const [startYear, setStartYear] = useState(source?.intervalStart.slice(0, 4) ?? '1900');
+  const [endYear, setEndYear] = useState(
+    source?.intervalEnd.slice(0, 4) ?? String(currentBeijingYear),
+  );
   const [result, setResult] = useState<BaziReverseResult | null>(null);
   const [error, setError] = useState('');
   const startYearNumber = Number(startYear);
@@ -83,9 +88,11 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
     });
     setResult(null);
     setError('');
+    onInvalidate?.();
   }
 
   function searchCandidates() {
+    onInvalidate?.();
     setError('');
     setResult(null);
     if (!canSearch) {
@@ -107,10 +114,10 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
   return (
     <div className="bazi-reverse-input" data-testid="bazi-reverse-input">
       <div className="bazi-reverse-input-intro">
-        <strong>按已知四柱反推公历日期</strong>
+        <strong>选择四柱，查找对应日期</strong>
         <p>
           按北京时间、节气月和 23:00
-          子时换日查找可能时段。候选只表示区间，不能把出生时刻确定为某一秒。
+          子时换日查找可能时段。候选只表示区间，具体时刻仍需结合原始记录核对。
         </p>
       </div>
 
@@ -156,6 +163,7 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
               setStartYear(event.target.value.replace(/[^0-9]/g, ''));
               setResult(null);
               setError('');
+              onInvalidate?.();
             }}
           />
         </label>
@@ -170,6 +178,7 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
               setEndYear(event.target.value.replace(/[^0-9]/g, ''));
               setResult(null);
               setError('');
+              onInvalidate?.();
             }}
           />
         </label>
@@ -216,7 +225,7 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
                     </div>
                     {selection ? (
                       <WorkspaceButton size="small" onClick={() => onSelect(selection)}>
-                        按 {formatRepresentative(selection)} 回填
+                        选择此日期（{formatRepresentative(selection)}）
                       </WorkspaceButton>
                     ) : (
                       <span className="bazi-reverse-input-unsupported">
@@ -233,7 +242,7 @@ export function BaziReverseInput({ onSelect }: BaziReverseInputProps) {
             </p>
           )}
           <p className="bazi-reverse-input-note">
-            回填采用候选区间起点作为区间代表时刻，写入精确到秒的标准公历北京时间并复核四柱；这不是对真实出生秒数的确定，也不会再次套用真太阳时。
+            选定日期以区间起点作为代表时刻（北京时间），同时保留完整区间。需要精确时刻的排盘结果仅对应这一代表时刻。
           </p>
         </div>
       ) : null}

@@ -46,6 +46,21 @@ test('星盘底层算法应拒绝无效出生日期和时间', () => {
   );
   assert.throws(() => generateAstrolabe({ ...validInput, hour: '24' }), /出生小时需在 0-23 之间/);
   assert.throws(() => generateAstrolabe({ ...validInput, minute: '60' }), /出生分钟需在 0-59 之间/);
+  assert.throws(() => generateAstrolabe({ ...validInput, second: '60' }), /出生秒需在 0-59 之间/);
+});
+
+test('星盘可选秒数应贯穿现代星历、UTC和光照证据，省略时保持原有分钟口径', () => {
+  const withoutSecond = generateAstrolabe(validInput);
+  const withSecond = generateAstrolabe({ ...validInput, second: '37' });
+
+  assert.equal(withoutSecond.birth.dateTime, '1995-05-20 12:30');
+  assert.equal(withSecond.birth.dateTime, '1995-05-20 12:30:37');
+  assert.equal(withSecond.birth.standardDateTime, '1995-05-20 12:30:37');
+  assert.equal(withSecond.solarIllumination.referenceLocalDateTime, '1995-05-20 12:30:37');
+  assert.notEqual(
+    withSecond.planets.find((item) => item.name === 'Sun')?.longitude,
+    withoutSecond.planets.find((item) => item.name === 'Sun')?.longitude,
+  );
 });
 
 test('星盘底层算法应拒绝越界经纬度和时区', () => {

@@ -1417,6 +1417,8 @@ export interface AstrolabeBirthInput {
   day: string;
   hour: string;
   minute: string;
+  /** 可选出生秒数；省略时按 0 秒计算。 */
+  second?: string;
   latitude: string;
   longitude: string;
   timezone?: string;

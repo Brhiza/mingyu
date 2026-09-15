@@ -30,6 +30,14 @@ import {
 } from 'mingyu-core/prompt';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { PersonalHistoryRecord } from '@/lib/history-records';
+import { BaziReverseInput } from '@/components/BaziReverseInput';
+import { formatBirthTimeInterval, type BaziReverseResolvedInput } from '@/lib/bazi-reverse-input';
+import {
+  formatBaziReverseDate,
+  formatBaziReversePillars,
+  formatBaziReverseTime,
+  isBaziReverseSource,
+} from '@/lib/divination/time-input';
 import { DropdownSelect } from '@/components/DropdownSelect';
 import {
   SupplementaryInfoModal,
@@ -41,6 +49,7 @@ import { AlmanacForm } from './AlmanacForm';
 const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'current', label: '当前时间' },
   { value: 'custom', label: '自定时间' },
+  { value: 'pillars', label: '四柱' },
 ] as const;
 
 const DIVINATION_TIME_STANDARD_OPTIONS = [
@@ -334,12 +343,25 @@ export function DivinationForm({
   const huangjiSixDayCalendarModel = draft.huangjiSixDayCalendarModel ?? 'six-day-seven-part';
   const isHuangjiSixDayExplicitEpoch =
     isHuangjiSixDay && huangjiSixDayCalendarModel === 'six-day-explicit-epoch';
+  const isTaiyiYear = draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year';
   const supportsTrueSolarTime =
     isTimeBasedDivination &&
     !isHuangjiSixDay &&
-    !(draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year');
+    !isTaiyiYear &&
+    draft.divinationTimeMode !== 'pillars';
   const divinationTimeMode = draft.divinationTimeMode ?? 'current';
   const effectiveDivinationTimeMode = isHuangjiSixDay ? 'custom' : divinationTimeMode;
+  const divinationTimeModeOptions = isHuangjiSixDay
+    ? [{ value: 'custom', label: '自定时间' }]
+    : isTaiyiYear
+      ? DIVINATION_TIME_MODE_OPTIONS.filter((item) => item.value !== 'pillars')
+      : DIVINATION_TIME_MODE_OPTIONS;
+  const divinationReverseSource = isBaziReverseSource(draft.divinationReverseSource)
+    ? draft.divinationReverseSource
+    : null;
+  const isBaziReverseTime = effectiveDivinationTimeMode === 'pillars';
+  const isBaziReverseSelectionIncomplete =
+    isTimeBasedDivination && isBaziReverseTime && !divinationReverseSource;
   const divinationTimeStandard = draft.divinationTimeStandard ?? 'beijing';
   const meihuaCharacterCount = Array.from(draft.meihuaCharacterText.trim()).length;
   const liuyaoMethod = draft.liuyaoMethod ?? 'time';
@@ -488,13 +510,33 @@ export function DivinationForm({
 
   function updateHuangjiMethod(value: NonNullable<DivinationDraft['huangjiMethod']>) {
     updateDraft('huangjiMethod', value);
-    if (value === 'six-day') updateDraft('divinationTimeMode', 'custom');
+    if (value === 'six-day') {
+      updateDraft('divinationTimeMode', 'custom');
+      updateDraft('divinationReverseSource', null);
+    }
   }
 
   function updateHuangjiSixDayCalendarModel(
     value: NonNullable<DivinationDraft['huangjiSixDayCalendarModel']>,
   ) {
     updateDraft('huangjiSixDayCalendarModel', value);
+  }
+
+  function updateDivinationTimeMode(value: NonNullable<DivinationDraft['divinationTimeMode']>) {
+    updateDraft('divinationTimeMode', value);
+    if (value === 'pillars') {
+      updateDraft('divinationTimeStandard', 'beijing');
+    } else {
+      updateDraft('divinationReverseSource', null);
+    }
+  }
+
+  function applyBaziReverseSelection(selection: BaziReverseResolvedInput) {
+    updateDraft('divinationTimeMode', 'pillars');
+    updateDraft('customDivinationDate', formatBaziReverseDate(selection));
+    updateDraft('customDivinationTime', formatBaziReverseTime(selection));
+    updateDraft('divinationTimeStandard', 'beijing');
+    updateDraft('divinationReverseSource', selection.source);
   }
 
   if (isAlmanac) {
@@ -980,15 +1022,10 @@ export function DivinationForm({
                           <DropdownSelect
                             id="divination-time-mode-select"
                             value={effectiveDivinationTimeMode}
-                            options={
-                              isHuangjiSixDay
-                                ? [{ value: 'custom', label: '自定时间' }]
-                                : DIVINATION_TIME_MODE_OPTIONS
-                            }
+                            options={divinationTimeModeOptions}
                             disabled={isHuangjiSixDay}
                             onChange={(value) =>
-                              updateDraft(
-                                'divinationTimeMode',
+                              updateDivinationTimeMode(
                                 value as NonNullable<DivinationDraft['divinationTimeMode']>,
                               )
                             }
@@ -1202,16 +1239,11 @@ export function DivinationForm({
                   <div className="divination-mobile-secondary-picker">
                     <DropdownSelect
                       value={effectiveDivinationTimeMode}
-                      options={
-                        isHuangjiSixDay
-                          ? [{ value: 'custom', label: '自定时间' }]
-                          : DIVINATION_TIME_MODE_OPTIONS
-                      }
+                      options={divinationTimeModeOptions}
                       disabled={isHuangjiSixDay}
                       ariaLabel={`${timeActionLabel}时间`}
                       onChange={(value) =>
-                        updateDraft(
-                          'divinationTimeMode',
+                        updateDivinationTimeMode(
                           value as NonNullable<DivinationDraft['divinationTimeMode']>,
                         )
                       }
@@ -1776,8 +1808,33 @@ export function DivinationForm({
             </div>
           ) : null}
 
-          {isTimeBasedDivination && effectiveDivinationTimeMode === 'custom' ? (
-            draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year' ? (
+          {isTimeBasedDivination &&
+          (effectiveDivinationTimeMode === 'custom' || isBaziReverseTime) ? (
+            isBaziReverseTime ? (
+              <div className="divination-extra-panel divination-time-panel">
+                <BaziReverseInput
+                  key={`divination-pillars-${draft.almanacParticipants.find((item) => item.id.startsWith('active-case:'))?.id ?? 'no-case'}`}
+                  source={divinationReverseSource}
+                  onInvalidate={() => updateDraft('divinationReverseSource', null)}
+                  onSelect={applyBaziReverseSelection}
+                />
+                {divinationReverseSource ? (
+                  <div className="workspace-ui-field-hint">
+                    <strong>已选择候选日期（北京时间）</strong>
+                    <br />
+                    {draft.customDivinationDate || '日期待回填'}{' '}
+                    {draft.customDivinationTime || '时间待回填'}
+                    <br />
+                    四柱：{formatBaziReversePillars(divinationReverseSource)}；
+                    {formatBirthTimeInterval(divinationReverseSource, '候选时间')}
+                  </div>
+                ) : (
+                  <small className="workspace-ui-field-hint">
+                    请先从候选区间中明确选择一个日期；选择前不会使用已有日期提交。
+                  </small>
+                )}
+              </div>
+            ) : draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year' ? (
               <div className="divination-extra-panel divination-time-panel">
                 <div className="form-row">
                   <div className="form-item">
@@ -1820,6 +1877,7 @@ export function DivinationForm({
                     <input
                       id="custom-divination-time-input"
                       type="time"
+                      step="1"
                       className="form-input"
                       value={draft.customDivinationTime ?? ''}
                       onChange={(event) => updateDraft('customDivinationTime', event.target.value)}
@@ -2084,7 +2142,7 @@ export function DivinationForm({
           variant="primary"
           size="large"
           block
-          disabled={isSubmitting || isManualInputIncomplete}
+          disabled={isSubmitting || isManualInputIncomplete || isBaziReverseSelectionIncomplete}
           onClick={onSubmit}
         >
           {submitButtonText}

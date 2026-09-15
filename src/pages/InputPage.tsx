@@ -50,12 +50,13 @@ import {
   WorkspaceDialog,
   WorkspacePage,
 } from '@/components/workspace/WorkspaceUI';
-import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import {
-  parseBaziReverseSource,
-  serializeBaziReverseSource,
-  type BaziReverseResolvedInput,
-} from '@/lib/bazi-reverse-input';
+  getFieldKey,
+  getPersonInputMode,
+  applyPersonReverseSelection,
+  type SELF_FIELD_MAP,
+} from './InputPage.field-helpers';
+import { parseBaziReverseSource, type BaziReverseResolvedInput } from '@/lib/bazi-reverse-input';
 
 type ChartToolConfig = {
   label: string;
@@ -204,12 +205,15 @@ export function InputPage() {
   const [isInstantDialogOpen, setIsInstantDialogOpen] = useState(false);
   const [casePickerRole, setCasePickerRole] = useState<PersonRole | null>(null);
   const [caseSearchText, setCaseSearchText] = useState('');
+  const [personInputKeys, setPersonInputKeys] = useState({ self: 0, partner: 0 });
   const [instantTimeStandard, setInstantTimeStandard] = useState<InstantTimeStandard>('beijing');
   const [resumeInstantDialogAfterPlace, setResumeInstantDialogAfterPlace] = useState(false);
-  const [personInputModes, setPersonInputModes] = useState<Record<PersonRole, PersonInputMode>>({
-    self: 'birth',
-    partner: 'birth',
-  });
+  const [personInputModes, setPersonInputModes] = useState<Record<PersonRole, PersonInputMode>>(
+    () => ({
+      self: getPersonInputMode(form, 'self'),
+      partner: getPersonInputMode(form, 'partner'),
+    }),
+  );
   const birthPlace = useBirthPlace({ form, setForm });
   const instantType = getInstantChartTypeForWorkspace(tool ?? '');
   const visibleCases = useMemo(() => {
@@ -226,8 +230,12 @@ export function InputPage() {
     if (!tool) return;
     const nextConfig = CHART_TOOL_CONFIG[tool];
     setError('');
-    setForm(createFormFromLocation(searchParams, nextConfig, routeCase));
-    setPersonInputModes({ self: 'birth', partner: 'birth' });
+    const nextForm = createFormFromLocation(searchParams, nextConfig, routeCase);
+    setForm(nextForm);
+    setPersonInputModes({
+      self: getPersonInputMode(nextForm, 'self'),
+      partner: getPersonInputMode(nextForm, 'partner'),
+    });
   }, [location.key, routeCase, searchParams, tool]);
 
   useEffect(() => {
@@ -285,28 +293,16 @@ export function InputPage() {
   }
 
   function changePersonInputMode(role: PersonRole, mode: PersonInputMode) {
+    if (mode === personInputModes[role]) return;
     setPersonInputModes((current) => ({ ...current, [role]: mode }));
-    if (mode === 'pillars') {
-      updatePersonField(role, 'useTrueSolarTime', false);
+    if (mode !== 'pillars') {
+      updatePersonField(role, 'dateType', mode);
     }
+    setError('');
   }
 
   function applyReverseSelection(role: PersonRole, selection: BaziReverseResolvedInput) {
-    setForm((current) => ({
-      ...current,
-      [getFieldKey(role, 'dateType')]: 'solar',
-      [getFieldKey(role, 'year')]: selection.year,
-      [getFieldKey(role, 'month')]: selection.month,
-      [getFieldKey(role, 'day')]: selection.day,
-      [getFieldKey(role, 'timeIndex')]: selection.timeIndex,
-      [getFieldKey(role, 'isLeapMonth')]: false,
-      [getFieldKey(role, 'useTrueSolarTime')]: false,
-      [getFieldKey(role, 'birthHour')]: String(selection.representativeHour),
-      [getFieldKey(role, 'birthMinute')]: String(selection.representativeMinute),
-      [getFieldKey(role, 'birthSecond')]: String(selection.representativeSecond),
-      [getFieldKey(role, 'reverseSource')]: serializeBaziReverseSource(selection.source),
-    }));
-    setPersonInputModes((current) => ({ ...current, [role]: 'birth' }));
+    setForm((current) => applyPersonReverseSelection(current, role, selection));
     setError('');
   }
 
@@ -322,7 +318,16 @@ export function InputPage() {
 
   function chooseCase(record: PersonalHistoryRecord) {
     if (!casePickerRole) return;
-    setForm((current) => applyPersonalCaseToCompatibilityPerson(current, record, casePickerRole));
+    setPersonInputKeys((current) => ({
+      ...current,
+      [casePickerRole]: current[casePickerRole] + 1,
+    }));
+    const nextForm = applyPersonalCaseToCompatibilityPerson(form, record, casePickerRole);
+    setForm(nextForm);
+    setPersonInputModes((current) => ({
+      ...current,
+      [casePickerRole]: getPersonInputMode(nextForm, casePickerRole),
+    }));
     setError('');
     closeCasePicker();
   }
@@ -343,7 +348,10 @@ export function InputPage() {
     const dateType = isPartner ? form.partnerDateType : form.dateType;
     const hasPreciseStandardTime = birthSecond !== '';
 
-    if (config.chartType === 'bazi' && personInputModes[role] === 'pillars') {
+    if (
+      personInputModes[role] === 'pillars' &&
+      !parseBaziReverseSource(String(form[getFieldKey(role, 'reverseSource')]))
+    ) {
       return `请先为${label}选择一个可回填的四柱候选时段`;
     }
     if (!year || !month || !day) return `请填写完整的${label}信息`;
@@ -503,18 +511,15 @@ export function InputPage() {
                 : null
             }
             forcePreciseBirthPlace={config.preciseBirthData}
-            inputMode={config.chartType === 'bazi' ? personInputModes.self : 'birth'}
-            onInputModeChange={
-              config.chartType === 'bazi'
-                ? (mode) => changePersonInputMode('self', mode)
-                : undefined
-            }
+            inputMode={personInputModes.self}
+            onInputModeChange={(mode) => changePersonInputMode('self', mode)}
             reversePanel={
-              config.chartType === 'bazi' ? (
-                <BaziReverseInput
-                  onSelect={(selection) => applyReverseSelection('self', selection)}
-                />
-              ) : undefined
+              <BaziReverseInput
+                key={`self-${location.key}-${personInputKeys.self}`}
+                source={parseBaziReverseSource(form.birthReverseSource)}
+                onInvalidate={() => updatePersonField('self', 'reverseSource', '')}
+                onSelect={(selection) => applyReverseSelection('self', selection)}
+              />
             }
             reverseSource={parseBaziReverseSource(form.birthReverseSource)}
           />
@@ -532,18 +537,15 @@ export function InputPage() {
                   从案例选择
                 </WorkspaceButton>
               }
-              inputMode={config.chartType === 'bazi' ? personInputModes.partner : 'birth'}
-              onInputModeChange={
-                config.chartType === 'bazi'
-                  ? (mode) => changePersonInputMode('partner', mode)
-                  : undefined
-              }
+              inputMode={personInputModes.partner}
+              onInputModeChange={(mode) => changePersonInputMode('partner', mode)}
               reversePanel={
-                config.chartType === 'bazi' ? (
-                  <BaziReverseInput
-                    onSelect={(selection) => applyReverseSelection('partner', selection)}
-                  />
-                ) : undefined
+                <BaziReverseInput
+                  key={`partner-${location.key}-${personInputKeys.partner}`}
+                  source={parseBaziReverseSource(form.partnerBirthReverseSource)}
+                  onInvalidate={() => updatePersonField('partner', 'reverseSource', '')}
+                  onSelect={(selection) => applyReverseSelection('partner', selection)}
+                />
               }
               reverseSource={parseBaziReverseSource(form.partnerBirthReverseSource)}
             />

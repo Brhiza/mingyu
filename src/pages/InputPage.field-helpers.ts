@@ -1,3 +1,8 @@
+import {
+  parseBaziReverseSource,
+  serializeBaziReverseSource,
+  type BaziReverseResolvedInput,
+} from '@/lib/bazi-reverse-input';
 import { type PersonRole } from '@/lib/input-labels';
 import type { QueryInputState } from '@/lib/query-state';
 
@@ -51,4 +56,35 @@ export function getPersonValue(
   key: keyof typeof SELF_FIELD_MAP,
 ) {
   return form[getFieldKey(role, key)];
+}
+
+export type PersonInputMode = 'solar' | 'lunar' | 'pillars';
+
+export function getPersonInputMode(form: QueryInputState, role: PersonRole): PersonInputMode {
+  return parseBaziReverseSource(String(getPersonValue(form, role, 'reverseSource')))
+    ? 'pillars'
+    : getPersonValue(form, role, 'dateType') === 'lunar'
+      ? 'lunar'
+      : 'solar';
+}
+
+export function applyPersonReverseSelection(
+  form: QueryInputState,
+  role: PersonRole,
+  selection: BaziReverseResolvedInput,
+): QueryInputState {
+  return {
+    ...form,
+    [getFieldKey(role, 'dateType')]: 'solar',
+    [getFieldKey(role, 'year')]: selection.year,
+    [getFieldKey(role, 'month')]: selection.month,
+    [getFieldKey(role, 'day')]: selection.day,
+    [getFieldKey(role, 'timeIndex')]: selection.timeIndex,
+    [getFieldKey(role, 'isLeapMonth')]: false,
+    [getFieldKey(role, 'useTrueSolarTime')]: false,
+    [getFieldKey(role, 'birthHour')]: String(selection.representativeHour),
+    [getFieldKey(role, 'birthMinute')]: String(selection.representativeMinute),
+    [getFieldKey(role, 'birthSecond')]: String(selection.representativeSecond),
+    [getFieldKey(role, 'reverseSource')]: serializeBaziReverseSource(selection.source),
+  };
 }

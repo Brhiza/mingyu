@@ -1,3 +1,4 @@
+import { parseBaziReverseSource, formatBirthTimeInterval } from '@/lib/bazi-reverse-input';
 import {
   Suspense,
   lazy,
@@ -81,7 +82,7 @@ import { PromptShareModal } from '@/components/PromptShareModal/PromptShareModal
 import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useZiweiCalculations } from './hooks/useZiweiCalculations';
-import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
+import { getFrontendBirthTimeZone } from '@/lib/time-policy';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { getChartChatHistoryContext } from '@/lib/ai/chat-history';
@@ -563,9 +564,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         : baziResult.solarDate),
       hour: selectedBirthTime?.hour ?? 12,
       minute: selectedBirthTime?.minute ?? 0,
+      second: inputState.birthSecond === '' ? 0 : Number(inputState.birthSecond),
       latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
       longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
-      timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+      ...getFrontendBirthTimeZone(inputState.birthReverseSource),
       useTrueSolarTime: inputState.useTrueSolarTime,
       ...(inputState.gender === 'male' || inputState.gender === 'female'
         ? { gender: inputState.gender }
@@ -1129,9 +1131,11 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
         day: inputState.day,
         hour: inputState.birthHour,
         minute: inputState.birthMinute,
+        second: inputState.birthSecond || undefined,
         latitude: inputState.birthLatitude,
         longitude: inputState.birthLongitude,
-        timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+        ...getFrontendBirthTimeZone(inputState.birthReverseSource),
+        timezone: parseBaziReverseSource(inputState.birthReverseSource) ? '8' : undefined,
         locationName: inputState.birthPlace,
         useTrueSolarTime: inputState.useTrueSolarTime,
       };
@@ -1157,6 +1161,8 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inputState.birthLatitude,
     inputState.birthLongitude,
     inputState.birthMinute,
+    inputState.birthSecond,
+    inputState.birthReverseSource,
     inputState.birthPlace,
     inputState.day,
     inputState.gender,
@@ -1987,7 +1993,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
       birthLongitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
       birthLatitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
       timezone: 8,
-      timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+      ...getFrontendBirthTimeZone(inputState.birthReverseSource),
       useTrueSolarTime: inputState.useTrueSolarTime,
     };
 
@@ -2005,6 +2011,7 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
     inputState.birthLatitude,
     inputState.birthLongitude,
     inputState.birthMinute,
+    inputState.birthReverseSource,
     inputState.birthPlace,
     inputState.gender,
     inputState.name,
@@ -2028,7 +2035,25 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               : promptState.promptSource === 'bazi'
                 ? previewBaziPromptText
                 : previewZiweiPromptText;
-  const previewActivePromptText = basePreviewActivePromptText;
+  const birthTimeIntervals = [
+    {
+      value: inputState.birthReverseSource,
+      label: inputState.analysisMode === 'compatibility' ? '本人出生时间' : '出生时间',
+    },
+    ...(inputState.analysisMode === 'compatibility'
+      ? [{ value: inputState.partnerBirthReverseSource, label: '对方出生时间' }]
+      : []),
+  ].flatMap(({ value, label }) => {
+    const source = parseBaziReverseSource(value);
+    return source ? [formatBirthTimeInterval(source, label)] : [];
+  });
+  const birthTimeIntervalSection = birthTimeIntervals.length
+    ? `【出生时间范围】\n${birthTimeIntervals.join('\n')}`
+    : '';
+  const previewActivePromptText =
+    basePreviewActivePromptText && birthTimeIntervalSection
+      ? `${basePreviewActivePromptText}\n\n${birthTimeIntervalSection}`
+      : basePreviewActivePromptText;
 
   const aiContextPrompt = useMemo(() => {
     if (!showAssistantPane) return '';
@@ -2162,7 +2187,10 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
               : promptState.promptSource === 'bazi'
                 ? latestBaziPromptText
                 : latestZiweiPromptText;
-  const latestActivePromptText = baseLatestActivePromptText;
+  const latestActivePromptText =
+    baseLatestActivePromptText && birthTimeIntervalSection
+      ? `${baseLatestActivePromptText}\n\n${birthTimeIntervalSection}`
+      : baseLatestActivePromptText;
   const { copyState, shareState, handleCopy } = usePromptCopyShare(latestActivePromptText);
 
   function switchTab(tab: ResultTabKey) {
@@ -2424,6 +2452,14 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
           subtitle={inputState.name || '当前排盘'}
           onBack={returnToChart}
         />
+      ) : null}
+
+      {!isAssistantPage && birthTimeIntervals.length > 0 ? (
+        <div className="workspace-ui-form-case-hint" role="note">
+          {birthTimeIntervals.map((text) => (
+            <p key={text}>{text}</p>
+          ))}
+        </div>
       ) : null}
 
       {!isAssistantPage && chartTabs.length > 1 ? (

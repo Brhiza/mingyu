@@ -1,6 +1,6 @@
 import type { QimenLifetimeStageModel, QueryInputState, QueryPromptState } from '@/lib/query-state';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
-import { FRONTEND_DEFAULT_TIME_ZONE_ID } from '@/lib/time-policy';
+import { getFrontendBirthTimeZone } from '@/lib/time-policy';
 import type { QimenLifetimeInput } from 'mingyu-core/types';
 import { getBirthDateValidationMessage } from 'mingyu-core/calendar';
 import {
@@ -67,7 +67,7 @@ function buildBirthInputs(input: QueryInputState, includeName = false) {
     dateType: input.dateType,
     isLeapMonth: input.isLeapMonth,
     useTrueSolarTime: input.useTrueSolarTime,
-    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    ...getFrontendBirthTimeZone(input.birthReverseSource),
     birthPlace: input.birthPlace,
   };
   if (includeName) result.name = input.name;
@@ -89,7 +89,7 @@ function buildPartnerBirthInputs(input: QueryInputState, includeName = false) {
     dateType: input.partnerDateType,
     isLeapMonth: input.partnerIsLeapMonth,
     useTrueSolarTime: input.partnerUseTrueSolarTime,
-    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    ...getFrontendBirthTimeZone(input.partnerBirthReverseSource),
     birthPlace: input.partnerBirthPlace,
   };
   if (includeName) result.name = input.partnerName;
@@ -110,11 +110,12 @@ function buildAstrolabeInputs(input: QueryInputState) {
     month: numberOrString(input.month),
     day: numberOrString(input.day),
     useTrueSolarTime: input.useTrueSolarTime,
-    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    ...getFrontendBirthTimeZone(input.birthReverseSource),
     locationName: input.birthPlace,
   };
   if (input.birthHour !== '') result.hour = Number(input.birthHour);
   if (input.birthMinute !== '') result.minute = Number(input.birthMinute);
+  addIfPresent(result, 'second', numberOrString(input.birthSecond));
   addIfPresent(result, 'latitude', numberOrString(input.birthLatitude));
   addIfPresent(result, 'longitude', numberOrString(input.birthLongitude));
   return result;
@@ -128,11 +129,12 @@ function buildPartnerAstrolabeInputs(input: QueryInputState) {
     month: numberOrString(input.partnerMonth),
     day: numberOrString(input.partnerDay),
     useTrueSolarTime: input.partnerUseTrueSolarTime,
-    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    ...getFrontendBirthTimeZone(input.partnerBirthReverseSource),
     locationName: input.partnerBirthPlace,
   };
   if (input.partnerBirthHour !== '') result.hour = Number(input.partnerBirthHour);
   if (input.partnerBirthMinute !== '') result.minute = Number(input.partnerBirthMinute);
+  addIfPresent(result, 'second', numberOrString(input.partnerBirthSecond));
   addIfPresent(result, 'latitude', numberOrString(input.partnerBirthLatitude));
   addIfPresent(result, 'longitude', numberOrString(input.partnerBirthLongitude));
   return result;
@@ -144,11 +146,12 @@ function buildQizhengInputs(input: QueryInputState) {
     year: numberOrString(input.year),
     month: numberOrString(input.month),
     day: numberOrString(input.day),
-    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    ...getFrontendBirthTimeZone(input.birthReverseSource),
     useTrueSolarTime: input.useTrueSolarTime,
   };
   addIfPresent(result, 'hour', numberOrString(input.birthHour));
   addIfPresent(result, 'minute', numberOrString(input.birthMinute));
+  addIfPresent(result, 'second', numberOrString(input.birthSecond));
   addIfPresent(result, 'latitude', numberOrString(input.birthLatitude));
   addIfPresent(result, 'longitude', numberOrString(input.birthLongitude));
   return result;
@@ -221,7 +224,7 @@ export function buildQimenLifetimeInputs(
 
   const result: QimenLifetimeInput = {
     birthDateTime: `${String(Number(input.year)).padStart(4, '0')}-${String(Number(input.month)).padStart(2, '0')}-${String(Number(input.day)).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`,
-    timeZoneId: FRONTEND_DEFAULT_TIME_ZONE_ID,
+    ...getFrontendBirthTimeZone(input.birthReverseSource),
     calendarType: input.dateType,
     isLeapMonth: input.isLeapMonth,
     timeStandard: input.useTrueSolarTime ? 'trueSolar' : 'civil',

@@ -88,3 +88,48 @@ test('历史记录中的损坏条目被隔离而不影响有效案例读取', ()
     assert.equal(records[0]?.input.name, '有效案例');
   });
 });
+
+test('四柱日期保存、重开与跨术数引用保留候选区间和秒数', async () => {
+  const { getGanZhiFromDate } = await import('mingyu-core/ganzhi');
+  const { reverseBaziDates } = await import('mingyu-core/calendar');
+  const { resolveBaziReverseCandidate, parseBaziReverseSource } =
+    await import('../src/lib/bazi-reverse-input');
+  const { applyPersonReverseSelection, getPersonInputMode } =
+    await import('../src/pages/InputPage.field-helpers');
+  const { buildChartFeaturePathForCase } = await import('../src/lib/case-navigation');
+  const { parseInputState } = await import('../src/lib/query-state');
+  const pillars = getGanZhiFromDate(new Date(2000, 0, 7, 9));
+  const candidate = reverseBaziDates({ pillars, startYear: 2000, endYear: 2000 }).candidates[0];
+  assert.ok(candidate);
+  const selection = resolveBaziReverseCandidate(candidate);
+  assert.ok(selection);
+  withMockStorage(() => {
+    const input = applyPersonReverseSelection(createInput('合成日期'), 'self', selection);
+    const partner = applyPersonReverseSelection(input, 'partner', selection);
+    assert.equal(partner.birthReverseSource, input.birthReverseSource);
+    assert.equal(partner.partnerBirthSecond, input.birthSecond);
+    assert.equal(getPersonInputMode(partner, 'partner'), 'pillars');
+    assert.equal(partner.partnerUseTrueSolarTime, false);
+    upsertPersonalHistory(input, 'ziwei');
+    const [record] = loadPersonalHistory();
+    assert.equal(getPersonInputMode(record.input, 'self'), 'pillars');
+    assert.deepEqual(parseBaziReverseSource(record.input.birthReverseSource), selection.source);
+    for (const feature of [
+      'bazi',
+      'ziwei',
+      'bazi-ziwei',
+      'qimen-lifetime',
+      'astrolabe',
+      'qizheng',
+      'bazhai',
+      'compatibility',
+    ] as const) {
+      const path = buildChartFeaturePathForCase(record, feature);
+      const restored = parseInputState(new URLSearchParams(path.split('?')[1]));
+      assert.equal(restored.birthReverseSource, input.birthReverseSource, feature);
+      assert.equal(restored.birthSecond, input.birthSecond, feature);
+      assert.equal(restored.useTrueSolarTime, false, feature);
+      assert.equal(getPersonInputMode(restored, 'self'), 'pillars', feature);
+    }
+  });
+});
