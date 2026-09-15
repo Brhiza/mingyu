@@ -214,13 +214,21 @@ function formatLiurenJudgmentFacts(data: LiurenData): string[] {
   const focusEvidence = (data.focusEvidence ?? [])
     .map((item) => {
       const evidence = item.evidence.filter(Boolean).join('、');
-      return evidence ? `${item.target}${item.role ? `（${item.role}）` : ''}：${evidence}` : '';
+      return `${item.target}${item.role ? `（${item.role}）` : ''}，${item.level}：${evidence || '未列依据'}${item.limitations.length ? `；适用条件：${item.limitations.join('、')}` : ''}`;
     })
     .filter(Boolean);
   if (focusEvidence.length) lines.push(`重点依据：${focusEvidence.join('；')}`);
 
   const timingEvidence = (data.timingEvidence ?? []).filter(Boolean);
   if (timingEvidence.length) lines.push(`时令依据：${timingEvidence.join('；')}`);
+  const analysis = data.evidenceAnalysis;
+  if (analysis) {
+    const counters = analysis.counterEvidenceFacts.map((item) => item.promptText);
+    lines.push(
+      `课传反证：${analysis.counterSummaryFact.status}${counters.length ? `；${counters.join('；')}` : ''}`,
+      '类神按问题主题取用，主证与空亡、休囚、冲克条件合看；应期结合三传先后、填实冲合及所问期限判断。',
+    );
+  }
   return lines;
 }
 
@@ -247,7 +255,10 @@ function formatTaiyiJudgmentFacts(data: TaiyiResult): string[] {
     lines.push(
       `阴阳和：${conditions.yinYangHarmony.matched ? '和' : '不和'}${conditions.yinYangHarmony.pairFacts.length ? `；${conditions.yinYangHarmony.pairFacts.map((item) => `${item.role}${item.polarity}${item.count}${item.countPolarity}${item.matched ? '和' : '不和'}`).join('、')}` : ''}`,
     );
-    lines.push(`主客五行：${fiveGenerals.hostGuestElementRelation.relation}`);
+    const relation = fiveGenerals.hostGuestElementRelation;
+    lines.push(
+      `二目五行（位置关系）：文昌${relation.hostPosition}属${relation.hostElement ?? '未列'}，始击${relation.guestPosition}属${relation.guestElement ?? '未列'}；${relation.relation}；主客相关的日计纳音另论，五将发不发依同宫关等条件另判。`,
+    );
   }
 
   if (data.tacticGuidance) lines.push(`攻守参考：${data.tacticGuidance}`);

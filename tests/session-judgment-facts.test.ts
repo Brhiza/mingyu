@@ -32,10 +32,19 @@ test('六壬 aiPrompt 应保留取传与课体判断依据', () => {
     }
   }
   for (const item of data.focusEvidence ?? []) {
+    assert.ok(session.aiPrompt.includes(`，${item.level}：`));
     for (const evidence of item.evidence.filter(Boolean)) {
       assert.ok(session.aiPrompt.includes(evidence));
     }
+    for (const limitation of item.limitations) {
+      assert.ok(session.aiPrompt.includes(limitation));
+    }
   }
+  assert.ok(data.evidenceAnalysis!.counterEvidenceFacts.length > 0);
+  for (const fact of data.evidenceAnalysis!.counterEvidenceFacts) {
+    assert.ok(session.aiPrompt.includes(fact.promptText));
+  }
+  assert.ok(session.aiPrompt.includes(data.evidenceAnalysis!.counterSummaryFact.status));
   for (const evidence of data.timingEvidence ?? []) {
     if (evidence) assert.ok(session.aiPrompt.includes(evidence));
   }
@@ -71,9 +80,14 @@ test('太乙 aiPrompt 应保留三门、五将与阴阳和判断条件', () => {
   );
   assert.ok(session.aiPrompt.includes(`主大将${data.lordGeneral}宫`));
   assert.ok(
-    session.aiPrompt.includes(
-      `主客五行：${data.conditions.fiveGenerals.hostGuestElementRelation.relation}`,
-    ),
+    session.aiPrompt.includes(data.conditions.fiveGenerals.hostGuestElementRelation.relation),
+  );
+  const relation = data.conditions.fiveGenerals.hostGuestElementRelation;
+  assert.ok(session.aiPrompt.includes(`文昌${relation.hostPosition}属${relation.hostElement}`));
+  assert.ok(session.aiPrompt.includes(`始击${relation.guestPosition}属${relation.guestElement}`));
+  assert.match(
+    session.aiPrompt,
+    /二目五行（位置关系）.*日计纳音另论.*五将发不发依同宫关等条件另判/,
   );
   assert.doesNotMatch(session.aiPrompt, /sourceUrl|evidenceAnalysis|https?:\/\//);
 });
