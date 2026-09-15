@@ -21,6 +21,20 @@ const UPSTREAM_FETCH_TIMEOUT_MS = 25_000;
 const UPSTREAM_STREAM_IDLE_TIMEOUT_MS = 30_000;
 const UPSTREAM_STREAM_TOTAL_TIMEOUT_MS = 95_000;
 const UPSTREAM_RETRY_DELAYS_MS = [500, 1500];
+/** 天机：把上游返回的 token 用量写入服务端日志（wrangler pages deployment tail 可见），不含任何对话内容。 */
+function logUpstreamUsage(parsed: unknown) {
+  if (!parsed || typeof parsed !== 'object') return;
+  const { usage, model } = parsed as { usage?: unknown; model?: unknown };
+  if (!usage || typeof usage !== 'object') return;
+  console.log(
+    JSON.stringify({
+      event: 'ai_usage',
+      model: typeof model === 'string' ? model : undefined,
+      usage,
+    }),
+  );
+}
+
 const BLOCKED_CUSTOM_AI_HOSTS = new Set(['localhost', 'metadata', 'metadata.google.internal']);
 
 const SSE_HEADERS: Record<string, string> = {
@@ -184,6 +198,8 @@ export async function handleAiAnalyze(
       body: JSON.stringify({
         model: provider.model,
         stream: true,
+        // 天机：内置 AI 要求上游在流末尾返回 token 用量，用于成本统计（只记用量，不记内容）。
+        ...(provider.mode === 'builtin' ? { stream_options: { include_usage: true } } : {}),
         max_tokens: 8192,
         temperature: 0.7,
         messages: [
@@ -275,6 +291,7 @@ export async function handleAiAnalyze(
                 upstreamStreamError.code,
               );
             }
+            logUpstreamUsage(parsed);
             const delta = parsed?.choices?.[0]?.delta?.content;
             if (typeof delta === 'string' && delta) {
               const payload = JSON.stringify({ content: delta });
@@ -307,6 +324,7 @@ export async function handleAiAnalyze(
                   upstreamStreamError.code,
                 );
               }
+              logUpstreamUsage(parsed);
               const delta = parsed?.choices?.[0]?.delta?.content;
               if (typeof delta === 'string' && delta) {
                 const payload = JSON.stringify({ content: delta });
