@@ -24,6 +24,11 @@
 - 实测一次整体解读 = 串行 2 次调用（规划 → 流式作答），不是 spec 担心的多轮放大，所以把限流从 30 收紧到上游默认的 12 次 / 10 分钟。
 - 浏览器网络面板显示两个请求"同一毫秒"发出，是记录工具的时间戳问题；以 `performance.getEntriesByType('resource')` 的 startTime 为准（2106ms 发出耗时 920ms → 3028ms 发出耗时 19s）。
 
+## 2026-09-15 · 挂到 park-ai-intel.com 子域名
+
+- Park 选子域名 `tianji.park-ai-intel.com`，不用路径 `park-ai-intel.com/tianji`：个人站在 Vercel，走路径要改天机的路由、资源和接口前缀，还要让 Vercel 反向代理，而代理后所有用户会被限流算成同一个 IP。
+- DNS 在 Park 的 Cloudflare 账号（zone `park-ai-intel.com`）；Pages 自定义域名已通过 API 添加，但 wrangler 授权没有 DNS 写权限，CNAME `tianji → tianji-1gz.pages.dev` 由 Park 在后台手动添加。
+
 ## Gotchas
 
 - **限流不是全局上限**：`src/lib/ai/rate-limit.ts` 把计数存在单个进程的内存 Map 里。Cloudflare Pages Functions 多实例各算各的，`AI_RATE_LIMIT_MAX_REQUESTS` 只能挡住单实例内的连续刷，挡不住分布式刷。真正的花费上限是 DeepSeek 账户余额。

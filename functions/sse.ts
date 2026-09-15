@@ -15,9 +15,9 @@ export function onRequest(context: PagesContext): Response {
   return new Response(
     JSON.stringify({
       error:
-        'Cloudflare Pages 边缘节点推荐使用现代 Streamable HTTP 协议端点 https://tianji-1gz.pages.dev/mcp。如需有状态 SSE 会话，可使用本地/自部署 mingyu-mcp 服务。',
+        'Cloudflare Pages 边缘节点推荐使用现代 Streamable HTTP 协议端点 https://tianji.park-ai-intel.com/mcp。如需有状态 SSE 会话，可使用本地/自部署 mingyu-mcp 服务。',
       code: 'USE_STREAMABLE_HTTP',
-      recommendedEndpoint: 'https://tianji-1gz.pages.dev/mcp',
+      recommendedEndpoint: 'https://tianji.park-ai-intel.com/mcp',
       transport: 'streamable-http',
     }),
     {

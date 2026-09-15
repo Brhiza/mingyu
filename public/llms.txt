@@ -4,10 +4,10 @@
 
 ## 入口
 
-- 网站：https://tianji-1gz.pages.dev
-- 八字排盘：https://tianji-1gz.pages.dev/chart/bazi
-- API 能力清单：https://tianji-1gz.pages.dev/api/v1/manifest
-- OpenAPI：https://tianji-1gz.pages.dev/api/v1/openapi.json
+- 网站：https://tianji.park-ai-intel.com
+- 八字排盘：https://tianji.park-ai-intel.com/chart/bazi
+- API 能力清单：https://tianji.park-ai-intel.com/api/v1/manifest
+- OpenAPI：https://tianji.park-ai-intel.com/api/v1/openapi.json
 - 源代码：https://github.com/zinan92/tianji
 
 ## 来源

@@ -2,7 +2,7 @@
 
 > 输入出生时间，排出完整八字命盘，AI 直接为你解读。
 >
-> 在线使用：https://tianji-1gz.pages.dev
+> 在线使用：https://tianji.park-ai-intel.com
 
 ## 来源与修改声明
 
