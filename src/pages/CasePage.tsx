@@ -13,7 +13,8 @@ import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { defaultInputState, type QueryInputState } from '@/lib/query-state';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
-import { PersonForm } from './InputPage.PersonForm';
+import { BaziReverseInput } from '@/components/BaziReverseInput';
+import { PersonForm, type PersonInputMode } from './InputPage.PersonForm';
 import { parseBaziReverseSource } from '@/lib/bazi-reverse-input';
 import {
   WorkspaceButton,
@@ -22,7 +23,12 @@ import {
   WorkspacePage,
   WorkspaceSurface,
 } from '@/components/workspace/WorkspaceUI';
-import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
+import {
+  getFieldKey,
+  getPersonInputMode,
+  applyPersonReverseSelection,
+  type SELF_FIELD_MAP,
+} from './InputPage.field-helpers';
 import type { PersonRole } from '@/lib/input-labels';
 import { DropdownSelect } from '@/components/DropdownSelect';
 import { registerDismissLayer } from '@/lib/dismiss-layer';
@@ -71,6 +77,7 @@ export function CasePage() {
   const [editingRecord, setEditingRecord] = useState<PersonalHistoryRecord | null>(null);
   const [form, setForm] = useState<QueryInputState>(createNewCaseForm);
   const [error, setError] = useState('');
+  const [inputMode, setInputMode] = useState<PersonInputMode>('solar');
   const [openMenuCaseId, setOpenMenuCaseId] = useState<string | null>(null);
   const [caseToDelete, setCaseToDelete] = useState<PersonalHistoryRecord | null>(null);
   const birthPlace = useBirthPlace({ form, setForm });
@@ -80,6 +87,7 @@ export function CasePage() {
     if (!shouldOpenNewCase) return;
     setEditingRecord(null);
     setForm(createNewCaseForm());
+    setInputMode('solar');
     setError('');
     setIsEditorOpen(true);
     setSearchParams({}, { replace: true });
@@ -120,6 +128,7 @@ export function CasePage() {
   function openNewCaseEditor() {
     setEditingRecord(null);
     setForm(createNewCaseForm());
+    setInputMode('solar');
     setError('');
     setIsEditorOpen(true);
   }
@@ -127,6 +136,7 @@ export function CasePage() {
   function openCaseEditor(record: PersonalHistoryRecord) {
     setEditingRecord(record);
     setForm({ ...record.input, analysisMode: 'single' });
+    setInputMode(getPersonInputMode(record.input, 'self'));
     setError('');
     setIsEditorOpen(true);
   }
@@ -195,6 +205,8 @@ export function CasePage() {
   }
 
   function validateCase() {
+    if (inputMode === 'pillars' && !parseBaziReverseSource(form.birthReverseSource))
+      return '请先选择一个四柱候选日期';
     if (!form.year || !form.month || !form.day) return '请填写完整出生日期';
     if (!form.useTrueSolarTime && form.timeIndex === '') return '请选择出生时辰';
     if (form.useTrueSolarTime && (form.birthHour === '' || form.birthMinute === '')) {
@@ -320,7 +332,13 @@ export function CasePage() {
                       </div>
                     </div>
                     <div className="case-card-meta">
-                      <span>{record.input.dateType === 'lunar' ? '农历' : '公历'}</span>
+                      <span>
+                        {getPersonInputMode(record.input, 'self') === 'pillars'
+                          ? '四柱日期'
+                          : record.input.dateType === 'lunar'
+                            ? '农历'
+                            : '公历'}
+                      </span>
                       <strong>{record.birthText}</strong>
                       <span>{formatBirthTime(record)}</span>
                       {record.input.birthPlace ? <span>{record.input.birthPlace}</span> : null}
@@ -413,6 +431,23 @@ export function CasePage() {
               updateBirthTime={updateBirthTime}
               openBirthPlaceModal={birthPlace.openBirthPlaceModal}
               sectionTitle="出生资料"
+              inputMode={inputMode}
+              onInputModeChange={(mode) => {
+                if (mode === inputMode) return;
+                setInputMode(mode);
+                if (mode !== 'pillars') updatePersonField('self', 'dateType', mode);
+                setError('');
+              }}
+              reversePanel={
+                <BaziReverseInput
+                  source={parseBaziReverseSource(form.birthReverseSource)}
+                  onInvalidate={() => updatePersonField('self', 'reverseSource', '')}
+                  onSelect={(selection) => {
+                    setForm((current) => applyPersonReverseSelection(current, 'self', selection));
+                    setError('');
+                  }}
+                />
+              }
               reverseSource={parseBaziReverseSource(form.birthReverseSource)}
             />
             {error ? <div className="workspace-ui-form-error">{error}</div> : null}

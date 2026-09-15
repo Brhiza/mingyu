@@ -8,7 +8,7 @@ export type BaziReverseSource = {
 };
 
 /**
- * 现有八字输入页能表达的反推回填资料。
+ * 通用日期输入使用的四柱候选资料。
  *
  * 反推核心会保留秒级边界，回填使用候选区间起点作为“区间代表时刻”，
  * 并同时保留标准北京时间的时、分、秒。这个代表时刻用于复核四柱，不
@@ -101,4 +101,9 @@ export function parseBaziReverseSource(value: string | undefined): BaziReverseSo
   } catch {
     return null;
   }
+}
+
+/** 将日期区间作为盘面事实传给结果页和解读任务。 */
+export function formatBirthTimeInterval(source: BaziReverseSource, label = '出生时间') {
+  return `${label}范围（北京时间）：${source.intervalStart} 至 ${source.intervalEnd}（起点含、终点不含）；当前盘面采用区间起点作为代表时刻。涉及区间内时间变化的结论需结合具体时刻复核。`;
 }

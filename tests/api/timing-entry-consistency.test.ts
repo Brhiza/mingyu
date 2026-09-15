@@ -82,6 +82,36 @@ const cases: Array<[string, string, Record<string, unknown>]> = [
       periodRange: { startDate: '2026-01-01', endDate: '2027-12-31' },
     },
   ],
+  [
+    '星盘秒级标准北京时间',
+    'divine_astrolabe',
+    {
+      year: 2000,
+      month: 1,
+      day: 7,
+      hour: 9,
+      minute: 0,
+      second: 37,
+      timezone: 8,
+      latitude: 39.9,
+      longitude: 116.4,
+    },
+  ],
+  [
+    '七政秒级标准北京时间',
+    'metaphysics_qizheng',
+    {
+      year: 2000,
+      month: 1,
+      day: 7,
+      hour: 9,
+      minute: 0,
+      second: 37,
+      timezone: 8,
+      latitude: 39.9,
+      longitude: 116.4,
+    },
+  ],
 ];
 
 for (const [label, tool, input] of cases) {
@@ -104,6 +134,13 @@ for (const [label, tool, input] of cases) {
       }
       // 输入回显可省略默认字段；实际默认口径由 basis 和完整盘面共同核验。
       assert.deepEqual(mcpFacts, httpFacts);
+    } else if (tool === 'divine_astrolabe') {
+      const { timestamp: httpTimestamp, ...httpChart } = http.body.data;
+      const { timestamp: mcpTimestamp, ...mcpChart } = mcpResult;
+      assert.ok(Number.isFinite(httpTimestamp));
+      assert.ok(Number.isFinite(mcpTimestamp));
+      assert.match(httpChart.birth.standardDateTime, /09:00:37$/);
+      assert.deepEqual(mcpChart, httpChart);
     } else {
       assert.deepEqual(mcpResult, http.body.data);
     }
@@ -118,3 +155,23 @@ test('皇极日期与年坐标混用在 HTTP 与 MCP 均返回错误', async () 
   const mcp = await client.callTool({ name: tool, arguments: input });
   assert.equal(mcp.isError, true);
 });
+
+for (const tool of ['divine_astrolabe', 'metaphysics_qizheng']) {
+  test(`${tool} 拒绝越界秒数`, async () => {
+    const input = {
+      year: 2000,
+      month: 1,
+      day: 7,
+      hour: 9,
+      minute: 0,
+      second: 60,
+      timezone: 8,
+      latitude: 39.9,
+      longitude: 116.4,
+    };
+    const http = await callHttp(tool, input);
+    assert.equal(http.response.status, 400);
+    const mcp = await client.callTool({ name: tool, arguments: input });
+    assert.equal(mcp.isError, true);
+  });
+}

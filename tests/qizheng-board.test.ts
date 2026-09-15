@@ -33,6 +33,47 @@ test('七政四余页面应能直接渲染并显示典籍折叠区', () => {
   assert.match(html, /果老星宗/);
 });
 
+test('七政四余可选秒数应贯穿天文时间、光照证据与出生提示，省略时保持默认结果', () => {
+  const withoutSecond = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+  const withSecond = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    second: 37,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+
+  assert.equal(withoutSecond.calculationContext.localDateTime, '1990-06-15T10:30:00');
+  assert.equal(withSecond.calculationContext.localDateTime, '1990-06-15T10:30:37');
+  assert.equal(withSecond.calculationContext.astronomicalTime.localDateTime, '1990-06-15 10:30:37');
+  assert.equal(
+    withSecond.calculationContext.solarIllumination.referenceLocalDateTime,
+    '1990-06-15 10:30:37',
+  );
+  assert.match(withSecond.prompt, /出生时间：1990年6月15日 10:30:37/);
+  assert.notEqual(
+    withSecond.stars.find((item) => item.name === '太阳')?.tropicalLongitude,
+    withoutSecond.stars.find((item) => item.name === '太阳')?.tropicalLongitude,
+  );
+  assert.throws(
+    () => generateQizheng({ year: 1990, month: 6, day: 15, hour: 10, second: 60 }),
+    /秒需在 0-59 之间/,
+  );
+});
+
 test('现代黄经宫序必须先换成传统宫支再查命主', () => {
   assert.deepEqual(QIZHENG_SIGN_BRANCHES, [
     '戌',

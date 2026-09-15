@@ -143,6 +143,7 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
       'day',
       'hour',
       'minute',
+      'second',
       'latitude',
       'longitude',
       'timezone',
@@ -172,6 +173,7 @@ const CALCULATION_PARAMETER_RULES: Record<string, CalculationParameterRule> = {
       'day',
       'hour',
       'minute',
+      'second',
       'latitude',
       'longitude',
       'timezone',
@@ -890,7 +892,7 @@ function assertAstrolabeResult(
     const expectedClock =
       locked.hour === undefined
         ? undefined
-        : `${String(locked.hour).padStart(2, '0')}:${String(locked.minute ?? 0).padStart(2, '0')}`;
+        : `${String(locked.hour).padStart(2, '0')}:${String(locked.minute ?? 0).padStart(2, '0')}${Number(locked.second ?? 0) ? `:${String(locked.second).padStart(2, '0')}` : ''}`;
     if (expectedClock) {
       assertStructuredField(
         'astrolabe.standardDateTime',
@@ -941,7 +943,7 @@ function assertQizhengResult(
       day: Number(locked.day),
       hour: Number(locked.hour),
       minute: Number(locked.minute ?? 0),
-      second: 0,
+      second: Number(locked.second ?? 0),
       timezone: locked.timezone === undefined ? undefined : Number(locked.timezone),
       timeZoneId: typeof locked.timeZoneId === 'string' ? locked.timeZoneId : undefined,
     },

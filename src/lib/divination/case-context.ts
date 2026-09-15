@@ -1,5 +1,6 @@
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { PersonalHistoryRecord } from '@/lib/history-records';
+import { parseBaziReverseSource } from '@/lib/bazi-reverse-input';
 
 const ACTIVE_CASE_PARTICIPANT_PREFIX = 'active-case:';
 
@@ -21,6 +22,7 @@ export function applyPersonalCaseToDivinationDraft(
   }
 
   const input = activeCase.input;
+  const reverseSource = parseBaziReverseSource(input.birthReverseSource);
   return {
     ...draft,
     gender: input.gender === 'male' ? '男' : '女',
@@ -34,14 +36,16 @@ export function applyPersonalCaseToDivinationDraft(
         month: input.month,
         day: input.day,
         timeIndex: input.timeIndex === '' ? '' : String(input.timeIndex),
-        dateType: input.dateType,
-        isLeapMonth: input.isLeapMonth,
+        dateType: reverseSource ? 'solar' : input.dateType,
+        ...(reverseSource ? { inputMode: 'pillars' as const } : {}),
+        isLeapMonth: reverseSource ? false : input.isLeapMonth,
         ...(input.birthHour !== '' ? { birthHour: input.birthHour } : {}),
         ...(input.birthMinute !== '' ? { birthMinute: input.birthMinute } : {}),
         ...(input.birthSecond !== '' ? { birthSecond: input.birthSecond } : {}),
         ...(input.birthPlace.trim() ? { birthPlace: input.birthPlace } : {}),
         ...(input.birthLongitude.trim() ? { birthLongitude: input.birthLongitude } : {}),
         ...(input.useTrueSolarTime ? { useTrueSolarTime: true } : {}),
+        ...(reverseSource ? { reverseSource } : {}),
       },
       ...remainingParticipants,
     ],

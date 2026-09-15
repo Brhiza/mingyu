@@ -10,7 +10,8 @@ import { getPersonValue, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from './InputPage.field-helpers';
 import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
 
-export type PersonInputMode = 'birth' | 'pillars';
+import type { PersonInputMode } from './InputPage.field-helpers';
+export type { PersonInputMode } from './InputPage.field-helpers';
 
 const BIRTH_TIME_DROPDOWN_OPTIONS = [
   { value: '', label: '请选择时辰' },
@@ -79,7 +80,7 @@ export const PersonForm = memo(function PersonForm({
   footerHint,
   forcePreciseBirthPlace = false,
   showNameField = true,
-  inputMode = 'birth',
+  inputMode,
   onInputModeChange,
   reversePanel,
   reverseSource = null,
@@ -95,9 +96,10 @@ export const PersonForm = memo(function PersonForm({
             : ''
         }`
       : '';
+  const effectiveInputMode =
+    inputMode ?? (getPersonValue(form, role, 'dateType') === 'lunar' ? 'lunar' : 'solar');
   const isLunar = getPersonValue(form, role, 'dateType') === 'lunar';
-  const useTrueSolarTime =
-    forcePreciseBirthPlace || Boolean(getPersonValue(form, role, 'useTrueSolarTime'));
+  const useTrueSolarTime = Boolean(getPersonValue(form, role, 'useTrueSolarTime'));
   const trueSolarTimeLabel = getTrueSolarTimeLabel(form, role);
   const hasPreciseStandardTime = getPersonValue(form, role, 'birthSecond') !== '';
   const canChooseInputMode = Boolean(onInputModeChange && reversePanel);
@@ -142,43 +144,30 @@ export const PersonForm = memo(function PersonForm({
           </div>
         </div>
 
-        {canChooseInputMode ? (
-          <div className="workspace-ui-form-row">
-            <div className="workspace-ui-field">
-              <label>出生资料方式</label>
-              <SegmentedControl
-                value={inputMode === 'pillars'}
-                options={[
-                  { label: '按出生日期', value: false },
-                  { label: '已知四柱反推', value: true },
-                ]}
-                onChange={(value) => onInputModeChange?.(value ? 'pillars' : 'birth')}
-              />
-            </div>
+        <div className="workspace-ui-form-row">
+          <div className="workspace-ui-field">
+            <label>日期输入</label>
+            <SegmentedControl
+              value={effectiveInputMode}
+              options={[
+                { label: '公历', value: 'solar' as const },
+                { label: '农历', value: 'lunar' as const },
+                ...(canChooseInputMode ? [{ label: '四柱', value: 'pillars' as const }] : []),
+              ]}
+              onChange={(value) =>
+                onInputModeChange
+                  ? onInputModeChange(value)
+                  : updatePersonField(role, 'dateType', value === 'lunar' ? 'lunar' : 'solar')
+              }
+            />
           </div>
-        ) : null}
+        </div>
 
-        {inputMode === 'pillars' && reversePanel ? (
+        {effectiveInputMode === 'pillars' && reversePanel ? (
           reversePanel
         ) : (
           <>
-            <div
-              className={`workspace-ui-form-row ${isLunar ? 'is-three-column' : 'is-two-column'}`}
-            >
-              <div className="workspace-ui-field">
-                <label>日历</label>
-                <SegmentedControl
-                  value={isLunar}
-                  options={[
-                    { label: '公历', value: false },
-                    { label: '农历', value: true },
-                  ]}
-                  onChange={(value) =>
-                    updatePersonField(role, 'dateType', value ? 'lunar' : 'solar')
-                  }
-                />
-              </div>
-
+            <div className="workspace-ui-form-row">
               {isLunar ? (
                 <div className="workspace-ui-field">
                   <label>月别</label>
@@ -252,12 +241,16 @@ export const PersonForm = memo(function PersonForm({
               </div>
             )}
 
-            {useTrueSolarTime || hasPreciseStandardTime ? (
+            {forcePreciseBirthPlace || useTrueSolarTime || hasPreciseStandardTime ? (
               <>
                 <div className="workspace-ui-form-row">
                   <div className="workspace-ui-field">
                     <label htmlFor={`${role}-birth-time-input`}>
-                      {useTrueSolarTime ? '精准时间' : '标准北京时间（精确到秒）'}
+                      {useTrueSolarTime
+                        ? '精准时间'
+                        : hasPreciseStandardTime
+                          ? '标准北京时间（精确到秒）'
+                          : '北京时间'}
                     </label>
                     <input
                       id={`${role}-birth-time-input`}
@@ -272,25 +265,6 @@ export const PersonForm = memo(function PersonForm({
                     ) : null}
                   </div>
                 </div>
-
-                {useTrueSolarTime ? (
-                  <div className="workspace-ui-form-row">
-                    <div className="workspace-ui-field">
-                      <label htmlFor={`${role}-birth-place-input`}>出生地</label>
-                      <button
-                        id={`${role}-birth-place-input`}
-                        type="button"
-                        className="workspace-ui-control address-trigger"
-                        onClick={() => openBirthPlaceModal(role)}
-                      >
-                        <span>
-                          {String(getPersonValue(form, role, 'birthPlace')) || '请选择出生地'}
-                        </span>
-                        <span className="address-trigger-arrow">选择</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
               </>
             ) : (
               <div className="workspace-ui-form-row">
@@ -308,16 +282,32 @@ export const PersonForm = memo(function PersonForm({
                 </div>
               </div>
             )}
-
-            {reverseSource ? (
-              <div className="workspace-ui-field-hint">
-                四柱来源：{Object.values(reverseSource.pillars).join(' ')}；候选区间{' '}
-                {reverseSource.intervalStart} 至 {reverseSource.intervalEnd}（起点含、终点不含）。
-                已按区间起点 {birthTimeValue || '代表时刻'} 回填，这不是对真实出生秒数的确定。
-              </div>
-            ) : null}
           </>
         )}
+        {forcePreciseBirthPlace || useTrueSolarTime ? (
+          <div className="workspace-ui-form-row">
+            <div className="workspace-ui-field">
+              <label htmlFor={`${role}-birth-place-input`}>出生地</label>
+              <button
+                id={`${role}-birth-place-input`}
+                type="button"
+                className="workspace-ui-control address-trigger"
+                onClick={() => openBirthPlaceModal(role)}
+              >
+                <span>{String(getPersonValue(form, role, 'birthPlace')) || '请选择出生地'}</span>
+                <span className="address-trigger-arrow">选择</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {reverseSource ? (
+          <div className="workspace-ui-field-hint">
+            已选日期（四柱输入）：{Object.values(reverseSource.pillars).join(' ')}；候选区间{' '}
+            {reverseSource.intervalStart} 至 {reverseSource.intervalEnd}（起点含、终点不含）。
+            采用区间起点 {birthTimeValue || '代表时刻'}
+            （北京时间）。其他术数将使用该代表时刻，完整区间仍予保留。
+          </div>
+        ) : null}
       </div>
       {footerHint ? <div className="workspace-ui-form-case-hint">{footerHint}</div> : null}
     </section>

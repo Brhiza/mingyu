@@ -1,11 +1,19 @@
 import { ALMANAC_TOPIC_OPTIONS } from 'mingyu-core/divination/config';
-import type { AlmanacParticipantInput } from '@/types/divination';
 import { DropdownSelect } from '@/components/DropdownSelect';
 import { WorkspaceButton } from '@/components/workspace/WorkspaceUI';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { PersonalHistoryRecord } from '@/lib/history-records';
 import { createSecureId } from '@/lib/secure-id';
-import { updateAlmanacParticipantField } from '@/lib/divination/almanac-participants';
+import { BaziReverseInput } from '@/components/BaziReverseInput';
+import { formatBirthTimeInterval, parseBaziReverseSource } from '@/lib/bazi-reverse-input';
+import {
+  applyAlmanacReverseSelection,
+  getAlmanacParticipantInputMode,
+  updateAlmanacParticipantField,
+  type AlmanacParticipantInputMode,
+} from '@/lib/divination/almanac-participants';
+import type { DivinationAlmanacParticipant } from '@/lib/divination/time-input';
+import { isBaziReverseSource } from '@/lib/divination/time-input';
 import { GanzhiCalendarPanel } from './GanzhiCalendarPanel';
 
 const OPTIONAL_GENDER_OPTIONS = [
@@ -14,9 +22,10 @@ const OPTIONAL_GENDER_OPTIONS = [
   { value: '女', label: '女' },
 ] as const;
 
-const CALENDAR_TYPE_OPTIONS = [
+const PARTICIPANT_INPUT_MODE_OPTIONS = [
   { value: 'solar', label: '公历' },
   { value: 'lunar', label: '农历' },
+  { value: 'pillars', label: '四柱' },
 ] as const;
 
 const BIRTH_TIME_OPTIONS = [
@@ -77,8 +86,9 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
-function participantFromCase(record: PersonalHistoryRecord): AlmanacParticipantInput {
+function participantFromCase(record: PersonalHistoryRecord): DivinationAlmanacParticipant {
   const input = record.input;
+  const reverseSource = parseBaziReverseSource(input.birthReverseSource);
   return {
     id: `case:${record.id}`,
     name: record.name,
@@ -87,24 +97,29 @@ function participantFromCase(record: PersonalHistoryRecord): AlmanacParticipantI
     month: input.month,
     day: input.day,
     timeIndex: input.timeIndex === '' ? '' : String(input.timeIndex),
-    dateType: input.dateType,
-    isLeapMonth: input.isLeapMonth,
+    dateType: reverseSource ? 'solar' : input.dateType,
+    ...(reverseSource ? { inputMode: 'pillars' as const } : {}),
+    isLeapMonth: reverseSource ? false : input.isLeapMonth,
     ...(input.birthHour !== '' ? { birthHour: input.birthHour } : {}),
     ...(input.birthMinute !== '' ? { birthMinute: input.birthMinute } : {}),
     ...(input.birthSecond !== '' ? { birthSecond: input.birthSecond } : {}),
     ...(input.birthPlace.trim() ? { birthPlace: input.birthPlace } : {}),
     ...(input.birthLongitude.trim() ? { birthLongitude: input.birthLongitude } : {}),
     ...(input.useTrueSolarTime ? { useTrueSolarTime: true } : {}),
+    ...(reverseSource ? { reverseSource } : {}),
   };
 }
 
-function getParticipantCaseId(participant: AlmanacParticipantInput) {
+function getParticipantCaseId(participant: DivinationAlmanacParticipant) {
   if (participant.id.startsWith('active-case:')) return participant.id.slice('active-case:'.length);
   if (participant.id.startsWith('case:')) return participant.id.slice('case:'.length);
   return '';
 }
 
-function getParticipantSummary(participant: AlmanacParticipantInput) {
+function getParticipantSummary(participant: DivinationAlmanacParticipant) {
+  if (isBaziReverseSource(participant.reverseSource)) {
+    return `四柱日期 · ${participant.reverseSource.intervalStart} 至 ${participant.reverseSource.intervalEnd}（北京时间）`;
+  }
   const birthDate =
     participant.year && participant.month && participant.day
       ? `${participant.year}-${participant.month.padStart(2, '0')}-${participant.day.padStart(2, '0')}`
@@ -138,13 +153,22 @@ export function AlmanacForm({
 
   function updateParticipant(
     id: string,
-    key: keyof AlmanacParticipantInput,
-    value: string | boolean,
+    key: keyof DivinationAlmanacParticipant,
+    value: string | boolean | null,
   ) {
     updateDraft(
       'almanacParticipants',
       draft.almanacParticipants.map((item) =>
         item.id === id ? updateAlmanacParticipantField(item, key, value) : item,
+      ),
+    );
+  }
+
+  function updateParticipantInputMode(id: string, mode: AlmanacParticipantInputMode) {
+    updateDraft(
+      'almanacParticipants',
+      draft.almanacParticipants.map((item) =>
+        item.id === id ? updateAlmanacParticipantField(item, 'inputMode', mode) : item,
       ),
     );
   }
@@ -161,6 +185,7 @@ export function AlmanacForm({
         day: '',
         timeIndex: '',
         dateType: 'solar',
+        inputMode: 'solar',
         isLeapMonth: false,
       },
     ]);
@@ -176,6 +201,18 @@ export function AlmanacForm({
     updateDraft(
       'almanacParticipants',
       draft.almanacParticipants.filter((item) => item.id !== id),
+    );
+  }
+
+  function selectParticipantReverseDate(
+    id: string,
+    selection: Parameters<typeof applyAlmanacReverseSelection>[1],
+  ) {
+    updateDraft(
+      'almanacParticipants',
+      draft.almanacParticipants.map((item) =>
+        item.id === id ? applyAlmanacReverseSelection(item, selection) : item,
+      ),
     );
   }
 
@@ -400,50 +437,79 @@ export function AlmanacForm({
                       />
                     </div>
                   </div>
-                  <div className="form-row-flex has-third-item">
-                    {(['year', 'month', 'day'] as const).map((key) => (
-                      <div className="form-item" key={key}>
-                        <label htmlFor={`${participant.id}-${key}-input`}>
-                          {key === 'year' ? '年' : key === 'month' ? '月' : '日'}
-                        </label>
-                        <input
-                          id={`${participant.id}-${key}-input`}
-                          className="form-input"
-                          inputMode="numeric"
-                          value={participant[key]}
-                          onChange={(event) =>
-                            updateParticipant(
-                              participant.id,
-                              key,
-                              event.target.value.replace(/[^\d]/g, ''),
-                            )
+                  <div className="form-row-flex">
+                    <div className="form-item">
+                      <label htmlFor={`${participant.id}-input-mode-select`}>日期方式</label>
+                      <DropdownSelect
+                        id={`${participant.id}-input-mode-select`}
+                        value={getAlmanacParticipantInputMode(participant)}
+                        options={PARTICIPANT_INPUT_MODE_OPTIONS}
+                        variant="field"
+                        onChange={(value) =>
+                          updateParticipantInputMode(
+                            participant.id,
+                            value as AlmanacParticipantInputMode,
+                          )
+                        }
+                      />
+                    </div>
+                    {getAlmanacParticipantInputMode(participant) !== 'pillars' ? (
+                      <div className="form-item">
+                        <label htmlFor={`${participant.id}-time-select`}>时辰</label>
+                        <DropdownSelect
+                          id={`${participant.id}-time-select`}
+                          value={participant.timeIndex}
+                          options={BIRTH_TIME_OPTIONS}
+                          variant="field"
+                          onChange={(value) =>
+                            updateParticipant(participant.id, 'timeIndex', value)
                           }
                         />
                       </div>
-                    ))}
+                    ) : null}
                   </div>
-                  <div className="form-row-flex">
-                    <div className="form-item">
-                      <label htmlFor={`${participant.id}-calendar-select`}>日历</label>
-                      <DropdownSelect
-                        id={`${participant.id}-calendar-select`}
-                        value={participant.dateType}
-                        options={CALENDAR_TYPE_OPTIONS}
-                        variant="field"
-                        onChange={(value) => updateParticipant(participant.id, 'dateType', value)}
+                  {getAlmanacParticipantInputMode(participant) === 'pillars' ? (
+                    <>
+                      <BaziReverseInput
+                        key={`${participant.id}-pillars`}
+                        source={participant.reverseSource ?? null}
+                        onInvalidate={() =>
+                          updateParticipant(participant.id, 'reverseSource', null)
+                        }
+                        onSelect={(selection) =>
+                          selectParticipantReverseDate(participant.id, selection)
+                        }
                       />
+                      {isBaziReverseSource(participant.reverseSource) ? (
+                        <div className="workspace-ui-field-hint">
+                          {formatBirthTimeInterval(participant.reverseSource, '候选时间')}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="form-row-flex has-third-item">
+                      {(['year', 'month', 'day'] as const).map((key) => (
+                        <div className="form-item" key={key}>
+                          <label htmlFor={`${participant.id}-${key}-input`}>
+                            {key === 'year' ? '年' : key === 'month' ? '月' : '日'}
+                          </label>
+                          <input
+                            id={`${participant.id}-${key}-input`}
+                            className="form-input"
+                            inputMode="numeric"
+                            value={participant[key]}
+                            onChange={(event) =>
+                              updateParticipant(
+                                participant.id,
+                                key,
+                                event.target.value.replace(/[^\d]/g, ''),
+                              )
+                            }
+                          />
+                        </div>
+                      ))}
                     </div>
-                    <div className="form-item">
-                      <label htmlFor={`${participant.id}-time-select`}>时辰</label>
-                      <DropdownSelect
-                        id={`${participant.id}-time-select`}
-                        value={participant.timeIndex}
-                        options={BIRTH_TIME_OPTIONS}
-                        variant="field"
-                        onChange={(value) => updateParticipant(participant.id, 'timeIndex', value)}
-                      />
-                    </div>
-                  </div>
+                  )}
                   <button
                     type="button"
                     className="almanac-participant-remove"

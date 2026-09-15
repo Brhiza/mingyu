@@ -414,6 +414,8 @@ export interface QizhengInput {
   day: number;
   hour: number;
   minute?: number;
+  /** 可选出生秒数；省略时按 0 秒计算。 */
+  second?: number;
   latitude?: number;
   longitude?: number;
   timezone?: number;
@@ -800,6 +802,7 @@ function validateQizhengInput(input: QizhengInput, includeLocation: boolean): vo
   }
   assertIntegerRange(input.hour, '小时', 0, 23);
   assertIntegerRange(input.minute ?? 0, '分钟', 0, 59);
+  assertIntegerRange(input.second ?? 0, '秒', 0, 59);
   if (input.timezone !== undefined) assertNumberRange(input.timezone, '时区', -12, 14);
   if (input.timeZoneId !== undefined && !input.timeZoneId.trim()) {
     throw new Error('IANA 时区名不能为空。');
@@ -849,7 +852,7 @@ function buildQizhengAstronomicalTime(input: QizhengInput): AstronomicalTimeEvid
     day: input.day,
     hour: input.hour,
     minute: input.minute ?? 0,
-    second: 0,
+    second: input.second ?? 0,
     timezone: input.timezone ?? (input.timeZoneId ? undefined : 8),
     timeZoneId: input.timeZoneId,
   });
@@ -1082,14 +1085,14 @@ function buildCalculationContext(
     day: input.day,
     hour: input.hour,
     minute: input.minute ?? 0,
-    second: 0,
+    second: input.second ?? 0,
     latitude,
     longitude,
     timezone: astronomicalTime.timezone,
     timeZoneId: input.timeZoneId,
   });
   return {
-    localDateTime: `${input.year}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}T${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}:00`,
+    localDateTime: `${input.year}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}T${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}:${String(input.second ?? 0).padStart(2, '0')}`,
     utcDateTime: new Date(astronomicalTime.unixMilliseconds).toISOString(),
     timezone: astronomicalTime.timezone,
     latitude,
@@ -2133,6 +2136,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
         day: input.day,
         hour: input.hour,
         minute: input.minute ?? 0,
+        second: input.second ?? 0,
       },
       lon,
       standardMeridian,
@@ -2181,7 +2185,14 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
 
   // 神煞（年支 + 日干）
   const dateGanZhi = getGanZhiFromDate(
-    new Date(input.year, input.month - 1, input.day, input.hour, input.minute ?? 0),
+    new Date(
+      input.year,
+      input.month - 1,
+      input.day,
+      input.hour,
+      input.minute ?? 0,
+      input.second ?? 0,
+    ),
   );
   const yearBranch = dateGanZhi.year[1];
   const dayGan = dateGanZhi.day[0];
@@ -2211,7 +2222,14 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   let timeLords: QizhengTimeLordResult | undefined;
   if (input.gender && flowCivil) {
     const birthGanZhi = getGanZhiFromDate(
-      new Date(input.year, input.month - 1, input.day, input.hour, input.minute ?? 0),
+      new Date(
+        input.year,
+        input.month - 1,
+        input.day,
+        input.hour,
+        input.minute ?? 0,
+        input.second ?? 0,
+      ),
     );
     const flowGanZhi = getGanZhiFromDate(
       new Date(
@@ -2241,7 +2259,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
 
   const prompt = [
     `【七政四余 · 果老星宗】`,
-    `出生时间：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}。`,
+    `出生时间：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}${input.second ? `:${String(input.second).padStart(2, '0')}` : ''}。`,
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
     ...stars.map(
       (s) =>

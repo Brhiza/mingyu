@@ -116,6 +116,42 @@ test('不同年份的合成日期可经反推和完整输入链路复核', () =>
   }
 });
 
+test('历史夏令时年份的合成候选仍按固定东八区解释', () => {
+  const target = getGanZhiFromDate(new Date(1988, 6, 18, 9, 0, 37));
+  const reversed = reverseBaziDates({ pillars: target, startYear: 1988, endYear: 1988 });
+  const candidate = reversed.candidates.find((item) => item.start.text === '1988-07-18 09:00:00');
+  assert.ok(candidate);
+  assert.equal(candidate.end.text, '1988-07-18 11:00:00');
+
+  const selection = resolveBaziReverseCandidate(candidate);
+  assert.ok(selection);
+  assert.equal(selection.representativeHour, 9);
+  assert.equal(selection.representativeMinute, 0);
+  assert.equal(selection.representativeSecond, 0);
+  const chart = calculateBaziChartFromInput({
+    gender: 'male',
+    year: selection.year,
+    month: selection.month,
+    day: selection.day,
+    dateType: 'solar',
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    timeIndex: '',
+    birthHour: selection.representativeHour,
+    birthMinute: selection.representativeMinute,
+    birthSecond: selection.representativeSecond,
+  });
+  assert.deepEqual(
+    {
+      year: chart.pillars.year.ganZhi,
+      month: chart.pillars.month.ganZhi,
+      day: chart.pillars.day.ganZhi,
+      hour: chart.pillars.hour.ganZhi,
+    },
+    target,
+  );
+});
+
 test('候选回填经查询状态和前端排盘链路仍保持四柱', () => {
   const target = getGanZhiFromDate(new Date(2000, 0, 7, 9));
   const candidate = reverseBaziDates({ pillars: target, startYear: 2000, endYear: 2000 })

@@ -37,6 +37,7 @@ const astrolabeSchema = z.object({
   day: z.number().describe('出生日'),
   hour: z.number().describe('出生小时'),
   minute: z.number().describe('出生分钟'),
+  second: z.number().int().min(0).max(59).optional().describe('出生秒数，默认0'),
   latitude: z.number().describe('出生地纬度'),
   longitude: z.number().describe('出生地经度'),
   timezone: z.number().optional().describe('固定时区偏移，例如中国大陆通常为 8'),
@@ -115,6 +116,9 @@ function buildAstrolabeInput(args: z.infer<typeof astrolabeSchema>): AstrolabeBi
     day: String(args.day),
     hour: String(hour),
     minute: String(minute),
+    second: String(
+      args.second === undefined ? 0 : readMcpIntegerLikeInRange(args.second, 'second', 0, 59),
+    ),
     latitude: String(latitude),
     longitude: String(longitude),
     ...(timezone !== undefined ? { timezone: String(timezone) } : {}),

@@ -1,6 +1,5 @@
 import type {
   AlmanacData,
-  AlmanacParticipantInput,
   AlmanacTopic,
   AstrolabeBirthInput,
   DivinationData,
@@ -20,6 +19,10 @@ import type {
   MeihuaObjectType,
   MeihuaDivinationMethod,
 } from '../../../types/divination';
+import { isBaziReverseSource } from '../time-input';
+import type { DivinationAlmanacParticipant, DivinationTimeMode } from '../time-input';
+import { formatBirthTimeInterval } from '@/lib/bazi-reverse-input';
+import type { BaziReverseSource } from '@/lib/bazi-reverse-input';
 import type { DivinationMethodId } from 'mingyu-core/divination/config';
 import type { HuangjiJingshiResult, HuangjiSixDayCalendarModel } from 'mingyu-core/huangji-jingshi';
 import type { WuyunLiuqiResult } from 'mingyu-core/wuyun-liuqi';
@@ -99,9 +102,11 @@ export type DivinationDraft = {
   userSupplement?: string;
   gender: '' | '男' | '女';
   birthYear: string;
-  divinationTimeMode?: 'current' | 'custom';
+  divinationTimeMode?: DivinationTimeMode;
   customDivinationDate?: string;
   customDivinationTime?: string;
+  /** 四柱反推已选候选的来源区间；为空时不得使用旧代表日期提交。 */
+  divinationReverseSource?: BaziReverseSource | null;
   divinationTimeStandard?: 'beijing' | 'true-solar';
   huangjiMethod?: 'standard' | 'six-day';
   huangjiSixDayCalendarModel?: HuangjiSixDayCalendarModel;
@@ -144,7 +149,7 @@ export type DivinationDraft = {
   almanacEndDate: string;
   almanacWeekendPreference?: 'any' | 'prefer' | 'avoid';
   almanacTimePreferences?: Array<'work-hours' | 'morning' | 'afternoon'>;
-  almanacParticipants: AlmanacParticipantInput[];
+  almanacParticipants: DivinationAlmanacParticipant[];
   lenormandSpread: LenormandSpreadType;
   lenormandMethod?: 'random' | 'manual' | 'interactive';
   lenormandManualCardIds?: number[];
@@ -193,6 +198,7 @@ export type DivinationTimeContext = {
   equationOfTimeMinutes?: number;
   totalCorrectionMinutes?: number;
   crossesDate?: boolean;
+  reverseSource?: BaziReverseSource;
   promptText: string;
 };
 
@@ -204,6 +210,7 @@ export type BuildDivinationPromptOptions = {
   astrolabeScopeText?: string;
   schools?: readonly string[];
   timeContextText?: string;
+  almanacParticipantTimeContextText?: string;
   topicId?: string;
   subtopicId?: string;
   scope?: string;
@@ -257,6 +264,10 @@ export function buildDivinationPrompt(
       ? { ...supplementaryInfo, userSupplement: '' }
       : supplementaryInfo,
   );
+  const almanacParticipantTimeSection =
+    method === 'almanac' && options.almanacParticipantTimeContextText
+      ? buildSection('【参与人出生时间口径】', options.almanacParticipantTimeContextText)
+      : '';
   const liurenTemplateSection =
     method === 'liuren'
       ? buildSection('【问题范围】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
@@ -306,6 +317,7 @@ export function buildDivinationPrompt(
       buildSection('【当前时间】', timeInfo),
       options.timeContextText ? buildSection('【起局时间口径】', options.timeContextText) : '',
       supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
+      almanacParticipantTimeSection,
       buildSection('【排盘信息】', infoText),
       buildSection('【分析对象】', buildLiurenAnalysisObjectText(data as LiurenData)),
       schoolSection,
@@ -323,6 +335,7 @@ export function buildDivinationPrompt(
     isSignPrompt ? '' : buildSection('【当前时间】', timeInfo),
     options.timeContextText ? buildSection('【起局时间口径】', options.timeContextText) : '',
     supplementarySection ? buildSection('【补充信息】', supplementarySection) : '',
+    almanacParticipantTimeSection,
     astrolabeScopeText ? buildSection('【分析对象】', astrolabeScopeText) : '',
     buildSection('【占卜信息】', infoText),
     schoolSection,
@@ -402,8 +415,9 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
     info.meihuaSettings = meihuaSettings;
   }
   const userSupplement = draft.userSupplement?.trim();
-  if (draft.method === 'almanac' && draft.question.trim()) {
-    info.userSupplement = [draft.question.trim(), userSupplement].filter(Boolean).join('\n');
+  if (draft.method === 'almanac') {
+    const almanacFacts = [draft.question.trim(), userSupplement].filter(Boolean);
+    if (almanacFacts.length) info.userSupplement = almanacFacts.join('\n');
   } else if (userSupplement) {
     info.userSupplement = userSupplement;
   }
@@ -421,9 +435,33 @@ function buildSupplementaryInfo(draft: DivinationDraft): SupplementaryInfo | und
   return Object.keys(info).length > 0 ? info : undefined;
 }
 
+function buildAlmanacParticipantTimeContextText(participants: DivinationAlmanacParticipant[]) {
+  return participants
+    .map((participant, index) => {
+      if (!isBaziReverseSource(participant.reverseSource)) return '';
+      const name = participant.name.trim() || `参与人${index + 1}`;
+      return `${name}：${formatBirthTimeInterval(participant.reverseSource, '出生时间')}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
 function validateDraft(draft: DivinationDraft) {
   if (draft.method !== 'almanac' && !draft.question.trim()) {
     throw new Error('请输入你想占卜的问题');
+  }
+
+  if (
+    draft.divinationTimeMode === 'pillars' &&
+    draft.method !== 'random' &&
+    isTimeBasedDivinationMethod(draft.method) &&
+    !(draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year') &&
+    !(draft.method === 'huangji' && draft.huangjiMethod === 'six-day')
+  ) {
+    if (!isBaziReverseSource(draft.divinationReverseSource)) {
+      throw new Error('请先选择一个四柱候选日期');
+    }
+    readCustomDivinationDate(draft);
   }
 
   if (draft.method === 'huangji' && draft.huangjiMethod === 'six-day') {
@@ -571,6 +609,11 @@ function validateDraft(draft: DivinationDraft) {
       throw new Error('黄历择日需要选择开始日期和结束日期');
     }
     validateDateRange(draft.almanacStartDate, draft.almanacEndDate);
+    draft.almanacParticipants.forEach((participant, index) => {
+      if (participant.inputMode === 'pillars' && !isBaziReverseSource(participant.reverseSource)) {
+        throw new Error(`参与人${index + 1}请先选择一个四柱候选日期`);
+      }
+    });
   }
 
   if (draft.method === 'astrolabe') {
@@ -735,9 +778,9 @@ function formatCorrectionMinutes(value: number) {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)} 分钟`;
 }
 
-function buildBeijingWallClockDateTime(date: Date) {
+function buildBeijingWallClockDateTime(date: Date, preserveSeconds = false) {
   const parts = TimeManager.getWallClockParts(date);
-  return formatSolarDateTimeParts({ ...parts, second: 0 });
+  return formatSolarDateTimeParts({ ...parts, second: preserveSeconds ? parts.second : 0 });
 }
 
 function supportsTrueSolarTime(
@@ -752,15 +795,32 @@ function resolveDivinationTimeContext(
   draft: DivinationDraft,
   baseDate: Date,
 ): { date: Date; context: DivinationTimeContext } {
-  const clockDateTime = buildBeijingWallClockDateTime(baseDate);
-  if (draft.divinationTimeStandard !== 'true-solar' || !supportsTrueSolarTime(method, draft)) {
+  const isBaziReverseTime = draft.divinationTimeMode === 'pillars';
+  const clockDateTime = buildBeijingWallClockDateTime(baseDate, isBaziReverseTime);
+  if (
+    isBaziReverseTime ||
+    draft.divinationTimeStandard !== 'true-solar' ||
+    !supportsTrueSolarTime(method, draft)
+  ) {
+    const reverseSource =
+      isBaziReverseTime && isBaziReverseSource(draft.divinationReverseSource)
+        ? draft.divinationReverseSource
+        : undefined;
+    const promptText = [
+      '时间口径：北京时间',
+      `采用时间：${formatReadableDateTime(clockDateTime)}`,
+      reverseSource ? formatBirthTimeInterval(reverseSource, '四柱候选时间') : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
     return {
       date: baseDate,
       context: {
         standard: 'beijing',
         clockDateTime,
         effectiveDateTime: clockDateTime,
-        promptText: `时间口径：北京时间\n采用时间：${formatReadableDateTime(clockDateTime)}`,
+        ...(reverseSource ? { reverseSource } : {}),
+        promptText,
       },
     };
   }
@@ -819,6 +879,27 @@ function insertTimeContextIntoPrompt(prompt: string, timeContextText: string) {
   return `${prompt.slice(0, taskIndex)}\n\n${section}${prompt.slice(taskIndex)}`;
 }
 
+function readClockText(timeText: string) {
+  const timeMatch = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(timeText);
+  if (!timeMatch) {
+    throw new Error('自定起卦时间需要使用 HH:mm 或 HH:mm:ss 格式');
+  }
+
+  const hour = Number(timeMatch[1]);
+  const minute = Number(timeMatch[2]);
+  const second = Number(timeMatch[3] ?? '0');
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+    throw new Error('自定起卦时间不是有效时间');
+  }
+
+  return {
+    hour,
+    minute,
+    second,
+    normalized: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`,
+  };
+}
+
 function readCustomDivinationDate(draft: DivinationDraft): Date {
   const dateText = draft.customDivinationDate?.trim() || '';
   const timeText = draft.customDivinationTime?.trim() || '';
@@ -847,18 +928,9 @@ function readCustomDivinationDate(draft: DivinationDraft): Date {
     throw new Error('自定起卦日期不是有效日期');
   }
 
-  const timeMatch = /^(\d{2}):(\d{2})$/.exec(timeText);
-  if (!timeMatch) {
-    throw new Error('自定起卦时间需要使用 HH:mm 格式');
-  }
+  const clock = readClockText(timeText);
 
-  const hour = Number(timeMatch[1]);
-  const minute = Number(timeMatch[2]);
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    throw new Error('自定起卦时间不是有效时间');
-  }
-
-  const date = new Date(`${dateText}T${timeText}:00+08:00`);
+  const date = new Date(`${dateText}T${clock.normalized}+08:00`);
   if (Number.isNaN(date.getTime())) {
     throw new Error('自定起卦时间不是有效时间');
   }
@@ -870,12 +942,22 @@ function resolveCustomDivinationDate(
   method: Exclude<DivinationMethodId, 'random'>,
   draft: DivinationDraft,
 ): Date | undefined {
-  if (draft.divinationTimeMode !== 'custom' || !isTimeBasedDivinationMethod(method)) {
+  if (
+    (draft.divinationTimeMode !== 'custom' && draft.divinationTimeMode !== 'pillars') ||
+    !isTimeBasedDivinationMethod(method)
+  ) {
     return undefined;
   }
 
   if (method === 'taiyi' && (draft.taiyiScope ?? 'year') === 'year') {
     return undefined;
+  }
+
+  if (
+    draft.divinationTimeMode === 'pillars' &&
+    !isBaziReverseSource(draft.divinationReverseSource)
+  ) {
+    throw new Error('请先选择一个四柱候选日期');
   }
 
   return readCustomDivinationDate(draft);
@@ -888,7 +970,7 @@ function buildHuangjiSixDayDateInput(draft: DivinationDraft) {
   const timezone = readNumberText(draft.huangjiSixDayTimezone?.trim() ?? '', '六日逐爻业务时区');
   assertNumberRange(timezone, '六日逐爻业务时区', -12, 14);
   return {
-    targetDateTime: `${targetDate}T${targetTime}:00`,
+    targetDateTime: `${targetDate}T${readClockText(targetTime).normalized}`,
     timezone,
     calendarModel,
     ...(calendarModel === 'six-day-explicit-epoch'
@@ -975,6 +1057,8 @@ export async function generateDivinationSession(
     ...draft,
     method,
   });
+  const almanacParticipantTimeContextText =
+    method === 'almanac' ? buildAlmanacParticipantTimeContextText(draft.almanacParticipants) : '';
   const inputQuestion = draft.question.trim();
 
   let data: DivinationData;
@@ -1185,6 +1269,7 @@ export async function generateDivinationSession(
           liurenTemplate: draft.liurenTemplate,
           astrolabeTopic: draft.astrolabeTopic,
           timeContextText: timing?.context.promptText,
+          almanacParticipantTimeContextText,
           topicId: draft.promptTopicId,
           subtopicId: draft.promptSubtopicId,
           scope: draft.promptScope,
