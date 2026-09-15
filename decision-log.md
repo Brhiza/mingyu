@@ -29,8 +29,16 @@
 - Park 选子域名 `tianji.park-ai-intel.com`，不用路径 `park-ai-intel.com/tianji`：个人站在 Vercel，走路径要改天机的路由、资源和接口前缀，还要让 Vercel 反向代理，而代理后所有用户会被限流算成同一个 IP。
 - DNS 在 Park 的 Cloudflare 账号（zone `park-ai-intel.com`）；Pages 自定义域名已通过 API 添加，但 wrangler 授权没有 DNS 写权限，CNAME `tianji → tianji-1gz.pages.dev` 由 Park 在后台手动添加。
 
+## 2026-09-15 · v2：开放全部术数、SSE 透传、全套成本实测
+
+- Park 要求开放全部术数，并实测单人全套成本。线上构建不再设 `VITE_VISIBLE_FEATURES`；自动解读覆盖全部命盘类型。
+- 发现 Cloudflare Pages 免费档 10ms CPU 会掐断长解读（`exceededCpu`，星盘、思考模式均复现）。Park 在外无法开付费档，改为 `AI_STREAM_PASSTHROUGH=true`：服务端直接透传上游 SSE，由前端解析内容与 usage。之后 23 种方法实测全部完整生成。
+- 模型保持 `deepseek-chat`（上游返回 `deepseek-flash`，非思考）。**不要改成 `deepseek-flash`**：它默认开思考模式，思考 token 按输出计费，而且会大幅拉长流。
+- 实测单人全部 23 种 ≈ ¥0.87（高峰），见 docs/tianji-cost-benchmark.md。限流定为 30 次 / 10 分钟。
+
 ## Gotchas
 
+- **透传模式下服务端看不到用量**：token 用量只在浏览器里（`globalThis.__TIANJI_AI_USAGE__`）；服务端 `ai_usage` 日志只在非透传模式有效。
 - **限流不是全局上限**：`src/lib/ai/rate-limit.ts` 把计数存在单个进程的内存 Map 里。Cloudflare Pages Functions 多实例各算各的，`AI_RATE_LIMIT_MAX_REQUESTS` 只能挡住单实例内的连续刷，挡不住分布式刷。真正的花费上限是 DeepSeek 账户余额。
 - **内置 AI 需要两个开关**：只设 `AI_API_KEY` 不会显示内置 AI，必须 `AI_BUILTIN_ENABLED=true`；`AI_DEFAULT_ENABLED=true` 才会默认进入解读。这些是运行时变量，由 `functions/_middleware.ts` 注入 `/mingyu-runtime-config.js`，不需要重新构建。
 - **`VITE_VISIBLE_FEATURES`、`VITE_AI_AUTO_READING` 是构建变量**：本地 `pnpm build` 时就要传入，改了必须重新构建、重新部署。
