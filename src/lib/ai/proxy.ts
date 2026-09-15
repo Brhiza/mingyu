@@ -56,6 +56,8 @@ export type AiEnv = AiRateLimitEnv & {
   AI_STREAM_IDLE_TIMEOUT_MS?: string;
   AI_STREAM_TOTAL_TIMEOUT_MS?: string;
   AI_TRUST_PROXY?: string;
+  /** 天机：内置 AI 直接透传上游 SSE，服务端不逐块解析，避免 Cloudflare 免费档 CPU 超限。 */
+  AI_STREAM_PASSTHROUGH?: string;
 };
 
 export type AiRuntime = {
@@ -239,6 +241,12 @@ export async function handleAiAnalyze(
       attempts,
       retryable: true,
     });
+  }
+
+  // 天机：透传模式直接把上游 OpenAI 兼容 SSE 交给前端解析（含 usage），服务端零逐块开销。
+  // 浏览器断开时仍通过 abortFromCaller 中止上游；超时由前端流读取负责。
+  if (provider.mode === 'builtin' && env?.AI_STREAM_PASSTHROUGH === 'true') {
+    return new Response(upstream.body, { status: 200, headers: SSE_HEADERS });
   }
 
   // 将 upstream SSE 流转换为前端可读的 SSE 流

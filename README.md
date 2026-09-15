@@ -13,7 +13,9 @@
 - 品牌改为“天机”（页面标题、侧栏、分享卡片、manifest、llms.txt）。
 - 新增构建变量 `VITE_VISIBLE_FEATURES`（逗号分隔的术数 id）：只显示白名单内的术数入口；只有一项时首页直接进入该术数。其他术数代码与路由保留，未设置时行为与上游一致。
 - 新增构建变量 `VITE_AI_AUTO_READING`：为 `true` 且服务端默认开启 AI 时，八字出盘后自动发送整体解读（每个命盘只自动发送一次）。
-- 线上构建设为 `VITE_VISIBLE_FEATURES=bazi`、`VITE_AI_AUTO_READING=true`，并开启服务端内置 AI、默认进入 AI 解读。
+- `VITE_AI_AUTO_READING` 覆盖全部命盘类型（八字、紫微、合参、星盘、七政、奇门终身局、八宅、合盘），出盘后自动发送整体解读。
+- 新增服务端变量 `AI_STREAM_PASSTHROUGH`：为 `true` 时内置 AI 直接透传上游 SSE，由前端解析内容和 token 用量（`globalThis.__TIANJI_AI_USAGE__`），避免 Cloudflare 免费档逐块解析导致 CPU 超限。
+- 线上构建开放全部术数（不设 `VITE_VISIBLE_FEATURES`），设 `VITE_AI_AUTO_READING=true`，开启服务端内置 AI 与透传。
 - 侧栏新增“源码”链接（AGPL-3.0 第 13 条）。
 - 不启用上游作者的功德箱。
 

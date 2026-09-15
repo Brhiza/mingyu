@@ -36,6 +36,15 @@ export interface StreamOptions extends StreamCallbacks {
 
 export type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
+export type AiUsageRecord = { model: string; usage: unknown; at?: string };
+
+/** 天机：在浏览器内记录每次调用的 token 用量（仅用量，不含内容），供成本核算读取。 */
+function recordAiUsage(record: AiUsageRecord) {
+  const target = globalThis as typeof globalThis & { __TIANJI_AI_USAGE__?: AiUsageRecord[] };
+  target.__TIANJI_AI_USAGE__ ??= [];
+  target.__TIANJI_AI_USAGE__.push({ ...record, at: new Date().toISOString() });
+}
+
 export const AI_STREAM_INTERRUPTED_MESSAGE = 'AI 流在完成前中断，已保留已生成内容，请重新生成。';
 export const AI_STREAM_MALFORMED_MESSAGE = 'AI 流数据无法解析，本次回答未完整生成，请重新生成。';
 
@@ -136,6 +145,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
   const decoder = new TextDecoder();
   let buffer = '';
   let receivedContent = false;
+  let lastUsage: AiUsageRecord | null = null;
   let completed = false;
   let failed = false;
 
@@ -161,6 +171,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
       fail('AI 未返回任何内容，请重新生成。');
       return;
     }
+    if (lastUsage) recordAiUsage(lastUsage);
     completed = true;
     closeReader();
     onDone();
@@ -191,14 +202,34 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
       fail(AI_STREAM_MALFORMED_MESSAGE);
       return;
     }
-    const payload = parsed as { content?: unknown; error?: unknown };
+    const payload = parsed as {
+      content?: unknown;
+      error?: unknown;
+      model?: unknown;
+      usage?: unknown;
+      choices?: Array<{ delta?: { content?: unknown } }>;
+    };
     if (payload.error) {
       fail(formatAiErrorMessage(parsed, 'AI 返回错误。'));
       return;
     }
-    if (typeof payload.content === 'string' && payload.content) {
-      receivedContent ||= payload.content.trim().length > 0;
-      onChunk(payload.content);
+    // 天机：服务端透传时收到的是上游 OpenAI 兼容分块，末尾分块带 usage。
+    if (payload.usage && typeof payload.usage === 'object') {
+      lastUsage = {
+        model: typeof payload.model === 'string' ? payload.model : '',
+        usage: payload.usage,
+      };
+    }
+    const delta = payload.choices?.[0]?.delta?.content;
+    const content =
+      typeof payload.content === 'string'
+        ? payload.content
+        : typeof delta === 'string'
+          ? delta
+          : '';
+    if (content) {
+      receivedContent ||= content.trim().length > 0;
+      onChunk(content);
     }
   };
 

@@ -31,7 +31,11 @@ import {
 } from '@/lib/astrolabe-scope';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
-import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
+import {
+  getBaziCompatibilityDefaultQuestion,
+  getBaziDefaultQuestion,
+  getZiweiDefaultQuestion,
+} from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { createBoundedMemoryCache } from '@/lib/bounded-memory-cache';
@@ -2741,11 +2745,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   composerTools={aiComposerTools}
                   inputResetKey={`${inputSearch}:${promptState.promptSource}`}
                   autoAskWhenEmpty={
-                    isAiAutoReadingEnabled() &&
-                    promptState.promptSource === 'bazi' &&
-                    inputState.analysisMode !== 'compatibility'
-                      ? defaultBaziQuestion
-                      : undefined
+                    !isAiAutoReadingEnabled()
+                      ? undefined
+                      : inputState.analysisMode === 'compatibility'
+                        ? getBaziCompatibilityDefaultQuestion()
+                        : promptState.promptSource === 'bazi'
+                          ? defaultBaziQuestion
+                          : getZiweiDefaultQuestion()
                   }
                 />
               </div>
