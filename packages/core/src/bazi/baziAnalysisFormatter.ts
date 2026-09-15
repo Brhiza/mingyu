@@ -1,4 +1,4 @@
-import type { BaziChartResult, UsefulGodAnalysis } from './baziTypes';
+import type { BaziChartResult, PatternAnalysis, UsefulGodAnalysis } from './baziTypes';
 import { WUXING, isSheng, isKe } from '../wuxing';
 
 interface FormatBaziOptions {
@@ -59,6 +59,24 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
       ? `干级所忌：${usefulGod.conditionalUnfavorableStems.join('、')}`
       : '',
     ...observedFunctions,
+  ].filter(Boolean);
+}
+
+/** 格局名称与成败条件分开呈现，所有解读入口复用同一份已计算结论。 */
+export function formatPatternFulfillmentFacts(pattern: PatternAnalysis): string[] {
+  const fulfillment = pattern.fulfillment;
+  if (!fulfillment) return [];
+  return [
+    `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}${fulfillment.decisionDetail || fulfillment.summary ? `；判定理由：${fulfillment.decisionDetail || fulfillment.summary}` : ''}`,
+    fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
+    ...fulfillment.remedies.map((item) => `候选取用：${item.effect}`),
+    ...(fulfillment.conditionFacts ?? [])
+      .filter((item) => !item.key.startsWith('path.'))
+      .map((item) => `条件核验：${item.status}；${item.detail}`),
+    ...(fulfillment.pathEvaluations ?? []).map(
+      (item) => `制化路径：${item.label}（${item.position}）：${item.status}；${item.detail}`,
+    ),
+    ...(fulfillment.conditions ?? []).map((item) => `格局条件：${item}`),
   ].filter(Boolean);
 }
 
@@ -279,6 +297,12 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += `（${analysis.mingGe.basis}）`;
   }
   result += '\n';
+  if (analysis.mingGe.fulfillment) {
+    result += `${formatPatternFulfillmentFacts(analysis.mingGe)[0]}\n`;
+    if (analysis.mingGe.fulfillment.contradiction) {
+      result += `相互制约：${analysis.mingGe.fulfillment.contradiction}\n`;
+    }
+  }
   if (analysis.usefulGod) {
     const primaryFavorableWuxing =
       analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.[0] || '无';

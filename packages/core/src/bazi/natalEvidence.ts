@@ -1,6 +1,6 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
-import type { BaziChartResult } from './baziTypes';
-import { formatUsefulGodFunctions } from './baziAnalysisFormatter';
+import type { BaziChartResult, PatternAnalysis } from './baziTypes';
+import { formatPatternFulfillmentFacts, formatUsefulGodFunctions } from './baziAnalysisFormatter';
 import { HIDDEN_STEMS } from './baziMappingsData';
 import { getTenGod } from './baziUtils';
 
@@ -72,6 +72,8 @@ export interface BaziNatalAnalysisFact {
   promptText: string;
   sources: string[];
   limitation: typeof ANALYSIS_FACT_LIMITATION;
+  patternFulfillment?: PatternAnalysis['fulfillment'];
+  transformation?: PatternAnalysis['transformation'];
 }
 
 export interface BaziNatalRelationFact {
@@ -293,6 +295,7 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
     ...strengthDetails.ruleBasis.map(conditionPortableBasis),
   ];
   const pattern = data.analysis.mingGe;
+  const patternFacts = formatPatternFulfillmentFacts(pattern);
   const usefulGod = data.analysis.usefulGod;
   const usefulBasis = [
     conditionPortableBasis(usefulGod.primaryReason ?? ''),
@@ -345,12 +348,15 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
       status: hasText(pattern.pattern) && pattern.pattern !== '未知' ? '已记录' : '资料缺口',
       type: '格局',
       result: pattern.pattern,
+      patternFulfillment: pattern.fulfillment,
+      transformation: pattern.transformation,
       basis: [
         conditionPortableBasis(pattern.basis ?? ''),
+        ...patternFacts.map(conditionPortableBasis),
         pattern.isSpecial ? '当前规则标记为特殊格局' : '当前规则未标记为特殊格局',
       ].filter(hasText),
       calculationStepKeys: ['bazi:natal:calculation:core-analysis'],
-      promptText: `格局：${pattern.pattern || '未记录'}${pattern.basis ? `；依据：${conditionPortableBasis(pattern.basis)}` : ''}；特殊格局标记：${pattern.isSpecial ? '是' : '否'}`,
+      promptText: `格局：${pattern.pattern || '未记录'}${pattern.basis ? `；依据：${conditionPortableBasis(pattern.basis)}` : ''}；特殊格局标记：${pattern.isSpecial ? '是' : '否'}${patternFacts.length ? `\n${patternFacts.join('\n')}` : ''}`,
       sources: ['月令司权、透干、根气、成局与格局规则条件'],
       limitation: ANALYSIS_FACT_LIMITATION,
     },

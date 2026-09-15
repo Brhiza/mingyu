@@ -68,6 +68,8 @@ export interface PatternFulfillmentResult {
   contradiction: string;
   remedies: PatternRemedy[];
   summary: string;
+  /** 本次成败裁决的具体理由，与通用规则依据分别保留。 */
+  decisionDetail?: string;
   evidence?: string[];
   conditions?: string[];
   conditionFacts?: PatternConditionFact[];
@@ -605,8 +607,10 @@ function evaluatePath(
         root.rooted &&
         ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
     );
-    const status: PatternConditionStatus =
-      sourceUncertain || targetUncertain ? '资料不足' : '不满足';
+    const sourceFailed = !rootedSource.length && !sourceUncertain;
+    const targetFailed = !rootedTarget.length && !targetUncertain;
+    // 两端根气是同时成立的必要条件；任一端明确失效便不能由另一端待核转为未定。
+    const status: PatternConditionStatus = sourceFailed || targetFailed ? '不满足' : '资料不足';
     return createResult(
       status,
       `${label}要求双方有稳定根气；${!rootedSource.length ? '来源无稳定根' : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? '作用对象无稳定根' : ''}。${[
@@ -659,19 +663,20 @@ function evaluatePath(
 }
 
 /**
- * 以日主本干作为明确作用对象评估“印生身”。日主不属于外透十神，
- * 不能用任意一枚比肩代替，否则会把比劫透干误当成印星已经生身。
+ * 以日主本干作为明确作用端点。日主不属于外透十神，
+ * 生身、制身、泄秀与承财均不能用任意一枚外透比肩代替。
  */
-function evaluatePathToDayMaster(
+function evaluatePathWithDayMaster(
   key: string,
   label: string,
-  sourceGods: readonly string[],
+  externalGods: readonly string[],
   observed: ObservedStem[],
   pillars: Pillars,
   dayMaster: string,
   harmonyProfiles: HarmonyTransformProfile[],
+  direction: 'to' | 'from',
 ): PatternPathEvaluation {
-  const dayMasterTarget: ObservedStem = {
+  const dayMasterEndpoint: ObservedStem = {
     stem: dayMaster,
     tenGod: '日主',
     pillar: 'day',
@@ -681,9 +686,9 @@ function evaluatePathToDayMaster(
   return evaluatePath(
     key,
     label,
-    sourceGods,
-    ['日主'],
-    [...observed, dayMasterTarget],
+    direction === 'to' ? externalGods : ['日主'],
+    direction === 'to' ? ['日主'] : externalGods,
+    [...observed, dayMasterEndpoint],
     pillars,
     harmonyProfiles,
   );
@@ -1030,19 +1035,21 @@ export function evaluatePatternFulfillment(
     return path;
   };
 
-  const addPathToDayMaster = (
+  const addPathWithDayMaster = (
     key: string,
     label: string,
-    sourceGods: readonly string[],
+    externalGods: readonly string[],
+    direction: 'to' | 'from' = 'to',
   ): PatternPathEvaluation => {
-    const path = evaluatePathToDayMaster(
+    const path = evaluatePathWithDayMaster(
       key,
       label,
-      sourceGods,
+      externalGods,
       observed,
       pillars,
       dayMaster,
       harmonyProfiles,
+      direction,
     );
     pathEvaluations.push(path);
     addPathInteraction(path, interactions);
@@ -1310,7 +1317,7 @@ export function evaluatePatternFulfillment(
     const targetCondition = registerTarget('七杀', ['七杀']);
     const foodPath = addPath('食神制杀', '食神制七杀', ['食神'], ['七杀']);
     const killToSealPath = addPath('七杀生印', '七杀生印', ['七杀'], ['正印', '偏印']);
-    const sealToSelfPath = addPathToDayMaster('印生身', '印星生身', ['正印', '偏印']);
+    const sealToSelfPath = addPathWithDayMaster('印生身', '印星生身', ['正印', '偏印']);
     const sealPath = addPathChain('印化杀', '七杀→印→身', [killToSealPath, sealToSelfPath]);
     const sealGroup = getGodGroup(['正印', '偏印'], observed, pillars);
     const monthPrincipalControl = buildMonthPrincipalControlFact(
@@ -1464,20 +1471,15 @@ export function evaluatePatternFulfillment(
             pillars,
           );
     conditionFacts.push(targetCondition);
-    const officerPath = addPath('官杀制比劫', '官杀制比劫', ['正官', '七杀'], ['比肩', '劫财']);
-    const outputPath = addPath('食伤泄秀', '食伤泄身发秀', ['食神', '伤官'], ['比肩', '劫财']);
-    const wealthPath = addPath('财星承禄劫', '财星承接禄劫', ['正财', '偏财'], ['比肩', '劫财']);
-    addCandidate(remedies, observed, ['正官', '七杀'], '官杀制比劫，并核对官杀根气与食伤牵制');
+    const officerPath = addPathWithDayMaster('官杀制比劫', '官杀制身', ['正官', '七杀']);
+    const outputPath = addPathWithDayMaster('食伤泄秀', '日主生食伤泄秀', ['食神', '伤官'], 'from');
+    const wealthPath = addPathWithDayMaster('财星承禄劫', '日主克财承载', ['正财', '偏财'], 'from');
+    addCandidate(remedies, observed, ['正官', '七杀'], '官杀制身，并核对官杀根气与食伤牵制');
     addCandidate(remedies, observed, ['食神', '伤官'], '泄秀或生财，并核对食伤根气与财星承接');
-    addCandidate(remedies, observed, ['正财', '偏财'], '财星承禄劫，并核对比劫是否夺财');
-    const validPath = isRen
-      ? officerPath.status === '满足'
-        ? officerPath
-        : undefined
-      : [officerPath, outputPath, wealthPath].find((path) => path.status === '满足');
-    const hasUncertainPath = [officerPath, outputPath, wealthPath].some(
-      (path) => path.status === '资料不足',
-    );
+    addCandidate(remedies, observed, ['正财', '偏财'], '日主克财承载，并核对比劫是否夺财');
+    const candidatePaths = isRen ? [officerPath] : [officerPath, outputPath, wealthPath];
+    const validPath = candidatePaths.find((path) => path.status === '满足');
+    const hasUncertainPath = candidatePaths.some((path) => path.status === '资料不足');
     if (!monthGate) {
       decision = {
         status: '平常',
@@ -1517,6 +1519,19 @@ export function evaluatePatternFulfillment(
     getGodGroup(['比肩', '劫财'], observed, pillars),
   ];
   const rootEvidence = buildRootEvidence(allGroups, observed, pillars);
+  rootEvidence.push(
+    toStemEvidence(
+      {
+        stem: dayMaster,
+        tenGod: '日主',
+        pillar: 'day',
+        branch: pillars.day.zhi,
+        placement: '透干',
+      },
+      observed,
+      pillars,
+    ),
+  );
 
   if (options.strengthStatus) {
     const strengthDataStatus = isKnownStrengthStatus(options.strengthStatus) ? '满足' : '资料不足';
@@ -1576,6 +1591,7 @@ export function evaluatePatternFulfillment(
   return {
     patternName,
     status: decision.status,
+    decisionDetail: decision.detail,
     basis,
     contradiction: conflicts.join('；'),
     remedies,

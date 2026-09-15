@@ -1,3 +1,4 @@
+import { formatPatternFulfillmentFacts } from '../bazi/baziAnalysisFormatter';
 import {
   analyzeStemRootProfile,
   analyzeTenGodFlow,
@@ -43,7 +44,7 @@ const MANGPAI_PALACE_REFERENCES: Record<BaziPillarKey, string> = {
 export const BAZI_SCHOOL_PROFILES: Record<NormalizedBaziPromptSchool, SchoolProfile> = {
   ziping: {
     label: '子平派（传统）',
-    task: '先以月令定格，结合日主得令、通根、透干与全局制化判断旺衰，再以调候、格局成败和岁运引动回答问题。',
+    task: '依据已给出的月令、旺衰、格局成败及制化条件，解释调候取用与岁运引动对所问事项的作用。',
     basis:
       '《渊海子平》《子平真诠》《三命通会》《滴天髓》《穷通宝鉴》的月令、格局、旺衰、调候与行运资料。',
   },
@@ -55,7 +56,7 @@ export const BAZI_SCHOOL_PROFILES: Record<NormalizedBaziPromptSchool, SchoolProf
   },
   xinpai: {
     label: '新派',
-    task: '先依据月令、司令、通根、帮扶与克泄耗确定日主旺衰，再区分扶抑、调候和格局需要，落实喜用与忌神在各柱的显隐位置；按原局、大运、流年逐层观察五行与十神的动态作用。',
+    task: '结合已给出的日主旺衰、扶抑取用、调候及格局条件，解释喜忌在各柱的显隐与作用；按原局、大运、流年逐层说明五行与十神的动态关系。',
     basis:
       '月令、旺衰、调候和生克制化参照《子平真诠》《滴天髓》《穷通宝鉴》《三命通会》；喜忌落位、五行流通与岁运动态采用近现代新派的通行整理口径。',
   },
@@ -272,6 +273,7 @@ function formatZipingFacts(result: BaziChartResult) {
     `日主旺衰：${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，${strength.status}；得令${details.timely ? '是' : '否'}，通根${details.hasRoot ? '有' : '无'}，强根${details.hasStrongRoot ? '有' : '无'}，帮扶${details.hasSupport ? '可见' : '不显'}，克泄耗${details.hasConstraint ? '可见' : '不显'}`,
     `透干通根：${formatRoots(result)}`,
     `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
+    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
     ...formatTransformationFacts(result),
     `调候与取用：${formatUsefulGod(result)}；五行季节状态${
       Object.entries(result.wuxingSeasonStatus)
@@ -290,6 +292,7 @@ function formatMangpaiFacts(result: BaziChartResult) {
     `十神显隐：${formatTenGodStructure(result)}`,
     `透干通根：${formatRoots(result)}`,
     `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
+    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
     ...formatTransformationFacts(result),
     `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
     `墓库与空亡：${formatTombAndVoid(result)}`,
@@ -317,6 +320,7 @@ function formatXinpaiFacts(result: BaziChartResult) {
     `十神结构：${formatTenGodStructure(result)}`,
     `十神流通：候选链条${formatTenGodFlow(result)}`,
     `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
+    ...formatPatternFulfillmentFacts(result.analysis.mingGe),
     ...formatTransformationFacts(result),
     '喜忌落位：',
     formatUsefulGodPlacements(result),
