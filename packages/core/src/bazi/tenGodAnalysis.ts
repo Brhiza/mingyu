@@ -143,6 +143,7 @@ export function analyzeTenGodStructure(
  * - 比劫泄秀：比劫→食伤
  * - 食伤生财：食伤→财才
  * - 财生官杀：财才→官杀
+ * - 官杀生印：官杀→印绶
  * - 印比相生：印绶→比劫
  */
 export function analyzeTenGodFlow(structure: TenGodStructureProfile): TenGodFlowProfile {
@@ -176,6 +177,13 @@ export function analyzeTenGodFlow(structure: TenGodStructureProfile): TenGodFlow
       name: '印比相生',
       description: '人脉、资源相互支撑',
       caution: '印重则依赖性强',
+    });
+  }
+  if (has('官杀') && has('印绶')) {
+    flows.push({
+      name: '官杀生印',
+      description: '官杀与印绶同见，具备官印或杀印相生的结构线索',
+      caution: '核对官杀与印星的透藏、根气、位置及财星克印，印能承接生身才论通关',
     });
   }
 

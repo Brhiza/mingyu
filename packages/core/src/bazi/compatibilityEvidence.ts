@@ -432,6 +432,20 @@ function calculateUsefulGodCoverage(
   beneficiaryChart: BaziChartResult,
   providerChart: BaziChartResult,
 ): BaziUsefulGodCoverage {
+  const beneficiaryLabel = beneficiary === 'person1' ? '第一人' : '第二人';
+  const transformation = beneficiaryChart.analysis?.mingGe?.transformation;
+  const transformationFacts = transformation
+    ? [
+        `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
+        ...transformation.evidence.map((item) => `化气证据：${item}`),
+        ...transformation.conditions.map((item) => `化气条件：${item}`),
+        ...(transformation.status === '成化'
+          ? [
+              `取用主体：化神${transformation.element}；原日主${beneficiaryChart.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
+            ]
+          : []),
+      ]
+    : [];
   const favorable = beneficiaryChart.analysis?.usefulGod?.favorableWuxing;
   const unfavorable = beneficiaryChart.analysis?.usefulGod?.unfavorableWuxing;
   if (!favorable?.length && !unfavorable?.length) {
@@ -444,7 +458,7 @@ function calculateUsefulGodCoverage(
       unfavorable: [],
       unavailableReason: '命盘未提供结构化喜忌五行。',
       calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage',
-      promptText: `${beneficiary === 'person1' ? '第一人' : '第二人'}命盘未提供结构化喜忌五行，无法核验${provider === 'person1' ? '第一人' : '第二人'}盘面的喜忌覆盖`,
+      promptText: `${beneficiaryLabel}命盘未提供结构化喜忌五行，无法核验${provider === 'person1' ? '第一人' : '第二人'}盘面的喜忌覆盖${transformationFacts.length ? `；${transformationFacts.join('；')}` : ''}`,
       sources: ['受益方命盘结构化喜忌五行'],
       limitation: USEFUL_GOD_LIMITATION,
     };
@@ -507,7 +521,7 @@ function calculateUsefulGodCoverage(
         }
       : {}),
     calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage',
-    promptText: `${provider === 'person1' ? '第一人' : '第二人'}盘面命中${beneficiary === 'person1' ? '第一人' : '第二人'}喜用五行${favorableCoverage.map((item) => item.wuxing).join('、') || '无'}，忌神五行${unfavorableCoverage.map((item) => item.wuxing).join('、') || '无'}${functionalDescriptions.length ? `；${beneficiary === 'person1' ? '第一人' : '第二人'}另有${functionalDescriptions.join('；')}` : ''}`,
+    promptText: `${provider === 'person1' ? '第一人' : '第二人'}盘面命中${beneficiaryLabel}喜用五行${favorableCoverage.map((item) => item.wuxing).join('、') || '无'}，忌神五行${unfavorableCoverage.map((item) => item.wuxing).join('、') || '无'}${transformationFacts.length ? `；${transformationFacts.join('；')}` : ''}${functionalDescriptions.length ? `；${beneficiaryLabel}另有${functionalDescriptions.join('；')}` : ''}`,
     sources: ['受益方结构化喜忌五行', '提供方四柱天干、地支与藏干五行来源'],
     limitation: USEFUL_GOD_LIMITATION,
   };
@@ -962,6 +976,9 @@ export function analyzeBaziCompatibility(
   options: BaziCompatibilityOptions = {},
 ): BaziCompatibilityEvidenceResult {
   if (!chart1?.pillars || !chart2?.pillars) throw new Error('八字合盘需要两份完整命盘。');
+  if (chart1.isThreePillars || chart2.isThreePillars) {
+    throw new Error('八字合盘需要先补齐双方出生时分，待补时命盘不能生成确定的双盘关系判断。');
+  }
   assertPillars(chart1.pillars);
   assertPillars(chart2.pillars);
   const people = {

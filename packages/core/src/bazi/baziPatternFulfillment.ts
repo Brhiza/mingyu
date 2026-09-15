@@ -113,6 +113,13 @@ interface ObservedStem {
 interface RootInfo {
   rooted: boolean;
   stable: boolean;
+  /**
+   * 根气层次只在内部用于制化路径裁决。余气仍保留为“有根”证据，
+   * 但不能在需要稳定根气的路径中与本气、中气等量齐观。
+   */
+  rootQuality: '本气' | '中气' | '余气' | '无根';
+  actionable: boolean;
+  monthPrincipalControl?: string;
   rootType: PatternStemEvidence['rootType'];
   rootPositions: string[];
   clashedRootPositions: string[];
@@ -224,6 +231,33 @@ function isBranchClashed(branch: string, pillars: Pillars, ownPillar: PillarPosi
   );
 }
 
+const ROOT_QUALITY_RANK: Record<Exclude<RootInfo['rootQuality'], '无根'>, number> = {
+  本气: 3,
+  中气: 2,
+  余气: 1,
+};
+
+function resolveRootQuality(roots: ObservedStem[]): RootInfo['rootQuality'] {
+  if (!roots.length) return '无根';
+  return roots.reduce<Exclude<RootInfo['rootQuality'], '无根'>>((best, root) => {
+    const quality = root.hiddenRole ?? '余气';
+    return ROOT_QUALITY_RANK[quality] > ROOT_QUALITY_RANK[best] ? quality : best;
+  }, '余气');
+}
+
+/**
+ * 只核对月柱透干直接坐月支时的本气克制；远隔藏干和全局财印关系仍交给各自路径证据。
+ */
+function getMonthPrincipalControl(item: ObservedStem, pillars: Pillars): string | undefined {
+  if (item.pillar !== 'month') return undefined;
+  const principal = HIDDEN_STEMS[pillars.month.zhi]?.[0];
+  if (!principal || principal === item.stem) return undefined;
+  const principalWuxing = getWuxing(principal);
+  const itemWuxing = getWuxing(item.stem);
+  if (BASIC_MAPPINGS.WUXING_KE[principalWuxing] !== itemWuxing) return undefined;
+  return `月令${pillars.month.zhi}本气${principal}（${principalWuxing}）克${item.stem}（${itemWuxing}）`;
+}
+
 function getRootInfo(item: ObservedStem, observed: ObservedStem[], pillars: Pillars): RootInfo {
   const itemWuxing = getWuxing(item.stem);
   const roots = observed.filter(
@@ -234,10 +268,19 @@ function getRootInfo(item: ObservedStem, observed: ObservedStem[], pillars: Pill
   const clashedRootPositions = roots
     .filter((candidate) => isBranchClashed(candidate.branch, pillars, candidate.pillar))
     .map(formatRootPosition);
+  const stableRoots = roots.filter(
+    (candidate) => !isBranchClashed(candidate.branch, pillars, candidate.pillar),
+  );
+  const rootQuality = resolveRootQuality(stableRoots.length ? stableRoots : roots);
+  const stable = stableRoots.some((candidate) => candidate.hiddenRole !== '余气');
+  const monthPrincipalControl = getMonthPrincipalControl(item, pillars);
 
   return {
     rooted: roots.length > 0,
-    stable: roots.length > 0 && clashedRootPositions.length < roots.length,
+    stable,
+    rootQuality,
+    actionable: stable && (!monthPrincipalControl || rootQuality === '本气'),
+    ...(monthPrincipalControl ? { monthPrincipalControl } : {}),
     rootType: exactRoots.length ? '本根' : roots.length ? '同类根' : '无根',
     rootPositions,
     clashedRootPositions,
@@ -260,7 +303,7 @@ function getGodGroup(
     visible,
     hidden,
     rooted: rootInfos.some((info) => info.rooted),
-    stable: rootInfos.some((info) => info.stable),
+    stable: rootInfos.some((info) => info.actionable),
   };
 }
 
@@ -334,10 +377,10 @@ function assessGroupUsability(
     item,
     root: getRootInfo(item, observed, pillars),
   }));
-  const stable = roots.filter(({ root }) => root.stable);
+  const stable = roots.filter(({ root }) => root.actionable);
   const available = stable.filter(({ item }) => !isStemBlocked(item, harmonyProfiles));
   const blocked = stable.filter(({ item }) => isStemBlocked(item, harmonyProfiles));
-  const withoutStableRoot = roots.filter(({ root }) => !root.stable);
+  const withoutStableRoot = roots.filter(({ root }) => !root.actionable);
 
   if (available.length) {
     const detail = [
@@ -346,7 +389,9 @@ function assessGroupUsability(
         ? `受合绊项：${blocked.map(({ item }) => formatObserved(item)).join('、')}`
         : '',
       withoutStableRoot.length
-        ? `根气不足项：${withoutStableRoot.map(({ item }) => formatObserved(item)).join('、')}`
+        ? `根气不足项：${withoutStableRoot
+            .map(({ item, root }) => describeRootLimitation(item, root))
+            .join('；')}`
         : '',
     ]
       .filter(Boolean)
@@ -378,14 +423,31 @@ function assessGroupUsability(
     effective: false,
     uncertain: true,
     detail: `${label}虽透，但${roots
-      .map(({ item, root }) => {
-        if (!root.rooted) return `${formatObserved(item)}无同类藏根`;
-        if (!root.stable)
-          return `${formatObserved(item)}根气受冲（${root.clashedRootPositions.join('、')}）`;
-        return `${formatObserved(item)}受合绊或作用未闭合`;
-      })
+      .map(({ item, root }) => describeRootLimitation(item, root))
       .join('；')}，当前不能确认其为有效作用。`,
   };
+}
+
+function describeRootLimitation(item: ObservedStem, root: RootInfo): string {
+  const observed = formatObserved(item);
+  if (!root.rooted) return `${observed}无同类藏根`;
+  if (!root.stable) {
+    const unClashedPositions = root.rootPositions.filter(
+      (position) => !root.clashedRootPositions.includes(position),
+    );
+    const qualityDetail =
+      root.rootQuality === '余气' && unClashedPositions.length
+        ? `${observed}未受冲根仅见余气（${unClashedPositions.join('、')}）${root.clashedRootPositions.length ? `；另见受冲根（${root.clashedRootPositions.join('、')}）` : ''}，不足以作为稳定根气`
+        : `${observed}根气受冲（${root.clashedRootPositions.join('、')}）`;
+    if (root.monthPrincipalControl) {
+      return `${observed}${root.monthPrincipalControl}；${qualityDetail}`;
+    }
+    return qualityDetail;
+  }
+  if (root.monthPrincipalControl) {
+    return `${observed}${root.monthPrincipalControl}，现有根气最高为${root.rootQuality}，不能直接视为稳定作用`;
+  }
+  return `${observed}根气层次为${root.rootQuality}，作用条件尚未闭合`;
 }
 
 function formatHarmonyProfile(profile: HarmonyTransformProfile): string {
@@ -449,7 +511,15 @@ function buildGroupCondition(
     return { key, status: '不满足', detail: `${label}虽有${formatGroup(group)}，但未见同类藏根。` };
   }
   if (!group.stable) {
-    return { key, status: '不满足', detail: `${label}根气均落在被冲地支，根气不稳。` };
+    if (requireVisible && pillars && observed.length) {
+      const usability = assessGroupUsability(label, group, observed, pillars, harmonyProfiles);
+      return {
+        key,
+        status: usability.status,
+        detail: usability.detail,
+      };
+    }
+    return { key, status: '资料不足', detail: `${label}根气层次不足以直接视为稳定作用。` };
   }
   if (requireVisible && pillars && observed.length) {
     const usability = assessGroupUsability(label, group, observed, pillars, harmonyProfiles);
@@ -520,12 +590,31 @@ function evaluatePath(
     );
   }
 
-  const rootedSource = source.filter((item) => getRootInfo(item, observed, pillars).stable);
-  const rootedTarget = target.filter((item) => getRootInfo(item, observed, pillars).stable);
+  const sourceRoots = source.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
+  const targetRoots = target.map((item) => ({ item, root: getRootInfo(item, observed, pillars) }));
+  const rootedSource = sourceRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
+  const rootedTarget = targetRoots.filter(({ root }) => root.actionable).map(({ item }) => item);
   if (!rootedSource.length || !rootedTarget.length) {
+    const sourceUncertain = sourceRoots.some(
+      ({ root }) =>
+        root.rooted &&
+        ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
+    );
+    const targetUncertain = targetRoots.some(
+      ({ root }) =>
+        root.rooted &&
+        ((root.stable && !root.actionable) || (!root.stable && root.rootQuality === '余气')),
+    );
+    const status: PatternConditionStatus =
+      sourceUncertain || targetUncertain ? '资料不足' : '不满足';
     return createResult(
-      '不满足',
-      `${label}要求双方有稳定根气；${!rootedSource.length ? '来源无稳定根' : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? '作用对象无稳定根' : ''}。`,
+      status,
+      `${label}要求双方有稳定根气；${!rootedSource.length ? '来源无稳定根' : ''}${!rootedSource.length && !rootedTarget.length ? '，' : ''}${!rootedTarget.length ? '作用对象无稳定根' : ''}。${[
+        ...sourceRoots.filter(({ root }) => !root.actionable),
+        ...targetRoots.filter(({ root }) => !root.actionable),
+      ]
+        .map(({ item, root }) => describeRootLimitation(item, root))
+        .join('；')}`,
       source,
       target,
     );
@@ -642,16 +731,79 @@ function isMonthGate(
   getTenGod: GetTenGodFn,
   monthCommander?: string,
 ): boolean {
-  const monthTarget = observed.some(
-    (item) =>
-      item.pillar === 'month' && item.placement === '藏干' && targetGods.includes(item.tenGod),
-  );
-  const commanderTarget = Boolean(
-    monthCommander && targetGods.includes(getTenGod(monthCommander, dayMaster)),
-  );
   return (
-    monthTarget || commanderTarget || targetGods.includes(getTenGod(pillars.month.gan, dayMaster))
+    getMonthGateEvidence(targetGods, pillars, observed, dayMaster, getTenGod, monthCommander)
+      .length > 0
   );
+}
+
+function getMonthGateEvidence(
+  targetGods: readonly string[],
+  pillars: Pillars,
+  observed: ObservedStem[],
+  dayMaster: string,
+  getTenGod: GetTenGodFn,
+  monthCommander?: string,
+): string[] {
+  const evidence: string[] = [];
+  const add = (value: string) => {
+    if (!evidence.includes(value)) evidence.push(value);
+  };
+
+  observed
+    .filter(
+      (item) =>
+        item.pillar === 'month' && item.placement === '藏干' && targetGods.includes(item.tenGod),
+    )
+    .forEach((item) => {
+      const role = item.hiddenRole ? `，${item.hiddenRole}` : '';
+      add(`月令${pillars.month.zhi}藏${item.stem}（${item.tenGod}${role}）`);
+    });
+
+  if (monthCommander) {
+    const commanderGod = getTenGod(monthCommander, dayMaster);
+    if (targetGods.includes(commanderGod)) {
+      add(`分日司令${monthCommander}（${commanderGod}）`);
+    }
+  }
+
+  const monthGanGod = getTenGod(pillars.month.gan, dayMaster);
+  if (targetGods.includes(monthGanGod)) {
+    add(`月干${pillars.month.gan}（${monthGanGod}）`);
+  }
+  return evidence;
+}
+
+function buildMonthPrincipalControlFact(
+  key: string,
+  label: string,
+  visible: ObservedStem[],
+  observed: ObservedStem[],
+  pillars: Pillars,
+  dayMaster: string,
+  getTenGod: GetTenGodFn,
+): PatternConditionFact | undefined {
+  const principal = HIDDEN_STEMS[pillars.month.zhi]?.[0];
+  if (!principal) return undefined;
+  const principalGod = getTenGod(principal, dayMaster);
+  if (!['正财', '偏财'].includes(principalGod)) return undefined;
+
+  const controlled = visible
+    .map((item) => ({ item, root: getRootInfo(item, observed, pillars) }))
+    .filter(({ root }) => root.monthPrincipalControl);
+  if (!controlled.length) return undefined;
+
+  const uncertain = controlled.filter(({ root }) => !root.actionable);
+  return {
+    key,
+    status: uncertain.length ? '资料不足' : '满足',
+    detail: `月令${pillars.month.zhi}本气${principal}（${principalGod}）克${label}；${controlled
+      .map(
+        ({ item, root }) =>
+          `${formatObserved(item)}根气最高为${root.rootQuality}${root.actionable ? '，仍有可核验根气' : '，不足以直接闭合作用'}`,
+      )
+      .join('；')}。`,
+  };
 }
 
 function isStrongStatus(status: string | undefined): boolean {
@@ -940,7 +1092,14 @@ export function evaluatePatternFulfillment(
       key: 'pattern.month-gate',
       status: monthGate ? '满足' : '不满足',
       detail: monthGate
-        ? `月令${pillars.month.zhi}或司令${options.monthCommander || '未记录'}与${gateLabel}相应。`
+        ? `${getMonthGateEvidence(
+            targetGods,
+            pillars,
+            observed,
+            dayMaster,
+            getTenGod,
+            options.monthCommander,
+          ).join('、')}与${gateLabel}相应。`
         : `月令${pillars.month.zhi}及司令${options.monthCommander || '未记录'}未见${gateLabel}。`,
     };
     conditionFacts.push(gateCondition);
@@ -1080,6 +1239,19 @@ export function evaluatePatternFulfillment(
     basis =
       '《子平真诠·论印绶》将正印、偏印同归印格，重官杀生印、财星破印；枭神夺食是食神格的破格关系，不把食神出现直接当作偏印格的破格神。';
     const targetCondition = registerTarget(exact, [exact]);
+    const monthPrincipalControl = buildMonthPrincipalControlFact(
+      'pattern.month-principal-control',
+      '印星',
+      targetGroup.visible,
+      observed,
+      pillars,
+      dayMaster,
+      getTenGod,
+    );
+    if (monthPrincipalControl) {
+      conditionFacts.push(monthPrincipalControl);
+      conflicts.push('月令本气为财而印星受克，须按印星根气层次核对财印交战。');
+    }
     const breakerGods = ['正财', '偏财'];
     const breakerGroup = getGodGroup(breakerGods, observed, pillars);
     const repair = breakerGroup.visible.length
@@ -1140,6 +1312,20 @@ export function evaluatePatternFulfillment(
     const killToSealPath = addPath('七杀生印', '七杀生印', ['七杀'], ['正印', '偏印']);
     const sealToSelfPath = addPathToDayMaster('印生身', '印星生身', ['正印', '偏印']);
     const sealPath = addPathChain('印化杀', '七杀→印→身', [killToSealPath, sealToSelfPath]);
+    const sealGroup = getGodGroup(['正印', '偏印'], observed, pillars);
+    const monthPrincipalControl = buildMonthPrincipalControlFact(
+      'pattern.month-principal-control',
+      '印星',
+      sealGroup.visible,
+      observed,
+      pillars,
+      dayMaster,
+      getTenGod,
+    );
+    if (monthPrincipalControl) {
+      conditionFacts.push(monthPrincipalControl);
+      conflicts.push('月令本气为财而印星受克，杀印相生须先核对印根能否承接。');
+    }
     addCandidate(remedies, observed, ['食神'], '食神制杀，比较身、杀、食的根气与位置');
     addCandidate(
       remedies,

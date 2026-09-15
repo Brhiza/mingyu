@@ -253,13 +253,14 @@ function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMont
   const monthInfo = getYearMonthsGanZhiDetailed(year)[month - 1];
 
   const termDateMap = buildTermDateMap([year - 1, year, year + 1, year + 2]);
-  const firstDay = startOfLocalDay(monthInfo.startAt);
-  const lastDay = startOfLocalDay(monthInfo.endAt);
-  const endCivil = fromNativeDate(monthInfo.endAt);
-  const lastDayInclusive =
-    endCivil.hour === 0 && endCivil.minute === 0 && endCivil.second === 0
-      ? addLocalDays(lastDay, -1)
-      : lastDay;
+  // 命理日以子初换日：日期标签 D 对应 D-1 日 23:00 至 D 日 23:00。
+  // 先按这一日界切片，再与真实交节区间求交，交节不改变日柱归属。
+  const labelDayAt = (instant: Date) => {
+    const midnight = startOfLocalDay(instant);
+    return fromNativeDate(instant).hour >= 23 ? addLocalDays(midnight, 1) : midnight;
+  };
+  const firstDay = labelDayAt(monthInfo.startAt);
+  const lastDayInclusive = labelDayAt(new Date(monthInfo.endAt.getTime() - 1));
   const list: DetailedBaziMonthDayInfo[] = [];
 
   for (
@@ -267,9 +268,10 @@ function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMont
     cursor.getTime() <= lastDayInclusive.getTime();
     cursor = addLocalDays(cursor, 1)
   ) {
-    const nextDay = addLocalDays(cursor, 1);
-    const sliceStart = maxDate(cursor, monthInfo.startAt);
-    const sliceEnd = minDate(nextDay, monthInfo.endAt);
+    const dayStart = new Date(cursor.getTime() - 60 * 60 * 1000);
+    const dayEnd = new Date(addLocalDays(cursor, 1).getTime() - 60 * 60 * 1000);
+    const sliceStart = maxDate(dayStart, monthInfo.startAt);
+    const sliceEnd = minDate(dayEnd, monthInfo.endAt);
 
     if (sliceStart.getTime() >= sliceEnd.getTime()) {
       continue;
@@ -285,12 +287,12 @@ function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMont
     const solarDate = formatSolarDateKey(currentYear, currentMonth, currentDay);
     const boundaryNotes: string[] = [];
 
-    if (cursor.getTime() === firstDay.getTime() && sliceStart.getTime() > cursor.getTime()) {
+    if (cursor.getTime() === firstDay.getTime() && sliceStart.getTime() > dayStart.getTime()) {
       boundaryNotes.push(
         `${monthInfo.startTermName}于${formatHourMinute(monthInfo.startAt)}交节，本日自该刻起进入${monthInfo.month}`,
       );
     }
-    if (cursor.getTime() === lastDay.getTime() && sliceEnd.getTime() < nextDay.getTime()) {
+    if (cursor.getTime() === lastDayInclusive.getTime() && sliceEnd.getTime() < dayEnd.getTime()) {
       boundaryNotes.push(
         `${monthInfo.endTermName}于${formatHourMinute(monthInfo.endAt)}交节，本日到该刻前仍属${monthInfo.month}`,
       );

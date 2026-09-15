@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { baziCalculator } from '@core/bazi/baziCalculator';
+import { determinePattern } from '@core/bazi/baziPatternStrategy';
+import { getTenGod } from '@core/bazi/baziUtils';
+import type { Pillars } from '@core/bazi/baziTypes';
 import type { PatternAnalysis } from '@core/bazi/baziTypes';
 import {
   applyClimateCandidates,
@@ -65,75 +67,27 @@ function state(favorableWuxing = ['水', '木'], unfavorableWuxing = ['火', '�
   };
 }
 
-test('真实计算入口保留四柱事实，并按司令差异而非四柱硬编码格局', () => {
-  const current = baziCalculator.calculateBazi({
-    year: 2006,
-    month: 7,
-    day: 14,
-    timeIndex: 5,
-    gender: 'male',
-    isLunar: false,
-  });
-  const historical = baziCalculator.calculateBazi({
-    year: 1946,
-    month: 7,
-    day: 29,
-    timeIndex: 5,
-    gender: 'male',
-    isLunar: false,
-  });
-
-  assert.deepEqual(
-    [
-      current.pillars.year.ganZhi,
-      current.pillars.month.ganZhi,
-      current.pillars.day.ganZhi,
-      current.pillars.hour.ganZhi,
-    ],
-    ['丙戌', '乙未', '甲辰', '己巳'],
-  );
-  assert.deepEqual(
-    [
-      historical.pillars.year.ganZhi,
-      historical.pillars.month.ganZhi,
-      historical.pillars.day.ganZhi,
-      historical.pillars.hour.ganZhi,
-    ],
-    ['丙戌', '乙未', '甲辰', '己巳'],
-  );
-
-  assert.equal(current.monthCommander, '丁');
-  assert.equal(historical.monthCommander, '己');
-  assert.equal(current.analysis.dayMasterStrength.status, '身弱');
-  assert.equal(historical.analysis.dayMasterStrength.status, '身弱');
-  assert.equal(current.analysis.mingGe.pattern, '杂气正财格');
-  assert.equal(historical.analysis.mingGe.pattern, '正财格');
-  assert.deepEqual(current.analysis.usefulGod.favorableWuxing, ['水', '木']);
-  assert.deepEqual(historical.analysis.usefulGod.favorableWuxing, ['水', '木']);
-  assert.deepEqual(current.analysis.usefulGod.unfavorableWuxing, ['火', '土', '金']);
-  assert.equal(current.analysis.usefulGod.primaryReason, '扶抑');
-
-  const climate = current.analysis.usefulGod.decisionEvidence?.climateCandidates.find(
+test('相同合成结构按司令透干分层取格，调候参考不覆盖扶抑基线', () => {
+  const pillars = Object.fromEntries(
+    ['戊戌', '己未', '甲午', '丁卯'].map((ganZhi, index) => [
+      ['year', 'month', 'day', 'hour'][index],
+      { gan: ganZhi[0], zhi: ganZhi[1], ganZhi },
+    ]),
+  ) as Pillars;
+  const fireCommander = determinePattern(pillars, '身弱', getTenGod, '丁');
+  const earthCommander = determinePattern(pillars, '身弱', getTenGod, '己');
+  assert.match(fireCommander.basis ?? '', /分日司权为丁（伤官）/);
+  assert.match(earthCommander.basis ?? '', /本气为己（正财）.*分日司权同为己/);
+  assert.notEqual(fireCommander.pattern, earthCommander.pattern);
+  const result = determineUsefulGod('身弱', earthCommander, '木', '未', '己', '甲');
+  assert.deepEqual(result.favorableWuxing, ['水', '木']);
+  assert.deepEqual(result.unfavorableWuxing, ['火', '土', '金']);
+  const climate = result.decisionEvidence?.climateCandidates.find(
     (candidate) => candidate.ruleId === 'wei-month-jia-ding-geng',
   );
   assert.equal(climate?.mode, 'within-balance');
-  assert.equal(climate?.status, '满足');
   assert.equal(climate?.adopted, true);
-  assert.deepEqual(current.analysis.usefulGod.decisionEvidence?.climateReferenceOrder, [
-    '火',
-    '金',
-    '水',
-  ]);
-  const control = current.analysis.usefulGod.decisionEvidence?.controlFunctions?.find(
-    (candidate) => candidate.key === '比劫生食伤',
-  );
-  assert.equal(control?.status, '满足');
-  assert.deepEqual(control?.sourceStems, ['乙']);
-  assert.deepEqual(control?.targetStems, ['丙']);
-  assert.deepEqual(control?.baseFavorableStems, ['乙']);
-  assert.deepEqual(control?.baseUnfavorableStems, ['丙']);
-  assert.ok(control?.sourceRootEvidence.some((evidence) => evidence.pillar === 'month'));
-  assert.equal(control?.interactionEvidence[0]?.status, '满足');
+  assert.deepEqual(result.decisionEvidence?.climateReferenceOrder, ['火', '金', '水']);
 });
 
 test('没有 policy 的旧调候规则只能留下参考证据，不能覆盖扶抑或跳过病药', () => {

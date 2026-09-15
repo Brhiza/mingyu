@@ -728,14 +728,23 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const functionalUse = formatUsefulGodFunctions(result.analysis.usefulGod);
   const decisionDetails = formatBaziDecisionDetails(result);
+  const transformation = result.analysis.mingGe.transformation;
 
   const formatBaziChartText = useCallback(() => {
     return [
       `【八字命盘 · ${name}】`,
       `时间：${formatBaziDate(result)} (${result.timeInfo.name})  性别：${formatGender(result.gender)}`,
       `格局：${result.analysis.mingGe.pattern}  旺衰：${result.analysis.dayMasterStrength.status}`,
+      ...(transformation
+        ? [
+            `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
+            ...(transformation.status === '成化'
+              ? [`取用主体：化神${transformation.element}；原日主旺衰与十神作为本命事实。`]
+              : []),
+          ]
+        : []),
       `四柱：年柱【${result.pillars.year.gan}${result.pillars.year.zhi}】 月柱【${result.pillars.month.gan}${result.pillars.month.zhi}】 日柱【${result.pillars.day.gan}${result.pillars.day.zhi}】 时柱【${result.pillars.hour.gan}${result.pillars.hour.zhi}】`,
-      `五行取用：${result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '无'}  所忌：${result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '无'}`,
+      `五行取用：${transformation?.status === '成化' ? `化神${transformation.element}` : result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '无'}  所忌：${result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '无'}`,
       ...formatUsefulGodFunctions(result.analysis.usefulGod),
       ...formatBaziDecisionDetails(result),
       activeFortuneColumns.length
@@ -747,7 +756,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
     ]
       .filter(Boolean)
       .join('\n');
-  }, [name, result, activeFortuneColumns, interactions]);
+  }, [name, result, transformation, activeFortuneColumns, interactions]);
 
   const handleOpenBaziTerm = useCallback(
     (term: string, column?: BaziBoardColumn) => {
@@ -925,11 +934,17 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
           >
             <span>五行取用</span>
             <strong>
-              {result.analysis.usefulGod.primaryUseful ||
-                result.analysis.usefulGod.useful ||
-                '待定'}
+              {transformation?.status === '成化'
+                ? `化神${transformation.element}`
+                : result.analysis.usefulGod.primaryUseful ||
+                  result.analysis.usefulGod.useful ||
+                  '待定'}
             </strong>
-            <small>{formatUsefulGodPrioritySummary(result)}</small>
+            <small>
+              {transformation?.status === '成化'
+                ? `原日主十神：${result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '待定'}`
+                : formatUsefulGodPrioritySummary(result)}
+            </small>
           </div>
           <div
             className="result-stat-card is-clickable-term"
@@ -1294,9 +1309,13 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             { label: '格局', value: result.analysis.mingGe.pattern },
             { label: '旺衰', value: result.analysis.dayMasterStrength.status },
             {
-              label: '核心用神',
+              label: transformation?.status === '成化' ? '化神取用主体' : '核心用神',
               value:
-                result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '无',
+                transformation?.status === '成化'
+                  ? `化神${transformation.element}`
+                  : result.analysis.usefulGod.primaryUseful ||
+                    result.analysis.usefulGod.useful ||
+                    '无',
             },
           ]}
           onClose={() => setIsShareModalOpen(false)}

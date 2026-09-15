@@ -298,6 +298,7 @@ test('公开 API 即时盘应按固定时刻返回无性别的北京时间八字
     day: 24,
     hour: 12,
     minute: 30,
+    second: 0,
     offsetHours: 8,
   });
   assert.equal('gender' in body.data.result, false);

@@ -457,6 +457,29 @@ async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
   return callback(await getMcpClient());
 }
 
+test('八字 MCP 缺时辰返回候选并暂缓岁运，提示词不确定午时', async () => {
+  await withMcpClient(async (client) => {
+    const input = { dateType: 'solar', year: 2000, month: 1, day: 7, gender: 'male' };
+    const chart = await client.callTool({ name: 'bazi_calculate', arguments: input });
+    assert.equal(chart.isError, undefined);
+    const data = chart.structuredContent?.result as ReturnType<typeof baziCalculator.calculateBazi>;
+    assert.equal(data.pillars.hour.ganZhi, '');
+    assert.equal(data.analysis.dayMasterStrength.status, '未知');
+    assert.equal(data.unknownTimeAnalysis?.scenarios.length, 15);
+    assert.deepEqual(data.luckInfo.cycles, []);
+    const promptInput = { ...input, question: '出生时辰未知，请比较候选。' };
+    const prompt = await client.callTool({ name: 'bazi_prompt', arguments: promptInput });
+    assert.equal(prompt.isError, undefined, JSON.stringify(prompt.content));
+    assert.match(String(prompt.structuredContent?.prompt), /时辰候选比较/);
+    assert.doesNotMatch(String(prompt.structuredContent?.prompt), /【核心判断】/);
+    const invalid = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: { ...promptInput, baziFortuneScope: 'dayun', baziFortuneCycleIndex: 1 },
+    });
+    assert.equal(invalid.isError, true);
+  });
+});
+
 test('MCP 奇门十年干支大运保留精确区间与分层定位，缺少性别返回错误', async () => {
   await withMcpClient(async (client) => {
     const input = {

@@ -6,6 +6,7 @@ import {
 import type { PatternAnalysis, Pillars } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
 import { evaluatePatternFulfillment } from './baziPatternFulfillment';
+import { evaluateTransformedPattern } from './transformedPatternStrategy';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 type PillarPosition = 'year' | 'month' | 'hour';
@@ -21,10 +22,6 @@ interface SpecialPatternForceSummary {
 }
 
 const SAME_PARTY_GODS = ['比肩', '劫财', '正印', '偏印'];
-
-function isSamePartyGod(tenGod: string) {
-  return SAME_PARTY_GODS.includes(tenGod);
-}
 
 function getPatternNameByTenGod(tenGod: string, dayMaster: string, monthBranch: string) {
   // 建禄格/月刃格需要精确校验月支是否为禄/刃位
@@ -156,7 +153,12 @@ function resolveExposedStemPriority(
   const candidates = monthStems
     .filter((stem) => {
       const tenGod = getTenGod(stem, dayMaster);
-      return !isSamePartyGod(tenGod) && exposedStemByPosition.some((item) => item.stem === stem);
+      // 印与财官食伤同属普通取格候选；比劫另按禄刃与月劫处理。
+      return (
+        tenGod !== '比肩' &&
+        tenGod !== '劫财' &&
+        exposedStemByPosition.some((item) => item.stem === stem)
+      );
     })
     .map((stem, stemIndex) => {
       const exposures = exposedStemByPosition.filter((item) => item.stem === stem);
@@ -259,6 +261,18 @@ export function determinePattern(
   const dayMaster = pillars.day.gan;
   const monthStems = HIDDEN_STEMS[monthBranch] || [];
   const exposedStems = [pillars.year.gan, pillars.month.gan, pillars.hour.gan];
+  const transformation = evaluateTransformedPattern(pillars);
+  const attachTransformation = (analysis: PatternAnalysis): PatternAnalysis =>
+    transformation ? { ...analysis, transformation } : analysis;
+
+  if (transformation?.status === '成化') {
+    return {
+      pattern: transformation.pattern,
+      isSpecial: true,
+      basis: transformation.basis,
+      transformation,
+    };
+  }
 
   let patternName: string;
 
@@ -300,7 +314,7 @@ export function determinePattern(
     const basis = specialPatternForce.hasSamePartyFormation
       ? '主气与会局同党成势，副气未至破格，且日主极强，按专旺格处理'
       : '全局印比成势，且日主极强，按专旺格处理';
-    return { pattern: '专旺格', isSpecial: true, basis };
+    return attachTransformation({ pattern: '专旺格', isSpecial: true, basis });
   }
   if (
     strengthStatus === '极弱' &&
@@ -312,7 +326,7 @@ export function determinePattern(
     const basis = specialPatternForce.hasOppositePartyFormation
       ? `主气与会局异党成势，同党余气未至破格，且日主极弱，按${subPattern}处理`
       : `全局财官食伤成势，且日主极弱，按${subPattern}处理`;
-    return { pattern: subPattern, isSpecial: true, basis };
+    return attachTransformation({ pattern: subPattern, isSpecial: true, basis });
   }
 
   const monthPrincipalStem = monthStems[0];
@@ -337,7 +351,17 @@ export function determinePattern(
     }
   } else if (monthCommander && exposedStems.includes(monthCommander)) {
     patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
-    basis = `月令司权为${monthCommander}，且已透干，按分日司令十神取格`;
+    const exposedPosition =
+      pillars.month.gan === monthCommander
+        ? '月干'
+        : pillars.hour.gan === monthCommander
+          ? '时干'
+          : '年干';
+    const principalPattern = getPatternNameByTenGod(monthPrincipalGod, dayMaster, monthBranch);
+    basis =
+      monthPrincipalStem === monthCommander
+        ? `月支${monthBranch}本气为${monthPrincipalStem}（${monthPrincipalGod}）；分日司权同为${monthCommander}，且已透于${exposedPosition}，按该司令十神取${patternName}`
+        : `月支${monthBranch}本气为${monthPrincipalStem}（${monthPrincipalGod}），本气取格口径为${principalPattern}；已提供分日司权为${monthCommander}（${monthMainGod}）且透于${exposedPosition}，本次按司令透干取${patternName}`;
   } else if (monthMainGod === '比肩') {
     // 分日司令虽为比肩，但月支非禄位，按当前司令取格口径处理
     patternName = '比肩格';
@@ -355,7 +379,12 @@ export function determinePattern(
 
     if (prioritizedStem) {
       const tenGod = getTenGod(prioritizedStem, dayMaster);
-      const prefix = monthCommander && prioritizedStem !== activeMonthStem ? '杂气' : '';
+      const prefix =
+        ['辰', '戌', '丑', '未'].includes(monthBranch) &&
+        monthCommander &&
+        prioritizedStem !== activeMonthStem
+          ? '杂气'
+          : '';
       patternName = `${prefix}${tenGod}格`;
       const exposedPosition =
         pillars.month.gan === prioritizedStem
@@ -376,12 +405,12 @@ export function determinePattern(
     monthCommander,
   });
 
-  return {
+  return attachTransformation({
     pattern: finalPatternName,
     isSpecial: false,
     basis,
     fulfillment,
     // 魁罡日（庚辰/壬辰/戊戌/庚戌）为重要外格，日柱判定后即标出，供 AI 参照《三命通会》
     isKuiGang: ['庚辰', '壬辰', '戊戌', '庚戌'].includes(pillars.day.gan + pillars.day.zhi),
-  };
+  });
 }

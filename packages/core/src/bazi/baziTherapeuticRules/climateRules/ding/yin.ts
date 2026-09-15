@@ -21,6 +21,7 @@ export const DING_YIN_CLIMATE_RULES: ClimateRule[] = [
     months: ['寅'],
     dayMasters: ['火'],
     dayStems: ['丁'],
+    strengths: ['身强', '偏强', '极强'],
     requiredVisibleStems: ['甲', '庚'],
     usefulWuxing: '木',
     favorableOrder: ['木', '火'],

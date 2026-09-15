@@ -5,7 +5,8 @@
 
 import type { BaziChartResult } from './baziTypes';
 import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
-import { identifyClassicPattern, getPeachBlossomDetail } from './baziEnhancement';
+import { identifyClassicPatternCandidates, getPeachBlossomDetail } from './baziEnhancement';
+import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
@@ -50,6 +51,15 @@ function formatClassicPatternLevel(level: string): string {
   return `传统等级参考：${level}，以成败条件裁定`;
 }
 
+function hasUnknownBirthTime(chartResult: BaziChartResult): boolean {
+  return Boolean(
+    chartResult.unknownTimeAnalysis?.status === '待补时' ||
+    chartResult.isThreePillars ||
+    !chartResult.pillars?.hour?.gan ||
+    !chartResult.pillars?.hour?.zhi,
+  );
+}
+
 function getKongWangEvidence(chartResult: BaziChartResult): string[] {
   return PILLAR_KEYS.filter((pillar) => chartResult.shensha?.[pillar]?.includes('空亡')).map(
     (pillar) => PILLAR_LABELS[pillar],
@@ -74,7 +84,13 @@ export function analyzePillarRelations(
   const xingChong = new Set<string>();
   const { pillars } = chartResult;
 
-  if (!pillars) {
+  if (
+    !pillars ||
+    PILLAR_KEYS.some((key) => {
+      const pillar = pillars[key];
+      return !pillar?.gan || !pillar?.zhi || !pillar?.ganZhi;
+    })
+  ) {
     return { fuxin: [], fanyin: [], sameStem: [], sameBranch: [], xingChong: [] };
   }
 
@@ -129,15 +145,30 @@ export function analyzePillarRelations(
     }
   }
 
+  const establishedFormations = new Set(
+    collectEstablishedBranchFormations(pillars).map(
+      (formation) => `${formation.type}:${formation.branches.join('')}`,
+    ),
+  );
   const allBranches = PILLAR_KEYS.map((pillar) => pillars[pillar].zhi);
   for (const [name, branches] of Object.entries(SAN_HE_MAP)) {
     if (branches.every((branch) => allBranches.includes(branch))) {
-      xingChong.add(`地支成${name}三合`);
+      const status = establishedFormations.has(`三合:${name}`) ? '已成势' : '结构齐全，成势待核';
+      xingChong.add(
+        establishedFormations.has(`三合:${name}`)
+          ? `地支成${name}三合（${status}）`
+          : `地支见${name}三合结构（${status}）`,
+      );
     }
   }
   for (const [name, branches] of Object.entries(SAN_HUI_MAP)) {
     if (branches.every((branch) => allBranches.includes(branch))) {
-      xingChong.add(`地支成${name}三会`);
+      const status = establishedFormations.has(`三会:${name}`) ? '已成势' : '结构齐全，成势待核';
+      xingChong.add(
+        establishedFormations.has(`三会:${name}`)
+          ? `地支成${name}三会（${status}）`
+          : `地支见${name}三会结构（${status}）`,
+      );
     }
   }
 
@@ -159,17 +190,43 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
   const dayStem = chartResult.pillars.day.gan;
   const monthBranch = chartResult.pillars.month.zhi;
 
-  const classicPattern = identifyClassicPattern(
+  const classicPatterns = identifyClassicPatternCandidates(
     dayStem,
     monthBranch,
     chartResult.pillars,
     chartResult.hiddenStems,
     chartResult.analysis?.mingGe?.pattern,
+  ).filter(
+    (candidate) =>
+      chartResult.analysis?.mingGe?.transformation?.status !== '成化' ||
+      !candidate.pattern.id.startsWith('hua-qi-'),
   );
 
-  if (!classicPattern) return '';
+  const transformation = chartResult.analysis?.mingGe?.transformation;
+  const confirmedSection =
+    transformation?.status === '成化'
+      ? `【化气格局】${chartResult.analysis.mingGe.pattern}；${transformation.basis}；${transformation.evidence.join('；')}`
+      : '';
+  if (!classicPatterns.length) return confirmedSection;
 
-  return `【经典格局】${classicPattern.name}（${formatClassicPatternLevel(classicPattern.level)}） | ${toClassicPatternPromptDescription(classicPattern.description)}`;
+  const candidateSection = `【经典结构候选】${classicPatterns
+    .map((candidate) => {
+      const details = [
+        `${candidate.pattern.name}（${candidate.status}；${formatClassicPatternLevel(candidate.pattern.level)}）`,
+        `结构命中：${candidate.matchedConditions.join('、')}`,
+        candidate.verificationFacts.length
+          ? `已核验事实：${candidate.verificationFacts.join('；')}`
+          : '',
+        candidate.pendingConditions.length
+          ? `待核验：${candidate.pendingConditions.join('；')}`
+          : '',
+        candidate.counterEvidence.length ? `反证：${candidate.counterEvidence.join('；')}` : '',
+        toClassicPatternPromptDescription(candidate.pattern.description),
+      ].filter(Boolean);
+      return details.join(' | ');
+    })
+    .join('\n')}`;
+  return [confirmedSection, candidateSection].filter(Boolean).join('\n');
 }
 
 /**
@@ -268,6 +325,10 @@ export function generateEnhancedAnalysisSection(
   chartResult: BaziChartResult,
   _topic: string = 'general',
 ): string {
+  if (hasUnknownBirthTime(chartResult)) {
+    return '【待补时】出生时辰未知，经典结构候选与相合成化需补齐出生时分后核验。';
+  }
+
   const sections: string[] = [];
 
   const wuxingEvidence = chartResult.wuxingStrength;

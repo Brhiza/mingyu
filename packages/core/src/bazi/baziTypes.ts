@@ -137,7 +137,9 @@ export interface BaziWarningSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '预警汇总只说明当前盘面是否贴近交界时刻，不改变已经按输入确定的时柱';
+  limitation:
+    | '预警汇总只说明当前盘面是否贴近交界时刻，不改变已经按输入确定的时柱'
+    | '缺时辰说明用于标注待补资料，候选场景分别记录，完整命盘尚未确定';
 }
 
 export interface LiunianInfo {
@@ -199,7 +201,9 @@ export interface LuckCycle {
   ganZhi: string;
   isXiaoyun: boolean;
   type: string;
+  /** 周期实际开始瞬时，统一表示为北京时间 UTC+8。 */
   startSolarTime?: SolarDateTimeInfo;
+  /** 周期实际结束瞬时，统一表示为北京时间 UTC+8，区间不包含此时刻。 */
   endSolarTime?: SolarDateTimeInfo;
   years: LiunianInfo[];
   resolvedYears?: LiunianInfo[];
@@ -277,6 +281,8 @@ export interface SupportAnalysis {
   supporters: {
     position: string;
     stem: string;
+    /** 生扶证据有未被外支六冲的同类根时为 true；浮干或冲后支气保留事实但标 false。 */
+    stable?: boolean;
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
     strength: number;
   }[];
@@ -289,6 +295,8 @@ export interface ConstraintAnalysis {
   constraints: {
     position: string;
     stem: string;
+    /** 克泄耗证据承载支气未被外支六冲时为 true；冲后支气保留事实但标 false。 */
+    stable?: boolean;
     /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
     strength: number;
   }[];
@@ -312,10 +320,22 @@ export interface DayMasterStrengthAnalysis {
   };
 }
 
+export type PatternTransformationStatus = '成化' | '待核验' | '存在反证';
+
+/** 五合化气主格的结构化核验结果；待核验和反证只作为候选依据，不覆盖普通格局。 */
+export interface PatternTransformationEvidence {
+  element: Wuxing;
+  status: PatternTransformationStatus;
+  basis: string;
+  evidence: string[];
+  conditions: string[];
+}
+
 export interface PatternAnalysis {
   pattern: string;
   isSpecial: boolean;
   basis?: string;
+  transformation?: PatternTransformationEvidence;
   /** 魁罡日（日柱庚辰/壬辰/戊戌/庚戌为外格，《三命通会》） */
   isKuiGang?: boolean;
   /** 格局候选关系、制化路径与成败待核条件。 */
@@ -395,6 +415,10 @@ export interface UsefulGodDecisionEvidence {
   };
   climateCandidates: UsefulGodClimateCandidateEvidence[];
   climateReferenceOrder?: string[];
+  balanceAdjustment?: {
+    reason: string;
+    favorableOrder: string[];
+  };
   climateAppliedRuleId?: string;
   climateAppliedRuleIds?: string[];
   controlFunctions?: UsefulGodControlFunctionEvidence[];
@@ -403,6 +427,11 @@ export interface UsefulGodDecisionEvidence {
   conditionalFavorableWuxing?: string[];
   controlPaths?: PatternFulfillmentResult['pathEvaluations'];
   controlRemedies?: PatternFulfillmentResult['remedies'];
+  transformation?: {
+    element: Wuxing;
+    basis: string;
+    conditions: string[];
+  };
   appliedLayers: string[];
   conflicts: string[];
 }
@@ -453,8 +482,23 @@ export interface BaziChartResult {
   timeInfo: TimeInfo;
   /** 四柱（年柱/月柱/日柱/时柱） */
   pillars: Pillars;
-  /** 是否为时辰未知的“前三柱降级”模式 */
+  /** 时辰未知模式：仅保留可确定的柱，其余在候选场景中分别记录。 */
   isThreePillars?: boolean;
+  /** 缺时辰时仅返回已确定的柱；其余柱为空，时辰场景用于比较而非定盘。 */
+  unknownTimeAnalysis?: {
+    status: '待补时';
+    summary: string;
+    uncertainPillars: Array<'year' | 'month' | 'day'>;
+    scenarios: Array<{
+      timeIndex: number;
+      timeName: string;
+      pillars: Pillars;
+      strength: DayMasterStrengthStatus;
+      pattern: string;
+      favorableWuxing: string[];
+      unfavorableWuxing: string[];
+    }>;
+  };
   /** 四柱之间可直接复核的同柱伏吟、同干、同支、反吟、合冲刑害破、三合三会关系 */
 
   pillarRelations: import('./baziPromptEnhancement').BaziPillarRelations;
@@ -465,7 +509,7 @@ export interface BaziChartResult {
   /** 星座（公历月日对应的西方星座） */
   constellation: string;
   /** 命卦（八宅，按立春年界计算） */
-  mingGua: MingGuaProfile;
+  mingGua?: MingGuaProfile;
   /** 十神映射（各天干对应的十神） */
   tenGods: Record<string, string>;
   /** 藏干（地支中暗藏的天干） */

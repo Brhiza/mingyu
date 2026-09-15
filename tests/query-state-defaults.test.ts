@@ -74,9 +74,9 @@ test('精确标准北京时间的秒数应随结果地址往返恢复', () => {
     birthMinute: '59',
     birthSecond: '58',
     birthReverseSource: JSON.stringify({
-      pillars: { year: '丙戌', month: '乙未', day: '甲辰', hour: '己巳' },
-      intervalStart: '2006-07-14 09:00:00',
-      intervalEnd: '2006-07-14 11:00:00',
+      pillars: { year: '甲辰', month: '丙寅', day: '己亥', hour: '甲子' },
+      intervalStart: '2024-02-04 23:00:00',
+      intervalEnd: '2024-02-05 00:00:00',
     }),
   };
   const search = buildResultSearch(input, defaultPromptState);

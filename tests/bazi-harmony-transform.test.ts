@@ -7,7 +7,7 @@ import {
   assessStemHarmonyTransform,
   formatHarmonyTransformProfile,
   type HarmonyPillarInput,
-} from '../packages/core/src/bazi';
+} from '../packages/core/src/bazi/harmonyTransform';
 
 function createPillar(
   label: string,
@@ -27,7 +27,7 @@ test('天干五合须日干紧贴、得规定月令且无克破争合才作成�
   const pillars = [
     createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
     createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
+    createPillar('日柱', '甲', '子', ['癸']),
     createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
   ];
 
@@ -77,7 +77,7 @@ test('五种天干化气的规定月令应逐项核验，不由旺相休囚分�
       pillars: [
         createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
         createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-        createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
+        createPillar('日柱', '甲', '子', ['癸']),
         createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
       ],
     },
@@ -87,7 +87,7 @@ test('五种天干化气的规定月令应逐项核验，不由旺相休囚分�
       stem2: '庚',
       monthBranch: '酉',
       pillars: [
-        createPillar('年柱', '癸', '申', ['庚', '壬', '戊']),
+        createPillar('年柱', '癸', '亥', ['壬', '甲']),
         createPillar('月柱', '乙', '酉', ['辛']),
         createPillar('日柱', '庚', '丑', ['己', '癸', '辛']),
         createPillar('时柱', '壬', '子', ['癸']),
@@ -99,10 +99,10 @@ test('五种天干化气的规定月令应逐项核验，不由旺相休囚分�
       stem2: '辛',
       monthBranch: '子',
       pillars: [
-        createPillar('年柱', '庚', '申', ['庚', '壬', '戊']),
+        createPillar('年柱', '甲', '寅', ['甲', '丙', '戊']),
         createPillar('月柱', '丙', '子', ['癸']),
         createPillar('日柱', '辛', '亥', ['壬', '甲']),
-        createPillar('时柱', '癸', '酉', ['辛']),
+        createPillar('时柱', '癸', '卯', ['乙']),
       ],
     },
     {
@@ -111,10 +111,10 @@ test('五种天干化气的规定月令应逐项核验，不由旺相休囚分�
       stem2: '壬',
       monthBranch: '卯',
       pillars: [
-        createPillar('年柱', '戊', '亥', ['壬', '甲']),
+        createPillar('年柱', '戊', '巳', ['丙', '庚', '戊']),
         createPillar('月柱', '丁', '卯', ['乙']),
-        createPillar('日柱', '壬', '未', ['己', '丁', '乙']),
-        createPillar('时柱', '甲', '子', ['癸']),
+        createPillar('日柱', '壬', '丑', ['己', '癸', '辛']),
+        createPillar('时柱', '甲', '卯', ['乙']),
       ],
     },
     {
@@ -123,10 +123,10 @@ test('五种天干化气的规定月令应逐项核验，不由旺相休囚分�
       stem2: '癸',
       monthBranch: '午',
       pillars: [
-        createPillar('年柱', '甲', '寅', ['甲', '丙', '戊']),
+        createPillar('年柱', '乙', '卯', ['乙']),
         createPillar('月柱', '戊', '午', ['丁', '己']),
-        createPillar('日柱', '癸', '戌', ['戊', '辛', '丁']),
-        createPillar('时柱', '丙', '巳', ['丙', '戊', '庚']),
+        createPillar('日柱', '癸', '卯', ['乙']),
+        createPillar('时柱', '丙', '卯', ['乙']),
       ],
     },
   ];
@@ -150,13 +150,13 @@ test('化神受克或另干争合时不得以其他条件抵消', () => {
   const controlledPillars = [
     createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
     createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
+    createPillar('日柱', '甲', '子', ['癸']),
     createPillar('时柱', '乙', '巳', ['丙', '戊', '庚']),
   ];
   const competingPillars = [
     createPillar('年柱', '甲', '戌', ['戊', '辛', '丁']),
     createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
+    createPillar('日柱', '甲', '子', ['癸']),
     createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
   ];
 
@@ -182,7 +182,7 @@ test('日干与隔位天干相合也不得作成化', () => {
   const pillars = [
     createPillar('年柱', '己', '戌', ['戊', '辛', '丁']),
     createPillar('月柱', '戊', '午', ['丁', '己']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
+    createPillar('日柱', '甲', '子', ['癸']),
     createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
   ];
 
@@ -247,13 +247,13 @@ test('透干和根气多少只作旁证，不再累计成任意分数', () => {
   const lessEvidence = [
     createPillar('年柱', '壬', '酉', ['辛']),
     createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
+    createPillar('日柱', '甲', '子', ['癸']),
     createPillar('时柱', '丁', '子', ['癸']),
   ];
   const moreEvidence = [
     createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
     createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
+    createPillar('日柱', '甲', '子', ['癸']),
     createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
   ];
 
@@ -287,7 +287,7 @@ test('格式化输出应保留逐项条件且不外显内部分数，非法组�
   const pillars = [
     createPillar('年柱', '戊', '戌', ['戊', '辛', '丁']),
     createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
-    createPillar('日柱', '甲', '丑', ['己', '癸', '辛']),
+    createPillar('日柱', '甲', '子', ['癸']),
     createPillar('时柱', '丁', '巳', ['丙', '戊', '庚']),
   ];
 

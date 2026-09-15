@@ -636,6 +636,7 @@ export function buildBaziZiweiPromptForResults(params: {
     null,
     fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
+  const patternConditions = formatBaziPatternConditions(params.baziResult);
   const ziweiText = formatZiweiEvidenceText(params.ziweiResult, ziweiScope);
   const guidance = [
     params.baziSchools?.length
@@ -674,6 +675,7 @@ export function buildBaziZiweiPromptForResults(params: {
     guidance,
     section('当前时间', formatPromptCurrentTime()),
     section('八字排盘信息', baziText),
+    patternConditions ? section('八字格局条件', patternConditions) : '',
     fortuneSelection
       ? section('八字岁运', `${fortuneSelection.analysisObject}\n${fortuneSelection.focus}`)
       : '',

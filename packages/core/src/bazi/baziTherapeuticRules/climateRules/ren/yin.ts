@@ -35,6 +35,7 @@ export const REN_YIN_CLIMATE_RULES: ClimateRule[] = [
     months: ['寅'],
     dayMasters: ['水'],
     dayStems: ['壬'],
+    strengths: ['身强', '偏强', '极强'],
     requiredVisibleStems: ['丙', '庚', '甲'],
     usefulWuxing: '金',
     favorableOrder: ['金', '火', '木'],

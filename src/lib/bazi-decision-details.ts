@@ -6,6 +6,7 @@ export function formatBaziDecisionDetails(result: BaziChartResult): string[] {
   const strength = dayMasterStrength.details;
   const fulfillment = mingGe.fulfillment;
   const decision = usefulGod.decisionEvidence;
+  const transformation = mingGe.transformation;
   return [
     `旺衰依据：${strength.ruleBasis[0]}`,
     `扶抑条件：月令${strength.seasonalEffect}，司令${strength.commanderEffect}；${strength.hasStrongRoot ? '有未受冲本气根' : strength.hasRoot ? '见根但非稳定本气根' : '无根'}；${strength.hasSupport ? '有印比扶助' : '未见印比扶助'}；${strength.hasConstraint ? '有克泄耗' : '未见克泄耗'}；成局${strength.formationEffect}`,
@@ -15,10 +16,23 @@ export function formatBaziDecisionDetails(result: BaziChartResult): string[] {
       (condition) => `成格条件（${condition.status}）：${condition.detail}`,
     ),
     fulfillment?.contradiction ? `格局反证：${fulfillment.contradiction}` : '',
+    ...(transformation
+      ? [
+          `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
+          ...transformation.evidence.map((item) => `化气证据：${item}`),
+          ...transformation.conditions.map((item) => `化气条件：${item}`),
+          ...(transformation.status === '成化'
+            ? [
+                `化神取用主体：化神${transformation.element}；原日主${result.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
+              ]
+            : []),
+        ]
+      : []),
     decision
-      ? `取用基线：${mingGe.isSpecial ? '特殊格局顺势' : dayMasterStrength.status + '扶抑'}，喜${decision.base.favorable.join('、') || '待定'}，忌${decision.base.unfavorable.join('、') || '待定'}`
+      ? `取用基线：${transformation?.status === '成化' ? `化神${transformation.element}顺势` : mingGe.isSpecial ? '特殊格局顺势' : dayMasterStrength.status + '扶抑'}，喜${decision.base.favorable.join('、') || '待定'}，忌${decision.base.unfavorable.join('、') || '待定'}`
       : '',
     decision?.appliedLayers.length ? `取用层次：${decision.appliedLayers.join(' → ')}` : '',
+    decision?.balanceAdjustment ? `取用配合：${decision.balanceAdjustment.reason}` : '',
     decision?.climateReferenceOrder?.length
       ? `调候参考次序：${decision.climateReferenceOrder.join('、')}；综合取用见五行取用，具体天干的作用见条件取用`
       : '',

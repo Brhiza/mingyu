@@ -3,7 +3,13 @@
  * @description 命录是全息、百科式、结构化且支持全量展开与内链互通的命理大报告数据模型。
  */
 
-import type { BaziChartResult, Wuxing } from '../bazi/baziTypes';
+import type {
+  BaziChartResult,
+  PatternTransformationEvidence,
+  UsefulGodDecisionEvidence,
+  Wuxing,
+} from '../bazi/baziTypes';
+import type { PatternFulfillmentResult } from '../bazi/baziPatternFulfillment';
 import type { ZiweiRuntime } from '../ziwei/runtime';
 import type { AstrolabeData } from '../types/divination';
 import type { QizhengResult } from '../qi_zheng';
@@ -200,12 +206,18 @@ export interface MingluFiveElementsSectionData {
 
 // 3. 格局与用神体系数据
 export interface MingluPatternUsefulGodSectionData {
+  /** 缺时辰时只展示三柱已知资料与候选场景，不把待定结果当作格局结论。 */
+  unknownTimeAnalysis?: BaziChartResult['unknownTimeAnalysis'];
   pattern: {
     name: string;
     isSpecial: boolean;
     type: string;
     basis: string;
     formationAnalysis: string;
+    /** 化气主格的状态、依据和条件；保留原日主事实并单列化神主体。 */
+    transformation?: PatternTransformationEvidence;
+    /** 核心格局成败评估；保留条件事实、反证与制化路径供页面逐项核验。 */
+    fulfillment?: PatternFulfillmentResult;
     classicCommentary?: string;
   };
   usefulGods: {
@@ -216,6 +228,8 @@ export interface MingluPatternUsefulGodSectionData {
     usefulGodCategory: string;
     reasoning: string;
     strategyTrace: string[];
+    /** 化神取用依据；十神标签仍按原日干映射，仅作本命事实。 */
+    transformation?: NonNullable<UsefulGodDecisionEvidence['transformation']>;
   };
   qiongtongAdvice?: {
     title: string;
@@ -390,7 +404,7 @@ export interface MingluLuckChronicleSectionData {
   startAge: number;
   startYear: number;
   handoverInfo: string;
-  direction: '顺行' | '逆行';
+  direction: '顺行' | '逆行' | '待补时';
   cycles: MingluLuckCycleItem[];
 }
 

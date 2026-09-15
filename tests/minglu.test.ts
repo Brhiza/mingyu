@@ -90,6 +90,21 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   // 5. 格局与用神
   assert.ok(article.patternUsefulGodSection.pattern.name);
   assert.ok(article.patternUsefulGodSection.usefulGods.primaryUseful);
+  const fulfillment = baziResult.analysis.mingGe.fulfillment;
+  assert.ok(fulfillment);
+  assert.equal(article.patternUsefulGodSection.pattern.fulfillment?.status, fulfillment.status);
+  assert.equal(
+    article.patternUsefulGodSection.pattern.fulfillment?.conditionFacts?.length,
+    fulfillment.conditionFacts?.length,
+  );
+  assert.equal(
+    article.patternUsefulGodSection.pattern.fulfillment?.contradiction,
+    fulfillment.contradiction,
+  );
+  assert.deepEqual(
+    article.patternUsefulGodSection.pattern.fulfillment?.pathEvaluations?.map((path) => path.key),
+    fulfillment.pathEvaluations?.map((path) => path.key),
+  );
 
   // 6. 柱间作用网络
   assert.ok(Array.isArray(article.interactionsSection));
@@ -131,6 +146,31 @@ test('命录应正确生成全息百科大报告与所有补齐计算', () => {
   assert.ok(article.glossary.length >= 20);
   assert.ok(article.statistics.totalSections >= 8);
   assert.ok(article.statistics.totalGlossaryEntries >= 20);
+});
+
+test('命录缺时辰只保留已确定柱与候选场景，不套用空日主或空时柱', () => {
+  const baziResult = baziCalculator.calculateBazi({
+    year: 2000,
+    month: 1,
+    day: 7,
+    timeIndex: 6,
+    gender: 'male',
+    isThreePillars: true,
+  });
+
+  const article = buildMingluArticle({
+    person: { name: '缺时', gender: 'male' },
+    baziResult,
+  });
+
+  assert.equal(article.metadata.baziFourPillars.hour, '待补时');
+  assert.equal(article.patternUsefulGodSection.pattern.name, '待补时');
+  assert.equal(article.patternUsefulGodSection.unknownTimeAnalysis?.scenarios.length, 15);
+  assert.equal(article.fiveElementsSection.dayMasterStrength.status, '未知（待补时）');
+  assert.equal(article.luckChronicleSection.direction, '待补时');
+  assert.deepEqual(article.luckChronicleSection.cycles, []);
+  assert.deepEqual(article.interactionsSection, []);
+  assert.match(article.beginnerGuide?.strengthPlain ?? '', /旺衰、格局与喜忌暂不判定/);
 });
 
 test('命录岁运并临不应同时误判天地合或天克地冲，冲合判定须两字不同', () => {
@@ -310,6 +350,11 @@ test('命录保留中和与实际取用，印星及透干比劫分别取证', ()
   const guide = buildBeginnerGuide(chart);
   assert.match(guide.strengthPlain, /日主中和/);
   assert.ok(guide.strengthPlain.includes(chart.analysis.usefulGod.primaryUseful!));
+  assert.ok(
+    guide.strengthPlain.includes(chart.analysis.usefulGod.primaryFavorableWuxing!) ||
+      chart.analysis.usefulGod.primaryFavorableWuxing === undefined,
+  );
+  assert.match(guide.favorableHabitsPlain[0], /核心调和五行：/);
   assert.doesNotMatch(guide.strengthPlain, /日主偏弱|印比为喜用/);
   const tenGods = buildEnhancedTenGodsSection(chart);
   assert.equal(tenGods.godsList.find((god) => god.tenGod === '正官')!.count, 0);

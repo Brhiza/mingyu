@@ -106,7 +106,7 @@ test('五行结构入口应拒绝非法四柱和非法司令，不静默降级�
         ...pillars,
         day: { gan: '甲', zhi: '丑', ganZhi: '甲丑' },
       }),
-    /day柱不是有效六十甲子/,
+    /日柱不是有效六十甲子/,
   );
   assert.throws(() => calculator.calculateWuxingStrength(pillars, 'A'), /月令司权天干无效/);
 });
@@ -762,7 +762,7 @@ test('旺衰分析器应拒绝坏输入，不应把缺失旺衰或未知五行�
         },
         getWuxing as (value: string) => Wuxing,
       ),
-    /month柱藏干无效/,
+    /月柱藏干无效/,
   );
   assert.throws(
     () =>
@@ -782,6 +782,6 @@ test('旺衰分析器应拒绝坏输入，不应把缺失旺衰或未知五行�
         },
         getWuxing as (value: string) => Wuxing,
       ),
-    /hour柱藏干与地支辰不一致/,
+    /时柱藏干与地支辰不一致/,
   );
 });

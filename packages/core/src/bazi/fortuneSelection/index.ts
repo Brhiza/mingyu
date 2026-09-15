@@ -730,9 +730,7 @@ export function buildFortuneSelectionContext(
 
   const actualDate = dayInfo.solarDate;
   const [actualYear, actualMonth, actualDay] = actualDate.split('-').map(Number);
-  // 流时列表按子初命理日生成（含前日 23:00 起的晚子时），因此第二重求交使用
-  // 节令月有效范围而非公历零点切片的流日范围：交节日前后不属于所选流月的时辰被裁剪，
-  // 平日午夜的晚子时仍正常保留
+  // 流日与流时均按子初日界；流时再与交运、交节范围求交，保留边界日的实际时段。
   const monthTimeRangeForHours = clipToCycle(monthInfo.timeRange, cycleTimeRange);
   const rawHourBreakdown = getDayHourBreakdown(
     actualYear,

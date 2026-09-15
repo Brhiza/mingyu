@@ -326,7 +326,11 @@ export function registerBaziTool(server: McpServer) {
         });
         const explicitFortuneScope =
           args.baziFortuneScope ?? mapPromptScopeToBaziFortuneScope(selection?.scope);
-        const initialFortuneScope = explicitFortuneScope ?? 'dayun';
+        if (result.isThreePillars && explicitFortuneScope && explicitFortuneScope !== 'natal') {
+          throw new Error('出生时辰未知，补齐出生时分后才能选择岁运。');
+        }
+        const initialFortuneScope =
+          explicitFortuneScope ?? (result.isThreePillars ? 'natal' : 'dayun');
         // 通用 scope 只指定层级（如 decadal），仍应自动定位当前阶段；只有
         // baziFortuneScope 携带具体参数时才按显式选择严格校验。
         const useCurrentDefaults = args.baziFortuneScope === undefined;

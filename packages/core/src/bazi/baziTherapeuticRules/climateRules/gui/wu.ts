@@ -5,7 +5,7 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
     id: 'wu-wei-month-gui-metal-water-summer-rich',
     label: '癸日午未月金水会夏天规则',
     description:
-      '癸水生午未月，本弱而畏火，若庚辛透干又见壬癸相扶，正合传统"金水会夏天"之论，多主富贵，不应仍按普通夏水身弱泛断。',
+      '癸水生午未月，庚辛透干、壬癸相扶时，调候参考金水相济。庚辛能否生水，须结合根气、火的制约及比劫护印条件判断。',
     priority: 123,
     months: ['午', '未'],
     dayMasters: ['水'],
@@ -13,8 +13,8 @@ export const GUI_WU_CLIMATE_RULES: ClimateRule[] = [
     minTenGodCategoryVisibleCounts: { 印星: 1, 比劫: 1 },
     usefulWuxing: '金',
     favorableOrder: ['金', '水'],
-    traceHints: ['取用层次:金水会夏天', '成格层次:富贵永无边'],
-    hint: '癸水午未月庚辛透而又见壬癸，可按金水会夏天论富贵',
+    traceHints: ['取用层次:金水相济', '配合条件:金有根气，比劫护印，火制有解'],
+    hint: '癸水午未月见金水透干，调候参考金水相济；须结合金的根气、火制及比劫护印判断作用程度',
   },
   {
     id: 'wu-month-gui-metal-no-visible-water-single-water-rich',

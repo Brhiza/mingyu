@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { BaziChartResult } from '@core/bazi/baziTypes';
+import { baziCalculator } from '@core/bazi/baziCalculator';
 import {
   evaluateGuiRenCorroboration,
   evaluateShaYaoCorroboration,
@@ -16,6 +17,12 @@ function buildBazi(status: string, hasYangRen = true): BaziChartResult {
       month: { gan: '戊', zhi: '午' },
       day: { gan: '甲', zhi: hasYangRen ? '卯' : '辰' },
       hour: { gan: '庚', zhi: '巳' },
+    },
+    shensha: {
+      year: [],
+      month: [],
+      day: hasYangRen ? ['羊刃'] : [],
+      hour: [],
     },
     analysis: {
       dayMasterStrength: { status },
@@ -72,6 +79,12 @@ function buildGuiBazi(): BaziChartResult {
       month: { gan: '戊', zhi: '午' },
       day: { gan: '甲', zhi: '辰' },
       hour: { gan: '庚', zhi: '巳' },
+    },
+    shensha: {
+      year: ['天乙贵人'],
+      month: [],
+      day: [],
+      hour: [],
     },
     analysis: {
       dayMasterStrength: { status: '中和' },
@@ -150,6 +163,45 @@ test('默认无庙旺表的贵人星按位置取证，运限缺口独立保留',
     )?.status,
     '资料不足',
   );
+});
+
+test('合参天乙贵人应保留公共神煞的年干命中柱位', () => {
+  const bazi = baziCalculator.calculateBazi({
+    year: 2006,
+    month: 9,
+    day: 21,
+    timeIndex: 0,
+    gender: 'male',
+    isLunar: false,
+  });
+  assert.ok(bazi.shensha.month.includes('天乙贵人'));
+
+  const result = evaluateGuiRenCorroboration(bazi, buildZiwei(false));
+  assert.deepEqual(result.baziTianYiPositions, [
+    { rule: '天乙贵人', pillar: 'month', pillarName: '月柱', branch: '酉' },
+  ]);
+  assert.equal(result.hasBaziTianYi, true);
+  assert.doesNotMatch(result.judgment, /八字四柱未记录天乙/);
+});
+
+test('合参缺少八字神煞资料时应保留无法核验状态', () => {
+  const bazi = buildBazi('身强');
+  delete (bazi as { shensha?: unknown }).shensha;
+  const sha = evaluateShaYaoCorroboration(bazi, buildZiwei());
+  const gui = evaluateGuiRenCorroboration(bazi, buildGuiZiwei());
+  assert.equal(
+    sha.effectConditions.find((item) => item.key === 'bazi.yang-ren-position')?.status,
+    '资料不足',
+  );
+  assert.match(
+    sha.effectConditions.find((item) => item.key === 'bazi.yang-ren-position')!.detail,
+    /资料未提供.*无法.*羊刃/,
+  );
+  assert.equal(
+    gui.effectConditions.find((item) => item.key === 'bazi.tianyi-position')?.status,
+    '资料不足',
+  );
+  assert.match(gui.judgment, /资料未提供.*无法核验天乙/);
 });
 
 test('合参区分亮度已列与落陷制约，运限按宫位及四化星曜双重定位', () => {

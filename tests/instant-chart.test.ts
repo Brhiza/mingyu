@@ -6,6 +6,7 @@ import {
   buildInstantChartContext,
   calculateInstantChart,
 } from 'mingyu-core/instant';
+import { calculateBaziChartFromInput } from '../packages/core/src/bazi';
 
 const fixedInstant = new Date('2026-08-24T12:30:00+08:00');
 const beijingObserver = {
@@ -38,9 +39,36 @@ test('北京时间即时盘固定按东八区提取当前墙上时间', () => {
     day: 24,
     hour: 12,
     minute: 30,
+    second: 0,
     offsetHours: 8,
   });
   assert.equal(context.trueSolarTime, undefined);
+});
+
+test('北京时间即时盘应保留秒数并用于节气临界点排盘', async () => {
+  // 2025-05-05 13:57:00 北京时间早于当日立夏的 13:57:13；
+  // 若回退到未时代表值 14:00，会错误地把月柱切到巳月。
+  const customDate = new Date('2025-05-05T05:57:00.000Z');
+  const response = await calculateInstantChart({
+    type: 'bazi',
+    customDate,
+    timeStandard: 'beijing',
+  });
+  const direct = calculateBaziChartFromInput({
+    gender: 'male',
+    year: 2025,
+    month: 5,
+    day: 5,
+    timeIndex: 6,
+    dateType: 'solar',
+    isLeapMonth: false,
+    birthHour: 13,
+    birthMinute: 57,
+    birthSecond: 0,
+  });
+
+  assert.equal(response.wallClock.second, 0);
+  assert.equal(response.result.pillars.month.ganZhi, direct.pillars.month.ganZhi);
 });
 
 test('八字即时盘不返回性别、大运和命卦等个人字段', async () => {

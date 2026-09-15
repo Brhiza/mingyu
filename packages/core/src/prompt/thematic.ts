@@ -12,6 +12,7 @@ import {
 } from '../bazi';
 import type { ZiweiRuntime } from '../ziwei/runtime';
 import { formatBaziFortuneSelection, formatBaziFullFortune } from './bazi-fortune';
+import { formatBaziPatternConditions } from './bazi';
 import { formatPromptCurrentTime } from './current-time';
 import { buildCustomQuestionTask, buildPromptGuidance, buildPromptTask } from './guidance';
 import { buildPromptSection, joinPromptSections } from './sections';
@@ -379,6 +380,7 @@ export function buildThematicConsultationPrompt(
       null,
       fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
     );
+    const baziPatternConditions = formatBaziPatternConditions(options.baziResult);
     const taskText = buildPromptSelectionTask(
       isCustomMode
         ? buildCustomQuestionTask('八字排盘资料', 'bazi')
@@ -399,6 +401,7 @@ export function buildThematicConsultationPrompt(
         `${getPromptSelectionSection(selection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n八字核心考察：${getFocusElements(config.baziFocusElements, selection).join('、')}`,
       ),
       buildPromptSection('排盘信息', baziChartText),
+      baziPatternConditions ? buildPromptSection('八字格局条件', baziPatternConditions) : '',
       fortuneSelection
         ? buildPromptSection(
             '岁运资料',
@@ -521,6 +524,7 @@ export function buildThematicConsultationPrompt(
     null,
     fortuneSelection || hasFullBaziFortune ? 'fortune' : 'general',
   );
+  const baziPatternConditions = formatBaziPatternConditions(options.baziResult);
   const ziweiText = formatZiweiEvidenceText(options.ziweiResult, ziweiScope);
 
   const schoolSections = [
@@ -552,6 +556,7 @@ export function buildThematicConsultationPrompt(
       `${getPromptSelectionSection(selection)}\n咨询主题：${config.name}（${config.title}）\n主题范畴：${config.scopeDescription}\n核心考查：紫微重点审视${config.ziweiFocusPalaces.map((p) => `${p}宫`).join('、')}；八字重点审视${getFocusElements(config.baziFocusElements, selection).join('、')}`,
     ),
     buildPromptSection('八字排盘信息', baziChartText),
+    baziPatternConditions ? buildPromptSection('八字格局条件', baziPatternConditions) : '',
     fortuneSelection
       ? buildPromptSection(
           '八字岁运',

@@ -1,6 +1,8 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { BaziChartResult } from './baziTypes';
 import { formatUsefulGodFunctions } from './baziAnalysisFormatter';
+import { HIDDEN_STEMS } from './baziMappingsData';
+import { getTenGod } from './baziUtils';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -193,20 +195,45 @@ function buildPillarFacts(data: BaziChartResult): BaziNatalPillarFact[] {
     const hiddenStems = data.hiddenStems[key] ?? [];
     const hiddenTenGods = data.hiddenTenGods[key] ?? [];
     // 除干支本身外，同时核对派生字段的对应关系：
-    // 藏干十神应与藏干一一对应，干支拼接应与 ganZhi 一致，避免缺派生资料仍记“已记录”
+    // 藏干必须与地支真相表一致，藏干十神必须与藏干和日主一致，避免篡改或错位资料仍记“已记录”。
     const coreMissing = !hasText(pillar.gan) || !hasText(pillar.zhi) || !hasText(pillar.ganZhi);
-    const hiddenTenGodMismatch =
-      hiddenStems.length > 0 && hiddenTenGods.length !== hiddenStems.length;
+    const expectedHiddenStems = HIDDEN_STEMS[pillar.zhi] ?? [];
+    const hiddenStemsMismatch =
+      expectedHiddenStems.length === 0 ||
+      hiddenStems.length !== expectedHiddenStems.length ||
+      hiddenStems.some((stem, index) => stem !== expectedHiddenStems[index]);
+    const hiddenTenGodLengthMismatch = hiddenTenGods.length !== hiddenStems.length;
+    const hiddenTenGodValueMismatch =
+      !hiddenTenGodLengthMismatch &&
+      hiddenStems.some(
+        (stem, index) => getTenGod(stem, data.dayMaster.gan) !== hiddenTenGods[index],
+      );
     const ganZhiMismatch =
       hasText(pillar.gan) && hasText(pillar.zhi) && hasText(pillar.ganZhi)
         ? pillar.ganZhi !== `${pillar.gan}${pillar.zhi}`
         : false;
-    const status = coreMissing || hiddenTenGodMismatch || ganZhiMismatch ? '资料缺口' : '已记录';
+    const status =
+      coreMissing ||
+      hiddenStemsMismatch ||
+      hiddenTenGodLengthMismatch ||
+      hiddenTenGodValueMismatch ||
+      ganZhiMismatch
+        ? '资料缺口'
+        : '已记录';
+    const hiddenPrompt = hiddenStemsMismatch
+      ? [`藏干资料与地支${pillar.zhi}不一致，暂不采用`]
+      : [
+          `藏干${joinOrNone(hiddenStems)}`,
+          hiddenTenGodLengthMismatch || hiddenTenGodValueMismatch
+            ? '藏干十神资料与藏干或日主不一致，暂不采用'
+            : hiddenTenGods.length
+              ? `藏干十神${hiddenTenGods.join('、')}`
+              : '',
+        ];
     const promptText = [
       `${PILLAR_LABELS[key]}${pillar.ganZhi || '未记录干支'}`,
       `天干十神${data.tenGods[key] || '未记录'}`,
-      `藏干${joinOrNone(hiddenStems)}`,
-      hiddenTenGods.length ? `藏干十神${hiddenTenGods.join('、')}` : '',
+      ...hiddenPrompt,
       data.nayin[key] ? `纳音${data.nayin[key]}` : '',
       data.pillarLifeStages[key] ? `柱干十二运${data.pillarLifeStages[key]}` : '',
       data.lifeStages[key] ? `日主十二运${data.lifeStages[key]}` : '',
@@ -240,6 +267,19 @@ function buildPillarFacts(data: BaziChartResult): BaziNatalPillarFact[] {
 }
 
 function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
+  if (data.isThreePillars) {
+    return (['日主旺衰', '格局', '用神取忌'] as const).map((type, index) => ({
+      key: `bazi:natal:analysis:${['strength', 'pattern', 'useful-god'][index]}`,
+      status: '资料缺口',
+      type,
+      result: '待补时',
+      basis: [data.unknownTimeAnalysis?.summary ?? '出生时辰未知，完整命盘待确定。'],
+      calculationStepKeys: ['bazi:natal:calculation:core-analysis'],
+      promptText: `${type}待出生时分确定后再判。`,
+      sources: ['出生时辰资料完整性'],
+      limitation: ANALYSIS_FACT_LIMITATION,
+    }));
+  }
   const strength = data.analysis.dayMasterStrength;
   const strengthDetails = strength.details;
   const strengthBasis = [
@@ -374,7 +414,7 @@ function buildCalculationSteps(args: {
     {
       key: 'bazi:natal:calculation:birth-time',
       stage: '出生时间定盘',
-      status: '已计算',
+      status: data.isThreePillars ? '存在资料缺口' : '已计算',
       inputs: {
         solarDate: `${data.solarDate.year}-${data.solarDate.month}-${data.solarDate.day}`,
         birthTime: `${data.timeInfo.name}（${data.timeInfo.range}）`,
@@ -385,9 +425,11 @@ function buildCalculationSteps(args: {
         warningFactCount: data.warningFacts.length,
       },
       dependsOnStepKeys: [],
-      promptText: data.timing?.enabled
-        ? `出生钟表时间经真太阳时校正后采用${correctedTime}，对应${data.timeInfo.name}`
-        : `出生时间按明确选择的${data.timeInfo.name}（${data.timeInfo.range}）直接定盘`,
+      promptText: data.isThreePillars
+        ? '出生日期已知，出生时分待补充，已确定的柱与时辰候选分别记录'
+        : data.timing?.enabled
+          ? `出生钟表时间经真太阳时校正后采用${correctedTime}，对应${data.timeInfo.name}`
+          : `出生时间按明确选择的${data.timeInfo.name}（${data.timeInfo.range}）直接定盘`,
       sources: data.timing?.enabled
         ? ['出生日期、精准时分、出生地经度、均时差与历史夏令时校正']
         : ['出生日期与明确传统时辰输入'],
@@ -517,26 +559,38 @@ function buildCounterEvidenceFacts(args: {
     {
       key: 'bazi:natal:counter:relation-coverage',
       type: '柱间关系覆盖',
-      status: relationFacts.length ? '有可用证据' : '未命中主要关系',
+      status: data.isThreePillars
+        ? '资料不足'
+        : relationFacts.length
+          ? '有可用证据'
+          : '未命中主要关系',
       ownerFactKeys: ['bazi:natal:calculation:derived', ...relationFacts.map((item) => item.key)],
-      promptText: relationFacts.length
-        ? `原局记录${relationFacts.length}项同柱伏吟、同干、同支、反吟或刑冲合害破关系`
-        : '原局未命中当前已登记的同柱伏吟、同干、同支、反吟、刑冲合害破及三合三会关系；不代表没有其他较弱互动',
+      promptText: data.isThreePillars
+        ? '完整四柱关系待出生时分确定后核验'
+        : relationFacts.length
+          ? `原局记录${relationFacts.length}项同柱伏吟、同干、同支、反吟或刑冲合害破关系`
+          : '原局未命中当前已登记的同柱伏吟、同干、同支、反吟、刑冲合害破及三合三会关系；不代表没有其他较弱互动',
       sources: ['四柱干支逐对关系与三合三会成员核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
     {
       key: 'bazi:natal:counter:boundary-coverage',
       type: '排盘边界覆盖',
-      status: data.warningFacts.length ? '存在边界提示' : '无边界提示',
+      status: data.isThreePillars
+        ? '资料不足'
+        : data.warningFacts.length
+          ? '存在边界提示'
+          : '无边界提示',
       ownerFactKeys: [
         'bazi:natal:calculation:birth-time',
         data.warningSummaryFact.key,
         ...data.warningFacts.map((item) => item.key),
       ],
-      promptText: data.warningFacts.length
-        ? `${data.warningSummaryFact.promptText}；已按明确输入生成当前唯一命盘`
-        : '当前输入未触发已登记的节气、时辰、换日或历史夏令时边界提示',
+      promptText: data.isThreePillars
+        ? '出生时分待补充，交节与子初换日范围尚未确定'
+        : data.warningFacts.length
+          ? `${data.warningSummaryFact.promptText}；已按明确输入生成当前唯一命盘`
+          : '当前输入未触发已登记的节气、时辰、换日或历史夏令时边界提示',
       sources: ['出生时间定盘口径与排盘边界预警'],
       limitation: COUNTER_FACT_LIMITATION,
     },
@@ -587,7 +641,9 @@ function buildLimitationFacts(args: {
         data.warningSummaryFact.key,
         ...data.warningFacts.map((item) => item.key),
       ],
-      promptText: '当前命盘只采用明确时辰或真太阳时校正后的唯一时刻',
+      promptText: data.isThreePillars
+        ? '出生时辰待补充，已确定资料与时辰候选分别记录，完整命盘尚未确定'
+        : '当前命盘只采用明确时辰或真太阳时校正后的唯一时刻',
       sources: ['出生时间输入规则、真太阳时与排盘边界事实'],
     },
     {
@@ -822,11 +878,16 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
       `证据汇总：${summaryFact.promptText}。`,
       `解释限制：${limitations.join('；')}。`,
     ].join('\n'),
-    methodology: [
-      '先按明确传统时辰，或按精准时分与出生地校正后的真太阳时确定唯一排盘时刻。',
-      '按节气换年换月、当前换日口径与六十甲子生成四柱，再派生十神、藏干、纳音、十二运、旬空与柱间关系。',
-      '旺衰、格局与用神取忌分别登记结果和依据，不用五行数量或单一标签替代完整判断链。',
-      '本命原局只描述长期结构与触发条件，具体时间必须另行引用明确选择的岁运证据。',
-    ],
+    methodology: data.isThreePillars
+      ? [
+          '先记录已知出生日期与确定的柱，交节或子初换日影响的柱待出生时分确定。',
+          '各时辰的完整排盘单独登记为候选比较，旺衰格局取用与起运均待补时。',
+        ]
+      : [
+          '先按明确传统时辰，或按精准时分与出生地校正后的真太阳时确定唯一排盘时刻。',
+          '按节气换年换月、当前换日口径与六十甲子生成四柱，再派生十神、藏干、纳音、十二运、旬空与柱间关系。',
+          '旺衰、格局与用神取忌分别登记结果和依据，不用五行数量或单一标签替代完整判断链。',
+          '本命原局只描述长期结构与触发条件，具体时间必须另行引用明确选择的岁运证据。',
+        ],
   };
 }

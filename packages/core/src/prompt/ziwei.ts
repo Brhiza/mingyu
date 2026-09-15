@@ -8,6 +8,7 @@ import {
 } from '../ziwei/fortune-timeline';
 import { analyzeZiweiCompatibility, getBodyPalaceAxisSummary } from '../ziwei/iztro/index';
 import { formatBaziForPrompt, type BaziChartResult } from '../bazi/index';
+import { formatBaziPatternConditions } from './bazi';
 import { formatPromptCurrentTime } from './current-time';
 import { buildPromptGuidance, buildPromptTask } from './guidance';
 import { formatPromptSchoolGuidance } from './schools';
@@ -667,6 +668,7 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
       : [];
   const thematicConfig = getThematicTopicConfig(topic);
   const ziweiFocusPalaces = thematicConfig?.ziweiFocusPalaces;
+  const baziPatternConditions = formatBaziPatternConditions(options.bazi);
   const task = buildPromptTask(
     `${thematicConfig.combinedTask} 请先分别依据八字和紫微各自盘面资料建立证据，再比较两套体系对${topic}的共同指向、差异和需要结合现实核对的部分。`,
     'bazi-ziwei',
@@ -685,6 +687,7 @@ export function buildBaziZiweiPromptDocument(options: BaziZiweiPromptOptions): P
         ),
       ),
       buildPromptSection('八字盘面资料', formatBaziForPrompt(options.bazi)),
+      baziPatternConditions ? buildPromptSection('八字格局条件', baziPatternConditions) : '',
       selectedBaziSchools.length
         ? buildPromptSection(
             selectedBaziSchools.length > 1 ? '八字多派合参' : '八字解读流派',

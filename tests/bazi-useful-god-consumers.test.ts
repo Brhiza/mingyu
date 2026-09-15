@@ -127,6 +127,12 @@ test('实际冬盘的丙条件喜与丁条件忌贯穿本命提示词和结构�
 
 test('起名消费者沿用完整喜用五行，条件火只保留为干级功能资料', () => {
   const context = calculateNamingBirthContext(WINTER_INPUT);
+  assert.equal(context.pattern.name, context.pattern.fulfillment?.patternName);
+  assert.ok(context.pattern.basis);
+  assert.ok(context.pattern.fulfillment);
+  assert.match(context.pattern.fulfillment.summary, /./);
+  assert.ok(context.pattern.fulfillment.conditionFacts.length > 0);
+  assert.match(context.pattern.fulfillment.conditionFacts[0].detail, /./);
   assert.deepEqual(context.favorableElements, ['金', '水']);
   assert.equal(context.favorableElements.includes('火'), false);
   assert.match(context.functionalUse.join('\n'), new RegExp(CONDITIONAL_FUNCTION));
@@ -137,6 +143,9 @@ test('起名消费者沿用完整喜用五行，条件火只保留为干级功�
   assert.equal(analysis.preferredElements.includes('火'), false);
 
   const prompt = buildChineseNameAnalysisPrompt({ analysis });
+  assert.match(prompt, /格局：/);
+  assert.match(prompt, /格局成败：/);
+  assert.match(prompt, /格局条件（(?:满足|不满足|资料不足)）：/);
   assert.match(prompt, new RegExp(CONDITIONAL_FUNCTION));
   assert.match(prompt, new RegExp(CONDITIONAL_AVOID));
   assert.doesNotMatch(prompt, /ruleId|mode/);
@@ -150,6 +159,63 @@ test('起名消费者沿用完整喜用五行，条件火只保留为干级功�
   assert.ok(candidate);
   assert.deepEqual(candidate.analysis.birthContext?.favorableElements, ['金', '水']);
   assert.equal(candidate.analysis.birthContext?.favorableElements.includes('火'), false);
+});
+
+test('缺时辰起名资料保留候选场景，不把缺失喜用转成补字结论', () => {
+  const context = calculateNamingBirthContext({
+    year: 2000,
+    month: 1,
+    day: 7,
+    timeIndex: '',
+    gender: 'male',
+    isThreePillars: true,
+  });
+
+  assert.equal(context.unknownTimeAnalysis?.status, '待补时');
+  assert.equal(context.unknownTimeAnalysis?.scenarios.length, 15);
+  assert.deepEqual(context.favorableElements, []);
+  assert.equal(context.pattern.name, '待补时');
+  assert.match(context.warnings.join('\n'), /出生时辰待补充/);
+
+  const analysis = analyzeChineseName({
+    fullName: '李明',
+    birth: {
+      year: 2000,
+      month: 1,
+      day: 7,
+      timeIndex: '',
+      gender: 'male',
+      isThreePillars: true,
+    },
+  });
+  const prompt = buildChineseNameAnalysisPrompt({ analysis });
+  assert.match(prompt, /待补时说明：/);
+  assert.match(prompt, /丑时候选/);
+  assert.match(prompt, /喜用五行：待补时/);
+});
+
+test('起名缺时入口沿用八字输入校验，不静默转换非法标志或日期类型', () => {
+  const input = {
+    year: 2000,
+    month: 1,
+    day: 7,
+    timeIndex: '',
+    gender: 'male' as const,
+    isThreePillars: true,
+  };
+
+  assert.throws(
+    () => calculateNamingBirthContext({ ...input, isThreePillars: 'false' as never }),
+    /时辰未知标志必须是布尔值/,
+  );
+  assert.throws(
+    () => calculateNamingBirthContext({ ...input, dateType: 'gregorian' as never }),
+    /日期类型必须是 solar 或 lunar/,
+  );
+  assert.throws(
+    () => calculateNamingBirthContext({ ...input, timeIndex: 'invalid' as never }),
+    /出生时辰必须是整数/,
+  );
 });
 
 test('合盘结构化喜用覆盖保留条件干作用和作用对象', () => {

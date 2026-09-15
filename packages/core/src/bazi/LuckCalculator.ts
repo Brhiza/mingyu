@@ -1,12 +1,18 @@
-import { SolarTime, ChildLimit } from 'tyme4ts';
+import { SolarTime, SolarTerm, ChildLimit } from 'tyme4ts';
 import { assertHeavenlyStem, getTenGod, getTenGodForBranch } from './baziUtils';
 import type { LuckInfo, LuckCycle, LiunianInfo, SolarDateTimeInfo, XiaoyunInfo } from './baziTypes';
-import { formatSolarDateTime, shiftSolarDateTimeYears, toSolarDateTimeInfo } from './luckTiming';
+import {
+  formatSolarDateTime,
+  shiftSolarDateTimeYears,
+  toNativeDate,
+  toSolarDateTimeInfo,
+} from './luckTiming';
 import { CHILD_LIMIT_METHOD, createChildLimit } from './childLimit';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LuckGender = Parameters<typeof ChildLimit.fromSolarTime>[1];
 type FortuneInstance = ReturnType<ReturnType<typeof ChildLimit.fromSolarTime>['getStartFortune']>;
+type EightCharInstance = ReturnType<ReturnType<SolarTimeInstance['getLunarHour']>['getEightChar']>;
 
 /**
  * 专注于大运、小运、流年等运势计算的工具类
@@ -22,11 +28,13 @@ export class LuckCalculator {
     solarTime: SolarTimeInstance,
     gender: LuckGender,
     dayMaster: string,
+    termSolarTime: SolarTimeInstance = solarTime,
+    eightChar: EightCharInstance = solarTime.getLunarHour().getEightChar(),
   ): LuckInfo {
     assertHeavenlyStem(dayMaster, '日主');
 
     // 1. 计算童限 (起运前)
-    const childLimit = createChildLimit(solarTime, gender);
+    const childLimit = createChildLimit(termSolarTime, gender, eightChar);
     const startAge = childLimit.getYearCount(); // 起运岁数
     const startMonth = childLimit.getMonthCount();
     const startDay = childLimit.getDayCount();
@@ -35,7 +43,7 @@ export class LuckCalculator {
 
     // 精确的起运时间 (公历)
     const limitSolarTime = childLimit.getEndTime();
-    const birthSolarTime = toSolarDateTimeInfo(solarTime);
+    const birthSolarTime = toSolarDateTimeInfo(termSolarTime);
     const firstCycleStartTime = toSolarDateTimeInfo(limitSolarTime);
 
     const startInfoText = this.getStartInfoText(
@@ -60,12 +68,12 @@ export class LuckCalculator {
     }
 
     const cycles: LuckCycle[] = [];
-    const birthYear = solarTime.getYear();
+    const birthYear = termSolarTime.getYear();
 
     // 3. 处理起运前的童限年份
-    if (startAge >= 1 || this.shouldIncludeBoundaryYear(firstCycleStartTime)) {
+    if (this.hasPositiveSolarRange(birthSolarTime, firstCycleStartTime)) {
       const preDayunYears = this.calculateLiunianForCycle(
-        birthYear,
+        birthSolarTime,
         birthYear,
         dayMaster,
         firstCycleStartTime,
@@ -113,7 +121,7 @@ export class LuckCalculator {
     cycles.forEach((cycle) => {
       if (!cycle.isXiaoyun) {
         cycle.years = this.calculateLiunianForCycle(
-          cycle.year, // 大运开始年份
+          cycle.startSolarTime ?? birthSolarTime,
           birthYear,
           dayMaster,
           cycle.endSolarTime,
@@ -136,14 +144,21 @@ export class LuckCalculator {
    * 为单个大运周期（10年）计算所有流年信息
    */
   private calculateLiunianForCycle(
-    startYear: number,
+    cycleStartTime: SolarDateTimeInfo,
     birthYear: number,
     dayMaster: string,
     cycleEndTime?: SolarDateTimeInfo,
     startFortune?: FortuneInstance,
   ): LiunianInfo[] {
     const liunianList: LiunianInfo[] = [];
-    const yearCount = cycleEndTime ? this.getCycleCalendarYearCount(startYear, cycleEndTime) : 10;
+    const startYear = this.getBaziYearAt(cycleStartTime);
+    const yearCount = cycleEndTime
+      ? this.getCycleCalendarYearCount(cycleStartTime, cycleEndTime)
+      : 10;
+
+    if (yearCount <= 0) {
+      return liunianList;
+    }
 
     for (let i = 0; i < yearCount; i++) {
       const currentYear = startYear + i;
@@ -183,7 +198,9 @@ export class LuckCalculator {
   private attachResolvedYears(cycles: LuckCycle[]) {
     cycles.forEach((cycle, index) => {
       const nextCycle = cycles[index + 1];
-      const nextStartYear = nextCycle?.year;
+      const nextStartYear = nextCycle?.startSolarTime
+        ? this.getBaziYearAt(nextCycle.startSolarTime)
+        : undefined;
 
       cycle.resolvedYears =
         typeof nextStartYear === 'number'
@@ -209,26 +226,66 @@ export class LuckCalculator {
   }
 
   /**
+   * 流年按立春换年，而大运的公开 year 字段仍保留交运时刻的公历年。
+   * 交运落在立春前时，周期的第一段实际属于上一干支年，必须从该年生成
+   * 流年，否则当前日期会落在大运时间范围内却没有可选流年。
+   */
+  private getBaziYearAt(time: SolarDateTimeInfo): number {
+    const solarTime = SolarTime.fromYmdHms(
+      time.year,
+      time.month,
+      time.day,
+      time.hour,
+      time.minute,
+      time.second,
+    );
+    // SolarDateTimeInfo 精确到秒；将节气公开的整秒时刻视为交接边界，
+    // 避免天文计算保留的亚秒数把“恰立春”误归到上一年。
+    if (this.isLichunBoundary(time)) {
+      return time.year;
+    }
+    const lichun = SolarTerm.fromIndex(time.year, 3).getJulianDay().getDay();
+    return solarTime.getJulianDay().getDay() < lichun ? time.year - 1 : time.year;
+  }
+
+  /**
    * 获取交运信息
    * 根据起运月份推算交运时机
    */
   private getHandoverInfo(firstCycleStartTime: SolarDateTimeInfo): string {
-    return `首运于公历 ${formatSolarDateTime(firstCycleStartTime, true)} 交脱大运，此后每隔十年于该日前后换运`;
+    return `首运于公历 ${formatSolarDateTime(firstCycleStartTime, true)}（北京时间 UTC+8）交脱大运，此后每隔十年于该日前后换运`;
   }
 
-  private shouldIncludeBoundaryYear(cycleEndTime: SolarDateTimeInfo): boolean {
-    return (
-      cycleEndTime.month !== 1 ||
-      cycleEndTime.day !== 1 ||
-      cycleEndTime.hour !== 0 ||
-      cycleEndTime.minute !== 0 ||
-      cycleEndTime.second !== 0
+  private hasPositiveSolarRange(
+    cycleStartTime: SolarDateTimeInfo,
+    cycleEndTime: SolarDateTimeInfo,
+  ): boolean {
+    return toNativeDate(cycleStartTime).getTime() < toNativeDate(cycleEndTime).getTime();
+  }
+
+  private getCycleCalendarYearCount(
+    cycleStartTime: SolarDateTimeInfo,
+    cycleEndTime: SolarDateTimeInfo,
+  ): number {
+    if (!this.hasPositiveSolarRange(cycleStartTime, cycleEndTime)) {
+      return 0;
+    }
+
+    const startYear = this.getBaziYearAt(cycleStartTime);
+    const endYear = this.getLastBaziYearInHalfOpenRange(cycleEndTime);
+    return Math.max(endYear - startYear + 1, 0);
+  }
+
+  private getLastBaziYearInHalfOpenRange(time: SolarDateTimeInfo): number {
+    const endYear = this.getBaziYearAt(time);
+    return this.isLichunBoundary(time) ? endYear - 1 : endYear;
+  }
+
+  private isLichunBoundary(time: SolarDateTimeInfo): boolean {
+    const lichunTime = toSolarDateTimeInfo(
+      SolarTerm.fromIndex(time.year, 3).getJulianDay().getSolarTime(),
     );
-  }
-
-  private getCycleCalendarYearCount(startYear: number, cycleEndTime: SolarDateTimeInfo): number {
-    const baseCount = cycleEndTime.year - startYear;
-    return Math.max(baseCount + (this.shouldIncludeBoundaryYear(cycleEndTime) ? 1 : 0), 1);
+    return toNativeDate(time).getTime() === toNativeDate(lichunTime).getTime();
   }
 
   private getStartInfoText(

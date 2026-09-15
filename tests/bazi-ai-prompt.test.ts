@@ -69,6 +69,9 @@ test('八字合盘不再附加系统提示词，并保留双盘资料与简明�
   assert.equal(prompt.system, '');
   assertPromptHasSingleRole(prompt.user, PROMPT_ROLE_TEXT['bazi-compatibility']);
   assert.match(prompt.user, /【双盘关系资料】/);
+  assert.match(prompt.user, /【第一人格局条件】/);
+  assert.match(prompt.user, /【第二人格局条件】/);
+  assert.match(prompt.user, /当前成败判定：/);
   assert.match(prompt.user, /日主关系：/);
   assert.match(prompt.user, /【任务】\n关系范围：合伙。请依据双方盘面回答【问题】。/);
   assert.doesNotMatch(prompt.user, /结构化证据|证据边界|不得编造|只基于/);
@@ -567,9 +570,12 @@ test('八字经典格局提示词应保留福德秀气的成格边界，不输�
 
   const section = generateEnhancedAnalysisSection(chartResult as any, 'general');
 
-  assert.match(section, /【经典格局】福德秀气格（传统等级参考：中等，以成败条件裁定）/);
+  assert.match(
+    section,
+    /【经典结构候选】福德秀气格（结构命中；传统等级参考：中等，以成败条件裁定）/,
+  );
   assert.match(section, /专取乙、丁、己、辛、癸五阴干/);
-  assert.match(section, /只识别共同结构，不统一强断/);
+  assert.match(section, /各日干的成败与喜忌，仍按对应原局与岁运核定/);
   assert.doesNotMatch(section, /主一生福禄厚重|主人聪明智慧/);
 });
 

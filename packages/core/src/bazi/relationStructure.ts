@@ -9,6 +9,19 @@ import {
   SANHUI_GROUPS,
   isSanxing,
 } from '../ganzhi/relations';
+import { assertEarthlyBranch } from './baziUtils';
+
+const PILLAR_NAMES = ['year', 'month', 'day', 'hour'] as const;
+
+function assertRelationPillars(pillars: Array<{ zhi: string }>): void {
+  if (!Array.isArray(pillars) || pillars.length !== PILLAR_NAMES.length) {
+    throw new Error(`四柱数量无效：${Array.isArray(pillars) ? pillars.length : String(pillars)}`);
+  }
+
+  pillars.forEach((pillar, index) => {
+    assertEarthlyBranch(pillar?.zhi, `第${index + 1}柱地支`);
+  });
+}
 
 function getTripleCombination(b1: string, b2: string, b3: string): string | null {
   const s = new Set([b1, b2, b3]);
@@ -46,9 +59,10 @@ function getHalfCombination(b1: string, b2: string): { element: string; type: st
 export function analyzeRelationStructure(
   pillars: Array<{ zhi: string }>,
 ): RelationStructureProfile {
+  assertRelationPillars(pillars);
+
   const items: RelationStructureItem[] = [];
   const branches = pillars.map((p) => p.zhi);
-  const pillarNames = ['year', 'month', 'day', 'hour'];
 
   for (let i = 0; i < 4; i++) {
     for (let j = i + 1; j < 4; j++) {
@@ -59,7 +73,7 @@ export function analyzeRelationStructure(
             category: '三合三会',
             name: '三合局',
             element: elem,
-            pillars: [pillarNames[i], pillarNames[j], pillarNames[k]],
+            pillars: [PILLAR_NAMES[i], PILLAR_NAMES[j], PILLAR_NAMES[k]],
             values: [branches[i], branches[j], branches[k]],
             evidence: branches[i] + branches[j] + branches[k] + '合成' + elem + '局',
           });
@@ -70,7 +84,7 @@ export function analyzeRelationStructure(
             category: '三合三会',
             name: '三会局',
             element: gather,
-            pillars: [pillarNames[i], pillarNames[j], pillarNames[k]],
+            pillars: [PILLAR_NAMES[i], PILLAR_NAMES[j], PILLAR_NAMES[k]],
             values: [branches[i], branches[j], branches[k]],
             evidence: branches[i] + branches[j] + branches[k] + '会合' + gather + '方',
           });
@@ -87,7 +101,7 @@ export function analyzeRelationStructure(
           category: '半合拱局',
           name: half.type,
           element: half.element,
-          pillars: [pillarNames[i], pillarNames[j]],
+          pillars: [PILLAR_NAMES[i], PILLAR_NAMES[j]],
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + half.type,
         });
@@ -100,7 +114,7 @@ export function analyzeRelationStructure(
         items.push({
           category: '合化候选',
           name: '六合',
-          pillars: [pillarNames[i], pillarNames[j]],
+          pillars: [PILLAR_NAMES[i], PILLAR_NAMES[j]],
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + '六合',
         });
@@ -108,7 +122,7 @@ export function analyzeRelationStructure(
         items.push({
           category: '冲刑害破',
           name: '六冲',
-          pillars: [pillarNames[i], pillarNames[j]],
+          pillars: [PILLAR_NAMES[i], PILLAR_NAMES[j]],
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + '相冲',
         });
@@ -116,7 +130,7 @@ export function analyzeRelationStructure(
         items.push({
           category: '冲刑害破',
           name: '六害',
-          pillars: [pillarNames[i], pillarNames[j]],
+          pillars: [PILLAR_NAMES[i], PILLAR_NAMES[j]],
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + '相害',
         });
@@ -124,7 +138,7 @@ export function analyzeRelationStructure(
         items.push({
           category: '冲刑害破',
           name: '相破',
-          pillars: [pillarNames[i], pillarNames[j]],
+          pillars: [PILLAR_NAMES[i], PILLAR_NAMES[j]],
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + '相破',
         });
@@ -137,7 +151,7 @@ export function analyzeRelationStructure(
         items.push({
           category: '冲刑害破',
           name: '三刑',
-          pillars: [pillarNames[i], pillarNames[j]],
+          pillars: [PILLAR_NAMES[i], PILLAR_NAMES[j]],
           values: [branches[i], branches[j]],
           evidence: branches[i] + '与' + branches[j] + '相刑',
         });

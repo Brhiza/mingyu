@@ -115,6 +115,139 @@ test('当前阶段定位按北京时间计算，不受运行环境时区影响',
   assert.equal(selection.month, 8);
 });
 
+test('立春前交运时应覆盖交运公历年对应的上一干支流年', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 2,
+    day: 10,
+    timeIndex: 6,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const firstDayun = result.luckInfo.cycles.find(
+    (cycle) => !cycle.isXiaoyun && cycle.year === 1998,
+  );
+
+  assert.deepEqual(firstDayun?.startSolarTime, {
+    year: 1998,
+    month: 1,
+    day: 1,
+    hour: 2,
+    minute: 36,
+    second: 0,
+  });
+  assert.equal(firstDayun?.years[0]?.year, 1997);
+
+  const beforeHandover = buildCurrentBaziFortuneSelection(
+    result,
+    new Date('1998-01-01T02:35:59+08:00'),
+  );
+  const atHandover = buildCurrentBaziFortuneSelection(
+    result,
+    new Date('1998-01-01T02:36:00+08:00'),
+  );
+
+  assert.equal(beforeHandover?.cycleIndex, 0);
+  assert.equal(beforeHandover?.year, 1997);
+  assert.equal(atHandover?.cycleIndex, result.luckInfo.cycles.indexOf(firstDayun!));
+  assert.equal(atHandover?.year, 1997);
+  assert.ok(atHandover);
+  assert.equal(buildFortuneSelectionContext(result, atHandover)?.year, 1997);
+});
+
+test('立春前出生的童限应生成出生时刻所属的上一节令年', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 1,
+    day: 15,
+    timeIndex: 6,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const childCycle = result.luckInfo.cycles.find((cycle) => cycle.isXiaoyun);
+
+  assert.equal(childCycle?.years[0]?.year, 1989);
+  assert.equal(childCycle?.years[0]?.age, 0);
+
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('1990-01-20T12:00:00+08:00'));
+  assert.ok(selection);
+  assert.equal(selection.year, 1989);
+  assert.equal(buildFortuneSelectionContext(result, selection)?.year, 1989);
+});
+
+test('当前快捷流日在北京时间 23:00 子初切换到次一民用日', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const beforeZi = buildCurrentBaziFortuneSelection(result, new Date('2026-09-08T22:59:59+08:00'));
+  const atZi = buildCurrentBaziFortuneSelection(result, new Date('2026-09-08T23:00:00+08:00'));
+  const nextMidnight = buildCurrentBaziFortuneSelection(
+    result,
+    new Date('2026-09-09T00:00:00+08:00'),
+  );
+
+  assert.deepEqual(
+    { year: beforeZi?.year, month: beforeZi?.month, day: beforeZi?.day },
+    { year: 2026, month: 8, day: 2 },
+  );
+  assert.deepEqual(
+    { year: atZi?.year, month: atZi?.month, day: atZi?.day },
+    { year: 2026, month: 8, day: 3 },
+  );
+  assert.deepEqual(
+    { year: nextMidnight?.year, month: nextMidnight?.month, day: nextMidnight?.day },
+    { year: 2026, month: 8, day: 3 },
+  );
+
+  assert.ok(atZi);
+  assert.equal(buildFortuneSelectionContext(result, atZi)?.dayBreakdown?.[0]?.date, '2026-09-09');
+});
+
+test('子初与交节同晚时换日但仍保留交节前的流月', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  // 2022-09-07 白露在 23:32 交节。旧申月的日历切片在交节时刻结束，
+  // 23:00 已属 9 月 8 日的命理日，但仍处于交节前申月。
+  const selection = buildCurrentBaziFortuneSelection(result, new Date('2022-09-07T23:00:00+08:00'));
+
+  assert.deepEqual(
+    { year: selection?.year, month: selection?.month, day: selection?.day },
+    { year: 2022, month: 7, day: getMonthDaysInfo(2022, 7).length },
+  );
+  assert.ok(selection);
+  assert.equal(
+    buildFortuneSelectionContext(result, selection)?.dayBreakdown?.[0]?.date,
+    '2022-09-08',
+  );
+  assert.equal(
+    buildRecentBaziFortuneSelection(result, new Date('2022-09-07T23:00:00+08:00'))?.month,
+    7,
+  );
+  assert.equal(
+    buildCurrentBaziFortuneSelection(result, new Date('2022-09-07T23:33:00+08:00'))?.month,
+    8,
+  );
+});
+
 test('当前年份不在命盘运限范围时不应静默回退到第一步大运', () => {
   const result = createMockResult();
   const outOfRangeDate = new Date('1980-02-08T12:00:00+08:00');

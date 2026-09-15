@@ -52,11 +52,12 @@ export function buildCurrentBaziFortuneSelection(
   if (monthIndex === undefined) {
     throw new Error('当前日期无法定位到所属节令月，不回退到默认首月。');
   }
-  const day = getBaziDayIndexByDate(termYear, monthIndex, now);
-  if (day === undefined) {
+  const selectedDay = getBaziDayIndexByDate(termYear, monthIndex, now);
+
+  if (selectedDay === undefined) {
     throw new Error('当前日期无法定位到所属节令日，不回退到默认首日。');
   }
-  return { scope: 'day', cycleIndex, year: termYear, month: monthIndex, day };
+  return { scope: 'day', cycleIndex, year: termYear, month: monthIndex, day: selectedDay };
 }
 
 /**

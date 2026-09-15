@@ -1,8 +1,12 @@
-import { SolarTime, Gender, LunarHour } from 'tyme4ts';
+import { SolarTime, Gender, LunarHour, EightChar } from 'tyme4ts';
 import { TIME_MAP } from './baziDefinitions';
 import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
 import { isDateInChinaDstRange } from '../calendar/china-dst';
-import { buildBaziWarningEvidence, collectBoundaryWarnings } from './paipanWarnings';
+import {
+  buildBaziWarningEvidence,
+  checkJieqiBoundary,
+  checkShichenBoundary,
+} from './paipanWarnings';
 import { ShenShaCalculator } from './baziShenSha';
 import { BaziAnalyzer } from './baziAnalysis';
 import { LuckCalculator } from './LuckCalculator';
@@ -49,6 +53,8 @@ import {
 } from './baziTypes';
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
+import { getTermSolarTime } from './globalTimeBasis';
+import { applyUnknownBirthTime } from './baziUnknownTime';
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
 import { analyzeBaziNatalEvidence } from './natalEvidence';
@@ -120,6 +126,14 @@ export class BaziCalculator {
    * 计算核心八字数据（同步）
    */
   public calculateCoreBazi(person: Person): InternalBaziChartResult {
+    const result = this.calculateCoreBaziInternal(person);
+    if (result.isThreePillars) {
+      throw new Error('出生时辰未知，请使用 calculateBazi 获取待补时资料与候选比较。');
+    }
+    return result;
+  }
+
+  private calculateCoreBaziInternal(person: Person): InternalBaziChartResult {
     const {
       year,
       month,
@@ -148,6 +162,12 @@ export class BaziCalculator {
     if (typeof person.applyChinaDst !== 'undefined' && typeof person.applyChinaDst !== 'boolean') {
       throw new Error('applyChinaDst 必须是布尔值。');
     }
+    if (
+      typeof person.isThreePillars !== 'undefined' &&
+      typeof person.isThreePillars !== 'boolean'
+    ) {
+      throw new Error('时辰未知标志必须是布尔值。');
+    }
 
     assertBaziGender(gender);
 
@@ -158,6 +178,13 @@ export class BaziCalculator {
         ? getTimeIndexFromClock(birthHour!, birthMinute!)
         : undefined;
     const resolvedTimeIndex = hasPreciseStandardTime ? preciseStandardTimeIndex : timeIndex;
+    if (
+      !useTrueSolarTimeEnabled &&
+      resolvedTimeIndex !== undefined &&
+      (!Number.isInteger(resolvedTimeIndex) || resolvedTimeIndex < -1 || resolvedTimeIndex > 12)
+    ) {
+      throw new Error('无效的时辰索引');
+    }
     const isLunarEnabled = isLunar === true;
     const isLeapMonthEnabled = isLeapMonth === true;
     const isThreePillars = Boolean(
@@ -255,6 +282,7 @@ export class BaziCalculator {
 
     // 根据用户选择的日历类型创建时间对象
     let solarTime: SolarTimeInstance;
+    let termSolarTime: SolarTimeInstance;
     let lunarHour: LunarHourInstance;
     let timing: TimingInfo | undefined;
     const baseHour =
@@ -268,10 +296,12 @@ export class BaziCalculator {
       const lunarMonth = isLeapMonthEnabled ? -Math.abs(month) : month;
       lunarHour = LunarHour.fromYmdHms(year, lunarMonth, day, baseHour, baseMinute, baseSecond);
       solarTime = lunarHour.getSolarTime();
+      termSolarTime = solarTime;
     } else {
       // 如果选择公历，直接使用 SolarTime.fromYmdHms()
       solarTime = SolarTime.fromYmdHms(year, month, day, baseHour, baseMinute, baseSecond);
       lunarHour = solarTime.getLunarHour();
+      termSolarTime = solarTime;
     }
 
     const applyChinaDst = person.applyChinaDst === true;
@@ -331,6 +361,8 @@ export class BaziCalculator {
       lunarHour = solarTime.getLunarHour();
       timing = {
         enabled: true,
+        // 对外保留用户输入的当地钟表字段；globalTimeBasis 会依据
+        // dstCorrectionMinutes 仅在固定中国夏令时兼容模式下还原标准时间。
         standardTime,
         correctedTime: trueSolarResult.correctedTime,
         birthPlace: birthPlace?.trim() || '',
@@ -356,10 +388,19 @@ export class BaziCalculator {
         },
         ...(dstCorrectionMinutes !== 0 ? { dstCorrectionMinutes } : {}),
       };
+      termSolarTime = getTermSolarTime(solarTime, timing);
 
       // 边界预警：基于校正后的最终时刻检查节气交接/时辰边界/换日线
       warnings.push(
-        ...collectBoundaryWarnings({
+        ...checkJieqiBoundary({
+          year: termSolarTime.getYear(),
+          month: termSolarTime.getMonth(),
+          day: termSolarTime.getDay(),
+          hour: termSolarTime.getHour(),
+          minute: termSolarTime.getMinute(),
+          second: termSolarTime.getSecond(),
+        }),
+        ...checkShichenBoundary({
           year: solarTime.getYear(),
           month: solarTime.getMonth(),
           day: solarTime.getDay(),
@@ -378,7 +419,14 @@ export class BaziCalculator {
       );
     }
 
-    const eightChar = lunarHour.getEightChar();
+    const pillarEightChar = lunarHour.getEightChar();
+    const termEightChar = termSolarTime.getLunarHour().getEightChar();
+    const eightChar = new EightChar(
+      termEightChar.getYear(),
+      termEightChar.getMonth(),
+      pillarEightChar.getDay(),
+      pillarEightChar.getHour(),
+    );
     const { warningFacts, warningSummaryFact } = buildBaziWarningEvidence(warnings);
 
     const yearColumn = eightChar.getYear();
@@ -408,14 +456,20 @@ export class BaziCalculator {
         ganZhi: hourColumn.getName(),
       },
     };
-    const mingGuaYear = resolveMingGuaYear(solarTime, pillars.year.ganZhi);
+    const mingGuaYear = resolveMingGuaYear(termSolarTime, pillars.year.ganZhi);
     const finalTimeInfo = timing
       ? this.getTimeInfoFromClock(timing.correctedTime.hour, timing.correctedTime.minute)
       : selectedTimeInfo!;
 
     const dayMasterGan = pillars.day.gan;
     const genderEnum = gender === 'male' ? Gender.MAN : Gender.WOMAN;
-    const luckInfo = this.luckCalculator.calculateLuckInfo(solarTime, genderEnum, dayMasterGan);
+    const luckInfo = this.luckCalculator.calculateLuckInfo(
+      solarTime,
+      genderEnum,
+      dayMasterGan,
+      termSolarTime,
+      eightChar,
+    );
     const liunian = this.flattenLiunian(luckInfo);
 
     return {
@@ -438,10 +492,7 @@ export class BaziCalculator {
       isThreePillars,
       pillarRelations: { fuxin: [], fanyin: [], sameStem: [], sameBranch: [], xingChong: [] },
       warnings: isThreePillars
-        ? [
-            ...warnings,
-            '出生时辰未知，已采用年月日三柱保守排盘。时柱、晚运及精确时神仅供参考，不作必然结论。',
-          ]
+        ? [...warnings, '出生时辰待补充，完整判断与岁运待确定出生时分后再排。']
         : warnings,
       warningFacts,
 
@@ -522,7 +573,7 @@ export class BaziCalculator {
    * 统一计算八字所有数据
    */
   public calculateBazi(person: Person): BaziChartResult {
-    const coreResult = this.calculateCoreBazi(person);
+    const coreResult = this.calculateCoreBaziInternal(person);
     const extendedResult = this.calculateExtendedBazi(person, coreResult);
 
     const finalResult: InternalBaziChartResult = {
@@ -530,6 +581,11 @@ export class BaziCalculator {
       ...extendedResult,
       pillarRelations: analyzePillarRelations(coreResult),
     };
+    if (finalResult.isThreePillars) {
+      return applyUnknownBirthTime(finalResult, person, (candidate) =>
+        this.calculateBazi(candidate),
+      );
+    }
     finalResult.evidenceAnalysis = analyzeBaziNatalEvidence(finalResult);
 
     delete finalResult.solarTime;
@@ -568,7 +624,7 @@ export class BaziCalculator {
     | 'climate'
   > {
     const { gender } = person;
-    const { pillars, dayMaster, solarTime, eightChar } = coreResult;
+    const { pillars, dayMaster, solarTime, timing, eightChar } = coreResult;
 
     if (!solarTime || !eightChar) {
       throw new Error(
@@ -577,6 +633,7 @@ export class BaziCalculator {
     }
 
     const dayMasterGan = dayMaster.gan;
+    const termSolarTime = getTermSolarTime(solarTime, timing);
 
     const baziArray: [string, string][] = [
       [pillars.year.gan, pillars.year.zhi],
@@ -586,8 +643,8 @@ export class BaziCalculator {
     ];
 
     const hiddenStems = calculateHiddenStems(pillars);
-    const seasonInfo = calculateSeasonInfo(solarTime);
-    const monthCommander = getMonthCommander(solarTime, pillars.month.zhi);
+    const seasonInfo = calculateSeasonInfo(termSolarTime);
+    const monthCommander = getMonthCommander(termSolarTime, pillars.month.zhi);
     const wuxingStrengthDetails = this.wuxingCalculator.calculateWuxingStrength(
       pillars,
       monthCommander,

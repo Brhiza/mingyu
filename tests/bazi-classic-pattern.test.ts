@@ -79,7 +79,7 @@ test('六乙鼠贵只取乙日丙子时，并排除古籍所列破格条件', ()
   }
 });
 
-test('日贵格应完整识别四日，并把昼夜保留为未代判的加强条件', () => {
+test('日贵格应完整识别四日，并保留昼夜取法与全盘核对条件', () => {
   for (const dayGanZhi of ['丁酉', '丁亥', '癸巳', '癸卯']) {
     const pattern = identify({
       year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
@@ -89,7 +89,8 @@ test('日贵格应完整识别四日，并把昼夜保留为未代判的加强�
     });
 
     assert.equal(pattern?.name, '日贵格', dayGanZhi);
-    assert.match(pattern?.description ?? '', /昼夜加强条件不在此处代判/);
+    assert.match(pattern?.description ?? '', /昼夜取法还需结合出生时刻/);
+    assert.match(pattern?.description ?? '', /刑冲破害.*需结合全盘核对/);
   }
 });
 
@@ -213,10 +214,10 @@ test('不把古籍片段和单一神煞状态误立为经典格局', () => {
 });
 
 test('化气格须由日干紧贴相合且月令得气，隔位或他柱相合不能误成化格', () => {
-  // 1. 甲日己月，辰月（土当令），日干与月干紧贴五合 -> 甲己化土格
+  // 甲日己未月，月支本气为土，日干与月干紧贴五合。
   const validAdjacent = identify({
     year: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
-    month: { gan: '己', zhi: '辰', ganZhi: '己辰' },
+    month: { gan: '己', zhi: '未', ganZhi: '己未' },
     day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
     hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
   });
@@ -225,7 +226,7 @@ test('化气格须由日干紧贴相合且月令得气，隔位或他柱相合�
 
   // 2. 甲日，己在年干，月干为丙（隔位） -> 不能成化土格
   const separated = identify({
-    year: { gan: '己', zhi: '辰', ganZhi: '己辰' },
+    year: { gan: '己', zhi: '未', ganZhi: '己未' },
     month: { gan: '丙', zhi: '辰', ganZhi: '丙辰' },
     day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
     hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
@@ -235,7 +236,7 @@ test('化气格须由日干紧贴相合且月令得气，隔位或他柱相合�
   // 3. 丙日（日干非合），年甲月己相合 -> 不能成化土格
   const nonDayMaster = identify({
     year: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
-    month: { gan: '己', zhi: '辰', ganZhi: '己辰' },
+    month: { gan: '己', zhi: '未', ganZhi: '己未' },
     day: { gan: '丙', zhi: '辰', ganZhi: '丙辰' },
     hour: { gan: '戊', zhi: '子', ganZhi: '戊子' },
   });
