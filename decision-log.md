@@ -27,7 +27,7 @@
 ## 2026-09-15 · 挂到 park-ai-intel.com 子域名
 
 - Park 选子域名 `tianji.park-ai-intel.com`，不用路径 `park-ai-intel.com/tianji`：个人站在 Vercel，走路径要改天机的路由、资源和接口前缀，还要让 Vercel 反向代理，而代理后所有用户会被限流算成同一个 IP。
-- DNS 在 Park 的 Cloudflare 账号（zone `park-ai-intel.com`）；Pages 自定义域名已通过 API 添加，但 wrangler 授权没有 DNS 写权限，CNAME `tianji → tianji-1gz.pages.dev` 由 Park 在后台手动添加。
+- DNS 在 Park 的 Cloudflare 账号（zone `park-ai-intel.com`）；Pages 自定义域名已通过 API 添加，但 wrangler 授权没有 DNS 写权限，CNAME `tianji → tianji-1gz.pages.dev`（Proxied）已于 2026-09-15 由 Claude 在 Park 登录后的浏览器里添加，Pages 域名状态 Active、SSL 已启用，线上 AI 解读验证通过。
 
 ## 2026-09-15 · v2：开放全部术数、SSE 透传、全套成本实测
 
