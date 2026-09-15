@@ -186,6 +186,20 @@ export function isWorkspaceFeatureVisible(
   return !visibleIds || visibleIds.includes(id);
 }
 
+/**
+ * 默认入口（天机）：构建变量 VITE_DEFAULT_ENTRY_FEATURE，例如 bazi。
+ * 设置后访问 / 直接进入该术数的输入页，原首页挪到 /home。未设置或无效时与上游一致。
+ */
+export function parseDefaultEntryFeatureId(raw: unknown): WorkspaceFeatureId | null {
+  if (typeof raw !== 'string') return null;
+  const id = raw.trim();
+  return isWorkspaceFeatureId(id) ? id : null;
+}
+
+export const DEFAULT_ENTRY_FEATURE_ID = parseDefaultEntryFeatureId(
+  import.meta.env?.VITE_DEFAULT_ENTRY_FEATURE,
+);
+
 export function getSingleVisibleFeatureId(
   visibleIds: readonly WorkspaceFeatureId[] | null = VISIBLE_WORKSPACE_FEATURE_IDS,
 ): WorkspaceFeatureId | null {

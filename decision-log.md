@@ -43,3 +43,8 @@
 - **内置 AI 需要两个开关**：只设 `AI_API_KEY` 不会显示内置 AI，必须 `AI_BUILTIN_ENABLED=true`；`AI_DEFAULT_ENABLED=true` 才会默认进入解读。这些是运行时变量，由 `functions/_middleware.ts` 注入 `/mingyu-runtime-config.js`，不需要重新构建。
 - **`VITE_VISIBLE_FEATURES`、`VITE_AI_AUTO_READING` 是构建变量**：本地 `pnpm build` 时就要传入，改了必须重新构建、重新部署。
 - **品牌替换的边界**：Android 更新地址（`src/lib/android-app-update.ts` 等）和 `public/skills/` 仍指向上游，因为 Android 与 Skill 不在 v1 范围内；Web 可见文字已全部换掉。
+
+## 2026-09-15 首页默认进八字
+- **决定**：新增构建变量 `VITE_DEFAULT_ENTRY_FEATURE`，设为 bazi 时 `/` 直接进八字输入页，原首页挪到 `/home`，侧边栏「首页」跟着指向 /home。
+- **理由**：Park 认为先要生日比先让人提问更可信、门槛更低。
+- **Gotcha**：构建必须带这个变量，否则首页回到提问框。

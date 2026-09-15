@@ -98,3 +98,10 @@ test('天机：可见术数白名单应解析、去重并忽略无效项，未�
   assert.equal(getSingleVisibleFeatureId(['bazi']), 'bazi');
   assert.equal(getSingleVisibleFeatureId(['bazi', 'ziwei']), null);
 });
+
+test('天机：默认入口构建变量只接受有效的术数 id', async () => {
+  const { parseDefaultEntryFeatureId } = await import('../src/lib/workspace');
+  assert.equal(parseDefaultEntryFeatureId(undefined), null);
+  assert.equal(parseDefaultEntryFeatureId('nope'), null);
+  assert.equal(parseDefaultEntryFeatureId(' bazi '), 'bazi');
+});

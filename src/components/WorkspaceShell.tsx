@@ -27,6 +27,7 @@ import {
   buildWorkspaceFeaturePath,
   VISIBLE_WORKSPACE_FEATURE_IDS,
   getSingleVisibleFeatureId,
+  DEFAULT_ENTRY_FEATURE_ID,
   getWorkspaceFeature,
   isChartWorkspaceId,
   isDivinationWorkspaceId,
@@ -363,7 +364,7 @@ export function WorkspaceShell() {
                 type="button"
                 className={isHomeRoute ? 'is-active' : ''}
                 onClick={() => {
-                  navigate('/');
+                  navigate(DEFAULT_ENTRY_FEATURE_ID ? '/home' : '/');
                   setIsDrawerOpen(false);
                 }}
                 aria-current={isHomeRoute ? 'page' : undefined}

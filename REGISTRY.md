@@ -15,7 +15,7 @@
 
 ## 部署
 ```bash
-VITE_AI_AUTO_READING=true VITE_ENABLE_DONATION_BOX=false pnpm build
+VITE_AI_AUTO_READING=true VITE_ENABLE_DONATION_BOX=false VITE_DEFAULT_ENTRY_FEATURE=bazi pnpm build
 wrangler pages deploy dist --project-name tianji --branch main
 ```
 运行时变量（Cloudflare 后台 Production）：`AI_BUILTIN_ENABLED=true`、`AI_DEFAULT_ENABLED=true`、`AI_BASE_URL=https://api.deepseek.com/v1`、`AI_MODEL=deepseek-chat`、`AI_PROVIDER_NAME=DeepSeek`、`AI_RATE_LIMIT_MAX_REQUESTS=30`、`AI_STREAM_PASSTHROUGH=true`、`AI_RATE_LIMIT_WINDOW_SECONDS=600`、`AI_API_KEY`（Park 填）。

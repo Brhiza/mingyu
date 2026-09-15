@@ -7,6 +7,7 @@ import { readActiveCaseId } from './lib/active-case';
 import { buildChartFeaturePathForCase, buildDivinationRecordPath } from './lib/case-navigation';
 import {
   buildWorkspaceFeaturePath,
+  DEFAULT_ENTRY_FEATURE_ID,
   getSingleVisibleFeatureId,
   isChartWorkspaceId,
   type WorkspaceFeatureId,
@@ -68,7 +69,7 @@ function buildDefaultFeaturePath(feature: WorkspaceFeatureId) {
     : buildWorkspaceFeaturePath(feature);
 }
 
-function DefaultEntryRoute() {
+function DefaultEntryRoute({ isRoot = false }: { isRoot?: boolean }) {
   const [searchParams] = useSearchParams();
   const legacyMode = searchParams.get('mode');
   const legacyRecord = searchParams.get('record');
@@ -96,6 +97,9 @@ function DefaultEntryRoute() {
   if (singleVisibleFeature) {
     return <Navigate to={buildDefaultFeaturePath(singleVisibleFeature)} replace />;
   }
+  if (isRoot && DEFAULT_ENTRY_FEATURE_ID) {
+    return <Navigate to={buildDefaultFeaturePath(DEFAULT_ENTRY_FEATURE_ID)} replace />;
+  }
 
   return <HomePage />;
 }
@@ -121,7 +125,7 @@ export default function App() {
       <ErrorBoundary>
         <Routes>
           <Route element={<WorkspaceShell />}>
-            <Route path="/" element={<DefaultEntryRoute />} />
+            <Route path="/" element={<DefaultEntryRoute isRoot />} />
             <Route path="/home" element={<DefaultEntryRoute />} />
             <Route path="/chart/:tool" element={<InputPage />} />
             <Route path="/divination/:method" element={<DivinationPage />} />
