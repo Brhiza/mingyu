@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator';
 import { analyzeBaziCompatibility } from '../packages/core/src/bazi/compatibilityEvidence';
+import {
+  evaluateNayinCompatibility,
+  evaluateUsefulGodComplementarity,
+} from '../packages/core/src/bazi/compatibility-marriage';
 import type { BaziChartResult, Pillars } from '../packages/core/src/bazi/baziTypes';
 
 function createChart(): BaziChartResult {
@@ -261,7 +265,7 @@ test('八字双盘未命中关系或喜忌覆盖时仍应保留可追溯引用',
 test('八字双盘证据应拒绝无效四柱', () => {
   const { chart1, chart2 } = createPair();
   chart2.pillars.day.gan = 'A';
-  assert.throws(() => analyzeBaziCompatibility(chart1, chart2), /day柱天干无效/);
+  assert.throws(() => analyzeBaziCompatibility(chart1, chart2), /日柱天干无效/);
 });
 
 test('八字合婚古典深层理法应准确判定纳音配对、夫妻宫天地德合与喜用互补', () => {
@@ -285,4 +289,57 @@ test('八字合婚古典深层理法应准确判定纳音配对、夫妻宫天�
   assert.ok(result.marriageDeep.usefulGodComplementarity);
   assert.match(result.marriageDeep.summary, /八字合婚理法：/);
   assert.match(result.promptText, /八字合婚理法：/);
+});
+
+test('八字合盘深层喜用与夫妻宫只输出盘面覆盖事实', () => {
+  const chart = createChart();
+  const result = analyzeBaziCompatibility(chart, structuredClone(chart));
+  const deep = result.marriageDeep;
+
+  assert.ok(deep);
+  assert.notEqual(deep.usefulGodComplementarity.level, '互为喜用');
+  assert.match(deep.usefulGodComplementarity.judgment, /第一人喜用/);
+  assert.match(deep.usefulGodComplementarity.judgment, /第一人忌神/);
+  assert.match(deep.usefulGodComplementarity.judgment, /作用结合双方月令、根气与原局取用核验/);
+  assert.doesNotMatch(deep.usefulGodComplementarity.judgment, /五行互助流通|情深意笃/);
+  assert.match(deep.spousePalace.judgment, /作用结合双方原局、月令、根气与实际互动核验/);
+  assert.doesNotMatch(deep.spousePalace.judgment, /平稳相守|性情相投|精神契合度高/);
+  assert.match(deep.summary, /喜用覆盖为/);
+  assert.doesNotMatch(deep.summary, /喜用互补呈|平稳相守/);
+});
+
+test('八字合婚纳音深层函数拒绝未知年柱资料', () => {
+  const chart = createChart();
+  const malformed = structuredClone(chart);
+  malformed.pillars.year.ganZhi = '无效';
+
+  assert.throws(
+    () => evaluateNayinCompatibility(malformed, chart),
+    /年柱干支不一致|年柱纳音资料缺失/,
+  );
+});
+
+test('八字喜用覆盖按出现记录，不使用额外次数门槛', () => {
+  const chart1 = createChart();
+  const chart2 = structuredClone(chart1);
+  const pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  };
+  chart1.pillars = structuredClone(pillars);
+  chart2.pillars = structuredClone(pillars);
+  chart1.analysis.usefulGod.favorableWuxing = ['木'];
+  chart1.analysis.usefulGod.unfavorableWuxing = ['火'];
+  chart2.analysis.usefulGod.favorableWuxing = ['木'];
+  chart2.analysis.usefulGod.unfavorableWuxing = ['火'];
+
+  const result = evaluateUsefulGodComplementarity(chart1, chart2);
+
+  assert.equal(result.person1CoveredByPerson2Count, 1);
+  assert.equal(result.person2CoveredByPerson1Count, 1);
+  assert.equal(result.level, '双向喜用覆盖');
+  assert.match(result.judgment, /第一人喜用木在第二人盘面出现1次/);
+  assert.match(result.judgment, /第一人忌神火在第二人盘面出现0次/);
 });

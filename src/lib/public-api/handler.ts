@@ -6165,6 +6165,7 @@ function buildCompactBaziResult(result: BaziChartResult) {
                 baseUnfavorableStems: path.baseUnfavorableStems,
                 evidenceGaps: path.evidenceGaps,
               })),
+              transformation: decision.transformation,
             }
           : undefined,
       },

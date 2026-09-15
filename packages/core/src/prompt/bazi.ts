@@ -160,19 +160,34 @@ export function formatBaziTopicFocus(topic: BaziPromptTopic) {
 }
 
 export function formatBaziPatternConditions(result: BaziChartResult): string {
+  const transformation = result.analysis?.mingGe?.transformation;
   const fulfillment = result.analysis?.mingGe?.fulfillment;
-  if (!fulfillment) return '';
+  if (!fulfillment && !transformation) return '';
   return [
-    `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}`,
-    fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
-    ...fulfillment.remedies.map((item) => `候选取用：${item.effect}`),
-    ...(fulfillment.conditionFacts ?? [])
-      .filter((item) => !item.key.startsWith('path.'))
-      .map((item) => `条件核验：${item.status}；${item.detail}`),
-    ...(fulfillment.pathEvaluations ?? []).map(
-      (item) => `制化路径：${item.label}（${item.position}）：${item.status}；${item.detail}`,
-    ),
-    ...(fulfillment.conditions ?? []).map((item) => `成立条件：${item}`),
+    transformation
+      ? `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`
+      : '',
+    ...(transformation?.evidence ?? []).map((item) => `化气证据：${item}`),
+    ...(transformation?.conditions ?? []).map((item) => `化气条件：${item}`),
+    ...(transformation?.status === '成化'
+      ? [
+          `成化主格取用主体：化神${transformation.element}；原日主${result.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
+        ]
+      : []),
+    ...(fulfillment
+      ? [
+          `所取格局：${fulfillment.patternName}；当前成败判定：${fulfillment.status}；${fulfillment.basis}`,
+          fulfillment.contradiction ? `相互制约：${fulfillment.contradiction}` : '',
+          ...fulfillment.remedies.map((item) => `候选取用：${item.effect}`),
+          ...(fulfillment.conditionFacts ?? [])
+            .filter((item) => !item.key.startsWith('path.'))
+            .map((item) => `条件核验：${item.status}；${item.detail}`),
+          ...(fulfillment.pathEvaluations ?? []).map(
+            (item) => `制化路径：${item.label}（${item.position}）：${item.status}；${item.detail}`,
+          ),
+          ...(fulfillment.conditions ?? []).map((item) => `成立条件：${item}`),
+        ]
+      : []),
   ]
     .filter(Boolean)
     .join('\n');
@@ -291,6 +306,8 @@ export function buildBaziCompatibilityPromptDocument(
   ].join('\n');
   const selectedSchools = normalizeBaziPromptSchools(options.schools);
   const schoolText = formatPromptSchoolGuidance('bazi', selectedSchools);
+  const patternConditions1 = formatBaziPatternConditions(options.result1);
+  const patternConditions2 = formatBaziPatternConditions(options.result2);
 
   const user = joinPromptSections([
     buildPromptGuidance('bazi-compatibility'),
@@ -303,6 +320,8 @@ export function buildBaziCompatibilityPromptDocument(
       '第二人排盘信息',
       formatBaziForPrompt(options.result2, null, 'compatibility'),
     ),
+    patternConditions1 ? buildPromptSection('第一人格局条件', patternConditions1) : '',
+    patternConditions2 ? buildPromptSection('第二人格局条件', patternConditions2) : '',
     schoolText
       ? buildPromptSection(selectedSchools.length > 1 ? '多派合参' : '解读流派', schoolText)
       : '',

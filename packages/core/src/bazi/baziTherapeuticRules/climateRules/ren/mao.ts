@@ -10,6 +10,7 @@ export const REN_MAO_CLIMATE_RULES: ClimateRule[] = [
     months: ['卯'],
     dayMasters: ['水'],
     dayStems: ['壬'],
+    strengths: ['身强', '偏强', '极强'],
     requiredVisibleStems: ['丙', '甲'],
     usefulWuxing: '火',
     favorableOrder: ['火', '木'],

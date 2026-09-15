@@ -14,7 +14,7 @@ import {
   isSheng,
   isKe,
 } from '../ganzhi/relations';
-import { getWuxing } from './baziUtils';
+import { assertPillars, getWuxing } from './baziUtils';
 
 export interface NayinCompatibilityResult {
   person1YearGanZhi: string;
@@ -48,7 +48,8 @@ export interface UsefulGodComplementarityResult {
   person2AvoidCountInPerson1: number;
   /** 双方喜忌资料覆盖状态 */
   dataStatus: '完整' | '一方缺失' | '双方缺失';
-  level: '互为喜用' | '单向得益' | '中和相济' | '互见忌神' | '资料不足';
+  /** 只描述喜用五行的出现关系。 */
+  level: '双向喜用覆盖' | '单向喜用覆盖' | '未见喜用覆盖' | '资料不足';
   judgment: string;
 }
 
@@ -74,14 +75,21 @@ export function evaluateNayinCompatibility(
   chart1: BaziChartResult,
   chart2: BaziChartResult,
 ): NayinCompatibilityResult {
+  assertPillars(chart1.pillars);
+  assertPillars(chart2.pillars);
+
   const p1Gz = chart1.pillars.year.ganZhi;
   const p2Gz = chart2.pillars.year.ganZhi;
 
-  const na1 = NAYIN_MAP[p1Gz] ?? '未知';
-  const na2 = NAYIN_MAP[p2Gz] ?? '未知';
+  const na1 = NAYIN_MAP[p1Gz];
+  const na2 = NAYIN_MAP[p2Gz];
+  if (!na1) throw new Error(`第一人年柱纳音资料缺失：${p1Gz}`);
+  if (!na2) throw new Error(`第二人年柱纳音资料缺失：${p2Gz}`);
 
-  const elem1 = WUXING_ELEMENTS[na1.slice(-1)] ?? '土';
-  const elem2 = WUXING_ELEMENTS[na2.slice(-1)] ?? '土';
+  const elem1 = WUXING_ELEMENTS[na1.slice(-1)];
+  const elem2 = WUXING_ELEMENTS[na2.slice(-1)];
+  if (!elem1) throw new Error(`第一人年柱纳音五行资料缺失：${na1}`);
+  if (!elem2) throw new Error(`第二人年柱纳音五行资料缺失：${na2}`);
 
   let relation: NayinCompatibilityResult['relation'];
   let judgment: string;
@@ -168,19 +176,21 @@ export function evaluateSpousePalaceDeepRelation(
 
   let judgment: string;
   if (isTianDeHe) {
-    judgment = '日柱夫妻宫天地德合，干合支连，如鸳鸯交颈，性情相投，默契天成';
+    judgment =
+      '日柱天干五合、地支六合，形成天地德合结构；合化及现实作用结合双方原局、月令、根气与实际互动核验';
   } else if (isTianKeDiChong) {
-    judgment = '日柱夫妻宫天克地冲，气场抵触，主见各自刚毅，相处宜各存空间、求同存异';
+    judgment =
+      '日柱天干相冲或相克且地支六冲，形成天克地冲结构；作用结合双方原局、月令、根气与实际互动核验';
   } else if (stemRelation === '五合') {
-    judgment = `日干天合配${branchRelation}，情意相通，精神契合度高`;
+    judgment = `日干五合，日支${branchRelation}；合化及现实作用结合双方原局、月令、根气与实际互动核验`;
   } else if (branchRelation === '六合') {
-    judgment = `日支六合配天干${stemRelation}，日常居所生活契合，气场和睦`;
+    judgment = `日支六合，日干${stemRelation}；作用结合双方原局、月令、根气与实际互动核验`;
   } else if (branchRelation === '六冲') {
-    judgment = '日支逢冲，夫妻宫气场多变动，宜修心包容、晚婚稳健';
+    judgment = '日支六冲，形成夫妻宫受冲结构；作用结合双方原局、月令、根气与实际互动核验';
   } else if (branchRelation === '相刑' || branchRelation === '相害') {
-    judgment = `日支见${branchRelation}，言语沟通宜多留余地，避繁去缛`;
+    judgment = `日支见${branchRelation}；作用结合双方原局、月令、根气与实际互动核验`;
   } else {
-    judgment = `日柱天干${stemRelation}、地支${branchRelation}，中和自洽，平稳相守`;
+    judgment = `日柱天干${stemRelation}、地支${branchRelation}；作用结合双方原局、月令、根气与实际互动核验`;
   }
 
   return {
@@ -211,8 +221,7 @@ function countElementOccurrences(chart: BaziChartResult, elements: string[]): nu
 }
 
 /**
- * 评估喜用神互补度
- * 命中次数仅按双方四柱天干与地支主气统计，不含藏干；2 次与 3 次阈值属现代约定口径，并非古籍定量规则。
+ * 记录双方喜用五行在对方四柱天干与地支主气中的出现情况，不含藏干。
  */
 export function evaluateUsefulGodComplementarity(
   chart1: BaziChartResult,
@@ -234,6 +243,7 @@ export function evaluateUsefulGodComplementarity(
   const p2HasData = p2Useful.length > 0 || p2Avoid.length > 0;
   const dataStatus: UsefulGodComplementarityResult['dataStatus'] =
     !p1HasData && !p2HasData ? '双方缺失' : !p1HasData || !p2HasData ? '一方缺失' : '完整';
+  const coverageText = `第一人喜用${p1Useful.join('、') || '无'}在第二人盘面出现${c1}次；第二人喜用${p2Useful.join('、') || '无'}在第一人盘面出现${c2}次；第一人忌神${p1Avoid.join('、') || '无'}在第二人盘面出现${avoid1}次；第二人忌神${p2Avoid.join('、') || '无'}在第一人盘面出现${avoid2}次`;
 
   let level: UsefulGodComplementarityResult['level'];
   let judgment: string;
@@ -241,20 +251,15 @@ export function evaluateUsefulGodComplementarity(
   if (dataStatus !== '完整') {
     level = '资料不足';
     judgment = `${dataStatus === '双方缺失' ? '双方' : '一方'}喜忌五行资料缺失，无法判定五行互补结构；资料缺失不等于分布平稳或中和`;
-  } else if (c1 >= 2 && c2 >= 2) {
-    level = '互为喜用';
-    judgment = `双方八字互见对方喜用五行（对方盘面各命中${c1}次与${c2}次，2 次为现代约定阈值），五行互助流通；此处命中可能来自同一五行重复，不等于所需种类全部覆盖${
-      avoid1 >= 3 && avoid2 >= 3 ? '；惟同时互见忌神，喜忌并存，需并列参看' : ''
-    }`;
-  } else if (c1 >= 2 || c2 >= 2) {
-    level = '单向得益';
-    judgment = '单方五行对另一方起到明显资助作用，互有依托，情深意笃';
-  } else if (avoid1 >= 3 && avoid2 >= 3) {
-    level = '互见忌神';
-    judgment = '对方多见自身所忌五行，气场互有砥砺，需借大运流年与后天环境调停化解';
+  } else if (c1 > 0 && c2 > 0) {
+    level = '双向喜用覆盖';
+    judgment = `${coverageText}；作用结合双方月令、根气与原局取用核验`;
+  } else if (c1 > 0 || c2 > 0) {
+    level = '单向喜用覆盖';
+    judgment = `${coverageText}；作用结合双方月令、根气与原局取用核验`;
   } else {
-    level = '中和相济';
-    judgment = '双方喜忌五行互见有限，互补不显偏激，日常相处循序渐进';
+    level = '未见喜用覆盖';
+    judgment = `${coverageText}；作用结合双方月令、根气与原局取用核验`;
   }
 
   return {
@@ -281,7 +286,7 @@ export function evaluateBaziMarriageDeep(
   const spousePalace = evaluateSpousePalaceDeepRelation(chart1, chart2);
   const usefulGodComplementarity = evaluateUsefulGodComplementarity(chart1, chart2);
 
-  const summary = `八字合婚理法：年命纳音${nayin.person1Nayin}与${nayin.person2Nayin}${nayin.relation}，${nayin.judgment}；夫妻宫${spousePalace.judgment}；喜用互补呈${usefulGodComplementarity.level}，${usefulGodComplementarity.judgment}`;
+  const summary = `八字合婚理法：年命纳音${nayin.person1Nayin}与${nayin.person2Nayin}${nayin.relation}，${nayin.judgment}；夫妻宫${spousePalace.judgment}；喜用覆盖为${usefulGodComplementarity.level}，${usefulGodComplementarity.judgment}`;
 
   return {
     nayin,

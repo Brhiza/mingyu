@@ -9,7 +9,7 @@ import type {
 } from '../types/analysis';
 import { WUXING, type Wuxing } from './baziTypes';
 import { SEASON_STATUS } from './baziElementData';
-import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziMappingsData';
+import { BASIC_MAPPINGS, HIDDEN_STEMS, TWELVE_STAGES_MAP } from './baziMappingsData';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 import { BRANCH_WUXING } from '../ganzhi/relations';
 
@@ -22,7 +22,13 @@ export interface HarmonyPillarInput {
 
 type NormalizedHarmonyPillar = Required<HarmonyPillarInput>;
 
-const PILLAR_LABELS = ['year', 'month', 'day', 'hour'];
+const PILLAR_LABEL_ALIASES: Record<string, string> = {
+  year: '年柱',
+  month: '月柱',
+  day: '日柱',
+  hour: '时柱',
+};
+const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'];
 
 const STEM_TRANSFORM_RULES: Record<string, { partner: string; element: Wuxing; stem: string }> = {
   甲: { partner: '己', element: '土', stem: '戊' },
@@ -60,6 +66,8 @@ const ELEMENT_STEMS: Record<Wuxing, string[]> = {
   水: ['壬', '癸'],
 };
 
+const HIDDEN_STEM_ROLE_LABELS = ['本气', '中气', '余气'];
+
 const TRANSFORM_MONTHS: Record<Wuxing, { principal: string[]; secondary: string[] }> = {
   木: { principal: ['亥', '卯', '未'], secondary: ['寅'] },
   火: { principal: ['寅', '午', '戌'], secondary: ['巳'] },
@@ -74,6 +82,12 @@ function assertWuxing(value: string, label: string): asserts value is Wuxing {
   }
 }
 
+function normalizePillarLabel(label?: string, index?: number): string {
+  if (label)
+    return Object.hasOwn(PILLAR_LABEL_ALIASES, label) ? PILLAR_LABEL_ALIASES[label] : label;
+  return index === undefined ? '' : (PILLAR_LABELS[index] ?? `第${index + 1}柱`);
+}
+
 function normalizePillars(pillars: HarmonyPillarInput[]): NormalizedHarmonyPillar[] {
   if (pillars.length !== 4) {
     throw new Error(`四柱数量无效：${pillars.length}`);
@@ -81,7 +95,7 @@ function normalizePillars(pillars: HarmonyPillarInput[]): NormalizedHarmonyPilla
 
   const normalized = pillars
     .map((pillar, index) => ({
-      label: pillar.label || PILLAR_LABELS[index] || `pillar${index + 1}`,
+      label: normalizePillarLabel(pillar.label, index),
       gan: pillar.gan,
       zhi: pillar.zhi,
       hiddenStems: pillar.hiddenStems || HIDDEN_STEMS[pillar.zhi] || [],
@@ -138,6 +152,115 @@ function getStemRootCount(element: Wuxing, pillars: NormalizedHarmonyPillar[]): 
   ).length;
 }
 
+interface ParticipantRootFact {
+  stem: string;
+  branch: string;
+  pillar: string;
+  role: string;
+  stage?: string;
+  exact: boolean;
+}
+
+interface ParticipantRootAssessment {
+  hasBlockingRoot: boolean;
+  evidence: string[];
+}
+
+function getStemElement(stem: string): Wuxing | undefined {
+  const entry = Object.entries(ELEMENT_STEMS).find(([, stems]) => stems.includes(stem));
+  return entry?.[0] as Wuxing | undefined;
+}
+
+/**
+ * 化气先取日干而言配合之神：日干与化神同五行时，其根属于化神根气；
+ * 日干本根或强同气根才是反化证据。这里扫描四柱全部地支，包含日干自己的坐支，
+ * 并按十二长生阶段区分强弱，不把任一藏干直接升级为控制化神。
+ */
+function assessParticipantRoots(
+  dayStem: string | undefined,
+  transformElement: Wuxing,
+  pillars: NormalizedHarmonyPillar[],
+): ParticipantRootAssessment {
+  const dayElement = dayStem ? getStemElement(dayStem) : undefined;
+  if (!dayStem || !dayElement) return { hasBlockingRoot: false, evidence: [] };
+  if (dayElement === transformElement) {
+    return {
+      hasBlockingRoot: false,
+      evidence: [`日干${dayStem}与化神${transformElement}同气，根气保留在化神根证据中`],
+    };
+  }
+
+  const facts: ParticipantRootFact[] = [];
+
+  pillars.forEach((pillar) => {
+    pillar.hiddenStems.forEach((hiddenStem, hiddenIndex) => {
+      const exact = hiddenStem === dayStem;
+      const hiddenElement = getStemElement(hiddenStem);
+      const sameElement = !exact && hiddenElement !== undefined && hiddenElement === dayElement;
+      if (!exact && !sameElement) return;
+      facts.push({
+        stem: hiddenStem,
+        branch: pillar.zhi,
+        pillar: pillar.label,
+        role: HIDDEN_STEM_ROLE_LABELS[hiddenIndex] ?? `第${hiddenIndex + 1}层`,
+        stage: TWELVE_STAGES_MAP[hiddenStem]?.[pillar.zhi],
+        exact,
+      });
+    });
+  });
+
+  const exactRoots = facts.filter((fact) => fact.exact);
+  const sameElementRoots = facts.filter((fact) => !fact.exact);
+  const strongSameElementRoots = sameElementRoots.filter(
+    (fact) => fact.stage && ['长生', '临官', '帝旺'].includes(fact.stage),
+  );
+  const lightSameElementRoots = sameElementRoots.filter(
+    (fact) => !strongSameElementRoots.includes(fact),
+  );
+  const formatFact = (fact: ParticipantRootFact) =>
+    `${fact.pillar}${fact.branch}藏${fact.stem}（${fact.role}${fact.stage ? `、${fact.stage}` : ''}）`;
+
+  const evidence = [
+    ...exactRoots.map((fact) => `合干原干${fact.stem}在${formatFact(fact)}见本根，作为阻化证据`),
+    ...strongSameElementRoots.map(
+      (fact) => `日干${dayStem}见${formatFact(fact)}同气强根，作为阻化证据`,
+    ),
+    ...lightSameElementRoots.map(
+      (fact) => `日干${dayStem}见${formatFact(fact)}同气根，仅作根气旁证`,
+    ),
+  ];
+
+  return {
+    hasBlockingRoot: exactRoots.length > 0 || strongSameElementRoots.length > 0,
+    evidence,
+  };
+}
+
+function getHiddenControlEvidence(
+  controllingElement: Wuxing | undefined,
+  transformElement: Wuxing,
+  pillars: NormalizedHarmonyPillar[],
+  participantIndexes: number[],
+): string[] {
+  if (!controllingElement) return [];
+  const controllingStems = ELEMENT_STEMS[controllingElement];
+
+  return pillars.flatMap((pillar, index) => {
+    if (participantIndexes.includes(index) || BRANCH_WUXING[pillar.zhi] === controllingElement) {
+      return [];
+    }
+    return pillar.hiddenStems
+      .map((hiddenStem, hiddenIndex) =>
+        controllingStems.includes(hiddenStem)
+          ? `外支${pillar.label}${pillar.zhi}藏${hiddenStem}（${
+              HIDDEN_STEM_ROLE_LABELS[hiddenIndex] ?? `第${hiddenIndex + 1}层`
+            }）仅作${controllingElement}克制旁证，不直接阻断化神${transformElement}`
+          : undefined,
+      )
+      .filter((item): item is string => Boolean(item));
+  });
+}
+
 function buildRootEvidence(element: Wuxing, pillars: NormalizedHarmonyPillar[]): string {
   const rootCount = getStemRootCount(element, pillars);
 
@@ -150,9 +273,12 @@ function findParticipantIndex(
   value: string,
   key: 'gan' | 'zhi',
 ): number {
-  const index = pillars.findIndex((pillar) => pillar.label === label && pillar[key] === value);
+  const normalizedLabel = normalizePillarLabel(label);
+  const index = pillars.findIndex(
+    (pillar) => pillar.label === normalizedLabel && pillar[key] === value,
+  );
   if (index < 0) {
-    throw new Error(`${label}${value}不在所给四柱中`);
+    throw new Error(`${normalizedLabel}${value}不在所给四柱中`);
   }
   return index;
 }
@@ -163,6 +289,7 @@ function resolveStemLevel(conditions: {
   monthSupported: boolean;
   hasClashBreak: boolean;
   hasControllingElement: boolean;
+  hasParticipantRoot: boolean;
   hasCompetition: boolean;
 }): HarmonyTransformLevel {
   if (conditions.hasClashBreak) return '逢冲破合';
@@ -171,7 +298,8 @@ function resolveStemLevel(conditions: {
     conditions.isDayStemPair &&
     conditions.isAdjacent &&
     conditions.monthSupported &&
-    !conditions.hasControllingElement
+    !conditions.hasControllingElement &&
+    !conditions.hasParticipantRoot
   ) {
     return '成化';
   }
@@ -218,8 +346,10 @@ export function assessStemHarmonyTransform(
   monthBranch: string,
   allPillars: HarmonyPillarInput[],
 ): HarmonyTransformProfile {
-  assertHeavenlyStem(stem1, `${pillar1}天干`);
-  assertHeavenlyStem(stem2, `${pillar2}天干`);
+  const normalizedPillar1 = normalizePillarLabel(pillar1);
+  const normalizedPillar2 = normalizePillarLabel(pillar2);
+  assertHeavenlyStem(stem1, `${normalizedPillar1}天干`);
+  assertHeavenlyStem(stem2, `${normalizedPillar2}天干`);
   assertEarthlyBranch(monthBranch, '月支');
 
   const rule = STEM_TRANSFORM_RULES[stem1];
@@ -228,8 +358,8 @@ export function assessStemHarmonyTransform(
   }
 
   const pillars = normalizePillars(allPillars);
-  const participantIndex1 = findParticipantIndex(pillars, pillar1, stem1, 'gan');
-  const participantIndex2 = findParticipantIndex(pillars, pillar2, stem2, 'gan');
+  const participantIndex1 = findParticipantIndex(pillars, normalizedPillar1, stem1, 'gan');
+  const participantIndex2 = findParticipantIndex(pillars, normalizedPillar2, stem2, 'gan');
   const participantIndexes = [participantIndex1, participantIndex2];
   const evidence: string[] = [`${stem1}${stem2}合化${rule.element}，化神为${rule.stem}`];
   const monthCondition = getMonthCondition(monthBranch, rule.element);
@@ -253,6 +383,10 @@ export function assessStemHarmonyTransform(
 
   const rootCount = getStemRootCount(rule.element, pillars);
   evidence.push(buildRootEvidence(rule.element, pillars));
+
+  const dayStem = participantIndexes.includes(2) ? pillars[2]?.gan : undefined;
+  const participantRootAssessment = assessParticipantRoots(dayStem, rule.element, pillars);
+  evidence.push(...participantRootAssessment.evidence);
 
   const clashEvidence: string[] = [];
   const clash1 = BASIC_MAPPINGS.TIAN_GAN_CHONG[stem1];
@@ -278,10 +412,31 @@ export function assessStemHarmonyTransform(
       (!participantIndexes.includes(index) && controllingStems.includes(pillar.gan)) ||
       BRANCH_WUXING[pillar.zhi] === controllingElement,
   );
+  const participantBranchControlEvidence = controllingElement
+    ? pillars
+        .filter(
+          (pillar, index) =>
+            participantIndexes.includes(index) && BRANCH_WUXING[pillar.zhi] === controllingElement,
+        )
+        .map(
+          (pillar) =>
+            `参与支${pillar.label}${pillar.zhi}本气为${controllingElement}，形成克制化神${rule.element}的盘面关系`,
+        )
+    : [];
+  evidence.push(...participantBranchControlEvidence);
+  const hiddenControlEvidence = getHiddenControlEvidence(
+    controllingElement,
+    rule.element,
+    pillars,
+    participantIndexes,
+  );
+  evidence.push(...hiddenControlEvidence);
   evidence.push(
     hasControl
       ? `有${controllingElement}克制化神${rule.element}`
-      : `无明显五行克制化神${rule.element}`,
+      : hiddenControlEvidence.length > 0
+        ? `仅见外支藏干克制旁证，不直接判为${controllingElement}克制化神${rule.element}`
+        : `无明显五行克制化神${rule.element}`,
   );
 
   const hasCompetitionWithStem1 = pillars.some(
@@ -311,10 +466,11 @@ export function assessStemHarmonyTransform(
     monthSupported: monthCondition.supported,
     hasClashBreak,
     hasControllingElement: hasControl,
+    hasParticipantRoot: participantRootAssessment.hasBlockingRoot,
     hasCompetition,
   });
   const direction = resolveDirection(level);
-  const participants = [`${pillar1}${stem1}`, `${pillar2}${stem2}`];
+  const participants = [`${normalizedPillar1}${stem1}`, `${normalizedPillar2}${stem2}`];
 
   return {
     type: '天干五合',
@@ -345,8 +501,10 @@ export function assessBranchHarmonyTransform(
   monthBranch: string,
   allPillars: HarmonyPillarInput[],
 ): HarmonyTransformProfile {
-  assertEarthlyBranch(branch1, `${pillar1}地支`);
-  assertEarthlyBranch(branch2, `${pillar2}地支`);
+  const normalizedPillar1 = normalizePillarLabel(pillar1);
+  const normalizedPillar2 = normalizePillarLabel(pillar2);
+  assertEarthlyBranch(branch1, `${normalizedPillar1}地支`);
+  assertEarthlyBranch(branch2, `${normalizedPillar2}地支`);
   assertEarthlyBranch(monthBranch, '月支');
 
   const rule = BRANCH_TRANSFORM_RULES[branch1];
@@ -355,8 +513,8 @@ export function assessBranchHarmonyTransform(
   }
 
   const pillars = normalizePillars(allPillars);
-  const participantIndex1 = findParticipantIndex(pillars, pillar1, branch1, 'zhi');
-  const participantIndex2 = findParticipantIndex(pillars, pillar2, branch2, 'zhi');
+  const participantIndex1 = findParticipantIndex(pillars, normalizedPillar1, branch1, 'zhi');
+  const participantIndex2 = findParticipantIndex(pillars, normalizedPillar2, branch2, 'zhi');
   const participantIndexes = [participantIndex1, participantIndex2];
   const isAdjacent = Math.abs(participantIndex1 - participantIndex2) === 1;
   const evidence: string[] = [
@@ -400,7 +558,7 @@ export function assessBranchHarmonyTransform(
         ? '争合不专'
         : '合而不化';
   const direction = resolveDirection(level);
-  const participants = [`${pillar1}${branch1}`, `${pillar2}${branch2}`];
+  const participants = [`${normalizedPillar1}${branch1}`, `${normalizedPillar2}${branch2}`];
 
   return {
     type: '地支六合',

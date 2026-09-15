@@ -62,7 +62,17 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
     let md = `# 【命录全息档案】${meta.subjectName} · ${meta.genderLabel}\n\n`;
     md += `> 生辰：${meta.solarDateStr} ${meta.exactBirthTime || meta.shichenName} (${meta.lunarDateStr})\n`;
     md += `> 四柱八字：${meta.baziFourPillars.year}  ${meta.baziFourPillars.month}  ${meta.baziFourPillars.day}  ${meta.baziFourPillars.hour}\n`;
-    md += `> 日元格局：${meta.dayMaster.gan}(${meta.dayMaster.wuxing}) · 【${article.patternUsefulGodSection.pattern.name}】 · 旺衰：${article.fiveElementsSection.dayMasterStrength.status}\n\n`;
+    md += `> 日元格局：${meta.dayMaster.gan || '待补时'}(${meta.dayMaster.wuxing}) · 【${article.patternUsefulGodSection.pattern.name}】 · 旺衰：${article.fiveElementsSection.dayMasterStrength.status}\n\n`;
+    if (article.patternUsefulGodSection.unknownTimeAnalysis) {
+      const unknown = article.patternUsefulGodSection.unknownTimeAnalysis;
+      md += `> 待补时说明：${unknown.summary}\n`;
+      md += `> 候选场景：${unknown.scenarios
+        .map(
+          (scenario) =>
+            `${scenario.timeName}（${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}）`,
+        )
+        .join('；')}\n\n`;
+    }
 
     md += `## 一、四柱全息矩阵\n`;
     article.pillarsSection.columns.forEach((col) => {
@@ -75,6 +85,20 @@ export const MingluWikiView: React.FC<MingluWikiViewProps> = ({ article }) => {
     md += `${article.fiveElementsSection.dayMasterStrength.judgmentSummary}\n`;
     md += `\n## 三、格局成败与用神\n`;
     md += `- 主格：${article.patternUsefulGodSection.pattern.name}\n`;
+    const transformation = article.patternUsefulGodSection.pattern.transformation;
+    if (transformation) {
+      md += `- 化气判定：${transformation.status}；化神${transformation.element}\n`;
+      md += `- 化气依据：${transformation.basis}\n`;
+      transformation.evidence.forEach((item) => {
+        md += `- 化气证据：${item}\n`;
+      });
+      transformation.conditions.forEach((item) => {
+        md += `- 化气条件：${item}\n`;
+      });
+      if (transformation.status === '成化') {
+        md += `- 取用主体：化神${transformation.element}；原日主旺衰与十神作为本命事实，取用按化神及其条件核验。\n`;
+      }
+    }
     md += `- 核心用神：${article.patternUsefulGodSection.usefulGods.primaryUseful}\n`;
     md += `- 核心忌神：${article.patternUsefulGodSection.usefulGods.primaryAvoid}\n`;
 

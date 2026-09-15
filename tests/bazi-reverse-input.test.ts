@@ -12,6 +12,32 @@ import { resolveBaziReverseCandidate } from '../src/lib/bazi-reverse-input';
 import { buildPersonFromInput, calculateFullBaziChart } from '../src/lib/full-chart-engine/bazi';
 import { buildInputStateSearch, defaultInputState, parseInputState } from '../src/lib/query-state';
 
+test('精准出生表单未选时辰且未填秒时仍可生成共享出生资料', () => {
+  for (const year of ['1900', '2000']) {
+    const input = {
+      ...defaultInputState,
+      year,
+      month: '6',
+      day: '15',
+      timeIndex: '' as const,
+      birthHour: '13',
+      birthMinute: '00',
+      birthSecond: '',
+    };
+    const person = buildPersonFromInput(input);
+    assert.equal(person.timeIndex, 7);
+    assert.equal(person.birthSecond, 0);
+    assert.deepEqual(calculateFullBaziChart(person).solarDate, {
+      year: Number(year),
+      month: 6,
+      day: 15,
+    });
+    const legacy = buildPersonFromInput({ ...input, timeIndex: 3 });
+    assert.equal(legacy.timeIndex, 3);
+    assert.equal(legacy.birthSecond, undefined);
+  }
+});
+
 test('四柱反推回填保留秒级标准北京时间，并逐候选复核四柱', () => {
   const source = getGanZhiFromDate(new Date(2024, 1, 4, 23));
   const target: BaziReversePillars = source;
@@ -48,26 +74,21 @@ test('四柱反推回填保留秒级标准北京时间，并逐候选复核四�
   }
 });
 
-test('历史候选 1946 与 2006 年巳时可经完整输入链路复核', () => {
-  const target: BaziReversePillars = {
-    year: '丙戌',
-    month: '乙未',
-    day: '甲辰',
-    hour: '己巳',
-  };
+test('不同年份的合成日期可经反推和完整输入链路复核', () => {
   const examples = [
-    { year: 1946, date: '1946-07-29' },
-    { year: 2006, date: '2006-07-14' },
+    { year: 1960, date: '1960-01-07' },
+    { year: 2020, date: '2020-01-07' },
   ];
 
   for (const example of examples) {
+    const target = getGanZhiFromDate(new Date(example.year, 0, 7, 9));
     const reversed = reverseBaziDates({
       pillars: target,
       startYear: example.year,
       endYear: example.year,
     });
     const candidate = reversed.candidates.find((item) => item.start.text.startsWith(example.date));
-    assert.ok(candidate, `${example.date} 应有己巳候选时段`);
+    assert.ok(candidate, `${example.date} 应有对应候选时段`);
     const selection = resolveBaziReverseCandidate(candidate);
     assert.ok(selection);
     const chart = calculateBaziChartFromInput({
@@ -96,13 +117,8 @@ test('历史候选 1946 与 2006 年巳时可经完整输入链路复核', () =>
 });
 
 test('候选回填经查询状态和前端排盘链路仍保持四柱', () => {
-  const target: BaziReversePillars = {
-    year: '丙戌',
-    month: '乙未',
-    day: '甲辰',
-    hour: '己巳',
-  };
-  const candidate = reverseBaziDates({ pillars: target, startYear: 2006, endYear: 2006 })
+  const target = getGanZhiFromDate(new Date(2000, 0, 7, 9));
+  const candidate = reverseBaziDates({ pillars: target, startYear: 2000, endYear: 2000 })
     .candidates[0];
   assert.ok(candidate);
   const selection = resolveBaziReverseCandidate(candidate);
@@ -195,9 +211,9 @@ test('统一出生档案的秒数会进入八字标准北京时间计算', () =>
   const profile = {
     gender: 'male' as const,
     calendarType: 'solar' as const,
-    year: 2006,
-    month: 7,
-    day: 14,
+    year: 2000,
+    month: 1,
+    day: 7,
     hour: 9,
     minute: 0,
     second: 37,

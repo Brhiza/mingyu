@@ -32,6 +32,7 @@ import { getThematicTopicConfig, normalizeThematicTopic } from 'mingyu-core/prom
 import {
   formatBaziFullFortune,
   formatBaziFortuneSelection,
+  formatBaziPatternConditions,
   buildPromptSelectionTask,
   getPromptSelectionSection,
   requirePromptSelection,
@@ -302,6 +303,9 @@ export function buildBaziZiweiEnhancedPrompt(params: {
   const normalizedQuestion =
     params.question.trim() || getBaziDefaultQuestion(undefined, { isCustomQuestion });
   const baziText = params.baziText || formatBaziForPrompt(params.baziResult, null, 'general');
+  const baziPatternConditions = /【(?:八字)?格局条件】/u.test(baziText)
+    ? ''
+    : formatBaziPatternConditions(params.baziResult);
   const sourceLabels = [params.baziFortuneSummary, params.ziweiScopeSummary]
     .map((item) => item?.trim())
     .filter(Boolean);
@@ -328,6 +332,7 @@ export function buildBaziZiweiEnhancedPrompt(params: {
       : '',
     selection ? `【解读选择】\n${getPromptSelectionSection(selection)}` : '',
     `【八字排盘信息】\n${baziText}`,
+    baziPatternConditions ? `【八字格局条件】\n${baziPatternConditions}` : '',
     `【紫微盘面信息】\n${params.ziweiText}`,
     `【任务】\n${selection ? buildPromptSelectionTask(baseTaskText, selection) : baseTaskText}`,
     ...(normalizedQuestion ? [`【问题】\n${normalizedQuestion}`] : []),
@@ -341,8 +346,10 @@ export function buildEnhancedBaziPromptPack(
   context: FortuneSelectionContext | null,
 ) {
   const fortune = formatBaziFortuneSelection(context);
+  const patternConditions = formatBaziPatternConditions(result);
   return [
     formatBaziForPrompt(result, null, 'general'),
+    patternConditions ? `【格局条件】\n${patternConditions}` : '',
     fortune ? `【岁运重点】\n${fortune.focus}` : '',
   ]
     .filter(Boolean)

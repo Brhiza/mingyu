@@ -22,6 +22,7 @@ export const GENG_SHEN_CLIMATE_RULES: ClimateRule[] = [
     months: ['申'],
     dayMasters: ['金'],
     dayStems: ['庚'],
+    strengths: ['身强', '偏强', '极强'],
     requiredVisibleStems: ['甲', '丁'],
     usefulWuxing: '火',
     favorableOrder: ['火', '木'],

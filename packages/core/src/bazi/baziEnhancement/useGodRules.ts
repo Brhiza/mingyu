@@ -16,60 +16,20 @@ interface DiseaseMedicineRule {
 
 const DISEASE_MEDICINE_RULES: DiseaseMedicineRule[] = [
   {
-    id: 'disease-water-fire-war',
-    label: '水火相战病药',
-    description: '命局水火对峙失衡，以木通关调和为药',
-    diseasePatterns: ['水旺火弱', '火旺水弱', '水火相激'],
-    medicinePatterns: ['木通关', '木泄水火'],
-    priority: 100,
-  },
-  {
-    id: 'disease-wood-metal-war',
-    label: '木金相战病药',
-    description: '命局木金对峙失衡，以水通关调和为药',
-    diseasePatterns: ['木旺金弱', '金旺木弱', '木金相战'],
-    medicinePatterns: ['水通关', '水泄金木'],
-    priority: 100,
-  },
-  {
-    id: 'disease-earth-fire-war',
-    label: '土火相战病药',
-    description: '命局土火对峙失衡，以金通关调和为药',
-    diseasePatterns: ['土旺火弱', '火旺土弱', '土火相激'],
-    medicinePatterns: ['金通关', '金泄土火'],
-    priority: 100,
-  },
-  {
     id: 'disease-over-strong',
-    label: '过旺为病',
-    description: '某五行过旺为病，以泄为药',
-    diseasePatterns: ['身强', '偏强', '极强', '专旺'],
-    medicinePatterns: ['食伤泄秀', '财星耗泄', '官杀克抑'],
+    label: '身强泄化',
+    description: '普通格局已判身强时，以日主所生五行作为泄化候选',
+    diseasePatterns: ['身强', '偏强', '极强'],
+    medicinePatterns: ['食伤泄秀'],
     priority: 90,
   },
   {
     id: 'disease-over-weak',
-    label: '过弱为病',
-    description: '某五行过弱为病，以生扶为药',
+    label: '身弱生扶',
+    description: '普通格局已判身弱时，以生日主五行作为生扶候选',
     diseasePatterns: ['身弱', '偏弱', '极弱'],
     medicinePatterns: ['印星生扶', '比劫助身'],
     priority: 90,
-  },
-  {
-    id: 'disease-cold-heat',
-    label: '寒热病药',
-    description: '命局过寒或过热为病，调候为药',
-    diseasePatterns: ['过寒', '过热', '寒热失调'],
-    medicinePatterns: ['丙火调候', '癸水润燥', '寒者喜暖', '热者喜凉'],
-    priority: 95,
-  },
-  {
-    id: 'disease-dry-wet',
-    label: '燥湿病药',
-    description: '命局过燥或过湿为病，调候为药',
-    diseasePatterns: ['过燥', '过湿', '燥湿失调'],
-    medicinePatterns: ['水润燥', '火烤湿', '燥者喜润', '湿者喜燥'],
-    priority: 95,
   },
 ];
 
@@ -86,7 +46,7 @@ const TONGGUAN_RULES: TongguanRule[] = [
   {
     id: 'tg-water-fire',
     label: '水火通关',
-    description: '木泄水火，调和相战',
+    description: '水生木、木生火，以木承接水火',
     conflictWuxings: ['水', '火'],
     tongguanWuxing: '木',
     priority: 100,
@@ -94,42 +54,34 @@ const TONGGUAN_RULES: TongguanRule[] = [
   {
     id: 'tg-wood-metal',
     label: '木金通关',
-    description: '水泄金木，调和相战',
+    description: '金生水、水生木，以水承接金木',
     conflictWuxings: ['木', '金'],
     tongguanWuxing: '水',
     priority: 100,
   },
   {
-    id: 'tg-earth-fire',
-    label: '土火通关',
-    description: '金泄土火，调和相战',
-    conflictWuxings: ['土', '火'],
-    tongguanWuxing: '金',
+    id: 'tg-wood-earth',
+    label: '木土通关',
+    description: '木生火、火生土，以火承接木土',
+    conflictWuxings: ['木', '土'],
+    tongguanWuxing: '火',
     priority: 100,
   },
   {
     id: 'tg-earth-water',
     label: '土水通关',
-    description: '木泄水土，调和相战',
+    description: '土生金、金生水，以金承接土水',
     conflictWuxings: ['土', '水'],
-    tongguanWuxing: '木',
+    tongguanWuxing: '金',
     priority: 100,
   },
   {
     id: 'tg-metal-fire',
     label: '金火通关',
-    description: '土泄金火，调和相战',
+    description: '火生土、土生金，以土承接火金',
     conflictWuxings: ['金', '火'],
     tongguanWuxing: '土',
     priority: 100,
-  },
-  {
-    id: 'tg-wood-fire',
-    label: '木火通关',
-    description: '土泄火木，调和相战',
-    conflictWuxings: ['木', '火'],
-    tongguanWuxing: '土',
-    priority: 90,
   },
 ];
 
@@ -156,7 +108,15 @@ export function detectTongguanNeed(
   wuxingCounts: Record<string, number>,
   favorableWuxing: string[],
   unfavorableWuxing: string[],
-): { need: boolean; conflict?: [string, string]; tongguan?: string; rule?: TongguanRule } {
+): {
+  /** 是否存在需要进一步核验的通关候选，并非已确认两旺相战。 */
+  need: boolean;
+  status: '候选' | '未见候选';
+  conflict?: [string, string];
+  tongguan?: string;
+  rule?: TongguanRule;
+  conditions?: string;
+} {
   assertWuxingCounts(wuxingCounts);
   assertWuxingList(favorableWuxing, '喜用');
   assertWuxingList(unfavorableWuxing, '忌用');
@@ -173,79 +133,76 @@ export function detectTongguanNeed(
     if (isConflict) {
       const w1Count = wuxingCounts[w1] || 0;
       const w2Count = wuxingCounts[w2] || 0;
-      const w1Strong = w1Count >= 25;
-      const w2Strong = w2Count >= 25;
-      const w1Contending = w1Count >= 20;
-      const w2Contending = w2Count >= 20;
-
-      if ((w1Strong && w2Contending) || (w2Strong && w1Contending)) {
-        return { need: true, conflict: rule.conflictWuxings, tongguan: rule.tongguanWuxing, rule };
+      // 出现次数只用于核实两端存在，不用于替代月令、通根和作用力量。
+      if (w1Count > 0 && w2Count > 0) {
+        return {
+          need: true,
+          status: '候选',
+          conflict: rule.conflictWuxings,
+          tongguan: rule.tongguanWuxing,
+          rule,
+          conditions: `核对${w1}与${w2}的月令、根气及位置是否形成实际相克，再核${rule.tongguanWuxing}能否承接两端及是否符合全局取用`,
+        };
       }
     }
   }
 
-  return { need: false };
+  return { need: false, status: '未见候选' };
 }
 
+/**
+ * 普通格局扶抑病药候选。旺衰来自完整原局判断，次数仅保留为输入事实。
+ * 指明日主五行后才可对应生扶、泄化；寒暖燥湿由气候分析单独判断。
+ */
 export function detectDiseaseMedicine(
   wuxingCounts: Record<string, number>,
   pattern: PatternAnalysis,
-  _strengthStatus: string,
-): { hasDisease: boolean; disease?: string; medicine?: string; rule?: DiseaseMedicineRule } {
+  strengthStatus: string,
+  dayMasterWuxing?: string,
+): {
+  hasDisease: boolean;
+  status: '候选' | '资料不足' | '不适用';
+  disease?: string;
+  medicine?: string;
+  rule?: DiseaseMedicineRule;
+  conditions: string;
+} {
   assertWuxingCounts(wuxingCounts);
-
-  // 对象键序不是五行资料的业务含义，统一按木火土金水次序扫描，
-  // 避免相同数值因键序不同得到不同的单一结论
-  const canonicalOrder: string[] = [...WUXING];
-  const orderedEntries = Object.entries(wuxingCounts).sort(
-    (a, b) =>
-      canonicalOrder.indexOf(a[0]) - canonicalOrder.indexOf(b[0]) || a[0].localeCompare(b[0]),
-  );
-
-  for (const [wuxing, count] of orderedEntries) {
-    if (count >= 40) {
-      const rule = DISEASE_MEDICINE_RULES.find((r) => r.id === 'disease-over-strong');
-      let medicine: string;
-      if (wuxing === '土') {
-        medicine = pattern.isSpecial ? '顺势化泄' : `木克土为制，金泄土为化（泄秀更佳）`;
-      } else {
-        medicine = pattern.isSpecial ? '顺势化泄' : getOppositeWuxing(wuxing);
-      }
-      return { hasDisease: true, disease: `${wuxing}过旺为病`, medicine, rule };
-    }
-    if (count <= 10) {
-      const rule = DISEASE_MEDICINE_RULES.find((r) => r.id === 'disease-over-weak');
-      const medicine = getSupportiveWuxing(wuxing);
-      return { hasDisease: true, disease: `${wuxing}过弱为病`, medicine, rule };
-    }
-  }
-
-  const seasonInfo = getSeasonBalance(wuxingCounts);
-  if (seasonInfo.imbalance) {
-    const rule = DISEASE_MEDICINE_RULES.find((r) =>
-      seasonInfo.type === 'cold' ? r.id === 'disease-cold-heat' : r.id === 'disease-dry-wet',
-    );
+  if (dayMasterWuxing !== undefined) assertWuxing(dayMasterWuxing, '日主');
+  if (pattern.isSpecial) {
     return {
-      hasDisease: true,
-      disease: seasonInfo.type === 'cold' ? '过寒为病' : '过燥为病',
-      medicine: seasonInfo.medicine,
-      rule,
+      hasDisease: false,
+      status: '不适用',
+      conditions: '特殊格局按成格条件及顺从之势取用',
     };
   }
-
-  return { hasDisease: false };
-}
-
-function getOppositeWuxing(wuxing: string): string {
-  assertWuxing(wuxing, '制化');
-  const opposites: Record<Wuxing, string> = {
-    木: '金',
-    金: '木',
-    水: '火',
-    火: '水',
-    土: '木',
+  if (strengthStatus === '中和') {
+    return {
+      hasDisease: false,
+      status: '不适用',
+      conditions: '中和命局继续结合格局制化及寒暖燥湿取用',
+    };
+  }
+  const rule = DISEASE_MEDICINE_RULES.find((item) => item.diseasePatterns.includes(strengthStatus));
+  if (!dayMasterWuxing || !rule) {
+    return {
+      hasDisease: false,
+      status: '资料不足',
+      conditions: '需明确日主五行及结合月令、根气、制化判断的旺衰状态',
+    };
+  }
+  const strong = rule.id === 'disease-over-strong';
+  const medicine = strong ? getDrainWuxing(dayMasterWuxing) : getSupportiveWuxing(dayMasterWuxing);
+  return {
+    hasDisease: true,
+    status: '候选',
+    disease: `${dayMasterWuxing}日主${strengthStatus}`,
+    medicine,
+    rule,
+    conditions: strong
+      ? `核对${medicine}食伤是否有根承泄、是否影响官杀及格局制化，再与财官取用比较`
+      : `核对${medicine}印星的根气和受财克制情况，并与${dayMasterWuxing}比劫配合扶身`,
   };
-  return opposites[wuxing];
 }
 
 export function getDrainWuxing(wuxing: string): string {
@@ -271,33 +228,4 @@ function getSupportiveWuxing(wuxing: string): string {
     return supportiveWuxing;
   }
   throw new Error(`生扶五行无效：${wuxing}`);
-}
-
-function getSeasonBalance(wuxingCounts: Record<string, number>): {
-  imbalance: boolean;
-  type?: 'cold' | 'hot' | 'dry' | 'wet';
-  medicine?: string;
-} {
-  const water = wuxingCounts['水'] || 0;
-  const fire = wuxingCounts['火'] || 0;
-  const wood = wuxingCounts['木'] || 0;
-  const metal = wuxingCounts['金'] || 0;
-
-  if (water + wood >= 45 && fire + metal <= 20) {
-    return { imbalance: true, type: 'cold', medicine: '丙火调候' };
-  }
-
-  if (fire + metal >= 45 && water + wood <= 20) {
-    return { imbalance: true, type: 'hot', medicine: '癸水润燥' };
-  }
-
-  if (fire >= 30 && (wuxingCounts['土'] || 0) >= 30 && water <= 15) {
-    return { imbalance: true, type: 'dry', medicine: '水润燥' };
-  }
-
-  if (water >= 35 && (wuxingCounts['土'] || 0) <= 15) {
-    return { imbalance: true, type: 'wet', medicine: '火暖局' };
-  }
-
-  return { imbalance: false };
 }

@@ -294,6 +294,8 @@ export function getCompatibilityPrompt(
           }),
         )
       : '';
+  const patternConditions1 = baziResult1 ? formatBaziPatternConditions(baziResult1) : '';
+  const patternConditions2 = baziResult2 ? formatBaziPatternConditions(baziResult2) : '';
 
   const taskSection = buildPromptSection(
     '任务',
@@ -309,6 +311,8 @@ export function getCompatibilityPrompt(
       buildPromptSection('当前时间', formatPromptCurrentTime()),
       buildPromptSection('第一人排盘信息', data1),
       buildPromptSection('第二人排盘信息', data2),
+      patternConditions1 ? buildPromptSection('第一人格局条件', patternConditions1) : '',
+      patternConditions2 ? buildPromptSection('第二人格局条件', patternConditions2) : '',
       buildPromptSection('双盘关系资料', compatibilityEvidence),
       taskSection,
       questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType)

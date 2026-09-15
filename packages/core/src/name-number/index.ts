@@ -7,7 +7,12 @@ import { analyzeNumberEnergyPair, NUMBER_ENERGY_TRADITION } from './number-energ
 export { getKongmingInterpretation } from './kongming-interpretations';
 export { analyzeNumberEnergyPair } from './number-energy-tradition';
 export { analyzeNameSancai } from './naming-tradition';
-import { calculateBaziChartFromInput, type BaziChartInputDraft } from '../bazi/input';
+import {
+  buildBaziPersonInput,
+  calculateBaziChartFromInput,
+  type BaziChartInputDraft,
+} from '../bazi/input';
+import { baziCalculator } from '../bazi/baziCalculator';
 import { formatUsefulGodFunctions } from '../bazi/baziAnalysisFormatter';
 import { CHARACTER_STROKE_NOTES, CHARACTER_READING_NOTES } from './character-annotations';
 import {
@@ -42,7 +47,10 @@ const COMPOUND_SURNAME_READINGS: Readonly<Record<string, readonly string[]>> = {
   令狐: ['lìng', 'hú'],
 };
 
-export type NamingBirthInput = BaziChartInputDraft;
+export type NamingBirthInput = BaziChartInputDraft & {
+  /** 起名入口也可明确传入缺时资料；不把任意时辰当作出生事实。 */
+  isThreePillars?: boolean;
+};
 
 function formatNamingClock(input: NamingBirthInput, includeSeconds: boolean) {
   if (input.birthHour === undefined || input.birthMinute === undefined) return null;
@@ -54,8 +62,23 @@ function formatNamingClock(input: NamingBirthInput, includeSeconds: boolean) {
   return `${hour}:${minute}:${String(second).padStart(2, '0')}`;
 }
 
+function calculateNamingBazi(input: NamingBirthInput) {
+  if (input.isThreePillars !== undefined && typeof input.isThreePillars !== 'boolean') {
+    throw new Error('时辰未知标志必须是布尔值。');
+  }
+  if (!input.isThreePillars) return calculateBaziChartFromInput(input);
+
+  // 缺时入口仍使用八字公共输入解析；仅用合法占位时辰让日期、闰月、经纬度等校验完整执行，
+  // 之后再显式切换缺时模式，不能把缺时资料的日期类型或任意 truthy 标志静默转换掉。
+  const validatedPerson = buildBaziPersonInput({
+    ...input,
+    timeIndex: input.timeIndex === '' || input.timeIndex === undefined ? 6 : input.timeIndex,
+  });
+  return baziCalculator.calculateBazi({ ...validatedPerson, isThreePillars: true });
+}
+
 export function calculateNamingBirthContext(input: NamingBirthInput) {
-  const chart = calculateBaziChartFromInput(input);
+  const chart = calculateNamingBazi(input);
   const hasPreciseStandardTime =
     input.useTrueSolarTime !== true && input.birthSecond !== undefined && input.birthSecond !== '';
   const hasInputSecond = input.birthSecond !== undefined && input.birthSecond !== '';
@@ -70,6 +93,16 @@ export function calculateNamingBirthContext(input: NamingBirthInput) {
   const unfavorableElements = (chart.analysis.usefulGod.unfavorableWuxing ?? []).filter(
     (item): item is Wuxing => ['金', '木', '水', '火', '土'].includes(item),
   );
+  const patternFulfillment = chart.analysis.mingGe.fulfillment
+    ? {
+        ...chart.analysis.mingGe.fulfillment,
+        conditions: chart.analysis.mingGe.fulfillment.conditions ?? [],
+        conditionFacts: chart.analysis.mingGe.fulfillment.conditionFacts ?? [],
+        pathEvaluations: chart.analysis.mingGe.fulfillment.pathEvaluations ?? [],
+        remedies: chart.analysis.mingGe.fulfillment.remedies ?? [],
+      }
+    : null;
+  const transformation = chart.analysis.mingGe.transformation;
   return {
     solarDate: `${chart.solarDate.year}-${String(chart.solarDate.month).padStart(2, '0')}-${String(chart.solarDate.day).padStart(2, '0')}`,
     timeBasis: {
@@ -80,11 +113,13 @@ export function calculateNamingBirthContext(input: NamingBirthInput) {
         : hasPreciseStandardTime && inputClock
           ? inputClock
           : `${chart.timeInfo.name}（${chart.timeInfo.range}）`,
-      mode: input.useTrueSolarTime
-        ? '真太阳时'
-        : hasPreciseStandardTime
-          ? '标准北京时间（精确到秒）'
-          : '时辰',
+      mode: input.isThreePillars
+        ? '待补时'
+        : input.useTrueSolarTime
+          ? '真太阳时'
+          : hasPreciseStandardTime
+            ? '标准北京时间（精确到秒）'
+            : '时辰',
       place: input.birthPlace?.trim() || '',
       longitude: input.useTrueSolarTime ? Number(input.birthLongitude) : null,
       calculatedTime: chart.timing
@@ -97,6 +132,13 @@ export function calculateNamingBirthContext(input: NamingBirthInput) {
     pillars: Object.values(chart.pillars).map((pillar) => pillar.ganZhi),
     dayMaster: chart.dayMaster.gan,
     zodiac: chart.zodiac,
+    pattern: {
+      name: chart.analysis.mingGe.pattern,
+      isSpecial: chart.analysis.mingGe.isSpecial,
+      basis: chart.analysis.mingGe.basis ?? '',
+      transformation,
+      fulfillment: patternFulfillment,
+    },
     favorableElements,
     unfavorableElements,
     usefulGodReason: chart.analysis.usefulGod.primaryReason ?? chart.analysis.usefulGod.useful,
@@ -135,6 +177,7 @@ export function calculateNamingBirthContext(input: NamingBirthInput) {
     },
     climate: chart.climate ? { ...chart.climate } : null,
     warnings: chart.warnings,
+    unknownTimeAnalysis: chart.unknownTimeAnalysis ?? null,
   };
 }
 
@@ -654,28 +697,76 @@ export function generateChineseNames(input: {
 
 function formatBirthContext(context: ReturnType<typeof calculateNamingBirthContext> | null) {
   if (!context) return '本次未结合出生资料。';
+  const fulfillment = context.pattern.fulfillment;
+  const unknownTime = context.unknownTimeAnalysis;
+  const unknownTimeLines = unknownTime
+    ? [
+        `待补时说明：${unknownTime.summary}`,
+        ...unknownTime.scenarios.map(
+          (scenario) =>
+            `候选${scenario.timeName}：${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}${scenario.favorableWuxing.length ? `；喜用${scenario.favorableWuxing.join('、')}` : ''}`,
+        ),
+      ]
+    : [];
   return [
     `出生记录：${context.timeBasis.inputDate} ${context.timeBasis.inputTime}`,
     `时间口径：${context.timeBasis.mode}${context.timeBasis.longitude !== null ? `；出生地${context.timeBasis.place || '按经度定位'}；经度${context.timeBasis.longitude}°` : ''}`,
     `排盘公历：${context.solarDate} ${context.timeBasis.calculatedTime}`,
     `农历：${context.lunarDate}`,
-    `四柱：${context.pillars.join(' ')}`,
-    `日主：${context.dayMaster}`,
+    `四柱${unknownTime ? '（已确定柱）' : ''}：${context.pillars.join(' ')}`,
+    `日主：${context.dayMaster || (unknownTime ? '待补时' : '')}`,
     `生肖：${context.zodiac}`,
-    `月令：${context.monthContext.branch}月；司令${context.monthContext.commander}；${context.monthContext.season}；节气${context.monthContext.term}`,
+    `格局：${context.pattern.name}${context.pattern.basis ? `；取格依据：${context.pattern.basis}` : ''}`,
+    ...(context.pattern.transformation
+      ? [
+          `化气判定：${context.pattern.transformation.status}；化神${context.pattern.transformation.element}；${context.pattern.transformation.basis}`,
+          ...context.pattern.transformation.evidence.map((item) => `化气证据：${item}`),
+          ...context.pattern.transformation.conditions.map((item) => `化气条件：${item}`),
+          ...(context.pattern.transformation.status === '成化'
+            ? [
+                `化神取用主体：化神${context.pattern.transformation.element}；原日主${context.dayMaster}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
+              ]
+            : []),
+        ]
+      : []),
+    ...(fulfillment
+      ? [
+          `格局成败：${fulfillment.status}；${fulfillment.summary}`,
+          fulfillment.basis ? `格局判定依据：${fulfillment.basis}` : '',
+          fulfillment.contradiction ? `格局反证：${fulfillment.contradiction}` : '',
+          ...fulfillment.conditions.map((condition) => `成立条件：${condition}`),
+          ...fulfillment.conditionFacts
+            .filter((condition) => !condition.key.startsWith('path.'))
+            .map((condition) => `格局条件（${condition.status}）：${condition.detail}`),
+          ...fulfillment.pathEvaluations.map(
+            (path) => `制化路径：${path.label}（${path.position}）：${path.status}；${path.detail}`,
+          ),
+        ].filter(Boolean)
+      : []),
+    ...(unknownTime
+      ? unknownTimeLines
+      : [
+          `月令：${context.monthContext.branch}月；司令${context.monthContext.commander}；${context.monthContext.season}；节气${context.monthContext.term}`,
+        ]),
     ...context.pillarDetails.map(
       (pillar) =>
         `${pillar.label}${pillar.ganZhi}藏干：${pillar.hiddenStems.map((item) => `${item.stem}${item.tenGod ? `（${item.tenGod}）` : ''}`).join('、')}`,
     ),
-    `旺衰：${context.strength.status}；${context.strength.basis.join('；')}`,
+    ...(unknownTime
+      ? []
+      : [`旺衰：${context.strength.status}；${context.strength.basis.join('；')}`]),
     ...(context.climate
       ? [
           `寒暖分布：${context.climate.nature}；${context.climate.summary}；${context.climate.medicine}`,
         ]
       : []),
-    `喜用五行：${context.favorableElements.join('、') || '以整体命局复核'}`,
-    `取用依据：${context.usefulGodReason}`,
-    ...context.functionalUse,
+    ...(unknownTime
+      ? ['喜用五行：待补时；取用依据待出生时分确定后复核。']
+      : [
+          `喜用五行：${context.favorableElements.join('、') || '以整体命局复核'}`,
+          `取用依据：${context.usefulGodReason}`,
+          ...context.functionalUse,
+        ]),
     ...context.warnings.map((warning) => `出生时刻说明：${warning}`),
   ].join('\n');
 }

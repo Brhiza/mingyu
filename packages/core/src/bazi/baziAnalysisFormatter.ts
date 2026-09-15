@@ -43,6 +43,17 @@ export function formatUsefulGodFunctions(usefulGod: UsefulGodAnalysis): string[]
         `原局制化：${path.label}；${path.sourceStems.join('、')}作用于${path.targetStems.join('、')}${path.baseUnfavorableStems.length ? `；其中${path.baseUnfavorableStems.join('、')}在扶抑基线属忌，原局作用与增补取用分别判断` : ''}${path.evidenceGaps.length ? `；作用条件待核：${path.evidenceGaps.join('、')}` : ''}`,
     );
   return [
+    ...(usefulGod.decisionEvidence?.transformation
+      ? [
+          `化神取用：${usefulGod.decisionEvidence.transformation.basis}`,
+          ...usefulGod.decisionEvidence.transformation.conditions.map(
+            (condition) => `取用条件：${condition}`,
+          ),
+        ]
+      : []),
+    usefulGod.decisionEvidence?.balanceAdjustment
+      ? `取用配合：${usefulGod.decisionEvidence.balanceAdjustment.reason}`
+      : '',
     descriptions.length ? `条件取用：${descriptions.join('；')}` : '',
     usefulGod.conditionalUnfavorableStems?.length
       ? `干级所忌：${usefulGod.conditionalUnfavorableStems.join('、')}`
@@ -186,6 +197,29 @@ function formatPromptLuckOverview(baziResult: BaziChartResult): string {
 
 function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions): string {
   if (!baziResult) return '无法获取八字数据。';
+  if (baziResult.isThreePillars) {
+    const { solarDate, unknownTimeAnalysis } = baziResult;
+    return [
+      '【命盘】',
+      `公历${solarDate.year}年${solarDate.month}月${solarDate.day}日，${baziResult.gender === 'male' ? '男命' : '女命'}，出生时辰未知。`,
+      '【已确定的柱】',
+      ...(['year', 'month', 'day'] as const).map(
+        (key, index) =>
+          `${['年柱', '月柱', '日柱'][index]}：${baziResult.pillars[key].ganZhi || '待出生时分确定'}`,
+      ),
+      '【待补时判断】',
+      unknownTimeAnalysis?.summary ?? '旺衰、格局与喜忌待出生时分确定后再判。',
+      '【时辰候选比较】',
+      ...(unknownTimeAnalysis?.scenarios ?? []).map(
+        (scenario) =>
+          `${scenario.timeName}：${Object.values(scenario.pillars)
+            .map((pillar) => pillar.ganZhi)
+            .join(
+              ' ',
+            )}；${scenario.strength}；${scenario.pattern}；候选喜用${scenario.favorableWuxing.join('、') || '待判'}，候选所忌${scenario.unfavorableWuxing.join('、') || '待判'}`,
+      ),
+    ].join('\n');
+  }
 
   const {
     solarDate,
@@ -274,7 +308,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     if (functionalUse.length) result += `${functionalUse.join('\n')}\n`;
     if (includeRules && analysis.usefulGod.primaryReason) {
       result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
-      result += `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;
+      result += analysis.usefulGod.decisionEvidence?.transformation
+        ? `取用依据: 原日主旺衰${analysis.dayMasterStrength.status}与十神保留为本命事实，${analysis.mingGe.pattern}按化神${analysis.usefulGod.decisionEvidence.transformation.element}及其条件取用\n`
+        : `取用依据: 以${analysis.usefulGod.primaryReason}为主，结合旺衰${analysis.dayMasterStrength.status}与格局${analysis.mingGe.pattern}综合取用\n`;
     }
     if (includeRules && baziResult.climate && baziResult.climate.nature !== '中和') {
       result += `调候特征: ${baziResult.climate.summary}\n`;

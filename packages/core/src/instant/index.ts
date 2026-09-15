@@ -44,6 +44,7 @@ export interface InstantWallClockParts {
   day: number;
   hour: number;
   minute: number;
+  second: number;
   /** 该钟表值对应时区在原时刻的实际偏移（小时，含夏令时），用于保留消歧信息 */
   offsetHours?: number;
 }
@@ -209,6 +210,7 @@ function getWallClockPartsInOffset(date: Date, timezone: number): InstantWallClo
     day: shifted.getUTCDate(),
     hour: shifted.getUTCHours(),
     minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
     offsetHours: timezone,
   };
 }
@@ -241,6 +243,7 @@ function getWallClockPartsInTimeZone(date: Date, timeZoneId: string): InstantWal
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       hourCycle: 'h23',
     });
   } catch {
@@ -258,6 +261,7 @@ function getWallClockPartsInTimeZone(date: Date, timeZoneId: string): InstantWal
     day: parts.day,
     hour: parts.hour,
     minute: parts.minute,
+    second: parts.second,
     // 记录原时刻的实际偏移，回拨重复区间由此区分，不得在后续换算中默选
     offsetHours: getTimeZoneOffsetHours(date, timeZoneId),
   };
@@ -271,7 +275,7 @@ function getObserverWallClockParts(date: Date, observer: InstantObserver) {
 }
 
 function formatLocalDateTime(parts: InstantWallClockParts) {
-  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}T${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}:00`;
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}T${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}:${String(parts.second).padStart(2, '0')}`;
 }
 
 export function buildInstantChartContext(
@@ -342,10 +346,11 @@ function buildBaziInput(
     dateType: 'solar' as const,
     isLeapMonth: false,
     useTrueSolarTime,
+    birthHour: parts.hour,
+    birthMinute: parts.minute,
+    birthSecond: parts.second,
     ...(useTrueSolarTime
       ? {
-          birthHour: parts.hour,
-          birthMinute: parts.minute,
           birthPlace: context.observer?.locationName,
           birthLongitude: context.observer!.longitude,
           timezone: context.observer?.timezone,

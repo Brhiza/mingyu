@@ -83,6 +83,33 @@ test('八字单盘与合盘应支持子平、盲派和新派合参', () => {
   }
 });
 
+test('缺时辰流派资料只列待补时场景，合盘入口明确要求补时', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 2000,
+    month: 1,
+    day: 7,
+    gender: 'male',
+  });
+  const singlePrompt = buildBaziPrompt({
+    result,
+    schools: ['ziping', 'mangpai', 'xinpai'],
+    question: '请说明目前可核的资料。',
+  });
+
+  assert.match(singlePrompt, /出生时辰资料：/);
+  assert.match(singlePrompt, /丑时候选/);
+  assert.match(singlePrompt, /已确定的柱作为基础资料/);
+  assert.throws(
+    () =>
+      buildBaziCompatibilityPrompt({
+        result1: result,
+        result2: result,
+        schools: ['ziping'],
+      }),
+    /补齐双方出生时分/,
+  );
+});
+
 test('奇门提示词应同时标明起局方法与多种解读断法', () => {
   const result = generateQimen(new Date('2026-08-08T15:14:00+08:00'), 'feipan');
   const prompt = buildDivinationPrompt({

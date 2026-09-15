@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { baziCalculator } from '../packages/core/src/bazi/baziCalculator.ts';
 import { formatBaziForPrompt } from '../packages/core/src/bazi/baziAnalysisFormatter.ts';
+import { analyzeBaziNatalEvidence } from '../packages/core/src/bazi/natalEvidence.ts';
 
 test('八字本命应输出四柱、核心判断、反证、汇总与限制的统一证据链', () => {
   const result = baziCalculator.calculateBazi({
@@ -88,6 +89,27 @@ test('八字本命提示词应保留用户选择的传统时辰且不混入工�
   assert.match(prompt, /基本信息: 坤造 \| 1992年8月21日 辰时/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|计算链|解释限制/);
   assert.doesNotMatch(prompt, /出生时间敏感性|候选时柱|缺少时柱/);
+});
+
+test('八字本命证据应拒绝与地支不对应的藏干资料', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    gender: 'male',
+  });
+  result.hiddenStems.year = ['癸'];
+  result.hiddenTenGods.year = ['偏印'];
+
+  const fact = analyzeBaziNatalEvidence(result).pillarFacts.find((item) => item.pillar === '年柱');
+
+  assert.equal(fact?.status, '资料缺口');
+  assert.match(
+    fact?.promptText || '',
+    new RegExp(`藏干资料与地支${result.pillars.year.zhi}不一致`),
+  );
+  assert.doesNotMatch(fact?.promptText || '', /藏干癸|藏干十神偏印/);
 });
 
 test('1994年6月15日午时壬日男命应贯通壬午月取用证据与公共提示词', () => {

@@ -16,12 +16,14 @@ import {
   formatDivinationInfo,
   formatEnhancedDivinationInfo,
   formatBaziFortuneSelection,
+  formatBaziPatternConditions,
   formatPromptCurrentTime,
   buildSection,
   buildTimeInfoText,
   formatSupplementaryInfoSection,
   getDivinationSummaryBlocks,
 } from 'mingyu-core/prompt';
+import { formatBaziSchoolFacts } from '../packages/core/src/prompt/bazi-school.ts';
 
 function createChart(gender: 'male' | 'female', day: number) {
   return baziCalculator.calculateBazi({
@@ -106,6 +108,22 @@ test('npm 八字提示词入口应输出完整且有差异的盲派与新派资�
   assert.match(xinpai, /动态岁运/);
   assert.notEqual(mangpai, xinpai);
   assert.doesNotMatch(`${mangpai}\n${xinpai}`, /API|MCP|仓库|项目名|工程上下文/);
+});
+
+test('新派提示词保留十神流通的候选条件', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 2000,
+    month: 1,
+    day: 7,
+    timeIndex: 1,
+    gender: 'male',
+  });
+  const prompt = formatBaziSchoolFacts(result, 'xinpai');
+
+  assert.match(prompt, /十神流通：候选链条/);
+  assert.match(prompt, /条件核验：/);
+  assert.match(prompt, /需日主能担财|食伤为用则吉/);
+  assert.doesNotMatch(prompt, /API|MCP|仓库|项目名|工程上下文/);
 });
 
 test('npm 八字提示词应保留指定岁运的上下层资料', () => {
@@ -193,15 +211,22 @@ test('八字岁运正文区分同干支冲、岁运并临与天克地冲，并�
 });
 
 test('npm 提示词入口应生成八字双盘关系资料', () => {
+  const result1 = createChart('female', 15);
+  const result2 = createChart('male', 20);
   const prompt = buildBaziCompatibilityPrompt({
-    result1: createChart('female', 15),
-    result2: createChart('male', 20),
+    result1,
+    result2,
     compatibilityType: 'marriage',
     question: '双方适合长期共同生活吗？',
   });
 
   assert.match(prompt, /【第一人排盘信息】/);
   assert.match(prompt, /【第二人排盘信息】/);
+  assert.ok(formatBaziPatternConditions(result1));
+  assert.match(prompt, /【第一人格局条件】/);
+  assert.match(prompt, /当前成败判定：/);
+  const result2Conditions = formatBaziPatternConditions(result2);
+  if (result2Conditions) assert.match(prompt, /【第二人格局条件】/);
   assert.match(prompt, /【双盘关系资料】/);
   assert.match(prompt, /双方适合长期共同生活吗/);
 });

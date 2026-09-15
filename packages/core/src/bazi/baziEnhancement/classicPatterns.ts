@@ -10,8 +10,11 @@
  * - 逸格局：井栏叉格/壬骑龙背/六阴朝阳/飞天禄马等
  */
 
-import type { BaziChartResult } from '../baziTypes';
+import type { BaziChartResult, Wuxing } from '../baziTypes';
 import { checkCondition } from '../baziConditionMatchers';
+import { collectEstablishedBranchFormations } from '../baziFormationUtils';
+import { HIDDEN_STEMS } from '../baziMappingsData';
+import { assessStemHarmonyTransform } from '../harmonyTransform';
 import { HEAVENLY_STEMS } from '../../ganzhi/data';
 
 export interface ClassicPattern {
@@ -24,6 +27,7 @@ export interface ClassicPattern {
     otherConditions?: string[];
     anyConditions?: string[];
     exactMonthBranchMap?: Record<string, string>;
+    establishedFormationWuxing?: Wuxing;
     excludePatterns?: string[];
   };
   favorableWuxing: string[];
@@ -34,6 +38,23 @@ export interface ClassicPattern {
     quote: string;
     url: string;
   };
+}
+
+export type ClassicPatternCandidateStatus = '结构命中' | '待核验' | '存在反证';
+
+/**
+ * 经典目录的结构命中结果。
+ *
+ * `pattern.level` 是古籍目录中的传统等级参考，不表示当前命盘已经成格；
+ * `status`、条件与事实用于把结构候选和本盘成败分开。
+ */
+export interface ClassicPatternCandidate {
+  pattern: ClassicPattern;
+  status: ClassicPatternCandidateStatus;
+  matchedConditions: string[];
+  verificationFacts: string[];
+  pendingConditions: string[];
+  counterEvidence: string[];
 }
 
 const CLASSIC_PATTERNS: ClassicPattern[] = [
@@ -84,7 +105,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'jin-shen-jia',
     name: '金神格',
     description:
-      '甲日生乙丑、己巳、癸酉三时，为金神格的基本结构。古籍以火制金神为成格关键，明言喜火乡、惧水乡；这里只识别原局结构，最终成败仍须结合火局与岁运。',
+      '甲日生，时柱为乙丑、己巳或癸酉，构成金神格的基本结构。古籍以火制金神为成格关键，明言喜火乡、惧水乡，原局与岁运的火水制化决定成败。',
     conditions: {
       dayStems: ['甲'],
       anyConditions: ['时柱为乙丑', '时柱为己巳', '时柱为癸酉'],
@@ -162,6 +183,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description: '壬癸日见亥子丑三会水局或申子辰三合水局，水势泛滥。忌土来制水，喜木泄水为用。',
     conditions: {
       dayStems: ['壬', '癸'],
+      establishedFormationWuxing: '水',
       // 三会与三合为择一成立；四柱只有四支，逐项同时要求五支不可能命中
       anyConditions: ['亥子丑三会水局', '申子辰三合水局'],
       otherConditions: ['水势旺盛'],
@@ -178,6 +200,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description: '丙丁日见巳午未三会火局。火势炎上，忌水来破局，喜木火相助。',
     conditions: {
       dayStems: ['丙', '丁'],
+      establishedFormationWuxing: '火',
       otherConditions: ['巳午未三会火局', '火势旺盛'],
       excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
     },
@@ -192,6 +215,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description: '庚辛日见申酉戌三会金局。金气纯粹，忌火来克金，喜土金相助。',
     conditions: {
       dayStems: ['庚', '辛'],
+      establishedFormationWuxing: '金',
       otherConditions: ['申酉戌三会金局', '金势旺盛'],
       excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
     },
@@ -206,6 +230,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description: '甲乙日见寅卯辰三会木局。木性曲直，忌金来克木，喜水木相助。',
     conditions: {
       dayStems: ['甲', '乙'],
+      establishedFormationWuxing: '木',
       otherConditions: ['寅卯辰三会木局', '木势旺盛'],
       excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
     },
@@ -398,7 +423,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'ri-gui',
     name: '日贵格',
     description:
-      '日贵只有丁酉、丁亥、癸巳、癸卯四日。古籍另分昼夜：癸卯、丁亥宜日生，癸巳、丁酉宜夜生；当前仅识别日柱结构，昼夜加强条件不在此处代判。',
+      '日贵只有丁酉、丁亥、癸巳、癸卯四日。古籍另分昼夜：癸卯、丁亥宜日生，癸巳、丁酉宜夜生；昼夜取法还需结合出生时刻，刑冲破害等影响需结合全盘核对。',
     conditions: {
       dayStems: ['丁', '癸'],
       anyConditions: ['日柱为丁酉', '日柱为丁亥', '日柱为癸巳', '日柱为癸卯'],
@@ -428,7 +453,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'fu-de',
     name: '福德秀气格',
     description:
-      '福德秀气专取乙、丁、己、辛、癸五阴干，日支坐巳、酉、丑之一，并须四柱会齐巳酉丑金局。各日干的成败与喜忌不同，此处只识别共同结构，不统一强断。',
+      '福德秀气专取乙、丁、己、辛、癸五阴干，日支坐巳、酉、丑之一，并须四柱会齐巳酉丑金局；各日干的成败与喜忌，仍按对应原局与岁运核定。',
     conditions: {
       dayStems: ['乙', '丁', '己', '辛', '癸'],
       anyConditions: [
@@ -463,7 +488,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'zi-wu-shuang-bao',
     name: '子午双包格',
     description:
-      '四柱须同时见子、午，并构成两子包一午、两午包一子或两子两午；只有两个子或只有两个午均不成格。这里只识别古籍所列的支数结构。',
+      '四柱须同时见子、午，并构成两子包一午、两午包一子或两子两午；只有两个子或只有两个午均不成格，须按上述支数结构成立。',
     conditions: {
       dayStems: [...HEAVENLY_STEMS],
       otherConditions: ['子午双包'],
@@ -479,6 +504,267 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   },
 ];
 
+const CLASSIC_PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
+type ClassicPillarKey = (typeof CLASSIC_PILLAR_KEYS)[number];
+const CLASSIC_PILLAR_LABELS: Record<ClassicPillarKey, string> = {
+  year: '年柱',
+  month: '月柱',
+  day: '日柱',
+  hour: '时柱',
+};
+
+function hasCompletePillars(pillars: BaziChartResult['pillars']): boolean {
+  return CLASSIC_PILLAR_KEYS.every((key) => Boolean(pillars?.[key]?.gan && pillars?.[key]?.zhi));
+}
+
+function resolveHiddenStems(
+  pillars: BaziChartResult['pillars'],
+  hiddenStems: BaziChartResult['hiddenStems'],
+  key: ClassicPillarKey,
+): string[] {
+  const supplied = hiddenStems?.[key];
+  return supplied?.length ? [...supplied] : [...(HIDDEN_STEMS[pillars[key].zhi] ?? [])];
+}
+
+function getHarmonyPillars(
+  pillars: BaziChartResult['pillars'],
+  hiddenStems: BaziChartResult['hiddenStems'],
+) {
+  return CLASSIC_PILLAR_KEYS.map((label) => ({
+    label: CLASSIC_PILLAR_LABELS[label],
+    gan: pillars[label].gan,
+    zhi: pillars[label].zhi,
+    hiddenStems: resolveHiddenStems(pillars, hiddenStems, label),
+  }));
+}
+
+function formatMatchedCondition(condition: string): string {
+  if (/势旺盛|当令|月令司权/.test(condition)) {
+    return `结构出现条件“${condition}”（旺衰仍需结合整盘核对）`;
+  }
+  return `结构条件“${condition}”`;
+}
+
+function matchClassicPatternConditions(
+  pattern: ClassicPattern,
+  dayStem: string,
+  monthBranch: string,
+  pillars: BaziChartResult['pillars'],
+  hiddenStems: BaziChartResult['hiddenStems'],
+  currentPattern?: string,
+): string[] | null {
+  const matchedConditions: string[] = [];
+
+  if (pattern.conditions.dayStems) {
+    if (!pattern.conditions.dayStems.includes(dayStem)) return null;
+    matchedConditions.push(`日干${dayStem}满足候选范围`);
+  }
+
+  if (pattern.conditions.monthBranch) {
+    if (!pattern.conditions.monthBranch.includes(monthBranch)) return null;
+    matchedConditions.push(`月支${monthBranch}满足候选范围`);
+  }
+
+  if (pattern.conditions.exactMonthBranchMap) {
+    const requiredBranch = pattern.conditions.exactMonthBranchMap[dayStem];
+    if (!requiredBranch || monthBranch !== requiredBranch) return null;
+    matchedConditions.push(`日干${dayStem}与月支${monthBranch}映射满足`);
+  }
+
+  if (pattern.conditions.excludePatterns && currentPattern) {
+    if (pattern.conditions.excludePatterns.includes(currentPattern)) return null;
+  }
+
+  if (pattern.conditions.establishedFormationWuxing) {
+    const established = collectEstablishedBranchFormations(pillars).filter(
+      (formation) => formation.wuxing === pattern.conditions.establishedFormationWuxing,
+    );
+    if (!established.length) return null;
+    matchedConditions.push(
+      `已见得月令且未被局外支冲破的${pattern.conditions.establishedFormationWuxing}会合`,
+    );
+  }
+
+  if (pattern.conditions.otherConditions) {
+    for (const condition of pattern.conditions.otherConditions) {
+      if (!checkCondition(condition, dayStem, pillars, hiddenStems)) return null;
+      matchedConditions.push(formatMatchedCondition(condition));
+    }
+  }
+
+  if (pattern.conditions.anyConditions) {
+    const matchedAny = pattern.conditions.anyConditions.filter((condition) =>
+      checkCondition(condition, dayStem, pillars, hiddenStems),
+    );
+    if (!matchedAny.length) return null;
+    matchedConditions.push(`任一条件命中：${matchedAny.map(formatMatchedCondition).join('、')}`);
+  }
+
+  return matchedConditions;
+}
+
+function getVisibleStems(pillars: BaziChartResult['pillars']): string[] {
+  return CLASSIC_PILLAR_KEYS.map((key) => pillars[key].gan);
+}
+
+function getHiddenStemPositions(
+  pillars: BaziChartResult['pillars'],
+  hiddenStems: BaziChartResult['hiddenStems'],
+  stems: string[],
+): string[] {
+  return CLASSIC_PILLAR_KEYS.filter((key) =>
+    resolveHiddenStems(pillars, hiddenStems, key).some((stem) => stems.includes(stem)),
+  ).map((key) => CLASSIC_PILLAR_LABELS[key]);
+}
+
+function getHuaQiPartner(
+  pattern: ClassicPattern,
+  pillars: BaziChartResult['pillars'],
+): { stem: string; pillar: 'month' | 'hour' } | null {
+  if (!pattern.id.startsWith('hua-qi-')) return null;
+  const pair = pattern.conditions.dayStems ?? [];
+  const dayStem = pillars.day.gan;
+  const partner = pair.find((stem) => stem !== dayStem);
+  if (!partner) return null;
+  const pillar =
+    pillars.month.gan === partner ? 'month' : pillars.hour.gan === partner ? 'hour' : null;
+  return pillar ? { stem: partner, pillar } : null;
+}
+
+function evaluateClassicPatternCandidate(
+  pattern: ClassicPattern,
+  pillars: BaziChartResult['pillars'],
+  hiddenStems: BaziChartResult['hiddenStems'],
+): Omit<ClassicPatternCandidate, 'pattern' | 'matchedConditions' | 'status'> {
+  const verificationFacts: string[] = [];
+  const pendingConditions: string[] = [];
+  const counterEvidence: string[] = [];
+  const visibleStems = getVisibleStems(pillars);
+
+  const huaQiPartner = getHuaQiPartner(pattern, pillars);
+  if (huaQiPartner) {
+    pendingConditions.push('化气纯粹、全局成败与岁运仍需另行核验');
+    const profile = assessStemHarmonyTransform(
+      pillars.day.gan,
+      CLASSIC_PILLAR_LABELS.day,
+      huaQiPartner.stem,
+      CLASSIC_PILLAR_LABELS[huaQiPartner.pillar],
+      pillars.month.zhi,
+      getHarmonyPillars(pillars, hiddenStems),
+    );
+    verificationFacts.push(
+      `天干五合核验：${profile.level}；化神${profile.transformElement}；${profile.evidence.join('、')}`,
+    );
+    if (!profile.isTransformed) {
+      counterEvidence.push(`天干五合当前为${profile.level}，不能直接按成化处理`);
+    }
+    if (profile.evidence.some((item) => item.includes('作为阻化证据'))) {
+      counterEvidence.push('参与合干仍见根气，存在阻化证据');
+    }
+    if (profile.hasClashBreak) counterEvidence.push('参与合干见天干冲破，存在破合证据');
+    if (profile.hasControllingElement) counterEvidence.push('原局见克制化神的五行，存在制化反证');
+    if (profile.hasCompetition) counterEvidence.push('原局见争合，合意不专');
+
+    if (pattern.id === 'hua-qi-tu' && visibleStems.includes('乙')) {
+      counterEvidence.push(
+        '另见乙透干：按《渊海子平》“有一个乙字露出，谓之妒合，为破格不成”；不同化气版本仍需并列核验',
+      );
+    }
+  }
+
+  if (pattern.id === 'jin-shen-jia') {
+    pendingConditions.push('甲日金神火制强弱与岁运仍需结合全局核验');
+    const fireVisible = visibleStems.filter((stem) => ['丙', '丁'].includes(stem));
+    const fireHidden = getHiddenStemPositions(pillars, hiddenStems, ['丙', '丁']);
+    const waterVisible = visibleStems.filter((stem) => ['壬', '癸'].includes(stem));
+    const waterHidden = getHiddenStemPositions(pillars, hiddenStems, ['壬', '癸']);
+    verificationFacts.push(
+      `甲日金神火制事实：${fireVisible.length ? `透${fireVisible.join('、')}` : '未透丙丁'}；${fireHidden.length ? `支藏于${fireHidden.join('、')}` : '未见丙丁藏根'}`,
+    );
+    verificationFacts.push(
+      `甲日金神水乡事实：${waterVisible.length ? `透${waterVisible.join('、')}` : '未透壬癸'}；${waterHidden.length ? `支藏于${waterHidden.join('、')}` : '未见壬癸藏根'}`,
+    );
+    if (!fireVisible.length && !fireHidden.length) {
+      pendingConditions.push('古籍所说火制金神的原局证据未见');
+    }
+    if (waterVisible.length || waterHidden.length) {
+      counterEvidence.push('原局见水干或水根，需核对金神“惧水乡”的破格反证');
+    }
+  }
+
+  if (pattern.id === 'jin-shen-ji') {
+    verificationFacts.push('己日金神不照搬甲日火制规则，仍需结合身旺与金气轻重核验');
+    pendingConditions.push('己日金神的身旺、金气轻重与喜忌仍待核验');
+  }
+
+  if (pattern.id === 'dao-chong-bing' || pattern.id === 'dao-chong-ding') {
+    const fillStems = visibleStems.filter((stem) => ['壬', '癸'].includes(stem));
+    const fillBranches = CLASSIC_PILLAR_KEYS.filter((key) =>
+      ['亥', '子'].includes(pillars[key].zhi),
+    ).map((key) => `${CLASSIC_PILLAR_LABELS[key]}${pillars[key].zhi}`);
+    verificationFacts.push(
+      `倒冲填实事实：${fillStems.length ? `见${fillStems.join('、')}` : '未见壬癸透干'}；${fillBranches.length ? `见${fillBranches.join('、')}` : '未见亥子支'}`,
+    );
+    if (fillStems.length || fillBranches.length) {
+      counterEvidence.push('原局见壬癸亥子填实所冲之官，存在破冲反证');
+    }
+    pendingConditions.push('倒冲支数动力与全局成败仍需结合旺衰核验');
+  }
+
+  if (pattern.id === 'jing-lan-cha') {
+    const establishedWater = collectEstablishedBranchFormations(pillars).filter(
+      (formation) => formation.wuxing === '水',
+    );
+    verificationFacts.push(
+      establishedWater.length
+        ? `申子辰三支齐全，月令状态为${establishedWater.map((formation) => formation.monthStatus).join('、')}且未见局外支冲破`
+        : '申子辰三支齐全，但未形成得月令且无局外支冲破的成势条件',
+    );
+    if (!establishedWater.length) {
+      pendingConditions.push('井栏叉格的得令成势与庚金乘旺仍待核验');
+    }
+    pendingConditions.push('井栏叉格的暗冲取用与局外破局仍待核验');
+  }
+
+  if (pattern.id === 'ri-gui') {
+    pendingConditions.push('日贵昼夜、刑冲破害等加强条件需结合出生时刻与全盘核对');
+  }
+
+  return { verificationFacts, pendingConditions, counterEvidence };
+}
+
+/** 返回所有结构命中项；不会把静态目录等级升级为本盘成格结论。 */
+export function identifyClassicPatternCandidates(
+  dayStem: string,
+  monthBranch: string,
+  pillars: BaziChartResult['pillars'],
+  hiddenStems: BaziChartResult['hiddenStems'],
+  currentPattern?: string,
+): ClassicPatternCandidate[] {
+  if (!hasCompletePillars(pillars)) return [];
+
+  return CLASSIC_PATTERNS.flatMap((pattern) => {
+    const matchedConditions = matchClassicPatternConditions(
+      pattern,
+      dayStem,
+      monthBranch,
+      pillars,
+      hiddenStems,
+      currentPattern,
+    );
+    if (!matchedConditions) return [];
+
+    const evaluation = evaluateClassicPatternCandidate(pattern, pillars, hiddenStems);
+    const status: ClassicPatternCandidateStatus = evaluation.counterEvidence.length
+      ? '存在反证'
+      : evaluation.pendingConditions.length
+        ? '待核验'
+        : '结构命中';
+    return [{ pattern, matchedConditions, status, ...evaluation }];
+  });
+}
+
+/** 保留旧入口：仍返回目录顺序中的首项，不改变原有调用方契约。 */
 export function identifyClassicPattern(
   dayStem: string,
   monthBranch: string,
@@ -486,48 +772,8 @@ export function identifyClassicPattern(
   hiddenStems: BaziChartResult['hiddenStems'],
   currentPattern?: string,
 ): ClassicPattern | null {
-  for (const pattern of CLASSIC_PATTERNS) {
-    if (pattern.conditions.dayStems && !pattern.conditions.dayStems.includes(dayStem)) {
-      continue;
-    }
-
-    if (pattern.conditions.monthBranch && !pattern.conditions.monthBranch.includes(monthBranch)) {
-      continue;
-    }
-
-    if (pattern.conditions.exactMonthBranchMap) {
-      const requiredBranch = pattern.conditions.exactMonthBranchMap[dayStem];
-      if (!requiredBranch || monthBranch !== requiredBranch) {
-        continue;
-      }
-    }
-
-    if (pattern.conditions.excludePatterns && currentPattern) {
-      if (pattern.conditions.excludePatterns.includes(currentPattern)) {
-        continue;
-      }
-    }
-
-    if (pattern.conditions.otherConditions) {
-      let conditionsMet = true;
-      for (const condition of pattern.conditions.otherConditions) {
-        if (!checkCondition(condition, dayStem, pillars, hiddenStems)) {
-          conditionsMet = false;
-          break;
-        }
-      }
-      if (!conditionsMet) continue;
-    }
-
-    if (pattern.conditions.anyConditions) {
-      const anyConditionMet = pattern.conditions.anyConditions.some((condition) =>
-        checkCondition(condition, dayStem, pillars, hiddenStems),
-      );
-      if (!anyConditionMet) continue;
-    }
-
-    return pattern;
-  }
-
-  return null;
+  return (
+    identifyClassicPatternCandidates(dayStem, monthBranch, pillars, hiddenStems, currentPattern)[0]
+      ?.pattern ?? null
+  );
 }

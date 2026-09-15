@@ -52,6 +52,17 @@ import type {
 const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
 const PILLAR_LABELS = ['年柱', '月柱', '日柱', '时柱'] as const;
 
+function isUnknownTimeChart(baziResult: BaziChartResult) {
+  return baziResult.isThreePillars === true;
+}
+
+function unknownTimeSummary(baziResult: BaziChartResult) {
+  return (
+    baziResult.unknownTimeAnalysis?.summary ||
+    '出生时辰待补充；旺衰、格局、喜忌与岁运须在出生时分确定后再判。'
+  );
+}
+
 // 天干五合
 const STEM_COMBOS = [
   {
@@ -514,38 +525,53 @@ const SHENSHA_DETAILS_MAP: Record<
 export function buildEnhancedPillarsSection(baziResult: BaziChartResult): MingluPillarsSectionData {
   const { pillars, dayMaster } = baziResult;
   const dayMasterGan = dayMaster.gan;
+  const unknownTime = isUnknownTimeChart(baziResult);
 
   const dayOwnerLabel =
     baziResult.gender === 'male' ? '元男' : baziResult.gender === 'female' ? '元女' : '日主';
 
   const columns: MingluPillarColumn[] = PILLAR_KEYS.map((key, index) => {
     const p = pillars[key];
+    const displayGan = unknownTime && !p.gan ? '待补时' : p.gan;
+    const displayZhi = unknownTime && !p.zhi ? '待补时' : p.zhi;
     const rawHiddenStems = HIDDEN_STEMS[p.zhi] || [];
     const roles: Array<'本气' | '中气' | '余气'> = ['本气', '中气', '余气'];
 
     const hiddenStems = rawHiddenStems.map((stem, i) => ({
       stem,
       wuxing: (getWuxing(stem) || '木') as Wuxing,
-      tenGod: getTenGod(stem, dayMasterGan),
+      tenGod: unknownTime ? '' : getTenGod(stem, dayMasterGan),
       role: roles[i] || '余气',
     }));
 
     return {
       key,
       label: PILLAR_LABELS[index],
-      caption: key === 'day' ? '日元日主' : key === 'month' ? '提纲令星' : undefined,
-      gan: p.gan,
-      zhi: p.zhi,
-      ganWuxing: (getWuxing(p.gan) || '木') as Wuxing,
-      zhiWuxing: (getWuxing(p.zhi) || '木') as Wuxing,
-      ganTenGod:
-        key === 'day' ? dayOwnerLabel : baziResult.tenGods[key] || getTenGod(p.gan, dayMasterGan),
-      zhiTenGod: getTenGodForBranch(p.zhi, dayMasterGan),
+      caption:
+        unknownTime && !p.gan
+          ? '出生资料待补'
+          : key === 'day'
+            ? '日元日主'
+            : key === 'month'
+              ? '提纲令星'
+              : undefined,
+      gan: displayGan,
+      zhi: displayZhi,
+      ganWuxing: (getWuxing(p.gan) || (unknownTime ? '待补时' : '木')) as Wuxing,
+      zhiWuxing: (getWuxing(p.zhi) || (unknownTime ? '待补时' : '木')) as Wuxing,
+      ganTenGod: unknownTime
+        ? '待补时'
+        : key === 'day'
+          ? dayOwnerLabel
+          : baziResult.tenGods[key] || getTenGod(p.gan, dayMasterGan),
+      zhiTenGod: unknownTime ? '待补时' : getTenGodForBranch(p.zhi, dayMasterGan),
       hiddenStems,
-      nayin: baziResult.nayin[key] || NAYIN_MAP[p.ganZhi] || '—',
-      ziZuo: baziResult.ziZuo[key] || getLifeStage(p.gan, p.zhi),
-      lifeStage: baziResult.lifeStages[key] || getLifeStage(dayMasterGan, p.zhi),
-      kongWang: baziResult.kongWang[key] || calculateKongWangBranches(p.gan, p.zhi),
+      nayin: baziResult.nayin[key] || (unknownTime ? '待补时' : NAYIN_MAP[p.ganZhi] || '—'),
+      ziZuo: baziResult.ziZuo[key] || (unknownTime ? '待补时' : getLifeStage(p.gan, p.zhi)),
+      lifeStage:
+        baziResult.lifeStages[key] || (unknownTime ? '待补时' : getLifeStage(dayMasterGan, p.zhi)),
+      kongWang:
+        baziResult.kongWang[key] || (unknownTime ? [] : calculateKongWangBranches(p.gan, p.zhi)),
       shensha:
         key === 'year'
           ? [...(baziResult.shensha.global ?? []), ...(baziResult.shensha[key] || [])]
@@ -583,12 +609,14 @@ export function buildEnhancedPillarsSection(baziResult: BaziChartResult): Minglu
     },
   };
 
-  const monthCommander = baziResult.monthCommander || '—';
+  const monthCommander = baziResult.monthCommander || (unknownTime ? '待补时' : '—');
   const seasonInfo = {
-    jieqiName: baziResult.seasonInfo.currentJieqi || '节气交接',
-    currentSeason: baziResult.seasonInfo.currentSeason || '当令',
+    jieqiName: baziResult.seasonInfo.currentJieqi || (unknownTime ? '待补时' : '节气交接'),
+    currentSeason: baziResult.seasonInfo.currentSeason || (unknownTime ? '待补时' : '当令'),
     monthCommander,
-    monthCommanderDesc: `月令由【${monthCommander}】司权用事，为命局五行气数之枢机提纲。`,
+    monthCommanderDesc: unknownTime
+      ? unknownTimeSummary(baziResult)
+      : `月令由【${monthCommander}】司权用事，为命局五行气数之枢机提纲。`,
   };
 
   let mingGuaInfo = undefined;
@@ -645,6 +673,51 @@ export function buildEnhancedFiveElementsSection(
 ): MingluFiveElementsSectionData {
   const { pillars, dayMaster } = baziResult;
   const dayMasterWuxing = dayMaster.element;
+
+  if (isUnknownTimeChart(baziResult)) {
+    const knownItems = [
+      pillars.year.gan,
+      pillars.year.zhi,
+      pillars.month.gan,
+      pillars.month.zhi,
+      pillars.day.gan,
+      pillars.day.zhi,
+    ].filter(Boolean);
+    const knownCounts = tallyWuxing(knownItems, { weightHidden: true });
+    const wuxingList: Wuxing[] = ['木', '火', '土', '金', '水'];
+    return {
+      elements: wuxingList.map((wuxing) => ({
+        wuxing,
+        count: knownItems.filter((item) => getWuxing(item) === wuxing).length,
+        // 三柱组成可保留为结构事实，但不能把原始计数冒充旺衰力量。
+        score: 0,
+        percentage: 0,
+        seasonStatus: '待补时',
+        isDominant: false,
+        isWeakest: false,
+        isMissing: (knownCounts[wuxing] || 0) === 0,
+      })),
+      dayMasterStrength: {
+        status: '未知（待补时）',
+        score: 0,
+        sameKindScore: 0,
+        diffKindScore: 0,
+        sameRatio: 0,
+        diffRatio: 0,
+        dimensions: {
+          timely: false,
+          seasonalEffect: '待补时',
+          grounded: false,
+          supported: false,
+          assisted: false,
+          hasRoot: false,
+          hasStrongRoot: false,
+        },
+        ruleBasis: [unknownTimeSummary(baziResult)],
+        judgmentSummary: `${unknownTimeSummary(baziResult)} 已确定的柱仅作结构记录，不据此断定旺衰。`,
+      },
+    };
+  }
 
   // 统计八字所有天干、地支、藏干五行打分
   const items: string[] = [
@@ -750,6 +823,28 @@ export function buildEnhancedFiveElementsSection(
 export function buildEnhancedPatternUsefulGodSection(
   baziResult: BaziChartResult,
 ): MingluPatternUsefulGodSectionData {
+  if (isUnknownTimeChart(baziResult)) {
+    const summary = unknownTimeSummary(baziResult);
+    return {
+      unknownTimeAnalysis: baziResult.unknownTimeAnalysis,
+      pattern: {
+        name: '待补时',
+        isSpecial: false,
+        type: '出生时辰待补',
+        basis: summary,
+        formationAnalysis: '已确定的柱仅作资料展示；出生时分确定后再判旺衰、格局成败与喜忌。',
+      },
+      usefulGods: {
+        primaryUseful: '待补时',
+        primaryAvoid: '待补时',
+        favorable: [],
+        unfavorable: [],
+        usefulGodCategory: '待补时',
+        reasoning: summary,
+        strategyTrace: [],
+      },
+    };
+  }
   const dayMasterGan = baziResult.dayMaster.gan;
   const monthBranchZhi = baziResult.pillars.month.zhi;
 
@@ -758,17 +853,45 @@ export function buildEnhancedPatternUsefulGodSection(
   const zipingRaw = getBaziZipingPatternAdvice(baziResult.analysis.mingGe.pattern);
 
   const useful = baziResult.analysis.usefulGod;
+  const transformation = baziResult.analysis.mingGe.transformation;
+  const usefulTransformation = useful.decisionEvidence?.transformation;
+  const transformationFacts = transformation
+    ? [
+        `化气判定：${transformation.status}；化神${transformation.element}。${transformation.basis}`,
+        ...transformation.evidence.map((item) => `化气证据：${item}`),
+        ...transformation.conditions.map((item) => `化气条件：${item}`),
+        ...(transformation.status === '成化'
+          ? [
+              `成化主格取用主体：化神${transformation.element}；原日主${dayMasterGan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
+            ]
+          : []),
+      ]
+    : [];
+  const classicPrefix =
+    transformation?.status === '成化'
+      ? `原日主${dayMasterGan}的经典调候与格局资料作旁参，主格取用以化神${transformation.element}为主体。`
+      : '';
+  const functionFacts = formatUsefulGodFunctions(useful);
 
   return {
     pattern: {
       name: baziResult.analysis.mingGe.pattern,
       isSpecial: baziResult.analysis.mingGe.isSpecial,
-      type: baziResult.analysis.mingGe.isSpecial ? '特殊格局/专旺从格' : '正五行月令取格',
+      type:
+        transformation?.status === '成化'
+          ? '化气主格'
+          : baziResult.analysis.mingGe.isSpecial
+            ? '特殊格局/专旺从格'
+            : '正五行月令取格',
       basis:
         baziResult.analysis.mingGe.basis || `由月令${baziResult.pillars.month.zhi}藏干透出立格`,
-      formationAnalysis: baziResult.analysis.mingGe.isSpecial
-        ? '全局气势专一或极度顺应某类五行，取顺势化裁为用。'
-        : '依子平正理以月令提纲为枢机，兼看透干会局以定格局清浊高下。',
+      transformation,
+      formationAnalysis: transformationFacts.length
+        ? transformationFacts.join('；')
+        : baziResult.analysis.mingGe.isSpecial
+          ? '全局气势专一或极度顺应某类五行，取顺势化裁为用。'
+          : '依子平正理以月令提纲为枢机，兼看透干会局以定格局清浊高下。',
+      fulfillment: baziResult.analysis.mingGe.fulfillment,
     },
     usefulGods: {
       primaryUseful: useful.primaryUseful || useful.useful || '待定',
@@ -776,14 +899,18 @@ export function buildEnhancedPatternUsefulGodSection(
       favorable: useful.favorable || [],
       unfavorable: useful.unfavorable || [],
       usefulGodCategory: useful.primaryReason || '扶抑取中',
-      reasoning: useful.strategyTrace?.join('；') || '综合日主旺衰与全局五行流通评定。',
+      reasoning:
+        transformation?.status === '成化' && functionFacts.length
+          ? functionFacts.join('；')
+          : useful.strategyTrace?.join('；') || '综合日主旺衰与全局五行流通评定。',
       strategyTrace: useful.strategyTrace || [],
+      transformation: usefulTransformation,
     },
     qiongtongAdvice: qiongtongRaw
       ? {
           title: `${qiongtongRaw.dayMaster}生于${qiongtongRaw.monthBranch}月`,
           source: '《穷通宝鉴》十干四季调候',
-          summary: qiongtongRaw.seasonSummary,
+          summary: `${classicPrefix}${qiongtongRaw.seasonSummary}`,
           quotes: [qiongtongRaw.classicVerse],
         }
       : undefined,
@@ -791,7 +918,7 @@ export function buildEnhancedPatternUsefulGodSection(
       ? {
           title: `${ditiansuiRaw.stem}（${ditiansuiRaw.wuxing}）`,
           source: ditiansuiRaw.sourceBook || '《滴天髓》干支论性',
-          summary: ditiansuiRaw.modernAdvice,
+          summary: `${classicPrefix}${ditiansuiRaw.modernAdvice}`,
           quotes: [ditiansuiRaw.verse],
         }
       : undefined,
@@ -799,7 +926,7 @@ export function buildEnhancedPatternUsefulGodSection(
       ? {
           title: zipingRaw.pattern,
           source: zipingRaw.sourceBook || '《子平真诠》格局精微',
-          summary: zipingRaw.modernAdvice,
+          summary: `${classicPrefix}${zipingRaw.modernAdvice}`,
           quotes: [zipingRaw.verse, zipingRaw.rule].filter((q): q is string => Boolean(q)),
         }
       : undefined,
@@ -808,6 +935,7 @@ export function buildEnhancedPatternUsefulGodSection(
 
 /** 挖掘全量柱间作用网络（合冲刑害破暗合伏吟反吟） */
 export function buildEnhancedInteractions(baziResult: BaziChartResult): MingluInteractionItem[] {
+  if (isUnknownTimeChart(baziResult)) return [];
   const items: MingluInteractionItem[] = [];
   const { pillars } = baziResult;
   const pillarEntries = [
@@ -1255,6 +1383,36 @@ export function buildEnhancedTenGodsSection(baziResult: BaziChartResult): Minglu
   const allGods = ['正官', '七杀', '正印', '偏印', '正财', '偏财', '食神', '伤官', '比肩', '劫财'];
   const pillarNames = ['年柱', '月柱', '日柱', '时柱'];
 
+  if (isUnknownTimeChart(baziResult)) {
+    return {
+      godsList: allGods.map((tenGod) => ({
+        tenGod,
+        count: 0,
+        isExposed: false,
+        isHidden: false,
+        pillars: [],
+        psychology: `${tenGod}：日主未定，待出生时分确定后再作十神定位。`,
+        careerSymbol: '待补时',
+        wealthSymbol: '待补时',
+        relationshipSymbol: '待补时',
+      })),
+      dominantGods: [],
+      flowAnalysis: {
+        channels: [],
+        summary: unknownTimeSummary(baziResult),
+      },
+      housesSixKin: pillarNames.map((label, index) => ({
+        pillar: PILLAR_KEYS[index],
+        pillarLabel: `${label}（${index === 3 ? '待补时' : '已确定柱'}）`,
+        ageRange: ['1 - 16 岁', '17 - 32 岁', '33 - 48 岁', '49 岁以后'][index]!,
+        sixKinSignificance:
+          index === 3 ? '时柱资料待补。' : '仅列已确定柱位，十神及六亲细断待补时。',
+        environmentSignificance: '待出生时分确定后再作完整推断。',
+        actualTenGods: [],
+      })),
+    };
+  }
+
   const godsList = allGods.map((god) => {
     const involvedPillars: string[] = [];
     let isExposed = false;
@@ -1405,6 +1563,28 @@ export function buildEnhancedLifeStagesSection(
       stages,
     };
   });
+
+  if (isUnknownTimeChart(baziResult)) {
+    return {
+      tableMatrix,
+      natalStages: PILLAR_KEYS.map((key, index) => {
+        const stem = pillars[key].gan;
+        const branch = pillars[key].zhi;
+        const ziZuoStage = stem && branch ? getLifeStage(stem, branch) : '待补时';
+        return {
+          pillar: key,
+          pillarLabel: PILLAR_LABELS[index],
+          stem,
+          branch,
+          dayMasterStage: '待补时',
+          dayMasterStageDesc: '日主旺衰及十二长生待出生时分确定。',
+          ziZuoStage,
+          ziZuoStageDesc:
+            stem && branch ? `天干${stem}自坐${branch}为【${ziZuoStage}】之位` : '出生时辰待补。',
+        };
+      }),
+    };
+  }
 
   const natalStages = PILLAR_KEYS.map((key, index) => {
     const stem = pillars[key].gan;
@@ -1674,6 +1854,16 @@ export function buildEnhancedLuckChronicleSection(
   const { luckInfo, dayMaster } = baziResult;
   const dayMasterGan = dayMaster.gan;
 
+  if (isUnknownTimeChart(baziResult)) {
+    return {
+      startAge: 0,
+      startYear: baziResult.solarDate.year,
+      handoverInfo: unknownTimeSummary(baziResult),
+      direction: '待补时',
+      cycles: [],
+    };
+  }
+
   const cycles = luckInfo.cycles.map((cycle, cIndex) => {
     const sourceYears = cycle.resolvedYears || cycle.years || [];
     const cleanGanZhi = (cycle.ganZhi || '').replace(
@@ -1787,11 +1977,35 @@ export function buildEnhancedLuckChronicleSection(
 
 /** 提取小白白话入门与生活化意象指南 */
 export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerGuide {
+  if (isUnknownTimeChart(baziResult)) {
+    const summary = unknownTimeSummary(baziResult);
+    return {
+      coreArchetype: '出生时辰待补 · 先看已确定柱资料',
+      natureAnalogy: '已确定的柱可以作为基础资料；其余柱位未定，完整人生结构暂不下结论。',
+      strengthPlain: `旺衰、格局与喜忌暂不判定：${summary}`,
+      favorableHabitsPlain: [
+        '待出生时分确定后，再结合日主根气与月令复核取用。',
+        '候选场景仅用于比较时辰差异，不作为已经发生的定论。',
+      ],
+      careerTalentsPlain: ['已确定的柱资料已保留，事业与性情细断待补时。'],
+      lifeAdvicePlain: '先补充出生时分，再展开命身、岁运与格局成败分析。',
+      fourPillarsMetaphor: {
+        year: `【年柱 ${baziResult.pillars.year.ganZhi}】：已确定资料，代表早年根基。`,
+        month: `【月柱 ${baziResult.pillars.month.ganZhi}】：已确定资料，代表月令与成长环境。`,
+        day: `【日柱 ${baziResult.pillars.day.ganZhi}】：已确定资料，具体日主取象待补时复核。`,
+        hour: '【时柱】：出生时分待补，晚年、子女与完整岁运资料暂不展开。',
+      },
+    };
+  }
   const dayMasterGan = baziResult.dayMaster.gan;
   const strengthStatus = baziResult.analysis.dayMasterStrength.status;
   const patternName = baziResult.analysis.mingGe.pattern;
   const primaryUseful =
     baziResult.analysis.usefulGod.primaryUseful || baziResult.analysis.usefulGod.useful || '待定';
+  const primaryUsefulWuxing =
+    baziResult.analysis.usefulGod.primaryFavorableWuxing ||
+    baziResult.analysis.usefulGod.favorableWuxing?.[0] ||
+    '待定';
 
   const GAN_ARCHETYPES: Record<
     string,
@@ -1862,13 +2076,27 @@ export function buildBeginnerGuide(baziResult: BaziChartResult): MingluBeginnerG
   const info = GAN_ARCHETYPES[dayMasterGan] || GAN_ARCHETYPES['甲']!;
 
   const usefulGod = baziResult.analysis.usefulGod;
-  const strengthPlain = `【日主${strengthStatus}】${baziResult.analysis.dayMasterStrength.details.ruleBasis.join('；')}。本局五行取用为【${primaryUseful}】，取用主线为${usefulGod.primaryReason || '扶抑'}。${formatUsefulGodFunctions(usefulGod).join('；')}`;
+  const transformation = baziResult.analysis.mingGe.transformation;
+  const transformationEvidence = usefulGod.decisionEvidence?.transformation;
+  const usefulFunctionFacts = formatUsefulGodFunctions(usefulGod);
+  const transformationPlain =
+    transformation?.status === '成化'
+      ? `化气判定为成化，化神${transformation.element}为取用主体。${transformation.basis}。${transformation.evidence.join('；')}。原日主${dayMasterGan}旺衰与十神作为本命事实，取用按化神及其条件核验。`
+      : '';
+  const strengthPlain = `【日主${strengthStatus}】${baziResult.analysis.dayMasterStrength.details.ruleBasis.join('；')}。${transformationPlain || `本局五行取用为【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】，取用主线为${usefulGod.primaryReason || '扶抑'}。`}${usefulFunctionFacts.length ? ` ${usefulFunctionFacts.join('；')}` : ''}`;
 
-  const favorableHabitsPlain = [
-    `核心调和五行：【${primaryUseful}】，建议在生活与工作中多向该五行属性的行业、思维方式或生活习惯靠拢。`,
-    `格局定位：【${patternName}】，代表你的人生成就主要依托于这一核心天赋引擎的有效运转。`,
-    `人际磁场：多与行事稳健、思维互补的良师益友交流，互为助力。`,
-  ];
+  const favorableHabitsPlain =
+    transformation?.status === '成化'
+      ? [
+          `化神取用主体：【${transformation.element}】；${transformationEvidence?.basis || transformation.basis}。原日主十神【${primaryUseful}】保留为本命事实，生活与工作取向结合化神及其条件核验。`,
+          `成化格局：【${patternName}】；判定条件：${transformation.conditions.join('；') || '按盘面化气依据复核'}。`,
+          `人际磁场：多与行事稳健、思维互补的良师益友交流，互为助力。`,
+        ]
+      : [
+          `核心调和五行：【${primaryUsefulWuxing}】，主要十神功能为【${primaryUseful}】；建议在生活与工作中多向该五行属性的行业、思维方式或生活习惯靠拢。`,
+          `格局定位：【${patternName}】，代表你的人生成就主要依托于这一核心天赋引擎的有效运转。`,
+          `人际磁场：多与行事稳健、思维互补的良师益友交流，互为助力。`,
+        ];
 
   const fourPillarsMetaphor = {
     year: `【根基 · 年柱 ${baziResult.pillars.year.ganZhi}】：代表家族土壤、童年启蒙与长辈福泽。是你人生大树扎根的土壤。`,

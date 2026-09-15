@@ -3,6 +3,7 @@ import {
   analyzeTenGodFlow,
   analyzeTenGodStructure,
   analyzeTombStorage,
+  formatUsefulGodFunctions,
   getTenGod,
   getTenGodForBranch,
   getWuxing,
@@ -136,6 +137,11 @@ function usefulWuxing(result: BaziChartResult) {
 function formatUsefulGod(result: BaziChartResult) {
   const useful = result.analysis.usefulGod;
   const { favorable, unfavorable } = usefulWuxing(result);
+  const transformationFunctions = useful.decisionEvidence?.transformation
+    ? formatUsefulGodFunctions(useful).filter(
+        (item) => item.startsWith('化神取用：') || item.startsWith('取用条件：'),
+      )
+    : [];
   return joinFacts([
     useful.primaryFavorableWuxing ? `主用${useful.primaryFavorableWuxing}` : undefined,
     useful.secondaryFavorableWuxing?.length
@@ -150,7 +156,23 @@ function formatUsefulGod(result: BaziChartResult) {
       ? `忌神${unfavorable.join('、')}`
       : undefined,
     useful.primaryReason ? `取用理由${useful.primaryReason}` : undefined,
+    ...transformationFunctions,
   ]);
+}
+
+function formatTransformationFacts(result: BaziChartResult) {
+  const transformation = result.analysis.mingGe.transformation;
+  if (!transformation) return [];
+  return [
+    `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
+    ...transformation.evidence.map((item) => `化气证据：${item}`),
+    ...transformation.conditions.map((item) => `化气条件：${item}`),
+    ...(transformation.status === '成化'
+      ? [
+          `成化主格取用主体：化神${transformation.element}；原日主${result.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
+        ]
+      : []),
+  ];
 }
 
 function formatTenGodStructure(result: BaziChartResult) {
@@ -171,7 +193,9 @@ function formatTenGodFlow(result: BaziChartResult) {
   const structure = analyzeTenGodStructure(pillarInputs(result), result.dayMaster.gan, getTenGod);
   const flow = analyzeTenGodFlow(structure);
   return flow.items.length
-    ? flow.items.map((item) => item.name).join('、')
+    ? flow.items
+        .map((item) => `${item.name}（${item.description}；条件核验：${item.caution}）`)
+        .join('、')
     : '原局已列十神未形成完整的相邻生化链';
 }
 
@@ -248,6 +272,7 @@ function formatZipingFacts(result: BaziChartResult) {
     `日主旺衰：${result.dayMaster.gan}${result.dayMaster.element}${result.dayMaster.yinYang}，${strength.status}；得令${details.timely ? '是' : '否'}，通根${details.hasRoot ? '有' : '无'}，强根${details.hasStrongRoot ? '有' : '无'}，帮扶${details.hasSupport ? '可见' : '不显'}，克泄耗${details.hasConstraint ? '可见' : '不显'}`,
     `透干通根：${formatRoots(result)}`,
     `格局与成败：${result.analysis.mingGe.pattern}${result.analysis.mingGe.basis ? `；${result.analysis.mingGe.basis}` : ''}`,
+    ...formatTransformationFacts(result),
     `调候与取用：${formatUsefulGod(result)}；五行季节状态${
       Object.entries(result.wuxingSeasonStatus)
         .map(([element, status]) => `${element}${status}`)
@@ -264,6 +289,8 @@ function formatMangpaiFacts(result: BaziChartResult) {
     `主宾定位：主位为日柱${result.pillars.day.ganZhi}与时柱${result.pillars.hour.ganZhi}，其中日干${result.dayMaster.gan}代表命主，日支${result.pillars.day.zhi}为夫妻宫；宾位为年柱${result.pillars.year.ganZhi}与月柱${result.pillars.month.ganZhi}，再围绕所问事项从相应宫位和十神确定体用。`,
     `十神显隐：${formatTenGodStructure(result)}`,
     `透干通根：${formatRoots(result)}`,
+    `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
+    ...formatTransformationFacts(result),
     `四柱组合与做功线索：${formatRelations(result)}；从主宾之间的制、化、合、冲关系观察十神作用与组合取象。`,
     `墓库与空亡：${formatTombAndVoid(result)}`,
     `纳音旁参：${PILLAR_KEYS.map((key) => `${PILLAR_LABELS[key]}${result.nayin[key] || '未记录'}`).join('、')}`,
@@ -290,6 +317,7 @@ function formatXinpaiFacts(result: BaziChartResult) {
     `十神结构：${formatTenGodStructure(result)}`,
     `十神流通：候选链条${formatTenGodFlow(result)}`,
     `格局与取用：格局${result.analysis.mingGe.pattern}；${formatUsefulGod(result)}`,
+    ...formatTransformationFacts(result),
     '喜忌落位：',
     formatUsefulGodPlacements(result),
     `原局作用：${formatRelations(result)}`,
@@ -307,7 +335,25 @@ export function getBaziSchoolGuidance(school?: BaziPromptSchool) {
   return `${profile.label}：${profile.task}\n依据：${profile.basis}`;
 }
 
+function formatUnknownTimeFacts(result: BaziChartResult) {
+  const analysis = result.unknownTimeAnalysis;
+  const summary =
+    analysis?.summary || '出生时辰待补充；旺衰、格局、喜忌与岁运须在出生时分确定后再判。';
+  const scenarios = (analysis?.scenarios ?? []).map(
+    (scenario) =>
+      `${scenario.timeName}：${scenario.pillars.year.ganZhi || '—'} ${scenario.pillars.month.ganZhi || '—'} ${scenario.pillars.day.ganZhi || '—'} ${scenario.pillars.hour.ganZhi || '—'}；旺衰${scenario.strength}；格局${scenario.pattern}${scenario.favorableWuxing.length ? `；喜用${scenario.favorableWuxing.join('、')}` : ''}`,
+  );
+  return [
+    `出生时辰资料：${summary}`,
+    '已确定的柱作为基础资料；日主十神、格局成败、喜忌与岁运请在补齐时分后结合候选场景复核。',
+    scenarios.length ? `候选场景（补时后复核）：\n${scenarios.join('\n')}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export function formatBaziSchoolFacts(result: BaziChartResult, school: BaziPromptSchool) {
+  if (result.isThreePillars) return formatUnknownTimeFacts(result);
   const normalized = normalizeBaziPromptSchool(school);
   if (normalized === 'ziping') return formatZipingFacts(result);
   if (normalized === 'mangpai') return formatMangpaiFacts(result);

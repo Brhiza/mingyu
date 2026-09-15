@@ -244,6 +244,8 @@ test('八字紫微合参提示词可写入完整大运流年资料', () => {
 
   assert.match(prompt, /【分析对象】\n八字分析对象：本命盘与完整大运流年/);
   assert.match(prompt, /【八字排盘信息】[\s\S]*【命限资料】/);
+  assert.match(prompt, /【八字格局条件】/);
+  assert.match(prompt, /当前成败判定：/);
   assert.match(prompt, /完整大运流年：/);
   assert.match(prompt, /大运｜\d+岁起｜/);
   assert.match(prompt, /\d{4}年\(\d+岁\).+/);
@@ -358,6 +360,8 @@ test('合参八字正文包含所选月份的上层岁运和逐日资料', () =>
   const context = buildFortuneSelectionContext(result, { ...selection, scope: 'month' });
   assert.ok(context);
   const text = buildEnhancedBaziPromptPack(result, context);
+  assert.match(text, /【格局条件】/);
+  assert.match(text, /当前成败判定：/);
   assert.match(text, /【岁运重点】/);
   assert.ok(text.includes(context.cycleGanZhi));
   assert.ok(text.includes(context.yearGanZhi!));

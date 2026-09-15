@@ -29,7 +29,9 @@ export const birthInputShape = {
     .min(0)
     .max(12)
     .optional()
-    .describe('出生时辰序号（0-12），未知时可省略以进行三柱降级分析'),
+    .describe(
+      '出生时辰序号（0-12）；未知时可省略，返回已确定的柱与时辰候选，旺衰格局喜忌及岁运待补时',
+    ),
   birthHour: z.number().int().min(0).max(23).optional().describe('出生小时（0-23）'),
   birthMinute: z.number().int().min(0).max(59).optional().describe('出生分钟（0-59）'),
   birthSecond: z

@@ -79,32 +79,6 @@ export interface BaziZiweiCorroborationResult {
   summary: string;
 }
 
-const YANG_REN_MAP: Record<string, string> = {
-  甲: '卯',
-  乙: '辰',
-  丙: '午',
-  丁: '未',
-  戊: '午',
-  己: '未',
-  庚: '酉',
-  辛: '戌',
-  壬: '子',
-  癸: '丑',
-};
-
-const TIAN_YI_MAP: Record<string, string[]> = {
-  甲: ['丑', '未'],
-  戊: ['丑', '未'],
-  庚: ['丑', '未'],
-  乙: ['子', '申'],
-  己: ['子', '申'],
-  丙: ['亥', '酉'],
-  丁: ['亥', '酉'],
-  壬: ['巳', '卯'],
-  癸: ['巳', '卯'],
-  辛: ['午', '寅'],
-};
-
 /** 归一化宫位名称：兼容“官禄宫/官禄”两种资料形态（“命宫”本身即两字全名） */
 function stripPalaceSuffix(name: string): string {
   return name.length > 2 && name.endsWith('宫') ? name.slice(0, -1) : name;
@@ -121,19 +95,26 @@ const PILLAR_NAMES = {
   hour: '时柱',
 } as const;
 
-function findBaziBranchEvidence(
+/**
+ * 直接复用排盘时选定的公共神煞结果。
+ *
+ * 羊刃和天乙贵人都存在流派参数；合参层不能重新按另一张固定表推导，
+ * 否则同一份八字在盘面与合参摘要中会出现不同口径。
+ */
+function findBaziShenShaEvidence(
   bazi: BaziChartResult,
-  targetBranches: string[],
   rule: BaziBranchEvidence['rule'],
-): BaziBranchEvidence[] {
+): BaziBranchEvidence[] | undefined {
+  const shensha = bazi.shensha;
+  if (!shensha) return undefined;
   return (Object.keys(PILLAR_NAMES) as Array<keyof typeof PILLAR_NAMES>)
+    .filter((pillar) => shensha[pillar]?.includes(rule))
     .map((pillar) => ({
       rule,
       pillar,
       pillarName: PILLAR_NAMES[pillar],
       branch: bazi.pillars[pillar].zhi,
-    }))
-    .filter((item) => targetBranches.includes(item.branch));
+    }));
 }
 
 function palaceRole(palace: PalaceFact): ZiweiStarEvidence['palaceRole'] {
@@ -304,9 +285,9 @@ export function evaluateShaYaoCorroboration(
   bazi: BaziChartResult,
   ziwei: ZiweiRuntime,
 ): ShaYaoCorroborationResult {
-  const dayGan = bazi.dayMaster.gan;
-  const yangRenBranch = YANG_REN_MAP[dayGan];
-  const baziYangRenPositions = findBaziBranchEvidence(bazi, [yangRenBranch], '羊刃');
+  const baziYangRenEvidence = findBaziShenShaEvidence(bazi, '羊刃');
+  const baziShenShaAvailable = baziYangRenEvidence !== undefined;
+  const baziYangRenPositions = baziYangRenEvidence ?? [];
   const hasBaziYangRen = baziYangRenPositions.length > 0;
 
   const origin = ziwei.payloadByScope.origin;
@@ -320,10 +301,12 @@ export function evaluateShaYaoCorroboration(
   const effectConditions: CorroborationCondition[] = [
     {
       key: 'bazi.yang-ren-position',
-      status: hasBaziYangRen ? '满足' : '不满足',
-      detail: hasBaziYangRen
-        ? `日主${dayGan}的羊刃${yangRenBranch}命中${formatBaziEvidence(baziYangRenPositions)}。`
-        : `日主${dayGan}的羊刃为${yangRenBranch}，四柱未命中该地支。`,
+      status: !baziShenShaAvailable ? '资料不足' : hasBaziYangRen ? '满足' : '不满足',
+      detail: !baziShenShaAvailable
+        ? '八字神煞资料未提供，无法按当前口径核验羊刃。'
+        : hasBaziYangRen
+          ? `按当前八字神煞口径，羊刃命中${formatBaziEvidence(baziYangRenPositions)}。`
+          : '按当前八字神煞口径，四柱未记录羊刃。',
     },
     {
       key: 'bazi.day-master-strength',
@@ -343,7 +326,13 @@ export function evaluateShaYaoCorroboration(
   ];
 
   let judgment: string;
-  if (!origin) {
+  if (!baziShenShaAvailable) {
+    judgment = !origin
+      ? '紫微原盘资料缺失，煞曜同参未核验；八字神煞资料未提供，无法核验羊刃位置'
+      : ziweiShaEvidence.length > 0
+        ? `紫微${formatZiweiEvidence(ziweiShaEvidence)}；八字神煞资料未提供，无法核验羊刃位置，仅保留紫微宫位与星曜线索`
+        : '八字神煞资料未提供，无法核验羊刃位置；紫微关键宫也未记录目标煞曜';
+  } else if (!origin) {
     judgment = hasBaziYangRen
       ? `紫微原盘资料缺失，煞曜同参未核验；八字羊刃命中${formatBaziEvidence(baziYangRenPositions)}，仅保留单盘位置事实`
       : '紫微原盘资料缺失，煞曜同参未核验；八字四柱也未命中羊刃位置';
@@ -385,9 +374,9 @@ export function evaluateGuiRenCorroboration(
   bazi: BaziChartResult,
   ziwei: ZiweiRuntime,
 ): GuiRenCorroborationResult {
-  const dayGan = bazi.dayMaster.gan;
-  const tianYiBranches = TIAN_YI_MAP[dayGan] || [];
-  const baziTianYiPositions = findBaziBranchEvidence(bazi, tianYiBranches, '天乙贵人');
+  const baziTianYiEvidence = findBaziShenShaEvidence(bazi, '天乙贵人');
+  const baziShenShaAvailable = baziTianYiEvidence !== undefined;
+  const baziTianYiPositions = baziTianYiEvidence ?? [];
   const hasBaziTianYi = baziTianYiPositions.length > 0;
 
   const origin = ziwei.payloadByScope.origin;
@@ -399,10 +388,12 @@ export function evaluateGuiRenCorroboration(
   const effectConditions: CorroborationCondition[] = [
     {
       key: 'bazi.tianyi-position',
-      status: hasBaziTianYi ? '满足' : '不满足',
-      detail: hasBaziTianYi
-        ? `日主${dayGan}的天乙贵人为${tianYiBranches.join('、')}，命中${formatBaziEvidence(baziTianYiPositions)}。`
-        : `日主${dayGan}的天乙贵人为${tianYiBranches.join('、')}，四柱未命中对应地支。`,
+      status: !baziShenShaAvailable ? '资料不足' : hasBaziTianYi ? '满足' : '不满足',
+      detail: !baziShenShaAvailable
+        ? '八字神煞资料未提供，无法按当前口径核验天乙贵人。'
+        : hasBaziTianYi
+          ? `按当前八字神煞口径，天乙贵人命中${formatBaziEvidence(baziTianYiPositions)}。`
+          : '按当前八字神煞口径，四柱未记录天乙贵人。',
     },
     buildOriginCondition(Boolean(origin)),
     {
@@ -417,7 +408,13 @@ export function evaluateGuiRenCorroboration(
   ];
   let judgment: string;
 
-  if (!origin) {
+  if (!baziShenShaAvailable) {
+    judgment = !origin
+      ? '紫微原盘资料缺失，贵人吉曜同参未核验；八字神煞资料未提供，无法核验天乙位置'
+      : ziweiGuiEvidence.length > 0
+        ? `紫微${formatZiweiEvidence(ziweiGuiEvidence)}；八字神煞资料未提供，无法核验天乙位置，仅保留紫微宫位与星曜线索`
+        : '八字神煞资料未提供，无法核验天乙位置；紫微关键宫也未记录目标贵人星';
+  } else if (!origin) {
     judgment = hasBaziTianYi
       ? `紫微原盘资料缺失，贵人吉曜同参未核验；八字天乙位于${formatBaziEvidence(baziTianYiPositions)}，仅保留单盘位置线索`
       : '紫微原盘资料缺失，贵人吉曜同参未核验；八字四柱也未记录天乙位置';

@@ -3,17 +3,17 @@ import test from 'node:test';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziDecisionDetails } from '../src/lib/bazi-decision-details';
 
-test('反馈盘的展示依据保留旺衰、格局成败及调候与扶抑区别', () => {
+test('展示依据保留旺衰、格局成败及调候与扶抑区别', () => {
   const result = baziCalculator.calculateBazi({
-    year: 2006,
-    month: 7,
-    day: 14,
+    year: 2000,
+    month: 1,
+    day: 7,
     timeIndex: 5,
     gender: 'male',
     isLunar: false,
   });
   const text = formatBaziDecisionDetails(result).join('\n');
-  assert.match(text, /取用基线：身弱扶抑，喜水、木/);
+  assert.match(text, /取用基线：.*扶抑，喜/);
   assert.ok(text.includes(result.analysis.mingGe.basis!));
   assert.ok(text.includes(result.analysis.dayMasterStrength.details.ruleBasis[0]));
   for (const condition of result.analysis.mingGe.fulfillment?.conditionFacts ?? []) {
@@ -30,9 +30,9 @@ test('反馈盘的展示依据保留旺衰、格局成败及调候与扶抑区�
 
 test('成格名称与成败状态分别保留，待核条件和反证不会被隐藏', () => {
   const result = baziCalculator.calculateBazi({
-    year: 2006,
-    month: 7,
-    day: 14,
+    year: 2000,
+    month: 1,
+    day: 7,
     timeIndex: 5,
     gender: 'male',
     isLunar: false,

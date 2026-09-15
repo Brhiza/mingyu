@@ -64,6 +64,9 @@ test('单人增强提示词会保留完整任务结构并交叉校验两套盘�
   assert.match(prompt, /【当前时间】/);
   assert.match(prompt, /【分析对象】\n八字分析对象：当前大运\n紫微分析范围：流年 · 2028-01-01/);
   assert.match(prompt, /【八字排盘信息】/);
+  assert.match(prompt, /【八字格局条件】/);
+  assert.match(prompt, /当前成败判定：/);
+  assert.equal((prompt.match(/【八字格局条件】/g) ?? []).length, 1);
   assert.match(prompt, /【紫微盘面信息】/);
   assert.match(prompt, /【问题范围】\n事业/);
   assert.match(prompt, /【问题】\n请重点分析我的事业方向和当前突破口。/);

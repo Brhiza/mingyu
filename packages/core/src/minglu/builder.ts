@@ -30,6 +30,23 @@ import { MINGLU_GLOSSARY_DATABASE } from './glossary-data';
 
 export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
   const { person, baziResult, ziweiRuntime, astrolabeData } = options;
+  const unknownTime = baziResult.isThreePillars === true;
+  const unknownTimeNotice =
+    baziResult.unknownTimeAnalysis?.summary ||
+    '出生时辰待补充；旺衰、格局、喜忌与岁运须在出生时分确定后再判。';
+  const transformation = baziResult.analysis.mingGe.transformation;
+  const transformationFacts = transformation
+    ? [
+        `化气判定：${transformation.status}；化神${transformation.element}；${transformation.basis}`,
+        ...transformation.evidence.map((item) => `化气证据：${item}`),
+        ...transformation.conditions.map((item) => `化气条件：${item}`),
+        ...(transformation.status === '成化'
+          ? [
+              `取用主体：化神${transformation.element}；原日主${baziResult.dayMaster.gan}旺衰与十神作为本命事实，取用按化神及其条件核验。`,
+            ]
+          : []),
+      ]
+    : [];
 
   // 1. 基础八字全量增强
   const pillarsSection = buildEnhancedPillarsSection(baziResult);
@@ -98,10 +115,13 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       themeId: 'temperament',
       title: '性情禀赋与心理结构',
       focus: '八字日主十神与紫微命身星曜、占星日月上升之相互印证。',
-      baziEvidence: [
-        `日主${baziResult.dayMaster.gan}(${baziResult.dayMaster.element})，${baziResult.analysis.dayMasterStrength.status}`,
-        `主格局为【${baziResult.analysis.mingGe.pattern}】`,
-      ],
+      baziEvidence: unknownTime
+        ? [unknownTimeNotice, '已确定的柱保留为基础资料，日主十神与格局待补时。']
+        : [
+            `日主${baziResult.dayMaster.gan}(${baziResult.dayMaster.element})，${baziResult.analysis.dayMasterStrength.status}`,
+            `主格局为【${baziResult.analysis.mingGe.pattern}】`,
+            ...transformationFacts,
+          ],
       ziweiEvidence: ziweiSection
         ? [
             `命宫坐${
@@ -121,7 +141,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
           ]
         : undefined,
       crossVerificationNotes: [
-        '八字日元与十神体现内在能量结构与处事原则。',
+        unknownTime ? unknownTimeNotice : '八字日元与十神体现内在能量结构与处事原则。',
         ziweiSection ? '紫微星系呈现外在气度与人际行事风采，与八字格局互为表里。' : '',
         astrolabeSection ? '占星日月升三位一体对应八字精气神，可与八字结构对照阅读。' : '',
       ].filter(Boolean),
@@ -130,10 +150,13 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       themeId: 'career-wealth',
       title: '事业抱负与财富格局',
       focus: '八字财官印食伤与紫微官禄财帛田宅、占星中天第二第十宫之印证。',
-      baziEvidence: [
-        `核心用神：${baziResult.analysis.usefulGod.primaryUseful || baziResult.analysis.usefulGod.useful || '待定'}`,
-        `核心忌神：${baziResult.analysis.usefulGod.primaryAvoid || baziResult.analysis.usefulGod.avoid || '待定'}`,
-      ],
+      baziEvidence: unknownTime
+        ? [unknownTimeNotice, '喜用五行与财官印食伤作用待出生时分确定后再核验。']
+        : [
+            `核心用神：${baziResult.analysis.usefulGod.primaryUseful || baziResult.analysis.usefulGod.useful || '待定'}`,
+            `核心忌神：${baziResult.analysis.usefulGod.primaryAvoid || baziResult.analysis.usefulGod.avoid || '待定'}`,
+            ...transformationFacts,
+          ],
       ziweiEvidence: ziweiSection
         ? [
             `官禄宫坐${
@@ -151,7 +174,7 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
           ]
         : ['紫微排盘未载入'],
       crossVerificationNotes: [
-        '八字喜用神指明顺应天地之行业与取财路径。',
+        unknownTime ? unknownTimeNotice : '八字喜用神指明顺应天地之行业与取财路径。',
         ziweiSection ? '紫微三方四正展现具体职场平台与财富蓄积形态。' : '',
       ].filter(Boolean),
     },
@@ -159,16 +182,20 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       themeId: 'timing-cycles',
       title: '大运岁运与行运脉络',
       focus: '八字大运流年与紫微十年大限、占星行星推运之同步对齐。',
-      baziEvidence: [
-        `起运岁数：约${luckChronicleSection.startAge}岁起运`,
-        `首步大运：${
-          luckChronicleSection.cycles.find((c) => !c.isXiaoyun)?.ganZhi || '—'
-        }运（约${luckChronicleSection.startAge}岁起始）`,
-      ],
+      baziEvidence: unknownTime
+        ? [unknownTimeNotice, '命身宫、起运与岁运资料待出生时分确定后再展开。']
+        : [
+            `起运岁数：约${luckChronicleSection.startAge}岁起运`,
+            `首步大运：${
+              luckChronicleSection.cycles.find((c) => !c.isXiaoyun)?.ganZhi || '—'
+            }运（约${luckChronicleSection.startAge}岁起始）`,
+          ],
       ziweiEvidence: ziweiSection
         ? [`大限按十年步进，起于命宫，顺逆依阳男阴女局数推求。`]
         : ['紫微大限未载入'],
-      crossVerificationNotes: ['行运重在时位相应，逢吉运则乘势而上，逢磨砺则沉潜蓄势。'],
+      crossVerificationNotes: [
+        unknownTime ? unknownTimeNotice : '行运重在时位相应，逢吉运则乘势而上，逢磨砺则沉潜蓄势。',
+      ],
     },
   ];
 
@@ -197,12 +224,12 @@ export function buildMingluArticle(options: BuildMingluOptions): MingluArticle {
       year: baziResult.pillars.year.ganZhi,
       month: baziResult.pillars.month.ganZhi,
       day: baziResult.pillars.day.ganZhi,
-      hour: baziResult.pillars.hour.ganZhi,
+      hour: baziResult.pillars.hour.ganZhi || (unknownTime ? '待补时' : ''),
     },
     dayMaster: {
       gan: baziResult.dayMaster.gan,
-      wuxing: baziResult.dayMaster.element as Wuxing,
-      yinYang: baziResult.dayMaster.yinYang as '阴' | '阳',
+      wuxing: (baziResult.dayMaster.element || (unknownTime ? '待补时' : '')) as Wuxing,
+      yinYang: (baziResult.dayMaster.yinYang || (unknownTime ? '待补时' : '')) as '阴' | '阳',
     },
     zodiac: baziResult.zodiac,
     constellation: baziResult.constellation,

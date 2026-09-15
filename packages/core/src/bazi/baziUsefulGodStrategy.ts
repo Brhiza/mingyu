@@ -36,11 +36,19 @@ interface RuleMetadata {
   description: string;
 }
 
+const TRANSFORMATION_USEFUL_RULE: RuleMetadata = {
+  id: 'transformed-element-following',
+  label: '化神顺势取用',
+  description:
+    '《子平真诠》从化取用以所化之物及生化神者为基础，财伤与过旺制化另核条件；《滴天髓》化土阴寒先取火温养。',
+};
+
 const RULE_CATALOG = [
   ...BASE_USEFUL_GOD_RULES,
   ...CLIMATE_RULES,
   ...STRENGTH_HINT_RULES,
   ...THERAPEUTIC_PRIORITY_RULES,
+  TRANSFORMATION_USEFUL_RULE,
 ].reduce<Record<string, RuleMetadata>>((catalog, rule) => {
   catalog[rule.id] = {
     id: rule.id,
@@ -89,6 +97,91 @@ function assertWuxing(value: string, label: string): asserts value is Wuxing {
   if (!(WUXING as readonly string[]).includes(value)) {
     throw new Error(`${label}五行无效：${value}`);
   }
+}
+
+/** 财旺身弱而印受财制时，先核比劫能否护印，再排列印比次序。 */
+function applyResourceProtection(
+  state: UsefulGodDecisionState,
+  strengthStatus: string,
+  pattern: PatternAnalysis,
+  dmWuxing: string,
+  context?: UsefulGodClimateContext,
+): UsefulGodDecisionState {
+  if (pattern.isSpecial || !['身弱', '偏弱', '极弱'].includes(strengthStatus)) return state;
+  const visible = context?.visibleStemSources;
+  const hidden = context?.hiddenStemSources;
+  if (!visible || !hidden) return state;
+  if (
+    !(['year', 'month', 'day', 'hour'] as const).every(
+      (pillar) =>
+        visible.some((source) => source.pillar === pillar) &&
+        hidden.some((source) => source.pillar === pillar && source.stems.length),
+    )
+  )
+    return state;
+  const element = (stem: string) =>
+    BASIC_MAPPINGS.STEM_WUXING[BASIC_MAPPINGS.HEAVENLY_STEMS.indexOf(stem as never)];
+  const resource = Object.keys(BASIC_MAPPINGS.WUXING_SHENG).find(
+    (wuxing) => BASIC_MAPPINGS.WUXING_SHENG[wuxing] === dmWuxing,
+  );
+  const wealth = BASIC_MAPPINGS.WUXING_KE[dmWuxing];
+  if (
+    !resource ||
+    !state.favorableWuxing.includes(resource) ||
+    !state.favorableWuxing.includes(dmWuxing)
+  )
+    return state;
+  const month = hidden.find((source) => source.pillar === 'month');
+  if (!month?.stems[0] || element(month.stems[0]) !== wealth) return state;
+  const unClashed = (source: HiddenStemSource) =>
+    !hidden.some(
+      (other) =>
+        other.pillar !== source.pillar &&
+        other.branch === BASIC_MAPPINGS.DI_ZHI_CHONG[source.branch],
+    );
+  const resourceStems = visible.filter((source) => element(source.stem) === resource);
+  // 任一印有未受冲的本中气根，或并未坐财受制，均不套用弱印待护的次序。
+  if (
+    !resourceStems.length ||
+    hidden.some(
+      (source) =>
+        unClashed(source) && source.stems.slice(0, 2).some((stem) => element(stem) === resource),
+    )
+  )
+    return state;
+  if (
+    !resourceStems.every((source) => {
+      const seat = hidden.find((candidate) => candidate.pillar === source.pillar);
+      return seat?.stems[0] && element(seat.stems[0]) === wealth;
+    })
+  )
+    return state;
+  const rootedCompanions = visible.filter(
+    (source) =>
+      source.pillar !== 'day' &&
+      element(source.stem) === dmWuxing &&
+      hidden.some(
+        (root) =>
+          unClashed(root) && root.stems.slice(0, 2).some((stem) => element(stem) === dmWuxing),
+      ),
+  );
+  if (!rootedCompanions.length) return state;
+  const favorableOrder = [
+    dmWuxing,
+    ...state.favorableWuxing.filter((wuxing) => wuxing !== dmWuxing),
+  ];
+  const reason = `月令本气为财，${resourceStems.map((source) => source.stem).join('、')}印坐财受制且缺少未受冲的本中气根；${rootedCompanions.map((source) => source.stem).join('、')}比劫透而有根，先以${dmWuxing}扶身制财护印，再取${resource}生身，印比配合`;
+  return {
+    ...state,
+    favorableWuxing: favorableOrder,
+    primaryReason: '扶抑护印',
+    trace: [...state.trace, `取用调整:${reason}`],
+    decisionEvidence: {
+      ...state.decisionEvidence,
+      balanceAdjustment: { reason, favorableOrder },
+      appliedLayers: [...state.decisionEvidence.appliedLayers, '扶抑护印'],
+    },
+  };
 }
 
 function assertWuxingList(values: string[] | undefined, label: string): void {
@@ -241,13 +334,18 @@ function buildBaseDecisionState(
     ? []
     : [`普通格局:${pattern.pattern}，喜忌先按${strengthStatus}扶抑登记基线，不因格名直接改判`];
   const matchedRule = resolveBaseUsefulGodRule(strengthStatus, pattern);
-  const favorable = matchedRule ? bundles[matchedRule.favorable] : bundles.output_wealth_officer;
-  const unfavorable = matchedRule ? bundles[matchedRule.unfavorable] : bundles.resource_companion;
-  const trace = matchedRule
-    ? [...ordinaryPatternTrace, matchedRule.trace]
-    : [...ordinaryPatternTrace, '默认取泄耗克'];
-  const primaryReason = matchedRule?.primaryReason || '扶抑';
-  const decisionEvidence = buildDecisionEvidence(favorable, unfavorable, matchedRule?.id, pattern);
+  if (!matchedRule) {
+    throw new Error(
+      pattern.isSpecial
+        ? `特殊格局缺少取用规则：${pattern.pattern}`
+        : `旺衰状态缺少取用规则：${strengthStatus}`,
+    );
+  }
+  const favorable = bundles[matchedRule.favorable];
+  const unfavorable = bundles[matchedRule.unfavorable];
+  const trace = [...ordinaryPatternTrace, matchedRule.trace];
+  const primaryReason = matchedRule.primaryReason;
+  const decisionEvidence = buildDecisionEvidence(favorable, unfavorable, matchedRule.id, pattern);
   decisionEvidence.appliedLayers.push(primaryReason);
 
   const validPaths = (pattern.fulfillment?.pathEvaluations || []).filter(
@@ -279,7 +377,7 @@ function buildBaseDecisionState(
     unfavorableWuxing: [...unfavorable],
     trace,
     primaryReason,
-    matchedRuleIds: matchedRule ? [matchedRule.id] : [],
+    matchedRuleIds: [matchedRule.id],
     decisionEvidence,
   };
 }
@@ -469,6 +567,54 @@ function finalizeUsefulGodAnalysis(
   };
 }
 
+/** 真化以化神另论取用；原日主的强弱与十神仍保留为本命事实。 */
+function buildTransformedDecisionState(
+  pattern: PatternAnalysis,
+  monthBranch?: string,
+): UsefulGodDecisionState {
+  const transformation = pattern.transformation!;
+  const element = transformation.element;
+  assertWuxing(element, '化神');
+  const resource = Object.keys(BASIC_MAPPINGS.WUXING_SHENG).find(
+    (candidate) => BASIC_MAPPINGS.WUXING_SHENG[candidate] === element,
+  )!;
+  const output = BASIC_MAPPINGS.WUXING_SHENG[element];
+  const wealth = BASIC_MAPPINGS.WUXING_KE[element];
+  const controller = Object.keys(BASIC_MAPPINGS.WUXING_KE).find(
+    (candidate) => BASIC_MAPPINGS.WUXING_KE[candidate] === element,
+  )!;
+  const coldEarth = element === '土' && ['亥', '子', '丑'].includes(monthBranch ?? '');
+  const favorable = coldEarth ? [resource, element] : [element, resource];
+  const unfavorable = [controller];
+  const basis =
+    `按《子平真诠》从化口径，以化神${element}为取用主体，` +
+    (coldEarth
+      ? '化土生于冬月，先取火温土，再论土气承接。'
+      : `以${element}同气与${resource}生化神为顺势基础。`) +
+    '原日主旺衰保留作本命事实，十神称谓仍按原日干对应。';
+  const conditions = [
+    ...transformation.conditions,
+    `${output}泄化神、${wealth}为化神所克，须核对化神能否承受泄耗及岁运配合，再定是否可用。`,
+    `克化神的${controller}在顺势基线列忌；若化神太过，须另核《滴天髓》的泄耗制化条件，不能只凭成化格名决定增补。`,
+  ];
+  const decisionEvidence = buildDecisionEvidence(
+    favorable,
+    unfavorable,
+    TRANSFORMATION_USEFUL_RULE.id,
+    pattern,
+  );
+  decisionEvidence.transformation = { element, basis, conditions };
+  decisionEvidence.appliedLayers = ['化神顺势'];
+  return {
+    favorableWuxing: favorable,
+    unfavorableWuxing: unfavorable,
+    trace: [basis, ...conditions],
+    primaryReason: '化神顺势',
+    matchedRuleIds: [TRANSFORMATION_USEFUL_RULE.id],
+    decisionEvidence,
+  };
+}
+
 export function determineUsefulGod(
   strengthStatus: string,
   pattern: PatternAnalysis,
@@ -488,6 +634,10 @@ export function determineUsefulGod(
   if (monthCommander) assertHeavenlyStem(monthCommander, '月令司权天干');
   if (dayMasterStem) assertHeavenlyStem(dayMasterStem, '日主天干');
   assertUsefulGodClimateContext(climateContext);
+
+  if (pattern.isSpecial && pattern.transformation?.status === '成化') {
+    return finalizeUsefulGodAnalysis(buildTransformedDecisionState(pattern, monthBranch), dmWuxing);
+  }
 
   const isPatternSpecial = pattern.isSpecial;
   const baseState = buildBaseDecisionState(strengthStatus, pattern, dmWuxing);
@@ -567,36 +717,42 @@ export function determineUsefulGod(
     }
   }
 
-  const therapeuticHint = resolveTherapeuticHint(
-    strengthStatus,
-    dmWuxing,
-    yearStem,
-    dayMasterStem,
-    monthBranch,
-    hourBranch,
-    currentJieqi,
-    visibleStems,
-    visibleStemSources,
-    hiddenStems,
-    hiddenStemSources,
-    formationWuxings,
-    wuxingCounts,
-  );
-  const therapeuticHintRuleId = resolveTherapeuticHintRuleId(
-    strengthStatus,
-    dmWuxing,
-    yearStem,
-    dayMasterStem,
-    monthBranch,
-    hourBranch,
-    currentJieqi,
-    visibleStems,
-    visibleStemSources,
-    hiddenStems,
-    hiddenStemSources,
-    formationWuxings,
-    wuxingCounts,
-  );
+  state = applyResourceProtection(state, strengthStatus, pattern, dmWuxing, climateContext);
+
+  const therapeuticHint = isPatternSpecial
+    ? ''
+    : resolveTherapeuticHint(
+        strengthStatus,
+        dmWuxing,
+        yearStem,
+        dayMasterStem,
+        monthBranch,
+        hourBranch,
+        currentJieqi,
+        visibleStems,
+        visibleStemSources,
+        hiddenStems,
+        hiddenStemSources,
+        formationWuxings,
+        wuxingCounts,
+      );
+  const therapeuticHintRuleId = isPatternSpecial
+    ? ''
+    : resolveTherapeuticHintRuleId(
+        strengthStatus,
+        dmWuxing,
+        yearStem,
+        dayMasterStem,
+        monthBranch,
+        hourBranch,
+        currentJieqi,
+        visibleStems,
+        visibleStemSources,
+        hiddenStems,
+        hiddenStemSources,
+        formationWuxings,
+        wuxingCounts,
+      );
   if (therapeuticHintRuleId && !state.matchedRuleIds.includes(therapeuticHintRuleId)) {
     state.matchedRuleIds.push(therapeuticHintRuleId);
   }

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import { LuckCalculator } from '@core/bazi/LuckCalculator';
+import type { LiunianInfo, SolarDateTimeInfo } from '@core/bazi/baziTypes';
 import { buildLuckDirectionProfile } from '@core/bazi/luckDetails';
 import { CHILD_LIMIT_METHOD } from '@core/bazi/childLimit';
 
@@ -16,6 +18,26 @@ function collectXiaoyunByAge(result: ReturnType<typeof baziCalculator.calculateB
   });
 
   return ageMap;
+}
+
+function calculatePrivateLiunianForCycle(
+  cycleStartTime: SolarDateTimeInfo,
+  cycleEndTime: SolarDateTimeInfo,
+): LiunianInfo[] {
+  const calculator = new LuckCalculator() as unknown as {
+    calculateLiunianForCycle: (
+      cycleStartTime: SolarDateTimeInfo,
+      birthYear: number,
+      dayMaster: string,
+      cycleEndTime: SolarDateTimeInfo,
+    ) => LiunianInfo[];
+  };
+  return calculator.calculateLiunianForCycle(
+    cycleStartTime,
+    cycleStartTime.year,
+    '甲',
+    cycleEndTime,
+  );
 }
 
 test('男命小运序列应符合仓库固定真值', () => {
@@ -219,6 +241,101 @@ test('周期展示年份与分析年份应分离，交运年只保留在后一�
     firstDayun.resolvedYears?.some((item) => item.year === 1998),
     true,
   );
+});
+
+test('年中交运按立春年裁剪且交运年只归后一步大运', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 1,
+    day: 1,
+    timeIndex: 12,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const dayunCycles = result.luckInfo.cycles.filter((cycle) => !cycle.isXiaoyun);
+  const firstDayun = dayunCycles[0];
+  const secondDayun = dayunCycles[1];
+
+  assert.equal(firstDayun.years.at(-1)?.year, 2008);
+  assert.equal(firstDayun.resolvedYears?.at(-1)?.year, 2007);
+  assert.equal(secondDayun.resolvedYears?.[0]?.year, 2008);
+
+  const resolvedYears = result.luckInfo.cycles.flatMap(
+    (cycle) => cycle.resolvedYears?.map((item) => item.year) ?? [],
+  );
+  assert.equal(new Set(resolvedYears).size, resolvedYears.length);
+});
+
+test('立春前交运按实际交运立春年去重，末步不生成无交集流年', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1950,
+    month: 1,
+    day: 1,
+    timeIndex: 0,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const dayunCycles = result.luckInfo.cycles.filter((cycle) => !cycle.isXiaoyun);
+  const firstDayun = dayunCycles[0];
+  const secondDayun = dayunCycles[1];
+  const lastDayun = dayunCycles.at(-1);
+
+  assert.deepEqual(firstDayun.startSolarTime, {
+    year: 1958,
+    month: 1,
+    day: 30,
+    hour: 17,
+    minute: 42,
+    second: 0,
+  });
+  assert.equal(firstDayun.years[0]?.year, 1957);
+  assert.equal(firstDayun.years.at(-1)?.year, 1967);
+  assert.equal(firstDayun.resolvedYears?.at(-1)?.year, 1966);
+  assert.equal(secondDayun.resolvedYears?.[0]?.year, 1967);
+  assert.equal(lastDayun?.years.at(-1)?.year, 2077);
+  assert.equal(lastDayun?.resolvedYears?.at(-1)?.year, 2077);
+  assert.equal(
+    lastDayun?.resolvedYears?.some((item) => item.year === 2078),
+    false,
+  );
+
+  const resolvedYears = result.luckInfo.cycles.flatMap(
+    (cycle) => cycle.resolvedYears?.map((item) => item.year) ?? [],
+  );
+  assert.equal(new Set(resolvedYears).size, resolvedYears.length);
+});
+
+test('流年区间按半开区间处理，结束恰逢立春不含新年且空区间无流年', () => {
+  // 固定真值：公开节气证据 calculateSolarTermEvidence(2008, 3) 的
+  // UTC 时刻为 2008-02-04T11:00:24.000Z，即北京时间 19:00:24。
+  // 测试用稳定边界值验证半开区间，不在测试中直接依赖外部排盘引擎。
+  const endAtLichun: SolarDateTimeInfo = {
+    year: 2008,
+    month: 2,
+    day: 4,
+    hour: 19,
+    minute: 0,
+    second: 24,
+  };
+  const startTime = { ...endAtLichun, year: 1998 };
+  const yearsEndingAtLichun = calculatePrivateLiunianForCycle(startTime, endAtLichun);
+
+  assert.equal(yearsEndingAtLichun.length, 10);
+  assert.equal(yearsEndingAtLichun[0]?.year, 1998);
+  assert.equal(yearsEndingAtLichun.at(-1)?.year, 2007);
+
+  const yearsAfterLichun = calculatePrivateLiunianForCycle(startTime, {
+    ...endAtLichun,
+    second: endAtLichun.second + 1,
+  });
+  assert.equal(yearsAfterLichun.length, 11);
+  assert.equal(yearsAfterLichun.at(-1)?.year, 2008);
+
+  assert.deepEqual(calculatePrivateLiunianForCycle(endAtLichun, endAtLichun), []);
 });
 
 test('八字核心计算应先拒绝无效出生日期', () => {

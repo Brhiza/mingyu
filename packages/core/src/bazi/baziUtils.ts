@@ -19,6 +19,7 @@ const ctg = BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[];
 const cdz = BASIC_MAPPINGS.EARTHLY_BRANCHES as readonly string[];
 const wxtg = BASIC_MAPPINGS.STEM_WUXING as Wuxing[];
 const wxdz = BASIC_MAPPINGS.BRANCH_WUXING as Wuxing[];
+const PILLAR_LABELS = { year: '年柱', month: '月柱', day: '日柱', hour: '时柱' } as const;
 
 export function assertGanZhiName(ganZhi: string, label = '干支'): void {
   if (typeof ganZhi !== 'string' || ganZhi.length !== 2) {
@@ -39,14 +40,15 @@ export function assertPillars(pillars: Pillars): void {
 
   for (const key of keys) {
     const pillar = pillars[key];
+    const label = PILLAR_LABELS[key];
     if (!pillar) {
-      throw new Error(`四柱缺少${key}`);
+      throw new Error(`四柱缺少${label}`);
     }
 
-    assertGanZhiPair(pillar.gan, pillar.zhi, `${key}柱`);
+    assertGanZhiPair(pillar.gan, pillar.zhi, label);
 
     if (pillar.ganZhi && pillar.ganZhi !== `${pillar.gan}${pillar.zhi}`) {
-      throw new Error(`${key}柱干支不一致：${pillar.ganZhi}`);
+      throw new Error(`${label}干支不一致：${pillar.ganZhi}`);
     }
   }
 }
@@ -59,23 +61,24 @@ export function assertHiddenStemsMatchPillars(pillars: Pillars, hiddenStems: Hid
 
   const keys = ['year', 'month', 'day', 'hour'] as const;
   for (const key of keys) {
+    const label = PILLAR_LABELS[key];
     const actual = hiddenStems[key];
     if (!Array.isArray(actual)) {
-      throw new Error(`藏干缺少${key}`);
+      throw new Error(`藏干缺少${label}`);
     }
-    actual.forEach((stem) => assertHeavenlyStem(stem, `${key}柱藏干`));
+    actual.forEach((stem) => assertHeavenlyStem(stem, `${label}藏干`));
 
     const branch = pillars[key].zhi;
     const expected = HIDDEN_STEMS[branch];
     if (!expected) {
-      throw new Error(`${key}柱藏干数据缺失：${branch}`);
+      throw new Error(`${label}藏干数据缺失：${branch}`);
     }
     if (
       actual.length !== expected.length ||
       actual.some((stem, index) => stem !== expected[index])
     ) {
       throw new Error(
-        `${key}柱藏干与地支${branch}不一致：应为${expected.join('、')}，实际为${actual.join('、') || '空'}`,
+        `${label}藏干与地支${branch}不一致：应为${expected.join('、')}，实际为${actual.join('、') || '空'}`,
       );
     }
   }

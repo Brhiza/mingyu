@@ -63,3 +63,27 @@ test('日历工具应先拒绝无效年月和时间对象', () => {
   assert.throws(() => getBaziMonthIndexByDate(2026, new Date(Number.NaN)), /参考时间不是有效日期/);
   assert.throws(() => getBaziDayIndexByDate(2026, 1, new Date(Number.NaN)), /参考时间不是有效日期/);
 });
+
+test('子初流日切片连续覆盖交节月，切片内部日柱与当前时刻一致', () => {
+  for (const year of [2022, 2024]) {
+    for (const month of getYearInfo(year).months) {
+      const days = getMonthDaysInfo(year, month.index);
+      assert.equal(days[0].timeRange.startTimestamp, month.timeRange.startTimestamp);
+      assert.equal(days.at(-1)!.timeRange.endTimestamp, month.timeRange.endTimestamp);
+      for (let index = 0; index < days.length; index++) {
+        const day = days[index];
+        const { startTimestamp, endTimestamp } = day.timeRange;
+        assert.ok(endTimestamp > startTimestamp);
+        assert.ok(endTimestamp - startTimestamp <= 24 * 60 * 60 * 1000);
+        if (index > 0) assert.equal(startTimestamp, days[index - 1].timeRange.endTimestamp);
+        const midpoint = new Date(Math.floor((startTimestamp + endTimestamp) / 2));
+        assert.equal(getBaziDayIndexByDate(year, month.index, midpoint), day.day);
+        assert.equal(
+          getCalendarInfo(midpoint).ganZhi.day,
+          day.ganZhi,
+          `${year}/${month.index}/${day.solarDate}`,
+        );
+      }
+    }
+  }
+});
