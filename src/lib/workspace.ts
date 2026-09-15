@@ -165,6 +165,33 @@ export const WORKSPACE_FEATURES: WorkspaceFeature[] = [...chartFeatures, ...divi
 export const WORKSPACE_FEATURE_IDS = WORKSPACE_FEATURES.map((item) => item.id);
 export const DEFAULT_WORKSPACE_FEATURE_ID: WorkspaceFeatureId = 'bazi';
 
+/**
+ * 可见术数白名单（天机）：构建变量 VITE_VISIBLE_FEATURES，逗号分隔的 feature id。
+ * 未设置或全部无效时返回 null，表示与上游一致、全部显示；只隐藏入口，不删除路由和代码。
+ */
+export function parseVisibleFeatureIds(raw: unknown): WorkspaceFeatureId[] | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const ids = [...new Set(raw.split(',').map((item) => item.trim()))].filter(isWorkspaceFeatureId);
+  return ids.length ? ids : null;
+}
+
+export const VISIBLE_WORKSPACE_FEATURE_IDS = parseVisibleFeatureIds(
+  import.meta.env?.VITE_VISIBLE_FEATURES,
+);
+
+export function isWorkspaceFeatureVisible(
+  id: WorkspaceFeatureId,
+  visibleIds: readonly WorkspaceFeatureId[] | null = VISIBLE_WORKSPACE_FEATURE_IDS,
+): boolean {
+  return !visibleIds || visibleIds.includes(id);
+}
+
+export function getSingleVisibleFeatureId(
+  visibleIds: readonly WorkspaceFeatureId[] | null = VISIBLE_WORKSPACE_FEATURE_IDS,
+): WorkspaceFeatureId | null {
+  return visibleIds?.length === 1 ? visibleIds[0] : null;
+}
+
 const WORKSPACE_PREFERENCES_KEY = 'mingyu_workspace_preferences_v5';
 const LEGACY_WORKSPACE_PREFERENCES_KEYS = [
   'mingyu_workspace_preferences_v4',

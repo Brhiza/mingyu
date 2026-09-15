@@ -19,14 +19,18 @@ import {
   CHART_RECORD_PARAM,
 } from '@/lib/case-navigation';
 import { parseInputState, parsePromptState } from '@/lib/query-state';
+import { BRAND_NAME, BRAND_SEAL, SOURCE_REPO_URL } from '@/lib/brand';
 import {
   WORKSPACE_FEATURE_GROUPS,
   WORKSPACE_PREFERENCES_EVENT,
   applyWorkspaceTheme,
   buildWorkspaceFeaturePath,
+  VISIBLE_WORKSPACE_FEATURE_IDS,
+  getSingleVisibleFeatureId,
   getWorkspaceFeature,
   isChartWorkspaceId,
   isDivinationWorkspaceId,
+  isWorkspaceFeatureVisible,
   readWorkspacePreferences,
   saveWorkspacePreferences,
   type WorkspaceFeatureId,
@@ -64,7 +68,7 @@ function resolvePageTitle(pathname: string, activeFeature: WorkspaceFeatureId | 
   if (pathname === '/cases') return '案例';
   if (pathname === '/records') return '历史记录';
   if (pathname === '/tutorial') return '使用说明';
-  if (!activeFeature) return '命语';
+  if (!activeFeature) return BRAND_NAME;
   const feature = getWorkspaceFeature(activeFeature);
   if (pathname === '/result/assistant') return `${feature.shortLabel}解读`;
   if (pathname.endsWith('/result/assistant')) return `${feature.shortLabel}解读`;
@@ -142,7 +146,10 @@ export function WorkspaceShell() {
       ? `${getWorkspaceFeature(activeFeature).shortLabel}即时盘`
       : resolvePageTitle(location.pathname, activeFeature);
   const orderedFeatures = useMemo(
-    () => preferences.navigationOrder.map(getWorkspaceFeature),
+    () =>
+      preferences.navigationOrder
+        .filter((id) => isWorkspaceFeatureVisible(id))
+        .map(getWorkspaceFeature),
     [preferences.navigationOrder],
   );
   const histories = useMemo(() => {
@@ -311,10 +318,10 @@ export function WorkspaceShell() {
       <div className="workspace-brand-row">
         <button type="button" className="workspace-brand" onClick={() => navigate('/')}>
           <span className="workspace-brand-seal" aria-hidden="true">
-            命
+            {BRAND_SEAL}
           </span>
           <span>
-            <strong>命语</strong>
+            <strong>{BRAND_NAME}</strong>
           </span>
         </button>
         <button
@@ -351,22 +358,24 @@ export function WorkspaceShell() {
       {sidebarView === 'tools' ? (
         <nav className="workspace-tool-sections" aria-label="排盘、占问与古籍工具">
           <div className="workspace-nav-list workspace-home-nav-list">
-            <button
-              type="button"
-              className={isHomeRoute ? 'is-active' : ''}
-              onClick={() => {
-                navigate('/');
-                setIsDrawerOpen(false);
-              }}
-              aria-current={isHomeRoute ? 'page' : undefined}
-            >
-              <span className="workspace-nav-mark" aria-hidden="true">
-                首
-              </span>
-              <span className="workspace-nav-copy">
-                <strong>首页</strong>
-              </span>
-            </button>
+            {getSingleVisibleFeatureId() ? null : (
+              <button
+                type="button"
+                className={isHomeRoute ? 'is-active' : ''}
+                onClick={() => {
+                  navigate('/');
+                  setIsDrawerOpen(false);
+                }}
+                aria-current={isHomeRoute ? 'page' : undefined}
+              >
+                <span className="workspace-nav-mark" aria-hidden="true">
+                  首
+                </span>
+                <span className="workspace-nav-copy">
+                  <strong>首页</strong>
+                </span>
+              </button>
+            )}
             <button
               type="button"
               className={location.pathname === '/cases' ? 'is-active' : ''}
@@ -383,25 +392,28 @@ export function WorkspaceShell() {
                 <strong>案例</strong>
               </span>
             </button>
-            <button
-              type="button"
-              className={location.pathname === '/culture-tools' ? 'is-active' : ''}
-              onClick={() => {
-                navigate('/culture-tools');
-                setIsDrawerOpen(false);
-              }}
-              aria-current={location.pathname === '/culture-tools' ? 'page' : undefined}
-            >
-              <span className="workspace-nav-mark" aria-hidden="true">
-                文
-              </span>
-              <span className="workspace-nav-copy">
-                <strong>文字与数理</strong>
-              </span>
-            </button>
+            {VISIBLE_WORKSPACE_FEATURE_IDS ? null : (
+              <button
+                type="button"
+                className={location.pathname === '/culture-tools' ? 'is-active' : ''}
+                onClick={() => {
+                  navigate('/culture-tools');
+                  setIsDrawerOpen(false);
+                }}
+                aria-current={location.pathname === '/culture-tools' ? 'page' : undefined}
+              >
+                <span className="workspace-nav-mark" aria-hidden="true">
+                  文
+                </span>
+                <span className="workspace-nav-copy">
+                  <strong>文字与数理</strong>
+                </span>
+              </button>
+            )}
           </div>
           {WORKSPACE_FEATURE_GROUPS.map((group) => {
             const features = orderedFeatures.filter((feature) => feature.group === group.id);
+            if (!features.length) return null;
             const visibleFeatures =
               group.id === 'divination' && !isMoreDivinationOpen ? features.slice(0, 5) : features;
             return (
@@ -550,6 +562,14 @@ export function WorkspaceShell() {
         >
           设置
         </button>
+        <a
+          className="workspace-sidebar-source"
+          href={SOURCE_REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          源码（AGPL-3.0）
+        </a>
       </div>
     </>
   );

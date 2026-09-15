@@ -35,7 +35,7 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
           protocol: 'mcp-streamable-http',
           endpoint: '/mcp',
           transports: ['streamable-http'],
-          documentation: 'https://aov.cc/tutorial',
+          documentation: 'https://tianji-1gz.pages.dev/tutorial',
         }),
         {
           status: 200,

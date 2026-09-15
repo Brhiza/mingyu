@@ -373,6 +373,24 @@
   color: var(--text-secondary);
 }
 
+.workspace-sidebar-source {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.workspace-sidebar-source:hover,
+.workspace-sidebar-source:focus-visible {
+  background: var(--state-hover-surface);
+  color: var(--text-secondary);
+}
+
 .workspace-sidebar-footer button.is-active {
   background: var(--state-selected-surface);
   color: var(--state-selected-text);

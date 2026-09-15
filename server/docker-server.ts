@@ -377,7 +377,7 @@ export function createDockerServer() {
 export function startDockerServer() {
   const server = createDockerServer();
   server.listen(port, host, () => {
-    console.log(`命语 Docker 服务已启动：http://${host}:${port}`);
+    console.log(`天机 Docker 服务已启动：http://${host}:${port}`);
   });
   return server;
 }

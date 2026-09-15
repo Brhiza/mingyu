@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isAiAutoReadingEnabled } from '@/lib/ai/settings';
 import { safeStorage } from '@/lib/safe-storage';
 import { WorkspaceButton } from './workspace/WorkspaceUI';
 
@@ -19,8 +20,9 @@ export function PrivacyHint() {
   return (
     <div className="workspace-ui-notice" role="note" aria-label="本地数据提示">
       <span>
-        提示：排盘和案例默认保存在当前设备。主动发送 AI 解读时，相关资料和问题会发送到你选择的 AI
-        服务；主动分享时才会生成分享链接。AI 默认关闭，请勿在公共或共享设备上保留个人记录。
+        {isAiAutoReadingEnabled()
+          ? '提示：排盘和案例保存在当前设备。出盘后会自动把命盘资料发送给 AI 服务生成解读；主动分享时才会生成分享链接。请勿在公共或共享设备上保留个人记录。'
+          : '提示：排盘和案例默认保存在当前设备。主动发送 AI 解读时，相关资料和问题会发送到你选择的 AI 服务；主动分享时才会生成分享链接。AI 默认关闭，请勿在公共或共享设备上保留个人记录。'}
       </span>
       <WorkspaceButton variant="ghost" size="small" onClick={handleDismiss} aria-label="不再显示">
         知道了

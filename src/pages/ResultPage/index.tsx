@@ -94,7 +94,7 @@ import {
   WorkspaceButton,
 } from '@/components/workspace/WorkspaceUI';
 import { useAiSettings } from '@/hooks/useAiSettings';
-import { buildAiRequestConfig } from '@/lib/ai/settings';
+import { buildAiRequestConfig, isAiAutoReadingEnabled } from '@/lib/ai/settings';
 import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
 import {
   buildResidentialChartInput,
@@ -2740,6 +2740,13 @@ export function ResultPage({ assistantOnly = false }: ResultPageProps) {
                   workspaceMode
                   composerTools={aiComposerTools}
                   inputResetKey={`${inputSearch}:${promptState.promptSource}`}
+                  autoAskWhenEmpty={
+                    isAiAutoReadingEnabled() &&
+                    promptState.promptSource === 'bazi' &&
+                    inputState.analysisMode !== 'compatibility'
+                      ? defaultBaziQuestion
+                      : undefined
+                  }
                 />
               </div>
             ) : (

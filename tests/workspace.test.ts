@@ -80,3 +80,21 @@ test('旧案例的盘面来源应以真实录入类型为准', () => {
   assert.equal(resolvePersonalWorkspaceSource('bazi', 'bazhai'), 'bazhai');
   assert.equal(resolvePersonalWorkspaceSource('bazi', 'qimen-lifetime'), 'qimen-lifetime');
 });
+
+test('天机：可见术数白名单应解析、去重并忽略无效项，未设置时全部显示', async () => {
+  const { parseVisibleFeatureIds, isWorkspaceFeatureVisible, getSingleVisibleFeatureId } =
+    await import('../src/lib/workspace');
+  assert.equal(parseVisibleFeatureIds(undefined), null);
+  assert.equal(parseVisibleFeatureIds('  '), null);
+  assert.equal(parseVisibleFeatureIds('invalid,foo'), null);
+  assert.deepEqual(parseVisibleFeatureIds('bazi'), ['bazi']);
+  assert.deepEqual(parseVisibleFeatureIds(' bazi , ziwei,bazi,nope'), ['bazi', 'ziwei']);
+
+  assert.equal(isWorkspaceFeatureVisible('tarot', null), true);
+  assert.equal(isWorkspaceFeatureVisible('tarot', ['bazi']), false);
+  assert.equal(isWorkspaceFeatureVisible('bazi', ['bazi']), true);
+
+  assert.equal(getSingleVisibleFeatureId(null), null);
+  assert.equal(getSingleVisibleFeatureId(['bazi']), 'bazi');
+  assert.equal(getSingleVisibleFeatureId(['bazi', 'ziwei']), null);
+});

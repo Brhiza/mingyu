@@ -7,6 +7,7 @@ import { readActiveCaseId } from './lib/active-case';
 import { buildChartFeaturePathForCase, buildDivinationRecordPath } from './lib/case-navigation';
 import {
   buildWorkspaceFeaturePath,
+  getSingleVisibleFeatureId,
   isChartWorkspaceId,
   type WorkspaceFeatureId,
 } from './lib/workspace';
@@ -89,6 +90,11 @@ function DefaultEntryRoute() {
   }
   if (legacyMode === 'single') {
     return <Navigate to={buildDefaultFeaturePath('bazi')} replace />;
+  }
+
+  const singleVisibleFeature = getSingleVisibleFeatureId();
+  if (singleVisibleFeature) {
+    return <Navigate to={buildDefaultFeaturePath(singleVisibleFeature)} replace />;
   }
 
   return <HomePage />;

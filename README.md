@@ -1,3 +1,28 @@
+# 天机 (Tianji)
+
+> 输入出生时间，排出完整八字命盘，AI 直接为你解读。
+>
+> 在线使用：https://tianji-1gz.pages.dev
+
+## 来源与修改声明
+
+天机是开源项目 **[命语 Mingyu](https://github.com/Brhiza/mingyu)**（作者 Brhiza，AGPL-3.0-only）的修改版本，本仓库同样以 [AGPL-3.0-only](LICENSE) 开源。排盘算法、提示词与全部原始代码的著作权归原作者所有。
+
+相对上游的修改（2026-09-15 起）：
+
+- 品牌改为“天机”（页面标题、侧栏、分享卡片、manifest、llms.txt）。
+- 新增构建变量 `VITE_VISIBLE_FEATURES`（逗号分隔的术数 id）：只显示白名单内的术数入口；只有一项时首页直接进入该术数。其他术数代码与路由保留，未设置时行为与上游一致。
+- 新增构建变量 `VITE_AI_AUTO_READING`：为 `true` 且服务端默认开启 AI 时，八字出盘后自动发送整体解读（每个命盘只自动发送一次）。
+- 线上构建设为 `VITE_VISIBLE_FEATURES=bazi`、`VITE_AI_AUTO_READING=true`，并开启服务端内置 AI、默认进入 AI 解读。
+- 侧栏新增“源码”链接（AGPL-3.0 第 13 条）。
+- 不启用上游作者的功德箱。
+
+项目状态见 [REGISTRY.md](REGISTRY.md)，关键决定见 [decision-log.md](decision-log.md)。
+
+---
+
+以下为上游命语原始 README：
+
 <p align="center">
   <a href="https://linux.do" alt="LINUX DO"><img src="https://img.shields.io/badge/LINUX-DO-FFB003.svg" /></a>
   <a href="https://www.npmjs.com/package/mingyu-core" alt="mingyu-core on npm"><img src="https://img.shields.io/npm/v/mingyu-core?label=mingyu-core&color=CB3837" /></a>

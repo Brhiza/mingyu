@@ -101,6 +101,11 @@ export function getServerBuiltinAiLabel(): string {
   return import.meta.env.VITE_AI_PROVIDER_NAME || '内置 AI';
 }
 
+/** 天机：构建变量 VITE_AI_AUTO_READING=true 时，默认 AI 模式下命盘出盘后自动发送整体解读。 */
+export function isAiAutoReadingEnabled(): boolean {
+  return import.meta.env?.VITE_AI_AUTO_READING === 'true' && isServerDefaultAiEnabled();
+}
+
 export function isServerDefaultAiEnabled(): boolean {
   const runtimeConfig = (
     globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig }

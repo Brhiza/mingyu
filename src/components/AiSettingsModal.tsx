@@ -97,7 +97,7 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
 
           <p className="workspace-setting-note">
             发送 AI 解读会将当前排盘资料和问题提供给所选 AI
-            服务；网页上的自定义接口经命语服务转发，安卓版自定义接口由当前设备直连。
+            服务；网页上的自定义接口经天机服务转发，安卓版自定义接口由当前设备直连。
           </p>
 
           {builtinEnabled ? (
@@ -162,7 +162,7 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
 
             {androidApp ? (
               <p className="workspace-setting-note">
-                安卓版会从当前设备直连该接口，API Key 不经过命语服务器。
+                安卓版会从当前设备直连该接口，API Key 不经过天机服务器。
               </p>
             ) : null}
 

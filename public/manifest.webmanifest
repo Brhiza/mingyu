@@ -1,7 +1,7 @@
 {
-  "name": "命语",
-  "short_name": "命语",
-  "description": "免费开源的在线算命、占卜、玄学排盘与 AI 解读提示词工具。",
+  "name": "天机",
+  "short_name": "天机",
+  "description": "输入出生时间，排出八字命盘，AI 直接解读。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

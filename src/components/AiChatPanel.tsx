@@ -38,6 +38,11 @@ interface AiChatPanelProps {
   autoStart?: string;
   /** autoStart 变化触发的 key（通常等于 autoStart） */
   autoStartKey?: string;
+  /**
+   * 天机：命盘从未解读过时自动发送的默认问题（排盘上下文 + 该问题）。
+   * 已有历史会话时只恢复历史，不重复发送。
+   */
+  autoAskWhenEmpty?: string;
   /** AI 对话历史缓存 key；不传时根据 resetKey/contextPrompt 自动生成 */
   historyKey?: string;
   aiConfig?: AiRequestConfig;
@@ -135,6 +140,7 @@ function AiChatPanelImpl({
   directSend,
   autoStart,
   autoStartKey,
+  autoAskWhenEmpty,
   historyKey,
   aiConfig,
   workspaceMode = false,
@@ -385,6 +391,43 @@ function AiChatPanelImpl({
       }
     };
   }, [autoStart, autoStartKey, startNewSession]);
+
+  // 天机：命盘从未解读过时，排盘资料就绪后自动发送默认问题；每个历史 key 只触发一次。
+  const autoAskKeyRef = useRef('');
+  const autoAskTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const question = autoAskWhenEmpty?.trim();
+    if (!question || !storageKey || !isContextReady || hasStarted || isBusy) return;
+    if (historySessionsRef.current.length > 0 || autoAskKeyRef.current === storageKey) return;
+
+    if (autoAskTimerRef.current) clearTimeout(autoAskTimerRef.current);
+    autoAskTimerRef.current = setTimeout(() => {
+      autoAskTimerRef.current = null;
+      if (autoAskKeyRef.current === storageKey || historySessionsRef.current.length > 0) return;
+      autoAskKeyRef.current = storageKey;
+      startNewSession({
+        prompt: (workflowPrompt || contextPrompt) + '\n\n' + question,
+        titleSource: question,
+        initialQuestion: question,
+        promptMode: 'context-question',
+      });
+    }, 0);
+    return () => {
+      if (autoAskTimerRef.current) {
+        clearTimeout(autoAskTimerRef.current);
+        autoAskTimerRef.current = null;
+      }
+    };
+  }, [
+    autoAskWhenEmpty,
+    contextPrompt,
+    hasStarted,
+    isBusy,
+    isContextReady,
+    startNewSession,
+    storageKey,
+    workflowPrompt,
+  ]);
 
   // 仅在用户仍停留在底部时跟随流式内容；上滑阅读后暂停自动滚动。
   useEffect(() => {

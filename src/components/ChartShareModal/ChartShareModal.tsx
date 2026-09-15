@@ -95,7 +95,7 @@ export function ChartShareModal({
         <div className="chart-share-card">
           <div className="chart-share-card-head">
             <div className="chart-share-card-brand">
-              <span className="chart-share-card-logo">命语</span>
+              <span className="chart-share-card-logo">天机</span>
               <span className="chart-share-card-tag">{chartMethodName || chartTitle}</span>
             </div>
             {timeLabel ? <span className="chart-share-card-time">{timeLabel}</span> : null}
