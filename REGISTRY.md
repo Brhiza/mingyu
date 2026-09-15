@@ -5,12 +5,13 @@
 
 ## 现在在哪里（2026-09-15）
 - 已公开 fork 为 `zinan92/tianji`（上游 Brhiza/mingyu v0.4.0，AGPL-3.0-only）。
-- #1 v1 开发中：品牌改为天机、只露八字、首页直达八字、侧栏源码链接、内置 AI 默认开启。
-- Cloudflare Pages 项目 `tianji` 已建，域名 https://tianji-1gz.pages.dev
+- #1 v1 已合并（#2）并上线：https://tianji-1gz.pages.dev （Cloudflare Pages 项目 `tianji`，commit cd201b61）。
+- 线上已验证：首页直达八字、侧栏只有八字、品牌为天机、源码链接、无功德箱。
+- 运行时 AI 变量已配置，只差 `AI_API_KEY`：缺 Key 时服务端自动关闭内置 AI，页面退回"复制提示词"模式，不会报错。
 
 ## 下一步
-- Park：注册 DeepSeek 独立账号，限额充值，在 Cloudflare Pages → tianji → Settings → Variables 填 `AI_API_KEY`（加密），然后重新部署。
-- 填好 Key 后复验 #1 验收第 3 条（30 秒内出现解读），并实测一次整体解读实际调用模型几次，据此回调限流阈值。
+- **Park**：注册 DeepSeek 独立账号并限额充值 → Cloudflare Pages → tianji → Settings → Variables and Secrets → Production 添加加密变量 `AI_API_KEY` → 通知 Claude 重新部署（新变量只对之后的部署生效）。
+- Claude：填好 Key 后重新部署，实测 30 秒内出首段、一次整体解读实际调用几次模型，据此回调 `AI_RATE_LIMIT_MAX_REQUESTS`。
 
 ## 部署
 ```bash
