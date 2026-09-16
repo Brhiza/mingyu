@@ -1,11 +1,23 @@
 import { getDivinationSummaryBlocks, type DivinationSummaryBlocks } from 'mingyu-core/prompt';
 import type { DivinationSession } from './engine';
 import { formatXiaoliurenRangeInterval } from './xiaoliuren-range';
+import { formatJinkoujueRangeInterval } from './jinkoujue-range';
 import { formatLiurenRangeInterval } from './liuren-range';
 
 export { getDivinationSummaryBlocks, type DivinationSummaryBlocks };
 
 export function getDivinationSessionSummary(session: DivinationSession): DivinationSummaryBlocks {
+  if (session.method === 'jinkoujue' && session.jinkoujueRange?.status === 'conditional') {
+    return {
+      title: '金口诀分时起课结果',
+      tags: [`时间范围内分为${session.jinkoujueRange.branches.length}课`],
+      lines: session.jinkoujueRange.branches.map(
+        ({ startTimestamp, endTimestamp, data }) =>
+          `${formatJinkoujueRangeInterval(startTimestamp, endTimestamp)}：月将${data.monthLeader}；${data.mainLine}`,
+      ),
+    };
+  }
+
   if (session.method === 'liuren' && session.liurenRange?.status === 'conditional') {
     return {
       title: '大六壬分时起课结果',

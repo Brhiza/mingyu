@@ -54,7 +54,11 @@ import { getKongmingInterpretation } from '../name-number/kongming-interpretatio
 import { getZhugeInterpretation } from '../name-number/zhuge-interpretations';
 import { formatHuangjiCivilYear } from '../huangji-jingshi/standard';
 import { resolveSsgwStoryContent } from '../divination/ssgw-content';
-import { formatJinkoujueRelations, formatJinkoujueMovementRules } from './jinkoujue-facts';
+import {
+  formatJinkoujueRelations,
+  formatJinkoujueMovementRules,
+  formatJinkoujueJudgmentFacts,
+} from './jinkoujue-facts';
 
 function formatZhugeInfo(data: ZhugeNumberResult) {
   const interpretation = data.interpretation ?? getZhugeInterpretation(data.number);
@@ -1143,14 +1147,11 @@ function formatJinkoujueInfo(data: JinkoujueData) {
     `阴阳发用：${data.yinYangUse.rule}；发用位${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '旬空' : '不空'}`,
     `四位：地分${p.diFen.branch}（${p.diFen.yinYang}${p.diFen.element}，月令${p.diFen.seasonState}${p.diFen.isVoid ? '，空' : ''}）；将神${p.jiangShen.stem || ''}${p.jiangShen.branch}（${p.jiangShen.yinYang}${p.jiangShen.element}，月令${p.jiangShen.seasonState}${p.jiangShen.isVoid ? '，空' : ''}）；贵神${p.guiShen.stem || ''}${p.guiShen.branch}乘${p.guiShen.god || ''}（${p.guiShen.yinYang}${p.guiShen.element}，月令${p.guiShen.seasonState}${p.guiShen.isVoid ? '，空' : ''}）；人元${p.renYuan.stem || ''}${p.renYuan.branch}（${p.renYuan.yinYang}${p.renYuan.element}，月令${p.renYuan.seasonState}${p.renYuan.isVoid ? '，空' : ''}）`,
     `五动三动：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '无'}`,
-    data.movements.length
-      ? `事态主轴：见【${data.movements[0].name}】，${data.movements[0].name.includes('财') || data.movements[0].name.includes('妻') ? '利求财交涉婚眷' : data.movements[0].name.includes('鬼') ? '防口舌是非阻隔' : data.movements[0].name.includes('贼') ? '防内耗失和' : '顺应常理而行'}`
-      : '',
     data.bihePoem ? `四位比合：${data.bihePoem}` : '',
     formatJinkoujueRelations(data),
     formatJinkoujueMovementRules(),
     data.xunKong?.length ? `旬空：${data.xunKong.join('、')}` : '',
-    '时间口径：当前盘面给出四位生克、旺衰和空亡，可说明相对节奏；未见独立交节或日辰触发时，只论结构不指定具体日期。',
+    ...formatJinkoujueJudgmentFacts(data),
   ]
     .filter(Boolean)
     .join('\n');
