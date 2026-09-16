@@ -179,6 +179,19 @@ test('星盘本命分析对象只写入本命资料', () => {
   assert.doesNotMatch(context.promptText, /行运落宫：/);
 });
 
+test('星盘范围可显式跳过周期事件计算而保留基础与高级事实', () => {
+  const context = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2028', {
+    includePeriodEvents: false,
+  });
+
+  assert.equal(context.periodEvents, undefined);
+  assert.equal(context.periodBatch, undefined);
+  assert.match(context.promptText, /太阳返照（/);
+  assert.match(context.promptText, /次限相位：/);
+  assert.match(context.promptText, /太阳弧相位：/);
+  assert.doesNotMatch(context.promptText, /周期关键星象/);
+});
+
 test('星盘完整输出版显示完整行运资料摘要', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'full', '2028-06-01');
 
@@ -233,6 +246,45 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.ok((context.solarReturnEvidence?.calculationSteps.length ?? 0) >= 5);
   assert.ok((context.secondaryProgressionEvidence?.calculationSteps.length ?? 0) >= 4);
   assert.ok((context.solarArcEvidence?.calculationSteps.length ?? 0) >= 5);
+});
+
+test('星盘周期批次只在首批生成固定范围事实并保留续批身份', () => {
+  const first = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2028', {
+    periodBatch: {
+      start: { year: 2028, month: 1, day: 1 },
+      endExclusive: { year: 2028, month: 2, day: 1 },
+    },
+  });
+  const continuation = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2028', {
+    periodBatch: {
+      start: { year: 2028, month: 2, day: 1 },
+      endExclusive: { year: 2028, month: 3, day: 1 },
+    },
+    includeScopeFacts: false,
+  });
+
+  assert.equal(first.periodBatch?.includesScopeFacts, true);
+  assert.equal(first.periodBatch?.range.startDate, '2028-01-01');
+  assert.equal(first.periodBatch?.range.endDate, '2028-02-01');
+  assert.equal(first.periodBatch?.nextRange?.startDate, '2028-02-01');
+  assert.equal(continuation.periodBatch?.includesScopeFacts, false);
+  assert.equal(continuation.periodBatch?.range.startDate, '2028-02-01');
+  assert.equal(continuation.solarReturnEvidence, undefined);
+  assert.equal(continuation.secondaryProgressionEvidence, undefined);
+  assert.equal(continuation.solarArcEvidence, undefined);
+  assert.doesNotMatch(continuation.promptText, /太阳返照（|次限相位：|太阳弧相位：/);
+  assert.match(continuation.promptText, /本批周期范围：2028-02-01至2028-03-01/);
+  assert.ok(continuation.periodEvents);
+  assert.throws(
+    () =>
+      buildAstrolabeScopeContext(astrolabeData, 'full', '2028-06-01', {
+        periodBatch: {
+          start: { year: 2028, month: 6, day: 1 },
+          endExclusive: { year: 2028, month: 7, day: 1 },
+        },
+      }),
+    /仅支持流年、流月或流日/,
+  );
 });
 
 test('太阳返照应返回可复核的求根过程和精度边界', () => {

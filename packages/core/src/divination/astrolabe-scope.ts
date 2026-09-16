@@ -3,6 +3,7 @@ import {
   CelestialBody,
   calculatePlanets,
   calculateTransits,
+  getSunPosition,
   time,
   type ChartPlanet,
   type NatalPoint,
@@ -13,6 +14,8 @@ import type { AstrolabeData, AstrolabePoint } from '../types/divination';
 import {
   buildAstrolabePeriodEvents,
   type AstrolabePeriodEventCollection,
+  type AstrolabePeriodBatch,
+  type AstrolabePeriodBatchInput,
 } from './astrolabe-period-events';
 export {
   formatAstrolabeAspectLine,
@@ -21,20 +24,34 @@ export {
 } from './astrolabe-chart-facts';
 export {
   buildAstrolabePeriodEventLayers,
+  buildAstrolabePeriodBatchResult,
   buildAstrolabePeriodEvents,
+  buildAstrolabePeriodEventsFromContext,
+  buildAstrolabePeriodContext,
   mergeAstrolabePeriodCollections,
   mergeAstrolabePeriodEvents,
   resolveAstrolabePeriodWindow,
   scoreAstrolabePeriodEvent,
 } from './astrolabe-period-events';
 export type {
+  AstrolabePeriodBatchResult,
+  AstrolabePeriodContext,
+  AstrolabePeriodContextPointName,
   AstrolabePeriodAxisItem,
+  AstrolabePeriodBatch,
+  AstrolabePeriodBatchInput,
+  AstrolabePeriodBatchRange,
+  AstrolabePeriodDate,
   AstrolabePeriodEvent,
   AstrolabePeriodEventCollection,
   AstrolabePeriodEventKind,
   AstrolabePeriodScopeMode,
   AstrolabePeriodTransitGroup,
   AstrolabePeriodWindow,
+} from './astrolabe-period-events';
+export {
+  ASTROLABE_PERIOD_CONTEXT_POINT_NAMES,
+  validateAstrolabePeriodContext,
 } from './astrolabe-period-events';
 import {
   buildAstronomicalTimeEvidence,
@@ -53,6 +70,7 @@ export type AstrolabeScopeContext = {
   secondaryProgressionEvidence?: SecondaryProgressionEvidence;
   solarArcEvidence?: SolarArcEvidence;
   periodEvents?: AstrolabePeriodEventCollection;
+  periodBatch?: AstrolabePeriodBatch & { includesScopeFacts: boolean };
 };
 
 export type AstrolabeFullScopeContexts = {
@@ -60,6 +78,12 @@ export type AstrolabeFullScopeContexts = {
   yearly: AstrolabeScopeContext;
   monthly: AstrolabeScopeContext;
   daily: AstrolabeScopeContext;
+};
+
+export type AstrolabeScopeBuildOptions = {
+  periodBatch?: AstrolabePeriodBatchInput;
+  includeScopeFacts?: boolean;
+  includePeriodEvents?: boolean;
 };
 
 export type AstrolabeAdvancedTechnique = '太阳返照' | '次限推进' | '太阳弧';
@@ -556,6 +580,16 @@ function calculateScopePlanets(data: AstrolabeData, date: ScopeDateParts) {
       includeLots: false,
     },
   );
+}
+
+function calculateScopeSunLongitude(data: AstrolabeData, date: ScopeDateParts) {
+  const timezone = resolveScopeTimezone(data, date);
+  const jd = time.toJulianDate({
+    ...date,
+    second: date.second ?? 0,
+    timezone,
+  });
+  return getSunPosition(jd).longitude;
 }
 
 function advancedTechniqueKey(technique: AstrolabeAdvancedTechnique) {
@@ -1411,11 +1445,10 @@ export function calculateSolarReturnEvidence(
     let best: { timestamp: number; difference: number } | undefined;
     for (let offsetHours = -48; offsetHours <= 48; offsetHours += 2) {
       const timestamp = centerTimestamp + offsetHours * 3600000;
-      const sun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(timestamp)).find(
-        (planet) => planet.name === 'Sun',
+      const difference = signedLongitudeDifference(
+        calculateScopeSunLongitude(data, datePartsFromWallClockTimestamp(timestamp)),
+        natalSun.longitude,
       );
-      if (!sun) continue;
-      const difference = signedLongitudeDifference(sun.longitude, natalSun.longitude);
       if (!best || Math.abs(difference) < Math.abs(best.difference)) {
         best = { timestamp, difference };
       }
@@ -1444,11 +1477,10 @@ export function calculateSolarReturnEvidence(
       let { left, right, leftDifference } = bracket;
       while (right - left > 1000 && iterations < 40) {
         const middle = Math.floor((left + right) / 2000) * 1000;
-        const sun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(middle)).find(
-          (planet) => planet.name === 'Sun',
+        const middleDifference = signedLongitudeDifference(
+          calculateScopeSunLongitude(data, datePartsFromWallClockTimestamp(middle)),
+          natalSun.longitude,
         );
-        if (!sun) break;
-        const middleDifference = signedLongitudeDifference(sun.longitude, natalSun.longitude);
         if (leftDifference * middleDifference <= 0) {
           right = middle;
         } else {
@@ -1457,13 +1489,13 @@ export function calculateSolarReturnEvidence(
         }
         iterations += 1;
       }
-      const rightSun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(right)).find(
-        (planet) => planet.name === 'Sun',
+      const rightSunLongitude = calculateScopeSunLongitude(
+        data,
+        datePartsFromWallClockTimestamp(right),
       );
       finalTimestamp =
-        rightSun &&
-        Math.abs(signedLongitudeDifference(rightSun.longitude, natalSun.longitude)) <
-          Math.abs(leftDifference)
+        Math.abs(signedLongitudeDifference(rightSunLongitude, natalSun.longitude)) <
+        Math.abs(leftDifference)
           ? right
           : left;
     }
@@ -1822,7 +1854,12 @@ export function buildAstrolabeScopeContext(
   data: AstrolabeData | null | undefined,
   scope: AstrolabeScopeMode,
   dateStr: string,
+  options: AstrolabeScopeBuildOptions = {},
 ): AstrolabeScopeContext {
+  if (options.periodBatch && (scope === 'natal' || scope === 'full')) {
+    throw new Error('星盘周期批次仅支持流年、流月或流日范围。');
+  }
+
   if (!data) {
     return {
       scope: 'natal',
@@ -1864,23 +1901,41 @@ export function buildAstrolabeScopeContext(
   const timezoneLabel = data.birth.timeZoneId
     ? `${data.birth.timeZoneId}（UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}）`
     : `UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}`;
-  const transitEvidence = buildTransitEvidence(data, target, targetTimezone);
-  const transitHouseEvidence = buildTransitHouseEvidence(data, scope, target, targetTimezone);
+  const includeScopeFacts = options.includeScopeFacts ?? true;
+  const transitEvidence = includeScopeFacts
+    ? buildTransitEvidence(data, target, targetTimezone)
+    : undefined;
+  const transitHouseEvidence = includeScopeFacts
+    ? buildTransitHouseEvidence(data, scope, target, targetTimezone)
+    : undefined;
   const solarReturnEvidence =
-    scope === 'yearly' ? calculateSolarReturnEvidence(data, target.year) : undefined;
+    includeScopeFacts && scope === 'yearly'
+      ? calculateSolarReturnEvidence(data, target.year)
+      : undefined;
   const secondaryProgressionEvidence =
-    scope === 'yearly' ? calculateSecondaryProgressionEvidence(data, target.year) : undefined;
+    includeScopeFacts && scope === 'yearly'
+      ? calculateSecondaryProgressionEvidence(data, target.year)
+      : undefined;
   const solarArcEvidence =
-    scope === 'yearly' ? calculateSolarArcEvidence(data, target.year) : undefined;
+    includeScopeFacts && scope === 'yearly'
+      ? calculateSolarArcEvidence(data, target.year)
+      : undefined;
+  const includePeriodEvents = options.includePeriodEvents ?? true;
   const advancedYearlyFacts = formatAdvancedScopeFacts({
     solarReturnEvidence,
     secondaryProgressionEvidence,
     solarArcEvidence,
   });
   const periodEvents =
-    scope === 'yearly' || scope === 'monthly' || scope === 'daily'
-      ? buildAstrolabePeriodEvents(data, scope, target)
+    includePeriodEvents && (scope === 'yearly' || scope === 'monthly' || scope === 'daily')
+      ? buildAstrolabePeriodEvents(data, scope, target, { batch: options.periodBatch })
       : undefined;
+  const periodBatch = periodEvents?.batch
+    ? { ...periodEvents.batch, includesScopeFacts: includeScopeFacts }
+    : undefined;
+  const periodBatchText = periodBatch
+    ? `本批周期范围：${periodBatch.range.startDate}至${periodBatch.range.endDate}（结束日期不含）；${periodBatch.nextRange ? `下一批：${periodBatch.nextRange.startDate}至${periodBatch.nextRange.endDate}。` : '这是最后一批。'}`
+    : undefined;
 
   return {
     scope,
@@ -1892,6 +1947,7 @@ export function buildAstrolabeScopeContext(
       `行运取样：${anchorDate}（${timezoneLabel}）。`,
       transitEvidence,
       transitHouseEvidence,
+      periodBatchText,
       periodEvents?.promptText,
       ...advancedYearlyFacts,
     ].join('\n'),
@@ -1899,12 +1955,14 @@ export function buildAstrolabeScopeContext(
     secondaryProgressionEvidence,
     solarArcEvidence,
     periodEvents,
+    periodBatch,
   };
 }
 
 export function buildAstrolabeFullScopeContexts(
   data: AstrolabeData,
   referenceDateStr: string,
+  options: Pick<AstrolabeScopeBuildOptions, 'includePeriodEvents'> = {},
 ): AstrolabeFullScopeContexts {
   const reference = normalizeTargetDate('full', referenceDateStr);
   const dailyDate = formatDateStr('daily', reference);
@@ -1913,9 +1971,9 @@ export function buildAstrolabeFullScopeContexts(
 
   return {
     natal: buildAstrolabeScopeContext(data, 'natal', ''),
-    yearly: buildAstrolabeScopeContext(data, 'yearly', yearlyDate),
-    monthly: buildAstrolabeScopeContext(data, 'monthly', monthlyDate),
-    daily: buildAstrolabeScopeContext(data, 'daily', dailyDate),
+    yearly: buildAstrolabeScopeContext(data, 'yearly', yearlyDate, options),
+    monthly: buildAstrolabeScopeContext(data, 'monthly', monthlyDate, options),
+    daily: buildAstrolabeScopeContext(data, 'daily', dailyDate, options),
   };
 }
 
