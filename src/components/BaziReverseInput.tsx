@@ -242,7 +242,7 @@ export function BaziReverseInput({ onSelect, source, onInvalidate }: BaziReverse
             </p>
           )}
           <p className="bazi-reverse-input-note">
-            选定日期以区间起点作为代表时刻（北京时间），同时保留完整区间。需要精确时刻的排盘结果仅对应这一代表时刻。
+            选定日期会保留完整北京时间区间。请在结果中核对采用的代表时刻或分段范围。
           </p>
         </div>
       ) : null}

@@ -26,7 +26,7 @@ import {
   QuestionInspirationModal,
   type QuestionInspirationSection,
 } from '@/components/QuestionInspirationModal';
-import { getDivinationSummaryBlocks } from '@/lib/divination/summary';
+import { getDivinationSessionSummary } from '@/lib/divination/summary';
 import { defaultDraft, methodLabelMap } from './constants';
 import { DivinationForm } from './DivinationForm';
 import { DivinationResult } from './DivinationResult';
@@ -168,10 +168,7 @@ export function DivinationPanel({
     setIsSubmitting(false);
   }, [displayMode, searchParams]);
 
-  const summary = useMemo(
-    () => (session ? getDivinationSummaryBlocks(session.method, session.data) : null),
-    [session],
-  );
+  const summary = useMemo(() => (session ? getDivinationSessionSummary(session) : null), [session]);
   const readingSubject = useMemo(
     () => (session ? buildDivinationReadingSubject(draft, session) : undefined),
     [draft, session],
